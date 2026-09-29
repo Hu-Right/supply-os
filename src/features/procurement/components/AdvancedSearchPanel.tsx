@@ -14,10 +14,13 @@
  *
  *              通过 FEATURE_ADVANCED_SEARCH flag 控制新旧面板切换。
  */
-import { useState, useCallback, useEffect, useMemo, type FormEvent } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, type FormEvent } from "react";
 import { Search, Calendar as CalendarIcon, Plus, Minus, Quote, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { fetchKeywordGroups, type KeywordGroup } from "@/core/api/keywordGroups";
+import { useUserId } from "@/core/auth/useUserId";
+import {
+  fetchKeywordGroups, invalidateKeywordGroups, type KeywordGroup,
+} from "@/core/api/keywordGroups";
 import { MAX_KEYWORD_ROWS, composeQ, hasAdvancedSyntax, type TermMode, type TermRow } from "@/shared/utils/advanced-syntax";
 import { Input, Calendar, Select, Popover, PopoverTrigger, PopoverContent } from "@/shared/ui";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
@@ -98,7 +101,17 @@ function DateRangePicker({
   );
 }
 
-/** 词组选择器 — product_keyword_lib 权益；无权益时点击触发升级弹窗（不再内嵌锁定态） */
+/**
+ * 词组选择器 — product_keyword_lib 权益；无权益时点击触发升级弹窗（不再内嵌锁定态）
+ *
+ * 加载策略（性能根因修复）：
+ * · 读走 apiCached：点开只付一次「缓存查询」，TTL 内二次/并发点开不再打网络，
+ *   也不再触发服务端 4 次串行往返（权益 3 查 + 列表 1 查）。
+ * · 有数据就不清空：refetch 期间沿用上一次视图，消除「弹层先空白再蹦出内容」的打开延迟感。
+ * · 失败 ≠ 无权益：旧实现把网络异常写成 { entitled:false, groups:[] }，用户看到的是
+ *   「去管理词组」空态，权益像凭空掉了——真实故障被吞掉。改为保留旧数据 + 可重试。
+ * · 换账号必须失效：缓存键只有 URL，而词组是用户私有数据，不清会串号。
+ */
 function KeywordGroupPicker({
   onPick,
   entitled,
@@ -109,13 +122,32 @@ function KeywordGroupPicker({
   onLocked: () => void;
 }) {
   const { t } = useLocale();
+  const userId = useUserId();
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<{ entitled: boolean; groups: KeywordGroup[] } | null>(null);
+  const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
-    try { setData(await fetchKeywordGroups()); } catch { setData({ entitled: false, groups: [] }); }
+    try {
+      const next = await fetchKeywordGroups();
+      setData(next);
+      setFailed(false);
+    } catch {
+      // 只在「从未成功过」时才让弹层出现占位；已有数据时静默保留旧视图
+      setFailed(true);
+    }
   }, []);
   useEffect(() => { if (open) void load(); }, [open, load]);
+
+  // 账号切换：清掉上一位用户的词组缓存与视图（与 useNoticeSearch 清 /api/notices 同口径）
+  const prevUserIdRef = useRef(userId);
+  useEffect(() => {
+    if (prevUserIdRef.current === userId) return;
+    prevUserIdRef.current = userId;
+    invalidateKeywordGroups();
+    setData(null);
+    setFailed(false);
+  }, [userId]);
 
   // 无权益：不进入词库弹层，点击即弹升级框（门控判定来自服务端 gates，前端不猜档位）
   if (!entitled) {
@@ -140,7 +172,19 @@ function KeywordGroupPicker({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-2" align="end">
-        {!data ? null : data.groups.length === 0 ? (
+        {/* 从未取到数据且已失败 → 可重试；取到过 → 一律展示旧数据（含 refetch 期间），不再整块空白 */}
+        {!data && failed ? (
+          <button
+            type="button"
+            data-testid="kw-group-retry"
+            onClick={() => void load()}
+            className="block w-full px-2 py-3 text-center text-xs text-rose-600 hover:text-rose-700"
+          >
+            {t("errorBoundaryRetry")}
+          </button>
+        ) : !data ? (
+          <p className="px-2 py-3 text-center text-xs text-slate-400">{t("uiLoadingDots")}</p>
+        ) : data.groups.length === 0 ? (
           <a href="/settings/keyword-library" className="block px-2 py-3 text-center text-xs text-slate-500 hover:text-teal-700">
             {t("procurement_manageKeywordGroups")}
           </a>

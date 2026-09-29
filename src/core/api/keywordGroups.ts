@@ -1,8 +1,13 @@
 /**
  * 产品关键词组 API client（/api/user/keyword-groups，spec §4.2）
  * @module core/api/keywordGroups
+ * @description 读走 apiCached（TTL + 飞行中去重）：搜索面板「我的词组」下拉此前每次
+ *              点开都直连一次全量查询（服务端权益门控 + 列表共 4 次串行往返），
+ *              缓存后二次/并发点开零网络。词组是**用户私有**数据而缓存键只有 URL，
+ *              故写后必须失效、换账号必须由调用方主动失效（见 invalidateKeywordGroups）。
  */
-import { api } from "@/core/http";
+import { api, apiCached, clearApiCache } from "@/core/http";
+import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 
 export interface KeywordGroup {
   id: number;
@@ -14,18 +19,43 @@ export interface KeywordGroup {
 
 interface Envelope<T> { code: number; message: string; data: T; }
 
-export async function fetchKeywordGroups(): Promise<{ entitled: boolean; groups: KeywordGroup[] }> {
-  const res = await api<Envelope<{ entitled: boolean; groups: KeywordGroup[] }>>("/api/user/keyword-groups");
+/** 唯一端点常量：缓存键与失效前缀同源，避免字面量散落导致漏失效 */
+const ENDPOINT = "/api/user/keyword-groups";
+
+/**
+ * 失效「我的词组」读缓存。
+ * 三个写接口内部自动调用；跨账号切换时由持有 userId 的调用方显式调用
+ * （与 useNoticeSearch 清 /api/notices 同一口径）。
+ */
+export function invalidateKeywordGroups(): void {
+  clearApiCache(ENDPOINT);
+}
+
+/**
+ * 读取我的词组（含档位标记；无权益返回空数组不报错）。
+ * @param force 跳过缓存直取（管理页写后 reload 无需传，写接口已自动失效）
+ */
+export async function fetchKeywordGroups(
+  force = false,
+): Promise<{ entitled: boolean; groups: KeywordGroup[] }> {
+  // 信封在本模块唯一处解包：漏读 .data 会让下拉恒空（历史踩坑，测试已钉死）
+  const res = await apiCached<Envelope<{ entitled: boolean; groups: KeywordGroup[] }>>(
+    ENDPOINT,
+    CACHE_TTL_STANDARD_MS,
+    undefined,
+    force,
+  );
   return res.data;
 }
 
 export async function createKeywordGroup(name: string, terms: string[]): Promise<{ id: number }> {
   // api() 第二参对 body 自动 JSON 序列化并补 Content-Type（api-client.ts:223/227），
   // 此处直接传对象，避免 JSON.stringify 双重序列化
-  const res = await api<Envelope<{ id: number }>>("/api/user/keyword-groups", {
+  const res = await api<Envelope<{ id: number }>>(ENDPOINT, {
     method: "POST",
     body: { name, terms },
   });
+  invalidateKeywordGroups();
   return res.data;
 }
 
@@ -33,12 +63,11 @@ export async function updateKeywordGroup(
   id: number,
   patch: { name?: string; terms?: string[] },
 ): Promise<void> {
-  await api(`/api/user/keyword-groups/${id}`, {
-    method: "PATCH",
-    body: patch,
-  });
+  await api(`${ENDPOINT}/${id}`, { method: "PATCH", body: patch });
+  invalidateKeywordGroups();
 }
 
 export async function deleteKeywordGroup(id: number): Promise<void> {
-  await api(`/api/user/keyword-groups/${id}`, { method: "DELETE" });
+  await api(`${ENDPOINT}/${id}`, { method: "DELETE" });
+  invalidateKeywordGroups();
 }

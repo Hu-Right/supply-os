@@ -110,6 +110,8 @@ export default defineConfig({
         // ── src/lib — 关键词组（词库）仓储与服务（有测试）──
         "src/lib/repos/keyword-groups.repo.ts",
         "src/lib/services/keyword-groups.ts",
+        // 词组 API client：读缓存 + 写失效契约（有测试）
+        "src/core/api/keywordGroups.ts",
 
         // ── src/lib/services/amount — 金额解析 ──
         "src/lib/services/amount/parser.ts",
