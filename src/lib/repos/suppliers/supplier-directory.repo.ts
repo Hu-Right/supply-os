@@ -63,6 +63,17 @@ export interface ClaimOwnership {
   claimPending: boolean;
 }
 
+/** 页签检索字段白名单：q 关键词按页签路由到对应列；白名单外的值一律回落公司名 */
+const SEARCH_FIELDS = new Set([
+  "product",
+  "company",
+  "country",
+  "industry",
+  "certification",
+  "factory",
+  "unspsc",
+]);
+
 /** 统一社会信用代码绕码：前 4 + **** + 后 4；短于 8 位只输出全绕码，不回原文 */
 export function maskCreditCode(value: string | null | undefined): string {
   const v = String(value ?? "").trim();
@@ -91,15 +102,17 @@ export class SupplierDirectoryRepo {
     return rows as SupplierDirectoryRow[];
   }
 
-  /** 供应商目录分页查询（支持搜索、类型、行业筛选） */
+  /** 供应商目录分页查询（支持搜索、类型、行业筛选；关键词按页签字段路由） */
   async listDirectoryPaginated(params: {
     limit: number;
     offset: number;
     search?: string;
+    /** 页签检索字段：product/company/country/industry/certification/factory/unspsc（缺省=公司名） */
+    field?: string;
     type?: string;
     industry?: string;
   }): Promise<{ items: SupplierDirectoryRow[]; total: number }> {
-    const { limit, offset, search, type, industry } = params;
+    const { limit, offset, search, field, type, industry } = params;
 
     // ── WHERE 条件构建 ──
     const conditions: string[] = [
@@ -109,9 +122,36 @@ export class SupplierDirectoryRepo {
     const values: string[] = [];
 
     if (search) {
-      conditions.push("company LIKE ?");
-      // L-BIZ-1 修复：转义用户输入中的 LIKE 通配符
-      values.push(`%${escapeLikeWildcard(search)}%`);
+      // 关键词按页签字段路由（SEARCH_FIELDS 白名单外的值一律回落公司名，与旧行为一致）
+      const f = field && SEARCH_FIELDS.has(field) ? field : "company";
+      if (f === "product") {
+        // 产品走 FULLTEXT ngram（与后台多维检索同一索引）
+        conditions.push("MATCH(s.products, s.product_keywords) AGAINST(? IN BOOLEAN MODE)");
+        values.push(search);
+      } else if (f === "country") {
+        conditions.push("(country LIKE ? OR country_code LIKE ?)");
+        values.push(`%${escapeLikeWildcard(search)}%`, `${escapeLikeWildcard(search)}%`);
+      } else if (f === "certification") {
+        conditions.push("certification LIKE ?");
+        values.push(`%${escapeLikeWildcard(search)}%`);
+      } else if (f === "factory") {
+        // 业务身份：采集原文在 business_type，结构化枚举在 business_type_code，两列同搜
+        conditions.push("(business_type LIKE ? OR business_type_code = ?)");
+        values.push(`%${escapeLikeWildcard(search)}%`, search.trim().toLowerCase());
+      } else if (f === "unspsc") {
+        // UNSPSC 编码前缀命中画像表（与后台维度检索同表）
+        conditions.push(
+          "EXISTS (SELECT 1 FROM crm_supplier_unspsc_interests i WHERE i.supplier_id = s.id AND i.supplier_table = 'supplier' AND i.code LIKE ?)",
+        );
+        values.push(`${escapeLikeWildcard(search)}%`);
+      } else if (f === "industry") {
+        conditions.push("industry LIKE ?");
+        values.push(`%${escapeLikeWildcard(search)}%`);
+      } else {
+        conditions.push("company LIKE ?");
+        // L-BIZ-1 修复：转义用户输入中的 LIKE 通配符
+        values.push(`%${escapeLikeWildcard(search)}%`);
+      }
     }
 
     if (type && (type === "domestic" || type === "international")) {

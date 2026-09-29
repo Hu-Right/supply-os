@@ -31,6 +31,8 @@ export interface SupplierPageParams {
   page: number;
   pageSize?: number;
   q?: string;
+  /** 页签检索字段：product/company/country/industry/certification/factory/unspsc（缺省=公司名） */
+  field?: string;
   type?: string;
   industry?: string;
   sort?: string;
@@ -52,6 +54,7 @@ export async function fetchSuppliersPaginated(
   searchParams.set("page", String(params.page));
   if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
   if (params.q) searchParams.set("q", params.q);
+  if (params.field) searchParams.set("field", params.field);
   if (params.type) searchParams.set("type", params.type);
   if (params.industry) searchParams.set("industry", params.industry);
   if (params.sort) searchParams.set("sort", params.sort);

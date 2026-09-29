@@ -45,6 +45,7 @@ export default function SupplierPage() {
   const { suppliers, total, loading, industries, setPage, appendPage } = useSupplierSearch({
     locale,
     searchTerm,
+    searchField: searchTab,
     supplierSubTab: "all",
     supplierIndustry: industry,
     sortBy,
@@ -105,7 +106,7 @@ export default function SupplierPage() {
       />
 
       <SearchPanel
-        searchTab={searchTab} setSearchTab={setSearchTab}
+        searchTab={searchTab} setSearchTab={(k) => { setSearchTab(k); setPage(1); }}
         searchTerm={searchTerm} setSearchTerm={setSearchTerm}
         industry={industry} setIndustry={setIndustry}
         industries={industries}

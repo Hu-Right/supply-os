@@ -31,8 +31,10 @@ export const GET = withRoute(async (req: NextRequest) => {
       const search = req.nextUrl.searchParams.get("q")?.trim() || undefined;
       const type = req.nextUrl.searchParams.get("type") || undefined;
       const industry = req.nextUrl.searchParams.get("industry") || undefined;
+      // 页签检索字段（product/company/.../unspsc）：决定 q 关键词落在哪一列，白名单校验在 repo
+      const field = req.nextUrl.searchParams.get("field") || undefined;
 
-      const { items, total } = await directoryRepo.listDirectoryPaginated({ limit: pageSize, offset, search, type, industry });
+      const { items, total } = await directoryRepo.listDirectoryPaginated({ limit: pageSize, offset, search, field, type, industry });
       const dtoItems = mapSupplierItems(items);
       return NextResponse.json({ items: dtoItems, total, page, pageSize });
     }

@@ -16,6 +16,8 @@ export interface SupplierSearchFilters {
   locale: string;
   /** 关键词搜索 */
   searchTerm: string;
+  /** 页签检索字段：product/company/country/industry/certification/factory/unspsc（缺省=公司名） */
+  searchField?: string;
   /** 国内/国际筛选: "all" | "domestic" | "international" */
   supplierSubTab: "all" | "domestic" | "international";
   /** 行业筛选 */
@@ -43,6 +45,7 @@ export interface UseSupplierSearchReturn {
 export function useSupplierSearch({
   locale,
   searchTerm,
+  searchField,
   supplierSubTab,
   supplierIndustry,
   sortBy,
@@ -83,6 +86,7 @@ export function useSupplierSearch({
       page,
       pageSize,
       q: searchTerm || undefined,
+      field: searchField || undefined,
       type: supplierSubTab !== "all" ? supplierSubTab : undefined,
       industry: supplierIndustry || undefined,
       sort: sortBy,
@@ -110,7 +114,7 @@ export function useSupplierSearch({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [locale, page, searchTerm, supplierSubTab, supplierIndustry, sortBy, reloadKey, appendMode, pageSize]);
+  }, [locale, page, searchTerm, searchField, supplierSubTab, supplierIndustry, sortBy, reloadKey, appendMode, pageSize]);
 
   /** 替换模式 setPage：筛选/搜索时重置到指定页 */
   const setPage = useCallback((p: number | ((prev: number) => number)) => {
