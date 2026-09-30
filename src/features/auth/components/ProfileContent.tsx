@@ -75,6 +75,13 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
   const companyName = enterprise.enterprise
     ? String(enterprise.enterprise.name_confirmed || enterprise.enterprise.company || "")
     : "";
+  // 认领归属已通过后台审核（supplier.claim_status='verified'）：与「企业认证 done」并列为已认证口径。
+  // 二者是不同维度——verify_status=资质审核，claim_status=认领归属；认领通过即视同该主体已认证，
+  // 否则认领成功的用户会落到兜底分支、把内部主键 #ID 直接暴露到页面上。
+  const claimVerified = enterprise.enterprise
+    ? String(enterprise.enterprise.claim_status || "") === "verified"
+    : false;
+  const supplierAuthenticated = verifyStatus === "done" || claimVerified;
 
   if (!authUser) return null;
 
@@ -119,15 +126,6 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
                   <span className="inline-block w-16 h-4 rounded bg-secondary-200 animate-pulse" />
                 ) : !enterprise.bound ? (
                   <span className="text-sm text-muted-foreground">{t("authSupplierPending") || "未绑定"}</span>
-                ) : verifyStatus === "done" ? (
-                  <span className="inline-flex items-center gap-1.5 min-w-0">
-                    <span className="text-sm text-foreground truncate" title={companyName || undefined}>
-                      {companyName || "-"}
-                    </span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-xs font-medium shrink-0">
-                      {t("authEnterpriseVerifyApproved") || "已认证"}
-                    </span>
-                  </span>
                 ) : verifyStatus === "pending" ? (
                   <span className="inline-flex items-center px-2 py-0.5 rounded border border-accent-200 bg-accent-50 text-accent-700 text-xs font-medium">
                     {t("authEnterpriseVerifyProcessing") || "审核中"}
@@ -139,8 +137,17 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
                   >
                     {t("authEnterpriseVerifyRejected") || "已驳回"}
                   </span>
+                ) : supplierAuthenticated ? (
+                  <span className="inline-flex items-center gap-1.5 min-w-0">
+                    <span className="text-sm text-foreground truncate" title={companyName || undefined}>
+                      {companyName || "-"}
+                    </span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-xs font-medium shrink-0">
+                      {t("authEnterpriseVerifyApproved") || "已认证"}
+                    </span>
+                  </span>
                 ) : (
-                  <span className="text-sm text-foreground">{authUser.supplier_id ? `已绑定 #${authUser.supplier_id}` : "-"}</span>
+                  <span className="text-sm text-foreground">{t("authEnterpriseStatusLinked") || "已绑定"}</span>
                 )}
               </div>
             </div>

@@ -130,6 +130,29 @@ describe("ProfileContent", () => {
     expect(screen.getByText("authEnterpriseVerifyRejected")).toBeInTheDocument();
   });
 
+  it("认领审核通过（claim_status=verified 且 verify_status 为空）视同已认证，显示公司名而非裸 ID", () => {
+    // 真实故障场景：后台认领审核只写 claim_status='verified'，不碰 verify_status（为 null）
+    mockEnterpriseBound = true;
+    mockEnterpriseData = {
+      verify_status: null,
+      claim_status: "verified",
+      company: "杭州中建工程技术有限公司",
+    };
+    render(<ProfileContent />);
+    expect(screen.getByText("杭州中建工程技术有限公司")).toBeInTheDocument();
+    expect(screen.getByText("authEnterpriseVerifyApproved")).toBeInTheDocument();
+    // 不再把内部主键（supplier_id=42）暴露到页面
+    expect(screen.queryByText(/已绑定 #42/)).not.toBeInTheDocument();
+  });
+
+  it("已绑定但状态未知（非 done/claim_verified）时显示「已绑定」文案，不再暴露主键 ID", () => {
+    mockEnterpriseBound = true;
+    mockEnterpriseData = { verify_status: null, claim_status: null, company: "某公司" };
+    render(<ProfileContent />);
+    expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
+    expect(screen.queryByText(/已绑定 #42/)).not.toBeInTheDocument();
+  });
+
   it("非 VIP 显示免费会员徽章兜底", () => {
     mockIsVip = false;
     render(<ProfileContent />);
