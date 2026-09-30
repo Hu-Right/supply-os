@@ -154,7 +154,7 @@ export async function processFeedback(
   const inserted = await feedbackRepo.insertRecoFeedback(userId, sessionId, items);
 
   const linkedActions = items.filter((item) =>
-    ["click", "favorite", "dismiss", "dwell", "scroll_end", "quick_exit", "revisit"].includes(item.action)
+    ["click", "dwell", "scroll_end", "quick_exit", "revisit"].includes(item.action)
   );
   if (linkedActions.length) {
     const noticeIds = Array.from(new Set(linkedActions.map((item) => item.noticeId)));
@@ -165,8 +165,6 @@ export async function processFeedback(
       const snapshot = snapshotById.get(item.noticeId);
       if (!snapshot || snapshot.length === 0) continue;
       if (item.action === "click") await persistUserInterestCodes(dbPool, userId, snapshot, "feedback_click", 0.3);
-      else if (item.action === "favorite") await persistUserInterestCodes(dbPool, userId, snapshot, "feedback_favorite", 0.8);
-      else if (item.action === "dismiss") await decayUserInterestCodes(dbPool, userId, snapshot, 0.5);
       else if (item.action === "dwell" && (item.dwellMs || 0) >= 30000)
         await persistUserInterestCodes(dbPool, userId, snapshot, "feedback_dwell", 0.2);
       else if (item.action === "scroll_end") await persistUserInterestCodes(dbPool, userId, snapshot, "feedback_scroll_end", 0.1);

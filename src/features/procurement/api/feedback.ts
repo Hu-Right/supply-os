@@ -8,8 +8,6 @@ import { api } from "@/core/http";
 export type NoticeFeedbackAction =
   | "impression"
   | "click"
-  | "dismiss"
-  | "favorite"
   | "dwell"
   | "scroll_end"
   | "quick_exit"

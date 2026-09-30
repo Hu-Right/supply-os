@@ -5,8 +5,10 @@
  * @module server/services/recommend/weight-profile
  * @description T-B7 权重微调懒计算（本地差异 #15：B.3.2.3）
  *              按用户近 200 条显式反馈做指数滑动平均（EMA α=0.05，最新反馈影响最大）：
- *              正反馈占优（favorite/unlock/click）→ 上调 w_unspsc（兴趣码方向准）；
- *              负反馈占优（dismiss/quick_exit）→ 下调 w_unspsc，差额按 6:4 让给 urgency/amount 通用信号。
+ *              正反馈（click，signal 0.75）占优 → 上调 w_unspsc（兴趣码方向准）；
+ *              负反馈（quick_exit，signal 0）占优 → 下调 w_unspsc，差额按 6:4 让给 urgency/amount 通用信号。
+ *              显式反馈事件原为 favorite/unlock/click/dismiss/quick_exit 五种；2026-09-30 砍除了
+ *              前端从不发送、库内各 0 行的 favorite/dismiss/unlock，现仅依 click 与 quick_exit。
  *              五权重总和恒 1；无显式反馈用户不建档案行（推荐端点缺行走全局默认，行为恒等——验收口径）。
  *              触发：推荐请求发现档案缺失/超 24h 时 fire-and-forget 异步重算，无定时器（约束 6）
  */
@@ -28,7 +30,7 @@ export async function recomputeRecoWeightProfile(dbPool: Pool, userId: number): 
   try {
     const [rows] = await dbPool.query(
       `SELECT action FROM crm_user_reco_feedback
-       WHERE user_id = ? AND action IN ('click','favorite','unlock','dismiss','quick_exit')
+       WHERE user_id = ? AND action IN ('click','quick_exit')
        ORDER BY created_at DESC, id DESC
        LIMIT 200`,
       [userId],
@@ -38,7 +40,7 @@ export async function recomputeRecoWeightProfile(dbPool: Pool, userId: number): 
     let ema = 0.5; // 中性起点：正负信号各半时权重不动
     for (const row of actions) {
       const action = String(row.action);
-      const signal = action === "favorite" || action === "unlock" ? 1 : action === "click" ? 0.75 : 0;
+      const signal = action === "click" ? 0.75 : 0;
       ema += 0.05 * (signal - ema);
     }
     // delta ∈ [-0.1, +0.1]：w_unspsc ∈ [0.4, 0.6]、w_urgency ∈ [0.09, 0.21]、w_amount ∈ [0.06, 0.14]

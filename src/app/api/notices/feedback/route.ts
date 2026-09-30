@@ -14,8 +14,11 @@ import {
   EC_TOO_MANY_ACTIONS, EC_NO_VALID_ACTIONS,
 } from "@/shared/constants/api";
 
+// dismiss / favorite / unlock 三个事件已整体砍除（2026-09-30）：前端无入口、库内 0 行，
+// 而接口继续受理意味着外部请求能真实改动推荐权重（旧页面缓存也能触发）。
+// 本集合应与 features/procurement/api/feedback.ts 的 NoticeFeedbackAction 保持一致。
 const VALID_ACTIONS = new Set([
-  "impression", "click", "unlock", "dismiss", "favorite",
+  "impression", "click",
   "dwell", "scroll_end", "quick_exit", "revisit",
 ]);
 
@@ -40,8 +43,6 @@ export const POST = withRoute(
       .map((item) => ({
         noticeId: Number(item?.notice_id || 0),
         action: String(item?.action || "").trim(),
-        recoScore: Number.isFinite(Number(item?.reco_score)) ? Number(item.reco_score) : null,
-        position: Number.isInteger(Number(item?.position)) && Number(item.position) >= 0 ? Number(item.position) : null,
         variant: String(item?.variant || "").trim().slice(0, 20) || null,
         dwellMs: Number.isInteger(Number(item?.dwell_ms)) && Number(item.dwell_ms) > 0 ? Number(item.dwell_ms) : null,
       }))

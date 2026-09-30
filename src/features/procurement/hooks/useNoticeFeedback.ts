@@ -3,6 +3,9 @@
  * Notice Feedback Hook
  *
  * @module features/procurement/hooks/useNoticeFeedback
+  // 说明：dismiss（不感兴趣）与 favorite 反馈事件已于 2026-09-30 整体砍除（不是临时禁用）——
+  // 前端入口自 2026-07-30 移除后从未恢复、库内 0 行数据，服务端的受理与降权分支一并删除。
+  // （公采公告的收藏/书签功能与此无关，它走 /api/notices/[id]/favorite 与 crm_notice_favorites。）
  * @description T-B9 显式反馈（曝光/点击）与 T-C7 隐式偏好信号
  *              （dwell/scroll_end/quick_exit/revisit）的门控、采集与批量上报。
  *              仅推荐模式采集，避免污染搜索/筛选场景的反馈数据。
@@ -46,10 +49,8 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
   const { userId, prefsMode, hasSearch, activeSort, selectedNotice, variantRef } = options;
 
   // ── T-B9 推荐反馈采集（本地差异 #13：D.7 前端侧）──
-  // 仅推荐模式采集曝光/点击/dismiss/收藏，避免污染搜索/筛选场景的反馈数据
+  // 仅推荐模式采集曝光/点击/停留/滚动到底/秒退/回看，避免污染搜索/筛选场景的反馈数据
   const feedbackEnabled = Boolean(userId) && prefsMode === "recommended" && !hasSearch && activeSort === "latest";
-  // [dismiss/収藏功能临时禁用 2026-07-30] favoritedIds 已移除
-  // const [favoritedIds, setFavoritedIds] = useState<Set<number>>(new Set());
   // 曝光去重：本地 Set 记录已上报卡片（同 session 同卡只报一次；服务端唯一键幂等兜底）
   const impressionReportedRef = useRef<Set<number>>(new Set());
   const impressionPendingRef = useRef<number[]>([]);
@@ -134,11 +135,6 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
     []
   );
 
-  // [dismiss 功能临时禁用 2026-07-30] handleDismissNotice 已移除
-  // const handleDismissNotice = async (notice: NoticeItem) => { ... };
-
-  // [収藏功能临时禁用 2026-07-30] handleFavoriteNotice 已移除
-  // const handleFavoriteNotice = (notice: NoticeItem) => { ... };
 
   // T-B9 点击埋点：仅推荐模式上报（正反馈联动兴趣码权重，D.7）
   // P2-2：useCallback 稳定引用（经 ref 读取最新门控状态）
