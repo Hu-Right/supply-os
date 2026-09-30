@@ -162,8 +162,16 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
       interpolation: { escapeValue: false, prefix: "{", suffix: "}" },
       returnNull: false,
       // 缺 key 时返回空串而非 key 本身：t(key) || 中文兜底 的写法才能生效，
-      // 用户不会看到 detail_xxx 之类的裸 key
-      parseMissingKeyHandler: () => "",
+      // 用户不会看到 detail_xxx 之类的裸 key。
+      // 覆盖范围说明：因 fallbackLng="zh"，「某语言缺、zh 有」会静默回落到中文，
+      // 这类键漂移由 scripts/check-i18n.ts 门禁拦截；此处告警专门兜另一种——
+      // 代码引用了所有语言包（含 zh 兜底）都不存在的键，最终落到 t() 的 || 字面量。
+      parseMissingKeyHandler: (key: string) => {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(`[i18n] 未在任何语言包中定义的键: "${key}"（页面将显示 t() 的 || 兜底文案）`);
+        }
+        return "";
+      },
       react: { useSuspense: false },
     });
     i18nInstanceRef.current = instance;
