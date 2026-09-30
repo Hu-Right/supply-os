@@ -11,8 +11,6 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 export interface RecoFeedbackItem {
   noticeId: number;
   action: string;
-  recoScore: number | null;
-  position: number | null;
   variant: string | null;
   dwellMs: number | null;
 }
@@ -24,11 +22,10 @@ export class NoticeFeedbackRepo {
   async insertRecoFeedback(userId: number, sessionId: string, items: RecoFeedbackItem[]): Promise<number> {
     const [insertResult] = await this.pool.query(
       `INSERT IGNORE INTO crm_user_reco_feedback
-         (user_id, notice_id, action, reco_score, position, variant, session_id, dwell_ms)
-       VALUES ${items.map(() => "(?, ?, ?, ?, ?, ?, ?, ?)").join(", ")}`,
+         (user_id, notice_id, action, variant, session_id, dwell_ms)
+       VALUES ${items.map(() => "(?, ?, ?, ?, ?, ?)").join(", ")}`,
       items.flatMap((item) => [
-        userId, item.noticeId, item.action,
-        item.recoScore, item.position, item.variant, sessionId, item.dwellMs,
+        userId, item.noticeId, item.action, item.variant, sessionId, item.dwellMs,
       ]),
     );
     return Number((insertResult as RowDataPacket)?.affectedRows || 0);
