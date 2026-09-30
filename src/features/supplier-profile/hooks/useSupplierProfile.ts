@@ -2,7 +2,8 @@
  * 供应商详情页数据获取 Hook
  *
  * @module features/supplier-profile/hooks/useSupplierProfile
- * @description 按 ID 获取供应商详情，API 失败时降级到 mock 数据。
+ * @description 按 ID 获取供应商详情；API 失败时置空 supplier 并暴露 error（由页面渲染空态），
+ *              不做 mock 降级（旧注释称「降级到 mock 数据」与实际代码不符，代码从无 mock，已纠正）。
  */
 import { useEffect, useState } from "react";
 import { fetchSupplierById } from "@/shared/api/supplier";

@@ -5,7 +5,7 @@
  * @module features/supplier-profile/components/SupplierProfilePage
  * @description 按「6-供应商企业主页」样图实现：Logo+公司名+标签+CTA +
  *              6 Tab 导航（按需渲染）+ 内容面板。
- *              数据优先走 GET /api/suppliers/:id，缺失字段用 mock 兜底。
+ *              数据走 GET /api/suppliers/:id；取数失败时渲染空态，不做 mock 兜底。
  *              D4-1 拆分：6 个 Tab 面板提取至 ProfileTabPanels.tsx。
  */
 import { useState } from "react";
