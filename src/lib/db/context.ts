@@ -187,7 +187,7 @@ export function getContext(): AppContext {
       );
     }
     const wechatAppId = process.env.WECHAT_APP_ID || "";
-    const wechatMchId = process.env.WECHAT_MCH_ID || process.env.WECHAT_MERCHANT_ID || "";
+    const wechatMchId = process.env.WECHAT_MCH_ID || "";
     if (wechatAppId && wechatMchId) {
       orchestrator.registerStrategy(
         "wechat",
