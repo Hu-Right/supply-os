@@ -39,22 +39,6 @@ export class NoticeUnlockRepo {
     return (rows as RowDataPacket[])[0] ?? null;
   }
 
-  /** 写入解锁流水 */
-  async insertUnlock(params: {
-    userId: number;
-    noticeId: number;
-    unlockType: string;
-    price: number;
-    unspscSnapshot: string;
-  }): Promise<void> {
-    await this.pool.execute(
-      `INSERT INTO crm_opportunity_unlocks
-        (user_id, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES (?, ?, ?, ?, NOW(), ?)`,
-      [params.userId, params.noticeId, params.unlockType, params.price, params.unspscSnapshot],
-    );
-  }
-
   // ── 事务感知方法（供 executeUnlock 服务层编排使用）──
 
   /** 事务内检查已有解锁记录（悲观锁路径，防止并发重复解锁） */
@@ -71,13 +55,13 @@ export class NoticeUnlockRepo {
   /** 事务内写入解锁流水 */
   async insertUnlockInTransaction(
     conn: PoolConnection,
-    params: { userId: number; noticeId: number; unlockType: string; price: number; unspscSnapshot: string },
+    params: { userId: number; noticeId: number; unlockType: string; price: number },
   ): Promise<void> {
     await conn.query(
       `INSERT INTO crm_opportunity_unlocks
-        (user_id, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES (?, ?, ?, ?, NOW(), ?)`,
-      [params.userId, params.noticeId, params.unlockType, params.price, params.unspscSnapshot],
+        (user_id, notice_id, unlock_type, price, unlocked_at)
+       VALUES (?, ?, ?, ?, NOW())`,
+      [params.userId, params.noticeId, params.unlockType, params.price],
     );
   }
 }

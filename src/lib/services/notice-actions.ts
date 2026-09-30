@@ -97,7 +97,7 @@ export async function executeUnlock(
 
     // 插入解锁记录（唯一约束 uk_user_notice 保证原子性）
     await unlockRepo.insertUnlockInTransaction(conn, {
-      userId, noticeId, unlockType, price, unspscSnapshot: JSON.stringify(snapshot),
+      userId, noticeId, unlockType, price,
     });
 
     // 消耗配额（行锁 + 条件 UPDATE 复核，并发耗尽或池被冻结则回滚）

@@ -38,7 +38,8 @@ export interface OpportunityUnlockParams {
   opportunityId: number;
   unlockType: "free" | "subscription" | "single";
   price: number;
-  snapshotJson: string;
+  /** 公告 UNSPSC 归一化结果：仅用于事务外写兴趣码，不再落解锁流水表 */
+  unspscCodes: Array<{ code?: unknown }>;
 }
 
 /**
@@ -58,7 +59,7 @@ export async function executeOpportunityUnlock(
   params: OpportunityUnlockParams,
 ): Promise<{ alreadyUnlocked: boolean; unlockType: string }> {
   const { dbPool, opportunitiesRepo, quotaDeps } = deps;
-  const { userId, opportunityId, unlockType, price, snapshotJson } = params;
+  const { userId, opportunityId, unlockType, price, unspscCodes } = params;
 
   // 快速路径：无锁预检，减少事务冲突
   if (await opportunitiesRepo.findExistingUnlock(userId, opportunityId)) {
@@ -101,12 +102,12 @@ export async function executeOpportunityUnlock(
       }
     }
 
-    // 插入解锁记录（uk_user_opportunity 唯一约束兆底）
+    // 插入解锁记录（uk_user_opportunity 唯一约束兜底）
     await conn.query(
       `INSERT INTO crm_opportunity_unlocks
-        (user_id, opportunity_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES (?, ?, ?, ?, NOW(), ?)`,
-      [userId, opportunityId, unlockType, price, snapshotJson],
+        (user_id, opportunity_id, unlock_type, price, unlocked_at)
+       VALUES (?, ?, ?, ?, NOW())`,
+      [userId, opportunityId, unlockType, price],
     );
 
     // 消耗配额：行锁 + 条件 UPDATE 复核（并发耗尽或池被冻结则回滚）
@@ -133,7 +134,7 @@ export async function executeOpportunityUnlock(
     // 事务外：兴趣码（非关键路径）
     if (userId) {
       try {
-        await persistUserInterestCodes(dbPool, userId, JSON.parse(snapshotJson), "unlock_order", 2.5);
+        await persistUserInterestCodes(dbPool, userId, unspscCodes, "unlock_order", 2.5);
       } catch { /* 忽略 */ }
     }
     return { alreadyUnlocked: false, unlockType };

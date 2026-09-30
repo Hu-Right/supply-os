@@ -81,7 +81,7 @@ function makeEnv(opts: {
     opportunityId: 42,
     unlockType: "single" as "free" | "subscription" | "single",
     price: 99,
-    snapshotJson: '{"codes":["123456"]}',
+    unspscCodes: [{ code: "123456" }],
   };
   return { deps, params, conn, opportunitiesRepo, quotaDeps };
 }
@@ -91,7 +91,7 @@ const POOL = {
   id: 900, subscription_id: 55, user_id: 101, benefit_code: "notice_view",
   quota_total: 10, quota_used: 0, status: "active",
 } as unknown as LockedPoolRow;
-const params0 = () => ({ userId: 101, opportunityId: 42, unlockType: "single" as const, price: 99, snapshotJson: "{}" });
+const params0 = () => ({ userId: 101, opportunityId: 42, unlockType: "single" as const, price: 99, unspscCodes: [] });
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -123,7 +123,7 @@ describe("executeOpportunityUnlock 免费硬闸（2026-08-30 产品决策）", (
   it("free 解锁一律 FREE_LIMIT_REACHED，不写解锁记录", async () => {
     const { deps, conn } = makeEnv({});
     const result = executeOpportunityUnlock(deps, {
-      userId: 101, opportunityId: 42, unlockType: "free", price: 0, snapshotJson: "{}",
+      userId: 101, opportunityId: 42, unlockType: "free", price: 0, unspscCodes: [],
     });
     await expect(result).rejects.toThrow(OpportunityUnlockError);
     await expect(result).rejects.toThrow("FREE_LIMIT_REACHED");
@@ -139,8 +139,8 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
     expect(result).toEqual({ alreadyUnlocked: false, unlockType: "single" });
     const insertCall = conn.query.mock.calls.find(([sql]: string[]) => sql.includes("INSERT INTO crm_opportunity_unlocks"));
     expect(insertCall).toBeTruthy();
-    // userId 直存（identity 重构后无子查询反查）
-    expect(insertCall![1]).toEqual([101, 42, "single", 99, '{"codes":["123456"]}']);
+    // userId 直存（identity 重构后无子查询反查）；快照列已退役，只写五列
+    expect(insertCall![1]).toEqual([101, 42, "single", 99]);
     // 扣的是刚锁到的那行池，而不是按用户 id 发一条 UPDATE
     expect(quotaDeps.write.consumeLockedPool).toHaveBeenCalledWith(expect.anything(), POOL);
     expect(conn.commit).toHaveBeenCalled();
@@ -154,7 +154,7 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
       matrixCells: [{ benefit_code: "notice_view", value_num: 0 }],
     });
     const result = executeOpportunityUnlock(deps, {
-      userId: 101, opportunityId: 42, unlockType: "subscription", price: 0, snapshotJson: "{}",
+      userId: 101, opportunityId: 42, unlockType: "subscription", price: 0, unspscCodes: [],
     });
     await expect(result).rejects.toThrow("PAID_QUOTA_REQUIRED");
     expect(conn.query.mock.calls.some(([sql]: string[]) => String(sql).includes("INSERT INTO crm_opportunity_unlocks"))).toBe(false);
@@ -166,7 +166,7 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
   it("池被并发扣尽（consume 返回 denied）→ 回滚抛 PAID_QUOTA_REQUIRED，计不进入", async () => {
     const { deps, conn, quotaDeps } = makeEnv({ active: ACTIVE, pool: POOL, consume: "denied" });
     const result = executeOpportunityUnlock(deps, {
-      userId: 101, opportunityId: 42, unlockType: "single", price: 99, snapshotJson: "{}",
+      userId: 101, opportunityId: 42, unlockType: "single", price: 99, unspscCodes: [],
     });
     await expect(result).rejects.toThrow("PAID_QUOTA_REQUIRED");
     expect(quotaDeps.write.consumeLockedPool).toHaveBeenCalled();
@@ -189,7 +189,7 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
   it("userId=0（未认证）不写兴趣码", async () => {
     const { deps } = makeEnv({ active: ACTIVE, pool: POOL });
     await executeOpportunityUnlock(deps, {
-      userId: 0, opportunityId: 42, unlockType: "single", price: 99, snapshotJson: '{"codes":[]}',
+      userId: 0, opportunityId: 42, unlockType: "single", price: 99, unspscCodes: [{ code: "123456" }],
     });
     expect(persistUserInterestCodes).not.toHaveBeenCalled();
   });

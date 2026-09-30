@@ -182,22 +182,6 @@ export class OpportunitiesRepo {
     return (rows as RowDataPacket[])[0] ?? null;
   }
 
-  /** 写入解锁流水 */
-  async insertUnlock(params: {
-    userId: number;
-    opportunityId: number;
-    unlockType: string;
-    price: number;
-    unspscSnapshot: string;
-  }): Promise<void> {
-    await this.pool.execute(
-      `INSERT INTO crm_opportunity_unlocks
-        (user_id, opportunity_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES (?, ?, ?, ?, NOW(), ?)`,
-      [params.userId, params.opportunityId, params.unlockType, params.price, params.unspscSnapshot],
-    );
-  }
-
   /** 解锁数 +1 */
   async incrementUnlockCount(opportunityId: number): Promise<void> {
     await this.pool.execute(

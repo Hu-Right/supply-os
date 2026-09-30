@@ -15,6 +15,9 @@ import { getContext } from "@/lib/db/context";
 import { resolveAdvancedQuery, hasAdvancedSyntax } from "@/shared/utils/advanced-syntax";
 import { resolveIndustryScope } from "@/lib/services/industry-scope";
 
+/** 日期形参须长这样才入库 filters（与旧 Express 版 /api/notices/search 同规则） */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}/;
+
 function parseSearchParams(req: NextRequest): RawSearchParams {
   const sp = req.nextUrl.searchParams;
   const get = (k: string, d = "") => sp.get(k) || d;
@@ -77,6 +80,40 @@ export const GET = withRoute(async (req: NextRequest) => {
   const advancedDegraded = decision.degraded;
   const pool = getPool();
   const result = await searchUnified(pool, params);
+
+  // 搜索行为日志（2026-09-30 影子新表，仅登录用户，user_id NOT NULL）：带条件的检索入库，
+  // 推荐/空载不计；记录的是实际执行的 q（高级语法剥离后）。fire-and-forget，失败静默不阻塞响应
+  const hasSearch = Boolean(
+    params.q || params.country || params.agency ||
+    DATE_RE.test(params.deadlineFrom ?? "") || DATE_RE.test(params.deadlineTo ?? "") ||
+    params.deadlineWithinDays || params.noticeType || params.featuredOnly,
+  );
+  if (auth.userId && hasSearch) {
+    const filters = JSON.stringify({
+      mode: params.mode,
+      page: params.page != null && params.page > 1 ? params.page : undefined,
+      code_id: params.codeId || undefined,
+      agency: params.agency || undefined,
+      budget_min: Number.isFinite(params.budgetMin) ? params.budgetMin : undefined,
+      budget_max: Number.isFinite(params.budgetMax) ? params.budgetMax : undefined,
+      match_mode: params.matchMode === "any" ? "any" : undefined,
+      deadline_from: DATE_RE.test(params.deadlineFrom ?? "") ? params.deadlineFrom : undefined,
+      deadline_to: DATE_RE.test(params.deadlineTo ?? "") ? params.deadlineTo : undefined,
+      deadline_within_days: params.deadlineWithinDays || undefined,
+      notice_type: params.noticeType || undefined,
+      featured: params.featuredOnly || undefined,
+      sort: params.sort,
+      forced_level1_id: params.forcedLevel1Id || undefined,
+      advanced_degraded: advancedDegraded || undefined,
+      match_relaxed: result.match_relaxed || undefined,
+      fallback: result.fallback || undefined,
+      variant: result.variant || undefined,
+    });
+    void ctx.notice.feedbackRepo
+      .logSearch(auth.userId, params.q || null, params.country || null, filters, result.total)
+      .catch(() => undefined);
+  }
+
   return NextResponse.json({
     ...result,
     page_size: result.pageSize,

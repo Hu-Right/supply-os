@@ -31,7 +31,7 @@ export class NoticeFeedbackRepo {
     return Number((insertResult as RowDataPacket)?.affectedRows || 0);
   }
 
-  /** 记录用户搜索日志（fire-and-forget，失败静默） */
+  /** 记录用户搜索日志（fire-and-forget，失败静默）。表 user_id 为 NOT NULL：匿名检索由调用方跳过，不落库 */
   async logSearch(userId: number, q: string | null, country: string | null, filters: string, resultCnt: number): Promise<void> {
     await this.pool.execute(
       "INSERT INTO crm_user_search_log (user_id, q, country, filters, result_cnt) VALUES (?, ?, ?, ?, ?)",

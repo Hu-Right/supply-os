@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   searchUnified: vi.fn(),
   findActivePlan: vi.fn(),
   resolveProfile: vi.fn(),
+  logSearch: vi.fn(),
 }));
 
 vi.mock("@/lib/middleware/auth", () => ({
@@ -32,6 +33,9 @@ vi.mock("@/lib/db/context", () => ({
     benefitSystemRepo: {
       isEntitled: mocks.isEntitled,
       findActivePlanForUser: mocks.findActivePlan,
+    },
+    notice: {
+      feedbackRepo: { logSearch: mocks.logSearch },
     },
   }),
 }));
@@ -51,6 +55,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.checkRateLimit.mockReturnValue(null);
   mocks.searchUnified.mockResolvedValue({ items: [], total: 0, pageSize: 10 });
+  mocks.logSearch.mockResolvedValue(undefined);
   // 默认无生效订阅 → 行业墙不启动（墙注入行为由专属用例覆盖）
   mocks.findActivePlan.mockResolvedValue(null);
 });
@@ -144,5 +149,36 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(res.status).toBe(200);
     expect(mocks.searchUnified.mock.calls[0][1]).not.toHaveProperty("forcedLevel1Id");
     expect(body.needs_industry_selection).toBe(true);
+  });
+
+  it("搜索日志：登录用户带词检索落库（记录实际执行的 q 与结果总数）", async () => {
+    mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
+    mocks.searchUnified.mockResolvedValue({ items: [], total: 42, pageSize: 10 });
+
+    await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar&country=CN&budget_min=5000&match_mode=any&page=2"));
+
+    expect(mocks.logSearch).toHaveBeenCalledTimes(1);
+    const [uid, q, country, filters, total] = mocks.logSearch.mock.calls[0];
+    expect(uid).toBe(7);
+    expect(q).toBe("solar");
+    expect(country).toBe("CN");
+    expect(JSON.parse(filters)).toMatchObject({
+      mode: "default",
+      page: 2,
+      budget_min: 5000,
+      match_mode: "any",
+      sort: "latest",
+    });
+    expect(total).toBe(42);
+  });
+
+  it("搜索日志：匿名检索与推荐模式空载均不落库", async () => {
+    mocks.extractUserKey.mockResolvedValue({ userId: 0, authViaJwt: false });
+    await GET(makeReq());
+    expect(mocks.logSearch).not.toHaveBeenCalled();
+
+    mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
+    await GET(makeReq("http://localhost:3000/api/notices/unified-search?mode=recommended&page=1"));
+    expect(mocks.logSearch).not.toHaveBeenCalled();
   });
 });

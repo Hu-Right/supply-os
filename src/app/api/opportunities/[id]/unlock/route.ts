@@ -54,7 +54,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
           opportunityId,
           unlockType,
           price,
-          snapshotJson: JSON.stringify(snapshot),
+          unspscCodes: snapshot,
         },
       );
       if (result.alreadyUnlocked) {
