@@ -136,15 +136,6 @@ export class OpportunitiesRepo {
     );
   }
 
-  /** 记录浏览流水 */
-  async insertView(params: { userId: number; opportunityId: number; ip: string }): Promise<void> {
-    await this.pool.execute(
-      `INSERT INTO crm_user_notice_views (user_id, opportunity_id, viewed_at, ip)
-       VALUES (?, ?, NOW(), ?)`,
-      [params.userId, params.opportunityId, params.ip],
-    );
-  }
-
   /** 浏览数 +1 */
   async incrementViewCount(opportunityId: number): Promise<void> {
     await this.pool.execute(

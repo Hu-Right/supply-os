@@ -19,11 +19,8 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const ctx = getContext();
     const oppsRepo = ctx.opportunitiesRepo;
 
-    await oppsRepo.insertView({
-      userId: auth.userId,
-      opportunityId,
-      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1",
-    });
+    // 浏览流水留痕已随 crm_user_notice_views.opportunity_id 列一并退役（2026-09-30）：
+    // 商机无独立详情页，该打点自上线起零业务流量，仅保留商机表自身计数
     await oppsRepo.incrementViewCount(opportunityId);
     return NextResponse.json({ success: true });
   },
