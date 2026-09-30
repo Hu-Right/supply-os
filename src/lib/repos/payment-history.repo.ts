@@ -84,7 +84,7 @@ export class PaymentHistoryRepo {
     params.push(limit, offset);
     const [rows] = await this.pool.query(
       `SELECT
-         o.order_no, o.user_id, o.user_key, o.provider, o.plan_code, o.notice_id, o.amount, o.currency,
+         o.order_no, o.user_id, o.provider, o.plan_code, o.notice_id, o.amount, o.currency,
          o.status, o.provider_trade_no, o.paid_at, o.created_at, o.updated_at,
          n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
          n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry

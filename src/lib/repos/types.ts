@@ -32,53 +32,6 @@ export interface UserRow {
   last_login_at: Date | null;
 }
 
-export interface SubscriptionRow {
-  id: number;
-  user_id: number | null;
-  user_key: string;
-  plan_code: string;
-  plan_name?: string;
-  unlock_quota?: number;
-  status: string;
-  started_at: Date;
-  expires_at: Date | null;
-  created_at: Date;
-}
-
-export interface MembershipPlanRow {
-  plan_code: string;
-  name: string;
-  description: string | null;
-  price: number;
-  currency: string;
-  duration_days: number | null;
-  unlock_quota: number;
-  free_quota: number;
-  plan_type: string;
-  is_active: number;
-  sort_order: number;
-  /** 权益档位（migration 090）：0免费/1体验/2标准/3专业/4企业 */
-  benefit_rank?: number;
-}
-
-export interface EntitlementRow {
-  id: number;
-  user_id: number | null;
-  user_key: string;
-  source_order_no: string | null;
-  /** 升级来源权益 ID（仅升级产生的新权益有值） */
-  upgraded_from_entitlement_id?: number | null;
-  plan_code: string;
-  quota_total: number;
-  quota_used: number;
-  quota_remaining: number;
-  started_at: Date;
-  expires_at: Date | null;
-  status: string;
-  /** 旧权益是否已被升级替代（0=正常, 1=已升级） */
-  is_upgraded?: number;
-}
-
 export interface PaymentOrderRow {
   id: number;
   user_id: number | null;
@@ -114,18 +67,6 @@ export interface SupplierRow {
   contact_name: string | null;
   telephone: string | null;
   email: string | null;
-}
-
-export interface UnlockRow {
-  id: number;
-  user_id: number | null;
-  user_key: string;
-  opportunity_id: number | null;
-  notice_id: number | null;
-  unlock_type: string;
-  price: number;
-  unlocked_at: Date;
-  unspsc_codes_snapshot: string | null;
 }
 
 export interface CountRow {

@@ -6,12 +6,11 @@
  * Users Repository
  *
  * @module repos/users.repo
- * @description crm_users.user_key 列退役路线图（迁移 062/065/066）代码侧收尾：
- *              - 所有查询/更新一律以 id (user_id) 为主键，不再依赖 user_key 列；
- *              - SELECT 语句不再回读 user_key 列，为后续 DROP COLUMN 铺路；
- *              - create() 仍写入 user_key（列 NOT NULL UNIQUE 尚未由迁移放松），
- *                写入值取手机号，与新用户注册路径一致；DROP COLUMN 迁移落地后
- *                可同步移除 INSERT 中的 user_key 占位。
+ * @description 身份一律以 id (user_id) 为唯一锚点：
+ *              - 所有查询/更新均按 user_id，SELECT 不回读任何身份列；
+ *              - crm_users.user_key 已于迁移 068 DROP COLUMN，create() 的 INSERT 不含该列；
+ *              - 注：部分业务表（如 crm_payment_orders / crm_user_interest_codes 等 13 张）仍残留
+ *                user_key 列，但已停止写入且本仓不再读取，待确认后直接对库 DROP（仓库已无迁移执行器）。
  */
 import type { Pool, ResultSetHeader } from "mysql2/promise";
 import type { UserRow } from "./types";
