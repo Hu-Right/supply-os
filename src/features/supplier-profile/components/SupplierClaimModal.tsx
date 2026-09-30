@@ -23,7 +23,6 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
   const [form, setForm] = useState({
     contactName: "",
     contactPhone: "",
-    position: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -46,7 +45,6 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
         method: "POST",
         body: {
           supplier_id: supplierId,
-          company_name: companyName,
           contact_name: form.contactName.trim(),
           contact_phone: form.contactPhone.trim(),
         },
@@ -145,18 +143,6 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
                 onChange={(e) => setForm({ ...form, contactPhone: e.target.value.replace(/\D/g, "").slice(0, 11) })}
                 placeholder="请输入手机号"
                 maxLength={11}
-              />
-            </div>
-
-            {/* 职位（选填） */}
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">职位</label>
-              <input
-                className={field}
-                value={form.position}
-                onChange={(e) => setForm({ ...form, position: e.target.value })}
-                placeholder="请输入您的职位（选填）"
-                maxLength={100}
               />
             </div>
 

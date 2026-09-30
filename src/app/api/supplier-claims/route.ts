@@ -53,12 +53,10 @@ export const POST = withRoute(async (req: NextRequest) => {
     // 查询失败不阻断
   }
 
-  // 查询供应商信息获取公司名
+  // 供应商必须存在：认领公司一律以 supplier 档案为准（company_name 不再落库）
   const supplier = await ctx.supplier.directoryRepo.findById(supplierId);
-  const companyName = supplier?.company || str(body.companyName ?? body.company_name, 200) || "";
-
-  if (!companyName) {
-    routeError(400, EC_INVALID_PARAMS, "无法获取供应商名称");
+  if (!supplier) {
+    routeError(400, EC_INVALID_PARAMS, "要认领的供应商不存在");
   }
 
   // ── 排他检查：已被认领的主体直接拒绝，不进入 7 天排他期 ──
@@ -83,12 +81,8 @@ export const POST = withRoute(async (req: NextRequest) => {
     const result = await createClaimWithBinding(ctx, {
       userId: auth.userId,
       supplierId,
-      companyName,
-      supplierType: str(body.supplierType ?? body.supplier_type, 50) || "domestic",
       contactName: str(body.contactName ?? body.contact_name, 100),
       contactPhone: str(body.contactPhone ?? body.contact_phone, 50),
-      contactEmail: str(body.contactEmail ?? body.contact_email, 190),
-      businessLicenseNo: str(body.businessLicenseNo ?? body.business_license_no, 100),
       expiresAt: expiresAtStr,
     });
 

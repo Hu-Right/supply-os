@@ -13,23 +13,18 @@ export class SupplierClaimRepo {
   /** 提交供应商认领（立即临时绑定），返回自增 id */
   async insertClaim(params: {
     userId: number;
-    supplierId: number | null;
-    companyName: string;
-    supplierType: string;
+    supplierId: number;
     contactName: string;
     contactPhone: string;
-    contactEmail: string;
-    businessLicenseNo: string;
     expiresAt: string; // DATETIME 字符串
   }): Promise<number> {
     const [result] = await this.pool.execute(
       `INSERT INTO crm_supplier_claims
-        (user_id, supplier_id, company_name, supplier_type, contact_name, contact_phone, contact_email, business_license_no, status, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+        (user_id, supplier_id, contact_name, contact_phone, status, expires_at)
+       VALUES (?, ?, ?, ?, 'pending', ?)`,
       [
-        params.userId, params.supplierId, params.companyName, params.supplierType,
-        params.contactName, params.contactPhone, params.contactEmail, params.businessLicenseNo,
-        params.expiresAt,
+        params.userId, params.supplierId, params.contactName,
+        params.contactPhone, params.expiresAt,
       ],
     );
     return Number((result as RowDataPacket).insertId);
@@ -57,11 +52,4 @@ export class SupplierClaimRepo {
     };
   }
 
-  /** 更新认领记录的执照 URL */
-  async updateLicenseUrl(claimId: number, licenseUrl: string): Promise<void> {
-    await this.pool.execute(
-      `UPDATE crm_supplier_claims SET license_url = ? WHERE id = ?`,
-      [licenseUrl, claimId],
-    );
-  }
 }

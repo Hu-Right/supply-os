@@ -15,12 +15,8 @@ import { getPool } from "../db/pool";
 export interface CreateClaimParams {
   userId: number;
   supplierId: number;
-  companyName: string;
-  supplierType: string;
   contactName: string;
   contactPhone: string;
-  contactEmail: string;
-  businessLicenseNo: string;
   expiresAt: string;
 }
 
