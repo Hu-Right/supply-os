@@ -2,32 +2,11 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+/**
+ * 启动期存量数据回填（与 DDL 无关：结构变更已不经本仓表达，见 lifecycle/phases.ts 顶注）
+ */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { isParseablePrivateKey, normalizePem } from "../payment/keys";
-
-/**
- * user_id 内部化回填：已退役（迁移 068 DROP COLUMN crm_users.user_key）。
- *
- * 原逻辑通过 JOIN crm_users.user_key 回填 18 张业务表的 user_id 列。
- * 迁移 062/065/066/067 + 多次启动回填后，所有业务表 user_id 已 100% 补齐。
- * 迁移 068 DROP COLUMN 后 JOIN 不再可行，本函数保留为空壳防止调用方报错。
- *
- * 完全可删除时机：确认所有调用方已移除后（当前仅 lifecycle/phases.ts）。
- */
-export async function backfillUserIds(_dbPool: Pool): Promise<void> {
-  // no-op: crm_users.user_key 列已由迁移 068 删除，回填任务退役
-}
-
-export async function backfillUnspscCodeIds(dbPool: Pool) {
-  for (const table of ["crm_bid_notice_unspsc_codes", "crm_bid_opportunity_unspsc_codes"]) {
-    await dbPool.execute(
-      `UPDATE ${table} bridge
-       INNER JOIN crm_unspsc_codes code ON code.code = bridge.code
-       SET bridge.code_id = code.id
-       WHERE bridge.code_id IS NULL OR bridge.code_id = 0`
-    );
-  }
-}
 
 /**
  * 清洗行业偏好存量脏数据：置空曾被前端静默持久化的推断层级 L4/L5。

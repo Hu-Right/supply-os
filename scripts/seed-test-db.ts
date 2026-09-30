@@ -4,9 +4,12 @@
  *
  * 在 CI 或本地 E2E 测试前执行：
  * 1. 连接 MySQL 并创建测试数据库（若不存在）
- * 2. 运行全量 schema 迁移
+ * 2. 校验目标库已有表结构（迁移链已于 2026-09-29 清空，结构不再由本仓建立）
  * 3. 写入种子数据（会员计划、底部链接等）
  * 4. 创建 E2E 专用测试账号
+ *
+ * ⚠️ 测试库结构需自行准备：从生产结构快照导入
+ *    docs/数据库设计/_baseline-20260929/schema-all-tables.sql（全库终态 DDL）。
  *
  * 环境变量:
  *   MYSQL_HOST     (default: 127.0.0.1)
@@ -16,48 +19,7 @@
  *   MYSQL_DATABASE (default: supply_os_test)
  */
 import mysql2 from "mysql2/promise";
-import { runMigrations, type Migration } from "../src/lib/db/migrations/runner.js";
 import { DbConfigSchema } from "../src/lib/db/db-config.js";
-import { migration as m001 } from "../src/lib/db/migrations/001-core-tables.js";
-import { migration as m002 } from "../src/lib/db/migrations/002-membership-payment.js";
-import { migration as m003 } from "../src/lib/db/migrations/003-notice-interactions.js";
-import { migration as m004 } from "../src/lib/db/migrations/004-search-quality-feedback.js";
-import { migration as m005 } from "../src/lib/db/migrations/005-translations.js";
-import { migration as m006 } from "../src/lib/db/migrations/006-suppliers.js";
-import { migration as m007 } from "../src/lib/db/migrations/007-unspsc-bridge.js";
-import { migration as m008 } from "../src/lib/db/migrations/008-agency-aliases.js";
-import { migration as m009 } from "../src/lib/db/migrations/009-external-table-indexes.js";
-import { migration as m010 } from "../src/lib/db/migrations/010-fulltext-indexes.js";
-import { migration as m011 } from "../src/lib/db/migrations/011-notice-search-wide-table.js";
-import { migration as m012 } from "../src/lib/db/migrations/012-password-reset-security.js";
-import { migration as m013 } from "../src/lib/db/migrations/013-wide-table-varchar.js";
-import { migration as m014 } from "../src/lib/db/migrations/014-password-reset-email-columns.js";
-import { migration as m015 } from "../src/lib/db/migrations/015-registration-email-verification.js";
-import { migration as m016 } from "../src/lib/db/migrations/016-user-phone.js";
-import { migration as m017 } from "../src/lib/db/migrations/017-phone-verification.js";
-import { migration as m018 } from "../src/lib/db/migrations/018-jwt-auth.js";
-import { migration as m019 } from "../src/lib/db/migrations/019-reference-index.js";
-import { migration as m020 } from "../src/lib/db/migrations/020-unlock-unique-notice.js";
-import { migration as m021 } from "../src/lib/db/migrations/021-verification-code-hash-column.js";
-import { migration as m022 } from "../src/lib/db/migrations/022-verification-code-composite-index.js";
-import { migration as m023 } from "../src/lib/db/migrations/023-footer-social-links.js";
-import { migration as m024 } from "../src/lib/db/migrations/024-bridge-int-and-index-cleanup.js";
-import { migration as m025 } from "../src/lib/db/migrations/025-wide-table-reference-index.js";
-import { migration as m026 } from "../src/lib/db/migrations/026-wide-table-cleanup.js";
-import { migration as m027 } from "../src/lib/db/migrations/027-bridge-column-cleanup.js";
-import { migration as m028 } from "../src/lib/db/migrations/028-deadline-sec-overflow.js";
-import { migration as m029 } from "../src/lib/db/migrations/029-precise-unspsc.js";
-import { migration as m030 } from "../src/lib/db/migrations/030-wide-table-deadline-bigint.js";
-import { migration as m031 } from "../src/lib/db/migrations/031-membership-upgrade.js";
-import { migration as m032 } from "../src/lib/db/migrations/032-wide-table-schema-converge.js";
-import { migration as m033 } from "../src/lib/db/migrations/033-main-table-dead-index-cleanup.js";
-import { migration as m034 } from "../src/lib/db/migrations/034-training-landing-page.js";
-import { migration as m035 } from "../src/lib/db/migrations/035-training-team-titles.js";
-import { migration as m036 } from "../src/lib/db/migrations/036-training-team-roles.js";
-import { migration as m037 } from "../src/lib/db/migrations/037-training-order-payurl-text.js";
-import { migration as m038 } from "../src/lib/db/migrations/038-training-participants.js";
-import { migration as m039 } from "../src/lib/db/migrations/039-training-schedule-seed.js";
-import { migration as m040 } from "../src/lib/db/migrations/040-training-participants-add-email.js";
 
 const DB_HOST = process.env.MYSQL_HOST || "127.0.0.1";
 const DB_PORT = Number(process.env.MYSQL_PORT || 3306);
@@ -103,17 +65,20 @@ async function main() {
     connectionLimit: 5,
   });
 
-  // 3. 运行全量 schema 迁移
-  const migrations: Migration[] = [
-    m001, m002, m003, m004, m005, m006, m007, m008, m009, m010,
-    m011, m012, m013, m014, m015, m016, m017, m018, m019, m020,
-    m021, m022, m023, m024, m025, m026, m027, m028, m029, m030,
-    m031, m032, m033, m034, m035, m036, m037, m038, m039, m040,
-  ];
-
-  console.log("[seed-test-db] 运行 schema 迁移 ...");
-  await runMigrations(pool, migrations);
-  console.log("[seed-test-db] Schema 迁移完成");
+  // 3. 结构前置校验：迁移链已清空，本脚本不再建表；空库一律 fail-fast，
+  //    避免静默建出一个“表都不存在”的测试库、到 E2E 阶段才以莫名的 SQL 错误暴露。
+  const [tbl] = await pool.query(
+    `SELECT COUNT(*) AS c FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()`,
+  );
+  const tableCount = Number((tbl as Array<{ c: number | string }>)[0]?.c || 0);
+  if (tableCount === 0) {
+    await pool.end();
+    throw new Error(
+      `[seed-test-db] 库 ${DB_NAME} 内 0 张表：测试库结构需先导入。\n` +
+      `  方法：把 docs/数据库设计/_baseline-20260929/schema-all-tables.sql 灌入该库后重跑本脚本。`,
+    );
+  }
+  console.log(`[seed-test-db] 目标库已有 ${tableCount} 张表，跳过结构建立（迁移链已清空）`);
 
   // 4. 写入种子数据（会员计划）
   console.log("[seed-test-db] 写入种子数据 ...");

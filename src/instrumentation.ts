@@ -59,7 +59,6 @@ export async function register() {
   const { getPool } = await import("./lib/db/pool");
   const { getContext } = await import("./lib/db/context");
   const {
-    schemaPhase,
     backfillPhase,
     featuredPhase,
     paymentPhase,
@@ -70,8 +69,9 @@ export async function register() {
 
   const dbPool: Pool = getPool();
 
-  // 阶段 1-4：与 Express 启动完全一致（种子数据已禁用，不再对数据库进行任何读写）
-  const phases = [schemaPhase, backfillPhase, featuredPhase, paymentPhase];
+  // 阶段 1-3：与 Express 启动完全一致（种子数据已禁用，不再对数据库进行任何读写）
+  // 注：原「schema 迁移」阶段已删——结构以生产库当前状态为事实源，启动期不再做 DDL。
+  const phases = [backfillPhase, featuredPhase, paymentPhase];
   for (const phase of phases) {
     const ok = await executePhase(phase, { dbPool });
     if (!ok && !phase.optional) {
