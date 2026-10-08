@@ -102,6 +102,7 @@
   "authEnterpriseMembership": "Уровень членства",
   "authEnterpriseStatus": "Статус привязки",
   "authEnterpriseStatusLinked": "Привязано",
+  "authEnterpriseBoundLockHint": "Один аккаунт может подтвердить только одну компанию; чтобы изменить данные, нажмите «Редактировать» и сохраните.",
   "authEnterpriseIndustry": "Отрасль",
   "authEnterpriseLocation": "Страна / Город",
   "authEnterpriseCertifications": "Сертификаты",

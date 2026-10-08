@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 // ── 隔离 mock：保留真实 pickLocale，仅打桩 useLocale ──
@@ -7,9 +7,15 @@ vi.mock("@/core/i18n", async (importOriginal) => {
   return { ...actual, useLocale: () => ({ t: (k: string) => k, locale: "zh" }) };
 });
 
+// 登录态可变态：未登录（undefined）/ 已登录但未绑企业 / 已绑定另一家企业
+let mockUserId: number | undefined = undefined;
+let mockAuthUser: { id: number; supplier_id: number | null } | null = null;
+// 该主体是否已被认领（后端按 crm_users.supplier_id / claim_status 判定的结果）
+let mockClaimed = false;
+
 vi.mock("@/core/auth", () => ({
-  useAuth: () => ({ isVip: false }),
-  useUserId: () => undefined,
+  useAuth: () => ({ isVip: false, authUser: mockAuthUser }),
+  useUserId: () => mockUserId,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -56,13 +62,19 @@ vi.mock("@/features/supplier-profile/hooks/useSupplierProfile", () => ({
     supplier: mockSupplier,
     loading: false,
     error: null,
-    claimed: false,
+    claimed: mockClaimed,
   }),
 }));
 
 import { SupplierProfilePage } from "@/features/supplier-profile/components/SupplierProfilePage";
 
 describe("SupplierProfilePage — 资质证书 Tab", () => {
+  beforeEach(() => {
+    mockUserId = undefined;
+    mockAuthUser = null;
+    mockClaimed = false;
+  });
+
   it("应展示真实认证数据（complianceLabels），而非空态", () => {
     render(<SupplierProfilePage />);
     // 切到「资质证书」Tab
@@ -71,5 +83,43 @@ describe("SupplierProfilePage — 资质证书 Tab", () => {
     expect(screen.getByText("ISO9001质量管理体系认证")).toBeInTheDocument();
     expect(screen.getByText("CE认证（欧盟）")).toBeInTheDocument();
     expect(screen.queryByText("暂无资质证书")).not.toBeInTheDocument();
+  });
+});
+
+describe("SupplierProfilePage — 认领入口的账号侧排他", () => {
+  beforeEach(() => {
+    mockUserId = undefined;
+    mockAuthUser = null;
+    mockClaimed = false;
+  });
+
+  it("未登录不出现认领按钮", () => {
+    render(<SupplierProfilePage />);
+    expect(screen.queryByText("认领该企业")).not.toBeInTheDocument();
+  });
+
+  it("已登录且未绑定企业：可发起认领", () => {
+    mockUserId = 42;
+    mockAuthUser = { id: 42, supplier_id: null };
+    render(<SupplierProfilePage />);
+    expect(screen.getByText("认领该企业")).toBeInTheDocument();
+    expect(screen.queryByText("profile_claimLockedByBinding")).not.toBeInTheDocument();
+  });
+
+  it("已绑定其他企业：认领按钮换成不可点的提示（避免误以为还能再认证一家）", () => {
+    mockUserId = 42;
+    mockAuthUser = { id: 42, supplier_id: 100 };
+    render(<SupplierProfilePage />);
+    expect(screen.queryByText("认领该企业")).not.toBeInTheDocument();
+    expect(screen.getByText("profile_claimLockedByBinding")).toBeInTheDocument();
+  });
+
+  it("已绑定的正是本页主体：保持「我已认领」，不叠加锁提示", () => {
+    mockUserId = 42;
+    mockAuthUser = { id: 42, supplier_id: 123 };
+    mockClaimed = true;
+    render(<SupplierProfilePage />);
+    expect(screen.getByText("我已认领")).toBeInTheDocument();
+    expect(screen.queryByText("profile_claimLockedByBinding")).not.toBeInTheDocument();
   });
 });

@@ -121,6 +121,7 @@
   "authEnterpriseMembership": "Membership Tier",
   "authEnterpriseStatus": "Binding Status",
   "authEnterpriseStatusLinked": "Linked",
+  "authEnterpriseBoundLockHint": "Each account can verify only one company; to update your details, use Edit and save.",
   "authEnterpriseIndustry": "Industry",
   "authEnterpriseLocation": "Country / City",
   "authEnterpriseCertifications": "Certifications",

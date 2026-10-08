@@ -101,4 +101,29 @@ describe("EnterpriseInfoCard", () => {
     expect(screen.getByText("authEnterpriseVerifyRejected")).toBeInTheDocument();
     expect(screen.getByText(/资质不全/)).toBeInTheDocument();
   });
+
+  it("认领待核优先于资质已认证：claim_status=pending 时显示审核中", () => {
+    // 与后端排他闸口同一口径（shared/utils/enterprise-status）：认领通过前，
+    // 账号侧绑定仍是临时态，不能因为主体 verify_status=done 就报「已认证」。
+    render(
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: "done", claim_status: "pending" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+    );
+    expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
+    expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
+  });
+
+  it("认领归属已确认（claim_status=verified 且 verify_status 为空）显示已认证", () => {
+    render(
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: null, claim_status: "verified" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+    );
+    expect(screen.getByText("authEnterpriseVerifyApproved")).toBeInTheDocument();
+  });
+
+  it("已绑定但无任何审核状态 → 中性「已绑定」标（复用他人历史档案的行）", () => {
+    render(
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: null, claim_status: null }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+    );
+    expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
+    expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
+  });
 });

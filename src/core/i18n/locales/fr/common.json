@@ -102,6 +102,7 @@
   "authEnterpriseMembership": "Niveau d'adhésion",
   "authEnterpriseStatus": "Statut de liaison",
   "authEnterpriseStatusLinked": "Lié",
+  "authEnterpriseBoundLockHint": "Un compte ne peut certifier qu'une seule entreprise ; pour modifier vos informations, utilisez Modifier puis Enregistrer.",
   "authEnterpriseIndustry": "Secteur",
   "authEnterpriseLocation": "Pays / Ville",
   "authEnterpriseCertifications": "Certifications",

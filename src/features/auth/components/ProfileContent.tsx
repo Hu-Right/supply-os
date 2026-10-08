@@ -21,6 +21,10 @@ import { EmailBinding } from "./EmailBinding";
 import { NicknameEditor } from "./NicknameEditor";
 import { AccountBenefitsCard } from "./AccountBenefitsCard";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
+import {
+  classifyEnterpriseBindState,
+  enterpriseBindStateText,
+} from "@/shared/utils/enterprise-status";
 
 /** 基本信息内联单元：灰标签：值（同一行） */
 function InfoItem({ label, value }: { label: string; value: string }) {
@@ -65,23 +69,20 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
   const tierBadgeText = isVip ? tierLabel || t("authVipMember") : t("authFreeMember");
   const openNotice = (noticeId: number) => router.push(`/procurement?notice_id=${noticeId}`);
 
-  // ★ 供应商认证状态：从企业信息页同一数据源读取，保证两页展示一致
-  const verifyStatus = enterprise.enterprise
-    ? String(enterprise.enterprise.verify_status || "")
-    : "";
+  // ★ 供应商认证状态：与企业信息页同一数据源（GET /api/user/enterprise），并走
+  //   shared/utils/enterprise-status 的同一口径——后端排他闸口用的就是这份分类，
+  //   否则会出现「页面说已绑定、接口却放行新认证」的两套真相。
+  //   认领归属与资质审核是两个维度（verify_status=资质、claim_status=归属）：
+  //   claim_status=verified 视同已认证（否则会把内部主键 #ID 泄露到页面），
+  //   claim_status=pending 视同审核中（认领通过前绑定仍是临时态）。
+  const bindState = classifyEnterpriseBindState(enterprise.enterprise ?? null);
+  const bindText = enterpriseBindStateText(bindState);
   const checkNote = enterprise.enterprise
     ? String(enterprise.enterprise.check_note || "")
     : "";
   const companyName = enterprise.enterprise
     ? String(enterprise.enterprise.name_confirmed || enterprise.enterprise.company || "")
     : "";
-  // 认领归属已通过后台审核（supplier.claim_status='verified'）：与「企业认证 done」并列为已认证口径。
-  // 二者是不同维度——verify_status=资质审核，claim_status=认领归属；认领通过即视同该主体已认证，
-  // 否则认领成功的用户会落到兜底分支、把内部主键 #ID 直接暴露到页面上。
-  const claimVerified = enterprise.enterprise
-    ? String(enterprise.enterprise.claim_status || "") === "verified"
-    : false;
-  const supplierAuthenticated = verifyStatus === "done" || claimVerified;
 
   if (!authUser) return null;
 
@@ -126,28 +127,28 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
                   <span className="inline-block w-16 h-4 rounded bg-secondary-200 animate-pulse" />
                 ) : !enterprise.bound ? (
                   <span className="text-sm text-muted-foreground">{t("authSupplierPending") || "未绑定"}</span>
-                ) : verifyStatus === "pending" ? (
+                ) : bindState === "pending" ? (
                   <span className="inline-flex items-center px-2 py-0.5 rounded border border-accent-200 bg-accent-50 text-accent-700 text-xs font-medium">
-                    {t("authEnterpriseVerifyProcessing") || "审核中"}
+                    {t(bindText.key) || bindText.fallback}
                   </span>
-                ) : verifyStatus === "rejected" ? (
+                ) : bindState === "rejected" ? (
                   <span
                     className="inline-flex items-center px-2 py-0.5 rounded border border-danger-200 bg-danger-50 text-danger-700 text-xs font-medium"
                     title={checkNote || undefined}
                   >
-                    {t("authEnterpriseVerifyRejected") || "已驳回"}
+                    {t(bindText.key) || bindText.fallback}
                   </span>
-                ) : supplierAuthenticated ? (
+                ) : bindState === "verified" ? (
                   <span className="inline-flex items-center gap-1.5 min-w-0">
                     <span className="text-sm text-foreground truncate" title={companyName || undefined}>
                       {companyName || "-"}
                     </span>
                     <span className="inline-flex items-center px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-xs font-medium shrink-0">
-                      {t("authEnterpriseVerifyApproved") || "已认证"}
+                      {t(bindText.key) || bindText.fallback}
                     </span>
                   </span>
                 ) : (
-                  <span className="text-sm text-foreground">{t("authEnterpriseStatusLinked") || "已绑定"}</span>
+                  <span className="text-sm text-foreground">{t(bindText.key) || bindText.fallback}</span>
                 )}
               </div>
             </div>

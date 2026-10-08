@@ -102,6 +102,7 @@
   "authEnterpriseMembership": "مستوى العضوية",
   "authEnterpriseStatus": "حالة الربط",
   "authEnterpriseStatusLinked": "مرتبط",
+  "authEnterpriseBoundLockHint": "يمكن لكل حساب توثيق شركة واحدة فقط؛ لتعديل البيانات اضغط على تحرير ثم احفظ.",
   "authEnterpriseIndustry": "القطاع",
   "authEnterpriseLocation": "الدولة / المدينة",
   "authEnterpriseCertifications": "الشهادات",

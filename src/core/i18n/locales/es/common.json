@@ -102,6 +102,7 @@
   "authEnterpriseMembership": "Nivel de membresía",
   "authEnterpriseStatus": "Estado de vinculación",
   "authEnterpriseStatusLinked": "Vinculado",
+  "authEnterpriseBoundLockHint": "Cada cuenta solo puede certificar una empresa; para modificar los datos, usa Editar y guardar.",
   "authEnterpriseIndustry": "Sector",
   "authEnterpriseLocation": "País / Ciudad",
   "authEnterpriseCertifications": "Certificaciones",

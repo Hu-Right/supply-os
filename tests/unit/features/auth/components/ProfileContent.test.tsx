@@ -153,6 +153,16 @@ describe("ProfileContent", () => {
     expect(screen.queryByText(/已绑定 #42/)).not.toBeInTheDocument();
   });
 
+  it("认领待核（claim_status=pending）同样报「审核中」，不提前显示为已绑定/已认证", () => {
+    // 真实场景：认领一家已认证主体后，行上 verify_status=done、claim_status=pending，
+    // 账号侧仍是临时绑定；此处必须报审核中，与后端排他闸口同一口径。
+    mockEnterpriseBound = true;
+    mockEnterpriseData = { verify_status: "done", claim_status: "pending", company: "某待核企业" };
+    render(<ProfileContent />);
+    expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
+    expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
+  });
+
   it("非 VIP 显示免费会员徽章兜底", () => {
     mockIsVip = false;
     render(<ProfileContent />);

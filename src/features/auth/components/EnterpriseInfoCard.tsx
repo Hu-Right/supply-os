@@ -11,6 +11,11 @@
 import { Building2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { AuthLicenseImage } from "@/shared/ui";
+import {
+  classifyEnterpriseBindState,
+  enterpriseBindStateText,
+  type EnterpriseBindState,
+} from "@/shared/utils/enterprise-status";
 import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
@@ -24,6 +29,15 @@ export interface EnterpriseInfoCardProps {
   onRetry: () => void;
   onBind: () => void;
 }
+
+/** 状态徽章配色：审核中/已认证/已驳回 各一色，无审核状态（复用历史档案行）走中性色 */
+const BADGE_TONE: Record<EnterpriseBindState, string> = {
+  verified: "border-success-200 bg-success-50 text-success-700",
+  pending: "border-accent-200 bg-accent-50 text-accent-700",
+  rejected: "border-danger-200 bg-danger-50 text-danger-700",
+  linked: "border-border bg-secondary-50 text-secondary-600",
+  none: "border-border bg-secondary-50 text-secondary-600",
+};
 
 /** 表格单元：label + value；full=true 时 value 通栏 */
 interface Cell {
@@ -164,7 +178,9 @@ export function EnterpriseInfoCard({
   const companyName = sv(row, "name_confirmed") !== "-" ? sv(row, "name_confirmed") : sv(row, "company");
   const isIntl = String(row.country_code || "") !== "" && String(row.country_code) !== "CN";
   const coop = Number(row.coop_status || 0) === 1;
-  const verifyStatus = String(row.verify_status || "");
+  // 认证状态与账户设置页、后端排他闸口同一口径（verify_status=资质 / claim_status=归属）
+  const bindState = classifyEnterpriseBindState(row);
+  const bindText = enterpriseBindStateText(bindState);
   const checkNote = String(row.check_note || "");
 
   const basicCells: Cell[] = [
@@ -206,24 +222,13 @@ export function EnterpriseInfoCard({
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-base font-semibold text-foreground">{companyName}</h3>
         <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-          {verifyStatus === "done" && (
-            <span className="px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-2xs">
-              {t("authEnterpriseVerifyApproved") || "已认证"}
-            </span>
-          )}
-          {verifyStatus === "pending" && (
-            <span className="px-2 py-0.5 rounded border border-accent-200 bg-accent-50 text-accent-700 text-2xs">
-              {t("authEnterpriseVerifyProcessing") || "审核中"}
-            </span>
-          )}
-          {verifyStatus === "rejected" && (
-            <span
-              className="px-2 py-0.5 rounded border border-danger-200 bg-danger-50 text-danger-700 text-2xs"
-              title={checkNote || undefined}
-            >
-              {t("authEnterpriseVerifyRejected") || "已驳回"}
-            </span>
-          )}
+          {/* 走到这里 enterprise 必非空，绑定状态最少是 linked，无需再分情况判空 */}
+          <span
+            className={`px-2 py-0.5 rounded border text-2xs ${BADGE_TONE[bindState]}`}
+            title={bindState === "rejected" ? (checkNote || undefined) : undefined}
+          >
+            {t(bindText.key) || bindText.fallback}
+          </span>
           <span className="px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-2xs">
             {isIntl ? (t("authEnterpriseInternational") || "国际") : (t("authEnterpriseDomestic") || "国内")}
           </span>
@@ -235,7 +240,7 @@ export function EnterpriseInfoCard({
         </div>
       </div>
 
-      {verifyStatus === "rejected" && checkNote && (
+      {bindState === "rejected" && checkNote && (
         <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-lg p-3">
           {t("authEnterpriseRejectReason") || "驳回原因"}：{checkNote}
         </p>

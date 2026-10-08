@@ -121,6 +121,7 @@
   "authEnterpriseMembership": "会员等级",
   "authEnterpriseStatus": "绑定状态",
   "authEnterpriseStatusLinked": "已绑定",
+  "authEnterpriseBoundLockHint": "一个账号只能认证一家企业；如需修改资料请使用「编辑」保存。",
   "authEnterpriseIndustry": "所属行业",
   "authEnterpriseLocation": "国家/城市",
   "authEnterpriseCertifications": "认证资质",
