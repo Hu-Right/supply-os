@@ -12,8 +12,9 @@
  *              生产宽表 46.2 万行无法 ALGORITHM=INSTANT，必须安排维护窗口；运行期已做成
  *              「列缺失则自动降级」（见 search-sync/wide-fingerprint.ts），所以没列也能正常跑。
  *              代码本体在 docs/数据库设计/_baseline-20260929/pre-delete-backup/migrations-full.zip
- *              （文件名 087-wide-table-sync-fingerprint.ts）；窗口时取回该文件、避开已用过的
- *              001–106 编号后放进 migrations/ 并 push 进 ALL_MIGRATIONS 即可（幂等：列存在则跳过）。
+ *              （文件名 087-wide-table-sync-fingerprint.ts）；账本已于 2026-10-08 清空，
+ *              窗口时取回该文件、编为 version 001 放进 migrations/ 并 push 进 ALL_MIGRATIONS
+ *              即可（幂等：列存在则跳过）。
  */
 import type { Pool } from "mysql2/promise";
 import { ensureProcurementSchema } from "../db/schema";

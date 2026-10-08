@@ -5,6 +5,10 @@
  * 1) 版本号撞账本已有记录 → runner 会**跳过**而非报错（重写编号时必须知道这个行为）；
  * 2) 拿不到迁移锁 → 必须抛错，不能降级成"跳过迁移继续启动"；
  * 3) 单条迁移失败 → 必须向上抛，不能吞掉后半段。
+ *
+ * 注：用例里注入的 applied: [1, 2, 106] 只是模拟账本状态。生产账本 crm.schema_migrations
+ * 已于 2026-10-08 清空为 0 行、新迁移从 001 起写，所以这条「撞号静默跳过」的用例
+ * 正是为了防止将来编号再次重叠时无人察觉。
  */
 import { describe, it, expect, vi } from "vitest";
 import type { Pool, RowDataPacket } from "mysql2/promise";

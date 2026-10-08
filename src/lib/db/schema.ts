@@ -10,9 +10,12 @@
  *
  *              历史：原 107 个迁移已于 2026-09-29 清空，全库结构快照与历史迁移代码本体都在
  *              docs/数据库设计/_baseline-20260929/（schema-all-tables.sql / migrations-full.zip）。
- *              ⚠ 生产库 schema_migrations 账本仍留着那 106 行旧记录，所以新迁移的 version
- *              要么避开 001–106，要么在写第一条之前先 DELETE FROM schema_migrations;
- *              （runner 的判定是 pending = 未出现在账本里的版本，撞号会被**静默跳过**）。
+ *              【账本状态】生产库 schema_migrations 原有的 106 行旧记录已于 2026-10-08 清空
+ *              （全量备份：docs/数据库设计/_baseline-20260929/backup-schema-migrations-before-clear
+ *              .json / .sql，逐条 INSERT 可回滚），因此**新迁移从 version 001 起写**。
+ *              历史 107 个迁移**不回灌**：其中不少表走过影子表切换，用迁移链已推导不出生产现状，
+ *              重放只会破库；结构事实源是库本身 + 快照目录。
+ *              （runner 的判定是 pending = 未出现在账本里的版本，撞号仍会被**静默跳过**。）
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
