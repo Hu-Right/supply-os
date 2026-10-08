@@ -16,9 +16,6 @@ import type { Supplier } from "@/types";
 import type { SupplierContact, SupplierContactStatus } from "@/shared/api/supplier";
 import { emitAppEvent } from "@/core/events";
 
-// re-export：供消费者从本模块直接取 SupplierContactStatus
-export type { SupplierContactStatus };
-
 export type SupplierContactModalProps = {
   supplier: Supplier;
   status: SupplierContactStatus;

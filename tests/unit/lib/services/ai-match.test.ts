@@ -54,7 +54,7 @@ const noticePool = () => ({
     .mockResolvedValueOnce([[{ supplier_id: 0 }]]),
 } as any);
 
-/** 有绑定企业（supplier_id=10）：notice×2 + selfId×1 + fetchSupplierForScore(crm_users×1 + supplier×1) */
+/** 有绑定企业（supplier_id=10）：notice×2 + selfId×1 + fetchSupplierProfile(crm_users×1 + supplier×1) */
 const selfSupplierRow = {
   company: "我自己", industry: "电子", products: "P", certification: "", country: "CN", city: "", type: "",
   registered_capital: "", established_at: "", intro: "", employee_count: "", export_scale: "", service_countries: "",

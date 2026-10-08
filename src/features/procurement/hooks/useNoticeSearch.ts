@@ -19,10 +19,7 @@ import { useSearchFormState } from "./search/useSearchFormState";
 import { useSearchQuery } from "./search/useSearchQuery";
 import { useSearchActions, type SearchActions } from "./search/useSearchActions";
 import { useSearchResults } from "./search/useSearchResults";
-// N7 收敛（2026-08-20）：PAGE_SIZE 统一从 ../constants 导入
 import { NOTICE_PAGE_SIZE } from "../constants";
-
-export { NOTICE_PAGE_SIZE };
 
 export interface UseNoticeSearchOptions {
   userId: number | undefined;

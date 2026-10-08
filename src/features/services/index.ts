@@ -10,4 +10,4 @@
 export { default as ServicesPage } from "./pages/ServicesPage";
 
 // 数据类型（供外部使用）
-export type { ServiceItem, SuccessStoryItem } from "./types";
+export type { ServiceItem, SuccessStoryItem } from "./constants";

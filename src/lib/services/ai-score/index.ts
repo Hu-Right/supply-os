@@ -17,10 +17,6 @@ export interface AiScoreResult extends AiScoreRaw {
   cached: boolean;
 }
 
-/** 供应商画像取数已上收到 `ai/shared/supplier-profile`（唯一出口，改读 v2 诊断表）。
- *  ai-match 仍从本模块按旧名引用，故保留别名转发，避免同一取数逻辑再抄一份。 */
-export { fetchSupplierProfile as fetchSupplierForScore } from "../ai/shared/supplier-profile";
-
 /** 主入口：获取或生成 AI 适配评分 */
 export async function getOrGenerateAiScore(
   pool: Pool,

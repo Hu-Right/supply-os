@@ -5,10 +5,6 @@
  * @module features/procurement/hooks/searchFormReducer
  */
 
-// N7 收敛（2026-08-20）：PAGE_SIZE 定义已迁至 ../constants.ts，此处 re-export 保持向后兼容
-// 2026-08-28：公采公告使用 NOTICE_PAGE_SIZE = 10，PAGE_SIZE 保留为共享常量（9）
-export { PAGE_SIZE } from "../constants";
-
 // Task 8 高级关键词行：消费 Task 2 共享语法工具（composeQ/parseQ 的状态载体）
 import { MAX_KEYWORD_ROWS, type TermRow, type TermMode } from "@/shared/utils/advanced-syntax";
 

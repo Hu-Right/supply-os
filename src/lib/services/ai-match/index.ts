@@ -9,8 +9,7 @@ import { AiSummaryRepo } from "../../repos/ai-summary.repo";
 import { UserSupplierPoolRepo } from "../../repos/user-supplier-pool.repo";
 import { callLlmForScore } from "../ai-score/llm-client";
 import { SCORE_SYSTEM_PROMPT, buildScoreUserPrompt, type AiScoreRaw } from "../ai-score/prompt";
-import { fetchSupplierForScore } from "../ai-score";
-import { diagnosisItemsOf } from "../ai/shared/supplier-profile";
+import { diagnosisItemsOf, fetchSupplierProfile } from "../ai/shared/supplier-profile";
 import { errNoticeNotFound } from "../ai-summary/errors";
 import { fetchNoticeContext } from "../ai/shared/notice-context";
 import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
@@ -95,7 +94,7 @@ export async function getOrGenerateAiMatch(
   // self：绑定的企业主体（owner 画像：基本信息 + owner 诊断）
   const [uRows] = await pool.query("SELECT supplier_id FROM crm_users WHERE id = ? LIMIT 1", [userId]);
   const selfSupplierId = Number((uRows as RowDataPacket[])[0]?.supplier_id || 0);
-  const selfProfile = selfSupplierId ? await fetchSupplierForScore(pool, userId) : null;
+  const selfProfile = selfSupplierId ? await fetchSupplierProfile(pool, userId) : null;
 
   // pool：资源库工厂/友商（目录基本信息 + 我关联的诊断），排除与 self 同一家避免重复
   const poolProfilesRaw = await poolRepo.fetchSupplierProfiles(userId);

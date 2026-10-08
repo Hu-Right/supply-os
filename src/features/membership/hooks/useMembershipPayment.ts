@@ -14,7 +14,7 @@
 import { useState, useCallback } from "react";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
-import { fetchUpgradePreview } from "../api";
+import { fetchUpgradePreview } from "@/core/api/membership";
 import type { AnnualPlanCredit, PlanCatalogRow, UpgradePreview } from "@/types";
 
 /** 升级预览加载失败时的兜底值 */

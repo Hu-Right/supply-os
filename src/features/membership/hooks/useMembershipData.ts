@@ -8,7 +8,7 @@
  */
 import { useEffect, useState } from "react";
 import { useAuth } from "@/core/auth";
-import { fetchPlans, fetchMembershipStatus, fetchAnnualPlanCredit } from "../api";
+import { fetchMembershipPlans, fetchMembershipStatus, fetchAnnualPlanCredit } from "@/core/api/membership";
 import { unlockRemaining } from "@/shared/utils/membership-view";
 import type { AnnualPlanCredit, ComparisonTable, MembershipStatus, PlanCatalogRow } from "@/types";
 
@@ -48,7 +48,7 @@ export function useMembershipData(): UseMembershipDataReturn {
 
     Promise.all([
       // 登录态强制跳过缓存：确保拿到与当前身份一致的视图（V2）
-      fetchPlans(Boolean(authUser)),
+      fetchMembershipPlans(Boolean(authUser)),
       // SSOT 修复：走 apiCached 与 useMembershipTier 共享同一份缓存，
       // 避免 MembershipPage 与 AppHeader 各发一次 /api/membership/status
       authUser ? fetchMembershipStatus(true).catch(() => null) : Promise.resolve(null),

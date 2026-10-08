@@ -14,9 +14,9 @@ vi.mock("@/core/events", () => ({
   emitAppEvent: (...args: unknown[]) => mockEmitAppEvent(...args),
 }));
 
-// Mock features/membership/api
+// Mock 会员 API 权威实现（@/core/api/membership）
 const mockFetchUpgradePreview = vi.fn();
-vi.mock("@/features/membership/api", () => ({
+vi.mock("@/core/api/membership", () => ({
   fetchUpgradePreview: (...args: unknown[]) => mockFetchUpgradePreview(...args),
 }));
 

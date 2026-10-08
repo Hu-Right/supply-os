@@ -20,9 +20,6 @@ export type { ComparisonTable, MembershipStatus, UpgradePreview, ServiceCatalogR
 export const fetchMembershipPlans = (force = false) =>
   apiCached<ComparisonTable>("/api/membership/plans", undefined, undefined, force);
 
-/** 兼容别名：fetchPlans = fetchMembershipPlans */
-export const fetchPlans = fetchMembershipPlans;
-
 /** 拉取订制服务目录（crm_service_catalog 快照，带内存缓存）。 */
 export const fetchServices = (force = false) =>
   apiCached<ServiceCatalogRow[]>("/api/membership/services", undefined, undefined, force);

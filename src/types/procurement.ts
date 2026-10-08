@@ -6,7 +6,9 @@
  * @description 采购公告实体（含 UNSPSC 编码、锁定状态、解锁详情字段）及分页响应结构。
  *              作为全局单一事实源，feature 层通过 `@/types` re-export 复用。
  *              #ARCH-004: 拆分为 NoticeListItem（列表级）+ NoticeDetailItem（解锁详情）
- *              两个窄接口，NoticeItem 保留为列表级别名以兼容存量代码。
+ *              两个窄接口。NoticeItem 不是兼容别名，而是「列表项 + 可选详情字段」的交叉类型
+ *              （= NoticeListItem & Partial<NoticeDetailFields>），NoticeResponse.items 自身就在用它，
+ *              因此不可简单地用 NoticeListItem 替掉——那会丢掉 Partial<NoticeDetailFields> 这部分能力。
  */
 
 /** 公告列表级字段（搜索/推荐/行业匹配等列表端点返回） */

@@ -7,7 +7,7 @@
  * @description 走 fetchServices（apiCached）拉取启用中的服务目录；失败暴露 error + reload 供重试。
  */
 import { useCallback, useEffect, useState } from "react";
-import { fetchServices } from "../api";
+import { fetchServices } from "@/core/api/membership";
 import type { ServiceCatalogRow } from "@/types/membership";
 
 export function useServiceCatalog() {

@@ -61,12 +61,6 @@ export async function fetchSuppliersPaginated(
   return api<SupplierPageResult>(`/api/suppliers?${searchParams.toString()}`);
 }
 
-// ── 供应商共享 API（权威实现在 shared/api/supplier）──
-// fetchSupplierById / fetchSupplierContact / SupplierContact / SupplierContactStatus
-// 已提升至 @/shared/api/supplier，此处 re-export 保持存量导入兼容。
-export { fetchSupplierById, fetchSupplierContact } from "@/shared/api/supplier";
-export type { SupplierContact, SupplierContactStatus } from "@/shared/api/supplier";
-
 /** 认证资质参考项 */
 export interface CertificationItem {
   id: number;
