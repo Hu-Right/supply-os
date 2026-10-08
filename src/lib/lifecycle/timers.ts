@@ -225,19 +225,27 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     });
   }
 
-  // 7. 供应商认领 7 天有效期释放（CLAIM_EXPIRY_ENABLED=off 关闭；CLAIM_EXPIRY_INTERVAL_HOURS
+  // 7. 过期认领释放（CLAIM_EXPIRY_ENABLED=off 关闭；CLAIM_EXPIRY_INTERVAL_HOURS
   //    控制间隔，默认 1 小时）。此前该清理从未被调度，过期认领永久占用主体排他期。
+  //    双时钟（2026-09-29 认领简化）：认领创建后 1 小时内没上传并保存执照就到期；
+  //    执照保存成功后续期到 7 天审核期，审核未过的行同样由这里到期释放。
   let claimExpiryTimer: NodeJS.Timeout | null = null;
   if (String(process.env.CLAIM_EXPIRY_ENABLED ?? "on").toLowerCase() !== "off") {
     const claimExpiryIntervalHours = Math.max(1, Number(process.env.CLAIM_EXPIRY_INTERVAL_HOURS || 1));
+    // 首次扫描无论有没有释放都打一条心跳：1 小时限时是新口径，上线后得能确认清扫器真的在跑
+    //（没心跳就是没启动或被环境变量关掉，而不是“没人逾期”）。
+    let claimExpiryRuns = 0;
     const runClaimExpiry = async () => {
+      const seq = ++claimExpiryRuns;
       try {
-        const released = await releaseExpiredClaims(dbPool);
-        if (released > 0) {
-          console.log(`[claim-expiry] 已释放 ${released} 条过期认领（解绑用户 + 主体归池）`);
+        const { claims, changedRows } = await releaseExpiredClaims(dbPool);
+        if (claims > 0) {
+          console.log(`[claim-expiry] 第 ${seq} 次扫描：释放 ${claims} 条过期认领（解绑用户 + 主体归池，改动 ${changedRows} 行）`);
+        } else if (seq === 1) {
+          console.log(`[claim-expiry] 第 1 次扫描完成：无到期认领（间隔 ${claimExpiryIntervalHours} 小时）`);
         }
       } catch (e) {
-        console.error("[claim-expiry] 释放失败（不影响下次扫描）:", (e as Error).message);
+        console.error(`[claim-expiry] 第 ${seq} 次扫描失败（不影响下次扫描）:`, (e as Error).message);
       }
     };
     // 启动时立即异步处理一次存量（不阻塞启动），延迟 25s 与支付/清理任务错开
