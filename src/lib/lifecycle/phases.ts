@@ -8,13 +8,12 @@
  *              为事实源（全库终态见 docs/数据库设计/_baseline-20260929/schema-all-tables.sql）；
  *              当前 ALL_MIGRATIONS 为空，schema 阶段只做账本检查，不产生任何 DDL。
  *
- *              【待落成迁移的事项】宽表源指纹列（原迁移 087）仍未加：
- *              生产宽表 46.2 万行无法 ALGORITHM=INSTANT，必须安排维护窗口；运行期已做成
- *              「列缺失则自动降级」（见 search-sync/wide-fingerprint.ts），所以没列也能正常跑。
- *              代码本体在 docs/数据库设计/_baseline-20260929/pre-delete-backup/migrations-full.zip
- *              （文件名 087-wide-table-sync-fingerprint.ts）；账本已于 2026-10-08 清空，
- *              窗口时取回该文件、编为 version 001 放进 migrations/ 并 push 进 ALL_MIGRATIONS
- *              即可（幂等：列存在则跳过）。
+ *              【已落实，勿再当待办】宽表源指纹列（原迁移 087）已在生产完成：2026-10-08 实测
+ *              crm_notice_search.sync_src_hash 存在（char(32) NOT NULL DEFAULT ''），573,018 行中
+ *              空指纹 0 行、指纹值 573,018 个各不相同；死全文索引 ft_search_en 已清，
+ *              precise_levelN 原码污染 0 行；运行期 isFingerprintColumn() 实测返回 true（不再降级）。
+ *              因此 ALL_MIGRATIONS 无需再为它挂 001——结构已到位，重挂也只会因幂等而跳过。
+ *              保留的降级分支服务于测试库/全新环境（它们靠导入快照建库，快照可能滞后于生产）。
  */
 import type { Pool } from "mysql2/promise";
 import { ensureProcurementSchema } from "../db/schema";
