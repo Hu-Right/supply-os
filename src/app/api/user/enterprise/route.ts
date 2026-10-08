@@ -9,6 +9,8 @@
  *   POST 未绑定：先防重（credit_code 优先、其次公司名）——命中**已认证**行不绑定，
  *        返回 claimRequired 引导走认领审核；命中未认证行直接绑定已有行；
  *        均未命中则 INSERT 新 supplier 行并回写 crm_users.supplier_id 完成绑定。
+ *        账号侧排他：已绑定主体的账号不得再认证另一家（一账号一主体），仅命中自己
+ *        绑定的行时放行（等价重复保存资料，正常入口应走 PUT）。
  *        填写字段与 supplier 最终表结构一致（所见即所填），与诊断/审核链路剥离。
  */
 import { NextResponse } from "next/server";
@@ -17,6 +19,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { deleteFile } from "@/lib/services/file-upload";
+import { assertBindingAllowsSubject, readCurrentBinding, assertVerifiedSubjectIdentityStable } from "@/lib/services/enterprise-binding";
 import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
@@ -114,7 +117,7 @@ export const GET = withRoute(async (req) => {
   return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: row } });
 });
 
-/** 已绑定：更新企业行可编辑列 */
+/** 已绑定：更新企业行可编辑列（已认证主体的身份三要素不可改写） */
 export const PUT = withRoute(async (req) => {
   const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
@@ -126,6 +129,9 @@ export const PUT = withRoute(async (req) => {
     routeError(400, EC_INVALID_PARAMS, "尚未绑定企业，请先填写企业信息");
   }
 
+  // 编辑闸口：已认证行不得把 company / credit_code 改成另一家公司（否则绕过审核把认证挪走）
+  await assertVerifiedSubjectIdentityStable(ctx, supplierId, body as Record<string, unknown>);
+
   await ctx.supplier.directoryRepo.updateEnterprise(supplierId, body as Record<string, unknown>);
   // 执照以保存为单一入口：仅当本次 body 显式携带 license_url 时协调（含移除）
   if ("license_url" in body) {
@@ -134,7 +140,8 @@ export const PUT = withRoute(async (req) => {
   return NextResponse.json({ code: 0, message: "ok" });
 });
 
-/** 未绑定：新建企业行并绑定到当前用户；防重：credit_code 优先、其次公司名，已存在则直接绑定已有行不新建 */
+/** 未绑定：新建企业行并绑定到当前用户；防重：credit_code 优先、其次公司名，已存在则直接绑定已有行不新建；
+ *  账号侧排他：已绑定其他主体的账号一律拒绝（见 POST 内注释） */
 export const POST = withRoute(async (req) => {
   const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
@@ -169,7 +176,15 @@ export const POST = withRoute(async (req) => {
 
   // 已认证企业不秒绑：绑定权与归属需审核背书，返回 claimRequired 由前端引导走认领流程
   // （认领通过 → claim approved，后台据此完成注册 KPI「个人→企业」翻转）
-  if (existingId && existingVerified) {
+  //
+  // 账号侧排他先于 claimRequired：此前「一账号一主体」只由前端 bound ? PUT : POST 隐式
+  // 保证，直接 POST 会让已绑定账号再建一行 supplier 并挪走 crm_users.supplier_id（审核中的
+  // 原主体被抛下、已认证的原主体被顶掉）；把已认证企业误判为「去认领自己的企业」也会形成死胡同。
+  const binding = await readCurrentBinding(ctx, auth.userId);
+  assertBindingAllowsSubject(binding, existingId, "certify");
+  const isOwnBoundRow = !!binding && binding.supplierId === existingId;
+
+  if (existingId && existingVerified && !isOwnBoundRow) {
     return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, claimRequired: true } });
   }
 

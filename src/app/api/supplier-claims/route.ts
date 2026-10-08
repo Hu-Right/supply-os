@@ -11,6 +11,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
+import { assertBindingAllowsSubject, readCurrentBinding } from "@/lib/services/enterprise-binding";
 
 const str = (v: unknown, max: number): string =>
   String(v ?? "").trim().slice(0, max);
@@ -58,6 +59,14 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (!supplier) {
     routeError(400, EC_INVALID_PARAMS, "要认领的供应商不存在");
   }
+
+  // ── 账号侧排他（一个账号只能绑一家主体）──
+  // 下面的 ownership 只回答「这家主体归谁」，不回答「这个账号已经绑了谁」：
+  // 已绑定 A 的账号去认领无人认领的 B 会一路放行，createClaimWithBinding 随即把
+  // crm_users.supplier_id 覆盖成 B——审核中的 A 被抛下、已认证的 A 被顶掉，且无入口换回。
+  // 目标恰为当前绑定行时放行，由下面的 selfBound 分支给「无需重复认领」文案。
+  const binding = await readCurrentBinding(ctx, auth.userId);
+  assertBindingAllowsSubject(binding, supplierId, "claim");
 
   // ── 排他检查：已被认领的主体直接拒绝，不进入 7 天排他期 ──
   // 区分三种状态给准确文案：旧口径的「正在被认领中，请稍后再试」会误导用户以为
