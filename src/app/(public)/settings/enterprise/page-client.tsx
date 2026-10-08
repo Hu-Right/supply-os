@@ -100,7 +100,7 @@ export default function EnterpriseSettingsClient() {
     emitAppEvent("supply-os:enterprise-changed");
     setNotice(
       t("authEnterpriseClaimSubmitted") ||
-        "认领申请已提交，请在 7 天内完善企业信息并上传营业执照，审核通过后完成绑定",
+        "认领申请已提交，请在 1 小时内上传营业执照并保存，逾期将自动解绑",
     );
   };
 
