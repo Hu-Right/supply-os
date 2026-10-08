@@ -21,6 +21,7 @@ import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler
 import { deleteFile } from "@/lib/services/file-upload";
 import { assertBindingAllowsSubject, readCurrentBinding, assertVerifiedSubjectIdentityStable } from "@/lib/services/enterprise-binding";
 import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
+import type { AppContext } from "@/lib/db/context";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 /** 企业信息填写/编辑 body：全部可选字符串，键为 supplier 列名 */
@@ -58,10 +59,14 @@ const enterpriseBodySchema = z.object({
 /**
  * 以企业保存为单一入口协调营业执照：写入新 URL（null 清空），并删除与新的不同的旧文件。
  * 仅当调用方显式传了 license_url（key 存在）时调用；未传则保持原状。
+ * 双时钟：本次为"写入非空执照"时，把该用户对此主体的 pending 认领从 1 小时限时上传期
+ * 续期到 7 天管理员审核期。
  */
 async function reconcileLicense(
+  ctx: AppContext,
   repo: SupplierDirectoryRepo,
   supplierId: number,
+  userId: number,
   nextUrl: string | null,
 ): Promise<void> {
   const normalized = nextUrl && nextUrl.trim() ? nextUrl.trim() : null;
@@ -69,6 +74,11 @@ async function reconcileLicense(
   const oldUrl = row?.license_url ? String(row.license_url) : null;
   if ((oldUrl ?? null) === normalized) return;
   await repo.updateLicenseUrl(supplierId, normalized);
+  if (normalized) {
+    const reviewExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      .toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+    await ctx.supplier.claimRepo.extendPendingClaimExpiry(userId, supplierId, reviewExpiresAt);
+  }
   if (oldUrl && oldUrl !== normalized) {
     try {
       await deleteFile(oldUrl);
@@ -122,7 +132,7 @@ export const PUT = withRoute(async (req) => {
   await ctx.supplier.directoryRepo.updateEnterprise(supplierId, body as Record<string, unknown>);
   // 执照以保存为单一入口：仅当本次 body 显式携带 license_url 时协调（含移除）
   if ("license_url" in body) {
-    await reconcileLicense(ctx.supplier.directoryRepo, supplierId, body.license_url ?? null);
+    await reconcileLicense(ctx, ctx.supplier.directoryRepo, supplierId, auth.userId, body.license_url ?? null);
   }
   return NextResponse.json({ code: 0, message: "ok" });
 });
@@ -185,7 +195,7 @@ export const POST = withRoute(async (req) => {
     }
     await ctx.user.usersRepo.bindSupplier(auth.userId, existingId, "verified");
     if ("license_url" in body) {
-      await reconcileLicense(repo, existingId, body.license_url ?? null);
+      await reconcileLicense(ctx, repo, existingId, auth.userId, body.license_url ?? null);
     }
     return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, reused: true } });
   }
@@ -202,7 +212,7 @@ export const POST = withRoute(async (req) => {
   await ctx.user.usersRepo.bindSupplier(auth.userId, newId, "verified");
   // 新建后落入本次上传的执照（上传时尚无 supplier_id，此处为首次持久化）
   if ("license_url" in body && body.license_url) {
-    await reconcileLicense(repo, newId, body.license_url);
+    await reconcileLicense(ctx, repo, newId, auth.userId, body.license_url);
   }
   return NextResponse.json({ code: 0, message: "ok", data: { supplierId: newId, reused: false } });
 });

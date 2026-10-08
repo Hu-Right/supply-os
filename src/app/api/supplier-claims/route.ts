@@ -13,9 +13,6 @@ import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { assertBindingAllowsSubject, readCurrentBinding } from "@/lib/services/enterprise-binding";
 
-const str = (v: unknown, max: number): string =>
-  String(v ?? "").trim().slice(0, max);
-
 /** POST — 提交认领申请 */
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -36,6 +33,13 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (!supplierId) {
     routeError(400, EC_INVALID_PARAMS, "必须指定要认领的供应商");
   }
+
+  // 执照可选：认领弹窗仅确认规则，执照在设置页限时上传（1 小时内保存即续期到审核窗口）
+  const LICENSE_URL_PREFIX = "/api/user/enterprise/license/";
+  const rawLicense = typeof body.license_url === "string" ? body.license_url.trim() : "";
+  const licenseUrl = rawLicense.startsWith(LICENSE_URL_PREFIX)
+    && /^license_[0-9a-zA-Z_-]{1,80}\.(jpg|jpeg|png|webp)$/.test(rawLicense.slice(LICENSE_URL_PREFIX.length))
+    ? rawLicense : "";
 
   const ctx = getContext();
 
@@ -83,23 +87,22 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, EC_INVALID_PARAMS, "该公司已有认领申请正在处理中，暂不能重复认领");
   }
 
-  // 计算 7 天后的过期时间
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  // 双时钟：创建时 1 小时（限时上传执照）；执照在企业信息页保存成功后自动续期 7 天（审核窗口）
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
   const expiresAtStr = expiresAt.toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
 
   try {
     const result = await createClaimWithBinding(ctx, {
       userId: auth.userId,
       supplierId,
-      contactName: str(body.contactName ?? body.contact_name, 100),
-      contactPhone: str(body.contactPhone ?? body.contact_phone, 50),
+      licenseUrl,
       expiresAt: expiresAtStr,
     });
 
     return NextResponse.json({
       success: true, id: result.claimId, status: "pending",
       expires_at: result.expiresAt,
-      message: "认领成功，请前往企业信息页完善资料并上传营业执照",
+      message: "认领成功，请在 1 小时内前往企业信息页上传营业执照并保存，逾期将自动解绑",
     }, { status: 201 });
   } catch (err) {
     console.error("[supplier-claims POST]", err);

@@ -8,15 +8,16 @@
  *              - 过期认领清理（解除绑定 + 重置状态）
  *              避免 API 路由层直接操作多张表。
  */
-import type { Pool, ResultSetHeader } from "mysql2/promise";
+import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import type { AppContext } from "../db/context";
 import { getPool } from "../db/pool";
+import { deleteFile } from "./file-upload";
 
 export interface CreateClaimParams {
   userId: number;
   supplierId: number;
-  contactName: string;
-  contactPhone: string;
+  /** 营业执照鉴权 URL；认领弹窗流程不带执照（用户后续在设置页限时上传），有则随认领落库 */
+  licenseUrl?: string;
   expiresAt: string;
 }
 
@@ -26,8 +27,9 @@ export interface CreateClaimResult {
 }
 
 /**
- * 创建认领记录并执行临时绑定
+ * 创建认领记录并执行临时绑定（执照可选：有则随认领落库）
  * 跨域操作：crm_supplier_claims + crm_users + supplier
+ * （2026-09-29 简化：联系人字段废弃；认领改为"确认即绑定 + 跳设置页限时上传执照"）
  */
 export async function createClaimWithBinding(
   ctx: AppContext,
@@ -35,18 +37,32 @@ export async function createClaimWithBinding(
 ): Promise<CreateClaimResult> {
   const { userId, supplierId, expiresAt } = params;
 
-  // 1. 创建认领记录
+  // 1. 创建认领记录（联系方式置 NULL：账号即联系方式）
   const claimId = await ctx.supplier.claimRepo.insertClaim(params);
 
   // 2. 临时绑定用户到供应商
   await ctx.user.usersRepo.bindSupplier(userId, supplierId, "verified");
 
-  // 3. 标记供应商为认领中
+  // 3. 标记认领中；执照有则随认领落库（旧执照文件 best-effort 清理，防堆积）
   const pool = getPool();
-  await pool.execute(
-    `UPDATE supplier SET claim_status = 'pending' WHERE id = ?`,
-    [supplierId],
-  );
+  if (params.licenseUrl) {
+    const [oldRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT license_url FROM supplier WHERE id = ? LIMIT 1`, [supplierId],
+    );
+    const oldUrl = String((oldRows as Array<{ license_url: string | null }>)[0]?.license_url ?? "") || null;
+    await pool.execute(
+      `UPDATE supplier SET claim_status = 'pending', license_url = ? WHERE id = ?`,
+      [params.licenseUrl, supplierId],
+    );
+    if (oldUrl && oldUrl !== params.licenseUrl) {
+      await deleteFile(oldUrl).catch(() => undefined);
+    }
+  } else {
+    await pool.execute(
+      `UPDATE supplier SET claim_status = 'pending' WHERE id = ?`,
+      [supplierId],
+    );
+  }
 
   return { claimId, expiresAt };
 }

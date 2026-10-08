@@ -10,24 +10,33 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 export class SupplierClaimRepo {
   constructor(private pool: Pool) {}
 
-  /** 提交供应商认领（立即临时绑定），返回自增 id */
+  /** 提交供应商认领（立即临时绑定），返回自增 id。联系方式已随 2026-09-29 简化废弃（账号即联系方式），置 NULL */
   async insertClaim(params: {
     userId: number;
     supplierId: number;
-    contactName: string;
-    contactPhone: string;
     expiresAt: string; // DATETIME 字符串
   }): Promise<number> {
     const [result] = await this.pool.execute(
       `INSERT INTO crm_supplier_claims
         (user_id, supplier_id, contact_name, contact_phone, status, expires_at)
-       VALUES (?, ?, ?, ?, 'pending', ?)`,
+       VALUES (?, ?, NULL, NULL, 'pending', ?)`,
       [
-        params.userId, params.supplierId, params.contactName,
-        params.contactPhone, params.expiresAt,
+        params.userId, params.supplierId, params.expiresAt,
       ],
     );
     return Number((result as RowDataPacket).insertId);
+  }
+
+  /**
+   * 执照已落库（企业信息保存成功）→ 把该用户对该主体的 pending 认领续期到审核窗口。
+   * 双时钟设计：创建时 1 小时（限时上传执照），执照落库即续 7 天（管理员审核期）。
+   */
+  async extendPendingClaimExpiry(userId: number, supplierId: number, expiresAt: string): Promise<void> {
+    await this.pool.execute(
+      `UPDATE crm_supplier_claims SET expires_at = ?
+       WHERE user_id = ? AND supplier_id = ? AND status = 'pending'`,
+      [expiresAt, userId, supplierId],
+    );
   }
 
   /**
