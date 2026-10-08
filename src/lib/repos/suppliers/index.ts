@@ -9,5 +9,5 @@
  */
 
 export { SupplierDirectoryRepo } from "./supplier-directory.repo";
-export type { SupplierDirectoryRow } from "./supplier-directory.repo";
+export type { SupplierDirectoryRow, BoundSubjectRow } from "./supplier-directory.repo";
 export { SupplierClaimRepo } from "./supplier-claim.repo";

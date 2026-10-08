@@ -94,6 +94,8 @@ export default defineConfig({
         "src/lib/services/ai/shared/llm-credentials.ts",
         "src/lib/services/supplier-pool.ts",
         "src/lib/repos/user-supplier-pool.repo.ts",
+        // 企业绑定排他闸口（账号侧一账号一主体 + 已认证主体身份不可改写）
+        "src/lib/services/enterprise-binding.ts",
 
         // ── src/lib/services/translation — 超时守护 ──
         "src/lib/services/translation/fetchWithTimeout.ts",
@@ -156,6 +158,8 @@ export default defineConfig({
         // ── src/shared — 纯逻辑 + 组件（有测试）──
         "src/shared/auth/**/*.ts",
         "src/shared/utils/cn.ts",
+        // 企业绑定状态口径（服务端闸口与前端徽章共用）
+        "src/shared/utils/enterprise-status.ts",
         "src/shared/utils/unixTs.ts",
         "src/shared/utils/advanced-syntax.ts",
         "src/shared/ui/Button.tsx",

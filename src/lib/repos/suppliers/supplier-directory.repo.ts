@@ -63,6 +63,15 @@ export interface ClaimOwnership {
   claimPending: boolean;
 }
 
+/** 账号绑定主体行（findBoundSubjectByUserId 的返回结构；排他判定与服务端文案共用） */
+export interface BoundSubjectRow extends RowDataPacket {
+  id: number;
+  company: string | null;
+  name_confirmed: string | null;
+  verify_status: string | null;
+  claim_status: string | null;
+}
+
 /** 页签检索字段白名单：q 关键词按页签路由到对应列；白名单外的值一律回落公司名 */
 const SEARCH_FIELDS = new Set([
   "product",
@@ -509,6 +518,28 @@ export class SupplierDirectoryRepo {
       boundByOther: Number(bound?.others ?? 0) > 0,
       claimPending: String((supRows as RowDataPacket[])[0]?.claim_status || "") === "pending",
     };
+  }
+
+  /**
+   * 账号当前绑定的企业主体（「一账号一主体」的账号侧读取口），无绑定返回 null。
+   *
+   * 与 getClaimOwnership 的分工：那边回答「**这家主体**归谁」，这边回答
+   * 「**这个账号**已经绑了谁」。认领排他此前只有前者，于是已绑 A 的账号认领无人
+   * 认领的 B 会一路放行，createClaimWithBinding 再把 crm_users.supplier_id 覆盖成 B
+   * ——审核中的 A 被抛下、已认证的 A 被顶掉，且没有任何入口能换回来。
+   * 只取排他判定所需的识别列，不复用 findFullById（整行含联系方式与执照 URL）。
+   */
+  async findBoundSubjectByUserId(userId: number): Promise<BoundSubjectRow | null> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT s.id, s.company, s.name_confirmed, s.verify_status, s.claim_status
+         FROM crm_users u
+         JOIN supplier s ON s.id = u.supplier_id
+        WHERE u.id = ? AND u.supplier_id IS NOT NULL AND u.supplier_id > 0
+        LIMIT 1`,
+      [userId],
+    );
+    const row = (rows as RowDataPacket[])[0];
+    return row ? ({ ...row, id: Number(row.id) } as BoundSubjectRow) : null;
   }
 
   /**
