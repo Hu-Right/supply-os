@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 // ── 隔离 mock：i18n / auth / 会员等级 / 重子组件 ──
+// t() 实现可切换：默认返回键名，个别用例让它回空串，用来钉住 `t(key) || 中文兜底` 那批分支
+const { tState } = vi.hoisted(() => ({ tState: { impl: (key: string) => key } }));
 vi.mock("@/core/i18n", () => ({
-  useLocale: () => ({ t: (key: string) => key, locale: "zh" }),
+  useLocale: () => ({ t: (key: string) => tState.impl(key), locale: "zh" }),
 }));
 
 // ProfileContent 使用 next/navigation 的 useRouter，测试环境需打桩
@@ -174,5 +176,24 @@ describe("ProfileContent", () => {
     mockAuthUser = null;
     const { container } = render(<ProfileContent />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it("t() 缺键（服务端 bundle 未含该键）→ 区块标题与字段标签回落中文兜底", () => {
+    mockAuthUser = { nickname: "测试昵称", email: "test@example.com", supplier_id: 42 };
+    mockEnterpriseBound = true;
+    mockEnterpriseData = { verify_status: "done", name_confirmed: "杭州中建工程技术有限公司" };
+    tState.impl = () => "";
+    try {
+      render(<ProfileContent />);
+      // 标签与「：」在同一个节点里，文本是「联系邮箱：」这类整体，故用正则包含式断言
+      expect(screen.getByText(/基本信息/)).toBeInTheDocument();
+      expect(screen.getByText(/安全设置/)).toBeInTheDocument();
+      expect(screen.getByText(/联系邮箱/)).toBeInTheDocument();
+      expect(screen.getByText(/供应商状态/)).toBeInTheDocument();
+      // 公司名仍照常展示，认证徽章走中文兜底
+      expect(screen.getByText("杭州中建工程技术有限公司")).toBeInTheDocument();
+    } finally {
+      tState.impl = (key: string) => key;
+    }
   });
 });

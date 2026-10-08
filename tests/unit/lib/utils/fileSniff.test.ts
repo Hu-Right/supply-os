@@ -44,6 +44,11 @@ describe("sniffFileKind", () => {
     const buf = Buffer.concat([Buffer.from("Rar!\x1a\x07"), Buffer.alloc(20)]);
     expect(sniffFileKind(buf)).toBe("rar");
   });
+
+  it("不足 12 字节：有内容按 text，空文件回 null（不能拿空 Buffer 去比魔数）", () => {
+    expect(sniffFileKind(Buffer.from("abc"))).toBe("text");
+    expect(sniffFileKind(Buffer.alloc(0))).toBeNull();
+  });
 });
 
 describe("checkUploadFile", () => {

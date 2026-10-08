@@ -30,6 +30,16 @@ describe("KeywordGroupsRepo", () => {
     const rows = await repo.listByUser(7);
     expect(rows[0].terms).toEqual(["a"]);
   });
+  it("listByUser：mysql2 对 JSON 列直接回数组 → 不再 JSON.parse", async () => {
+    mockQuery.mockResolvedValue([[{ id: 2, name: "g", terms: ["光伏", "inverter"], created_at: "t", updated_at: "t" }]]);
+    const rows = await repo.listByUser(7);
+    expect(rows[0].terms).toEqual(["光伏", "inverter"]);
+  });
+  it("listByUser：terms 为 NULL → 回落空数组（不能让下游 map 炸）", async () => {
+    mockQuery.mockResolvedValue([[{ id: 3, name: "g", terms: null, created_at: "t", updated_at: "t" }]]);
+    const rows = await repo.listByUser(7);
+    expect(rows[0].terms).toEqual([]);
+  });
   it("update：无字段时跳过 SQL", async () => {
     await expect(repo.update(7, 1, {})).resolves.toBe(true);
     expect(mockExecute).not.toHaveBeenCalled();
@@ -40,5 +50,13 @@ describe("KeywordGroupsRepo", () => {
     expect(mockExecute).toHaveBeenCalledWith(
       "DELETE FROM crm_product_keyword_groups WHERE user_id = ? AND id = ?", [7, 3],
     );
+  });
+  it("countByUser：有行取 cnt，0 或无行都回 0", async () => {
+    mockQuery.mockResolvedValue([[{ cnt: 5 }]]);
+    await expect(repo.countByUser(7)).resolves.toBe(5);
+    mockQuery.mockResolvedValue([[{ cnt: 0 }]]);
+    await expect(repo.countByUser(7)).resolves.toBe(0);
+    mockQuery.mockResolvedValue([[]]);
+    await expect(repo.countByUser(7)).resolves.toBe(0);
   });
 });

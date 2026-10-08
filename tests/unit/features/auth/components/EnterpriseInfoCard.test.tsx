@@ -1,8 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
+// t() 实现可切换：默认返回键名；个别用例里让键缺失（回空串），
+// 用来钉住组件里成片的 `t(key) || 中文兜底` 分支（服务端 bundle 缺键时的真实行为）。
+const { tState } = vi.hoisted(() => ({ tState: { impl: (key: string) => key } }));
 vi.mock("@/core/i18n", () => ({
-  useLocale: () => ({ t: (key: string) => key, locale: "zh" }),
+  useLocale: () => ({ t: (key: string) => tState.impl(key), locale: "zh" }),
 }));
 
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
@@ -126,5 +129,60 @@ describe("EnterpriseInfoCard", () => {
     );
     expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
     expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
+  });
+
+  it("t() 缺键（服务端 bundle 未含该键）→ 所有标签回落组件内中文兜底", () => {
+    tState.impl = () => "";
+    try {
+      render(<EnterpriseInfoCard enterprise={mockRow} loading={false} error={null} onRetry={noop} onBind={noop} />);
+      // 只要真实渲染一次，那些 `t(key) || 中文` 的兜底路径全部走到；断言取代表性几个
+      expect(screen.getByText("ID")).toBeInTheDocument();
+      expect(screen.getByText("确认后公司名")).toBeInTheDocument();
+      expect(screen.getByText("经营地址")).toBeInTheDocument();
+      expect(screen.getByText("统一社会信用代码")).toBeInTheDocument();
+      expect(screen.getByText("资料完整度")).toBeInTheDocument();
+    } finally {
+      tState.impl = (key: string) => key;
+    }
+  });
+
+  it("稀疏行（字段全空 + 国际 + 未合作）→ 空值走占位符，公司名回落到 company", () => {
+    render(
+      <EnterpriseInfoCard
+        enterprise={{
+          ...mockRow,
+          name_confirmed: "",
+          country_code: "US",
+          coop_status: 0,
+          province: "",
+          city: "",
+          address: "",
+          registered_address: "",
+          addtime: 0,
+          data_quality_score: "0",
+          contact: "",
+          position: "",
+          phone: "",
+          email: "",
+          website: "",
+          legal_rep: "",
+          established_at: "",
+          registered_capital: "",
+          credit_code: "",
+          industry: "",
+          type: "",
+          certification: "",
+          products: "",
+          intro: "",
+          check_note: "",
+        }}
+        loading={false}
+        error={null}
+        onRetry={noop}
+        onBind={noop}
+      />,
+    );
+    // name_confirmed 为空 → 取 company（卡片标题与表格内同一值，故允许多个）
+    expect(screen.getAllByText("宝通集团有限公司").length).toBeGreaterThan(0);
   });
 });

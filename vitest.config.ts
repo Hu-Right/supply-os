@@ -96,6 +96,8 @@ export default defineConfig({
         "src/lib/repos/user-supplier-pool.repo.ts",
         // 企业绑定排他闸口（账号侧一账号一主体 + 已认证主体身份不可改写）
         "src/lib/services/enterprise-binding.ts",
+        // 认领编排 + 到期释放清扫器（双时钟的唯一写入点）
+        "src/lib/services/supplier-claim.ts",
 
         // ── src/lib/services/translation — 超时守护 ──
         "src/lib/services/translation/fetchWithTimeout.ts",
@@ -154,6 +156,11 @@ export default defineConfig({
         "src/features/auth/components/ProfileContent.tsx",
         "src/features/auth/components/EnterpriseInfoCard.tsx",
         "src/features/auth/components/EnterpriseEditForm.tsx",
+        // 认领待完善倒计时横幅（账户设置页与企业信息页共用）
+        "src/features/auth/components/ClaimExpiryBanner.tsx",
+
+        // ── src/features/supplier-profile — 组件（有测试）──
+        "src/features/supplier-profile/components/SupplierClaimModal.tsx",
 
         // ── src/shared — 纯逻辑 + 组件（有测试）──
         "src/shared/auth/**/*.ts",

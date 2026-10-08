@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
+// t() 实现可切换：默认返回键名，个别用例让它回空串，用来钉住表单里成片的
+// `t(key) || 中文兜底` 分支（服务端 bundle 缺键时的真实行为）。
+const { tState } = vi.hoisted(() => ({ tState: { impl: (key: string) => key } }));
 vi.mock("@/core/i18n", () => ({
-  useLocale: () => ({ t: (key: string) => key, locale: "zh" }),
+  useLocale: () => ({ t: (key: string) => tState.impl(key), locale: "zh" }),
 }));
 
 import { EnterpriseEditForm } from "@/features/auth/components/EnterpriseEditForm";
@@ -81,5 +84,27 @@ describe("EnterpriseEditForm", () => {
     fireEvent.click(screen.getByText("authEnterpriseSave"));
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByText(/authEnterpriseRequiredMissing/)).toBeInTheDocument();
+  });
+
+  it("t() 缺键时分组标题与字段标签回落中文兜底；带上已有行回填也不报错", () => {
+    tState.impl = () => "";
+    try {
+      render(
+        <EnterpriseEditForm
+          initial={{ company: "宝通集团", country_code: "US", province: "" } as never}
+          saving={false}
+          onSubmit={vi.fn()}
+          onCancel={vi.fn()}
+          licenseUrl="/uploads/license/x.jpg"
+        />,
+      );
+      expect(screen.getByText("基本信息")).toBeInTheDocument();
+      expect(screen.getByText("联系信息")).toBeInTheDocument();
+      // 回填值落在 input.value 里（不是文本节点），按值断言
+      const inputs = screen.getAllByRole("textbox") as HTMLInputElement[];
+      expect(inputs.map((i) => i.value)).toContain("宝通集团");
+    } finally {
+      tState.impl = (key: string) => key;
+    }
   });
 });
