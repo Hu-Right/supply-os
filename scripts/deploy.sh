@@ -40,13 +40,25 @@ fi
 
 npm run build
 
-# 3.2 恢复 .env（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
+# 3.2 恢复 / 显式提供 .env（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
+#     生产 env 只有两个合法来源：build 前的备份，或显式指定的 APP_ENV_FILE。
+#     【不再回落拷贝仓库根 .env】——根 .env 通常是开发机配置（DB_PORT=3307 是笔记本上
+#     SSH 隧道的本地端口），静默拷上生产会让应用在启动期连不上数据库却对外显示 online。
+#     /tmp 会被开机清理，备份不保证存在；缺来源时停下让人决定，而不是猜。
 if [ -f /tmp/supply-os.env.bak ]; then
   cp /tmp/supply-os.env.bak .next/standalone/.env
-  echo "[deploy] 已恢复 .env"
-elif [ -f .env ]; then
-  cp .env .next/standalone/.env
-  echo "[deploy] 首次部署：复制 .env → .next/standalone/.env"
+  echo "[deploy] 已恢复 build 前的 .env 备份"
+elif [ -n "${APP_ENV_FILE:-}" ] && [ -f "${APP_ENV_FILE}" ]; then
+  cp "${APP_ENV_FILE}" .next/standalone/.env
+  echo "[deploy] 已从 APP_ENV_FILE 写入 standalone/.env"
+else
+  echo "[deploy] ✗ 无法确定生产 .env 来源，停止部署（不做任何猜测）："
+  echo "[deploy]   · /tmp/supply-os.env.bak 不存在（/tmp 可能已被开机清理）"
+  echo "[deploy]   · 未提供 APP_ENV_FILE"
+  echo "[deploy] 中断点在构建之后、重启之前，线上进程未受影响。显式指定后重跑："
+  echo "[deploy]   APP_ENV_FILE=/绝对路径/生产.env bash scripts/deploy.sh"
+  echo "[deploy] （若仓库根 .env 是开发机配置，直接指过来会导致启动期连不上数据库）"
+  exit 1
 fi
 
 # 3.3 复制静态资源（standalone 模式不会自动复制 .next/static）
