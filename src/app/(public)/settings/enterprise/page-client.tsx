@@ -19,6 +19,10 @@ import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCar
 import { EnterpriseEditForm } from "@/features/auth/components/EnterpriseEditForm";
 import { SupplierClaimModal } from "@/features/supplier-profile/components/SupplierClaimModal";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
+import {
+  classifyEnterpriseBindState,
+  enterpriseBindStateText,
+} from "@/shared/utils/enterprise-status";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
 
@@ -28,6 +32,8 @@ export default function EnterpriseSettingsClient() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // 信息型提示（认领引导一类）与报错分开渲染，避免把「该走认领」也涂成红色失败
+  const [notice, setNotice] = useState<string | null>(null);
   const [claimTarget, setClaimTarget] = useState<{ id: number; company: string } | null>(null);
   const enterprise = useEnterpriseInfo();
   const { claimExpiry, countdown } = useClaimExpiry(
@@ -52,12 +58,19 @@ export default function EnterpriseSettingsClient() {
 
   // V2（ADR-0004）：企业信息与供应商资源库不再互斥，已建库也可进入本页绑定/编辑企业。
 
+  // 绑定状态口径与后端排他闸口同源：这里只负责把「已绑定/审核中/已认证」如实告知用户
+  const bindState = classifyEnterpriseBindState(enterprise.enterprise);
+  const bindText = enterpriseBindStateText(bindState);
+  const boundCompany = enterprise.enterprise
+    ? String(enterprise.enterprise.name_confirmed || enterprise.enterprise.company || "")
+    : "";
+
   /** 认领提交成功（含表单引导与 POST claimRequired 两条路径）：临时绑定已建立，刷新后保存走 PUT 并入该行 */
   const handleClaimSuccess = () => {
     setClaimTarget(null);
     enterprise.retry();
     emitAppEvent("supply-os:enterprise-changed");
-    setMessage(
+    setNotice(
       t("authEnterpriseClaimSubmitted") ||
         "认领申请已提交，请在 7 天内完善企业信息并上传营业执照，审核通过后完成绑定",
     );
@@ -66,6 +79,7 @@ export default function EnterpriseSettingsClient() {
   const handleSubmit = async (values: Record<string, string>) => {
     setSaving(true);
     setMessage(null);
+    setNotice(null);
     try {
       if (enterprise.bound) {
         await api("/api/user/enterprise", { method: "PUT", body: values });
@@ -76,7 +90,7 @@ export default function EnterpriseSettingsClient() {
         });
         // 命中已认证企业：不落库、不退出编辑态，引导认领；认领提交后保存走 PUT 并入该行
         if (res?.claimRequired && res.supplierId) {
-          setMessage(
+          setNotice(
             t("authEnterpriseClaimRequired") || "该企业已通过平台认证，请通过认领流程完成绑定",
           );
           setClaimTarget({ id: Number(res.supplierId), company: String(values.company || "") });
@@ -89,6 +103,10 @@ export default function EnterpriseSettingsClient() {
       emitAppEvent("supply-os:enterprise-changed");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : (t("authEnterpriseSaveFailed") || "保存失败"));
+      // 失败常见成因是本地 bound 已过期（认领逾期自动解绑 / 另一端已完成绑定）：
+      // 重取一次让页面回到真实状态，避免用户沿着旧状态反复重试。
+      enterprise.retry();
+      emitAppEvent("supply-os:enterprise-changed");
     } finally {
       setSaving(false);
     }
@@ -113,6 +131,23 @@ export default function EnterpriseSettingsClient() {
       {message && (
         <p className="text-xs font-medium text-danger-600 bg-danger-50 border border-danger-200 rounded-lg p-3">
           {message}
+        </p>
+      )}
+
+      {notice && (
+        <p className="text-xs font-medium text-brand-700 bg-brand-50 border border-brand-200 rounded-lg p-3">
+          {notice}
+        </p>
+      )}
+
+      {/* 已绑定时的状态与排他说明：避免用户以为还能再提交一次认证 */}
+      {enterprise.bound && !enterprise.loading && (
+        <p className="text-xs text-muted-foreground bg-secondary-50 border border-border rounded-lg p-3">
+          {t("authEnterpriseBoundLockHint") ||
+            "一个账号只能认证一家企业；如需修改资料请使用「编辑」保存。"}
+          {boundCompany
+            ? `（当前：${boundCompany} · ${t(bindText.key) || bindText.fallback}）`
+            : ""}
         </p>
       )}
 
