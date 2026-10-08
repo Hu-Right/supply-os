@@ -13,6 +13,27 @@ import type { UnifiedSearchParams, MeiliHitResult } from "./types";
 
 const SEARCH_TIMEOUT_MS = 5000;
 
+/**
+ * 服务端是否接受 matchingStrategy=allOptional。
+ * null = 未知（首次 any 查询照常发出），false = 已被服务端 400 明确拒绝。
+ *
+ * 采取「撞到即学习」而不是解析版本号：现网 Meilisearch 只接受
+ * last/all/frequency（代码注释里「实测 1.52 支持」是另一套环境的结论），
+ * 而硬编码版本区间会在服务端升级后反向锁死功能。进程重启后自动重新探测。
+ */
+let supportsAllOptional: boolean | null = null;
+
+/**
+ * 判定是否为「请求本身不被接受」的 4xx 客户端错误。
+ * SDK 的 MeilisearchApiError 透传了原始 Response，据此取状态码；
+ * 取不到时退回按错误名判定（MeilisearchRequestError 等本地错误不在此列）。
+ */
+export function isClientRequestError(err: unknown): boolean {
+  const status = (err as { response?: { status?: number } })?.response?.status;
+  if (typeof status === "number") return status >= 400 && status < 500;
+  return (err as Error)?.name === "MeilisearchApiError";
+}
+
 /** Meilisearch 单次检索响应中被消费的字段子集（规避 SDK 分页联合类型不直接暴露 totalHits 的问题） */
 type MeiliSearchOutcome = {
   hits?: Array<{ id?: unknown }>;
@@ -58,6 +79,11 @@ export async function meiliQuery(
   }
   const INDEX_NAME = getIndexName();
 
+  // any 模式依赖服务端支持 allOptional；已知不支持时直接交回编排器走 MySQL
+  // （mysql-fallback 的 buildKeywordUnion 用 " OR " 完整实现了 any 语义），
+  // 避免每次 any 查询都白吃一发 400。
+  if (matchMode === "any" && supportsAllOptional === false) return null;
+
   try {
     const filter: string[] = [
       MEILI_ACTIVE_FILTER.replace("{now}", String(Math.floor(Date.now() / 1000))),
@@ -75,7 +101,8 @@ export async function meiliQuery(
       offset,
       attributesToRetrieve: ["id"],
       // all=所有词必须命中（硬 AND）；any=命中任一词即可（OR）。
-      // SDK 类型未声明 allOptional，但服务端（实测 1.52）支持且 search() 原样透传 body，故断言绕过
+      // SDK 类型未声明 allOptional，但 search() 原样透传 body，故断言绕过类型检查；
+      // 服务端是否接受由 supportsAllOptional 在运行期学习（见 catch 分支）。
       matchingStrategy: (matchMode === "any" ? "allOptional" : "all") as unknown as MatchingStrategies,
     });
 
@@ -94,11 +121,27 @@ export async function meiliQuery(
       if (timeoutId !== undefined) clearTimeout(timeoutId);
     }
   } catch (err) {
-    console.warn("[search-orchestrator] meiliQuery failed:", (err as Error).message);
+    const msg = (err as Error)?.message ?? String(err);
+    // ── 4xx（请求不被接受）与「服务不可用」必须分开对待 ──
+    // 参数校验类 400 只代表我方请求与当前服务端版本不匹配，与 Meilisearch
+    // 是否健康无关。此前一律 markUnhealthy()，一次 any 模式查询就能把全部搜索
+    // （含正常的 all 模式）整体降级到 46 万行宽表的 MySQL FULLTEXT 查询。
+    if (isClientRequestError(err)) {
+      if (matchMode === "any" && /allOptional/i.test(msg)) {
+        supportsAllOptional = false;
+        console.warn(
+          "[meilisearch] 服务端不支持 matchingStrategy=allOptional；any 模式改由 MySQL 降级承载（健康位不变）",
+        );
+      } else {
+        console.warn("[search-orchestrator] meiliQuery 请求被服务端拒绝（不改变健康位）:", msg);
+      }
+      return null;
+    }
+    console.warn("[search-orchestrator] meiliQuery failed:", msg);
     // 超时不标记不健康：机器高负载下的慢查询不代表服务不可用，
     // 否则"超时→标记→重建→重建后首查又超时"会形成死循环；
     // 连接类错误才标记，由编排器健康探测决定是否触发索引重建
-    if (!/timeout/i.test((err as Error).message)) markUnhealthy();
+    if (!/timeout/i.test(msg)) markUnhealthy();
     return null;
   }
 }
