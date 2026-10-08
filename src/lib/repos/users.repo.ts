@@ -9,8 +9,11 @@
  * @description 身份一律以 id (user_id) 为唯一锚点：
  *              - 所有查询/更新均按 user_id，SELECT 不回读任何身份列；
  *              - crm_users.user_key 已于迁移 068 DROP COLUMN，create() 的 INSERT 不含该列；
- *              - 注：部分业务表（如 crm_payment_orders / crm_user_interest_codes 等 13 张）仍残留
- *                user_key 列，但已停止写入且本仓不再读取，待确认后直接对库 DROP（仓库已无迁移执行器）。
+ *              - 业务表侧已收尾（2026-09-30 全库只读实测）：information_schema 扫到
+ *                含 user_key 列的表为 **0 张**，本仓代码亦无任何非注释引用，该字段已彻底退役。
+ *                警示：它不是逐表 ALTER DROP 的，而是随当日 17 张基表的**整表重建**一并消失（
+ *                CREATE_TIME 为证），因此早期的 user_key 历史快照已不可回溯，
+ *                仅 docs/数据库设计/_baseline-20260929/ 下的全表备份还留着一部分。
  */
 import type { Pool, ResultSetHeader } from "mysql2/promise";
 import type { UserRow } from "./types";
