@@ -13,8 +13,8 @@ import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { api } from "@/core/http";
 import { Button } from "@/shared/ui";
-import { Clock, AlertTriangle } from "lucide-react";
 import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
+import { ClaimExpiryBanner } from "@/features/auth/components/ClaimExpiryBanner";
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
 import { EnterpriseEditForm } from "@/features/auth/components/EnterpriseEditForm";
 import { SupplierClaimModal } from "@/features/supplier-profile/components/SupplierClaimModal";
@@ -40,7 +40,7 @@ export default function EnterpriseSettingsClient() {
   const [withdrawConfirm, setWithdrawConfirm] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const enterprise = useEnterpriseInfo();
-  const { claimExpiry, countdown } = useClaimExpiry(
+  const claim = useClaimExpiry(
     authUser?.id,
     enterprise.enterprise?.id ? Number(enterprise.enterprise.id) : undefined,
     enterprise.bound,
@@ -193,20 +193,8 @@ export default function EnterpriseSettingsClient() {
         </div>
       )}
 
-      {/* 认领过期倒计时横幅 */}
-      {claimExpiry && countdown && countdown !== "已过期" && (
-        <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span className="font-medium">认领待完善</span>
-          <span className="text-xs text-amber-600">请在 <strong>{countdown}</strong> 内完善企业信息并上传营业执照，逾期将自动解除绑定</span>
-        </div>
-      )}
-      {countdown === "已过期" && (
-        <div className="flex items-center gap-2 rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-sm text-danger-700">
-          <Clock className="w-4 h-4 shrink-0" />
-          <span>认领已过期，绑定已自动解除。如需绑定请重新认领。</span>
-        </div>
-      )}
+      {/* 认领待完善倒计时横幅（与账户设置页同一组件与文案；本页无需跳转按钮） */}
+      <ClaimExpiryBanner remaining={claim.remaining} expired={claim.expired} />
 
       {editing ? (
         <EnterpriseEditForm

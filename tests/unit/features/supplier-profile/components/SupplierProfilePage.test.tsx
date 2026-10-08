@@ -95,21 +95,21 @@ describe("SupplierProfilePage — 认领入口与换绑", () => {
 
   it("未登录不出现认领按钮", () => {
     render(<SupplierProfilePage />);
-    expect(screen.queryByText("认领该企业")).not.toBeInTheDocument();
+    expect(screen.queryByText("profile_claimTitle")).not.toBeInTheDocument();
   });
 
   it("已登录且未绑定企业：可发起认领", () => {
     mockUserId = 42;
     mockAuthUser = { id: 42, supplier_id: null };
     render(<SupplierProfilePage />);
-    expect(screen.getByText("认领该企业")).toBeInTheDocument();
+    expect(screen.getByText("profile_claimTitle")).toBeInTheDocument();
   });
 
   it("已绑定其他企业：认领按钮仍可点（旧绑定未认证时由服务端显式撤回后切换）", () => {
     mockUserId = 42;
     mockAuthUser = { id: 42, supplier_id: 100 };
     render(<SupplierProfilePage />);
-    expect(screen.getByText("认领该企业")).toBeInTheDocument();
+    expect(screen.getByText("profile_claimTitle")).toBeInTheDocument();
     // 旧口径把按钮换成不可点的锁提示，已认证/审核中一律藏入口；现在交给后端分状态处理
     expect(screen.queryByText("profile_claimLockedByBinding")).not.toBeInTheDocument();
   });
@@ -119,7 +119,7 @@ describe("SupplierProfilePage — 认领入口与换绑", () => {
     mockAuthUser = { id: 42, supplier_id: 123 };
     mockClaimed = true;
     render(<SupplierProfilePage />);
-    expect(screen.getByText("我已认领")).toBeInTheDocument();
+    expect(screen.getByText("profile_claimedByMe")).toBeInTheDocument();
     expect(screen.queryByText("profile_claimLockedByBinding")).not.toBeInTheDocument();
   });
 });

@@ -138,5 +138,13 @@
   "profile_seoCollection": "SEO-индексация / Страница для обмена",
   "profile_visitorDashboard": "Панель посетителей / запросов",
   "profile_supplierMember": "Поставщик-участник",
-  "profile_upgradePlan": "План обновления"
+  "profile_upgradePlan": "План обновления",
+  "profile_claimTitle": "Закрепить эту компанию",
+  "profile_claimBoundNote": "После подтверждения компания временно привязывается к вашему аккаунту.",
+  "profile_claimDeadlineNote": "Загрузите лицензию и сохраните её на странице предприятия в течение 1 часа, иначе привязка будет снята автоматически. После проверки лицензии сертификация станет официальной.",
+  "profile_claimConfirmCta": "Подтвердить и загрузить лицензию",
+  "profile_claimSubmitting": "Закрепление…",
+  "profile_claimFailed": "Не удалось отправить, попробуйте снова",
+  "profile_claimedByMe": "Закреплено мной",
+  "profile_claimedByOther": "Уже закреплено"
 }

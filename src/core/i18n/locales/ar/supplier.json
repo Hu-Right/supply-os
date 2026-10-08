@@ -138,5 +138,13 @@
   "profile_seoCollection": "فهرسة SEO / صفحة مشاركة",
   "profile_visitorDashboard": "لوحة الزوار / الاستفسارات",
   "profile_supplierMember": "عضو مورد",
-  "profile_upgradePlan": "خطة الترقية"
+  "profile_upgradePlan": "خطة الترقية",
+  "profile_claimTitle": "اطلب تملك هذه الشركة",
+  "profile_claimBoundNote": "بعد التأكيد، يتم ربط الشركة مؤقتًا بحسابك فورًا.",
+  "profile_claimDeadlineNote": "يرجى رفع رخصة الأعمال وحفظها في صفحة الشركة خلال ساعة واحدة، وإلا سيُلغى الربط تلقائيًا؛ وبعد التحقق من الرخصة تصبح الشهادة رسمية.",
+  "profile_claimConfirmCta": "تأكيد الطلب ورفع الرخصة",
+  "profile_claimSubmitting": "جارٍ الطلب…",
+  "profile_claimFailed": "تعذّر الإرسال، حاول مرة أخرى",
+  "profile_claimedByMe": "مملوكة من قبلي",
+  "profile_claimedByOther": "مملوكة بالفعل"
 }

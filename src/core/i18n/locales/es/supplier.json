@@ -138,5 +138,13 @@
   "profile_seoCollection": "Indexación SEO / Página para compartir",
   "profile_visitorDashboard": "Panel de visitantes / consultas",
   "profile_supplierMember": "Miembro proveedor",
-  "profile_upgradePlan": "Plan de actualización"
+  "profile_upgradePlan": "Plan de actualización",
+  "profile_claimTitle": "Reclamar esta empresa",
+  "profile_claimBoundNote": "Al confirmar, la empresa se vincula temporalmente a tu cuenta.",
+  "profile_claimDeadlineNote": "Sube la licencia comercial y guárdala en la página de empresa en 1 hora; si vence, el vínculo se liberará automáticamente. Al verificarse la licencia, la certificación será oficial.",
+  "profile_claimConfirmCta": "Confirmar y subir licencia",
+  "profile_claimSubmitting": "Reclamando…",
+  "profile_claimFailed": "Error al enviar, inténtalo de nuevo",
+  "profile_claimedByMe": "Reclamada por mí",
+  "profile_claimedByOther": "Ya reclamada"
 }

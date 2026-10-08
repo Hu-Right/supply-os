@@ -16,6 +16,10 @@ import { toUnixMs } from "./unixTs";
 
 export interface CountdownResult {
   days: number;
+  /** 不足一天的剩余小时（供只需粗粒度天/时的场景直接用，避免各页自算 diff） */
+  hours: number;
+  /** 不足一小时的剩余分钟 */
+  minutes: number;
   /** HH:MM:SS 格式 */
   time: string;
 }
@@ -42,6 +46,8 @@ export function getCountdown(deadlineTs?: number | string | null): CountdownResu
 
   return {
     days,
+    hours,
+    minutes: mins,
     time: `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`,
   };
 }

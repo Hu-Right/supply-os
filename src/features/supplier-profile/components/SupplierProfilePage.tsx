@@ -136,7 +136,9 @@ export function SupplierProfilePage() {
               {userId && claimed && (
                 <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-400">
                   <ShieldCheck className="w-4 h-4" />
-                  {isMySubject ? "我已认领" : "已被认领"}
+                  {isMySubject
+                    ? t("profile_claimedByMe") || "我已认领"
+                    : t("profile_claimedByOther") || "已被认领"}
                 </span>
               )}
               {userId && !claimed && (
@@ -145,7 +147,7 @@ export function SupplierProfilePage() {
                   variant="outline"
                   className="px-4 py-3 text-sm font-bold gap-2 border-teal-200 text-teal-700 hover:bg-teal-50"
                 >
-                  <ShieldCheck className="w-4 h-4" />认领该企业
+                  <ShieldCheck className="w-4 h-4" />{t("profile_claimTitle") || "认领该企业"}
                 </Button>
               )}
               <Button onClick={handleContact} variant="primary" className="px-6 py-3 text-sm font-bold gap-2">

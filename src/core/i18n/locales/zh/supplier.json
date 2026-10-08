@@ -138,5 +138,13 @@
   "profile_seoCollection": "SEO收录 / 分享页",
   "profile_visitorDashboard": "访客 / 询盘数据看板",
   "profile_supplierMember": "供应商会员",
-  "profile_upgradePlan": "升级供应商方案"
+  "profile_upgradePlan": "升级供应商方案",
+  "profile_claimTitle": "认领该企业",
+  "profile_claimBoundNote": "确认后该企业立即临时绑定到您的账号。",
+  "profile_claimDeadlineNote": "请在 1 小时内前往企业信息页上传营业执照并保存，逾期将自动解绑；执照核验通过后即正式认证。",
+  "profile_claimConfirmCta": "确认认领，去上传执照",
+  "profile_claimSubmitting": "认领中…",
+  "profile_claimFailed": "提交失败，请稍后重试",
+  "profile_claimedByMe": "我已认领",
+  "profile_claimedByOther": "已被认领"
 }

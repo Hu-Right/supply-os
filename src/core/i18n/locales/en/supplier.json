@@ -138,5 +138,13 @@
   "profile_seoCollection": "SEO Indexing / Share Page",
   "profile_visitorDashboard": "Visitor / Inquiry Dashboard",
   "profile_supplierMember": "Supplier Member",
-  "profile_upgradePlan": "Upgrade Supplier Plan"
+  "profile_upgradePlan": "Upgrade Supplier Plan",
+  "profile_claimTitle": "Claim this company",
+  "profile_claimBoundNote": "Once confirmed, this company is temporarily bound to your account.",
+  "profile_claimDeadlineNote": "Upload the business license and save it on the enterprise page within 1 hour, or the binding is released automatically; once the license is verified, the certification becomes official.",
+  "profile_claimConfirmCta": "Confirm claim, upload license",
+  "profile_claimSubmitting": "Claiming…",
+  "profile_claimFailed": "Submission failed, please try again",
+  "profile_claimedByMe": "Claimed by me",
+  "profile_claimedByOther": "Already claimed"
 }

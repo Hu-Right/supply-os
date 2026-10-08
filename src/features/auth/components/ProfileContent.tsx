@@ -10,7 +10,7 @@
  */
 import { useRouter } from "next/navigation";
 import { useEffect, type ComponentType } from "react";
-import { User, LogOut, AlertTriangle, Clock } from "lucide-react";
+import { User, LogOut } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { useMembershipTier } from "@/shared/hooks/useMembershipTier";
@@ -20,6 +20,7 @@ import { PhoneBinding } from "./PhoneBinding";
 import { EmailBinding } from "./EmailBinding";
 import { NicknameEditor } from "./NicknameEditor";
 import { AccountBenefitsCard } from "./AccountBenefitsCard";
+import { ClaimExpiryBanner } from "./ClaimExpiryBanner";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 import {
   classifyEnterpriseBindState,
@@ -56,7 +57,7 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
   const { tierLabel } = useMembershipTier();
   const router = useRouter();
   const enterprise = useEnterpriseInfo();
-  const { claimExpiry, countdown } = useClaimExpiry(
+  const claim = useClaimExpiry(
     authUser?.id,
     enterprise.enterprise?.id ? Number(enterprise.enterprise.id) : undefined,
     enterprise.bound,
@@ -88,27 +89,13 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
 
   return (
     <div className="space-y-7 w-full">
-      {/* 认领过期倒计时横幅 */}
-      {claimExpiry && countdown && countdown !== "已过期" && (
-        <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          <span className="font-medium">企业认领待完善</span>
-          <span className="text-xs text-amber-600">请在 <strong>{countdown}</strong> 内前往企业信息页完善资料并上传营业执照</span>
-          <button
-            type="button"
-            onClick={() => router.push("/settings/enterprise")}
-            className="ml-auto text-xs font-medium text-amber-700 hover:text-amber-900 underline"
-          >
-            前往完善 →
-          </button>
-        </div>
-      )}
-      {countdown === "已过期" && (
-        <div className="flex items-center gap-2 rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-sm text-danger-700">
-          <Clock className="w-4 h-4 shrink-0" />
-          <span>认领已过期，绑定已自动解除。如需绑定请重新认领。</span>
-        </div>
-      )}
+      {/* 认领待完善倒计时横幅（与企业信息页同一组件与文案） */}
+      <ClaimExpiryBanner
+        remaining={claim.remaining}
+        expired={claim.expired}
+        withCta
+        onCta={() => router.push("/settings/enterprise")}
+      />
       {/* ── 基本信息 ── */}
       <section>
         <SectionTitle>{t("settingsBasicInfo") || "基本信息"}</SectionTitle>
