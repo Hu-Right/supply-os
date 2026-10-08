@@ -23,6 +23,7 @@ import {
   classifyEnterpriseBindState,
   enterpriseBindStateText,
 } from "@/shared/utils/enterprise-status";
+import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
 
@@ -35,6 +36,9 @@ export default function EnterpriseSettingsClient() {
   // 信息型提示（认领引导一类）与报错分开渲染，避免把「该走认领」也涂成红色失败
   const [notice, setNotice] = useState<string | null>(null);
   const [claimTarget, setClaimTarget] = useState<{ id: number; company: string } | null>(null);
+  /** 换绑二次确认弹窗开关与撤回进行中标识 */
+  const [withdrawConfirm, setWithdrawConfirm] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const enterprise = useEnterpriseInfo();
   const { claimExpiry, countdown } = useClaimExpiry(
     authUser?.id,
@@ -64,6 +68,30 @@ export default function EnterpriseSettingsClient() {
   const boundCompany = enterprise.enterprise
     ? String(enterprise.enterprise.name_confirmed || enterprise.enterprise.company || "")
     : "";
+  // 换绑出口（与服务端闸口同一分状态口径）：还没拿下认证的绑定可自助撤回；
+  // 已认证的不能自助拆（只能后台重审/客服），所以连按钮也不出现，避免点了才报错。
+  const canWithdraw = enterprise.bound && !enterprise.loading && bindState !== "verified";
+
+  /** 撤回当前绑定：后端不接收 supplierId，只能拆自己这一行；成功后重取状态并引导重新填写 */
+  const handleWithdraw = async () => {
+    setWithdrawing(true);
+    setMessage(null);
+    setNotice(null);
+    try {
+      await api("/api/user/enterprise/withdraw", { method: "POST" });
+      setWithdrawConfirm(false);
+      setNotice(
+        t("authEnterpriseWithdrawDone") || "已撤回企业绑定，请点击「填写企业信息」为新企业提交认证",
+      );
+      enterprise.retry();
+      emitAppEvent("supply-os:enterprise-changed");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : (t("authEnterpriseWithdrawFailed") || "撤回失败，请稍后重试"));
+      enterprise.retry();
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   /** 认领提交成功（含表单引导与 POST claimRequired 两条路径）：临时绑定已建立，刷新后保存走 PUT 并入该行 */
   const handleClaimSuccess = () => {
@@ -140,15 +168,29 @@ export default function EnterpriseSettingsClient() {
         </p>
       )}
 
-      {/* 已绑定时的状态与排他说明：避免用户以为还能再提交一次认证 */}
+      {/* 已绑定时的状态与换绑出口：避免用户以为还能再提交一次认证，也不让人被旧绑定锁死 */}
       {enterprise.bound && !enterprise.loading && (
-        <p className="text-xs text-muted-foreground bg-secondary-50 border border-border rounded-lg p-3">
-          {t("authEnterpriseBoundLockHint") ||
-            "一个账号只能认证一家企业；如需修改资料请使用「编辑」保存。"}
-          {boundCompany
-            ? `（当前：${boundCompany} · ${t(bindText.key) || bindText.fallback}）`
-            : ""}
-        </p>
+        <div className="space-y-2 rounded-lg border border-border bg-secondary-50 p-3">
+          <p className="text-xs text-muted-foreground">
+            {bindState === "verified"
+              ? (t("authEnterpriseVerifiedLocked") ||
+                  "企业已通过认证，不能自助换绑；如需变更主体请联系客服，由后台重新审核。")
+              : (t("authEnterpriseBoundLockHint") ||
+                  "一个账号只能认证一家企业；如需修改资料请使用「编辑」保存。")}
+            {boundCompany
+              ? `（当前：${boundCompany} · ${t(bindText.key) || bindText.fallback}）`
+              : ""}
+          </p>
+          {canWithdraw && (
+            <button
+              type="button"
+              className="text-xs font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800"
+              onClick={() => setWithdrawConfirm(true)}
+            >
+              {t("authEnterpriseWithdrawAction") || "撤回当前绑定，换绑其他企业"}
+            </button>
+          )}
+        </div>
       )}
 
       {/* 认领过期倒计时横幅 */}
@@ -185,6 +227,20 @@ export default function EnterpriseSettingsClient() {
           onBind={() => setEditing(true)}
         />
       )}
+
+      {/* 换绑二次确认：撤回后旧申请作废（不删企业资料），可重新为另一家提交 */}
+      <ConfirmDialog
+        open={withdrawConfirm}
+        onClose={() => setWithdrawConfirm(false)}
+        onConfirm={handleWithdraw}
+        variant="danger"
+        loading={withdrawing}
+        title={t("authEnterpriseWithdrawTitle") || "撤回企业绑定"}
+        description={(t("authEnterpriseWithdrawConfirm") ||
+          "撤回后「{name}」的认证/认领申请将作废（企业资料仍保留在平台，只解除与本账号的绑定），之后可重新为另一家企业提交认证。确认撤回？")
+          .replace("{name}", boundCompany || "当前企业")}
+        confirmLabel={t("authEnterpriseWithdraw") || "撤回绑定"}
+      />
 
       {/* 认领弹窗（表单候选引导 / POST claimRequired 两条路径共用） */}
       {claimTarget && (

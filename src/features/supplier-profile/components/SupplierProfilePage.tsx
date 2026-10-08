@@ -71,8 +71,6 @@ export function SupplierProfilePage() {
   const myBoundSupplierId = Number(authUser?.supplier_id ?? 0);
   // 归属人＝当前账号绑定的正是本页主体
   const isMySubject = myBoundSupplierId > 0 && myBoundSupplierId === dbSupplierId;
-  // 一账号一主体：已绑定别家企业的账号不能再对这家发起认领（后端同一口径会直接 400）
-  const lockedByOwnBinding = myBoundSupplierId > 0 && !isMySubject;
 
   const handleContact = async () => {
     if (!supplier) return;
@@ -141,7 +139,7 @@ export function SupplierProfilePage() {
                   {isMySubject ? "我已认领" : "已被认领"}
                 </span>
               )}
-              {userId && !claimed && !lockedByOwnBinding && (
+              {userId && !claimed && (
                 <Button
                   onClick={() => setShowClaimModal(true)}
                   variant="outline"
@@ -149,12 +147,6 @@ export function SupplierProfilePage() {
                 >
                   <ShieldCheck className="w-4 h-4" />认领该企业
                 </Button>
-              )}
-              {userId && !claimed && lockedByOwnBinding && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-400">
-                  <ShieldCheck className="w-4 h-4" />
-                  {t("profile_claimLockedByBinding") || "已绑定企业，无法再认领"}
-                </span>
               )}
               <Button onClick={handleContact} variant="primary" className="px-6 py-3 text-sm font-bold gap-2">
                 <Send className="w-4 h-4" />{t("profile_sendInquiry")}
