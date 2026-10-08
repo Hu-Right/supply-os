@@ -104,7 +104,7 @@ export class SupplierDirectoryRepo {
               data_quality_score
        FROM supplier
        WHERE company <> '测试'
-         AND (verify_status = 'done' OR verify_status IS NULL)
+         AND verify_status = 'done'
        ORDER BY id DESC
        LIMIT 500`,
     );
@@ -124,9 +124,11 @@ export class SupplierDirectoryRepo {
     const { limit, offset, search, field, type, industry } = params;
 
     // ── WHERE 条件构建 ──
+    // 已认证口径只认 verify_status='done'：旧逻辑额外把 NULL 视同已认证（为外部同步的空值
+    // 行预留），2026-10-08 实库取证 NULL 行数=0，该兼容分支已无命中，按不保留兼容直接删除。
     const conditions: string[] = [
       "company <> '测试'",
-      "(verify_status = 'done' OR verify_status IS NULL)",
+      "verify_status = 'done'",
     ];
     const values: string[] = [];
 
@@ -210,7 +212,7 @@ export class SupplierDirectoryRepo {
               business_type_code,
               data_quality_score
        FROM supplier
-       WHERE id = ? AND (verify_status = 'done' OR verify_status IS NULL)
+       WHERE id = ? AND verify_status = 'done'
        LIMIT 1`,
       [id],
     );
@@ -454,13 +456,13 @@ export class SupplierDirectoryRepo {
       "SELECT COUNT(*) as total FROM supplier",
     );
     const [verifiedRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND (verify_status = 'done' OR verify_status IS NULL)",
+      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND verify_status = 'done'",
     );
     const [certRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE certification IS NOT NULL AND certification <> '' AND company <> '测试' AND (verify_status = 'done' OR verify_status IS NULL)",
+      "SELECT COUNT(*) as total FROM supplier WHERE certification IS NOT NULL AND certification <> '' AND company <> '测试' AND verify_status = 'done'",
     );
     const [intlRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND (verify_status = 'done' OR verify_status IS NULL)",
+      "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND verify_status = 'done'",
     );
     // 已认证 且 匹配了 UNSPSC 的供应商数（JOIN 桥接表 crm_supplier_unspsc_interests）
     const [unspscRows] = await this.pool.query(

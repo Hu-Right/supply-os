@@ -104,7 +104,7 @@ export class UserSupplierPoolRepo {
       SELECT s.id, s.company, s.industry${userId ? ", (p.id IS NOT NULL) AS in_pool" : ", 0 AS in_pool"}
       FROM supplier s
       ${userId ? "LEFT JOIN crm_user_supplier_pool p ON p.supplier_id = s.id AND p.user_id = ?" : ""}
-      WHERE s.company LIKE ? AND (s.verify_status = 'done' OR s.verify_status IS NULL)
+      WHERE s.company LIKE ? AND s.verify_status = 'done'
       ORDER BY CHAR_LENGTH(s.company) ASC
       LIMIT ${Math.max(1, Math.min(20, Number(limit) || 8))}`;
     const params = userId ? [userId, `%${escaped}%`] : [`%${escaped}%`];
@@ -121,7 +121,7 @@ export class UserSupplierPoolRepo {
   async findVerifiedById(supplierId: number): Promise<{ id: number; company: string; industry: string } | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, industry FROM supplier
-       WHERE id = ? AND (verify_status = 'done' OR verify_status IS NULL)
+       WHERE id = ? AND verify_status = 'done'
        LIMIT 1`,
       [supplierId],
     );
