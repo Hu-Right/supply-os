@@ -4,7 +4,7 @@
  *
  * 在 CI 或本地 E2E 测试前执行：
  * 1. 连接 MySQL 并创建测试数据库（若不存在）
- * 2. 校验目标库已有表结构（迁移链已于 2026-09-29 清空，结构不再由本仓建立）
+ * 2. 校验目标库已有表结构（迁移机制已恢复但清单为空，因此本脚本仍不建表）
  * 3. 写入种子数据（会员计划、底部链接等）
  * 4. 创建 E2E 专用测试账号
  *
@@ -65,8 +65,10 @@ async function main() {
     connectionLimit: 5,
   });
 
-  // 3. 结构前置校验：迁移链已清空，本脚本不再建表；空库一律 fail-fast，
-  //    避免静默建出一个“表都不存在”的测试库、到 E2E 阶段才以莫名的 SQL 错误暴露。
+  // 3. 结构前置校验：迁移机制已恢复（src/lib/db/schema.ts 的 ALL_MIGRATIONS），但当前清单为空，
+  //    所以这里不跑迁移而是直接要求结构已就位；空库一律 fail-fast，避免静默建出一个
+  //    “表都不存在”的测试库、到 E2E 阶段才以莫名的 SQL 错误暴露。
+  //    将来若写入真迁移，把这里换成 runMigrations(pool, ALL_MIGRATIONS) 即可。
   const [tbl] = await pool.query(
     `SELECT COUNT(*) AS c FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()`,
   );

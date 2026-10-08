@@ -4,16 +4,19 @@
  *
  * @module server/lifecycle/phases
  * @description 将启动流程拆分为独立阶段，每个阶段可独立错误处理、日志、耗时统计。
- *              启动期不再做任何 DDL：结构以生产库当前状态为事实源（全库终态见
- *              docs/数据库设计/_baseline-20260929/schema-all-tables.sql）。
+ *              迁移机制已于 2026-10-08 恢复可用，但纪律是**非必要不写**：结构以生产库当前状态
+ *              为事实源（全库终态见 docs/数据库设计/_baseline-20260929/schema-all-tables.sql）；
+ *              当前 ALL_MIGRATIONS 为空，schema 阶段只做账本检查，不产生任何 DDL。
  *
- *              【未完成的维护窗口事项，勿丢】宽表源指纹列（原迁移 087）仍未加：
+ *              【待落成迁移的事项】宽表源指纹列（原迁移 087）仍未加：
  *              生产宽表 46.2 万行无法 ALGORITHM=INSTANT，必须安排维护窗口；运行期已做成
  *              「列缺失则自动降级」（见 search-sync/wide-fingerprint.ts），所以没列也能正常跑。
  *              代码本体在 docs/数据库设计/_baseline-20260929/pre-delete-backup/migrations-full.zip
- *              （文件名 087-wide-table-sync-fingerprint.ts）；但仓库已无迁移执行器，加列请直接对库执行 DDL。
+ *              （文件名 087-wide-table-sync-fingerprint.ts）；窗口时取回该文件、避开已用过的
+ *              001–106 编号后放进 migrations/ 并 push 进 ALL_MIGRATIONS 即可（幂等：列存在则跳过）。
  */
 import type { Pool } from "mysql2/promise";
+import { ensureProcurementSchema } from "../db/schema";
 import { backfillIndustryPrefsL45Null, hydratePaymentEnvFromDb } from "../db/backfills";
 import { refreshFeaturedColumn } from "../services/notices/index";
 import { isHealthy as isMeiliHealthy, syncNoticeIds } from "../services/meilisearch/index";
@@ -29,8 +32,17 @@ export interface Phase {
 }
 
 /**
- * 阶段 1: 存量数据回填
- * （原「Schema 迁移」阶段已随迁移链清空而删除：结构以生产库当前状态为事实源，启动期不再做 DDL。）
+ * 阶段 1: Schema 迁移（当前清单为空，只走账本检查；非必要不写迁移）
+ */
+export const schemaPhase: Phase = {
+  name: "schema",
+  async run(ctx) {
+    await ensureProcurementSchema(ctx.dbPool);
+  },
+};
+
+/**
+ * 阶段 2: 存量数据回填
  */
 export const backfillPhase: Phase = {
   name: "backfill",
@@ -44,7 +56,7 @@ export const backfillPhase: Phase = {
 };
 
 /**
- * 阶段 2: 精选列回填
+ * 阶段 3: 精选列回填
  */
 export const featuredPhase: Phase = {
   name: "featured",
@@ -58,7 +70,7 @@ export const featuredPhase: Phase = {
 };
 
 /**
- * 阶段 3: 支付环境回填
+ * 阶段 4: 支付环境回填
  */
 export const paymentPhase: Phase = {
   name: "payment",
