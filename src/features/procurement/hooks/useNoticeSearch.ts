@@ -19,7 +19,6 @@ import { useSearchFormState } from "./search/useSearchFormState";
 import { useSearchQuery } from "./search/useSearchQuery";
 import { useSearchActions, type SearchActions } from "./search/useSearchActions";
 import { useSearchResults } from "./search/useSearchResults";
-import { NOTICE_PAGE_SIZE } from "../constants";
 
 export interface UseNoticeSearchOptions {
   userId: number | undefined;
