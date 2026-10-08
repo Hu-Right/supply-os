@@ -30,7 +30,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, 40000, "请求数据格式错误");
   }
 
-  const supplierIdRaw = Number(body.supplierId ?? body.supplier_id);
+  const supplierIdRaw = Number(body.supplier_id);
   const supplierId = Number.isFinite(supplierIdRaw) && supplierIdRaw > 0 ? supplierIdRaw : null;
 
   if (!supplierId) {
@@ -60,13 +60,14 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, EC_INVALID_PARAMS, "要认领的供应商不存在");
   }
 
-  // ── 账号侧排他（一个账号只能绑一家主体）──
+  // ── 账号侧换绑闸口（分状态）──
   // 下面的 ownership 只回答「这家主体归谁」，不回答「这个账号已经绑了谁」：
   // 已绑定 A 的账号去认领无人认领的 B 会一路放行，createClaimWithBinding 随即把
   // crm_users.supplier_id 覆盖成 B——审核中的 A 被抛下、已认证的 A 被顶掉，且无入口换回。
-  // 目标恰为当前绑定行时放行，由下面的 selfBound 分支给「无需重复认领」文案。
+  // 现在：A 未拿下认证 → 先显式撤回 A（解绑 + 作废旧 pending 认领）再认领 B；
+  // A 已认证 → 400。目标恰为当前绑定行时放行，由下面的 selfBound 分支给「无需重复认领」文案。
   const binding = await readCurrentBinding(ctx, auth.userId);
-  assertBindingAllowsSubject(binding, supplierId, "claim");
+  await assertBindingAllowsSubject(ctx, auth.userId, binding, supplierId, "claim");
 
   // ── 排他检查：已被认领的主体直接拒绝，不进入 7 天排他期 ──
   // 区分三种状态给准确文案：旧口径的「正在被认领中，请稍后再试」会误导用户以为

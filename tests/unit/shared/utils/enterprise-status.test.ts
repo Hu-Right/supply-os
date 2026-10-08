@@ -7,13 +7,14 @@
  *                 verify_status=done（认领一家已通过资质审核的公司时，账号自身仍是审核中）；
  *              3. verify_status=done 或 claim_status=verified → verified；
  *              4. verify_status=pending → pending；rejected → rejected；
- *              5. 已绑定但两个状态列都为空 → linked（复用他人未认证档案的历史行）。
+ *              5. 已绑定但两个状态列都为空 → linked（复用他人未认证档案的历史行）；
+ *              6. 换绑锁只给已认证：未拿下认证的旧绑定可以自助撤回重来（路线三）。
  */
 import { describe, it, expect } from "vitest";
 import {
   classifyEnterpriseBindState,
   enterpriseBindStateText,
-  isBindingLockedForNewSubject,
+  isBindingLockedForSubjectSwitch,
 } from "@/shared/utils/enterprise-status";
 
 describe("classifyEnterpriseBindState", () => {
@@ -58,12 +59,16 @@ describe("enterpriseBindStateText", () => {
   });
 });
 
-describe("isBindingLockedForNewSubject", () => {
-  it("已绑定（含审核中/已认证/已驳回）一律锁住新主体；仅 none 放行", () => {
-    expect(isBindingLockedForNewSubject("verified")).toBe(true);
-    expect(isBindingLockedForNewSubject("pending")).toBe(true);
-    expect(isBindingLockedForNewSubject("rejected")).toBe(true);
-    expect(isBindingLockedForNewSubject("linked")).toBe(true);
-    expect(isBindingLockedForNewSubject("none")).toBe(false);
+describe("isBindingLockedForSubjectSwitch", () => {
+  it("仅已认证锁死换绑；审核中/已驳回/已绑定无状态都可自助切换", () => {
+    expect(isBindingLockedForSubjectSwitch("verified")).toBe(true);
+    expect(isBindingLockedForSubjectSwitch("pending")).toBe(false);
+    expect(isBindingLockedForSubjectSwitch("rejected")).toBe(false);
+    expect(isBindingLockedForSubjectSwitch("linked")).toBe(false);
+    expect(isBindingLockedForSubjectSwitch("none")).toBe(false);
+  });
+
+  it("认领待核也不锁（绑定仍是临时态，撤回旧申请是正当路径）", () => {
+    expect(isBindingLockedForSubjectSwitch(classifyEnterpriseBindState({ verify_status: "done", claim_status: "pending" }))).toBe(false);
   });
 });

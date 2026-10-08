@@ -3,10 +3,11 @@
  * Enterprise binding status
  *
  * @module shared/utils/enterprise-status
- * @description 「一个账号同一时间只绑定一家企业」的**唯一判定口径**：服务端排他守卫
- *              （/api/user/enterprise POST、/api/supplier-claims POST）与前端状态徽章
- *              （ProfileContent / EnterpriseInfoCard / 企业信息页）共用同一分类器，
- *              避免出现「页面说已绑定、接口却允许再认证」的两套真相。
+ * @description 「一个账号同一时间只绑定一家企业」的**唯一判定口径**：服务端换绑闸口
+ *              （/api/user/enterprise POST、/api/supplier-claims POST、
+ *              /api/user/enterprise/withdraw）与前端状态徽章（ProfileContent /
+ *              EnterpriseInfoCard / 企业信息页）共用同一分类器，避免出现「页面说已绑定、
+ *              接口却允许再认证」的两套真相。
  *              输入只依赖 supplier 行的两个状态列：
  *              - verify_status：主体资质审核（pending 审核中 / done 已认证 / rejected 已驳回）
  *              - claim_status：认领归属（pending 认领待核 / verified 归属已确认）
@@ -53,10 +54,11 @@ export function enterpriseBindStateText(state: EnterpriseBindState): { key: stri
 }
 
 /**
- * 绑定是否锁死「新主体」：只要账号已绑定任意主体（含审核中/已认证/已驳回），
- * 就不得再触发新的认证或认领——已驳回的救济路径是编辑原资料重新送审，
- * 而不是换一家公司另起一行（会在共享 supplier 目录里堆积重复主体）。
+ * 绑定是否锁死「换主体」：只有**已认证**（资质已过 / 后台已确认归属）不许自助切换，
+ * 必须由后台重审或客服处理。审核中/已驳回/认领待核/无状态旧绑定都是**可撤回**的——
+ * 它们还没拿下认证，拦住只会把用户逼到「静默覆盖旧绑定」这条暗路上；
+ * 给出正当的换绑出口，才能既守住一账号一主体，又不让人被错误的旧绑定锁死。
  */
-export function isBindingLockedForNewSubject(state: EnterpriseBindState): boolean {
-  return state !== "none";
+export function isBindingLockedForSubjectSwitch(state: EnterpriseBindState): boolean {
+  return state === "verified";
 }

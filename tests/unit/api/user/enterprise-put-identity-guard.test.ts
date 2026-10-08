@@ -13,6 +13,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 vi.mock("@/lib/db/context", () => ({ getContext: vi.fn() }));
+// enterprise-binding 服务现在持有连接池入口（换绑时要解绑账号）：本用例不走那条路径，
+// 但必须把真 pool 隔掉，否则 jsdom 环境会撞上 server-only。
+vi.mock("@/lib/db/pool", () => ({ getPool: () => ({ execute: vi.fn().mockResolvedValue([{ affectedRows: 0 }]) }) }));
 vi.mock("@/lib/middleware/auth", () => ({ requireUserKeyOrThrow: vi.fn() }));
 vi.mock("@/lib/services/file-upload", () => ({ deleteFile: vi.fn() }));
 

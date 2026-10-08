@@ -4,13 +4,13 @@
  * @module app/api/user/enterprise/route
  * @description
  *   GET  按 crm_users.supplier_id 关联 supplier 企业表，返回整行（SELECT * 透传），
- *        供前端分组表格渲染（有则展示、无则 -）；含防重兜底。
+ *        供前端分组表格渲染（有则展示、无则 -）；读写严格指向同一个绑定行。
  *   PUT  已绑定：按 supplier 最终表可编辑列白名单 UPDATE 该行（企业信息编辑）。
  *   POST 未绑定：先防重（credit_code 优先、其次公司名）——命中**已认证**行不绑定，
  *        返回 claimRequired 引导走认领审核；命中未认证行直接绑定已有行；
  *        均未命中则 INSERT 新 supplier 行并回写 crm_users.supplier_id 完成绑定。
- *        账号侧排他：已绑定主体的账号不得再认证另一家（一账号一主体），仅命中自己
- *        绑定的行时放行（等价重复保存资料，正常入口应走 PUT）。
+ *        账号侧换绑（分状态）：旧绑定未拿下认证时允许换绑——先显式撤回旧绑定
+ *        （解绑 + 作废旧认领）再绑新主体；旧绑定已认证则 400，变更主体只能走后台/客服。
  *        填写字段与 supplier 最终表结构一致（所见即所填），与诊断/审核链路剥离。
  */
 import { NextResponse } from "next/server";
@@ -22,14 +22,6 @@ import { deleteFile } from "@/lib/services/file-upload";
 import { assertBindingAllowsSubject, readCurrentBinding, assertVerifiedSubjectIdentityStable } from "@/lib/services/enterprise-binding";
 import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
-
-/** 判断记录是否缺少关键字段（外部同步可能产生空字段重复记录） */
-function isSparseRecord(row: Record<string, unknown> | null): boolean {
-  if (!row) return true;
-  const products = String(row.products ?? "").trim();
-  const industry = String(row.industry ?? "").trim();
-  return products === "" && industry === "";
-}
 
 /** 企业信息填写/编辑 body：全部可选字符串，键为 supplier 列名 */
 const enterpriseBodySchema = z.object({
@@ -99,16 +91,11 @@ export const GET = withRoute(async (req) => {
     return NextResponse.json({ code: 0, message: "ok", data: { bound: false, linkStatus, enterprise: null } });
   }
 
-  let row = await repo.findFullById(supplierId);
-  if (row && isSparseRecord(row)) {
-    const companyName = String(row.company ?? "").trim();
-    if (companyName) {
-      const better = await repo.findByCompanyBest(companyName);
-      if (better && better.id !== row.id) {
-        row = await repo.findFullById(Number(better.id));
-      }
-    }
-  }
+  // 只读自己绑定的那一行。旧逻辑命中「空壳行」时会静默换成同名更完整的行，
+  // 造成 GET 展示 A 行、PUT 写 B 行的读写不对称（已认证判定也会跟着错位）；
+  // 2026-10-08 实库取证：21 个绑定行的同名重复行数均为 0，该回退已不再替任何人兜底，
+  // 按「不保留向后兼容」直接删除：绑到空壳行就在空壳行上补资料，补完即完整。
+  const row = await repo.findFullById(supplierId);
 
   if (!row) {
     return NextResponse.json({ code: 0, message: "ok", data: { bound: false, linkStatus, enterprise: null } });
@@ -177,11 +164,11 @@ export const POST = withRoute(async (req) => {
   // 已认证企业不秒绑：绑定权与归属需审核背书，返回 claimRequired 由前端引导走认领流程
   // （认领通过 → claim approved，后台据此完成注册 KPI「个人→企业」翻转）
   //
-  // 账号侧排他先于 claimRequired：此前「一账号一主体」只由前端 bound ? PUT : POST 隐式
-  // 保证，直接 POST 会让已绑定账号再建一行 supplier 并挪走 crm_users.supplier_id（审核中的
-  // 原主体被抛下、已认证的原主体被顶掉）；把已认证企业误判为「去认领自己的企业」也会形成死胡同。
+  // 账号侧换绑闸口先于 claimRequired：旧行为下「一账号一主体」只靠前端 bound ? PUT : POST
+  // 隐式保证，直接 POST 会让已绑定账号再建一行 supplier 并静默挪走 crm_users.supplier_id（把
+  // 审核中的原主体抛下）；现在旧绑定未认证则先显式撤回，已认证则 400 并给出客服出口。
   const binding = await readCurrentBinding(ctx, auth.userId);
-  assertBindingAllowsSubject(binding, existingId, "certify");
+  await assertBindingAllowsSubject(ctx, auth.userId, binding, existingId, "certify");
   const isOwnBoundRow = !!binding && binding.supplierId === existingId;
 
   if (existingId && existingVerified && !isOwnBoundRow) {
