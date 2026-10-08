@@ -40,4 +40,23 @@ describe("extractClientIp", () => {
     expect(extractClientIp(req)).toBe("5.6.7.8");
     vi.unstubAllEnvs();
   });
+
+  it("XFF 只有分隔符（过滤后无有效条目）→ 回退 127.0.0.1", () => {
+    const req = makeRequest({ "x-forwarded-for": ", ,," });
+    expect(extractClientIp(req)).toBe("127.0.0.1");
+  });
+
+  it("TRUSTED_PROXY_HOPS 不可解析 → 按 1 跳处理（不能把限流 IP 算成 NaN）", () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "abc");
+    const req = makeRequest({ "x-forwarded-for": "1.2.3.4, 203.0.113.50" });
+    expect(extractClientIp(req)).toBe("203.0.113.50");
+    vi.unstubAllEnvs();
+  });
+
+  it("跳数大于条目数 → 取最左侧条目（索引不会跑到负数）", () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "5");
+    const req = makeRequest({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
+    expect(extractClientIp(req)).toBe("1.2.3.4");
+    vi.unstubAllEnvs();
+  });
 });

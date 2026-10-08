@@ -3,24 +3,14 @@
  * Client IP Extraction Utility
  *
  * @module lib/utils/ip
- * @description 安全提取客户端真实 IP。
- *              P1-3 安全修复：仅当直连来源为可信代理（回环/内网地址或
- *              TRUSTED_PROXY_CIDRS 配置）时才信任 X-Forwarded-For，且取最右侧条目
- *              （最近可信代理写入的值）；攻击者伪造 XFF 左侧条目无法改变限流 IP。
- *              直连公网来源时忽略 XFF，直接使用 socket 地址。
+ * @description 提取用于限流/审计的客户端 IP。
+ *              现实约束：Next.js 运行时拿不到 socket 地址（旧的「仅当直连来源为内网才信任
+ *              XFF」策略无法实现，对应函数已作为死代码删除），因此本函数直接信任基础设施
+ *              写入的 X-Forwarded-For，取最右侧第 TRUSTED_PROXY_HOPS 个条目（默认 1）。
+ *              安全含义：若应用直接暴露给公网且前置代理不覆写 XFF，客户端可自行伪造该头。
+ *              部署前置必须保证代理只追加、不信任客户端自带的 XFF。
+ *              无 XFF 时回退 127.0.0.1（同机直连）。
  */
-
-/** 判断 IP 是否为回环/私有内网地址（可信代理的典型来源） */
-function _isPrivateOrLoopback(ip: string): boolean {
-  return (
-    ip === "127.0.0.1" ||
-    ip === "::1" ||
-    /^10\./.test(ip) ||
-    /^192\.168\./.test(ip) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
-    /^fc|^fd/i.test(ip) // IPv6 unique local
-  );
-}
 
 /** 去除 IPv6 映射前缀（::ffff:1.2.3.4 → 1.2.3.4） */
 function stripIpv6Prefix(ip: string): string {
@@ -30,11 +20,10 @@ function stripIpv6Prefix(ip: string): string {
 /**
  * 从 NextRequest 中提取客户端真实 IP
  *
- * P1-3 策略：
- * 1. 直连来源为可信代理（回环/内网）时，从 X-Forwarded-For 右侧取第
- *    TRUSTED_PROXY_HOPS 个条目（默认 1，即最近可信代理记录的客户端 IP）；
- * 2. 直连来源为公网地址时忽略 XFF（无代理部署下伪造 XFF 不影响限流）；
- * 3. 均不可用时回退 "127.0.0.1"。
+ * 策略：
+ * 1. 有 X-Forwarded-For 时，从右侧取第 TRUSTED_PROXY_HOPS 个条目（默认 1，即最近代理记录的客户端 IP）；
+ *    条目里的 IPv6 映射前缀会被剥掉，空条目过滤；
+ * 2. 无可用 XFF 时回退 "127.0.0.1"。
  *
  * @param req - NextRequest 请求对象
  * @returns 客户端 IP 字符串（IPv4 或 IPv6）
