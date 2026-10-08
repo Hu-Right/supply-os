@@ -46,6 +46,11 @@ export const schemaPhase: Phase = {
  */
 export const backfillPhase: Phase = {
   name: "backfill",
+  // 一次性幂等清洗（行业偏好 L4/L5，现网仅个位数行），不是后续任何阶段的依赖。
+  // 【与真 fail-fast 配套】启动失败现已会 process.exit(1) 交给 PM2 重启，
+  // 若让这类「改了也没人等」的清洗拦住整个启动，一次永久失败就会把全站打成崩溃循环，
+  // 比原来的静默半死更糟；故标为可选，失败只降级不拦停。
+  optional: true,
   async run(ctx) {
     // 清洗行业偏好中被静默持久化的推断层级 L4/L5（幂等；启动期缓存尚空，无需失效）
     const prefsNulled = await backfillIndustryPrefsL45Null(ctx.dbPool);

@@ -2,7 +2,8 @@
  * Next.js instrumentation hook
  *
  * 在 Next.js 启动时执行（生产 standalone 与 dev 均生效）：
- * 1. 复用 lifecycle/phases.ts 的 6 阶段启动流程
+ * 0. 等待数据库就绪（指数退避，根治开机竞态）
+ * 1. 复用 lifecycle/phases.ts 的启动阶段流程
  * 2. 初始化 AppContext（触发 PaymentService.initDefault）
  * 3. Meilisearch 健康检查与索引初始化（非阻塞）
  * 4. 启动第一档后台任务（autoTranslate/reportCacheCleanup/timers）
@@ -21,6 +22,29 @@ import type { Pool } from "mysql2/promise";
 // dev 热重载守卫：防止热重载重复注册
 let started = false;
 
+/**
+ * 致命启动失败：真正结束进程。
+ *
+ * 【为什么不能只 throw】Next.js 对 instrumentation hook 的抛错只记一条
+ * "An error occurred while loading instrumentation hook" 日志、**不退出进程**。
+ * 于是本函数后续全部初始化（getContext / 六路同步任务 / 预热 / SIGTERM 关闭钩子）
+ * 永远不会执行，而进程仍以 online 姿态对外服务——2026-10-08 事故正是这个形态：
+ * 网站能开、内存还在涨，但数据管道全停，只能靠人肉 pm2 list 发现。
+ * 「服务终止」这句话必须兑现，故这里直接 exit(1) 交给 PM2 重启，让故障在监控上可见。
+ *
+ * 构建期例外：`next build` 的环境没有生产 DB、也可能没有 PAYMENT_MODE，
+ * 此时退出会把 build 打死，故退回 throw。
+ */
+function abortStartup(reason: string): never {
+  console.error(`[bootstrap] ✗ ${reason}`);
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    throw new Error(reason);
+  }
+  process.exit(1);
+  // process.exit 类型上返回 void；显式 throw 满足 never，并防御被 mock 的 exit
+  throw new Error(reason);
+}
+
 export async function register() {
   if (started) return;
   started = true;
@@ -28,13 +52,17 @@ export async function register() {
   // instrumentation 只应在 Node.js runtime 执行
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // 构建期跳过全部启动引导：这里注册的是常驻进程才需要的连接池、定时器与关闭钩子，
+  // 在 `next build` 中既无意义，又会因构建环境无生产 DB / 未配 PAYMENT_MODE 而打死 build。
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+
   // 支付模式 fail-fast（审查 F21）：PAYMENT_MODE 缺省回落 mock，生产漏配时
   // mock-paid 等自激活端点可达，支付形同虚设；生产必须显式 live
   if (process.env.NODE_ENV === "production" && process.env.PAYMENT_MODE !== "live") {
-    throw new Error(
-      "[bootstrap] 生产环境必须显式配置 PAYMENT_MODE=live（当前值：" +
+    abortStartup(
+      "生产环境必须显式配置 PAYMENT_MODE=live（当前值：" +
         (process.env.PAYMENT_MODE || "(未配置)") +
-        "），服务终止",
+        "），拒绝以 mock 支付模式启动",
     );
   }
 
@@ -66,9 +94,29 @@ export async function register() {
     executePhase,
   } = await import("./lib/lifecycle/phases");
   const { runWarmup } = await import("./lib/lifecycle/warmup");
+  const { waitForDatabase } = await import("./lib/lifecycle/db-readiness");
   const { startBackgroundTasks, registerShutdownHooks } = await import("./lib/lifecycle/background");
 
   const dbPool: Pool = getPool();
+
+  // ── 阶段 0：等待数据库就绪 ──
+  // 服务器开机时 mysqld 与 PM2 拉起的应用几乎同时启动，而 InnoDB crash recovery
+  // 可能持续数分钟（此窗口 3306 尚未 bind → ECONNREFUSED 秒失败）。撞一次就放弃
+  // 会让应用永久停在半初始化状态，故先退避轮询把开机竞态自愈掉。
+  const ready = await waitForDatabase(dbPool, {
+    onWait: ({ attempt, waitedMs, nextDelayMs, reason }) =>
+      console.warn(
+        `[bootstrap] 等待数据库就绪：第 ${attempt} 次探测失败（已等 ${waitedMs}ms，${nextDelayMs}ms 后重试）${reason}`,
+      ),
+  });
+  if (!ready.ok) {
+    abortStartup(
+      `数据库在 ${ready.budgetMs}ms 预算内始终不可用（共探测 ${ready.attempts} 次），放弃启动。最后一次失败：${ready.lastError}`,
+    );
+  }
+  if (ready.attempts > 1) {
+    console.log(`[bootstrap] ✓ 数据库就绪（等待 ${ready.waitedMs}ms / 探测 ${ready.attempts} 次）`);
+  }
 
   // 阶段 1-4：与 Express 启动完全一致（种子数据已禁用，不再对数据库进行任何读写）
   // schema 阶段已恢复：当 ALL_MIGRATIONS 为空时它只做账本检查，不产生 DDL。
@@ -91,7 +139,7 @@ export async function register() {
         `    4. 数据库不存在（DB_NAME=${dbName}）\n` +
         `  - 请检查 .next/standalone/.env 文件中的数据库配置\n`
       );
-      throw new Error(`启动阶段 ${phase.name} 失败，服务终止`);
+      abortStartup(`启动阶段 ${phase.name} 失败，进程退出（exit 1）等待数据库恢复后重试`);
     }
   }
 
