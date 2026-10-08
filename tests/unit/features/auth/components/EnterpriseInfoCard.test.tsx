@@ -112,11 +112,12 @@ describe("EnterpriseInfoCard", () => {
     expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
   });
 
-  it("认领归属已确认（claim_status=verified 且 verify_status 为空）显示已认证", () => {
+  it("归属已确认但资质列未写（claim_status=verified、verify_status 为空）→ 不再报已认证，只报已绑定", () => {
     render(
       <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: null, claim_status: "verified" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
-    expect(screen.getByText("authEnterpriseVerifyApproved")).toBeInTheDocument();
+    expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
+    expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
   });
 
   it("已绑定但无任何审核状态 → 中性「已绑定」标（复用他人历史档案的行）", () => {

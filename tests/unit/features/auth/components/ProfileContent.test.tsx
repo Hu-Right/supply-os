@@ -130,8 +130,9 @@ describe("ProfileContent", () => {
     expect(screen.getByText("authEnterpriseVerifyRejected")).toBeInTheDocument();
   });
 
-  it("认领审核通过（claim_status=verified 且 verify_status 为空）视同已认证，显示公司名而非裸 ID", () => {
-    // 真实故障场景：后台认领审核只写 claim_status='verified'，不碰 verify_status（为 null）
+  it("归属已确认但资质列未写（verify_status 空 + claim_status=verified）→ 只报「已绑定」，不再兼容掩盖成已认证", () => {
+    // 旧行为：这类行被视同已认证（后台历史上只回写归属列）；兼容已删，
+    // 数据侧 14 行已于 2026-10-08 补齐资质列，今后应由审核端两列一起写。
     mockEnterpriseBound = true;
     mockEnterpriseData = {
       verify_status: null,
@@ -139,13 +140,13 @@ describe("ProfileContent", () => {
       company: "杭州中建工程技术有限公司",
     };
     render(<ProfileContent />);
-    expect(screen.getByText("杭州中建工程技术有限公司")).toBeInTheDocument();
-    expect(screen.getByText("authEnterpriseVerifyApproved")).toBeInTheDocument();
-    // 不再把内部主键（supplier_id=42）暴露到页面
+    expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
+    expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
+    // 仍不得把内部主键（supplier_id=42）暴露到页面
     expect(screen.queryByText(/已绑定 #42/)).not.toBeInTheDocument();
   });
 
-  it("已绑定但状态未知（非 done/claim_verified）时显示「已绑定」文案，不再暴露主键 ID", () => {
+  it("已绑定但状态未知（两列皆空）时显示「已绑定」文案，不再暴露主键 ID", () => {
     mockEnterpriseBound = true;
     mockEnterpriseData = { verify_status: null, claim_status: null, company: "某公司" };
     render(<ProfileContent />);

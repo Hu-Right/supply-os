@@ -9,8 +9,8 @@
  *              EnterpriseInfoCard / 企业信息页）共用同一分类器，避免出现「页面说已绑定、
  *              接口却允许再认证」的两套真相。
  *              输入只依赖 supplier 行的两个状态列：
- *              - verify_status：主体资质审核（pending 审核中 / done 已认证 / rejected 已驳回）
- *              - claim_status：认领归属（pending 认领待核 / verified 归属已确认）
+ *              - verify_status：主体资质审核（pending 审核中 / done 已认证 / rejected 已驳回）——唯一资质口径
+ *              - claim_status：认领归属（仅 pending 参与判定：认领待核时账号侧仍为临时态）
  */
 
 /** 账号当前绑定状态：none=未绑定 / pending=审核中 / verified=已认证 / rejected=已驳回 / linked=已绑定但无审核状态 */
@@ -22,16 +22,22 @@ export type BindStatusSource = Record<string, unknown>;
 
 /**
  * 归类绑定状态。
- * 优先级说明：claim_status='pending' 排在 verify_status='done' 之前——认领一家
- * 已通过资质审核的公司时，主体是 done 但**账号自身的绑定仍是临时态**（归属待后台审核确认），
- * 此时页面与守卫都必须报「审核中」，否则用户会以为已认证完成。
+ * 资质结论**只看 verify_status**——不再把 claim_status='verified' 视同已认证：
+ * 后台认领审核历史上只写归属列、不写资质列，造成 14 行两列长期矛盾，前端只能靠
+ * 兼容判定掩盖；那批数据已于 2026-10-08 一次性对齐（见 runtime/backfill-verify-status.mjs），
+ * 今后审核端两列一起写，这里不再留掩盖分支。
+ * 若遇到「归属已确认但资质列未写」的行，它们会是 linked（已绑定）且可自助换绑，
+ * 这是审核端回写不完整的数据问题，应在审核侧修，不在展示层兜底。
+ *
+ * claim_status='pending' 仍优先于 verify_status='done'：认领一家已过资质审核的公司时，
+ * 主体是 done 但**账号自身的绑定仍是临时态**（归属待后台确认），页面与守卫都必须报「审核中」。
  */
 export function classifyEnterpriseBindState(row: BindStatusSource | null | undefined): EnterpriseBindState {
   if (!row) return "none";
   const verify = String(row.verify_status ?? "").trim();
   const claim = String(row.claim_status ?? "").trim();
   if (claim === "pending") return "pending";
-  if (verify === "done" || claim === "verified") return "verified";
+  if (verify === "done") return "verified";
   if (verify === "pending") return "pending";
   if (verify === "rejected") return "rejected";
   return "linked";

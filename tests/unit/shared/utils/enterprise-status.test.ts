@@ -5,7 +5,7 @@
  *              1. 无绑定行 → none；
  *              2. claim_status=pending（认领/临时绑定待核）→ pending，优先级高于主体的
  *                 verify_status=done（认领一家已通过资质审核的公司时，账号自身仍是审核中）；
- *              3. verify_status=done 或 claim_status=verified → verified；
+ *              3. verify_status=done → verified（claim_status 不再参与资质判定）；
  *              4. verify_status=pending → pending；rejected → rejected；
  *              5. 已绑定但两个状态列都为空 → linked（复用他人未认证档案的历史行）；
  *              6. 换绑锁只给已认证：未拿下认证的旧绑定可以自助撤回重来（路线三）。
@@ -28,10 +28,12 @@ describe("classifyEnterpriseBindState", () => {
     expect(classifyEnterpriseBindState({ verify_status: null, claim_status: "pending" })).toBe("pending");
   });
 
-  it("verify_status=done 或 claim_status=verified → verified", () => {
+  it("资质只看 verify_status=done（claim_status=verified 不再被视同已认证）", () => {
     expect(classifyEnterpriseBindState({ verify_status: "done", claim_status: null })).toBe("verified");
-    // 真实故障场景：后台认领审核只写 claim_status='verified'，不碰 verify_status
-    expect(classifyEnterpriseBindState({ verify_status: null, claim_status: "verified" })).toBe("verified");
+    expect(classifyEnterpriseBindState({ verify_status: "done", claim_status: "verified" })).toBe("verified");
+    // 归属已确认但资质列未写：归 linked，这类行属于审核端回写不完整，应在后台修而非展示层兜底
+    expect(classifyEnterpriseBindState({ verify_status: null, claim_status: "verified" })).toBe("linked");
+    expect(classifyEnterpriseBindState({ verify_status: "pending", claim_status: "verified" })).toBe("pending");
   });
 
   it("自注册资料待审 → pending；驳回 → rejected", () => {
