@@ -197,7 +197,7 @@
   "procurement_attachments": "attachments",
   "procurement_breakdownAfterUnlock": "Breakdown files: available after unlock",
   "procurement_bidBreakdownTitle": "Bid breakdown suggestions",
-  "procurement_bidUrgency": "Urgency",
+  "procurement_bidDifficulty": "Bid difficulty",
   "procurement_bidRegBar": "Registration bar",
   "procurement_bidBudgetRef": "Budget reference",
   "procurement_bidDeadline": "Deadline",

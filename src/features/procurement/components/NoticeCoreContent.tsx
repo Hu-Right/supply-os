@@ -82,7 +82,7 @@ export function NoticeCoreContent({
   const unspscPreview = (notice.unspsc_codes || []).slice(0, 4);
   const secondaryMetrics = [
     { label: t("procurement_publishedDate"), value: notice.published_date || "" },
-    { label: t("procurement_bidUrgency"), value: notice.difficulty || "" },
+    { label: t("procurement_bidDifficulty"), value: notice.difficulty || "" },
     { label: t("procurement_bidRegBar"), value: notice.registration_level || "" },
   ].filter((metric) => Boolean(metric.value));
   const hasSecondaryPreview = secondaryMetrics.length > 0 || unspscPreview.length > 0;

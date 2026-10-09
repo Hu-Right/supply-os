@@ -196,7 +196,7 @@
   "procurement_hasRawAttachments": "Оригинальных вложений: {count}",
   "procurement_breakdownAfterUnlock": "Материалы разбора: доступны после разблокировки",
   "procurement_bidBreakdownTitle": "Рекомендации по разбору тендера",
-  "procurement_bidUrgency": "Срочность",
+  "procurement_bidDifficulty": "Сложность торгов",
   "procurement_bidRegBar": "Порог регистрации",
   "procurement_bidBudgetRef": "Ориентир бюджета",
   "procurement_bidDeadline": "Срок подачи",

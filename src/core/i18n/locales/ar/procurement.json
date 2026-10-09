@@ -196,7 +196,7 @@
   "procurement_hasRawAttachments": "يحتوي على {count} مرفقات أصلية",
   "procurement_breakdownAfterUnlock": "مواد التحليل: متاحة بعد فتح القفل",
   "procurement_bidBreakdownTitle": "اقتراحات تحليل العطاء",
-  "procurement_bidUrgency": "درجة الإلحاح",
+  "procurement_bidDifficulty": "صعوبة العطاء",
   "procurement_bidRegBar": "عتبة التسجيل",
   "procurement_bidBudgetRef": "الميزانية المرجعية",
   "procurement_bidDeadline": "الموعد النهائي",

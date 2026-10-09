@@ -197,7 +197,7 @@
   "procurement_attachments": "附件",
   "procurement_breakdownAfterUnlock": "拆解文件：解锁后可查看",
   "procurement_bidBreakdownTitle": "投标拆解建议",
-  "procurement_bidUrgency": "紧急度",
+  "procurement_bidDifficulty": "门槛评级",
   "procurement_bidRegBar": "注册门槛",
   "procurement_bidBudgetRef": "预算参考",
   "procurement_bidDeadline": "截止时间",

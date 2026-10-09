@@ -196,7 +196,7 @@
   "procurement_hasRawAttachments": "{count} pièce(s) jointe(s) originale(s)",
   "procurement_breakdownAfterUnlock": "Fichiers d'analyse : disponibles après déverrouillage",
   "procurement_bidBreakdownTitle": "Suggestions de décomposition de l'offre",
-  "procurement_bidUrgency": "Urgence",
+  "procurement_bidDifficulty": "Difficulté d'appel d'offres",
   "procurement_bidRegBar": "Exigence d'inscription",
   "procurement_bidBudgetRef": "Budget de référence",
   "procurement_bidDeadline": "Date limite",

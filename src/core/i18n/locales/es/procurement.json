@@ -196,7 +196,7 @@
   "procurement_hasRawAttachments": "{count} adjunto(s) original(es)",
   "procurement_breakdownAfterUnlock": "Archivos de análisis: disponibles tras el desbloqueo",
   "procurement_bidBreakdownTitle": "Sugerencias de desglose de la oferta",
-  "procurement_bidUrgency": "Urgencia",
+  "procurement_bidDifficulty": "Dificultad de la licitación",
   "procurement_bidRegBar": "Requisito de registro",
   "procurement_bidBudgetRef": "Presupuesto de referencia",
   "procurement_bidDeadline": "Fecha límite",

@@ -11,7 +11,7 @@
  *              and bid breakdown suggestions.
  */
 
-import { Download, ListChecks, Mail, Phone, ShieldCheck, User } from "lucide-react";
+import { Download, Mail, Phone, ShieldCheck, User } from "lucide-react";
 import type { ReactNode } from "react";
 import { useOptionalAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
@@ -128,17 +128,6 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
       ),
     ],
   ];
-
-  const bidDifficulty = notice.difficulty || t("procurement_bidPendingEval");
-  const bidRegistration = notice.registration_level || t("procurement_bidPendingConfirm");
-  const bidBudget = notice.estimated_value || t("procurement_bidUndisclosed");
-  const bidDeadline = notice.deadline || t("procurement_noDeadline");
-  const bidCodes =
-    (notice.unspsc_codes || [])
-      .map((code) => code.code)
-      .filter(Boolean)
-      .slice(0, 4)
-      .join(", ") || t("procurement_bidPendingSupplement");
 
   return (
     <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 space-y-4">
@@ -281,25 +270,6 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
             );
           })}
         </div>
-      </div>
-
-      <div className="rounded-lg border border-teal-100 bg-white p-3 text-xs">
-        <p className="font-black text-slate-900 mb-2 flex items-center gap-1.5">
-          <ListChecks className="w-3.5 h-3.5 text-teal-600" />
-          {t("procurement_bidBreakdownTitle")}
-        </p>
-        <ul className="list-disc ps-4 space-y-1.5 leading-6 text-slate-600">
-          <li>
-            {t("procurement_bidUrgency")}：{bidDifficulty}；{t("procurement_bidRegBar")}：{bidRegistration}。
-          </li>
-          <li>
-            {t("procurement_bidBudgetRef")}：{bidBudget}；{t("procurement_bidDeadline")}：{bidDeadline}。
-          </li>
-          <li>
-            {t("procurement_bidCodes")}：<span dir="ltr">{bidCodes}</span>。
-          </li>
-          <li>{t("procurement_bidNextStep")}</li>
-        </ul>
       </div>
     </div>
   );
