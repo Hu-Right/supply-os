@@ -43,6 +43,7 @@ scripts/*
 # daily-sync → 数据库同步权威实现，自动调度已停用，保留作手动应急兜底
 !scripts/check-mojibake.mjs
 !scripts/check-wide-table-ssot.mjs
+!scripts/check-taxonomy-invariants.ts
 !scripts/serve-style-smoke.mjs
 !scripts/daily-sync.cjs
 # scripts/lib 下只放行 css-compat-gate 的实际依赖。

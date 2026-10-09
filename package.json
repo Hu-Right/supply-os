@@ -18,6 +18,7 @@
     "check:encoding": "node scripts/check-mojibake.mjs",
     "check:no-admin": "node scripts/check-no-admin-routes.mjs",
     "check:wide-ssot": "node scripts/check-wide-table-ssot.mjs",
+    "check:taxonomy": "npx tsx scripts/check-taxonomy-invariants.ts",
     "check:css-compat": "node scripts/css-compat-gate.mjs",
     "test:css-compat": "node --test tests/unit/scripts/*.test.mjs",
     "test": "vitest run",
