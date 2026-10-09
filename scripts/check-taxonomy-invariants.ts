@@ -6,7 +6,7 @@
  * 行业面 crm_industry_nodes 与品目面 crm_commodity_nodes 的结构约定落地为可执行门禁，
  * 口径与 docs/数据库设计/crm_industry_nodes-行业面主表.md、crm_commodity_nodes-品目面字典表.md 一致：
  *   I 行业面：码长即层级 · 父指针闭合且等于码前缀 · 不跳级 · 自研层只挂中类或更细 · 英文名齐全 · 词表封闭
- *   C 品目面：码形 UGT-C-+8位 · 父指针闭合 · 词表封闭
+ *   C 品目面（v1.0 顺排）：码长即层级（UGT-C- 后 2/4/6/8/10）· 父指针闭合且=去末两级 · 不跳级 · unspsc_code 形态与唯一 · 词表封闭
  *   X 跨面：两面码段不相交 · 挂靠与主行业码零孤儿零串面
  *
  * 退出码：全部为 0 → 0；任一违规或查询异常 → 1（可接进部署后校验）
@@ -26,7 +26,8 @@ const DB_CFG = DbConfigSchema.parse({
 });
 
 const IND = "`crm_industry_nodes`";
-const COM = "`crm_commodity_nodes`";
+// 品目面表名可用 COMMODITY_TABLE 覆盖，便于切换前对影子表预跑同一套门禁（默认线上表）
+const COM = `\`${process.env.COMMODITY_TABLE || "crm_commodity_nodes"}\``;
 
 const CHECKS: Array<{ name: string; sql: string }> = [
   // ── 行业面 ──
@@ -82,24 +83,46 @@ const CHECKS: Array<{ name: string; sql: string }> = [
             OR level NOT IN ('section','division','group','subclass','extension')
             OR status NOT IN (0,1)`,
   },
-  // ── 品目面 ──
+  // ── 品目面（v1.0 顺排码形：码长即层级 2/4/6/8/10、unspsc_code 为白名单键）──
   {
     name: "C1 父指针悬空（应为 0）",
     sql: `SELECT COUNT(*) n FROM ${COM} c LEFT JOIN ${COM} p ON p.code = c.parent_code
           WHERE c.parent_code IS NOT NULL AND c.parent_code <> '' AND p.code IS NULL`,
   },
   {
-    name: "C2 码形非 UGT-C-+8 位数字（应为 0）",
-    sql: `SELECT COUNT(*) n FROM ${COM} WHERE NOT (code REGEXP '^UGT-C-[0-9]{8}$')`,
+    name: "C2 码长与层级不符（应为 0；UGT-C- 后 2/4/6/8/10 位，含前缀共 8/10/12/14/16）",
+    sql: `SELECT COUNT(*) n FROM ${COM} WHERE NOT (code LIKE 'UGT-C-%' AND CHAR_LENGTH(code) = CASE level
+            WHEN 'segment' THEN 8 WHEN 'family' THEN 10 WHEN 'class' THEN 12
+            WHEN 'commodity' THEN 14 WHEN 'extension' THEN 16 ELSE 0 END)`,
   },
   {
-    name: "C3 src_code 非 8 位数字（应为 0，白名单按此列校验）",
-    sql: `SELECT COUNT(*) n FROM ${COM} WHERE NOT (src_code REGEXP '^[0-9]{8}$')`,
+    name: "C3 父码≠自身码去末两级（应为 0，码制自洽）",
+    sql: `SELECT COUNT(*) n FROM ${COM} WHERE level <> 'segment'
+            AND parent_code <> CONCAT('UGT-C-', LEFT(SUBSTRING(code, 7), CHAR_LENGTH(SUBSTRING(code, 7)) - 2))`,
   },
   {
     name: "C4 词表越界（source/level/status 应为 0 行违规）",
-    sql: `SELECT COUNT(*) n FROM ${COM} WHERE source <> 'unspsc'
-            OR level NOT IN ('segment','family','class','commodity') OR status NOT IN (0,1)`,
+    sql: `SELECT COUNT(*) n FROM ${COM} WHERE source NOT IN ('unspsc','self')
+            OR level NOT IN ('segment','family','class','commodity','extension') OR status NOT IN (0,1)`,
+  },
+  {
+    name: "C5 unspsc_code 形态非法（self 应 NULL、unspsc 应 8 位数字；违规应为 0）",
+    sql: `SELECT COUNT(*) n FROM ${COM} WHERE NOT (
+            (source='self' AND unspsc_code IS NULL)
+            OR (source='unspsc' AND unspsc_code REGEXP '^[0-9]{8}$'))`,
+  },
+  {
+    name: "C6 跳级挂接（应为 0：family→segment、class→family、commodity→class、extension→class|commodity）",
+    sql: `SELECT COUNT(*) n FROM ${COM} c JOIN ${COM} p ON p.code = c.parent_code
+          WHERE (c.level='family' AND p.level<>'segment')
+             OR (c.level='class' AND p.level<>'family')
+             OR (c.level='commodity' AND p.level<>'class')
+             OR (c.level='extension' AND p.level NOT IN ('class','commodity'))`,
+  },
+  {
+    name: "C7 unspsc_code 对 source=unspsc 全表唯一（重复应为 0）",
+    sql: `SELECT COUNT(*) n FROM (SELECT unspsc_code FROM ${COM} WHERE source='unspsc'
+            GROUP BY unspsc_code HAVING COUNT(*) > 1) d`,
   },
   // ── 跨面与挂靠 ──
   {
