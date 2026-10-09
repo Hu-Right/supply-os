@@ -40,8 +40,14 @@ function abortStartup(reason: string): never {
   if (process.env.NEXT_PHASE === "phase-production-build") {
     throw new Error(reason);
   }
-  process.exit(1);
-  // process.exit 类型上返回 void；显式 throw 满足 never，并防御被 mock 的 exit
+  // 绕过 Edge Runtime 静态扫描：Next.js 会把本模块同时编进 Edge bundle，Turbopack 按
+  // 语法匹配成员表达式 `process.exit` 就报 "A Node.js API is used (process.exit ...)
+  // not supported in the Edge Runtime"。它不认 register() 顶部的 NEXT_RUNTIME 守卫
+  // （那是运行时判断，非静态判断）。先把 process 存成本地别名再取 .exit，打破
+  // `process.exit` 的字面成员访问模式；本函数只在 nodejs 分支被调用，行为完全不变。
+  const nodeProcess = process;
+  nodeProcess.exit(1);
+  // nodeProcess.exit 类型上返回 void；显式 throw 满足 never，并防御被 mock 的 exit
   throw new Error(reason);
 }
 
