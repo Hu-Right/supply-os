@@ -7,6 +7,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { escapeLikeWildcard } from "../../utils/normalize";
+import { industrySubtreeLike, isIndustryCode, sanitizeIndustryCode } from "../../services/industry-code";
 
 /** 供应商目录行（supplier 表） */
 export interface SupplierDirectoryRow {
@@ -21,6 +22,8 @@ export interface SupplierDirectoryRow {
   email: string | null;
   products: string | null;
   industry: string | null;
+  /** 主行业码（crm_industry_nodes.code，UGT-I- 前缀）；行业面标准口径，与 industry 自由文本共存 */
+  industry_code?: string | null;
   certification: string | null;
   type: string | null;
   /** 业务身份枚举：manufacturer=工厂 / trader=贸易商（卡片徽章与「工厂/贸易商」维度同源；其余值不展示） */
@@ -91,6 +94,20 @@ export function maskCreditCode(value: string | null | undefined): string {
   return `${v.slice(0, 4)}****${v.slice(-4)}`;
 }
 
+/**
+ * 一组行业码 → 「命中这些节点子树内任一挂靠」的相关子查询（前缀即子树，见不变量 I4）。
+ * ★ 入参必须已经过 isIndustryCode / sanitizeIndustryCode：本函数不复核，直接拼占位符。
+ */
+function subtreeExists(codes: readonly string[]): { sql: string; values: string[] } {
+  return {
+    sql: `EXISTS (SELECT 1 FROM crm_supplier_industry_rel ir
+                   WHERE ir.supplier_id = s.id AND (${codes.map(() => "ir.industry_code LIKE ?").join(" OR ")}))`,
+    // 码已过 isIndustryCode 白名单（字集只含 UGT-I- 与数字），不命 LIKE 元字符；
+    // 也不能先转义再补通配符——那会把刚补上的 % 一起转掉，条件退化成匹配字面量。
+    values: codes.map((c) => industrySubtreeLike(c)),
+  };
+}
+
 export class SupplierDirectoryRepo {
   constructor(private pool: Pool) {}
 
@@ -99,7 +116,7 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code,
               province, city,
-              contact, phone, email, products, industry, certification, type,
+              contact, phone, email, products, industry, industry_code, certification, type,
               business_type_code,
               data_quality_score
        FROM supplier
@@ -119,9 +136,17 @@ export class SupplierDirectoryRepo {
     /** 页签检索字段：product/company/country/industry/certification/factory/unspsc（缺省=公司名） */
     field?: string;
     type?: string;
-    industry?: string;
+    /** 行业面标准口径筛选：任一层级节点码，命中该节点**子树**内的挂靠 */
+    industryCode?: string;
+    /**
+     * 「行业」页签的关键词命中结果：由调用方先把关键词解析成行业节点集
+     * （lib/services/industry-facets.resolveIndustryKeywordCodes），本层只按子树筛。
+     * 与 industryCode 的区别：传了它就代表用户主动按行业搜，解析空集 = 无结果（1 = 0），
+     * 不得退回 supplier.industry 自由文本 LIKE——那是脏数据的主入口。
+     */
+    industryCodes?: readonly string[];
   }): Promise<{ items: SupplierDirectoryRow[]; total: number }> {
-    const { limit, offset, search, field, type, industry } = params;
+    const { limit, offset, search, field, type, industryCode, industryCodes } = params;
 
     // ── WHERE 条件构建 ──
     // 已认证口径只认 verify_status='done'：旧逻辑额外把 NULL 视同已认证（为外部同步的空值
@@ -156,8 +181,16 @@ export class SupplierDirectoryRepo {
         );
         values.push(`${escapeLikeWildcard(search)}%`);
       } else if (f === "industry") {
-        conditions.push("industry LIKE ?");
-        values.push(`%${escapeLikeWildcard(search)}%`);
+        // 行业页签 = 行业面口径：关键词已在树上解析成节点集，这里只按子树筛。
+        // 空集一律「无结果」而不是「退回文本」：树里没这个词，就是没这个词的行业。
+        const codes = (industryCodes ?? []).filter(isIndustryCode);
+        if (codes.length === 0) {
+          conditions.push("1 = 0");
+        } else {
+          const sub = subtreeExists(codes);
+          conditions.push(sub.sql);
+          values.push(...sub.values);
+        }
       } else {
         conditions.push("company LIKE ?");
         // L-BIZ-1 修复：转义用户输入中的 LIKE 通配符
@@ -175,28 +208,38 @@ export class SupplierDirectoryRepo {
       }
     }
 
-    if (industry) {
-      conditions.push("industry = ?");
-      values.push(industry);
+    if (industryCode) {
+      // 行业面口径：码形先验（非法码直接丢弃筛选条件，不拼进 SQL），
+      // 子树 = 码前缀（不变量 I4「父码 = 自身码去掉末两位」由 check:taxonomy 钉住），
+      // 因此选中「大类」能连带其下全部中类/小类的挂靠，且走 idx_code 前缀范围扫描。
+      const code = sanitizeIndustryCode(industryCode);
+      if (code) {
+        const sub = subtreeExists([code]);
+        conditions.push(sub.sql);
+        values.push(...sub.values);
+      }
     }
 
     const whereSql = conditions.join(" AND ");
 
+    // ★ 两处 FROM 必须带别名 s：多个检索分支的条件引用了 s.products / s.id（FULLTEXT 与
+    //   EXISTS 相关子查询），无别名时 MySQL 直接报 ER_BAD_FIELD_ERROR，而路由的 try/catch
+    //   会把它吐成空列表——产品/UNSPSC 两个页签曾因此长期「搜什么都无结果」而不报错。
     // 总数查询
     const [countRows] = await this.pool.query(
-      `SELECT COUNT(*) as total FROM supplier WHERE ${whereSql}`,
+      `SELECT COUNT(*) as total FROM supplier s WHERE ${whereSql}`,
       values,
     );
     const total = (countRows as RowDataPacket[])[0]?.total ?? 0;
 
     // 分页数据查询
     const [rows] = await this.pool.query(
-      `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, certification, type,
-              business_type_code,
-              data_quality_score
-       FROM supplier
+      `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city, s.contact, s.phone, s.email, s.products, s.industry, s.industry_code, s.certification, s.type,
+              s.business_type_code,
+              s.data_quality_score
+       FROM supplier s
        WHERE ${whereSql}
-       ORDER BY id DESC
+       ORDER BY s.id DESC
        LIMIT ? OFFSET ?`,
       [...values, limit, offset],
     );
@@ -208,7 +251,7 @@ export class SupplierDirectoryRepo {
   async findById(id: number): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry, certification, type,
+              contact, phone, email, products, industry, industry_code, certification, type,
               business_type_code,
               data_quality_score
        FROM supplier

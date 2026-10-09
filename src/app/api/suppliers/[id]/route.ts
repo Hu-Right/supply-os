@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { mapSupplierRow } from "@/lib/services/suppliers";
+import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
+import type { SupplierIndustryInfo } from "@/lib/services/industry-labels";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { parseSupplierId } from "@/lib/utils/supplier-id";
@@ -39,7 +41,16 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       // 查询失败不影响主流程
     }
 
-    return NextResponse.json({ ...mapSupplierRow(row), claimed });
+    // 行业面标签：装配失败只退回自填文本（与列表口径一致），不把详情页打成 500
+    let industry: SupplierIndustryInfo | null = null;
+    try {
+      const info = await loadSupplierIndustryInfo(ctx.supplier.industryRepo, [row]);
+      industry = info.get(Number(row.id)) ?? null;
+    } catch (err) {
+      console.error("[suppliers/:id GET] 行业面标签装配失败，本次退回自填文本:", err);
+    }
+
+    return NextResponse.json({ ...mapSupplierRow(row, industry), claimed });
   } catch (err) {
     console.error("[suppliers/:id GET]", err);
     routeError(500, EC_INTERNAL_ERROR, "查询供应商失败");

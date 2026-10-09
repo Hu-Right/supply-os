@@ -38,6 +38,7 @@ import {
   SupplierDirectoryRepo,
   SupplierClaimRepo,
 } from "../repos/suppliers/index";
+import { IndustryNodeRepo } from "../repos/industry-node.repo";
 import { CatalogRepo } from "../repos/catalog.repo";
 import { OpenApiRepo } from "../repos/open-api.repo";
 import { AwardsRepo } from "../repos/awards.repo";
@@ -89,6 +90,8 @@ export type SupplierContext = {
   dbPool: Pool;
   directoryRepo: SupplierDirectoryRepo;
   claimRepo: SupplierClaimRepo;
+  /** 行业面（crm_industry_nodes + 挂靠表）读层：门户把行业码翻成双语标签与筛选项的唯一入口 */
+  industryRepo: IndustryNodeRepo;
 };
 
 export type AppContext = {
@@ -141,6 +144,7 @@ export function getContext(): AppContext {
 
   const directoryRepo = new SupplierDirectoryRepo(dbPool);
   const claimRepo = new SupplierClaimRepo(dbPool);
+  const industryRepo = new IndustryNodeRepo(dbPool);
 
   const catalogRepo = new CatalogRepo(dbPool);
   const benefitSystemRepo = new BenefitSystemRepo(dbPool);
@@ -219,7 +223,7 @@ export function getContext(): AppContext {
       paymentsRepo, learningOrdersRepo, serviceOrdersRepo, paymentHistoryRepo,
     },
     user: { dbPool, usersRepo, authRepo, userPrefsRepo, keywordGroupsRepo, invitationRepo },
-    supplier: { dbPool, directoryRepo, claimRepo },
+    supplier: { dbPool, directoryRepo, claimRepo, industryRepo },
     benefitSystemRepo,
     benefitWriteRepo,
     opportunitiesRepo,
