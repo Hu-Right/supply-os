@@ -13,7 +13,6 @@ import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisea
 import { syncWideIds } from "../services/search-sync/index";
 import { cleanupStaleNoticeBridge } from "../services/data-cleanup";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
-import { rollupNoticeViewDaily } from "../services/amount/view-rollup";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { releaseExpiredClaims } from "../services/supplier-claim";
 import {
@@ -96,16 +95,6 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       await refreshNoticeAgencies(dbPool);
     } catch (e) {
       console.error("[daily-refresh] 刷新失败（静默降级）:", (e as Error).message);
-    }
-  });
-
-  // 3b. 浏览量日汇总每日凌晨 6 点重算（覆盖式写入幂等；此前从未被调度，
-  //     crm_notice_view_daily 无人写入导致统计看板空转）
-  const viewRollupTimer = scheduleDailyAt(6, async () => {
-    try {
-      await rollupNoticeViewDaily(dbPool, 0);
-    } catch (e) {
-      console.error("[view-rollup] 日汇总失败（静默降级）:", (e as Error).message);
     }
   });
 
@@ -260,7 +249,6 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       clearInterval(featuredRefreshTimer);
       clearInterval(statsRefreshTimer);
       clearTimeout(dailyRefreshTimer);
-      clearTimeout(viewRollupTimer);
       if (bridgeCleanupTimer) clearInterval(bridgeCleanupTimer);
       if (dataCleanupTimer) clearInterval(dataCleanupTimer);
       if (paymentMaintenanceTimer) clearInterval(paymentMaintenanceTimer);
