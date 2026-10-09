@@ -50,6 +50,16 @@ function toTag(node: NodeRowLike): IndustryTag | null {
 }
 
 /**
+ * 相邻同名折叠。ISIC 比国标粗：2026-10-09 实测有 568/2,060 行的 `name_en` 与父节点完全
+ * 相同（如 0102 林业 = 父 01 均为 “Agriculture, forestry and fishing”），原样拼路径会得到
+ * “Manufacturing > Manufacturing > …” 这种看着像坏掉的界面。只相邻重名才折叠，
+ * 不同名的层一律保留；中文路径不受影响（国标各层名互不相同）。
+ */
+function collapseAdjacent(names: string[]): string[] {
+  return names.filter((n, i) => n !== names[i - 1]);
+}
+
+/**
  * 批量装配：入参是本页供应商行（需要 id 与 industry_code），返回 id → 行业视图。
  * 没有任何一家有主码时只发一条 SQL（取 rel），全空则一条都不发。
  */
@@ -94,8 +104,8 @@ export async function loadSupplierIndustryInfo(
     let pathEn: string[] = [];
     if (primaryCode && primary) {
       const chain = industryAncestorCodes(primaryCode);
-      pathZh = chain.map((c) => nodeByCode.get(c)?.name_zh || nodeByCode.get(c)?.name_en || "").filter(Boolean);
-      pathEn = chain.map((c) => nodeByCode.get(c)?.name_en || nodeByCode.get(c)?.name_zh || "").filter(Boolean);
+      pathZh = collapseAdjacent(chain.map((c) => nodeByCode.get(c)?.name_zh || nodeByCode.get(c)?.name_en || "").filter(Boolean));
+      pathEn = collapseAdjacent(chain.map((c) => nodeByCode.get(c)?.name_en || nodeByCode.get(c)?.name_zh || "").filter(Boolean));
     }
 
     // 主码在前，其余按挂靠表返回顺序补齐，最后按上限截断

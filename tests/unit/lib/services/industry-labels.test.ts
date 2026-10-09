@@ -15,6 +15,9 @@ const NODES = [
   { code: "UGT-I-0326", name_zh: "电气机械和器材制造业", name_en: "Manufacture of electrical equipment", level: "division", parent_code: "UGT-I-03" },
   { code: "UGT-I-032607", name_zh: "照明器具制造", name_en: "Manufacture of electric lighting equipment", level: "group", parent_code: "UGT-I-0326" },
   { code: "UGT-I-032604", name_zh: "其他电气机械制造", name_en: "Other electrical machinery", level: "group", parent_code: "UGT-I-0326" },
+  // 真库实测形态：ISIC 比国标粗，子类与父类官方名完全同名（全表 568/2,060 行如此）
+  { code: "UGT-I-01", name_zh: "农、林、牧、渔业", name_en: "Agriculture, forestry and fishing", level: "section", parent_code: null },
+  { code: "UGT-I-0102", name_zh: "林业", name_en: "Agriculture, forestry and fishing", level: "division", parent_code: "UGT-I-01" },
 ];
 
 function makeRepo(links: Array<{ supplier_id: number; industry_code: string }>) {
@@ -71,6 +74,21 @@ describe("loadSupplierIndustryInfo", () => {
     expect(one.primary).toBeNull();
     expect(one.tags).toEqual([]);
     expect(one.pathZh).toEqual([]);
+  });
+
+  it("与父节点同官方名时不重复堆层：EN 路径相邻同名折叠，中文照旧", async () => {
+    const { repo } = makeRepo([{ supplier_id: 21, industry_code: "UGT-I-0102" }]);
+    const info = await loadSupplierIndustryInfo(repo, [{ id: 21, industry_code: "UGT-I-0102" }]);
+    const one = info.get(21)!;
+    expect(one.pathZh).toEqual(["农、林、牧、渔业", "林业"]);
+    // 两层英文名字面相同，悬浮提示里写两遍不会多出任何信息
+    expect(one.pathEn).toEqual(["Agriculture, forestry and fishing"]);
+  });
+
+  it("不同名的层不得被误删：三级互不相同就保留三段", async () => {
+    const { repo } = makeRepo([{ supplier_id: 22, industry_code: "UGT-I-032607" }]);
+    const info = await loadSupplierIndustryInfo(repo, [{ id: 22, industry_code: "UGT-I-032607" }]);
+    expect(info.get(22)!.pathEn).toHaveLength(3);
   });
 
   it("无主码但有挂靠：不凭空造主标签（主标签口径只有 supplier.industry_code）", async () => {
