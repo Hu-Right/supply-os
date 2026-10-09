@@ -13,7 +13,7 @@
  *
  * 环境变量（三级取值：进程环境 → 仓库根 .env → 下列默认值；空串一律视为「未提供」）:
  *   SYNC_INTERVAL_MS       同步间隔（默认 3600000 = 1 小时）
- *   SYNC_SOURCE_HOST       源库主机（默认 192.168.1.2）
+ *   SYNC_SOURCE_HOST       源库主机（默认 192.168.1.14）
  *   SYNC_SOURCE_PORT       源库端口（默认 3306）
  *   SYNC_SOURCE_USER       源库用户（默认 root）
  *   SYNC_SOURCE_PASSWORD   源库密码（默认 123456，内网库遗留默认值）
@@ -155,7 +155,7 @@ function describeDb(cfg) {
 // ═══════════════════════════════════════════
 
 const SOURCE = {
-  host: readEnv('SOURCE.host', ['SYNC_SOURCE_HOST'], '192.168.1.2'),
+  host: readEnv('SOURCE.host', ['SYNC_SOURCE_HOST'], '192.168.1.14'),
   port: readPort('SOURCE.port', ['SYNC_SOURCE_PORT'], '3306'),
   user: readEnv('SOURCE.user', ['SYNC_SOURCE_USER'], 'root'),
   // 内网爬虫库的遗留默认值；公网/异地应急时务必用 SYNC_SOURCE_PASSWORD 覆盖
@@ -186,6 +186,26 @@ const SYNC_TABLES = [
 ];
 
 const BATCH_SIZE = 200;
+
+// V3 品目对齐：品目桥表入库校验 + 野码隔离队列（合法码直通，野码进 crm_taxonomy_intake 不丢不堵）
+const BRIDGE_TABLE = 'crm_bid_notice_unspsc_codes';
+const INTAKE_TABLE = 'crm_taxonomy_intake';
+const INTAKE_DDL = `CREATE TABLE IF NOT EXISTS \`${INTAKE_TABLE}\` (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  source_table VARCHAR(64) NOT NULL,
+  source_pk VARCHAR(40) NOT NULL,
+  notice_id BIGINT NULL,
+  code VARCHAR(20) NOT NULL,
+  reason VARCHAR(200) NOT NULL,
+  payload JSON NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_src (source_table, source_pk),
+  KEY idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`;
+// 每轮同步加载一次的 UGT 品目码集合；null = 加载失败，本轮降级不过滤
+let commodityCodeFilter = null;
+
 // update_time 可能的数值列类型（存 Unix 秒，如 crm_bid_notices）
 const NUMERIC_TYPES = new Set(['tinyint', 'smallint', 'mediumint', 'int', 'bigint', 'float', 'double', 'decimal']);
 
@@ -355,7 +375,7 @@ function escapeVal(val, dataType) {
 // 水位线增量 upsert（批量）
 // ═══════════════════════════════════════════
 
-async function syncTable(source, target, table, watermark, onWatermark) {
+async function syncTable(source, target, table, watermark, onWatermark, filter) {
   const t0 = Date.now();
   const columns = await getTableColumns(source, table, 'source');
   const targetColumns = await getTableColumns(target, table, 'target');
@@ -426,6 +446,7 @@ async function syncTable(source, target, table, watermark, onWatermark) {
   }
 
   let synced = 0;
+  let quarantined = 0;
   let maxId = idWm;
   // maxUpdateTime 跟随列原生类型：数值列存 Unix 秒（0 表示未见），时间列存 "YYYY-MM-DD HH:MM:SS"
   let maxUpdateTime = utIsNumeric
@@ -441,16 +462,40 @@ async function syncTable(source, target, table, watermark, onWatermark) {
       `SELECT * FROM \`${table}\` ${pageWhere} ORDER BY \`${pkCol}\` ASC LIMIT ${BATCH_SIZE}`
     );
     if (rows.length === 0) break;
+    const lastId = Number(rows[rows.length - 1][pkCol]);
+
+    // V3 品目对齐：桥表行级校验——合法码直通，野码进隔离队列（不丢不堵）
+    let keepRows = rows;
+    let quarantinedRows = [];
+    if (filter) {
+      keepRows = [];
+      quarantinedRows = [];
+      for (const row of rows) {
+        if (filter(row)) keepRows.push(row);
+        else quarantinedRows.push(row);
+      }
+    }
 
     // 批量构建 VALUES
-    const valueRows = rows.map(row =>
+    const valueRows = keepRows.map(row =>
       `(${colNames.map(c => escapeVal(row[c], colTypes[c])).join(', ')})`
     );
-    const sql = `INSERT INTO \`${table}\` (${colList}) VALUES ${valueRows.join(',')} ON DUPLICATE KEY UPDATE ${updateClause}`;
-    await target.execute(sql);
+    if (keepRows.length > 0) {
+      const sql = `INSERT INTO \`${table}\` (${colList}) VALUES ${valueRows.join(',')} ON DUPLICATE KEY UPDATE ${updateClause}`;
+      await target.execute(sql);
+    }
+    // 野码写隔离队列（INSERT IGNORE：同源主键重复不阻塞）
+    if (quarantinedRows.length > 0) {
+      const intakeValues = quarantinedRows.map(row =>
+        `('${table}', ${escapeVal(String(row[pkCol] ?? ''), 'varchar')}, ${row.notice_id != null ? Number(row.notice_id) : 'NULL'}, ${escapeVal(String(row.code ?? ''), 'varchar')}, 'code 不在 UGT 品目字典', ${escapeVal(JSON.stringify(row), 'json')})`
+      );
+      await target.execute(
+        `INSERT IGNORE INTO \`${INTAKE_TABLE}\` (source_table, source_pk, notice_id, code, reason, payload) VALUES ${intakeValues.join(', ')}`
+      );
+      quarantined += quarantinedRows.length;
+    }
 
     synced += rows.length;
-    const lastId = Number(rows[rows.length - 1][pkCol]);
     if (lastId > maxId) maxId = lastId;
     lastPk = lastId;
 
@@ -482,7 +527,7 @@ async function syncTable(source, target, table, watermark, onWatermark) {
 
   const elapsed = Date.now() - t0;
   const newWatermark = buildWatermark(hasUpdateTime, maxId, maxUpdateTime);
-  return { synced, newWatermark, elapsed };
+  return { synced, quarantined, newWatermark, elapsed };
 }
 
 // ═══════════════════════════════════════════
@@ -525,6 +570,19 @@ async function runSyncOnce() {
     // 会导致 uk_notice_tenant 等唯一约束被绕过，产生重复数据。
     await target.execute('SET FOREIGN_KEY_CHECKS=0');
 
+    // V3 品目对齐：建隔离队列表 + 加载 UGT 品目码集合（失败则本轮降级不过滤，不阻塞同步）
+    try {
+      await target.execute(INTAKE_DDL);
+      const [codeRows] = await target.execute(
+        "SELECT src_code FROM `crm_taxonomy_nodes` WHERE facet = 'commodity' AND status = 1"
+      );
+      commodityCodeFilter = new Set(codeRows.map(r => String(r.src_code)));
+      log(`  UGT 品目字典校验集: ${commodityCodeFilter.size} 码`);
+    } catch (err) {
+      commodityCodeFilter = null;
+      log(`  ⚠ UGT 品目字典加载失败，本轮桥表不过滤: ${err.message}`);
+    }
+
     const watermarks = loadWatermarks();
     const stats = {};
     let totalSynced = 0;
@@ -532,16 +590,23 @@ async function runSyncOnce() {
     for (const table of SYNC_TABLES) {
       const wm = watermarks[table] || 0;
       const t1 = Date.now();
+      // 仅品目桥表启用行级校验
+      const useFilter = commodityCodeFilter && table === BRIDGE_TABLE
+        ? (row) => commodityCodeFilter.has(String(row.code ?? ''))
+        : null;
       const result = await syncTable(source, target, table, wm, wm2 => {
         watermarks[table] = wm2;
         saveWatermarks(watermarks);
-      });
+      }, useFilter);
       stats[table] = result.synced;
       totalSynced += result.synced;
       watermarks[table] = result.newWatermark;
       saveWatermarks(watermarks);
       const tableElapsed = Date.now() - t1;
       log(`  ${table}: 新增 ${result.synced} 条 | 耗时 ${fmtDuration(tableElapsed)}`);
+      if (result.quarantined > 0) {
+        log(`  ${table}: 隔离野码 ${result.quarantined} 条 → ${INTAKE_TABLE}`);
+      }
     }
 
     await target.execute('SET FOREIGN_KEY_CHECKS=1');
