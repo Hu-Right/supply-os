@@ -164,15 +164,15 @@ async function seedTestNotices(pool: mysql2.Pool) {
   const total = Number((countRows as { total: number }[])[0]?.total || 0);
   if (total > 0) return;
 
-  // 插入 5 条测试采购公告（覆盖不同类型和国家），35 个占位符全参数化
+  // 插入 5 条测试采购公告（覆盖不同类型和国家）；仅用合法可插入列，7 占位符全参数化
   await pool.execute(
-    "INSERT IGNORE INTO crm_bid_notices (reference_no, title, notice_type, country, agency, deadline_sec, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW()), (?, ?, ?, ?, ?, ?, ?, NOW()), (?, ?, ?, ?, ?, ?, ?, NOW()), (?, ?, ?, ?, ?, ?, ?, NOW()), (?, ?, ?, ?, ?, ?, ?, NOW())",
+    "INSERT IGNORE INTO crm_bid_notices (id, notice_id, title, notice_type, country, agency, description) VALUES (?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?)",
     [
-    "REF-TEST-001", "Construction of School Buildings - UNICEF", "ITB", "China", "UNICEF", 0, "Test notice for E2E", 
-    "REF-TEST-002", "Supply of Medical Equipment - WHO", "RFQ", "Brazil", "WHO", 0, "Test notice for E2E",
-    "REF-TEST-003", "IT Services Contract - UNDP", "RFP", "India", "UNDP", 0, "Test notice for E2E",
-    "REF-TEST-004", "Road Rehabilitation - World Bank", "ITB", "Kenya", "World Bank", 0, "Test notice for E2E",
-    "REF-TEST-005", "Consulting Services - UNESCO", "EOI", "France", "UNESCO", 0, "Test notice for E2E",
+    900001, "SEED-001", "Construction of School Buildings - UNICEF", "ITB", "China", "UNICEF", "Test notice for E2E",
+    900002, "SEED-002", "Supply of Medical Equipment - WHO", "RFQ", "Brazil", "WHO", "Test notice for E2E",
+    900003, "SEED-003", "IT Services Contract - UNDP", "RFP", "India", "UNDP", "Test notice for E2E",
+    900004, "SEED-004", "Road Rehabilitation - World Bank", "ITB", "Kenya", "World Bank", "Test notice for E2E",
+    900005, "SEED-005", "Consulting Services - UNESCO", "EOI", "France", "UNESCO", "Test notice for E2E",
   ]);
   console.log("[seed-test-db] 测试采购公告种子数据写入完成");
 }
