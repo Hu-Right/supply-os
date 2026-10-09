@@ -161,7 +161,7 @@ const SOURCE = {
   // 内网爬虫库的遗留默认值；公网/异地应急时务必用 SYNC_SOURCE_PASSWORD 覆盖
   password: readEnv('SOURCE.password', ['SYNC_SOURCE_PASSWORD'], '123456'),
   database: readEnv('SOURCE.database', ['SYNC_SOURCE_DATABASE', 'DB_NAME'], 'crm'),
-  charset: 'utf8mb4', // 编码红线：跨库同步禁止依赖驱动默认字符集（docs/i18n-encoding-standard.md §2.3）
+  charset: 'utf8mb4', // 编码红线：跨库同步禁止依赖驱动默认字符集（docs/数据库设计/数据库字符集与排序规则统一规范.md §2）
 };
 
 const TARGET = {
@@ -575,9 +575,9 @@ async function runSyncOnce() {
     try {
       await target.execute(INTAKE_DDL);
       const [codeRows] = await target.execute(
-        "SELECT src_code FROM `crm_commodity_nodes` WHERE status = 1"
+        "SELECT unspsc_code FROM `crm_commodity_nodes` WHERE status = 1 AND unspsc_code IS NOT NULL"
       );
-      commodityCodeFilter = new Set(codeRows.map(r => String(r.src_code)));
+      commodityCodeFilter = new Set(codeRows.map(r => String(r.unspsc_code)));
       log(`  UGT 品目字典校验集: ${commodityCodeFilter.size} 码`);
     } catch (err) {
       commodityCodeFilter = null;
