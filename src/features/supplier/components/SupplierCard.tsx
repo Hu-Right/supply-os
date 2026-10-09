@@ -36,6 +36,11 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
   const tags = supplier.capabilityTags ?? [];
   const completeness = supplier.dataCompleteness ?? 0;
   const unspsc = supplier.unspscCode || supplier.ungmCode || "";
+  // 行业：有标准码走权威树（supplier.industry_code → crm_industry_nodes），无码回落自填文本；
+  // 两者占同一个位置，不把两个口径并排给用户看
+  const industryName = pickLocale(locale, supplier.industryZh, supplier.industryEn);
+  const industryPath = (locale === "zh" ? supplier.industryPathZh : supplier.industryPathEn) ?? [];
+  const extraIndustryTags = (supplier.industryTags ?? []).slice(1, 3);
   // 类型徽章只认真实业务身份（business_type_code），无码不显示——不再用国内外猜测兜底
   const companyType = supplier.companyType;
   const tier = supplier.membershipTier;
@@ -98,6 +103,31 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
             <span className="font-bold text-slate-400">{t("supplierCoreProducts")}</span>
             {products.slice(0, 3).join("、")}
           </p>
+        )}
+
+        {/* 行业（标准口径优先，带国标路径提示）*/}
+        {industryName && (
+          <p
+            className="text-xs text-slate-600 line-clamp-1"
+            title={industryPath.length > 1 ? industryPath.join(" / ") : undefined}
+          >
+            <span className="font-bold text-slate-400">{t("supplierTabIndustry")}</span>
+            {industryName}
+            {supplier.industryCode && (
+              <span className="ml-1 text-2xs text-teal-600 font-medium">{t("supplierIndustryStandard")}</span>
+            )}
+          </p>
+        )}
+
+        {/* 多行业挂靠（除主标签外的其余行业，最多 2 个）*/}
+        {extraIndustryTags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {extraIndustryTags.map((tag) => (
+              <span key={tag.code} className="px-1.5 py-0.5 rounded bg-slate-100 text-2xs text-slate-600 font-medium">
+                {pickLocale(locale, tag.nameZh, tag.nameEn)}
+              </span>
+            ))}
+          </div>
         )}
 
         {/* 认证 */}

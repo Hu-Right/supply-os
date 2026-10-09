@@ -37,17 +37,17 @@ export default function SupplierPage() {
   // ── 搜索状态 ─
   const [searchTab, setSearchTab] = useState("product");
   const [searchTerm, setSearchTerm] = useState("");
-  const [industry, setIndustry] = useState("");
+  const [industryCode, setIndustryCode] = useState("");
   const [sortBy, setSortBy] = useState("comprehensive");
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
   // ── 通过 Hook 获取数据 ──
-  const { suppliers, total, loading, industries, setPage, appendPage } = useSupplierSearch({
+  const { suppliers, total, loading, industryGroups, setPage, appendPage } = useSupplierSearch({
     locale,
     searchTerm,
     searchField: searchTab,
     supplierSubTab: "all",
-    supplierIndustry: industry,
+    supplierIndustryCode: industryCode,
     sortBy,
     pageSize: 8,
   });
@@ -84,7 +84,7 @@ export default function SupplierPage() {
   };
 
   const handleSearch = () => { setPage(1); };
-  const handleReset = () => { setSearchTerm(""); setIndustry(""); setPage(1); };
+  const handleReset = () => { setSearchTerm(""); setIndustryCode(""); setPage(1); };
 
   // ── 统计墙：真实数据 + 数字动画 ─
   const realStats = useSupplierStats();
@@ -108,9 +108,9 @@ export default function SupplierPage() {
       <SearchPanel
         searchTab={searchTab} setSearchTab={(k) => { setSearchTab(k); setPage(1); }}
         searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-        industry={industry} setIndustry={setIndustry}
-        industries={industries}
-        onSearch={handleSearch} onReset={handleReset} t={t}
+        industryCode={industryCode} setIndustryCode={(v) => { setIndustryCode(v); setPage(1); }}
+        industryGroups={industryGroups}
+        onSearch={handleSearch} onReset={handleReset} t={t} locale={locale}
       />
 
       <ResultHeader
@@ -181,6 +181,15 @@ export default function SupplierPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ═══ 行业页签的空结果说明 ═══
+          行业检索已改走标准行业树（不搜 supplier.industry 自填文本），「0 家」有两种原因：
+          词不是树上的行业名，或该行业供应商尚未认证/挂靠。不把数据缺口说成用户搜错了。 */}
+      {!loading && suppliers.length === 0 && searchTab === "industry" && (searchTerm || industryCode) && (
+        <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-5 text-sm leading-relaxed text-slate-600">
+          {t("supplierIndustryNoMatch")}
         </div>
       )}
 

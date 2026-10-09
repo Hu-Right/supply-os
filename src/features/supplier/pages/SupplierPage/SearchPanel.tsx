@@ -3,26 +3,32 @@
  * @module features/supplier/pages/SupplierPage/SearchPanel
  */
 import { Search } from "lucide-react";
+import { pickLocale } from "@/core/i18n";
 import { Input, Button } from "@/shared/ui";
-import { SEARCH_TABS } from "./constants";
+import { SEARCH_TABS, searchPlaceholderKey } from "./constants";
+import type { IndustryFacetGroup } from "../../api";
 
 interface SearchPanelProps {
   searchTab: string;
   setSearchTab: (tab: string) => void;
   searchTerm: string;
   setSearchTerm: (v: string) => void;
-  industry: string;
-  setIndustry: (v: string) => void;
-  industries: string[];
+  /** 当前选中的行业面码（空串=不筛） */
+  industryCode: string;
+  setIndustryCode: (v: string) => void;
+  /** 行业筛选面：门类分组 + 大类子项 */
+  industryGroups: IndustryFacetGroup[];
   onSearch: () => void;
   onReset: () => void;
   /** i18n 翻译函数 */
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  /** 当前界面语言（行业名取中/英哪一侧） */
+  locale: string;
 }
 
 export function SearchPanel({
   searchTab, setSearchTab, searchTerm, setSearchTerm,
-  industry, setIndustry, industries, onSearch, onReset, t,
+  industryCode, setIndustryCode, industryGroups, onSearch, onReset, t, locale,
 }: SearchPanelProps) {
   return (
     <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
@@ -50,16 +56,29 @@ export function SearchPanel({
         <Input
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder={t("supplierSearchPlaceholder2")}
+          placeholder={t(searchPlaceholderKey(searchTab) ?? "supplierSearchPlaceholder2")}
           className="w-full"
         />
+        {/* 行业筛选：数据源为权威树（门类作 optgroup，子项是大类），零挂靠节点不下发所以不会出现空选项 */}
         <select
-          value={industry}
-          onChange={(e) => setIndustry(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-teal-400 outline-none min-w-[130px]"
+          value={industryCode}
+          onChange={(e) => setIndustryCode(e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-teal-400 outline-none min-w-[170px] max-w-[260px]"
         >
           <option value="">{t("supplierSelectIndustry")}</option>
-          {industries.map((ind) => <option key={ind} value={ind}>{ind}</option>)}
+          {industryGroups.map((g) => {
+            const gName = pickLocale(locale, g.nameZh, g.nameEn);
+            return (
+              <optgroup key={g.code} label={`${gName} (${g.suppliers})`}>
+                <option value={g.code}>{t("supplierIndustryAllSection", { name: gName })}</option>
+                {g.children.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {`${pickLocale(locale, c.nameZh, c.nameEn)} (${c.suppliers})`}
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
         </select>
         <div className="flex items-end gap-2">
           <Button onClick={onSearch} variant="primary" className="font-black whitespace-nowrap px-5">
