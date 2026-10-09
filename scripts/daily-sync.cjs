@@ -360,7 +360,7 @@ function formatLocalDatetime(d) {
 
 function escapeVal(val, dataType) {
   if (val === null || val === undefined) return 'NULL';
-  if (typeof val === 'number') return val;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : 'NULL';
   if (val instanceof Date) return `'${formatLocalDatetime(val)}'`;
   if (Buffer.isBuffer(val)) return `X'${val.toString('hex')}'`;
   const str = String(val);
@@ -487,7 +487,7 @@ async function syncTable(source, target, table, watermark, onWatermark, filter) 
     // 野码写隔离队列（INSERT IGNORE：同源主键重复不阻塞）
     if (quarantinedRows.length > 0) {
       const intakeValues = quarantinedRows.map(row =>
-        `('${table}', ${escapeVal(String(row[pkCol] ?? ''), 'varchar')}, ${row.notice_id != null ? Number(row.notice_id) : 'NULL'}, ${escapeVal(String(row.code ?? ''), 'varchar')}, 'code 不在 UGT 品目字典', ${escapeVal(JSON.stringify(row), 'json')})`
+        `('${table}', ${escapeVal(String(row[pkCol] ?? ''), 'varchar')}, ${Number.isFinite(Number(row.notice_id)) ? Number(row.notice_id) : 'NULL'}, ${escapeVal(String(row.code ?? ''), 'varchar')}, 'code 不在 UGT 品目字典', ${escapeVal(JSON.stringify(row), 'json')})`
       );
       await target.execute(
         `INSERT IGNORE INTO \`${INTAKE_TABLE}\` (source_table, source_pk, notice_id, code, reason, payload) VALUES ${intakeValues.join(', ')}`
@@ -571,10 +571,11 @@ async function runSyncOnce() {
     await target.execute('SET FOREIGN_KEY_CHECKS=0');
 
     // V3 品目对齐：建隔离队列表 + 加载 UGT 品目码集合（失败则本轮降级不过滤，不阻塞同步）
+    // 品目面已独立成表 crm_commodity_nodes（行业面在 crm_industry_nodes），故不再按 facet 过滤
     try {
       await target.execute(INTAKE_DDL);
       const [codeRows] = await target.execute(
-        "SELECT src_code FROM `crm_taxonomy_nodes` WHERE facet = 'commodity' AND status = 1"
+        "SELECT src_code FROM `crm_commodity_nodes` WHERE status = 1"
       );
       commodityCodeFilter = new Set(codeRows.map(r => String(r.src_code)));
       log(`  UGT 品目字典校验集: ${commodityCodeFilter.size} 码`);
