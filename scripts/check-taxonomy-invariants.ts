@@ -73,7 +73,7 @@ const CHECKS: Array<{ name: string; sql: string }> = [
             WHEN 'division' THEN src_code REGEXP '^[0-9]{2}$'
             WHEN 'group' THEN src_code REGEXP '^[0-9]{3}$'
             WHEN 'subclass' THEN src_code REGEXP '^[0-9]{4}$'
-            WHEN 'extension' THEN src_code REGEXP '^X[0-9]{2}$'
+            WHEN 'extension' THEN src_code REGEXP '^X[0-9]{2,3}$'
             ELSE FALSE END)`,
   },
   {

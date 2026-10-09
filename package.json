@@ -19,6 +19,8 @@
     "check:no-admin": "node scripts/check-no-admin-routes.mjs",
     "check:wide-ssot": "node scripts/check-wide-table-ssot.mjs",
     "check:taxonomy": "npx tsx scripts/check-taxonomy-invariants.ts",
+    "check:industry-links": "npx tsx scripts/verify-industry-links.ts",
+    "check:industry-links:strict": "npx tsx scripts/verify-industry-links.ts --gate",
     "check:css-compat": "node scripts/css-compat-gate.mjs",
     "test:css-compat": "node --test tests/unit/scripts/*.test.mjs",
     "test": "vitest run",
