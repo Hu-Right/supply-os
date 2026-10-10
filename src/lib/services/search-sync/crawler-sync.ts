@@ -19,6 +19,12 @@
  *                 不处理就会让新行继续偏离消费点（类目筛选/推荐召回/行业墙/相似公告）
  *                 的比对口径。
  *
+ *              4. **商机桥表补行**（见 unspsc/opp-bridge）：crm_bid_opportunity_unspsc_codes 不在
+ *                 爬虫库同步白名单里（该表历史上由爬虫程序直写主库，2026-09-22 起该路径已断），
+ *                 主表每轮新增的商机因此一律没有类目行 → 商机页类目筛选与行业墙拿不到数据。
+ *                 本轮主表写完后按主表能拿到的码（product_code / unspsc_codes）派生补行，
+ *                 只补缺不改动既有行，抽不出码的商机不写（不猜码、不做读取侧兜底）。
+ *
  *              ⚠️ 源库值经 escapeVal 拼进批量 INSERT 字符串（沿用 .cjs 语义）：数据源为
  *              受信任的内网爬虫库，非终端用户输入；列名来自 information_schema 且反引号包裹。
  */
@@ -31,6 +37,7 @@ import {
   type UnspscDictIndex,
   type UnspscDictRow,
 } from "../unspsc/bridge-normalize";
+import { syncMissingOppBridge, type OppBridgeSyncResult } from "../unspsc/opp-bridge";
 import {
   SYNC_TABLES, NOTICE_TABLE,
   escapeVal, buildOdkuClause, buildIncrementalWhere, buildWatermark,
@@ -224,15 +231,24 @@ export interface CrawlerSyncResult {
   totalSynced: number;
   changedNoticeIds: number[];
   perTable: Record<string, number>;
+  /** 商机桥表补行结果；字典加载失败时为 null（本轮不补） */
+  oppBridge: OppBridgeSyncResult | null;
 }
+
+/** 本轮无补行时的统一空结果（包括字典不可用的情形） */
+const EMPTY_OPP_BRIDGE: OppBridgeSyncResult = {
+  scanned: 0, no_code: 0, uncovered: 0, code_not_in_dict: 0, path_unresolvable: 0, planned: 0, inserted: 0,
+};
 
 /**
  * 跑一轮完整爬虫同步：按 SYNC_TABLES 顺序同步全部主表，返回公告变更 id 供级联。
  * 源库未配置时 skipped=true（不报错，不影响其他功能）。
+ * 主表全部落库后补商机桥表行（见 unspsc/opp-bridge）；补行异常不影响本轮主表成果
+ * 与宽表级联（主表已写完，不能因为补行报错而丢掉 changedNoticeIds）。
  */
 export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResult> {
   const source = getSourcePool();
-  if (!source) return { skipped: true, totalSynced: 0, changedNoticeIds: [], perTable: {} };
+  if (!source) return { skipped: true, totalSynced: 0, changedNoticeIds: [], perTable: {}, oppBridge: EMPTY_OPP_BRIDGE };
 
   const wms = await loadWatermarks(target);
   // 桥表归一：字典只在需要时加载一次（同一份索引服务本轮全部桥表）
@@ -259,5 +275,20 @@ export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResul
     if (table === NOTICE_TABLE) changedNoticeIds.push(...result.changedIds);
   }
 
-  return { skipped: false, totalSynced, changedNoticeIds, perTable };
+  let oppBridge: OppBridgeSyncResult = EMPTY_OPP_BRIDGE;
+  if (dict) {
+    try {
+      oppBridge = await syncMissingOppBridge(target, dict);
+      if (oppBridge.planned > 0) {
+        console.log(`[crawler-sync] 商机桥表补行：缺口商机 ${oppBridge.scanned}，可补 ${oppBridge.planned} 行→实写 ${oppBridge.inserted}` +
+          `（无码 ${oppBridge.no_code}、码不在字典 ${oppBridge.code_not_in_dict}）`);
+      }
+    } catch (err) {
+      console.warn(`[crawler-sync] 商机桥表补行失败（本轮主表成果保留）: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } else {
+    console.warn("[crawler-sync] 旧字典不可用，本轮跳过商机桥表补行");
+  }
+
+  return { skipped: false, totalSynced, changedNoticeIds, perTable, oppBridge };
 }
