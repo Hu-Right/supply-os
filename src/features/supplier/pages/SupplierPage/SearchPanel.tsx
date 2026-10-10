@@ -139,6 +139,7 @@ export function SearchPanel({
             <div className="relative ms-1">
               <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
+                name="industryKeyword"
                 value={industryKeyword}
                 onChange={(e) => setIndustryKeyword(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") onSearch(); }}
@@ -175,6 +176,7 @@ export function SearchPanel({
 
         <div className="flex flex-col sm:flex-row gap-2.5">
           <Input
+            name="supplierKeyword"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") onSearch(); }}
