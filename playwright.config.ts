@@ -59,7 +59,7 @@ export default defineConfig({
   ],
 
   webServer: process.env.CI
-    ? undefined // CI 中由 e2e.yml 单独启动
+    ? undefined // CI 中由 ci.yml 的 e2e job 启动（standalone 产物 + MySQL 基线 + 种子）
     : {
         command: "npm run dev",
         url: process.env.BASE_URL || "http://localhost:3000",

@@ -98,3 +98,79 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  e2e:
+    name: E2E · 后端关键旅程（Playwright + MySQL）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: supply_os_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      # 应用连接池走 DB_*，seed 走 MYSQL_*（两套变量名，均指向同一 service）
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: supply_os_test
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: supply_os_test
+      JWT_SECRET: ci-e2e-dummy-secret
+      PAYMENT_MODE: mock
+      SMS_PROVIDER: mock
+      MEILI_ENABLED: "off"
+      LLM_KEY_SECRET: ci-e2e-llm-secret
+      E2E_TEST_PASSWORD: test-password
+      BASE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: 载入结构基线（db/schema/*.sql）
+        run: |
+          shopt -s nullglob
+          files=(db/schema/*.sql)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::缺少 db/schema/*.sql 结构基线，E2E 无法建表。请把全库终态 DDL 提交为 db/schema/baseline.sql（见 ARCHITECTURE.md）。"
+            exit 1
+          fi
+          for f in "${files[@]}"; do
+            echo "[e2e] 导入 $f"
+            mysql -h127.0.0.1 -P3306 -uroot -proot supply_os_test < "$f"
+          done
+      - name: 写入种子数据与 E2E 专用账号
+        run: npm run seed:test-db
+      - name: 生产构建
+        run: npm run build
+      - name: 安装 Chromium 测试内核
+        run: npx playwright install --with-deps chromium
+      - name: 启动应用并运行后端关键旅程 E2E
+        run: |
+          npm run start &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID" EXIT
+          for i in $(seq 1 40); do curl -sf http://localhost:3000/ >/dev/null && break; sleep 3; done
+          npx playwright test --project=chromium
+      - name: 保存 E2E 失败证据
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
