@@ -23,8 +23,8 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 2. `src/core` 不 import features/lib/app（http↔auth 通过 `supply-os:*` 事件总线反向感知，禁止直接 import 环）；
 3. `src/features` 不直接 import `@/lib/**`（服务端树），客户端一律经 `@/core/http` 的 `api()/apiCached()` 走 HTTP；feature 间禁止硬依赖，共享逻辑提升至 `shared/` 或经 `core/events` 事件总线解耦；
 4. 服务端唯一入口：`src/lib/**` + `src/instrumentation.ts`（无第二个服务端树）。
-5. **不提供管理员功能**：本项目不承载管理后台、管理员专用接口或临时运维入口，不得存在 `/api/admin/*`、`/api/open/v1/keys` 等管理端路由，也不得硬编码这些接口的调用路径（历史上 `requireAdmin` 机制已于提交 `18d0d4fe` 彻底移除，不得复活）。管理员审核、运营发布、API Key 创建及状态/配额管理等操作由**项目外的内部服务或受控后台系统**负责，不以补管理员鉴权的方式在本项目保留。普通用户认证、业务权限校验、用户本人发布需求及开放数据查询 API 不受影响。由 `scripts/check-no-admin-routes.mjs`（`npm run lint` / CI）拦截已禁止的管理路由及调用路径回流。
-6. **宽表单一写入者 + 口径单一事实源**：`crm_notice_search` 的业务内容列与 `sync_src_hash` 只能由 `lib/services/search-sync/wide-row-builder` 的 `buildWideRow → upsertWideRows` 写入（指纹与内容取自**同一次 SELECT 快照**，不得分开算）；对账层（`wide-row-reconcile` / `wide-fingerprint`）**只允许返回待重建 id**，`src/lib/**` 禁止出现 `UPDATE crm_notice_search`（`db/migrations` 的一次性收敛除外）；宽表删除类操作只允许 `reconcileGhostRows` 与 `search-visibility/purgeNoticeSearch` 两个出口。跨层复用的口径（描述来源表达式、截断长度、译文 `model` 值、合格机会谓词）必须引用 `lib/utils/notice-field-limits` 与 `lib/utils/notice-qualified` 的导出，禁止就地字面量。平台公告 `rfq_status` 转为非 published 时，必须同步移除搜索侧可见性（宽表行 + Meili 文档 + 结果缓存）。由 `scripts/check-wide-table-ssot.mjs`（`npm run lint` / CI）强制。
+5. **不提供管理员功能**：本项目不承载管理后台、管理员专用接口或临时运维入口，不得存在 `/api/admin/*`、`/api/open/v1/keys` 等管理端路由，也不得硬编码这些接口的调用路径（历史上 `requireAdmin` 机制已于提交 `18d0d4fe` 彻底移除，不得复活）。管理员审核、运营发布、API Key 创建及状态/配额管理等操作由**项目外的内部服务或受控后台系统**负责，不以补管理员鉴权的方式在本项目保留。普通用户认证、业务权限校验、用户本人发布需求及开放数据查询 API 不受影响。由 `scripts/gates/check-no-admin-routes.mjs`（`npm run lint` / CI）拦截已禁止的管理路由及调用路径回流。
+6. **宽表单一写入者 + 口径单一事实源**：`crm_notice_search` 的业务内容列与 `sync_src_hash` 只能由 `lib/services/search-sync/wide-row-builder` 的 `buildWideRow → upsertWideRows` 写入（指纹与内容取自**同一次 SELECT 快照**，不得分开算）；对账层（`wide-row-reconcile` / `wide-fingerprint`）**只允许返回待重建 id**，`src/lib/**` 禁止出现 `UPDATE crm_notice_search`（`db/migrations` 的一次性收敛除外）；宽表删除类操作只允许 `reconcileGhostRows` 与 `search-visibility/purgeNoticeSearch` 两个出口。跨层复用的口径（描述来源表达式、截断长度、译文 `model` 值、合格机会谓词）必须引用 `lib/utils/notice-field-limits` 与 `lib/utils/notice-qualified` 的导出，禁止就地字面量。平台公告 `rfq_status` 转为非 published 时，必须同步移除搜索侧可见性（宽表行 + Meili 文档 + 结果缓存）。由 `scripts/gates/check-wide-table-ssot.mjs`（`npm run lint` / CI）强制。
 
 ## 关键机制
 
@@ -39,6 +39,24 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 - 单测门禁 90%（白名单制 `vitest.config.ts coverage.include`——新文件需手动纳入）；集成门禁 80%。
 - `npm run test:ci` = unit 门禁 + integration 门禁；CI 于 `.github/workflows/ci.yml`。
 - 钱路（PaymentService / opportunity-unlock / payments.repo / 退款逆向）改动必须带测试。
+
+### scripts 分层（版本控制口径）
+
+`.gitignore` 采用「默认跟踪、按生命周期分桶」模型，新增脚本无需回来改忽略规则：
+
+- `scripts/gates/`：CI / lint / build 门禁与必需工具（`check-*`、`coverage-gate`、`css-compat-gate`、`seed-test-db`、`serve-style-smoke`、`verify-industry-links` 等）——**整目录跟踪**，缺脚本即流程断。
+- `scripts/tools/`：持久但手动调用的运维工具（`daily-sync.cjs`、`deploy.sh`、`migrate-licenses`）——**跟踪**，须随 clone 存在。
+- `scripts/ops/`：一次性 / 连生产库的探针 / 本机应急脚本（影子表切换、`verify-wide-ssot` 等）——**默认忽略**，本地保留不入库。
+- 生成物一律落 `scripts/out`、`scripts/backups`、`**/.sync-watermark.json`、`runtime/`、`temp/`（均忽略）。
+- **一致性由 `scripts/gates/check-gitignore-consistency.mjs` 在 `npm run lint` / CI 强制**：禁止「跟踪却被忽略」的隐身文件、禁止越界跟踪 ops/生成物、禁止 npm 脚本引用未入库的 `scripts/**`、禁止 `scripts/` 根散放脚本。
+
+### 测试目录分层（一目录一 runner）
+
+- `tests/unit/**`（`{ts,tsx}`，vitest）：业务单测；门禁脚本的 `.ts` 自测归 `tests/unit/gates/`。
+- `tests/gates/**`（`.test.mjs`，`node --test`）：只能在 Node/PostCSS 环境跑、且被测对象必须是**已跟踪**门禁脚本。
+- `tests/integration/**`（vitest.integration）· `tests/e2e/**`（Playwright）。
+- **硬规则：测试文件与被测脚本的跟踪状态必须同侧**——一次性 ops 脚本的临时测试放 `runtime/tests/`（与 SUT 同在忽略区），绝不进 `tests/`，杜绝「本地跑 / CI 不跑」漂移。
+- E2E 在 CI **实跑**：`e2e` job 起 MySQL + 载入 `db/schema/*.sql` 基线 + `seed:test-db` + 起 standalone 产物后 `playwright test`（详见 `.github/workflows/ci.yml`）；缺失 schema 基线时该 job 显式失败而非静默跳过。
 
 ## 约定
 
