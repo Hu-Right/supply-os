@@ -67,6 +67,13 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, 40007, "验证码无效，请重新获取");
   }
 
+  // 账号状态闸门（与 loginWithPassword / refresh 同口径 403/40003）：
+  // 停用/驳回账号不得重置密码后拿到会话。置于验证码校验之后：
+  // 仅持有验证码的人能得知账号状态，保持与上方「账号不存在」一致的防枚举口径。
+  if (user.account_status === "disabled" || user.account_status === "rejected") {
+    routeError(403, 40003, "账号未通过审核或已停用");
+  }
+
   // 重置密码（按 user_id）
   const newHash = await hashPassword(newPassword);
   await ctx.user.usersRepo.updatePasswordById(resolvedUserId, newHash, "bcrypt");
@@ -76,6 +83,9 @@ export const POST = withRoute(async (req: NextRequest) => {
   await ctx.user.authRepo.markCodeUsed(record.id);
 
   // 自动登录
+  // 重置密码后签发会话即一次登录，与 loginWithPassword 同口径补记 last_login_at。
+  // 置于 issueTokenPair 之前：密码策略/账号不存在/验证码无效/尝试超限等失败路径已在上方 routeError 早退，不会写。
+  await ctx.user.usersRepo.updateLastLoginById(resolvedUserId);
   const payload = await buildUserResponse(user, ctx.benefitSystemRepo, ctx.supplier.directoryRepo);
   let tokens: { token: string; refresh_token: string } | null = null;
   try {
