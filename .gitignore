@@ -107,3 +107,4 @@ docs/*
 playwright-report/
 test-results/
 blob-report/
+.playwright-tokens/
