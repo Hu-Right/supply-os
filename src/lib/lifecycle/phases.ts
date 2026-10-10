@@ -5,7 +5,7 @@
  * @module server/lifecycle/phases
  * @description 将启动流程拆分为独立阶段，每个阶段可独立错误处理、日志、耗时统计。
  *              迁移机制已于 2026-10-08 恢复可用，但纪律是**非必要不写**：结构以生产库当前状态
- *              为事实源（全库终态见 docs/数据库设计/_baseline-20260929/schema-all-tables.sql）；
+ *              为事实源（全库终态 DDL 已入库为 db/schema/baseline.sql，见 db/schema/README.md）；
  *              当前 ALL_MIGRATIONS 为空，schema 阶段只做账本检查，不产生任何 DDL。
  *
  *              【已落实，勿再当待办】宽表源指纹列（原迁移 087）已在生产完成：2026-10-08 实测
@@ -13,7 +13,7 @@
  *              空指纹 0 行、指纹值 573,018 个各不相同；死全文索引 ft_search_en 已清，
  *              precise_levelN 原码污染 0 行；运行期 isFingerprintColumn() 实测返回 true（不再降级）。
  *              因此 ALL_MIGRATIONS 无需再为它挂 001——结构已到位，重挂也只会因幂等而跳过。
- *              保留的降级分支服务于测试库/全新环境（它们靠导入快照建库，快照可能滞后于生产）。
+ *              保留的降级分支服务于测试库/全新环境（它们靠导入 db/schema/baseline.sql 建库，基线可能滞后于生产）。
  */
 import type { Pool } from "mysql2/promise";
 import { ensureProcurementSchema } from "../db/schema";

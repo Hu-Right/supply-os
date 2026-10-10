@@ -15,6 +15,8 @@
  *              .json / .sql，逐条 INSERT 可回滚），因此**新迁移从 version 001 起写**。
  *              历史 107 个迁移**不回灌**：其中不少表走过影子表切换，用迁移链已推导不出生产现状，
  *              重放只会破库；结构事实源是库本身 + 快照目录。
+ *              【基线入库】自 2026-10-10 起，全库终态 DDL 以已跟踪的 db/schema/baseline.sql 为准
+ *              （由 scripts/tools/dump-schema-baseline.mjs 从现网结构导出），CI e2e job 直接导入它建表。
  *              （runner 的判定是 pending = 未出现在账本里的版本，撞号仍会被**静默跳过**。）
  */
 import type { Pool } from "mysql2/promise";

@@ -8,8 +8,8 @@
  * 3. 写入种子数据（会员计划、底部链接等）
  * 4. 创建 E2E 专用测试账号
  *
- * ⚠️ 测试库结构需自行准备：从生产结构快照导入
- *    docs/数据库设计/_baseline-20260929/schema-all-tables.sql（全库终态 DDL）。
+ * ⚠️ 测试库结构需先就位：导入已入库的结构基线 db/schema/baseline.sql
+ *    （由 scripts/tools/dump-schema-baseline.mjs 从现网结构导出，见 db/schema/README.md）。
  *
  * 环境变量:
  *   MYSQL_HOST     (default: 127.0.0.1)
@@ -77,7 +77,8 @@ async function main() {
     await pool.end();
     throw new Error(
       `[seed-test-db] 库 ${DB_NAME} 内 0 张表：测试库结构需先导入。\n` +
-      `  方法：把 docs/数据库设计/_baseline-20260929/schema-all-tables.sql 灌入该库后重跑本脚本。`,
+      `  方法：mysql -h<host> -P<port> -u<user> -p <DB_NAME> < db/schema/baseline.sql 后重跑本脚本\n` +
+      `        （基线由 node --env-file=.env scripts/tools/dump-schema-baseline.mjs 生成）。`,
     );
   }
   console.log(`[seed-test-db] 目标库已有 ${tableCount} 张表，跳过结构建立（迁移链已清空）`);

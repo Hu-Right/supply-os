@@ -3,7 +3,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 // 以 locales/zh/*.json 为键基准（LocaleKey 来源），校验其余语言包键完全一致。
-const localesDir = resolve(dirname(fileURLToPath(import.meta.url)), "../src/core/i18n/locales");
+// 脚本位于 scripts/gates/，故需上溯两级回到仓库根再进 src/。
+const localesDir = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../src/core/i18n/locales",
+);
 const LANGS = ["zh", "en", "fr", "ru", "es", "ar"] as const;
 
 function loadLang(lang: string): Record<string, unknown> {

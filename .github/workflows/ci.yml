@@ -91,12 +91,14 @@ jobs:
         run: npm run test:e2e:styles
       - name: 保存浏览器失败证据
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: browser-compat-results
           path: |
             playwright-report/
             test-results/
+          # 全绿时 Playwright 不产出报告目录，缺件属正常态，不应刷告警
+          if-no-files-found: ignore
           retention-days: 7
 
   e2e:
@@ -167,10 +169,12 @@ jobs:
           npx playwright test --project=chromium
       - name: 保存 E2E 失败证据
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-results
           path: |
             playwright-report/
             test-results/
+          # 同上：用例全过时两个目录都不存在，忽略而非告警
+          if-no-files-found: ignore
           retention-days: 7
