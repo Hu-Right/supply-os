@@ -18,7 +18,10 @@ export function StatsWall({ stats, realtimeLabel }: StatsWallProps) {
       {stats.map((s) => (
         <div key={s.label} className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-xs text-center">
           <p className="text-xs text-slate-400 font-bold">[{realtimeLabel}]</p>
-          <p className="text-2xl md:text-3xl font-extrabold text-slate-900 mt-1">{s.value.toLocaleString()}+</p>
+          {/* dir="ltr" 锁数字方向：RTL 下「67,430+」会被双向算法排成「+67,430」 */}
+          <p className="text-2xl md:text-3xl font-extrabold text-slate-900 mt-1">
+            <span dir="ltr">{s.value.toLocaleString()}+</span>
+          </p>
           <p className="text-xs text-slate-500 mt-1">{s.label}</p>
         </div>
       ))}
