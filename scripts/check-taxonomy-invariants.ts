@@ -124,6 +124,10 @@ const CHECKS: Array<{ name: string; sql: string }> = [
     sql: `SELECT COUNT(*) n FROM (SELECT unspsc_code FROM ${COM} WHERE source='unspsc'
             GROUP BY unspsc_code HAVING COUNT(*) > 1) d`,
   },
+  {
+    name: "C8 source=self 只能是 extension（应为 0，镜像行业面 I6）",
+    sql: `SELECT COUNT(*) n FROM ${COM} WHERE source='self' AND level<>'extension'`,
+  },
   // ── 跨面与挂靠 ──
   {
     name: "X1 两面码段相交（应为 0）",
