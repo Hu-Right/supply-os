@@ -3,7 +3,8 @@
  *
  * 钉住判定链的六个出口：匿名不墙 / 无订阅不墙 / 演示档旁路（all_category_access）/
  * 非限定档不墙（industry_scoped=0）/ 限定档+已绑行业 → 墙 / 限定档+未绑行业 → 暂不墙+引导。
- * 类目命中检查独立覆盖：桥接命中放行、未命中拦截。
+ * 类目命中检查独立覆盖：命中放行、有码不命中拦截、无码放行，
+ * 以及 2026-10-10 修的编号口径铁则（内部 id 必须经主表 JOIN 中转）。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -13,7 +14,7 @@ vi.mock("@/lib/services/industry-profile/resolve", () => ({
   invalidateProfileCache: vi.fn(),
 }));
 
-import { resolveIndustryScope, canAccessNotice } from "@/lib/services/industry-scope";
+import { resolveIndustryScope, canAccessNotice, noticeInCategory } from "@/lib/services/industry-scope";
 import type { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
@@ -72,12 +73,43 @@ describe("canAccessNotice · 类目命中检查", () => {
     expect(pool.query).not.toHaveBeenCalled();
   });
 
-  it("被墙：桥接命中放行、未命中拦截", async () => {
+  it("命中放行、有码不命中拦截", async () => {
     profile.resolve.mockResolvedValue({ levelIds: [101] });
     const catalog = makeCatalog({ scoped: true });
-    (pool.query as ReturnType<typeof vi.fn>).mockResolvedValue([[{ 1: 1 }] as RowDataPacket[], []]);
+    (pool.query as ReturnType<typeof vi.fn>).mockResolvedValue([[{ rows_total: 3, hit_rows: 2 }] as RowDataPacket[], []]);
     expect(await canAccessNotice(pool, catalog, 42, 9001)).toBe(true);
-    (pool.query as ReturnType<typeof vi.fn>).mockResolvedValue([[], []]);
+    (pool.query as ReturnType<typeof vi.fn>).mockResolvedValue([[{ rows_total: 3, hit_rows: 0 }] as RowDataPacket[], []]);
     expect(await canAccessNotice(pool, catalog, 42, 9002)).toBe(false);
+  });
+
+  it("公告本身无码（无类目数据）→ 放行，不被脏数据锁死", async () => {
+    profile.resolve.mockResolvedValue({ levelIds: [101] });
+    (pool.query as ReturnType<typeof vi.fn>).mockResolvedValue([[{ rows_total: 0, hit_rows: null }] as RowDataPacket[], []]);
+    expect(await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9003)).toBe(true);
+  });
+
+  it("口径铁则：内部 id 只能匹配主表 n.id，不得直接匹配桥表外部 notice_id", async () => {
+    profile.resolve.mockResolvedValue({ levelIds: [101] });
+    const query = pool.query as ReturnType<typeof vi.fn>;
+    query.mockResolvedValue([[{ rows_total: 1, hit_rows: 1 }] as RowDataPacket[], []]);
+    await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9004);
+    const sql = String(query.mock.calls[0][0]);
+    expect(sql).toContain("JOIN crm_bid_notices n ON n.notice_id = b.notice_id");
+    expect(sql).toContain("WHERE n.id = ?");
+    expect(sql).not.toMatch(/WHERE notice_id = \?/);
+    // 参数顺序：level1Id 在 SELECT 的 SUM 里，noticeDbId 在 WHERE 里
+    expect(query.mock.calls[0][1]).toEqual([101, 9004]);
+  });
+});
+
+describe("noticeInCategory · 搜索参考号快速路径口径", () => {
+  it("命中 → true；有码不命中与无码均 → false（落回主管道由强制 level1 过滤自然滤掉）", async () => {
+    const query = pool.query as ReturnType<typeof vi.fn>;
+    query.mockResolvedValue([[{ rows_total: 2, hit_rows: 1 }] as RowDataPacket[], []]);
+    expect(await noticeInCategory(pool, 9005, 101)).toBe(true);
+    query.mockResolvedValue([[{ rows_total: 2, hit_rows: 0 }] as RowDataPacket[], []]);
+    expect(await noticeInCategory(pool, 9005, 101)).toBe(false);
+    query.mockResolvedValue([[{ rows_total: 0, hit_rows: null }] as RowDataPacket[], []]);
+    expect(await noticeInCategory(pool, 9005, 101)).toBe(false);
   });
 });

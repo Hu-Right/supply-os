@@ -51,14 +51,47 @@ export async function resolveIndustryScope(
   return { scoped: true, level1Id: level1, needsIndustry: false };
 }
 
-/** 公告是否属于指定一级类目（桥接表 level1_id 为 INT，idx_notice_level1_notice 索引点查）。 */
-export async function noticeInCategory(pool: Pool, noticeId: number, level1Id: number): Promise<boolean> {
+/** 公告类目命中情况：有无类目数据、是否命中一级类目 */
+export interface NoticeCategoryCheck {
+  /** 该公告在桥表里是否有任何码行（无码 = 无类目数据） */
+  hasCodes: boolean;
+  /** 是否命中目标一级类目 */
+  inCategory: boolean;
+}
+
+/**
+ * 公告与一级类目的命中检查（一次查询同时给出「有无类目数据」与「是否命中」）。
+ *
+ * 编号口径（2026-10-10 修复）：桥表 `notice_id` 存的是主表**外部编号**
+ * `crm_bid_notices.notice_id`，而本模块的调用方（/notices/[id]/{detail,content,unlock}
+ * 与参考号快速路径）手里拿的是**内部自增 id**，两者不同域。
+ * 直接拿内部 id 去匹配桥表会出两类错误：查不到行（误判无类目），或恰好命中
+ * 「外部编号等于另一公告内部 id」的行（实测 21,524 个公告存在这种撞号），
+ * 把别的公告的类目当本公告判定。故必须先经主表 JOIN 中转，
+ * 与 ai-match/unspsc-levels.ts 同一口径。
+ *
+ * 索引：`n.id` 走主键点查，`b.notice_id` 走 uk_notice_code 最左前缀。
+ */
+export async function checkNoticeCategory(
+  pool: Pool, noticeDbId: number, level1Id: number,
+): Promise<NoticeCategoryCheck> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT 1 FROM crm_bid_notice_unspsc_codes
-      WHERE notice_id = ? AND level1_id = ? LIMIT 1`,
-    [noticeId, level1Id],
+    `SELECT COUNT(*) AS rows_total, SUM(b.level1_id = ?) AS hit_rows
+     FROM crm_bid_notice_unspsc_codes b
+     JOIN crm_bid_notices n ON n.notice_id = b.notice_id
+     WHERE n.id = ?`,
+    [level1Id, noticeDbId],
   );
-  return rows.length > 0;
+  const row = rows[0];
+  return {
+    hasCodes: Number(row?.rows_total ?? 0) > 0,
+    inCategory: Number(row?.hit_rows ?? 0) > 0,
+  };
+}
+
+/** 公告是否属于指定一级类目（入参为主表内部 id；无类目数据返回 false，放行语义由 canAccessNotice 承担）。 */
+export async function noticeInCategory(pool: Pool, noticeDbId: number, level1Id: number): Promise<boolean> {
+  return (await checkNoticeCategory(pool, noticeDbId, level1Id)).inCategory;
 }
 
 /** 商机是否属于指定一级类目（crm_bid_opportunity_unspsc_codes.level1_id 为 VARCHAR）。 */
@@ -83,5 +116,7 @@ export async function canAccessNotice(
 ): Promise<boolean> {
   const scope = await resolveIndustryScope(pool, catalog, userId);
   if (!scope.scoped) return true;
-  return noticeInCategory(pool, noticeId, scope.level1Id!);
+  const { hasCodes, inCategory } = await checkNoticeCategory(pool, noticeId, scope.level1Id!);
+  if (!hasCodes) return true; // 公告本身无码：按可见处理，不把整站锁死
+  return inCategory;
 }
