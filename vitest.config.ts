@@ -67,6 +67,10 @@ export default defineConfig({
         "src/lib/services/search-orchestrator/params.ts",
         "src/lib/services/search-orchestrator/format.ts",
 
+        // ── src/lib/services/commodity — 大类常量与路径派生（纯函数）──
+        "src/lib/services/commodity/groups.ts",
+        "src/lib/services/commodity/path.ts",
+
         // ── src/lib/services/unspsc — 纯函数 ──
         "src/lib/services/unspsc/parser.ts",
         // 品目桥表入库五级路径归一（crawler-sync 写入前置闸口，纯函数）

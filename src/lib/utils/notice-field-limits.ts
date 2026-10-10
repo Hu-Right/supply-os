@@ -42,6 +42,9 @@ export const WIDE_LIMITS = {
   publishedDate: 50,
   /** 宽表 UNSPSC/precise 各级 ID 串列 TEXT，实际使用上限 2000 */
   unspscList: 2000,
+  /** 宽表品目路径列（code_path / precise_path / group_codes）TEXT 存储，实际使用上限 2000。
+   *  旧 unspscList 服务的列在 G6 退役后，本键即为唯一类目长度口径。 */
+  commodityList: 2000,
   /** 平台公告标题上下限（与 RfqWizard 前端校验同一常量，消除双口径） */
   rfqTitle: 50,
   rfqTitleMin: 10,
