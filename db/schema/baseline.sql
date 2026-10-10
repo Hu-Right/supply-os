@@ -2,10 +2,10 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 97 张，导出 95 张，排除 2 张。
+--           源库共 99 张，导出 97 张，排除 2 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
--- 注意：本文件只建结构、不含数据；种子数据由 scripts/gates/seed-test-db.ts 写入。
+-- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -230,7 +230,9 @@ CREATE TABLE `crm_bid_notice_unspsc_codes` (
   KEY `idx_notice_level3_notice` (`level3_id`,`notice_id`),
   KEY `idx_notice_level4_notice` (`level4_id`,`notice_id`),
   KEY `idx_notice_level5_notice` (`level5_id`,`notice_id`),
-  KEY `idx_notice_code_notice` (`code`,`notice_id`)
+  KEY `idx_notice_code_notice` (`code`,`notice_id`),
+  KEY `idx_notice_id` (`notice_id`),
+  KEY `idx_level1_id` (`level1_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='招标公告分类桥表';
 
 -- ── crm_bid_notices ──
@@ -562,6 +564,31 @@ CREATE TABLE `crm_chat_sessions` (
   KEY `idx_status_assigned` (`status`,`assigned_at`),
   KEY `idx_status_agent` (`status`,`agent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── crm_commodity_group_segments ──
+CREATE TABLE `crm_commodity_group_segments` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `group_code` varchar(16) NOT NULL COMMENT '大类码',
+  `segment_code` varchar(40) NOT NULL COMMENT '品目面段码 UGT-C-*',
+  `unspsc_prefix` char(2) NOT NULL COMMENT 'UNSPSC 段前缀：筛选与派生的实际键',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_segment` (`segment_code`),
+  UNIQUE KEY `uk_prefix` (`unspsc_prefix`),
+  KEY `idx_group` (`group_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='段→大类归属；两个 UNIQUE 把「1:1」写成约束而非代码判断';
+
+-- ── crm_commodity_groups ──
+CREATE TABLE `crm_commodity_groups` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `code` varchar(16) NOT NULL COMMENT '大类码 UGT-G-01…UGT-G-15，对外唯一身份',
+  `name_zh` varchar(100) NOT NULL COMMENT '中文名（运维导出与人工对账）；界面展示走 locale',
+  `sort` int NOT NULL COMMENT 'chip 稳定顺序，按公告量降序固化',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '1=启用 0=停用（停用不删行，保留历史归属）',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品目大类（15 类）：权益墙行业单位与筛选顶层';
 
 -- ── crm_commodity_nodes ──
 CREATE TABLE `crm_commodity_nodes` (
@@ -901,6 +928,9 @@ CREATE TABLE `crm_notice_search` (
   `title_ar` varchar(1000) NOT NULL DEFAULT '',
   `published_date` varchar(50) DEFAULT NULL COMMENT '公告发布日期（同步自 crm_bid_notices.published_date）',
   `sync_src_hash` char(32) NOT NULL DEFAULT '' COMMENT '宽表内容与输入快照的一致性指纹，由 buildWideRow 同快照写入，对账只比对不修改',
+  `group_codes` text COMMENT '所属大类码集合，逗号分隔（OR 语义并集）',
+  `code_path` text COMMENT '全部祖先 UNSPSC 前缀，逗号分隔（所见即所得命中键）',
+  `precise_path` text COMMENT '同 code_path，来源=approved 精准候选码',
   PRIMARY KEY (`id`),
   KEY `idx_ns_deadline_desc` (`deadline_sec` DESC),
   KEY `idx_ns_id_desc` (`id` DESC),
@@ -1040,7 +1070,7 @@ CREATE TABLE `crm_outreach_items` (
   KEY `idx_batch_status` (`batch_id`,`send_status`),
   KEY `idx_sent_at` (`sent_at`),
   KEY `idx_company` (`company_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达明细（外贸供应商维度，源=内网爬虫库）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达明细';
 
 -- ── crm_outreach_supplier ──
 CREATE TABLE `crm_outreach_supplier` (
@@ -1671,6 +1701,8 @@ CREATE TABLE `crm_user_industry_prefs` (
   `level5_id` int DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `group_code` varchar(16) NOT NULL DEFAULT '' COMMENT '权益墙行业单位（大类码），必填',
+  `commodity_code` varchar(40) NOT NULL DEFAULT '' COMMENT '品目面码，可停在段/族/类/品目任一层；空=只订到大类',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_pref` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户行业偏好。';
