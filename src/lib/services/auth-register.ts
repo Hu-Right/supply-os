@@ -3,8 +3,8 @@
  *
  * @module lib/services/auth-register
  * @description 收口"手机号注册"的多仓库编排：密码策略、邀请码校验、
- *              短信验证码核销、建号（自动昵称）、KPI 归属递增、
- *              合规同意日志（失败不阻断）、载荷与 Token 签发。
+ *              短信验证码核销、建号（自动昵称）、登录时间补记、KPI 归属递增、
+ *              合规同意日志（失败不阻断）、载荷与 Token 签发（注册即登录）。
  *              路由层只保留：请求解析、Cookie 邀请码回退、IP/UA 提取、Cookie 清理。
  *              业务失败以 RouteError（lib 级业务错误，含 status/code 元数据）抛出。
  *
@@ -49,7 +49,7 @@ export interface RegisterUserResult {
   refreshToken: string | null;
 }
 
-/** 手机号注册编排：邀请码 → 验证码 → 建号 → 归属 → 合规日志 → 载荷 + Token */
+/** 手机号注册编排：邀请码 → 验证码 → 建号 → 登录时间补记 → 归属 → 合规日志 → 载荷 + Token */
 export async function registerUser(
   ctx: AppContext,
   params: RegisterUserParams,
@@ -100,6 +100,10 @@ export async function registerUser(
   await ctx.user.authRepo.backfillCodeUserId(codeRecord.id, newUserId);
   // 按 user_id 标记手机已验证（原按 user_key 路径已退役）
   await ctx.user.usersRepo.markPhoneVerifiedById(newUserId);
+  // 注册即登录（本服务自行 issueTokenPair 签发会话），故与密码登录同口径补记 last_login_at，
+  // 消除「账号已建、会话已有、last_login_at 恒 NULL」的统计盲区。
+  // 位置在核销验证码与建号之后：密码策略/邀请码/验证码/判重等失败路径均已在其上方早退，不会写。
+  await ctx.user.usersRepo.updateLastLoginById(newUserId);
 
   // 仅在邀请码有效时递增 KPI 归属计数（注册 KPI「个人起步」：认证转企业由后台审核事件翻转）
   if (referralEmployeeId) {

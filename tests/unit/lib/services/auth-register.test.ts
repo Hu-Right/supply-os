@@ -34,6 +34,8 @@ function makeCtx(overrides: Record<string, any> = {}) {
         findById: vi.fn().mockResolvedValue({ id: 99, display_name: "Test", phone: "13800000000" }),
         // 按 id 标记手机已验证（原 markPhoneVerified(userKey) 已退役）
         markPhoneVerifiedById: vi.fn(),
+        // 注册即登录→补记最后登录时间
+        updateLastLoginById: vi.fn(),
         ...overrides.usersRepo,
       },
       authRepo: {
@@ -137,6 +139,40 @@ describe("registerUser", () => {
     expect(result.payload).toBeTruthy();
     expect(result.accessToken).toBe("access");
     expect(result.refreshToken).toBe("refresh");
+  });
+
+  it("注册成功 → 补记 last_login_at（注册即登录与密码登录同口径）", async () => {
+    const updateLastLoginById = vi.fn();
+    const markPhoneVerifiedById = vi.fn();
+    const ctx = makeCtx({
+      usersRepo: { markPhoneVerifiedById, updateLastLoginById },
+    });
+    await registerUser(ctx, baseParams);
+    expect(updateLastLoginById).toHaveBeenCalledWith(99);
+    // 登录时间不得先于手机验证写入（建号未完全成功时不应留登录痕迹）
+    expect(markPhoneVerifiedById.mock.invocationCallOrder[0])
+      .toBeLessThan(updateLastLoginById.mock.invocationCallOrder[0]);
+  });
+
+  it("验证码无效 → 不写 last_login_at（失败路径不留登录痕迹）", async () => {
+    const updateLastLoginById = vi.fn();
+    const ctx = makeCtx({
+      usersRepo: { updateLastLoginById },
+      authRepo: { findLatestActiveCodeByPhone: vi.fn().mockResolvedValue(null) },
+    });
+    await expect(registerUser(ctx, baseParams))
+      .rejects.toMatchObject({ status: 400, code: 40007 });
+    expect(updateLastLoginById).not.toHaveBeenCalled();
+  });
+
+  it("手机号已注册 → 不写 last_login_at", async () => {
+    const updateLastLoginById = vi.fn();
+    const ctx = makeCtx({
+      usersRepo: { findByPhone: vi.fn().mockResolvedValue({ id: 1 }), updateLastLoginById },
+    });
+    await expect(registerUser(ctx, baseParams))
+      .rejects.toMatchObject({ status: 400, code: 40008 });
+    expect(updateLastLoginById).not.toHaveBeenCalled();
   });
 
   it("注册成功 → 以手机号锚点查码并回填 user_id", async () => {
