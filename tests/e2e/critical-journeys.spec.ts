@@ -18,32 +18,13 @@
  *   npm run test:e2e
  *   npm run test:e2e:ui     # 交互式 UI 模式
  */
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+
+// 本 spec 全部为匿名旅程；认证态旅程（登录态、解锁、RFQ、会员权益）见
+// authenticated-journeys.spec.ts（含 token 共享缓存，避免触发登录限流）
 
 // ── 测试数据常量 ──────────────────────────────────────────────────────────────
 const TEST_BASE_URL = process.env.BASE_URL || "http://localhost:3000";
-const VIP_USER = "e2e-vip@test.com";
-const FREE_USER = "e2e-free@test.com";
-// E2E 账号口令来自环境变量（种子账号由 scripts/seed-test-db.ts 创建）
-const E2E_TEST_PASSWORD = process.env.E2E_TEST_PASSWORD ?? "test-password";
-
-// ── 辅助函数 ──────────────────────────────────────────────────────────────────
-
-/** 模拟登录（设置 JWT token 到 localStorage） */
-async function loginAs(page: Page, identifier: string): Promise<void> {
-  // 通过 API 直接获取 token（E2E 测试专用快捷方式）
-  // 登录路由 schema 要求 identifier 字段（手机号或邮箱），非 email
-  const response = await page.request.post(`${TEST_BASE_URL}/api/auth/login`, {
-    data: { identifier, password: E2E_TEST_PASSWORD },
-  });
-  if (response.ok()) {
-    const data = await response.json();
-    await page.evaluate(
-      ({ token }) => localStorage.setItem("supply_os_auth_token", token),
-      { token: data.token },
-    );
-  }
-}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 旅程 1：供应商目录浏览
@@ -75,11 +56,11 @@ test.describe("供应商目录旅程", () => {
       page.getByRole("heading", { name: "中国及国际供采供应商目录" }),
     ).toBeVisible({ timeout: 10_000 });
 
-    // 注册入口：桌面端 banner 与主内容各有一个（限定 main 作用域避免 strict 冲突）；
-    // 移动端导航折叠进抽屉，仅校验主内容区操作按钮存在
+    // 注册入口：桌面端按钮含响应式双标签（桌面"供应商资质评审"/窄屏"资质评审"），
+    // 可访问名为两段拼接，用正则匹配；移动端导航折叠进抽屉，仅校验主内容区操作按钮存在
     const registerCta = page
       .getByRole("main")
-      .getByRole("button", { name: "申请供应商资质评审" });
+      .getByRole("button", { name: /资质评审/ });
     if (test.info().project.name.startsWith("mobile")) {
       await expect(page.getByRole("main").getByRole("button").first()).toBeVisible();
     } else {
@@ -93,11 +74,14 @@ test.describe("供应商目录旅程", () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 test.describe("公采资质旅程", () => {
-  test("查看资质测试页面", async ({ page }) => {
+  test("旧版资质页 301 → v2 诊断页锚点可见", async ({ page }) => {
+    // /procurement/qualification 已退役：保留地址并重定向到 v2 诊断页
     await page.goto(`${TEST_BASE_URL}/procurement/qualification`);
-    // 页面锚点：资质诊断表单标题
+    await expect(page).toHaveURL(/\/procurement\/diagnosis/, { timeout: 15_000 });
+
+    // 页面锚点：v2 诊断标题（登录用户看到诊断表单标题，游客看到登录闸口标题）
     await expect(
-      page.getByRole("heading", { name: "企业全球采购机会诊断" }),
+      page.getByRole("heading", { name: /供应商投标能力诊断|登录后开始诊断/ }),
     ).toBeVisible({ timeout: 10_000 });
   });
 });

@@ -15,9 +15,12 @@ function watchResources(page: Page) {
   const failures: string[] = [];
   page.on("pageerror", (error) => failures.push(`JavaScript: ${error.message}`));
   page.on("requestfailed", (request) => {
-    if (request.url().includes("/_next/static/")) {
-      failures.push(`${request.url()}: ${request.failure()?.errorText}`);
-    }
+    if (!request.url().includes("/_next/static/")) return;
+    const errorText = request.failure()?.errorText ?? "";
+    // WebKit 在导航/刷新时会取消 in-flight 的静态资源请求（Load request cancelled /
+    // ERR_ABORTED），属导航时序产物而非资源故障；真正的 4xx/5xx/MIME 故障走 response 监听
+    if (/cancel|abort/i.test(errorText)) return;
+    failures.push(`${request.url()}: ${errorText}`);
   });
   page.on("response", (response) => {
     const url = new URL(response.url());
