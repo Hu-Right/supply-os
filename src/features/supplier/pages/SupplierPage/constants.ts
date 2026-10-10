@@ -3,30 +3,19 @@
  * @module features/supplier/pages/SupplierPage/constants
  */
 
-/** 搜索 Tab 定义 */
+/**
+ * 关键词检索页签：只剩「产品 / 公司」两个真正需要模糊匹配的维度。
+ * 2026-10-10 重构：国家/认证/工厂·贸易商/UNSPSC 不再是检索入口（值域要么极小、
+ * 要么是干净枚举、要么是猜不到的自由写法），而「行业」从并列页签升为整页的划分轴，
+ * 由 SearchPanel 的门类 chip + 行业关键词框承担。
+ */
 export const SEARCH_TABS = [
   { key: "product", labelKey: "supplierTabProduct" },
   { key: "company", labelKey: "supplierTabCompany" },
-  { key: "country", labelKey: "supplierTabCountry" },
-  // 行业页签与其他页签不同源：它走 crm_industry_nodes 标准树，不搜 supplier.industry 自由文本，
-  // 所以提示词必须单独给（用通用提示会让用户去搜自填短语，那些词树上根本不存在）。
-  { key: "industry", labelKey: "supplierTabIndustry", placeholderKey: "supplierSearchPlaceholderIndustry" },
-  { key: "certification", labelKey: "supplierTabCertification" },
-  { key: "factory", labelKey: "supplierTabFactory" },
-  { key: "unspsc", labelKey: "supplierTabUnspsc" },
 ] as const;
 
-/** 当前页签的专用输入提示（无则用通用提示 supplierSearchPlaceholder2） */
-export function searchPlaceholderKey(tab: string): string | undefined {
-  const hit = SEARCH_TABS.find((x) => x.key === tab);
-  return hit && "placeholderKey" in hit ? hit.placeholderKey : undefined;
-}
-
-/** 排序选项 */
+/** 排序选项：只列能真正兑现的项，与 repo 的 SORT_ORDERS 白名单一致 */
 export const SORT_OPTIONS = [
-  { value: "comprehensive", labelKey: "supplierSortComprehensive" },
-  { value: "match", labelKey: "supplierSortMatch" },
   { value: "newest", labelKey: "supplierSortNewest" },
-  { value: "certified", labelKey: "supplierSortCertified" },
   { value: "completeness", labelKey: "supplierSortCompleteness" },
 ] as const;

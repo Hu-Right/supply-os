@@ -37,17 +37,20 @@ export default function SupplierPage() {
   // ── 搜索状态 ─
   const [searchTab, setSearchTab] = useState("product");
   const [searchTerm, setSearchTerm] = useState("");
+  /** 行业主轴：选中门类码（空串=全部） */
   const [industryCode, setIndustryCode] = useState("");
-  const [sortBy, setSortBy] = useState("comprehensive");
+  /** 行业关键词：大类/中类/小类与英文名靠它命中 */
+  const [industryKeyword, setIndustryKeyword] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
   // ── 通过 Hook 获取数据 ──
-  const { suppliers, total, loading, industryGroups, setPage, appendPage } = useSupplierSearch({
+  const { suppliers, total, loading, industrySections, industrySectionsLoaded, setPage, appendPage } = useSupplierSearch({
     locale,
     searchTerm,
     searchField: searchTab,
-    supplierSubTab: "all",
     supplierIndustryCode: industryCode,
+    industryKeyword,
     sortBy,
     pageSize: 8,
   });
@@ -84,7 +87,7 @@ export default function SupplierPage() {
   };
 
   const handleSearch = () => { setPage(1); };
-  const handleReset = () => { setSearchTerm(""); setIndustryCode(""); setPage(1); };
+  const handleReset = () => { setSearchTerm(""); setIndustryKeyword(""); setIndustryCode(""); setPage(1); };
 
   // ── 统计墙：真实数据 + 数字动画 ─
   const realStats = useSupplierStats();
@@ -105,11 +108,15 @@ export default function SupplierPage() {
         realtimeLabel={t("supplierStatRealtime")}
       />
 
+      {/* 关键词框、chip、页签都走「改了条件就回第 1 页」：两个词框都在列表 effect 的依赖里
+          （防抖 300ms 后落定），停在第 3 页或刚点过「加载更多」（appendMode）时直接打字，
+          hook 会拿新条件的第 2 页去追加旧结果，得到一份新旧混排的列表。 */}
       <SearchPanel
         searchTab={searchTab} setSearchTab={(k) => { setSearchTab(k); setPage(1); }}
-        searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+        searchTerm={searchTerm} setSearchTerm={(v) => { setSearchTerm(v); setPage(1); }}
         industryCode={industryCode} setIndustryCode={(v) => { setIndustryCode(v); setPage(1); }}
-        industryGroups={industryGroups}
+        industryKeyword={industryKeyword} setIndustryKeyword={(v) => { setIndustryKeyword(v); setPage(1); }}
+        industrySections={industrySections} industrySectionsLoaded={industrySectionsLoaded}
         onSearch={handleSearch} onReset={handleReset} t={t} locale={locale}
       />
 
@@ -161,7 +168,7 @@ export default function SupplierPage() {
                   </div>
                 </div>
                 <div className="sm:w-48 text-xs text-slate-600 truncate" title={products.join(", ")}>
-                  <span className="font-bold text-slate-400">{t("supplierCoreProducts")}</span>
+                  <span className="font-bold text-slate-400 me-1">{t("supplierCoreProducts")}</span>
                   {products.slice(0, 3).join("、")}
                 </div>
                 <div className="sm:w-36 flex flex-wrap gap-1">
@@ -184,10 +191,10 @@ export default function SupplierPage() {
         </div>
       )}
 
-      {/* ═══ 行业页签的空结果说明 ═══
-          行业检索已改走标准行业树（不搜 supplier.industry 自填文本），「0 家」有两种原因：
+      {/* ═══ 行业词框的空结果说明 ═══
+          行业检索走标准树（不搜 supplier.industry 自填文本），「0 家」有两种原因：
           词不是树上的行业名，或该行业供应商尚未认证/挂靠。不把数据缺口说成用户搜错了。 */}
-      {!loading && suppliers.length === 0 && searchTab === "industry" && (searchTerm || industryCode) && (
+      {!loading && suppliers.length === 0 && (industryKeyword || industryCode) && (
         <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-5 text-sm leading-relaxed text-slate-600">
           {t("supplierIndustryNoMatch")}
         </div>

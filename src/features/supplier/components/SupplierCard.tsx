@@ -100,7 +100,7 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
         {/* 核心产品 */}
         {products.length > 0 && (
           <p className="text-xs text-slate-600 line-clamp-1">
-            <span className="font-bold text-slate-400">{t("supplierCoreProducts")}</span>
+            <span className="font-bold text-slate-400 me-1">{t("supplierCoreProducts")}</span>
             {products.slice(0, 3).join("、")}
           </p>
         )}
@@ -111,10 +111,10 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
             className="text-xs text-slate-600 line-clamp-1"
             title={industryPath.length > 1 ? industryPath.join(" / ") : undefined}
           >
-            <span className="font-bold text-slate-400">{t("supplierTabIndustry")}</span>
+            <span className="font-bold text-slate-400 me-1">{t("supplierTabIndustry")}</span>
             {industryName}
             {supplier.industryCode && (
-              <span className="ml-1 text-2xs text-teal-600 font-medium">{t("supplierIndustryStandard")}</span>
+              <span className="ms-1 text-2xs text-teal-600 font-medium">{t("supplierIndustryStandard")}</span>
             )}
           </p>
         )}
