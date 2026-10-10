@@ -58,6 +58,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 - **硬规则：测试文件与被测脚本的跟踪状态必须同侧**——一次性 ops 脚本的临时测试放 `runtime/tests/`（与 SUT 同在忽略区），绝不进 `tests/`，杜绝「本地跑 / CI 不跑」漂移。
 - E2E 在 CI **实跑**：`e2e` job 起 MySQL + 载入 `db/schema/*.sql` 基线 + `seed:test-db` + 起 standalone 产物后 `playwright test`（详见 `.github/workflows/ci.yml`）；缺失 schema 基线时该 job 显式失败而非静默跳过。
 - 结构基线不手写：`node --env-file=.env scripts/tools/dump-schema-baseline.mjs` 从现网结构导出 `db/schema/baseline.sql`（幂等、只读库）；上线结构变更后重跑一次，diff 即基线漂移。
+- 种子脚本反向被基线卡住：`check-seed-schema-compat`（已入 `npm run lint`）核对 `seed-test-db.ts` 的表名/INSERT 列清单/值个数，避免“迁移清单为空 + 没人静态查”下种子长期按已删的表写而无人发现。种子只写合成值，不把现网报价配置入仓。
 
 ## 约定
 

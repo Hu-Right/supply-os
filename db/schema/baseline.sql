@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 86 张，导出 84 张，排除 2 张。
+--           源库共 97 张，导出 95 张，排除 2 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；种子数据由 scripts/gates/seed-test-db.ts 写入。
@@ -231,7 +231,7 @@ CREATE TABLE `crm_bid_notice_unspsc_codes` (
   KEY `idx_notice_level4_notice` (`level4_id`,`notice_id`),
   KEY `idx_notice_level5_notice` (`level5_id`,`notice_id`),
   KEY `idx_notice_code_notice` (`code`,`notice_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='招标公告分类桥表，用于一条公告关联多个编码';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='招标公告分类桥表';
 
 -- ── crm_bid_notices ──
 CREATE TABLE `crm_bid_notices` (
@@ -313,6 +313,47 @@ CREATE TABLE `crm_bid_notices` (
   FULLTEXT KEY `ft_notices_en` (`title`,`reference`),
   FULLTEXT KEY `ft_notices_desc` (`description`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='招标公告表。';
+
+-- ── crm_bid_opp_item_codes ──
+CREATE TABLE `crm_bid_opp_item_codes` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `quote` varchar(255) NOT NULL,
+  `quote_hash` char(32) NOT NULL COMMENT 'md5(quote.strip())，关联 structured.items 条目',
+  `opportunity_sample` int DEFAULT NULL,
+  `word` varchar(128) DEFAULT NULL,
+  `word_hash` char(32) DEFAULT NULL,
+  `en_core` varchar(128) DEFAULT NULL,
+  `zh_term` varchar(128) DEFAULT NULL,
+  `code` varchar(16) DEFAULT NULL,
+  `level` int DEFAULT NULL,
+  `confidence` float DEFAULT NULL,
+  `source` varchar(32) DEFAULT NULL,
+  `variant` varchar(8) DEFAULT NULL,
+  `status` varchar(16) DEFAULT 'ok',
+  `mapped_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_qw` (`quote_hash`,`word_hash`),
+  KEY `idx_quote_hash` (`quote_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商单条目级 UNSPSC 编码（源=内网爬虫库）';
+
+-- ── crm_bid_opp_structured ──
+CREATE TABLE `crm_bid_opp_structured` (
+  `opportunity_id` bigint unsigned NOT NULL,
+  `title` varchar(500) DEFAULT NULL,
+  `country` varchar(200) DEFAULT NULL,
+  `delivery_place` varchar(300) DEFAULT NULL,
+  `items` json DEFAULT NULL COMMENT '结构化采购条目数组 [{quote,qty,unit}]',
+  `requirements` json DEFAULT NULL,
+  `source_field` varchar(20) NOT NULL DEFAULT 'description',
+  `source_hash` char(64) NOT NULL DEFAULT '',
+  `extract_model` varchar(64) DEFAULT NULL,
+  `rule_coverage` varchar(20) NOT NULL DEFAULT '',
+  `validation` json DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'extracted',
+  `extracted_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`opportunity_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商单 LLM+规则结构化抽取（源=内网爬虫库）';
 
 -- ── crm_bid_opportunities ──
 CREATE TABLE `crm_bid_opportunities` (
@@ -469,7 +510,7 @@ CREATE TABLE `crm_bid_opportunity_unspsc_codes` (
   KEY `idx_opp_level4_opp` (`level4_id`,`opportunity_id`),
   KEY `idx_opp_level5_opp` (`level5_id`,`opportunity_id`),
   KEY `idx_bid_opp_unspsc_code` (`code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标商机UNSPSC分类桥表，用于一条商机关联多个UNSPSC编码并支持精准匹配';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标商机分类桥表';
 
 -- ── crm_chat_messages ──
 CREATE TABLE `crm_chat_messages` (
@@ -579,6 +620,21 @@ CREATE TABLE `crm_employees` (
   UNIQUE KEY `invitation_code` (`invitation_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='有KPI要求的员工';
 
+-- ── crm_follow_up_logs ──
+CREATE TABLE `crm_follow_up_logs` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `item_id` bigint unsigned NOT NULL COMMENT 'crm_outreach_items.id',
+  `follow_type` varchar(20) NOT NULL DEFAULT 'other' COMMENT 'call/email_reply/whatsapp/other',
+  `reply_intent` varchar(20) DEFAULT NULL,
+  `biz_status` varchar(20) DEFAULT NULL,
+  `sales_feedback` varchar(20) DEFAULT NULL COMMENT '值得跟进/不匹配（商单维度反馈快照）',
+  `content` text COMMENT '跟进内容（手动记录/流失原因等）',
+  `next_follow_at` datetime DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_item` (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达跟进台账（id≥100000 为后台写入段，导出不触碰）';
+
 -- ── crm_industry_calibration ──
 CREATE TABLE `crm_industry_calibration` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -654,6 +710,60 @@ CREATE TABLE `crm_learning_materials` (
   KEY `idx_category` (`category_zh`),
   KEY `idx_number` (`number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='学习资料表';
+
+-- ── crm_match_verdict ──
+CREATE TABLE `crm_match_verdict` (
+  `supplier_id` int NOT NULL COMMENT '内网爬虫库 supplier.id',
+  `opportunity_id` int NOT NULL,
+  `verdict` varchar(8) DEFAULT NULL COMMENT '相关/擦边/无关',
+  `why` varchar(500) DEFAULT NULL COMMENT 'LLM 判定理由原文',
+  `prof` float DEFAULT NULL,
+  `family` varchar(200) DEFAULT NULL,
+  `judged_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`supplier_id`,`opportunity_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='LLM 供需匹配终审（源=内网爬虫库）';
+
+-- ── crm_message_tracking ──
+CREATE TABLE `crm_message_tracking` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` bigint NOT NULL DEFAULT '0',
+  `channel` varchar(20) NOT NULL,
+  `message_id` varchar(80) NOT NULL,
+  `provider_message_id` varchar(500) DEFAULT NULL,
+  `mass_log_id` bigint unsigned DEFAULT NULL,
+  `notification_dispatch_id` bigint unsigned DEFAULT NULL,
+  `account_id` bigint unsigned DEFAULT NULL,
+  `lead_id` bigint unsigned DEFAULT NULL,
+  `conversation_id` varchar(200) DEFAULT NULL,
+  `recipient` varchar(500) NOT NULL DEFAULT '',
+  `recipient_name` varchar(200) DEFAULT NULL,
+  `subject` varchar(500) DEFAULT NULL,
+  `message_content` mediumtext,
+  `tracking_token` char(64) DEFAULT NULL,
+  `callback_url` varchar(1000) DEFAULT NULL,
+  `callback_secret` varchar(255) DEFAULT NULL,
+  `idempotency_key` varchar(160) DEFAULT NULL,
+  `metadata` longtext,
+  `status` enum('queued','sending','sent','delivered','opened','read','played','replied','failed','bounced') NOT NULL DEFAULT 'queued',
+  `error_message` varchar(1000) DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `delivered_at` datetime DEFAULT NULL,
+  `opened_at` datetime DEFAULT NULL COMMENT '打开/回复的权威来源',
+  `last_open_at` datetime DEFAULT NULL,
+  `read_at` datetime DEFAULT NULL,
+  `played_at` datetime DEFAULT NULL,
+  `replied_at` datetime DEFAULT NULL,
+  `open_count` int unsigned NOT NULL DEFAULT '0',
+  `reply_count` int unsigned NOT NULL DEFAULT '0',
+  `reply_message_id` varchar(500) DEFAULT NULL,
+  `reply_subject` varchar(500) DEFAULT NULL,
+  `reply_preview` text,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_message_id` (`message_id`),
+  UNIQUE KEY `uq_tracking_token` (`tracking_token`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件发送/打开/回复跟踪（源=内网爬虫库）';
 
 -- ── crm_monthly_kpi ──
 CREATE TABLE `crm_monthly_kpi` (
@@ -856,6 +966,155 @@ CREATE TABLE `crm_opportunity_unlocks` (
   KEY `idx_notice_id` (`notice_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机解锁流水。';
 
+-- ── crm_outreach_batches ──
+CREATE TABLE `crm_outreach_batches` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `batch_no` varchar(32) NOT NULL COMMENT '对外批次号 bat_ 前缀',
+  `batch_name` varchar(128) NOT NULL DEFAULT '',
+  `channel` varchar(16) NOT NULL DEFAULT 'email',
+  `template_id` int unsigned DEFAULT NULL,
+  `account_id` int unsigned DEFAULT NULL,
+  `total_count` int unsigned NOT NULL DEFAULT '0',
+  `sent_count` int unsigned NOT NULL DEFAULT '0',
+  `failed_count` int unsigned NOT NULL DEFAULT '0',
+  `reply_count` int unsigned NOT NULL DEFAULT '0',
+  `status` varchar(16) NOT NULL DEFAULT 'draft',
+  `creator_id` int unsigned DEFAULT NULL,
+  `tenant_id` int unsigned NOT NULL DEFAULT '1',
+  `remark` varchar(255) NOT NULL DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_batch_no` (`batch_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达批次（源=内网爬虫库）';
+
+-- ── crm_outreach_items ──
+CREATE TABLE `crm_outreach_items` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `batch_id` bigint unsigned NOT NULL COMMENT '所属批次 crm_outreach_batches.id',
+  `company_id` bigint unsigned DEFAULT NULL COMMENT '内网爬虫库 supplier.id（≠云库 supplier）',
+  `company_name` varchar(191) NOT NULL DEFAULT '' COMMENT '公司名（冗余快照，随批次落库）',
+  `phone` varchar(32) NOT NULL DEFAULT '' COMMENT '电话（国际格式，含国家码）',
+  `email` varchar(191) NOT NULL DEFAULT '' COMMENT '邮箱',
+  `send_status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'pending排队/sent已发/failed失败/hold待把关/excluded剔除/空=备选',
+  `send_count` int unsigned NOT NULL DEFAULT '0',
+  `fail_reason` varchar(255) NOT NULL DEFAULT '',
+  `outreach_status` varchar(20) NOT NULL DEFAULT 'none' COMMENT 'none/sent/delivered/opened/read/replied；reject:前缀=剔除原因',
+  `check_status` varchar(20) NOT NULL DEFAULT 'unverified' COMMENT 'unverified/verified/call_needed/failed',
+  `salutation` varchar(50) DEFAULT NULL COMMENT '核验通过的称呼(填{name})，纯 ASCII 判英文语系',
+  `check_time` datetime DEFAULT NULL,
+  `check_evidence` varchar(255) DEFAULT NULL,
+  `message_id` varchar(64) DEFAULT NULL COMMENT 'CRM 消息 ID msg_ 前缀',
+  `provider_message_id` varchar(191) DEFAULT NULL,
+  `tracking_token` varchar(64) DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `delivered_at` datetime DEFAULT NULL,
+  `opened_at` datetime DEFAULT NULL COMMENT '开信像素首次请求时间（权威口径在 tracking 表）',
+  `open_count` int unsigned NOT NULL DEFAULT '0',
+  `last_open_at` datetime DEFAULT NULL,
+  `read_at` datetime DEFAULT NULL,
+  `replied_at` datetime DEFAULT NULL,
+  `bounced_at` datetime DEFAULT NULL,
+  `bounce_type` varchar(10) DEFAULT NULL,
+  `unsubscribed_at` datetime DEFAULT NULL,
+  `complained_at` datetime DEFAULT NULL,
+  `reply_intent` varchar(20) DEFAULT NULL COMMENT 'unknown/interested/inquiry/not_interested/wrong_contact/auto_reply',
+  `intent_score` tinyint unsigned DEFAULT NULL,
+  `biz_status` varchar(20) NOT NULL DEFAULT 'none' COMMENT 'none/following/quoted/sampling/negotiating/won/lost',
+  `biz_updated_at` datetime DEFAULT NULL,
+  `reply_count` int unsigned NOT NULL DEFAULT '0',
+  `last_reply_message_id` varchar(64) DEFAULT NULL,
+  `status_updated_at` datetime DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `reco_id` bigint DEFAULT NULL,
+  `reco_pitch` varchar(1000) DEFAULT NULL,
+  `reco_family` varchar(100) DEFAULT NULL,
+  `reco_opp_id` bigint DEFAULT NULL,
+  `ab_variant` varchar(8) DEFAULT NULL,
+  `reco_top3` varchar(600) DEFAULT NULL COMMENT 'top3 商单 id 逗号分隔，首位=主推(reco_opp_id)',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_batch_company` (`batch_id`,`company_id`),
+  UNIQUE KEY `uk_message_id` (`message_id`),
+  UNIQUE KEY `uk_tracking_token` (`tracking_token`),
+  KEY `idx_batch_status` (`batch_id`,`send_status`),
+  KEY `idx_sent_at` (`sent_at`),
+  KEY `idx_company` (`company_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达明细（外贸供应商维度，源=内网爬虫库）';
+
+-- ── crm_outreach_supplier ──
+CREATE TABLE `crm_outreach_supplier` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `company` varchar(200) NOT NULL DEFAULT '' COMMENT '公司名称',
+  `country` varchar(100) NOT NULL DEFAULT '',
+  `country_code` varchar(5) DEFAULT '',
+  `province` varchar(50) DEFAULT NULL,
+  `city` varchar(50) DEFAULT NULL,
+  `contact` varchar(100) NOT NULL DEFAULT '',
+  `position` varchar(100) DEFAULT '',
+  `phone` varchar(60) NOT NULL DEFAULT '',
+  `email` varchar(150) NOT NULL DEFAULT '',
+  `address` varchar(500) DEFAULT '',
+  `website` varchar(255) NOT NULL DEFAULT '',
+  `industry` varchar(200) NOT NULL DEFAULT '' COMMENT '行业/主要产品',
+  `products` varchar(500) DEFAULT '',
+  `certification` varchar(255) DEFAULT NULL,
+  `product_keywords` text,
+  `unspsc_codes_snapshot` text,
+  `unspsc_match_status` varchar(20) NOT NULL DEFAULT 'pending',
+  `unspsc_matched_at` datetime DEFAULT NULL,
+  `last_match_at` datetime DEFAULT NULL,
+  `supplier_grade` varchar(20) DEFAULT NULL COMMENT 'A高价值/B可跟进/C沉淀/D无效',
+  `data_quality_score` decimal(5,2) NOT NULL DEFAULT '0.00',
+  `industry_id` int DEFAULT '0',
+  `type` varchar(20) NOT NULL DEFAULT 'foreign',
+  `business_type` varchar(50) DEFAULT NULL,
+  `coop_status` tinyint NOT NULL DEFAULT '2',
+  `remark` text,
+  `source_channel` varchar(80) DEFAULT NULL,
+  `source_url` varchar(500) DEFAULT NULL,
+  `tenant_id` int NOT NULL DEFAULT '0',
+  `addtime` int NOT NULL DEFAULT '0',
+  `legal_rep` varchar(50) DEFAULT NULL,
+  `intro` text,
+  `name_confirmed` varchar(120) DEFAULT NULL,
+  `registered_address` varchar(255) DEFAULT NULL,
+  `registered_phone` varchar(40) DEFAULT NULL,
+  `registered_email` varchar(120) DEFAULT NULL,
+  `established_at` varchar(20) DEFAULT NULL,
+  `registered_capital` varchar(40) DEFAULT NULL,
+  `credit_code` varchar(30) DEFAULT NULL,
+  `webcheck_status` varchar(10) DEFAULT NULL,
+  `webcheck_at` datetime DEFAULT NULL,
+  `info_checked` tinyint(1) NOT NULL DEFAULT '0',
+  `check_note` varchar(500) DEFAULT NULL,
+  `merged_id` int DEFAULT NULL COMMENT 'supplier_merged.id（云侧为 crm_outreach_supplier_merged）',
+  `verify_status` varchar(20) DEFAULT NULL,
+  `verify_owner` varchar(50) DEFAULT NULL,
+  `verify_at` datetime DEFAULT NULL,
+  `cq_status` varchar(20) DEFAULT NULL,
+  `cq_owner` varchar(40) DEFAULT NULL,
+  `cq_at` datetime DEFAULT NULL,
+  `cq_tyc` json DEFAULT NULL,
+  `cq_aqc` json DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_merged` (`merged_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达供应商档案（源=内网爬虫库 supplier，≠云库 supplier）';
+
+-- ── crm_outreach_supplier_merged ──
+CREATE TABLE `crm_outreach_supplier_merged` (
+  `id` int NOT NULL,
+  `company` varchar(200) NOT NULL,
+  `country` varchar(100) DEFAULT 'China',
+  `country_code` varchar(5) DEFAULT 'CN',
+  `industry` varchar(200) DEFAULT NULL,
+  `type` varchar(50) DEFAULT NULL,
+  `source` varchar(50) DEFAULT NULL COMMENT '来源: mic/alibaba/cmef/100ppi/okorder/cnauto/globalsources/ec21；多源=主+次',
+  `coop_status` tinyint DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `idx_source` (`source`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='合并供应商主数据窄表（源=内网爬虫库 supplier_merged，仅看板用列）';
+
 -- ── crm_password_resets ──
 CREATE TABLE `crm_password_resets` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1005,6 +1264,48 @@ CREATE TABLE `crm_product_keyword_groups` (
   KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='关键词组';
 
+-- ── crm_reco_supplier_opportunity ──
+CREATE TABLE `crm_reco_supplier_opportunity` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `supplier_table` varchar(32) NOT NULL DEFAULT 'supplier',
+  `supplier_id` bigint unsigned NOT NULL DEFAULT '0',
+  `opportunity_id` bigint unsigned NOT NULL DEFAULT '0',
+  `match_score` decimal(5,2) NOT NULL DEFAULT '0.00',
+  `match_level` varchar(20) NOT NULL DEFAULT 'low',
+  `match_basis_code` varchar(32) DEFAULT NULL,
+  `match_basis_level` tinyint unsigned NOT NULL DEFAULT '0',
+  `match_basis_name` varchar(255) DEFAULT NULL,
+  `match_path_text` varchar(1000) DEFAULT NULL,
+  `matched_codes` json DEFAULT NULL COMMENT '匹配证据=供应商码∩商单码，[{code,word,conf,src,sup_words}]',
+  `code_hit_l5` smallint unsigned NOT NULL DEFAULT '0',
+  `best_supplier_conf` decimal(4,2) DEFAULT NULL,
+  `keyword_hits` varchar(500) DEFAULT NULL,
+  `reasons_json` text,
+  `barrier_flags` varchar(200) DEFAULT NULL,
+  `service_procurement` tinyint NOT NULL DEFAULT '0',
+  `supplier_has_contact` tinyint(1) NOT NULL DEFAULT '0',
+  `opportunity_deadline_days` int DEFAULT NULL,
+  `contact_priority` tinyint NOT NULL DEFAULT '3',
+  `status` varchar(20) NOT NULL DEFAULT 'new',
+  `batch_no` varchar(32) NOT NULL DEFAULT '',
+  `algo_version` varchar(32) NOT NULL DEFAULT 'v1',
+  `evidence_snapshot` json DEFAULT NULL,
+  `opportunity_title` varchar(500) DEFAULT NULL,
+  `supplier_company` varchar(200) DEFAULT NULL,
+  `is_expired` tinyint NOT NULL DEFAULT '0',
+  `tenant_id` bigint NOT NULL DEFAULT '1',
+  `last_generated_at` datetime DEFAULT NULL,
+  `pushed_at` datetime DEFAULT NULL,
+  `sales_feedback` varchar(20) DEFAULT NULL COMMENT 'relevant/irrelevant/wrong_contact/expired（后台看板写，导出不覆盖）',
+  `feedback_at` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_supplier_opp` (`supplier_table`,`supplier_id`,`opportunity_id`),
+  KEY `idx_batch` (`batch_no`),
+  KEY `idx_opp_score` (`opportunity_id`,`match_score`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机×供应商推荐明细（源=内网爬虫库）';
+
 -- ── crm_reco_weight_profile ──
 CREATE TABLE `crm_reco_weight_profile` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1031,6 +1332,15 @@ CREATE TABLE `crm_refresh_tokens` (
   KEY `idx_token_hash` (`token_hash`),
   KEY `idx_expires_at` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='前台哈希登记表';
+
+-- ── crm_rfx_platform_map ──
+CREATE TABLE `crm_rfx_platform_map` (
+  `platform_key` varchar(64) NOT NULL,
+  `name_zh` varchar(100) NOT NULL,
+  `name_en` varchar(120) NOT NULL,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`platform_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='招标平台中英文名映射（源=内网爬虫库）';
 
 -- ── crm_service_catalog ──
 CREATE TABLE `crm_service_catalog` (

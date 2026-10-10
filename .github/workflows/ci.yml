@@ -134,6 +134,11 @@ jobs:
       MEILI_ENABLED: "off"
       LLM_KEY_SECRET: ci-e2e-llm-secret
       E2E_TEST_PASSWORD: test-password
+      # 认证态旅程的靶点指向 seed-test-db.ts 写下的合成账号/商机（不依赖任何现网 id）
+      E2E_VIP_USER: e2e-vip@test.com
+      E2E_FREE_USER: e2e-free@test.com
+      E2E_OPP_ID: "900001"
+      E2E_OPP_CODE_ID: "900001"
       BASE_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v5
