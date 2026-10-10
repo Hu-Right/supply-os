@@ -1,60 +1,53 @@
 /**
- * 行业筛选面拼装测试
+ * 行业主轴与关键词解析测试
  * @module tests/unit/lib/services/industry-facets.test.ts
- * @description facet 的两条硬规矩：
- *              1. 大类挂到正确的门类下（由码祖先推导，不靠前端再猜）；
- *              2. 给不出结果的节点不进下拉——空选项点开是空列表，比少一个选项更糟。
- *              排序也要钉住：可见供应商多的排前面，用户第一眼就看到能筛出东西的项。
- *              另钉一条「行业」页签的关键词解析：官方名优先、释义只兜底，
- *              命中节点要往最小前缀集压，解不出节点就交空集（上层据此出「无结果」，
- *              而不是摸回自由文本）。
+ * @description facet 现在只铺门类一层，它的硬规矩：
+ *              1. 可见供应商多的排前面（用户第一眼就看到能筛出东西的 chip）；
+ *              2. 双语名全空的节点不进 chip——宁可不给，也不把 UGT-I-xxxx 透到界面上。
+ *              另钉行业词框的解析口径：官方名优先、释义只兜底，命中节点往最小前缀集压，
+ *              解不出节点就交空集（上层据此出「无结果」，而不是摸回自由文本）。
  */
 import { describe, it, expect, vi } from "vitest";
-import { buildIndustryFacetGroups, resolveIndustryKeywordCodes } from "@/lib/services/industry-facets";
+import { buildIndustrySections, loadIndustryFacets, resolveIndustryKeywordCodes } from "@/lib/services/industry-facets";
 import type { IndustryFacetRow } from "@/lib/repos/industry-node.repo";
 
 function row(code: string, nameZh: string | null, nameEn: string | null, suppliers: number): IndustryFacetRow {
   return { code, name_zh: nameZh, name_en: nameEn, suppliers } as IndustryFacetRow;
 }
 
-describe("buildIndustryFacetGroups", () => {
-  it("大类归入其门类祖先，门类作为分组携带自己的子树合计数", () => {
-    const groups = buildIndustryFacetGroups(
-      [row("UGT-I-03", "制造业", "Manufacturing", 12), row("UGT-I-07", "交通运输、仓储和邮政业", "Transportation and storage", 1)],
-      [row("UGT-I-0326", "电气机械和器材制造业", "Manufacture of electrical equipment", 5), row("UGT-I-0702", "道路运输业", "Land transportation", 1)],
-    );
-    expect(groups).toHaveLength(2);
-    expect(groups[0].code).toBe("UGT-I-03"); // 计数大的门类在前
-    expect(groups[0].children.map((c) => c.code)).toEqual(["UGT-I-0326"]);
-    expect(groups[1].children.map((c) => c.code)).toEqual(["UGT-I-0702"]);
+describe("buildIndustrySections — 行业主轴（门类一层）", () => {
+  it("按可见供应商数降序，同数按码序（顺序稳定，不会每次刷新就跳位）", () => {
+    const rows = buildIndustrySections([
+      row("UGT-I-07", "交通运输、仓储和邮政业", "Transportation and storage", 1),
+      row("UGT-I-03", "制造业", "Manufacturing", 13),
+      row("UGT-I-05", "建筑业", "Construction", 1),
+    ]);
+    expect(rows.map((r) => r.code)).toEqual(["UGT-I-03", "UGT-I-05", "UGT-I-07"]);
+    expect(rows[0].suppliers).toBe(13);
   });
 
-  it("同组内大类按可见供应商数降序，用户先看到有货的", () => {
-    const groups = buildIndustryFacetGroups(
-      [row("UGT-I-03", "制造业", "Manufacturing", 9)],
-      [row("UGT-I-0317", "橡塑", "Rubber and plastics", 2), row("UGT-I-0326", "电气机械", "Electrical equipment", 6)],
-    );
-    expect(groups[0].children.map((c) => c.code)).toEqual(["UGT-I-0326", "UGT-I-0317"]);
+  it("双语名全空的节点不生成 chip；只缺一种时用另一种兜底", () => {
+    const rows = buildIndustrySections([
+      row("UGT-I-03", "制造业", null, 7),
+      row("UGT-I-05", null, null, 3),
+    ]);
+    expect(rows.map((r) => r.code)).toEqual(["UGT-I-03"]);
+    // nameEn 缺失时用中文名占位，而不是给界面一个空标签
+    expect(rows[0].nameEn).toBe("制造业");
   });
 
-  it("没有任何大类子项的门类整组丢弃（只点得出空结果的分组不进下拉）", () => {
-    const groups = buildIndustryFacetGroups([row("UGT-I-05", "建筑业", "Construction", 0)], []);
-    expect(groups).toEqual([]);
+  it("空行集→空数组（零挂靠的门类本层收不到，不造假 chip）", () => {
+    expect(buildIndustrySections([])).toEqual([]);
   });
+});
 
-  it("双语名全空的节点不生成选项——绝不把 UGT-I-xxxx 透给界面", () => {
-    const groups = buildIndustryFacetGroups(
-      [row("UGT-I-03", "制造业", "Manufacturing", 7)],
-      [row("UGT-I-0326", null, null, 3), row("UGT-I-0317", "橡塑", null, 4)],
-    );
-    // 缺中文名的节点用英文名兜；两个都缺才丢弃（所以 UGT-I-0326 不进下拉）
-    expect(groups[0].children.map((c) => c.code)).toEqual(["UGT-I-0317"]);
-    expect(groups[0].children[0].nameEn).toBe("橡塑");
-  });
-
-  it("大类有计数而其门类缺失（树处于中间态）→ 跳过该大类而不是崩接口", () => {
-    const groups = buildIndustryFacetGroups([], [row("UGT-I-0326", "电气机械", "Electrical", 3)]);
-    expect(groups).toEqual([]);
+describe("loadIndustryFacets — 只铺门类一层", () => {
+  it("只发一条 section 查询：大类递归 CTE 已摘掉，且不得再查 division", async () => {
+    const listFacets = vi.fn().mockResolvedValue([row("UGT-I-03", "制造业", "Manufacturing", 13)]);
+    const rows = await loadIndustryFacets({ listFacets } as never);
+    expect(listFacets).toHaveBeenCalledTimes(1);
+    expect(listFacets).toHaveBeenCalledWith("section");
+    expect(rows.map((r) => r.code)).toEqual(["UGT-I-03"]);
   });
 });
 

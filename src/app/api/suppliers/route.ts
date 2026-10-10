@@ -10,9 +10,11 @@
  *              一次节点查），装配失败只降级为自由文本展示，不能把整个目录变成空列表——
  *              目录可用性不依赖字典补数进度。
  *
- *              「行业」页签的关键词走树口径：先把词解析成行业节点集（与下拉、facet 同一棵树），
- *              再按子树筛。解析不出节点就是「无此行业」，不回落 supplier.industry 文本，
- *              否则同一个词在页签和下拉里会是两套结果。
+ *              「行业」是这一页的划分轴，所以它不占 `field` 而是独立参数：
+ *                - `industry_code`：门类 chip，命中该节点子树；
+ *                - `industry_q`：行业关键词，服务端先解析成节点集再按子树筛。
+ *              两者与产品/公司关键词是 AND 交集。行业词解不到节点就是无结果，
+ *              不回落 `supplier.industry` 自由文本——否则同一个词在主轴与词框上会是两套结果。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -52,18 +54,20 @@ export const GET = withRoute(async (req: NextRequest) => {
       const pageSize = Math.min(Math.max(Number(req.nextUrl.searchParams.get("pageSize")) || 9, 1), 50);
       const offset = (page - 1) * pageSize;
       const search = req.nextUrl.searchParams.get("q")?.trim() || undefined;
-      const type = req.nextUrl.searchParams.get("type") || undefined;
       // 行业面标准口径筛选：非法码静默丢弃（等同不筛选），不拼进 SQL
       const industryCode = sanitizeIndustryCode(req.nextUrl.searchParams.get("industry_code")) || undefined;
-      // 页签检索字段（product/company/.../unspsc）：决定 q 关键词落在哪一列，白名单校验在 repo
+      // 关键词检索字段（product / company）：决定 q 落在哪一列，白名单校验在 repo
       const field = req.nextUrl.searchParams.get("field") || undefined;
+      // 排序：只透传键名，表达式由 repo 白名单给出（用户输入永不进 ORDER BY）
+      const sort = req.nextUrl.searchParams.get("sort") || undefined;
 
-      // 「行业」页签：关键词 → 行业节点集（树口径）。字典层故障时给空集而不是抛错，
-      // 由 repo 的 1 = 0 收成「无结果」，与下拉/计数保持同一份失败语义。
+      // 行业关键词 → 行业节点集（树口径）。字典层故障时给空集而不是抛错，
+      // 由 repo 的 1 = 0 收成「无结果」，与 facet 计数保持同一份失败语义。
+      const industryQ = req.nextUrl.searchParams.get("industry_q")?.trim() || undefined;
       let industryCodes: string[] | undefined;
-      if (field === "industry" && search) {
+      if (industryQ) {
         try {
-          industryCodes = await resolveIndustryKeywordCodes(industryRepo, search);
+          industryCodes = await resolveIndustryKeywordCodes(industryRepo, industryQ);
         } catch (err) {
           console.error("[suppliers GET] 行业关键词解析失败，本次按无命中处理:", err);
           industryCodes = [];
@@ -71,7 +75,7 @@ export const GET = withRoute(async (req: NextRequest) => {
       }
 
       const { items, total } = await directoryRepo.listDirectoryPaginated({
-        limit: pageSize, offset, search, field, type, industryCode, industryCodes,
+        limit: pageSize, offset, search, field, sort, industryCode, industryCodes,
       });
       const dtoItems = await mapSupplierItems(items, industryRepo);
       return NextResponse.json({ items: dtoItems, total, page, pageSize });
