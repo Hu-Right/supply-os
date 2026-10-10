@@ -5,10 +5,9 @@
  * @module server/services/unspsc
  * @description 按职责拆分的 UNSPSC 子模块统一导出：
  *              - parser: 纯函数（码归一化、前缀提取）
- *              - tree-cache: 内存缓存（类目树加载/路径回溯）
+ *              - bridge-normalize: 纯函数（桥表入库五级路径归一）
  *              - filter: SQL 构建（筛选器/降级路径查询）
  *              - interest: 数据库写操作（用户兴趣码持久化）
- *              - bridge-normalize: 纯函数（桥表入库五级路径归一）
  */
 
 // 纯函数
@@ -36,15 +35,6 @@ export type {
   UnspscDictIndex,
   UnspscDictRow,
 } from "./bridge-normalize";
-
-// 内存缓存
-export {
-  loadUnspscCache,
-  getPathFromCache,
-  getCodeIdFromCache,
-  getUnspscLevelFromCache,
-  clearUnspscCache,
-} from "./tree-cache";
 
 // SQL 构建
 export {
