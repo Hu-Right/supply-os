@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { analyzeCss } from "../../../scripts/lib/css-compat.mjs";
+import { analyzeCss } from "../../scripts/gates/lib/css-compat.mjs";
 
 const passCases = [
   ["普通样式", ".a{color:red;padding:1rem}"],

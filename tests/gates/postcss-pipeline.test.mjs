@@ -3,8 +3,8 @@ import { before, test } from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import postcss from "postcss";
-import config from "../../../postcss.config.mjs";
-import { analyzeCss } from "../../../scripts/lib/css-compat.mjs";
+import config from "../../postcss.config.mjs";
+import { analyzeCss } from "../../scripts/gates/lib/css-compat.mjs";
 
 let root;
 before(async () => {
@@ -15,7 +15,7 @@ before(async () => {
       return (await import(name)).default(options);
     })
   );
-  const source = new URL("../../../src/app/globals.css", import.meta.url);
+  const source = new URL("../../src/app/globals.css", import.meta.url);
   const css = await readFile(source, "utf8");
   root = (
     await postcss(plugins).process(

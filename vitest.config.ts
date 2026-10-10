@@ -18,7 +18,7 @@ export default defineConfig({
     pool: "forks",
     include: ["tests/unit/**/*.test.{ts,tsx}"],
     setupFiles: ["./src/__tests__/setup.ts"],
-    exclude: ["node_modules/**", ".next/**", "tests/e2e/**", "tests/e2e-frontend/**", "tests/integration/**"],
+    exclude: ["node_modules/**", ".next/**", "tests/e2e/**", "tests/e2e-frontend/**", "tests/gates/**", "tests/integration/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

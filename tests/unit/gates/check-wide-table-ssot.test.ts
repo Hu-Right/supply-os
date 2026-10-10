@@ -10,7 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const SCRIPT = path.resolve(process.cwd(), "scripts/check-wide-table-ssot.mjs");
+const SCRIPT = path.resolve(process.cwd(), "scripts/gates/check-wide-table-ssot.mjs");
 
 function run(root: string): { code: number; out: string } {
   try {

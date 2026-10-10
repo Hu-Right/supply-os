@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const REPO_ROOT = process.cwd();
-const SCRIPT = path.join(REPO_ROOT, "scripts/check-no-admin-routes.mjs");
+const SCRIPT = path.join(REPO_ROOT, "scripts/gates/check-no-admin-routes.mjs");
 let root: string;
 
 beforeEach(() => {
