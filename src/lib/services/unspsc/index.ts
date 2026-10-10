@@ -6,6 +6,8 @@
  * @description 按职责拆分的 UNSPSC 子模块统一导出：
  *              - parser: 纯函数（码归一化、前缀提取）
  *              - bridge-normalize: 纯函数（桥表入库五级路径归一）
+ *              - bridge-derive: 纯函数（按主表码文本派生桥表新行）
+ *              - opp-bridge: 数据库写操作（商机桥表补行）
  *              - filter: SQL 构建（筛选器/降级路径查询）
  *              - interest: 数据库写操作（用户兴趣码持久化）
  */
@@ -35,6 +37,23 @@ export type {
   UnspscDictIndex,
   UnspscDictRow,
 } from "./bridge-normalize";
+
+// 桥表派生与补行
+export {
+  extractFullCodes,
+  deriveBridgeRows,
+  type DerivedBridgeRow,
+  type DeriveResult,
+} from "./bridge-derive";
+export {
+  OPP_BRIDGE_TABLE,
+  collectOppBridgePlan,
+  insertOppBridgeRows,
+  syncMissingOppBridge,
+  type OppBridgeInsertRow,
+  type OppBridgePlan,
+  type OppBridgeSyncResult,
+} from "./opp-bridge";
 
 // SQL 构建
 export {

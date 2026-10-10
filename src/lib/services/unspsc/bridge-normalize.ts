@@ -81,6 +81,10 @@ export interface UnspscDictIndex {
   tracePath(startId: number): Array<number | null>;
   /** 计算本行应有的五级路径；null 表示无法派生，调用方须原样保留该行 */
   resolvePath(code: unknown, rawValues: unknown[]): Array<number | null> | null;
+  /** 该码在字典里的全部节点 id（孪生节点返回多个，已按 id 升序）；查无此码返回空数组 */
+  idsForCode(code: unknown): number[];
+  /** 节点自身层级；查无此节点返回 null。派生新行时用它写 level 列，不能由路径长度反推 */
+  levelOf(id: number): number | null;
 }
 
 /**
@@ -159,7 +163,9 @@ export function buildUnspscDictIndex(dictRows: UnspscDictRow[]): UnspscDictIndex
     return candidates.length > 0 ? tracePath(candidates[0]) : null;
   };
 
-  return { isTrustedValue, tracePath, resolvePath };
+  const levelOf = (id: number): number | null => byId.get(id)?.level ?? null;
+
+  return { isTrustedValue, tracePath, resolvePath, idsForCode: (code: unknown) => codeToIds.get(String(code)) ?? [], levelOf };
 }
 
 export interface BridgeNormalizeResult {

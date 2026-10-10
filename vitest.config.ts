@@ -71,6 +71,8 @@ export default defineConfig({
         "src/lib/services/unspsc/parser.ts",
         // 品目桥表入库五级路径归一（crawler-sync 写入前置闸口，纯函数）
         "src/lib/services/unspsc/bridge-normalize.ts",
+        // 品目桥表派生（主表码文本 → 桥表新行，补行与同步链路共用，纯函数）
+        "src/lib/services/unspsc/bridge-derive.ts",
 
         // ── src/lib/services/notice-search — 缓存/统计/翻译 ──
         "src/lib/services/notice-search/agencies/translate.ts",
