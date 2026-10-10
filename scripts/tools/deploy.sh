@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 服务器端部署脚本（裸装）：拉取最新代码 → 安装依赖 → 构建 → 重启应用（pm2）
-# 当前部署方式：登录服务器手动执行 `bash scripts/deploy.sh`（无自动触发）。
+# 当前部署方式：登录服务器手动执行 `bash scripts/tools/deploy.sh`（无自动触发）。
 # 历史上曾由 GitHub Actions（.github/workflows/deploy.yml）触发，该 workflow 已在
 # commit 50fe133b「remove .github ... and CI workflows」中删除，仓库内已无任何 CI 入口。
 set -euo pipefail
@@ -56,14 +56,14 @@ else
   echo "[deploy]   · /tmp/supply-os.env.bak 不存在（/tmp 可能已被开机清理）"
   echo "[deploy]   · 未提供 APP_ENV_FILE"
   echo "[deploy] 中断点在构建之后、重启之前，线上进程未受影响。显式指定后重跑："
-  echo "[deploy]   APP_ENV_FILE=/绝对路径/生产.env bash scripts/deploy.sh"
+  echo "[deploy]   APP_ENV_FILE=/绝对路径/生产.env bash scripts/tools/deploy.sh"
   echo "[deploy] （若仓库根 .env 是开发机配置，直接指过来会导致启动期连不上数据库）"
   exit 1
 fi
 
 # 3.3 复制静态资源（standalone 模式不会自动复制 .next/static）
 cp -rT .next/static .next/standalone/.next/static
-node scripts/css-compat-gate.mjs .next/standalone/.next/static
+node scripts/gates/css-compat-gate.mjs .next/standalone/.next/static
 echo "[deploy] 已复制并检查静态资源 → standalone"
 
 # 3.4 复制 public 目录（字体、图片等静态文件）

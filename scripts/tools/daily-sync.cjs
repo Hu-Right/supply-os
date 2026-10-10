@@ -48,7 +48,7 @@ const path = require('path');
  * 仓库根 .env（与 scripts/shadow-users-phase*.mjs 同一思路：正则取需要的键，不引 dotenv）。
  * 支持 KEY="v" / KEY='v' / KEY=v，忽略注释与空行；进程环境始终优先于 .env。
  */
-const ENV_FILE_PATH = path.join(__dirname, '..', '.env');
+const ENV_FILE_PATH = path.join(__dirname, '..', '..', '.env');
 const ENV_PROVENANCE = {};
 
 const ENV_FILE = (() => {

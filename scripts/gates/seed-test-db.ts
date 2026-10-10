@@ -19,7 +19,7 @@
  *   MYSQL_DATABASE (default: supply_os_test)
  */
 import mysql2 from "mysql2/promise";
-import { DbConfigSchema } from "../src/lib/db/db-config.js";
+import { DbConfigSchema } from "../../src/lib/db/db-config.js";
 
 const DB_HOST = process.env.MYSQL_HOST || "127.0.0.1";
 const DB_PORT = Number(process.env.MYSQL_PORT || 3306);

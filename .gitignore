@@ -25,46 +25,26 @@ pnpm-debug.log*
 ~$*
 *.swp
 *.swo
-scripts/*
-# ===== 构建 / 部署 / 校验管线调用（缺一即流程断，属运行必需）=====
-!scripts/coverage-gate.mjs
-!scripts/seed-test-db.ts
-!scripts/perf-budget-check.ts
-!scripts/deploy.sh
-!scripts/migrate-licenses-to-runtime.mjs
-!scripts/check-i18n.ts
-!scripts/check-no-admin-routes.mjs
-!scripts/css-compat-gate.mjs
-# 以下 4 个早于本白名单机制就已入索引，一直靠「已跟踪」隐身携带（改了不出现在
-# git status、换机 clone 拿不到）。补齐规则使索引与工作区口径一致：
-# check-mojibake → npm run check:encoding（lint / pre-push 第一步）
-# check-wide-table-ssot → npm run check:wide-ssot
-# serve-style-smoke → playwright.styles.config.ts 的 webServer
-# daily-sync → 数据库同步权威实现，自动调度已停用，保留作手动应急兜底
-!scripts/check-mojibake.mjs
-!scripts/check-wide-table-ssot.mjs
-!scripts/check-taxonomy-invariants.ts
-!scripts/serve-style-smoke.mjs
-!scripts/daily-sync.cjs
-# scripts/lib 下只放行 css-compat-gate 的实际依赖。
-# 顺序不可改：必须先用 !scripts/lib/ 让 git 进入该目录，再整体忽略内容、单独放行文件；
-# 若只写 scripts/lib/*，css-compat.mjs 会被目录级忽略吃掉（已实测）。
-!scripts/lib/
-scripts/lib/*
-!scripts/lib/css-compat.mjs
-# 权益约束静态校验探针：非构建/部署必需，跑的是生产库，停止跟踪（本地文件保留）
-scripts/verify-benefit-constraints.ts
-# ===== 以下为一次性数据库切换工具（ADR-0003 影子表蓝绿切换）=====
-# 历史上曾按「切换流程不能只存在于单机」的理由白名单放行；截至 2026-09-29
-# users / consent_log / supplier / benefit_catalog 四套切换均已收尾，这些脚本
-# 不再属于「项目运行必需」，按非必要不上传原则停止跟踪（git rm --cached，本地文件保留）。
-# 若将来再做同类切换，参照 docs/adr/0003 与仍然跟踪中的历史阶段脚本写法重新放行。
-runtime/
-backups/
-bin/
-dumps/
-logs/
-server/logs/
+
+# ===== scripts 分层：默认跟踪，按生命周期放置 =====
+# 规则：长期门禁脚本放 scripts/gates/、持久手动工具放 scripts/tools/ —— 两者随目录自动入库，
+#       新增脚本无需再改本文件（彻底告别逐条 ! 白名单与顺序陷阱）。
+#       一次性 / 连生产库的探针 / 本机应急脚本放 scripts/ops/（默认忽略）；生成物落 out/backups。
+# 一致性由 scripts/gates/check-gitignore-consistency.mjs 在 lint/CI 强制：禁散放、禁跟踪 ops。
+/scripts/ops/
+/scripts/out/
+/scripts/backups/
+**/.sync-watermark.json
+
+# ===== 一次性数据库工具与运行产物（影子表蓝绿切换等，见 ADR-0003）=====
+/runtime/
+
+# ===== 服务器 / 本地运行目录 =====
+/bin/
+/dumps/
+/logs/
+/server/logs/
+/backups/
 
 # ===== IDE 与编辑器 =====
 .qoder/
@@ -74,6 +54,7 @@ server/logs/
 *.suo
 *.njsproj
 *.sln
+*.iws
 
 # ===== 操作系统生成文件 =====
 .DS_Store
@@ -84,6 +65,8 @@ ehthumbs.db
 Desktop.ini
 
 # ===== 二进制与办公文档 =====
+# 二进制 / 办公文档默认不入库（体量大、非源码、多为过程产物）。
+# 需要随仓分发的运行必需资源，在下方「例外」区用 ! 精确放行。
 *.docx
 *.xlsx
 *.pptx
@@ -103,7 +86,7 @@ Desktop.ini
 *.ttf
 *.eot
 
-# —— 以上规则的例外：项目运行必需的静态资源 ——
+# —— 项目运行必需的静态资源例外 ——
 !public/fonts/**
 !public/wechat-service-qr.png
 !public/earth.png
@@ -112,14 +95,13 @@ Desktop.ini
 !public/manifest.json
 !src/app/favicon.ico/
 
-# ===== 开发过程文档 =====
-# docs/*（非 docs/）才能让下方 !docs/adr/ 否则规则生效——git 不进入被整目录排除的路径
+# ===== 开发过程文档：仅 docs/adr/ 入库，其余（周报 / 收费资料 / 数据库设计等）本地 =====
+# 必须用 docs/*（而非 docs/）才能让下方 !docs/adr/ 例外生效——git 不进入被整目录排除的路径
 docs/*
 !docs/adr/
-要求.md
-.superpowers/
-生成报告.txt
-2026年8月绩效评分表（张雪豪）.docx
+
+# ===== 临时 / 个人过程文件（统一落 temp/，不再逐文件点名）=====
+/temp/
 
 # ===== Playwright E2E 测试产物 =====
 playwright-report/

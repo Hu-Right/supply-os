@@ -14,7 +14,7 @@
 import "dotenv/config";
 import mysql2 from "mysql2/promise";
 import type { RowDataPacket } from "mysql2/promise";
-import { DbConfigSchema } from "../src/lib/db/db-config.js";
+import { DbConfigSchema } from "../../src/lib/db/db-config.js";
 
 // 与 src/lib/db/pool.ts 同一组环境变量；脚本侧独立建池，避免依赖 Next 运行时
 const DB_CFG = DbConfigSchema.parse({

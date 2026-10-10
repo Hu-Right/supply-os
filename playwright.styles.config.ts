@@ -12,7 +12,7 @@ export default defineConfig(config, {
   webServer: process.env.BASE_URL
     ? undefined
     : {
-        command: "node scripts/serve-style-smoke.mjs",
+        command: "node scripts/gates/serve-style-smoke.mjs",
         url: `${baseURL}/`,
         reuseExistingServer: false,
         timeout: 30_000,

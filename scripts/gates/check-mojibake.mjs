@@ -22,7 +22,7 @@ const mojibakePatterns = [
 ];
 
 // 本脚本自身包含乱码特征字符（模式定义），排除自匹配
-const SELF = path.resolve("scripts/check-mojibake.mjs");
+const SELF = path.resolve("scripts/gates/check-mojibake.mjs");
 
 const ignoredDirs = new Set(["node_modules", "dist", ".git"]);
 // 一次性切换/同步作业落盘的数据备份与日志（scripts/out、scripts/backups）：

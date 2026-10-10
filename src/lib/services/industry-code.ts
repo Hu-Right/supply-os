@@ -6,7 +6,7 @@
  * @description 行业面主键 `code` 的形态是 `UGT-I-` + 定长分层数字
  *              （门类 2 位 / 大类 4 位 / 中类 6 位 / 小类与自研 8 位），
  *              并由门禁 I4 钉死「父码 = 自身码去掉末两位」（
- *              scripts/check-taxonomy-invariants.ts）。
+ *              scripts/gates/check-taxonomy-invariants.ts）。
  *              于是两件事可以纯字符串完成，不必查库、不必递归 CTE：
  *                - 由叶子码反推祖先链（卡片展示「门类 / 大类 / 中类」路径）；
  *                - 由任意节点码取子树匹配前缀（按行业筛选时选中大类要含其全部子孙）。

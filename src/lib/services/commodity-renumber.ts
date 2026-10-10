@@ -6,7 +6,7 @@
  * @description 输入=旧表扁平行（code/src_code/level/parent_code 旧语义），
  *              输出=新表行（顺排 code、unspsc_code、新 parent_code）。
  *              规则：每父下子节点按 src_code 升序从 01 顺排；码长即层级；父指针指向新父码。
- *              影子表构建脚本（scripts/commodity-shadow-build.mjs）复用本模块，写库前先离线自检。
+ *              影子表构建脚本（scripts/ops/commodity-shadow-build.mjs）复用本模块，写库前先离线自检。
  */
 import { COMMODITY_CODE_PREFIX } from "./commodity-code";
 
