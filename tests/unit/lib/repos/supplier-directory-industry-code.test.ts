@@ -1,11 +1,12 @@
 /**
  * 行业面码筛选测试（目录分页）
  * @module tests/unit/lib/repos/supplier-directory-industry-code.test.ts
- * @description /api/suppliers?industry_code= 是门户按行业检索的入口，行业面拆表后它是
- *              唯一口径（旧 ?industry= 自由文本等值参数已于 2026-10-09 退役）。钉四条：
+ * @description /api/suppliers?industry_code= 是行业主轴（门类 chip）的入口：2026-10-10 起
+ *              它是唯一的行业点选口径（旧 ?industry= 自由文本等值参数已退役，大类也不再进控件）。
+ *              钉四条：
  *              1. 选中的是**节点子树**（大类要含其下中类/小类的挂靠），不是等值匹配；
- *              2. 判定走 crm_supplier_industry_rel，与卡片多行业标签同一张表
- *                 （下拉计数、筛选结果、卡片标签三处必须同源，否则用户看到自相矛盾的数字）；
+ *              2. 判定走 crm_supplier_industry_rel，与卡片多行业标签、facet 计数同一张表
+ *                 （chip 数字、筛选结果、卡片标签三处必须同源，否则用户看到自相矛盾的数字）；
  *              3. 非法码 = 不筛选，且码永不拼进 SQL；
  *              4. 取列必须带上 industry_code，否则映射层拿不到码，卡片只能退回旧文本。
  */
@@ -56,24 +57,15 @@ describe("SupplierDirectoryRepo.listDirectoryPaginated — industryCode 子树�
     expect(sql).toMatch(/SELECT[\s\S]*industry_code[\s\S]*FROM supplier/);
   });
 
-  it("下拉选中码与关键词码可叠加（交集语义：制造业里再搜电气机械）", async () => {
+  it("已退役的自由文本检索不得复活：对 supplier.industry 列的任何谓词都不允许出现", async () => {
     mockQuery.mockResolvedValueOnce([[{ total: 0 }]]).mockResolvedValueOnce([[]]);
     await repo.listDirectoryPaginated({
-      limit: 8, offset: 0, search: "电气", field: "industry",
-      industryCode: "UGT-I-03", industryCodes: ["UGT-I-0326"],
+      limit: 8, offset: 0, search: "制造业", field: "company", industryCode: "UGT-I-03", industryCodes: [],
     });
     const sql = mockQuery.mock.calls[1][0] as string;
-    const values = mockQuery.mock.calls[1][1] as unknown[];
-    expect((sql.match(/ir\.industry_code LIKE \?/g) ?? []).length).toBe(2);
-    expect(values).toContain("UGT-I-03%");
-    expect(values).toContain("UGT-I-0326%");
-  });
-
-  it("已退役的文本等值条件不得复活（出现 industry = ? 就是脏数据重回检索路径）", async () => {
-    mockQuery.mockResolvedValueOnce([[{ total: 0 }]]).mockResolvedValueOnce([[]]);
-    await repo.listDirectoryPaginated({ limit: 8, offset: 0, search: "制造业", field: "industry" });
-    const sql = mockQuery.mock.calls[1][0] as string;
+    // 出现 industry = ? / industry LIKE ? 就是脏数据重回检索路径（取列里的 s.industry 不算谓词）
     expect(sql).not.toMatch(/\bindustry = \?/);
     expect(sql).not.toMatch(/\bindustry LIKE \?/);
+    expect(sql).toContain("1 = 0");
   });
 });
