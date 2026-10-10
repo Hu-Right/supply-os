@@ -39,7 +39,7 @@ export function getPool(): Pool {
     user: cfg.user,
     password: cfg.password,
     database: cfg.database,
-    // 编码红线（docs/i18n-encoding-standard.md §2.3）：连接层字符集必须显式声明，
+    // 编码红线（docs/数据库设计/数据库字符集与排序规则统一规范.md §2）：连接层字符集必须显式声明，
     // 不依赖驱动默认值；dateStrings 因影响面大另行回归后变更，不在此同批引入
     charset: "utf8mb4",
     waitForConnections: true,
