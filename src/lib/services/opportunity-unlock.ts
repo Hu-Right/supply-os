@@ -47,7 +47,7 @@ export interface OpportunityUnlockParams {
  *
  * 流程：无锁预检幂等 → 事务（复查幂等 → free 硬闸 → 共享配额口径锁定
  * notice_view 池行（FOR UPDATE）→ 插入解锁记录（唯一键 ER_DUP_ENTRY 兜底幂等）
- * → 条件 UPDATE 消耗配额 + affectedRows 复核防超卖 → 商机计数+1）
+ * → 条件 UPDATE 消耗配额 + affectedRows 复核防超卖）
  * → 提交 → 事务外写兴趣码（非关键路径，userId=0 跳过）。
  *
  * @throws OpportunityUnlockError FREE_LIMIT_REACHED（免费解锁已移除，服务端硬闸）
@@ -123,11 +123,8 @@ export async function executeOpportunityUnlock(
       }
     }
 
-    // 商机解锁计数（同事务，保证计数与解锁一致）
-    await conn.query(
-      "UPDATE crm_bid_opportunities SET unlock_count = COALESCE(unlock_count, 0) + 1 WHERE id = ?",
-      [opportunityId],
-    );
+    // 注：商机表不再维护 unlock_count 计数列（2026-09-30 外部 DDL 已删），
+    // 解锁量以 crm_opportunity_unlocks 流水 COUNT 为准，此处不再同事务自增计数。
 
     await conn.commit();
 

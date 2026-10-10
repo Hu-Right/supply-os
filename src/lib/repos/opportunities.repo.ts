@@ -21,14 +21,13 @@ export interface OpportunityListItemRow {
   country: string | null;
   deadline: string | null;
   deadline_ts: number | null;
+  /** 排序键（STORED 生成列）；DISTINCT 查询要求 ORDER BY 列必须出现在 SELECT 列表 */
+  deadline_sec: number | null;
   estimated_value: string | null;
-  budget: string | null;
   description: string | null;
   industry: string | null;
   unspsc_codes: string | null;
   source_url: string | null;
-  unlock_count: number | null;
-  view_count: number | null;
 }
 
 /** 商机解锁流水行 */
@@ -76,8 +75,8 @@ export class OpportunitiesRepo {
     const [rows] = await this.pool.query(
       `SELECT DISTINCT
          o.id, o.title, o.reference, o.notice_type, o.agency, o.country,
-         o.deadline, o.deadline_ts, o.estimated_value, o.budget, o.description,
-         o.industry, o.unspsc_codes, o.source_url, o.unlock_count, o.view_count
+         o.deadline, o.deadline_ts, o.deadline_sec, o.estimated_value, o.description,
+         o.industry, o.unspsc_codes, o.source_url
        FROM crm_bid_opportunities o
        ${join}
        WHERE ${where.join(" AND ")}
@@ -136,14 +135,6 @@ export class OpportunitiesRepo {
     );
   }
 
-  /** 浏览数 +1 */
-  async incrementViewCount(opportunityId: number): Promise<void> {
-    await this.pool.execute(
-      "UPDATE crm_bid_opportunities SET view_count = COALESCE(view_count, 0) + 1 WHERE id = ?",
-      [opportunityId],
-    );
-  }
-
   /** 已有解锁记录（幂等判定，无记录返回 null） */
   async findExistingUnlock(
     userId: number,
@@ -180,14 +171,6 @@ export class OpportunitiesRepo {
       [opportunityId],
     );
     return (rows as RowDataPacket[])[0] ?? null;
-  }
-
-  /** 解锁数 +1 */
-  async incrementUnlockCount(opportunityId: number): Promise<void> {
-    await this.pool.execute(
-      "UPDATE crm_bid_opportunities SET unlock_count = COALESCE(unlock_count, 0) + 1 WHERE id = ?",
-      [opportunityId],
-    );
   }
 
   /** 兴趣码 upsert（解锁来源，重复时权重 +0.50） */
