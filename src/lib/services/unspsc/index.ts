@@ -8,6 +8,7 @@
  *              - tree-cache: 内存缓存（类目树加载/路径回溯）
  *              - filter: SQL 构建（筛选器/降级路径查询）
  *              - interest: 数据库写操作（用户兴趣码持久化）
+ *              - bridge-normalize: 纯函数（桥表入库五级路径归一）
  */
 
 // 纯函数
@@ -18,6 +19,23 @@ export {
   padUnspscPrefix,
 } from "./parser";
 export type { UnspscCodeRow } from "./parser";
+
+// 桥表入库归一（纯函数）
+export {
+  BRIDGE_PATH_COLUMNS,
+  BRIDGE_NORMALIZE_POLICIES,
+  buildUnspscDictIndex,
+  normalizeBridgePathRow,
+  applyBridgeNormalize,
+  toDictIdOrNull,
+} from "./bridge-normalize";
+export type {
+  BridgePathColumn,
+  BridgeNormalizePolicy,
+  BridgeNormalizeResult,
+  UnspscDictIndex,
+  UnspscDictRow,
+} from "./bridge-normalize";
 
 // 内存缓存
 export {

@@ -13,13 +13,24 @@
  *                 → 改为按父→子表顺序同步 + ODKU 幂等；
  *              2. **收集本轮 crm_bid_notices 变更 id**，交由调度器在主表全部写完后
  *                 级联宽表（syncWideIds 内部再级联 Meili），实现「主表完整 → 才更新宽表」
- *                 的同进程串行顺序。
+ *                 的同进程串行顺序；
+ *              3. **品目桥表入库路径归一**（见 unspsc/bridge-normalize）：上游写来的
+ *                 levelN_id 存在 0/NULL 两套空写法与「字典 id / 码前缀」两套口径，
+ *                 不处理就会让新行继续偏离消费点（类目筛选/推荐召回/行业墙/相似公告）
+ *                 的比对口径。
  *
  *              ⚠️ 源库值经 escapeVal 拼进批量 INSERT 字符串（沿用 .cjs 语义）：数据源为
  *              受信任的内网爬虫库，非终端用户输入；列名来自 information_schema 且反引号包裹。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { getSourcePool } from "@/lib/db/source-pool";
+import {
+  BRIDGE_NORMALIZE_POLICIES,
+  applyBridgeNormalize,
+  buildUnspscDictIndex,
+  type UnspscDictIndex,
+  type UnspscDictRow,
+} from "../unspsc/bridge-normalize";
 import {
   SYNC_TABLES, NOTICE_TABLE,
   escapeVal, buildOdkuClause, buildIncrementalWhere, buildWatermark,
@@ -75,6 +86,23 @@ export async function saveWatermark(target: Pool, table: string, wm: Watermark):
   );
 }
 
+/**
+ * 读目标库旧字典建索引（桥表归一用）。
+ * 字典约 1.3 万行、内存占用与 unspsc/tree-cache 同量级；每轮同步加载一次。
+ * 加载失败返回 null → 本轮不做归一（绝不因归一失败而阻塞同步）。
+ */
+export async function loadUnspscDictIndex(target: Pool): Promise<UnspscDictIndex | null> {
+  try {
+    const [rows] = await target.query(
+      "SELECT id, code, level, parent_id FROM crm_unspsc_codes ORDER BY id",
+    );
+    return buildUnspscDictIndex(rows as unknown as UnspscDictRow[]);
+  } catch (err) {
+    console.warn(`[crawler-sync] 桥表归一字典加载失败，本轮跳过归一: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
 export interface SyncTableResult {
   synced: number;
   newWm: Watermark;
@@ -85,6 +113,7 @@ export interface SyncTableResult {
 /**
  * 单表增量同步：keyset 分页拉取源库变更 → 批量 ODKU 写目标 → 每批成功后落水位线。
  * @param onWatermark 每批成功后的水位线回调（用于崩溃续传）
+ * @param normalize 行级归一（仅桥表传入）：只影响拼入 SQL 的值，不改变水位与变更 id 的取值口径
  */
 export async function syncTable(
   source: Pool,
@@ -92,6 +121,7 @@ export async function syncTable(
   table: string,
   wm: Watermark,
   onWatermark?: (wm: Watermark) => Promise<void>,
+  normalize?: (row: RowDataPacket) => Record<string, unknown>,
 ): Promise<SyncTableResult> {
   const columns = await getTableColumns(source, table, "source");
   const targetColumns = await getTableColumns(target, table, "target");
@@ -143,9 +173,11 @@ export async function syncTable(
     const batch = rows as RowDataPacket[];
     if (batch.length === 0) break;
 
-    const valueRows = batch.map((row) =>
-      `(${colNames.map((c) => escapeVal(row[c], colTypes[c])).join(", ")})`,
-    );
+    const valueRows = batch.map((raw) => {
+      // 归一只在拼 SQL 前改写五级路径列；主键与 update_time 仍取源行原值
+      const row = normalize ? normalize(raw) : raw;
+      return `(${colNames.map((c) => escapeVal(row[c], colTypes[c])).join(", ")})`;
+    });
     const sql = `INSERT INTO \`${table}\` (${colList}) VALUES ${valueRows.join(",")} ON DUPLICATE KEY UPDATE ${updateClause}`;
     await target.query(sql);
 
@@ -203,13 +235,22 @@ export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResul
   if (!source) return { skipped: true, totalSynced: 0, changedNoticeIds: [], perTable: {} };
 
   const wms = await loadWatermarks(target);
+  // 桥表归一：字典只在需要时加载一次（同一份索引服务本轮全部桥表）
+  const needsNormalize = SYNC_TABLES.some((table) => BRIDGE_NORMALIZE_POLICIES[table]);
+  const dict = needsNormalize ? await loadUnspscDictIndex(target) : null;
   let totalSynced = 0;
   const changedNoticeIds: number[] = [];
   const perTable: Record<string, number> = {};
 
   for (const table of SYNC_TABLES) {
     const wm = wms.get(table) ?? { id: 0, time: null };
-    const result = await syncTable(source, target, table, wm, (batchWm) => saveWatermark(target, table, batchWm));
+    const policy = BRIDGE_NORMALIZE_POLICIES[table];
+    let normalize: ((row: RowDataPacket) => Record<string, unknown>) | undefined;
+    if (dict && policy) {
+      const index = dict;
+      normalize = (row) => applyBridgeNormalize(row, index, policy);
+    }
+    const result = await syncTable(source, target, table, wm, (batchWm) => saveWatermark(target, table, batchWm), normalize);
     // 兜底：本轮结束再落一次最终水位（与每批一致，幂等）
     await saveWatermark(target, table, result.newWm);
     wms.set(table, result.newWm);

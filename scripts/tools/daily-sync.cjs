@@ -3,6 +3,9 @@
  *    （src/lib/services/search-sync/crawler-sync.ts + crawler-sync-scheduler.ts，由 instrumentation 拉起）。
  *    请在部署层移除对本脚本的 cron / 定时调用，避免与应用内同步形成「两个写入者并发 ODKU 主表」。
  *    本文件仅保留作手动应急兜底（如应用内同步异常时人工补跑一轮）。
+ *    ⚠ 本脚本不含品目桥表入库归一（该口径已统一由应用内 crawler-sync 承担）：
+ *    用它应急补跑后，桥表的 levelN_id 仍可能带上游的 0 / 空串 / 码前缀形态，
+ *    需另跑一轮归一治理再继续依赖类目筛选与行业墙。
  *
  * 内网爬虫数据 → 线上生产库 定时增量同步
  *
