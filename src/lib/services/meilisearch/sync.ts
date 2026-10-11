@@ -50,8 +50,8 @@ function buildSyncDocFromWideTable(r: RowDataPacket) {
     langFields[`description_${lang}`] = truncate(r[`description_${lang}`] ?? "", WIDE_LIMITS.description);
   }
 
-  // UNSPSC：宽表存储为逗号分隔字符串，转为数组
-  const parseUnspsc = (val: unknown): string[] => val ? String(val).split(",").filter(Boolean) : [];
+  // 宽表的集合列统一存为逗号分隔字符串，这里一律拆成数组（UNSPSC id 集与骨架节点码集同形制）
+  const parseCsvList = (val: unknown): string[] => val ? String(val).split(",").filter(Boolean) : [];
 
   return {
     id: Number(r.id),
@@ -74,22 +74,23 @@ function buildSyncDocFromWideTable(r: RowDataPacket) {
     // 「含原始文件」筛选依据
     documents_count: Number(r.documents_count) || 0,
     ...langFields,
-    level1_id: parseUnspsc(r.unspsc_level1),
-    level2_id: parseUnspsc(r.unspsc_level2),
-    level3_id: parseUnspsc(r.unspsc_level3),
-    level4_id: parseUnspsc(r.unspsc_level4),
-    level5_id: parseUnspsc(r.unspsc_level5),
+    level1_id: parseCsvList(r.unspsc_level1),
+    level2_id: parseCsvList(r.unspsc_level2),
+    level3_id: parseCsvList(r.unspsc_level3),
+    level4_id: parseCsvList(r.unspsc_level4),
+    level5_id: parseCsvList(r.unspsc_level5),
     // 精准分类字段（合并语义：精准码优先、原标签兜底，宽表已合并）
-    precise_level1_id: parseUnspsc(r.precise_level1),
-    precise_level2_id: parseUnspsc(r.precise_level2),
-    precise_level3_id: parseUnspsc(r.precise_level3),
-    precise_level4_id: parseUnspsc(r.precise_level4),
-    precise_level5_id: parseUnspsc(r.precise_level5),
-    // 品目树筛选属性：宽表 code_path 是公告全部 8 位码的无损祖先前缀集（2/4/6/8 位），
-    // 商机页五级下拉选到哪层就等值命中哪层（与 filter-builder 的 MySQL 方言同一谓词）。
-    // 单值≤ 8 字符，不受 Meili 单值 468 字节限制；一个文档里前缀项可达数千（实测最大 5,167），
-    // Meili 对数组元素个数无限制（依据见 lib/services/commodity/path.ts 叶子不限量说明）。
-    commodity_prefix: parseUnspsc(r.code_path),
+    precise_level1_id: parseCsvList(r.precise_level1),
+    precise_level2_id: parseCsvList(r.precise_level2),
+    precise_level3_id: parseCsvList(r.precise_level3),
+    precise_level4_id: parseCsvList(r.precise_level4),
+    precise_level5_id: parseCsvList(r.precise_level5),
+    // 品目骨架树筛选属性：宽表 backbone_path 存该公告归属的骨架节点码（UGT-B-…，含全部祖先，
+    // 由 lib/services/commodity/backbone-path 换算后灌入），商机页五级下拉选到哪一层就等值命中哪一层
+    // （与 filter-builder 的 MySQL 方言同一谓词、同一口径）。
+    // 单值 ≤ 16 字符，不受 Meili 单值 468 字节限制；一个文档里节点项可达数千（实测最大 5,279），
+    // Meili 对数组元素个数无限制。
+    backbone_node: parseCsvList(r.backbone_path),
   };
 }
 
@@ -101,7 +102,7 @@ const WIDE_TABLE_SYNC_SQL = `
          deadline_sec, is_featured, estimated_value, documents_count,
          unspsc_level1, unspsc_level2, unspsc_level3, unspsc_level4, unspsc_level5,
          precise_level1, precise_level2, precise_level3, precise_level4, precise_level5,
-         code_path,
+         backbone_path,
          title_zh, description_zh, title_en, description_en,
          title_fr, description_fr, title_ru, description_ru,
          title_es, description_es, title_ar, description_ar

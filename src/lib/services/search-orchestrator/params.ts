@@ -9,7 +9,7 @@
 import type { UnifiedSearchParams, SearchMode } from "./types";
 import { isKnownNoticeType } from "../../utils/notice-type";
 import { isCommodityGroupCode } from "../commodity/groups";
-import { isCommodityPathKey } from "../commodity/tree";
+import { isCommodityNodeKey } from "../commodity/tree";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -32,7 +32,7 @@ export interface RawSearchParams {
   codeId?: number;
   /** 品目大类码（URL group）：只接受 32 类常量内的码，其余一律丢弃 */
   groupCode?: string;
-  /** 品目树筛选键（URL commodity）：只接受 2/4/6/8 位 UNSPSC 数字前缀 */
+  /** 品目骨架树筛选键（URL commodity）：只接受 UGT-B- 节点码（码内 2/4/6/8/10 位） */
   commodityPath?: string;
   /** 行业墙强制一级类目（服务端 industry-scope 注入；不接受客户端传参） */
   forcedLevel1Id?: string;
@@ -80,7 +80,7 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
     sort,
     codeId: Math.max(Math.floor(raw.codeId || 0), 0),
     groupCode: raw.groupCode && isCommodityGroupCode(raw.groupCode) ? raw.groupCode : undefined,
-    commodityPath: raw.commodityPath && isCommodityPathKey(raw.commodityPath) ? raw.commodityPath : undefined,
+    commodityPath: raw.commodityPath && isCommodityNodeKey(raw.commodityPath) ? raw.commodityPath : undefined,
     forcedLevel1Id: raw.forcedLevel1Id ? String(raw.forcedLevel1Id) : undefined,
     budgetMin: raw.budgetMin != null && raw.budgetMin >= 0 ? Math.floor(raw.budgetMin) : undefined,
     budgetMax: raw.budgetMax != null && raw.budgetMax >= 0 ? Math.floor(raw.budgetMax) : undefined,

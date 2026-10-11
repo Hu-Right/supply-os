@@ -146,10 +146,10 @@ export function buildNoticeIndexSettings(): Settings {
       "precise_level3_id",
       "precise_level4_id",
       "precise_level5_id",
-      // 品目树五级下拉的筛选属性（由宽表 code_path 拆数组，见 sync.ts）。
+      // 品目骨架树五级下拉的筛选属性（由宽表 backbone_path 拆数组，见 sync.ts）。
       // 新增属性对存量文档不会自动回填 ⇒ 必须走一次全量重建才能生效；
       // 重建前带该筛选的请求会被 Meili 报未知属性错并降级到 MySQL 方言（语义相同，结果正确）。
-      "commodity_prefix",
+      "backbone_node",
     ],
     sortableAttributes: ["deadline_sec", "id", "has_deadline"],
     rankingRules: [
