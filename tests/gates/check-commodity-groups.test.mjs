@@ -34,7 +34,7 @@ test("真实常量应通过", () => {
   const r = run();
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /CG1~CG4 通过/);
-  assert.match(r.out, /15 类 \/ 58 段前缀/);
+  assert.match(r.out, /32 类 \/ 58 段前缀/);
 });
 
 test("CG3：一段挂两类必须报错", () => {
@@ -47,12 +47,12 @@ test("CG3：一段挂两类必须报错", () => {
   assert.match(r.out, /CG3 段 72 重复归属：UGT-G-01 vs UGT-G-02/);
 });
 
-test("CG1 + CG4：类数不为 15、名称为空都要报", () => {
+test("CG1 + CG4：类数不为 32、名称为空都要报", () => {
   const f = fixture("bad.json", [{ code: "UGT-G-01", nameZh: "  ", prefixes: ["10"] }]);
   const r = run({ COMMODITY_GROUPS_FIXTURE: f });
   assert.equal(r.code, 1);
   assert.match(r.out, /CG4 UGT-G-01 的 name_zh 为空/);
-  assert.match(r.out, /CG1 大类数应为 15，实际 1/);
+  assert.match(r.out, /CG1 大类数应为 32，实际 1/);
 });
 
 test("CG2：段前缀形制非法要报", () => {

@@ -27,7 +27,7 @@ const groups: readonly Def[] = FIXTURE
 
 /**
  * 校验口径只有一份：常量模块的 validateCommodityGroups()。
- * fixture 模式下破坏样本本来就少于 15 类，CG1 的类数断言按 fixture 语义重算。
+ * fixture 模式下破坏样本本来就少于全量类数，CG1 的类数断言按 fixture 语义重算。
  */
 const problems: string[] = [...validateCommodityGroups(groups)];
 if (FIXTURE) {
