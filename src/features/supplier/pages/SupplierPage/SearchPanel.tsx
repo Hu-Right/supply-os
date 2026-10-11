@@ -1,9 +1,9 @@
 /**
- * 搜索面板 — 行业级联下拉（门类 → 大类 → 中类 → 小类）+ 产品/公司关键词
+ * 搜索面板 — 行业级联下拉（门类 → 大类 → 中类 → 小类）+ 关键词框
  * @module features/supplier/pages/SupplierPage/SearchPanel
  * @description 2026-10-12：行业筛选从「门类 chip + 行业关键词框」改成商机页那种逐级下拉。
- *              上半是四级级联（选到哪一层就按那一层的子树筛，零挂靠选项不下发），下半才是
- *              产品/公司关键词框，语义是「在已选行业里搜产品/公司」。
+ *              上半是四级级联（读完整分类树，零挂靠节点同样可选），下半是一个关键词框，
+ *              同时搜公司名与产品/关键词（服务端 OR 合并），语义是「在已选行业里搜」。
  *
  *              为什么换成下拉而不是 chip：门类一层铺 chip 尚可，但大类以下靠关键词框命中
  *              既不直观也猜不到词；逐级下拉让「门类→大类→中类→小类」的下钻变成纯点选，
@@ -14,13 +14,10 @@
  */
 import { Layers3, Search } from "lucide-react";
 import { Input, Button } from "@/shared/ui";
-import { SEARCH_TABS } from "./constants";
 import { IndustryLevelSelector } from "./IndustryLevelSelector";
 import type { IndustryCascade } from "../../hooks/useIndustryCascade";
 
 interface SearchPanelProps {
-  searchTab: string;
-  setSearchTab: (tab: string) => void;
   searchTerm: string;
   setSearchTerm: (v: string) => void;
   /** 行业级联：四级选项 + 选中链 + 变更回调 + 门类落定标记 */
@@ -32,7 +29,7 @@ interface SearchPanelProps {
 }
 
 export function SearchPanel({
-  searchTab, setSearchTab, searchTerm, setSearchTerm,
+  searchTerm, setSearchTerm,
   industry, onSearch, onReset, t,
 }: SearchPanelProps) {
   return (
@@ -56,25 +53,10 @@ export function SearchPanel({
 
       <div className="border-t border-slate-100" role="presentation" />
 
-      {/* ═══ 关键词检索：只剩产品 / 公司 ═══ */}
+      {/* ═══ 关键词检索：一个框同时搜公司名 + 产品/关键词 ═══ */}
       <div className="space-y-3">
-        <div className="flex items-center gap-4 border-b border-slate-200 pb-0 overflow-x-auto">
+        <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-slate-500 shrink-0">{t("supplierSearchTab")}</span>
-          {SEARCH_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              aria-pressed={searchTab === tab.key}
-              onClick={() => setSearchTab(tab.key)}
-              className={`pb-2.5 text-sm font-bold transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
-                searchTab === tab.key
-                  ? "border-teal-600 text-teal-700"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {t(tab.labelKey)}
-            </button>
-          ))}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2.5">

@@ -36,7 +36,6 @@ export default function SupplierPage() {
   const router = useRouter();
 
   // ── 搜索状态 ─
-  const [searchTab, setSearchTab] = useState("product");
   const [searchTerm, setSearchTerm] = useState("");
   /** 行业主轴：选中行业码（门类/大类/中类/小类任一层，空串=全部），直接喂子树筛 */
   const [industryCode, setIndustryCode] = useState("");
@@ -47,7 +46,6 @@ export default function SupplierPage() {
   const { suppliers, total, loading, setPage, appendPage } = useSupplierSearch({
     locale,
     searchTerm,
-    searchField: searchTab,
     supplierIndustryCode: industryCode,
     sortBy,
     pageSize: 8,
@@ -112,11 +110,10 @@ export default function SupplierPage() {
         realtimeLabel={t("supplierStatRealtime")}
       />
 
-      {/* 关键词框、chip、页签都走「改了条件就回第 1 页」：两个词框都在列表 effect 的依赖里
-          （防抖 300ms 后落定），停在第 3 页或刚点过「加载更多」（appendMode）时直接打字，
-          hook 会拿新条件的第 2 页去追加旧结果，得到一份新旧混排的列表。 */}
+      {/* 关键词框与行业级联都走「改了条件就回第 1 页」：词框在列表 effect 的依赖里（防抖 300ms
+          后落定），停在第 3 页或刚点过「加载更多」（appendMode）时直接打字，hook 会拿新条件的
+          第 2 页去追加旧结果，得到一份新旧混排的列表。 */}
       <SearchPanel
-        searchTab={searchTab} setSearchTab={(k) => { setSearchTab(k); setPage(1); }}
         searchTerm={searchTerm} setSearchTerm={(v) => { setSearchTerm(v); setPage(1); }}
         industry={industry}
         onSearch={handleSearch} onReset={handleReset} t={t}

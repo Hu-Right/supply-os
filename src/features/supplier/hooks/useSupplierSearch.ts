@@ -6,7 +6,7 @@
  *
  *              2026-10-12：行业筛选从「门类 chip + 行业关键词框」改成逐级下拉后，本 hook 只保留
  *              列表侧的三条件：行业码（supplierIndustryCode，级联下拉的最深选中码，子树筛）、
- *              产品/公司关键词（searchTerm）、排序（sortBy）。
+ *              关键词（searchTerm，一个框同时搜公司名 + 产品）、排序（sortBy）。
  *              行业选项（门类 facet + 各级子级）不再在这里装载——它们改由 useIndustryCascade 独立取，
  *              与列表互不阻塞；行业关键词（industry_q）随关键词框一起下线。
  *
@@ -20,10 +20,8 @@ import { fetchSuppliersPaginated } from "../api";
 export interface SupplierSearchFilters {
   /** useLocale() 返回的 locale 字符串 */
   locale: string;
-  /** 产品 / 公司关键词 */
+  /** 关键词（一个框同时搜公司名 + 产品） */
   searchTerm: string;
-  /** 关键词检索字段：product | company（缺省=公司名） */
-  searchField?: string;
   /** 行业主轴：行业码（UGT-I-…，门类/大类/中类/小类任一层级）；空串=不筛 */
   supplierIndustryCode?: string;
   /** 排序方式 */
@@ -60,7 +58,6 @@ function useDebouncedValue(value: string | undefined, delayMs: number): string |
 export function useSupplierSearch({
   locale,
   searchTerm,
-  searchField,
   supplierIndustryCode,
   sortBy,
   pageSize = 8,
@@ -85,7 +82,6 @@ export function useSupplierSearch({
       page,
       pageSize,
       q: searchTermSettled || undefined,
-      field: searchField || undefined,
       industryCode: supplierIndustryCode || undefined,
       sort: sortBy,
     })
@@ -112,7 +108,7 @@ export function useSupplierSearch({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [locale, page, searchTermSettled, searchField, supplierIndustryCode, sortBy, reloadKey, appendMode, pageSize]);
+  }, [locale, page, searchTermSettled, supplierIndustryCode, sortBy, reloadKey, appendMode, pageSize]);
 
   /** 替换模式 setPage：筛选/搜索时重置到指定页 */
   const setPage = useCallback((p: number | ((prev: number) => number)) => {

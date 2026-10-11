@@ -23,10 +23,8 @@ export interface SupplierPageResult {
 export interface SupplierPageParams {
   page: number;
   pageSize?: number;
-  /** 产品 / 公司关键词（落在哪一列由 field 决定） */
+  /** 关键词：一个框同时搜公司名 + 产品/关键词（服务端 OR 合并） */
   q?: string;
-  /** 关键词检索字段：product | company（缺省与白名单外值均回落公司名） */
-  field?: string;
   /** 行业主轴：行业码（UGT-I-…，门类/大类/中类/小类任一层级），命中该节点子树内的挂靠 */
   industryCode?: string;
   /** 排序键：newest | completeness（白名单在 repo，无实现值的选项已删除） */
@@ -49,7 +47,6 @@ export async function fetchSuppliersPaginated(
   searchParams.set("page", String(params.page));
   if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
   if (params.q) searchParams.set("q", params.q);
-  if (params.field) searchParams.set("field", params.field);
   if (params.industryCode) searchParams.set("industry_code", params.industryCode);
   if (params.sort) searchParams.set("sort", params.sort);
   return api<SupplierPageResult>(`/api/suppliers?${searchParams.toString()}`);
