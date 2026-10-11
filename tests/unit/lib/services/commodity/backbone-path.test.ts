@@ -12,6 +12,8 @@ import {
   chainOfNode,
   effectivePrefixOf,
   fromBackbonePathColumn,
+  padUnspscCode,
+  rootNodes,
   toBackbonePathColumn,
   type BackboneRow,
   type GroupSegmentRow,
@@ -124,6 +126,56 @@ describe("换不出归属的码", () => {
   });
 });
 
+describe("入参归一：成对的 2/4/6 位截断码也认（兴趣码表实测 357/830 条是这种）", () => {
+  it("padUnspscCode：只有偶数位 ≤ 8 的纯数字能补零，奇数位与超 8 位一律 null", () => {
+    expect(padUnspscCode("10")).toBe("10000000");
+    expect(padUnspscCode("1010")).toBe("10100000");
+    expect(padUnspscCode("101015")).toBe("10101500");
+    expect(padUnspscCode(" 1010 ")).toBe("10100000");
+    expect(padUnspscCode("10101510")).toBe("10101510");
+    expect(padUnspscCode("101")).toBeNull(); // 奇数位不是合法的「两位一级」
+    expect(padUnspscCode("101015100")).toBeNull(); // 9 位不猜
+    expect(padUnspscCode("1010151000")).toBeNull(); // 10 位也不猜（那是另一个编号体系）
+    expect(padUnspscCode("10A0")).toBeNull();
+    expect(padUnspscCode("")).toBeNull();
+    expect(padUnspscCode(null)).toBeNull();
+  });
+
+  it("截断码走同一套四档规则：段→L1、族→最深可证实唯一、类→L4 子类", () => {
+    expect(idx.pathOf(["10"]).codes).toEqual(["UGT-B-01"]); // 段级
+    expect(idx.pathOf(["1010"]).codes).toEqual(["UGT-B-01", "UGT-B-0101"]); // 族级（本树里该族跨两个小类⇒落 L2）
+    expect(idx.match("101015")?.row.code).toBe("UGT-B-01010101"); // 类前缀等值命中 L4
+    expect(idx.match("101015")?.tier).toBe("类级");
+  });
+
+  it("8 位码的结果不因放宽而改变（已回填的 353,875 行公告归属不漂）", () => {
+    expect(idx.pathOf(["10101500"]).codes).toEqual(idx.pathOf(["101015"]).codes);
+    expect(idx.pathOf(["10100000"]).codes).toEqual(idx.pathOf(["1010"]).codes);
+    expect(idx.pathOf(["10000000"]).codes).toEqual(idx.pathOf(["10"]).codes);
+  });
+});
+
+describe("rootNodes：多值 OR 谓词的最浅覆盖集", () => {
+  it("集合里有祖先就把深层去掉（列值祖先全存 ⇒ 并集不变）", () => {
+    expect(rootNodes(["UGT-B-01", "UGT-B-0102", "UGT-B-010203"])).toEqual(["UGT-B-01"]);
+    expect(rootNodes(["UGT-B-0102", "UGT-B-010203"])).toEqual(["UGT-B-0102"]);
+  });
+
+  it("不相关的节点全部保留，结果按码序且可复现", () => {
+    const a = rootNodes(["UGT-B-0203", "UGT-B-0102", "UGT-B-0102", "UGT-B-05"]);
+    expect(a).toEqual(["UGT-B-0102", "UGT-B-0203", "UGT-B-05"]);
+    expect(rootNodes(a)).toEqual(a); // 已压集的集合再过一次不变
+  });
+
+  it("脏 token 不进集（形制判定只认 backboneNodeLevel）", () => {
+    expect(rootNodes(["UGT-B-XY", "42101503", "", "UGT-B-01"])).toEqual(["UGT-B-01"]);
+  });
+
+  it("兄弟不互相覆盖：同父不同子两个都留", () => {
+    expect(rootNodes(["UGT-B-0102", "UGT-B-0103"])).toEqual(["UGT-B-0102", "UGT-B-0103"]);
+  });
+});
+
 describe("冲突与拒写", () => {
   it("同一个族被挂到两个中类 → 直接抛错，不挑一个", () => {
     const bad: BackboneRow[] = [
@@ -163,6 +215,11 @@ describe("有效前缀与祖先链纯函数", () => {
     expect(effectivePrefixOf("00000000")).toBeNull();
     expect(effectivePrefixOf("1010151")).toBeNull();
     expect(effectivePrefixOf("")).toBeNull();
+    // 截断写法与定长写法得到有效前缀（放宽入参不改变已有语义）
+    expect(effectivePrefixOf("101015")).toBe("101015");
+    expect(effectivePrefixOf("1010")).toBe("1010");
+    expect(effectivePrefixOf("10")).toBe("10");
+    expect(effectivePrefixOf("101015100")).toBeNull();
   });
 
   it("chainOfNode：节点码纯切片，L5 给五级、L1 只给自己", () => {

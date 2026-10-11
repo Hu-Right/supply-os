@@ -17,6 +17,14 @@
  *                   crm_commodity_group_segments（我们自己的 32 类归属，不是旧树）。
  *              命中后连同**全部祖先码**一起输出：筛选时任意一层等值命中即可，运行期不做递归。
  *
+ *              入参形制（2026-10-11 放宽）：除 8 位定长码外，**成对的 2/4/6 位前缀也接受**
+ *              （右补零到 8 位再走同一套规则）。理由：兴趣码表实测有 357/830 条存的是截断前缀
+ *              （如 `72`、`2510`），它们在 UNSPSC 里就是段/族/类级粗码的简写；补零是唯一的
+ *              无损还原写法，不补就只能让这批兴趣信号在读侧永远换不出落点（实测静默召不回）。
+ *              仍拒：奇数位（`251`，凑不出合法的两位一级）、超过 8 位、含非数字 —— 那些不是截断
+ *              而是脏数据，一律进 misses 交调用方计数，不猜。公告桥表实测 767,271 行全是 8 位
+ *              ⇒ 放宽不改动任何已回填的公告归属（BB10/BB11 重算对拍可证）。
+ *
  * @rules 换算口径只在这里实现一份；回填脚本与任何线上链路都调它，不允许出现第二份实现。
  *        粗码档位由**码自身的有效位**决定，不由「树里恰好查到哪层」决定 —— 后者会让同一批
  *        数据在不同时点落不同层，门禁 BB10 的逐条重算对拍就是用来抓这个的。
@@ -69,14 +77,26 @@ export type BackboneIndex = {
 const EMPTY_TIERS = (): Record<BackboneTier, number> => ({ 品目级: 0, 类级: 0, 族级: 0, 段级: 0 });
 
 /**
- * UNSPSC 8 位码 → 有效前缀（从右往左去掉成对的 `00`）。
- * 公告侧的码全是 8 位定长，粗码靠尾零表达层级：`10100000` 只说到族、`10000000` 只说到段。
+ * UNSPSC 码入参归一：8 位定长原样返回；成对的 2/4/6 位前缀右补零到 8 位（UNSPSC 的层级
+ * 就是成对的两位，截断写法补零回去是无损的）。其余形制一律 null：奇数位凑不出合法的
+ * 两位一级、超过 8 位（含 9~13 位脏值）、含非数字、空值 —— 都不是「截断」而是坏数据，
+ * 交给调用方进 misses 计数，不猜一个看起来合理的码出来。
+ */
+export function padUnspscCode(code: unknown): string | null {
+  const c = String(code ?? "").trim();
+  if (!/^\d{2,8}$/.test(c) || c.length % 2 !== 0) return null;
+  return c.padEnd(8, "0");
+}
+
+/**
+ * UNSPSC 码 → 有效前缀（先归一到 8 位，再从右往左去掉成对的 `00`）。
+ * 粗码靠尾零表达层级：`10100000` 只说到族、`10000000` 只说到段。
  * 不归一就会拿粗码去等值查品目键（必然查不到 ⇒ 假 miss），这正是 probe57「段/族/类命中 0」的真因。
- * 形制不符（非 8 位纯数字）或整码全零 ⇒ 返回 null 交调用方进 misses，不猜。
+ * 形制不符（奇数位/超 8 位/含非数字）或整码全零 ⇒ 返回 null 交调用方进 misses，不猜。
  */
 export function effectivePrefixOf(code: unknown): string | null {
-  const c = String(code ?? "").trim();
-  if (!/^\d{8}$/.test(c)) return null;
+  const c = padUnspscCode(code);
+  if (!c) return null;
   for (let len = 8; len >= 2; len -= 2) if (c.slice(len - 2, len) !== "00") return c.slice(0, len);
   return null; // 全零不是合法码
 }
@@ -178,8 +198,9 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
   }
 
   const match = (code: string): BackboneMatch | null => {
-    const cs = String(code ?? "").trim();
-    if (!/^\d{8}$/.test(cs)) return null;
+    // 先归一（成对的 2/4/6 位前缀补零）再比：不补零的话兴趣侧那批截断码会全数假 miss
+    const cs = padUnspscCode(code);
+    if (!cs) return null;
     // 先等值再归一：万一树里真存在以 `00` 结尾的 8 位品目键，等值优先，不能被尾零规则悄悄降一档
     const byFull = byPrefix.get(cs);
     if (byFull) return { row: byFull, tier: "品目级" };
@@ -290,6 +311,29 @@ export async function loadBackboneIndex(
 /** 节点码拼接成列值：ASCII 逗号分隔，无空格；空集返回空串（调用方据此写 NULL） */
 export function toBackbonePathColumn(codes: string[]): string {
   return codes.join(",");
+}
+
+/**
+ * 节点码集合的**最浅覆盖集**：去掉集合里「已有祖先也在集合中」的那些节点。
+ * 为什么可以去掉：列值祖先全存 ⇒ 命中深层节点的公告必然也命中它的每个祖先
+ * ⇒ match(浅) ⊇ match(深)，并集 = match(浅) ⇒ 谓词块数降下来而结果一字不变。
+ * 给「多值 OR 谓词」用（推荐召回一个用户几十上百个落点节点，实测压集后耗时降 3~5 倍）。
+ * 与 `notices/similar-scoring.ts` 的 `leafNodes`（取叶子）互为镜像：那两个都是纯切片，不查库。
+ */
+export function rootNodes(nodes: Iterable<string>): string[] {
+  const set = new Set([...nodes].filter((n) => backboneNodeLevel(n) > 0));
+  const out: string[] = [];
+  for (const x of set) {
+    let covered = false;
+    for (let lv = backboneNodeLevel(x) - 1; lv >= 1; lv -= 1) {
+      if (set.has(x.slice(0, BACKBONE_NODE_PREFIX.length + lv * 2))) {
+        covered = true;
+        break;
+      }
+    }
+    if (!covered) out.push(x);
+  }
+  return out.sort();
 }
 
 /**
