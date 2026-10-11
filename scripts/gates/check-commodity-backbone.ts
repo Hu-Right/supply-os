@@ -5,10 +5,11 @@
  * @assertions
  *   BB1 码长即层级：UGT-B- 后 2/4/6/8/10 位对应 L1~L5；父码=自身去末两级且存在；每父子数 ≤ 99；名非空
  *   BB2 码全覆盖：本表带 6 位前缀的行数 = 原树类数、带 8 位 = 原树品目数，且逐码在原树里存在（一个不多一个不少）
+ *      ↳ 与旧树互比的部分只在旧树还在库里时执行；旧树下线后靠树内自洽断言 + BB7 逐码对树
  *   BB3 归属可推导且唯一：同一个族的所有类行必须落在同一个中类下；同一个段的所有族必须落在同一个大类下
  *   BB4 大类连续：节点 group_code = 祖先 group_code = 其 UNSPSC 段所属大类（对齐 group_segments）
  *   BB5 五级齐：L1 恰 32 行且 parent 为空串，L1~L5 每级都有行；同名兄弟只 WARN
- *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥
+ *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥（旧树已删则无对象，只打印跳过）
  *   BB7 公告已在新树找到家：宽表 backbone_path 与桥表闭合（有码必填、无码必空）、
  *      列内码全部存在于树、排序后首码必为大类行（祖先全存的不变量）
  *   BB8 旧树零引用（静态）：src/** 不得出现 FROM/JOIN crm_commodity_nodes —— 这是「旧树可以删」的机器证明
@@ -83,10 +84,21 @@ if (Number(claimsTable.n) !== 0) fail(`BB0 认领表 ${claimsTable.n} 张仍在�
 const rows = await q(
   `SELECT code, parent_code, level, group_code, unspsc_prefix, name_zh FROM crm_commodity_backbone`,
 ) as unknown as { code: string; parent_code: string; level: number; group_code: string; unspsc_prefix: string | null; name_zh: string }[];
-const orig = await one(
-  `SELECT SUM(level='family') fam, SUM(level='class') cls, SUM(level='commodity') cmd, COUNT(*) total,
-          SUM(code LIKE 'UGT-B-%') leaked FROM crm_commodity_nodes`,
+/**
+ * 跨树对账的对照物。旧树 crm_commodity_nodes 一旦下线，BB2 的码域比对、BB3 的族数比对、
+ * BB6 的「原树未动」就失去对象：这些断言按「旧树在场才执行」跑，缺席时明确打印跳过。
+ * 缺席不等于通过 —— 所以必须留一行字，绝不让断言静默失效。
+ */
+const legacyTab = await one(
+  `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='crm_commodity_nodes'`,
 );
+const hasLegacy = Number(legacyTab.n) > 0;
+const orig = hasLegacy
+  ? await one(
+      `SELECT SUM(level='family') fam, SUM(level='class') cls, SUM(level='commodity') cmd, COUNT(*) total,
+              SUM(code LIKE 'UGT-B-%') leaked FROM crm_commodity_nodes`,
+    )
+  : null;
 const segRows = await q(`SELECT unspsc_prefix, group_code FROM crm_commodity_group_segments`);
 for (const r of segRows) segToGroup.set(String(r.unspsc_prefix), String(r.group_code));
 
@@ -112,8 +124,10 @@ const p6 = rows.filter((r) => r.unspsc_prefix && r.unspsc_prefix.length === 6);
 const p8 = rows.filter((r) => r.unspsc_prefix && r.unspsc_prefix.length === 8);
 const pOther = rows.filter((r) => r.unspsc_prefix && r.unspsc_prefix.length !== 6 && r.unspsc_prefix.length !== 8);
 if (pOther.length) fail(`BB2 出现非 6/8 位的码行 ${pOther.length} 条（段与族不建行，归属由祖先推导）`);
-if (p6.length !== Number(orig.cls)) fail(`BB2 子类行数=${p6.length}，原树类数=${orig.cls}`);
-if (p8.length !== Number(orig.cmd)) fail(`BB2 品目行数=${p8.length}，原树品目数=${orig.cmd}`);
+if (orig) {
+  if (p6.length !== Number(orig.cls)) fail(`BB2 子类行数=${p6.length}，原树类数=${orig.cls}`);
+  if (p8.length !== Number(orig.cmd)) fail(`BB2 品目行数=${p8.length}，原树品目数=${orig.cmd}`);
+}
 const seenPrefix = new Set<string>();
 for (const r of [...p6, ...p8]) {
   const p = String(r.unspsc_prefix);
@@ -121,17 +135,19 @@ for (const r of [...p6, ...p8]) {
   seenPrefix.add(p);
 }
 // 原树类行存的是 8 位粗码（如 10101500），树里存的是 6 位类前缀⇒ 取键时同样截齐，不拿两种长度硬比
-const srcCodes = await q(
-  `SELECT CASE WHEN level='class' THEN LEFT(unspsc_code,6) ELSE unspsc_code END c
-     FROM crm_commodity_nodes WHERE level IN ('class','commodity')`,
-);
-for (const r of srcCodes) {
-  const c = String((r as Record<string, unknown>).c);
-  if (!seenPrefix.has(c)) fail(`BB2 原树码 ${c} 在树里没有对应行 ⇒ 该码公告永远筛不到`);
+if (orig) {
+  const srcCodes = await q(
+    `SELECT CASE WHEN level='class' THEN LEFT(unspsc_code,6) ELSE unspsc_code END c
+       FROM crm_commodity_nodes WHERE level IN ('class','commodity')`,
+  );
+  for (const r of srcCodes) {
+    const c = String((r as Record<string, unknown>).c);
+    if (!seenPrefix.has(c)) fail(`BB2 原树码 ${c} 在树里没有对应行 ⇒ 该码公告永远筛不到`);
+  }
+  // 树里的码必须都在原树里（不许凭空造码）
+  const srcSet = new Set(srcCodes.map((r) => String((r as Record<string, unknown>).c)));
+  for (const p of seenPrefix) if (!srcSet.has(p)) fail(`BB2 树里出现原树没有的码：${p}`);
 }
-// 树里的码必须都在原树里（不许凭空造码）
-const srcSet = new Set(srcCodes.map((r) => String((r as Record<string, unknown>).c)));
-for (const p of seenPrefix) if (!srcSet.has(p)) fail(`BB2 树里出现原树没有的码：${p}`);
 
 // ── BB3 归属可推导且唯一 + BB4 大类连续 ──
 const anc = (code: string, level: number) => code.slice(0, 6 + level * 2);
@@ -150,7 +166,7 @@ for (const r of p6) {
   if (r.group_code !== l1.group_code) fail(`BB4 group_code 与祖先不一致：${r.code} ${r.group_code} vs ${l1.group_code}`);
   if (wantGroup && wantGroup !== r.group_code) fail(`BB4 段 ${seg} 应属 ${wantGroup}，但 ${r.code} 记的是 ${r.group_code}`);
 }
-if (famToL2.size !== Number(orig.fam)) fail(`BB3 可由类行反推出的族数=${famToL2.size}，原树族数=${orig.fam}`);
+if (orig && famToL2.size !== Number(orig.fam)) fail(`BB3 可由类行反推出的族数=${famToL2.size}，原树族数=${orig.fam}`);
 const segToL1 = new Map<string, string>();
 for (const [fam, l2] of famToL2) {
   const seg = fam.slice(0, 2);
@@ -192,9 +208,11 @@ for (const r of rows) {
 for (const r of rows) if ((r.level === 2 || r.level === 3) && /[A-Za-z]{3,}/.test(r.name_zh)) warns.push(r.code);
 if (warns.length) console.log(`⚠ ${warns.length} 个中类/小类名含拉丁词（事实层本身缺中文译名）：${warns.slice(0, 3).join("、")}${warns.length > 3 ? " …" : ""}`);
 
-// ── BB6 原树未动 ──
-if (Number(orig.total) !== EXPECT_ORIG_ROWS) fail(`BB6 原树行数=${orig.total}，应为 ${EXPECT_ORIG_ROWS}`);
-if (Number(orig.leaked) !== 0) fail(`BB6 原树里出现树码 ${orig.leaked} 行，码域被污染`);
+// ── BB6 原树未动（旧树不在库里时这条没有对象，见末尾的跳过提示）──
+if (orig) {
+  if (Number(orig.total) !== EXPECT_ORIG_ROWS) fail(`BB6 原树行数=${orig.total}，应为 ${EXPECT_ORIG_ROWS}`);
+  if (Number(orig.leaked) !== 0) fail(`BB6 原树里出现树码 ${orig.leaked} 行，码域被污染`);
+}
 
 // ── BB7 公告归属已落到骨架（不硬编码条数，只锁闭合关系：新公告进来照样成立）──
 let pathStat = "";
@@ -263,5 +281,8 @@ if (fails.length) {
   await pool.end();
   process.exit(1);
 }
-console.log(`✅ BB1~BB8 通过：${rows.length} 行一张表，原树 ${orig.total} 行未动（src 已不读旧树）`);
+if (!hasLegacy) {
+  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8 照常）");
+}
+console.log(`✅ BB1~BB8 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
 await pool.end();

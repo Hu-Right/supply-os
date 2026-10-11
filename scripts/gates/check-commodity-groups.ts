@@ -3,11 +3,11 @@
  *
  * @script scripts/gates/check-commodity-groups.ts
  * @assertions
- *   CG1 大类恰为 15 个，且码形制为 UGT-G-NN
+ *   CG1 大类恰为 32 个（口径源 EXPECTED_COMMODITY_GROUP_COUNT），且码形制为 UGT-G-NN
  *   CG2 段前缀形制合法（2 位数字）
  *   CG3 一段只属一类（与库内 uk_segment/uk_prefix 双保险）
  *   CG4 每类 name_zh 非空
- *   CG5（仅 --db）库内归属与常量逐项一致，且覆盖品目面全部 58 段
+ *   CG5（仅 --db）库内归属与常量逐项一致，且覆盖品目面全部 58 段（旧树 crm_commodity_nodes 下线后，段对账改由 backbone 门禁 BB4/BB7 守，本项打印跳过）
  * @limits 静态部分必须能在无 MySQL 的 CI（quality-gate job 没有库）里跑；CG5 是本地/发布前闸口。
  * @usage  npx tsx scripts/gates/check-commodity-groups.ts [--db]
  * @see    docs/superpowers/specs/2026-10-10-commodity-facet-15-groups-design.md §10.1
@@ -68,11 +68,22 @@ if (DB && !FIXTURE) {
     if (!groups.some((x) => x.prefixes.includes(p))) problems.push(`CG5 库内多出段 ${p}→${g}，常量里没有`);
   }
 
-  // 品目面 58 段必须一个不漏地被认领（漏一段=那一段的公告永远筛不到）
-  const [segs] = (await pool.query(
-    `SELECT LEFT(unspsc_code, 2) p FROM crm_commodity_nodes WHERE level='segment'`,
-  )) as [Array<{ p: string }>, unknown];
-  for (const s of segs) if (!dbMap.has(s.p)) problems.push(`CG5 品目面段 ${s.p} 未分配到任何大类`);
+  // 品目面 58 段必须一个不漏地被认领（漏一段=那一段的公告永远筛不到）。
+  // 段的清单仍从旧树取（它是唯一同时带齐 58 个段行的历史事实）；旧树一下线就没得比了：
+  // 「每段都有归属」的保证改由 backbone 门禁接手（BB4 逐段定大类、BB7 逐码对树），这里明确打印跳过。
+  const [legacyTab] = (await pool.query(
+    `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'crm_commodity_nodes'`,
+  )) as [Array<{ n: number }>, unknown];
+  let segCount = 0;
+  if (Number(legacyTab[0]!.n) > 0) {
+    const [segs] = (await pool.query(
+      `SELECT LEFT(unspsc_code, 2) p FROM crm_commodity_nodes WHERE level='segment'`,
+    )) as [Array<{ p: string }>, unknown];
+    segCount = segs.length;
+    for (const s of segs) if (!dbMap.has(s.p)) problems.push(`CG5 品目面段 ${s.p} 未分配到任何大类`);
+  } else {
+    console.log("  – CG5 段全覆盖跳过：旧树 crm_commodity_nodes 已不在库里（该不变量已改由 BB4/BB7 守）");
+  }
 
   const names = (await pool.query(
     `SELECT code, name_zh FROM crm_commodity_groups ORDER BY code`,
@@ -83,7 +94,7 @@ if (DB && !FIXTURE) {
     else if (g.nameZh !== n.name_zh) problems.push(`CG5 ${n.code} 名称不一致：库内=${n.name_zh} 常量=${g.nameZh}`);
   }
 
-  console.log(`DB：库内归属 ${dbMap.size} 段 / 品目面段 ${segs.length} 段 / 库内大类 ${names[0].length} 个`);
+  console.log(`DB：库内归属 ${dbMap.size} 段 / 品目面段 ${segCount} 段 / 库内大类 ${names[0].length} 个`);
   await pool.end();
 }
 

@@ -209,6 +209,28 @@ const INTAKE_DDL = `CREATE TABLE IF NOT EXISTS \`${INTAKE_TABLE}\` (
 // 每轮同步加载一次的 UGT 品目码集合；null = 加载失败，本轮降级不过滤
 let commodityCodeFilter = null;
 
+/**
+ * 品目合法码集合（桥表行级校验的白名单源）。
+ * 换源记录：旧实现读 `crm_commodity_nodes.unspsc_code`（旧树，158,627 码）。2026-10-11 全库实测
+ * 本 SQL 与旧集合**双向差 0**（旧有新无 0 · 新有旧无 0），且桥表 13,034 个去重码两边都全通过，
+ * 所以换源不改变任何一条行的去留。口径来自新树自身：
+ *   L5 的 8 位前缀 = 品目码；L4 的 6 位前缀补零两档 = 类码（NNNNNN00）与族码（NNNN0000）；
+ *   大类段归属表补零 = 段码（NN000000）。族/段层在新树里没有 UNSPSC 键（设计如此），只能由子行推导。
+ * 与 src/lib/services/commodity/backbone-path.ts 的四档换算规则同一口径：白名单放行的码，归属必然算得出。
+ */
+const COMMODITY_CODE_SET_SQL = `
+  SELECT unspsc_prefix code FROM \`crm_commodity_backbone\`
+   WHERE status = 1 AND level = 5 AND unspsc_prefix IS NOT NULL
+  UNION SELECT unspsc_prefix FROM \`crm_commodity_backbone\`
+   WHERE status = 1 AND level = 4 AND unspsc_prefix IS NOT NULL AND CHAR_LENGTH(unspsc_prefix) = 8
+  UNION SELECT CONCAT(LEFT(unspsc_prefix, 6), '00') FROM \`crm_commodity_backbone\`
+   WHERE status = 1 AND level = 4 AND CHAR_LENGTH(unspsc_prefix) = 6
+  UNION SELECT CONCAT(LEFT(unspsc_prefix, 4), '0000') FROM \`crm_commodity_backbone\`
+   WHERE status = 1 AND level = 4 AND CHAR_LENGTH(unspsc_prefix) = 6
+  UNION SELECT CONCAT(LEFT(s.unspsc_prefix, 2), '000000')
+    FROM \`crm_commodity_group_segments\` s
+    JOIN \`crm_commodity_backbone\` b ON b.level = 1 AND b.group_code = s.group_code AND b.status = 1`;
+
 // update_time 可能的数值列类型（存 Unix 秒，如 crm_bid_notices）
 const NUMERIC_TYPES = new Set(['tinyint', 'smallint', 'mediumint', 'int', 'bigint', 'float', 'double', 'decimal']);
 
@@ -574,17 +596,15 @@ async function runSyncOnce() {
     await target.execute('SET FOREIGN_KEY_CHECKS=0');
 
     // V3 品目对齐：建隔离队列表 + 加载 UGT 品目码集合（失败则本轮降级不过滤，不阻塞同步）
-    // 品目面已独立成表 crm_commodity_nodes（行业面在 crm_industry_nodes），故不再按 facet 过滤
+    // 码集来自品目骨架树 crm_commodity_backbone（旧树 crm_commodity_nodes 已退出生产链路）
     try {
       await target.execute(INTAKE_DDL);
-      const [codeRows] = await target.execute(
-        "SELECT unspsc_code FROM `crm_commodity_nodes` WHERE status = 1 AND unspsc_code IS NOT NULL"
-      );
-      commodityCodeFilter = new Set(codeRows.map(r => String(r.unspsc_code)));
-      log(`  UGT 品目字典校验集: ${commodityCodeFilter.size} 码`);
+      const [codeRows] = await target.execute(COMMODITY_CODE_SET_SQL);
+      commodityCodeFilter = new Set(codeRows.map(r => String(r.code)));
+      log(`  UGT 品目码校验集（骨架树）: ${commodityCodeFilter.size} 码`);
     } catch (err) {
       commodityCodeFilter = null;
-      log(`  ⚠ UGT 品目字典加载失败，本轮桥表不过滤: ${err.message}`);
+      log(`  ⚠ UGT 品目码集加载失败，本轮桥表不过滤: ${err.message}`);
     }
 
     const watermarks = loadWatermarks();
