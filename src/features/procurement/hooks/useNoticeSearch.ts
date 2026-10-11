@@ -232,7 +232,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       applySearch: actions.applySearch,
       clearSearch: actions.clearSearch,
       toggleFeatured: actions.toggleFeatured,
-      toggleGroup: actions.toggleGroup,
       setCommodityLevel: actions.setCommodityLevel,
     },
   };

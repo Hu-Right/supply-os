@@ -42,8 +42,6 @@ export interface SearchActions {
   ) => void;
   clearSearch: () => void;
   toggleFeatured: () => void;
-  /** 品目大类 chip 单选切换（再点同一个 = 取消）*/
-  toggleGroup: (code: string) => void;
   /** 五级下拉某一层选中（level 0=大类→写 group，1~4=段/族/类/品目→写 commodity；key 空串 = 清空该层）*/
   setCommodityLevel: (level: number, key: string) => void;
   markUserSubmitted: () => void;
@@ -133,24 +131,9 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [searchParams, query.activeFeatured, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
 
-  const toggleGroup = useCallback((code: string) => {
-    const next = new URLSearchParams(searchParams ?? undefined);
-    if (query.activeGroup === code) next.delete("group");
-    else next.set("group", code);
-    // 换大类 ⇒ 更深一层的品目路径不再属于这条链，一并清掉（留着会筛出一个与新大类矛盾的窄集）
-    next.delete("commodity");
-    // 与只看精选同一行为约定：推荐流里手动加筛选就退回全量，避免推荐结果被解释为筛选命中
-    if (prefsMode === "recommended") setPrefsMode("default");
-    setPage(1);
-    setSelectedNotice(null);
-    const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, query.activeGroup, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
-
   /**
    * 五级下拉的任一层选中入 URL（URL 是唯一事实源，level 0=大类、1~4=段/族/类/品目）。
-   * 与 chip 的关系：chip 就是第一级的快捷方式，两者写同一个 group 参数 ⇒ 点 chip 下拉跟着选中，
-   * 下拉选大类 chip 也跟着高亮，不存在两套大类入口。
+   * 大类入口只剩这里：原本的 32 类 chip 行因与第一级完全重叠已下线。
    */
   const setCommodityLevel = useCallback((level: number, key: string) => {
     const next = new URLSearchParams(searchParams ?? undefined);
@@ -184,7 +167,6 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     applySearch,
     clearSearch,
     toggleFeatured,
-    toggleGroup,
     setCommodityLevel,
     markUserSubmitted,
   };

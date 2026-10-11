@@ -13,7 +13,6 @@ import { FavoriteNotices } from "../components/FavoriteNotices";
 import type { NoticeItem } from "../types";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { CommodityLevelSelector } from "../components/CommodityLevelSelector";
-import { CommodityGroupChips } from "../components/CommodityGroupChips";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
 import { AdvancedSearchPanel } from "../components/AdvancedSearchPanel";
 import { EnhancedNoticeList } from "../components/EnhancedNoticeList";
@@ -47,7 +46,8 @@ export default function ProcurementPage() {
   const variantRef = useRef<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
-  const [commodityExpanded, setCommodityExpanded] = useState(false);
+  // chip 行下线后五级下拉是唯一大类入口，因此默认展开（收起只是用户自己选择精简界面）
+  const [commodityExpanded, setCommodityExpanded] = useState(true);
 
   // ── 规模条数据（已提取至 hook） ──
   const listingStats = useListingStats();
@@ -196,17 +196,9 @@ export default function ProcurementPage() {
             />
           )}
 
-          {/* 品目大类快筛（32 类单选）——常显，与下方五级联动 AND 叠加；
-              筛选谓词不在前端算，统一由服务端 filter-builder 双方言输出 */}
-          <div className="border-t border-slate-100 pt-4">
-            <CommodityGroupChips
-              activeGroup={search.query.activeGroup}
-              onToggle={search.actions.toggleGroup}
-            />
-          </div>
-
-          {/* 品目分类五级下拉（大类 → 段 → 族 → 类 → 品目）——默认折叠，点击展开。
-              第一级与上方 chip 同一事实源（URL group），两边选中态互相同步 */}
+          {/* 品目分类五级下拉（大类 → 段 → 族 → 类 → 品目）。
+              原本上方还有一行 32 大类 chip，与这里的第一级完全重叠（同一个 COMMODITY_GROUPS、
+              同一个 URL group 参数），两套入口只会让「选中的是哪个」看起来不一致，已下线 chip。 */}
           <div className="border-t border-slate-100 pt-4">
             <Button
               type="button"

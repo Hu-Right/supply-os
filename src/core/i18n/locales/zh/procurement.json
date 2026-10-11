@@ -28,8 +28,6 @@
   "agencyFilter_noResults": "未找到匹配机构",
   "agencyFilter_moreResults": "条更多结果 — 请缩小搜索范围",
   "procurement_commodityCategory": "品目分类",
-  "procurement_expandCommodityGroups": "展开全部 32 类",
-  "procurement_collapseCommodityGroups": "收起",
   "countryFilter_searchPlaceholder": "搜索国家...",
   "countryFilter_noResults": "未找到匹配国家",
   "countryFilter_moreResults": "条更多结果 — 请缩小搜索范围",
