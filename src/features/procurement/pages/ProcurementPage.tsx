@@ -57,8 +57,8 @@ export default function ProcurementPage() {
     hasIndustryPrefs, restorePrefsMode,
   } = useIndustryPrefs({ userId, locale: useLocale().locale, setPage, setSelectedNotice });
 
-  // ── 恢复行业匹配：清除手动搜索条件并切回行业精准匹配模式 ──
-  const handleRestoreIndustryMatch = () => {
+  // ── 恢复品目匹配：清除手动搜索条件并切回品目大类精准匹配模式（hook 名 useIndustryPrefs 不动）──
+  const handleRestoreCommodityMatch = () => {
     setPage(1);
     setSelectedNotice(null);
     // 清空 URL 搜索条件（表单由 sync effect 自动同步清空）
@@ -194,7 +194,7 @@ export default function ProcurementPage() {
             />
           )}
 
-          {/* 行业分类（UNSPSC 五级联动）——默认折叠，点击展开 */}
+          {/* 品目分类（UNSPSC 五级联动）——默认折叠，点击展开 */}
           <div className="border-t border-slate-100 pt-4">
             <Button
               type="button"
@@ -204,7 +204,7 @@ export default function ProcurementPage() {
               className="gap-2 px-0 text-sm text-slate-600 hover:text-teal-700 hover:bg-transparent"
             >
               <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${unspscExpanded ? "rotate-180" : ""}`} />
-              {t("procurement_industryCategory")}
+              {t("procurement_commodityCategory")}
             </Button>
             <div className={`overflow-hidden transition-all duration-200 ease-in-out ${unspscExpanded ? "max-h-60 mt-3 opacity-100" : "max-h-0 mt-0 opacity-0"}`}>
               <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
@@ -240,16 +240,16 @@ export default function ProcurementPage() {
               <Crown className="w-3.5 h-3.5" />
               {t("procurement_featuredOnly")}
             </ToggleButton>
-            {/* 行业匹配按钮：账号已设置默认行业时始终显示，根据当前模式切换文案和行为 */}
+            {/* 品目匹配按钮：账号已设置默认品目大类时始终显示，根据当前模式切换文案和行为 */}
             {hasIndustryPrefs && prefsMode !== "loading" && (
               <ToggleButton
                 variant="solid"
                 pressed={prefsMode === "prefs"}
-                onClick={prefsMode === "prefs" ? exitAutoMode : handleRestoreIndustryMatch}
+                onClick={prefsMode === "prefs" ? exitAutoMode : handleRestoreCommodityMatch}
                 className="py-2.5"
               >
                 <Target className="w-3.5 h-3.5" />
-                {prefsMode === "prefs" ? t("procurement_cancelIndustryMatch") : t("procurement_restoreIndustryMatch")}
+                {prefsMode === "prefs" ? t("procurement_cancelCommodityMatch") : t("procurement_restoreCommodityMatch")}
               </ToggleButton>
             )}
           </div>
