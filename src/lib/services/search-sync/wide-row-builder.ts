@@ -12,6 +12,7 @@ import { normalizeNoticeType } from "../../utils/notice-type";
 import { classifyAgencyType } from "../agency/index";
 import { COUNTRY_NAME_ZH } from "../../data/countryNames";
 import { normalizeCountry } from "../../utils/countryNormalize";
+import { backbonePathOfCodes } from "../commodity/backbone-cache";
 import { DESC_SOURCE_EXPR, WIDE_LIMITS, TRANSLATION_MODEL, truncate } from "../../utils/notice-field-limits";
 import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 // JOIN 片段来自叶子模块 wide-sync-sql：不得在本文件定义后再被 fingerprint 反向导入（会成环）
@@ -101,13 +102,19 @@ function parseDecimalValue(raw: unknown): number {
 }
 
 // ── UNSPSC 批量查询（按 notice_id 列表查询，避免 GROUP_CONCAT）──
+/**
+ * 同时产出 backbone_path：公告的 8 位码 → 品目骨架节点码（含全部祖先）。
+ * 为什么在这里算而不是在 buildWideRow 里算：桥表行已在本函数一次取回，
+ * 而 buildWideRow 是同步纯函数（ADR-0002：宽表业务内容只由 buildWideRow → upsertWideRows 写）；
+ * 换算口径依旧只在 commodity/backbone-cache 与 commodity/backbone-path 两处（缓存 + 口径），本处不重写规则。
+ */
 export async function loadUnspscByNoticeIds(pool: Pool, noticeIds: string[]): Promise<Map<string, Record<string, string>>> {
   if (noticeIds.length === 0) return new Map();
   const result = new Map<string, Record<string, Set<string>>>();
   
   const placeholders = noticeIds.map(() => "?").join(",");
   const [rows] = await pool.query(
-    `SELECT notice_id, level1_id, level2_id, level3_id, level4_id, level5_id
+    `SELECT notice_id, code, level1_id, level2_id, level3_id, level4_id, level5_id
      FROM crm_bid_notice_unspsc_codes
      WHERE notice_id IN (${placeholders})`,
     noticeIds,
@@ -118,7 +125,7 @@ export async function loadUnspscByNoticeIds(pool: Pool, noticeIds: string[]): Pr
     if (!result.has(nid)) {
       result.set(nid, {
         level1: new Set(), level2: new Set(), level3: new Set(),
-        level4: new Set(), level5: new Set(),
+        level4: new Set(), level5: new Set(), codes: new Set(),
       });
     }
     const entry = result.get(nid)!;
@@ -127,17 +134,22 @@ export async function loadUnspscByNoticeIds(pool: Pool, noticeIds: string[]): Pr
     if (row.level3_id) entry.level3.add(String(row.level3_id));
     if (row.level4_id) entry.level4.add(String(row.level4_id));
     if (row.level5_id) entry.level5.add(String(row.level5_id));
+    // 原始 8 位码（品目归属的唯一输入，与 ops 回填同一张桥表同一口径）
+    if (row.code) entry.codes.add(String(row.code).trim());
   }
   
   // 转换为 Map<string, Record<string, string>>
   const final = new Map<string, Record<string, string>>();
   for (const [nid, entry] of result) {
+    const backbone = await backbonePathOfCodes(pool, entry.codes);
     final.set(nid, {
       level1: Array.from(entry.level1).join(","),
       level2: Array.from(entry.level2).join(","),
       level3: Array.from(entry.level3).join(","),
       level4: Array.from(entry.level4).join(","),
       level5: Array.from(entry.level5).join(","),
+      // 空集与无索引都是 null（门禁 BB7 把空串算违规），本层用串型存，回 NULL 在 buildWideRow
+      backbone: backbone ?? "",
     });
   }
   return final;
@@ -361,6 +373,8 @@ export function buildWideRow(
     unspsc_level3: (unspsc?.level3 || "").slice(0, WIDE_LIMITS.unspscList),
     unspsc_level4: (unspsc?.level4 || "").slice(0, WIDE_LIMITS.unspscList),
     unspsc_level5: (unspsc?.level5 || "").slice(0, WIDE_LIMITS.unspscList),
+    // 品目骨架归属：无码/无索引一律 NULL（BB7：空串算违规）；超列宽由 backbone-cache 抛错，绝不截断
+    backbone_path: unspsc?.backbone ? unspsc.backbone : null,
     // 精准码列：仅存 approved 精准码，不回填原标签（mode=prefs 专用，无精准码则不匹配）
     precise_level1: (precise?.level1 || "").slice(0, WIDE_LIMITS.unspscList),
     precise_level2: (precise?.level2 || "").slice(0, WIDE_LIMITS.unspscList),
@@ -425,6 +439,7 @@ export async function upsertWideRows(
     "country_std", "agency_std", "agency_group", "notice_type_std",
     "deadline_sec", "estimated_value", "is_featured", "entry_source",
     "unspsc_level1", "unspsc_level2", "unspsc_level3", "unspsc_level4", "unspsc_level5",
+    "backbone_path",
     "precise_level1", "precise_level2", "precise_level3", "precise_level4", "precise_level5",
     "description_cn", "bid_overview", "beneficiary_countries", "documents_count",
     "published_date",
@@ -446,6 +461,7 @@ export async function upsertWideRows(
         row.country_std, row.agency_std, row.agency_group, row.notice_type_std,
         row.deadline_sec, row.estimated_value, row.is_featured, row.entry_source,
         row.unspsc_level1, row.unspsc_level2, row.unspsc_level3, row.unspsc_level4, row.unspsc_level5,
+        row.backbone_path,
         row.precise_level1, row.precise_level2, row.precise_level3, row.precise_level4, row.precise_level5,
         row.description_cn, row.bid_overview, row.beneficiary_countries, row.documents_count,
         row.published_date,

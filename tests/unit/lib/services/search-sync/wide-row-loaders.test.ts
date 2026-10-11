@@ -5,7 +5,7 @@
  * 断言的是「多行归并/去重/失败降级/缓存复用」这些真实会静默改变搜索结果的分支。
  * 模块级缓存（别名表 / 精准码字典）会跨用例存活，因此失败路径必须先于成功路径执行。
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Pool } from "mysql2/promise";
 
 vi.mock("server-only", () => ({}));
@@ -15,6 +15,7 @@ import {
   loadPreciseByNoticeIds, buildCodeLevelMap,
 } from "@/lib/services/search-sync/wide-row-builder";
 import { detectDeadlineDrift, reconcileGhostRows } from "@/lib/services/search-sync/wide-row-reconcile";
+import { resetBackboneCache } from "@/lib/services/commodity/backbone-cache";
 
 /** 按 SQL 关键字分派批次，未命中返回空集（第二形参仅为让 mock.calls 能取到绑定参数） */
 function makePool(byKeyword: Array<[RegExp, unknown[][]]>, alsoThrow?: RegExp) {
@@ -77,6 +78,9 @@ describe("loadTranslationsByNoticeIds", () => {
 });
 
 describe("loadUnspscByNoticeIds", () => {
+  // 骨架索引是进程内 TTL 缓存（载入实测十几秒），必须逐例失效：
+  // 否则“载入失败”的例会被前一例装好的索引撑过，把降级分支测成永远跑不到
+  beforeEach(() => resetBackboneCache());
   it("空列表 → 零查询", async () => {
     const { pool, query } = makePool([]);
     expect((await loadUnspscByNoticeIds(pool, [])).size).toBe(0);
@@ -97,6 +101,42 @@ describe("loadUnspscByNoticeIds", () => {
     expect(r.level3).toBe("30");
     expect(r.level4).toBe("40");
     expect(r.level5).toBe("50");
+  });
+
+  it("同一次取码里把 backbone_path 算出来（不另开查询）", async () => {
+    const { pool, query } = makePool([
+      [/crm_bid_notice_unspsc_codes/, [[
+        { notice_id: "N1", code: "10101504", level1_id: "10", level2_id: null, level3_id: null, level4_id: null, level5_id: null },
+        { notice_id: "N1", code: "10101504", level1_id: "10", level2_id: null, level3_id: null, level4_id: null, level5_id: null },
+      ]]],
+      [/FROM crm_commodity_backbone WHERE status = 1/, [[
+        { code: "UGT-B-01", parent_code: "", level: 1, unspsc_prefix: null },
+        { code: "UGT-B-0101", parent_code: "UGT-B-01", level: 2, unspsc_prefix: null },
+        { code: "UGT-B-010101", parent_code: "UGT-B-0101", level: 3, unspsc_prefix: null },
+        { code: "UGT-B-01010101", parent_code: "UGT-B-010101", level: 4, unspsc_prefix: "101015" },
+        { code: "UGT-B-0101010101", parent_code: "UGT-B-01010101", level: 5, unspsc_prefix: "10101504" },
+      ]]],
+      [/crm_commodity_group_segments/, [[{ seg: "10", node_code: "UGT-B-01" }]]],
+    ]);
+    const r = (await loadUnspscByNoticeIds(pool, ["N1"])).get("N1")!;
+    expect(r.backbone).toBe("UGT-B-01,UGT-B-0101,UGT-B-010101,UGT-B-01010101,UGT-B-0101010101");
+    // 取码只一次；树与段表各一次（载入由 backbone-cache 负责，TTL 内不重查）
+    const bridgeCalls = query.mock.calls.filter((c) => /crm_bid_notice_unspsc_codes/.test(String(c[0])));
+    expect(bridgeCalls).toHaveLength(1);
+    // 取树 SQL 绝不回读旧树
+    for (const c of query.mock.calls) expect(String(c[0])).not.toContain("crm_commodity_nodes");
+  });
+
+  it("树载入失败不影响五级归并：backbone 落空串（由 buildWideRow 转 NULL）", async () => {
+    const { pool } = makePool(
+      [
+        [/crm_bid_notice_unspsc_codes/, [[{ notice_id: "N1", code: "10101504", level1_id: "10", level2_id: null, level3_id: null, level4_id: null, level5_id: null }]]],
+      ],
+      /FROM crm_commodity_backbone/,
+    );
+    const r = (await loadUnspscByNoticeIds(pool, ["N1"])).get("N1")!;
+    expect(r.backbone).toBe("");
+    expect(r.level1).toBe("10");
   });
 });
 
