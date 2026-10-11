@@ -12,7 +12,8 @@
  *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥（旧树已删则无对象，只打印跳过）
  *   BB7 公告已在新树找到家：宽表 backbone_path 与桥表闭合（有码必填、无码必空）、
  *      列内码全部存在于树、排序后首码必为大类行（祖先全存的不变量）
- *   BB8 旧树零引用（静态）：src/** 不得出现 FROM/JOIN crm_commodity_nodes —— 这是「旧树可以删」的机器证明
+ *   BB8 旧树零引用（静态）：src/** 不得出现 FROM/JOIN crm_commodity_nodes* —— 这是「旧树可以删」的机器证明
+ *      ↳ 后缀走 \w* ：旧树 RENAME 后的退役表照样算引用（带自检，防改名豁免）
  *   BB9 族级落点分档：拿纯函数逐族试挂粗码，L2/L3/L4 三档必须都有落点 —— 防「最深可证实唯一」被改回一刀切
  *      ↳ 覆盖率类断言抓不到退化（一刀切也是 100%），只有落点层数能叫出来
  *   BB10 列值可由纯函数重算：抽样公告从桥表码重算节点码集，与宽表 backbone_path 逐条比对，差异必须 0
@@ -44,7 +45,16 @@ for (const g of COMMODITY_GROUPS) for (const p of g.prefixes) segToGroup.set(p, 
 // ── BB8 旧树零引用（静态，无库也能跑；CI 与本地同一道闸）──
 // 只抓 SQL 语境（FROM / JOIN + 表名），不把注释里的历史提及算违规；
 // 一旦出现，说明消费侧又回退到旧树，旧树就不能删了 —— 这条断言就是删除前置条。
-const LEGACY_RE = /\b(?:FROM|JOIN)\s+`?crm_commodity_nodes\b/i;
+// 表名后缀用 \w* 而不是 \b：旧树已 RENAME 为 crm_commodity_nodes_retired_20261011，
+// 而 `_` 在正则里是单词字符 —— 拿 \b 收尾会让改名等于豁免，读退役表照样绿（静默失效）。
+const LEGACY_RE = /\b(?:FROM|JOIN)\s+`?crm_commodity_nodes\w*\b/i;
+// 断言自身不许哑火：两条自检分别钉住「改名不豁免」与「不误伤新树」
+if (!LEGACY_RE.test("SELECT 1 FROM crm_commodity_nodes_retired_20261011")) {
+  fail("BB8 自检失败：正则匹配不到改名后的旧树表，这条断言已哑火");
+}
+if (LEGACY_RE.test("SELECT 1 FROM crm_commodity_backbone") || LEGACY_RE.test("SELECT 1 FROM crm_commodity_groups")) {
+  fail("BB8 自检失败：正则把新树/大类维表误判成旧树");
+}
 const srcFiles: string[] = [];
 const walkSrc = (dir: string) => {
   for (const name of readdirSync(dir)) {
@@ -57,7 +67,7 @@ const walkSrc = (dir: string) => {
 try {
   walkSrc(fileURLToPath(new URL("../../src", import.meta.url)));
   const hits = srcFiles.filter((f) => LEGACY_RE.test(readFileSync(f, "utf8")));
-  if (hits.length) fail(`BB8 src 里还有 ${hits.length} 个文件用 SQL 读旧树 crm_commodity_nodes：${hits.map((h) => h.split(/[\\/]/).slice(-2).join("/")).join("、")} ⇒ 旧树不可删`);
+  if (hits.length) fail(`BB8 src 里还有 ${hits.length} 个文件用 SQL 读旧树 crm_commodity_nodes（含改名后的退役表）：${hits.map((h) => h.split(/[\\/]/).slice(-2).join("/")).join("、")} ⇒ 旧树不可删`);
 } catch {
   // src 目录读不到（奇异检出环境）：不阻断，但必须叫出来，不能让断言静默失效
   console.log("⚠ BB8 未能扫描 src（目录不可读），旧树引用断言本次未执行");
