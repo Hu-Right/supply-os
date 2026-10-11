@@ -317,6 +317,24 @@ export async function buildFilterPlan(
     digestParts.push(`group:${p.groupCode}`);
   }
 
+  // ── 品目树五级下拉（URL commodity=UNSPSC 数字前缀）──
+  // 谓词 = 宽表 code_path 里等值存在该前缀项。code_path 是公告全部 8 位码的无损祖先前缀集
+  // （lib/services/commodity/path.ts），所以选到哪一层就命中哪一层，运行期不需层级判断。
+  // 为何不沿用上面的 levelN_id：旧字典 crm_unspsc_codes 只镜像了 UNSPSC 的一部分
+  // （品目层 10,661 行 vs 品目树 150,006 节点），不在字典里的码根本进不了 unspsc_levelN 列，
+  // 用它们筛会静默漏掉那部分公告。实测两边对在字典里的码命中数完全相等
+  // （2772 / 555 / 227 / 11，temp/probe54），即 code_path 是严格超集。
+  // Meili 侧需索引有 commodity_prefix 属性（sync.ts 由 code_path 拆数组）；
+  // 索引未重灌前该属性不存在，Meili 会报未知属性错并整体降级到下面的 MySQL 方言（结果仍正确）。
+  if (p.commodityPath) {
+    meiliFilters.push(`commodity_prefix = "${escapeFilter(p.commodityPath)}"`);
+    mysqlWhere.push(
+      `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.code_path))`,
+    );
+    mysqlParams.push(p.commodityPath);
+    digestParts.push(`commodity:${p.commodityPath}`);
+  }
+
   // ── 行业墙强制一级类目（industry-scope 注入，客户端不可传）──
   // 与用户自选 codeId 叠加 AND：被墙用户即使在 URL 里换类目/翻页，也翻不出订阅行业外；
   // fixed（levelN_id，TED 标签覆盖全量）而非 precise——墙是数据口径，不依赖人工审核候选码。

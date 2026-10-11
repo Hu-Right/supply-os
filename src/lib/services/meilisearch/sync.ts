@@ -85,6 +85,11 @@ function buildSyncDocFromWideTable(r: RowDataPacket) {
     precise_level3_id: parseUnspsc(r.precise_level3),
     precise_level4_id: parseUnspsc(r.precise_level4),
     precise_level5_id: parseUnspsc(r.precise_level5),
+    // 品目树筛选属性：宽表 code_path 是公告全部 8 位码的无损祖先前缀集（2/4/6/8 位），
+    // 商机页五级下拉选到哪层就等值命中哪层（与 filter-builder 的 MySQL 方言同一谓词）。
+    // 单值≤ 8 字符，不受 Meili 单值 468 字节限制；一个文档里前缀项可达数千（实测最大 5,167），
+    // Meili 对数组元素个数无限制（依据见 lib/services/commodity/path.ts 叶子不限量说明）。
+    commodity_prefix: parseUnspsc(r.code_path),
   };
 }
 
@@ -96,6 +101,7 @@ const WIDE_TABLE_SYNC_SQL = `
          deadline_sec, is_featured, estimated_value, documents_count,
          unspsc_level1, unspsc_level2, unspsc_level3, unspsc_level4, unspsc_level5,
          precise_level1, precise_level2, precise_level3, precise_level4, precise_level5,
+         code_path,
          title_zh, description_zh, title_en, description_en,
          title_fr, description_fr, title_ru, description_ru,
          title_es, description_es, title_ar, description_ar

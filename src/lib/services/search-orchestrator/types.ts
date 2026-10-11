@@ -28,7 +28,9 @@ export interface UnifiedSearchParams {
   noticeType: string;
   featuredOnly: boolean;
   sort: "deadline" | "latest" | "deadline_farthest";
-  /** UNSPSC 类目 ID（default 模式来自 URL code_id） */
+  /** UNSPSC 旧字典类目 ID（URL code_id / industry_id）。
+   *  2026-10-11 起商机页五级下拉不再产生它（下拉已换品目树，见 commodityPath）；
+   *  仍保留是因为首页「热门品目」入口与外链按 `?industry_id=<字典 id>` 跳进本页。 */
   codeId: number;
   /** 品目大类码（URL group=UGT-G-xx，32 类之一）；与 codeId AND 叠加，
    *  谓词落在旧字典 level=2（=UNSPSC 段）的 id 集合上：
@@ -36,6 +38,12 @@ export interface UnifiedSearchParams {
    *  2026-10-11 M3 双跑对账：全库 606,060 行逐行比对，与宽表 group_codes 集合相等 353,758/
    *  不一致 0，32 个大类逐类命中数 Δ=0 ⇒ 两条谓词可互换，无需重灌 Meili 索引。 */
   groupCode?: string;
+  /** 品目树筛选键（URL commodity=72/7210/721015/72101501，即 UNSPSC 数字前缀）。
+   *  谓词落在宽表 code_path 的等值前缀项 / Meili commodity_prefix 数组属性：
+   *  code_path 由公告的 8 位码无损展开全部祖先前缀（path.ts），所以「选到哪层就命中哪层」，
+   *  且覆盖旧字典未镜像的 13.9 万个品目（旧 levelN_id 只能筛到字典里的 10,661 个）。
+   *  与 groupCode AND 叠加（大类→段→…是同一条链的逐级收窄）。 */
+  commodityPath?: string;
   /** 行业墙强制一级类目（industry-scope 服务注入，客户端不可传；与 codeId 叠加 AND） */
   forcedLevel1Id?: string;
   /** 预算范围过滤（USD，estimated_value 列） */
