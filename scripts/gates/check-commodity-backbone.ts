@@ -1,5 +1,5 @@
 /**
- * 品目树门禁 BB1~BB12（单表结构版）
+ * 品目树门禁 BB1~BB13（单表结构版）
  *
  * @script scripts/gates/check-commodity-backbone.ts
  * @assertions
@@ -19,6 +19,8 @@
  *   BB10 列值可由纯函数重算：抽样公告从桥表码重算节点码集，与宽表 backbone_path 逐条比对，差异必须 0
  *   BB11 precise_backbone_path 同口径可重算：同一份纯函数、另一张码表（商机 approved 候选码），全量对拍
  *   BB12 偏好表的大类码齐备且对得上骨架 L1 —— 可见性判定的输入，缺行就是把付费用户静默放行
+ *   BB13 退役不变量：不得留下 crm_commodity_nodes_retired_* 这种「改名改一半」的中间态（直接红）；
+ *      ↳ 原树名本身在场只 WARN（回滚演练合法），否则真回滚时这条断言会把跨树对账一起误杀
  * @limits 静态部分必须能在无 MySQL 的 CI 里跑；--db 是本地/发布前闸口。
  * @usage  npm run check:backbone     或     npx tsx scripts/gates/check-commodity-backbone.ts --db
  * @see    docs/superpowers/specs/2026-10-11-commodity-backbone-5level-design.md
@@ -101,6 +103,23 @@ const claimsTable = await one(
   `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='crm_commodity_backbone_claims'`,
 );
 if (Number(claimsTable.n) !== 0) fail(`BB0 认领表 ${claimsTable.n} 张仍在库里——树应当只有一张表`);
+
+/**
+ * BB13 退役不变量（旧树于 2026-10-11 走「RENAME → 导出留底 → DROP」下线）。
+ * 为什么需要这条：退役是动作，不是事实 —— 没人拦住「改名改一半」或「事后静静把表恢复回来」。
+ *  - 退役名 `crm_commodity_nodes_retired_*` 是中间态，长期在场就是两头不到岸 ⇒ 直接红；
+ *  - 原树名在场只 WARN：那是回滚演练或观察期的合法状态（此时 BB2/BB3/BB6 会重新跑跨树对账而不是打印跳过）。 */
+const retiredLeft = (await q(
+  `SELECT table_name t FROM information_schema.tables
+     WHERE table_schema=DATABASE() AND table_name LIKE 'crm\\_commodity\\_nodes\\_retired\\_%'`,
+)) as { t: string }[];
+if (retiredLeft.length)
+  fail(`BB13 退役表仍在库里（${retiredLeft.map((r) => r.t).join("、")}）：要么 DROP、要么改回原名让跨树断言重跑，不能停在中间态`);
+const legacyHere = await one(
+  `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='crm_commodity_nodes'`,
+);
+if (Number(legacyHere.n) !== 0)
+  console.log("⚠ BB13 原树 crm_commodity_nodes 又出现在库里：按回滚/观察期处理，BB2/BB3/BB6 正在对它重跑对账（退役尚未完成）");
 
 const rows = await q(
   `SELECT code, parent_code, level, group_code, unspsc_prefix, name_zh FROM crm_commodity_backbone`,
@@ -459,12 +478,12 @@ function bandof(parentLevel: number) {
 }
 /** 跳过的断言必须每次都说出来：放在失败出口之前，否则门禁一红就看不出跨树项到底跑没跑 */
 if (!hasLegacy) {
-  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8/BB9/BB10/BB11/BB12 照常）");
+  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8/BB9/BB10/BB11/BB12/BB13 照常）");
 }
 if (fails.length) {
   console.error(`✗ 品目树门禁未通过（${fails.length} 条）：\n  - ${[...new Set(fails)].slice(0, 25).join("\n  - ")}`);
   await pool.end();
   process.exit(1);
 }
-console.log(`✅ BB1~BB12 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
+console.log(`✅ BB1~BB13 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
 await pool.end();
