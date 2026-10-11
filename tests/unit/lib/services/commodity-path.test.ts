@@ -16,8 +16,8 @@ import {
   groupCodesOfCodes,
   toPathColumn,
   parsePathColumn,
-  MAX_LEAF_PREFIXES,
 } from "@/lib/services/commodity/path";
+import { WIDE_LIMITS } from "@/lib/utils/notice-field-limits";
 
 describe("unspscAncestorPrefixes — 两位一组、遇 00 即停", () => {
   it("完整品目码出满四级", () => {
@@ -81,7 +81,7 @@ describe("mergeAncestorPrefixes — 多码合并去重，不压缩", () => {
   });
 });
 
-describe("叶子限量：只压 8 位噪声，祖先层无损", () => {
+describe("叶子不限量：路径列必须是码集的无损函数", () => {
   /** 同一类下 90 个品目 + 另一类下 90 个品目 = 180 个叶子。
    *  注意末两位不能取 00：`10101500` 尾组全零，按「遇 00 即停」它是类级码不是叶子。 */
   const noisy = [
@@ -89,29 +89,49 @@ describe("叶子限量：只压 8 位噪声，祖先层无损", () => {
     ...Array.from({ length: 90 }, (_, i) => `101016${String(i + 1).padStart(2, "0")}`),
   ];
 
-  it("叶子被截到上限，但两个类前缀都还在", () => {
+  it("180 个叶子全部保留，一个不丢", () => {
+    // 2026-10-11 实测：全库不截断的最大列长 44,750 字符（公告 308834，5,167 项），
+    // TEXT 容量 65,535，Meili 对单个属性的**值的个数**没有限制（只限单值 ≤ 468 字节）
+    // ⇒ “截断才能活下去”的原前提不成立，改为不截断。
     const merged = mergeAncestorPrefixes(noisy);
-    expect(merged.filter((p) => p.length === 8)).toHaveLength(MAX_LEAF_PREFIXES);
+    expect(merged.filter((p) => p.length === 8)).toHaveLength(180);
     expect(merged).toContain("101015");
-    expect(merged).toContain("101016"); // 未进叶子的类仍然在 ⇒ 选类不会漏
+    expect(merged).toContain("101016");
     expect(merged).toContain("1010");
     expect(merged).toContain("10");
   });
 
-  it("leafPrefixesOf 给的是未限量的真实数（回填靠它报「丢了多少」）", () => {
+  it("真实规模的噪声公告（5,167 项）也能全量展开", () => {
+    // 造可证明互异的 8 位叶子码：1010 + 类(2) + 品目(2，取 1..97 ⇒ 尾组永不为 00)
+    const leaf = (i: number) => `1010${String(Math.floor(i / 97) + 1).padStart(2, "0")}${String((i % 97) + 1).padStart(2, "0")}`;
+    const huge = Array.from({ length: 5167 }, (_, i) => leaf(i));
+    const merged = mergeAncestorPrefixes(huge);
+    expect(new Set(huge).size).toBe(5167);
+    expect(merged.filter((p) => p.length === 8)).toHaveLength(5167);
+    expect(merged.length).toBe(5167 + 54 + 2); // 叶子 + 54 个类 + 段/族两层
+    // 不超列宽上限 ⇒ 一个不丢（上限留了多少余量，全靠这条用例钉住）
+    expect(toPathColumn(merged).length).toBeLessThan(WIDE_LIMITS.commodityList);
+    expect(() => toPathColumn(merged)).not.toThrow();
+  });
+
+  it("leafPrefixesOf 给的是真实叶数（供报告与对账）", () => {
     expect(leafPrefixesOf(noisy)).toHaveLength(180);
     expect(leafPrefixesOf(["41000000", "41010000"])).toEqual([]); // 粗码不产生叶子
   });
 
-  it("不超上限时不丢任何叶子", () => {
-    const few = Array.from({ length: 30 }, (_, i) => `101015${String(i + 1).padStart(2, "0")}`);
-    expect(mergeAncestorPrefixes(few).filter((p) => p.length === 8)).toHaveLength(30);
+  it("只有超过列宽上限才拒写，绝不静默截断", () => {
+    // 这是唯一允许的失败方式：超宽代表示常量与库漂移，必须停下来人工看
+    const leaf = (i: number) => `1010${String(Math.floor(i / 97) + 1).padStart(2, "0")}${String((i % 97) + 1).padStart(2, "0")}`;
+    const many = Array.from({ length: 1200 }, (_, i) => leaf(i));
+    const path = mergeAncestorPrefixes(many);
+    expect(path.filter((p) => p.length === 8)).toHaveLength(1200);
+    expect(() => toPathColumn(path, 200)).toThrow(/拒绝截断写入/);
   });
 
   it("同一码集不管什么读取顺序，输出必须一模一样", () => {
     // 这条是「派生列是 code 的纯函数」的唯一护栏：回填脚本的回滚语义（脏了就重算，不需备份）
-    // 全靠它成立。一旦哪天实现去掉了 leafPrefixesOf 里的 sort，“保留哪 150 个叶子”
-    // 就会跟着 DB 扫描顺序漂，两次回填写出两种值 —— 对账将永远无法收敛。
+    // 全靠它成立。一旦哪天实现去掉了 leafPrefixesOf 里的 sort，两次回填写出两种值
+    // ⇒ 对账永远无法收敛。
     const reversed = [...noisy].reverse();
     const everyThird = noisy.filter((_, i) => i % 3 !== 0).concat(noisy.filter((_, i) => i % 3 === 0));
     expect(mergeAncestorPrefixes(reversed)).toEqual(mergeAncestorPrefixes(noisy));
@@ -155,10 +175,10 @@ describe("toPathColumn / parsePathColumn — 写列与超长闸口", () => {
   });
 
   it("超过上限抛错而非静默截断（截断=漏筛，必须停线）", () => {
-    // 显式小上限：验证拒写行为本身，不依赖常量具体数值
+    // 只验证拒写行为本身，不依赖常量具体数值（默认上限够不够用，
+    // 由上面「5,167 项也能全量展开」那条用例按实测最脏公告钉死）
     expect(() => toPathColumn(["41", "4101", "410101"], 8)).toThrow(/截断写入/);
-    // 默认上限 8000：造足够多项把长度顶过线
-    const huge = Array.from({ length: 1200 }, (_, i) => String(10000000 + i * 7));
-    expect(() => toPathColumn(huge)).toThrow(/超长/);
+    expect(() => toPathColumn(["41", "4101", "410101"], 8)).toThrow(/超长/);
+    expect(toPathColumn(["41", "4101", "410101"], 20)).toBe("41,4101,410101");
   });
 });

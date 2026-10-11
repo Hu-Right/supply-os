@@ -42,11 +42,14 @@ export const WIDE_LIMITS = {
   publishedDate: 50,
   /** 宽表 UNSPSC/precise 各级 ID 串列 TEXT，实际使用上限 2000 */
   unspscList: 2000,
-  /** 宽表品目路径列（code_path / precise_path / group_codes）TEXT 存储，实际上限 8000。
-   *  8000 的根据：2026-10-10 实测最脏一条公告光祖先链就有 796 项（4 段/72 族/720 类），
-   *  约 4,000 字符；叠加叶子限量 150 项后 ≈ 5,800 字符。超上限仍拒写（不截断）。
+  /** 宽表品目路径列（code_path / precise_path / group_codes）TEXT 存储，实际上限 65000。
+   *  65000 的根据：2026-10-11 全库实测「不截断叶子」时的列长分布 —— p50 7、p99 107、
+   *  p99.99 9,300、最大 44,750 字符（公告 308834，5,167 个前缀项）。TEXT 容量 65,535 **字节**，
+   *  而内容只含数字与逗号（1 字符 = 1 字节），取 65000 ⇒ 应用层拒写永远先于
+   *  MySQL 1406「Data too long」发生（否则 STRICT 模式下报错会把同步打断）。
+   *  列值一律无损：超上限只可能是常量与库漂移 ⇒ 拒写、停线、人工看，不得截断。
    *  旧 unspscList 服务的列在 G6 退役后，本键即为唯一类目长度口径。 */
-  commodityList: 8000,
+  commodityList: 65000,
   /** 平台公告标题上下限（与 RfqWizard 前端校验同一常量，消除双口径） */
   rfqTitle: 50,
   rfqTitleMin: 10,

@@ -14,9 +14,11 @@
  *              3. 不做最短前缀压缩（commodity-code.ts 的 minimalCommodityPrefixes 是
  *                 子树 LIKE 语义，与此相反）；压缩会把 "4101" 收成 "41"，按族筛选静默丢公告。
  *
- *              叶子限量（2026-10-10 实测后的取舍）：有公告单条挂 5,091 个码这类「整本目录打上」的噪声标签，
- *              所以只对 **8 位叶子层**限长（MAX_LEAF_PREFIXES）；2/4/6 位祖先层**无损保留**，
- *              因此选段/选族/选类的结果一丝不差，只有「筛到具体品目」在极端公告上可能不全。
+ *              叶子不限量（2026-10-11 实测后改回无损）：曾经对 8 位叶子截到 150 个，理由是
+ *              「有公告单条挂 5,091 码，不截会撑爆列」。实测推翻了它：全库不截断的最大列长
+ *              44,750 字符（p99.99 才 9,300），TEXT 容量 65,535；Meilisearch 只限单个筛选值
+ *              ≤ 468 字节，对**一个属性里有多少个值没有限制**。⇒ 截断没有任何必要，
+ *              而截断本身就是丢真值（299 条公告共丢过 94,227 个叶子），所以不截。
  */
 import { groupCodeOfUnspscCode } from "./groups";
 import { WIDE_LIMITS } from "../../utils/notice-field-limits";
@@ -42,10 +44,7 @@ export function unspscAncestorPrefixes(code: string): string[] {
   return out;
 }
 
-/** 8 位叶子（具体品目）前缀的保留上限。只压噪声标签，不影响段/族/类三层。 */
-export const MAX_LEAF_PREFIXES = 150;
-
-/** 一条公告的全部 8 位叶子前缀（粗码不产生叶子）；排序后供限量与「被丢弃多少」计数共用一份口径 */
+/** 一条公告的全部 8 位叶子前缀（粗码不产生叶子）；升序，供报表与对账用同一份口径 */
 export function leafPrefixesOf(codes: Iterable<string>): string[] {
   const set = new Set<string>();
   for (const c of codes) {
@@ -55,14 +54,18 @@ export function leafPrefixesOf(codes: Iterable<string>): string[] {
   return [...set].sort();
 }
 
-/** 多码合并：全部前缀去重，按（位数, 字典）升序——排序稳定以便逐条对账 */
-export function mergeAncestorPrefixes(codes: Iterable<string>, maxLeaf: number = MAX_LEAF_PREFIXES): string[] {
-  const ancestors = new Set<string>();
+/**
+ * 多码合并：全部前缀去重，按（位数, 字典）升序。
+ * **无损函数**：不丢任何叶子，也不依赖入参顺序（sort 保底），因为列值是筛选的唯一真相——
+ * 少一个前缀就是一个公告在该筛选项下永远出不来。长度风险由 toPathColumn 的上限抛错守住，
+ * 而不是靠这里静默丢弃。
+ */
+export function mergeAncestorPrefixes(codes: Iterable<string>): string[] {
+  const all = new Set<string>();
   for (const c of codes) {
-    for (const p of unspscAncestorPrefixes(c)) if (p.length < 8) ancestors.add(p);
+    for (const p of unspscAncestorPrefixes(c)) all.add(p);
   }
-  const leaves = leafPrefixesOf(codes).slice(0, maxLeaf);
-  return [...ancestors, ...leaves].sort((a, b) => a.length - b.length || a.localeCompare(b));
+  return [...all].sort((a, b) => a.length - b.length || a.localeCompare(b));
 }
 
 /** 多码的大类并集（OR 语义：任一命中即纳入），去重升序 */
