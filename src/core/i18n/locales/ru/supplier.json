@@ -44,8 +44,6 @@
   "supplierStatUnspsc": "Совпадение UNSPSC",
   "supplierStatRealtime": "Реальное время",
   "supplierSearchTab": "Найти поставщиков:",
-  "supplierTabProduct": "Продукт",
-  "supplierTabCompany": "Компания",
   "supplierTabIndustry": "Отрасль",
   "supplierIndustryAxisHint": "Сначала отрасль, затем поиск продуктов / компаний",
   "supplierIndustryLevelSection": "Раздел отрасли",

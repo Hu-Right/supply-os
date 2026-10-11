@@ -44,8 +44,6 @@
   "supplierStatUnspsc": "UNSPSC Matched",
   "supplierStatRealtime": "Real-time",
   "supplierSearchTab": "Find Suppliers:",
-  "supplierTabProduct": "Product",
-  "supplierTabCompany": "Company",
   "supplierTabIndustry": "Industry",
   "supplierIndustryAxisHint": "Pick an industry first, then search products / companies",
   "supplierIndustryLevelSection": "Industry section",

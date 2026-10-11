@@ -44,8 +44,6 @@
   "supplierStatUnspsc": "已匹配UNSPSC",
   "supplierStatRealtime": "实时数",
   "supplierSearchTab": "找供应商：",
-  "supplierTabProduct": "产品",
-  "supplierTabCompany": "公司",
   "supplierTabIndustry": "行业",
   "supplierIndustryAxisHint": "先定行业，再搜产品/公司",
   "supplierIndustryLevelSection": "行业门类",

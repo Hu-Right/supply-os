@@ -44,8 +44,6 @@
   "supplierStatUnspsc": "Correspondance UNSPSC",
   "supplierStatRealtime": "Temps réel",
   "supplierSearchTab": "Trouver des fournisseurs :",
-  "supplierTabProduct": "Produit",
-  "supplierTabCompany": "Entreprise",
   "supplierTabIndustry": "Industrie",
   "supplierIndustryAxisHint": "Choisissez d'abord un secteur, puis cherchez produits / entreprises",
   "supplierIndustryLevelSection": "Section industrielle",
