@@ -581,14 +581,14 @@ CREATE TABLE `crm_commodity_group_segments` (
 -- ── crm_commodity_groups ──
 CREATE TABLE `crm_commodity_groups` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `code` varchar(16) NOT NULL COMMENT '大类码 UGT-G-01…UGT-G-15，对外唯一身份',
+  `code` varchar(16) NOT NULL COMMENT '大类码 UGT-G-01…UGT-G-32，对外唯一身份',
   `name_zh` varchar(100) NOT NULL COMMENT '中文名（运维导出与人工对账）；界面展示走 locale',
   `sort` int NOT NULL COMMENT 'chip 稳定顺序，按公告量降序固化',
   `status` tinyint NOT NULL DEFAULT '1' COMMENT '1=启用 0=停用（停用不删行，保留历史归属）',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_code` (`code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品目大类（15 类）：权益墙行业单位与筛选顶层';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品目大类（32 类）：权益墙行业单位与筛选顶层';
 
 -- ── crm_commodity_nodes ──
 CREATE TABLE `crm_commodity_nodes` (
