@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 96 张，导出 96 张，排除 0 张。
+--           源库共 95 张，导出 95 张，排除 0 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -587,19 +587,6 @@ CREATE TABLE `crm_commodity_backbone` (
   KEY `idx_level` (`level`),
   FULLTEXT KEY `ft_backbone_names` (`name_zh`,`name_en`) /*!50100 WITH PARSER `ngram` */ 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='五级品目树';
-
--- ── crm_commodity_group_segments ──
-CREATE TABLE `crm_commodity_group_segments` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `group_code` varchar(16) NOT NULL COMMENT '大类码',
-  `segment_code` varchar(40) NOT NULL COMMENT '品目面段码 UGT-C-*',
-  `unspsc_prefix` char(2) NOT NULL COMMENT 'UNSPSC 段前缀：筛选与派生的实际键',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_segment` (`segment_code`),
-  UNIQUE KEY `uk_prefix` (`unspsc_prefix`),
-  KEY `idx_group` (`group_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='段→大类归属；两个 UNIQUE 把「1:1」写成约束而非代码判断';
 
 -- ── crm_consent_log ──
 CREATE TABLE `crm_consent_log` (
