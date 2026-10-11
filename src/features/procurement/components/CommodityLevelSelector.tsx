@@ -1,6 +1,6 @@
 /**
- * 品目分类五级下拉 — 品目大类 → 段 → 族 → 类 → 品目
- * Commodity five-level selector
+ * 品目骨架五级下拉 — 品目大类 → 中类 → 小类 → 子类 → 品目
+ * Commodity backbone five-level selector
  *
  * @module features/procurement/components/CommodityLevelSelector
  * @description 取代旧 UnspcsSelector（那五级读的是旧字典 crm_unspsc_codes，第一级是 A..J
@@ -10,13 +10,14 @@
  *              1. 第一级就是 32 个大类的唯一入口（类表取唯一事实源常量 COMMODITY_GROUPS）。
  *                 上方曾有一行同源的快筛 chip，与这里完全重叠，已下线；不要再加回第二套大类入口。
  *              2. **展示名与数据层是两回事**：占位项用业务语义名（品目大类 / 采购领域 / 业务门类 /
- *                 细分类目 / 具体品目），而底下仍是 UNSPSC 四层。固定映射：
- *                   采购领域 = segment（58）/ 业务门类 = family（559）
- *                   细分类目 = class（8,004）/ 具体品目 = commodity（150,006）
- *                 i18n 键名保持 UNSPSC 语义（commodityLevelSegment 等），**不要靠中文词反推数据层**；
- *                 也不得改成「中类 / 小类」——那是 crm_commodity_backbone 的另一套五级（212 / 1,175）。
- *              3. 名称缺失按 nameZh → nameEn → 前缀键兜底：品目层实测 63,422/150,006 无中文名
- *                 （英文名全量非空），宁可显示英文标准名，也不显示空白或编一个。
+ *                 细分类目 / 具体品目），底下是骨架树的 L2~L5。固定映射：
+ *                   采购领域 = L2 中类（212）/ 业务门类 = L3 小类（1,175）
+ *                   细分类目 = L4 子类（8,004）/ 具体品目 = L5 品目（150,006）
+ *                 i18n 键名 commodityLevelSegment/Family/Class/Commodity 是**历史名**（当年底下
+ *                 确实是 UNSPSC 四层），换骨架后语义已变但键名不改（键名刚由另一批提交改成业务文案，
+ *                 再改名会搅动六语言）——要改就连着六语言一起改成 Level2~5，不要只改一侧。
+ *              3. 名称缺失不编造：实测 L2~L4 的 name_en 全空（212 / 1,175 / 8,004 行），L5 双语全量。
+ *                 展示按 nameZh → nameEn → key 兜底，所以非中文界面这三层会落到中文名（补译名是独立工作）。
  */
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import { Select } from "@/shared/ui";
@@ -40,9 +41,9 @@ function nodeLabel(option: CommodityTreeOption, locale: string): string {
 }
 
 export interface CommodityLevelSelectorProps {
-  /** 五层选项：[0] 由常量渲染故不使用，[1..4] = 段 / 族 / 类 / 品目 */
+  /** 五层选项：[0] 由常量渲染故不使用，[1..4] = 中类 / 小类 / 子类 / 品目 */
   levels: CommodityTreeOption[][];
-  /** 当前选中键：[大类码, 段, 族, 类, 品目]，未选为空串 */
+  /** 当前选中键：[大类码, 中类码, 小类码, 子类码, 品目码]，未选为空串 */
   selectedKeys: string[];
   /** 某一层的选中变更（key 为空串表示清空该层） */
   onChange: (level: number, key: string) => void;

@@ -1,5 +1,5 @@
 /**
- * 品目树门禁 BB1~BB7（单表结构版）
+ * 品目树门禁 BB1~BB8（单表结构版）
  *
  * @script scripts/gates/check-commodity-backbone.ts
  * @assertions
@@ -11,11 +11,14 @@
  *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥
  *   BB7 公告已在新树找到家：宽表 backbone_path 与桥表闭合（有码必填、无码必空）、
  *      列内码全部存在于树、排序后首码必为大类行（祖先全存的不变量）
+ *   BB8 旧树零引用（静态）：src/** 不得出现 FROM/JOIN crm_commodity_nodes —— 这是「旧树可以删」的机器证明
  * @limits 静态部分必须能在无 MySQL 的 CI 里跑；--db 是本地/发布前闸口。
  * @usage  npm run check:backbone     或     npx tsx scripts/gates/check-commodity-backbone.ts --db
  * @see    docs/superpowers/specs/2026-10-11-commodity-backbone-5level-design.md
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { COMMODITY_GROUPS } from "../../src/lib/services/commodity/groups";
 
 const DB = process.argv.includes("--db");
@@ -29,8 +32,30 @@ if (COMMODITY_GROUPS.length !== 32) fail(`BB0 大类常量数=${COMMODITY_GROUPS
 const segToGroup = new Map<string, string>();
 for (const g of COMMODITY_GROUPS) for (const p of g.prefixes) segToGroup.set(p, g.code);
 
+// ── BB8 旧树零引用（静态，无库也能跑；CI 与本地同一道闸）──
+// 只抓 SQL 语境（FROM / JOIN + 表名），不把注释里的历史提及算违规；
+// 一旦出现，说明消费侧又回退到旧树，旧树就不能删了 —— 这条断言就是删除前置条。
+const LEGACY_RE = /\b(?:FROM|JOIN)\s+`?crm_commodity_nodes\b/i;
+const srcFiles: string[] = [];
+const walkSrc = (dir: string) => {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    const st = statSync(p);
+    if (st.isDirectory()) walkSrc(p);
+    else if (/\.(ts|tsx)$/.test(name)) srcFiles.push(p);
+  }
+};
+try {
+  walkSrc(fileURLToPath(new URL("../../src", import.meta.url)));
+  const hits = srcFiles.filter((f) => LEGACY_RE.test(readFileSync(f, "utf8")));
+  if (hits.length) fail(`BB8 src 里还有 ${hits.length} 个文件用 SQL 读旧树 crm_commodity_nodes：${hits.map((h) => h.split(/[\\/]/).slice(-2).join("/")).join("、")} ⇒ 旧树不可删`);
+} catch {
+  // src 目录读不到（奇异检出环境）：不阻断，但必须叫出来，不能让断言静默失效
+  console.log("⚠ BB8 未能扫描 src（目录不可读），旧树引用断言本次未执行");
+}
+
 if (!DB) {
-  console.log(`静态：大类 32 / 五级码长 2-4-6-8-10 位 / 期望原树行数 ${EXPECT_ORIG_ROWS}`);
+  console.log(`静态：大类 32 / 五级码长 2-4-6-8-10 位 / 期望原树行数 ${EXPECT_ORIG_ROWS} / src 旧树引用已扫 ${srcFiles.length} 个文件`);
   if (fails.length) { console.error(`✗ ${fails.join("；")}`); process.exit(1); }
   console.log("✓ 静态部分通过（库内断言请加 --db）");
   process.exit(0);
@@ -238,5 +263,5 @@ if (fails.length) {
   await pool.end();
   process.exit(1);
 }
-console.log(`✅ BB1~BB7 通过：${rows.length} 行一张表，原树 ${orig.total} 行未动`);
+console.log(`✅ BB1~BB8 通过：${rows.length} 行一张表，原树 ${orig.total} 行未动（src 已不读旧树）`);
 await pool.end();

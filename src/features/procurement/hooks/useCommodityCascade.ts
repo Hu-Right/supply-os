@@ -1,9 +1,9 @@
 /**
- * 品目分类五级级联 Hook
- * Commodity five-level cascade hook
+ * 品目骨架五级级联 Hook
+ * Commodity backbone five-level cascade hook
  *
  * @module features/procurement/hooks/useCommodityCascade
- * @description 商机页五级下拉（品目大类 → 段 → 族 → 类 → 品目）的选项装载。
+ * @description 商机页五级下拉（品目大类 → 中类 → 小类 → 子类 → 品目）的选项装载，读骨架节点码。
  *
  *              与旧 useUnspscCascade 的三处实质差别：
  *              1. **URL 是唯一事实源**：选中态来自 `?group=` 与 `?commodity=`，不再维护一份
@@ -11,54 +11,70 @@
  *                 「筛了但界面是空的」；而 chip 早就走 URL，两套入口两种状态来源必然漂移。
  *              2. **第一级不请求接口**：32 个大类由 COMMODITY_GROUPS 常量 + locale 名渲染，
  *                 与 chip 同一份清单、同一个顺序、同一套名字。
- *              3. **路径不需要反查**：`commodity=721015` 本身就带着祖先链
- *                 （72 → 7210 → 721015），逐级切片即可确定每一层要问哪个父节点。
+ *              3. **路径不需要逐层反查**：`commodity=UGT-B-010101` 本身就带着祖先链
+ *                 （门禁 BB1 钉住「父码 = 自身码去掉末两位」），逐级截断即得每一层要问哪个父节点。
+ *
+ *              一处必须回表的例外：大类码不能由节点码算出来 —— 实测 32 个 L1 行只有 5 行的
+ *              码序号等于大类码序号（`UGT-B-01` 的 `group_code` 是 `UGT-G-11`），所以外链只给
+ *              `?commodity=` 时要点亮第一级，就向 /api/commodity/tree/resolve 点查一次。
  *
  *              取数失败的处理与旧实现相反：旧代码 catch 后静默留空，界面看起来「就是这个大类」；
  *              现在同样留空，但空层会 disabled 且面板上没有假选项，用户不会误以为筛成功了。
  */
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { COMMODITY_GROUPS, groupCodeOfUnspscPrefix } from "@/lib/services/commodity/groups";
-import { commodityPathChain } from "@/lib/services/commodity/tree";
-import { fetchCommodityTreeChildren, type CommodityTreeOption } from "../api/commodityTree";
+import { COMMODITY_GROUPS } from "@/lib/services/commodity/groups";
+import { commodityNodeChain } from "@/lib/services/commodity/tree";
+import { fetchCommodityNodeGroup, fetchCommodityTreeChildren, type CommodityTreeOption } from "../api/commodityTree";
 
 export interface CommodityCascade {
-  /** 五层选项：[0] 大类由常量渲染故恒为空，[1..4] = 段 / 族 / 类 / 品目 */
+  /** 五层选项：[0] 大类由常量渲染故恒为空，[1..4] = 中类 / 小类 / 子类 / 品目 */
   levels: CommodityTreeOption[][];
-  /** 当前选中键：[大类码, 段前缀, 族前缀, 类前缀, 品目前缀]，未选为空串 */
+  /** 当前选中键：[大类码, 中类码, 小类码, 子类码, 品目码]，未选为空串 */
   selectedKeys: string[];
 }
 
-/** 大类码：URL 没带 group 时，由品目路径的头两位段前缀反查常量得到（外链只给 commodity 也能对齐） */
-function resolveGroup(group: string, firstPrefix: string): string {
-  if (group) return group;
-  return firstPrefix ? groupCodeOfUnspscPrefix(firstPrefix.slice(0, 2)) ?? "" : "";
-}
+/** 五层空数组的初值（每层一个桶） */
+const EMPTY_LEVELS = (): CommodityTreeOption[][] => [[], [], [], [], []];
 
-/** `721015` → ["72","7210","721015",""]：祖先链由键自身切片得到（纯函数 commodityPathChain 在 commodity/tree.ts） */
 export function useCommodityCascade(): CommodityCascade {
   const searchParams = useSearchParams();
   const rawGroup = searchParams.get("group") || "";
   const commodity = searchParams.get("commodity") || "";
-  const chain = useMemo(() => commodityPathChain(commodity), [commodity]);
-  const group = useMemo(() => resolveGroup(rawGroup, chain[0]), [rawGroup, chain]);
+  // [L1, L2, L3, L4, L5]：非法键全空，宁可不点亮也不拿错键去筛
+  const chain = useMemo(() => commodityNodeChain(commodity), [commodity]);
 
-  const selectedKeys = useMemo(() => [group, ...chain], [group, chain]);
-  const [levels, setLevels] = useState<CommodityTreeOption[][]>([[], [], [], [], []]);
+  // 外链只给 commodity 没给 group 时，第一级的大类码要问一次库（纯字符串推不出来）
+  const [resolvedGroup, setResolvedGroup] = useState("");
+  useEffect(() => {
+    if (rawGroup || !chain[0]) {
+      setResolvedGroup("");
+      return;
+    }
+    let cancelled = false;
+    fetchCommodityNodeGroup(chain[0])
+      .then((r) => { if (!cancelled) setResolvedGroup(r?.groupCode ?? ""); })
+      .catch(() => { if (!cancelled) setResolvedGroup(""); }); // 拿不到就空着：不拿猜出来的大类点亮界面
+    return () => { cancelled = true; };
+  }, [rawGroup, chain]);
+
+  const group = rawGroup || resolvedGroup;
+  // 第一级显示大类码（与 chip 同一套值），其后四级显示各层节点码；chain[0] 与大类同源故不重复占位
+  const selectedKeys = useMemo(() => [group, chain[1], chain[2], chain[3], chain[4]], [group, chain]);
+  const [levels, setLevels] = useState<CommodityTreeOption[][]>(EMPTY_LEVELS);
 
   useEffect(() => {
     let cancelled = false;
-    // 需要问的父节点：大类→段，段→族，族→类，类→品目（品目层无下级）
+    // 需要问的父节点：大类→中类，中类→小类，小类→子类，子类→品目（品目层无下级）
     const jobs: Array<{ index: number; parent: string }> = [];
     if (group) jobs.push({ index: 1, parent: group });
-    for (let i = 0; i < 3 && chain[i]; i += 1) jobs.push({ index: i + 2, parent: chain[i] });
+    for (let i = 1; i < 4; i += 1) if (chain[i]) jobs.push({ index: i + 1, parent: chain[i] });
     if (jobs.length === 0) {
-      setLevels((prev) => (prev.some((l) => l.length > 0) ? [[], [], [], [], []] : prev));
+      setLevels((prev) => (prev.some((l) => l.length > 0) ? EMPTY_LEVELS() : prev));
       return;
     }
     (async () => {
-      const next: CommodityTreeOption[][] = [[], [], [], [], []];
+      const next = EMPTY_LEVELS();
       await Promise.all(
         jobs.map(async ({ index, parent }) => {
           try {
