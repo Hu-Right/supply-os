@@ -57,8 +57,9 @@ if (!LEGACY_RE.test("SELECT 1 FROM crm_commodity_nodes_retired_20261011")) {
 if (!LEGACY_RE.test("SELECT 1 FROM crm.crm_commodity_nodes_retired_20261011")) {
   fail("BB8 自检失败：带库名限定的旧树表名没被抓到");
 }
-if (LEGACY_RE.test("SELECT 1 FROM crm_commodity_backbone") || LEGACY_RE.test("SELECT 1 FROM crm_commodity_groups")) {
-  fail("BB8 自检失败：正则把新树/大类维表误判成旧树");
+// 样本用 crm_commodity_group_segments（大类表 crm_commodity_groups 已按 ADR-0008 退役，不再拿来当反例）
+if (LEGACY_RE.test("SELECT 1 FROM crm_commodity_backbone") || LEGACY_RE.test("SELECT 1 FROM crm_commodity_group_segments")) {
+  fail("BB8 自检失败：正则把新树/段归属表误判成旧树");
 }
 const srcFiles: string[] = [];
 const walkSrc = (dir: string) => {
