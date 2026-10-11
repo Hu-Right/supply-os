@@ -24,7 +24,6 @@ export interface UseNoticeSearchOptions {
   userId: number | undefined;
   page: number;
   setPage: (page: number) => void;
-  deepestCodeId: string;
   prefsMode: PrefsMode;
   setPrefsMode: (mode: PrefsMode) => void;
   setSelectedNotice: (notice: NoticeItem | null) => void;
@@ -46,6 +45,8 @@ export interface UseNoticeSearchReturn {
     activeBudgetMin: string;
     activeBudgetMax: string;
     activeGroup: string;
+    /** 品目树筛选键（五级下拉第二~五级，URL commodity） */
+    activeCommodity: string;
     hasSearch: boolean;
     searchKey: string;
   };
@@ -98,7 +99,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     userId,
     page,
     setPage,
-    deepestCodeId,
     prefsMode,
     setPrefsMode,
     setSelectedNotice,
@@ -109,11 +109,10 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
 
   // 子 hooks
   const form = useSearchFormState();
-  const query = useSearchQuery(deepestCodeId);
+  const query = useSearchQuery();
   const actions = useSearchActions({
     inputs: form.inputs,
     query,
-    deepestCodeId,
     prefsMode,
     setPrefsMode,
     setPage,
@@ -124,7 +123,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const results = useSearchResults({
     query,
     page,
-    deepestCodeId,
     prefsMode,
     userId,
     variantRef,
@@ -190,6 +188,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       activeBudgetMin: query.activeBudgetMin,
       activeBudgetMax: query.activeBudgetMax,
       activeGroup: query.activeGroup,
+      activeCommodity: query.activeCommodity,
       hasSearch: query.hasSearch,
       searchKey: query.searchKey,
     },
@@ -234,6 +233,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       clearSearch: actions.clearSearch,
       toggleFeatured: actions.toggleFeatured,
       toggleGroup: actions.toggleGroup,
+      setCommodityLevel: actions.setCommodityLevel,
     },
   };
 }

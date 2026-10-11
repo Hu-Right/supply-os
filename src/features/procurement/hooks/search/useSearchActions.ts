@@ -15,7 +15,6 @@ import type { SearchQuery } from "./useSearchQuery";
 export interface SearchActionsOptions {
   inputs: SearchFormInputs;
   query: SearchQuery;
-  deepestCodeId: string;
   prefsMode: PrefsMode;
   setPrefsMode: (mode: PrefsMode) => void;
   setPage: (page: number) => void;
@@ -45,6 +44,8 @@ export interface SearchActions {
   toggleFeatured: () => void;
   /** 品目大类 chip 单选切换（再点同一个 = 取消）*/
   toggleGroup: (code: string) => void;
+  /** 五级下拉某一层选中（level 0=大类→写 group，1~4=段/族/类/品目→写 commodity；key 空串 = 清空该层）*/
+  setCommodityLevel: (level: number, key: string) => void;
   markUserSubmitted: () => void;
 }
 
@@ -61,7 +62,6 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
   const {
     inputs,
     query,
-    deepestCodeId,
     prefsMode,
     setPrefsMode,
     setPage,
@@ -100,9 +100,11 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (inputs.windowInput) next.deadline_within_days = inputs.windowInput;
     if (inputs.noticeTypeInput.trim()) next.notice_type = inputs.noticeTypeInput.trim();
     if (query.activeFeatured) next.featured = "1";
-    if (deepestCodeId) next.code_id = deepestCodeId;
-    // 大类 chip：不在表单里，从 URL 事实源直接携带，否则重新搜索会静默丢筛选
+    // 以下三项都不在表单里，从 URL 事实源直接携带，否则重新搜索会静默丢筛选：
+    // 旧字典入口（首页热门/外链）、大类 chip 与五级下拉共用的 group、五级下拉的品目路径
+    if (query.activeCodeId) next.code_id = query.activeCodeId;
     if (query.activeGroup) next.group = query.activeGroup;
+    if (query.activeCommodity) next.commodity = query.activeCommodity;
     if (query.activeBudgetMin) next.budget_min = query.activeBudgetMin;
     if (query.activeBudgetMax) next.budget_max = query.activeBudgetMax;
     // 匹配模式：仅显式选 any（任一命中）时写入 URL，默认 all 不写（保持 URL 简洁）
@@ -118,7 +120,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     setSelectedNotice(null);
     const qs = buildQs(next);
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [inputs, query, deepestCodeId, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
+  }, [inputs, query, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
 
   const toggleFeatured = useCallback(() => {
     const next = new URLSearchParams(searchParams ?? undefined);
@@ -135,6 +137,8 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     const next = new URLSearchParams(searchParams ?? undefined);
     if (query.activeGroup === code) next.delete("group");
     else next.set("group", code);
+    // 换大类 ⇒ 更深一层的品目路径不再属于这条链，一并清掉（留着会筛出一个与新大类矛盾的窄集）
+    next.delete("commodity");
     // 与只看精选同一行为约定：推荐流里手动加筛选就退回全量，避免推荐结果被解释为筛选命中
     if (prefsMode === "recommended") setPrefsMode("default");
     setPage(1);
@@ -142,6 +146,30 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [searchParams, query.activeGroup, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
+
+  /**
+   * 五级下拉的任一层选中入 URL（URL 是唯一事实源，level 0=大类、1~4=段/族/类/品目）。
+   * 与 chip 的关系：chip 就是第一级的快捷方式，两者写同一个 group 参数 ⇒ 点 chip 下拉跟着选中，
+   * 下拉选大类 chip 也跟着高亮，不存在两套大类入口。
+   */
+  const setCommodityLevel = useCallback((level: number, key: string) => {
+    const next = new URLSearchParams(searchParams ?? undefined);
+    if (level === 0) {
+      if (key) next.set("group", key);
+      else next.delete("group");
+      // 换大类 ⇒ 更深层路径失效
+      next.delete("commodity");
+    } else {
+      if (key) next.set("commodity", key);
+      else next.delete("commodity");
+      // 回退到某一层（选中值变短）时，若清空了路径就不再按品目筛；大类仍生效
+    }
+    if (prefsMode === "recommended") setPrefsMode("default");
+    setPage(1);
+    setSelectedNotice(null);
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
 
   const clearSearch = useCallback(() => {
     clearForm();
@@ -157,6 +185,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     clearSearch,
     toggleFeatured,
     toggleGroup,
+    setCommodityLevel,
     markUserSubmitted,
   };
 }

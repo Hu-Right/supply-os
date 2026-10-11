@@ -1,93 +1,91 @@
 /**
- * 行业偏好 Hook
+ * 行业偏好 Hook（商机页「品目匹配」模式状态机）
  * Industry Preferences Hook
  *
  * @module features/procurement/hooks/useIndustryPrefs
- * @description 账号默认行业偏好三级降级（偏好 → 推荐 → 全量）、UNSPSC 五级级联
- *              选择状态与 supply-os:industry-prefs-updated 事件订阅。
- *              ARCH-P3b（2026-08-31）：UNSPSC 级联逻辑拆分至 useUnspscCascade.ts。
+ * @description 账号默认偏好三级降级（偏好 → 推荐 → 全量）与提示条名称。
+ *              2026-10-11 五级下拉换成品目树后的收敛：本 hook **不再持有任何下拉选中态**
+ *              （选中态的唯一事实源是 URL 的 group / commodity，见 useCommodityCascade），
+ *              只保留模式判定与提示条。
+ *
+ *              提示条名称的来源也一并换源：偏好表存的是旧字典 `crm_unspsc_codes` 的行 id
+ *              （level=1 还是 A..J 十个字母容器，新分类里没有这一层），故经
+ *              /api/commodity/tree/prefs 换算成品目树键 + 树内名称后再展示，
+ *              不再直接拿字典 title 拼串（那会把「原材料 材料, 化学品, 纸张, 燃料」这类
+ *              机器拼接名透到界面上）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
 import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
-import type { UnspscOption, NoticeItem, PrefsMode } from "../types";
+import { useLocale } from "@/core/i18n";
+import type { LocaleKey } from "@/core/i18n";
+import type { PrefsMode } from "../types";
 import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
 import { fetchUnifiedSearch } from "../api";
+import { fetchCommodityPrefsPath, type CommodityTreeOption } from "../api/commodityTree";
 import { NOTICE_PAGE_SIZE } from "../constants";
-import { useUnspscCascade } from "./useUnspscCascade";
 
 export interface UseIndustryPrefsOptions {
   /** 当前登录用户 key，未登录直接回 default 全量 */
   userId: number | undefined;
-  /** 当前语言（UNSPSC 选项译文按 lang 由后端返回） */
-  locale: string;
   /** 页码设置器（自动筛选/手动改选时重置为 1） */
   setPage: (page: number) => void;
-  /** 清空当前选中详情（手动改选时重置详情态） */
-  setSelectedNotice: (notice: NoticeItem | null) => void;
 }
 
 export interface UseIndustryPrefsReturn {
-  levels: UnspscOption[][];
-  setLevels: Dispatch<SetStateAction<UnspscOption[][]>>;
-  selectedIds: string[];
-  setSelectedIds: Dispatch<SetStateAction<string[]>>;
   prefsMode: PrefsMode;
-  setPrefsMode: Dispatch<SetStateAction<PrefsMode>>;
+  setPrefsMode: (mode: PrefsMode) => void;
   prefsBannerName: string;
-  deepestCodeId: string;
-  /** 账号是否已设置默认行业偏好（决定"恢复行业匹配"按钮显示） */
+  /** 账号是否已设置默认品目偏好（决定「恢复品目匹配」按钮显示） */
   hasIndustryPrefs: boolean;
   exitAutoMode: () => void;
-  handleLevelChange: (levelIndex: number, value: string) => Promise<void>;
-  /** 清除手动搜索条件并切回行业精准匹配模式（无偏好时回退 default） */
+  /** 清除手动搜索条件并切回品目匹配模式（无偏好时回退 default） */
   restorePrefsMode: () => Promise<void>;
+  /** 用户手动改选品目分类：作废在飞的偏好探测结果，避免它把手动筛选盖回匹配模式 */
+  markManualCategoryPick: () => void;
 }
 
 export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryPrefsReturn {
-  const { userId, locale, setPage, setSelectedNotice } = options;
+  const { userId, setPage } = options;
+  const { t, locale } = useLocale();
 
-  // UNSPSC 级联选择（拆分至独立 hook）
-  const cascade = useUnspscCascade({ locale });
-  const { levels, setLevels, selectedIds, setSelectedIds, handleLevelChange: cascadeHandleLevelChange } = cascade;
+  // 品目匹配模式下的偏好路径（仅用于提示条展示品目名称；选中态在 URL 里）
+  const [prefsPath, setPrefsPath] = useState<{
+    groupCode: string | null;
+    options: CommodityTreeOption[];
+  }>({ groupCode: null, options: [] });
 
-  // 行业精准匹配模式下的偏好路径（仅用于提示条展示行业名称）
-  const [prefsPath, setPrefsPath] = useState<string[]>(["", "", "", "", ""]);
-
-  // ── 账号默认行业偏好三级降级 ──
+  // ── 账号默认品目偏好三级降级 ──
   const [prefsMode, setPrefsMode] = useState<PrefsMode>(() => (userId ? "loading" : "default"));
   const [hasIndustryPrefs, setHasIndustryPrefs] = useState(false);
   const prefsInitKeyRef = useRef<number | null>(null);
   const [prefsRefreshTick, setPrefsRefreshTick] = useState(0);
   const exitSeqRef = useRef(0);
 
-  /**
-   * 按偏好路径预选级联并切 prefs 模式
-   */
-  const applyPrefsPath = useCallback(async (prefs: { level1_id?: number | null; level2_id?: number | null; level3_id?: number | null }) => {
-    const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, null, null]
-      .map((id) => (id ? String(id) : ""));
-    const entrySeq = exitSeqRef.current;
-    const { fetchUnspscChildren } = await import("@/core/unspsc/api");
-    const childRequests: Promise<UnspscOption[]>[] = [];
-    for (let i = 0; i < 4 && path[i]; i += 1) {
-      childRequests.push(fetchUnspscChildren(path[i]).catch(() => []));
-    }
-    const childResults = await Promise.all(childRequests);
-    if (exitSeqRef.current !== entrySeq) return;
-    const nextChildren: UnspscOption[][] = [[], [], [], []];
-    for (let i = 0; i < childResults.length; i += 1) {
-      nextChildren[i] = Array.isArray(childResults[i]) ? childResults[i] : [];
-    }
-    setLevels((prev) => [prev[0], nextChildren[0], nextChildren[1], nextChildren[2], nextChildren[3]]);
-    setPrefsPath(path);
-    setSelectedIds(["", "", "", "", ""]);
-    setPrefsMode("prefs");
-  }, [setLevels, setSelectedIds]);
+  const markManualCategoryPick = useCallback(() => {
+    exitSeqRef.current += 1;
+  }, []);
 
   /**
-   * 恢复行业匹配
+   * 按偏好路径切 prefs 模式（路径经品目树换算）
+   */
+  const applyPrefsPath = useCallback(async (prefs: {
+    level1_id?: number | null; level2_id?: number | null; level3_id?: number | null;
+  }) => {
+    const entrySeq = exitSeqRef.current;
+    let resolved = { groupCode: null as string | null, options: [] as CommodityTreeOption[] };
+    try {
+      resolved = await fetchCommodityPrefsPath([prefs.level1_id, prefs.level2_id, prefs.level3_id]);
+    } catch {
+      // 换算失败不阻断匹配模式：筛选本身由服务端按画像层级完成，提示条只是少一行名字
+    }
+    if (exitSeqRef.current !== entrySeq) return;
+    setPrefsPath(resolved);
+    setPrefsMode("prefs");
+  }, []);
+
+  /**
+   * 恢复品目匹配
    */
   const restorePrefsMode = async () => {
     if (!userId) return;
@@ -107,24 +105,13 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     }
   };
 
-  // 包装 cascade 的 handleLevelChange，添加 prefsMode 管理
-  const handleLevelChange = async (levelIndex: number, value: string) => {
-    if (prefsMode !== "default") setPrefsMode("default");
-    exitSeqRef.current += 1;
-    setPage(1);
-    setSelectedNotice(null);
-    await cascadeHandleLevelChange(levelIndex, value);
-  };
-
   useEffect(() => {
     if (!userId) {
       prefsInitKeyRef.current = null;
       setHasIndustryPrefs(false);
       if (prefsMode !== "default") {
         setPrefsMode("default");
-        setSelectedIds(["", "", "", "", ""]);
-        setPrefsPath(["", "", "", "", ""]);
-        setLevels((prev) => [prev[0], [], [], [], []]);
+        setPrefsPath({ groupCode: null, options: [] });
         setPage(1);
       }
       return;
@@ -164,36 +151,31 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
         setPrefsMode((prev) => prev === "loading" ? "default" : prev);
       }
     });
-  }, [userId, prefsMode, prefsRefreshTick, applyPrefsPath, setLevels, setPage, setSelectedIds]);
+  }, [userId, prefsMode, prefsRefreshTick, applyPrefsPath, setPage]);
 
   useEffect(() => {
     const onPrefsUpdated = () => {
       prefsInitKeyRef.current = null;
-      setSelectedIds(["", "", "", "", ""]);
-      setPrefsPath(["", "", "", "", ""]);
-      setLevels((prev) => [prev[0], [], [], [], []]);
+      setPrefsPath({ groupCode: null, options: [] });
       setPage(1);
       setPrefsMode(userId ? "loading" : "default");
       setPrefsRefreshTick((tick) => tick + 1);
       clearApiCache("/api/notices");
     };
     return onAppEvent("supply-os:industry-prefs-updated", onPrefsUpdated);
-  }, [userId, setLevels, setPage, setSelectedIds]);
+  }, [userId, setPage]);
 
   const prefsBannerName = useMemo(() => {
     const names: string[] = [];
-    prefsPath.forEach((id, index) => {
-      if (!id) return;
-      const opt = levels[index]?.find((item) => String(item.id) === id);
-      if (!opt) return;
-      const title =
-        locale === "zh"
-          ? opt.title_zh || opt.title || opt.name
-          : opt.title_en || opt.title || opt.name || opt.title_zh;
+    if (prefsPath.groupCode) names.push(t(`commodityGroup_${prefsPath.groupCode}` as LocaleKey));
+    for (const opt of prefsPath.options) {
+      const title = locale === "zh"
+        ? opt.nameZh || opt.nameEn || opt.key
+        : opt.nameEn || opt.nameZh || opt.key;
       if (title) names.push(title);
-    });
+    }
     return names.join(" / ");
-  }, [levels, prefsPath, locale]);
+  }, [prefsPath, locale, t]);
 
   const exitAutoMode = () => {
     const mySeq = exitSeqRef.current + 1;
@@ -217,31 +199,17 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     } else {
       setPrefsMode("default");
     }
-    setSelectedIds(["", "", "", "", ""]);
-    setPrefsPath(["", "", "", "", ""]);
-    setLevels((prev) => [prev[0], [], [], [], []]);
+    setPrefsPath({ groupCode: null, options: [] });
     setPage(1);
   };
 
-  const deepestCodeId = useMemo(() => {
-    for (let i = 2; i >= 0; i -= 1) {
-      if (selectedIds[i]) return selectedIds[i];
-    }
-    return "";
-  }, [selectedIds]);
-
   return {
-    levels,
-    setLevels,
-    selectedIds,
-    setSelectedIds,
     prefsMode,
     setPrefsMode,
     prefsBannerName,
-    deepestCodeId,
     hasIndustryPrefs,
     exitAutoMode,
-    handleLevelChange,
     restorePrefsMode,
+    markManualCategoryPick,
   };
 }

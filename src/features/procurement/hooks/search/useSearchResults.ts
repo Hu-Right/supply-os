@@ -15,7 +15,6 @@ import type { SearchQuery } from "./useSearchQuery";
 export interface SearchResultsOptions {
   query: SearchQuery;
   page: number;
-  deepestCodeId: string;
   prefsMode: PrefsMode;
   userId: number | undefined;
   variantRef: { current: string | undefined };
@@ -33,7 +32,7 @@ export interface SearchResults {
 }
 
 export function useSearchResults(options: SearchResultsOptions): SearchResults {
-  const { query, page, deepestCodeId, prefsMode, userId, variantRef } = options;
+  const { query, page, prefsMode, userId, variantRef } = options;
   const { locale, t } = useLocale();
 
   const [items, setItems] = useState<NoticeItem[]>([]);
@@ -53,7 +52,6 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
 
   const prevDataSourceForPrefsRef = useRef<string>("initial");
   const prevSearchKeyForSkipRef = useRef<string>("");
-  const prevDeepestCodeIdForSkipRef = useRef<string>("");
   // F2 优化：跟踪上一次 searchKey，用于判断是否为纯翻页操作
   const prevSearchKeyForDebounceRef = useRef<string>("");
 
@@ -70,8 +68,9 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
 
     const searchKeyUnchanged = prevSearchKeyForSkipRef.current === query.searchKey;
     const dataSourceUnchanged = prevDataSourceForPrefsRef.current === currentDataSource;
-    const deepestCodeIdUnchanged = prevDeepestCodeIdForSkipRef.current === deepestCodeId;
-    if (dataSourceUnchanged && searchKeyUnchanged && deepestCodeIdUnchanged) {
+    // 不再单独跟踪最深类目 id：五级下拉已改为 URL 事实源，而 searchKey 已含
+    // code_id / group / commodity 三项 ⇒ 再留一份局部状态只会出现「URL 与组件态两个真相」。
+    if (dataSourceUnchanged && searchKeyUnchanged) {
       return;
     }
     // F2 优化：筛选条件未变 = 纯翻页/排序操作，跳过防抖立即发出
@@ -80,7 +79,6 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     prevDataSourceForPrefsRef.current = currentDataSource;
     prevSearchKeyForSkipRef.current = query.searchKey;
     prevSearchKeyForDebounceRef.current = query.searchKey;
-    prevDeepestCodeIdForSkipRef.current = deepestCodeId;
 
     abortControllerRef.current?.abort();
     if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
@@ -112,8 +110,9 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
         mode: unifiedMode,
         page,
         pageSize: NOTICE_PAGE_SIZE,
-        codeId: deepestCodeId || undefined,
+        codeId: query.activeCodeId || undefined,
         groupCode: query.activeGroup || undefined,
+        commodityPath: query.activeCommodity || undefined,
         q: query.activeQ || undefined,
         country: query.activeCountry || undefined,
         agency: query.activeAgency || undefined,
@@ -160,9 +159,8 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       prevDataSourceForPrefsRef.current = "initial";
       prevSearchKeyForSkipRef.current = "";
       prevSearchKeyForDebounceRef.current = "";
-      prevDeepestCodeIdForSkipRef.current = "";
     };
-  }, [deepestCodeId, page, prefsMode, query, locale, userId, t, variantRef]);
+  }, [page, prefsMode, query, locale, userId, t, variantRef]);
 
   // 分页预取（统一端点）
   // [F4 优化] prefs 模式同样预取：此前因最慢模式无预取导致翻页始终冷请求
@@ -186,8 +184,9 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       mode: prefetchMode,
       page: nextPage,
       pageSize: NOTICE_PAGE_SIZE,
-      codeId: deepestCodeId || undefined,
+      codeId: query.activeCodeId || undefined,
       groupCode: query.activeGroup || undefined,
+      commodityPath: query.activeCommodity || undefined,
       q: query.activeQ || undefined,
       country: query.activeCountry || undefined,
       agency: query.activeAgency || undefined,
@@ -202,7 +201,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       locale,
       matchMode: query.activeMatchMode,
     }).catch((e) => { console.warn("[useSearchResults] prefetch failed (non-critical):", e); });
-  }, [page, totalPages, items.length, loading, prefsMode, userId, query, locale, deepestCodeId]);
+  }, [page, totalPages, items.length, loading, prefsMode, userId, query, locale]);
 
   return {
     items,

@@ -19,8 +19,12 @@ export interface SearchQuery {
   activeFeatured: boolean;
   activeBudgetMin: string;
   activeBudgetMax: string;
-  /** 品目大类码（URL group=UGT-G-xx；32 类 chip 单选） */
+  /** 品目大类码（URL group=UGT-G-xx；32 类 chip 与五级下拉第一级同一事实源） */
   activeGroup: string;
+  /** 品目树筛选键（URL commodity=UNSPSC 前缀 2/4/6/8 位，五级下拉第二~五级） */
+  activeCommodity: string;
+  /** 旧字典类目 id（URL code_id / industry_id）：仅首页热门入口与外链会带，五级下拉不再产生 */
+  activeCodeId: string;
   /** 关键词匹配模式：all=硬 AND（默认），any=OR（任一命中） */
   activeMatchMode: "all" | "any";
   hasSearch: boolean;
@@ -28,7 +32,7 @@ export interface SearchQuery {
   searchKey: string;
 }
 
-export function useSearchQuery(deepestCodeId: string): SearchQuery {
+export function useSearchQuery(): SearchQuery {
   const searchParams = useSearchParams();
 
   const activeQ = searchParams.get("q") || "";
@@ -46,11 +50,13 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
   const activeBudgetMax = searchParams.get("budget_max") || "";
   const activeMatchMode: "all" | "any" = searchParams.get("match_mode") === "any" ? "any" : "all";
   const activeGroup = searchParams.get("group") || "";
+  const activeCommodity = searchParams.get("commodity") || "";
+  const activeCodeId = searchParams.get("code_id") || searchParams.get("industry_id") || "";
 
   const hasSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
-    activeWindow || activeNoticeType || activeFeatured || deepestCodeId ||
-    activeBudgetMin || activeBudgetMax || activeGroup
+    activeWindow || activeNoticeType || activeFeatured || activeCodeId ||
+    activeBudgetMin || activeBudgetMax || activeGroup || activeCommodity
   );
 
   // 统一化重构后：hasOtherSearch 仅影响推荐模式的退出判定
@@ -58,10 +64,10 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
   const hasOtherSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
     activeWindow || activeNoticeType || activeFeatured ||
-    activeBudgetMin || activeBudgetMax || activeGroup
+    activeBudgetMin || activeBudgetMax || activeGroup || activeCommodity
   );
 
-  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}|${activeGroup}`;
+  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${activeCodeId}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}|${activeGroup}|${activeCommodity}`;
 
   return useMemo(() => ({
     activeQ,
@@ -76,9 +82,11 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
     activeBudgetMin,
     activeBudgetMax,
     activeGroup,
+    activeCommodity,
+    activeCodeId,
     activeMatchMode,
     hasSearch,
     hasOtherSearch,
     searchKey,
-  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeGroup, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
+  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeGroup, activeCommodity, activeCodeId, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
 }

@@ -12,7 +12,7 @@ import { RecentUnlocks } from "../components/RecentUnlocks";
 import { FavoriteNotices } from "../components/FavoriteNotices";
 import type { NoticeItem } from "../types";
 import { NoticeDetail } from "../components/NoticeDetail";
-import { UnspcsSelector } from "../components/UnspcsSelector";
+import { CommodityLevelSelector } from "../components/CommodityLevelSelector";
 import { CommodityGroupChips } from "../components/CommodityGroupChips";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
 import { AdvancedSearchPanel } from "../components/AdvancedSearchPanel";
@@ -26,6 +26,7 @@ import { useNoticeSearch } from "../hooks/useNoticeSearch";
 import { useListingStats } from "../hooks/useListingStats";
 import { NOTICE_PAGE_SIZE } from "../constants";
 import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
+import { useCommodityCascade } from "../hooks/useCommodityCascade";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
 import { useNoticeActions } from "../hooks/useNoticeActions";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
@@ -46,39 +47,39 @@ export default function ProcurementPage() {
   const variantRef = useRef<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
-  const [unspscExpanded, setUnspscExpanded] = useState(false);
+  const [commodityExpanded, setCommodityExpanded] = useState(false);
 
   // ── 规模条数据（已提取至 hook） ──
   const listingStats = useListingStats();
 
-  // ── 行业偏好三级降级 ──
+  // ── 品目匹配模式三级降级（选中态不在这里：五级下拉以 URL 为唯一事实源）──
   const {
-    levels, selectedIds, setLevels, setSelectedIds, prefsMode, setPrefsMode,
-    prefsBannerName, deepestCodeId, exitAutoMode, handleLevelChange,
-    hasIndustryPrefs, restorePrefsMode,
-  } = useIndustryPrefs({ userId, locale: useLocale().locale, setPage, setSelectedNotice });
+    prefsMode, setPrefsMode, prefsBannerName, exitAutoMode,
+    hasIndustryPrefs, restorePrefsMode, markManualCategoryPick,
+  } = useIndustryPrefs({ userId, setPage });
 
-  // ── 恢复品目匹配：清除手动搜索条件并切回品目大类精准匹配模式（hook 名 useIndustryPrefs 不动）──
+  // ── 五级下拉选项：品目大类 → 段 → 族 → 类 → 品目 ──
+  const commodity = useCommodityCascade();
+
+  // ── 恢复品目匹配：清除手动搜索条件并切回品目精准匹配模式（hook 名 useIndustryPrefs 不动）──
   const handleRestoreCommodityMatch = () => {
     setPage(1);
     setSelectedNotice(null);
-    // 清空 URL 搜索条件（表单由 sync effect 自动同步清空）
+    // 清空 URL 搜索条件（含 group / commodity：URL 是筛选事实源，回到无参就是无筛选）
     router.replace("/procurement");
-    // 乐观切回 prefs 模式并重新预选行业路径
+    // 乐观切回 prefs 模式并重新解析偏好路径名称
     void restorePrefsMode();
   };
 
   // ── 搜索 + URL 参数事实源 + 列表数据 ──
   const search = useNoticeSearch({
-    userId, page, setPage, deepestCodeId,
+    userId, page, setPage,
     prefsMode, setPrefsMode, setSelectedNotice, variantRef,
-    // BUG1 修复：clearSearch 时同步重置 UNSPSC 行业筛选状态
-    // BUG2 修复：清除筛选彻底退出行业匹配/推荐模式，回到全量检索
-    // 旧代码仅在 recommended 模式退出，prefs 模式保持 → L1 偏好仍参与过滤
+    // BUG2 修复：清除筛选彻底退出品目匹配/推荐模式，回到全量检索
+    // （旧代码仅在 recommended 模式退出，prefs 模式保持 → 偏好仍参与过滤）
+    // BUG1 对应的「同步重置 UNSPSC 筛选态」已不需要：下拉选中态就是 URL，
+    // clearSearch 的 router.replace(pathname) 已把它一并清掉。
     onClear: () => {
-      setSelectedIds(["", "", "", "", ""]);
-      setLevels((prev) => [prev[0], [], [], [], []]);
-      // 清除筛选 = 彻底退出行业匹配/推荐模式，回到全量检索
       setPrefsMode("default");
     },
   });
@@ -204,22 +205,30 @@ export default function ProcurementPage() {
             />
           </div>
 
-          {/* 品目分类（UNSPSC 五级联动）——默认折叠，点击展开 */}
+          {/* 品目分类五级下拉（大类 → 段 → 族 → 类 → 品目）——默认折叠，点击展开。
+              第一级与上方 chip 同一事实源（URL group），两边选中态互相同步 */}
           <div className="border-t border-slate-100 pt-4">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setUnspscExpanded(!unspscExpanded)}
+              onClick={() => setCommodityExpanded(!commodityExpanded)}
               className="gap-2 px-0 text-sm text-slate-600 hover:text-teal-700 hover:bg-transparent"
             >
-              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${unspscExpanded ? "rotate-180" : ""}`} />
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${commodityExpanded ? "rotate-180" : ""}`} />
               {t("procurement_commodityCategory")}
             </Button>
-            <div className={`overflow-hidden transition-all duration-200 ease-in-out ${unspscExpanded ? "max-h-60 mt-3 opacity-100" : "max-h-0 mt-0 opacity-0"}`}>
-              <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
+            <div className={`overflow-hidden transition-all duration-200 ease-in-out ${commodityExpanded ? "max-h-60 mt-3 opacity-100" : "max-h-0 mt-0 opacity-0"}`}>
+              <CommodityLevelSelector
+                levels={commodity.levels}
+                selectedKeys={commodity.selectedKeys}
+                onChange={(level, key) => {
+                  // 手动改选即作废在飞的偏好探测，并退回全量检索（匹配模式的结果不是用户选的这一层筛出来的）
+                  markManualCategoryPick();
+                  search.actions.setCommodityLevel(level, key);
+                }}
+              />
             </div>
-            <p className="text-xs text-slate-500 mt-2">{t("procurement_poolDesc")}</p>
           </div>
 
           {/* 操作按钮行：搜索 / 清除筛选 / 只看精选 —— 移至卡片底部 */}
