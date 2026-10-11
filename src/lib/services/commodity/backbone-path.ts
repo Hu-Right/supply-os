@@ -234,6 +234,16 @@ export function toBackbonePathColumn(codes: string[]): string {
 }
 
 /**
+ * 列值 → 节点码数组（`toBackbonePathColumn` 的逆操作）：NULL/空串 → 空数组，去重，只留 `UGT-B-` 形制的 token。
+ * 读取端拆列只走这里：手写 `split(",")` 的地方一多，列形制改了就会逐处静默失效。
+ */
+export function fromBackbonePathColumn(value: unknown): string[] {
+  const s = String(value ?? "").trim();
+  if (!s) return [];
+  return [...new Set(s.split(",").map((x) => x.trim()).filter((x) => x.startsWith(BACKBONE_NODE_PREFIX)))];
+}
+
+/**
  * 列宽上限：MEDIUMTEXT 容量 16,777,215 字节。
  * 2026-10-11 全库实测（祖先全存）：p50 19 / p99 285 / p99.99 17,982 / 最大 87,498 字符，
  * 内容只有 ASCII ⇒ 1 字符 = 1 字节。取 1,000,000 留 11 倍余量，应用层拒写永远先于静默截断。

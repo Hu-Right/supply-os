@@ -10,6 +10,7 @@ import {
   buildBackboneIndex,
   chainOfNode,
   effectivePrefixOf,
+  fromBackbonePathColumn,
   toBackbonePathColumn,
   type BackboneRow,
   type GroupSegmentRow,
@@ -168,5 +169,14 @@ describe("有效前缀与祖先链纯函数", () => {
       "UGT-B-07", "UGT-B-0702", "UGT-B-070201", "UGT-B-07020102", "UGT-B-0702010204",
     ]);
     expect(chainOfNode("UGT-B-07")).toEqual(["UGT-B-07"]);
+  });
+
+  it("fromBackbonePathColumn：与 toBackbonePathColumn 往返，NULL/空串/野 token 不炸", () => {
+    const codes = ["UGT-B-01", "UGT-B-0101", "UGT-B-01010101"];
+    expect(fromBackbonePathColumn(toBackbonePathColumn(codes))).toEqual(codes);
+    expect(fromBackbonePathColumn(null)).toEqual([]);
+    expect(fromBackbonePathColumn("")).toEqual([]);
+    // 去重 + 丢非树码（旧 UGT-C- 尾巴、空段）
+    expect(fromBackbonePathColumn("UGT-B-01,UGT-B-01,,UGT-C-0702")).toEqual(["UGT-B-01"]);
   });
 });
