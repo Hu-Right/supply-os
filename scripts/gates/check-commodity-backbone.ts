@@ -1,5 +1,5 @@
 /**
- * 品目树门禁 BB1~BB10（单表结构版）
+ * 品目树门禁 BB1~BB11（单表结构版）
  *
  * @script scripts/gates/check-commodity-backbone.ts
  * @assertions
@@ -17,6 +17,7 @@
  *   BB9 族级落点分档：拿纯函数逐族试挂粗码，L2/L3/L4 三档必须都有落点 —— 防「最深可证实唯一」被改回一刀切
  *      ↳ 覆盖率类断言抓不到退化（一刀切也是 100%），只有落点层数能叫出来
  *   BB10 列值可由纯函数重算：抽样公告从桥表码重算节点码集，与宽表 backbone_path 逐条比对，差异必须 0
+ *   BB11 precise_backbone_path 同口径可重算：同一份纯函数、另一张码表（商机 approved 候选码），全量对拍
  * @limits 静态部分必须能在无 MySQL 的 CI 里跑；--db 是本地/发布前闸口。
  * @usage  npm run check:backbone     或     npx tsx scripts/gates/check-commodity-backbone.ts --db
  * @see    docs/superpowers/specs/2026-10-11-commodity-backbone-5level-design.md
@@ -379,6 +380,44 @@ if (Number(pathCol.n) === 0) {
       console.log(`BB10 纯函数重算对拍 ${stored.length} 条公告，差异 ${diff}`);
       if (diff) fail(`BB10 有 ${diff}/${stored.length} 条 backbone_path 与纯函数重算不等 ⇒ 列值过期或存在第二份实现：${worst.join("；")}`);
     }
+
+    // ── BB11 precise_backbone_path 同口径可重算（源＝商机 approved 候选码）──
+    // 与 BB10 同一个 pathOf、另一张码表：抓「precise 列由第二套规则灌出」与
+    // 「审核改了 approved 码但列值没跟上」。当前全列只有千级行（实测 1,049），所以直接全量对拍，
+    // 不抽样 —— 抽样是为了控成本，这一列没那个成本。
+    const pv = await q(
+      `SELECT notice_id, precise_backbone_path p FROM crm_notice_search
+        WHERE precise_backbone_path IS NOT NULL AND precise_backbone_path<>'' ORDER BY id LIMIT 20000`,
+    );
+    let pdiff = 0;
+    const pworst: string[] = [];
+    for (let i = 0; i < pv.length; i += 500) {
+      const chunk = pv.slice(i, i + 500);
+      const pids = [...new Set(chunk.map((r) => String(r.notice_id)))];
+      const rows = await q(
+        `SELECT DISTINCT o.source_notice_id nid, ca.candidate_code code
+           FROM crm_bid_opportunity_unspsc_candidates ca
+           JOIN crm_bid_opportunities o ON o.id = ca.opportunity_id
+          WHERE ca.status = 'approved' AND o.source_notice_id IN (${pids.map(() => "?").join(",")})`,
+        pids,
+      );
+      const byNid = new Map<string, string[]>();
+      for (const r of rows) {
+        const nid = String(r.nid);
+        const list = byNid.get(nid);
+        if (list) list.push(String(r.code));
+        else byNid.set(nid, [String(r.code)]);
+      }
+      for (const r of chunk) {
+        const again = toBackbonePathColumn(ix.pathOf(byNid.get(String(r.notice_id)) ?? []).codes);
+        if (again !== String(r.p)) {
+          pdiff++;
+          if (pworst.length < 3) pworst.push(`${r.notice_id}：重算 ${again.split(",").length} 个节点 / 列内 ${String(r.p).split(",").length} 个`);
+        }
+      }
+    }
+    console.log(`BB11 precise 重算对拍 ${pv.length} 条公告（全量），差异 ${pdiff}`);
+    if (pdiff) fail(`BB11 有 ${pdiff}/${pv.length} 条 precise_backbone_path 与纯函数重算不等 ⇒ 存在第二份实现或 approved 码改了没重跑：${pworst.join("；")}`);
   }
   pathStat = `已填 ${p.filled} · 抽样 ${pc.size} 码全在树`;
 }
@@ -396,12 +435,12 @@ function bandof(parentLevel: number) {
 }
 /** 跳过的断言必须每次都说出来：放在失败出口之前，否则门禁一红就看不出跨树项到底跑没跑 */
 if (!hasLegacy) {
-  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8/BB9/BB10 照常）");
+  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8/BB9/BB10/BB11 照常）");
 }
 if (fails.length) {
   console.error(`✗ 品目树门禁未通过（${fails.length} 条）：\n  - ${[...new Set(fails)].slice(0, 25).join("\n  - ")}`);
   await pool.end();
   process.exit(1);
 }
-console.log(`✅ BB1~BB10 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
+console.log(`✅ BB1~BB11 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
 await pool.end();

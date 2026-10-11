@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 98 张，导出 98 张，排除 0 张。
+--           源库共 97 张，导出 97 张，排除 0 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -613,29 +613,6 @@ CREATE TABLE `crm_commodity_groups` (
   UNIQUE KEY `uk_code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品目大类（32 类）：权益墙行业单位与筛选顶层';
 
--- ── crm_commodity_nodes_retired_20261011 ──
-CREATE TABLE `crm_commodity_nodes_retired_20261011` (
-  `id` bigint unsigned NOT NULL,
-  `code` varchar(40) NOT NULL,
-  `unspsc_code` varchar(20) DEFAULT NULL,
-  `source` varchar(12) NOT NULL DEFAULT 'unspsc',
-  `level` varchar(20) NOT NULL,
-  `parent_code` varchar(40) DEFAULT NULL,
-  `name_zh` varchar(300) DEFAULT NULL,
-  `name_en` varchar(300) DEFAULT NULL,
-  `notice_count` int NOT NULL DEFAULT '0',
-  `supplier_count` int NOT NULL DEFAULT '0',
-  `status` tinyint NOT NULL DEFAULT '1',
-  `version` varchar(20) NOT NULL DEFAULT 'v1.0',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `gap_note` text,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_code` (`code`),
-  KEY `idx_level` (`level`),
-  KEY `idx_parent` (`parent_code`),
-  KEY `idx_unspsc` (`unspsc_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品目树';
-
 -- ── crm_consent_log ──
 CREATE TABLE `crm_consent_log` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '流水主键（无业务语义，仅定位单条留痕）',
@@ -972,6 +949,7 @@ CREATE TABLE `crm_notice_search` (
   `code_path` text COMMENT '全部祖先 UNSPSC 前缀，逗号分隔（所见即所得命中键）',
   `precise_path` text COMMENT '同 code_path，来源=approved 精准候选码',
   `backbone_path` mediumtext COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
+  `precise_backbone_path` mediumtext COMMENT 'approved 精准候选码挂靠到的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
   PRIMARY KEY (`id`),
   KEY `idx_ns_deadline_desc` (`deadline_sec` DESC),
   KEY `idx_ns_id_desc` (`id` DESC),
