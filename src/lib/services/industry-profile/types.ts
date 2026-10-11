@@ -18,6 +18,10 @@ export interface UserIndustryProfile {
   deepestLevel: number;
   /** 各级类目 id（下标 0 = level1，未选级为 null） */
   levelIds: (number | null)[];
+  /** 品目大类码（UGT-G-xx，取自 crm_user_industry_prefs.group_code）。
+   *  可见性判定只认这个：旧字典 level=1 是 A..J 十个字母容器，比我们的 32 大类粗得多，
+   *  拿它当行业口径实测会让同容器下不同大类的用户看到完全一样的内容（temp/probe78）。 */
+  groupCode: string | null;
   /** 最深级类目 id */
   deepestId: number | null;
   /** 行业分支码前缀（如 '4214'） */

@@ -11,7 +11,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnifiedSearchParams, FilterPlan } from "./types";
 import { expandCountryAllForms, expandCountryAliases } from "../notice-search/countries";
 import { getAgencyCacheData } from "../notice-search/agencies/index";
-import { isCommodityNodeKey } from "../commodity/tree";
+import { l1NodesOfGroup } from "../commodity/tree";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { toBeijingUnixTs } from "../../utils/notice-expired";
@@ -39,40 +39,14 @@ async function getAllNoticeTypes(pool: Pool): Promise<string[]> {
   }
 }
 
-// ── 品目大类 → 所辖骨架 L1 节点码集合（10 分钟缓存）──
+// ── 品目大类 → 所辖 L1 节点码：取数与缓存均在 commodity/tree 的 loadGroupL1NodeMap（一份）──
 // 2026-10-11 backbone 化：旧的「大类 → 旧字典 level=2 段行 id」翻译链整条删掉（不再读 crm_unspsc_codes）。
 // 等价性实测：temp/probe75 逐类对拍 32 个大类，旧段 id 谓词与新 L1 节点码谓词命中数 Δ=0、不一致 0/32。
 // 为什么必须映射而不能切片：32 个 L1 行里只有 5 个的码序号等于大类码序号（`UGT-B-01` 的 group_code
 // 是 `UGT-G-11`），所以「大类码 ↔ L1 节点码」只能回表取 backbone 自己的 group_code 列。
-// 当前每大类恰一个 L1，但这里按集合处理：只取第一个，将来灌进第二个 L1 行就是静默漏类。
-let _groupL1Cache: { map: Map<string, string[]>; expires: number } | null = null;
-const GROUP_L1_TTL = 10 * 60 * 1000;
-
-async function getGroupL1Nodes(pool: Pool): Promise<Map<string, string[]>> {
-  if (_groupL1Cache && _groupL1Cache.expires > Date.now()) return _groupL1Cache.map;
-  try {
-    const [rows] = await pool.query(
-      `SELECT group_code AS g, code AS node
-         FROM crm_commodity_backbone WHERE level = 1 AND status = 1 ORDER BY group_code, code`,
-    );
-    const map = new Map<string, string[]>();
-    for (const r of rows as RowDataPacket[]) {
-      const node = String(r.node ?? "");
-      // 形制不符的脏行不参与筛选（宁可少一个候选值，也不拿错键去筛）
-      if (!isCommodityNodeKey(node)) continue;
-      const g = String(r.g);
-      map.set(g, [...(map.get(g) ?? []), node]);
-    }
-    _groupL1Cache = { map, expires: Date.now() + GROUP_L1_TTL };
-    return map;
-  } catch {
-    // 骨架树不可用：返回空图，上层按「大类挂不上 L1」走空结果（不静默放宽为全量）
-    return new Map<string, string[]>();
-  }
-}
 
 /**
- * 骨架节点码 → 两种方言的类目谓词（大类 / 五级下拉 / 行业墙共用这一份形状）。
+ * L1/各级节点码 → 两种方言的类目谓词（大类 / 五级下拉 / 可见性判定共用这一份形状）。
  * 单值不加括号，多值必须整体括号：EXISTS 子查询里写成 `ns.id = n.id AND A OR B` 会被解析为
  * `(ns.id = n.id AND A) OR B`，B 不再与外层行相关 ⇒ EXISTS 对全表恒真，筛选静默失效
  * （2026-10-11 端到端实测：双段大类 UGT-G-14 降级路径返回 190,041 条未筛结果、
@@ -321,7 +295,7 @@ export async function buildFilterPlan(
   // 所以命中大类 = 命中该大类下任何深度的公告（不需要枚举 212 个 L2，也不需要 group_codes 列）。
   // 不读 group_codes：Meili 索引里没这个属性，两条方言必须同一谓词（本文件存在的意义）。
   if (p.groupCode) {
-    const nodes = (await getGroupL1Nodes(pool)).get(p.groupCode) ?? [];
+    const nodes = await l1NodesOfGroup(pool, p.groupCode);
     if (nodes.length === 0) {
       // 大类在库内挂不上任何 L1 行（常量与库漂移/新类未灌）：直接空结果，不静默放宽
       return {
@@ -352,16 +326,24 @@ export async function buildFilterPlan(
     digestParts.push(`commodity:${p.commodityPath}`);
   }
 
-  // ── 行业墙强制一级类目（industry-scope 注入，客户端不可传）──
-  // 与用户自选 codeId 叠加 AND：被墙用户即使在 URL 里换类目/翻页，也翻不出订阅行业外；
-  // fixed（levelN_id，TED 标签覆盖全量）而非 precise——墙是数据口径，不依赖人工审核候选码。
-  if (p.forcedLevel1Id) {
-    meiliFilters.push(`level1_id = "${escapeFilter(p.forcedLevel1Id)}"`);
-    mysqlWhere.push(
-      `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.unspsc_level1))`,
-    );
-    mysqlParams.push(p.forcedLevel1Id);
-    digestParts.push(`wall:L1=${p.forcedLevel1Id}`);
+  // ── 行业墙强制大类（industry-scope 注入，客户端不可传）──
+  // 与用户自选条件 AND 叠加：被墙用户即使在 URL 里换类目/翻页，也翻不出订阅大类外。
+  // 2026-10-11 backbone 化：旧的 `level1_id = <旧字典行 id>` 比的是 A..J 十个字母容器（实测
+  // temp/probe78：UGT-G-25 与 UGT-G-17 两个用户 level1_id 都是 109⇒ 可见内容逐行相同），
+  // 现在与 chip、五级下拉共用同一对形状（nodeMeiliFilter / nodeMysqlWhere）。
+  // 仍旧取全量口径而非 precise：墙是数据口径，不依赖人工审核候选码（同旧实现取 levelN 不取 precise_levelN）。
+  if (p.wall) {
+    if (p.wall.nodes.length === 0) {
+      // 大类挂不上骨架 L1（门禁 BB12 断言不该发生）：这一句是防止它退化成「不拼谓词=放开全量」
+      return {
+        meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true,
+        digest: "WALL_NO_L1_NODE",
+      };
+    }
+    meiliFilters.push(nodeMeiliFilter("backbone_node", p.wall.nodes));
+    mysqlWhere.push(nodeMysqlWhere(p.wall.nodes));
+    mysqlParams.push(...p.wall.nodes);
+    digestParts.push(`wall:${p.wall.nodes.join("+")}`);
   }
 
   // ── 预算范围（estimated_value 为 VARCHAR 存数值字符串，CAST 为 DECIMAL 比较）──

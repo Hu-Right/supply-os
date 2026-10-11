@@ -107,7 +107,7 @@ beforeEach(() => {
   connQuery.mockResolvedValue([[]]);
   loadCells.mockResolvedValue([{ benefit_code: "notice_view", value_num: 100 }]);
   consumeLockedPool.mockResolvedValue("consumed");
-  resolveIndustryScope.mockResolvedValue({ scoped: false, level1Id: null });
+  resolveIndustryScope.mockResolvedValue({ scoped: false, groupCode: null, groupNodes: [], needsIndustry: false });
   opportunityInCategory.mockResolvedValue(true);
 });
 
@@ -195,14 +195,16 @@ describe("POST /api/opportunities/[id]/unlock", () => {
     expect(body.message).toContain("会员");
   });
 
-  it("行业墙：越类目 → 403，不解锁不扣配额", async () => {
-    resolveIndustryScope.mockResolvedValue({ scoped: true, level1Id: 9 });
+  it("行业墙：越大类 → 403，不解锁不扣配额", async () => {
+    resolveIndustryScope.mockResolvedValue({ scoped: true, groupCode: "UGT-G-25", groupNodes: ["UGT-B-85"] });
     opportunityInCategory.mockResolvedValue(false);
     const { POST } = await import("@/app/api/opportunities/[id]/unlock/route");
     const res = await POST(unlockRequest(176, { unlock_type: "subscription" }), routeParams(176));
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.out_of_category).toBe(true);
+    // 商机侧判定输入是大类码（那张表没有 backbone_path）
+    expect(opportunityInCategory).toHaveBeenCalledWith(expect.anything(), 176, "UGT-G-25");
     expect(connQuery).not.toHaveBeenCalled();
   });
 });

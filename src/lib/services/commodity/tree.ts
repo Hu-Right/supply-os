@@ -143,7 +143,48 @@ export interface ResolvedCommodityPath {
 }
 
 /**
- * 账号行业偏好（旧字典五级行 id）→ 品目大类码 `UGT-G-xx`。行业墙与 prefs 模式的数据源。
+ * 大类码 → 所辖 L1 节点码集合（10 分钟缓存）。检索侧与可见性判定共用这一份。
+ *
+ * 为什么要缓存：它是热路径（每次检索、每个被墙用户都要），而源表只有 32 行且只在 ops 脚本里变。
+ * 为什么不点查一条：当前实测每个大类恰挂一个 L1（temp/probe75 逐类对拍 32/32 Δ=0），
+ * 但返回集合 —— 只取第一个的话，将来灌进第二个 L1 行就是静默漏一整个大类。
+ * 形制不符的行直接丢掉，不拿错键去筛。
+ * 取不到（查库失败/树没行）时返回空图：调用方按「大类挂不上 L1」走空结果，不静默放宽为全量。
+ */
+let _groupL1Cache: { map: Map<string, string[]>; expires: number } | null = null;
+const GROUP_L1_TTL = 10 * 60 * 1000;
+
+export async function loadGroupL1NodeMap(pool: Pool): Promise<Map<string, string[]>> {
+  if (_groupL1Cache && _groupL1Cache.expires > Date.now()) return _groupL1Cache.map;
+  try {
+    const [rows] = await pool.query(
+      `SELECT group_code AS g, code AS node
+         FROM crm_commodity_backbone WHERE level = 1 AND status = 1 ORDER BY group_code, code`,
+    );
+    const map = new Map<string, string[]>();
+    for (const r of rows as RowDataPacket[]) {
+      const node = String(r.node ?? "");
+      if (!isCommodityNodeKey(node)) continue;
+      const g = String(r.g ?? "");
+      if (!g) continue;
+      map.set(g, [...(map.get(g) ?? []), node]);
+    }
+    _groupL1Cache = { map, expires: Date.now() + GROUP_L1_TTL };
+    return map;
+  } catch {
+    // 不给空图写缓存：那会把一次抖动的 10 分钟变成「所有大类都挂不上 L1」的 10 分钟
+    return new Map<string, string[]>();
+  }
+}
+
+/** 某个大类的 L1 节点码（可能多个，已按码序）；挂不上返回空数组 */
+export async function l1NodesOfGroup(pool: Pool, groupCode: string): Promise<string[]> {
+  if (!isCommodityGroupCode(groupCode)) return [];
+  return (await loadGroupL1NodeMap(pool)).get(groupCode) ?? [];
+}
+
+/**
+ * 账号行业偏好（旧字典五级行 id）→ 品目大类码 `UGT-G-xx`。可见性判定与 prefs 模式的数据源。
  *
  * 三条规则：
  * 1. **从最深级往上找**第一个能定出大类的级：五级下拉在同一条分支上，祖先的段前缀相同，

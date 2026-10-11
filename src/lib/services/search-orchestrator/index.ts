@@ -167,12 +167,12 @@ async function _searchCore(
   }
 
   // ── 参考号精确匹配快速路径 ──
-  // 行业墙：被墙用户即使拿到精确参考号，类目外的公告也不走快速路径直出，
-  // 落回主管道由强制 level1 过滤自然滤掉（不能在这里 403——搜索语义应是无结果而非报错）。
+  // 行业墙：被墙用户即使拿到精确参考号，大类外的公告也不走快速路径直出，
+  // 落回主管道由强制大类节点码谓词自然滤掉（不能在这里 403——搜索语义应是无结果而非报错）。
+  // p.wall 存在但 nodes 为空时 noticeInCategory 恒 false ⇒ 同样落回主管道（那里给 conflictEmpty）。
   if (p.q && p.mode === "default") {
     const refId = await referenceFastPath(pool, p.q);
-    const wallOk = !refId || !p.forcedLevel1Id
-      || (await noticeInCategory(pool, refId, Number(p.forcedLevel1Id)));
+    const wallOk = !refId || !p.wall || (await noticeInCategory(pool, refId, p.wall.nodes));
     if (refId && wallOk) {
       const details = await fetchDetailsByIds(pool, [refId], p.locale);
       const items = formatItems(details, p.locale);

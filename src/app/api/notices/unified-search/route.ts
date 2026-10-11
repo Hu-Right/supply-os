@@ -65,11 +65,12 @@ export const GET = withRoute(async (req: NextRequest) => {
   // 无权益剥离降级（普通多词 AND 是既有行为，不受影响）；匿名恒按 free 口径
   const ctx = getContext();
   // 行业墙（2026-09-29「8,800元/行业」口径）：企业年度会员（industry_scoped 档）只能浏览
-  // 其绑定一级类目下的公告。强制过滤由服务端注入 forcedLevel1Id（客户端传参不可覆盖）；
+  // 其绑定品目大类下的公告。强制过滤由服务端注入 wall.nodes（客户端传参不可覆盖）；
   // 匿名/普通档不墙，演示档走 all_category_access 旁路，被墙档未绑行业暂不墙（needsIndustry 引导）。
   const scope = await resolveIndustryScope(getPool(), ctx.benefitSystemRepo, auth.userId || null);
   if (scope.scoped) {
-    params.forcedLevel1Id = String(scope.level1Id);
+    // groupNodes 可空（大类在库内找不到任何 L1 行）：原样传下去，由 filter-builder 给空结果而不是不墙
+    params.wall = { nodes: scope.groupNodes };
     // 被墙用户的推荐流收编进 prefs 管道（其行业画像必然存在——被墙前提是已绑行业），
     // 保证强制过滤对推荐结果同样生效
     if (params.mode === "recommended") params.mode = "prefs";
@@ -108,7 +109,7 @@ export const GET = withRoute(async (req: NextRequest) => {
       notice_type: params.noticeType || undefined,
       featured: params.featuredOnly || undefined,
       sort: params.sort,
-      forced_level1_id: params.forcedLevel1Id || undefined,
+      wall_nodes: params.wall?.nodes,
       advanced_degraded: advancedDegraded || undefined,
       match_relaxed: result.match_relaxed || undefined,
       fallback: result.fallback || undefined,
