@@ -23,6 +23,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { COMMODITY_GROUPS, isCommodityGroupCode } from "./groups";
+import { BACKBONE_NODE_PREFIX, chainOfNode } from "./backbone-path";
 
 /** 一条级联选项 */
 export interface CommodityTreeOption {
@@ -35,10 +36,7 @@ export interface CommodityTreeOption {
 }
 
 /** 骨架节点码前缀（与 crm_commodity_backbone.code 形制一致，门禁 BB1 钉住「码长即层级」） */
-export const COMMODITY_NODE_PREFIX = "UGT-B-";
-
-/** 骨架五级：层级数 → 码内数字位数（L1 两位 … L5 十位） */
-const LEVELS = [1, 2, 3, 4, 5] as const;
+export const COMMODITY_NODE_PREFIX = BACKBONE_NODE_PREFIX;
 
 const NODE_RE = new RegExp(`^${COMMODITY_NODE_PREFIX}[0-9]{2}([0-9]{2}){0,4}$`);
 
@@ -63,16 +61,15 @@ export function commodityNodeLevel(code: string): number {
  * 逐两位截断即得。五级下拉的深链（`?commodity=UGT-B-010101`）靠它一次算出该点亮哪几层、
  * 各层该向哪个父节点要选项，不依赖接口往返。形制不符（奇数位、非数字、前缀不对）返回全空
  * ⇒ 宁可不点亮，也不拿一个错键去筛。
+ *
+ * 截断本身不在这重写：直接用 `backbone-path` 的 `chainOfNode`（浅→深紧凑数组），这里只补成
+ * 五级定长形状。换算规则只能有一份实现 —— 两份就会分开错，而公告侧列值也按那一份算。
  */
 export function commodityNodeChain(value: string | null | undefined): [string, string, string, string, string] {
-  const v = String(value ?? "");
-  const valid = isCommodityNodeKey(v) ? v : "";
-  const out: string[] = ["", "", "", "", ""];
-  const body = valid.slice(COMMODITY_NODE_PREFIX.length);
-  for (const lv of LEVELS) {
-    if (body.length >= lv * 2) out[lv - 1] = COMMODITY_NODE_PREFIX + body.slice(0, lv * 2);
-  }
-  return out as [string, string, string, string, string];
+  const chain = chainOfNode(value);
+  const out: [string, string, string, string, string] = ["", "", "", "", ""];
+  for (let i = 0; i < chain.length; i++) out[i] = chain[i];
+  return out;
 }
 
 function toOption(row: RowDataPacket): CommodityTreeOption {

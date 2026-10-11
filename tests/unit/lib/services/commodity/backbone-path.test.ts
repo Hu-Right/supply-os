@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import {
   assertBackbonePathLength,
   buildBackboneIndex,
+  chainOfNode,
+  effectivePrefixOf,
   toBackbonePathColumn,
   type BackboneRow,
   type GroupSegmentRow,
@@ -43,10 +45,39 @@ describe("四档换算", () => {
     expect(r.misses).toEqual([]);
   });
 
-  it("族级粗码（后四位 00）→ 命中 L2 中类（映射由祖先链推导，不查旧树）", () => {
+  it("族级粗码：该族的两个子类分属两个小类 → 只能落 L2 中类", () => {
     const r = idx.pathOf(["10100000"]);
     expect(r.deepest).toEqual(["UGT-B-0101"]);
     expect(r.tiers["族级"]).toBe(1);
+  });
+
+  // 族 1020 在树里只有一个子类 ⇒ 族 ≡ 那个子类，落 L4 是结构事实不是推断
+  it("族级粗码：该族在树里只有一个子类 → 落 L4 子类", () => {
+    const one: BackboneRow[] = [
+      ...rows,
+      { code: "UGT-B-010103", parentCode: "UGT-B-0101", level: 3, unspscPrefix: null },
+      { code: "UGT-B-01010301", parentCode: "UGT-B-010103", level: 4, unspscPrefix: "102015" },
+    ];
+    const i = buildBackboneIndex(one, segments);
+    const hit = i.match("10200000");
+    expect(hit?.row.code).toBe("UGT-B-01010301");
+    expect(hit?.tier).toBe("族级");
+    // 祖先链要齐：落 L4 也得带上 L3/L2/L1
+    expect(i.pathOf(["10200000"]).codes).toEqual([
+      "UGT-B-01", "UGT-B-0101", "UGT-B-010103", "UGT-B-01010301",
+    ]);
+  });
+
+  // 族 1030 两个子类但同属一个小类 → 落 L3（比一刀切 L2 深一层，且仍可唯一证明）
+  it("族级粗码：多个子类同属一个小类 → 落 L3 小类", () => {
+    const two: BackboneRow[] = [
+      ...rows,
+      { code: "UGT-B-010103", parentCode: "UGT-B-0101", level: 3, unspscPrefix: null },
+      { code: "UGT-B-01010301", parentCode: "UGT-B-010103", level: 4, unspscPrefix: "103015" },
+      { code: "UGT-B-01010302", parentCode: "UGT-B-010103", level: 4, unspscPrefix: "103016" },
+    ];
+    const i = buildBackboneIndex(two, segments);
+    expect(i.match("10300000")?.row.code).toBe("UGT-B-010103");
   });
 
   it("段级粗码（后六位 00）→ 命中 L1 大类（映射源是 group_segments）", () => {
@@ -118,5 +149,24 @@ describe("冲突与拒写", () => {
     expect(toBackbonePathColumn(["UGT-B-01", "UGT-B-0101"])).toBe("UGT-B-01,UGT-B-0101");
     expect(() => assertBackbonePathLength("x".repeat(1_000_001), 42)).toThrow(/超长/);
     expect(assertBackbonePathLength("x".repeat(1000), 42)).toHaveLength(1000);
+  });
+});
+
+describe("有效前缀与祖先链纯函数", () => {
+  it("effectivePrefixOf：四档有效前缀与形制不符", () => {
+    expect(effectivePrefixOf("10101510")).toBe("10101510");
+    expect(effectivePrefixOf("10101500")).toBe("101015");
+    expect(effectivePrefixOf("10100000")).toBe("1010");
+    expect(effectivePrefixOf("10000000")).toBe("10");
+    expect(effectivePrefixOf("00000000")).toBeNull();
+    expect(effectivePrefixOf("1010151")).toBeNull();
+    expect(effectivePrefixOf("")).toBeNull();
+  });
+
+  it("chainOfNode：节点码纯切片，L5 给五级、L1 只给自己", () => {
+    expect(chainOfNode("UGT-B-0702010204")).toEqual([
+      "UGT-B-07", "UGT-B-0702", "UGT-B-070201", "UGT-B-07020102", "UGT-B-0702010204",
+    ]);
+    expect(chainOfNode("UGT-B-07")).toEqual(["UGT-B-07"]);
   });
 });
