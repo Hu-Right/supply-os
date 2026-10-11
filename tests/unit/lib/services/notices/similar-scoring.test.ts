@@ -120,6 +120,15 @@ describe("scorePeersByDepth 按最深共享节点加权", () => {
     // 两侧都只留 SIMILAR_NODE_CAP 个代表 ⇒ 分数上限就是 cap × 最深权重
     expect(scores.get("P")).toBeCloseTo(SIMILAR_NODE_CAP * LEVEL_WEIGHT[2]!);
   });
+
+  it("截断是「深优先」而不是字典序：码序靠后的深层节点不能被浅层节点顶掉名额", () => {
+    // 20 个 L1 浅节点（码序在前）+ 1 个 L5 深节点（码序在后）；peer 只挂那个 L5 节点
+    const shallow = Array.from({ length: 20 }, (_, i) => n("CUR", `UGT-B-${String(i + 1).padStart(2, "0")}`));
+    const deep = n("CUR", "UGT-B-9901010101");
+    const scores = scorePeersByDepth([...shallow, deep], [n("P", "UGT-B-9901010101")]);
+    // 按字典序取前 20 个名额会被浅节点占满 → 分数归 0；深优先截断才能拿到 L5 权重
+    expect(scores.get("P")).toBeCloseTo(LEVEL_WEIGHT[5]!);
+  });
 });
 
 describe("rankSimilarPeers", () => {

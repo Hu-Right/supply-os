@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertBackbonePathLength,
+  backboneNodeLevel,
   buildBackboneIndex,
   chainOfNode,
   effectivePrefixOf,
@@ -178,5 +179,22 @@ describe("有效前缀与祖先链纯函数", () => {
     expect(fromBackbonePathColumn("")).toEqual([]);
     // 去重 + 丢非树码（旧 UGT-C- 尾巴、空段）
     expect(fromBackbonePathColumn("UGT-B-01,UGT-B-01,,UGT-C-0702")).toEqual(["UGT-B-01"]);
+  });
+
+  // 形制判定必须比「startsWith(前缀)」紧：否则脏 token 会被当成合法层级使，
+  // 两个同样脏的码直接就能得出一条不存在的相似公告
+  it("backboneNodeLevel：只认前缀 + 偶数位数字，其它一律 0", () => {
+    expect(backboneNodeLevel("UGT-B-07")).toBe(1);
+    expect(backboneNodeLevel("UGT-B-0702010204")).toBe(5);
+    expect(backboneNodeLevel("UGT-B-XY")).toBe(0); // 非数字
+    expect(backboneNodeLevel("UGT-B-0")).toBe(0); // 奇数位
+    expect(backboneNodeLevel("UGT-B-010101010101")).toBe(0); // 超 10 位
+    expect(backboneNodeLevel(" UGT-B-07 ")).toBe(0); // 带空格：宁判非法
+    expect(backboneNodeLevel(null)).toBe(0);
+    expect(backboneNodeLevel(7)).toBe(0);
+  });
+
+  it("fromBackbonePathColumn 丢弃形制不符的脏 token", () => {
+    expect(fromBackbonePathColumn("UGT-B-01,UGT-B-XY,UGT-B-0, ,UGT-B-0101")).toEqual(["UGT-B-01", "UGT-B-0101"]);
   });
 });

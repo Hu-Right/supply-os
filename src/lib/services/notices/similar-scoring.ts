@@ -12,6 +12,8 @@
  *       （一个码一条贡献，与旧口径「每个当前码计一次」等价）。
  */
 
+import { BACKBONE_NODE_PREFIX, backboneNodeLevel } from "../commodity/backbone-path";
+
 /** 骨架层级权重（越具体越相似，对齐推荐服务 DEPTH_FACTOR） */
 export const LEVEL_WEIGHT: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0, 5: 1.0 };
 
@@ -33,25 +35,14 @@ export interface RankedPeer {
   score: number;
 }
 
-/** 骨架节点码前缀（与 crm_commodity_backbone.code 形制一致） */
-const PREFIX = "UGT-B-";
-
-/** 节点码层级（码长 8/10/12/14/16 → 1..5），形制不符返回 0（不猜层级） */
-const levelOf = (node: unknown): number => {
-  const s = String(node ?? "").trim();
-  if (!s.startsWith(PREFIX)) return 0;
-  const digits = s.length - PREFIX.length;
-  return digits >= 2 && digits <= 10 && digits % 2 === 0 ? digits / 2 : 0;
-};
-
 /** 两个节点码的最深共享层级：层级对祖先单调，浅层不等即停，不会跳层命中 */
 export function sharedDepth(a: string, b: string): number {
   const x = String(a ?? "").trim();
   const y = String(b ?? "").trim();
-  if (!levelOf(x) || !levelOf(y)) return 0;
+  if (!backboneNodeLevel(x) || !backboneNodeLevel(y)) return 0;
   let d = 0;
   for (let lv = 1; lv <= 5; lv++) {
-    const len = PREFIX.length + lv * 2;
+    const len = BACKBONE_NODE_PREFIX.length + lv * 2;
     if (x.length < len || y.length < len || x.slice(0, len) !== y.slice(0, len)) break;
     d = lv;
   }
@@ -64,7 +55,7 @@ export function sharedDepth(a: string, b: string): number {
  * 散码集合（缺链顶，理论上不该出现）原样保留：本函数只去祖先，不因为缺链顶就丢节点。
  */
 export function leafNodes(nodes: Iterable<string>): string[] {
-  const sorted = [...new Set([...nodes].map((x) => String(x ?? "").trim()).filter((x) => levelOf(x) > 0))].sort();
+  const sorted = [...new Set([...nodes].map((x) => String(x ?? "").trim()).filter((x) => backboneNodeLevel(x) > 0))].sort();
   const out: string[] = [];
   for (let i = 0; i < sorted.length; i++) {
     const cur = sorted[i];
@@ -81,9 +72,14 @@ export function leafNodes(nodes: Iterable<string>): string[] {
   return out;
 }
 
-/** 参与打分的代表节点：叶子 + 升序截断（可复现，不靠 Map 迭代顺序碰运气） */
+/**
+ * 参与打分的代表节点：叶子 + 上限截断。
+ * 截断维度是「深度优先、同层按码序」而不是纯字典序：后者会让巨量码公告的 20 个名额被码最小
+ * 的那一支占满，其余整枝消失 —— 共享深度被系统性低估且与真实语义无关。同层仍按码序 ⇒ 可复现。
+ */
 function representative(nodes: Iterable<string>): string[] {
-  return leafNodes(nodes).slice(0, SIMILAR_NODE_CAP);
+  const leaves = leafNodes(nodes).sort((a, b) => b.length - a.length || (a < b ? -1 : a > b ? 1 : 0));
+  return leaves.slice(0, SIMILAR_NODE_CAP);
 }
 
 /** 每个当前代表节点对 peer 取最深共享层级并求和；0 分不入表 */

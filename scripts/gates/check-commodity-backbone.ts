@@ -25,11 +25,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { COMMODITY_GROUPS } from "../../src/lib/services/commodity/groups";
-import {
-  buildBackboneIndex,
-  toBackbonePathColumn,
-  type BackboneIndex,
-} from "../../src/lib/services/commodity/backbone-path";
+import { ACTIVE_NOTICE_WHERE } from "../../src/lib/utils/notice-expired";
+import { loadBackboneIndex, toBackbonePathColumn, type BackboneIndex } from "../../src/lib/services/commodity/backbone-path";
 
 const DB = process.argv.includes("--db");
 const EXPECT_ORIG_ROWS = 158707; // 原树：本次边界是「一行不动」
@@ -47,10 +44,14 @@ for (const g of COMMODITY_GROUPS) for (const p of g.prefixes) segToGroup.set(p, 
 // 一旦出现，说明消费侧又回退到旧树，旧树就不能删了 —— 这条断言就是删除前置条。
 // 表名后缀用 \w* 而不是 \b：旧树已 RENAME 为 crm_commodity_nodes_retired_20261011，
 // 而 `_` 在正则里是单词字符 —— 拿 \b 收尾会让改名等于豁免，读退役表照样绿（静默失效）。
-const LEGACY_RE = /\b(?:FROM|JOIN)\s+`?crm_commodity_nodes\w*\b/i;
-// 断言自身不许哑火：两条自检分别钉住「改名不豁免」与「不误伤新树」
+// 库名限定（FROM crm.crm_commodity_nodes…）同样要拓住，否则换个写法就躲过扫描。
+const LEGACY_RE = /\b(?:FROM|JOIN)\s+`?(?:\w+`?\.)?`?crm_commodity_nodes\w*\b/i;
+// 断言自身不许哑火：三条自检分别钉住「改名不豁免」「库名限定不豁免」「不误伤新树」
 if (!LEGACY_RE.test("SELECT 1 FROM crm_commodity_nodes_retired_20261011")) {
   fail("BB8 自检失败：正则匹配不到改名后的旧树表，这条断言已哑火");
+}
+if (!LEGACY_RE.test("SELECT 1 FROM crm.crm_commodity_nodes_retired_20261011")) {
+  fail("BB8 自检失败：带库名限定的旧树表名没被抓到");
 }
 if (LEGACY_RE.test("SELECT 1 FROM crm_commodity_backbone") || LEGACY_RE.test("SELECT 1 FROM crm_commodity_groups")) {
   fail("BB8 自检失败：正则把新树/大类维表误判成旧树");
@@ -255,6 +256,15 @@ if (Number(pathCol.n) === 0) {
     `SELECT COUNT(*) n FROM crm_notice_search w WHERE w.backbone_path IS NOT NULL AND w.backbone_path<>''
        AND NOT EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes nc WHERE nc.notice_id=w.notice_id)`,
   );
+  // 第三个方向：挂了码、按搜索口径仍活跃，却压根没进宽表。上面两条都从宽表出发，
+  // 这种行对它们不可见，而后果是「公告在新树上彻底看不见」（相似/筛选都进不了）。
+  // 实测当前活跃口径下 0 条（历史上那 3 条全已过期）⇒ 所以这条可以零容忍。
+  const noWide = await one(
+    `SELECT COUNT(*) n FROM (SELECT n.id FROM crm_bid_notice_unspsc_codes nc
+       JOIN crm_bid_notices n ON n.notice_id = nc.notice_id
+      WHERE ${ACTIVE_NOTICE_WHERE} AND NOT EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id)
+      GROUP BY n.id) x`,
+  );
   // 祖先全存的不变量：排好序后第一个码必为大类行（否则说明回填时漏了链顶）
   const noTop = await one(
     `SELECT COUNT(*) n FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>''
@@ -265,6 +275,7 @@ if (Number(pathCol.n) === 0) {
   if (Number(p.tooLong) !== 0) fail(`BB7 有 ${p.tooLong} 行超过 1,000,000 字符上限，回填脚本应拒写而非截断`);
   if (Number(missing.n) !== 0) fail(`BB7 有 ${missing.n} 条公告挂了码但 backbone_path 为空 ⇒ 新树上找不到它`);
   if (Number(extra.n) !== 0) fail(`BB7 有 ${extra.n} 行 backbone_path 有值但桥表无码 ⇒ 归属来路不明`);
+  if (Number(noWide.n) !== 0) fail(`BB7 有 ${noWide.n} 条活跃公告挂了码却没进宽表 ⇒ 新树上彻底不行（同步缺位，不依赖回填发现）`);
   if (Number(noTop.n) !== 0) fail(`BB7 有 ${noTop.n} 行 backbone_path 的链顶不是大类，祖先没存全`);
   // 抽样验真：最长的 100 行 + 最早的 200 行（不用 RAND，保证可复现），拆开后逐个对树
   const sample = await q(
@@ -286,9 +297,10 @@ if (Number(pathCol.n) === 0) {
   // 粗码用「族前缀 + 0000」喂进去，走的就是公告实际会走的那条分支。
   let idx: BackboneIndex | null = null;
   try {
-    idx = buildBackboneIndex(
-      rows.map((r) => ({ code: r.code, parentCode: r.parent_code, level: Number(r.level), unspscPrefix: r.unspsc_prefix })),
-      [...segToL1].map(([segmentPrefix, nodeCode]) => ({ segmentPrefix, nodeCode })),
+    // 与运行期同一个构造入口：门禁自己拼行集的话，BB10 报红就分不清是「第二份实现」
+    // 还是「行集不同」（比如 status 过滤、或段映射来源不一致）
+    idx = await loadBackboneIndex(async <T = Record<string, unknown>>(sql: string) =>
+      ((await pool.query(sql)) as [T[], unknown])[0],
     );
   } catch (e) {
     fail(`BB9 构骨架索引失败：${(e as Error).message}`);
@@ -305,6 +317,12 @@ if (Number(pathCol.n) === 0) {
     const at = (lv: number) => famHist.get(lv) ?? 0;
     console.log(`BB9 族级落点 ${famToL2.size} 族：L4 ${at(4)} / L3 ${at(3)} / L2 ${at(2)}（2026-10-11 实测基线 33/256/270）`);
     if (famMiss.length) fail(`BB9 有 ${famMiss.length} 个族的粗码换不出落点，样本 ${famMiss.slice(0, 3).join("、")}`);
+    // 三档计数必须恰好吃完全部族：漏掉的那部分会既不进三档也不进 famMiss，
+    // 比如树里出现形如 XXXX0000 的 8 位品目键时，match() 的「等值优先」会让该族粗码直接落 L5
+    const famAccounted = at(2) + at(3) + at(4) + famMiss.length;
+    if (famAccounted !== famToL2.size) {
+      fail(`BB9 族级落点只算了 ${famAccounted}/${famToL2.size} 个族 ⇒ 有族的粗码落到了 L2/L3/L4/miss 之外（键形制被污染）`);
+    }
     // 三档都要非零：只有一档就是被改回一刀切（L2）或只会落 L4（无唯一性判定）
     for (const lv of [2, 3, 4]) {
       if (at(lv) === 0) fail(`BB9 族级没有一族落 L${lv} ⇒ 落点规则疑似退化（三层都该有非零落点）`);
@@ -315,15 +333,25 @@ if (Number(pathCol.n) === 0) {
     // ── BB10 列值可由纯函数重算：抽样逐条比对，差异必须 0 ──
     // 抓两类问题：列值过期（规则改了但没重跑回填 / 运行期链路漏了写入）、有人写了第二份实现。
     // 运行期写入方（commodity/backbone-cache）与回填脚本用的就是下面这个 pathOf，所以这条变红就是真分叉。
+    // 抽两头而不是只抽尾部：回填是「按 id 升序 + 水位续跑」的，中途停手或水位推过头时，
+    // 陈旧的就是 id 低的那整段历史存量；只抽最新尾巴的话 BB10 必然假绿（它声称抓的就是「列值过期」）
     const batchA = await q(
       `SELECT notice_id nid FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>'' ORDER BY id DESC LIMIT 200`,
     );
-    // 专门抽带族级粗码的公告（后四位 00、但族前缀末两位非 00，排除段级）：本次升级改的就是这一档
-    const batchB = await q(
-      `SELECT notice_id nid FROM crm_bid_notice_unspsc_codes
-        WHERE code REGEXP '^[0-9]{4}0000$' AND RIGHT(LEFT(code,4),2) <> '00' ORDER BY id DESC LIMIT 600`,
+    const batchC = await q(
+      `SELECT notice_id nid FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>'' ORDER BY id ASC LIMIT 200`,
     );
-    const ids = [...new Set([...batchA, ...batchB].map((r) => String(r.nid)).filter((x) => x))];
+    // 专门抽带族级粗码的公告（后四位 00、但族前缀末两位非 00，排除段级）：本次升级改的就是这一档
+    const famWhere = `code REGEXP '^[0-9]{4}0000$' AND RIGHT(LEFT(code,4),2) <> '00'`;
+    const batchB = await q(
+      `SELECT notice_id nid FROM crm_bid_notice_unspsc_codes WHERE ${famWhere} ORDER BY id DESC LIMIT 600`,
+    );
+    const batchD = await q(
+      `SELECT notice_id nid FROM crm_bid_notice_unspsc_codes WHERE ${famWhere} ORDER BY id ASC LIMIT 600`,
+    );
+    const ids = [...new Set(
+      [...batchA, ...batchB, ...batchC, ...batchD].map((r) => String(r.nid)).filter((x) => x),
+    )];
     if (ids.length === 0) {
       fail("BB10 抽样一条公告都抽不到：宽表 backbone_path 与桥表族级码同时为空？");
     } else {

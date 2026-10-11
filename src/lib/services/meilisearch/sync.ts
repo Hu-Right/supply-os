@@ -8,6 +8,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { TasksOrBatchesQuery } from "meilisearch";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { WIDE_LIMITS, truncate } from "../../utils/notice-field-limits";
+import { fromBackbonePathColumn } from "../commodity/backbone-path";
 import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
 
 // NULL deadline 的哨兵值：0（纪元起点）
@@ -51,6 +52,10 @@ function buildSyncDocFromWideTable(r: RowDataPacket) {
   }
 
   // 宽表的集合列统一存为逗号分隔字符串，这里一律拆成数组（UNSPSC id 集与骨架节点码集同形制）
+  // 注意：backbone_path 不走这里，走 commodity/backbone-path 的 fromBackbonePathColumn ——
+  // 列形制的解析只允许一份，且它会把形制不符的脏 token 挡在索引外（脏值由 BB10 兜住，
+  // 但不能让它污染 backbone_node 这个 filterable 属性）。旧 unspsc_levelN / precise_levelN
+  // 五列组仍是本函数的局部工具，它们随 R5/Task 15 一起退役。
   const parseCsvList = (val: unknown): string[] => val ? String(val).split(",").filter(Boolean) : [];
 
   return {
@@ -90,7 +95,7 @@ function buildSyncDocFromWideTable(r: RowDataPacket) {
     // （与 filter-builder 的 MySQL 方言同一谓词、同一口径）。
     // 单值 ≤ 16 字符，不受 Meili 单值 468 字节限制；一个文档里节点项可达数千（实测最大 5,279），
     // Meili 对数组元素个数无限制。
-    backbone_node: parseCsvList(r.backbone_path),
+    backbone_node: fromBackbonePathColumn(r.backbone_path),
   };
 }
 

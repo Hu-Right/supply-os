@@ -23,7 +23,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { COMMODITY_GROUPS, isCommodityGroupCode } from "./groups";
-import { BACKBONE_NODE_PREFIX, chainOfNode } from "./backbone-path";
+import { BACKBONE_NODE_PREFIX, backboneNodeLevel, chainOfNode } from "./backbone-path";
 
 /** 一条级联选项 */
 export interface CommodityTreeOption {
@@ -38,20 +38,17 @@ export interface CommodityTreeOption {
 /** 骨架节点码前缀（与 crm_commodity_backbone.code 形制一致，门禁 BB1 钉住「码长即层级」） */
 export const COMMODITY_NODE_PREFIX = BACKBONE_NODE_PREFIX;
 
-const NODE_RE = new RegExp(`^${COMMODITY_NODE_PREFIX}[0-9]{2}([0-9]{2}){0,4}$`);
-
-/** 是否为合法骨架节点筛选键（`UGT-B-` + 2/4/6/8/10 位数字，奇数位一律不认） */
+/**
+ * 是否为合法骨架节点筛选键（`UGT-B-` + 2/4/6/8/10 位数字，奇数位一律不认）。
+ * 形制判定不在这重写：全库只 `backbone-path` 一份（层级就藏在码长里，两处写就会分开错）。
+ */
 export function isCommodityNodeKey(value: unknown): value is string {
-  const v = String(value ?? "");
-  if (!NODE_RE.test(v)) return false;
-  const digits = v.length - COMMODITY_NODE_PREFIX.length;
-  return digits % 2 === 0 && digits >= 2 && digits <= 10;
+  return typeof value === "string" && backboneNodeLevel(value) > 0;
 }
 
 /** 节点码 → 层级（1~5）；非法键返回 0（调用方据此拒绝下钻，不猜层级） */
 export function commodityNodeLevel(code: string): number {
-  if (!isCommodityNodeKey(code)) return 0;
-  return (code.length - COMMODITY_NODE_PREFIX.length) / 2;
+  return backboneNodeLevel(code);
 }
 
 /**

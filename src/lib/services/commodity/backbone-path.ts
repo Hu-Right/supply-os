@@ -19,7 +19,7 @@
  *
  * @rules 换算口径只在这里实现一份；回填脚本与任何线上链路都调它，不允许出现第二份实现。
  *        粗码档位由**码自身的有效位**决定，不由「树里恰好查到哪层」决定 —— 后者会让同一批
- *        数据在不同时点落不同层，门禁 BB7 的逐条重算对拍就是用来抓这个的。
+ *        数据在不同时点落不同层，门禁 BB10 的逐条重算对拍就是用来抓这个的。
  * @limits 纯函数，不写库、不猜名、不兜底：换不出的码进 misses 交调用方处理（记账或拒写），
  *         绝不静默丢弃——静默丢会让公告在新树上"看起来不存在"。
  * @see scripts/ops/commodity-backbone-path-backfill.ts
@@ -88,13 +88,27 @@ export const BACKBONE_NODE_PREFIX = "UGT-B-";
 const NODE_RE = new RegExp(`^${BACKBONE_NODE_PREFIX}\\d{2}(\\d{2}){0,4}$`);
 
 /**
+ * 骨架节点码 → 层级（1~5）；形制不符返回 0（调用方据此拒收，不猜层级）。
+ * 全库只这一份形制判定：`chainOfNode` / `fromBackbonePathColumn` / `tree.ts` 的
+ * `isCommodityNodeKey` 均走它。曾经有过只判 `startsWith` 的写法，那会把 `UGT-B-XY` 这种
+ * 脏 token 当成合法层级使 —— 两个同样的脏码直接得高分，就能出一条不存在的相似公告。
+ * 故意不 trim：脏入参（URL 参数带空格、列里混进空白）宁可判非法 —— `tree.ts` 的原契约
+ * 就是「形制不符不点亮」，这里多一次 trim 就会把脏键放进来。
+ */
+export function backboneNodeLevel(node: unknown): number {
+  const v = typeof node === "string" ? node : "";
+  if (!NODE_RE.test(v)) return 0;
+  return (v.length - BACKBONE_NODE_PREFIX.length) / 2;
+}
+
+/**
  * 骨架节点码 → 自身 + 全部祖先，浅→深。
  * 为什么能纯切片不回表：门禁 BB1 把「父码 = 自身码去掉末两位」钉成不变量。
  * 形制不符返回空数组（调用方据此拒写），不返回半条链。
  */
 export function chainOfNode(node: unknown): string[] {
   const v = String(node ?? "").trim();
-  if (!NODE_RE.test(v)) return [];
+  if (backboneNodeLevel(v) === 0) return [];
   const body = v.slice(BACKBONE_NODE_PREFIX.length);
   const out: string[] = [];
   for (let len = 2; len <= body.length; len += 2) out.push(BACKBONE_NODE_PREFIX + body.slice(0, len));
@@ -210,6 +224,14 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
 /**
  * 从库构索引：只读新树与自己的 32 类归属表，不回读 crm_commodity_nodes。
  * 树是 159,429 行量级，一次载入内存（回填要跑几十万条公告，逐条查库会把生产拖死）。
+ *
+ * 需要同口径的调用方（运行期 backbone-cache、ops 回填、门禁 BB9/BB10）一律调本函数，
+ * 不要自己拼行集 —— 两边行集不同时的 BB10 报红分不清是「第二份实现」还是「取数不同」。
+ *
+ * 【未决口径】这里只取 `status = 1` 的行：族级落点靠「该族有几个子类」这类成员计数定档，
+ * 所以停用一族里的一个子类会让该族粗码从 L3 跳到 L4 —— 一次运营侧启停会改掉已有公告的归属。
+ * 本次不改（改了必须全量重跑回填才一致），但它是已知风险：要改就连带把三个调用方的
+ * 行集一起改，并先确认「归属该不该跟启停走」。详见 spec 的开放项。
  */
 export async function loadBackboneIndex(
   query: <T = Record<string, unknown>>(sql: string) => Promise<T[]>,
@@ -235,12 +257,17 @@ export function toBackbonePathColumn(codes: string[]): string {
 
 /**
  * 列值 → 节点码数组（`toBackbonePathColumn` 的逆操作）：NULL/空串 → 空数组，去重，只留 `UGT-B-` 形制的 token。
- * 读取端拆列只走这里：手写 `split(",")` 的地方一多，列形制改了就会逐处静默失效。
+ * 读取端拆列**只走这里**：手写 `split(",")` 的地方一多，列形制改了就会逐处静默失效。
+ * 已登记消费方（新增一个就回这里点名，别让它默默长出第二份）：
+ * - `notices/similar.ts`：从宽表列值取当前公告与候选公告的节点码；
+ * - `meilisearch/sync.ts`：拆成 `backbone_node` 数组属性（不再用本文件的局部 `parseCsvList`）。
+ * 待切（R5 剩余任务，均应改调本函数而不是自己拆）：`unspsc/*` 类目工具、三个 repo、
+ * `ai-match`、`hot-topics`、`recommend`。
  */
 export function fromBackbonePathColumn(value: unknown): string[] {
   const s = String(value ?? "").trim();
   if (!s) return [];
-  return [...new Set(s.split(",").map((x) => x.trim()).filter((x) => x.startsWith(BACKBONE_NODE_PREFIX)))];
+  return [...new Set(s.split(",").filter((x) => backboneNodeLevel(x) > 0))];
 }
 
 /**
