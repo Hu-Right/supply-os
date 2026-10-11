@@ -146,10 +146,13 @@ export function buildNoticeIndexSettings(): Settings {
       "precise_level3_id",
       "precise_level4_id",
       "precise_level5_id",
-      // 品目骨架树五级下拉的筛选属性（由宽表 backbone_path 拆数组，见 sync.ts）。
+      // 品目树五级下拉与可见性判定的参与过滤属性（由宽表 backbone_path 拆数组，见 sync.ts）。
       // 新增属性对存量文档不会自动回填 ⇒ 必须走一次全量重建才能生效；
-      // 重建前带该筛选的请求会被 Meili 报未知属性错并降级到 MySQL 方言（语义相同，结果正确）。
+      // 重建前带该属性的请求会被 Meili 报未知属性错并降级到 MySQL 方言（语义相同，结果正确）。
       "backbone_node",
+      // 精准口径（宽表 precise_backbone_path 拆数组）：prefs 模式靠它收窄，
+      // 漏登记就是静默降级 —— 没有红信号，只有变慢的检索。
+      "precise_backbone_node",
     ],
     sortableAttributes: ["deadline_sec", "id", "has_deadline"],
     rankingRules: [

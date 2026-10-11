@@ -11,7 +11,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnifiedSearchParams, FilterPlan } from "./types";
 import { expandCountryAllForms, expandCountryAliases } from "../notice-search/countries";
 import { getAgencyCacheData } from "../notice-search/agencies/index";
-import { l1NodesOfGroup } from "../commodity/tree";
+import { l1NodesOfGroup, isCommodityNodeKey } from "../commodity/tree";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { toBeijingUnixTs } from "../../utils/notice-expired";
@@ -161,14 +161,14 @@ function expandAgency(agency: string): AgencyExpansion {
 
 /**
  * 构建双方言 filter 计划。
- * @param unspsc 可选 UNSPSC 过滤（level 1-5 + id + precise）；
- *               precise=true 用 precise_level{N}_id（prefs 模式，approved 候选码）
- *               precise=false 用 level{N}_id（default 模式，TED 标签，覆盖全量公告）
+ * @param category 可选类目条件（mode-resolver 给出）：node = 品目树节点码；
+ *               precise=true 落 precise_backbone_path（prefs 模式，approved 候选码），
+ *               precise=false 落 backbone_path（default 模式，全量归属）
  */
 export async function buildFilterPlan(
   pool: Pool,
   p: UnifiedSearchParams,
-  unspsc?: { level: number; id: string; precise: boolean } | null,
+  category?: { node: string; precise: boolean } | null,
 ): Promise<FilterPlan> {
   const meiliFilters: string[] = [];
   const mysqlWhere: string[] = [];
@@ -269,24 +269,24 @@ export async function buildFilterPlan(
     digestParts.push("featured");
   }
 
-  // ── UNSPSC 行业分类（level1~5 任意层级）──
-  // precise=true（prefs 模式）：使用 approved 精准码（precise_levelN_id），仅覆盖有人工审核候选码的公告
-  // precise=false（default 模式）：使用 TED 标签（levelN_id），覆盖所有有行业标签的公告（~60%）
-  if (unspsc && unspsc.level >= 1 && unspsc.level <= 5 && unspsc.id) {
-    const col = unspsc.precise ? "precise_level" : "level";
-    meiliFilters.push(`${col}${unspsc.level}_id = "${escapeFilter(unspsc.id)}"`);
-    // [阶段0 T4] MySQL 方言列名与 Meilisearch 字段名分开拼接：宽表实际列名为
-    // unspsc_level{N} / precise_level{N}（迁移 011/029，已对生产库核实），
-    // 旧实现拼出的 level_level{N} 不存在 → EXISTS 子查询报错被 catch 吞掉 →
-    // Meili 降级且带 UNSPSC 筛选时静默返回空结果
-    const mysqlCol = unspsc.precise ? "precise_level" : "unspsc_level";
-    // 类型兼容：unspsc.id 为 string（resolveUserIndustryProfile 归一化），
-    // FIND_IN_SET 对参数隐式转字符串
-    mysqlWhere.push(
-      `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.${mysqlCol}${unspsc.level}))`,
-    );
-    mysqlParams.push(unspsc.id);
-    digestParts.push(`unspsc:L${unspsc.level}=${unspsc.id}:${unspsc.precise ? "precise" : "ted"}`);
+  // ── 类目条件（default 的 code_id / prefs 的渐进放宽档都从这里出去）──
+  // 键 = 品目树节点码，列 = backbone_path（precise=false）/ precise_backbone_path（precise=true）。
+  // 两条列都存「自身 + 全部祖先」，所以选到哪一层就命中哪一层，运行期不判层级也不查字典；
+  // 形状与大类 chip、五级下拉、可见性判定共用 nodeMeiliFilter / nodeMysqlWhere（一份形状）。
+  // 2026-10-11 换口径：这里原本拼的是 `level{N}_id = <旧字典行 id>` 与
+  // `FIND_IN_SET(?, ns.unspsc_level{N})` —— 两套键在同一请求里并存就是分叉温床。
+  // 脏键（非 UGT-B-*）：整块跳过、不报错、不 conflictEmpty（与旧实现「解析失败就忽略行业过滤」
+  // 逐字一致），但在 digest 里留下 rejected 痕迹，否则排查时看不到这一条被吞了。
+  if (category) {
+    if (isCommodityNodeKey(category.node)) {
+      const precise = category.precise;
+      meiliFilters.push(nodeMeiliFilter(precise ? "precise_backbone_node" : "backbone_node", [category.node]));
+      mysqlWhere.push(nodeMysqlWhere([category.node], precise ? "precise_backbone_path" : "backbone_path"));
+      mysqlParams.push(category.node);
+      digestParts.push(`cat:${category.node}${precise ? ":precise" : ""}`);
+    } else {
+      digestParts.push(`cat:rejected:${category.node}`);
+    }
   }
 
   // ── 品目大类（32 类 chip，URL group=UGT-G-xx）──

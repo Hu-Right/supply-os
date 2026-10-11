@@ -38,8 +38,12 @@ async function _getAliasMap(pool: Pool): Promise<Map<string, string>> {
 //（#8：normalizeNoticeType 已迁至 utils/notice-type.ts，本文件仅保留同步职责）
 const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
-/** 构建同步文档（从宽表行）：宽表已包含标准化字段和翻译，无需额外处理 */
-function buildSyncDocFromWideTable(r: RowDataPacket) {
+/**
+ * 构建同步文档（从宽表行）：宽表已包含标准化字段和翻译，无需额外处理
+ * 导出理由：类目属性是「两条列 → 两个属性」的一一映射，写反了不报错也不变红
+ * （precise 退化成全量口径），只能由单测直接构行断言（sync-doc.test.ts）。
+ */
+export function buildSyncDocFromWideTable(r: RowDataPacket) {
   // 构建多语言翻译字段
   // description 截断为 2000 字符以控制索引大小（关键词可能出现在较深位置）
   // 中文分词交由 Meilisearch 原生 configuredLanguages（见 client.ts）统一处理，
@@ -96,6 +100,9 @@ function buildSyncDocFromWideTable(r: RowDataPacket) {
     // 单值 ≤ 16 字符，不受 Meili 单值 468 字节限制；一个文档里节点项可达数千（实测最大 5,279），
     // Meili 对数组元素个数无限制。
     backbone_node: fromBackbonePathColumn(r.backbone_path),
+    // 精准口径（人工审核过的 approved 候选码派生）：prefs 模式用它筛，缺它就只能回退到
+    // precise_levelN_id 那套旧字典列。两条列各取各的，谁也不能代替谁。
+    precise_backbone_node: fromBackbonePathColumn(r.precise_backbone_path),
   };
 }
 
@@ -107,7 +114,7 @@ const WIDE_TABLE_SYNC_SQL = `
          deadline_sec, is_featured, estimated_value, documents_count,
          unspsc_level1, unspsc_level2, unspsc_level3, unspsc_level4, unspsc_level5,
          precise_level1, precise_level2, precise_level3, precise_level4, precise_level5,
-         backbone_path,
+         backbone_path, precise_backbone_path,
          title_zh, description_zh, title_en, description_en,
          title_fr, description_fr, title_ru, description_ru,
          title_es, description_es, title_ar, description_ar
