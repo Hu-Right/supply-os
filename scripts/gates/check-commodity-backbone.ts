@@ -1,5 +1,5 @@
 /**
- * 品目树门禁 BB1~BB11（单表结构版）
+ * 品目树门禁 BB1~BB12（单表结构版）
  *
  * @script scripts/gates/check-commodity-backbone.ts
  * @assertions
@@ -18,6 +18,7 @@
  *      ↳ 覆盖率类断言抓不到退化（一刀切也是 100%），只有落点层数能叫出来
  *   BB10 列值可由纯函数重算：抽样公告从桥表码重算节点码集，与宽表 backbone_path 逐条比对，差异必须 0
  *   BB11 precise_backbone_path 同口径可重算：同一份纯函数、另一张码表（商机 approved 候选码），全量对拍
+ *   BB12 偏好表的大类码齐备且对得上骨架 L1 —— 可见性判定的输入，缺行就是把付费用户静默放行
  * @limits 静态部分必须能在无 MySQL 的 CI 里跑；--db 是本地/发布前闸口。
  * @usage  npm run check:backbone     或     npx tsx scripts/gates/check-commodity-backbone.ts --db
  * @see    docs/superpowers/specs/2026-10-11-commodity-backbone-5level-design.md
@@ -293,6 +294,29 @@ if (Number(pathCol.n) === 0) {
     : { n: 0 };
   if (Number(hit.n) !== pc.size) fail(`BB7 抽样里 ${pc.size - Number(hit.n)} 个 backbone_path 码在树里不存在`);
 
+  // ── BB12 偏好表的大类码必须齐（可见性判定的输入）──
+  // 判定层（industry-scope）从 backbone_path 判可见集合，输入是 crm_user_industry_prefs.group_code → L1 节点码。
+  // 这一列历史上没有任何运行期代码在写（upsertIndustryPrefs 只写五级 id），现存值是一次性迁移灌的；
+  // 2026-10-11 写入链路已改为同批带上它（temp/probe77：11 行五级 id 的换算值与现值逐行一致）。
+  // 缺它不是「少一个筛选条件」而是把那个付费用户当成没绑行业⇒静默放行全部，所以零容忍。
+  const prefNoGroup = await one(
+    `SELECT COUNT(*) n FROM crm_user_industry_prefs
+      WHERE (IFNULL(level2_id,0) > 0 OR IFNULL(level3_id,0) > 0 OR IFNULL(level4_id,0) > 0 OR IFNULL(level5_id,0) > 0)
+        AND (group_code IS NULL OR group_code = '')`,
+  );
+  const prefBadGroup = await one(
+    `SELECT COUNT(*) n FROM crm_user_industry_prefs p
+       LEFT JOIN crm_commodity_backbone b ON b.level = 1 AND b.group_code = p.group_code
+      WHERE p.group_code IS NOT NULL AND p.group_code <> '' AND b.code IS NULL`,
+  );
+  console.log(`BB12 偏好大类码：缺 ${prefNoGroup.n} 行 / 对不上骨架 L1 ${prefBadGroup.n} 行`);
+  if (Number(prefNoGroup.n) !== 0) {
+    fail(`BB12 有 ${prefNoGroup.n} 行偏好填了二级以下类目却没有大类码 ⇒ 可见性判定会静默放行该用户；补跑 scripts/ops/user-prefs-group-code-backfill.ts`);
+  }
+  if (Number(prefBadGroup.n) !== 0) {
+    fail(`BB12 有 ${prefBadGroup.n} 行偏好的 group_code 在骨架 L1 里找不到对应行 ⇒ 可见性谓词永远不命中（常量与库分叉）`);
+  }
+
   // ── BB9 族级落点分档（纯函数侧，不扫宽表）──
   // 口径不在门禁里重写：直接拿 backbone-path 的 match() 逐族试挂，模块改了它跟着变。
   // 粗码用「族前缀 + 0000」喂进去，走的就是公告实际会走的那条分支。
@@ -435,12 +459,12 @@ function bandof(parentLevel: number) {
 }
 /** 跳过的断言必须每次都说出来：放在失败出口之前，否则门禁一红就看不出跨树项到底跑没跑 */
 if (!hasLegacy) {
-  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8/BB9/BB10/BB11 照常）");
+  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8/BB9/BB10/BB11/BB12 照常）");
 }
 if (fails.length) {
   console.error(`✗ 品目树门禁未通过（${fails.length} 条）：\n  - ${[...new Set(fails)].slice(0, 25).join("\n  - ")}`);
   await pool.end();
   process.exit(1);
 }
-console.log(`✅ BB1~BB11 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
+console.log(`✅ BB1~BB12 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
 await pool.end();
