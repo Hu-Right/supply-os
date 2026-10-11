@@ -14,7 +14,7 @@ import { errNoticeNotFound } from "../ai-summary/errors";
 import { fetchNoticeContext } from "../ai/shared/notice-context";
 import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
 import { preFilterSuppliers } from "./pre-filter";
-import { loadUnspscMatchData } from "./unspsc-levels";
+import { loadMatchNodeData } from "./match-nodes";
 
 export interface MatchedSupplier extends AiScoreRaw {
   /** 资源库行 id；self 行为 null */
@@ -100,13 +100,13 @@ export async function getOrGenerateAiMatch(
   const poolProfilesRaw = await poolRepo.fetchSupplierProfiles(userId);
   const poolProfiles = poolProfilesRaw.filter((s) => Number(s.supplier_id) !== selfSupplierId);
 
-  // 超精评上限先粗筛（self 不参与粗筛、始终保留）：UNSPSC 层级匹配优先、
+  // 超精评上限先粗筛（self 不参与粗筛、始终保留）：骨架节点码层级匹配优先、
   // 词项重叠兜底；粗筛数据加载失败时 loader 内建退化，不阻断匹配主流程
   let poolForEval = poolProfiles;
   if (poolProfiles.length > PRE_FILTER_LIMIT) {
     const ids = poolProfiles.map((s) => Number(s.supplier_id) || 0);
-    const unspsc = await loadUnspscMatchData(pool, noticeId, ids);
-    poolForEval = preFilterSuppliers(notice as never, poolProfiles, PRE_FILTER_LIMIT, unspsc).candidates;
+    const nodes = await loadMatchNodeData(pool, noticeId, ids);
+    poolForEval = preFilterSuppliers(notice as never, poolProfiles, PRE_FILTER_LIMIT, nodes).candidates;
   }
 
   type Cand = { profile: Record<string, unknown>; supplierId: number; poolId: number | null; isSelf: boolean };

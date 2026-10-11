@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { findMatch, upsertMatch, findScore, upsertScore, findActiveByUser, fetchSupplierProfiles, countDiagnosisPending, callLlmForScore } = vi.hoisted(() => ({
+const { findMatch, upsertMatch, findScore, upsertScore, findActiveByUser, fetchSupplierProfiles, countDiagnosisPending, callLlmForScore, getBackboneIndex } = vi.hoisted(() => ({
   findMatch: vi.fn(),
   upsertMatch: vi.fn(),
   findScore: vi.fn(),
@@ -15,6 +15,7 @@ const { findMatch, upsertMatch, findScore, upsertScore, findActiveByUser, fetchS
   fetchSupplierProfiles: vi.fn(),
   countDiagnosisPending: vi.fn(),
   callLlmForScore: vi.fn(),
+  getBackboneIndex: vi.fn(),
 }));
 
 vi.mock("@/lib/repos/ai-summary.repo", () => ({
@@ -37,6 +38,24 @@ vi.mock("@/lib/repos/user-supplier-pool.repo", () => ({
 
 vi.mock("@/lib/services/ai-summary/crypto", () => ({ decryptApiKey: vi.fn(() => "plain-key") }));
 vi.mock("@/lib/services/ai-score/llm-client", () => ({ callLlmForScore }));
+// 粗筛数据加载器要把兴趣码换算成节点码（口径单测在 ai-match-nodes.test.ts）：
+// 本文件测的是「编排接线」，拿一个只认 42101503 的小树桩就够，不能去载 15.9 万行真树
+vi.mock("@/lib/services/commodity/backbone-cache", () => ({ getBackboneIndex: (...args: unknown[]) => getBackboneIndex(...(args as [])) }));
+
+/** 单码→五级链的极小桩：换不出的码进 misses（与真 pathOf 出口形制一致） */
+const STUB_CHAIN = ["UGT-B-42", "UGT-B-4210", "UGT-B-421015", "UGT-B-42101503"];
+const stubIndex = {
+  size: 4,
+  pathOf: (codes: Iterable<string>) => {
+    const set = new Set<string>();
+    const misses: string[] = [];
+    for (const c of codes) {
+      if (String(c) === "42101503") for (const n of STUB_CHAIN) set.add(n);
+      else misses.push(String(c));
+    }
+    return { codes: [...set].sort(), deepest: [], misses, tiers: {} as Record<string, number> };
+  },
+};
 
 import { getOrGenerateAiMatch } from "@/lib/services/ai-match";
 import { decryptApiKey } from "@/lib/services/ai-summary/crypto";
@@ -88,6 +107,7 @@ beforeEach(() => {
   callLlmForScore.mockResolvedValue({ data: llmData, model: "m" });
   upsertMatch.mockResolvedValue(undefined);
   countDiagnosisPending.mockResolvedValue(2);
+  getBackboneIndex.mockResolvedValue(stubIndex as never);
 });
 
 describe("统一评估缓存分键与版本", () => {
@@ -220,10 +240,10 @@ describe("并发评估与失败处理", () => {
     expect(res.top[0].company).toBe("LED");
   });
 
-  it("粗筛接入 UNSPSC：编码命中者压过纯词项匹配者入选精评并排第", async () => {
+  it("粗筛接入骨架节点码：归属命中者压过纯词项匹配者入选精评并排第", async () => {
     findMatch.mockResolvedValue(null);
     const industries = ["纺织", "家具", "LED", "五金", "玩具", "食品", "化工"];
-    // 食品（supplier_id 105，pool_id 6）无任何词项重叠，但 L5 编码命中公告；
+    // 食品（supplier_id 105，pool_id 6）无任何词项重叠，但兴趣码换出的节点码命中公告；
     // 家具（supplier_id 101）仅靠标题词项命中。旧版纯词项行为家具必排第 一 → 本用例对旧实现为 RED
     fetchSupplierProfiles.mockResolvedValue(
       industries.map((industry, i) => ({ pool_id: i + 1, supplier_id: 100 + i, company: industry, industry, products: "P" })),
@@ -233,10 +253,10 @@ describe("并发评估与失败处理", () => {
         .mockResolvedValueOnce([[{ id: 1, title: "家具采购项目", notice_type: "RFQ", country: "CN", deadline: 0, estimated_value: 0 }]])
         .mockResolvedValueOnce(noticeOpp)
         .mockResolvedValueOnce([[{ supplier_id: 0 }]])
-        // loader 查询 1：公告桥接行（L5 码 900）
-        .mockResolvedValueOnce([[{ level1_id: "", level2_id: "", level3_id: "", level4_id: "", level5_id: "900" }]])
-        // loader 查询 2：食品(105) 兴趣码链行命中同 id
-        .mockResolvedValueOnce([[{ supplier_id: 105, n0: 900, l0: 5, n1: null, l1: null, n2: null, l2: null, n3: null, l3: null, n4: null, l4: null }]]),
+        // loader 查询 1：公告侧宽表主键点查（归属到 UGT-B-42101503 整条链）
+        .mockResolvedValueOnce([[{ p: STUB_CHAIN.join(",") }]])
+        // loader 查询 2：食品(105) 的兴趣码，换算后与公告同一四条节点码
+        .mockResolvedValueOnce([[{ supplier_id: 105, code: "42101503" }]]),
     } as any;
     callLlmForScore.mockImplementation(async (_c: unknown, _s: unknown, userPrompt: string) => ({
       data: { ...llmData, overall: userPrompt.includes("公司名称：食品") ? 90 : 40 },
@@ -244,7 +264,7 @@ describe("并发评估与失败处理", () => {
     }));
     const res = await getOrGenerateAiMatch(pool, 1, 2, false);
     expect(res.evaluated).toBe(5);
-    expect(res.top[0].company).toBe("食品"); // 编码档位主导入选，LLM 高分后排第
+    expect(res.top[0].company).toBe("食品"); // 节点码档位主导入选，LLM 高分后排第
     // 粗筛只管入选：词项命中的家具仍在 5 家内，零信号末位的玩具/化工被挤出
     const companies = res.top.map((s) => s.company);
     expect(companies).toContain("家具");
@@ -252,7 +272,7 @@ describe("并发评估与失败处理", () => {
     expect(companies).not.toContain("化工");
   });
 
-  it("UNSPSC 数据查询不可达（mock 缺省）→ fail-safe 退化纯词项，主流程不中断", async () => {
+  it("粗筛数据查询不可达（mock 缺省）→ fail-safe 退化纯词项，主流程不中断", async () => {
     findMatch.mockResolvedValue(null);
     const industries = ["纺织", "家具", "LED", "五金", "玩具", "食品", "化工"];
     fetchSupplierProfiles.mockResolvedValue(

@@ -1,12 +1,15 @@
 /**
  * AI 匹配候选粗筛（规则引擎，纯函数）
  * @module lib/services/ai-match/pre-filter
- * @description 资源库供应商数量超过 LLM 精评上限时，先按"UNSPSC 层级匹配优先 +
+ * @description 资源库供应商数量超过 LLM 精评上限时，先按"骨架节点码层级匹配优先 +
  *              行业/产品/认证词项重叠兜底"规则打分排序，只对得分最高的候选做 LLM
- *              精评，控制成本与延迟。层级分档对齐 search-orchestrator 口径：取最深
+ *              精评，控制成本与延迟。分档对齐 search-orchestrator 口径：取最深
  *              命中层级（L2~L5，L1 过宽不计）× 1000 定档，词项分仅同档内竞争；
- *              无码/不命中/未传 UNSPSC 数据时行为与词项重叠版完全一致。
+ *              无码/不命中/未传节点码数据时行为与词项重叠版逐字一致。
+ *              2026-10-11：两侧的键由旧字典 `crm_unspsc_codes` 的行 id 换成骨架节点码
+ *              `UGT-B-*`（同一请求里两套键并存就是分叉温床，与检索侧同一理由）。
  */
+import { backboneNodeLevel } from "../commodity/backbone-path";
 
 /** 粗筛所需的公告文本字段（均为可选，缺失按空串处理） */
 export interface PreFilterNotice {
@@ -27,12 +30,12 @@ export interface PreFilterSupplier {
   certification?: unknown;
 }
 
-/** UNSPSC 粗筛数据：两侧均为 crm_unspsc_codes 字典 id 字符串（供应商侧含祖先链展开） */
-export interface PreFilterUnspscData {
-  /** 公告侧：层级(1..5) → 字典 id 集合 */
-  noticeLevels: Map<number, Set<string>>;
-  /** 供应商侧：supplier_id → 层级(1..5) → 字典 id 集合 */
-  supplierLevels: Map<number, Map<number, Set<string>>>;
+/** 粗筛所需的层级匹配数据：两侧都是骨架节点码集合（`UGT-B-*`，均含全部祖先） */
+export interface PreFilterMatchData {
+  /** 公告侧：宽表 backbone_path 拆出的节点码 */
+  noticeNodes: Set<string>;
+  /** 供应商侧：supplier_id → 兴趣码换算出的节点码 */
+  supplierNodes: Map<number, Set<string>>;
 }
 
 /** 画像字段常见分隔符：行业/产品/认证多为逗号（中英文）、顿号、斜杠、分号列表 */
@@ -77,24 +80,26 @@ export function scoreSupplierAgainstNotice(corpus: string, terms: string[]): num
 }
 
 /**
- * UNSPSC 层级定档：取供应商祖先 id 集与公告 id 集的最深命中层级（5→2 优先）。
+ * 节点码定档：取两侧节点码集合交集里最深的一层（形制不符的脏 token 不参与）。
+ * 为什么交集就够、不必逐对算共享前缀：两侧存的都是「自身 + 全部祖先」（宽表列值与
+ * `pathOf` 的契约），两条链共享到第 d 层 ⇔ 第 d 层那个码同时出现在两侧 ⇒ 取交集最深层
+ * 等价于「逐对 sharedDepth 取最大」（单测里直接按 sharedDepth 对拍钉住这一条）。
+ * 取这个写法还有一个量的原因：一条巨量码公告可有 5,000+ 个节点码，逐对乘上几百家供应商就是
+ * 几千万次比较，而候选集本意是给 LLM 精评省时间。
  * L1 命中不计档（与 search-orchestrator 口径一致：大类过宽，会引入跨行业误报）；
  * 任一侧为空/无交集 → 0（回落词项竞争）。
  */
-export function unspscTier(
-  supplierLevels: Map<number, Set<string>> | undefined,
-  noticeLevels: Map<number, Set<string>>,
+export function nodeTier(
+  supplierNodes: Set<string> | undefined,
+  noticeNodes: Set<string>,
 ): number {
-  if (!supplierLevels || supplierLevels.size === 0) return 0;
-  for (let level = 5; level >= 2; level -= 1) {
-    const sSet = supplierLevels.get(level);
-    const nSet = noticeLevels.get(level);
-    if (!sSet || !nSet) continue;
-    for (const id of sSet) {
-      if (nSet.has(id)) return level;
-    }
+  if (!supplierNodes || supplierNodes.size === 0 || noticeNodes.size === 0) return 0;
+  let best = 0;
+  for (const node of supplierNodes) {
+    const level = backboneNodeLevel(node); // 形制判定只有一份，脏码一律 0 档
+    if (level >= 2 && level > best && noticeNodes.has(node)) best = level;
   }
-  return 0;
+  return best;
 }
 
 export interface PreFilterResult<T extends PreFilterSupplier> {
@@ -108,24 +113,22 @@ export interface PreFilterResult<T extends PreFilterSupplier> {
 const TIER_UNIT = 1000;
 
 /**
- * 粗筛主入口：UNSPSC 层级分档（tier × 1000）+ 词项重叠分，降序取前 limit 个。
+ * 粗筛主入口：骨架节点码分档（tier × 1000）+ 词项重叠分，降序取前 limit 个。
  * 排序稳定（ES2019+），同分保持资源库原有顺序（按添加时间），结果可预期；
- * 不传 unspsc 时即纯词项重叠版，与旧行为逐字一致。
+ * 不传节点码数据即纯词项重叠版，与旧行为逐字一致。
  */
 export function preFilterSuppliers<T extends PreFilterSupplier>(
   notice: PreFilterNotice,
   suppliers: T[],
   limit: number,
-  unspsc?: PreFilterUnspscData,
+  data?: PreFilterMatchData,
 ): PreFilterResult<T> {
   const corpus = buildNoticeCorpus(notice);
   const ranked = suppliers
     .map((supplier) => {
       const term = scoreSupplierAgainstNotice(corpus, extractSupplierTerms(supplier));
       const sid = Number(supplier.supplier_id ?? 0);
-      const tier = unspsc && sid > 0
-        ? unspscTier(unspsc.supplierLevels.get(sid), unspsc.noticeLevels)
-        : 0;
+      const tier = data && sid > 0 ? nodeTier(data.supplierNodes.get(sid), data.noticeNodes) : 0;
       return { supplier, matches: tier * TIER_UNIT + term };
     })
     .sort((a, b) => b.matches - a.matches);

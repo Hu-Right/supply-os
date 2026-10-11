@@ -262,9 +262,11 @@ export function toBackbonePathColumn(codes: string[]): string {
  * - `notices/similar.ts`：从宽表列值取当前公告与候选公告的节点码；
  * - `meilisearch/sync.ts`：拆成 `backbone_node` / `precise_backbone_node` 数组属性（不再用本文件的局部 `parseCsvList`）；
  * - `industry-scope.ts`：行业墙的单公告执法点，拆宽表 `backbone_path` 与大类的 L1 节点码集比对；
- * - `search-orchestrator/format.ts`：匹配分标签拆 `precise_backbone_path`（与检索谓词同源）。
+ * - `search-orchestrator/format.ts`：匹配分标签拆 `precise_backbone_path`（与检索谓词同源）；
+ * - `ai-match/match-nodes.ts`：粗筛公告侧拆宽表 `backbone_path`（供应商侧不拆列，
+ *   兴趣码走 `getBackboneIndex().pathOf` 换算，与本函数同一口径）。
  * 待切（R5 剩余任务，均应改调本函数而不是自己拆）：`unspsc/*` 类目工具、三个 repo、
- * `ai-match`、`recommend`。`hot-topics` 已收：它的计数留在 SQL 里按包含关系聚合
+ * `recommend`。`hot-topics` 已收：它的计数留在 SQL 里按包含关系聚合
  * （`FIND_IN_SET` 与检索谓词同一条关系），不在应用侧拆列 ⇒ 不进本名单。
  */
 export function fromBackbonePathColumn(value: unknown): string[] {
