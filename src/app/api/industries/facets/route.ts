@@ -1,20 +1,19 @@
 /**
- * GET /api/industries/facets — 供应商行业筛选面（公开，10min 缓存）
+ * GET /api/industries/facets — 供应商行业级联下拉的第一级（门类）（公开，10min 缓存）
  *
  * @module app/api/industries/facets/route
- * @description 返回**门类一层**的扁平行业选项，每项带子树内门户可见供应商数。
- *              大类以下不在这里铺（英文侧 37 个大类与门类同名，铺成 chip 只会把粒度缺陷
- *              放大成视觉噪音），那一级由 GET /api/suppliers?industry_q= 的关键词框接。
- *              数据源是行业面主表 crm_industry_nodes + 挂靠表，不再是 supplier.industry
- *              自由文本去重。零挂靠节点不出现，所以 chip 里的每一项点开都有结果。
- *              与 GET /api/suppliers?industry_code= 同口径（同一张表、同一个可见谓词）。
+ * @description 返回**门类一层**的完整分类树（status=1），每项 {key,nameZh,nameEn}，
+ *              key 就是行业节点码（UGT-I-…）。自 2026-10-12 起不再按门户可见供应商数过滤：
+ *              零挂靠的门类同样下发、同样可选，选中后列表正常返回「无结果」。
+ *              数据源是行业面主表 crm_industry_nodes（不再 JOIN 挂靠表）。
+ *              与 GET /api/industries/tree?parent= 同形状，一起撑成四级级联下拉。
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { withRoute } from "@/lib/middleware/route-handler";
-import { loadIndustryFacets } from "@/lib/services/industry-facets";
+import { loadIndustrySections } from "@/lib/services/industry-facets";
 
 export const GET = withRoute(async () => {
-  const groups = await loadIndustryFacets(getContext().supplier.industryRepo);
-  return NextResponse.json(groups, { headers: { "Cache-Control": "public, max-age=600" } });
+  const sections = await loadIndustrySections(getContext().supplier.industryRepo);
+  return NextResponse.json(sections, { headers: { "Cache-Control": "public, max-age=600" } });
 });

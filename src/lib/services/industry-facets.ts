@@ -1,67 +1,61 @@
 /**
- * 行业检索口径 — 行业主轴（门类 chip）与行业关键词解析
+ * 行业检索口径 — 级联下拉的完整树读取 与 行业关键词解析
  * Industry Facets & Keyword Resolution
  *
  * @module lib/services/industry-facets
- * @description 旧做法是把整页供应商拉回前端、对 `supplier.industry` 自由文本去重
- *              （2026-10-09 实测：全库可见供应商 36 家，去重出 20 种字符串，其中
- *              「其他 / Other」这类自造值还占着高频位）。本模块改为读权威树，提供两个口子：
- *                - facet（行业主轴）：只铺**门类一层**，带子树内可见供应商数；
- *                - 关键词（行业词框）：先把词解析成命中的行业节点集，再按子树筛供应商
+ * @description 本模块围绕权威行业树（crm_industry_nodes）提供两类口子：
+ *                - 级联下拉（门类→大类→中类→小类）：按层级 / 按父码读**完整分类树**，
+ *                  零挂靠节点同样下发、同样可选——选中无供应商的节点就正常返回「无结果」，
+ *                  不再按门户可见供应商数过滤（2026-10-12 由「只显示有供应商的 facet」改为此口径）；
+ *                - 关键词（行业词检索）：先把词解析成命中的行业节点集，再交上层按子树筛
  *                  （官方名优先、释义兜底，避免细分词被枚举型释义冲到粗层）。
  *
- *              为什么只铺门类一层（2026-10-10 定稿）：大类以下的点选路径由关键词框接——
- *              输「电气机械」就能落到 `UGT-I-0326` 子树，不比下拉少能力；而英文侧有 37 个
- *              大类与门类同名（ISIC 粒度比国标粗，见表文档「已知缺陷」），铺成 chip 只会把
- *              一堆 `Manufacturing` 摆在用户脸上。
- *
- *              两种口径都只认树，不退回自由文本 LIKE。2026-10-09 真库拿 21 个关键词跑生产
- *              代码路径对比文本口径：树净多召回 28 次（全部英文关键词、「制造业」这类官方术语），
- *              文本独有 21 次——抽查其中 5 个关键词的 14 次逐家核实：10 家根本没码
- *              （主码 NULL 且无挂靠），4 家码与自填文本本来就不是一回事
- *              （自填「农业/农机」的两家码是纺织业 0305，自填「建筑工程」的两家码是
- *              玻璃制造 031804、结构性金属制品 032101）。
- *              并集会把这两类东西永久留在检索路径上，所以不做；缺口用空结果说明显式告知用户。
+ *              两种口径都只认树，不退回 supplier.industry 自由文本 LIKE：那个字段与自造值同寿命
+ *              （2026-10-09 实测全库 20 种写法含「其他 / Other」），把它引回检索路径只会污染结果。
+ *              双语名全空的节点不进下拉（不把 UGT-I-xxxx 透到界面）——那是数据缺口，不是要展示的分类。
  */
 import { minimalSubtreePrefixes } from "./industry-code";
-import type { IndustryFacetRow, IndustryNodeRepo } from "../repos/industry-node.repo";
-
-export interface IndustryFacetOption {
-  code: string;
-  nameZh: string;
-  nameEn: string;
-  /** 子树内门户可见供应商数（与 /api/suppliers?industry_code= 的返回口径一致） */
-  suppliers: number;
-}
-
-function toOption(row: IndustryFacetRow): IndustryFacetOption | null {
-  const nameZh = String(row.name_zh ?? "").trim();
-  const nameEn = String(row.name_en ?? "").trim();
-  // 双语名全空的节点宁可不给选项，也不把 UGT-I-xxxx 透到界面上
-  if (!nameZh && !nameEn) return null;
-  return {
-    code: row.code,
-    nameZh: nameZh || nameEn,
-    nameEn: nameEn || nameZh,
-    suppliers: Number(row.suppliers ?? 0),
-  };
-}
+import type { IndustryNodeRow, IndustryNodeRepo } from "../repos/industry-node.repo";
 
 /**
- * 纯拼装：门类 facet 行 → 行业主轴选项。按可见供应商数降序、同数按码序。
- * 双语名全空的节点丢弃（宁可不给 chip，也不把 UGT-I-xxxx 透给界面）；
- * 零挂靠的门类本层不会收到（SQL 里 `HAVING suppliers > 0` 已滤掉）。
+ * 级联下拉的一条选项（与商机页品目级联同形状：key 就是可直接下筛的节点码）。
+ * 门类一层与第 2~4 级共用此形状；不带供应商计数——完整分类树，零挂靠节点同样可选。
  */
-export function buildIndustrySections(rows: readonly IndustryFacetRow[]): IndustryFacetOption[] {
-  return rows
-    .map(toOption)
-    .filter((x): x is IndustryFacetOption => x !== null)
-    .sort((a, b) => b.suppliers - a.suppliers || a.code.localeCompare(b.code));
+export interface IndustryTreeOption {
+  /** 筛选键 = 行业节点码（UGT-I-…），可直接喂 /api/suppliers?industry_code=（子树前缀筛） */
+  key: string;
+  nameZh: string;
+  nameEn: string;
 }
 
-/** 读门类一层 facet（一次递归 CTE，命中 idx_level/idx_parent；不再查大类） */
-export async function loadIndustryFacets(repo: IndustryNodeRepo): Promise<IndustryFacetOption[]> {
-  return buildIndustrySections(await repo.listFacets("section"));
+/** 节点行 → 级联选项；双语名全空则丢弃（宁可不给选项，也不把 UGT-I-xxxx 透到界面） */
+function toTreeOption(row: IndustryNodeRow): IndustryTreeOption | null {
+  const nameZh = String(row.name_zh ?? "").trim();
+  const nameEn = String(row.name_en ?? "").trim();
+  if (!nameZh && !nameEn) return null;
+  return { key: row.code, nameZh: nameZh || nameEn, nameEn: nameEn || nameZh };
+}
+
+function toTreeOptions(rows: readonly IndustryNodeRow[]): IndustryTreeOption[] {
+  const out: IndustryTreeOption[] = [];
+  for (const row of rows) {
+    const opt = toTreeOption(row);
+    if (opt) out.push(opt);
+  }
+  return out;
+}
+
+/** 读门类一层（完整树，按码序）：级联下拉第一级选项 */
+export async function loadIndustrySections(repo: IndustryNodeRepo): Promise<IndustryTreeOption[]> {
+  return toTreeOptions(await repo.listNodesByLevel("section"));
+}
+
+/** 级联下一层：读某个父码的全部直接子节点（完整树，按码序，不按供应商数过滤） */
+export async function loadIndustryChildren(
+  repo: IndustryNodeRepo,
+  parentCode: string,
+): Promise<IndustryTreeOption[]> {
+  return toTreeOptions(await repo.listChildNodes(parentCode));
 }
 
 /**

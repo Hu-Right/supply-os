@@ -7,17 +7,19 @@
  *              但门户此前只读 `supplier.industry` 自由文本，整棵树在门户侧零消费：
  *              非中文界面拿到的是中文文本（`mapSupplierRow` 把 industryEn 直接等于 industryZh），
  *              行业下拉则是把整页供应商拉回前端去重出来的字符串集合。
- *              本 repo 只做三类读：
+ *              本 repo 只做四类读：
  *                1. 按码批量取节点（把 UGT-I-xxx 翻成中英双语标签、拼祖先路径）；
  *                2. 按供应商 id 批量取多行业挂靠（卡片上的行业标签行）；
- *                3. 面向门户可见供应商的层级计数（行业筛选下拉的 facet）。
+ *                3. 关键词命中节点（行业词检索，官方名 / 释义两个粒度）；
+ *                4. 行业级联下拉的完整树读取：按层级取某一层、按父码取直接子级。
  *
- *              可见口径与 supplier-directory 完全一致：`verify_status='done' AND company<>'测试'`。
- *              不一致会让下拉里的计数和点下去的结果对不上——这是筛选类接口最容易失真的一处。
+ *              级联下拉自 2026-10-12 起展示**完整行业分类树**（含零挂靠节点），不再按门户可见
+ *              供应商数过滤——它是一棵分类浏览树，选中无供应商的节点就正常返回「无结果」。
+ *              因此这一层不再 JOIN supplier，也就没有「下拉计数 vs 点进去结果」的口径耦合问题。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { escapeLikeWildcard } from "../utils/normalize";
-import { NAV_INDUSTRIES_LEVELS, type IndustryNavLevel } from "../services/industry-code";
+import { isIndustryCode, NAV_INDUSTRIES_LEVELS, type IndustryNavLevel } from "../services/industry-code";
 
 /** 行业节点行 */
 export interface IndustryNodeRow extends RowDataPacket {
@@ -33,17 +35,6 @@ export interface IndustryLinkRow extends RowDataPacket {
   supplier_id: number;
   industry_code: string;
 }
-
-/** facet 行：某导航节点下（含子树）有挂靠的门户可见供应商数 */
-export interface IndustryFacetRow extends RowDataPacket {
-  code: string;
-  name_zh: string | null;
-  name_en: string | null;
-  suppliers: number;
-}
-
-/** 门户可见供应商谓词（与 SupplierDirectoryRepo 同口径，改动必须两处一起改） */
-const VISIBLE_SUPPLIER_WHERE = "s.verify_status = 'done' AND s.company <> '测试'";
 
 export class IndustryNodeRepo {
   constructor(private pool: Pool) {}
@@ -111,31 +102,38 @@ export class IndustryNodeRepo {
   }
 
   /**
-   * 行业筛选面：指定导航层级的节点 + 「子树内可见供应商去重数」，零挂靠节点不返回。
+   * 某一层的全部标准节点（status=1），按码序返回——行业级联下拉的第一级（门类）取数口。
    *
-   * 子树靠 parent_code 递归展开（不是码前缀 LIKE）：这里要的是「一棵子树里有几家」，
-   * 递归 CTE 只读 1,996 行树，成本可忽略，且不与 check:taxonomy 的 I4 不变量重复绑定。
-   * 计数放在 HAVING 里而非应用层，避免把 21,218 行挂靠拉进 Node。
+   * 不再 JOIN supplier / 算计数：展示完整分类树，零挂靠节点同样下发、同样可选。
+   * 层级走 NAV 白名单，越界值不发 SQL（level 永不拼进字符串）。
    */
-  async listFacets(level: IndustryNavLevel): Promise<IndustryFacetRow[]> {
+  async listNodesByLevel(level: IndustryNavLevel): Promise<IndustryNodeRow[]> {
     if (!NAV_INDUSTRIES_LEVELS.includes(level)) return [];
     const [rows] = await this.pool.query(
-      `WITH RECURSIVE sub AS (
-          SELECT code AS anc, code AS node FROM crm_industry_nodes WHERE level = ?
-          UNION ALL
-          SELECT sub.anc, n.code FROM crm_industry_nodes n JOIN sub ON n.parent_code = sub.node
-        )
-       SELECT a.code, a.name_zh, a.name_en, COUNT(DISTINCT s.id) AS suppliers
-         FROM crm_industry_nodes a
-         JOIN sub ON sub.anc = a.code
-         JOIN crm_supplier_industry_rel r ON r.industry_code = sub.node
-         JOIN supplier s ON s.id = r.supplier_id AND ${VISIBLE_SUPPLIER_WHERE}
-        WHERE a.level = ?
-        GROUP BY a.code, a.name_zh, a.name_en
-       HAVING suppliers > 0
-       ORDER BY suppliers DESC, a.code`,
-      [level, level],
+      `SELECT code, name_zh, name_en, level, parent_code
+         FROM crm_industry_nodes
+        WHERE level = ? AND status = 1
+        ORDER BY code`,
+      [level],
     );
-    return rows as IndustryFacetRow[];
+    return rows as IndustryNodeRow[];
+  }
+
+  /**
+   * 某个父码的全部直接子节点（status=1），按码序返回——行业级联下拉第 2~4 级取数口。
+   *
+   * 走 idx_parent 等值；不再按供应商数过滤，零挂靠子级照常下发（选中后正常出「无结果」）。
+   * 非法父码不发 SQL（返回空），与 /api/suppliers?industry_code= 的「非法码=不筛选」同纪律。
+   */
+  async listChildNodes(parentCode: string): Promise<IndustryNodeRow[]> {
+    if (!isIndustryCode(parentCode)) return [];
+    const [rows] = await this.pool.query(
+      `SELECT code, name_zh, name_en, level, parent_code
+         FROM crm_industry_nodes
+        WHERE parent_code = ? AND status = 1
+        ORDER BY code`,
+      [parentCode],
+    );
+    return rows as IndustryNodeRow[];
   }
 }
