@@ -107,6 +107,17 @@ describe("叶子限量：只压 8 位噪声，祖先层无损", () => {
     const few = Array.from({ length: 30 }, (_, i) => `101015${String(i + 1).padStart(2, "0")}`);
     expect(mergeAncestorPrefixes(few).filter((p) => p.length === 8)).toHaveLength(30);
   });
+
+  it("同一码集不管什么读取顺序，输出必须一模一样", () => {
+    // 这条是「派生列是 code 的纯函数」的唯一护栏：回填脚本的回滚语义（脏了就重算，不需备份）
+    // 全靠它成立。一旦哪天实现去掉了 leafPrefixesOf 里的 sort，“保留哪 150 个叶子”
+    // 就会跟着 DB 扫描顺序漂，两次回填写出两种值 —— 对账将永远无法收敛。
+    const reversed = [...noisy].reverse();
+    const everyThird = noisy.filter((_, i) => i % 3 !== 0).concat(noisy.filter((_, i) => i % 3 === 0));
+    expect(mergeAncestorPrefixes(reversed)).toEqual(mergeAncestorPrefixes(noisy));
+    expect(mergeAncestorPrefixes(everyThird)).toEqual(mergeAncestorPrefixes(noisy));
+    expect(leafPrefixesOf(reversed)).toEqual(leafPrefixesOf(noisy));
+  });
 });
 
 describe("groupCodesOfCodes — 大类并集（OR 语义）", () => {
