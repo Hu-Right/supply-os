@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 99 张，导出 97 张，排除 2 张。
+--           源库共 100 张，导出 99 张，排除 1 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -565,6 +565,28 @@ CREATE TABLE `crm_chat_sessions` (
   KEY `idx_status_agent` (`status`,`agent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- ── crm_commodity_backbone ──
+CREATE TABLE `crm_commodity_backbone` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `code` varchar(16) NOT NULL COMMENT '树码 UGT-B-<2/4/6/8/10位>，码长即层级：1大类 2中类 3小类 4子类 5品目',
+  `parent_code` varchar(16) NOT NULL DEFAULT '' COMMENT '父节点码；大类行为空串（大类之上不再有层）',
+  `level` tinyint NOT NULL COMMENT '层级 1~5，必须与 code 去前缀后的长度一致（门禁 BB1 卡）',
+  `group_code` varchar(16) NOT NULL COMMENT '所属大类码 UGT-G-NN，冗余到每一层：筛选与权益墙免递归查父',
+  `unspsc_prefix` varchar(8) DEFAULT NULL COMMENT '本节点对应的 UNSPSC 前缀：4=子类(6位类) 5=品目(8位)；1~3 级是业务层为 NULL。UNIQUE 让一个码在库里只有一个爹',
+  `name_zh` varchar(300) NOT NULL COMMENT '中文名；与 crm_commodity_nodes.name_zh 同宽（实测类名有超 100 字的）',
+  `name_en` varchar(300) NOT NULL DEFAULT '' COMMENT '英文名；界面文案走 locale，本列供运维对账与缺中文时兜底',
+  `sort` int NOT NULL COMMENT '同父内稳定顺序，按公告量降序固化，不随每日量漂移',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '1=启用 0=停用（停用不删行，保留历史归属）',
+  `note` varchar(500) NOT NULL DEFAULT '' COMMENT '命名依据与待审点；机器候选名一律写明，混装桶以「混装:」开头',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_code` (`code`),
+  UNIQUE KEY `uk_prefix` (`unspsc_prefix`),
+  KEY `idx_parent` (`parent_code`),
+  KEY `idx_group` (`group_code`),
+  KEY `idx_level` (`level`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品目树（大类往下重排的五级全量节点；原 crm_commodity_nodes 不动）';
+
 -- ── crm_commodity_group_segments ──
 CREATE TABLE `crm_commodity_group_segments` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -627,6 +649,23 @@ CREATE TABLE `crm_consent_log` (
   KEY `idx_consent_type` (`consent_type`),
   KEY `idx_consent_log_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='协议同意审计日志。';
+
+-- ── crm_email_templates ──
+CREATE TABLE `crm_email_templates` (
+  `id` int NOT NULL,
+  `tpl_name` varchar(200) DEFAULT NULL,
+  `category` varchar(50) DEFAULT NULL COMMENT 'outreach/followup/greeting/promotion/common',
+  `subject` varchar(500) DEFAULT NULL COMMENT '标题模板，{var} 占位',
+  `body_html` mediumtext,
+  `body_text` text,
+  `variables` text COMMENT '变量定义 JSON：{name:说明}',
+  `status` tinyint DEFAULT '1' COMMENT '1 启用 0 停用',
+  `creator_id` int DEFAULT NULL,
+  `tenant_id` int DEFAULT NULL,
+  `create_time` int DEFAULT NULL,
+  `update_time` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件模板库（源=内网爬虫库，人工触达+自动批次共用）';
 
 -- ── crm_employees ──
 CREATE TABLE `crm_employees` (

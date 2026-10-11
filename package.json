@@ -20,6 +20,8 @@
     "check:wide-ssot": "node scripts/gates/check-wide-table-ssot.mjs",
     "check:gitignore": "node scripts/gates/check-gitignore-consistency.mjs",
     "check:taxonomy": "npx tsx scripts/gates/check-taxonomy-invariants.ts",
+    "check:commodity-groups": "npx tsx scripts/gates/check-commodity-groups.ts",
+    "check:backbone": "npx tsx scripts/gates/check-commodity-backbone.ts",
     "check:industry-links": "npx tsx scripts/gates/verify-industry-links.ts",
     "check:industry-links:strict": "npx tsx scripts/gates/verify-industry-links.ts --gate",
     "check:industry-loop": "node scripts/gates/industry-loop-health.mjs",
