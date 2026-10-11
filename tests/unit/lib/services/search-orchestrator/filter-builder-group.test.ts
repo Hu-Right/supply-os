@@ -14,10 +14,13 @@ import { buildFilterPlan } from "@/lib/services/search-orchestrator/filter-build
 import { validateParams } from "@/lib/services/search-orchestrator/params";
 import type { Pool } from "mysql2/promise";
 
-/** 旧字典 level=2 的段行 id（此处用 81/82 两段模拟工程技术与设计研究服务 UGT-G-14） */
+/** 旧字典 level=2 的段行 id（81/82 归 UGT-G-14，47/76/77 归 UGT-G-12）*/
 const SEG_ROWS = [
   { g: "UGT-G-14", id: "100011" },
   { g: "UGT-G-14", id: "100012" },
+  { g: "UGT-G-12", id: "100201" },
+  { g: "UGT-G-12", id: "100202" },
+  { g: "UGT-G-12", id: "100203" },
 ];
 
 function fakePool(): Pool {
@@ -42,10 +45,27 @@ describe("buildFilterPlan 品目大类筛选", () => {
     const exists = plan.mysqlWhere.find((w) => w.includes("ns.unspsc_level2"));
     expect(exists).toBeTruthy();
     expect(exists).toContain("EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id");
+    // 关键回归（2026-10-11 端到端拓出的真 BUG）：OR 列表必须整体括号，
+    // 否则 `AND A OR B` 会脱离 ns.id = n.id 的相关关系，EXISTS 对全表恒真（筛选静默失效）
+    expect(exists).toContain("AND (FIND_IN_SET(?, ns.unspsc_level2) OR FIND_IN_SET(?, ns.unspsc_level2))");
+    expect(exists).not.toContain(" AND FIND_IN_SET(");
     // 占位符个数必须与参数个数一致，否则 FIND_IN_SET 静默错位（少一个段=少一类公告）
     expect((exists!.match(/\?/g) || []).length).toBe(2);
     expect(plan.mysqlParams).toEqual(["100011", "100012"]);
     expect(plan.digest).toContain("group:UGT-G-14");
+  });
+
+  it("三段大类：三个 OR 仍在同一对括号里，参数与占位符一一对应", async () => {
+    const p = validateParams({ groupCode: "UGT-G-12" });
+    const plan = await buildFilterPlan(fakePool(), p);
+    const exists = plan.mysqlWhere.find((w) => w.includes("ns.unspsc_level2"))!;
+    expect(exists).toContain(
+      "AND (FIND_IN_SET(?, ns.unspsc_level2) OR FIND_IN_SET(?, ns.unspsc_level2) OR FIND_IN_SET(?, ns.unspsc_level2))",
+    );
+    expect(plan.mysqlParams).toEqual(["100201", "100202", "100203"]);
+    expect(plan.meiliFilters[0]).toBe(
+      '(level2_id = "100201" OR level2_id = "100202" OR level2_id = "100203")',
+    );
   });
 
   it("非 32 类常量内的码被 validateParams 丢弃，不参与筛选", () => {

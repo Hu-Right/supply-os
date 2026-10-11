@@ -306,8 +306,12 @@ export async function buildFilterPlan(
       };
     }
     meiliFilters.push(`(${ids.map((id) => `level2_id = "${escapeFilter(id)}"`).join(" OR ")})`);
+    // OR 列表必须整体括起来：EXISTS 子查询里写成 `ns.id = n.id AND A OR B` 会被解析为
+    // `(ns.id = n.id AND A) OR B`，B 不再与外层行相关 ⇒ EXISTS 对全表恒真，筛选静默失效
+    // （2026-10-11 端到端实测：双段大类 UGT-G-14 降级路径返回 190,041 条未筛结果、
+    // 首页 10 条全部不属于该类；单段大类无 OR 所以当时未暴露）
     mysqlWhere.push(
-      `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND ${ids.map(() => "FIND_IN_SET(?, ns.unspsc_level2)").join(" OR ")})`,
+      `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND (${ids.map(() => "FIND_IN_SET(?, ns.unspsc_level2)").join(" OR ")}))`,
     );
     mysqlParams.push(...ids);
     digestParts.push(`group:${p.groupCode}`);
