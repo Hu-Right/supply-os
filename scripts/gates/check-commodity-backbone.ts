@@ -1,5 +1,5 @@
 /**
- * 品目树门禁 BB1~BB8（单表结构版）
+ * 品目树门禁 BB1~BB10（单表结构版）
  *
  * @script scripts/gates/check-commodity-backbone.ts
  * @assertions
@@ -13,6 +13,9 @@
  *   BB7 公告已在新树找到家：宽表 backbone_path 与桥表闭合（有码必填、无码必空）、
  *      列内码全部存在于树、排序后首码必为大类行（祖先全存的不变量）
  *   BB8 旧树零引用（静态）：src/** 不得出现 FROM/JOIN crm_commodity_nodes —— 这是「旧树可以删」的机器证明
+ *   BB9 族级落点分档：拿纯函数逐族试挂粗码，L2/L3/L4 三档必须都有落点 —— 防「最深可证实唯一」被改回一刀切
+ *      ↳ 覆盖率类断言抓不到退化（一刀切也是 100%），只有落点层数能叫出来
+ *   BB10 列值可由纯函数重算：抽样公告从桥表码重算节点码集，与宽表 backbone_path 逐条比对，差异必须 0
  * @limits 静态部分必须能在无 MySQL 的 CI 里跑；--db 是本地/发布前闸口。
  * @usage  npm run check:backbone     或     npx tsx scripts/gates/check-commodity-backbone.ts --db
  * @see    docs/superpowers/specs/2026-10-11-commodity-backbone-5level-design.md
@@ -21,6 +24,11 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { COMMODITY_GROUPS } from "../../src/lib/services/commodity/groups";
+import {
+  buildBackboneIndex,
+  toBackbonePathColumn,
+  type BackboneIndex,
+} from "../../src/lib/services/commodity/backbone-path";
 
 const DB = process.argv.includes("--db");
 const EXPECT_ORIG_ROWS = 158707; // 原树：本次边界是「一行不动」
@@ -262,6 +270,78 @@ if (Number(pathCol.n) === 0) {
     ? await one(`SELECT COUNT(DISTINCT code) n FROM crm_commodity_backbone WHERE code IN ('${[...pc].join("','")}')`)
     : { n: 0 };
   if (Number(hit.n) !== pc.size) fail(`BB7 抽样里 ${pc.size - Number(hit.n)} 个 backbone_path 码在树里不存在`);
+
+  // ── BB9 族级落点分档（纯函数侧，不扫宽表）──
+  // 口径不在门禁里重写：直接拿 backbone-path 的 match() 逐族试挂，模块改了它跟着变。
+  // 粗码用「族前缀 + 0000」喂进去，走的就是公告实际会走的那条分支。
+  let idx: BackboneIndex | null = null;
+  try {
+    idx = buildBackboneIndex(
+      rows.map((r) => ({ code: r.code, parentCode: r.parent_code, level: Number(r.level), unspscPrefix: r.unspsc_prefix })),
+      [...segToL1].map(([segmentPrefix, nodeCode]) => ({ segmentPrefix, nodeCode })),
+    );
+  } catch (e) {
+    fail(`BB9 构骨架索引失败：${(e as Error).message}`);
+  }
+  if (idx) {
+    const ix = idx;
+    const famHist = new Map<number, number>();
+    const famMiss: string[] = [];
+    for (const fam of famToL2.keys()) {
+      const hit = ix.match(`${fam}0000`);
+      if (!hit) { famMiss.push(fam); continue; }
+      famHist.set(hit.row.level, (famHist.get(hit.row.level) ?? 0) + 1);
+    }
+    const at = (lv: number) => famHist.get(lv) ?? 0;
+    console.log(`BB9 族级落点 ${famToL2.size} 族：L4 ${at(4)} / L3 ${at(3)} / L2 ${at(2)}（2026-10-11 实测基线 33/256/270）`);
+    if (famMiss.length) fail(`BB9 有 ${famMiss.length} 个族的粗码换不出落点，样本 ${famMiss.slice(0, 3).join("、")}`);
+    // 三档都要非零：只有一档就是被改回一刀切（L2）或只会落 L4（无唯一性判定）
+    for (const lv of [2, 3, 4]) {
+      if (at(lv) === 0) fail(`BB9 族级没有一族落 L${lv} ⇒ 落点规则疑似退化（三层都该有非零落点）`);
+    }
+    const segBad = [...segToL1.keys()].filter((seg) => ix.match(`${seg}000000`)?.row.level !== 1);
+    if (segBad.length) fail(`BB9 有 ${segBad.length} 个段的粗码没落到大类，样本 ${segBad.slice(0, 3).join("、")}`);
+
+    // ── BB10 列值可由纯函数重算：抽样逐条比对，差异必须 0 ──
+    // 抓两类问题：列值过期（规则改了但没重跑回填 / 运行期链路漏了写入）、有人写了第二份实现。
+    // 运行期写入方（commodity/backbone-cache）与回填脚本用的就是下面这个 pathOf，所以这条变红就是真分叉。
+    const batchA = await q(
+      `SELECT notice_id nid FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>'' ORDER BY id DESC LIMIT 200`,
+    );
+    // 专门抽带族级粗码的公告（后四位 00、但族前缀末两位非 00，排除段级）：本次升级改的就是这一档
+    const batchB = await q(
+      `SELECT notice_id nid FROM crm_bid_notice_unspsc_codes
+        WHERE code REGEXP '^[0-9]{4}0000$' AND RIGHT(LEFT(code,4),2) <> '00' ORDER BY id DESC LIMIT 600`,
+    );
+    const ids = [...new Set([...batchA, ...batchB].map((r) => String(r.nid)).filter((x) => x))];
+    if (ids.length === 0) {
+      fail("BB10 抽样一条公告都抽不到：宽表 backbone_path 与桥表族级码同时为空？");
+    } else {
+      const ph = ids.map(() => "?").join(",");
+      const stored = await q(`SELECT notice_id, backbone_path p FROM crm_notice_search WHERE notice_id IN (${ph})`, ids);
+      const codeRows = await q(`SELECT DISTINCT notice_id, code FROM crm_bid_notice_unspsc_codes WHERE notice_id IN (${ph})`, ids);
+      const codesBy = new Map<string, string[]>();
+      for (const r of codeRows) {
+        const nid = String(r.notice_id);
+        const list = codesBy.get(nid);
+        if (list) list.push(String(r.code));
+        else codesBy.set(nid, [String(r.code)]);
+      }
+      let diff = 0;
+      const worst: string[] = [];
+      for (const r of stored) {
+        const again = toBackbonePathColumn(ix.pathOf(codesBy.get(String(r.notice_id)) ?? []).codes);
+        if (again !== String(r.p)) {
+          diff++;
+          if (worst.length < 3) {
+            worst.push(`${r.notice_id}：重算 ${again.split(",").length} 个节点 / 列内 ${String(r.p).split(",").length} 个`);
+          }
+        }
+      }
+      console.log(`BB10 纯函数重算对拍 ${stored.length} 条公告，差异 ${diff}`);
+      if (diff) fail(`BB10 有 ${diff}/${stored.length} 条 backbone_path 与纯函数重算不等 ⇒ 列值过期或存在第二份实现：${worst.join("；")}`);
+    }
+  }
   pathStat = `已填 ${p.filled} · 抽样 ${pc.size} 码全在树`;
 }
 
@@ -282,7 +362,7 @@ if (fails.length) {
   process.exit(1);
 }
 if (!hasLegacy) {
-  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8 照常）");
+  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8/BB9/BB10 照常）");
 }
-console.log(`✅ BB1~BB8 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
+console.log(`✅ BB1~BB10 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
 await pool.end();
