@@ -17,6 +17,7 @@
 import type { Pool } from "mysql2/promise";
 import { syncNoticeIds } from "../meilisearch";
 import { invalidateSearchCache } from "../search-common/sync-events";
+import { deleteNoticeNodes } from "../search-sync/notice-nodes";
 
 /** 单批 IN 上限：与 sync-scheduler 的增量批同量级，避免超长 IN 语句 */
 const PURGE_BATCH = 500;
@@ -44,5 +45,12 @@ export async function purgeNoticeSearch(pool: Pool, ids: number[]): Promise<numb
     });
   }
   invalidateSearchCache();
+  // 节点码倒排表跟着宽表行一起走：宽表行已不存在，桥表留残行就等于「凭空多出一条
+  // 挂在某个节点码上的公告」，读侧从倒排方向能把它们查出来。失败必报，不静默。
+  try {
+    await deleteNoticeNodes(pool, clean);
+  } catch (err) {
+    console.error(`[notice-nodes] 清除 ${clean.length} 条公告的节点码行失败:`, (err as Error).message);
+  }
   return deleted;
 }

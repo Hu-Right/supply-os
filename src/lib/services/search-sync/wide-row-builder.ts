@@ -17,6 +17,7 @@ import { DESC_SOURCE_EXPR, WIDE_LIMITS, TRANSLATION_MODEL, truncate } from "../.
 import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 // JOIN 片段来自叶子模块 wide-sync-sql：不得在本文件定义后再被 fingerprint 反向导入（会成环）
 import { WIDE_OPP_JOIN, WIDE_SYNC_JOIN } from "./wide-sync-sql";
+import { upsertNoticeNodes } from "./notice-nodes";
 
 export { WIDE_OPP_JOIN, WIDE_SYNC_JOIN };
 
@@ -474,6 +475,21 @@ export async function upsertWideRows(
       params,
     );
     totalSynced += batch.length;
+  }
+
+  // 节点码倒排表：跟本批宽表行同批写（已比过指纹，没变的 id 一次写都不发）。
+  // 失败为什么不一道抛出：宽表行已经落库，拖上 Meili 级联与重试队列的不能是这个派生表；
+  // 但也绝不静默 —— 这里必报 error，且门禁 BB14 / 对账里的节点码漂移检测会持续报同一条。
+  try {
+    await upsertNoticeNodes(
+      pool,
+      rows.map((r) => ({ id: Number(r.id), backbone_path: (r.backbone_path as string | null) ?? null })),
+    );
+  } catch (err) {
+    console.error(
+      `[notice-nodes] 本批 ${rows.length} 条公告的节点码写入失败（不阻断宽表同步）:`,
+      (err as Error).message,
+    );
   }
   return totalSynced;
 }

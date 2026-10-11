@@ -21,6 +21,14 @@ vi.mock("@/lib/services/search-common/sync-events", () => ({
   invalidateSearchCache: () => invalidateSearchCache(),
 }));
 
+// 节点码倒排表的级联删除：本文件守的是「purge 必须级联」这条合同，而不是
+// notice-nodes 内部的实现（它自己另有 23 条单测）。不 mock 的话本文件的
+// query 调用次数断言会跟着它的「表存在性缓存」走，用例之间隐性耦合。
+const deleteNoticeNodes = vi.fn(async (_pool: unknown, _ids: number[]) => 0);
+vi.mock("@/lib/services/search-sync/notice-nodes", () => ({
+  deleteNoticeNodes: (pool: unknown, ids: number[]) => deleteNoticeNodes(pool, ids),
+}));
+
 import { purgeNoticeSearch } from "@/lib/services/search-visibility/purge";
 
 function makePool() {
@@ -37,6 +45,7 @@ describe("purgeNoticeSearch", () => {
     expect(query).not.toHaveBeenCalled();
     expect(syncNoticeIds).not.toHaveBeenCalled();
     expect(invalidateSearchCache).not.toHaveBeenCalled();
+    expect(deleteNoticeNodes).not.toHaveBeenCalled();
   });
 
   it("单个 id：删宽表行 + 级联 Meili + 失效缓存，返回受影响行数", async () => {
@@ -46,6 +55,8 @@ describe("purgeNoticeSearch", () => {
       expect.stringContaining("DELETE FROM crm_notice_search WHERE id IN (?)"),
       [42],
     );
+    // 桥表跟删：宽表行没了而节点码还挂着 = 从倒排方向能查出一条不存在的公告
+    expect(deleteNoticeNodes).toHaveBeenCalledWith(pool, [42]);
     expect(syncNoticeIds).toHaveBeenCalledWith(pool, [42]);
     expect(invalidateSearchCache).toHaveBeenCalledTimes(1);
   });

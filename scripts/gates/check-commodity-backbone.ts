@@ -1,5 +1,5 @@
 /**
- * 品目树门禁 BB1~BB13（单表结构版）
+ * 品目树门禁 BB1~BB14（单表结构版）
  *
  * @script scripts/gates/check-commodity-backbone.ts
  * @assertions
@@ -21,6 +21,10 @@
  *   BB12 偏好表的大类码齐备且对得上骨架 L1 —— 可见性判定的输入，缺行就是把付费用户静默放行
  *   BB13 退役不变量：不得留下 crm_commodity_nodes_retired_* 这种「改名改一半」的中间态（直接红）；
  *      ↳ 原树名本身在场只 WARN（回滚演练合法），否则真回滚时这条断言会把跨树对账一起误杀
+ *   BB14 节点码倒排表是 backbone_path 的行化镜像：总行数 = 列值 token 总数、公告数闭合、
+ *      不留残行、形制合法、抽样 300 条逐集合对拍（COUNT + SUM(CRC32)）差异必须 0
+ *      ↳ 表未建只 WARN：建表是人工闸口（scripts/ops/commodity-notice-nodes-ddl.ts），
+ *        但读侧一旦切到倒排表，这条就必须转绿 —— 它也是上线清单里的那一项
  * @limits 静态部分必须能在无 MySQL 的 CI 里跑；--db 是本地/发布前闸口。
  * @usage  npm run check:backbone     或     npx tsx scripts/gates/check-commodity-backbone.ts --db
  * @see    docs/superpowers/specs/2026-10-11-commodity-backbone-5level-design.md
@@ -476,14 +480,104 @@ function bandof(parentLevel: number) {
   const s = [...kids.entries()].filter(([p]) => p.length === len).map(([, k]) => k).sort((a, b) => a - b);
   return s.length ? `min ${s[0]} / 中位 ${s[Math.floor(s.length / 2)]} / max ${s[s.length - 1]}` : "无";
 }
+// ── BB14 节点码倒排表是 backbone_path 的行化镜像 ──
+{
+  const NODES_TAB = "crm_notice_backbone_nodes";
+  const hasNodes = await one(
+    `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='${NODES_TAB}'`,
+  );
+  if (Number(hasNodes.n) === 0) {
+    console.log(`⚠ BB14 表 ${NODES_TAB} 不存在：本轮只 WARN（建表是人工闸口：scripts/ops/commodity-notice-nodes-ddl.ts --apply --yes）；`);
+    console.log("  读侧一旦改成按倒排表 JOIN，这条必须转绿：没建表就切读侧 = 推荐/热门全部返回空");
+  } else {
+    // 1) 总行数 = 列值 token 总数（2026-10-11 实测基线 1,508,793 行 / 353,875 公告）
+    const src = await one(
+      `SELECT COUNT(*) notices,
+              SUM(CHAR_LENGTH(backbone_path) - CHAR_LENGTH(REPLACE(backbone_path, ',', '')) + 1) tokens
+       FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''`,
+    );
+    const dst = await one(
+      `SELECT COUNT(*) rows_, COUNT(DISTINCT notice_id) notices,
+              SUM(node REGEXP '[^A-Za-z0-9-]') badShape,
+              SUM(node NOT LIKE 'UGT-B-%') badPrefix
+       FROM ${NODES_TAB}`,
+    );
+    const srcTokens = Number(src.tokens ?? 0);
+    const dstRows = Number(dst.rows_ ?? 0);
+    console.log(
+      `BB14 倒排表：${dstRows} 行 / ${Number(dst.notices)} 公告 ↔ 源 ${srcTokens} token / ${Number(src.notices)} 公告`
+      + `（形制非法 ${Number(dst.badShape ?? 0)}，前缀不对 ${Number(dst.badPrefix ?? 0)}）`,
+    );
+    if (dstRows !== srcTokens) {
+      fail(`BB14 行数与列值 token 总数不等（差 ${Math.abs(dstRows - srcTokens)}）⇒ 回填漏灌或残行：重跑 scripts/ops/commodity-notice-nodes-backfill.ts --apply --yes`);
+    }
+    if (Number(dst.notices) !== Number(src.notices)) {
+      fail(`BB14 公告数不闭合（桥表 ${Number(dst.notices)} vs 源 ${Number(src.notices)}）：多=该公告已去码/已删但桥表留行，少=回填没覆盖到`);
+    }
+    if (Number(dst.badShape ?? 0) > 0 || Number(dst.badPrefix ?? 0) > 0) {
+      fail(`BB14 有非节点码形制的行（${Number(dst.badShape ?? 0)}/${Number(dst.badPrefix ?? 0)}）：本表只允许 backbone-path 产出的 UGT-B- 码`);
+    }
+    // 2) 不留残行：桥表每一行必须能回到一条有列值的宽表行
+    const orphan = await one(
+      `SELECT COUNT(*) n FROM ${NODES_TAB} bn
+       LEFT JOIN crm_notice_search ns ON ns.id = bn.notice_id
+       WHERE ns.id IS NULL OR ns.backbone_path IS NULL OR ns.backbone_path = ''`,
+    );
+    if (Number(orphan.n) > 0) {
+      fail(`BB14 有 ${Number(orphan.n)} 行挂在「宽表无行或无码」的公告上：读侧从倒排方向会查出宽表里根本不该出现的公告`);
+    }
+    // 3) 逐集合对拍：拿头部/腰部/尾部各 100 条，SQL 侧用 JSON_TABLE 拆列算 COUNT+SUM(CRC32)，
+    //    与桥表侧同一口径。CRC32 两侧同值、且拿 300 条真数据对拍过（2026-10-11 探针116）。
+    const sample = await q(
+      `(SELECT id FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> '' ORDER BY id ASC LIMIT 100)
+       UNION ALL
+       (SELECT id FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''
+          AND id >= (SELECT FLOOR(MAX(id) / 2) FROM crm_notice_search) ORDER BY id ASC LIMIT 100)
+       UNION ALL
+       (SELECT id FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> '' ORDER BY id DESC LIMIT 100)`,
+    );
+    const sids = sample.map((r) => Number(r.id));
+    if (sids.length === 0) {
+      console.log("⚠ BB14 抽样集合对拍本轮无样本（宽表无列值行）：只跑了总量与残行两项");
+    } else {
+      const sph = sids.map(() => "?").join(",");
+      const fromCol = await q(
+        `SELECT ns.id, COUNT(*) c, IFNULL(SUM(CRC32(jt.node)), 0) s
+         FROM crm_notice_search ns,
+              JSON_TABLE(CONCAT('["', REPLACE(ns.backbone_path, ',', '","'), '"]'),
+                         '$[*]' COLUMNS (node VARCHAR(16) PATH '$')) jt
+         WHERE ns.id IN (${sph}) GROUP BY ns.id`,
+        sids,
+      );
+      const fromTab = await q(
+        `SELECT notice_id id, COUNT(*) c, IFNULL(SUM(CRC32(node)), 0) s
+         FROM ${NODES_TAB} WHERE notice_id IN (${sph}) GROUP BY notice_id`,
+        sids,
+      );
+      const aMap = new Map(fromCol.map((r) => [Number(r.id), `${Number(r.c)}:${String(r.s)}`]));
+      const bMap = new Map(fromTab.map((r) => [Number(r.id), `${Number(r.c)}:${String(r.s)}`]));
+      const diff: string[] = [];
+      for (const id of sids) {
+        const a = aMap.get(id) ?? "0:0";
+        const b = bMap.get(id) ?? "0:0";
+        if (a !== b) diff.push(`${id} 列侧 ${a} / 表侧 ${b}`);
+      }
+      console.log(`BB14 逐集合对拍 ${sids.length} 条公告（头部/腰部/尾部各 100），差异 ${diff.length}`);
+      if (diff.length > 0) {
+        fail(`BB14 有 ${diff.length}/${sids.length} 条公告的节点码集合与列值不一致：${diff.slice(0, 3).join("；")}`);
+      }
+    }
+  }
+}
+
 /** 跳过的断言必须每次都说出来：放在失败出口之前，否则门禁一红就看不出跨树项到底跑没跑 */
 if (!hasLegacy) {
-  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8/BB9/BB10/BB11/BB12/BB13 照常）");
+  console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8/BB9/BB10/BB11/BB12/BB13/BB14 照常）");
 }
 if (fails.length) {
   console.error(`✗ 品目树门禁未通过（${fails.length} 条）：\n  - ${[...new Set(fails)].slice(0, 25).join("\n  - ")}`);
   await pool.end();
   process.exit(1);
 }
-console.log(`✅ BB1~BB13 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
+console.log(`✅ BB1~BB14 通过：${rows.length} 行一张表${orig ? `，原树 ${orig.total} 行未动` : "（旧树已下线）"}，src 不读旧树`);
 await pool.end();
