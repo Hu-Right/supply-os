@@ -126,7 +126,11 @@ jobs:
       DB_PASSWORD: root
       DB_NAME: supply_os_test
       JWT_SECRET: ci-e2e-dummy-secret
-      PAYMENT_MODE: mock
+      # 本 job 用 `next start` 起生产产物，NODE_ENV 恒为 production；instrumentation
+      # 的生产 fail-fast 要求 PAYMENT_MODE=live，否则进程直接 exit(1) → 端口从未监听
+      # → 冒烟用例全部 ECONNREFUSED。空库无支付宝配置行，getContext 仍只注册 mock 策略，
+      # 支付行为与 mock 完全一致，故 live 仅为通过启动闸门，不影响本套件任何断言。
+      PAYMENT_MODE: live
       SMS_PROVIDER: mock
       MEILI_ENABLED: "off"
       # 空库上不需要宽表/索引同步；关掉以免后台任务白烧连接与时间
@@ -158,10 +162,21 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: 启动应用并跑无数据冒烟旅程
         run: |
-          npm run start &
+          npm run start > server-start.log 2>&1 &
           SERVER_PID=$!
-          trap "kill $SERVER_PID" EXIT
-          for i in $(seq 1 40); do curl -sf http://localhost:3000/ >/dev/null && break; sleep 3; done
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+          READY=0
+          for i in $(seq 1 40); do
+            if curl -sf http://localhost:3000/ >/dev/null; then READY=1; break; fi
+            sleep 3
+          done
+          # 启动即退出（多为 instrumentation fail-fast）会以 17 条 ECONNREFUSED 伪装成测试失败，
+          # 这里显式判定就绪状态并回吐服务器日志，让真实原因一眼可见。
+          if [ "$READY" -ne 1 ]; then
+            echo "::error::应用在 120s 内未就绪，冒烟测试中止。以下为 next start 输出："
+            cat server-start.log
+            exit 1
+          fi
           npx playwright test --project=chromium tests/e2e/ci-smoke.spec.ts
       - name: 保存 E2E 失败证据
         if: always()
