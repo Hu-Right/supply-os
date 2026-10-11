@@ -1,11 +1,13 @@
 /**
  * 骨架索引缓存（宽表写入侧）单测
  *
- * 钉住的四件事，都是会"静默改掉搜索结果"的分支：
+ * 钉住的五件事，都是会"静默改掉搜索结果"的分支：
  * 1. 换算结果含**全部祖先**且链顶是大类码 —— 筛选走 FIND_IN_SET/数组等值，缺一级就筛不到；
  * 2. 无码 / 全换不出 / 索引不可用 三种情况一律 **null**，绝不写空串（门禁 BB7 把空串判违规）；
  * 3. TTL 内不重复载入整树（实测载入十几秒），刷新失败时沿用旧索引而不是退回空；
- * 4. 超列宽直接抛错 —— 截断等于把公告的归属改掉，本项目对"宁可停线也不静默"有明确纪律。
+ * 4. 超列宽直接抛错 —— 截断等于把公告的归属改掉，本项目对"宁可停线也不静默"有明确纪律；
+ * 5. 段→大类从骨架**内存推导**（段归属表已按 ADR-0009 退役）：同一个段推出两个 L1、或同一个大类码
+ *    出现两个 L1 行，都必须抛错而不是挑一个 —— 挑一个会让整段公告静默挂错类。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Pool } from "mysql2/promise";
@@ -21,35 +23,32 @@ import { BACKBONE_PATH_LIMIT } from "@/lib/services/commodity/backbone-path";
  * 故意构了三个形状不同的族，因为换算器对族级粗码的规则是「最深可证实唯一」：
  *   单成员族→落 L4；多成员但同一个小类→落 L3；多成员跨小类但同中类→落 L2。
  * 只造一个族就测不出这三档差别，而这三档直接决定「用户选到哪一层能看到这条公告」。
+ * 全部行带同一个 `group_code`：段 10 的落点由此推导（退役前由归属表给出 UGT-B-01）。
  */
 const TREE = [
-  { code: "UGT-B-01", parent_code: "", level: 1, unspsc_prefix: null },
-  { code: "UGT-B-0101", parent_code: "UGT-B-01", level: 2, unspsc_prefix: null },
-  { code: "UGT-B-010101", parent_code: "UGT-B-0101", level: 3, unspsc_prefix: null },
-  { code: "UGT-B-010102", parent_code: "UGT-B-0101", level: 3, unspsc_prefix: null },
-  { code: "UGT-B-010103", parent_code: "UGT-B-0101", level: 3, unspsc_prefix: null },
+  { code: "UGT-B-01", parent_code: "", level: 1, unspsc_prefix: null, group_code: "UGT-G-01" },
+  { code: "UGT-B-0101", parent_code: "UGT-B-01", level: 2, unspsc_prefix: null, group_code: "UGT-G-01" },
+  { code: "UGT-B-010101", parent_code: "UGT-B-0101", level: 3, unspsc_prefix: null, group_code: "UGT-G-01" },
+  { code: "UGT-B-010102", parent_code: "UGT-B-0101", level: 3, unspsc_prefix: null, group_code: "UGT-G-01" },
+  { code: "UGT-B-010103", parent_code: "UGT-B-0101", level: 3, unspsc_prefix: null, group_code: "UGT-G-01" },
   // 族 1010：只有一个子类行 → 族 ≡ 该子类，落 L4
-  { code: "UGT-B-01010101", parent_code: "UGT-B-010101", level: 4, unspsc_prefix: "101015" },
+  { code: "UGT-B-01010101", parent_code: "UGT-B-010101", level: 4, unspsc_prefix: "101015", group_code: "UGT-G-01" },
   // 族 1011：两个子类行跨两个小类（同中类）→ 只能落到 L2
-  { code: "UGT-B-01010201", parent_code: "UGT-B-010102", level: 4, unspsc_prefix: "101115" },
-  { code: "UGT-B-01010301", parent_code: "UGT-B-010103", level: 4, unspsc_prefix: "101116" },
+  { code: "UGT-B-01010201", parent_code: "UGT-B-010102", level: 4, unspsc_prefix: "101115", group_code: "UGT-G-01" },
+  { code: "UGT-B-01010301", parent_code: "UGT-B-010103", level: 4, unspsc_prefix: "101116", group_code: "UGT-G-01" },
   // 族 1012：两个子类行同属一个小类 → 落到 L3
-  { code: "UGT-B-01010202", parent_code: "UGT-B-010102", level: 4, unspsc_prefix: "101215" },
-  { code: "UGT-B-01010203", parent_code: "UGT-B-010102", level: 4, unspsc_prefix: "101216" },
-  { code: "UGT-B-0101010101", parent_code: "UGT-B-01010101", level: 5, unspsc_prefix: "10101504" },
+  { code: "UGT-B-01010202", parent_code: "UGT-B-010102", level: 4, unspsc_prefix: "101215", group_code: "UGT-G-01" },
+  { code: "UGT-B-01010203", parent_code: "UGT-B-010102", level: 4, unspsc_prefix: "101216", group_code: "UGT-G-01" },
+  { code: "UGT-B-0101010101", parent_code: "UGT-B-01010101", level: 5, unspsc_prefix: "10101504", group_code: "UGT-G-01" },
 ];
 
-/** 按 SQL 特征分派：树、大类段归属，其余空集；failTree 用于模拟载入失败 */
-function fakePool(opts: { tree?: typeof TREE; failTree?: boolean; failSegments?: boolean } = {}) {
+/** 按 SQL 特征分派：只认整树一条查询（段归属已改为内存推导，不再有第二条）；failTree 用于模拟载入失败 */
+function fakePool(opts: { tree?: typeof TREE; failTree?: boolean } = {}) {
   const query = vi.fn(async (sql: string) => {
     const s = String(sql);
     if (/FROM crm_commodity_backbone WHERE status = 1/.test(s)) {
       if (opts.failTree) throw new Error("db down");
       return [opts.tree ?? TREE];
-    }
-    if (/crm_commodity_group_segments/.test(s)) {
-      if (opts.failSegments) throw new Error("db down");
-      return [[{ seg: "10", node_code: "UGT-B-01" }]];
     }
     return [[]];
   });
@@ -100,7 +99,7 @@ describe("backbonePathOfCodes 换算形状", () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  it("段级粗码 → 大类行（归属源是 group_segments，不是旧树）", async () => {
+  it("段级粗码 → 大类行（归属由骨架自己的 group_code 推，不是旧树、也不再查维表）", async () => {
     const { pool } = fakePool();
     expect(await backbonePathOfCodes(pool, ["10000000"])).toBe("UGT-B-01");
   });
@@ -113,11 +112,12 @@ describe("backbonePathOfCodes 换算形状", () => {
     expect(b).toBe(CHAIN);
   });
 
-  it("取树 SQL 只碰新树与大类段表，不回读旧树", async () => {
+  it("取树 SQL 只碰新树，不回读旧树，也不再碰退役的大类维表族", async () => {
     const { pool, query } = fakePool();
     await backbonePathOfCodes(pool, ["10101504"]);
     for (const call of query.mock.calls) {
       expect(String(call[0])).not.toContain("crm_commodity_nodes");
+      expect(String(call[0])).not.toContain("crm_commodity_group");
     }
   });
 });
@@ -152,6 +152,34 @@ describe("backbonePathOfCodes 的空值边界", () => {
   });
 });
 
+describe("段归属推导的退化必须抛错（不挑一个）", () => {
+  it("同一个段的类行落在两个大类上 ⇒ 载入失败、本轮无索引（不假装算得出）", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const tree = [
+      ...TREE,
+      // 第二个大类 + 段 10 下的第二个类行：这两行把段 10 同时扯向两个 L1
+      { code: "UGT-B-02", parent_code: "", level: 1, unspsc_prefix: null, group_code: "UGT-G-02" },
+      { code: "UGT-B-020101", parent_code: "UGT-B-02", level: 4, unspsc_prefix: "101999", group_code: "UGT-G-02" },
+    ];
+    const { pool } = fakePool({ tree: tree as typeof TREE });
+    expect(await backbonePathOfCodes(pool, ["10101504"])).toBeNull();
+    expect(hasBackboneIndex()).toBe(false);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("同一个大类码出现两个 L1 行 ⇒ 抛错（否则「取第一行」会静默漏掉一整个大类）", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const tree = [
+      ...TREE,
+      { code: "UGT-B-02", parent_code: "", level: 1, unspsc_prefix: null, group_code: "UGT-G-01" },
+    ];
+    const { pool } = fakePool({ tree: tree as typeof TREE });
+    expect(await backbonePathOfCodes(pool, ["10101504"])).toBeNull();
+    expect(hasBackboneIndex()).toBe(false);
+    expect(warn).toHaveBeenCalled();
+  });
+});
+
 describe("缓存与陈旧策略", () => {
   it("TTL 内第二次调用不再载入整树（载入实测十几秒）", async () => {
     const { pool, query } = fakePool();
@@ -167,7 +195,7 @@ describe("缓存与陈旧策略", () => {
     const once = query.mock.calls.length;
     resetBackboneCache();
     await getBackboneIndex(pool);
-    expect(query.mock.calls.length).toBe(once + 2);
+    expect(query.mock.calls.length).toBe(once + 1); // 整树一条查询（段归属已改为内存推导）
   });
 
   it("刷新失败时沿用旧索引（陈旧但仍正确），不返回 null", async () => {
@@ -189,14 +217,6 @@ describe("缓存与陈旧策略", () => {
       vi.useRealTimers();
     }
   });
-
-  it("段归属表查询失败同样不算载入成功：本轮无索引 ⇒ null（不假装算得出）", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { pool } = fakePool({ failSegments: true });
-    expect(await backbonePathOfCodes(pool, ["10101504"])).toBeNull();
-    expect(hasBackboneIndex()).toBe(false);
-    expect(warn).toHaveBeenCalled();
-  });
 });
 
 describe("超列宽绝不截断", () => {
@@ -211,6 +231,7 @@ describe("超列宽绝不截断", () => {
         parent_code: "UGT-B-01010101",
         level: 5,
         unspsc_prefix: String(20_000_000 + i),
+        group_code: "UGT-G-01",
       });
       codes.push(String(20_000_000 + i));
     }
@@ -228,6 +249,7 @@ describe("超列宽绝不截断", () => {
         parent_code: "UGT-B-01010101",
         level: 5,
         unspsc_prefix: String(21_000_000 + i),
+        group_code: "UGT-G-01",
       });
       codes.push(String(21_000_000 + i));
     }

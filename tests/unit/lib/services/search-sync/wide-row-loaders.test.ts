@@ -110,17 +110,16 @@ describe("loadUnspscByNoticeIds", () => {
         { notice_id: "N1", code: "10101504", level1_id: "10", level2_id: null, level3_id: null, level4_id: null, level5_id: null },
       ]]],
       [/FROM crm_commodity_backbone WHERE status = 1/, [[
-        { code: "UGT-B-01", parent_code: "", level: 1, unspsc_prefix: null },
-        { code: "UGT-B-0101", parent_code: "UGT-B-01", level: 2, unspsc_prefix: null },
-        { code: "UGT-B-010101", parent_code: "UGT-B-0101", level: 3, unspsc_prefix: null },
-        { code: "UGT-B-01010101", parent_code: "UGT-B-010101", level: 4, unspsc_prefix: "101015" },
-        { code: "UGT-B-0101010101", parent_code: "UGT-B-01010101", level: 5, unspsc_prefix: "10101504" },
+        { code: "UGT-B-01", parent_code: "", level: 1, unspsc_prefix: null, group_code: "UGT-G-01" },
+        { code: "UGT-B-0101", parent_code: "UGT-B-01", level: 2, unspsc_prefix: null, group_code: "UGT-G-01" },
+        { code: "UGT-B-010101", parent_code: "UGT-B-0101", level: 3, unspsc_prefix: null, group_code: "UGT-G-01" },
+        { code: "UGT-B-01010101", parent_code: "UGT-B-010101", level: 4, unspsc_prefix: "101015", group_code: "UGT-G-01" },
+        { code: "UGT-B-0101010101", parent_code: "UGT-B-01010101", level: 5, unspsc_prefix: "10101504", group_code: "UGT-G-01" },
       ]]],
-      [/crm_commodity_group_segments/, [[{ seg: "10", node_code: "UGT-B-01" }]]],
     ]);
     const r = (await loadUnspscByNoticeIds(pool, ["N1"])).get("N1")!;
     expect(r.backbone).toBe("UGT-B-01,UGT-B-0101,UGT-B-010101,UGT-B-01010101,UGT-B-0101010101");
-    // 取码只一次；树与段表各一次（载入由 backbone-cache 负责，TTL 内不重查）
+    // 取码只一次；整树只查一条 SQL（段归属由树内存推导，退役后不再有第二张表，见 ADR-0009）
     const bridgeCalls = query.mock.calls.filter((c) => /crm_bid_notice_unspsc_codes/.test(String(c[0])));
     expect(bridgeCalls).toHaveLength(1);
     // 取树 SQL 绝不回读旧树

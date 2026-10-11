@@ -5,8 +5,9 @@
  * 1. **筛选键就是骨架节点码**（`UGT-B-…`），与公告侧 `backbone_path` 同口径。一旦有人把旧的
  *    UNSPSC 数字前缀拿回来当键，界面照常渲染、筛出来却是空集（`backbone_path` 里没有那种 token），
  *    且不报错 —— 所以键形制与 SQL 一起钉。
- * 2. **不得回读旧树**：所有 SQL 只准命中 `crm_commodity_backbone` / `crm_commodity_group_segments` /
- *    `crm_unspsc_codes`（旧字典只作身份翻译）。出现 `crm_commodity_nodes` 就是回退，用例直接红。
+ * 2. **不得回读旧树**：所有 SQL 只准命中 `crm_commodity_backbone` /
+ *    `crm_unspsc_codes`（旧字典只作身份翻译）。出现 `crm_commodity_nodes` 就是回退，用例直接红；
+ *    出现已退役的大类维表族（`crm_commodity_group*`）同样是回退 —— 段归属已改为从骨架推导（ADR-0009）。
  * 另钉一条实测事实：大类码不能由节点码切片推出（32 个 L1 行只有 5 行的码序号等于大类码序号），
  * 所以取大类必须发生一次点查。
  */
@@ -186,7 +187,9 @@ describe("resolveUnspscIdsToCommodityPath — 旧字典 id → 骨架节点", ()
     const r = await resolveUnspscIdsToCommodityPath(pool, [100081]);
     expect(r.groupCode).toBe("UGT-G-14");
     expect(r.options).toEqual([{ key: "UGT-B-14", nameZh: "交通运输", nameEn: "" }]);
-    expect(calls[1].sql).toContain("crm_commodity_group_segments"); // 经自己的 32 类归属表
+    // 段→大类改为从骨架推导（L4 类行的冗余 group_code 上取 L1）；退役的维表族一个都不许再读
+    expect(calls[1].sql).toContain("b1.group_code = b4.group_code");
+    expect(calls[1].sql).not.toContain("crm_commodity_group");
     assertNoLegacyTree(calls);
   });
 

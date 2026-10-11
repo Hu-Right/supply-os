@@ -222,7 +222,43 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
 }
 
 /**
- * 从库构索引：只读新树与自己的 32 类归属表，不回读 crm_commodity_nodes。
+ * 段（2 位）→ 大类 L1 节点：**从骨架上内存推导**，不再查 crm_commodity_group_segments（已按 ADR-0009 退役）。
+ *
+ * 口径依据：`group_code` 是骨架上逐行冗余的列（DDL 原注：冗余到每一层，筛选与权益墙免递归查父），
+ * 而门禁 BB4 断言「类行的段所属大类 == 自身 group_code == 祖先 L1 的 group_code」。于是
+ * 「一个段的全部 L4 行指向同一个 L1」是**受门禁保护的不变量**，不是猜测：
+ *  - 段级键的落点 = 该段任一 L4 行的 group_code 所对应的 L1 行码；
+ *  - 同一段推出两个不同 L1 ⇒ 抛错，不挑一个（BB4 与门禁 CG5 双守这条）；
+ *  - 同一个大类码出现两个 L1 行同样抛错：`listL2OfGroup` 那类「取第一行」的读法会静默漏掉一整个大类；
+ *  - L1 行被停用/缺席 ⇒ 该段不落点（与退役前那条 SQL 的 `b.status = 1` 同效）。
+ * 实测（temp/probe-seg-derivable.ts）：58 段三方逐段全等、0 段跨多大类，与退役前的归属表逐段一致。
+ */
+function deriveSegmentRows(
+  rows: Array<{ code: string; level: number; unspsc_prefix: string | null; group_code: string }>,
+): GroupSegmentRow[] {
+  const l1OfGroup = new Map<string, string>();
+  for (const r of rows) {
+    if (Number(r.level) !== 1 || !r.group_code) continue;
+    const prev = l1OfGroup.get(r.group_code);
+    if (prev && prev !== r.code) {
+      throw new Error(`大类 ${r.group_code} 在骨架里有两个 L1 行：${prev} vs ${r.code}`);
+    }
+    l1OfGroup.set(r.group_code, r.code);
+  }
+  const out: GroupSegmentRow[] = [];
+  for (const r of rows) {
+    if (Number(r.level) !== 4) continue;
+    const p = String(r.unspsc_prefix ?? "");
+    if (!/^\d{6}$/.test(p)) continue; // L4 存 6 位类前缀；形制不符不参与推理
+    const nodeCode = l1OfGroup.get(r.group_code);
+    if (nodeCode) out.push({ segmentPrefix: p.slice(0, 2), nodeCode });
+  }
+  return out;
+}
+
+/**
+ * 从库构索引：只读新树（crm_commodity_backbone）一张表，不回读 crm_commodity_nodes，
+ * 也不再回读大类段归属表（crm_commodity_group_segments 已按 ADR-0009 退役）。
  * 树是 159,429 行量级，一次载入内存（回填要跑几十万条公告，逐条查库会把生产拖死）。
  *
  * 需要同口径的调用方（运行期 backbone-cache、ops 回填、门禁 BB9/BB10）一律调本函数，
@@ -232,21 +268,22 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
  * 所以停用一族里的一个子类会让该族粗码从 L3 跳到 L4 —— 一次运营侧启停会改掉已有公告的归属。
  * 本次不改（改了必须全量重跑回填才一致），但它是已知风险：要改就连带把三个调用方的
  * 行集一起改，并先确认「归属该不该跟启停走」。详见 spec 的开放项。
+ * 同一口径也决定了段级：某段的 L4 行**全部**被停用时该段不再落点（退役前的归属表不带 status、
+ * 会照样落点）——当前库 159,429 行全为 status=1，两种写法实际无差异。
  */
 export async function loadBackboneIndex(
   query: <T = Record<string, unknown>>(sql: string) => Promise<T[]>,
 ): Promise<BackboneIndex> {
-  const rows = await query<{ code: string; parent_code: string; level: number; unspsc_prefix: string | null }>(
-    `SELECT code, parent_code, level, unspsc_prefix FROM crm_commodity_backbone WHERE status = 1`,
-  );
-  const segs = await query<{ seg: string; node_code: string }>(
-    `SELECT s.unspsc_prefix seg, b.code node_code
-       FROM crm_commodity_group_segments s
-       JOIN crm_commodity_backbone b ON b.level = 1 AND b.group_code = s.group_code AND b.status = 1`,
-  );
+  const rows = await query<{
+    code: string;
+    parent_code: string;
+    level: number;
+    unspsc_prefix: string | null;
+    group_code: string;
+  }>(`SELECT code, parent_code, level, unspsc_prefix, group_code FROM crm_commodity_backbone WHERE status = 1`);
   return buildBackboneIndex(
     rows.map((r) => ({ code: r.code, parentCode: r.parent_code, level: Number(r.level), unspscPrefix: r.unspsc_prefix })),
-    segs.map((s) => ({ segmentPrefix: String(s.seg).slice(0, 2), nodeCode: s.node_code })),
+    deriveSegmentRows(rows),
   );
 }
 

@@ -215,8 +215,10 @@ let commodityCodeFilter = null;
  * 本 SQL 与旧集合**双向差 0**（旧有新无 0 · 新有旧无 0），且桥表 13,034 个去重码两边都全通过，
  * 所以换源不改变任何一条行的去留。口径来自新树自身：
  *   L5 的 8 位前缀 = 品目码；L4 的 6 位前缀补零两档 = 类码（NNNNNN00）与族码（NNNN0000）；
- *   大类段归属表补零 = 段码（NN000000）。族/段层在新树里没有 UNSPSC 键（设计如此），只能由子行推导。
+ *   L4 的 6 位前缀取前 2 位补零 = 段码（NN000000）（段/族层在新树里没有 UNSPSC 键，只能由子行推导）。
  * 与 src/lib/services/commodity/backbone-path.ts 的四档换算规则同一口径：白名单放行的码，归属必然算得出。
+ * 段码来源换过一次：原先读大类段归属表 crm_commodity_group_segments，该表按 ADR-0009 退役后改由
+ * L4 行的冗余 group_code 关联启用中的 L1（join 条件与旧 SQL 完全等价，只换取数源）。
  */
 const COMMODITY_CODE_SET_SQL = `
   SELECT unspsc_prefix code FROM \`crm_commodity_backbone\`
@@ -227,9 +229,10 @@ const COMMODITY_CODE_SET_SQL = `
    WHERE status = 1 AND level = 4 AND CHAR_LENGTH(unspsc_prefix) = 6
   UNION SELECT CONCAT(LEFT(unspsc_prefix, 4), '0000') FROM \`crm_commodity_backbone\`
    WHERE status = 1 AND level = 4 AND CHAR_LENGTH(unspsc_prefix) = 6
-  UNION SELECT CONCAT(LEFT(s.unspsc_prefix, 2), '000000')
-    FROM \`crm_commodity_group_segments\` s
-    JOIN \`crm_commodity_backbone\` b ON b.level = 1 AND b.group_code = s.group_code AND b.status = 1`;
+  UNION SELECT CONCAT(LEFT(b4.unspsc_prefix, 2), '000000')
+    FROM \`crm_commodity_backbone\` b4
+    JOIN \`crm_commodity_backbone\` b1 ON b1.level = 1 AND b1.group_code = b4.group_code AND b1.status = 1
+   WHERE b4.status = 1 AND b4.level = 4 AND CHAR_LENGTH(b4.unspsc_prefix) = 6`;
 
 // update_time 可能的数值列类型（存 Unix 秒，如 crm_bid_notices）
 const NUMERIC_TYPES = new Set(['tinyint', 'smallint', 'mediumint', 'int', 'bigint', 'float', 'double', 'decimal']);

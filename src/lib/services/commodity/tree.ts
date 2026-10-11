@@ -195,7 +195,7 @@ export async function l1NodesOfGroup(pool: Pool, groupCode: string): Promise<str
  *    ⇒ 拿容器当行业，选了哪个大类对墙毫无作用；
  * 3. **换不出返回 null**：不猜一个大类（错筛比不筛更难发现），调用方如实写 NULL 并交门禁点名。
  *
- * 归属关系取自 groups.ts 常量（CG5 门禁逐段比对 `crm_commodity_group_segments`），
+ * 归属关系取自 groups.ts 常量（CG5 门禁逐段比对**树反推**的段→大类），
  * 所以这条换算不依赖骨架树行数，也不另开一份口径。
  */
 export async function groupCodeOfLevelIds(
@@ -220,7 +220,8 @@ export async function groupCodeOfLevelIds(
  * 把账号行业偏好（旧字典 `crm_unspsc_codes` 的行 id）换算成骨架节点路径。
  *
  * 映射四条，全部只用新树自己的数据（不读旧树）：
- *   字典 level=2（段，8 位码后 6 位为 0）→ 大类 L1：经 `crm_commodity_group_segments`（我们自己的 32 类归属）
+ *   字典 level=2（段，8 位码后 6 位为 0）→ 大类 L1：由该段 L4 类行的冗余 `group_code` 上取 L1
+ *     （原先经 crm_commodity_group_segments，该表已按 ADR-0009 退役）
  *   字典 level=3（族，后 4 位为 0）  → 中类 L2：由该族的类行往上取，族→中类唯一由门禁 BB3 断言
  *   字典 level=4（类，后 2 位为 0）  → 子类 L4：`unspsc_prefix` = 前 6 位等值
  *   字典 level=5（品目）            → 品目 L5：`unspsc_prefix` = 8 位码等值
@@ -267,13 +268,16 @@ export async function resolveUnspscIdsToCommodityPath(
       );
       hit = (found as RowDataPacket[])[0];
     } else {
-      // 段 → 大类：经自己的 32 类归属表，不回读旧树
+      // 段 → 大类：由该段的 L4 类行冗余 `group_code` 上取 L1（不回读旧树，也不再查已退役的段归属表）
       const [found] = await pool.query(
-        `SELECT b.code, b.name_zh, b.name_en, b.group_code
-           FROM crm_commodity_group_segments s
-           JOIN crm_commodity_backbone b ON b.level = 1 AND b.group_code = s.group_code AND b.status = 1
-          WHERE LEFT(s.unspsc_prefix, 2) = ? LIMIT 1`,
-        [code.slice(0, 2)],
+        `SELECT b1.code, b1.name_zh, b1.name_en, b1.group_code
+           FROM crm_commodity_backbone b4
+           JOIN crm_commodity_backbone b1
+             ON b1.level = 1 AND b1.group_code = b4.group_code AND b1.status = 1
+          WHERE b4.level = 4 AND b4.status = 1
+            AND CHAR_LENGTH(b4.unspsc_prefix) = 6 AND b4.unspsc_prefix LIKE ?
+          ORDER BY b4.unspsc_prefix LIMIT 1`,
+        [`${code.slice(0, 2)}%`],
       );
       hit = (found as RowDataPacket[])[0];
       if (hit) groupCode = String(hit.group_code ?? "") || groupCode;
