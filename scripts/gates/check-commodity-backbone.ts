@@ -7,7 +7,7 @@
  *   BB2 码全覆盖：本表带 6 位前缀的行数 = 原树类数、带 8 位 = 原树品目数，且逐码在原树里存在（一个不多一个不少）
  *      ↳ 与旧树互比的部分只在旧树还在库里时执行；旧树下线后靠树内自洽断言 + BB7 逐码对树
  *   BB3 归属可推导且唯一：同一个族的所有类行必须落在同一个中类下；同一个段的所有族必须落在同一个大类下
- *   BB4 大类连续：节点 group_code = 祖先 group_code = 其 UNSPSC 段所属大类（对齐 group_segments）
+ *   BB4 大类连续：节点 group_code = 祖先 group_code = 常量按段推出的所属大类（段归属表退役后直接对常量）
  *   BB5 五级齐：L1 恰 32 行且 parent 为空串，L1~L5 每级都有行；同名兄弟只 WARN
  *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥（旧树已删则无对象，只打印跳过）
  *   BB7 公告已在新树找到家：宽表 backbone_path 与桥表闭合（有码必填、无码必空）、
@@ -57,9 +57,9 @@ if (!LEGACY_RE.test("SELECT 1 FROM crm_commodity_nodes_retired_20261011")) {
 if (!LEGACY_RE.test("SELECT 1 FROM crm.crm_commodity_nodes_retired_20261011")) {
   fail("BB8 自检失败：带库名限定的旧树表名没被抓到");
 }
-// 样本用 crm_commodity_group_segments（大类表 crm_commodity_groups 已按 ADR-0008 退役，不再拿来当反例）
-if (LEGACY_RE.test("SELECT 1 FROM crm_commodity_backbone") || LEGACY_RE.test("SELECT 1 FROM crm_commodity_group_segments")) {
-  fail("BB8 自检失败：正则把新树/段归属表误判成旧树");
+// 反例样本换成仍在场的表：大类维表族（crm_commodity_groups / crm_commodity_group_segments）已按 ADR-0008/0009 先后退役
+if (LEGACY_RE.test("SELECT 1 FROM crm_commodity_backbone") || LEGACY_RE.test("SELECT 1 FROM crm_notice_search")) {
+  fail("BB8 自检失败：正则把新树/宽表误判成旧树");
 }
 const srcFiles: string[] = [];
 const walkSrc = (dir: string) => {
@@ -140,9 +140,8 @@ const orig = hasLegacy
               SUM(code LIKE 'UGT-B-%') leaked FROM crm_commodity_nodes`,
     )
   : null;
-const segRows = await q(`SELECT unspsc_prefix, group_code FROM crm_commodity_group_segments`);
-for (const r of segRows) segToGroup.set(String(r.unspsc_prefix), String(r.group_code));
-
+// 段→大类只认常量这一份：段归属表 crm_commodity_group_segments 已按 ADR-0009 退役，
+// segToGroup 于是纯粹来自常量（上方 43~44 行），BB4 变成「树 L1/L4 的 group_code ↔ 常量」的直接比对。
 const byCode = new Map(rows.map((r) => [r.code, r]));
 const kids = new Map<string, number>();
 

@@ -5,16 +5,17 @@
  * @assertions
  *   CG1 大类恰为 32 个（口径源 EXPECTED_COMMODITY_GROUP_COUNT），且码形制为 UGT-G-NN
  *   CG2 段前缀形制合法（2 位数字）
- *   CG3 一段只属一类（与库内 uk_segment/uk_prefix 双保险）
+ *   CG3 一段只属一类（常量侧；库侧等价断言由 BB3/BB4 对骨架树逐段做）
  *   CG4 每类 name_zh 非空
- *   CG5（仅 --db）库内段归属与常量逐项一致（两个方向），且库内大类码域恰为 32 个
+ *   CG5（仅 --db）**树反推**的段归属与常量逐项一致（两个方向，且反推唯一），库内大类码域恰为 32 个
  *      （旧树 crm_commodity_nodes 下线后，品目面 58 段对账改由 backbone 门禁 BB4/BB7 守，本项打印跳过）
- *   CG6（静态）src/** 与 scripts/tools/** 不得用 SQL 读已退役的 crm_commodity_groups（含改名后的退役名）——
- *      「大类表可以删」的机器证明，写法同 BB8 对旧树的扫描
- *   CG7（仅 --db）大类表已退役：crm_commodity_groups 及其 retired 变体都不许在场
+ *   CG6（静态）src/** 与 scripts/tools/** 不得用 SQL 读已退役的大类维表族
+ *      （crm_commodity_groups / crm_commodity_group_segments，含改名后的退役名）——「这两张表可以删」的机器证明
+ *   CG7（仅 --db）大类维表族已退役：上述两表及其 retired 变体都不许在场
  * @limits 静态部分必须能在无 MySQL 的 CI（quality-gate job 没有库）里跑；CG5/CG7 是本地/发布前闸口。
  * @usage  npx tsx scripts/gates/check-commodity-groups.ts [--db]
- * @see    docs/adr/0008-commodity-groups-table-retirement.md（CG6/CG7 的由来）
+ * @see    docs/adr/0008-commodity-groups-table-retirement.md（大类维表退役）
+ * @see    docs/adr/0009-commodity-group-segments-table-retirement.md（段归属表退役 → CG5 改成对树反推）
  * @see    docs/superpowers/specs/2026-10-10-commodity-facet-15-groups-design.md §10.1
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -51,22 +52,27 @@ if (FIXTURE) {
 const totalPrefixes = groups.reduce((s, g) => s + (g.prefixes?.length ?? 0), 0);
 console.log(`静态：${groups.length} 类 / ${totalPrefixes} 段前缀${FIXTURE ? "（fixture 模式）" : ""}`);
 
-// ── CG6 大类表零引用（静态，无库也能跑；CI 与本地同一道闸）──
-// crm_commodity_groups 已于 ADR-0008 退役：32 类身份的唯一事实源是常量 + crm_commodity_group_segments。
-// 只抓 SQL 语境（FROM / JOIN + 表名），不把注释里的历史提及算违规；后缀 \w* 让「改名成 retired_* 再读」
-// 也算违规——`_` 在正则里是单词字符，拿 \b 收尾会让改名等于豁免（同 BB8 写法）。
+// ── CG6 大类维表族零引用（静态，无库也能跑；CI 与本地同一道闸）──
+// crm_commodity_groups（ADR-0008）与 crm_commodity_group_segments（ADR-0009）先后退役：32 类身份的唯一
+// 事实源是常量 + 骨架树 crm_commodity_backbone（L1 行 + 逐行冗余的 group_code）。
+// 只抓 SQL 语境（FROM / JOIN + 表名），不把注释里的历史提及算违规；`groups?` 配后缀 \w* 让
+// 「crm_commodity_group_segments」与「改名成 retired_* 再读」都算违规——`_` 在正则里是单词字符，
+// 拿 \b 收尾会让改名等于豁免（同 BB8 写法）。
 // 扫描根：src/**（随包运行）+ scripts/tools/**（长期在用的工具）。不含 scripts/gates 自身（本文件用字符串
 // 字面量做自检，扫自己必误伤），也不含 scripts/ops（一次性连库脚本，已由 check-gitignore-consistency 强制不入库）。
-const RETIRED_RE = /\b(?:FROM|JOIN)\s+`?(?:\w+`?\.)?`?crm_commodity_groups\w*\b/i;
-// 断言自身不许哑火：三条自检分别钉住「改名不豁免」「库名限定不豁免」「不误伤兄弟表/新树」
+const RETIRED_RE = /\b(?:FROM|JOIN)\s+`?(?:\w+`?\.)?`?crm_commodity_groups?\w*\b/i;
+// 断言自身不许哑火：四条自检分别钉住「改名不豁免」「库名限定不豁免」「段归属表也在禁列」「不误伤新树」
 if (!RETIRED_RE.test("SELECT 1 FROM crm_commodity_groups_retired_20261012")) {
-  problems.push("CG6 自检失败：正则匹配不到改名后的退役表，这条断言已哑火");
+  problems.push("CG6 自检失败：正则匹配不到改名后的大类维表，这条断言已哑火");
 }
 if (!RETIRED_RE.test("SELECT 1 FROM crm.crm_commodity_groups")) {
   problems.push("CG6 自检失败：带库名限定的退役表名没被抓到");
 }
-if (RETIRED_RE.test("SELECT 1 FROM crm_commodity_group_segments") || RETIRED_RE.test("SELECT 1 FROM crm_commodity_backbone")) {
-  problems.push("CG6 自检失败：正则把段归属表/新树误判成退役表");
+if (!RETIRED_RE.test("SELECT 1 FROM crm_commodity_group_segments")) {
+  problems.push("CG6 自检失败：段归属表没进禁列（它已在 ADR-0009 一并退役）");
+}
+if (RETIRED_RE.test("SELECT 1 FROM crm_commodity_backbone")) {
+  problems.push("CG6 自检失败：正则把新树误判成退役表");
 }
 const scanned: string[] = [];
 for (const rel of ["../../src", "../../scripts/tools"]) {
@@ -87,9 +93,9 @@ for (const rel of ["../../src", "../../scripts/tools"]) {
 const hits = scanned.filter((f) => RETIRED_RE.test(readFileSync(f, "utf8")));
 if (hits.length) {
   problems.push(
-    `CG6 有 ${hits.length} 个文件仍用 SQL 读已退役的 crm_commodity_groups：` +
+    `CG6 有 ${hits.length} 个文件仍用 SQL 读已退役的大类维表族：` +
       `${hits.map((h) => h.split(/[\\/]/).slice(-2).join("/")).join("、")}` +
-      ` ⇒ 32 类口径改从常量 + crm_commodity_group_segments 取（见 ADR-0008）`,
+      ` ⇒ 32 类口径改从常量 + 骨架树取（见 ADR-0008 / ADR-0009）`,
   );
 }
 
@@ -105,33 +111,45 @@ if (DB && !FIXTURE) {
     database: process.env.DB_NAME ?? "crm", charset: "utf8mb4", dateStrings: true,
   });
 
+  // 段→大类：从骨架上反推（归属表 crm_commodity_group_segments 已按 ADR-0009 退役）。
+  // 依据是逐行冗余的 group_code：门禁 BB4 断言「段所属大类 == 类行 group_code == 祖先 L1 的 group_code」，
+  // 所以「一个段的全部 L4 行指向同一个大类」是受断言保护的不变量。这里把唯一性显式量出来（kinds），
+  // 不用 MIN() 直接取值——那样会把「一段跨多大类」的退化掩盖成一个看起来正常的数。
+  // 不按 status 过滤：段归属是结构事实，不是可见性开关（退役前的归属表同样不带 status）。
   const [rows] = (await pool.query(
-    `SELECT group_code, unspsc_prefix FROM crm_commodity_group_segments ORDER BY unspsc_prefix`,
-  )) as [Array<{ group_code: string; unspsc_prefix: string }>, unknown];
-  const dbMap = new Map(rows.map((r) => [r.unspsc_prefix, r.group_code]));
+    `SELECT LEFT(unspsc_prefix, 2) AS seg, COUNT(DISTINCT group_code) AS kinds, MIN(group_code) AS g
+       FROM crm_commodity_backbone
+      WHERE level = 4 AND unspsc_prefix IS NOT NULL AND CHAR_LENGTH(unspsc_prefix) = 6
+      GROUP BY LEFT(unspsc_prefix, 2) ORDER BY seg`,
+  )) as [Array<{ seg: string; kinds: number; g: string }>, unknown];
+  const dbMap = new Map(rows.map((r) => [r.seg, r.g]));
+  for (const r of rows) {
+    if (Number(r.kinds) !== 1) {
+      problems.push(`CG5 段 ${r.seg} 的类行落在 ${r.kinds} 个大类上：树反推不唯一（BB4 该报红）`);
+    }
+  }
 
   for (const g of groups) {
     for (const p of g.prefixes) {
       const got = dbMap.get(p);
-      if (!got) problems.push(`CG5 段 ${p} 在库内没有归属行`);
-      else if (got !== g.code) problems.push(`CG5 段 ${p} 库内=${got}，常量=${g.code}`);
+      if (!got) problems.push(`CG5 段 ${p} 在树里推不出归属（常量=${g.code}）`);
+      else if (got !== g.code) problems.push(`CG5 段 ${p} 树反推=${got}，常量=${g.code}`);
     }
   }
   for (const [p, g] of dbMap) {
-    if (!groups.some((x) => x.prefixes.includes(p))) problems.push(`CG5 库内多出段 ${p}→${g}，常量里没有`);
+    if (!groups.some((x) => x.prefixes.includes(p))) problems.push(`CG5 树里多出段 ${p}→${g}，常量里没有`);
   }
 
-  // 大类码域：段归属是大类码在库里唯一还存身的地方，去重后必须恰好是常量那 32 个。
-  // 退役前这条由「读 crm_commodity_groups 逐行比 name_zh」承担（ADR-0008）；表退役后 name_zh 只存在于
-  // 常量，库侧能验的只剩「码域 + 段归属」——两者合起来已足以证明「库里没有常量之外的类」：
-  // 任何多出来的码都得挂在某个段前缀上，而段前缀已被上面两个方向逐一钉死。
+  // 大类码域：骨架 L1 的 group_code 去重后必须恰好是常量那 32 个。退役前这条由「读两张维表逐行比」承担
+  // （ADR-0008/0009）；维表族都没了之后，库侧能验的就是「码域 + 段归属」——两者合起来已足以证明
+  // 「库里没有常量之外的类」：任何多出来的码都得挂在某个段前缀上，而段前缀已被上面两个方向逐一钉死。
   const [dom] = (await pool.query(
-    `SELECT COUNT(DISTINCT group_code) c FROM crm_commodity_group_segments`,
+    `SELECT COUNT(DISTINCT group_code) c FROM crm_commodity_backbone WHERE level = 1`,
   )) as [Array<{ c: number }>, unknown];
   const domCount = Number(dom[0]!.c);
   if (domCount !== EXPECTED_COMMODITY_GROUP_COUNT) {
     problems.push(
-      `CG5 库内段归属用到的大类码 ${domCount} 个，应为 ${EXPECTED_COMMODITY_GROUP_COUNT}（码域缺项或串位）`,
+      `CG5 骨架 L1 的大类码 ${domCount} 个，应为 ${EXPECTED_COMMODITY_GROUP_COUNT}（码域缺项或串位）`,
     );
   }
 
@@ -152,26 +170,27 @@ if (DB && !FIXTURE) {
     console.log("  – CG5 段全覆盖跳过：旧树 crm_commodity_nodes 已不在库里（该不变量已改由 BB4/BB7 守）");
   }
 
-  // ── CG7 大类表退役不变量（ADR-0008）──
+  // ── CG7 大类维表族退役不变量（ADR-0008 / ADR-0009）──
   // 两个名字都不许在场：正名在场 = 退役没做完；retired_* 在场 = 改名改一半（ADR-0006 对旧树的同款理由：
   // 「退役」不允许停留在口头，也不允许停在中间态）。报错里直接给出收尾与回滚两条命令，不留给下一个人猜。
   const [stillThere] = (await pool.query(
     `SELECT TABLE_NAME t FROM information_schema.TABLES
-      WHERE table_schema = DATABASE() AND TABLE_NAME REGEXP '^crm_commodity_groups(_|$)'`,
+      WHERE table_schema = DATABASE() AND TABLE_NAME REGEXP '^crm_commodity_group'`,
   )) as [Array<{ t: string }>, unknown];
   if (stillThere.length) {
     problems.push(
-      `CG7 大类表仍在库里：${stillThere.map((r) => r.t).join("、")}` +
-        ` ⇒ 该表已按 ADR-0008 退役（32 类身份改由常量 + crm_commodity_group_segments 承载）。` +
-        `收尾：npx tsx scripts/ops/commodity-groups-retire.ts --apply --yes（先导出副本再改名→落刀）；` +
-        `回滚：把 runtime/commodity-groups-dump-*.sql 回灌`,
+      `CG7 大类维表族仍在库里：${stillThere.map((r) => r.t).join("、")}` +
+        ` ⇒ 两张表已分别按 ADR-0008（crm_commodity_groups）与 ADR-0009（crm_commodity_group_segments）退役，` +
+        `32 类身份改由常量 + 骨架树承载。` +
+        `收尾：npx tsx scripts/ops/commodity-groups-retire.ts --apply --yes（或 …-segments-retire.ts）；` +
+        `回滚：把 runtime/commodity-group*-dump-*.sql 回灌`,
     );
   }
 
   console.log(
-    `DB：库内归属 ${dbMap.size} 段 / 库内大类码 ${domCount} 个 / ` +
+    `DB：树反推段归属 ${dbMap.size} 段 / 骨架 L1 大类码 ${domCount} 个 / ` +
       `品目面段 ${segCount === null ? "—（旧树已下线，无对照物）" : `${segCount} 段`} / ` +
-      `大类表 ${stillThere.length ? "⚠ 仍在场" : "已退役"}`,
+      `大类维表族 ${stillThere.length ? "⚠ 仍在场" : "已退役"}`,
   );
   await pool.end();
 }
@@ -182,4 +201,4 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(`✅ CG1~CG4 通过（${groups.length} 类；DB 侧 ${DB && !FIXTURE ? "已比对" : "未比对，本地加 --db 执行"}）`);
-console.log("✅ CG6 通过（src/** 与 scripts/tools/** 零 SQL 引用已退役的 crm_commodity_groups 及其退役名）");
+console.log("✅ CG6 通过（src/** 与 scripts/tools/** 零 SQL 引用已退役的大类维表族及其退役名）");
