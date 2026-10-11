@@ -42,9 +42,11 @@ export const WIDE_LIMITS = {
   publishedDate: 50,
   /** 宽表 UNSPSC/precise 各级 ID 串列 TEXT，实际使用上限 2000 */
   unspscList: 2000,
-  /** 宽表品目路径列（code_path / precise_path / group_codes）TEXT 存储，实际使用上限 2000。
+  /** 宽表品目路径列（code_path / precise_path / group_codes）TEXT 存储，实际上限 8000。
+   *  8000 的根据：2026-10-10 实测最脏一条公告光祖先链就有 796 项（4 段/72 族/720 类），
+   *  约 4,000 字符；叠加叶子限量 150 项后 ≈ 5,800 字符。超上限仍拒写（不截断）。
    *  旧 unspscList 服务的列在 G6 退役后，本键即为唯一类目长度口径。 */
-  commodityList: 2000,
+  commodityList: 8000,
   /** 平台公告标题上下限（与 RfqWizard 前端校验同一常量，消除双口径） */
   rfqTitle: 50,
   rfqTitleMin: 10,

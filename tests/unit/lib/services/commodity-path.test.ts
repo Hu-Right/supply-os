@@ -12,9 +12,11 @@ import {
   isUnspscEight,
   unspscAncestorPrefixes,
   mergeAncestorPrefixes,
+  leafPrefixesOf,
   groupCodesOfCodes,
   toPathColumn,
   parsePathColumn,
+  MAX_LEAF_PREFIXES,
 } from "@/lib/services/commodity/path";
 
 describe("unspscAncestorPrefixes — 两位一组、遇 00 即停", () => {
@@ -79,6 +81,34 @@ describe("mergeAncestorPrefixes — 多码合并去重，不压缩", () => {
   });
 });
 
+describe("叶子限量：只压 8 位噪声，祖先层无损", () => {
+  /** 同一类下 90 个品目 + 另一类下 90 个品目 = 180 个叶子。
+   *  注意末两位不能取 00：`10101500` 尾组全零，按「遇 00 即停」它是类级码不是叶子。 */
+  const noisy = [
+    ...Array.from({ length: 90 }, (_, i) => `101015${String(i + 1).padStart(2, "0")}`),
+    ...Array.from({ length: 90 }, (_, i) => `101016${String(i + 1).padStart(2, "0")}`),
+  ];
+
+  it("叶子被截到上限，但两个类前缀都还在", () => {
+    const merged = mergeAncestorPrefixes(noisy);
+    expect(merged.filter((p) => p.length === 8)).toHaveLength(MAX_LEAF_PREFIXES);
+    expect(merged).toContain("101015");
+    expect(merged).toContain("101016"); // 未进叶子的类仍然在 ⇒ 选类不会漏
+    expect(merged).toContain("1010");
+    expect(merged).toContain("10");
+  });
+
+  it("leafPrefixesOf 给的是未限量的真实数（回填靠它报「丢了多少」）", () => {
+    expect(leafPrefixesOf(noisy)).toHaveLength(180);
+    expect(leafPrefixesOf(["41000000", "41010000"])).toEqual([]); // 粗码不产生叶子
+  });
+
+  it("不超上限时不丢任何叶子", () => {
+    const few = Array.from({ length: 30 }, (_, i) => `101015${String(i + 1).padStart(2, "0")}`);
+    expect(mergeAncestorPrefixes(few).filter((p) => p.length === 8)).toHaveLength(30);
+  });
+});
+
 describe("groupCodesOfCodes — 大类并集（OR 语义）", () => {
   it("跨大类公告出多个大类码，按码升序去重", () => {
     expect(groupCodesOfCodes(["72000000", "30000000"])).toEqual(["UGT-G-05", "UGT-G-11"]);
@@ -103,7 +133,10 @@ describe("toPathColumn / parsePathColumn — 写列与超长闸口", () => {
   });
 
   it("超过上限抛错而非静默截断（截断=漏筛，必须停线）", () => {
-    const huge = Array.from({ length: 400 }, (_, i) => String(10000000 + i * 7));
+    // 显式小上限：验证拒写行为本身，不依赖常量具体数值
+    expect(() => toPathColumn(["41", "4101", "410101"], 8)).toThrow(/截断写入/);
+    // 默认上限 8000：造足够多项把长度顶过线
+    const huge = Array.from({ length: 1200 }, (_, i) => String(10000000 + i * 7));
     expect(() => toPathColumn(huge)).toThrow(/超长/);
   });
 });

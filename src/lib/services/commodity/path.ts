@@ -13,6 +13,10 @@
  *                 因此选族 4101 命中不到它——招标方只说到段，是正确行为而非漏召回。
  *              3. 不做最短前缀压缩（commodity-code.ts 的 minimalCommodityPrefixes 是
  *                 子树 LIKE 语义，与此相反）；压缩会把 "4101" 收成 "41"，按族筛选静默丢公告。
+ *
+ *              叶子限量（2026-10-10 实测后的取舍）：有公告单条挂 5,091 个码这类「整本目录打上」的噪声标签，
+ *              所以只对 **8 位叶子层**限长（MAX_LEAF_PREFIXES）；2/4/6 位祖先层**无损保留**，
+ *              因此选段/选族/选类的结果一丝不差，只有「筛到具体品目」在极端公告上可能不全。
  */
 import { groupCodeOfUnspscCode } from "./groups";
 import { WIDE_LIMITS } from "../../utils/notice-field-limits";
@@ -38,11 +42,27 @@ export function unspscAncestorPrefixes(code: string): string[] {
   return out;
 }
 
-/** 多码合并：全部前缀去重，按（位数, 字典）升序——排序稳定以便逐条对账 */
-export function mergeAncestorPrefixes(codes: Iterable<string>): string[] {
+/** 8 位叶子（具体品目）前缀的保留上限。只压噪声标签，不影响段/族/类三层。 */
+export const MAX_LEAF_PREFIXES = 150;
+
+/** 一条公告的全部 8 位叶子前缀（粗码不产生叶子）；排序后供限量与「被丢弃多少」计数共用一份口径 */
+export function leafPrefixesOf(codes: Iterable<string>): string[] {
   const set = new Set<string>();
-  for (const c of codes) for (const p of unspscAncestorPrefixes(c)) set.add(p);
-  return [...set].sort((a, b) => a.length - b.length || a.localeCompare(b));
+  for (const c of codes) {
+    const chain = unspscAncestorPrefixes(c);
+    if (chain.length === 4) set.add(chain[3]); // 链长 4 ⇒ 走到了 8 位
+  }
+  return [...set].sort();
+}
+
+/** 多码合并：全部前缀去重，按（位数, 字典）升序——排序稳定以便逐条对账 */
+export function mergeAncestorPrefixes(codes: Iterable<string>, maxLeaf: number = MAX_LEAF_PREFIXES): string[] {
+  const ancestors = new Set<string>();
+  for (const c of codes) {
+    for (const p of unspscAncestorPrefixes(c)) if (p.length < 8) ancestors.add(p);
+  }
+  const leaves = leafPrefixesOf(codes).slice(0, maxLeaf);
+  return [...ancestors, ...leaves].sort((a, b) => a.length - b.length || a.localeCompare(b));
 }
 
 /** 多码的大类并集（OR 语义：任一命中即纳入），去重升序 */
