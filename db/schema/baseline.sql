@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 99 张，导出 98 张，排除 1 张。
+--           源库共 98 张，导出 98 张，排除 0 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -584,7 +584,8 @@ CREATE TABLE `crm_commodity_backbone` (
   UNIQUE KEY `uk_prefix` (`unspsc_prefix`),
   KEY `idx_parent` (`parent_code`),
   KEY `idx_group` (`group_code`),
-  KEY `idx_level` (`level`)
+  KEY `idx_level` (`level`),
+  FULLTEXT KEY `ft_backbone_names` (`name_zh`,`name_en`) /*!50100 WITH PARSER `ngram` */ 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='五级品目树';
 
 -- ── crm_commodity_group_segments ──
@@ -612,8 +613,8 @@ CREATE TABLE `crm_commodity_groups` (
   UNIQUE KEY `uk_code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品目大类（32 类）：权益墙行业单位与筛选顶层';
 
--- ── crm_commodity_nodes ──
-CREATE TABLE `crm_commodity_nodes` (
+-- ── crm_commodity_nodes_retired_20261011 ──
+CREATE TABLE `crm_commodity_nodes_retired_20261011` (
   `id` bigint unsigned NOT NULL,
   `code` varchar(40) NOT NULL,
   `unspsc_code` varchar(20) DEFAULT NULL,

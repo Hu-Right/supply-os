@@ -74,7 +74,7 @@ if (DB && !FIXTURE) {
   const [legacyTab] = (await pool.query(
     `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'crm_commodity_nodes'`,
   )) as [Array<{ n: number }>, unknown];
-  let segCount = 0;
+  let segCount: number | null = null;
   if (Number(legacyTab[0]!.n) > 0) {
     const [segs] = (await pool.query(
       `SELECT LEFT(unspsc_code, 2) p FROM crm_commodity_nodes WHERE level='segment'`,
@@ -94,7 +94,7 @@ if (DB && !FIXTURE) {
     else if (g.nameZh !== n.name_zh) problems.push(`CG5 ${n.code} 名称不一致：库内=${n.name_zh} 常量=${g.nameZh}`);
   }
 
-  console.log(`DB：库内归属 ${dbMap.size} 段 / 品目面段 ${segCount} 段 / 库内大类 ${names[0].length} 个`);
+  console.log(`DB：库内归属 ${dbMap.size} 段 / 品目面段 ${segCount === null ? "—（旧树已下线，无对照物）" : `${segCount} 段`} / 库内大类 ${names[0].length} 个`);
   await pool.end();
 }
 
