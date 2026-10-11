@@ -1,155 +1,163 @@
 /**
- * 品目分类树读层 — 五级级联选项与旧偏好路径换算
- * Commodity Tree Read Layer — five-level cascade options & legacy path resolution
+ * 品目骨架树读层 — 五级级联选项与旧偏好路径换算
+ * Commodity Backbone Tree Read Layer — five-level cascade options & legacy path resolution
  *
  * @module lib/services/commodity/tree
- * @description 商机页五级下拉的取数口：大类 → 段 → 族 → 类 → 品目（`crm_commodity_nodes`）。
- *              层级规模（2026-10-11 实测生产库）：大类 32 / 段 58 / 族 559 / 类 8,004 /
- *              品目 150,006（+ 自研延伸层 80，属第六级，本读层不返回）。
+ * @description 商机页五级下拉的取数口：大类(L1) → 中类(L2) → 小类(L3) → 子类(L4) → 品目(L5)，
+ *              全部读 `crm_commodity_backbone`（一张表，实测 159,429 行，门禁 BB1~BB7 守着）。
+ *              本层不再读 `crm_commodity_nodes`（旧树）——公告归属已由
+ *              `lib/services/commodity/backbone-path` 换算进宽表 `backbone_path`。
  *
- *              三条不可违反的形制规则（依据见 path.ts 与本轮实测 temp/probe52、probe54）：
- *              1. **筛选键是 UNSPSC 数字前缀，不是 `UGT-C-*` 顺排码的尾巴**：实测 58/58 段
- *                 两者全部不同序（`UGT-C-01` 的 unspsc_code 是 10000000，`UGT-C-56` 是 93000000），
- *                 而宽表 code_path 的 token 抽样 200/200 全是 UNSPSC 前缀 ⇒ 用码尾巴当筛选值
- *                 会筛出完全不相干的一批公告。`code` 只作节点身份回显，不参与筛选。
- *              2. 父子关系用 `parent_code` 走（实测 150,006/150,006 与 UNSPSC 前缀完全自洽），
- *                 父节点定位用 `unspsc_code` 等值（前缀补零到 8 位），两者都命中索引；
- *                 不写 `LEFT(unspsc_code, n) = ?` —— 函数包裹会让 idx_unspsc 失效。
- *              3. 名称缺失不编造：品目层实测 63,422/150,006 无中文名（英文名 100% 全），
- *                 展示侧按 nameZh → nameEn → key 兜底，本层只如实透传空串。
+ *              四条形制规则（2026-10-11 实测，temp/probe64）：
+ *              1. **筛选键就是节点码 `UGT-B-…`**（码长即层级：2/4/6/8/10 位）。公告侧
+ *                 `crm_notice_search.backbone_path` 存的是同一套码（含全部祖先），两边同口径
+ *                 ⇒ 选到哪一层就等值命中哪一层。旧的 UNSPSC 数字前缀不再当筛选键：
+ *                 业务层（L1~L3）故意不存 UNSPSC 编号，拿段/族前缀落不到中类/小类这一层。
+ *              2. **大类码不能由节点码切片推出**：32 个 L1 行里只有 5 个的码序号等于大类码序号
+ *                 （`UGT-B-01` 的 `group_code` 是 `UGT-G-11`）⇒ 需要大类时必须按 `code` 点查 L1 行。
+ *              3. 父节点定位走 `code`（`uk_code` 等值），子级走 `parent_code`（`idx_parent`），
+ *                 都是索引等值；不写 `LEFT(code, n) = ?` —— 函数包裹会让索引失效。
+ *              4. 名称缺失不编造：实测 L1~L3 的 `name_en` **全空**（32 / 212 / 1,175 行），
+ *                 L4/L5 双语全量非空。本层只如实透传空串，展示侧按 nameZh → nameEn → key 兜底
+ *                 （所以非中文界面这三层会落到中文名，补译名是独立工作，不在这里造）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { COMMODITY_GROUPS, groupCodeOfUnspscPrefix, isCommodityGroupCode } from "./groups";
+import { COMMODITY_GROUPS, isCommodityGroupCode } from "./groups";
 
 /** 一条级联选项 */
 export interface CommodityTreeOption {
-  /** 筛选键：段/族/类/品目 = UNSPSC 数字前缀（2/4/6/8 位） */
+  /** 筛选键 = 骨架节点码（UGT-B-…，码长即层级）；与公告侧 backbone_path 同口径 */
   key: string;
-  /** 树节点码（UGT-C-*），仅作身份与调试回显，不参与筛选 */
-  code: string;
-  /** 中文名（可能为空串） */
+  /** 中文名（L1~L5 实测全量非空） */
   nameZh: string;
-  /** 英文名（实测全量非空） */
+  /** 英文名（L1~L3 实测全空，L4/L5 非空；空串就交展示侧兜底） */
   nameEn: string;
 }
 
-/** 前缀长度 → 该前缀所在的层级（段 2 / 族 4 / 类 6 / 品目 8） */
-const LEVEL_BY_PREFIX_LEN: Record<number, string> = {
-  2: "segment",
-  4: "family",
-  6: "class",
-  8: "commodity",
-};
+/** 骨架节点码前缀（与 crm_commodity_backbone.code 形制一致，门禁 BB1 钉住「码长即层级」） */
+export const COMMODITY_NODE_PREFIX = "UGT-B-";
 
-/** 前缀长度 → 子层级（品目层无子：延伸层是第六级，不在本读层暴露） */
-const CHILD_LEVEL_BY_PREFIX_LEN: Record<number, string> = {
-  2: "family",
-  4: "class",
-  6: "commodity",
-};
+/** 骨架五级：层级数 → 码内数字位数（L1 两位 … L5 十位） */
+const LEVELS = [1, 2, 3, 4, 5] as const;
 
-/** 是否为合法品目筛选键（2/4/6/8 位数字 UNSPSC 前缀） */
-export function isCommodityPathKey(value: unknown): value is string {
+const NODE_RE = new RegExp(`^${COMMODITY_NODE_PREFIX}[0-9]{2}([0-9]{2}){0,4}$`);
+
+/** 是否为合法骨架节点筛选键（`UGT-B-` + 2/4/6/8/10 位数字，奇数位一律不认） */
+export function isCommodityNodeKey(value: unknown): value is string {
   const v = String(value ?? "");
-  return /^\d{2}$/.test(v) || /^\d{4}$/.test(v) || /^\d{6}$/.test(v) || /^\d{8}$/.test(v);
+  if (!NODE_RE.test(v)) return false;
+  const digits = v.length - COMMODITY_NODE_PREFIX.length;
+  return digits % 2 === 0 && digits >= 2 && digits <= 10;
+}
+
+/** 节点码 → 层级（1~5）；非法键返回 0（调用方据此拒绝下钻，不猜层级） */
+export function commodityNodeLevel(code: string): number {
+  if (!isCommodityNodeKey(code)) return 0;
+  return (code.length - COMMODITY_NODE_PREFIX.length) / 2;
 }
 
 /**
- * 筛选键 → 它的整条祖先链 [段, 族, 类, 品目]（未选到的层为空串）。
+ * 节点码 → 它的整条祖先链 [L1, L2, L3, L4, L5]（未选到的层为空串）。
  *
- * 为什么不需要查库反推：键本身就是 UNSPSC 数字前缀，祖先就是它的更短前缀（两位一级，
- * 与写入端 unspscAncestorPrefixes 同一形制）。五级下拉的深层链接（`?commodity=721015`）
- * 靠它一次算出该点亮哪几层、各层该向哪个父节点要选项，不依赖任何接口往返。
- * 形制不符（奇数位、非数字、超长）返回全空 ⇒ 宁可不点亮，也不拿一个错键去筛。
+ * 为什么不需要查库：门禁 BB1 把「父码 = 自身码去掉末两位」钉成不变量，所以祖先就是它的更短前缀，
+ * 逐两位截断即得。五级下拉的深链（`?commodity=UGT-B-010101`）靠它一次算出该点亮哪几层、
+ * 各层该向哪个父节点要选项，不依赖接口往返。形制不符（奇数位、非数字、前缀不对）返回全空
+ * ⇒ 宁可不点亮，也不拿一个错键去筛。
  */
-export function commodityPathChain(value: string | null | undefined): [string, string, string, string] {
+export function commodityNodeChain(value: string | null | undefined): [string, string, string, string, string] {
   const v = String(value ?? "");
-  const valid = isCommodityPathKey(v) ? v : "";
-  const out: string[] = ["", "", "", ""];
-  for (let len = 2; len <= 8; len += 2) {
-    if (valid.length >= len) out[len / 2 - 1] = valid.slice(0, len);
+  const valid = isCommodityNodeKey(v) ? v : "";
+  const out: string[] = ["", "", "", "", ""];
+  const body = valid.slice(COMMODITY_NODE_PREFIX.length);
+  for (const lv of LEVELS) {
+    if (body.length >= lv * 2) out[lv - 1] = COMMODITY_NODE_PREFIX + body.slice(0, lv * 2);
   }
-  return out as [string, string, string, string];
+  return out as [string, string, string, string, string];
 }
 
-/** 前缀 → 该层节点的完整 8 位 unspsc_code（不足位补零） */
-function unspscCodeOfPrefix(prefix: string): string {
-  return prefix.padEnd(8, "0");
-}
-
-function toOption(row: RowDataPacket, keyLen: number): CommodityTreeOption {
-  const unspsc = String(row.unspsc_code ?? "");
+function toOption(row: RowDataPacket): CommodityTreeOption {
   return {
-    key: unspsc.slice(0, keyLen),
-    code: String(row.code ?? ""),
+    key: String(row.code ?? ""),
     nameZh: String(row.name_zh ?? ""),
     nameEn: String(row.name_en ?? ""),
   };
 }
 
-/**
- * 取某一大类所辖的段（第二级）。
- * 段前缀取自 COMMODITY_GROUPS 常量（CG5 门禁逐段比对库内归属，两者必须一致），
- * 名称按 unspsc_code 等值回库里取 ⇒ 代码只持有标准，不持有名称。
- */
-export async function listSegmentsOfGroup(pool: Pool, groupCode: string): Promise<CommodityTreeOption[]> {
-  const def = COMMODITY_GROUPS.find((g) => g.code === groupCode);
-  if (!def) return [];
-  const codes = def.prefixes.map(unspscCodeOfPrefix);
+/** 取某个父节点码的全部子级：走 idx_parent 等值，按码序（=建树时的公告量序）返回 */
+async function childrenOf(pool: Pool, parentCode: string): Promise<CommodityTreeOption[]> {
   const [rows] = await pool.query(
-    `SELECT code, unspsc_code, name_zh, name_en
-       FROM crm_commodity_nodes
-      WHERE level = 'segment' AND status = 1 AND unspsc_code IN (${codes.map(() => "?").join(",")})
-      ORDER BY unspsc_code`,
-    codes,
+    `SELECT code, name_zh, name_en FROM crm_commodity_backbone
+      WHERE parent_code = ? AND status = 1 ORDER BY code`,
+    [parentCode],
   );
-  return (rows as RowDataPacket[]).map((r) => toOption(r, 2));
+  return (rows as RowDataPacket[]).map(toOption);
 }
 
 /**
- * 取某个前缀的下一级选项（族 / 类 / 品目）。
- * 父节点用 unspsc_code 等值定位，子节点走 idx_parent ⇒ 两次索引命中，无函数包裹。
+ * 取某一大类所辖的中类（第二级）。
+ * 大类界面仍由常量 + locale 渲染（chip 与下拉第一级同源同序同名），这里只是把
+ * `UGT-G-xx` 翻译成骨架 L1 节点码再取子级 —— 翻译必须回表，因为 L1 码序号不等于大类码序号。
  */
-export async function listChildrenOfPrefix(pool: Pool, prefix: string): Promise<CommodityTreeOption[]> {
-  const parentLevel = LEVEL_BY_PREFIX_LEN[prefix.length];
-  const childLevel = CHILD_LEVEL_BY_PREFIX_LEN[prefix.length];
-  if (!parentLevel || !childLevel) return []; // 8 位（品目）无下级；非法长度同样空
-  const [rows] = await pool.query(
-    `SELECT ch.code, ch.unspsc_code, ch.name_zh, ch.name_en
-       FROM crm_commodity_nodes p
-       JOIN crm_commodity_nodes ch ON ch.parent_code = p.code AND ch.status = 1
-      WHERE p.unspsc_code = ? AND p.level = ?
-      ORDER BY ch.unspsc_code`,
-    [unspscCodeOfPrefix(prefix), parentLevel],
+export async function listL2OfGroup(pool: Pool, groupCode: string): Promise<CommodityTreeOption[]> {
+  if (!COMMODITY_GROUPS.some((g) => g.code === groupCode)) return [];
+  const [l1] = await pool.query(
+    `SELECT code FROM crm_commodity_backbone WHERE level = 1 AND group_code = ? AND status = 1 LIMIT 1`,
+    [groupCode],
   );
-  const keyLen = prefix.length + 2;
-  return (rows as RowDataPacket[]).map((r) => toOption(r, keyLen));
+  const code = String((l1 as RowDataPacket[])[0]?.code ?? "");
+  return code ? childrenOf(pool, code) : [];
 }
 
 /**
- * 级联入口：parent 为大类的取段，为数字前缀的取下一级。
- * 大类层不经此口 —— 界面用常量 + locale 直接渲染，保证 chip 与下拉第一级同源同序同名。
+ * 取某个节点的下一级（中类→小类、小类→子类、子类→品目）。
+ * 品目层（10 位）无下级；非法长度同样返回空，不给界面假选项。
+ */
+export async function listChildrenOfNode(pool: Pool, code: string): Promise<CommodityTreeOption[]> {
+  return commodityNodeLevel(code) >= 5 ? [] : childrenOf(pool, code);
+}
+
+/**
+ * 级联入口：parent 是大类码（UGT-G-xx）取所辖中类，是节点码（UGT-B-…）取下一级。
  */
 export async function listCommodityTreeOptions(pool: Pool, parent: string): Promise<CommodityTreeOption[]> {
   const p = String(parent ?? "").trim();
-  if (isCommodityGroupCode(p)) return listSegmentsOfGroup(pool, p);
-  if (isCommodityPathKey(p)) return listChildrenOfPrefix(pool, p);
+  if (isCommodityGroupCode(p)) return listL2OfGroup(pool, p);
+  if (isCommodityNodeKey(p)) return listChildrenOfNode(pool, p);
   return [];
 }
 
-/** 旧偏好路径换算结果：大类码 + 各级前缀键（可能为空，代表偏好落在无法映射的层） */
+/**
+ * 节点码 → 所属大类码（外链只给 `?commodity=` 时点亮第一级用）。
+ * 一条 `uk_code` 点查，不做批量：它只在深链落地时调一次。
+ */
+export async function resolveGroupCodeOfNode(pool: Pool, code: string): Promise<string | null> {
+  const chain = commodityNodeChain(code);
+  const l1 = chain[0];
+  if (!l1) return null;
+  const [rows] = await pool.query(
+    `SELECT group_code FROM crm_commodity_backbone WHERE code = ? AND level = 1 LIMIT 1`,
+    [l1],
+  );
+  const g = String((rows as RowDataPacket[])[0]?.group_code ?? "");
+  return g || null;
+}
+
+/** 旧偏好路径换算结果：大类码 + 各级节点选项（options 可能为空，代表偏好落在映射不到的层） */
 export interface ResolvedCommodityPath {
   groupCode: string | null;
   options: CommodityTreeOption[];
 }
 
 /**
- * 把账号行业偏好（旧字典 `crm_unspsc_codes` 的 level1~3 行 id）换算成品目树路径。
+ * 把账号行业偏好（旧字典 `crm_unspsc_codes` 的行 id）换算成骨架节点路径。
  *
- * 为什么要换算：偏好存的是旧字典 id，而旧字典的 level=1 是 10 个字母容器（A..J），
- * 在新分类里根本没有对应层（新第一级是 32 个大类，一个容器横跨多个大类）。
- * 因此这里只认 level>=2 的行 —— 段/族/类的 8 位 code 去掉尾零就是新树的筛选键，
- * 大类由段前缀反查常量得到；level=1 直接忽略，不做「容器 → 大类」的臆测映射。
+ * 映射四条，全部只用新树自己的数据（不读旧树）：
+ *   字典 level=2（段，8 位码后 6 位为 0）→ 大类 L1：经 `crm_commodity_group_segments`（我们自己的 32 类归属）
+ *   字典 level=3（族，后 4 位为 0）  → 中类 L2：由该族的类行往上取，族→中类唯一由门禁 BB3 断言
+ *   字典 level=4（类，后 2 位为 0）  → 子类 L4：`unspsc_prefix` = 前 6 位等值
+ *   字典 level=5（品目）            → 品目 L5：`unspsc_prefix` = 8 位码等值
+ * 字典 level=1 是 10 个字母容器（A..J），新分类里没有对应层 ⇒ 直接忽略，不做臆测映射。
+ * 换不出节点的码不编造选项，交上层按缺口处理。
  */
 export async function resolveUnspscIdsToCommodityPath(
   pool: Pool,
@@ -163,29 +171,48 @@ export async function resolveUnspscIdsToCommodityPath(
     numeric,
   );
   const options: CommodityTreeOption[] = [];
-  const prefixes: string[] = [];
-  const dictRows = (rows as RowDataPacket[]).filter((r) => Number(r.level) >= 2 && Number(r.level) <= 5);
-  for (const r of dictRows) {
+  let groupCode: string | null = null;
+  for (const r of rows as RowDataPacket[]) {
+    const lv = Number(r.level);
     const code = String(r.code ?? "");
-    if (!/^\d{8}$/.test(code)) continue;
-    prefixes.push(code.slice(0, (Number(r.level) - 1) * 2));
-  }
-  if (prefixes.length > 0) {
-    // 名称回库里取（同一 8 位码在树里唯一）；字典有而树里没有的码不显示为选项，交上层按缺口处理
-    const [nodes] = await pool.query(
-      `SELECT code, unspsc_code, name_zh, name_en FROM crm_commodity_nodes
-        WHERE status = 1 AND unspsc_code IN (${prefixes.map(() => "?").join(",")})`,
-      prefixes.map(unspscCodeOfPrefix),
-    );
-    const byCode = new Map<string, RowDataPacket>(
-      (nodes as RowDataPacket[]).map((n) => [String(n.unspsc_code), n]),
-    );
-    for (const prefix of prefixes) {
-      const hit = byCode.get(unspscCodeOfPrefix(prefix));
-      if (!hit) continue;
-      options.push(toOption(hit, prefix.length));
+    if (lv < 2 || lv > 5 || !/^\d{8}$/.test(code)) continue;
+    let hit: RowDataPacket | undefined;
+    if (lv === 5 || lv === 4) {
+      // 品目：8 位码等值；类：字典存 8 位（后两位 00），树里 L4 的键是 6 位
+      const want = lv === 5 ? code : code.slice(0, 6);
+      const [found] = await pool.query(
+        `SELECT code, name_zh, name_en FROM crm_commodity_backbone
+          WHERE level = ? AND unspsc_prefix = ? AND status = 1 LIMIT 1`,
+        [lv === 5 ? 5 : 4, want],
+      );
+      hit = (found as RowDataPacket[])[0];
+    } else if (lv === 3) {
+      // 族 → 中类：从该族的类行往上两级取；前缀 LIKE 走 uk_prefix 范围，命中行数 ≤ 该族的类数
+      const [found] = await pool.query(
+        `SELECT b2.code, b2.name_zh, b2.name_en
+           FROM crm_commodity_backbone b4
+           JOIN crm_commodity_backbone b3 ON b3.code = b4.parent_code
+           JOIN crm_commodity_backbone b2 ON b2.code = b3.parent_code
+          WHERE b4.level = 4 AND b4.status = 1 AND b4.unspsc_prefix LIKE ?
+          ORDER BY b4.unspsc_prefix LIMIT 1`,
+        [`${code.slice(0, 4)}%`],
+      );
+      hit = (found as RowDataPacket[])[0];
+    } else {
+      // 段 → 大类：经自己的 32 类归属表，不回读旧树
+      const [found] = await pool.query(
+        `SELECT b.code, b.name_zh, b.name_en, b.group_code
+           FROM crm_commodity_group_segments s
+           JOIN crm_commodity_backbone b ON b.level = 1 AND b.group_code = s.group_code AND b.status = 1
+          WHERE LEFT(s.unspsc_prefix, 2) = ? LIMIT 1`,
+        [code.slice(0, 2)],
+      );
+      hit = (found as RowDataPacket[])[0];
+      if (hit) groupCode = String(hit.group_code ?? "") || groupCode;
     }
+    if (!hit) continue;
+    const opt = toOption(hit);
+    if (!options.some((o) => o.key === opt.key)) options.push(opt);
   }
-  const firstSeg = prefixes.find((p) => p.length >= 2);
-  return { groupCode: firstSeg ? groupCodeOfUnspscPrefix(firstSeg.slice(0, 2)) : null, options };
+  return { groupCode, options };
 }

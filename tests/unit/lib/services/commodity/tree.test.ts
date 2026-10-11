@@ -1,22 +1,26 @@
 /**
- * 品目分类树读层单测
+ * 品目骨架树读层单测
  *
- * 本文件最重要的用例是「筛选键必须是 UNSPSC 前缀，不是 UGT-C 顺排码尾巴」：
- * 2026-10-11 实测生产库 58/58 段两者全部不同序（UGT-C-01 的 unspsc_code 是 10000000、
- * UGT-C-56 是 93000000），而宽表 code_path 的 token 抽样 200/200 全是 UNSPSC 前缀。
- * 一旦有人「顺手用 code 的尾巴当值」，界面看起来正常、筛出来的却是另一批公告，
- * 且不会报错 —— 所以这里把键的取值和 SQL 形制一起钉住。
+ * 换树之后最容易被做错的两件事，这里一起钉住：
+ * 1. **筛选键就是骨架节点码**（`UGT-B-…`），与公告侧 `backbone_path` 同口径。一旦有人把旧的
+ *    UNSPSC 数字前缀拿回来当键，界面照常渲染、筛出来却是空集（`backbone_path` 里没有那种 token），
+ *    且不报错 —— 所以键形制与 SQL 一起钉。
+ * 2. **不得回读旧树**：所有 SQL 只准命中 `crm_commodity_backbone` / `crm_commodity_group_segments` /
+ *    `crm_unspsc_codes`（旧字典只作身份翻译）。出现 `crm_commodity_nodes` 就是回退，用例直接红。
+ * 另钉一条实测事实：大类码不能由节点码切片推出（32 个 L1 行只有 5 行的码序号等于大类码序号），
+ * 所以取大类必须发生一次点查。
  */
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  isCommodityPathKey,
-  commodityPathChain,
-  listSegmentsOfGroup,
-  listChildrenOfPrefix,
+  commodityNodeChain,
+  commodityNodeLevel,
+  isCommodityNodeKey,
+  listChildrenOfNode,
   listCommodityTreeOptions,
+  listL2OfGroup,
+  resolveGroupCodeOfNode,
   resolveUnspscIdsToCommodityPath,
 } from "@/lib/services/commodity/tree";
-import { mergeAncestorPrefixes } from "@/lib/services/commodity/path";
 import type { Pool } from "mysql2/promise";
 
 interface Call { sql: string; params: unknown[] }
@@ -35,154 +39,198 @@ function fakePool(rows: Rows = []): { pool: Pool; calls: Call[] } {
   return { pool, calls };
 }
 
-/** 段节点：UGT-C-41 的 unspsc_code 是 72000000（码尾巴 41 与前缀 72 不同序的真实形态） */
-const SEG_ROW = { code: "UGT-C-41", unspsc_code: "72000000", name_zh: "建筑、设施施工和维护服务", name_en: "Facility Construction and Maintenance Services" };
+/** 全部被调用过的 SQL 里都不许出现旧树表名 */
+function assertNoLegacyTree(calls: Call[]) {
+  for (const c of calls) expect(c.sql).not.toContain("crm_commodity_nodes");
+}
 
-describe("isCommodityPathKey", () => {
-  it("只接受 2/4/6/8 位数字", () => {
-    for (const ok of ["72", "7210", "721015", "72101501"]) expect(isCommodityPathKey(ok)).toBe(true);
-    for (const bad of ["7", "721", "", "abc", "721015011", "72-", " 72", "UGT-C-41"]) {
-      expect(isCommodityPathKey(bad)).toBe(false);
+const L2_ROW = { code: "UGT-B-0101", name_zh: "建筑施工服务", name_en: "" };
+const L3_ROW = { code: "UGT-B-010101", name_zh: "施工服务", name_en: "" };
+const L5_ROW = { code: "UGT-B-0101010101", name_zh: "干洗厂施工和改建服务", name_en: "Dry cleaning construction" };
+
+describe("isCommodityNodeKey / commodityNodeLevel", () => {
+  it("只认 UGT-B- 前缀 + 偶数位（2/4/6/8/10）", () => {
+    for (const ok of ["UGT-B-01", "UGT-B-0101", "UGT-B-010101", "UGT-B-01010101", "UGT-B-0101010101"]) {
+      expect(isCommodityNodeKey(ok)).toBe(true);
+    }
+    for (const bad of ["72", "721015", "UGT-B-1", "UGT-B-010", "UGT-B-", "", "  UGT-B-01", "UGT-C-41", "UGT-B-010101010101"]) {
+      expect(isCommodityNodeKey(bad)).toBe(false);
     }
   });
-});
 
-describe("listSegmentsOfGroup（大类 → 段）", () => {
-  it("返回的 key 是 UNSPSC 前缀，不是 UGT-C 码尾巴", async () => {
-    const { pool } = fakePool([SEG_ROW]);
-    const options = await listSegmentsOfGroup(pool, "UGT-G-11");
-    expect(options).toHaveLength(1);
-    expect(options[0].key).toBe("72");
-    expect(options[0].key).not.toBe("41");
-    expect(options[0].code).toBe("UGT-C-41");
-  });
-
-  it("按常量段前缀补零成 8 位码等值查库（名称一律回库里取，代码不持有名称）", async () => {
-    const { pool, calls } = fakePool([SEG_ROW]);
-    await listSegmentsOfGroup(pool, "UGT-G-11");
-    expect(calls[0].params).toEqual(["72000000"]);
-    expect(calls[0].sql).toContain("level = 'segment'");
-    expect(calls[0].sql).toContain("unspsc_code IN");
-  });
-
-  it("非 32 类常量内的大类返回空，不猜", async () => {
-    const { pool, calls } = fakePool([SEG_ROW]);
-    expect(await listSegmentsOfGroup(pool, "UGT-G-99")).toEqual([]);
-    expect(calls).toHaveLength(0);
+  it("位数就是层级；非法键返回 0（不猜层级）", () => {
+    expect(commodityNodeLevel("UGT-B-01")).toBe(1);
+    expect(commodityNodeLevel("UGT-B-010101")).toBe(3);
+    expect(commodityNodeLevel("UGT-B-0101010101")).toBe(5);
+    expect(commodityNodeLevel("721015")).toBe(0);
   });
 });
 
-describe("listChildrenOfPrefix（段 → 族 → 类 → 品目）", () => {
-  it("父节点用 unspsc_code 等值定位：不出现 LEFT(...) 函数包裹，索引可用", async () => {
-    const { pool, calls } = fakePool([
-      { code: "UGT-C-4101", unspsc_code: "72100000", name_zh: "建筑、设施维护和修理服务", name_en: "Building and Facility Maintenance Services" },
+describe("commodityNodeChain — 祖先链由码自身截断", () => {
+  it("小类码 → 五级链前三个点亮，后两层空串", () => {
+    expect(commodityNodeChain("UGT-B-010101")).toEqual(["UGT-B-01", "UGT-B-0101", "UGT-B-010101", "", ""]);
+  });
+
+  it("品目码 → 五级全点亮", () => {
+    expect(commodityNodeChain("UGT-B-0101010101")).toEqual([
+      "UGT-B-01", "UGT-B-0101", "UGT-B-010101", "UGT-B-01010101", "UGT-B-0101010101",
     ]);
-    const options = await listChildrenOfPrefix(pool, "72");
-    expect(options[0].key).toBe("7210");
-    const sql = calls[0].sql;
-    expect(sql).toContain("p.unspsc_code = ?");
-    expect(sql).not.toMatch(/LEFT\s*\(/);
-    expect(calls[0].params).toEqual(["72000000", "segment"]);
   });
 
-  it("每往下一层，键长度加两位且层级随之切换", async () => {
-    const cases: Array<[string, string]> = [["72", "segment"], ["7210", "family"], ["721015", "class"]];
-    for (const [prefix, level] of cases) {
-      const { pool, calls } = fakePool([]);
-      await listChildrenOfPrefix(pool, prefix);
-      expect(calls[0].params).toEqual([prefix + "0".repeat(8 - prefix.length), level]);
+  it("非法值返回全空：宁可不点亮，也不拿错键去筛", () => {
+    expect(commodityNodeChain("721015")).toEqual(["", "", "", "", ""]);
+    expect(commodityNodeChain(null)).toEqual(["", "", "", "", ""]);
+  });
+});
+
+describe("listL2OfGroup（大类 → 中类）", () => {
+  it("常量外的大类码直接空返回，连库都不问", async () => {
+    const { pool, calls } = fakePool([]);
+    expect(await listL2OfGroup(pool, "UGT-G-99")).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("先按 group_code 点查 L1，再取子级；返回的 key 就是节点码", async () => {
+    const { pool, calls } = fakePool((sql) =>
+      sql.includes("group_code = ?") ? [{ code: "UGT-B-01" }] : [L2_ROW],
+    );
+    const options = await listL2OfGroup(pool, "UGT-G-11");
+    expect(calls).toHaveLength(2);
+    expect(calls[0].sql).toContain("level = 1");
+    expect(calls[0].params).toEqual(["UGT-G-11"]);
+    expect(calls[1].sql).toContain("parent_code = ?");
+    expect(calls[1].params).toEqual(["UGT-B-01"]); // 点查得到的 L1 码，不是拿大类码拼出来的
+    expect(options[0].key).toBe("UGT-B-0101");
+    assertNoLegacyTree(calls);
+  });
+
+  it("L1 行不存在时不编造子级", async () => {
+    const { pool } = fakePool([]);
+    expect(await listL2OfGroup(pool, "UGT-G-11")).toEqual([]);
+  });
+});
+
+describe("listChildrenOfNode（中类 → 小类 → 子类 → 品目）", () => {
+  it("子级走 parent_code 等值，不出现 LEFT(...) 函数包裹（索引可用）", async () => {
+    const { pool, calls } = fakePool([L3_ROW]);
+    const options = await listChildrenOfNode(pool, "UGT-B-0101");
+    expect(options[0].key).toBe("UGT-B-010101");
+    expect(calls[0].sql).toContain("parent_code = ?");
+    expect(calls[0].sql).not.toContain("LEFT(");
+    assertNoLegacyTree(calls);
+  });
+
+  it("品目层（10 位）无下级：空返回且不发 SQL", async () => {
+    const { pool, calls } = fakePool([L5_ROW]);
+    expect(await listChildrenOfNode(pool, "UGT-B-0101010101")).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("选项只暴露 key/nameZh/nameEn，不再带同值的 code 字段", async () => {
+    const { pool } = fakePool([L3_ROW]);
+    const [first] = await listChildrenOfNode(pool, "UGT-B-0101");
+    expect(Object.keys(first).sort()).toEqual(["key", "nameEn", "nameZh"]);
+    expect(first.nameEn).toBe(""); // 库里缺英文名就透传空，展示侧兜底，不在此处编
+  });
+});
+
+describe("listCommodityTreeOptions — 分派入口", () => {
+  it("大类码走大类分支，节点码走子级分支，脏值一律空返回", async () => {
+    const a = fakePool((sql) => (sql.includes("group_code = ?") ? [{ code: "UGT-B-01" }] : [L2_ROW]));
+    await listCommodityTreeOptions(a.pool, "UGT-G-11");
+    expect(a.calls[0].sql).toContain("level = 1");
+
+    const b = fakePool([L3_ROW]);
+    await listCommodityTreeOptions(b.pool, "UGT-B-0101");
+    expect(b.calls[0].sql).toContain("parent_code = ?");
+
+    for (const bad of ["", "   ", "72", "UGT-C-41", "' OR 1=1--"]) {
+      const c = fakePool([]);
+      expect(await listCommodityTreeOptions(c.pool, bad)).toEqual([]);
+      expect(c.calls).toHaveLength(0); // 脏值不下库，避免误放宽
     }
   });
+});
 
-  it("品目层（8 位）没有下一级；非法长度不查库直接空", async () => {
-    const { pool, calls } = fakePool([SEG_ROW]);
-    expect(await listChildrenOfPrefix(pool, "72101501")).toEqual([]);
-    expect(await listChildrenOfPrefix(pool, "721")).toEqual([]);
-    expect(calls).toHaveLength(0);
+describe("resolveGroupCodeOfNode — 大类码必须点查（切片推不出来）", () => {
+  it("用链顶 L1 码按 code 等值查 group_code", async () => {
+    const { pool, calls } = fakePool([{ group_code: "UGT-G-11" }]);
+    expect(await resolveGroupCodeOfNode(pool, "UGT-B-010101")).toBe("UGT-G-11");
+    expect(calls[0].sql).toContain("WHERE code = ?");
+    expect(calls[0].params).toEqual(["UGT-B-01"]); // 截到链顶，而不是整串传下去
+    assertNoLegacyTree(calls);
+  });
+
+  it("非法键返回 null；查得到码但 group_code 为空串也返回 null（不给界面假值）", async () => {
+    const a = fakePool([{ group_code: "UGT-G-11" }]);
+    expect(await resolveGroupCodeOfNode(a.pool, "721015")).toBeNull();
+    const b = fakePool([{ group_code: "" }]);
+    expect(await resolveGroupCodeOfNode(b.pool, "UGT-B-01")).toBeNull();
   });
 });
 
-describe("listCommodityTreeOptions（级联入口）", () => {
-  it("大类码走段查询，数字前缀走子级查询", async () => {
-    const a = fakePool([]);
-    await listCommodityTreeOptions(a.pool, "UGT-G-11");
-    expect(a.calls[0].sql).toContain("level = 'segment'");
-
-    const b = fakePool([]);
-    await listCommodityTreeOptions(b.pool, "7210");
-    expect(b.calls[0].sql).toContain("ch.parent_code = p.code");
-  });
-
-  it("空 parent / 乱码 parent 一律空返回（不给界面假选项）", async () => {
-    const { pool, calls } = fakePool([SEG_ROW]);
-    expect(await listCommodityTreeOptions(pool, "")).toEqual([]);
-    expect(await listCommodityTreeOptions(pool, "' OR 1=1")).toEqual([]);
+describe("resolveUnspscIdsToCommodityPath — 旧字典 id → 骨架节点", () => {
+  it("空 ids 与全 0 ids 都不问库", async () => {
+    const { pool, calls } = fakePool([]);
+    expect(await resolveUnspscIdsToCommodityPath(pool, [])).toEqual({ groupCode: null, options: [] });
+    await resolveUnspscIdsToCommodityPath(pool, [0, null, undefined]);
     expect(calls).toHaveLength(0);
   });
-});
 
-describe("resolveUnspscIdsToCommodityPath（旧偏好 → 品目树路径）", () => {
-  it("只认 level>=2：旧字典 level=1 是 A..J 容器，新分类里没有这一层", async () => {
-    const dict = fakePool((sql) =>
+  it("段级字典行 → 大类 L1，并把大类码带出来", async () => {
+    const { pool, calls } = fakePool((sql) =>
       sql.includes("crm_unspsc_codes")
-        ? [
-            { id: 100, code: "A", level: 1 },
-            { id: 100081, code: "72000000", level: 2 },
-            { id: 100082, code: "72100000", level: 3 },
-          ]
-        : [
-            { code: "UGT-C-41", unspsc_code: "72000000", name_zh: "建筑、设施施工和维护服务", name_en: "Construction" },
-            { code: "UGT-C-4101", unspsc_code: "72100000", name_zh: "建筑、设施维护和修理服务", name_en: "Maintenance" },
-          ],
+        ? [{ id: 100081, code: "72000000", level: 2 }]
+        : [{ code: "UGT-B-14", name_zh: "交通运输", name_en: "", group_code: "UGT-G-14" }],
     );
-    const resolved = await resolveUnspscIdsToCommodityPath(dict.pool, [100, 100081, 100082]);
-    const nodeQuery = dict.calls.find((c) => c.sql.includes("crm_commodity_nodes"))!;
-    expect(nodeQuery.params).toEqual(["72000000", "72100000"]);
-    expect(resolved.options.map((o) => o.key)).toEqual(["72", "7210"]);
-    // 大类由段前缀反查常量：72 段归 UGT-G-11（建筑施工与运维服务）
-    expect(resolved.groupCode).toBe("UGT-G-11");
+    const r = await resolveUnspscIdsToCommodityPath(pool, [100081]);
+    expect(r.groupCode).toBe("UGT-G-14");
+    expect(r.options).toEqual([{ key: "UGT-B-14", nameZh: "交通运输", nameEn: "" }]);
+    expect(calls[1].sql).toContain("crm_commodity_group_segments"); // 经自己的 32 类归属表
+    assertNoLegacyTree(calls);
   });
 
-  it("字典里的码在树里没有对应节点时不编造选项", async () => {
-    const dict = fakePool((sql) =>
+  it("族级 → 中类 L2（由类行往上两级推），类级 → 子类 L4，品目级 → L5", async () => {
+    const { pool, calls } = fakePool((sql) => {
+      if (sql.includes("crm_unspsc_codes")) {
+        return [
+          { id: 1, code: "72100000", level: 3 },
+          { id: 2, code: "72101500", level: 4 },
+          { id: 3, code: "72101510", level: 5 },
+        ];
+      }
+      if (sql.includes("b4.unspsc_prefix LIKE")) return [L2_ROW];
+      if (sql.includes("level = ? AND unspsc_prefix = ?")) return [L5_ROW];
+      return [];
+    });
+    const r = await resolveUnspscIdsToCommodityPath(pool, [1, 2, 3]);
+    expect(r.options.map((o) => o.key)).toEqual(["UGT-B-0101", "UGT-B-0101010101"]);
+    // 类级/品目级都按 unspsc_prefix 等值命中，参数是截好的键（不是整串 8 位）
+    const prefixCalls = calls.filter((c) => c.sql.includes("level = ? AND unspsc_prefix = ?"));
+    expect(prefixCalls[0].params).toEqual([4, "721015"]); // 类：截 6 位命中 L4
+    expect(prefixCalls[1].params).toEqual([5, "72101510"]); // 品目：8 位整串
+    assertNoLegacyTree(calls);
+  });
+
+  it("字典 level=1（A..J 字母容器）与非 8 位码一律跳过，不做臆测映射", async () => {
+    const { pool, calls } = fakePool((sql) =>
+      sql.includes("crm_unspsc_codes")
+        ? [{ id: 100, code: "A", level: 1 }, { id: 101, code: "ZZZZ", level: 4 }]
+        : [{ code: "UGT-B-01", name_zh: "不该被用到", name_en: "", group_code: "UGT-G-11" }],
+    );
+    const r = await resolveUnspscIdsToCommodityPath(pool, [100, 101]);
+    expect(r.options).toEqual([]);
+    expect(r.groupCode).toBeNull();
+    expect(calls).toHaveLength(1); // 只问了字典，没为新树发第二次查询
+  });
+
+  it("字典有、树里换不出节点的码不编造选项", async () => {
+    const { pool, calls } = fakePool((sql) =>
       sql.includes("crm_unspsc_codes") ? [{ id: 1, code: "99000000", level: 2 }] : [],
     );
-    const resolved = await resolveUnspscIdsToCommodityPath(dict.pool, [1]);
-    expect(resolved.options).toEqual([]);
-  });
-
-  it("无有效 id 时不查库", async () => {
-    const { pool, calls } = fakePool([]);
-    expect(await resolveUnspscIdsToCommodityPath(pool, [null, undefined, 0])).toEqual({
-      groupCode: null,
-      options: [],
-    });
-    expect(calls).toHaveLength(0);
-  });
-});
-
-describe("commodityPathChain — 筛选键自带祖先链（五级下拉的点亮依据）", () => {
-  it("选到哪一层，就把那一层以上的链补全", () => {
-    expect(commodityPathChain("41")).toEqual(["41", "", "", ""]);
-    expect(commodityPathChain("4101")).toEqual(["41", "4101", "", ""]);
-    expect(commodityPathChain("410101")).toEqual(["41", "4101", "410101", ""]);
-    expect(commodityPathChain("41010105")).toEqual(["41", "4101", "410101", "41010105"]);
-  });
-
-  it("形制不符返回全空：不拿一个错键去点亮任何一层", () => {
-    for (const bad of ["", "4", "410", "41010", "4101010", "abcdefgh", "41' OR 1=1", "UGT-C-41"]) {
-      expect(commodityPathChain(bad)).toEqual(["", "", "", ""]);
-    }
-    expect(commodityPathChain(null)).toEqual(["", "", "", ""]);
-  });
-
-  it("与写入端同一套键形制：链上每一项都是 code_path 里可能出现的 token", () => {
-    // 写入端 unspscAncestorPrefixes 产出的就是「两位一级、遇 00 即停」的前缀集；
-    // 读取端反推的链必须能在其中找到位置，否则下拉选中值永远命中不到公告
-    const written = mergeAncestorPrefixes(["41010105"]);
-    for (const key of commodityPathChain("41010105")) {
-      if (!key) continue;
-      expect(written).toContain(key);
-    }
+    const r = await resolveUnspscIdsToCommodityPath(pool, [1]);
+    expect(r.options).toEqual([]);
+    expect(r.groupCode).toBeNull();
+    assertNoLegacyTree(calls);
   });
 });
