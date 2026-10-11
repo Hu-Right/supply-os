@@ -1,10 +1,12 @@
 /**
- * GET /api/notices/hot-topics — 首页热门话题（国家/行业/UNSPSC 代码，带有效公告计数）
+ * GET /api/notices/hot-topics — 首页热门话题（国家 / 品目大类，带有效公告计数）
  *
  * @module app/api/notices/hot-topics/route
- * @description 规划 §5.1 内容模块 + §7.3 数量 SEO：热门国家、热门行业、UNSPSC
- *              热门代码各 TOP8，均带真实结果数。服务端 10 分钟内存缓存，
- *              响应层再加 10 分钟 HTTP 缓存（与 industries 下拉口径一致）。
+ * @description 规划 §5.1 内容模块 + §7.3 数量 SEO：热门国家、热门品目大类各 TOP8，
+ *              均带真实结果数（大类计数与点进去的检索谓词同一包含关系）。
+ *              服务端 10 分钟内存缓存，响应层再加 10 分钟 HTTP 缓存
+ *              （与 industries 下拉口径一致）。名字不在这里拼：返回的是大类码，
+ *              前端按 `commodityGroup_*` locale 键取（全库名字只有一份口径）。
  */
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";

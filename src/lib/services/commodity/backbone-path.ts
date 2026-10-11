@@ -260,9 +260,12 @@ export function toBackbonePathColumn(codes: string[]): string {
  * 读取端拆列**只走这里**：手写 `split(",")` 的地方一多，列形制改了就会逐处静默失效。
  * 已登记消费方（新增一个就回这里点名，别让它默默长出第二份）：
  * - `notices/similar.ts`：从宽表列值取当前公告与候选公告的节点码；
- * - `meilisearch/sync.ts`：拆成 `backbone_node` 数组属性（不再用本文件的局部 `parseCsvList`）。
+ * - `meilisearch/sync.ts`：拆成 `backbone_node` / `precise_backbone_node` 数组属性（不再用本文件的局部 `parseCsvList`）；
+ * - `industry-scope.ts`：行业墙的单公告执法点，拆宽表 `backbone_path` 与大类的 L1 节点码集比对；
+ * - `search-orchestrator/format.ts`：匹配分标签拆 `precise_backbone_path`（与检索谓词同源）。
  * 待切（R5 剩余任务，均应改调本函数而不是自己拆）：`unspsc/*` 类目工具、三个 repo、
- * `ai-match`、`hot-topics`、`recommend`。
+ * `ai-match`、`recommend`。`hot-topics` 已收：它的计数留在 SQL 里按包含关系聚合
+ * （`FIND_IN_SET` 与检索谓词同一条关系），不在应用侧拆列 ⇒ 不进本名单。
  */
 export function fromBackbonePathColumn(value: unknown): string[] {
   const s = String(value ?? "").trim();

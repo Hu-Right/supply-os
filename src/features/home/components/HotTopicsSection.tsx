@@ -1,30 +1,25 @@
 /**
- * 热门行业 — 真实计数
- * Hot Topics Section — Real Counts by Industry
+ * 热门品目大类 — 真实计数
+ * Hot Topics Section — Real Counts by Commodity Group
  *
  * @module features/home/components/HotTopicsSection
  * @description 消费 useHotTopics hook，纯展示组件。
  *              服务端 10 分钟缓存 + HTTP 10 分钟缓存，无需客户端轮询。
+ *              名字与链接都由 hotGroupView 给出（两个组件共用一份），本组件不拼口径。
  */
 import { useLocale } from "@/core/i18n";
-import { useHotTopics } from "../hooks/useHotTopics";
+import { useHotTopics, hotGroupView } from "../hooks/useHotTopics";
 
-/** 热门行业 — 真实计数 */
+/** 热门品目大类 — 真实计数 */
 export function HotTopicsSection() {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const { topics } = useHotTopics();
 
   if (!topics || !topics.industries?.length) return null;
 
-  const industryName = (i: { title_zh: string; title: string }) =>
-    locale === "zh" ? i.title_zh || i.title : i.title;
-
-  const items = topics.industries.map((i) => ({
-    key: String(i.id),
-    label: industryName(i),
-    count: i.count,
-    href: `/procurement?industry_id=${i.id}`,
-  }));
+  const items = hotGroupView(topics.industries, t);
+  // 全部是不认识的码（常量与库分叉）：整行不渲染，不给一个空盒子当「热门品目」
+  if (items.length === 0) return null;
 
   return (
     <section className="px-4 sm:px-6 lg:px-8 py-6 border-b border-slate-100">

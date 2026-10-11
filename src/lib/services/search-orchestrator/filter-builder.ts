@@ -314,7 +314,8 @@ export async function buildFilterPlan(
   // 及其全部祖先（lib/services/commodity/backbone-path 换算后灌入），所以选到哪一层就命中哪一层。
   // 两边同口径是前提：旧写法拿 UNSPSC 前缀去筛 code_path，现在键、列、树是同一套码，
   // 不再存在「键形制与列形制不同序」那一类陷阱（旧骨架树的坑，见 temp/probe52）。
-  // 实测：UGT-B-01 命中 49,236 条 = 大类 chip 口径；中类 UGT-B-0101 命中 7,616（temp/probe64）。
+  // 实测：UGT-B-01 命中 49,258 条 = 大类 chip 口径；中类 UGT-B-0101 命中 7,616（temp/probe64，
+  // 2026-10-11 全量重灌后 Meili 与 MySQL 逐码对拍相等，temp/probe91）。
   // 两条方言的形状与大类共用 nodeMeiliFilter / nodeMysqlWhere（一份形状，两处不分开错）。
   // Meili 侧需索引有 backbone_node 属性（sync.ts 由 backbone_path 拆数组）；
   // 索引未重灌前该属性不存在，Meili 会报未知属性错并整体降级到下面的 MySQL 方言（结果仍正确）。
