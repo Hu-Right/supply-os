@@ -1,5 +1,5 @@
 /**
- * 品目树门禁 BB1~BB6（单表结构版）
+ * 品目树门禁 BB1~BB7（单表结构版）
  *
  * @script scripts/gates/check-commodity-backbone.ts
  * @assertions
@@ -9,6 +9,8 @@
  *   BB4 大类连续：节点 group_code = 祖先 group_code = 其 UNSPSC 段所属大类（对齐 group_segments）
  *   BB5 五级齐：L1 恰 32 行且 parent 为空串，L1~L5 每级都有行；同名兄弟只 WARN
  *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥
+ *   BB7 公告已在新树找到家：宽表 backbone_path 与桥表闭合（有码必填、无码必空）、
+ *      列内码全部存在于树、排序后首码必为大类行（祖先全存的不变量）
  * @limits 静态部分必须能在无 MySQL 的 CI 里跑；--db 是本地/发布前闸口。
  * @usage  npm run check:backbone     或     npx tsx scripts/gates/check-commodity-backbone.ts --db
  * @see    docs/superpowers/specs/2026-10-11-commodity-backbone-5level-design.md
@@ -169,8 +171,60 @@ if (warns.length) console.log(`⚠ ${warns.length} 个中类/小类名含拉丁�
 if (Number(orig.total) !== EXPECT_ORIG_ROWS) fail(`BB6 原树行数=${orig.total}，应为 ${EXPECT_ORIG_ROWS}`);
 if (Number(orig.leaked) !== 0) fail(`BB6 原树里出现树码 ${orig.leaked} 行，码域被污染`);
 
+// ── BB7 公告归属已落到骨架（不硬编码条数，只锁闭合关系：新公告进来照样成立）──
+let pathStat = "";
+const pathCol = await one(
+  `SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='crm_notice_search' AND column_name='backbone_path'`,
+);
+if (Number(pathCol.n) === 0) {
+  fail("BB7 宽表没有 backbone_path 列：先 npx tsx scripts/ops/commodity-backbone-path-ddl.ts --apply --yes 加列，再跑回填");
+} else {
+  const p = await one(
+    `SELECT SUM(backbone_path IS NOT NULL AND backbone_path<>'') filled,
+            SUM(backbone_path='') blank,
+            SUM(backbone_path REGEXP '[^0-9A-Za-z,-]') bad,
+            SUM(CHAR_LENGTH(backbone_path)>1000000) tooLong FROM crm_notice_search`,
+  );
+  // 有码必须填、无码必须空（两个方向都不许对不上）
+  const missing = await one(
+    `SELECT COUNT(*) n FROM crm_notice_search w WHERE (w.backbone_path IS NULL OR w.backbone_path='')
+       AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes nc WHERE nc.notice_id=w.notice_id)`,
+  );
+  const extra = await one(
+    `SELECT COUNT(*) n FROM crm_notice_search w WHERE w.backbone_path IS NOT NULL AND w.backbone_path<>''
+       AND NOT EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes nc WHERE nc.notice_id=w.notice_id)`,
+  );
+  // 祖先全存的不变量：排好序后第一个码必为大类行（否则说明回填时漏了链顶）
+  const noTop = await one(
+    `SELECT COUNT(*) n FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>''
+       AND SUBSTRING_INDEX(backbone_path, ',', 1) NOT REGEXP '^UGT-B-[0-9]{2}$'`,
+  );
+  if (Number(p.blank) !== 0) fail(`BB7 宽表有 ${p.blank} 行 backbone_path 是空串，应为 NULL`);
+  if (Number(p.bad) !== 0) fail(`BB7 有 ${p.bad} 行 backbone_path 含非法字符（只允许树码与逗号）`);
+  if (Number(p.tooLong) !== 0) fail(`BB7 有 ${p.tooLong} 行超过 1,000,000 字符上限，回填脚本应拒写而非截断`);
+  if (Number(missing.n) !== 0) fail(`BB7 有 ${missing.n} 条公告挂了码但 backbone_path 为空 ⇒ 新树上找不到它`);
+  if (Number(extra.n) !== 0) fail(`BB7 有 ${extra.n} 行 backbone_path 有值但桥表无码 ⇒ 归属来路不明`);
+  if (Number(noTop.n) !== 0) fail(`BB7 有 ${noTop.n} 行 backbone_path 的链顶不是大类，祖先没存全`);
+  // 抽样验真：最长的 100 行 + 最早的 200 行（不用 RAND，保证可复现），拆开后逐个对树
+  const sample = await q(
+    `SELECT p FROM (SELECT id, backbone_path p FROM crm_notice_search
+       WHERE backbone_path IS NOT NULL ORDER BY CHAR_LENGTH(backbone_path) DESC LIMIT 100) a
+     UNION ALL
+     SELECT p FROM (SELECT id, backbone_path p FROM crm_notice_search
+       WHERE backbone_path IS NOT NULL ORDER BY id LIMIT 200) b`,
+  );
+  const pc = new Set<string>();
+  for (const r of sample) for (const x of String(r.p).split(",")) if (x) pc.add(x);
+  const hit = pc.size
+    ? await one(`SELECT COUNT(DISTINCT code) n FROM crm_commodity_backbone WHERE code IN ('${[...pc].join("','")}')`)
+    : { n: 0 };
+  if (Number(hit.n) !== pc.size) fail(`BB7 抽样里 ${pc.size - Number(hit.n)} 个 backbone_path 码在树里不存在`);
+  pathStat = `已填 ${p.filled} · 抽样 ${pc.size} 码全在树`;
+}
+
 console.log(`树：L1 ${perLevel[0]} / L2 ${perLevel[1]} / L3 ${perLevel[2]} / L4 ${perLevel[3]} / L5 ${perLevel[4]}（合计 ${rows.length} 行，一张表）`);
 console.log(`码行：6 位 ${p6.length} / 8 位 ${p8.length}；可反推 族 ${famToL2.size} / 段 ${segToL1.size}`);
+if (pathStat) console.log(`公告归属：${pathStat}`);
 console.log(`规模带（每父的子数）：中类/大类 ${bandof(1)}｜小类/中类 ${bandof(2)}｜子类/小类 ${bandof(3)}｜品目/子类 ${bandof(4)}`);
 if (sibWarn) console.log(`⚠ ${sibWarn} 条同名兄弟（子类/品目行继承原树名，不改）`);
 /** 入参是父的层级：父码长 = 6 + 父层级×2（L1=8、L2=10…），kids 是按 parent_code 计数的 */
@@ -184,5 +238,5 @@ if (fails.length) {
   await pool.end();
   process.exit(1);
 }
-console.log(`✅ BB1~BB6 通过：${rows.length} 行一张表，原树 ${orig.total} 行未动`);
+console.log(`✅ BB1~BB7 通过：${rows.length} 行一张表，原树 ${orig.total} 行未动`);
 await pool.end();

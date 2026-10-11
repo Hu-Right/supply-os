@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 100 张，导出 99 张，排除 1 张。
+--           源库共 99 张，导出 98 张，排除 1 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -585,7 +585,7 @@ CREATE TABLE `crm_commodity_backbone` (
   KEY `idx_parent` (`parent_code`),
   KEY `idx_group` (`group_code`),
   KEY `idx_level` (`level`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品目树（大类往下重排的五级全量节点；原 crm_commodity_nodes 不动）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='五级品目树';
 
 -- ── crm_commodity_group_segments ──
 CREATE TABLE `crm_commodity_group_segments` (
@@ -970,6 +970,7 @@ CREATE TABLE `crm_notice_search` (
   `group_codes` text COMMENT '所属大类码集合，逗号分隔（OR 语义并集）',
   `code_path` text COMMENT '全部祖先 UNSPSC 前缀，逗号分隔（所见即所得命中键）',
   `precise_path` text COMMENT '同 code_path，来源=approved 精准候选码',
+  `backbone_path` mediumtext COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
   PRIMARY KEY (`id`),
   KEY `idx_ns_deadline_desc` (`deadline_sec` DESC),
   KEY `idx_ns_id_desc` (`id` DESC),
@@ -1646,17 +1647,6 @@ CREATE TABLE `crm_system_configs` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_group_key` (`config_group`,`config_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ── crm_taxonomy_code_map_v10_v11 ──
-CREATE TABLE `crm_taxonomy_code_map_v10_v11` (
-  `id` bigint unsigned NOT NULL,
-  `old_code` varchar(40) NOT NULL,
-  `new_code` varchar(40) NOT NULL,
-  `new_parent_code` varchar(40) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_old` (`old_code`),
-  UNIQUE KEY `uk_new` (`new_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='行业面自有码迁移映射 v1.0(GB轴)→v1.1(纯数字层级) 2026-10-09';
 
 -- ── crm_taxonomy_intake ──
 CREATE TABLE `crm_taxonomy_intake` (
