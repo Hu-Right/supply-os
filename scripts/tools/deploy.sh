@@ -21,6 +21,19 @@ git fetch origin
 git checkout "${BRANCH}"
 git reset --hard "origin/${BRANCH}"
 
+# 1.1 自我替换防护（重要）：bash 是按字节边读边执行脚本的。上面 reset --hard 会把
+#     本文件换成新版（新 inode），而当前进程的 fd 仍指着被删掉的旧 inode ⇒ 后半程
+#     会继续跑「旧脚本」。旧脚本引用的路径可能已被本次 checkout 改名——实际踩过一次：
+#     scripts/css-compat-gate.mjs 在 8f0ef69d 被搬到 scripts/gates/，旧脚本按老路径找
+#     不到 → MODULE_NOT_FOUND → set -e 中断在 pm2 重启之前，线上留着旧进程。
+#     因此同步完立刻用工作树里的新版重新 exec 一次，用环境变量做闸门防止无限递归。
+#     （注：本次旧脚本里没有这段，所以它仍会跑旧逻辑——再跑一次就是新版了。）
+if [ -z "${DEPLOY_RELOADED:-}" ]; then
+  export DEPLOY_RELOADED=1
+  echo "[deploy] 代码已对齐 origin/${BRANCH}，改用 reset 后的新版脚本重跑一次"
+  exec bash "${APP_DIR}/scripts/tools/deploy.sh" "$@"
+fi
+
 # 2. 安装依赖（node_modules 已存在时增量安装，避免每次 ci 删除重装导致超时）
 echo "[deploy] 安装依赖..."
 if [ -d node_modules ]; then
@@ -61,9 +74,12 @@ else
   exit 1
 fi
 
-# 3.3 复制静态资源（standalone 模式不会自动复制 .next/static）
+# 3.3 先对新构建产物跑 CSS 门禁，再覆盖 standalone（顺序不能倒）。
+#     倒过来的后果实际踩过：cp -rT 是整体替换目录，门禁一旦在它之后失败就停在
+#     「standalone/.next/static 已被新构建替掉、但进程还是旧的」这一格——
+#     旧进程按旧文件名发 HTML，而那些文件已不存在，线上直接丢样式（实测 CSS 500）。
+node scripts/gates/css-compat-gate.mjs .next/static
 cp -rT .next/static .next/standalone/.next/static
-node scripts/gates/css-compat-gate.mjs .next/standalone/.next/static
 echo "[deploy] 已复制并检查静态资源 → standalone"
 
 # 3.4 复制 public 目录（字体、图片等静态文件）
