@@ -2,10 +2,9 @@
  * 导出全库结构基线：MySQL 库终态 DDL → db/schema/baseline.sql
  *
  * @script scripts/tools/dump-schema-baseline.mjs
- * @background CI 的 e2e job 需要一个能建表的结构基线（见 db/schema/README.md）：应用侧
- *             scripts/gates/seed-test-db.ts 只写种子数据、不建表，迁移清单亦已收敛为空，
- *             因此建表 DDL 只能来自 db/schema/*.sql。本脚本从**已跟踪的工具链**里补齐这条
- *             生成路径，避免基线靠手工粘贴而失真。
+ * @background CI 的 e2e job 需要一个能建表的结构基线（见 db/schema/README.md）：应用侧不跑迁移
+ *             （ALL_MIGRATIONS 已收敛为空），因此建表 DDL 只能来自 db/schema/*.sql。本脚本从
+ *             **已跟踪的工具链**里补齐这条生成路径，避免基线靠手工粘贴而失真。
  * @scope      只读：仅查 information_schema 与 SHOW CREATE TABLE，不写库、不读业务数据。
  * @deterministic 表名升序输出、剔除 AUTO_INCREMENT 计数噪声、固定 LF，结构未变则重复执行
  *             产出逐字节一致（便于 diff 判断「基线是否漂移」）。
@@ -34,7 +33,7 @@ function buildHeader(total, kept, dropped) {
     `--           源库共 ${total} 张，导出 ${kept} 张，排除 ${dropped} 张。`,
     "-- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，",
     "--   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。",
-    "-- 注意：本文件只建结构、不含数据；种子数据由 scripts/gates/seed-test-db.ts 写入。",
+    "-- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。",
     "",
     "SET NAMES utf8mb4;",
     "SET FOREIGN_KEY_CHECKS = 0;",

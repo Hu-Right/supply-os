@@ -25,8 +25,7 @@ npm run lint             # 编码检查 + eslint
 npm run test             # Vitest 单测
 npm run test:unit        # 单测 + 覆盖率（coverage/unit）
 npm run test:ci          # 单测门禁(90%) + 集成门禁(80%)
-npm run test:e2e         # Playwright 关键旅程
-npm run seed:test-db     # 测试库建库 + 迁移 + 种子数据
+npm run test:e2e         # Playwright 业务旅程（对 .env 指向的真库跑；CI 只跑无数据冒烟）
 npm run build            # 生产构建（standalone）
 ```
 

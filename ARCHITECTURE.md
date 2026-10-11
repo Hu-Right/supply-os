@@ -44,7 +44,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 
 `.gitignore` 采用「默认跟踪、按生命周期分桶」模型，新增脚本无需回来改忽略规则：
 
-- `scripts/gates/`：CI / lint / build 门禁与必需工具（`check-*`、`coverage-gate`、`css-compat-gate`、`seed-test-db`、`serve-style-smoke`、`verify-industry-links` 等）——**整目录跟踪**，缺脚本即流程断。
+- `scripts/gates/`：CI / lint / build 门禁与必需工具（`check-*`、`coverage-gate`、`css-compat-gate`、`serve-style-smoke`、`verify-industry-links` 等）——**整目录跟踪**，缺脚本即流程断。
 - `scripts/tools/`：持久但手动调用的运维工具（`daily-sync.cjs`、`deploy.sh`、`migrate-licenses`）——**跟踪**，须随 clone 存在。
 - `scripts/ops/`：一次性 / 连生产库的探针 / 本机应急脚本（影子表切换、`verify-wide-ssot` 等）——**默认忽略**，本地保留不入库。
 - 生成物一律落 `scripts/out`、`scripts/backups`、`**/.sync-watermark.json`、`runtime/`、`temp/`（均忽略）。
@@ -56,9 +56,11 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 - `tests/gates/**`（`.test.mjs`，`node --test`）：只能在 Node/PostCSS 环境跑、且被测对象必须是**已跟踪**门禁脚本。
 - `tests/integration/**`（vitest.integration）· `tests/e2e/**`（Playwright）。
 - **硬规则：测试文件与被测脚本的跟踪状态必须同侧**——一次性 ops 脚本的临时测试放 `runtime/tests/`（与 SUT 同在忽略区），绝不进 `tests/`，杜绝「本地跑 / CI 不跑」漂移。
-- E2E 在 CI **实跑**：`e2e` job 起 MySQL + 载入 `db/schema/*.sql` 基线 + `seed:test-db` + 起 standalone 产物后 `playwright test`（详见 `.github/workflows/ci.yml`）；缺失 schema 基线时该 job 显式失败而非静默跳过。
+- E2E 分两层跑，**谁也不假装验了谁验不到的东西**：
+  - **CI（无数据冒烟）**：`e2e` job 起 MySQL service + 只导入 `db/schema/*.sql` 结构基线（**不灌任何数据**）+ 起已构建产物，只跑 `tests/e2e/ci-smoke.spec.ts`：验证基线能建出**应用可查**的结构、关键页面静态骨架、鉴权与参数边界。缺 schema 基线时该 job 显式失败而非静默跳过。
+  - **本地/内网（真库旅程）**：`npm run build && npm run start` 后 `npx playwright test --project=chromium`，跑 `critical-journeys.spec.ts` 与 `authenticated-journeys.spec.ts`（套餐卡片、标讯搜索、商机解锁、RFQ、会员流转）。这些旅程的数据事实源就是 `.env` 指着的库本身。
+- **代码里不造业务数据**：项目已删除全部种子路径（`src/lib/db/seeds.ts`、`*-seed` 迁移、`agencyAliasSeed`），`ALL_MIGRATIONS` 保持为空，`SEED_ENABLED="off"`。因此 CI 测试库也不得写入套餐/权益矩阵/商机/配额等业务配置——哪怕用占位值，那等于造一份会与库漂移的平行真相（同口径红线见 `unlock-quota.ts`「不在代码里写数字」、`benefit-system.repo.ts`「缺格不猜默认值」）。
 - 结构基线不手写：`node --env-file=.env scripts/tools/dump-schema-baseline.mjs` 从现网结构导出 `db/schema/baseline.sql`（幂等、只读库）；上线结构变更后重跑一次，diff 即基线漂移。
-- 种子脚本反向被基线卡住：`check-seed-schema-compat`（已入 `npm run lint`）核对 `seed-test-db.ts` 的表名/INSERT 列清单/值个数，避免“迁移清单为空 + 没人静态查”下种子长期按已删的表写而无人发现。种子只写合成值，不把现网报价配置入仓。
 
 ## 约定
 

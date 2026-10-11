@@ -102,7 +102,7 @@ jobs:
           retention-days: 7
 
   e2e:
-    name: E2E · 后端关键旅程（Playwright + MySQL）
+    name: E2E · 结构基线建表 + 无数据冒烟（Playwright + MySQL）
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
@@ -117,28 +117,21 @@ jobs:
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
           --health-interval=10s --health-timeout=5s --health-retries=10
     env:
-      # 应用连接池走 DB_*，seed 走 MYSQL_*（两套变量名，均指向同一 service）
+      # 只给结构不给数据：本 job 的库是从 db/schema/*.sql 建出来的空库，
+      # 因此只验证「基线能建出可用结构 + 页面渲染 + 鉴权/参数边界」；
+      # 依赖套餐/额度/商机等业务数据的认证态旅程跑本地/内网真库（见 ARCHITECTURE.md）。
       DB_HOST: 127.0.0.1
       DB_PORT: "3306"
       DB_USER: root
       DB_PASSWORD: root
       DB_NAME: supply_os_test
-      MYSQL_HOST: 127.0.0.1
-      MYSQL_PORT: "3306"
-      MYSQL_USER: root
-      MYSQL_PASSWORD: root
-      MYSQL_DATABASE: supply_os_test
       JWT_SECRET: ci-e2e-dummy-secret
       PAYMENT_MODE: mock
       SMS_PROVIDER: mock
       MEILI_ENABLED: "off"
+      # 空库上不需要宽表/索引同步；关掉以免后台任务白烧连接与时间
+      SYNC_WORKER_IN_APP: "off"
       LLM_KEY_SECRET: ci-e2e-llm-secret
-      E2E_TEST_PASSWORD: test-password
-      # 认证态旅程的靶点指向 seed-test-db.ts 写下的合成账号/商机（不依赖任何现网 id）
-      E2E_VIP_USER: e2e-vip@test.com
-      E2E_FREE_USER: e2e-free@test.com
-      E2E_OPP_ID: "900001"
-      E2E_OPP_CODE_ID: "900001"
       BASE_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v5
@@ -152,31 +145,29 @@ jobs:
           shopt -s nullglob
           files=(db/schema/*.sql)
           if [ ${#files[@]} -eq 0 ]; then
-            echo "::error::缺少 db/schema/*.sql 结构基线，E2E 无法建表。请把全库终态 DDL 提交为 db/schema/baseline.sql（见 ARCHITECTURE.md）。"
+            echo "::error::缺少 db/schema/*.sql 结构基线，E2E 无法建表。请重跑 scripts/tools/dump-schema-baseline.mjs 并提交全库终态 DDL（见 db/schema/README.md）。"
             exit 1
           fi
           for f in "${files[@]}"; do
             echo "[e2e] 导入 $f"
             mysql -h127.0.0.1 -P3306 -uroot -proot supply_os_test < "$f"
           done
-      - name: 写入种子数据与 E2E 专用账号
-        run: npm run seed:test-db
       - name: 生产构建
         run: npm run build
       - name: 安装 Chromium 测试内核
         run: npx playwright install --with-deps chromium
-      - name: 启动应用并运行后端关键旅程 E2E
+      - name: 启动应用并跑无数据冒烟旅程
         run: |
           npm run start &
           SERVER_PID=$!
           trap "kill $SERVER_PID" EXIT
           for i in $(seq 1 40); do curl -sf http://localhost:3000/ >/dev/null && break; sleep 3; done
-          npx playwright test --project=chromium
+          npx playwright test --project=chromium tests/e2e/ci-smoke.spec.ts
       - name: 保存 E2E 失败证据
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: e2e-results
+          name: e2e-smoke-results
           path: |
             playwright-report/
             test-results/
