@@ -91,6 +91,8 @@ export const fetchUnifiedSearch = (params: {
   pageSize: number;
   locale?: string;
   codeId?: string;
+  /** 品目大类码（UGT-G-xx，32 类之一）——与 codeId AND 叠加 */
+  groupCode?: string;
   q?: string;
   country?: string;
   agency?: string;
@@ -112,6 +114,7 @@ export const fetchUnifiedSearch = (params: {
     page_size: params.pageSize,
     locale: params.locale,
     code_id: params.codeId,
+    group: params.groupCode,
     q: params.q,
     country: params.country,
     agency: params.agency,

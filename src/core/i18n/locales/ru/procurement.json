@@ -25,6 +25,8 @@
   "agencyFilter_noResults": "Агентства не найдены",
   "agencyFilter_moreResults": "результатов — уточните поиск",
   "procurement_commodityCategory": "Категория товаров",
+  "procurement_expandCommodityGroups": "Показать все 32 группы",
+  "procurement_collapseCommodityGroups": "Свернуть",
   "countryFilter_searchPlaceholder": "Поиск страны...",
   "countryFilter_noResults": "Страны не найдены",
   "countryFilter_moreResults": "результатов — уточните поиск",

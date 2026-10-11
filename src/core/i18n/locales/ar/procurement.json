@@ -25,6 +25,8 @@
   "agencyFilter_noResults": "لم يتم العثور على وكالات مطابقة",
   "agencyFilter_moreResults": "نتائج أكثر — يرجى تضييق نطاق البحث",
   "procurement_commodityCategory": "فئة البضائع",
+  "procurement_expandCommodityGroups": "عرض المجموعات الـ 32 كلها",
+  "procurement_collapseCommodityGroups": "طيّ",
   "countryFilter_searchPlaceholder": "البحث عن دولة...",
   "countryFilter_noResults": "لم يتم العثور على دول مطابقة",
   "countryFilter_moreResults": "نتائج إضافية — قم بتحديد البحث",

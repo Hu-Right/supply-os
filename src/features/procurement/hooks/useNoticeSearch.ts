@@ -45,6 +45,7 @@ export interface UseNoticeSearchReturn {
     activeFeatured: boolean;
     activeBudgetMin: string;
     activeBudgetMax: string;
+    activeGroup: string;
     hasSearch: boolean;
     searchKey: string;
   };
@@ -188,6 +189,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       activeFeatured: query.activeFeatured,
       activeBudgetMin: query.activeBudgetMin,
       activeBudgetMax: query.activeBudgetMax,
+      activeGroup: query.activeGroup,
       hasSearch: query.hasSearch,
       searchKey: query.searchKey,
     },
@@ -231,6 +233,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       applySearch: actions.applySearch,
       clearSearch: actions.clearSearch,
       toggleFeatured: actions.toggleFeatured,
+      toggleGroup: actions.toggleGroup,
     },
   };
 }

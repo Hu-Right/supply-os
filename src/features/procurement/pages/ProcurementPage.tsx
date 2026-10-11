@@ -13,6 +13,7 @@ import { FavoriteNotices } from "../components/FavoriteNotices";
 import type { NoticeItem } from "../types";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
+import { CommodityGroupChips } from "../components/CommodityGroupChips";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
 import { AdvancedSearchPanel } from "../components/AdvancedSearchPanel";
 import { EnhancedNoticeList } from "../components/EnhancedNoticeList";
@@ -193,6 +194,15 @@ export default function ProcurementPage() {
               toggleFeatured={search.actions.toggleFeatured}
             />
           )}
+
+          {/* 品目大类快筛（32 类单选）——常显，与下方五级联动 AND 叠加；
+              筛选谓词不在前端算，统一由服务端 filter-builder 双方言输出 */}
+          <div className="border-t border-slate-100 pt-4">
+            <CommodityGroupChips
+              activeGroup={search.query.activeGroup}
+              onToggle={search.actions.toggleGroup}
+            />
+          </div>
 
           {/* 品目分类（UNSPSC 五级联动）——默认折叠，点击展开 */}
           <div className="border-t border-slate-100 pt-4">

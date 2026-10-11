@@ -30,6 +30,12 @@ export interface UnifiedSearchParams {
   sort: "deadline" | "latest" | "deadline_farthest";
   /** UNSPSC 类目 ID（default 模式来自 URL code_id） */
   codeId: number;
+  /** 品目大类码（URL group=UGT-G-xx，32 类之一）；与 codeId AND 叠加，
+   *  谓词落在旧字典 level=2（=UNSPSC 段）的 id 集合上：
+   *  Meili level2_id OR / MySQL FIND_IN_SET(?, unspsc_level2)。
+   *  2026-10-11 M3 双跑对账：全库 606,060 行逐行比对，与宽表 group_codes 集合相等 353,758/
+   *  不一致 0，32 个大类逐类命中数 Δ=0 ⇒ 两条谓词可互换，无需重灌 Meili 索引。 */
+  groupCode?: string;
   /** 行业墙强制一级类目（industry-scope 服务注入，客户端不可传；与 codeId 叠加 AND） */
   forcedLevel1Id?: string;
   /** 预算范围过滤（USD，estimated_value 列） */

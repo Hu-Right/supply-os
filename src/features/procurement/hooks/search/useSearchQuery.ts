@@ -19,6 +19,8 @@ export interface SearchQuery {
   activeFeatured: boolean;
   activeBudgetMin: string;
   activeBudgetMax: string;
+  /** 品目大类码（URL group=UGT-G-xx；32 类 chip 单选） */
+  activeGroup: string;
   /** 关键词匹配模式：all=硬 AND（默认），any=OR（任一命中） */
   activeMatchMode: "all" | "any";
   hasSearch: boolean;
@@ -43,11 +45,12 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
   const activeBudgetMin = searchParams.get("budget_min") || "";
   const activeBudgetMax = searchParams.get("budget_max") || "";
   const activeMatchMode: "all" | "any" = searchParams.get("match_mode") === "any" ? "any" : "all";
+  const activeGroup = searchParams.get("group") || "";
 
   const hasSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
     activeWindow || activeNoticeType || activeFeatured || deepestCodeId ||
-    activeBudgetMin || activeBudgetMax
+    activeBudgetMin || activeBudgetMax || activeGroup
   );
 
   // 统一化重构后：hasOtherSearch 仅影响推荐模式的退出判定
@@ -55,10 +58,10 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
   const hasOtherSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
     activeWindow || activeNoticeType || activeFeatured ||
-    activeBudgetMin || activeBudgetMax
+    activeBudgetMin || activeBudgetMax || activeGroup
   );
 
-  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}`;
+  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}|${activeGroup}`;
 
   return useMemo(() => ({
     activeQ,
@@ -72,9 +75,10 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
     activeFeatured,
     activeBudgetMin,
     activeBudgetMax,
+    activeGroup,
     activeMatchMode,
     hasSearch,
     hasOtherSearch,
     searchKey,
-  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
+  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeGroup, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
 }

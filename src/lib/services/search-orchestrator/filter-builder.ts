@@ -38,6 +38,34 @@ async function getAllNoticeTypes(pool: Pool): Promise<string[]> {
   }
 }
 
+// ── 品目大类 → 所辖 UNSPSC 段的旧字典 level=2 行 id 集合（10 分钟缓存）──
+// 段→大类取 crm_commodity_group_segments（与常量 COMMODITY_GROUPS 由 CG5 门禁逐段比对），
+// 段→id 取 crm_unspsc_codes level=2（实测 58 行，与归属表 58 段一一对应）；代码里不造数据。
+let _groupSegIdsCache: { map: Map<string, string[]>; expires: number } | null = null;
+const GROUP_SEG_TTL = 10 * 60 * 1000;
+
+async function getGroupSegmentIds(pool: Pool): Promise<Map<string, string[]>> {
+  if (_groupSegIdsCache && _groupSegIdsCache.expires > Date.now()) return _groupSegIdsCache.map;
+  try {
+    const [rows] = await pool.query(
+      `SELECT s.group_code AS g, c.id AS id
+         FROM crm_commodity_group_segments s
+         JOIN crm_unspsc_codes c ON c.level = 2 AND LEFT(c.code, 2) = s.unspsc_prefix
+        ORDER BY s.group_code, c.id`,
+    );
+    const map = new Map<string, string[]>();
+    for (const r of rows as RowDataPacket[]) {
+      const g = String(r.g);
+      map.set(g, [...(map.get(g) ?? []), String(r.id)]);
+    }
+    _groupSegIdsCache = { map, expires: Date.now() + GROUP_SEG_TTL };
+    return map;
+  } catch {
+    // 归属表/字典不可用：返回空图，上层按「大类挂不上段」走空结果（不静默放宽为全量）
+    return new Map<string, string[]>();
+  }
+}
+
 /** 机构扩展解析结果（两种方言共用） */
 interface AgencyExpansion {
   meiliAgencyGroup?: string;
@@ -262,6 +290,27 @@ export async function buildFilterPlan(
     );
     mysqlParams.push(unspsc.id);
     digestParts.push(`unspsc:L${unspsc.level}=${unspsc.id}:${unspsc.precise ? "precise" : "ted"}`);
+  }
+
+  // ── 品目大类（32 类 chip，URL group=UGT-G-xx）──
+  // 谓词 = 该大类所辖 UNSPSC 段的旧字典 level=2 行 id 的 OR 集合，落在宽表 unspsc_level2 / Meili level2_id。
+  // 不读 group_codes 列：Meili 索引里没这个属性，两条方言必须同一谓词（本文件存在的意义）。
+  // 与 group_codes 的等价性由 M3 双跑对账实测（2026-10-11，606,060 行零不一致，逐类命中数 Δ=0）。
+  if (p.groupCode) {
+    const ids = (await getGroupSegmentIds(pool)).get(p.groupCode) ?? [];
+    if (ids.length === 0) {
+      // 大类在库内挂不上任何 level=2 段行（常量与库漂移/新类未灌）：直接空结果，不静默放宽
+      return {
+        meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true,
+        digest: `GROUP_NO_SEGMENT:${p.groupCode}`,
+      };
+    }
+    meiliFilters.push(`(${ids.map((id) => `level2_id = "${escapeFilter(id)}"`).join(" OR ")})`);
+    mysqlWhere.push(
+      `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND ${ids.map(() => "FIND_IN_SET(?, ns.unspsc_level2)").join(" OR ")})`,
+    );
+    mysqlParams.push(...ids);
+    digestParts.push(`group:${p.groupCode}`);
   }
 
   // ── 行业墙强制一级类目（industry-scope 注入，客户端不可传）──

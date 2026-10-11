@@ -8,6 +8,7 @@
  */
 import type { UnifiedSearchParams, SearchMode } from "./types";
 import { isKnownNoticeType } from "../../utils/notice-type";
+import { isCommodityGroupCode } from "../commodity/groups";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -28,6 +29,8 @@ export interface RawSearchParams {
   featuredOnly?: boolean;
   sort?: string;
   codeId?: number;
+  /** 品目大类码（URL group）：只接受 32 类常量内的码，其余一律丢弃 */
+  groupCode?: string;
   /** 行业墙强制一级类目（服务端 industry-scope 注入；不接受客户端传参） */
   forcedLevel1Id?: string;
   budgetMin?: number;
@@ -73,6 +76,7 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
     featuredOnly: !!raw.featuredOnly,
     sort,
     codeId: Math.max(Math.floor(raw.codeId || 0), 0),
+    groupCode: raw.groupCode && isCommodityGroupCode(raw.groupCode) ? raw.groupCode : undefined,
     forcedLevel1Id: raw.forcedLevel1Id ? String(raw.forcedLevel1Id) : undefined,
     budgetMin: raw.budgetMin != null && raw.budgetMin >= 0 ? Math.floor(raw.budgetMin) : undefined,
     budgetMax: raw.budgetMax != null && raw.budgetMax >= 0 ? Math.floor(raw.budgetMax) : undefined,
@@ -92,6 +96,6 @@ export function searchCacheKey(p: UnifiedSearchParams): string {
     p.q.toLowerCase().trim(), p.country.toUpperCase(), p.agency, p.deadlineFrom, p.deadlineTo,
     p.deadlineWithinDays, p.noticeType, p.featuredOnly ? "1" : "",
     p.sort, p.codeId, p.budgetMin ?? "", p.budgetMax ?? "", p.matchMode ?? "all",
-    p.forcedLevel1Id ?? "",
+    p.forcedLevel1Id ?? "", p.groupCode ?? "",
   ].join("|");
 }

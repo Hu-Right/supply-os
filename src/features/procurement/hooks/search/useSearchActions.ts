@@ -43,6 +43,8 @@ export interface SearchActions {
   ) => void;
   clearSearch: () => void;
   toggleFeatured: () => void;
+  /** 品目大类 chip 单选切换（再点同一个 = 取消）*/
+  toggleGroup: (code: string) => void;
   markUserSubmitted: () => void;
 }
 
@@ -99,6 +101,8 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (inputs.noticeTypeInput.trim()) next.notice_type = inputs.noticeTypeInput.trim();
     if (query.activeFeatured) next.featured = "1";
     if (deepestCodeId) next.code_id = deepestCodeId;
+    // 大类 chip：不在表单里，从 URL 事实源直接携带，否则重新搜索会静默丢筛选
+    if (query.activeGroup) next.group = query.activeGroup;
     if (query.activeBudgetMin) next.budget_min = query.activeBudgetMin;
     if (query.activeBudgetMax) next.budget_max = query.activeBudgetMax;
     // 匹配模式：仅显式选 any（任一命中）时写入 URL，默认 all 不写（保持 URL 简洁）
@@ -127,6 +131,18 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [searchParams, query.activeFeatured, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
 
+  const toggleGroup = useCallback((code: string) => {
+    const next = new URLSearchParams(searchParams ?? undefined);
+    if (query.activeGroup === code) next.delete("group");
+    else next.set("group", code);
+    // 与只看精选同一行为约定：推荐流里手动加筛选就退回全量，避免推荐结果被解释为筛选命中
+    if (prefsMode === "recommended") setPrefsMode("default");
+    setPage(1);
+    setSelectedNotice(null);
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, query.activeGroup, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
+
   const clearSearch = useCallback(() => {
     clearForm();
     onClear?.();
@@ -140,6 +156,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     applySearch,
     clearSearch,
     toggleFeatured,
+    toggleGroup,
     markUserSubmitted,
   };
 }

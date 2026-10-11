@@ -39,6 +39,8 @@ function parseSearchParams(req: NextRequest): RawSearchParams {
     featuredOnly: sp.get("featured") === "1",
     sort: get("sort", "latest"),
     codeId: getInt("code_id") || getInt("industry_id"),
+    // 品目大类筛选（32 类 chip）：合法性在 validateParams 里按常量校验
+    groupCode: get("group"),
     budgetMin: sp.get("budget_min") ? Number(sp.get("budget_min")) : undefined,
     budgetMax: sp.get("budget_max") ? Number(sp.get("budget_max")) : undefined,
     matchMode: get("match_mode"),
