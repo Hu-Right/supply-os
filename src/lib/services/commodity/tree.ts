@@ -22,7 +22,7 @@
  *                 （所以非中文界面这三层会落到中文名，补译名是独立工作，不在这里造）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { COMMODITY_GROUPS, isCommodityGroupCode } from "./groups";
+import { COMMODITY_GROUPS, groupCodeOfUnspscCode, isCommodityGroupCode } from "./groups";
 import { BACKBONE_NODE_PREFIX, backboneNodeLevel, chainOfNode } from "./backbone-path";
 
 /** 一条级联选项 */
@@ -140,6 +140,39 @@ export async function resolveGroupCodeOfNode(pool: Pool, code: string): Promise<
 export interface ResolvedCommodityPath {
   groupCode: string | null;
   options: CommodityTreeOption[];
+}
+
+/**
+ * 账号行业偏好（旧字典五级行 id）→ 品目大类码 `UGT-G-xx`。行业墙与 prefs 模式的数据源。
+ *
+ * 三条规则：
+ * 1. **从最深级往上找**第一个能定出大类的级：五级下拉在同一条分支上，祖先的段前缀相同，
+ *    上溯不会把用户挪到别的大类；
+ * 2. **level1 不参与**：旧字典 level=1 是 A..J 十个字母容器（code 是单字母，不是 8 位数字），
+ *    比我们的 32 大类粗得多。实测（temp/probe77、probe78）：user=1 认 UGT-G-25、user=10 认 UGT-G-17，
+ *    两人 level1_id 都是 109（容器 J），旧口径下两人能看到的范围完全相同（各 40,171 条）
+ *    ⇒ 拿容器当行业，选了哪个大类对墙毫无作用；
+ * 3. **换不出返回 null**：不猜一个大类（错筛比不筛更难发现），调用方如实写 NULL 并交门禁点名。
+ *
+ * 归属关系取自 groups.ts 常量（CG5 门禁逐段比对 `crm_commodity_group_segments`），
+ * 所以这条换算不依赖骨架树行数，也不另开一份口径。
+ */
+export async function groupCodeOfLevelIds(
+  pool: Pool,
+  levelIds: Array<number | null | undefined>,
+): Promise<string | null> {
+  // 下标 0 = level1（容器）⇒ 从最深层（下标 4）走到下标 1（段）为止
+  for (let i = levelIds.length - 1; i >= 1; i -= 1) {
+    const id = Number(levelIds[i] ?? 0);
+    if (!id) continue;
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT code FROM crm_unspsc_codes WHERE id = ? LIMIT 1`,
+      [id],
+    );
+    const g = groupCodeOfUnspscCode(String((rows as RowDataPacket[])[0]?.code ?? ""));
+    if (g) return g;
+  }
+  return null;
 }
 
 /**
