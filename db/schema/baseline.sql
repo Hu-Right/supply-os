@@ -2,7 +2,9 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 96 张，导出 96 张，排除 0 张。
+--           源库共 96 张，导出 95 张，排除 1 张。
+--           【手工偏离】死表 crm_appointments 已按 ADR-0011 手工先行摘除（库里 DROP 后
+--           重导本文件即归一，diff 应为空；若重导把它加回来，说明库侧那一刀还没落）。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -95,22 +97,6 @@ CREATE TABLE `crm_api_usage` (
   KEY `idx_key_date` (`api_key_id`,`created_at`),
   KEY `idx_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='外部API获取的信息。';
-
--- ── crm_appointments ──
-CREATE TABLE `crm_appointments` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` int unsigned DEFAULT NULL,
-  `user_name` varchar(100) DEFAULT NULL,
-  `employee_id` int unsigned DEFAULT NULL,
-  `employee_name` varchar(100) DEFAULT NULL,
-  `appointment_time` datetime DEFAULT NULL,
-  `topic` varchar(300) DEFAULT NULL,
-  `status` varchar(20) NOT NULL DEFAULT 'pending',
-  `remark` text,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── crm_benefit_catalog ──
 CREATE TABLE `crm_benefit_catalog` (
