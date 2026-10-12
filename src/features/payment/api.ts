@@ -31,7 +31,6 @@ import { pickNoticeApiLang } from "@/shared/constants/langs";
 export type OrderNoticeBrief = {
   id: number;
   notice_id?: string | null;
-  source_channel?: string | null;
   reference?: string | null;
   title?: string | null;
   /** 当前界面语言的标题译文（仅 fetchUnlocks 传 lang 时返回；缺译为 null） */
@@ -43,7 +42,6 @@ export type OrderNoticeBrief = {
   deadline?: string | null;
   /** 公采搜索功能（本地差异 #6 配套）：服务端按 deadline_ts 算好的过期标志（无时间戳为 null） */
   deadline_expired?: boolean | null;
-  urgency?: string | null;
   url?: string | null;
   industry?: string | null;
 };

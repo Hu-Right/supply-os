@@ -13,10 +13,13 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { PaymentOrderRow } from "./types";
 
-/** 订单历史查询行（订单 LEFT JOIN 公告，供列表映射） */
+/**
+ * 订单历史查询行（订单 LEFT JOIN 公告，供列表映射）。
+ * 列口径以云库为准：crm_bid_notices 无 source_channel/urgency（见 ADR-0012），
+ * 查询不得引用内网库独有的列，否则线上 500。
+ */
 export interface OrderHistoryRow extends PaymentOrderRow {
   external_notice_id: string | null;
-  source_channel: string | null;
   reference: string | null;
   title: string | null;
   notice_type: string | null;
@@ -24,7 +27,6 @@ export interface OrderHistoryRow extends PaymentOrderRow {
   agency_full: string | null;
   country: string | null;
   deadline: string | null;
-  urgency: string | null;
   url: string | null;
   industry: string | null;
 }
@@ -37,7 +39,6 @@ export interface UnlockHistoryRow {
   price: number;
   unlocked_at: Date;
   external_notice_id: string | null;
-  source_channel: string | null;
   reference: string | null;
   title: string | null;
   title_i18n?: string | null;
@@ -47,7 +48,6 @@ export interface UnlockHistoryRow {
   country: string | null;
   deadline: string | null;
   deadline_ts: number | null;
-  urgency: string | null;
   url: string | null;
   industry: string | null;
   description?: string | null;
@@ -86,8 +86,8 @@ export class PaymentHistoryRepo {
       `SELECT
          o.order_no, o.user_id, o.provider, o.plan_code, o.notice_id, o.amount, o.currency,
          o.status, o.provider_trade_no, o.paid_at, o.created_at, o.updated_at,
-         n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
-         n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry
+         n.notice_id AS external_notice_id, n.reference, n.title,
+         n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.url, n.industry
        FROM crm_payment_orders o
        LEFT JOIN crm_bid_notices n ON n.id = o.notice_id
        ${where}
@@ -123,8 +123,8 @@ export class PaymentHistoryRepo {
       withTranslation
         ? `SELECT
              u.user_id, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
-             n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
-             n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.urgency, n.url, n.industry,
+             n.notice_id AS external_notice_id, n.reference, n.title,
+             n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry,
              n.description, tr.title_tr AS title_i18n
            FROM crm_opportunity_unlocks u
            LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
@@ -134,8 +134,8 @@ export class PaymentHistoryRepo {
            LIMIT ? OFFSET ?`
         : `SELECT
              u.user_id, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
-             n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
-             n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.urgency, n.url, n.industry
+             n.notice_id AS external_notice_id, n.reference, n.title,
+             n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry
            FROM crm_opportunity_unlocks u
            LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
            WHERE u.user_id = ? AND u.notice_id IS NOT NULL

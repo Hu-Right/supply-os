@@ -33,7 +33,6 @@ function mapOrderRow(row: OrderHistoryRow) {
     notice: row.notice_id ? {
       id: row.notice_id,
       notice_id: row.external_notice_id,
-      source_channel: row.source_channel,
       reference: row.reference,
       title: row.title,
       notice_type: row.notice_type,
@@ -41,7 +40,6 @@ function mapOrderRow(row: OrderHistoryRow) {
       agency_full: row.agency_full,
       country: row.country,
       deadline: row.deadline,
-      urgency: row.urgency,
       url: row.url,
       industry: row.industry,
     } : null,
@@ -58,7 +56,6 @@ function mapUnlockRow(row: UnlockHistoryRow, translatable: boolean) {
     notice: row.notice_id ? {
       id: row.notice_id,
       notice_id: row.external_notice_id,
-      source_channel: row.source_channel,
       reference: row.reference,
       title: row.title,
       title_i18n: translatable ? row.title_i18n ?? null : undefined,
@@ -74,7 +71,6 @@ function mapUnlockRow(row: UnlockHistoryRow, translatable: boolean) {
             ? Number(row.deadline_ts)
             : Number(row.deadline_ts) * 1000) < Date.now()
         : null,
-      urgency: row.urgency,
       url: row.url,
       industry: row.industry,
     } : null,
