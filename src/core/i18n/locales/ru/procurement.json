@@ -320,7 +320,7 @@
   "procurement_statAiMatchableDesc": "Совпадение ИИ",
   "procurement_statRealtime": "Реальное время",
   "procurement_statSearchableSub": "Инвентарь в реальном времени",
-  "procurement_statTodayNewSub": "vs вчера",
+  "procurement_statTodayNewSub": "vs вчера в то же время",
   "procurement_statDeadline30Sub": "Ближайшие возможности",
   "procurement_statWithDocsSub": "Прямая загрузка",
   "procurement_statAiMatchableSub": "Рекомендованные ИИ возможности",

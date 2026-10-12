@@ -320,7 +320,7 @@
   "procurement_statAiMatchableDesc": "Coincidencia IA",
   "procurement_statRealtime": "Tiempo real",
   "procurement_statSearchableSub": "Inventario en tiempo real",
-  "procurement_statTodayNewSub": "vs ayer",
+  "procurement_statTodayNewSub": "vs ayer a la misma hora",
   "procurement_statDeadline30Sub": "Próximas oportunidades",
   "procurement_statWithDocsSub": "Descargables directamente",
   "procurement_statAiMatchableSub": "Oportunidades recomendadas por IA",

@@ -320,7 +320,7 @@
   "procurement_statAiMatchableDesc": "مطابقة الذكاء الاصطناعي",
   "procurement_statRealtime": "الوقت الفعلي",
   "procurement_statSearchableSub": "المخزون الفوري",
-  "procurement_statTodayNewSub": "مقارنة بالأمس",
+  "procurement_statTodayNewSub": "مقارنة بنفس الوقت أمس",
   "procurement_statDeadline30Sub": "الفرص القادمة",
   "procurement_statWithDocsSub": "قابلة للتحميل مباشرة",
   "procurement_statAiMatchableSub": "فرص موصى بها من الذكاء الاصطناعي",
