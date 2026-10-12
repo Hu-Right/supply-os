@@ -139,8 +139,9 @@ export interface NoticeDetailFields {
 export interface NoticeDetailItem extends NoticeListItem, NoticeDetailFields {}
 
 /**
- * 公告通用类型（向后兼容，包含列表 + 详情全部字段）。
- * 新代码建议使用 NoticeListItem（仅列表字段）或 NoticeDetailItem（列表 + 详情字段）。
+ * 公告通用类型（= 列表项 + 可选详情字段的交叉类型）。
+ * 非兼容别名：列表接口与解锁详情接口都以它为返回口径（NoticeResponse.items、
+ * fetchNoticeDetail 等）；仅需列表字段时可收窄为 NoticeListItem，需完整详情时用 NoticeDetailItem。
  */
 export type NoticeItem = NoticeListItem & Partial<NoticeDetailFields>;
 

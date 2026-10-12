@@ -92,24 +92,14 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   useVersionCheck();
 
   // ★ 扫码推广自动弹出注册弹窗：检测 /r/[code] 中转页写入的 qr_auto_open Cookie
-  // （兼容旧版二维码的 URL ?qr=1 参数）。Cookie 由浏览器 JS 写入，不依赖服务端跨重定向 Set-Cookie。
+  //   （由浏览器 JS 写入，不依赖服务端跨重定向 Set-Cookie）。
   const [qrRegisterMode, setQrRegisterMode] = useState(false);
   useEffect(() => {
-    const hasCookie = /(?:^|;\s*)qr_auto_open=/.test(document.cookie);
-    const hasParam = new URLSearchParams(window.location.search).get("qr") === "1";
-    if (hasCookie || hasParam) {
-      setQrRegisterMode(true);
-      setShowAuthModal(true);
-      // 清除信号，防止刷新重复弹出
-      document.cookie = "qr_auto_open=; path=/; max-age=0";
-      if (hasParam) {
-        const params = new URLSearchParams(window.location.search);
-        params.delete("qr");
-        const clean = params.toString();
-        // 用 history API 清参数，避免触发 Next 路由重渲染
-        window.history.replaceState(null, "", clean ? `${window.location.pathname}?${clean}` : window.location.pathname);
-      }
-    }
+    if (!/(?:^|;\s*)qr_auto_open=/.test(document.cookie)) return;
+    setQrRegisterMode(true);
+    setShowAuthModal(true);
+    // 清除信号，防止刷新重复弹出
+    document.cookie = "qr_auto_open=; path=/; max-age=0";
   }, [setShowAuthModal]);
 
   const handlePaymentSuccess = () => {
