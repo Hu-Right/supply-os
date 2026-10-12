@@ -502,6 +502,8 @@
   "detail_aiSummaryAnalyzingHint": "Lecture de l'avis et génération de l'analyse en 6 dimensions avec le profil de votre entreprise. Dure généralement 20 à 60 secondes, veuillez patienter…",
   "detail_aiSummaryStart": "Lancer l'analyse IA",
   "detail_aiSummaryClickStart": "Cliquez sur le bouton : l'IA générera une analyse d'adéquation en 6 dimensions pour cet appel d'offres selon le profil de votre entreprise.",
+  "detail_aiSummaryErrorLlmConfig": "Configurez votre modèle IA avant de lancer l'analyse IA.",
+  "detail_aiSummaryErrorLlmKey": "Votre clé API du modèle IA est invalide ou a été rejetée par le fournisseur. Veuillez reconfigurer le modèle et tester la connexion.",
   "detail_aiSummaryErrorAuth": "Session expirée. Veuillez vous reconnecter et réessayer.",
   "detail_aiSummaryErrorLocked": "Veuillez déverrouiller cet avis avant de lancer l'analyse IA.",
   "detail_aiSummaryUpgradeHint": "Votre formule n'affiche que le texte original de l'avis. Passez à Illimité pour débloquer le résumé IA et la traduction.",

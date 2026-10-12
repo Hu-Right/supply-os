@@ -502,6 +502,8 @@
   "detail_aiSummaryAnalyzingHint": "Leyendo el anuncio y generando el análisis de 6 dimensiones con el perfil de su empresa. Suele tardar 20-60 segundos, espere…",
   "detail_aiSummaryStart": "Iniciar análisis IA",
   "detail_aiSummaryClickStart": "Haga clic en el botón: la IA generará un análisis de adecuación de 6 dimensiones para esta licitación según el perfil de su empresa.",
+  "detail_aiSummaryErrorLlmConfig": "Configure su modelo de IA antes de ejecutar el análisis IA.",
+  "detail_aiSummaryErrorLlmKey": "Su clave API del modelo de IA no es válida o fue rechazada por el proveedor. Vuelva a configurar el modelo y pruebe la conexión.",
   "detail_aiSummaryErrorAuth": "Sesión expirada. Inicie sesión de nuevo e inténtelo otra vez.",
   "detail_aiSummaryErrorLocked": "Desbloquee este anuncio antes de ejecutar el análisis IA.",
   "detail_aiSummaryUpgradeHint": "Su plan solo muestra el texto original del anuncio. Mejore a Ilimitado para desbloquear el resumen IA y la traducción.",

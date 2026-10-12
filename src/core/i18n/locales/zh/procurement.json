@@ -493,6 +493,8 @@
   "detail_aiSummaryAnalyzingHint": "正在阅读公告原文并结合企业画像生成 6 维度分析，通常需要 20-60 秒，请稍候…",
   "detail_aiSummaryStart": "开始 AI 分析",
   "detail_aiSummaryClickStart": "点击按钮，AI 将结合您的企业画像生成本标 6 维度适配分析。",
+  "detail_aiSummaryErrorLlmConfig": "请先配置 AI 模型后再进行 AI 分析。",
+  "detail_aiSummaryErrorLlmKey": "您的 AI 模型 API Key 无效或已被服务商拒绝，请重新配置 AI 模型并测试连接后再试。",
   "detail_aiSummaryErrorAuth": "登录已过期，请重新登录后再试。",
   "detail_aiSummaryErrorLocked": "请先解锁本公告，再进行 AI 分析。",
   "detail_aiSummaryUpgradeHint": "当前套餐仅支持查看公告原文，升级至无限版可解锁 AI 拆标摘要与中文译文。",
