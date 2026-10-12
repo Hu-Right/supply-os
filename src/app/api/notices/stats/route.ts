@@ -12,8 +12,8 @@ import { withRoute } from "@/lib/middleware/route-handler";
 const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 /**
- * 计算北京时间某日 10:00 的 Unix 时间戳（秒）
- * create_time 字段存储的是 Unix 时间戳（秒），每日切分点为北京时间 10:00
+ * 计算北京时间某日 00:00 的 Unix 时间戳（秒）
+ * create_time 字段存储的是 Unix 时间戳（秒），每日切分点为北京时间自然日 00:00
  */
 function beijingDateToUnix(dateStr: string, hour: number): number {
   const d = new Date(`${dateStr}T${String(hour).padStart(2, "0")}:00:00+08:00`);
@@ -36,14 +36,15 @@ function getBeijingDateOffset(daysOffset: number): string {
 export const GET = withRoute(async () => {
   const pool = getPool();
   const stats = await getNoticeStats(pool);
-  // 追加今日/昨日新增公告数（基于 create_time Unix 时间戳，北京时间 10:00 切分）
+  // 追加今日/昨日同期新增公告数（基于 create_time Unix 时间戳，北京时间自然日 00:00 切分，
+  // 24:00 归零重开；昨日取与今日已流逝等长的同期窗口，保证环比在一天内任意时刻可比）
   try {
     const todayStr = getBeijingDate();
-    const yesterdayStr = getBeijingDateOffset(-1);
-    const dayBeforeYesterdayStr = getBeijingDateOffset(-2);
-    const todayEnd = beijingDateToUnix(todayStr, 10);            // 今天 10:00
-    const todayStart = beijingDateToUnix(yesterdayStr, 10);      // 昨天 10:00
-    const yesterdayStart = beijingDateToUnix(dayBeforeYesterdayStr, 10); // 前天 10:00
+    const todayStart = beijingDateToUnix(todayStr, 0);                    // 今天 00:00
+    const todayEnd = beijingDateToUnix(getBeijingDateOffset(1), 0);       // 明天 00:00（今日 24:00）
+    const elapsedSec = Math.max(0, Math.floor(Date.now() / 1000) - todayStart);
+    const yesterdayStart = beijingDateToUnix(getBeijingDateOffset(-1), 0); // 昨天 00:00
+    const yesterdayEnd = yesterdayStart + elapsedSec;                      // 昨天 same time
 
     const [todayResult, yesterdayResult] = await Promise.all([
       pool.query(
@@ -52,7 +53,7 @@ export const GET = withRoute(async () => {
       ),
       pool.query(
         "SELECT COUNT(*) AS total FROM crm_bid_notices WHERE create_time >= ? AND create_time < ?",
-        [yesterdayStart, todayStart]
+        [yesterdayStart, yesterdayEnd]
       ),
     ]);
     // pool.query 返回 [rows, fields]，取 rows[0].total
