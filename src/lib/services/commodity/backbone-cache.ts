@@ -17,7 +17,10 @@
  *              绝不用空映射冒充"算得出"——那是把公告归属悄悄写坏的最快路径。
  * @limits 首次载入就失败（库里没树 / 连不上）⇒ 返回 null，调用方把 backbone_path 落 NULL 并告警。
  *          行照常写（其它列是搜索的命脉），归属缺位由门禁 BB7 直接报错：
- *          它断言"挂了码的公告必须有非空 backbone_path"，所以这里不需要也不允许假装成功。
+ *          它断言「挂了码且按当前树可算的公告必须有非空 backbone_path」（2026-10-12 从「有码必填」收紧），
+ *          所以这里不需要也不允许假装成功；全码换不出而不落笔属预期（以树为准，等 AI 补码）。
+ *          口径改了但本模块的调用方跑的是线上已部署构建时，BB10 会把这类分叉报出来（新公告由旧规则写），
+ *          它自会随发布收敛，不是数据坏。
  * @see src/lib/services/commodity/backbone-path.ts（换算口径唯一实现）
  * @see src/lib/services/search-sync/wide-row-builder.ts（唯一调用方）
  * @see scripts/gates/check-commodity-backbone.ts（BB7 闭合断言）
