@@ -5,19 +5,19 @@
  */
 import { useCallback, useState } from "react";
 import { fetchAiScore, type AiScoreData } from "../api/ai-score";
-import { gateErrorToken } from "../api/notice-gate";
+import { classifyApiError, type ErrorClassification } from "@/core/http";
 
 export interface UseAiScoreReturn {
   data: AiScoreData | null;
   loading: boolean;
-  error: string | null;
+  error: ErrorClassification | null;
   triggerScore: (forceRegenerate?: boolean) => void;
 }
 
 export function useAiScore(noticeId: number | undefined): UseAiScoreReturn {
   const [data, setData] = useState<AiScoreData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorClassification | null>(null);
 
   const triggerScore = useCallback((force = false) => {
     if (!noticeId) return;
@@ -25,7 +25,7 @@ export function useAiScore(noticeId: number | undefined): UseAiScoreReturn {
     setError(null);
     fetchAiScore(noticeId, force)
       .then((d) => setData(d))
-      .catch((err) => setError(gateErrorToken(err)))
+      .catch((err) => setError(classifyApiError(err)))
       .finally(() => setLoading(false));
   }, [noticeId]);
 

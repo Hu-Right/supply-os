@@ -8,7 +8,7 @@
  */
 
 import type { PlatformEnv } from "@/types/payment";
-import { api, ApiError } from "@/core/http";
+import { api } from "@/core/http";
 
 /** 支付提供商配置状态（精简，仅前端 UI 决策所需字段） */
 export interface PaymentConfigStatus {
@@ -161,90 +161,4 @@ export function getPaymentTips(provider: "alipay" | "wechat"): string {
     return "将跳转至微信完成支付";
   }
   return "请使用微信 App 扫描二维码完成支付";
-}
-
-/**
- * 将技术性支付错误映射为用户友好的中文提示
- * Map technical payment errors to user-friendly Chinese messages
- */
-export function mapPaymentError(err: unknown): string {
-  const message = err instanceof Error ? err.message : String(err);
-  // 优先按 HTTP 状态码判断（后端已知错误均通过 sendError 返回结构化响应）
-  if (err instanceof ApiError) {
-    if (err.status === 500) return "系统繁忙，请稍后重试";
-    if (err.status === 503) return "支付通道暂时不可用，请稍后重试或联系我们";
-    if (err.status === 404) return "课程不存在或已下架，请刷新页面后重试";
-    if (err.status === 401) return "请先登录后再尝试支付";
-    if (err.status === 400) {
-      // 支付渠道不可用（策略未注册或 provider 非法）
-      if (message.includes("PAYMENT_PROVIDER_UNAVAILABLE") || message.includes("Unsupported payment provider")) {
-        return "当前支付方式暂未开通，请选择其他支付方式或联系管理员";
-      }
-      // 认证/刷新令牌相关 → 引导重新登录
-      if (
-        message.includes("刷新令牌") || message.includes("REFRESH_TOKEN") ||
-        message.includes("请先登录") || message.includes("USER_REQUIRED") ||
-        message.includes("缺少刷新") || message.includes("令牌无效") ||
-        message.includes("令牌已失效")
-      ) {
-        return "请先登录后再尝试支付";
-      }
-      // 学员信息校验失败
-      if (message.includes("学员") || message.includes("participant")) {
-        return "学员信息校验失败，请检查后重试";
-      }
-      // 期次/排期异常
-      if (message.includes("期次") || message.includes("schedule") || message.includes("已不可用")) {
-        return "所选期次已不可用，请刷新页面后重试";
-      }
-      // 其他 400 业务错误：不再透传原始技术消息，统一中文兜底
-      console.warn("[mapPaymentError] 未匹配的 400 错误:", message);
-      return "请求参数有误，请检查后重试";
-    }
-  }
-  if (message.includes("Unsupported payment provider") || message === "PAYMENT_PROVIDER_UNAVAILABLE") {
-    return "当前支付方式暂未开通，请选择支付宝或联系管理员";
-  }
-  if (message.includes("支付通道") || message.includes("系统繁忙")) {
-    return message.includes("系统繁忙") ? "系统繁忙，请稍后重试" : "支付通道暂时不可用，请稍后重试或联系我们";
-  }
-  if (message.includes("课程不存在") || message.includes("COURSE_NOT_FOUND")) {
-    return "课程不存在或已下架，请刷新页面后重试";
-  }
-  if (message.includes("课程价格") || message.includes("COURSE_PRICE_INVALID")) {
-    return "课程价格配置异常，请联系管理员";
-  }
-  if (message.includes("二维码") || message.includes("当面付") || message.includes("PAYMENT_QR_CODE_MISSING")) {
-    return "支付二维码生成失败，请确认已开通「当面付」产品后重试";
-  }
-  if (message.includes("支付方式暂未开通") || message.includes("TRAINING_PROVIDER_UNAVAILABLE")) {
-    return "当前支付方式暂未开通，请选择其他支付方式或联系我们";
-  }
-  if (message.includes("PLAN_NOT_FOUND")) {
-    return "未找到对应的套餐方案，请刷新后重试";
-  }
-  if (message.includes("USER_AND_PLAN_REQUIRED")) {
-    return "请先登录后再尝试支付";
-  }
-  if (message.includes("FREE_PLAN_NO_PAYMENT_REQUIRED")) {
-    return "免费套餐无需支付";
-  }
-  if (message.includes("SINGLE_FIRST_PURCHASE_ONLY")) {
-    return "首单特惠仅限首次购买，请选择标准单次解锁";
-  }
-  if (message.includes("AMOUNT_MISMATCH") || message.includes("AMOUNT_INVALID")) {
-    return "支付金额异常，请联系客服处理";
-  }
-  if (message.includes("SIGN_VERIFY_FAILED")) {
-    return "支付验证失败，请重试或更换支付方式";
-  }
-  if (message.includes("SCHEDULE_CAPACITY_EXCEEDED")) {
-    return "所选期次名额已满，请选择其他期次";
-  }
-  if (message.includes("ORDER_NOT_FOUND")) {
-    return "订单不存在或已过期，请重新创建";
-  }
-  // 兜底：打印原始错误便于排查
-  console.warn("[mapPaymentError] 未匹配的错误消息:", message);
-  return "支付创建失败，请稍后重试或更换支付方式";
 }

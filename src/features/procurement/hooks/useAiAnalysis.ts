@@ -11,12 +11,13 @@ import {
   streamAiSummary, fetchLlmConfig, fetchAiSummaryCache,
   type AiSummaryData,
 } from "../api/ai-summary";
+import { classifyApiError, type ErrorClassification } from "@/core/http";
 
 export interface UseAiAnalysisReturn {
   data: AiSummaryData | null;
   loading: boolean;
   streaming: boolean;
-  error: string | null;
+  error: ErrorClassification | null;
   cached: boolean;
   /** 当前展示为服务端脱敏 teaser（低档）：驱动"升级看完整"内联提示 */
   masked: boolean;
@@ -52,7 +53,7 @@ export function useAiAnalysis(
   const [data, setData] = useState<AiSummaryData | null>(null);
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorClassification | null>(null);
   const [cached, setCached] = useState(false);
   const [masked, setMasked] = useState(false);
   const [llmConfigured, setLlmConfigured] = useState(false);
@@ -111,7 +112,7 @@ export function useAiAnalysis(
             }
           }
           if (!ok) {
-            setError(fullJson ? "AI 返回格式异常，请重试" : "AI 未返回内容，请重试");
+            setError(classifyApiError(fullJson ? "LLM_BAD_JSON" : "LLM_EMPTY"));
           }
           setStreaming(false);
           setLoading(false);
@@ -119,14 +120,14 @@ export function useAiAnalysis(
         // onError
         (msg) => {
           if (abortRef.current) return;
-          setError(msg);
+          setError(classifyApiError(msg));
           setStreaming(false);
           setLoading(false);
         },
       );
     } catch (err) {
       if (!abortRef.current) {
-        setError(err instanceof Error ? err.message : "AI 分析失败");
+        setError(classifyApiError(err));
         setStreaming(false);
         setLoading(false);
       }

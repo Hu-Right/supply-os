@@ -15,7 +15,8 @@ import {
 import { useLocale } from "@/core/i18n";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { useAwardHistory, type AwardHistoryData } from "../../hooks/useAwardHistory";
-import { parseVipRank, rankToTierKey } from "../../api/notice-gate";
+import { rankToTierKey } from "../../api/notice-gate";
+import { resolveErrorText } from "@/core/http";
 
 interface AwardHistoryTabProps {
   noticeId: number | undefined;
@@ -274,7 +275,7 @@ export function AwardHistoryTab({ noticeId }: AwardHistoryTabProps) {
   }
 
   // 档位不足（V2/EC_VIP_ONLY）：以“需升级”引导态展示（六语），而非当作“查询失败”
-  const gateRank = error ? parseVipRank(error) : null;
+  const gateRank = error?.kind === "vipGate" ? error.requiredRank ?? null : null;
   if (gateRank !== null) {
     return (
       <section className="rounded-2xl border border-amber-200 bg-amber-50/50 overflow-hidden">
@@ -306,7 +307,7 @@ export function AwardHistoryTab({ noticeId }: AwardHistoryTabProps) {
             <AlertCircle className="w-7 h-7 text-red-400" />
           </div>
           <h3 className="text-base font-extrabold text-slate-900 mb-2">查询失败</h3>
-          <p className="text-sm text-slate-500 mb-4">{error}</p>
+          <p className="text-sm text-slate-500 mb-4">{resolveErrorText(error, t)}</p>
           <button
             onClick={triggerFetch}
             className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 text-sm font-bold transition-colors"

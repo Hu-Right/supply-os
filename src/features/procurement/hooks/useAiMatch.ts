@@ -6,14 +6,14 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { fetchAiMatch, fetchAiMatchCache, type AiMatchData } from "../api/ai-match";
-import { gateErrorToken } from "../api/notice-gate";
+import { classifyApiError, type ErrorClassification } from "@/core/http";
 
 export interface UseAiMatchReturn {
   data: AiMatchData | null;
   loading: boolean;
   /** 历史缓存回读中（true 时卡片显示骨架屏而非引导按钮，避免闪烁） */
   cacheLoading: boolean;
-  error: string | null;
+  error: ErrorClassification | null;
   triggerMatch: (forceRegenerate?: boolean) => void;
 }
 
@@ -21,7 +21,7 @@ export function useAiMatch(noticeId: number | undefined, entitled = true): UseAi
   const [data, setData] = useState<AiMatchData | null>(null);
   const [loading, setLoading] = useState(false);
   const [cacheLoading, setCacheLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorClassification | null>(null);
 
   // 进页面回读缓存：命中则直接呈现历史匹配结果，未命中保持引导态
   // 无 ai_match 权益（低档走法②）时不发缓存请求，避免"点了才 403"
@@ -51,7 +51,7 @@ export function useAiMatch(noticeId: number | undefined, entitled = true): UseAi
     setError(null);
     fetchAiMatch(noticeId, force)
       .then((d) => setData(d))
-      .catch((err) => setError(gateErrorToken(err)))
+      .catch((err) => setError(classifyApiError(err)))
       .finally(() => setLoading(false));
   }, [noticeId, entitled]);
 

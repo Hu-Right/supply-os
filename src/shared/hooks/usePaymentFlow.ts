@@ -12,9 +12,9 @@ import {
   fetchPaymentConfigStatus,
   getAvailableProviders,
   detectPlatformEnv,
-  mapPaymentError,
   type PaymentConfigStatus,
 } from "@/core/payment";
+import { mapApiError } from "@/core/http";
 import { usePaymentPolling } from "./usePaymentPolling";
 
 export type PaymentModalStep = "choose" | "waiting" | "success" | "failed";
@@ -134,7 +134,7 @@ export function usePaymentFlow({
       startPolling(created.order_no);
     } catch (err) {
       console.warn("[PaymentModalCore] create order failed:", err);
-      setError(mapPaymentError(err));
+      setError(mapApiError(err, t));
     } finally {
       setIsCreating(false);
     }

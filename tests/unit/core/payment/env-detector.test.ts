@@ -12,8 +12,8 @@ vi.mock("@/core/http", () => ({
   },
 }));
 
-import { mapPaymentError, detectPlatformEnv, isMobile, isDesktop, fetchPaymentConfigStatus, isProviderConfigured, getAvailableProviders, getPaymentTips } from "@/core/payment/env-detector";
-import { api, ApiError } from "@/core/http";
+import { detectPlatformEnv, isMobile, isDesktop, fetchPaymentConfigStatus, isProviderConfigured, getAvailableProviders, getPaymentTips } from "@/core/payment/env-detector";
+import { api } from "@/core/http";
 
 describe("detectPlatformEnv", () => {
   const originalUA = navigator.userAgent;
@@ -136,62 +136,5 @@ describe("getPaymentTips", () => {
   });
 });
 
-describe("mapPaymentError", () => {
-  it("Error 对象 → 兑底文案", () => {
-    expect(mapPaymentError(new Error("test error"))).toContain("支付");
-  });
-  it("字符串 → 兑底", () => {
-    expect(mapPaymentError("string error")).toContain("支付");
-  });
-  it("PLAN_NOT_FOUND → 套餐提示", () => {
-    expect(mapPaymentError(new Error("PLAN_NOT_FOUND"))).toContain("套餐");
-  });
-  it("FREE_PLAN_NO_PAYMENT_REQUIRED → 免费提示", () => {
-    expect(mapPaymentError(new Error("FREE_PLAN_NO_PAYMENT_REQUIRED"))).toBe("免费套餐无需支付");
-  });
-  it("USER_AND_PLAN_REQUIRED → 登录提示", () => {
-    expect(mapPaymentError(new Error("USER_AND_PLAN_REQUIRED"))).toContain("登录");
-  });
-  it("Unsupported payment provider → 支付方式提示", () => {
-    expect(mapPaymentError(new Error("Unsupported payment provider"))).toContain("支付");
-  });
-  it("二维码缺失 → 当面付提示", () => {
-    expect(mapPaymentError(new Error("PAYMENT_QR_CODE_MISSING"))).toContain("二维码");
-  });
-  it("课程不存在 → 课程提示", () => {
-    expect(mapPaymentError(new Error("COURSE_NOT_FOUND"))).toContain("课程");
-  });
-  it("课程价格异常 → 管理员提示", () => {
-    expect(mapPaymentError(new Error("COURSE_PRICE_INVALID"))).toContain("管理员");
-  });
-  it("系统繁忙 → 系统繁忙提示", () => {
-    expect(mapPaymentError(new Error("系统繁忙"))).toContain("系统繁忙");
-  });
-  it("支付通道 → 通道不可用提示", () => {
-    expect(mapPaymentError(new Error("支付通道异常"))).toContain("支付通道");
-  });
-  it("TRAINING_PROVIDER_UNAVAILABLE → 支付方式提示", () => {
-    expect(mapPaymentError(new Error("TRAINING_PROVIDER_UNAVAILABLE"))).toContain("支付方式");
-  });
-  it("ApiError 500 → 系统繁忙", () => {
-    expect(mapPaymentError(new ApiError(500, "Internal"))).toContain("系统繁忙");
-  });
-  it("ApiError 503 → 通道不可用", () => {
-    expect(mapPaymentError(new ApiError(503, "Unavailable"))).toContain("通道");
-  });
-  it("ApiError 401 → 登录提示", () => {
-    expect(mapPaymentError(new ApiError(401, "Auth"))).toContain("登录");
-  });
-  it("ApiError 404 → 课程提示", () => {
-    expect(mapPaymentError(new ApiError(404, "Not found"))).toContain("课程");
-  });
-  it("ApiError 400 + 学员信息 → 学员提示", () => {
-    expect(mapPaymentError(new ApiError(400, "学员信息校验失败"))).toContain("学员");
-  });
-  it("ApiError 400 + 期次 → 期次提示", () => {
-    expect(mapPaymentError(new ApiError(400, "期次已不可用"))).toContain("期次");
-  });
-  it("ApiError 400 + 刷新令牌 → 登录提示", () => {
-    expect(mapPaymentError(new ApiError(400, "刷新令牌已失效"))).toContain("登录");
-  });
-});
+// mapPaymentError 已退役（2026-10-12 统一错误提示层）：钱路错误改由后端稳定码 +
+// src/core/http/error-map.ts 的 code→i18n 映射承担，对应断言迁至 tests/unit/core/http/error-map.test.ts。

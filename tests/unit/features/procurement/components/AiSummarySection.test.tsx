@@ -41,9 +41,9 @@ describe("AiSummarySection", () => {
   });
 
   it("错误态显示友好提示与重试", () => {
-    render(<AiSummarySection data={null} llmConfigured error="LLM 调用失败" />);
+    render(<AiSummarySection data={null} llmConfigured error={{ kind: "ai", key: "aiErrCallFailed", message: "LLM 调用失败" }} />);
     expect(screen.getByText("procurement_aiSummaryError")).toBeInTheDocument();
-    expect(screen.getByText("detail_aiSummaryErrorGeneric")).toBeInTheDocument();
+    expect(screen.getByText("aiErrCallFailed")).toBeInTheDocument();
   });
 
   it("加载中显示骨架屏", () => {

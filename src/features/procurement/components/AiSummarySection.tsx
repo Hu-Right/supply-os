@@ -18,6 +18,7 @@ import {
   Lock,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { resolveErrorText, type ErrorClassification } from "@/core/http";
 import { useEffect, useState } from "react";
 
 /** AI 拆标摘要数据结构（6 维度） */
@@ -34,7 +35,7 @@ export interface AiSummarySectionProps {
   data?: AiSummaryData | null;
   loading?: boolean;
   streaming?: boolean;
-  error?: string | null;
+  error?: ErrorClassification | null;
   llmConfigured?: boolean;
   onConfigure?: () => void;
   /** 点击"开始分析"的回调 */
@@ -95,29 +96,6 @@ export function AiSummarySection({
     const id = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(id);
   }, [loading]);
-
-  /** 将原始错误信息映射为用户友好的提示 */
-  const friendlyError = (raw: string): string => {
-    // LLM_HTTP_401 含 "401" 子串：BYOK 凭证类错误必须先于登录态判断，否则「模型 Key 被拒」会被误报成「登录已过期」
-    if (raw.includes("LLM_NOT_CONFIGURED") || raw.includes("请先配置 LLM"))
-      return t("detail_aiSummaryErrorLlmConfig") || "请先配置 AI 模型后再进行 AI 分析。";
-    if (raw.includes("LLM_HTTP_401") || raw.includes("LLM_HTTP_402") || raw.includes("LLM_HTTP_403"))
-      return t("detail_aiSummaryErrorLlmKey") || "您的 AI 模型 API Key 无效或已被服务商拒绝，请重新配置 AI 模型并测试连接后再试。";
-    // 登录态只认精确的 HTTP 状态码（"HTTP 401"）或 401 统一话术「请先登录」，不做裸 "401" 子串匹配
-    if (raw.includes("HTTP 401") || raw.includes("请先登录") || raw.includes("Unauthorized"))
-      return t("detail_aiSummaryErrorAuth") || "登录已过期，请重新登录后再试。";
-    if (raw.includes("403") || raw.includes("Forbidden") || raw.includes("core_locked"))
-      return t("detail_aiSummaryErrorLocked") || "请先解锁本公告，再进行 AI 分析。";
-    if (raw.includes("LLM_HTTP_429") || raw.includes("rate"))
-      return t("detail_aiSummaryErrorRate") || "AI 服务请求过于频繁，请稍后再试。";
-    if (raw.includes("LLM_HTTP_5") || raw.includes("timeout") || raw.includes("network"))
-      return t("detail_aiSummaryErrorNetwork") || "AI 服务暂时不可用，请稍后重试。";
-    if (raw.includes("LLM_BAD_JSON") || raw.includes("LLM_BAD_SHAPE") || raw.includes("LLM_EMPTY"))
-      return t("detail_aiSummaryErrorFormat") || "AI 返回结果格式异常，请重试或检查模型配置。";
-    if (raw.includes("NOTICE_NOT_FOUND"))
-      return t("detail_aiSummaryErrorNotice") || "公告不存在或已下架。";
-    return t("detail_aiSummaryErrorGeneric") || "AI 分析过程中出现错误，请稍后重试。";
-  };
 
   // 加载中：明确的"分析中"动效面板（旋转+计时），而非静态骨架屏
   if (loading && !hasData) {
@@ -232,7 +210,7 @@ export function AiSummarySection({
             {t("procurement_aiSummaryError") || "AI 分析失败"}
           </h3>
         </div>
-        <p className="text-sm text-rose-700 mb-4">{friendlyError(error)}</p>
+        <p className="text-sm text-rose-700 mb-4">{resolveErrorText(error, t)}</p>
         <button
           type="button"
           onClick={onRegenerate}

@@ -18,7 +18,11 @@ const { apiMock, pushMock } = vi.hoisted(() => ({
   pushMock: vi.fn(),
 }));
 
-vi.mock("@/core/http", () => ({ api: apiMock }));
+// 只换掉 api（控制请求成败），mapApiError 等同真实统一层保留（供断言回落行为）
+vi.mock("@/core/http", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/core/http")>();
+  return { ...actual, api: apiMock };
+});
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
 // t() 返回键名：断言直接盯键，键漏配或多语言错位会被 check-i18n 另行拦截
 vi.mock("@/core/i18n", () => ({ useLocale: () => ({ locale: "zh", t: (k: string) => k }) }));
@@ -76,11 +80,11 @@ describe("SupplierClaimModal", () => {
     expect(screen.getByText("profile_claimConfirmCta")).toBeEnabled();
   });
 
-  it("失败且异常不是 Error 实例 → 回落到提交失败文案键", async () => {
+  it("失败且异常不是 Error 实例且无可读文案 → 统一层回落到系统兜底键", async () => {
     apiMock.mockRejectedValue("boom");
     render(<SupplierClaimModal {...props} />);
     fireEvent.click(screen.getByText("profile_claimConfirmCta"));
-    expect(await screen.findByText("profile_claimFailed")).toBeInTheDocument();
+    expect(await screen.findByText("errSystemBusy")).toBeInTheDocument();
   });
 
   it("提交期间关闭按钮禁用、点遮罩不关闭", async () => {

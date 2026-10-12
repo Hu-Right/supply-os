@@ -15,7 +15,6 @@ export {
   getPaymentTips,
   fetchPaymentConfigStatus,
   isProviderConfigured,
-  mapPaymentError,
 } from "./env-detector";
 export type { PaymentConfigStatus } from "./env-detector";
 export { PAYMENT_POLL_INTERVAL_MS, PAYMENT_POLL_MAX_ATTEMPTS } from "./constants";

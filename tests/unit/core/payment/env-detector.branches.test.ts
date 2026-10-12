@@ -2,7 +2,7 @@
  * env-detector 分支覆盖补全（架构评估 P0-T1 续）
  *
  * 覆盖：配置缓存命中/异常回退、平台化支付方式列表（wechat/app）、
- * 分平台支付提示文案、mapPaymentError 的钱路错误码映射分支。
+ * 分平台支付提示文案。（原 mapPaymentError 分支已随统一错误提示层迁至 tests/unit/core/http/error-map.test.ts。）
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -17,8 +17,8 @@ vi.mock("@/core/http", () => ({
   },
 }));
 
-import { mapPaymentError, detectPlatformEnv, isMobile, fetchPaymentConfigStatus, isProviderConfigured, getAvailableProviders, getPaymentTips } from "@/core/payment/env-detector";
-import { api, ApiError } from "@/core/http";
+import { detectPlatformEnv, isMobile, fetchPaymentConfigStatus, isProviderConfigured, getAvailableProviders, getPaymentTips } from "@/core/payment/env-detector";
+import { api } from "@/core/http";
 
 const originalUA = navigator.userAgent;
 
@@ -101,41 +101,4 @@ describe("getPaymentTips — 分平台文案", () => {
   });
 });
 
-describe("mapPaymentError — 钱路错误码映射", () => {
-  it("400 未匹配的业务错误 → 统一中文兜底，不透传技术消息", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const err = new ApiError(400, "自定义业务错误 XYZ");
-    expect(mapPaymentError(err)).toBe("请求参数有误，请检查后重试");
-    expect(warnSpy).toHaveBeenCalledWith("[mapPaymentError] 未匹配的 400 错误:", "自定义业务错误 XYZ");
-    warnSpy.mockRestore();
-  });
-
-  it("学员信息校验失败 → 引导检查学员信息", () => {
-    expect(mapPaymentError(new ApiError(400, "学员信息不完整"))).toBe("学员信息校验失败，请检查后重试");
-  });
-
-  it("期次异常 → 引导刷新页面", () => {
-    expect(mapPaymentError(new ApiError(400, "该期次 schedule 已不可用"))).toBe("所选期次已不可用，请刷新页面后重试");
-  });
-
-  it("SINGLE_FIRST_PURCHASE_ONLY → 首单特惠提示", () => {
-    expect(mapPaymentError(new Error("SINGLE_FIRST_PURCHASE_ONLY"))).toBe("首单特惠仅限首次购买，请选择标准单次解锁");
-  });
-
-  it("AMOUNT_MISMATCH / AMOUNT_INVALID → 金额异常提示", () => {
-    expect(mapPaymentError(new Error("AMOUNT_MISMATCH"))).toBe("支付金额异常，请联系客服处理");
-    expect(mapPaymentError(new Error("AMOUNT_INVALID"))).toBe("支付金额异常，请联系客服处理");
-  });
-
-  it("SIGN_VERIFY_FAILED → 验证失败提示", () => {
-    expect(mapPaymentError(new Error("SIGN_VERIFY_FAILED"))).toBe("支付验证失败，请重试或更换支付方式");
-  });
-
-  it("SCHEDULE_CAPACITY_EXCEEDED → 名额已满提示", () => {
-    expect(mapPaymentError(new Error("SCHEDULE_CAPACITY_EXCEEDED"))).toBe("所选期次名额已满，请选择其他期次");
-  });
-
-  it("ORDER_NOT_FOUND → 订单不存在提示", () => {
-    expect(mapPaymentError(new Error("ORDER_NOT_FOUND"))).toBe("订单不存在或已过期，请重新创建");
-  });
-});
+// mapPaymentError 已退役：钱路错误改由后端稳定码 + error-map 的 code→i18n 映射承担。

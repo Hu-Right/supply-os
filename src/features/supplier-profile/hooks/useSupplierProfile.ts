@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { fetchSupplierById } from "@/shared/api/supplier";
+import { mapApiError } from "@/core/http";
 import type { Supplier } from "@/types";
 
 export interface UseSupplierProfileReturn {
@@ -38,7 +39,7 @@ export function useSupplierProfile(lang: string, id: string): UseSupplierProfile
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err?.message ?? "Failed to fetch supplier");
+        setError(mapApiError(err));
         setSupplier(null);
       })
       .finally(() => {

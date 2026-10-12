@@ -13,7 +13,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Clock } from "lucide-react";
-import { api } from "@/core/http";
+import { api, mapApiError } from "@/core/http";
 import { useLocale } from "@/core/i18n";
 
 interface SupplierClaimModalProps {
@@ -41,7 +41,7 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
       // 确认即跳转企业设置页：限时 1 小时内上传执照并保存
       router.push("/settings/enterprise");
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("profile_claimFailed") || "提交失败，请稍后重试");
+      setError(mapApiError(err, t));
       setSubmitting(false);
     }
   };

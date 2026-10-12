@@ -8,8 +8,7 @@
  *              手动触发模式：用户切换到「历史中标」Tab 时才发起请求。
  */
 import { useCallback, useState } from "react";
-import { api } from "@/core/http";
-import { gateErrorToken } from "../api/notice-gate";
+import { api, classifyApiError, type ErrorClassification } from "@/core/http";
 
 // ── 类型定义 ──
 
@@ -52,7 +51,7 @@ export interface AwardHistoryData {
 export interface UseAwardHistoryReturn {
   data: AwardHistoryData | null;
   loading: boolean;
-  error: string | null;
+  error: ErrorClassification | null;
   triggerFetch: () => void;
 }
 
@@ -65,7 +64,7 @@ export interface UseAwardHistoryReturn {
 export function useAwardHistory(noticeId: number | undefined): UseAwardHistoryReturn {
   const [data, setData] = useState<AwardHistoryData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorClassification | null>(null);
 
   const triggerFetch = useCallback(() => {
     if (!noticeId || loading) return;
@@ -78,7 +77,7 @@ export function useAwardHistory(noticeId: number | undefined): UseAwardHistoryRe
         setData(resp.data);
       })
       .catch((err) => {
-        setError(gateErrorToken(err));
+        setError(classifyApiError(err));
       })
       .finally(() => {
         setLoading(false);

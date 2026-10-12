@@ -12,14 +12,14 @@ vi.mock("@/core/i18n", () => ({
   useLocale: () => ({ t: (key: string) => key, locale: "zh" }),
 }));
 
-// 门控：仅当 error === "GATE" 时判定为专业版不足（返回 required_rank），否则 null
+// 门控：仅当 error.kind === "vipGate" 时组件自行取 requiredRank 渲染升级卡（不再依赖 parseVipRank）
 vi.mock("@/features/procurement/api/notice-gate", () => ({
-  parseVipRank: vi.fn((e: string) => (e === "GATE" ? 3 : null)),
   rankToTierKey: vi.fn(() => "tierPro"),
 }));
 
 import { AiEvaluationPanel } from "@/features/procurement/components/AiEvaluationPanel";
 import type { AiMatchData, MatchedSupplier } from "@/features/procurement/api/ai-match";
+import type { ErrorClassification } from "@/core/http";
 
 function candidate(partial: Partial<MatchedSupplier> & { supplier_id: number; company: string; isSelf: boolean }): MatchedSupplier {
   return {
@@ -32,7 +32,7 @@ function candidate(partial: Partial<MatchedSupplier> & { supplier_id: number; co
 
 const noop = () => {};
 const baseProps = {
-  loading: false, cacheLoading: false, error: null as string | null,
+  loading: false, cacheLoading: false, error: null as ErrorClassification | null,
   onStart: noop, onRegenerate: noop, onGoToPool: noop, onGoToEnterprise: noop, onEditDiag: noop,
 };
 
@@ -80,7 +80,7 @@ describe("AiEvaluationPanel 状态渲染", () => {
   });
 
   it("升级门：专业版不足 error → 琥珀引导卡（会员/专业版专享）", () => {
-    render(<AiEvaluationPanel data={null} {...baseProps} error="GATE" />);
+    render(<AiEvaluationPanel data={null} {...baseProps} error={{ kind: "vipGate", key: "errVipFeatureOnly", requiredRank: 3, message: "" }} />);
     expect(screen.getByText("aiGateMatchTitle")).toBeTruthy();
     expect(screen.getByText("aiGateViewPlans")).toBeTruthy();
   });

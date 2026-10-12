@@ -11,7 +11,8 @@
 import { Target, RefreshCw, AlertTriangle, Sparkles, Lock, ArrowRight, Building2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { AiMatchData } from "../api/ai-match";
-import { parseVipRank, rankToTierKey } from "../api/notice-gate";
+import { rankToTierKey } from "../api/notice-gate";
+import { resolveErrorText, type ErrorClassification } from "@/core/http";
 import { AiEvaluationRow } from "./AiEvaluationRow";
 
 export interface AiEvaluationPanelProps {
@@ -19,7 +20,7 @@ export interface AiEvaluationPanelProps {
   loading: boolean;
   /** 历史缓存回读中：true 且无数据时显示骨架屏，避免引导按钮闪烁 */
   cacheLoading: boolean;
-  error: string | null;
+  error: ErrorClassification | null;
   /** 未生成：引导触发 */
   onStart: () => void;
   /** 重新评估（forceRegenerate） */
@@ -39,16 +40,6 @@ export function AiEvaluationPanel({
   upgradeLocked = false,
 }: AiEvaluationPanelProps) {
   const { t } = useLocale();
-
-  /** 错误映射：限流/解锁/通用（档位不足由上方琥珀引导卡接管） */
-  const friendlyError = (raw: string): string => {
-    if (raw.includes("429") || raw.includes("rate")) return t("aiScoreErrorRate") || "AI 服务请求过于频繁，请稍后再试。";
-    if (raw.includes("403") || raw.includes("core_locked") || raw.includes("锁定") || raw.includes("解锁"))
-      return t("aiScoreErrorLocked") || "请先解锁本公告，再进行 AI 评估。";
-    if (raw.includes("401") || raw.includes("LLM_NOT_CONFIGURED"))
-      return t("aiScoreErrorAuth") || "登录已过期或未配置 AI 模型，请检查后再试。";
-    return t("aiScoreErrorGeneric") || "AI 评估过程中出现错误，请稍后重试。";
-  };
 
   // 低档无 ai_match 权益（走法②）：进 Tab 即升级引导，不发请求、不露候选/分数
   if (upgradeLocked && !data) {
@@ -98,7 +89,7 @@ export function AiEvaluationPanel({
   if (loading) return <SkeletonPanel t={t} />;
 
   // 档位不足（V2）：琥珀色「需升级」引导卡（专业版起享）
-  const gateRank = error ? parseVipRank(error) : null;
+  const gateRank = error?.kind === "vipGate" ? error.requiredRank ?? null : null;
   if (gateRank !== null) {
     return (
       <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 text-center">
@@ -119,7 +110,7 @@ export function AiEvaluationPanel({
     return (
       <section className="rounded-2xl border border-rose-200 bg-rose-50/50 p-6 text-center">
         <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-        <p className="text-sm text-rose-700 mb-4">{friendlyError(error)}</p>
+        <p className="text-sm text-rose-700 mb-4">{resolveErrorText(error, t)}</p>
         <button
           type="button"
           onClick={onRegenerate}
