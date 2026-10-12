@@ -252,7 +252,7 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
  *  - 同一段推出两个不同 L1 ⇒ 抛错，不挑一个（BB4 与门禁 CG5 双守这条）；
  *  - 同一个大类码出现两个 L1 行同样抛错：`listL2OfGroup` 那类「取第一行」的读法会静默漏掉一整个大类；
  *  - L1 行被停用/缺席 ⇒ 该段不落点（与退役前那条 SQL 的 `b.status = 1` 同效）。
- * 实测（temp/probe-seg-derivable.ts）：58 段三方逐段全等、0 段跨多大类，与退役前的归属表逐段一致。
+ * 实测（scripts/tools/probe-seg-derivable.ts）：58 段三方逐段全等、0 段跨多大类，与退役前的归属表逐段一致。
  */
 function deriveSegmentRows(
   rows: Array<{ code: string; level: number; unspsc_prefix: string | null; group_code: string }>,

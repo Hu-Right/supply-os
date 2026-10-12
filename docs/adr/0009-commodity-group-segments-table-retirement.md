@@ -12,7 +12,7 @@
 
 落刀沿用 ADR-0006/0008 的三段式：**RENAME → 导出 58 行可回灌 SQL → 校验行数 → DROP**。
 
-## 判据：这张表不携带独立信息（落刀前实测，`temp/probe-seg-derivable.ts`）
+## 判据：这张表不携带独立信息（落刀前实测，`scripts/tools/probe-seg-derivable.ts`）
 
 | 口径 | 段数 |
 | --- | --- |
@@ -30,7 +30,7 @@
 
 「能推导」这个前提不是推测，而是**已有的门禁不变量**：BB4 断言「类行的段所属大类 == 自身 `group_code` == 祖先 L1 的 `group_code`」。删表把这条不变量从「两处存 + 对账」变成「一处存 + 断言」。
 
-顺带补一条前人没量到的检查：`temp/probe58-backbone-map.mjs` 用 `MIN(l1.group_code)` 取值，会把「一段跨多大类」的退化**掩盖成一个看起来正常的数**；本次改用 `COUNT(DISTINCT …)` 逐段量唯一性。
+顺带补一条前人没量到的检查：`scripts/tools/probe58-backbone-map.mjs` 用 `MIN(l1.group_code)` 取值，会把「一段跨多大类」的退化**掩盖成一个看起来正常的数**；本次改用 `COUNT(DISTINCT …)` 逐段量唯一性。
 
 ## 代价与能力边界（明确不解决的）
 
