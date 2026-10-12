@@ -18,7 +18,7 @@ import { Lead } from "../types/crm";
 import { safeJson } from "../utils/json";
 import { maskName } from "../utils/mask";
 
-/** 预约/线索 DB 行（crm_appointments 关键列；直派 Lead 必填字段为 string，带兜底的列可空） */
+/** 预约/线索 DB 行（ungm_1v1_appointments 关键列；直派 Lead 必填字段为 string，带兜底的列可空） */
 interface LeadRow {
   appointment_key: string;
   company_name: string;
