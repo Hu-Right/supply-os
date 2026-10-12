@@ -19,7 +19,7 @@ import type { Pool } from "mysql2/promise";
 import type { UnifiedSearchParams, UnifiedSearchResult, SearchPath } from "./types";
 import { validateParams, searchCacheKey, type RawSearchParams } from "./params";
 import { buildFilterPlan } from "./filter-builder";
-import { resolveMode, type UnspscFilter } from "./mode-resolver";
+import { resolveMode, type CategoryFilter } from "./mode-resolver";
 import { meiliQuery, meiliMultiQuery } from "./meili-query";
 import { mysqlFallback } from "./mysql-fallback";
 import { isFullSyncRunning } from "../meilisearch/sync";
@@ -167,12 +167,12 @@ async function _searchCore(
   }
 
   // ── 参考号精确匹配快速路径 ──
-  // 行业墙：被墙用户即使拿到精确参考号，类目外的公告也不走快速路径直出，
-  // 落回主管道由强制 level1 过滤自然滤掉（不能在这里 403——搜索语义应是无结果而非报错）。
+  // 行业墙：被墙用户即使拿到精确参考号，大类外的公告也不走快速路径直出，
+  // 落回主管道由强制大类节点码谓词自然滤掉（不能在这里 403——搜索语义应是无结果而非报错）。
+  // p.wall 存在但 nodes 为空时 noticeInCategory 恒 false ⇒ 同样落回主管道（那里给 conflictEmpty）。
   if (p.q && p.mode === "default") {
     const refId = await referenceFastPath(pool, p.q);
-    const wallOk = !refId || !p.forcedLevel1Id
-      || (await noticeInCategory(pool, refId, Number(p.forcedLevel1Id)));
+    const wallOk = !refId || !p.wall || (await noticeInCategory(pool, refId, p.wall.nodes));
     if (refId && wallOk) {
       const details = await fetchDetailsByIds(pool, [refId], p.locale);
       const items = formatItems(details, p.locale);
@@ -187,14 +187,14 @@ async function _searchCore(
   }
 
   // ── prefs 渐进放宽：并行 multi-search 探测（B1 优化：串行 4 次 → 1 次 HTTP）──
-  let unspsc: UnspscFilter | null = resolution.codeUnspsc;
-  if (resolution.profileLevels && resolution.profileLevels.length > 0) {
+  let category: CategoryFilter | null = resolution.category;
+  if (resolution.profileNodes && resolution.profileNodes.length > 0) {
     const offset = (p.page - 1) * p.pageSize;
 
-    // 1. 并行构建所有层级的 filter 计划（纯内存操作 + 可能的缓存命中 DB 查询）
+    // 1. 并行构建所有档位的 filter 计划（纯内存操作 + 可能的缓存命中 DB 查询）
     const probePlans = await Promise.all(
-      resolution.profileLevels.map((entry) =>
-        buildFilterPlan(pool, p, { level: entry.level, id: entry.id, precise: true }),
+      resolution.profileNodes.map((entry) =>
+        buildFilterPlan(pool, p, { node: entry.node, precise: true }),
       ),
     );
 
@@ -214,23 +214,23 @@ async function _searchCore(
       p.sort,
     );
 
-    // 4. 选择能覆盖当前页的最深层级（profileLevels 已按深→浅排序）
+    // 4. 选择能覆盖当前页的最深档位（profileNodes 已按深→浅排序）
     if (probeResults) {
-      let chosenIdx = probeResults.length - 1; // 默认用最浅层级
+      let chosenIdx = probeResults.length - 1; // 默认用最浅档位
       for (let i = 0; i < probeResults.length; i++) {
         if (probeResults[i].total >= offset + p.pageSize) {
-          chosenIdx = i; // 找到能覆盖的最深层级
+          chosenIdx = i; // 找到能覆盖的最深档位
           break;
         }
       }
-      const chosen = resolution.profileLevels[chosenIdx];
-      unspsc = { level: chosen.level, id: chosen.id, precise: true };
+      const chosen = resolution.profileNodes[chosenIdx];
+      category = { node: chosen.node, precise: true };
     }
-    // probeResults === null: Meilisearch 不可用，unspsc 保持 null，主流程走 MySQL 降级
+    // probeResults === null: Meilisearch 不可用，category 保持 null，主流程走 MySQL 降级
   }
 
   // ── 构建 filter 计划（全系统唯一筛选语义）──
-  const plan = await buildFilterPlan(pool, p, unspsc);
+  const plan = await buildFilterPlan(pool, p, category);
   if (plan.conflictEmpty) {
     const empty: UnifiedSearchResult = { items: [], total: 0, page: p.page, pageSize: p.pageSize, fallback: "no_match" };
     cacheSet(cacheKey, empty);
@@ -321,9 +321,9 @@ async function _searchCore(
   const details = await fetchDetailsByIds(pool, ids, p.locale);
   const detailMs = Date.now() - detailStart;
 
-  // ── 格式化（prefs 模式逐文档计算匹配档次：公告自身 precise 层级与用户画像比对，
+  // ── 格式化（prefs 模式逐文档计算匹配档次：公告自身 precise 节点码与用户画像比对，
   //    [阶段0 A2] 替代旧版整页统一赋分，放宽场景下深层精确命中不再被误标为宽泛相关）──
-  const items = formatItems(details, p.locale, resolution.profileLevels ?? undefined);
+  const items = formatItems(details, p.locale, resolution.profileNodes ?? undefined);
 
   const result: UnifiedSearchResult = {
     items,

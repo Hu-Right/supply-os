@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 99 张，导出 98 张，排除 1 张。
+--           源库共 96 张，导出 96 张，排除 0 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -336,7 +336,7 @@ CREATE TABLE `crm_bid_opp_item_codes` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_qw` (`quote_hash`,`word_hash`),
   KEY `idx_quote_hash` (`quote_hash`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商单条目级 UNSPSC 编码（源=内网爬虫库）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商单条目级 UNSPSC 编码';
 
 -- ── crm_bid_opp_structured ──
 CREATE TABLE `crm_bid_opp_structured` (
@@ -584,56 +584,9 @@ CREATE TABLE `crm_commodity_backbone` (
   UNIQUE KEY `uk_prefix` (`unspsc_prefix`),
   KEY `idx_parent` (`parent_code`),
   KEY `idx_group` (`group_code`),
-  KEY `idx_level` (`level`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='五级品目树';
-
--- ── crm_commodity_group_segments ──
-CREATE TABLE `crm_commodity_group_segments` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `group_code` varchar(16) NOT NULL COMMENT '大类码',
-  `segment_code` varchar(40) NOT NULL COMMENT '品目面段码 UGT-C-*',
-  `unspsc_prefix` char(2) NOT NULL COMMENT 'UNSPSC 段前缀：筛选与派生的实际键',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_segment` (`segment_code`),
-  UNIQUE KEY `uk_prefix` (`unspsc_prefix`),
-  KEY `idx_group` (`group_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='段→大类归属；两个 UNIQUE 把「1:1」写成约束而非代码判断';
-
--- ── crm_commodity_groups ──
-CREATE TABLE `crm_commodity_groups` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `code` varchar(16) NOT NULL COMMENT '大类码 UGT-G-01…UGT-G-32，对外唯一身份',
-  `name_zh` varchar(100) NOT NULL COMMENT '中文名（运维导出与人工对账）；界面展示走 locale',
-  `sort` int NOT NULL COMMENT 'chip 稳定顺序，按公告量降序固化',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '1=启用 0=停用（停用不删行，保留历史归属）',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_code` (`code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品目大类（32 类）：权益墙行业单位与筛选顶层';
-
--- ── crm_commodity_nodes ──
-CREATE TABLE `crm_commodity_nodes` (
-  `id` bigint unsigned NOT NULL,
-  `code` varchar(40) NOT NULL,
-  `unspsc_code` varchar(20) DEFAULT NULL,
-  `source` varchar(12) NOT NULL DEFAULT 'unspsc',
-  `level` varchar(20) NOT NULL,
-  `parent_code` varchar(40) DEFAULT NULL,
-  `name_zh` varchar(300) DEFAULT NULL,
-  `name_en` varchar(300) DEFAULT NULL,
-  `notice_count` int NOT NULL DEFAULT '0',
-  `supplier_count` int NOT NULL DEFAULT '0',
-  `status` tinyint NOT NULL DEFAULT '1',
-  `version` varchar(20) NOT NULL DEFAULT 'v1.0',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `gap_note` text,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_code` (`code`),
   KEY `idx_level` (`level`),
-  KEY `idx_parent` (`parent_code`),
-  KEY `idx_unspsc` (`unspsc_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品目树';
+  FULLTEXT KEY `ft_backbone_names` (`name_zh`,`name_en`) /*!50100 WITH PARSER `ngram` */ 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='五级品目树';
 
 -- ── crm_consent_log ──
 CREATE TABLE `crm_consent_log` (
@@ -665,7 +618,7 @@ CREATE TABLE `crm_email_templates` (
   `create_time` int DEFAULT NULL,
   `update_time` int DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件模板库（源=内网爬虫库，人工触达+自动批次共用）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件模板库';
 
 -- ── crm_employees ──
 CREATE TABLE `crm_employees` (
@@ -829,7 +782,7 @@ CREATE TABLE `crm_message_tracking` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_message_id` (`message_id`),
   UNIQUE KEY `uq_tracking_token` (`tracking_token`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件发送/打开/回复跟踪（源=内网爬虫库）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件发送/打开/回复跟踪';
 
 -- ── crm_monthly_kpi ──
 CREATE TABLE `crm_monthly_kpi` (
@@ -895,6 +848,14 @@ CREATE TABLE `crm_notice_amount_cache` (
   KEY `idx_version` (`parse_version`),
   KEY `idx_amount_cache_notice_amount` (`notice_id`,`amount_usd`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告金额解析缓存表';
+
+-- ── crm_notice_backbone_nodes ──
+CREATE TABLE `crm_notice_backbone_nodes` (
+  `notice_id` bigint unsigned NOT NULL COMMENT '公告主键 id（=crm_bid_notices.id=crm_notice_search.id）',
+  `node` varchar(16) NOT NULL COMMENT '品目节点的码（UGT-B-…，含全部祖先；由 backbone-path 从公告 UNSPSC 标签换算，不是 UNSPSC 码；字符集/排序规则故意与 crm_commodity_backbone.code 一致，否则两边比较会转列吃索引）',
+  PRIMARY KEY (`notice_id`,`node`),
+  KEY `idx_node` (`node`,`notice_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告×品目骨架节点码倒排表：宽表 backbone_path 的行化派生镜像，唯一写入方 search-sync/notice-nodes';
 
 -- ── crm_notice_favorites ──
 CREATE TABLE `crm_notice_favorites` (
@@ -971,6 +932,7 @@ CREATE TABLE `crm_notice_search` (
   `code_path` text COMMENT '全部祖先 UNSPSC 前缀，逗号分隔（所见即所得命中键）',
   `precise_path` text COMMENT '同 code_path，来源=approved 精准候选码',
   `backbone_path` mediumtext COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
+  `precise_backbone_path` mediumtext COMMENT 'approved 精准候选码挂靠到的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
   PRIMARY KEY (`id`),
   KEY `idx_ns_deadline_desc` (`deadline_sec` DESC),
   KEY `idx_ns_id_desc` (`id` DESC),
@@ -1169,7 +1131,7 @@ CREATE TABLE `crm_outreach_supplier` (
   `cq_aqc` json DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_merged` (`merged_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达供应商档案（源=内网爬虫库 supplier，≠云库 supplier）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达供应商档案';
 
 -- ── crm_outreach_supplier_merged ──
 CREATE TABLE `crm_outreach_supplier_merged` (

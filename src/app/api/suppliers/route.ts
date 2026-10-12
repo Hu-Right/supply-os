@@ -10,10 +10,10 @@
  *              一次节点查），装配失败只降级为自由文本展示，不能把整个目录变成空列表——
  *              目录可用性不依赖字典补数进度。
  *
- *              「行业」是这一页的划分轴，所以它不占 `field` 而是独立参数：
- *                - `industry_code`：门类 chip，命中该节点子树；
+ *              「行业」是这一页的划分轴，独立于关键词参数：
+ *                - `industry_code`：行业级联选中的节点码（任一层级），命中该节点子树；
  *                - `industry_q`：行业关键词，服务端先解析成节点集再按子树筛。
- *              两者与产品/公司关键词是 AND 交集。行业词解不到节点就是无结果，
+ *              两者与关键词 `q`（一个框同时搜公司名 + 产品）是 AND 交集。行业词解不到节点就是无结果，
  *              不回落 `supplier.industry` 自由文本——否则同一个词在主轴与词框上会是两套结果。
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -56,8 +56,6 @@ export const GET = withRoute(async (req: NextRequest) => {
       const search = req.nextUrl.searchParams.get("q")?.trim() || undefined;
       // 行业面标准口径筛选：非法码静默丢弃（等同不筛选），不拼进 SQL
       const industryCode = sanitizeIndustryCode(req.nextUrl.searchParams.get("industry_code")) || undefined;
-      // 关键词检索字段（product / company）：决定 q 落在哪一列，白名单校验在 repo
-      const field = req.nextUrl.searchParams.get("field") || undefined;
       // 排序：只透传键名，表达式由 repo 白名单给出（用户输入永不进 ORDER BY）
       const sort = req.nextUrl.searchParams.get("sort") || undefined;
 
@@ -75,7 +73,7 @@ export const GET = withRoute(async (req: NextRequest) => {
       }
 
       const { items, total } = await directoryRepo.listDirectoryPaginated({
-        limit: pageSize, offset, search, field, sort, industryCode, industryCodes,
+        limit: pageSize, offset, search, sort, industryCode, industryCodes,
       });
       const dtoItems = await mapSupplierItems(items, industryRepo);
       return NextResponse.json({ items: dtoItems, total, page, pageSize });

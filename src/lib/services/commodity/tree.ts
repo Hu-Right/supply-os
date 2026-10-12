@@ -22,7 +22,8 @@
  *                 （所以非中文界面这三层会落到中文名，补译名是独立工作，不在这里造）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { COMMODITY_GROUPS, isCommodityGroupCode } from "./groups";
+import { COMMODITY_GROUPS, groupCodeOfUnspscCode, isCommodityGroupCode } from "./groups";
+import { BACKBONE_NODE_PREFIX, backboneNodeLevel, chainOfNode } from "./backbone-path";
 
 /** 一条级联选项 */
 export interface CommodityTreeOption {
@@ -35,25 +36,19 @@ export interface CommodityTreeOption {
 }
 
 /** 骨架节点码前缀（与 crm_commodity_backbone.code 形制一致，门禁 BB1 钉住「码长即层级」） */
-export const COMMODITY_NODE_PREFIX = "UGT-B-";
+export const COMMODITY_NODE_PREFIX = BACKBONE_NODE_PREFIX;
 
-/** 骨架五级：层级数 → 码内数字位数（L1 两位 … L5 十位） */
-const LEVELS = [1, 2, 3, 4, 5] as const;
-
-const NODE_RE = new RegExp(`^${COMMODITY_NODE_PREFIX}[0-9]{2}([0-9]{2}){0,4}$`);
-
-/** 是否为合法骨架节点筛选键（`UGT-B-` + 2/4/6/8/10 位数字，奇数位一律不认） */
+/**
+ * 是否为合法骨架节点筛选键（`UGT-B-` + 2/4/6/8/10 位数字，奇数位一律不认）。
+ * 形制判定不在这重写：全库只 `backbone-path` 一份（层级就藏在码长里，两处写就会分开错）。
+ */
 export function isCommodityNodeKey(value: unknown): value is string {
-  const v = String(value ?? "");
-  if (!NODE_RE.test(v)) return false;
-  const digits = v.length - COMMODITY_NODE_PREFIX.length;
-  return digits % 2 === 0 && digits >= 2 && digits <= 10;
+  return typeof value === "string" && backboneNodeLevel(value) > 0;
 }
 
 /** 节点码 → 层级（1~5）；非法键返回 0（调用方据此拒绝下钻，不猜层级） */
 export function commodityNodeLevel(code: string): number {
-  if (!isCommodityNodeKey(code)) return 0;
-  return (code.length - COMMODITY_NODE_PREFIX.length) / 2;
+  return backboneNodeLevel(code);
 }
 
 /**
@@ -63,16 +58,15 @@ export function commodityNodeLevel(code: string): number {
  * 逐两位截断即得。五级下拉的深链（`?commodity=UGT-B-010101`）靠它一次算出该点亮哪几层、
  * 各层该向哪个父节点要选项，不依赖接口往返。形制不符（奇数位、非数字、前缀不对）返回全空
  * ⇒ 宁可不点亮，也不拿一个错键去筛。
+ *
+ * 截断本身不在这重写：直接用 `backbone-path` 的 `chainOfNode`（浅→深紧凑数组），这里只补成
+ * 五级定长形状。换算规则只能有一份实现 —— 两份就会分开错，而公告侧列值也按那一份算。
  */
 export function commodityNodeChain(value: string | null | undefined): [string, string, string, string, string] {
-  const v = String(value ?? "");
-  const valid = isCommodityNodeKey(v) ? v : "";
-  const out: string[] = ["", "", "", "", ""];
-  const body = valid.slice(COMMODITY_NODE_PREFIX.length);
-  for (const lv of LEVELS) {
-    if (body.length >= lv * 2) out[lv - 1] = COMMODITY_NODE_PREFIX + body.slice(0, lv * 2);
-  }
-  return out as [string, string, string, string, string];
+  const chain = chainOfNode(value);
+  const out: [string, string, string, string, string] = ["", "", "", "", ""];
+  for (let i = 0; i < chain.length; i++) out[i] = chain[i];
+  return out;
 }
 
 function toOption(row: RowDataPacket): CommodityTreeOption {
@@ -149,10 +143,85 @@ export interface ResolvedCommodityPath {
 }
 
 /**
+ * 大类码 → 所辖 L1 节点码集合（10 分钟缓存）。检索侧与可见性判定共用这一份。
+ *
+ * 为什么要缓存：它是热路径（每次检索、每个被墙用户都要），而源表只有 32 行且只在 ops 脚本里变。
+ * 为什么不点查一条：当前实测每个大类恰挂一个 L1（temp/probe75 逐类对拍 32/32 Δ=0），
+ * 但返回集合 —— 只取第一个的话，将来灌进第二个 L1 行就是静默漏一整个大类。
+ * 形制不符的行直接丢掉，不拿错键去筛。
+ * 取不到（查库失败/树没行）时返回空图：调用方按「大类挂不上 L1」走空结果，不静默放宽为全量。
+ */
+let _groupL1Cache: { map: Map<string, string[]>; expires: number } | null = null;
+const GROUP_L1_TTL = 10 * 60 * 1000;
+
+export async function loadGroupL1NodeMap(pool: Pool): Promise<Map<string, string[]>> {
+  if (_groupL1Cache && _groupL1Cache.expires > Date.now()) return _groupL1Cache.map;
+  try {
+    const [rows] = await pool.query(
+      `SELECT group_code AS g, code AS node
+         FROM crm_commodity_backbone WHERE level = 1 AND status = 1 ORDER BY group_code, code`,
+    );
+    const map = new Map<string, string[]>();
+    for (const r of rows as RowDataPacket[]) {
+      const node = String(r.node ?? "");
+      if (!isCommodityNodeKey(node)) continue;
+      const g = String(r.g ?? "");
+      if (!g) continue;
+      map.set(g, [...(map.get(g) ?? []), node]);
+    }
+    _groupL1Cache = { map, expires: Date.now() + GROUP_L1_TTL };
+    return map;
+  } catch {
+    // 不给空图写缓存：那会把一次抖动的 10 分钟变成「所有大类都挂不上 L1」的 10 分钟
+    return new Map<string, string[]>();
+  }
+}
+
+/** 某个大类的 L1 节点码（可能多个，已按码序）；挂不上返回空数组 */
+export async function l1NodesOfGroup(pool: Pool, groupCode: string): Promise<string[]> {
+  if (!isCommodityGroupCode(groupCode)) return [];
+  return (await loadGroupL1NodeMap(pool)).get(groupCode) ?? [];
+}
+
+/**
+ * 账号行业偏好（旧字典五级行 id）→ 品目大类码 `UGT-G-xx`。可见性判定与 prefs 模式的数据源。
+ *
+ * 三条规则：
+ * 1. **从最深级往上找**第一个能定出大类的级：五级下拉在同一条分支上，祖先的段前缀相同，
+ *    上溯不会把用户挪到别的大类；
+ * 2. **level1 不参与**：旧字典 level=1 是 A..J 十个字母容器（code 是单字母，不是 8 位数字），
+ *    比我们的 32 大类粗得多。实测（temp/probe77、probe78）：user=1 认 UGT-G-25、user=10 认 UGT-G-17，
+ *    两人 level1_id 都是 109（容器 J），旧口径下两人能看到的范围完全相同（各 40,171 条）
+ *    ⇒ 拿容器当行业，选了哪个大类对墙毫无作用；
+ * 3. **换不出返回 null**：不猜一个大类（错筛比不筛更难发现），调用方如实写 NULL 并交门禁点名。
+ *
+ * 归属关系取自 groups.ts 常量（CG5 门禁逐段比对**树反推**的段→大类），
+ * 所以这条换算不依赖骨架树行数，也不另开一份口径。
+ */
+export async function groupCodeOfLevelIds(
+  pool: Pool,
+  levelIds: Array<number | null | undefined>,
+): Promise<string | null> {
+  // 下标 0 = level1（容器）⇒ 从最深层（下标 4）走到下标 1（段）为止
+  for (let i = levelIds.length - 1; i >= 1; i -= 1) {
+    const id = Number(levelIds[i] ?? 0);
+    if (!id) continue;
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT code FROM crm_unspsc_codes WHERE id = ? LIMIT 1`,
+      [id],
+    );
+    const g = groupCodeOfUnspscCode(String((rows as RowDataPacket[])[0]?.code ?? ""));
+    if (g) return g;
+  }
+  return null;
+}
+
+/**
  * 把账号行业偏好（旧字典 `crm_unspsc_codes` 的行 id）换算成骨架节点路径。
  *
  * 映射四条，全部只用新树自己的数据（不读旧树）：
- *   字典 level=2（段，8 位码后 6 位为 0）→ 大类 L1：经 `crm_commodity_group_segments`（我们自己的 32 类归属）
+ *   字典 level=2（段，8 位码后 6 位为 0）→ 大类 L1：由该段 L4 类行的冗余 `group_code` 上取 L1
+ *     （原先经 crm_commodity_group_segments，该表已按 ADR-0009 退役）
  *   字典 level=3（族，后 4 位为 0）  → 中类 L2：由该族的类行往上取，族→中类唯一由门禁 BB3 断言
  *   字典 level=4（类，后 2 位为 0）  → 子类 L4：`unspsc_prefix` = 前 6 位等值
  *   字典 level=5（品目）            → 品目 L5：`unspsc_prefix` = 8 位码等值
@@ -199,13 +268,16 @@ export async function resolveUnspscIdsToCommodityPath(
       );
       hit = (found as RowDataPacket[])[0];
     } else {
-      // 段 → 大类：经自己的 32 类归属表，不回读旧树
+      // 段 → 大类：由该段的 L4 类行冗余 `group_code` 上取 L1（不回读旧树，也不再查已退役的段归属表）
       const [found] = await pool.query(
-        `SELECT b.code, b.name_zh, b.name_en, b.group_code
-           FROM crm_commodity_group_segments s
-           JOIN crm_commodity_backbone b ON b.level = 1 AND b.group_code = s.group_code AND b.status = 1
-          WHERE LEFT(s.unspsc_prefix, 2) = ? LIMIT 1`,
-        [code.slice(0, 2)],
+        `SELECT b1.code, b1.name_zh, b1.name_en, b1.group_code
+           FROM crm_commodity_backbone b4
+           JOIN crm_commodity_backbone b1
+             ON b1.level = 1 AND b1.group_code = b4.group_code AND b1.status = 1
+          WHERE b4.level = 4 AND b4.status = 1
+            AND CHAR_LENGTH(b4.unspsc_prefix) = 6 AND b4.unspsc_prefix LIKE ?
+          ORDER BY b4.unspsc_prefix LIMIT 1`,
+        [`${code.slice(0, 2)}%`],
       );
       hit = (found as RowDataPacket[])[0];
       if (hit) groupCode = String(hit.group_code ?? "") || groupCode;

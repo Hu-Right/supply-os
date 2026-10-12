@@ -1,9 +1,9 @@
 /**
- * 目录检索条件拼装测试（行业为轴 + 产品/公司关键词）
+ * 目录检索条件拼装测试（行业为轴 + 一个框同时搜公司名与产品）
  * @module tests/unit/lib/repos/supplier-directory-field-search.test.ts
- * @description 钉四件事：
- *              1. 关键词只能落 product（FULLTEXT）或 company（LIKE），其余值一律回落公司名；
- *                 国家/认证/工厂·贸易商/UNSPSC 四个入口已于 2026-10-10 下线，不得复活；
+ * @description 钉几件事：
+ *              1. 关键词一个框同时命中「产品 FULLTEXT + 公司名 LIKE」，OR 合并成一条括号条件；
+ *                 国家/认证/工厂·贸易商/UNSPSC 等退役入口不得复活（不碰它们的列）；
  *              2. industryCodes 的**三态**语义（未提 / 提了但解不到 / 解到了）；
  *              3. sort 只从白名单取表达式，用户输的东西永不进 ORDER BY；
  *              4. 引用 s. 别名的分支必须配得上 FROM supplier s（曾经无别名被路由吞成空列表）。
@@ -42,34 +42,41 @@ describe("SupplierDirectoryRepo.listDirectoryPaginated — 检索条件拼装", 
     };
   }
 
-  it("缺省（无 field）与 field=company → 关键词落公司名 LIKE", async () => {
-    expect((await call({ search: "测试词" })).sql).toContain("company LIKE ?");
-    expect((await call({ search: "测试词", field: "company" })).sql).toContain("company LIKE ?");
+  it("关键词 → 一条括号条件里 OR 合并「产品 FULLTEXT + 公司名 LIKE」", async () => {
+    const { sql, values } = await call({ search: "LED" });
+    expect(sql).toContain("(MATCH(s.products, s.product_keywords) AGAINST(? IN BOOLEAN MODE) OR s.company LIKE ?)");
+    // 两个占位符：MATCH 用原词，LIKE 用 %转义词%
+    expect(values).toContain("LED");
+    expect(values).toContain("%LED%");
   });
 
-  it("field=product → FULLTEXT MATCH（与后台多维检索同一索引）", async () => {
-    expect((await call({ search: "LED", field: "product" })).sql).toContain("MATCH(s.products, s.product_keywords)");
+  it("无关键词 → 不产生任何检索条件（不拼 MATCH、不拼 company LIKE）", async () => {
+    const { sql } = await call({});
+    expect(sql).not.toContain("MATCH(s.products");
+    expect(sql).not.toContain("s.company LIKE ?");
   });
 
-  it("已下线的四个维度不得复活：传入也只回落公司名，不碰它们自己的列", async () => {
-    for (const field of ["country", "certification", "factory", "unspsc"]) {
-      const { where } = await call({ search: "whatever", field });
-      expect(where, `field=${field} 应回落公司名`).toContain("company LIKE ?");
-      expect(where).not.toContain("country_code");
-      expect(where).not.toContain("certification");
-      expect(where).not.toContain("business_type");
-      expect(where).not.toContain("crm_supplier_unspsc_interests");
-    }
+  it("LIKE 通配符先转义：用户输入的 % 不会变成「匹配全部」", async () => {
+    const { values } = await call({ search: "100%" });
+    expect(values).toContain("%100\\%%");
   });
 
-  it("白名单外 field → 回落公司名 LIKE（field 永不拼接进 SQL，无注入面）", async () => {
-    const { sql } = await call({ search: "x", field: "; drop table --" });
-    expect(sql).toContain("company LIKE ?");
+  it("已下线的维度不得复活：搜索只碰 products/company，不碰它们自己的列", async () => {
+    const { where } = await call({ search: "whatever" });
+    expect(where).toContain("s.company LIKE ?");
+    expect(where).not.toContain("country_code");
+    expect(where).not.toContain("business_type");
+    expect(where).not.toContain("crm_supplier_unspsc_interests");
+  });
+
+  it("用户输入永不拼进 SQL（无注入面）：注入串只作为绑定值出现", async () => {
+    const { sql, values } = await call({ search: "; drop table supplier --" });
     expect(sql).not.toContain("drop table");
+    expect(values).toContain("; drop table supplier --");
   });
 
   it("industryCodes 未提（undefined）→ 不产生任何行业条件", async () => {
-    const { sql } = await call({ search: "LED", field: "product" });
+    const { sql } = await call({ search: "LED" });
     expect(sql).not.toContain("crm_supplier_industry_rel");
     expect(sql).not.toContain("1 = 0");
   });
@@ -90,9 +97,9 @@ describe("SupplierDirectoryRepo.listDirectoryPaginated — 检索条件拼装", 
     expect(values).toContain("UGT-I-33%");
   });
 
-  it("门类 chip + 行业词 + 产品关键词三者可叠加（AND 交集）", async () => {
+  it("行业码 + 行业词 + 关键词三者可叠加（AND 交集）", async () => {
     const { sql, values } = await call({
-      search: "电气", field: "product", industryCode: "UGT-I-03", industryCodes: ["UGT-I-0326"],
+      search: "电气", industryCode: "UGT-I-03", industryCodes: ["UGT-I-0326"],
     });
     expect(sql).toContain("MATCH(s.products, s.product_keywords)");
     expect((sql.match(/ir\.industry_code LIKE \?/g) ?? []).length).toBe(2);
@@ -118,10 +125,9 @@ describe("SupplierDirectoryRepo.listDirectoryPaginated — 检索条件拼装", 
   });
 
   it("引用 s. 别名的分支必须配得上 FROM supplier s（无别名时 MySQL 报错、路由吐空列表）", async () => {
-    // 产品走 FULLTEXT，行业 chip 与行业词走 EXISTS 相关子查询：三个都写 s.
+    // 关键词走 MATCH + company LIKE（都带 s.），行业码/词走 EXISTS 相关子查询：都引用 s.
     const cases = [
-      { search: "LED", field: "product" },
-      { search: "华为", field: "company" },
+      { search: "LED" },
       { industryCode: "UGT-I-03" },
       { industryCodes: ["UGT-I-0326"] },
       { sort: "completeness" },

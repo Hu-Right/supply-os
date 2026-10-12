@@ -8,7 +8,8 @@
  */
 
 import type { Supplier } from "@/types";
-import { api } from "@/core/http";
+import { api, apiCached } from "@/core/http";
+import type { IndustryTreeOption } from "@/lib/services/industry-facets";
 
 /** 分页查询响应结构 */
 export interface SupplierPageResult {
@@ -22,18 +23,10 @@ export interface SupplierPageResult {
 export interface SupplierPageParams {
   page: number;
   pageSize?: number;
-  /** 产品 / 公司关键词（落在哪一列由 field 决定） */
+  /** 关键词：一个框同时搜公司名 + 产品/关键词（服务端 OR 合并） */
   q?: string;
-  /** 关键词检索字段：product | company（缺省与白名单外值均回落公司名） */
-  field?: string;
-  /** 行业主轴：门类码（UGT-I-…），命中该节点子树内的挂靠 */
+  /** 行业主轴：行业码（UGT-I-…，门类/大类/中类/小类任一层级），命中该节点子树内的挂靠 */
   industryCode?: string;
-  /**
-   * 行业关键词：服务端先把它解析成行业节点集再按子树筛，因此它能与
-   * industryCode / q 同时生效（AND 交集）。旧 `industry`（自由文本等值）与
-   * `type`（国内/国际）参数已于 2026-10-10 退役。
-   */
-  industryQ?: string;
   /** 排序键：newest | completeness（白名单在 repo，无实现值的选项已删除） */
   sort?: string;
 }
@@ -54,30 +47,28 @@ export async function fetchSuppliersPaginated(
   searchParams.set("page", String(params.page));
   if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
   if (params.q) searchParams.set("q", params.q);
-  if (params.field) searchParams.set("field", params.field);
   if (params.industryCode) searchParams.set("industry_code", params.industryCode);
-  if (params.industryQ) searchParams.set("industry_q", params.industryQ);
   if (params.sort) searchParams.set("sort", params.sort);
   return api<SupplierPageResult>(`/api/suppliers?${searchParams.toString()}`);
 }
 
-/** 行业主轴选项（数据源：crm_industry_nodes + 挂靠表，非自由文本去重） */
-export interface IndustryFacetOption {
-  code: string;
-  nameZh: string;
-  nameEn: string;
-  /** 子树内门户可见供应商数，与列表筛选同口径 */
-  suppliers: number;
+/**
+ * 查询行业级联第一级（门类）选项（服务端 10min 缓存）：完整分类树，与第 2~4 级同形状（key=节点码）。
+ * 不再按供应商数过滤，零挂靠门类同样可选（选中后正常出「无结果」）。
+ */
+export async function fetchIndustryFacets(): Promise<IndustryTreeOption[]> {
+  return api<IndustryTreeOption[]>("/api/industries/facets");
 }
 
+/** 行业级联下拉第 2~4 级选项（key = 节点码，可直接喂 industry_code 子树筛） */
+export type { IndustryTreeOption };
+
 /**
- * 查询行业主轴（门类一层，服务端 10min 缓存）
- * 取代旧做法：拉整页供应商回前端对 industry 文本去重。
- * 只铺门类不铺大类：大类以下由行业关键词框接，而英文侧 37 个大类与门类同名。
+ * 取某个父行业码的直接子级（大类→中类→小类）：走 /api/industries/tree，10min 缓存。
+ * parent 非法时服务端返回空数组，不给界面假选项。
  */
-export async function fetchIndustryFacets(): Promise<IndustryFacetOption[]> {
-  return api<IndustryFacetOption[]>("/api/industries/facets");
-}
+export const fetchIndustryTreeChildren = (parent: string) =>
+  apiCached<IndustryTreeOption[]>(`/api/industries/tree?parent=${encodeURIComponent(parent)}`);
 
 /** 认证资质参考项 */
 export interface CertificationItem {

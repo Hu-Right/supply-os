@@ -19,6 +19,7 @@
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
 import type { Pool, RowDataPacket } from "mysql2/promise";
+import { deleteNoticeNodes } from "./notice-nodes";
 
 // ── 对账日志节流（同一类型 30 分钟内不重复输出，避免高频刷屏）──
 const RECONCILE_LOG_TTL = 30 * 60 * 1000;
@@ -82,6 +83,12 @@ export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
         const batch = ids.slice(i, i + BATCH);
         const ph = batch.map(() => "?").join(",");
         await pool.query(`DELETE FROM crm_notice_search WHERE id IN (${ph})`, batch);
+      }
+      // 节点码倒排表跟删：ghost 行的定义就是「这条公告不再进搜索」，桥表不能还挂着它的码
+      try {
+        await deleteNoticeNodes(pool, ids);
+      } catch (err) {
+        console.error(`[notice-nodes] ghost 行级联删除节点码失败（${ids.length} 条）:`, (err as Error).message);
       }
       if (ghosts.length < 5000) break;
     }

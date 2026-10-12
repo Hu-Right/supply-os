@@ -11,7 +11,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
-import { useHotTopics } from "../hooks/useHotTopics";
+import { useHotTopics, hotGroupView } from "../hooks/useHotTopics";
 import { Search } from "lucide-react";
 
 /** Hero 区 — 采购机会搜索 + 热门标签 */
@@ -22,10 +22,12 @@ export function HeroSection() {
   const { topics: hotTags } = useHotTopics();
 
   const fallbackCountries = ["肯尼亚", "美国", "联合国", "菲律宾"];
+  // 热门大类的名字走 locale 键（与首页热门行、五级下拉第一级同一份）：服务端只给码，
+  // 这里不再拿 DB 的 title_zh/title，避免长出第二套名字口径
   const hotTags_list = hotTags
     ? [
         ...hotTags.countries.slice(0, 4).map((c) => getCountryDisplayName(c.country, locale)),
-        ...hotTags.industries.slice(0, 4).map((i) => locale === "zh" ? i.title_zh || i.title : i.title),
+        ...hotGroupView(hotTags.industries.slice(0, 4), t).map((g) => g.label),
       ]
     : fallbackCountries;
 

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { groupCodeOfLevelIds } from "@/lib/services/commodity/tree";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 export const GET = withRoute(async (req: NextRequest) => {
@@ -44,7 +45,14 @@ export const POST = withRoute(async (req: NextRequest) => {
     // level1_id 为空：清除偏好（与 Express 版本行为一致）
     await ctx.user.userPrefsRepo.deleteIndustryPrefs(auth.userId);
   } else {
-    await ctx.user.userPrefsRepo.upsertIndustryPrefs(auth.userId, levels);
+    // 大类码是可见性判定的唯一输入，必须跟五级 id 同批写：历史上没人写这一列，
+    // 现存的 11 行全是迁移脚本一次性灌的 ⇒ 不补就等于「新注册用户没有行业」。
+    // 换不出就写 NULL 并告警（不拿旧值兜底、不猜一个大类），由门禁点名。
+    const groupCode = await groupCodeOfLevelIds(ctx.dbPool, levels);
+    if (!groupCode) {
+      console.warn(`[industry-prefs] user=${auth.userId} 的五级偏好换不出品目大类码，group_code 落 NULL`);
+    }
+    await ctx.user.userPrefsRepo.upsertIndustryPrefs(auth.userId, levels, groupCode);
   }
   return NextResponse.json({ success: true });
 });

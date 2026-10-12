@@ -34,6 +34,7 @@ function buildProfile(
   deepestLevel: number,
   deepestId: number,
   node: UnspscNodeRow,
+  groupCode: string | null,
 ): UserIndustryProfile {
   const branchPrefix = unspscPrefixFromCode(String(node.code || ""));
   return {
@@ -41,6 +42,8 @@ function buildProfile(
     deepestLevel,
     deepestId,
     levelIds,
+    // 大类码直接透传偏好表自己的列，不从五级 id 反推（换算只有一份，在 commodity/tree）
+    groupCode: groupCode || null,
     branchPrefix: branchPrefix || null,
     industryTitleZh: node.title_zh || node.title || null,
   };
@@ -100,7 +103,7 @@ export async function resolveUserIndustryProfile(
     if (!id) continue;
     const node = (await catalogRepo.findUnspscNodeById(id)) as UnspscRow | null;
     if (node) {
-      const profile = buildProfile(userId, levelIds, lvl, id, node);
+      const profile = buildProfile(userId, levelIds, lvl, id, node, row.group_code ?? null);
       _profileCache.set(userId, { profile, expires: Date.now() + PROFILE_CACHE_TTL });
       if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
       return profile;

@@ -15,11 +15,12 @@ import { buildFilterPlan } from "@/lib/services/search-orchestrator/filter-build
 import { searchCacheKey, validateParams } from "@/lib/services/search-orchestrator/params";
 import type { Pool } from "mysql2/promise";
 
-/** 段行只在「与大类叠加」的用例里需要；backbone_path 谓词本身不查任何表（值直接来自 URL 节点码） */
-function fakePool(segRows: Array<{ g: string; id: string }> = []): Pool {
+/** 骨架 L1 行只在「与大类叠加」的用例里需要（大类→L1 节点码要映射一次）；
+ * backbone_path 谓词本身不查任何表 —— 选中码直接就是参数 */
+function fakePool(l1Rows: Array<{ g: string; node: string }> = []): Pool {
   return {
     query: async (sql: string) =>
-      String(sql).includes("crm_commodity_group_segments") ? [segRows] : [[]],
+      String(sql).includes("crm_commodity_backbone") ? [l1Rows] : [[]],
   } as unknown as Pool;
 }
 
@@ -71,7 +72,7 @@ describe("buildFilterPlan 骨架节点筛选", () => {
 
   it("与大类 chip 叠加为 AND（大类 + 中类是同一条链的逐级收窄）", async () => {
     const p = validateParams({ commodityPath: "UGT-B-0101", groupCode: "UGT-G-11" });
-    const plan = await buildFilterPlan(fakePool([{ g: "UGT-G-11", id: "100081" }]), p);
+    const plan = await buildFilterPlan(fakePool([{ g: "UGT-G-11", node: "UGT-B-01" }]), p);
     expect(plan.meiliFilters.some((f) => f.includes("backbone_node"))).toBe(true);
     expect(plan.digest).toContain("group:UGT-G-11");
     expect(plan.digest).toContain("commodity:UGT-B-0101");

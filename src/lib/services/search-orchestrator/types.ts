@@ -32,11 +32,11 @@ export interface UnifiedSearchParams {
    *  2026-10-11 起商机页五级下拉不再产生它（下拉已换品目树，见 commodityPath）；
    *  仍保留是因为首页「热门品目」入口与外链按 `?industry_id=<字典 id>` 跳进本页。 */
   codeId: number;
-  /** 品目大类码（URL group=UGT-G-xx，32 类之一）；与 codeId AND 叠加，
-   *  谓词落在旧字典 level=2（=UNSPSC 段）的 id 集合上：
-   *  Meili level2_id OR / MySQL FIND_IN_SET(?, unspsc_level2)。
-   *  2026-10-11 M3 双跑对账：全库 606,060 行逐行比对，与宽表 group_codes 集合相等 353,758/
-   *  不一致 0，32 个大类逐类命中数 Δ=0 ⇒ 两条谓词可互换，无需重灌 Meili 索引。 */
+  /** 品目大类码（URL group=UGT-G-xx，32 类之一）；与 codeId AND 叠加。
+   *  2026-10-11 backbone 化：谓词改为该大类所辖骨架 L1 节点码（commodity/tree 的 l1NodesOfGroup），
+   *  落 Meili backbone_node / MySQL backbone_path —— 与五级下拉、行业墙同一条列。
+   *  换口径前的等价性实测：temp/probe75 逐类对拍 32 个大类，旧段 id 谓词与新 L1 节点码
+   *  命中数 Δ=0、不一致 0/32 ⇒ 无需重灌 Meili 索引即可切换。 */
   groupCode?: string;
   /** 品目骨架树筛选键（URL commodity=UGT-B-01 / -0101 / -010101 / -01010101 / -0101010101）。
    *  谓词落在宽表 backbone_path 的等值节点项 / Meili backbone_node 数组属性：
@@ -45,8 +45,12 @@ export interface UnifiedSearchParams {
    *  实测交叉验证：UGT-B-01 命中 49,236 条，与大类 chip 口径（group_codes）完全一致。
    *  与 groupCode AND 叠加（大类→中类→…是同一条链的逐级收窄）。 */
   commodityPath?: string;
-  /** 行业墙强制一级类目（industry-scope 服务注入，客户端不可传；与 codeId 叠加 AND） */
-  forcedLevel1Id?: string;
+  /** 行业墙强制大类（industry-scope 服务注入，客户端不可传；与 codeId/groupCode/commodityPath 叠加 AND）。
+   *  nodes = 用户订阅大类的骨架 L1 节点码（可能多个），谓词落 backbone_path / Meili backbone_node。
+   *  2026-10-11 换口径：旧字段 forcedLevel1Id 比的是旧字典 level=1 行 id，而那一层实测就是 A..J
+   *  十个字母容器（temp/probe78）—— 同容器不同大类的两个用户可见集合完全相同，墙等于没分行业。
+   *  nodes 为空数组 ≠ 不墙：那是大类挂不上骨架 L1 的分叉态，filter-builder 据此返回空结果。 */
+  wall?: { nodes: string[] };
   /** 预算范围过滤（USD，estimated_value 列） */
   budgetMin?: number;
   budgetMax?: number;

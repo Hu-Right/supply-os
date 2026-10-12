@@ -1,112 +1,149 @@
 /**
- * 行业可见性墙 — 范围判定与公告类目命中检查
+ * 行业可见性范围 — 归属判定与单条命中检查
  * Industry Scope Wall
  *
  * @module lib/services/industry-scope
  * @description 落地「8,800元/行业」口径（2026-09-29）：企业年度会员（industry_scoped=1 的档位）
- *              只能浏览其绑定一级类目（crm_user_industry_prefs.level1_id）下的公告。
+ *              只能浏览其绑定品目大类下的公告。
  *              全部取值由权益矩阵驱动，无套餐码硬编码：
- *              - 哪些档被墙 → crm_plan_benefits 的 industry_scoped 格（当前仅 business=1）；
+ *              - 哪些档被限 → crm_plan_benefits 的 industry_scoped 格（当前仅 business=1）；
  *              - 谁看全量   → all_category_access 格（internal_demo=1，演示/内部档旁路）。
  *
- *              口径（2026-09-29 与业务确认）：
- *              - 匿名访客不墙（保住转化漏斗）；
- *              - 被墙档位未绑定行业 → 暂不墙 + 引导选行业（needsIndustry=true 供前端提示）；
- *              - 墙的执法点：统一搜索强制 level1 过滤（filter-builder）+
+ *              2026-10-11 backbone 化（本轮实测驱动的两个修正）：
+ *              1. **口径从「十个字母容器」改成「32 品目大类」**。旧实现比的是旧字典 level=1 行 id，
+ *                 而那一层实测就是 A..J 十个容器（temp/probe77）：user=1 认 UGT-G-25、user=10 认
+ *                 UGT-G-17，两人 level1_id 都是 109（容器 J），旧口径下两人可见内容完全相同（各
+ *                 40,171 条）⇒ 选了哪个大类对限定毫无作用。现在只认 prefs.group_code。
+ *              2. **公告侧不再 JOIN 桥表**。改读宽表 backbone_path（主键点查）：桥表 notice_id 是
+ *                 外部编号，与另一公告的内部 id 实测有 21,524 行撞号，旧实现靠主表中转绕开，
+ *                 现在根本不碰桥表，从源头消除这一类误判。
+ *
+ *              口径（2026-09-29 与业务确认，本批只换实现不改语义）：
+ *              - 匿名访客不限；
+ *              - 被限档位未绑行业 → 暂不限 + 引导选行业（needsIndustry=true 供前端提示）；
+ *              - 执法点：统一检索强制大类节点码（filter-builder）+
  *                详情/正文/解锁入口的类目命中检查（本模块 canAccessNotice）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
 import { INDUSTRY_SCOPED_BENEFIT, ALL_CATEGORY_ACCESS_BENEFIT } from "./benefit-matrix";
 import { resolveUserIndustryProfile } from "./industry-profile/resolve";
+import { l1NodesOfGroup } from "./commodity/tree";
+import { fromBackbonePathColumn } from "./commodity/backbone-path";
+import { groupCodeOfUnspscCode } from "./commodity/groups";
 
 export interface IndustryScope {
-  /** true = 该用户的公告可见范围必须限定在 level1Id 之内 */
+  /** true = 该用户的可见范围必须限定在 groupNodes 之内 */
   scoped: boolean;
-  /** 命中墙时的一级类目 id（crm_user_industry_prefs.level1_id）；unscoped 恒 null */
-  level1Id: number | null;
-  /** 被墙档位但未绑定行业：本次不墙，前端应引导完善注册行业 */
+  /** 绑定的品目大类码（crm_user_industry_prefs.group_code）；未绑恒 null */
+  groupCode: string | null;
+  /** 该大类的 L1 节点码（可能多个）：检索谓词与公告命中的直接输入；未绑恒 [] */
+  groupNodes: string[];
+  /** 被限档位但未绑行业：本次不限，前端应引导完善注册行业 */
   needsIndustry: boolean;
 }
 
-const UNSCOPED: IndustryScope = { scoped: false, level1Id: null, needsIndustry: false };
+const UNSCOPED: IndustryScope = { scoped: false, groupCode: null, groupNodes: [], needsIndustry: false };
 
 /**
- * 判定用户的行业范围。判定链（任一不满足即不墙）：
- * 已登录 → 有生效套餐 → 套餐无全类目旁路 → 套餐声明行业限定 → 已绑定一级类目。
+ * 判定用户的行业范围。判定链（任一不满足即不限）：
+ * 已登录 → 有生效套餐 → 套餐无全类目旁路 → 套餐声明行业限定 → 已绑品目大类码。
+ *
+ * 大类码挂不上 L1 节点时（常量与库分叉，门禁 BB12 断言不该发生）：**仍然算已限定且 nodes=[]**。
+ * 消费方必须因此给空结果而不是放开全部 —— 宁可可见量错到 0 让人立刻发现，
+ * 也不能静默扩权（那等于付费用户的行业边界消失）。查库失败不写缓存，下一请求会重试。
  */
 export async function resolveIndustryScope(
   pool: Pool,
   catalog: BenefitSystemRepo,
   userId: number | null | undefined,
 ): Promise<IndustryScope> {
-  if (!userId) return UNSCOPED; // 匿名不墙
+  if (!userId) return UNSCOPED; // 匿名不限
   const plan = await catalog.findActivePlanForUser(userId);
   if (!plan) return UNSCOPED; // 无生效订阅 = 普通用户，全量
   if (await catalog.isEntitled(userId, ALL_CATEGORY_ACCESS_BENEFIT)) return UNSCOPED; // 演示/内部档旁路
   if (!(await catalog.isEntitled(userId, INDUSTRY_SCOPED_BENEFIT))) return UNSCOPED; // 档位未声明行业限定
   const profile = await resolveUserIndustryProfile(pool, userId);
-  const level1 = profile?.levelIds?.[0] ?? null;
-  if (!level1) return { scoped: false, level1Id: null, needsIndustry: true }; // 未绑行业：暂不墙+引导
-  return { scoped: true, level1Id: level1, needsIndustry: false };
+  const groupCode = profile?.groupCode ?? null;
+  if (!groupCode) return { scoped: false, groupCode: null, groupNodes: [], needsIndustry: true }; // 未绑行业：暂不限+引导
+  const groupNodes = await l1NodesOfGroup(pool, groupCode);
+  if (groupNodes.length === 0) {
+    console.warn(`[industry-scope] user=${userId} 绑的大类 ${groupCode} 挂不上任何 L1 节点 ⇒ 本轮按空结果处理（不放开全量）`);
+  }
+  return { scoped: true, groupCode, groupNodes, needsIndustry: false };
 }
 
-/** 公告类目命中情况：有无类目数据、是否命中一级类目 */
+/** 公告类目命中情况：有无类目数据、是否命中绑定的大类 */
 export interface NoticeCategoryCheck {
-  /** 该公告在桥表里是否有任何码行（无码 = 无类目数据） */
-  hasCodes: boolean;
-  /** 是否命中目标一级类目 */
+  /** 该公告在宽表 backbone_path 里是否有任何节点（无节点 = 无类目数据） */
+  hasCategoryData: boolean;
+  /** 公告的祖先链是否含目标大类的 L1 节点 */
   inCategory: boolean;
 }
 
 /**
- * 公告与一级类目的命中检查（一次查询同时给出「有无类目数据」与「是否命中」）。
+ * 公告与大类的命中检查（一次点查同时给出「有无类目数据」与「是否命中」）。
  *
- * 编号口径（2026-10-10 修复）：桥表 `notice_id` 存的是主表**外部编号**
- * `crm_bid_notices.notice_id`，而本模块的调用方（/notices/[id]/{detail,content,unlock}
- * 与参考号快速路径）手里拿的是**内部自增 id**，两者不同域。
- * 直接拿内部 id 去匹配桥表会出两类错误：查不到行（误判无类目），或恰好命中
- * 「外部编号等于另一公告内部 id」的行（实测 21,524 个公告存在这种撞号），
- * 把别的公告的类目当本公告判定。故必须先经主表 JOIN 中转，
- * 与 ai-match/unspsc-levels.ts 同一口径。
+ * 2026-10-11 backbone 化：读 `crm_notice_search.backbone_path`（列值解析只走
+ * `fromBackbonePathColumn`），不再 JOIN 桥表。除口径升级外，这一改动顺带消灭旧实现的一类
+ * 隐患：桥表 `notice_id` 存的是主表**外部编号**，而调用方（/notices/[id]/{detail,content,unlock}
+ * 与参考号快速路径）手里拿的是**内部自增 id**，实测有 21,524 个公告存在「外部编号 =
+ * 另一公告内部 id」的撞号，旧实现必须靠主表中转才不会把别人的类目当本公告判定。
+ * 宽表 `ns.id` 与主表内部 id 同域（BB7 逐行核对），点查即终点。
  *
- * 索引：`n.id` 走主键点查，`b.notice_id` 走 uk_notice_code 最左前缀。
+ * 用的是 `backbone_path`（全量派生）而不是 `precise_backbone_path`（人工审核候选码派生）：
+ * 墙是数据口径，不该依赖人工审核状态 —— 与旧实现取 levelN_id（fixed）而非 precise_levelN 同理。
+ *
+ * `groupNodes` 为空（大类挂不上 L1，门禁 BB12 断言不该发生）时 inCategory 恒 false，
+ * 即**不放开**：调用方据此收窄，而不是当成「没限定」。
  */
 export async function checkNoticeCategory(
-  pool: Pool, noticeDbId: number, level1Id: number,
+  pool: Pool, noticeDbId: number, groupNodes: readonly string[],
 ): Promise<NoticeCategoryCheck> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS rows_total, SUM(b.level1_id = ?) AS hit_rows
-     FROM crm_bid_notice_unspsc_codes b
-     JOIN crm_bid_notices n ON n.notice_id = b.notice_id
-     WHERE n.id = ?`,
-    [level1Id, noticeDbId],
+    `SELECT backbone_path AS p FROM crm_notice_search WHERE id = ? LIMIT 1`,
+    [noticeDbId],
   );
-  const row = rows[0];
+  const nodes = fromBackbonePathColumn(rows[0]?.p);
+  const wall = new Set(groupNodes);
   return {
-    hasCodes: Number(row?.rows_total ?? 0) > 0,
-    inCategory: Number(row?.hit_rows ?? 0) > 0,
+    hasCategoryData: nodes.length > 0,
+    inCategory: nodes.some((n) => wall.has(n)),
   };
 }
 
-/** 公告是否属于指定一级类目（入参为主表内部 id；无类目数据返回 false，放行语义由 canAccessNotice 承担）。 */
-export async function noticeInCategory(pool: Pool, noticeDbId: number, level1Id: number): Promise<boolean> {
-  return (await checkNoticeCategory(pool, noticeDbId, level1Id)).inCategory;
-}
-
-/** 商机是否属于指定一级类目（crm_bid_opportunity_unspsc_codes.level1_id 为 VARCHAR）。 */
-export async function opportunityInCategory(pool: Pool, opportunityId: number, level1Id: number): Promise<boolean> {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT 1 FROM crm_bid_opportunity_unspsc_codes
-      WHERE opportunity_id = ? AND level1_id = ? LIMIT 1`,
-    [opportunityId, String(level1Id)],
-  );
-  return rows.length > 0;
+/** 公告是否属于指定大类的 L1 节点（入参为主表内部 id；无类目数据返回 false，放行语义由 canAccessNotice 承担）。 */
+export async function noticeInCategory(pool: Pool, noticeDbId: number, groupNodes: readonly string[]): Promise<boolean> {
+  return (await checkNoticeCategory(pool, noticeDbId, groupNodes)).inCategory;
 }
 
 /**
- * 详情/正文/解锁入口的统一守门：用户被行业墙限定且公告不在其一级类目内 → false。
- * 未登录/未被墙/无类目数据一律放行（无类目数据的公告按可见处理，避免脏数据把整站锁死）。
+ * 商机是否属于指定品目大类。
+ *
+ * 商机侧没有 backbone_path（宽表只派生公告），因此输入用**大类码**而不是节点码：
+ * 逐行取 `crm_bid_opportunity_unspsc_codes.code`（8 位 UNSPSC 码），经
+ * `groupCodeOfUnspscCode` 换算成大类码再比 —— 归属口径仍只在 commodity/groups 一份。
+ *
+ * 与公告侧**有意不同**的一处：无码行返回 false（拒绝解锁），不像公告侧「无类目数据放行」。
+ * 解锁是扣配额的付费动作，判不准时宁可让用户少解锁一个，也不能让他解锁到订阅行业外；
+ * 公告侧放行是为了避免一条脏数据把整站详情锁死（见 canAccessNotice）。
+ * 商机桥表自 2026-09-22 起断过写入器，2026-10 由 unspsc/opp-bridge 把补码接回同步链路，
+ * 存量无码商机会命中这一条 —— 那是数据缺口，不是判定 bug。
+ */
+export async function opportunityInCategory(pool: Pool, opportunityId: number, groupCode: string | null): Promise<boolean> {
+  if (!groupCode) return false;
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT code FROM crm_bid_opportunity_unspsc_codes WHERE opportunity_id = ? LIMIT 100`,
+    [opportunityId],
+  );
+  for (const r of rows) if (groupCodeOfUnspscCode(String(r.code ?? "")) === groupCode) return true;
+  return false;
+}
+
+/**
+ * 详情/正文/解锁入口的统一守门：用户被行业墙限定且公告不在其大类内 → false。
+ * 未登录/未被墙/公告无类目数据一律放行（避免脏数据把整站锁死）。
+ * 注意「被墙但大类挂不上 L1」不在放行之列：那时 groupNodes=[] ⇒ 有码公告全部判 false。
  */
 export async function canAccessNotice(
   pool: Pool,
@@ -116,7 +153,7 @@ export async function canAccessNotice(
 ): Promise<boolean> {
   const scope = await resolveIndustryScope(pool, catalog, userId);
   if (!scope.scoped) return true;
-  const { hasCodes, inCategory } = await checkNoticeCategory(pool, noticeId, scope.level1Id!);
-  if (!hasCodes) return true; // 公告本身无码：按可见处理，不把整站锁死
+  const { hasCategoryData, inCategory } = await checkNoticeCategory(pool, noticeId, scope.groupNodes);
+  if (!hasCategoryData) return true; // 公告本身无码：按可见处理，不把整站锁死
   return inCategory;
 }

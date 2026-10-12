@@ -60,7 +60,7 @@ describe("SupplierDirectoryRepo.listDirectoryPaginated — industryCode 子树�
   it("已退役的自由文本检索不得复活：对 supplier.industry 列的任何谓词都不允许出现", async () => {
     mockQuery.mockResolvedValueOnce([[{ total: 0 }]]).mockResolvedValueOnce([[]]);
     await repo.listDirectoryPaginated({
-      limit: 8, offset: 0, search: "制造业", field: "company", industryCode: "UGT-I-03", industryCodes: [],
+      limit: 8, offset: 0, search: "制造业", industryCode: "UGT-I-03", industryCodes: [],
     });
     const sql = mockQuery.mock.calls[1][0] as string;
     // 出现 industry = ? / industry LIKE ? 就是脏数据重回检索路径（取列里的 s.industry 不算谓词）

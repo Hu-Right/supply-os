@@ -98,7 +98,13 @@ export function AiSummarySection({
 
   /** 将原始错误信息映射为用户友好的提示 */
   const friendlyError = (raw: string): string => {
-    if (raw.includes("401") || raw.includes("Unauthorized") || raw.includes("LLM_NOT_CONFIGURED"))
+    // LLM_HTTP_401 含 "401" 子串：BYOK 凭证类错误必须先于登录态判断，否则「模型 Key 被拒」会被误报成「登录已过期」
+    if (raw.includes("LLM_NOT_CONFIGURED") || raw.includes("请先配置 LLM"))
+      return t("detail_aiSummaryErrorLlmConfig") || "请先配置 AI 模型后再进行 AI 分析。";
+    if (raw.includes("LLM_HTTP_401") || raw.includes("LLM_HTTP_402") || raw.includes("LLM_HTTP_403"))
+      return t("detail_aiSummaryErrorLlmKey") || "您的 AI 模型 API Key 无效或已被服务商拒绝，请重新配置 AI 模型并测试连接后再试。";
+    // 登录态只认精确的 HTTP 状态码（"HTTP 401"）或 401 统一话术「请先登录」，不做裸 "401" 子串匹配
+    if (raw.includes("HTTP 401") || raw.includes("请先登录") || raw.includes("Unauthorized"))
       return t("detail_aiSummaryErrorAuth") || "登录已过期，请重新登录后再试。";
     if (raw.includes("403") || raw.includes("Forbidden") || raw.includes("core_locked"))
       return t("detail_aiSummaryErrorLocked") || "请先解锁本公告，再进行 AI 分析。";

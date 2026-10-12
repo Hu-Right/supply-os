@@ -21,6 +21,7 @@ import { LoadingOverlay } from "@/shared/ui";
 import { Button } from "@/shared/ui";
 import { fetchSupplierContact, type SupplierContact, type SupplierContactStatus } from "@/shared/api/supplier";
 import { useSupplierSearch } from "../../hooks/useSupplierSearch";
+import { useIndustryCascade } from "../../hooks/useIndustryCascade";
 import { useSupplierStats } from "../../hooks/useSupplierStats";
 import { useCountUp } from "../../hooks/useCountUp";
 
@@ -35,24 +36,25 @@ export default function SupplierPage() {
   const router = useRouter();
 
   // ── 搜索状态 ─
-  const [searchTab, setSearchTab] = useState("product");
   const [searchTerm, setSearchTerm] = useState("");
-  /** 行业主轴：选中门类码（空串=全部） */
+  /** 行业主轴：选中行业码（门类/大类/中类/小类任一层，空串=全部），直接喂子树筛 */
   const [industryCode, setIndustryCode] = useState("");
-  /** 行业关键词：大类/中类/小类与英文名靠它命中 */
-  const [industryKeyword, setIndustryKeyword] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
   // ── 通过 Hook 获取数据 ──
-  const { suppliers, total, loading, industrySections, industrySectionsLoaded, setPage, appendPage } = useSupplierSearch({
+  const { suppliers, total, loading, setPage, appendPage } = useSupplierSearch({
     locale,
     searchTerm,
-    searchField: searchTab,
     supplierIndustryCode: industryCode,
-    industryKeyword,
     sortBy,
     pageSize: 8,
+  });
+
+  // ── 行业级联下拉：门类→大类→中类→小类，最深选中码回灌 industryCode 即筛 ──
+  const industry = useIndustryCascade({
+    selectedCode: industryCode,
+    onSelect: (v) => { setIndustryCode(v); setPage(1); },
   });
 
   // ── 弹窗状态 ──
@@ -87,7 +89,7 @@ export default function SupplierPage() {
   };
 
   const handleSearch = () => { setPage(1); };
-  const handleReset = () => { setSearchTerm(""); setIndustryKeyword(""); setIndustryCode(""); setPage(1); };
+  const handleReset = () => { setSearchTerm(""); setIndustryCode(""); setPage(1); };
 
   // ── 统计墙：真实数据 + 数字动画 ─
   const realStats = useSupplierStats();
@@ -108,16 +110,13 @@ export default function SupplierPage() {
         realtimeLabel={t("supplierStatRealtime")}
       />
 
-      {/* 关键词框、chip、页签都走「改了条件就回第 1 页」：两个词框都在列表 effect 的依赖里
-          （防抖 300ms 后落定），停在第 3 页或刚点过「加载更多」（appendMode）时直接打字，
-          hook 会拿新条件的第 2 页去追加旧结果，得到一份新旧混排的列表。 */}
+      {/* 关键词框与行业级联都走「改了条件就回第 1 页」：词框在列表 effect 的依赖里（防抖 300ms
+          后落定），停在第 3 页或刚点过「加载更多」（appendMode）时直接打字，hook 会拿新条件的
+          第 2 页去追加旧结果，得到一份新旧混排的列表。 */}
       <SearchPanel
-        searchTab={searchTab} setSearchTab={(k) => { setSearchTab(k); setPage(1); }}
         searchTerm={searchTerm} setSearchTerm={(v) => { setSearchTerm(v); setPage(1); }}
-        industryCode={industryCode} setIndustryCode={(v) => { setIndustryCode(v); setPage(1); }}
-        industryKeyword={industryKeyword} setIndustryKeyword={(v) => { setIndustryKeyword(v); setPage(1); }}
-        industrySections={industrySections} industrySectionsLoaded={industrySectionsLoaded}
-        onSearch={handleSearch} onReset={handleReset} t={t} locale={locale}
+        industry={industry}
+        onSearch={handleSearch} onReset={handleReset} t={t}
       />
 
       <ResultHeader
@@ -191,16 +190,7 @@ export default function SupplierPage() {
         </div>
       )}
 
-      {/* ═══ 行业词框的空结果说明 ═══
-          行业检索走标准树（不搜 supplier.industry 自填文本），「0 家」有两种原因：
-          词不是树上的行业名，或该行业供应商尚未认证/挂靠。不把数据缺口说成用户搜错了。 */}
-      {!loading && suppliers.length === 0 && (industryKeyword || industryCode) && (
-        <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-5 text-sm leading-relaxed text-slate-600">
-          {t("supplierIndustryNoMatch")}
-        </div>
-      )}
-
-      {/* ══ 加载更多（追加模式） ═══ */}
+      {/* ═══ 加载更多（追加模式） ═══ */}
       {!loading && suppliers.length > 0 && suppliers.length < total && (
         <div className="flex justify-center">
           <Button onClick={appendPage} variant="outline"

@@ -1,53 +1,71 @@
 /**
- * 行业主轴与关键词解析测试
+ * 行业级联树读取与关键词解析测试
  * @module tests/unit/lib/services/industry-facets.test.ts
- * @description facet 现在只铺门类一层，它的硬规矩：
- *              1. 可见供应商多的排前面（用户第一眼就看到能筛出东西的 chip）；
- *              2. 双语名全空的节点不进 chip——宁可不给，也不把 UGT-I-xxxx 透到界面上。
- *              另钉行业词框的解析口径：官方名优先、释义只兜底，命中节点往最小前缀集压，
+ * @description 级联下拉读**完整分类树**，它的硬规矩：
+ *              1. 门类一层与第 2~4 级都返回 {key,nameZh,nameEn}，key 就是可直接下筛的节点码；
+ *              2. 双语名全空的节点不进下拉——宁可不给，也不把 UGT-I-xxxx 透到界面上；
+ *              3. 不再按供应商数过滤（repo 返回啥就映射啥，空集交上层出「无结果」）。
+ *              另钉行业词检索的解析口径：官方名优先、释义只兜底，命中节点往最小前缀集压，
  *              解不出节点就交空集（上层据此出「无结果」，而不是摸回自由文本）。
  */
 import { describe, it, expect, vi } from "vitest";
-import { buildIndustrySections, loadIndustryFacets, resolveIndustryKeywordCodes } from "@/lib/services/industry-facets";
-import type { IndustryFacetRow } from "@/lib/repos/industry-node.repo";
+import { loadIndustrySections, loadIndustryChildren, resolveIndustryKeywordCodes } from "@/lib/services/industry-facets";
+import type { IndustryNodeRow } from "@/lib/repos/industry-node.repo";
 
-function row(code: string, nameZh: string | null, nameEn: string | null, suppliers: number): IndustryFacetRow {
-  return { code, name_zh: nameZh, name_en: nameEn, suppliers } as IndustryFacetRow;
+function node(code: string, nameZh: string | null, nameEn: string | null): IndustryNodeRow {
+  return { code, name_zh: nameZh, name_en: nameEn, level: "section", parent_code: null } as IndustryNodeRow;
 }
 
-describe("buildIndustrySections — 行业主轴（门类一层）", () => {
-  it("按可见供应商数降序，同数按码序（顺序稳定，不会每次刷新就跳位）", () => {
-    const rows = buildIndustrySections([
-      row("UGT-I-07", "交通运输、仓储和邮政业", "Transportation and storage", 1),
-      row("UGT-I-03", "制造业", "Manufacturing", 13),
-      row("UGT-I-05", "建筑业", "Construction", 1),
-    ]);
-    expect(rows.map((r) => r.code)).toEqual(["UGT-I-03", "UGT-I-05", "UGT-I-07"]);
-    expect(rows[0].suppliers).toBe(13);
+describe("loadIndustrySections — 门类一层（完整树）", () => {
+  it("只发一条 section 查询，返回 {key,nameZh,nameEn}（key=节点码）", async () => {
+    const listNodesByLevel = vi.fn().mockResolvedValue([node("UGT-I-03", "制造业", "Manufacturing")]);
+    const opts = await loadIndustrySections({ listNodesByLevel } as never);
+    expect(listNodesByLevel).toHaveBeenCalledTimes(1);
+    expect(listNodesByLevel).toHaveBeenCalledWith("section");
+    expect(opts).toEqual([{ key: "UGT-I-03", nameZh: "制造业", nameEn: "Manufacturing" }]);
   });
 
-  it("双语名全空的节点不生成 chip；只缺一种时用另一种兜底", () => {
-    const rows = buildIndustrySections([
-      row("UGT-I-03", "制造业", null, 7),
-      row("UGT-I-05", null, null, 3),
+  it("双语名全空的节点丢弃；只缺一种时用另一种兜底", async () => {
+    const listNodesByLevel = vi.fn().mockResolvedValue([
+      node("UGT-I-03", "制造业", null),
+      node("UGT-I-05", null, null),
     ]);
-    expect(rows.map((r) => r.code)).toEqual(["UGT-I-03"]);
-    // nameEn 缺失时用中文名占位，而不是给界面一个空标签
-    expect(rows[0].nameEn).toBe("制造业");
+    const opts = await loadIndustrySections({ listNodesByLevel } as never);
+    expect(opts.map((o) => o.key)).toEqual(["UGT-I-03"]);
+    expect(opts[0].nameEn).toBe("制造业");
   });
 
-  it("空行集→空数组（零挂靠的门类本层收不到，不造假 chip）", () => {
-    expect(buildIndustrySections([])).toEqual([]);
+  it("空行集→空数组（不造假选项）", async () => {
+    const listNodesByLevel = vi.fn().mockResolvedValue([]);
+    expect(await loadIndustrySections({ listNodesByLevel } as never)).toEqual([]);
   });
 });
 
-describe("loadIndustryFacets — 只铺门类一层", () => {
-  it("只发一条 section 查询：大类递归 CTE 已摘掉，且不得再查 division", async () => {
-    const listFacets = vi.fn().mockResolvedValue([row("UGT-I-03", "制造业", "Manufacturing", 13)]);
-    const rows = await loadIndustryFacets({ listFacets } as never);
-    expect(listFacets).toHaveBeenCalledTimes(1);
-    expect(listFacets).toHaveBeenCalledWith("section");
-    expect(rows.map((r) => r.code)).toEqual(["UGT-I-03"]);
+describe("loadIndustryChildren — 级联下一层（大类/中类/小类）", () => {
+  it("把父码的全部直接子级翻成 {key,nameZh,nameEn}，零挂靠子级不再被过滤掉", async () => {
+    const listChildNodes = vi.fn().mockResolvedValue([
+      node("UGT-I-0326", "电气机械和器材制造业", "Manufacture of electrical equipment"),
+      node("UGT-I-0327", "计算机、通信和其他电子设备制造业", null),
+    ]);
+    const opts = await loadIndustryChildren({ listChildNodes } as never, "UGT-I-03");
+    expect(listChildNodes).toHaveBeenCalledWith("UGT-I-03");
+    expect(opts.map((o) => o.key)).toEqual(["UGT-I-0326", "UGT-I-0327"]);
+    // 英文名缺失时用中文名兜底，不给界面一个空标签
+    expect(opts[1].nameEn).toBe("计算机、通信和其他电子设备制造业");
+  });
+
+  it("双语名全空的子级丢弃（宁可不给选项，也不把 UGT-I-xxxx 透到界面）", async () => {
+    const listChildNodes = vi.fn().mockResolvedValue([
+      node("UGT-I-0326", "电气机械", "Electrical"),
+      node("UGT-I-0327", null, null),
+    ]);
+    const opts = await loadIndustryChildren({ listChildNodes } as never, "UGT-I-03");
+    expect(opts.map((o) => o.key)).toEqual(["UGT-I-0326"]);
+  });
+
+  it("父码无子级 → 空数组（上层据此让该级下拉留空，不造假选项）", async () => {
+    const listChildNodes = vi.fn().mockResolvedValue([]);
+    expect(await loadIndustryChildren({ listChildNodes } as never, "UGT-I-03")).toEqual([]);
   });
 });
 

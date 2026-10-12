@@ -11,6 +11,7 @@ import { normalizeDocumentRows } from "../../utils/normalize";
 import { getAgencyCacheData } from "../notice-search/agencies/index";
 import { classifyAgencyType } from "../agency/index";
 import { translateByPattern } from "../../data/agency-i18n/translate";
+import { fromBackbonePathColumn } from "../commodity/backbone-path";
 
 /** 匹配分 → 档次标签（2 档分色；分数与 mode-resolver 绝对层级口径对齐：
  *  L4/L5 命中 → 5 → precise；L2/L3 命中 → 2 → relevant） */
@@ -20,18 +21,21 @@ export function matchScoreToTierLabel(score: number): string {
   return "unmatched";
 }
 
-/** [阶段0 A2] 逐文档匹配分：公告自身 precise_level{N}（逗号串）与用户画像各级 ID 比对，
- *  取最深命中层级定分（与 mode-resolver 口径一致：L4/L5 → 5；L2/L3 → 2）。
- *  无命中返回 undefined（降级多表 JOIN 路径的行无 precise 列，不挂徽章） */
+/** [阶段0 A2] 逐文档匹配分：公告自身 precise_backbone_path（品目树节点码集）与用户画像各档比对，
+ *  取最深命中档定分（与 mode-resolver 口径一致：L4/L5 → 5；L2/L3 → 2）。
+ *  无命中返回 undefined（降级多表 JOIN 路径的行没有 precise 列，不挂徽章）。
+ *  2026-10-11 backbone 化：原先读 `precise_level{N}` 五列再比旧字典行 id，
+ *  现在比的是节点码：公告的 precise 链里含某一档的节点码即命中该档
+ *  （列值解析只走 fromBackbonePathColumn，全库一份形制口径）。 */
 function perDocMatchScore(
   row: RowDataPacket,
-  profileLevels: Array<{ level: number; id: string }>,
+  profileNodes: Array<{ level: number; node: string }>,
 ): number | undefined {
+  const docNodes = new Set(fromBackbonePathColumn(row.precise_backbone_path));
+  if (docNodes.size === 0) return undefined;
   for (let level = 5; level >= 2; level -= 1) {
-    const profile = profileLevels.find((entry) => entry.level === level);
-    if (!profile) continue;
-    const docCodes = String(row[`precise_level${level}`] || "").split(",").filter(Boolean);
-    if (docCodes.includes(String(profile.id))) return level >= 4 ? 5 : 2;
+    const entry = profileNodes.find((e) => e.level === level);
+    if (entry && docNodes.has(entry.node)) return level >= 4 ? 5 : 2;
   }
   return undefined;
 }
@@ -40,12 +44,12 @@ function perDocMatchScore(
  * 格式化搜索结果 items。
  * @param rows 详情行（fetchDetailsByIds 输出）
  * @param locale 界面语言（agency_i18n 取值）
- * @param profileLevels 可选：用户行业画像层级序列（prefs 模式；逐文档计算匹配档次）
+ * @param profileNodes 可选：用户行业画像的节点码序列（prefs 模式；逐文档计算匹配档次）
  */
 export function formatItems(
   rows: RowDataPacket[],
   locale: string,
-  profileLevels?: Array<{ level: number; id: string }>,
+  profileNodes?: Array<{ level: number; node: string }>,
 ): Array<Record<string, unknown>> {
   // 机构国际化映射（键统一大写，与 query.ts 缓存构建侧 mergeKey/typeKey 口径对齐）
   const agencyCache = getAgencyCacheData();
@@ -100,8 +104,8 @@ export function formatItems(
 
     // prefs 模式：逐文档计算匹配分与档次标签（[阶段0 A2] 替代旧版整页统一赋分：
     // 放宽到 L2 后，实际命中 L4/L5 精准码的条目仍应显示 precise 绿标）
-    if (profileLevels) {
-      const score = perDocMatchScore(row, profileLevels);
+    if (profileNodes) {
+      const score = perDocMatchScore(row, profileNodes);
       if (score !== undefined) {
         item.match_score = score;
         item.match_tier = matchScoreToTierLabel(score);

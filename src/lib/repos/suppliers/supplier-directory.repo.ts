@@ -76,15 +76,6 @@ export interface BoundSubjectRow extends RowDataPacket {
 }
 
 /**
- * 关键词检索字段白名单：只剩「产品 / 公司」两个真正需要模糊匹配的维度。
- * 2026-10-10 行业改为这一页的划分轴后，国家/认证/工厂·贸易商/UNSPSC 不再作为检索入口：
- * 它们的值域要么极小（国家只有 3 个值）、要么是干净枚举（business_type_code），本来就不该让用户打字；
- * 而认证是 10 种互不重合的自由写法，拿 LIKE 搜它等于让用户猜。行业走 industryCode/industryCodes，
- * 不占本白名单（见下方子树筛）。白名单外的值一律回落公司名，与旧行为一致。
- */
-const SEARCH_FIELDS = new Set(["product", "company"]);
-
-/**
  * 排序白名单：只收录能真正兑现的项，排序表达式不得来自用户输入。
  * ★ 必须是 Map 而不是对象字面量：下标取值的对象会把原型链上的键（constructor /
  *   __proto__ / toString / valueOf）一并「命中」，那些值是函数，直接拼进 ORDER BY
@@ -143,8 +134,6 @@ export class SupplierDirectoryRepo {
     limit: number;
     offset: number;
     search?: string;
-    /** 关键词检索字段：product / company（其余值回落公司名） */
-    field?: string;
     /** 行业主轴：门类码（也支持任一层级码），命中该节点**子树**内的挂靠 */
     industryCode?: string;
     /**
@@ -158,7 +147,7 @@ export class SupplierDirectoryRepo {
     /** 排序键（白名单外回落默认） */
     sort?: string;
   }): Promise<{ items: SupplierDirectoryRow[]; total: number }> {
-    const { limit, offset, search, field, industryCode, industryCodes, sort } = params;
+    const { limit, offset, search, industryCode, industryCodes, sort } = params;
 
     // ── WHERE 条件构建 ──
     // 已认证口径只认 verify_status='done'：旧逻辑额外把 NULL 视同已认证（为外部同步的空值
@@ -170,17 +159,13 @@ export class SupplierDirectoryRepo {
     const values: string[] = [];
 
     if (search) {
-      // 关键词只按「产品 / 公司」路由（SEARCH_FIELDS 白名单外的值回落公司名，与旧行为一致）
-      const f = field && SEARCH_FIELDS.has(field) ? field : "company";
-      if (f === "product") {
-        // 产品走 FULLTEXT ngram（与后台多维检索同一索引）
-        conditions.push("MATCH(s.products, s.product_keywords) AGAINST(? IN BOOLEAN MODE)");
-        values.push(search);
-      } else {
-        conditions.push("company LIKE ?");
-        // L-BIZ-1 修复：转义用户输入中的 LIKE 通配符
-        values.push(`%${escapeLikeWildcard(search)}%`);
-      }
+      // 一个关键词同时搜「公司名 + 产品/关键词」：FULLTEXT 命中产品、LIKE 命中公司名，OR 取并集。
+      // ★ MATCH 与 LIKE 用 OR 组合后 MySQL 不再走全文索引快路径（退化为对已过滤行逐行判定），
+      //   但公司名 LIKE '%x%' 本就是前导通配全扫、可见供应商量级小，代价可忽略；排序走
+      //   最新/完整度白名单、不依赖相关度，故合并搜索不丢排序。用户输入只进占位符，无注入面。
+      conditions.push("(MATCH(s.products, s.product_keywords) AGAINST(? IN BOOLEAN MODE) OR s.company LIKE ?)");
+      // L-BIZ-1：转义用户输入中的 LIKE 通配符（% _），避免被当成「匹配全部」
+      values.push(search, `%${escapeLikeWildcard(search)}%`);
     }
 
     // 行业关键词：三态语义见参数注释。空集给 1 = 0 而不是「当没填」——用户提了词而树上解不到，
