@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
-import { EC_AUTH_REQUIRED, EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { EC_AUTH_REQUIRED, EC_OPPORTUNITY_CODE_REQUIRED } from "@/shared/constants/api";
 import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
 
 /** description 截断阈值（与公告搜索列表 300 字符对齐） */
@@ -50,6 +50,6 @@ export const GET = withRoute(
         })),
       );
     }
-    return NextResponse.json({ code: EC_INVALID_PARAMS, message: "请提供 code_id 或 industry_id" }, { status: 404 });
+    return NextResponse.json({ code: EC_OPPORTUNITY_CODE_REQUIRED, message: "请提供 code_id 或 industry_id" }, { status: 404 });
   },
 );

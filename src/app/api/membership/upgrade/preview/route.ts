@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_UPGRADE_PLAN_REQUIRED } from "@/shared/constants/api";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -12,7 +13,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const { previewUpgrade } = await import("@/lib/services/membership-upgrade");
   const targetPlanCode = req.nextUrl.searchParams.get("target_plan_code")?.trim() || "";
   if (!targetPlanCode) {
-    routeError(400, 40000, "请指定目标套餐");
+    routeError(400, EC_UPGRADE_PLAN_REQUIRED, "请指定目标套餐");
   }
   const result = await previewUpgrade(getContext().benefitSystemRepo, auth.userId, targetPlanCode);
   return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });

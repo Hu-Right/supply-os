@@ -18,7 +18,7 @@ import { sessionOwnedBy } from "@/lib/services/chat-service";
 import path from "path";
 import { z } from "zod";
 import { CHAT_TICKET_TTL_MS, ONE_MINUTE_MS } from "@/shared/constants/time";
-import { EC_INVALID_REQUEST, EC_FORBIDDEN, EC_NOT_FOUND } from "@/shared/constants/api";
+import { EC_INVALID_REQUEST, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING } from "@/shared/constants/api";
 
 const TICKET_TTL_SECONDS = CHAT_TICKET_TTL_MS / 1000;
 
@@ -50,7 +50,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const { sessionId } = parsed.data!;
   const session = await getContext().chatRepo.findSessionById(sessionId);
-  if (!session) routeError(404, EC_NOT_FOUND, "会话不存在");
+  if (!session) routeError(404, EC_CHAT_SESSION_MISSING, "会话不存在");
   if (!sessionOwnedBy(session, auth)) routeError(403, EC_FORBIDDEN, "无权访问此会话");
 
   return NextResponse.json({

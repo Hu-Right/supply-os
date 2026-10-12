@@ -9,7 +9,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_CLAIM_SUPPLIER_NOT_FOUND, EC_CLAIM_SELF_BOUND, EC_CLAIM_BOUND_BY_OTHER, EC_CLAIM_PENDING } from "@/shared/constants/api";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { assertBindingAllowsSubject, readCurrentBinding } from "@/lib/services/enterprise-binding";
 
@@ -61,7 +61,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 供应商必须存在：认领公司一律以 supplier 档案为准（company_name 不再落库）
   const supplier = await ctx.supplier.directoryRepo.findById(supplierId);
   if (!supplier) {
-    routeError(400, EC_INVALID_PARAMS, "要认领的供应商不存在");
+    routeError(400, EC_CLAIM_SUPPLIER_NOT_FOUND, "要认领的供应商不存在");
   }
 
   // ── 账号侧换绑闸口（分状态）──
@@ -78,13 +78,13 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 等一等就能认领成功——归属一旦确定就是终态，重试无用。
   const ownership = await ctx.supplier.directoryRepo.getClaimOwnership(supplierId, auth.userId);
   if (ownership.selfBound) {
-    routeError(400, EC_INVALID_PARAMS, "您已绑定该企业，无需重复认领");
+    routeError(400, EC_CLAIM_SELF_BOUND, "您已绑定该企业，无需重复认领");
   }
   if (ownership.boundByOther) {
-    routeError(400, EC_INVALID_PARAMS, "该公司已被其他账户认领，无法重复认领");
+    routeError(400, EC_CLAIM_BOUND_BY_OTHER, "该公司已被其他账户认领，无法重复认领");
   }
   if (ownership.claimPending) {
-    routeError(400, EC_INVALID_PARAMS, "该公司已有认领申请正在处理中，暂不能重复认领");
+    routeError(400, EC_CLAIM_PENDING, "该公司已有认领申请正在处理中，暂不能重复认领");
   }
 
   // 双时钟：创建时 1 小时（限时上传执照）；执照在企业信息页保存成功后自动续期 7 天（审核窗口）

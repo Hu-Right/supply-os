@@ -141,6 +141,79 @@ export const EC_API_KEY_SUSPENDED = 40302;
 /** API 每日配额已用完 */
 export const EC_API_QUOTA_EXCEEDED = 42901;
 
+// ── 业务规则细分码（统一用户友好提示层 Phase A，2026-10-12）─────────────────────
+// 规约：把此前塌缩到通用 EC_INVALID_PARAMS(40000)/EC_INVALID_REQUEST(40022) 的「状态/规则冲突」
+//       逐条拆成独立稳定码，前端据 code→i18n 键精确翻译；纯字段级/格式级校验仍复用 EC_INVALID_REQUEST。
+
+/** 认领：目标供应商不存在 */
+export const EC_CLAIM_SUPPLIER_NOT_FOUND = 40046;
+/** 认领：已认证通过，无需重复提交 */
+export const EC_CLAIM_ALREADY_APPROVED = 40047;
+/** 认领：当前账号已绑定该主体，无需重复认领 */
+export const EC_CLAIM_SELF_BOUND = 40049;
+/** 认领：已被其他账户认领（排他终态，重试无用） */
+export const EC_CLAIM_BOUND_BY_OTHER = 40050;
+/** 认领：已有认领申请正在处理中 */
+export const EC_CLAIM_PENDING = 40051;
+/** 企业绑定：当前账号尚未绑定企业 */
+export const EC_ENTERPRISE_NOT_BOUND = 40052;
+/** 企业绑定：目标公司已被其他账户认领，无法绑定 */
+export const EC_ENTERPRISE_CLAIMED_BY_OTHER = 40053;
+/** 词组库：词组数量已达上限 */
+export const EC_KEYWORD_GROUP_LIMIT = 40054;
+/** 词组库：已存在同名词组 */
+export const EC_KEYWORD_GROUP_DUPLICATE = 40055;
+/** 词组库：词组名或关键词不合法 */
+export const EC_KEYWORD_GROUP_NAME_INVALID = 40056;
+/** 诊断：答题内容不完整 */
+export const EC_DIAGNOSIS_ANSWERS_INCOMPLETE = 40059;
+/** 诊断：指定的企业主体不存在 */
+export const EC_DIAGNOSIS_ENTITY_NOT_FOUND = 40060;
+/** 资源库：容量已满 */
+export const EC_POOL_FULL = 40061;
+/** 资源库：供应商不存在或未通过认证 */
+export const EC_POOL_SUPPLIER_NOT_VERIFIED = 40062;
+/** 资源库：该供应商已在资源库中 */
+export const EC_POOL_SUPPLIER_DUPLICATE = 40063;
+/** 客服会话：会话记录不存在（区别于未登录） */
+export const EC_CHAT_SESSION_MISSING = 40057;
+/** 文件代理：缺少/非法 url 参数 */
+export const EC_PROXY_URL_MISSING = 40058;
+/** 升级预览：未指定目标套餐 */
+export const EC_UPGRADE_PLAN_REQUIRED = 40064;
+/** 商机列表：缺少 code_id/industry_id 查询参数 */
+export const EC_OPPORTUNITY_CODE_REQUIRED = 40065;
+/** 线索跟进：缺少线索 ID 或内容 */
+export const EC_LEAD_FIELDS_REQUIRED = 40066;
+/** 跟进状态非法（不在白名单） */
+export const EC_LEAD_STATUS_INVALID = 40067;
+
+// ── 支付细分码（承接原 mapPaymentError 全部分支语义，按码 i18n 化）──────────────
+/** 支付：套餐方案不存在 */
+export const EC_PAYMENT_PLAN_NOT_FOUND = 40407;
+/** 支付：学习资料不存在或已下架 */
+export const EC_PAYMENT_MATERIAL_NOT_FOUND = 40408;
+/** 支付：打包套餐不存在或已下架 */
+export const EC_PAYMENT_BUNDLE_NOT_FOUND = 40409;
+/** 支付：缺少用户与套餐信息，需先登录 */
+export const EC_PAYMENT_USER_PLAN_REQUIRED = 40070;
+/** 支付：套餐不可自助成交 */
+export const EC_PAYMENT_PLAN_NOT_SELLABLE = 40071;
+/** 支付：金额无效或与应付不符 */
+export const EC_PAYMENT_AMOUNT_INVALID = 40072;
+/** 支付：免费套餐无需支付 */
+export const EC_PAYMENT_FREE_PLAN = 40073;
+/** 支付：升级来源快照无效或已过期 */
+export const EC_PAYMENT_UPGRADE_INVALID = 40074;
+/** 支付：首单特惠仅限首次购买 */
+export const EC_PAYMENT_SINGLE_FIRST_PURCHASE = 40075;
+/** 支付：增值服务暂不支持在线下单 */
+export const EC_PAYMENT_SERVICE_UNAVAILABLE = 40076;
+/** 支付：该服务仅顾问对接，不支持自助下单 */
+export const EC_PAYMENT_SERVICE_ADVISORY_ONLY = 40077;
+/** 支付：签名验证失败 */
+export const EC_PAYMENT_SIGN_VERIFY_FAILED = 40078;
+
 // ── 分页限制常量（Pagination Limits）───────────────────────────────────────────
 
 /** 通用 API 分页默认大小 */

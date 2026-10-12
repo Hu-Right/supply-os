@@ -10,7 +10,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { listKeywordGroups, createKeywordGroup } from "@/lib/services/keyword-groups";
-import { EC_INVALID_PARAMS, EC_INVALID_REQUEST, EC_VIP_ONLY } from "@/shared/constants/api";
+import { EC_VIP_ONLY, EC_KEYWORD_GROUP_LIMIT, EC_KEYWORD_GROUP_DUPLICATE, EC_KEYWORD_GROUP_NAME_INVALID } from "@/shared/constants/api";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -36,12 +36,12 @@ export const POST = withRoute(async (req: NextRequest) => {
       routeError(403, EC_VIP_ONLY, "产品关键词库为企业版权益", { feature: "product_keyword_lib" });
     }
     if (result.reason === "pool_full") {
-      routeError(400, EC_INVALID_PARAMS, "词组数量已达上限（10 组），请删除不用的词组后再创建");
+      routeError(400, EC_KEYWORD_GROUP_LIMIT, "词组数量已达上限（10 组），请删除不用的词组后再创建");
     }
     if (result.reason === "duplicate") {
-      routeError(400, EC_INVALID_REQUEST, "已存在同名词组");
+      routeError(400, EC_KEYWORD_GROUP_DUPLICATE, "已存在同名词组");
     }
-    routeError(400, EC_INVALID_PARAMS, "词组名或关键词不合法");
+    routeError(400, EC_KEYWORD_GROUP_NAME_INVALID, "词组名或关键词不合法");
   }
   return NextResponse.json({ code: 0, message: "ok", data: { id: result.id } });
 });

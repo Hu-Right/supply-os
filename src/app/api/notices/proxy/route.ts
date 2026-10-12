@@ -14,7 +14,7 @@
  */
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { EC_INVALID_REQUEST, EC_INTERNAL_ERROR } from "@/shared/constants/api";
+import { EC_INVALID_REQUEST, EC_INTERNAL_ERROR, EC_PROXY_URL_MISSING } from "@/shared/constants/api";
 
 /** 允许代理的外部域名白名单（按需扩展；当前为宽松模式，仅记录不拦截） */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 保留供严格模式启用
@@ -72,7 +72,7 @@ export const GET = withRoute(
 
     const { searchParams } = new URL(req.url);
     const targetUrl = searchParams.get("url");
-    if (!targetUrl) routeError(400, EC_INVALID_REQUEST, "缺少 url 参数");
+    if (!targetUrl) routeError(400, EC_PROXY_URL_MISSING, "缺少 url 参数");
 
     let parsed: URL;
     try {

@@ -16,7 +16,7 @@ import { chatMessageSendSchema, sanitizeMetadata } from "@/lib/validators/chat";
 import { sessionOwnedBy } from "@/lib/services/chat-service";
 import path from "path";
 import { ONE_MINUTE_MS } from "@/shared/constants/time";
-import { EC_INVALID_REQUEST, EC_NOT_FOUND, EC_FORBIDDEN } from "@/shared/constants/api";
+import { EC_INVALID_REQUEST, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING } from "@/shared/constants/api";
 import { CHAT_MESSAGES_DEFAULT_LIMIT, CHAT_MESSAGES_MAX_LIMIT, clampLimit } from "@/shared/constants/api";
 
 /** 消息发送限流：同一用户每分钟最多 30 条 */
@@ -50,7 +50,7 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   // 验证会话存在且用户有权访问
   const session = await chatRepo.findSessionById(sessionId);
-  if (!session) routeError(404, EC_NOT_FOUND, "会话不存在");
+  if (!session) routeError(404, EC_CHAT_SESSION_MISSING, "会话不存在");
   if (!sessionOwnedBy(session, auth)) routeError(403, EC_FORBIDDEN, "无权访问此会话");
 
   const limit = clampLimit(req.nextUrl.searchParams.get("limit"), CHAT_MESSAGES_DEFAULT_LIMIT, CHAT_MESSAGES_MAX_LIMIT);
@@ -88,7 +88,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   // 验证会话存在
   const session = await chatRepo.findSessionById(sessionId);
-  if (!session) routeError(404, EC_NOT_FOUND, "会话不存在");
+  if (!session) routeError(404, EC_CHAT_SESSION_MISSING, "会话不存在");
   if (!sessionOwnedBy(session, auth)) routeError(403, EC_FORBIDDEN, "无权操作此会话");
 
   // 已关闭会话拒绝写入，防止"用户以为在跟人工对话实际无人响应"

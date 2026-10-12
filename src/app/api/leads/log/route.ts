@@ -10,6 +10,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { EC_LEAD_FIELDS_REQUIRED, EC_LEAD_STATUS_INVALID } from "@/shared/constants/api";
 import { resolveMembershipState } from "@/lib/services/membership-status";
 import { mapUngmAppointmentRow, mapLeadForMemberView } from "@/lib/services/leads";
 import type { Lead } from "@/types";
@@ -39,7 +40,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     nextStatus?: string;
   };
 
-  if (!leadId || !content) routeError(400, 40022, "缺少线索 ID 或内容");
+  if (!leadId || !content) routeError(400, EC_LEAD_FIELDS_REQUIRED, "缺少线索 ID 或内容");
 
   const ctx = getContext();
 
@@ -53,7 +54,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 状态白名单 + 内容限长（审查 F5）：nextStatus 此前为任意字符串断言，
   // content 无上限可灌大 TEXT 列
   if (nextStatus !== undefined && !LEAD_STATUS_WHITELIST.has(String(nextStatus))) {
-    routeError(400, 40000, "无效的跟进状态");
+    routeError(400, EC_LEAD_STATUS_INVALID, "无效的跟进状态");
   }
   const safeContent = String(content).trim().slice(0, 2000);
 

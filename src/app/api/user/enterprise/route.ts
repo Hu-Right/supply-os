@@ -22,7 +22,7 @@ import { deleteFile } from "@/lib/services/file-upload";
 import { assertBindingAllowsSubject, readCurrentBinding, assertVerifiedSubjectIdentityStable } from "@/lib/services/enterprise-binding";
 import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
 import type { AppContext } from "@/lib/db/context";
-import { EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_ENTERPRISE_NOT_BOUND, EC_ENTERPRISE_CLAIMED_BY_OTHER } from "@/shared/constants/api";
 
 /** 企业信息填写/编辑 body：全部可选字符串，键为 supplier 列名 */
 const enterpriseBodySchema = z.object({
@@ -123,7 +123,7 @@ export const PUT = withRoute(async (req) => {
   const user = await ctx.user.usersRepo.findProfileById(auth.userId);
   const supplierId = user?.supplier_id ? Number(user.supplier_id) : 0;
   if (!supplierId) {
-    routeError(400, EC_INVALID_PARAMS, "尚未绑定企业，请先填写企业信息");
+    routeError(400, EC_ENTERPRISE_NOT_BOUND, "尚未绑定企业，请先填写企业信息");
   }
 
   // 编辑闸口：已认证行不得把 company / credit_code 改成另一家公司（否则绕过审核把认证挪走）
@@ -191,7 +191,7 @@ export const POST = withRoute(async (req) => {
   if (existingId) {
     const ownership = await repo.getClaimOwnership(existingId, auth.userId);
     if (!ownership.selfBound && (ownership.boundByOther || ownership.claimPending)) {
-      routeError(400, EC_INVALID_PARAMS, "该公司已被其他账户认领，无法绑定");
+      routeError(400, EC_ENTERPRISE_CLAIMED_BY_OTHER, "该公司已被其他账户认领，无法绑定");
     }
     await ctx.user.usersRepo.bindSupplier(auth.userId, existingId, "verified");
     if ("license_url" in body) {
@@ -206,7 +206,7 @@ export const POST = withRoute(async (req) => {
     { verify_status: "pending", source_channel: "self_register" },
   );
   if (!newId) {
-    routeError(500, EC_INVALID_PARAMS, "企业信息创建失败");
+    routeError(500, EC_INTERNAL_ERROR, "企业信息创建失败");
   }
 
   await ctx.user.usersRepo.bindSupplier(auth.userId, newId, "verified");

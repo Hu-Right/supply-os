@@ -7,10 +7,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { toQrDataUrl } from "@/lib/payment/qr";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, clampLimit } from "@/shared/constants/api";
-import { EC_PAYMENT_PROVIDER_UNAVAILABLE, EC_PAYMENT_QR_CODE_MISSING } from "@/shared/constants/api";
+import {
+  EC_PAYMENT_PROVIDER_UNAVAILABLE, EC_PAYMENT_QR_CODE_MISSING,
+  EC_PAYMENT_PLAN_NOT_FOUND, EC_PAYMENT_MATERIAL_NOT_FOUND, EC_PAYMENT_BUNDLE_NOT_FOUND,
+  EC_PAYMENT_USER_PLAN_REQUIRED, EC_PAYMENT_PLAN_NOT_SELLABLE, EC_PAYMENT_AMOUNT_INVALID,
+  EC_PAYMENT_FREE_PLAN, EC_PAYMENT_UPGRADE_INVALID, EC_PAYMENT_SINGLE_FIRST_PURCHASE,
+  EC_PAYMENT_SERVICE_UNAVAILABLE, EC_PAYMENT_SERVICE_ADVISORY_ONLY,
+} from "@/shared/constants/api";
 
 // ── GET — 订单历史（聚合三表） ──
 export const GET = withRoute(
@@ -112,26 +118,31 @@ export const POST = withRoute(
         { status: 201 },
       );
     } catch (err: unknown) {
+      // 内层有意抛出的业务错（如上方 routeError 的渠道/二维码判定）直接上抛，交由 withRoute 按原 status/code 输出。
+      if (err instanceof RouteError) throw err;
       const raw = String((err as Error)?.message || "");
       console.error("[payment/orders] 创建订单失败:", raw, (err as Error)?.stack);
-      const friendly = raw.includes("Unsupported payment provider")
-        ? "PAYMENT_PROVIDER_UNAVAILABLE"
-        : raw.includes("PAYMENT_QR_CODE_MISSING")
-          ? '支付宝二维码生成失败，请确认已开通\u201C当面付\u201D产品后重试'
-          : raw.includes("MATERIAL_NOT_FOUND")
-            ? "学习资料不存在或已下架"
-            : raw.includes("BUNDLE_NOT_FOUND")
-              ? "打包套餐不存在或已下架"
-              : raw.includes("SERVICE_UNAVAILABLE")
-                ? "该服务暂不支持在线下单"
-              : raw.includes("SINGLE_FIRST_PURCHASE_ONLY")
-                ? "首单特惠仅限首次购买，请选择标准单次解锁"
-                : "创建订单失败，请稍后重试";
-      // 首单资格冲突用 409 让前端能区分提示
-      if (raw.includes("SINGLE_FIRST_PURCHASE_ONLY")) {
-        routeError(409, EC_PAYMENT_PROVIDER_UNAVAILABLE, friendly);
-      }
-      routeError(400, EC_PAYMENT_PROVIDER_UNAVAILABLE, friendly);
+      // 按服务层抛出的稳定令牌映射到支付细分码（前端据 code→i18n 精确翻译；message 保留中文作 zh 兜底）。
+      const map: Array<{ token: string; status: number; code: number; message: string }> = [
+        { token: "Unsupported payment provider", status: 400, code: EC_PAYMENT_PROVIDER_UNAVAILABLE, message: "支付渠道暂不可用" },
+        { token: "PAYMENT_PROVIDER_UNAVAILABLE", status: 400, code: EC_PAYMENT_PROVIDER_UNAVAILABLE, message: "支付渠道暂不可用" },
+        { token: "PAYMENT_QR_CODE_MISSING", status: 500, code: EC_PAYMENT_QR_CODE_MISSING, message: "支付宝二维码生成失败，请确认已开通当面付产品后重试" },
+        { token: "MATERIAL_NOT_FOUND", status: 404, code: EC_PAYMENT_MATERIAL_NOT_FOUND, message: "学习资料不存在或已下架" },
+        { token: "BUNDLE_NOT_FOUND", status: 404, code: EC_PAYMENT_BUNDLE_NOT_FOUND, message: "打包套餐不存在或已下架" },
+        { token: "SERVICE_ADVISORY_ONLY", status: 400, code: EC_PAYMENT_SERVICE_ADVISORY_ONLY, message: "该服务仅顾问对接，不支持自助下单" },
+        { token: "SERVICE_UNAVAILABLE", status: 400, code: EC_PAYMENT_SERVICE_UNAVAILABLE, message: "该服务暂不支持在线下单" },
+        { token: "SINGLE_FIRST_PURCHASE_ONLY", status: 409, code: EC_PAYMENT_SINGLE_FIRST_PURCHASE, message: "首单特惠仅限首次购买，请选择标准单次解锁" },
+        { token: "USER_AND_PLAN_REQUIRED", status: 400, code: EC_PAYMENT_USER_PLAN_REQUIRED, message: "请先登录后再尝试支付" },
+        { token: "PLAN_NOT_SELLABLE", status: 400, code: EC_PAYMENT_PLAN_NOT_SELLABLE, message: "该套餐暂不可自助成交，请联系客服" },
+        { token: "PLAN_NOT_FOUND", status: 404, code: EC_PAYMENT_PLAN_NOT_FOUND, message: "未找到对应的套餐方案，请刷新后重试" },
+        { token: "FREE_PLAN_NO_PAYMENT_REQUIRED", status: 400, code: EC_PAYMENT_FREE_PLAN, message: "免费套餐无需支付" },
+        { token: "UPGRADE_SOURCE_INVALID", status: 400, code: EC_PAYMENT_UPGRADE_INVALID, message: "升级来源已变化，请重新发起升级" },
+        { token: "AMOUNT_MISMATCH", status: 400, code: EC_PAYMENT_AMOUNT_INVALID, message: "支付金额异常，请联系客服处理" },
+        { token: "AMOUNT_INVALID", status: 400, code: EC_PAYMENT_AMOUNT_INVALID, message: "支付金额异常，请联系客服处理" },
+      ];
+      const hit = map.find((m) => raw.includes(m.token));
+      if (hit) routeError(hit.status, hit.code, hit.message);
+      routeError(500, EC_PAYMENT_PROVIDER_UNAVAILABLE, "支付创建失败，请稍后重试或更换支付方式");
     }
   },
 );

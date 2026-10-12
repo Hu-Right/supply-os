@@ -21,7 +21,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_DIAGNOSIS_ANSWERS_INCOMPLETE, EC_DIAGNOSIS_ENTITY_NOT_FOUND } from "@/shared/constants/api";
 
 const REASON_TEXT: Record<string, string> = {
   missing: "为必答题",
@@ -47,7 +47,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     // 之前的坑就是：形状不匹配却报「english_evidence_level 为必答题」，把排查方向带偏。
     routeError(
       400,
-      EC_INVALID_PARAMS,
+      parsed.fieldKey === "answers" ? EC_DIAGNOSIS_ANSWERS_INCOMPLETE : EC_INVALID_PARAMS,
       parsed.fieldKey === "answers"
         ? "请求体缺少 answers 对象（前后端契约不匹配）"
         : `${parsed.fieldKey} ${REASON_TEXT[parsed.reason] ?? "非法"}`,
@@ -65,7 +65,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     // 只校验存在性。允许把诊断挂到任意已存在主体上是设计内的行为：本端点不因此获得该主体的
     // 任何写权或归属权，真正的归属仍需走执照审核。
     if (!(await directory.findProfileBits(supplierId))) {
-      routeError(400, EC_INVALID_PARAMS, "指定的企业主体不存在");
+      routeError(400, EC_DIAGNOSIS_ENTITY_NOT_FOUND, "指定的企业主体不存在");
     }
   } else {
     const hit = await directory.findByCompanyBest(companyName);
