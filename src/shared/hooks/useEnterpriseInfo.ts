@@ -9,9 +9,10 @@
  *              架构解耦：原 features/auth/hooks 提升至 shared，供 auth/home/settings
  *              多方共享，消除 home→auth 跨 feature 硬依赖（红线 #3）。
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/core/http";
 import { onAppEvent } from "@/core/events";
+import { useUserId } from "@/core/auth/useUserId";
 
 /** 企业信息（supplier 整行透传，键为 snake_case 列名） */
 export type EnterpriseInfo = Record<string, unknown>;
@@ -32,14 +33,32 @@ export interface UseEnterpriseInfoReturn {
 }
 
 export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
+  const userId = useUserId();
   const [bound, setBound] = useState(false);
   const [linkStatus, setLinkStatus] = useState("none");
   const [enterprise, setEnterprise] = useState<EnterpriseInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
+  /** 上一次取数身份：识别登录/登出/换号，换人时先清旧快照再重取 */
+  const lastUserIdRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
+    // 账号身份变化（登录/登出/切换账号）：先清掉上一账号的企业快照再重取。
+    // 否则旧账号的「已认证」卡片会滞留到下一账号的页面上，与身份引导横幅串号，
+    // 用户会看到「未绑定却提示已认证不能换绑」的自相矛盾状态。
+    if (lastUserIdRef.current !== userId) {
+      lastUserIdRef.current = userId;
+      setBound(false);
+      setLinkStatus("none");
+      setEnterprise(null);
+    }
+    // 未登录不取数（对齐 useHasSupplierPool 语义）：接口必然 401，徒增报错噪声
+    if (userId === undefined) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -64,7 +83,7 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
     return () => {
       cancelled = true;
     };
-  }, [nonce]);
+  }, [userId, nonce]);
 
   const retry = useCallback(() => setNonce((n) => n + 1), []);
 

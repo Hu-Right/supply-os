@@ -109,6 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.token) {
         setAuthTokens(data.token, data.refresh_token);
       }
+      // 跨账号隔离：apiCached 的 TTL 缓存按端点为键（membership/status、unlocks、词组等
+      // 用户态数据），登录/换号时必须清空，否则下一账号在 TTL 窗口内读到上一账号的缓存
+      clearApiCache();
       persistAuthUser(data.user);
     } finally {
       setIsAuthLoading(false);
@@ -139,6 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.token) {
         setAuthTokens(data.token, data.refresh_token);
       }
+      // 跨账号隔离：与 login 同理，清空上一身份的 TTL 缓存（注册常发生在登出后，防御旧缓存残留）
+      clearApiCache();
       // 响应式更新，无需 reload
       persistAuthUser(data.user);
     } finally {
@@ -197,6 +202,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.token) {
         setAuthTokens(data.token, data.refresh_token);
       }
+      // 跨账号隔离：与 login 同理（重置密码发生在未登录态，防御同浏览器旧身份缓存）
+      clearApiCache();
       persistAuthUser(data.user);
     } finally {
       setIsAuthLoading(false);
