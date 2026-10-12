@@ -1,0 +1,6 @@
+# 融合挂载 · 人审结论 CSV 模板（fusion-apply-approvals.ts 的 --in 输入）
+# 每行=一个人工裁定过的节点；codes 用分号分隔该节点并入的外部码。
+# 列：node_code,parent_code,axis_std,axis_code,group_code,name_zh,name_en,std,codes,relation
+# parent_code 留空=大类(L1)。这是示例，非真实挂载结论——真实数据须逐条人审产出。
+UGT-043,,unspsc,10,UGT-G-01,示例大类,Demo Segment,unspsc,10000000,primary
+UGT-043115,UGT-043,unspsc,100020,UGT-G-01,示例中类,Demo Family,unspsc,10002000,primary
