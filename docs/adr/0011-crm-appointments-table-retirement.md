@@ -25,7 +25,7 @@
 - 已有定性：《全表写入核对-20260930》把它列为**死表**（"本仓库无任何写入/读取，功能实际走 ungm_1v1_appointments"），并收入问题 ⑥「死表/遗留共 8 张 ⇒ 择期 DROP，降低排查噪音」。
 - 语义替代关系明确：本表是**「平台用户 × 后台员工」的派单预约模型**（`user_id` / `employee_id` / `appointment_time` / `topic` / `status='pending'` / `remark`），活表是**「访客自助留资」模型**（`company_name` / `contact_person` / `contact_method` / `email` / `industry` / `consultation_needs` / `follow_up_logs` JSON / `raw_payload` / `ip`，外加 `appointment_key` 唯一键与两条二级索引）。活表携带本表没有的全部业务维度，而本表没有任何一项信息是活表给不出的。
 - 判据类型与 ADR-0008 同族（**零运行时读者**），与 ADR-0009 不同（那张表有 3 处读者、能删是因为读者可零成本改走树）。
-- 落刀后的复验（2026-10-12 实测，`scripts/tools/probe130-baseline-vs-db.ts`，只读）：本机库 96 张基表（其中 1 张 `crm_commodity_backbone__old_20261012` 属 dump 内置排除的影子/备份表）⇒ 应进基线 **95** 张，与 `baseline.sql` 的 **95** 张**双向差集为空**；`crm_appointments` 与退役名在库、在基线均为 false。
+- 落刀后的复验（2026-10-12 实测，`scripts/forensics/probe130-baseline-vs-db.ts`，只读）：本机库 96 张基表（其中 1 张 `crm_commodity_backbone__old_20261012` 属 dump 内置排除的影子/备份表）⇒ 应进基线 **95** 张，与 `baseline.sql` 的 **95** 张**双向差集为空**；`crm_appointments` 与退役名在库、在基线均为 false。
 
 ## 它真正的成本是误导，不是存储
 

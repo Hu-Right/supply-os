@@ -1,7 +1,7 @@
 /**
  * 只读校验：本机库的基表清单 vs 仓库 db/schema/baseline.sql 的表清单
  * 用途：crm_appointments 退役后，证明手工摘除的基线与库实际结构一致（不多不少）
- * 用法：npx tsx scripts/tools/probe130-baseline-vs-db.ts（只读、可重跑；任何表退役后都能拿它对账基线）
+ * 用法：npx tsx scripts/forensics/probe130-baseline-vs-db.ts（只读、可重跑；任何表退役后都能拿它对账基线）
  */
 import { readFileSync } from "node:fs";
 import mysql from "mysql2/promise";

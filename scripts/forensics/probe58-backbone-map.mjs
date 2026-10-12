@@ -4,7 +4,7 @@
 // 可跑性（入库时注）：第 2 节读 crm_commodity_group_segments（ADR-0009 已退役）、
 //   第 7 节读 crm_commodity_nodes（ADR-0006 已退役）⇒ 今天重跑这两段会报错。
 //   本件作为 ADR-0009 里「MIN(l1.group_code) 会掩盖一段跨多大类」那条批评的现场留档；
-//   正确的可重跑版本是 scripts/tools/probe-seg-derivable.ts（逐段 COUNT(DISTINCT)）。
+//   正确的可重跑版本是 scripts/forensics/probe-seg-derivable.ts（逐段 COUNT(DISTINCT)）。
 import { readFileSync, writeFileSync } from "node:fs";
 import mysql from "mysql2/promise";
 

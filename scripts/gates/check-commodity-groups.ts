@@ -60,6 +60,9 @@ console.log(`静态：${groups.length} 类 / ${totalPrefixes} 段前缀${FIXTURE
 // 拿 \b 收尾会让改名等于豁免（同 BB8 写法）。
 // 扫描根：src/**（随包运行）+ scripts/tools/**（长期在用的工具）。不含 scripts/gates 自身（本文件用字符串
 // 字面量做自检，扫自己必误伤），也不含 scripts/ops（一次性连库脚本，已由 check-gitignore-consistency 强制不入库）。
+// scripts/forensics/** 也不在扫描根：那里放「拿退役维表跟常量逐段对账」的取证留档（ADR-0009/0011 引用的实测出处），
+// 读退役表正是它们的用途、不构成口径来源；留在 scripts/ 下是为了吃满 tsconfig 的 **/*.ts 类型覆盖（temp/runtime 都被 exclude）。
+// 把这类探针放回 scripts/tools 会让本闸立刻红（CI 的 test:css-compat →「真实常量应通过」，2026-10-12 实到）。
 const RETIRED_RE = /\b(?:FROM|JOIN)\s+`?(?:\w+`?\.)?`?crm_commodity_groups?\w*\b/i;
 // 断言自身不许哑火：四条自检分别钉住「改名不豁免」「库名限定不豁免」「段归属表也在禁列」「不误伤新树」
 if (!RETIRED_RE.test("SELECT 1 FROM crm_commodity_groups_retired_20261012")) {

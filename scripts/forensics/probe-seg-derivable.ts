@@ -7,7 +7,7 @@
  * 与前人 probe58 的差别：那边用 MIN(l1.group_code) 取一个值，会掩盖「一段的多个族落在不同 L1」
  *   这种退化（MIN 照样给出一个数）。这里逐段查 COUNT(DISTINCT ...)，把唯一性显式量出来。
  *
- * 只读。用法：npx tsx scripts/tools/probe-seg-derivable.ts
+ * 只读。用法：npx tsx scripts/forensics/probe-seg-derivable.ts
  *
  * 可跑性（入库时注）：口径 B 与「谁还存着大类码」两处读 `crm_commodity_group_segments`，
  *   该表已按 ADR-0009 退役 ⇒ 今天在现网重跑会在 L35 报「表不存在」。
