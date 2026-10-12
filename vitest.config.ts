@@ -71,6 +71,8 @@ export default defineConfig({
         // ── src/lib/services/commodity — 大类常量与路径派生（纯函数）──
         "src/lib/services/commodity/groups.ts",
         "src/lib/services/commodity/path.ts",
+        // 品目归属落点 ↔ 派生列互转（UNSPSC 退役后的唯一换算面，纯函数）
+        "src/lib/services/commodity/attribution.ts",
 
         // ── src/lib/services/unspsc — 纯函数 ──
         "src/lib/services/unspsc/parser.ts",

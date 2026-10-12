@@ -28,11 +28,16 @@
  * @rules 换算口径只在这里实现一份；回填脚本与任何线上链路都调它，不允许出现第二份实现。
  *        粗码档位由**码自身的有效位**决定，不由「树里恰好查到哪层」决定 —— 后者会让同一批
  *        数据在不同时点落不同层，门禁 BB10 的逐条重算对拍就是用来抓这个的。
- * @limits 纯函数，不写库、不猜名、不兜底：换不出的码进 misses 交调用方处理（记账或拒写），
- *         绝不静默丢弃——静默丢会让公告在新树上"看起来不存在"。
+ * @limits 纯函数，不写库、不猜名：换不出的码进 misses 交调用方处理（记账或拒写），
+ *         绝不静默丢弃——静默丢会让公告在新树上"看起来不存在"。唯一允许的兜底是**段级**
+ *         （树没推出那段时，拿 `COMMODITY_GROUPS` 的段→大类口径指到树上真实的 L1 行，见 deriveSegmentRows）；
+ *         族/类/品目级的深码一律不上浮——那是「精度换覆盖」的另一个口径决定，不跟在这里默认掉。
  * @see scripts/ops/commodity-backbone-path-backfill.ts
+ * @see docs/superpowers/specs/2026-10-12-unspsc-full-retirement-design.md（UNSPSC 全面退役的批次划分）
  * @see scripts/gates/check-commodity-backbone.ts（BB7 挂靠闭合）
  */
+
+import { COMMODITY_GROUPS } from "./groups";
 
 /** 骨架节点行的最小字段集（够换算就行，不必载整行） */
 export type BackboneRow = {
@@ -253,8 +258,15 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
  *  - 同一个大类码出现两个 L1 行同样抛错：`listL2OfGroup` 那类「取第一行」的读法会静默漏掉一整个大类；
  *  - L1 行被停用/缺席 ⇒ 该段不落点（与退役前那条 SQL 的 `b.status = 1` 同效）。
  * 实测（scripts/tools/probe-seg-derivable.ts）：58 段三方逐段全等、0 段跨多大类，与退役前的归属表逐段一致。
+ *
+ * 【常量兜底】树重建可以把某一段的 L4 行整段裁掉（2026-10-12 现网实到：85 段没了，
+ * `85000000` 这类段级粗码以「只从树反推」就换不出归属，连带 1,159 条公告（活跃 272）丢分类）。
+ * 而段→大类本身的口径在 `COMMODITY_GROUPS` 常量里（ADR-0008/0009：大类维表退役后口径只剩常量），
+ * 所以树没推出那段时，用常量指到该大类那个**真实存在的 L1 行** —— 指的是树上的节点，不是造码。
+ * 两条约束：树反推优先（常量不得覆盖树已有结论）；大类在树里没有 L1 行就不落点（不抛错，
+ * 与上面那条「L1 缺席 ⇒ 不落点」保持同一语义，不给 loadBackboneIndex 新增崩溃面）。
  */
-function deriveSegmentRows(
+export function deriveSegmentRows(
   rows: Array<{ code: string; level: number; unspsc_prefix: string | null; group_code: string }>,
 ): GroupSegmentRow[] {
   const l1OfGroup = new Map<string, string>();
@@ -267,12 +279,26 @@ function deriveSegmentRows(
     l1OfGroup.set(r.group_code, r.code);
   }
   const out: GroupSegmentRow[] = [];
+  const covered = new Set<string>();
   for (const r of rows) {
     if (Number(r.level) !== 4) continue;
     const p = String(r.unspsc_prefix ?? "");
     if (!/^\d{6}$/.test(p)) continue; // L4 存 6 位类前缀；形制不符不参与推理
     const nodeCode = l1OfGroup.get(r.group_code);
-    if (nodeCode) out.push({ segmentPrefix: p.slice(0, 2), nodeCode });
+    if (nodeCode) {
+      out.push({ segmentPrefix: p.slice(0, 2), nodeCode });
+      covered.add(p.slice(0, 2));
+    }
+  }
+  // 兜底只补树没推出来的段；两边对同一段说法不一时留树的那条，后续冲突由 buildBackboneIndex 抛错
+  for (const g of COMMODITY_GROUPS) {
+    const nodeCode = l1OfGroup.get(g.code);
+    if (!nodeCode) continue;
+    for (const p of g.prefixes) {
+      if (covered.has(p)) continue;
+      out.push({ segmentPrefix: p, nodeCode });
+      covered.add(p);
+    }
   }
   return out;
 }
@@ -345,8 +371,9 @@ export function rootNodes(nodes: Iterable<string>): string[] {
  * - `industry-scope.ts`：行业墙的单公告执法点，拆宽表 `backbone_path` 与大类的 L1 节点码集比对；
  * - `search-orchestrator/format.ts`：匹配分标签拆 `precise_backbone_path`（与检索谓词同源）；
  * - `ai-match/match-nodes.ts`：粗筛公告侧拆宽表 `backbone_path`（供应商侧不拆列，
- *   兴趣码走 `getBackboneIndex().pathOf` 换算，与本函数同一口径）。
- * 待切（R5 剩余任务，均应改调本函数而不是自己拆）：`unspsc/*` 类目工具、三个 repo、
+ *   兴趣码走 `getBackboneIndex().pathOf` 换算，与本函数同一口径）；
+ * - `commodity/attribution.ts`：拆列取最深落点（UNSPSC 退役后归属事实源 ↔ 派生列的唯一换算面）。
+ * 待切（UNSPSC 全面退役的二批，均应改调本函数而不是自己拆）：`unspsc/*` 类目工具、三个 repo、
  * `recommend`。`hot-topics` 已收：它的计数留在 SQL 里按包含关系聚合
  * （`FIND_IN_SET` 与检索谓词同一条关系），不在应用侧拆列 ⇒ 不进本名单。
  */

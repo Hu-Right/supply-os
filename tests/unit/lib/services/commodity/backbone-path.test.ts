@@ -10,6 +10,7 @@ import {
   backboneNodeLevel,
   buildBackboneIndex,
   chainOfNode,
+  deriveSegmentRows,
   effectivePrefixOf,
   fromBackbonePathColumn,
   padUnspscCode,
@@ -203,6 +204,49 @@ describe("冲突与拒写", () => {
     expect(toBackbonePathColumn(["UGT-B-01", "UGT-B-0101"])).toBe("UGT-B-01,UGT-B-0101");
     expect(() => assertBackbonePathLength("x".repeat(1_000_001), 42)).toThrow(/超长/);
     expect(assertBackbonePathLength("x".repeat(1000), 42)).toHaveLength(1000);
+  });
+});
+
+describe("段映射的常量兜底", () => {
+  /**
+   * 背景（2026-10-12 现网实测）：骨架树重建后 85 段的 L4 行整族没了，段→大类「只从树反推」就断，
+   * 导致 `85000000` 这类段级粗码换不出归属、连带 1,159 条公告（活跃 272）归属被清空。
+   * 而段→大类的口径本身在 `COMMODITY_GROUPS` 常量里（ADR-0008/0009：大类维表退役后口径只剩常量），
+   * 树 L1 又恰好每个大类一行 ⇒ 常量可以直接指到一个真实存在的树节点，不是造节点。
+   * 铁律：**树反推优先**，常量只补树没推出来的那段，两边打架不能静默偏向常量。
+   */
+  type TreeRow = { code: string; level: number; unspsc_prefix: string | null; group_code: string };
+  // 常量实际口径：段 10 → UGT-G-01、段 85 → UGT-G-25（医疗与卫生服务）
+  const base: TreeRow[] = [
+    { code: "UGT-B-01", level: 1, unspsc_prefix: null, group_code: "UGT-G-01" },
+    { code: "UGT-B-25", level: 1, unspsc_prefix: null, group_code: "UGT-G-25" },
+    { code: "UGT-B-01010101", level: 4, unspsc_prefix: "101015", group_code: "UGT-G-01" },
+  ];
+
+  it("85 段在树里没有 L4 行，但常量把它归到 G-25、树里有 G-25 的 L1 行 → 85 段落向那个 L1", () => {
+    expect(deriveSegmentRows(base)).toEqual(
+      expect.arrayContaining([{ segmentPrefix: "85", nodeCode: "UGT-B-25" }]),
+    );
+  });
+
+  it("树里该段有 L4 行时以树为准，常量不得覆盖（哪怕常量说它属于另一个大类）", () => {
+    const withTree85: TreeRow[] = [
+      ...base,
+      { code: "UGT-B-01010103", level: 4, unspsc_prefix: "851015", group_code: "UGT-G-01" },
+    ];
+    // 常量说 85 属 G-25，树反推说属 G-01（对应 L1 = UGT-B-01）：取树，且只出一条
+    expect(deriveSegmentRows(withTree85).filter((s) => s.segmentPrefix === "85")).toEqual([
+      { segmentPrefix: "85", nodeCode: "UGT-B-01" },
+    ]);
+  });
+
+  it("常量归的大类在树里没有 L1 行 → 该段不落点，也不抛（沿用「L1 缺席则段不落点」的既有语义）", () => {
+    const noL1 = base.filter((r) => r.code !== "UGT-B-25");
+    const segs = deriveSegmentRows(noL1);
+    expect(segs.some((s) => s.segmentPrefix === "85")).toBe(false);
+    // 树反推那半边不受影响；而同一大类的其它段（常量里 70 也属 G-01）本就该由兜底补上
+    expect(segs.find((s) => s.segmentPrefix === "10")).toEqual({ segmentPrefix: "10", nodeCode: "UGT-B-01" });
+    expect(segs.find((s) => s.segmentPrefix === "70")).toEqual({ segmentPrefix: "70", nodeCode: "UGT-B-01" });
   });
 });
 
