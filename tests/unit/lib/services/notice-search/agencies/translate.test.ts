@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { needsTranslationFix, buildZhFromKeywords, extractCountryFromName } from "@/lib/services/notice-search/agencies/translate";
+import { translateByPattern } from "@/lib/data/agency-i18n/translate";
+import { KNOWN_ACRONYMS } from "@/lib/data/agency-i18n/known-acronyms";
 
 describe("needsTranslationFix", () => {
   it("undefined → true", () => {
@@ -60,5 +62,49 @@ describe("extractCountryFromName", () => {
 
   it("GOV 后缀匹配 → 国家", () => {
     expect(extractCountryFromName("AGENCY.GOV.BR")).toBe("巴西");
+  });
+});
+
+describe("translateByPattern — 平台代码占位 agency（2026-10-12 公告列表露码修复）", () => {
+  it("mercadopublico_cl → 智利公共采购网", () => {
+    const r = translateByPattern("mercadopublico_cl");
+    expect(r?.i18n.zh).toBe("智利公共采购网");
+    expect(r?.i18n.en).toBe("Mercado Público");
+  });
+
+  it("comprasestatales_uy → 乌拉圭国家采购局", () => {
+    expect(translateByPattern("comprasestatales_uy")?.i18n.zh).toBe("乌拉圭国家采购局");
+  });
+
+  it("eTenders / etenders_gov_za → 南非电子招标网（库内裸 eTenders 全为南非行）", () => {
+    expect(translateByPattern("eTenders")?.i18n.zh).toBe("南非电子招标网");
+    expect(translateByPattern("etenders_gov_za")?.i18n.zh).toBe("南非电子招标网");
+  });
+
+  it("SPAIN_PCSP / HUNGARY_EKR 等国家平台代码", () => {
+    expect(translateByPattern("SPAIN_PCSP")?.i18n.zh).toBe("西班牙公共采购平台");
+    expect(translateByPattern("HUNGARY_EKR")?.i18n.zh).toBe("匈牙利统一采购系统");
+  });
+
+  it("聚合键字面量（正则自匹配不到的）→ TYPE_PATTERNS 同名翻译", () => {
+    expect(translateByPattern("MUNICIPIO_BR")?.i18n.zh).toBe("巴西各市政府");
+    expect(translateByPattern("UN_SYSTEM")?.i18n.zh).toBe("联合国系统");
+    expect(translateByPattern("MINISTRY_INTL")?.i18n.zh).toBe("各国部委");
+  });
+
+  it("正则可自匹配的聚合键不注册，保持原类型桶聚合路径", () => {
+    expect(KNOWN_ACRONYMS.has("COUNTY_KE")).toBe(false);
+    expect(KNOWN_ACRONYMS.has("TRIBUNAL_BR")).toBe(false);
+    expect(KNOWN_ACRONYMS.has("EMPRESA_BR")).toBe(false);
+  });
+
+  it("真实机构不受影响：UNDP 精确缩写仍命中", () => {
+    expect(translateByPattern("UNDP")?.i18n.zh).toBe("联合国开发计划署");
+  });
+
+  it("裸代码条目不吞爱尔兰别名：IRELAND ETENDERS 交回 DB 别名表管线处理", () => {
+    // 爱尔兰译名由 query.ts stage 1 的 crm_agency_aliases 查询给出，
+    // translateByPattern 对它走通用兜底即可，关键是不得误配南非名。
+    expect(translateByPattern("IRELAND ETENDERS")?.i18n.zh).not.toBe("南非电子招标网");
   });
 });

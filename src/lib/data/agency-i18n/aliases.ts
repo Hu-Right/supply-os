@@ -371,9 +371,19 @@ export const AGENCY_ALIAS_GROUPS: AgencyAliasGroup[] = [
     i18n: { zh: "荷兰招标平台", fr: "TenderNed", ru: "TenderNed", es: "TenderNed", ar: "TenderNed" },
   },
   {
+    // 爱尔兰 eTenders（etenders.gov.ie）：仅认显式爱尔兰别名。
+    // 裸 "ETENDERS"/"E-TENDERS" 代码经库内核实（2026-10-12）全部是南非行，
+    // 归入下方南非组，勿再挪回本组。
     canonical: "eTenders",
-    aliases: ["ETENDERS", "E-TENDERS", "IRELAND ETENDERS"],
+    aliases: ["IRELAND ETENDERS", "ETENDERS.IE"],
     i18n: { zh: "爱尔兰电子招标平台", fr: "eTenders", ru: "eTenders", es: "eTenders", ar: "eTenders" },
+  },
+  {
+    // 南非 eTenders（etenders.gov.za）：裸 ETENDERS/E-TENDERS 与 etenders_gov_za
+    // 两种入库写法同指此平台，归并到同一 canonical。
+    canonical: "etenders_gov_za",
+    aliases: ["ETENDERS", "E-TENDERS", "ETENDERS_GOV_ZA", "ETENDERS GOV ZA", "SOUTH AFRICA ETENDERS"],
+    i18n: { zh: "南非电子招标网", fr: "eTenders (South Africa)", ru: "eTenders (South Africa)", es: "eTenders (South Africa)", ar: "eTenders (South Africa)" },
   },
   {
     canonical: "georgia_procurement",
