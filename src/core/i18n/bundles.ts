@@ -8,6 +8,7 @@
 import arAuth from "./locales/ar/auth.json";
 import arCommon from "./locales/ar/common.json";
 import arCrm from "./locales/ar/crm.json";
+import arErrors from "./locales/ar/errors.json";
 import arLearning from "./locales/ar/learning.json";
 import arMembership from "./locales/ar/membership.json";
 import arPayment from "./locales/ar/payment.json";
@@ -19,6 +20,7 @@ import arTraining from "./locales/ar/training.json";
 import enAuth from "./locales/en/auth.json";
 import enCommon from "./locales/en/common.json";
 import enCrm from "./locales/en/crm.json";
+import enErrors from "./locales/en/errors.json";
 import enLearning from "./locales/en/learning.json";
 import enMembership from "./locales/en/membership.json";
 import enPayment from "./locales/en/payment.json";
@@ -30,6 +32,7 @@ import enTraining from "./locales/en/training.json";
 import esAuth from "./locales/es/auth.json";
 import esCommon from "./locales/es/common.json";
 import esCrm from "./locales/es/crm.json";
+import esErrors from "./locales/es/errors.json";
 import esLearning from "./locales/es/learning.json";
 import esMembership from "./locales/es/membership.json";
 import esPayment from "./locales/es/payment.json";
@@ -41,6 +44,7 @@ import esTraining from "./locales/es/training.json";
 import frAuth from "./locales/fr/auth.json";
 import frCommon from "./locales/fr/common.json";
 import frCrm from "./locales/fr/crm.json";
+import frErrors from "./locales/fr/errors.json";
 import frLearning from "./locales/fr/learning.json";
 import frMembership from "./locales/fr/membership.json";
 import frPayment from "./locales/fr/payment.json";
@@ -52,6 +56,7 @@ import frTraining from "./locales/fr/training.json";
 import ruAuth from "./locales/ru/auth.json";
 import ruCommon from "./locales/ru/common.json";
 import ruCrm from "./locales/ru/crm.json";
+import ruErrors from "./locales/ru/errors.json";
 import ruLearning from "./locales/ru/learning.json";
 import ruMembership from "./locales/ru/membership.json";
 import ruPayment from "./locales/ru/payment.json";
@@ -63,6 +68,7 @@ import ruTraining from "./locales/ru/training.json";
 import zhAuth from "./locales/zh/auth.json";
 import zhCommon from "./locales/zh/common.json";
 import zhCrm from "./locales/zh/crm.json";
+import zhErrors from "./locales/zh/errors.json";
 import zhLearning from "./locales/zh/learning.json";
 import zhMembership from "./locales/zh/membership.json";
 import zhPayment from "./locales/zh/payment.json";
@@ -84,12 +90,12 @@ const mergeNamespaces = (...modules: Record<string, unknown>[]): Record<string, 
 };
 
 export const SERVER_BUNDLES: Record<string, { translation: Record<string, string> }> = {
-  ar: { translation: mergeNamespaces(arAuth, arCommon, arCrm, arLearning, arMembership, arPayment, arProcurement, arServices, arSupplier, arTraining) },
-  en: { translation: mergeNamespaces(enAuth, enCommon, enCrm, enLearning, enMembership, enPayment, enProcurement, enServices, enSupplier, enTraining) },
-  es: { translation: mergeNamespaces(esAuth, esCommon, esCrm, esLearning, esMembership, esPayment, esProcurement, esServices, esSupplier, esTraining) },
-  fr: { translation: mergeNamespaces(frAuth, frCommon, frCrm, frLearning, frMembership, frPayment, frProcurement, frServices, frSupplier, frTraining) },
-  ru: { translation: mergeNamespaces(ruAuth, ruCommon, ruCrm, ruLearning, ruMembership, ruPayment, ruProcurement, ruServices, ruSupplier, ruTraining) },
-  zh: { translation: mergeNamespaces(zhAuth, zhCommon, zhCrm, zhLearning, zhMembership, zhPayment, zhProcurement, zhServices, zhSupplier, zhTraining) },
+  ar: { translation: mergeNamespaces(arAuth, arCommon, arCrm, arErrors, arLearning, arMembership, arPayment, arProcurement, arServices, arSupplier, arTraining) },
+  en: { translation: mergeNamespaces(enAuth, enCommon, enCrm, enErrors, enLearning, enMembership, enPayment, enProcurement, enServices, enSupplier, enTraining) },
+  es: { translation: mergeNamespaces(esAuth, esCommon, esCrm, esErrors, esLearning, esMembership, esPayment, esProcurement, esServices, esSupplier, esTraining) },
+  fr: { translation: mergeNamespaces(frAuth, frCommon, frCrm, frErrors, frLearning, frMembership, frPayment, frProcurement, frServices, frSupplier, frTraining) },
+  ru: { translation: mergeNamespaces(ruAuth, ruCommon, ruCrm, ruErrors, ruLearning, ruMembership, ruPayment, ruProcurement, ruServices, ruSupplier, ruTraining) },
+  zh: { translation: mergeNamespaces(zhAuth, zhCommon, zhCrm, zhErrors, zhLearning, zhMembership, zhPayment, zhProcurement, zhServices, zhSupplier, zhTraining) },
 };
 
 /** 支持的完整语言代码列表 */

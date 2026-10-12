@@ -15,6 +15,7 @@ import type zhAuth from "./locales/zh/auth.json";
 import type zhPayment from "./locales/zh/payment.json";
 import type zhMembership from "./locales/zh/membership.json";
 import type zhCrm from "./locales/zh/crm.json";
+import type zhErrors from "./locales/zh/errors.json";
 import type zhSupplier from "./locales/zh/supplier.json";
 import type zhServices from "./locales/zh/services.json";
 import type zhLearning from "./locales/zh/learning.json";
@@ -29,6 +30,7 @@ export type zh = Merge<
   typeof zhPayment &
   typeof zhMembership &
   typeof zhCrm &
+  typeof zhErrors &
   typeof zhSupplier &
   typeof zhServices &
   typeof zhLearning &
