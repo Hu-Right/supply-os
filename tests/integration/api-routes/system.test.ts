@@ -8,6 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
+import { EC_UPGRADE_PLAN_REQUIRED } from "@/shared/constants/api";
 import fs from "fs";
 import path from "path";
 
@@ -227,7 +228,10 @@ describe("GET /api/membership/upgrade/preview", () => {
     });
     const res = await GET(req);
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ code: 40000 });
+    // 断言到具体细分码（不是旧的通用 40000）：87014660 已把该场景换成
+    // EC_UPGRADE_PLAN_REQUIRED，并在 core/http/error-map 与 i18n 键 errUpgradePlanRequired 里登记，
+    // 拿常量而不是字面量：再改码号时这条断言跟着编译报错，而不是静默红一行数字
+    expect(await res.json()).toMatchObject({ code: EC_UPGRADE_PLAN_REQUIRED });
   });
 
   it("合法请求 → 返回升级预览结果", async () => {
