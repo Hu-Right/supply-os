@@ -242,19 +242,18 @@ const NUMERIC_TYPES = new Set(['tinyint', 'smallint', 'mediumint', 'int', 'bigin
  *
  * 背景：本脚本的 ODKU 默认把「除主键外全部列」写成 `col = VALUES(col)`。内网源库一旦补建
  * 同名列但值为 NULL/空串，每轮同步都会把云端已填好的值整体抹掉（与 spec D9 同一机理，
- * 只是作用域从平台行扩到人工列）。迁移 088 的 17 个国际采购列正是这种形态：由平台侧
- * 人工精编/官方收录写入，爬虫管道不产出其内容。
+ * 只是作用域从平台行扩到人工列）。
  *
  * 规则：数值列只在「源值为 NULL」时保留目标值（0 是合法业务值，如
  * prequalification_required=0 表示不需资格预审，不得当空处理）；字符串列额外把空串视作未提供。
+ *
+ * 2026-10-12 清空：原先登记的迁移 088 的 17 个国际采购列整族退役（云端零消费、
+ * 全库仅 1 行有值且那行内容贴错），待删列清单见 scripts/tools/opp-slim-plan.mjs。
+ * 列删后本脚本无需改动：按「源∩目标」交集写列，源库多出的列自动跳过并告警。
+ * 若将来重新引入人工精编列，必须同时在本表和 src/lib/services/search-sync/crawler-sync-sql.ts 登记。
  */
 const NON_DESTRUCTIVE_COLUMNS = {
-  crm_bid_opportunities: [
-    'procurement_procedure', 'prequalification_required', 'lot_structure', 'contract_form',
-    'consortium_rule', 'bid_validity_days', 'submission_mode', 'submission_requirement',
-    'submission_address', 'funding_agency', 'evaluation_method', 'language_requirement',
-    'execution_period', 'local_content', 'eshs_requirements', 'eligible_countries', 'key_dates',
-  ],
+  // crm_bid_opportunities: [ ...人工列... ],
 };
 
 const SYNC_INTERVAL = readPositiveInt('SYNC_INTERVAL_MS', ['SYNC_INTERVAL_MS'], 3600000); // 默认 1 小时

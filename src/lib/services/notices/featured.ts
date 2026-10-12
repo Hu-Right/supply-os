@@ -8,7 +8,6 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { LRUCache } from "lru-cache";
 import { qualifiedOppWhere } from "../../utils/notice-qualified";
-import { INTL_PROCUREMENT_SELECT_LIST } from "../../utils/notice-field-limits";
 
 // ── 精选池判定（T-A1，本地差异 #14：A.2）──
 // 合格机会口径已下沉至 utils/notice-qualified（repos 与 services 共用，避免反向依赖），
@@ -96,16 +95,17 @@ export async function findQualifiedOpportunityForNotice(dbPool: Pool, notice: No
 }
 
 async function queryQualifiedOpportunity(dbPool: Pool, notice: NoticeIdentity) {
-  // 国际采购结构化列从 utils/notice-field-limits 的单一清单派生（漏列即静默变 null，故不手写）
+  // 列清单与机会表精简轮同步（2026-10-12）：thresholds / difficulty 与迁移 088 的 17 个国际采购列
+  // 已从库里退役，不得再出现在这里（列不存在会直接报错，而非静默变 null）。
+  // 待删列名唯一事实源：scripts/tools/opp-slim-plan.mjs。
   const fields = `
     id, source_notice_id, source_url, title, reference, notice_type, registration_level,
     agency, agency_full, country, beneficiary_countries, published_date, deadline, deadline_ts,
     deadline_timezone, estimated_value, description, description_cn, description_other,
     bid_overview, supplier_conditions,
-    eligibility, technical_hurdles, industry, unspsc_codes, thresholds, difficulty,
+    eligibility, technical_hurdles, industry, unspsc_codes,
     contacts, documents, external_links, ai_products, ai_analysis, status, priority,
-    audit_status, review_status, is_qualified, product_code,
-    ${INTL_PROCUREMENT_SELECT_LIST}
+    audit_status, review_status, is_qualified, product_code
   `;
   const qualifiedWhere = qualifiedOppWhere();
 

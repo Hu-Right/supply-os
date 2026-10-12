@@ -33,15 +33,13 @@ export const NUMERIC_TYPES = new Set([
  * 非破坏式合并列（人工/官方收录侧拥有）。
  * 源库补建同名列但值为 NULL/空串时，不得把云端已填好的值整体抹掉。
  * 数值列仅 NULL 算未提供（0 是合法业务值）；字符串列额外把空串视作未提供。
+ *
+ * 2026-10-12 清空：原 crm_bid_opportunities 的 17 个国际采购列整族退役，
+ * 云端已无人读且全库仅 1 行有值（那行还贴错了行），保护它们没有意义。
+ * 待删列清单见 scripts/tools/opp-slim-plan.mjs；列删后同步走「源∩目标」交集，
+ * 源库多出的列自动跳过并告警，不报错。若将来重新引入人工精编列，必须在这里登记。
  */
-export const NON_DESTRUCTIVE_COLUMNS: Record<string, string[]> = {
-  crm_bid_opportunities: [
-    "procurement_procedure", "prequalification_required", "lot_structure", "contract_form",
-    "consortium_rule", "bid_validity_days", "submission_mode", "submission_requirement",
-    "submission_address", "funding_agency", "evaluation_method", "language_requirement",
-    "execution_period", "local_content", "eshs_requirements", "eligible_countries", "key_dates",
-  ],
-};
+export const NON_DESTRUCTIVE_COLUMNS: Record<string, string[]> = {};
 
 /** 水位线：id 高水位 + update_time 高水位（字符串，跟随列原生类型；null 表示本批未见到有效值） */
 export interface Watermark {

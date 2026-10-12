@@ -61,8 +61,10 @@ describe("buildOdkuClause", () => {
     expect(clause).toBe("`title` = VALUES(`title`)");
   });
 
-  it("opportunities 白名单确实覆盖 17 个人工列", () => {
-    expect(NON_DESTRUCTIVE_COLUMNS.crm_bid_opportunities).toHaveLength(17);
+  it("机会表已无人工精编保护列（2026-10-12 随 17 个国际采购列退役清空）", () => {
+    // 反向断言：若有人把退役列重新登记回白名单，本用例必须红
+    expect(NON_DESTRUCTIVE_COLUMNS.crm_bid_opportunities).toBeUndefined();
+    expect(Object.keys(NON_DESTRUCTIVE_COLUMNS)).toHaveLength(0);
   });
 });
 

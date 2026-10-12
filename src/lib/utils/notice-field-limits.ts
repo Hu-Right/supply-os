@@ -62,39 +62,23 @@ export const WIDE_LIMITS = {
 } as const;
 
 /**
- * 国际公共采购结构化列（迁移 088 加在 crm_bid_opportunities）—— 全库唯一定义点。
+ * 国际公共采购结构化列（迁移 088 加在 crm_bid_opportunities 的 17 列）已于 2026-10-12 退役，
+ * 本模块不再导出其清单——历史上它被**机会表 SELECT**（featured.ts）、**详情合并**（notices/index.ts）、
+ * **类型**（types/procurement.ts）三处派生，退役即三处同批摘除，不留第二份口径。
  *
- * 为何抽成常量而非在各处手写列名：这批列要被**机会表 SELECT**（featured.ts）、
- * **详情合并**（notices/index.ts）、**类型**（types/procurement.ts）三处消费，
- * 任何一处漏列就会静默变 null。列表在此一次声明，其余三处均从此派生。
+ * 判据（2026-10-12 取证，复跑：node --env-file=.env scripts/tools/opp-slim-evidence.mjs）：
+ * - 全库仅 1 行有值（id=19027 / 公告 440730 荷兰 tenderned 路牌标），而这 1 行的 17 列内容
+ *   写的是摩洛哥 ONEE 水泵站 EPC（IsDB 融资、卡萨布兰卡递交）→ 唯一一份数据本身贴错行；
+ * - 前端零消费：intl_procurement 只在 API 透出，src/features 无任何读取点；
+ * - 合计占用 < 1 MB，留着只增加同步白名单与契约维护成本。
  *
- * 不进宽表：这些是详情级字段，不属于搜索投影；搜索侧由 opp.description 经
- * DESC_SOURCE_EXPR 进入宽表 description 与六语列（见 spec I1/I2）。
+ * 待删列名唯一事实源：scripts/tools/opp-slim-plan.mjs 的 RETIRED_INTL_COLUMNS；
+ * 逐列含义与恢复前提见 docs/数据库设计/crm_bid_opportunities-投标商机表.md。
+ * 恢复前提：先补前端渲染消费方并修正错位数据，再重新加列。
+ *
+ * 注：搜索侧本来就不进宽表（这些是详情级字段），宽表描述仍由 opp.description 经
+ * DESC_SOURCE_EXPR 进入，本模块下方口径不变。
  */
-export const INTL_PROCUREMENT_COLUMNS = [
-  "procurement_procedure",
-  "prequalification_required",
-  "lot_structure",
-  "contract_form",
-  "consortium_rule",
-  "bid_validity_days",
-  "submission_mode",
-  "submission_requirement",
-  "submission_address",
-  "funding_agency",
-  "evaluation_method",
-  "language_requirement",
-  "execution_period",
-  "local_content",
-  "eshs_requirements",
-  "eligible_countries",
-  "key_dates",
-] as const;
-
-export type IntlProcurementColumn = (typeof INTL_PROCUREMENT_COLUMNS)[number];
-
-/** 逗号拼接后的 SELECT 片段（仅此一处拼接，避免列清单第二份） */
-export const INTL_PROCUREMENT_SELECT_LIST = INTL_PROCUREMENT_COLUMNS.join(", ");
 
 /**
  * 描述来源表达式：机会表（qualified/审核通过）优先，主表兜底。

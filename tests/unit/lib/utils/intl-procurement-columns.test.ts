@@ -1,21 +1,37 @@
 /**
- * 国际采购字段的「单一事实源」守卫：
- * - 运行期清单 INTL_PROCUREMENT_COLUMNS 与类型键集 IntlProcurementKey 必须完全相等
- *   （下面两个编译期断言在 tsc 阶段生效：任一侧漏改即类型报错）
- * - 详情合并必须透出全部键：有机会行取机会值，无机会行取 null 而非缺键
- * - 搜索侧不进宽表：这些列只经机会表进详情，宽表靠 opp.description 承载（见 088 头注释）
+ * 国际采购 17 列退役守卫（2026-10-12）+ 详情透出口径不回退
+ *
+ * 原用例守的是「清单与类型键集相等且详情必透出 17 键」；这批列已整族退役
+ * （判据见 scripts/tools/opp-slim-plan.mjs 与 docs/数据库设计/crm_bid_opportunities-投标商机表.md），
+ * 守卫随之**反向**：即便机会行里还带着这些键，详情合并也不得再向下游透出。
+ *
+ * 退役键名在本文件**独立钉死**（不复用 opp-slim-plan 的导出）：清单与守卫来自两份
+ * 独立认知，任一侧被改动时用例才会真的报错，而不是跟着一起漂移。
+ * 结构层守卫（读取点 SELECT 不得再含退役列）由 scripts/gates/check-opp-slim.mjs 承担。
  */
 import { describe, it, expect } from "vitest";
 
-import { INTL_PROCUREMENT_COLUMNS } from "@/lib/utils/notice-field-limits";
 import { normalizeNoticeDetailPayload } from "@/lib/services/notices";
-import type { IntlProcurementKey } from "@/types/procurement";
 
-type ListKeys = (typeof INTL_PROCUREMENT_COLUMNS)[number];
-
-// 编译期双向断言：类型有而清单没有 → 详情页读不到；清单有而类型没有 → 前端无类型可用
-const _missingFromList: Exclude<IntlProcurementKey, ListKeys> extends never ? true : false = true;
-const _extraInList: Exclude<ListKeys, IntlProcurementKey> extends never ? true : false = true;
+const RETIRED_KEYS = [
+  "procurement_procedure",
+  "prequalification_required",
+  "lot_structure",
+  "contract_form",
+  "consortium_rule",
+  "bid_validity_days",
+  "submission_mode",
+  "submission_requirement",
+  "submission_address",
+  "funding_agency",
+  "evaluation_method",
+  "language_requirement",
+  "execution_period",
+  "local_content",
+  "eshs_requirements",
+  "eligible_countries",
+  "key_dates",
+];
 
 const NOTICE_ROW = {
   id: 1786999999,
@@ -28,37 +44,25 @@ const NOTICE_ROW = {
   entry_source: "crawl",
 };
 
-describe("国际采购字段口径", () => {
-  it("清单与类型键集完全一致（编译期断言已生效，此处校验基数与无重复）", () => {
-    expect(_missingFromList).toBe(true);
-    expect(_extraInList).toBe(true);
-    expect(new Set(INTL_PROCUREMENT_COLUMNS).size).toBe(INTL_PROCUREMENT_COLUMNS.length);
-    expect(INTL_PROCUREMENT_COLUMNS.length).toBe(17);
+describe("国际采购 17 列退役守卫", () => {
+  it("退役键共 17 个且无重复（基数与旧契约一致，防止清单被悄悄改写）", () => {
+    expect(new Set(RETIRED_KEYS).size).toBe(RETIRED_KEYS.length);
+    expect(RETIRED_KEYS.length).toBe(17);
   });
 
-  it("有机会行时逐键透出，键集恰等于清单", () => {
-    const opportunity = Object.fromEntries(
-      INTL_PROCUREMENT_COLUMNS.map((c, i) => [c, `v${i}`]),
-    );
-    const payload = normalizeNoticeDetailPayload(NOTICE_ROW, undefined, opportunity) as {
-      intl_procurement: Record<string, unknown>;
-    };
-    expect(Object.keys(payload.intl_procurement).sort()).toEqual([...INTL_PROCUREMENT_COLUMNS].sort());
-    expect(payload.intl_procurement.evaluation_method).toBe("v10");
-    expect(payload.intl_procurement.submission_mode).toBe("v6");
+  it("即便机会行带着退役键，详情合并也不得透出 intl_procurement 或散键", () => {
+    const opportunity = Object.fromEntries(RETIRED_KEYS.map((c, i) => [c, `v${i}`]));
+    const payload = normalizeNoticeDetailPayload(NOTICE_ROW, undefined, opportunity) as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("intl_procurement");
+    for (const key of RETIRED_KEYS) expect(payload).not.toHaveProperty(key);
   });
 
-  it("无机会行时全键存在且为 null（不缺键，前端无需字段存在性判断）", () => {
-    const payload = normalizeNoticeDetailPayload(NOTICE_ROW) as {
-      intl_procurement: Record<string, unknown>;
-    };
-    for (const col of INTL_PROCUREMENT_COLUMNS) {
-      expect(payload.intl_procurement).toHaveProperty(col);
-      expect(payload.intl_procurement[col]).toBeNull();
-    }
+  it("无机会行时同样不存在 intl_procurement 键", () => {
+    const payload = normalizeNoticeDetailPayload(NOTICE_ROW) as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("intl_procurement");
   });
 
-  it("截止时区与原文摘要随机会行透出（无它则国际标 09:30 当地时间截止无法正确倒计时）", () => {
+  it("仍在用的详情键不回退：截止时区与非中文原文摘要随机会行透出", () => {
     const payload = normalizeNoticeDetailPayload(
       { ...NOTICE_ROW, deadline_timezone: "" },
       undefined,

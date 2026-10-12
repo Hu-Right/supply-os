@@ -127,7 +127,10 @@ export async function queryEngineeringList(
     ACTIVE_OPP_WHERE.replace("o.", "o."),
     engineeringWhere,
     "o.is_qualified = 1",
-    "o.status = 'active'",
+    // status 是 tinyint（1=已授标/won），可投标的即 status = 0。
+    // 旧写法 `o.status = 'active'` 在非严格模式下把 'active' 隐式转成 0，
+    // 凑巧与预期结果同值但语义错写（任何非数字字符串都会变成 =0），2026-10-12 改显式。
+    "o.status = 0",
   ];
   const queryParams: (string | number)[] = [];
 
@@ -215,7 +218,7 @@ export async function getEngineeringStats(dbPool: Pool): Promise<RowDataPacket> 
      FROM crm_bid_opportunities o
      WHERE ${engineeringWhere}
        AND o.is_qualified = 1
-       AND o.status = 'active'`,
+       AND o.status = 0`,
   );
 
   return rows[0] ?? { total_count: 0, country_count: 0, earliest_date: null, latest_date: null };
