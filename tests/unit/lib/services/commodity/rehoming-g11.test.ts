@@ -220,7 +220,7 @@ describe("重排产物（RH 系列）", () => {
 });
 
 /**
- * 2026-10-12 实测的子类公告量（倒排表行数，temp/probe191.out.txt）。
+ * 2026-10-12 实测的子类公告量（倒排表行数，runtime/commodity-g11-audit-tree.txt）。
  * 只用来审计“名字盖不盖得住内容”；数字会漂移，但判据（覆盖度阈值 + 必须标混装）不依赖具体数字。
  */
 const NOTICES: ReadonlyMap<string, number> = new Map(Object.entries({
