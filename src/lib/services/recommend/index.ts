@@ -69,16 +69,31 @@ export async function recommendNotices(
     [userId],
   );
 
-  const { scoredCodes, clauses, interestTotal } = processInterestCodes(interestRows as RowDataPacket[], DEPTH_FACTOR);
-  if (clauses.bridgeWhere === "") return deadlineFallback(pool, page, pageSize, offset, locale);
+  const { scoredNodes, clauses, interestTotal, misses } = await processInterestCodes(
+    pool, interestRows as RowDataPacket[], DEPTH_FACTOR,
+  );
+  if (misses.length > 0) {
+    // 换不出落点的码不静默丢：它们只会让该用户少一类召回，不报错所以必须自己点名
+    console.warn(
+      `[recommend] user=${userId} ${misses.length}/${(interestRows as RowDataPacket[]).length} 个兴趣码在骨架树上换不出落点，样本 ${misses.slice(0, 3).join("、")}`,
+    );
+  }
+  // 没有任何可用落点（无兴趣码 / 全换不出 / 只有 L1 落点）→ 降级按截止时间排序
+  if (clauses.join === "") return deadlineFallback(pool, page, pageSize, offset, locale);
 
   // ── 评分上下文：COUNT + 权重画像并行 ──
   const variant = recoVariant(userId);
   const [countResult, profileResult] = await Promise.all([
     pool.query(
-      `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n
-       INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
-       WHERE (${clauses.bridgeWhere}) AND ${ACTIVE_NOTICE_WHERE}`,
+      // 候选集计数：与主查询同一个 JOIN、同一批参数。形状是「先按公告分组、外面数分组数」
+      // 而不是 COUNT(DISTINCT n.id)：倒排读法上 DISTINCT 会把优化器带去选错索引
+      // （实测同一条句子 9.3s vs FORCE INDEX 3.2s，探针108）。
+      `SELECT COUNT(*) AS total FROM (
+         SELECT n.id FROM crm_bid_notices n
+         ${clauses.join}
+         WHERE ${ACTIVE_NOTICE_WHERE}
+         GROUP BY n.id
+       ) t`,
       clauses.params,
     ),
     pool.query(
@@ -97,9 +112,18 @@ export async function recommendNotices(
   const { centerLog: amountCenterLog, active: amountActive } = await getAmountPreference(pool, userId);
 
   // 构建评分表达式
-  const scoring = buildScoringContext(scoredCodes, interestTotal, wUnspsc, wUrgency, wAmount, wNeutral, amountCenterLog, amountActive);
+  const scoring = buildScoringContext(scoredNodes, interestTotal, wUnspsc, wUrgency, wAmount, wNeutral, amountCenterLog, amountActive);
 
   // ── 主查询 ──
+  // 三个 JOIN 各管一件事，都不能合：cand（节点码倒排表）把候选集从 67 万收窄到千级；
+  // ns（宽表）只给打分提供该公告自己的完整节点码路径（压集后的深层落点不在 cand 行里，
+  // 拿 cand 打分会静默归零，见 scoring.ts 那段）；b（码桥表）只出两件与口径无关的东西
+  // —— MMR 去重用的公告码集（codes_concat）与返回给前端的 match_score（该公告挂了几条码）。
+  // 绑定顺序必须跟 SQL 文本里 ? 的出现顺序一致（mysql2 是按位置拼值的）：
+  // SELECT 里的打分参数 → cand JOIN 的节点码 → trJoin 的语种 → LIMIT/OFFSET。
+  // 上一版把 trParams 拼在第一个，传了 locale 的请求里语种串就被绑到打分位上：
+  // MAX(cand.node = 'zh') 永远是 0，兴趣分整块静默归零（排序退化成只看截止/金额），
+  // 而搜索链路默认就传 locale —— 这一条由 index.param-order 那组单测钉住。
   const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
   const trParams = locale ? [locale] : [];
   const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
@@ -121,15 +145,20 @@ export async function recommendNotices(
          GROUP_CONCAT(DISTINCT b.code) AS codes_concat,
          COUNT(DISTINCT b.code) AS match_score, ${scoring.recoScoreExpr} AS reco_score
        FROM crm_bid_notices n
+       ${clauses.join}
+       INNER JOIN crm_notice_search ns ON ns.id = n.id
        INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
        LEFT JOIN crm_notice_amount_cache amc ON amc.notice_id = n.id
        ${trJoin}
        ${treJoin}
        ${oppJoin}
-       WHERE (${clauses.bridgeWhere}) AND ${ACTIVE_NOTICE_WHERE}
+       WHERE ${ACTIVE_NOTICE_WHERE}
        GROUP BY n.id ORDER BY reco_score DESC, (n.deadline_sec = 0), ${DEADLINE_SEC_EXPR}, n.id DESC
        LIMIT ? OFFSET ?`,
-      [...trParams, ...scoring.l4Params, ...scoring.scoreParams, scoring.denominator, ...scoring.amountScoreParams, ...clauses.params, pageSize, offset],
+      [
+        ...scoring.l4Params, ...scoring.scoreParams, scoring.denominator, ...scoring.amountScoreParams,
+        ...clauses.params, ...trParams, pageSize, offset,
+      ],
     );
   } catch (err) {
     console.error("[recommendNotices] main query failed, falling back to deadline:", err);

@@ -1,76 +1,132 @@
 /**
  * 推荐召回层
- * Recommendation recall: interest-code SQL recall + deadline fallback
+ * Recommendation recall: interest-code → backbone-node SQL recall + deadline fallback
  *
  * @module server/services/recommend/recall
+ * @description 2026-10-11 换口径两轮，都留了实测：
+ *              【为什么不再用桥表旧谓词】`b.level{N}_id IN (字典行 id)` 拿公告祖先的字典行 id
+ *              与兴趣码自己的字典行 id 做「同层相等」，字典里没有的码永远召不回（实测用户 6：
+ *              旧谓词召回 0 条 → 整屏退化成按截止时间排序；用户 1：旧 699 条 vs 节点码 4,079 条）。
+ *              【为什么不再用 backbone_path 上的 FIND_IN_SET】中间一版把谓词改成
+ *              `FIND_IN_SET(?, ns.backbone_path)`（与检索侧同一列同一关系），口径对了但形状错了：
+ *              对列值做函数永远用不到索引，EXPLAIN `type=ALL` 每次扫 677,629 行 ——
+ *              实测候选召回 2.4s / 3.8s / 1.4s，完整主查询 5.2s / 9.8s（探针110/111）。
+ *              现在读 crm_notice_backbone_nodes（那一列的行化镜像，2026-10-11 建表 + 全量回填
+ *              1,508,793 行）：`cand.node IN (节点码…)` 走 idx_node 的 range，同一轮交错实测
+ *              候选收窄 93ms / 50ms / 37ms（探针110）。
+ *              换完以后的实况（探针117，直接调 recommendNotices 量真实端到端）：
+ *              三个真实用户冷路径 1.9s / 7.2s / 2.4s —— 收窄已经不是瓶颈，瓶颈变成
+ *              主查询对全部候选组（最多 8,843 组）每行都跑商机描述子查询 / GROUP_CONCAT /
+ *              译文 JOIN，而 LIMIT 20 只留 20 行。拆成「先算分取 40 个 id、再只补给这 40 行
+ *              重字段」实测 186ms / 690ms / 256ms，同轮单趟形状是 501ms / 2,984ms / 1,078ms
+ *              （探针118）—— 那一步没在本次里做，见 ADR-0010 后续项。
+ *              建表与读法决策见 docs/adr/0010-notice-backbone-nodes-inverted-table.md。
+ *              三条纪律：
+ *              1. L1 落点不进谓词（旧实现也只在 interest.level>=2 时拼条件）：祖先全存 ⇒
+ *                 一个大类码就能匹配整个大类（temp/probe100 实测召回从 699 条变成 19,326 条）；
+ *                 它仍然参与加权，与旧实现一致；
+ *              2. 谓词按 rootNodes 压到最浅覆盖集：命中深层必然命中祖先 ⇒ 并集不变而 IN 列表
+ *                 大幅下降（temp/probe102：四个真实用户命中数完全相等，耗时降 3~5 倍）；
+ *              3. 打分侧不压：深层落点权重更高，压掉就是改排序信号。
+ *                 另：读侧禁用 COUNT(DISTINCT 列) 数候选 —— 它会把优化器带上
+ *                 「index for group-by (scanning)」选错索引（实测 9.3s vs 同语句 FORCE INDEX 3.2s，
+ *                 探针108），计数改成 GROUP BY 子查询外面再数。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
+import { getBackboneIndex } from "../commodity/backbone-cache";
+import { backboneNodeLevel, effectivePrefixOf, rootNodes } from "../commodity/backbone-path";
+import { NOTICE_NODES_TABLE } from "../search-sync/notice-nodes";
 
-export interface RecallResult {
-  prefix: string;
+/** 一个兴趣码在骨架树上的落点（node = 最深落点节点码，precision = 该码有效位数） */
+export interface RecallNode {
+  node: string;
+  /** 有效位数 2/4/6/8：深度档与「L4 命中」标注都按它算（与旧实现的 significantPrefix 长度口径一致） */
+  precision: number;
   weighted: number;
 }
 
 export interface RecallClauses {
-  bridgeWhere: string;
-  params: (string | number)[];
+  /**
+   * 挂在公告主表别名 n 上的候选 JOIN 片段（倒排表别名固定为 cand）。
+   * 空串 = 没有任何可用落点，调用方走截止时间降级。
+   * 为什么是 JOIN 而不是 WHERE 片段：行化之后「按节点码找公告」就是一次索引 range，
+   * 把它放在 JOIN 上优化器才会先收窄候选集（实测计划 cand:range → n:eq_ref）；
+   * 写成 `notice_id IN (子查询)` 会被当成半连接扫回主表，不划算。
+   */
+  join: string;
+  /** JOIN 里 IN 列表的绑定参数（与 join 中的 ? 个数一致） */
+  params: string[];
 }
 
-/** 截断 UNSPSC 码尾部冗余 "00" 段，得到有效显著前缀 */
-export function significantPrefix(code: string): string {
-  let s = code;
-  while (s.length > 2 && s.length % 2 === 0 && s.endsWith("00")) s = s.slice(0, -2);
-  return s;
+/** 一个兴趣码节点集（已按权重降序）+ 谓词 */
+export interface RecallOutput {
+  scoredNodes: RecallNode[];
+  clauses: RecallClauses;
+  interestTotal: number;
+  /** 换不出落点的兴趣码（调用方负责报出来，不静默丢） */
+  misses: string[];
 }
 
 /**
- * 解析兴趣码行，生成加权前缀列表 + 召回 SQL 子句
+ * 解析兴趣码行，生成加权落点节点列表 + 召回 SQL 子句。
+ * 需要骨架索引（码→节点码的唯一口径），因此是 async。
  */
-export function processInterestCodes(
+export async function processInterestCodes(
+  pool: Pool,
   interestRows: RowDataPacket[],
   depthFactor: Record<number, number>,
-): { scoredCodes: RecallResult[]; clauses: RecallClauses; interestTotal: number } {
-  const scoredCodes: RecallResult[] = [];
+): Promise<RecallOutput> {
+  const empty: RecallOutput = { scoredNodes: [], clauses: { join: "", params: [] }, interestTotal: 0, misses: [] };
+  if (interestRows.length === 0) return empty;
+  const index = await getBackboneIndex(pool);
+  if (!index) {
+    // 索引从未载入成功：不给“全量召回”也不猜，交给调用方走截止时间降级
+    console.warn("[recommend] 骨架索引不可用，本轮不做兴趣码召回");
+    return empty;
+  }
+
+  const byNode = new Map<string, RecallNode>();
+  const landable: string[] = [];
+  const misses: string[] = [];
   let interestTotal = 0;
-  const recallIdsByLevel: Record<number, number[]> = { 2: [], 3: [], 4: [], 5: [] };
-  const recallLikePrefixes = new Set<string>();
 
   for (const row of interestRows) {
-    const level = Math.min(5, Math.max(1, Number(row.level || 1)));
-    const code = String(row.code || "").trim();
+    const code = String(row.code ?? "").trim();
     if (!code) continue;
-    const prefix = significantPrefix(code);
-    if (level >= 2) {
-      const codeId = Number(row.code_id || 0);
-      if (codeId > 0) recallIdsByLevel[level].push(codeId);
-      else if (prefix.length >= 4) recallLikePrefixes.add(prefix);
+    const res = index.pathOf([code]);
+    if (res.codes.length === 0) {
+      misses.push(code);
+      continue;
     }
+    // pathOf 给的是「最深落点 + 全部祖先」，按码长取最深就是该码自己的落点
+    let deepest = res.codes[0];
+    for (const c of res.codes) if (backboneNodeLevel(c) > backboneNodeLevel(deepest)) deepest = c;
+    landable.push(deepest);
+
     const decayed = Number(row.decayed_weight || 0);
-    if (decayed <= 0) continue;
+    if (decayed <= 0) continue; // 零权重照常召回（与旧实现一致），但不进打分与归一分母
     interestTotal += decayed;
-    const depth = Math.min(4, Math.max(1, prefix.length / 2));
-    scoredCodes.push({ prefix, weighted: decayed * (depthFactor[depth] ?? 1.0) });
+    const precision = (effectivePrefixOf(code) ?? "").length;
+    const depth = Math.min(4, Math.max(1, precision / 2));
+    const weighted = decayed * (depthFactor[depth] ?? 1.0);
+    const prev = byNode.get(deepest);
+    // 多条兴趣码落在同一个节点：只留最大权重一份（表达式不重复拼）
+    if (!prev || weighted > prev.weighted) {
+      byNode.set(deepest, { node: deepest, precision: Math.max(precision, prev?.precision ?? 0), weighted });
+    }
   }
 
-  const clauses: string[] = [];
-  const params: (string | number)[] = [];
-  for (const level of [2, 3, 4, 5]) {
-    const ids = Array.from(new Set(recallIdsByLevel[level]));
-    if (ids.length === 0) continue;
-    clauses.push(`b.level${level}_id IN (${ids.map(() => "?").join(",")})`);
-    params.push(...ids);
-  }
-  for (const prefix of recallLikePrefixes) {
-    clauses.push(`b.code LIKE ?`);
-    params.push(`${prefix}%`);
-  }
-
-  const bridgeWhere = clauses.map((c) => `(${c})`).join(" OR ");
-  return { scoredCodes, clauses: { bridgeWhere, params }, interestTotal };
+  const scoredNodes = [...byNode.values()].sort((a, b) => b.weighted - a.weighted || (a.node < b.node ? -1 : 1));
+  // 谓词：只看 L2 以上的落点，并压到最浅覆盖集
+  const params = rootNodes(landable.filter((n) => backboneNodeLevel(n) >= 2));
+  const join = params.length === 0
+    ? ""
+    : `INNER JOIN ${NOTICE_NODES_TABLE} cand ON cand.notice_id = n.id AND cand.node IN (${params.map(() => "?").join(",")})`;
+  return { scoredNodes, clauses: { join, params }, interestTotal, misses };
 }
 
 /**
