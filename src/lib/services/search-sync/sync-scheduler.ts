@@ -17,7 +17,7 @@ import { invalidateSearchCache } from "../search-common/sync-events";
 import { PLATFORM_PUBLISHED_ONLY } from "../../utils/notice-expired";
 import {
   wideSyncSelect, WIDE_SYNC_JOIN,
-  loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds, loadPreciseByNoticeIds,
+  loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds,
   buildWideRow, upsertWideRows,
 } from "./wide-row-builder";
 import {
@@ -49,19 +49,20 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
       const rawRows = rows as RowDataPacket[];
       if (rawRows.length === 0) break;
 
-      const noticeIds = rawRows.map((r) => String(r.notice_id));
-      const ids = rawRows.map((r) => Number(r.id));
-      const [unspscMap, translationsMap, preciseMap] = await Promise.all([
-        loadUnspscByNoticeIds(pool, noticeIds),
-        loadTranslationsByNoticeIds(pool, ids),
-        loadPreciseByNoticeIds(pool, noticeIds),
+      // 挂靠输入：桥表 notice_id + 平台公告的主表自填分类（旧字典行 id，同一函数内翻成 8 位码）
+      const sources = rawRows.map((r) => ({
+        noticeId: String(r.notice_id),
+        categoryIds: [r.category_l1_id, r.category_l2_id],
+      }));
+      const [unspscMap, translationsMap] = await Promise.all([
+        loadUnspscByNoticeIds(pool, sources),
+        loadTranslationsByNoticeIds(pool, rawRows.map((r) => Number(r.id))),
       ]);
 
       const wideRows = rawRows.map((r) => buildWideRow(
         r, aliasMap,
         unspscMap.get(String(r.notice_id)),
         translationsMap.get(Number(r.id)),
-        preciseMap.get(String(r.notice_id)),
       ));
       const synced = await upsertWideRows(pool, wideRows, withFp);
       totalSynced += synced;
@@ -98,19 +99,19 @@ export async function incrementalWideSync(
     const allRaw = newRows as RowDataPacket[];
     if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
 
-    const noticeIds = allRaw.map((r) => String(r.notice_id));
-    const ids = allRaw.map((r) => Number(r.id));
-    const [unspscMap, translationsMap, preciseMap] = await Promise.all([
-      loadUnspscByNoticeIds(pool, noticeIds),
-      loadTranslationsByNoticeIds(pool, ids),
-      loadPreciseByNoticeIds(pool, noticeIds),
+    const sources = allRaw.map((r) => ({
+      noticeId: String(r.notice_id),
+      categoryIds: [r.category_l1_id, r.category_l2_id],
+    }));
+    const [unspscMap, translationsMap] = await Promise.all([
+      loadUnspscByNoticeIds(pool, sources),
+      loadTranslationsByNoticeIds(pool, allRaw.map((r) => Number(r.id))),
     ]);
 
     const wideRows = allRaw.map((r) => buildWideRow(
       r, aliasMap,
       unspscMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
-      preciseMap.get(String(r.notice_id)),
     ));
     const synced = await upsertWideRows(pool, wideRows, withFp);
     // [阶段0 A4-1] 宽表已更新：失效搜索结果缓存。外部 CRM 管道的新数据经本函数入库，
@@ -139,18 +140,18 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
       selectSql + WIDE_SYNC_JOIN + ` WHERE n.id IN (${placeholders}) AND ` + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC",
       ids,
     );
-    const noticeIds = (rows as RowDataPacket[]).map((r) => String(r.notice_id));
-    const rowIds = (rows as RowDataPacket[]).map((r) => Number(r.id));
-    const [unspscMap, translationsMap, preciseMap] = await Promise.all([
-      loadUnspscByNoticeIds(pool, noticeIds),
-      loadTranslationsByNoticeIds(pool, rowIds),
-      loadPreciseByNoticeIds(pool, noticeIds),
+    const sources = (rows as RowDataPacket[]).map((r) => ({
+      noticeId: String(r.notice_id),
+      categoryIds: [r.category_l1_id, r.category_l2_id],
+    }));
+    const [unspscMap, translationsMap] = await Promise.all([
+      loadUnspscByNoticeIds(pool, sources),
+      loadTranslationsByNoticeIds(pool, (rows as RowDataPacket[]).map((r) => Number(r.id))),
     ]);
     const wideRows = (rows as RowDataPacket[]).map((r) => buildWideRow(
       r, aliasMap,
       unspscMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
-      preciseMap.get(String(r.notice_id)),
     ));
     const synced = await upsertWideRows(pool, wideRows, withFp);
     // 宽表已更新：失效搜索结果缓存，确保下次列表请求读到最新译文

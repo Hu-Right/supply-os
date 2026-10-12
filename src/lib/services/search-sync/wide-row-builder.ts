@@ -102,176 +102,89 @@ function parseDecimalValue(raw: unknown): number {
   return isNaN(num) ? 0 : num;
 }
 
-// ── UNSPSC 批量查询（按 notice_id 列表查询，避免 GROUP_CONCAT）──
+// ── 品目挂靠装载（按公告取码，避免 GROUP_CONCAT）──
+/** 一行的挂靠输入：桥表码为权威源，主表自填分类（旧字典行 id）是平台公告的唯一兜底 */
+export interface UnspscSourceRow {
+  /** 桥表外部编号（= crm_bid_notices.notice_id） */
+  noticeId: string;
+  /** 主表 `category_l1_id` / `category_l2_id`（旧字典行 id）；无则传空 */
+  categoryIds?: Array<number | null | undefined>;
+}
+
 /**
  * 同时产出 backbone_path：公告的 8 位码 → 品目骨架节点码（含全部祖先）。
  * 为什么在这里算而不是在 buildWideRow 里算：桥表行已在本函数一次取回，
  * 而 buildWideRow 是同步纯函数（ADR-0002：宽表业务内容只由 buildWideRow → upsertWideRows 写）；
  * 换算口径依旧只在 commodity/backbone-cache 与 commodity/backbone-path 两处（缓存 + 口径），本处不重写规则。
+ *
+ * 平台公告（entry_source='platform'）在桥表里没有行 ⇒ 用主表自填分类翻成 8 位码后走**同一份**挂靠
+ * 规则（D8 回归：这类公告此前在全局搜索 / 热榜 / 推荐的分类维度上永久缺席）。旧字典 level=1 是
+ * A..J 字母容器（`code` 是单字母，压根没有 8 位码）⇒ 换不出码就如实留空，不做臆测映射
+ * （与 commodity/tree.ts 的 resolveUnspscIdsToCommodityPath 同一条纪律）。
+ * 有桥表码时仍合并平台自填分类（与退役前的 unspsc_level1/2 合并语义一致：两者都可被筛到）。
  */
-export async function loadUnspscByNoticeIds(pool: Pool, noticeIds: string[]): Promise<Map<string, Record<string, string>>> {
-  if (noticeIds.length === 0) return new Map();
-  const result = new Map<string, Record<string, Set<string>>>();
-  
-  const placeholders = noticeIds.map(() => "?").join(",");
-  const [rows] = await pool.query(
-    `SELECT notice_id, code, level1_id, level2_id, level3_id, level4_id, level5_id
-     FROM crm_bid_notice_unspsc_codes
-     WHERE notice_id IN (${placeholders})`,
-    noticeIds,
-  );
-  
-  for (const row of rows as RowDataPacket[]) {
-    const nid = String(row.notice_id);
-    if (!result.has(nid)) {
-      result.set(nid, {
-        level1: new Set(), level2: new Set(), level3: new Set(),
-        level4: new Set(), level5: new Set(), codes: new Set(),
-      });
-    }
-    const entry = result.get(nid)!;
-    if (row.level1_id) entry.level1.add(String(row.level1_id));
-    if (row.level2_id) entry.level2.add(String(row.level2_id));
-    if (row.level3_id) entry.level3.add(String(row.level3_id));
-    if (row.level4_id) entry.level4.add(String(row.level4_id));
-    if (row.level5_id) entry.level5.add(String(row.level5_id));
-    // 原始 8 位码（品目归属的唯一输入，与 ops 回填同一张桥表同一口径）
-    if (row.code) entry.codes.add(String(row.code).trim());
-  }
-  
-  // 转换为 Map<string, Record<string, string>>
-  const final = new Map<string, Record<string, string>>();
-  for (const [nid, entry] of result) {
-    const backbone = await backbonePathOfCodes(pool, entry.codes);
-    final.set(nid, {
-      level1: Array.from(entry.level1).join(","),
-      level2: Array.from(entry.level2).join(","),
-      level3: Array.from(entry.level3).join(","),
-      level4: Array.from(entry.level4).join(","),
-      level5: Array.from(entry.level5).join(","),
-      // 空集与无索引都是 null（门禁 BB7 把空串算违规），本层用串型存，回 NULL 在 buildWideRow
-      backbone: backbone ?? "",
-    });
-  }
-  return final;
-}
-
-// ── 精准分类（approved 候选码）批量加载 ──
-export interface PreciseLevels {
-  level1: string;
-  level2: string;
-  level3: string;
-  level4: string;
-  level5: string;
-}
-
-/** 候选码 → 五级 id 映射（纯函数）：rows 为字典 level=5 链式查询结果（列 code/l1..l5） */
-export function buildCodeLevelMap(rows: RowDataPacket[]): Map<string, PreciseLevels> {
-  const map = new Map<string, PreciseLevels>();
-  for (const row of rows) {
-    const code = String(row.code || "").trim();
-    if (!code) continue;
-    map.set(code, {
-      level1: String(row.l1 || ""),
-      level2: String(row.l2 || ""),
-      level3: String(row.l3 || ""),
-      level4: String(row.l4 || ""),
-      level5: String(row.l5 || ""),
-    });
-  }
-  return map;
-}
-
-// 候选码→五级 id 解析缓存（候选码总量小：543 个；TTL 10 分钟，仿 loadAliasMap）
-//
-// 架构说明：此缓存与 unspsc/tree-cache.ts 的缓存是**有意分离**的两套实现：
-// - tree-cache：面向桥接同步（bridge-sync）和过滤器构建，缓存完整类目树（含路径回溯）；
-// - 本缓存：面向宽表构建的"候选码→五级 id"快速查询，仅缓存 level=5 的链式 JOIN 结果。
-// 两者查询模式不同（全树 vs. level-5 链式），TTL 策略独立，互不干扰。
-// 若未来查询模式趋同，可考虑统一至 tree-cache 模块。
-let _preciseCodeMapCache: Map<string, PreciseLevels> | null = null;
-let _preciseCodeMapExpires = 0;
-const PRECISE_CODE_MAP_TTL = 10 * 60 * 1000;
-
-async function getPreciseCodeMap(pool: Pool): Promise<Map<string, PreciseLevels>> {
-  if (_preciseCodeMapCache && Date.now() < _preciseCodeMapExpires) return _preciseCodeMapCache;
-  try {
-    const [rows] = await pool.query(`
-      SELECT u5.code, u5.id AS l5, u4.id AS l4, u3.id AS l3, u2.id AS l2, u1.id AS l1
-      FROM crm_unspsc_codes u5
-      LEFT JOIN crm_unspsc_codes u4 ON u4.id = u5.parent_id
-      LEFT JOIN crm_unspsc_codes u3 ON u3.id = u4.parent_id
-      LEFT JOIN crm_unspsc_codes u2 ON u2.id = u3.parent_id
-      LEFT JOIN crm_unspsc_codes u1 ON u1.id = u2.parent_id
-      WHERE u5.level = 5
-    `);
-    _preciseCodeMapCache = buildCodeLevelMap(rows as RowDataPacket[]);
-    _preciseCodeMapExpires = Date.now() + PRECISE_CODE_MAP_TTL;
-  } catch {
-    // 查询失败：使用旧缓存；无旧缓存则用空映射（调用方回退 legacy）
-    if (_preciseCodeMapCache) return _preciseCodeMapCache;
-    _preciseCodeMapCache = new Map();
-    _preciseCodeMapExpires = Date.now() + PRECISE_CODE_MAP_TTL;
-  }
-  return _preciseCodeMapCache;
-}
-
-/**
- * 按 notice_id 批量加载 approved 精准码并解析为五级 id。
- * 返回结构与 loadUnspscByNoticeIds 一致；无精准码的公告不在结果中。
- */
-export async function loadPreciseByNoticeIds(
+export async function loadUnspscByNoticeIds(
   pool: Pool,
-  noticeIds: string[],
-): Promise<Map<string, Record<string, string>>> {
-  if (noticeIds.length === 0) return new Map();
+  sources: UnspscSourceRow[],
+): Promise<Map<string, { backbone: string }>> {
+  if (sources.length === 0) return new Map();
+  const codesByNotice = new Map<string, Set<string>>();
+  for (const s of sources) codesByNotice.set(s.noticeId, new Set());
 
-  const placeholders = noticeIds.map(() => "?").join(",");
+  const placeholders = sources.map(() => "?").join(",");
   const [rows] = await pool.query(
-    `SELECT opp.source_notice_id AS notice_id, c.candidate_code
-     FROM crm_bid_opportunities opp
-     JOIN crm_bid_opportunity_unspsc_candidates c
-       ON c.opportunity_id = opp.id AND c.status = 'approved'
-     WHERE opp.source_notice_id IN (${placeholders})`,
-    noticeIds,
+    `SELECT notice_id, code FROM crm_bid_notice_unspsc_codes WHERE notice_id IN (${placeholders})`,
+    sources.map((s) => s.noticeId),
   );
-
-  const codeMap = await getPreciseCodeMap(pool);
-  const merged = new Map<string, {
-    level1: Set<string>; level2: Set<string>; level3: Set<string>;
-    level4: Set<string>; level5: Set<string>;
-  }>();
-
   for (const row of rows as RowDataPacket[]) {
-    const nid = String(row.notice_id);
-    const levels = codeMap.get(String(row.candidate_code || "").trim());
-    if (!levels) continue; // 码不在字典：跳过（该公告回退 legacy）
-    if (!merged.has(nid)) {
-      merged.set(nid, {
-        level1: new Set(), level2: new Set(), level3: new Set(),
-        level4: new Set(), level5: new Set(),
-      });
-    }
-    const entry = merged.get(nid)!;
-    if (levels.level1) entry.level1.add(levels.level1);
-    if (levels.level2) entry.level2.add(levels.level2);
-    if (levels.level3) entry.level3.add(levels.level3);
-    if (levels.level4) entry.level4.add(levels.level4);
-    if (levels.level5) entry.level5.add(levels.level5);
+    // 原始 8 位码（品目归属的权威输入，与 ops 回填同一张桥表同一口径）
+    if (row.code) codesByNotice.get(String(row.notice_id))?.add(String(row.code).trim());
   }
 
-  const final = new Map<string, Record<string, string>>();
-  for (const [nid, entry] of merged) {
-    final.set(nid, {
-      level1: Array.from(entry.level1).join(","),
-      level2: Array.from(entry.level2).join(","),
-      level3: Array.from(entry.level3).join(","),
-      level4: Array.from(entry.level4).join(","),
-      level5: Array.from(entry.level5).join(","),
-    });
+  // 兜底输入键：旧字典行 id → 8 位码（整批一次查，绝不逐条点查）
+  const categoryIdsByNotice = new Map<string, number[]>();
+  for (const s of sources) {
+    const ids = (s.categoryIds ?? []).map((v) => Number(v) || 0).filter((v) => v > 0);
+    if (ids.length > 0) categoryIdsByNotice.set(s.noticeId, ids);
+  }
+  const dictIds = [...new Set([...categoryIdsByNotice.values()].flat())];
+  if (dictIds.length > 0) {
+    const codeById = await loadUnspscCodesByDictIds(pool, dictIds);
+    for (const [nid, ids] of categoryIdsByNotice) {
+      const set = codesByNotice.get(nid)!;
+      for (const id of ids) {
+        const code = codeById.get(id);
+        if (code) set.add(code);
+      }
+    }
+  }
+
+  const final = new Map<string, { backbone: string }>();
+  for (const [nid, codes] of codesByNotice) {
+    const backbone = await backbonePathOfCodes(pool, codes);
+    // 空集与无索引都是空串（门禁 BB7 认定空串违规），回 NULL 在 buildWideRow
+    final.set(nid, { backbone: backbone ?? "" });
   }
   return final;
 }
+
+/** 旧字典行 id → 8 位 UNSPSC 码；字母容器（level=1）与悬空 id 不进结果（不臆测映射） */
+async function loadUnspscCodesByDictIds(pool: Pool, dictIds: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, code FROM crm_unspsc_codes WHERE id IN (${dictIds.map(() => "?").join(",")})`,
+    dictIds,
+  );
+  for (const row of rows) {
+    const code = String(row.code ?? "");
+    if (/^[0-9]{8}$/.test(code)) out.set(Number(row.id), code);
+  }
+  return out;
+}
+
+// 旧字典「候选码 → 五级 id」链路（loadPreciseByNoticeIds / getPreciseCodeMap / buildCodeLevelMap /
+// PreciseLevels）已于 B1 退役：那五个 id 只服务宽表 precise_level1~5 五列，而公告分类的唯一口径
+// 已是节点码 —— 精准侧由 ops 回填脚本用同一份纯函数算出 precise_backbone_path，运行期不再参与。
 
 // ── 受援助国标准化：逐个翻译为中文 ──
 function normalizeBeneficiaryCountries(raw: string): string {
@@ -284,27 +197,16 @@ function normalizeBeneficiaryCountries(raw: string): string {
   return translated.join(", ").slice(0, WIDE_LIMITS.beneficiary);
 }
 
-// ── 逗号 id 串合并去重（外部标签 + 平台自填分类）──
-/** 保持外部数据在前、平台自填分类在后的稳定顺序 */
-function mergeIdLists(...lists: Array<string | number | null | undefined>): string {
-  const out: string[] = [];
-  for (const l of lists) {
-    for (const part of String(l ?? "").split(",")) {
-      const v = part.trim();
-      if (v && !out.includes(v)) out.push(v);
-    }
-  }
-  return out.join(",");
-}
-
 // ── 宽表行构建 ──
+/**
+ * @param unspsc 本行的品目归属（`backbone` = 节点码集合含全部祖先，由 loadUnspscByNoticeIds 算出）
+ */
 export function buildWideRow(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 宽表映射函数：源行动态多列 + 测试以扁平 mock 传参，收敛为具体类型会破坏既有测试契约
   r: any,
   aliasMap: Map<string, string>,
-  unspsc?: Record<string, string>,
+  unspsc?: { backbone: string },
   translations?: Record<string, WideTranslation>,
-  precise?: Record<string, string>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 宽表行含动态列（title_<lang>/description_<lang>）与多种计算列，返回具体类型会破坏以扁平 mock 断言字段前缀的既有测试
 ): Record<string, any> {
   const agency = String(r.agency || "").trim();
@@ -366,22 +268,10 @@ export function buildWideRow(
     estimated_value: parseDecimalValue(r.estimated_value),
     is_featured: r.is_featured ? 1 : 0,
     entry_source: String(r.entry_source || "crawl").slice(0, 20),
-    // UNSPSC 维度：桥接表（爬虫侧拥有）为权威，平台公告的自填分类（主表 category_l*_id）
-    // 在读取侧合并进来 —— 不回写桥接表（该表由爬虫侧拥有，写它会造成双源）。
-    // 只合并 1/2 级（表单口径），3-5 级保持外部标签。
-    unspsc_level1: mergeIdLists(unspsc?.level1, r.category_l1_id).slice(0, WIDE_LIMITS.unspscList),
-    unspsc_level2: mergeIdLists(unspsc?.level2, r.category_l2_id).slice(0, WIDE_LIMITS.unspscList),
-    unspsc_level3: (unspsc?.level3 || "").slice(0, WIDE_LIMITS.unspscList),
-    unspsc_level4: (unspsc?.level4 || "").slice(0, WIDE_LIMITS.unspscList),
-    unspsc_level5: (unspsc?.level5 || "").slice(0, WIDE_LIMITS.unspscList),
-    // 品目骨架归属：无码/无索引一律 NULL（BB7：空串算违规）；超列宽由 backbone-cache 抛错，绝不截断
+    // 品目归属：只此一条口径（骨架节点码，含全部祖先）。桥表码为权威、平台自填分类兜底，
+    // 两者都已在 loadUnspscByNoticeIds 里换成 8 位码并过同一份挂靠规则，此处不再合并任何旧字典 id 串。
+    // 无码/无索引一律 NULL（BB7：空串算违规）；超列宽由 backbone-cache 抛错，绝不截断
     backbone_path: unspsc?.backbone ? unspsc.backbone : null,
-    // 精准码列：仅存 approved 精准码，不回填原标签（mode=prefs 专用，无精准码则不匹配）
-    precise_level1: (precise?.level1 || "").slice(0, WIDE_LIMITS.unspscList),
-    precise_level2: (precise?.level2 || "").slice(0, WIDE_LIMITS.unspscList),
-    precise_level3: (precise?.level3 || "").slice(0, WIDE_LIMITS.unspscList),
-    precise_level4: (precise?.level4 || "").slice(0, WIDE_LIMITS.unspscList),
-    precise_level5: (precise?.level5 || "").slice(0, WIDE_LIMITS.unspscList),
     description_cn: String(r.description_cn || "").slice(0, WIDE_LIMITS.descriptionCn),
     bid_overview: String(r.bid_overview || "").slice(0, WIDE_LIMITS.bidOverview),
     beneficiary_countries: normalizeBeneficiaryCountries(String(r.beneficiary_countries || "")),
@@ -439,9 +329,9 @@ export async function upsertWideRows(
     ...langColumns,
     "country_std", "agency_std", "agency_group", "notice_type_std",
     "deadline_sec", "estimated_value", "is_featured", "entry_source",
-    "unspsc_level1", "unspsc_level2", "unspsc_level3", "unspsc_level4", "unspsc_level5",
+    // B1 起不再写旧字典分类列（unspsc_level1~5 / precise_level1~5）：列暂留 schema、历史值不再更新也无人读，
+    // DROP 与 baseline 重导在 B2 走蓝绿（见 2026-10-12-notice-classification-commodity-tree-only）。
     "backbone_path",
-    "precise_level1", "precise_level2", "precise_level3", "precise_level4", "precise_level5",
     "description_cn", "bid_overview", "beneficiary_countries", "documents_count",
     "published_date",
     // 指纹列随内容同一行写入（同快照），因此不需要任何后续 UPDATE
@@ -461,9 +351,8 @@ export async function upsertWideRows(
         ...SUPPORTED_LANGS.flatMap(lang => [row[`title_${lang}`], row[`description_${lang}`]]),
         row.country_std, row.agency_std, row.agency_group, row.notice_type_std,
         row.deadline_sec, row.estimated_value, row.is_featured, row.entry_source,
-        row.unspsc_level1, row.unspsc_level2, row.unspsc_level3, row.unspsc_level4, row.unspsc_level5,
+        // 列清单与这里的取值必须同批增减（多一个少一个都是 Unknown column / 参数错位）
         row.backbone_path,
-        row.precise_level1, row.precise_level2, row.precise_level3, row.precise_level4, row.precise_level5,
         row.description_cn, row.bid_overview, row.beneficiary_countries, row.documents_count,
         row.published_date,
         ...(withFp ? [row[WIDE_FP_COLUMN]] : []),

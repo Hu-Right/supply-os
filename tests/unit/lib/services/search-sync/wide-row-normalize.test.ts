@@ -70,20 +70,21 @@ describe("notice_type_std / deadline_sec / estimated_value", () => {
     expect(buildWideRow({ ...base, entry_source: "platform" }, new Map()).entry_source).toBe("platform");
   });
 
-  it("无桥接 UNSPSC 时 precise 列保持空串（不回退原标签）", () => {
+  it("无品目归属时 backbone_path 落 NULL（空串在门禁 BB7 里算违规）", () => {
     const row = buildWideRow(base, new Map());
-    expect(row.unspsc_level1).toBe("");
-    expect(row.precise_level1).toBe("");
+    expect(row.backbone_path).toBeNull();
     expect(row.documents_count).toBe(0);
   });
 
-  it("有桥接与精准码时分别落到对应列", () => {
-    const row = buildWideRow(base, new Map(),
-      { level1: "10", level2: "", level3: "", level4: "", level5: "" },
-      undefined,
-      { level1: "100", level2: "200", level3: "", level4: "", level5: "" });
-    expect(row.unspsc_level1).toBe("10");
-    expect(row.precise_level2).toBe("200");
+  it("有归属时只落 backbone_path，十个旧字典分类列一个都不产出", () => {
+    const row = buildWideRow(base, new Map(), { backbone: "UGT-B-01,UGT-B-0101" });
+    expect(row.backbone_path).toBe("UGT-B-01,UGT-B-0101");
+    for (const col of [
+      "unspsc_level1", "unspsc_level2", "unspsc_level3", "unspsc_level4", "unspsc_level5",
+      "precise_level1", "precise_level2", "precise_level3", "precise_level4", "precise_level5",
+    ]) {
+      expect(row).not.toHaveProperty(col);
+    }
   });
 
   it("结构化文档列计入 documents_count（解锁后是否有拆解件的可筛依据）", () => {
