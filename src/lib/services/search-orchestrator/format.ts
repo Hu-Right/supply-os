@@ -41,6 +41,54 @@ function perDocMatchScore(
 }
 
 /**
+ * 机构 i18n 三级回退（共享助手）：
+ * 1. 缓存精确匹配：agency_std 大写 → agencyI18nMap（来自下拉 API 缓存）
+ * 2. 聚合键回退：agency_group（classifyAgencyType 聚合键，如 "MUNICIPIO_BR"）
+ * 3. 直接计算回退：先经 translateByPattern 规范化机构名（与下拉管线 stage 3.5
+ *    同源），再经 classifyAgencyType 计算 typeKey + i18n（与下拉管线 stage 3.6
+ *    同源）。两步对齐确保卡片与下拉框展示完全一致的中文翻译名。
+ *    全程纯内存正则匹配，无 DB/缓存依赖，开销可忽略。
+ *
+ * 2026-10-12 从 formatItems 抽出：推荐管道（recommend/recall）此前不做机构
+ * 翻译，占位平台代码（mercadopublico_cl 等）在"智能推荐"列表原样露出。
+ */
+export function enrichAgencyI18n(
+  items: Array<Record<string, unknown>>,
+  locale: string,
+): Array<Record<string, unknown>> {
+  // 机构国际化映射（键统一大写，与 query.ts 缓存构建侧 mergeKey/typeKey 口径对齐）
+  const agencyCache = getAgencyCacheData();
+  const agencyI18nMap = new Map<string, Record<string, string>>();
+  if (agencyCache) {
+    for (const item of agencyCache) {
+      if (item.i18n) agencyI18nMap.set(String(item.agency || "").toUpperCase(), item.i18n);
+    }
+  }
+  for (const item of items) {
+    const agencyUpper = String(item.agency || "").toUpperCase();
+    let i18n = agencyI18nMap.get(agencyUpper)
+      || (item.agency_group ? agencyI18nMap.get(String(item.agency_group)) : undefined);
+    if (!i18n && item.agency) {
+      // 先规范化：与下拉管线 stage 3.5 同源（如去掉 "ESTADO DE" 等前缀）
+      const patternResult = translateByPattern(String(item.agency));
+      // [修复 2026-08-29] 优先使用 translateByPattern 自身的 i18n（精确缩写匹配如
+      // ISDB_GLOBAL → "伊斯兰开发银行"）。此前仅取 classifyAgencyType 结果，但
+      // classifyAgencyType 对已知缩写返回 null（不聚合），导致翻译被丢弃。
+      if (patternResult?.i18n) {
+        i18n = patternResult.i18n;
+      } else {
+        const canonicalName = patternResult?.canonical || String(item.agency);
+        // 再分类：与下拉管线 stage 3.6 同源（用规范化后的名字匹配 TYPE_PATTERNS）
+        const typeInfo = classifyAgencyType(canonicalName, item.country ? String(item.country) : undefined);
+        if (typeInfo?.i18n) i18n = typeInfo.i18n;
+      }
+    }
+    item.agency_i18n = i18n?.[locale] || undefined;
+  }
+  return items;
+}
+
+/**
  * 格式化搜索结果 items。
  * @param rows 详情行（fetchDetailsByIds 输出）
  * @param locale 界面语言（agency_i18n 取值）
@@ -51,41 +99,7 @@ export function formatItems(
   locale: string,
   profileNodes?: Array<{ level: number; node: string }>,
 ): Array<Record<string, unknown>> {
-  // 机构国际化映射（键统一大写，与 query.ts 缓存构建侧 mergeKey/typeKey 口径对齐）
-  const agencyCache = getAgencyCacheData();
-  const agencyI18nMap = new Map<string, Record<string, string>>();
-  if (agencyCache) {
-    for (const item of agencyCache) {
-      if (item.i18n) agencyI18nMap.set(String(item.agency || "").toUpperCase(), item.i18n);
-    }
-  }
-
-  return rows.map((row) => {
-    // 机构 i18n 查找（三级回退）：
-    // 1. 缓存精确匹配：agency_std 大写 → agencyI18nMap（来自下拉 API 缓存）
-    // 2. 聚合键回退：agency_group（classifyAgencyType 聚合键，如 "MUNICIPIO_BR"）
-    // 3. 直接计算回退：先经 translateByPattern 规范化机构名（与下拉管线 stage 3.5
-    //    同源），再经 classifyAgencyType 计算 typeKey + i18n（与下拉管线 stage 3.6
-    //    同源）。两步对齐确保卡片与下拉框展示完全一致的中文翻译名。
-    //    全程纯内存正则匹配，无 DB/缓存依赖，开销可忽略。
-    const agencyUpper = String(row.agency || "").toUpperCase();
-    let i18n = agencyI18nMap.get(agencyUpper)
-      || (row.agency_group ? agencyI18nMap.get(row.agency_group) : undefined);
-    if (!i18n && row.agency) {
-      // 先规范化：与下拉管线 stage 3.5 同源（如去掉 "ESTADO DE" 等前缀）
-      const patternResult = translateByPattern(String(row.agency));
-      // [修复 2026-08-29] 优先使用 translateByPattern 自身的 i18n（精确缩写匹配如
-      // ISDB_GLOBAL → "伊斯兰开发银行"）。此前仅取 classifyAgencyType 结果，但
-      // classifyAgencyType 对已知缩写返回 null（不聚合），导致翻译被丢弃。
-      if (patternResult?.i18n) {
-        i18n = patternResult.i18n;
-      } else {
-        const canonicalName = patternResult?.canonical || String(row.agency);
-        // 再分类：与下拉管线 stage 3.6 同源（用规范化后的名字匹配 TYPE_PATTERNS）
-        const typeInfo = classifyAgencyType(canonicalName, row.country || undefined);
-        if (typeInfo?.i18n) i18n = typeInfo.i18n;
-      }
-    }
+  const items = rows.map((row) => {
     // breakdown_file_count：宽表直取；多表 JOIN 回退路径解析 JSON
     const breakdownCount = row.breakdown_file_count !== undefined
       ? (Number(row.breakdown_file_count) || undefined)
@@ -93,7 +107,6 @@ export function formatItems(
 
     const item: Record<string, unknown> = {
       ...row,
-      agency_i18n: i18n?.[locale] || undefined,
       organization: null,
       source_url: null,
       unspsc_codes: [],
@@ -113,4 +126,5 @@ export function formatItems(
     }
     return item;
   });
+  return enrichAgencyI18n(items, locale);
 }

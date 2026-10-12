@@ -38,6 +38,7 @@ import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expir
 import { columns } from "../../utils/sql-columns";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
+import { enrichAgencyI18n } from "../search-orchestrator/format";
 import { getBackboneIndex } from "../commodity/backbone-cache";
 import { backboneNodeLevel, effectivePrefixOf, rootNodes } from "../commodity/backbone-path";
 import { NOTICE_NODES_TABLE } from "../search-sync/notice-nodes";
@@ -174,6 +175,8 @@ export async function deadlineFallback(
     breakdown_file_count: normalizeDocumentRows(row.documents, row.procurement_files).length,
     documents: undefined, procurement_files: undefined,
   }));
+  // 买家名与搜索主管道同口径（2026-10-12）：兜底路径同样补机构翻译
+  if (locale) enrichAgencyI18n(fallbackItems, locale);
 
   // 列表译文仅从已有缓存读取（trJoin），不触发任何翻译请求。
   // 译文生产统一收敛到定时任务（auto.ts）与详情页按需翻译两条路径。

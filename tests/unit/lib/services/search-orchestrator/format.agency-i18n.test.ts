@@ -23,6 +23,7 @@ vi.mock("@/lib/data/agency-i18n/translate", () => ({
 }));
 
 import { formatItems } from "@/lib/services/search-orchestrator/format";
+import { enrichAgencyI18n } from "@/lib/services/search-orchestrator/format";
 
 const row = (over: Record<string, unknown> = {}) =>
   ({ agency: "TEST", breakdown_file_count: 0, is_featured: 0, ...over }) as never;
@@ -69,6 +70,43 @@ describe("formatItems — 机构 i18n 三级回退", () => {
 
   it("全部回退均未命中 → agency_i18n 为 undefined", () => {
     const items = formatItems([row({ agency: "UNKNOWN ORG" })], "zh");
+    expect(items[0].agency_i18n).toBeUndefined();
+  });
+});
+
+describe("enrichAgencyI18n — 推荐管道共享助手（2026-10-12 推荐列表露码修复）", () => {
+  it("与 formatItems 同口径：缓存精确 → 聚合键 → 计算回退逐级生效", () => {
+    mocks.getAgencyCacheData.mockReturnValue([
+      { agency: "unicef", i18n: { zh: "联合国儿童基金会" } },
+      { agency: "MUNICIPIO_BR", i18n: { zh: "巴西各市政府" } },
+    ]);
+    mocks.translateByPattern.mockImplementation((name: string) =>
+      name === "mercadopublico_cl" ? { canonical: "Mercado Público", i18n: { zh: "智利公共采购网" } } : null,
+    );
+    const [a, b, c] = enrichAgencyI18n(
+      [
+        { agency: "UNICEF", country: "GL" },
+        { agency: "CAMARA_SP", agency_group: "MUNICIPIO_BR", country: "BR" },
+        { agency: "mercadopublico_cl", country: "CL" },
+      ] as Array<Record<string, unknown>>,
+      "zh",
+    );
+    expect(a.agency_i18n).toBe("联合国儿童基金会");
+    expect(b.agency_i18n).toBe("巴西各市政府");
+    expect(c.agency_i18n).toBe("智利公共采购网");
+  });
+
+  it("原地修改并返回同一数组，agency 原值不被改写（过滤器按原值匹配）", () => {
+    const items = [{ agency: "mercadopublico_cl", country: "CL" }] as Array<Record<string, unknown>>;
+    mocks.translateByPattern.mockReturnValue({ canonical: "Mercado Público", i18n: { zh: "智利公共采购网" } });
+    const out = enrichAgencyI18n(items, "zh");
+    expect(out).toBe(items);
+    expect(items[0].agency).toBe("mercadopublico_cl");
+    expect(items[0].agency_i18n).toBe("智利公共采购网");
+  });
+
+  it("无 agency 的行不报错，agency_i18n 为 undefined", () => {
+    const items = enrichAgencyI18n([{ agency: null, country: "BR" }] as Array<Record<string, unknown>>, "zh");
     expect(items[0].agency_i18n).toBeUndefined();
   });
 });
