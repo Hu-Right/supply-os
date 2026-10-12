@@ -4,6 +4,7 @@ import path from "node:path";
 /**
  * 架构红线守卫：公告分类口径单一事实源 = 品目树（backbone_path / precise_backbone_path）
  * @see docs/superpowers/specs/2026-10-12-notice-classification-commodity-tree-only-design.md
+ *      （上述原文已不在仓内，口径与批次划分现由 …unspsc-full-retirement-design.md 承接）
  *
  * 规则 NC1) 「读结果」链路（src/**，白名单目录除外）不得引用公告旧 UNSPSC 字典分类列：
  *   - `(?:unspsc|precise)_level[1-5]`：宽表公告分类列（`crm_notice_search`）
