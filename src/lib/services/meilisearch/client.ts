@@ -136,16 +136,10 @@ export function buildNoticeIndexSettings(): Settings {
       "estimated_value_num",
       // 「含原始文件」筛选依据（宽表 documents_count）
       "documents_count",
-      "level1_id",
-      "level2_id",
-      "level3_id",
-      "level4_id",
-      "level5_id",
-      "precise_level1_id",
-      "precise_level2_id",
-      "precise_level3_id",
-      "precise_level4_id",
-      "precise_level5_id",
+      // 旧字典的 levelN_id / precise_levelN_id 十属性已随 B1 摘除：公告分类在索引里只剩
+      // 下面两条节点码属性，第二口径不再有可筛入口。
+      // 【重灌窗口】存量文档里的旧属性需一次全量重建才能物理清除（删属性不会自动重刷文档）；
+      // 重建前它们只是多余字段（无人拼谓词、NC1 门禁拦住），不影响命中结果。
       // 品目树五级下拉与可见性判定的参与过滤属性（由宽表 backbone_path 拆数组，见 sync.ts）。
       // 新增属性对存量文档不会自动回填 ⇒ 必须走一次全量重建才能生效；
       // 重建前带该属性的请求会被 Meili 报未知属性错并降级到 MySQL 方言（语义相同，结果正确）。

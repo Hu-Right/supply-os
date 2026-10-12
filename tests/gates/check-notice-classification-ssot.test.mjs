@@ -65,6 +65,20 @@ test("白名单：search-sync/ 构建层引用 unspsc_level1 允许（写列合�
   assert.equal(r.code, 0, r.out);
 });
 
+test("B1 后索引层不再豁免：meilisearch/ 引用 unspsc_level1 必须报错", () => {
+  // 钉住「白名单只收缩不反弹」：曾经这两项在 ALLOWLIST 里，现在移出后必须真的拦得住
+  // （否则移出只是字面修改，门禁对索引层仍是 noop）
+  for (const rel of [
+    join("src", "lib", "services", "meilisearch", "sync.ts"),
+    join("src", "lib", "services", "meilisearch", "client.ts"),
+  ]) {
+    const root = fixture(rel, 'export const A = ["unspsc_level1"];\n');
+    const r = run({ NOTICE_CLASSIFICATION_SCAN_ROOT: root });
+    assert.equal(r.code, 1, `${rel} 已移出白名单却没被拦住，这条收缩是假的`);
+    assert.match(r.out, /NC1/);
+  }
+});
+
 test("裸 levelN_id 不误报（与用户偏好 crm_user_industry_prefs 同命名空间）", () => {
   const root = fixture(
     join("src", "app", "api", "user", "industry-prefs", "route.ts"),

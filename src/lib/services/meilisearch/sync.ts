@@ -55,12 +55,11 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     langFields[`description_${lang}`] = truncate(r[`description_${lang}`] ?? "", WIDE_LIMITS.description);
   }
 
-  // 宽表的集合列统一存为逗号分隔字符串，这里一律拆成数组（UNSPSC id 集与骨架节点码集同形制）
-  // 注意：backbone_path 不走这里，走 commodity/backbone-path 的 fromBackbonePathColumn ——
-  // 列形制的解析只允许一份，且它会把形制不符的脏 token 挡在索引外（脏值由 BB10 兜住，
-  // 但不能让它污染 backbone_node 这个 filterable 属性）。旧 unspsc_levelN / precise_levelN
-  // 五列组仍是本函数的局部工具，它们随 R5/Task 15 一起退役。
-  const parseCsvList = (val: unknown): string[] => val ? String(val).split(",").filter(Boolean) : [];
+  // 类目属性只由「两条列 → 两个属性」一一对应产出：宽表 backbone_path / precise_backbone_path
+  // 均经 commodity/backbone-path 的 fromBackbonePathColumn 解析 —— 列形制的解析只允许一份，
+  // 且它会把形制不符的脏 token 挡在索引外（脏值由 BB10 兜住，但不能让它污染 backbone_node
+  // 这个 filterable 属性）。旧字典的 unspsc_levelN / precise_levelN 十列已随 B1 从索引退掉：
+  // 公告分类在索引里只剩一条口径，旧属性即使存量未清也不再被写入。
 
   return {
     id: Number(r.id),
@@ -83,25 +82,14 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     // 「含原始文件」筛选依据
     documents_count: Number(r.documents_count) || 0,
     ...langFields,
-    level1_id: parseCsvList(r.unspsc_level1),
-    level2_id: parseCsvList(r.unspsc_level2),
-    level3_id: parseCsvList(r.unspsc_level3),
-    level4_id: parseCsvList(r.unspsc_level4),
-    level5_id: parseCsvList(r.unspsc_level5),
-    // 精准分类字段（合并语义：精准码优先、原标签兜底，宽表已合并）
-    precise_level1_id: parseCsvList(r.precise_level1),
-    precise_level2_id: parseCsvList(r.precise_level2),
-    precise_level3_id: parseCsvList(r.precise_level3),
-    precise_level4_id: parseCsvList(r.precise_level4),
-    precise_level5_id: parseCsvList(r.precise_level5),
     // 品目骨架树筛选属性：宽表 backbone_path 存该公告归属的骨架节点码（UGT-B-…，含全部祖先，
     // 由 lib/services/commodity/backbone-path 换算后灌入），商机页五级下拉选到哪一层就等值命中哪一层
     // （与 filter-builder 的 MySQL 方言同一谓词、同一口径）。
     // 单值 ≤ 16 字符，不受 Meili 单值 468 字节限制；一个文档里节点项可达数千（实测最大 5,279），
     // Meili 对数组元素个数无限制。
     backbone_node: fromBackbonePathColumn(r.backbone_path),
-    // 精准口径（人工审核过的 approved 候选码派生）：prefs 模式用它筛，缺它就只能回退到
-    // precise_levelN_id 那套旧字典列。两条列各取各的，谁也不能代替谁。
+    // 精准口径（人工审核过的 approved 候选码派生）：prefs 模式用它筛。旧字典 precise_levelN_id
+    // 那套第二口径已随 B1 摘除 ⇒ 本列缺位就是筛不到，没有任何回退（两条列各取各的，谁也不代替谁）。
     precise_backbone_node: fromBackbonePathColumn(r.precise_backbone_path),
   };
 }
@@ -112,8 +100,6 @@ const WIDE_TABLE_SYNC_SQL = `
   SELECT id, notice_id, reference, title, description,
          country_std, agency_std, agency_group, notice_type_std,
          deadline_sec, is_featured, estimated_value, documents_count,
-         unspsc_level1, unspsc_level2, unspsc_level3, unspsc_level4, unspsc_level5,
-         precise_level1, precise_level2, precise_level3, precise_level4, precise_level5,
          backbone_path, precise_backbone_path,
          title_zh, description_zh, title_en, description_en,
          title_fr, description_fr, title_ru, description_ru,
