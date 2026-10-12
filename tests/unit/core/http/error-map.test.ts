@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 vi.mock("@/core/perf", () => ({ recordApiMetric: vi.fn() }));
 
 import { ApiError } from "@/core/http/api-client";
-import { classifyApiError, mapApiError } from "@/core/http/error-map";
+import { classifyApiError, mapApiError, resolveErrorText } from "@/core/http/error-map";
 import {
   EC_VIP_ONLY, EC_CLAIM_BOUND_BY_OTHER, EC_POOL_FULL, EC_LEAD_STATUS_INVALID,
   EC_PAYMENT_SINGLE_FIRST_PURCHASE, EC_PAYMENT_AMOUNT_INVALID, EC_INTERNAL_ERROR,
@@ -112,6 +112,28 @@ describe("网络层与未知错误回落", () => {
   it("无 t 注入时仍可渲染：中文直出 / 否则固定兜底", () => {
     expect(mapApiError(new Error("系统繁忙，请稍后重试"))).toBe("系统繁忙，请稍后重试");
     expect(mapApiError(new TypeError("Failed to fetch"))).toBe("请求失败，请稍后重试");
+  });
+});
+
+describe("resolveErrorText：预先分类后存状态、渲染时再翻译", () => {
+  it("空分类 → 空串（组件据此不渲染错误条）", () => {
+    expect(resolveErrorText(null, t)).toBe("");
+    expect(resolveErrorText(undefined, t)).toBe("");
+  });
+
+  it("命中键 → 走 t(key)", () => {
+    const c = classifyApiError(new ApiError(400, "x", EC_POOL_FULL));
+    expect(resolveErrorText(c, t)).toBe("K:errPoolFull");
+  });
+
+  it("未登记键 + 人类可读中文 → 原样展示", () => {
+    const c = classifyApiError(new Error("今日导出次数已用完"));
+    expect(c.key).toBeNull();
+    expect(resolveErrorText(c, t)).toBe("今日导出次数已用完");
+  });
+
+  it("未登记键 + 纯技术串 → 通用兜底", () => {
+    expect(resolveErrorText(classifyApiError(new Error("ENOENT: no such file")), t)).toBe("K:errSystemBusy");
   });
 });
 

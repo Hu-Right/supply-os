@@ -28,6 +28,7 @@ export default defineConfig({
       include: [
         // ── src/lib/utils — 纯工具函数（全部有测试）──
         "src/lib/utils/mask.ts",
+        "src/lib/utils/sql-columns.ts",
         "src/lib/utils/passwordPolicy.ts",
         "src/lib/utils/json.ts",
         "src/lib/utils/normalize.ts",
@@ -148,6 +149,7 @@ export default defineConfig({
         "src/core/events/events.ts",
         "src/core/flags.ts",
         "src/core/http/buildQuery.ts",
+        "src/core/http/error-map.ts",
         "src/core/i18n/detectScript.ts",
         "src/core/i18n/pickLocale.ts",
         "src/core/payment/env-detector.ts",
