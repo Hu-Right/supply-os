@@ -152,4 +152,29 @@ describe("findSimilarNotices", () => {
     expect(res[0]).toMatchObject({ id: 11, title_i18n: "A中文", country: "KE", deadline_ts: 1790000000 });
     expect(res[0]).not.toHaveProperty("peer");
   });
+
+  // 线上事故回归：水合查询的列清单曾用两个自带尾逗号的片段拼在 FROM 前，
+  // 不传 locale 也一样多出个尾逗号 → MySQL 1064，相似公告上线三周每次 500。
+  // 当时所有单测全绿（mock 了 pool.query、不解析 SQL），所以这条断言必须打在拼好的 SQL 文本上。
+  it("水合 SQL 不得出现「列清单尾逗号紧跟 FROM」（传与不传 locale 两种形状）", async () => {
+    const hydrateSql = async (locale?: string) => {
+      const { pool, query } = makePool([
+        ...ID_MAP,
+        [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
+        [/FROM crm_bid_notice_unspsc_codes WHERE notice_id = \?/, CUR_CODES],
+        [/peer\.code IN/, [{ notice_id: "A", wide_id: 11, deadline_ts: 1790000000 }]],
+        [/FROM crm_notice_search WHERE id IN/, [{ id: 11, p: "UGT-B-07,UGT-B-0702" }]],
+      ]);
+      await findSimilarNotices(pool, 1, 6, locale);
+      const call = query.mock.calls.find((c) => /FROM crm_bid_notices n[\s\S]*n\.notice_id IN/.test(String(c[0])));
+      expect(call, `没发出水合查询（locale=${locale ?? "无"}）`).toBeDefined();
+      return String(call![0]);
+    };
+    for (const locale of ["zh", undefined] as const) {
+      const sql = await hydrateSql(locale);
+      expect(sql).not.toMatch(/,\s*\n?\s*FROM/i);
+      expect(sql).not.toMatch(/,\s*,/);            // 相邻两个逗号：空列位
+      expect(sql).toMatch(/SELECT\s+[^,\s][\s\S]*\bFROM\b/i); // SELECT 后紧跟真实列，不是空白/逗号
+    }
+  });
 });

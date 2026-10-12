@@ -7,6 +7,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
+import { columns } from "../../utils/sql-columns";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { effectivePrefixOf, fromBackbonePathColumn } from "../commodity/backbone-path";
 import { rankSimilarPeers, type NodeRow } from "./similar-scoring";
@@ -133,13 +134,19 @@ async function hydrateListItems(pool: Pool, noticeIds: string[], locale?: string
   if (noticeIds.length === 0) return [];
   const ph = noticeIds.map(() => "?").join(",");
   const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
-  const trSelect = locale ? "tr.title_tr AS title_i18n," : "";
   const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  const treSelect = "tre.title_tr AS title_en,";
+  // 列清单交给 columns() 拼：分隔符只有一个出处，条件列不启用就传 falsy。
+  // 以前这里用两个各自带尾逗号的片段拼在 FROM 前，不传 locale 时也会多出个尾逗号，
+  // MySQL 直接 1064 —— 相似公告上线三周每次都返回 500，单测因为 mock 了 pool.query 全绿。
+  const selectList = columns(
+    "n.id, n.notice_id, n.reference, n.title, n.notice_type, n.agency, n.country",
+    "n.deadline, n.deadline_ts, n.estimated_value",
+    locale && "tr.title_tr AS title_i18n",
+    "tre.title_tr AS title_en",
+  );
   const params = [...(locale ? [locale] : []), ...noticeIds];
   const [rows] = await pool.query(
-    `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.agency, n.country,
-       n.deadline, n.deadline_ts, n.estimated_value, ${trSelect} ${treSelect}
+    `SELECT ${selectList}
      FROM crm_bid_notices n
      ${trJoin} ${treJoin}
      WHERE n.notice_id IN (${ph}) AND ${ACTIVE_NOTICE_WHERE}`,

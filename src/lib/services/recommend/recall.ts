@@ -35,6 +35,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
+import { columns } from "../../utils/sql-columns";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { getBackboneIndex } from "../commodity/backbone-cache";
@@ -142,8 +143,6 @@ export async function deadlineFallback(
   const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
   const trParams = locale ? [locale] : [];
   const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
-  const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
   const oppSubPrefix = "(SELECT opp.";
   const oppSubWhere = " FROM crm_bid_opportunities opp WHERE opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1) LIMIT 1)";
   const descCnSub = `${oppSubPrefix}description_cn${oppSubWhere} AS description_cn`;
@@ -151,11 +150,21 @@ export async function deadlineFallback(
   const descTruncSub = `CASE WHEN LENGTH(${oppSubPrefix}description${oppSubWhere}) > 300 THEN 1 ELSE 0 END AS description_truncated`;
   const bidOverviewSub = `${oppSubPrefix}bid_overview${oppSubWhere} AS bid_overview`;
   const beneficiarySub = `${oppSubPrefix}beneficiary_countries${oppSubWhere} AS beneficiary_countries`;
+  // 列清单由 columns() 拼（分隔符单一出处）；条件列不启用传 falsy，不留空尾逗号的坑。
+  const selectList = columns(
+    "DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country",
+    "n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency, n.is_featured",
+    descSub,
+    descTruncSub,
+    "n.documents, n.procurement_files",
+    locale && "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n",
+    "tre.title_tr AS title_en, tre.description_tr AS description_en",
+    descCnSub,
+    bidOverviewSub,
+    beneficiarySub,
+  );
   const [fallbackRows] = await pool.query(
-    `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-            n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency, n.is_featured,
-            ${descSub}, ${descTruncSub}, n.documents, n.procurement_files,
-            ${trSelect} ${treSelect} ${descCnSub}, ${bidOverviewSub}, ${beneficiarySub}
+    `SELECT ${selectList}
      FROM crm_bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
   const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ({
     // Suministros BUG 修复：同推荐主查询，notice_type 归一化对齐宽表口径

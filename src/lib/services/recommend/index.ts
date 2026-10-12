@@ -9,6 +9,7 @@
  */
 import type { Pool, QueryResult, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
+import { columns } from "../../utils/sql-columns";
 import {
   recomputeRecoWeightProfile,
 } from "./weight-profile";
@@ -128,22 +129,30 @@ export async function recommendNotices(
   const trParams = locale ? [locale] : [];
   const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
   const oppJoin = "LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.source_notice_id = n.notice_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 1 OR opp_desc.audit_status = 1)";
-  const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
-  const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
+  // 列清单全部交给 columns()：以前两个译文片段各自带尾逗号、靠在后面的列兼容，
+  // 一旦顺序调整就是 MySQL 1064（相似公告就是这么上线失败的）。分隔符只留一个出处。
+  const selectList = columns(
+    "n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country",
+    "n.deadline, n.deadline_ts, n.estimated_value, n.agency, n.is_featured",
+    "LEFT(MAX(opp_desc.description), 300) AS description",
+    "CASE WHEN LENGTH(MAX(opp_desc.description)) > 300 THEN 1 ELSE 0 END AS description_truncated",
+    "n.documents, n.procurement_files",
+    locale && "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n",
+    "tre.title_tr AS title_en, tre.description_tr AS description_en",
+    "MAX(opp_desc.description_cn) AS description_cn",
+    "LEFT(MAX(opp_desc.bid_overview), 200) AS bid_overview",
+    "MAX(opp_desc.beneficiary_countries) AS beneficiary_countries",
+    `${scoring.l4HitExpr} AS l4_hit`,
+    "MAX(amc.amount_usd) AS amount_usd_cached",
+    "GROUP_CONCAT(DISTINCT b.code) AS codes_concat",
+    "COUNT(DISTINCT b.code) AS match_score",
+    `${scoring.recoScoreExpr} AS reco_score`,
+  );
 
   let rows: QueryResult;
   try {
     [rows] = await pool.query(
-      `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-         n.deadline, n.deadline_ts, n.estimated_value, n.agency, n.is_featured,
-         LEFT(MAX(opp_desc.description), 300) AS description,
-         CASE WHEN LENGTH(MAX(opp_desc.description)) > 300 THEN 1 ELSE 0 END AS description_truncated, n.documents, n.procurement_files,
-         ${trSelect} ${treSelect} MAX(opp_desc.description_cn) AS description_cn,
-         LEFT(MAX(opp_desc.bid_overview), 200) AS bid_overview,
-         MAX(opp_desc.beneficiary_countries) AS beneficiary_countries,
-         ${scoring.l4HitExpr} AS l4_hit, MAX(amc.amount_usd) AS amount_usd_cached,
-         GROUP_CONCAT(DISTINCT b.code) AS codes_concat,
-         COUNT(DISTINCT b.code) AS match_score, ${scoring.recoScoreExpr} AS reco_score
+      `SELECT ${selectList}
        FROM crm_bid_notices n
        ${clauses.join}
        INNER JOIN crm_notice_search ns ON ns.id = n.id
