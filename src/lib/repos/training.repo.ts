@@ -181,34 +181,9 @@ export class TrainingRepo {
     return Number((result as RowDataPacket).insertId);
   }
 
-  // ── P3-11 安全修复：下载计数持久化到 crm_training_download_stats ──
-
-  /** 原子递增下载计数（INSERT ON DUPLICATE KEY UPDATE） */
-  async incrementDownloadCount(materialId: string, fileName: string): Promise<number> {
-    await this.pool.execute(
-      `INSERT INTO crm_training_download_stats (material_id, file_name, download_count)
-       VALUES (?, ?, 1)
-       ON DUPLICATE KEY UPDATE download_count = download_count + 1, file_name = VALUES(file_name)`,
-      [materialId, fileName],
-    );
-    const [rows] = await this.pool.execute(
-      "SELECT download_count FROM crm_training_download_stats WHERE material_id = ? LIMIT 1",
-      [materialId],
-    );
-    return Number((rows as RowDataPacket[])?.[0]?.download_count || 0);
-  }
-
-  /** 查询所有下载统计 */
-  async listDownloadStats(): Promise<Record<string, number>> {
-    const [rows] = await this.pool.query(
-      "SELECT material_id, download_count FROM crm_training_download_stats ORDER BY download_count DESC",
-    );
-    const result: Record<string, number> = {};
-    for (const row of rows as RowDataPacket[]) {
-      result[row.material_id] = Number(row.download_count || 0);
-    }
-    return result;
-  }
+  // 下载计数单一权威源：crm_learning_materials.downloads_count（由 /api/training/downloads/track 直接递增）。
+  // 旧 crm_training_download_stats 并行计数（incrementDownloadCount / listDownloadStats）及其 stats 端点无消费方，已移除。
+  // 表本身保留（历史数据），如需清理另走迁移。
 
   // ── 落地页内容（034 迁移，全部 DB 驱动，无种子数据） ──
 

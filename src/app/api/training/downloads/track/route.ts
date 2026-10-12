@@ -5,7 +5,6 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { getPool } from "@/lib/db/pool";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
@@ -23,26 +22,16 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, EC_INVALID_PARAMS, "请求数据格式错误");
   }
   const materialId = String(body.material_id || "").trim().slice(0, 60);
-  const fileName = String(body.file_name || "").trim().slice(0, 120);
   if (!materialId) {
     routeError(400, EC_INVALID_PARAMS, "缺少资料 ID");
   }
 
+  // 单一权威计数源：crm_learning_materials.downloads_count（前端 MaterialCard 展示口径）
   const ctx = getContext();
-  // 写入统计表（保留明细追踪能力）
-  const count = await ctx.trainingRepo.incrementDownloadCount(materialId, fileName);
+  await ctx.dbPool.execute(
+    "UPDATE crm_learning_materials SET downloads_count = downloads_count + 1 WHERE material_id = ?",
+    [materialId],
+  );
 
-  // 同步递增 crm_learning_materials.downloads_count，保证前端展示数据源一致
-  try {
-    const pool = getPool();
-    await pool.execute(
-      "UPDATE crm_learning_materials SET downloads_count = downloads_count + 1 WHERE material_id = ?",
-      [materialId],
-    );
-  } catch (e) {
-    // 非关键路径：即使同步失败也不影响下载追踪
-    console.warn("[downloads/track] 同步 downloads_count 失败:", (e as Error).message);
-  }
-
-  return NextResponse.json({ success: true, count });
+  return NextResponse.json({ success: true });
 });
