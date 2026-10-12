@@ -19,7 +19,9 @@ import mysql from "mysql2/promise";
 
 const OUT = process.env.OUT || "db/schema/baseline.sql";
 // 影子/备份表（带 __bak_ 或日期后缀）是一次性切换留下的快照，不属于终态结构。
-const EXCLUDE_RES = [/__bak_/, /_bak\d/, /_(?:bak|backup|old|copy)_?\d*$/];
+// __new 后缀是 ADR-0003 蓝绿切换的**在途影子表**：切换前重导会把半成品结构写进基线，
+// 切换后它会原子改名成原表、自然消失，故必须排除（2026-10-12 机会表轮次踩过这个口）。
+const EXCLUDE_RES = [/__bak_/, /_bak\d/, /_(?:bak|backup|old|copy)_?\d*$/, /__new$/, /_retired_/];
 const extra = process.env.EXCLUDE;
 if (extra) EXCLUDE_RES.push(new RegExp(extra, "i"));
 
