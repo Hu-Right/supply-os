@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { queryTrainingOrderStatus } from "@/lib/services/training-payment";
 import { EC_TRAINING_ORDER_NOT_FOUND, EC_TRAINING_ORDER_FORBIDDEN } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ orderNo: string }> }>(
@@ -21,7 +20,7 @@ export const GET = withRoute<{ params: Promise<{ orderNo: string }> }>(
     if (order.user_id && order.user_id !== auth.userId) routeError(403, EC_TRAINING_ORDER_FORBIDDEN, "无权操作此订单");
 
     try {
-      const result = await queryTrainingOrderStatus(ctx as any, trainingRepo as any, orderNo);
+      const result = await ctx.payment.trainingPaymentService.queryOrder(orderNo);
       return NextResponse.json(result);
     } catch (err: unknown) {
       if (String((err as Error)?.message || "") === "ORDER_NOT_FOUND") {

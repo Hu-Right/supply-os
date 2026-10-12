@@ -2,7 +2,7 @@
  * POST /api/training/orders — 创建培训订单
  *
  * @module app/api/training/orders/route
- * @description 委托 training-payment 服务层完成：
+ * @description 委托 TrainingPaymentService 完成：
  *   1. 从 DB 读取课程单价 → 计算总金额
  *   2. 生成订单号（TR + 日期 + 随机 hex）
  *   3. 通过支付策略生成二维码/支付链接
@@ -13,7 +13,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { createTrainingOrder } from "@/lib/services/training-payment";
 import { extractClientIp } from "@/lib/utils/ip";
 import {
   EC_TRAINING_COURSE_NOT_FOUND, EC_TRAINING_COURSE_PRICE_INVALID,
@@ -28,7 +27,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const ctx = getContext();
 
   try {
-    const result = await createTrainingOrder(ctx, ctx.trainingRepo, {
+    const result = await ctx.payment.trainingPaymentService.createOrder({
       scheduleId: body.schedule_id != null ? Number(body.schedule_id) : undefined,
       registrationId: body.registration_id != null ? Number(body.registration_id) : undefined,
       participantCount: body.participant_count != null ? Number(body.participant_count) : undefined,

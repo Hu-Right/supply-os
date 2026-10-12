@@ -3,8 +3,10 @@
  * Training Payment Service
  *
  * @module lib/payment/TrainingPaymentService
- * @description ARCH-PN（2026-09-11）：支付归一化重构——将 training-payment.ts 的函数式实现
- *              重构为类风格，与 PaymentService / LearningPaymentService 对齐。
+ * @description ARCH-PN（2026-09-11）：支付归一化重构——将原 training-payment 函数式实现
+ *              重构为类风格，与 PaymentService / LearningPaymentService 对齐；
+ *              旧的向后兼容函数层（createTrainingOrder 等）已于 2026-10-12 删除，
+ *              调用方一律直连本类（createOrder/queryOrder/fulfillOrder/reverseOrder/fulfillMockOrder）。
  *
  *              职责边界：
  *              - 订单存于 training_orders 表（物理隔离）
@@ -12,13 +14,6 @@
  *                + training_schedules（期次人数）
  *              - 定价从 TrainingRepo（training_courses 表）读取（零硬编码）
  *              - 支付渠道策略由 Orchestrator 通过 resolver 注入
- *
- *              与原有函数的对应关系：
- *              - createTrainingOrder()      → createOrder()
- *              - queryTrainingOrderStatus() → queryOrder()
- *              - fulfillTrainingOrder()     → fulfillOrder()
- *              - reverseTrainingOrder()     → reverseOrder()
- *              - fulfillMockTrainingOrder() → fulfillMockOrder()
  */
 import "server-only";
 import crypto from "crypto";

@@ -26,7 +26,7 @@ import type { ServiceOrdersRepo } from "../repos/service-orders.repo";
 import type { TrainingRepo } from "../repos/training.repo";
 import type { PaymentHistoryRepo } from "../repos/payment-history.repo";
 import type { BenefitFulfillDeps } from "./benefit-grant";
-import { fulfillTrainingOrder, reverseTrainingOrder, fulfillMockTrainingOrder } from "../services/training-payment";
+import { TrainingPaymentService } from "./TrainingPaymentService";
 
 /** 聚合后的统一订单行 */
 export interface NormalizedOrder {
@@ -66,6 +66,8 @@ export function getOrderBusiness(orderNo: string): "membership" | "learning" | "
 // 支付编排器
 export class PaymentOrchestrator {
   private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
+  /** 培训支付履约/逆向/Mock 入口（无需渠道策略，直接用 repo 构造） */
+  private trainingPaymentService: TrainingPaymentService;
 
   constructor(
     private paymentService: PaymentService,
@@ -78,7 +80,9 @@ export class PaymentOrchestrator {
     private paymentHistoryRepo: PaymentHistoryRepo,
     /** 权益体系双轨：会员履约/逆向的新表组依赖（与 PaymentService 同一实例，由 AppContext 注入） */
     private benefitDeps: BenefitFulfillDeps,
-  ) {}
+  ) {
+    this.trainingPaymentService = new TrainingPaymentService(this.trainingRepo);
+  }
 
   // ── 渠道策略注册（唯一注册中心） ──────────────────────────────────────────
 
@@ -173,7 +177,7 @@ export class PaymentOrchestrator {
             Math.abs(Number(trainingOrder.total_amount) - callbackAmount) > 0.01) {
           return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_MISMATCH" };
         }
-        await fulfillTrainingOrder(this.trainingRepo, verifyResult.order_no, verifyResult.provider_trade_no);
+        await this.trainingPaymentService.fulfillOrder(verifyResult.order_no, verifyResult.provider_trade_no);
         return { success: true, order_no: verifyResult.order_no };
       }
 
@@ -250,7 +254,7 @@ export class PaymentOrchestrator {
       }
       case "training": {
         // ARCH-P0（2026-09-05）：培训订单退款逆向
-        const result = await reverseTrainingOrder(this.trainingRepo, orderNo);
+        const result = await this.trainingPaymentService.reverseOrder(orderNo);
         if (!result.found) {
           return { success: false, order_no: orderNo, message: "ORDER_NOT_FOUND" };
         }
@@ -294,7 +298,7 @@ export class PaymentOrchestrator {
         return { found: result.found, business };
       }
       case "training": {
-        const result = await fulfillMockTrainingOrder(this.trainingRepo, orderNo, rawNotify);
+        const result = await this.trainingPaymentService.fulfillMockOrder(orderNo, rawNotify);
         return { found: result.found, business };
       }
       case "service": {

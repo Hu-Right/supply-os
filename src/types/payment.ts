@@ -9,7 +9,7 @@ export type PaymentProviderName = "alipay" | "wechat" | "mock";
 
 export type PaymentMode = "mock" | "live";
 
-// （src/lib/services/training-payment.ts queryTrainingOrderStatus）
+// （src/lib/payment/TrainingPaymentService.ts queryOrder）
 // 支付订单状态：待处理/成功/关闭/失败/过期  订单 30 分钟本地过期后查询会返回 expired
 export type PaymentOrderStatus = "pending" | "paid" | "closed" | "failed" | "expired";
 
