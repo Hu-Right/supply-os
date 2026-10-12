@@ -16,11 +16,12 @@
  * @see    docs/superpowers/specs/2026-10-12-品目树融合-design.md
  */
 import { readFileSync } from "node:fs";
+import { isFusionNode, FUSION_NODE_PREFIX } from "../../src/lib/services/commodity/fusion-path";
 import {
-  isFusionNode,
-  fusionNodeLevel,
-  FUSION_NODE_PREFIX,
-} from "../../src/lib/services/commodity/fusion-path";
+  collectEdgeViolations,
+  hasFatal,
+  type FusionRow,
+} from "../../src/lib/services/commodity/fusion-tree";
 import { COMMODITY_GROUPS } from "../../src/lib/services/commodity/groups";
 
 const DB = process.argv.includes("--db");
@@ -69,23 +70,15 @@ const exists = async (t: string) =>
 if (!(await exists(NODE_TABLE))) {
   warn(`影子表 ${NODE_TABLE} 不存在：P0 阶段建表属人工闸口，库内断言本次跳过`);
 } else {
-  const rows = await q(`SELECT code, parent_code, level, group_code FROM ${NODE_TABLE}`);
-  const codeSet = new Set(rows.map((r) => String(r.code)));
-  // FU1 形制 + 父存在
-  for (const r of rows) {
-    const code = String(r.code);
-    if (!isFusionNode(code)) { fail(`FU1 码形制非法：${code}`); continue; }
-    if (code.length > 64) fail(`FU1 码长超 64：${code}`);
-    if (fusionNodeLevel(code) !== Number(r.level)) fail(`FU1 码长与层级不符：${code}（L${r.level} 应为 L${fusionNodeLevel(code)}）`);
-    const parent = String(r.parent_code ?? "");
-    if (Number(r.level) === 1) {
-      if (parent !== "") fail(`FU1 大类行 parent 应为空串：${code}`);
-    } else if (!codeSet.has(parent)) {
-      fail(`FU1 父码不存在：${code} → ${parent || "(空)"}`);
-    } else if (parent !== code.slice(0, code.length - 3)) {
-      fail(`FU1 父码≠去末3位：${code} 期望 ${code.slice(0, code.length - 3)} 实为 ${parent}`);
-    }
-  }
+  const rows = (await q(
+    `SELECT code, parent_code, level, group_code, axis_std, axis_code FROM ${NODE_TABLE}`,
+  )) as unknown as FusionRow[];
+  // FU1 结构 + FU4 单调归属（同标准机检 fatal、跨标准/父未随行送 human）：复用已测内核，与建树工具同一口径
+  const viol = collectEdgeViolations(rows);
+  const fatals = viol.filter((v) => v.fatal.length);
+  if (fatals.length) fail(`FU1/FU4 有 ${fatals.length} 条边硬失败：` + fatals.slice(0, 10).map((v) => `${v.code}[${v.fatal.join("|")}]`).join(" ; "));
+  const needHuman = viol.filter((v) => v.human.length && !v.fatal.length);
+  if (needHuman.length) warn(`FU4 有 ${needHuman.length} 条边需人工/crosswalk 证明（跨标准或父未随行）`);
   // FU7 无残渣：融合表内不得出现旧前缀
   const legacy = await one(
     `SELECT COUNT(*) n FROM ${NODE_TABLE} WHERE code NOT LIKE 'UGT-[0-9]%' OR code LIKE 'UGT-B%' OR code LIKE 'UGT-C%' OR code LIKE 'UGT-G%'`,
@@ -104,13 +97,7 @@ if (!(await exists(NODE_TABLE))) {
   if (nullGroupL1) fail(`FU2 有 ${nullGroupL1} 个 L1 的 group_code 为空`);
   console.log(`FU2 新 L1=${l1Count}（基线 32）· 覆盖旧大类 ${coveredGroups.size}/32`);
 
-  // FU4 单调归属（同主轴才比 axis_code）
-  const mono = await one(`
-    SELECT COUNT(*) n FROM ${NODE_TABLE} c
-    JOIN ${NODE_TABLE} p ON p.code = c.parent_code
-    WHERE c.axis_std = p.axis_std AND c.level > 1
-      AND c.axis_code NOT LIKE CONCAT(p.axis_code, '%')`);
-  if (Number(mono.n) > 0) fail(`FU4 有 ${mono.n} 条子节点 axis_code 跳出父的单调范围（牛头不对马嘴）`);
+  // （FU4 单调归属已由上方 collectEdgeViolations 内核覆盖，含 UNSPSC 补位归一，无需再走 SQL 前缀比对）
 
   // FU5 语义闸
   const pend = await one(`SELECT SUM(attach_status='pending') a, SUM(name_status='pending') nm FROM ${NODE_TABLE}`);

@@ -10,7 +10,8 @@
  * @note  破坏性边界：只写 fusion_* 影子列/影子倒排表，绝不碰 backbone_path。切换属 P4，另走 fusion-cutover。
  */
 import { readFileSync } from "node:fs";
-import { chainOfFusionNode, toFusionPathColumn, assertFusionPathLength } from "../../src/lib/services/commodity/fusion-path";
+import { assertFusionPathLength } from "../../src/lib/services/commodity/fusion-path";
+import { buildXwalkIndex, planNoticePath, type XwalkRow } from "../../src/lib/services/commodity/fusion-xwalk";
 
 const arg = (k: string): string | undefined => {
   const eq = process.argv.find((a) => a.startsWith(`--${k}=`));
@@ -40,11 +41,11 @@ const pool = await mysql.createPool({
 type R = Record<string, string | number | null>;
 const q = async (sql: string, a?: unknown[]) => ((await pool.query(sql, a)) as [R[], unknown])[0];
 
-// 全局 approved xwalk 载入内存（std→code→node），避免逐公告回表
-const xwalk = await q(`SELECT std, std_code, node_code FROM crm_commodity_fusion_xwalk__new WHERE status='approved'`);
-const map = new Map<string, string>(); // `${std}:${std_code}` → node_code
-for (const r of xwalk) map.set(`${r.std}:${r.std_code}`, String(r.node_code));
-console.log(`载入 approved xwalk ${map.size} 条映射`);
+// 全局 approved xwalk 载入内存（归属解析走 fusion-xwalk 单点内核，与门禁 FU6 同口径）
+const xwalk = await q(`SELECT std, std_code, node_code, status FROM crm_commodity_fusion_xwalk__new`);
+const { index, dup } = buildXwalkIndex(xwalk as unknown as XwalkRow[]);
+if (dup) console.error(`⚠ xwalk 有 ${dup} 个重复归属（本应被 UNIQUE 挡住），先查账本`);
+console.log(`载入 approved xwalk ${index.size} 条映射（dup=${dup}）`);
 
 const maxIdRow = await q(`SELECT COALESCE(MAX(id),0) m FROM crm_notice_search`);
 const maxId = TO > 0 ? TO : Number(maxIdRow[0].m);
@@ -63,14 +64,10 @@ for (let lo = FROM; lo <= maxId; lo += SLICE) {
     byNotice.get(id)!.push(String(r.code));
   }
   for (const [id, codes] of byNotice) {
-    const nodes: string[] = [];
-    for (const c of codes) {
-      const node = map.get(`unspsc:${c}`);
-      if (node) nodes.push(node); else wildCodes += 1; // 野码：P3 应转投 crm_taxonomy_intake（此处仅计数不丢）
-    }
-    if (!nodes.length) { skipped += 1; continue; } // 全码换不出→影子列留空（以树为准，预期）
-    const expanded = nodes.flatMap(chainOfFusionNode);
-    const col = assertFusionPathLength(toFusionPathColumn(expanded), id);
+    const plan = planNoticePath(codes.map((c) => ({ std: "unspsc" as const, code: c })), index);
+    wildCodes += plan.wild.length;
+    if (!plan.nodes.length) { skipped += 1; continue; } // 全码换不出→影子列留空（以树为准，预期）
+    const col = assertFusionPathLength(plan.path, id);
     if (CONFIRM) {
       await q(`UPDATE crm_notice_search SET fusion_backbone_path=? WHERE id=?`, [col, id]);
       written += 1;

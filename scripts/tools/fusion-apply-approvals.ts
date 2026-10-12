@@ -12,6 +12,8 @@
  */
 import { readFileSync } from "node:fs";
 import { isFusionNode, fusionNodeLevel } from "../../src/lib/services/commodity/fusion-path";
+import { validateFusionEdge, type FusionRow } from "../../src/lib/services/commodity/fusion-tree";
+import { type StdKey } from "../../src/lib/services/commodity/fusion-standards";
 
 const arg = (k: string): string | undefined => {
   const eq = process.argv.find((a) => a.startsWith(`--${k}=`));
@@ -65,16 +67,22 @@ const pool = await mysql.createPool({
 type R = Record<string, string | number | null>;
 const q = async (sql: string, a?: unknown[]) => ((await pool.query(sql, a)) as [R[], unknown])[0];
 
-let okNodes = 0, okXwalk = 0; const rejected: string[] = [];
+let okNodes = 0, okXwalk = 0, needHuman = 0; const rejected: string[] = [];
 for (const r of rows) {
-  // FU4 入库前复检：同标准才比 axis 前缀（父须在库里已存在）
+  // 入库前机检：用内核 validateFusionEdge 一次算清结构(FU1)+单调(FU4)；fatal 即拒，跨标准 human 计账
+  let parentRow: FusionRow | null = null;
   if (r.parent_code) {
-    const pr = await q(`SELECT axis_std, axis_code FROM \`${NODE_TABLE}\` WHERE code=?`, [r.parent_code]);
+    const pr = await q(`SELECT code,parent_code,level,group_code,axis_std,axis_code FROM \`${NODE_TABLE}\` WHERE code=?`, [r.parent_code]);
     if (!pr.length) { rejected.push(`${r.node_code}：父 ${r.parent_code} 不在库（须先挂父）`); continue; }
-    if (String(pr[0].axis_std) === r.axis_std && !r.axis_code.startsWith(String(pr[0].axis_code))) {
-      rejected.push(`${r.node_code}：axis_code ${r.axis_code} 跳出父单调范围（FU4 红）`); continue;
-    }
+    parentRow = pr[0] as unknown as FusionRow;
   }
+  const childRow: FusionRow = {
+    code: r.node_code, parent_code: r.parent_code || "", level: fusionNodeLevel(r.node_code),
+    group_code: r.group_code, axis_std: r.axis_std as StdKey, axis_code: r.axis_code,
+  };
+  const v = validateFusionEdge(childRow, parentRow);
+  if (v.fatal.length) { rejected.push(`${r.node_code}：${v.fatal.join(" | ")}`); continue; }
+  if (v.human.length) needHuman += 1; // 跨标准：已由人审 CSV 裁定，放行但计数回报
   try {
     await q(
       `INSERT INTO \`${NODE_TABLE}\` (code,parent_code,level,depth,group_code,axis_std,axis_code,name_zh,name_en,attach_status,name_status)
@@ -97,5 +105,5 @@ for (const r of rows) {
   }
 }
 await pool.end();
-console.log(`✓ 入库：节点 ${okNodes} · xwalk ${okXwalk}`);
+console.log(`✓ 入库：节点 ${okNodes} · xwalk ${okXwalk} · 跨标准人审放行 ${needHuman}`);
 if (rejected.length) { console.error(`✗ 拒绝 ${rejected.length} 条：\n  ${rejected.join("\n  ")}`); process.exit(1); }
