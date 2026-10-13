@@ -26,7 +26,7 @@ import { commodityNodeChain, commodityNodeLevel, resolveUnspscIdsToCommodityPath
 
 /** 类目条件（骨架节点码口径） */
 export interface CategoryFilter {
-  /** 骨架节点码 UGT-B-*（2/4/6/8/10 位） */
+  /** 骨架节点码 UGT-*（2/4/6/8/10 位） */
   node: string;
   /** true=prefs 模式，落 precise_backbone_path（人工审核过的 approved 候选码）；
    *  false=default 模式，落 backbone_path（全量归属） */

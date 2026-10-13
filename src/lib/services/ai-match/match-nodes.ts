@@ -1,7 +1,7 @@
 /**
  * AI 匹配粗筛数据加载器（骨架节点码口径）
  * @module lib/services/ai-match/match-nodes
- * @description 两条只读查询为 pre-filter 准备层级匹配数据，两侧都归一到骨架节点码 `UGT-B-*`：
+ * @description 两条只读查询为 pre-filter 准备层级匹配数据，两侧都归一到骨架节点码 `UGT-*`：
  *              公告侧 = 宽表 `crm_notice_search.backbone_path` 按主键点查（挂靠结果已在同步链路
  *              算好，运行期不再碰桥表）；
  *              供应商侧 = `crm_supplier_unspsc_interests.code`（兴趣表自带的 8 位码）交骨架索引

@@ -31,7 +31,7 @@ import {
 /**
  * 列值 → 最深落点集：去掉「集合里还有后代」的那些 token，与 `rootNodes()`（取最浅覆盖集）互为镜像。
  * 存量灌入靠它把 60 万行派生列压回事实（一条公告可压出多个落点，分属不同链）。
- * 判据只有一条：节点码 = `UGT-B-` + 逐层增长的数字前缀，所以「更深」等价「以它为前缀」，
+ * 判据只有一条：节点码 = `UGT-` + 逐层增长的数字前缀，所以「更深」等价「以它为前缀」，
  * 不必回表取 parent_code。
  */
 export function leafNodesOfPathColumn(value: unknown): string[] {
@@ -75,7 +75,7 @@ export function closureOfPathColumn(value: unknown): string {
 export function assertAttributionNode(node: unknown, noticePk: number | string): string {
   const v = typeof node === "string" ? node : "";
   if (backboneNodeLevel(v) <= 0) {
-    throw new Error(`落点形制非法：公告 ${noticePk} 的节点码「${JSON.stringify(node)}」不是 UGT-B- 合法层级码`);
+    throw new Error(`落点形制非法：公告 ${noticePk} 的节点码「${JSON.stringify(node)}」不是 UGT- 合法层级码`);
   }
   return v;
 }

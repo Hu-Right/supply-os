@@ -9,12 +9,12 @@
  *              `lib/services/commodity/backbone-path` 换算进宽表 `backbone_path`。
  *
  *              四条形制规则（2026-10-11 实测，temp/probe64）：
- *              1. **筛选键就是节点码 `UGT-B-…`**（码长即层级：2/4/6/8/10 位）。公告侧
+ *              1. **筛选键就是节点码 `UGT-…`**（码长即层级：2/4/6/8/10 位）。公告侧
  *                 `crm_notice_search.backbone_path` 存的是同一套码（含全部祖先），两边同口径
  *                 ⇒ 选到哪一层就等值命中哪一层。旧的 UNSPSC 数字前缀不再当筛选键：
  *                 业务层（L1~L3）故意不存 UNSPSC 编号，拿段/族前缀落不到中类/小类这一层。
  *              2. **大类码不能由节点码切片推出**：32 个 L1 行里只有 5 个的码序号等于大类码序号
- *                 （`UGT-B-01` 的 `group_code` 是 `UGT-G-11`）⇒ 需要大类时必须按 `code` 点查 L1 行。
+ *                 （`UGT-01` 的 `group_code` 是 `UGT-G-11`）⇒ 需要大类时必须按 `code` 点查 L1 行。
  *              3. 父节点定位走 `code`（`uk_code` 等值），子级走 `parent_code`（`idx_parent`），
  *                 都是索引等值；不写 `LEFT(code, n) = ?` —— 函数包裹会让索引失效。
  *              4. 名称缺失不编造：实测 L1~L3 的 `name_en` **全空**（32 / 212 / 1,175 行），
@@ -27,7 +27,7 @@ import { BACKBONE_NODE_PREFIX, backboneNodeLevel, chainOfNode } from "./backbone
 
 /** 一条级联选项 */
 export interface CommodityTreeOption {
-  /** 筛选键 = 骨架节点码（UGT-B-…，码长即层级）；与公告侧 backbone_path 同口径 */
+  /** 筛选键 = 骨架节点码（UGT-…，码长即层级）；与公告侧 backbone_path 同口径 */
   key: string;
   /** 中文名（L1~L5 实测全量非空） */
   nameZh: string;
@@ -39,7 +39,7 @@ export interface CommodityTreeOption {
 export const COMMODITY_NODE_PREFIX = BACKBONE_NODE_PREFIX;
 
 /**
- * 是否为合法骨架节点筛选键（`UGT-B-` + 2/4/6/8/10 位数字，奇数位一律不认）。
+ * 是否为合法骨架节点筛选键（`UGT-` + 2/4/6/8/10 位数字，奇数位一律不认）。
  * 形制判定不在这重写：全库只 `backbone-path` 一份（层级就藏在码长里，两处写就会分开错）。
  */
 export function isCommodityNodeKey(value: unknown): value is string {
@@ -55,7 +55,7 @@ export function commodityNodeLevel(code: string): number {
  * 节点码 → 它的整条祖先链 [L1, L2, L3, L4, L5]（未选到的层为空串）。
  *
  * 为什么不需要查库：门禁 BB1 把「父码 = 自身码去掉末两位」钉成不变量，所以祖先就是它的更短前缀，
- * 逐两位截断即得。五级下拉的深链（`?commodity=UGT-B-010101`）靠它一次算出该点亮哪几层、
+ * 逐两位截断即得。五级下拉的深链（`?commodity=UGT-010101`）靠它一次算出该点亮哪几层、
  * 各层该向哪个父节点要选项，不依赖接口往返。形制不符（奇数位、非数字、前缀不对）返回全空
  * ⇒ 宁可不点亮，也不拿一个错键去筛。
  *
@@ -111,7 +111,7 @@ export async function listChildrenOfNode(pool: Pool, code: string): Promise<Comm
 }
 
 /**
- * 级联入口：parent 是大类码（UGT-G-xx）取所辖中类，是节点码（UGT-B-…）取下一级。
+ * 级联入口：parent 是大类码（UGT-G-xx）取所辖中类，是节点码（UGT-…）取下一级。
  */
 export async function listCommodityTreeOptions(pool: Pool, parent: string): Promise<CommodityTreeOption[]> {
   const p = String(parent ?? "").trim();

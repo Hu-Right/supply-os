@@ -38,11 +38,11 @@ export interface UnifiedSearchParams {
    *  换口径前的等价性实测：temp/probe75 逐类对拍 32 个大类，旧段 id 谓词与新 L1 节点码
    *  命中数 Δ=0、不一致 0/32 ⇒ 无需重灌 Meili 索引即可切换。 */
   groupCode?: string;
-  /** 品目骨架树筛选键（URL commodity=UGT-B-01 / -0101 / -010101 / -01010101 / -0101010101）。
+  /** 品目骨架树筛选键（URL commodity=UGT-01 / -0101 / -010101 / -01010101 / -0101010101）。
    *  谓词落在宽表 backbone_path 的等值节点项 / Meili backbone_node 数组属性：
    *  backbone_path 存的是该公告归属的骨架节点码（含全部祖先，由
    *  lib/services/commodity/backbone-path 换算后灌入），所以「选到哪一层就命中哪一层」。
-   *  实测交叉验证：UGT-B-01 命中 49,236 条，与大类 chip 口径（group_codes）完全一致。
+   *  实测交叉验证：UGT-01 命中 49,236 条，与大类 chip 口径（group_codes）完全一致。
    *  与 groupCode AND 叠加（大类→中类→…是同一条链的逐级收窄）。 */
   commodityPath?: string;
   /** 行业墙强制大类（industry-scope 服务注入，客户端不可传；与 codeId/groupCode/commodityPath 叠加 AND）。

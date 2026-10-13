@@ -9,6 +9,7 @@
 import type { UnifiedSearchParams, SearchMode } from "./types";
 import { isKnownNoticeType } from "../../utils/notice-type";
 import { isCommodityGroupCode } from "../commodity/groups";
+import { normalizeBackboneNodeKey } from "../commodity/backbone-path";
 import { isCommodityNodeKey } from "../commodity/tree";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -32,7 +33,7 @@ export interface RawSearchParams {
   codeId?: number;
   /** 品目大类码（URL group）：只接受 32 类常量内的码，其余一律丢弃 */
   groupCode?: string;
-  /** 品目骨架树筛选键（URL commodity）：只接受 UGT-B- 节点码（码内 2/4/6/8/10 位） */
+  /** 品目骨架树筛选键（URL commodity）：只接受 UGT- 节点码（码内 2/4/6/8/10 位） */
   commodityPath?: string;
   /** 行业墙（服务端 industry-scope 注入；不接受客户端传参）：订阅大类的 L1 节点码 */
   wall?: { nodes: string[] } | null;
@@ -80,7 +81,10 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
     sort,
     codeId: Math.max(Math.floor(raw.codeId || 0), 0),
     groupCode: raw.groupCode && isCommodityGroupCode(raw.groupCode) ? raw.groupCode : undefined,
-    commodityPath: raw.commodityPath && isCommodityNodeKey(raw.commodityPath) ? raw.commodityPath : undefined,
+    commodityPath: (() => {
+      const k = normalizeBackboneNodeKey(raw.commodityPath);
+      return k && isCommodityNodeKey(k) ? k : undefined;
+    })(),
     // 墙是服务端派生值，仍逐码过形制：脏码进 Meili filter 是「永不命中」而非报错。
     // 但**不能把空 nodes 洗成 undefined**（那等于「没墙→放开全量」）：
     // raw.wall 存在就保留，归一为 {nodes:[]} 交给 filter-builder 返空结果。

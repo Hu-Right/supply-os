@@ -509,7 +509,7 @@ CREATE TABLE `crm_chat_sessions` (
 -- ── crm_commodity_backbone ──
 CREATE TABLE `crm_commodity_backbone` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `code` varchar(16) NOT NULL COMMENT '树码 UGT-B-<2/4/6/8/10位>，码长即层级：1大类 2中类 3小类 4子类 5品目',
+  `code` varchar(16) NOT NULL COMMENT '树码 UGT-<2/4/6/8/10位>，码长即层级：1大类 2中类 3小类 4子类 5品目',
   `parent_code` varchar(16) NOT NULL DEFAULT '' COMMENT '父节点码；大类行为空串（大类之上不再有层）',
   `level` tinyint NOT NULL COMMENT '层级 1~5，必须与 code 去前缀后的长度一致（门禁 BB1 卡）',
   `group_code` varchar(16) NOT NULL COMMENT '所属大类码 UGT-G-NN，冗余到每一层：筛选与权益墙免递归查父',
@@ -793,7 +793,7 @@ CREATE TABLE `crm_notice_amount_cache` (
 -- ── crm_notice_backbone_nodes ──
 CREATE TABLE `crm_notice_backbone_nodes` (
   `notice_id` bigint unsigned NOT NULL COMMENT '公告主键 id（=crm_bid_notices.id=crm_notice_search.id）',
-  `node` varchar(16) NOT NULL COMMENT '品目节点的码（UGT-B-…，含全部祖先；由 backbone-path 从公告 UNSPSC 标签换算，不是 UNSPSC 码；字符集/排序规则故意与 crm_commodity_backbone.code 一致，否则两边比较会转列吃索引）',
+  `node` varchar(16) NOT NULL COMMENT '品目节点的码（UGT-…，含全部祖先；由 backbone-path 从公告 UNSPSC 标签换算，不是 UNSPSC 码；字符集/排序规则故意与 crm_commodity_backbone.code 一致，否则两边比较会转列吃索引）',
   PRIMARY KEY (`notice_id`,`node`),
   KEY `idx_node` (`node`,`notice_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告×品目骨架节点码倒排表：宽表 backbone_path 的行化派生镜像，唯一写入方 search-sync/notice-nodes';
@@ -872,8 +872,8 @@ CREATE TABLE `crm_notice_search` (
   `group_codes` text COMMENT '所属大类码集合，逗号分隔（OR 语义并集）',
   `code_path` text COMMENT '全部祖先 UNSPSC 前缀，逗号分隔（所见即所得命中键）',
   `precise_path` text COMMENT '同 code_path，来源=approved 精准候选码',
-  `backbone_path` mediumtext COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
-  `precise_backbone_path` mediumtext COMMENT 'approved 精准候选码挂靠到的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
+  `backbone_path` mediumtext COMMENT '公告归属的品目骨架节点码（UGT-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
+  `precise_backbone_path` mediumtext COMMENT 'approved 精准候选码挂靠到的品目骨架节点码（UGT-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
   PRIMARY KEY (`id`),
   KEY `idx_ns_deadline_desc` (`deadline_sec` DESC),
   KEY `idx_ns_id_desc` (`id` DESC),

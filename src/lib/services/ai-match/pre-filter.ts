@@ -7,7 +7,7 @@
  *              命中层级（L2~L5，L1 过宽不计）× 1000 定档，词项分仅同档内竞争；
  *              无码/不命中/未传节点码数据时行为与词项重叠版逐字一致。
  *              2026-10-11：两侧的键由旧字典 `crm_unspsc_codes` 的行 id 换成骨架节点码
- *              `UGT-B-*`（同一请求里两套键并存就是分叉温床，与检索侧同一理由）。
+ *              `UGT-*`（同一请求里两套键并存就是分叉温床，与检索侧同一理由）。
  */
 import { backboneNodeLevel } from "../commodity/backbone-path";
 
@@ -30,7 +30,7 @@ export interface PreFilterSupplier {
   certification?: unknown;
 }
 
-/** 粗筛所需的层级匹配数据：两侧都是骨架节点码集合（`UGT-B-*`，均含全部祖先） */
+/** 粗筛所需的层级匹配数据：两侧都是骨架节点码集合（`UGT-*`，均含全部祖先） */
 export interface PreFilterMatchData {
   /** 公告侧：宽表 backbone_path 拆出的节点码 */
   noticeNodes: Set<string>;

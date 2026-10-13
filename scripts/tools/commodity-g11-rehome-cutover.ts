@@ -75,13 +75,13 @@ if (CLEANUP) {
   for (const t of targets) {
     const n = (await q<{ n: number }>(
       `SELECT COUNT(*) n FROM \`${t.table}\` a LEFT JOIN \`${SRC}\` b ON b.code = a.${t.codeCol}
-        WHERE a.${t.codeCol} LIKE 'UGT-B-01%' AND b.code IS NULL`,
+        WHERE a.${t.codeCol} LIKE 'UGT-01%' AND b.code IS NULL`,
     ))[0];
     console.log(`${t.table} 的 01 子树孤儿行：${n.n}`);
     if (Number(n.n) > 0) {
       await conn.query(
         `DELETE a FROM \`${t.table}\` a LEFT JOIN \`${SRC}\` b ON b.code = a.${t.codeCol}
-          WHERE a.${t.codeCol} LIKE 'UGT-B-01%' AND b.code IS NULL`,
+          WHERE a.${t.codeCol} LIKE 'UGT-01%' AND b.code IS NULL`,
       );
       console.log(`✓ 已删 ${t.table} 孤儿行 ${n.n}`);
     }
@@ -127,11 +127,11 @@ if ((shape[0]?.bad_len ?? 0) > 0 || (shape[0]?.orphan ?? 0) > 0 || (shape[0]?.du
 // 不去拿宽表 backbone_path LIKE '%…'：那是 mediumtext 全表扫，实测不便宜，而重算本来就走全量管道。
 const invImpact = await q<{ inv: number; notices: number }>(
   (await exists(INVERTED))
-    ? `SELECT COUNT(*) inv, COUNT(DISTINCT notice_id) notices FROM \`${INVERTED}\` WHERE node LIKE 'UGT-B-01%'`
+    ? `SELECT COUNT(*) inv, COUNT(DISTINCT notice_id) notices FROM \`${INVERTED}\` WHERE node LIKE 'UGT-01%'`
     : `SELECT 0 inv, 0 notices`,
 );
 const attrRows = (await exists(ATTR))
-  ? (await q<{ n: number }>(`SELECT COUNT(*) n FROM \`${ATTR}\` WHERE node_code LIKE 'UGT-B-01%'`))[0]
+  ? (await q<{ n: number }>(`SELECT COUNT(*) n FROM \`${ATTR}\` WHERE node_code LIKE 'UGT-01%'`))[0]
   : { n: -1 };
 const im = { ...invImpact[0]!, attr: attrRows.n };
 console.log(`闸口 4 影响面：倒排行 ${im.inv} / 涉及公告 ${im.notices} / 落点行 ${im.attr < 0 ? "表未建" : im.attr}（宽表两列全量重跑，--only-changed 只写过期的行）`);

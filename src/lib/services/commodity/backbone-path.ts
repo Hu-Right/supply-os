@@ -1,5 +1,5 @@
 /**
- * 骨架路径换算器 — 把公告身上的 UNSPSC 码换成品目骨架节点码（`UGT-B-…`）
+ * 骨架路径换算器 — 把公告身上的 UNSPSC 码换成品目骨架节点码（`UGT-…`）
  *
  * @module lib/services/commodity/backbone-path
  * @description 为什么要这么换：公告的码全是 8 位，但里面大量是"粗码"（后几位为 0，只说到类/族/段）。
@@ -11,8 +11,9 @@
  *                2. 有效位只剩 6 位（类级粗码）⇒ 前 6 位等值命中 L4 子类；
  *                3. 有效位只剩 4 位（族级粗码）⇒ 用「族前缀 → 最深可证实唯一节点」映射：该族在树里
  *                   只有一个子类就落 L4（族 ≡ 子类，是结构事实不是推断），多个子类同属一个小类就落
- *                   L3，再往上一层唯一才落 L2；跨中类属数据冲突，直接抛错。映射全部由新树自己的
- *                   祖先链推导，不需要额外字典；
+ *                   L3，再往上中类/大类逐层唯一则落该层（2026-10-13 起树按业务语义重挂，一个 UNSPSC
+ *                   族的类行可以合法分属多个小类/中类——「最深可证实唯一祖先」自然延伸到 L1）；
+ *                   跨大类属数据冲突，直接抛错。映射全部由新树自己的祖先链推导，不需要额外字典；
  *                4. 有效位只剩 2 位（段级粗码）⇒ 用「段前缀 → 大类」映射命中大类。映射源是
  *                   crm_commodity_group_segments（我们自己的 32 类归属，不是旧树）。
  *              命中后连同**全部祖先码**一起输出：筛选时任意一层等值命中即可，运行期不做递归。
@@ -107,7 +108,7 @@ export function effectivePrefixOf(code: unknown): string | null {
 }
 
 /** 骨架节点码前缀：`crm_commodity_backbone.code` 的形制；tree.ts 复用这一份，不再各自写字面量 */
-export const BACKBONE_NODE_PREFIX = "UGT-B-";
+export const BACKBONE_NODE_PREFIX = "UGT-";
 
 /** 节点码形制：前缀 + 2/4/6/8/10 位数字（奇数位一律不认） */
 const NODE_RE = new RegExp(`^${BACKBONE_NODE_PREFIX}\\d{2}(\\d{2}){0,4}$`);
@@ -115,7 +116,7 @@ const NODE_RE = new RegExp(`^${BACKBONE_NODE_PREFIX}\\d{2}(\\d{2}){0,4}$`);
 /**
  * 骨架节点码 → 层级（1~5）；形制不符返回 0（调用方据此拒收，不猜层级）。
  * 全库只这一份形制判定：`chainOfNode` / `fromBackbonePathColumn` / `tree.ts` 的
- * `isCommodityNodeKey` 均走它。曾经有过只判 `startsWith` 的写法，那会把 `UGT-B-XY` 这种
+ * `isCommodityNodeKey` 均走它。曾经有过只判 `startsWith` 的写法，那会把 `UGT-XY` 这种
  * 脏 token 当成合法层级使 —— 两个同样的脏码直接得高分，就能出一条不存在的相似公告。
  * 故意不 trim：脏入参（URL 参数带空格、列里混进空白）宁可判非法 —— `tree.ts` 的原契约
  * 就是「形制不符不点亮」，这里多一次 trim 就会把脏键放进来。
@@ -124,6 +125,17 @@ export function backboneNodeLevel(node: unknown): number {
   const v = typeof node === "string" ? node : "";
   if (!NODE_RE.test(v)) return 0;
   return (v.length - BACKBONE_NODE_PREFIX.length) / 2;
+}
+
+/**
+ * 旧码制兼容归一（仅入口层用）：2026-10-13 前品目树码带面别字（`UGT-B-…`），存量外链
+ * （`?commodity=` / `?code=` / `?parent=`）可能仍带旧形，入口归一成现行码再走形制判定。
+ * 库列解析（`fromBackbonePathColumn`）**不走这里**——列形制已随数据迁移只有一种，
+ * 宽解析反会把脏 token 放进来（见 backboneNodeLevel 的不 trim 理由）。
+ */
+export function normalizeBackboneNodeKey(v: unknown): string {
+  const s = String(v ?? "");
+  return s.startsWith("UGT-B-") ? BACKBONE_NODE_PREFIX + s.slice(6) : s;
 }
 
 /**
@@ -169,7 +181,10 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
   //   成员只有一个      → 落 L4：族 ≡ 那个子类，是树的结构事实，不是推断
   //   父小类唯一        → 落 L3
   //   再往上中类唯一    → 落 L2
-  //   跨中类            → 数据冲突，抛错而不是挑一个
+  //   再往上大类唯一    → 落 L1（2026-10-13 起：树已按业务语义重挂，一个 UNSPSC 族的类行
+  //                        可以合法地分属多个小类/中类——现树 14 个族跨中类、0 个族跨大类；
+  //                        「最深可证实唯一祖先」规则自然延伸到 L1）
+  //   跨大类            → 数据冲突，抛错而不是挑一个
   const famMembers = new Map<string, BackboneRow[]>();
   for (const r of rows) {
     if (r.level !== 4 || !r.unspscPrefix) continue;
@@ -179,19 +194,26 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
     else famMembers.set(fam, [r]);
   }
   const famToDeepest = new Map<string, string>();
+  const only = (set: Set<string>): string | undefined => (set.size === 1 ? [...set][0] : undefined);
   for (const [fam, members] of famMembers) {
-    const l2s = new Set<string>();
-    for (const m of members) {
-      const l2 = ancestorsOf(m.code).find((x) => x.level === 2)?.code;
-      if (l2) l2s.add(l2);
-    }
-    if (l2s.size > 1) {
-      const [a, b] = [...l2s];
-      throw new Error(`族 ${fam} 的中类归属不唯一：${a} vs ${b}`);
-    }
+    const chains = members.map((m) => ancestorsOf(m.code));
     const l3s = new Set(members.map((m) => m.parentCode).filter(Boolean));
-    const only = (set: Set<string>): string | undefined => (set.size === 1 ? [...set][0] : undefined);
-    const deepest = members.length === 1 ? members[0].code : only(l3s) ?? (l2s.size === 1 ? [...l2s][0] : undefined);
+    const l2s = new Set<string>();
+    const l1s = new Set<string>();
+    for (const ch of chains) {
+      const l2 = ch.find((x) => x.level === 2)?.code;
+      const l1 = ch.find((x) => x.level === 1)?.code;
+      if (l2) l2s.add(l2);
+      if (l1) l1s.add(l1);
+    }
+    if (l1s.size > 1) {
+      const [a, b] = [...l1s];
+      throw new Error(`族 ${fam} 的大类归属不唯一：${a} vs ${b}`);
+    }
+    const deepest =
+      members.length === 1
+        ? members[0].code
+        : only(l3s) ?? only(l2s) ?? only(l1s);
     if (deepest) famToDeepest.set(fam, deepest);
   }
 
@@ -363,7 +385,7 @@ export function rootNodes(nodes: Iterable<string>): string[] {
 }
 
 /**
- * 列值 → 节点码数组（`toBackbonePathColumn` 的逆操作）：NULL/空串 → 空数组，去重，只留 `UGT-B-` 形制的 token。
+ * 列值 → 节点码数组（`toBackbonePathColumn` 的逆操作）：NULL/空串 → 空数组，去重，只留 `UGT-` 形制的 token。
  * 读取端拆列**只走这里**：手写 `split(",")` 的地方一多，列形制改了就会逐处静默失效。
  * 已登记消费方（新增一个就回这里点名，别让它默默长出第二份）：
  * - `notices/similar.ts`：从宽表列值取当前公告与候选公告的节点码；

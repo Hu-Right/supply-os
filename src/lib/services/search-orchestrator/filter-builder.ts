@@ -42,7 +42,7 @@ async function getAllNoticeTypes(pool: Pool): Promise<string[]> {
 // ── 品目大类 → 所辖 L1 节点码：取数与缓存均在 commodity/tree 的 loadGroupL1NodeMap（一份）──
 // 2026-10-11 backbone 化：旧的「大类 → 旧字典 level=2 段行 id」翻译链整条删掉（不再读 crm_unspsc_codes）。
 // 等价性实测：temp/probe75 逐类对拍 32 个大类，旧段 id 谓词与新 L1 节点码谓词命中数 Δ=0、不一致 0/32。
-// 为什么必须映射而不能切片：32 个 L1 行里只有 5 个的码序号等于大类码序号（`UGT-B-01` 的 group_code
+// 为什么必须映射而不能切片：32 个 L1 行里只有 5 个的码序号等于大类码序号（`UGT-01` 的 group_code
 // 是 `UGT-G-11`），所以「大类码 ↔ L1 节点码」只能回表取 backbone 自己的 group_code 列。
 
 /**
@@ -275,7 +275,7 @@ export async function buildFilterPlan(
   // 形状与大类 chip、五级下拉、可见性判定共用 nodeMeiliFilter / nodeMysqlWhere（一份形状）。
   // 2026-10-11 换口径：这里原本拼的是 `level{N}_id = <旧字典行 id>` 与
   // `FIND_IN_SET(?, ns.unspsc_level{N})` —— 两套键在同一请求里并存就是分叉温床。
-  // 脏键（非 UGT-B-*）：整块跳过、不报错、不 conflictEmpty（与旧实现「解析失败就忽略行业过滤」
+  // 脏键（非 UGT-*）：整块跳过、不报错、不 conflictEmpty（与旧实现「解析失败就忽略行业过滤」
   // 逐字一致），但在 digest 里留下 rejected 痕迹，否则排查时看不到这一条被吞了。
   if (category) {
     if (isCommodityNodeKey(category.node)) {
@@ -309,12 +309,12 @@ export async function buildFilterPlan(
     digestParts.push(`group:${p.groupCode}`);
   }
 
-  // ── 品目骨架五级下拉（URL commodity=UGT-B- 节点码）──
+  // ── 品目骨架五级下拉（URL commodity=UGT- 节点码）──
   // 谓词 = 宽表 backbone_path 里等值存在该节点码。backbone_path 存的是公告归属的骨架节点码
   // 及其全部祖先（lib/services/commodity/backbone-path 换算后灌入），所以选到哪一层就命中哪一层。
   // 两边同口径是前提：旧写法拿 UNSPSC 前缀去筛 code_path，现在键、列、树是同一套码，
   // 不再存在「键形制与列形制不同序」那一类陷阱（旧骨架树的坑，见 temp/probe52）。
-  // 实测：UGT-B-01 命中 49,258 条 = 大类 chip 口径；中类 UGT-B-0101 命中 7,616（temp/probe64，
+  // 实测：UGT-01 命中 49,258 条 = 大类 chip 口径；中类 UGT-0101 命中 7,616（temp/probe64，
   // 2026-10-11 全量重灌后 Meili 与 MySQL 逐码对拍相等，temp/probe91）。
   // 两条方言的形状与大类共用 nodeMeiliFilter / nodeMysqlWhere（一份形状，两处不分开错）。
   // Meili 侧需索引有 backbone_node 属性（sync.ts 由 backbone_path 拆数组）；

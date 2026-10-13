@@ -30,7 +30,7 @@
 /** 本次归位只动这一个抽屉 */
 export const REHOME_GROUP_CODE = "UGT-G-11";
 /** 该抽屉的骨架 L1 码（大类行本身不动，只动它的子树） */
-export const REHOME_L1_CODE = "UGT-B-01";
+export const REHOME_L1_CODE = "UGT-01";
 
 /** 一个小类（L3）：名字 + 成员 UNSPSC 6 位类前缀（顺序即界面 sort，按公告量降序） */
 export interface L3Spec {

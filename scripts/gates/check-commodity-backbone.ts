@@ -3,10 +3,10 @@
  *
  * @script scripts/gates/check-commodity-backbone.ts
  * @assertions
- *   BB1 码长即层级：UGT-B- 后 2/4/6/8/10 位对应 L1~L5；父码=自身去末两级且存在；每父子数 ≤ 99；名非空
+ *   BB1 码长即层级：UGT- 后 2/4/6/8/10 位对应 L1~L5；父码=自身去末两级且存在；每父子数 ≤ 99；名非空
  *   BB2 码全覆盖：本表带 6 位前缀的行数 = 原树类数、带 8 位 = 原树品目数，且逐码在原树里存在（一个不多一个不少）
  *      ↳ 与旧树互比的部分只在旧树还在库里时执行；旧树下线后靠树内自洽断言 + BB7 逐码对树
- *   BB3 归属可推导且唯一：同一个族的所有类行必须落在同一个中类下；同一个段的所有族必须落在同一个大类下
+ *   BB3 归属可推导且唯一：同一个族的类行必须落在同一个大类下（小类/中类跨枝为语义重挂后的合法形态，族级粗码落最深可证实唯一祖先）；同一个段的所有族必须落在同一个大类下
  *   BB4 大类连续：节点 group_code = 祖先 group_code = 常量按段推出的所属大类（段归属表退役后直接对常量）
  *   BB5 五级齐：L1 恰 32 行且 parent 为空串，L1~L5 每级都有行；同名兄弟只 WARN
  *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥（旧树已删则无对象，只打印跳过）
@@ -15,7 +15,7 @@
  *      ↳ 「可算」= 拿同一份纯函数对当前树重算能出节点；全码都换不出的公告列为 NULL 是预期（以树为准），只报数不计红
  *   BB8 旧树零引用（静态）：src/** 不得出现 FROM/JOIN crm_commodity_nodes* —— 这是「旧树可以删」的机器证明
  *      ↳ 后缀走 \w* ：旧树 RENAME 后的退役表照样算引用（带自检，防改名豁免）
- *   BB9 族级落点分档：拿纯函数逐族试挂粗码，L2/L3/L4 三档必须都有落点 —— 防「最深可证实唯一」被改回一刀切
+ *   BB9 族级落点分档：拿纯函数逐族试挂粗码，L1/L2/L3/L4 四档至少三档有落点 —— 防「最深可证实唯一」被改回一刀切
  *      ↳ 覆盖率类断言抓不到退化（一刀切也是 100%），只有落点层数能叫出来
  *   BB10 列值可由纯函数重算：抽样公告从桥表码重算节点码集，与宽表 backbone_path 逐条比对，差异必须 0
  *   BB11 precise_backbone_path 同口径可重算：同一份纯函数、另一张码表（商机 approved 候选码），全量对拍
@@ -40,7 +40,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { COMMODITY_GROUPS } from "../../src/lib/services/commodity/groups";
 import { ACTIVE_NOTICE_WHERE } from "../../src/lib/utils/notice-expired";
-import { loadBackboneIndex, toBackbonePathColumn, type BackboneIndex } from "../../src/lib/services/commodity/backbone-path";
+import { loadBackboneIndex, toBackbonePathColumn, BACKBONE_NODE_PREFIX, type BackboneIndex } from "../../src/lib/services/commodity/backbone-path";
 import { pathOfLandingNodes } from "../../src/lib/services/commodity/attribution";
 
 const DB = process.argv.includes("--db");
@@ -148,7 +148,7 @@ const hasLegacy = Number(legacyTab.n) > 0;
 const orig = hasLegacy
   ? await one(
       `SELECT SUM(level='family') fam, SUM(level='class') cls, SUM(level='commodity') cmd, COUNT(*) total,
-              SUM(code LIKE 'UGT-B-%') leaked FROM crm_commodity_nodes`,
+              SUM(code LIKE 'UGT-%') leaked FROM crm_commodity_nodes`,
     )
   : null;
 // 段→大类只认常量这一份：段归属表 crm_commodity_group_segments 已按 ADR-0009 退役，
@@ -158,8 +158,8 @@ const kids = new Map<string, number>();
 
 // ── BB1 ──
 for (const r of rows) {
-  if (!/^UGT-B-\d+$/.test(r.code)) { fail(`BB1 码形制非法：${r.code}`); continue; }
-  if (r.code.length !== 6 + r.level * 2) fail(`BB1 码长与层级不符：${r.code}（L${r.level} 应为 ${6 + r.level * 2} 字符）`);
+  if (!/^UGT-\d+$/.test(r.code)) { fail(`BB1 码形制非法：${r.code}`); continue; }
+  if (r.code.length !== BACKBONE_NODE_PREFIX.length + r.level * 2) fail(`BB1 码长与层级不符：${r.code}（L${r.level} 应为 ${BACKBONE_NODE_PREFIX.length + r.level * 2} 字符）`);
   if (r.level === 1) { if (r.parent_code !== "") fail(`BB1 大类行 parent 应为空串：${r.code}`); }
   else {
     if (r.parent_code !== r.code.slice(0, -2)) fail(`BB1 父码≠自身去末两级：${r.code}→${r.parent_code}`);
@@ -201,13 +201,17 @@ if (orig) {
 }
 
 // ── BB3 归属可推导且唯一 + BB4 大类连续 ──
-const anc = (code: string, level: number) => code.slice(0, 6 + level * 2);
+// 2026-10-13 口径更新：树已按业务语义重挂，一个 UNSPSC 族的类行可以合法分属多个小类/中类
+// （换算器的「最深可证实唯一祖先」已延伸到 L1）——族级唯一性只在**大类层**强制；
+// 小类/中类跨枝只计数不报错。`anc` 的 6 = 旧前缀 UGT-B- 长度，码制去 -B 后改从常量取。
+const anc = (code: string, level: number) => code.slice(0, BACKBONE_NODE_PREFIX.length + level * 2);
 const famToL2 = new Map<string, string>();
+let famCrossL2 = 0;
 for (const r of p6) {
   const fam = String(r.unspsc_prefix).slice(0, 4);
   const l2 = anc(r.code, 2);
   const prev = famToL2.get(fam);
-  if (prev && prev !== l2) fail(`BB3 族 ${fam} 的类行跨了两个中类：${prev} 与 ${l2}`);
+  if (prev && prev !== l2) famCrossL2++;
   famToL2.set(fam, l2);
   // BB4：类行的段 → 大类，必须等于自身与祖先的 group_code
   const seg = fam.slice(0, 2);
@@ -218,6 +222,7 @@ for (const r of p6) {
   if (wantGroup && wantGroup !== r.group_code) fail(`BB4 段 ${seg} 应属 ${wantGroup}，但 ${r.code} 记的是 ${r.group_code}`);
 }
 if (orig && famToL2.size !== Number(orig.fam)) fail(`BB3 可由类行反推出的族数=${famToL2.size}，原树族数=${orig.fam}`);
+console.log(`ℹ BB3 语义重挂口径：${famCrossL2} 个族的类行合法跨中类（族级唯一性只在 tightened 大类层强制，跨大类已在 BB4 覆盖）`);
 const segToL1 = new Map<string, string>();
 for (const [fam, l2] of famToL2) {
   const seg = fam.slice(0, 2);
@@ -325,7 +330,7 @@ if (Number(pathCol.n) === 0) {
   // 祖先全存的不变量：排好序后第一个码必为大类行（否则说明回填时漏了链顶）
   const noTop = await one(
     `SELECT COUNT(*) n FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>''
-       AND SUBSTRING_INDEX(backbone_path, ',', 1) NOT REGEXP '^UGT-B-[0-9]{2}$'`,
+       AND SUBSTRING_INDEX(backbone_path, ',', 1) NOT REGEXP '^UGT-[0-9]{2}$'`,
   );
   if (Number(p.blank) !== 0) fail(`BB7 宽表有 ${p.blank} 行 backbone_path 是空串，应为 NULL`);
   if (Number(p.bad) !== 0) fail(`BB7 有 ${p.bad} 行 backbone_path 含非法字符（只允许树码与逗号）`);
@@ -389,17 +394,19 @@ if (Number(pathCol.n) === 0) {
       famHist.set(hit.row.level, (famHist.get(hit.row.level) ?? 0) + 1);
     }
     const at = (lv: number) => famHist.get(lv) ?? 0;
-    console.log(`BB9 族级落点 ${famToL2.size} 族：L4 ${at(4)} / L3 ${at(3)} / L2 ${at(2)}（2026-10-11 实测基线 33/256/270）`);
+    console.log(`BB9 族级落点 ${famToL2.size} 族：L4 ${at(4)} / L3 ${at(3)} / L2 ${at(2)} / L1 ${at(1)}（语义重挂后族可落 L1）`);
     if (famMiss.length) fail(`BB9 有 ${famMiss.length} 个族的粗码换不出落点，样本 ${famMiss.slice(0, 3).join("、")}`);
-    // 三档计数必须恰好吃完全部族：漏掉的那部分会既不进三档也不进 famMiss，
+    // 计数必须恰好吃完全部族：漏掉的那部分会既不进各档也不进 famMiss，
     // 比如树里出现形如 XXXX0000 的 8 位品目键时，match() 的「等值优先」会让该族粗码直接落 L5
-    const famAccounted = at(2) + at(3) + at(4) + famMiss.length;
+    const famAccounted = at(1) + at(2) + at(3) + at(4) + famMiss.length;
     if (famAccounted !== famToL2.size) {
-      fail(`BB9 族级落点只算了 ${famAccounted}/${famToL2.size} 个族 ⇒ 有族的粗码落到了 L2/L3/L4/miss 之外（键形制被污染）`);
+      fail(`BB9 族级落点只算了 ${famAccounted}/${famToL2.size} 个族 ⇒ 有族的粗码落到了 L1/L2/L3/L4/miss 之外（键形制被污染）`);
     }
-    // 三档都要非零：只有一档就是被改回一刀切（L2）或只会落 L4（无唯一性判定）
-    for (const lv of [2, 3, 4]) {
-      if (at(lv) === 0) fail(`BB9 族级没有一族落 L${lv} ⇒ 落点规则疑似退化（三层都该有非零落点）`);
+    // 至少三档有落点：只有一档就是被改回一刀切，或只会上浮（无唯一性判定）。
+    // 2026-10-13 起族可合法落 L1（语义重挂后族可跨中类），四档里非零档数 ≥3 即视为未退化。
+    const tiersNonZero = [1, 2, 3, 4].filter((lv) => at(lv) > 0).length;
+    if (tiersNonZero < 3) {
+      fail(`BB9 族级落点只有 ${tiersNonZero} 档非零 ⇒ 落点规则疑似退化（至少三档该有落点）`);
     }
     const segBad = [...segToL1.keys()].filter((seg) => ix.match(`${seg}000000`)?.row.level !== 1);
     if (segBad.length) fail(`BB9 有 ${segBad.length} 个段的粗码没落到大类，样本 ${segBad.slice(0, 3).join("、")}`);
@@ -525,7 +532,7 @@ function bandof(parentLevel: number) {
     const dst = await one(
       `SELECT COUNT(*) rows_, COUNT(DISTINCT notice_id) notices,
               SUM(node REGEXP '[^A-Za-z0-9-]') badShape,
-              SUM(node NOT LIKE 'UGT-B-%') badPrefix
+              SUM(node NOT LIKE 'UGT-%') badPrefix
        FROM ${NODES_TAB}`,
     );
     const srcTokens = Number(src.tokens ?? 0);
@@ -541,7 +548,7 @@ function bandof(parentLevel: number) {
       fail(`BB14 公告数不闭合（桥表 ${Number(dst.notices)} vs 源 ${Number(src.notices)}）：多=该公告已去码/已删但桥表留行，少=回填没覆盖到`);
     }
     if (Number(dst.badShape ?? 0) > 0 || Number(dst.badPrefix ?? 0) > 0) {
-      fail(`BB14 有非节点码形制的行（${Number(dst.badShape ?? 0)}/${Number(dst.badPrefix ?? 0)}）：本表只允许 backbone-path 产出的 UGT-B- 码`);
+      fail(`BB14 有非节点码形制的行（${Number(dst.badShape ?? 0)}/${Number(dst.badPrefix ?? 0)}）：本表只允许 backbone-path 产出的 UGT- 码`);
     }
     // 2) 不留残行：桥表每一行必须能回到一条有列值的宽表行
     const orphan = await one(

@@ -82,7 +82,7 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     // 「含原始文件」筛选依据
     documents_count: Number(r.documents_count) || 0,
     ...langFields,
-    // 品目骨架树筛选属性：宽表 backbone_path 存该公告归属的骨架节点码（UGT-B-…，含全部祖先，
+    // 品目骨架树筛选属性：宽表 backbone_path 存该公告归属的骨架节点码（UGT-…，含全部祖先，
     // 由 lib/services/commodity/backbone-path 换算后灌入），商机页五级下拉选到哪一层就等值命中哪一层
     // （与 filter-builder 的 MySQL 方言同一谓词、同一口径）。
     // 单值 ≤ 16 字符，不受 Meili 单值 468 字节限制；一个文档里节点项可达数千（实测最大 5,279），

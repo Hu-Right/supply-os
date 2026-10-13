@@ -133,7 +133,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
 
   /**
    * 五级下拉的任一层选中入 URL（URL 是唯一事实源，level 0=大类、1~4=中类/小类/子类/品目）。
-   * commodity 的值就是骨架节点码（UGT-B-…），与公告侧 backbone_path 同口径，可直接当筛选键。
+   * commodity 的值就是骨架节点码（UGT-…），与公告侧 backbone_path 同口径，可直接当筛选键。
    * 大类入口只剩这里：原本的 32 类 chip 行因与第一级完全重叠已下线。
    */
   const setCommodityLevel = useCallback((level: number, key: string) => {
