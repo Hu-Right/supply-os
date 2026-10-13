@@ -395,8 +395,9 @@ export function rootNodes(nodes: Iterable<string>): string[] {
  * - `ai-match/match-nodes.ts`：粗筛公告侧拆宽表 `backbone_path`（供应商侧不拆列，
  *   兴趣码走 `getBackboneIndex().pathOf` 换算，与本函数同一口径）；
  * - `commodity/attribution.ts`：拆列取最深落点（UNSPSC 退役后归属事实源 ↔ 派生列的唯一换算面）；
- * - `commodity/attribution-contract.ts`：落点表契约的差异文本与 AS4 token 计数（此处**必须**用本函数
- *   而不是 `split(",")`：脏 token 不算落点，否则门禁会把形制问题报成归属缺口）。
+ * - `commodity/attribution-contract.ts`：落点表契约的 AS4 token 计数与差异文本的合法集
+ *   （用本函数而不是 `split(",")`，脏 token 不计入“有多少个落点”；
+ *   契约内部的**脏 token 体检**段则故意走 split，它要看的就是被本函数过滤掉的那批）。
  * 待切（UNSPSC 全面退役的二批，均应改调本函数而不是自己拆）：`unspsc/*` 类目工具、三个 repo、
  * `recommend`。`hot-topics` 已收：它的计数留在 SQL 里按包含关系聚合
  * （`FIND_IN_SET` 与检索谓词同一条关系），不在应用侧拆列 ⇒ 不进本名单。

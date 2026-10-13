@@ -69,6 +69,13 @@ describe("AS2 legacy 派生必须等于列值", () => {
     const r = auditLanding([{ pk: 9, code: "UGT-02", source: ATTR_SOURCE_LEGACY }], [{ pk: 9, col: CHAIN }]);
     expect(r.violations.some((v) => v.startsWith("AS2"))).toBe(true);
   });
+
+  it("列值含脏 token ⇒ 报红且点名脏 token（不能三段全空、报红无因）", () => {
+    const r = auditLanding(chainLandings(1), [{ pk: 1, col: `${CHAIN},XX-BAD` }]);
+    const as2 = r.violations.filter((v) => v.startsWith("AS2"));
+    expect(as2).toHaveLength(1);
+    expect(as2[0]).toContain("列内非节点码 token XX-BAD");
+  });
 });
 
 describe("AS3 半写 / AS4 断供", () => {
@@ -80,6 +87,13 @@ describe("AS3 半写 / AS4 断供", () => {
   it("有列值、零落点 ⇒ AS4 红（切读会把这条清空）", () => {
     const r = auditLanding([], [{ pk: 77, col: CHAIN }]);
     expect(r.violations.some((v) => v.startsWith("AS4") && v.includes("pk=77"))).toBe(true);
+    // 锁住 token 计数：上一轮变异测试发现它退回 split 后依然全绿
+    expect(r.violations[0]).toContain("5 个合法 token");
+  });
+
+  it("AS4 计数只算合法 token（脏 token 不算落点）", () => {
+    const r = auditLanding([], [{ pk: 88, col: "UGT-02,JUNK" }]);
+    expect(r.violations[0]).toContain("1 个合法 token");
   });
 
   it("AI 侧公告不参与 AS2，但计入 stats.aiNotices", () => {

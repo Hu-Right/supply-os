@@ -165,8 +165,13 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
       b.legacy.map((code) => ({ pk, code, source: ATTR_SOURCE_LEGACY })),
       [{ pk, col }],
     ).map((p) => p.code);
+    // 脏 token 单独报：colSet 已经把它过滤了，不补这一句就可能出现「报红了但三段全空」。
+    // 这里故意用 split 而不是 fromBackbonePathColumn：要看的恰恰是官方解析器丢掉的那批 token。
+    const dirty = String(col)
+      .split(",")
+      .filter((x) => x !== "" && !colSet.has(x));
     push(
-      `AS2 快照落后：公告 pk=${pk} 派生 ${dSet.size} 个 / 列内 ${colSet.size} 个；派生有列无 ${onlyDerived.slice(0, 6).join(" ") || "—"}；列有派生无 ${onlyCol.slice(0, 6).join(" ") || "—"}；该补的落点 ${pairs.slice(0, 6).join(" ") || "—"}`,
+      `AS2 快照落后：公告 pk=${pk} 派生 ${dSet.size} 个 / 列内 ${colSet.size} 个；派生有列无 ${onlyDerived.slice(0, 6).join(" ") || "—"}；列有派生无 ${onlyCol.slice(0, 6).join(" ") || "—"}；该补的落点 ${pairs.slice(0, 6).join(" ") || "—"}${dirty.length ? `；列内非节点码 token ${dirty.slice(0, 3).join(" ")}` : ""}`,
     );
   }
 
