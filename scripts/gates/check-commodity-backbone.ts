@@ -659,6 +659,27 @@ function bandof(parentLevel: number) {
   }
 }
 
+// ── BB16 新公告落点覆盖率红信号（R2 切读后 MUST：跌破阈值 WARN，不许静默缺席。仅 WARN，不影响退出码）──
+{
+  const attrExists = await one(
+    `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='crm_notice_attribution_nodes'`,
+  );
+  if (Number(attrExists.n) > 0) {
+    const cov = await one(
+      `SELECT COUNT(*) total,
+              COALESCE(SUM(EXISTS(SELECT 1 FROM crm_notice_attribution_nodes a WHERE a.notice_pk = n.id)), 0) covered
+         FROM crm_bid_notices n
+        WHERE n.create_time >= UNIX_TIMESTAMP(NOW() - INTERVAL 7 DAY)`,
+    );
+    const total = Number(cov.total), covered = Number(cov.covered);
+    const rate = total ? covered / total : 1;
+    const line = `BB16 近7天新公告落点覆盖率：${covered}/${total} = ${(rate * 100).toFixed(1)}%`;
+    if (total === 0) console.log(`⚠ ${line}（无新公告，跳过）`);
+    else if (rate < 0.6) console.log(`⚠ ${line} ⇒ 跌破 60%：若已切读（ATTRIBUTION_READ=on），这些新公告 backbone_path 会是 NULL（分类静默缺席）——需跑落点生产者（AI 或镜像）补落点。flag 关时此警告仅为前瞻`);
+    else console.log(line);
+  }
+}
+
 /** 跳过的断言必须每次都说出来：放在失败出口之前，否则门禁一红就看不出跨树项到底跑没跑 */
 if (!hasLegacy) {
   console.log("⚠ 旧树 crm_commodity_nodes 已不在库里：BB2 码域对账 / BB3 族数对账 / BB6 原树未动 三条跨树断言本次未执行（树内自洽断言 BB1/BB4/BB5/BB7/BB8/BB9/BB10/BB11/BB12/BB13/BB14/BB15 照常）");
