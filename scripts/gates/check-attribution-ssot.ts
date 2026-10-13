@@ -9,7 +9,8 @@
  *   npx tsx scripts/gates/check-attribution-ssot.ts                 # 连库全量（生产只读）
  *   ATTR_SSOT_FIXTURE=f.json npx tsx scripts/gates/check-attribution-ssot.ts   # 夹具，不连库
  *
- * @limits 只读。单条语句 60s 服务端超时（MAX_EXECUTION_TIME），宁可失败也不留长查询在生产上。
+ * @limits 只读。单条语句 60s 服务端超时（MAX_EXECUTION_TIME，挂在**单连接**的会话上 —— 用池
+ *         会让第二条连接带着全局 0 跑全表），宁可失败也不留长查询在生产上。
  *         扫描中断一律 **exit 1**（fail-closed）：规格 §5 写明「不能把没红当成可以切读」，
  *         所以超时/断连不能悄悄退成 0。分批按 notice_pk 走 uk 前缀，内存只留一批。
  * @see docs/adr/0014-attribution-landing-table-two-writers.md
@@ -24,11 +25,15 @@ import {
 } from "../../src/lib/services/commodity/attribution-contract";
 
 const FIXTURE = process.env.ATTR_SSOT_FIXTURE ?? "";
-const TABLE = process.env.ATTR_SSOT_TABLE ?? "crm_notice_attribution_nodes";
+// 用 || 而不是 ??：自测的“真实库”分支会显式传空串来清掉父 env 残留，
+// ?? 不接管空串 ⇒ 表名变 "" ⇒ 被下面的白名单判死，用例永远红在错误的原因上。
+const TABLE = process.env.ATTR_SSOT_TABLE || "crm_notice_attribution_nodes";
 /** 每批多少个公告：一批落点 + 一批列值两份结果集，2000 条约几千行，够用且内存可控 */
 const BATCH = 2000;
 /** 打印破口样本的上限（与契约内的 MAX_REPORT 同值，双保险） */
 const MAX_PRINT = 40;
+/** 服务端单条语句超时（只读门禁不拖垮生产） */
+const MAX_EXEC_MS = 60000;
 const fails: string[] = [];
 
 function report(violations: string[], stats: ContractStats) {
@@ -59,21 +64,29 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, "");
   }
-  const pool = await mysql.createPool({
-    host: process.env.DB_HOST ?? "127.0.0.1",
-    port: Number(process.env.DB_PORT) || 3306,
+  // 表名来自 env 但会拼进反引号（反引号不转义），所以先过白名单再用：
+  // 这不是防“拿到 env 就能拿到库”那个人，而是防“操作员以为扫了正名表、其实扫了影子表还打印✓”。
+  if (!/^crm_[a-z0-9_]{1,60}$/.test(TABLE)) {
+    throw new Error(`表名形制非法（ATTR_SSOT_TABLE）：${TABLE}`);
+  }
+  const host = process.env.DB_HOST ?? "127.0.0.1";
+  const port = Number(process.env.DB_PORT) || 3306;
+  // 故意用单连接而不是池：MAX_EXECUTION_TIME 是**会话**变量，池里第二条连接会带着全局 0 跑
+  // 全表反连接（顺序查询恰好复用同一连接，属巧合）。同仓 notice-attribution-ddl 已记过这个坑。
+  const conn = await mysql.createConnection({
+    host,
+    port,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME ?? "crm",
     charset: "utf8mb4",
-    connectionLimit: 2,
   });
   const q = async <T>(sql: string, a?: unknown[]): Promise<T[]> =>
-    ((await pool.query(sql, a)) as unknown as [T[]])[0];
+    ((await conn.query(sql, a)) as unknown as [T[]])[0];
   try {
-    await pool.query("SET SESSION MAX_EXECUTION_TIME = 60000");
+    await conn.query(`SET SESSION MAX_EXECUTION_TIME = ${MAX_EXEC_MS}`);
     const db = await q<{ d: string }>(`SELECT DATABASE() d`);
-    console.log(`连的是库：${db[0].d}@${process.env.DB_HOST}:${process.env.DB_PORT} · 表 ${TABLE} · 只读全量`);
+    console.log(`连的是库：${db[0].d}@${host}:${port} · 表 ${TABLE} · 只读全量`);
 
     const all: string[] = [];
     const stats = zeroStats();
@@ -121,24 +134,42 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
     const orphanN = Number(orphan[0]?.n ?? 0);
     stats.noticesWithColumn += orphanN;
     stats.orphanColumnNotices += orphanN;
-    if (orphanN) all.push(`AS4 断供：${orphanN} 条公告有列值但落点表零行 ⇒ 切读那一刻会被清成 NULL`);
+    if (orphanN) {
+      all.push(`AS4 断供：${orphanN} 条公告有列值但落点表零行 ⇒ 切读那一刻会被清成 NULL`);
+      // 只报总数等于让人再跑一次 SQL：顺手取 10 个 pk 当样本（仍只读）
+      const sample = await q<{ pk: number }>(
+        `SELECT ns.id pk FROM crm_notice_search ns LEFT JOIN \`${TABLE}\` a ON a.notice_pk = ns.id
+           WHERE ns.backbone_path IS NOT NULL AND ns.backbone_path <> '' AND a.notice_pk IS NULL
+           ORDER BY ns.id LIMIT 10`,
+      );
+      if (sample.length) all.push(`AS4 样本 pk：${sample.map((r) => r.pk).join(" ")}`);
+    }
     console.log(`扫描完成：${batches} 批，按 notice_pk 分页`);
     return { all, stats };
   } finally {
-    await pool.end();
+    await conn.end();
   }
 }
 
 if (FIXTURE) {
-  const data = JSON.parse(readFileSync(FIXTURE, "utf8")) as { landings?: LandingRow[]; columns?: ColumnRow[] };
-  const { violations, stats } = auditLanding(data.landings ?? [], data.columns ?? []);
-  report(violations, stats);
+  try {
+    const data = JSON.parse(readFileSync(FIXTURE, "utf8")) as { landings?: LandingRow[]; columns?: ColumnRow[] };
+    // 夹具零校验会假绿：`{}` 被当成“干净”打印通过。坏夹具宁可红，不能绿。
+    if (!Array.isArray(data.landings) || !Array.isArray(data.columns)) {
+      throw new Error("夹具必须同时含 landings[] 与 columns[] 两个数组");
+    }
+    const { violations, stats } = auditLanding(data.landings, data.columns);
+    report(violations, stats);
+  } catch (e) {
+    console.error(`✗ 夹具不可用：${(e as Error).message}`);
+    fails.push("夹具未能执行（不代表无破口）");
+  }
 } else {
   try {
     const { all, stats } = await runDb();
     report(all.slice(0, MAX_PRINT), stats);
     if (all.length > MAX_PRINT) {
-      console.error(`  …另有 ${all.length - MAX_PRINT} 条同类破口（样本上限 ${MAX_PRINT}，全量计数见上一行）`);
+      console.error(`  …样本只打 ${MAX_PRINT} 条，全量规模看下一行的 ✗ 汇总（由 stats 计数，不是样本条数）`);
     }
   } catch (e) {
     // fail-closed：没扫完 ≠ 扫过了

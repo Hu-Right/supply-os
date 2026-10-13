@@ -39,9 +39,10 @@ const chain = (pk) => CHAIN.split(",").map((code) => ({ pk, code, source: "legac
 
 test(
   "真实库全量对拍（需显式开启；补灌前它本该红）",
-  { skip: process.env.ATTR_SSOT_REAL_DB ? false : "CI 无生产库；本地有隧道时用 ATTR_SSOT_REAL_DB=1 跑" },
+  { skip: process.env.ATTR_SSOT_REAL_DB === "1" ? false : "CI 无生产库；本地有隧道时用 ATTR_SSOT_REAL_DB=1 跑" },
   () => {
-    const r = run();
+    // 必须清掉父 shell 可能残留的夹具/表名：否则这条“真实库对拍”会静默变成跑夹具，结论作废
+    const r = run({ ATTR_SSOT_FIXTURE: "", ATTR_SSOT_TABLE: "" });
     assert.equal(r.code, 0, r.out);
     assert.match(r.out, /落点表契约通过/);
   },
@@ -77,4 +78,18 @@ test("AI 侧公告不误报（列值还没重派生是正常中间态）", () =>
   const r = run({ ATTR_SSOT_FIXTURE: f });
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /ai_content 公告 1/);
+});
+
+test("干净夹具必须绿（防止门禁只会红、不会绿）", () => {
+  const f = fixture({ landings: chain(725), columns: [{ pk: 725, col: CHAIN }] });
+  const r = run({ ATTR_SSOT_FIXTURE: f });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /落点表契约通过/);
+});
+
+test("坏夹具宁可红，不能当“干净”打印通过", () => {
+  const f = fixture({});
+  const r = run({ ATTR_SSOT_FIXTURE: f });
+  assert.equal(r.code, 1, "缺键夹具被当成干净放行了");
+  assert.match(r.out, /夹具/);
 });
