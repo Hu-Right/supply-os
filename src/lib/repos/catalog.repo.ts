@@ -137,20 +137,14 @@ export class CatalogRepo {
     return (rows as UnspscRow[])[0] ?? null;
   }
 
-  /** UNSPSC 关键词搜索 */
-  async searchUnspsc(q: string): Promise<UnspscRow[]> {
-    // P3-7 安全修复：LIKE 通配符转义，防止用户输入的 %/_ 被当作通配符
-    const eq = escapeLikeWildcard(q);
-    const [rows] = await this.pool.query(
-      `SELECT id, title_zh, title, code, parent_id, level
-       FROM crm_unspsc_codes
-       WHERE code LIKE ? OR title_zh LIKE ? OR title LIKE ?
-       ORDER BY level, code
-       LIMIT 30`,
-      [`${eq}%`, `%${eq}%`, `%${eq}%`],
-    );
-    return rows as UnspscRow[];
-  }
+  /*
+   * R3' B4 删除：searchUnspsc（UNSPSC 关键词搜索）。
+   * 删的依据是「端点与方法同时零读者」，不是「看规格没点名就当它不存在」：
+   *   - 唯一读者是 GET /api/unspsc/search，而该端点在全仓（含前端、测试、脚本）无任何 fetch 引用，
+   *     core/unspsc/api.ts 里连对应的请求函数都没有；
+   *   - 六个语言包里残留的 searchUnspscPlaceholder 文案也已零引用（孤儿文案），
+   *     不能拿「文案存在」反推「入口活着」；文案本体留到 B11 统一清。
+   */
 
   /** 智能推断 UNSPSC 类目：输入关键词，返回最优匹配路径与候选列表。
    *
