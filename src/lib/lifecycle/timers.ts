@@ -12,6 +12,7 @@ import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } fro
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
 import { syncWideIds } from "../services/search-sync/index";
 import { cleanupStaleNoticeBridge } from "../services/data-cleanup";
+import { runAttributionMirror } from "../services/commodity/attribution-mirror";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { releaseExpiredClaims } from "../services/supplier-claim";
@@ -244,6 +245,28 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     }, claimExpiryIntervalHours * 3600 * 1000);
   }
 
+  // 8. 桥表→落点 增量镜像（UNSPSC 退役 混合①的非 API 生产者）：把「有 backbone_path 列值、但落点表没有」的
+  //    新公告压回事实源，保持「落点 ⊇ 列值」（B=0），为 R2 切读铺路。只写 crm_notice_attribution_nodes，
+  //    flag ATTRIBUTION_READ 关时对现网分类零影响（buildWideRow 仍读桥表）。脏列/树外整条跳过交人工，不“顺手改归属”。
+  //    ATTRIBUTION_MIRROR_ENABLED=off 关闭；间隔 ATTRIBUTION_MIRROR_INTERVAL_MINUTES（默认 10 分钟）；启动后 30s 先跑一次存量。
+  let attributionMirrorTimer: NodeJS.Timeout | null = null;
+  if (String(process.env.ATTRIBUTION_MIRROR_ENABLED ?? "on").toLowerCase() !== "off") {
+    const mirrorEveryMin = Math.max(1, Number(process.env.ATTRIBUTION_MIRROR_INTERVAL_MINUTES || 10));
+    let mirrorRuns = 0;
+    const runMirror = async () => {
+      const seq = ++mirrorRuns;
+      try {
+        const r = await runAttributionMirror(dbPool);
+        if (r.writtenRows > 0) console.log(`[attribution-mirror] 第 ${seq} 次：扫 ${r.scanned} → 镜像 ${r.seededNotices} 公告/${r.writtenRows} 落点行（跳过脏列 ${r.skippedDirty}／树外 ${r.skippedPhantom}）`);
+        else if (seq === 1) console.log(`[attribution-mirror] 第 1 次：扫 ${r.scanned}，落点已覆盖列值（间隔 ${mirrorEveryMin} 分钟）`);
+      } catch (e) {
+        console.error(`[attribution-mirror] 第 ${seq} 次失败（不影响下次扫描）:`, (e as Error).message);
+      }
+    };
+    setTimeout(() => { void runMirror(); }, 30_000);
+    attributionMirrorTimer = setInterval(() => { void runMirror(); }, mirrorEveryMin * 60_000);
+  }
+
   return {
     stop() {
       clearInterval(featuredRefreshTimer);
@@ -254,6 +277,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       if (paymentMaintenanceTimer) clearInterval(paymentMaintenanceTimer);
       if (paymentTierSyncTimer) clearTimeout(paymentTierSyncTimer);
       if (claimExpiryTimer) clearInterval(claimExpiryTimer);
+      if (attributionMirrorTimer) clearInterval(attributionMirrorTimer);
     },
   };
 }
