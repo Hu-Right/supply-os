@@ -55,9 +55,8 @@ export {
   type OppBridgeSyncResult,
 } from "./opp-bridge";
 
-// SQL 构建
+// SQL 构建（buildNoticeUnspscFilter 已随 R3' 断读者删除：全仓零调用者）
 export {
-  buildNoticeUnspscFilter,
   getUnspscPath,
 } from "./filter";
 
