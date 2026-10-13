@@ -19,7 +19,17 @@ R1' 据此建表并从列值反推灌入存量（`source='legacy_tag'`），生�
 2. **公告归属唯一事实源 = `crm_notice_attribution_nodes.node_code`（存最深落点，不存祖先链）**；`backbone_path` 继续是派生列，由 `pathOfLandingNodes()` 补全祖先、由宽表构建器唯一写入（ADR-0007 前提不废，只换输入）。
 3. **两类 source 的性质不同，处置权不同**：`legacy_tag` 是从列值反推的**快照**，可整批重灌、无信息损失；`ai_content` 是判定产出的**事实**，换不回来。因此**禁止在正名表上做 `--drop-table` 回滚演练**（原 R1' 的回滚位作废），演练一律改影子表。
 4. **唯一键不加 `source`，改用门禁守住分桶契约**。并发方的写入范围是「只瞄零落点公告」，而 `legacy_tag` 覆盖的是「有列值」的公告 ⇒ 两边按公告天然分桶，同一公告不会混两种 source。为一条已被契约挡住的冲突付一次生产 `ALTER` + 双方停写窗口是净亏。代价是契约没有库侧约束，所以**必须补机器断言**：已落地为独立门禁 `scripts/gates/check-attribution-ssot.ts`（原拟名 BB15e 即其 AS1：`GROUP BY notice_pk HAVING COUNT(DISTINCT source) > 1` 必须 0 行；另包含全量版的 AS2 快照、AS3 半写、AS4 断供、AS5 换源）。判据单一来源 `src/lib/services/commodity/attribution-contract.ts`，与门禁、灌入脚本、未来的增量镜像共用。
-5. **BB15b / BB15d 按 source 分档**：互为祖先只在同 source 内判（AI 新节点的祖先链正好是某条 legacy 落点是合法形状）；「有落点无列值」只看 `legacy_tag`（否则 AI 每补一条野码就被本侧报一次"半写"）。这两条**尚未落地**：它们住在并发方在途未提交的 `check-commodity-backbone.ts` 里，本文不代对方改文件；AS1/AS3/AS5 已从**公告级**抱住了最危险的形状，但节点级祖先判据仍会误报 ⇒ **R2' 前必须补**。
+5. **BB15b / BB15d 的 source 分档：不是「尚未落地」，而是「已落地但口径相反」（2026-10-13 自己复算纠正本 ADR 初稿的错误陈述）**。
+   本 ADR 初稿写「这两条住在并发方在途未提交的文件里 ⇒ 尚未落地」，去查 `HEAD` 的 `scripts/gates/check-commodity-backbone.ts`：
+   BB15b（自连接判互为祖先）与 BB15d（「有落点无列值」计数即 `fail()`）**早已提交，且都没按 source 分档**。
+   拿它们原 SQL 只读复算（`temp/probe210-bb15-split-by-source.ts`）：`BB15d 有落点无列值 = 163`，其中
+   `legacy_tag 侧 = 0`、`非 legacy 侧 = 163` ⇒ **今天跑 `npm run check:backbone -- --db` 必 exit 1，而那 163 行全是对方的 ai 落点**；
+   同一份数据上 `check-attribution-ssot` 全量 exit 0 —— **两个门禁对同一数据结论相反，这是现在的实况不是将来的风险**。
+   （BB15b 今天还未误报：非 legacy 公告内的互为祖先对数实测 0；但 AI 一旦写入某 legacy 叶子的祖先就会误报，且该自连接
+   在 60s 超时下跑不完全表，本身也是长查询风险。`check:backbone` 需显式 `--db` 才连库，所以无库的 CI 不受影响，受影响的是本地与发布前验证。）
+   **口径约定**：R2' 验收以 `check-attribution-ssot` 全量 exit 0 为准；`BB15d` 的 legacy-only 分档与 `BB15b` 的同 source 分档
+   列为限期整改项（它们在那个热文件里，本计划不动他人地面）。在两处口径合流之前，任何人拿 `check:backbone -- --db` 的红
+   去当「落点表坏了」的证据都是错的。
 6. **R2' 的出口判据按 source 拆**：`legacy_tag` 派生值必须逐条等于现列值（差异 0）；`ai_content` **允许**让列值从无到有——野码分类的目的就是补归属，"换源不改归属"这句原判据对它天然不成立。
 7. **一项与本 ADR 第「被否」条冲突的现实发现（2026-10-13，待对方定）**：本计划评审在并发方的 `scripts/ops/notice-attribution-content-ai.ts` 与
    `notice-attribution-manual-anchor.ts` 里读到 `ON DUPLICATE KEY UPDATE ... source=VALUES(source)`——即本文已否决的“覆盖审计线”写法。
@@ -27,6 +37,14 @@ R1' 据此建表并从列值反推灌入存量（`source='legacy_tag'`），生�
    行原地改成 `ai_content`。这种形状 **AS1 抱不到**（要两源共在才红）、**AS4 也抱不到**（不是零落点）⇒ 存量归属被悄悄换源而门禁全绿。
    本 ADR 为此新增 **AS5** 兜住检测（公告只剩非 legacy 行、而列值声明的叶子无承载 ⇒ 红）；**真正的修法在写入侧**（落笔改 `INSERT IGNORE`、
    或写前复查一次、或双方共用 `GET_LOCK`），属对方的设计决策，本 ADR 只登记判据，不代改代码。
+7b. **AS5 也有抱不到的残差（已写进单测钉住边界，不假装它能防）**：若 ODKU 只是把 legacy 行的
+   `source/model/confidence/evidence_text` **原地改属性而节点码未变**，则列值声明的叶子仍被覆盖 ⇒ AS1~AS5 全绿。
+   AS5 保住的是「归属没丢」，没保住的是「这条归属是谁说的」—— 后者就是本文否决 ODKU 时用的那条理由，它仍然存在，
+   **只能靠写入侧不覆盖来防**。另：非 legacy 侧的脏列不判红，但已有 `stats.dirtyColumnNotices` 计数与文本出口（旧实现是静默 `continue`）。
+7c. **除 `--drop-table` 之外还有第二条销毁通道（2026-10-13 终审发现，属既有代码）**：已提交的
+   `scripts/tools/commodity-g11-rehome-cutover.ts` 的 `--cleanup` 会 `DELETE` 落点表行，**无 source 过滤、不经 `assertDroppable`**，
+   且提示里把重灌 `backfill` 当恢复手段——对 `ai_content` 行那是假承诺（本文结论 3 明说换不回来）。
+   本文第 3 条的硬闸只封住了它自己那条通道；该脚本列为已知风险，随 R6'/人工流程处理，运行前必须先加 source 过滤。
 
 ## 判据（2026-10-13 生产实测；本计划侧探针 `temp/probe199~203`、`probe205~206`，全量对拍见下）
 

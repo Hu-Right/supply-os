@@ -52,6 +52,9 @@ export type ContractStats = {
   orphanColumnNotices: number;
   /** AS5 命中数：公告只剩非 legacy 行、而列值声明的叶子无处承载（= 归属被换源） */
   sourceReplacedNotices: number;
+  /** 有非 legacy 行但无 legacy 行、且列闭包不成立：不判红（形制问题不是归属问题），但必须报出来。
+   *  没这个计数的话，“脏列交人工”那句注释就是没人接的一句话。 */
+  dirtyColumnNotices: number;
   landingRows: number;
 };
 
@@ -140,6 +143,7 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
     legacyDriftNotices: 0,
     orphanColumnNotices: 0,
     sourceReplacedNotices: 0,
+    dirtyColumnNotices: 0,
     landingRows: 0,
   };
   const push = (msg: string) => {
@@ -150,10 +154,15 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
     stats.landingRows += b.legacy.length + b.other.length;
     const col = colByPk.get(pk) ?? "";
 
-    if (b.legacy.length && b.other.length) {
+    // AS1 的谓词 = 公告的 source 去重数 > 1，与 ADR-0014 写的 `HAVING COUNT(DISTINCT source) > 1` 逐字等价。
+    // 不能只判「legacy 与非 legacy 共在」：那会漏掉两种非 legacy source 共存（`ai_content` + `manual`，
+    // DDL 的列注释就声明了这个取值域），而末行还会打印「AS1 无混源」—— 那叫报平安，不叫没红。
+    const sourceCount = (b.legacy.length ? 1 : 0) + b.otherSources.size;
+    if (sourceCount > 1) {
       stats.mixedSourceNotices++;
+      const srcs = [...(b.legacy.length ? [ATTR_SOURCE_LEGACY] : []), ...b.otherSources];
       push(
-        `AS1 混源：公告 ${pk} 同时有 legacy_tag(${b.legacy.length}) 与 ${[...b.otherSources].join("/")}(${b.other.length}) 落点 ⇒ 契约破口，必须人工定（ADR-0014 结论 4）`,
+        `AS1 混源：公告 ${pk} 的落点行有 ${sourceCount} 种 source（${srcs.join("/")}）⇒ 契约破口，必须人工定（ADR-0014 结论 4）`,
       );
       continue; // 混源公告的派生归属未定，不再判 AS2（一条破口只报一次）
     }
@@ -207,7 +216,13 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
     // AS5：只剩「有非 legacy 行、没有 legacy 行」这一种形状 —— AS1 要混源才红、AS4 要零落点才红，
     // 两个都不抱这种。而它恰恰是最贵的一种：legacy 行被 INSERT IGNORE 撞 uk 吞掉，表里那一行
     // 的 source 是别人的 ⇒ 列值声明的归属在事实源里没承载，四规则全绿而归属已被换源。
-    if (closureOfPathColumn(col) !== col) continue; // 脏列交人工，不在这猜
+    if (closureOfPathColumn(col) !== col) {
+      // 不判红（形制坏了不等于归属被换），也不静默吞：legacy 侧的同类脏列会被 AS2 抓到，
+      // 而无 legacy 行的公告以前什么都不报 —— 那就是“交人工”这句话没人接。
+      stats.dirtyColumnNotices++;
+      push(`AS5·脏列（不判红，只报数）：公告 pk=${pk} 只有非 legacy 行，且列值闭包不成立 ⇒ 无法核归属，需人工看形制`);
+      continue;
+    }
     const backed = new Set(b.other);
     const uncovered = leafNodesOfPathColumn(col).filter((x) => !backed.has(x));
     if (uncovered.length) {

@@ -40,7 +40,8 @@ const fails: string[] = [];
 function report(violations: string[], stats: ContractStats) {
   console.log(
     `落点：${stats.noticesWithLanding} 公告 / ${stats.landingRows} 行；列值：${stats.noticesWithColumn} 公告；` +
-      `纯 legacy 一致 ${stats.legacyNotices}；ai_content 公告 ${stats.aiNotices}`,
+      `纯 legacy 一致 ${stats.legacyNotices}；ai_content 公告 ${stats.aiNotices}` +
+      (stats.dirtyColumnNotices ? `；非 legacy 侧脏列 ${stats.dirtyColumnNotices} 条（不判红，只报数）` : ""),
   );
   if (stats.mixedSourceNotices) fails.push(`AS1 混源公告 ${stats.mixedSourceNotices} 条`);
   if (stats.legacyDriftNotices) fails.push(`AS2/AS3 legacy 侧破口 ${stats.legacyDriftNotices} 条`);
@@ -59,6 +60,7 @@ const zeroStats = (): ContractStats => ({
   legacyDriftNotices: 0,
   orphanColumnNotices: 0,
   sourceReplacedNotices: 0,
+  dirtyColumnNotices: 0,
   landingRows: 0,
 });
 
@@ -125,6 +127,7 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
       // 真断供由下面那条反连接找。两个渠道都写进同一个字段，门禁才不会只红一边。
       stats.orphanColumnNotices += r.stats.orphanColumnNotices;
       stats.sourceReplacedNotices += r.stats.sourceReplacedNotices;
+      stats.dirtyColumnNotices += r.stats.dirtyColumnNotices;
       batches += 1;
     }
     // AS4 走 SQL 反连接：分批喂给纯函数会把「本批没取到列值」假报成断供

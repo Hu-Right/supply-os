@@ -36,6 +36,18 @@ describe("AS1 混源", () => {
     );
     expect(r.violations.some((v) => v.startsWith("AS2"))).toBe(false);
   });
+  it("两种非 legacy source 共存也算混源（旧谓词只看 legacy+非legacy，会静默绿）", () => {
+    const r = auditLanding(
+      [
+        { pk: 1, code: "UGT-02", source: "ai_content" },
+        { pk: 1, code: "UGT-0204020102", source: "manual" },
+      ],
+      [{ pk: 1, col: CHAIN }],
+    );
+    expect(r.stats.mixedSourceNotices).toBe(1);
+    expect(r.violations.some((v) => v.startsWith("AS1"))).toBe(true);
+    expect(r.violations[0]).toContain("ai_content/manual");
+  });
 });
 
 describe("AS2 legacy 派生必须等于列值", () => {
@@ -133,12 +145,27 @@ describe("AS5 换源（AS1 与 AS4 之间的黑洞）", () => {
     expect(r.stats.orphanColumnNotices).toBe(0);
   });
 
-  it("ai_content 行恰好承载了列值的全部叶子 ⇒ 绿（归属有地方放，不判事故）", () => {
+  it("脏列不产 AS5 换源，但要计数并报出来（不能悄悄吞掉）", () => {
+    const r = auditLanding(
+      [{ pk: 8, code: "UGT-02", source: "ai_content" }],
+      [{ pk: 8, col: "UGT-0204020102,UGT-02" }],
+    );
+    // 不当成换源（形制问题不是归属问题），也不能归零：旧实现这里既不计也不报，就是一句没人接的注释
+    expect(r.stats.sourceReplacedNotices).toBe(0);
+    expect(r.stats.dirtyColumnNotices).toBe(1);
+    expect(r.violations.some((v) => v.includes("脏列"))).toBe(true);
+  });
+
+  it("换源后码仍覆盖列值叶子 ⇒ 四规则全绿（审计线消失的残差，已登记进 ADR 代价节）", () => {
     const r = auditLanding(
       CHAIN.split(",").map((code) => ({ pk: 725, code, source: "ai_content" })),
       [{ pk: 725, col: CHAIN }],
     );
+    // 这条断言故意写成“绿”：它不是在声明这样好，而是在钉住 AS5 抱不到的边界。
+    // legacy 行被 ODKU 原地改属性、码未变 ⇒ 归属未动但 source/model/confidence 已被覆盖，
+    // 那是审计线的伤害，只有写入侧不覆盖才能防（ADR-0014 结论 7）。
     expect(r.violations).toEqual([]);
+    expect(r.stats.sourceReplacedNotices).toBe(0);
     expect(r.stats.aiNotices).toBe(1);
   });
 
@@ -150,10 +177,10 @@ describe("AS5 换源（AS1 与 AS4 之间的黑洞）", () => {
 
   it("脏列不产 AS5（形制问题交人工，不猜成换源）", () => {
     const r = auditLanding(
-      [{ pk: 8, code: "UGT-02", source: "ai_content" }],
-      [{ pk: 8, col: "UGT-0204020102,UGT-02" }],
+      [{ pk: 9, code: "UGT-02", source: "ai_content" }],
+      [{ pk: 9, col: "XX-BAD" }],
     );
-    expect(r.violations.some((v) => v.startsWith("AS5"))).toBe(false);
+    expect(r.stats.sourceReplacedNotices).toBe(0);
   });
 });
 
