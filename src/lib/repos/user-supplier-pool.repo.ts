@@ -14,7 +14,7 @@ export interface PoolSupplierItem {
   supplier_id: number | null;
   company: string;
   industry: string;
-  /** 是否已有 v2 诊断（按 user_id + supplier_id 自然键判定，不再依赖 pool.qualification_id 旧指针） */
+  /** 是否已有 v2 诊断（按 user_id + supplier_id 自然键判定） */
   has_qualification: number;
   notes: string | null;
   source: string;
@@ -46,9 +46,7 @@ export class UserSupplierPoolRepo {
     return (rows as RowDataPacket[]) as PoolSupplierItem[];
   }
 
-  /** 从平台目录添加（supplier_id 有值；conn 用于事务，下同）
-   *  不再写 pool.qualification_id：v2 诊断按 (user_id, supplier_id) 自然键关联，
-   *  旧列留着但恒为 NULL（库表列退役不 DROP，避免不可逆结构变更）。 */
+  /** 从平台目录添加（supplier_id 有值；conn 用于事务，下同） */
   async addFromPlatform(userId: number, supplierId: number, conn?: PoolConnection): Promise<number> {
     const [result] = await this.exec(conn).execute(
       `INSERT IGNORE INTO crm_user_supplier_pool (user_id, supplier_id, source)

@@ -3,8 +3,7 @@
  * Supplier Bid-Capability Diagnosis (v2) Repository
  *
  * @module lib/repos/supplier-diagnosis.repo
- * @description 只操作新表 `crm_supplier_diagnosis`，不读写 v1 的 `crm_supplier_qualification`
- *              （本轮硬约束：原表一行不改）。幂等口径是规范 N5——一个用户 × 一家公司只有一行，
+ * @description 只操作 `crm_supplier_diagnosis`（v1 旧表已退役 DROP）。幂等口径是规范 N5——一个用户 × 一家公司只有一行，
  *              重复提交走 `INSERT ... ON DUPLICATE KEY UPDATE` 命中唯一键 `uk_user_supplier`，
  *              不使用「先 SELECT 再写」（并发下会双插）。
  *              写库后以 affectedRows + 回读双校验为准再报成功（本仓既有教训：不校验会静默零更新）。

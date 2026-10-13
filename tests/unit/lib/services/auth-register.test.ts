@@ -16,8 +16,7 @@ vi.mock("@/lib/services/auth", async (importOriginal) => {
   };
 });
 
-// 旧版“注册时按手机号回溯关联 crm_supplier_qualification”已随 v1 诊断表退役，
-// 故不再 mock SupplierQualificationRepo；诊断现在只在登录态下按 (user_id, supplier_id) 写入。
+// 诊断只在登录态下按 (user_id, supplier_id) 写入，注册流程无需额外 repo mock。
 vi.mock("@/lib/db/pool", () => ({ getPool: vi.fn(() => ({})) }));
 
 import { registerUser } from "@/lib/services/auth-register";

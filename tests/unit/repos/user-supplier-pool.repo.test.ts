@@ -24,13 +24,12 @@ describe("UserSupplierPoolRepo", () => {
     expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
-  it("addFromPlatform 插入平台匹配记录（不再写已退役的 qualification_id 旧指针）", async () => {
+  it("addFromPlatform 插入平台匹配记录", async () => {
     mockExecute.mockResolvedValue([{ insertId: 5 }]);
     await repo.addFromPlatform(100, 10);
     expect(mockExecute).toHaveBeenCalledTimes(1);
     const sql = mockExecute.mock.calls[0][0];
     expect(sql).toContain("INSERT IGNORE INTO crm_user_supplier_pool");
-    expect(sql).not.toContain("qualification_id");
     expect(mockExecute.mock.calls[0][1]).toEqual([100, 10]);
   });
 

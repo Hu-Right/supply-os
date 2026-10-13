@@ -3,8 +3,8 @@
  * Shared supplier-profile fetcher for AI downstream services
  *
  * @module lib/services/ai/shared/supplier-profile
- * @description ai-summary 与 ai-score 原先各抄一份几乎相同的 JOIN，且都挂在**已作废的
- *              crm_supplier_qualification** 上。诊断表切到 v2 后合并为一份，并且：
+ * @description ai-summary 与 ai-score 原先各抄一份几乎相同的 JOIN，且都挂在已作废的 v1 诊断表上。
+ *              诊断表切到 v2 后合并为一份，并且：
  *              1) 走 `crm_supplier_diagnosis`，按 (user_id, supplier_id) 唯一键命中，
  *                 不再用 `ORDER BY q.id DESC LIMIT 1` 猜最新一条；
  *              2) **不再把 v2 字段伪装成 v1 键名**（早期为省事把 team_discipline 别名成

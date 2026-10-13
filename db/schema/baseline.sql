@@ -1458,42 +1458,6 @@ CREATE TABLE `crm_supplier_industry_rel` (
   KEY `idx_sup` (`supplier_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商×行业面标签关系(UGT-I)';
 
--- ── crm_supplier_qualification ──
-CREATE TABLE `crm_supplier_qualification` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `company_name` varchar(255) NOT NULL COMMENT '企业名称',
-  `company_website` varchar(500) NOT NULL COMMENT '企业官网网址',
-  `founding_year` varchar(20) DEFAULT NULL COMMENT '企业成立年份',
-  `employee_count` varchar(40) DEFAULT NULL COMMENT '企业规模（员工人数）',
-  `industry` varchar(500) NOT NULL COMMENT '企业所属行业（逗号分隔）',
-  `other_industry` varchar(255) DEFAULT NULL COMMENT '其他行业（当industry包含"其他"时填写）',
-  `main_product` varchar(500) NOT NULL COMMENT '企业主营产品',
-  `export_scale` varchar(40) NOT NULL COMMENT '近2年出口/国际业务规模',
-  `certifications` varchar(1000) NOT NULL COMMENT '资质证书（逗号分隔）',
-  `other_certifications` text COMMENT '其他资质证书',
-  `service_countries` text NOT NULL COMMENT '售后点/服务站/维修点所在国家',
-  `overseas_companies` text NOT NULL COMMENT '海外分公司/投资公司所在国家',
-  `ungm_status` varchar(40) NOT NULL COMMENT 'UNGM注册状态',
-  `english_team` varchar(40) NOT NULL COMMENT '英文团队能力',
-  `payment_terms` varchar(40) NOT NULL COMMENT '是否接受30天账期',
-  `bid_willingness` varchar(40) NOT NULL COMMENT '是否愿意参与投标',
-  `contact_info` varchar(255) DEFAULT NULL COMMENT '联系人微信及电话（bid_willingness=是时填写）',
-  `audit_status` varchar(30) NOT NULL DEFAULT 'pending' COMMENT '审核状态: pending/approved/rejected',
-  `reject_reason` varchar(500) DEFAULT NULL COMMENT '审核驳回原因',
-  `ip` varchar(64) DEFAULT NULL COMMENT '提交IP',
-  `user_id` bigint unsigned DEFAULT NULL COMMENT '关联用户（注册后回写）',
-  `referral_employee_id` int unsigned DEFAULT NULL COMMENT '推荐员工（KPI归属）',
-  `source` varchar(30) NOT NULL DEFAULT 'qualification' COMMENT '来源: registration/diagnosis/qualification',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_audit_status` (`audit_status`),
-  KEY `idx_company_name` (`company_name`),
-  KEY `idx_eval_user` (`user_id`),
-  KEY `idx_eval_employee` (`referral_employee_id`),
-  KEY `idx_eval_source` (`source`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商采购诊断。';
-
 -- ── crm_supplier_unspsc_interests ──
 CREATE TABLE `crm_supplier_unspsc_interests` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -1719,13 +1683,11 @@ CREATE TABLE `crm_user_supplier_pool` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL COMMENT '所属用户',
   `supplier_id` bigint unsigned DEFAULT NULL COMMENT '关联 supplier 表',
-  `qualification_id` bigint unsigned DEFAULT NULL COMMENT '关联 crm_supplier_qualification 表',
   `source` varchar(20) NOT NULL DEFAULT 'manual' COMMENT '来源: platform/manual',
   `notes` text COMMENT '私有备注',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_supplier` (`user_id`,`supplier_id`),
-  UNIQUE KEY `uk_user_qualification` (`user_id`,`qualification_id`),
   KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='业务员的供应商库。';
 
