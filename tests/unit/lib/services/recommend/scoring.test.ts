@@ -11,9 +11,9 @@ describe("buildScoringContext（打分读宽表列值，收窄才读倒排表）
   });
 
   it("有落点节点 → 拼 MAX(FIND_IN_SET(?, ns.backbone_path))，旧桥表形状一个不许留", () => {
-    const ctx = buildScoringContext([node("UGT-B-01010101", 2.5)], 10, 0.5, 0.15, 0.1, 0.05, 3, true);
+    const ctx = buildScoringContext([node("UGT-01010101", 2.5)], 10, 0.5, 0.15, 0.1, 0.05, 3, true);
     expect(ctx.matchWeightExpr).toBe("(MAX(FIND_IN_SET(?, ns.backbone_path)) * ?)");
-    expect(ctx.scoreParams).toEqual(["UGT-B-01010101", 2.5]);
+    expect(ctx.scoreParams).toEqual(["UGT-01010101", 2.5]);
     expect(ctx.matchWeightExpr).not.toMatch(/LIKE|b\.code|level[1-5]_id/);
   });
 
@@ -29,22 +29,22 @@ describe("buildScoringContext（打分读宽表列值，收窄才读倒排表）
 
   it("品目级兴趣码（有效位 8）→ 生成 l4 OR 表达式与节点参数", () => {
     const ctx = buildScoringContext(
-      [node("UGT-B-0101010101", 1.0, 8), node("UGT-B-05", 0.5, 2)],
+      [node("UGT-0101010101", 1.0, 8), node("UGT-05", 0.5, 2)],
       10, 0.5, 0.15, 0.1, 0.05, 3, true,
     );
     expect(ctx.l4HitExpr).toContain("FIND_IN_SET(?, ns.backbone_path)");
-    expect(ctx.l4Params).toEqual(["UGT-B-0101010101"]);
+    expect(ctx.l4Params).toEqual(["UGT-0101010101"]);
     expect(ctx.l4HitExpr).not.toMatch(/LIKE/);
   });
 
   it("全部粗码（有效位 < 8）→ l4HitExpr 恒为 0", () => {
-    const ctx = buildScoringContext([node("UGT-B-05", 0.5, 2)], 10, 0.5, 0.15, 0.1, 0.05, 3, true);
+    const ctx = buildScoringContext([node("UGT-05", 0.5, 2)], 10, 0.5, 0.15, 0.1, 0.05, 3, true);
     expect(ctx.l4HitExpr).toBe("0");
     expect(ctx.l4Params).toEqual([]);
   });
 
   it("表达式只取权重最高的 24 个落点（实测主查询耗时几乎线性于个数），但分母不缩", () => {
-    const many = Array.from({ length: 30 }, (_, i) => node(`UGT-B-05${String(i).padStart(4, "0")}`, 30 - i));
+    const many = Array.from({ length: 30 }, (_, i) => node(`UGT-05${String(i).padStart(4, "0")}`, 30 - i));
     const ctx = buildScoringContext(many, 100, 0.5, 0.15, 0.1, 0.05, 3, false);
     expect(ctx.scoreParams).toHaveLength(48); // 24 个节点 × (码, 权重)
     expect(ctx.scoreParams[0]).toBe(many[0].node); // 降序取最强的 24 个

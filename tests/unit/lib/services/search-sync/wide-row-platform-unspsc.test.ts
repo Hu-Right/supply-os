@@ -36,9 +36,9 @@ describe("平台公告分类兜底的落位（D8）", () => {
     const row = buildWideRow(
       { ...base, category_l1_id: 10000000, category_l2_id: 10100000 },
       new Map(),
-      { backbone: "UGT-B-01" },
+      { backbone: "UGT-01" },
     );
-    expect(row.backbone_path).toBe("UGT-B-01");
+    expect(row.backbone_path).toBe("UGT-01");
     for (const col of LEGACY_COLUMNS) expect(row).not.toHaveProperty(col);
   });
 
@@ -52,15 +52,15 @@ describe("平台公告分类兜底的落位（D8）", () => {
     const row = buildWideRow(
       { ...base, entry_source: "crawl", category_l1_id: null, category_l2_id: null },
       new Map(),
-      { backbone: "UGT-B-01,UGT-B-0101" },
+      { backbone: "UGT-01,UGT-0101" },
     );
-    expect(row.backbone_path).toBe("UGT-B-01,UGT-B-0101");
+    expect(row.backbone_path).toBe("UGT-01,UGT-0101");
   });
 
   it("无归属与空串都落 NULL；precise_backbone_path 不在运行期产出（归 ops 回填）", () => {
     expect(buildWideRow(base, new Map(), { backbone: "" }).backbone_path).toBeNull();
     expect(buildWideRow(base, new Map()).backbone_path).toBeNull();
     // 硬事实：allColumns 只含 backbone_path，precise 侧由 ops 用同一份纯函数回填，两处不同写入方
-    expect(buildWideRow(base, new Map(), { backbone: "UGT-B-01" })).not.toHaveProperty("precise_backbone_path");
+    expect(buildWideRow(base, new Map(), { backbone: "UGT-01" })).not.toHaveProperty("precise_backbone_path");
   });
 });

@@ -26,8 +26,8 @@ import { getHotTopics, clearHotTopicsCache, HOT_TOP_GROUPS_SQL } from "@/lib/ser
 import type { Pool } from "mysql2/promise";
 
 const L1_ROWS = [
-  { node: "UGT-B-01", code: "UGT-G-11", cnt: 49236 },
-  { node: "UGT-B-02", code: "UGT-G-16", cnt: 38832 },
+  { node: "UGT-01", code: "UGT-G-11", cnt: 49236 },
+  { node: "UGT-02", code: "UGT-G-16", cnt: 38832 },
 ];
 
 const pool = {
@@ -62,8 +62,8 @@ describe("热门品目按骨架 L1 聚合", () => {
     const data = await getHotTopics(pool);
     expect(data.countries).toEqual([{ country: "CN", count: 5 }]);
     expect(data.industries).toEqual([
-      { node: "UGT-B-01", code: "UGT-G-11", count: 49236 },
-      { node: "UGT-B-02", code: "UGT-G-16", count: 38832 },
+      { node: "UGT-01", code: "UGT-G-11", count: 49236 },
+      { node: "UGT-02", code: "UGT-G-16", count: 38832 },
     ]);
     expect(data).not.toHaveProperty("unspsc");
     // 一条聚合 SQL（旧的 level=2 码 TOP8 已删）

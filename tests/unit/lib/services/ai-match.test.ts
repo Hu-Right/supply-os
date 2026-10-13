@@ -43,7 +43,7 @@ vi.mock("@/lib/services/ai-score/llm-client", () => ({ callLlmForScore }));
 vi.mock("@/lib/services/commodity/backbone-cache", () => ({ getBackboneIndex: (...args: unknown[]) => getBackboneIndex(...(args as [])) }));
 
 /** 单码→五级链的极小桩：换不出的码进 misses（与真 pathOf 出口形制一致） */
-const STUB_CHAIN = ["UGT-B-42", "UGT-B-4210", "UGT-B-421015", "UGT-B-42101503"];
+const STUB_CHAIN = ["UGT-42", "UGT-4210", "UGT-421015", "UGT-42101503"];
 const stubIndex = {
   size: 4,
   pathOf: (codes: Iterable<string>) => {
@@ -253,7 +253,7 @@ describe("并发评估与失败处理", () => {
         .mockResolvedValueOnce([[{ id: 1, title: "家具采购项目", notice_type: "RFQ", country: "CN", deadline: 0, estimated_value: 0 }]])
         .mockResolvedValueOnce(noticeOpp)
         .mockResolvedValueOnce([[{ supplier_id: 0 }]])
-        // loader 查询 1：公告侧宽表主键点查（归属到 UGT-B-42101503 整条链）
+        // loader 查询 1：公告侧宽表主键点查（归属到 UGT-42101503 整条链）
         .mockResolvedValueOnce([[{ p: STUB_CHAIN.join(",") }]])
         // loader 查询 2：食品(105) 的兴趣码，换算后与公告同一四条节点码
         .mockResolvedValueOnce([[{ supplier_id: 105, code: "42101503" }]]),

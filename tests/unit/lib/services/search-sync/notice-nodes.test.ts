@@ -26,8 +26,8 @@ import {
 const DB_CRC32: Array<[string, number]> = [
   ["abc", 891568578],
   ["", 0],
-  ["UGT-B-10", 3054156403],
-  ["UGT-B-10101500", 901938897],
+  ["UGT-10", 2469185254],
+  ["UGT-10101500", 4287922182],
   ["10101500", 2039086006],
   ["hello world", 222957957],
 ];
@@ -73,7 +73,7 @@ describe("crc32 与 MySQL 同值", () => {
     // 上面那组钉的是「与 MySQL 同值」（数值从生产库 SELECT CRC32(...) 实测定住），本组钉的是「本地实现不出版本」：
     // 本模块不用 zlib.crc32 本身，是因为那个函数 Node 20.15/22.2 以后才有，
     // 而生产运行时的 Node 版本本仓库没钉（只有 CI 是 24）。
-    for (const s of ["abc", "", "UGT-B-10", "UGT-B-10101500", "联合国", "a→b", "🏭"] as string[]) {
+    for (const s of ["abc", "", "UGT-10", "UGT-10101500", "联合国", "a→b", "🏭"] as string[]) {
       expect(crc32(s)).toBe(zlibCrc32(Buffer.from(s, "utf8")) as number);
     }
   });
@@ -85,14 +85,14 @@ describe("nodesFingerprint", () => {
   });
 
   it("顺序无关（可交换求和）", () => {
-    const a = nodesFingerprint(["UGT-B-10", "UGT-B-10101500"]);
-    const b = nodesFingerprint(["UGT-B-10101500", "UGT-B-10"]);
+    const a = nodesFingerprint(["UGT-10", "UGT-10101500"]);
+    const b = nodesFingerprint(["UGT-10101500", "UGT-10"]);
     expect(a).toEqual(b);
   });
 
   it("集合变了就一定变（数量相同、内容不同也要看得见）", () => {
-    const a = nodesFingerprint(["UGT-B-10101500"]);
-    const b = nodesFingerprint(["UGT-B-10101600"]);
+    const a = nodesFingerprint(["UGT-10101500"]);
+    const b = nodesFingerprint(["UGT-10101600"]);
     expect(a.count).toBe(b.count);
     expect(a.sum).not.toBe(b.sum);
   });
@@ -119,13 +119,13 @@ describe("noticeNodesTableReady", () => {
 describe("upsertNoticeNodes", () => {
   it("表不存在 → 一条写 SQL 都不发", async () => {
     const { pool, calls } = makePool({ tableExists: false });
-    const r = await upsertNoticeNodes(pool, [{ id: 1, backbone_path: "UGT-B-10,UGT-B-10101500" }]);
+    const r = await upsertNoticeNodes(pool, [{ id: 1, backbone_path: "UGT-10,UGT-10101500" }]);
     expect(r).toEqual({ written: 0, skipped: 0, deleted: 0, badTokens: 0 });
     expect(calls.filter((c) => /^\s*(INSERT|DELETE)/i.test(c.sql.trim()))).toHaveLength(0);
   });
 
   it("集合没变 → 跳过，不发 DELETE/INSERT", async () => {
-    const nodes = ["UGT-B-10", "UGT-B-10101500"];
+    const nodes = ["UGT-10", "UGT-10101500"];
     const fp = nodesFingerprint(nodes);
     const { pool, calls } = makePool({
       fingerprints: [{ notice_id: 7, c: fp.count, s: fp.sum }],
@@ -137,13 +137,13 @@ describe("upsertNoticeNodes", () => {
 
   it("集合变了 → 先删该 id 再插当前集合，且只插合法节点码", async () => {
     const { pool, calls } = makePool({ fingerprints: [{ notice_id: 8, c: 1, s: 123 }] });
-    const r = await upsertNoticeNodes(pool, [{ id: 8, backbone_path: "UGT-B-10,UGT-B-10101500" }]);
+    const r = await upsertNoticeNodes(pool, [{ id: 8, backbone_path: "UGT-10,UGT-10101500" }]);
     expect(r.written).toBe(1);
     const del = calls.find((c) => /^\s*DELETE/i.test(c.sql.trim()));
     const ins = calls.find((c) => /^\s*INSERT/i.test(c.sql.trim()));
     expect(del?.sql).toContain(NOTICE_NODES_TABLE);
     expect(del?.params).toEqual([8]);
-    expect(ins?.params).toEqual([8, "UGT-B-10", 8, "UGT-B-10101500"]);
+    expect(ins?.params).toEqual([8, "UGT-10", 8, "UGT-10101500"]);
     expect(ins?.sql).toContain("ON DUPLICATE KEY UPDATE");
   });
 
@@ -158,11 +158,11 @@ describe("upsertNoticeNodes", () => {
   it("非法 token → 不入表、不静默，点名到 console.error", async () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { pool, calls } = makePool({});
-    const r = await upsertNoticeNodes(pool, [{ id: 10, backbone_path: "UGT-B-10,XX-BAD-1,UGT-C-99" }]);
+    const r = await upsertNoticeNodes(pool, [{ id: 10, backbone_path: "UGT-10,XX-BAD-1,UGT-C-99" }]);
     expect(r.badTokens).toBe(2);
     expect(err).toHaveBeenCalledTimes(1);
     const ins = calls.find((c) => /^\s*INSERT/i.test(c.sql.trim()));
-    expect(ins?.params).toEqual([10, "UGT-B-10"]);
+    expect(ins?.params).toEqual([10, "UGT-10"]);
   });
 
   it("id 非法（0/NaN/负数）整批不进任何查询", async () => {
@@ -175,12 +175,12 @@ describe("upsertNoticeNodes", () => {
   it("重复 id 只算一条待写行（集合以最后一次拆分为准，不双写）", async () => {
     const { pool, calls } = makePool({});
     const r = await upsertNoticeNodes(pool, [
-      { id: 11, backbone_path: "UGT-B-10" },
-      { id: 11, backbone_path: "UGT-B-20" },
+      { id: 11, backbone_path: "UGT-10" },
+      { id: 11, backbone_path: "UGT-20" },
     ]);
     expect(r.written).toBeLessThanOrEqual(1);
     const ins = calls.find((c) => /^\s*INSERT/i.test(c.sql.trim()));
-    expect(ins?.params).toEqual([11, "UGT-B-20"]);
+    expect(ins?.params).toEqual([11, "UGT-20"]);
   });
 });
 

@@ -20,41 +20,41 @@ const n = (notice_id: string, node: string): NodeRow => ({ notice_id, node });
 
 describe("sharedDepth 骨架节点码", () => {
   it("同子类 → 4，同品目 → 5，只同大类 → 1，跨大类 → 0", () => {
-    expect(sharedDepth("UGT-B-07020102", "UGT-B-07020102")).toBe(4);
-    expect(sharedDepth("UGT-B-0702010204", "UGT-B-0702010204")).toBe(5);
-    expect(sharedDepth("UGT-B-07020102", "UGT-B-07020103")).toBe(3);
-    expect(sharedDepth("UGT-B-070201", "UGT-B-070301")).toBe(1);
-    expect(sharedDepth("UGT-B-0702", "UGT-B-0802")).toBe(0);
+    expect(sharedDepth("UGT-07020102", "UGT-07020102")).toBe(4);
+    expect(sharedDepth("UGT-0702010204", "UGT-0702010204")).toBe(5);
+    expect(sharedDepth("UGT-07020102", "UGT-07020103")).toBe(3);
+    expect(sharedDepth("UGT-070201", "UGT-070301")).toBe(1);
+    expect(sharedDepth("UGT-0702", "UGT-0802")).toBe(0);
   });
 
   it("层级对祖先单调：父自身 = 父的层级，不会跳层命中", () => {
-    expect(sharedDepth("UGT-B-07020102", "UGT-B-070201")).toBe(3);
-    expect(sharedDepth("UGT-B-0702010204", "UGT-B-0702")).toBe(2);
+    expect(sharedDepth("UGT-07020102", "UGT-070201")).toBe(3);
+    expect(sharedDepth("UGT-0702010204", "UGT-0702")).toBe(2);
   });
 
   it("形制不符（空值、非树码）→ 0，不猜层级", () => {
-    expect(sharedDepth("", "UGT-B-07")).toBe(0);
-    expect(sharedDepth("UGT-C-0702", "UGT-B-0702")).toBe(0);
+    expect(sharedDepth("", "UGT-07")).toBe(0);
+    expect(sharedDepth("UGT-C-0702", "UGT-0702")).toBe(0);
     expect(sharedDepth("721015", "721015")).toBe(0);
   });
 });
 
 describe("leafNodes 代表集", () => {
   it("祖先全存的列值里，只留下没有后代的节点", () => {
-    expect(leafNodes(["UGT-B-07", "UGT-B-0702", "UGT-B-070201", "UGT-B-07020102", "UGT-B-0702010204"])).toEqual([
-      "UGT-B-0702010204",
+    expect(leafNodes(["UGT-07", "UGT-0702", "UGT-070201", "UGT-07020102", "UGT-0702010204"])).toEqual([
+      "UGT-0702010204",
     ]);
   });
 
   it("两个分支各留自己的叶子，升序稳定", () => {
-    expect(leafNodes(["UGT-B-01", "UGT-B-0101", "UGT-B-010101", "UGT-B-010102", "UGT-B-01010201"])).toEqual([
-      "UGT-B-010101",
-      "UGT-B-01010201",
+    expect(leafNodes(["UGT-01", "UGT-0101", "UGT-010101", "UGT-010102", "UGT-01010201"])).toEqual([
+      "UGT-010101",
+      "UGT-01010201",
     ]);
   });
 
   it("非祖先全存的散码集合原样保留（不因为缺链顶就丢节点）", () => {
-    expect(leafNodes(["UGT-B-0702", "UGT-B-0803"])).toEqual(["UGT-B-0702", "UGT-B-0803"]);
+    expect(leafNodes(["UGT-0702", "UGT-0803"])).toEqual(["UGT-0702", "UGT-0803"]);
   });
 });
 
@@ -68,11 +68,11 @@ describe("LEVEL_WEIGHT", () => {
 
 describe("scorePeersByDepth 按最深共享节点加权", () => {
   it("同一大类下命中越深分越高（L4 > L1）", () => {
-    const current = [n("CUR", "UGT-B-07020102")];
+    const current = [n("CUR", "UGT-07020102")];
     const candidates = [
-      n("A", "UGT-B-0702010204"), // 共享到 L4
-      n("B", "UGT-B-0702"), // 只共享到 L2
-      n("C", "UGT-B-08"), // 跨大类 → 不计
+      n("A", "UGT-0702010204"), // 共享到 L4
+      n("B", "UGT-0702"), // 只共享到 L2
+      n("C", "UGT-08"), // 跨大类 → 不计
     ];
     const scores = scorePeersByDepth(current, candidates);
     expect(scores.get("A")).toBeCloseTo(LEVEL_WEIGHT[4]!);
@@ -81,11 +81,11 @@ describe("scorePeersByDepth 按最深共享节点加权", () => {
   });
 
   it("多码分别计分求和，同一当前码对同一 peer 只计一次", () => {
-    const current = [n("CUR", "UGT-B-010101"), n("CUR", "UGT-B-0201")];
+    const current = [n("CUR", "UGT-010101"), n("CUR", "UGT-0201")];
     const candidates = [
-      n("A", "UGT-B-010101"),
-      n("A", "UGT-B-0201"),
-      n("B", "UGT-B-010101"),
+      n("A", "UGT-010101"),
+      n("A", "UGT-0201"),
+      n("B", "UGT-010101"),
     ];
     const scores = scorePeersByDepth(current, candidates);
     expect(scores.get("A")).toBeCloseTo(LEVEL_WEIGHT[3]! + LEVEL_WEIGHT[2]!);
@@ -93,27 +93,27 @@ describe("scorePeersByDepth 按最深共享节点加权", () => {
   });
 
   it("同一 peer 多行取最深命中，与行序无关（浅行在前也取深层）", () => {
-    const current = [n("CUR", "UGT-B-07020102")];
-    const candidates = [n("A", "UGT-B-07"), n("A", "UGT-B-070201")];
+    const current = [n("CUR", "UGT-07020102")];
+    const candidates = [n("A", "UGT-07"), n("A", "UGT-070201")];
     const scores = scorePeersByDepth(current, candidates);
     expect(scores.get("A")).toBeCloseTo(LEVEL_WEIGHT[3]!);
   });
 
   it("祖先全存的浅层节点不重复计分：链上只算最深那个", () => {
     const current = [
-      n("CUR", "UGT-B-07"),
-      n("CUR", "UGT-B-0702"),
-      n("CUR", "UGT-B-070201"),
+      n("CUR", "UGT-07"),
+      n("CUR", "UGT-0702"),
+      n("CUR", "UGT-070201"),
     ];
-    const candidates = [n("A", "UGT-B-070201")];
+    const candidates = [n("A", "UGT-070201")];
     const scores = scorePeersByDepth(current, candidates);
-    // 当前侧代表集 = 叶子 UGT-B-070201 一个 ⇒ 只计一次
+    // 当前侧代表集 = 叶子 UGT-070201 一个 ⇒ 只计一次
     expect(scores.get("A")).toBeCloseTo(LEVEL_WEIGHT[3]!);
   });
 
   it("代表集有上限，巨量码公告不会全对全", () => {
     // 60 个同层互不为祖先的中类节点：不分上限就会做 60×60 次比较、拿 60×0.6=36 分
-    const codes = Array.from({ length: 60 }, (_, i) => `UGT-B-07${String(i + 1).padStart(2, "0")}`);
+    const codes = Array.from({ length: 60 }, (_, i) => `UGT-07${String(i + 1).padStart(2, "0")}`);
     const many: NodeRow[] = codes.map((node) => n("P", node));
     const current: NodeRow[] = codes.map((node) => n("CUR", node));
     const scores = scorePeersByDepth(current, many);
@@ -123,9 +123,9 @@ describe("scorePeersByDepth 按最深共享节点加权", () => {
 
   it("截断是「深优先」而不是字典序：码序靠后的深层节点不能被浅层节点顶掉名额", () => {
     // 20 个 L1 浅节点（码序在前）+ 1 个 L5 深节点（码序在后）；peer 只挂那个 L5 节点
-    const shallow = Array.from({ length: 20 }, (_, i) => n("CUR", `UGT-B-${String(i + 1).padStart(2, "0")}`));
-    const deep = n("CUR", "UGT-B-9901010101");
-    const scores = scorePeersByDepth([...shallow, deep], [n("P", "UGT-B-9901010101")]);
+    const shallow = Array.from({ length: 20 }, (_, i) => n("CUR", `UGT-${String(i + 1).padStart(2, "0")}`));
+    const deep = n("CUR", "UGT-9901010101");
+    const scores = scorePeersByDepth([...shallow, deep], [n("P", "UGT-9901010101")]);
     // 按字典序取前 20 个名额会被浅节点占满 → 分数归 0；深优先截断才能拿到 L5 权重
     expect(scores.get("P")).toBeCloseTo(LEVEL_WEIGHT[5]!);
   });
@@ -133,15 +133,15 @@ describe("scorePeersByDepth 按最深共享节点加权", () => {
 
 describe("rankSimilarPeers", () => {
   it("分数降序、limit 截断、0 分不入", () => {
-    const current = [n("CUR", "UGT-B-07")];
-    const candidates = [n("A", "UGT-B-07"), n("B", "UGT-B-07"), n("D", "UGT-B-08")];
+    const current = [n("CUR", "UGT-07")];
+    const candidates = [n("A", "UGT-07"), n("B", "UGT-07"), n("D", "UGT-08")];
     const ranked = rankSimilarPeers(current, candidates, 2);
     expect(ranked.map((r) => r.notice_id)).toEqual(["A", "B"]);
   });
 
   it("同分按 deadline_ts 升序（更早优先），0/空视为最晚", () => {
-    const current = [n("CUR", "UGT-B-07")];
-    const candidates = [n("LATE", "UGT-B-07"), n("SOON", "UGT-B-07"), n("NODEADLINE", "UGT-B-07")];
+    const current = [n("CUR", "UGT-07")];
+    const candidates = [n("LATE", "UGT-07"), n("SOON", "UGT-07"), n("NODEADLINE", "UGT-07")];
     const ranked = rankSimilarPeers(current, candidates, 10, { LATE: 200, SOON: 100, NODEADLINE: 0 });
     expect(ranked.map((r) => r.notice_id)).toEqual(["SOON", "LATE", "NODEADLINE"]);
   });

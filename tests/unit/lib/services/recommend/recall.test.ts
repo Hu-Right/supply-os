@@ -56,12 +56,12 @@ beforeEach(() => {
 
 describe("processInterestCodes", () => {
   it("落点节点进谓词，形状是倒排表的候选 JOIN（不再是全表扫的 FIND_IN_SET）", async () => {
-    pathOf.mockImplementation(chainFor({ "42101503": ["UGT-B-05", "UGT-B-0502", "UGT-B-050203", "UGT-B-05020301"] }));
+    pathOf.mockImplementation(chainFor({ "42101503": ["UGT-05", "UGT-0502", "UGT-050203", "UGT-05020301"] }));
     const out = await processInterestCodes(pool, rows({ code: "42101503" }), { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 });
     expect(out.clauses.join).toBe(
       "INNER JOIN crm_notice_backbone_nodes cand ON cand.notice_id = n.id AND cand.node IN (?)",
     );
-    expect(out.clauses.params).toEqual(["UGT-B-05020301"]);
+    expect(out.clauses.params).toEqual(["UGT-05020301"]);
     expect(out.clauses.join).not.toMatch(/b\.level[1-5]_id|b\.code|LIKE|backbone_path/);
     // ? 个数与 params 个数必须一致（不一致就是绑定错位）
     expect(out.clauses.join.split("?").length - 1).toBe(out.clauses.params.length);
@@ -72,8 +72,8 @@ describe("processInterestCodes", () => {
 
   it("多个落点 → IN 列表拼接，每个码一个 ?", async () => {
     pathOf.mockImplementation(chainFor({
-      "42101503": ["UGT-B-05", "UGT-B-0502", "UGT-B-050203", "UGT-B-05020301"],
-      "15101505": ["UGT-B-04", "UGT-B-0401", "UGT-B-040101", "UGT-B-04010105"],
+      "42101503": ["UGT-05", "UGT-0502", "UGT-050203", "UGT-05020301"],
+      "15101505": ["UGT-04", "UGT-0401", "UGT-040101", "UGT-04010105"],
     }));
     const out = await processInterestCodes(
       pool, rows({ code: "42101503" }, { code: "15101505" }), { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 },
@@ -85,9 +85,9 @@ describe("processInterestCodes", () => {
   it("截断码（成对的 2/4/6 位）补零后有落点，奇数位与超 8 位进 misses", async () => {
     pathOf.mockImplementation(
       chainFor({
-        "72000000": ["UGT-B-01"],
-        "25100000": ["UGT-B-04", "UGT-B-0401"],
-        "10101500": ["UGT-B-05", "UGT-B-0502", "UGT-B-050203"],
+        "72000000": ["UGT-01"],
+        "25100000": ["UGT-04", "UGT-0401"],
+        "10101500": ["UGT-05", "UGT-0502", "UGT-050203"],
       }),
     );
     const out = await processInterestCodes(
@@ -97,17 +97,17 @@ describe("processInterestCodes", () => {
     );
     // 三条合法码都有落点；两条非法形制进 misses（不静默丢）
     expect(out.misses).toEqual(["251", "123456789"]);
-    // 但 L1 落点（UGT-B-01）不进谓词，只剩族级落点 UGT-B-0401 与类级 UGT-B-050203
-    expect(out.clauses.params).toEqual(["UGT-B-0401", "UGT-B-050203"]);
+    // 但 L1 落点（UGT-01）不进谓词，只剩族级落点 UGT-0401 与类级 UGT-050203
+    expect(out.clauses.params).toEqual(["UGT-0401", "UGT-050203"]);
     // 参与打分的落点数包含 L1（旧实现同样让 level=1 的兴趣码参与加权，只是不拼召回条件）
-    expect(out.scoredNodes.map((n) => n.node).sort()).toEqual(["UGT-B-01", "UGT-B-0401", "UGT-B-050203"]);
+    expect(out.scoredNodes.map((n) => n.node).sort()).toEqual(["UGT-01", "UGT-0401", "UGT-050203"]);
   });
 
   it("谓词压到最浅覆盖集：祖先与后代同时命中时只留祖先（并集不变）", async () => {
     pathOf.mockImplementation(
       chainFor({
-        "42100000": ["UGT-B-05", "UGT-B-0502"],
-        "42101503": ["UGT-B-05", "UGT-B-0502", "UGT-B-050203", "UGT-B-05020301"],
+        "42100000": ["UGT-05", "UGT-0502"],
+        "42101503": ["UGT-05", "UGT-0502", "UGT-050203", "UGT-05020301"],
       }),
     );
     const out = await processInterestCodes(
@@ -115,16 +115,16 @@ describe("processInterestCodes", () => {
       rows({ code: "42100000" }, { code: "42101503" }),
       { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 },
     );
-    expect(out.clauses.params).toEqual(["UGT-B-0502"]);
+    expect(out.clauses.params).toEqual(["UGT-0502"]);
     // 打分侧不压集：深层落点的权重更高，压掉就等于改掉排序信号
-    expect(out.scoredNodes.map((n) => n.node)).toEqual(expect.arrayContaining(["UGT-B-0502", "UGT-B-05020301"]));
+    expect(out.scoredNodes.map((n) => n.node)).toEqual(expect.arrayContaining(["UGT-0502", "UGT-05020301"]));
   });
 
   it("权重 = 衰减权重 × 有效位深度档（深度算法则不变，只换键）", async () => {
     pathOf.mockImplementation(
       chainFor({
-        "42100000": ["UGT-B-05", "UGT-B-0502"], // 有效位 4 ⇒ depth 2 ⇒ 0.6
-        "42101503": ["UGT-B-05", "UGT-B-0502", "UGT-B-050203", "UGT-B-05020301"], // 有效位 8 ⇒ depth 4 ⇒ 1.0
+        "42100000": ["UGT-05", "UGT-0502"], // 有效位 4 ⇒ depth 2 ⇒ 0.6
+        "42101503": ["UGT-05", "UGT-0502", "UGT-050203", "UGT-05020301"], // 有效位 8 ⇒ depth 4 ⇒ 1.0
       }),
     );
     const out = await processInterestCodes(
@@ -133,18 +133,18 @@ describe("processInterestCodes", () => {
       { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 },
     );
     const byNode = new Map(out.scoredNodes.map((n) => [n.node, n.weighted]));
-    expect(byNode.get("UGT-B-0502")).toBeCloseTo(1.2);
-    expect(byNode.get("UGT-B-05020301")).toBeCloseTo(3);
+    expect(byNode.get("UGT-0502")).toBeCloseTo(1.2);
+    expect(byNode.get("UGT-05020301")).toBeCloseTo(3);
     expect(out.interestTotal).toBeCloseTo(5);
     // 降序：权重高的在前（主查询只取前 N 个参与打分）
-    expect(out.scoredNodes[0].node).toBe("UGT-B-05020301");
+    expect(out.scoredNodes[0].node).toBe("UGT-05020301");
   });
 
   it("同一节点被多条兴趣码命中 → 只留最大权重一份（表达式不重复拼）", async () => {
     pathOf.mockImplementation(
       chainFor({
-        "42101503": ["UGT-B-05", "UGT-B-05020301"],
-        "42101504": ["UGT-B-05", "UGT-B-05020301"],
+        "42101503": ["UGT-05", "UGT-05020301"],
+        "42101504": ["UGT-05", "UGT-05020301"],
       }),
     );
     const out = await processInterestCodes(
@@ -152,14 +152,14 @@ describe("processInterestCodes", () => {
       rows({ code: "42101503", decayed_weight: 1 }, { code: "42101504", decayed_weight: 4 }),
       { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 },
     );
-    expect(out.scoredNodes.filter((n) => n.node === "UGT-B-05020301")).toHaveLength(1);
-    expect(out.scoredNodes.find((n) => n.node === "UGT-B-05020301")!.weighted).toBeCloseTo(4);
+    expect(out.scoredNodes.filter((n) => n.node === "UGT-05020301")).toHaveLength(1);
+    expect(out.scoredNodes.find((n) => n.node === "UGT-05020301")!.weighted).toBeCloseTo(4);
   });
 
   it("decayed_weight ≤ 0 的兴趣码不进打分与 interestTotal，但照常召回（与旧实现一致）", async () => {
-    pathOf.mockImplementation(chainFor({ "42101503": ["UGT-B-05", "UGT-B-05020301"] }));
+    pathOf.mockImplementation(chainFor({ "42101503": ["UGT-05", "UGT-05020301"] }));
     const out = await processInterestCodes(pool, rows({ code: "42101503", decayed_weight: 0 }), { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 });
-    expect(out.clauses.params).toEqual(["UGT-B-05020301"]);
+    expect(out.clauses.params).toEqual(["UGT-05020301"]);
     expect(out.scoredNodes).toEqual([]);
     expect(out.interestTotal).toBe(0);
   });
@@ -175,7 +175,7 @@ describe("processInterestCodes", () => {
   });
 
   it("只有 L1 落点 → 不拼谓词（宁走降级，也不把整个大类当召回条件）", async () => {
-    pathOf.mockImplementation(chainFor({ "72": ["UGT-B-01"] }));
+    pathOf.mockImplementation(chainFor({ "72": ["UGT-01"] }));
     const out = await processInterestCodes(pool, rows({ code: "72" }), { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 });
     expect(out.clauses.join).toBe("");
     expect(out.scoredNodes).toHaveLength(1);

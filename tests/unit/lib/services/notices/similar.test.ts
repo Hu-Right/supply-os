@@ -16,8 +16,8 @@ function makePool(byKeyword: Array<[RegExp, unknown[]]>) {
   return { pool: { query } as unknown as Pool, query };
 }
 
-// 当前公告：链顶 UGT-B-07 + 中类 UGT-B-0702（列值祖先全存）
-const CUR_PATH = [{ p: "UGT-B-07,UGT-B-0702" }];
+// 当前公告：链顶 UGT-07 + 中类 UGT-0702（列值祖先全存）
+const CUR_PATH = [{ p: "UGT-07,UGT-0702" }];
 // 当前公告身上的码：一个品目级细码 + 一个族级粗码
 const CUR_CODES = [{ code: "43211503" }, { code: "10100000" }];
 
@@ -38,8 +38,8 @@ describe("findSimilarNoticeIds", () => {
         { notice_id: "B", wide_id: 12, deadline_ts: 100 },
       ]],
       [/FROM crm_notice_search WHERE id IN/, [
-        { id: 11, p: "UGT-B-07,UGT-B-0702" },
-        { id: 12, p: "UGT-B-07" },
+        { id: 11, p: "UGT-07,UGT-0702" },
+        { id: 12, p: "UGT-07" },
       ]],
     ]);
     // 两侧都只取叶子做代表：A 共享到中类（0.6），B 只共享到大类（0.4）
@@ -52,7 +52,7 @@ describe("findSimilarNoticeIds", () => {
       [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
       [/FROM crm_bid_notice_unspsc_codes WHERE notice_id = \?/, CUR_CODES],
       [/peer\.code IN/, [{ notice_id: "A", wide_id: 11, deadline_ts: 1 }]],
-      [/FROM crm_notice_search WHERE id IN/, [{ id: 11, p: "UGT-B-0702" }]],
+      [/FROM crm_notice_search WHERE id IN/, [{ id: 11, p: "UGT-0702" }]],
     ]);
     await findSimilarNoticeIds(pool, 1, 6);
     const candCalls = query.mock.calls.filter((c) => /peer\.code IN/.test(String(c[0])));
@@ -140,7 +140,7 @@ describe("findSimilarNotices", () => {
       [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
       [/FROM crm_bid_notice_unspsc_codes WHERE notice_id = \?/, CUR_CODES],
       [/peer\.code IN/, [{ notice_id: "A", wide_id: 11, deadline_ts: 1790000000 }]],
-      [/FROM crm_notice_search WHERE id IN/, [{ id: 11, p: "UGT-B-07,UGT-B-0702" }]],
+      [/FROM crm_notice_search WHERE id IN/, [{ id: 11, p: "UGT-07,UGT-0702" }]],
       [/FROM crm_bid_notices n[\s\S]*n\.notice_id IN/, [{
         id: 11, notice_id: "A", reference: "R-A", title: "标题A", title_i18n: "A中文", title_en: "Aen",
         notice_type: "Supply", country: "KE", deadline: "2026-10-01", deadline_ts: 1790000000,
@@ -163,7 +163,7 @@ describe("findSimilarNotices", () => {
         [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
         [/FROM crm_bid_notice_unspsc_codes WHERE notice_id = \?/, CUR_CODES],
         [/peer\.code IN/, [{ notice_id: "A", wide_id: 11, deadline_ts: 1790000000 }]],
-        [/FROM crm_notice_search WHERE id IN/, [{ id: 11, p: "UGT-B-07,UGT-B-0702" }]],
+        [/FROM crm_notice_search WHERE id IN/, [{ id: 11, p: "UGT-07,UGT-0702" }]],
       ]);
       await findSimilarNotices(pool, 1, 6, locale);
       const call = query.mock.calls.find((c) => /FROM crm_bid_notices n[\s\S]*n\.notice_id IN/.test(String(c[0])));

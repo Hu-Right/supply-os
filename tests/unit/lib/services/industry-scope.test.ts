@@ -36,11 +36,11 @@ function makeCatalog(opts: { plan?: { plan_code: string } | null; scoped?: boole
 
 /** 骨架 L1 行（列别名 g / node）：UGT-G-14 故意挂两个，钉「多值全都要参与命中」 */
 const L1_ROWS = [
-  { g: "UGT-G-25", node: "UGT-B-85" },
-  { g: "UGT-G-14", node: "UGT-B-21" },
-  { g: "UGT-G-14", node: "UGT-B-22" },
+  { g: "UGT-G-25", node: "UGT-85" },
+  { g: "UGT-G-14", node: "UGT-21" },
+  { g: "UGT-G-14", node: "UGT-22" },
   // 库里挂着但码形制非法的行：l1NodesOfGroup 必须丢掉，不能让脏码进谓词变成「永不命中」
-  { g: "UGT-G-14", node: "UGT-B-XY" },
+  { g: "UGT-G-14", node: "UGT-XY" },
 ];
 
 /** 宽表 backbone_path 列值与商机码行：逐用例改写（tree 的 L1 图有 10 分钟模块级缓存，全用例共用 L1_ROWS） */
@@ -91,7 +91,7 @@ describe("resolveIndustryScope · 判定链", () => {
   it("限定档 + 已绑大类 → 墙启动，带出大类码与其 L1 节点码", async () => {
     profile.resolve.mockResolvedValue({ userId: 42, groupCode: "UGT-G-25", levelIds: [109, null, null, null, 100852] });
     expect(await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 42)).toEqual({
-      scoped: true, groupCode: "UGT-G-25", groupNodes: ["UGT-B-85"], needsIndustry: false,
+      scoped: true, groupCode: "UGT-G-25", groupNodes: ["UGT-85"], needsIndustry: false,
     });
   });
 
@@ -122,15 +122,15 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
   it("公告祖先链含墙内 L1 → 放行；不含 → 拦", async () => {
     profile.resolve.mockResolvedValue({ groupCode: "UGT-G-25" });
     const catalog = makeCatalog({ scoped: true });
-    wideRows = wide("UGT-B-85,UGT-B-8501,UGT-B-85010101");
+    wideRows = wide("UGT-85,UGT-8501,UGT-85010101");
     expect(await canAccessNotice(pool, catalog, 42, 9001)).toBe(true);
-    wideRows = wide("UGT-B-43,UGT-B-4321");
+    wideRows = wide("UGT-43,UGT-4321");
     expect(await canAccessNotice(pool, catalog, 42, 9002)).toBe(false);
   });
 
   it("多 L1 的大类：任一节点命中即放行（只取第一个就是静默漏类）", async () => {
     profile.resolve.mockResolvedValue({ groupCode: "UGT-G-14" });
-    wideRows = wide("UGT-B-22,UGT-B-2201");
+    wideRows = wide("UGT-22,UGT-2201");
     expect(await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9003)).toBe(true);
   });
 
@@ -144,7 +144,7 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
 
   it("被墙但大类挂不上 L1 → 有码公告一律拦（分叉态收窄，不放开）", async () => {
     profile.resolve.mockResolvedValue({ groupCode: "UGT-G-17" });
-    wideRows = wide("UGT-B-85,UGT-B-8501");
+    wideRows = wide("UGT-85,UGT-8501");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     expect(await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9006)).toBe(false);
     warn.mockRestore();
@@ -152,7 +152,7 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
 
   it("口径铁则：只点查宽表 ns.id，不得再碰桥表与旧字典 level1_id", async () => {
     profile.resolve.mockResolvedValue({ groupCode: "UGT-G-25" });
-    wideRows = wide("UGT-B-85");
+    wideRows = wide("UGT-85");
     await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9007);
     // L1 映射查询在前，命中检查取最后一次
     const sql = String(query.mock.calls.at(-1)![0]);
@@ -168,23 +168,23 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
 
 describe("noticeInCategory · 搜索参考号快速路径口径", () => {
   it("命中 → true；有码不命中与无码均 → false（落回主管道由强制大类谓词自然滤掉）", async () => {
-    wideRows = wide("UGT-B-85,UGT-B-8501");
-    expect(await noticeInCategory(pool, 9008, ["UGT-B-85"])).toBe(true);
-    wideRows = wide("UGT-B-43");
-    expect(await noticeInCategory(pool, 9008, ["UGT-B-85"])).toBe(false);
+    wideRows = wide("UGT-85,UGT-8501");
+    expect(await noticeInCategory(pool, 9008, ["UGT-85"])).toBe(true);
+    wideRows = wide("UGT-43");
+    expect(await noticeInCategory(pool, 9008, ["UGT-85"])).toBe(false);
     wideRows = [];
-    expect(await noticeInCategory(pool, 9008, ["UGT-B-85"])).toBe(false);
+    expect(await noticeInCategory(pool, 9008, ["UGT-85"])).toBe(false);
   });
 
   it("nodes 为空 → false，不因「没条件」判成命中", async () => {
-    wideRows = wide("UGT-B-85");
+    wideRows = wide("UGT-85");
     expect(await noticeInCategory(pool, 9009, [])).toBe(false);
   });
 
-  it("列里的脏 token 不参与命中：只认 UGT-B- 形制的码", async () => {
-    wideRows = wide("UGT-B-XY,UGT-B-8500");
-    expect(await noticeInCategory(pool, 9010, ["UGT-B-XY"])).toBe(false);
-    expect(await noticeInCategory(pool, 9010, ["UGT-B-8500"])).toBe(true);
+  it("列里的脏 token 不参与命中：只认 UGT- 形制的码", async () => {
+    wideRows = wide("UGT-XY,UGT-8500");
+    expect(await noticeInCategory(pool, 9010, ["UGT-XY"])).toBe(false);
+    expect(await noticeInCategory(pool, 9010, ["UGT-8500"])).toBe(true);
   });
 });
 

@@ -66,7 +66,7 @@ beforeEach(() => {
   // 默认无生效订阅 → 行业墙不启动（墙注入行为由专属用例覆盖）
   mocks.findActivePlan.mockResolvedValue(null);
   // 默认大类→L1 映射可用（墙的具体取值由专属用例覆写）
-  mocks.l1NodesOfGroup.mockResolvedValue(["UGT-B-85"]);
+  mocks.l1NodesOfGroup.mockResolvedValue(["UGT-85"]);
 });
 
 function makeReq(url = URL_WITH_EXCLUDE) {
@@ -137,14 +137,14 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     mocks.isEntitled.mockImplementation(async (_uid: number, code: string) => code === "industry_scoped");
     // 墙只认 prefs.group_code（旧字典 level=1 是 A..J 十个容器，比大类粗到不能当行业口径）
     mocks.resolveProfile.mockResolvedValue({ userId: 7, groupCode: "UGT-G-25", levelIds: [109, null, null, null, 100852] });
-    mocks.l1NodesOfGroup.mockResolvedValue(["UGT-B-85"]);
+    mocks.l1NodesOfGroup.mockResolvedValue(["UGT-85"]);
 
     const res = await GET(makeReq("http://localhost:3000/api/notices/unified-search?mode=recommended&page=1"));
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(mocks.searchUnified).toHaveBeenCalledTimes(1);
-    expect(mocks.searchUnified.mock.calls[0][1]).toMatchObject({ mode: "prefs", wall: { nodes: ["UGT-B-85"] } });
+    expect(mocks.searchUnified.mock.calls[0][1]).toMatchObject({ mode: "prefs", wall: { nodes: ["UGT-85"] } });
     expect(mocks.l1NodesOfGroup).toHaveBeenCalledWith(expect.anything(), "UGT-G-25");
     expect(body.needs_industry_selection).toBeUndefined();
   });

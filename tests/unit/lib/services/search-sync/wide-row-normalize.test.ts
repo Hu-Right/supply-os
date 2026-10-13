@@ -77,8 +77,8 @@ describe("notice_type_std / deadline_sec / estimated_value", () => {
   });
 
   it("有归属时只落 backbone_path，十个旧字典分类列一个都不产出", () => {
-    const row = buildWideRow(base, new Map(), { backbone: "UGT-B-01,UGT-B-0101" });
-    expect(row.backbone_path).toBe("UGT-B-01,UGT-B-0101");
+    const row = buildWideRow(base, new Map(), { backbone: "UGT-01,UGT-0101" });
+    expect(row.backbone_path).toBe("UGT-01,UGT-0101");
     for (const col of [
       "unspsc_level1", "unspsc_level2", "unspsc_level3", "unspsc_level4", "unspsc_level5",
       "precise_level1", "precise_level2", "precise_level3", "precise_level4", "precise_level5",

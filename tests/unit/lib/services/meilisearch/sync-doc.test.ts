@@ -21,17 +21,17 @@ const doc = (over: Record<string, unknown>) =>
 
 describe("meili 文档类目属性", () => {
   it("backbone_node 来自 backbone_path，脏 token 不进索引", () => {
-    const d = doc({ backbone_path: "UGT-B-07,UGT-B-0702,JUNK,UGT-B-XY" });
-    expect(d.backbone_node).toEqual(["UGT-B-07", "UGT-B-0702"]);
+    const d = doc({ backbone_path: "UGT-07,UGT-0702,JUNK,UGT-XY" });
+    expect(d.backbone_node).toEqual(["UGT-07", "UGT-0702"]);
   });
 
   it("precise_backbone_node 来自 precise_backbone_path（不是 backbone_path）", () => {
     const d = doc({
-      backbone_path: "UGT-B-07,UGT-B-0702,UGT-B-070201",
-      precise_backbone_path: "UGT-B-07,UGT-B-0702,UGT-B-070201,UGT-B-0702010204",
+      backbone_path: "UGT-07,UGT-0702,UGT-070201",
+      precise_backbone_path: "UGT-07,UGT-0702,UGT-070201,UGT-0702010204",
     });
     // 精准链比全量链深一层：两条列各取各的，写反了这里就会相等
-    expect(d.precise_backbone_node).toEqual(d.backbone_node.concat("UGT-B-0702010204"));
+    expect(d.precise_backbone_node).toEqual(d.backbone_node.concat("UGT-0702010204"));
     expect(d.precise_backbone_node).not.toEqual(d.backbone_node);
   });
 

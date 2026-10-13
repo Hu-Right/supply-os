@@ -196,7 +196,7 @@ describe("POST /api/opportunities/[id]/unlock", () => {
   });
 
   it("行业墙：越大类 → 403，不解锁不扣配额", async () => {
-    resolveIndustryScope.mockResolvedValue({ scoped: true, groupCode: "UGT-G-25", groupNodes: ["UGT-B-85"] });
+    resolveIndustryScope.mockResolvedValue({ scoped: true, groupCode: "UGT-G-25", groupNodes: ["UGT-85"] });
     opportunityInCategory.mockResolvedValue(false);
     const { POST } = await import("@/app/api/opportunities/[id]/unlock/route");
     const res = await POST(unlockRequest(176, { unlock_type: "subscription" }), routeParams(176));

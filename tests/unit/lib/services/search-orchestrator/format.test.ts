@@ -48,35 +48,35 @@ describe("formatItems", () => {
   });
 
   it("画像节点码命中公告 precise 链 → match_score + match_tier", () => {
-    const rows = [{ id: 1, precise_backbone_path: "UGT-B-43,UGT-B-4321,UGT-B-432115,UGT-B-43211503" }] as any;
-    const profileNodes = [{ level: 4, node: "UGT-B-43211503" }];
+    const rows = [{ id: 1, precise_backbone_path: "UGT-43,UGT-4321,UGT-432115,UGT-43211503" }] as any;
+    const profileNodes = [{ level: 4, node: "UGT-43211503" }];
     const result = formatItems(rows, "en", profileNodes);
     expect(result[0].match_score).toBe(5);
     expect(result[0].match_tier).toBe("precise");
   });
 
   it("深浅两档同时命中 → 取最深档定分（放宽到 L2 也不能把精准命中降成 relevant）", () => {
-    const rows = [{ id: 1, precise_backbone_path: "UGT-B-43,UGT-B-4321,UGT-B-432115,UGT-B-43211503" }] as any;
+    const rows = [{ id: 1, precise_backbone_path: "UGT-43,UGT-4321,UGT-432115,UGT-43211503" }] as any;
     const profileNodes = [
-      { level: 4, node: "UGT-B-43211503" },
-      { level: 2, node: "UGT-B-4321" },
+      { level: 4, node: "UGT-43211503" },
+      { level: 2, node: "UGT-4321" },
     ];
     expect(formatItems(rows, "en", profileNodes)[0].match_score).toBe(5);
   });
 
   it("precise 链不含任何一档节点码 / 列为空 → 不挂徽章", () => {
-    const miss = [{ id: 1, precise_backbone_path: "UGT-B-30,UGT-B-3011" }] as any;
-    const result = formatItems(miss, "en", [{ level: 4, node: "UGT-B-43211503" }]);
+    const miss = [{ id: 1, precise_backbone_path: "UGT-30,UGT-3011" }] as any;
+    const result = formatItems(miss, "en", [{ level: 4, node: "UGT-43211503" }]);
     expect(result[0].match_score).toBeUndefined();
     expect(result[0].match_tier).toBeUndefined();
     // 降级多表 JOIN 路径的行根本没有这一列：同样不挂徽章，不能因为 undefined 就报错
     const noCol = [{ id: 2 }] as any;
-    expect(formatItems(noCol, "en", [{ level: 2, node: "UGT-B-43" }])[0].match_tier).toBeUndefined();
+    expect(formatItems(noCol, "en", [{ level: 2, node: "UGT-43" }])[0].match_tier).toBeUndefined();
   });
 
-  it("列里的脏 token 不参与命中：只认 UGT-B- 形制的码", () => {
-    const rows = [{ id: 1, precise_backbone_path: "721015,UGT-B-XY" }] as any;
-    const result = formatItems(rows, "en", [{ level: 2, node: "721015" }, { level: 3, node: "UGT-B-XY" }]);
+  it("列里的脏 token 不参与命中：只认 UGT- 形制的码", () => {
+    const rows = [{ id: 1, precise_backbone_path: "721015,UGT-XY" }] as any;
+    const result = formatItems(rows, "en", [{ level: 2, node: "721015" }, { level: 3, node: "UGT-XY" }]);
     expect(result[0].match_tier).toBeUndefined();
   });
 

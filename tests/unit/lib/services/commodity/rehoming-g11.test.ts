@@ -20,6 +20,8 @@ import {
   validateRehomeSpec,
   type BackboneRow,
 } from "@/lib/services/commodity/rehoming-g11";
+// 码长断言不在这重写也不写死：与被测模块取同一个前缀常量（改码后两处分开错就测不出真问题了）
+import { BACKBONE_NODE_PREFIX } from "@/lib/services/commodity/backbone-path";
 
 /** 规格声明的全部 6 位类（顺序按码排序，与现树排序口径一致） */
 const ALL_CLASS_PREFIXES = G11_REHOMING.flatMap((l2) => l2.l3.flatMap((l3) => l3.classes)).sort();
@@ -69,11 +71,11 @@ function fakeOldTree(): BackboneRow[] {
 /** 别的抽屉：必须原样透传，一行都不许动 */
 function foreignTree(): BackboneRow[] {
   return [
-    row("UGT-B-08", "", 1, "UGT-G-12", "清洁环境与设施维护"),
-    row("UGT-B-0801", "UGT-B-08", 2, "UGT-G-12", "清洁和看管服务"),
-    row("UGT-B-080101", "UGT-B-0801", 3, "UGT-G-12", "一般建筑物、办公室清洁和维护服务"),
-    row("UGT-B-08010101", "UGT-B-080101", 4, "UGT-G-12", "建筑物清洁服务", "761110"),
-    row("UGT-B-0801010101", "UGT-B-08010101", 5, "UGT-G-12", "一般清洁", "76111001"),
+    row("UGT-08", "", 1, "UGT-G-12", "清洁环境与设施维护"),
+    row("UGT-0801", "UGT-08", 2, "UGT-G-12", "清洁和看管服务"),
+    row("UGT-080101", "UGT-0801", 3, "UGT-G-12", "一般建筑物、办公室清洁和维护服务"),
+    row("UGT-08010101", "UGT-080101", 4, "UGT-G-12", "建筑物清洁服务", "761110"),
+    row("UGT-0801010101", "UGT-08010101", 5, "UGT-G-12", "一般清洁", "76111001"),
   ];
 }
 
@@ -142,7 +144,7 @@ describe("重排产物（RH 系列）", () => {
     const codes = new Set(out.rows.map((r) => r.code));
     expect(codes.size).toBe(out.rows.length);
     for (const r of out.rows) {
-      expect(r.code.length).toBe(6 + r.level * 2);
+      expect(r.code.length).toBe(BACKBONE_NODE_PREFIX.length + r.level * 2);
       if (r.level > 1) {
         expect(r.parentCode).toBe(r.code.slice(0, -2));
         expect(codes.has(r.parentCode)).toBe(true);
@@ -256,7 +258,7 @@ describe("业务层质量审计（A1~A5）", () => {
   it("低覆盖度小类必须写「混装:」否则红", () => {
     const tree = rebuildG11Subtree([...fakeOldTree(), ...foreignTree()]).rows;
     // 把 0305（实测最大子只占 0.28）的混装标记摸掉 ⇒ A4 必须叫
-    const bad = tree.map((r) => (r.code === "UGT-B-010305" ? { ...r, note: "无标记" } : r));
+    const bad = tree.map((r) => (r.code === "UGT-010305" ? { ...r, note: "无标记" } : r));
     expect(auditBusinessLayer(bad, NOTICES).problems.join(" ")).toContain("混装");
   });
 });

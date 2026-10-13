@@ -33,23 +33,23 @@ const existsOn = (col: string) =>
 
 describe("buildFilterPlan 类目条件（骨架节点码口径）", () => {
   it("precise=false：backbone_node ↔ backbone_path，与下拉/chip 同一对形状", async () => {
-    const plan = await buildFilterPlan(pool, base, { node: "UGT-B-070201", precise: false });
+    const plan = await buildFilterPlan(pool, base, { node: "UGT-070201", precise: false });
     expect(plan.conflictEmpty).toBe(false);
-    expect(plan.meiliFilters).toContain('backbone_node = "UGT-B-070201"');
+    expect(plan.meiliFilters).toContain('backbone_node = "UGT-070201"');
     expect(plan.mysqlWhere).toContain(existsOn("backbone_path"));
-    expect(plan.mysqlParams).toContain("UGT-B-070201");
-    expect(plan.digest).toContain("cat:UGT-B-070201");
+    expect(plan.mysqlParams).toContain("UGT-070201");
+    expect(plan.digest).toContain("cat:UGT-070201");
   });
 
   it("precise=true：precise_backbone_node ↔ precise_backbone_path（两条列不能互换）", async () => {
-    const plan = await buildFilterPlan(pool, base, { node: "UGT-B-0702010204", precise: true });
-    expect(plan.meiliFilters).toContain('precise_backbone_node = "UGT-B-0702010204"');
+    const plan = await buildFilterPlan(pool, base, { node: "UGT-0702010204", precise: true });
+    expect(plan.meiliFilters).toContain('precise_backbone_node = "UGT-0702010204"');
     expect(plan.mysqlWhere).toContain(existsOn("precise_backbone_path"));
     // 这里必须按数组元素比而不是拼串后 includes：`precise_backbone_node = "…"`
     // 本来就子串包含 `backbone_node = "…"`，拼串断言会假绿
-    expect(plan.meiliFilters).not.toContain('backbone_node = "UGT-B-0702010204"');
+    expect(plan.meiliFilters).not.toContain('backbone_node = "UGT-0702010204"');
     expect(plan.mysqlWhere).not.toContain(existsOn("backbone_path"));
-    expect(plan.digest).toContain("cat:UGT-B-0702010204:precise");
+    expect(plan.digest).toContain("cat:UGT-0702010204:precise");
   });
 
   it("脏节点码：不拼条件、不报错、不 conflictEmpty，但 digest 留痕", async () => {
@@ -71,7 +71,7 @@ describe("buildFilterPlan 类目条件（骨架节点码口径）", () => {
 
   it("旧字典列彻底退出：levelN_id / unspsc_level / precise_level 都不许出现", async () => {
     const full = validateParams({ q: "water", codeId: 123456 });
-    const plan = await buildFilterPlan(pool, full, { node: "UGT-B-30", precise: true });
+    const plan = await buildFilterPlan(pool, full, { node: "UGT-30", precise: true });
     expect(plan.meiliFilters.join(" ")).not.toMatch(/level[1-5]_id/);
     expect(plan.mysqlWhere.join(" ")).not.toMatch(/unspsc_level|precise_level/);
   });

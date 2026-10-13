@@ -31,8 +31,8 @@ const DICT: Record<number, { code: string; level: number }> = {
   101: { code: "A", level: 1 }, // 旧字典的字母容器层：新分类里没有对应层，必须被忽略
 };
 const NODE_BY_CODE: Record<string, string> = {
-  "43211503": "UGT-B-4321150301", // 字典品目码 → 新树 L5（码内 10 位）
-  "308834": "UGT-B-30883401", //     字典类码（前 6 位）→ 新树 L4（码内 8 位）
+  "43211503": "UGT-4321150301", // 字典品目码 → 新树 L5（码内 10 位）
+  "308834": "UGT-30883401", //     字典类码（前 6 位）→ 新树 L4（码内 8 位）
 };
 
 const sqlLog: string[] = [];
@@ -68,7 +68,7 @@ describe("resolveMode · default 的类目条件", () => {
   it("code_id 能落到骨架节点 → 给出节点码，precise=false", async () => {
     const r = await resolveMode(fakePool(), params({ codeId: 900 }));
     expect(r.kind).toBe("search");
-    expect(r.category).toEqual({ node: "UGT-B-4321150301", precise: false });
+    expect(r.category).toEqual({ node: "UGT-4321150301", precise: false });
   });
 
   it("code_id 在树里换不出节点 → 忽略类目过滤（不报错、不放开全量）", async () => {
@@ -98,10 +98,10 @@ describe("resolveMode · prefs 的渐进放宽序列", () => {
     const r = await resolveMode(fakePool(), params({ mode: "prefs", userId: 7 }));
     expect(r.kind).toBe("search");
     expect(r.profileNodes).toEqual([
-      { node: "UGT-B-4321150301", level: 5, score: 5 },
-      { node: "UGT-B-43211503", level: 4, score: 5 },
-      { node: "UGT-B-432115", level: 3, score: 2 },
-      { node: "UGT-B-4321", level: 2, score: 2 },
+      { node: "UGT-4321150301", level: 5, score: 5 },
+      { node: "UGT-43211503", level: 4, score: 5 },
+      { node: "UGT-432115", level: 3, score: 2 },
+      { node: "UGT-4321", level: 2, score: 2 },
     ]);
     // L1 不进序列：放宽到大类等于不限行业（旧口径同一底线）
     expect(r.profileNodes!.some((e) => e.level === 1)).toBe(false);
@@ -111,9 +111,9 @@ describe("resolveMode · prefs 的渐进放宽序列", () => {
     profile.resolve.mockResolvedValue({ userId: 8, deepestLevel: 4, levelIds: [101, null, null, 300, null] });
     const r = await resolveMode(fakePool(), params({ mode: "prefs", userId: 8 }));
     expect(r.profileNodes).toEqual([
-      { node: "UGT-B-30883401", level: 4, score: 5 },
-      { node: "UGT-B-308834", level: 3, score: 2 },
-      { node: "UGT-B-3088", level: 2, score: 2 },
+      { node: "UGT-30883401", level: 4, score: 5 },
+      { node: "UGT-308834", level: 3, score: 2 },
+      { node: "UGT-3088", level: 2, score: 2 },
     ]);
   });
 

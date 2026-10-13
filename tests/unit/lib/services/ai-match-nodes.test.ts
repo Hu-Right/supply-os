@@ -34,7 +34,7 @@ const makePool = (results: Array<Array<unknown> | Error>) =>
     }),
   }) as unknown as Pool;
 
-const CHAIN_5 = ["UGT-B-42", "UGT-B-4210", "UGT-B-421015", "UGT-B-42101503", "UGT-B-4210150301"];
+const CHAIN_5 = ["UGT-42", "UGT-4210", "UGT-421015", "UGT-42101503", "UGT-4210150301"];
 
 beforeEach(() => {
   sqls.length = 0;
@@ -55,11 +55,13 @@ describe("公告侧", () => {
     expect([...data.noticeNodes]).toEqual(CHAIN_5);
   });
 
-  it("列里的脏 token 不进集合（拆列只走 fromBackbonePathColumn）", async () => {
+  it("列里的脏 token 不进集合（拆列只走 fromBackbonePathColumn，旧码制也算脏）", async () => {
     pathOf.mockReturnValue({ codes: [], deepest: [], misses: [], tiers: {} });
-    const pool = makePool([[{ p: "UGT-B-42,UGT-B-XY,42101503,UGT-B-4210," }]]);
+    // 故意混入一个旧形制码 `UGT-42`：列形制解析故意不走 normalizeBackboneNodeKey（那是入口层的事），
+    // 所以改码前的旧码在这里就是脏 token —— 挡在集合外，而不是“看起来能匹配”地放进事实源。
+    const pool = makePool([[{ p: "UGT-42,UGT-XY,42101503,UGT-42,UGT-4210," }]]);
     const data = await loadMatchNodeData(pool, 1, [7]);
-    expect([...data.noticeNodes]).toEqual(["UGT-B-42", "UGT-B-4210"]);
+    expect([...data.noticeNodes]).toEqual(["UGT-42", "UGT-4210"]);
   });
 
   it("公告无节点码 → 短路：不查兴趣表，也不载入骨架索引", async () => {
@@ -109,10 +111,10 @@ describe("供应商侧", () => {
 
   it("换不出的码点名告警，不静默丢（仍写已算出的部分）", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    pathOf.mockReturnValue({ codes: ["UGT-B-42"], deepest: [], misses: ["99999999", "99999998"], tiers: {} });
+    pathOf.mockReturnValue({ codes: ["UGT-42"], deepest: [], misses: ["99999999", "99999998"], tiers: {} });
     const pool = makePool([[{ p: CHAIN_5.join(",") }], [{ supplier_id: 7, code: "42101503" }]]);
     const data = await loadMatchNodeData(pool, 1, [7]);
-    expect([...data.supplierNodes.get(7)!]).toEqual(["UGT-B-42"]);
+    expect([...data.supplierNodes.get(7)!]).toEqual(["UGT-42"]);
     expect(warn).toHaveBeenCalled();
     expect(warn.mock.calls.map((c) => String(c[0])).join(" ")).toContain("99999999");
     warn.mockRestore();

@@ -2,7 +2,7 @@
  * filter-builder — 品目骨架五级筛选（commodityPath）双方言谓词单测
  *
  * 钉住四件事：
- * 1. 参数校验只放行骨架节点码（`UGT-B-` + 2/4/6/8/10 位），其它一律丢弃、不进入 SQL；
+ * 1. 参数校验只放行骨架节点码（`UGT-` + 2/4/6/8/10 位），其它一律丢弃、不进入 SQL；
  *    **旧的 UNSPSC 数字前缀不再合法** —— 它在 backbone_path 里根本不存在，放进来等于筛出空集还不报错。
  * 2. 两条方言落在同一份数据上（Meili backbone_node 数组属性 ↔ MySQL backbone_path 等值），
  *    不允许出现「主路径筛 backbone_path、降级路径筛 unspsc_levelN」这种两套口径；
@@ -25,21 +25,21 @@ function fakePool(l1Rows: Array<{ g: string; node: string }> = []): Pool {
 }
 
 describe("validateParams 骨架节点筛选键", () => {
-  it("接受 UGT-B- 的 2/4/6/8/10 位节点码", () => {
-    for (const key of ["UGT-B-01", "UGT-B-0101", "UGT-B-010101", "UGT-B-01010101", "UGT-B-0101010101"]) {
+  it("接受 UGT- 的 2/4/6/8/10 位节点码", () => {
+    for (const key of ["UGT-01", "UGT-0101", "UGT-010101", "UGT-01010101", "UGT-0101010101"]) {
       expect(validateParams({ commodityPath: key }).commodityPath).toBe(key);
     }
   });
 
   it("旧 UNSPSC 前缀、奇数位、非数字、注入串一律丢弃", () => {
-    for (const bad of ["72", "7210", "72101501", "UGT-B-1", "UGT-B-010", "UGT-B-010101010101", "abc", "UGT-C-41", "' OR 1=1", ""]) {
+    for (const bad of ["72", "7210", "72101501", "UGT-1", "UGT-010", "UGT-010101010101", "abc", "UGT-C-41", "' OR 1=1", ""]) {
       expect(validateParams({ commodityPath: bad }).commodityPath).toBeUndefined();
     }
   });
 
   it("不同节点码生成不同缓存键（否则两类筛选结果互相串台）", () => {
-    const a = searchCacheKey(validateParams({ commodityPath: "UGT-B-01" }));
-    const b = searchCacheKey(validateParams({ commodityPath: "UGT-B-0101" }));
+    const a = searchCacheKey(validateParams({ commodityPath: "UGT-01" }));
+    const b = searchCacheKey(validateParams({ commodityPath: "UGT-0101" }));
     const c = searchCacheKey(validateParams({}));
     expect(a).not.toBe(b);
     expect(a).not.toBe(c);
@@ -48,19 +48,19 @@ describe("validateParams 骨架节点筛选键", () => {
 
 describe("buildFilterPlan 骨架节点筛选", () => {
   it("Meili 与 MySQL 两条方言都按 backbone_path 的等值节点项筛", async () => {
-    const p = validateParams({ commodityPath: "UGT-B-0101" });
+    const p = validateParams({ commodityPath: "UGT-0101" });
     const plan = await buildFilterPlan(fakePool(), p);
     expect(plan.conflictEmpty).toBe(false);
-    expect(plan.meiliFilters).toContain('backbone_node = "UGT-B-0101"');
+    expect(plan.meiliFilters).toContain('backbone_node = "UGT-0101"');
     expect(plan.mysqlWhere).toContain(
       "EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.backbone_path))",
     );
-    expect(plan.mysqlParams).toEqual(["UGT-B-0101"]);
-    expect(plan.digest).toContain("commodity:UGT-B-0101");
+    expect(plan.mysqlParams).toEqual(["UGT-0101"]);
+    expect(plan.digest).toContain("commodity:UGT-0101");
   });
 
   it("谓词只有一个占位符且与参数一一对应；不引用 unspsc_levelN，也不回退 code_path", async () => {
-    const plan = await buildFilterPlan(fakePool(), validateParams({ commodityPath: "UGT-B-01010101" }));
+    const plan = await buildFilterPlan(fakePool(), validateParams({ commodityPath: "UGT-01010101" }));
     const clause = plan.mysqlWhere.find((w) => w.includes("backbone_path"))!;
     expect((clause.match(/\?/g) || []).length).toBe(1);
     expect(clause).not.toContain(" OR ");
@@ -71,10 +71,10 @@ describe("buildFilterPlan 骨架节点筛选", () => {
   });
 
   it("与大类 chip 叠加为 AND（大类 + 中类是同一条链的逐级收窄）", async () => {
-    const p = validateParams({ commodityPath: "UGT-B-0101", groupCode: "UGT-G-11" });
-    const plan = await buildFilterPlan(fakePool([{ g: "UGT-G-11", node: "UGT-B-01" }]), p);
+    const p = validateParams({ commodityPath: "UGT-0101", groupCode: "UGT-G-11" });
+    const plan = await buildFilterPlan(fakePool([{ g: "UGT-G-11", node: "UGT-01" }]), p);
     expect(plan.meiliFilters.some((f) => f.includes("backbone_node"))).toBe(true);
     expect(plan.digest).toContain("group:UGT-G-11");
-    expect(plan.digest).toContain("commodity:UGT-B-0101");
+    expect(plan.digest).toContain("commodity:UGT-0101");
   });
 });

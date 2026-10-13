@@ -80,14 +80,14 @@ describe("loadUnspscByNoticeIds", () => {
   // 骨架索引是进程内 TTL 缓存（载入实测十几秒），必须逐例失效：
   // 否则“载入失败”的例会被前一例装好的索引撑过，把降级分支测成永远跑不到
   beforeEach(() => resetBackboneCache());
-  /** 与下方 backbone 例同一棵树：L1=UGT-B-01（段 10 ⇒ 大类 UGT-G-01）… L5=10101504。
+  /** 与下方 backbone 例同一棵树：L1=UGT-01（段 10 ⇒ 大类 UGT-G-01）… L5=10101504。
    *  必须是工厂：makePool 用 .shift() 逐批发放，共用同一个数组会把后续例的树消费干净 */
   const TREE = () => [[
-    { code: "UGT-B-01", parent_code: "", level: 1, unspsc_prefix: null, group_code: "UGT-G-01" },
-    { code: "UGT-B-0101", parent_code: "UGT-B-01", level: 2, unspsc_prefix: null, group_code: "UGT-G-01" },
-    { code: "UGT-B-010101", parent_code: "UGT-B-0101", level: 3, unspsc_prefix: null, group_code: "UGT-G-01" },
-    { code: "UGT-B-01010101", parent_code: "UGT-B-010101", level: 4, unspsc_prefix: "101015", group_code: "UGT-G-01" },
-    { code: "UGT-B-0101010101", parent_code: "UGT-B-01010101", level: 5, unspsc_prefix: "10101504", group_code: "UGT-G-01" },
+    { code: "UGT-01", parent_code: "", level: 1, unspsc_prefix: null, group_code: "UGT-G-01" },
+    { code: "UGT-0101", parent_code: "UGT-01", level: 2, unspsc_prefix: null, group_code: "UGT-G-01" },
+    { code: "UGT-010101", parent_code: "UGT-0101", level: 3, unspsc_prefix: null, group_code: "UGT-G-01" },
+    { code: "UGT-01010101", parent_code: "UGT-010101", level: 4, unspsc_prefix: "101015", group_code: "UGT-G-01" },
+    { code: "UGT-0101010101", parent_code: "UGT-01010101", level: 5, unspsc_prefix: "10101504", group_code: "UGT-G-01" },
   ]];
 
   it("空列表 → 零查询", async () => {
@@ -105,7 +105,7 @@ describe("loadUnspscByNoticeIds", () => {
       [/FROM crm_commodity_backbone WHERE status = 1/, TREE()],
     ]);
     const r = (await loadUnspscByNoticeIds(pool, [{ noticeId: "N1" }])).get("N1")!;
-    expect(r.backbone).toBe("UGT-B-01,UGT-B-0101,UGT-B-010101,UGT-B-01010101,UGT-B-0101010101");
+    expect(r.backbone).toBe("UGT-01,UGT-0101,UGT-010101,UGT-01010101,UGT-0101010101");
     // 取码只一次；整树只查一条 SQL（段归属由树内存推导，退役后不再有第二张表，见 ADR-0009）
     const bridgeCalls = query.mock.calls.filter((c) => /crm_bid_notice_unspsc_codes/.test(String(c[0])));
     expect(bridgeCalls).toHaveLength(1);
@@ -129,7 +129,7 @@ describe("loadUnspscByNoticeIds", () => {
       [/FROM crm_commodity_backbone WHERE status = 1/, TREE()],
     ]);
     const r = (await loadUnspscByNoticeIds(pool, [{ noticeId: "P1", categoryIds: [999, null] }])).get("P1")!;
-    expect(r.backbone).toBe("UGT-B-01"); // 段级粗码只到大类一层（两位一组、下一组为 00 即停）
+    expect(r.backbone).toBe("UGT-01"); // 段级粗码只到大类一层（两位一组、下一组为 00 即停）
     const dictCalls = query.mock.calls.filter((c) => /FROM crm_unspsc_codes/.test(String(c[0])));
     expect(dictCalls).toHaveLength(1); // 整批一次 IN，绝不逐条点查
   });
@@ -151,7 +151,7 @@ describe("loadUnspscByNoticeIds", () => {
       [/FROM crm_commodity_backbone WHERE status = 1/, TREE()],
     ]);
     const r = (await loadUnspscByNoticeIds(pool, [{ noticeId: "N2", categoryIds: [7] }])).get("N2")!;
-    expect(r.backbone).toContain("UGT-B-0101010101"); // 桥表码的完整链在
+    expect(r.backbone).toContain("UGT-0101010101"); // 桥表码的完整链在
   });
 
   it("无自填分类的行不发字典查询（不为空数据多打一轮 SQL）", async () => {
@@ -187,9 +187,9 @@ describe("loadUnspscByNoticeIds", () => {
     expect(dictCalls).toHaveLength(1);
     // 去重后只传两个 id（共用的 999 不重复占位）
     expect(dictCalls[0][1]).toEqual([999, 888]);
-    expect(m.get("P1")!.backbone).toBe("UGT-B-01");
-    expect(m.get("P2")!.backbone).toBe("UGT-B-01");
-    expect(m.get("P3")!.backbone).toContain("UGT-B-0101010101");
+    expect(m.get("P1")!.backbone).toBe("UGT-01");
+    expect(m.get("P2")!.backbone).toBe("UGT-01");
+    expect(m.get("P3")!.backbone).toContain("UGT-0101010101");
   });
 });
 
