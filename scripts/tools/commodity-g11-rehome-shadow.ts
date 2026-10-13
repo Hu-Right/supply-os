@@ -24,6 +24,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import mysql, { type RowDataPacket } from "mysql2/promise";
 import { REHOME_GROUP_CODE, rebuildG11Subtree, type BackboneRow } from "../../src/lib/services/commodity/rehoming-g11.js";
+import { BACKBONE_NODE_PREFIX } from "../../src/lib/services/commodity/backbone-path.js";
 
 const APPLY = process.argv.includes("--build");
 const YES = process.argv.includes("--yes");
@@ -159,7 +160,7 @@ if (Number(diff.miss) !== 0 || Number(diff.extra) !== 0) fatal(`R3 码丢失 ${d
 
 const shape = (await q<{ bad_len: number; orphan: number }>(
   `SELECT
-     (SELECT COUNT(*) FROM \`${SHADOW}\` WHERE CHAR_LENGTH(code) <> 6 + level * 2) bad_len,
+     (SELECT COUNT(*) FROM \`${SHADOW}\` WHERE CHAR_LENGTH(code) <> ${BACKBONE_NODE_PREFIX.length} + level * 2) bad_len,
      (SELECT COUNT(*) FROM \`${SHADOW}\` c LEFT JOIN \`${SHADOW}\` p ON p.code = c.parent_code
         WHERE c.level > 1 AND p.code IS NULL) orphan`,
 ))[0];

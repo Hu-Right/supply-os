@@ -26,6 +26,9 @@
  *   所以派生层（落点表 / 倒排表 / 宽表 backbone_path / 商机 precise）必须整批重算，
  *   旧码→新码的完整对照由阶段一脚本导出 tsv 存档，note 里不塞。
  */
+// 码长里的前缀长度只从 backbone-path 取一份：2026-10-13 改码 UGT-B-… → UGT-… 时，
+// 本文件两处写死旧长度的判据全体误报（RH-7 每行都红）与静默失效（RH-11 核到了小类）。
+import { BACKBONE_NODE_PREFIX } from "./backbone-path";
 
 /** 本次归位只动这一个抽屉 */
 export const REHOME_GROUP_CODE = "UGT-G-11";
@@ -281,7 +284,9 @@ export function rebuildG11Subtree(allRows: readonly BackboneRow[], spec: readonl
   // 结构自检：码长即层级、父码=自身去末两级、父存在、码唯一
   const codeSet = new Set(rows.map((r) => r.code));
   for (const r of rows) {
-    if (r.code.length !== 6 + r.level * 2) problems.push(`RH-7 码长与层级不符：${r.code}（L${r.level}）`);
+    if (r.code.length !== BACKBONE_NODE_PREFIX.length + r.level * 2) {
+      problems.push(`RH-7 码长与层级不符：${r.code}（L${r.level}）`);
+    }
     if (r.level > 2 && !codeSet.has(r.code.slice(0, -2))) problems.push(`RH-8 父码≠自身去末两级（父不存在）：${r.code}`);
     if (r.level > 1 && r.parentCode !== r.code.slice(0, -2)) problems.push(`RH-9 parent_code 与码路径不一致：${r.code}→${r.parentCode}`);
     if (r.level >= 4 && r.parentCode === l1.code) problems.push(`RH-10 子类直挂大类：${r.code}`);
@@ -290,7 +295,8 @@ export function rebuildG11Subtree(allRows: readonly BackboneRow[], spec: readonl
   const famToL2 = new Map<string, string>();
   for (const r of rows.filter((x) => x.level === 4)) {
     const fam = String(r.unspscPrefix).slice(0, 4);
-    const l2 = r.code.slice(0, 10);
+    // 中类码 = 前缀 + 4 位数字；写死长度会在改码后取到小类码，RH-11 就悄悄核错了层
+    const l2 = r.code.slice(0, BACKBONE_NODE_PREFIX.length + 4);
     const prev = famToL2.get(fam);
     if (prev && prev !== l2) problems.push(`RH-11 族 ${fam} 的类行跨了两个中类：${prev} 与 ${l2}`);
     famToL2.set(fam, l2);

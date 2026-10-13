@@ -18,6 +18,9 @@
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import mysql from "mysql2/promise";
+// 码长形状断言的前缀长度不写死：2026-10-13 改码后写死旧长度会把全表判成坏码，
+// 而这是切换闸口里的“拦住”条件 —— 判错方向比不判更糟。
+import { BACKBONE_NODE_PREFIX } from "../../src/lib/services/commodity/backbone-path.js";
 
 const SWAP = process.argv.includes("--swap");
 const ROLLBACK = process.argv.includes("--rollback");
@@ -97,7 +100,7 @@ if (CLEANUP) {
 }
 
 // ── 体检（--check 与 --swap 前置都走同一套闸口）──
-console.log(`连接 ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}　模式：${SWAP ? "★ SWAP" : "CHECK 只读"}`);
+console.log(`连接 ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME} 模式：${SWAP ? "★ SWAP" : "CHECK 只读"}`);
 if (!(await exists(SHADOW))) fatal(`影子表 ${SHADOW} 不存在：先跑阶段一 commodity-g11-rehome-shadow.ts --build --yes`);
 if (!existsSync(STATE)) fatal(`缺 ${STATE}：阶段一没跑完，不能切换`);
 const state = JSON.parse(readFileSync(STATE, "utf8")) as { srcRows: number; srcChecksum: string; at: string };
@@ -116,7 +119,7 @@ console.log(`闸口 2 其余 31 抽屉：${s0.n} 行 ck=${s0.s} vs ${s1.n} 行 c
 if (String(s0.s) !== String(s1.s) && SWAP) fatal("非 01 抽屉与新树不一致：影子表不可信，拒绝切换");
 
 const shape = await q<{ bad_len: number; orphan: number; dup_prefix: number }>(
-  `SELECT (SELECT COUNT(*) FROM \`${SHADOW}\` WHERE CHAR_LENGTH(code) <> 6 + level * 2) bad_len,
+  `SELECT (SELECT COUNT(*) FROM \`${SHADOW}\` WHERE CHAR_LENGTH(code) <> ${BACKBONE_NODE_PREFIX.length} + level * 2) bad_len,
           (SELECT COUNT(*) FROM \`${SHADOW}\` c LEFT JOIN \`${SHADOW}\` p ON p.code = c.parent_code WHERE c.level > 1 AND p.code IS NULL) orphan,
           (SELECT COUNT(*) FROM (SELECT unspsc_prefix FROM \`${SHADOW}\` WHERE unspsc_prefix IS NOT NULL GROUP BY unspsc_prefix HAVING COUNT(*) > 1) t) dup_prefix`,
 );
