@@ -65,10 +65,10 @@ beforeEach(() => {
 });
 
 describe("resolveMode · default 的类目条件", () => {
-  it("code_id 能落到骨架节点 → 给出节点码，precise=false", async () => {
+  it("code_id 能落到骨架节点 → 给出节点码", async () => {
     const r = await resolveMode(fakePool(), params({ codeId: 900 }));
     expect(r.kind).toBe("search");
-    expect(r.category).toEqual({ node: "UGT-4321150301", precise: false });
+    expect(r.category).toEqual({ node: "UGT-4321150301" });
   });
 
   it("code_id 在树里换不出节点 → 忽略类目过滤（不报错、不放开全量）", async () => {

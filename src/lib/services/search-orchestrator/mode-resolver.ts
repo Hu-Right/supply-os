@@ -28,9 +28,6 @@ import { commodityNodeChain, commodityNodeLevel, resolveUnspscIdsToCommodityPath
 export interface CategoryFilter {
   /** 骨架节点码 UGT-*（2/4/6/8/10 位） */
   node: string;
-  /** true=prefs 模式，落 precise_backbone_path（人工审核过的 approved 候选码）；
-   *  false=default 模式，落 backbone_path（全量归属） */
-  precise: boolean;
 }
 
 /** prefs 放宽序列的一档：节点码 + 它的层级 + 匹配分（分数口径见 format.matchScoreToTierLabel） */
@@ -111,7 +108,7 @@ export async function resolveMode(pool: Pool, p: UnifiedSearchParams): Promise<M
   if (p.codeId > 0) {
     try {
       const node = await deepestNodeOf(pool, [p.codeId]);
-      if (node) return { kind: "search", category: { node, precise: false }, profileNodes: null };
+      if (node) return { kind: "search", category: { node }, profileNodes: null };
     } catch {
       /* code_id 解析失败：忽略行业过滤（与旧实现一致，不报错也不放开全量） */
     }

@@ -21,17 +21,17 @@ export function matchScoreToTierLabel(score: number): string {
   return "unmatched";
 }
 
-/** [阶段0 A2] 逐文档匹配分：公告自身 precise_backbone_path（品目树节点码集）与用户画像各档比对，
+/** [阶段0 A2] 逐文档匹配分：公告自身 backbone_path（品目树节点码集）与用户画像各档比对，
  *  取最深命中档定分（与 mode-resolver 口径一致：L4/L5 → 5；L2/L3 → 2）。
- *  无命中返回 undefined（降级多表 JOIN 路径的行没有 precise 列，不挂徽章）。
- *  2026-10-11 backbone 化：原先读 `precise_level{N}` 五列再比旧字典行 id，
- *  现在比的是节点码：公告的 precise 链里含某一档的节点码即命中该档
- *  （列值解析只走 fromBackbonePathColumn，全库一份形制口径）。 */
+ *  无命中返回 undefined（降级多表 JOIN 路径的行没有 backbone_path 列，不挂徽章）。
+ *  2026-10-13 precise 退役：原先读 precise_backbone_path（candidates 人工审核码派生），
+ *  该口径已随 UNSPSC candidates 表删除 ⇒ 现统一按全量 backbone_path 计分，
+ *  行业匹配徽章语义待「行业树↔品目树」桥接重建。列值解析只走 fromBackbonePathColumn。 */
 function perDocMatchScore(
   row: RowDataPacket,
   profileNodes: Array<{ level: number; node: string }>,
 ): number | undefined {
-  const docNodes = new Set(fromBackbonePathColumn(row.precise_backbone_path));
+  const docNodes = new Set(fromBackbonePathColumn(row.backbone_path));
   if (docNodes.size === 0) return undefined;
   for (let level = 5; level >= 2; level -= 1) {
     const entry = profileNodes.find((e) => e.level === level);

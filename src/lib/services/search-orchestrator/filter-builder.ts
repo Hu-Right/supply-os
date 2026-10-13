@@ -161,14 +161,14 @@ function expandAgency(agency: string): AgencyExpansion {
 
 /**
  * 构建双方言 filter 计划。
- * @param category 可选类目条件（mode-resolver 给出）：node = 品目树节点码；
- *               precise=true 落 precise_backbone_path（prefs 模式，approved 候选码），
- *               precise=false 落 backbone_path（default 模式，全量归属）
+ * @param category 可选类目条件（mode-resolver 给出）：node = 品目树节点码，
+ *               统一落 backbone_path（全量归属口径）。prefs 的精准候选码口径（precise）
+ *               已随 UNSPSC candidates 表退役删除；行业匹配语义待「行业树↔品目树」桥接重建。
  */
 export async function buildFilterPlan(
   pool: Pool,
   p: UnifiedSearchParams,
-  category?: { node: string; precise: boolean } | null,
+  category?: { node: string } | null,
 ): Promise<FilterPlan> {
   const meiliFilters: string[] = [];
   const mysqlWhere: string[] = [];
@@ -270,8 +270,8 @@ export async function buildFilterPlan(
   }
 
   // ── 类目条件（default 的 code_id / prefs 的渐进放宽档都从这里出去）──
-  // 键 = 品目树节点码，列 = backbone_path（precise=false）/ precise_backbone_path（precise=true）。
-  // 两条列都存「自身 + 全部祖先」，所以选到哪一层就命中哪一层，运行期不判层级也不查字典；
+  // 键 = 品目树节点码，列统一 = backbone_path（precise 口径已随 candidates 表退役）。
+  // 列存「自身 + 全部祖先」，所以选到哪一层就命中哪一层，运行期不判层级也不查字典；
   // 形状与大类 chip、五级下拉、可见性判定共用 nodeMeiliFilter / nodeMysqlWhere（一份形状）。
   // 2026-10-11 换口径：这里原本拼的是 `level{N}_id = <旧字典行 id>` 与
   // `FIND_IN_SET(?, ns.unspsc_level{N})` —— 两套键在同一请求里并存就是分叉温床。
@@ -279,11 +279,10 @@ export async function buildFilterPlan(
   // 逐字一致），但在 digest 里留下 rejected 痕迹，否则排查时看不到这一条被吞了。
   if (category) {
     if (isCommodityNodeKey(category.node)) {
-      const precise = category.precise;
-      meiliFilters.push(nodeMeiliFilter(precise ? "precise_backbone_node" : "backbone_node", [category.node]));
-      mysqlWhere.push(nodeMysqlWhere([category.node], precise ? "precise_backbone_path" : "backbone_path"));
+      meiliFilters.push(nodeMeiliFilter("backbone_node", [category.node]));
+      mysqlWhere.push(nodeMysqlWhere([category.node], "backbone_path"));
       mysqlParams.push(category.node);
-      digestParts.push(`cat:${category.node}${precise ? ":precise" : ""}`);
+      digestParts.push(`cat:${category.node}`);
     } else {
       digestParts.push(`cat:rejected:${category.node}`);
     }

@@ -40,8 +40,8 @@ const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
 /**
  * 构建同步文档（从宽表行）：宽表已包含标准化字段和翻译，无需额外处理
- * 导出理由：类目属性是「两条列 → 两个属性」的一一映射，写反了不报错也不变红
- * （precise 退化成全量口径），只能由单测直接构行断言（sync-doc.test.ts）。
+ * 导出理由：类目属性由宽表 backbone_path 拆出，写错列名不报错也不变红，
+ * 只能由单测直接构行断言（sync-doc.test.ts）。
  */
 export function buildSyncDocFromWideTable(r: RowDataPacket) {
   // 构建多语言翻译字段
@@ -55,11 +55,11 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     langFields[`description_${lang}`] = truncate(r[`description_${lang}`] ?? "", WIDE_LIMITS.description);
   }
 
-  // 类目属性只由「两条列 → 两个属性」一一对应产出：宽表 backbone_path / precise_backbone_path
-  // 均经 commodity/backbone-path 的 fromBackbonePathColumn 解析 —— 列形制的解析只允许一份，
-  // 且它会把形制不符的脏 token 挡在索引外（脏值由 BB10 兜住，但不能让它污染 backbone_node
-  // 这个 filterable 属性）。旧字典的 unspsc_levelN / precise_levelN 十列已随 B1 从索引退掉：
-  // 公告分类在索引里只剩一条口径，旧属性即使存量未清也不再被写入。
+  // 类目属性由宽表 backbone_path 经 commodity/backbone-path 的 fromBackbonePathColumn 解析产出
+  // —— 列形制的解析只允许一份，且它会把形制不符的脏 token 挡在索引外（脏值由 BB10 兜住，但
+  // 不能让它污染 backbone_node 这个 filterable 属性）。旧字典的 unspsc_levelN / precise_levelN
+  // 十列已随 B1 退掉，precise_backbone_path 亦随 UNSPSC candidates 表退役 ⇒ 公告分类在索引里
+  // 只剩 backbone_node 一条口径。
 
   return {
     id: Number(r.id),
@@ -88,9 +88,6 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     // 单值 ≤ 16 字符，不受 Meili 单值 468 字节限制；一个文档里节点项可达数千（实测最大 5,279），
     // Meili 对数组元素个数无限制。
     backbone_node: fromBackbonePathColumn(r.backbone_path),
-    // 精准口径（人工审核过的 approved 候选码派生）：prefs 模式用它筛。旧字典 precise_levelN_id
-    // 那套第二口径已随 B1 摘除 ⇒ 本列缺位就是筛不到，没有任何回退（两条列各取各的，谁也不代替谁）。
-    precise_backbone_node: fromBackbonePathColumn(r.precise_backbone_path),
   };
 }
 
@@ -100,7 +97,7 @@ const WIDE_TABLE_SYNC_SQL = `
   SELECT id, notice_id, reference, title, description,
          country_std, agency_std, agency_group, notice_type_std,
          deadline_sec, is_featured, estimated_value, documents_count,
-         backbone_path, precise_backbone_path,
+         backbone_path,
          title_zh, description_zh, title_en, description_en,
          title_fr, description_fr, title_ru, description_ru,
          title_es, description_es, title_ar, description_ar

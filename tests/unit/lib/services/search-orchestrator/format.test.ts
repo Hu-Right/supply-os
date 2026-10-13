@@ -47,8 +47,8 @@ describe("formatItems", () => {
     expect(result[0].unspsc_codes).toEqual([]);
   });
 
-  it("画像节点码命中公告 precise 链 → match_score + match_tier", () => {
-    const rows = [{ id: 1, precise_backbone_path: "UGT-43,UGT-4321,UGT-432115,UGT-43211503" }] as any;
+  it("画像节点码命中公告 backbone 链 → match_score + match_tier", () => {
+    const rows = [{ id: 1, backbone_path: "UGT-43,UGT-4321,UGT-432115,UGT-43211503" }] as any;
     const profileNodes = [{ level: 4, node: "UGT-43211503" }];
     const result = formatItems(rows, "en", profileNodes);
     expect(result[0].match_score).toBe(5);
@@ -56,7 +56,7 @@ describe("formatItems", () => {
   });
 
   it("深浅两档同时命中 → 取最深档定分（放宽到 L2 也不能把精准命中降成 relevant）", () => {
-    const rows = [{ id: 1, precise_backbone_path: "UGT-43,UGT-4321,UGT-432115,UGT-43211503" }] as any;
+    const rows = [{ id: 1, backbone_path: "UGT-43,UGT-4321,UGT-432115,UGT-43211503" }] as any;
     const profileNodes = [
       { level: 4, node: "UGT-43211503" },
       { level: 2, node: "UGT-4321" },
@@ -64,8 +64,8 @@ describe("formatItems", () => {
     expect(formatItems(rows, "en", profileNodes)[0].match_score).toBe(5);
   });
 
-  it("precise 链不含任何一档节点码 / 列为空 → 不挂徽章", () => {
-    const miss = [{ id: 1, precise_backbone_path: "UGT-30,UGT-3011" }] as any;
+  it("backbone 链不含任何一档节点码 / 列为空 → 不挂徽章", () => {
+    const miss = [{ id: 1, backbone_path: "UGT-30,UGT-3011" }] as any;
     const result = formatItems(miss, "en", [{ level: 4, node: "UGT-43211503" }]);
     expect(result[0].match_score).toBeUndefined();
     expect(result[0].match_tier).toBeUndefined();
@@ -75,7 +75,7 @@ describe("formatItems", () => {
   });
 
   it("列里的脏 token 不参与命中：只认 UGT- 形制的码", () => {
-    const rows = [{ id: 1, precise_backbone_path: "721015,UGT-XY" }] as any;
+    const rows = [{ id: 1, backbone_path: "721015,UGT-XY" }] as any;
     const result = formatItems(rows, "en", [{ level: 2, node: "721015" }, { level: 3, node: "UGT-XY" }]);
     expect(result[0].match_tier).toBeUndefined();
   });

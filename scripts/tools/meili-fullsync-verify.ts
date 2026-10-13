@@ -67,10 +67,10 @@ const settings = await client.index(name).getSettings();
 const filt = (settings.filterableAttributes ?? []) as string[];
 o.push(`\n==== 1. filterableAttributes 形制 ====`);
 o.push(`  backbone_node 在位：${filt.includes("backbone_node") ? "✅" : "✗ 缺失"}`);
-o.push(`  precise_backbone_node 在位：${filt.includes("precise_backbone_node") ? "✅" : "✗ 缺失"}`);
+o.push(`  precise_backbone_node 已退场：${filt.includes("precise_backbone_node") ? "✗ 还在" : "✅"}`);
 o.push(`  commodity_prefix 已退场：${filt.includes("commodity_prefix") ? "✗ 还在" : "✅"}`);
 o.push(`  全清单：${filt.join(", ")}`);
-if (!filt.includes("backbone_node") || !filt.includes("precise_backbone_node")) bad++;
+if (!filt.includes("backbone_node") || filt.includes("precise_backbone_node")) bad++;
 
 const stats = await client.index(name).getStats();
 const wide = await q<{ n: number }>(`SELECT COUNT(*) n FROM crm_notice_search`);
@@ -96,28 +96,6 @@ for (const code of CODES) {
   if (gap > Math.max(20, mysqlN * 0.001)) bad++;
   o.push(`  ${code}：Meili ${meiliN} / MySQL ${mysqlN} ⇒ ${gap === 0 ? "完全相等" : `差 ${gap}${gap > Math.max(20, mysqlN * 0.001) ? " ✗" : "（估算容差内）"}`}`);
 }
-
-// 3b. precise 属性同一做法：宽表那 1,049 行全量比，不允许抽样
-//     （precise_backbone_node 漏灌就是 prefs 模式静默降级 MySQL，没有别的信号）
-o.push(`\n==== 3b. precise_backbone_node 对拍（宽表 precise 列全量）====`);
-const pRows = await q<{ p: string }>(
-  `SELECT precise_backbone_path p FROM crm_notice_search WHERE precise_backbone_path IS NOT NULL AND precise_backbone_path<>''`,
-);
-const topNodes = [...new Set(pRows.flatMap((r) => String(r.p).split(",")))].slice(0, 12);
-for (const code of topNodes) {
-  const hit = await client.index(name).search("", { filter: [`precise_backbone_node = "${code}"`], limit: 0 });
-  const counts = hit as unknown as { totalHits?: number | null; estimatedTotalHits?: number | null };
-  const meiliN = Number(counts.totalHits ?? counts.estimatedTotalHits ?? -1);
-  const my = await q<{ n: number }>(
-    `SELECT COUNT(*) n FROM crm_notice_search WHERE FIND_IN_SET(?, precise_backbone_path)`,
-    [code],
-  );
-  const mysqlN = Number(my[0]!.n);
-  const gap = Math.abs(meiliN - mysqlN);
-  if (gap > 0) bad++;
-  o.push(`  ${code}：Meili ${meiliN} / MySQL ${mysqlN} ⇒ ${gap === 0 ? "完全相等" : `差 ${gap} ✗`}`);
-}
-o.push(`  宽表有 precise 列的行数：${pRows.length}，比对节点码 ${topNodes.length} 个`);
 
 // 4. 反向断言：旧属性不再被索引接受（用错就报错，不会静默筛出全集）
 try {

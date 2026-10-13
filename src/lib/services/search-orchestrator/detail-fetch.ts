@@ -45,7 +45,7 @@ export async function fetchDetailsByIds(
          title_en, LEFT(description_en, ${WIDE_LIMITS.i18nTeaser}) AS description_en,
          description_cn, bid_overview, beneficiary_countries,
          documents_count AS breakdown_file_count,
-         precise_backbone_path
+         backbone_path
        FROM crm_notice_search
        WHERE id IN (${ids.map(() => "?").join(",")})
        ORDER BY FIELD(id, ${ids.map(() => "?").join(",")})`,

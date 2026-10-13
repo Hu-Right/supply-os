@@ -389,9 +389,9 @@ export function rootNodes(nodes: Iterable<string>): string[] {
  * 读取端拆列**只走这里**：手写 `split(",")` 的地方一多，列形制改了就会逐处静默失效。
  * 已登记消费方（新增一个就回这里点名，别让它默默长出第二份）：
  * - `notices/similar.ts`：从宽表列值取当前公告与候选公告的节点码；
- * - `meilisearch/sync.ts`：拆成 `backbone_node` / `precise_backbone_node` 数组属性（不再用本文件的局部 `parseCsvList`）；
+ * - `meilisearch/sync.ts`：拆成 `backbone_node` 数组属性（precise_backbone_node 已随 candidates 表退役）；
  * - `industry-scope.ts`：行业墙的单公告执法点，拆宽表 `backbone_path` 与大类的 L1 节点码集比对；
- * - `search-orchestrator/format.ts`：匹配分标签拆 `precise_backbone_path`（与检索谓词同源）；
+ * - `search-orchestrator/format.ts`：匹配分标签拆 `backbone_path`（与检索谓词同源）；
  * - `ai-match/match-nodes.ts`：粗筛公告侧拆宽表 `backbone_path`（供应商侧不拆列，
  *   兴趣码走 `getBackboneIndex().pathOf` 换算，与本函数同一口径）；
  * - `commodity/attribution.ts`：拆列取最深落点（UNSPSC 退役后归属事实源 ↔ 派生列的唯一换算面）。

@@ -194,7 +194,7 @@ async function _searchCore(
     // 1. 并行构建所有档位的 filter 计划（纯内存操作 + 可能的缓存命中 DB 查询）
     const probePlans = await Promise.all(
       resolution.profileNodes.map((entry) =>
-        buildFilterPlan(pool, p, { node: entry.node, precise: true }),
+        buildFilterPlan(pool, p, { node: entry.node }),
       ),
     );
 
@@ -224,7 +224,7 @@ async function _searchCore(
         }
       }
       const chosen = resolution.profileNodes[chosenIdx];
-      category = { node: chosen.node, precise: true };
+      category = { node: chosen.node };
     }
     // probeResults === null: Meilisearch 不可用，category 保持 null，主流程走 MySQL 降级
   }
