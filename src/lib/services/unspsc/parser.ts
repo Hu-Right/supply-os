@@ -64,6 +64,10 @@ export function unspscPrefixFromCode(code: string) {
 
 /**
  * 展开兴趣码前缀：从完整码生成所有层级前缀
+ *
+ * R3' B3：本模块原还有一个 padUnspscPrefix（短前缀补 0 至 8 位），已删除——它唯一的读者是
+ * interest.ts 里那句「拿前缀去字典反查行 id」的 WHERE code IN (?, ?)，
+ * 该查询随 B3 一起摘除后生产读者归零（§4 第 10 行「按读者数决定去留」）。
  */
 export function expandUnspscInterestPrefixes(code: string) {
   const significant = unspscPrefixFromCode(code);
@@ -73,11 +77,4 @@ export function expandUnspscInterestPrefixes(code: string) {
     prefixes.push(significant.slice(0, len));
   }
   return Array.from(new Set(prefixes));
-}
-
-/**
- * 补位前缀：将短前缀补 0 至 8 位
- */
-export function padUnspscPrefix(prefix: string) {
-  return String(prefix || "").padEnd(8, "0").slice(0, 8);
 }

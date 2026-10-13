@@ -5,10 +5,16 @@
  * @module server/services/unspsc/interest
  * @description 用户兴趣码写入数据库（含白名单校验与权重上限）。
  *              依赖 parser 模块的前缀展开函数。
+ *
+ *              R3' B3（2026-10-13）：停写 `code_id`。原先每个前缀都要回查一次
+ *              `crm_unspsc_codes` 拿字典行 id，现在该列不再写入。
+ *              安全性实测：crm_user_interest_codes 的唯一键是
+ *              uk_user_code_source(user_id, code, source)，**不含 code_id**
+ *              ⇒ 去掉它不改变 ON DUPLICATE KEY 的去重语义（权重不会重复累加）。
+ *              `code`/`level` 形制本批不变（改吃 UGT 节点码属 §4 第 12 行 / R4'）。
  */
 import type { Pool } from "mysql2/promise";
-import type { UnspscCodeRow } from "./parser";
-import { expandUnspscInterestPrefixes, padUnspscPrefix } from "./parser";
+import { expandUnspscInterestPrefixes } from "./parser";
 
 // 本地差异 #11：T-E3 source 枚举白名单（固化写入端合法来源，未知来源拒写防脏数据）
 const INTEREST_SOURCE_WHITELIST = new Set([
@@ -50,16 +56,11 @@ export async function persistUserInterestCodes(
   }
 
   for (const prefix of prefixes) {
-    const [codeRows] = await dbPool.query(
-      "SELECT id, level FROM crm_unspsc_codes WHERE code IN (?, ?) ORDER BY CHAR_LENGTH(code) DESC LIMIT 1",
-      [prefix, padUnspscPrefix(prefix)]
-    );
-    const codeRow = (codeRows as UnspscCodeRow[])[0];
     await dbPool.execute(
-      `INSERT INTO crm_user_interest_codes (user_id, code_id, code, level, source, weight)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO crm_user_interest_codes (user_id, code, level, source, weight)
+       VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE weight = LEAST(${INTEREST_WEIGHT_CAP}, weight + VALUES(weight)), updated_at = NOW()`,
-      [userId, codeRow?.id || null, prefix, Math.max(1, prefix.length / 2), source, weight]
+      [userId, prefix, Math.max(1, prefix.length / 2), source, weight],
     );
   }
 }

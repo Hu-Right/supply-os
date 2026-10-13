@@ -12,12 +12,11 @@
  *              - interest: 数据库写操作（用户兴趣码持久化）
  */
 
-// 纯函数
+// 纯函数（padUnspscPrefix 已随 R3' B3 删除：字典反查摘除后生产读者归零）
 export {
   normalizeUnspscCodes,
   unspscPrefixFromCode,
   expandUnspscInterestPrefixes,
-  padUnspscPrefix,
 } from "./parser";
 export type { UnspscCodeRow } from "./parser";
 

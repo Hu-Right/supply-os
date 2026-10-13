@@ -64,8 +64,10 @@ export async function recommendNotices(
   if (cachedReco && cachedReco.expires > Date.now()) return cachedReco.data;
 
   // ── 召回：兴趣码衰减查询 ──
+  // R3' B3：去掉 MAX(code_id) 投影——全仓仅此一处出现 code_id（git grep 证实），
+  // 下游 processInterestCodes（recall.ts）只读 code/level/decayed_weight，不读 code_id。
   const [interestRows] = await pool.query(
-    `SELECT code, level, MAX(code_id) AS code_id,
+    `SELECT code, level,
             SUM(weight * EXP(-LN(2) * GREATEST(0, DATEDIFF(NOW(), COALESCE(updated_at, created_at))) / 90)) AS decayed_weight,
             MAX(COALESCE(updated_at, created_at)) AS last_update
      FROM crm_user_interest_codes WHERE user_id = ?

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeUnspscCodes, unspscPrefixFromCode, expandUnspscInterestPrefixes, padUnspscPrefix } from "@/lib/services/unspsc/parser";
+import { normalizeUnspscCodes, unspscPrefixFromCode, expandUnspscInterestPrefixes } from "@/lib/services/unspsc/parser";
 
 describe("normalizeUnspscCodes", () => {
   it("从对象数组提取码", () => {
@@ -67,21 +67,6 @@ describe("expandUnspscInterestPrefixes", () => {
   });
 });
 
-describe("padUnspscPrefix", () => {
-  it("短前缀补 0 至 8 位", () => {
-    expect(padUnspscPrefix("12")).toBe("12000000");
-    expect(padUnspscPrefix("1234")).toBe("12340000");
-  });
-
-  it("8 位前缀 → 不变", () => {
-    expect(padUnspscPrefix("12345678")).toBe("12345678");
-  });
-
-  it("空值 → 全 0", () => {
-    expect(padUnspscPrefix("")).toBe("00000000");
-  });
-});
-
 describe("normalizeUnspscCodes 深层分支", () => {
   it("对象无有效码 → 递归其属性值", () => {
     const r = normalizeUnspscCodes([{ child: { code: "CODE 43211500", name: "硬件" } }]);
@@ -124,8 +109,3 @@ describe("unspscPrefixFromCode 边界", () => {
   });
 });
 
-describe("padUnspscPrefix 超长截断", () => {
-  it("超过 8 位 → 截到 8 位", () => {
-    expect(padUnspscPrefix("1010150010")).toBe("10101500");
-  });
-});

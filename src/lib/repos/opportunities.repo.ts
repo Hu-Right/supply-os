@@ -145,18 +145,11 @@ export class OpportunitiesRepo {
     return (rows as RowDataPacket[])[0] ?? null;
   }
 
-  /** 兴趣码 upsert（解锁来源，重复时权重 +0.50） */
-  async upsertInterestCode(params: {
-    userId: number;
-    codeId: number | null;
-    code: string;
-    level: number;
-  }): Promise<void> {
-    await this.pool.execute(
-      `INSERT INTO crm_user_interest_codes (user_id, code_id, code, level, source, weight)
-       VALUES (?, ?, ?, ?, 'unlock_order', 2.50)
-       ON DUPLICATE KEY UPDATE weight = weight + 0.50, updated_at = NOW()`,
-      [params.userId, params.codeId, params.code, params.level],
-    );
-  }
+  /*
+   * R3' B3 删除：upsertInterestCode（兴趣码 upsert，写 code_id）。
+   * 删的理由不是「用了字典」这么简单：它是零调用者的死代码（git grep 全仓仅命中定义本身），
+   * 且与唯一的活路径 unspsc/interest.ts:persistUserInterestCodes 语义不一致——
+   * 它走固定 weight=2.50 / 重复 +0.50，绕过了 T-E3 的白名单与 LEAST(500) 软上限。
+   * 留着就是一个陷阱：谁哪天拿它去接解锁流，会静默绕过两道闸门。活路径只保留一条。
+   */
 }
