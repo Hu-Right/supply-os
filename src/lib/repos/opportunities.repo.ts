@@ -8,7 +8,6 @@
  * @module repos/opportunities.repo
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import type { UnspscCodeRow } from "../services/unspsc";
 import { ACTIVE_OPP_WHERE } from "../utils/notice-expired";
 
 /** 商机列表行（未过期，最多 80 条） */
@@ -40,49 +39,22 @@ export interface OpportunityUnlockRow {
 export class OpportunitiesRepo {
   constructor(private pool: Pool) {}
 
-  /** 按 id 查 UNSPSC 码（列表级别过滤用） */
-  async findUnspscCodeById(id: number): Promise<UnspscCodeRow | null> {
-    const [rows] = await this.pool.query(
-      "SELECT id, level FROM crm_unspsc_codes WHERE id = ? LIMIT 1",
-      [id],
-    );
-    return (rows as UnspscCodeRow[])[0] ?? null;
-  }
-
-  /** 按 code 文本查 UNSPSC 码（兴趣码落库用） */
-  async findUnspscCodeByCode(code: string): Promise<UnspscCodeRow | null> {
-    const [rows] = await this.pool.query(
-      "SELECT id, level FROM crm_unspsc_codes WHERE code = ? LIMIT 1",
-      [code],
-    );
-    return (rows as UnspscCodeRow[])[0] ?? null;
-  }
-
-  /** 未过期商机列表；codeId > 0 时按对应 UNSPSC 级别过滤 */
-  async listOpportunities(codeId: number): Promise<OpportunityListItemRow[]> {
-    const where: string[] = [ACTIVE_OPP_WHERE];
-    const params: number[] = [];
-    let join = "";
-    if (codeId) {
-      const code = await this.findUnspscCodeById(codeId);
-      // P3-12 安全修复：level 白名单校验（1-5）后才参与列名拼接，阻断非法级别值
-      if (code && Number.isInteger(code.level) && code.level >= 1 && code.level <= 5) {
-        join = "INNER JOIN crm_bid_opportunity_unspsc_codes boc ON boc.opportunity_id = o.id";
-        where.push(`boc.level${code.level}_id = ?`);
-        params.push(code.id);
-      }
-    }
+  /**
+   * 未过期商机列表（有界 80 条，按截止时间升序）
+   *
+   * R3' B2：原 `codeId` 入参走 `crm_unspsc_codes` 定级别 + `crm_bid_opportunity_unspsc_codes`
+   * 做 levelN_id 等值过滤，随字典退役整段摘除（商机表无 UGT 列可接盘，见 route 注释）。
+   */
+  async listOpportunities(): Promise<OpportunityListItemRow[]> {
     const [rows] = await this.pool.query(
       `SELECT DISTINCT
          o.id, o.title, o.reference, o.notice_type, o.agency, o.country,
          o.deadline, o.deadline_ts, o.deadline_sec, o.estimated_value, o.description,
          o.industry, o.unspsc_codes, o.source_url
        FROM crm_bid_opportunities o
-       ${join}
-       WHERE ${where.join(" AND ")}
+       WHERE ${ACTIVE_OPP_WHERE}
        ORDER BY (o.deadline_sec = 0), o.deadline_sec ASC, o.id DESC
        LIMIT 80`,
-      params,
     );
     return rows as OpportunityListItemRow[];
   }

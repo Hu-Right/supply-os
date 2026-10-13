@@ -81,7 +81,7 @@ test.describe("关键页面骨架可达", () => {
 
 test.describe("鉴权与参数边界", () => {
   test("未登录访问商机列表 → 401 + 登录引导", async ({ request }) => {
-    const res = await request.get(`${BASE}/api/opportunities?code_id=1`);
+    const res = await request.get(`${BASE}/api/opportunities`);
     expect(res.status()).toBe(401);
     const body = await res.json();
     expect(body.code).toBe(40042);

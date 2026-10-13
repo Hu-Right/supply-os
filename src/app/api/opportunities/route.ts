@@ -3,7 +3,15 @@
  *
  * @module app/api/opportunities/route
  * @description 子路径端点（unlocks/translation/view/unlock）已拆分到各自独立的 route.ts。
- *              保留 /api/opportunities GET（按 UNSPSC code 查询商机列表）。
+ *              GET 返回未过期商机列表（有界，最多 80 条）。
+ *
+ *              R3' B2（2026-10-13）：本端点原以 UNSPSC `code_id`/`industry_id` 为**必要**入参
+ *              （不传则 404），过滤走 `crm_unspsc_codes` + `crm_bid_opportunity_unspsc_codes`。
+ *              字典退役后该过滤轴不再存在——实测 `crm_bid_opportunities` 上没有任何
+ *              backbone/UGT 列（只有 `unspsc_codes:json`），所以「换 UGT 入参」在商机表上
+ *              物理不成立。取「摘掉过滤、保留有界列表」而不是删端点：它是全仓唯一的
+ *              商机列表 HTTP 入口（unified-search 不返回商机），删了会连带删掉下面
+ *              那条 ARCH-P0 脱敏覆盖。
  *
  *              ARCH-P0（2026-09-05）：安全修复——
  *              1. 添加认证要求（此前无认证即可拉取全量数据）
@@ -18,13 +26,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
-import { EC_AUTH_REQUIRED, EC_OPPORTUNITY_CODE_REQUIRED } from "@/shared/constants/api";
+import { EC_AUTH_REQUIRED } from "@/shared/constants/api";
 import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
 
 /** description 截断阈值（与公告搜索列表 300 字符对齐） */
 const LIST_DESC_MAX_CHARS = 300;
 
-// ── GET /api/opportunities — 商机列表（按 UNSPSC code，需认证，脱敏口径）──
+// ── GET /api/opportunities — 商机列表（需认证，脱敏口径，有界 80 条）──
 export const GET = withRoute(
   async (req: NextRequest) => {
     const auth = await requireUserKeyOrThrow(req);
@@ -32,24 +40,18 @@ export const GET = withRoute(
       return NextResponse.json({ code: EC_AUTH_REQUIRED, message: "请先登录" }, { status: 401 });
     }
 
-    const url = req.nextUrl;
     const ctx = getContext();
-    const oppsRepo = ctx.opportunitiesRepo;
-    const codeId = Number(url.searchParams.get("code_id") || url.searchParams.get("industry_id") || 0);
-    if (codeId) {
-      const items = await oppsRepo.listOpportunities(codeId);
-      return NextResponse.json(
-        items.map((row) => ({
-          ...row,
-          // ARCH-P0：截断全文 + 移除外部链接，付费内容仅在解锁后详情端点返回
-          description: row.description && row.description.length > LIST_DESC_MAX_CHARS
-            ? row.description.slice(0, LIST_DESC_MAX_CHARS) + "…"
-            : row.description,
-          source_url: undefined,
-          unspsc_codes: normalizeUnspscCodes(row.unspsc_codes),
-        })),
-      );
-    }
-    return NextResponse.json({ code: EC_OPPORTUNITY_CODE_REQUIRED, message: "请提供 code_id 或 industry_id" }, { status: 404 });
+    const items = await ctx.opportunitiesRepo.listOpportunities();
+    return NextResponse.json(
+      items.map((row) => ({
+        ...row,
+        // ARCH-P0：截断全文 + 移除外部链接，付费内容仅在解锁后详情端点返回
+        description: row.description && row.description.length > LIST_DESC_MAX_CHARS
+          ? row.description.slice(0, LIST_DESC_MAX_CHARS) + "…"
+          : row.description,
+        source_url: undefined,
+        unspsc_codes: normalizeUnspscCodes(row.unspsc_codes),
+      })),
+    );
   },
 );

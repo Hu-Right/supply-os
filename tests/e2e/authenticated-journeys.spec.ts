@@ -29,8 +29,7 @@ const TEST_BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const VIP_USER = process.env.E2E_VIP_USER ?? "vip@qq.com";
 const FREE_USER = process.env.E2E_FREE_USER ?? "free@qq.com";
 const E2E_TEST_PASSWORD = process.env.E2E_TEST_PASSWORD ?? "admin123";
-/** 商机用固定靶点（库内真实存在且有活跃商机的 UNSPSC code / 商机 id），可用环境变量覆盖 */
-const OPP_CODE_ID = Number(process.env.E2E_OPP_CODE_ID ?? 107372);
+/** 商机用固定靶点（库内真实存在的商机 id），可用环境变量覆盖 */
 const OPP_ID = Number(process.env.E2E_OPP_ID ?? 176);
 
 // ── 辅助函数 ──────────────────────────────────────────────────────────────────
@@ -111,7 +110,8 @@ const isChromium = () => test.info().project.name === "chromium";
 
 test.describe("鉴权与异常边界", () => {
   test("未登录访问受保护 API → 401 + 明确错误码", async ({ request }) => {
-    const res = await request.get(`${TEST_BASE_URL}/api/opportunities?code_id=${OPP_CODE_ID}`);
+    // R3' B2：商机列表不再吃 UNSPSC code_id，这里只验「受保护」性质本身
+    const res = await request.get(`${TEST_BASE_URL}/api/opportunities`);
     expect(res.status()).toBe(401);
     const body = await res.json();
     expect(body.code).toBe(40042);
@@ -160,7 +160,7 @@ test.describe("商机浏览与解锁旅程", () => {
   test("商机列表 → 付费字段脱敏（无 source_url、description 截断）", async ({ request }) => {
     const token = await loginToken(request, VIP_USER);
     const res = await request.get(
-      `${TEST_BASE_URL}/api/opportunities?code_id=${OPP_CODE_ID}`,
+      `${TEST_BASE_URL}/api/opportunities`,
       { headers: authHeaders(token) },
     );
     expect(res.status()).toBe(200);
@@ -182,7 +182,7 @@ test.describe("商机浏览与解锁旅程", () => {
     // 幂等预检先于免费硬闸：已解锁的商机 free 请求会幂等成功，
     // 因此硬闸断言必须使用当前账号未解锁过的靶点（从列表动态挑选）
     const list = await (await request.get(
-      `${TEST_BASE_URL}/api/opportunities?code_id=${OPP_CODE_ID}`, { headers },
+      `${TEST_BASE_URL}/api/opportunities`, { headers },
     )).json();
     const unlocks = await (await request.get(
       `${TEST_BASE_URL}/api/opportunities/unlocks`, { headers },
