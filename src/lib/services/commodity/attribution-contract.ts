@@ -23,7 +23,7 @@
  * @see docs/adr/0014-attribution-landing-table-two-writers.md
  */
 import { closureOfPathColumn, leafNodesOfPathColumn, pathOfLandingNodes } from "./attribution";
-import { toBackbonePathColumn } from "./backbone-path";
+import { fromBackbonePathColumn, toBackbonePathColumn } from "./backbone-path";
 
 /** 存量快照的 source 字面量：与 scripts/ops/notice-attribution-backfill.ts 写入的同一份 */
 export const ATTR_SOURCE_LEGACY = "legacy_tag";
@@ -35,6 +35,7 @@ export type ColumnRow = { pk: number; col: string };
 
 export type ContractStats = {
   noticesWithLanding: number;
+  /** **非空**列值的公告数（NULL/空串不计）：要与 noticesWithLanding 同口径才能直接对拍 */
   noticesWithColumn: number;
   /** 纯 legacy 且派生逐条等于列值的公告数（健康主体） */
   legacyNotices: number;
@@ -108,11 +109,13 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
   const byPk = groupLandings(landings);
   const colByPk = new Map<number, string>();
   for (const c of columns) colByPk.set(Number(c.pk), String(c.col ?? ""));
+  let filledCols = 0;
+  for (const v of colByPk.values()) if (v !== "") filledCols++;
 
   const violations: string[] = [];
   const stats: ContractStats = {
     noticesWithLanding: byPk.size,
-    noticesWithColumn: colByPk.size,
+    noticesWithColumn: filledCols,
     legacyNotices: 0,
     aiNotices: 0,
     mixedSourceNotices: 0,
@@ -145,14 +148,17 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
       push(`AS3 半写：公告 pk=${pk} 有 ${b.legacy.length} 条 legacy 落点，宽表列值却为空 ⇒ 事实源写了、派生列没跟上`);
       continue;
     }
-    const derived = toBackbonePathColumn(pathOfLandingNodes(b.legacy));
+    const derivedNodes = pathOfLandingNodes(b.legacy);
+    const derived = toBackbonePathColumn(derivedNodes);
     if (derived === col) {
       stats.legacyNotices++;
       continue;
     }
     stats.legacyDriftNotices++;
-    const colSet = new Set(col.split(","));
-    const dSet = new Set(derived);
+    // 两侧都按「节点码集合」比。绝不 `new Set(derived)`：derived 是 join(",") 后的**字符串**，
+    // 那样会退化成字符集，差异文本会变成「派生 9 个 / 列有派生无 整列码」这种误导人的噪声。
+    const colSet = new Set(fromBackbonePathColumn(col));
+    const dSet = new Set(derivedNodes);
     const onlyDerived = [...dSet].filter((x) => !colSet.has(x));
     const onlyCol = [...colSet].filter((x) => !dSet.has(x));
     const pairs = missingLandingPairs(
@@ -166,7 +172,7 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
 
   for (const [pk, col] of colByPk) {
     if (col && !byPk.has(pk)) {
-      push(`AS4 断供：公告 pk=${pk} 有列值（${col.split(",").length} 个 token）但落点表零行 ⇒ 切读那一刻会被清成 NULL`);
+      push(`AS4 断供：公告 pk=${pk} 有列值（${fromBackbonePathColumn(col).length} 个合法 token）但落点表零行 ⇒ 切读那一刻会被清成 NULL`);
     }
   }
   return { violations, stats };

@@ -49,7 +49,20 @@ describe("AS2 legacy 派生必须等于列值", () => {
     const r = auditLanding(short, [{ pk: 725, col: CHAIN }]);
     const as2 = r.violations.filter((v) => v.startsWith("AS2"));
     expect(as2).toHaveLength(1);
-    expect(as2[0]).toContain("UGT-0204020102");
+    // 钉数字段：曾经误写 `new Set(derived)`（derived 是 join 后的字符串）会退化成字符集，
+    // 把这里报成「派生 9 个」；只断言节点码会被别的段落吃掉、测不出这个错。
+    expect(as2[0]).toContain("派生 4 个 / 列内 5 个");
+    expect(as2[0]).toContain("该补的落点 UGT-0204020102");
+    expect(r.stats.legacyDriftNotices).toBe(1);
+  });
+
+  it("落点多于列值（快照跑到列前面）⇒ 报「派生有列无」，且「该补的落点」为空", () => {
+    const extra = [...chainLandings(725), { pk: 725, code: "UGT-03", source: ATTR_SOURCE_LEGACY }];
+    const r = auditLanding(extra, [{ pk: 725, col: CHAIN }]);
+    const as2 = r.violations.filter((v) => v.startsWith("AS2"));
+    expect(as2).toHaveLength(1);
+    expect(as2[0]).toContain("派生有列无 UGT-03");
+    expect(as2[0]).toContain("该补的落点 —");
   });
 
   it("列值多余落点（快照落后于列）同样报红", () => {
@@ -73,6 +86,8 @@ describe("AS3 半写 / AS4 断供", () => {
     const r = auditLanding([{ pk: 3, code: "UGT-0204020102", source: "ai_content" }], [{ pk: 3, col: "" }]);
     expect(r.violations).toEqual([]);
     expect(r.stats.aiNotices).toBe(1);
+    // 口径：空列值不计入 noticesWithColumn（要与 noticesWithLanding 同口径才能直接对拍）
+    expect(r.stats.noticesWithColumn).toBe(0);
   });
 });
 
