@@ -57,9 +57,10 @@ describe("公告侧", () => {
 
   it("列里的脏 token 不进集合（拆列只走 fromBackbonePathColumn，旧码制也算脏）", async () => {
     pathOf.mockReturnValue({ codes: [], deepest: [], misses: [], tiers: {} });
-    // 故意混入一个旧形制码 `UGT-42`：列形制解析故意不走 normalizeBackboneNodeKey（那是入口层的事），
-    // 所以改码前的旧码在这里就是脏 token —— 挡在集合外，而不是“看起来能匹配”地放进事实源。
-    const pool = makePool([[{ p: "UGT-42,UGT-XY,42101503,UGT-42,UGT-4210," }]]);
+    // 这里的旧形制字面量是故意的（勿随全局码制替换把它改正常码）：列形制解析不走
+    // normalizeBackboneNodeKey（那是入口层的事），所以改码前的旧码在列里就是脏 token，
+    // 必须挡在集合外，而不是“看起来能匹配”地放进事实源。
+    const pool = makePool([[{ p: "UGT-42,UGT-XY,42101503,UGT-B-42,UGT-4210," }]]);
     const data = await loadMatchNodeData(pool, 1, [7]);
     expect([...data.noticeNodes]).toEqual(["UGT-42", "UGT-4210"]);
   });

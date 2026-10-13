@@ -13,6 +13,7 @@ import {
   deriveSegmentRows,
   effectivePrefixOf,
   fromBackbonePathColumn,
+  normalizeBackboneNodeKey,
   padUnspscCode,
   rootNodes,
   toBackbonePathColumn,
@@ -316,5 +317,17 @@ describe("有效前缀与祖先链纯函数", () => {
 
   it("fromBackbonePathColumn 丢弃形制不符的脏 token", () => {
     expect(fromBackbonePathColumn("UGT-01,UGT-XY,UGT-0, ,UGT-0101")).toEqual(["UGT-01", "UGT-0101"]);
+  });
+
+  // 旧外链兼容面只此一处：只换前缀，位数一位不动（旧 UGT-B-0102 → 新 UGT-0102 同层）。
+  // 不钉住它，下次改码又会变成“入口归一了、下游不认”或者反过来。
+  it("normalizeBackboneNodeKey：入口层认旧码，现行码幂等，脏值不猜", () => {
+    expect(normalizeBackboneNodeKey("UGT-B-07")).toBe("UGT-07");
+    expect(normalizeBackboneNodeKey("UGT-B-0702010204")).toBe("UGT-0702010204");
+    expect(normalizeBackboneNodeKey("UGT-07")).toBe("UGT-07"); // 现行码原样
+    expect(normalizeBackboneNodeKey("UGT-XY")).toBe("UGT-XY"); // 不归一脏值，交给形制判定拒收
+    expect(normalizeBackboneNodeKey(null)).toBe("");
+    // 归一之后必须能被形制判定接住：入口 → 判定的接力不能断
+    expect(backboneNodeLevel(normalizeBackboneNodeKey("UGT-B-0702"))).toBe(2);
   });
 });
