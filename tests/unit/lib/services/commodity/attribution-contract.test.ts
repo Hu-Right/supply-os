@@ -89,6 +89,8 @@ describe("AS3 半写 / AS4 断供", () => {
     expect(r.violations.some((v) => v.startsWith("AS4") && v.includes("pk=77"))).toBe(true);
     // 锁住 token 计数：上一轮变异测试发现它退回 split 后依然全绿
     expect(r.violations[0]).toContain("5 个合法 token");
+    // 锁住计数：门禁只按 stats 判红，没这个字段 AS4 就永远不会拦（已踩过）
+    expect(r.stats.orphanColumnNotices).toBe(1);
   });
 
   it("AS4 计数只算合法 token（脏 token 不算落点）", () => {
@@ -100,6 +102,7 @@ describe("AS3 半写 / AS4 断供", () => {
     const r = auditLanding([{ pk: 3, code: "UGT-0204020102", source: "ai_content" }], [{ pk: 3, col: "" }]);
     expect(r.violations).toEqual([]);
     expect(r.stats.aiNotices).toBe(1);
+    expect(r.stats.orphanColumnNotices).toBe(0);
     // 口径：空列值不计入 noticesWithColumn（要与 noticesWithLanding 同口径才能直接对拍）
     expect(r.stats.noticesWithColumn).toBe(0);
   });

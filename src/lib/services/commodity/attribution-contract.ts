@@ -45,6 +45,8 @@ export type ContractStats = {
   mixedSourceNotices: number;
   /** AS2 + AS3 命中数（legacy 侧破口） */
   legacyDriftNotices: number;
+  /** AS4 命中数（有列值、零落点）：没有这个字段，门禁就只会把断供印成文本而不会变红 */
+  orphanColumnNotices: number;
   landingRows: number;
 };
 
@@ -120,6 +122,7 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
     aiNotices: 0,
     mixedSourceNotices: 0,
     legacyDriftNotices: 0,
+    orphanColumnNotices: 0,
     landingRows: 0,
   };
   const push = (msg: string) => {
@@ -177,6 +180,7 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
 
   for (const [pk, col] of colByPk) {
     if (col && !byPk.has(pk)) {
+      stats.orphanColumnNotices++;
       push(`AS4 断供：公告 pk=${pk} 有列值（${fromBackbonePathColumn(col).length} 个合法 token）但落点表零行 ⇒ 切读那一刻会被清成 NULL`);
     }
   }
