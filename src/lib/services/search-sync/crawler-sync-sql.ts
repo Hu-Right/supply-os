@@ -12,13 +12,12 @@
  *              语义完全移植自 scripts/daily-sync.cjs，是「爬虫库 → 主表」增量同步的 SQL 单一事实源。
  */
 
-/** 同步表顺序：父表（notices/opportunities）先于子表（unspsc 桥接/候选），
+/** 同步表顺序：父表（notices/opportunities）先于子表（unspsc 桥接），
  *  在不关闭外键检查的前提下保证外键引用的父行先落库 */
 export const SYNC_TABLES = [
   "crm_bid_notices",
   "crm_bid_opportunities",
   "crm_bid_notice_unspsc_codes",
-  "crm_bid_opportunity_unspsc_candidates",
 ] as const;
 
 /** 公告主表名（其变更 id 需级联到宽表） */

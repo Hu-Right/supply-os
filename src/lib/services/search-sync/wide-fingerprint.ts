@@ -83,6 +83,9 @@ export function __resetFingerprintColumnCache(): void {
  * 宽表源指纹 SQL 表达式（依赖别名 n = crm_bid_notices、opp = crm_bid_opportunities，
  * 与 WIDE_OPP_JOIN 同构）。全库唯一定义点：WIDE_SYNC_SELECT 与本文件的漂移检测都拼
  * 本常量，禁止再写第二份。
+ *
+ * 2026-10-13 UNSPSC candidates 表退役：原指纹末尾的「商机 approved 候选码 COUNT+SUM(CRC32)」
+ * 输入项随之移除 ⇒ 整条指纹哈希会变，上线需预留一次全量重刷宽表指纹的窗口。
  */
 export const WIDE_FP_EXPR = `MD5(CONCAT_WS(${SEP},
   IFNULL(LEFT(n.title, ${WIDE_LIMITS.title}), ''),
@@ -110,12 +113,7 @@ export const WIDE_FP_EXPR = `MD5(CONCAT_WS(${SEP},
           FROM crm_bid_notice_unspsc_codes WHERE notice_id = n.notice_id), 'x'),
   IFNULL((SELECT CONCAT(COUNT(*), ':', IFNULL(SUM(CRC32(CONCAT_WS(${SEP},
             lang, IFNULL(model, ''), IFNULL(title_tr, ''), IFNULL(description_tr, '')))), -1))
-          FROM crm_notice_translations WHERE notice_id = n.id), 'x'),
-  IFNULL((SELECT CONCAT(COUNT(*), ':', IFNULL(SUM(CRC32(c.candidate_code)), -1))
-          FROM crm_bid_opportunities o2
-          JOIN crm_bid_opportunity_unspsc_candidates c
-            ON c.opportunity_id = o2.id AND c.status = 'approved'
-          WHERE o2.source_notice_id = n.notice_id), 'x')
+          FROM crm_notice_translations WHERE notice_id = n.id), 'x')
 ))`;
 
 /**

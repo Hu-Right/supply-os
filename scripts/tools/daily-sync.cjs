@@ -184,7 +184,6 @@ const SYNC_TABLES = [
   'crm_bid_notices',
   'crm_bid_opportunities',
   'crm_bid_notice_unspsc_codes',
-  'crm_bid_opportunity_unspsc_candidates',
   // crm_bid_awards / crm_bid_award_winners 无需同步——数据本身就在云端库中
 ];
 

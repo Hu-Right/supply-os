@@ -93,8 +93,7 @@ if (CLEANUP) {
   console.log(`  npx tsx scripts/ops/notice-attribution-backfill.ts --apply --yes`);
   console.log(`  npx tsx scripts/ops/commodity-backbone-path-backfill.ts --apply --yes --only-changed`);
   console.log(`  npx tsx scripts/ops/commodity-notice-nodes-backfill.ts --apply --yes`);
-  console.log(`  npx tsx scripts/ops/commodity-backbone-path-backfill.ts --apply --yes --column precise_backbone_path --source approved --only-changed`);
-  console.log(`  npm run check:backbone -- --db    # BB7/BB10/BB11/BB14/BB15 必须全绿`);
+  console.log(`  npm run check:backbone -- --db    # BB7/BB10/BB14/BB15 必须全绿`);
   await conn.end();
   process.exit(0);
 }

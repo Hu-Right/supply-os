@@ -22,13 +22,13 @@ describe("WIDE_FP_EXPR", () => {
     expect(WIDE_FP_EXPR).toContain(DESC_SOURCE_EXPR);
   });
 
-  it("机会表展示列与三张输入表聚合均在指纹内", () => {
+  it("机会表展示列与两张输入表聚合在指纹内；candidates 已退役不入指纹", () => {
     expect(WIDE_FP_EXPR).toContain("opp.description_cn");
     expect(WIDE_FP_EXPR).toContain("opp.bid_overview");
     expect(WIDE_FP_EXPR).toContain("opp.beneficiary_countries");
     expect(WIDE_FP_EXPR).toContain("crm_bid_notice_unspsc_codes");
     expect(WIDE_FP_EXPR).toContain("crm_notice_translations");
-    expect(WIDE_FP_EXPR).toContain("crm_bid_opportunity_unspsc_candidates");
+    expect(WIDE_FP_EXPR).not.toContain("crm_bid_opportunity_unspsc_candidates");
   });
 
   it("平台自填分类列在指纹内（分类变更须触发重建）", () => {
