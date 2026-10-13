@@ -1,5 +1,5 @@
 /**
- * 门禁 AS1~AS4：落点表契约（UNSPSC 退役 R1' 收口 · ADR-0014）
+ * 门禁 AS1~AS5：落点表契约（UNSPSC 退役 R1' 收口 · ADR-0014）
  *
  * 与 BB15c 的分工：BB15c 抽 400 条（头 200 + 尾 200），本门禁**全量**。2026-10-13 实测
  * 就是这条分工救的 —— 抽样报了 9/400、复算变 4/400，两边都对不上号；全量扫一次直接给出
@@ -18,6 +18,7 @@
 import { readFileSync } from "node:fs";
 import mysql from "mysql2/promise";
 import {
+  assertTableName,
   auditLanding,
   type ColumnRow,
   type ContractStats,
@@ -44,6 +45,7 @@ function report(violations: string[], stats: ContractStats) {
   if (stats.mixedSourceNotices) fails.push(`AS1 混源公告 ${stats.mixedSourceNotices} 条`);
   if (stats.legacyDriftNotices) fails.push(`AS2/AS3 legacy 侧破口 ${stats.legacyDriftNotices} 条`);
   if (stats.orphanColumnNotices) fails.push(`AS4 断供公告 ${stats.orphanColumnNotices} 条`);
+  if (stats.sourceReplacedNotices) fails.push(`AS5 换源公告 ${stats.sourceReplacedNotices} 条`);
   for (const v of violations) console.error("  - " + v);
 }
 
@@ -56,6 +58,7 @@ const zeroStats = (): ContractStats => ({
   mixedSourceNotices: 0,
   legacyDriftNotices: 0,
   orphanColumnNotices: 0,
+  sourceReplacedNotices: 0,
   landingRows: 0,
 });
 
@@ -64,11 +67,8 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, "");
   }
-  // 表名来自 env 但会拼进反引号（反引号不转义），所以先过白名单再用：
-  // 这不是防“拿到 env 就能拿到库”那个人，而是防“操作员以为扫了正名表、其实扫了影子表还打印✓”。
-  if (!/^crm_[a-z0-9_]{1,60}$/.test(TABLE)) {
-    throw new Error(`表名形制非法（ATTR_SSOT_TABLE）：${TABLE}`);
-  }
+  // 表名来自 env，形制校验走契约那一份（不众成三个入口各写一套正则）
+  assertTableName(TABLE);
   const host = process.env.DB_HOST ?? "127.0.0.1";
   const port = Number(process.env.DB_PORT) || 3306;
   // 故意用单连接而不是池：MAX_EXECUTION_TIME 是**会话**变量，池里第二条连接会带着全局 0 跑
@@ -124,6 +124,7 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
       // 分批里不会命中 AS4（本页 pk 是从落点表取的，有列值必有落点），归 0 直接累；
       // 真断供由下面那条反连接找。两个渠道都写进同一个字段，门禁才不会只红一边。
       stats.orphanColumnNotices += r.stats.orphanColumnNotices;
+      stats.sourceReplacedNotices += r.stats.sourceReplacedNotices;
       batches += 1;
     }
     // AS4 走 SQL 反连接：分批喂给纯函数会把「本批没取到列值」假报成断供
@@ -185,4 +186,4 @@ if (fails.length) {
   );
   process.exit(1);
 }
-console.log("✓ 落点表契约通过（AS1 无混源 / AS2 legacy 派生逐条等于列值 / AS3 无半写 / AS4 无断供）");
+console.log("✓ 落点表契约通过（AS1 无混源 / AS2 legacy 派生逐条等于列值 / AS3 无半写 / AS4 无断供 / AS5 无换源）");

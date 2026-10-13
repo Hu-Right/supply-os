@@ -73,6 +73,16 @@ test("AS4：有列值零落点必须报错", () => {
   assert.match(r.out, /AS4/);
 });
 
+test("AS5：公告只剩 ai_content 行而列值声明的叶子无承载，必须报错（撞键换源）", () => {
+  const f = fixture({
+    landings: [{ pk: 725, code: "UGT-0204020103", source: "ai_content" }],
+    columns: [{ pk: 725, col: CHAIN }],
+  });
+  const r = run({ ATTR_SSOT_FIXTURE: f });
+  assert.equal(r.code, 1, "换源没被拦住");
+  assert.match(r.out, /AS5/);
+});
+
 test("AI 侧公告不误报（列值还没重派生是正常中间态）", () => {
   const f = fixture({ landings: [{ pk: 3, code: "UGT-0204020102", source: "ai_content" }], columns: [] });
   const r = run({ ATTR_SSOT_FIXTURE: f });

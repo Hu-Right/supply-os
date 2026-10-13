@@ -14,6 +14,9 @@
  *                          差异 = 灌入落后于列（2026-10-13 实测整表缺 5 行就是这么抓出来的）。
  *                AS3 半写   有 legacy 落点却没有列值 ⇒ 红（事实源写了、派生列没跟上）。
  *                AS4 断供   有列值却没有任何落点 ⇒ 红（切读那一刻这条会被清成 NULL）。
+ *                AS5 换源   公告只有非 legacy 行、但列值声明的叶子在表内没承载 ⇒ 红。
+ *                          这是 AS1/AS4 之间的黑洞：撞 uk 把 legacy 行吞了、那一行
+ *                          的 source 变成别人的 —— 三条规则全绿，而归属事实已被替换。
  *
  *              AI 侧不参与 AS2：野码分类的目的就是让列值从无到有，拿「不改归属」要求它
  *              等于把成果判成事故；它只进 stats.aiNotices 单独计数。
@@ -47,6 +50,8 @@ export type ContractStats = {
   legacyDriftNotices: number;
   /** AS4 命中数（有列值、零落点）：没有这个字段，门禁就只会把断供印成文本而不会变红 */
   orphanColumnNotices: number;
+  /** AS5 命中数：公告只剩非 legacy 行、而列值声明的叶子无处承载（= 归属被换源） */
+  sourceReplacedNotices: number;
   landingRows: number;
 };
 
@@ -54,6 +59,17 @@ export type ContractReport = { violations: string[]; stats: ContractStats };
 
 /** 违规文本上限：超过就只留样本，规模看 stats（门禁刷屏会掩盖真因） */
 const MAX_REPORT = 40;
+
+/**
+ * 表名形制校验（唯一一份）：三个入口（门禁 CLI、灌入、DDL）都要把表名拼进反引号，
+ * 而**反引号不转义**。判据只写一份的纪律同样适用于危接口。
+ * 只挡形制不挡身份：“扫哪张表”由调用方自己拿主意（正名表的身份线在 DROP 侧单独卡）。
+ */
+export function assertTableName(name: string): void {
+  if (!/^crm_[a-z0-9_]{1,60}$/.test(name)) {
+    throw new Error(`表名形制非法（只允许 crm_ 开头、小写下划线、长度 ≤60）：${name}`);
+  }
+}
 
 type Bucket = { legacy: string[]; other: string[]; otherSources: Set<string> };
 
@@ -123,6 +139,7 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
     mixedSourceNotices: 0,
     legacyDriftNotices: 0,
     orphanColumnNotices: 0,
+    sourceReplacedNotices: 0,
     landingRows: 0,
   };
   const push = (msg: string) => {
@@ -179,9 +196,25 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
   }
 
   for (const [pk, col] of colByPk) {
-    if (col && !byPk.has(pk)) {
+    if (!col) continue;
+    const b = byPk.get(pk);
+    if (b?.legacy.length) continue; // legacy 侧的差由 AS2/AS3 报，不在这里重复
+    if (!b) {
       stats.orphanColumnNotices++;
       push(`AS4 断供：公告 pk=${pk} 有列值（${fromBackbonePathColumn(col).length} 个合法 token）但落点表零行 ⇒ 切读那一刻会被清成 NULL`);
+      continue;
+    }
+    // AS5：只剩「有非 legacy 行、没有 legacy 行」这一种形状 —— AS1 要混源才红、AS4 要零落点才红，
+    // 两个都不抱这种。而它恰恰是最贵的一种：legacy 行被 INSERT IGNORE 撞 uk 吞掉，表里那一行
+    // 的 source 是别人的 ⇒ 列值声明的归属在事实源里没承载，四规则全绿而归属已被换源。
+    if (closureOfPathColumn(col) !== col) continue; // 脏列交人工，不在这猜
+    const backed = new Set(b.other);
+    const uncovered = leafNodesOfPathColumn(col).filter((x) => !backed.has(x));
+    if (uncovered.length) {
+      stats.sourceReplacedNotices++;
+      push(
+        `AS5 换源：公告 pk=${pk} 表内只有 ${[...b.otherSources].join("/")} 行，而列值声明的 ${leafNodesOfPathColumn(col).length} 个叶子有 ${uncovered.length} 个无承载（样本 ${uncovered.slice(0, 6).join(" ")}）⇒ legacy 快照疑似被撞键吞掉，必须人工定（ADR-0014 结论 4）`,
+      );
     }
   }
   return { violations, stats };

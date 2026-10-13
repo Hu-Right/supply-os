@@ -6,6 +6,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import {
+  assertTableName,
   auditLanding,
   assertDroppable,
   missingLandingPairs,
@@ -118,6 +119,51 @@ describe("missingLandingPairs（镜像该用的谓词）", () => {
   it("脏列（闭包不成立）不产候选，交人工而不是顺手补齐", () => {
     const miss = missingLandingPairs([], [{ pk: 8, col: "UGT-0204020102,UGT-02" }]);
     expect(miss).toEqual([]);
+  });
+});
+
+describe("AS5 换源（AS1 与 AS4 之间的黑洞）", () => {
+  it("公告只剩 ai_content 行、而列值声明的叶子无承载 ⇒ 红（legacy 快照被撞键吞了）", () => {
+    const r = auditLanding([{ pk: 725, code: "UGT-0204020103", source: "ai_content" }], [{ pk: 725, col: CHAIN }]);
+    const as5 = r.violations.filter((v) => v.startsWith("AS5"));
+    expect(as5).toHaveLength(1);
+    expect(r.stats.sourceReplacedNotices).toBe(1);
+    // 不重复报 AS2（该公告已无 legacy 行，AS2 抱不到）也不报 AS4（不是零落点）
+    expect(r.violations.some((v) => v.startsWith("AS2"))).toBe(false);
+    expect(r.stats.orphanColumnNotices).toBe(0);
+  });
+
+  it("ai_content 行恰好承载了列值的全部叶子 ⇒ 绿（归属有地方放，不判事故）", () => {
+    const r = auditLanding(
+      CHAIN.split(",").map((code) => ({ pk: 725, code, source: "ai_content" })),
+      [{ pk: 725, col: CHAIN }],
+    );
+    expect(r.violations).toEqual([]);
+    expect(r.stats.aiNotices).toBe(1);
+  });
+
+  it("纯 legacy 公告的缺失仍走 AS2，不拆成两条报", () => {
+    const r = auditLanding(chainLandings(725).slice(0, -1), [{ pk: 725, col: CHAIN }]);
+    expect(r.violations.some((v) => v.startsWith("AS5"))).toBe(false);
+    expect(r.stats.sourceReplacedNotices).toBe(0);
+  });
+
+  it("脏列不产 AS5（形制问题交人工，不猜成换源）", () => {
+    const r = auditLanding(
+      [{ pk: 8, code: "UGT-02", source: "ai_content" }],
+      [{ pk: 8, col: "UGT-0204020102,UGT-02" }],
+    );
+    expect(r.violations.some((v) => v.startsWith("AS5"))).toBe(false);
+  });
+});
+
+describe("assertTableName（三个入口共用一份）", () => {
+  it("止于合法表名，拦下拼进反引号的片段", () => {
+    expect(() => assertTableName("crm_notice_attribution_nodes")).not.toThrow();
+    expect(() => assertTableName("crm_notice_attribution_nodes__drill")).not.toThrow();
+    expect(() => assertTableName("crm_x`; DELETE FROM y")).toThrow(/形制非法/);
+    expect(() => assertTableName("")).toThrow(/形制非法/);
+    expect(() => assertTableName("not_crm_x")).toThrow(/形制非法/);
   });
 });
 
