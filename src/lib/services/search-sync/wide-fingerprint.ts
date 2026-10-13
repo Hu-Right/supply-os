@@ -87,6 +87,17 @@ export function __resetFingerprintColumnCache(): void {
  * 2026-10-13 UNSPSC candidates 表退役：原指纹末尾的「商机 approved 候选码 COUNT+SUM(CRC32)」
  * 输入项随之移除 ⇒ 整条指纹哈希会变，上线需预留一次全量重刷宽表指纹的窗口。
  */
+/**
+ * 品目归属指纹段：R2 切读开关（与 loadBackboneMap 同一 flag，必须同进同退）。
+ *   ATTRIBUTION_READ=on ⇒ 吃落点表 crm_notice_attribution_nodes（notice_pk=n.id 的 COUNT+SUM(CRC32(node_code))）；
+ *   否则（默认）⇒ 吃桥表 crm_bid_notice_unspsc_codes（现状）。
+ * 切读那刻哈希会变 ⇒ 上线需预留一次全量重刷宽表指纹的窗口（R2-d）。仍「不含派生列」（只吃输入），ADR-0007 前提不废。
+ */
+const ITEM_SEG =
+  process.env.ATTRIBUTION_READ === "on"
+    ? `IFNULL((SELECT CONCAT(COUNT(*), ':', IFNULL(SUM(CRC32(node_code)), -1)) FROM crm_notice_attribution_nodes WHERE notice_pk = n.id), 'x')`
+    : `IFNULL((SELECT CONCAT(COUNT(*), ':', IFNULL(SUM(CRC32(CONCAT_WS(${SEP}, level1_id, level2_id, level3_id, level4_id, level5_id))), -1)) FROM crm_bid_notice_unspsc_codes WHERE notice_id = n.notice_id), 'x')`;
+
 export const WIDE_FP_EXPR = `MD5(CONCAT_WS(${SEP},
   IFNULL(LEFT(n.title, ${WIDE_LIMITS.title}), ''),
   IFNULL(LEFT(n.reference, ${WIDE_LIMITS.reference}), ''),
@@ -108,9 +119,7 @@ export const WIDE_FP_EXPR = `MD5(CONCAT_WS(${SEP},
   IFNULL(LEFT(opp.description_cn, ${WIDE_LIMITS.descriptionCn}), ''),
   IFNULL(LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}), ''),
   IFNULL(LEFT(opp.beneficiary_countries, ${WIDE_LIMITS.beneficiary}), ''),
-  IFNULL((SELECT CONCAT(COUNT(*), ':', IFNULL(SUM(CRC32(CONCAT_WS(${SEP},
-            level1_id, level2_id, level3_id, level4_id, level5_id))), -1))
-          FROM crm_bid_notice_unspsc_codes WHERE notice_id = n.notice_id), 'x'),
+  ${ITEM_SEG},
   IFNULL((SELECT CONCAT(COUNT(*), ':', IFNULL(SUM(CRC32(CONCAT_WS(${SEP},
             lang, IFNULL(model, ''), IFNULL(title_tr, ''), IFNULL(description_tr, '')))), -1))
           FROM crm_notice_translations WHERE notice_id = n.id), 'x')

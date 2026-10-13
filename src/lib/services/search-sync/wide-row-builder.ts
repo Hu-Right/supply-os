@@ -13,6 +13,8 @@ import { classifyAgencyType } from "../agency/index";
 import { COUNTRY_NAME_ZH } from "../../data/countryNames";
 import { normalizeCountry } from "../../utils/countryNormalize";
 import { backbonePathOfCodes } from "../commodity/backbone-cache";
+import { toBackbonePathColumn } from "../commodity/backbone-path";
+import { pathOfLandingNodes } from "../commodity/attribution";
 import { DESC_SOURCE_EXPR, WIDE_LIMITS, TRANSLATION_MODEL, truncate } from "../../utils/notice-field-limits";
 import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 // JOIN 片段来自叶子模块 wide-sync-sql：不得在本文件定义后再被 fingerprint 反向导入（会成环）
@@ -107,6 +109,8 @@ function parseDecimalValue(raw: unknown): number {
 export interface UnspscSourceRow {
   /** 桥表外部编号（= crm_bid_notices.notice_id） */
   noticeId: string;
+  /** 主表自增 id（= crm_notice_attribution_nodes.notice_pk）；R2 切读落点表时按它取码 */
+  pk?: number;
   /** 主表 `category_l1_id` / `category_l2_id`（旧字典行 id）；无则传空 */
   categoryIds?: Array<number | null | undefined>;
 }
@@ -164,6 +168,42 @@ export async function loadUnspscByNoticeIds(
     const backbone = await backbonePathOfCodes(pool, codes);
     // 空集与无索引都是空串（门禁 BB7 认定空串违规），回 NULL 在 buildWideRow
     final.set(nid, { backbone: backbone ?? "" });
+  }
+  return final;
+}
+
+/**
+ * R2 切读开关：品目归属装载的唯一入口（sync-scheduler 只调这一个）。
+ *   ATTRIBUTION_READ=on ⇒ 读 crm_notice_attribution_nodes 落点表（最深落点，服务端补祖先）；
+ *   否则（默认）⇒ 沿用 loadUnspscByNoticeIds（UNSPSC 桥表），现网行为零变化。
+ * 返回形状与 loadUnspscByNoticeIds 一致（keyed by notice_id），buildWideRow 不感知来源切换。
+ * 无落点的公告（如尚未被生产者灌过的新公告）⇒ backbone 空串 ⇒ buildWideRow 写 NULL（分类缺席，靠覆盖率 WARN 暴露）。
+ */
+export async function loadBackboneMap(
+  pool: Pool,
+  sources: UnspscSourceRow[],
+): Promise<Map<string, { backbone: string }>> {
+  if (process.env.ATTRIBUTION_READ !== "on") return loadUnspscByNoticeIds(pool, sources);
+  if (sources.length === 0) return new Map();
+  const byPk = new Map<number, string>(); // notice_pk -> notice_id
+  for (const s of sources) if (s.pk) byPk.set(s.pk, s.noticeId);
+  const pks = [...byPk.keys()];
+  if (pks.length === 0) return loadUnspscByNoticeIds(pool, sources); // 没带 pk 的调用方：退回桥表，不静默清空
+  const [rows] = await pool.query(
+    `SELECT notice_pk, node_code FROM crm_notice_attribution_nodes WHERE notice_pk IN (${pks.map(() => "?").join(",")})`,
+    pks,
+  );
+  const nodesByPk = new Map<number, string[]>();
+  for (const row of rows as RowDataPacket[]) {
+    const arr = nodesByPk.get(Number(row.notice_pk));
+    if (arr) arr.push(String(row.node_code));
+    else nodesByPk.set(Number(row.notice_pk), [String(row.node_code)]);
+  }
+  const final = new Map<string, { backbone: string }>();
+  for (const [pk, nid] of byPk) {
+    const codes = nodesByPk.get(pk);
+    // 落点集 → 含全部祖先的节点码集（与桥表口径同一列形制）；空集→空串→buildWideRow 写 NULL
+    final.set(nid, { backbone: codes && codes.length ? toBackbonePathColumn(pathOfLandingNodes(codes)) : "" });
   }
   return final;
 }

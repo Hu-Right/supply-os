@@ -17,7 +17,7 @@ import { invalidateSearchCache } from "../search-common/sync-events";
 import { PLATFORM_PUBLISHED_ONLY } from "../../utils/notice-expired";
 import {
   wideSyncSelect, WIDE_SYNC_JOIN,
-  loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds,
+  loadAliasMap, loadTranslationsByNoticeIds, loadBackboneMap,
   buildWideRow, upsertWideRows,
 } from "./wide-row-builder";
 import {
@@ -51,11 +51,12 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
 
       // 挂靠输入：桥表 notice_id + 平台公告的主表自填分类（旧字典行 id，同一函数内翻成 8 位码）
       const sources = rawRows.map((r) => ({
+        pk: Number(r.id),
         noticeId: String(r.notice_id),
         categoryIds: [r.category_l1_id, r.category_l2_id],
       }));
       const [unspscMap, translationsMap] = await Promise.all([
-        loadUnspscByNoticeIds(pool, sources),
+        loadBackboneMap(pool, sources),
         loadTranslationsByNoticeIds(pool, rawRows.map((r) => Number(r.id))),
       ]);
 
@@ -100,11 +101,12 @@ export async function incrementalWideSync(
     if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
 
     const sources = allRaw.map((r) => ({
+      pk: Number(r.id),
       noticeId: String(r.notice_id),
       categoryIds: [r.category_l1_id, r.category_l2_id],
     }));
     const [unspscMap, translationsMap] = await Promise.all([
-      loadUnspscByNoticeIds(pool, sources),
+      loadBackboneMap(pool, sources),
       loadTranslationsByNoticeIds(pool, allRaw.map((r) => Number(r.id))),
     ]);
 
@@ -141,11 +143,12 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
       ids,
     );
     const sources = (rows as RowDataPacket[]).map((r) => ({
+      pk: Number(r.id),
       noticeId: String(r.notice_id),
       categoryIds: [r.category_l1_id, r.category_l2_id],
     }));
     const [unspscMap, translationsMap] = await Promise.all([
-      loadUnspscByNoticeIds(pool, sources),
+      loadBackboneMap(pool, sources),
       loadTranslationsByNoticeIds(pool, (rows as RowDataPacket[]).map((r) => Number(r.id))),
     ]);
     const wideRows = (rows as RowDataPacket[]).map((r) => buildWideRow(
