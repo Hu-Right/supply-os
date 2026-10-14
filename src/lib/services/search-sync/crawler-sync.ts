@@ -23,6 +23,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { getSourcePool } from "@/lib/db/source-pool";
+import { enqueueUnattributedNotices } from "../commodity/taxonomy-intake";
 import {
   SYNC_TABLES, NOTICE_TABLE,
   escapeVal, buildOdkuClause, buildIncrementalWhere, buildWatermark,
@@ -199,6 +200,8 @@ export interface CrawlerSyncResult {
   totalSynced: number;
   changedNoticeIds: number[];
   perTable: Record<string, number>;
+  /** 本轮登记进品目归类队列（crm_taxonomy_intake）的无归属公告数（非关键路径） */
+  intakeEnqueued: number;
 }
 
 /**
@@ -209,10 +212,14 @@ export interface CrawlerSyncResult {
  * 归一字典与商机桥表补行（syncMissingOppBridge）一并下线——公告归属的唯一事实源
  * 是落点表 crm_notice_attribution_nodes（镜像 + AI 管道），桥表进入只出不进的封存态，
  * 物理删除随 D1' 批次。
+ *
+ * 归属登记口：主表同步完后，把本轮变更里**无 UGT 归属的活跃公告**登记进
+ * crm_taxonomy_intake（taxonomy-intake，uk_src 幂等 + 单轮上限），交 AI 归属管道
+ * 消化。登记失败不影响本轮主表成果与宽表级联（非关键路径）。
  */
 export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResult> {
   const source = getSourcePool();
-  if (!source) return { skipped: true, totalSynced: 0, changedNoticeIds: [], perTable: {} };
+  if (!source) return { skipped: true, totalSynced: 0, changedNoticeIds: [], perTable: {}, intakeEnqueued: 0 };
 
   const wms = await loadWatermarks(target);
   let totalSynced = 0;
@@ -230,5 +237,19 @@ export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResul
     if (table === NOTICE_TABLE) changedNoticeIds.push(...result.changedIds);
   }
 
-  return { skipped: false, totalSynced, changedNoticeIds, perTable };
+  let intakeEnqueued = 0;
+  if (changedNoticeIds.length > 0) {
+    try {
+      const intake = await enqueueUnattributedNotices(target, changedNoticeIds);
+      intakeEnqueued = intake.enqueued;
+      if (intake.enqueued > 0 || intake.deferred > 0) {
+        console.log(`[crawler-sync] 品目归类队列：登记 ${intake.enqueued} 条无归属公告` +
+          (intake.deferred > 0 ? `（单轮上限截断 ${intake.deferred} 条，下一轮继续）` : ""));
+      }
+    } catch (err) {
+      console.warn(`[crawler-sync] 品目归类队列登记失败（本轮主表成果保留）: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return { skipped: false, totalSynced, changedNoticeIds, perTable, intakeEnqueued };
 }
