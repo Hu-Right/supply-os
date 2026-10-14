@@ -119,8 +119,8 @@ export async function noticeInCategory(pool: Pool, noticeDbId: number, groupNode
 /**
  * 商机是否属于指定品目大类。
  *
- * 小表剥离（2026-10-14）：不再读商机桥表（`crm_bid_opportunity_unspsc_codes`，
- * UNSPSC 原始码本身大量失真）。商机经关联公告（source_notice_id → 主表 → 宽表
+ * 小表剥离（2026-10-14）：不再读商机桥表（`旧商机桥表`，
+ * 旧品类码本身大量失真）。商机经关联公告（source_notice_id → 主表 → 宽表
  * backbone_path）取 UGT 节点，与公告侧**同一份归属口径**；大类命中用
  * `l1NodesOfGroup`（10 分钟缓存，与可见性执法共用一份）。
  *

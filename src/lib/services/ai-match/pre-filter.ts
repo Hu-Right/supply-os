@@ -6,7 +6,7 @@
  *              精评，控制成本与延迟。分档对齐 search-orchestrator 口径：取最深
  *              命中层级（L2~L5，L1 过宽不计）× 1000 定档，词项分仅同档内竞争；
  *              无码/不命中/未传节点码数据时行为与词项重叠版逐字一致。
- *              2026-10-11：两侧的键由旧字典 `crm_unspsc_codes` 的行 id 换成骨架节点码
+ *              2026-10-11：两侧的键由旧字典 `旧品类字典表` 的行 id 换成骨架节点码
  *              `UGT-*`（同一请求里两套键并存就是分叉温床，与检索侧同一理由）。
  */
 import { backboneNodeLevel } from "../commodity/backbone-path";
@@ -23,7 +23,7 @@ export interface PreFilterNotice {
 /** 粗筛所需的供应商画像字段（全部可选，兼容 repo 层的宽行类型 Record<string, unknown>） */
 export interface PreFilterSupplier {
   pool_id?: unknown;
-  /** 平台供应商 id（UNSPSC 层级匹配接入键；缺失/为 0 时仅词项参与） */
+  /** 平台供应商 id（旧品类层级匹配接入键；缺失/为 0 时仅词项参与） */
   supplier_id?: unknown;
   industry?: unknown;
   products?: unknown;

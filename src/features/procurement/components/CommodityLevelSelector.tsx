@@ -3,7 +3,7 @@
  * Commodity backbone five-level selector
  *
  * @module features/procurement/components/CommodityLevelSelector
- * @description 取代旧 UnspcsSelector（那五级读的是旧字典 crm_unspsc_codes，第一级是 A..J
+ * @description 取代旧 UnspcsSelector（那五级读的是旧字典 旧品类字典表，第一级是 A..J
  *              十个字母容器、名字还是「原材料 材料, 化学品, 纸张, 燃料」这种机器拼接串）。
  *
  *              三处口径纪律：
@@ -14,7 +14,7 @@
  *                   采购领域 = L2 中类（212）/ 业务门类 = L3 小类（1,175）
  *                   细分类目 = L4 子类（8,004）/ 具体品目 = L5 品目（150,006）
  *                 i18n 键名 commodityLevelSegment/Family/Class/Commodity 是**历史名**（当年底下
- *                 确实是 UNSPSC 四层），换骨架后语义已变但键名不改（键名刚由另一批提交改成业务文案，
+ *                 确实是 旧品类码 四层），换骨架后语义已变但键名不改（键名刚由另一批提交改成业务文案，
  *                 再改名会搅动六语言）——要改就连着六语言一起改成 Level2~5，不要只改一侧。
  *              3. 名称缺失不编造：实测 L2~L4 的 name_en 全空（212 / 1,175 / 8,004 行），L5 双语全量。
  *                 展示按 nameZh → nameEn → key 兜底，所以非中文界面这三层会落到中文名（补译名是独立工作）。

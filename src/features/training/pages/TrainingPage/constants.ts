@@ -10,7 +10,7 @@ import {
 export const COURSE_MODULES = [
   { num: 1, icon: BookOpen, title: "平台规则", desc: "联合国及主要国际公采平台规则解读" },
   { num: 2, icon: Target, title: "商机筛选", desc: "需求分析与商机识别方法" },
-  { num: 3, icon: Layers, title: "UNSPSC", desc: "分类体系与编码实操应用" },
+  { num: 3, icon: Layers, title: "品目分类", desc: "分类体系与编码实操应用" },
   { num: 4, icon: Shield, title: "供应商资质", desc: "注册路径与资质文件准备" },
   { num: 5, icon: FileCheck, title: "投标文件", desc: "投标文件结构与撰写要点" },
   { num: 6, icon: AlertTriangle, title: "风险控制", desc: "合规要求与风险识别规避" },

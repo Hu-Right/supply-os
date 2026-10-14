@@ -3,7 +3,7 @@
  * Backbone index cache (in-process, TTL) for the wide-row writer
  *
  * @module lib/services/commodity/backbone-cache
- * @description 为什么需要缓存：每条公告进宽表时都要把身上的 UNSPSC 码换成骨架节点码，
+ * @description 为什么需要缓存：每条公告进宽表时都要把身上的 旧品类码换成骨架节点码，
  *              而骨架是 159,429 行的一棵树。逐码查库会把同步链路拖死（一轮 500 行、平均 2.4 码，
  *              还要回溯祖先），所以一次载入整树在内存换算。实测成本（2026-10-11，经 SSH 隧道连生产）：
  *              载入 15.4s、常驻堆 +71.3MB；换算最近 500 行（有码 398 行）含取码 SQL 共 271ms；

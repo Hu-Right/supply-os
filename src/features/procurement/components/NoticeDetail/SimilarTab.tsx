@@ -1,9 +1,9 @@
 /**
- * 相似机会 Tab：按 UNSPSC 品类语义相似的真实公告推荐
- * Similar Opportunities Tab — UNSPSC category similarity
+ * 相似机会 Tab：按 旧品类品类语义相似的真实公告推荐
+ * Similar Opportunities Tab — 旧品类码 category similarity
  *
  * @module features/procurement/components/NoticeDetail/SimilarTab
- * @description 调 /api/notices/:id/similar 取共享 UNSPSC 类目的活跃公告（最多 6 条）。
+ * @description 调 /api/notices/:id/similar 取共享 旧品类类目的活跃公告（最多 6 条）。
  *              无同类时服务端返回空数组，前端展示引导回列表的空态（不做兜底、不补齐）。
  */
 import { useEffect, useState } from "react";

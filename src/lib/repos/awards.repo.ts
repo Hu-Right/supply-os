@@ -31,7 +31,6 @@ export interface AwardRow {
   description: string | null;
   description_cn: string | null;
   category: string | null;
-  unspsc_code: string | null;
   industry: string | null;
   source_notice_id: string | null;
   raw_data: unknown;
@@ -74,7 +73,6 @@ export interface AwardInsert {
   description?: string | null;
   description_cn?: string | null;
   category?: string | null;
-  unspsc_code?: string | null;
   industry?: string | null;
   source_notice_id?: string | null;
   raw_data?: unknown;
@@ -161,7 +159,7 @@ export class AwardsRepo {
       `SELECT id, source_platform, source_url, external_id, title, title_cn,
               reference, contract_no, agency, agency_full, country,
               award_date, contract_value, contract_value_usd, currency,
-              description, description_cn, category, unspsc_code, industry,
+              description, description_cn, category, industry,
               source_notice_id, crawl_time
        FROM crm_bid_awards
        WHERE ${where}
@@ -290,7 +288,7 @@ export class AwardsRepo {
       "source_platform", "source_url", "external_id", "title", "title_cn",
       "reference", "contract_no", "agency", "agency_full", "country",
       "award_date", "contract_value", "contract_value_usd", "currency",
-      "description", "description_cn", "category", "unspsc_code", "industry",
+      "description", "description_cn", "category", "industry",
       "source_notice_id", "raw_data", "create_time", "update_time",
     ];
     const now = Math.floor(Date.now() / 1000);
@@ -302,7 +300,7 @@ export class AwardsRepo {
       award.award_date ?? null, award.contract_value ?? null, award.contract_value_usd ?? null,
       award.currency ?? "USD",
       award.description ?? null, award.description_cn ?? null,
-      award.category ?? null, award.unspsc_code ?? null, award.industry ?? null,
+      award.category ?? null, award.industry ?? null,
       award.source_notice_id ?? null,
       award.raw_data ? JSON.stringify(award.raw_data) : null,
       now, now,

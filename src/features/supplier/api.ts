@@ -90,7 +90,7 @@ export interface SupplierStats {
   withCertification: number;
   international: number;
   registered: number;
-  unspscMatched: number;
+  commodityMatched: number;
 }
 
 /**

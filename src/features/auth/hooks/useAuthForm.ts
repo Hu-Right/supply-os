@@ -139,7 +139,7 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
           agreementAcceptedAt: new Date().toISOString(),
         });
         // 行业偏好为注册后的可选项：仅在用户实际选择过（前两级齐全）时保存。
-        // 偏好键是 UGT 最深已选节点码（commodity_code）；旧行的字典 id 随 UNSPSC 字典退役停用。
+        // 偏好键是 UGT 最深已选节点码（commodity_code）；旧行的字典 id 随 旧品类字典退役停用。
         if (prefGroup && prefLevel2) {
           await saveIndustryPrefs({ commodity_code: prefLevel3 || prefLevel2 });
         }

@@ -3,7 +3,7 @@
  * @module tests/unit/lib/services/ai-match-pre-filter.test.ts
  * @description 纯函数验证：词项提取、公告语料拼接、重叠打分、粗筛排序与截断；
  *              骨架节点码定档：命中越深层越优先（L1 不计），不命中/无码回落词项。
- *              2026-10-11 换口径：两侧键从旧字典 `crm_unspsc_codes` 的行 id 换成
+ *              2026-10-11 换口径：两侧键从旧字典 `旧品类字典表` 的行 id 换成
  *              骨架节点码（`UGT-*`），层级不再靠「同一 level 键相等」而是交集最深层。
  */
 import { describe, it, expect } from "vitest";

@@ -25,7 +25,7 @@ export function matchScoreToTierLabel(score: number): string {
  *  取最深命中档定分（与 mode-resolver 口径一致：L4/L5 → 5；L2/L3 → 2）。
  *  无命中返回 undefined（降级多表 JOIN 路径的行没有 backbone_path 列，不挂徽章）。
  *  2026-10-13 precise 退役：原先读 precise_backbone_path（candidates 人工审核码派生），
- *  该口径已随 UNSPSC candidates 表删除 ⇒ 现统一按全量 backbone_path 计分，
+ *  该口径已随候选表删除 ⇒ 现统一按全量 backbone_path 计分，
  *  行业匹配徽章语义待「行业树↔品目树」桥接重建。列值解析只走 fromBackbonePathColumn。 */
 function perDocMatchScore(
   row: RowDataPacket,
@@ -109,7 +109,6 @@ export function formatItems(
       ...row,
       organization: null,
       source_url: null,
-      unspsc_codes: [],
       core_locked: true,
       is_featured: row.is_featured ? true : false,
       breakdown_file_count: breakdownCount,

@@ -1,5 +1,5 @@
 /**
- * GET /api/notices/:id/similar — 按 UNSPSC 品类返回相似活跃公告（最多 6 条，无兜底）
+ * GET /api/notices/:id/similar — 按 旧品类品类返回相似活跃公告（最多 6 条，无兜底）
  *
  * @module app/api/notices/[id]/similar/route
  */

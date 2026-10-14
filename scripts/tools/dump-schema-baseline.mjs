@@ -34,6 +34,9 @@ const EXCLUDE_RES = [
   /__drill$/,
   /_retired_/,
   /^crm_appointments$/,
+  // outreach 系为内网爬虫侧拥有的镜像表（列集合随爬虫源漂移，含 supplier 快照列），
+  // 结构事实源在内网，不进本基线（旧字典零残留门禁对它的豁免口径见 check-legacy-dict-residue.mjs）。
+  /^crm_outreach_/,
 ];
 const extra = process.env.EXCLUDE;
 if (extra) EXCLUDE_RES.push(new RegExp(extra, "i"));

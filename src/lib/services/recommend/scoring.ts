@@ -56,7 +56,7 @@ const RECO_SCORE_MAX_NODES = 24;
 export function buildScoringContext(
   scoredNodes: RecallNode[],
   interestTotal: number,
-  wUnspsc: number,
+  wCommodity: number,
   wUrgency: number,
   wAmount: number,
   wNeutral: number,
@@ -92,7 +92,7 @@ export function buildScoringContext(
     ? `MAX(${l4Nodes.map(() => `(${hit})`).join(" OR ")})` : "0";
   const l4Params = l4Nodes;
 
-  const recoScoreExpr = `ROUND(${wUnspsc} * LEAST(1, ${matchWeightExpr} / ?) + ${wUrgency} * (${urgencyExpr}) + ${wAmount} * ${amountExpr} + ${wNeutral}, 6)`;
+  const recoScoreExpr = `ROUND(${wCommodity} * LEAST(1, ${matchWeightExpr} / ?) + ${wUrgency} * (${urgencyExpr}) + ${wAmount} * ${amountExpr} + ${wNeutral}, 6)`;
 
   return { matchWeightExpr, scoreParams, denominator, urgencyExpr, amountExpr, amountScoreParams, l4HitExpr, l4Params, recoScoreExpr };
 }
@@ -126,16 +126,16 @@ export async function getAmountPreference(
 export function resolveWeights(
   profileRow: RowDataPacket | null,
   variant: string,
-): { wUnspsc: number; wUrgency: number; wAmount: number; wNeutral: number; profileStale: boolean } {
+): { wCommodity: number; wUrgency: number; wAmount: number; wNeutral: number; profileStale: boolean } {
   const profile = variant === "treatment" ? profileRow : null;
   const pickWeight = (value: unknown, fallback: number) => {
     const n = Number(value); return Number.isFinite(n) && n > 0 && n < 1 ? n : fallback;
   };
-  const wUnspsc = pickWeight(profile?.w_unspsc, 0.5);
+  const wCommodity = pickWeight(profile?.w_commodity, 0.5);
   const wUrgency = pickWeight(profile?.w_urgency, 0.15);
   const wAmount = pickWeight(profile?.w_amount, 0.1);
   const wNeutral = (pickWeight(profile?.w_agency, 0.15) + pickWeight(profile?.w_geo, 0.1)) * 0.5;
   const profileStale = !profileRow || !profileRow.updated_at ||
     Date.now() - new Date(profileRow.updated_at).getTime() > 24 * 3600 * 1000;
-  return { wUnspsc, wUrgency, wAmount, wNeutral, profileStale };
+  return { wCommodity, wUrgency, wAmount, wNeutral, profileStale };
 }

@@ -23,7 +23,7 @@ export const GET = withRoute(async () => {
       withCertification: 0,
       international: 0,
       registered: 0,
-      unspscMatched: 0,
+      commodityMatched: 0,
     });
   }
 });

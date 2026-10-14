@@ -13,11 +13,11 @@ import { runAttributionMirror } from "@/lib/services/commodity/attribution-mirro
 import { resetBackboneCache } from "@/lib/services/commodity/backbone-cache";
 
 const TREE_ROWS = [
-  { code: "UGT-01", parent_code: "", level: 1, unspsc_prefix: null, group_code: "UGT-G-01" },
-  { code: "UGT-0101", parent_code: "UGT-01", level: 2, unspsc_prefix: null, group_code: "UGT-G-01" },
-  { code: "UGT-010101", parent_code: "UGT-0101", level: 3, unspsc_prefix: null, group_code: "UGT-G-01" },
-  { code: "UGT-01010101", parent_code: "UGT-010101", level: 4, unspsc_prefix: "101015", group_code: "UGT-G-01" },
-  { code: "UGT-0101010101", parent_code: "UGT-01010101", level: 5, unspsc_prefix: "10101504", group_code: "UGT-G-01" },
+  { code: "UGT-01", parent_code: "", level: 1, group_code: "UGT-G-01" },
+  { code: "UGT-0101", parent_code: "UGT-01", level: 2, group_code: "UGT-G-01" },
+  { code: "UGT-010101", parent_code: "UGT-0101", level: 3, group_code: "UGT-G-01" },
+  { code: "UGT-01010101", parent_code: "UGT-010101", level: 4, group_code: "UGT-G-01" },
+  { code: "UGT-0101010101", parent_code: "UGT-01010101", level: 5, group_code: "UGT-G-01" },
 ];
 
 function makePool(candidates: Array<{ pk: number; col: string }>) {

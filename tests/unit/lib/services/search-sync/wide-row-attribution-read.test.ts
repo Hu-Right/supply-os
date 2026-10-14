@@ -6,7 +6,7 @@
  *   - 有落点 vs 无落点（空 ⇒ buildWideRow 转 NULL，不臆测）；
  *   - 调用方没带 pk ⇒ 结果缺席（不退回桥表，交上游写 NULL）；
  *   - 空 sources ⇒ 零查询。
- * UNSPSC 桥表 / 旧字典的装载路径已随小表剥离删除（2026-10-14），不再出现在本文件断言中。
+ * 旧品类桥表 / 旧字典的装载路径已随小表剥离删除（2026-10-14），不再出现在本文件断言中。
  */
 import { describe, it, expect, vi } from "vitest";
 import type { Pool } from "mysql2/promise";

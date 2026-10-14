@@ -9,7 +9,7 @@
  * 1. 类目条件走 backbone_node ↔ backbone_path —— 属性名与列名必须成对，写串就是整条检索静默降级；
  * 2. 脏节点码：不产生类目条件、不报错、不 conflictEmpty（与旧实现"忽略行业过滤"一致），
  *    但必须在 digest 里留下 rejected 痕迹，否则排查时看不见；
- * 3. 旧字典列名与 precise 口径一个都不许再出现（levelN_id / unspsc_level / precise_level / precise_backbone_path）。
+ * 3. 旧字典列名与 precise 口径一个都不许再出现（levelN_id / 旧品类码 / precise_level / precise_backbone_path）。
  */
 import { describe, it, expect } from "vitest";
 import { buildFilterPlan } from "@/lib/services/search-orchestrator/filter-builder";

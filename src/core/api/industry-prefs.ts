@@ -4,7 +4,7 @@
  *
  * @module core/api/industry-prefs
  * @description 账号默认行业偏好的读取和保存，供 procurement 和 auth 两个 feature 使用。
- *              偏好键是 UGT 最深节点码（commodity_code）；旧行的字典 id 随 UNSPSC
+ *              偏好键是 UGT 最深节点码（commodity_code）；旧行的字典 id 随 旧品类码
  *              字典退役停用。
  */
 import { api, apiCached } from "@/core/http";

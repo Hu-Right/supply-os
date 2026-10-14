@@ -3,7 +3,7 @@
  * Notice List Row — high-density horizontal layout
  *
  * @module features/procurement/components/NoticeCard
- * @description 按「2-全球采购机会库」样图重排：左侧状态标签（公告类型/附件）+ 标题与 Tender ID · UNSPSC 主列 +
+ * @description 按「2-全球采购机会库」样图重排：左侧状态标签（公告类型/附件）+ 标题与 Tender ID 主列 +
  *              买家 / 国家 / 金额 / 截止 各列 + 解锁动作。行内不再放描述长文，
  *              一屏 6 条营造库存感（规划 §5.2）；移动端降级为纵向紧凑排布。
  *              Dense horizontal row per design mockup; description lives in the
@@ -58,11 +58,8 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
   const docCount = item.breakdown_file_count ?? 0;
   // 剩余天数：日历口径（CST），与左侧 formatDeadlineZh 相对日期标签对齐
   const daysLeft = calendarDaysLeftCst(toUnixMs(item.deadline_ts));
-  // Tender ID：reference 优先，回退 notice_id；UNSPSC 首码仅解锁态展示
+  // Tender ID：reference 优先，回退 notice_id
   const tenderId = item.reference || item.notice_id || "";
-  const firstUnspsc = item.core_locked === false
-    ? (item.unspsc_codes || []).map((c) => c.code).filter(Boolean)[0]
-    : undefined;
 
   const deadlineText = locale === "zh"
     ? (formatDeadlineZh(item.deadline, item.deadline_ts) || t("procurement_noDeadline"))
@@ -91,7 +88,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
           )}
         </div>
 
-        {/* ── 主列：标题 + Tender ID · UNSPSC ── */}
+        {/* ── 主列：标题 + Tender ID ── */}
         <div className="flex-1 min-w-0">
           <Button
             type="button"
@@ -105,7 +102,6 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
           </Button>
           <p dir="ltr" className="text-3xs font-mono text-slate-400 mt-1 truncate">
             {tenderId}
-            {firstUnspsc ? ` · UNSPSC ${firstUnspsc}` : ""}
           </p>
           {/* 移动端紧凑 meta：桌面端由右侧各列展示 */}
           <div className="md:hidden flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-slate-500">

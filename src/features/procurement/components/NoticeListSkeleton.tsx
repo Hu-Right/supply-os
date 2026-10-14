@@ -44,7 +44,7 @@ export function NoticeListSkeleton({ count = NOTICE_PAGE_SIZE }: NoticeListSkele
 
           {/* 两栏：左侧主内容 + 右侧按钮 */}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 mt-2">
-            {/* 左栏：描述 / 机构+金额 / UNSPSC */}
+            {/* 左栏：描述 / 机构+金额 / 旧品类码 */}
             <div className="min-w-0 space-y-2">
               {/* 描述 */}
               <div className="space-y-1.5">
@@ -57,7 +57,7 @@ export function NoticeListSkeleton({ count = NOTICE_PAGE_SIZE }: NoticeListSkele
                 <div className="h-3.5 w-20 bg-slate-100 rounded" />
                 <div className="h-3 w-24 bg-slate-100 rounded" />
               </div>
-              {/* UNSPSC 标签 */}
+              {/* 旧品类标签 */}
               <div className="flex flex-wrap gap-1.5">
                 <div className="h-5 w-14 rounded bg-slate-100 border border-slate-200" />
                 <div className="h-5 w-16 rounded bg-slate-100 border border-slate-200" />

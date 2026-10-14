@@ -3,7 +3,7 @@
  * Notice Detail Core Content
  *
  * @module features/procurement/components/NoticeCoreContent
- * @description 主内容区核心块：已解锁时展示 UNSPSC 标签、来源链接与
+ * @description 主内容区核心块：已解锁时展示来源链接与
  *              拓展详情；加载详情时展示骨架屏；锁定时按敏感度分级渐进展示
  *              （次要信息真实预览 → 核心敏感信息数量预告锁卡）。
  *              Core content block: unlocked view (tags, source link and
@@ -40,20 +40,8 @@ export function NoticeCoreContent({
   if (coreUnlocked) {
     return (
       <>
-        <div>
-          <h4 className="text-sm font-extrabold text-slate-900 mb-2">{t("procurement_tags")}</h4>
-          <div className="flex flex-wrap gap-2">
-            {(notice.unspsc_codes || []).slice(0, 16).map((code, index) => (
-              <span
-                key={`${code.code || index}`}
-                className="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 text-xs font-mono text-slate-600"
-              >
-                {code.code || code.name || code.description}
-              </span>
-            ))}
-          </div>
-        </div>
-
+        {/* 原「标签」区随旧品类码退役删除：它只渲染那个码列表，
+            自 R5' 停读后服务端恒下发空数组 ⇒ 只剩一个空标题。 */}
         {notice.source_url && (
           <a
             href={notice.source_url}
@@ -79,13 +67,12 @@ export function NoticeCoreContent({
   // 次要信息（真实数据，商业敏感度低）：发布日期/投标难度/注册门槛/行业分类，
   // 由预览端点真实下发直接展示；核心敏感信息（联系人身份/文件清单/报告/来源链接）
   // 服务端从不下发，锁定态仅渲染数量预告锁卡。
-  const unspscPreview = (notice.unspsc_codes || []).slice(0, 4);
   const secondaryMetrics = [
     { label: t("procurement_publishedDate"), value: notice.published_date || "" },
     { label: t("procurement_bidDifficulty"), value: notice.difficulty || "" },
     { label: t("procurement_bidRegBar"), value: notice.registration_level || "" },
   ].filter((metric) => Boolean(metric.value));
-  const hasSecondaryPreview = secondaryMetrics.length > 0 || unspscPreview.length > 0;
+  const hasSecondaryPreview = secondaryMetrics.length > 0;
   const contactCount = Number(notice.contact_count || 0);
   const fileCount = Number(breakdownFileCount || 0);
   const showReportTeaser = notice.is_featured === true;
@@ -104,18 +91,6 @@ export function NoticeCoreContent({
                   <p className="font-bold text-slate-500">{metric.label}</p>
                   <p dir="auto" className="mt-0.5 font-bold text-slate-800 break-words">{metric.value}</p>
                 </div>
-              ))}
-            </div>
-          )}
-          {unspscPreview.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {unspscPreview.map((code, index) => (
-                <span
-                  key={`${code.code || index}`}
-                  className="px-2 py-1 rounded-md border border-slate-200 bg-white text-xs font-mono text-slate-600"
-                >
-                  {code.code || code.name || code.description}
-                </span>
               ))}
             </div>
           )}

@@ -13,9 +13,9 @@ export const FAQS: FAQItem[] = [
   {
     id: "faq-01",
     questionZh: "什么是联合国全球采购（国际公共采购）编码体系？国内建材企业该如何匹配对应的国际公共采购 code？",
-    questionEn: "What is the 国际公共采购 coding system? How do building materials companies map their UNSPSC codes?",
-    answerZh: "国际公共采购采用UNSPSC（联合国标准产品与服务分类）编码。例如，建筑材料及预制房屋归属于第30门类（30000000）。您可以在国际公共采购官网使用英文关键字（如'prefabricated'、'building cement'）进行精确搜索，并关联到您公司的产品属性。匹配不精准可能导致无法及时获取智能系统推送的相关招标线索。",
-    answerEn: "The 国际公共采购 utilizes the UNSPSC system. For instance, structural building supplies fall under Division 30 (30000000). You can query keywords like 'prefabricated structure' or 'panel wood' on the portal to locate specific 8-digit codes. Precise search matching guarantees automated, relevant system tender notifications.",
+    questionEn: "What is the 国际公共采购 coding system? How do building materials companies map their commodity codes?",
+    answerZh: "平台用自研品目分类树给公告打品类标签（大类→族→类→品目），建材与预制房屋会落在建筑相关的大类下。您可以在平台使用英文关键字（如'prefabricated'、'building cement'）进行精确搜索，并关联到您公司的产品属性。匹配不精准可能导致无法及时获取智能系统推送的相关招标线索。",
+    answerEn: "The platform labels every notice with its own commodity taxonomy (group → family → class → commodity); building materials and prefabricated housing sit under a construction-related group. You can query keywords like 'prefabricated structure' or 'panel wood' on the portal to locate the matching commodity nodes. Precise search matching guarantees automated, relevant system tender notifications.",
     category: "ungm"
   },
   {

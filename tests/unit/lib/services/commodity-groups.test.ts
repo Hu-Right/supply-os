@@ -10,8 +10,7 @@ import { describe, it, expect } from "vitest";
 import {
   COMMODITY_GROUPS,
   COMMODITY_SEGMENT_PREFIXES,
-  groupCodeOfUnspscPrefix,
-  groupCodeOfUnspscCode,
+  groupCodeOfSegmentPrefix,
   validateCommodityGroups,
 } from "@/lib/services/commodity/groups";
 
@@ -27,22 +26,20 @@ describe("COMMODITY_GROUPS — 32 大类与 58 段归属", () => {
   });
 
   it("码表可反查：段 72 → 建筑施工，段 92 → 公共安全，段 41 → 仪器", () => {
-    expect(groupCodeOfUnspscPrefix("72")).toBe("UGT-G-11");
-    expect(groupCodeOfUnspscPrefix("92")).toBe("UGT-G-09");
-    expect(groupCodeOfUnspscPrefix("41")).toBe("UGT-G-18");
-    expect(groupCodeOfUnspscCode("41010000")).toBe("UGT-G-18");
+    expect(groupCodeOfSegmentPrefix("72")).toBe("UGT-G-11");
+    expect(groupCodeOfSegmentPrefix("92")).toBe("UGT-G-09");
+    expect(groupCodeOfSegmentPrefix("41")).toBe("UGT-G-18");
   });
 
   it("医疗四拆：器械 42 / 药品 51 / 服务 85 / 仪器 41 必须各自成类", () => {
-    const codes = ["42", "51", "85", "41"].map((p) => groupCodeOfUnspscPrefix(p));
+    const codes = ["42", "51", "85", "41"].map((p) => groupCodeOfSegmentPrefix(p));
     expect(new Set(codes).size).toBe(4);
   });
 
   it("未知前缀与非法长度一律 null（不得兜底成某个类）", () => {
     for (const bad of ["99", "7", "721", "", "GG", "AB", null, undefined]) {
-      expect(groupCodeOfUnspscPrefix(bad as string)).toBeNull();
+      expect(groupCodeOfSegmentPrefix(bad as string)).toBeNull();
     }
-    expect(groupCodeOfUnspscCode("4101")).toBeNull();
   });
 
   it("G13 不含 80 与 92（拆类回归：80 已拆为 G16，92 只属 G09）", () => {
@@ -50,7 +47,7 @@ describe("COMMODITY_GROUPS — 32 大类与 58 段归属", () => {
     expect(g13.prefixes).not.toContain("92");
     expect(g13.prefixes).not.toContain("80");
     expect(g13.prefixes).toEqual(["83", "93", "94"]);
-    expect(groupCodeOfUnspscPrefix("80")).toBe("UGT-G-16");
+    expect(groupCodeOfSegmentPrefix("80")).toBe("UGT-G-16");
   });
 
   it("sort 从 1 连续递增到 32（chip 顺序稳定，不随公告量波动）", () => {

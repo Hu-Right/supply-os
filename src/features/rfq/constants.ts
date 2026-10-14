@@ -3,7 +3,7 @@
  * RFQ Page Constants
  *
  * @module features/rfq/constants
- * @description 发布向导表单选项与默认值。类目走 UNSPSC API 级联加载。
+ * @description 发布向导表单选项与默认值。类目走 旧品类码 API 级联加载。
  */
 import type { RfqFormState } from "./types";
 

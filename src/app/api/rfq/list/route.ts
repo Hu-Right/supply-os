@@ -37,7 +37,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const pageSize = Math.min(Math.max(Number(sp.get("page_size")) || 12, 4), 48);
   const q = String(sp.get("q") || "").trim().slice(0, 200);
   const province = String(sp.get("province") || "").trim().slice(0, 50);
-  // 品目大类筛选：UGT-G-xx（旧字典行 id 参数随 UNSPSC 字典退役停用）
+  // 品目大类筛选：UGT-G-xx（旧字典行 id 参数随 旧品类字典退役停用）
   const categoryL1 = String(sp.get("category_l1") || "").trim().slice(0, 16);
   const sort = sp.get("sort") === "deadline" ? "deadline" : sp.get("sort") === "budget" ? "budget" : "newest";
 

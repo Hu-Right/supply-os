@@ -41,8 +41,8 @@
  */
 
 // ═══════════════════════════════════════════
-// ⚠️ 已退役（2026-10-14，UNSPSC 桥表直删批次）：本脚本会绕过应用内 crawler-sync
-//    的同步清单直插 UNSPSC 桥表（SYNC_TABLES 含 crm_bid_notice_unspsc_codes），
+// ⚠️ 已退役（2026-10-14，旧品类桥表直删批次）：本脚本会绕过应用内 crawler-sync
+//    的同步清单直插 旧品类桥表（SYNC_TABLES 含 旧公告桥表），
 //    与「桥表只出不进、封存待物理删除」的口径冲突。应急同步一律走应用内
 //    crawler-sync（instrumentation 拉起，或手动触发调度器），本文件留档不再可执行。
 // ═══════════════════════════════════════════
@@ -190,58 +190,15 @@ const TARGET = {
 assertValidConfig('SOURCE', SOURCE);
 assertValidConfig('TARGET', TARGET);
 
+// 同步清单只保留两张主表：旧类目桥表已随字典退役（公告品目归属的唯一口径是
+// 落点表 crm_notice_attribution_nodes，由云端构建链路自己写，不再从源库直通）。
 const SYNC_TABLES = [
   'crm_bid_notices',
   'crm_bid_opportunities',
-  'crm_bid_notice_unspsc_codes',
   // crm_bid_awards / crm_bid_award_winners 无需同步——数据本身就在云端库中
 ];
 
 const BATCH_SIZE = 200;
-
-// V3 品目对齐：品目桥表入库校验 + 野码隔离队列（合法码直通，野码进 crm_taxonomy_intake 不丢不堵）
-const BRIDGE_TABLE = 'crm_bid_notice_unspsc_codes';
-const INTAKE_TABLE = 'crm_taxonomy_intake';
-const INTAKE_DDL = `CREATE TABLE IF NOT EXISTS \`${INTAKE_TABLE}\` (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  source_table VARCHAR(64) NOT NULL,
-  source_pk VARCHAR(40) NOT NULL,
-  notice_id BIGINT NULL,
-  code VARCHAR(20) NOT NULL,
-  reason VARCHAR(200) NOT NULL,
-  payload JSON NULL,
-  status VARCHAR(20) NOT NULL DEFAULT 'pending',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_src (source_table, source_pk),
-  KEY idx_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`;
-// 每轮同步加载一次的 UGT 品目码集合；null = 加载失败，本轮降级不过滤
-let commodityCodeFilter = null;
-
-/**
- * 品目合法码集合（桥表行级校验的白名单源）。
- * 换源记录：旧实现读 `crm_commodity_nodes.unspsc_code`（旧树，158,627 码）。2026-10-11 全库实测
- * 本 SQL 与旧集合**双向差 0**（旧有新无 0 · 新有旧无 0），且桥表 13,034 个去重码两边都全通过，
- * 所以换源不改变任何一条行的去留。口径来自新树自身：
- *   L5 的 8 位前缀 = 品目码；L4 的 6 位前缀补零两档 = 类码（NNNNNN00）与族码（NNNN0000）；
- *   L4 的 6 位前缀取前 2 位补零 = 段码（NN000000）（段/族层在新树里没有 UNSPSC 键，只能由子行推导）。
- * 与 src/lib/services/commodity/backbone-path.ts 的四档换算规则同一口径：白名单放行的码，归属必然算得出。
- * 段码来源换过一次：原先读大类段归属表 crm_commodity_group_segments，该表按 ADR-0009 退役后改由
- * L4 行的冗余 group_code 关联启用中的 L1（join 条件与旧 SQL 完全等价，只换取数源）。
- */
-const COMMODITY_CODE_SET_SQL = `
-  SELECT unspsc_prefix code FROM \`crm_commodity_backbone\`
-   WHERE status = 1 AND level = 5 AND unspsc_prefix IS NOT NULL
-  UNION SELECT unspsc_prefix FROM \`crm_commodity_backbone\`
-   WHERE status = 1 AND level = 4 AND unspsc_prefix IS NOT NULL AND CHAR_LENGTH(unspsc_prefix) = 8
-  UNION SELECT CONCAT(LEFT(unspsc_prefix, 6), '00') FROM \`crm_commodity_backbone\`
-   WHERE status = 1 AND level = 4 AND CHAR_LENGTH(unspsc_prefix) = 6
-  UNION SELECT CONCAT(LEFT(unspsc_prefix, 4), '0000') FROM \`crm_commodity_backbone\`
-   WHERE status = 1 AND level = 4 AND CHAR_LENGTH(unspsc_prefix) = 6
-  UNION SELECT CONCAT(LEFT(b4.unspsc_prefix, 2), '000000')
-    FROM \`crm_commodity_backbone\` b4
-    JOIN \`crm_commodity_backbone\` b1 ON b1.level = 1 AND b1.group_code = b4.group_code AND b1.status = 1
-   WHERE b4.status = 1 AND b4.level = 4 AND CHAR_LENGTH(b4.unspsc_prefix) = 6`;
 
 // update_time 可能的数值列类型（存 Unix 秒，如 crm_bid_notices）
 const NUMERIC_TYPES = new Set(['tinyint', 'smallint', 'mediumint', 'int', 'bigint', 'float', 'double', 'decimal']);
@@ -411,7 +368,7 @@ function escapeVal(val, dataType) {
 // 水位线增量 upsert（批量）
 // ═══════════════════════════════════════════
 
-async function syncTable(source, target, table, watermark, onWatermark, filter) {
+async function syncTable(source, target, table, watermark, onWatermark) {
   const t0 = Date.now();
   const columns = await getTableColumns(source, table, 'source');
   const targetColumns = await getTableColumns(target, table, 'target');
@@ -482,7 +439,6 @@ async function syncTable(source, target, table, watermark, onWatermark, filter) 
   }
 
   let synced = 0;
-  let quarantined = 0;
   let maxId = idWm;
   // maxUpdateTime 跟随列原生类型：数值列存 Unix 秒（0 表示未见），时间列存 "YYYY-MM-DD HH:MM:SS"
   let maxUpdateTime = utIsNumeric
@@ -500,35 +456,13 @@ async function syncTable(source, target, table, watermark, onWatermark, filter) 
     if (rows.length === 0) break;
     const lastId = Number(rows[rows.length - 1][pkCol]);
 
-    // V3 品目对齐：桥表行级校验——合法码直通，野码进隔离队列（不丢不堵）
-    let keepRows = rows;
-    let quarantinedRows = [];
-    if (filter) {
-      keepRows = [];
-      quarantinedRows = [];
-      for (const row of rows) {
-        if (filter(row)) keepRows.push(row);
-        else quarantinedRows.push(row);
-      }
-    }
-
-    // 批量构建 VALUES
-    const valueRows = keepRows.map(row =>
+    // 批量构建 VALUES（源库直通覆盖，行级白名单闸已随旧字典桥表退役）
+    const valueRows = rows.map(row =>
       `(${colNames.map(c => escapeVal(row[c], colTypes[c])).join(', ')})`
     );
-    if (keepRows.length > 0) {
+    if (rows.length > 0) {
       const sql = `INSERT INTO \`${table}\` (${colList}) VALUES ${valueRows.join(',')} ON DUPLICATE KEY UPDATE ${updateClause}`;
       await target.execute(sql);
-    }
-    // 野码写隔离队列（INSERT IGNORE：同源主键重复不阻塞）
-    if (quarantinedRows.length > 0) {
-      const intakeValues = quarantinedRows.map(row =>
-        `('${table}', ${escapeVal(String(row[pkCol] ?? ''), 'varchar')}, ${Number.isFinite(Number(row.notice_id)) ? Number(row.notice_id) : 'NULL'}, ${escapeVal(String(row.code ?? ''), 'varchar')}, 'code 不在 UGT 品目字典', ${escapeVal(JSON.stringify(row), 'json')})`
-      );
-      await target.execute(
-        `INSERT IGNORE INTO \`${INTAKE_TABLE}\` (source_table, source_pk, notice_id, code, reason, payload) VALUES ${intakeValues.join(', ')}`
-      );
-      quarantined += quarantinedRows.length;
     }
 
     synced += rows.length;
@@ -563,7 +497,7 @@ async function syncTable(source, target, table, watermark, onWatermark, filter) 
 
   const elapsed = Date.now() - t0;
   const newWatermark = buildWatermark(hasUpdateTime, maxId, maxUpdateTime);
-  return { synced, quarantined, newWatermark, elapsed };
+  return { synced, newWatermark, elapsed };
 }
 
 // ═══════════════════════════════════════════
@@ -606,18 +540,6 @@ async function runSyncOnce() {
     // 会导致 uk_notice_tenant 等唯一约束被绕过，产生重复数据。
     await target.execute('SET FOREIGN_KEY_CHECKS=0');
 
-    // V3 品目对齐：建隔离队列表 + 加载 UGT 品目码集合（失败则本轮降级不过滤，不阻塞同步）
-    // 码集来自品目骨架树 crm_commodity_backbone（旧树 crm_commodity_nodes 已退出生产链路）
-    try {
-      await target.execute(INTAKE_DDL);
-      const [codeRows] = await target.execute(COMMODITY_CODE_SET_SQL);
-      commodityCodeFilter = new Set(codeRows.map(r => String(r.code)));
-      log(`  UGT 品目码校验集（骨架树）: ${commodityCodeFilter.size} 码`);
-    } catch (err) {
-      commodityCodeFilter = null;
-      log(`  ⚠ UGT 品目码集加载失败，本轮桥表不过滤: ${err.message}`);
-    }
-
     const watermarks = loadWatermarks();
     const stats = {};
     let totalSynced = 0;
@@ -625,23 +547,16 @@ async function runSyncOnce() {
     for (const table of SYNC_TABLES) {
       const wm = watermarks[table] || 0;
       const t1 = Date.now();
-      // 仅品目桥表启用行级校验
-      const useFilter = commodityCodeFilter && table === BRIDGE_TABLE
-        ? (row) => commodityCodeFilter.has(String(row.code ?? ''))
-        : null;
       const result = await syncTable(source, target, table, wm, wm2 => {
         watermarks[table] = wm2;
         saveWatermarks(watermarks);
-      }, useFilter);
+      });
       stats[table] = result.synced;
       totalSynced += result.synced;
       watermarks[table] = result.newWatermark;
       saveWatermarks(watermarks);
       const tableElapsed = Date.now() - t1;
       log(`  ${table}: 新增 ${result.synced} 条 | 耗时 ${fmtDuration(tableElapsed)}`);
-      if (result.quarantined > 0) {
-        log(`  ${table}: 隔离野码 ${result.quarantined} 条 → ${INTAKE_TABLE}`);
-      }
     }
 
     await target.execute('SET FOREIGN_KEY_CHECKS=1');

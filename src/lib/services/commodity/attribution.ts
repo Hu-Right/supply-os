@@ -3,7 +3,7 @@
  * Attribution landing nodes (pure functions, dependency leaf)
  *
  * @module lib/services/commodity/attribution
- * @description 退役 UNSPSC 之后的分工：`crm_notice_attribution_nodes.node_code` 存**最深落点**
+ * @description 退役 旧品类码 之后的分工：`crm_notice_attribution_nodes.node_code` 存**最深落点**
  *              （AI 打标产出，或存量由 `backbone_path` 反推的 legacy 落点），宽表 `backbone_path`
  *              仍是派生列，由本模块 `pathOfLandingNodes()` 补全祖先产出，`buildWideRow`
  *              依旧是唯一写入方 —— 事实源换input，ADR-0007「派生列由构建方算」的前提不废。
@@ -13,13 +13,13 @@
  *              树正名或挪归属改一次，落库的旧链就悄悄对不上。与 `crm_commodity_backbone`
  *              不存 level、`crm_notice_backbone_nodes` 不存 precise 是同一条纪律。
  *
- *              为什么本模块不碰 UNSPSC：签名与判据里没有任何 8 位码概念，形制判定只用
+ *              为什么本模块不碰 旧品类码：签名与判据里没有任何 8 位码概念，形制判定只用
  *              `backboneNodeLevel()`。退役完成后公告域不再有「码→树」的换算面，
  *              也就没有第二套落点规则可长（BB10 当年抓的就是这个）。
  *
  * @rules 列形制的解析只走 `fromBackbonePathColumn`（那里点名了全部消费方），不在本文件重拆一遍。
  * @limits 空集 → 空串 → 调用方写 NULL；脏 token 一律不产出、不补猜、不静默丢弃。
- * @see docs/superpowers/specs/2026-10-12-unspsc-full-retirement-design.md（§4.2 组件、§5 三条闸口）
+ * @see docs/superpowers/specs/2026-10-12-旧品类码-full-retirement-design.md（§4.2 组件、§5 三条闸口）
  */
 import {
   backboneNodeLevel,

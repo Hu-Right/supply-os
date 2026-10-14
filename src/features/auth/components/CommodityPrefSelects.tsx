@@ -7,7 +7,7 @@
  *              第三级可选）；注册表单与已登录面板共用。
  *              Presentational three-level cascade selects shared by the
  *              register form and the account panel.
- *              取代旧 UnspscPrefSelects（读 UNSPSC 字典，随字典退役下线）。
+ *              取代旧 旧品类码（读 旧品类字典，随字典退役下线）。
  */
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import type { CommodityGroup } from "@/lib/services/commodity/groups";

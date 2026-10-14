@@ -194,7 +194,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     if (body.category_code !== undefined) {
-      // UGT 最深节点码（旧 category_l1_id/l2_id 字典 id 参数随 UNSPSC 字典退役停用）
+      // UGT 最深节点码（旧 category_l1_id/l2_id 字典 id 参数随 旧品类字典退役停用）
       const categoryCode = normalizeBackboneNodeKey(str(body.category_code, 24));
       if (categoryCode && !isCommodityNodeKey(categoryCode) && !isCommodityGroupCode(categoryCode)) {
         routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 大类码或骨架节点码）");

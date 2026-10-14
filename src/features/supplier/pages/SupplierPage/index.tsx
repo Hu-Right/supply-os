@@ -95,7 +95,7 @@ export default function SupplierPage() {
   const realStats = useSupplierStats();
   const animSearchable = useCountUp(realStats.searchable);
   const animVerified = useCountUp(realStats.verified);
-  const animUnspsc = useCountUp(realStats.unspscMatched);
+  const animCommodity = useCountUp(realStats.commodityMatched);
 
   return (
     <div className="space-y-6">
@@ -105,7 +105,7 @@ export default function SupplierPage() {
         stats={[
           { value: animSearchable, label: t("supplierStatSearchable") },
           { value: animVerified, label: t("supplierStatVerified") },
-          { value: animUnspsc, label: t("supplierStatUnspsc") },
+          { value: animCommodity, label: t("supplierStatCommodity") },
         ]}
         realtimeLabel={t("supplierStatRealtime")}
       />

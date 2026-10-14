@@ -12,7 +12,7 @@
 export function NoticeDetailSkeleton() {
   return (
     <div data-testid="detail-skeleton" className="space-y-5 animate-pulse">
-      {/* 标签区占位（标题 + UNSPSC chips，与真实 chip 同款底色/边框） */}
+      {/* 标签区占位（标题 + 旧品类码 chips，与真实 chip 同款底色/边框） */}
       <div>
         <div className="h-5 w-24 bg-slate-200 rounded mb-2" />
         <div className="flex flex-wrap gap-2">

@@ -4,10 +4,10 @@ import path from "node:path";
 /**
  * 架构红线守卫：公告分类口径单一事实源 = 品目树（backbone_path；precise 口径已随 candidates 表退役）
  * @see docs/superpowers/specs/2026-10-12-notice-classification-commodity-tree-only-design.md
- *      （上述原文已不在仓内，口径与批次划分现由 …unspsc-full-retirement-design.md 承接）
+ *      （上述原文已不在仓内，口径与批次划分现由 …旧品类码-full-retirement-design.md 承接）
  *
- * 规则 NC1) 「读结果」链路（src/**，白名单目录除外）不得引用公告旧 UNSPSC 字典分类列：
- *   - `(?:unspsc|precise)_level[1-5]`：宽表公告分类列（`crm_notice_search`）
+ * 规则 NC1) 「读结果」链路（src/**，白名单目录除外）不得引用公告旧 旧品类字典分类列：
+ *   - `(?:旧品类码|precise)_level[1-5]`：宽表公告分类列（`crm_notice_search`）
  *   - `precise_level[1-5]_id`：旧字典 precise 口径的 Meili 镜像属性
  *   公告分类只认 backbone_path（Meili 侧 backbone_node；precise_backbone_node 已随 candidates 表退役）。
  *   旧字典 ID 仅可作两类非分类用途：「内容变更指纹锚」（在 search-sync/，
@@ -18,7 +18,7 @@ import path from "node:path";
  *
  *   注：裸 `level[1-5]_id` 不列为禁止项 —— 它与 `crm_user_industry_prefs`（用户五级行业偏好，
  *   R3 保留的输入键）同命名空间，宽列会误伤 70+ 处合法读用。公告 Meili `levelN_id` 属性由其
- *   源列 `unspsc_levelN` 派生，禁住源头即可，无歧义 token 已覆盖真正的公告分类第二口径。
+ *   源列 `旧品类码` 派生，禁住源头即可，无歧义 token 已覆盖真正的公告分类第二口径。
  *
  * 白名单 = 构建层，随退役逐目录收缩（B1 已将 meilisearch/sync.ts 与 client.ts 移出，
  * 索引层从此也受本门禁约束；DROP 旧列后连 search-sync/ 一起收缩，见 B2）：

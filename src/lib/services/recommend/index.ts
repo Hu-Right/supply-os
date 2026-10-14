@@ -103,7 +103,7 @@ export async function recommendNotices(
       clauses.params,
     ),
     pool.query(
-      `SELECT w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at FROM crm_reco_weight_profile WHERE user_id = ? LIMIT 1`,
+      `SELECT w_commodity, w_agency, w_amount, w_geo, w_urgency, updated_at FROM crm_reco_weight_profile WHERE user_id = ? LIMIT 1`,
       [userId],
     ),
   ]);
@@ -111,14 +111,14 @@ export async function recommendNotices(
   const [profileRows] = profileResult;
   const profileRow = (profileRows as RowDataPacket[])[0] || null;
 
-  const { wUnspsc, wUrgency, wAmount, wNeutral, profileStale } = resolveWeights(profileRow, variant);
+  const { wCommodity, wUrgency, wAmount, wNeutral, profileStale } = resolveWeights(profileRow, variant);
   if (profileStale) void recomputeRecoWeightProfile(pool, userId).catch(() => undefined);
 
   // 金额偏好
   const { centerLog: amountCenterLog, active: amountActive } = await getAmountPreference(pool, userId);
 
   // 构建评分表达式
-  const scoring = buildScoringContext(scoredNodes, interestTotal, wUnspsc, wUrgency, wAmount, wNeutral, amountCenterLog, amountActive);
+  const scoring = buildScoringContext(scoredNodes, interestTotal, wCommodity, wUrgency, wAmount, wNeutral, amountCenterLog, amountActive);
 
   // ── 主查询 ──
   // 两个 JOIN 各管一件事：cand（节点码倒排表）把候选集从 67 万收窄到千级，顺带出
@@ -204,7 +204,7 @@ export async function recommendNotices(
       ...rest, notice_type: normalizeNoticeType(row.notice_type as string | null | undefined),
       match_score: Number(row.match_score || 0), reco_score: Number(row.reco_score || 0),
       reco_reasons: buildRecoReasons(row, nowSec), organization: null, source_url: null,
-      unspsc_codes: [], core_locked: true,
+      core_locked: true,
       breakdown_file_count: normalizeDocumentRows(documents, procurement_files).length,
     };
   });

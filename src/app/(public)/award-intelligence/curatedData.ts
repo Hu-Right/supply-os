@@ -30,7 +30,7 @@ export const CURATED_STATS = [
 
 export const INFO_CARDS = [
   { title: "采购总额", value: "US$22.7B", sub: "UN 2024年度采购总额（ASR）", badge: "覆盖 193 个国家", badgeColor: "text-emerald-600 bg-emerald-50", link: "查看趋势", icon: DollarSign, iconColor: "text-blue-500", borderColor: "border-l-blue-500" },
-  { title: "高频品类", value: "医疗耗材 / PPE\n检验设备", sub: "", badge: "UNSPSC", badgeColor: "text-teal-600 bg-teal-50", link: "查看品类", icon: PieChart, iconColor: "text-teal-500", borderColor: "border-l-teal-500" },
+  { title: "高频品类", value: "医疗耗材 / PPE\n检验设备", sub: "", badge: "品类", badgeColor: "text-teal-600 bg-teal-50", link: "查看品类", icon: PieChart, iconColor: "text-teal-500", borderColor: "border-l-teal-500" },
   { title: "主要中标商", value: "2,150+ 家可追踪", sub: "", badge: "竞争情报", badgeColor: "text-amber-600 bg-amber-50", link: "查看名单", icon: Users, iconColor: "text-orange-500", borderColor: "border-l-orange-500" },
   { title: "下一次机会", value: "平均 45 天周期", sub: "", badge: "采购周期", badgeColor: "text-emerald-600 bg-emerald-50", link: "设置提醒", icon: Bell, iconColor: "text-emerald-500", borderColor: "border-l-emerald-500" },
 ];

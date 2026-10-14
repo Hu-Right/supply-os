@@ -64,13 +64,13 @@ If you discover or suspect unauthorised use of your account or a security breach
 
 4. 平台服务内容
 
-平台可根据实际上线情况提供：国际公共采购与政府采购及国际组织采购机会检索与展示、关键词及UNSPSC匹配、行业与企业画像、采购机会推荐、标讯翻译和结构化拆解、投标分析报告、收藏与订阅与提醒、会员服务、企业注册与资料管理、培训课程、咨询服务及其他企业出海与国际公采支持服务。
+平台可根据实际上线情况提供：国际公共采购与政府采购及国际组织采购机会检索与展示、关键词及品类匹配、行业与企业画像、采购机会推荐、标讯翻译和结构化拆解、投标分析报告、收藏与订阅与提醒、会员服务、企业注册与资料管理、培训课程、咨询服务及其他企业出海与国际公采支持服务。
 
 部分功能可能由算法、人工智能、大语言模型、规则引擎、自动化采集或第三方数据接口辅助完成。不同套餐可享有不同的数据范围、频次、下载、导出、报告或人工服务权益。
 
 我们有权基于技术升级、数据源调整、监管要求或商业安排对非核心功能进行优化、增加、下线或调整；对已付费且尚未履行完毕的核心权益，我们将依法依约处理。
 
-Depending on availability, the Platform may provide: international public, government and international-organisation procurement opportunity search and display, keyword and UNSPSC matching, industry and enterprise profiling, opportunity recommendations, tender translation and structured analysis, bid-analysis reports, favourites, subscriptions and alerts, membership services, enterprise registration and profile management, training, consulting and other international-procurement and overseas-business support.
+Depending on availability, the Platform may provide: international public, government and international-organisation procurement opportunity search and display, keyword and commodity-category matching, industry and enterprise profiling, opportunity recommendations, tender translation and structured analysis, bid-analysis reports, favourites, subscriptions and alerts, membership services, enterprise registration and profile management, training, consulting and other international-procurement and overseas-business support.
 
 Certain features may be assisted by algorithms, artificial intelligence, large language models, rule engines, automated collection or third-party data interfaces. Different plans may include different data coverage, frequency, download and export, report or human-service entitlements.
 
@@ -92,13 +92,13 @@ Before participating in any procurement, users must rely on the procuring entity
 
 6. AI、自动化分析与翻译
 
-平台的自动翻译、摘要、拆标、匹配、评分、合规提示、资质提示、关键词推荐、UNSPSC匹配等功能可能存在理解偏差、数据遗漏或模型误差，仅作为提高工作效率的辅助工具。
+平台的自动翻译、摘要、拆标、匹配、评分、合规提示、资质提示、关键词推荐、品类匹配等功能可能存在理解偏差、数据遗漏或模型误差，仅作为提高工作效率的辅助工具。
 
 对于可能对用户业务决策产生重大影响的事项，用户应结合原始文件、官方规则以及必要的法律、税务、技术、合规或专业顾问意见进行复核。
 
 除非专项服务合同明确约定人工审核范围，我们不承诺所有自动生成内容均经过人工逐条复核。
 
-Automated translation, summaries, tender decomposition, matching, scoring, compliance prompts, qualification prompts, keyword recommendations and UNSPSC matching may contain interpretation errors, omissions or model inaccuracies and are provided as productivity-support tools.
+Automated translation, summaries, tender decomposition, matching, scoring, compliance prompts, qualification prompts, keyword recommendations and commodity-category matching may contain interpretation errors, omissions or model inaccuracies and are provided as productivity-support tools.
 
 For matters that may materially affect business decisions, users should verify against source documents, official rules and, where appropriate, legal, tax, technical, compliance or other professional advice.
 

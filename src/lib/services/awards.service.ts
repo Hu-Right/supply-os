@@ -8,8 +8,8 @@
  *              直接 new/使用 AwardsRepo，业务编排下沉本 service。
  *              依赖方向：route → service → repo → pool。
  *
- *              小表剥离（2026-10-14）：getAwardHistoryForNotice（按公告 UNSPSC 码
- *              LIKE 匹配历史中标）整链下线——crm_bid_awards.unspsc_code 全表
+ *              小表剥离（2026-10-14）：getAwardHistoryForNotice（按公告 旧品类码
+ *              LIKE 匹配历史中标）整链下线——crm_bid_awards.旧品类码 全表
  *              0 行非空，该功能自上线起恒返回空态，属零数据空转；中标库浏览
  *              （listAwards/stats/top）不受影响。
  */

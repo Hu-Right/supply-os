@@ -57,8 +57,8 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
 
   // 类目属性由宽表 backbone_path 经 commodity/backbone-path 的 fromBackbonePathColumn 解析产出
   // —— 列形制的解析只允许一份，且它会把形制不符的脏 token 挡在索引外（脏值由 BB10 兜住，但
-  // 不能让它污染 backbone_node 这个 filterable 属性）。旧字典的 unspsc_levelN / precise_levelN
-  // 十列已随 B1 退掉，precise_backbone_path 亦随 UNSPSC candidates 表退役 ⇒ 公告分类在索引里
+  // 不能让它污染 backbone_node 这个 filterable 属性）。旧字典的 旧品类码 / precise_levelN
+  // 十列已随 B1 退掉，precise_backbone_path 亦随 旧品类码 candidates 表退役 ⇒ 公告分类在索引里
   // 只剩 backbone_node 一条口径。
 
   return {

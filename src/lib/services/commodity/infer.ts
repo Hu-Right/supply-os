@@ -3,7 +3,7 @@
  * Commodity smart inference — keyword → backbone node candidates
  *
  * @module lib/services/commodity/infer
- * @description 取代旧 CatalogRepo.smartInferUnspsc（旧实现读 UNSPSC 字典，随字典退役下线）。
+ * @description 取代旧 CatalogRepo 的旧字典推断（旧实现读 旧品类字典，随字典退役下线）。
  *              召回两档，全部只读骨架树自己的数据：
  *              1. FULLTEXT（ft_backbone_names，ngram）：自然语言模式对 name_zh/name_en 打分，
  *                 中文短词靠 ngram 分词命中；

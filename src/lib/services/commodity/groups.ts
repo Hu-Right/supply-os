@@ -2,7 +2,7 @@
  * 品目大类（32 类）单一事实源 — 权益墙与商机筛选共用的顶层单位
  * Commodity Groups (32) — single source of truth
  *
- * 定位： UNSPSC 太细（58 段 / 559 族 / 8,004 类 / 15 万品目），旧十大类太粗且口径混用。
+ * 定位： 旧品类码 太细（58 段 / 559 族 / 8,004 类 / 15 万品目），旧十大类太粗且口径混用。
  * 32 个大类按「品目语义 + 真实公告体量」重切，作为权益墙的行业单位与商机筛选的顶层单位。
  * 大类是纯维表（本表 + 段归属表两张小表），不进公告主表、不进 FT、不进 Meili。
  *
@@ -24,7 +24,7 @@
  *    头部段 72/80/43 是单段巨类，段级键下无法再拆，只能靠族级下钻（M4 后的二期）。
  *
  * 约束（由 validateCommodityGroups + check-commodity-groups CG1~CG5 强制）：
- *  - 32 类；58 个 UNSPSC 段前缀每个出现且仅出现一次（归属唯一）；
+ *  - 32 类；58 个 旧品类段前缀每个出现且仅出现一次（归属唯一）；
  *  - 码格式 `^UGT-G-[0-9]{2}$`、sort 1~32 不重复（chip 顺序稳定不随每日量漂移）；
  *  - 本模块不得连接数据库或读写文件（保持纯逻辑，可被门禁与单测直接 import）。
  *
@@ -44,7 +44,7 @@ export interface CommodityGroupDef {
   code: string;
   /** 中文名（运维导出与人工对账；界面展示走 locale） */
   nameZh: string;
-  /** 认领的 UNSPSC 段前缀（2 位数字） */
+  /** 认领的 旧品类段前缀（2 位数字） */
   prefixes: readonly string[];
 }
 
@@ -108,16 +108,10 @@ export const COMMODITY_SEGMENT_PREFIXES: readonly string[] = [
   ...GROUP_BY_PREFIX.keys(),
 ].sort();
 
-/** 段前缀 → 大类码；形制不符或未认领返回 null（调用方过滤，不兜底） */
-export function groupCodeOfUnspscPrefix(prefix: string | null | undefined): string | null {
+/** 段前缀（两位数字）→ 大类码；形制不符或未认领返回 null（调用方过滤，不兜底） */
+export function groupCodeOfSegmentPrefix(prefix: string | null | undefined): string | null {
   const p = String(prefix ?? "");
   return /^[0-9]{2}$/.test(p) ? GROUP_BY_PREFIX.get(p) ?? null : null;
-}
-
-/** 完整 UNSPSC 8 位码 → 大类码（取前 2 位落段） */
-export function groupCodeOfUnspscCode(code: string | null | undefined): string | null {
-  const c = String(code ?? "");
-  return /^[0-9]{8}$/.test(c) ? groupCodeOfUnspscPrefix(c.slice(0, 2)) : null;
 }
 
 /** 是否为合法大类码 */

@@ -1,5 +1,5 @@
 /**
- * 骨架索引缓存（宽表写入侧）单测（UNSPSC 全面退役 R4'）
+ * 骨架索引缓存（宽表写入侧）单测（旧品类码 全面退役 R4'）
  *
  * 钉住的分歧：
  * 1. 换算结果含**全部祖先**且链顶是大类码 —— 筛选走 FIND_IN_SET/数组等值，缺一级就筛不到；
@@ -22,7 +22,7 @@ import { BACKBONE_PATH_LIMIT } from "@/lib/services/commodity/backbone-path";
 
 /**
  * 一棵够小的启用中树：R4' 后 `loadBackboneIndex` 的 SELECT 只取 code/parent_code/level 三列，
- * 不再读 unspsc_prefix / group_code。fake 行集按新列形制给。
+ * 不再读 旧前缀映射列 / group_code。fake 行集按新列形制给。
  */
 const TREE = [
   { code: "UGT-01", parent_code: "", level: 1 },

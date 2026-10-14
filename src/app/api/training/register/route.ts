@@ -22,7 +22,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const body = await req.json();
   const ctx = getContext();
 
-  // 行业：UGT-I 行业面节点码（旧 industry_id 字典行 id 随 UNSPSC 字典退役停用）
+  // 行业：UGT-I 行业面节点码（旧 industry_id 字典行 id 随 旧品类字典退役停用）
   const industryCode = body.industry_code ? String(body.industry_code).trim().slice(0, 40) : "";
 
   // 根据行业码查询名称（crm_industry_nodes）

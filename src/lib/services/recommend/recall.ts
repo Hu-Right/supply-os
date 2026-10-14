@@ -173,7 +173,7 @@ export async function deadlineFallback(
     // Suministros BUG 修复：同推荐主查询，notice_type 归一化对齐宽表口径
     ...row, notice_type: normalizeNoticeType(row.notice_type),
     match_score: 0, reco_score: 0, organization: null, source_url: null,
-    unspsc_codes: [], core_locked: true,
+    core_locked: true,
     breakdown_file_count: normalizeDocumentRows(row.documents, row.procurement_files).length,
     documents: undefined, procurement_files: undefined,
   }));

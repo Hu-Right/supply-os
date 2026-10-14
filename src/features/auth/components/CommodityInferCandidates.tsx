@@ -6,7 +6,7 @@
  * @description 主营业务智能推断的候选确认 UI：按匹配分展示树内命中的节点，
  *              由用户显式点选后回填级联——替代旧版静默自动填充，
  *              避免低置信推断把用户行业偏好锁定到错误分支。
- *              取代旧 UnspscInferCandidates（读 UNSPSC 字典，随字典退役下线）。
+ *              取代旧 旧品类码（读 旧品类字典，随字典退役下线）。
  */
 import type { CommodityInferCandidate } from "@/core/api/industry-prefs";
 import { useLocale } from "@/core/i18n";

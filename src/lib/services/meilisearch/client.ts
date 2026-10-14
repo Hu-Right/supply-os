@@ -137,7 +137,7 @@ export function buildNoticeIndexSettings(): Settings {
       // 「含原始文件」筛选依据（宽表 documents_count）
       "documents_count",
       // 旧字典的 levelN_id / precise_levelN_id 十属性已随 B1 摘除，precise_backbone_node 也随
-      // UNSPSC candidates 表退役移除：公告分类在索引里只剩下面这一条节点码属性。
+      // 旧品类码 candidates 表退役移除：公告分类在索引里只剩下面这一条节点码属性。
       // 【重灌窗口】存量文档里的旧属性需一次全量重建才能物理清除（删属性不会自动重刷文档）；
       // 重建前它们只是多余字段（无人拼谓词、NC1 门禁拦住），不影响命中结果。
       // 品目树五级下拉与可见性判定的参与过滤属性（由宽表 backbone_path 拆数组，见 sync.ts）。

@@ -1,5 +1,5 @@
 /**
- * 桥表→落点 增量镜像（UNSPSC 退役 混合①的非 API 生产者）
+ * 桥表→落点 增量镜像（旧品类码退役 混合①的非 API 生产者）
  *
  * 干什么：把「宽表 backbone_path 列值隐含、但 crm_notice_attribution_nodes 里缺」的落点，
  *         按最深落点压回事实源（source='legacy_tag'）。保持「落点 ⊇ 列值」不变量，

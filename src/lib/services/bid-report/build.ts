@@ -52,12 +52,7 @@ export async function buildBidReportDocx(row: Row): Promise<Buffer> {
     ["注册级别要求 (Registration Level)", safe(row.registration_level)],
     ["行业 (Industry)", safe(INDUSTRY_MAP[safe(row.industry)] ?? row.industry)],
   ];
-  const unspscCodes: Array<{ code?: string; name?: string }> = Array.isArray(row.unspsc_codes) ? row.unspsc_codes : [];
-  const unspscStr = unspscCodes
-    .map((c) => safe(c?.code) + (c?.name ? ` — ${c.name}` : ""))
-    .filter(Boolean)
-    .join("；");
-  if (unspscStr) infoRows.push(["UNSPSC 编码分类", unspscStr]);
+  // 原「旧品类码分类」行随该快照列退役删除（R5' 后报告数据源不再带那个字段）。
   if (safe(row.product_code)) infoRows.push(["产品编码", safe(row.product_code)]);
 
   children.push(line(`国际贸易条款 (Incoterms)：${safe(row.incoterms) || "未注明"}`, { after: 40 }));

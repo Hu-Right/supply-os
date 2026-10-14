@@ -81,7 +81,7 @@ export async function toggleNoticeFavorite(params: {
   // 收藏写入兴趣节点画像（feedback_favorite +0.8，白名单既有来源）：
   // 仅喂推荐画像，不写 crm_notice_interests（销售线索漏斗保持纯净）；
   // 取消收藏不衰减，与其他来源口径一致；反复 toggle 由单码 500 软上限兜底。
-  // 小表剥离后兴趣画像吃 UGT 归属节点（倒排行），不再读主表 UNSPSC 快照列
+  // 小表剥离后兴趣画像吃 UGT 归属节点（倒排行），不再读主表 旧品类快照列
   try {
     const nodes = (await loadNoticeNodeCodes(pool, [params.noticeId]).catch(() => new Map())).get(params.noticeId) ?? [];
     await persistInterestNodeCodes(pool, params.userId, nodes, "feedback_favorite", 0.8);

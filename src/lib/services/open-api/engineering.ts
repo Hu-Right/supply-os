@@ -5,9 +5,13 @@
  * @module lib/services/open-api/engineering
  * @description 多维度组合筛选"工程类"商机：
  *              1. notice_type = 'WORKS'（EU 合同分类的工程类型）
- *              2. UNSPSC 工程段编码（23xxxxxx 建筑工程、26xxxxxx 电力工程等）
- *              3. industry 字段含工程关键词（building, construction, infrastructure 等）
+ *              2. industry 字段含工程关键词（building, construction, infrastructure 等）
  *              取并集，覆盖最全。
+ *
+ *              【口径收窄】2026-10-14 第三条轴「旧品类编码的 23/26/25 段前缀 LIKE」随其源列
+ *              物理退役一并删除：该列已不在库里，留着就是 500（实测 ER_BAD_FIELD_ERROR）。
+ *              商机表上没有任何品目树列，若要按 UGT 节点重新加一条工程轴，需经
+ *              source_notice_id → 公告落点表 的 JOIN，另批设计（不在本批范围内）。
  *
  *              分档返回：
  *              - basic：基础元数据（标题、国家、截止日期、类型、预算范围）
@@ -15,13 +19,6 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { ACTIVE_OPP_WHERE } from "@/lib/utils/notice-expired";
-
-/** 工程类 UNSPSC 前缀（段级别） */
-const ENGINEERING_UNSPSC_PREFIXES = [
-  "23", // 建筑工程（Construction）
-  "26", // 电力/电气工程（Electrical）
-  "25", // 结构材料（Structures）
-];
 
 /** 工程类 industry 关键词 */
 const ENGINEERING_INDUSTRY_KEYWORDS = [
@@ -46,7 +43,6 @@ const BASIC_FIELDS = `
   o.deadline_ts,
   o.estimated_value,
   o.industry,
-  o.unspsc_codes,
   o.status,
   o.priority,
   o.source_notice_id
@@ -94,17 +90,12 @@ export interface EngineeringListResult {
  * 构建工程类 WHERE 条件（多维度并集）
  */
 function buildEngineeringWhere(): string {
-  const unspscConditions = ENGINEERING_UNSPSC_PREFIXES.map(
-    (prefix) => `o.unspsc_codes LIKE '${prefix}%'`
-  ).join(" OR ");
-
   const industryConditions = ENGINEERING_INDUSTRY_KEYWORDS.map(
     (kw) => `o.industry LIKE '%${kw}%'`
   ).join(" OR ");
 
   return `(
     o.notice_type = 'WORKS'
-    OR (${unspscConditions})
     OR (${industryConditions})
   )`;
 }

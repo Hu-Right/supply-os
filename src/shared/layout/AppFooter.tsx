@@ -83,7 +83,7 @@ export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }:
           <Link href="/privacy" className="hover:underline cursor-pointer" target="_blank">
             {t("footerPrivacy")}
           </Link>
-          <span className="hover:underline cursor-pointer">{t("footerUnspsc")}</span>
+          <span className="hover:underline cursor-pointer">{t("footerCommodityNetwork")}</span>
         </div>
       </div>
     </footer>

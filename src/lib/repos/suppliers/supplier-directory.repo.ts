@@ -199,7 +199,7 @@ export class SupplierDirectoryRepo {
 
     // ★ 两处 FROM 必须带别名 s：多个检索分支的条件引用了 s.products / s.id（FULLTEXT 与
     //   EXISTS 相关子查询），无别名时 MySQL 直接报 ER_BAD_FIELD_ERROR，而路由的 try/catch
-    //   会把它吐成空列表——产品与 UNSPSC 两个入口曾因此长期「搜什么都无结果」而不报错。
+    //   会把它吐成空列表——产品与 旧品类码 两个入口曾因此长期「搜什么都无结果」而不报错。
     // 总数查询
     const [countRows] = await this.pool.query(
       `SELECT COUNT(*) as total FROM supplier s WHERE ${whereSql}`,
@@ -273,7 +273,7 @@ export class SupplierDirectoryRepo {
    *     —— EnterpriseInfoCard 的状态徽章、完整度与录入时间、以及以外的展示字段；
    *   license_url —— 企业详情展示执照 + 保存时协调旧文件；
    * 2026-09 影子表重建时本表删 6 列（merged_id / english_name / webcheck_status /
-   *   webcheck_at / last_match_at / unspsc_matched_at），重复档案物理清除，
+   *   webcheck_at / last_match_at / 旧匹配时间），重复档案物理清除，
    *   历史上的 `merged_id IS NULL` 假门禁随之全部摘除；english_name 全库恒空已退役。
    *   完整台账见 docs/数据库设计/supplier-供应商目录主表.md。
    */
@@ -471,7 +471,7 @@ export class SupplierDirectoryRepo {
     verified: number;
     withCertification: number;
     international: number;
-    unspscMatched: number;
+    commodityMatched: number;
   }> {
     const [allRows] = await this.pool.query(
       "SELECT COUNT(*) as total FROM supplier",
@@ -486,9 +486,8 @@ export class SupplierDirectoryRepo {
       "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND verify_status = 'done'",
     );
     // 已认证 且 在 backbone 兴趣表里有行的供应商数（JOIN crm_supplier_backbone_interests）
-    // ↳ 局部变量/对外字段 unspscRows / unspscMatched 命名暂保留（前端 t("supplierStatUnspsc") 已翻为
-    //   "已匹配品目"，实际不暴露 UNSPSC 字样）；字段重命名属下一个批次（与前端 5 处消费方一起换）。
-    const [unspscRows] = await this.pool.query(
+    // ↳ 字段旧名带品类字典后缀，随字典退役一并改成 commodityMatched（前端 5 处消费方同步）。
+    const [commodityRows] = await this.pool.query(
       `SELECT COUNT(DISTINCT u.supplier_id) as total
        FROM crm_supplier_backbone_interests u
        JOIN supplier s ON s.id = u.supplier_id
@@ -499,7 +498,7 @@ export class SupplierDirectoryRepo {
       verified: (verifiedRows as RowDataPacket[])[0]?.total ?? 0,
       withCertification: (certRows as RowDataPacket[])[0]?.total ?? 0,
       international: (intlRows as RowDataPacket[])[0]?.total ?? 0,
-      unspscMatched: (unspscRows as RowDataPacket[])[0]?.total ?? 0,
+      commodityMatched: (commodityRows as RowDataPacket[])[0]?.total ?? 0,
     };
   }
 

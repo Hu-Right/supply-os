@@ -25,7 +25,6 @@ const fullRow = {
   technical_hurdles: "High seismic zone requirements",
   remark: "Internal note about this tender",
   training_link: "https://training.example.com",
-  unspsc_codes: [{ code: "12345678", name: "Construction" }],
   ai_products: [
     { name: "Cement", scope: "Portland cement type I", product: "", description: "", spec: "" },
     { name: "Steel bars", scope: "", product: "Steel", description: "Reinforcement bars", spec: "12mm" },
@@ -59,14 +58,6 @@ describe("estimateFullReportCharCount", () => {
     const base = estimateFullReportCharCount({});
     const withTitle = estimateFullReportCharCount({ title: "Test Title", agency_full: "UNDP" });
     expect(withTitle).toBeGreaterThan(base);
-  });
-
-  it("有 UNSPSC 码 → 增加字符数", () => {
-    const base = estimateFullReportCharCount({});
-    const withCodes = estimateFullReportCharCount({
-      unspsc_codes: [{ code: "12345678", name: "Test" }],
-    });
-    expect(withCodes).toBeGreaterThan(base);
   });
 
   it("完整行 → 覆盖所有分支", () => {

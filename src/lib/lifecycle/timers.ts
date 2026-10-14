@@ -227,7 +227,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     }, claimExpiryIntervalHours * 3600 * 1000);
   }
 
-  // 8. 列值→落点 增量镜像（UNSPSC 退役 混合①的非 API 生产者）：把「宽表 backbone_path 隐含、但落点表缺」
+  // 8. 列值→落点 增量镜像（旧品类码退役 混合①的非 API 生产者）：把「宽表 backbone_path 隐含、但落点表缺」
   //    的公告补回事实源，保持「落点 ⊇ 列值」不变量。只写 crm_notice_attribution_nodes，不碰宽表列（ADR-0002/0007 单一写入者）。
   //    候选判据走契约 missingLandingPairs()——小表剥离后 buildWideRow 已从落点表派生列，本镜像对正常路径为空操作，
   //    仅作为 ops 手工刷列或遗留脏列的自动补齐回退。脏列/树外整条跳过交人工，不“顺手改归属”。

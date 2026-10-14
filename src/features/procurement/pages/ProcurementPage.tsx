@@ -77,7 +77,7 @@ export default function ProcurementPage() {
     prefsMode, setPrefsMode, setSelectedNotice, variantRef,
     // BUG2 修复：清除筛选彻底退出品目匹配/推荐模式，回到全量检索
     // （旧代码仅在 recommended 模式退出，prefs 模式保持 → 偏好仍参与过滤）
-    // BUG1 对应的「同步重置 UNSPSC 筛选态」已不需要：下拉选中态就是 URL，
+    // BUG1 对应的「同步重置 旧品类码 筛选态」已不需要：下拉选中态就是 URL，
     // clearSearch 的 router.replace(pathname) 已把它一并清掉。
     onClear: () => {
       setPrefsMode("default");

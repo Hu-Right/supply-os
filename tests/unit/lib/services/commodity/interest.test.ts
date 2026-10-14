@@ -2,11 +2,11 @@
  * 用户兴趣节点持久化（UGT 版）— SQL 契约测试
  *
  * 小表剥离（2026-10-14）后钉住三件事：
- * 1. **字典依赖保持摘除**（承接 R3' B3 的判据）：全程不对 crm_unspsc_codes 发查询；
+ * 1. **字典依赖保持摘除**（承接 R3' B3 的判据）：全程不对 旧品类字典表 发查询；
  * 2. **code 存 UGT 节点码**：INSERT 形制 (user_id, code, level, source, weight)，
  *    level 由码长现算（码长即层级），ODKU 权重封顶沿用；
  * 3. **来源白名单与形制闸**：白名单外来源拒写、非法码不落列。
- * 取代已删的 tests/unit/lib/services/unspsc/interest.test.ts（旧版测数字前缀展开）。
+ * 取代已删的 tests/unit/lib/services/旧品类码/interest.test.ts（旧版测数字前缀展开）。
  */
 import { describe, it, expect, vi } from "vitest";
 import type { Pool } from "mysql2/promise";

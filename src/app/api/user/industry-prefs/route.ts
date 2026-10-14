@@ -6,7 +6,7 @@
  *   { commodity_code: "UGT-…" }   — 最深已选 UGT 骨架节点码（L1 大类行或 L2~L5 节点）
  *   { commodity_code: null }      — 清除偏好
  * 大类码（group_code，可见性判定的唯一输入）由服务端从节点码换算后同批写入；
- * 旧行的 levelN_id（UNSPSC 字典行 id）随字典退役恒置 NULL。
+ * 旧行的 levelN_id（旧品类字典行 id）随字典退役恒置 NULL。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";

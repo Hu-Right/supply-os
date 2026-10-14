@@ -59,7 +59,7 @@ The information we collect depends on the functions you use. The descriptions be
 处理基础：履行服务合同，或基于您的同意；证件类材料仅在认证需要时收集
 
 场景：采购检索与匹配
-信息类型：搜索词、产品类目、UNSPSC编码、收藏记录、浏览与点击记录、下载记录
+信息类型：搜索词、产品类目、品类编码、收藏记录、浏览与点击记录、下载记录
 目的：提供搜索、推荐、匹配、历史记录与服务优化
 处理基础：履行服务，或基于您的同意；个性化推荐提供关闭或非个性化选项
 
@@ -190,11 +190,11 @@ In the event of a personal-information security incident, we will take remedial 
 
 11. 自动化决策与个性化推荐
 
-平台可能根据您输入的产品、行业、UNSPSC、搜索与收藏行为等进行采购机会推荐或匹配。此类推荐主要用于提升信息发现效率。
+平台可能根据您输入的产品、行业、品类编码、搜索与收藏行为等进行采购机会推荐或匹配。此类推荐主要用于提升信息发现效率。
 
 如自动化决策对个人权益产生重大影响，我们将依法提高透明度并提供相应说明、拒绝或其他救济机制。用于商业营销或信息推送时，提供非针对个人特征的选项或便捷拒绝方式。
 
-The Platform may recommend or match procurement opportunities based on product, industry, UNSPSC, search and favourite behaviour and similar data to improve information discovery.
+The Platform may recommend or match procurement opportunities based on product, industry, commodity category, search and favourite behaviour and similar data to improve information discovery.
 
 Where automated decision-making materially affects individual rights, we will provide legally required transparency and appropriate explanation, opt-out or other safeguards. For marketing or information pushes, we will provide a non-personalised option or an accessible method to refuse personalised targeting as required.
 

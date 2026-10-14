@@ -1,5 +1,5 @@
 /**
- * 骨架节点访问器单测（UNSPSC 全面退役 R4'）
+ * 骨架节点访问器单测（旧品类码 全面退役 R4'）
  *
  * 覆盖：UGT 节点直认（等值命中 + 祖先全存 + 层级档按码长现算）、换不出必须进 misses、
  *       纯切片工具（chainOfNode / rootNodes / fromBackbonePathColumn / backboneNodeLevel）
@@ -16,16 +16,14 @@ import {
   buildBackboneIndex,
   chainOfNode,
   deriveSegmentRows,
-  effectivePrefixOf,
   fromBackbonePathColumn,
   normalizeBackboneNodeKey,
-  padUnspscCode,
   rootNodes,
   toBackbonePathColumn,
   type BackboneRow,
 } from "@/lib/services/commodity/backbone-path";
 
-// 一棵够小的树：1 大类 / 1 中类 / 2 小类 / 2 子类 / 3 品目（R4' 后无 unspsc_prefix 字段）
+// 一棵够小的树：1 大类 / 1 中类 / 2 小类 / 2 子类 / 3 品目（R4' 后无 旧前缀映射列 字段）
 const rows: BackboneRow[] = [
   { code: "UGT-01", parentCode: "", level: 1 },
   { code: "UGT-0101", parentCode: "UGT-01", level: 2 },
@@ -174,18 +172,5 @@ describe("纯切片工具（与 match 数字码入口解耦，独立保留）", 
     expect(normalizeBackboneNodeKey(null)).toBe("");
     // 归一之后必须能被形制判定接住：入口 → 判定的接力不能断
     expect(backboneNodeLevel(normalizeBackboneNodeKey("UGT-B-0702"))).toBe(2);
-  });
-});
-
-describe("padUnspscCode / effectivePrefixOf（R4' 后仅作历史取证工具，主链路不调用）", () => {
-  it("形制判定保留原语义，供 scripts/forensics 一次性探针使用", () => {
-    expect(padUnspscCode("10")).toBe("10000000");
-    expect(padUnspscCode("10101510")).toBe("10101510");
-    expect(padUnspscCode("101")).toBeNull();
-    expect(effectivePrefixOf("10101510")).toBe("10101510");
-    expect(effectivePrefixOf("10101500")).toBe("101015");
-    expect(effectivePrefixOf("10100000")).toBe("1010");
-    expect(effectivePrefixOf("10000000")).toBe("10");
-    expect(effectivePrefixOf("00000000")).toBeNull();
   });
 });

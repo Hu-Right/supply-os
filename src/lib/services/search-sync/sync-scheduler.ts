@@ -54,14 +54,14 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
         pk: Number(r.id),
         noticeId: String(r.notice_id),
       }));
-      const [unspscMap, translationsMap] = await Promise.all([
+      const [landingMap, translationsMap] = await Promise.all([
         loadBackboneMap(pool, sources),
         loadTranslationsByNoticeIds(pool, rawRows.map((r) => Number(r.id))),
       ]);
 
       const wideRows = rawRows.map((r) => buildWideRow(
         r, aliasMap,
-        unspscMap.get(String(r.notice_id)),
+        landingMap.get(String(r.notice_id)),
         translationsMap.get(Number(r.id)),
       ));
       const synced = await upsertWideRows(pool, wideRows, withFp);
@@ -103,14 +103,14 @@ export async function incrementalWideSync(
       pk: Number(r.id),
       noticeId: String(r.notice_id),
     }));
-    const [unspscMap, translationsMap] = await Promise.all([
+    const [landingMap, translationsMap] = await Promise.all([
       loadBackboneMap(pool, sources),
       loadTranslationsByNoticeIds(pool, allRaw.map((r) => Number(r.id))),
     ]);
 
     const wideRows = allRaw.map((r) => buildWideRow(
       r, aliasMap,
-      unspscMap.get(String(r.notice_id)),
+      landingMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
     ));
     const synced = await upsertWideRows(pool, wideRows, withFp);
@@ -144,13 +144,13 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
       pk: Number(r.id),
       noticeId: String(r.notice_id),
     }));
-    const [unspscMap, translationsMap] = await Promise.all([
+    const [landingMap, translationsMap] = await Promise.all([
       loadBackboneMap(pool, sources),
       loadTranslationsByNoticeIds(pool, (rows as RowDataPacket[]).map((r) => Number(r.id))),
     ]);
     const wideRows = (rows as RowDataPacket[]).map((r) => buildWideRow(
       r, aliasMap,
-      unspscMap.get(String(r.notice_id)),
+      landingMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
     ));
     const synced = await upsertWideRows(pool, wideRows, withFp);

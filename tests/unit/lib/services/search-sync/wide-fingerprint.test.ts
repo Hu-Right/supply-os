@@ -28,7 +28,7 @@ describe("WIDE_FP_EXPR", () => {
     expect(WIDE_FP_EXPR).toContain("opp.beneficiary_countries");
     expect(WIDE_FP_EXPR).toContain("crm_notice_attribution_nodes");
     expect(WIDE_FP_EXPR).toContain("crm_notice_translations");
-    // 指纹不再吃 UNSPSC 资产（与 loadBackboneMap 同一事实源）
+    // 指纹不再吃 旧品类码 资产（与 loadBackboneMap 同一事实源）
     expect(WIDE_FP_EXPR).not.toContain("crm_bid_notice_unspsc_codes");
     expect(WIDE_FP_EXPR).not.toContain("crm_bid_opportunity_unspsc_candidates");
   });

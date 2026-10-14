@@ -29,7 +29,7 @@ export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
 // ── 批量写入宽表 ──
 
-// ── 同步 SQL（含所有语言翻译，不含 UNSPSC）──
+// ── 同步 SQL（含所有语言翻译，不含 旧品类码）──
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 /**
  * 宽表主查询 SELECT（字段顺序与 buildWideRow 读取的 key 一致）。
@@ -107,9 +107,9 @@ function parseDecimalValue(raw: unknown): number {
 /**
  * 一行的归属输入：`pk` 是 crm_notice_attribution_nodes.notice_pk 的连接键；
  * `noticeId` 仅作返回 Map 的 key 用（buildWideRow 按它取本行的 backbone）。
- * UNSPSC 桥表读取路径已随小表剥离删除（2026-10-14）——归属唯一事实源是落点表。
+ * 旧品类桥表读取路径已随小表剥离删除（2026-10-14）——归属唯一事实源是落点表。
  */
-export interface UnspscSourceRow {
+export interface AttributionSourceRow {
   /** 桥表外部编号（= crm_bid_notices.notice_id）；返回 Map 以此 key */
   noticeId: string;
   /** 主表自增 id（= crm_notice_attribution_nodes.notice_pk）；按它取最深落点 */
@@ -125,7 +125,7 @@ export interface UnspscSourceRow {
  */
 export async function loadBackboneMap(
   pool: Pool,
-  sources: UnspscSourceRow[],
+  sources: AttributionSourceRow[],
 ): Promise<Map<string, { backbone: string }>> {
   if (sources.length === 0) return new Map();
   const byPk = new Map<number, string>(); // notice_pk -> notice_id
@@ -168,13 +168,13 @@ function normalizeBeneficiaryCountries(raw: string): string {
 
 // ── 宽表行构建 ──
 /**
- * @param unspsc 本行的品目归属（`backbone` = 节点码集合含全部祖先，由 loadBackboneMap 从落点表算出）
+ * @param landing 本行的品目归属（`backbone` = 节点码集合含全部祖先，由 loadBackboneMap 从落点表算出）
  */
 export function buildWideRow(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 宽表映射函数：源行动态多列 + 测试以扁平 mock 传参，收敛为具体类型会破坏既有测试契约
   r: any,
   aliasMap: Map<string, string>,
-  unspsc?: { backbone: string },
+  landing?: { backbone: string },
   translations?: Record<string, WideTranslation>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 宽表行含动态列（title_<lang>/description_<lang>）与多种计算列，返回具体类型会破坏以扁平 mock 断言字段前缀的既有测试
 ): Record<string, any> {
@@ -239,7 +239,7 @@ export function buildWideRow(
     entry_source: String(r.entry_source || "crawl").slice(0, 20),
     // 品目归属：只此一条口径（骨架节点码，含全部祖先），事实源是 crm_notice_attribution_nodes
     // 落点表（loadBackboneMap 唯一装载入口）；无落点/无 pk ⇒ NULL（BB7：空串算违规），不退回桥表。
-    backbone_path: unspsc?.backbone ? unspsc.backbone : null,
+    backbone_path: landing?.backbone ? landing.backbone : null,
     description_cn: String(r.description_cn || "").slice(0, WIDE_LIMITS.descriptionCn),
     bid_overview: String(r.bid_overview || "").slice(0, WIDE_LIMITS.bidOverview),
     beneficiary_countries: normalizeBeneficiaryCountries(String(r.beneficiary_countries || "")),
@@ -248,7 +248,7 @@ export function buildWideRow(
     // 指纹：与内容同快照由 SQL 侧唯一表达式算出，此处只透传不计算（I1）。
     // 缺失时落空串 → 与实时指纹不等 → 下一轮对账自动重建（自愈，无需人工刷）。
     sync_src_hash: String(r.sync_src_hash || ""),
-    // 平台公告自填分类（主表列，随快照带出供 UNSPSC 兜底优先级使用）
+    // 平台公告自填分类（主表列，随快照带出供 旧品类码 兜底优先级使用）
     category_l1_id: r.category_l1_id != null ? Number(r.category_l1_id) : null,
     category_l2_id: r.category_l2_id != null ? Number(r.category_l2_id) : null,
   };
@@ -297,7 +297,7 @@ export async function upsertWideRows(
     ...langColumns,
     "country_std", "agency_std", "agency_group", "notice_type_std",
     "deadline_sec", "estimated_value", "is_featured", "entry_source",
-    // B1 起不再写旧字典分类列（unspsc_level1~5 / precise_level1~5）：列暂留 schema、历史值不再更新也无人读，
+    // B1 起不再写旧字典分类列（旧五级列~5 / precise_level1~5）：列暂留 schema、历史值不再更新也无人读，
     // DROP 与 baseline 重导在 B2 走蓝绿（见 2026-10-12-notice-classification-commodity-tree-only）。
     "backbone_path",
     "description_cn", "bid_overview", "beneficiary_countries", "documents_count",

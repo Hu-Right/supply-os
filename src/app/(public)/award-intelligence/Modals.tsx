@@ -159,7 +159,7 @@ export function CategoryModal({ open, onClose }: { open: boolean; onClose: () =>
     { name: "网络设备", cat: "ICT", amount: "$380M" },
   ];
   return (
-    <Modal open={open} onClose={onClose} title="UNSPSC 品类分布（2025）" className="max-w-2xl">
+    <Modal open={open} onClose={onClose} title="品类分布（2025）" className="max-w-2xl">
       {/* 主品类 */}
       <div className="space-y-2.5 mb-5">
         {mainCats.map((c) => (
@@ -212,7 +212,7 @@ export function CategoryModal({ open, onClose }: { open: boolean; onClose: () =>
         </div>
       </div>
 
-      <DataSource authoritative="UN ASR 2025（大类占比）/ UNSPSC 分类标准" analysis="增长率与子品类金额为平台分析模型" />
+      <DataSource authoritative="UN ASR 2025（大类占比）/ 平台品目分类口径" analysis="增长率与子品类金额为平台分析模型" />
     </Modal>
   );
 }
@@ -436,7 +436,7 @@ export function ReminderModal({ open, onClose }: { open: boolean; onClose: () =>
           <input value={agencies} onChange={(e) => setAgencies(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="如 UNICEF, WHO, WFP" />
         </div>
         <div>
-          <label className="text-xs font-bold text-slate-700 mb-1 block">关注品类（UNSPSC）</label>
+          <label className="text-xs font-bold text-slate-700 mb-1 block">关注品类</label>
           <input value={categories} onChange={(e) => setCategories(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="如 医疗耗材, 疫苗, 检验设备" />
         </div>
         <div className="grid grid-cols-2 gap-3">

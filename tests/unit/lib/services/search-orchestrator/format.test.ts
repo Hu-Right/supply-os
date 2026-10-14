@@ -44,7 +44,7 @@ describe("formatItems", () => {
     expect(result[0].core_locked).toBe(true);
     expect(result[0].organization).toBeNull();
     expect(result[0].source_url).toBeNull();
-    expect(result[0].unspsc_codes).toEqual([]);
+    expect(result[0]).not.toHaveProperty("unspsc_codes");
   });
 
   it("画像节点码命中公告 backbone 链 → match_score + match_tier", () => {

@@ -44,7 +44,7 @@ export class UserPrefsRepo {
    * 写入/更新用户行业偏好（码版）。
    * @param commodityCode 最深已选 UGT 节点码；groupCode 由调用方换算好的品目大类码，
    *                      换不出就传 null（仓储不猜、不兜底）。
-   *                      旧行的 levelN_id（UNSPSC 字典行 id）随字典退役恒置 NULL——
+   *                      旧行的 levelN_id（旧品类字典行 id）随字典退役恒置 NULL——
    *                      INSERT 与 ODKU 两侧都显式置空，避免「新码旧 id」两套键并存分叉。
    */
   async upsertIndustryPrefs(

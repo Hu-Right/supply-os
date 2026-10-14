@@ -68,18 +68,10 @@ export default defineConfig({
         "src/lib/services/search-orchestrator/params.ts",
         "src/lib/services/search-orchestrator/format.ts",
 
-        // ── src/lib/services/commodity — 大类常量与路径派生（纯函数）──
+        // ── src/lib/services/commodity — 大类常量（纯函数）──
         "src/lib/services/commodity/groups.ts",
-        "src/lib/services/commodity/path.ts",
-        // 品目归属落点 ↔ 派生列互转（UNSPSC 退役后的唯一换算面，纯函数）
+        // 品目归属落点 ↔ 派生列互转（旧字典退役后的唯一换算面，纯函数）
         "src/lib/services/commodity/attribution.ts",
-
-        // ── src/lib/services/unspsc — 纯函数 ──
-        "src/lib/services/unspsc/parser.ts",
-        // 品目桥表入库五级路径归一（crawler-sync 写入前置闸口，纯函数）
-        "src/lib/services/unspsc/bridge-normalize.ts",
-        // 品目桥表派生（主表码文本 → 桥表新行，补行与同步链路共用，纯函数）
-        "src/lib/services/unspsc/bridge-derive.ts",
 
         // ── src/lib/services/notice-search — 缓存/统计/翻译 ──
         "src/lib/services/notice-search/agencies/translate.ts",

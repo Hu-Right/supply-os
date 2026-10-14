@@ -8,7 +8,7 @@
  *              （选中态的唯一事实源是 URL 的 group / commodity，见 useCommodityCascade），
  *              只保留模式判定与提示条。
  *
- *              提示条名称的来源也一并换源：偏好表存的是旧字典 `crm_unspsc_codes` 的行 id
+ *              提示条名称的来源也一并换源：偏好表存的是旧字典 `旧品类字典表` 的行 id
  *              （level=1 还是 A..J 十个字母容器，新分类里没有这一层），故经
  *              /api/commodity/tree/prefs 换算成品目树键 + 树内名称后再展示，
  *              不再直接拿字典 title 拼串（那会把「原材料 材料, 化学品, 纸张, 燃料」这类

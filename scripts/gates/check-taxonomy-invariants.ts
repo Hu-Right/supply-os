@@ -3,11 +3,13 @@
  *
  * 用法：npx tsx scripts/check-taxonomy-invariants.ts
  *
- * 行业面 crm_industry_nodes 与品目面 crm_commodity_nodes 的结构约定落地为可执行门禁，
- * 口径与 docs/数据库设计/crm_industry_nodes-行业面主表.md、crm_commodity_nodes-品目面字典表.md 一致：
+ * 行业面 crm_industry_nodes 的结构约定落地为可执行门禁，
+ * 口径与 docs/数据库设计/crm_industry_nodes-行业面主表.md 一致：
  *   I 行业面：码长即层级 · 父指针闭合且等于码前缀 · 不跳级 · 自研层只挂中类或更细 · 英文名齐全 · 词表封闭
- *   C 品目面（v1.0 顺排）：码长即层级（UGT-C- 后 2/4/6/8/10）· 父指针闭合且=去末两级 · 不跳级 · unspsc_code 形态与唯一 · 词表封闭
- *   X 跨面：两面码段不相交 · 挂靠与主行业码零孤儿零串面
+ *   X 跳面：行业挂靠零孤儿 · 主行业码零孤儿
+ *
+ * 品目面旧树 crm_commodity_nodes 已按 ADR-0006 从库里 DROP，它的 C1~C8 与依附于它的
+ * “两面码段不相交 / 挂靠不得串面”两条逐例已无对象，整块移除（历史口径见 ADR 与 git 留底）。
  *
  * 退出码：全部为 0 → 0；任一违规或查询异常 → 1（可接进部署后校验）
  */
@@ -27,15 +29,7 @@ const DB_CFG = DbConfigSchema.parse({
 
 const IND_NAME = "crm_industry_nodes";
 const IND = `\`${IND_NAME}\``;
-// 品目面表名可用 COMMODITY_TABLE 覆盖，便于切换前对影子表预跑同一套门禁（默认线上表）
-const COM_NAME = process.env.COMMODITY_TABLE || "crm_commodity_nodes";
-const COM = `\`${COM_NAME}\``;
 
-/**
- * table 字段：该断言要碰的表。表不在库里 ⇒ 明确打印跳过，而不是把「查询失败」当违规。
- * 背景：旧品目树 crm_commodity_nodes 已退出生产链路（消费侧全读 crm_commodity_backbone），
- * 它下线后 C1~C8 与 X1/X3 就没有对象了。缺席不等于通过，所以必须逐条叫出来。
- */
 type Check = { name: string; sql: string; tables?: string[] };
 
 const CHECKS: Check[] = [
@@ -92,73 +86,10 @@ const CHECKS: Check[] = [
             OR level NOT IN ('section','division','group','subclass','extension')
             OR status NOT IN (0,1)`,
   },
-  // ── 品目面（v1.0 顺排码形：码长即层级 2/4/6/8/10、unspsc_code 为白名单键）──
-  {
-    name: "C1 父指针悬空（应为 0）",
-    tables: [COM_NAME],
-    sql: `SELECT COUNT(*) n FROM ${COM} c LEFT JOIN ${COM} p ON p.code = c.parent_code
-          WHERE c.parent_code IS NOT NULL AND c.parent_code <> '' AND p.code IS NULL`,
-  },
-  {
-    name: "C2 码长与层级不符（应为 0；UGT-C- 后 2/4/6/8/10 位，含前缀共 8/10/12/14/16）",
-    tables: [COM_NAME],
-    sql: `SELECT COUNT(*) n FROM ${COM} WHERE NOT (code LIKE 'UGT-C-%' AND CHAR_LENGTH(code) = CASE level
-            WHEN 'segment' THEN 8 WHEN 'family' THEN 10 WHEN 'class' THEN 12
-            WHEN 'commodity' THEN 14 WHEN 'extension' THEN 16 ELSE 0 END)`,
-  },
-  {
-    name: "C3 父码≠自身码去末两级（应为 0，码制自洽）",
-    tables: [COM_NAME],
-    sql: `SELECT COUNT(*) n FROM ${COM} WHERE level <> 'segment'
-            AND parent_code <> CONCAT('UGT-C-', LEFT(SUBSTRING(code, 7), CHAR_LENGTH(SUBSTRING(code, 7)) - 2))`,
-  },
-  {
-    name: "C4 词表越界（source/level/status 应为 0 行违规）",
-    tables: [COM_NAME],
-    sql: `SELECT COUNT(*) n FROM ${COM} WHERE source NOT IN ('unspsc','self')
-            OR level NOT IN ('segment','family','class','commodity','extension') OR status NOT IN (0,1)`,
-  },
-  {
-    name: "C5 unspsc_code 形态非法（self 应 NULL、unspsc 应 8 位数字；违规应为 0）",
-    tables: [COM_NAME],
-    sql: `SELECT COUNT(*) n FROM ${COM} WHERE NOT (
-            (source='self' AND unspsc_code IS NULL)
-            OR (source='unspsc' AND unspsc_code REGEXP '^[0-9]{8}$'))`,
-  },
-  {
-    name: "C6 跳级挂接（应为 0：family→segment、class→family、commodity→class、extension→class|commodity）",
-    tables: [COM_NAME],
-    sql: `SELECT COUNT(*) n FROM ${COM} c JOIN ${COM} p ON p.code = c.parent_code
-          WHERE (c.level='family' AND p.level<>'segment')
-             OR (c.level='class' AND p.level<>'family')
-             OR (c.level='commodity' AND p.level<>'class')
-             OR (c.level='extension' AND p.level NOT IN ('class','commodity'))`,
-  },
-  {
-    name: "C7 unspsc_code 对 source=unspsc 全表唯一（重复应为 0）",
-    tables: [COM_NAME],
-    sql: `SELECT COUNT(*) n FROM (SELECT unspsc_code FROM ${COM} WHERE source='unspsc'
-            GROUP BY unspsc_code HAVING COUNT(*) > 1) d`,
-  },
-  {
-    name: "C8 source=self 只能是 extension（应为 0，镜像行业面 I6）",
-    tables: [COM_NAME],
-    sql: `SELECT COUNT(*) n FROM ${COM} WHERE source='self' AND level<>'extension'`,
-  },
-  // ── 跨面与挂靠 ──
-  {
-    name: "X1 两面码段相交（应为 0）",
-    tables: [IND_NAME, COM_NAME],
-    sql: `SELECT COUNT(*) n FROM ${IND} i JOIN ${COM} c ON c.code = i.code`,
-  },
+  // ── 行业挂靠 ──
   {
     name: "X2 行业挂靠孤儿（应为 0）",
     sql: `SELECT COUNT(*) n FROM crm_supplier_industry_rel r LEFT JOIN ${IND} t ON t.code = r.industry_code WHERE t.code IS NULL`,
-  },
-  {
-    name: "X3 行业挂靠串到品目面（应为 0）",
-    tables: [IND_NAME, COM_NAME],
-    sql: `SELECT COUNT(*) n FROM crm_supplier_industry_rel r JOIN ${COM} t ON t.code = r.industry_code`,
   },
   {
     name: "X4 主行业码孤儿（应为 0）",

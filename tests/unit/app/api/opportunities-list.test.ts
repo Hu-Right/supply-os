@@ -1,15 +1,18 @@
 /**
- * R3' B2：商机列表端点断掉 UNSPSC 字典依赖
+ * R3' B2：商机列表端点断掉旧品类字典依赖
  *
- * 判据出处：specs §4 第 1 行（退役 /api/opportunities GET 的 UNSPSC 入参 +
- * findUnspscCodeById/ByCode）。但**端点本身不删**，理由是本批实测：
+ * 判据出处：specs §4 第 1 行（退役 /api/opportunities GET 的字典行 id 入参 +
+ * 两个字典查找函数）。但**端点本身不删**，理由是本批实测：
  *   - 全 src/app/api 里只有这一个端点列商机（unified-search 不返回商机），
  *     删掉就是「商机列表」HTTP 能力归零，且连带删掉一条活着的安全断言
  *     （ARCH-P0：无认证不得拉全量、source_url 不得下发、description 截断）；
- *   - crm_bid_opportunities 上没有任何 backbone/UGT 列（实测只有 unspsc_codes:json），
+ *   - crm_bid_opportunities 上没有任何 backbone/UGT 列，
  *     所以「换成 UGT 入参」在商机表上物理不成立。
- * 取「去掉 UNSPSC 过滤、保留有界列表」：listOpportunities 的 SQL 本来就带 LIMIT 80，
+ * 取「去掉旧字典过滤、保留有界列表」：listOpportunities 的 SQL 本来就带 LIMIT 80，
  * 且认证要求不变 ⇒ 数据暴露面不扩大（最多 80 条未过期商机的列表级字段）。
+ *
+ * 另 R5'（2026-10-14）：旧品类码快照列运行期不再 SELECT，且因源列已物理退役 ⇒
+ * 本端点不再下发那个字段（下面有断言钉住）。
  *
  * 断言的是三件事：入参不再是必要条件、脱敏口径没松动、未登录仍然 401。
  */
@@ -47,7 +50,6 @@ const ROW = {
   estimated_value: null,
   description: "x".repeat(500),
   industry: "工程",
-  unspsc_codes: JSON.stringify([{ code: "43230000", name: "实验室设备" }]),
   source_url: "https://paid.example/full-detail",
 };
 
@@ -57,7 +59,7 @@ beforeEach(() => {
   mocks.listOpportunities.mockResolvedValue([ROW]);
 });
 
-describe("GET /api/opportunities — 不再以 UNSPSC code_id 为必要条件", () => {
+describe("GET /api/opportunities — 不再以旧字典 code_id 为必要条件", () => {
   it("无入参也返回 200 列表（旧行为是 404 要求 code_id）", async () => {
     const res = await GET(req());
     expect(res.status).toBe(200);
@@ -83,8 +85,8 @@ describe("GET /api/opportunities — 不再以 UNSPSC code_id 为必要条件", 
     const body = await (await GET(req())).json();
     expect(body[0].description.length).toBeLessThanOrEqual(301);
     expect(body[0]).not.toHaveProperty("source_url");
-    // R5' 主表 JSON 列运行期不再 SELECT ⇒ route 写死 unspsc_codes: []（前端 `|| []` 自动降级）
-    expect(body[0].unspsc_codes).toEqual([]);
+    // R5' + 源列已物理退役：本端点不再下发旧品类码快照字段
+    expect(body[0]).not.toHaveProperty("unspsc_codes");
   });
 
   it("未登录仍然 401 + 明确错误码（受保护性质没随改造丢掉）", async () => {

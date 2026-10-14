@@ -5,16 +5,15 @@
  * @description 子路径端点（unlocks/translation/view/unlock）已拆分到各自独立的 route.ts。
  *              GET 返回未过期商机列表（有界，最多 80 条）。
  *
- *              R3' B2（2026-10-13）：本端点原以 UNSPSC `code_id`/`industry_id` 为**必要**入参
- *              （不传则 404），过滤走 `crm_unspsc_codes` + `crm_bid_opportunity_unspsc_codes`。
+ *              R3' B2（2026-10-13）：本端点原以旧品类字典的行 id（`code_id`/`industry_id`）为
+ *              **必要**入参（不传则 404），过滤走那张字典表 + 商机桥表。
  *              字典退役后该过滤轴不再存在——实测 `crm_bid_opportunities` 上没有任何
- *              backbone/UGT 列（只有 `unspsc_codes:json`），所以「换 UGT 入参」在商机表上
- *              物理不成立。取「摘掉过滤、保留有界列表」而不是删端点：它是全仓唯一的
- *              商机列表 HTTP 入口（unified-search 不返回商机），删了会连带删掉下面
- *              那条 ARCH-P0 脱敏覆盖。
+ *              backbone/UGT 列，所以「换 UGT 入参」在商机表上物理不成立。取「摘掉过滤、
+ *              保留有界列表」而不是删端点：它是全仓唯一的商机列表 HTTP 入口
+ *              （unified-search 不返回商机），删了会连带删掉下面那条 ARCH-P0 脱敏覆盖。
  *
- *              R5'（2026-10-14）：主表 JSON 列 `unspsc_codes` 运行期不再 SELECT ⇒ repo 不取列，
- *              本 route 回给前端的 `unspsc_codes` 写死 []。前端已有 `|| []` 兜底 ⇒ 自动降级。
+ *              R5'（2026-10-14）：旧品类码快照列运行期不再 SELECT ⇒ repo 不取列，
+ *              本 route 也不再下发那个字段（前端已无消费方）。
  *
  *              ARCH-P0（2026-09-05）：安全修复——
  *              1. 添加认证要求（此前无认证即可拉取全量数据）
@@ -52,8 +51,6 @@ export const GET = withRoute(
           ? row.description.slice(0, LIST_DESC_MAX_CHARS) + "…"
           : row.description,
         source_url: undefined,
-        // R5'：主表 JSON 列运行期不再 SELECT；写死 [] 保留字段形状，前端 `|| []` 自动降级。
-        unspsc_codes: [],
       })),
     );
   },

@@ -87,7 +87,6 @@ export function useNoticeUnlock({
           procurement_files: detail.procurement_files ?? [],
           external_links: detail.external_links ?? [],
           contacts: detail.contacts ?? [],
-          unspsc_codes: detail.unspsc_codes ?? [],
         };
       });
       markUnlocked(notice.id);

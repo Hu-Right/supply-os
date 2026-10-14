@@ -161,7 +161,7 @@ console.log("\n✅ 阶段二完成。收尾清单：");
 console.log("  1) 解冻外部同步（重启 daily-sync 或置回 SYNC_WORKER_IN_APP）；");
 console.log("     同步是「源∩目标」交集写列，被删的列会自动跳过并打告警（见本仓 daily-sync.cjs 交集语义），不报错");
 console.log("  2) 观察稳定后人工 DROP 旧表位（它是切换后的唯一反滚物）：" + oldTable);
-console.log("     切换前的 79 列 / 22 索引原文已入库留档：scripts/tools/crm_bid_opportunities-ddl-before-slim.sql；");
+console.log("     切换前的 79 列 / 22 索引原文留档在 git 历史（scripts/tools/ 下的 before-slim 快照已随旧列退役清理）；");
 console.log("     DROP 前建议再对旧表位做一次 SHOW CREATE TABLE，拿当下真值（而非快照）作为回建依据。");
 console.log("  3) 重导结构基线：node --env-file=.env scripts/tools/dump-schema-baseline.mjs");
 console.log("  4) 回滚窗口内如需反切：本脚本 --rollback");

@@ -1,14 +1,14 @@
 /**
- * 骨架节点访问器 — 把 UGT 节点码反查成行 + 祖先链（UNSPSC 全面退役 R4'）
+ * 骨架节点访问器 — 把 UGT 节点码反查成行 + 祖先链（旧品类码 全面退役 R4'）
  *
  * @module lib/services/commodity/backbone-path
- * @description 本模块从“把 UNSPSC 码换成 UGT 节点”收敛为“在 UGT 节点上直接检索”。
+ * @description 本模块从“把 旧品类码换成 UGT 节点”收敛为“在 UGT 节点上直接检索”。
  *              小表剥离上线日迁移（scripts/ops/user-interest-ugt-migrate.ts）+ 遗留清理（scripts/ops/interest-tables-purge-legacy.ts）
- *              完成后，`crm_user_interest_codes` / `crm_supplier_backbone_interests`（原 `crm_supplier_unspsc_interests`，§7 RENAME）已全部重写成 `UGT-*`，
+ *              完成后，`crm_user_interest_codes` / `crm_supplier_backbone_interests`（原 `旧供应商兴趣表`，§7 RENAME）已全部重写成 `UGT-*`，
  *              运行期再无数字码入口⇒ match/pathOf 只保留 UGT 节点直认一条分支。
  *
- *              历史四条换算规则（品目/类/族/段）与 crm_commodity_backbone.unspsc_prefix 列读取均随 R4' 剥开；
- *              列物理 DROP 后下一轮重导 baseline 就不带它了（门禁那边同步剥 BB2/BB3/BB4 unspsc 分支/BB9）。
+ *              历史四条换算规则（品目/类/族/段）与 crm_commodity_backbone.旧前缀映射列 列读取均随 R4' 剥开；
+ *              列物理 DROP 后下一轮重导 baseline 就不带它了（门禁那边同步剥 BB2/BB3/BB4 旧品类码 分支/BB9）。
  *
  *              树形不变量（仍然成立、仍进门禁）：
  *                码长即层级（L1..L5 对应 2/4/6/8/10 位数字体），父码=自身去末两级；
@@ -33,8 +33,8 @@ export type BackboneRow = {
 };
 
 /**
- * 历史保留：旧版从树反推段→大类时行入参需带 unspsc_prefix；R4' 后匹配仅走 UGT 直认，
- * 不再需要这段推导。行入参不再要求 unspsc_prefix 列，仅当无射向内行直读。
+ * 历史保留：旧版从树反推段→大类时行入参需带 旧前缀映射列；R4' 后匹配仅走 UGT 直认，
+ * 不再需要这段推导。行入参不再要求 旧前缀映射列 列，仅当无射向内行直读。
  * 新代码一律直接传 `BackboneRow` 即可。
  */
 export type GroupSegmentRow = { segmentPrefix: string; nodeCode: string };
@@ -67,35 +67,13 @@ export type BackboneIndex = {
   nodeOf(code: string): BackboneRow | null;
   /** 自身 + 全部祖先，浅→深 */
   ancestorsOf(code: string): BackboneRow[];
-  /** 单个 UNSPSC 码 → 最深命中节点 */
+  /** 单个 旧品类码 → 最深命中节点 */
   match(code: string): BackboneMatch | null;
   /** 一条公告的码集合 → 骨架节点码集合 */
   pathOf(codes: Iterable<string>): BackbonePathResult;
 };
 
 const EMPTY_TIERS = (): Record<BackboneTier, number> => ({ 品目级: 0, 类级: 0, 族级: 0, 段级: 0 });
-
-/**
- * 历史保留：UNSPPSC 数字码归一到 8 位与剥尾零取有效前缀两个小工具。
- * R4' 剥开运行期数字码入口后，本块导出仅供一次性取证探针使用（如 scripts/forensics/*）；
- * 主链路 match/pathOf 均不再依赖。
- */
-export function padUnspscCode(code: unknown): string | null {
-  const c = String(code ?? "").trim();
-  if (!/^\d{2,8}$/.test(c) || c.length % 2 !== 0) return null;
-  return c.padEnd(8, "0");
-}
-
-/**
- * UNSPSC 码 → 有效前缀（先归一到 8 位，再从右往左去掉成对的 `00`）：
- * 仅作为取证探针与历史数据的辅助工具保留，主链路不再调用。
- */
-export function effectivePrefixOf(code: unknown): string | null {
-  const c = padUnspscCode(code);
-  if (!c) return null;
-  for (let len = 8; len >= 2; len -= 2) if (c.slice(len - 2, len) !== "00") return c.slice(0, len);
-  return null; // 全零不是合法码
-}
 
 /** 骨架节点码前缀：`crm_commodity_backbone.code` 的形制；tree.ts 复用这一份，不再各自写字面量 */
 export const BACKBONE_NODE_PREFIX = "UGT-";
@@ -236,7 +214,7 @@ export function deriveSegmentRows(
  * 也不再回读大类段归属表（crm_commodity_group_segments 已按 ADR-0009 退役）。
  * 树是 159,429 行量级，一次载入内存（回填要跑几十万条公告，逐条查库会把生产拖死）。
  *
- * R4' 后列域已缩到 code/parent_code/level：unspsc_prefix 列不再读（行入参形制与 BackboneRow 同步），
+ * R4' 后列域已缩到 code/parent_code/level：旧前缀映射列 列不再读（行入参形制与 BackboneRow 同步），
  * group_code 列也不再读（新事实源下 UGT 直认不需要段→大类映射）。列物理 DROP 属下一轮。
  *
  * 需要同口径的调用方（运行期 backbone-cache、ops 回填、镜像）一律调本函数，不要自己拼行集。
@@ -292,11 +270,11 @@ export function rootNodes(nodes: Iterable<string>): string[] {
  * - `search-orchestrator/format.ts`：匹配分标签拆 `backbone_path`（与检索谓词同源）；
  * - `ai-match/match-nodes.ts`：粗筛公告侧拆宽表 `backbone_path`（供应商侧不拆列，
  *   兴趣码走 `getBackboneIndex().pathOf` 换算，与本函数同一口径）；
- * - `commodity/attribution.ts`：拆列取最深落点（UNSPSC 退役后归属事实源 ↔ 派生列的唯一换算面）；
+ * - `commodity/attribution.ts`：拆列取最深落点（旧品类码退役后归属事实源 ↔ 派生列的唯一换算面）；
  * - `commodity/attribution-contract.ts`：落点表契约的 AS4 token 计数与差异文本的合法集
  *   （用本函数而不是 `split(",")`，脏 token 不计入“有多少个落点”；
  *   契约内部的**脏 token 体检**段则故意走 split，它要看的就是被本函数过滤掉的那批）。
- * 待切（UNSPSC 全面退役的二批，均应改调本函数而不是自己拆）：`unspsc/*` 类目工具、三个 repo、
+ * 待切（旧品类码 全面退役的二批，均应改调本函数而不是自己拆）：`旧品类码/*` 类目工具、三个 repo、
  * `recommend`。`hot-topics` 已收：它的计数留在 SQL 里按包含关系聚合
  * （`FIND_IN_SET` 与检索谓词同一条关系），不在应用侧拆列 ⇒ 不进本名单。
  */

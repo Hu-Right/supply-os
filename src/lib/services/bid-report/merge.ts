@@ -38,10 +38,9 @@ export function mergeBidReportRow(notice: Row, opportunity: Row | null): Row {
     remark: safe(opp.remark),
     product_code: safe(opp.product_code),
     source_url: safe(opp.source_url || notice.url),
-    // R5'（2026-10-14）：主表 JSON 列 unspsc_codes 运行期不再 SELECT（notice-detail.repo /
-    // opportunities.repo 两侧列清单均已剥），报告下写字段保留但内容恒空。旧行如
-    // 需重建 UNSPSC 快照，走 crm_bid_notices.unspsc_codes 列物理 DROP 前的存档通道。
-    unspsc_codes: [],
+    // R5'（2026-10-14）：旧品类码快照列运行期不再 SELECT（notice-detail.repo / opportunities.repo
+    // 两侧列清单均已剥），报告不再写那个字段。旧行如需重建那份快照，
+    // 走收官留底（runtime/ 下的退役备份 dump，含逐行回灌语句）。
     ai_products: safeJson(opp.ai_products),
     ai_analysis: safeObj(opp.ai_analysis),
     documents: safeJson(preferValue(opp.documents, notice.documents)),

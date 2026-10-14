@@ -4,7 +4,7 @@
  *
  * @module features/supplier/components/SupplierCard
  * @description 按「5-全球供应商库」样图重排：公司图片 + 会员标签 + 收藏/分享 +
- *              公司名/类型 + 核心产品 + 认证 + 资料完整度进度条 + UNSPSC +
+ *              公司名/类型 + 核心产品 + 认证 + 资料完整度进度条 + 旧品类码 +
  *              能力标签 + 双按钮（查看企业主页/发询盘）。
  */
 import { useRouter } from "next/navigation";

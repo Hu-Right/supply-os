@@ -1,25 +1,25 @@
 /**
- * 品目树门禁 BB1~BB15（UNSPSC 全面退役 R4' 后的单表自洽版）
+ * 品目树门禁 BB1~BB15（旧品类码 全面退役 R4' 后的单表自洽版）
  *
  * @script scripts/gates/check-commodity-backbone.ts
  * @assertions
  *   BB1 码长即层级：UGT- 后 2/4/6/8/10 位对应 L1~L5；父码=自身去末两级且存在；每父子数 ≤ 99；名非空
- *   BB2 已于 R4' 删除：旧语义“本表 unspsc_prefix 域 ↔ 旧树 unspsc_code”的跨树对测已随旧树与字典下线失去对象；
+ *   BB2 已于 R4' 删除：旧语义“本表 旧前缀映射列 域 ↔ 旧树 旧品类码”的跨树对测已随旧树与字典下线失去对象；
  *      ↳ 旧树不在时 `if (orig)` 分支本来就打印跳过，R4' 后直接拆机。
- *   BB3 已于 R4' 删除：旧语义“同一个 UNSPSC 族→同一个 L2、同一个段→同一个 L1”需 unspsc_prefix 行反推。
- *      ↳ UGT 直认后不再维护“族/段”的 UNSPSC 语义⇒断言不再适用。
+ *   BB3 已于 R4' 删除：旧语义“同一个 旧品类码 族→同一个 L2、同一个段→同一个 L1”需 旧前缀映射列 行反推。
+ *      ↳ UGT 直认后不再维护“族/段”的 旧品类码 语义⇒断言不再适用。
  *   BB4 大类连续（精简版）：L4 行的 group_code 与祖先 L1.group_code 必逐行一致（树上内存自洽，
- *      ↳ 旧版中“段→常量推大类”那半边已随 unspsc_prefix 入口剥开；常量↔树的交叉对测交给 BB5 L1=32行+BB12）
+ *      ↳ 旧版中“段→常量推大类”那半边已随 旧前缀映射列 入口剥开；常量↔树的交叉对测交给 BB5 L1=32行+BB12）
  *   BB5 五级齐：L1 恰 32 行且 parent 为空串，L1~L5 每级都有行；同名兄弟只 WARN
  *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥（旧树已删则无对象，只打印跳过）
- *   BB7 公告归属已落到骨架（事实源 = 落点表， UNSPSC 退役 R3'）：宽表形制合法（非空串、
+ *   BB7 公告归属已落到骨架（事实源 = 落点表， 旧品类码退役 R3'）：宽表形制合法（非空串、
  *      合法字符、不超长）、链顶必为大类、抽样码全在树；活跃公告有落点必进宽表。
  *      ↳ 曾经的“有码必填/无码必空”已交给 BB15c/d（落点↔列值双向闭合）；本条不再吃桥表。
  *   BB8 旧树零引用（静态）：src/** 不得出现 FROM/JOIN crm_commodity_nodes* —— 这是「旧树可以删」的机器证明
  *      ↳ 后缀走 \w* ：旧树 RENAME 后的退役表照样算引用（带自检，防改名豁免）
  *   BB9 已于 R4' 删除：旧语义“拿族粗码 fam+0000 试挂 match，L1..L4 四档至少三档有落点”验证的
  *      ↳ 是数字码入口的“最深可证实唯一”分档；入口已剥⇒断言失参考系。
- *   BB10 已于 UNSPSC 退役 R3' 删除：旧语义“列值 = pathOf(桥表 UNSPSC 码)”已交给 BB15c（列值 = 落点派生）。
+ *   BB10 已于 旧品类码退役 R3' 删除：旧语义“列值 = pathOf(桥表 旧品类码)”已交给 BB15c（列值 = 落点派生）。
  *   BB12 偏好表的大类码齐备且对得上骨架 L1 —— 可见性判定的输入，缺行就是把付费用户静默放行
  *   BB13 退役不变量：不得留下 crm_commodity_nodes_retired_* 这种「改名改一半」的中间态（直接红）；
  *      ↳ 原树名本身在场只 WARN（回滚演练合法），否则真回滚时这条断言会把跨树对账一起误杀
@@ -27,7 +27,7 @@
  *      不留残行、形制合法、抽样 300 条逐集合对拍（COUNT + SUM(CRC32)）差异必须 0
  *      ↳ 表未建只 WARN：建表是人工闸口（scripts/ops/commodity-notice-nodes-ddl.ts），
  *        但读侧一旦切到倒排表，这条就必须转绿 —— 它也是上线清单里的那一项
- *   BB15 落点表是 backbone_path 的事实源（UNSPSC 全面退役 R1）：落点全在树、
+ *   BB15 落点表是 backbone_path 的事实源（旧品类码 全面退役 R1）：落点全在树、
  *      同一公告的落点互不为祖先（全表不抽样）、列值 = 落点闭包（抽两头）、
  *      与宽表双向闭合（有列值必有落点行、有落点行必有列值）；BB15d 按 source 分档与 AS2/AS4 同口径。
  *      ↳ 表未建只 WARN（建表是人工闸口 scripts/ops/notice-attribution-ddl.ts）；
@@ -172,11 +172,11 @@ for (const r of rows) {
 for (const [p, k] of kids) if (k > 99) fail(`BB1 ${p} 下子节点 ${k} 个，超 2 位编码上限 99`);
 
 // ── BB2/BB3 已于 R4' 拆机──
-// 旧语义需 unspsc_prefix 行反推⇒入口剥后断言失对象。旧树不在时 orig=null，与现在直接拆机同形。
+// 旧语义需 旧前缀映射列 行反推⇒入口剥后断言失对象。旧树不在时 orig=null，与现在直接拆机同形。
 
 // ── BB4 大类连续（精简版：树上内存自洽）──
-// 旧版中的“段→常量推大类”需 unspsc_prefix；拆后保留“L4.group_code 与祖先 L1.group_code 逐行一致”
-// 那半边⇒不依赖 UNSPSC。`anc` 的长度从常量 BACKBONE_NODE_PREFIX 取（旧“UGT-B-”前写死 6 已改正）。
+// 旧版中的“段→常量推大类”需 旧前缀映射列；拆后保留“L4.group_code 与祖先 L1.group_code 逐行一致”
+// 那半边⇒不依赖 旧品类码。`anc` 的长度从常量 BACKBONE_NODE_PREFIX 取（旧“UGT-B-”前写死 6 已改正）。
 const anc = (code: string, level: number) => code.slice(0, BACKBONE_NODE_PREFIX.length + level * 2);
 {
   let l4Count = 0;
@@ -321,9 +321,9 @@ if (Number(pathCol.n) === 0) {
     fail(`BB12 有 ${prefBadGroup.n} 行偏好的 group_code 在骨架 L1 里找不到对应行 ⇒ 可见性谓词永远不命中（常量与库分叉）`);
   }
 
-  // BB9 已于 UNSPSC 退役 R4' 删除：旧语义“拿 fam+0000 试挂 ix.match()”验证的
+  // BB9 已于 旧品类码退役 R4' 删除：旧语义“拿 fam+0000 试挂 ix.match()”验证的
   // 是数字码入口的“最深可证实唯一”分档；match() 入口已剥⇒断言失参考系。
-  // BB10 已于 UNSPSC 退役 R3' 删除：旧语义“列值 = pathOf(桥表 UNSPSC 码)”已交给 BB15c（列值 = 落点派生）。
+  // BB10 已于 旧品类码退役 R3' 删除：旧语义“列值 = pathOf(桥表 旧品类码)”已交给 BB15c（列值 = 落点派生）。
   // 两段注释保留，防止后人拉回“为什么这里少一大块”。
   pathStat = `已填 ${p.filled} · 抽样 ${pc.size} 码全在树`;
 }
@@ -428,7 +428,7 @@ function bandof(parentLevel: number) {
   }
 }
 
-// ── BB15 落点表是 backbone_path 的事实源（UNSPSC 全面退役 R1）──
+// ── BB15 落点表是 backbone_path 的事实源（旧品类码 全面退役 R1）──
 {
   const ATTR_TAB = "crm_notice_attribution_nodes";
   const hasAttr = await one(

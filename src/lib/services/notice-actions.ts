@@ -114,7 +114,7 @@ export async function executeUnlock(
     await conn.commit();
 
     // 事务外：更新兴趣节点（非关键路径，失败不影响解锁）。
-    // 小表剥离后兴趣画像吃 UGT 归属节点（倒排 = backbone_path 行化），不再读主表 UNSPSC 快照
+    // 小表剥离后兴趣画像吃 UGT 归属节点（倒排 = backbone_path 行化），不再读主表 旧品类快照
     if (userId) {
       const nodes = (await loadNoticeNodeCodes(dbPool, [noticeId]).catch(() => new Map())).get(noticeId) ?? [];
       await persistInterestNodeCodes(dbPool, userId, nodes, "unlock_order", 2.50).catch((e) => console.warn("[notice-actions] persistInterestNodeCodes failed (non-critical):", e));
@@ -158,7 +158,7 @@ export async function processFeedback(
   );
   if (linkedActions.length) {
     const noticeIds = Array.from(new Set(linkedActions.map((item) => item.noticeId)));
-    // 兴趣画像改吃 UGT 归属节点（倒排行），不再读主表 UNSPSC 快照列
+    // 兴趣画像改吃 UGT 归属节点（倒排行），不再读主表 旧品类快照列
     const nodesByNotice = await loadNoticeNodeCodes(dbPool, noticeIds);
     for (const item of linkedActions) {
       const nodes = nodesByNotice.get(item.noticeId) ?? [];

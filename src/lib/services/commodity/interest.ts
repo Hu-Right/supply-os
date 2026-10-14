@@ -3,15 +3,15 @@
  * User interest node persistence
  *
  * @module lib/services/commodity/interest
- * @description UNSPSC 小表剥离（2026-10-14）：`crm_user_interest_codes.code` 不再存
- *              UNSPSC 8 位前缀，改存公告的 UGT 归属节点码（含祖先链，与倒排镜像
+ * @description 旧品类码 小表剥离（2026-10-14）：`crm_user_interest_codes.code` 不再存
+ *              旧品类码 8 位前缀，改存公告的 UGT 归属节点码（含祖先链，与倒排镜像
  *              `crm_notice_backbone_nodes` 同一口径）。行为语义不变：解锁/订阅/收藏/
  *              反馈等动作仍按来源白名单给权重，单码 LEAST 封顶，quick_exit 走衰减。
  *
- *              与旧版（services/unspsc/interest.ts，已删）的三处实质差别：
- *              1. 码源从「公告 unspsc_codes JSON 快照前缀展开」换成「倒排表行化节点」
+ *              与旧版（services/旧品类码/interest.ts，已删）的三处实质差别：
+ *              1. 码源从「公告 旧品类码列 JSON 快照前缀展开」换成「倒排表行化节点」
  *                 ——倒排就是 backbone_path 的行化（自身+全部祖先），天然等价于旧的
- *                 前缀展开产物，且不依赖公告主表的 UNSPSC 快照列；
+ *                 前缀展开产物，且不依赖公告主表的 旧品类快照列；
  *              2. code 存 UGT 节点码（"UGT-" + 2/4/6/8/10 位数字），列已加宽到
  *                 varchar(24)（scripts/ops/user-interest-code-widen-ddl.ts）；
  *              3. 推荐读侧（recall.ts processInterestCodes）经骨架索引 pathOf 直认

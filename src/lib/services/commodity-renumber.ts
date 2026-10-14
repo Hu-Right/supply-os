@@ -4,7 +4,7 @@
  *
  * @module lib/services/commodity-renumber
  * @description 输入=旧表扁平行（code/src_code/level/parent_code 旧语义），
- *              输出=新表行（顺排 code、unspsc_code、新 parent_code）。
+ *              输出=新表行（顺排 code、旧品类码、新 parent_code）。
  *              规则：每父下子节点按 src_code 升序从 01 顺排；码长即层级；父指针指向新父码。
  *              影子表构建脚本（scripts/ops/commodity-shadow-build.mjs）复用本模块，写库前先离线自检。
  */
@@ -16,7 +16,7 @@ export type CommodityLevelName = "segment" | "family" | "class" | "commodity" | 
 export interface FlatNode {
   id: number;
   oldCode: string; // 旧 code = UGT-C- + 8 位
-  srcCode: string; // 旧 src_code = 8 位 UNSPSC 原码
+  srcCode: string; // 旧 src_code（重排前的 8 位原码）
   level: CommodityLevelName;
   parentCode: string | null; // 旧 parent_code（板块为 null）
   nameZh: string | null;
@@ -26,7 +26,7 @@ export interface FlatNode {
 export interface RenumberedNode {
   id: number;
   code: string; // 新顺排码
-  unspscCode: string; // = 旧 srcCode
+  legacySrcCode: string; // = 旧 src_code（重排前的原码，仅供对拍）
   level: CommodityLevelName;
   parentCode: string | null; // 新父码（板块为 null）
   nameZh: string | null;
@@ -60,7 +60,7 @@ export function renumberCommodityTree(rows: FlatNode[]): RenumberedNode[] {
     out.push({
       id: node.id,
       code: COMMODITY_CODE_PREFIX + numeric,
-      unspscCode: node.srcCode,
+      legacySrcCode: node.srcCode,
       level: node.level,
       parentCode: newParent,
       nameZh: node.nameZh,

@@ -5,8 +5,8 @@
  * @module server/services/recommend/weight-profile
  * @description T-B7 权重微调懒计算（本地差异 #15：B.3.2.3）
  *              按用户近 200 条显式反馈做指数滑动平均（EMA α=0.05，最新反馈影响最大）：
- *              正反馈（click，signal 0.75）占优 → 上调 w_unspsc（兴趣码方向准）；
- *              负反馈（quick_exit，signal 0）占优 → 下调 w_unspsc，差额按 6:4 让给 urgency/amount 通用信号。
+ *              正反馈（click，signal 0.75）占优 → 上调 旧方向权重列（兴趣码方向准）；
+ *              负反馈（quick_exit，signal 0）占优 → 下调 旧方向权重列，差额按 6:4 让给 urgency/amount 通用信号。
  *              显式反馈事件原为 favorite/unlock/click/dismiss/quick_exit 五种；2026-09-30 砍除了
  *              前端从不发送、库内各 0 行的 favorite/dismiss/unlock，现仅依 click 与 quick_exit。
  *              五权重总和恒 1；无显式反馈用户不建档案行（推荐端点缺行走全局默认，行为恒等——验收口径）。
@@ -43,14 +43,14 @@ export async function recomputeRecoWeightProfile(dbPool: Pool, userId: number): 
       const signal = action === "click" ? 0.75 : 0;
       ema += 0.05 * (signal - ema);
     }
-    // delta ∈ [-0.1, +0.1]：w_unspsc ∈ [0.4, 0.6]、w_urgency ∈ [0.09, 0.21]、w_amount ∈ [0.06, 0.14]
+    // delta ∈ [-0.1, +0.1]：旧方向权重列 ∈ [0.4, 0.6]、w_urgency ∈ [0.09, 0.21]、w_amount ∈ [0.06, 0.14]
     // （全档位为正，w_agency/w_geo 不动，总和恒 1.000）
     const delta = Math.max(-0.1, Math.min(0.1, (ema - 0.5) * 0.2));
     await dbPool.execute(
-      `INSERT INTO crm_reco_weight_profile (user_id, w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at)
+      `INSERT INTO crm_reco_weight_profile (user_id, w_commodity, w_agency, w_amount, w_geo, w_urgency, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE
-         w_unspsc = VALUES(w_unspsc), w_agency = VALUES(w_agency), w_amount = VALUES(w_amount),
+         w_commodity = VALUES(w_commodity), w_agency = VALUES(w_agency), w_amount = VALUES(w_amount),
          w_geo = VALUES(w_geo), w_urgency = VALUES(w_urgency), updated_at = NOW()`,
       [
         userId,

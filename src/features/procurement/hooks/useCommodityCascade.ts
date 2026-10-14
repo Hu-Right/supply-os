@@ -5,7 +5,7 @@
  * @module features/procurement/hooks/useCommodityCascade
  * @description 商机页五级下拉（品目大类 → 中类 → 小类 → 子类 → 品目）的选项装载，读骨架节点码。
  *
- *              与旧 useUnspscCascade 的三处实质差别：
+ *              与旧 旧级联 hook 的三处实质差别：
  *              1. **URL 是唯一事实源**：选中态来自 `?group=` 与 `?commodity=`，不再维护一份
  *                 组件内 selectedIds。旧实现里下拉选中态不进 URL，导致分享出去的链接
  *                 「筛了但界面是空的」；而 chip 早就走 URL，两套入口两种状态来源必然漂移。

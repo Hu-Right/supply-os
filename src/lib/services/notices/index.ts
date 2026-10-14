@@ -4,8 +4,8 @@
  */
 import { safeJson, preferValue } from "../../utils/json";
 import { normalizeContactRows, normalizeDocumentRows } from "../../utils/normalize";
-// R5'（2026-10-14）：normalizeUnspscCodes 入口已剥 ⇒ 主表 JSON 列运行期不再 SELECT，
-// 本行不取列。回给前端的 unspsc_codes 写死 []，与前端 `|| []` 兜底同位。
+// R5'（2026-10-14）：旧品类码快照（主表 JSON 列）运行期不再 SELECT，归一入口同步删除；
+// 返回体不再带那个字段（前端已无消费方）。归属事实源 = 公告品目落点表。
 
 // Re-export 精选逻辑
 export {
@@ -21,7 +21,6 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
   const mergedContacts = normalizeContactRows(opportunity?.contacts, notice.contacts, notice.key_contacts);
   const documents = normalizeDocumentRows(opportunity?.documents, notice.documents, notice.procurement_files);
   const externalLinks = normalizeDocumentRows(opportunity?.external_links, notice.external_links);
-  const unspscCodes: Array<Record<string, unknown>> = []; // R5' 主表 JSON 列不再读，前端已有 `|| []` 兜底
   const agency = opportunity?.agency_full || opportunity?.agency || notice.agency_full || notice.agency || notice.organization || "";
   const description = preferValue(opportunity?.description, notice.description);
 
@@ -56,7 +55,6 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
     documents,
     procurement_files: [],
     external_links: externalLinks,
-    unspsc_codes: unspscCodes,
     core_info: {
       notice_id: notice.notice_id || "",
       opportunity_id: opportunity?.id || notice.converted_opp_id || null,
@@ -68,7 +66,6 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
       deadline: preferValue(opportunity?.deadline, notice.deadline) || "",
       estimated_value: preferValue(opportunity?.estimated_value, notice.estimated_value) || "",
       registration_level: preferValue(opportunity?.registration_level, notice.registration_level) || "",
-      unspsc_codes: unspscCodes,
     },
     opportunity_info: opportunity ? {
       id: opportunity.id,

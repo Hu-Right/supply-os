@@ -62,7 +62,7 @@ const PROTECT_PATTERNS: RegExp[] = [
   /https?:\/\/[^\s)]+/g,
   /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g,
   /\b[A-Z]{2,10}(?:[-/][A-Z0-9]{1,12})*[-/][A-Z]*\d[A-Z0-9]*\b/g, // 参考号需含数字，如 RFQ-2026-0042；纯字母词（NON-GMO）不掩码
-  /\b(?:UNGM|RFQ|ITB|EOI|UNSPSC|ISO|FDA|CE|GMP|RoHS|3C)\b/g,
+  /\b(?:UNGM|RFQ|ITB|EOI|ISO|FDA|CE|GMP|RoHS|3C)\b/g,
 ];
 
 export function protectTerms(text: string): { masked: string; tokens: string[] } {

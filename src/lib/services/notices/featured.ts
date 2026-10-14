@@ -103,7 +103,7 @@ async function queryQualifiedOpportunity(dbPool: Pool, notice: NoticeIdentity) {
     agency, agency_full, country, beneficiary_countries, published_date, deadline, deadline_ts,
     deadline_timezone, estimated_value, description, description_cn, description_other,
     bid_overview, supplier_conditions,
-    eligibility, technical_hurdles, industry, unspsc_codes,
+    eligibility, technical_hurdles, industry,
     contacts, documents, external_links, ai_products, ai_analysis, status, priority,
     audit_status, review_status, is_qualified, product_code
   `;

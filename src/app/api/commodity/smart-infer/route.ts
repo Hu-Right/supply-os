@@ -1,8 +1,8 @@
 /**
  * GET /api/commodity/smart-infer — 品目智能推断（UGT 树内匹配）
  *
- * @description 主营业务关键词 → 骨架树节点候选。取代旧 /api/unspsc/smart-infer
- *   （旧实现读 UNSPSC 字典，随字典退役下线）。只返回候选，不做自动回填：
+ * @description 主营业务关键词 → 骨架树节点候选。取代旧 /api/旧品类码/smart-infer
+ *   （旧实现读 旧品类字典，随字典退役下线）。只返回候选，不做自动回填：
  *   推断错误会污染行业偏好，由用户在界面上点选确认。候选的 code 就是骨架节点码，
  *   groupCode 供前端直接点亮级联第一级。
  */

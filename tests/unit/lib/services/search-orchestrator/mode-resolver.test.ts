@@ -2,7 +2,7 @@
  * mode-resolver — 类目条件与 prefs 放宽序列必须由节点码给出（Task 10）
  *
  * 2026-10-11 backbone 化：default / prefs 的类目谓词统一为骨架节点码，不再碰 levelN 列。
- * UNSPSC 字典退役（2026-10-13）：画像直接携带最深节点码（commodityCode），
+ * 旧品类字典退役（2026-10-13）：画像直接携带最深节点码（commodityCode），
  * prefs 的放宽序列由它的**祖先链**推出来（`commodityNodeChain`，码长即层级，不查库），
  * 底线仍是 L2；旧 `?code_id`（字典行 id）外链兼容分支随之删除——老链接丢类目过滤、
  * 其余参数照常（优雅降级）。
@@ -50,7 +50,7 @@ describe("resolveMode · default 模式（字典 code_id 外链已退役）", ()
   });
 
   it("旧 code_id / industry_id 外链不再被识别：优雅降级为无类目过滤", async () => {
-    // 字典行 id 参数随 UNSPSC 字典退役失效；validateParams 不再收集它，
+    // 字典行 id 参数随 旧品类字典退役失效；validateParams 不再收集它，
     // resolveMode 不查库、不报错、不放开全量语义
     const r = await resolveMode(fakePool(), params({ commodityPath: "UGT-4321150301" }));
     expect(r.kind).toBe("search");

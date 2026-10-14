@@ -102,7 +102,7 @@ function routeParams(id: number) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  findById.mockResolvedValue({ id: 176, unspsc_codes: [{ code: "103632" }] });
+  findById.mockResolvedValue({ id: 176 });
   findExistingUnlock.mockResolvedValue(null);
   connQuery.mockResolvedValue([[]]);
   loadCells.mockResolvedValue([{ benefit_code: "notice_view", value_num: 100 }]);

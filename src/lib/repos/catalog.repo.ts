@@ -7,8 +7,8 @@
  *
  * @module repos/catalog.repo
  *
- * UNSPSC 字典退役（2026-10-13）：本仓储原读 `crm_unspsc_codes` 的
- * listUnspsc / findUnspscNodeById / smartInferUnspsc 全部下线——
+ * 旧品类字典退役（2026-10-13）：本仓储原读 `旧品类字典表` 的
+ * 旧字典的三个查询方法 全部下线——
  * 层级选项改走品目骨架树（lib/services/commodity/tree），智能推断改走
  * 树内 FULLTEXT（lib/services/commodity/infer，端点 /api/commodity/smart-infer）。
  * 仓储仅保留供应商资质证书一项。

@@ -3,13 +3,13 @@
  * Taxonomy intake producer (in-app)
  *
  * @module lib/services/commodity/taxonomy-intake
- * @description UNSPSC 桥表退役（2026-10-14）后，"新公告需要归类"这件事失去了
+ * @description 旧品类桥表退役（2026-10-14）后，"新公告需要归类"这件事失去了
  *              旧的登记通道（daily-sync.cjs 的桥表入库校验：合法码直通桥表、
  *              野码进 intake——该通道连同码本身一起废弃）。本模块在应用内
  *              crawler-sync 每轮同步后，把**无 UGT 归属的活跃公告**登记进
  *              crm_taxonomy_intake（status='pending'），交由 AI 归属管道
  *              （scripts/ops/notice-attribution-content-ai.ts，人工放量）
- *              按正文语义归类。不带任何 UNSPSC 码——归属质量由 AI 把关，
+ *              按正文语义归类。不带任何 旧品类码——归属质量由 AI 把关，
  *              不再回头信任爬虫码。
  *
  * 契约（与消费端严格对齐）：

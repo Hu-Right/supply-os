@@ -6,7 +6,7 @@
  *    墙判定改读大类码后，读不到这列就等于墙没有输入；码版偏好的选择键是节点码；
  * 2. 写侧必须同时落 `group_code` + `commodity_code`（INSERT 列清单 + ON DUPLICATE 更新分支都要有），
  *    漏了任何一个都是「第一次保存有值、改一次偏好就丢」，而且不会报错；
- * 3. 旧的 levelN_id（UNSPSC 字典行 id）在 INSERT 与 ODKU 两侧都显式置 NULL ——
+ * 3. 旧的 levelN_id（旧品类字典行 id）在 INSERT 与 ODKU 两侧都显式置 NULL ——
  *    「新码旧 id」两套键并存就是分叉温床；
  * 4. 换不出大类码时如实写 NULL：仓储不猜、不回填旧值（错值比空值难发现得多）。
  */

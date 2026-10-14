@@ -95,7 +95,7 @@ test.describe("投标流程旅程", () => {
     // Step 1: 进入采购公告搜索（高级搜索面板，ADVANCED_SEARCH 已上线）
     await page.goto(`${TEST_BASE_URL}/procurement`);
     const keywordInput = page.getByRole("textbox", {
-      name: /输入产品、项目、机构、UNSPSC关键词/,
+      name: /输入产品、项目、机构、品类关键词/,
     });
     await expect(keywordInput).toBeVisible({ timeout: 10_000 });
 
@@ -114,7 +114,7 @@ test.describe("投标流程旅程", () => {
 
     // 等待高级搜索面板与结果列表加载（公告卡片以 level-4 标题呈现）
     await expect(
-      page.getByRole("textbox", { name: /输入产品、项目、机构、UNSPSC关键词/ }),
+      page.getByRole("textbox", { name: /输入产品、项目、机构、品类关键词/ }),
     ).toBeVisible({ timeout: 10_000 });
     await expect(
       page.getByRole("heading", { level: 4 }).first(),

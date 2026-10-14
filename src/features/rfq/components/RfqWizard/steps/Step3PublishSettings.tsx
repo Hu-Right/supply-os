@@ -17,7 +17,7 @@ export interface Step3Props {
   termsOpen: boolean;
   setTermsOpen: (open: boolean) => void;
   setStep: (step: number) => void;
-  /** 已选 UNSPSC 分类的中文名称（一级 / 二级），供发布前摘要核对 */
+  /** 已选 旧品类分类的中文名称（一级 / 二级），供发布前摘要核对 */
   categoryDisplay: string;
 }
 

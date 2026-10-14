@@ -9,7 +9,7 @@
  *              主营业务智能推断采用"候选确认"交互：候选列表由用户点选回填，
  *              杜绝低置信推断静默锁定错误分支。
  *              保存键为 UGT 最深已选节点码（commodity_code），旧行的字典 id 随
- *              UNSPSC 字典退役停用。
+ *              旧品类字典退役停用。
  */
 import { useEffect, useState } from "react";
 import { useUserId } from "@/core/auth";

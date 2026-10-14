@@ -1,5 +1,5 @@
 /**
- * 品目大类门禁 CG1~CG6（UNSPSC 全面退役 R5' 后的常量不变量 + 族退役版）
+ * 品目大类门禁 CG1~CG6（旧品类码 全面退役 R5' 后的常量不变量 + 族退役版）
  *
  * @script scripts/gates/check-commodity-groups.ts
  * @assertions
@@ -7,10 +7,10 @@
  *   CG2 段前缀形制合法（2 位数字）
  *   CG3 一段只属一类（常量侧自洽）
  *   CG4 每类 name_zh 非空
- *   CG5 已于 R5' 拆机：旧语义“从 backbone.unspsc_prefix 反推段→大类”与常量逐项交叉对测。
- *      ↳ UNSPSC 列物理 DROP 后本项失参考系；“段→大类”的树上内存自洽部分已由 BB4
+ *   CG5 已于 R5' 拆机：旧语义“从 backbone.旧前缀映射列 反推段→大类”与常量逐项交叉对测。
+ *      ↳ 旧品类码 列物理 DROP 后本项失参考系；“段→大类”的树上内存自洽部分已由 BB4
  *        (L4.group_code == 祖先 L1.group_code) + BB5 (L1=32 行) + BB12 (prefs.group_code 在 L1 里)
- *        三条接手；常量↔骨架的“码域恰为 32”由下面“大类码域断言”接手（不再需 unspsc_prefix）。
+ *        三条接手；常量↔骨架的“码域恰为 32”由下面“大类码域断言”接手（不再需 旧前缀映射列）。
  *   CG6（静态）src/** 与 scripts/tools/** 不得用 SQL 读已退役的大类维表族
  *      （crm_commodity_groups / crm_commodity_group_segments，含改名后的退役名）——“这两张表可以删”的机器证明
  *   CG7（仅 --db）大类维表族已退役：上述两表及其 retired 变体都不许在场
@@ -116,8 +116,8 @@ if (DB && !FIXTURE) {
     database: process.env.DB_NAME ?? "crm", charset: "utf8mb4", dateStrings: true,
   });
 
-  // 大类码域：骨架 L1 的 group_code 去重后必须恰好是常量那 32 个。旧的 CG5 会先拿 unspsc_prefix 反推
-  // “段→大类”与常量双向对测；R5' 剥 unspsc_prefix 列后，那个不变量改由 backbone 门禁 BB4
+  // 大类码域：骨架 L1 的 group_code 去重后必须恰好是常量那 32 个。旧的 CG5 会先拿 旧前缀映射列 反推
+  // “段→大类”与常量双向对测；R5' 剥 旧前缀映射列 列后，那个不变量改由 backbone 门禁 BB4
   // （L4.group_code == 祖先 L1.group_code）+ BB5（L1=32 行）+ BB12（prefs.group_code 在 L1 里）接手，
   // 本门禁只守“骨架 L1 去重大类码 = 常量 32”这一条射影到库侧的最弱断言。
   const [dom] = (await pool.query(

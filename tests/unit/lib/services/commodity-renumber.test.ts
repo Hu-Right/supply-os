@@ -27,7 +27,7 @@ describe("renumberCommodityTree", () => {
     expect(byId.get(6)!.code).toBe("UGT-C-02");
     expect(byId.get(5)!.parentCode).toBe("UGT-C-010101");
     expect(byId.get(1)!.parentCode).toBeNull();
-    expect(byId.get(4)!.unspscCode).toBe("10101501"); // 原码迁移到 unspsc_code
+    expect(byId.get(4)!.legacySrcCode).toBe("10101501"); // 原码随行保留，供重排前后对拍
   });
 
   it("全部新码唯一且父码=子码去末两级", () => {

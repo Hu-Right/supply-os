@@ -19,7 +19,7 @@
  *              group_concat_max_len（默认 1024 字节）截断，超限后的内容变化指纹看不见。
  *              聚合顺序无关（宽表按 lang/level 归并成 Map，本就与行序无关）。
  *
- *              已知边界（不假装完备）：crm_agency_aliases 与 UNSPSC 字典树自身的变更不进入
+ *              已知边界（不假装完备）：crm_agency_aliases 与 旧品类字典树自身的变更不进入
  *              指纹（二者是全表级维度，且构建侧有 10 分钟缓存 TTL），需要刷新时走
  *              search-common/rebuild-trigger 的 requestIndexRebuild 全量重建。
  */
@@ -84,12 +84,12 @@ export function __resetFingerprintColumnCache(): void {
  * 与 WIDE_OPP_JOIN 同构）。全库唯一定义点：WIDE_SYNC_SELECT 与本文件的漂移检测都拼
  * 本常量，禁止再写第二份。
  *
- * 2026-10-13 UNSPSC candidates 表退役：原指纹末尾的「商机 approved 候选码 COUNT+SUM(CRC32)」
+ * 2026-10-13 旧品类码 candidates 表退役：原指纹末尾的「商机 approved 候选码 COUNT+SUM(CRC32)」
  * 输入项随之移除 ⇒ 整条指纹哈希会变，上线需预留一次全量重刷宽表指纹的窗口。
  */
 /**
  * 品目归属指纹段：与 loadBackboneMap 同一份事实源——落点表 crm_notice_attribution_nodes
- * （notice_pk=n.id 的 COUNT+SUM(CRC32(node_code))）。UNSPSC 桥表分支已随小表剥离删除
+ * （notice_pk=n.id 的 COUNT+SUM(CRC32(node_code))）。旧品类桥表分支已随小表剥离删除
  * （2026-10-14）⇒ 本段不再受 ATTRIBUTION_READ flag 控制。R2-d 切读那刻哈希已变过一次，
  * 全量重刷已完成；指纹仍「不含派生列」（只吃输入），ADR-0007 前提不废。
  */
