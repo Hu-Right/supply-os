@@ -93,8 +93,8 @@ describe("DetailTabs（ARIA Tabs / 键盘导航，spec 2026-09-21）", () => {
 
   it("点击 Tab 仍可直接激活（现状行为无回归）", () => {
     const setActiveTab = renderTabs("summary");
-    fireEvent.click(screen.getByRole("tab", { name: /detail_tabHistory/ }));
-    expect(setActiveTab).toHaveBeenCalledWith("history");
+    fireEvent.click(screen.getByRole("tab", { name: /detail_tabSimilar/ }));
+    expect(setActiveTab).toHaveBeenCalledWith("similar");
   });
 });
 
@@ -104,19 +104,10 @@ describe("deriveTabGateState（服务端矩阵 gates → Tab 角标状态）", (
   it("benefit 类：直接采用 gates 下发的状态", () => {
     const gates: Record<string, GateState> = {
       ai_match: "upgrade",
-      history_notice_db: "upgrade",
       similar_opportunity: "free",
     };
     expect(deriveTabGateState(byKey("ai-score"), gates, false)).toBe("upgrade");
-    expect(deriveTabGateState(byKey("history"), gates, false)).toBe("upgrade");
     expect(deriveTabGateState(byKey("similar"), gates, false)).toBe("free");
-  });
-
-  it("同类权益不再出现互相矛盾的档位标签（ai-score 与 history 同 gate）", () => {
-    const gates: Record<string, GateState> = { ai_match: "upgrade", history_notice_db: "upgrade" };
-    expect(deriveTabGateState(byKey("ai-score"), gates, false)).toBe(
-      deriveTabGateState(byKey("history"), gates, false),
-    );
   });
 
   it("unlock 类：已解锁→included；未解锁且有额度→unlock；无额度→upgrade", () => {

@@ -34,7 +34,6 @@ import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
 import { AiEvaluationPanel } from "../AiEvaluationPanel";
 import { useAiMatch } from "../../hooks/useAiMatch";
-import { AwardHistoryTab } from "./AwardHistoryTab";
 
 interface NoticeDetailProps {
   notice: NoticeDetailItem;
@@ -242,10 +241,6 @@ export function NoticeDetail({
                 onGoToEnterprise={() => router.push("/settings/enterprise")}
                 onEditDiag={() => router.push("/settings/supplier-pool")}
               />
-            )}
-
-            {activeTab === "history" && (
-              <AwardHistoryTab noticeId={noticeId} />
             )}
 
             {activeTab === "similar" && (
