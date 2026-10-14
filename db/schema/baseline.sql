@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 99 张，导出 94 张，排除 5 张。
+--           源库共 97 张，导出 95 张，排除 2 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -344,7 +344,6 @@ CREATE TABLE `crm_bid_opportunities` (
   `technical_hurdles` text,
   `training_link` text,
   `industry` varchar(100) DEFAULT NULL,
-  `unspsc_codes` json DEFAULT NULL,
   `contacts` json DEFAULT NULL,
   `documents` json DEFAULT NULL,
   `external_links` json DEFAULT NULL,
