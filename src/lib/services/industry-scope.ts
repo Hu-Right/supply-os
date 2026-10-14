@@ -30,7 +30,6 @@ import { INDUSTRY_SCOPED_BENEFIT, ALL_CATEGORY_ACCESS_BENEFIT } from "./benefit-
 import { resolveUserIndustryProfile } from "./industry-profile/resolve";
 import { l1NodesOfGroup } from "./commodity/tree";
 import { fromBackbonePathColumn } from "./commodity/backbone-path";
-import { groupCodeOfUnspscCode } from "./commodity/groups";
 
 export interface IndustryScope {
   /** true = 该用户的可见范围必须限定在 groupNodes 之内 */
@@ -120,24 +119,32 @@ export async function noticeInCategory(pool: Pool, noticeDbId: number, groupNode
 /**
  * 商机是否属于指定品目大类。
  *
- * 商机侧没有 backbone_path（宽表只派生公告），因此输入用**大类码**而不是节点码：
- * 逐行取 `crm_bid_opportunity_unspsc_codes.code`（8 位 UNSPSC 码），经
- * `groupCodeOfUnspscCode` 换算成大类码再比 —— 归属口径仍只在 commodity/groups 一份。
+ * 小表剥离（2026-10-14）：不再读商机桥表（`crm_bid_opportunity_unspsc_codes`，
+ * UNSPSC 原始码本身大量失真）。商机经关联公告（source_notice_id → 主表 → 宽表
+ * backbone_path）取 UGT 节点，与公告侧**同一份归属口径**；大类命中用
+ * `l1NodesOfGroup`（10 分钟缓存，与可见性执法共用一份）。
  *
- * 与公告侧**有意不同**的一处：无码行返回 false（拒绝解锁），不像公告侧「无类目数据放行」。
- * 解锁是扣配额的付费动作，判不准时宁可让用户少解锁一个，也不能让他解锁到订阅行业外；
- * 公告侧放行是为了避免一条脏数据把整站详情锁死（见 canAccessNotice）。
- * 商机桥表自 2026-09-22 起断过写入器，2026-10 由 unspsc/opp-bridge 把补码接回同步链路，
- * 存量无码商机会命中这一条 —— 那是数据缺口，不是判定 bug。
+ * 与公告侧**有意相同**的一处沿用：无类目数据返回 false（拒绝解锁），不像公告详情
+ * 「无类目放行」。解锁是扣配额的付费动作，判不准时宁可让用户少解锁一个，
+ * 也不能让他解锁到订阅行业外。关联公告缺归属是数据缺口（等 AI 归属管道消化），
+ * 不是判定 bug。
  */
 export async function opportunityInCategory(pool: Pool, opportunityId: number, groupCode: string | null): Promise<boolean> {
   if (!groupCode) return false;
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT code FROM crm_bid_opportunity_unspsc_codes WHERE opportunity_id = ? LIMIT 100`,
+    `SELECT ns.backbone_path AS p
+       FROM crm_bid_opportunities o
+       JOIN crm_bid_notices n ON n.notice_id = o.source_notice_id
+       JOIN crm_notice_search ns ON ns.id = n.id
+      WHERE o.id = ? LIMIT 1`,
     [opportunityId],
   );
-  for (const r of rows) if (groupCodeOfUnspscCode(String(r.code ?? "")) === groupCode) return true;
-  return false;
+  const nodes = fromBackbonePathColumn(rows[0]?.p);
+  if (nodes.length === 0) return false;
+  const l1 = await l1NodesOfGroup(pool, groupCode);
+  if (l1.length === 0) return false;
+  const wall = new Set(l1);
+  return nodes.some((node) => wall.has(node));
 }
 
 /**

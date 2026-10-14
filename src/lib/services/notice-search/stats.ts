@@ -165,7 +165,7 @@ export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
       const [activeRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}`);
       const [bridgedRows] = await pool.query(
         `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}
-         AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes b WHERE b.notice_id = n.notice_id)`
+         AND EXISTS (SELECT 1 FROM crm_notice_backbone_nodes b WHERE b.notice_id = n.id)`
       );
       const [featuredRows] = await pool.query(
         `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS} AND n.is_featured = 1`

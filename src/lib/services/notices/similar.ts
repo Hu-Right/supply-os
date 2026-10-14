@@ -9,38 +9,38 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 import { columns } from "../../utils/sql-columns";
 import { normalizeNoticeType } from "../../utils/notice-type";
-import { effectivePrefixOf, fromBackbonePathColumn } from "../commodity/backbone-path";
+import { backboneNodeLevel, fromBackbonePathColumn } from "../commodity/backbone-path";
 import { rankSimilarPeers, type NodeRow } from "./similar-scoring";
+import { NOTICE_NODES_TABLE } from "../search-sync/notice-nodes";
 
 /** 候选上限：一条公告最多拿多少个 peer 去打分 */
 const CANDIDATE_LIMIT = 2000;
-/** 一次 IN 列表的码数：走 idx_notice_code_notice 等值探测，语句过长无益 */
+/** 一次 IN 列表的码数：走 idx_node 等值探测，语句过长无益 */
 const CODE_CHUNK = 200;
 /** 一轮检索最多发的候选查询数：巨量码公告（实测最长 5,091 码）的兜底闸门 */
 const MAX_CANDIDATE_QUERIES = 12;
 
 /**
- * 把当前公告的码按有效位深度分档（细码→族级→段级），返回三档原始码列表。
- * 只决定候选检索的优先级，不改归属口径：有效位归一用的就是 backbone-path 那一份。
- * 换不出有效位的野码不进检索（它们已经在回填侧进了 misses，由门禁点名）。
+ * 把当前公告的节点码按深度分档（L4/L5 细码 → L3 小类 → L2 中类），返回三档节点码列表。
+ * 小表剥离后候选检索改走倒排表 UGT 节点（不再读桥表的 UNSPSC 原始码），
+ * 深度即码长（BB1），L1 大类过宽不进检索。只决定候选检索的优先级，不改归属口径。
  */
-function codesByDepth(codes: string[]): string[][] {
+function nodesByDepth(nodes: string[]): string[][] {
   const fine: string[] = [];
   const fam: string[] = [];
   const seg: string[] = [];
-  for (const raw of codes) {
-    const eff = effectivePrefixOf(raw);
-    if (!eff) continue;
-    if (eff.length >= 6) fine.push(raw);
-    else if (eff.length === 4) fam.push(raw);
-    else seg.push(raw);
+  for (const node of nodes) {
+    const lv = backboneNodeLevel(node);
+    if (lv >= 4) fine.push(node);
+    else if (lv === 3) fam.push(node);
+    else if (lv === 2) seg.push(node);
   }
   return [fine, fam, seg].filter((t) => t.length > 0);
 }
 
 /** 步骤 1-4：返回按相似度排序的 peer 外部 notice_id（最多 limit 个） */
 export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit: number): Promise<string[]> {
-  // 桥表按主表外部编号存码，候选检索先得把内部 id 换成外部编号
+  // 候选水合与打分侧都要外部编号，先换出来
   const [idRows] = await pool.query<RowDataPacket[]>(
     "SELECT notice_id FROM crm_bid_notices n WHERE n.id = ? LIMIT 1",
     [noticeDbId],
@@ -61,19 +61,14 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
   const currentNodes = fromBackbonePathColumn(curWide[0]?.p);
   if (currentNodes.length === 0) return []; // 无码（含平台 RFQ）→ 空，不兜底
 
-  // 当前公告的原始码（候选检索的输入，与回填同一张桥表同一口径）
-  const [codeRows] = await pool.query<RowDataPacket[]>(
-    `SELECT code FROM crm_bid_notice_unspsc_codes WHERE notice_id = ?`,
-    [currentNoticeId],
-  );
-  const tiers = codesByDepth(codeRows.map((r) => String(r.code ?? "").trim()));
+  const tiers = nodesByDepth(currentNodes);
   if (tiers.length === 0) return [];
 
-  // 候选：共享同一个原始码的公告（`code IN` 等值走 idx_notice_code_notice，见提交说明的 EXPLAIN）。
-  // 取代旧的 levelN_id 五列等值：旧口径拿旧字典 id 空比，且 JOIN 只接住 cur.level 1~5，
-  // 桥表实测 level 2~7 ⇒ level 6/7 的码从来没有分支能匹配（缺陷 D-6，77 条公告出不了相似）。
-  // 分档取而不是一句 LIMIT 2000 兜住：实测单码出现量 >2000 的粗码有 33 个（占全部码行 26%），
-  // 不分档时窗口会被码最小的那个段级粗码灌满，精细码的 peer 一个都进不来。
+  // 候选：共享同一个 UGT 节点的公告（倒排表 `node IN` 等值走 idx_node）。
+  // 小表剥离：不再经桥表 UNSPSC 原始码中转（那批码本身大量失真），直接按节点码找 peer，
+  // 与候选打分、筛选谓词同一条 UGT 口径。
+  // 分档取而不是一句 LIMIT 2000 兜住：实测单节点出现量巨大的粗节点会灌满窗口，
+  // 不分档时精细节点的 peer 一个都进不来。
   const peers = new Map<string, { wideId: number; deadline: number }>();
   let queries = 0;
   for (const tier of tiers) {
@@ -81,17 +76,17 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
       const chunk = tier.slice(i, i + CODE_CHUNK);
       queries++;
       const [rows] = await pool.query<RowDataPacket[]>(
-        `SELECT peer.notice_id AS notice_id,
+        `SELECT n.notice_id AS notice_id,
                 n.id AS wide_id,
                 MAX(n.deadline_ts) AS deadline_ts
-         FROM crm_bid_notice_unspsc_codes peer
-         JOIN crm_bid_notices n ON n.notice_id = peer.notice_id AND ${ACTIVE_NOTICE_WHERE}
-         WHERE peer.notice_id <> ? AND peer.code IN (${chunk.map(() => "?").join(",")})
-         GROUP BY peer.notice_id, n.id
+         FROM ${NOTICE_NODES_TABLE} peer
+         JOIN crm_bid_notices n ON n.id = peer.notice_id AND ${ACTIVE_NOTICE_WHERE}
+         WHERE peer.notice_id <> ? AND peer.node IN (${chunk.map(() => "?").join(",")})
+         GROUP BY n.notice_id, n.id
          LIMIT ${CANDIDATE_LIMIT - peers.size}`,
-        [currentNoticeId, ...chunk],
+        [noticeDbId, ...chunk],
       );
-      // 先入者优先：档序已经保证「共享品目/类的 peer 排在共享段级的 peer 之前」
+      // 先入者优先：档序已经保证「共享品目/子类的 peer 排在共享中类的 peer 之前」
       for (const r of rows) {
         const nid = String(r.notice_id);
         if (!peers.has(nid)) peers.set(nid, { wideId: Number(r.wide_id), deadline: Number(r.deadline_ts || 0) });

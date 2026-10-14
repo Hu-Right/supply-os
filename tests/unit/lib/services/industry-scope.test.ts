@@ -43,15 +43,13 @@ const L1_ROWS = [
   { g: "UGT-G-14", node: "UGT-XY" },
 ];
 
-/** 宽表 backbone_path 列值与商机码行：逐用例改写（tree 的 L1 图有 10 分钟模块级缓存，全用例共用 L1_ROWS） */
+/** 宽表 backbone_path 列值：逐用例改写（tree 的 L1 图有 10 分钟模块级缓存，全用例共用 L1_ROWS） */
 let wideRows: RowDataPacket[] = [];
-let oppCodes: string[] = [];
 // 形参必须把 params 一并声明：否则 mock.calls 的元组只有一位，取不到传参（TS2493）
 const query = vi.fn(async (sql: string, _params?: unknown[]) => {
   const s = String(sql);
   if (s.includes("crm_commodity_backbone")) return [L1_ROWS];
   if (s.includes("crm_notice_search")) return [wideRows];
-  if (s.includes("crm_bid_opportunity_unspsc_codes")) return [oppCodes.map((code) => ({ code }))];
   return [[]];
 });
 const pool = { query } as unknown as Pool;
@@ -63,7 +61,6 @@ beforeEach(() => {
   profile.resolve.mockReset();
   query.mockReset();
   wideRows = [];
-  oppCodes = [];
 });
 
 describe("resolveIndustryScope · 判定链", () => {
@@ -188,16 +185,20 @@ describe("noticeInCategory · 搜索参考号快速路径口径", () => {
   });
 });
 
-describe("opportunityInCategory · 商机侧大类码口径", () => {
-  it("码前 2 位落段命中该段所属大类 → true；不命中 → false", async () => {
-    oppCodes = ["43211503", "85100000"];
-    expect(await opportunityInCategory(pool, 77, "UGT-G-25")).toBe(true); // 85 → 医疗与卫生服务
-    expect(await opportunityInCategory(pool, 77, "UGT-G-07")).toBe(true); // 43 → 信息与通信技术
+describe("opportunityInCategory · 商机侧（经关联公告宽表口径）", () => {
+  it("关联公告祖先链含该大类的 L1 → true；不含 → false", async () => {
+    wideRows = wide("UGT-85"); // UGT-G-25 的 L1
+    expect(await opportunityInCategory(pool, 77, "UGT-G-25")).toBe(true);
+    wideRows = wide("UGT-21,UGT-22"); // UGT-G-14 挂两个 L1，任一命中即可
+    expect(await opportunityInCategory(pool, 77, "UGT-G-14")).toBe(true);
+    wideRows = wide("UGT-85");
     expect(await opportunityInCategory(pool, 77, "UGT-G-14")).toBe(false);
   });
 
-  it("无码行 → false（拒绝解锁）：与公告侧「无类目数据放行」有意不同，判不准时不越权", async () => {
-    oppCodes = [];
+  it("关联公告无类目数据（无宽表行/列为空）→ false（拒绝解锁）：判不准时不越权", async () => {
+    wideRows = [];
+    expect(await opportunityInCategory(pool, 78, "UGT-G-25")).toBe(false);
+    wideRows = wide(null);
     expect(await opportunityInCategory(pool, 78, "UGT-G-25")).toBe(false);
   });
 
@@ -206,8 +207,13 @@ describe("opportunityInCategory · 商机侧大类码口径", () => {
     expect(query).not.toHaveBeenCalled();
   });
 
-  it("野码（非 8 位数字）不参与命中，不裁剪也不补零", async () => {
-    oppCodes = ["43-2115-03", "432115"];
-    expect(await opportunityInCategory(pool, 80, "UGT-G-07")).toBe(false);
+  it("脏 token 不参与命中：只认 UGT- 形制的节点码", async () => {
+    wideRows = wide("UGT-XY,43211503");
+    expect(await opportunityInCategory(pool, 80, "UGT-G-25")).toBe(false);
+  });
+
+  it("大类挂不上 L1（分叉态）→ false，不放开", async () => {
+    wideRows = wide("UGT-21");
+    expect(await opportunityInCategory(pool, 81, "UGT-G-99")).toBe(false);
   });
 });

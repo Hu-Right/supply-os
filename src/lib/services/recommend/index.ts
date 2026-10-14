@@ -121,10 +121,11 @@ export async function recommendNotices(
   const scoring = buildScoringContext(scoredNodes, interestTotal, wUnspsc, wUrgency, wAmount, wNeutral, amountCenterLog, amountActive);
 
   // ── 主查询 ──
-  // 三个 JOIN 各管一件事，都不能合：cand（节点码倒排表）把候选集从 67 万收窄到千级；
-  // ns（宽表）只给打分提供该公告自己的完整节点码路径（压集后的深层落点不在 cand 行里，
-  // 拿 cand 打分会静默归零，见 scoring.ts 那段）；b（码桥表）只出两件与口径无关的东西
-  // —— MMR 去重用的公告码集（codes_concat）与返回给前端的 match_score（该公告挂了几条码）。
+  // 两个 JOIN 各管一件事：cand（节点码倒排表）把候选集从 67 万收窄到千级，顺带出
+  // MMR 去重用的公告节点集（codes_concat）与返回给前端的 match_score（该公告与兴趣
+  // 命中的节点数，小表剥离后同源倒排，不再碰码桥表）；ns（宽表）只给打分提供该公告
+  // 自己的完整节点码路径（压集后的深层落点不在 cand 行里，拿 cand 打分会静默归零，
+  // 见 scoring.ts 那段）。
   // 绑定顺序必须跟 SQL 文本里 ? 的出现顺序一致（mysql2 是按位置拼值的）：
   // SELECT 里的打分参数 → cand JOIN 的节点码 → trJoin 的语种 → LIMIT/OFFSET。
   // 上一版把 trParams 拼在第一个，传了 locale 的请求里语种串就被绑到打分位上：
@@ -149,8 +150,8 @@ export async function recommendNotices(
     "MAX(opp_desc.beneficiary_countries) AS beneficiary_countries",
     `${scoring.l4HitExpr} AS l4_hit`,
     "MAX(amc.amount_usd) AS amount_usd_cached",
-    "GROUP_CONCAT(DISTINCT b.code) AS codes_concat",
-    "COUNT(DISTINCT b.code) AS match_score",
+    "GROUP_CONCAT(DISTINCT cand.node) AS codes_concat",
+    "COUNT(DISTINCT cand.node) AS match_score",
     `${scoring.recoScoreExpr} AS reco_score`,
   );
 
@@ -161,7 +162,6 @@ export async function recommendNotices(
        FROM crm_bid_notices n
        ${clauses.join}
        INNER JOIN crm_notice_search ns ON ns.id = n.id
-       INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
        LEFT JOIN crm_notice_amount_cache amc ON amc.notice_id = n.id
        ${trJoin}
        ${treJoin}
