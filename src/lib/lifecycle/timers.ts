@@ -11,7 +11,6 @@ import { refreshFeaturedColumn } from "../services/notices/index";
 import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
 import { syncWideIds } from "../services/search-sync/index";
-import { cleanupStaleNoticeBridge } from "../services/data-cleanup";
 import { runAttributionMirror } from "../services/commodity/attribution-mirror";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
@@ -99,25 +98,8 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     }
   });
 
-  // 4. 桥接表脏数据定时清理（BRIDGE_CLEANUP_INTERVAL_HOURS 控制间隔，默认 24 小时；
-  //    BRIDGE_CLEANUP_ENABLED=off 关闭；单次失败仅记日志，不影响下一次扫描）
-  let bridgeCleanupTimer: NodeJS.Timeout | null = null;
-  if (String(process.env.BRIDGE_CLEANUP_ENABLED ?? "on").toLowerCase() !== "off") {
-    const bridgeCleanupIntervalHours = Math.max(1, Number(process.env.BRIDGE_CLEANUP_INTERVAL_HOURS || 24));
-    const runBridgeCleanup = async () => {
-      try {
-        await cleanupStaleNoticeBridge(dbPool);
-      } catch (e) {
-        console.error("[bridge-cleanup-timer] 扫描失败（不影响下次扫描）:", (e as Error).message);
-      }
-    };
-    // 启动时立即异步清理一次存量脏数据（不阻塞启动）
-    // 延迟 5s 执行，避免与 auto-translate 等其他启动任务抢 DB 连接
-    setTimeout(() => { void runBridgeCleanup(); }, 5_000);
-    bridgeCleanupTimer = setInterval(() => {
-      void runBridgeCleanup();
-    }, bridgeCleanupIntervalHours * 3600 * 1000);
-  }
+  // 4.（已下线）桥接表脏数据定时清理随小表剥离移除（2026-10-14）：
+  //    桥表不再进新数据，清理器失去存在意义；表本体物理删除随 D1' 批次。
 
   // 5. 附属数据（翻译表 + 宽表）定时清理（DATA_CLEANUP_INTERVAL_HOURS 控制间隔，默认 24 小时；
   //    DATA_CLEANUP_ENABLED=off 关闭；单次失败仅记日志，不影响下一次扫描；
@@ -272,7 +254,6 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       clearInterval(featuredRefreshTimer);
       clearInterval(statsRefreshTimer);
       clearTimeout(dailyRefreshTimer);
-      if (bridgeCleanupTimer) clearInterval(bridgeCleanupTimer);
       if (dataCleanupTimer) clearInterval(dataCleanupTimer);
       if (paymentMaintenanceTimer) clearInterval(paymentMaintenanceTimer);
       if (paymentTierSyncTimer) clearTimeout(paymentTierSyncTimer);

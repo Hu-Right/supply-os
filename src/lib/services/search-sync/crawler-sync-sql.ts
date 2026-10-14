@@ -12,12 +12,11 @@
  *              语义完全移植自 scripts/daily-sync.cjs，是「爬虫库 → 主表」增量同步的 SQL 单一事实源。
  */
 
-/** 同步表顺序：父表（notices/opportunities）先于子表（unspsc 桥接），
- *  在不关闭外键检查的前提下保证外键引用的父行先落库 */
+/** 同步表顺序：UNSPSC 桥表（crm_bid_notice_unspsc_codes）已随小表剥离移出同步清单
+ *  （2026-10-14）——公告归属唯一事实源是落点表，桥表进入只出不进的封存态。 */
 export const SYNC_TABLES = [
   "crm_bid_notices",
   "crm_bid_opportunities",
-  "crm_bid_notice_unspsc_codes",
 ] as const;
 
 /** 公告主表名（其变更 id 需级联到宽表） */

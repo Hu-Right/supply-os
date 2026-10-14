@@ -10,9 +10,7 @@
 export type { CleanupTarget, CleanupOptions, CleanupStats } from "./engine";
 export { runStaleDataCleanup, countStaleData } from "./engine";
 
-// 桥接表清理
-export { cleanupStaleNoticeBridge, countStaleBridgeRows } from "./bridge-cleanup";
-export type { BridgeCleanupOptions, BridgeCleanupStats } from "./bridge-cleanup";
+// （桥接表清理 bridge-cleanup.ts 已随小表剥离删除 2026-10-14：桥表不再进新数据）
 
 // 附属数据清理
 export { cleanupStaleNoticeData, countStaleNoticeData, CLEANUP_TARGETS } from "./data-cleanup";

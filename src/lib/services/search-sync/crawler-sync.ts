@@ -13,31 +13,16 @@
  *                 → 改为按父→子表顺序同步 + ODKU 幂等；
  *              2. **收集本轮 crm_bid_notices 变更 id**，交由调度器在主表全部写完后
  *                 级联宽表（syncWideIds 内部再级联 Meili），实现「主表完整 → 才更新宽表」
- *                 的同进程串行顺序；
- *              3. **品目桥表入库路径归一**（见 unspsc/bridge-normalize）：上游写来的
- *                 levelN_id 存在 0/NULL 两套空写法与「字典 id / 码前缀」两套口径，
- *                 不处理就会让新行继续偏离消费点（类目筛选/推荐召回/行业墙/相似公告）
- *                 的比对口径。
+ *                 的同进程串行顺序。
  *
- *              4. **商机桥表补行**（见 unspsc/opp-bridge）：crm_bid_opportunity_unspsc_codes 不在
- *                 爬虫库同步白名单里（该表历史上由爬虫程序直写主库，2026-09-22 起该路径已断），
- *                 主表每轮新增的商机因此一律没有类目行 → 商机页类目筛选与行业墙拿不到数据。
- *                 本轮主表写完后按主表能拿到的码（product_code / unspsc_codes）派生补行，
- *                 只补缺不改动既有行，抽不出码的商机不写（不猜码、不做读取侧兜底）。
+ *              （小表剥离 2026-10-14：品目桥表同步/入库归一与商机桥表补行两段已下线——
+ *              桥表移出同步清单，公告归属唯一事实源是落点表，见 SYNC_TABLES 注。）
  *
  *              ⚠️ 源库值经 escapeVal 拼进批量 INSERT 字符串（沿用 .cjs 语义）：数据源为
  *              受信任的内网爬虫库，非终端用户输入；列名来自 information_schema 且反引号包裹。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { getSourcePool } from "@/lib/db/source-pool";
-import {
-  BRIDGE_NORMALIZE_POLICIES,
-  applyBridgeNormalize,
-  buildUnspscDictIndex,
-  type UnspscDictIndex,
-  type UnspscDictRow,
-} from "../unspsc/bridge-normalize";
-import { syncMissingOppBridge, type OppBridgeSyncResult } from "../unspsc/opp-bridge";
 import {
   SYNC_TABLES, NOTICE_TABLE,
   escapeVal, buildOdkuClause, buildIncrementalWhere, buildWatermark,
@@ -91,23 +76,6 @@ export async function saveWatermark(target: Pool, table: string, wm: Watermark):
      ON DUPLICATE KEY UPDATE id_wm = VALUES(id_wm), time_wm = VALUES(time_wm)`,
     [table, wm.id, wm.time],
   );
-}
-
-/**
- * 读目标库旧字典建索引（桥表归一用）。
- * 字典约 1.3 万行、内存占用与 unspsc/tree-cache 同量级；每轮同步加载一次。
- * 加载失败返回 null → 本轮不做归一（绝不因归一失败而阻塞同步）。
- */
-export async function loadUnspscDictIndex(target: Pool): Promise<UnspscDictIndex | null> {
-  try {
-    const [rows] = await target.query(
-      "SELECT id, code, level, parent_id FROM crm_unspsc_codes ORDER BY id",
-    );
-    return buildUnspscDictIndex(rows as unknown as UnspscDictRow[]);
-  } catch (err) {
-    console.warn(`[crawler-sync] 桥表归一字典加载失败，本轮跳过归一: ${err instanceof Error ? err.message : String(err)}`);
-    return null;
-  }
 }
 
 export interface SyncTableResult {
@@ -231,42 +199,29 @@ export interface CrawlerSyncResult {
   totalSynced: number;
   changedNoticeIds: number[];
   perTable: Record<string, number>;
-  /** 商机桥表补行结果；字典加载失败时为 null（本轮不补） */
-  oppBridge: OppBridgeSyncResult | null;
 }
-
-/** 本轮无补行时的统一空结果（包括字典不可用的情形） */
-const EMPTY_OPP_BRIDGE: OppBridgeSyncResult = {
-  scanned: 0, no_code: 0, uncovered: 0, code_not_in_dict: 0, path_unresolvable: 0, planned: 0, inserted: 0,
-};
 
 /**
  * 跑一轮完整爬虫同步：按 SYNC_TABLES 顺序同步全部主表，返回公告变更 id 供级联。
  * 源库未配置时 skipped=true（不报错，不影响其他功能）。
- * 主表全部落库后补商机桥表行（见 unspsc/opp-bridge）；补行异常不影响本轮主表成果
- * 与宽表级联（主表已写完，不能因为补行报错而丢掉 changedNoticeIds）。
+ *
+ * 小表剥离（2026-10-14）：UNSPSC 桥表（crm_bid_notice_unspsc_codes）移出同步清单，
+ * 归一字典与商机桥表补行（syncMissingOppBridge）一并下线——公告归属的唯一事实源
+ * 是落点表 crm_notice_attribution_nodes（镜像 + AI 管道），桥表进入只出不进的封存态，
+ * 物理删除随 D1' 批次。
  */
 export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResult> {
   const source = getSourcePool();
-  if (!source) return { skipped: true, totalSynced: 0, changedNoticeIds: [], perTable: {}, oppBridge: EMPTY_OPP_BRIDGE };
+  if (!source) return { skipped: true, totalSynced: 0, changedNoticeIds: [], perTable: {} };
 
   const wms = await loadWatermarks(target);
-  // 桥表归一：字典只在需要时加载一次（同一份索引服务本轮全部桥表）
-  const needsNormalize = SYNC_TABLES.some((table) => BRIDGE_NORMALIZE_POLICIES[table]);
-  const dict = needsNormalize ? await loadUnspscDictIndex(target) : null;
   let totalSynced = 0;
   const changedNoticeIds: number[] = [];
   const perTable: Record<string, number> = {};
 
   for (const table of SYNC_TABLES) {
     const wm = wms.get(table) ?? { id: 0, time: null };
-    const policy = BRIDGE_NORMALIZE_POLICIES[table];
-    let normalize: ((row: RowDataPacket) => Record<string, unknown>) | undefined;
-    if (dict && policy) {
-      const index = dict;
-      normalize = (row) => applyBridgeNormalize(row, index, policy);
-    }
-    const result = await syncTable(source, target, table, wm, (batchWm) => saveWatermark(target, table, batchWm), normalize);
+    const result = await syncTable(source, target, table, wm, (batchWm) => saveWatermark(target, table, batchWm));
     // 兜底：本轮结束再落一次最终水位（与每批一致，幂等）
     await saveWatermark(target, table, result.newWm);
     wms.set(table, result.newWm);
@@ -275,20 +230,5 @@ export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResul
     if (table === NOTICE_TABLE) changedNoticeIds.push(...result.changedIds);
   }
 
-  let oppBridge: OppBridgeSyncResult = EMPTY_OPP_BRIDGE;
-  if (dict) {
-    try {
-      oppBridge = await syncMissingOppBridge(target, dict);
-      if (oppBridge.planned > 0) {
-        console.log(`[crawler-sync] 商机桥表补行：缺口商机 ${oppBridge.scanned}，可补 ${oppBridge.planned} 行→实写 ${oppBridge.inserted}` +
-          `（无码 ${oppBridge.no_code}、码不在字典 ${oppBridge.code_not_in_dict}）`);
-      }
-    } catch (err) {
-      console.warn(`[crawler-sync] 商机桥表补行失败（本轮主表成果保留）: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  } else {
-    console.warn("[crawler-sync] 旧字典不可用，本轮跳过商机桥表补行");
-  }
-
-  return { skipped: false, totalSynced, changedNoticeIds, perTable, oppBridge };
+  return { skipped: false, totalSynced, changedNoticeIds, perTable };
 }

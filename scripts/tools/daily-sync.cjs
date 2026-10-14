@@ -39,6 +39,16 @@
  *   DATETIME 列以原值字符串同步与比较（dateStrings），不做时区转换
  *   定时循环带防重入：上一轮未结束时自动跳过本轮
  */
+
+// ═══════════════════════════════════════════
+// ⚠️ 已退役（2026-10-14，UNSPSC 桥表直删批次）：本脚本会绕过应用内 crawler-sync
+//    的同步清单直插 UNSPSC 桥表（SYNC_TABLES 含 crm_bid_notice_unspsc_codes），
+//    与「桥表只出不进、封存待物理删除」的口径冲突。应急同步一律走应用内
+//    crawler-sync（instrumentation 拉起，或手动触发调度器），本文件留档不再可执行。
+// ═══════════════════════════════════════════
+console.error('✗ daily-sync.cjs 已退役（2026-10-14）：同步逻辑在应用内 crawler-sync，桥表已封存，本脚本不再可执行。');
+process.exit(1);
+
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');

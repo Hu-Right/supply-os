@@ -19,6 +19,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { deleteFile } from "@/lib/services/file-upload";
+import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { assertBindingAllowsSubject, readCurrentBinding, assertVerifiedSubjectIdentityStable } from "@/lib/services/enterprise-binding";
 import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
 import type { AppContext } from "@/lib/db/context";
@@ -88,6 +89,43 @@ async function reconcileLicense(
   }
 }
 
+/** 双时钟：带执照提交 → 直接 7 天审核期；无执照 → 1 小时限时上传期（与企业页执照必填互为兜底） */
+function claimExpiryFrom(licenseUrl: string | undefined): string {
+  const ms = licenseUrl ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
+  return new Date(Date.now() + ms).toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+}
+
+/** body 里的执照鉴权 URL：非空字符串才视为有执照（空串=未提供，交由双时钟兜底） */
+function normalizeLicenseUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const t = value.trim();
+  return t || undefined;
+}
+
+/**
+ * 统一认领口径（2026-10-14）：绑定必须落在认领单上，人工审核通过才算真绑定。
+ * 已有有效认领（pending/approved，重复保存）幂等跳过；行已认证（verify_status='done'）
+ * 视为历史后台背书，不补单。返回是否新建了认领单；false 时调用方需自行补 bindSupplier。
+ */
+async function ensurePendingClaim(
+  ctx: AppContext,
+  userId: number,
+  supplierId: number,
+  licenseUrl: string | undefined,
+): Promise<boolean> {
+  const existing = await ctx.supplier.claimRepo.findByUserAndSupplier(userId, supplierId).catch(() => null);
+  if (existing) return false;
+  const row = await ctx.supplier.directoryRepo.findFullById(supplierId);
+  if (!row || row.verify_status === "done") return false;
+  await createClaimWithBinding(ctx, {
+    userId,
+    supplierId,
+    licenseUrl,
+    expiresAt: claimExpiryFrom(licenseUrl),
+  });
+  return true;
+}
+
 export const GET = withRoute(async (req) => {
   const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
@@ -134,7 +172,10 @@ export const PUT = withRoute(async (req) => {
   if ("license_url" in body) {
     await reconcileLicense(ctx, ctx.supplier.directoryRepo, supplierId, auth.userId, body.license_url ?? null);
   }
-  return NextResponse.json({ code: 0, message: "ok" });
+  // legacy 自愈：秒绑时代（2026-10-14 前）绑定的未认证行可能没有认领单，补建进审核队列。
+  // 执照已在行上（认领单经 supplier JOIN 读图），不重写。
+  const claimCreated = await ensurePendingClaim(ctx, auth.userId, supplierId, undefined);
+  return NextResponse.json({ code: 0, message: "ok", data: { claimCreated } });
 });
 
 /** 未绑定：新建企业行并绑定到当前用户；防重：credit_code 优先、其次公司名，已存在则直接绑定已有行不新建；
@@ -193,11 +234,15 @@ export const POST = withRoute(async (req) => {
     if (!ownership.selfBound && (ownership.boundByOther || ownership.claimPending)) {
       routeError(400, EC_ENTERPRISE_CLAIMED_BY_OTHER, "该公司已被其他账户认领，无法绑定");
     }
-    await ctx.user.usersRepo.bindSupplier(auth.userId, existingId, "verified");
-    if ("license_url" in body) {
-      await reconcileLicense(ctx, repo, existingId, auth.userId, body.license_url ?? null);
+    // 统一认领口径（2026-10-14）：复用未认证行不再裸秒绑，改走认领单+临时绑定，
+    // 后台人工审核（核验执照）通过才算真绑定。createClaimWithBinding 内部已含
+    // 临时绑定与执照落库；已有有效认领单/已认证行时幂等回落为直接绑定。
+    const licenseUrl = normalizeLicenseUrl(body.license_url);
+    const claimCreated = await ensurePendingClaim(ctx, auth.userId, existingId, licenseUrl);
+    if (!claimCreated) {
+      await ctx.user.usersRepo.bindSupplier(auth.userId, existingId, "verified");
     }
-    return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, reused: true } });
+    return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, reused: true, claimCreated } });
   }
 
   // ── 新建：审核中 + 自注册来源 ──
@@ -209,10 +254,14 @@ export const POST = withRoute(async (req) => {
     routeError(500, EC_INTERNAL_ERROR, "企业信息创建失败");
   }
 
-  await ctx.user.usersRepo.bindSupplier(auth.userId, newId, "verified");
-  // 新建后落入本次上传的执照（上传时尚无 supplier_id，此处为首次持久化）
-  if ("license_url" in body && body.license_url) {
-    await reconcileLicense(ctx, repo, newId, auth.userId, body.license_url);
-  }
-  return NextResponse.json({ code: 0, message: "ok", data: { supplierId: newId, reused: false } });
+  // 统一认领口径：新建档案同样先立认领单+临时绑定，人工审核通过才算真绑定；
+  // 本次上传的执照随 createClaimWithBinding 首次持久化到该行（上传时尚无 supplier_id）
+  const licenseUrl = normalizeLicenseUrl(body.license_url);
+  await createClaimWithBinding(ctx, {
+    userId: auth.userId,
+    supplierId: newId,
+    licenseUrl,
+    expiresAt: claimExpiryFrom(licenseUrl),
+  });
+  return NextResponse.json({ code: 0, message: "ok", data: { supplierId: newId, reused: false, claimCreated: true } });
 });

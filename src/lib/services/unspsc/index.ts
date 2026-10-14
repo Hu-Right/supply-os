@@ -3,60 +3,18 @@
  * UNSPSC service module — unified export entry
  *
  * @module server/services/unspsc
- * @description 按职责拆分的 UNSPSC 子模块统一导出：
- *              - parser: 纯函数（码归一化、前缀提取）
- *              - bridge-normalize: 纯函数（桥表入库五级路径归一）
- *              - bridge-derive: 纯函数（按主表码文本派生桥表新行）
- *              - opp-bridge: 数据库写操作（商机桥表补行）
- *              - interest: 数据库写操作（用户兴趣码持久化）
- *              （filter 已整文件下线：最后一个读者随 UNSPSC 字典退役删除）
+ * @description 仅剩 parser 纯函数（normalizeUnspscCodes 供中标报告等读主表
+ *              unspsc_codes JSON 的残留消费方使用；unspscPrefixFromCode 供
+ *              上线日迁移件使用）。
+ *
+ *              已随退役删除的子模块（按批次）：
+ *              - filter（R3' 断读者 + 字典退役）、interest / 桥表三件
+ *                bridge-normalize / bridge-derive / opp-bridge（小表剥离 +
+ *                桥表直删 2026-10-14：桥表移出同步清单，公告归属唯一事实源
+ *                是落点表，见 services/commodity/attribution-mirror）。
  */
-
-// 纯函数（padUnspscPrefix 已随 R3' B3 删除；expandUnspscInterestPrefixes 已随
-// 小表剥离删除——兴趣画像改吃 UGT 节点码，前缀展开失零读者）
 export {
   normalizeUnspscCodes,
   unspscPrefixFromCode,
 } from "./parser";
 export type { UnspscCodeRow } from "./parser";
-
-// 桥表入库归一（纯函数）
-export {
-  BRIDGE_PATH_COLUMNS,
-  BRIDGE_NORMALIZE_POLICIES,
-  buildUnspscDictIndex,
-  normalizeBridgePathRow,
-  applyBridgeNormalize,
-  toDictIdOrNull,
-} from "./bridge-normalize";
-export type {
-  BridgePathColumn,
-  BridgeNormalizePolicy,
-  BridgeNormalizeResult,
-  UnspscDictIndex,
-  UnspscDictRow,
-} from "./bridge-normalize";
-
-// 桥表派生与补行
-export {
-  extractFullCodes,
-  deriveBridgeRows,
-  type DerivedBridgeRow,
-  type DeriveResult,
-} from "./bridge-derive";
-export {
-  OPP_BRIDGE_TABLE,
-  collectOppBridgePlan,
-  insertOppBridgeRows,
-  syncMissingOppBridge,
-  type OppBridgeInsertRow,
-  type OppBridgePlan,
-  type OppBridgeSyncResult,
-} from "./opp-bridge";
-
-// SQL 构建（buildNoticeUnspscFilter 已随 R3' 断读者删除；getUnspscPath 的最后读者
-// catalog.repo.findUnspscNodeById 链已随 UNSPSC 字典退役删除，filter.ts 整文件下线）
-
-// 数据库写操作
-// （interest.ts 已随小表剥离删除：兴趣画像改吃 UGT 节点码，
-//   写入口收敛到 services/commodity/interest.ts persistInterestNodeCodes）
