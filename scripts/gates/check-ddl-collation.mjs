@@ -14,6 +14,8 @@ import path from "node:path";
  *        写了 `CHARSET=utf8mb4` 却漏 `COLLATE=utf8mb4_0900_ai_ci`、或表级 COLLATE 非 0900_ai_ci → fail；
  *        表名在 ALLOWLIST 的有意例外跳过。（完全不写 charset 的，视为依赖已对齐的库默认，不报，避免误伤）
  *   DC2) 表选项里出现非 utf8mb4 字符集（旧 3 字节 utf8mb3 等）→ fail。
+ *   DC3) 表选项必须显式 `ENGINE=InnoDB`；写成 MyISAM/MEMORY 等非 InnoDB、或漏写 ENGINE → fail。
+ *        （InnoDB 是规范 §1 唯一允许引擎：事务/行锁/崩溃恢复/外键；MyISAM 等无这些能力。）
  *   注：列级 `COLLATE utf8mb4_bin`（精确匹配列）在括号内、不受本门禁约束（只校表级默认）。
  *
  * 违规 exit 1，供 npm run lint 与 CI 拦截。
@@ -71,18 +73,17 @@ function optionsAfterBody(stmt) {
 for (const file of files) {
   const rel = path.relative(ROOT, file).replace(/\\/g, "/");
   const text = fs.readFileSync(file, "utf8");
-  const re = /CREATE\s+TABLE/gi;
+  // 只认“表名后紧跟左括号列清单”的真实建表定义；SHOW CREATE TABLE / CTAS(AS SELECT) / LIKE 复制
+  // 以及日志/文案里出现的 “CREATE TABLE” 字样都不匹配，天然排除，避免误伤。
+  const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:`([^`]+)`|([A-Za-z_][A-Za-z0-9_$]*)|\$\{[^}]*\})\s*\(/gi;
   let m;
   while ((m = re.exec(text))) {
     const start = m.index;
+    const name = m[1] ?? m[2] ?? "(动态名)";
+    if (ALLOWLIST.has(name)) continue;
     let end = text.indexOf(";", start);
     if (end === -1) end = Math.min(text.length, start + 6000);
     const stmt = text.slice(start, end + 1);
-    const head = stmt.slice(0, stmt.indexOf("(") === -1 ? stmt.length : stmt.indexOf("("));
-    if (/\bLIKE\b/i.test(head)) continue; // CREATE TABLE x LIKE y：继承源表 collation，不重复声明
-    const nameM = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_]+)`?/i);
-    const name = nameM?.[1] ?? "(unknown)";
-    if (ALLOWLIST.has(name)) continue;
     const line = text.slice(0, start).split(/\r?\n/).length;
     const options = optionsAfterBody(stmt);
     if (options === null) continue; // 没有列定义体（异常/动态拼接），跳过不误报
@@ -99,6 +100,13 @@ for (const file of files) {
       violations.push(`${rel}:${line} [DC1] 表 \`${name}\` 写了 CHARSET=utf8mb4 却漏 COLLATE=${STD}`);
     } else if (collM && collM[1].toLowerCase() !== STD) {
       violations.push(`${rel}:${line} [DC1] 表 \`${name}\` 表级 COLLATE=${collM[1]}，应为 ${STD}（确需例外请在 ALLOWLIST 注明原因）`);
+    }
+
+    const engM = options.match(/ENGINE\s*=\s*([A-Za-z0-9_]+)/i);
+    if (!engM) {
+      violations.push(`${rel}:${line} [DC3] 表 \`${name}\` 未显式声明 ENGINE=InnoDB（禁止依赖默认/遗留引擎）`);
+    } else if (engM[1].toLowerCase() !== "innodb") {
+      violations.push(`${rel}:${line} [DC3] 表 \`${name}\` 引擎=${engM[1]}，必须 InnoDB（MyISAM 等无事务/行锁，禁用；确需例外请入 ALLOWLIST 并注明原因）`);
     }
   }
 }

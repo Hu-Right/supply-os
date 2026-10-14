@@ -67,6 +67,32 @@ test("DC2 破坏性：utf8mb3 字符集必须报错", () => {
   assert.match(r.out, /\[DC2\].*baz.*utf8mb3/);
 });
 
+test("DC3 破坏性：MyISAM 引擎必须报错", () => {
+  const root = fixture({
+    "src/e.sql": "CREATE TABLE `mm` (id INT) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;",
+  });
+  const r = run({ DDL_COLLATION_SCAN_ROOT: root });
+  assert.equal(r.code, 1, "MyISAM 没被拦住");
+  assert.match(r.out, /\[DC3\].*mm.*MyISAM/);
+});
+
+test("DC3 破坏性：漏写 ENGINE=InnoDB 必须报错", () => {
+  const root = fixture({
+    "src/f.sql": "CREATE TABLE `tt` (id INT) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;",
+  });
+  const r = run({ DDL_COLLATION_SCAN_ROOT: root });
+  assert.equal(r.code, 1, "漏写 ENGINE 没被拦住");
+  assert.match(r.out, /\[DC3\].*tt.*ENGINE=InnoDB/);
+});
+
+test("SHOW CREATE TABLE 与 CTAS(AS SELECT) 不得误报", () => {
+  const root = fixture({
+    "src/g.sql": "SHOW CREATE TABLE `good`;\nCREATE TABLE `bak` AS SELECT * FROM `good` WHERE id IN (1,2);\n",
+  });
+  const r = run({ DDL_COLLATION_SCAN_ROOT: root });
+  assert.equal(r.code, 0, r.out);
+});
+
 test("不误报：表级 0900_ai_ci + 列级 bin 例外、CREATE TABLE LIKE 均应通过", () => {
   const root = fixture({
     "src/ok.sql":
