@@ -214,7 +214,7 @@ const INTAKE_DDL = `CREATE TABLE IF NOT EXISTS \`${INTAKE_TABLE}\` (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uk_src (source_table, source_pk),
   KEY idx_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`;
 // 每轮同步加载一次的 UGT 品目码集合；null = 加载失败，本轮降级不过滤
 let commodityCodeFilter = null;
 
