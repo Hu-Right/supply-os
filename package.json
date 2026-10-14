@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev --port 3000 --hostname 0.0.0.0",
-    "build": "next build && npm run check:css-compat",
+    "build": "next build && npm run check:css-compat && node scripts/copy-standalone-assets.mjs",
     "start": "next start",
     "clean": "node -e \"const fs=require('fs');['dist','server.js'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
     "lint": "npm run check:encoding && npm run check:gitignore && node scripts/gates/check-no-admin-routes.mjs && npm run check:wide-ssot && npm run check:notice-classification && npm run check:sql-shapes && npm run check:opp-slim && npm run check:opp-slim:self-test && eslint src/",
