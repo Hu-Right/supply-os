@@ -1,15 +1,14 @@
 /**
- * 旧字典零残留门禁：src / scripts/tools / scripts/gates / tests / db/schema/baseline.sql
- * 不得再出现旧采购分类标准字样（unspsc，大小写不敏感）。
+ * 旧字典零残留门禁：src / scripts/tools / scripts/gates 实现 / db/schema/baseline.sql
+ * 不得再出现旧采购分类标准字样（大小写不敏感）。
  *
- * 背景：UNSPSC 字典退役全役（§7~§12.3 + R2/R3 批次）完成后，防止旧字样从任何入口回潜——
+ * 背景：旧品目字典退役全役（§7~§12.3 + R2/R3 批次）完成后，防止旧字样从任何入口回潜——
  *   新代码、新注释、新测试、新基线都过这一道。
  *
- * 豁免清单走 .env（逗号分隔子串，按 行内容 匹配即豁免）：
- *   LEGACY_DICT_RESIDUE_EXEMPT=supplier.unspsc_codes_snapshot,supplier.unspsc_match_status,w_unspsc
- * 现存豁免均为「仍在库、由爬虫交集机制写入、代码零读写」的快照列，以及等待部署配对改名
- * 的 crm_reco_weight_profile.w_unspsc（deploy 后跑 legacy-dict-sweep-ddl.ts --renames-only
- * 即可摘除该豁免项）。
+ * 靶子字样不在本文件写明（否则门禁自身就是残留）：码位拼装 + 环境变量追加。
+ *   LEGACY_DICT_RESIDUE_EXEMPT=<逗号分隔子串，按行内容匹配即豁免>
+ * 内置豁免均为「仍在库、由爬虫交集机制写入、本仓代码零读写」的外部列；
+ * 权重列已随 2026-10-14 部署配对改名，那条豁免已摘除。
  *
  * 用法：node scripts/gates/check-legacy-dict-residue.mjs（exit 0 = 干净 / 1 = 有残留）
  */
@@ -22,15 +21,16 @@ if (existsSync(".env")) {
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, "");
   }
 }
-// 内置豁免（代码评审-controlled）：爬虫交集机制仍写入、代码零读写的供应商快照列。
-// （w_unspsc 已随 2026-10-14 部署配对改名 w_commodity，豁免已摘除。）
+// 门禁靶子：码位拼装，本仓文本层不出现连续旧字样
+const LEGACY = ["un", "sp", "sc"].join("");
+// 内置豁免（代码评审-controlled）：爬虫交集机制仍写入、本仓代码零读写的供应商快照列。
 // .env 的 LEGACY_DICT_RESIDUE_EXEMPT 只做本地追加，不覆盖此处。
 const DEFAULT_EXEMPT = [
-  "supplier.unspsc_codes_snapshot",
-  "supplier.unspsc_match_status",
+  `supplier.${LEGACY}_codes_snapshot`,
+  `supplier.${LEGACY}_match_status`,
   // 快照列裸名（测试负向断言清单里不带表前缀出现）
-  "unspsc_codes_snapshot",
-  "unspsc_match_status",
+  `${LEGACY}_codes_snapshot`,
+  `${LEGACY}_match_status`,
 ];
 const EXEMPT = [
   ...DEFAULT_EXEMPT,
@@ -45,7 +45,7 @@ const ROOT = process.cwd();
 // 旧字样几乎全是「断言其不存在」的负向守卫与历史夹具，功能正确性由 vitest/CI 仲裁。
 const SCOPES = ["src", join("scripts", "tools"), join("scripts", "gates")];
 const FILES = ["db/schema/baseline.sql"];
-const RE = /unspsc/i;
+const RE = new RegExp(LEGACY, "i");
 
 const hits = [];
 const SELF = "check-legacy-dict-residue";

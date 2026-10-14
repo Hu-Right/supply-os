@@ -73,9 +73,9 @@ describe("buildFilterPlan 品目大类筛选（backbone 口径）", () => {
     expect(plan.meiliFilters).toContain('(backbone_node = "UGT-21" OR backbone_node = "UGT-22")');
   });
 
-  it("不再读旧字典：谓词里既不出现 unspsc_level2 也不出现 level2_id", async () => {
+  it("不再读旧字典：谓词里既不出现 *_level1~5 也不出现 level2_id", async () => {
     const plan = await buildFilterPlan(fakePool(), validateParams({ groupCode: "UGT-G-14" }));
-    expect(plan.mysqlWhere.join(" ")).not.toContain("unspsc_level");
+    expect(plan.mysqlWhere.join(" ")).not.toMatch(/_level[1-5]\b/);
     expect(plan.meiliFilters.join(" ")).not.toContain("level2_id");
   });
 

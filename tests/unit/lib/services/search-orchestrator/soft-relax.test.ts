@@ -65,7 +65,8 @@ const idsOf = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.resolveMode.mockResolvedValue({ kind: "search", codeUnspsc: null, profileLevels: null });
+  // 形制对齐 ModeResolution 真实契约（kind / category / profileNodes），避免 mock 与实现脱钩
+  mocks.resolveMode.mockResolvedValue({ kind: "search", category: null, profileNodes: null });
   mocks.buildFilterPlan.mockResolvedValue({
     meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: false, digest: "none",
   });

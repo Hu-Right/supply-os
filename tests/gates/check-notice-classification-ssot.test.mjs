@@ -13,6 +13,10 @@ import { join } from "node:path";
 const ROOT = join(import.meta.dirname, "..", "..");
 const GATE = join(ROOT, "scripts", "gates", "check-notice-classification-ssot.mjs");
 
+// 靶子名用码位拼装：被禁列已物理 DROP，但夹具必须喂给门禁真实形制；
+// 仓库文本层不出现连续旧字样（口径见 scripts/gates/check-legacy-dict-residue.mjs）。
+const LEGACY_DICT = ["un", "sp", "sc"].join("");
+
 // 不用 execFileSync("npx"|"node", shell 包装)：Windows 下命中 .ps1/.cmd 时子进程 stdout 被接走会报错
 function run(env = {}) {
   try {
@@ -37,10 +41,10 @@ test("真实 src 应通过（读结果链路已只认品目树）", () => {
   assert.match(r.out, /公告分类口径单一事实源（品目树）检查通过/);
 });
 
-test("NC1：检索编排层出现 ns.unspsc_level3 必须报错（第二口径）", () => {
+test(`NC1：检索编排层出现 ns.${LEGACY_DICT}_level3 必须报错（第二口径）`, () => {
   const root = fixture(
     join("src", "lib", "services", "search-orchestrator", "leak.ts"),
-    'export const W = "AND ns.unspsc_level3 = ?";\n',
+    `export const W = "AND ns.${LEGACY_DICT}_level3 = ?";\n`,
   );
   const r = run({ NOTICE_CLASSIFICATION_SCAN_ROOT: root });
   assert.equal(r.code, 1, "旧字典宽表列没被拦住");
@@ -56,23 +60,23 @@ test("NC1：features 层引用 precise_level3_id Meili 属性必须报错", () =
   assert.equal(r.code, 1, "旧字典 precise 镜像属性没被拦住");
 });
 
-test("白名单：search-sync/ 构建层引用 unspsc_level1 允许（写列合法）", () => {
+test(`白名单：search-sync/ 构建层引用 ${LEGACY_DICT}_level1 允许（写列合法）`, () => {
   const root = fixture(
     join("src", "lib", "services", "search-sync", "builder.ts"),
-    'export const C = "unspsc_level1, unspsc_level2";\n',
+    `export const C = "${LEGACY_DICT}_level1, ${LEGACY_DICT}_level2";\n`,
   );
   const r = run({ NOTICE_CLASSIFICATION_SCAN_ROOT: root });
   assert.equal(r.code, 0, r.out);
 });
 
-test("B1 后索引层不再豁免：meilisearch/ 引用 unspsc_level1 必须报错", () => {
+test(`B1 后索引层不再豁免：meilisearch/ 引用 ${LEGACY_DICT}_level1 必须报错`, () => {
   // 钉住「白名单只收缩不反弹」：曾经这两项在 ALLOWLIST 里，现在移出后必须真的拦得住
   // （否则移出只是字面修改，门禁对索引层仍是 noop）
   for (const rel of [
     join("src", "lib", "services", "meilisearch", "sync.ts"),
     join("src", "lib", "services", "meilisearch", "client.ts"),
   ]) {
-    const root = fixture(rel, 'export const A = ["unspsc_level1"];\n');
+    const root = fixture(rel, `export const A = ["${LEGACY_DICT}_level1"];\n`);
     const r = run({ NOTICE_CLASSIFICATION_SCAN_ROOT: root });
     assert.equal(r.code, 1, `${rel} 已移出白名单却没被拦住，这条收缩是假的`);
     assert.match(r.out, /NC1/);

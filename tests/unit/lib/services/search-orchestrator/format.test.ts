@@ -44,7 +44,8 @@ describe("formatItems", () => {
     expect(result[0].core_locked).toBe(true);
     expect(result[0].organization).toBeNull();
     expect(result[0].source_url).toBeNull();
-    expect(result[0]).not.toHaveProperty("unspsc_codes");
+    // 旧品类码快照字段已随源列物理退役：下发结果里不得再出现任何 *_codes 形制
+    for (const k of Object.keys(result[0])) expect(k).not.toMatch(/_codes$/);
   });
 
   it("画像节点码命中公告 backbone 链 → match_score + match_tier", () => {

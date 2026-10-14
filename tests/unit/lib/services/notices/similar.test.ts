@@ -74,7 +74,7 @@ describe("findSimilarNoticeIds", () => {
     const peerSql = String(query.mock.calls.find((c) => /peer\.node IN/.test(String(c[0])))?.[0] || "");
     expect(peerSql).toContain("crm_notice_backbone_nodes");
     expect(peerSql).toContain("peer.node IN");
-    expect(peerSql).not.toMatch(/crm_bid_notice_unspsc_codes/);
+    expect(peerSql).not.toMatch(/crm_bid_notice_\w*_codes\b/);
     expect(peerSql).not.toMatch(/level[1-5]_id/);
   });
 

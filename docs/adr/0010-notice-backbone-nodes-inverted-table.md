@@ -22,7 +22,7 @@
 | 宽表 `backbone_path` 上 OR 若干 `FIND_IN_SET` | 2.4s / 3.8s / 1.4s | 5.2s / 9.8s | `type=ALL`，每次扫 677,629 行 |
 | 同形制倒排表按码 `IN` + 一次 JOIN | 0.09s / 0.05s / 0.04s | 0.68s / 0.85s | `range` 覆盖索引 → 主表 `eq_ref` |
 
-（探针110 / 探针111 / 探针112；倒排那一列的替身是现成的 `crm_bid_notice_unspsc_codes`，
+（探针110 / 探针111 / 探针112；倒排那一列的替身是现成的公告↔旧码桥表，
 767k 行、`(code, notice_id)` 有覆盖索引 —— 键换成节点码后形状一模一样。）
 
 `FIND_IN_SET` 是「对列值做函数」，任何索引都帮不上；这不是调参能救的，是关系形状错了。
@@ -34,7 +34,7 @@
 ## 被否决的方案
 
 - **只靠缓存 / 重建宽表**：宽表已经有 `backbone_path`，重建多少次都不会让 `FIND_IN_SET` 用得上索引。
-- **把节点码写进 `crm_bid_notice_unspsc_codes`**（767k 行，比新表小一半）：那张表由爬虫侧拥有，
+- **把节点码写进公告↔旧码桥表**（767k 行，比新表小一半）：那张表由爬虫侧拥有，
   我们的同步去加列/写行就是第二个写入方，直接撞 ADR-0002 那条红线（历史上两处各写一份已经
   实测产出 8,367 行描述错值）。
 - **链顶口径（只存最深落点，不存祖先）**：行数能省一半，但会破坏「祖先全存」这条既有不变量
@@ -48,7 +48,7 @@
    131,072 × 16 KB 页也算出 2 GB）。当时 `SHOW VARIABLES` 里那个 134,217,728 是
    `innodb_buffer_pool_chunk_size`，读错了行。据此提过的「node 列用 ascii」作废。
 2. **「码值列就该上 `utf8mb4_bin`」→ 在本库会埋雷**。`crm_commodity_backbone.code`、
-   `crm_notice_search.backbone_path`、`crm_bid_notice_unspsc_codes.code`、
+   `crm_notice_search.backbone_path`、公告↔旧码桥表的 `code`、
    `crm_user_interest_codes.code` 实测全部是 `utf8mb4_0900_ai_ci`（探针115）。排序规则不一致时
    MySQL 要么报 Illegal mix of collations，要么把其中一侧转成另一侧的字符集 —— 转列就是函数作用在
    列上，索引静默失效。所以 `node` 跟表默认走，不做例外。

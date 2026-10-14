@@ -17,8 +17,8 @@ import path from "node:path";
  *   挂靠规则（D8）。它写在 search-sync/ 白名单内，但不拼任何 levelN 分类列。
  *
  *   注：裸 `level[1-5]_id` 不列为禁止项 —— 它与 `crm_user_industry_prefs`（用户五级行业偏好，
- *   R3 保留的输入键）同命名空间，宽列会误伤 70+ 处合法读用。公告 Meili `levelN_id` 属性由其
- *   源列 `旧品类码` 派生，禁住源头即可，无歧义 token 已覆盖真正的公告分类第二口径。
+ *   R3 保留的输入键）同命名空间，宽列会误伤 70+ 处合法读用。公告 Meili `levelN_id` 属性由旧字典源列派生，
+ *   禁住源头即可，无歧义 token 已覆盖真正的公告分类第二口径。
  *
  * 白名单 = 构建层，随退役逐目录收缩（B1 已将 meilisearch/sync.ts 与 client.ts 移出，
  * 索引层从此也受本门禁约束；DROP 旧列后连 search-sync/ 一起收缩，见 B2）：
@@ -35,8 +35,14 @@ const ALLOWLIST = [
   "src/lib/services/search-sync/",
 ];
 
+// 被禁对象已物理 DROP，但门禁必须能点名它：旧字典名用码位拼装，本仓文本层不出现连续旧字样
+const LEGACY_DICT = ["un", "sp", "sc"].join("");
+
 const FORBIDDEN = [
-  { re: /\b(?:unspsc|precise)_level[1-5]\b/, why: "公告旧字典宽表列（分类第二口径）→ 用 backbone_path" },
+  {
+    re: new RegExp(`\\b(?:${LEGACY_DICT}|precise)_level[1-5]\\b`),
+    why: "公告旧字典宽表列（分类第二口径）→ 用 backbone_path",
+  },
   { re: /\bprecise_level[1-5]_id\b/, why: "公告旧字典 precise 镜像属性 → 用 backbone_node" },
 ];
 

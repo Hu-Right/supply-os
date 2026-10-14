@@ -54,10 +54,10 @@ describe("buildFilterPlan 类目条件（骨架节点码口径）", () => {
     expect(b.digest).toBe("none");
   });
 
-  it("旧字典列彻底退出：levelN_id / unspsc_level / precise_level 都不许出现", async () => {
+  it("旧字典列彻底退出：levelN_id 与任何 *_level1~5 都不许出现", async () => {
     const full = validateParams({ q: "water", commodityPath: "UGT-30" });
     const plan = await buildFilterPlan(pool, full, { node: "UGT-30" });
     expect(plan.meiliFilters.join(" ")).not.toMatch(/level[1-5]_id/);
-    expect(plan.mysqlWhere.join(" ")).not.toMatch(/unspsc_level|precise_level/);
+    expect(plan.mysqlWhere.join(" ")).not.toMatch(/_level[1-5]\b/);
   });
 });

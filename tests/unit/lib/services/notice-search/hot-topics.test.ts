@@ -1,7 +1,7 @@
 /**
  * 首页热门「品目」聚合 — 必须按骨架大类聚合（Task 14）
  *
- * 为什么这条必须改：旧实现读的是旧字典 `旧品类字典表` 的 level=1 行（A..J 十个
+ * 为什么这条必须改：旧实现读的是旧品目字典表的 level=1 行（A..J 十个
  * 字母容器）配上宽表 `precise_level1`，而界面文案与点进去的筛选都是 32 品目大类 ——
  * 首页写着「品目」，数据却是旧容器，两个口径差了 3.2 倍粒度（一个容器最多跨 14 个大类）。
  * 同类问题在行业墙那一批已经实测过：同容器不同大类的两个用户可见内容完全一样。
@@ -13,10 +13,11 @@
  *    并且 TOP8 换位 —— 而点进去用的谓词就是同一条包含关系（filter-builder），标称必须等于兑现；
  *    大类码由骨架 L1 行的 group_code 带出 —— 不靠「L1 码序号 = 大类码序号」的错觉
  *    （实测 32 行里只有 5 行相等）；
- * 3. 响应形状只剩前端真消费的字段：`旧品类码`（旧 level=2 码 TOP8）前端从不读，
+ * 3. 响应形状只剩前端真消费的字段：旧的 level=2 码 TOP8 字段（前端从不读），
  *    却是首页第三条全表 FIND_IN_SET 聚合 —— 删字段就是删一次无收益的开销。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { LEGACY_DICT_TABLE } from "../../../../helpers/legacy-targets";
 
 vi.mock("@/lib/services/notice-search/countries", () => ({
   getNoticeCountries: vi.fn(async () => [{ country: "CN", count: 5 }]),
@@ -45,8 +46,8 @@ describe("热门品目按骨架 L1 聚合", () => {
     expect(HOT_TOP_GROUPS_SQL).toMatch(/b\.level = 1/);
     expect(HOT_TOP_GROUPS_SQL).toContain("backbone_path");
     expect(HOT_TOP_GROUPS_SQL).toContain("group_code");
-    expect(HOT_TOP_GROUPS_SQL).not.toMatch(/crm_unspsc_codes/);
-    expect(HOT_TOP_GROUPS_SQL).not.toMatch(/precise_level|unspsc_level|level[1-5]_id/);
+    expect(HOT_TOP_GROUPS_SQL).not.toContain(LEGACY_DICT_TABLE);
+    expect(HOT_TOP_GROUPS_SQL).not.toMatch(/_level[1-5]\b|level[1-5]_id/);
   });
 
   it("计数是包含关系，不是链顶（链顶=只数最小大类，与点进去的筛果分叉）", () => {
@@ -65,7 +66,7 @@ describe("热门品目按骨架 L1 聚合", () => {
       { node: "UGT-01", code: "UGT-G-11", count: 49236 },
       { node: "UGT-02", code: "UGT-G-16", count: 38832 },
     ]);
-    expect(data).not.toHaveProperty("unspsc");
+    expect(Object.keys(data).sort()).toEqual(["countries", "industries"]);
     // 一条聚合 SQL（旧的 level=2 码 TOP8 已删）
     expect(pool.query).toHaveBeenCalledTimes(1);
   });

@@ -3,7 +3,7 @@
  * @module tests/unit/lib/repos/supplier-directory-portal-columns.test.ts
  * @description supplier 是 supply-os 与 intelligence-daily 共用的外部表
  *              （2026-09 影子表重建后 48 列：删 merged_id/english_name/webcheck_status/
- *              webcheck_at/last_match_at/旧匹配时间，重复档案物理清除）。
+ *              webcheck_at/last_match_at/旧匹配状态列，重复档案物理清除）。
  *              findFullById 的结果会经 GET /api/user/enterprise 直达前端，历史上是 `SELECT *`：
  *              站外加列/改名会以「前端字段突然 undefined」的形式暴露，而不是在变更当场被发现。
  *              本测试钉三件事：
@@ -13,6 +13,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SupplierDirectoryRepo } from "@/lib/repos/suppliers/supplier-directory.repo";
+import { LEGACY_MATCH_STATUS_COL } from "../../../helpers/legacy-targets";
 
 describe("SupplierDirectoryRepo 门户读列白名单", () => {
   const mockQuery = vi.fn();
@@ -44,7 +45,7 @@ describe("SupplierDirectoryRepo 门户读列白名单", () => {
     for (const c of [
       "merged_id", "product_keywords", "business_scope", "source_url", "tenant_id",
       "industry_id", "info_check", "webcheck_status", "enrich_suggested", "enrich_status",
-      "certification_tags", "business_type_code", "unspsc_match_status", "last_match_at",
+      "certification_tags", "business_type_code", LEGACY_MATCH_STATUS_COL, "last_match_at",
     ]) {
       expect(cols).not.toContain(c);
     }

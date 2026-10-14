@@ -156,7 +156,7 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
     expect(sql).toContain("crm_notice_search");
     expect(sql).toContain("backbone_path");
     expect(sql).toContain("WHERE id = ?");
-    expect(sql).not.toContain("crm_bid_notice_unspsc_codes");
+    expect(sql).not.toMatch(/crm_bid_notice_\w*_codes\b/);
     expect(sql).not.toContain("crm_bid_notices");
     expect(sql).not.toMatch(/level1_id/);
     expect(query.mock.calls.at(-1)![1]).toEqual([9007]);

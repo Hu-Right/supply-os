@@ -3,15 +3,16 @@
  *
  * 换树之后最容易被做错的两件事，这里一起钉住：
  * 1. **筛选键就是骨架节点码**（`UGT-…`），与公告侧 `backbone_path` 同口径。一旦有人把旧的
- *    旧品类码 数字前缀拿回来当键，界面照常渲染、筛出来却是空集（`backbone_path` 里没有那种 token），
+ *    裸数字品类前缀拿回来当键，界面照常渲染、筛出来却是空集（`backbone_path` 里没有那种 token），
  *    且不报错 —— 所以键形制与 SQL 一起钉。
- * 2. **不得回读旧树**：所有 SQL 只准命中 `crm_commodity_backbone` /
- *    `旧品类字典表`（旧字典只作身份翻译）。出现 `crm_commodity_nodes` 就是回退，用例直接红；
+ * 2. **不得回读旧树**：所有 SQL 只准命中 `crm_commodity_backbone`（旧字典与旧树已物理 DROP，
+ *    不再承担任何翻译职责）。出现 `crm_commodity_nodes` 就是回退，用例直接红；
  *    出现已退役的大类维表族（`crm_commodity_group*`）同样是回退 —— 段归属已改为从骨架推导（ADR-0009）。
  * 另钉一条实测事实：大类码不能由节点码切片推出（32 个 L1 行只有 5 行的码序号等于大类码序号），
  * 所以取大类必须发生一次点查。
  */
 import { describe, expect, it } from "vitest";
+import { LEGACY_DICT_TABLE } from "../../../../helpers/legacy-targets";
 import {
   commodityNodeChain,
   commodityNodeLevel,
@@ -191,7 +192,7 @@ describe("resolveCommodityCodeToPath — 偏好节点码 → 路径名称 + 大�
     const inCall = calls.find((c) => c.sql.includes("code IN"));
     expect(inCall?.params).toEqual(["UGT-01", "UGT-0101", "UGT-010101", "UGT-01010101", "UGT-0101010101"]);
     assertNoLegacyTree(calls);
-    expect(calls.join(" ")).not.toContain("crm_unspsc_codes");
+    expect(calls.join(" ")).not.toContain(LEGACY_DICT_TABLE);
   });
 
   it("树里查无此码的偏好不编造选项；status=0 的行同样剔除", async () => {

@@ -45,7 +45,7 @@ test("OS2 破坏性：读取点重新 SELECT 退役列必须报错（列已从�
   const root = fixture({
     "src/lib/services/notices/featured.ts": [
       "const fields = `",
-      "  id, unspsc_codes, thresholds, difficulty,",
+      "  id, agency_full, thresholds, difficulty,",
       "  audit_status, review_status, is_qualified",
       "`;",
       "export { fields };",
@@ -74,7 +74,7 @@ test("注释与 CRM 侧 hasIntlProcurement 不得误报（守卫只管退役列�
   const root = fixture({
     "src/lib/services/notices/featured.ts": [
       "// 历史：thresholds / difficulty / key_dates 已于 2026-10-12 退役，见 opp-slim-plan.mjs",
-      "export const fields = `id, unspsc_codes, audit_status`;",
+      "export const fields = `id, agency_full, audit_status`;",
     ].join("\n"),
     "src/types/crm.ts": "export interface Lead { hasIntlProcurement: boolean; }",
   });

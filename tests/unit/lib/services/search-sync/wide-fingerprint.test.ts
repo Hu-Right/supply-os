@@ -28,9 +28,9 @@ describe("WIDE_FP_EXPR", () => {
     expect(WIDE_FP_EXPR).toContain("opp.beneficiary_countries");
     expect(WIDE_FP_EXPR).toContain("crm_notice_attribution_nodes");
     expect(WIDE_FP_EXPR).toContain("crm_notice_translations");
-    // 指纹不再吃 旧品类码 资产（与 loadBackboneMap 同一事实源）
-    expect(WIDE_FP_EXPR).not.toContain("crm_bid_notice_unspsc_codes");
-    expect(WIDE_FP_EXPR).not.toContain("crm_bid_opportunity_unspsc_candidates");
+    // 指纹不再吃旧字典资产（与 loadBackboneMap 同一事实源）：按表族拦截，连改名复活一并拦住
+    expect(WIDE_FP_EXPR).not.toMatch(/crm_bid_notice_\w*_codes\b/);
+    expect(WIDE_FP_EXPR).not.toMatch(/crm_bid_opportunity_\w*_candidates\b/);
   });
 
   it("平台自填分类列在指纹内（分类变更须触发重建）", () => {

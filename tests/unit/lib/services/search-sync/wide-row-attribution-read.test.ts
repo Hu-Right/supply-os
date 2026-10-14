@@ -31,8 +31,8 @@ describe("loadBackboneMap（落点表唯一入口）", () => {
     ]);
     const r = (await loadBackboneMap(pool, [{ noticeId: "N1", pk: 1 }])).get("N1")!;
     expect(r.backbone).toBe("UGT-01,UGT-0101,UGT-010101,UGT-01010101,UGT-0101010101");
-    // 走落点表 ⇒ 绝不碰桥表、绝不碰旧树
-    expect(query.mock.calls.some((c) => /crm_bid_notice_unspsc_codes/.test(String(c[0])))).toBe(false);
+    // 走落点表⇒不碰旧桥表、不碰旧树（桥表按表族拦截，改名复活同样报错）
+    expect(query.mock.calls.some((c) => /crm_bid_notice_\w*_codes\b/.test(String(c[0])))).toBe(false);
     for (const c of query.mock.calls) expect(String(c[0])).not.toContain("crm_commodity_nodes");
   });
 

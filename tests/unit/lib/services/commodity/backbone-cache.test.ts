@@ -89,7 +89,7 @@ describe("backbonePathOfCodes 换算形状（UGT 直认）", () => {
     for (const call of query.mock.calls) {
       expect(String(call[0])).not.toContain("crm_commodity_nodes");
       expect(String(call[0])).not.toContain("crm_commodity_group");
-      expect(String(call[0])).not.toContain("unspsc_prefix");
+      expect(String(call[0])).not.toMatch(/_prefix\b/);
     }
   });
 });

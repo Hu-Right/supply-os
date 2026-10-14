@@ -21,6 +21,7 @@ vi.mock("@/lib/services/commodity/backbone-cache", () => ({
 
 import { loadMatchNodeData } from "@/lib/services/ai-match/match-nodes";
 import type { Pool } from "mysql2/promise";
+import { LEGACY_DICT_TABLE } from "../../../helpers/legacy-targets";
 
 /** 依次吐出给定结果，同时记下每条 SQL（口径断言要看字面） */
 const sqls: string[] = [];
@@ -51,7 +52,7 @@ describe("公告侧", () => {
     expect(sqls[0]).toContain("crm_notice_search");
     expect(sqls[0]).toContain("backbone_path");
     expect(sqls[0]).toMatch(/id = \?/);
-    expect(sqls[0]).not.toMatch(/crm_bid_notice_unspsc_codes|crm_bid_notices|level[1-5]_id/);
+    expect(sqls[0]).not.toMatch(/crm_bid_notice_\w*_codes\b|crm_bid_notices|level[1-5]_id/);
     expect([...data.noticeNodes]).toEqual(CHAIN_5);
   });
 
@@ -88,7 +89,7 @@ describe("供应商侧", () => {
     ]);
     const data = await loadMatchNodeData(pool, 1, [7, 8]);
     expect(sqls[1]).toContain("crm_supplier_backbone_interests");
-    expect(sqls[1]).not.toMatch(/crm_unspsc_codes/);
+    expect(sqls[1]).not.toContain(LEGACY_DICT_TABLE);
     expect([...data.supplierNodes.keys()]).toEqual([7, 8]);
     expect([...data.supplierNodes.get(7)!]).toEqual(CHAIN_5);
     // 同一供应商的多条码一次换算（pathOf 收到该供应商的码集合，而不是逐码查库）

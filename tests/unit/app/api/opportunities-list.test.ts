@@ -86,7 +86,7 @@ describe("GET /api/opportunities — 不再以旧字典 code_id 为必要条件"
     expect(body[0].description.length).toBeLessThanOrEqual(301);
     expect(body[0]).not.toHaveProperty("source_url");
     // R5' + 源列已物理退役：本端点不再下发旧品类码快照字段
-    expect(body[0]).not.toHaveProperty("unspsc_codes");
+    for (const k of Object.keys(body[0])) expect(k).not.toMatch(/_codes$/);
   });
 
   it("未登录仍然 401 + 明确错误码（受保护性质没随改造丢掉）", async () => {

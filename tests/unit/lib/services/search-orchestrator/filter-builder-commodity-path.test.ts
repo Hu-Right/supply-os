@@ -31,7 +31,7 @@ describe("validateParams 骨架节点筛选键", () => {
     }
   });
 
-  it("旧 UNSPSC 前缀、奇数位、非数字、注入串一律丢弃", () => {
+  it("裸数字旧码、奇数位、非数字、注入串一律丢弃", () => {
     for (const bad of ["72", "7210", "72101501", "UGT-1", "UGT-010", "UGT-010101010101", "abc", "UGT-C-41", "' OR 1=1", ""]) {
       expect(validateParams({ commodityPath: bad }).commodityPath).toBeUndefined();
     }
@@ -59,12 +59,12 @@ describe("buildFilterPlan 骨架节点筛选", () => {
     expect(plan.digest).toContain("commodity:UGT-0101");
   });
 
-  it("谓词只有一个占位符且与参数一一对应；不引用 unspsc_levelN，也不回退 code_path", async () => {
+  it("谓词只有一个占位符且与参数一一对应；不引用任何 *_level1~5，也不回退 code_path", async () => {
     const plan = await buildFilterPlan(fakePool(), validateParams({ commodityPath: "UGT-01010101" }));
     const clause = plan.mysqlWhere.find((w) => w.includes("backbone_path"))!;
     expect((clause.match(/\?/g) || []).length).toBe(1);
     expect(clause).not.toContain(" OR ");
-    expect(plan.mysqlWhere.join(" ")).not.toContain("unspsc_level");
+    expect(plan.mysqlWhere.join(" ")).not.toMatch(/_level[1-5]\b/);
     expect(plan.mysqlWhere.join(" ")).not.toContain("code_path");
     expect(plan.meiliFilters.join(" ")).not.toContain("level5_id");
     expect(plan.meiliFilters.join(" ")).not.toContain("commodity_prefix");
