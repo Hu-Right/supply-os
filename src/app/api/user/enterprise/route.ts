@@ -22,6 +22,8 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { deleteFile } from "@/lib/services/file-upload";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
+import { upsertPendingLicenseChange } from "@/lib/services/license-change";
+import { licenseFilenameFromUrl } from "@/lib/services/file-upload";
 import { assertBindingAllowsSubject, readCurrentBinding, assertVerifiedSubjectIdentityStable } from "@/lib/services/enterprise-binding";
 import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
 import type { AppContext } from "@/lib/db/context";
@@ -64,6 +66,9 @@ const enterpriseBodySchema = z.object({
  * 仅当调用方显式传了 license_url（key 存在）时调用；未传则保持原状。
  * 双时钟：本次为"写入非空执照"时，把该用户对此主体的 pending 认领从 1 小时限时上传期
  * 续期到 7 天管理员审核期。
+ * 先审后生效（2026-10-14）：已认证（verify_status='done'）供应商换照不直接生效——
+ * 新图登记 crm_license_changes 待审，supplier.license_url 保持旧图、旧图永不删除，
+ * 后台「资质变更」人工通过后才切换；清空执照同样需要审核。返回本次是否进入待审。
  */
 async function reconcileLicense(
   ctx: AppContext,
@@ -71,11 +76,22 @@ async function reconcileLicense(
   supplierId: number,
   userId: number,
   nextUrl: string | null,
-): Promise<void> {
+): Promise<{ pendingReview: boolean }> {
   const normalized = nextUrl && nextUrl.trim() ? nextUrl.trim() : null;
   const row = await repo.findFullById(supplierId);
   const oldUrl = row?.license_url ? String(row.license_url) : null;
-  if ((oldUrl ?? null) === normalized) return;
+  if ((oldUrl ?? null) === normalized) return { pendingReview: false };
+
+  if (row?.verify_status === "done") {
+    await upsertPendingLicenseChange({
+      supplierId,
+      filename: normalized ? licenseFilenameFromUrl(normalized) : null,
+      prevFilename: oldUrl ? licenseFilenameFromUrl(oldUrl) : null,
+      uploadedBy: userId,
+    });
+    return { pendingReview: true };
+  }
+
   await repo.updateLicenseUrl(supplierId, normalized);
   if (normalized) {
     const reviewExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -89,6 +105,7 @@ async function reconcileLicense(
       console.warn("[enterprise] 删除旧执照文件失败:", (err as Error).message);
     }
   }
+  return { pendingReview: false };
 }
 
 /** 双时钟：带执照提交 → 直接 7 天审核期；无执照 → 1 小时限时上传期（与企业页执照必填互为兜底） */
@@ -170,14 +187,17 @@ export const PUT = withRoute(async (req) => {
   await assertVerifiedSubjectIdentityStable(ctx, supplierId, body as Record<string, unknown>);
 
   await ctx.supplier.directoryRepo.updateEnterprise(supplierId, body as Record<string, unknown>);
-  // 执照以保存为单一入口：仅当本次 body 显式携带 license_url 时协调（含移除）
+  // 执照以保存为单一入口：仅当本次 body 显式携带 license_url 时协调（含移除）；
+  // 已认证供应商换照 → 进入待审（先审后生效）
+  let licensePendingReview = false;
   if ("license_url" in body) {
-    await reconcileLicense(ctx, ctx.supplier.directoryRepo, supplierId, auth.userId, body.license_url ?? null);
+    const r = await reconcileLicense(ctx, ctx.supplier.directoryRepo, supplierId, auth.userId, body.license_url ?? null);
+    licensePendingReview = r.pendingReview;
   }
   // legacy 自愈：秒绑时代（2026-10-14 前）绑定的未认证行可能没有认领单，补建进审核队列。
   // 执照已在行上（认领单经 supplier JOIN 读图），不重写。
   const claimCreated = await ensurePendingClaim(ctx, auth.userId, supplierId, undefined);
-  return NextResponse.json({ code: 0, message: "ok", data: { claimCreated } });
+  return NextResponse.json({ code: 0, message: "ok", data: { claimCreated, licensePendingReview } });
 });
 
 /** 未绑定：新建企业行并绑定到当前用户；防重：credit_code 优先、其次公司名，已存在则直接绑定已有行不新建；
@@ -238,13 +258,19 @@ export const POST = withRoute(async (req) => {
     }
     // 统一认领口径（2026-10-14）：复用未认证行不再裸秒绑，改走认领单+临时绑定，
     // 后台人工审核（核验执照）通过才算真绑定。createClaimWithBinding 内部已含
-    // 临时绑定与执照落库；已有有效认领单/已认证行时幂等回落为直接绑定。
+    // 临时绑定与执照落库；已有有效认领单/已认证行时幂等回落为直接绑定，
+    // 执照按保存口径协调（已认证行换照 → 进入待审）。
     const licenseUrl = normalizeLicenseUrl(body.license_url);
     const claimCreated = await ensurePendingClaim(ctx, auth.userId, existingId, licenseUrl);
+    let licensePendingReview = false;
     if (!claimCreated) {
       await ctx.user.usersRepo.bindSupplier(auth.userId, existingId, "verified");
+      if ("license_url" in body) {
+        const r = await reconcileLicense(ctx, repo, existingId, auth.userId, body.license_url ?? null);
+        licensePendingReview = r.pendingReview;
+      }
     }
-    return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, reused: true, claimCreated } });
+    return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, reused: true, claimCreated, licensePendingReview } });
   }
 
   // ── 新建：审核中 + 自注册来源 ──

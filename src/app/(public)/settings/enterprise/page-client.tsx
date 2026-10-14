@@ -110,11 +110,13 @@ export default function EnterpriseSettingsClient() {
     setNotice(null);
     try {
       let claimCreated = false;
+      let licensePendingReview = false;
       if (enterprise.bound) {
-        const res = await api<{ claimCreated?: boolean }>("/api/user/enterprise", { method: "PUT", body: values });
+        const res = await api<{ claimCreated?: boolean; licensePendingReview?: boolean }>("/api/user/enterprise", { method: "PUT", body: values });
         claimCreated = !!res?.claimCreated;
+        licensePendingReview = !!res?.licensePendingReview;
       } else {
-        const res = await api<{ supplierId?: number; claimRequired?: boolean; claimCreated?: boolean }>(
+        const res = await api<{ supplierId?: number; claimRequired?: boolean; claimCreated?: boolean; licensePendingReview?: boolean }>(
           "/api/user/enterprise",
           { method: "POST", body: values },
         );
@@ -127,6 +129,7 @@ export default function EnterpriseSettingsClient() {
           return;
         }
         claimCreated = !!res?.claimCreated;
+        licensePendingReview = !!res?.licensePendingReview;
       }
       setEditing(false);
       enterprise.retry();
@@ -136,6 +139,11 @@ export default function EnterpriseSettingsClient() {
         setNotice(
           t("authEnterpriseClaimCreated") ||
             "企业信息已保存，绑定已进入人工审核（核验营业执照），审核通过前可随时撤回",
+        );
+      } else if (licensePendingReview) {
+        setNotice(
+          t("authEnterpriseLicenseUnderReview") ||
+            "新营业执照已提交人工审核（先审后生效），审核通过前门户仍展示原执照",
         );
       }
     } catch (e) {

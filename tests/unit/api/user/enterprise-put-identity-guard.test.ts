@@ -17,11 +17,13 @@ vi.mock("@/lib/db/context", () => ({ getContext: vi.fn() }));
 // 但必须把真 pool 隔掉，否则 jsdom 环境会撞上 server-only。
 vi.mock("@/lib/db/pool", () => ({ getPool: () => ({ execute: vi.fn().mockResolvedValue([{ affectedRows: 0 }]) }) }));
 vi.mock("@/lib/middleware/auth", () => ({ requireUserKeyOrThrow: vi.fn() }));
-vi.mock("@/lib/services/file-upload", () => ({ deleteFile: vi.fn() }));
+vi.mock("@/lib/services/file-upload", () => ({ deleteFile: vi.fn(), licenseFilenameFromUrl: (url: string) => typeof url === "string" && url.includes("/") ? url.slice(url.lastIndexOf("/") + 1) || null : null }));
+vi.mock("@/lib/services/license-change", () => ({ upsertPendingLicenseChange: vi.fn() }));
 
 import { PUT } from "@/app/api/user/enterprise/route";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { upsertPendingLicenseChange } from "@/lib/services/license-change";
 
 const STORED = {
   id: 100,
@@ -118,7 +120,7 @@ describe("PUT /api/user/enterprise 身份三要素闸口", () => {
 
     const res = await PUT(putReq({ contact: "李四" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ claimCreated: true });
+    expect((await res.json()).data).toEqual({ claimCreated: true, licensePendingReview: false });
     expect(claimRepo.insertClaim).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 42, supplierId: 100 }),
     );
@@ -131,8 +133,39 @@ describe("PUT /api/user/enterprise 身份三要素闸口", () => {
 
     const res = await PUT(putReq({ contact: "李四" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ claimCreated: false });
+    expect((await res.json()).data).toEqual({ claimCreated: false, licensePendingReview: false });
     expect(claimRepo.insertClaim).not.toHaveBeenCalled();
+  });
+
+  it("先审后生效：已认证行换执照 → 登记待审、不直写 license_url", async () => {
+    const { ctx, directoryRepo } = buildCtx({
+      verify_status: "done",
+      license_url: "/api/user/enterprise/license/license_42_1111111111.png",
+    });
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+
+    const res = await PUT(putReq({ license_url: "/api/user/enterprise/license/license_42_2222222222.png" }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual({ claimCreated: false, licensePendingReview: true });
+    expect(upsertPendingLicenseChange).toHaveBeenCalledWith({
+      supplierId: 100,
+      filename: "license_42_2222222222.png",
+      prevFilename: "license_42_1111111111.png",
+      uploadedBy: 42,
+    });
+    // 先审后生效：supplier.license_url 保持旧图
+    expect(directoryRepo.updateLicenseUrl).not.toHaveBeenCalled();
+  });
+
+  it("未认证行换执照 → 直接生效（不走待审）", async () => {
+    const { ctx, directoryRepo } = buildCtx({ verify_status: "pending" });
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+
+    const res = await PUT(putReq({ license_url: "/api/user/enterprise/license/license_42_3333333333.png" }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual({ claimCreated: true, licensePendingReview: false });
+    expect(upsertPendingLicenseChange).not.toHaveBeenCalled();
+    expect(directoryRepo.updateLicenseUrl).toHaveBeenCalled();
   });
 
   it("审核中：允许补正身份字段（驳回/审核期的正当路径）", async () => {
