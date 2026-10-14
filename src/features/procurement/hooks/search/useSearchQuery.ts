@@ -21,10 +21,8 @@ export interface SearchQuery {
   activeBudgetMax: string;
   /** 品目大类码（URL group=UGT-G-xx；32 类 chip 与五级下拉第一级同一事实源） */
   activeGroup: string;
-  /** 品目树筛选键（URL commodity=UNSPSC 前缀 2/4/6/8 位，五级下拉第二~五级） */
+  /** 品目树筛选键（URL commodity=UGT 节点码，五级下拉第二~五级） */
   activeCommodity: string;
-  /** 旧字典类目 id（URL code_id / industry_id）：仅首页热门入口与外链会带，五级下拉不再产生 */
-  activeCodeId: string;
   /** 关键词匹配模式：all=硬 AND（默认），any=OR（任一命中） */
   activeMatchMode: "all" | "any";
   hasSearch: boolean;
@@ -51,11 +49,10 @@ export function useSearchQuery(): SearchQuery {
   const activeMatchMode: "all" | "any" = searchParams.get("match_mode") === "any" ? "any" : "all";
   const activeGroup = searchParams.get("group") || "";
   const activeCommodity = searchParams.get("commodity") || "";
-  const activeCodeId = searchParams.get("code_id") || searchParams.get("industry_id") || "";
 
   const hasSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
-    activeWindow || activeNoticeType || activeFeatured || activeCodeId ||
+    activeWindow || activeNoticeType || activeFeatured ||
     activeBudgetMin || activeBudgetMax || activeGroup || activeCommodity
   );
 
@@ -67,7 +64,7 @@ export function useSearchQuery(): SearchQuery {
     activeBudgetMin || activeBudgetMax || activeGroup || activeCommodity
   );
 
-  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${activeCodeId}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}|${activeGroup}|${activeCommodity}`;
+  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}|${activeGroup}|${activeCommodity}`;
 
   return useMemo(() => ({
     activeQ,
@@ -83,10 +80,9 @@ export function useSearchQuery(): SearchQuery {
     activeBudgetMax,
     activeGroup,
     activeCommodity,
-    activeCodeId,
     activeMatchMode,
     hasSearch,
     hasOtherSearch,
     searchKey,
-  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeGroup, activeCommodity, activeCodeId, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
+  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeGroup, activeCommodity, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
 }

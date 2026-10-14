@@ -1,7 +1,7 @@
 /**
  * GET /api/commodity/tree — 品目骨架树级联选项（中类 → 小类 → 子类 → 品目）
  *
- * @description 商机页五级下拉第二~五级的取数口（10min 缓存，与旧 /api/unspsc/* 同一节奏）。
+ * @description 商机页五级下拉第二~五级的取数口（10min 缓存）。
  *   `parent` 取大类码（UGT-G-xx）返回该大类所辖中类，取骨架节点码（UGT-…）返回下一级。
  *   第一级（32 个大类）不经此口：前端用 COMMODITY_GROUPS 常量 + locale 名渲染，
  *   与快筛 chip 同源同序，避免出现两份大类顺序或两种大类叫法。

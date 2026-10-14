@@ -11,21 +11,16 @@
  *              目录名与实际职责对齐——匹配逻辑早已不在本目录）
  */
 
-/** 用户五级行业画像（由 resolve.ts 解析） */
+/** 用户行业画像（由 resolve.ts 解析，码版：偏好表存最深 UGT 节点码） */
 export interface UserIndustryProfile {
   userId: number;
-  /** 最深非空级（1~5） */
+  /** 最深已选 UGT 骨架节点码（crm_user_industry_prefs.commodity_code，已过形制校验） */
+  commodityCode: string;
+  /** 码长即层级（1~5，BB1 不变量） */
   deepestLevel: number;
-  /** 各级类目 id（下标 0 = level1，未选级为 null） */
-  levelIds: (number | null)[];
   /** 品目大类码（UGT-G-xx，取自 crm_user_industry_prefs.group_code）。
-   *  可见性判定只认这个：旧字典 level=1 是 A..J 十个字母容器，比我们的 32 大类粗得多，
-   *  拿它当行业口径实测会让同容器下不同大类的用户看到完全一样的内容（temp/probe78）。 */
+   *  可见性判定只认这个：industry-scope 的墙按大类执法。 */
   groupCode: string | null;
-  /** 最深级类目 id */
-  deepestId: number | null;
-  /** 行业分支码前缀（如 '4214'） */
-  branchPrefix: string | null;
-  /** 行业中文名 */
+  /** 节点中文名（品目树 name_zh，提示条/日志展示用） */
   industryTitleZh: string | null;
 }

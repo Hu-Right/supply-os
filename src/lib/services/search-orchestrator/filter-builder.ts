@@ -269,7 +269,7 @@ export async function buildFilterPlan(
     digestParts.push("featured");
   }
 
-  // ── 类目条件（default 的 code_id / prefs 的渐进放宽档都从这里出去）──
+  // ── 类目条件（prefs 的渐进放宽档从这里出去）──
   // 键 = 品目树节点码，列统一 = backbone_path（precise 口径已随 candidates 表退役）。
   // 列存「自身 + 全部祖先」，所以选到哪一层就命中哪一层，运行期不判层级也不查字典；
   // 形状与大类 chip、五级下拉、可见性判定共用 nodeMeiliFilter / nodeMysqlWhere（一份形状）。

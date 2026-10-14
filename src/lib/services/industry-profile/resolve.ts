@@ -3,51 +3,23 @@
  * User industry profile resolution
  *
  * @module server/services/industry-profile/resolve
- * @description 读取 crm_user_industry_prefs（用户五级行业）并解析为匹配画像：
- *              最深选了哪一级、各级类目 id、行业分支码前缀、行业中文名。
- *              防御脏数据：最深级类目在分类树中查不到时逐级上溯，避免"选了行业却匹配不到"。
- *              （#11 清扫，2026-08-20：自 industry-match/ 更名迁入；
- *              N6 收敛，2026-08-20：裸 SQL 改经 UserPrefsRepo/CatalogRepo 单一数据访问端口）
+ * @description 读取 crm_user_industry_prefs 并解析为匹配画像：偏好表现在直接存
+ *              最深已选 UGT 节点码（commodity_code）与品目大类码（group_code），
+ *              层级由码长现算（BB1 不变量），节点中文名按 code 点查品目树补齐。
+ *              防御脏数据：码形制非法或树里查无此码时返回 null（按 no_prefs 处理），
+ *              不逐级上溯——祖先链可由码纯切片得出，消费方（mode-resolver）自己放宽。
+ *              （旧版读 UNSPSC 字典五级行 id 的实现随字典退役删除）
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { UserPrefsRepo } from "../../repos/user-prefs.repo";
-import { CatalogRepo, type UnspscRow } from "../../repos/catalog.repo";
-import { unspscPrefixFromCode } from "../unspsc";
+import { isCommodityNodeKey } from "../commodity/tree";
+import { commodityNodeLevel } from "../commodity/tree";
 import type { UserIndustryProfile } from "./types";
 
-// ── B2 优化：用户行业画像内存缓存（60s TTL，偏好变更时主动失效）──
+// ── 用户行业画像内存缓存（60s TTL，偏好变更时主动失效）──
 const _profileCache = new Map<number, { profile: UserIndustryProfile | null; expires: number }>();
 const PROFILE_CACHE_TTL = 60 * 1000;
 const PROFILE_CACHE_MAX = 500;
-
-interface UnspscNodeRow {
-  id: number;
-  code: string | null;
-  title_zh: string | null;
-  title: string | null;
-  level: number;
-}
-/** 类目树节点行转画像 */
-function buildProfile(
-  userId: number,
-  levelIds: (number | null)[],
-  deepestLevel: number,
-  deepestId: number,
-  node: UnspscNodeRow,
-  groupCode: string | null,
-): UserIndustryProfile {
-  const branchPrefix = unspscPrefixFromCode(String(node.code || ""));
-  return {
-    userId,
-    deepestLevel,
-    deepestId,
-    levelIds,
-    // 大类码直接透传偏好表自己的列，不从五级 id 反推（换算只有一份，在 commodity/tree）
-    groupCode: groupCode || null,
-    branchPrefix: branchPrefix || null,
-    industryTitleZh: node.title_zh || node.title || null,
-  };
-}
 
 /** 失效用户行业画像缓存（用户修改行业偏好时调用） */
 export function invalidateProfileCache(userId?: number): void {
@@ -60,7 +32,7 @@ export function invalidateProfileCache(userId?: number): void {
 
 /**
  * 解析用户行业画像（带 60s 内存缓存，避免每请求穿透 DB）。
- * @returns 无行业偏好或偏好全部失效时返回 null（调用方按 no_prefs 处理）
+ * @returns 无偏好、码形制非法或树里查无此码时返回 null（调用方按 no_prefs 处理）
  */
 export async function resolveUserIndustryProfile(
   pool: Pool,
@@ -70,47 +42,42 @@ export async function resolveUserIndustryProfile(
   const cached = _profileCache.get(userId);
   if (cached && cached.expires > Date.now()) return cached.profile;
 
-  // N6 收敛：偏好读取经 UserPrefsRepo 单一端口（与 user-prefs.routes 同口径），
-  // 类目节点查询经 CatalogRepo；保持 pool 签名不变，避免上游编排器连锁改造。
+  // 偏好读取经 UserPrefsRepo 单一端口（与 industry-prefs 路由同口径）
   const userPrefsRepo = new UserPrefsRepo(pool);
-  const catalogRepo = new CatalogRepo(pool);
-
   const row = userId ? await userPrefsRepo.getIndustryPrefs(userId) : null;
-  if (!row) {
+  const code = String(row?.commodity_code ?? "");
+  if (!row || !code || !isCommodityNodeKey(code)) {
     _profileCache.set(userId, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
     if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
     return null;
   }
 
-  const levelIds = ([1, 2, 3, 4, 5] as const).map((n) => {
-    const value = Number(row[`level${n}_id`] || 0);
-    return Number.isInteger(value) && value > 0 ? value : null;
-  });
-
-  // 最深非空级
-  let deepestLevel = 0;
-  for (let i = 4; i >= 0; i -= 1) {
-    if (levelIds[i]) {
-      deepestLevel = i + 1;
-      break;
-    }
+  // 节点名补齐（一条 uk_code 点查；查不到 = 树里没有此码，按无偏好处理）
+  let titleZh: string | null;
+  try {
+    const [nodes] = await pool.query(
+      `SELECT name_zh FROM crm_commodity_backbone WHERE code = ? AND status = 1 LIMIT 1`,
+      [code],
+    );
+    titleZh = (String((nodes as RowDataPacket[])[0]?.name_zh ?? "") || null);
+  } catch {
+    return null;
   }
-  if (deepestLevel === 0) return null;
-
-  // 校验最深级类目在分类树中存在；查不到（脏偏好）则逐级上溯
-  for (let lvl = deepestLevel; lvl >= 1; lvl -= 1) {
-    const id = levelIds[lvl - 1];
-    if (!id) continue;
-    const node = (await catalogRepo.findUnspscNodeById(id)) as UnspscRow | null;
-    if (node) {
-      const profile = buildProfile(userId, levelIds, lvl, id, node, row.group_code ?? null);
-      _profileCache.set(userId, { profile, expires: Date.now() + PROFILE_CACHE_TTL });
-      if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
-      return profile;
-    }
+  if (titleZh === null) {
+    _profileCache.set(userId, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
+    if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
+    return null;
   }
 
-  _profileCache.set(userId, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
+  const profile: UserIndustryProfile = {
+    userId,
+    commodityCode: code,
+    deepestLevel: commodityNodeLevel(code),
+    // 大类码直接透传偏好表自己的列，不从码反推（换算只有一份，在 commodity/tree）
+    groupCode: row.group_code ?? null,
+    industryTitleZh: titleZh,
+  };
+  _profileCache.set(userId, { profile, expires: Date.now() + PROFILE_CACHE_TTL });
   if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
-  return null;
+  return profile;
 }

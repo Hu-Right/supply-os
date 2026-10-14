@@ -12,7 +12,7 @@ import type { CommodityTreeOption } from "@/lib/services/commodity/tree";
 
 export type { CommodityTreeOption };
 
-/** 旧偏好路径换算结果（字典 id → 骨架节点码 + 名称） */
+/** 偏好路径换算结果（骨架节点码 → 大类码 + 各级名称） */
 export interface CommodityPrefsPath {
   groupCode: string | null;
   options: CommodityTreeOption[];
@@ -30,11 +30,11 @@ export const fetchCommodityNodeGroup = (code: string) =>
   apiCached<{ groupCode: string | null }>(`/api/commodity/tree/resolve?code=${encodeURIComponent(code)}`);
 
 /**
- * 把账号行业偏好（旧字典 crm_unspsc_codes 的行 id）换算成品目树路径。
- * 偏好表存的是 level1~3 的字典 id，而旧字典 level=1 是 10 个字母容器，在新分类里没有对应层，
- * 换算规则与原因见 lib/services/commodity/tree.ts 的 resolveUnspscIdsToCommodityPath。
+ * 把账号行业偏好（UGT 最深节点码 commodity_code）换算成品目树路径（各级名称 + 大类码）。
+ * 偏好表已直接存骨架节点码，祖先链由码长纯切片得出；旧版「字典 id 换算」随 UNSPSC
+ * 字典退役删除，见 lib/services/commodity/tree.ts 的 resolveCommodityCodeToPath。
  */
-export const fetchCommodityPrefsPath = (ids: Array<number | null | undefined>) =>
+export const fetchCommodityPrefsPath = (code: string) =>
   api<CommodityPrefsPath>(
-    `/api/commodity/tree/prefs?ids=${ids.map((v) => Number(v) || 0).join(",")}`,
+    `/api/commodity/tree/prefs?code=${encodeURIComponent(code)}`,
   );

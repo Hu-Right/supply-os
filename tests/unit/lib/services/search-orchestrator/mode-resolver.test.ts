@@ -1,15 +1,15 @@
 /**
  * mode-resolver — 类目条件与 prefs 放宽序列必须由节点码给出（Task 10）
  *
- * 改前：default 拿 `?code_id` 去旧字典查出 (id, level) 拼 levelN 过滤；prefs 拿画像五级
- * 字典 id 逐级拼 precise_levelN。两处都建立在旧字典 id 空间上，而公告归属已经改由
- * `backbone_path` 表达 —— 两套键在同一请求里并存就是分叉温床。
- * 改后：两处都换成骨架节点码。prefs 的放宽序列直接由最深节点的**祖先链**推出来
- * （`commodityNodeChain`，码长即层级，不需要再查库取各级 id），底线仍是 L2。
+ * 2026-10-11 backbone 化：default / prefs 的类目谓词统一为骨架节点码，不再碰 levelN 列。
+ * UNSPSC 字典退役（2026-10-13）：画像直接携带最深节点码（commodityCode），
+ * prefs 的放宽序列由它的**祖先链**推出来（`commodityNodeChain`，码长即层级，不查库），
+ * 底线仍是 L2；旧 `?code_id`（字典行 id）外链兼容分支随之删除——老链接丢类目过滤、
+ * 其余参数照常（优雅降级）。
  *
  * 保留的旧语义一条都不动：
  * - 换不出节点 → 忽略类目过滤（不报错、不放宽成"命中全部"）；
- * - codeId=0 / 匿名 / 无画像 → 短路，不发查询；
+ * - 匿名 / 无画像 → 短路，不发查询；
  * - prefs 分数口径 L4/L5→5、L2/L3→2（与 format.matchScoreToTierLabel 阈值对齐）。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -24,34 +24,11 @@ import { resolveMode } from "@/lib/services/search-orchestrator/mode-resolver";
 import { validateParams } from "@/lib/services/search-orchestrator/params";
 import type { Pool } from "mysql2/promise";
 
-/** 字典行 + 骨架行的最小夹具：id 900 = 8 位品目码 43211503 → 树里 L5 节点 */
-const DICT: Record<number, { code: string; level: number }> = {
-  900: { code: "43211503", level: 5 },
-  300: { code: "30883400", level: 4 },
-  101: { code: "A", level: 1 }, // 旧字典的字母容器层：新分类里没有对应层，必须被忽略
-};
-const NODE_BY_CODE: Record<string, string> = {
-  "43211503": "UGT-4321150301", // 字典品目码 → 新树 L5（码内 10 位）
-  "308834": "UGT-30883401", //     字典类码（前 6 位）→ 新树 L4（码内 8 位）
-};
-
 const sqlLog: string[] = [];
-function fakePool(found = true): Pool {
+function fakePool(): Pool {
   return {
-    query: async (sql: string, params?: unknown[]) => {
-      const s = String(sql);
-      sqlLog.push(s);
-      if (s.includes("crm_unspsc_codes")) {
-        const ids = (params as number[]) ?? [];
-        return [ids.map((id) => ({ id, ...DICT[id] })).filter((r) => r.code)];
-      }
-      if (s.includes("crm_commodity_backbone")) {
-        if (!found) return [[]];
-        // 品目/类：按 unspsc_prefix 等值；段：按 LEFT(unspsc_prefix,2)
-        const want = String((params as unknown[])?.[1] ?? (params as unknown[])?.[0] ?? "");
-        const code = NODE_BY_CODE[want] ?? NODE_BY_CODE[want.slice(0, 8)] ?? NODE_BY_CODE[want.slice(0, 6)];
-        return [code ? [{ code, name_zh: "夹具", name_en: "fixture", group_code: "UGT-G-07" }] : []];
-      }
+    query: async (sql: string) => {
+      sqlLog.push(String(sql));
       return [[]];
     },
   } as unknown as Pool;
@@ -64,36 +41,33 @@ beforeEach(() => {
   sqlLog.length = 0;
 });
 
-describe("resolveMode · default 的类目条件", () => {
-  it("code_id 能落到骨架节点 → 给出节点码", async () => {
-    const r = await resolveMode(fakePool(), params({ codeId: 900 }));
-    expect(r.kind).toBe("search");
-    expect(r.category).toEqual({ node: "UGT-4321150301" });
-  });
-
-  it("code_id 在树里换不出节点 → 忽略类目过滤（不报错、不放开全量）", async () => {
-    const r = await resolveMode(fakePool(false), params({ codeId: 900 }));
-    expect(r.kind).toBe("search");
-    expect(r.category).toBeNull();
-  });
-
-  it("codeId=0 短路：一条查询都不发", async () => {
+describe("resolveMode · default 模式（字典 code_id 外链已退役）", () => {
+  it("无类目参数 → 无类目条件，且不发查询", async () => {
     const r = await resolveMode(fakePool(), params({}));
+    expect(r.kind).toBe("search");
     expect(r.category).toBeNull();
     expect(sqlLog).toEqual([]);
   });
 
-  it("旧字典的字母容器层（level=1）不参与：只给容器 id 就当没有类目", async () => {
-    const r = await resolveMode(fakePool(), params({ codeId: 101 }));
+  it("旧 code_id / industry_id 外链不再被识别：优雅降级为无类目过滤", async () => {
+    // 字典行 id 参数随 UNSPSC 字典退役失效；validateParams 不再收集它，
+    // resolveMode 不查库、不报错、不放开全量语义
+    const r = await resolveMode(fakePool(), params({ commodityPath: "UGT-4321150301" }));
+    expect(r.kind).toBe("search");
+    // URL 合法节点码由 filter-builder 直接消费，mode-resolver 不再产出 category
     expect(r.category).toBeNull();
+    expect(sqlLog).toEqual([]);
   });
 });
 
 describe("resolveMode · prefs 的渐进放宽序列", () => {
-  it("最深节点 → 祖先链逐层出节点码（深→浅，底线 L2，分数 5/5/2/2）", async () => {
+  it("最深节点码 → 祖先链逐层出节点码（深→浅，底线 L2，分数 5/5/2/2）", async () => {
     profile.resolve.mockResolvedValue({
-      userId: 7, deepestLevel: 5, groupCode: "UGT-G-07",
-      levelIds: [101, null, null, null, 900],
+      userId: 7,
+      commodityCode: "UGT-4321150301",
+      deepestLevel: 5,
+      groupCode: "UGT-G-07",
+      industryTitleZh: "夹具",
     });
     const r = await resolveMode(fakePool(), params({ mode: "prefs", userId: 7 }));
     expect(r.kind).toBe("search");
@@ -108,7 +82,13 @@ describe("resolveMode · prefs 的渐进放宽序列", () => {
   });
 
   it("只选到类（L4）→ 序列从 L4 起，浅于 L2 的不出现", async () => {
-    profile.resolve.mockResolvedValue({ userId: 8, deepestLevel: 4, levelIds: [101, null, null, 300, null] });
+    profile.resolve.mockResolvedValue({
+      userId: 8,
+      commodityCode: "UGT-30883401",
+      deepestLevel: 4,
+      groupCode: "UGT-G-07",
+      industryTitleZh: "夹具",
+    });
     const r = await resolveMode(fakePool(), params({ mode: "prefs", userId: 8 }));
     expect(r.profileNodes).toEqual([
       { node: "UGT-30883401", level: 4, score: 5 },
@@ -117,9 +97,15 @@ describe("resolveMode · prefs 的渐进放宽序列", () => {
     ]);
   });
 
-  it("画像换不出任何节点 → no_prefs（与旧实现一致，交给前端引导）", async () => {
-    profile.resolve.mockResolvedValue({ userId: 9, deepestLevel: 5, levelIds: [101, null, null, null, 900] });
-    const r = await resolveMode(fakePool(false), params({ mode: "prefs", userId: 9 }));
+  it("画像码形制非法（脏数据）→ no_prefs（resolve 侧已挡，此处钉双保险）", async () => {
+    profile.resolve.mockResolvedValue({
+      userId: 9,
+      commodityCode: "43211503",
+      deepestLevel: 0,
+      groupCode: null,
+      industryTitleZh: null,
+    });
+    const r = await resolveMode(fakePool(), params({ mode: "prefs", userId: 9 }));
     expect(r.kind).toBe("no-prefs");
     expect(r.profileNodes).toBeNull();
   });

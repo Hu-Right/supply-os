@@ -19,8 +19,8 @@ import {
   listChildrenOfNode,
   listCommodityTreeOptions,
   listL2OfGroup,
+  resolveCommodityCodeToPath,
   resolveGroupCodeOfNode,
-  resolveUnspscIdsToCommodityPath,
 } from "@/lib/services/commodity/tree";
 import type { Pool } from "mysql2/promise";
 
@@ -170,70 +170,37 @@ describe("resolveGroupCodeOfNode — 大类码必须点查（切片推不出来�
   });
 });
 
-describe("resolveUnspscIdsToCommodityPath — 旧字典 id → 骨架节点", () => {
-  it("空 ids 与全 0 ids 都不问库", async () => {
+describe("resolveCommodityCodeToPath — 偏好节点码 → 路径名称 + 大类码", () => {
+  it("空码与非法码都不问库", async () => {
     const { pool, calls } = fakePool([]);
-    expect(await resolveUnspscIdsToCommodityPath(pool, [])).toEqual({ groupCode: null, options: [] });
-    await resolveUnspscIdsToCommodityPath(pool, [0, null, undefined]);
+    expect(await resolveCommodityCodeToPath(pool, null)).toEqual({ groupCode: null, options: [] });
+    expect(await resolveCommodityCodeToPath(pool, "")).toEqual({ groupCode: null, options: [] });
+    expect(await resolveCommodityCodeToPath(pool, "721015")).toEqual({ groupCode: null, options: [] });
+    expect(await resolveCommodityCodeToPath(pool, "UGT-0101011")).toEqual({ groupCode: null, options: [] }); // 奇数位
     expect(calls).toHaveLength(0);
   });
 
-  it("段级字典行 → 大类 L1，并把大类码带出来", async () => {
-    const { pool, calls } = fakePool((sql) =>
-      sql.includes("crm_unspsc_codes")
-        ? [{ id: 100081, code: "72000000", level: 2 }]
-        : [{ code: "UGT-14", name_zh: "交通运输", name_en: "", group_code: "UGT-G-14" }],
-    );
-    const r = await resolveUnspscIdsToCommodityPath(pool, [100081]);
-    expect(r.groupCode).toBe("UGT-G-14");
-    expect(r.options).toEqual([{ key: "UGT-14", nameZh: "交通运输", nameEn: "" }]);
-    // 段→大类改为从骨架推导（L4 类行的冗余 group_code 上取 L1）；退役的维表族一个都不许再读
-    expect(calls[1].sql).toContain("b1.group_code = b4.group_code");
-    expect(calls[1].sql).not.toContain("crm_commodity_group");
-    assertNoLegacyTree(calls);
-  });
-
-  it("族级 → 中类 L2（由类行往上两级推），类级 → 子类 L4，品目级 → L5", async () => {
+  it("祖先链由码截断得出，各级名称一条 code IN 补齐，大类码点查", async () => {
     const { pool, calls } = fakePool((sql) => {
-      if (sql.includes("crm_unspsc_codes")) {
-        return [
-          { id: 1, code: "72100000", level: 3 },
-          { id: 2, code: "72101500", level: 4 },
-          { id: 3, code: "72101510", level: 5 },
-        ];
-      }
-      if (sql.includes("b4.unspsc_prefix LIKE")) return [L2_ROW];
-      if (sql.includes("level = ? AND unspsc_prefix = ?")) return [L5_ROW];
-      return [];
+      if (sql.includes("code IN")) return [L2_ROW, L5_ROW];
+      return [{ group_code: "UGT-G-11" }];
     });
-    const r = await resolveUnspscIdsToCommodityPath(pool, [1, 2, 3]);
-    expect(r.options.map((o) => o.key)).toEqual(["UGT-0101", "UGT-0101010101"]);
-    // 类级/品目级都按 unspsc_prefix 等值命中，参数是截好的键（不是整串 8 位）
-    const prefixCalls = calls.filter((c) => c.sql.includes("level = ? AND unspsc_prefix = ?"));
-    expect(prefixCalls[0].params).toEqual([4, "721015"]); // 类：截 6 位命中 L4
-    expect(prefixCalls[1].params).toEqual([5, "72101510"]); // 品目：8 位整串
+    const r = await resolveCommodityCodeToPath(pool, "UGT-0101010101");
+    expect(r.groupCode).toBe("UGT-G-11");
+    expect(r.options.map((o: { key: string }) => o.key)).toEqual(["UGT-0101", "UGT-0101010101"]);
+    const inCall = calls.find((c) => c.sql.includes("code IN"));
+    expect(inCall?.params).toEqual(["UGT-01", "UGT-0101", "UGT-010101", "UGT-01010101", "UGT-0101010101"]);
     assertNoLegacyTree(calls);
+    expect(calls.join(" ")).not.toContain("crm_unspsc_codes");
   });
 
-  it("字典 level=1（A..J 字母容器）与非 8 位码一律跳过，不做臆测映射", async () => {
-    const { pool, calls } = fakePool((sql) =>
-      sql.includes("crm_unspsc_codes")
-        ? [{ id: 100, code: "A", level: 1 }, { id: 101, code: "ZZZZ", level: 4 }]
-        : [{ code: "UGT-01", name_zh: "不该被用到", name_en: "", group_code: "UGT-G-11" }],
-    );
-    const r = await resolveUnspscIdsToCommodityPath(pool, [100, 101]);
+  it("树里查无此码的偏好不编造选项；status=0 的行同样剔除", async () => {
+    const { pool, calls } = fakePool((sql) => {
+      if (sql.includes("code IN")) return [];
+      return [{ group_code: "UGT-G-11" }];
+    });
+    const r = await resolveCommodityCodeToPath(pool, "UGT-0101010101");
     expect(r.options).toEqual([]);
-    expect(r.groupCode).toBeNull();
-    expect(calls).toHaveLength(1); // 只问了字典，没为新树发第二次查询
-  });
-
-  it("字典有、树里换不出节点的码不编造选项", async () => {
-    const { pool, calls } = fakePool((sql) =>
-      sql.includes("crm_unspsc_codes") ? [{ id: 1, code: "99000000", level: 2 }] : [],
-    );
-    const r = await resolveUnspscIdsToCommodityPath(pool, [1]);
-    expect(r.options).toEqual([]);
-    expect(r.groupCode).toBeNull();
     assertNoLegacyTree(calls);
   });
 });

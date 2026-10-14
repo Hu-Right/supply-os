@@ -22,7 +22,7 @@
  *                 （所以非中文界面这三层会落到中文名，补译名是独立工作，不在这里造）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { COMMODITY_GROUPS, groupCodeOfUnspscCode, isCommodityGroupCode } from "./groups";
+import { COMMODITY_GROUPS, isCommodityGroupCode } from "./groups";
 import { BACKBONE_NODE_PREFIX, backboneNodeLevel, chainOfNode } from "./backbone-path";
 
 /** 一条级联选项 */
@@ -184,107 +184,33 @@ export async function l1NodesOfGroup(pool: Pool, groupCode: string): Promise<str
 }
 
 /**
- * 账号行业偏好（旧字典五级行 id）→ 品目大类码 `UGT-G-xx`。可见性判定与 prefs 模式的数据源。
+ * 账号行业偏好（UGT 最深节点码）→ 骨架节点路径（各级名称 + 所在大类码）。
  *
- * 三条规则：
- * 1. **从最深级往上找**第一个能定出大类的级：五级下拉在同一条分支上，祖先的段前缀相同，
- *    上溯不会把用户挪到别的大类；
- * 2. **level1 不参与**：旧字典 level=1 是 A..J 十个字母容器（code 是单字母，不是 8 位数字），
- *    比我们的 32 大类粗得多。实测（temp/probe77、probe78）：user=1 认 UGT-G-25、user=10 认 UGT-G-17，
- *    两人 level1_id 都是 109（容器 J），旧口径下两人能看到的范围完全相同（各 40,171 条）
- *    ⇒ 拿容器当行业，选了哪个大类对墙毫无作用；
- * 3. **换不出返回 null**：不猜一个大类（错筛比不筛更难发现），调用方如实写 NULL 并交门禁点名。
- *
- * 归属关系取自 groups.ts 常量（CG5 门禁逐段比对**树反推**的段→大类），
- * 所以这条换算不依赖骨架树行数，也不另开一份口径。
+ * 偏好表现在直接存 `commodity_code`（最深已选 UGT 节点码），祖先链由码长纯切片
+ * （`commodityNodeChain`，BB1 不变量）得出，各级名称一条 `code IN` 点查补齐；
+ * 大类码优先取偏好行自带的 `group_code`，没有就按 L1 行现查（`resolveGroupCodeOfNode`）。
+ * 码非法或树里查无此码时返回空 options（调用方按缺口处理，不编造选项）。
  */
-export async function groupCodeOfLevelIds(
+export async function resolveCommodityCodeToPath(
   pool: Pool,
-  levelIds: Array<number | null | undefined>,
-): Promise<string | null> {
-  // 下标 0 = level1（容器）⇒ 从最深层（下标 4）走到下标 1（段）为止
-  for (let i = levelIds.length - 1; i >= 1; i -= 1) {
-    const id = Number(levelIds[i] ?? 0);
-    if (!id) continue;
-    const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT code FROM crm_unspsc_codes WHERE id = ? LIMIT 1`,
-      [id],
-    );
-    const g = groupCodeOfUnspscCode(String((rows as RowDataPacket[])[0]?.code ?? ""));
-    if (g) return g;
-  }
-  return null;
-}
-
-/**
- * 把账号行业偏好（旧字典 `crm_unspsc_codes` 的行 id）换算成骨架节点路径。
- *
- * 映射四条，全部只用新树自己的数据（不读旧树）：
- *   字典 level=2（段，8 位码后 6 位为 0）→ 大类 L1：由该段 L4 类行的冗余 `group_code` 上取 L1
- *     （原先经 crm_commodity_group_segments，该表已按 ADR-0009 退役）
- *   字典 level=3（族，后 4 位为 0）  → 中类 L2：由该族的类行往上取，族→中类唯一由门禁 BB3 断言
- *   字典 level=4（类，后 2 位为 0）  → 子类 L4：`unspsc_prefix` = 前 6 位等值
- *   字典 level=5（品目）            → 品目 L5：`unspsc_prefix` = 8 位码等值
- * 字典 level=1 是 10 个字母容器（A..J），新分类里没有对应层 ⇒ 直接忽略，不做臆测映射。
- * 换不出节点的码不编造选项，交上层按缺口处理。
- */
-export async function resolveUnspscIdsToCommodityPath(
-  pool: Pool,
-  ids: Array<number | null | undefined>,
+  code: string | null | undefined,
 ): Promise<ResolvedCommodityPath> {
-  const numeric = ids.map((v) => Number(v) || 0).filter((v) => v > 0);
-  if (numeric.length === 0) return { groupCode: null, options: [] };
+  const key = String(code ?? "").trim();
+  if (!isCommodityNodeKey(key)) return { groupCode: null, options: [] };
+  const chain = commodityNodeChain(key);
+  const keys = chain.filter(Boolean);
+  if (keys.length === 0) return { groupCode: null, options: [] };
   const [rows] = await pool.query(
-    `SELECT id, code, level FROM crm_unspsc_codes
-      WHERE id IN (${numeric.map(() => "?").join(",")}) ORDER BY level`,
-    numeric,
+    `SELECT code, name_zh, name_en FROM crm_commodity_backbone
+      WHERE code IN (${keys.map(() => "?").join(",")}) AND status = 1`,
+    keys,
   );
-  const options: CommodityTreeOption[] = [];
-  let groupCode: string | null = null;
-  for (const r of rows as RowDataPacket[]) {
-    const lv = Number(r.level);
-    const code = String(r.code ?? "");
-    if (lv < 2 || lv > 5 || !/^\d{8}$/.test(code)) continue;
-    let hit: RowDataPacket | undefined;
-    if (lv === 5 || lv === 4) {
-      // 品目：8 位码等值；类：字典存 8 位（后两位 00），树里 L4 的键是 6 位
-      const want = lv === 5 ? code : code.slice(0, 6);
-      const [found] = await pool.query(
-        `SELECT code, name_zh, name_en FROM crm_commodity_backbone
-          WHERE level = ? AND unspsc_prefix = ? AND status = 1 LIMIT 1`,
-        [lv === 5 ? 5 : 4, want],
-      );
-      hit = (found as RowDataPacket[])[0];
-    } else if (lv === 3) {
-      // 族 → 中类：从该族的类行往上两级取；前缀 LIKE 走 uk_prefix 范围，命中行数 ≤ 该族的类数
-      const [found] = await pool.query(
-        `SELECT b2.code, b2.name_zh, b2.name_en
-           FROM crm_commodity_backbone b4
-           JOIN crm_commodity_backbone b3 ON b3.code = b4.parent_code
-           JOIN crm_commodity_backbone b2 ON b2.code = b3.parent_code
-          WHERE b4.level = 4 AND b4.status = 1 AND b4.unspsc_prefix LIKE ?
-          ORDER BY b4.unspsc_prefix LIMIT 1`,
-        [`${code.slice(0, 4)}%`],
-      );
-      hit = (found as RowDataPacket[])[0];
-    } else {
-      // 段 → 大类：由该段的 L4 类行冗余 `group_code` 上取 L1（不回读旧树，也不再查已退役的段归属表）
-      const [found] = await pool.query(
-        `SELECT b1.code, b1.name_zh, b1.name_en, b1.group_code
-           FROM crm_commodity_backbone b4
-           JOIN crm_commodity_backbone b1
-             ON b1.level = 1 AND b1.group_code = b4.group_code AND b1.status = 1
-          WHERE b4.level = 4 AND b4.status = 1
-            AND CHAR_LENGTH(b4.unspsc_prefix) = 6 AND b4.unspsc_prefix LIKE ?
-          ORDER BY b4.unspsc_prefix LIMIT 1`,
-        [`${code.slice(0, 2)}%`],
-      );
-      hit = (found as RowDataPacket[])[0];
-      if (hit) groupCode = String(hit.group_code ?? "") || groupCode;
-    }
-    if (!hit) continue;
-    const opt = toOption(hit);
-    if (!options.some((o) => o.key === opt.key)) options.push(opt);
-  }
+  const byCode = new Map<string, RowDataPacket>();
+  for (const r of rows as RowDataPacket[]) byCode.set(String(r.code ?? ""), r);
+  const options = keys
+    .map((k) => byCode.get(k))
+    .filter((r): r is RowDataPacket => Boolean(r))
+    .map(toOption);
+  const groupCode = await resolveGroupCodeOfNode(pool, key);
   return { groupCode, options };
 }

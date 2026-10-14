@@ -124,7 +124,7 @@ export interface UnspscSourceRow {
  * 平台公告（entry_source='platform'）在桥表里没有行 ⇒ 用主表自填分类翻成 8 位码后走**同一份**挂靠
  * 规则（D8 回归：这类公告此前在全局搜索 / 热榜 / 推荐的分类维度上永久缺席）。旧字典 level=1 是
  * A..J 字母容器（`code` 是单字母，压根没有 8 位码）⇒ 换不出码就如实留空，不做臆测映射
- * （与 commodity/tree.ts 的 resolveUnspscIdsToCommodityPath 同一条纪律）。
+ * （换不出码的公告一律如实留空，不做臆测映射）。
  * 有桥表码时仍合并平台自填分类（与退役前的 unspsc_level1/2 合并语义一致：两者都可被筛到）。
  */
 export async function loadUnspscByNoticeIds(

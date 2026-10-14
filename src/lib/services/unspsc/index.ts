@@ -8,8 +8,8 @@
  *              - bridge-normalize: 纯函数（桥表入库五级路径归一）
  *              - bridge-derive: 纯函数（按主表码文本派生桥表新行）
  *              - opp-bridge: 数据库写操作（商机桥表补行）
- *              - filter: SQL 构建（筛选器/降级路径查询）
  *              - interest: 数据库写操作（用户兴趣码持久化）
+ *              （filter 已整文件下线：最后一个读者随 UNSPSC 字典退役删除）
  */
 
 // 纯函数（padUnspscPrefix 已随 R3' B3 删除：字典反查摘除后生产读者归零）
@@ -54,10 +54,8 @@ export {
   type OppBridgeSyncResult,
 } from "./opp-bridge";
 
-// SQL 构建（buildNoticeUnspscFilter 已随 R3' 断读者删除：全仓零调用者）
-export {
-  getUnspscPath,
-} from "./filter";
+// SQL 构建（buildNoticeUnspscFilter 已随 R3' 断读者删除；getUnspscPath 的最后读者
+// catalog.repo.findUnspscNodeById 链已随 UNSPSC 字典退役删除，filter.ts 整文件下线）
 
 // 数据库写操作
 export {

@@ -38,10 +38,9 @@ function parseSearchParams(req: NextRequest): RawSearchParams {
     noticeType: get("notice_type"),
     featuredOnly: sp.get("featured") === "1",
     sort: get("sort", "latest"),
-    codeId: getInt("code_id") || getInt("industry_id"),
     // 品目大类筛选（32 类 chip）：合法性在 validateParams 里按常量校验
     groupCode: get("group"),
-    // 品目树五级下拉（段/族/类/品目）：只接受 2/4/6/8 位 UNSPSC 前缀，其余在 validateParams 里丢弃
+    // 品目树筛选键（UGT 节点码）：合法性在 validateParams 里按形制校验
     commodityPath: get("commodity"),
     budgetMin: sp.get("budget_min") ? Number(sp.get("budget_min")) : undefined,
     budgetMax: sp.get("budget_max") ? Number(sp.get("budget_max")) : undefined,
@@ -97,7 +96,6 @@ export const GET = withRoute(async (req: NextRequest) => {
     const filters = JSON.stringify({
       mode: params.mode,
       page: params.page != null && params.page > 1 ? params.page : undefined,
-      code_id: params.codeId || undefined,
       commodity: params.commodityPath || undefined,
       agency: params.agency || undefined,
       budget_min: Number.isFinite(params.budgetMin) ? params.budgetMin : undefined,

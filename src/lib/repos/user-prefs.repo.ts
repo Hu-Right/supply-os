@@ -15,9 +15,11 @@ export interface UserIndustryPrefsRow {
   level3_id: number | null;
   level4_id: number | null;
   level5_id: number | null;
-  /** 品目大类码（UGT-G-xx）：可见性判定 industry-scope 的唯一输入。旧行可能为空（历史上没人写这列），
-   *  由 ops 重导脚本补齐；补齐后写入链路必须同批带上它。 */
+  /** 品目大类码（UGT-G-xx）：可见性判定 industry-scope 的唯一输入。
+   *  旧行由迁移脚本灌值；新偏好（码版）由保存链路与 commodity_code 同批写。 */
   group_code: string | null;
+  /** 最深已选 UGT 节点码（码版偏好的唯一选择键；旧行历史值为空） */
+  commodity_code: string | null;
   updated_at: Date | null;
 }
 
@@ -27,7 +29,7 @@ export class UserPrefsRepo {
   /** 查询用户行业偏好 */
   async getIndustryPrefs(userId: number): Promise<UserIndustryPrefsRow | null> {
     const [rows] = await this.pool.query(
-      "SELECT level1_id, level2_id, level3_id, level4_id, level5_id, group_code, updated_at FROM crm_user_industry_prefs WHERE user_id = ? LIMIT 1",
+      "SELECT level1_id, level2_id, level3_id, level4_id, level5_id, group_code, commodity_code, updated_at FROM crm_user_industry_prefs WHERE user_id = ? LIMIT 1",
       [userId],
     );
     return (rows as UserIndustryPrefsRow[])[0] ?? null;
@@ -39,19 +41,25 @@ export class UserPrefsRepo {
   }
 
   /**
-   * 写入/更新用户行业偏好。
-   * @param groupCode 由调用方从五级 id 换算好的品目大类码；换不出就传 null（仓储不猜、不兜底）。
-   *                  INSERT 与 ON DUPLICATE 两边都要写：只写一处就会「首次保存有值、改一次偏好就丢」。
+   * 写入/更新用户行业偏好（码版）。
+   * @param commodityCode 最深已选 UGT 节点码；groupCode 由调用方换算好的品目大类码，
+   *                      换不出就传 null（仓储不猜、不兜底）。
+   *                      旧行的 levelN_id（UNSPSC 字典行 id）随字典退役恒置 NULL——
+   *                      INSERT 与 ODKU 两侧都显式置空，避免「新码旧 id」两套键并存分叉。
    */
-  async upsertIndustryPrefs(userId: number, levels: (number | null)[], groupCode: string | null): Promise<void> {
+  async upsertIndustryPrefs(
+    userId: number,
+    commodityCode: string | null,
+    groupCode: string | null,
+  ): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO crm_user_industry_prefs (user_id, level1_id, level2_id, level3_id, level4_id, level5_id, group_code)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO crm_user_industry_prefs
+         (user_id, level1_id, level2_id, level3_id, level4_id, level5_id, group_code, commodity_code)
+       VALUES (?, NULL, NULL, NULL, NULL, NULL, ?, ?)
        ON DUPLICATE KEY UPDATE
-         level1_id = VALUES(level1_id), level2_id = VALUES(level2_id), level3_id = VALUES(level3_id),
-         level4_id = VALUES(level4_id), level5_id = VALUES(level5_id),
-         group_code = VALUES(group_code), updated_at = NOW()`,
-      [userId, ...levels, groupCode],
+         level1_id = NULL, level2_id = NULL, level3_id = NULL, level4_id = NULL, level5_id = NULL,
+         group_code = VALUES(group_code), commodity_code = VALUES(commodity_code), updated_at = NOW()`,
+      [userId, groupCode, commodityCode],
     );
   }
 }

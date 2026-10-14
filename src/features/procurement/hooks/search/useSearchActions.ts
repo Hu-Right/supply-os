@@ -98,9 +98,8 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (inputs.windowInput) next.deadline_within_days = inputs.windowInput;
     if (inputs.noticeTypeInput.trim()) next.notice_type = inputs.noticeTypeInput.trim();
     if (query.activeFeatured) next.featured = "1";
-    // 以下三项都不在表单里，从 URL 事实源直接携带，否则重新搜索会静默丢筛选：
-    // 旧字典入口（首页热门/外链）、大类 chip 与五级下拉共用的 group、五级下拉的品目路径
-    if (query.activeCodeId) next.code_id = query.activeCodeId;
+    // 以下两项都不在表单里，从 URL 事实源直接携带，否则重新搜索会静默丢筛选：
+    // 大类 chip 与五级下拉共用的 group、五级下拉的品目路径
     if (query.activeGroup) next.group = query.activeGroup;
     if (query.activeCommodity) next.commodity = query.activeCommodity;
     if (query.activeBudgetMin) next.budget_min = query.activeBudgetMin;

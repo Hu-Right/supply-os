@@ -67,20 +67,20 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   }, []);
 
   /**
-   * 按偏好路径切 prefs 模式（路径经品目树换算）
+   * 按偏好路径切 prefs 模式（偏好键为 UGT 最深节点码，经品目树换名称）
    */
   const applyPrefsPath = useCallback(async (prefs: {
-    level1_id?: number | null; level2_id?: number | null; level3_id?: number | null;
+    commodity_code?: string | null; group_code?: string | null;
   }) => {
     const entrySeq = exitSeqRef.current;
     let resolved = { groupCode: null as string | null, options: [] as CommodityTreeOption[] };
     try {
-      resolved = await fetchCommodityPrefsPath([prefs.level1_id, prefs.level2_id, prefs.level3_id]);
+      resolved = await fetchCommodityPrefsPath(prefs.commodity_code || "");
     } catch {
       // 换算失败不阻断匹配模式：筛选本身由服务端按画像层级完成，提示条只是少一行名字
     }
     if (exitSeqRef.current !== entrySeq) return;
-    setPrefsPath(resolved);
+    setPrefsPath({ groupCode: prefs.group_code ?? resolved.groupCode, options: resolved.options });
     setPrefsMode("prefs");
   }, []);
 
@@ -93,7 +93,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     setPrefsMode("prefs");
     try {
       const prefs = await fetchIndustryPrefs();
-      if (prefs?.level1_id) {
+      if (prefs?.commodity_code) {
         setHasIndustryPrefs(true);
         await applyPrefsPath(prefs);
       } else {
@@ -124,7 +124,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       try {
         const prefs = await fetchIndustryPrefs();
         if (stale()) return;
-        if (prefs?.level1_id) {
+        if (prefs?.commodity_code) {
           setHasIndustryPrefs(true);
           await applyPrefsPath(prefs);
           return;

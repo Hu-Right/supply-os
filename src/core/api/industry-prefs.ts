@@ -3,17 +3,29 @@
  * Industry Preference API (cross-feature shared interface)
  *
  * @module core/api/industry-prefs
- * @description 账号默认行业偏好的读取和保存，供 procurement 和 auth 两个 feature 使用
+ * @description 账号默认行业偏好的读取和保存，供 procurement 和 auth 两个 feature 使用。
+ *              偏好键是 UGT 最深节点码（commodity_code）；旧行的字典 id 随 UNSPSC
+ *              字典退役停用。
  */
-import { api } from "@/core/http";
+import { api, apiCached } from "@/core/http";
 
-/** 账号默认行业偏好：UNSPSC 类目路径 id（UI 使用 1~3 级：前两级必选，第三级可选） */
+/** 账号默认行业偏好：UGT 最深骨架节点码 + 品目大类码（可见性判定输入） */
 export interface IndustryPrefs {
-  level1_id: number | null;
-  level2_id?: number | null;
-  level3_id?: number | null;
-  level4_id?: number | null;
-  level5_id?: number | null;
+  commodity_code: string | null;
+  group_code?: string | null;
+}
+
+/** 一条品目推断候选（/api/commodity/smart-infer） */
+export interface CommodityInferCandidate {
+  /** 骨架节点码 UGT-* */
+  code: string;
+  nameZh: string;
+  nameEn: string;
+  /** 所属品目大类码（UGT-G-xx）；挂不上为 null */
+  groupCode: string | null;
+  level: number;
+  /** 0~1 粗分（展示徽章档位用） */
+  score: number;
 }
 
 /**
@@ -33,11 +45,19 @@ export const fetchIndustryPrefs = async (): Promise<IndustryPrefs | null> => {
 };
 
 /**
- * 保存账号默认行业偏好（level1_id 传空即清除偏好）
- * Save the account's default industry preference (null level1_id clears it)
+ * 保存账号默认行业偏好（commodity_code 传空即清除偏好）
+ * Save the account's default industry preference (empty code clears it)
  */
-export const saveIndustryPrefs = (prefs: Partial<IndustryPrefs>) =>
+export const saveIndustryPrefs = (prefs: { commodity_code?: string | null }) =>
   api("/api/user/industry-prefs", {
     method: "POST",
     body: prefs,
   });
+
+/**
+ * 主营业务关键词 → 品目树节点候选（UGT 树内 FULLTEXT 匹配，只产候选不自动回填）
+ */
+export const fetchSmartInferCommodity = (q: string) =>
+  apiCached<{ candidates: CommodityInferCandidate[] }>(
+    `/api/commodity/smart-infer?q=${encodeURIComponent(q)}`,
+  );
