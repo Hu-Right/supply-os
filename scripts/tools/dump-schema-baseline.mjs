@@ -21,7 +21,20 @@ const OUT = process.env.OUT || "db/schema/baseline.sql";
 // 影子/备份表（带 __bak_ 或日期后缀）是一次性切换留下的快照，不属于终态结构。
 // __new 后缀是 ADR-0003 蓝绿切换的**在途影子表**：切换前重导会把半成品结构写进基线，
 // 切换后它会原子改名成原表、自然消失，故必须排除（2026-10-12 机会表轮次踩过这个口）。
-const EXCLUDE_RES = [/__bak_/, /_bak\d/, /_(?:bak|backup|old|copy)_?\d*$/, /__new$/, /_retired_/];
+// __drill 后缀是全量对拍/回滚演练的影子表（如 crm_notice_attribution_nodes__drill），
+// 它们按纪律保留作“落刀证明”（ADR-0014），同样不能进基线。
+// crm_appointments：ADR-0011 已宣布退役（代码侧已完成），库侧 DROP 那一刀还没落。
+// 重导会把它从 information_schema 带回来→进入 baseline 会违反“死表不参与 CI e2e”的口径。
+// 库侧 DROP 落刀后删掉本行（下一轮重导自然归一，diff 应为空）。
+const EXCLUDE_RES = [
+  /__bak_/,
+  /_bak\d/,
+  /_(?:bak|backup|old|copy)_?\d*$/,
+  /__new$/,
+  /__drill$/,
+  /_retired_/,
+  /^crm_appointments$/,
+];
 const extra = process.env.EXCLUDE;
 if (extra) EXCLUDE_RES.push(new RegExp(extra, "i"));
 
