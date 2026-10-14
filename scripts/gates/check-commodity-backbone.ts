@@ -1,13 +1,15 @@
 /**
- * 品目树门禁 BB1~BB14（单表结构版）
+ * 品目树门禁 BB1~BB15（UNSPSC 全面退役 R4' 后的单表自洽版）
  *
  * @script scripts/gates/check-commodity-backbone.ts
  * @assertions
  *   BB1 码长即层级：UGT- 后 2/4/6/8/10 位对应 L1~L5；父码=自身去末两级且存在；每父子数 ≤ 99；名非空
- *   BB2 码全覆盖：本表带 6 位前缀的行数 = 原树类数、带 8 位 = 原树品目数，且逐码在原树里存在（一个不多一个不少）
- *      ↳ 与旧树互比的部分只在旧树还在库里时执行；旧树下线后靠树内自洽断言 + BB7 逐码对树
- *   BB3 归属可推导且唯一：同一个族的类行必须落在同一个大类下（小类/中类跨枝为语义重挂后的合法形态，族级粗码落最深可证实唯一祖先）；同一个段的所有族必须落在同一个大类下
- *   BB4 大类连续：节点 group_code = 祖先 group_code = 常量按段推出的所属大类（段归属表退役后直接对常量）
+ *   BB2 已于 R4' 删除：旧语义“本表 unspsc_prefix 域 ↔ 旧树 unspsc_code”的跨树对测已随旧树与字典下线失去对象；
+ *      ↳ 旧树不在时 `if (orig)` 分支本来就打印跳过，R4' 后直接拆机。
+ *   BB3 已于 R4' 删除：旧语义“同一个 UNSPSC 族→同一个 L2、同一个段→同一个 L1”需 unspsc_prefix 行反推。
+ *      ↳ UGT 直认后不再维护“族/段”的 UNSPSC 语义⇒断言不再适用。
+ *   BB4 大类连续（精简版）：L4 行的 group_code 与祖先 L1.group_code 必逐行一致（树上内存自洽，
+ *      ↳ 旧版中“段→常量推大类”那半边已随 unspsc_prefix 入口剥开；常量↔树的交叉对测交给 BB5 L1=32行+BB12）
  *   BB5 五级齐：L1 恰 32 行且 parent 为空串，L1~L5 每级都有行；同名兄弟只 WARN
  *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥（旧树已删则无对象，只打印跳过）
  *   BB7 公告归属已落到骨架（事实源 = 落点表， UNSPSC 退役 R3'）：宽表形制合法（非空串、
@@ -15,8 +17,8 @@
  *      ↳ 曾经的“有码必填/无码必空”已交给 BB15c/d（落点↔列值双向闭合）；本条不再吃桥表。
  *   BB8 旧树零引用（静态）：src/** 不得出现 FROM/JOIN crm_commodity_nodes* —— 这是「旧树可以删」的机器证明
  *      ↳ 后缀走 \w* ：旧树 RENAME 后的退役表照样算引用（带自检，防改名豁免）
- *   BB9 族级落点分档：拿纯函数逐族试挂粗码，L1/L2/L3/L4 四档至少三档有落点 —— 防「最深可证实唯一」被改回一刀切
- *      ↳ 覆盖率类断言抓不到退化（一刀切也是 100%），只有落点层数能叫出来
+ *   BB9 已于 R4' 删除：旧语义“拿族粗码 fam+0000 试挂 match，L1..L4 四档至少三档有落点”验证的
+ *      ↳ 是数字码入口的“最深可证实唯一”分档；入口已剥⇒断言失参考系。
  *   BB10 已于 UNSPSC 退役 R3' 删除：旧语义“列值 = pathOf(桥表 UNSPSC 码)”已交给 BB15c（列值 = 落点派生）。
  *   BB12 偏好表的大类码齐备且对得上骨架 L1 —— 可见性判定的输入，缺行就是把付费用户静默放行
  *   BB13 退役不变量：不得留下 crm_commodity_nodes_retired_* 这种「改名改一半」的中间态（直接红）；
@@ -27,7 +29,7 @@
  *        但读侧一旦切到倒排表，这条就必须转绿 —— 它也是上线清单里的那一项
  *   BB15 落点表是 backbone_path 的事实源（UNSPSC 全面退役 R1）：落点全在树、
  *      同一公告的落点互不为祖先（全表不抽样）、列值 = 落点闭包（抽两头）、
- *      与宽表双向闭合（有列值必有落点行、有落点行必有列值）
+ *      与宽表双向闭合（有列值必有落点行、有落点行必有列值）；BB15d 按 source 分档与 AS2/AS4 同口径。
  *      ↳ 表未建只 WARN（建表是人工闸口 scripts/ops/notice-attribution-ddl.ts）；
  *        R2 把读侧切到落点表后，WARN 转绿是上线清单的一项
  * @limits 静态部分必须能在无 MySQL 的 CI 里跑；--db 是本地/发布前闸口。
@@ -39,7 +41,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { COMMODITY_GROUPS } from "../../src/lib/services/commodity/groups";
 import { ACTIVE_NOTICE_WHERE } from "../../src/lib/utils/notice-expired";
-import { loadBackboneIndex, toBackbonePathColumn, BACKBONE_NODE_PREFIX, type BackboneIndex } from "../../src/lib/services/commodity/backbone-path";
+import { loadBackboneIndex, toBackbonePathColumn, BACKBONE_NODE_PREFIX } from "../../src/lib/services/commodity/backbone-path";
 import { pathOfLandingNodes } from "../../src/lib/services/commodity/attribution";
 
 const DB = process.argv.includes("--db");
@@ -133,8 +135,8 @@ if (Number(legacyHere.n) !== 0)
   console.log("⚠ BB13 原树 crm_commodity_nodes 又出现在库里：按回滚/观察期处理，BB2/BB3/BB6 正在对它重跑对账（退役尚未完成）");
 
 const rows = await q(
-  `SELECT code, parent_code, level, group_code, unspsc_prefix, name_zh FROM crm_commodity_backbone`,
-) as unknown as { code: string; parent_code: string; level: number; group_code: string; unspsc_prefix: string | null; name_zh: string }[];
+  `SELECT code, parent_code, level, group_code, name_zh FROM crm_commodity_backbone`,
+) as unknown as { code: string; parent_code: string; level: number; group_code: string; name_zh: string }[];
 /**
  * 跨树对账的对照物。旧树 crm_commodity_nodes 一旦下线，BB2 的码域比对、BB3 的族数比对、
  * BB6 的「原树未动」就失去对象：这些断言按「旧树在场才执行」跑，缺席时明确打印跳过。
@@ -169,68 +171,24 @@ for (const r of rows) {
 }
 for (const [p, k] of kids) if (k > 99) fail(`BB1 ${p} 下子节点 ${k} 个，超 2 位编码上限 99`);
 
-// ── BB2 码全覆盖 ──
-const p6 = rows.filter((r) => r.unspsc_prefix && r.unspsc_prefix.length === 6);
-const p8 = rows.filter((r) => r.unspsc_prefix && r.unspsc_prefix.length === 8);
-const pOther = rows.filter((r) => r.unspsc_prefix && r.unspsc_prefix.length !== 6 && r.unspsc_prefix.length !== 8);
-if (pOther.length) fail(`BB2 出现非 6/8 位的码行 ${pOther.length} 条（段与族不建行，归属由祖先推导）`);
-if (orig) {
-  if (p6.length !== Number(orig.cls)) fail(`BB2 子类行数=${p6.length}，原树类数=${orig.cls}`);
-  if (p8.length !== Number(orig.cmd)) fail(`BB2 品目行数=${p8.length}，原树品目数=${orig.cmd}`);
-}
-const seenPrefix = new Set<string>();
-for (const r of [...p6, ...p8]) {
-  const p = String(r.unspsc_prefix);
-  if (seenPrefix.has(p)) fail(`BB2 同一码在本表出现两行（一个码两个爹）：${p}`);
-  seenPrefix.add(p);
-}
-// 原树类行存的是 8 位粗码（如 10101500），树里存的是 6 位类前缀⇒ 取键时同样截齐，不拿两种长度硬比
-if (orig) {
-  const srcCodes = await q(
-    `SELECT CASE WHEN level='class' THEN LEFT(unspsc_code,6) ELSE unspsc_code END c
-       FROM crm_commodity_nodes WHERE level IN ('class','commodity')`,
-  );
-  for (const r of srcCodes) {
-    const c = String((r as Record<string, unknown>).c);
-    if (!seenPrefix.has(c)) fail(`BB2 原树码 ${c} 在树里没有对应行 ⇒ 该码公告永远筛不到`);
-  }
-  // 树里的码必须都在原树里（不许凭空造码）
-  const srcSet = new Set(srcCodes.map((r) => String((r as Record<string, unknown>).c)));
-  for (const p of seenPrefix) if (!srcSet.has(p)) fail(`BB2 树里出现原树没有的码：${p}`);
-}
+// ── BB2/BB3 已于 R4' 拆机──
+// 旧语义需 unspsc_prefix 行反推⇒入口剥后断言失对象。旧树不在时 orig=null，与现在直接拆机同形。
 
-// ── BB3 归属可推导且唯一 + BB4 大类连续 ──
-// 2026-10-13 口径更新：树已按业务语义重挂，一个 UNSPSC 族的类行可以合法分属多个小类/中类
-// （换算器的「最深可证实唯一祖先」已延伸到 L1）——族级唯一性只在**大类层**强制；
-// 小类/中类跨枝只计数不报错。`anc` 的 6 = 旧前缀 UGT-B- 长度，码制去 -B 后改从常量取。
+// ── BB4 大类连续（精简版：树上内存自洽）──
+// 旧版中的“段→常量推大类”需 unspsc_prefix；拆后保留“L4.group_code 与祖先 L1.group_code 逐行一致”
+// 那半边⇒不依赖 UNSPSC。`anc` 的长度从常量 BACKBONE_NODE_PREFIX 取（旧“UGT-B-”前写死 6 已改正）。
 const anc = (code: string, level: number) => code.slice(0, BACKBONE_NODE_PREFIX.length + level * 2);
-const famToL2 = new Map<string, string>();
-let famCrossL2 = 0;
-for (const r of p6) {
-  const fam = String(r.unspsc_prefix).slice(0, 4);
-  const l2 = anc(r.code, 2);
-  const prev = famToL2.get(fam);
-  if (prev && prev !== l2) famCrossL2++;
-  famToL2.set(fam, l2);
-  // BB4：类行的段 → 大类，必须等于自身与祖先的 group_code
-  const seg = fam.slice(0, 2);
-  const wantGroup = segToGroup.get(seg);
-  const l1 = byCode.get(anc(r.code, 1))!;
-  if (!l1) { fail(`BB4 祖先大类行缺失：${r.code}`); continue; }
-  if (r.group_code !== l1.group_code) fail(`BB4 group_code 与祖先不一致：${r.code} ${r.group_code} vs ${l1.group_code}`);
-  if (wantGroup && wantGroup !== r.group_code) fail(`BB4 段 ${seg} 应属 ${wantGroup}，但 ${r.code} 记的是 ${r.group_code}`);
+{
+  let l4Count = 0;
+  for (const r of rows) {
+    if (r.level !== 4) continue;
+    l4Count++;
+    const l1 = byCode.get(anc(r.code, 1));
+    if (!l1) { fail(`BB4 祖先大类行缺失：${r.code}`); continue; }
+    if (r.group_code !== l1.group_code) fail(`BB4 group_code 与祖先不一致：${r.code} ${r.group_code} vs ${l1.group_code}`);
+  }
+  console.log(`BB4 L4 与祖先 L1 group_code 逐行自洽（共扫 ${l4Count} 行 L4）`);
 }
-if (orig && famToL2.size !== Number(orig.fam)) fail(`BB3 可由类行反推出的族数=${famToL2.size}，原树族数=${orig.fam}`);
-console.log(`ℹ BB3 语义重挂口径：${famCrossL2} 个族的类行合法跨中类（族级唯一性只在 tightened 大类层强制，跨大类已在 BB4 覆盖）`);
-const segToL1 = new Map<string, string>();
-for (const [fam, l2] of famToL2) {
-  const seg = fam.slice(0, 2);
-  const l1 = anc(l2, 1);
-  const prev = segToL1.get(seg);
-  if (prev && prev !== l1) fail(`BB3 段 ${seg} 跨了两个大类：${prev} 与 ${l1}`);
-  segToL1.set(seg, l1);
-}
-if (segToL1.size !== 58) fail(`BB3 可反推的段数=${segToL1.size}，应为 58`);
 
 // ── BB5 五级齐 + 命名质量 ──
 const perLevel = [1, 2, 3, 4, 5].map((lv) => rows.filter((r) => r.level === lv).length);
@@ -277,16 +235,17 @@ const pathCol = await one(
 if (Number(pathCol.n) === 0) {
   fail("BB7 宽表没有 backbone_path 列：先 npx tsx scripts/ops/commodity-backbone-path-ddl.ts --apply --yes 加列，再跑回填");
 } else {
-  // 索引先构：BB7 「可算必填」要靠它区分「回填漏跑」与「树上根本没这个码」，BB9/BB10 也用的是同一个实例
-  let idx: BackboneIndex | null = null;
+  // 索引先构：R4' 后 BB7/BB15/BB16 都在同一棵树上跑；构索引本身失配 ⇒ 红（不抱预期默认它可用）
+  // 旧的 BB7 “可算必填”与 BB9/BB10 都拿它反查数字码入口⇒入口剥后不再消费实例。
   try {
-    // 与运行期同一个构造入口：门禁自己拼行集的话，BB10 报红就分不清是「第二份实现」
+    // 与运行期同一个构造入口：门禁自己拼行集的话，报红就分不清是「第二份实现」
     // 还是「行集不同」（比如 status 过滤、或段映射来源不一致）
-    idx = await loadBackboneIndex(async <T = Record<string, unknown>>(sql: string) =>
+    const _idx = await loadBackboneIndex(async <T = Record<string, unknown>>(sql: string) =>
       ((await pool.query(sql)) as [T[], unknown])[0],
     );
+    void _idx;
   } catch (e) {
-    fail(`BB7/BB9 构骨架索引失败：${(e as Error).message}`);
+    fail(`BB7/BB15 构骨架索引失败：${(e as Error).message}`);
   }
 
   const p = await one(
@@ -362,52 +321,20 @@ if (Number(pathCol.n) === 0) {
     fail(`BB12 有 ${prefBadGroup.n} 行偏好的 group_code 在骨架 L1 里找不到对应行 ⇒ 可见性谓词永远不命中（常量与库分叉）`);
   }
 
-  // ── BB9 族级落点分档（纯函数侧，不扫宽表）──
-  // 口径不在门禁里重写：直接拿 backbone-path 的 match() 逐族试挂，模块改了它跟着变。
-  // 粗码用「族前缀 + 0000」喂进去，走的就是公告实际会走的那条分支。
-  // idx 已在 BB7 那段前面构好（同一个实例，不开第二份行集）
-  if (idx) {
-    const ix = idx;
-    const famHist = new Map<number, number>();
-    const famMiss: string[] = [];
-    for (const fam of famToL2.keys()) {
-      const hit = ix.match(`${fam}0000`);
-      if (!hit) { famMiss.push(fam); continue; }
-      famHist.set(hit.row.level, (famHist.get(hit.row.level) ?? 0) + 1);
-    }
-    const at = (lv: number) => famHist.get(lv) ?? 0;
-    console.log(`BB9 族级落点 ${famToL2.size} 族：L4 ${at(4)} / L3 ${at(3)} / L2 ${at(2)} / L1 ${at(1)}（语义重挂后族可落 L1）`);
-    if (famMiss.length) fail(`BB9 有 ${famMiss.length} 个族的粗码换不出落点，样本 ${famMiss.slice(0, 3).join("、")}`);
-    // 计数必须恰好吃完全部族：漏掉的那部分会既不进各档也不进 famMiss，
-    // 比如树里出现形如 XXXX0000 的 8 位品目键时，match() 的「等值优先」会让该族粗码直接落 L5
-    const famAccounted = at(1) + at(2) + at(3) + at(4) + famMiss.length;
-    if (famAccounted !== famToL2.size) {
-      fail(`BB9 族级落点只算了 ${famAccounted}/${famToL2.size} 个族 ⇒ 有族的粗码落到了 L1/L2/L3/L4/miss 之外（键形制被污染）`);
-    }
-    // 至少三档有落点：只有一档就是被改回一刀切，或只会上浮（无唯一性判定）。
-    // 2026-10-13 起族可合法落 L1（语义重挂后族可跨中类），四档里非零档数 ≥3 即视为未退化。
-    const tiersNonZero = [1, 2, 3, 4].filter((lv) => at(lv) > 0).length;
-    if (tiersNonZero < 3) {
-      fail(`BB9 族级落点只有 ${tiersNonZero} 档非零 ⇒ 落点规则疑似退化（至少三档该有落点）`);
-    }
-    const segBad = [...segToL1.keys()].filter((seg) => ix.match(`${seg}000000`)?.row.level !== 1);
-    if (segBad.length) fail(`BB9 有 ${segBad.length} 个段的粗码没落到大类，样本 ${segBad.slice(0, 3).join("、")}`);
-
-    // BB10 已于 UNSPSC 退役 R3' 删除。旧语义“列值 = pathOf(桥表 UNSPSC 码)”不再适用；
-    // 新事实源下同形断言由 BB15c 接管（列值 = pathOfLandingNodes(落点 UGT-*)，差异必须 0）。
-    // 本行注释保留，防止后人拉回“为什么这里少一段”。
-  }
+  // BB9 已于 UNSPSC 退役 R4' 删除：旧语义“拿 fam+0000 试挂 ix.match()”验证的
+  // 是数字码入口的“最深可证实唯一”分档；match() 入口已剥⇒断言失参考系。
+  // BB10 已于 UNSPSC 退役 R3' 删除：旧语义“列值 = pathOf(桥表 UNSPSC 码)”已交给 BB15c（列值 = 落点派生）。
+  // 两段注释保留，防止后人拉回“为什么这里少一大块”。
   pathStat = `已填 ${p.filled} · 抽样 ${pc.size} 码全在树`;
 }
 
 console.log(`树：L1 ${perLevel[0]} / L2 ${perLevel[1]} / L3 ${perLevel[2]} / L4 ${perLevel[3]} / L5 ${perLevel[4]}（合计 ${rows.length} 行，一张表）`);
-console.log(`码行：6 位 ${p6.length} / 8 位 ${p8.length}；可反推 族 ${famToL2.size} / 段 ${segToL1.size}`);
 if (pathStat) console.log(`公告归属：${pathStat}`);
 console.log(`规模带（每父的子数）：中类/大类 ${bandof(1)}｜小类/中类 ${bandof(2)}｜子类/小类 ${bandof(3)}｜品目/子类 ${bandof(4)}`);
 if (sibWarn) console.log(`⚠ ${sibWarn} 条同名兄弟（子类/品目行继承原树名，不改）`);
-/** 入参是父的层级：父码长 = 6 + 父层级×2（L1=8、L2=10…），kids 是按 parent_code 计数的 */
+/** 入参是父的层级：父码长 = BACKBONE_NODE_PREFIX.length + 父层级×2（L1=6、L2=8…），kids 按 parent_code 计数 */
 function bandof(parentLevel: number) {
-  const len = 6 + parentLevel * 2;
+  const len = BACKBONE_NODE_PREFIX.length + parentLevel * 2;
   const s = [...kids.entries()].filter(([p]) => p.length === len).map(([, k]) => k).sort((a, b) => a - b);
   return s.length ? `min ${s[0]} / 中位 ${s[Math.floor(s.length / 2)]} / max ${s[s.length - 1]}` : "无";
 }

@@ -1,54 +1,42 @@
 /**
- * 骨架路径换算器 — 把公告身上的 UNSPSC 码换成品目骨架节点码（`UGT-…`）
+ * 骨架节点访问器 — 把 UGT 节点码反查成行 + 祖先链（UNSPSC 全面退役 R4'）
  *
  * @module lib/services/commodity/backbone-path
- * @description 为什么要这么换：公告的码全是 8 位，但里面大量是"粗码"（后几位为 0，只说到类/族/段）。
- *              新树故意不给业务层（大类/中类/小类）挂 UNSPSC 编号，否则树的骨架又变成旧树的编号体系。
- *              所以翻译结果只能存到公告那一侧：每条公告算出它属于哪些骨架节点，节点码写进宽表列。
+ * @description 本模块从“把 UNSPSC 码换成 UGT 节点”收敛为“在 UGT 节点上直接检索”。
+ *              小表剥离上线日迁移（scripts/ops/user-interest-ugt-migrate.ts）+ 遗留清理（scripts/ops/interest-tables-purge-legacy.ts）
+ *              完成后，`crm_user_interest_codes` / `crm_supplier_unspsc_interests` 已全部重写成 `UGT-*`，
+ *              运行期再无数字码入口⇒ match/pathOf 只保留 UGT 节点直认一条分支。
  *
- *              四条换算规则（按优先级）：
- *                1. 8 位码等于某个 L5 行的键 ⇒ 命中品目节点；
- *                2. 有效位只剩 6 位（类级粗码）⇒ 前 6 位等值命中 L4 子类；
- *                3. 有效位只剩 4 位（族级粗码）⇒ 用「族前缀 → 最深可证实唯一节点」映射：该族在树里
- *                   只有一个子类就落 L4（族 ≡ 子类，是结构事实不是推断），多个子类同属一个小类就落
- *                   L3，再往上中类/大类逐层唯一则落该层（2026-10-13 起树按业务语义重挂，一个 UNSPSC
- *                   族的类行可以合法分属多个小类/中类——「最深可证实唯一祖先」自然延伸到 L1）；
- *                   跨大类属数据冲突，直接抛错。映射全部由新树自己的祖先链推导，不需要额外字典；
- *                4. 有效位只剩 2 位（段级粗码）⇒ 用「段前缀 → 大类」映射命中大类。映射源是
- *                   crm_commodity_group_segments（我们自己的 32 类归属，不是旧树）。
- *              命中后连同**全部祖先码**一起输出：筛选时任意一层等值命中即可，运行期不做递归。
+ *              历史四条换算规则（品目/类/族/段）与 crm_commodity_backbone.unspsc_prefix 列读取均随 R4' 剥开；
+ *              列物理 DROP 后下一轮重导 baseline 就不带它了（门禁那边同步剥 BB2/BB3/BB4 unspsc 分支/BB9）。
  *
- *              入参形制（2026-10-11 放宽）：除 8 位定长码外，**成对的 2/4/6 位前缀也接受**
- *              （右补零到 8 位再走同一套规则）。理由：兴趣码表实测有 357/830 条存的是截断前缀
- *              （如 `72`、`2510`），它们在 UNSPSC 里就是段/族/类级粗码的简写；补零是唯一的
- *              无损还原写法，不补就只能让这批兴趣信号在读侧永远换不出落点（实测静默召不回）。
- *              仍拒：奇数位（`251`，凑不出合法的两位一级）、超过 8 位、含非数字 —— 那些不是截断
- *              而是脏数据，一律进 misses 交调用方计数，不猜。公告桥表实测 767,271 行全是 8 位
- *              ⇒ 放宽不改动任何已回填的公告归属（BB10/BB11 重算对拍可证）。
+ *              树形不变量（仍然成立、仍进门禁）：
+ *                码长即层级（L1..L5 对应 2/4/6/8/10 位数字体），父码=自身去末两级；
+ *                祖先全存：命中一个节点 ⇒ 命中它链上每层，筛选可等值命中任意一层。
+ *              入参形制：只接合法 UGT 节点码（`^UGT-\d{2}(\d{2}){0,4}$`）；形制不合法或树上无此码 ⇒ 进 misses
+ *              交调用方计数，不猜一个看起来合理的节点出来。
  *
- * @rules 换算口径只在这里实现一份；回填脚本与任何线上链路都调它，不允许出现第二份实现。
- *        粗码档位由**码自身的有效位**决定，不由「树里恰好查到哪层」决定 —— 后者会让同一批
- *        数据在不同时点落不同层，门禁 BB10 的逐条重算对拍就是用来抓这个的。
- * @limits 纯函数，不写库、不猜名：换不出的码进 misses 交调用方处理（记账或拒写），
- *         绝不静默丢弃——静默丢会让公告在新树上"看起来不存在"。唯一允许的兜底是**段级**
- *         （树没推出那段时，拿 `COMMODITY_GROUPS` 的段→大类口径指到树上真实的 L1 行，见 deriveSegmentRows）；
- *         族/类/品目级的深码一律不上浮——那是「精度换覆盖」的另一个口径决定，不跟在这里默认掉。
- * @see scripts/ops/commodity-backbone-path-backfill.ts
- * @see docs/superpowers/specs/2026-10-12-unspsc-full-retirement-design.md（UNSPSC 全面退役的批次划分）
- * @see scripts/gates/check-commodity-backbone.ts（BB7 挂靠闭合）
+ * @rules 换算口径只在这里实现一份；运行期与回填/镜像同一入口（loadBackboneIndex），不允许第二份实现。
+ * @limits 纯函数，不写库、不猜名：换不出进 misses，不静默丢。
+ * @see scripts/ops/user-interest-ugt-migrate.ts
+ * @see scripts/gates/check-commodity-backbone.ts
  */
 
-import { COMMODITY_GROUPS } from "./groups";
+import { COMMODITY_GROUPS as _COMMODITY_GROUPS_UNUSED } from "./groups";
+void _COMMODITY_GROUPS_UNUSED; // R4' 后 deriveSegmentRows 不再回退常量；列物理 DROP 与历史常量一起下一轮删。
 
-/** 骨架节点行的最小字段集（够换算就行，不必载整行） */
+/** 骨架节点行的最小字段集（够访问就行，不必载整行） */
 export type BackboneRow = {
   code: string;
   parentCode: string;
   level: number;
-  unspscPrefix: string | null;
 };
 
-/** 段前缀 → 大类节点码（来源 crm_commodity_group_segments 关联 backbone L1 行） */
+/**
+ * 历史保留：旧版从树反推段→大类时行入参需带 unspsc_prefix；R4' 后匹配仅走 UGT 直认，
+ * 不再需要这段推导。行入参不再要求 unspsc_prefix 列，仅当无射向内行直读。
+ * 新代码一律直接传 `BackboneRow` 即可。
+ */
 export type GroupSegmentRow = { segmentPrefix: string; nodeCode: string };
 
 /** 命中档位，供覆盖率报表用 */
@@ -88,10 +76,9 @@ export type BackboneIndex = {
 const EMPTY_TIERS = (): Record<BackboneTier, number> => ({ 品目级: 0, 类级: 0, 族级: 0, 段级: 0 });
 
 /**
- * UNSPSC 码入参归一：8 位定长原样返回；成对的 2/4/6 位前缀右补零到 8 位（UNSPSC 的层级
- * 就是成对的两位，截断写法补零回去是无损的）。其余形制一律 null：奇数位凑不出合法的
- * 两位一级、超过 8 位（含 9~13 位脏值）、含非数字、空值 —— 都不是「截断」而是坏数据，
- * 交给调用方进 misses 计数，不猜一个看起来合理的码出来。
+ * 历史保留：UNSPPSC 数字码归一到 8 位与剥尾零取有效前缀两个小工具。
+ * R4' 剥开运行期数字码入口后，本块导出仅供一次性取证探针使用（如 scripts/forensics/*）；
+ * 主链路 match/pathOf 均不再依赖。
  */
 export function padUnspscCode(code: unknown): string | null {
   const c = String(code ?? "").trim();
@@ -100,10 +87,8 @@ export function padUnspscCode(code: unknown): string | null {
 }
 
 /**
- * UNSPSC 码 → 有效前缀（先归一到 8 位，再从右往左去掉成对的 `00`）。
- * 粗码靠尾零表达层级：`10100000` 只说到族、`10000000` 只说到段。
- * 不归一就会拿粗码去等值查品目键（必然查不到 ⇒ 假 miss），这正是 probe57「段/族/类命中 0」的真因。
- * 形制不符（奇数位/超 8 位/含非数字）或整码全零 ⇒ 返回 null 交调用方进 misses，不猜。
+ * UNSPSC 码 → 有效前缀（先归一到 8 位，再从右往左去掉成对的 `00`）：
+ * 仅作为取证探针与历史数据的辅助工具保留，主链路不再调用。
  */
 export function effectivePrefixOf(code: unknown): string | null {
   const c = padUnspscCode(code);
@@ -158,16 +143,17 @@ export function chainOfNode(node: unknown): string[] {
 }
 
 /**
- * 构索引：一次载入全树，内存里建三张查找表（码键、族→最深落点、段→大类）。
+ * 构索引：一次载入全树，内存里建一张行内码→行查找表 + 一棵祖先链推导。
  * 纯计算，不做任何校验以外的判断。
+ *
+ * R4' 后 match/pathOf 只保留 UGT 直认一条分支：数字码入口（byPrefix / famToDeepest / segToL1）
+ * 全剥——上线日迁移件把两张兴趣小表写成 UGT 后，运行期再无数字码入口。`segments` 入参保留
+ * 但不再消费（历史形制向后兼容）；下一轮可同列 DROP 一起清掉。
  */
-export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRow[]): BackboneIndex {
+export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRow[] = []): BackboneIndex {
   const byCode = new Map<string, BackboneRow>();
   for (const r of rows) byCode.set(r.code, r);
-
-  // 码键：L4 存 6 位类前缀、L5 存 8 位品目码；业务层无键不参与
-  const byPrefix = new Map<string, BackboneRow>();
-  for (const r of rows) if (r.unspscPrefix) byPrefix.set(r.unspscPrefix, r);
+  void segments; // R4' 后无消费方；保留入参入口只为向后兼容。
 
   const ancestorsOf = (code: string): BackboneRow[] => {
     const chain: BackboneRow[] = [];
@@ -181,83 +167,14 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
     return chain.reverse(); // 浅→深
   };
 
-  // 族前缀(4 位) → 最深可证实唯一节点。一个族的成员 = 该前缀下的全部 L4 类行（uk_prefix 全局唯一，
-  // 成员集合无歧义），然后从最深往浅找第一个「唯一」的分层：
-  //   成员只有一个      → 落 L4：族 ≡ 那个子类，是树的结构事实，不是推断
-  //   父小类唯一        → 落 L3
-  //   再往上中类唯一    → 落 L2
-  //   再往上大类唯一    → 落 L1（2026-10-13 起：树已按业务语义重挂，一个 UNSPSC 族的类行
-  //                        可以合法地分属多个小类/中类——现树 14 个族跨中类、0 个族跨大类；
-  //                        「最深可证实唯一祖先」规则自然延伸到 L1）
-  //   跨大类            → 数据冲突，抛错而不是挑一个
-  const famMembers = new Map<string, BackboneRow[]>();
-  for (const r of rows) {
-    if (r.level !== 4 || !r.unspscPrefix) continue;
-    const fam = r.unspscPrefix.slice(0, 4);
-    const list = famMembers.get(fam);
-    if (list) list.push(r);
-    else famMembers.set(fam, [r]);
-  }
-  const famToDeepest = new Map<string, string>();
-  const only = (set: Set<string>): string | undefined => (set.size === 1 ? [...set][0] : undefined);
-  for (const [fam, members] of famMembers) {
-    const chains = members.map((m) => ancestorsOf(m.code));
-    const l3s = new Set(members.map((m) => m.parentCode).filter(Boolean));
-    const l2s = new Set<string>();
-    const l1s = new Set<string>();
-    for (const ch of chains) {
-      const l2 = ch.find((x) => x.level === 2)?.code;
-      const l1 = ch.find((x) => x.level === 1)?.code;
-      if (l2) l2s.add(l2);
-      if (l1) l1s.add(l1);
-    }
-    if (l1s.size > 1) {
-      const [a, b] = [...l1s];
-      throw new Error(`族 ${fam} 的大类归属不唯一：${a} vs ${b}`);
-    }
-    const deepest =
-      members.length === 1
-        ? members[0].code
-        : only(l3s) ?? only(l2s) ?? only(l1s);
-    if (deepest) famToDeepest.set(fam, deepest);
-  }
-
-  const segToL1 = new Map<string, string>();
-  for (const s of segments) {
-    const prev = segToL1.get(s.segmentPrefix);
-    if (prev && prev !== s.nodeCode) throw new Error(`段 ${s.segmentPrefix} 的大类归属不唯一：${prev} vs ${s.nodeCode}`);
-    segToL1.set(s.segmentPrefix, s.nodeCode);
-  }
-
   const match = (code: string): BackboneMatch | null => {
-    // UGT 节点键直认（兴趣码/供应商兴趣等表在 UNSPSC 小表剥离后存的就是节点码）：
-    // 形制合法且 byCode 等值命中即返回，层级档按码长现算，不走字典换算。
-    // 放在数字码老路前面：`UGT-` 前缀让两键空间天然不相交，老的数字码行为零变化。
+    // UGT 节点码直认：形制合法且 byCode 等值命中即返回，层级档按码长现算。
+    // R4' 后不再回退到数字码⇒任何非 UGT 形制都直接进 misses，不猜。
     const lvl = backboneNodeLevel(code);
-    if (lvl > 0) {
-      const row = byCode.get(code);
-      if (!row) return null;
-      return { row, tier: NODE_LEVEL_TIER[lvl] ?? "段级" };
-    }
-    // 先归一（成对的 2/4/6 位前缀补零）再比：不补零的话兴趣侧那批截断码会全数假 miss
-    const cs = padUnspscCode(code);
-    if (!cs) return null;
-    // 先等值再归一：万一树里真存在以 `00` 结尾的 8 位品目键，等值优先，不能被尾零规则悄悄降一档
-    const byFull = byPrefix.get(cs);
-    if (byFull) return { row: byFull, tier: "品目级" };
-    const eff = effectivePrefixOf(cs);
-    if (!eff) return null;
-    // 8 位全有效却查无品目 ⇒ 树里没这个品目。不擅自上浮到类级：上浮就是拿公告硬挂一个更宽的节点
-    if (eff.length === 8) return null;
-    if (eff.length === 6) {
-      const row = byPrefix.get(eff);
-      return row ? { row, tier: "类级" } : null;
-    }
-    const node = eff.length === 4 ? famToDeepest.get(eff) : segToL1.get(eff);
-    const row = node ? byCode.get(node) : undefined;
-    if (row) return { row, tier: eff.length === 4 ? "族级" : "段级" };
-    // 尾零不在合法位置（如 10109900 的类段有效但 L4 行不存在），或前缀在树里没有对应行
-    return null;
+    if (lvl === 0) return null;
+    const row = byCode.get(code);
+    if (!row) return null;
+    return { row, tier: NODE_LEVEL_TIER[lvl] ?? "段级" };
   };
 
   const pathOf = (codes: Iterable<string>): BackbonePathResult => {
@@ -302,41 +219,16 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
  * 两条约束：树反推优先（常量不得覆盖树已有结论）；大类在树里没有 L1 行就不落点（不抛错，
  * 与上面那条「L1 缺席 ⇒ 不落点」保持同一语义，不给 loadBackboneIndex 新增崩溃面）。
  */
+/**
+ * 【已失效】R4' 剥开数字码入口后本函数不再被调用；`buildBackboneIndex` 也不再消费 `segments`。
+ * 保留一个空实现，为历史行为向后兼容（tests 与 ops 探针仍可引 它，不会拿到旧形制的行 列）；
+ * 下一轮 baseline 重导后可连根删除。
+ */
 export function deriveSegmentRows(
-  rows: Array<{ code: string; level: number; unspsc_prefix: string | null; group_code: string }>,
+  rows: Array<{ code: string; level: number; group_code?: string }>,
 ): GroupSegmentRow[] {
-  const l1OfGroup = new Map<string, string>();
-  for (const r of rows) {
-    if (Number(r.level) !== 1 || !r.group_code) continue;
-    const prev = l1OfGroup.get(r.group_code);
-    if (prev && prev !== r.code) {
-      throw new Error(`大类 ${r.group_code} 在骨架里有两个 L1 行：${prev} vs ${r.code}`);
-    }
-    l1OfGroup.set(r.group_code, r.code);
-  }
-  const out: GroupSegmentRow[] = [];
-  const covered = new Set<string>();
-  for (const r of rows) {
-    if (Number(r.level) !== 4) continue;
-    const p = String(r.unspsc_prefix ?? "");
-    if (!/^\d{6}$/.test(p)) continue; // L4 存 6 位类前缀；形制不符不参与推理
-    const nodeCode = l1OfGroup.get(r.group_code);
-    if (nodeCode) {
-      out.push({ segmentPrefix: p.slice(0, 2), nodeCode });
-      covered.add(p.slice(0, 2));
-    }
-  }
-  // 兜底只补树没推出来的段；两边对同一段说法不一时留树的那条，后续冲突由 buildBackboneIndex 抛错
-  for (const g of COMMODITY_GROUPS) {
-    const nodeCode = l1OfGroup.get(g.code);
-    if (!nodeCode) continue;
-    for (const p of g.prefixes) {
-      if (covered.has(p)) continue;
-      out.push({ segmentPrefix: p, nodeCode });
-      covered.add(p);
-    }
-  }
-  return out;
+  void rows;
+  return [];
 }
 
 /**
@@ -344,15 +236,10 @@ export function deriveSegmentRows(
  * 也不再回读大类段归属表（crm_commodity_group_segments 已按 ADR-0009 退役）。
  * 树是 159,429 行量级，一次载入内存（回填要跑几十万条公告，逐条查库会把生产拖死）。
  *
- * 需要同口径的调用方（运行期 backbone-cache、ops 回填、门禁 BB9/BB10）一律调本函数，
- * 不要自己拼行集 —— 两边行集不同时的 BB10 报红分不清是「第二份实现」还是「取数不同」。
+ * R4' 后列域已缩到 code/parent_code/level：unspsc_prefix 列不再读（行入参形制与 BackboneRow 同步），
+ * group_code 列也不再读（新事实源下 UGT 直认不需要段→大类映射）。列物理 DROP 属下一轮。
  *
- * 【未决口径】这里只取 `status = 1` 的行：族级落点靠「该族有几个子类」这类成员计数定档，
- * 所以停用一族里的一个子类会让该族粗码从 L3 跳到 L4 —— 一次运营侧启停会改掉已有公告的归属。
- * 本次不改（改了必须全量重跑回填才一致），但它是已知风险：要改就连带把三个调用方的
- * 行集一起改，并先确认「归属该不该跟启停走」。详见 spec 的开放项。
- * 同一口径也决定了段级：某段的 L4 行**全部**被停用时该段不再落点（退役前的归属表不带 status、
- * 会照样落点）——当前库 159,429 行全为 status=1，两种写法实际无差异。
+ * 需要同口径的调用方（运行期 backbone-cache、ops 回填、镜像）一律调本函数，不要自己拼行集。
  */
 export async function loadBackboneIndex(
   query: <T = Record<string, unknown>>(sql: string) => Promise<T[]>,
@@ -361,12 +248,9 @@ export async function loadBackboneIndex(
     code: string;
     parent_code: string;
     level: number;
-    unspsc_prefix: string | null;
-    group_code: string;
-  }>(`SELECT code, parent_code, level, unspsc_prefix, group_code FROM crm_commodity_backbone WHERE status = 1`);
+  }>(`SELECT code, parent_code, level FROM crm_commodity_backbone WHERE status = 1`);
   return buildBackboneIndex(
-    rows.map((r) => ({ code: r.code, parentCode: r.parent_code, level: Number(r.level), unspscPrefix: r.unspsc_prefix })),
-    deriveSegmentRows(rows),
+    rows.map((r) => ({ code: r.code, parentCode: r.parent_code, level: Number(r.level) })),
   );
 }
 

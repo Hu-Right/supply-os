@@ -34,7 +34,7 @@ import type { PreFilterMatchData } from "./pre-filter";
 /** 给不出数据时的出口：每次新建，不共享常量对象（下游一旦改写就把全局脏了） */
 const emptyData = (): PreFilterMatchData => ({ noticeNodes: new Set(), supplierNodes: new Map() });
 
-/** 一次查询把候选供应商的兴趣码取回来（兴趣表自带 8 位码，不需要回字典取键） */
+/** 一次查询把候选供应商的兴趣码取回来（R4' 上线日迁移后 code 已全部重写为 UGT-* 节点码，直接喂给 pathOf）*/
 async function loadInterestCodes(pool: Pool, supplierIds: number[]): Promise<Map<number, string[]>> {
   const placeholders = supplierIds.map(() => "?").join(",");
   const [rows] = await pool.query(

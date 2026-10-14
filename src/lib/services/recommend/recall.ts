@@ -40,7 +40,7 @@ import { columns } from "../../utils/sql-columns";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { enrichAgencyI18n } from "../search-orchestrator/format";
 import { getBackboneIndex } from "../commodity/backbone-cache";
-import { backboneNodeLevel, effectivePrefixOf, rootNodes } from "../commodity/backbone-path";
+import { backboneNodeLevel, rootNodes } from "../commodity/backbone-path";
 import { NOTICE_NODES_TABLE } from "../search-sync/notice-nodes";
 
 /** 一个兴趣码在骨架树上的落点（node = 最深落点节点码，precision = 该码有效位数） */
@@ -112,11 +112,9 @@ export async function processInterestCodes(
     const decayed = Number(row.decayed_weight || 0);
     if (decayed <= 0) continue; // 零权重照常召回（与旧实现一致），但不进打分与归一分母
     interestTotal += decayed;
-    // 有效位数：UGT 节点键取数字体长度（码长即层级）；存量数字码行走尾零归一口径。
-    // 小表剥离后新写入的行全是 UGT 键，存量数字码随上线日迁移件转写后自然消亡
-    const precision = code.startsWith("UGT-")
-      ? Math.min(10, code.length - 4)
-      : (effectivePrefixOf(code) ?? "").length;
+    // 有效位数：UGT 节点键取数字体长度（码长即层级）。
+    // R4' 剥数字码入口后，`crm_user_interest_codes` 全为 UGT 节点码⇒不再需要尾零归一 fallback。
+    const precision = code.startsWith("UGT-") ? Math.min(10, code.length - 4) : 0;
     const depth = Math.min(4, Math.max(1, precision / 2));
     const weighted = decayed * (depthFactor[depth] ?? 1.0);
     const prev = byNode.get(deepest);
