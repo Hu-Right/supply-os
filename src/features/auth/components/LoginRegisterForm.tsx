@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import { useAuthForm } from "../hooks/useAuthForm";
 import { useForgotPassword } from "../hooks/useForgotPassword";
 import { useRegisterCode } from "../hooks/useRegisterCode";
-import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
+import { useCommodityPrefCascade } from "../hooks/useCommodityPrefCascade";
 import { LoginForm } from "./forms/LoginForm";
 import { ForgotPasswordForm } from "./forms/ForgotPasswordForm";
 import { useLocale } from "@/core/i18n";
@@ -35,11 +35,11 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
   const auth = useAuthForm(onSuccess, initialMode);
   const forgot = useForgotPassword(onSuccess);
   const registerCode = useRegisterCode();
-  const cascade = useUnspscPrefCascade();
+  const cascade = useCommodityPrefCascade();
 
   // ★ 修复：切换到注册模式时重置级联状态，防止上一个账号的行业偏好残留
   // 依赖仅使用 cascade.resetCascade（稳定 useCallback 引用），不依赖整个 cascade 对象，
-  // 避免 useUnspscPrefCascade 的 useMemo 因 state 变化产生新引用时反复触发 resetCascade。
+  // 避免 useCommodityPrefCascade 的 useMemo 因 state 变化产生新引用时反复触发 resetCascade。
   useEffect(() => {
     if (auth.authMode === "register") {
       cascade.resetCascade();
@@ -70,7 +70,7 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
       await auth.submitAuth(
         registerCode.registerVerifyCode,
         registerCode.registerCodeSent,
-        cascade.prefLevel1 || null,
+        cascade.prefGroup || null,
         cascade.prefLevel2 || null,
         cascade.prefLevel3 || null,
       );

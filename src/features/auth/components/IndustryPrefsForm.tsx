@@ -3,24 +3,25 @@
  * Account Industry Preference Form
  *
  * @module features/auth/components/IndustryPrefsForm
- * @description 已登录面板的默认行业管理卡片：UNSPSC 三级级联（经
- *              useUnspscPrefCascade），进入回填已保存偏好，保存/清除成功后
+ * @description 已登录面板的默认行业管理卡片：品目三级级联（经
+ *              useCommodityPrefCascade），进入回填已保存偏好，保存/清除成功后
  *              广播 supply-os:industry-prefs-updated 供公采页重新探测。
- *              主营业务智能推断采用"候选确认"交互：高置信（>=0.6）自动回填，
- *              其余展示候选列表由用户点选，杜绝低置信推断静默锁定错误分支。
- *              Industry preference card in the account panel: UNSPSC cascade,
- *              backfill saved prefs on mount, broadcast change event after
- *              save/clear so the procurement page re-probes.
+ *              主营业务智能推断采用"候选确认"交互：候选列表由用户点选回填，
+ *              杜绝低置信推断静默锁定错误分支。
+ *              保存键为 UGT 最深已选节点码（commodity_code），旧行的字典 id 随
+ *              UNSPSC 字典退役停用。
  */
 import { useEffect, useState } from "react";
 import { useUserId } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
-import { fetchIndustryPrefs, saveIndustryPrefs } from "@/core/api/industry-prefs";
-import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
-import { UnspscPrefSelects } from "./UnspscPrefSelects";
-import { UnspscInferCandidates } from "./UnspscInferCandidates";
-import { fetchSmartInferUnspsc, type SmartInferCandidate } from "@/core/unspsc";
+import {
+  fetchIndustryPrefs, saveIndustryPrefs, fetchSmartInferCommodity,
+  type CommodityInferCandidate,
+} from "@/core/api/industry-prefs";
+import { useCommodityPrefCascade } from "../hooks/useCommodityPrefCascade";
+import { CommodityPrefSelects } from "./CommodityPrefSelects";
+import { CommodityInferCandidates } from "./CommodityInferCandidates";
 import { Button, Input } from "@/shared/ui";
 
 export interface IndustryPrefsFormProps {}
@@ -30,20 +31,18 @@ export function IndustryPrefsForm() {
   const { t } = useLocale();
   const userId = useUserId();
   const {
-    industryOptions,
+    groupOptions,
     subOptions,
     subOptions2,
-    prefLevel1,
+    prefGroup,
     prefLevel2,
     prefLevel3,
-    setPrefLevel1,
-    setPrefLevel2,
     setPrefLevel3,
-    handlePrefLevel1Change,
-    handlePrefLevel2Change,
-    applyInferredPath,
+    handleGroupChange,
+    handleLevel2Change,
+    applyInferredCode,
     resetCascade,
-  } = useUnspscPrefCascade();
+  } = useCommodityPrefCascade();
 
   // 主营业务智能推断状态（按用户隔离 localStorage key）
   const mbKey = userId ? `supply-os:main-business:${userId}` : "";
@@ -54,9 +53,9 @@ export function IndustryPrefsForm() {
     setMainBusinessRaw(v);
     if (mbKey) localStorage.setItem(mbKey, v);
   };
-  // 候选列表：置信度降序；高置信最优解（autoResult）由后端给出时才自动回填
-  const [inferCandidates, setInferCandidates] = useState<SmartInferCandidate[]>([]);
-  const [autoAppliedNodeId, setAutoAppliedNodeId] = useState<number | null>(null);
+  // 候选列表：匹配分降序；由用户点选确认回填，不做静默自动回填
+  const [inferCandidates, setInferCandidates] = useState<CommodityInferCandidate[]>([]);
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [inferLoading, setInferLoading] = useState(false);
   const [inferSearched, setInferSearched] = useState(false);
 
@@ -69,7 +68,7 @@ export function IndustryPrefsForm() {
     resetCascade();
     setMainBusinessRaw("");
     setInferCandidates([]);
-    setAutoAppliedNodeId(null);
+    setAppliedCode(null);
     setInferSearched(false);
     setPrefMessage("");
 
@@ -80,19 +79,19 @@ export function IndustryPrefsForm() {
     const savedMb = localStorage.getItem(`supply-os:main-business:${uid}`);
     if (savedMb) setMainBusinessRaw(savedMb);
 
-    // 从后端加载已保存的行业偏好
+    // 从后端加载已保存的行业偏好（码版：commodity_code + group_code）
     fetchIndustryPrefs().then((prefs) => {
-      setPrefLevel1(prefs?.level1_id ? String(prefs.level1_id) : "");
-      setPrefLevel2(prefs?.level2_id ? String(prefs.level2_id) : "");
-      setPrefLevel3(prefs?.level3_id ? String(prefs.level3_id) : "");
+      if (prefs?.commodity_code) {
+        applyInferredCode(prefs.commodity_code, prefs.group_code ?? undefined);
+      }
     });
-  }, [userId, resetCascade, setPrefLevel1, setPrefLevel2, setPrefLevel3]);
+  }, [userId, resetCascade, applyInferredCode]);
 
-  // 防抖推断（300ms）：用户输入主营业务关键词后匹配 UNSPSC 类目候选
+  // 防抖推断（300ms）：用户输入主营业务关键词后匹配品目树节点候选
   useEffect(() => {
     if (mainBusiness.trim().length < 1) {
       setInferCandidates([]);
-      setAutoAppliedNodeId(null);
+      setAppliedCode(null);
       setInferSearched(false);
       return;
     }
@@ -100,11 +99,11 @@ export function IndustryPrefsForm() {
       setInferLoading(true);
       setInferSearched(false);
       try {
-        const data = await fetchSmartInferUnspsc(mainBusiness.trim());
+        const data = await fetchSmartInferCommodity(mainBusiness.trim());
         const candidates = data?.candidates || [];
         setInferCandidates(candidates);
-        // 不再自动回填：仅展示候选列表，由用户点选确认，防止推断覆盖手动选择
-        setAutoAppliedNodeId(null);
+        // 不自动回填：仅展示候选列表，由用户点选确认，防止推断覆盖手动选择
+        setAppliedCode(null);
         setInferSearched(true);
       } catch {
         // 推断失败不影响保存流程
@@ -115,22 +114,22 @@ export function IndustryPrefsForm() {
     return () => clearTimeout(timer);
   }, [mainBusiness]);
 
-  // 用户从候选中点选：以该候选路径回填级联（L1~L3），L4/L5 不参与
-  const pickCandidate = (candidate: SmartInferCandidate) => {
-    applyInferredPath(candidate);
-    setAutoAppliedNodeId(candidate.node_id);
+  // 用户从候选中点选：以该候选节点码回填级联（仅回填可见三级），L4/L5 不参与
+  const pickCandidate = (candidate: CommodityInferCandidate) => {
+    applyInferredCode(candidate.code, candidate.groupCode);
+    setAppliedCode(candidate.code);
     setPrefMessage("");
   };
 
-  const handleLevel1 = (value: string) => {
-    handlePrefLevel1Change(value);
-    setAutoAppliedNodeId(null); // 手动改选：清除推断高亮
+  const handleGroup = (value: string) => {
+    handleGroupChange(value);
+    setAppliedCode(null); // 手动改选：清除推断高亮
     setPrefMessage("");
   };
 
   const handleLevel2 = (value: string) => {
-    handlePrefLevel2Change(value);
-    setAutoAppliedNodeId(null);
+    handleLevel2Change(value);
+    setAppliedCode(null);
     setPrefMessage("");
   };
 
@@ -141,17 +140,11 @@ export function IndustryPrefsForm() {
 
   /** 已登录面板：保存当前选择为账号默认行业（前两级必选） */
   const savePrefs = async () => {
-    if (!userId || !prefLevel1 || !prefLevel2) return;
+    if (!userId || !prefGroup || !prefLevel2) return;
     try {
-      // 仅持久化用户在 UI 中确认过的 L1~L3；L4/L5 是推断产物，
-      // 静默保存会在推断出错时把匹配锁定到错误分支（最高分档），故恒置 null
-      await saveIndustryPrefs({
-        level1_id: Number(prefLevel1),
-        level2_id: Number(prefLevel2),
-        level3_id: prefLevel3 ? Number(prefLevel3) : null,
-        level4_id: null,
-        level5_id: null,
-      });
+      // 仅持久化用户在 UI 中确认过的最深三级码；L4/L5 是推断产物，
+      // 静默保存会在推断出错时把匹配锁定到错误分支（最高分档）
+      await saveIndustryPrefs({ commodity_code: prefLevel3 || prefLevel2 });
       // api() 在非 2xx 时抛出 ApiError，成功即代表保存 OK
       setPrefMessageIsError(false);
       setPrefMessage(t("authIndustryPrefSaved"));
@@ -164,19 +157,16 @@ export function IndustryPrefsForm() {
     }
   };
 
-  /** 已登录面板：清除账号默认行业（level1 传空即删除） */
+  /** 已登录面板：清除账号默认行业（空码即删除） */
   const clearPrefs = async () => {
     if (!userId) return;
     try {
-      await saveIndustryPrefs({ level1_id: null });
+      await saveIndustryPrefs({ commodity_code: null });
       // 仅在后端确认清除后才复位本地选择，失败时保留原偏好显示
-      setPrefLevel1("");
-      setPrefLevel2("");
-      setPrefLevel3("");
+      resetCascade();
       setMainBusiness("");
-      if (mbKey) localStorage.removeItem(mbKey);
       setInferCandidates([]);
-      setAutoAppliedNodeId(null);
+      setAppliedCode(null);
       setInferSearched(false);
       setPrefMessageIsError(false);
       setPrefMessage(t("authIndustryPrefCleared"));
@@ -189,8 +179,8 @@ export function IndustryPrefsForm() {
     }
   };
 
-  // 推断反馈文案：自动应用 → 确认可改；未自动应用 → 引导手动点选
-  const inferHint = autoAppliedNodeId
+  // 推断反馈文案：已应用候选 → 确认可改；未应用 → 引导手动点选
+  const inferHint = appliedCode
     ? `${t("authMainBusinessInferred")}，${t("authMainBusinessCandidateChange")}`
     : t("authMainBusinessCandidatePick");
 
@@ -218,9 +208,9 @@ export function IndustryPrefsForm() {
           <p className="mt-1 text-2xs text-muted-foreground">{t("authMainBusinessMatching") || "匹配中..."}</p>
         )}
         {!inferLoading && inferCandidates.length > 0 && (
-          <UnspscInferCandidates
+          <CommodityInferCandidates
             candidates={inferCandidates}
-            appliedNodeId={autoAppliedNodeId}
+            appliedCode={appliedCode}
             hint={inferHint}
             onPick={pickCandidate}
           />
@@ -232,14 +222,14 @@ export function IndustryPrefsForm() {
         )}
       </div>
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <UnspscPrefSelects
-          industryOptions={industryOptions}
+        <CommodityPrefSelects
+          groupOptions={groupOptions}
           subOptions={subOptions}
           subOptions2={subOptions2}
-          prefLevel1={prefLevel1}
+          prefGroup={prefGroup}
           prefLevel2={prefLevel2}
           prefLevel3={prefLevel3}
-          onLevel1Change={handleLevel1}
+          onGroupChange={handleGroup}
           onLevel2Change={handleLevel2}
           onLevel3Change={handleLevel3}
         />
@@ -249,7 +239,7 @@ export function IndustryPrefsForm() {
           type="button"
           variant="primary"
           onClick={savePrefs}
-          disabled={!prefLevel1 || !prefLevel2}
+          disabled={!prefGroup || !prefLevel2}
           className="py-2 text-xs font-black shadow-xs disabled:hover:bg-teal-600"
         >
           {t("authIndustryPrefSave")}
@@ -264,7 +254,7 @@ export function IndustryPrefsForm() {
           {t("authIndustryPrefClear")}
         </Button>
         {/* 未选满前两级时按钮旁给出引导，选满后自动消失 */}
-        {(!prefLevel1 || !prefLevel2) && (
+        {(!prefGroup || !prefLevel2) && (
           <p className="text-xs font-medium text-accent-600">
             {t("authIndustryPrefSaveHint")}
           </p>

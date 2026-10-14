@@ -1,54 +1,63 @@
 /**
- * UNSPSC 行业偏好三级级联选择器
- * UNSPSC Industry Preference Cascade Selects
+ * 品目偏好三级级联选择器（UGT 骨架树）
+ * Commodity Preference Cascade Selects
  *
- * @module features/auth/components/UnspscPrefSelects
+ * @module features/auth/components/CommodityPrefSelects
  * @description 纯展示组件：依据传入的级联状态与回调渲染三级下拉（前两级必选，
  *              第三级可选）；注册表单与已登录面板共用。
  *              Presentational three-level cascade selects shared by the
  *              register form and the account panel.
+ *              取代旧 UnspscPrefSelects（读 UNSPSC 字典，随字典退役下线）。
  */
-import { useLocale } from "@/core/i18n";
-import { getUnspscOptionLabel, type UnspscOption } from "@/core/unspsc";
+import { useLocale, type LocaleKey } from "@/core/i18n";
+import type { CommodityGroup } from "@/lib/services/commodity/groups";
+import type { CommodityTreeOption } from "@/features/procurement/api/commodityTree";
 import { Select } from "@/shared/ui";
 
-export interface UnspscPrefSelectsProps {
-  industryOptions: UnspscOption[];
-  subOptions: UnspscOption[];
-  subOptions2: UnspscOption[];
-  prefLevel1: string;
+export interface CommodityPrefSelectsProps {
+  groupOptions: readonly CommodityGroup[];
+  subOptions: CommodityTreeOption[];
+  subOptions2: CommodityTreeOption[];
+  prefGroup: string;
   prefLevel2: string;
   prefLevel3: string;
-  onLevel1Change: (value: string) => void;
+  onGroupChange: (value: string) => void;
   onLevel2Change: (value: string) => void;
   onLevel3Change: (value: string) => void;
 }
 
+/** 树节点的双语展示名（L1~L3 英文名实测全空，非中文界面落中文名，不编造） */
+function nodeLabel(option: CommodityTreeOption, locale: string): string {
+  const primary = locale === "zh" ? option.nameZh : option.nameEn;
+  const fallback = locale === "zh" ? option.nameEn : option.nameZh;
+  return primary || fallback || option.key;
+}
+
 /** 三级级联下拉：注册模式与已登录面板共用（前两级必选，第三级可选） */
-export function UnspscPrefSelects({
-  industryOptions,
+export function CommodityPrefSelects({
+  groupOptions,
   subOptions,
   subOptions2,
-  prefLevel1,
+  prefGroup,
   prefLevel2,
   prefLevel3,
-  onLevel1Change,
+  onGroupChange,
   onLevel2Change,
   onLevel3Change,
-}: UnspscPrefSelectsProps) {
+}: CommodityPrefSelectsProps) {
   const { t, locale } = useLocale();
   return (
     <>
       <Select
         aria-label={t("authIndustryPrefSelect")}
-        value={prefLevel1}
-        onChange={(e) => onLevel1Change(e.target.value)}
+        value={prefGroup}
+        onChange={(e) => onGroupChange(e.target.value)}
         className="bg-white"
       >
         <option value="">{t("authIndustryPrefSelect")}</option>
-        {industryOptions.map((item) => (
-          <option key={item.id} value={item.id}>
-            {getUnspscOptionLabel(item, locale)}
+        {groupOptions.map((g) => (
+          <option key={g.code} value={g.code}>
+            {t(`commodityGroup_${g.code}` as LocaleKey)}
           </option>
         ))}
       </Select>
@@ -56,13 +65,13 @@ export function UnspscPrefSelects({
         aria-label={t("authIndustryPrefSub")}
         value={prefLevel2}
         onChange={(e) => onLevel2Change(e.target.value)}
-        disabled={!prefLevel1}
+        disabled={!prefGroup}
         className="bg-white"
       >
         <option value="">{t("authIndustryPrefSub")}</option>
         {subOptions.map((item) => (
-          <option key={item.id} value={item.id}>
-            {getUnspscOptionLabel(item, locale)}
+          <option key={item.key} value={item.key}>
+            {nodeLabel(item, locale)}
           </option>
         ))}
       </Select>
@@ -75,8 +84,8 @@ export function UnspscPrefSelects({
       >
         <option value="">{t("authIndustryPrefSub3")}</option>
         {subOptions2.map((item) => (
-          <option key={item.id} value={item.id}>
-            {getUnspscOptionLabel(item, locale)}
+          <option key={item.key} value={item.key}>
+            {nodeLabel(item, locale)}
           </option>
         ))}
       </Select>

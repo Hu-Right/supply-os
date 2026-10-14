@@ -67,7 +67,7 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
   const submitAuth = async (
     registerVerifyCode: string,
     registerCodeSent: boolean,
-    prefLevel1: string | null,
+    prefGroup: string | null,
     prefLevel2: string | null,
     prefLevel3: string | null,
   ): Promise<void> => {
@@ -138,15 +138,10 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
           agreementVersion: "V2.0",
           agreementAcceptedAt: new Date().toISOString(),
         });
-        // 行业偏好为注册后的可选项：仅在用户实际选择过（前两级齐全）时保存
-        if (prefLevel1 && prefLevel2) {
-          await saveIndustryPrefs({
-            level1_id: Number(prefLevel1),
-            level2_id: Number(prefLevel2),
-            level3_id: prefLevel3 ? Number(prefLevel3) : null,
-            level4_id: null,
-            level5_id: null,
-          });
+        // 行业偏好为注册后的可选项：仅在用户实际选择过（前两级齐全）时保存。
+        // 偏好键是 UGT 最深已选节点码（commodity_code）；旧行的字典 id 随 UNSPSC 字典退役停用。
+        if (prefGroup && prefLevel2) {
+          await saveIndustryPrefs({ commodity_code: prefLevel3 || prefLevel2 });
         }
         onSuccess();
         // 注册成功，清除草稿

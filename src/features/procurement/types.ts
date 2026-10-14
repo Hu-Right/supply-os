@@ -6,9 +6,6 @@ export type { NoticeItem, NoticeListItem, NoticeDetailItem, NoticeDetailFields, 
 // 会员类型同样以 `@/types` 为单一事实源
 export type { PlanCatalogRow, MembershipStatus } from "@/types";
 
-// UNSPSC 类型以 @/core/unspsc 为单一事实源，此处 re-export 供 feature 内部复用
-export type { UnspscOption } from "@/core/unspsc";
-
 /**
  * 进入公采页的初始化状态机（本地差异 #5）：
  * loading = 登录态判定中；prefs = 按账号默认行业筛选；recommended = 按行为兴趣推荐；default = 现状全量
