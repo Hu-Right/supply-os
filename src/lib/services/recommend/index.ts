@@ -230,7 +230,8 @@ export async function recommendNotices(
 }
 
 // ── 子模块导出（供外部直接导入） ──
-export { decayUserInterestCodes } from "./interest-decay";
+// （decayUserInterestCodes 已随小表剥离删除：调用方 notice-actions 改用
+//   services/commodity/interest.ts 的 decayInterestNodeCodes，UGT 节点键口径）
 export { recomputeRecoWeightProfile } from "./weight-profile";
 export { AB_TREATMENT_PCT, recoVariant } from "./ab-testing";
 export { tokenizeNoticeText, jaccardTokenSim, S_TEXT_BONUS, getUserUnlockKeywords } from "./text-similarity";

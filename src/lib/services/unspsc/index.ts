@@ -12,11 +12,11 @@
  *              （filter 已整文件下线：最后一个读者随 UNSPSC 字典退役删除）
  */
 
-// 纯函数（padUnspscPrefix 已随 R3' B3 删除：字典反查摘除后生产读者归零）
+// 纯函数（padUnspscPrefix 已随 R3' B3 删除；expandUnspscInterestPrefixes 已随
+// 小表剥离删除——兴趣画像改吃 UGT 节点码，前缀展开失零读者）
 export {
   normalizeUnspscCodes,
   unspscPrefixFromCode,
-  expandUnspscInterestPrefixes,
 } from "./parser";
 export type { UnspscCodeRow } from "./parser";
 
@@ -58,6 +58,5 @@ export {
 // catalog.repo.findUnspscNodeById 链已随 UNSPSC 字典退役删除，filter.ts 整文件下线）
 
 // 数据库写操作
-export {
-  persistUserInterestCodes,
-} from "./interest";
+// （interest.ts 已随小表剥离删除：兴趣画像改吃 UGT 节点码，
+//   写入口收敛到 services/commodity/interest.ts persistInterestNodeCodes）

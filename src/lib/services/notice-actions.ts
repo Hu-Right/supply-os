@@ -14,8 +14,7 @@ import type { NoticeInteractionRepo } from "../repos/notices/notice-interaction.
 import type { NoticeFeedbackRepo, RecoFeedbackItem } from "../repos/notices/notice-feedback.repo";
 import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
 import type { BenefitWriteRepo } from "../repos/benefit-write.repo";
-import { normalizeUnspscCodes, persistUserInterestCodes } from "./unspsc/index";
-import { decayUserInterestCodes } from "./recommend/index";
+import { loadNoticeNodeCodes, persistInterestNodeCodes, decayInterestNodeCodes } from "./commodity/interest";
 import { ensureConsumableQuota, consumeQuota, UnlockQuotaError } from "./unlock-quota";
 import type { LockedPoolRow } from "../repos/benefit-write.repo";
 
@@ -58,7 +57,6 @@ export async function executeUnlock(
   // 获取公告信息（事务外，只读）
   const notice = await detailRepo.findById(noticeId);
   if (!notice) throw new NoticeNotFoundError();
-  const snapshot = normalizeUnspscCodes(notice.unspsc_codes);
 
   // 使用事务保证配额检查 + 插入的原子性
   const conn = await dbPool.getConnection();
@@ -115,9 +113,11 @@ export async function executeUnlock(
 
     await conn.commit();
 
-    // 事务外：更新兴趣码（非关键路径，失败不影响解锁）
+    // 事务外：更新兴趣节点（非关键路径，失败不影响解锁）。
+    // 小表剥离后兴趣画像吃 UGT 归属节点（倒排 = backbone_path 行化），不再读主表 UNSPSC 快照
     if (userId) {
-      await persistUserInterestCodes(dbPool, userId, snapshot, "unlock_order", 2.50).catch((e) => console.warn("[notice-actions] persistUserInterestCodes failed (non-critical):", e));
+      const nodes = (await loadNoticeNodeCodes(dbPool, [noticeId]).catch(() => new Map())).get(noticeId) ?? [];
+      await persistInterestNodeCodes(dbPool, userId, nodes, "unlock_order", 2.50).catch((e) => console.warn("[notice-actions] persistInterestNodeCodes failed (non-critical):", e));
     }
     return { alreadyUnlocked: false, unlockType };
   } catch (err: unknown) {
@@ -145,10 +145,10 @@ export interface FeedbackResult {
  * 从 routes/notices/actions.routes.ts 下沉。
  */
 export async function processFeedback(
-  ctx: { detailRepo: NoticeDetailRepo; feedbackRepo: NoticeFeedbackRepo; dbPool: Pool },
+  ctx: { feedbackRepo: NoticeFeedbackRepo; dbPool: Pool },
   params: { userId: number; sessionId: string; items: RecoFeedbackItem[] },
 ): Promise<FeedbackResult> {
-  const { detailRepo, feedbackRepo, dbPool } = ctx;
+  const { feedbackRepo, dbPool } = ctx;
   const { userId, sessionId, items } = params;
 
   const inserted = await feedbackRepo.insertRecoFeedback(userId, sessionId, items);
@@ -158,18 +158,17 @@ export async function processFeedback(
   );
   if (linkedActions.length) {
     const noticeIds = Array.from(new Set(linkedActions.map((item) => item.noticeId)));
-    const noticeRows = await detailRepo.findUnspscSnapshots(noticeIds);
-    const snapshotById = new Map<number, Array<{ code: string; name: string }>>();
-    for (const row of noticeRows) snapshotById.set(Number(row.id), normalizeUnspscCodes(row.unspsc_codes));
+    // 兴趣画像改吃 UGT 归属节点（倒排行），不再读主表 UNSPSC 快照列
+    const nodesByNotice = await loadNoticeNodeCodes(dbPool, noticeIds);
     for (const item of linkedActions) {
-      const snapshot = snapshotById.get(item.noticeId);
-      if (!snapshot || snapshot.length === 0) continue;
-      if (item.action === "click") await persistUserInterestCodes(dbPool, userId, snapshot, "feedback_click", 0.3);
+      const nodes = nodesByNotice.get(item.noticeId) ?? [];
+      if (nodes.length === 0) continue;
+      if (item.action === "click") await persistInterestNodeCodes(dbPool, userId, nodes, "feedback_click", 0.3);
       else if (item.action === "dwell" && (item.dwellMs || 0) >= 30000)
-        await persistUserInterestCodes(dbPool, userId, snapshot, "feedback_dwell", 0.2);
-      else if (item.action === "scroll_end") await persistUserInterestCodes(dbPool, userId, snapshot, "feedback_scroll_end", 0.1);
-      else if (item.action === "revisit") await persistUserInterestCodes(dbPool, userId, snapshot, "feedback_revisit", 0.5);
-      else if (item.action === "quick_exit") await decayUserInterestCodes(dbPool, userId, snapshot, 0.95);
+        await persistInterestNodeCodes(dbPool, userId, nodes, "feedback_dwell", 0.2);
+      else if (item.action === "scroll_end") await persistInterestNodeCodes(dbPool, userId, nodes, "feedback_scroll_end", 0.1);
+      else if (item.action === "revisit") await persistInterestNodeCodes(dbPool, userId, nodes, "feedback_revisit", 0.5);
+      else if (item.action === "quick_exit") await decayInterestNodeCodes(dbPool, userId, nodes, 0.95);
     }
   }
 
@@ -200,9 +199,9 @@ export async function submitInterest(
   if (!notice) throw new NoticeNotFoundError();
 
   await interactionRepo.upsertInterest({ userId, noticeId, interestType, note });
-  const snapshot = normalizeUnspscCodes(notice.unspsc_codes);
-  await persistUserInterestCodes(
-    dbPool, userId, snapshot,
+  const nodes = (await loadNoticeNodeCodes(dbPool, [noticeId]).catch(() => new Map())).get(noticeId) ?? [];
+  await persistInterestNodeCodes(
+    dbPool, userId, nodes,
     interestType === "subscribed" ? "subscribe_notice" : "express_interest",
     interestType === "subscribed" ? 2.0 : 1.0
   );

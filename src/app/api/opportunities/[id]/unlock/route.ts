@@ -9,7 +9,6 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
 import { executeOpportunityUnlock, OpportunityUnlockError } from "@/lib/services/opportunity-unlock";
 import {
   EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_OPPORTUNITY_NOT_FOUND, EC_OUT_OF_CATEGORY,
@@ -45,8 +44,6 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
         routeError(403, EC_OUT_OF_CATEGORY, "该商机不在您订阅的行业范围内", { out_of_category: true });
       }
     }
-    const snapshot = normalizeUnspscCodes(opp.unspsc_codes);
-
     try {
       const result = await executeOpportunityUnlock(
         { dbPool, opportunitiesRepo: oppsRepo, quotaDeps: { catalog: benefitSystemRepo, write: benefitWriteRepo } },
@@ -55,7 +52,6 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
           opportunityId,
           unlockType,
           price,
-          unspscCodes: snapshot,
         },
       );
       if (result.alreadyUnlocked) {

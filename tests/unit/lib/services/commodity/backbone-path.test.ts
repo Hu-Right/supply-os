@@ -128,6 +128,28 @@ describe("换不出归属的码", () => {
   });
 });
 
+describe("UGT 节点键直认（小表剥离后兴趣表 code 存节点码）", () => {
+  it("合法节点键等值命中：祖先全存、不进 misses、层级档按码长现算", () => {
+    const r = idx.pathOf(["UGT-0101010101"]);
+    expect(r.deepest).toEqual(["UGT-0101010101"]);
+    expect(r.codes).toContain("UGT-01");
+    expect(r.misses).toEqual([]);
+    expect(r.tiers["品目级"]).toBe(1);
+  });
+
+  it("形制合法但树上无此键 → miss（宁缺勿错，不猜最近节点）", () => {
+    const r = idx.pathOf(["UGT-99"]);
+    expect(r.deepest).toEqual([]);
+    expect(r.misses).toEqual(["UGT-99"]);
+  });
+
+  it("数字码行为零变化（UGT- 前缀让两键空间天然不相交）", () => {
+    const r = idx.pathOf(["10101510"]);
+    expect(r.deepest).toEqual(["UGT-0101010101"]);
+    expect(r.misses).toEqual([]);
+  });
+});
+
 describe("入参归一：成对的 2/4/6 位截断码也认（兴趣码表实测 357/830 条是这种）", () => {
   it("padUnspscCode：只有偶数位 ≤ 8 的纯数字能补零，奇数位与超 8 位一律 null", () => {
     expect(padUnspscCode("10")).toBe("10000000");

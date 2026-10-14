@@ -112,7 +112,11 @@ export async function processInterestCodes(
     const decayed = Number(row.decayed_weight || 0);
     if (decayed <= 0) continue; // 零权重照常召回（与旧实现一致），但不进打分与归一分母
     interestTotal += decayed;
-    const precision = (effectivePrefixOf(code) ?? "").length;
+    // 有效位数：UGT 节点键取数字体长度（码长即层级）；存量数字码行走尾零归一口径。
+    // 小表剥离后新写入的行全是 UGT 键，存量数字码随上线日迁移件转写后自然消亡
+    const precision = code.startsWith("UGT-")
+      ? Math.min(10, code.length - 4)
+      : (effectivePrefixOf(code) ?? "").length;
     const depth = Math.min(4, Math.max(1, precision / 2));
     const weighted = decayed * (depthFactor[depth] ?? 1.0);
     const prev = byNode.get(deepest);

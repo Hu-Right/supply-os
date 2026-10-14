@@ -16,7 +16,7 @@ import type { OpportunitiesRepo } from "../repos/opportunities.repo";
 import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
 import type { BenefitWriteRepo, LockedPoolRow } from "../repos/benefit-write.repo";
 import { ensureConsumableQuota, consumeQuota, UnlockQuotaError } from "./unlock-quota";
-import { persistUserInterestCodes } from "./unspsc/interest";
+import { loadOpportunityNoticeNodeCodes, persistInterestNodeCodes } from "./commodity/interest";
 
 /** 解锁业务失败：code 供路由映射为用户可见文案（FREE_LIMIT_REACHED/PAID_QUOTA_REQUIRED） */
 export class OpportunityUnlockError extends Error {
@@ -38,8 +38,6 @@ export interface OpportunityUnlockParams {
   opportunityId: number;
   unlockType: "free" | "subscription" | "single";
   price: number;
-  /** 公告 UNSPSC 归一化结果：仅用于事务外写兴趣码，不再落解锁流水表 */
-  unspscCodes: Array<{ code?: unknown }>;
 }
 
 /**
@@ -59,7 +57,7 @@ export async function executeOpportunityUnlock(
   params: OpportunityUnlockParams,
 ): Promise<{ alreadyUnlocked: boolean; unlockType: string }> {
   const { dbPool, opportunitiesRepo, quotaDeps } = deps;
-  const { userId, opportunityId, unlockType, price, unspscCodes } = params;
+  const { userId, opportunityId, unlockType, price } = params;
 
   // 快速路径：无锁预检，减少事务冲突
   if (await opportunitiesRepo.findExistingUnlock(userId, opportunityId)) {
@@ -128,10 +126,12 @@ export async function executeOpportunityUnlock(
 
     await conn.commit();
 
-    // 事务外：兴趣码（非关键路径）
+    // 事务外：兴趣节点（非关键路径）。商机表无归属列，经关联公告取倒排行
+    // （source_notice_id → 主表内部 id → crm_notice_backbone_nodes）
     if (userId) {
       try {
-        await persistUserInterestCodes(dbPool, userId, unspscCodes, "unlock_order", 2.5);
+        const nodes = await loadOpportunityNoticeNodeCodes(dbPool, opportunityId);
+        await persistInterestNodeCodes(dbPool, userId, nodes, "unlock_order", 2.5);
       } catch { /* 忽略 */ }
     }
     return { alreadyUnlocked: false, unlockType };

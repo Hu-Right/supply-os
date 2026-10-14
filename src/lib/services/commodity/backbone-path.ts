@@ -54,6 +54,11 @@ export type GroupSegmentRow = { segmentPrefix: string; nodeCode: string };
 /** 命中档位，供覆盖率报表用 */
 export type BackboneTier = "品目级" | "类级" | "族级" | "段级";
 
+/** 节点码层级 → 归属档（UGT 节点键直认时用；L1/L2 都归段级，档位只作计数口径不作判据） */
+const NODE_LEVEL_TIER: Record<number, BackboneTier> = {
+  5: "品目级", 4: "类级", 3: "族级", 2: "段级", 1: "段级",
+};
+
 export type BackboneMatch = { row: BackboneRow; tier: BackboneTier };
 
 export type BackbonePathResult = {
@@ -225,6 +230,15 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
   }
 
   const match = (code: string): BackboneMatch | null => {
+    // UGT 节点键直认（兴趣码/供应商兴趣等表在 UNSPSC 小表剥离后存的就是节点码）：
+    // 形制合法且 byCode 等值命中即返回，层级档按码长现算，不走字典换算。
+    // 放在数字码老路前面：`UGT-` 前缀让两键空间天然不相交，老的数字码行为零变化。
+    const lvl = backboneNodeLevel(code);
+    if (lvl > 0) {
+      const row = byCode.get(code);
+      if (!row) return null;
+      return { row, tier: NODE_LEVEL_TIER[lvl] ?? "段级" };
+    }
     // 先归一（成对的 2/4/6 位前缀补零）再比：不补零的话兴趣侧那批截断码会全数假 miss
     const cs = padUnspscCode(code);
     if (!cs) return null;

@@ -18,9 +18,12 @@ import type { BenefitWriteRepo, LockedPoolRow } from "@/lib/repos/benefit-write.
 import type { OpportunityUnlockDeps } from "@/lib/services/opportunity-unlock";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/services/unspsc/interest", () => ({ persistUserInterestCodes: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/services/commodity/interest", () => ({
+  loadOpportunityNoticeNodeCodes: vi.fn().mockResolvedValue(["UGT-4301"]),
+  persistInterestNodeCodes: vi.fn().mockResolvedValue(undefined),
+}));
 
-import { persistUserInterestCodes } from "@/lib/services/unspsc/interest";
+import { persistInterestNodeCodes } from "@/lib/services/commodity/interest";
 import { executeOpportunityUnlock, OpportunityUnlockError } from "@/lib/services/opportunity-unlock";
 
 type QueryFn = ReturnType<typeof vi.fn>;
@@ -58,7 +61,14 @@ function makeEnv(opts: {
   } as unknown as PoolConnection & {
     query: QueryFn; commit: ReturnType<typeof vi.fn>; rollback: ReturnType<typeof vi.fn>;
   };
-  const dbPool = { getConnection: vi.fn(async () => conn) } as unknown as Pool;
+  const dbPool = {
+    getConnection: vi.fn(async () => conn),
+    // 兴趣节点取数（事务外非关键路径）：商机关联公告的倒排行
+    query: vi.fn(async (sql: string) => {
+      if (String(sql).includes("crm_notice_backbone_nodes")) return [[{ node: "UGT-4301" }]];
+      return [[]];
+    }),
+  } as unknown as Pool;
   const opportunitiesRepo = {
     findExistingUnlock: vi.fn().mockResolvedValue(opts.fastPathHit ?? false),
   } as unknown as OpportunitiesRepo;
@@ -81,17 +91,16 @@ function makeEnv(opts: {
     opportunityId: 42,
     unlockType: "single" as "free" | "subscription" | "single",
     price: 99,
-    unspscCodes: [{ code: "123456" }],
   };
   return { deps, params, conn, opportunitiesRepo, quotaDeps };
-}
+};
 
 const ACTIVE = { subscription_id: 55, owner_user_id: 101, plan_code: "starter" } as unknown as ActivePlanRow;
 const POOL = {
   id: 900, subscription_id: 55, user_id: 101, benefit_code: "notice_view",
   quota_total: 10, quota_used: 0, status: "active",
 } as unknown as LockedPoolRow;
-const params0 = () => ({ userId: 101, opportunityId: 42, unlockType: "single" as const, price: 99, unspscCodes: [] });
+const params0 = () => ({ userId: 101, opportunityId: 42, unlockType: "single" as const, price: 99 });
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -123,12 +132,12 @@ describe("executeOpportunityUnlock 免费硬闸（2026-08-30 产品决策）", (
   it("free 解锁一律 FREE_LIMIT_REACHED，不写解锁记录", async () => {
     const { deps, conn } = makeEnv({});
     const result = executeOpportunityUnlock(deps, {
-      userId: 101, opportunityId: 42, unlockType: "free", price: 0, unspscCodes: [],
+      userId: 101, opportunityId: 42, unlockType: "free", price: 0,
     });
     await expect(result).rejects.toThrow(OpportunityUnlockError);
     await expect(result).rejects.toThrow("FREE_LIMIT_REACHED");
     expect(conn.rollback).toHaveBeenCalled();
-    expect(persistUserInterestCodes).not.toHaveBeenCalled();
+    expect(persistInterestNodeCodes).not.toHaveBeenCalled();
   });
 });
 
@@ -144,8 +153,8 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
     // 扣的是刚锁到的那行池，而不是按用户 id 发一条 UPDATE
     expect(quotaDeps.write.consumeLockedPool).toHaveBeenCalledWith(expect.anything(), POOL);
     expect(conn.commit).toHaveBeenCalled();
-    // 非关键路径：兴趣码事务外异步写入
-    expect(persistUserInterestCodes).toHaveBeenCalled();
+    // 非关键路径：兴趣节点事务外异步写入
+    expect(persistInterestNodeCodes).toHaveBeenCalled();
   });
 
   it("未订阅且 free 档零额度：PAID_QUOTA_REQUIRED 回滚，**不留下解锁流水**", async () => {
@@ -154,7 +163,7 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
       matrixCells: [{ benefit_code: "notice_view", value_num: 0 }],
     });
     const result = executeOpportunityUnlock(deps, {
-      userId: 101, opportunityId: 42, unlockType: "subscription", price: 0, unspscCodes: [],
+      userId: 101, opportunityId: 42, unlockType: "subscription", price: 0,
     });
     await expect(result).rejects.toThrow("PAID_QUOTA_REQUIRED");
     expect(conn.query.mock.calls.some(([sql]: string[]) => String(sql).includes("INSERT INTO crm_opportunity_unlocks"))).toBe(false);
@@ -166,7 +175,7 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
   it("池被并发扣尽（consume 返回 denied）→ 回滚抛 PAID_QUOTA_REQUIRED，计不进入", async () => {
     const { deps, conn, quotaDeps } = makeEnv({ active: ACTIVE, pool: POOL, consume: "denied" });
     const result = executeOpportunityUnlock(deps, {
-      userId: 101, opportunityId: 42, unlockType: "single", price: 99, unspscCodes: [],
+      userId: 101, opportunityId: 42, unlockType: "single", price: 99,
     });
     await expect(result).rejects.toThrow("PAID_QUOTA_REQUIRED");
     expect(quotaDeps.write.consumeLockedPool).toHaveBeenCalled();
@@ -186,11 +195,11 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
     expect(conn.commit).toHaveBeenCalled();
   });
 
-  it("userId=0（未认证）不写兴趣码", async () => {
+  it("userId=0（未认证）不写兴趣节点", async () => {
     const { deps } = makeEnv({ active: ACTIVE, pool: POOL });
     await executeOpportunityUnlock(deps, {
-      userId: 0, opportunityId: 42, unlockType: "single", price: 99, unspscCodes: [{ code: "123456" }],
+      userId: 0, opportunityId: 42, unlockType: "single", price: 99,
     });
-    expect(persistUserInterestCodes).not.toHaveBeenCalled();
+    expect(persistInterestNodeCodes).not.toHaveBeenCalled();
   });
 });

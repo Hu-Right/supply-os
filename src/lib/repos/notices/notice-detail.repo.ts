@@ -23,13 +23,12 @@ export class NoticeDetailRepo {
   }
 
   /** 批量取公告 UNSPSC 原始串（反馈联动兴趣码用） */
-  async findUnspscSnapshots(noticeIds: number[]): Promise<RowDataPacket[]> {
-    const [rows] = await this.pool.query(
-      `SELECT id, unspsc_codes FROM crm_bid_notices WHERE id IN (${noticeIds.map(() => "?").join(",")})`,
-      noticeIds,
-    );
-    return rows as RowDataPacket[];
-  }
+  /*
+   * R3'-小表剥离（2026-10-14）删除：findUnspscSnapshots。
+   * 删的依据是「方法与唯一调用方同批换源」：反馈链的兴趣画像改吃倒排表 UGT
+   * 节点码（services/commodity/interest.ts loadNoticeNodeCodes），本方法零读者。
+   * 主表 unspsc_codes 列的物理退役属 D1' 物理批次，不随本批。
+   */
 
   /** 公告详情全字段 */
   async findDetail(noticeId: number): Promise<RowDataPacket | null> {
