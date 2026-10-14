@@ -44,9 +44,9 @@ export default function TrainingPaymentModal({
   const [pendingParticipants, setPendingParticipants] = useState<TrainingParticipant[] | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfoData>({
     company_name: "",
-    industry_id: "",
-    industry_level2_id: "",
-    industry_level3_id: "",
+    industry_code: "",
+    industry_level2_code: "",
+    industry_level3_code: "",
     main_product: "",
     export_experience: "",
     certification: [],
@@ -89,7 +89,7 @@ export default function TrainingPaymentModal({
 
       await submitTrainingRegister({
         company_name: companyInfo.company_name,
-        industry_id: companyInfo.industry_id ? parseInt(companyInfo.industry_id) : null,
+        industry_code: companyInfo.industry_level3_code || companyInfo.industry_level2_code || companyInfo.industry_code || null,
         main_product: companyInfo.main_product,
         export_experience: companyInfo.export_experience,
         certification: certificationStr,

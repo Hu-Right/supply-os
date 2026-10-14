@@ -10,15 +10,17 @@
 import { useEffect, useState } from "react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Input, Select, ChipToggleGroup, Textarea } from "@/shared/ui";
-// 字典端点唯一实现已收敛至 core/unspsc（原 training/api 三实现删除）
-import { fetchCertifications, fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
-import type { DictionaryItem } from "@/core/unspsc/types";
+import {
+  fetchCertifications, fetchIndustryFacets, fetchIndustryChildren, type CertificationRefItem,
+} from "../api";
+import type { IndustryTreeOption } from "@/lib/services/industry-facets";
 
 export interface CompanyInfoData {
   company_name: string;
-  industry_id: string;
-  industry_level2_id: string;
-  industry_level3_id: string;
+  /** 行业取 UGT-I 行业面节点码（最深已选层） */
+  industry_code: string;
+  industry_level2_code: string;
+  industry_level3_code: string;
   main_product: string;
   export_experience: string;
   certification: string[];
@@ -39,48 +41,45 @@ const EXPORT_EXPERIENCE_OPTIONS = ["3年以下", "3~5年", "5~10年", "10年以�
 
 export default function CompanyInfoSection({ value, onChange }: CompanyInfoSectionProps) {
   const { t, locale } = useLocale();
-  const [certifications, setCertifications] = useState<DictionaryItem[]>([]);
-  const [level1Industries, setLevel1Industries] = useState<DictionaryItem[]>([]);
-  const [level2Industries, setLevel2Industries] = useState<DictionaryItem[]>([]);
-  const [level3Industries, setLevel3Industries] = useState<DictionaryItem[]>([]);
+  const [certifications, setCertifications] = useState<CertificationRefItem[]>([]);
+  const [level1Industries, setLevel1Industries] = useState<IndustryTreeOption[]>([]);
+  const [level2Industries, setLevel2Industries] = useState<IndustryTreeOption[]>([]);
+  const [level3Industries, setLevel3Industries] = useState<IndustryTreeOption[]>([]);
 
-  // 加载资质证书和行业数据（统一走 core/unspsc）
-  // 错误降级：字典加载失败时下拉列表保持空选项，用户仍可手动输入
+  // 加载资质证书和行业数据（行业走 UGT-I 行业面，与供应商页同一取数口）
+  // 错误降级：加载失败时下拉列表保持空选项，用户仍可手动输入
   useEffect(() => {
     fetchCertifications()
       .then(data => setCertifications(Array.isArray(data) ? data : []))
       .catch((e) => { console.warn("[CompanyInfo] 资质证书加载失败:", e); setCertifications([]); });
 
-    fetchUnspscIndustries()
+    fetchIndustryFacets()
       .then(data => setLevel1Industries(Array.isArray(data) ? data : []))
       .catch((e) => { console.warn("[CompanyInfo] 行业分类加载失败:", e); setLevel1Industries([]); });
   }, []);
 
   // 二级行业联动
-  // 注意：/api/unspsc/industries 服务端忽略 level/parent_id 参数（固定返回一级类目），
-  // 此前 level=2&parent_id= 的裸 fetch 实际拿到的是一级列表（级联数据错误）；
-  // 正确通道为 /api/unspsc/children?parent_id=。
   useEffect(() => {
-    if (!value.industry_id) {
+    if (!value.industry_code) {
       setLevel2Industries([]);
       setLevel3Industries([]);
       return;
     }
-    fetchUnspscChildren(value.industry_id)
+    fetchIndustryChildren(value.industry_code)
       .then(data => setLevel2Industries(Array.isArray(data) ? data : []))
       .catch((e) => { console.warn("[CompanyInfo] 二级行业联动失败:", e); setLevel2Industries([]); });
-  }, [value.industry_id]);
+  }, [value.industry_code]);
 
-  // 三级行业联动（同上，改用 children 端点）
+  // 三级行业联动
   useEffect(() => {
-    if (!value.industry_level2_id) {
+    if (!value.industry_level2_code) {
       setLevel3Industries([]);
       return;
     }
-    fetchUnspscChildren(value.industry_level2_id)
+    fetchIndustryChildren(value.industry_level2_code)
       .then(data => setLevel3Industries(Array.isArray(data) ? data : []))
       .catch((e) => { console.warn("[CompanyInfo] 三级行业联动失败:", e); setLevel3Industries([]); });
-  }, [value.industry_level2_id]);
+  }, [value.industry_level2_code]);
 
   const handleChange = (field: keyof CompanyInfoData, val: string | string[]) => {
     onChange({ ...value, [field]: val });
@@ -96,8 +95,8 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
     );
   };
 
-  const labelOf = (item: DictionaryItem) =>
-    `${item.code || ""}${item.code ? " - " : ""}${pickLocale(locale, item.title_zh || item.title_en || item.name, item.title_en || item.title_zh || item.name || "Unnamed")}`;
+  const labelOf = (item: IndustryTreeOption) =>
+    pickLocale(locale, item.nameZh || item.nameEn || item.key, item.nameEn || item.nameZh || item.key);
 
   return (
     <div className="space-y-4">
@@ -118,30 +117,30 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
 
         <label className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel1Industry")}</span>
-          <Select name="industry_id" value={value.industry_id} onChange={(e) => handleChange("industry_id", e.target.value)}>
+          <Select name="industry_code" value={value.industry_code} onChange={(e) => handleChange("industry_code", e.target.value)}>
             <option value="">{t("trainingFormSelectLevel1")}</option>
             {level1Industries.map((item) => (
-              <option key={item.id} value={item.id}>{labelOf(item)}</option>
+              <option key={item.key} value={item.key}>{labelOf(item)}</option>
             ))}
           </Select>
         </label>
 
         <label className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel2Industry")}</span>
-          <Select name="industry_level2_id" value={value.industry_level2_id} onChange={(e) => handleChange("industry_level2_id", e.target.value)} disabled={!level2Industries.length}>
+          <Select name="industry_level2_code" value={value.industry_level2_code} onChange={(e) => handleChange("industry_level2_code", e.target.value)} disabled={!level2Industries.length}>
             <option value="">{t("trainingFormSelectLevel2")}</option>
             {level2Industries.map((item) => (
-              <option key={item.id} value={item.id}>{labelOf(item)}</option>
+              <option key={item.key} value={item.key}>{labelOf(item)}</option>
             ))}
           </Select>
         </label>
 
         <label className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel3Industry")}</span>
-          <Select name="industry_level3_id" value={value.industry_level3_id} onChange={(e) => handleChange("industry_level3_id", e.target.value)} disabled={!level3Industries.length}>
+          <Select name="industry_level3_code" value={value.industry_level3_code} onChange={(e) => handleChange("industry_level3_code", e.target.value)} disabled={!level3Industries.length}>
             <option value="">{t("trainingFormSelectLevel3")}</option>
             {level3Industries.map((item) => (
-              <option key={item.id} value={item.id}>{labelOf(item)}</option>
+              <option key={item.key} value={item.key}>{labelOf(item)}</option>
             ))}
           </Select>
         </label>

@@ -9,18 +9,20 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useLocale } from "@/core/i18n";
-import { submitTrainingRegister, type TrainingRegisterForm } from "../api";
-// 字典端点唯一实现已收敛至 core/unspsc（原 training/api 三实现删除）
-import { fetchCertifications, fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
-import type { DictionaryItem } from "@/core/unspsc/types";
+import {
+  submitTrainingRegister, fetchCertifications, fetchIndustryFacets, fetchIndustryChildren,
+  type TrainingRegisterForm, type CertificationRefItem,
+} from "../api";
+import type { IndustryTreeOption } from "@/lib/services/industry-facets";
 
 const EXPORT_EXPERIENCE_OPTIONS = ["3年以内", "3-5年", "5-10年", "10年以上"];
 
 export interface TrainingFormState {
   company_name: string;
-  industry_id: string;
-  industry_level2_id: string;
-  industry_level3_id: string;
+  /** 行业取 UGT-I 行业面节点码（最深已选层） */
+  industry_code: string;
+  industry_level2_code: string;
+  industry_level3_code: string;
   main_product: string;
   export_experience: string;
   certification: string[];
@@ -34,9 +36,9 @@ export interface TrainingFormState {
 
 const INITIAL_FORM_STATE: TrainingFormState = {
   company_name: "",
-  industry_id: "",
-  industry_level2_id: "",
-  industry_level3_id: "",
+  industry_code: "",
+  industry_level2_code: "",
+  industry_level3_code: "",
   main_product: "",
   export_experience: "",
   certification: [],
@@ -57,10 +59,10 @@ export function useTrainingForm() {
   // 报名成功后后端返回的自增 id，供落地页联动支付弹窗
   const [registrationId, setRegistrationId] = useState<number | null>(null);
 
-  const [certifications, setCertifications] = useState<DictionaryItem[]>([]);
-  const [level1Industries, setLevel1Industries] = useState<DictionaryItem[]>([]);
-  const [level2Industries, setLevel2Industries] = useState<DictionaryItem[]>([]);
-  const [level3Industries, setLevel3Industries] = useState<DictionaryItem[]>([]);
+  const [certifications, setCertifications] = useState<CertificationRefItem[]>([]);
+  const [level1Industries, setLevel1Industries] = useState<IndustryTreeOption[]>([]);
+  const [level2Industries, setLevel2Industries] = useState<IndustryTreeOption[]>([]);
+  const [level3Industries, setLevel3Industries] = useState<IndustryTreeOption[]>([]);
 
   // 加载初始数据
   useEffect(() => {
@@ -68,35 +70,35 @@ export function useTrainingForm() {
       .then((items) => setCertifications(Array.isArray(items) ? items : []))
       .catch(() => setCertifications([]));
 
-    fetchUnspscIndustries()
+    fetchIndustryFacets()
       .then((items) => setLevel1Industries(Array.isArray(items) ? items : []))
       .catch(() => setLevel1Industries([]));
   }, []);
 
   // 行业联动：一级 → 二级
   useEffect(() => {
-    if (!form.industry_id) {
+    if (!form.industry_code) {
       setLevel2Industries([]);
       setLevel3Industries([]);
       return;
     }
-    fetchUnspscChildren(form.industry_id)
+    fetchIndustryChildren(form.industry_code)
       .then((items) => setLevel2Industries(Array.isArray(items) ? items : []))
       .catch(() => setLevel2Industries([]));
-    setForm((prev) => ({ ...prev, industry_level2_id: "", industry_level3_id: "" }));
-  }, [form.industry_id]);
+    setForm((prev) => ({ ...prev, industry_level2_code: "", industry_level3_code: "" }));
+  }, [form.industry_code]);
 
   // 行业联动：二级 → 三级
   useEffect(() => {
-    if (!form.industry_level2_id) {
+    if (!form.industry_level2_code) {
       setLevel3Industries([]);
       return;
     }
-    fetchUnspscChildren(form.industry_level2_id)
+    fetchIndustryChildren(form.industry_level2_code)
       .then((items) => setLevel3Industries(Array.isArray(items) ? items : []))
       .catch(() => setLevel3Industries([]));
-    setForm((prev) => ({ ...prev, industry_level3_id: "" }));
-  }, [form.industry_level2_id]);
+    setForm((prev) => ({ ...prev, industry_level3_code: "" }));
+  }, [form.industry_level2_code]);
 
   const handleChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -124,7 +126,7 @@ export function useTrainingForm() {
       event.preventDefault();
       setError("");
 
-      if (!form.company_name || !form.industry_id || !form.contact_name || !form.telephone) {
+      if (!form.company_name || !form.industry_code || !form.contact_name || !form.telephone) {
         setError(t("trainingValidationError"));
         return;
       }
@@ -132,11 +134,11 @@ export function useTrainingForm() {
       const certification = [form.certification.join(", "), form.other_certification.trim()]
         .filter(Boolean)
         .join("\n");
-      const selectedIndustryId = Number(form.industry_level3_id || form.industry_level2_id || form.industry_id);
+      const selectedIndustryCode = form.industry_level3_code || form.industry_level2_code || form.industry_code || null;
 
       const submitData: TrainingRegisterForm = {
         company_name: form.company_name,
-        industry_id: selectedIndustryId,
+        industry_code: selectedIndustryCode,
         main_product: form.main_product,
         export_experience: form.export_experience,
         certification,

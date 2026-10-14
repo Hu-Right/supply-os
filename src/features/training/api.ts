@@ -7,7 +7,8 @@
  *              Training registration related API calls
  */
 
-import { api } from "@/core/http";
+import { api, apiCached } from "@/core/http";
+import type { IndustryTreeOption } from "@/lib/services/industry-facets";
 
 // ── 落地页动态数据类型（与后端 GET /api/training/landing 对齐） ──
 // 说明：落地页仅课程与期次走动态数据（支撑报名支付链路）；
@@ -99,8 +100,8 @@ export interface GetParticipantsResponse {
  */
 export interface TrainingRegisterForm {
   company_name: string;
-  // 未选择行业时允许 null（服务端 industry_id || null）
-  industry_id: number | null;
+  // 行业取 UGT-I 行业面节点码（最深已选层）；未选择行业时允许 null
+  industry_code: string | null;
   main_product: string;
   export_experience: string;
   certification: string;
@@ -110,6 +111,24 @@ export interface TrainingRegisterForm {
   email: string;
   remark: string;
 }
+
+/** 认证资质参考项（GET /api/certifications） */
+export interface CertificationRefItem {
+  id: number;
+  name?: string;
+  title_zh?: string;
+  title_en?: string;
+}
+
+/** 资质证书参考项（与 UNSPSC 字典无关，独立端点） */
+export const fetchCertifications = () => api<CertificationRefItem[]>("/api/certifications");
+
+/** 行业级联第一级（门类，UGT-I 行业面）：与供应商页同一取数口 */
+export const fetchIndustryFacets = () => apiCached<IndustryTreeOption[]>("/api/industries/facets");
+
+/** 行业级联第 2~4 级选项（key = 行业节点码） */
+export const fetchIndustryChildren = (parent: string) =>
+  apiCached<IndustryTreeOption[]>(`/api/industries/tree?parent=${encodeURIComponent(parent)}`);
 
 /**
  * 提交培训注册

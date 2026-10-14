@@ -12,7 +12,7 @@ import {
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Input, Select, Button, ChipToggleGroup, Textarea } from "@/shared/ui";
 import { useTrainingForm } from "../../hooks/useTrainingForm";
-import type { DictionaryItem } from "@/core/unspsc/types";
+import type { IndustryTreeOption } from "@/lib/services/industry-facets";
 
 import { CourseModules } from "./CourseModules";
 import { Instructors } from "./Instructors";
@@ -26,8 +26,8 @@ export default function TrainingPage() {
     handleChange, toggleCertification, handleSubmit,
   } = useTrainingForm();
 
-  const labelOf = (item: DictionaryItem) =>
-    `${item.code || ""}${item.code ? " - " : ""}${pickLocale(locale, item.title_zh || item.title_en || item.name, item.title_en || item.title_zh || item.name || "Unnamed")}`;
+  const labelOf = (item: IndustryTreeOption) =>
+    pickLocale(locale, item.nameZh || item.nameEn || item.key, item.nameEn || item.nameZh || item.key);
 
   return (
     <div className="space-y-6">
@@ -115,23 +115,23 @@ export default function TrainingPage() {
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel1Industry")}</span>
-            <Select name="industry_id" value={form.industry_id} onChange={handleChange}>
+            <Select name="industry_code" value={form.industry_code} onChange={handleChange}>
               <option value="">{t("trainingFormSelectLevel1")}</option>
-              {level1Industries.map((item) => (<option key={item.id} value={item.id}>{labelOf(item)}</option>))}
+              {level1Industries.map((item) => (<option key={item.key} value={item.key}>{labelOf(item)}</option>))}
             </Select>
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel2Industry")}</span>
-            <Select name="industry_level2_id" value={form.industry_level2_id} onChange={handleChange} disabled={!level2Industries.length}>
+            <Select name="industry_level2_code" value={form.industry_level2_code} onChange={handleChange} disabled={!level2Industries.length}>
               <option value="">{t("trainingFormSelectLevel2")}</option>
-              {level2Industries.map((item) => (<option key={item.id} value={item.id}>{labelOf(item)}</option>))}
+              {level2Industries.map((item) => (<option key={item.key} value={item.key}>{labelOf(item)}</option>))}
             </Select>
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel3Industry")}</span>
-            <Select name="industry_level3_id" value={form.industry_level3_id} onChange={handleChange} disabled={!level3Industries.length}>
+            <Select name="industry_level3_code" value={form.industry_level3_code} onChange={handleChange} disabled={!level3Industries.length}>
               <option value="">{t("trainingFormSelectLevel3")}</option>
-              {level3Industries.map((item) => (<option key={item.id} value={item.id}>{labelOf(item)}</option>))}
+              {level3Industries.map((item) => (<option key={item.key} value={item.key}>{labelOf(item)}</option>))}
             </Select>
           </label>
           <label className="block">

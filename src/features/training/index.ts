@@ -14,4 +14,3 @@ export { useTrainingModals } from "./hooks/useTrainingModals";
 
 // API 类型（供外部使用）
 export type { TrainingRegisterForm } from "./api";
-export type { DictionaryItem } from "@/core/unspsc/types";

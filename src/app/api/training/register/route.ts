@@ -2,8 +2,8 @@
  * POST /api/training/register — 培训报名
  *
  * @description 前端发送 snake_case 字段，本 handler 负责映射为 camelCase
- *              后调用 trainingRepo.insertRegistration。同时根据 industry_id
- *              查询 UNSPSC 行业名称写入 industry 列。
+ *              后调用 trainingRepo.insertRegistration。同时根据 industry_code
+ *              查询 UGT-I 行业面节点名称写入 industry 列。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -22,28 +22,28 @@ export const POST = withRoute(async (req: NextRequest) => {
   const body = await req.json();
   const ctx = getContext();
 
-  // snake_case → camelCase 映射（前端 TrainingRegisterForm / TrainingPaymentModal 均发送 snake_case）
-  const industryId = body.industry_id ? Number(body.industry_id) : null;
+  // 行业：UGT-I 行业面节点码（旧 industry_id 字典行 id 随 UNSPSC 字典退役停用）
+  const industryCode = body.industry_code ? String(body.industry_code).trim().slice(0, 40) : "";
 
-  // 根据 industry_id 查询行业名称（UNSPSC 一级类目）
+  // 根据行业码查询名称（crm_industry_nodes）
   let industryName = "";
-  if (industryId) {
+  if (industryCode) {
     try {
       const [rows] = await ctx.dbPool.execute(
-        "SELECT title_zh FROM crm_unspsc_codes WHERE id = ? LIMIT 1",
-        [industryId],
+        "SELECT name_zh FROM crm_industry_nodes WHERE code = ? LIMIT 1",
+        [industryCode],
       );
-      const row = (rows as Array<{ title_zh: string | null }>)[0];
-      industryName = row?.title_zh || "";
+      const row = (rows as Array<{ name_zh: string | null }>)[0];
+      industryName = row?.name_zh || "";
     } catch (e) {
       // 查询失败不影响报名主流程，industry 留空
-      console.warn("[training/register] UNSPSC 行业查询失败:", (e as Error).message);
+      console.warn("[training/register] 行业名称查询失败:", (e as Error).message);
     }
   }
 
   const result = await ctx.trainingRepo.insertRegistration({
     companyName: body.company_name || "",
-    industryId,
+    industryId: null,
     industry: industryName,
     mainProduct: body.main_product || "",
     exportExperience: body.export_experience || "",
