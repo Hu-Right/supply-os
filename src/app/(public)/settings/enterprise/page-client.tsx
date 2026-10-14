@@ -226,6 +226,7 @@ export default function EnterpriseSettingsClient() {
         <EnterpriseInfoCard
           enterprise={enterprise.enterprise}
           linkStatus={enterprise.linkStatus}
+          licenseChange={enterprise.licenseChange}
           loading={enterprise.loading}
           error={enterprise.error}
           onRetry={enterprise.retry}

@@ -16,7 +16,7 @@ import {
   enterpriseBindStateText,
   type EnterpriseBindState,
 } from "@/shared/utils/enterprise-status";
-import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
+import type { EnterpriseInfo, LicenseChangeBrief } from "@/shared/hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
 const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors shrink-0";
@@ -24,6 +24,8 @@ const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs f
 export interface EnterpriseInfoCardProps {
   enterprise: EnterpriseInfo | null;
   linkStatus?: string;
+  /** 该企业最近一条换照变更（闭环状态源）：pending/rejected 在执照区上方挂进展横幅 */
+  licenseChange?: LicenseChangeBrief | null;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
@@ -124,7 +126,7 @@ function InfoTable({ cells }: { cells: Cell[] }) {
 }
 
 export function EnterpriseInfoCard({
-  enterprise, loading, error, onRetry, onBind,
+  enterprise, licenseChange, loading, error, onRetry, onBind,
 }: EnterpriseInfoCardProps) {
   const { t } = useLocale();
 
@@ -243,6 +245,20 @@ export function EnterpriseInfoCard({
       {bindState === "rejected" && checkNote && (
         <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-lg p-3">
           {t("authEnterpriseRejectReason") || "驳回原因"}：{checkNote}
+        </p>
+      )}
+
+      {/* 换照审核进展（先审后生效闭环）：pending/rejected 持续展示，通过后随 GET 刷新消失。
+          认证徽章不因换照进入审核中——换照审的是新图，主体认证状态不变。 */}
+      {licenseChange?.status === "pending" && (
+        <p className="text-xs text-accent-700 bg-accent-50 border border-accent-200 rounded-lg p-3">
+          {t("authEnterpriseLicenseUnderReview") || "新营业执照已提交人工审核（先审后生效），审核通过前门户仍展示原执照"}
+        </p>
+      )}
+      {licenseChange?.status === "rejected" && (
+        <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-lg p-3">
+          {t("authEnterpriseLicenseChangeRejected") || "上次提交的新营业执照未通过审核，门户仍展示原执照，请重新上传"}
+          {licenseChange.rejectReason ? `：${licenseChange.rejectReason}` : ""}
         </p>
       )}
 

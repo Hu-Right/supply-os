@@ -185,4 +185,51 @@ describe("EnterpriseInfoCard", () => {
     // name_confirmed 为空 → 取 company（卡片标题与表格内同一值，故允许多个）
     expect(screen.getAllByText("宝通集团有限公司").length).toBeGreaterThan(0);
   });
+
+  it("换照进展横幅：pending 持续展示审核中（不靠一次性 toast）", () => {
+    render(
+      <EnterpriseInfoCard
+        enterprise={mockRow}
+        licenseChange={{ id: 4, status: "pending", rejectReason: null, createdAt: null }}
+        loading={false}
+        error={null}
+        onRetry={noop}
+        onBind={noop}
+      />,
+    );
+    expect(screen.getByText("authEnterpriseLicenseUnderReview")).toBeInTheDocument();
+  });
+
+  it("换照进展横幅：rejected 展示驳回文案与原因；approved/无单不展示", () => {
+    const { rerender } = render(
+      <EnterpriseInfoCard
+        enterprise={mockRow}
+        licenseChange={{ id: 4, status: "rejected", rejectReason: "图片模糊", createdAt: null }}
+        loading={false}
+        error={null}
+        onRetry={noop}
+        onBind={noop}
+      />,
+    );
+    expect(screen.getByText(/authEnterpriseLicenseChangeRejected/)).toBeInTheDocument();
+    expect(screen.getByText(/：图片模糊/)).toBeInTheDocument();
+
+    rerender(
+      <EnterpriseInfoCard
+        enterprise={mockRow}
+        licenseChange={{ id: 4, status: "approved", rejectReason: null, createdAt: null }}
+        loading={false}
+        error={null}
+        onRetry={noop}
+        onBind={noop}
+      />,
+    );
+    expect(screen.queryByText("authEnterpriseLicenseUnderReview")).not.toBeInTheDocument();
+    expect(screen.queryByText("authEnterpriseLicenseChangeRejected")).not.toBeInTheDocument();
+
+    rerender(
+      <EnterpriseInfoCard enterprise={mockRow} loading={false} error={null} onRetry={noop} onBind={noop} />,
+    );
+    expect(screen.queryByText("authEnterpriseLicenseUnderReview")).not.toBeInTheDocument();
+  });
 });
