@@ -7,7 +7,8 @@
  *                 认领），再为新主体建档/绑定——旧行为是静默覆盖，会抛下审核中的原主体；
  *              2. 旧绑定已认证 → 400，不建档也不换绑，并阻止把已认证企业误导向「认领自己」；
  *              3. 已绑定账号 POST 的正是自己绑定的行 → 放行（等价重复保存资料）；
- *              4. 未绑定账号命中已认证行 → claimRequired，全新主体 → 建档+绑定（均不变）。
+ *              4. 未绑定账号命中已认证行 → claimRequired（不变）；复用未认证行 / 全新主体 /
+ *                 自绑无认领单的 legacy 行 → 认领单+临时绑定（2026-10-14 统一口径，不再裸秒绑）。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -45,11 +46,16 @@ function buildCtx(boundSubjectRow: Record<string, unknown> | null) {
     updateLicenseUrl: vi.fn(),
     findFullById: vi.fn().mockResolvedValue(null),
   };
+  const claimRepo = {
+    findByUserAndSupplier: vi.fn().mockResolvedValue(null),
+    insertClaim: vi.fn().mockResolvedValue(9001),
+    extendPendingClaimExpiry: vi.fn(),
+  };
   const usersRepo = {
     findProfileById: vi.fn().mockResolvedValue({ id: 42, supplier_id: 100, supplier_link_status: "verified" }),
     bindSupplier: vi.fn().mockResolvedValue(undefined),
   };
-  return { ctx: { user: { usersRepo }, supplier: { directoryRepo } }, directoryRepo, usersRepo };
+  return { ctx: { user: { usersRepo }, supplier: { directoryRepo, claimRepo } }, directoryRepo, claimRepo, usersRepo };
 }
 
 function postReq(body: Record<string, unknown>) {
@@ -67,16 +73,20 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
   });
 
   it("旧绑定仍在审核中：POST 另一家企业 → 先显式撤回旧绑定，再建档绑定", async () => {
-    const { ctx, directoryRepo, usersRepo } = buildCtx(bindSubject({ verify_status: "pending" }));
+    const { ctx, directoryRepo, claimRepo, usersRepo } = buildCtx(bindSubject({ verify_status: "pending" }));
     vi.mocked(getContext).mockReturnValue(ctx as never);
 
     const res = await POST(postReq({ company: "上海新主体有限公司", credit_code: "91310000XXXXXXXXXX" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ supplierId: 777, reused: false });
+    expect((await res.json()).data).toEqual({ supplierId: 777, reused: false, claimCreated: true });
     expect(poolExecute.mock.calls[0][0]).toContain("supplier_id = NULL");
     expect(poolExecute.mock.calls[0][1]).toEqual([42, 100]);
     expect(directoryRepo.insertEnterprise).toHaveBeenCalledTimes(1);
     expect(usersRepo.bindSupplier).toHaveBeenCalledWith(42, 777, "verified");
+    // 统一认领口径：新建档案同步立认领单（无执照 → 1 小时限时上传期）
+    expect(claimRepo.insertClaim).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 42, supplierId: 777 }),
+    );
   });
 
   it("已绑定且已认证：POST 另一家企业 → 400，一行数据都不写", async () => {
@@ -92,18 +102,21 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
   });
 
   it("旧绑定是认领待核（verify_status 为空、claim_status=pending）→ 同样可切换", async () => {
-    const { ctx, usersRepo } = buildCtx(bindSubject({ verify_status: null, claim_status: "pending" }));
+    const { ctx, claimRepo, usersRepo } = buildCtx(bindSubject({ verify_status: null, claim_status: "pending" }));
     vi.mocked(getContext).mockReturnValue(ctx as never);
 
     const res = await POST(postReq({ company: "上海新主体有限公司" }));
     expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual({ supplierId: 777, reused: false, claimCreated: true });
     expect(usersRepo.bindSupplier).toHaveBeenCalledWith(42, 777, "verified");
+    expect(claimRepo.insertClaim).toHaveBeenCalledTimes(1);
   });
 
-  it("已绑定账号重复提交自己绑定的行（未认证）→ 放行并保持原绑定", async () => {
-    const { ctx, directoryRepo, usersRepo } = buildCtx(bindSubject({ verify_status: null }));
+  it("已绑定账号重复提交自己绑定的行（未认证、无认领单）→ legacy 自愈补建认领单", async () => {
+    const { ctx, directoryRepo, claimRepo, usersRepo } = buildCtx(bindSubject({ verify_status: null }));
     vi.mocked(getContext).mockReturnValue(ctx as never);
     directoryRepo.findByCompanyBest.mockResolvedValue({ id: 100, verify_status: null } as never);
+    directoryRepo.findFullById.mockResolvedValue({ id: 100, verify_status: null } as never);
     directoryRepo.getClaimOwnership.mockResolvedValue({
       selfBound: true,
       boundByOther: false,
@@ -113,9 +126,51 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
     const res = await POST(postReq({ company: "杭州原绑定企业有限公司" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.data).toEqual({ supplierId: 100, reused: true });
+    expect(json.data).toEqual({ supplierId: 100, reused: true, claimCreated: true });
+    expect(claimRepo.insertClaim).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 42, supplierId: 100 }),
+    );
     expect(usersRepo.bindSupplier).toHaveBeenCalledWith(42, 100, "verified");
     expect(directoryRepo.insertEnterprise).not.toHaveBeenCalled();
+  });
+
+  it("已绑定账号重复提交自己绑定的行（已有有效认领单）→ 幂等不重复建单", async () => {
+    const { ctx, directoryRepo, claimRepo, usersRepo } = buildCtx(bindSubject({ verify_status: null }));
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+    directoryRepo.findByCompanyBest.mockResolvedValue({ id: 100, verify_status: null } as never);
+    directoryRepo.getClaimOwnership.mockResolvedValue({
+      selfBound: true,
+      boundByOther: false,
+      claimPending: false,
+    } as never);
+    claimRepo.findByUserAndSupplier.mockResolvedValue({ id: 5, status: "pending", created_at: null, expires_at: null } as never);
+
+    const res = await POST(postReq({ company: "杭州原绑定企业有限公司" }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual({ supplierId: 100, reused: true, claimCreated: false });
+    expect(claimRepo.insertClaim).not.toHaveBeenCalled();
+    expect(usersRepo.bindSupplier).toHaveBeenCalledWith(42, 100, "verified");
+  });
+
+  it("复用未认证行 + 带执照 → 认领单直接进 7 天审核期，执照落库", async () => {
+    const { ctx, directoryRepo, claimRepo } = buildCtx(null);
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+    directoryRepo.findByCompanyBest.mockResolvedValue({ id: 300, verify_status: null } as never);
+    directoryRepo.findFullById.mockResolvedValue({ id: 300, verify_status: null } as never);
+
+    const res = await POST(postReq({
+      company: "苏州复用企业有限公司",
+      license_url: "/api/user/enterprise/license/license_42_1791943258896.jpg",
+    }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual({ supplierId: 300, reused: true, claimCreated: true });
+    expect(claimRepo.insertClaim).toHaveBeenCalledTimes(1);
+    // createClaimWithBinding 的执照落库：UPDATE supplier 带 license_url
+    const licenseUpdate = poolExecute.mock.calls.find(
+      (c: unknown[]) => String(c[0]).includes("UPDATE supplier") && String(c[0]).includes("license_url"),
+    );
+    expect(licenseUpdate).toBeTruthy();
+    expect(licenseUpdate![1]).toContain("/api/user/enterprise/license/license_42_1791943258896.jpg");
   });
 
   it("未绑定账号命中已认证行 → claimRequired（转认领，不变）", async () => {
@@ -129,12 +184,15 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
   });
 
   it("未绑定账号全新主体 → 建档并绑定（不变）", async () => {
-    const { ctx, usersRepo } = buildCtx(null);
+    const { ctx, claimRepo, usersRepo } = buildCtx(null);
     vi.mocked(getContext).mockReturnValue(ctx as never);
 
     const res = await POST(postReq({ company: "广州全新主体有限公司" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ supplierId: 777, reused: false });
+    expect((await res.json()).data).toEqual({ supplierId: 777, reused: false, claimCreated: true });
     expect(usersRepo.bindSupplier).toHaveBeenCalledWith(42, 777, "verified");
+    expect(claimRepo.insertClaim).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 42, supplierId: 777 }),
+    );
   });
 });

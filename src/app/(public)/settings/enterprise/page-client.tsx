@@ -109,13 +109,15 @@ export default function EnterpriseSettingsClient() {
     setMessage(null);
     setNotice(null);
     try {
+      let claimCreated = false;
       if (enterprise.bound) {
-        await api("/api/user/enterprise", { method: "PUT", body: values });
+        const res = await api<{ claimCreated?: boolean }>("/api/user/enterprise", { method: "PUT", body: values });
+        claimCreated = !!res?.claimCreated;
       } else {
-        const res = await api<{ supplierId?: number; claimRequired?: boolean }>("/api/user/enterprise", {
-          method: "POST",
-          body: values,
-        });
+        const res = await api<{ supplierId?: number; claimRequired?: boolean; claimCreated?: boolean }>(
+          "/api/user/enterprise",
+          { method: "POST", body: values },
+        );
         // 命中已认证企业：不落库、不退出编辑态，引导认领；认领提交后保存走 PUT 并入该行
         if (res?.claimRequired && res.supplierId) {
           setNotice(
@@ -124,11 +126,18 @@ export default function EnterpriseSettingsClient() {
           setClaimTarget({ id: Number(res.supplierId), company: String(values.company || "") });
           return;
         }
+        claimCreated = !!res?.claimCreated;
       }
       setEditing(false);
       enterprise.retry();
       // 通知全局：企业身份已变更 → 同步刷新资源库判定与 settings 排他/顶部引导卡片
       emitAppEvent("supply-os:enterprise-changed");
+      if (claimCreated) {
+        setNotice(
+          t("authEnterpriseClaimCreated") ||
+            "企业信息已保存，绑定已进入人工审核（核验营业执照），审核通过前可随时撤回",
+        );
+      }
     } catch (e) {
       setMessage(e instanceof Error ? e.message : (t("authEnterpriseSaveFailed") || "保存失败"));
       // 失败常见成因是本地 bound 已过期（认领逾期自动解绑 / 另一端已完成绑定）：

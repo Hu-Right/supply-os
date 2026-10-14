@@ -39,11 +39,20 @@ function buildCtx(rowOverride: Record<string, unknown> = {}) {
     updateEnterprise: vi.fn().mockResolvedValue(undefined),
     updateLicenseUrl: vi.fn().mockResolvedValue(undefined),
   };
+  const claimRepo = {
+    findByUserAndSupplier: vi.fn().mockResolvedValue(null),
+    insertClaim: vi.fn().mockResolvedValue(9001),
+    extendPendingClaimExpiry: vi.fn(),
+  };
   const usersRepo = {
     findProfileById: vi.fn().mockResolvedValue({ id: 42, supplier_id: 100, supplier_link_status: "verified" }),
     bindSupplier: vi.fn(),
   };
-  return { ctx: { user: { usersRepo }, supplier: { directoryRepo, claimRepo: { extendPendingClaimExpiry: vi.fn() } } }, directoryRepo };
+  return {
+    ctx: { user: { usersRepo }, supplier: { directoryRepo, claimRepo } },
+    directoryRepo,
+    claimRepo,
+  };
 }
 
 function putReq(body: Record<string, unknown>) {
@@ -92,14 +101,38 @@ describe("PUT /api/user/enterprise 身份三要素闸口", () => {
     expect(directoryRepo.updateEnterprise).toHaveBeenCalledWith(100, expect.objectContaining({ products: "新增主营产品" }));
   });
 
-  it("已认证：只改联系类字段 → 放行且不查库（无身份键）", async () => {
+  it("已认证：只改联系类字段 → 放行（自愈检查会取行判断认证态，不再是无查库）", async () => {
     const { ctx, directoryRepo } = buildCtx({ verify_status: "done" });
     vi.mocked(getContext).mockReturnValue(ctx as never);
 
     const res = await PUT(putReq({ contact: "李四", phone: "13900000000" }));
     expect(res.status).toBe(200);
-    expect(directoryRepo.findFullById).not.toHaveBeenCalled();
+    // 2026-10-14 统一认领口径：PUT 末尾的 legacy 自愈需要读行判断是否补建认领单，
+    // 已认证行在此被跳过（不建单），但行本身会查一次
     expect(directoryRepo.updateEnterprise).toHaveBeenCalled();
+  });
+
+  it("legacy 自愈：绑定了未认证行且无认领单 → PUT 补建认领单", async () => {
+    const { ctx, claimRepo } = buildCtx({ verify_status: "pending" });
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+
+    const res = await PUT(putReq({ contact: "李四" }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual({ claimCreated: true });
+    expect(claimRepo.insertClaim).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 42, supplierId: 100 }),
+    );
+  });
+
+  it("legacy 自愈：已有有效认领单 / 已认证行 → 不重复建单", async () => {
+    const { ctx, claimRepo } = buildCtx({ verify_status: "done" });
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+    claimRepo.findByUserAndSupplier.mockResolvedValue({ id: 8, status: "approved", created_at: null, expires_at: null } as never);
+
+    const res = await PUT(putReq({ contact: "李四" }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual({ claimCreated: false });
+    expect(claimRepo.insertClaim).not.toHaveBeenCalled();
   });
 
   it("审核中：允许补正身份字段（驳回/审核期的正当路径）", async () => {
