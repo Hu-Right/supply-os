@@ -66,9 +66,12 @@ const enterpriseBodySchema = z.object({
  * 仅当调用方显式传了 license_url（key 存在）时调用；未传则保持原状。
  * 双时钟：本次为"写入非空执照"时，把该用户对此主体的 pending 认领从 1 小时限时上传期
  * 续期到 7 天管理员审核期。
- * 先审后生效（2026-10-14）：已认证（verify_status='done'）供应商换照不直接生效——
+ * 先审后生效（2026-10-14）：已认证供应商换照不直接生效——
  * 新图登记 crm_license_changes 待审，supplier.license_url 保持旧图、旧图永不删除，
- * 后台「资质变更」人工通过后才切换；清空执照同样需要审核。返回本次是否进入待审。
+ * 后台「资质变更」人工通过后才切换；清空执照同样需要审核。
+ * 「已认证」= 认证已通过（verify done）**或**认领已通过（claim verified，永久绑定）——
+ * 两者的执照当初都经人工核验，换照必须复审（仅判 verify done 会漏掉
+ * 「认领已通过、认证待审」的供应商，其换照曾直接生效）。返回本次是否进入待审。
  */
 async function reconcileLicense(
   ctx: AppContext,
@@ -82,7 +85,7 @@ async function reconcileLicense(
   const oldUrl = row?.license_url ? String(row.license_url) : null;
   if ((oldUrl ?? null) === normalized) return { pendingReview: false };
 
-  if (row?.verify_status === "done") {
+  if (row?.verify_status === "done" || row?.claim_status === "verified") {
     await upsertPendingLicenseChange({
       supplierId,
       filename: normalized ? licenseFilenameFromUrl(normalized) : null,

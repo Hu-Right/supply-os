@@ -157,6 +157,28 @@ describe("PUT /api/user/enterprise 身份三要素闸口", () => {
     expect(directoryRepo.updateLicenseUrl).not.toHaveBeenCalled();
   });
 
+  it("认领已通过（claim verified）、认证待审的行换执照 → 同样进入待审", async () => {
+    const { ctx, directoryRepo, claimRepo } = buildCtx({
+      verify_status: "pending",
+      claim_status: "verified",
+      license_url: "/api/user/enterprise/license/license_42_1111111111.png",
+    });
+    // 模拟真实状态：该行已有一条 approved 认领（故自愈不再建单）
+    claimRepo.findByUserAndSupplier.mockResolvedValue({ id: 21, status: "approved", created_at: null, expires_at: null } as never);
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+
+    const res = await PUT(putReq({ license_url: "/api/user/enterprise/license/license_42_2222222222.png" }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual({ claimCreated: false, licensePendingReview: true });
+    expect(upsertPendingLicenseChange).toHaveBeenCalledWith({
+      supplierId: 100,
+      filename: "license_42_2222222222.png",
+      prevFilename: "license_42_1111111111.png",
+      uploadedBy: 42,
+    });
+    expect(directoryRepo.updateLicenseUrl).not.toHaveBeenCalled();
+  });
+
   it("未认证行换执照 → 直接生效（不走待审）", async () => {
     const { ctx, directoryRepo } = buildCtx({ verify_status: "pending" });
     vi.mocked(getContext).mockReturnValue(ctx as never);
