@@ -31,7 +31,6 @@ export interface Supplier {
   countryEn: string;
   cityZh: string;
   cityEn: string;
-  ungmCode?: string;
   mainProductsZh: string[];
   mainProductsEn: string[];
   complianceLabelsZh: string[];
@@ -44,8 +43,6 @@ export interface Supplier {
   membershipTier?: "certified" | "gold" | "recommended";
   /** 资料完整度百分比 (0-100) */
   dataCompleteness?: number;
-  /** UNSPSC 编码 */
-  unspscCode?: string;
   /** 能力标签（准时交付 98%、24h响应等） */
   capabilityTags?: string[];
   /** 企业认证（ISO 9001, CE, TÜV 等） */

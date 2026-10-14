@@ -62,7 +62,6 @@ export function SupplierProfilePage() {
   const city = supplier ? pickLocale(locale, supplier.cityZh, supplier.cityEn) : "";
   const completeness = supplier?.dataCompleteness ?? 0;
   const certs = supplier?.complianceLabelsZh ?? [];
-  const unspsc = supplier?.unspscCode || supplier?.ungmCode || "";
   const tier = supplier?.membershipTier;
 
   // supplier.id 形如 "sup-db-123"（门户卡片包装），认领与归属判定都要先回到库内主键，
@@ -121,7 +120,6 @@ export function SupplierProfilePage() {
                   {tier === "certified" && <Badge variant="success">认证会员</Badge>}
                   {tier === "recommended" && <Badge variant="error">推荐</Badge>}
                   <Badge variant="info" shape="pill">{t("profile_verified")}</Badge>
-                  {unspsc && <Badge variant="info" shape="pill">UNSPSC{t("profile_unspscMatched")}</Badge>}
                 </div>
                 <p className="text-sm text-slate-500 mt-2 flex flex-wrap items-center gap-2">
                   <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{country}{city !== "—" && city !== country ? ` · ${city}` : ""}</span>
@@ -185,13 +183,13 @@ export function SupplierProfilePage() {
           <CapabilityPanel supplier={supplier} products={products} completeness={completeness} certs={certs} country={country} t={t} />
         )}
         {activeTab === "products" && (
-          <ProductsPanel products={products} unspsc={unspsc} t={t} />
+          <ProductsPanel products={products} t={t} />
         )}
         {activeTab === "certs" && (
           <CertsPanel certs={certs} t={t} />
         )}
         {activeTab === "procurement" && (
-          <ProcurementPanel unspsc={unspsc} certs={certs} completeness={completeness} t={t} />
+          <ProcurementPanel certs={certs} completeness={completeness} t={t} />
         )}
         {activeTab === "overseas" && (
           <OverseasPanel country={country} city={city} t={t} />

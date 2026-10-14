@@ -11,7 +11,7 @@ import {
   Building2, Globe, Crown, FileText, Award, TrendingUp, Target,
   ArrowRight, ExternalLink, Lock,
 } from "lucide-react";
-import { Button, Card, Badge, EmptyState } from "@/shared/ui";
+import { Button, Card, EmptyState } from "@/shared/ui";
 import type { Supplier } from "@/types";
 
 // ── 工具组件 ──
@@ -32,7 +32,6 @@ interface PanelProps { t: (key: string, params?: Record<string, string | number>
 export function CapabilityPanel({ supplier, products, completeness, certs, country, t }: PanelProps & {
   supplier: Supplier; products: string[]; completeness: number; certs: string[]; country: string;
 }) {
-  const unspsc = supplier?.unspscCode || supplier?.ungmCode || "";
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <section className="rounded-2xl border border-teal-200 bg-white p-5">
@@ -77,7 +76,6 @@ export function CapabilityPanel({ supplier, products, completeness, certs, count
           <Globe className="w-5 h-5 text-blue-600" />{t("profile_complianceTitle")}
         </h3>
         <div className="space-y-1">
-          <InfoRow label={t("profile_unspscMatch")} value={unspsc ? `${t("profile_unspscMatched")}（92%）` : <span className="text-slate-300">—</span>} />
           <InfoRow label={t("profile_complianceStandards")} value={certs.length > 0 ? certs.join(" / ") : <span className="text-slate-300">—</span>} />
           <InfoRow label={t("profile_qualificationPre")} value={completeness >= 80 ? t("profile_verified") : <span className="text-slate-300">—</span>} />
           <InfoRow label={t("profile_restrictionAssess")} value={completeness >= 70 ? "合规（低风险）" : <span className="text-slate-300">—</span>} />
@@ -133,7 +131,7 @@ export function CapabilityPanel({ supplier, products, completeness, certs, count
 
 // ── 产品目录 ──
 
-export function ProductsPanel({ products, unspsc: _unspsc, t }: PanelProps & { products: string[]; unspsc: string }) {
+export function ProductsPanel({ products, t }: PanelProps & { products: string[] }) {
   if (products.length === 0) {
     return <div className="py-10"><EmptyState title="暂无产品信息" description="该供应商尚未录入产品目录" /></div>;
   }
@@ -152,11 +150,6 @@ export function ProductsPanel({ products, unspsc: _unspsc, t }: PanelProps & { p
           </div>
         ))}
       </div>
-      {_unspsc && (
-        <div className="px-5 py-3 border-t border-slate-100">
-          <Badge variant="info" shape="tag">UNSPSC: {_unspsc}</Badge>
-        </div>
-      )}
     </Card>
   );
 }
@@ -185,14 +178,13 @@ export function CertsPanel({ certs, t }: PanelProps & { certs: string[] }) {
 
 // ── 公采适配 ──
 
-export function ProcurementPanel({ unspsc: _unspsc, certs, completeness, t }: PanelProps & { unspsc: string; certs: string[]; completeness: number }) {
+export function ProcurementPanel({ certs, completeness, t }: PanelProps & { certs: string[]; completeness: number }) {
   return (
     <Card className="p-5">
       <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
         <Globe className="w-5 h-5 text-blue-600" />{t("profile_complianceTitle")}
       </h3>
       <div className="space-y-1">
-        <InfoRow label={t("profile_unspscMatch")} value={_unspsc ? `${t("profile_unspscMatched")}（92%）` : <span className="text-slate-300">—</span>} />
         <InfoRow label={t("profile_complianceStandards")} value={certs.length > 0 ? certs.join(" / ") : <span className="text-slate-300">—</span>} />
         <InfoRow label={t("profile_qualificationPre")} value={completeness >= 80 ? t("profile_verified") : <span className="text-slate-300">—</span>} />
         <InfoRow label={t("profile_restrictionAssess")} value={completeness >= 70 ? "合规（低风险）" : <span className="text-slate-300">—</span>} />

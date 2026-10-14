@@ -67,7 +67,6 @@ export function mapSupplierRow(
     countryEn: getCountryEnglishName(countryRaw) || "China",
     cityZh,
     cityEn: cityZh,
-    ungmCode: undefined,
     mainProductsZh: productsZh,
     mainProductsEn: productsZh,
     complianceLabelsZh: row.certification ? splitListField(row.certification) : [],
