@@ -22,8 +22,8 @@ if (existsSync(".env")) {
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, "");
   }
 }
-// 内置豁免（代码评审-controlled）：爬虫交集机制仍写入、代码零读写的快照列，以及等待
-// 部署配对改名的 w_unspsc（deploy 后跑 legacy-dict-sweep-ddl.ts --renames-only 即可摘除）。
+// 内置豁免（代码评审-controlled）：爬虫交集机制仍写入、代码零读写的供应商快照列。
+// （w_unspsc 已随 2026-10-14 部署配对改名 w_commodity，豁免已摘除。）
 // .env 的 LEGACY_DICT_RESIDUE_EXEMPT 只做本地追加，不覆盖此处。
 const DEFAULT_EXEMPT = [
   "supplier.unspsc_codes_snapshot",
@@ -31,7 +31,6 @@ const DEFAULT_EXEMPT = [
   // 快照列裸名（测试负向断言清单里不带表前缀出现）
   "unspsc_codes_snapshot",
   "unspsc_match_status",
-  "w_unspsc",
 ];
 const EXEMPT = [
   ...DEFAULT_EXEMPT,
