@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 98 张，导出 96 张，排除 2 张。
+--           源库共 99 张，导出 94 张，排除 5 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -192,32 +192,6 @@ CREATE TABLE `crm_bid_awards` (
   KEY `idx_crawl_time` (`crawl_time`),
   KEY `idx_source_platform` (`source_platform`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='已中标数据';
-
--- ── crm_bid_notice_unspsc_codes ──
-CREATE TABLE `crm_bid_notice_unspsc_codes` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `notice_id` varchar(100) NOT NULL COMMENT '公告ID',
-  `code_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC字典ID，暂未绑定字典时为0',
-  `code` varchar(32) NOT NULL DEFAULT '' COMMENT 'UNSPSC编码，如43211503',
-  `level` tinyint unsigned NOT NULL DEFAULT '0' COMMENT '该码在旧字典的层级。实测取值 2~7 且无 1（6/7 为异常深层节点）：筛选此类节点时 levelN_id 无对应列，退化为 code_id 兜底；相似公告按本列选择匹配层级。',
-  `level1_id` int DEFAULT NULL COMMENT '旧字典 crm_unspsc_codes 的节点 id；本行处于该层级时填自身，否则为 NULL。入库由 crawler-sync 归一保证。',
-  `level2_id` int DEFAULT NULL COMMENT '旧字典 crm_unspsc_codes 的节点 id；本行处于该层级时填自身，否则为 NULL。入库由 crawler-sync 归一保证。',
-  `level3_id` int DEFAULT NULL COMMENT '旧字典 crm_unspsc_codes 的节点 id；本行处于该层级时填自身，否则为 NULL。入库由 crawler-sync 归一保证。',
-  `level4_id` int DEFAULT NULL COMMENT '旧字典 crm_unspsc_codes 的节点 id；本行处于该层级时填自身，否则为 NULL。入库由 crawler-sync 归一保证。',
-  `level5_id` int DEFAULT NULL COMMENT '旧字典 crm_unspsc_codes 的节点 id；本行处于该层级时填自身，否则为 NULL。入库由 crawler-sync 归一保证。',
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_notice_code` (`notice_id`,`code`),
-  KEY `idx_notice_level1_notice` (`level1_id`,`notice_id`),
-  KEY `idx_notice_level2_notice` (`level2_id`,`notice_id`),
-  KEY `idx_notice_level3_notice` (`level3_id`,`notice_id`),
-  KEY `idx_notice_level4_notice` (`level4_id`,`notice_id`),
-  KEY `idx_notice_level5_notice` (`level5_id`,`notice_id`),
-  KEY `idx_notice_code_notice` (`code`,`notice_id`),
-  KEY `idx_notice_id` (`notice_id`),
-  KEY `idx_level1_id` (`level1_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='招标公告分类桥表';
 
 -- ── crm_bid_notices ──
 CREATE TABLE `crm_bid_notices` (
@@ -428,31 +402,6 @@ CREATE TABLE `crm_bid_opportunity_unspsc_candidates` (
   KEY `uk_item_code` (`opportunity_id`,`item_no`,`candidate_code`),
   KEY `idx_item_status` (`item_id`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='qualified opportunity UNSPSC level5 candidates';
-
--- ── crm_bid_opportunity_unspsc_codes ──
-CREATE TABLE `crm_bid_opportunity_unspsc_codes` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `opportunity_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '投标商机ID，对应crm_bid_opportunities.id',
-  `code_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC字典ID，暂未绑定字典时为0',
-  `code` varchar(32) NOT NULL DEFAULT '' COMMENT 'UNSPSC编码，如43211503',
-  `name` varchar(255) NOT NULL DEFAULT '' COMMENT 'UNSPSC名称或描述',
-  `level` tinyint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC 层级。实测取值 1~6（level=1 仅 23 行）；本表 levelN_id 存旧字典节点 id 的字符串形态，不是编码前缀。code_id=0 行即 code 不在字典的行。',
-  `level1_id` varchar(32) NOT NULL DEFAULT '' COMMENT '旧字典 crm_unspsc_codes 的节点 id（字符串形态存储）；本行处于该层级时填自身，否则为空串。入库由 crawler-sync 归一保证。',
-  `level2_id` varchar(32) NOT NULL DEFAULT '' COMMENT '旧字典 crm_unspsc_codes 的节点 id（字符串形态存储）；本行处于该层级时填自身，否则为空串。入库由 crawler-sync 归一保证。',
-  `level3_id` varchar(32) NOT NULL DEFAULT '' COMMENT '旧字典 crm_unspsc_codes 的节点 id（字符串形态存储）；本行处于该层级时填自身，否则为空串。入库由 crawler-sync 归一保证。',
-  `level4_id` varchar(32) NOT NULL DEFAULT '' COMMENT '旧字典 crm_unspsc_codes 的节点 id（字符串形态存储）；本行处于该层级时填自身，否则为空串。入库由 crawler-sync 归一保证。',
-  `level5_id` varchar(32) NOT NULL DEFAULT '' COMMENT '旧字典 crm_unspsc_codes 的节点 id（字符串形态存储）；本行处于该层级时填自身，否则为空串。入库由 crawler-sync 归一保证。',
-  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
-  `updated_at` datetime DEFAULT NULL COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_opportunity_code` (`opportunity_id`,`code`),
-  KEY `idx_opp_level1_opp` (`level1_id`,`opportunity_id`),
-  KEY `idx_opp_level2_opp` (`level2_id`,`opportunity_id`),
-  KEY `idx_opp_level3_opp` (`level3_id`,`opportunity_id`),
-  KEY `idx_opp_level4_opp` (`level4_id`,`opportunity_id`),
-  KEY `idx_opp_level5_opp` (`level5_id`,`opportunity_id`),
-  KEY `idx_bid_opp_unspsc_code` (`code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标商机分类桥表';
 
 -- ── crm_chat_messages ──
 CREATE TABLE `crm_chat_messages` (
@@ -1495,6 +1444,42 @@ CREATE TABLE `crm_supplier_industry_rel` (
   KEY `idx_sup` (`supplier_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商×行业面标签关系(UGT-I)';
 
+-- ── crm_supplier_unspsc_interests ──
+CREATE TABLE `crm_supplier_unspsc_interests` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `supplier_table` varchar(32) NOT NULL DEFAULT 'supplier',
+  `supplier_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '供应商ID，对应供应商表ID',
+  `code_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC字典ID，暂未绑定字典时为0',
+  `code` varchar(32) NOT NULL DEFAULT '' COMMENT 'UNSPSC编码，如43211503',
+  `name` varchar(255) NOT NULL DEFAULT '' COMMENT 'UNSPSC名称或描述',
+  `level` tinyint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC层级：1大类/2二级/3三级/4四级/5五级',
+  `level1_id` varchar(32) NOT NULL DEFAULT '' COMMENT '一级分类编码前缀，通常为前2位',
+  `level2_id` varchar(32) NOT NULL DEFAULT '' COMMENT '二级分类编码前缀，通常为前4位',
+  `level3_id` varchar(32) NOT NULL DEFAULT '' COMMENT '三级分类编码前缀，通常为前6位',
+  `level4_id` varchar(32) NOT NULL DEFAULT '' COMMENT '四级分类编码前缀，通常为前8位',
+  `level5_id` varchar(32) NOT NULL DEFAULT '' COMMENT '五级分类编码前缀，若存在通常为前10位',
+  `source` varchar(32) NOT NULL DEFAULT '' COMMENT '兴趣来源：register_level1/manual_filter/unlock_order/express_interest/ai_inferred/enrich_snapshot等',
+  `weight` decimal(10,2) NOT NULL DEFAULT '1.00' COMMENT '兴趣权重，推荐排序时使用',
+  `confidence` decimal(5,2) NOT NULL DEFAULT '0.00',
+  `evidence` varchar(500) DEFAULT NULL,
+  `path_text` varchar(1000) DEFAULT NULL,
+  `keyword_hits` varchar(500) DEFAULT NULL,
+  `is_primary` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
+  `updated_at` datetime DEFAULT NULL COMMENT '修改时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_supplier_code_source` (`supplier_id`,`code`,`source`),
+  KEY `idx_supplier` (`supplier_id`),
+  KEY `idx_code` (`code`),
+  KEY `idx_source` (`source`),
+  KEY `idx_level1` (`level1_id`),
+  KEY `idx_level2` (`level2_id`),
+  KEY `idx_level3` (`level3_id`),
+  KEY `idx_supplier_table_id` (`supplier_table`,`supplier_id`),
+  KEY `idx_supplier_l5_fast` (`supplier_table`,`level5_id`,`supplier_id`),
+  KEY `idx_supplier_l4_fast` (`supplier_table`,`level4_id`,`supplier_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商UNSPSC兴趣画像表，用于记录注册、筛选、解锁、表达兴趣和AI推断形成的行业偏好';
+
 -- ── crm_sync_watermark ──
 CREATE TABLE `crm_sync_watermark` (
   `table_name` varchar(64) NOT NULL,
@@ -1570,22 +1555,6 @@ CREATE TABLE `crm_training_registrations` (
   PRIMARY KEY (`id`),
   KEY `idx_training_status` (`audit_status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='研修班报名表';
-
--- ── crm_unspsc_codes ──
-CREATE TABLE `crm_unspsc_codes` (
-  `id` int NOT NULL,
-  `code` varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `title` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `title_zh` varchar(300) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
-  `parent_id` int DEFAULT NULL,
-  `level` tinyint NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_parent` (`parent_id`),
-  KEY `idx_code` (`code`),
-  KEY `idx_unspsc_level_id` (`level`,`id`),
-  KEY `idx_unspsc_parent_code` (`parent_id`,`code`),
-  FULLTEXT KEY `ft_dict_titles` (`title`,`title_zh`) /*!50100 WITH PARSER `ngram` */ 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 -- ── crm_upload_files ──
 CREATE TABLE `crm_upload_files` (
