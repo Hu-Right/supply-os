@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 97 张，导出 93 张，排除 4 张。
+--           源库共 97 张，导出 89 张，排除 8 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -174,7 +174,6 @@ CREATE TABLE `crm_bid_awards` (
   `description` text COMMENT '中标项目描述（原文）',
   `description_cn` text COMMENT '中标项目描述（中文）',
   `category` varchar(300) DEFAULT NULL COMMENT '采购品类名称',
-  `unspsc_code` varchar(20) DEFAULT NULL COMMENT 'UNSPSC 编码',
   `industry` varchar(100) DEFAULT NULL COMMENT '行业分类',
   `source_notice_id` varchar(100) DEFAULT NULL COMMENT '关联的 crm_bid_notices.notice_id（如可匹配）',
   `raw_data` json DEFAULT NULL COMMENT '爬虫原始数据（JSON），便于回溯与重新解析',
@@ -252,9 +251,9 @@ CREATE TABLE `crm_bid_notices` (
   `response_count` int unsigned DEFAULT '0' COMMENT '供应商响应数（仅 RFQ 来源使用）',
   `entry_source` varchar(20) NOT NULL DEFAULT 'crawl' COMMENT '数据来源: crawl, platform, api',
   `province_name` varchar(50) DEFAULT NULL COMMENT '交付省份（RFQ国内用）',
-  `category_l1_id` int unsigned DEFAULT NULL COMMENT 'UNSPSC一级分类ID（RFQ用）',
-  `category_l2_id` int unsigned DEFAULT NULL COMMENT 'UNSPSC二级分类ID（RFQ用）',
-  `category_code` varchar(24) DEFAULT NULL COMMENT 'RFQ 品目分类（UGT 最深节点码；UNSPSC 字典退役承接位，category_l1_id/l2_id 停写）',
+  `category_l1_id` int unsigned DEFAULT NULL COMMENT '一级分类ID（RFQ用；旧字典口径，已停写）',
+  `category_l2_id` int unsigned DEFAULT NULL COMMENT '二级分类ID（RFQ用；旧字典口径，已停写）',
+  `category_code` varchar(24) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'RFQ 品目分类（UGT 最深节点码；旧字典退役后的承接位，category_l1_id/l2_id 停写）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_notice_source` (`notice_id`),
   KEY `idx_agency` (`agency`),
@@ -294,7 +293,7 @@ CREATE TABLE `crm_bid_opp_item_codes` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_qw` (`quote_hash`,`word_hash`),
   KEY `idx_quote_hash` (`quote_hash`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商单条目级 UNSPSC 编码';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商单条目级品目编码';
 
 -- ── crm_bid_opp_structured ──
 CREATE TABLE `crm_bid_opp_structured` (
@@ -707,12 +706,12 @@ CREATE TABLE `crm_notice_attribution_nodes` (
   UNIQUE KEY `uk_notice_node` (`notice_pk`,`node_code`),
   KEY `idx_source_notice` (`source`,`notice_pk`),
   KEY `idx_node` (`node_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告品目归属落点（唯一事实源，替代 UNSPSC 桥表口径）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告品目归属落点（唯一事实源，替代旧桥表口径）';
 
 -- ── crm_notice_backbone_nodes ──
 CREATE TABLE `crm_notice_backbone_nodes` (
   `notice_id` bigint unsigned NOT NULL COMMENT '公告主键 id（=crm_bid_notices.id=crm_notice_search.id）',
-  `node` varchar(16) NOT NULL COMMENT '品目节点的码（UGT-B-…，含全部祖先；由 backbone-path 从公告 UNSPSC 标签换算，不是 UNSPSC 码；字符集/排序规则故意与 crm_commodity_backbone.code 一致，否则两边比较会转列吃索引）',
+  `node` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '品目节点的码（UGT-B-…，含全部祖先；由 backbone-path 从公告品目标签换算；字符集/排序规则故意与 crm_commodity_backbone.code 一致，否则两边比较会转列吃索引）',
   PRIMARY KEY (`notice_id`,`node`),
   KEY `idx_node` (`node`,`notice_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告×品目骨架节点码倒排表';
@@ -779,8 +778,8 @@ CREATE TABLE `crm_notice_search` (
   `published_date` varchar(50) DEFAULT NULL COMMENT '公告发布日期（同步自 crm_bid_notices.published_date）',
   `sync_src_hash` char(32) NOT NULL DEFAULT '' COMMENT '宽表内容与输入快照的一致性指纹，由 buildWideRow 同快照写入，对账只比对不修改',
   `group_codes` text COMMENT '所属大类码集合，逗号分隔（OR 语义并集）',
-  `code_path` text COMMENT '全部祖先 UNSPSC 前缀，逗号分隔（所见即所得命中键）',
-  `backbone_path` mediumtext COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
+  `code_path` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '全部祖先前缀（旧字典口径），逗号分隔（所见即所得命中键；已无读写方）',
+  `backbone_path` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算）',
   PRIMARY KEY (`id`),
   KEY `idx_ns_deadline_desc` (`deadline_sec` DESC),
   KEY `idx_ns_id_desc` (`id` DESC),
@@ -845,155 +844,6 @@ CREATE TABLE `crm_opportunity_unlocks` (
   KEY `idx_opportunity_id` (`opportunity_id`),
   KEY `idx_notice_id` (`notice_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机解锁流水。';
-
--- ── crm_outreach_batches ──
-CREATE TABLE `crm_outreach_batches` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `batch_no` varchar(32) NOT NULL COMMENT '对外批次号 bat_ 前缀',
-  `batch_name` varchar(128) NOT NULL DEFAULT '',
-  `channel` varchar(16) NOT NULL DEFAULT 'email',
-  `template_id` int unsigned DEFAULT NULL,
-  `account_id` int unsigned DEFAULT NULL,
-  `total_count` int unsigned NOT NULL DEFAULT '0',
-  `sent_count` int unsigned NOT NULL DEFAULT '0',
-  `failed_count` int unsigned NOT NULL DEFAULT '0',
-  `reply_count` int unsigned NOT NULL DEFAULT '0',
-  `status` varchar(16) NOT NULL DEFAULT 'draft',
-  `creator_id` int unsigned DEFAULT NULL,
-  `tenant_id` int unsigned NOT NULL DEFAULT '1',
-  `remark` varchar(255) NOT NULL DEFAULT '',
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_batch_no` (`batch_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达批次';
-
--- ── crm_outreach_items ──
-CREATE TABLE `crm_outreach_items` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `batch_id` bigint unsigned NOT NULL COMMENT '所属批次 crm_outreach_batches.id',
-  `company_id` bigint unsigned DEFAULT NULL COMMENT '内网爬虫库 supplier.id（≠云库 supplier）',
-  `company_name` varchar(191) NOT NULL DEFAULT '' COMMENT '公司名（冗余快照，随批次落库）',
-  `phone` varchar(32) NOT NULL DEFAULT '' COMMENT '电话（国际格式，含国家码）',
-  `email` varchar(191) NOT NULL DEFAULT '' COMMENT '邮箱',
-  `send_status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'pending排队/sent已发/failed失败/hold待把关/excluded剔除/空=备选',
-  `send_count` int unsigned NOT NULL DEFAULT '0',
-  `fail_reason` varchar(255) NOT NULL DEFAULT '',
-  `outreach_status` varchar(20) NOT NULL DEFAULT 'none' COMMENT 'none/sent/delivered/opened/read/replied；reject:前缀=剔除原因',
-  `check_status` varchar(20) NOT NULL DEFAULT 'unverified' COMMENT 'unverified/verified/call_needed/failed',
-  `salutation` varchar(50) DEFAULT NULL COMMENT '核验通过的称呼(填{name})，纯 ASCII 判英文语系',
-  `check_time` datetime DEFAULT NULL,
-  `check_evidence` varchar(255) DEFAULT NULL,
-  `message_id` varchar(64) DEFAULT NULL COMMENT 'CRM 消息 ID msg_ 前缀',
-  `provider_message_id` varchar(191) DEFAULT NULL,
-  `tracking_token` varchar(64) DEFAULT NULL,
-  `sent_at` datetime DEFAULT NULL,
-  `delivered_at` datetime DEFAULT NULL,
-  `opened_at` datetime DEFAULT NULL COMMENT '开信像素首次请求时间（权威口径在 tracking 表）',
-  `open_count` int unsigned NOT NULL DEFAULT '0',
-  `last_open_at` datetime DEFAULT NULL,
-  `read_at` datetime DEFAULT NULL,
-  `replied_at` datetime DEFAULT NULL,
-  `bounced_at` datetime DEFAULT NULL,
-  `bounce_type` varchar(10) DEFAULT NULL,
-  `unsubscribed_at` datetime DEFAULT NULL,
-  `complained_at` datetime DEFAULT NULL,
-  `reply_intent` varchar(20) DEFAULT NULL COMMENT 'unknown/interested/inquiry/not_interested/wrong_contact/auto_reply',
-  `intent_score` tinyint unsigned DEFAULT NULL,
-  `biz_status` varchar(20) NOT NULL DEFAULT 'none' COMMENT 'none/following/quoted/sampling/negotiating/won/lost',
-  `biz_updated_at` datetime DEFAULT NULL,
-  `reply_count` int unsigned NOT NULL DEFAULT '0',
-  `last_reply_message_id` varchar(64) DEFAULT NULL,
-  `status_updated_at` datetime DEFAULT NULL,
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `reco_id` bigint DEFAULT NULL,
-  `reco_pitch` varchar(1000) DEFAULT NULL,
-  `reco_family` varchar(100) DEFAULT NULL,
-  `reco_opp_id` bigint DEFAULT NULL,
-  `ab_variant` varchar(8) DEFAULT NULL,
-  `reco_top3` varchar(600) DEFAULT NULL COMMENT 'top3 商单 id 逗号分隔，首位=主推(reco_opp_id)',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_batch_company` (`batch_id`,`company_id`),
-  UNIQUE KEY `uk_message_id` (`message_id`),
-  UNIQUE KEY `uk_tracking_token` (`tracking_token`),
-  KEY `idx_batch_status` (`batch_id`,`send_status`),
-  KEY `idx_sent_at` (`sent_at`),
-  KEY `idx_company` (`company_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达明细';
-
--- ── crm_outreach_supplier ──
-CREATE TABLE `crm_outreach_supplier` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `company` varchar(200) NOT NULL DEFAULT '' COMMENT '公司名称',
-  `country` varchar(100) NOT NULL DEFAULT '',
-  `country_code` varchar(5) DEFAULT '',
-  `province` varchar(50) DEFAULT NULL,
-  `city` varchar(50) DEFAULT NULL,
-  `contact` varchar(100) NOT NULL DEFAULT '',
-  `position` varchar(100) DEFAULT '',
-  `phone` varchar(60) NOT NULL DEFAULT '',
-  `email` varchar(150) NOT NULL DEFAULT '',
-  `address` varchar(500) DEFAULT '',
-  `website` varchar(255) NOT NULL DEFAULT '',
-  `industry` varchar(200) NOT NULL DEFAULT '' COMMENT '行业/主要产品',
-  `products` varchar(500) DEFAULT '',
-  `certification` varchar(255) DEFAULT NULL,
-  `product_keywords` text,
-  `unspsc_codes_snapshot` text,
-  `unspsc_match_status` varchar(20) NOT NULL DEFAULT 'pending',
-  `unspsc_matched_at` datetime DEFAULT NULL,
-  `last_match_at` datetime DEFAULT NULL,
-  `supplier_grade` varchar(20) DEFAULT NULL COMMENT 'A高价值/B可跟进/C沉淀/D无效',
-  `data_quality_score` decimal(5,2) NOT NULL DEFAULT '0.00',
-  `industry_id` int DEFAULT '0',
-  `type` varchar(20) NOT NULL DEFAULT 'foreign',
-  `business_type` varchar(50) DEFAULT NULL,
-  `coop_status` tinyint NOT NULL DEFAULT '2',
-  `remark` text,
-  `source_channel` varchar(80) DEFAULT NULL,
-  `source_url` varchar(500) DEFAULT NULL,
-  `tenant_id` int NOT NULL DEFAULT '0',
-  `addtime` int NOT NULL DEFAULT '0',
-  `legal_rep` varchar(50) DEFAULT NULL,
-  `intro` text,
-  `name_confirmed` varchar(120) DEFAULT NULL,
-  `registered_address` varchar(255) DEFAULT NULL,
-  `registered_phone` varchar(40) DEFAULT NULL,
-  `registered_email` varchar(120) DEFAULT NULL,
-  `established_at` varchar(20) DEFAULT NULL,
-  `registered_capital` varchar(40) DEFAULT NULL,
-  `credit_code` varchar(30) DEFAULT NULL,
-  `webcheck_status` varchar(10) DEFAULT NULL,
-  `webcheck_at` datetime DEFAULT NULL,
-  `info_checked` tinyint(1) NOT NULL DEFAULT '0',
-  `check_note` varchar(500) DEFAULT NULL,
-  `merged_id` int DEFAULT NULL COMMENT 'supplier_merged.id（云侧为 crm_outreach_supplier_merged）',
-  `verify_status` varchar(20) DEFAULT NULL,
-  `verify_owner` varchar(50) DEFAULT NULL,
-  `verify_at` datetime DEFAULT NULL,
-  `cq_status` varchar(20) DEFAULT NULL,
-  `cq_owner` varchar(40) DEFAULT NULL,
-  `cq_at` datetime DEFAULT NULL,
-  `cq_tyc` json DEFAULT NULL,
-  `cq_aqc` json DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_merged` (`merged_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达供应商档案';
-
--- ── crm_outreach_supplier_merged ──
-CREATE TABLE `crm_outreach_supplier_merged` (
-  `id` int NOT NULL,
-  `company` varchar(200) NOT NULL,
-  `country` varchar(100) DEFAULT 'China',
-  `country_code` varchar(5) DEFAULT 'CN',
-  `industry` varchar(200) DEFAULT NULL,
-  `type` varchar(50) DEFAULT NULL,
-  `source` varchar(50) DEFAULT NULL COMMENT '来源: mic/alibaba/cmef/100ppi/okorder/cnauto/globalsources/ec21；多源=主+次',
-  `coop_status` tinyint DEFAULT '0',
-  PRIMARY KEY (`id`),
-  KEY `idx_source` (`source`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='合并供应商主数据窄表';
 
 -- ── crm_password_resets ──
 CREATE TABLE `crm_password_resets` (
@@ -1287,10 +1137,10 @@ CREATE TABLE `crm_supplier_backbone_interests` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `supplier_table` varchar(32) NOT NULL DEFAULT 'supplier',
   `supplier_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '供应商ID，对应供应商表ID',
-  `code_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC字典ID，暂未绑定字典时为0',
-  `code` varchar(32) NOT NULL DEFAULT '' COMMENT 'UNSPSC编码，如43211503',
-  `name` varchar(255) NOT NULL DEFAULT '' COMMENT 'UNSPSC名称或描述',
-  `level` tinyint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC层级：1大类/2二级/3三级/4四级/5五级',
+  `code_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '旧字典ID，暂未绑定字典时为0',
+  `code` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '品目编码（现为 UGT 节点码）',
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '品目名称或描述',
+  `level` tinyint unsigned NOT NULL DEFAULT '0' COMMENT '品目层级：1大类/2二级/3三级/4四级/5五级',
   `level1_id` varchar(32) NOT NULL DEFAULT '' COMMENT '一级分类编码前缀，通常为前2位',
   `level2_id` varchar(32) NOT NULL DEFAULT '' COMMENT '二级分类编码前缀，通常为前4位',
   `level3_id` varchar(32) NOT NULL DEFAULT '' COMMENT '三级分类编码前缀，通常为前6位',
@@ -1316,7 +1166,7 @@ CREATE TABLE `crm_supplier_backbone_interests` (
   KEY `idx_supplier_table_id` (`supplier_table`,`supplier_id`),
   KEY `idx_supplier_l5_fast` (`supplier_table`,`level5_id`,`supplier_id`),
   KEY `idx_supplier_l4_fast` (`supplier_table`,`level4_id`,`supplier_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商UNSPSC兴趣画像表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商品目兴趣画像表，用于记录注册、筛选、解锁、表达兴趣和AI推断形成的行业偏好';
 
 -- ── crm_supplier_certifications ──
 CREATE TABLE `crm_supplier_certifications` (
@@ -1730,7 +1580,7 @@ CREATE TABLE `supplier` (
   `industry_code` varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '主行业码 UGT-I-*（V3 直标）',
   `certification` varchar(500) DEFAULT NULL,
   `products` varchar(500) DEFAULT '' COMMENT '主营产品',
-  `product_keywords` text COMMENT '产品关键词/别名/采集抽取词，用于UNSPSC补码与商机匹配',
+  `product_keywords` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '产品关键词/别名/采集抽取词，用于品目补码与商机匹配',
   `unspsc_codes_snapshot` text COMMENT '供应商UNSPSC候选码快照(JSON)，用于快速查看和审计',
   `unspsc_match_status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'UNSPSC补码状态：pending待识别 matched已匹配 reviewed已复核 failed失败',
   `data_quality_score` decimal(5,2) GENERATED ALWAYS AS (round(((((((((((((((((((((((`country` is not null) and (trim(`country`) <> _utf8mb4'')) + ((`province` is not null) and (trim(`province`) <> _utf8mb4''))) + ((`city` is not null) and (trim(`city`) <> _utf8mb4''))) + ((`address` is not null) and (trim(`address`) <> _utf8mb4''))) + ((`contact` is not null) and (trim(`contact`) <> _utf8mb4''))) + ((`position` is not null) and (trim(`position`) <> _utf8mb4''))) + ((`phone` is not null) and (trim(`phone`) <> _utf8mb4''))) + ((`email` is not null) and (trim(`email`) <> _utf8mb4''))) + ((`website` is not null) and (trim(`website`) <> _utf8mb4''))) + ((`industry` is not null) and (trim(`industry`) <> _utf8mb4''))) + ((`products` is not null) and (trim(`products`) <> _utf8mb4''))) + ((`type` is not null) and (trim(`type`) <> _utf8mb4''))) + ((`business_type` is not null) and (trim(`business_type`) <> _utf8mb4''))) + ((`certification` is not null) and (trim(`certification`) <> _utf8mb4''))) + ((`established_at` is not null) and (trim(`established_at`) <> _utf8mb4''))) + ((`registered_capital` is not null) and (trim(`registered_capital`) <> _utf8mb4''))) + ((`credit_code` is not null) and (trim(`credit_code`) <> _utf8mb4''))) + ((`legal_rep` is not null) and (trim(`legal_rep`) <> _utf8mb4''))) + ((`intro` is not null) and (trim(`intro`) <> _utf8mb4''))) + ((`registered_address` is not null) and (trim(`registered_address`) <> _utf8mb4''))) * 5.0),2)) STORED NOT NULL,
