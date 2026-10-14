@@ -12,6 +12,9 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR } from "@/shared/constants/api";
+import { normalizeBackboneNodeKey } from "@/lib/services/commodity/backbone-path";
+import { isCommodityNodeKey } from "@/lib/services/commodity/tree";
+import { isCommodityGroupCode } from "@/lib/services/commodity/groups";
 import type { ResultSetHeader } from "mysql2/promise";
 
 /** 安全截断字符串 */
@@ -74,8 +77,11 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const contactPhone = str(body.contact_phone, 50);
   const provinceName = str(body.province_name, 50);
-  const categoryL1Id = Number(body.category_l1_id) || null;
-  const categoryL2Id = Number(body.category_l2_id) || null;
+  // 品目分类：UGT 最深节点码（旧 category_l1_id/l2_id 字典 id 随 UNSPSC 字典退役停写）
+  const categoryCode = normalizeBackboneNodeKey(str(body.category_code, 24));
+  if (categoryCode && !isCommodityNodeKey(categoryCode) && !isCommodityGroupCode(categoryCode)) {
+    routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 大类码或骨架节点码）");
+  }
   const deliveryAddress = str(body.delivery_address, 500);
   const incoterm = str(body.incoterm, 20);
   const deliveryTime = str(body.delivery_time, 200);
@@ -101,21 +107,20 @@ export const POST = withRoute(async (req: NextRequest) => {
     // published 时才由 submit/后台写入），避免草稿/待审核阶段误显“发布于”。
     const [result] = await pool.query(
       `INSERT INTO crm_bid_notices
-        (title, description, country, province_name, category_l1_id, category_l2_id,
+        (title, description, country, province_name, category_code,
          notice_type, deadline, deadline_ts, create_time,
          estimated_value, currency, rfq_status,
          contact_email, contact_phone, user_id, entry_source,
          contact_name, budget_confidential,
          incoterm, delivery_time, delivery_address, payment_terms, supplier_reqs, visibility)
-       VALUES (?, ?, ?, ?, ?, ?, 'RFQ', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'platform',
+       VALUES (?, ?, ?, ?, ?, 'RFQ', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'platform',
                ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
         description.slice(0, 10000),
         "China",
         provinceName,
-        categoryL1Id,
-        categoryL2Id,
+        categoryCode || null,
         deadline,
         deadlineSec,
         Math.floor(Date.now() / 1000),

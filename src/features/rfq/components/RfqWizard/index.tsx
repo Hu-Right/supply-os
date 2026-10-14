@@ -21,7 +21,9 @@ import { Button } from "@/shared/ui";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
-import { fetchUnspscIndustries, fetchUnspscChildren, type UnspscOption } from "@/core/unspsc";
+import { useLocale, type LocaleKey } from "@/core/i18n";
+import { COMMODITY_GROUPS } from "@/lib/services/commodity/groups";
+import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/features/procurement/api/commodityTree";
 import { DEFAULT_RFQ_FORM } from "../../constants";
 import type { FieldErrors, RfqFormState } from "../../types";
 
@@ -64,6 +66,7 @@ export function RfqWizard({ initialData, authContact }: RfqWizardProps) {
 }
 
 function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
+  const { t } = useLocale();
   // 注意：不用 Button asChild + Link——React 19 的 Children.toArray 不再过滤 false 子节点，
   // 会与 Radix Slot 单元素约束冲突导致渲染报错；改用 router.push 导航。
   const router = useRouter();
@@ -79,17 +82,15 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
   const [submitted, setSubmitted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // ── UNSPSC 分类数据 ──
-  const [l1Options, setL1Options] = useState<UnspscOption[]>([]);
-  const [l2Options, setL2Options] = useState<UnspscOption[]>([]);
-
-  useEffect(() => {
-    fetchUnspscIndustries().then(setL1Options).catch((e) => { console.warn("[RfqWizard] UNSPSC L1 加载失败:", e); setL1Options([]); });
-  }, []);
+  // ── 品目分类（UGT 骨架树）：一级 = 32 大类常量，二级按大类码拉品目树 ──
+  const l1Options = COMMODITY_GROUPS;
+  const [l2Options, setL2Options] = useState<CommodityTreeOption[]>([]);
 
   useEffect(() => {
     if (!form.categoryL1) { setL2Options([]); return; }
-    fetchUnspscChildren(form.categoryL1).then(setL2Options).catch((e) => { console.warn("[RfqWizard] UNSPSC L2 加载失败:", e); setL2Options([]); });
+    fetchCommodityTreeChildren(form.categoryL1)
+      .then((rows) => setL2Options(Array.isArray(rows) ? rows : []))
+      .catch((e) => { console.warn("[RfqWizard] 品目二级加载失败:", e); setL2Options([]); });
   }, [form.categoryL1]);
 
   // ── 省市区级联 ──
@@ -125,11 +126,13 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     setErrors((prev) => ({ ...prev, categoryL2: "" }));
   }
 
-  /** 产品分类展示文案：由 UNSPSC 选项把已选 id 映射为中文名称（供第三步摘要核对） */
+  /** 产品分类展示文案：大类走 locale 名，二级取品目树名称（供第三步摘要核对） */
   const categoryDisplay = (() => {
-    const pick = (opts: UnspscOption[], id: string) => opts.find((o) => String(o.id) === String(id));
-    const label = (o?: UnspscOption) => (o ? o.title_zh || o.title || o.code : "");
-    return [label(pick(l1Options, form.categoryL1)), label(pick(l2Options, form.categoryL2))].filter(Boolean).join(" / ");
+    const groupLabel = COMMODITY_GROUPS.find((g) => g.code === form.categoryL1);
+    const l1Name = groupLabel ? t(`commodityGroup_${groupLabel.code}` as LocaleKey) : "";
+    const pick = l2Options.find((o) => String(o.key) === String(form.categoryL2));
+    const l2Name = pick ? pick.nameZh || pick.nameEn || pick.key : "";
+    return [l1Name, l2Name].filter(Boolean).join(" / ");
   })();
 
   // ── 校验 ──
@@ -209,8 +212,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
           currency: form.currency || "CNY",
           country: "China",
           province_name: form.provinceName || "",
-          category_l1_id: form.categoryL1 ? Number(form.categoryL1) : undefined,
-          category_l2_id: form.categoryL2 ? Number(form.categoryL2) : undefined,
+          category_code: form.categoryL2 || form.categoryL1 || undefined,
           delivery_address: [form.cityName, form.districtName, form.address].filter(Boolean).join(" "),
           incoterm: form.incoterm,
           delivery_time: form.deliveryTime,

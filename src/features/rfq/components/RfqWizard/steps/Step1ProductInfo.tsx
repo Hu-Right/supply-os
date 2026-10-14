@@ -1,9 +1,11 @@
 /**
- * Step 1 — 需求概要：标题、UNSPSC 分类、采购类型、需求描述
+ * Step 1 — 需求概要：标题、品目分类（UGT 骨架树）、采购类型、需求描述
  * @module features/rfq/components/RfqWizard/steps/Step1ProductInfo
  */
 import { Input, SegmentedControl, Select, Textarea } from "@/shared/ui";
-import type { UnspscOption } from "@/core/unspsc";
+import { useLocale, type LocaleKey } from "@/core/i18n";
+import type { CommodityGroup } from "@/lib/services/commodity/groups";
+import type { CommodityTreeOption } from "@/features/procurement/api/commodityTree";
 import type { FieldErrors, RfqFormState } from "../../../types";
 import { Field } from "../ui/Field";
 
@@ -12,11 +14,13 @@ export interface Step1Props {
   errors: FieldErrors;
   update: <K extends keyof RfqFormState>(key: K, value: RfqFormState[K]) => void;
   onCategoryL1: (v: string) => void;
-  l1Options: UnspscOption[];
-  l2Options: UnspscOption[];
+  /** 一级 = 32 大类常量；二级 = 该大类所辖品目树节点 */
+  l1Options: readonly CommodityGroup[];
+  l2Options: CommodityTreeOption[];
 }
 
 export function Step1ProductInfo({ form, errors, update, onCategoryL1, l1Options, l2Options }: Step1Props) {
+  const { t, locale } = useLocale();
   return (
     <div className="space-y-5">
       <Field label="需求标题" required error={errors.title} htmlFor="rfq-title"
@@ -32,7 +36,9 @@ export function Step1ProductInfo({ form, errors, update, onCategoryL1, l1Options
           <Select id="rfq-cat1" value={form.categoryL1} error={!!errors.categoryL1}
             onChange={(e) => onCategoryL1(e.target.value)}>
             <option value="">请选择一级分类</option>
-            {l1Options.map((o) => <option key={o.id} value={String(o.id)}>{o.title_zh || o.title || o.code}</option>)}
+            {l1Options.map((g) => (
+              <option key={g.code} value={g.code}>{t(`commodityGroup_${g.code}` as LocaleKey)}</option>
+            ))}
           </Select>
         </Field>
         <Field label="二级分类" required error={errors.categoryL2} htmlFor="rfq-cat2">
@@ -40,7 +46,10 @@ export function Step1ProductInfo({ form, errors, update, onCategoryL1, l1Options
             onChange={(e) => update("categoryL2", e.target.value)}
             disabled={!form.categoryL1}>
             <option value="">请选择二级分类</option>
-            {l2Options.map((o) => <option key={o.id} value={String(o.id)}>{o.title_zh || o.title || o.code}</option>)}
+            {l2Options.map((o) => {
+              const label = (locale === "zh" ? o.nameZh : o.nameEn) || o.nameZh || o.nameEn || o.key;
+              return <option key={o.key} value={o.key}>{label}</option>;
+            })}
           </Select>
         </Field>
       </div>

@@ -12,9 +12,15 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { formatDeadlineDateYMD, currencySymbol } from "@/shared/utils/format";
+import { isCommodityGroupCode, COMMODITY_GROUPS } from "@/lib/services/commodity/groups";
 import type { RowDataPacket } from "mysql2/promise";
 
 const MYSQL_TIMEOUT_MS = 10_000;
+
+/** 大类码 → 中文名（界面名走 locale，此处为列表行的纯文本兜底，与旧 title_zh 口径一致） */
+function groupNameZh(groupCode: string): string {
+  return COMMODITY_GROUPS.find((g) => g.code === groupCode)?.nameZh ?? "";
+}
 
 /** estimated_value + currency → 展示文案（平台预算以“万元”为单位，与设置页口径一致） */
 function formatBudget(value: number, currency: string): string {
@@ -31,7 +37,8 @@ export const GET = withRoute(async (req: NextRequest) => {
   const pageSize = Math.min(Math.max(Number(sp.get("page_size")) || 12, 4), 48);
   const q = String(sp.get("q") || "").trim().slice(0, 200);
   const province = String(sp.get("province") || "").trim().slice(0, 50);
-  const categoryL1 = sp.get("category_l1") ? Number(sp.get("category_l1")) : undefined;
+  // 品目大类筛选：UGT-G-xx（旧字典行 id 参数随 UNSPSC 字典退役停用）
+  const categoryL1 = String(sp.get("category_l1") || "").trim().slice(0, 16);
   const sort = sp.get("sort") === "deadline" ? "deadline" : sp.get("sort") === "budget" ? "budget" : "newest";
 
   const pool = getPool();
@@ -55,7 +62,11 @@ export const GET = withRoute(async (req: NextRequest) => {
     params.push(province);
   }
   if (categoryL1) {
-    conditions.push("n.category_l1_id = ?");
+    // 非法码直接当空条件处理（不 500：筛选参数可手输）
+    if (!isCommodityGroupCode(categoryL1)) {
+      return NextResponse.json({ items: [], total: 0, page, page_size: pageSize });
+    }
+    conditions.push("c1.group_code = ?");
     params.push(categoryL1);
   }
 
@@ -68,17 +79,17 @@ export const GET = withRoute(async (req: NextRequest) => {
       setTimeout(() => reject(new Error(`RFQ list timeout ${MYSQL_TIMEOUT_MS}ms`)), MYSQL_TIMEOUT_MS));
 
     const [countResult, dataResult] = await Promise.all([
-      Promise.race([pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${whereSql}`, params), timeout]),
+      Promise.race([pool.query(
+        `SELECT COUNT(*) AS total FROM crm_bid_notices n
+         LEFT JOIN crm_commodity_backbone c1 ON c1.code = n.category_code
+         WHERE ${whereSql}`, params), timeout]),
       Promise.race([
         pool.query(
           `SELECT n.id, n.reference, n.title, n.country, n.province_name,
-                  n.category_l1_id, n.category_l2_id,
-                  c1.title_zh AS category_l1_name,
-                  c2.title_zh AS category_l2_name,
+                  n.category_code, c1.group_code, c1.name_zh AS category_name,
                   n.estimated_value, n.currency, n.deadline_sec, n.is_featured, n.agency
            FROM crm_bid_notices n
-           LEFT JOIN crm_unspsc_codes c1 ON c1.id = n.category_l1_id
-           LEFT JOIN crm_unspsc_codes c2 ON c2.id = n.category_l2_id
+           LEFT JOIN crm_commodity_backbone c1 ON c1.code = n.category_code
            WHERE ${whereSql} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
           [...params, pageSize, offset],
         ),
@@ -93,18 +104,20 @@ export const GET = withRoute(async (req: NextRequest) => {
 
     const items = rows.map((row) => {
       const province = String(row.province_name || "");
-      const catL1 = String(row.category_l1_name || "");
+      // 一级名 = 所在大类的中文名（常量），二级名 = 存储节点自身名称；无码的老行两列皆空
+      const catL1 = groupNameZh(String(row.group_code || ""));
+      const catL2 = String(row.category_name || "");
       return {
         id: Number(row.id),
         reference: String(row.reference || ""),
-        industry: catL1,
-        tag: catL1,
+        industry: catL1 || catL2,
+        tag: catL1 || catL2,
         title: String(row.title || ""),
         countryZh: province || "中国",
         countryEn: "China",
         province,
         categoryL1: catL1,
-        categoryL2: String(row.category_l2_name || ""),
+        categoryL2: catL2,
         budgetDisplay: formatBudget(Number(row.estimated_value) || 0, String(row.currency || "CNY")),
         budgetUsd: Number(row.estimated_value) || 0,
         currency: String(row.currency || "CNY"),
