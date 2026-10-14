@@ -10,14 +10,14 @@
  *   BB4 大类连续：节点 group_code = 祖先 group_code = 常量按段推出的所属大类（段归属表退役后直接对常量）
  *   BB5 五级齐：L1 恰 32 行且 parent 为空串，L1~L5 每级都有行；同名兄弟只 WARN
  *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥（旧树已删则无对象，只打印跳过）
- *   BB7 公告已在新树找到家：宽表 backbone_path 与桥表闭合（可算必填、无码必空）、
- *      列内码全部存在于树、排序后首码必为大类行（祖先全存的不变量）
- *      ↳ 「可算」= 拿同一份纯函数对当前树重算能出节点；全码都换不出的公告列为 NULL 是预期（以树为准），只报数不计红
+ *   BB7 公告归属已落到骨架（事实源 = 落点表， UNSPSC 退役 R3'）：宽表形制合法（非空串、
+ *      合法字符、不超长）、链顶必为大类、抽样码全在树；活跃公告有落点必进宽表。
+ *      ↳ 曾经的“有码必填/无码必空”已交给 BB15c/d（落点↔列值双向闭合）；本条不再吃桥表。
  *   BB8 旧树零引用（静态）：src/** 不得出现 FROM/JOIN crm_commodity_nodes* —— 这是「旧树可以删」的机器证明
  *      ↳ 后缀走 \w* ：旧树 RENAME 后的退役表照样算引用（带自检，防改名豁免）
  *   BB9 族级落点分档：拿纯函数逐族试挂粗码，L1/L2/L3/L4 四档至少三档有落点 —— 防「最深可证实唯一」被改回一刀切
  *      ↳ 覆盖率类断言抓不到退化（一刀切也是 100%），只有落点层数能叫出来
- *   BB10 列值可由纯函数重算：抽样公告从桥表码重算节点码集，与宽表 backbone_path 逐条比对，差异必须 0
+ *   BB10 已于 UNSPSC 退役 R3' 删除：旧语义“列值 = pathOf(桥表 UNSPSC 码)”已交给 BB15c（列值 = 落点派生）。
  *   BB12 偏好表的大类码齐备且对得上骨架 L1 —— 可见性判定的输入，缺行就是把付费用户静默放行
  *   BB13 退役不变量：不得留下 crm_commodity_nodes_retired_* 这种「改名改一半」的中间态（直接红）；
  *      ↳ 原树名本身在场只 WARN（回滚演练合法），否则真回滚时这条断言会把跨树对账一起误杀
@@ -295,52 +295,35 @@ if (Number(pathCol.n) === 0) {
             SUM(backbone_path REGEXP '[^0-9A-Za-z,-]') bad,
             SUM(CHAR_LENGTH(backbone_path)>1000000) tooLong FROM crm_notice_search`,
   );
-  // 有码必须填 —— 但「填不了」要跟「没跑」分开判（2026-10-12 树重建后按「以树为准」的口径）：
-  // 桥表有 165 个族/类/品目级深码在当前树上换不出任何节点，涉及公告的列值就该是 NULL
-  // （旧列值指的是树上已不存在的节点，等值筛能命中一个无名节点，比空着更坏）。
-  // 所以这条从「有码必填」收紧成「可算必填」：拿同一份纯函数重算，算得出却没填的才是回填缺位。
-  const homeless = await q(
-    `SELECT w.notice_id nid, nc.code code FROM crm_notice_search w
-       JOIN crm_bid_notice_unspsc_codes nc ON nc.notice_id = w.notice_id
-      WHERE (w.backbone_path IS NULL OR w.backbone_path = '') AND nc.code <> ''`,
-  );
-  const homelessByNotice = new Map<string, string[]>();
-  for (const r of homeless) {
-    const list = homelessByNotice.get(String(r.nid));
-    if (list) list.push(String(r.code));
-    else homelessByNotice.set(String(r.nid), [String(r.code)]);
-  }
-  let computableBlank = 0;
-  if (idx) for (const codes of homelessByNotice.values()) if (idx.pathOf(codes).codes.length > 0) computableBlank++;
-  const unmapableBlank = homelessByNotice.size - computableBlank;
-  const extra = await one(
-    `SELECT COUNT(*) n FROM crm_notice_search w WHERE w.backbone_path IS NOT NULL AND w.backbone_path<>''
-       AND NOT EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes nc WHERE nc.notice_id=w.notice_id)`,
-  );
-  // 第三个方向：挂了码、按搜索口径仍活跃，却压根没进宽表。上面两条都从宽表出发，
-  // 这种行对它们不可见，而后果是「公告在新树上彻底看不见」（相似/筛选都进不了）。
-  // 实测当前活跃口径下 0 条（历史上那 3 条全已过期）⇒ 所以这条可以零容忍。
-  const noWide = await one(
-    `SELECT COUNT(*) n FROM (SELECT n.id FROM crm_bid_notice_unspsc_codes nc
-       JOIN crm_bid_notices n ON n.notice_id = nc.notice_id
-      WHERE ${ACTIVE_NOTICE_WHERE} AND NOT EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id)
-      GROUP BY n.id) x`,
-  );
+  // 宽表形制不变量：非空串 / 合法字符 / 不超长
+  if (Number(p.blank) !== 0) fail(`BB7 宽表有 ${p.blank} 行 backbone_path 是空串，应为 NULL`);
+  if (Number(p.bad) !== 0) fail(`BB7 有 ${p.bad} 行 backbone_path 含非法字符（只允许树码与逗号）`);
+  if (Number(p.tooLong) !== 0) fail(`BB7 有 ${p.tooLong} 行超过 1,000,000 字符上限，回填脚本应拒写而非截断`);
   // 祖先全存的不变量：排好序后第一个码必为大类行（否则说明回填时漏了链顶）
   const noTop = await one(
     `SELECT COUNT(*) n FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>''
        AND SUBSTRING_INDEX(backbone_path, ',', 1) NOT REGEXP '^UGT-[0-9]{2}$'`,
   );
-  if (Number(p.blank) !== 0) fail(`BB7 宽表有 ${p.blank} 行 backbone_path 是空串，应为 NULL`);
-  if (Number(p.bad) !== 0) fail(`BB7 有 ${p.bad} 行 backbone_path 含非法字符（只允许树码与逗号）`);
-  if (Number(p.tooLong) !== 0) fail(`BB7 有 ${p.tooLong} 行超过 1,000,000 字符上限，回填脚本应拒写而非截断`);
-  console.log(`BB7 归属空缺 ${homelessByNotice.size} 条：可算却未填 ${computableBlank} / 全码换不出 ${unmapableBlank}（后者是 AI 补码的候选集）`);
-  if (idx && computableBlank !== 0) {
-    fail(`BB7 有 ${computableBlank} 条公告按当前树能算出归属却列值为空 ⇒ 回填没跑/漏跑（另 ${unmapableBlank} 条是全码换不出，属「以树为准」的预期，不计红）`);
-  }
-  if (Number(extra.n) !== 0) fail(`BB7 有 ${extra.n} 行 backbone_path 有值但桥表无码 ⇒ 归属来路不明`);
-  if (Number(noWide.n) !== 0) fail(`BB7 有 ${noWide.n} 条活跃公告挂了码却没进宽表 ⇒ 新树上彻底不行（同步缺位，不依赖回填发现）`);
   if (Number(noTop.n) !== 0) fail(`BB7 有 ${noTop.n} 行 backbone_path 的链顶不是大类，祖先没存全`);
+  // 活跃公告有落点 ⇒ 必进宽表行（否则在新树上彻底看不见：相似/筛选都进不了）。
+  // 旧判据“活跃公告挂码却无宽表”已跟桥表下线；新判据以落点表为源。
+  // 落点表不存在时（CI e2e 建表前置）只 WARN，不阻断——与 BB15/BB16 同一处置。
+  const attrExistsForBb7 = await one(
+    `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='crm_notice_attribution_nodes'`,
+  );
+  if (Number(attrExistsForBb7.n) === 0) {
+    console.log("⚠ BB7 落点表不存在，活跃公告同步缺位断言本轮未执行（建表前置：scripts/ops/notice-attribution-ddl.ts --apply --yes）");
+  } else {
+    const noWide = await one(
+      `SELECT COUNT(*) n FROM (SELECT n.id FROM crm_notice_attribution_nodes a
+         JOIN crm_bid_notices n ON n.id = a.notice_pk
+        WHERE ${ACTIVE_NOTICE_WHERE} AND NOT EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id)
+        GROUP BY n.id) x`,
+    );
+    if (Number(noWide.n) !== 0) {
+      fail(`BB7 有 ${noWide.n} 条活跃公告有落点却没进宽表 ⇒ 新树上彻底不行（同步缺位，不依赖回填发现）`);
+    }
+  }
   // 抽样验真：最长的 100 行 + 最早的 200 行（不用 RAND，保证可复现），拆开后逐个对树
   const sample = await q(
     `SELECT p FROM (SELECT id, backbone_path p FROM crm_notice_search
@@ -410,55 +393,9 @@ if (Number(pathCol.n) === 0) {
     const segBad = [...segToL1.keys()].filter((seg) => ix.match(`${seg}000000`)?.row.level !== 1);
     if (segBad.length) fail(`BB9 有 ${segBad.length} 个段的粗码没落到大类，样本 ${segBad.slice(0, 3).join("、")}`);
 
-    // ── BB10 列值可由纯函数重算：抽样逐条比对，差异必须 0 ──
-    // 抓两类问题：列值过期（规则改了但没重跑回填 / 运行期链路漏了写入）、有人写了第二份实现。
-    // 运行期写入方（commodity/backbone-cache）与回填脚本用的就是下面这个 pathOf，所以这条变红就是真分叉。
-    // 抽两头而不是只抽尾部：回填是「按 id 升序 + 水位续跑」的，中途停手或水位推过头时，
-    // 陈旧的就是 id 低的那整段历史存量；只抽最新尾巴的话 BB10 必然假绿（它声称抓的就是「列值过期」）
-    const batchA = await q(
-      `SELECT notice_id nid FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>'' ORDER BY id DESC LIMIT 200`,
-    );
-    const batchC = await q(
-      `SELECT notice_id nid FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>'' ORDER BY id ASC LIMIT 200`,
-    );
-    // 专门抽带族级粗码的公告（后四位 00、但族前缀末两位非 00，排除段级）：本次升级改的就是这一档
-    const famWhere = `code REGEXP '^[0-9]{4}0000$' AND RIGHT(LEFT(code,4),2) <> '00'`;
-    const batchB = await q(
-      `SELECT notice_id nid FROM crm_bid_notice_unspsc_codes WHERE ${famWhere} ORDER BY id DESC LIMIT 600`,
-    );
-    const batchD = await q(
-      `SELECT notice_id nid FROM crm_bid_notice_unspsc_codes WHERE ${famWhere} ORDER BY id ASC LIMIT 600`,
-    );
-    const ids = [...new Set(
-      [...batchA, ...batchB, ...batchC, ...batchD].map((r) => String(r.nid)).filter((x) => x),
-    )];
-    if (ids.length === 0) {
-      fail("BB10 抽样一条公告都抽不到：宽表 backbone_path 与桥表族级码同时为空？");
-    } else {
-      const ph = ids.map(() => "?").join(",");
-      const stored = await q(`SELECT notice_id, backbone_path p FROM crm_notice_search WHERE notice_id IN (${ph})`, ids);
-      const codeRows = await q(`SELECT DISTINCT notice_id, code FROM crm_bid_notice_unspsc_codes WHERE notice_id IN (${ph})`, ids);
-      const codesBy = new Map<string, string[]>();
-      for (const r of codeRows) {
-        const nid = String(r.notice_id);
-        const list = codesBy.get(nid);
-        if (list) list.push(String(r.code));
-        else codesBy.set(nid, [String(r.code)]);
-      }
-      let diff = 0;
-      const worst: string[] = [];
-      for (const r of stored) {
-        const again = toBackbonePathColumn(ix.pathOf(codesBy.get(String(r.notice_id)) ?? []).codes);
-        if (again !== String(r.p)) {
-          diff++;
-          if (worst.length < 3) {
-            worst.push(`${r.notice_id}：重算 ${again.split(",").length} 个节点 / 列内 ${String(r.p).split(",").length} 个`);
-          }
-        }
-      }
-      console.log(`BB10 纯函数重算对拍 ${stored.length} 条公告，差异 ${diff}`);
-      if (diff) fail(`BB10 有 ${diff}/${stored.length} 条 backbone_path 与纯函数重算不等 ⇒ 列值过期或存在第二份实现：${worst.join("；")}`);
-    }
+    // BB10 已于 UNSPSC 退役 R3' 删除。旧语义“列值 = pathOf(桥表 UNSPSC 码)”不再适用；
+    // 新事实源下同形断言由 BB15c 接管（列值 = pathOfLandingNodes(落点 UGT-*)，差异必须 0）。
+    // 本行注释保留，防止后人拉回“为什么这里少一段”。
   }
   pathStat = `已填 ${p.filled} · 抽样 ${pc.size} 码全在树`;
 }
@@ -641,20 +578,39 @@ function bandof(parentLevel: number) {
       console.log(`BB15c 闭包对拍 ${colRows.length} 条公告（落点表 ${attrRows.length} 行 / ${byNotice.size} 公告），差异 ${cdiff}`);
       if (cdiff) fail(`BB15c 有 ${cdiff}/${colRows.length} 条公告的列值不等于落点派生值：${worst.join("；")}`);
     }
-    // 4) 双向闭合：有列值却没落点行 = 该公告在新事实上源不存在；有落点行却没列值 = 半写状态
+    // 4) 双向闭合（按 source 分档，与 check-attribution-ssot AS2/AS4 同口径）：
+    //    · 有列值却没落点行 = 事实源不存在⇒红（AS4 侧对应）
+    //    · 有 legacy_tag 落点却没列值 = 灌入落后⇒红
+    //    · 有非 legacy_tag 落点却没列值 = AI/manual 已锈定但 wide 尚未回派生，中间态⇒WARN
+    //    旧版不分 source 一律判红，与 AS2/AS4 结论相反（2026-10-13 实测），已修正。
     const noAttr = await one(
       `SELECT COUNT(*) n FROM crm_notice_search ns
        LEFT JOIN ${ATTR_TAB} a ON a.notice_pk = ns.id
        WHERE ns.backbone_path IS NOT NULL AND ns.backbone_path <> '' AND a.notice_pk IS NULL`,
     );
-    const orphan = await one(
+    const orphanLegacy = await one(
       `SELECT COUNT(*) n FROM ${ATTR_TAB} a
        LEFT JOIN crm_notice_search ns ON ns.id = a.notice_pk
-       WHERE ns.id IS NULL OR ns.backbone_path IS NULL OR ns.backbone_path = ''`,
+       WHERE a.source = 'legacy_tag' AND (ns.id IS NULL OR ns.backbone_path IS NULL OR ns.backbone_path = '')`,
     );
-    console.log(`BB15d 双向闭合：有列值无落点 ${Number(noAttr.n)} 条 / 有落点无列值 ${Number(orphan.n)} 条`);
-    if (Number(orphan.n) > 0) {
-      fail(`BB15d 有 ${Number(orphan.n)} 行落点找不到对应的宽表列值：事实源写了但派生列没跟上（或公告已删而落点没清）`);
+    const orphanNew = await one(
+      `SELECT COUNT(*) n FROM ${ATTR_TAB} a
+       LEFT JOIN crm_notice_search ns ON ns.id = a.notice_pk
+       WHERE a.source <> 'legacy_tag' AND (ns.id IS NULL OR ns.backbone_path IS NULL OR ns.backbone_path = '')`,
+    );
+    const olN = Number(orphanLegacy.n);
+    const onN = Number(orphanNew.n);
+    console.log(
+      `BB15d 双向闭合：有列值无落点 ${Number(noAttr.n)} 条 / 有 legacy 落点无列值 ${olN} 条 / 有非 legacy 落点无列值 ${onN} 条（后者属中间态，WARN）`,
+    );
+    if (Number(noAttr.n) > 0) {
+      fail(`BB15d 有 ${Number(noAttr.n)} 行列值找不到对应的落点：事实源不存在⇒读侧切到落点表后会被清 NULL（AS4 同项）`);
+    }
+    if (olN > 0) {
+      fail(`BB15d 有 ${olN} 行 legacy_tag 落点找不到对应的宽表列值：事实源写了但派生列没跟上（或公告已删而落点没清）`);
+    }
+    if (onN > 0) {
+      console.log(`⚠ BB15d 有 ${onN} 行非 legacy_tag 落点无 wide 列值：AI/manual 已锈定但 wide 尚未回派生，属中间态，不判红`);
     }
   }
 }
