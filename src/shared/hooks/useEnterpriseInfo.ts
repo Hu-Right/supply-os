@@ -17,16 +17,27 @@ import { useUserId } from "@/core/auth/useUserId";
 /** 企业信息（supplier 整行透传，键为 snake_case 列名） */
 export type EnterpriseInfo = Record<string, unknown>;
 
+/** 换照审核进展（闭环前台状态源，GET /api/user/enterprise 随企业行一并返回） */
+export interface LicenseChangeBrief {
+  id: number;
+  status: "pending" | "approved" | "rejected";
+  rejectReason: string | null;
+  createdAt: string | null;
+}
+
 interface EnterpriseResponse {
   bound: boolean;
   linkStatus: string;
   enterprise: EnterpriseInfo | null;
+  licenseChange?: LicenseChangeBrief | null;
 }
 
 export interface UseEnterpriseInfoReturn {
   bound: boolean;
   linkStatus: string;
   enterprise: EnterpriseInfo | null;
+  /** 该企业最近一条换照变更；从未换过照为 null */
+  licenseChange: LicenseChangeBrief | null;
   loading: boolean;
   error: string | null;
   retry: () => void;
@@ -37,6 +48,7 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
   const [bound, setBound] = useState(false);
   const [linkStatus, setLinkStatus] = useState("none");
   const [enterprise, setEnterprise] = useState<EnterpriseInfo | null>(null);
+  const [licenseChange, setLicenseChange] = useState<LicenseChangeBrief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -52,6 +64,7 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
       setBound(false);
       setLinkStatus("none");
       setEnterprise(null);
+      setLicenseChange(null);
     }
     // 未登录不取数（对齐 useHasSupplierPool 语义）：接口必然 401，徒增报错噪声
     if (userId === undefined) {
@@ -69,11 +82,13 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
         setBound(!!d?.bound);
         setLinkStatus(d?.linkStatus || "none");
         setEnterprise(d?.enterprise ?? null);
+        setLicenseChange(d?.licenseChange ?? null);
       })
       .catch((e) => {
         if (!cancelled) {
           setBound(false);
           setEnterprise(null);
+          setLicenseChange(null);
           setError(e instanceof Error ? e.message : "load-failed");
         }
       })
@@ -99,5 +114,5 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
     };
   }, []);
 
-  return { bound, linkStatus, enterprise, loading, error, retry };
+  return { bound, linkStatus, enterprise, licenseChange, loading, error, retry };
 }

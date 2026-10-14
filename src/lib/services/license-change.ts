@@ -33,3 +33,41 @@ export async function upsertPendingLicenseChange(params: {
     [params.supplierId, params.filename, params.prevFilename, params.uploadedBy],
   );
 }
+
+/** 换照审核进展（前台状态源）：最新一单的状态，供企业信息页展示「审核中/被驳回」 */
+export interface LicenseChangeBrief {
+  id: number;
+  status: "pending" | "approved" | "rejected";
+  rejectReason: string | null;
+  createdAt: string | null;
+}
+
+/** 读该供应商最近一条换照变更（任何状态）；从未换过照返回 null */
+export async function latestLicenseChangeForSupplier(
+  supplierId: number,
+): Promise<LicenseChangeBrief | null> {
+  const pool = getPool();
+  const [rows] = await pool.execute(
+    `SELECT id, status, reject_reason, created_at
+       FROM crm_license_changes WHERE supplier_id = ?
+      ORDER BY id DESC LIMIT 1`,
+    [supplierId],
+  );
+  const row = (rows as Array<{
+    id: number;
+    status: LicenseChangeBrief["status"];
+    reject_reason: string | null;
+    created_at: Date | string | null;
+  }>)[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    status: row.status,
+    rejectReason: row.reject_reason,
+    createdAt: row.created_at
+      ? row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : String(row.created_at)
+      : null,
+  };
+}

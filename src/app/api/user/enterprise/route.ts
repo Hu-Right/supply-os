@@ -22,7 +22,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { deleteFile } from "@/lib/services/file-upload";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
-import { upsertPendingLicenseChange } from "@/lib/services/license-change";
+import { upsertPendingLicenseChange, latestLicenseChangeForSupplier } from "@/lib/services/license-change";
 import { licenseFilenameFromUrl } from "@/lib/services/file-upload";
 import { assertBindingAllowsSubject, readCurrentBinding, assertVerifiedSubjectIdentityStable } from "@/lib/services/enterprise-binding";
 import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
@@ -171,7 +171,11 @@ export const GET = withRoute(async (req) => {
     return NextResponse.json({ code: 0, message: "ok", data: { bound: false, linkStatus, enterprise: null } });
   }
 
-  return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: row } });
+  // 换照审核进展（闭环的前台状态源）：先审后生效期间前台据此展示「审核中/被驳回」，
+  // 后台通过/驳回后本字段随刷新翻转，不再只靠保存时的瞬时 toast。
+  const licenseChange = await latestLicenseChangeForSupplier(supplierId).catch(() => null);
+
+  return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: row, licenseChange } });
 });
 
 /** 已绑定：更新企业行可编辑列（已认证主体的身份三要素不可改写） */
