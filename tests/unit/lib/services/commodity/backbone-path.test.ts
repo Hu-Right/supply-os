@@ -5,7 +5,7 @@
  *       纯切片工具（chainOfNode / rootNodes / fromBackbonePathColumn / backboneNodeLevel）
  *       与列形制工具。
  *
- * 与旧用例的差别：小表剥离上线日迁移后 `crm_user_interest_codes` / `crm_supplier_unspsc_interests`
+ * 与旧用例的差别：小表剥离上线日迁移后 `crm_user_interest_codes` / `crm_supplier_backbone_interests`
  * 里所有 code 都是 `UGT-*`，运行期再无数字码入口 ⇒ 四条换算规则（品目/类/族/段）与
  * 常量兜底（deriveSegmentRows）都从测试面退场；`match()` 只保留 UGT 直认一条分支。
  */

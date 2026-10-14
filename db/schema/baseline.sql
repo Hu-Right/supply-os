@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 97 张，导出 95 张，排除 2 张。
+--           源库共 98 张，导出 96 张，排除 2 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -1376,6 +1376,42 @@ CREATE TABLE `crm_service_orders` (
   CONSTRAINT `crm_service_orders_chk_4` CHECK ((`status` in (_utf8mb4'lead',_utf8mb4'pending',_utf8mb4'paid',_utf8mb4'cancelled',_utf8mb4'refunded')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务订购订单表：增值服务的下单与成交事实（数量、单价快照、状态机、合同编号、额度充值落点）；订阅类购买不走本表';
 
+-- ── crm_supplier_backbone_interests ──
+CREATE TABLE `crm_supplier_backbone_interests` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `supplier_table` varchar(32) NOT NULL DEFAULT 'supplier',
+  `supplier_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '供应商ID，对应供应商表ID',
+  `code_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC字典ID，暂未绑定字典时为0',
+  `code` varchar(32) NOT NULL DEFAULT '' COMMENT 'UNSPSC编码，如43211503',
+  `name` varchar(255) NOT NULL DEFAULT '' COMMENT 'UNSPSC名称或描述',
+  `level` tinyint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC层级：1大类/2二级/3三级/4四级/5五级',
+  `level1_id` varchar(32) NOT NULL DEFAULT '' COMMENT '一级分类编码前缀，通常为前2位',
+  `level2_id` varchar(32) NOT NULL DEFAULT '' COMMENT '二级分类编码前缀，通常为前4位',
+  `level3_id` varchar(32) NOT NULL DEFAULT '' COMMENT '三级分类编码前缀，通常为前6位',
+  `level4_id` varchar(32) NOT NULL DEFAULT '' COMMENT '四级分类编码前缀，通常为前8位',
+  `level5_id` varchar(32) NOT NULL DEFAULT '' COMMENT '五级分类编码前缀，若存在通常为前10位',
+  `source` varchar(32) NOT NULL DEFAULT '' COMMENT '兴趣来源：register_level1/manual_filter/unlock_order/express_interest/ai_inferred等',
+  `weight` decimal(10,2) NOT NULL DEFAULT '1.00' COMMENT '兴趣权重，推荐排序时使用',
+  `confidence` decimal(5,2) NOT NULL DEFAULT '0.00',
+  `evidence` varchar(500) DEFAULT NULL,
+  `path_text` varchar(1000) DEFAULT NULL,
+  `keyword_hits` varchar(500) DEFAULT NULL,
+  `is_primary` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
+  `updated_at` datetime DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_supplier_code_source` (`supplier_id`,`code`,`source`),
+  KEY `idx_supplier` (`supplier_id`),
+  KEY `idx_code` (`code`),
+  KEY `idx_source` (`source`),
+  KEY `idx_level1` (`level1_id`),
+  KEY `idx_level2` (`level2_id`),
+  KEY `idx_level3` (`level3_id`),
+  KEY `idx_supplier_table_id` (`supplier_table`,`supplier_id`),
+  KEY `idx_supplier_l5_fast` (`supplier_table`,`level5_id`,`supplier_id`),
+  KEY `idx_supplier_l4_fast` (`supplier_table`,`level4_id`,`supplier_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商UNSPSC兴趣画像表';
+
 -- ── crm_supplier_certifications ──
 CREATE TABLE `crm_supplier_certifications` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -1458,42 +1494,6 @@ CREATE TABLE `crm_supplier_industry_rel` (
   KEY `idx_code` (`industry_code`),
   KEY `idx_sup` (`supplier_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商×行业面标签关系(UGT-I)';
-
--- ── crm_supplier_unspsc_interests ──
-CREATE TABLE `crm_supplier_unspsc_interests` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `supplier_table` varchar(32) NOT NULL DEFAULT 'supplier',
-  `supplier_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '供应商ID，对应供应商表ID',
-  `code_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC字典ID，暂未绑定字典时为0',
-  `code` varchar(32) NOT NULL DEFAULT '' COMMENT 'UNSPSC编码，如43211503',
-  `name` varchar(255) NOT NULL DEFAULT '' COMMENT 'UNSPSC名称或描述',
-  `level` tinyint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC层级：1大类/2二级/3三级/4四级/5五级',
-  `level1_id` varchar(32) NOT NULL DEFAULT '' COMMENT '一级分类编码前缀，通常为前2位',
-  `level2_id` varchar(32) NOT NULL DEFAULT '' COMMENT '二级分类编码前缀，通常为前4位',
-  `level3_id` varchar(32) NOT NULL DEFAULT '' COMMENT '三级分类编码前缀，通常为前6位',
-  `level4_id` varchar(32) NOT NULL DEFAULT '' COMMENT '四级分类编码前缀，通常为前8位',
-  `level5_id` varchar(32) NOT NULL DEFAULT '' COMMENT '五级分类编码前缀，若存在通常为前10位',
-  `source` varchar(32) NOT NULL DEFAULT '' COMMENT '兴趣来源：register_level1/manual_filter/unlock_order/express_interest/ai_inferred等',
-  `weight` decimal(10,2) NOT NULL DEFAULT '1.00' COMMENT '兴趣权重，推荐排序时使用',
-  `confidence` decimal(5,2) NOT NULL DEFAULT '0.00',
-  `evidence` varchar(500) DEFAULT NULL,
-  `path_text` varchar(1000) DEFAULT NULL,
-  `keyword_hits` varchar(500) DEFAULT NULL,
-  `is_primary` tinyint(1) NOT NULL DEFAULT '0',
-  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
-  `updated_at` datetime DEFAULT NULL COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_supplier_code_source` (`supplier_id`,`code`,`source`),
-  KEY `idx_supplier` (`supplier_id`),
-  KEY `idx_code` (`code`),
-  KEY `idx_source` (`source`),
-  KEY `idx_level1` (`level1_id`),
-  KEY `idx_level2` (`level2_id`),
-  KEY `idx_level3` (`level3_id`),
-  KEY `idx_supplier_table_id` (`supplier_table`,`supplier_id`),
-  KEY `idx_supplier_l5_fast` (`supplier_table`,`level5_id`,`supplier_id`),
-  KEY `idx_supplier_l4_fast` (`supplier_table`,`level4_id`,`supplier_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商UNSPSC兴趣画像表';
 
 -- ── crm_sync_watermark ──
 CREATE TABLE `crm_sync_watermark` (
@@ -1586,6 +1586,18 @@ CREATE TABLE `crm_unspsc_codes` (
   KEY `idx_unspsc_parent_code` (`parent_id`,`code`),
   FULLTEXT KEY `ft_dict_titles` (`title`,`title_zh`) /*!50100 WITH PARSER `ngram` */ 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
+
+-- ── crm_upload_files ──
+CREATE TABLE `crm_upload_files` (
+  `filename` varchar(120) NOT NULL COMMENT '文件名（全局唯一，license_<uid>_<ts>.<ext>）',
+  `content` longblob NOT NULL COMMENT '文件字节本体',
+  `content_type` varchar(100) NOT NULL DEFAULT 'application/octet-stream',
+  `size_bytes` int unsigned NOT NULL DEFAULT '0',
+  `uploaded_by` int unsigned DEFAULT NULL COMMENT '上传者 user id（文件名内嵌 uid 的冗余，便于按人清理）',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`filename`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='运行时上传文件（字节入库，门户/后台共享，替代本地磁盘落盘）';
 
 -- ── crm_user_industry_prefs ──
 CREATE TABLE `crm_user_industry_prefs` (

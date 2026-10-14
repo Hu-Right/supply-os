@@ -485,10 +485,12 @@ export class SupplierDirectoryRepo {
     const [intlRows] = await this.pool.query(
       "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND verify_status = 'done'",
     );
-    // 已认证 且 匹配了 UNSPSC 的供应商数（JOIN 桥接表 crm_supplier_unspsc_interests）
+    // 已认证 且 在 backbone 兴趣表里有行的供应商数（JOIN crm_supplier_backbone_interests）
+    // ↳ 局部变量/对外字段 unspscRows / unspscMatched 命名暂保留（前端 t("supplierStatUnspsc") 已翻为
+    //   "已匹配品目"，实际不暴露 UNSPSC 字样）；字段重命名属下一个批次（与前端 5 处消费方一起换）。
     const [unspscRows] = await this.pool.query(
       `SELECT COUNT(DISTINCT u.supplier_id) as total
-       FROM crm_supplier_unspsc_interests u
+       FROM crm_supplier_backbone_interests u
        JOIN supplier s ON s.id = u.supplier_id
        WHERE s.verify_status = 'done' AND s.company <> '测试'`,
     );

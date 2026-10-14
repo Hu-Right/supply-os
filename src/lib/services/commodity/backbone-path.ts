@@ -4,7 +4,7 @@
  * @module lib/services/commodity/backbone-path
  * @description 本模块从“把 UNSPSC 码换成 UGT 节点”收敛为“在 UGT 节点上直接检索”。
  *              小表剥离上线日迁移（scripts/ops/user-interest-ugt-migrate.ts）+ 遗留清理（scripts/ops/interest-tables-purge-legacy.ts）
- *              完成后，`crm_user_interest_codes` / `crm_supplier_unspsc_interests` 已全部重写成 `UGT-*`，
+ *              完成后，`crm_user_interest_codes` / `crm_supplier_backbone_interests`（原 `crm_supplier_unspsc_interests`，§7 RENAME）已全部重写成 `UGT-*`，
  *              运行期再无数字码入口⇒ match/pathOf 只保留 UGT 节点直认一条分支。
  *
  *              历史四条换算规则（品目/类/族/段）与 crm_commodity_backbone.unspsc_prefix 列读取均随 R4' 剥开；

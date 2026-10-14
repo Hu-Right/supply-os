@@ -66,7 +66,7 @@ describe("SupplierDirectoryRepo.listDirectoryPaginated — 检索条件拼装", 
     expect(where).toContain("s.company LIKE ?");
     expect(where).not.toContain("country_code");
     expect(where).not.toContain("business_type");
-    expect(where).not.toContain("crm_supplier_unspsc_interests");
+    expect(where).not.toContain("crm_supplier_backbone_interests");
   });
 
   it("用户输入永不拼进 SQL（无注入面）：注入串只作为绑定值出现", async () => {

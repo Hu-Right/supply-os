@@ -4,8 +4,8 @@
  * @description 两条只读查询为 pre-filter 准备层级匹配数据，两侧都归一到骨架节点码 `UGT-*`：
  *              公告侧 = 宽表 `crm_notice_search.backbone_path` 按主键点查（挂靠结果已在同步链路
  *              算好，运行期不再碰桥表）；
- *              供应商侧 = `crm_supplier_unspsc_interests.code`（兴趣表自带的 8 位码）交骨架索引
- *              换算成节点码集合。
+ *              供应商侧 = `crm_supplier_backbone_interests.code`（R4' 上线日迁移后已是 UGT-* 节点码）
+ *              交骨架索引换算成节点码集合。
  *
  *              2026-10-11 换口径（为什么不能用桥表旧键）：公告侧原本读桥表 `level1_id..level5_id`
  *              —— 那是旧字典 `crm_unspsc_codes` 的行 id 空间，而字典只镜像了 UNSPSC 的一部分
@@ -39,7 +39,7 @@ async function loadInterestCodes(pool: Pool, supplierIds: number[]): Promise<Map
   const placeholders = supplierIds.map(() => "?").join(",");
   const [rows] = await pool.query(
     `SELECT supplier_id, code
-     FROM crm_supplier_unspsc_interests
+     FROM crm_supplier_backbone_interests
      WHERE supplier_id IN (${placeholders}) AND code <> ''`,
     supplierIds,
   );

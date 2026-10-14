@@ -6,7 +6,7 @@ import type { Pool } from "mysql2/promise";
 /**
  * 召回层：兴趣码 → 骨架节点码（口径单测在 commodity/backbone-path.test.ts，这里测召回形状）
  *
- * R4' 后兴趣码全部 UGT 化：`crm_user_interest_codes` / `crm_supplier_unspsc_interests` 上线日
+ * R4' 后兴趣码全部 UGT 化：`crm_user_interest_codes` / `crm_supplier_backbone_interests`（§7 前为 `crm_supplier_unspsc_interests`）上线日
  * 已由 scripts/ops/user-interest-ugt-migrate.ts 全表重写为 `UGT-*`，`crm_user_interest_codes`
  * 里换不出的 65 行也由 scripts/ops/interest-tables-purge-legacy.ts 清干净。运行期再无数字码入口
  * ⇒ 本文件所有用例改喂 UGT 节点键，数字码入参一律落 misses（与 backbone-path R4' 后 match() 对齐）。
