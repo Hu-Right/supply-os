@@ -30,7 +30,7 @@ const DB_CFG = DbConfigSchema.parse({
 const IND_NAME = "crm_industry_nodes";
 const IND = `\`${IND_NAME}\``;
 
-type Check = { name: string; sql: string; tables?: string[] };
+type Check = { name: string; sql: string };
 
 const CHECKS: Check[] = [
   // ── 行业面 ──
@@ -102,20 +102,8 @@ async function main() {
   console.log(`[check-taxonomy] 连接 ${DB_CFG.host}:${DB_CFG.port}/${DB_CFG.database} ...`);
   const pool = mysql2.createPool({ ...DB_CFG, connectionLimit: 2, dateStrings: true });
   let bad = 0;
-  let skipped = 0;
   try {
-    const [tabs] = (await pool.query(
-      `SELECT TABLE_NAME n FROM information_schema.tables WHERE TABLE_SCHEMA = ?`,
-      [DB_CFG.database],
-    )) as [RowDataPacket[], unknown];
-    const present = new Set(tabs.map((r) => String(r.n).toLowerCase()));
     for (const c of CHECKS) {
-      const gone = (c.tables ?? []).filter((t) => !present.has(t.toLowerCase()));
-      if (gone.length) {
-        skipped++;
-        console.log(`  – ${c.name} 跳过：表 ${gone.join("、")} 已不在库里`);
-        continue;
-      }
       try {
         const [rows] = await pool.query(c.sql);
         const n = Number((rows as RowDataPacket[])[0]?.n ?? -1);
@@ -131,7 +119,7 @@ async function main() {
   }
   console.log(
     bad === 0
-      ? `[check-taxonomy] 全部不变量成立${skipped ? `（另有 ${skipped} 项因表已下线跳过）` : ""}`
+      ? `[check-taxonomy] 全部不变量成立`
       : `[check-taxonomy] ${bad} 项违规`,
   );
   process.exit(bad === 0 ? 0 : 1);
