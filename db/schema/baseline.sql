@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 97 张，导出 95 张，排除 2 张。
+--           源库共 97 张，导出 94 张，排除 3 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -374,33 +374,6 @@ CREATE TABLE `crm_bid_opportunities` (
   KEY `idx_bid_opp_country` (`country`),
   KEY `idx_review_deadline` (`review_status`,`deadline_sec`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机表（人工拆单）';
-
--- ── crm_bid_opportunity_unspsc_candidates ──
-CREATE TABLE `crm_bid_opportunity_unspsc_candidates` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `opportunity_id` bigint unsigned NOT NULL DEFAULT '0',
-  `extract_id` bigint unsigned NOT NULL DEFAULT '0',
-  `item_id` bigint unsigned NOT NULL DEFAULT '0',
-  `item_no` int unsigned NOT NULL DEFAULT '0',
-  `candidate_code` varchar(32) NOT NULL DEFAULT '',
-  `candidate_name` varchar(255) NOT NULL DEFAULT '',
-  `confidence` decimal(5,2) NOT NULL DEFAULT '0.00',
-  `source` varchar(32) NOT NULL DEFAULT '',
-  `reason` varchar(500) NOT NULL DEFAULT '',
-  `evidence_text` text,
-  `status` varchar(20) NOT NULL DEFAULT 'pending',
-  `is_primary` tinyint unsigned NOT NULL DEFAULT '0',
-  `review_user_id` bigint unsigned NOT NULL DEFAULT '0',
-  `review_time` datetime DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_status_conf` (`status`,`confidence`),
-  KEY `idx_opp` (`opportunity_id`),
-  KEY `idx_status_opp_code_fast` (`status`,`opportunity_id`,`candidate_code`),
-  KEY `uk_item_code` (`opportunity_id`,`item_no`,`candidate_code`),
-  KEY `idx_item_status` (`item_id`,`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='qualified opportunity UNSPSC level5 candidates';
 
 -- ── crm_chat_messages ──
 CREATE TABLE `crm_chat_messages` (
@@ -796,11 +769,6 @@ CREATE TABLE `crm_notice_search` (
   `unspsc_level3` text,
   `unspsc_level4` text,
   `unspsc_level5` text,
-  `precise_level1` text COMMENT '精准 UNSPSC 一级 ID（approved 候选码解析，无则回填原标签）',
-  `precise_level2` text,
-  `precise_level3` text,
-  `precise_level4` text,
-  `precise_level5` text,
   `description_cn` varchar(500) NOT NULL DEFAULT '',
   `bid_overview` varchar(200) NOT NULL DEFAULT '',
   `beneficiary_countries` varchar(300) NOT NULL DEFAULT '',
@@ -818,9 +786,7 @@ CREATE TABLE `crm_notice_search` (
   `sync_src_hash` char(32) NOT NULL DEFAULT '' COMMENT '宽表内容与输入快照的一致性指纹，由 buildWideRow 同快照写入，对账只比对不修改',
   `group_codes` text COMMENT '所属大类码集合，逗号分隔（OR 语义并集）',
   `code_path` text COMMENT '全部祖先 UNSPSC 前缀，逗号分隔（所见即所得命中键）',
-  `precise_path` text COMMENT '同 code_path，来源=approved 精准候选码',
   `backbone_path` mediumtext COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
-  `precise_backbone_path` mediumtext COMMENT 'approved 精准候选码挂靠到的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算，非 UNSPSC 码）',
   PRIMARY KEY (`id`),
   KEY `idx_ns_deadline_desc` (`deadline_sec` DESC),
   KEY `idx_ns_id_desc` (`id` DESC),
