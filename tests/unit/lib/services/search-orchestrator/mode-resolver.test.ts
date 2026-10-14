@@ -50,7 +50,7 @@ describe("resolveMode · default 模式（字典 code_id 外链已退役）", ()
   });
 
   it("旧 code_id / industry_id 外链不再被识别：优雅降级为无类目过滤", async () => {
-    // 字典行 id 参数随 旧品类字典退役失效；validateParams 不再收集它，
+    // 字典行 id 参数随旧品类字典退役失效；validateParams 不再收集它，
     // resolveMode 不查库、不报错、不放开全量语义
     const r = await resolveMode(fakePool(), params({ commodityPath: "UGT-4321150301" }));
     expect(r.kind).toBe("search");

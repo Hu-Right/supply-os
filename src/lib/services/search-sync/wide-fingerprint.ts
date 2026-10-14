@@ -19,7 +19,7 @@
  *              group_concat_max_len（默认 1024 字节）截断，超限后的内容变化指纹看不见。
  *              聚合顺序无关（宽表按 lang/level 归并成 Map，本就与行序无关）。
  *
- *              已知边界（不假装完备）：crm_agency_aliases 与 旧品类字典树自身的变更不进入
+ *              已知边界（不假装完备）：crm_agency_aliases 与旧品类字典树自身的变更不进入
  *              指纹（二者是全表级维度，且构建侧有 10 分钟缓存 TTL），需要刷新时走
  *              search-common/rebuild-trigger 的 requestIndexRebuild 全量重建。
  */

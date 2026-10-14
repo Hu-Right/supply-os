@@ -40,7 +40,7 @@ export const WIDE_LIMITS = {
   beneficiary: 300,
   /** 发布日期列（主表/宽表均为短字符串日期）*/
   publishedDate: 50,
-  // 旧 旧品类码（2000）已随 B1 删除：它只服务宽表 旧五级列~5 / precise_level1~5 十列，
+  // 旧的品类码串列（2000）已随 B1 删除：它只服务宽表旧五级列 1~5 / precise_level1~5 十列，
   // 那十列已于 2026-10-12 停写（公告分类唯一口径是 backbone_path / precise_backbone_path）。
   // 列的物理删除在 B2（DROP + 重导 baseline），届时不需要长度口径。
   /** 宽表品目路径列（code_path / precise_path / group_codes）TEXT 存储，实际上限 65000。
@@ -49,7 +49,7 @@ export const WIDE_LIMITS = {
    *  而内容只含数字与逗号（1 字符 = 1 字节），取 65000 ⇒ 应用层拒写永远先于
    *  MySQL 1406「Data too long」发生（否则 STRICT 模式下报错会把同步打断）。
    *  列值一律无损：超上限只可能是常量与库漂移 ⇒ 拒写、停线、人工看，不得截断。
-   *  旧 旧品类码 已随 B1 删除，本键即为仅存的类目串列长度口径；
+   *  旧的品类码串列已随 B1 删除，本键即为仅存的类目串列长度口径；
    *  注：code_path / precise_path / group_codes 三列已无读写方（筛选全走 backbone_path），
    *  随 B2 一并退役后本键亦无使用者。 */
   commodityList: 65000,

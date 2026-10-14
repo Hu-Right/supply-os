@@ -110,7 +110,7 @@ const isChromium = () => test.info().project.name === "chromium";
 
 test.describe("鉴权与异常边界", () => {
   test("未登录访问受保护 API → 401 + 明确错误码", async ({ request }) => {
-    // R3' B2：商机列表不再吃 旧品类码 code_id，这里只验「受保护」性质本身
+    // R3' B2：商机列表不再吃旧品类码 code_id，这里只验「受保护」性质本身
     const res = await request.get(`${TEST_BASE_URL}/api/opportunities`);
     expect(res.status()).toBe(401);
     const body = await res.json();

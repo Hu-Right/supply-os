@@ -1,5 +1,5 @@
 /**
- * 骨架节点访问器单测（旧品类码 全面退役 R4'）
+ * 骨架节点访问器单测（旧品类码全面退役 R4'）
  *
  * 覆盖：UGT 节点直认（等值命中 + 祖先全存 + 层级档按码长现算）、换不出必须进 misses、
  *       纯切片工具（chainOfNode / rootNodes / fromBackbonePathColumn / backboneNodeLevel）
@@ -23,7 +23,7 @@ import {
   type BackboneRow,
 } from "@/lib/services/commodity/backbone-path";
 
-// 一棵够小的树：1 大类 / 1 中类 / 2 小类 / 2 子类 / 3 品目（R4' 后无 旧前缀映射列 字段）
+// 一棵够小的树：1 大类 / 1 中类 / 2 小类 / 2 子类 / 3 品目（R4' 后无旧前缀映射列字段）
 const rows: BackboneRow[] = [
   { code: "UGT-01", parentCode: "", level: 1 },
   { code: "UGT-0101", parentCode: "UGT-01", level: 2 },

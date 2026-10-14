@@ -22,7 +22,7 @@ const MAX_CANDIDATE_QUERIES = 12;
 
 /**
  * 把当前公告的节点码按深度分档（L4/L5 细码 → L3 小类 → L2 中类），返回三档节点码列表。
- * 小表剥离后候选检索改走倒排表 UGT 节点（不再读桥表的 旧品类码），
+ * 小表剥离后候选检索改走倒排表 UGT 节点（不再读桥表的旧品类码），
  * 深度即码长（BB1），L1 大类过宽不进检索。只决定候选检索的优先级，不改归属口径。
  */
 function nodesByDepth(nodes: string[]): string[][] {
@@ -65,7 +65,7 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
   if (tiers.length === 0) return [];
 
   // 候选：共享同一个 UGT 节点的公告（倒排表 `node IN` 等值走 idx_node）。
-  // 小表剥离：不再经桥表 旧品类码中转（那批码本身大量失真），直接按节点码找 peer，
+  // 小表剥离：不再经桥表旧品类码中转（那批码本身大量失真），直接按节点码找 peer，
   // 与候选打分、筛选谓词同一条 UGT 口径。
   // 分档取而不是一句 LIMIT 2000 兜住：实测单节点出现量巨大的粗节点会灌满窗口，
   // 不分档时精细节点的 peer 一个都进不来。

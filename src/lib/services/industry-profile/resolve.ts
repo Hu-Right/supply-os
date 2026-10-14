@@ -8,7 +8,7 @@
  *              层级由码长现算（BB1 不变量），节点中文名按 code 点查品目树补齐。
  *              防御脏数据：码形制非法或树里查无此码时返回 null（按 no_prefs 处理），
  *              不逐级上溯——祖先链可由码纯切片得出，消费方（mode-resolver）自己放宽。
- *              （旧版读 旧品类字典五级行 id 的实现随字典退役删除）
+ *              （旧版读旧品类字典五级行 id 的实现随字典退役删除）
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { UserPrefsRepo } from "../../repos/user-prefs.repo";

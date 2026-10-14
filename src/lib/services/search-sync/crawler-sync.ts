@@ -208,7 +208,7 @@ export interface CrawlerSyncResult {
  * 跑一轮完整爬虫同步：按 SYNC_TABLES 顺序同步全部主表，返回公告变更 id 供级联。
  * 源库未配置时 skipped=true（不报错，不影响其他功能）。
  *
- * 小表剥离（2026-10-14）：旧品类桥表（旧公告桥表）移出同步清单，
+ * 小表剥离（2026-10-14）：旧公告桥表移出同步清单，
  * 归一字典与商机桥表补行（syncMissingOppBridge）一并下线——公告归属的唯一事实源
  * 是落点表 crm_notice_attribution_nodes（镜像 + AI 管道），桥表进入只出不进的封存态，
  * 物理删除随 D1' 批次。

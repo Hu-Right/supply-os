@@ -199,7 +199,7 @@ export class SupplierDirectoryRepo {
 
     // ★ 两处 FROM 必须带别名 s：多个检索分支的条件引用了 s.products / s.id（FULLTEXT 与
     //   EXISTS 相关子查询），无别名时 MySQL 直接报 ER_BAD_FIELD_ERROR，而路由的 try/catch
-    //   会把它吐成空列表——产品与 旧品类码 两个入口曾因此长期「搜什么都无结果」而不报错。
+    //   会把它吐成空列表——产品与旧品类码两个入口曾因此长期「搜什么都无结果」而不报错。
     // 总数查询
     const [countRows] = await this.pool.query(
       `SELECT COUNT(*) as total FROM supplier s WHERE ${whereSql}`,

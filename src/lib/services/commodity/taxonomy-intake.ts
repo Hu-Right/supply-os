@@ -9,7 +9,7 @@
  *              crawler-sync 每轮同步后，把**无 UGT 归属的活跃公告**登记进
  *              crm_taxonomy_intake（status='pending'），交由 AI 归属管道
  *              （scripts/ops/notice-attribution-content-ai.ts，人工放量）
- *              按正文语义归类。不带任何 旧品类码——归属质量由 AI 把关，
+ *              按正文语义归类。不带任何旧品类码——归属质量由 AI 把关，
  *              不再回头信任爬虫码。
  *
  * 契约（与消费端严格对齐）：

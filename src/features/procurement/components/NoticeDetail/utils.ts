@@ -27,8 +27,8 @@ export const DETAIL_TABS: DetailTab[] = [
   { key: "qualification", labelKey: "detail_tabQualification", gate: { kind: "unlock" } },
   { key: "files", labelKey: "detail_tabOriginalFiles", gate: { kind: "unlock" } },
   { key: "ai-score", labelKey: "detail_tabAiScore", gate: { kind: "benefit", benefitCode: "ai_match" } },
-  // "history"（同类品类历史中标）已随 旧品类码 小表剥离整链下线（2026-10-14）：
-  // crm_bid_awards.旧品类码 全表 0 行非空，该 Tab 自上线起恒为空态，属零数据空转
+  // "history"（同类品类历史中标）已随旧品类码小表剥离整链下线（2026-10-14）：
+  // crm_bid_awards 的旧码列全表 0 行非空，该 Tab 自上线起恒为空态，属零数据空转
   { key: "similar", labelKey: "detail_tabSimilar", gate: { kind: "benefit", benefitCode: "similar_opportunity" } },
 ];
 

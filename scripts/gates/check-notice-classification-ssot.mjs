@@ -4,10 +4,10 @@ import path from "node:path";
 /**
  * 架构红线守卫：公告分类口径单一事实源 = 品目树（backbone_path；precise 口径已随 candidates 表退役）
  * @see docs/superpowers/specs/2026-10-12-notice-classification-commodity-tree-only-design.md
- *      （上述原文已不在仓内，口径与批次划分现由 …旧品类码-full-retirement-design.md 承接）
+ *      （上述原文已不在仓内，口径与批次划分现由 docs/superpowers/specs/ 下的全面退役设计稿承接）
  *
- * 规则 NC1) 「读结果」链路（src/**，白名单目录除外）不得引用公告旧 旧品类字典分类列：
- *   - `(?:旧品类码|precise)_level[1-5]`：宽表公告分类列（`crm_notice_search`）
+ * 规则 NC1) 「读结果」链路（src/**，白名单目录除外）不得引用公告旧品类字典分类列：
+ *   - 旧品类族与 precise 族的 `_level1~5`：宽表公告分类列（`crm_notice_search`）
  *   - `precise_level[1-5]_id`：旧字典 precise 口径的 Meili 镜像属性
  *   公告分类只认 backbone_path（Meili 侧 backbone_node；precise_backbone_node 已随 candidates 表退役）。
  *   旧字典 ID 仅可作两类非分类用途：「内容变更指纹锚」（在 search-sync/，

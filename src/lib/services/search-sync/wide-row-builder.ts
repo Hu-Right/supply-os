@@ -29,7 +29,7 @@ export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
 // ── 批量写入宽表 ──
 
-// ── 同步 SQL（含所有语言翻译，不含 旧品类码）──
+// ── 同步 SQL（含所有语言翻译，不含旧品类码）──
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 /**
  * 宽表主查询 SELECT（字段顺序与 buildWideRow 读取的 key 一致）。
@@ -248,7 +248,7 @@ export function buildWideRow(
     // 指纹：与内容同快照由 SQL 侧唯一表达式算出，此处只透传不计算（I1）。
     // 缺失时落空串 → 与实时指纹不等 → 下一轮对账自动重建（自愈，无需人工刷）。
     sync_src_hash: String(r.sync_src_hash || ""),
-    // 平台公告自填分类（主表列，随快照带出供 旧品类码 兜底优先级使用）
+    // 平台公告自填分类（主表列，随快照带出供旧品类码兜底优先级使用）
     category_l1_id: r.category_l1_id != null ? Number(r.category_l1_id) : null,
     category_l2_id: r.category_l2_id != null ? Number(r.category_l2_id) : null,
   };

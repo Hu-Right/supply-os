@@ -120,7 +120,7 @@ export interface CertificationRefItem {
   title_en?: string;
 }
 
-/** 资质证书参考项（与 旧品类字典无关，独立端点） */
+/** 资质证书参考项（与旧品类字典无关，独立端点） */
 export const fetchCertifications = () => api<CertificationRefItem[]>("/api/certifications");
 
 /** 行业级联第一级（门类，UGT-I 行业面）：与供应商页同一取数口 */

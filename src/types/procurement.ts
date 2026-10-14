@@ -3,7 +3,7 @@
  * Procurement Notice Types
  *
  * @module types/procurement
- * @description 采购公告实体（含 旧品类码、锁定状态、解锁详情字段）及分页响应结构。
+ * @description 采购公告实体（含旧品类码、锁定状态、解锁详情字段）及分页响应结构。
  *              作为全局单一事实源，feature 层通过 `@/types` re-export 复用。
  *              #ARCH-004: 拆分为 NoticeListItem（列表级）+ NoticeDetailItem（解锁详情）
  *              两个窄接口。NoticeItem 不是兼容别名，而是「列表项 + 可选详情字段」的交叉类型
@@ -38,7 +38,7 @@ export interface NoticeListItem {
   contact_count?: number;
   unlock_type?: string;
   unlocked_at?: string;
-  /** 推荐模式命中的 旧品类码 兴趣码数 */
+  /** 推荐模式命中的旧品类码兴趣码数 */
   match_score?: number;
   /** 行业精准匹配命中档次 */
   match_tier?: string;

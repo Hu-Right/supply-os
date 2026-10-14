@@ -9,7 +9,7 @@ const MMR_LAMBDA = 0.7;
 const HIGH_VALUE_USD = 1_000_000;
 
 /**
- * MMR 页内重排：reco_score 与已选公告 旧品类码 Jaccard 相似度的权衡
+ * MMR 页内重排：reco_score 与已选公告旧品类码 Jaccard 相似度的权衡
  */
 export function mmrRerankPage(pageRows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
   if (pageRows.length <= 2) return pageRows;

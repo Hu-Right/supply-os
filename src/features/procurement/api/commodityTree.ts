@@ -31,7 +31,7 @@ export const fetchCommodityNodeGroup = (code: string) =>
 
 /**
  * 把账号行业偏好（UGT 最深节点码 commodity_code）换算成品目树路径（各级名称 + 大类码）。
- * 偏好表已直接存骨架节点码，祖先链由码长纯切片得出；旧版「字典 id 换算」随 旧品类码
+ * 偏好表已直接存骨架节点码，祖先链由码长纯切片得出；旧版「字典 id 换算」随旧品类码
  * 字典退役删除，见 lib/services/commodity/tree.ts 的 resolveCommodityCodeToPath。
  */
 export const fetchCommodityPrefsPath = (code: string) =>

@@ -8,7 +8,7 @@
  *              推断路径回填采用"同步写值 + fetch 仅加载选项列表"方案：
  *              applyInferredCode 在调用瞬间同步写入三级选中值，状态立即正确，
  *              彻底消除"异步回填未完成即提交"导致的校验失败竞态。
- *              取代旧 旧偏好级联 hook（读 旧品类字典，随字典退役下线）。
+ *              取代旧 旧偏好级联 hook（读旧品类字典，随字典退役下线）。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { COMMODITY_GROUPS, type CommodityGroup } from "@/lib/services/commodity/groups";

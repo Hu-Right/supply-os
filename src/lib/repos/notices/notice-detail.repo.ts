@@ -4,7 +4,7 @@
  *
  * @module server/repos/notices/notice-detail.repo
  * @description 操作 crm_bid_notices 表：详情/预览/翻译源字段。
- *              旧品类码退役 R5'（2026-10-14）：主表 JSON 列 `旧品类码列` 运行期不再 SELECT；
+ *              旧品类码退役 R5'（2026-10-14）：主表那个 JSON 快照列运行期不再 SELECT；
  *              归属事实源已收敛到 crm_notice_attribution_nodes，旧列属"错但稳定"历史快照，
  *              前端 4 处消费方已有 `|| []` 兜底 ⇒ 自动降级。列物理 DROP 属下一个批次（§9）。
  */
@@ -30,7 +30,7 @@ export class NoticeDetailRepo {
    * R3'-小表剥离（2026-10-14）删除：旧快照批量取数入口。
    * 删的依据是「方法与唯一调用方同批换源」：反馈链的兴趣画像改吃倒排表 UGT
    * 节点码（services/commodity/interest.ts loadNoticeNodeCodes），本方法零读者。
-   * 主表 旧品类码列 列的物理退役属 D1' 物理批次，不随本批。
+   * 主表那个快照列的物理退役属 D1' 物理批次，不随本批。
    */
 
   /** 公告详情全字段 */

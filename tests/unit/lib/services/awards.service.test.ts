@@ -2,8 +2,8 @@
  * awards.service 单元测试
  * @module tests/unit/lib/services/awards.service.test.ts
  * @description 覆盖中标情报 service 的编排逻辑：分页元数据计算、排行总数。
- *              （公告历史中标 getAwardHistoryForNotice 已随 旧品类码 小表剥离
- *              整链下线 2026-10-14——crm_bid_awards.旧品类码 全表 0 行，零数据空转。）
+ *              （公告历史中标 getAwardHistoryForNotice 已随旧品类码小表剥离
+ *              整链下线 2026-10-14——crm_bid_awards 的旧码列全表 0 行，零数据空转。）
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 

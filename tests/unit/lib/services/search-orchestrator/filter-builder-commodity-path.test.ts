@@ -3,12 +3,12 @@
  *
  * 钉住四件事：
  * 1. 参数校验只放行骨架节点码（`UGT-` + 2/4/6/8/10 位），其它一律丢弃、不进入 SQL；
- *    **旧的 旧品类码 数字前缀不再合法** —— 它在 backbone_path 里根本不存在，放进来等于筛出空集还不报错。
+ *    **旧的旧品类码数字前缀不再合法** —— 它在 backbone_path 里根本不存在，放进来等于筛出空集还不报错。
  * 2. 两条方言落在同一份数据上（Meili backbone_node 数组属性 ↔ MySQL backbone_path 等值），
- *    不允许出现「主路径筛 backbone_path、降级路径筛 旧品类码」这种两套口径；
+ *    不允许出现「主路径筛 backbone_path、降级路径筛旧品类码」这种两套口径；
  * 3. 单值谓词不带 OR —— 上一版大类筛选就是因为 OR 未整体括号导致 EXISTS 恒真（见
  *    filter-builder-group.test.ts 的回归断言），这里连形制都不同，必须单独钉；
- * 4. 谓词里出现的列必须是 backbone_path，不回退 code_path（那是公告的 旧品类码 祖先前缀，另一套口径）。
+ * 4. 谓词里出现的列必须是 backbone_path，不回退 code_path（那是公告的旧品类码祖先前缀，另一套口径）。
  */
 import { describe, expect, it } from "vitest";
 import { buildFilterPlan } from "@/lib/services/search-orchestrator/filter-builder";

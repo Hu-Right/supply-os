@@ -3,7 +3,7 @@
  * @module tests/unit/lib/repos/supplier-directory-field-search.test.ts
  * @description 钉几件事：
  *              1. 关键词一个框同时命中「产品 FULLTEXT + 公司名 LIKE」，OR 合并成一条括号条件；
- *                 国家/认证/工厂·贸易商/旧品类码 等退役入口不得复活（不碰它们的列）；
+ *                 国家/认证/工厂·贸易商/旧品类码等退役入口不得复活（不碰它们的列）；
  *              2. industryCodes 的**三态**语义（未提 / 提了但解不到 / 解到了）；
  *              3. sort 只从白名单取表达式，用户输的东西永不进 ORDER BY；
  *              4. 引用 s. 别名的分支必须配得上 FROM supplier s（曾经无别名被路由吞成空列表）。

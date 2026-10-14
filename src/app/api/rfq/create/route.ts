@@ -77,7 +77,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const contactPhone = str(body.contact_phone, 50);
   const provinceName = str(body.province_name, 50);
-  // 品目分类：UGT 最深节点码（旧 category_l1_id/l2_id 字典 id 随 旧品类字典退役停写）
+  // 品目分类：UGT 最深节点码（旧 category_l1_id/l2_id 字典 id 随旧品类字典退役停写）
   const categoryCode = normalizeBackboneNodeKey(str(body.category_code, 24));
   if (categoryCode && !isCommodityNodeKey(categoryCode) && !isCommodityGroupCode(categoryCode)) {
     routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 大类码或骨架节点码）");
