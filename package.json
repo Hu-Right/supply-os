@@ -11,7 +11,7 @@
     "build": "next build && npm run check:css-compat && node scripts/tools/copy-standalone-assets.mjs",
     "start": "next start",
     "clean": "node -e \"const fs=require('fs');['dist','server.js'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
-    "lint": "npm run check:encoding && npm run check:gitignore && node scripts/gates/check-no-admin-routes.mjs && npm run check:wide-ssot && npm run check:notice-classification && npm run check:sql-shapes && npm run check:opp-slim && npm run check:opp-slim:self-test && npm run check:ddl-collation && npm run check:ddl-collation:self-test && eslint src/",
+    "lint": "npm run check:encoding && npm run check:gitignore && node scripts/gates/check-no-admin-routes.mjs && npm run check:wide-ssot && npm run check:notice-classification && npm run check:sql-shapes && npm run check:opp-slim && npm run check:opp-slim:self-test && npm run check:ddl-collation && npm run check:ddl-collation:self-test && npm run check:legacy-dict && eslint src/",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "check-i18n": "npx tsx scripts/gates/check-i18n.ts",
