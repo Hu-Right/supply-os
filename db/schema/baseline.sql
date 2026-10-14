@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 97 张，导出 94 张，排除 3 张。
+--           源库共 96 张，导出 93 张，排除 3 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -1406,42 +1406,6 @@ CREATE TABLE `crm_supplier_industry_rel` (
   KEY `idx_code` (`industry_code`),
   KEY `idx_sup` (`supplier_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商×行业面标签关系(UGT-I)';
-
--- ── crm_supplier_unspsc_interests ──
-CREATE TABLE `crm_supplier_unspsc_interests` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `supplier_table` varchar(32) NOT NULL DEFAULT 'supplier',
-  `supplier_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '供应商ID，对应供应商表ID',
-  `code_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC字典ID，暂未绑定字典时为0',
-  `code` varchar(32) NOT NULL DEFAULT '' COMMENT 'UNSPSC编码，如43211503',
-  `name` varchar(255) NOT NULL DEFAULT '' COMMENT 'UNSPSC名称或描述',
-  `level` tinyint unsigned NOT NULL DEFAULT '0' COMMENT 'UNSPSC层级：1大类/2二级/3三级/4四级/5五级',
-  `level1_id` varchar(32) NOT NULL DEFAULT '' COMMENT '一级分类编码前缀，通常为前2位',
-  `level2_id` varchar(32) NOT NULL DEFAULT '' COMMENT '二级分类编码前缀，通常为前4位',
-  `level3_id` varchar(32) NOT NULL DEFAULT '' COMMENT '三级分类编码前缀，通常为前6位',
-  `level4_id` varchar(32) NOT NULL DEFAULT '' COMMENT '四级分类编码前缀，通常为前8位',
-  `level5_id` varchar(32) NOT NULL DEFAULT '' COMMENT '五级分类编码前缀，若存在通常为前10位',
-  `source` varchar(32) NOT NULL DEFAULT '' COMMENT '兴趣来源：register_level1/manual_filter/unlock_order/express_interest/ai_inferred/enrich_snapshot等',
-  `weight` decimal(10,2) NOT NULL DEFAULT '1.00' COMMENT '兴趣权重，推荐排序时使用',
-  `confidence` decimal(5,2) NOT NULL DEFAULT '0.00',
-  `evidence` varchar(500) DEFAULT NULL,
-  `path_text` varchar(1000) DEFAULT NULL,
-  `keyword_hits` varchar(500) DEFAULT NULL,
-  `is_primary` tinyint(1) NOT NULL DEFAULT '0',
-  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
-  `updated_at` datetime DEFAULT NULL COMMENT '修改时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_supplier_code_source` (`supplier_id`,`code`,`source`),
-  KEY `idx_supplier` (`supplier_id`),
-  KEY `idx_code` (`code`),
-  KEY `idx_source` (`source`),
-  KEY `idx_level1` (`level1_id`),
-  KEY `idx_level2` (`level2_id`),
-  KEY `idx_level3` (`level3_id`),
-  KEY `idx_supplier_table_id` (`supplier_table`,`supplier_id`),
-  KEY `idx_supplier_l5_fast` (`supplier_table`,`level5_id`,`supplier_id`),
-  KEY `idx_supplier_l4_fast` (`supplier_table`,`level4_id`,`supplier_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商UNSPSC兴趣画像表，用于记录注册、筛选、解锁、表达兴趣和AI推断形成的行业偏好';
 
 -- ── crm_sync_watermark ──
 CREATE TABLE `crm_sync_watermark` (
