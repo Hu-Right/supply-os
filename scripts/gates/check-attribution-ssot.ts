@@ -20,10 +20,12 @@ import mysql from "mysql2/promise";
 import {
   assertTableName,
   auditLanding,
+  ATTR_SOURCE_LEGACY,
   type ColumnRow,
   type ContractStats,
   type LandingRow,
 } from "../../src/lib/services/commodity/attribution-contract";
+import { ACTIVE_NOTICE_WHERE } from "../../src/lib/utils/notice-expired";
 
 const FIXTURE = process.env.ATTR_SSOT_FIXTURE ?? "";
 // 用 || 而不是 ??：自测的“真实库”分支会显式传空串来清掉父 env 残留，
@@ -63,6 +65,98 @@ const zeroStats = (): ContractStats => ({
   dirtyColumnNotices: 0,
   landingRows: 0,
 });
+
+/**
+ * 质量指标（WARN-only）：开“新事实源推进度”的窗口。
+ *
+ * 它们不参与 AS1~AS5 契约判定，仅把以下三个数字喷到日志，阅后人工判定：
+ *   Q1 活跃集 AI/手工 覆盖率：多少活跃公告已被非 legacy_tag 落点接住
+ *   Q2 活跃集待清洗量：多少活跃公告只有 legacy_tag 历史快照（“错但稳定”的那部分）
+ *   Q3 ai_content / manual 落点的层级分布：行行锁到多深，看锤粗/锤细
+ *
+ * 活跃口径用 ACTIVE_NOTICE_WHERE（与搜索口径一致）。失败不阻断主流程（fail-open），
+ * 只记一行 ⚠；主契约红不红与它无关。
+ */
+async function runQuality(
+  q: <T>(sql: string, a?: unknown[]) => Promise<T[]>,
+): Promise<void> {
+  console.log("--- 质量指标（WARN-only，不影响退出码）---");
+  try {
+    // Q0 活跃公告基数
+    const base = await q<{ n: number }>(
+      `SELECT COUNT(*) n FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`,
+    );
+    const total = Number(base[0]?.n ?? 0);
+    if (total === 0) {
+      console.log("⚠ 活跃公告集为 0（口径异常），跳过质量指标");
+      return;
+    }
+    // Q1 活跃集非 legacy 覆盖（新事实源接住的部分：ai_content ∩ manual）
+    const cov = await q<{ n: number }>(
+      `SELECT COUNT(DISTINCT n.id) n FROM crm_bid_notices n
+         JOIN \`${TABLE}\` a ON a.notice_pk = n.id
+        WHERE a.source <> ? AND ${ACTIVE_NOTICE_WHERE}`,
+      [ATTR_SOURCE_LEGACY],
+    );
+    const covered = Number(cov[0]?.n ?? 0);
+    // Q2 活跃集仅 legacy（待清洗存量）
+    const legacyOnly = await q<{ n: number }>(
+      `SELECT COUNT(DISTINCT n.id) n FROM crm_bid_notices n
+         JOIN \`${TABLE}\` a ON a.notice_pk = n.id AND a.source = ?
+        WHERE ${ACTIVE_NOTICE_WHERE}
+          AND NOT EXISTS (SELECT 1 FROM \`${TABLE}\` b
+                          WHERE b.notice_pk = n.id AND b.source <> ?)`,
+      [ATTR_SOURCE_LEGACY, ATTR_SOURCE_LEGACY],
+    );
+    const legacyN = Number(legacyOnly[0]?.n ?? 0);
+    // Q3 非 legacy 落点的层级分布（代码内部 level 列仅作展示，不作判据）
+    const dist = await q<{ level: number; source: string; n: number }>(
+      `SELECT level, source, COUNT(DISTINCT notice_pk) n FROM \`${TABLE}\`
+        WHERE source <> ? GROUP BY level, source ORDER BY level, source`,
+      [ATTR_SOURCE_LEGACY],
+    );
+    // 活跃集完全无落点（上面三行未抓：既无 legacy、也无 ai/manual）
+    const noLanding = await q<{ n: number }>(
+      `SELECT COUNT(*) n FROM crm_bid_notices n
+        WHERE ${ACTIVE_NOTICE_WHERE}
+          AND NOT EXISTS (SELECT 1 FROM \`${TABLE}\` a WHERE a.notice_pk = n.id)`,
+    );
+    const noLandingN = Number(noLanding[0]?.n ?? 0);
+
+    const pct = (x: number) => `${((x / total) * 100).toFixed(2)}%`;
+    console.log(`Q0 活跃公告基数：${total}`);
+    console.log(
+      `Q1 活跃集 AI/手工 覆盖：${covered} = ${pct(covered)}（历史 legacy_tag 不经新写入器，属“错但稳定”快照）`,
+    );
+    console.log(
+      `Q2 活跃集仅 legacy 待清洗：${legacyN} = ${pct(legacyN)}（目标 向 0 推，靠手工锚定逐条读文判定）`,
+    );
+    console.log(
+      `Q3 活跃集无任何落点：${noLandingN} = ${pct(noLandingN)}（新公告未接住 或 历史漏写；与 AS4 不同，AS4 测“有列值无落点”）`,
+    );
+    if (dist.length) {
+      const byLevel = new Map<number, { ai: number; manual: number }>();
+      for (const r of dist) {
+        const k = Number(r.level);
+        const slot = byLevel.get(k) ?? { ai: 0, manual: 0 };
+        if (r.source === "manual") slot.manual += Number(r.n);
+        else slot.ai += Number(r.n);
+        byLevel.set(k, slot);
+      }
+      const parts = [...byLevel.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([lv, v]) => `L${lv}=ai:${v.ai}/manual:${v.manual}`);
+      console.log(`Q4 非 legacy 落点层级分布（同一公告可多行）：${parts.join("  ")}`);
+    }
+    // 阅后目测提示（不判红）：锤分布提醒
+    if (covered === 0) console.log("⚠ Q1 活跃集 AI/手工 覆盖为 0：手工锚定未上手，新事实源对活跃集无接住");
+    if (noLandingN > 0 && covered === 0) {
+      console.log("⚠ 活跃集无落点且无新锚定：新公告将一律 backbone_path NULL（对照 BB16）");
+    }
+  } catch (e) {
+    console.log(`⚠ 质量指标采集未完成（不影响契约判定）：${(e as Error).message}`);
+  }
+}
 
 async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
   for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
@@ -149,6 +243,13 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
       if (sample.length) all.push(`AS4 样本 pk：${sample.map((r) => r.pk).join(" ")}`);
     }
     console.log(`扫描完成：${batches} 批，按 notice_pk 分页`);
+
+    // ── 质量指标（WARN-only，不影响退出码）──
+    // AS1~AS5 只测结构自洽：legacy_tag 历史快照内部一致不代表语义对得上现实。
+    // 这组指标量“新事实源的推进度”：活跃集 AI/手工 覆盖率 + 层级分布 + 待清洗存量。
+    // 不设硬阈值（手工锚定阶段性数据，阈值会假报），只报数。需阅后人工判定。
+    await runQuality(q);
+
     return { all, stats };
   } finally {
     await conn.end();

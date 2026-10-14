@@ -45,6 +45,11 @@ test(
     const r = run({ ATTR_SSOT_FIXTURE: "", ATTR_SSOT_TABLE: "" });
     assert.equal(r.code, 0, r.out);
     assert.match(r.out, /落点表契约通过/);
+    // 质量指标行必须存在（WARN-only 不影响退出码，但不能静默缺席）
+    assert.match(r.out, /Q0 活跃公告基数：\d+/);
+    assert.match(r.out, /Q1 活跃集 AI\/手工 覆盖：\d+ = [\d.]+%/);
+    assert.match(r.out, /Q2 活跃集仅 legacy 待清洗：\d+ = [\d.]+%/);
+    assert.match(r.out, /Q3 活跃集无任何落点：\d+ = [\d.]+%/);
   },
 );
 
