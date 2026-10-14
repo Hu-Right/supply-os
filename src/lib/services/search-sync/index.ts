@@ -8,7 +8,7 @@
 // 数据构建层
 export {
   SUPPORTED_LANGS, wideSyncSelect, WIDE_SYNC_JOIN,
-  loadTranslationsByNoticeIds, loadUnspscByNoticeIds,
+  loadTranslationsByNoticeIds, loadBackboneMap,
   buildWideRow, loadAliasMap, upsertWideRows,
 } from "./wide-row-builder";
 

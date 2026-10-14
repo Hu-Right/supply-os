@@ -227,9 +227,10 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     }, claimExpiryIntervalHours * 3600 * 1000);
   }
 
-  // 8. 桥表→落点 增量镜像（UNSPSC 退役 混合①的非 API 生产者）：把「有 backbone_path 列值、但落点表没有」的
-  //    新公告压回事实源，保持「落点 ⊇ 列值」（B=0），为 R2 切读铺路。只写 crm_notice_attribution_nodes，
-  //    flag ATTRIBUTION_READ 关时对现网分类零影响（buildWideRow 仍读桥表）。脏列/树外整条跳过交人工，不“顺手改归属”。
+  // 8. 列值→落点 增量镜像（UNSPSC 退役 混合①的非 API 生产者）：把「宽表 backbone_path 隐含、但落点表缺」
+  //    的公告补回事实源，保持「落点 ⊇ 列值」不变量。只写 crm_notice_attribution_nodes，不碰宽表列（ADR-0002/0007 单一写入者）。
+  //    候选判据走契约 missingLandingPairs()——小表剥离后 buildWideRow 已从落点表派生列，本镜像对正常路径为空操作，
+  //    仅作为 ops 手工刷列或遗留脏列的自动补齐回退。脏列/树外整条跳过交人工，不“顺手改归属”。
   //    ATTRIBUTION_MIRROR_ENABLED=off 关闭；间隔 ATTRIBUTION_MIRROR_INTERVAL_MINUTES（默认 10 分钟）；启动后 30s 先跑一次存量。
   let attributionMirrorTimer: NodeJS.Timeout | null = null;
   if (String(process.env.ATTRIBUTION_MIRROR_ENABLED ?? "on").toLowerCase() !== "off") {

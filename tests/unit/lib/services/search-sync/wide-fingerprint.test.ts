@@ -22,12 +22,14 @@ describe("WIDE_FP_EXPR", () => {
     expect(WIDE_FP_EXPR).toContain(DESC_SOURCE_EXPR);
   });
 
-  it("机会表展示列与两张输入表聚合在指纹内；candidates 已退役不入指纹", () => {
+  it("机会表展示列与两张输入表聚合在指纹内；candidates 已退役不入指纹；小表剥离后桥表也不入指纹", () => {
     expect(WIDE_FP_EXPR).toContain("opp.description_cn");
     expect(WIDE_FP_EXPR).toContain("opp.bid_overview");
     expect(WIDE_FP_EXPR).toContain("opp.beneficiary_countries");
-    expect(WIDE_FP_EXPR).toContain("crm_bid_notice_unspsc_codes");
+    expect(WIDE_FP_EXPR).toContain("crm_notice_attribution_nodes");
     expect(WIDE_FP_EXPR).toContain("crm_notice_translations");
+    // 指纹不再吃 UNSPSC 资产（与 loadBackboneMap 同一事实源）
+    expect(WIDE_FP_EXPR).not.toContain("crm_bid_notice_unspsc_codes");
     expect(WIDE_FP_EXPR).not.toContain("crm_bid_opportunity_unspsc_candidates");
   });
 

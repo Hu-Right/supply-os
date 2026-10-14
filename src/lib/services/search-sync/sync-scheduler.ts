@@ -49,11 +49,10 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
       const rawRows = rows as RowDataPacket[];
       if (rawRows.length === 0) break;
 
-      // 挂靠输入：桥表 notice_id + 平台公告的主表自填分类（旧字典行 id，同一函数内翻成 8 位码）
+      // 归属输入：落点表按 notice_pk 取最深落点（小表剥离后不再经桥表/不再需主表自填分类）
       const sources = rawRows.map((r) => ({
         pk: Number(r.id),
         noticeId: String(r.notice_id),
-        categoryIds: [r.category_l1_id, r.category_l2_id],
       }));
       const [unspscMap, translationsMap] = await Promise.all([
         loadBackboneMap(pool, sources),
@@ -103,7 +102,6 @@ export async function incrementalWideSync(
     const sources = allRaw.map((r) => ({
       pk: Number(r.id),
       noticeId: String(r.notice_id),
-      categoryIds: [r.category_l1_id, r.category_l2_id],
     }));
     const [unspscMap, translationsMap] = await Promise.all([
       loadBackboneMap(pool, sources),
@@ -145,7 +143,6 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
     const sources = (rows as RowDataPacket[]).map((r) => ({
       pk: Number(r.id),
       noticeId: String(r.notice_id),
-      categoryIds: [r.category_l1_id, r.category_l2_id],
     }));
     const [unspscMap, translationsMap] = await Promise.all([
       loadBackboneMap(pool, sources),
