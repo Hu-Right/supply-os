@@ -6,6 +6,9 @@
  * Opportunities Repository
  *
  * @module repos/opportunities.repo
+ * @description UNSPSC 退役 R5'（2026-10-14）：主表 JSON 列 `unspsc_codes` 运行期不再 SELECT；
+ *              列形制属历史采集快照，与新事实源 crm_notice_attribution_nodes 不相关。
+ *              物理 DROP 属下一批次（§9 桥表 / 主表 JSON 列同批）。消费方（merge/route）一律写死 []。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { ACTIVE_OPP_WHERE } from "../utils/notice-expired";
@@ -25,7 +28,6 @@ export interface OpportunityListItemRow {
   estimated_value: string | null;
   description: string | null;
   industry: string | null;
-  unspsc_codes: string | null;
   source_url: string | null;
 }
 
@@ -50,7 +52,7 @@ export class OpportunitiesRepo {
       `SELECT DISTINCT
          o.id, o.title, o.reference, o.notice_type, o.agency, o.country,
          o.deadline, o.deadline_ts, o.deadline_sec, o.estimated_value, o.description,
-         o.industry, o.unspsc_codes, o.source_url
+         o.industry, o.source_url
        FROM crm_bid_opportunities o
        WHERE ${ACTIVE_OPP_WHERE}
        ORDER BY (o.deadline_sec = 0), o.deadline_sec ASC, o.id DESC
@@ -128,7 +130,7 @@ export class OpportunitiesRepo {
               source_platform, industry, incoterms, published_date, deadline, deadline_timezone,
               estimated_value, description, description_cn, description_other, bid_overview,
               supplier_conditions, eligibility, technical_hurdles, training_link, remark,
-              product_code, source_url, unspsc_codes, ai_products, ai_analysis,
+              product_code, source_url, ai_products, ai_analysis,
               documents, external_links, contacts, update_time
        FROM crm_bid_opportunities WHERE id = ? LIMIT 1`,
       [opportunityId],
@@ -136,10 +138,10 @@ export class OpportunitiesRepo {
     return (rows as RowDataPacket[])[0] ?? null;
   }
 
-  /** 按 id 查商机（解锁时取 UNSPSC 快照） */
+  /** 按 id 查商机存在性（解锁入口先验存在；字段拉取交给 findFullById）*/
   async findById(opportunityId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT id, unspsc_codes FROM crm_bid_opportunities WHERE id = ? LIMIT 1",
+      "SELECT id FROM crm_bid_opportunities WHERE id = ? LIMIT 1",
       [opportunityId],
     );
     return (rows as RowDataPacket[])[0] ?? null;

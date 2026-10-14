@@ -4,7 +4,8 @@
  */
 import { safeJson, preferValue } from "../../utils/json";
 import { normalizeContactRows, normalizeDocumentRows } from "../../utils/normalize";
-import { normalizeUnspscCodes } from "../unspsc/index";
+// R5'（2026-10-14）：normalizeUnspscCodes 入口已剥 ⇒ 主表 JSON 列运行期不再 SELECT，
+// 本行不取列。回给前端的 unspsc_codes 写死 []，与前端 `|| []` 兜底同位。
 
 // Re-export 精选逻辑
 export {
@@ -20,7 +21,7 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
   const mergedContacts = normalizeContactRows(opportunity?.contacts, notice.contacts, notice.key_contacts);
   const documents = normalizeDocumentRows(opportunity?.documents, notice.documents, notice.procurement_files);
   const externalLinks = normalizeDocumentRows(opportunity?.external_links, notice.external_links);
-  const unspscCodes = normalizeUnspscCodes(preferValue(opportunity?.unspsc_codes, notice.unspsc_codes));
+  const unspscCodes: Array<Record<string, unknown>> = []; // R5' 主表 JSON 列不再读，前端已有 `|| []` 兜底
   const agency = opportunity?.agency_full || opportunity?.agency || notice.agency_full || notice.agency || notice.organization || "";
   const description = preferValue(opportunity?.description, notice.description);
 

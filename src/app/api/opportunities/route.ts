@@ -13,6 +13,9 @@
  *              商机列表 HTTP 入口（unified-search 不返回商机），删了会连带删掉下面
  *              那条 ARCH-P0 脱敏覆盖。
  *
+ *              R5'（2026-10-14）：主表 JSON 列 `unspsc_codes` 运行期不再 SELECT ⇒ repo 不取列，
+ *              本 route 回给前端的 `unspsc_codes` 写死 []。前端已有 `|| []` 兜底 ⇒ 自动降级。
+ *
  *              ARCH-P0（2026-09-05）：安全修复——
  *              1. 添加认证要求（此前无认证即可拉取全量数据）
  *              2. 截断 description 至 300 字符（与公告搜索列表对齐）
@@ -27,7 +30,6 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { EC_AUTH_REQUIRED } from "@/shared/constants/api";
-import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
 
 /** description 截断阈值（与公告搜索列表 300 字符对齐） */
 const LIST_DESC_MAX_CHARS = 300;
@@ -50,7 +52,8 @@ export const GET = withRoute(
           ? row.description.slice(0, LIST_DESC_MAX_CHARS) + "…"
           : row.description,
         source_url: undefined,
-        unspsc_codes: normalizeUnspscCodes(row.unspsc_codes),
+        // R5'：主表 JSON 列运行期不再 SELECT；写死 [] 保留字段形状，前端 `|| []` 自动降级。
+        unspsc_codes: [],
       })),
     );
   },

@@ -83,8 +83,8 @@ describe("GET /api/opportunities — 不再以 UNSPSC code_id 为必要条件", 
     const body = await (await GET(req())).json();
     expect(body[0].description.length).toBeLessThanOrEqual(301);
     expect(body[0]).not.toHaveProperty("source_url");
-    // 原始码快照仍按既有形制归一输出（该 JSON 列属 R4' 退役范围，本批不动）
-    expect(body[0].unspsc_codes).toEqual([{ code: "43230000", name: "实验室设备" }]);
+    // R5' 主表 JSON 列运行期不再 SELECT ⇒ route 写死 unspsc_codes: []（前端 `|| []` 自动降级）
+    expect(body[0].unspsc_codes).toEqual([]);
   });
 
   it("未登录仍然 401 + 明确错误码（受保护性质没随改造丢掉）", async () => {

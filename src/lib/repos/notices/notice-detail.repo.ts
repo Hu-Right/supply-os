@@ -3,7 +3,10 @@
  * Notice Detail Repository
  *
  * @module server/repos/notices/notice-detail.repo
- * @description 操作 crm_bid_notices 表：详情/预览/翻译源字段/UNSPSC 快照。
+ * @description 操作 crm_bid_notices 表：详情/预览/翻译源字段。
+ *              UNSPSC 退役 R5'（2026-10-14）：主表 JSON 列 `unspsc_codes` 运行期不再 SELECT；
+ *              归属事实源已收敛到 crm_notice_attribution_nodes，旧列属"错但稳定"历史快照，
+ *              前端 4 处消费方已有 `|| []` 兜底 ⇒ 自动降级。列物理 DROP 属下一个批次（§9）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { PLATFORM_PUBLISHED_ONLY_NO_ALIAS } from "@/lib/utils/notice-expired";
@@ -13,10 +16,10 @@ import { qualifiedOppWhere } from "@/lib/utils/notice-qualified";
 export class NoticeDetailRepo {
   constructor(private pool: Pool) {}
 
-  /** 按 id 查公告基础信息（解锁/兴趣时取 UNSPSC 快照） */
+  /** 按 id 查公告存在性（解锁/反馈入口先验存在；字段拉取交给 findDetail/findPreview）*/
   async findById(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT id, unspsc_codes FROM crm_bid_notices WHERE id = ? LIMIT 1",
+      "SELECT id FROM crm_bid_notices WHERE id = ? LIMIT 1",
       [noticeId],
     );
     return (rows as RowDataPacket[])[0] ?? null;
@@ -36,7 +39,7 @@ export class NoticeDetailRepo {
       `SELECT id, notice_id, reference, title, notice_type, agency, organization, country,
        deadline, deadline_ts, estimated_value, description, industry, url, contacts,
        documents, procurement_files, external_links, agency_full, published_date,
-       difficulty, registration_level, key_contacts, unspsc_codes, converted_opp_id, is_converted
+       difficulty, registration_level, key_contacts, converted_opp_id, is_converted
      FROM crm_bid_notices WHERE id = ? LIMIT 1`,
       [noticeId],
     );
@@ -55,7 +58,7 @@ export class NoticeDetailRepo {
       `SELECT id, notice_id, reference, title, notice_type, agency, organization, country,
        deadline, deadline_ts, estimated_value, description, industry, url, contacts,
        documents, procurement_files, external_links, agency_full, published_date,
-       difficulty, registration_level, key_contacts, unspsc_codes, converted_opp_id, is_converted
+       difficulty, registration_level, key_contacts, converted_opp_id, is_converted
      FROM crm_bid_notices WHERE id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
       [noticeId],
     );
@@ -67,7 +70,7 @@ export class NoticeDetailRepo {
     const [rows] = await this.pool.query(
       `SELECT id, notice_id, reference, title, agency, organization, agency_full, published_date,
          difficulty, registration_level, contacts, key_contacts, description,
-         unspsc_codes, converted_opp_id
+         converted_opp_id
        FROM crm_bid_notices WHERE id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
       [noticeId],
     );
