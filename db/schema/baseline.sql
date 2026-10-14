@@ -1739,7 +1739,7 @@ CREATE TABLE `link` (
   `open` tinyint NOT NULL DEFAULT '0' COMMENT '0禁用1启用',
   PRIMARY KEY (`id`) USING BTREE,
   KEY `idx_link_status_sort` (`status`,`sort_order`,`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 ROW_FORMAT=DYNAMIC;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC;
 
 -- ── refresh_token ──
 CREATE TABLE `refresh_token` (
@@ -1950,7 +1950,7 @@ CREATE TABLE `system` (
   `maxgetnum` int DEFAULT NULL COMMENT '员工月抢客户次数上限',
   `ai_config` json DEFAULT NULL COMMENT 'AI配置JSON数据',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 ROW_FORMAT=DYNAMIC COMMENT='备案号';
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='备案号';
 
 -- ── training_courses ──
 CREATE TABLE `training_courses` (
