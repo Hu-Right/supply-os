@@ -13,7 +13,7 @@
  * 安全约束：核心敏感信息（联系人身份/文件清单/报告）服务端从不下发，
  * 锁定态锁卡仅渲染数量预告，DevTools 无法获取任何真实敏感内容。
  */
-import { ExternalLink, FileText, ListChecks, Lock, User } from "lucide-react";
+import { FileText, ListChecks, Lock, User } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem } from "../types";
 import { NoticeUnlockedDetails } from "./NoticeUnlockedDetails";
@@ -42,18 +42,7 @@ export function NoticeCoreContent({
       <>
         {/* 原「标签」区随旧品类码退役删除：它只渲染那个码列表，
             自 R5' 停读后服务端恒下发空数组 ⇒ 只剩一个空标题。 */}
-        {notice.source_url && (
-          <a
-            href={notice.source_url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-bold text-blue-700 hover:underline"
-          >
-            {t("procurement_source")}
-            <ExternalLink className="w-4 h-4" />
-          </a>
-        )}
-
+        {/* 「来源」链接（source_url）已删：与解锁详情卡内「原始链接/打开公告」（url）同一功能，去重 */}
         <NoticeUnlockedDetails notice={notice} />
       </>
     );
