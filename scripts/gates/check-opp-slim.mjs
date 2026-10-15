@@ -14,7 +14,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { DROP_COLUMNS } from "../tools/opp-slim-plan.mjs";
+import { RETIRED_COLUMNS } from "../tools/opp-slim-plan.mjs";
 
 const ROOT = process.env.OPP_SLIM_SCAN_ROOT || process.cwd();
 
@@ -84,7 +84,7 @@ for (const file of walk(srcRoot, [])) {
 }
 
 // OS2：读取点扫描退役列名
-const colRes = DROP_COLUMNS.map((c) => ({ col: c, re: new RegExp(`\\b${c}\\b`) }));
+const colRes = RETIRED_COLUMNS.map((c) => ({ col: c, re: new RegExp(`\\b${c}\\b`) }));
 for (const rel of READ_SITES) {
   const abs = path.join(ROOT, rel);
   if (!fs.existsSync(abs)) continue; // 夹具根可能只放了部分文件
@@ -101,4 +101,4 @@ if (problems.length) {
   console.error("\n口径见 docs/数据库设计/crm_bid_opportunities-投标商机表.md 与 scripts/tools/opp-slim-plan.mjs。");
   process.exit(1);
 }
-console.log(`✅ 机会表精简守卫通过（退役列 ${DROP_COLUMNS.length} 个 · 读取点 ${READ_SITES.length} 处 · src 文件 ${walk(srcRoot, []).length} 个）`);
+console.log(`✅ 机会表精简守卫通过（禁复活退役列 ${RETIRED_COLUMNS.length} 个 · 读取点 ${READ_SITES.length} 处 · src 文件 ${walk(srcRoot, []).length} 个）`);

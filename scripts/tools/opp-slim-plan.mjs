@@ -81,11 +81,26 @@ export const RETIRED_INTL_COLUMNS = [
   "key_dates",
 ];
 
-/** 本次要删除的全部列（79 → 44）。 */
-export const DROP_COLUMNS = [
+/**
+ * 本轮（第二轮 43 → 41）阶段一/二实际 DROP 的列清单 —— 唯一交给切换脚本消费的清单。
+ * 逐列都**必须存在于现网**（阶段一前置断言会逐个校验，缺列即 fatal）。
+ *   - product_code：旧 UNSPSC 品类码快照列（现网 13532/13656 行有值、4492 去重），
+ *     UNSPSC 退役收官对象；8 个代码读取点已于本轮先从 src/ 摘除（报告「产品编码」行整体删除）。
+ *   - tenant_id：bigint 恒 1（去重 1）、src/ 零读取；其索引已在第一轮随 tenant 索引族删除，本轮只摘列本体。
+ * 旧行数据留底：本轮切换生成的旧表位 `__old_<stamp>` 完整保留这两列，人工 DROP 前不丢。
+ */
+export const DROP_COLUMNS = ["product_code", "tenant_id"];
+
+/**
+ * 历史累计已退役列（含第一轮 + 本轮）：唯一交给门禁 check-opp-slim.mjs 消费的「禁复活」清单。
+ * 门禁据此硬拦任何退役列名在读取点（SELECT 清单文件）重新出现——与本轮待删清单分离的原因是
+ * 切换脚本的 DROP_COLUMNS 必须逐列存在于现网，而历史退役列已从库里消失，二者不能混用一份数组。
+ */
+export const RETIRED_COLUMNS = [
   ...DEAD_COLUMNS,
   ...UNREAD_COLUMNS,
   ...RETIRED_INTL_COLUMNS,
+  ...DROP_COLUMNS,
 ];
 
 /**
@@ -108,24 +123,13 @@ export const GUARDED_COLUMNS = [
 ];
 
 /**
- * 要删的索引（22 → 12），分三类：
- *   P 前缀被覆盖：列序列是另一索引的严格前缀，定义不同名同义
- *   D 建在死列上：列本身在 DROP_COLUMNS 里
- *   T 单租户零过滤力：tenant_id 恒 1（distinct=1）且代码零引用，与 notices 那轮同口径
- * 现存 22 个索引里「定义完全相同」的重复组为 0（2026-10-08 那轮已清）。
+ * 本轮要删的索引：空集。
+ * 第一轮的 10 个冗余索引（tenant 索引族、前缀覆盖、建在死列上的）已随 79→44 切换从现网删除，
+ * 阶段一前置断言「逐个 DROP_INDEXES 必须存在于现网」若沿用旧清单会立刻 fatal，故本轮置空。
+ * product_code / tenant_id 上均无索引挂靠（现网 12 索引逐个核对，无一含这两列），删列无需动索引。
+ * 第一轮索引处置留档见 git 历史与本文件 git blame。
  */
-export const DROP_INDEXES = [
-  { name: "idx_bid_opp_tenant_id", why: "P/T", note: "tenant_id ⊂ idx_opp_tenant_*（4 个）" },
-  { name: "idx_review_status", why: "P", note: "review_status ⊂ idx_review_deadline(review_status,deadline_sec)" },
-  { name: "idx_source_notice", why: "P", note: "source_notice_id ⊂ idx_opp_source_covering(source_notice_id,...)" },
-  { name: "idx_create_user", why: "D", note: "建在死列 create_user_id 上" },
-  { name: "idx_opp_assign_id", why: "D", note: "建在死列 assign_user_id 上" },
-  { name: "idx_opp_ai_l5_lock", why: "D", note: "两列全 0 行有值" },
-  { name: "idx_opp_tenant_id", why: "T", note: "tenant_id 恒 1，等价于 PK 序" },
-  { name: "idx_opp_tenant_audit_id", why: "T", note: "首列恒 1 的复合索引" },
-  { name: "idx_opp_tenant_create", why: "T", note: "首列恒 1 的复合索引" },
-  { name: "idx_opp_tenant_reference", why: "T", note: "首列恒 1，reference 查走 idx_bid_opp_reference" },
-];
+export const DROP_INDEXES = [];
 
 /** 保留但**待生产库 EXPLAIN 复核**的索引（本轮不删，登记为下一轮 C 桶候选）。 */
 export const PENDING_EXPLAIN_INDEXES = [

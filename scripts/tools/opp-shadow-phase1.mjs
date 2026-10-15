@@ -129,10 +129,14 @@ if (shadowExists) fatal(`影子表已存在，先跑 --rollback 清干净再重�
 console.log("\n[1/5] CREATE TABLE LIKE");
 await conn.query(`CREATE TABLE \`${SHADOW_TABLE}\` LIKE \`${OPP_TABLE}\``);
 
-console.log("[2/5] 影子表上删冗余索引");
-await conn.query(
-  `ALTER TABLE \`${SHADOW_TABLE}\` ${DROP_INDEXES.map((i) => `DROP INDEX \`${i.name}\``).join(", ")}`,
-);
+if (DROP_INDEXES.length) {
+  console.log("[2/5] 影子表上删冗余索引");
+  await conn.query(
+    `ALTER TABLE \`${SHADOW_TABLE}\` ${DROP_INDEXES.map((i) => `DROP INDEX \`${i.name}\``).join(", ")}`,
+  );
+} else {
+  console.log("[2/5] 本轮无索引要删（DROP_INDEXES 为空），跳过");
+}
 
 console.log("[3/5] 影子表上删死列 / 无消费列");
 await conn.query(
