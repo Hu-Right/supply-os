@@ -162,3 +162,54 @@ export async function reconcile(c, base, other, cols, size, label) {
   process.stdout.write("\n");
   return slices;
 }
+
+/**
+ * 找出两表之间**内容不一致的行**（按行指纹逐片下钻，而不是靠一列列清单猜）。
+ *
+ * 为什么不用「水位列 + 应用侧可写列」那份判据：2026-10-15 批次四实测到 `documents`
+ * 被外部管道写了 194 行，而 `update_time` 纹丝不动、`documents` 也不在应用侧可写清单里
+ * ⇒ 旧判据报「差异 0 行」，只有逐片指纹把它的眼睛看到。手维护的列清单天生会漂，
+ * 所以差异检测与切换后的对账必须用同一套全列判据（否则阶段二的「绿」比阶段一对账弱）。
+ *
+ * 代价：每轮全库一遍 = 逐片两次聚合（实测 64.5 万行约 90s），只在指纹不等的片上下钻。
+ * @param {number} size 每片行数
+ * @returns Promise<{ids:number[], colCounts:Record<string,number>, missing:number, windows:number}>
+ */
+export async function findDirtyRows(c, base, other, cols, size, label) {
+  const fp = rowFingerprintExpr(cols);
+  const diffOr = cols.map((x) => `NOT (o.\`${x}\` <=> s.\`${x}\`)`).join(" OR ");
+  const which = cols.map((x) => `IF(NOT(o.\`${x}\` <=> s.\`${x}\`), '${x}', NULL)`).join(", ");
+  const ids = [];
+  const colCounts = {};
+  let missing = 0;
+  let windows = 0;
+  const total = (await c.query(`SELECT COUNT(*) n FROM \`${base}\``))[0][0].n;
+  const bar = makeProgress(Math.max(1, Math.ceil(Number(total) / size)), label);
+  for await (const w of idWindows(c, base, size)) {
+    windows++;
+    const sql = (t) => `SELECT COUNT(*) n, ${fp} fp FROM \`${t}\` WHERE \`id\` BETWEEN ${w.lo} AND ${w.hi}`;
+    const a = (await c.query(sql(base)))[0][0];
+    const b = (await c.query(sql(other)))[0][0];
+    if (Number(a.n) === Number(b.n) && String(a.fp) === String(b.fp)) {
+      bar(windows);
+      continue;
+    }
+    // 下钻到行：新增行（LEFT JOIN 不中）与内容变更行一并拾出
+    const rows = (
+      await c.query(
+        `SELECT o.id, CONCAT_WS(',', ${which}) cols FROM \`${base}\` o
+           LEFT JOIN \`${other}\` s ON s.id = o.id
+          WHERE o.id BETWEEN ${w.lo} AND ${w.hi}
+            AND (s.id IS NULL OR ${diffOr})`,
+      )
+    )[0];
+    for (const r of rows) {
+      ids.push(Number(r.id));
+      if (!r.cols) missing++;
+      for (const cn of String(r.cols || "").split(",").filter(Boolean)) colCounts[cn] = (colCounts[cn] ?? 0) + 1;
+    }
+    bar(windows);
+  }
+  process.stdout.write("\n");
+  return { ids, colCounts, missing, windows };
+}

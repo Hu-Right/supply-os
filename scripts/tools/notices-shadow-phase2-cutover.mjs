@@ -6,9 +6,11 @@
  *   本表由 crawler-sync（应用内，默认 1h 一轮）与 daily-sync（站外应急兜底）实时写入，
  *   **未冻结就切换会丢写**。
  *
- * 与兄弟表脚本的一处关键差别：本表的应用侧写入（featured 刷新写 is_featured、
- * RFQ submit 写 rfq_status/published_date）**不推进 update_time**，只按 update_time
- * 找差异会漏掉这些行 —— 所以差异检测除了水位列，还要比 APP_WRITABLE_COLUMNS。
+ * 与兄弟表脚本的一处关键差别（2026-10-15 实测修正）：本表存在**不推进 update_time 的列改写**。
+ * 当时 `documents` 被外部管道写了 194 行，而 `update_time` 纹丝不动、`documents` 也不在
+ * 「应用侧可写列」清单里 ⇒ 旧版差异检测报「待补增量 0 行」，而阶段一的逐片指纹对账把它拉了下来。
+ * 所以本脚本的补增量与切换前闸**改成按全列行指纹驱动**（与阶段一对账同一判据），
+ * APP_WRITABLE_COLUMNS 只保留作「哪个列竞写了」的诊断参考，不再当完备性断言用。
  *
  * 用法：
  *   node --env-file=.env scripts/tools/notices-shadow-phase2-cutover.mjs --diff                 # 只读：看回填之后原表又新增/变更/删除了多少行
@@ -23,7 +25,7 @@ import {
   NOTICES_TABLE, SHADOW_TABLE, OLD_TABLE_PREFIX, APP_WRITABLE_COLUMNS, BATCHES,
   dropColumnsOf, keptColumns, indexPlanOf,
 } from "./notices-slim-plan.mjs";
-import { conn, fatal, columnsOf, indexesOf, tableExists, reconcile, activeWritersOn } from "./lib/notices-slim-common.mjs";
+import { conn, fatal, columnsOf, indexesOf, tableExists, reconcile, activeWritersOn, findDirtyRows } from "./lib/notices-slim-common.mjs";
 
 const DIFF = process.argv.includes("--diff");
 const CUTOVER = process.argv.includes("--cutover");
@@ -61,33 +63,34 @@ if (!(await tableExists(c, SHADOW_TABLE))) fatal(`影子表 ${SHADOW_TABLE} 不�
 }
 
 /**
- * 行级差异：新增行 + 内容变更行（按水位列**或**应用侧可写列判定）+ 影子表多出的行（原表已删）。
- * 应用侧可写列必须一起比：is_featured / rfq_status 等变更不推进 update_time，
- * 只比水位会把精选位的真实改动当成「无差异」而丢掉。
+ * 两表差异：按**全列行指纹**逐片下钻拾出不一致行（新增行 + 内容变更行），另拾影子表多出的行（原表已删）。
+ * 不拿「水位列 + 应用侧可写列」当判据：那份清单是手维护的，遗漏一个静默改写的列就会把真差异好成 0（实测踩过）。
  */
-async function diffStats() {
-  const appCmp = APP_WRITABLE_COLUMNS.filter((x) => writeCols.includes(x))
-    .map((x) => `OR NOT (o.\`${x}\` <=> s.\`${x}\`)`)
-    .join(" ");
-  const changed = (
-    await c.query(
-      `SELECT COUNT(*) n FROM \`${NOTICES_TABLE}\` o
-         LEFT JOIN \`${SHADOW_TABLE}\` s ON s.id = o.id
-        WHERE s.id IS NULL OR NOT (o.\`update_time\` <=> s.\`update_time\`) ${appCmp}`,
-    )
-  )[0][0].n;
+async function diffStats(label = "差异扫描") {
+  const dirty = await findDirtyRows(c, NOTICES_TABLE, SHADOW_TABLE, writeCols, RECONCILE_SLICE, label);
   const orphan = (
     await c.query(
       `SELECT COUNT(*) n FROM \`${SHADOW_TABLE}\` s
         WHERE NOT EXISTS (SELECT 1 FROM \`${NOTICES_TABLE}\` o WHERE o.id = s.id)`,
     )
   )[0][0].n;
-  return { pending: Number(changed), orphan: Number(orphan) };
+  return { pending: dirty.ids.length, ids: dirty.ids, colCounts: dirty.colCounts, missing: dirty.missing, orphan: Number(orphan) };
+}
+
+/** 把差异按列拆出来念给人看；竞写列不在应用侧可写清单里时要单独提醒。 */
+function reportCols(d) {
+  const entries = Object.entries(d.colCounts).sort((a, b) => b[1] - a[1]);
+  if (entries.length) console.log(`  差异列分解：${entries.map(([k, v]) => `${k}×${v}`).join(", ")}${d.missing ? ` · 影子表缺行 ${d.missing}` : ""}`);
+  const surprise = entries.map(([k]) => k).filter((k) => k !== "update_time" && !APP_WRITABLE_COLUMNS.includes(k));
+  if (surprise.length) {
+    console.log(`  ⚠ 这些列改了却不推水位、也不在 APP_WRITABLE_COLUMNS：${surprise.join(", ")} ⇒ 按全列指纹补写才能接住（本脚本已是）。`);
+  }
 }
 
 if (DIFF) {
-  const d = await diffStats();
-  console.log(`批次 ${BATCH} · 待补增量（新增 / update_time 或应用侧可写列变更）：${d.pending} 行`);
+  const d = await diffStats("差异扫描");
+  console.log(`批次 ${BATCH} · 待补增量（按全部保留列的行指纹判定）：${d.pending} 行`);
+  reportCols(d);
   console.log(`影子表多出的行（原表已删）：${d.orphan} 行${d.orphan ? " → 切换前需 --prune 同步删除，否则会把已删行带回生产" : ""}`);
   console.log(d.pending === 0 && d.orphan === 0 ? "✅ 两表当前等价，可择窗切换。" : "⚠️ 存在差异：--cutover 会自动补增量（删除行只在带 --prune 时处理）。");
   process.exit(0);
@@ -115,29 +118,30 @@ if (ROLLBACK) {
 if (!CUTOVER) fatal(`未指定动作：--diff | --cutover --frozen | --rollback`);
 if (!FROZEN) fatal("必须带 --frozen：切换窗口内外部同步（crawler-sync / daily-sync）未冻结会丢写，见 ADR-0003「外部实时写表」条");
 
-console.log("[1/5] 补增量（按 id 分批幂等 upsert，多灌无害）");
+console.log("[1/5] 补增量（按全列行指纹逐片找脏行 → 分批幂等 upsert，多灌无害）");
+const UPSERT_CHUNK = 1000; // 单条 IN 拼 645k 行会撞 max_allowed_packet，也会把事务撑大
+const seenCols = {};
 let guard = 0;
 for (;;) {
-  const appCmp = APP_WRITABLE_COLUMNS.filter((x) => writeCols.includes(x))
-    .map((x) => `OR NOT (o.\`${x}\` <=> s.\`${x}\`)`)
-    .join(" ");
-  const batch = (
+  const dirty = await findDirtyRows(c, NOTICES_TABLE, SHADOW_TABLE, writeCols, RECONCILE_SLICE, `第 ${guard + 1} 轮扫描`);
+  for (const [k, v] of Object.entries(dirty.colCounts)) seenCols[k] = (seenCols[k] ?? 0) + v;
+  if (!dirty.ids.length) {
+    reportCols({ colCounts: seenCols, missing: 0 });
+    console.log(guard ? `  已收敛（共 ${guard} 轮补写）` : "  首扫即无差异");
+    break;
+  }
+  for (let i = 0; i < dirty.ids.length; i += UPSERT_CHUNK) {
+    const ids = dirty.ids.slice(i, i + UPSERT_CHUNK).join(", ");
     await c.query(
-      `SELECT o.id FROM \`${NOTICES_TABLE}\` o
-         LEFT JOIN \`${SHADOW_TABLE}\` s ON s.id = o.id
-        WHERE s.id IS NULL OR NOT (o.\`update_time\` <=> s.\`update_time\`) ${appCmp}
-        ORDER BY o.id LIMIT ${5000}`,
-    )
-  )[0];
-  if (!batch.length) break;
-  const ids = batch.map((r) => Number(r.id)).join(", ");
-  await c.query(
-    `INSERT INTO \`${SHADOW_TABLE}\` (${colList})
-     SELECT ${colList} FROM \`${NOTICES_TABLE}\` WHERE \`id\` IN (${ids})
-     ON DUPLICATE KEY UPDATE ${updateClause}`,
-  );
-  console.log(`  已补 ${batch.length} 行（id ≤ ${Math.max(...batch.map((r) => Number(r.id)))}）`);
-  if (++guard > 50) fatal("补增量循环超过 50 轮仍未收敛，疑似同步未冻结（原表正在被写）→ 停线人工确认");
+      `INSERT INTO \`${SHADOW_TABLE}\` (${colList})
+       SELECT ${colList} FROM \`${NOTICES_TABLE}\` WHERE \`id\` IN (${ids})
+       ON DUPLICATE KEY UPDATE ${updateClause}`,
+    );
+  }
+  guard++;
+  console.log(`  第 ${guard} 轮拾出并补写 ${dirty.ids.length} 行（id ≤ ${Math.max(...dirty.ids)}）`);
+  // 上限压低：这里每轮都是全库一遍指纹，转圈多不是「再试就能过」，而是同步未冻结的确诊单
+  if (guard > 6) fatal("补增量 6 轮仍未收敛 ⇒ 原表正在被持续写入（同步未冻结）→ 停线人工确认，禁止切换");
 }
 
 if (PRUNE) {
@@ -148,12 +152,18 @@ if (PRUNE) {
   console.log(`  --prune：已从影子表删除原表不存在的行 ${del[0].affectedRows} 条`);
 }
 
-console.log("[2/5] 切换前全表对账");
+console.log("[2/5] 切换前全表对账（逐片行数+列指纹，不一致即抛错带定位）");
 const slices = await reconcile(c, NOTICES_TABLE, SHADOW_TABLE, writeCols, RECONCILE_SLICE, "对账");
-const d = await diffStats();
-if (d.pending) fatal(`仍有 ${d.pending} 行差异未消除，禁止切换`);
-if (d.orphan) fatal(`影子表仍多出 ${d.orphan} 行（原表已删）→ 带 --prune 重跑，或人工判断`);
-console.log(`  ${slices} 片列指纹逐片一致 · 差异 0 · 多余行 0`);
+// 内容已由 reconcile 逐片签过，这里只补一条「影子表多行」（reconcile 按原表窗口走，拾不到多出来的行）
+const orphan = Number(
+  (
+    await c.query(
+      `SELECT COUNT(*) n FROM \`${SHADOW_TABLE}\` s WHERE NOT EXISTS (SELECT 1 FROM \`${NOTICES_TABLE}\` o WHERE o.id = s.id)`,
+    )
+  )[0][0].n,
+);
+if (orphan) fatal(`影子表仍多出 ${orphan} 行（原表已删）→ 带 --prune 重跑，或人工判断`);
+console.log(`  ${slices} 片列指纹逐片一致 · 多余行 0`);
 
 console.log("[3/5] 原子 RENAME（秒级，单语句内完成两步改名）");
 const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
