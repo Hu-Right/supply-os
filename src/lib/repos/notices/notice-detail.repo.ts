@@ -33,13 +33,20 @@ export class NoticeDetailRepo {
    * 主表那个快照列的物理退役属 D1' 物理批次，不随本批。
    */
 
-  /** 公告详情全字段 */
+  /**
+   * 公告详情全字段
+   *
+   * 批次二（2026-10-15）从这两份 SELECT 清单里摘掉了镜像位 is_converted：
+   * 本仓全域零消费（详情响应靠 `...notice` 整行铺开，所以「有 SELECT」不等于「有读者」，
+   * 已逐文件核过 src/features 含 .tsx 无一处引用），且它可由 converted_opp_id 推导。
+   * 列的物理退役走影子表蓝绿（scripts/tools/notices-shadow-phase1.mjs --batch=2）。
+   */
   async findDetail(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
       `SELECT id, notice_id, reference, title, notice_type, agency, organization, country,
        deadline, deadline_ts, estimated_value, description, industry, url, contacts,
        documents, procurement_files, external_links, agency_full, published_date,
-       difficulty, registration_level, key_contacts, converted_opp_id, is_converted
+       difficulty, registration_level, key_contacts, converted_opp_id
      FROM crm_bid_notices WHERE id = ? LIMIT 1`,
       [noticeId],
     );
@@ -58,7 +65,7 @@ export class NoticeDetailRepo {
       `SELECT id, notice_id, reference, title, notice_type, agency, organization, country,
        deadline, deadline_ts, estimated_value, description, industry, url, contacts,
        documents, procurement_files, external_links, agency_full, published_date,
-       difficulty, registration_level, key_contacts, converted_opp_id, is_converted
+       difficulty, registration_level, key_contacts, converted_opp_id
      FROM crm_bid_notices WHERE id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
       [noticeId],
     );
