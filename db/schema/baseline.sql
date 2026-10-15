@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 95 张，导出 89 张，排除 6 张。
+--           源库共 95 张，导出 88 张，排除 7 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -270,28 +270,6 @@ CREATE TABLE `crm_bid_notices` (
   FULLTEXT KEY `ft_notices_en` (`title`,`reference`),
   FULLTEXT KEY `ft_notices_desc` (`description`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='招标公告表。';
-
--- ── crm_bid_opp_item_codes ──
-CREATE TABLE `crm_bid_opp_item_codes` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `quote` varchar(255) NOT NULL,
-  `quote_hash` char(32) NOT NULL COMMENT 'md5(quote.strip())，关联 structured.items 条目',
-  `opportunity_sample` int DEFAULT NULL,
-  `word` varchar(128) DEFAULT NULL,
-  `word_hash` char(32) DEFAULT NULL,
-  `en_core` varchar(128) DEFAULT NULL,
-  `zh_term` varchar(128) DEFAULT NULL,
-  `code` varchar(16) DEFAULT NULL,
-  `level` int DEFAULT NULL,
-  `confidence` float DEFAULT NULL,
-  `source` varchar(32) DEFAULT NULL,
-  `variant` varchar(8) DEFAULT NULL,
-  `status` varchar(16) DEFAULT 'ok',
-  `mapped_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_qw` (`quote_hash`,`word_hash`),
-  KEY `idx_quote_hash` (`quote_hash`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商单条目级品目编码';
 
 -- ── crm_bid_opp_structured ──
 CREATE TABLE `crm_bid_opp_structured` (
