@@ -58,6 +58,40 @@ const BASELINE_DROPPED = [
   "",
 ].join("\n");
 
+/** 假基线二：连 is_qualified 也已退役（批次四落库后的形状），用来验「人工豁免」只拓登记的那一个文件。
+ * 与 BASELINE_DROPPED 的唯一差别就是少 `is_qualified` 一行。 */
+const BASELINE_QUALIFIED_GONE = BASELINE_DROPPED.replace("  `is_qualified` tinyint(1) DEFAULT '0',\n", "");
+
+/** 判据①的真实命中形制：同一条字面量里既有 crm_bid_notices（子查询）又有 o.is_qualified（商机列）。
+ * 这是 AI 链路逐行看过的误报形态，两条豁免登记的就是它。 */
+const OPP_SIDE_SQL = [
+  "export const q = `SELECT o.eligibility FROM crm_bid_opportunities o",
+  "  WHERE o.source_notice_id = (SELECT notice_id FROM crm_bid_notices WHERE id = ? LIMIT 1)",
+  "  AND (o.is_qualified = 1 OR o.status = 1)`;",
+].join("\n");
+
+test("已登记豁免的文件：门禁绿，且成功行必把豁免条数说出来（豁免不得隐身）", () => {
+  const root = fixture({
+    "db/schema/baseline.sql": BASELINE_QUALIFIED_GONE,
+    "src/lib/services/ai-summary/index.ts": OPP_SIDE_SQL,
+  });
+  const r = run({ NOTICES_SLIM_SCAN_ROOT: root, NOTICES_SLIM_BASELINE: join(root, "db/schema/baseline.sql") });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /人工豁免 1 处（is_qualified）/, "豁免生效了却没报告，等于静默放宽判据");
+});
+
+test("豁免不得连带放行：同样形态出现在未登记的文件里必须照旧拦", () => {
+  const root = fixture({
+    "db/schema/baseline.sql": BASELINE_QUALIFIED_GONE,
+    "src/lib/services/ai-summary/index.ts": OPP_SIDE_SQL,
+    "src/lib/services/ai/other-copy.ts": OPP_SIDE_SQL,
+  });
+  const r = run({ NOTICES_SLIM_SCAN_ROOT: root, NOTICES_SLIM_BASELINE: join(root, "db/schema/baseline.sql") });
+  assert.equal(r.code, 1, "豁免被当成了按列放行：未登记文件的同样引用没被拦住");
+  assert.match(r.out, /ai\/other-copy\.ts/);
+  assert.doesNotMatch(r.out, /ai-summary/, "已登记豁免的文件不得出现在报错里");
+});
+
 test("真实仓应通过（批次尚未落库时，门禁按现结构空转）", () => {
   const r = run();
   assert.equal(r.code, 0, r.out);
