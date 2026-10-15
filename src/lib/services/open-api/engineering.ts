@@ -62,7 +62,6 @@ const PRO_EXTRA_FIELDS = `
   o.contacts,
   o.beneficiary_countries,
   o.registration_level,
-  o.product_code,
   o.source_url
 `;
 

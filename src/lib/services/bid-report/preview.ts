@@ -44,8 +44,7 @@ export function estimateFullReportCharCount(row: Row): number {
     ["行业 (Industry)", safe(INDUSTRY_MAP[safe(row.industry)] ?? row.industry)],
   ];
   for (const [label, value] of infoFields) total += label.length + 2 + value.length;
-  // 原「旧品类码分类」行随该快照列退役删除，与 buildBidReportDocx 保持镜像。
-  if (safe(row.product_code)) total += "产品编码".length + 2 + safe(row.product_code).length;
+  // 「产品编码」行随旧品类码快照列 product_code 物理退役整体删除，与 buildBidReportDocx 保持镜像。
   total += `国际贸易条款 (Incoterms)：${safe(row.incoterms) || "未注明"}`.length;
   total += "1.2 时间节点与响应周期".length;
   total += "标案发布日期 (Publication Date)".length + 2 + safe(row.published_date).length;

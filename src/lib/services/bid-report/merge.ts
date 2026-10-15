@@ -36,7 +36,6 @@ export function mergeBidReportRow(notice: Row, opportunity: Row | null): Row {
     technical_hurdles: safe(opp.technical_hurdles),
     training_link: safe(opp.training_link),
     remark: safe(opp.remark),
-    product_code: safe(opp.product_code),
     source_url: safe(opp.source_url || notice.url),
     // R5'（2026-10-14）：旧品类码快照列运行期不再 SELECT（notice-detail.repo / opportunities.repo
     // 两侧列清单均已剥），报告不再写那个字段。旧行如需重建那份快照，

@@ -99,8 +99,6 @@ export interface NoticeDetailFields {
   ai_products?: unknown;
   /** AI 深度分析 */
   ai_analysis?: Record<string, unknown>;
-  /** 产品编码 */
-  product_code?: string;
   /** 截止时间（国际标含时刻，如 "2026-10-28 09:30:00"）：已由 NoticeListItem 声明，此处不重复 */
   /** 截止时刻的 IANA 时区（如 Africa/Casablanca）；无它则非整日截止无法正确倒计时 */
   deadline_timezone?: string;

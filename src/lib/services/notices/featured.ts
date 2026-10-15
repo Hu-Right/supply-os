@@ -105,7 +105,7 @@ async function queryQualifiedOpportunity(dbPool: Pool, notice: NoticeIdentity) {
     bid_overview, supplier_conditions,
     eligibility, technical_hurdles, industry,
     contacts, documents, external_links, ai_products, ai_analysis, status, priority,
-    audit_status, review_status, is_qualified, product_code
+    audit_status, review_status, is_qualified
   `;
   const qualifiedWhere = qualifiedOppWhere();
 

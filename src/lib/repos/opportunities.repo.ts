@@ -130,7 +130,7 @@ export class OpportunitiesRepo {
               source_platform, industry, incoterms, published_date, deadline, deadline_timezone,
               estimated_value, description, description_cn, description_other, bid_overview,
               supplier_conditions, eligibility, technical_hurdles, training_link, remark,
-              product_code, source_url, ai_products, ai_analysis,
+              source_url, ai_products, ai_analysis,
               documents, external_links, contacts, update_time
        FROM crm_bid_opportunities WHERE id = ? LIMIT 1`,
       [opportunityId],

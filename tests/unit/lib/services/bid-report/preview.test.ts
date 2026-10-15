@@ -14,7 +14,6 @@ const fullRow = {
   deadline: "2026-06-30",
   deadline_timezone: "UTC",
   source_url: "https://example.com/tender",
-  product_code: "PC-001",
   incoterms: "CIF",
   bid_overview: "Comprehensive construction project",
   description: "Building construction in developing region",
