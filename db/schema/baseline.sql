@@ -392,7 +392,6 @@ CREATE TABLE `crm_commodity_backbone` (
   `name_en` varchar(300) NOT NULL DEFAULT '' COMMENT '英文名；界面文案走 locale，本列供运维对账与缺中文时兜底',
   `sort` int NOT NULL COMMENT '同父内稳定顺序，按公告量降序固化，不随每日量漂移',
   `status` tinyint NOT NULL DEFAULT '1' COMMENT '1=启用 0=停用（停用不删行，保留历史归属）',
-  `note` varchar(500) NOT NULL DEFAULT '' COMMENT '命名依据与待审点；机器候选名一律写明，混装桶以「混装:」开头',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_code` (`code`),

@@ -206,9 +206,7 @@ for (const r of rows) {
   sibHard.add(k);
 }
 if (dupHard.length) fail(`BB5 中类/小类同父重名 ${dupHard.length} 处，如 ${dupHard[0]}`);
-// 正名收尾：不许再挂建树时的「待人工正名」标记（名字已是止于正名的成品，否则说明正名没做完）
-const stale = await one(`SELECT COUNT(*) n FROM crm_commodity_backbone WHERE level IN (2,3) AND note LIKE '%待人工正名%'`);
-if (Number(stale.n) !== 0) fail(`BB5 还有 ${stale.n} 个中类/小类挂着「待人工正名」标记，正名未收尾`);
+// （原「待人工正名」note 列检查随 2026-10-15 列删除退役：正名早已收尾，note 列已物理删除）
 const sib = new Set<string>();
 let sibWarn = 0;
 for (const r of rows) {
