@@ -60,7 +60,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
               n.contact_name, n.contact_email, n.contact_phone
        FROM crm_bid_notices n
        LEFT JOIN crm_commodity_backbone c1 ON c1.code = n.category_code
-       LEFT JOIN crm_commodity_backbone c0 ON c0.code = LEFT(n.category_code, 7) AND c0.level = 1
+       LEFT JOIN crm_commodity_backbone c0 ON c0.code = LEFT(n.category_code, 6) AND c0.level = 1
        WHERE n.id = ? AND n.notice_type = 'RFQ' AND n.entry_source = 'platform'
        LIMIT 1`,
       [rfqId],

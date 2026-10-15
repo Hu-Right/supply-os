@@ -88,7 +88,7 @@ export const GET = withRoute(async (req: NextRequest) => {
                   n.estimated_value, n.currency, n.deadline_sec, n.is_featured, n.agency
            FROM crm_bid_notices n
            LEFT JOIN crm_commodity_backbone c1 ON c1.code = n.category_code
-           LEFT JOIN crm_commodity_backbone c0 ON c0.code = LEFT(n.category_code, 7) AND c0.level = 1
+           LEFT JOIN crm_commodity_backbone c0 ON c0.code = LEFT(n.category_code, 6) AND c0.level = 1
            WHERE ${whereSql} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
           [...params, pageSize, offset],
         ),
