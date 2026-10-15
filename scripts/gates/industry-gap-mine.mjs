@@ -102,7 +102,7 @@ const bump = (map, gram, isUncoded) => {
 };
 
 async function loadTree() {
-  const nodes = await q(`SELECT code, src_code, level, source, name_zh, parent_code, description FROM crm_industry_nodes`);
+  const nodes = await q(`SELECT code, level, name_zh, parent_code, description FROM crm_industry_nodes`);
   const links = await q(`SELECT industry_code, COUNT(*) direct_links FROM crm_supplier_industry_rel GROUP BY industry_code`);
   return { nodes, directByCode: new Map(links.map((r) => [r.industry_code, Number(r.direct_links)])) };
 }
@@ -231,7 +231,7 @@ async function main() {
   const { nodes, directByCode } = await loadTree();
   const idx = buildTreeIndex(nodes);
   const covered = buildCoveredGrams(idx);
-  const selfCodes = new Set(nodes.filter((n) => n.source === "self").map((n) => n.code));
+  const selfCodes = new Set(nodes.filter((n) => n.level === "extension").map((n) => n.code));
   /** 空根与子树合计一次算完：Q4 用 roots，Q1 粗叶集用 subLinks */
   const { roots: gbEmptyRoots, sub: subLinks } = findMaximalEmptyRoots(nodes, idx, directByCode);
   const rootCodeSet = new Set(gbEmptyRoots.map((n) => n.code));
@@ -304,7 +304,7 @@ async function main() {
   /* ── Q3：自研节点零挂靠但有文本证据 → 接线，不造码 ── */
   let selfUnverified = 0;
   for (const n of nodes) {
-    if (n.source !== "self") continue;
+    if (n.level !== "extension") continue;
     const direct = directByCode.get(n.code) ?? 0;
     const ids = selfEvidence.get(n.code) ?? new Set();
     if (!isQ3DeadNode(n, direct, ids.size)) {

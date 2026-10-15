@@ -9,7 +9,7 @@
  *   scripts/gates/check-taxonomy-invariants.ts  只管树自身结构不变量（I/C/X 系）
  *   scripts/gates/verify-industry-links.ts      只管挂靠质量（覆盖率/集中度/粒度）
  *   本脚本                                        管**缺口性质**：Q1 粗叶集、Q4 疑似保留分支、
- *                                          树利用率、`supplier_count` 漂移，并汇总 mine 产出的
+ *                                          树利用率，并汇总 mine 产出的
  *                                          文本口径四象限（Q1a/Q1b/Q2/Q3）。
  *
  * 只读三层守卫：START TRANSACTION READ ONLY + 每条 SQL 过 assertReadOnlySql + 无 --apply 参数。
@@ -95,7 +95,7 @@ async function main() {
   const directByCode = new Map(linkRows.map((r) => [r.industry_code, Number(r.direct_links)]));
 
   /* ── 3. 树本体 + 在 JS 里算子树累计（O(N)，比递归 CTE 便宜且可控） ── */
-  const nodes = await q(`SELECT code, level, source, name_zh, parent_code, supplier_count FROM crm_industry_nodes`);
+  const nodes = await q(`SELECT code, level, name_zh, parent_code FROM crm_industry_nodes`);
   const childrenByParent = new Map();
   const byCode = new Map();
   for (const n of nodes) {
@@ -108,7 +108,6 @@ async function main() {
 
   const util = new Map();
   for (const lv of LEVELS) util.set(lv, { total: 0, used: 0 });
-  let drift = 0;
   const q1Coarse = [];
   for (const n of nodes) {
     const direct = directByCode.get(n.code) ?? 0;
@@ -117,7 +116,6 @@ async function main() {
       u.total++;
       if (direct > 0) u.used++;
     }
-    if (Number(n.supplier_count) !== direct) drift++;
 
     const kidsSum = (childrenByParent.get(n.code) ?? []).reduce((a, c) => a + subLinks(c.code), 0);
     if (direct >= TH.q1MinDirect && kidsSum === 0) q1Coarse.push({ code: n.code, name: n.name_zh, level: n.level, direct });
@@ -152,7 +150,6 @@ async function main() {
   out(`   ${[...gbEmptyByLevel].map(([lv, n]) => `${LEVEL_CN[lv]} ${n}`).join(" · ")}`);
   out(`\n5) 闭环健康度`);
   out(`   rel ${num(relTot.rows_all)} 行 / ${num(relTot.sups)} 家 / 用到 ${relTot.codes} 个码（树共 ${nodes.length}）`);
-  out(`   supplier_count 列与实测漂移 ${drift} 个节点（本脚本一律实时聚合，不读该列；刷新属写操作，另批处理）`);
   out(`\n6) 文本口径四象限（读最近一次 mine 产物）`);
   if (art?.data) {
     const s = art.data.summary ?? {};
@@ -194,7 +191,6 @@ async function main() {
           utilization: Object.fromEntries([...util].map(([k, v]) => [k, v])),
           q1Coarse,
           gbEmptyBranches: gbEmptyCount,
-          supplierCountDriftNodes: drift,
           rel: relTot,
           artifact: art ? { file: art.file, generatedAt: art.data?.generatedAt, summary: art.data?.summary ?? null } : null,
           breaches,

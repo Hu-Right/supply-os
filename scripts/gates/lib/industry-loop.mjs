@@ -304,14 +304,14 @@ export function splitQ1ByDerivable(derivableShare) {
   return derivableShare >= TH.q1DerivableShare ? "Q1a" : "Q1b";
 }
 
-/** Q3：自研节点零挂靠但有文本证据 → 缺的是打标接线，不是节点 */
+/** Q3：自研延伸层（level='extension'）零挂靠但有文本证据 → 缺的是打标接线，不是节点 */
 export function isQ3DeadNode(node, directLinks, evidenceSuppliers) {
-  return node.source === "self" && directLinks === 0 && evidenceSuppliers >= TH.q3MinEvidenceSuppliers;
+  return node.level === "extension" && directLinks === 0 && evidenceSuppliers >= TH.q3MinEvidenceSuppliers;
 }
 
-/** Q4：国标子树零供应商且无文本证据 → 目录里没有这类主体，保留权威覆盖，不算缺口 */
+/** Q4：国标子树（level<>'extension'）零供应商且无文本证据 → 目录里没有这类主体，保留权威覆盖，不算缺口 */
 export function isQ4EmptyBranch(node, subtreeSuppliers, evidenceSuppliers) {
-  return node.source === "gb" && subtreeSuppliers === 0 && evidenceSuppliers === 0;
+  return node.level !== "extension" && subtreeSuppliers === 0 && evidenceSuppliers === 0;
 }
 
 /**
@@ -338,7 +338,7 @@ export function createSubtreeLinks(childrenByParent, directByCode) {
 export function findMaximalEmptyRoots(nodes, idx, directByCode, sub = createSubtreeLinks(idx.childrenByParent, directByCode)) {
   const roots = [];
   for (const n of nodes) {
-    if (n.source !== "gb" || sub(n.code) !== 0) continue;
+    if (n.level === "extension" || sub(n.code) !== 0) continue;
     const parent = n.parent_code ? idx.byCode.get(n.parent_code) : null;
     if (parent && sub(parent.code) === 0) continue; // 父整片也空 → 由父代表
     roots.push(n);
