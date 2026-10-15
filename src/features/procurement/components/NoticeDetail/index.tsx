@@ -28,6 +28,7 @@ import { getCountdown } from "@/shared/utils/countdown";
 
 import { DetailHeader } from "./DetailHeader";
 import { DetailTabs } from "./DetailTabs";
+import { ShareModal } from "./ShareModal";
 import { tabPanelId, tabTriggerId } from "./utils";
 import { QualificationTab } from "./QualificationTab";
 import { FilesTab } from "./FilesTab";
@@ -79,6 +80,8 @@ export function NoticeDetail({
   const aiMatch = useAiMatch(noticeId, aiMatchEnabled);
   const [activeTab, setActiveTab] = useState("summary");
   const [countdown, setCountdown] = useState(getCountdown(notice.deadline_ts));
+  // 分享面板开关（链接由公告数值 id 拼成规范公开详情页）
+  const [shareOpen, setShareOpen] = useState(false);
 
   // 倒计时每秒刷新
   useEffect(() => {
@@ -144,6 +147,7 @@ export function NoticeDetail({
           publishDate={publishDate} deadlineText={deadlineText} countdown={countdown}
           budgetText={budgetText} onBack={onBack} t={t} locale={locale}
           favorited={favorited} onToggleFavorite={onToggleFavorite}
+          onShare={() => setShareOpen(true)}
         />
 
         <DetailTabs activeTab={activeTab} setActiveTab={setActiveTab} t={t} gates={membership?.gates} coreUnlocked={coreUnlocked} />
@@ -270,6 +274,14 @@ export function NoticeDetail({
         showSkeleton={showSkeleton}
         onExpressInterest={onExpressInterest}
         onUnlock={onUnlock}
+      />
+
+      {/* 分享面板：链接直达规范公开详情页 /procurement/notice/{id} */}
+      <ShareModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        noticeId={noticeId}
+        title={displayTitle}
       />
     </div>
   );

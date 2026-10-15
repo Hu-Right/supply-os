@@ -22,6 +22,8 @@ interface DetailHeaderProps {
   favorited?: boolean;
   /** 收藏/取消收藏 */
   onToggleFavorite?: () => void;
+  /** 点击「分享」：打开应用内分享面板（由父级持有面板状态与公告 id） */
+  onShare?: () => void;
   /** i18n（params 供倒计时等插值文案使用） */
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: string;
@@ -30,7 +32,7 @@ interface DetailHeaderProps {
 export function DetailHeader({
   displayTitle, typeLabel, noticeId, visibleAgency, country,
   sourceUrl, publishDate, deadlineText, countdown, budgetText,
-  onBack, favorited, onToggleFavorite, t, locale,
+  onBack, favorited, onToggleFavorite, onShare, t, locale,
 }: DetailHeaderProps) {
   const sourceName = getSourcePlatformName(sourceUrl, locale);
 
@@ -68,10 +70,7 @@ export function DetailHeader({
             <Bookmark className={`w-3.5 h-3.5 ${favorited ? "fill-amber-500 text-amber-500" : ""}`} />
             {favorited ? (t("detail_collected") || "已收藏") : (t("detail_collect") || "收藏")}
           </button>
-          <button type="button" onClick={() => {
-              if (navigator.share) navigator.share({ title: displayTitle, url: window.location.href });
-              else { navigator.clipboard.writeText(window.location.href); alert(t("detail_linkCopied")); }
-            }}
+          <button type="button" onClick={onShare}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:border-teal-400 hover:text-teal-700 transition-colors">
             <Share2 className="w-3.5 h-3.5" />
             {t("detail_share")}
