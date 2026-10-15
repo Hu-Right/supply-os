@@ -103,7 +103,7 @@ async function main() {
 
   /* ── 5. 自研新兴节点可用性 ── */
   const ext = await q(`SELECT t.code, t.name_zh, (SELECT COUNT(*) FROM crm_supplier_industry_rel r WHERE r.industry_code = t.code) direct
-    FROM ${IND} t WHERE t.source='self' ORDER BY direct DESC`);
+    FROM ${IND} t WHERE t.level='extension' ORDER BY direct DESC`);
   const extUsed = ext.filter((x) => Number(x.direct) > 0).length;
   // 分母动态取数：扩树后总节点/自研节点会变，写死 1996、24 会失真误导
   const treeTot = await one(`SELECT COUNT(*) n FROM ${IND}`);
