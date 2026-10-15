@@ -225,7 +225,6 @@ CREATE TABLE `crm_bid_notices` (
   `beneficiary_countries` varchar(500) DEFAULT NULL COMMENT '受益国家',
   `organization` varchar(500) DEFAULT NULL,
   `key_contacts` varchar(255) DEFAULT NULL,
-  `is_qualified` tinyint(1) DEFAULT '0' COMMENT '公告是否被审核为合格（由商机审核同步）',
   `deadline_sec` bigint GENERATED ALWAYS AS (if((`deadline_ts` > 100000000000),floor((`deadline_ts` / 1000)),`deadline_ts`)) STORED,
   `is_featured` tinyint(1) NOT NULL DEFAULT '0',
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
