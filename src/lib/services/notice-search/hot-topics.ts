@@ -11,17 +11,15 @@
  *              与点进去的筛选都是 32 品目大类（一个容器最多跨 14 个大类，行业墙那批实测过
  *              「同容器不同大类可见内容完全一样」）。名与实差 3.2 倍粒度，用户点进去筛出
  *              的东西和标签说的不是一回事。
- *              现在按 32 个骨架 L1 行 × 宽表 `backbone_path` 的**包含**关系聚合，大类码由
- *              骨架 L1 行的 group_code 带出 —— 不靠「L1 码序号 = 大类码序号」的错觉
- *              （实测 32 行只有 5 行相等）。
+ *              现在按 32 个骨架 L1 行 × 宽表 `backbone_path` 的**包含**关系聚合。
+ *              2026-10-15 G 码退役：大类身份 = L1 树码本身，`code` 直接取骨架 L1 行码，
+ *              展示名随 SQL 带出 `name_zh`（树是名称唯一事实源，不再有 locale 键第二口径）。
  *              为什么是「包含」而不是「链顶」：backbone_path 升序全存祖先，取第一个码就是
  *              取该公告的最小大类，一条挂 2 个以上大类的公告只会被数一次（temp/probe92：
  *              有效公告 83,136 条里 5,272 条跨大类，占 6.3%）。实测两口径 TOP8 既差数又差序：
  *              UGT-04 链顶 5,763 / 包含 6,654（少 13.4%），UGT-04 与 UGT-05 直接换位。
  *              标称值必须是点进去的兑现值 —— 与检索侧大类谓词（filter-builder 的
  *              nodeMysqlWhere / nodeMeiliFilter）落在同一条包含关系上，才不会再长出两套数。
- *              展示名不在服务端拼：前端按大类码取 locale（与五级下拉第一级、chip 同一份名字），
- *              服务端混一份 DB name_zh/name_en 就会长出第二套名称口径（实测 L2~L4 的 name_en 全空）。
  *
  *              一并删除的：`旧品类码` 字段（旧 level=2 码 TOP8）。前端从不读它（useHotTopics 的
  *              类型里没有、两个组件都没用），但它是首页聚合里第三条全表 FIND_IN_SET ——
@@ -37,10 +35,10 @@ import { getNoticeCountries } from "./countries";
 const HOT_TOPICS_TTL_MS = 10 * 60 * 1000;
 const HOT_TOPICS_LIMIT = 8;
 
-/** 热门品目大类：node=骨架 L1 节点码（诊断用），code=大类码（前端取 locale 名 + 拼筛选链接） */
+/** 热门品目大类：code = 骨架 L1 节点码（前端拼筛选链接），nameZh = 树名（展示唯一事实源） */
 export interface HotGroupItem {
-  node: string;
   code: string;
+  nameZh: string;
   count: number;
 }
 
@@ -52,8 +50,8 @@ export interface HotTopics {
 let hotTopicsCache: { data: HotTopics; expires: number } | null = null;
 
 interface CountRow extends RowDataPacket {
-  node: string;
   code: string;
+  name_zh: string;
   cnt: number;
 }
 
@@ -71,20 +69,20 @@ interface CountRow extends RowDataPacket {
  * 最多付一次，换的是「标称 = 兑现」这一条，不是一次首页请求里跑 32 条 SQL。
  */
 export const HOT_TOP_GROUPS_SQL = `
-  SELECT b.code AS node, b.group_code AS code, COUNT(*) AS cnt
+  SELECT b.code AS code, b.name_zh, COUNT(*) AS cnt
   FROM crm_commodity_backbone b
   JOIN crm_notice_search ns ON ns.backbone_path <> '' AND FIND_IN_SET(b.code, ns.backbone_path)
-  WHERE b.level = 1 AND b.status = 1 AND b.group_code <> ''
+  WHERE b.level = 1 AND b.status = 1
     AND (ns.deadline_sec = 0 OR ns.deadline_sec >= UNIX_TIMESTAMP(NOW()))
-  GROUP BY b.code, b.group_code
+  GROUP BY b.code, b.name_zh
   ORDER BY cnt DESC
   LIMIT 8`;
 
 async function countTopGroups(pool: Pool): Promise<HotGroupItem[]> {
   const [rows] = await pool.query(HOT_TOP_GROUPS_SQL);
   return (rows as CountRow[]).map((r) => ({
-    node: String(r.node || ""),
     code: String(r.code || ""),
+    nameZh: String(r.name_zh || ""),
     count: Number(r.cnt) || 0,
   }));
 }

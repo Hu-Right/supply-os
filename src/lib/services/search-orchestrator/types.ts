@@ -28,24 +28,17 @@ export interface UnifiedSearchParams {
   noticeType: string;
   featuredOnly: boolean;
   sort: "deadline" | "latest" | "deadline_farthest";
-  /** 品目大类码（URL group=UGT-G-xx，32 类之一）。
-   *  2026-10-11 backbone 化：谓词为该大类所辖骨架 L1 节点码（commodity/tree 的 l1NodesOfGroup），
-   *  落 Meili backbone_node / MySQL backbone_path —— 与五级下拉、行业墙同一条列。
-   *  换口径前的等价性实测：temp/probe75 逐类对拍 32 个大类，旧段 id 谓词与新 L1 节点码
-   *  命中数 Δ=0、不一致 0/32 ⇒ 无需重灌 Meili 索引即可切换。 */
-  groupCode?: string;
   /** 品目骨架树筛选键（URL commodity=UGT-01 / -0101 / -010101 / -01010101 / -0101010101）。
    *  谓词落在宽表 backbone_path 的等值节点项 / Meili backbone_node 数组属性：
    *  backbone_path 存的是该公告归属的骨架节点码（含全部祖先，由
    *  lib/services/commodity/backbone-path 换算后灌入），所以「选到哪一层就命中哪一层」。
-   *  实测交叉验证：UGT-01 命中 49,236 条，与大类 chip 口径（group_codes）完全一致。
-   *  与 groupCode AND 叠加（大类→中类→…是同一条链的逐级收窄）。 */
+   *  传 L1 码（UGT-xx）即命中整个大类（2026-10-15 G 码退役，大类 chip 并入此参数）。 */
   commodityPath?: string;
-  /** 行业墙强制大类（industry-scope 服务注入，客户端不可传；与 groupCode/commodityPath 叠加 AND）。
-   *  nodes = 用户订阅大类的骨架 L1 节点码（可能多个），谓词落 backbone_path / Meili backbone_node。
+  /** 行业墙强制大类（industry-scope 服务注入，客户端不可传；与 commodityPath 叠加 AND）。
+   *  nodes = 用户订阅大类的骨架 L1 节点码（当前恰一个，保集合形状），谓词落 backbone_path / Meili backbone_node。
    *  2026-10-11 换口径：旧字段 forcedLevel1Id 比的是旧字典 level=1 行 id，而那一层实测就是 A..J
    *  十个字母容器（temp/probe78）—— 同容器不同大类的两个用户可见集合完全相同，墙等于没分行业。
-   *  nodes 为空数组 ≠ 不墙：那是大类挂不上骨架 L1 的分叉态，filter-builder 据此返回空结果。 */
+   *  nodes 为空数组 ≠ 不墙：那是推导不出大类的分叉态，filter-builder 据此返回空结果。 */
   wall?: { nodes: string[] };
   /** 预算范围过滤（USD，estimated_value 列） */
   budgetMin?: number;

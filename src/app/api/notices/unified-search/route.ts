@@ -38,9 +38,7 @@ function parseSearchParams(req: NextRequest): RawSearchParams {
     noticeType: get("notice_type"),
     featuredOnly: sp.get("featured") === "1",
     sort: get("sort", "latest"),
-    // 品目大类筛选（32 类 chip）：合法性在 validateParams 里按常量校验
-    groupCode: get("group"),
-    // 品目树筛选键（UGT 节点码）：合法性在 validateParams 里按形制校验
+    // 品目树筛选键（UGT 节点码，传 L1 码即大类筛选）：合法性在 validateParams 里按形制校验
     commodityPath: get("commodity"),
     budgetMin: sp.get("budget_min") ? Number(sp.get("budget_min")) : undefined,
     budgetMax: sp.get("budget_max") ? Number(sp.get("budget_max")) : undefined,
@@ -68,8 +66,8 @@ export const GET = withRoute(async (req: NextRequest) => {
   // 匿名/普通档不墙，演示档走 all_category_access 旁路，被墙档未绑行业暂不墙（needsIndustry 引导）。
   const scope = await resolveIndustryScope(getPool(), ctx.benefitSystemRepo, auth.userId || null);
   if (scope.scoped) {
-    // groupNodes 可空（大类在库内找不到任何 L1 行）：原样传下去，由 filter-builder 给空结果而不是不墙
-    params.wall = { nodes: scope.groupNodes };
+    // l1Nodes 可空（偏好码推导不出大类）：原样传下去，由 filter-builder 给空结果而不是不墙
+    params.wall = { nodes: scope.l1Nodes };
     // 被墙用户的推荐流收编进 prefs 管道（其行业画像必然存在——被墙前提是已绑行业），
     // 保证强制过滤对推荐结果同样生效
     if (params.mode === "recommended") params.mode = "prefs";

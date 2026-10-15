@@ -14,7 +14,6 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { normalizeBackboneNodeKey } from "@/lib/services/commodity/backbone-path";
 import { isCommodityNodeKey } from "@/lib/services/commodity/tree";
-import { isCommodityGroupCode } from "@/lib/services/commodity/groups";
 import type { ResultSetHeader } from "mysql2/promise";
 
 /** 安全截断字符串 */
@@ -79,8 +78,8 @@ export const POST = withRoute(async (req: NextRequest) => {
   const provinceName = str(body.province_name, 50);
   // 品目分类：UGT 最深节点码（旧 category_l1_id/l2_id 字典 id 随旧品类字典退役停写）
   const categoryCode = normalizeBackboneNodeKey(str(body.category_code, 24));
-  if (categoryCode && !isCommodityNodeKey(categoryCode) && !isCommodityGroupCode(categoryCode)) {
-    routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 大类码或骨架节点码）");
+  if (categoryCode && !isCommodityNodeKey(categoryCode)) {
+    routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 骨架节点码）");
   }
   const deliveryAddress = str(body.delivery_address, 500);
   const incoterm = str(body.incoterm, 20);

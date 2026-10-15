@@ -1,16 +1,13 @@
 /**
- * 行业可见性墙 — 范围判定与命中检查单测（2026-10-11 backbone 口径固化）
+ * 行业可见性墙 — 范围判定与命中检查单测（2026-10-15 G 码退役 / L1 树码接管口径）
  *
  * 判定链的六个出口照旧钉住：匿名不墙 / 无订阅不墙 / 演示档旁路（all_category_access）/
- * 非限定档不墙（industry_scoped=0）/ 限定档+已绑大类 → 墙 / 限定档+未绑大类 → 暂不墙+引导。
+ * 非限定档不墙（industry_scoped=0）/ 限定档+已绑行业 → 墙 / 限定档+未绑行业 → 暂不墙+引导。
  *
- * 本批改的是命中的**输入与数据源**（用户裁决「不需要任何旧数据，全部以最新的为准」）：
- * - 输入从旧字典 level=1 行 id 换成 prefs.group_code → 骨架 L1 节点码。旧口径实测就是
- *   A..J 十个字母容器：user=1 订 UGT-G-25、user=10 订 UGT-G-17，两人 level1_id 都是 109，
- *   旧实现下两人可见公告**完全相同**（各 40,171 条，temp/probe77/probe78）；
- * - 公告侧不再 JOIN 桥表，改点查宽表 backbone_path：桥表 notice_id 是外部编号，与另一公告
- *   的内部 id 实测撞号 21,524 行，旧实现靠主表中转绕开，现在根本不碰桥表；
- * - 「大类挂不上 L1」必须是收窄（空结果）而不是放开全量 —— 那是付费权益泄漏。
+ * 本批改的是墙的**键**（G 码退役）：
+ * - 大类身份 = L1 树码本身，由偏好 commodity_code 前缀纯切片推导（l1CodeOfNode，BB1 不变量），
+ *   不再读偏好表 group_code、不再经 l1NodesOfGroup 翻译 —— 墙谓词输入（L1 节点码）不变；
+ * - 「推导不出大类」（偏好码形制非法）必须是收窄（空结果 + warn）而不是放开全量 —— 那是付费权益泄漏。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -34,21 +31,10 @@ function makeCatalog(opts: { plan?: { plan_code: string } | null; scoped?: boole
   } as unknown as BenefitSystemRepo;
 }
 
-/** 骨架 L1 行（列别名 g / node）：UGT-G-14 故意挂两个，钉「多值全都要参与命中」 */
-const L1_ROWS = [
-  { g: "UGT-G-25", node: "UGT-85" },
-  { g: "UGT-G-14", node: "UGT-21" },
-  { g: "UGT-G-14", node: "UGT-22" },
-  // 库里挂着但码形制非法的行：l1NodesOfGroup 必须丢掉，不能让脏码进谓词变成「永不命中」
-  { g: "UGT-G-14", node: "UGT-XY" },
-];
-
-/** 宽表 backbone_path 列值：逐用例改写（tree 的 L1 图有 10 分钟模块级缓存，全用例共用 L1_ROWS） */
+/** 宽表 backbone_path 列值：逐用例改写 */
 let wideRows: RowDataPacket[] = [];
-// 形参必须把 params 一并声明：否则 mock.calls 的元组只有一位，取不到传参（TS2493）
 const query = vi.fn(async (sql: string, _params?: unknown[]) => {
   const s = String(sql);
-  if (s.includes("crm_commodity_backbone")) return [L1_ROWS];
   if (s.includes("crm_notice_search")) return [wideRows];
   return [[]];
 });
@@ -66,7 +52,7 @@ beforeEach(() => {
 describe("resolveIndustryScope · 判定链", () => {
   it("匿名不墙（转化漏斗口径）", async () => {
     expect(await resolveIndustryScope(pool, makeCatalog(), null)).toEqual({
-      scoped: false, groupCode: null, groupNodes: [], needsIndustry: false,
+      scoped: false, l1Code: null, l1Nodes: [], needsIndustry: false,
     });
   });
 
@@ -85,26 +71,27 @@ describe("resolveIndustryScope · 判定链", () => {
     expect(await resolveIndustryScope(pool, makeCatalog({ scoped: false }), 7)).toMatchObject({ scoped: false });
   });
 
-  it("限定档 + 已绑大类 → 墙启动，带出大类码与其 L1 节点码", async () => {
-    profile.resolve.mockResolvedValue({ userId: 42, groupCode: "UGT-G-25", levelIds: [109, null, null, null, 100852] });
+  it("限定档 + 已绑行业 → 墙启动，l1Code 即偏好的 L1 前缀（零查库推导）", async () => {
+    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-85010101" });
+    // 关键：全程不查 crm_commodity_backbone（大类翻译层已随 G 码退役消失）
     expect(await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 42)).toEqual({
-      scoped: true, groupCode: "UGT-G-25", groupNodes: ["UGT-85"], needsIndustry: false,
+      scoped: true, l1Code: "UGT-85", l1Nodes: ["UGT-85"], needsIndustry: false,
+    });
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("限定档但没有偏好 → 暂不墙 + needsIndustry 引导", async () => {
+    profile.resolve.mockResolvedValue(null);
+    expect(await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 42)).toEqual({
+      scoped: false, l1Code: null, l1Nodes: [], needsIndustry: true,
     });
   });
 
-  it("限定档但画像里没有大类码 → 暂不墙 + needsIndustry 引导（旧 level1 容器不参与判定）", async () => {
-    profile.resolve.mockResolvedValue({ userId: 42, groupCode: null, levelIds: [109, null, null, null, null] });
-    expect(await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 42)).toEqual({
-      scoped: false, groupCode: null, groupNodes: [], needsIndustry: true,
-    });
-  });
-
-  it("大类合法但库里挂不上任何 L1 行 → 仍算已限定且 nodes 为空，并留下 warn（不静默放开全量）", async () => {
-    // UGT-G-17 是 32 类里的真大类，但本文件的 L1 夹具没给它行——这就是常量与库分叉的形状
-    profile.resolve.mockResolvedValue({ groupCode: "UGT-G-17" });
+  it("偏好码推导不出大类（脏码）→ 仍算已限定且 nodes 为空，并留下 warn（不静默放开全量）", async () => {
+    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-XY" });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const r = await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 42);
-    expect(r).toEqual({ scoped: true, groupCode: "UGT-G-17", groupNodes: [], needsIndustry: false });
+    expect(r).toEqual({ scoped: true, l1Code: null, l1Nodes: [], needsIndustry: false });
     expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
   });
@@ -117,7 +104,7 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
   });
 
   it("公告祖先链含墙内 L1 → 放行；不含 → 拦", async () => {
-    profile.resolve.mockResolvedValue({ groupCode: "UGT-G-25" });
+    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-85010101" });
     const catalog = makeCatalog({ scoped: true });
     wideRows = wide("UGT-85,UGT-8501,UGT-85010101");
     expect(await canAccessNotice(pool, catalog, 42, 9001)).toBe(true);
@@ -125,22 +112,22 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
     expect(await canAccessNotice(pool, catalog, 42, 9002)).toBe(false);
   });
 
-  it("多 L1 的大类：任一节点命中即放行（只取第一个就是静默漏类）", async () => {
-    profile.resolve.mockResolvedValue({ groupCode: "UGT-G-14" });
-    wideRows = wide("UGT-22,UGT-2201");
+  it("公告祖先链命中 L1 的深层节点同样放行（码即全链，等值即包含）", async () => {
+    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-220101" });
+    wideRows = wide("UGT-22,UGT-2201,UGT-220101");
     expect(await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9003)).toBe(true);
   });
 
   it("公告本身无类目数据（宽表无行 / 列为 NULL）→ 放行，不被脏数据锁死", async () => {
-    profile.resolve.mockResolvedValue({ groupCode: "UGT-G-25" });
+    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-85010101" });
     wideRows = [];
     expect(await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9004)).toBe(true);
     wideRows = wide(null);
     expect(await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9005)).toBe(true);
   });
 
-  it("被墙但大类挂不上 L1 → 有码公告一律拦（分叉态收窄，不放开）", async () => {
-    profile.resolve.mockResolvedValue({ groupCode: "UGT-G-17" });
+  it("被墙但推导不出大类 → 有码公告一律拦（分叉态收窄，不放开）", async () => {
+    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-XY" });
     wideRows = wide("UGT-85,UGT-8501");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     expect(await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9006)).toBe(false);
@@ -148,10 +135,10 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
   });
 
   it("口径铁则：只点查宽表 ns.id，不得再碰桥表与旧字典 level1_id", async () => {
-    profile.resolve.mockResolvedValue({ groupCode: "UGT-G-25" });
+    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-85010101" });
     wideRows = wide("UGT-85");
     await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9007);
-    // L1 映射查询在前，命中检查取最后一次
+    // 大类翻译查询已消失（L1 由码前缀推导），命中检查就是唯一一次查库
     const sql = String(query.mock.calls.at(-1)![0]);
     expect(sql).toContain("crm_notice_search");
     expect(sql).toContain("backbone_path");
@@ -159,7 +146,8 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
     expect(sql).not.toMatch(/crm_bid_notice_\w*_codes\b/);
     expect(sql).not.toContain("crm_bid_notices");
     expect(sql).not.toMatch(/level1_id/);
-    expect(query.mock.calls.at(-1)![1]).toEqual([9007]);
+    expect(query.mock.calls).toHaveLength(1);
+    expect(query.mock.calls[0]![1]).toEqual([9007]);
   });
 });
 
@@ -186,20 +174,18 @@ describe("noticeInCategory · 搜索参考号快速路径口径", () => {
 });
 
 describe("opportunityInCategory · 商机侧（经关联公告宽表口径）", () => {
-  it("关联公告祖先链含该大类的 L1 → true；不含 → false", async () => {
-    wideRows = wide("UGT-85"); // UGT-G-25 的 L1
-    expect(await opportunityInCategory(pool, 77, "UGT-G-25")).toBe(true);
-    wideRows = wide("UGT-21,UGT-22"); // UGT-G-14 挂两个 L1，任一命中即可
-    expect(await opportunityInCategory(pool, 77, "UGT-G-14")).toBe(true);
-    wideRows = wide("UGT-85");
-    expect(await opportunityInCategory(pool, 77, "UGT-G-14")).toBe(false);
+  it("关联公告祖先链含该大类 L1 → true；不含 → false", async () => {
+    wideRows = wide("UGT-85,UGT-8501");
+    expect(await opportunityInCategory(pool, 77, "UGT-85")).toBe(true);
+    wideRows = wide("UGT-21,UGT-22");
+    expect(await opportunityInCategory(pool, 77, "UGT-85")).toBe(false);
   });
 
   it("关联公告无类目数据（无宽表行/列为空）→ false（拒绝解锁）：判不准时不越权", async () => {
     wideRows = [];
-    expect(await opportunityInCategory(pool, 78, "UGT-G-25")).toBe(false);
+    expect(await opportunityInCategory(pool, 78, "UGT-85")).toBe(false);
     wideRows = wide(null);
-    expect(await opportunityInCategory(pool, 78, "UGT-G-25")).toBe(false);
+    expect(await opportunityInCategory(pool, 78, "UGT-85")).toBe(false);
   });
 
   it("未绑大类 → false 且不查库", async () => {
@@ -209,11 +195,6 @@ describe("opportunityInCategory · 商机侧（经关联公告宽表口径）", 
 
   it("脏 token 不参与命中：只认 UGT- 形制的节点码", async () => {
     wideRows = wide("UGT-XY,43211503");
-    expect(await opportunityInCategory(pool, 80, "UGT-G-25")).toBe(false);
-  });
-
-  it("大类挂不上 L1（分叉态）→ false，不放开", async () => {
-    wideRows = wide("UGT-21");
-    expect(await opportunityInCategory(pool, 81, "UGT-G-99")).toBe(false);
+    expect(await opportunityInCategory(pool, 80, "UGT-85")).toBe(false);
   });
 });

@@ -6,10 +6,12 @@
  * @description 承载需求广场的筛选状态（关键词/省份/品目大类/排序）、32 大类选项装载、
  *              300ms 防抖请求与列表状态；组件仅负责展示（约定：数据获取统一在 hooks 层）。
  *              原为 RfqPlaza 组件内联逻辑，行为一致。
+ *              2026-10-15 G 码退役：大类选项改走树接口（L1 行直出，树名即展示名），
+ *              category_l1 的值携带 L1 树码（UGT-xx）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/core/http";
-import { COMMODITY_GROUPS, type CommodityGroup } from "@/lib/services/commodity/groups";
+import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/features/procurement/api/commodityTree";
 import type { PlazaRfq } from "../types";
 
 export type RfqSortKey = "newest" | "deadline" | "budget";
@@ -31,10 +33,17 @@ export function useRfqPlaza() {
   const [total, setTotal] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 品目大类选项（UGT 32 大类常量，与商机页快筛 chip 同源同序，不走网络）
-  const l1Options = useMemo<readonly CommodityGroup[]>(() => COMMODITY_GROUPS, []);
+  // 品目大类选项（骨架 L1 行直出，与商机页五级下拉第一级同源同名）
+  const [l1Options, setL1Options] = useState<CommodityTreeOption[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchCommodityTreeChildren("")
+      .then((rows) => { if (!cancelled) setL1Options(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (!cancelled) setL1Options([]); });
+    return () => { cancelled = true; };
+  }, []);
 
-  // 构建查询参数（category_l1 现在携带 UGT-G-xx 大类码）
+  // 构建查询参数（category_l1 携带 L1 树码 UGT-xx）
   const queryParams = useMemo(() => {
     const sp = new URLSearchParams();
     sp.set("page_size", "24");

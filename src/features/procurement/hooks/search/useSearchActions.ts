@@ -8,6 +8,7 @@ import { useCallback, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { clearApiCache } from "@/core/http";
 import { composeQ, type TermRow } from "@/shared/utils/advanced-syntax";
+import { commodityNodeChain } from "@/lib/services/commodity/tree";
 import type { NoticeItem, PrefsMode } from "../../types";
 import type { SearchFormInputs } from "./useSearchFormState";
 import type { SearchQuery } from "./useSearchQuery";
@@ -42,7 +43,7 @@ export interface SearchActions {
   ) => void;
   clearSearch: () => void;
   toggleFeatured: () => void;
-  /** 五级下拉某一层选中（level 0=大类→写 group，1~4=中类/小类/子类/品目→写 commodity；key 骨架节点码，空串 = 清空该层）*/
+  /** 五级下拉某一层选中（0~4 = 大类/中类/小类/子类/品目；key 骨架节点码，空串 = 清空该层）*/
   setCommodityLevel: (level: number, key: string) => void;
   markUserSubmitted: () => void;
 }
@@ -99,8 +100,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (inputs.noticeTypeInput.trim()) next.notice_type = inputs.noticeTypeInput.trim();
     if (query.activeFeatured) next.featured = "1";
     // 以下两项都不在表单里，从 URL 事实源直接携带，否则重新搜索会静默丢筛选：
-    // 大类 chip 与五级下拉共用的 group、五级下拉的品目路径
-    if (query.activeGroup) next.group = query.activeGroup;
+    // 五级下拉的品目路径（传 L1 码即大类筛选）
     if (query.activeCommodity) next.commodity = query.activeCommodity;
     if (query.activeBudgetMin) next.budget_min = query.activeBudgetMin;
     if (query.activeBudgetMax) next.budget_max = query.activeBudgetMax;
@@ -131,28 +131,24 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
   }, [searchParams, query.activeFeatured, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
 
   /**
-   * 五级下拉的任一层选中入 URL（URL 是唯一事实源，level 0=大类、1~4=中类/小类/子类/品目）。
-   * commodity 的值就是骨架节点码（UGT-…），与公告侧 backbone_path 同口径，可直接当筛选键。
-   * 大类入口只剩这里：原本的 32 类 chip 行因与第一级完全重叠已下线。
+   * 五级下拉的任一层选中入 URL（URL 是唯一事实源，0~4 = 大类/中类/小类/子类/品目）。
+   * commodity 的值就是骨架节点码（UGT-…），与公告侧 backbone_path 同口径，可直接当筛选键；
+   * 2026-10-15 G 码退役后五级全写同一个参数——选 L1（UGT-xx）即大类筛选。
+   * 清空某一层：回退到它最近的已选祖先（码变短），清空大类则整个退出品目筛选。
    */
   const setCommodityLevel = useCallback((level: number, key: string) => {
     const next = new URLSearchParams(searchParams ?? undefined);
-    if (level === 0) {
-      if (key) next.set("group", key);
-      else next.delete("group");
-      // 换大类 ⇒ 更深层路径失效
-      next.delete("commodity");
-    } else {
-      if (key) next.set("commodity", key);
-      else next.delete("commodity");
-      // 回退到某一层（选中值变短）时，若清空了路径就不再按品目筛；大类仍生效
-    }
+    // 清空某层时回退到当前路径在该层的最近祖先（码前缀），清空大类则整个退出品目筛选
+    const fallback = level > 0 ? commodityNodeChain(query.activeCommodity)[level - 1] || "" : "";
+    const effective = key || fallback;
+    if (effective) next.set("commodity", effective);
+    else next.delete("commodity");
     if (prefsMode === "recommended") setPrefsMode("default");
     setPage(1);
     setSelectedNotice(null);
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
+  }, [searchParams, query.activeCommodity, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
 
   const clearSearch = useCallback(() => {
     clearForm();

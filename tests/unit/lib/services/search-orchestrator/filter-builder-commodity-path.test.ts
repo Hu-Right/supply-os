@@ -70,11 +70,12 @@ describe("buildFilterPlan 骨架节点筛选", () => {
     expect(plan.meiliFilters.join(" ")).not.toContain("commodity_prefix");
   });
 
-  it("与大类 chip 叠加为 AND（大类 + 中类是同一条链的逐级收窄）", async () => {
-    const p = validateParams({ commodityPath: "UGT-0101", groupCode: "UGT-G-11" });
-    const plan = await buildFilterPlan(fakePool([{ g: "UGT-G-11", node: "UGT-01" }]), p);
+  it("传 L1 码即大类筛选（G 码退役后大类 chip 并入 commodity 参数），digest 带码", async () => {
+    const p = validateParams({ commodityPath: "UGT-01" });
+    const plan = await buildFilterPlan(fakePool(), p);
     expect(plan.meiliFilters.some((f) => f.includes("backbone_node"))).toBe(true);
-    expect(plan.digest).toContain("group:UGT-G-11");
-    expect(plan.digest).toContain("commodity:UGT-0101");
+    expect(plan.digest).toContain("commodity:UGT-01");
+    // 旧 group 参数已退役：参数与谓词里都不应再出现
+    expect(plan.digest).not.toContain("group:");
   });
 });

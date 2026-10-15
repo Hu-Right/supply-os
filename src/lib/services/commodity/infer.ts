@@ -8,19 +8,18 @@
  *              1. FULLTEXT（ft_backbone_names，ngram）：自然语言模式对 name_zh/name_en 打分，
  *                 中文短词靠 ngram 分词命中；
  *              2. LIKE 兜底：FULLTEXT 零命中（超短词/纯数字型号）时对两列前后通配再捞一轮。
- *              输出按 score 降序截断，附所属大类码（前端点选后直接点亮级联第一级）。
+ *              输出按 score 降序截断；所属大类由前端按码前缀切片点亮级联第一级
+ *              （2026-10-15 G 码退役，候选不再回表补大类码）。
  *              只产候选、不做自动回填：推断错误会污染行业偏好，置信展示交用户确认。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { commodityNodeLevel, resolveGroupCodeOfNode } from "./tree";
+import { commodityNodeLevel } from "./tree";
 
 /** 一条推断候选：code 就是骨架节点码（可直接当偏好/筛选键） */
 export interface CommodityInferCandidate {
   code: string;
   nameZh: string;
   nameEn: string;
-  /** 所属品目大类码（UGT-G-xx）；挂不上为 null */
-  groupCode: string | null;
   /** 节点层级 1~5（码长即层级） */
   level: number;
   /** 0~1 的粗分，仅用于排序与展示徽章档位 */
@@ -50,7 +49,6 @@ async function fulltextCandidates(pool: Pool, kw: string): Promise<CommodityInfe
     code: String(r.code ?? ""),
     nameZh: String(r.name_zh ?? ""),
     nameEn: String(r.name_en ?? ""),
-    groupCode: null,
     level: commodityNodeLevel(String(r.code ?? "")),
     score: Math.min(1, Number(r.raw_score) / max),
   }));
@@ -70,13 +68,12 @@ async function likeCandidates(pool: Pool, kw: string): Promise<CommodityInferCan
     code: String(r.code ?? ""),
     nameZh: String(r.name_zh ?? ""),
     nameEn: String(r.name_en ?? ""),
-    groupCode: null,
     level: commodityNodeLevel(String(r.code ?? "")),
     score: 0.5,
   }));
 }
 
-/** 关键词 → 候选列表（score 降序，截 CANDIDATE_LIMIT；groupCode 逐条补齐） */
+/** 关键词 → 候选列表（score 降序，截 CANDIDATE_LIMIT） */
 export async function smartInferCommodityNodes(
   pool: Pool,
   q: string,
@@ -101,16 +98,5 @@ export async function smartInferCommodityNodes(
     out.push(c);
     if (out.length >= CANDIDATE_LIMIT) break;
   }
-
-  // 大类码逐条补齐（候选 ≤ 8 条，点查开销可忽略）；查不到就 null，前端点亮不了第一级
-  await Promise.all(
-    out.map(async (c) => {
-      try {
-        c.groupCode = await resolveGroupCodeOfNode(pool, c.code);
-      } catch {
-        c.groupCode = null;
-      }
-    }),
-  );
   return out.sort((a, b) => b.score - a.score || b.level - a.level);
 }

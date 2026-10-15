@@ -8,7 +8,6 @@
  */
 import type { UnifiedSearchParams, SearchMode } from "./types";
 import { isKnownNoticeType } from "../../utils/notice-type";
-import { isCommodityGroupCode } from "../commodity/groups";
 import { normalizeBackboneNodeKey } from "../commodity/backbone-path";
 import { isCommodityNodeKey } from "../commodity/tree";
 
@@ -30,8 +29,6 @@ export interface RawSearchParams {
   noticeType?: string;
   featuredOnly?: boolean;
   sort?: string;
-  /** 品目大类码（URL group）：只接受 32 类常量内的码，其余一律丢弃 */
-  groupCode?: string;
   /** 品目骨架树筛选键（URL commodity）：只接受 UGT- 节点码（码内 2/4/6/8/10 位） */
   commodityPath?: string;
   /** 行业墙（服务端 industry-scope 注入；不接受客户端传参）：订阅大类的 L1 节点码 */
@@ -78,7 +75,6 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
     noticeType,
     featuredOnly: !!raw.featuredOnly,
     sort,
-    groupCode: raw.groupCode && isCommodityGroupCode(raw.groupCode) ? raw.groupCode : undefined,
     commodityPath: (() => {
       const k = normalizeBackboneNodeKey(raw.commodityPath);
       return k && isCommodityNodeKey(k) ? k : undefined;
@@ -107,6 +103,6 @@ export function searchCacheKey(p: UnifiedSearchParams): string {
     p.sort, p.budgetMin ?? "", p.budgetMax ?? "", p.matchMode ?? "all",
     // 墙必须带括号哨：空 nodes 的墙（分叉态→空结果）与无墙（→全量）不能撞同一缓存键，
     // 否则后到的无墙请求会把全量结果补给被墙用户（缓存污染型静默扩权）
-    p.wall ? `W[${p.wall.nodes.join(",")}]` : "", p.groupCode ?? "", p.commodityPath ?? "",
+    p.wall ? `W[${p.wall.nodes.join(",")}]` : "", p.commodityPath ?? "",
   ].join("|");
 }

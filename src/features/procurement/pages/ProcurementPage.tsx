@@ -65,7 +65,7 @@ export default function ProcurementPage() {
   const handleRestoreCommodityMatch = () => {
     setPage(1);
     setSelectedNotice(null);
-    // 清空 URL 搜索条件（含 group / commodity：URL 是筛选事实源，回到无参就是无筛选）
+    // 清空 URL 搜索条件（含 commodity：URL 是筛选事实源，回到无参就是无筛选）
     router.replace("/procurement");
     // 乐观切回 prefs 模式并重新解析偏好路径名称
     void restorePrefsMode();
@@ -196,9 +196,8 @@ export default function ProcurementPage() {
             />
           )}
 
-          {/* 品目分类五级下拉（大类 → 段 → 族 → 类 → 品目）。
-              原本上方还有一行 32 大类 chip，与这里的第一级完全重叠（同一个 COMMODITY_GROUPS、
-              同一个 URL group 参数），两套入口只会让「选中的是哪个」看起来不一致，已下线 chip。 */}
+          {/* 品目分类五级下拉（大类 → 段 → 族 → 类 → 品目），五级同源同树。
+              原本上方还有一行 32 大类 chip，与这里的第一级完全重叠，已下线。 */}
           <div className="border-t border-slate-100 pt-4">
             <Button
               type="button"

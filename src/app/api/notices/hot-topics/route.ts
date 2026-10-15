@@ -6,7 +6,7 @@
  *              均带真实结果数（大类计数与点进去的检索谓词同一包含关系）。
  *              服务端 10 分钟内存缓存，响应层再加 10 分钟 HTTP 缓存
  *              （与 industries 下拉口径一致）。名字不在这里拼：返回的是大类码，
- *              前端按 `commodityGroup_*` locale 键取（全库名字只有一份口径）。
+ *              展示名随 SQL 带出 name_zh（树是名称唯一事实源）。
  */
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";

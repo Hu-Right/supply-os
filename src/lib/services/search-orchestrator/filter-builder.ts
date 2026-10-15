@@ -11,7 +11,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnifiedSearchParams, FilterPlan } from "./types";
 import { expandCountryAllForms, expandCountryAliases } from "../notice-search/countries";
 import { getAgencyCacheData } from "../notice-search/agencies/index";
-import { l1NodesOfGroup, isCommodityNodeKey } from "../commodity/tree";
+import { isCommodityNodeKey } from "../commodity/tree";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { toBeijingUnixTs } from "../../utils/notice-expired";
@@ -288,34 +288,17 @@ export async function buildFilterPlan(
     }
   }
 
-  // ── 品目大类（32 类 chip，URL group=UGT-G-xx）──
-  // 谓词 = 该大类所辖骨架 L1 节点码（当前恰一个）存在在宽表 backbone_path 里。
-  // 与五级下拉、行业墙落在同一条列：backbone_path 存节点码及其全部祖先，L1 码就在链顶，
-  // 所以命中大类 = 命中该大类下任何深度的公告（不需要枚举 212 个 L2，也不需要 group_codes 列）。
-  // 不读 group_codes：Meili 索引里没这个属性，两条方言必须同一谓词（本文件存在的意义）。
-  if (p.groupCode) {
-    const nodes = await l1NodesOfGroup(pool, p.groupCode);
-    if (nodes.length === 0) {
-      // 大类在库内挂不上任何 L1 行（常量与库漂移/新类未灌）：直接空结果，不静默放宽
-      return {
-        meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true,
-        digest: `GROUP_NO_L1_NODE:${p.groupCode}`,
-      };
-    }
-    meiliFilters.push(nodeMeiliFilter("backbone_node", nodes));
-    mysqlWhere.push(nodeMysqlWhere(nodes));
-    mysqlParams.push(...nodes);
-    digestParts.push(`group:${p.groupCode}`);
-  }
-
   // ── 品目骨架五级下拉（URL commodity=UGT- 节点码）──
   // 谓词 = 宽表 backbone_path 里等值存在该节点码。backbone_path 存的是公告归属的骨架节点码
   // 及其全部祖先（lib/services/commodity/backbone-path 换算后灌入），所以选到哪一层就命中哪一层。
+  // 2026-10-15 G 码退役：大类筛选（旧 URL group=UGT-G-xx）并入本参数 —— 传 L1 码（UGT-xx）即
+  // 命中整个大类（backbone_path 升序全存祖先，L1 码就在链顶，与大类 chip 旧口径同一条包含关系），
+  // 不再需要 l1NodesOfGroup 翻译层，也不需要 group_codes 列。
   // 两边同口径是前提：旧写法拿旧品类码前缀去筛 code_path，现在键、列、树是同一套码，
   // 不再存在「键形制与列形制不同序」那一类陷阱（旧骨架树的坑，见 temp/probe52）。
   // 实测：UGT-01 命中 49,258 条 = 大类 chip 口径；中类 UGT-0101 命中 7,616（temp/probe64，
   // 2026-10-11 全量重灌后 Meili 与 MySQL 逐码对拍相等，temp/probe91）。
-  // 两条方言的形状与大类共用 nodeMeiliFilter / nodeMysqlWhere（一份形状，两处不分开错）。
+  // 两条方言共用 nodeMeiliFilter / nodeMysqlWhere（一份形状，两处不分开错）。
   // Meili 侧需索引有 backbone_node 属性（sync.ts 由 backbone_path 拆数组）；
   // 索引未重灌前该属性不存在，Meili 会报未知属性错并整体降级到下面的 MySQL 方言（结果仍正确）。
   // MySQL 方言实测 738ms（606,060 行全表扫，FIND_IN_SET 走不了索引）——与旧 code_path 方言同量级。

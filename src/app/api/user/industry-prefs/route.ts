@@ -5,7 +5,8 @@
  * POST 请求体格式（码版）：
  *   { commodity_code: "UGT-…" }   — 最深已选 UGT 骨架节点码（L1 大类行或 L2~L5 节点）
  *   { commodity_code: null }      — 清除偏好
- * 大类码（group_code，可见性判定的唯一输入）由服务端从节点码换算后同批写入；
+ * 所属大类（L1 树码，可见性判定的唯一输入）由消费方从 commodity_code 前缀纯切片推导
+ * （industry-scope 的 l1CodeOfNode），不再单独落库（2026-10-15 G 码退役）；
  * 旧行的 levelN_id（旧品类字典行 id）随字典退役恒置 NULL。
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -14,8 +15,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { invalidateProfileCache } from "@/lib/services/industry-profile/resolve";
 import { normalizeBackboneNodeKey } from "@/lib/services/commodity/backbone-path";
-import { isCommodityGroupCode } from "@/lib/services/commodity/groups";
-import { isCommodityNodeKey, resolveGroupCodeOfNode } from "@/lib/services/commodity/tree";
+import { isCommodityNodeKey } from "@/lib/services/commodity/tree";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 export const GET = withRoute(async (req: NextRequest) => {
@@ -44,16 +44,11 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   const code = normalizeBackboneNodeKey(raw);
-  if (!isCommodityNodeKey(code) && !isCommodityGroupCode(code)) {
-    routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 大类码或骨架节点码）");
+  if (!isCommodityNodeKey(code)) {
+    routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 骨架节点码）");
   }
 
-  // 大类码是可见性判定的唯一输入，必须与节点码同批写；换不出写 NULL 并告警（不猜一个大类）
-  const groupCode = isCommodityGroupCode(code) ? code : await resolveGroupCodeOfNode(ctx.dbPool, code);
-  if (!groupCode) {
-    console.warn(`[industry-prefs] user=${auth.userId} 的偏好码 ${code} 换不出品目大类码，group_code 落 NULL`);
-  }
-  await ctx.user.userPrefsRepo.upsertIndustryPrefs(auth.userId, code, groupCode);
+  await ctx.user.userPrefsRepo.upsertIndustryPrefs(auth.userId, code);
   invalidateProfileCache(auth.userId);
   return NextResponse.json({ success: true });
 });

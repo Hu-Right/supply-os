@@ -4,24 +4,23 @@
  *
  * @module features/auth/hooks/useCommodityPrefCascade
  * @description 注册表单与已登录面板共用的三级级联状态（大类 → 中类 → 小类）：
- *              一级是 32 大类常量（不走网络），二/三级按父码向品目树接口拉选项。
- *              推断路径回填采用"同步写值 + fetch 仅加载选项列表"方案：
+ *              一级是 32 个 L1 大类行（树接口直出，树名即展示名），二/三级按父码向
+ *              品目树接口拉选项。推断路径回填采用"同步写值 + fetch 仅加载选项列表"方案：
  *              applyInferredCode 在调用瞬间同步写入三级选中值，状态立即正确，
  *              彻底消除"异步回填未完成即提交"导致的校验失败竞态。
- *              取代旧 旧偏好级联 hook（读旧品类字典，随字典退役下线）。
+ *              2026-10-15 G 码退役：一级码即 L1 树码，节点所属大类按码前缀切片（零查库），
+ *              旧「大类码要点查 resolve 反查」的例外整个消失。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { COMMODITY_GROUPS, type CommodityGroup } from "@/lib/services/commodity/groups";
 import { commodityNodeChain } from "@/lib/services/commodity/tree";
 import {
   fetchCommodityTreeChildren,
-  fetchCommodityNodeGroup,
   type CommodityTreeOption,
 } from "@/features/procurement/api/commodityTree";
 
 export interface UseCommodityPrefCascadeReturn {
-  /** 一级选项：32 大类常量（名称走 locale） */
-  groupOptions: readonly CommodityGroup[];
+  /** 一级选项：32 个 L1 大类行（树接口直出，名字即树名） */
+  groupOptions: CommodityTreeOption[];
   subOptions: CommodityTreeOption[];
   subOptions2: CommodityTreeOption[];
   prefGroup: string;
@@ -32,19 +31,28 @@ export interface UseCommodityPrefCascadeReturn {
   setPrefLevel3: (value: string) => void;
   handleGroupChange: (value: string) => void;
   handleLevel2Change: (value: string) => void;
-  /** 按推断/回填的节点码同步回填级联（大类码缺省时按树反查一次）：同步写值，fetch 仅加载选项 */
-  applyInferredCode: (code: string, groupCode?: string | null) => void;
+  /** 按推断/回填的节点码同步回填级联（所属大类由码前缀切片，同步写值，fetch 仅加载选项） */
+  applyInferredCode: (code: string) => void;
   /** 重置所有级联状态（切换账号时调用） */
   resetCascade: () => void;
 }
 
 export function useCommodityPrefCascade(): UseCommodityPrefCascadeReturn {
-  const groupOptions = useMemo<readonly CommodityGroup[]>(() => COMMODITY_GROUPS, []);
+  const [groupOptions, setGroupOptions] = useState<CommodityTreeOption[]>([]);
   const [subOptions, setSubOptions] = useState<CommodityTreeOption[]>([]);
   const [subOptions2, setSubOptions2] = useState<CommodityTreeOption[]>([]);
   const [prefGroup, setPrefGroup] = useState("");
   const [prefLevel2, setPrefLevel2] = useState("");
   const [prefLevel3, setPrefLevel3] = useState("");
+
+  // 一级选项装载（树接口 parent 为空直出 L1 行）
+  useEffect(() => {
+    let cancelled = false;
+    fetchCommodityTreeChildren("")
+      .then((rows) => { if (!cancelled) setGroupOptions(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (!cancelled) setGroupOptions([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   // 推断触发计数器：每次 applyInferredCode 递增，用作选项加载 effect 的额外依赖。
   // 解决关键场景：用户清空输入后重新输入，若两次推断命中同一大类，
@@ -90,18 +98,12 @@ export function useCommodityPrefCascade(): UseCommodityPrefCascadeReturn {
   /** 按节点码同步回填三级：状态在调用瞬间即正确，不依赖异步 fetch。
    *  fetch 只负责拉取选项列表供下拉展示，回显在选项加载后自动呈现。
    *  仅回填用户在 UI 可见的三级；L4/L5 不进入级联也不持久化。
+   *  第一级键 = 码前缀切片（chain[0]），无网络往返。
    */
-  const applyInferredCode = useCallback((code: string, groupCode?: string | null) => {
+  const applyInferredCode = useCallback((code: string) => {
     if (!code) return;
     const chain = commodityNodeChain(code);
-    if (groupCode) {
-      setPrefGroup(groupCode);
-    } else if (chain[0]) {
-      // 大类码不能从节点码切片推出（L1 码序号 ≠ 大类码序号），点查一次 resolve 接口
-      fetchCommodityNodeGroup(chain[0])
-        .then((r) => { if (r?.groupCode) setPrefGroup(r.groupCode); })
-        .catch(() => { /* 拿不到大类就不点亮第一级，二/三级选中值仍已同步写好 */ });
-    }
+    setPrefGroup(chain[0]);
     setPrefLevel2(chain[1]);
     setPrefLevel3(chain[2]);
     setInferredTick((t) => t + 1);

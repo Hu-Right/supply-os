@@ -37,10 +37,10 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const opp = await oppsRepo.findById(opportunityId);
     if (!opp) routeError(404, EC_OPPORTUNITY_NOT_FOUND, "机会不存在");
     // 行业墙：被行业限定档位的用户只能解锁其绑定品目大类内的商机（8,800元/行业口径）
-    // 商机侧没有 backbone_path，判定输入是大类码而不是节点码（见 industry-scope）
+    // 商机侧没有 backbone_path，判定输入是大类码（L1 树码，见 industry-scope）
     {
       const scope = await resolveIndustryScope(dbPool, benefitSystemRepo, auth.userId);
-      if (scope.scoped && !(await opportunityInCategory(dbPool, opportunityId, scope.groupCode))) {
+      if (scope.scoped && !(await opportunityInCategory(dbPool, opportunityId, scope.l1Code))) {
         routeError(403, EC_OUT_OF_CATEGORY, "该商机不在您订阅的行业范围内", { out_of_category: true });
       }
     }

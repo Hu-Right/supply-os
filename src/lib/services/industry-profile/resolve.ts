@@ -3,17 +3,16 @@
  * User industry profile resolution
  *
  * @module server/services/industry-profile/resolve
- * @description 读取 crm_user_industry_prefs 并解析为匹配画像：偏好表现在直接存
- *              最深已选 UGT 节点码（commodity_code）与品目大类码（group_code），
- *              层级由码长现算（BB1 不变量），节点中文名按 code 点查品目树补齐。
+ * @description 读取 crm_user_industry_prefs 并解析为匹配画像：偏好表存
+ *              最深已选 UGT 节点码（commodity_code），层级由码长现算（BB1 不变量），
+ *              所属大类（L1 树码）由码前缀纯切片得出；节点中文名按 code 点查品目树补齐。
  *              防御脏数据：码形制非法或树里查无此码时返回 null（按 no_prefs 处理），
  *              不逐级上溯——祖先链可由码纯切片得出，消费方（mode-resolver）自己放宽。
  *              （旧版读旧品类字典五级行 id 的实现随字典退役删除）
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { UserPrefsRepo } from "../../repos/user-prefs.repo";
-import { isCommodityNodeKey } from "../commodity/tree";
-import { commodityNodeLevel } from "../commodity/tree";
+import { commodityNodeLevel, isCommodityNodeKey, l1CodeOfNode } from "../commodity/tree";
 import type { UserIndustryProfile } from "./types";
 
 // ── 用户行业画像内存缓存（60s TTL，偏好变更时主动失效）──
@@ -73,8 +72,8 @@ export async function resolveUserIndustryProfile(
     userId,
     commodityCode: code,
     deepestLevel: commodityNodeLevel(code),
-    // 大类码直接透传偏好表自己的列，不从码反推（换算只有一份，在 commodity/tree）
-    groupCode: row.group_code ?? null,
+    // 大类 = L1 树码，由码前缀纯切片得出（2026-10-15 G 码退役，偏好表不再存大类列）
+    l1Code: l1CodeOfNode(code) || null,
     industryTitleZh: titleZh,
   };
   _profileCache.set(userId, { profile, expires: Date.now() + PROFILE_CACHE_TTL });

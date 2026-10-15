@@ -110,7 +110,6 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
         mode: unifiedMode,
         page,
         pageSize: NOTICE_PAGE_SIZE,
-        groupCode: query.activeGroup || undefined,
         commodityPath: query.activeCommodity || undefined,
         q: query.activeQ || undefined,
         country: query.activeCountry || undefined,
@@ -183,7 +182,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       mode: prefetchMode,
       page: nextPage,
       pageSize: NOTICE_PAGE_SIZE,
-      groupCode: query.activeGroup || undefined,
+
       commodityPath: query.activeCommodity || undefined,
       q: query.activeQ || undefined,
       country: query.activeCountry || undefined,

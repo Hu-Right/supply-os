@@ -16,13 +16,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_FORBIDDEN, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { normalizeBackboneNodeKey } from "@/lib/services/commodity/backbone-path";
 import { isCommodityNodeKey } from "@/lib/services/commodity/tree";
-import { isCommodityGroupCode, COMMODITY_GROUPS } from "@/lib/services/commodity/groups";
 import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
-
-/** 大类码 → 中文名（列表行的纯文本兜底，界面名走 locale） */
-function groupNameZh(groupCode: string): string {
-  return COMMODITY_GROUPS.find((g) => g.code === groupCode)?.nameZh ?? "";
-}
 
 /** 安全截断字符串 */
 function str(val: unknown, max: number): string {
@@ -56,7 +50,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const pool = getPool();
     const [rows] = await pool.query(
       `SELECT n.id, n.reference, n.title, n.description, n.country, n.province_name,
-              n.category_code, c1.group_code, c1.name_zh AS category_name,
+              n.category_code, c1.name_zh AS category_name,
+              c0.name_zh AS category_l1_name,
               n.budget_confidential, n.currency,
               n.incoterm, n.delivery_time, n.delivery_address,
               n.payment_terms, n.supplier_reqs, n.visibility,
@@ -65,6 +60,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
               n.contact_name, n.contact_email, n.contact_phone
        FROM crm_bid_notices n
        LEFT JOIN crm_commodity_backbone c1 ON c1.code = n.category_code
+       LEFT JOIN crm_commodity_backbone c0 ON c0.code = LEFT(n.category_code, 7) AND c0.level = 1
        WHERE n.id = ? AND n.notice_type = 'RFQ' AND n.entry_source = 'platform'
        LIMIT 1`,
       [rfqId],
@@ -88,7 +84,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         description: String(row.description || ""),
         status: String(row.rfq_status || RFQ_STATUS.DRAFT),
         categoryCode: String(row.category_code || ""),
-        categoryL1: groupNameZh(String(row.group_code || "")),
+        categoryL1: String(row.category_l1_name || ""),
         categoryL2: String(row.category_name || ""),
         province: String(row.province_name || ""),
         budget: confidential ? null : Number(row.estimated_value) || 0,
@@ -196,8 +192,8 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     if (body.category_code !== undefined) {
       // UGT 最深节点码（旧 category_l1_id/l2_id 字典 id 参数随旧品类字典退役停用）
       const categoryCode = normalizeBackboneNodeKey(str(body.category_code, 24));
-      if (categoryCode && !isCommodityNodeKey(categoryCode) && !isCommodityGroupCode(categoryCode)) {
-        routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 大类码或骨架节点码）");
+      if (categoryCode && !isCommodityNodeKey(categoryCode)) {
+        routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 骨架节点码）");
       }
       updates.push("category_code = ?");
       updateParams.push(categoryCode || null);

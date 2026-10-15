@@ -44,7 +44,6 @@ export interface UseNoticeSearchReturn {
     activeFeatured: boolean;
     activeBudgetMin: string;
     activeBudgetMax: string;
-    activeGroup: string;
     /** 品目树筛选键（五级下拉第二~五级，URL commodity） */
     activeCommodity: string;
     hasSearch: boolean;
@@ -187,7 +186,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       activeFeatured: query.activeFeatured,
       activeBudgetMin: query.activeBudgetMin,
       activeBudgetMax: query.activeBudgetMax,
-      activeGroup: query.activeGroup,
       activeCommodity: query.activeCommodity,
       hasSearch: query.hasSearch,
       searchKey: query.searchKey,

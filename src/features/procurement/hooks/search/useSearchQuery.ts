@@ -19,9 +19,7 @@ export interface SearchQuery {
   activeFeatured: boolean;
   activeBudgetMin: string;
   activeBudgetMax: string;
-  /** 品目大类码（URL group=UGT-G-xx；32 类 chip 与五级下拉第一级同一事实源） */
-  activeGroup: string;
-  /** 品目树筛选键（URL commodity=UGT 节点码，五级下拉第二~五级） */
+  /** 品目树筛选键（URL commodity=UGT 节点码；五级下拉全部五级，传 L1 码即大类筛选） */
   activeCommodity: string;
   /** 关键词匹配模式：all=硬 AND（默认），any=OR（任一命中） */
   activeMatchMode: "all" | "any";
@@ -47,13 +45,12 @@ export function useSearchQuery(): SearchQuery {
   const activeBudgetMin = searchParams.get("budget_min") || "";
   const activeBudgetMax = searchParams.get("budget_max") || "";
   const activeMatchMode: "all" | "any" = searchParams.get("match_mode") === "any" ? "any" : "all";
-  const activeGroup = searchParams.get("group") || "";
   const activeCommodity = searchParams.get("commodity") || "";
 
   const hasSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
     activeWindow || activeNoticeType || activeFeatured ||
-    activeBudgetMin || activeBudgetMax || activeGroup || activeCommodity
+    activeBudgetMin || activeBudgetMax || activeCommodity
   );
 
   // 统一化重构后：hasOtherSearch 仅影响推荐模式的退出判定
@@ -61,10 +58,10 @@ export function useSearchQuery(): SearchQuery {
   const hasOtherSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
     activeWindow || activeNoticeType || activeFeatured ||
-    activeBudgetMin || activeBudgetMax || activeGroup || activeCommodity
+    activeBudgetMin || activeBudgetMax || activeCommodity
   );
 
-  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}|${activeGroup}|${activeCommodity}`;
+  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}|${activeCommodity}`;
 
   return useMemo(() => ({
     activeQ,
@@ -78,11 +75,10 @@ export function useSearchQuery(): SearchQuery {
     activeFeatured,
     activeBudgetMin,
     activeBudgetMax,
-    activeGroup,
     activeCommodity,
     activeMatchMode,
     hasSearch,
     hasOtherSearch,
     searchKey,
-  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeGroup, activeCommodity, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
+  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeCommodity, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
 }

@@ -16,7 +16,6 @@ const mocks = vi.hoisted(() => ({
   searchUnified: vi.fn(),
   findActivePlan: vi.fn(),
   resolveProfile: vi.fn(),
-  l1NodesOfGroup: vi.fn(),
   logSearch: vi.fn(),
 }));
 
@@ -44,12 +43,8 @@ vi.mock("@/lib/services/industry-profile/resolve", () => ({
   resolveUserIndustryProfile: mocks.resolveProfile,
   invalidateProfileCache: vi.fn(),
 }));
-// 只换掉「大类 → L1 节点码」的取数（本用例组要的是注入行为，不是真树）：
-// 其余导出原样透传，params.ts 依赖同模块的 isCommodityNodeKey 不能缺
-vi.mock("@/lib/services/commodity/tree", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/services/commodity/tree")>()),
-  l1NodesOfGroup: mocks.l1NodesOfGroup,
-}));
+// 2026-10-15 G 码退役：大类由偏好 commodity_code 前缀纯切片推导（tree 的纯函数），
+// 不再有「大类 → L1 节点码」的取数口可 mock，本文件不再需要动 commodity/tree。
 vi.mock("@/lib/services/search-orchestrator", () => ({
   searchUnified: mocks.searchUnified,
 }));
@@ -65,8 +60,6 @@ beforeEach(() => {
   mocks.logSearch.mockResolvedValue(undefined);
   // 默认无生效订阅 → 行业墙不启动（墙注入行为由专属用例覆盖）
   mocks.findActivePlan.mockResolvedValue(null);
-  // 默认大类→L1 映射可用（墙的具体取值由专属用例覆写）
-  mocks.l1NodesOfGroup.mockResolvedValue(["UGT-85"]);
 });
 
 function makeReq(url = URL_WITH_EXCLUDE) {
@@ -135,9 +128,8 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
     // industry_scoped=1（business）、all_category_access=0（非演示档）
     mocks.isEntitled.mockImplementation(async (_uid: number, code: string) => code === "industry_scoped");
-    // 墙只认 prefs.group_code（旧字典 level=1 是 A..J 十个容器，比大类粗到不能当行业口径）
-    mocks.resolveProfile.mockResolvedValue({ userId: 7, groupCode: "UGT-G-25", levelIds: [109, null, null, null, 100852] });
-    mocks.l1NodesOfGroup.mockResolvedValue(["UGT-85"]);
+    // 墙键 = 偏好 commodity_code 的 L1 前缀（2026-10-15 G 码退役，纯切片推导、零查库）
+    mocks.resolveProfile.mockResolvedValue({ userId: 7, commodityCode: "UGT-85010101" });
 
     const res = await GET(makeReq("http://localhost:3000/api/notices/unified-search?mode=recommended&page=1"));
     const body = await res.json();
@@ -145,16 +137,14 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(res.status).toBe(200);
     expect(mocks.searchUnified).toHaveBeenCalledTimes(1);
     expect(mocks.searchUnified.mock.calls[0][1]).toMatchObject({ mode: "prefs", wall: { nodes: ["UGT-85"] } });
-    expect(mocks.l1NodesOfGroup).toHaveBeenCalledWith(expect.anything(), "UGT-G-25");
     expect(body.needs_industry_selection).toBeUndefined();
   });
 
-  it("行业墙：大类在库里挂不上 L1 → 仍注入空 wall（给空结果而不是放开全量）", async () => {
+  it("行业墙：偏好码推导不出大类 → 仍注入空 wall（给空结果而不是放开全量）", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
     mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
     mocks.isEntitled.mockImplementation(async (_uid: number, code: string) => code === "industry_scoped");
-    mocks.resolveProfile.mockResolvedValue({ userId: 7, groupCode: "UGT-G-25" });
-    mocks.l1NodesOfGroup.mockResolvedValue([]);
+    mocks.resolveProfile.mockResolvedValue({ userId: 7, commodityCode: "UGT-XY" });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const res = await GET(makeReq());

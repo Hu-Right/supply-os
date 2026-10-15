@@ -29,7 +29,6 @@
     "check:baseline": "node --env-file=.env scripts/tools/dump-schema-baseline.mjs --check",
     "check:legacy-dict": "node scripts/gates/check-legacy-dict-residue.mjs",
     "check:legacy-dict:self-test": "node --test tests/gates/check-legacy-dict-residue.test.mjs",
-    "check:commodity-groups": "npx tsx scripts/gates/check-commodity-groups.ts",
     "check:backbone": "npx tsx scripts/gates/check-commodity-backbone.ts",
     "check:industry-links": "npx tsx scripts/gates/verify-industry-links.ts",
     "check:industry-links:strict": "npx tsx scripts/gates/verify-industry-links.ts --gate",

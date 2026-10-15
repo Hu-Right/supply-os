@@ -8,8 +8,8 @@
  *      ↳ 旧树不在时 `if (orig)` 分支本来就打印跳过，R4' 后直接拆机。
  *   BB3 已于 R4' 删除：旧语义“同一个旧品类码族→同一个 L2、同一个段→同一个 L1”需旧前缀映射列行反推。
  *      ↳ UGT 直认后不再维护“族/段”的旧品类码语义⇒断言不再适用。
- *   BB4 大类连续（精简版）：L4 行的 group_code 与祖先 L1.group_code 必逐行一致（树上内存自洽，
- *      ↳ 旧版中“段→常量推大类”那半边已随旧前缀映射列入口剥开；常量↔树的交叉对测交给 BB5 L1=32行+BB12）
+ *   BB4 已于 G 码退役（2026-10-15）删除：旧语义"L4.group_code 与祖先 L1.group_code 逐行一致"
+ *      ↳ group_code 列随 G 码体系物理 DROP，断言失参考系；大类身份改由 L1 树码前缀纯切片承载。
  *   BB5 五级齐：L1 恰 32 行且 parent 为空串，L1~L5 每级都有行；同名兄弟只 WARN
  *   BB6 原树未被触碰：crm_commodity_nodes 行数 = 158,707，两表码域互斥（旧树已删则无对象，只打印跳过）
  *   BB7 公告归属已落到骨架（事实源 = 落点表，旧品类码退役 R3'）：宽表形制合法（非空串、
@@ -20,7 +20,8 @@
  *   BB9 已于 R4' 删除：旧语义“拿族粗码 fam+0000 试挂 match，L1..L4 四档至少三档有落点”验证的
  *      ↳ 是数字码入口的“最深可证实唯一”分档；入口已剥⇒断言失参考系。
  *   BB10 已于旧品类码退役 R3' 删除：旧语义“列值 = pathOf(桥表旧品类码)”已交给 BB15c（列值 = 落点派生）。
- *   BB12 偏好表的大类码齐备且对得上骨架 L1 —— 可见性判定的输入，缺行就是把付费用户静默放行
+ *   BB12 偏好表 commodity_code 必须齐且形制合法 —— 可见性判定的输入（大类=L1 前缀推导），
+ *      缺行/坏码就是把付费用户静默放行或静默锁死
  *   BB13 退役不变量：不得留下 crm_commodity_nodes_retired_* 这种「改名改一半」的中间态（直接红）；
  *      ↳ 原树名本身在场只 WARN（回滚演练合法），否则真回滚时这条断言会把跨树对账一起误杀
  *   BB14 节点码倒排表是 backbone_path 的行化镜像：总行数 = 列值 token 总数、公告数闭合、
@@ -32,6 +33,8 @@
  *      与宽表双向闭合（有列值必有落点行、有落点行必有列值）；BB15d 按 source 分档与 AS2/AS4 同口径。
  *      ↳ 表未建只 WARN（建表是人工闸口 scripts/ops/notice-attribution-ddl.ts）；
  *        R2 把读侧切到落点表后，WARN 转绿是上线清单的一项
+ *   CG6/CG7（自 check-commodity-groups.ts 迁入，G 码退役 2026-10-15）：大类维表族零 SQL 引用（静态）
+ *      且不在场（--db）——「两张维表可以删且不回来」的机器证明（ADR-0008 / ADR-0009）
  * @limits 静态部分必须能在无 MySQL 的 CI 里跑；--db 是本地/发布前闸口。
  * @usage  npm run check:backbone     或     npx tsx scripts/gates/check-commodity-backbone.ts --db
  * @see    docs/superpowers/specs/2026-10-11-commodity-backbone-5level-design.md
@@ -39,7 +42,6 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { COMMODITY_GROUPS } from "../../src/lib/services/commodity/groups";
 import { ACTIVE_NOTICE_WHERE } from "../../src/lib/utils/notice-expired";
 import { loadBackboneIndex, toBackbonePathColumn, BACKBONE_NODE_PREFIX } from "../../src/lib/services/commodity/backbone-path";
 import { pathOfLandingNodes } from "../../src/lib/services/commodity/attribution";
@@ -50,10 +52,6 @@ const EXPECT_ORIG_ROWS = 158707; // 原树：本次边界是「一行不动」
 const fails: string[] = [];
 const warns: string[] = [];
 const fail = (m: string) => fails.push(m);
-
-if (COMMODITY_GROUPS.length !== 32) fail(`BB0 大类常量数=${COMMODITY_GROUPS.length}，应为 32`);
-const segToGroup = new Map<string, string>();
-for (const g of COMMODITY_GROUPS) for (const p of g.prefixes) segToGroup.set(p, g.code);
 
 // ── BB8 旧树零引用（静态，无库也能跑；CI 与本地同一道闸）──
 // 只抓 SQL 语境（FROM / JOIN + 表名），不把注释里的历史提及算违规；
@@ -91,8 +89,59 @@ try {
   console.log("⚠ BB8 未能扫描 src（目录不可读），旧树引用断言本次未执行");
 }
 
+// ── CG6 大类维表族零引用（静态，自 check-commodity-groups.ts 迁入；G 码退役 2026-10-15）──
+// crm_commodity_groups（ADR-0008）与 crm_commodity_group_segments（ADR-0009）已退役：
+// 大类身份 = 骨架树 L1 行（G 码退役后连 group_code 列也已删）。只抓 SQL 语境（FROM / JOIN + 表名），
+// 不把注释里的历史提及算违规；`groups?` 配后缀 \w* 让「crm_commodity_group_segments」与
+// 「改名成 retired_* 再读」都算违规——`_` 在正则里是单词字符，拿 \b 收尾会让改名等于豁免（同 BB8 写法）。
+// 扫描根：src/**（随包运行）+ scripts/tools/**（长期在用的工具）。不含 scripts/gates 自身（本文件用字符串
+// 字面量做自检，扫自己必误伤），也不含 scripts/ops（一次性连库脚本，已由 check-gitignore-consistency 强制不入库）。
+// scripts/forensics/** 也不在扫描根：那里放「拿退役维表跟常量逐段对账」的取证留档（ADR-0009/0011 引用的实测出处），
+// 读退役表正是它们的用途、不构成口径来源；留在 scripts/ 下是为了吃满 tsconfig 的 **/*.ts 类型覆盖（temp/runtime 都被 exclude）。
+// 把这类探针放回 scripts/tools 会让本闸立刻红。
+const RETIRED_GROUP_RE = /\b(?:FROM|JOIN)\s+`?(?:\w+`?\.)?`?crm_commodity_groups?\w*\b/i;
+// 断言自身不许哑火：四条自检分别钉住「改名不豁免」「库名限定不豁免」「段归属表也在禁列」「不误伤新树」
+if (!RETIRED_GROUP_RE.test("SELECT 1 FROM crm_commodity_groups_retired_20261012")) {
+  fail("CG6 自检失败：正则匹配不到改名后的大类维表，这条断言已哑火");
+}
+if (!RETIRED_GROUP_RE.test("SELECT 1 FROM crm.crm_commodity_groups")) {
+  fail("CG6 自检失败：带库名限定的退役表名没被抓到");
+}
+if (!RETIRED_GROUP_RE.test("SELECT 1 FROM crm_commodity_group_segments")) {
+  fail("CG6 自检失败：段归属表没进禁列（它已在 ADR-0009 一并退役）");
+}
+if (RETIRED_GROUP_RE.test("SELECT 1 FROM crm_commodity_backbone")) {
+  fail("CG6 自检失败：正则把新树误判成退役表");
+}
+const cg6Scanned: string[] = [];
+for (const rel of ["../../src", "../../scripts/tools"]) {
+  const walk = (d: string) => {
+    for (const name of readdirSync(d)) {
+      const p = join(d, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(ts|tsx|mjs|cjs|js)$/.test(name)) cg6Scanned.push(p);
+    }
+  };
+  try {
+    walk(fileURLToPath(new URL(rel, import.meta.url)));
+  } catch {
+    // 目录读不到（奇异检出环境）：不阻断，但必须叫出来，不能让断言静默失效
+    fail(`CG6 未能扫描 ${rel}（目录不可读）：退役表零引用断言本次未执行`);
+  }
+}
+{
+  const hits = cg6Scanned.filter((f) => RETIRED_GROUP_RE.test(readFileSync(f, "utf8")));
+  if (hits.length) {
+    fail(
+      `CG6 有 ${hits.length} 个文件仍用 SQL 读已退役的大类维表族：` +
+        `${hits.map((h) => h.split(/[\\/]/).slice(-2).join("/")).join("、")}` +
+        ` ⇒ 大类口径改从骨架树取（见 ADR-0008 / ADR-0009）`,
+    );
+  }
+}
+
 if (!DB) {
-  console.log(`静态：大类 32 / 五级码长 2-4-6-8-10 位 / 期望原树行数 ${EXPECT_ORIG_ROWS} / src 旧树引用已扫 ${srcFiles.length} 个文件`);
+  console.log(`静态：五级码长 2-4-6-8-10 位 / 期望原树行数 ${EXPECT_ORIG_ROWS} / src 旧树引用已扫 ${srcFiles.length} 个文件 / CG6 已扫 ${cg6Scanned.length} 个文件`);
   if (fails.length) { console.error(`✗ ${fails.join("；")}`); process.exit(1); }
   console.log("✓ 静态部分通过（库内断言请加 --db）");
   process.exit(0);
@@ -134,9 +183,28 @@ const legacyHere = await one(
 if (Number(legacyHere.n) !== 0)
   console.log("⚠ BB13 原树 crm_commodity_nodes 又出现在库里：按回滚/观察期处理，BB2/BB3/BB6 正在对它重跑对账（退役尚未完成）");
 
+// ── CG7 大类维表族退役不变量（自 check-commodity-groups.ts 迁入；ADR-0008 / ADR-0009）──
+// 两个名字都不许在场：正名在场 = 退役没做完；retired_* 在场 = 改名改一半（同 BB13 的理由：
+// "退役"不允许停留在口头，也不允许停在中间态）。报错里直接给出收尾与回滚两条命令，不留给下一个人猜。
+{
+  const stillThere = await q(
+    `SELECT TABLE_NAME t FROM information_schema.TABLES
+      WHERE table_schema = DATABASE() AND TABLE_NAME REGEXP '^crm_commodity_group'`,
+  ) as unknown as { t: string }[];
+  if (stillThere.length) {
+    fail(
+      `CG7 大类维表族仍在库里：${stillThere.map((r) => r.t).join("、")}` +
+        ` ⇒ 两张表已分别按 ADR-0008（crm_commodity_groups）与 ADR-0009（crm_commodity_group_segments）退役，` +
+        `大类身份由骨架树承载。` +
+        `收尾：npx tsx scripts/ops/commodity-groups-retire.ts --apply --yes（或 …-segments-retire.ts）；` +
+        `回滚：把 runtime/commodity-group*-dump-*.sql 回灌`,
+    );
+  }
+}
+
 const rows = await q(
-  `SELECT code, parent_code, level, group_code, name_zh FROM crm_commodity_backbone`,
-) as unknown as { code: string; parent_code: string; level: number; group_code: string; name_zh: string }[];
+  `SELECT code, parent_code, level, name_zh FROM crm_commodity_backbone`,
+) as unknown as { code: string; parent_code: string; level: number; name_zh: string }[];
 /**
  * 跨树对账的对照物。旧树 crm_commodity_nodes 一旦下线，BB2 的码域比对、BB3 的族数比对、
  * BB6 的「原树未动」就失去对象：这些断言按「旧树在场才执行」跑，缺席时明确打印跳过。
@@ -152,8 +220,6 @@ const orig = hasLegacy
               SUM(code LIKE 'UGT-%') leaked FROM crm_commodity_nodes`,
     )
   : null;
-// 段→大类只认常量这一份：段归属表 crm_commodity_group_segments 已按 ADR-0009 退役，
-// segToGroup 于是纯粹来自常量（上方 43~44 行），BB4 变成「树 L1/L4 的 group_code ↔ 常量」的直接比对。
 const byCode = new Map(rows.map((r) => [r.code, r]));
 const kids = new Map<string, number>();
 
@@ -174,21 +240,9 @@ for (const [p, k] of kids) if (k > 99) fail(`BB1 ${p} 下子节点 ${k} 个，�
 // ── BB2/BB3 已于 R4' 拆机──
 // 旧语义需旧前缀映射列行反推⇒入口剥后断言失对象。旧树不在时 orig=null，与现在直接拆机同形。
 
-// ── BB4 大类连续（精简版：树上内存自洽）──
-// 旧版中的“段→常量推大类”需旧前缀映射列；拆后保留“L4.group_code 与祖先 L1.group_code 逐行一致”
-// 那半边⇒不依赖旧品类码。`anc` 的长度从常量 BACKBONE_NODE_PREFIX 取（旧“UGT-B-”前写死 6 已改正）。
-const anc = (code: string, level: number) => code.slice(0, BACKBONE_NODE_PREFIX.length + level * 2);
-{
-  let l4Count = 0;
-  for (const r of rows) {
-    if (r.level !== 4) continue;
-    l4Count++;
-    const l1 = byCode.get(anc(r.code, 1));
-    if (!l1) { fail(`BB4 祖先大类行缺失：${r.code}`); continue; }
-    if (r.group_code !== l1.group_code) fail(`BB4 group_code 与祖先不一致：${r.code} ${r.group_code} vs ${l1.group_code}`);
-  }
-  console.log(`BB4 L4 与祖先 L1 group_code 逐行自洽（共扫 ${l4Count} 行 L4）`);
-}
+// ── BB4 已于 G 码退役（2026-10-15）拆机──
+// group_code 列物理 DROP 后“L4↔L1 大类一致”失参考系；大类身份改由 L1 树码前缀承载，
+// 码长/父子一致性由 BB1 全量守着，不需要单独的大类断言。
 
 // ── BB5 五级齐 + 命名质量 ──
 const perLevel = [1, 2, 3, 4, 5].map((lv) => rows.filter((r) => r.level === lv).length);
@@ -296,27 +350,18 @@ if (Number(pathCol.n) === 0) {
     : { n: 0 };
   if (Number(hit.n) !== pc.size) fail(`BB7 抽样里 ${pc.size - Number(hit.n)} 个 backbone_path 码在树里不存在`);
 
-  // ── BB12 偏好表的大类码必须齐（可见性判定的输入）──
-  // 判定层（industry-scope）从 backbone_path 判可见集合，输入是 crm_user_industry_prefs.group_code → L1 节点码。
-  // 这一列历史上没有任何运行期代码在写（upsertIndustryPrefs 只写五级 id），现存值是一次性迁移灌的；
-  // 2026-10-11 写入链路已改为同批带上它（temp/probe77：11 行五级 id 的换算值与现值逐行一致）。
-  // 缺它不是「少一个筛选条件」而是把那个付费用户当成没绑行业⇒静默放行全部，所以零容忍。
-  const prefNoGroup = await one(
+  // ── BB12 偏好表的 commodity_code 必须齐且形制合法（可见性判定的输入）──
+  // 判定层（industry-scope）从 commodity_code 前缀推导大类（L1 树码），推导不出 = 该付费用户
+  // 被静默锁死（nodes=[] fail-closed）或静默放行，零容忍。G 码退役（2026-10-15）后
+  // 偏好表不再有大类列，这条从「group_code 齐备且对得上骨架」改为「码版选择键在且形制合法」。
+  const prefBadCode = await one(
     `SELECT COUNT(*) n FROM crm_user_industry_prefs
       WHERE (IFNULL(level2_id,0) > 0 OR IFNULL(level3_id,0) > 0 OR IFNULL(level4_id,0) > 0 OR IFNULL(level5_id,0) > 0)
-        AND (group_code IS NULL OR group_code = '')`,
+        AND (commodity_code IS NULL OR commodity_code = '' OR commodity_code NOT REGEXP '^UGT-([0-9]{2}){1,5}$')`,
   );
-  const prefBadGroup = await one(
-    `SELECT COUNT(*) n FROM crm_user_industry_prefs p
-       LEFT JOIN crm_commodity_backbone b ON b.level = 1 AND b.group_code = p.group_code
-      WHERE p.group_code IS NOT NULL AND p.group_code <> '' AND b.code IS NULL`,
-  );
-  console.log(`BB12 偏好大类码：缺 ${prefNoGroup.n} 行 / 对不上骨架 L1 ${prefBadGroup.n} 行`);
-  if (Number(prefNoGroup.n) !== 0) {
-    fail(`BB12 有 ${prefNoGroup.n} 行偏好填了二级以下类目却没有大类码 ⇒ 可见性判定会静默放行该用户；补跑 scripts/ops/user-prefs-group-code-backfill.ts`);
-  }
-  if (Number(prefBadGroup.n) !== 0) {
-    fail(`BB12 有 ${prefBadGroup.n} 行偏好的 group_code 在骨架 L1 里找不到对应行 ⇒ 可见性谓词永远不命中（常量与库分叉）`);
+  console.log(`BB12 偏好选择键：形制非法/缺失 ${prefBadCode.n} 行`);
+  if (Number(prefBadCode.n) !== 0) {
+    fail(`BB12 有 ${prefBadCode.n} 行偏好填了二级以下类目却没有合法的 commodity_code ⇒ 可见性判定输入缺失（静默锁死或放行该用户）`);
   }
 
   // BB9 已于旧品类码退役 R4' 删除：旧语义“拿 fam+0000 试挂 ix.match()”验证的

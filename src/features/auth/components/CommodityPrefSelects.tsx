@@ -9,13 +9,13 @@
  *              register form and the account panel.
  *              取代旧字典版组件（读旧品类字典，随字典退役下线）。
  */
-import { useLocale, type LocaleKey } from "@/core/i18n";
-import type { CommodityGroup } from "@/lib/services/commodity/groups";
+import { useLocale } from "@/core/i18n";
 import type { CommodityTreeOption } from "@/features/procurement/api/commodityTree";
 import { Select } from "@/shared/ui";
 
 export interface CommodityPrefSelectsProps {
-  groupOptions: readonly CommodityGroup[];
+  /** 一级选项：32 个 L1 大类行（树接口直出，名字即树名） */
+  groupOptions: CommodityTreeOption[];
   subOptions: CommodityTreeOption[];
   subOptions2: CommodityTreeOption[];
   prefGroup: string;
@@ -56,8 +56,8 @@ export function CommodityPrefSelects({
       >
         <option value="">{t("authIndustryPrefSelect")}</option>
         {groupOptions.map((g) => (
-          <option key={g.code} value={g.code}>
-            {t(`commodityGroup_${g.code}` as LocaleKey)}
+          <option key={g.key} value={g.key}>
+            {nodeLabel(g, locale)}
           </option>
         ))}
       </Select>

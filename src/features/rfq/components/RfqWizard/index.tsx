@@ -21,8 +21,6 @@ import { Button } from "@/shared/ui";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
-import { useLocale, type LocaleKey } from "@/core/i18n";
-import { COMMODITY_GROUPS } from "@/lib/services/commodity/groups";
 import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/features/procurement/api/commodityTree";
 import { DEFAULT_RFQ_FORM } from "../../constants";
 import type { FieldErrors, RfqFormState } from "../../types";
@@ -66,7 +64,7 @@ export function RfqWizard({ initialData, authContact }: RfqWizardProps) {
 }
 
 function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
-  const { t } = useLocale();
+
   // 注意：不用 Button asChild + Link——React 19 的 Children.toArray 不再过滤 false 子节点，
   // 会与 Radix Slot 单元素约束冲突导致渲染报错；改用 router.push 导航。
   const router = useRouter();
@@ -82,9 +80,17 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
   const [submitted, setSubmitted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // ── 品目分类（UGT 骨架树）：一级 = 32 大类常量，二级按大类码拉品目树 ──
-  const l1Options = COMMODITY_GROUPS;
+  // ── 品目分类（UGT 骨架树）：一级 = 32 个 L1 行（树接口直出），二级按 L1 码拉品目树 ──
+  const [l1Options, setL1Options] = useState<CommodityTreeOption[]>([]);
   const [l2Options, setL2Options] = useState<CommodityTreeOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCommodityTreeChildren("")
+      .then((rows) => { if (!cancelled) setL1Options(Array.isArray(rows) ? rows : []); })
+      .catch((e) => { console.warn("[RfqWizard] 品目一级加载失败:", e); if (!cancelled) setL1Options([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!form.categoryL1) { setL2Options([]); return; }
@@ -126,10 +132,9 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     setErrors((prev) => ({ ...prev, categoryL2: "" }));
   }
 
-  /** 产品分类展示文案：大类走 locale 名，二级取品目树名称（供第三步摘要核对） */
+  /** 产品分类展示文案：大类与二级都取品目树名称（供第三步摘要核对） */
   const categoryDisplay = (() => {
-    const groupLabel = COMMODITY_GROUPS.find((g) => g.code === form.categoryL1);
-    const l1Name = groupLabel ? t(`commodityGroup_${groupLabel.code}` as LocaleKey) : "";
+    const l1Name = l1Options.find((o) => o.key === form.categoryL1)?.nameZh || "";
     const pick = l2Options.find((o) => String(o.key) === String(form.categoryL2));
     const l2Name = pick ? pick.nameZh || pick.nameEn || pick.key : "";
     return [l1Name, l2Name].filter(Boolean).join(" / ");

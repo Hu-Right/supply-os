@@ -18,7 +18,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
 import { useLocale } from "@/core/i18n";
-import type { LocaleKey } from "@/core/i18n";
 import type { PrefsMode } from "../types";
 import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
 import { fetchUnifiedSearch } from "../api";
@@ -47,13 +46,12 @@ export interface UseIndustryPrefsReturn {
 
 export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryPrefsReturn {
   const { userId, setPage } = options;
-  const { t, locale } = useLocale();
+  const { locale } = useLocale();
 
   // 品目匹配模式下的偏好路径（仅用于提示条展示品目名称；选中态在 URL 里）
   const [prefsPath, setPrefsPath] = useState<{
-    groupCode: string | null;
     options: CommodityTreeOption[];
-  }>({ groupCode: null, options: [] });
+  }>({ options: [] });
 
   // ── 账号默认品目偏好三级降级 ──
   const [prefsMode, setPrefsMode] = useState<PrefsMode>(() => (userId ? "loading" : "default"));
@@ -70,17 +68,17 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
    * 按偏好路径切 prefs 模式（偏好键为 UGT 最深节点码，经品目树换名称）
    */
   const applyPrefsPath = useCallback(async (prefs: {
-    commodity_code?: string | null; group_code?: string | null;
+    commodity_code?: string | null;
   }) => {
     const entrySeq = exitSeqRef.current;
-    let resolved = { groupCode: null as string | null, options: [] as CommodityTreeOption[] };
+    let resolved = { l1Code: null as string | null, options: [] as CommodityTreeOption[] };
     try {
       resolved = await fetchCommodityPrefsPath(prefs.commodity_code || "");
     } catch {
       // 换算失败不阻断匹配模式：筛选本身由服务端按画像层级完成，提示条只是少一行名字
     }
     if (exitSeqRef.current !== entrySeq) return;
-    setPrefsPath({ groupCode: prefs.group_code ?? resolved.groupCode, options: resolved.options });
+    setPrefsPath({ options: resolved.options });
     setPrefsMode("prefs");
   }, []);
 
@@ -111,7 +109,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       setHasIndustryPrefs(false);
       if (prefsMode !== "default") {
         setPrefsMode("default");
-        setPrefsPath({ groupCode: null, options: [] });
+        setPrefsPath({ options: [] });
         setPage(1);
       }
       return;
@@ -156,7 +154,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   useEffect(() => {
     const onPrefsUpdated = () => {
       prefsInitKeyRef.current = null;
-      setPrefsPath({ groupCode: null, options: [] });
+      setPrefsPath({ options: [] });
       setPage(1);
       setPrefsMode(userId ? "loading" : "default");
       setPrefsRefreshTick((tick) => tick + 1);
@@ -167,7 +165,6 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
 
   const prefsBannerName = useMemo(() => {
     const names: string[] = [];
-    if (prefsPath.groupCode) names.push(t(`commodityGroup_${prefsPath.groupCode}` as LocaleKey));
     for (const opt of prefsPath.options) {
       const title = locale === "zh"
         ? opt.nameZh || opt.nameEn || opt.key
@@ -175,7 +172,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       if (title) names.push(title);
     }
     return names.join(" / ");
-  }, [prefsPath, locale, t]);
+  }, [prefsPath, locale]);
 
   const exitAutoMode = () => {
     const mySeq = exitSeqRef.current + 1;
@@ -199,7 +196,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     } else {
       setPrefsMode("default");
     }
-    setPrefsPath({ groupCode: null, options: [] });
+    setPrefsPath({ options: [] });
     setPage(1);
   };
 

@@ -13,18 +13,17 @@
  * - loading: 是否正在加载
  * - error: 是否加载失败
  *
- * 2026-10-11：服务端给的是大类码而不是名字（全库名字口径只有一份：commodityGroup_*
- * locale 键，与五级下拉第一级、chip 同一份）。名字不在服务端拼 DB 字段：实测
- * 骨架 L2~L4 的 name_en 全空，非中文界面会渲染出空标签。
+ * 2026-10-15 G 码退役：服务端直出 L1 树码 + 树名（name_zh），名字以树为唯一事实源，
+ * 不再有 commodityGroup_* locale 键第二口径。
  */
 import { useState, useEffect } from "react";
 import { api } from "@/core/http";
-import { isCommodityGroupCode } from "@/lib/services/commodity/groups";
+import { isCommodityNodeKey } from "@/lib/services/commodity/tree";
 
-/** 热门大类（服务端 hot-topics 聚合的 industries 字段）：node 只供诊断，code 才是身份 */
+/** 热门大类（服务端 hot-topics 聚合的 industries 字段）：code = L1 树码 + 筛选链接身份 */
 export interface HotGroupItem {
-  node: string;
   code: string;
+  nameZh: string;
   count: number;
 }
 
@@ -49,22 +48,21 @@ export interface HotGroupView {
 
 /**
  * 大类 → 标签 / 链接（两个组件共用这一份，不各自拼两份）。两条纪律：
- * 1. 不认识的码直接丢掉（与五级下拉「空层不给假选项」同一口径）：t() 缺键时返回
- *    键名本身，界面上会冒出一串 `commodityGroup_UGT-G-99` 给用户看；
- * 2. 链接走 `?group=<大类码>`：它就是检索侧的大类谓词入口（与五级下拉第一级同一个参数），
- *    旧的 `?industry_id=<旧字典行 id>` 是十个字母容器，点进去筛不出标签说的那一类。
+ * 1. 不认识的码直接丢掉（与五级下拉「空层不给假选项」同一口径）：名字缺失时落到码本身，
+ *    界面上冒出裸码比冒假类目诚实；
+ * 2. 链接走 `?commodity=<L1 码>`：它就是检索侧的品目谓词入口（传 L1 码即大类筛选），
+ *    旧的 `?group=` 与更旧的 `?industry_id=<旧字典行 id>` 都已退役。
  */
 export function hotGroupView(
   items: HotGroupItem[],
-  t: (key: string) => string,
 ): HotGroupView[] {
   return items
-    .filter((i) => isCommodityGroupCode(i.code))
+    .filter((i) => isCommodityNodeKey(i.code))
     .map((i) => ({
       key: i.code,
-      label: t(`commodityGroup_${i.code}`),
+      label: i.nameZh || i.code,
       count: i.count,
-      href: `/procurement?group=${i.code}`,
+      href: `/procurement?commodity=${i.code}`,
     }));
 }
 

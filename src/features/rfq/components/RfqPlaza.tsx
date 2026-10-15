@@ -14,7 +14,6 @@ import { Clock, Gem, Search } from "lucide-react";
 
 import { cn } from "@/shared/utils";
 import { Button, CountryFlag, EmptyState, Input, SegmentedControl, Select } from "@/shared/ui";
-import { useLocale, type LocaleKey } from "@/core/i18n";
 import { provinces as chinaProvinces } from "@/data/chinaDivision";
 import type { PlazaRfq } from "../types";
 import { useRfqPlaza, type RfqSortKey } from "../hooks/useRfqPlaza";
@@ -38,7 +37,7 @@ function remainingMs(deadline: string): number {
 }
 
 export function RfqPlaza() {
-  const { t } = useLocale();
+
   const {
     keyword, setKeyword,
     province, setProvince,
@@ -70,8 +69,8 @@ export function RfqPlaza() {
           onChange={(e) => setKeyword(e.target.value)} placeholder="搜索需求关键词" aria-label="搜索需求关键词" />
         <Select value={categoryL1} onChange={(e) => setCategoryL1(e.target.value)} aria-label="行业筛选">
           <option value="">全部行业</option>
-          {l1Options.map((g) => (
-            <option key={g.code} value={g.code}>{t(`commodityGroup_${g.code}` as LocaleKey)}</option>
+          {l1Options.map((o) => (
+            <option key={o.key} value={o.key}>{o.nameZh || o.nameEn || o.key}</option>
           ))}
         </Select>
         <Select value={province} onChange={(e) => setProvince(e.target.value)} aria-label="省份筛选">

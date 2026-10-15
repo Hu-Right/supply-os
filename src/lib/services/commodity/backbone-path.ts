@@ -22,22 +22,12 @@
  * @see scripts/gates/check-commodity-backbone.ts
  */
 
-import { COMMODITY_GROUPS as _COMMODITY_GROUPS_UNUSED } from "./groups";
-void _COMMODITY_GROUPS_UNUSED; // R4' 后 deriveSegmentRows 不再回退常量；列物理 DROP 与历史常量一起下一轮删。
-
 /** 骨架节点行的最小字段集（够访问就行，不必载整行） */
 export type BackboneRow = {
   code: string;
   parentCode: string;
   level: number;
 };
-
-/**
- * 历史保留：旧版从树反推段→大类时行入参需带旧前缀映射列；R4' 后匹配仅走 UGT 直认，
- * 不再需要这段推导。行入参不再要求旧前缀映射列，仅当无射向内行直读。
- * 新代码一律直接传 `BackboneRow` 即可。
- */
-export type GroupSegmentRow = { segmentPrefix: string; nodeCode: string };
 
 /** 命中档位，供覆盖率报表用 */
 export type BackboneTier = "品目级" | "类级" | "族级" | "段级";
@@ -125,13 +115,12 @@ export function chainOfNode(node: unknown): string[] {
  * 纯计算，不做任何校验以外的判断。
  *
  * R4' 后 match/pathOf 只保留 UGT 直认一条分支：数字码入口（byPrefix / famToDeepest / segToL1）
- * 全剥——上线日迁移件把两张兴趣小表写成 UGT 后，运行期再无数字码入口。`segments` 入参保留
- * 但不再消费（历史形制向后兼容）；下一轮可同列 DROP 一起清掉。
+ * 全剥——上线日迁移件把两张兴趣小表写成 UGT 后，运行期再无数字码入口。
+ * 2026-10-15 G 码退役：segments 入参与 GroupSegmentRow 一并拆除（无消费方）。
  */
-export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRow[] = []): BackboneIndex {
+export function buildBackboneIndex(rows: BackboneRow[]): BackboneIndex {
   const byCode = new Map<string, BackboneRow>();
   for (const r of rows) byCode.set(r.code, r);
-  void segments; // R4' 后无消费方；保留入参入口只为向后兼容。
 
   const ancestorsOf = (code: string): BackboneRow[] => {
     const chain: BackboneRow[] = [];
@@ -176,37 +165,6 @@ export function buildBackboneIndex(rows: BackboneRow[], segments: GroupSegmentRo
   };
 
   return { size: rows.length, nodeOf: (c) => byCode.get(c) ?? null, ancestorsOf, match, pathOf };
-}
-
-/**
- * 段（2 位）→ 大类 L1 节点：**从骨架上内存推导**，不再查 crm_commodity_group_segments（已按 ADR-0009 退役）。
- *
- * 口径依据：`group_code` 是骨架上逐行冗余的列（DDL 原注：冗余到每一层，筛选与权益墙免递归查父），
- * 而门禁 BB4 断言「类行的段所属大类 == 自身 group_code == 祖先 L1 的 group_code」。于是
- * 「一个段的全部 L4 行指向同一个 L1」是**受门禁保护的不变量**，不是猜测：
- *  - 段级键的落点 = 该段任一 L4 行的 group_code 所对应的 L1 行码；
- *  - 同一段推出两个不同 L1 ⇒ 抛错，不挑一个（BB4 与门禁 CG5 双守这条）；
- *  - 同一个大类码出现两个 L1 行同样抛错：`listL2OfGroup` 那类「取第一行」的读法会静默漏掉一整个大类；
- *  - L1 行被停用/缺席 ⇒ 该段不落点（与退役前那条 SQL 的 `b.status = 1` 同效）。
- * 实测（scripts/forensics/probe-seg-derivable.ts）：58 段三方逐段全等、0 段跨多大类，与退役前的归属表逐段一致。
- *
- * 【常量兜底】树重建可以把某一段的 L4 行整段裁掉（2026-10-12 现网实到：85 段没了，
- * `85000000` 这类段级粗码以「只从树反推」就换不出归属，连带 1,159 条公告（活跃 272）丢分类）。
- * 而段→大类本身的口径在 `COMMODITY_GROUPS` 常量里（ADR-0008/0009：大类维表退役后口径只剩常量），
- * 所以树没推出那段时，用常量指到该大类那个**真实存在的 L1 行** —— 指的是树上的节点，不是造码。
- * 两条约束：树反推优先（常量不得覆盖树已有结论）；大类在树里没有 L1 行就不落点（不抛错，
- * 与上面那条「L1 缺席 ⇒ 不落点」保持同一语义，不给 loadBackboneIndex 新增崩溃面）。
- */
-/**
- * 【已失效】R4' 剥开数字码入口后本函数不再被调用；`buildBackboneIndex` 也不再消费 `segments`。
- * 保留一个空实现，为历史行为向后兼容（tests 与 ops 探针仍可引 它，不会拿到旧形制的行 列）；
- * 下一轮 baseline 重导后可连根删除。
- */
-export function deriveSegmentRows(
-  rows: Array<{ code: string; level: number; group_code?: string }>,
-): GroupSegmentRow[] {
-  void rows;
-  return [];
 }
 
 /**

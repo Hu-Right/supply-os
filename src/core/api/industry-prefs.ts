@@ -9,10 +9,9 @@
  */
 import { api, apiCached } from "@/core/http";
 
-/** 账号默认行业偏好：UGT 最深骨架节点码 + 品目大类码（可见性判定输入） */
+/** 账号默认行业偏好：UGT 最深骨架节点码（所属大类由码前缀推导，2026-10-15 G 码退役） */
 export interface IndustryPrefs {
   commodity_code: string | null;
-  group_code?: string | null;
 }
 
 /** 一条品目推断候选（/api/commodity/smart-infer） */
@@ -21,8 +20,6 @@ export interface CommodityInferCandidate {
   code: string;
   nameZh: string;
   nameEn: string;
-  /** 所属品目大类码（UGT-G-xx）；挂不上为 null */
-  groupCode: string | null;
   level: number;
   /** 0~1 粗分（展示徽章档位用） */
   score: number;

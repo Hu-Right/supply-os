@@ -79,10 +79,10 @@ export function IndustryPrefsForm() {
     const savedMb = localStorage.getItem(`supply-os:main-business:${uid}`);
     if (savedMb) setMainBusinessRaw(savedMb);
 
-    // 从后端加载已保存的行业偏好（码版：commodity_code + group_code）
+    // 从后端加载已保存的行业偏好（码版：commodity_code；所属大类由码前缀推导）
     fetchIndustryPrefs().then((prefs) => {
       if (prefs?.commodity_code) {
-        applyInferredCode(prefs.commodity_code, prefs.group_code ?? undefined);
+        applyInferredCode(prefs.commodity_code);
       }
     });
   }, [userId, resetCascade, applyInferredCode]);
@@ -116,7 +116,7 @@ export function IndustryPrefsForm() {
 
   // 用户从候选中点选：以该候选节点码回填级联（仅回填可见三级），L4/L5 不参与
   const pickCandidate = (candidate: CommodityInferCandidate) => {
-    applyInferredCode(candidate.code, candidate.groupCode);
+    applyInferredCode(candidate.code);
     setAppliedCode(candidate.code);
     setPrefMessage("");
   };

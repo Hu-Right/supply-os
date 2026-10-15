@@ -17,7 +17,7 @@ export function HotTopicsSection() {
 
   if (!topics || !topics.industries?.length) return null;
 
-  const items = hotGroupView(topics.industries, t);
+  const items = hotGroupView(topics.industries);
   // 全部是不认识的码（常量与库分叉）：整行不渲染，不给一个空盒子当「热门品目」
   if (items.length === 0) return null;
 

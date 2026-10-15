@@ -91,7 +91,6 @@ export const fetchUnifiedSearch = (params: {
   pageSize: number;
   locale?: string;
   /** 品目大类码（UGT-G-xx，32 类之一） */
-  groupCode?: string;
   /** 品目树筛选键（UGT 节点码，五级下拉第二~五级）——与大类同一条链的收窄 */
   commodityPath?: string;
   q?: string;
@@ -114,7 +113,6 @@ export const fetchUnifiedSearch = (params: {
     page: params.page,
     page_size: params.pageSize,
     locale: params.locale,
-    group: params.groupCode,
     commodity: params.commodityPath,
     q: params.q,
     country: params.country,

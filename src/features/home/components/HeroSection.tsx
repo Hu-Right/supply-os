@@ -27,7 +27,7 @@ export function HeroSection() {
   const hotTags_list = hotTags
     ? [
         ...hotTags.countries.slice(0, 4).map((c) => getCountryDisplayName(c.country, locale)),
-        ...hotGroupView(hotTags.industries.slice(0, 4), t).map((g) => g.label),
+        ...hotGroupView(hotTags.industries.slice(0, 4)).map((g) => g.label),
       ]
     : fallbackCountries;
 

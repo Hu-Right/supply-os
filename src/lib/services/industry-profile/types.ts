@@ -18,9 +18,9 @@ export interface UserIndustryProfile {
   commodityCode: string;
   /** 码长即层级（1~5，BB1 不变量） */
   deepestLevel: number;
-  /** 品目大类码（UGT-G-xx，取自 crm_user_industry_prefs.group_code）。
+  /** 所属大类 = L1 树码（2026-10-15 G 码退役后由 commodity_code 前缀纯切片推导）。
    *  可见性判定只认这个：industry-scope 的墙按大类执法。 */
-  groupCode: string | null;
+  l1Code: string | null;
   /** 节点中文名（品目树 name_zh，提示条/日志展示用） */
   industryTitleZh: string | null;
 }

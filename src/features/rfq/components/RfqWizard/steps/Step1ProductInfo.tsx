@@ -3,8 +3,8 @@
  * @module features/rfq/components/RfqWizard/steps/Step1ProductInfo
  */
 import { Input, SegmentedControl, Select, Textarea } from "@/shared/ui";
-import { useLocale, type LocaleKey } from "@/core/i18n";
-import type { CommodityGroup } from "@/lib/services/commodity/groups";
+import { useLocale } from "@/core/i18n";
+
 import type { CommodityTreeOption } from "@/features/procurement/api/commodityTree";
 import type { FieldErrors, RfqFormState } from "../../../types";
 import { Field } from "../ui/Field";
@@ -14,13 +14,13 @@ export interface Step1Props {
   errors: FieldErrors;
   update: <K extends keyof RfqFormState>(key: K, value: RfqFormState[K]) => void;
   onCategoryL1: (v: string) => void;
-  /** 一级 = 32 大类常量；二级 = 该大类所辖品目树节点 */
-  l1Options: readonly CommodityGroup[];
+  /** 一级 = 32 个 L1 大类行（树接口直出）；二级 = 该大类所辖品目树节点 */
+  l1Options: CommodityTreeOption[];
   l2Options: CommodityTreeOption[];
 }
 
 export function Step1ProductInfo({ form, errors, update, onCategoryL1, l1Options, l2Options }: Step1Props) {
-  const { t, locale } = useLocale();
+  const { locale } = useLocale();
   return (
     <div className="space-y-5">
       <Field label="需求标题" required error={errors.title} htmlFor="rfq-title"
@@ -36,8 +36,8 @@ export function Step1ProductInfo({ form, errors, update, onCategoryL1, l1Options
           <Select id="rfq-cat1" value={form.categoryL1} error={!!errors.categoryL1}
             onChange={(e) => onCategoryL1(e.target.value)}>
             <option value="">请选择一级分类</option>
-            {l1Options.map((g) => (
-              <option key={g.code} value={g.code}>{t(`commodityGroup_${g.code}` as LocaleKey)}</option>
+            {l1Options.map((o) => (
+              <option key={o.key} value={o.key}>{o.nameZh || o.nameEn || o.key}</option>
             ))}
           </Select>
         </Field>

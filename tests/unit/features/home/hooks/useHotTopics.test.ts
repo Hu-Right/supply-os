@@ -7,10 +7,10 @@ vi.mock("@/core/http", () => ({
   api: (...args: unknown[]) => mockApi(...args),
 }));
 
-// 服务端给的是「骨架 L1 节点码 + 大类码 + 计数」，不再给旧字典行 id 与 title_zh/title
+// 服务端给的是「骨架 L1 树码 + 树名 + 计数」（2026-10-15 G 码退役，名字以树为唯一事实源）
 const mockTopics = {
   countries: [{ country: "CN", count: 100 }, { country: "US", count: 80 }],
-  industries: [{ node: "UGT-01", code: "UGT-G-11", count: 50 }],
+  industries: [{ code: "UGT-01", nameZh: "建筑施工与运维服务", count: 50 }],
 };
 
 describe("useHotTopics", () => {
@@ -63,21 +63,19 @@ describe("useHotTopics", () => {
   });
 });
 
-describe("hotGroupView（大类码 → 标签/链接，两个组件共用一份口径）", () => {
-  const t = (key: string) => (key === "commodityGroup_UGT-G-11" ? "医疗器械" : key);
-
-  it("名字走 locale 键，链接走 ?group=<大类码>（就是检索侧的大类谓词入口）", () => {
-    expect(hotGroupView([{ node: "UGT-01", code: "UGT-G-11", count: 50 }], t)).toEqual([
-      { key: "UGT-G-11", label: "医疗器械", count: 50, href: "/procurement?group=UGT-G-11" },
+describe("hotGroupView（L1 码 → 标签/链接，两个组件共用一份口径）", () => {
+  it("名字走服务端树名，链接走 ?commodity=<L1 码>（检索侧品目谓词入口，传 L1 即大类筛选）", () => {
+    expect(hotGroupView([{ code: "UGT-01", nameZh: "建筑施工与运维服务", count: 50 }])).toEqual([
+      { key: "UGT-01", label: "建筑施工与运维服务", count: 50, href: "/procurement?commodity=UGT-01" },
     ]);
   });
 
-  it("不认识的码直接丢掉：不让 t() 漏出键名，也不给点不开的空标签", () => {
+  it("不认识的码直接丢掉：不让非法形制漏成筛选键，也不给点不开的空标签", () => {
     const items = [
-      { node: "UGT-01", code: "UGT-G-11", count: 50 },
-      { node: "UGT-99", code: "UGT-G-99", count: 40 },
-      { node: "UGT-02", code: "", count: 30 },
+      { code: "UGT-01", nameZh: "建筑施工与运维服务", count: 50 },
+      { code: "UGT-G-99", nameZh: "旧码残留", count: 40 },
+      { code: "", nameZh: "无码", count: 30 },
     ];
-    expect(hotGroupView(items, t).map((v) => v.key)).toEqual(["UGT-G-11"]);
+    expect(hotGroupView(items).map((v) => v.key)).toEqual(["UGT-01"]);
   });
 });

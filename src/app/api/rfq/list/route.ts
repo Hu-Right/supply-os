@@ -12,15 +12,10 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { formatDeadlineDateYMD, currencySymbol } from "@/shared/utils/format";
-import { isCommodityGroupCode, COMMODITY_GROUPS } from "@/lib/services/commodity/groups";
+import { commodityNodeLevel, isCommodityNodeKey } from "@/lib/services/commodity/tree";
 import type { RowDataPacket } from "mysql2/promise";
 
 const MYSQL_TIMEOUT_MS = 10_000;
-
-/** 大类码 → 中文名（界面名走 locale，此处为列表行的纯文本兜底，与旧 title_zh 口径一致） */
-function groupNameZh(groupCode: string): string {
-  return COMMODITY_GROUPS.find((g) => g.code === groupCode)?.nameZh ?? "";
-}
 
 /** estimated_value + currency → 展示文案（平台预算以“万元”为单位，与设置页口径一致） */
 function formatBudget(value: number, currency: string): string {
@@ -37,7 +32,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const pageSize = Math.min(Math.max(Number(sp.get("page_size")) || 12, 4), 48);
   const q = String(sp.get("q") || "").trim().slice(0, 200);
   const province = String(sp.get("province") || "").trim().slice(0, 50);
-  // 品目大类筛选：UGT-G-xx（旧字典行 id 参数随旧品类字典退役停用）
+  // 品目大类筛选：L1 树码 UGT-xx（2026-10-15 G 码退役；旧字典行 id 参数随旧品类字典退役停用）
   const categoryL1 = String(sp.get("category_l1") || "").trim().slice(0, 16);
   const sort = sp.get("sort") === "deadline" ? "deadline" : sp.get("sort") === "budget" ? "budget" : "newest";
 
@@ -63,11 +58,13 @@ export const GET = withRoute(async (req: NextRequest) => {
   }
   if (categoryL1) {
     // 非法码直接当空条件处理（不 500：筛选参数可手输）
-    if (!isCommodityGroupCode(categoryL1)) {
+    if (!isCommodityNodeKey(categoryL1) || commodityNodeLevel(categoryL1) !== 1) {
       return NextResponse.json({ items: [], total: 0, page, page_size: pageSize });
     }
-    conditions.push("c1.group_code = ?");
-    params.push(categoryL1);
+    // 大类筛选走码前缀谓词，不再依赖 JOIN：category_code 存的就是 UGT 节点码，
+    // 其 L1 前缀命中 = 该大类下任何深度（与宽表 backbone_path 链顶同口径）
+    conditions.push("n.category_code LIKE ?");
+    params.push(`${categoryL1}%`);
   }
 
   const whereSql = conditions.join(" AND ");
@@ -80,16 +77,18 @@ export const GET = withRoute(async (req: NextRequest) => {
 
     const [countResult, dataResult] = await Promise.all([
       Promise.race([pool.query(
+        // 计数不再 JOIN：大类筛选走 category_code 前缀，条件全部落在主表
         `SELECT COUNT(*) AS total FROM crm_bid_notices n
-         LEFT JOIN crm_commodity_backbone c1 ON c1.code = n.category_code
          WHERE ${whereSql}`, params), timeout]),
       Promise.race([
         pool.query(
           `SELECT n.id, n.reference, n.title, n.country, n.province_name,
-                  n.category_code, c1.group_code, c1.name_zh AS category_name,
+                  n.category_code, c1.name_zh AS category_name,
+                  c0.name_zh AS category_l1_name,
                   n.estimated_value, n.currency, n.deadline_sec, n.is_featured, n.agency
            FROM crm_bid_notices n
            LEFT JOIN crm_commodity_backbone c1 ON c1.code = n.category_code
+           LEFT JOIN crm_commodity_backbone c0 ON c0.code = LEFT(n.category_code, 7) AND c0.level = 1
            WHERE ${whereSql} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
           [...params, pageSize, offset],
         ),
@@ -104,8 +103,8 @@ export const GET = withRoute(async (req: NextRequest) => {
 
     const items = rows.map((row) => {
       const province = String(row.province_name || "");
-      // 一级名 = 所在大类的中文名（常量），二级名 = 存储节点自身名称；无码的老行两列皆空
-      const catL1 = groupNameZh(String(row.group_code || ""));
+      // 一级名 = 所在大类（L1）的树名，二级名 = 存储节点自身名称；无码的老行两列皆空
+      const catL1 = String(row.category_l1_name || "");
       const catL2 = String(row.category_name || "");
       return {
         id: Number(row.id),

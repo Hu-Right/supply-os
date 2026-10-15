@@ -15,7 +15,6 @@ import {
   backboneNodeLevel,
   buildBackboneIndex,
   chainOfNode,
-  deriveSegmentRows,
   fromBackbonePathColumn,
   normalizeBackboneNodeKey,
   rootNodes,
@@ -78,22 +77,6 @@ describe("UGT 节点直认（R4' 后唯一分支）", () => {
     expect(r.codes).toContain("UGT-01010101");
     expect(r.codes).toContain("UGT-010102");
     expect(r.codes).toContain("UGT-01");
-  });
-});
-
-describe("buildBackboneIndex 的 segments 入参（R4' 保留但不消费）", () => {
-  it("传空数组也能构出索引，行为与不传一致", () => {
-    const withEmpty = buildBackboneIndex(rows, []);
-    const without = buildBackboneIndex(rows);
-    expect(withEmpty.size).toBe(without.size);
-    expect(withEmpty.match("UGT-0101010101")?.row.code).toBe(without.match("UGT-0101010101")?.row.code);
-  });
-});
-
-describe("deriveSegmentRows 的空实现（R4' 后无消费方）", () => {
-  it("传任意行集都返回空数组（历史 API，下一轮连根删）", () => {
-    expect(deriveSegmentRows([])).toEqual([]);
-    expect(deriveSegmentRows([{ code: "UGT-01", level: 1, group_code: "UGT-G-01" }])).toEqual([]);
   });
 });
 
