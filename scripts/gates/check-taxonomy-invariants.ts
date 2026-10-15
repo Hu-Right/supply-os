@@ -3,10 +3,10 @@
  *
  * 用法：npx tsx scripts/check-taxonomy-invariants.ts
  *
- * 行业面 crm_industry_nodes 的结构约定落地为可执行门禁，
- * 口径与 docs/数据库设计/crm_industry_nodes-行业面主表.md 一致：
- *   I 行业面：码长即层级 · 父指针闭合且等于码前缀 · 不跳级 · 自研层只挂中类或更细 · 英文名齐全 · 词表封闭
+ * 行业面 crm_industry_nodes 的结构约定落地为可执行门禁（口径同 db/schema/baseline.sql）：
+ *   I 行业面：码长即层级 · 父指针闭合且等于码前缀 · 不跳级 · 英文名齐全 · 词表封闭
  *   X 跳面：行业挂靠零孤儿 · 主行业码零孤儿
+ *   注：I6 自研来源标记与 I8 国标 src_code 形态随 source/src_code/version/supplier_count 列退役而移除；自研层即 level='extension'
  *
  * 品目面旧树 crm_commodity_nodes 已按 ADR-0006 从库里 DROP，它的 C1~C8 与依附于它的
  * “两面码段不相交 / 挂靠不得串面”两条逐例已无对象，整块移除（历史口径见 ADR 与 git 留底）。
@@ -63,27 +63,12 @@ const CHECKS: Check[] = [
              OR (c.level = 'extension' AND p.level NOT IN ('group','subclass'))`,
   },
   {
-    name: "I6 自研延伸层挂成粗层或挂到门类（应为 0）",
-    sql: `SELECT COUNT(*) n FROM ${IND} WHERE source = 'self' AND level <> 'extension'`,
-  },
-  {
     name: "I7 英文名缺失（应为 0）",
     sql: `SELECT COUNT(*) n FROM ${IND} WHERE name_en IS NULL OR name_en = ''`,
   },
   {
-    name: "I8 src_code 形态非法（应为 0）",
-    sql: `SELECT COUNT(*) n FROM ${IND} WHERE NOT (CASE level
-            WHEN 'section' THEN src_code REGEXP '^[A-Z]$'
-            WHEN 'division' THEN src_code REGEXP '^[0-9]{2}$'
-            WHEN 'group' THEN src_code REGEXP '^[0-9]{3}$'
-            WHEN 'subclass' THEN src_code REGEXP '^[0-9]{4}$'
-            WHEN 'extension' THEN src_code REGEXP '^X[0-9]{2,3}$'
-            ELSE FALSE END)`,
-  },
-  {
-    name: "I9 词表越界（source/level/status 应为 0 行违规）",
-    sql: `SELECT COUNT(*) n FROM ${IND} WHERE source NOT IN ('gb','self')
-            OR level NOT IN ('section','division','group','subclass','extension')
+    name: "I9 词表越界（level/status 应为 0 行违规）",
+    sql: `SELECT COUNT(*) n FROM ${IND} WHERE level NOT IN ('section','division','group','subclass','extension')
             OR status NOT IN (0,1)`,
   },
   // ── 行业挂靠 ──
