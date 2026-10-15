@@ -1,89 +1,77 @@
 /**
- * 旧字典零残留门禁：src / scripts/tools / scripts/gates 实现 / db/schema/baseline.sql
- * 不得再出现旧采购分类标准字样（大小写不敏感）。
+ * 旧字典零残留门禁：全部 git 跟踪文本文件不得再出现旧采购分类标准字样（大小写不敏感）。
  *
- * 背景：旧品目字典退役全役（§7~§12.3 + R2/R3 批次）完成后，防止旧字样从任何入口回潜——
- *   新代码、新注释、新测试、新基线都过这一道。
+ * 背景：旧品目字典退役（§7~§12.3 + R2/R3 批次）完成后，防止旧字样从任何入口回潜——
+ *   新代码、新注释、新测试、新文档、新基线都过这一道。
  *
- * 靶子字样不在本文件写明（否则门禁自身就是残留）：码位拼装 + 环境变量追加。
- *   LEGACY_DICT_RESIDUE_EXEMPT=<逗号分隔子串，按行内容匹配即豁免>
- * 内置豁免均为「仍在库、由爬虫交集机制写入、本仓代码零读写」的外部列；
- * 权重列已随 2026-10-14 部署配对改名，那条豁免已摘除。
+ * 射程 = `git ls-files` 列出的跟踪文本文件：天然尊重 .gitignore，故 scripts/ops、runtime、
+ *   temp 里的历史留底/落刀备份**不在射程**（它们含旧字样属取证，不为「搜索干净」而改写）。
+ *   按扩展名白名单过滤，二进制/办公件自动挡在门外。
+ *
+ * 豁免口径（收紧后的唯一硬口径，代码评审-controlled）：仅结构基线里由外部爬虫侧拥有、
+ *   本仓零读写的 supplier 两列 DDL 定义行。已删除以下绕过面：
+ *     · not.to… 负向守卫整行放行（测试要断言「不含旧字样」应码位拼装靶子，不靠豁免）
+ *     · why: 说明行整行放行
+ *     · 非 baseline 文件的裸列名全局放行
+ *     · .env 追加任意子串豁免
+ *   新增合法外部列：改本文件 EXEMPT 表并走评审，不开环境变量后门。
+ *
+ * 靶子字样不在本文件写明（否则门禁自身就是残留）：一律码位拼装。
  *
  * 用法：node scripts/gates/check-legacy-dict-residue.mjs（exit 0 = 干净 / 1 = 有残留）
+ *       LEGACY_DICT_REPO_ROOT=<path>  把扫描根换到指定仓库（自测 fixture 用；默认 cwd）
  */
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-if (existsSync(".env")) {
-  for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
-    const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, "");
-  }
-}
 // 门禁靶子：码位拼装，本仓文本层不出现连续旧字样
 const LEGACY = ["un", "sp", "sc"].join("");
-// 内置豁免（代码评审-controlled）：爬虫交集机制仍写入、本仓代码零读写的供应商快照列。
-// .env 的 LEGACY_DICT_RESIDUE_EXEMPT 只做本地追加，不覆盖此处。
-const DEFAULT_EXEMPT = [
-  `supplier.${LEGACY}_codes_snapshot`,
-  `supplier.${LEGACY}_match_status`,
-  // 快照列裸名（测试负向断言清单里不带表前缀出现）
-  `${LEGACY}_codes_snapshot`,
-  `${LEGACY}_match_status`,
-];
-const EXEMPT = [
-  ...DEFAULT_EXEMPT,
-  ...(process.env.LEGACY_DICT_RESIDUE_EXEMPT ?? "")
-    .split(",").map((s) => s.trim()).filter(Boolean),
-];
-// 负向守卫行（测试/门禁里「断言其不存在」的用法）与门禁自测夹具不属残留
-const NEGATIVE_RE = /not\.to(?:Match|Contain|HaveProperty|Be)/;
-
-const ROOT = process.cwd();
-// 射程 = 生产面（src / 库侧工具 / 门禁实现 / 结构基线）。tests/ 不进射程：测试里的
-// 旧字样几乎全是「断言其不存在」的负向守卫与历史夹具，功能正确性由 vitest/CI 仲裁。
-const SCOPES = ["src", join("scripts", "tools"), join("scripts", "gates")];
-const FILES = ["db/schema/baseline.sql"];
 const RE = new RegExp(LEGACY, "i");
 
+// 文本扩展名白名单：与 gitignore 双保险，二进制/图片/办公件不进射程
+const TEXT_EXT = /\.(ts|tsx|js|jsx|mjs|cjs|json|md|markdown|sql|css|scss|html|ya?ml|txt)$/i;
+
+// 精确豁免：仅 baseline 结构快照里、由外部爬虫侧拥有且本仓零读写的 supplier 两列 DDL 行。
+// 匹配「trim 后以该列反引号名开头」——不放行整文件，旧五级列等混进基线仍会被拦。
+const BASELINE = "db/schema/baseline.sql";
+const EXEMPT = {
+  [BASELINE]: [
+    new RegExp("^`" + LEGACY + "_codes_snapshot`"),
+    new RegExp("^`" + LEGACY + "_match_status`"),
+  ],
+};
+
+const repoRoot = process.env.LEGACY_DICT_REPO_ROOT || process.cwd();
+
+// git 输出的路径恒为正斜杠相对路径；EXEMPT 的 key 与命中展示都用它
+const tracked = execFileSync("git", ["-C", repoRoot, "ls-files", "-z"], { encoding: "utf8" })
+  .split("\0")
+  .filter(Boolean);
+
 const hits = [];
-const SELF = "check-legacy-dict-residue";
-function walk(dir) {
-  if (!existsSync(dir)) return;
-  for (const name of readdirSync(dir)) {
-    if (name === "node_modules" || name.startsWith(".")) continue;
-    const p = join(dir, name);
-    if (p.includes(join("tests", "gates"))) continue;
-    const st = statSync(p);
-    if (st.isDirectory()) walk(p);
-    else if (/\.(ts|tsx|js|mjs|cjs|sql)$/.test(name)) {
-      if (p.includes(SELF)) continue;
-      const content = readFileSync(p, "utf8");
-      content.split(/\r?\n/).forEach((line, i) => {
-        if (!RE.test(line)) return;
-        if (EXEMPT.some((e) => line.includes(e))) return;
-        if (NEGATIVE_RE.test(line) || /why:\s*["'`]/.test(line)) return;
-        hits.push(`${p}:${i + 1}: ${line.trim().slice(0, 90)}`);
-      });
-    }
+for (const rel of tracked) {
+  if (!TEXT_EXT.test(rel)) continue;
+  let content;
+  try {
+    content = readFileSync(join(repoRoot, rel), "utf8");
+  } catch {
+    continue; // 空文件/删除竞态：跳过，不误判
   }
-}
-for (const s of SCOPES) walk(join(ROOT, s));
-for (const f of FILES) {
-  const p = join(ROOT, f);
-  if (!existsSync(p)) continue;
-  readFileSync(p, "utf8").split(/\r?\n/).forEach((line, i) => {
+  const exempt = EXEMPT[rel];
+  content.split(/\r?\n/).forEach((line, i) => {
     if (!RE.test(line)) return;
-    if (EXEMPT.some((e) => line.includes(e))) return;
-    hits.push(`${f}:${i + 1}: ${line.trim().slice(0, 90)}`);
+    if (exempt && exempt.some((re) => re.test(line.trim()))) return;
+    hits.push(`${rel}:${i + 1}: ${line.trim().slice(0, 90)}`);
   });
 }
 
 if (hits.length) {
-  console.error(`✗ 旧字典零残留门禁：${hits.length} 行命中（豁免清单 ${EXEMPT.length} 项）：`);
+  console.error(`✗ 旧字典零残留门禁：${hits.length} 行命中（豁免仅精确到 ${BASELINE} 的 2 列外部快照）：`);
   for (const h of hits.slice(0, 30)) console.error("  · " + h);
   if (hits.length > 30) console.error(`  · …另有 ${hits.length - 30} 行`);
   process.exit(1);
 }
-console.log(`✓ 旧字典零残留门禁通过（扫描 src/scripts/tools/gates 实现/baseline，豁免 ${EXEMPT.length} 项）`);
+console.log(
+  `✓ 旧字典零残留门禁通过（扫描 ${tracked.filter((f) => TEXT_EXT.test(f)).length} 个 git 跟踪文本文件，尊重 .gitignore；豁免仅 baseline 两列外部快照）`,
+);
