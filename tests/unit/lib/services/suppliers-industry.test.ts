@@ -1,11 +1,10 @@
 /**
  * mapSupplierRow 行业口径测试
  * @module tests/unit/lib/services/suppliers-industry.test.ts
- * @description 行业展示此前只有一条路：`industryEn = industryZh = supplier.industry`，
- *              于是六种语言的界面都显示同一串中文文本。接入行业面后规则是：
+ * @description 行业展示规则（supplier.industry 自由文本列已于 2026-10-15 退役）：
  *              1. 能解析到标准节点 → 中英文名各取一侧（英文是 ISIC 官方名），并带上码与路径；
- *              2. 解析不到（无主码 / 树里没有这个码）→ 逐字回到旧行为，绝不出现空行业；
- *              3. 自填原文另存 industryText，不与标准口径混写（两者可能说的不是一回事）。
+ *              2. 解析不到（无主码 / 树里没有这个码）→ 回落主营产品首项（再为空则“其他”）；
+ *              3. 兼容展示文本另存 industryText（= 回落文本），不与标准口径混写。
  */
 import { describe, it, expect } from "vitest";
 import { mapSupplierRow } from "@/lib/services/suppliers";
@@ -24,7 +23,6 @@ function row(over: Partial<SupplierDirectoryRow> = {}): SupplierDirectoryRow {
     phone: "",
     email: "",
     products: "LED 灯具",
-    industry: "安防 / 消防 / 防护",
     industry_code: "UGT-I-032607",
     certification: null,
     type: "foreign",
@@ -52,22 +50,22 @@ describe("mapSupplierRow — 行业口径", () => {
     expect(s.industryTags).toHaveLength(2);
   });
 
-  it("自填原文与标准口径并存但分开：industryText 保留原样", () => {
+  it("无标准码时 industryText 回落主营产品首项", () => {
     const s = mapSupplierRow(row(), standard);
-    expect(s.industryText).toBe("安防 / 消防 / 防护");
+    expect(s.industryText).toBe("LED 灯具");
   });
 
-  it("没给行业视图（未装配/装配失败）→ 逐字回到旧行为：两列同文本、无码无路径", () => {
+  it("没给行业视图（未装配/装配失败）→ 两列同回落产品首项、无码无路径", () => {
     const s = mapSupplierRow(row());
-    expect(s.industryZh).toBe("安防 / 消防 / 防护");
+    expect(s.industryZh).toBe("LED 灯具");
     expect(s.industryEn).toBe(s.industryZh);
     expect(s.industryCode).toBeUndefined();
     expect(s.industryTags).toBeUndefined();
   });
 
-  it("给了视图但码在树里查不到 → 同样回落文本，不把半成品标签推给用户", () => {
+  it("给了视图但码在树里查不到 → 同样回落产品首项，不把半成品标签推给用户", () => {
     const s = mapSupplierRow(row(), { primary: null, pathZh: [], pathEn: [], tags: [] });
-    expect(s.industryZh).toBe("安防 / 消防 / 防护");
+    expect(s.industryZh).toBe("LED 灯具");
     expect(s.industryCode).toBeUndefined();
     expect(s.industryPathZh).toBeUndefined();
   });

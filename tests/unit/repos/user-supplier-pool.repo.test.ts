@@ -86,13 +86,13 @@ describe("UserSupplierPoolRepo.countDiagnosisPending", () => {
 });
 
 describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排所需）", () => {
-  const row = { id: 10, company: "工厂A", industry: "电子" };
+  const row = { id: 10, company: "工厂A" };
 
   it("findVerifiedByCompany 命中 → 返回含 in_pool 标记的单条结果", async () => {
     const mockQuery = vi.fn().mockResolvedValue([[{ ...row, in_pool: 0 }]]);
     const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
     const found = await repo.findVerifiedByCompany("工厂A");
-    expect(found).toEqual({ id: 10, company: "工厂A", industry: "电子", in_pool: 0 });
+    expect(found).toEqual({ id: 10, company: "工厂A", industry: "", in_pool: 0 });
     expect(mockQuery).toHaveBeenCalledTimes(1);
     expect(mockQuery.mock.calls[0][1][0]).toBe("%工厂A%");
   });
@@ -178,10 +178,10 @@ describe("searchVerifiedByCompany / findVerifiedById 边界", () => {
 
   it("findVerifiedById 命中/未命中/仅认证可见", async () => {
     const mockQuery = vi.fn()
-      .mockResolvedValueOnce([[{ id: 10, company: "工厂A", industry: "电子" }]])
+      .mockResolvedValueOnce([[{ id: 10, company: "工厂A" }]])
       .mockResolvedValueOnce([[]]);
     const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
-    await expect(repo.findVerifiedById(10)).resolves.toEqual({ id: 10, company: "工厂A", industry: "电子" });
+    await expect(repo.findVerifiedById(10)).resolves.toEqual({ id: 10, company: "工厂A", industry: "" });
     await expect(repo.findVerifiedById(10)).resolves.toBeNull();
     // 已认证口径只认 done（旧的空值 NULL 视同已认证兼容已删，2026-10-08 实库 NULL 行数=0）
     expect(mockQuery.mock.calls[0][0]).toContain("verify_status = 'done'");

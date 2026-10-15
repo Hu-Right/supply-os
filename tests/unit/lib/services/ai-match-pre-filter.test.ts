@@ -22,8 +22,7 @@ describe("extractSupplierTerms", () => {
   it("按中英文逗号/顿号/斜杠/分号/换行切词并去重、小写化", () => {
     const terms = extractSupplierTerms({
       pool_id: 1,
-      industry: "电子，LED显示屏 / Solar",
-      products: "LED显示屏;逆变器\n储能",
+      products: "电子，LED显示屏 / Solar;逆变器\n储能",
       certification: "ISO9001, CE,CE",
     });
     expect(terms).toContain("led显示屏");
@@ -36,7 +35,7 @@ describe("extractSupplierTerms", () => {
   });
 
   it("过滤长度 < 2 的碎片与空值", () => {
-    const terms = extractSupplierTerms({ pool_id: 1, industry: "A, LED, ,", products: "", certification: null });
+    const terms = extractSupplierTerms({ pool_id: 1, products: "A, LED, ,", certification: null });
     expect(terms).toEqual(["led"]);
   });
 });
@@ -67,10 +66,9 @@ describe("scoreSupplierAgainstNotice", () => {
 describe("preFilterSuppliers", () => {
   const notice = { title: "LED 显示屏采购项目", description: "", eligibility: "", technical_hurdles: "", supplier_conditions: "" };
 
-  const makeSupplier = (poolId: number, industry: string): PreFilterSupplier => ({
+  const makeSupplier = (poolId: number, products: string): PreFilterSupplier => ({
     pool_id: poolId,
-    industry,
-    products: "",
+    products,
     certification: "",
   });
 
@@ -156,9 +154,9 @@ describe("nodeTier（交集最深层定档）", () => {
 
 describe("preFilterSuppliers 节点码分档 + 词项兜底", () => {
   const notice = { title: "纺织面料采购项目", description: "", eligibility: "", technical_hurdles: "", supplier_conditions: "" };
-  /** 供应商行：industry 同时决定词项分（"纺织" 命中公告标题，"LED" 不命中） */
-  const sup = (poolId: number, supplierId: number, industry: string): PreFilterSupplier => ({
-    pool_id: poolId, supplier_id: supplierId, industry, products: "", certification: "",
+  /** 供应商行：products 决定词项分（"纺织" 命中公告标题，"LED" 不命中） */
+  const sup = (poolId: number, supplierId: number, products: string): PreFilterSupplier => ({
+    pool_id: poolId, supplier_id: supplierId, products, certification: "",
   });
 
   it("节点码 L5 命中的无词项供应商，压过无码但词项命中的供应商", () => {
