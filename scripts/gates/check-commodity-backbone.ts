@@ -350,18 +350,19 @@ if (Number(pathCol.n) === 0) {
     : { n: 0 };
   if (Number(hit.n) !== pc.size) fail(`BB7 抽样里 ${pc.size - Number(hit.n)} 个 backbone_path 码在树里不存在`);
 
-  // ── BB12 偏好表的 commodity_code 必须齐且形制合法（可见性判定的输入）──
-  // 判定层（industry-scope）从 commodity_code 前缀推导大类（L1 树码），推导不出 = 该付费用户
+  // ── BB12 偏好表的 commodity_code 必须形制合法（可见性判定的输入）──
+  // 判定层（industry-scope）从 commodity_code 前缀推导大类（L1 树码），形制非法 = 该付费用户
   // 被静默锁死（nodes=[] fail-closed）或静默放行，零容忍。G 码退役（2026-10-15）后
-  // 偏好表不再有大类列，这条从「group_code 齐备且对得上骨架」改为「码版选择键在且形制合法」。
+  // 偏好表不再有大类列；levelN_id 五列亦已物理 DROP（写侧本来就恒置 NULL），触发条件随之消失：
+  // 只断言「填了码就必须是合法树码」，空码 = 未绑行业（needsIndustry 引导），是合法态。
   const prefBadCode = await one(
     `SELECT COUNT(*) n FROM crm_user_industry_prefs
-      WHERE (IFNULL(level2_id,0) > 0 OR IFNULL(level3_id,0) > 0 OR IFNULL(level4_id,0) > 0 OR IFNULL(level5_id,0) > 0)
-        AND (commodity_code IS NULL OR commodity_code = '' OR commodity_code NOT REGEXP '^UGT-([0-9]{2}){1,5}$')`,
+      WHERE commodity_code IS NOT NULL AND commodity_code <> ''
+        AND commodity_code NOT REGEXP '^UGT-([0-9]{2}){1,5}$'`,
   );
-  console.log(`BB12 偏好选择键：形制非法/缺失 ${prefBadCode.n} 行`);
+  console.log(`BB12 偏好选择键：形制非法 ${prefBadCode.n} 行`);
   if (Number(prefBadCode.n) !== 0) {
-    fail(`BB12 有 ${prefBadCode.n} 行偏好填了二级以下类目却没有合法的 commodity_code ⇒ 可见性判定输入缺失（静默锁死或放行该用户）`);
+    fail(`BB12 有 ${prefBadCode.n} 行偏好的 commodity_code 形制非法 ⇒ 可见性判定输入缺失（静默锁死或放行该用户）`);
   }
 
   // BB9 已于旧品类码退役 R4' 删除：旧语义“拿 fam+0000 试挂 ix.match()”验证的
