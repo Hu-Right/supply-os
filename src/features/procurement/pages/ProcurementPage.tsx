@@ -32,7 +32,7 @@ import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 export default function ProcurementPage() {
   const { t, locale } = useLocale();
-  const { authUser, isVip, refreshAuth } = useAuth();
+  const { authUser, isVip, refreshAuth, authReady } = useAuth();
   const router = useRouter();
   const userId = useUserId();
 
@@ -103,7 +103,7 @@ export default function ProcurementPage() {
 
   // ── 详情与支付动作 ──
   const actions = useNoticeActions({
-    userId, isVip,
+    userId, isVip, authReady,
     items: search.result.items,
     setSelectedNotice,
     trackClick: feedback.trackClick,

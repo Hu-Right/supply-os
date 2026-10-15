@@ -23,6 +23,8 @@ import { usePaymentReturnReconciliation } from "./usePaymentReturnReconciliation
 export interface UseNoticeActionsOptions {
   userId: number | undefined; // 当前登录用户 ID
   isVip: boolean; // 是否 VIP（决定免费配额门槛与解锁类型）
+  /** 认证初始化是否完成（未就绪时 ?notice_id 深链不得判定为未登录） */
+  authReady?: boolean;
   items: NoticeItem[]; // 当前列表数据（openNoticeById 复用列表内已有项）
   setSelectedNotice: Dispatch<SetStateAction<NoticeItem | null>>; // Page 持有的选中详情设置器
   trackClick: (noticeId: number) => void; // T-B9 点击埋点（useNoticeFeedback）
@@ -38,7 +40,7 @@ export interface UseNoticeActionsReturn
 }
 
 export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeActionsReturn {
-  const { userId, isVip, items, setSelectedNotice, trackClick, trackDetailOpen } = options;
+  const { userId, isVip, authReady, items, setSelectedNotice, trackClick, trackDetailOpen } = options;
   const [actionMessage, setActionMessage] = useState("");
 
   // P2-2：useCallback 稳定引用，作为 openNotice memo 依赖链的一环
@@ -67,7 +69,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
   };
 
   // 支付整页跳回后的对账：?order_no=&trade_no=&notice_id= 或仅 ?notice_id=
-  usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById, setActionMessage, userId });
+  usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById, setActionMessage, onRequireLogin, userId, authReady });
 
   return {
     ...membership,
