@@ -30,16 +30,13 @@ const COMPANY_TYPE_BY_CODE: Partial<Record<string, "factory" | "trader">> = {
  *
  * @param industry 行业面视图（lib/services/industry-labels 批量装配）。给了且能解析到节点
  *                 就把行业展示从「自填文本」升级为「权威树标签 + 双语名」；不给/解析不到
- *                 则逐字保留旧行为。当前库里门户可见供应商只有 1/3 有主码（2026-10-09 实测
- *                 13/36），所以这一参数是可选的叠加项，不是替换项——没码的那 23 家不能因此
- *                 从有行业变成无行业。
+ *                 则回落到主营产品首项（industry 自由文本列已于 2026-10-15 退役）。
  */
 export function mapSupplierRow(
   row: SupplierDirectoryRow,
   industry?: SupplierIndustryInfo | null,
 ): Supplier {
-  const industryText =
-    String(row.industry || "").trim() || splitListField(row.products)[0] || "其他";
+  const industryText = splitListField(row.products)[0] || "其他";
   const standard = industry?.primary ?? null;
   // 有标准标签 → 中英文名各取一侧（英文是 ISIC 官方名）；无 → 两列同原文（旧行为）
   const industryZh = standard ? standard.nameZh : industryText;

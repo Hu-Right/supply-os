@@ -25,7 +25,6 @@ export interface PreFilterSupplier {
   pool_id?: unknown;
   /** 平台供应商 id（旧品类层级匹配接入键；缺失/为 0 时仅词项参与） */
   supplier_id?: unknown;
-  industry?: unknown;
   products?: unknown;
   certification?: unknown;
 }
@@ -42,11 +41,11 @@ export interface PreFilterMatchData {
 const TERM_SEPARATORS = /[,，、/|;；\n\r]+/;
 
 /**
- * 从供应商画像提取匹配词项（行业 + 主营产品 + 认证）。
+ * 从供应商画像提取匹配词项（主营产品 + 认证）。
  * 小写归一、按分隔符切词、过滤长度 < 2 的碎片并去重。
  */
 export function extractSupplierTerms(supplier: PreFilterSupplier): string[] {
-  const raw = [supplier.industry, supplier.products, supplier.certification]
+  const raw = [supplier.products, supplier.certification]
     .map((v) => String(v ?? ""))
     .join("\n");
   const terms = raw

@@ -21,8 +21,9 @@ export interface SupplierDirectoryRow {
   phone: string | null;
   email: string | null;
   products: string | null;
-  industry: string | null;
-  /** 主行业码（crm_industry_nodes.code，UGT-I- 前缀）；行业面标准口径，与 industry 自由文本共存 */
+  /** 遗留展示字段（supplier.industry 列已于 2026-10-15 退役）：仅供认领建议占位为 ''，目录/详情不再读 */
+  industry?: string | null;
+  /** 主行业码（crm_industry_nodes.code，UGT-I- 前缀）；行业面标准口径（industry 自由文本列已退役） */
   industry_code?: string | null;
   certification: string | null;
   type: string | null;
@@ -117,7 +118,7 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code,
               province, city,
-              contact, phone, email, products, industry, industry_code, certification, type,
+              contact, phone, email, products, industry_code, certification, type,
               business_type_code,
               data_quality_score
        FROM supplier
@@ -209,7 +210,7 @@ export class SupplierDirectoryRepo {
 
     // 分页数据查询
     const [rows] = await this.pool.query(
-      `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city, s.contact, s.phone, s.email, s.products, s.industry, s.industry_code, s.certification, s.type,
+      `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city, s.contact, s.phone, s.email, s.products, s.industry_code, s.certification, s.type,
               s.business_type_code,
               s.data_quality_score
        FROM supplier s
@@ -226,7 +227,7 @@ export class SupplierDirectoryRepo {
   async findById(id: number): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry, industry_code, certification, type,
+              contact, phone, email, products, industry_code, certification, type,
               business_type_code,
               data_quality_score
        FROM supplier
@@ -260,7 +261,7 @@ export class SupplierDirectoryRepo {
     "company", "name_confirmed", "country", "country_code", "province", "city",
     "address", "registered_address", "contact", "position", "phone", "email",
     "registered_phone", "registered_email", "website", "legal_rep",
-    "established_at", "registered_capital", "credit_code", "industry",
+    "established_at", "registered_capital", "credit_code",
     "type", "business_type", "certification", "products", "intro", "remark",
   ] as const;
 
@@ -353,12 +354,12 @@ export class SupplierDirectoryRepo {
   async findByCompanyBest(companyName: string): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry, certification, type, verify_status
+              contact, phone, email, products, certification, type, verify_status
        FROM supplier
        WHERE company = ?
        ORDER BY (
          CASE WHEN products IS NOT NULL AND products <> '' THEN 1 ELSE 0 END +
-         CASE WHEN industry IS NOT NULL AND industry <> '' THEN 1 ELSE 0 END +
+         CASE WHEN industry_code IS NOT NULL AND industry_code <> '' THEN 1 ELSE 0 END +
          CASE WHEN phone IS NOT NULL AND phone <> '' THEN 1 ELSE 0 END +
          CASE WHEN certification IS NOT NULL AND certification <> '' THEN 1 ELSE 0 END
        ) DESC, id DESC
@@ -441,14 +442,13 @@ export class SupplierDirectoryRepo {
   ): Promise<Array<Pick<SupplierDirectoryRow, "id" | "company" | "country" | "industry">>> {
     const escaped = name.replace(/[\\%_]/g, (c) => `\\${c}`);
     const [rows] = await this.pool.query(
-      `SELECT id, company, country, industry
+      `SELECT id, company, country, '' AS industry
        FROM supplier
        WHERE verify_status = 'done'
          AND (company LIKE ? OR company LIKE ?)
        ORDER BY (company LIKE ?) DESC,
                 (
-         CASE WHEN products IS NOT NULL AND products <> '' THEN 1 ELSE 0 END +
-         CASE WHEN industry IS NOT NULL AND industry <> '' THEN 1 ELSE 0 END
+         CASE WHEN products IS NOT NULL AND products <> '' THEN 1 ELSE 0 END
        ) DESC, id DESC
        LIMIT ?`,
       [`${escaped}%`, `%${escaped}%`, `${escaped}%`, limit],
@@ -510,10 +510,10 @@ export class SupplierDirectoryRepo {
     return Number((rows as RowDataPacket[])[0]?.total ?? 0);
   }
 
-  /** 按 id 查供应商行业（auth 响应组装用，不受审核状态过滤；supplier 无 industry_id 列） */
+  /** 按 id 查供应商行业（auth 响应组装用，不受审核状态过滤；industry 列已退役，改取 products） */
   async findAuthInfoById(id: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT id, industry FROM supplier WHERE id = ? LIMIT 1",
+      "SELECT id, products FROM supplier WHERE id = ? LIMIT 1",
       [id],
     );
     return (rows as RowDataPacket[])[0] ?? null;
@@ -583,8 +583,8 @@ export class SupplierDirectoryRepo {
     let row = await this.findById(supplierId);
     if (row) {
       const products = String(row.products ?? "").trim();
-      const industry = String(row.industry ?? "").trim();
-      if (products === "" && industry === "") {
+      const industryCode = String(row.industry_code ?? "").trim();
+      if (products === "" && industryCode === "") {
         const companyName = String(row.company ?? "").trim();
         if (companyName) {
           const betterRow = await this.findByCompanyBest(companyName);

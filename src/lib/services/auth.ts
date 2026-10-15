@@ -146,8 +146,8 @@ export async function buildUserResponse(
     has_subscription: hasSubscription,
     account_status: user.account_status ?? "pending",
     supplier_id: (supplier?.id as number) || null,
-    supplier_industry_id: null, // supplier 表无 industry_id 列（旧品类映射不再随登录响应下发）
-    supplier_industry: (supplier?.industry as string) || null,
+    supplier_industry_id: null, // 旧品类映射已退役，不随登录响应下发
+    supplier_industry: null, // supplier.industry 自由文本列已于 2026-10-15 退役（行业口径改走 industry_code）
     phone: user.phone ? maskPhone(user.phone) : null,
     phone_verified: user.phone_verified ?? 0,
     email_verified: user.email_verified ?? 0,

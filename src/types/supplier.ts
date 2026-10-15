@@ -17,10 +17,10 @@ export interface Supplier {
   /**
    * 行业面标准口径主标签码（crm_industry_nodes.code，UGT-I- 前缀）。
    * 有码 ⇒ industryZh/En 来自权威树（非中文界面拿到 ISIC 官方英文名）；
-   * 无码 ⇒ 两列回落 supplier.industry 自由文本（此时 industryEn 仍是原文，不假装翻译）。
+   * 无码 ⇒ 两列回落主营产品首项（supplier.industry 自由文本列已退役）。
    */
   industryCode?: string;
-  /** 自填行业原文（supplier.industry）：与标准口径不是同一个东西，详情页可并列展示 */
+  /** 行业兼容展示文本（无标准码时回落主营产品首项；supplier.industry 自由文本列已于 2026-10-15 退役） */
   industryText?: string;
   /** 标准口径路径名（门类 → 大类 → 中类 → 主码所在层），与 industryCode 同进同出 */
   industryPathZh?: string[];

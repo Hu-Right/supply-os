@@ -65,7 +65,7 @@ export async function fetchSupplierProfile(
   if (!supplierId) return null;
 
   const [supRows] = await pool.query(
-    `SELECT s.company, s.industry, s.products, s.certification, s.country, s.city, s.type,
+    `SELECT s.company, s.products, s.certification, s.country, s.city, s.type,
             s.registered_capital, s.established_at, s.intro,
             ${diagnosisColumnSelect("q")}
      FROM supplier s
@@ -80,7 +80,7 @@ export async function fetchSupplierProfile(
 
   const profile: Record<string, string> = {
     company: s(row.company),
-    industry: s(row.industry),
+    industry: "", // supplier.industry 自由文本列已于 2026-10-15 退役（AI 画像改由 products/certification 供词）
     products: s(row.products),
     certification: s(row.certification),
     country: s(row.country),

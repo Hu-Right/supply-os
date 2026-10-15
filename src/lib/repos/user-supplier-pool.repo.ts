@@ -33,7 +33,7 @@ export class UserSupplierPoolRepo {
     const [rows] = await this.pool.query(
       `SELECT p.id AS pool_id, p.supplier_id,
               COALESCE(s.company, '') AS company,
-              COALESCE(s.industry, '') AS industry,
+              '' AS industry,
               CASE WHEN q.id IS NOT NULL THEN 1 ELSE 0 END AS has_qualification,
               p.notes, p.source, p.created_at
        FROM crm_user_supplier_pool p
@@ -99,7 +99,7 @@ export class UserSupplierPoolRepo {
   ): Promise<Array<{ id: number; company: string; industry: string; in_pool: number }>> {
     const escaped = keyword.replace(/[\\%_]/g, "\\$&");
     const sql = `
-      SELECT s.id, s.company, s.industry${userId ? ", (p.id IS NOT NULL) AS in_pool" : ", 0 AS in_pool"}
+      SELECT s.id, s.company${userId ? ", (p.id IS NOT NULL) AS in_pool" : ", 0 AS in_pool"}
       FROM supplier s
       ${userId ? "LEFT JOIN crm_user_supplier_pool p ON p.supplier_id = s.id AND p.user_id = ?" : ""}
       WHERE s.company LIKE ? AND s.verify_status = 'done'
@@ -110,7 +110,7 @@ export class UserSupplierPoolRepo {
     return (rows as RowDataPacket[]).map((r) => ({
       id: Number(r.id),
       company: String(r.company ?? ""),
-      industry: String(r.industry ?? ""),
+      industry: "",
       in_pool: Number(r.in_pool ?? 0),
     }));
   }
@@ -118,13 +118,13 @@ export class UserSupplierPoolRepo {
   /** 按 id 查找已认证供应商（前端候选确认添加的校验入口） */
   async findVerifiedById(supplierId: number): Promise<{ id: number; company: string; industry: string } | null> {
     const [rows] = await this.pool.query(
-      `SELECT id, company, industry FROM supplier
+      `SELECT id, company FROM supplier
        WHERE id = ? AND verify_status = 'done'
        LIMIT 1`,
       [supplierId],
     );
     const row = (rows as RowDataPacket[])[0];
-    return row ? { id: Number(row.id), company: String(row.company ?? ""), industry: String(row.industry ?? "") } : null;
+    return row ? { id: Number(row.id), company: String(row.company ?? ""), industry: "" } : null;
   }
 
   /** 按公司名精确查找已有 pending 基础记录（手动添加去重复用，避免共享表堆积重复行） */
@@ -180,7 +180,7 @@ export class UserSupplierPoolRepo {
   async fetchSupplierProfiles(userId: number): Promise<Record<string, unknown>[]> {
     const [rows] = await this.pool.query(
       `SELECT p.id AS pool_id, s.id AS supplier_id,
-              s.company, s.industry, s.products, s.certification,
+              s.company, s.products, s.certification,
               s.country, s.city, s.type, s.registered_capital, s.established_at, s.intro,
               ${diagnosisColumnSelect("q")}
        FROM crm_user_supplier_pool p
