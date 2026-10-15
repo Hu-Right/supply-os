@@ -338,9 +338,11 @@ export class SupplierDirectoryRepo {
     const cols = Object.keys(data);
     if (cols.length === 0) return;
     const sets = cols.map((c) => `${c} = ?`).join(", ");
-    // ★ 用户编辑后一律重置为审核中，需管理员重新确认
+    // 资料编辑不再无条件把已认证主体打回审核（旧行为会让 done 行改任一字即掉出目录、丢徽章）。
+    // 仅「被驳回」的行补正后回到 pending 重审（正当路径）；done/pending/无状态一律保持不动。
+    // 执照与身份三要素各有独立闸口（先审后生效 / 锁死），不在这里牵动 verify_status。
     await this.pool.query(
-      `UPDATE supplier SET ${sets}, verify_status = 'pending' WHERE id = ?`,
+      `UPDATE supplier SET ${sets}, verify_status = CASE WHEN verify_status = 'rejected' THEN 'pending' ELSE verify_status END WHERE id = ?`,
       [...cols.map((c) => data[c]), id],
     );
   }

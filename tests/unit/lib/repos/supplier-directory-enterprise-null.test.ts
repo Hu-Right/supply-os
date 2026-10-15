@@ -82,4 +82,14 @@ describe("SupplierDirectoryRepo 写入：留空字段绑定 ''（非 NULL），�
     const [sql] = mockQuery.mock.calls[0] as [string];
     expect(insertColNames(sql)).not.toContain("email");
   });
+
+  it("updateEnterprise：不再无条件打回 pending，仅 rejected→pending（CASE 守卫）", async () => {
+    mockQuery.mockResolvedValue([{ affectedRows: 1 }]);
+    await repo.updateEnterprise(100, { contact: "李四" });
+    const [sql] = mockQuery.mock.calls[0] as [string];
+    // 旧行为是无条件 verify_status = 'pending'（会误伤 done 行），必须消失
+    expect(sql).not.toMatch(/verify_status\s*=\s*'pending'\s+WHERE/);
+    // 新行为：CASE 守卫，只有当前是 rejected 才回 pending，done 保持不动
+    expect(sql).toContain("CASE WHEN verify_status = 'rejected' THEN 'pending' ELSE verify_status END");
+  });
 });
