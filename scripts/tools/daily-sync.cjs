@@ -3,9 +3,9 @@
  *    （src/lib/services/search-sync/crawler-sync.ts + crawler-sync-scheduler.ts，由 instrumentation 拉起）。
  *    请在部署层移除对本脚本的 cron / 定时调用，避免与应用内同步形成「两个写入者并发 ODKU 主表」。
  *    本文件仅保留作手动应急兜底（如应用内同步异常时人工补跑一轮）。
- *    ⚠ 本脚本不含品目桥表入库归一（该口径已统一由应用内 crawler-sync 承担）：
- *    用它应急补跑后，桥表的 levelN_id 仍可能带上游的 0 / 空串 / 码前缀形态，
- *    需另跑一轮归一治理再继续依赖类目筛选与行业墙。
+ *    ⚠ 本脚本不同步任何品类/桥表（2026-10-15 起，与 UNSPSC 字典退役口径一致）：
+ *    公告品目归属的唯一事实源是落点表 crm_notice_attribution_nodes（应用内管道写），
+ *    本脚本只增量 upsert crm_bid_notices / crm_bid_opportunities 两张主表。
  *
  * 内网爬虫数据 → 线上生产库 定时增量同步
  *
@@ -33,7 +33,7 @@
  *   src/lib/db/source-pool.ts 的 SYNC_SOURCE_* 保持同一口径。
  *
  * 同步策略:
- *   全部 3 张表使用水位线增量 upsert（INSERT ... ON DUPLICATE KEY UPDATE）
+ *   全部 2 张主表使用水位线增量 upsert（INSERT ... ON DUPLICATE KEY UPDATE）
  *   水位线按批持久化到 .sync-watermark.json，中断后从断点继续
  *   update_time 水位线按列原生类型读写比较（DATETIME 字符串 / Unix 秒整数）
  *   DATETIME 列以原值字符串同步与比较（dateStrings），不做时区转换
@@ -41,13 +41,11 @@
  */
 
 // ═══════════════════════════════════════════
-// ⚠️ 已退役（2026-10-14，旧品类桥表直删批次）：本脚本会绕过应用内 crawler-sync
-//    的同步清单直插旧公告桥表（SYNC_TABLES 曾含它），
-//    与「桥表只出不进、封存待物理删除」的口径冲突。应急同步一律走应用内
-//    crawler-sync（instrumentation 拉起，或手动触发调度器），本文件留档不再可执行。
+// 2026-10-15 恢复手动执行：退役原因（直插旧公告桥表）已随 UNSPSC 字典退役消除——
+//    桥表/候选表已移出 SYNC_TABLES，公告归属唯一事实源是落点表
+//    crm_notice_attribution_nodes（由应用内构建链路写，本脚本不碰）。
+//    本脚本仅作手动应急兜底（node daily-sync.cjs --once），不得挂 cron。
 // ═══════════════════════════════════════════
-console.error('✗ daily-sync.cjs 已退役（2026-10-14）：同步逻辑在应用内 crawler-sync，桥表已封存，本脚本不再可执行。');
-process.exit(1);
 
 const mysql = require('mysql2/promise');
 const fs = require('fs');
