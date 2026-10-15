@@ -3,7 +3,7 @@
  *    （src/lib/services/search-sync/crawler-sync.ts + crawler-sync-scheduler.ts，由 instrumentation 拉起）。
  *    请在部署层移除对本脚本的 cron / 定时调用，避免与应用内同步形成「两个写入者并发 ODKU 主表」。
  *    本文件仅保留作手动应急兜底（如应用内同步异常时人工补跑一轮）。
- *    ⚠ 本脚本不同步任何品类/桥表（2026-10-15 起，与 UNSPSC 字典退役口径一致）：
+ *    ⚠ 本脚本不同步任何品类/桥表（2026-10-15 起，与旧品类字典退役口径一致）：
  *    公告品目归属的唯一事实源是落点表 crm_notice_attribution_nodes（应用内管道写），
  *    本脚本只增量 upsert crm_bid_notices / crm_bid_opportunities 两张主表。
  *
@@ -41,7 +41,7 @@
  */
 
 // ═══════════════════════════════════════════
-// 2026-10-15 恢复手动执行：退役原因（直插旧公告桥表）已随 UNSPSC 字典退役消除——
+// 2026-10-15 恢复手动执行：退役原因（直插旧公告桥表）已随旧品类字典退役消除——
 //    桥表/候选表已移出 SYNC_TABLES，公告归属唯一事实源是落点表
 //    crm_notice_attribution_nodes（由应用内构建链路写，本脚本不碰）。
 //    本脚本仅作手动应急兜底（node daily-sync.cjs --once），不得挂 cron。
