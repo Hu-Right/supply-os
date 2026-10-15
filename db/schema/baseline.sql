@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 95 张，导出 88 张，排除 7 张。
+--           源库共 94 张，导出 87 张，排除 7 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -270,25 +270,6 @@ CREATE TABLE `crm_bid_notices` (
   FULLTEXT KEY `ft_notices_en` (`title`,`reference`),
   FULLTEXT KEY `ft_notices_desc` (`description`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='招标公告表。';
-
--- ── crm_bid_opp_structured ──
-CREATE TABLE `crm_bid_opp_structured` (
-  `opportunity_id` bigint unsigned NOT NULL,
-  `title` varchar(500) DEFAULT NULL,
-  `country` varchar(200) DEFAULT NULL,
-  `delivery_place` varchar(300) DEFAULT NULL,
-  `items` json DEFAULT NULL COMMENT '结构化采购条目数组 [{quote,qty,unit}]',
-  `requirements` json DEFAULT NULL,
-  `source_field` varchar(20) NOT NULL DEFAULT 'description',
-  `source_hash` char(64) NOT NULL DEFAULT '',
-  `extract_model` varchar(64) DEFAULT NULL,
-  `rule_coverage` varchar(20) NOT NULL DEFAULT '',
-  `validation` json DEFAULT NULL,
-  `status` varchar(20) NOT NULL DEFAULT 'extracted',
-  `extracted_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`opportunity_id`),
-  KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商单 LLM+规则结构化抽取';
 
 -- ── crm_bid_opportunities ──
 CREATE TABLE `crm_bid_opportunities` (
