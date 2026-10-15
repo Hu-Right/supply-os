@@ -11,6 +11,13 @@
  *   temp/probe231-notices-slim-evidence.mjs         现网逐列充实度/字节归因/索引实态
  *   temp/probe232-json-shape.mjs                    JSON 列「空壳 vs 真有内容」三分类
  *   temp/probe233-notices-field-check.mjs           落刀前现场核查（在场表/外键/触发器）
+ *   temp/probe273-diff-column-hunt.mjs             「对账红而 --diff 绿」时逐列点名差异列（本轮点出 documents）
+ *   temp/probe275-post-cutover-check.mjs            切换后现网复核（列/行/索引/FULLTEXT/生成列/documents）
+ *   temp/probe276-documents-bak-ownership.mjs       库侧多出的 bak 表归属取证（id 集合与差异集合是否重合）
+ *   temp/probe277-documents-rewrite-direction.mjs   那 194 行的改写方向与在途性（旧值/新值/processlist）
+ *   temp/probe278-baseline-block-diff.mjs            重导基线前的「块级差异面」核查（只读，不写文件）
+ *   （探针留在 temp/（已入 .gitignore）作过程留底；长期可复跑的判据是上面的扫描器、两个门禁
+ *   与 `dump-schema-baseline --check`。本表实证的四条纪律已归进 docs/adr/0003。）
  *
  * 判据全部来自 2026-10-15 **云生产库**实测（645,521 行 / 55 列，id ∈ [423, 1786524111]）。
  * 库归属口径同 docs/adr/0012：列口径以云库为准，云端删列不需内网同意（内网列不会因此
