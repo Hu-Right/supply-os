@@ -23,6 +23,8 @@ export interface CommodityInferCandidate {
   level: number;
   /** 0~1 粗分（展示徽章档位用） */
   score: number;
+  /** 父级分类链名（自 L1 到自身，浅→深），供面包屑展示 */
+  path?: string[];
 }
 
 /**

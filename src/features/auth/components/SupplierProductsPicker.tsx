@@ -153,7 +153,7 @@ export function SupplierProductsPicker({ value, onChange }: SupplierProductsPick
     <div className="space-y-3">
       <p className="text-2xs text-muted-foreground">
         {t("authEnterpriseCommodityHint") ||
-          "勾选贵司实际能生产的产品（可按五级分类逐级下钻，或输入主营关键词后从候选中点选）。用于公告/商机精准匹配，至少选到中类。"}
+          "按五级分类逐级下钻后点「加入已选」，或输入关键词从候选中点选（候选会标注其父级分类）；可自行添加/删除，至少选到中类。"}
       </p>
 
       {/* 关键词候选：只产候选、由用户点选确认，杜绝低置信推断静默落选 */}

@@ -16,7 +16,7 @@ import {
   enterpriseBindStateText,
   type EnterpriseBindState,
 } from "@/shared/utils/enterprise-status";
-import type { EnterpriseInfo, LicenseChangeBrief } from "@/shared/hooks/useEnterpriseInfo";
+import type { EnterpriseInfo, LicenseChangeBrief, CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
 const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors shrink-0";
@@ -24,6 +24,8 @@ const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs f
 export interface EnterpriseInfoCardProps {
   enterprise: EnterpriseInfo | null;
   linkStatus?: string;
+  /** 已自报的主营品目（匹配用，与“产品介绍”展示文本并列） */
+  commodityNodes?: CommodityNodeBrief[];
   /** 该企业最近一条换照变更（闭环状态源）：pending/rejected 在执照区上方挂进展横幅 */
   licenseChange?: LicenseChangeBrief | null;
   loading: boolean;
@@ -126,7 +128,7 @@ function InfoTable({ cells }: { cells: Cell[] }) {
 }
 
 export function EnterpriseInfoCard({
-  enterprise, licenseChange, loading, error, onRetry, onBind,
+  enterprise, commodityNodes, licenseChange, loading, error, onRetry, onBind,
 }: EnterpriseInfoCardProps) {
   const { t } = useLocale();
 
@@ -213,8 +215,19 @@ export function EnterpriseInfoCard({
     { label: t("authEnterpriseCreditCode") || "统一社会信用代码", value: sv(row, "credit_code") },
     { label: t("authEnterpriseSupplierType") || "供应商类型", value: sv(row, "type") || sv(row, "business_type") },
     { label: t("authEnterpriseCertifications") || "资质认证", value: sv(row, "certification") },
-    { label: t("authEnterpriseProducts") || "主营产品", value: sv(row, "products") },
     { label: t("authEnterpriseIntro") || "企业简介", value: sv(row, "intro"), full: true },
+  ];
+
+  // 主营产品：展示属性（自由文本）与商品属性（品目树落点）并列，与编辑表单同一分组口径
+  const productsCells: Cell[] = [
+    { label: t("authEnterpriseProductIntro") || "产品介绍", value: sv(row, "products"), full: true },
+    {
+      label: t("authEnterpriseCommodityNodes") || "主营品目",
+      value: commodityNodes && commodityNodes.length > 0
+        ? commodityNodes.map((n) => n.nameZh || n.code).join("、")
+        : "-",
+      full: true,
+    },
   ];
 
   return (
@@ -307,6 +320,11 @@ export function EnterpriseInfoCard({
       <section>
         <GroupTitle>{t("authEnterpriseGroupBusiness") || "工商与业务信息"}</GroupTitle>
         <InfoTable cells={businessCells} />
+      </section>
+
+      <section>
+        <GroupTitle>{t("authEnterpriseGroupProducts") || "主营产品"}</GroupTitle>
+        <InfoTable cells={productsCells} />
       </section>
     </div>
   );

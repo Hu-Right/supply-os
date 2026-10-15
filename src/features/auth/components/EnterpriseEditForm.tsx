@@ -89,7 +89,6 @@ const BUSINESS_FIELDS: FieldDef[] = [
   { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码", placeholderKey: "authEnterpriseCreditCodePh" },
   { key: "type", labelKey: "authEnterpriseSupplierType", fallback: "供应商类型", options: SUPPLIER_TYPE_OPTIONS },
   { key: "certification", labelKey: "authEnterpriseCertifications", fallback: "资质认证", placeholderKey: "authEnterpriseCertificationsPh" },
-  { key: "products", labelKey: "authEnterpriseProducts", fallback: "主营产品", placeholderKey: "authEnterpriseProductsPh" },
   { key: "intro", labelKey: "authEnterpriseIntro", fallback: "企业简介", full: true, textarea: true, placeholderKey: "authEnterpriseIntroPh" },
 ];
 
@@ -103,7 +102,7 @@ const REQUIRED_KEYS: { key: string; labelKey: string; fallback: string }[] = [
   { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址" },
   { key: "contact", labelKey: "authEnterpriseContact", fallback: "联系人" },
   { key: "phone", labelKey: "authEnterprisePhone", fallback: "联系电话" },
-  { key: "products", labelKey: "authEnterpriseProducts", fallback: "主营产品" },
+  { key: "products", labelKey: "authEnterpriseProductIntro", fallback: "产品介绍" },
   { key: "type", labelKey: "authEnterpriseSupplierType", fallback: "供应商类型" },
 ];
 
@@ -139,6 +138,8 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
     // 省市名称从初始行回填
     init.province = initial?.province ? String(initial.province) : "";
     init.city = initial?.city ? String(initial.city) : "";
+    // products（产品介绍）已从 BUSINESS_FIELDS 移入独立的「主营产品」板块，不再由循环初始化，这里显式回填
+    init.products = initial?.products ? String(initial.products) : "";
     return init;
   });
 
@@ -407,10 +408,37 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
         {renderGroup(BUSINESS_FIELDS)}
       </section>
 
+      {/* 主营产品：展示属性（自由文本）与商品属性（品目树落点）并列展示，同属一个概念的两个侧面 */}
       <section>
-        <GroupTitle>{t("authEnterpriseCommodityProducts") || "主营产品（按品目树）"}</GroupTitle>
-        <div className="border border-border rounded-md overflow-hidden bg-white p-4">
-          <SupplierProductsPicker value={commodityNodes} onChange={setCommodityNodes} />
+        <GroupTitle>{t("authEnterpriseGroupProducts") || "主营产品"}</GroupTitle>
+        <div className="border border-border rounded-md overflow-hidden bg-white">
+          {/* 展示属性：对外文案（supplier.products） */}
+          <div className="grid grid-cols-4 border-b border-border">
+            <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border flex items-center">
+              {t("authEnterpriseProductIntro") || "产品介绍"}
+              <span className="ml-1 text-2xs text-slate-400">{t("authEnterpriseForDisplay") || "（展示用）"}</span>
+              <span className="ml-0.5 text-danger-500" aria-hidden="true">*</span>
+            </div>
+            <div className="px-3 py-2 col-span-3">
+              <textarea
+                className={`${inputCls} min-h-16 resize-y`}
+                value={values.products || ""}
+                onChange={(e) => set("products", e.target.value)}
+                placeholder={t("authEnterpriseProductIntroPh") || "用一句话描述贵司对外展示的主营产品"}
+              />
+              <p className="mt-1 text-2xs text-muted-foreground">{t("authEnterpriseProductIntroHint") || "对外展示的产品描述文本。"}</p>
+            </div>
+          </div>
+          {/* 商品属性：品目树落点（crm_supplier_backbone_interests self_report），用于公告/商机匹配 */}
+          <div className="grid grid-cols-4">
+            <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border pt-3 align-top">
+              {t("authEnterpriseCommodityNodes") || "主营品目"}
+              <span className="ml-1 text-2xs text-slate-400">{t("authEnterpriseForMatch") || "（匹配用）"}</span>
+            </div>
+            <div className="px-3 py-2 col-span-3">
+              <SupplierProductsPicker value={commodityNodes} onChange={setCommodityNodes} />
+            </div>
+          </div>
         </div>
       </section>
 

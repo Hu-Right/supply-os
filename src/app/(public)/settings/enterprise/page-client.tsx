@@ -226,6 +226,7 @@ export default function EnterpriseSettingsClient() {
       ) : (
         <EnterpriseInfoCard
           enterprise={enterprise.enterprise}
+          commodityNodes={enterprise.commodityNodes}
           linkStatus={enterprise.linkStatus}
           licenseChange={enterprise.licenseChange}
           loading={enterprise.loading}

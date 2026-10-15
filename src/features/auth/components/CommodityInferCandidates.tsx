@@ -38,6 +38,8 @@ export function CommodityInferCandidates({ candidates, appliedCode, hint, onPick
           const badge = scoreBadgeKey(c.score);
           const applied = c.code === appliedCode;
           const label = (locale === "zh" ? c.nameZh : c.nameEn) || c.nameZh || c.nameEn || c.code;
+          // 面包屑只显祖先（去掉链尾自身）：L2 候选显其 L1 大类，自身名已由 label 展示
+          const parentPath = (c.path ?? []).slice(0, -1).join(" › ");
           return (
             <button
               key={c.code}
@@ -49,8 +51,15 @@ export function CommodityInferCandidates({ candidates, appliedCode, hint, onPick
                   : "border-slate-200 bg-white hover:border-teal-300 hover:bg-teal-50/50"
               }`}
             >
-              <span className={`font-bold truncate ${applied ? "text-teal-700" : "text-slate-700"}`}>
-                {label}
+              <span className="min-w-0 flex-1">
+                <span className={`block font-bold truncate ${applied ? "text-teal-700" : "text-slate-700"}`}>
+                  {label}
+                </span>
+                {parentPath && (
+                  <span className="block text-[10px] text-slate-400 truncate" title={parentPath}>
+                    {parentPath}
+                  </span>
+                )}
               </span>
               <span className={`shrink-0 px-1.5 py-0.5 rounded-full border text-[10px] font-black ${badge.cls}`}>
                 {t(badge.key)}
