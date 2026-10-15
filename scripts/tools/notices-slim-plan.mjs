@@ -39,14 +39,29 @@
  *   这三列因此**不再由本清单执行**，只靠 PARALLEL_DROPPED_COLUMNS 进防复活门禁；
  *   本作业批次一 = thresholds / ai_products（52 → 50）。
  *
- * 2026-10-15 落库终态（本仓两轮都已原子切换完毕，切换后现网逐项复验过）：
+ * 2026-10-15 落库终态（本仓三轮都已原子切换完毕，切换后现网逐项复验过）：
  *   批次一 52 → 50：thresholds / ai_products 消失；旧表位改名 `crm_bid_notices_retired_b1_20261015`（52 列）。
  *   批次二 50 → 49：is_converted 消失；`idx_bid_notices_converted_create_id` 已退役不在场，
- *     `idx_bid_notices_converted_opp` 按登记重建为单列 (converted_opp_id)；旧表位 `crm_bid_notices__old_20261015`（50 列）。
- *   三张表精确行数均为 **645,521**（与切换前逐行相等），`deadline_sec` 仍 STORED GENERATED，
- *   3 个 FULLTEXT（含 ft_notices_search 的 `WITH PARSER ngram`）齐全，有效性计数 + 三种 MATCH 签名实跑通过。
+ *     `idx_bid_notices_converted_opp` 按登记重建为单列 (converted_opp_id)；旧表位改名 `crm_bid_notices_retired_b2_20261015`（50 列）。
+ *   批次四 49 → 48：is_qualified 消失（不挂索引、不进宽表指纹 ⇒ 本轮零索引连带、零重灌）；
+ *     旧表位 `crm_bid_notices__old_20261015`（49 列，**当前唯一反滚物**）。
+ *   三张旧位行数均精确 **645,521**（与切换前逐行相等），`deadline_sec` 仍 STORED GENERATED，
+ *   3 个 FULLTEXT（含 ft_notices_search 的 `WITH PARSER ngram`）齐全，有效性计数 + 三种 MATCH 签名实跑通过，
+ *   `EXPLAIN ... converted_opp_id` 仍走 `idx_bid_notices_converted_opp`（probe275）。
  *   批次二那 23 行 is_converted/converted_opp_id 不自洽随列一起退役，逐行留底在
  *   runtime/notices-b2-is-converted-diff-*.tsv；旧表位仍是唯一反滚物，未经人工确认不得 DROP。
+ *
+ * ⚠ 批次四阶段一抓到的一件库侧事实（它直接改了本文件的判据口径）：本表存在
+ *   **不推进 `update_time` 的列改写**。`documents` 被外部管道把 194 行从 NULL 补成 JSON 数组，
+ *   `update_time` 两边完全相等，而 `documents` 也不在 `APP_WRITABLE_COLUMNS` 里
+ *   ⇒ 旧版阶段二 `--diff` 报「待补 0 行」，只有阶段一 [7/7] 的逐片列指纹对账在 60/323 片把它拦下
+ *   （probe273 逐列定位为 documents×194）。因此：
+ *     ① 差异检测与补增量改为**按全列行指纹驱动**（lib `findDirtyRows()`），水位列与可写列清单不再当完备性断言；
+ *     ② 切换时先按指纹补写（194 行）→ 323 片一致 → 才 RENAME；切换后实测现网 documents 与本批旧位 0 行不一致
+ *        （= 新内容进了生产，没被影子表的 NULL 顶掉）；
+ *     ③ 对方在改前列旧值快照自留了一张 `crm_bid_notices_documents_bak_20261015`（4 列 / 194 行，
+ *        CREATE_TIME 17:34:54+08:00，旧值全为 NULL）——那是**别人的在途迁移**，本作业未碰，
+ *        且它已被 dump-schema-baseline 的 /_(?:bak|backup|old|copy)_?\d*$/ 排除（probe276/277 取证）。
  */
 
 export const NOTICES_TABLE = "crm_bid_notices";
@@ -62,11 +77,14 @@ export const SHADOW_TABLE = `${NOTICES_TABLE}__new`;
  *   不是保守，是被这条限制逼的。阶段一因此采用「先摘 FULLTEXT → 灌数据 → 逐个重建」的顺序。
  */
 export const ONLINE_DDL_BLOCKED = true;
-/** 旧表位前缀（ADR-0003 命名）。⚠️ 现场现有两个旧表位，都还是本轮的反滚物：
- *   `crm_bid_notices__old_20261015`（批次二的 50 列）与 `crm_bid_notices_retired_b1_20261015`
- *   （批次一的 52 列，为了让批次二的 --rollback 只找一个旧表位而改名让位，命中 dump 的 /_retired_/ 排除）。
- *   早期在场、命名不合本约定的 `crm_bid_notices_old2_20261015`（58 列 / 714 MB）已被人工 DROP，
- *   它不匹配本前缀、当时也没干扰「找唯一旧表位」。 */
+/** 旧表位前缀（ADR-0003 命名）。⚠️ 现场现有三个旧表位，都是本轮反滚物（probe275 实测）：
+ *   `crm_bid_notices__old_20261015`（批次四的 49 列，当前占用命名位）、
+ *   `crm_bid_notices_retired_b2_20261015`（批次二的 50 列）、
+ *   `crm_bid_notices_retired_b1_20261015`（批次一的 52 列）。
+ *   后两个是为了让下一批的 `--rollback` 只找一个旧表位而改名让位的（命中 dump 的 /_retired_/ 排除）；
+ *   代价：`--batch=1/2 --rollback` 已不可用，反滚那两批需人工指定表名。
+ *   早期在场、命名不合本约定的 `crm_bid_notices_old2_20261015`（58 列 / 714 MB）与并行轮旧位
+ *   `crm_bid_notices_retired_20261015` 已由人工 DROP。 */
 export const OLD_TABLE_PREFIX = `${NOTICES_TABLE}__old_`;
 
 /** 回填分批行数（同 notices 历史轮口径：避免单条大事务、长时锁与 undo 膨胀） */
@@ -167,12 +185,15 @@ export const BATCH_2_COLUMNS = ["is_converted"];
 export const BATCH_3_COLUMNS = [];
 
 /**
- * 批次四 · 商机镜像列（opp 轮已明确约定「单独一轮处理」）
+ * 批次四 · 商机镜像列（opp 轮已明确约定「单独一轮处理」）—— **已落库**（49 → 48）
  *
  * is_qualified 在本表是 8,492 行=1 的镜像位，但 23 处代码引用全部打在
  * crm_bid_opportunities 上（别名 o/opp），本表这份零读取。删它的前提是三方核对：
- * 内网 CRM 是这份镜像的写入方，intelligence-daily 是否读不可见。
- * 同族待议还有 is_converted（批次二）与 converted_opp_id（在用，保留）。
+ * 内网 CRM 是这份镜像的写入方，intelligence-daily 是否读不可见 —— 该前置已按用户
+ * 2026-10-15 裁定移出（风险由用户承担）。本批实际执行时只做了三条本仓可自证的实测：
+ * 不挂任何索引（16 个索引逐条核过）、不进宽表源指纹（⇒ 零重灌）、src 零 `isQualified` 消费；
+ * 两处商机侧误报走 NOTICE_REF_WAIVERS 人工豁免（不改判据也不删代码）。
+ * 状态：**已落库**；本批登记与两条豁免均不得删——它们是「为何未改那两条 AI 链路 SQL」的唯一凭证。
  */
 export const BATCH_4_COLUMNS = ["is_qualified"];
 
@@ -209,7 +230,12 @@ export const GUARDED_COLUMNS = {
   budget_confidential: "RFQ 预算保密开关，前端 7 处消费",
 };
 
-/** 本表的应用侧可写列（切换窗口的差异检测必须比这些，因为它们变更**不**推进 update_time）。 */
+/**
+ * 本表的应用侧可写列。**⚠ 仅作诊断参考，不得当差异检测的完备性断言**：
+ * 这份清单是手维护的，而 2026-10-15 实测到外部管道改写 `documents` 194 行既不推水位、也不在本清单里
+ * ⇒ 拿它当判据会把真差异好成 0。补增量与切换前闸现在统一走全列行指纹（lib `findDirtyRows()`），
+ * 本清单只用来回答「竞写的是哪些列、该不该进 APP 侧白名单」。
+ */
 export const APP_WRITABLE_COLUMNS = ["is_featured", "is_converted", "converted_opp_id", "rfq_status", "published_date"];
 
 /**
@@ -258,7 +284,40 @@ export function noticeSqlRefs(text, col) {
   return out;
 }
 
-/** 从 baseline.sql 文本里取本表当前列名（唯一事实源，不手拄） */
+/**
+ * 人工豁免登记（判据偏保守造成的假阳性，逐条写明凭什么不是本表读写点）。
+ *
+ * 为什么是「登记豁免」而不是「放宽判据」：判据 ① 是「同一条含 crm_bid_notices 的 SQL
+ * 字面量里出现列名」，而 AI 链路那两条 SQL 的子查询确实提及了本表
+ * （`(SELECT notice_id FROM crm_bid_notices WHERE id = ?)`），但取的是商机侧的
+ * `o.is_qualified`（FROM crm_bid_opportunities o）。若为了过闸把判据改成「列名必须带本表
+ * 别名」，会连带放过真正的拼接 SQL 引用——那正是批次三当年静默漏检的形态。
+ * 所以只豁免「这一文件的这一列」，别处写同样形态照旧拦（自测有专门用例守这一点）。
+ *
+ * ⚠ 豁免不随批次落库而删：列退役后这条字面量仍会被 NS1 见到，删了门禁当天就红。
+ * 但它不得长存不监：扫描会报「已失效的豁免」（字段已不再命中），该删就删。
+ */
+export const NOTICE_REF_WAIVERS = [
+  {
+    file: "src/lib/services/ai/shared/notice-context.ts",
+    col: "is_qualified",
+    reason:
+      "该字面量只有标量子查询提及 crm_bid_notices（取 notice_id 做匹配），取的是 crm_bid_opportunities o 的列（FROM crm_bid_opportunities o / AND (o.is_qualified = 1 ...)）。本仓已逐行看过。",
+  },
+  {
+    file: "src/lib/services/ai-summary/index.ts",
+    col: "is_qualified",
+    reason:
+      "同上 enrichFromOpportunity 路径：列只可能来自商机行（SELECT o.* FROM crm_bid_opportunities o），本表仅作为子查询参与匹配。",
+  },
+];
+
+/** 取某列在某文件上的豁免（无则返回 undefined）。 */
+export function waiverFor(file, col) {
+  return NOTICE_REF_WAIVERS.find((w) => w.file === file && w.col === col);
+}
+
+/** 从 baseline.sql 文本里取本表当前列名（唯一事实源，不手拄）*/
 export function baselineNoticeColumns(baselineText) {
   const start = baselineText.indexOf(`CREATE TABLE \`${NOTICES_TABLE}\` (`);
   if (start < 0) throw new Error(`baseline.sql 里找不到 ${NOTICES_TABLE}`);
@@ -291,7 +350,15 @@ export const BATCHES = {
     prereq: ["两份 SELECT 清单已摘除读取点（2026-10-15 已做）", "索引连带处置已登记在 BATCH_INDEX_PLAN[2] 并已现网复验", "23 行 is_converted/converted_opp_id 不自洽已出逐行留底（probe270，带反向计数对账）"],
   },
   3: { columns: BATCH_3_COLUMNS, title: "旧字典分类列（已移交并行影子表轮，不得在本仓执行）", prereq: ["列集已清空：跑它会因「无可删列」停线；列本体在 PARALLEL_DROPPED_COLUMNS 里登记"] },
-  4: { columns: BATCH_4_COLUMNS, title: "is_qualified 镜像列", prereq: ["三方核对内网写入方与兄弟系统读取", "注：ai-summary/index.ts 与 notice-context.ts 的两处命中是拼接 SQL 里的商机侧 o.is_qualified（同一条字面量含 crm_bid_notices 子查询），属判据偏保守的误报——清障方式是人工豁免确认，不是改代码"] },
+  4: {
+    columns: BATCH_4_COLUMNS,
+    title: "is_qualified 镜像列（不挂索引、不进宽表指纹 ⇒ 零重灌债务）—— 已落库",
+    prereq: [
+      "三方核对内网写入方与兄弟系统读取：按用户 2026-10-15 指示不再作前置（风险由用户裁定接受）。",
+      "两处商机侧误报已走 NOTICE_REF_WAIVERS 人工豁免登记（不是改判据，也不是删代码）。",
+      "本表侧已实测：不挂任何索引（16 个索引逐条核过）、search-sync 全域零命中（不触发 64.5 万行重灌）、src 零 isQualified 消费。",
+    ],
+  },
 };
 
 /** 已授权执行的批次（阶段脚本会拒绝未登记的批次，防止顺手多删）。 */

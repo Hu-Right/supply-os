@@ -16,12 +16,14 @@
  * 用法：
  *   node scripts/tools/notices-slim-scan.mjs                 # 全量明细 → temp/notices-slim-scan.out.txt
  *   node scripts/tools/notices-slim-scan.mjs --assert-batch=1 # 只判批次一是否可进入
+ *   （已落库的批次会报「本批已落库」并 exit 0：列已不在 baseline，反向防复活归门禁；
+ *    只有「同批一半在、一半不在」才 exit 1，那才是结构与清单真漂。）
  * 只读：不连库、不改任何非 temp 文件。
  */
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from "node:fs";
 import { join, relative } from "node:path";
-import { NOTICES_TABLE, dropColumnsOf, GUARDED_COLUMNS } from "./notices-slim-plan.mjs";
-import { findNoticeRefSites } from "./lib/notices-ref-scan.mjs";
+import { NOTICES_TABLE, BATCHES, dropColumnsOf, GUARDED_COLUMNS, NOTICE_REF_WAIVERS } from "./notices-slim-plan.mjs";
+import { scanNoticeRefs } from "./lib/notices-ref-scan.mjs";
 
 const ROOT = process.cwd();
 const SCAN_DIRS = ["src", "scripts", "tests"];
@@ -100,15 +102,40 @@ if (ASSERT_BATCH) {
   // 后者会被兄弟表同名列（ai_products 在商机表也在用）、注释、以及本工具自己污染。
   const batch = Number(ASSERT_BATCH);
   const targets = dropColumnsOf(batch);
-  if (targets.some((c) => !byCol.has(c))) {
-    console.error("❌ 有待删列不在 baseline 里（结构已漂移或清单写错）");
+  // 空列集批次（批次三已移交并行轮）不该得到一个「通过」：通过就会被拿去跑阶段一。
+  // 口径与阶段一/二的「无可删列」守卫一致（见 notices-slim-plan.mjs BATCHES[3]）。
+  if (!targets.length) {
+    console.error(`❌ 批次 ${batch} 无可删列（${BATCHES[batch]?.title ?? "未登记批次"}），删列判据无从谈起`);
     process.exit(1);
   }
-  const sites = findNoticeRefSites(ROOT, targets, SCAN_DIRS, SELF);
+  // 区分两种「列不在 baseline」：整批都不在 = 本批已落库（反向校验归门禁 NS1/NS2），
+  // 只有一部分不在 = 结构与清单真漂了。把前者也报成「清单写错」会让复跑入口在落库当天失效
+  // （2026-10-15 批次一/二/四落库后 --assert-batch=1/2/4 全红，就是这个形态）。
+  const gone = targets.filter((c) => !byCol.has(c));
+  if (gone.length === targets.length) {
+    console.log(`✅ 批次 ${batch} 已落库：${gone.join(", ")} 已不在 baseline 本表结构里，无需再复跑删列判据。`);
+    console.log("  退役后的防复活由 `npm run check:notices-slim`（NS1/NS2）长期守，判据实现在 lib/notices-ref-scan.mjs。");
+    process.exit(0);
+  }
+  if (gone.length) {
+    console.error(`❌ 批次 ${batch} 结构已漂移：${gone.join(", ")} 已不在 baseline，而同批其他列仍在场（半批落库不可接受，须人工核对现网与清单）`);
+    process.exit(1);
+  }
+  const { sites, waived } = scanNoticeRefs(ROOT, targets, SCAN_DIRS, SELF);
   for (const c of targets) {
     const mine = sites.filter((s) => s.col === c);
-    console.log(`  ${c.padEnd(18)} 本表读写点 ${mine.length} 处${mine.length ? "：" + mine.map((m) => `${m.file}×${m.count}`).join(", ") : ""}（全文件命中 ${byCol.get(c)?.codeN ?? 0}，含兄弟表同名列与注释噪声）`);
+    const wr = waived.filter((s) => s.col === c);
+    console.log(
+      `  ${c.padEnd(18)} 本表读写点 ${mine.length} 处${mine.length ? "：" + mine.map((m) => `${m.file}×${m.count}`).join(", ") : ""}` +
+        `${wr.length ? ` · 已豁免 ${wr.length} 处` : ""}（全文件命中 ${byCol.get(c)?.codeN ?? 0}，含兄弟表同名列与注释噪声）`,
+    );
+    for (const w of wr) console.log(`      [豁免] ${w.file} ×${w.count} → ${w.reason}`);
   }
+  // 失效豁免要报出来：写在不存在的引用上的豁免，跟放宽判据一样危险（它把日后的真引用也挡了）
+  const stale = NOTICE_REF_WAIVERS.filter(
+    (w) => targets.includes(w.col) && !waived.some((x) => x.file === w.file && x.col === w.col),
+  );
+  for (const s of stale) console.log(`  ⚠ 已失效的豁免（本批列已不在该文件命中，可删）：${s.file} · ${s.col}`);
   if (sites.length) {
     console.error(`\n❌ 批次 ${batch} 尚不可进入：这些列仍有本表读写点，先清障再跑阶段一`);
     for (const s of sites) console.error(`  - ${s.col} → ${s.file} ×${s.count}  ｜ ${s.sample.slice(0, 110)}`);

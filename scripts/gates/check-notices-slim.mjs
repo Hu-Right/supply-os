@@ -5,6 +5,8 @@
  *   [NS1] 退役列名不得出现在「引用 crm_bid_notices 的 SQL」里（判定走
  *         scripts/tools/lib/notices-ref-scan.mjs，与取证/落刀前置闸同一实现）。
  *         列从库里消失后再被 SELECT 会直接报错而非静默变 null，所以这条必须硬拦。
+ *         已登记的人工豁免（NOTICE_REF_WAIVERS，判据偏保守的商机侧误报）不算违规，
+ *         但条数会打在成功行上——豁免不得静默成长，也不用担心它隐身。
  *   [NS2] 对「兄弟表 crm_bid_opportunities 没有同名列」的退役列，src/** 的任何代码行
  *         （剥离注释后）都不得再出现该名字——全域防复活，不留「先写进别处再拼回来」的缝。
  *         有同名列的（ai_products / is_qualified）不跑 NS2，否则会误伤合法的商机侧引用。
@@ -20,7 +22,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { retiredFrom, SIBLING_SAME_NAME_COLUMNS } from "../tools/notices-slim-plan.mjs";
-import { findNoticeRefSites } from "../tools/lib/notices-ref-scan.mjs";
+import { scanNoticeRefs } from "../tools/lib/notices-ref-scan.mjs";
 
 const ROOT = process.env.NOTICES_SLIM_SCAN_ROOT || process.cwd();
 const BASELINE = process.env.NOTICES_SLIM_BASELINE || path.join(process.cwd(), "db/schema/baseline.sql");
@@ -60,8 +62,9 @@ function codeLines(text) {
 
 const problems = [];
 
-// NS1：本表 SQL 引用点复活
-for (const s of findNoticeRefSites(ROOT, RETIRED, ["src", "scripts", "tests"], SELF)) {
+// NS1：本表 SQL 引用点复活（已登记的豁免进 waived，不进 problems）
+const { sites: ns1, waived: ns1Waived } = scanNoticeRefs(ROOT, RETIRED, ["src", "scripts", "tests"], SELF);
+for (const s of ns1) {
   problems.push(`[NS1] ${s.file}：引用了已退役列 \`${s.col}\`（${s.count} 处）→ ${s.sample.slice(0, 90)}`);
 }
 
@@ -99,5 +102,7 @@ if (problems.length) {
 }
 console.log(
   `✅ 公告主表精简守卫通过（在册待删 ${RETIRED.length} 列已退役并禁复活` +
-    `${HARD_BANNED.length ? ` · 全域硬拦 ${HARD_BANNED.join(",")}` : " · 全域硬拦 0 列"}）`,
+    `${HARD_BANNED.length ? ` · 全域硬拦 ${HARD_BANNED.join(",")}` : " · 全域硬拦 0 列"}` +
+    `${ns1Waived.length ? ` · 人工豁免 ${ns1Waived.length} 处（${[...new Set(ns1Waived.map((w) => w.col))].join(",")}）` : ""}` +
+    "）",
 );
