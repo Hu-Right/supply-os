@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 95 张，导出 87 张，排除 8 张。
+--           源库共 89 张，导出 86 张，排除 3 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -243,11 +243,8 @@ CREATE TABLE `crm_bid_notices` (
   `contact_email` varchar(128) DEFAULT NULL COMMENT '联系邮箱',
   `contact_phone` varchar(32) DEFAULT NULL COMMENT '联系电话',
   `user_id` bigint unsigned DEFAULT NULL COMMENT '创建者用户ID（平台发布）',
-  `response_count` int unsigned DEFAULT '0' COMMENT '供应商响应数（仅 RFQ 来源使用）',
   `entry_source` varchar(20) NOT NULL DEFAULT 'crawl' COMMENT '数据来源: crawl, platform, api',
   `province_name` varchar(50) DEFAULT NULL COMMENT '交付省份（RFQ国内用）',
-  `category_l1_id` int unsigned DEFAULT NULL COMMENT '一级分类ID（RFQ用；旧字典口径，已停写）',
-  `category_l2_id` int unsigned DEFAULT NULL COMMENT '二级分类ID（RFQ用；旧字典口径，已停写）',
   `category_code` varchar(24) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'RFQ 品目分类（UGT 最深节点码；旧字典退役后的承接位，category_l1_id/l2_id 停写）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_notice_source` (`notice_id`),
@@ -464,16 +461,12 @@ CREATE TABLE `crm_follow_up_logs` (
 CREATE TABLE `crm_industry_nodes` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `code` varchar(40) NOT NULL COMMENT '行业码 UGT-I- + 定长分层数字（门类2位/大类4位/中类6位/小类与自研8位），码长即层级',
-  `src_code` varchar(20) NOT NULL COMMENT '国标码 A-T / 01 / 011 / 0111 / X01-X24，仅作构建溯源',
-  `source` varchar(12) NOT NULL DEFAULT 'gb' COMMENT 'gb=国标官方节点 self=我方自研延伸层',
   `level` varchar(20) NOT NULL COMMENT 'section|division|group|subclass|extension',
   `parent_code` varchar(40) DEFAULT NULL,
   `name_zh` varchar(300) DEFAULT NULL COMMENT '国标官方中文名（含第1号修改单）',
   `name_en` varchar(300) DEFAULT NULL COMMENT 'ISIC Rev.4 官方英文，经国标附录C 对照定锚',
   `description` text COMMENT '国标官方释义',
-  `supplier_count` int NOT NULL DEFAULT '0' COMMENT '直接挂靠的供应商画像数',
   `status` tinyint NOT NULL DEFAULT '1',
-  `version` varchar(20) NOT NULL DEFAULT 'v1.1',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_code` (`code`),
@@ -537,7 +530,7 @@ CREATE TABLE `crm_license_changes` (
   KEY `idx_supplier` (`supplier_id`),
   KEY `idx_status` (`status`),
   KEY `idx_uploaded_by` (`uploaded_by`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='已认证供应商换照变更流水（先审后生效；未认证供应商走认领审核）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='已认证供应商换照变更流水';
 
 -- ── crm_match_verdict ──
 CREATE TABLE `crm_match_verdict` (
@@ -674,7 +667,7 @@ CREATE TABLE `crm_notice_attribution_nodes` (
   UNIQUE KEY `uk_notice_node` (`notice_pk`,`node_code`),
   KEY `idx_source_notice` (`source`,`notice_pk`),
   KEY `idx_node` (`node_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告品目归属落点（唯一事实源，替代旧桥表口径）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告品目对照表';
 
 -- ── crm_notice_backbone_nodes ──
 CREATE TABLE `crm_notice_backbone_nodes` (
@@ -745,7 +738,6 @@ CREATE TABLE `crm_notice_search` (
   `title_ar` varchar(1000) NOT NULL DEFAULT '',
   `published_date` varchar(50) DEFAULT NULL COMMENT '公告发布日期（同步自 crm_bid_notices.published_date）',
   `sync_src_hash` char(32) NOT NULL DEFAULT '' COMMENT '宽表内容与输入快照的一致性指纹，由 buildWideRow 同快照写入，对账只比对不修改',
-  `code_path` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '全部祖先前缀（旧字典口径），逗号分隔（所见即所得命中键；已无读写方）',
   `backbone_path` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算）',
   PRIMARY KEY (`id`),
   KEY `idx_ns_deadline_desc` (`deadline_sec` DESC),
@@ -757,14 +749,6 @@ CREATE TABLE `crm_notice_search` (
   KEY `idx_ns_featured` (`is_featured`),
   KEY `idx_ns_reference` (`reference`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='宽表';
-
--- ── crm_notice_stats ──
-CREATE TABLE `crm_notice_stats` (
-  `stat_key` varchar(100) NOT NULL,
-  `stat_value` int unsigned NOT NULL DEFAULT '0',
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`stat_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='信息汇总统计表';
 
 -- ── crm_notice_translations ──
 CREATE TABLE `crm_notice_translations` (
@@ -1202,7 +1186,7 @@ CREATE TABLE `crm_supplier_diagnosis` (
   KEY `idx_supplier` (`supplier_id`),
   KEY `idx_score` (`score_total`),
   KEY `idx_submitted` (`submitted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商投标能力诊断表（V2）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商投标能力诊断表';
 
 -- ── crm_supplier_industry_rel ──
 CREATE TABLE `crm_supplier_industry_rel` (
@@ -1216,7 +1200,7 @@ CREATE TABLE `crm_supplier_industry_rel` (
   UNIQUE KEY `uk_sup_code` (`supplier_id`,`industry_code`),
   KEY `idx_code` (`industry_code`),
   KEY `idx_sup` (`supplier_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商×行业面标签关系(UGT-I)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商×行业面标签关系';
 
 -- ── crm_sync_watermark ──
 CREATE TABLE `crm_sync_watermark` (
@@ -1310,11 +1294,6 @@ CREATE TABLE `crm_upload_files` (
 CREATE TABLE `crm_user_industry_prefs` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL,
-  `level1_id` int DEFAULT NULL,
-  `level2_id` int DEFAULT NULL,
-  `level3_id` int DEFAULT NULL,
-  `level4_id` int DEFAULT NULL,
-  `level5_id` int DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   `commodity_code` varchar(40) NOT NULL DEFAULT '' COMMENT '品目面码，可停在段/族/类/品目任一层；空=只订到大类',
@@ -1326,7 +1305,6 @@ CREATE TABLE `crm_user_industry_prefs` (
 CREATE TABLE `crm_user_interest_codes` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL,
-  `code_id` int DEFAULT NULL,
   `code` varchar(24) NOT NULL,
   `level` tinyint NOT NULL,
   `source` varchar(40) NOT NULL,
@@ -1334,8 +1312,7 @@ CREATE TABLE `crm_user_interest_codes` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_code_source` (`user_id`,`code`,`source`),
-  KEY `idx_code_id` (`code_id`)
+  UNIQUE KEY `uk_user_code_source` (`user_id`,`code`,`source`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户关注的公告编码。';
 
 -- ── crm_user_llm_config ──

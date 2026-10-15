@@ -27,9 +27,7 @@ const CHECK = process.argv.includes("--check");
 // 切换后它会原子改名成原表、自然消失，故必须排除（2026-10-12 机会表轮次踩过这个口）。
 // __drill 后缀是全量对拍/回滚演练的影子表（如 crm_notice_attribution_nodes__drill），
 // 它们按纪律保留作“落刀证明”（ADR-0014），同样不能进基线。
-// crm_appointments：ADR-0011 已宣布退役（代码侧已完成），库侧 DROP 那一刀还没落。
-// 重导会把它从 information_schema 带回来→进入 baseline 会违反“死表不参与 CI e2e”的口径。
-// 库侧 DROP 落刀后删掉本行（下一轮重导自然归一，diff 应为空）。
+// （原 crm_appointments 排除行已删，2026-10-15：ADR-0011 库侧 DROP 已落刀，下一轮重导自然归一。）
 const EXCLUDE_RES = [
   /__bak_/,
   /_bak\d/,
@@ -37,7 +35,6 @@ const EXCLUDE_RES = [
   /__new$/,
   /__drill$/,
   /_retired_/,
-  /^crm_appointments$/,
   // outreach 系为内网爬虫侧拥有的镜像表（列集合随爬虫源漂移，含 supplier 快照列），
   // 结构事实源在内网，不进本基线（旧字典零残留门禁对它的豁免口径见 check-legacy-dict-residue.mjs）。
   /^crm_outreach_/,
