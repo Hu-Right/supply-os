@@ -20,10 +20,39 @@
  * 分批改笔的理由：一次切换只带走「互不牵连」的一小批列，出问题时的回滚面与
  * 归因面都只有一批那么大。批次之间若有牵连（指纹表达式、索引、兄弟系统自愈），
  * 必须把牵连项写进该批的 PREREQ，未清障不得进入该批。
+ *
+ * ⚠️ 与并行作业的对账（2026-10-15，看到底才算数）：本表上同时有人在做精简，分两个阶段 observed：
+ *   阶段一：一条 `ALTER TABLE crm_bid_notices DROP COLUMN category_l1_id, DROP COLUMN category_l2_id,
+ *   DROP COLUMN response_count`（ALGORITHM=COPY，全程锁写），跑到 1042s 后从 processlist 消失。
+ *   实测判定它**未落地即中止**（probe252：本表仍 55 列、三列全部在场、无 `#sql-*` 孤儿临时表、
+ *   performance_schema.metadata_locks 对本表 0 条锁）。
+ *   阶段二：同一作业改走影子表蓝绿重建（probe258/259 实拍）：`crm_bid_notices__new` 建于
+ *   06:59:28Z，52 列，缺席列恰好是 [response_count, category_l1_id, category_l2_id]，
+ *   正在用 `INSERT IGNORE INTO crm_bid_notices__new (id, notice_id, ...)` 回填（04 次采样：
+ *   320,000 → 340,000 → 360,000 → 380,000 行，state=waiting for handler commit）。
+ * ⇒ 结论与后续（已落地，非推测）：对方轮次于 07:12Z 切换完成，probe263 逐项核验通过：
+ *   crm_bid_notices 现 52 列 / 精确 645,521 行（与切换前逐行相等）；与旧表位比只消失
+ *   category_l1_id / category_l2_id / response_count 三列且无新增；3 个 FULLTEXT 齐全
+ *   且 `ft_notices_search` 的 `WITH PARSER ngram` 未丢，三种 MATCH 签名逐个跑通；
+ *   `deadline_sec` 仍是 STORED GENERATED（表达式未漂）。旧表位名为 `crm_bid_notices_retired_20261015`
+ *   （命中 dump-schema-baseline 的 `/_retired_/` 排除，不会混进基线），它是本轮回滚物归对方处置。
+ *   这三列因此**不再由本清单执行**，只靠 PARALLEL_DROPPED_COLUMNS 进防复活门禁；
+ *   本作业批次一 = thresholds / ai_products（52 → 50）。
  */
 
 export const NOTICES_TABLE = "crm_bid_notices";
 export const SHADOW_TABLE = `${NOTICES_TABLE}__new`;
+
+/**
+ * ⚠ 本表只能走影子表，不存在「直接 ALTER 删列」这条路（2026-10-15 现网实测）：
+ *   ALTER TABLE crm_bid_notices DROP COLUMN ... 试 ALGORITHM=INSTANT 与 INPLACE 均被拒，
+ *   原始报错同一句：`InnoDB presently supports one FULLTEXT index creation at a time`
+ *   ——本表带 3 个 FULLTEXT 索引（ft_notices_search / ft_notices_en / ft_notices_desc），
+ *   任何需要重建表的 ALTER 都得重建全文索引，而 InnoDB 一次只能建一个 ⇒ 只支持 COPY（全程锁写）。
+ *   所以 ADR-0003 里「低风险纯增量可直接 ALTER」那条在本表不适用；历史三轮删列全部走影子表，
+ *   不是保守，是被这条限制逼的。阶段一因此采用「先摘 FULLTEXT → 灌数据 → 逐个重建」的顺序。
+ */
+export const ONLINE_DDL_BLOCKED = true;
 /** 旧表位前缀（ADR-0003 命名）。⚠️ 现网另有一张上一批留下的 `crm_bid_notices_old2_20261015`
  *  （58 列 / 精确 645,521 行，与现表行数一致，命名不合本约定）——它不匹配本前缀，
  *  因此阶段二的「找唯一旧表位」不会被它干扰；但它在场内占 714 MB，属待清理项。 */
@@ -33,15 +62,18 @@ export const OLD_TABLE_PREFIX = `${NOTICES_TABLE}__old_`;
 export const BACKFILL_BATCH = 5000;
 
 /**
- * 批次一 · 可直删（云端零读写、不牵任何索引与指纹表达式）
+ * 批次一 · 可直删（云端零读写、不牵任何索引）—— 含已并入的原批次三两列
  *
  * 判据（三条同时成立才进本批）：
- *   ① src/ + scripts/ + tests/ 全域词边界 snake 与 camel 双查，**本表读取点 0 处**
- *      （命中的都是兄弟表同名列、注释、或 opp 轮的删列清单——逐条见 notices-slim-scan 输出）；
- *   ② 不在 17 个索引的任何一列里（probe233/231 索引清单核对）；
+ *   ① src/ + scripts/ + tests/ 全域词边界 snake 与 camel 双查，**本表读写点 0 处**
+ *      （可复跑：node scripts/tools/notices-slim-scan.mjs --assert-batch=1）；
+ *   ② 不在 17 个索引的任何一列里（baseline.sql 索引清单逐条核对过）；
  *   ③ 不出现在宽表源指纹 WIDE_FP_EXPR 里（⇒ 切换后不触发全量重灌）。
+ *
+ * 注：原列 `response_count` 与原批次三两列已确认**归并行影子表轮次**（见文件头对账），
+ * 登记在 PARALLEL_DROPPED_COLUMNS 里进防复活门禁，不进本批删列清单。
  */
-export const BATCH_1_COLUMNS = ["thresholds", "ai_products", "response_count"];
+export const BATCH_1_COLUMNS = ["thresholds", "ai_products"];
 
 /** 批次一的逐列证据（写进清单文件本身，防止半年后无人知道当初凭什么删） */
 export const BATCH_1_EVIDENCE = {
@@ -53,7 +85,19 @@ export const BATCH_1_EVIDENCE = {
     "现网 920 行空壳 []|null / 真有内容 14 行。填充方（外置 AI worker）2026-09-17 停摆，见 docs/数据库设计/全表写入核对-20260930.md 问题⑦。",
   response_count:
     "零读写。前端「响应数」在 rfq/list 里直接硬编码 responses: 0，从不读这列。现网全表恒 0（列默认值）。",
+  category_l1_id:
+    "旧字典一级分类 ID（RFQ 用），现网**全库 0 行有值**；RFQ 已改落 category_code。代码引用由 bc77fe62 从指纹/构建层/单测三处同时摘除。",
+  category_l2_id:
+    "同上，二级；旧字典五级列已于 2ffa4c1a 走过一轮，这两列是最后一笔残留。",
 };
+
+/**
+ * 由**并行影子表轮次**摘除的列（不经本仓阶段脚本，但同样是「本表已退役」）。
+ * 必须留在登记簿上并进 retiredFrom()：否则重导 baseline 后，防复活门禁（NS1/NS2）对
+ * `category_l1_id` 这类列就是空的——日后有人把它 ADD COLUMN 回来不会报错。
+ * 不把它放进 BATCHES 的 columns 里，是为了让 --batch=1 不会去删已被别人删走的列（A1 会停线）。
+ */
+export const PARALLEL_DROPPED_COLUMNS = ["response_count", "category_l1_id", "category_l2_id"];
 
 /**
  * 批次二 · 先摘读取点才能删（本批只登记，不动库）
@@ -82,8 +126,12 @@ export const BATCH_2_COLUMNS = ["is_converted"];
  *   ③ 3 个单测断言 SQL/指纹串含该列名（wide-row-fp / wide-fingerprint / wide-row-platform-category），
  *      门禁 check-notice-classification-ssot.mjs 的白名单收缩要在 DROP 后一并做。
  * PREREQ：安排一次可重灌窗口 + 上述 ②③ 同批改动 + 门禁白名单收缩。
+ *
+ * 2026-10-15 收尾：本批**移交并行影子表轮次**（其实拍见文件头：对方 `__new` 形状里这三列已缺席）。
+ * 列集置空有两个作用：① 误跑 --batch=3 会被阶段一/二的「无可删列」守卫挡下，不去做一轮
+ * 空切换；② 这三列本体靠 PARALLEL_DROPPED_COLUMNS 进防复活门禁，不靠批次表。
  */
-export const BATCH_3_COLUMNS = ["category_l1_id", "category_l2_id"];
+export const BATCH_3_COLUMNS = [];
 
 /**
  * 批次四 · 商机镜像列（opp 轮已明确约定「单独一轮处理」）
@@ -189,18 +237,23 @@ export function baselineNoticeColumns(baselineText) {
  * 已退役列 = 登记在册但已不在 baseline 本表结构里的批次列。
  * 这样防复活门禁的启用条件是自动的：切换前自动空转，切换（DROP 落库 + 重导 baseline）后自动上岗，
  * 不需要任何人手工维护「哪些批次已完成」那份状态（手写状态必漂）。
+ * PARALLEL_DROPPED_COLUMNS 一并纳入：不经本仓阶段脚本退役的列，同样需要门禁。
  */
 export function retiredFrom(baselineText) {
   const present = new Set(baselineNoticeColumns(baselineText));
-  const all = Object.values(BATCHES).flatMap((b) => b.columns);
-  return all.filter((c) => !present.has(c));
+  const all = [...Object.values(BATCHES).flatMap((b) => b.columns), ...PARALLEL_DROPPED_COLUMNS];
+  return [...new Set(all.filter((c) => !present.has(c)))];
 }
 
 /** 批次注册表：阶段一/二脚本按 `--batch=N` 取列集，一次切换只带走一批。 */
 export const BATCHES = {
-  1: { columns: BATCH_1_COLUMNS, title: "零读写三列（thresholds / ai_products / response_count）", prereq: [] },
+  1: {
+    columns: BATCH_1_COLUMNS,
+    title: "零读写两列（thresholds / ai_products；response_count 已移交并行影子表轮）",
+    prereq: ["并行作业的 crm_bid_notices__new 必须已消失（已切换或被清），否则表名撞车"],
+  },
   2: { columns: BATCH_2_COLUMNS, title: "is_converted（读了不用＋透出无消费）", prereq: ["摘 SELECT 读取点", "38 行差异对账", "三方核对兄弟系统"] },
-  3: { columns: BATCH_3_COLUMNS, title: "旧字典分类列 B2（含指纹表达式改造与全量重灌）", prereq: ["改 WIDE_FP_EXPR", "摘 wideSyncSelect/buildWideRow", "同步 3 个单测", "门禁白名单收缩", "预留重灌窗口"] },
+  3: { columns: BATCH_3_COLUMNS, title: "旧字典分类列（已移交并行影子表轮，不得在本仓执行）", prereq: ["列集已清空：跑它会因「无可删列」停线；列本体在 PARALLEL_DROPPED_COLUMNS 里登记"] },
   4: { columns: BATCH_4_COLUMNS, title: "is_qualified 镜像列", prereq: ["三方核对内网写入方与兄弟系统读取", "注：ai-summary/index.ts 与 notice-context.ts 的两处命中是拼接 SQL 里的商机侧 o.is_qualified（同一条字面量含 crm_bid_notices 子查询），属判据偏保守的误报——清障方式是人工豁免确认，不是改代码"] },
 };
 
