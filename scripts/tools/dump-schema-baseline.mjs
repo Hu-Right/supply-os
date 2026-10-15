@@ -12,12 +12,16 @@
  *             覆盖默认口径：
  *               OUT=db/schema/baseline.sql  输出路径（相对仓库根）
  *               EXCLUDE=<regex>            追加排除的表名匹配（与内置规则取并集）
+ *               --check                    只比对不写文件：基线与源库漂移则 exit 1（发布前硬校验）
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import mysql from "mysql2/promise";
 
 const OUT = process.env.OUT || "db/schema/baseline.sql";
+// --check：只把「工作树基线 vs 源库结构」当作布尔判定，不改写文件；漂移即 exit 1，
+// 供发布前/CI 外的一次性硬校验（本脚本连库，CI 无生产库凭据故不进 lint/CI 主链）。
+const CHECK = process.argv.includes("--check");
 // 影子/备份表（带 __bak_ 或日期后缀）是一次性切换留下的快照，不属于终态结构。
 // __new 后缀是 ADR-0003 蓝绿切换的**在途影子表**：切换前重导会把半成品结构写进基线，
 // 切换后它会原子改名成原表、自然消失，故必须排除（2026-10-12 机会表轮次踩过这个口）。
@@ -100,6 +104,10 @@ async function main() {
   const before = await readFile(target, "utf8").catch(() => null);
   if (before === sql) {
     console.log(`✓ ${OUT} 与源库结构一致（${kept.length} 张表），未改写文件`);
+  } else if (CHECK) {
+    console.error(`✗ ${OUT} 与源库结构漂移（源库应导出 ${kept.length} 张表）：--check 模式不改写文件。核对后去掉 --check 重跑以落新基线。`);
+    await conn.end();
+    process.exit(1);
   } else {
     await writeFile(target, sql, "utf8");
     console.log(`✓ 已写出 ${OUT}：${kept.length} 张表`);

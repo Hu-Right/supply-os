@@ -26,6 +26,7 @@
     "check:ddl-collation:self-test": "node --test tests/gates/check-ddl-collation.test.mjs",
     "check:gitignore": "node scripts/gates/check-gitignore-consistency.mjs",
     "check:taxonomy": "npx tsx scripts/gates/check-taxonomy-invariants.ts",
+    "check:baseline": "node --env-file=.env scripts/tools/dump-schema-baseline.mjs --check",
     "check:legacy-dict": "node scripts/gates/check-legacy-dict-residue.mjs",
     "check:legacy-dict:self-test": "node --test tests/gates/check-legacy-dict-residue.test.mjs",
     "check:commodity-groups": "npx tsx scripts/gates/check-commodity-groups.ts",
