@@ -21,7 +21,7 @@
  */
 import {
   NOTICES_TABLE, SHADOW_TABLE, OLD_TABLE_PREFIX, APP_WRITABLE_COLUMNS, BATCHES,
-  dropColumnsOf, keptColumns,
+  dropColumnsOf, keptColumns, indexPlanOf,
 } from "./notices-slim-plan.mjs";
 import { conn, fatal, columnsOf, indexesOf, tableExists, reconcile, activeWritersOn } from "./lib/notices-slim-common.mjs";
 
@@ -158,7 +158,15 @@ console.log(`  ${slices} 片列指纹逐片一致 · 差异 0 · 多余行 0`);
 console.log("[3/5] 原子 RENAME（秒级，单语句内完成两步改名）");
 const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
 const oldTable = `${OLD_TABLE_PREFIX}${stamp}`;
-if (await tableExists(c, oldTable)) fatal(`旧表位 ${oldTable} 已存在，请先人工处置（改名或清理）再切换`);
+if (await tableExists(c, oldTable)) {
+  fatal(
+    `旧表位 ${oldTable} 已存在（上一批次留下的），直接改名会踩掉它的反滚能力。\n` +
+      `  请按本仓约定把它改名为不匹配 ${OLD_TABLE_PREFIX}% 的名字（例：${NOTICES_TABLE}_retired_<批次>_${stamp}）：\n` +
+      `    · 这样本批的 --rollback 才不会因找到多个旧表位而歧义；\n` +
+      `    · 且 dump-schema-baseline 的 /_retired_/ 排除规则已覆盖它，不会混进基线。\n` +
+      `  确认无需再反滚上一批时，才轮得到人工 DROP 它。`,
+  );
+}
 await c.query(`RENAME TABLE \`${NOTICES_TABLE}\` TO \`${oldTable}\`, \`${SHADOW_TABLE}\` TO \`${NOTICES_TABLE}\``);
 console.log(`  ${NOTICES_TABLE} ⇐ 精简表；原表保留为 ${oldTable}`);
 
@@ -172,6 +180,20 @@ if (Number(rowsAfter) !== Number(oldRows)) fatal(`切换后行数 ${rowsAfter} �
 const idxAfter = await indexesOf(c, NOTICES_TABLE);
 const ftAfter = [...idxAfter.values()].filter((i) => i.type === "FULLTEXT").map((i) => i.name);
 if (ftAfter.length !== 3) fatal(`FULLTEXT 索引不全（现 ${ftAfter.join(",")}），降级全文检索会坏`);
+// 索引连带处置的现网复核（批次二这类删带索引的列必须验）：退役的要真没了，
+// 重建的必须是登记的那几列——光看名字会过，而列集错一个就是另一种查询能力。
+{
+  const plan = indexPlanOf(BATCH);
+  const stillThere = plan.drop.filter((n) => idxAfter.has(n) && !plan.add.some((a) => a.name === n));
+  if (stillThere.length) fatal(`这些索引本批应已退役但切换后仍在场：${stillThere.join(", ")}`);
+  for (const a of plan.add) {
+    const got = (idxAfter.get(a.name)?.cols ?? []).map((x) => x.col);
+    if (JSON.stringify(got) !== JSON.stringify(a.cols)) {
+      fatal(`切换后索引 ${a.name} 列集不符：期望 (${a.cols.join(",")}) 实得 (${got.join(",")})`);
+    }
+    console.log(`  ✓ 索引 ${a.name} (${got.join(",")})`);
+  }
+}
 // 真实读路径各跑一次：有效性口径 + 精选谓词 + 三种 MATCH 签名（列集合与索引必须逐一对得上）
 const probes = [
   ["有效性计数", `SELECT COUNT(*) n FROM \`${NOTICES_TABLE}\` n WHERE (n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW())) AND (n.entry_source <> 'platform' OR IFNULL(n.rfq_status,'') = 'published')`],

@@ -26,7 +26,7 @@
  */
 import {
   NOTICES_TABLE, SHADOW_TABLE, GUARDED_COLUMNS, BACKFILL_BATCH,
-  dropColumnsOf, keptColumns, BATCHES,
+  dropColumnsOf, keptColumns, BATCHES, indexPlanOf,
 } from "./notices-slim-plan.mjs";
 import { findNoticeRefSites } from "./lib/notices-ref-scan.mjs";
 import { conn, fatal, columnsOf, indexesOf, tableExists, reconcile, makeProgress, activeWritersOn } from "./lib/notices-slim-common.mjs";
@@ -92,9 +92,31 @@ if (sites.length) {
   );
 }
 
-// ── A3 待删列不得挂在索引上 ─────────────────────────────────────────────
+// ── A3 待删列挂在索引上时，必须由本批显式登记索引处置 ───────────────
+// MySQL 对 DROP COLUMN 会隐式调整含该列的索引（名字不变、列集静默变）。这属于
+// 「基线归档看不出来的漂移」，所以本闸不允许它默默发生：要么本批不涉索引，要么
+// 在 notices-slim-plan.mjs 的 BATCH_INDEX_PLAN 里把退役/重建写清楚。
+const IDX_PLAN = indexPlanOf(BATCH);
 const idxOnDrop = [...srcIdx.entries()].filter(([, i]) => i.cols.some((x) => DROP.includes(x.col)));
-if (idxOnDrop.length) fatal(`A3 这些索引建在待删列上，本批不处理索引：${idxOnDrop.map(([n]) => n).join(", ")}`);
+const undeclaredIdx = idxOnDrop.map(([n]) => n).filter((n) => !IDX_PLAN.drop.includes(n));
+if (undeclaredIdx.length) {
+  fatal(
+    `A3 这些索引建在待删列上，但批次 ${BATCH} 未登记处置：${undeclaredIdx.join(", ")}\n` +
+      `  禁止靠 MySQL 隐式调整索引。请在 notices-slim-plan.mjs 的 BATCH_INDEX_PLAN[${BATCH}] 里写明 drop/add，` +
+      `并注明为什么这样定形。`,
+  );
+}
+{
+  // 登记的列集必须是真实存在的列（除本批要删的），否则 ADD 会在现网报错或建出假索引
+  const addNames = IDX_PLAN.add.map((a) => a.name);
+  const clash = addNames.filter((n) => srcIdx.has(n) && !IDX_PLAN.drop.includes(n));
+  if (clash.length) fatal(`A3 ADD 的索引名与现网重名且未登记 DROP：${clash.join(", ")}`);
+  const badCols = IDX_PLAN.add.flatMap((a) => a.cols.filter((x) => DROP.includes(x)).map((x) => `${a.name}.${x}`));
+  if (badCols.length) fatal(`A3 ADD 的索引建在本批要删的列上：${badCols.join(", ")}`);
+  const unknown = IDX_PLAN.drop.filter((n) => !srcIdx.has(n));
+  if (unknown.length) fatal(`A3 登记要 DROP 的索引在现网不存在：${unknown.join(", ")}（清单与现网漂移）`);
+}
+const expectIdxNames = [...srcIdx.keys()].filter((n) => !IDX_PLAN.drop.includes(n) || IDX_PLAN.add.some((a) => a.name === n)).sort();
 
 const fks = (
   await c.query(
@@ -128,7 +150,10 @@ const ftLines = (await c.query(`SHOW CREATE TABLE \`${NOTICES_TABLE}\``))[0][0][
 
 console.log(`批次 ${BATCH} · ${batch.title}`);
 console.log(`库 ${process.env.DB_NAME} · 表 ${NOTICES_TABLE}`);
-console.log(`行数 ${totalRows} · 列 ${srcNames.length} → ${srcNames.length - DROP.length}（删 ${DROP.join(", ")}）· 索引 ${srcIdx.size}（本批不动）`);
+console.log(`行数 ${totalRows} · 列 ${srcNames.length} → ${srcNames.length - DROP.length}（删 ${DROP.join(", ")}）· 索引 ${srcIdx.size} → ${expectIdxNames.length}`);
+if (IDX_PLAN.drop.length || IDX_PLAN.add.length) {
+  console.log(`索引连带处置（已登记在 BATCH_INDEX_PLAN[${BATCH}]）：退役 ${IDX_PLAN.drop.join(", ") || "无"} · 重建 ${IDX_PLAN.add.map((a) => `${a.name}(${a.cols.join(",")})`).join(", ") || "无"}`);
+}
 console.log(`体积 data ${size.dm} MB + index ${size.im} MB ⇒ 影子表峰值约 ${size.dm} MB（先摘 FULLTEXT 再灌，索引 ${size.im} MB 后置重建）`);
 console.log(`FULLTEXT 定义 ${ftLines.length} 条（灌完原样重建）：${ftLines.map((l) => l.match(/`(\w+)`/)[1]).join(", ")}`);
 console.log(`生成列（不参与写入，切换后逐行比对定义）：${generatedKept.join(", ") || "无"}`);
@@ -141,8 +166,9 @@ if (!BUILD && !ROLLBACK) {
   console.log("\n[--print-plan] 未写库。将执行的 DDL 与步骤：");
   console.log(`  1) CREATE TABLE \`${SHADOW_TABLE}\` LIKE \`${NOTICES_TABLE}\`;`);
   for (const l of ftLines) console.log(`  2) ALTER TABLE \`${SHADOW_TABLE}\` DROP INDEX ${l.match(/`(\w+)`/)[1]};   // ${l.slice(0, 70)}…`);
-  console.log(`  3) ALTER TABLE \`${SHADOW_TABLE}\`\n     ${DROP.map((x) => `DROP COLUMN \`${x}\``).join(",\n     ")};`);
-  console.log(`  4) 结构自检（列数/索引集合/生成列表达式/表排序规则）`);
+  console.log(`  3) ALTER TABLE \`${SHADOW_TABLE}\` ${IDX_PLAN.drop.length ? `${IDX_PLAN.drop.map((n) => `DROP INDEX \`${n}\``).join(", ")};   // 先退役索引，不让 MySQL 隐式调整\n     ALTER TABLE \`${SHADOW_TABLE}\` ` : ""}\n     ${DROP.map((x) => `DROP COLUMN \`${x}\``).join(",\n     ")};`);
+  if (IDX_PLAN.add.length) console.log(`  3b) ALTER TABLE \`${SHADOW_TABLE}\` ${IDX_PLAN.add.map((a) => `ADD KEY \`${a.name}\` (${a.cols.map((x) => `\`${x}\``).join(", ")})`).join(", ")};`);
+  console.log(`  4) 结构自检（列数/索引集合与逐列定义/生成列表达式/表排序规则）`);
   console.log(`  5) 分批回填：INSERT INTO \`${SHADOW_TABLE}\` (${writeCols.length} 列) SELECT ...，每批 ${BACKFILL_BATCH} 行，按主键窗口推进`);
   console.log(`  6) 重建 FULLTEXT：`);
   for (const l of ftLines) console.log(`       ALTER TABLE \`${SHADOW_TABLE}\` ADD ${l};`);
@@ -180,8 +206,19 @@ if (ftLines.length) {
   await c.query(`ALTER TABLE \`${SHADOW_TABLE}\` ${ftLines.map((l) => `DROP INDEX ${l.match(/`(\w+)`/)[1]}`).join(", ")}`);
 }
 
-console.log("[3/7] 影子表上删本批列");
+console.log("[3/7] 影子表：按登记退役索引 → 删本批列 → 按意图重建索引");
+// 次序不能换：先 DROP INDEX 再 DROP COLUMN，才不会让 MySQL 去隐式调整索引列集。
+if (IDX_PLAN.drop.length) {
+  await c.query(`ALTER TABLE \`${SHADOW_TABLE}\` ${IDX_PLAN.drop.map((n) => `DROP INDEX \`${n}\``).join(", ")}`);
+  console.log(`  − 退役索引：${IDX_PLAN.drop.join(", ")}`);
+}
 await c.query(`ALTER TABLE \`${SHADOW_TABLE}\` ${DROP.map((x) => `DROP COLUMN \`${x}\``).join(", ")}`);
+if (IDX_PLAN.add.length) {
+  await c.query(
+    `ALTER TABLE \`${SHADOW_TABLE}\` ${IDX_PLAN.add.map((a) => `ADD KEY \`${a.name}\` (${a.cols.map((x) => `\`${x}\``).join(", ")})`).join(", ")}`,
+  );
+  console.log(`  + 重建索引：${IDX_PLAN.add.map((a) => `${a.name}(${a.cols.join(",")})`).join(", ")}`);
+}
 
 console.log("[4/7] 结构自检");
 const newCols = (await columnsOf(c, SHADOW_TABLE)).map((x) => x.name);
@@ -245,11 +282,28 @@ for (const g of generatedKept) {
   if (Number(bad) !== 0) fatal(`生成列 ${g} 逐行不等 ${bad} 行`);
 }
 const newIdx = await indexesOf(c, SHADOW_TABLE);
-// A3 已保证待删列不挂任何索引，所以两表索引集应逐个同名
+// 名字集合 = 原表 − 本批登记的退役（同名重建的留在集合里）；A3 已保证登记与现网一致
 const srcIdxNames = [...srcIdx.keys()].sort();
 const newIdxNames = [...newIdx.keys()].sort();
-if (JSON.stringify(srcIdxNames) !== JSON.stringify(newIdxNames)) {
-  fatal(`索引集合不等：原表 ${srcIdxNames.join(",")} vs 影子表 ${newIdxNames.join(",")}（FULLTEXT 重建可能有名字漂移）`);
+if (JSON.stringify(expectIdxNames) !== JSON.stringify(newIdxNames)) {
+  fatal(
+    `索引集合与登记不符：期望 ${expectIdxNames.join(",")}\n` +
+      `  实得 ${newIdxNames.join(",")}（原表 ${srcIdxNames.join(",")}；FULLTEXT 重建或索引处置可能漂了）`,
+  );
+}
+// 同名重建的索引要逐列核定义：光看名字会过，而列集错一个就是完全不一样的查询能力
+for (const a of IDX_PLAN.add) {
+  const got = (newIdx.get(a.name)?.cols ?? []).map((x) => x.col);
+  if (JSON.stringify(got) !== JSON.stringify(a.cols)) {
+    fatal(`索引 ${a.name} 列集不符：期望 (${a.cols.join(",")}) 实得 (${got.join(",")})`);
+  }
+}
+// 其余索引必须与原表逐列一致（防止隐式调整绕过了本闸）
+for (const [name, i] of srcIdx) {
+  if (IDX_PLAN.drop.includes(name) || IDX_PLAN.add.some((a) => a.name === name)) continue;
+  const got = (newIdx.get(name)?.cols ?? []).map((x) => x.col);
+  const want = i.cols.map((x) => x.col);
+  if (JSON.stringify(got) !== JSON.stringify(want)) fatal(`索引 ${name} 被意外改写：(${want.join(",")}) → (${got.join(",")})`);
 }
 const aiOf = async (t) =>
   Number((await c.query(`SELECT AUTO_INCREMENT ai FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?`, [t]))[0][0].ai ?? 0);
@@ -258,7 +312,11 @@ if (aiNew < aiSrc) {
   await c.query(`ALTER TABLE \`${SHADOW_TABLE}\` AUTO_INCREMENT = ${aiSrc}`);
   console.log(`  AUTO_INCREMENT 已抬升至 ${aiSrc}`);
 }
-console.log(`  ${slices} 片对账全一致 · 索引 ${newIdxNames.length} 个与原表同名同集 · 生成列逐行一致`);
+console.log(
+  `  ${slices} 片对账全一致 · 索引 ${newIdxNames.length} 个（已按登记与期望集校验：期望 ${expectIdxNames.length} 个）`
+    + `${IDX_PLAN.drop.length ? ` · 本批退役 ${IDX_PLAN.drop.filter((n) => !IDX_PLAN.add.some((a) => a.name === n)).join(", ")}` : " · 与原表同名同集"}`
+    + `${IDX_PLAN.add.length ? ` · 重建 ${IDX_PLAN.add.map((a) => `${a.name}(${a.cols.join(",")})`).join(", ")}` : ""} · 生成列逐行一致`,
+);
 
 console.log(`\n✅ 阶段一完成：\`${SHADOW_TABLE}\` 已就位（${shadowTotal} 行）`);
 console.log(`原表 \`${NOTICES_TABLE}\` **未被触碰**，生产读路径仍走原表。`);
