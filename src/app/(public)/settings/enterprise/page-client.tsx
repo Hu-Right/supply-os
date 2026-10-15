@@ -104,7 +104,7 @@ export default function EnterpriseSettingsClient() {
     );
   };
 
-  const handleSubmit = async (values: Record<string, string>) => {
+  const handleSubmit = async (values: Record<string, string | string[]>) => {
     setSaving(true);
     setMessage(null);
     setNotice(null);
@@ -216,6 +216,7 @@ export default function EnterpriseSettingsClient() {
       {editing ? (
         <EnterpriseEditForm
           initial={enterprise.enterprise}
+          initialCommodityNodes={enterprise.commodityNodes}
           saving={saving}
           onSubmit={handleSubmit}
           onCancel={() => setEditing(false)}

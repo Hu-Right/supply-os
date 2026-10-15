@@ -15,7 +15,8 @@ import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { AuthLicenseImage } from "@/shared/ui";
 import { compressImage, blobToFile } from "@/lib/utils/image-compress";
-import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
+import { SupplierProductsPicker } from "./SupplierProductsPicker";
+import type { EnterpriseInfo, CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0 disabled:opacity-50";
 const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors shrink-0";
@@ -32,8 +33,11 @@ interface ClaimSuggestion {
 export interface EnterpriseEditFormProps {
   /** 编辑态初始值（已绑定行）；新建传 null */
   initial: EnterpriseInfo | null;
+  /** 已自报的主营品目（回填）；未绑定/新建传空数组 */
+  initialCommodityNodes?: CommodityNodeBrief[];
   saving: boolean;
-  onSubmit: (values: Record<string, string>) => void;
+  /** 提交值：supplier 列名为字符串键值；commodity_nodes 为自报品目节点码数组 */
+  onSubmit: (values: Record<string, string | string[]>) => void;
   onCancel: () => void;
   /** 当前执照 URL（用于显示已有执照） */
   licenseUrl?: string | null;
@@ -112,7 +116,7 @@ function GroupTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licenseUrl, onLicenseUploaded, onClaimRequest }: EnterpriseEditFormProps) {
+export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onSubmit, onCancel, licenseUrl, onLicenseUploaded, onClaimRequest }: EnterpriseEditFormProps) {
   const { t } = useLocale();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -122,6 +126,8 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
   const [suggestions, setSuggestions] = useState<ClaimSuggestion[]>([]);
   const [suggestDismissed, setSuggestDismissed] = useState(false);
   const suggestCheckedRef = useRef("");
+  // 主营品目自报选中集（受控于本表单，提交时只上抛节点码数组；initialCommodityNodes 为回填初值）
+  const [commodityNodes, setCommodityNodes] = useState<CommodityNodeBrief[]>(initialCommodityNodes ?? []);
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = { province: "", city: "" };
     for (const group of [BASIC_FIELDS, CONTACT_FIELDS, BUSINESS_FIELDS]) {
@@ -285,13 +291,15 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
     }
     setFormError(null);
     // 国家/国家代码不提交（面向中国场景留空不入库）
-    const payload: Record<string, string> = {};
+    const payload: Record<string, string | string[]> = {};
     for (const [k, v] of Object.entries(values)) {
       if (k === "country" || k === "country_code") continue;
       payload[k] = v;
     }
     // 执照以保存为单一入口：提交当前本地执照 URL（空串 = 移除）
     payload.license_url = localLicenseUrl;
+    // 主营品目自报：始终携带当前选中集的节点码（空数组即清空全部自报），服务端按绑定主体写 self_report
+    payload.commodity_nodes = commodityNodes.map((n) => n.code);
     onSubmit(payload);
   };
 
@@ -397,6 +405,13 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
       <section>
         <GroupTitle>{t("authEnterpriseGroupBusiness") || "工商与业务信息"}</GroupTitle>
         {renderGroup(BUSINESS_FIELDS)}
+      </section>
+
+      <section>
+        <GroupTitle>{t("authEnterpriseCommodityProducts") || "主营产品（按品目树）"}</GroupTitle>
+        <div className="border border-border rounded-md overflow-hidden bg-white p-4">
+          <SupplierProductsPicker value={commodityNodes} onChange={setCommodityNodes} />
+        </div>
       </section>
 
       {formError && (
