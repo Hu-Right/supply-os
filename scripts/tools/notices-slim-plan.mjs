@@ -38,6 +38,15 @@
  *   （命中 dump-schema-baseline 的 `/_retired_/` 排除，不会混进基线），它是本轮回滚物归对方处置。
  *   这三列因此**不再由本清单执行**，只靠 PARALLEL_DROPPED_COLUMNS 进防复活门禁；
  *   本作业批次一 = thresholds / ai_products（52 → 50）。
+ *
+ * 2026-10-15 落库终态（本仓两轮都已原子切换完毕，切换后现网逐项复验过）：
+ *   批次一 52 → 50：thresholds / ai_products 消失；旧表位改名 `crm_bid_notices_retired_b1_20261015`（52 列）。
+ *   批次二 50 → 49：is_converted 消失；`idx_bid_notices_converted_create_id` 已退役不在场，
+ *     `idx_bid_notices_converted_opp` 按登记重建为单列 (converted_opp_id)；旧表位 `crm_bid_notices__old_20261015`（50 列）。
+ *   三张表精确行数均为 **645,521**（与切换前逐行相等），`deadline_sec` 仍 STORED GENERATED，
+ *   3 个 FULLTEXT（含 ft_notices_search 的 `WITH PARSER ngram`）齐全，有效性计数 + 三种 MATCH 签名实跑通过。
+ *   批次二那 23 行 is_converted/converted_opp_id 不自洽随列一起退役，逐行留底在
+ *   runtime/notices-b2-is-converted-diff-*.tsv；旧表位仍是唯一反滚物，未经人工确认不得 DROP。
  */
 
 export const NOTICES_TABLE = "crm_bid_notices";
@@ -53,9 +62,11 @@ export const SHADOW_TABLE = `${NOTICES_TABLE}__new`;
  *   不是保守，是被这条限制逼的。阶段一因此采用「先摘 FULLTEXT → 灌数据 → 逐个重建」的顺序。
  */
 export const ONLINE_DDL_BLOCKED = true;
-/** 旧表位前缀（ADR-0003 命名）。⚠️ 现网另有一张上一批留下的 `crm_bid_notices_old2_20261015`
- *  （58 列 / 精确 645,521 行，与现表行数一致，命名不合本约定）——它不匹配本前缀，
- *  因此阶段二的「找唯一旧表位」不会被它干扰；但它在场内占 714 MB，属待清理项。 */
+/** 旧表位前缀（ADR-0003 命名）。⚠️ 现场现有两个旧表位，都还是本轮的反滚物：
+ *   `crm_bid_notices__old_20261015`（批次二的 50 列）与 `crm_bid_notices_retired_b1_20261015`
+ *   （批次一的 52 列，为了让批次二的 --rollback 只找一个旧表位而改名让位，命中 dump 的 /_retired_/ 排除）。
+ *   早期在场、命名不合本约定的 `crm_bid_notices_old2_20261015`（58 列 / 714 MB）已被人工 DROP，
+ *   它不匹配本前缀、当时也没干扰「找唯一旧表位」。 */
 export const OLD_TABLE_PREFIX = `${NOTICES_TABLE}__old_`;
 
 /** 回填分批行数（同 notices 历史轮口径：避免单条大事务、长时锁与 undo 膨胀） */
@@ -100,16 +111,38 @@ export const BATCH_1_EVIDENCE = {
 export const PARALLEL_DROPPED_COLUMNS = ["response_count", "category_l1_id", "category_l2_id"];
 
 /**
- * 批次二 · 先摘读取点才能删（本批只登记，不动库）
+ * 批次二 · is_converted（读了不用＋透出无消费）—— 本批**必须连带处理两个索引**
  *
  * is_converted 的问题不是「没人读」，而是「读了不用却已经透出」：
  *   findDetail / findDetailPublished 的 SELECT 清单里有它，而 normalizeNoticeDetailPayload
  *   用 `...notice` 把整行原样铺开 → /api/notices/[id]/detail 响应里带着它；
- *   但 src/features 全域（含 .tsx）对 is_converted 零消费。
- * 且它可由 converted_opp_id 推导，实测两列已不自洽 38 行（谁维护的？外部同步写 is_converted，
- * 商机转换写 converted_opp_id，两条路径没有交叉校验）。
- * PREREQ：① 从两处 SELECT 清单摘掉该列并确认响应契约无消费方；② 38 行差异出对账清单；
- * ③ 与 intelligence-daily 确认它的公告转换流程是否读 is_converted（本仓不可见，不能臆断）。
+ *   但 src/features 全域（含 .tsx）对 is_converted 零消费（已逐文件核过，读取点已于
+ *   2026-10-15 从两份 SELECT 清单摘除）。
+ * 且它可由 converted_opp_id 推导。现网实测两列**不自洽 23 行**（21 行有真 opp_id 却没标转换、
+ * 2 行标了转换但无真 opp_id；逐行留底 runtime/notices-b2-is-converted-diff-2026-10-15T08-03-07-278Z.tsv）。
+ * 两列由两条路径各写各的（外部同步写 is_converted、商机转换写 converted_opp_id），没有交叉校验。
+ * ⚠ 早期本清单记的是「38 行」，那个数错的：它把 converted_opp_id = 0 的 15 行当成「已转」
+ *   （0 IS NOT NULL 为真），同时又被三值逻辑吃掉 2 行 NULL。判「已转」只认
+ *   `converted_opp_id IS NOT NULL AND converted_opp_id > 0`，且必须带反向计数对账。
+ *
+ * ⚠ 与批次一的根本差别：is_converted **挂在两个索引的首列**（baseline 实测），而
+ *   MySQL 对「删掉的列是复合索引一部分」会**隐式把索引改成剩下列**，名字不变、形状静默变。
+ *   那种静默改变不可接受（半年后没人知道 idx_..._opp 为什么只剩一列），所以本批采
+ *   「先显式 DROP 两个索引 → 再 DROP 列 → 再按意图 ADD 回一个」的次序，结果由本文件定死。
+ *   两个索引均**无任何查询按名引用**（全域 grep FORCE/USE/IGNORE INDEX 与索引名，零命中）：
+ *     · idx_bid_notices_converted_create_id (is_converted, create_time, id)
+ *         → 首列没了以后就剩 (create_time, id)，而 InnoDB 二级索引本来隐含主键，
+ *           与现有 idx_create_time(create_time) 等价冗余 ⇒ **直接退役不重建**。
+ *     · idx_bid_notices_converted_opp (is_converted, converted_opp_id)
+ *         → converted_opp_id **仍在用**（featured.ts 的 IN 子查询、detail/repo 多路取数），
+ *           所以同名重建为单列索引，保住查询能力与名字口径。
+ *
+ * 跟系统影响：按用户 2026-10-15 指示，兄弟系统（intelligence-daily 等）是否读这列
+ *   **不再作为本批前置**，该风险由用户裁定接受；本文件因此只保留本仓可自证的判据。
+ *
+ * 状态：**已落库**（50 → 49，2026-10-15 影子表切换）。本批的登记不得删——
+ *   它是「当初为什么这么处置那两个索引」的唯一凭证，且已落库判据反过来验它形状对得上
+ *   （tests/gates/notices-slim-index-plan.test.mjs）。
  */
 export const BATCH_2_COLUMNS = ["is_converted"];
 
@@ -252,7 +285,11 @@ export const BATCHES = {
     title: "零读写两列（thresholds / ai_products；response_count 已移交并行影子表轮）",
     prereq: ["并行作业的 crm_bid_notices__new 必须已消失（已切换或被清），否则表名撞车"],
   },
-  2: { columns: BATCH_2_COLUMNS, title: "is_converted（读了不用＋透出无消费）", prereq: ["摘 SELECT 读取点", "38 行差异对账", "三方核对兄弟系统"] },
+  2: {
+    columns: BATCH_2_COLUMNS,
+    title: "is_converted（读了不用＋透出无消费；连带退役/重建两个索引）—— 已落库",
+    prereq: ["两份 SELECT 清单已摘除读取点（2026-10-15 已做）", "索引连带处置已登记在 BATCH_INDEX_PLAN[2] 并已现网复验", "23 行 is_converted/converted_opp_id 不自洽已出逐行留底（probe270，带反向计数对账）"],
+  },
   3: { columns: BATCH_3_COLUMNS, title: "旧字典分类列（已移交并行影子表轮，不得在本仓执行）", prereq: ["列集已清空：跑它会因「无可删列」停线；列本体在 PARALLEL_DROPPED_COLUMNS 里登记"] },
   4: { columns: BATCH_4_COLUMNS, title: "is_qualified 镜像列", prereq: ["三方核对内网写入方与兄弟系统读取", "注：ai-summary/index.ts 与 notice-context.ts 的两处命中是拼接 SQL 里的商机侧 o.is_qualified（同一条字面量含 crm_bid_notices 子查询），属判据偏保守的误报——清障方式是人工豁免确认，不是改代码"] },
 };
@@ -276,7 +313,25 @@ export function keptColumns(allColumns, batch = ACTIVE_BATCH) {
   return allColumns.filter((c) => !drop.has(c));
 }
 
-/** 本批要删的索引（批次一为空：三列都不在任何索引里）。 */
-export function dropIndexesOf() {
-  return [];
+/** 本批要删的索引（批次一为空：三列都不在任何索引里；批次二非空，见 BATCH_INDEX_PLAN）。 */
+export function dropIndexesOf(batch = ACTIVE_BATCH) {
+  return indexPlanOf(batch).drop;
+}
+
+/**
+ * 各批次对**非 FULLTEXT 索引**的连带处置计划。缺省为空 = 本批不得碰任何索引（阶段一 A3 硬拦）。
+ * 为什么要把「删列带倒的索引」写成显式登记表而不是让 MySQL 本身去隐式调整：
+ *   隐式调整会保留索引名但静默改列集，属于「名字没变、其实变了」的漂移，基线归档也看不出来。
+ * add 里的定义会在阶段一末尾逐列比对，防止实除形状与登记不一致。
+ */
+export const BATCH_INDEX_PLAN = {
+  2: {
+    drop: ["idx_bid_notices_converted_create_id", "idx_bid_notices_converted_opp"],
+    add: [{ name: "idx_bid_notices_converted_opp", cols: ["converted_opp_id"] }],
+  },
+};
+
+/** 取本批索引处置计划（无登记则一律视为「不许碰索引」）。 */
+export function indexPlanOf(batch = ACTIVE_BATCH) {
+  return BATCH_INDEX_PLAN[batch] ?? { drop: [], add: [] };
 }
