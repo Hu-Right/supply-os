@@ -25,11 +25,19 @@ export interface LicenseChangeBrief {
   createdAt: string | null;
 }
 
+/** 自报主营品目回填报子（GET /api/user/enterprise 随企业行一并返回；取 source='self_report' 落点） */
+export interface CommodityNodeBrief {
+  code: string;
+  nameZh: string;
+}
+
 interface EnterpriseResponse {
   bound: boolean;
   linkStatus: string;
   enterprise: EnterpriseInfo | null;
   licenseChange?: LicenseChangeBrief | null;
+  /** 当前绑定主体已自报的品目节点（无绑定/读失败为空数组） */
+  commodityNodes?: CommodityNodeBrief[];
 }
 
 export interface UseEnterpriseInfoReturn {
@@ -38,6 +46,8 @@ export interface UseEnterpriseInfoReturn {
   enterprise: EnterpriseInfo | null;
   /** 该企业最近一条换照变更；从未换过照为 null */
   licenseChange: LicenseChangeBrief | null;
+  /** 当前绑定主体已自报的品目节点（编辑页回填用） */
+  commodityNodes: CommodityNodeBrief[];
   loading: boolean;
   error: string | null;
   retry: () => void;
@@ -49,6 +59,7 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
   const [linkStatus, setLinkStatus] = useState("none");
   const [enterprise, setEnterprise] = useState<EnterpriseInfo | null>(null);
   const [licenseChange, setLicenseChange] = useState<LicenseChangeBrief | null>(null);
+  const [commodityNodes, setCommodityNodes] = useState<CommodityNodeBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -65,6 +76,7 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
       setLinkStatus("none");
       setEnterprise(null);
       setLicenseChange(null);
+      setCommodityNodes([]);
     }
     // 未登录不取数（对齐 useHasSupplierPool 语义）：接口必然 401，徒增报错噪声
     if (userId === undefined) {
@@ -83,12 +95,14 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
         setLinkStatus(d?.linkStatus || "none");
         setEnterprise(d?.enterprise ?? null);
         setLicenseChange(d?.licenseChange ?? null);
+        setCommodityNodes(Array.isArray(d?.commodityNodes) ? d.commodityNodes : []);
       })
       .catch((e) => {
         if (!cancelled) {
           setBound(false);
           setEnterprise(null);
           setLicenseChange(null);
+          setCommodityNodes([]);
           setError(e instanceof Error ? e.message : "load-failed");
         }
       })
@@ -114,5 +128,5 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
     };
   }, []);
 
-  return { bound, linkStatus, enterprise, licenseChange, loading, error, retry };
+  return { bound, linkStatus, enterprise, licenseChange, commodityNodes, loading, error, retry };
 }

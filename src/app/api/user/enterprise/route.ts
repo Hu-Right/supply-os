@@ -25,6 +25,10 @@ import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { upsertPendingLicenseChange, latestLicenseChangeForSupplier } from "@/lib/services/license-change";
 import { licenseFilenameFromUrl } from "@/lib/services/file-upload";
 import { assertBindingAllowsSubject, readCurrentBinding, assertVerifiedSubjectIdentityStable } from "@/lib/services/enterprise-binding";
+import {
+  replaceSupplierSelfReport,
+  listSupplierSelfReport,
+} from "@/lib/services/commodity/supplier-self-report";
 import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
 import type { AppContext } from "@/lib/db/context";
 import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_ENTERPRISE_NOT_BOUND, EC_ENTERPRISE_CLAIMED_BY_OTHER } from "@/shared/constants/api";
@@ -58,7 +62,28 @@ const enterpriseBodySchema = z.object({
   remark: z.string().max(2000).optional(),
   /** 营业执照鉴权 URL；null/"" 表示移除。不在 EDITABLE_COLUMNS，由保存端单独协调。 */
   license_url: z.string().max(600).nullish(),
+  /**
+   * 主营品目自报：品目骨架 UGT 节点码集合（2~5 级）。仅当 key 存在时协调 self_report 落点；
+   * 空数组即清空全部自报。服务端只认当前绑定 supplierId，绝不接受前端透传主体。
+   */
+  commodity_nodes: z.array(z.string().max(24)).max(60).optional(),
 });
+
+/**
+ * 自报落点写入闸口：只有 body 显式携带 commodity_nodes 才动 self_report 行（缺键保持原状，
+ * 与 license_url 同一「显式才协调」口径）。存在性校验与丢弃都在服务内做，这里只点名 dropped。
+ */
+async function persistSelfReportIfPresent(
+  ctx: AppContext,
+  supplierId: number,
+  body: z.infer<typeof enterpriseBodySchema>,
+): Promise<void> {
+  if (!("commodity_nodes" in body) || !body.commodity_nodes) return;
+  const { stored, dropped } = await replaceSupplierSelfReport(ctx.dbPool, supplierId, body.commodity_nodes);
+  if (dropped.length > 0) {
+    console.warn(`[enterprise] 供应商 ${supplierId} 自报品目 ${dropped.length} 个码换不出节点被丢弃，样本 ${dropped.slice(0, 3).join("、")}（落库 ${stored.length} 个）`);
+  }
+}
 
 /**
  * 以企业保存为单一入口协调营业执照：写入新 URL（null 清空），并删除与新的不同的旧文件。
@@ -174,7 +199,10 @@ export const GET = withRoute(async (req) => {
   // 后台通过/驳回后本字段随刷新翻转，不再只靠保存时的瞬时 toast。
   const licenseChange = await latestLicenseChangeForSupplier(supplierId).catch(() => null);
 
-  return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: row, licenseChange } });
+  // 自报主营品目（编辑页回填）：读失败兜底空数组，不阻断企业页展示（与行业面装配失败退回自填文本同风格）。
+  const commodityNodes = await listSupplierSelfReport(ctx.dbPool, supplierId).catch(() => []);
+
+  return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: row, licenseChange, commodityNodes } });
 });
 
 /** 已绑定：更新企业行可编辑列（已认证主体的身份三要素不可改写） */
@@ -203,6 +231,8 @@ export const PUT = withRoute(async (req) => {
   // legacy 自愈：秒绑时代（2026-10-14 前）绑定的未认证行可能没有认领单，补建进审核队列。
   // 执照已在行上（认领单经 supplier JOIN 读图），不重写。
   const claimCreated = await ensurePendingClaim(ctx, auth.userId, supplierId, undefined);
+  // 主营品目自报：仅在 body 显式携带 commodity_nodes 时替换 self_report 落点（服务端解析的 supplierId）。
+  await persistSelfReportIfPresent(ctx, supplierId, body);
   return NextResponse.json({ code: 0, message: "ok", data: { claimCreated, licensePendingReview } });
 });
 
@@ -276,6 +306,8 @@ export const POST = withRoute(async (req) => {
         licensePendingReview = r.pendingReview;
       }
     }
+    // 自有行重复保存：同 PUT 口径协调自报品目（仅 body 携键时）。
+    await persistSelfReportIfPresent(ctx, existingId, body);
     return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, reused: true, claimCreated, licensePendingReview } });
   }
 
@@ -297,5 +329,7 @@ export const POST = withRoute(async (req) => {
     licenseUrl,
     expiresAt: claimExpiryFrom(licenseUrl),
   });
+  // 新建建档：本次勾选的自报品目随新行落库（仅 body 携键时）。
+  await persistSelfReportIfPresent(ctx, newId, body);
   return NextResponse.json({ code: 0, message: "ok", data: { supplierId: newId, reused: false, claimCreated: true } });
 });
