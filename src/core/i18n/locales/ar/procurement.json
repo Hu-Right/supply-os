@@ -348,6 +348,8 @@
   "detail_filesReportDesc": "تقرير تفكيك الطلب بالصينية (إن وُجد)",
   "detail_filesVipHint": "أنت عضو بالفعل — افتح قيد هذه المناقصة لتنزيل جميع الملفات",
   "detail_filesUnlockHint": "افتح هذا الإعلان عبر العضوية للحصول على جميع المستندات",
+  "detail_filesLockedNoneIntro": "لا توجد مستندات مناقصة قابلة للتنزيل مفهرسة لهذا الإعلان",
+  "detail_filesLockedNoneHint": "يرجى زيارة منصة المصدر لعرض المستندات الأصلية وتنزيلها",
   "detail_goToSource": "عرض الإعلان الأصلي على منصة المصدر",
   "detail_attachmentCount": "{count} مرفقات",
   "detail_linkCount": "{count} روابط خارجية",

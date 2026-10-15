@@ -349,6 +349,8 @@
   "detail_filesReportDesc": "Chinese order breakdown report (if generated)",
   "detail_filesVipHint": "You are a member — unlock this notice to download all files",
   "detail_filesUnlockHint": "Unlock this notice with a membership to get all tender documents",
+  "detail_filesLockedNoneIntro": "No downloadable tender documents are indexed for this notice",
+  "detail_filesLockedNoneHint": "Please visit the source platform to view and download the original documents",
   "detail_goToSource": "View the original notice on the source platform",
   "detail_attachmentCount": "{count} attachments",
   "detail_linkCount": "{count} external links",

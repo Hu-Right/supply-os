@@ -348,6 +348,8 @@
   "detail_filesReportDesc": "Rapport de décomposition de la commande en chinois (si disponible)",
   "detail_filesVipHint": "Vous êtes membre — débloquez cet appel d'offres pour télécharger tous les fichiers",
   "detail_filesUnlockHint": "Débloquez cette annonce avec un abonnement pour obtenir tous les documents",
+  "detail_filesLockedNoneIntro": "Aucun document d'appel d'offres téléchargeable n'est indexé pour cet avis",
+  "detail_filesLockedNoneHint": "Veuillez consulter et télécharger les documents originaux sur la plateforme source",
   "detail_goToSource": "Consulter l'avis original sur la plateforme source",
   "detail_attachmentCount": "{count} pièces jointes",
   "detail_linkCount": "{count} liens externes",

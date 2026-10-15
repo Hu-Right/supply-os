@@ -49,44 +49,70 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
   const externalLinks = ((notice.external_links as RawAttachment[] | undefined) || []);
   const hasFiles = documents.length > 0 || externalLinks.length > 0;
 
-  // ─ 未解锁：展示具体锁定提示 ──
+  // ─ 未解锁：按「是否确认收录了文件」分流锁定提示 ──
   if (!coreUnlocked) {
     const fileCount = typeof notice.breakdown_file_count === "number" ? notice.breakdown_file_count : undefined;
+    // 库内 99.9% 公告未收录文件链接（仅 UNGM 部分行有）：确认有文件才保留"解锁下载"承诺，
+    // 其余一律引导去来源平台，避免付费承诺与实际交付的落差
+    if ((fileCount ?? 0) > 0) {
+      return (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText className="w-4 h-4 text-amber-600" />
+            <h3 className="text-sm font-extrabold text-amber-800">
+              {t("detail_tabOriginalFiles") || "原始文件"} — {t("detail_memberExclusive") || "会员专享"}
+            </h3>
+          </div>
+          <p className="text-xs text-amber-700 mb-3">
+            {t("detail_filesLockedIntro") || "解锁后可下载本公告的全部招标文件，包括："}
+          </p>
+          <ul className="space-y-1.5 mb-4">
+            <li className="flex items-center gap-2 text-xs text-amber-700">
+              <Download className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              {fileCount !== undefined
+                ? t("detail_filesFullDocWithCount", { count: fileCount })
+                : t("detail_filesFullDoc") || "完整招标文件（含附件）"}
+            </li>
+            <li className="flex items-center gap-2 text-xs text-amber-700">
+              <ExternalLink className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              {t("detail_filesExternalDesc") || "外部参考链接与采购平台直达地址"}
+            </li>
+            <li className="flex items-center gap-2 text-xs text-amber-700">
+              <FileText className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              {t("detail_filesReportDesc") || "中文版订单拆解报告（如已生成）"}
+            </li>
+          </ul>
+          {isVip ? (
+            <p className="text-xs font-bold text-amber-800 bg-amber-100/60 rounded-lg px-3 py-2 text-center">
+              {t("detail_filesVipHint") || "您已是会员，解锁本公告后即可下载全部文件"}
+            </p>
+          ) : (
+            <p className="text-xs text-amber-600 bg-amber-100/40 rounded-lg px-3 py-2 text-center">
+              {t("detail_filesUnlockHint") || "购买会员并解锁本公告即可获取全部招标文件"}
+            </p>
+          )}
+        </section>
+      );
+    }
     return (
-      <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <FileText className="w-4 h-4 text-amber-600" />
-          <h3 className="text-sm font-extrabold text-amber-800">
-            {t("detail_tabOriginalFiles") || "原始文件"} — {t("detail_memberExclusive") || "会员专享"}
-          </h3>
-        </div>
-        <p className="text-xs text-amber-700 mb-3">
-          {t("detail_filesLockedIntro") || "解锁后可下载本公告的全部招标文件，包括："}
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+        <FileText className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+        <p className="text-sm text-slate-500 mb-1">
+          {t("detail_filesLockedNoneIntro") || "本公告暂未收录可直接下载的招标文件"}
         </p>
-        <ul className="space-y-1.5 mb-4">
-          <li className="flex items-center gap-2 text-xs text-amber-700">
-            <Download className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            {fileCount !== undefined
-              ? t("detail_filesFullDocWithCount", { count: fileCount })
-              : t("detail_filesFullDoc") || "完整招标文件（含附件）"}
-          </li>
-          <li className="flex items-center gap-2 text-xs text-amber-700">
-            <ExternalLink className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            {t("detail_filesExternalDesc") || "外部参考链接与采购平台直达地址"}
-          </li>
-          <li className="flex items-center gap-2 text-xs text-amber-700">
-            <FileText className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            {t("detail_filesReportDesc") || "中文版订单拆解报告（如已生成）"}
-          </li>
-        </ul>
-        {isVip ? (
-          <p className="text-xs font-bold text-amber-800 bg-amber-100/60 rounded-lg px-3 py-2 text-center">
-            {t("detail_filesVipHint") || "您已是会员，解锁本公告后即可下载全部文件"}
-          </p>
-        ) : (
-          <p className="text-xs text-amber-600 bg-amber-100/40 rounded-lg px-3 py-2 text-center">
-            {t("detail_filesUnlockHint") || "购买会员并解锁本公告即可获取全部招标文件"}
-          </p>
+        <p className="text-xs text-slate-400 mb-4">
+          {t("detail_filesLockedNoneHint") || "原始文件请前往来源平台查看与下载"}
+        </p>
+        {notice.source_url && (
+          <a
+            href={notice.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline"
+          >
+            <ExternalLink className="w-3 h-3" />
+            {t("detail_goToSource") || "前往来源平台查看原始公告"}
+          </a>
         )}
       </section>
     );

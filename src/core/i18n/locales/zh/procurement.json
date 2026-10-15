@@ -349,6 +349,8 @@
   "detail_filesReportDesc": "中文版订单拆解报告（如已生成）",
   "detail_filesVipHint": "您已是会员，解锁本公告后即可下载全部文件",
   "detail_filesUnlockHint": "购买会员并解锁本公告即可获取全部招标文件",
+  "detail_filesLockedNoneIntro": "本公告暂未收录可直接下载的招标文件",
+  "detail_filesLockedNoneHint": "原始文件请前往来源平台查看与下载",
   "detail_goToSource": "前往来源平台查看原始公告",
   "detail_attachmentCount": "{count} 个附件",
   "detail_linkCount": "{count} 个外链",

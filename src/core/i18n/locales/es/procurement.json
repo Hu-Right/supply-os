@@ -348,6 +348,8 @@
   "detail_filesReportDesc": "Informe de desglose del pedido en chino (si está generado)",
   "detail_filesVipHint": "Ya es miembro: desbloquee esta licitación para descargar todos los archivos",
   "detail_filesUnlockHint": "Desbloquee este anuncio con una membresía para obtener todos los documentos",
+  "detail_filesLockedNoneIntro": "No hay documentos de licitación descargables indexados para este anuncio",
+  "detail_filesLockedNoneHint": "Consulte y descargue los documentos originales en la plataforma de origen",
   "detail_goToSource": "Ver el anuncio original en la plataforma de origen",
   "detail_attachmentCount": "{count} adjuntos",
   "detail_linkCount": "{count} enlaces externos",
