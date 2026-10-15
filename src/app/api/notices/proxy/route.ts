@@ -28,6 +28,8 @@ const ALLOWED_HOSTS = new Set([
   "ted.europa.eu",
   "sam.gov",
   "www.sam.gov",
+  "pncp.gov.br",
+  "www.pncp.gov.br",
   "www.worldbank.org",
   "worldbank.org",
   "www.adb.org",
