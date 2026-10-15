@@ -77,18 +77,25 @@ export async function persistInterestNodeCodes(
 ) {
   if (!INTEREST_SOURCE_WHITELIST.has(source)) return; // T-E3：白名单外来源拒写
   const seen = new Set<string>();
+  const params: unknown[] = [];
+  const rows: string[] = [];
   for (const raw of nodeCodes) {
     const code = String(raw ?? "").trim();
     const level = backboneNodeLevel(code);
     if (level === 0 || seen.has(code)) continue; // 形制不符不猜层级，重复码只落一次
     seen.add(code);
-    await dbPool.execute(
-      `INSERT INTO crm_user_interest_codes (user_id, code, level, source, weight)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE weight = LEAST(${INTEREST_WEIGHT_CAP}, weight + VALUES(weight)), updated_at = NOW()`,
-      [userId, code, level, source, weight],
-    );
+    // 单条多行 ODKU：一条往返落全部祖先链（原逐码串行 execute 在请求路径上最多 5~6 次 RTT）
+    rows.push("(?, ?, ?, ?, ?, NOW())");
+    params.push(userId, code, level, source, weight);
   }
+  if (rows.length === 0) return;
+  // 多行 VALUES 的动态占位符不走 prepare（execute 的 unknown[] 重载不接受），query 足够
+  await dbPool.query(
+    `INSERT INTO crm_user_interest_codes (user_id, code, level, source, weight, updated_at)
+     VALUES ${rows.join(", ")}
+     ON DUPLICATE KEY UPDATE weight = LEAST(${INTEREST_WEIGHT_CAP}, weight + VALUES(weight)), updated_at = NOW()`,
+    params,
+  );
 }
 
 /**

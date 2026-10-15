@@ -8,7 +8,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import type { SupplierDirectoryRepo } from "../repos/suppliers/index";
-import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
+import { refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
 import { searchUnified, type RawSearchParams } from "../services/search-orchestrator/index";
 
 export interface WarmupDeps {
@@ -29,8 +29,6 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
   const warm = (extra: Partial<RawSearchParams>) =>
     searchUnified(dbPool, { mode: "default", page: 1, pageSize: 9, locale: "zh", ...extra });
   await Promise.all([
-    // 统计表刷新
-    refreshNoticeStats(dbPool),
     // 首页（中文 + 英文）
     warm({ locale: "zh" }),
     warm({ locale: "en" }),

@@ -35,15 +35,15 @@ describe("UserPrefsRepo 行业偏好的选择键列", () => {
     expect(params).toEqual([42]);
   });
 
-  it("upsertIndustryPrefs：INSERT 与 ODKU 两边都写 commodity_code，且旧行 id 置 NULL", async () => {
+  it("upsertIndustryPrefs：INSERT 与 ODKU 两边都写 commodity_code（levelN_id 五列已随死列 DROP）", async () => {
     await repo.upsertIndustryPrefs(42, "UGT-070201");
     const [sql, params] = mockExecute.mock.calls[0] as [string, unknown[]];
     const insertPart = sql.slice(0, sql.indexOf("ON DUPLICATE"));
     const updatePart = sql.slice(sql.indexOf("ON DUPLICATE"));
     expect(insertPart).toContain("commodity_code");
     expect(insertPart).not.toContain("group_code");
+    expect(sql).not.toContain("level1_id");
     expect(updatePart).toContain("commodity_code = VALUES(commodity_code)");
-    expect(updatePart).toContain("level1_id = NULL");
     // 占位符个数与参数个数必须一一对应（少一个就把用户 id 写进权益列那一类错）
     expect((sql.match(/\?/g) || []).length).toBe(params.length);
     expect(params).toEqual([42, "UGT-070201"]);

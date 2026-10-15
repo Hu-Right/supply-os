@@ -8,15 +8,14 @@
  */
 import type { Pool } from "mysql2/promise";
 import { refreshFeaturedColumn } from "../services/notices/index";
-import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
+import { refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
 import { syncWideIds } from "../services/search-sync/index";
-import { runAttributionMirror } from "../services/commodity/attribution-mirror";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { releaseExpiredClaims } from "../services/supplier-claim";
 import {
-  FEATURED_REFRESH_INTERVAL_MS, STATS_REFRESH_INTERVAL_MS,
+  FEATURED_REFRESH_INTERVAL_MS,
   PAYMENT_MAINTENANCE_INTERVAL_MS,
 } from "@/shared/constants/time";
 
@@ -79,14 +78,8 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     } catch { /* 静默降级 */ }
   }, FEATURED_REFRESH_INTERVAL_MS);
 
-  // 2. 统计表每 10 分钟刷新（替代原 is_active 刷新，只更新统计数字）
-  const statsRefreshTimer = setInterval(async () => {
-    try {
-      await refreshNoticeStats(dbPool);
-    } catch (e) {
-      console.error("[stats-timer] 刷新失败:", (e as Error).message);
-    }
-  }, STATS_REFRESH_INTERVAL_MS);
+  // 2.（已删，2026-10-15）统计表刷新管线无读取方（getNoticeStats 直接 COUNT + 自缓存），
+  //    crm_notice_stats 表随 DDL 批次 DROP——见 notice-search/stats.ts 头注释。
 
   // 3. 国家/机构缓存每日凌晨 5 点刷新
   const dailyRefreshTimer = scheduleDailyAt(5, async () => {
@@ -227,39 +220,18 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     }, claimExpiryIntervalHours * 3600 * 1000);
   }
 
-  // 8. 列值→落点 增量镜像（旧品类码退役 混合①的非 API 生产者）：把「宽表 backbone_path 隐含、但落点表缺」
-  //    的公告补回事实源，保持「落点 ⊇ 列值」不变量。只写 crm_notice_attribution_nodes，不碰宽表列（ADR-0002/0007 单一写入者）。
-  //    候选判据走契约 missingLandingPairs()——小表剥离后 buildWideRow 已从落点表派生列，本镜像对正常路径为空操作，
-  //    仅作为 ops 手工刷列或遗留脏列的自动补齐回退。脏列/树外整条跳过交人工，不“顺手改归属”。
-  //    ATTRIBUTION_MIRROR_ENABLED=off 关闭；间隔 ATTRIBUTION_MIRROR_INTERVAL_MINUTES（默认 10 分钟）；启动后 30s 先跑一次存量。
-  let attributionMirrorTimer: NodeJS.Timeout | null = null;
-  if (String(process.env.ATTRIBUTION_MIRROR_ENABLED ?? "on").toLowerCase() !== "off") {
-    const mirrorEveryMin = Math.max(1, Number(process.env.ATTRIBUTION_MIRROR_INTERVAL_MINUTES || 10));
-    let mirrorRuns = 0;
-    const runMirror = async () => {
-      const seq = ++mirrorRuns;
-      try {
-        const r = await runAttributionMirror(dbPool);
-        if (r.writtenRows > 0) console.log(`[attribution-mirror] 第 ${seq} 次：扫 ${r.scanned} → 镜像 ${r.seededNotices} 公告/${r.writtenRows} 落点行（跳过脏列 ${r.skippedDirty}／树外 ${r.skippedPhantom}）`);
-        else if (seq === 1) console.log(`[attribution-mirror] 第 1 次：扫 ${r.scanned}，落点已覆盖列值（间隔 ${mirrorEveryMin} 分钟）`);
-      } catch (e) {
-        console.error(`[attribution-mirror] 第 ${seq} 次失败（不影响下次扫描）:`, (e as Error).message);
-      }
-    };
-    setTimeout(() => { void runMirror(); }, 30_000);
-    attributionMirrorTimer = setInterval(() => { void runMirror(); }, mirrorEveryMin * 60_000);
-  }
-
+  // 8.（已删，2026-10-15）列值→落点 增量镜像的常驻定时器：小表剥离后 buildWideRow 已从落点表
+  //    派生列，镜像对正常路径为空操作，10 分钟一轮的常驻扫描是纯开销。runAttributionMirror
+  //    保留导出，ops 手工刷列后按需单次触发（npx tsx -e 或临时脚本）；
+  //    「落点 ⊇ 列值」不变量由 BB15c/d 门禁连库断言兜底。
   return {
     stop() {
       clearInterval(featuredRefreshTimer);
-      clearInterval(statsRefreshTimer);
       clearTimeout(dailyRefreshTimer);
       if (dataCleanupTimer) clearInterval(dataCleanupTimer);
       if (paymentMaintenanceTimer) clearInterval(paymentMaintenanceTimer);
       if (paymentTierSyncTimer) clearTimeout(paymentTierSyncTimer);
       if (claimExpiryTimer) clearInterval(claimExpiryTimer);
-      if (attributionMirrorTimer) clearInterval(attributionMirrorTimer);
     },
   };
 }

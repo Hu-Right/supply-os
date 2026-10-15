@@ -50,7 +50,7 @@ describe("指纹同快照", () => {
     expect(sql).not.toContain(WIDE_FP_EXPR);
     // 其余字段不得因降级而丢失
     expect(sql).toContain(`${DESC_SOURCE_EXPR} AS description`);
-    expect(sql).toContain("n.category_l1_id");
+    expect(sql).not.toContain("n.category_l1_id");
   });
 
   /**
@@ -62,7 +62,7 @@ describe("指纹同快照", () => {
       "n.id", "n.notice_id", "n.reference", "n.title", "n.country", "n.agency",
       "n.notice_type", "n.deadline_sec", "n.is_featured", "n.estimated_value",
       "n.documents", "n.procurement_files", "n.published_date", "n.entry_source",
-      "n.category_l1_id", "n.category_l2_id", "opp.description_cn", "opp.beneficiary_countries",
+      "opp.description_cn", "opp.beneficiary_countries",
     ];
     for (const withFp of [true, false]) {
       const sql = wideSyncSelect(withFp);
@@ -75,10 +75,10 @@ describe("指纹同快照", () => {
     expect(wideSyncSelect(true)).toContain(`${DESC_SOURCE_EXPR} AS description`);
   });
 
-  it("主表分类列随快照带出（平台公告分类入宽表的前置）", () => {
+  it("主表分类列已随死列收刀退出快照（2026-10-15：线上全 NULL，列物理 DROP）", () => {
     for (const withFp of [true, false]) {
-      expect(wideSyncSelect(withFp)).toContain("n.category_l1_id");
-      expect(wideSyncSelect(withFp)).toContain("n.category_l2_id");
+      expect(wideSyncSelect(withFp)).not.toContain("n.category_l1_id");
+      expect(wideSyncSelect(withFp)).not.toContain("n.category_l2_id");
     }
   });
 

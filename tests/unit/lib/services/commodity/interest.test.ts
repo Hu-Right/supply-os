@@ -43,7 +43,7 @@ describe("persistInterestNodeCodes — 码源已切 UGT 节点码", () => {
     expect(calls.filter((c) => c.sql.includes(LEGACY_DICT_TABLE))).toEqual([]);
   });
 
-  it("INSERT 形制 (user_id, code, level, source, weight)：level 由码长现算，ODKU 封顶沿用", async () => {
+  it("INSERT 形制 (user_id, code, level, source, weight, updated_at)：level 由码长现算，ODKU 封顶沿用", async () => {
     const { pool, calls } = fakePool();
     await persistInterestNodeCodes(pool, 7, ["UGT-0101010101"], "unlock_order", 2.5);
     const insert = calls.find((c) => c.sql.includes("INSERT INTO crm_user_interest_codes"));
@@ -51,9 +51,10 @@ describe("persistInterestNodeCodes — 码源已切 UGT 节点码", () => {
     expect(insert!.sql).not.toContain("code_id");
     expect(insert!.sql).toContain("ON DUPLICATE KEY UPDATE");
     expect(insert!.sql).toContain("LEAST(500");
+    // 单条多行 ODKU（2026-10-15 收刀：原逐码串行 execute 在请求路径最多 5~6 次 RTT）
     const cols = insert!.sql.match(/\(([^)]*)\)/)![1];
-    expect(cols).toBe("user_id, code, level, source, weight");
-    // [userId, code, level(码长即层级), source, weight]
+    expect(cols).toBe("user_id, code, level, source, weight, updated_at");
+    // [userId, code, level(码长即层级), source, weight] × 每行
     expect(insert!.args).toEqual([7, "UGT-0101010101", 5, "unlock_order", 2.5]);
   });
 

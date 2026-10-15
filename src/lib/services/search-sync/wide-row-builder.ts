@@ -46,7 +46,7 @@ export function wideSyncSelect(withFp: boolean): string {
          n.country, n.agency, n.notice_type, n.deadline_sec,
          n.is_featured,
          n.estimated_value, n.documents, n.procurement_files,
-         n.published_date, n.entry_source, n.category_l1_id, n.category_l2_id,
+         n.published_date, n.entry_source,
          opp.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
          opp.beneficiary_countries
 `;
@@ -248,9 +248,6 @@ export function buildWideRow(
     // 指纹：与内容同快照由 SQL 侧唯一表达式算出，此处只透传不计算（I1）。
     // 缺失时落空串 → 与实时指纹不等 → 下一轮对账自动重建（自愈，无需人工刷）。
     sync_src_hash: String(r.sync_src_hash || ""),
-    // 平台公告自填分类（主表列，随快照带出供旧品类码兜底优先级使用）
-    category_l1_id: r.category_l1_id != null ? Number(r.category_l1_id) : null,
-    category_l2_id: r.category_l2_id != null ? Number(r.category_l2_id) : null,
   };
 }
 

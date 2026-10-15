@@ -68,11 +68,12 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     title: String(r.title || ""),
     description: truncate(r.description, WIDE_LIMITS.description),
     // 宽表已存储标准化后的值；此处再经 normalizeNoticeType 幂等归一（纵深防御，
-    // 与推荐链路/宽表构建同一函数同一口径，防止历史存量 std 漂移入索引）
+    // 与推荐链路/宽表构建同一函数同一口径，防止历史存量 std 漂移入索引）。
+    // 只落 notice_type_normalized 一个属性：2026-10-15 审计确认原 notice_type 属性是
+    // 同一归一化值的第二份拷贝（settings/检索口径只认 normalized），双写即每文档一个死字段。
     country: String(r.country_std || ""),
     agency: String(r.agency_std || ""),
     agency_group: String(r.agency_group || ""),
-    notice_type: normalizeNoticeType(r.notice_type_std),
     notice_type_normalized: normalizeNoticeType(r.notice_type_std),
     deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
     has_deadline: r.deadline_sec ? 1 : 0, // 排序辅助：NULL 截止日期排到最后（has_deadline:desc 优先）

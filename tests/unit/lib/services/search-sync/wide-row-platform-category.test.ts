@@ -14,7 +14,8 @@
  * 本文件因此只钉四件事，防止兜底再次落回错层或第二口径复活：
  * 1. `buildWideRow` 不读 `category_l*_id` 拼任何分类列；
  * 2. 宽表行里不再出现任何旧口径分类列（按 *level1~5 列族拦截，改名复活同样报错）；
- * 3. 主表两列仍原样带出（指纹锚与主表镜像用途，不是分类口径）；
+ * 3. 主表两列不再随快照带出（2026-10-15 扫尾批次：线上全 NULL 纯死列，随列 DROP 收刀，
+ *    指纹表达式同批摘除）；
  * 4. 无归属落 NULL 而不是空串（门禁 BB7 把空串算违规）。
  */
 import { describe, it, expect } from "vitest";
@@ -32,7 +33,7 @@ const LEGACY_LEVEL_RE = /^\w*level[1-5]$/;
 describe("平台公告分类兜底的落位（D8）", () => {
   it("category_l*_id 不再进任何分类列：归属只来自装载层算好的 backbone", () => {
     const row = buildWideRow(
-      { ...base, category_l1_id: 10000000, category_l2_id: 10100000 },
+      { ...base, category_l1_id: 10000000, category_l2_id: 10100000 } as never,
       new Map(),
       { backbone: "UGT-01" },
     );
@@ -40,15 +41,15 @@ describe("平台公告分类兜底的落位（D8）", () => {
     for (const key of Object.keys(row)) expect(key).not.toMatch(LEGACY_LEVEL_RE);
   });
 
-  it("主表自填分类仍原样带出（指纹锚 / 主表镜像，不参与分类口径）", () => {
-    const row = buildWideRow({ ...base, category_l1_id: 999, category_l2_id: null }, new Map());
-    expect(row.category_l1_id).toBe(999);
-    expect(row.category_l2_id).toBeNull();
+  it("主表自填分类不再随快照带出（2026-10-15 死列收刀，指纹表达式同批摘除）", () => {
+    const row = buildWideRow({ ...base } as never, new Map());
+    expect(row).not.toHaveProperty("category_l1_id");
+    expect(row).not.toHaveProperty("category_l2_id");
   });
 
   it("爬虫行行为不变：归属同样只来自 backbone", () => {
     const row = buildWideRow(
-      { ...base, entry_source: "crawl", category_l1_id: null, category_l2_id: null },
+      { ...base, entry_source: "crawl" },
       new Map(),
       { backbone: "UGT-01,UGT-0101" },
     );

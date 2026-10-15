@@ -17,7 +17,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import { ensureProcurementSchema } from "../db/schema";
-import { backfillIndustryPrefsL45Null, hydratePaymentEnvFromDb } from "../db/backfills";
+import { hydratePaymentEnvFromDb } from "../db/backfills";
 import { refreshFeaturedColumn } from "../services/notices/index";
 import { isHealthy as isMeiliHealthy, syncNoticeIds } from "../services/meilisearch/index";
 
@@ -41,24 +41,9 @@ export const schemaPhase: Phase = {
   },
 };
 
-/**
- * 阶段 2: 存量数据回填
- */
-export const backfillPhase: Phase = {
-  name: "backfill",
-  // 一次性幂等清洗（行业偏好 L4/L5，现网仅个位数行），不是后续任何阶段的依赖。
-  // 【与真 fail-fast 配套】启动失败现已会 process.exit(1) 交给 PM2 重启，
-  // 若让这类「改了也没人等」的清洗拦住整个启动，一次永久失败就会把全站打成崩溃循环，
-  // 比原来的静默半死更糟；故标为可选，失败只降级不拦停。
-  optional: true,
-  async run(ctx) {
-    // 清洗行业偏好中被静默持久化的推断层级 L4/L5（幂等；启动期缓存尚空，无需失效）
-    const prefsNulled = await backfillIndustryPrefsL45Null(ctx.dbPool);
-    if (prefsNulled > 0) {
-      console.log(`[backfill] 行业偏好存量 L4/L5 推断数据已清洗：${prefsNulled} 条`);
-    }
-  },
-};
+// 阶段 2（backfill）已于 2026-10-15 拆除：其唯一职责「清洗行业偏好 L4/L5 推断残留」
+// 随 crm_user_industry_prefs 的 level1_id~level5_id 五列物理 DROP 失去对象——
+// 写入方此前就在 INSERT/ODKU 两侧显式置 NULL，线上 12 行全空，纯死列死清洗。
 
 /**
  * 阶段 3: 精选列回填

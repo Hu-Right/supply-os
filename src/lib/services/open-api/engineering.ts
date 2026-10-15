@@ -19,6 +19,9 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { ACTIVE_OPP_WHERE } from "@/lib/utils/notice-expired";
+import { normalizeNoticeType } from "../../utils/notice-type";
+import { toBeijingUnixTs } from "../../utils/notice-expired";
+import { expandCountryAliases } from "../notice-search/countries";
 
 /** 工程类 industry 关键词 */
 const ENGINEERING_INDUSTRY_KEYWORDS = [
@@ -125,23 +128,27 @@ export async function queryEngineeringList(
   const queryParams: (string | number)[] = [];
 
   if (country) {
-    conditions.push("o.country = ?");
-    queryParams.push(country);
+    // 与主站检索同口径：国家别名展开（Brazil/BR/巴西…命中任一形态即算），不再裸等值
+    const forms = expandCountryAliases(country);
+    conditions.push(`o.country IN (${forms.map(() => "?").join(",")})`);
+    queryParams.push(...forms);
   }
 
   if (noticeType) {
+    // 与主站检索同口径：入参先经 normalizeNoticeType 归一（EU 合同类型的形态别名收敛）
     conditions.push("o.notice_type = ?");
-    queryParams.push(noticeType);
+    queryParams.push(normalizeNoticeType(noticeType));
   }
 
   if (deadlineFrom) {
-    conditions.push("o.deadline >= ?");
-    queryParams.push(deadlineFrom);
+    // 与主站检索同口径：落 deadline_sec 生成列（varchar 原始串含时区标注，字典序比较无意义）
+    conditions.push("o.deadline_sec >= ?");
+    queryParams.push(toBeijingUnixTs(deadlineFrom, "00:00:00"));
   }
 
   if (deadlineTo) {
-    conditions.push("o.deadline <= ?");
-    queryParams.push(deadlineTo);
+    conditions.push("o.deadline_sec <= ?");
+    queryParams.push(toBeijingUnixTs(deadlineTo, "23:59:59"));
   }
 
   if (keyword) {

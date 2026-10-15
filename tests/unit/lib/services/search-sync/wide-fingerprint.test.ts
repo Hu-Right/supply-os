@@ -33,9 +33,9 @@ describe("WIDE_FP_EXPR", () => {
     expect(WIDE_FP_EXPR).not.toMatch(/crm_bid_opportunity_\w*_candidates\b/);
   });
 
-  it("平台自填分类列在指纹内（分类变更须触发重建）", () => {
-    expect(WIDE_FP_EXPR).toContain("n.category_l1_id");
-    expect(WIDE_FP_EXPR).toContain("n.category_l2_id");
+  it("平台自填分类列已随死列收刀退出指纹（2026-10-15：线上全 NULL 纯死列，列已物理 DROP）", () => {
+    expect(WIDE_FP_EXPR).not.toContain("n.category_l1_id");
+    expect(WIDE_FP_EXPR).not.toContain("n.category_l2_id");
   });
 
   it("禁止 GROUP_CONCAT（默认 1024 字节截断会漏检变更）", () => {
