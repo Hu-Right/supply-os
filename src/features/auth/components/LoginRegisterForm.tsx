@@ -11,7 +11,6 @@ import dynamic from "next/dynamic";
 import { useAuthForm } from "../hooks/useAuthForm";
 import { useForgotPassword } from "../hooks/useForgotPassword";
 import { useRegisterCode } from "../hooks/useRegisterCode";
-import { useCommodityPrefCascade } from "../hooks/useCommodityPrefCascade";
 import { LoginForm } from "./forms/LoginForm";
 import { ForgotPasswordForm } from "./forms/ForgotPasswordForm";
 import { useLocale } from "@/core/i18n";
@@ -35,17 +34,6 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
   const auth = useAuthForm(onSuccess, initialMode);
   const forgot = useForgotPassword(onSuccess);
   const registerCode = useRegisterCode();
-  const cascade = useCommodityPrefCascade();
-
-  // ★ 修复：切换到注册模式时重置级联状态，防止上一个账号的行业偏好残留
-  // 依赖仅使用 cascade.resetCascade（稳定 useCallback 引用），不依赖整个 cascade 对象，
-  // 避免 useCommodityPrefCascade 的 useMemo 因 state 变化产生新引用时反复触发 resetCascade。
-  useEffect(() => {
-    if (auth.authMode === "register") {
-      cascade.resetCascade();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.authMode, cascade.resetCascade]);
 
   // ★ 存量弱哈希账号：登录命中重置闸门（403/40043）后自动切入找回密码视图，
   //   账号预填登录标识；提示文案沿用 auth.authError（视图内顶部展示）
@@ -70,9 +58,6 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
       await auth.submitAuth(
         registerCode.registerVerifyCode,
         registerCode.registerCodeSent,
-        cascade.prefGroup || null,
-        cascade.prefLevel2 || null,
-        cascade.prefLevel3 || null,
       );
     }
   };

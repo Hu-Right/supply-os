@@ -7,7 +7,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
-import { saveIndustryPrefs } from "@/core/api/industry-prefs";
 import { validatePassword } from "@/shared/auth/passwordPolicy";
 import { EC_PASSWORD_RESET_REQUIRED } from "@/shared/constants/api";
 import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
@@ -67,9 +66,6 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
   const submitAuth = async (
     registerVerifyCode: string,
     registerCodeSent: boolean,
-    prefGroup: string | null,
-    prefLevel2: string | null,
-    prefLevel3: string | null,
   ): Promise<void> => {
     setAuthError("");
 
@@ -138,11 +134,8 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
           agreementVersion: "V2.0",
           agreementAcceptedAt: new Date().toISOString(),
         });
-        // 行业偏好为注册后的可选项：仅在用户实际选择过（前两级齐全）时保存。
-        // 偏好键是 UGT 最深已选节点码（commodity_code）；旧行的字典 id 随旧品类字典退役停用。
-        if (prefGroup && prefLevel2) {
-          await saveIndustryPrefs({ commodity_code: prefLevel3 || prefLevel2 });
-        }
+        // 行业偏好不在注册流程内：注册表单已不渲染级联 UI，偏好由个人中心的
+        // IndustryPrefsForm 保存（保存前两级必选，见 CommodityPrefSelects）。
         onSuccess();
         // 注册成功，清除草稿
         clearAuthDraft();

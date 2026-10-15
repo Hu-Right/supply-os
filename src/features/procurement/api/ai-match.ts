@@ -3,7 +3,13 @@
  * @module features/procurement/api/ai-match
  */
 import { api } from "@/core/http";
-import type { DimensionDetail } from "./ai-score";
+
+/** 一条维度诊断（与 ai-score 引擎的七维输出契约同名同形，ai-score.ts 已随死 hook 退役） */
+export interface DimensionDetail {
+  reason: string;
+  matched: string[];
+  gaps: string[];
+}
 
 export interface MatchedSupplier {
   /** 资源库行 id；self 行为 null */
