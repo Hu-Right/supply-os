@@ -50,7 +50,6 @@ const enterpriseBodySchema = z.object({
   established_at: z.string().max(20).optional(),
   registered_capital: z.string().max(40).optional(),
   credit_code: z.string().max(30).optional(),
-  industry: z.string().max(200).optional(),
   type: z.string().max(20).optional(),
   business_type: z.string().max(50).optional(),
   certification: z.string().max(500).optional(),

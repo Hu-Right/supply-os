@@ -83,7 +83,6 @@ const BUSINESS_FIELDS: FieldDef[] = [
   { key: "established_at", labelKey: "authEnterpriseEstablished", fallback: "成立日期", placeholderKey: "authEnterpriseEstablishedPh" },
   { key: "registered_capital", labelKey: "authEnterpriseCapital", fallback: "注册资本", placeholderKey: "authEnterpriseCapitalPh" },
   { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码", placeholderKey: "authEnterpriseCreditCodePh" },
-  { key: "industry", labelKey: "authEnterpriseIndustry", fallback: "所属行业", placeholderKey: "authEnterpriseIndustryPh" },
   { key: "type", labelKey: "authEnterpriseSupplierType", fallback: "供应商类型", options: SUPPLIER_TYPE_OPTIONS },
   { key: "certification", labelKey: "authEnterpriseCertifications", fallback: "资质认证", placeholderKey: "authEnterpriseCertificationsPh" },
   { key: "products", labelKey: "authEnterpriseProducts", fallback: "主营产品", placeholderKey: "authEnterpriseProductsPh" },
@@ -100,7 +99,6 @@ const REQUIRED_KEYS: { key: string; labelKey: string; fallback: string }[] = [
   { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址" },
   { key: "contact", labelKey: "authEnterpriseContact", fallback: "联系人" },
   { key: "phone", labelKey: "authEnterprisePhone", fallback: "联系电话" },
-  { key: "industry", labelKey: "authEnterpriseIndustry", fallback: "所属行业" },
   { key: "products", labelKey: "authEnterpriseProducts", fallback: "主营产品" },
   { key: "type", labelKey: "authEnterpriseSupplierType", fallback: "供应商类型" },
 ];

@@ -211,7 +211,6 @@ export function EnterpriseInfoCard({
     { label: t("authEnterpriseEstablished") || "成立日期", value: sv(row, "established_at") },
     { label: t("authEnterpriseCapital") || "注册资本", value: sv(row, "registered_capital") },
     { label: t("authEnterpriseCreditCode") || "统一社会信用代码", value: sv(row, "credit_code") },
-    { label: t("authEnterpriseIndustry") || "行业", value: sv(row, "industry") },
     { label: t("authEnterpriseSupplierType") || "供应商类型", value: sv(row, "type") || sv(row, "business_type") },
     { label: t("authEnterpriseCertifications") || "资质认证", value: sv(row, "certification") },
     { label: t("authEnterpriseProducts") || "主营产品", value: sv(row, "products") },
