@@ -203,7 +203,6 @@ CREATE TABLE `crm_bid_notices` (
   `country` varchar(500) DEFAULT NULL,
   `deadline` varchar(50) DEFAULT NULL,
   `deadline_ts` bigint DEFAULT NULL,
-  `days_left` int DEFAULT NULL COMMENT '剩余天数',
   `url` varchar(512) DEFAULT NULL,
   `description` longtext,
   `contacts` json DEFAULT NULL,
@@ -237,7 +236,6 @@ CREATE TABLE `crm_bid_notices` (
   `publisher_user_id` bigint unsigned DEFAULT NULL COMMENT 'RFQ发布人 user_id（爬虫数据为 NULL）',
   `purchase_type` varchar(16) DEFAULT NULL COMMENT '采购类型: once=单次, framework=框架, longterm=长期',
   `budget_confidential` tinyint(1) DEFAULT '0' COMMENT '预算是否保密（1=前端显示"预算保密"）',
-  `budget_currency` varchar(8) DEFAULT 'USD' COMMENT '预算币种',
   `delivery_address` varchar(255) DEFAULT NULL COMMENT '详细交付地址',
   `incoterm` varchar(16) DEFAULT NULL COMMENT '贸易术语: EXW/FOB/CIF/DDP 等',
   `delivery_time` varchar(64) DEFAULT NULL COMMENT '交付时间要求',
@@ -570,6 +568,25 @@ CREATE TABLE `crm_learning_materials` (
   KEY `idx_category` (`category_zh`),
   KEY `idx_number` (`number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='学习资料表';
+
+-- ── crm_license_changes ──
+CREATE TABLE `crm_license_changes` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `supplier_id` bigint unsigned NOT NULL COMMENT '供应商ID',
+  `filename` varchar(120) DEFAULT NULL COMMENT '新执照文件名（crm_upload_files）；NULL=申请清空执照',
+  `prev_filename` varchar(120) DEFAULT NULL COMMENT '替换前的执照文件名（审计留痕，不随替换删除）',
+  `uploaded_by` int unsigned DEFAULT NULL COMMENT '上传者 user id',
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending' COMMENT '审核状态：先审后生效',
+  `reject_reason` varchar(500) DEFAULT NULL COMMENT '驳回原因',
+  `reviewed_by` bigint unsigned DEFAULT NULL COMMENT '审核管理员 id',
+  `reviewed_at` datetime DEFAULT NULL COMMENT '审核时间',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_supplier` (`supplier_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_uploaded_by` (`uploaded_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='已认证供应商换照变更流水（先审后生效；未认证供应商走认领审核）';
 
 -- ── crm_match_verdict ──
 CREATE TABLE `crm_match_verdict` (
