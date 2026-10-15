@@ -286,10 +286,9 @@ export class SupplierDirectoryRepo {
 
   /** 过滤输入到白名单列（忽略未知键；未提供/显式 null→null，空串保留 ''）。
    *  ★ 空串不得塌成 null：supplier.email / website 是 NOT NULL DEFAULT ''，而表单里是选填；
-   *    STRICT_TRANS_TABLES 下向 NOT NULL 列绑定 NULL 会直接 1048（企业信息创建失败）。
-   *    data_quality_score 用 `TRIM(col) <> ''` 判定完整性，'' 与 null 同样计为空，保留 '' 不影响评分。
-   *  提为公共静态：PUT 路由的「字段分流/留痕 diff」与写入必须共用同一份归一，不能各写一份。 */
-  static filterEditable(input: Record<string, unknown>): Record<string, unknown> {
+   *    STRICT_TRANS_TABLES 下向 NOT NULL 列绑定 NULL 会直接 1048（企业信息新建/编辑失败）。
+   *    data_quality_score 用 `TRIM(col) <> ''` 判定完整性，'' 与 null 同样计为空，保留 '' 不影响评分。 */
+  private pickEditable(input: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const col of SupplierDirectoryRepo.EDITABLE_COLUMNS) {
       if (!(col in input)) continue;
@@ -297,10 +296,6 @@ export class SupplierDirectoryRepo {
       out[col] = v === undefined || v === null ? null : String(v);
     }
     return out;
-  }
-  
-  private pickEditable(input: Record<string, unknown>): Record<string, unknown> {
-    return SupplierDirectoryRepo.filterEditable(input);
   }
 
   /** 新建企业行（企业信息填写），返回自增 id；addtime 记当前 epoch 秒。

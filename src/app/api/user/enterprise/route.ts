@@ -29,13 +29,7 @@ import {
   replaceSupplierSelfReport,
   listSupplierSelfReport,
 } from "@/lib/services/commodity/supplier-self-report";
-import {
-  applyVerifiedInfoChanges,
-  splitOutReviewFields,
-  listPendingInfoChanges,
-} from "@/lib/services/supplier-info-change";
-import { classifyEnterpriseBindState } from "@/shared/utils/enterprise-status";
-import { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
+import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
 import type { AppContext } from "@/lib/db/context";
 import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_ENTERPRISE_NOT_BOUND, EC_ENTERPRISE_CLAIMED_BY_OTHER } from "@/shared/constants/api";
 
@@ -208,10 +202,7 @@ export const GET = withRoute(async (req) => {
   // 自报主营品目（编辑页回填）：读失败兜底空数组，不阻断企业页展示（与行业面装配失败退回自填文本同风格）。
   const commodityNodes = await listSupplierSelfReport(ctx.dbPool, supplierId).catch(() => []);
 
-  // 待复核的例外字段变更（法人/资质先审后生效）：编辑页据此提示“有 N 项待复核、旧值仍生效”；读失败兜底空。
-  const pendingInfoChanges = await listPendingInfoChanges(supplierId).catch(() => []);
-
-  return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: row, licenseChange, commodityNodes, pendingInfoChanges } });
+  return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: row, licenseChange, commodityNodes } });
 });
 
 /** 已绑定：更新企业行可编辑列（已认证主体的身份三要素不可改写） */
@@ -229,27 +220,7 @@ export const PUT = withRoute(async (req) => {
   // 编辑闸口：已认证行不得把 company / credit_code 改成另一家公司（否则绕过审核把认证挪走）
   await assertVerifiedSubjectIdentityStable(ctx, supplierId, body as Record<string, unknown>);
 
-  // 已认证主体：普通资料即时生效并留痕，例外字段（法人/资质）先审后生效（不覆盖正式列）；
-  // 未认证主体：整行仍在认证流程中，直接更新（rejected 由 updateEnterprise 的 CASE 回 pending 重审）。
-  const current = await ctx.supplier.directoryRepo.findFullById(supplierId);
-  const editable = SupplierDirectoryRepo.filterEditable(body as Record<string, unknown>);
-  if (classifyEnterpriseBindState(current) === "verified") {
-    // 例外字段不写正式列：先落可即时生效子集（done 行不会被 updateEnterprise 降级）
-    await ctx.supplier.directoryRepo.updateEnterprise(supplierId, splitOutReviewFields(editable));
-    // 留痕 + 例外字段登记待审：审计旁路，失败不阻断主保存（主保存已完成），但要点名
-    try {
-      await applyVerifiedInfoChanges({
-        supplierId,
-        current: (current ?? {}) as Record<string, unknown>,
-        editableInput: editable,
-        actorUserId: auth.userId,
-      });
-    } catch (err) {
-      console.warn("[enterprise] 资料变更留痕/待审登记失败（主保存已完成）:", err instanceof Error ? err.message : err);
-    }
-  } else {
-    await ctx.supplier.directoryRepo.updateEnterprise(supplierId, body as Record<string, unknown>);
-  }
+  await ctx.supplier.directoryRepo.updateEnterprise(supplierId, body as Record<string, unknown>);
   // 执照以保存为单一入口：仅当本次 body 显式携带 license_url 时协调（含移除）；
   // 已认证供应商换照 → 进入待审（先审后生效）
   let licensePendingReview = false;

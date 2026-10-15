@@ -185,14 +185,6 @@ export default function EnterpriseSettingsClient() {
         </p>
       )}
 
-      {/* 法人/资质先审后生效：待复核期间旧值继续在架，提示用户新值尚未生效 */}
-      {enterprise.pendingInfoChanges.length > 0 && (
-        <p className="text-xs font-medium text-accent-700 bg-accent-50 border border-accent-200 rounded-lg p-3">
-          {t("authEnterpriseInfoChangePending") ||
-            `有 ${enterprise.pendingInfoChanges.length} 项资料变更（法定代表人/资质认证）已提交复核，审核通过前门户仍展示原值。`}
-        </p>
-      )}
-
       {/* 已绑定时的状态与换绑出口：避免用户以为还能再提交一次认证，也不让人被旧绑定锁死 */}
       {enterprise.bound && !enterprise.loading && (
         <div className="space-y-2 rounded-lg border border-border bg-secondary-50 p-3">

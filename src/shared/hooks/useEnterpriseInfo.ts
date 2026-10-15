@@ -31,14 +31,6 @@ export interface CommodityNodeBrief {
   nameZh: string;
 }
 
-/** 待复核的例外字段变更（法人/资质先审后生效）；旧值仍生效，后台通过才切新值 */
-export interface PendingInfoChangeBrief {
-  id: number;
-  field: string;
-  oldValue: string | null;
-  newValue: string | null;
-}
-
 interface EnterpriseResponse {
   bound: boolean;
   linkStatus: string;
@@ -46,8 +38,6 @@ interface EnterpriseResponse {
   licenseChange?: LicenseChangeBrief | null;
   /** 当前绑定主体已自报的品目节点（无绑定/读失败为空数组） */
   commodityNodes?: CommodityNodeBrief[];
-  /** 当前绑定主体待复核的资料变更（无/读失败为空数组） */
-  pendingInfoChanges?: PendingInfoChangeBrief[];
 }
 
 export interface UseEnterpriseInfoReturn {
@@ -58,8 +48,6 @@ export interface UseEnterpriseInfoReturn {
   licenseChange: LicenseChangeBrief | null;
   /** 当前绑定主体已自报的品目节点（编辑页回填用） */
   commodityNodes: CommodityNodeBrief[];
-  /** 当前绑定主体待复核的资料变更（法人/资质先审后生效） */
-  pendingInfoChanges: PendingInfoChangeBrief[];
   loading: boolean;
   error: string | null;
   retry: () => void;
@@ -72,7 +60,6 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
   const [enterprise, setEnterprise] = useState<EnterpriseInfo | null>(null);
   const [licenseChange, setLicenseChange] = useState<LicenseChangeBrief | null>(null);
   const [commodityNodes, setCommodityNodes] = useState<CommodityNodeBrief[]>([]);
-  const [pendingInfoChanges, setPendingInfoChanges] = useState<PendingInfoChangeBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -90,7 +77,6 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
       setEnterprise(null);
       setLicenseChange(null);
       setCommodityNodes([]);
-      setPendingInfoChanges([]);
     }
     // 未登录不取数（对齐 useHasSupplierPool 语义）：接口必然 401，徒增报错噪声
     if (userId === undefined) {
@@ -110,7 +96,6 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
         setEnterprise(d?.enterprise ?? null);
         setLicenseChange(d?.licenseChange ?? null);
         setCommodityNodes(Array.isArray(d?.commodityNodes) ? d.commodityNodes : []);
-        setPendingInfoChanges(Array.isArray(d?.pendingInfoChanges) ? d.pendingInfoChanges : []);
       })
       .catch((e) => {
         if (!cancelled) {
@@ -118,7 +103,6 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
           setEnterprise(null);
           setLicenseChange(null);
           setCommodityNodes([]);
-          setPendingInfoChanges([]);
           setError(e instanceof Error ? e.message : "load-failed");
         }
       })
@@ -144,5 +128,5 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
     };
   }, []);
 
-  return { bound, linkStatus, enterprise, licenseChange, commodityNodes, pendingInfoChanges, loading, error, retry };
+  return { bound, linkStatus, enterprise, licenseChange, commodityNodes, loading, error, retry };
 }
