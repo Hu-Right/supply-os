@@ -384,7 +384,6 @@ CREATE TABLE `crm_commodity_backbone` (
   `code` varchar(16) NOT NULL COMMENT '树码 UGT-B-<2/4/6/8/10位>，码长即层级：1大类 2中类 3小类 4子类 5品目',
   `parent_code` varchar(16) NOT NULL DEFAULT '' COMMENT '父节点码；大类行为空串（大类之上不再有层）',
   `level` tinyint NOT NULL COMMENT '层级 1~5，必须与 code 去前缀后的长度一致（门禁 BB1 卡）',
-  `group_code` varchar(16) NOT NULL COMMENT '所属大类码 UGT-G-NN，冗余到每一层：筛选与权益墙免递归查父',
   `name_zh` varchar(300) NOT NULL COMMENT '中文名；与 crm_commodity_nodes.name_zh 同宽（实测类名有超 100 字的）',
   `name_en` varchar(300) NOT NULL DEFAULT '' COMMENT '英文名；界面文案走 locale，本列供运维对账与缺中文时兜底',
   `sort` int NOT NULL COMMENT '同父内稳定顺序，按公告量降序固化，不随每日量漂移',
@@ -393,7 +392,6 @@ CREATE TABLE `crm_commodity_backbone` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_code` (`code`),
   KEY `idx_parent` (`parent_code`),
-  KEY `idx_group` (`group_code`),
   KEY `idx_level` (`level`),
   FULLTEXT KEY `ft_backbone_names` (`name_zh`,`name_en`) /*!50100 WITH PARSER `ngram` */ 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='五级品目树';
@@ -749,7 +747,6 @@ CREATE TABLE `crm_notice_search` (
   `title_ar` varchar(1000) NOT NULL DEFAULT '',
   `published_date` varchar(50) DEFAULT NULL COMMENT '公告发布日期（同步自 crm_bid_notices.published_date）',
   `sync_src_hash` char(32) NOT NULL DEFAULT '' COMMENT '宽表内容与输入快照的一致性指纹，由 buildWideRow 同快照写入，对账只比对不修改',
-  `group_codes` text COMMENT '所属大类码集合，逗号分隔（OR 语义并集）',
   `code_path` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '全部祖先前缀（旧字典口径），逗号分隔（所见即所得命中键；已无读写方）',
   `backbone_path` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算）',
   PRIMARY KEY (`id`),
@@ -1322,7 +1319,6 @@ CREATE TABLE `crm_user_industry_prefs` (
   `level5_id` int DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  `group_code` varchar(16) NOT NULL DEFAULT '' COMMENT '权益墙行业单位（大类码），必填',
   `commodity_code` varchar(40) NOT NULL DEFAULT '' COMMENT '品目面码，可停在段/族/类/品目任一层；空=只订到大类',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_pref` (`user_id`)
