@@ -79,6 +79,37 @@ export async function tableExists(c, table) {
 }
 
 /**
+ * 该表上是否有**别的会话**正在执行语句（只查 processlist，不去锁表：锁表会干扰别人）。
+ * 存在的理由很具体：2026-10-15 实测到有并行作业也在建同名 `crm_bid_notices__new` 并实时回填。
+ * 那时旧 A4 提示「先跑 --rollback 清干净再重建」，照着做就是 DROP 别人的在建工程 ——
+ * 一句看上去安全的提示，在缺少归属信息时本身就能造成破坏，所以改成硬拦。
+ * @returns 除自身连接外，涉及该表的活跃语句列表
+ */
+export async function activeWritersOn(c, table) {
+  const [rows] = await c.query(
+    `SELECT ID, USER, HOST, TIME, STATE, LEFT(INFO, 120) info
+       FROM information_schema.PROCESSLIST
+      WHERE INFO LIKE ? AND ID <> CONNECTION_ID() ORDER BY TIME DESC`,
+    [`%\`${table}\`%`],
+  );
+  // 上面只捕到带反引号的写法；并行脚本常不带反引号（实测就是 `INSERT IGNORE INTO crm_bid_notices__new`），
+  // 所以再补一轮不带反引号的全文匹配。两条合并而非只取一条：漏一条就是漏判。
+  const [bare] = await c.query(
+    `SELECT ID, USER, HOST, TIME, STATE, LEFT(INFO, 120) info
+       FROM information_schema.PROCESSLIST
+      WHERE INFO LIKE ? AND ID <> CONNECTION_ID() ORDER BY TIME DESC`,
+    [`%${table}%`],
+  );
+  const seen = new Set();
+  return [...rows, ...bare].filter((r) => {
+    const k = `${r.ID}|${r.info}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/**
  * 按主键窗口切片（本表 id 稀疏：实测 id ∈ [423, 1786524111] 而只有 64.5 万行，
  * 用「固定 id 步长」会空转几十万个窗口；这里按行数取窗口边界，扫描成本恒定）。
  */

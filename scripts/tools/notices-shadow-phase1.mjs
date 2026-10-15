@@ -29,7 +29,7 @@ import {
   dropColumnsOf, keptColumns, BATCHES,
 } from "./notices-slim-plan.mjs";
 import { findNoticeRefSites } from "./lib/notices-ref-scan.mjs";
-import { conn, fatal, columnsOf, indexesOf, tableExists, reconcile, makeProgress } from "./lib/notices-slim-common.mjs";
+import { conn, fatal, columnsOf, indexesOf, tableExists, reconcile, makeProgress, activeWritersOn } from "./lib/notices-slim-common.mjs";
 
 const BUILD = process.argv.includes("--build");
 const ROLLBACK = process.argv.includes("--rollback");
@@ -42,11 +42,30 @@ const batch = BATCHES[BATCH];
 
 if (!(await tableExists(c, NOTICES_TABLE))) fatal(`原表 ${NOTICES_TABLE} 不存在（连错库？当前库=${process.env.DB_NAME}）`);
 if (!batch) fatal(`未登记的批次 --batch=${BATCH}`);
+// 空列集批次 = 已并入其他批次或已退役（如批次三）。不挡住就会白跑一轮 674MB 拷贝 +
+// 三个 FULLTEXT 重建 + 一个冻结同步的切换窗口，去做一轮回不产生任何结构变化的空操作。
+if (!DROP.length) fatal(`批次 ${BATCH} 无可删列（${batch.title}）—— 列集已清空通常意味着它已并入其他批次，请看 notices-slim-plan.mjs`);
 
 const srcCols = await columnsOf(c, NOTICES_TABLE);
 const srcNames = srcCols.map((x) => x.name);
 const shadow = await tableExists(c, SHADOW_TABLE);
 const srcIdx = await indexesOf(c, NOTICES_TABLE);
+
+// ── A0 影子表归属：表名不唯一，同名可能是别人正在建的工程 ────────────────
+// 旧版本只报「影子表已存在，先跑 --rollback」；而 2026-10-15 实测到的正是并行作业
+// 正在实时回填的同名 `crm_bid_notices__new`（52 列、INSERT IGNORE 在长行）。
+// 那条提示若被执行就会抹掉别人的在建工程，所以先查谁在写：有活跃会话就停线。
+if (shadow) {
+  const writers = await activeWritersOn(c, SHADOW_TABLE);
+  if (writers.length) {
+    fatal(
+      `A0 影子表 ${SHADOW_TABLE} 上有其他会话正在执行（共 ${writers.length} 条），它不一定是本作业的：\n` +
+        writers.map((w) => `  - id=${w.ID} ${w.USER}@${w.HOST} ${w.TIME}s [${w.STATE}] ${String(w.info).replace(/\s+/g, " ")}`).join("\n") +
+        `\n禁止 --rollback（那等于 DROP 别人的在建工程）。要么等对方完成切换（那时它会 RENAME 成原表），\n` +
+        `要么先与对方作业核对归属。本作业可改用 --batch=2 等不撞名的批次，或等 ${SHADOW_TABLE} 消失。`,
+    );
+  }
+}
 
 // ── A1 清单与现网一致 ────────────────────────────────────────────────────
 const missingDrop = DROP.filter((x) => !srcNames.includes(x));
@@ -62,6 +81,9 @@ const sites = findNoticeRefSites(process.cwd(), DROP, ["src", "scripts", "tests"
   "scripts/tools/notices-shadow-phase1.mjs",
   "scripts/tools/notices-shadow-phase2-cutover.mjs",
   "scripts/gates/check-notices-slim.mjs",
+  // 门禁自测的夹具里嵌的就是退役列名本体（与 check-notices-slim.mjs 的 SELF 同一口径，
+  // 两处不一致会导致「门禁绿、前置闸红」这种无法解释的分叉）。
+  "tests/gates/check-notices-slim.test.mjs",
 ]);
 if (sites.length) {
   fatal(
@@ -113,7 +135,7 @@ console.log(`生成列（不参与写入，切换后逐行比对定义）：${ge
 console.log(fks.length ? `按名引用本表的外键：${fks.map((f) => `${f.ref}→${f.cst}`).join(", ")}` : "无外键引用本表 ✓");
 console.log(trgs.length ? `⚠ 本表有触发器：${trgs.map((t) => t.n).join(", ")}（CREATE TABLE LIKE 不复制，需人工搬）` : "本表无触发器 ✓");
 console.log(`读写点检查：${sites.length} 处（必须为 0）✓`);
-console.log(`影子表 ${SHADOW_TABLE} ${shadow ? "已存在（需先 --rollback）" : "不存在"}`);
+console.log(`影子表 ${SHADOW_TABLE} ${shadow ? "已存在且无人在写（属本作业旧产物，需先 --rollback 再重建）" : "不存在"}`);
 
 if (!BUILD && !ROLLBACK) {
   console.log("\n[--print-plan] 未写库。将执行的 DDL 与步骤：");
@@ -135,12 +157,20 @@ if (ROLLBACK) {
     console.log("影子表不存在，无需回滚。");
     process.exit(0);
   }
+  // 二次确认：A0 已在上面拦过一次有活跃写者的情形；这里再打印形状，让执行人看见
+  // 「我要删的这张表到底是哪一轮的」（待删列已缺席 = 它不是本批次产的）。
+  const shCols = (await columnsOf(c, SHADOW_TABLE)).map((x) => x.name);
+  const absent = DROP.filter((x) => !shCols.includes(x));
+  console.log(`待 DROP 的 ${SHADOW_TABLE}：${shCols.length} 列，其中本批待删列已缺席 ${absent.length} 个 → ${absent.join(", ") || "无"}`);
+  if (absent.length === DROP.length) {
+    console.log(`⚠ 本批 ${DROP.length} 列全部已不在该影子表里 —— 它很可能**不是本批次建的**（先核对上面列数再确定要不要删）。`);
+  }
   await c.query(`DROP TABLE \`${SHADOW_TABLE}\``);
   console.log(`✅ 已 DROP \`${SHADOW_TABLE}\`；原表 \`${NOTICES_TABLE}\` 未受影响。`);
   process.exit(0);
 }
 
-if (shadow) fatal("A4 影子表已存在，先跑 --rollback 清干净再重建（不做静默覆盖）");
+if (shadow) fatal("A4 影子表已存在（且无其他会话在写），先跑 --rollback 清干净再重建（不做静默覆盖）");
 
 console.log("\n[1/7] CREATE TABLE LIKE");
 await c.query(`CREATE TABLE \`${SHADOW_TABLE}\` LIKE \`${NOTICES_TABLE}\``);
