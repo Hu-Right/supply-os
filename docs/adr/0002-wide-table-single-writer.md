@@ -3,6 +3,8 @@
 日期: 2026-09-20
 状态: 已接受
 
+> **状态更新（2026-10-15）**：「能力边界」中「旧字典树自身的变更不进指纹」那条，随旧字典物理退役而失去对象——宽表归属指纹 `WIDE_FP_EXPR` 现取自落点表 `crm_notice_attribution_nodes`（见 ADR-0007 / ADR-0014），删除旧字典列不改哈希。**单一写入者（构建方=修复方）原则本身不废。**
+
 ## 结论
 
 `crm_notice_search` 的业务内容列与一致性指纹 `sync_src_hash` 只由 `buildWideRow → upsertWideRows` 写入（二者取自同一次 SELECT 快照）；对账层退化为「只检测、返回待重建 id」；跨层口径（描述来源表达式、截断长度、译文 `model`、合格机会谓词）抽为 `lib/utils/` 常量单一出口；并由 `scripts/check-wide-table-ssot.mjs` 把该标准变成 CI 硬门禁（ARCHITECTURE.md 红线 #6）。

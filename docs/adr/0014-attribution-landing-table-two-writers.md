@@ -30,6 +30,7 @@ R1' 据此建表并从列值反推灌入存量（`source='legacy_tag'`），生�
    **口径约定**：R2' 验收以 `check-attribution-ssot` 全量 exit 0 为准；`BB15d` 的 legacy-only 分档与 `BB15b` 的同 source 分档
    列为限期整改项（它们在那个热文件里，本计划不动他人地面）。在两处口径合流之前，任何人拿 `check:backbone -- --db` 的红
    去当「落点表坏了」的证据都是错的。
+   > **2026-10-15 收口**：`BB15d` 已按 source 分档落地（`check-commodity-backbone.ts` 的 BB15d 现分「有列值无落点」与「legacy 落点无列值」判红、「非 legacy 落点无列值」仅 WARN，与 AS2/AS4 同口径）⇒ 上述「两个门禁对同一数据结论相反」已消除。**唯 `BB15b` 仍未按 source 分档**（现为全局互为祖先 `fail()`），保持本条限期整改状态。
 6. **R2' 的出口判据按 source 拆**：`legacy_tag` 派生值必须逐条等于现列值（差异 0）；`ai_content` **允许**让列值从无到有——野码分类的目的就是补归属，"换源不改归属"这句原判据对它天然不成立。
 7. **一项与本 ADR 第「被否」条冲突的现实发现（2026-10-13，待对方定）**：本计划评审在并发方的 `scripts/ops/notice-attribution-content-ai.ts` 与
    `notice-attribution-manual-anchor.ts` 里读到 `ON DUPLICATE KEY UPDATE ... source=VALUES(source)`——即本文已否决的“覆盖审计线”写法。
@@ -68,7 +69,7 @@ R1' 据此建表并从列值反推灌入存量（`source='legacy_tag'`），生�
 - **增量镜像的候选谓词偏窄（2026-10-13 发现，交实现方定）**：`src/lib/services/commodity/attribution-mirror.ts` 用
   `NOT EXISTS (落点表里有该公告任意一行)` 选候选 ⇒ 只补「零落点」的公告。落点已有部分行的公告（列值后来因新码变长的情况）
   **永不会被回补**，正是那 5 行缺口的长期复现形态。候选谓词应为「列隐含落点 − 现有落点 ≠ ∅」，
-  `attribution-contract.missingLandingPairs()` 就是它的现成判据。本 ADR 不替对方改文件，只登记判据。
+  `attribution-contract.missingLandingPairs()` 就是它的现成判据。本 ADR 不替对方改文件，只登记判据。 **2026-10-15 已合流**：`attribution-mirror.ts` 候选谓词已改用 `missingLandingPairs()`（列隐含落点 − 现有落点 ≠ ∅），不再只补零落点公告。
 - **落点表成为共享表**：任何 `--apply` 前须先 `SELECT source, COUNT(*) ... GROUP BY source` 并在 `runtime/` 登记写入窗口。
 - **AI 触发权不在本链路上**：`ai_content` 的生产者带 `--scope` 体量预估（15,646 条零落点公告）且默认不调 API，放量与否由需求方逐次放行。
 
