@@ -37,7 +37,9 @@ function fixture(entries) {
   return root;
 }
 
-/** 假基线：本表已无批次一那三列（= 已退役），其余在册列保留。
+/** 假基线：本表已无批次一两列（thresholds / ai_products）与 response_count，
+ * 也没有 category_l2_id（它由**并行影子表轮**摘除、不经本仓阶段脚本）；
+ * 但保留 category_l1_id（用来验证「还在场的列不算退役」）。
  * 注意 ai_products 必须只留在商机表那侧，否则它就不算退役，NS2 不误伤的用例会变成空跑。 */
 const BASELINE_DROPPED = [
   "-- fixture",
@@ -105,4 +107,26 @@ test("注释不得误报（历史留痕的退役列名不是读写点）", () =>
   });
   const r = run({ NOTICES_SLIM_SCAN_ROOT: root, NOTICES_SLIM_BASELINE: join(root, "db/schema/baseline.sql") });
   assert.equal(r.code, 0, r.out);
+});
+
+/**
+ * 并行影子表轮摘掉的列不经过本仓阶段脚本，因此必须靠 PARALLEL_DROPPED_COLUMNS 进退役集。
+ * 这条用例守的是一个具体缺口：2026-10-15 实测到另一作业正在建同名 __new 摘 category_l1_id/l2_id/
+ * response_count。如果没有这条覆盖，对方落库重导 baseline 后，本仓门禁对这类列就是空的——
+ * 有人重新 `ADD COLUMN category_l2_id` 并把代码接回去也不会报错。
+ * 同时反证「还在基线里的列不算退役」（category_l1_id 在本 fixture 里保留，不得报错）。
+ */
+test("并行轮次摘除的列同样不得复活（且在场列不被误判为退役）", () => {
+  const root = fixture({
+    "db/schema/baseline.sql": BASELINE_DROPPED,
+    "src/lib/services/search-sync/wide-row-builder.ts": [
+      "export const noticesSql = `SELECT id FROM crm_bid_notices`;",
+      "export const wideSel = `n.category_l2_id, n.category_l1_id`;",
+    ].join("\n"),
+  });
+  const r = run({ NOTICES_SLIM_SCAN_ROOT: root, NOTICES_SLIM_BASELINE: join(root, "db/schema/baseline.sql") });
+  assert.equal(r.code, 1, "并行轮次摘除的列被重新引用，却没有被拦住");
+  assert.match(r.out, /category_l2_id/);
+  // 只卡「被当成退役列」这个判定，不卡命中样本（样本里会副带同级其它列名，包络不同会假绿）
+  assert.doesNotMatch(r.out, /已退役列 `category_l1_id`/, "仍在基线里的列不得被当成退役列");
 });

@@ -25,15 +25,18 @@ import { findNoticeRefSites } from "../tools/lib/notices-ref-scan.mjs";
 const ROOT = process.env.NOTICES_SLIM_SCAN_ROOT || process.cwd();
 const BASELINE = process.env.NOTICES_SLIM_BASELINE || path.join(process.cwd(), "db/schema/baseline.sql");
 
-/** 本工具与作业脚本必然提及列名，不算读写点（口径与 notices-b1-direct-alter.mjs 一致） */
+/** 本工具与作业脚本必然提及列名，不算读写点（口径与 lib/notices-ref-scan.mjs 一致）。
+ * 自测文件也在列：它的全部作用就是把退役列名当夹具嵌进去验证「真的会拦」，
+ * 不排除它就会在列退役当天把门禁自己扫挂（2026-10-15 实跑撞到过：baseline 追平后
+ * NS1 第一条报错就是本目录下的 fixture）——那类报错会让人以为门禁生效了，其实是自测在拦自己。 */
 const SELF = [
   "scripts/tools/notices-slim-plan.mjs",
   "scripts/tools/notices-slim-scan.mjs",
   "scripts/tools/lib/notices-ref-scan.mjs",
   "scripts/tools/notices-shadow-phase1.mjs",
   "scripts/tools/notices-shadow-phase2-cutover.mjs",
-  "scripts/tools/notices-b1-direct-alter.mjs",
   "scripts/gates/check-notices-slim.mjs",
+  "tests/gates/check-notices-slim.test.mjs",
 ];
 
 const RETIRED = retiredFrom(fs.readFileSync(BASELINE, "utf8"));
