@@ -1,5 +1,5 @@
 /**
- * 我的采购记录面板
+ * 我的采购记录面板 — 容器
  * My Records Panel
  *
  * @module features/payment/components/MyRecordsPanel
@@ -9,18 +9,21 @@
  *              modal, aligned with the original UI: overview shows the blue
  *              orders card and teal unlocks card; drill-down shows a management
  *              list (back/refresh header + article rows + pager).
+ *
+ *              2026-10 组件化拆分（288→约 120 行）：概览卡/行卡/分页条见 ./records-panel/parts，
+ *              行格式化纯函数上收 ./records-panel/record-format；本文件保留视图态与取数编排。
  */
 
-import { useState } from "react";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { useState, useCallback } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useUserId } from "@/core/auth";
 import { Button } from "@/shared/ui";
-import { ORDER_STATUS } from "@/shared/constants/order-status";
-import { formatDateTimeZh } from "@/shared/utils/format";
-import type { OrderRecord, UnlockRecord } from "../api";
+import type { UnlockRecord } from "../api";
 import { useOrderHistory, type PurchaseTab } from "../hooks/useOrderHistory";
 import { useRecordsSummary } from "../hooks/useRecordsSummary";
+import { OverviewCards, RecordRowCard, PagerBar } from "./records-panel/parts";
+import type { RecordRow } from "./records-panel/record-format";
 
 type MyRecordsPanelProps = {
   /** 打开关联公告（由外层负责关闭弹窗并跳转） */
@@ -29,21 +32,17 @@ type MyRecordsPanelProps = {
 
 type PanelView = "overview" | PurchaseTab;
 
-type RecordRow = OrderRecord | UnlockRecord;
-
-const recordTime = (row: RecordRow) =>
-  formatDateTimeZh(
-    ("unlocked_at" in row ? row.unlocked_at : undefined) ||
-      ("paid_at" in row ? row.paid_at : undefined) ||
-      ("created_at" in row ? row.created_at : undefined),
-  );
-
 export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
   const { t } = useLocale();
   const userId = useUserId();
   const [view, setView] = useState<PanelView>("overview");
   const history = useOrderHistory(userId);
   const summary = useRecordsSummary(userId);
+
+  const openView = useCallback((next: PurchaseTab) => {
+    history.setTab(next);
+    setView(next);
+  }, [history]);
 
   if (!userId) {
     return (
@@ -53,77 +52,20 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
     );
   }
 
-  const recordTitle = (row: RecordRow) => {
-    // 公告标题优先
-    if (row.notice?.title) return row.notice.title;
-    // 订单类型：按 plan_code 生成可读标题
-    if ("order_no" in row) {
-      const planCode = (row as OrderRecord).plan_code || "";
-      if (planCode.startsWith("material_")) return t("myRecordsLearningMaterial");
-      if (planCode.startsWith("bundle_")) return t("myRecordsLearningBundle");
-      if (planCode.startsWith("training_course_")) return t("myRecordsTraining");
-      if (planCode.startsWith("svc_")) return t("myRecordsServiceOrder");
-      return t("myRecordsMembershipOrder");
-    }
-    if (row.notice_id) return String(row.notice_id);
-    return t("myRecordsUntitled");
-  };
-
-  /** 订单副标题：金额 + 时间（不展示订单号） */
-  const recordSubtitle = (row: RecordRow) => {
-    if ("order_no" in row) {
-      const o = row as OrderRecord;
-      const amt = `${o.currency || "CNY"} ${Number(o.amount || 0).toFixed(2)}`;
-      return `${amt} · ${recordTime(row)}`;
-    }
-    return `${row.unlock_type || "unlock"} · ${recordTime(row)}`;
-  };
-
-  const openView = (next: PurchaseTab) => {
-    history.setTab(next);
-    setView(next);
-  };
-
   if (view === "overview") {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => openView("orders")}
-          className="text-start justify-start rounded-xl bg-white p-4 hover:border-blue-200 hover:bg-blue-50/40"
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-extrabold text-slate-900">{t("myRecordsOrdersTitle")}</p>
-            <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">
-              {summary.ordersTotal}
-            </span>
-          </div>
-          <p className="text-3xs text-slate-500 mt-1">{t("myRecordsOrdersDesc")}</p>
-          <p className="text-3xs text-blue-600 mt-2 font-bold">{t("myRecordsOrdersHint")} →</p>
-        </Button>
-
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => openView("unlocks")}
-          className="text-start justify-start rounded-xl border-teal-100 bg-teal-50 p-4 hover:border-teal-300 hover:bg-teal-50"
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-extrabold text-teal-950">{t("myRecordsUnlocksTitle")}</p>
-            <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-teal-700">
-              {summary.unlocksTotal}
-            </span>
-          </div>
-          <p className="text-3xs text-teal-700 mt-1">{t("myRecordsUnlocksDesc")}</p>
-          <p className="text-3xs text-teal-800 mt-2 font-bold">{t("myRecordsUnlocksHint")} →</p>
-        </Button>
-      </div>
+      <OverviewCards
+        ordersTotal={summary.ordersTotal}
+        unlocksTotal={summary.unlocksTotal}
+        onOpen={openView}
+      />
     );
   }
 
   const rows: RecordRow[] =
     view === "orders" ? history.orders?.list || [] : history.unlocks?.list || [];
+  const rowKey = (row: RecordRow) =>
+    "order_no" in row ? row.order_no : `${row.notice_id}-${(row as UnlockRecord).unlocked_at}`;
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4">
@@ -185,101 +127,23 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
                   : t("myPurchasesEmptyUnlocks")}
           </div>
         )}
-        {rows.map((row) => {
-          const isOrder = "order_no" in row;
-          const canOpen = Boolean(
-            row.notice_id && (view === "unlocks" || (isOrder && row.status === ORDER_STATUS.PAID)),
-          );
-          return (
-            <article
-              key={isOrder ? row.order_no : `${row.notice_id}-${row.unlocked_at}`}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
-            >
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
-                <div className="min-w-0 pe-2">
-                  <p className="font-black text-slate-800 truncate">{recordTitle(row)}</p>
-                  <p className="mt-1 text-slate-500 truncate">
-                    {recordSubtitle(row)}
-                  </p>
-                </div>
-                {isOrder ? (
-                  <span
-                    className={`shrink-0 font-black ${row.status === ORDER_STATUS.PAID ? "text-teal-700" : row.status === ORDER_STATUS.CLOSED ? "text-slate-400" : "text-amber-700"}`}
-                  >
-                    {row.status === ORDER_STATUS.PAID ? t("myPurchasesStatus_paid") : row.status || "-"}
-                  </span>
-                ) : (
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-teal-600" />
-                )}
-              </div>
-              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-slate-500">
-                <span className="truncate">
-                  {isOrder
-                    ? `${row.currency || "CNY"} ${Number(row.amount || 0).toFixed(2)} · ${recordTime(row)}`
-                    : row.notice?.country || row.notice?.reference || "-"}
-                </span>
-                {canOpen && (
-                  <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    onClick={() => onOpenNotice(Number(row.notice_id))}
-                    className="shrink-0 px-0 font-black"
-                  >
-                    {t("myPurchasesOpenDetail")}
-                  </Button>
-                )}
-              </div>
-              {/* 公采搜索功能（本地差异 #6 配套：需求 2 客诉止血）——
-                  解锁行补公告截止日期，已过期（服务端按 deadline_ts 判定）加醒目标记 */}
-              {!isOrder && row.notice?.deadline && (
-                <div className="mt-1.5 flex items-center gap-2 text-slate-500">
-                  <span className="truncate">
-                    {t("myRecordsDeadline")}: {row.notice.deadline}
-                  </span>
-                  {row.notice.deadline_expired === true && (
-                    <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 font-black text-rose-700">
-                      {t("myRecordsExpired")}
-                    </span>
-                  )}
-                </div>
-              )}
-            </article>
-          );
-        })}
+        {rows.map((row) => (
+          <RecordRowCard
+            key={rowKey(row)}
+            row={row}
+            isUnlocksView={view === "unlocks"}
+            onOpenNotice={onOpenNotice}
+          />
+        ))}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
-        <span>
-          {t("myRecordsPagerInfo", {
-            total: history.total,
-            page: history.page,
-            pages: history.totalPages,
-          })}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={history.page <= 1 || history.loading}
-            onClick={() => history.setPage(Math.max(1, history.page - 1))}
-            className="font-black disabled:opacity-40"
-          >
-            {t("myPurchasesPrev")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={history.page >= history.totalPages || history.loading}
-            onClick={() => history.setPage(Math.min(history.totalPages, history.page + 1))}
-            className="font-black disabled:opacity-40"
-          >
-            {t("myPurchasesNext")}
-          </Button>
-        </div>
-      </div>
+      <PagerBar
+        total={history.total}
+        page={history.page}
+        totalPages={history.totalPages}
+        loading={history.loading}
+        onPage={history.setPage}
+      />
     </section>
   );
 }

@@ -1,41 +1,25 @@
 /**
- * 数字人客服主组件
+ * 数字人客服主组件 — 容器
  * Digital Assistant Main Component
  *
  * @module features/crm/components/DigitalAssistant/DigitalAssistant
  * @description 浮动触发按钮 + 右侧滑入侧边抽屉，组合 ChatWindow
  *              Floating trigger button + right-side slide-in drawer, composing ChatWindow
+ *
+ *              2026-10 组件化拆分（290→约 165 行）：触发按钮/抽屉 Header 见 ./parts
+ *              （JSX 逐字不变、件套 memo），提示音上收 ../../utils/notify-sound；
+ *              本文件保留会话/SSE/未读等编排逻辑。
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { MessageCircle, X, Sparkles, User } from "lucide-react";
-import { useLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
-import { useDigitalAssistant } from "../../hooks/useDigitalAssistant";
+import { useDigitalAssistant, attachmentMarkerFromMetadata } from "../../hooks/useDigitalAssistant";
 import { useChatSSE } from "../../hooks/useChatSSE";
 import { useQueueInfo } from "../../hooks/useQueueInfo";
-import { attachmentMarkerFromMetadata } from "../../hooks/useDigitalAssistant";
+import { playNotifySound } from "../../utils/notify-sound";
 import { ChatWindow } from "./ChatWindow";
+import { FloatingTrigger, AssistantHeader } from "./parts";
 import type { Supplier } from "@/types";
 import { ACTIVE_OPPORTUNITIES } from "../../constants";
-
-/** 播放提示音（Web Audio API） */
-let _audioCtx: AudioContext | null = null;
-function playNotifySound() {
-  try {
-    if (!_audioCtx) _audioCtx = new AudioContext();
-    const osc = _audioCtx.createOscillator();
-    const gain = _audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(_audioCtx.destination);
-    osc.frequency.value = 880;
-    gain.gain.value = 0.12;
-    osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.3);
-    osc.stop(_audioCtx.currentTime + 0.3);
-  } catch { /* 忽略音频错误 */
-  }
-}
 
 type DigitalAssistantProps = {
   /** 当前线索总数（传递给 hook 用于上下文回复） */
@@ -51,7 +35,6 @@ export function DigitalAssistant({
   activeLeadCount = 0,
   suppliers = [],
 }: DigitalAssistantProps) {
-  const { t } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -83,6 +66,8 @@ export function DigitalAssistant({
     submitRating,
     skipRating,
   } = useDigitalAssistant({ leadCount, activeLeadCount, suppliers, opportunities: ACTIVE_OPPORTUNITIES });
+
+  const closeDrawer = useCallback(() => setIsOpen(false), []);
 
   // SSE 回调：收到远端消息时追加到对话流 + 通知提示
   const handleSSEMessage = useCallback(
@@ -143,61 +128,10 @@ export function DigitalAssistant({
     return () => window.removeEventListener("keydown", handleEsc);
   }, [isOpen]);
 
-  // 根据模式决定 header 样式和文案
-  const headerConfig = {
-    ai: {
-      bgClass: "bg-gradient-to-r from-slate-900 to-slate-950",
-      iconBg: "bg-teal-500",
-      Icon: Sparkles,
-      title: t("crmAssistantTitle"),
-      statusText: t("crmAssistantAiOnline"),
-      statusDot: "bg-teal-400",
-    },
-    waiting: {
-      bgClass: "bg-gradient-to-r from-amber-900 to-amber-950",
-      iconBg: "bg-amber-500",
-      Icon: Sparkles,
-      title: t("crmAssistantTitle"),
-      statusText: t("crmAssistantConnecting"),
-      statusDot: "bg-amber-400 animate-pulse",
-    },
-    human: {
-      bgClass: "bg-gradient-to-r from-emerald-900 to-emerald-950",
-      iconBg: "bg-emerald-500",
-      Icon: User,
-      title: agentName || t("crmAssistantTitle"),
-      statusText: t("crmAssistantHumanOnline"),
-      statusDot: "bg-emerald-400 animate-pulse",
-    },
-  };
-
-  const config = headerConfig[mode];
-  const HeaderIcon = config.Icon;
-
   return (
     <>
       {/* ── 浮动触发按钮 ── */}
-      {!isOpen && (
-        <Button
-          type="button"
-          variant="primary"
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 end-6 z-20 px-5 py-3 rounded-full shadow-lg
-            hover:bg-teal-500 hover:shadow-xl hover:scale-105
-            transition-all duration-200 group
-            md:bottom-6 bottom-20"
-          aria-label={t("crmAssistantOpen")}
-        >
-          <MessageCircle className="w-5 h-5 group-hover:animate-pulse" />
-          <span className="text-sm font-bold">{t("crmAssistant")}</span>
-          {/* 未读消息计数 */}
-          {unreadCount > 0 && (
-            <span className="absolute -top-2 -end-2 min-w-[20px] h-5 px-1 bg-red-500 text-white text-2xs font-bold rounded-full border-2 border-white flex items-center justify-center">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
-        </Button>
-      )}
+      {!isOpen && <FloatingTrigger unreadCount={unreadCount} onOpen={() => setIsOpen(true)} />}
 
       {/* ── 侧边抽屉 ── */}
       {isOpen && (
@@ -205,7 +139,7 @@ export function DigitalAssistant({
           {/* 遮罩层（移动端） */}
           <div
             className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs md:hidden"
-            onClick={() => setIsOpen(false)}
+            onClick={closeDrawer}
           />
 
           {/* 抽屉主体 */}
@@ -214,64 +148,13 @@ export function DigitalAssistant({
               bg-white border-s border-slate-200 shadow-2xl
               flex flex-col animate-in slide-in-from-end duration-300"
           >
-            {/* ── Header ── */}
-            <div className={`flex items-center justify-between p-4 ${config.bgClass} text-white`}>
-              <div className="flex items-center gap-3">
-                {/* 头像 */}
-                <div className={`w-10 h-10 rounded-full ${config.iconBg} flex items-center justify-center`}>
-                  <HeaderIcon className="w-5 h-5 text-white" />
-                </div>
-                {/* 标题 + 状态 */}
-                <div>
-                  <p className="text-sm font-bold">{config.title}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className={`w-2 h-2 rounded-full ${config.statusDot}`} />
-                    <span className="text-3xs text-slate-300">{config.statusText}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 操作按钮组 */}
-              <div className="flex items-center gap-2">
-                {/* AI 模式：显示转人工按钮 */}
-                {mode === "ai" && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={requestHumanAgent}
-                    className="text-3xs px-3 py-1 rounded-full text-white
-                      border border-slate-600 hover:bg-slate-800"
-                  >
-                    {t("crmRequestHuman")}
-                  </Button>
-                )}
-                {/* 人工模式：显示结束会话按钮 */}
-                {mode === "human" && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={endHumanSession}
-                    className="text-3xs px-3 py-1 rounded-full text-white
-                      border border-slate-600 hover:bg-slate-800"
-                  >
-                    {t("crmEndHumanSession")}
-                  </Button>
-                )}
-                {/* 关闭按钮 */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="iconSm"
-                  onClick={() => setIsOpen(false)}
-                  className="text-white hover:bg-slate-800"
-                  aria-label={t("uiClose")}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-            </div>
+            <AssistantHeader
+              mode={mode}
+              agentName={agentName}
+              onRequestHuman={requestHumanAgent}
+              onEndHumanSession={endHumanSession}
+              onClose={closeDrawer}
+            />
 
             {/* ── 对话区域 ── */}
             <ChatWindow

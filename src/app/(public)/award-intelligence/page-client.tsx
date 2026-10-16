@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 中标情报 / 买家情报页
+ * 中标情报 / 买家情报页 — 容器
  * Award Intelligence / Buyer Intelligence Page
  *
  * @module app/(public)/award-intelligence/page-client
@@ -9,22 +9,23 @@
  *              数据/图表/弹窗分别拆至 ./curatedData、./TrendChart、./Modals
  *              （原 990 行 god 组件按关注点拆分）。真实数据到位时 useAwardsData
  *              返回数据优先展示，策展数据作降级兜底。
+ *              2026-10 组件化拆分（291→约 160 行）：中国案例板块（含其私有浏览态）见
+ *              ./sections/CnCaseSection，速览卡/画像卡/TOP5 卡见 ./sections/cards。
  */
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search, ArrowRight } from "lucide-react";
 import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
-import { CN_AWARD_CASES, CN_CASE_CATEGORIES, type CnAwardCase } from "@/data/cn-award-cases";
+import type { CnAwardCase } from "@/data/cn-award-cases";
 import { useAwardsData } from "@/features/procurement/hooks/useAwardsData";
-import {
-  CURATED_STATS, INFO_CARDS, BUYER_PROFILE, CYCLE_HINTS, TOP5_WINNERS,
-  type SelectedSupplier,
-} from "./curatedData";
+import { CURATED_STATS, CYCLE_HINTS, type SelectedSupplier } from "./curatedData";
 import { TrendChart } from "./TrendChart";
 import {
   AgencyModal, CategoryModal, WinnersModal, SupplierModal, CalendarModal,
   ReminderModal, CnCaseDetailModal,
 } from "./Modals";
+import { CnCaseSection } from "./sections/CnCaseSection";
+import { InfoCardsGrid, BuyerProfileCard, TopWinnersCard } from "./sections/cards";
 
 export default function PageClient() {
   const router = useRouter();
@@ -36,10 +37,7 @@ export default function PageClient() {
   const [agencyOpen, setAgencyOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<SelectedSupplier | null>(null);
-  // 中国企业中标案例
-  const [cnCategory, setCnCategory] = useState("全部");
-  const [cnSearch, setCnSearch] = useState("");
-  const [cnShowAll, setCnShowAll] = useState(false);
+  // 中国企业中标案例详情（浏览态内聚在 CnCaseSection，弹窗目标归容器）
   const [cnDetail, setCnDetail] = useState<CnAwardCase | null>(null);
 
   // ── 真实中标数据（爬虫入库后自动生效） ──
@@ -59,7 +57,14 @@ export default function PageClient() {
     const q = searchQuery.trim();
     router.push(`/procurement${q ? `?q=${encodeURIComponent(q)}` : ""}`);
   };
-  const scrollToTrend = () => trendRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  // 速览卡动作分派（稳定引用，保证 InfoCardsGrid memo 有效）
+  const handleCardAction = useCallback((link: string) => {
+    if (link === "查看趋势") trendRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    else if (link === "查看品类") setCategoryOpen(true);
+    else if (link === "查看名单") setWinnersOpen(true);
+    else if (link === "设置提醒") setReminderOpen(true);
+  }, []);
 
   return (
     <ErrorBoundary fallback={<PageErrorFallback />}>
@@ -100,46 +105,10 @@ export default function PageClient() {
           <button onClick={handleSearch} className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-colors whitespace-nowrap">查中标情报</button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {INFO_CARDS.map((card) => {
-            const Icon = card.icon;
-            const handleCardAction = () => {
-              if (card.link === "查看趋势") scrollToTrend();
-              else if (card.link === "查看品类") setCategoryOpen(true);
-              else if (card.link === "查看名单") setWinnersOpen(true);
-              else if (card.link === "设置提醒") setReminderOpen(true);
-            };
-            return (
-              <div key={card.title} className={`bg-white rounded-xl border border-slate-200 border-l-4 ${card.borderColor} p-5 shadow-sm`}>
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-sm font-bold text-slate-900">{card.title}</h3>
-                  <Icon className={`w-8 h-8 ${card.iconColor} opacity-80`} />
-                </div>
-                <p className="text-xl font-extrabold text-slate-900 whitespace-pre-line mb-1">{card.value}</p>
-                {card.sub && <p className="text-xs text-slate-500 mb-3">{card.sub}</p>}
-                <div className="flex items-center justify-between mt-3">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${card.badgeColor}`}>{card.badge}</span>
-                  <button onClick={handleCardAction} className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1">{card.link} <ArrowRight className="w-3 h-3" /></button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <InfoCardsGrid onAction={handleCardAction} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="text-base font-extrabold text-slate-900 mb-1">采购机构画像</h3>
-            <p className="text-xs text-slate-500 mb-4">UNICEF 采购画像（近12个月）</p>
-            <div className="space-y-3">
-              {BUYER_PROFILE.map((row) => (
-                <div key={row.label} className="flex items-start gap-3 text-sm">
-                  <span className="shrink-0 w-24 text-xs font-bold text-slate-500">{row.label}</span>
-                  {row.isStar ? <span className="text-amber-400 text-sm">{row.value}</span> : <span className="text-sm font-bold text-slate-800">{row.value}</span>}
-                </div>
-              ))}
-            </div>
-            <button onClick={() => setAgencyOpen(true)} className="mt-5 text-sm font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1">查看机构详情 <ArrowRight className="w-3.5 h-3.5" /></button>
-          </div>
+          <BuyerProfileCard onOpenAgency={() => setAgencyOpen(true)} />
 
           <div ref={trendRef} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm lg:col-span-1 scroll-mt-20">
             <h3 className="text-base font-extrabold text-slate-900 mb-1">采购金额趋势 <span className="text-xs font-normal text-slate-400">（近12个月）</span></h3>
@@ -162,119 +131,14 @@ export default function PageClient() {
             <button onClick={() => setCalendarOpen(true)} className="mt-3 text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 mx-auto">查看趋势详情 <ArrowRight className="w-3 h-3" /></button>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="text-base font-extrabold text-slate-900 mb-1">主要中标商 TOP 5 <span className="text-xs font-normal text-slate-400">（UN医疗品类）</span></h3>
-            <div className="overflow-x-auto mt-3">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="text-left py-2 text-slate-400 font-bold">排名</th>
-                    <th className="text-left py-2 text-slate-400 font-bold">供应商</th>
-                    <th className="text-left py-2 text-slate-400 font-bold">品类</th>
-                    <th className="text-center py-2 text-slate-400 font-bold">UNGM</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {TOP5_WINNERS.map((w) => (
-                    <tr key={w.rank} className="border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer" onClick={() => setSelectedSupplier(w)}>
-                      <td className="py-2.5 font-bold text-slate-400">{w.rank}</td>
-                      <td className="py-2.5 font-bold text-teal-700 hover:underline">{w.name}</td>
-                      <td className="py-2.5 text-slate-600">{w.category}</td>
-                      <td className="py-2.5 text-center">
-                        <span className={`text-2xs font-bold px-1.5 py-0.5 rounded ${w.level === "UNGM L2" ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"}`}>
-                          {w.level}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <button onClick={() => setWinnersOpen(true)} className="mt-4 text-sm font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1">查看完整名单 <ArrowRight className="w-3.5 h-3.5" /></button>
-          </div>
+          <TopWinnersCard
+            onSelectSupplier={(w) => setSelectedSupplier(w)}
+            onOpenWinners={() => setWinnersOpen(true)}
+          />
         </div>
       </div>
 
-      {/* ── 中国企业联合国采购中标案例板块 ── */}
-      <section className="px-4 sm:px-6 lg:px-8 mb-10">
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900">中国企业联合国采购中标案例</h3>
-              <p className="text-xs text-slate-500 mt-0.5">30 个官方可核验案例 · 涵盖 UNICEF / WHO / UNDP / UNOPS / UNHCR</p>
-            </div>
-            <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg">{CN_AWARD_CASES.length} 例</span>
-          </div>
-
-          {/* 类别筛选 */}
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {["全部", ...CN_CASE_CATEGORIES].map((cat) => (
-              <button key={cat} onClick={() => { setCnCategory(cat); setCnShowAll(false); }}
-                className={`text-2xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
-                  cnCategory === cat ? "bg-teal-600 text-white border-teal-600" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                }`}>
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* 搜索 */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-            <input type="text" value={cnSearch} onChange={(e) => { setCnSearch(e.target.value); setCnShowAll(false); }}
-              placeholder="搜索：企业名 / 采购内容 / 合同编号 / UN机构"
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
-          </div>
-
-          {/* 案例卡片 */}
-          {(() => {
-            const filtered = CN_AWARD_CASES.filter((c) => {
-              const matchCat = cnCategory === "全部" || c.category === cnCategory;
-              const q = cnSearch.trim().toLowerCase();
-              const matchSearch = !q || c.winnerCN.toLowerCase().includes(q) || c.winnerEN.toLowerCase().includes(q) ||
-                c.content.toLowerCase().includes(q) || c.contractNo.toLowerCase().includes(q) || c.agency.toLowerCase().includes(q);
-              return matchCat && matchSearch;
-            });
-            const displayed = cnShowAll ? filtered : filtered.slice(0, 6);
-            if (filtered.length === 0) {
-              return <p className="text-center text-xs text-slate-400 py-8">无匹配案例</p>;
-            }
-            return (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {displayed.map((c) => {
-                    const fmtAmt = c.amountUSD ? `USD ${c.amountUSD.toLocaleString()}` : c.amountText;
-                    return (
-                      <div key={c.id} onClick={() => setCnDetail(c)}
-                        className="border border-slate-200 rounded-lg p-3.5 hover:border-teal-300 hover:shadow-sm cursor-pointer transition-all group">
-                        <div className="flex items-start justify-between mb-2">
-                          <span className="text-2xs font-bold text-slate-400">#{c.id}</span>
-                          <span className={`text-2xs font-bold px-1.5 py-0.5 rounded ${
-                            c.evidenceLevel.includes("A+") ? "bg-emerald-100 text-emerald-700" :
-                            c.evidenceLevel === "A" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"
-                          }`}>{c.evidenceLevel}</span>
-                        </div>
-                        <p className="text-xs font-bold text-slate-800 mb-1 line-clamp-2 group-hover:text-teal-700 transition-colors">{c.content}</p>
-                        <p className="text-2xs font-bold text-teal-700 mb-1.5 truncate">{c.winnerCN}</p>
-                        <div className="flex items-center justify-between text-2xs text-slate-400">
-                          <span>{c.agency}</span>
-                          <span className="font-bold text-slate-600">{fmtAmt}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {filtered.length > 6 && !cnShowAll && (
-                  <button onClick={() => setCnShowAll(true)}
-                    className="mt-4 mx-auto block text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1">
-                    查看全部 {filtered.length} 个案例 <ArrowRight className="w-3 h-3" />
-                  </button>
-                )}
-              </>
-            );
-          })()}
-        </div>
-      </section>
+      <CnCaseSection onOpenDetail={(c) => setCnDetail(c)} />
 
       {/* 弹窗 */}
       <CategoryModal open={categoryOpen} onClose={() => setCategoryOpen(false)} />
