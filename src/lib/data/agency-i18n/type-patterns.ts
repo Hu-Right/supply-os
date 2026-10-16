@@ -164,7 +164,7 @@ export const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<
   // 复用既有 typeKey，不新增桶；且置于数组末尾，不抢任何已有匹配的优先级。
   [/\b(?:POLICIA|POLICÍA|POLICIAS|POLICÍAS)\b/i, { typeKey: "POLICE_INTL", i18n: { zh: "各警察机构", fr: "Police", ru: "Полиция", es: "Policía", ar: "الشرطة" } }],
   [/\b(?:BANCO|BANCOS)\b/i, { typeKey: "BANK_INTL", i18n: { zh: "各银行", fr: "Banques", ru: "Банки", es: "Bancos", ar: "البنوك" } }],
-  [/\b(?:JUSTIÇA|JUSTICA|JUDICIÁRIA|JUDICIARIA)\b/i, { typeKey: "COURT_INTL", i18n: { zh: "各法院", fr: "Tribunaux", ru: "Суды", es: "Tribunales", ar: "المحاكم" } }],
+  [/\b(?:JUSTIÇA|JUSTICA|JUDICI[ÁA]RI[OA])\b/i, { typeKey: "COURT_INTL", i18n: { zh: "各法院", fr: "Tribunaux", ru: "Суды", es: "Tribunales", ar: "المحاكم" } }],
   [/\b(?:ASSEMBLEIA|ASAMBLEA)\b/i, { typeKey: "PARLIAMENT_INTL", i18n: { zh: "各国议会", fr: "Parlements", ru: "Парламенты", es: "Parlamentos", ar: "البرلمانات" } }],
   [/\b(?:CONSELHO|CONSEJO)\b/i, { typeKey: "COUNCIL_INTL", i18n: { zh: "各议会", fr: "Conseils", ru: "Советы", es: "Consejos", ar: "المجالس" } }],
   [/\b(?:CONTROLADORIA|CONTRALORIA|CONTRALORÍA)\b/i, { typeKey: "INSPECTORATE_INTL", i18n: { zh: "各监察机构", fr: "Inspection", ru: "Инспекция", es: "Inspección", ar: "التفتيش" } }],
@@ -173,4 +173,13 @@ export const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<
   [/\b(?:ESCOLA|COLEGIO|COLEGÍO)\b/i, { typeKey: "COLLEGE_INTL", i18n: { zh: "各学院", fr: "Collèges", ru: "Колледжи", es: "Colegios", ar: "الكليات" } }],
   [/\bUNIVERSIDADE\b/i, { typeKey: "UNIVERSITY_INTL", i18n: { zh: "各大学", fr: "Universités", ru: "Университеты", es: "Universidades", ar: "الجامعات" } }],
   [/\b(?:SECRETARÍA|SECRETARIA)\b/i, { typeKey: "SECRETARIA_BR", i18n: { zh: "巴西各市厅局", fr: "Secrétariats du Brésil", ru: "Секретариаты Бразилии", es: "Secretarías de Brasil", ar: "أمانات البرازيل" } }],
+  // ── 第二轮长尾扩展（未分桶脏名→归入既有桶；置于末尾不抢上方优先级）──
+  [/\b(?:MINIST[ÉE]RIO\s+P[ÚU]BLICO|MINISTERIO PUBLICO)\b/i, { typeKey: "AGENCY_INTL", i18n: { zh: "各机构", fr: "Agences", ru: "Агентства", es: "Agencias", ar: "الوكالات" } }],
+  [/\b(?:COMISS[ÃA]O|COMISIÓN|COMISION)\b/i, { typeKey: "COMMISSION_INTL", i18n: { zh: "各委员会", fr: "Commissions", ru: "Комиссии", es: "Comisiones", ar: "اللجان" } }],
+  [/\b(?:AGUA|ÁGUA)\b[^,]*\bESGOTO\b|\bESGOTO\b|\bSAAE\b|\bSANEAMENTO\b/i, { typeKey: "SANEAMENTO_BR", i18n: { zh: "巴西各市环卫/水务", fr: "Assainissement du Brésil", ru: "Водоснабжение Бразилии", es: "Saneamiento de Brasil", ar: "الصرف الصحي البرازيلي" } }],
+  [/\b(?:ELETRIC[ÁA]S?|ELÉTRIC[ÁA]S?|ELETROBR[ÁA]S|ENERGIA|ENERG[ÉE]TICA)\b/i, { typeKey: "ENERGY_INTL", i18n: { zh: "各电力能源机构", fr: "Énergie", ru: "Энергетика", es: "Energía", ar: "الطاقة" } }],
+  [/\bUNIVERSIT[ÁA]RI[OA]\b/i, { typeKey: "UNIVERSITY_INTL", i18n: { zh: "各大学", fr: "Universités", ru: "Университеты", es: "Universidades", ar: "الجامعات" } }],
+  [/\bPOLYTECHNIC\b/i, { typeKey: "COLLEGE_INTL", i18n: { zh: "各学院", fr: "Collèges", ru: "Колледжи", es: "Colegios", ar: "الكليات" } }],
+  [/\b(?:MILITAR|FOR[ÇC]AS ARMADAS|EX[ÉE]RCITO|MARINHA|AERON[ÁA]UTICA)\b/i, { typeKey: "MILITARY_BR", i18n: { zh: "巴西军事机构", fr: "Institutions militaires du Brésil", ru: "Военные учреждения Бразилии", es: "Instituciones militares de Brasil", ar: "المؤسسات العسكرية البرازيلية" } }],
+  [/\b(?:MINIST[ÉE]RIO|MINISTERIO)\b/i, { typeKey: "MINISTERIO_BR", i18n: { zh: "巴西各部委", fr: "Ministères du Brésil", ru: "Министерства Бразилии", es: "Ministerios de Brasil", ar: "وزارات البرازيل" } }],
 ];
