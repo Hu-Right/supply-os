@@ -6,6 +6,7 @@ import { AuthProvider } from "@/core/auth";
 import { Toaster } from "sonner";
 import { ErrorBoundaryWithI18n } from "@/shared/ui/ErrorBoundary";
 import { initCountryNames } from "@/shared/data/countryNames";
+import { initPerfMonitor } from "@/core/perf";
 import type { Locale } from "@/core/i18n/bundles";
 
 /**
@@ -36,9 +37,14 @@ export default function Providers({
   );
 }
 
-/** 应用启动时一次性加载运行时数据（国家名映射等） */
+/** 应用启动时一次性加载运行时数据（国家名映射、Web Vitals 采集等） */
 function AppInit() {
-  useEffect(() => { initCountryNames(); }, []);
+  useEffect(() => {
+    initCountryNames();
+    // 接上 core/perf 采集入口：不调用则 TTFB/FCP/LCP 永远不会被采集（旧注释
+    // 「在 main.tsx 中调用」是 Vite 迁移遗留，本项目客户端入口就是这里）
+    initPerfMonitor();
+  }, []);
   return null;
 }
 

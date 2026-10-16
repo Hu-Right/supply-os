@@ -252,7 +252,7 @@ export function printSnapshot(snapshot: PerfSnapshot): void {
 
 let initialized = false;
 
-/** 启动性能采集（在 main.tsx 中调用一次） */
+/** 启动性能采集（在客户端入口 src/app/providers.tsx 的 AppInit 中调用一次） */
 export function initPerfMonitor(): void {
   if (initialized) return;
   initialized = true;

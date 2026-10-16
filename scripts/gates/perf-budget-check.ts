@@ -8,7 +8,7 @@
  * 环境变量 (可选，覆盖默认阈值):
  *   PERF_TTFB_BUDGET   (default: 500ms)
  *   PERF_FCP_BUDGET    (default: 1800ms)
- *   PERF_LCP_BUDGET    (default: 4000ms)
+ *   PERF_LCP_BUDGET    (default: 2500ms，Google "Good" 阈值)
  *   PERF_DOM_BUDGET    (default: 3500ms)
  *   PERF_BASE_URL      (default: http://localhost:3039)
  */
@@ -30,9 +30,9 @@ const BUDGETS = {
 
 const BASE_URL = process.env.PERF_BASE_URL || "http://localhost:3039";
 
-/** 需要检查的关键页面 */
+/** 需要检查的关键页面（路径必须对应 src/app 真实路由，否则测的是 404 页） */
 const PAGES = [
-  { name: "展厅", path: "/showroom" },
+  { name: "首页", path: "/" },
   { name: "采购公告", path: "/procurement" },
   { name: "供应商目录", path: "/supplier" },
   { name: "研修班", path: "/training" },
