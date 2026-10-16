@@ -12,6 +12,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS, EC_CLAIM_SUPPLIER_NOT_FOUND, EC_CLAIM_SELF_BOUND, EC_CLAIM_BOUND_BY_OTHER, EC_CLAIM_PENDING } from "@/shared/constants/api";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { assertBindingAllowsSubject, readCurrentBinding } from "@/lib/services/enterprise-binding";
+import { LICENSE_URL_PREFIX, LICENSE_FILENAME_RE } from "@/lib/services/file-upload";
 
 /** POST — 提交认领申请 */
 export const POST = withRoute(async (req: NextRequest) => {
@@ -35,10 +36,10 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   // 执照可选：认领弹窗仅确认规则，执照在设置页限时上传（1 小时内保存即续期到审核窗口）
-  const LICENSE_URL_PREFIX = "/api/user/enterprise/license/";
+  // 前缀与文件名白名单一律取 file-upload 单一事实源，杜绝本地副本随 SSOT 漂移（P1-5）
   const rawLicense = typeof body.license_url === "string" ? body.license_url.trim() : "";
-  const licenseUrl = rawLicense.startsWith(LICENSE_URL_PREFIX)
-    && /^license_[0-9a-zA-Z_-]{1,80}\.(jpg|jpeg|png|webp)$/.test(rawLicense.slice(LICENSE_URL_PREFIX.length))
+  const licensePrefix = `${LICENSE_URL_PREFIX}/`;
+  const licenseUrl = rawLicense.startsWith(licensePrefix) && LICENSE_FILENAME_RE.test(rawLicense.slice(licensePrefix.length))
     ? rawLicense : "";
 
   const ctx = getContext();
