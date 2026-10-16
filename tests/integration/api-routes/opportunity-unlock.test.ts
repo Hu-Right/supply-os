@@ -12,6 +12,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+// 类型化 mock 防护：resolveIndustryScope 的返回值必须满足真实 IndustryScope，
+// 使生产侧字段改名（如 G 码退役 groupCode→l1Code）时 tsc 直接报错，而非静默旧形。
+import type { IndustryScope } from "@/lib/services/industry-scope";
+// 同理钉住配额侧跨仓边界：锁行与消耗结果必须满足 benefit-write 导出的真实类型。
+import type { LockedPoolRow, ConsumeResult } from "@/lib/repos/benefit-write.repo";
 
 const {
   findExistingUnlock,
@@ -81,7 +86,7 @@ vi.mock("@/lib/db/context", () => ({
         quota_total: 100,
         quota_used: 5,
         status: "active",
-      }),
+      } satisfies LockedPoolRow),
       openQuotaPool: vi.fn().mockResolvedValue(undefined),
       consumeLockedPool,
     },
@@ -106,8 +111,8 @@ beforeEach(() => {
   findExistingUnlock.mockResolvedValue(null);
   connQuery.mockResolvedValue([[]]);
   loadCells.mockResolvedValue([{ benefit_code: "notice_view", value_num: 100 }]);
-  consumeLockedPool.mockResolvedValue("consumed");
-  resolveIndustryScope.mockResolvedValue({ scoped: false, l1Code: null, l1Nodes: [], needsIndustry: false });
+  consumeLockedPool.mockResolvedValue("consumed" satisfies ConsumeResult);
+  resolveIndustryScope.mockResolvedValue({ scoped: false, l1Code: null, l1Nodes: [], needsIndustry: false } satisfies IndustryScope);
   opportunityInCategory.mockResolvedValue(true);
 });
 
@@ -187,7 +192,7 @@ describe("POST /api/opportunities/[id]/unlock", () => {
 
   it("池被并发耗尽（consumed→denied）→ 402，事务回滚不落流水", async () => {
     loadCells.mockResolvedValue([{ benefit_code: "notice_view", value_num: 100 }]);
-    consumeLockedPool.mockResolvedValue("denied");
+    consumeLockedPool.mockResolvedValue("denied" satisfies ConsumeResult);
     const { POST } = await import("@/app/api/opportunities/[id]/unlock/route");
     const res = await POST(unlockRequest(176, { unlock_type: "single" }), routeParams(176));
     expect(res.status).toBe(402);
@@ -196,7 +201,7 @@ describe("POST /api/opportunities/[id]/unlock", () => {
   });
 
   it("行业墙：越大类 → 403，不解锁不扣配额", async () => {
-    resolveIndustryScope.mockResolvedValue({ scoped: true, l1Code: "UGT-25", l1Nodes: ["UGT-25"], needsIndustry: false });
+    resolveIndustryScope.mockResolvedValue({ scoped: true, l1Code: "UGT-25", l1Nodes: ["UGT-25"], needsIndustry: false } satisfies IndustryScope);
     opportunityInCategory.mockResolvedValue(false);
     const { POST } = await import("@/app/api/opportunities/[id]/unlock/route");
     const res = await POST(unlockRequest(176, { unlock_type: "subscription" }), routeParams(176));
