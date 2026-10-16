@@ -99,3 +99,17 @@ export function currencySymbol(code: string): string {
   const map: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€", GBP: "£", JPY: "¥", HKD: "HK$" };
   return map[code] || code;
 }
+
+/**
+ * 基于字符串哈希的确定性头像色（同一名称永远同色）。
+ * 首页优质供应商滚动卡的头像底色（原 ContentColumns 组件文件内联定义，
+ * 按「禁止在组件文件内定义可复用工具函数」约定上收到本模块）。
+ */
+export function avatarColorFromName(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 55%, 50%)`;
+}

@@ -3,55 +3,27 @@
  * Content Columns — Hot Notices / Quality Suppliers / RFQ
  *
  * @module features/home/components/ContentColumns
- * @description 首页三栏卡片区，数据来自真实 API。
- *              宽表字段回退链与列表页 NoticeCard 一致。
+ * @description 首页三栏卡片区（容器组件），数据来自真实 API。
+ *              2026-10 组件拆分：卡片渲染抽出 content/NoticeScrollCard 与
+ *              content/SupplierScrollCard（原内联 renderItem 共 180+ 行，
+ *              单文件破 200 行红线）；头像色工具上收 shared/utils/format。
+ *              本文件只保留取数编排 + 三列布局。
  */
 import { memo, useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
-import { api } from "@/core/http";
-import { getCountryDisplayName } from "@/shared/data/countryNames";
-import { CountryFlag } from "@/shared/ui";
-import { noticeTypeKey } from "@/shared/utils/notice-type";
-import {
-  displayNoticeTitle, displayNoticeAgency, displayNoticeBudget, displayDeadlineLabel,
-  type NoticeDisplayFields,
-} from "@/shared/utils/noticeDisplay";
+import { apiCached } from "@/core/http";
 import { VerticalMarquee } from "./VerticalMarquee";
-
-/** 三栏卡片共用的宽表字段口径（与列表页 NoticeCard 一致） */
-interface HomeNoticeItem extends NoticeDisplayFields {
-  id: number;
-}
+import { NoticeScrollCard, type HomeNoticeItem } from "./content/NoticeScrollCard";
+import { SupplierScrollCard, type HomeSupplierItem } from "./content/SupplierScrollCard";
 
 /** 三栏内容区 — 热门商机 / 优质供应商 / RFQ 需求 */
 export const ContentColumns = memo(function ContentColumns() {
   const { t, locale } = useLocale();
-  const [suppliers, setSuppliers] = useState<Array<{
-    id: string; nameZh: string; countryZh: string; cityZh: string; industryZh: string;
-    complianceLabelsZh: string[]; mainProductsZh: string[]; status: string;
-  }>>([]);
+  const [suppliers, setSuppliers] = useState<HomeSupplierItem[]>([]);
   const [hotNotices, setHotNotices] = useState<HomeNoticeItem[]>([]);
   const [rfqNotices, setRfqNotices] = useState<HomeNoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  
-  // 复用 shared 工具函数，与 procurement/NoticeCard 保持口径一致
-  const displayCountry = (n: HomeNoticeItem) => getCountryDisplayName(n.country, locale);
-  // 采购类型徽章文案：noticeTypeKey + i18n，未知类型不展示
-  const typeLabel = (n: HomeNoticeItem) => {
-    const key = noticeTypeKey(n.notice_type);
-    return key ? t(key) : "";
-  };
-
-  /** 基于字符串哈希生成确定性 HSL 颜色（同一名称始终同色） */
-  const nameToColor = (name: string): string => {
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const hue = Math.abs(hash) % 360;
-    return `hsl(${hue}, 55%, 50%)`;
-  };
 
   useEffect(() => {
     const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
@@ -68,19 +40,19 @@ export const ContentColumns = memo(function ContentColumns() {
     };
 
     // 获取已审核的优质供应商（20 条用于滚动展示）
-    api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; industryZh: string; complianceLabelsZh: string[]; mainProductsZh: string[]; status: string }> }>("/api/suppliers?page=1&pageSize=20&sort=latest")
+    apiCached<{ items: HomeSupplierItem[] }>("/api/suppliers?page=1&pageSize=20&sort=latest")
       .then((data) => setSuppliers(data.items ?? []))
       .catch((e) => { failed++; console.warn("[ContentColumns] suppliers fetch failed:", e); })
       .finally(onSettle);
 
     // 热门商机：仅取运营精选（is_featured=1），20 条用于滚动
-    api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=20&featured=1&sort=newest&deadline_from=${today}`)
+    apiCached<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=20&featured=1&sort=newest&deadline_from=${today}`)
       .then((data) => setHotNotices(data.items ?? []))
       .catch((e) => { failed++; console.warn("[ContentColumns] hot notices fetch failed:", e); })
       .finally(onSettle);
 
     // 最新 RFQ 询价类公告，20 条用于滚动
-    api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=20&notice_type=RFQ&sort=newest&deadline_from=${today}`)
+    apiCached<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=20&notice_type=RFQ&sort=newest&deadline_from=${today}`)
       .then((data) => setRfqNotices(data.items ?? []))
       .catch((e) => { failed++; console.warn("[ContentColumns] RFQ notices fetch failed:", e); })
       .finally(onSettle);
@@ -104,31 +76,7 @@ export const ContentColumns = memo(function ContentColumns() {
               maxHeight={380}
               emptyText={hasError ? t("homeLoadFailed") : t("homeEmptyHot")}
               renderItem={(notice: HomeNoticeItem) => (
-                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4">
-                  <div className="flex items-center gap-2">
-                    <CountryFlag name={notice.country} />
-                    {notice.notice_type && (
-                      <span className="px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-2xs font-bold text-teal-700">
-                        {typeLabel(notice)}
-                      </span>
-                    )}
-                    <span className="ml-auto text-xs text-amber-600 shrink-0">{displayDeadlineLabel(notice.deadline_sec)}</span>
-                  </div>
-                  <p className="text-[15px] font-extrabold text-slate-900 group-hover:text-teal-700 transition-colors line-clamp-2 mt-2">
-                    {displayNoticeTitle(notice)}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1.5 truncate">
-                    {[displayCountry(notice), displayNoticeAgency(notice)].filter(Boolean).join(" / ")}
-                  </p>
-                  <div className="flex items-center justify-between mt-2">
-                    {notice.estimated_value && notice.estimated_value !== '0.00' ? (
-                      <span className="text-sm font-semibold text-slate-800">{t("homeBudgetPrefix")}{displayNoticeBudget(notice.estimated_value)}</span>
-                    ) : <span />}
-                    <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
-                      {t("homeViewDetail")}
-                    </span>
-                  </div>
-                </a>
+                <NoticeScrollCard notice={notice} locale={locale} t={t} variant="hot" />
               )}
             />
           </div>
@@ -151,59 +99,7 @@ export const ContentColumns = memo(function ContentColumns() {
               loading={loading}
               maxHeight={380}
               emptyText={hasError ? t("homeLoadFailed") : t("homeEmptySuppliers")}
-              renderItem={(supplier: {
-                id: string; nameZh: string; countryZh: string; cityZh: string; industryZh: string;
-                complianceLabelsZh: string[]; mainProductsZh: string[]; status: string;
-              }) => (
-                <a key={supplier.id} href={`/supplier/${supplier.id}`} className="block group py-4">
-                  {/* 第一行：头像 + 公司名 + 认证标签 */}
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-extrabold"
-                      style={{ backgroundColor: nameToColor(supplier.nameZh) }}
-                    >
-                      {supplier.nameZh.slice(0, 1)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-extrabold text-slate-900 group-hover:text-teal-700 transition-colors truncate">
-                          {supplier.nameZh}
-                        </p>
-                        {supplier.status === "approved" && (
-                          <span className="shrink-0 px-1.5 py-0.5 rounded border border-teal-200 bg-teal-50 text-2xs font-bold text-teal-700">
-                            {t("homeCertSupplier")}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {[supplier.countryZh, supplier.cityZh].filter(Boolean).join(" · ")}
-                      </p>
-                    </div>
-                  </div>
-                  {/* 第二行：行业 + 资质标签 */}
-                  <div className="flex flex-wrap items-center gap-1 mt-3">
-                    {supplier.industryZh && (
-                      <span className="text-2xs px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-teal-700 font-bold">
-                        {supplier.industryZh}
-                      </span>
-                    )}
-                    {(supplier.complianceLabelsZh ?? []).slice(0, 3).map((label, j) => (
-                      <span key={j} className="text-2xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                  {/* 第三行：主营产品 + 按钮 */}
-                  <div className="flex items-center justify-between mt-3">
-                    <p className="text-xs text-slate-500 truncate flex-1 mr-3">
-                      {(supplier.mainProductsZh ?? []).slice(0, 3).join(" · ")}
-                    </p>
-                    <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
-                      {t("homeViewDetail")}
-                    </span>
-                  </div>
-                </a>
-              )}
+              renderItem={(supplier: HomeSupplierItem) => <SupplierScrollCard supplier={supplier} t={t} />}
             />
           </div>
           <a href="/supplier" className="mt-5 text-center text-sm font-bold text-teal-600 hover:underline block">
@@ -226,28 +122,7 @@ export const ContentColumns = memo(function ContentColumns() {
               maxHeight={380}
               emptyText={hasError ? t("homeLoadFailed") : t("homeEmptyRfq")}
               renderItem={(notice: HomeNoticeItem) => (
-                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-2xs font-bold text-blue-700">
-                      {t("homeRfqBadge")}
-                    </span>
-                    <span className="ml-auto text-xs text-slate-400 shrink-0">{displayDeadlineLabel(notice.deadline_sec)}</span>
-                  </div>
-                  <p className="text-[15px] font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 mt-2">
-                    {displayNoticeTitle(notice)}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1.5 truncate">
-                    {[displayNoticeAgency(notice), displayCountry(notice)].filter(Boolean).join(" / ")}
-                  </p>
-                  <div className="flex items-center justify-between mt-2">
-                    {notice.estimated_value && notice.estimated_value !== '0.00' ? (
-                      <span className="text-sm font-semibold text-slate-800">{t("homeBudgetPrefix")}{displayNoticeBudget(notice.estimated_value)}</span>
-                    ) : <span />}
-                    <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-blue-400 group-hover:text-blue-700 transition-colors">
-                      {t("homeViewDetail")}
-                    </span>
-                  </div>
-                </a>
+                <NoticeScrollCard notice={notice} locale={locale} t={t} variant="rfq" />
               )}
             />
           </div>

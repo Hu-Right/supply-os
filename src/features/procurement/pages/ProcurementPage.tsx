@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, Suspense } from "react";
+import { useRef, useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Crown, Search, Target, Download, LayoutList, LayoutGrid } from "lucide-react";
 import { useLocale } from "@/core/i18n";
@@ -109,6 +109,14 @@ export default function ProcurementPage() {
     trackClick: feedback.trackClick,
     trackDetailOpen: feedback.trackDetailOpen,
   });
+
+  // P0 配套：卡片收藏回调稳定引用——之前内联 (id) => void ... 每次父渲染
+  // 新建函数，直接击穿 NoticeList/NoticeCard 的 React.memo
+  const { toggleFavorite } = actions;
+  const handleToggleFavorite = useCallback(
+    (id: number) => { void toggleFavorite(id); },
+    [toggleFavorite],
+  );
 
   // ── P0-8 安全修复：监听支付成功事件，自动解锁公告 ──
   useEffect(() => {
@@ -375,7 +383,7 @@ export default function ProcurementPage() {
                 feedbackEnabled={feedback.feedbackEnabled}
                 observeCard={feedback.observeCard}
                 favoriteIds={actions.favoriteIds}
-                onToggleFavorite={(id) => void actions.toggleFavorite(id)}
+                onToggleFavorite={handleToggleFavorite}
               />
             : <NoticeList
                 items={search.result.items}
@@ -389,7 +397,7 @@ export default function ProcurementPage() {
                 feedbackEnabled={feedback.feedbackEnabled}
                 observeCard={feedback.observeCard}
                 favoriteIds={actions.favoriteIds}
-                onToggleFavorite={(id) => void actions.toggleFavorite(id)}
+                onToggleFavorite={handleToggleFavorite}
               />
         }
       </section>
