@@ -160,4 +160,17 @@ export const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<
   [/\b(?:Electricity|Power|Energy)\b/i, { typeKey: "ENERGY_INTL", i18n: { zh: "各电力能源机构", fr: "Énergie", ru: "Энергетика", es: "Energía", ar: "الطاقة" } }],
   // 道路/公路
   [/\b(?:Roads|Highway|Highways)\b/i, { typeKey: "ROADS_INTL", i18n: { zh: "各道路机构", fr: "Routes", ru: "Дороги", es: "Carreteras", ar: "الطرق" } }],
+  // ── 葡语/西语同义词（补漏网：既有条目只认英文关键词，导致巴/西葡语政府实体落到 pattern 造名兵底产生乱序中文）──
+  // 复用既有 typeKey，不新增桶；且置于数组末尾，不抢任何已有匹配的优先级。
+  [/\b(?:POLICIA|POLICÍA|POLICIAS|POLICÍAS)\b/i, { typeKey: "POLICE_INTL", i18n: { zh: "各警察机构", fr: "Police", ru: "Полиция", es: "Policía", ar: "الشرطة" } }],
+  [/\b(?:BANCO|BANCOS)\b/i, { typeKey: "BANK_INTL", i18n: { zh: "各银行", fr: "Banques", ru: "Банки", es: "Bancos", ar: "البنوك" } }],
+  [/\b(?:JUSTIÇA|JUSTICA|JUDICIÁRIA|JUDICIARIA)\b/i, { typeKey: "COURT_INTL", i18n: { zh: "各法院", fr: "Tribunaux", ru: "Суды", es: "Tribunales", ar: "المحاكم" } }],
+  [/\b(?:ASSEMBLEIA|ASAMBLEA)\b/i, { typeKey: "PARLIAMENT_INTL", i18n: { zh: "各国议会", fr: "Parlements", ru: "Парламенты", es: "Parlamentos", ar: "البرلمانات" } }],
+  [/\b(?:CONSELHO|CONSEJO)\b/i, { typeKey: "COUNCIL_INTL", i18n: { zh: "各议会", fr: "Conseils", ru: "Советы", es: "Consejos", ar: "المجالس" } }],
+  [/\b(?:CONTROLADORIA|CONTRALORIA|CONTRALORÍA)\b/i, { typeKey: "INSPECTORATE_INTL", i18n: { zh: "各监察机构", fr: "Inspection", ru: "Инспекция", es: "Inspección", ar: "التفتيش" } }],
+  [/\bPROCURADORIA\b/i, { typeKey: "AGENCY_INTL", i18n: { zh: "各机构", fr: "Agences", ru: "Агентства", es: "Agencias", ar: "الوكالات" } }],
+  [/\bREDE\b/i, { typeKey: "NETWORK_INTL", i18n: { zh: "各网络", fr: "Réseaux", ru: "Сети", es: "Redes", ar: "الشبكات" } }],
+  [/\b(?:ESCOLA|COLEGIO|COLEGÍO)\b/i, { typeKey: "COLLEGE_INTL", i18n: { zh: "各学院", fr: "Collèges", ru: "Колледжи", es: "Colegios", ar: "الكليات" } }],
+  [/\bUNIVERSIDADE\b/i, { typeKey: "UNIVERSITY_INTL", i18n: { zh: "各大学", fr: "Universités", ru: "Университеты", es: "Universidades", ar: "الجامعات" } }],
+  [/\b(?:SECRETARÍA|SECRETARIA)\b/i, { typeKey: "SECRETARIA_BR", i18n: { zh: "巴西各市厅局", fr: "Secrétariats du Brésil", ru: "Секретариаты Бразилии", es: "Secretarías de Brasil", ar: "أمانات البرازيل" } }],
 ];
