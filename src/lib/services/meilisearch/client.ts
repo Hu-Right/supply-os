@@ -6,6 +6,7 @@
  * @description 使用 globalThis 缓存客户端，防止 Next.js 热重载导致重复初始化。
  */
 import { Meilisearch, type Settings } from "meilisearch";
+import { SUPPORTED_LANGS } from "../../utils/languages";
 
 const INDEX_NAME = "notices";
 const MAX_TOTAL_HITS = Number(process.env.MEILI_MAX_TOTAL_HITS || "10000000");
@@ -113,8 +114,7 @@ export function getIndexName(): string {
  * 保证 swapIndexes 切换后新索引设置与旧索引完全一致。
  */
 export function buildNoticeIndexSettings(): Settings {
-  // 支持的语言列表（扩展语言只需在此添加）
-  const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
+  // 支持的语言列表：唯一来源 utils/languages（新增语言只改那里）
   const langFields = SUPPORTED_LANGS.flatMap(lang => [`title_${lang}`, `description_${lang}`]);
   return {
     searchableAttributes: [

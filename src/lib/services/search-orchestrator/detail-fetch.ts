@@ -13,8 +13,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { isWideTableReady } from "../search-common/wide-table-readiness";
 import { WIDE_LIMITS, DESC_SOURCE_EXPR } from "../../utils/notice-field-limits";
 import { qualifiedOppWhere } from "../../utils/notice-qualified";
-
-const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
+import { SUPPORTED_LANGS } from "../../utils/languages";
 
 /**
  * 按 ID 列表获取公告详情行。

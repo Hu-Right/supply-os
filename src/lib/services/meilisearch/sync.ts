@@ -10,6 +10,7 @@ import { normalizeNoticeType } from "../../utils/notice-type";
 import { WIDE_LIMITS, truncate } from "../../utils/notice-field-limits";
 import { fromBackbonePathColumn } from "../commodity/backbone-path";
 import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
+import { SUPPORTED_LANGS } from "../../utils/languages";
 
 // NULL deadline 的哨兵值：0（纪元起点）
 const NULL_DEADLINE_SENTINEL = 0;
@@ -34,9 +35,8 @@ async function _getAliasMap(pool: Pool): Promise<Map<string, string>> {
   return aliasMap;
 }
 
-// ── 支持的语言列表 ──
+// ── 支持的语言列表：唯一来源 utils/languages ──
 //（#8：normalizeNoticeType 已迁至 utils/notice-type.ts，本文件仅保留同步职责）
-const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
 /**
  * 构建同步文档（从宽表行）：宽表已包含标准化字段和翻译，无需额外处理

@@ -19,11 +19,12 @@ import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 // JOIN 片段来自叶子模块 wide-sync-sql：不得在本文件定义后再被 fingerprint 反向导入（会成环）
 import { WIDE_OPP_JOIN, WIDE_SYNC_JOIN } from "./wide-sync-sql";
 import { upsertNoticeNodes } from "./notice-nodes";
+import { SUPPORTED_LANGS } from "../../utils/languages";
 
 export { WIDE_OPP_JOIN, WIDE_SYNC_JOIN };
 
-// ── 支持的语言列表 ──
-export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
+// ── 支持的语言列表：唯一来源 utils/languages；本地 import 供本文件使用，此处再导出维持 search-sync barrel 兼容 ──
+export { SUPPORTED_LANGS };
 
 // ── 对账逻辑已拆至 wide-row-reconcile.ts ──
 
