@@ -2,9 +2,10 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useHotTopics, hotGroupView } from "@/features/home/hooks/useHotTopics";
 
+// P0-2 修复：useHotTopics 走 apiCached（TTL 缓存 + 飞行中去重），测试同步改桩
 const mockApi = vi.fn();
 vi.mock("@/core/http", () => ({
-  api: (...args: unknown[]) => mockApi(...args),
+  apiCached: (...args: unknown[]) => mockApi(...args),
 }));
 
 // 服务端给的是「骨架 L1 树码 + 树名 + 计数」（2026-10-15 G 码退役，名字以树为唯一事实源）
@@ -36,6 +37,7 @@ describe("useHotTopics", () => {
 
     expect(result.current.topics).toEqual(mockTopics);
     expect(result.current.error).toBe(false);
+    expect(mockApi).toHaveBeenCalledWith("/api/notices/hot-topics");
   });
 
   it("API 失败时 error=true, topics=null, loading=false", async () => {

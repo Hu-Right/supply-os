@@ -2,10 +2,11 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useHomeStats } from "@/features/home/hooks/useHomeStats";
 
-// Mock @/core/http 的 api 函数
+// Mock @/core/http 的 apiCached 函数（P0-2 修复：首页 hooks 必须走带
+// TTL 缓存 + 飞行中去重的 apiCached，而不是裸 api）
 const mockApi = vi.fn();
 vi.mock("@/core/http", () => ({
-  api: (...args: unknown[]) => mockApi(...args),
+  apiCached: (...args: unknown[]) => mockApi(...args),
 }));
 
 describe("useHomeStats", () => {
@@ -41,6 +42,10 @@ describe("useHomeStats", () => {
     expect(result.current.noticeTodayNew).toBe(42);
     expect(result.current.countryCount).toBe(2);
     expect(result.current.certifiedSupplierCount).toBe(380);
+    // 回归钉：三个端点都经 apiCached（命中模块级 TTL/去重）而非裸 api
+    expect(mockApi).toHaveBeenCalledWith("/api/notices/stats");
+    expect(mockApi).toHaveBeenCalledWith("/api/notices/countries");
+    expect(mockApi).toHaveBeenCalledWith("/api/suppliers?page=1&pageSize=1&status=approved");
   });
 
   it("API 全部失败时保持零值并结束 loading", async () => {
@@ -71,5 +76,22 @@ describe("useHomeStats", () => {
     }, { timeout: 3000 });
 
     expect(result.current.noticeTodayNew).toBe(0);
+  });
+
+  it("传入服务端直出初值：首帧即真实数字且 loading=false，后台刷新照常接管", async () => {
+    mockSuccess();
+    const { result } = renderHook(() =>
+      useHomeStats({ noticeActive: 999, noticeTodayNew: 11, countryCount: 3, certifiedSupplierCount: 77, countries: [] }),
+    );
+
+    // 首帧（effect 未结算前）就拿到初值，不经过 0/加载态
+    expect(result.current.noticeActive).toBe(999);
+    expect(result.current.loading).toBe(false);
+
+    // 后台刷新完成后换成接口真值
+    await waitFor(() => {
+      expect(result.current.noticeActive).toBe(12500);
+    }, { timeout: 3000 });
+    expect(result.current.loading).toBe(false);
   });
 });

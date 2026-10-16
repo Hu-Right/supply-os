@@ -7,11 +7,11 @@
  */
 import { formatCompactNumber } from "@/shared/utils/format";
 import { useLocale } from "@/core/i18n";
-import { useHomeStats } from "../../hooks/useHomeStats";
+import { useHomeStats, type HomeStatsData } from "../../hooks/useHomeStats";
 
-export function AboutHero() {
+export function AboutHero({ initialHome }: { initialHome?: Partial<HomeStatsData> } = {}) {
   const { t } = useLocale();
-  const { noticeActive, countryCount, certifiedSupplierCount } = useHomeStats();
+  const { noticeActive, countryCount, certifiedSupplierCount } = useHomeStats(initialHome);
 
   const metrics = [
     { value: formatCompactNumber(noticeActive), label: t("aboutM1Label"), sub: t("aboutM1Sub") },

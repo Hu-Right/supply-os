@@ -12,7 +12,7 @@
 
 // ── 子模块 re-export（保持对外 API 不变）──
 export type { NoticeSearchParams, NoticeSearchResult, AgencyCacheItem, NoticeStatsResult } from "./types";
-export { getNoticeStats } from "./stats";
+export { getNoticeStats, getNoticeDailyNew } from "./stats";
 export { refreshNoticeCountries, getNoticeCountries, expandCountryAliases, expandCountryAllForms } from "./countries";
 export { refreshNoticeAgencies, getNoticeAgencies, getAgencyCacheData } from "./agencies";
 export { getHotTopics, clearHotTopicsCache } from "./hot-topics";

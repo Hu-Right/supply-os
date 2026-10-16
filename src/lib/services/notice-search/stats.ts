@@ -80,3 +80,63 @@ export function clearStatsCache(): void {
   noticeStatsCache = null;
   statsCalcPromise = null;
 }
+
+// ── 今日/昨日同期新增公告数（首页数字墙 + /api/notices/stats 共用）──
+
+/** 北京时间偏移量（毫秒） */
+const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/**
+ * 计算北京时间某日 00:00 的 Unix 时间戳（秒）
+ * create_time 字段存储的是 Unix 时间戳（秒），每日切分点为北京时间自然日 00:00
+ */
+function beijingDateToUnix(dateStr: string, hour: number): number {
+  const d = new Date(`${dateStr}T${String(hour).padStart(2, "0")}:00:00+08:00`);
+  return Math.floor(d.getTime() / 1000);
+}
+
+/** 获取北京时间日期字符串 YYYY-MM-DD */
+function getBeijingDate(): string {
+  const now = new Date(Date.now() + BEIJING_OFFSET_MS);
+  return now.toISOString().slice(0, 10);
+}
+
+/** 获取偏移天数的北京时间日期字符串 */
+function getBeijingDateOffset(daysOffset: number): string {
+  const now = new Date(Date.now() + BEIJING_OFFSET_MS);
+  now.setDate(now.getDate() + daysOffset);
+  return now.toISOString().slice(0, 10);
+}
+
+/**
+ * 今日新增 + 昨日同期新增（基于 create_time Unix 时间戳，北京时间自然日 00:00 切分，
+ * 24:00 归零重开；昨日取与今日已流逝等长的同期窗口，保证环比在一天内任意时刻可比）。
+ *
+ * 2026-10 从 /api/notices/stats 路由内联 SQL 下沉：首页服务端直出（ISR）与路由
+ * 必须走同一份口径，不得长出第二套切窗算法。查询失败直接抛给调用方，
+ * 由调用方决定降级值（路由维持历史行为：失败时置 0）。
+ */
+export async function getNoticeDailyNew(pool: Pool): Promise<{ todayNew: number; yesterdayNew: number }> {
+  const todayStr = getBeijingDate();
+  const todayStart = beijingDateToUnix(todayStr, 0);                    // 今天 00:00
+  const todayEnd = beijingDateToUnix(getBeijingDateOffset(1), 0);       // 明天 00:00（今日 24:00）
+  const elapsedSec = Math.max(0, Math.floor(Date.now() / 1000) - todayStart);
+  const yesterdayStart = beijingDateToUnix(getBeijingDateOffset(-1), 0); // 昨天 00:00
+  const yesterdayEnd = yesterdayStart + elapsedSec;                      // 昨天 same time
+
+  const [todayResult, yesterdayResult] = await Promise.all([
+    pool.query(
+      "SELECT COUNT(*) AS total FROM crm_bid_notices WHERE create_time >= ? AND create_time < ?",
+      [todayStart, todayEnd]
+    ),
+    pool.query(
+      "SELECT COUNT(*) AS total FROM crm_bid_notices WHERE create_time >= ? AND create_time < ?",
+      [yesterdayStart, yesterdayEnd]
+    ),
+  ]);
+  // pool.query 返回 [rows, fields]，取 rows[0].total
+  return {
+    todayNew: Number((todayResult[0] as RowDataPacket[])?.[0]?.total || 0),
+    yesterdayNew: Number((yesterdayResult[0] as RowDataPacket[])?.[0]?.total || 0),
+  };
+}

@@ -10,11 +10,12 @@ import { AboutHero } from "./about/AboutHero";
 import { AboutAdvantages } from "./about/AboutAdvantages";
 import { AboutSteps } from "./about/AboutSteps";
 import { AboutCta } from "./about/AboutCta";
+import type { HomeStatsData } from "../hooks/useHomeStats";
 
-export function AboutSection() {
+export function AboutSection({ initialHome }: { initialHome?: Partial<HomeStatsData> } = {}) {
   return (
     <section className="bg-white">
-      <AboutHero />
+      <AboutHero initialHome={initialHome} />
       <AboutAdvantages />
       <AboutSteps />
       <AboutCta />

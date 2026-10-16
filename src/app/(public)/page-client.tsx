@@ -22,6 +22,7 @@ import {
   AboutSection,
   IdentityChoiceBanner,
 } from "@/features/home";
+import type { HomeStatsData } from "@/features/home";
 import { ErrorBoundary } from "@/shared/ui";
 
 /** 首页全局错误降级 UI */
@@ -42,17 +43,17 @@ function HomeErrorFallback() {
   );
 }
 
-export default function PageClient() {
+export default function PageClient({ initialHome }: { initialHome?: HomeStatsData } = {}) {
   return (
     <ErrorBoundary fallback={<HomeErrorFallback />}>
       <div className="min-h-screen bg-white">
         <HeroSection />
         <IdentityChoiceBanner />
-        <StatsWall />
+        <StatsWall initialHome={initialHome} />
         <HotTopicsSection />
-        <WorldMapSection />
+        <WorldMapSection initialHome={initialHome} />
         <ContentColumns />
-        <AboutSection />
+        <AboutSection initialHome={initialHome} />
       </div>
     </ErrorBoundary>
   );

@@ -7,15 +7,15 @@
  *              背景与导航栏连为一体，地球装饰在右侧。
  *              热门标签数据由 useHotTopics hook 统一提供。
  */
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { useHotTopics, hotGroupView } from "../hooks/useHotTopics";
 import { Search } from "lucide-react";
 
-/** Hero 区 — 采购机会搜索 + 热门标签 */
-export function HeroSection() {
+/** Hero 区 — 采购机会搜索 + 热门标签（纯展示，页面其它区块 state 变化不重渲染） */
+export const HeroSection = memo(function HeroSection() {
   const router = useRouter();
   const { t, locale } = useLocale();
   const [query, setQuery] = useState("");
@@ -107,4 +107,4 @@ export function HeroSection() {
       </div>
     </section>
   );
-}
+});

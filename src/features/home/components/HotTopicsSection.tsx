@@ -7,11 +7,12 @@
  *              服务端 10 分钟缓存 + HTTP 10 分钟缓存，无需客户端轮询。
  *              名字与链接都由 hotGroupView 给出（两个组件共用一份），本组件不拼口径。
  */
+import { memo } from "react";
 import { useLocale } from "@/core/i18n";
 import { useHotTopics, hotGroupView } from "../hooks/useHotTopics";
 
-/** 热门品目大类 — 真实计数 */
-export function HotTopicsSection() {
+/** 热门品目大类 — 真实计数（展示组件，memo 隔离父层重渲染） */
+export const HotTopicsSection = memo(function HotTopicsSection() {
   const { t } = useLocale();
   const { topics } = useHotTopics();
 
@@ -40,4 +41,4 @@ export function HotTopicsSection() {
       </div>
     </section>
   );
-}
+});

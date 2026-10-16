@@ -4,8 +4,8 @@
  *
  * @module features/home/hooks/useHotTopics
  * @description HeroSection 和 HotTopicsSection 原先各自独立调用
- *              /api/notices/hot-topics，提取为统一 hook 后由 api-client
- *              飞行中去重，确保同一时刻只发 1 次请求。
+ *              /api/notices/hot-topics，提取为统一 hook 后由 apiCached 的
+ *              TTL 缓存 + 飞行中去重，确保同一时刻只发 1 次真实请求。
  *              服务端 10 分钟缓存 + HTTP 10 分钟缓存，无需客户端轮询。
  *
  * 返回值：
@@ -17,8 +17,8 @@
  * 不再有 commodityGroup_* locale 键第二口径。
  */
 import { useState, useEffect } from "react";
-import { api } from "@/core/http";
-import { isCommodityNodeKey } from "@/lib/services/commodity/tree";
+import { apiCached } from "@/core/http";
+import { isCommodityNodeKey } from "@/shared/constants/commodity-code";
 
 /** 热门大类（服务端 hot-topics 聚合的 industries 字段）：code = L1 树码 + 筛选链接身份 */
 export interface HotGroupItem {
@@ -68,7 +68,7 @@ export function hotGroupView(
 
 /**
  * 热门话题数据 hook — 获取热门国家 + 热门大类（含计数）。
- * 服务端已缓存，客户端仅首次加载时请求。
+ * 服务端已缓存，客户端走 apiCached（TTL 缓存 + 飞行中去重），仅首次加载时发真实请求。
  */
 export function useHotTopics(): UseHotTopicsReturn {
   const [topics, setTopics] = useState<HotTopicsData | null>(null);
@@ -76,7 +76,7 @@ export function useHotTopics(): UseHotTopicsReturn {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    api<HotTopicsData>("/api/notices/hot-topics")
+    apiCached<HotTopicsData>("/api/notices/hot-topics")
       .then(setTopics)
       .catch(() => setError(true))
       .finally(() => setLoading(false));

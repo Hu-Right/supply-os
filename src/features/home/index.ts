@@ -13,4 +13,5 @@ export { AboutSection } from "./components/AboutSection";
 export { UpgradeBanner } from "./components/UpgradeBanner";
 export { IdentityChoiceBanner } from "./components/IdentityChoiceBanner";
 export { useHomeStats } from "./hooks/useHomeStats";
+export type { HomeStatsData } from "./hooks/useHomeStats";
 export { useHotTopics } from "./hooks/useHotTopics";

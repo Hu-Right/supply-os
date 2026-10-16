@@ -4,12 +4,13 @@
  *
  * @module features/home/components/StatsWall
  * @description 消费 useHomeStats 统一数据源，纯展示组件，
- *              每个指标带数字跳动动画。
+ *              每个指标带数字跳动动画；支持服务端直出初值（首帧即真实数字）。
  */
+import { memo } from "react";
 import { Search, Globe, TrendingUp, ShieldCheck } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useCountUp } from "@/shared/hooks/useCountUp";
-import { useHomeStats } from "../hooks/useHomeStats";
+import { useHomeStats, type HomeStatsData } from "../hooks/useHomeStats";
 import { formatPlainNumber } from "@/shared/utils/format";
 
 /** 单个统计卡片 — 带数字跳动动画 */
@@ -29,10 +30,10 @@ function StatCard({ label, value, sub, icon: Icon, color }: {
   );
 }
 
-/** 实时数字墙 — 消费 useHomeStats，纯展示组件 */
-export function StatsWall() {
+/** 实时数字墙 — 消费 useHomeStats，展示组件（initialHome 为服务端直出初值；memo 隔离父层重渲染） */
+export const StatsWall = memo(function StatsWall({ initialHome }: { initialHome?: Partial<HomeStatsData> } = {}) {
   const { t } = useLocale();
-  const { noticeActive, noticeTodayNew, countryCount, certifiedSupplierCount } = useHomeStats();
+  const { noticeActive, noticeTodayNew, countryCount, certifiedSupplierCount } = useHomeStats(initialHome);
 
   const stats = [
     { label: t("homeStatTotal"), value: noticeActive, sub: t("homeStatTotalSub"), icon: Globe, color: "text-teal-600" },
@@ -50,4 +51,4 @@ export function StatsWall() {
       </div>
     </section>
   );
-}
+});

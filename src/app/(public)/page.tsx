@@ -7,10 +7,19 @@
  *              双搜索 Hero + 实时数字墙 + 三栏内容 + 会员升级横幅。
  *              Global public procurement & supply chain opportunity platform homepage.
  *              Dual-search Hero + real-time stats wall + 3-column content + membership banner.
+ *              服务端壳按其它公开页同一口径 ISR（revalidate=3600），渲染期直出
+ *              首页快照（lib/services/home-snapshot）：数字墙/地图初值进静态 HTML，
+ *              客户端 hook 接管后续刷新；DB 不可达时降级为「不带初值」。
  */
 import type { Metadata } from "next";
 import { absoluteUrl } from "@/lib/services/seo/site";
+import { getPool } from "@/lib/db/pool";
+import { getHomeSnapshot } from "@/lib/services/home-snapshot";
 import PageClient from "./page-client";
+import type { HomeStatsData } from "@/features/home";
+
+/** 与其它 (public) 页一致：公开页 1 小时 ISR，数字新鲜度由客户端 10 分钟轮询兼顾 */
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "全球公共采购与跨境供应链机会平台",
@@ -22,6 +31,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
-  return <PageClient />;
+/** 服务端直出首页快照；任何失败（含 build 期无库）降级为 undefined，不阻断渲染 */
+async function loadInitialHome(): Promise<HomeStatsData | undefined> {
+  try {
+    return await getHomeSnapshot(getPool());
+  } catch (err) {
+    console.warn("[home] 服务端快照不可用，降级为客户端取数:", (err as Error).message);
+    return undefined;
+  }
+}
+
+export default async function HomePage() {
+  const initialHome = await loadInitialHome();
+  return <PageClient initialHome={initialHome} />;
 }
