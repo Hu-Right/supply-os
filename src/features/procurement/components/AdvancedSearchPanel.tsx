@@ -13,264 +13,25 @@
  *              3. 预算金额 → 全链路实现（前端→URL→后端→SQL）
  *
  *              通过 FEATURE_ADVANCED_SEARCH flag 控制新旧面板切换。
+ *
+ *              2026-10 组件化拆分：DateRangePicker / KeywordGroupPicker / KeywordChip
+ *              与模块常量移入 ./advanced-search/*（本文件只留容器与查询编排），
+ *              拆分对交互行为逐字不变；chip 的 onCycle/onRemove 改为父侧稳定回调
+ *              以让子组件 memo 真实生效（详见 ./advanced-search/KeywordChip 头注）。
  */
-import { useState, useCallback, useEffect, useMemo, useRef, type FormEvent } from "react";
-import { Search, Calendar as CalendarIcon, Plus, Minus, Quote, X } from "lucide-react";
+import { useState, useCallback, useMemo, type FormEvent } from "react";
+import { Search } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { useUserId } from "@/core/auth/useUserId";
-import {
-  fetchKeywordGroups, invalidateKeywordGroups, type KeywordGroup,
-} from "@/core/api/keywordGroups";
 import { MAX_KEYWORD_ROWS, composeQ, hasAdvancedSyntax, type TermMode, type TermRow } from "@/shared/utils/advanced-syntax";
-import { Input, Calendar, Select, Popover, PopoverTrigger, PopoverContent } from "@/shared/ui";
+import { Input, Select } from "@/shared/ui";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
 import { AgencyFilter } from "@/shared/filters/AgencyFilter";
 import type { NoticeSearchBarProps } from "./NoticeSearchBar";
 import { UpgradeGateModal } from "./UpgradeGateModal";
-
-/** 公告类型选项（复用现有 notice_type 归一化体系，标签显示为"采购方式"） */
-const NOTICE_TYPE_OPTIONS = [
-  { value: "", labelKey: "procurement_noticeTypeAll" as const },
-  { value: "ITB", labelKey: "procurement_type_itb" as const },
-  { value: "RFQ", labelKey: "procurement_type_rfq" as const },
-  { value: "RFP", labelKey: "procurement_type_rfp" as const },
-  { value: "EOI", labelKey: "procurement_type_eoi" as const },
-  { value: "PQ", labelKey: "procurement_type_prequalification" as const },
-  { value: "AWARD", labelKey: "procurement_type_contract_award" as const },
-  { value: "GPN", labelKey: "procurement_type_gpn" as const },
-  { value: "RFI", labelKey: "procurement_type_rfi" as const },
-  { value: "COMPETITIVE", labelKey: "procurement_type_competitive" as const },
-  { value: "FRAMEWORK", labelKey: "procurement_type_framework" as const },
-  { value: "DIRECT", labelKey: "procurement_type_direct_contracting" as const },
-  { value: "RESTRICTED", labelKey: "procurement_type_restricted" as const },
-  { value: "PIN", labelKey: "procurement_type_pin" as const },
-  { value: "PMC", labelKey: "procurement_type_pmc" as const },
-];
-
-/** 日期范围选择器 — Popover + Calendar */
-function DateRangePicker({
-  fromValue,
-  toValue,
-  onFromChange,
-  onToChange,
-  placeholderFrom,
-  placeholderTo,
-}: {
-  fromValue: string;
-  toValue: string;
-  onFromChange: (v: string) => void;
-  onToChange: (v: string) => void;
-  placeholderFrom: string;
-  placeholderTo: string;
-}) {
-  const displayText = fromValue || toValue
-    ? `${fromValue || placeholderFrom} ~ ${toValue || placeholderTo}`
-    : `${placeholderFrom} ~ ${placeholderTo}`;
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="w-full flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-left transition-colors hover:border-slate-300 focus:border-teal-400 focus:ring-1 focus:ring-teal-400 outline-none cursor-pointer"
-        >
-          <span className={`flex-1 truncate ${fromValue || toValue ? "text-slate-700" : "text-slate-400"}`}>
-            {displayText}
-          </span>
-          <CalendarIcon className="w-4 h-4 text-slate-400 ml-2 shrink-0" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-3" align="start">
-        <Calendar
-          mode="single"
-          selected={fromValue ? new Date(fromValue) : undefined}
-          onSelect={(date: Date | undefined) => {
-            if (!date) return;
-            const iso = date.toISOString().slice(0, 10);
-            if (!fromValue || (toValue && iso < fromValue)) {
-              onFromChange(iso);
-              onToChange("");
-            } else {
-              onToChange(iso);
-            }
-          }}
-          defaultMonth={fromValue ? new Date(fromValue) : undefined}
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/**
- * 词组选择器 — product_keyword_lib 权益；无权益时点击触发升级弹窗（不再内嵌锁定态）
- *
- * 加载策略（性能根因修复）：
- * · 读走 apiCached：点开只付一次「缓存查询」，TTL 内二次/并发点开不再打网络，
- *   也不再触发服务端 4 次串行往返（权益 3 查 + 列表 1 查）。
- * · 有数据就不清空：refetch 期间沿用上一次视图，消除「弹层先空白再蹦出内容」的打开延迟感。
- * · 失败 ≠ 无权益：旧实现把网络异常写成 { entitled:false, groups:[] }，用户看到的是
- *   「去管理词组」空态，权益像凭空掉了——真实故障被吞掉。改为保留旧数据 + 可重试。
- * · 换账号必须失效：缓存键只有 URL，而词组是用户私有数据，不清会串号。
- */
-function KeywordGroupPicker({
-  onPick,
-  entitled,
-  onLocked,
-}: {
-  onPick: (terms: string[]) => void;
-  entitled: boolean;
-  onLocked: () => void;
-}) {
-  const { t } = useLocale();
-  const userId = useUserId();
-  const [open, setOpen] = useState(false);
-  const [data, setData] = useState<{ entitled: boolean; groups: KeywordGroup[] } | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const next = await fetchKeywordGroups();
-      setData(next);
-      setFailed(false);
-    } catch {
-      // 只在「从未成功过」时才让弹层出现占位；已有数据时静默保留旧视图
-      setFailed(true);
-    }
-  }, []);
-  useEffect(() => { if (open) void load(); }, [open, load]);
-
-  // 账号切换：清掉上一位用户的词组缓存与视图（与 useNoticeSearch 清 /api/notices 同口径）
-  const prevUserIdRef = useRef(userId);
-  useEffect(() => {
-    if (prevUserIdRef.current === userId) return;
-    prevUserIdRef.current = userId;
-    invalidateKeywordGroups();
-    setData(null);
-    setFailed(false);
-  }, [userId]);
-
-  // 无权益：不进入词库弹层，点击即弹升级框（门控判定来自服务端 gates，前端不猜档位）
-  if (!entitled) {
-    return (
-      <button
-        type="button"
-        data-testid="kw-group-picker"
-        onClick={onLocked}
-        className="text-xs font-bold text-teal-700 hover:text-teal-800"
-      >
-        {t("procurement_myKeywordGroups") || "我的词组"}
-      </button>
-    );
-  }
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" data-testid="kw-group-picker"
-          className="text-xs font-bold text-teal-700 hover:text-teal-800">
-          {t("procurement_myKeywordGroups") || "我的词组"}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-2" align="end">
-        {/* 从未取到数据且已失败 → 可重试；取到过 → 一律展示旧数据（含 refetch 期间），不再整块空白 */}
-        {!data && failed ? (
-          <button
-            type="button"
-            data-testid="kw-group-retry"
-            onClick={() => void load()}
-            className="block w-full px-2 py-3 text-center text-xs text-rose-600 hover:text-rose-700"
-          >
-            {t("errorBoundaryRetry")}
-          </button>
-        ) : !data ? (
-          <p className="px-2 py-3 text-center text-xs text-slate-400">{t("uiLoadingDots")}</p>
-        ) : data.groups.length === 0 ? (
-          <a href="/settings/keyword-library" className="block px-2 py-3 text-center text-xs text-slate-500 hover:text-teal-700">
-            {t("procurement_manageKeywordGroups")}
-          </a>
-        ) : (
-          <div className="max-h-56 overflow-y-auto">
-            {data.groups.map((g) => (
-              <button key={g.id} type="button"
-                onClick={() => { onPick(g.terms); setOpen(false); }}
-                className="w-full text-left px-2 py-2 rounded-md text-sm hover:bg-secondary-50">
-                {g.name}
-                <span className="block text-2xs text-slate-400 truncate">{g.terms.join("、")}</span>
-              </button>
-            ))}
-            <a href="/settings/keyword-library" className="block px-2 py-2 text-xs text-teal-700 hover:underline">
-              {t("procurement_manageKeywordGroups")}
-            </a>
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/** chip 点击时的模式循环：包含 → 排除 → 精确短语（非「包含」受 advanced_keyword_search 门控） */
-const MODE_CYCLE: TermMode[] = ["include", "exclude", "phrase"];
-
-/** 三色区分模式：图标+颜色即语义，无需额外说明文字占用高度 */
-const MODE_CHIP_STYLE: Record<TermMode, string> = {
-  include: "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100",
-  exclude: "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
-  phrase: "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100",
-};
-
-function ModeGlyph({ mode }: { mode: TermMode }) {
-  if (mode === "exclude") return <Minus className="w-3 h-3 shrink-0" />;
-  if (mode === "phrase") return <Quote className="w-3 h-3 shrink-0" />;
-  return <Plus className="w-3 h-3 shrink-0" />;
-}
-
-/**
- * 关键词标签（chip）— 方案 B：用一个输入框承载全部关键词，
- * 替代旧版「一行 Input + 一行 Select」的行列表（旧结构 8 行约 380px 纵向空间）。
- * 点标签本体循环切换模式（仍走 handleRowMode 权益门控，转化入口不丢），点 × 删除。
- */
-function KeywordChip({
-  row,
-  modeLabel,
-  cycleTitle,
-  removeLabel,
-  onCycle,
-  onRemove,
-}: {
-  row: TermRow;
-  modeLabel: string;
-  cycleTitle: string;
-  removeLabel: string;
-  onCycle: () => void;
-  onRemove: () => void;
-}) {
-  return (
-    <span
-      data-testid={`kw-chip-${row.id}`}
-      className={`inline-flex items-center rounded-md border text-xs font-bold transition-colors ${MODE_CHIP_STYLE[row.mode]}`}
-    >
-      <button
-        type="button"
-        onClick={onCycle}
-        title={cycleTitle}
-        aria-label={`${row.term} · ${modeLabel}`}
-        className="inline-flex items-center gap-1 max-w-[11rem] ps-2 py-1.5 rounded-s-md outline-none focus-visible:ring-1 focus-visible:ring-teal-400"
-      >
-        <ModeGlyph mode={row.mode} />
-        <span className="truncate">{row.term}</span>
-      </button>
-      <button
-        type="button"
-        data-testid={`kw-chip-remove-${row.id}`}
-        onClick={onRemove}
-        aria-label={removeLabel}
-        className="px-1.5 py-1.5 rounded-e-md opacity-50 hover:opacity-100 outline-none"
-      >
-        <X className="w-3 h-3" />
-      </button>
-    </span>
-  );
-}
+import { DateRangePicker } from "./advanced-search/DateRangePicker";
+import { KeywordGroupPicker } from "./advanced-search/KeywordGroupPicker";
+import { KeywordChip } from "./advanced-search/KeywordChip";
+import { NOTICE_TYPE_OPTIONS, MODE_CYCLE } from "./advanced-search/constants";
 
 export interface AdvancedSearchPanelProps extends NoticeSearchBarProps {
   /** 服务端 gates 派生：当前用户是否享有 advanced_keyword_search（排除/精确短语）。默认 true 保持旧渲染。 */
@@ -347,6 +108,16 @@ export function AdvancedSearchPanel({
     exclude: t("procurement_kwModeExclude"),
     phrase: t("procurement_kwModePhrase"),
   };
+
+  // chip 模式循环/删除：父侧稳定回调（子组件按自身 row 回传），保证 KeywordChip 的 memo 有效
+  const cycleChipMode = useCallback(
+    (row: TermRow) => {
+      handleRowMode(row.id, MODE_CYCLE[(MODE_CYCLE.indexOf(row.mode) + 1) % MODE_CYCLE.length]);
+    },
+    [handleRowMode],
+  );
+  const removeChip = useCallback((row: TermRow) => form.removeRow(row.id), [form]);
+  const openKwlibGate = useCallback(() => setGate("kwlib"), []);
 
   // ── 预算金额本地状态 ───
   const [budgetMin, setBudgetMin] = useState("");
@@ -533,7 +304,7 @@ export function AdvancedSearchPanel({
             >
               {form.matchMode === "all" ? t("procurement_matchAll") : t("procurement_matchAny")}
             </button>
-            <KeywordGroupPicker onPick={pickGroup} entitled={keywordLibEntitled} onLocked={() => setGate("kwlib")} />
+            <KeywordGroupPicker onPick={pickGroup} entitled={keywordLibEntitled} onLocked={openKwlibGate} />
           </div>
         </div>
         {/* 关键词 chip 容器：一个框承载全部关键词，高度不随关键词数量线性增长 */}
@@ -548,10 +319,8 @@ export function AdvancedSearchPanel({
               modeLabel={modeLabels[row.mode]}
               cycleTitle={t("procurement_kwChipUsage")}
               removeLabel={t("procurement_kwChipRemove")}
-              onCycle={() =>
-                handleRowMode(row.id, MODE_CYCLE[(MODE_CYCLE.indexOf(row.mode) + 1) % MODE_CYCLE.length])
-              }
-              onRemove={() => form.removeRow(row.id)}
+              onCycle={cycleChipMode}
+              onRemove={removeChip}
             />
           ))}
           <input
