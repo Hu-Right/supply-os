@@ -176,10 +176,19 @@ export const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<
   // ── 第二轮长尾扩展（未分桶脏名→归入既有桶；置于末尾不抢上方优先级）──
   [/\b(?:MINIST[ÉE]RIO\s+P[ÚU]BLICO|MINISTERIO PUBLICO)\b/i, { typeKey: "AGENCY_INTL", i18n: { zh: "各机构", fr: "Agences", ru: "Агентства", es: "Agencias", ar: "الوكالات" } }],
   [/\b(?:COMISS[ÃA]O|COMISIÓN|COMISION)\b/i, { typeKey: "COMMISSION_INTL", i18n: { zh: "各委员会", fr: "Commissions", ru: "Комиссии", es: "Comisiones", ar: "اللجان" } }],
-  [/\b(?:AGUA|ÁGUA)\b[^,]*\bESGOTO\b|\bESGOTO\b|\bSAAE\b|\bSANEAMENTO\b/i, { typeKey: "SANEAMENTO_BR", i18n: { zh: "巴西各市环卫/水务", fr: "Assainissement du Brésil", ru: "Водоснабжение Бразилии", es: "Saneamiento de Brasil", ar: "الصرف الصحي البرازيلي" } }],
+  [/\b(?:ESGOT\w*|SAAE\w*|SANEAMENTO|AGUA|ÁGUA)/i, { typeKey: "SANEAMENTO_BR", i18n: { zh: "巴西各市环卫/水务", fr: "Assainissement du Brésil", ru: "Водоснабжение Бразилии", es: "Saneamiento de Brasil", ar: "الصرف الصحي البرازيلي" } }],
   [/\b(?:ELETRIC[ÁA]S?|ELÉTRIC[ÁA]S?|ELETROBR[ÁA]S|ENERGIA|ENERG[ÉE]TICA)\b/i, { typeKey: "ENERGY_INTL", i18n: { zh: "各电力能源机构", fr: "Énergie", ru: "Энергетика", es: "Energía", ar: "الطاقة" } }],
   [/\bUNIVERSIT[ÁA]RI[OA]\b/i, { typeKey: "UNIVERSITY_INTL", i18n: { zh: "各大学", fr: "Universités", ru: "Университеты", es: "Universidades", ar: "الجامعات" } }],
   [/\bPOLYTECHNIC\b/i, { typeKey: "COLLEGE_INTL", i18n: { zh: "各学院", fr: "Collèges", ru: "Колледжи", es: "Colegios", ar: "الكليات" } }],
   [/\b(?:MILITAR|FOR[ÇC]AS ARMADAS|EX[ÉE]RCITO|MARINHA|AERON[ÁA]UTICA)\b/i, { typeKey: "MILITARY_BR", i18n: { zh: "巴西军事机构", fr: "Institutions militaires du Brésil", ru: "Военные учреждения Бразилии", es: "Instituciones militares de Brasil", ar: "المؤسسات العسكرية البرازيلية" } }],
   [/\b(?:MINIST[ÉE]RIO|MINISTERIO)\b/i, { typeKey: "MINISTERIO_BR", i18n: { zh: "巴西各部委", fr: "Ministères du Brésil", ru: "Министерства Бразилии", es: "Ministerios de Brasil", ar: "وزارات البرازيل" } }],
+  // ── 第三轮：按“头名词”精准归入既有桶（逐条来自人工审读的真实 RAW；置于最末，仅兜住未被上方命中的，不影响既有归桶）──
+  [/\b(?:DEFENSORIA|ADVOCACIA|PER[ÍI]CIA|COORDENADORIA|COORDENA[ÇC][ÃA]O|DIRETORIA|ADMINISTRA[ÇC][ÃA]O|GABINETE|SUPERINTEND[ÊE]NCIA)\b/i, { typeKey: "DEPARTAMENTO_BR", i18n: { zh: "巴西各市部门", fr: "Départements du Brésil", ru: "Департаменты Бразилии", es: "Departamentos de Brasil", ar: "إدارات البرازيل" } }],
+  [/\b(?:AUTARQUIA|AUTARQUICA)\b/i, { typeKey: "AGENCIA_BR", i18n: { zh: "巴西各市局", fr: "Agences du Brésil", ru: "Агентства Бразилии", es: "Agencias de Brasil", ar: "وكالات البرازيل" } }],
+  [/\bCON[SC][OÓ]RCIO\b/i, { typeKey: "CONSORCIO_BR", i18n: { zh: "巴西各市联合体", fr: "Consortiums du Brésil", ru: "Консорциумы Бразилии", es: "Consorcios de Brasil", ar: "اتحادات البرازيل" } }],
+  [/\b(?:FACULDADE|COLEGIO|COL[ÉÉ]GIO)\b/i, { typeKey: "COLLEGE_INTL", i18n: { zh: "各学院", fr: "Collèges", ru: "Колледжи", es: "Colegios", ar: "الكليات" } }],
+  [/\b(?:SENADO|C[ÃA]MARA DOS DEPUTADOS|PODER LEGISLATIVO|LEGISLATIVO)\b/i, { typeKey: "CONGRESS_INTL", i18n: { zh: "各国国会", fr: "Congrès", ru: "Конгрессы", es: "Congresos", ar: "المجالس النيابية" } }],
+  [/\bJUNTA COMERCIAL\b/i, { typeKey: "BOARD_INTL", i18n: { zh: "各理事会", fr: "Conseils", ru: "Советы", es: "Juntas", ar: "المجالس" } }],
+  [/\b(?:PREVID[ÊE]NCIA|APOSENTADORIA|RPPS)\b|\bPREV\b/i, { typeKey: "FUNDO_BR", i18n: { zh: "巴西各市基金", fr: "Fonds municipaux du Brésil", ru: "Муниципальные фонды Бразилии", es: "Fondos municipales de Brasil", ar: "الصناديق البلدية البرازيلية" } }],
+  [/\b(?:COMPANHIA|CIA\.)\b/i, { typeKey: "COMPANHIA_BR", i18n: { zh: "巴西各市国有公司", fr: "Compagnies du Brésil", ru: "Компании Бразилии", es: "Compañías de Brasil", ar: "شركات البرازيل" } }],
 ];
