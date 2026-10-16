@@ -86,7 +86,13 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 - 单文件 > 200 行 → 必须拆分为子组件或提取 hook
 - **容器组件（container）**：仅编排子组件顺序，不含业务逻辑（如 `AboutSection` 22 行容器 + 4 个子组件）
 - **展示组件（presentational）**：接收 props 渲染 UI，不直接调用 API；适合包裹 `React.memo`
+- **memo 生效前提**：展示组件的事件 props 必须由容器 `useCallback` 稳定（或状态 setter 直传）；父侧每实例新建的内联闭包会击穿 memo，禁止
 - **数据获取统一在 hooks 层**：组件通过 props 或 hook 消费数据，不在 JSX 中直接调用 `api()`
+- 2026-10 已按本标准落地的拆分（原文件保留为薄壳/barrel，消费方导入路径不变）：
+  `features/procurement/components/advanced-search/*`（AdvancedSearchPanel 602→376，容器留面板、子件 DateRangePicker/KeywordGroupPicker/KeywordChip+常量）；
+  `app/(public)/award-intelligence/modals/*`（Modals.tsx 520→19 行 barrel，7 弹窗一文件 + `_shared` 展示件）；
+  `app/(public)/settings/supplier-pool/components/*`（page-client 408→260，AddPanel/PoolItemRow/PoolListStates）；
+  `features/home/components/content/*`（ContentColumns 261→137）。
 
 ### 共享工具函数归属
 
