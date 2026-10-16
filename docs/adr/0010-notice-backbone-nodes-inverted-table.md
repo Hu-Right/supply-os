@@ -95,7 +95,7 @@ CI 的 e2e job 因此能把它一起建出来；建表/灌数脚本本身仍在 
 4. **上游列会被活进程写坏，而指纹不自愈 —— 根因未定位**。建表前一轮门禁 BB1~BB13 全绿，
    建表后重跑突然 BB7 报 5,840 条「挂了码而 `backbone_path` 为空」、BB10 差异 309/1,298。
    这就是 ADR-0007 记过的失效模式：构建侧骨架索引没载入成功就写 NULL，而源指纹不含该列 ⇒
-   后续同指纹直接跳过写入，坏值不自愈。处置：`commodity-backbone-path-backfill.ts --apply --yes
+   后续同指纹直接跳过写入，坏值不自愈。处置（历史动作；`commodity-backbone-path-backfill.ts` 与桥表均已随后退役删除，现由落点表派生 `backbone_path`）：`commodity-backbone-path-backfill.ts --apply --yes
    --only-changed` 扫 607,999 行修回 4,247 行（miss 0），然后桥表 `--only-changed` 只重灌受影响的
    4,029 条公告 / 23,884 行（同值跳过 235,971），BB7/BB10/BB14 重新全绿。
    **必须说清：本次没拿到那个进程的日志，也没把它停掉** —— 本机只确认存在一个在跑宽表同步的应用

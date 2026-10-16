@@ -2,7 +2,7 @@
 
 - 状态：已接受（Accepted）
 - 日期：2026-10-10
-- 关联：`docs/adr/0003-shadow-table-blue-green-migration.md`（结构变更流程）、`docs/数据库设计/crm_industry_nodes-行业面主表.md`、`docs/供应商行业挂靠.md`、`scripts/gates/check-taxonomy-invariants.ts`、`scripts/gates/verify-industry-links.ts`、`scripts/ops/commodity-extension-mine.mjs`（镜像范式）
+- 关联：`docs/adr/0003-shadow-table-blue-green-migration.md`（结构变更流程）、`docs/数据库设计/crm_industry_nodes-行业面主表.md`、`docs/供应商行业挂靠.md`、`scripts/gates/check-taxonomy-invariants.ts`、`scripts/gates/verify-industry-links.ts`、`scripts/ops/commodity-extension-mine.mjs`（镜像范式；⚠ 该脚本已于 2026-10-16 随 UNSPSC 桥表退役删除）
 - 设计文档：`docs/superpowers/specs/2026-10-10-industry-tree-supplier-loop-design.md`
 
 ## 背景

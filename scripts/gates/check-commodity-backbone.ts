@@ -602,7 +602,7 @@ function bandof(parentLevel: number) {
     const rate = total ? covered / total : 1;
     const line = `BB16 近7天新公告落点覆盖率：${covered}/${total} = ${(rate * 100).toFixed(1)}%`;
     if (total === 0) console.log(`⚠ ${line}（无新公告，跳过）`);
-    else if (rate < 0.6) console.log(`⚠ ${line} ⇒ 跌破 60%：若已切读（ATTRIBUTION_READ=on），这些新公告 backbone_path 会是 NULL（分类静默缺席）——需跑落点生产者（AI 或镜像）补落点。flag 关时此警告仅为前瞻`);
+    else if (rate < 0.6) console.log(`⚠ ${line} ⇒ 跌破 60%：这些新公告 backbone_path 会是 NULL（分类静默缺席）——需跑落点生产者（AI 或镜像）补落点（落点表已是唯一事实源）`);
     else console.log(line);
   }
 }
