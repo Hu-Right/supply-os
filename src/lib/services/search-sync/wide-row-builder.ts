@@ -20,6 +20,7 @@ import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 import { WIDE_OPP_JOIN, WIDE_SYNC_JOIN } from "./wide-sync-sql";
 import { upsertNoticeNodes } from "./notice-nodes";
 import { SUPPORTED_LANGS } from "../../utils/languages";
+import { loadAgencyAliasSnapshot } from "../agency/alias-store";
 
 export { WIDE_OPP_JOIN, WIDE_SYNC_JOIN };
 
@@ -252,26 +253,16 @@ export function buildWideRow(
   };
 }
 
-// ── 机构别名映射加载（带 10 分钟缓存，避免每 10 秒增量同步都查全表）──
-let _aliasMapCache: Map<string, string> | null = null;
-let _aliasMapExpires = 0;
-const ALIAS_MAP_TTL = 10 * 60 * 1000; // 10 分钟
-
+// ── 机构别名映射：委托共享 store（缓存/归一/降级唯一在 agency/alias-store）──
+/**
+ * 兼容既有调用方与测试契约：返回 alias(归一大写) → canonical。
+ * 缓存与降级由 store 统一负责（10 分钟 TTL；查库失败且无缓存→空 Map）。
+ */
 export async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
-  if (_aliasMapCache && Date.now() < _aliasMapExpires) return _aliasMapCache;
-  const aliasMap = new Map<string, string>();
-  try {
-    const [rows] = await pool.query("SELECT canonical, alias FROM crm_agency_aliases");
-    for (const row of rows as RowDataPacket[]) {
-      aliasMap.set(String(row.alias || "").trim().toUpperCase(), String(row.canonical || "").trim());
-    }
-    _aliasMapCache = aliasMap;
-    _aliasMapExpires = Date.now() + ALIAS_MAP_TTL;
-  } catch {
-    // 表不存在或查询失败：静默降级，返回旧缓存（如果有）
-    if (_aliasMapCache) return _aliasMapCache;
-  }
-  return aliasMap;
+  const snap = await loadAgencyAliasSnapshot(pool);
+  const m = new Map<string, string>();
+  for (const [key, entry] of snap.byAlias) m.set(key, entry.canonical);
+  return m;
 }
 
 // ── 批量写入宽表（宽表业务内容的唯一写入路径，I1）──
