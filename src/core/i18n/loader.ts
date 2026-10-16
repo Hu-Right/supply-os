@@ -3,10 +3,14 @@
  * On-demand Translation Resource Loader
  *
  * @module core/i18n/loader
- * @description 每种语言的 JSON 通过动态 import() 按需加载，Vite 自动按语言分包。
- *              首屏仅加载当前语言 + 英文兜底，其余语言在用户切换时才下载。
- *              Each language's JSON is loaded via dynamic import() → separate chunk per language.
- *              Initial load: detected language + English fallback only.
+ * @description 每种语言的 JSON 通过动态 import() 按需加载，Turbopack 自动按语言分包。
+ *              首屏静态内联只有 zh（client-bundles.ts）；语言检测/切换时
+ *              才下载对应语言的懒加载 chunk（每语言 ~120-190KB 源文本）。
+ *              On-demand per-locale resource loader: initial bundle is zh only;
+ *              other locales are lazy chunks fetched on detect/switch.
+ *
+ *              ⚠️ 文件清单必须与 check-i18n.ts 扫描的 locales/<lang>/*.json 保持一致
+ *              （2026-10 分包改造时发现旧清单缺 errors.json，已补）。
  */
 
 import type { Locale } from "./types";
@@ -21,7 +25,7 @@ const loaded = new Set<string>();
 export async function loadLanguage(lang: Locale): Promise<Record<string, string>> {
   if (loaded.has(lang)) return {};
 
-  const [common, procurement, auth, payment, membership, crm, supplier, services, learning, training] =
+  const [common, procurement, auth, payment, membership, crm, supplier, services, learning, training, errors] =
     await Promise.all([
       import(`./locales/${lang}/common.json`),
       import(`./locales/${lang}/procurement.json`),
@@ -33,6 +37,7 @@ export async function loadLanguage(lang: Locale): Promise<Record<string, string>
       import(`./locales/${lang}/services.json`),
       import(`./locales/${lang}/learning.json`),
       import(`./locales/${lang}/training.json`),
+      import(`./locales/${lang}/errors.json`),
     ]);
 
   const merged = {
@@ -46,6 +51,7 @@ export async function loadLanguage(lang: Locale): Promise<Record<string, string>
     ...services.default,
     ...learning.default,
     ...training.default,
+    ...errors.default,
   };
 
   loaded.add(lang);
