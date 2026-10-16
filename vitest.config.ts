@@ -168,6 +168,9 @@ export default defineConfig({
 
         // ── src/shared — 纯逻辑 + 组件（有测试）──
         "src/shared/auth/**/*.ts",
+        // 分层治理下沉的纯码形层（唯一实现，lib 侧为 shim 再导出）
+        "src/shared/constants/commodity-code.ts",
+        "src/shared/constants/industry-code.ts",
         "src/shared/utils/cn.ts",
         // 企业绑定状态口径（服务端闸口与前端徽章共用）
         "src/shared/utils/enterprise-status.ts",

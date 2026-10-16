@@ -22,7 +22,17 @@
  *                 （所以非中文界面这三层会落到中文名，补译名是独立工作，不在这里造）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { BACKBONE_NODE_PREFIX, backboneNodeLevel, chainOfNode } from "./backbone-path";
+import { BACKBONE_NODE_PREFIX } from "./backbone-path";
+// 码形制纯函数已下沉 shared/constants/commodity-code（唯一实现，2026-10 分层治理：
+// features 客户端按红线 3 直引 shared，本模块只再导出，不得长出第二份判定）
+import {
+  isCommodityNodeKey,
+  commodityNodeLevel,
+  commodityNodeChain,
+  l1CodeOfNode,
+} from "@/shared/constants/commodity-code";
+
+export { isCommodityNodeKey, commodityNodeLevel, commodityNodeChain, l1CodeOfNode };
 
 /** 一条级联选项 */
 export interface CommodityTreeOption {
@@ -34,47 +44,8 @@ export interface CommodityTreeOption {
   nameEn: string;
 }
 
-/** 骨架节点码前缀（与 crm_commodity_backbone.code 形制一致，门禁 BB1 钉住「码长即层级」） */
+/** 骨架节点码前缀（与 crm_commodity_backbone.code 形制一致；定义已下沉 shared，这里保留历史导出面） */
 export const COMMODITY_NODE_PREFIX = BACKBONE_NODE_PREFIX;
-
-/**
- * 是否为合法骨架节点筛选键（`UGT-` + 2/4/6/8/10 位数字，奇数位一律不认）。
- * 形制判定不在这重写：全库只 `backbone-path` 一份（层级就藏在码长里，两处写就会分开错）。
- */
-export function isCommodityNodeKey(value: unknown): value is string {
-  return typeof value === "string" && backboneNodeLevel(value) > 0;
-}
-
-/** 节点码 → 层级（1~5）；非法键返回 0（调用方据此拒绝下钻，不猜层级） */
-export function commodityNodeLevel(code: string): number {
-  return backboneNodeLevel(code);
-}
-
-/**
- * 节点码 → 它的整条祖先链 [L1, L2, L3, L4, L5]（未选到的层为空串）。
- *
- * 为什么不需要查库：门禁 BB1 把「父码 = 自身码去掉末两位」钉成不变量，所以祖先就是它的更短前缀，
- * 逐两位截断即得。五级下拉的深链（`?commodity=UGT-010101`）靠它一次算出该点亮哪几层、
- * 各层该向哪个父节点要选项，不依赖接口往返。形制不符（奇数位、非数字、前缀不对）返回全空
- * ⇒ 宁可不点亮，也不拿一个错键去筛。
- *
- * 截断本身不在这重写：直接用 `backbone-path` 的 `chainOfNode`（浅→深紧凑数组），这里只补成
- * 五级定长形状。换算规则只能有一份实现 —— 两份就会分开错，而公告侧列值也按那一份算。
- */
-export function commodityNodeChain(value: string | null | undefined): [string, string, string, string, string] {
-  const chain = chainOfNode(value);
-  const out: [string, string, string, string, string] = ["", "", "", "", ""];
-  for (let i = 0; i < chain.length; i++) out[i] = chain[i];
-  return out;
-}
-
-/**
- * 节点码 → 所属大类（L1 树码，如 `UGT-010203 → UGT-01`）。G 码退役后大类身份即 L1 码，
- * 纯切片零查库；非法键返回空串（调用方按「无大类」处理，不猜）。
- */
-export function l1CodeOfNode(value: string | null | undefined): string {
-  return commodityNodeChain(value)[0];
-}
 
 function toOption(row: RowDataPacket): CommodityTreeOption {
   return {

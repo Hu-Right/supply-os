@@ -136,4 +136,68 @@ export default tseslint.config(
       "no-useless-escape": "warn",
     },
   },
+  // ── 架构分层红线（ARCHITECTURE.md §分层与依赖方向）机械化拦截 ──
+  // 2026-10 评审：红线 1~3 此前纯靠人肉遵守，已实际漂移（features→lib 值导入 7 处，
+  // 已修复并下沉纯函数至 shared/constants）。本组规则把红线钉进 lint：
+  // 值导入一律 error；`import type` 豁免（编译期擦除，零运行时/bundle 影响）。
+  // 纯码形函数请放 shared/constants|shared/data，不得为过 lint 把 lib 塞进客户端。
+  {
+    // 红线 3：features 不得 import 服务端树 @/lib/**
+    files: ["src/features/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/lib/**"],
+              allowTypeImports: true,
+              message: "红线 3：features 不得 import 服务端树 @/lib（import type 豁免）。取数走 @/core/http，纯工具下沉 shared。",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // 红线 1：lib 不 import features/app；shared 只允许 constants/data 纯层
+    files: ["src/lib/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features/**", "@/app/**"],
+              allowTypeImports: true,
+              message: "红线 1：src/lib（服务端唯一树）不得 import features/app。",
+            },
+            {
+              group: ["@/shared/ui", "@/shared/ui/**", "@/shared/layout/**", "@/shared/hooks/**", "@/shared/filters/**"],
+              allowTypeImports: true,
+              message: "红线 1：lib 只允许 import shared/constants 与 shared/data（纯数据/常量层），组件/交互层禁止。",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // 红线 2：core 不得 import features/lib/app（http↔auth 经事件总线反向感知）
+    files: ["src/core/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features/**", "@/lib/**", "@/app/**"],
+              allowTypeImports: true,
+              message: "红线 2：src/core（客户端框架）不得 import features/lib/app；跨层感知走 supply-os:* 事件总线。",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

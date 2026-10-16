@@ -1,10 +1,13 @@
 /**
- * 图片压缩工具
+ * 图片压缩工具（客户端 Canvas 压缩）
  * Image Compression Utility
  *
- * @module lib/utils/image-compress
+ * @module shared/utils/image-compress
  * @description 客户端 Canvas 压缩，减少上传体积和存储成本。
  *              支持 JPEG/PNG/WebP，自动降采样 + 质量压缩。
+ *              2026-10 分层治理：本模块只跑在浏览器（Image/Canvas/File API），
+ *              原先驻 lib/utils（服务端唯一树）属放错层——features 直引它即踩
+ *              红线 3。跨 feature 的纯客户端工具按约定归 shared/utils。
  */
 
 export interface CompressOptions {

@@ -14,7 +14,7 @@ import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { AuthLicenseImage } from "@/shared/ui";
-import { compressImage, blobToFile } from "@/lib/utils/image-compress";
+import { compressImage, blobToFile } from "@/shared/utils/image-compress";
 import { SupplierProductsPicker } from "./SupplierProductsPicker";
 import type { EnterpriseInfo, CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
 

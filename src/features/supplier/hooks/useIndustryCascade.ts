@@ -19,7 +19,7 @@
  *              取数失败留空且不编造选项。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { industryAncestorCodes } from "@/lib/services/industry-code";
+import { industryAncestorCodes } from "@/shared/constants/industry-code";
 import { fetchIndustryFacets, fetchIndustryTreeChildren, type IndustryTreeOption } from "../api";
 
 /** 级联层数：门类 / 大类 / 中类 / 小类 */

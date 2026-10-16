@@ -8,7 +8,7 @@ import { useCallback, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { clearApiCache } from "@/core/http";
 import { composeQ, type TermRow } from "@/shared/utils/advanced-syntax";
-import { commodityNodeChain } from "@/lib/services/commodity/tree";
+import { commodityNodeChain } from "@/shared/constants/commodity-code";
 import type { NoticeItem, PrefsMode } from "../../types";
 import type { SearchFormInputs } from "./useSearchFormState";
 import type { SearchQuery } from "./useSearchQuery";

@@ -20,7 +20,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { commodityNodeChain } from "@/lib/services/commodity/tree";
+import { commodityNodeChain } from "@/shared/constants/commodity-code";
 import { fetchCommodityTreeChildren, type CommodityTreeOption } from "../api/commodityTree";
 
 export interface CommodityCascade {

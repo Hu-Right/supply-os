@@ -65,50 +65,12 @@ export type BackboneIndex = {
 
 const EMPTY_TIERS = (): Record<BackboneTier, number> => ({ 品目级: 0, 类级: 0, 族级: 0, 段级: 0 });
 
-/** 骨架节点码前缀：`crm_commodity_backbone.code` 的形制；tree.ts 复用这一份，不再各自写字面量 */
-export const BACKBONE_NODE_PREFIX = "UGT-";
+// ── 码形制层已下沉 shared/constants/commodity-code（唯一实现，2026-10 分层治理）──
+// 本模块改为直引 + 再导出：既有 lib/scripts 消费方的 `./backbone-path` 入口不变，
+// 实现只有 shared 一份；features 侧按红线 3 直引 shared，不得进到这里。
+import { BACKBONE_NODE_PREFIX, backboneNodeLevel, chainOfNode, normalizeBackboneNodeKey } from "@/shared/constants/commodity-code";
 
-/** 节点码形制：前缀 + 2/4/6/8/10 位数字（奇数位一律不认） */
-const NODE_RE = new RegExp(`^${BACKBONE_NODE_PREFIX}\\d{2}(\\d{2}){0,4}$`);
-
-/**
- * 骨架节点码 → 层级（1~5）；形制不符返回 0（调用方据此拒收，不猜层级）。
- * 全库只这一份形制判定：`chainOfNode` / `fromBackbonePathColumn` / `tree.ts` 的
- * `isCommodityNodeKey` 均走它。曾经有过只判 `startsWith` 的写法，那会把 `UGT-XY` 这种
- * 脏 token 当成合法层级使 —— 两个同样的脏码直接得高分，就能出一条不存在的相似公告。
- * 故意不 trim：脏入参（URL 参数带空格、列里混进空白）宁可判非法 —— `tree.ts` 的原契约
- * 就是「形制不符不点亮」，这里多一次 trim 就会把脏键放进来。
- */
-export function backboneNodeLevel(node: unknown): number {
-  const v = typeof node === "string" ? node : "";
-  if (!NODE_RE.test(v)) return 0;
-  return (v.length - BACKBONE_NODE_PREFIX.length) / 2;
-}
-
-/**
- * 旧码制兼容归一（仅入口层用）：2026-10-13 前品目树码带面别字（`UGT-B-…`），存量外链
- * （`?commodity=` / `?code=` / `?parent=`）可能仍带旧形，入口归一成现行码再走形制判定。
- * 库列解析（`fromBackbonePathColumn`）**不走这里**——列形制已随数据迁移只有一种，
- * 宽解析反会把脏 token 放进来（见 backboneNodeLevel 的不 trim 理由）。
- */
-export function normalizeBackboneNodeKey(v: unknown): string {
-  const s = String(v ?? "");
-  return s.startsWith("UGT-B-") ? BACKBONE_NODE_PREFIX + s.slice(6) : s;
-}
-
-/**
- * 骨架节点码 → 自身 + 全部祖先，浅→深。
- * 为什么能纯切片不回表：门禁 BB1 把「父码 = 自身码去掉末两位」钉成不变量。
- * 形制不符返回空数组（调用方据此拒写），不返回半条链。
- */
-export function chainOfNode(node: unknown): string[] {
-  const v = String(node ?? "").trim();
-  if (backboneNodeLevel(v) === 0) return [];
-  const body = v.slice(BACKBONE_NODE_PREFIX.length);
-  const out: string[] = [];
-  for (let len = 2; len <= body.length; len += 2) out.push(BACKBONE_NODE_PREFIX + body.slice(0, len));
-  return out;
-}
+export { BACKBONE_NODE_PREFIX, backboneNodeLevel, chainOfNode, normalizeBackboneNodeKey };
 
 /**
  * 构索引：一次载入全树，内存里建一张行内码→行查找表 + 一棵祖先链推导。

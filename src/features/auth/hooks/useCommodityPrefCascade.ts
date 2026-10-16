@@ -12,7 +12,7 @@
  *              旧「大类码要点查 resolve 反查」的例外整个消失。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { commodityNodeChain } from "@/lib/services/commodity/tree";
+import { commodityNodeChain } from "@/shared/constants/commodity-code";
 import {
   fetchCommodityTreeChildren,
   type CommodityTreeOption,

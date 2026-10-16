@@ -25,7 +25,7 @@ import {
 } from "@/core/api/industry-prefs";
 import { CommodityLevelSelector } from "@/features/procurement/components/CommodityLevelSelector";
 import { CommodityInferCandidates } from "./CommodityInferCandidates";
-import { commodityNodeChain, commodityNodeLevel } from "@/lib/services/commodity/tree";
+import { commodityNodeChain, commodityNodeLevel } from "@/shared/constants/commodity-code";
 import { Button, Input } from "@/shared/ui";
 import type { CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
 
