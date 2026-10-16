@@ -48,7 +48,10 @@ vi.mock("@/lib/services/enterprise-binding", () => ({
   assertBindingAllowsSubject: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock("@/lib/services/file-upload", () => ({
+// 只桩 IO（deleteFile），保留 file-upload 的真实纯常量/工具（LICENSE_URL_PREFIX /
+// LICENSE_FILENAME_RE 等）——路由会 import 这些常量，整体替换 mock 会让命名导出不存在而抛错。
+vi.mock("@/lib/services/file-upload", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/services/file-upload")>()),
   deleteFile: vi.fn().mockResolvedValue(undefined),
 }));
 
