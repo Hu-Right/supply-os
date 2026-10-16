@@ -15,25 +15,8 @@ import { SUPPORTED_LANGS } from "../../utils/languages";
 // NULL deadline 的哨兵值：0（纪元起点）
 const NULL_DEADLINE_SENTINEL = 0;
 
-// ── 机构别名映射缓存 ──
-let _aliasMapCache: Map<string, string> | null = null;
-let _aliasMapExpires = 0;
-
-async function _getAliasMap(pool: Pool): Promise<Map<string, string>> {
-  if (_aliasMapCache && Date.now() < _aliasMapExpires) return _aliasMapCache;
-  const aliasMap = new Map<string, string>();
-  try {
-    const [rows] = await pool.query("SELECT canonical, alias FROM crm_agency_aliases");
-    for (const row of rows as RowDataPacket[]) {
-      aliasMap.set(String(row.alias || "").trim().toUpperCase(), String(row.canonical || "").trim());
-    }
-    _aliasMapCache = aliasMap;
-    _aliasMapExpires = Date.now() + 10 * 60 * 1000; // 10 分钟缓存
-  } catch {
-    // 表不存在或查询失败：静默降级
-  }
-  return aliasMap;
-}
+// ── 机构别名归一：Meili 从宽表读已归好的 agency_std/agency_group，无需本地别名缓存。
+//（旧 _getAliasMap 死代码已删；读表归一唯一入口见 wide-row-builder.loadAliasMap → agency/alias-store）──
 
 // ── 支持的语言列表：唯一来源 utils/languages ──
 //（#8：normalizeNoticeType 已迁至 utils/notice-type.ts，本文件仅保留同步职责）
