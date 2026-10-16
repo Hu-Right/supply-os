@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
-import { saveLicenseFile, LICENSE_URL_PREFIX } from "@/lib/services/file-upload";
+import { saveLicenseFile } from "@/lib/services/file-upload";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB，与前端压缩上限一致
