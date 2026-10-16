@@ -66,9 +66,12 @@ export default tseslint.config(
     rules: {
       // 由 @typescript-eslint 版本接管（识别类型感知场景下的合法未使用参数）
       // 尊重项目既有 `_` 前缀约定：以 _ 开头的形参/变量/捕获错误视为「故意未用」，不告警
+      // 2026-10-16 审查：未用导入从 warn 升为 error —— 此前 warn 级 + `eslint src/` 无
+      // --max-warnings，导致 LICENSE_URL_PREFIX 这类未用导入永不阻断 CI、只被动堆积。
+      // 故意未用请走 `_` 前缀豁免（varsIgnorePattern/argsIgnorePattern），不得靠 warn 兜底。
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         {
           args: "after-used",
           argsIgnorePattern: "^_",

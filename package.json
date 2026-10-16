@@ -11,7 +11,7 @@
     "build": "next build && npm run check:css-compat && node scripts/tools/copy-standalone-assets.mjs",
     "start": "next start",
     "clean": "node -e \"const fs=require('fs');['dist','server.js'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
-    "lint": "npm run check:encoding && npm run check:gitignore && node scripts/gates/check-no-admin-routes.mjs && npm run check:wide-ssot && npm run check:notice-classification && npm run check:sql-shapes && npm run check:opp-slim && npm run check:opp-slim:self-test && npm run check:notices-slim && npm run check:notices-slim:self-test && npm run check:notices-slim:index-plan && npm run check:ddl-collation && npm run check:ddl-collation:self-test && npm run check:legacy-dict:self-test && npm run check:legacy-dict && eslint src/",
+    "lint": "npm run check:encoding && npm run check:gitignore && node scripts/gates/check-no-admin-routes.mjs && npm run check:wide-ssot && npm run check:notice-classification && npm run check:sql-shapes && npm run check:opp-slim && npm run check:opp-slim:self-test && npm run check:notices-slim && npm run check:notices-slim:self-test && npm run check:notices-slim:index-plan && npm run check:ddl-collation && npm run check:ddl-collation:self-test && npm run check:legacy-dict:self-test && npm run check:legacy-dict && npm run check:retired-ids:self-test && npm run check:retired-ids && npm run check:baseline-exclude:self-test && eslint src/",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "check-i18n": "npx tsx scripts/gates/check-i18n.ts",
@@ -32,6 +32,9 @@
     "check:baseline": "node --env-file=.env scripts/tools/dump-schema-baseline.mjs --check",
     "check:legacy-dict": "node scripts/gates/check-legacy-dict-residue.mjs",
     "check:legacy-dict:self-test": "node --test tests/gates/check-legacy-dict-residue.test.mjs",
+    "check:retired-ids": "node scripts/gates/check-retired-identifiers.mjs",
+    "check:retired-ids:self-test": "node --test tests/gates/check-retired-identifiers.test.mjs",
+    "check:baseline-exclude:self-test": "node --test tests/gates/baseline-exclude.test.mjs",
     "check:backbone": "npx tsx scripts/gates/check-commodity-backbone.ts",
     "check:industry-links": "npx tsx scripts/gates/verify-industry-links.ts",
     "check:industry-links:strict": "npx tsx scripts/gates/verify-industry-links.ts --gate",
@@ -55,7 +58,7 @@
     "test:ci": "npm run test:unit && npm run test:coverage-gate -- coverage/unit 90 85 && npm run test:integration:coverage && npm run test:coverage-gate -- coverage/integration 80",
     "perf:check": "npx tsx scripts/gates/perf-budget-check.ts",
     "migrate:licenses": "node --env-file=.env scripts/tools/migrate-licenses-to-runtime.mjs",
-    "pre-push": "npm run check:encoding && npm run check-i18n && npm run typecheck && npm run lint && npm run test && npm run test:css-compat && npm run build"
+    "pre-push": "npm run check:encoding && npm run check-i18n && npm run typecheck && npm run lint && npm run test && npm run test:integration && npm run test:css-compat && npm run build"
   },
   "dependencies": {
     "@alicloud/dypnsapi20170525": "^2.0.0",

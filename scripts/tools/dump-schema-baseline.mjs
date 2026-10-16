@@ -17,34 +17,17 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import mysql from "mysql2/promise";
+import { EXCLUDE_RES as BASE_EXCLUDE_RES } from "./baseline-exclude.mjs";
 
 const OUT = process.env.OUT || "db/schema/baseline.sql";
 // --check：只把「工作树基线 vs 源库结构」当作布尔判定，不改写文件；漂移即 exit 1，
 // 供发布前/CI 外的一次性硬校验（本脚本连库，CI 无生产库凭据故不进 lint/CI 主链）。
 const CHECK = process.argv.includes("--check");
-// 影子/备份表（带 __bak_ 或日期后缀）是一次性切换留下的快照，不属于终态结构。
-// __new 后缀是 ADR-0003 蓝绿切换的**在途影子表**：切换前重导会把半成品结构写进基线，
-// 切换后它会原子改名成原表、自然消失，故必须排除（2026-10-12 机会表轮次踩过这个口）。
-// __drill 后缀是全量对拍/回滚演练的影子表（如 crm_notice_attribution_nodes__drill），
-// 它们按纪律保留作“落刀证明”（ADR-0014），同样不能进基线。
-// （原 crm_appointments 排除行已删，2026-10-15：ADR-0011 库侧 DROP 已落刀，下一轮重导自然归一。）
-const EXCLUDE_RES = [
-  /__bak_/,
-  /_bak\d/,
-  /_(?:bak|backup|old|copy)_?\d*$/,
-  /__new$/,
-  /__drill$/,
-  // 供应商退役批次的蓝绿影子/保留表：supplier__gs 在途影子、supplier__legacy 观察期保留、
-  // supplier__gs_dropped 回滚残留——均为切换窗口内的临时物，不属于终态结构，不进基线。
-  /__gs(_dropped)?$/,
-  /__legacy$/,
-  /_retired_/,
-  // outreach 系为内网爬虫侧拥有的镜像表（列集合随爬虫源漂移，含 supplier 快照列），
-  // 结构事实源在内网，不进本基线（旧字典零残留门禁对它的豁免口径见 check-legacy-dict-residue.mjs）。
-  /^crm_outreach_/,
-];
+// 排除清单（影子/备份/镜像表）事实源见 baseline-exclude.mjs（可被 node --test 自测）；
+// EXCLUDE 环境变量在此追加，与内置取并集。
+const excludeRes = [...BASE_EXCLUDE_RES];
 const extra = process.env.EXCLUDE;
-if (extra) EXCLUDE_RES.push(new RegExp(extra, "i"));
+if (extra) excludeRes.push(new RegExp(extra, "i"));
 
 // 与 CI mysql:8.0 服务默认值一致的口径，写进文件头供人工比对
 function buildHeader(total, kept, dropped) {
@@ -83,7 +66,7 @@ async function main() {
   );
 
   const all = rows.map((r) => r.TABLE_NAME);
-  const excluded = all.filter((t) => EXCLUDE_RES.some((re) => re.test(t)));
+  const excluded = all.filter((t) => excludeRes.some((re) => re.test(t)));
   const kept = all.filter((t) => !excluded.includes(t));
 
   const chunks = [buildHeader(all.length, kept.length, excluded.length)];
