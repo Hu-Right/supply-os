@@ -1,5 +1,5 @@
 /**
- * 企业信息表格式编辑表单（字段与 supplier 最终表一致）
+ * 企业信息表格式编辑表单（字段与 supplier 最终表一致）— 容器
  * Enterprise Edit Form (table style)
  *
  * @module features/auth/components/EnterpriseEditForm
@@ -8,27 +8,24 @@
  *              面向中国场景：国家/国家代码不填写不入库（提交留空）；
  *              省/市用级联下拉（对标采购需求地址表单）。
  *              提交值为 supplier 列名（snake_case）键值对；保存动作由外层 onSubmit 负责。
+ *
+ *              2026-10 组件化拆分（455→约 190 行）：字段定义/表格布局/执照上传段/认领引导条
+ *              见 ./enterprise-edit/*，JSX 与行为逐字不变；本文件保留表单状态与提交编排。
  */
-import { useState, useRef } from "react";
-import { Upload, X, Image as ImageIcon } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
-import { AuthLicenseImage } from "@/shared/ui";
-import { compressImage, blobToFile } from "@/shared/utils/image-compress";
 import { SupplierProductsPicker } from "./SupplierProductsPicker";
 import type { EnterpriseInfo, CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
+import {
+  BASIC_FIELDS, CONTACT_FIELDS, BUSINESS_FIELDS, REQUIRED_KEYS, ALL_FIELD_GROUPS,
+  btnBlue, btnPlain, inputCls,
+} from "./enterprise-edit/fields";
+import { FieldGrid, GroupTitle } from "./enterprise-edit/FieldGrid";
+import { LicenseUploadSection } from "./enterprise-edit/LicenseUploadSection";
+import { ClaimSuggestBar, type ClaimSuggestion } from "./enterprise-edit/ClaimSuggestBar";
 
-const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0 disabled:opacity-50";
-const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors shrink-0";
-const inputCls = "w-full px-2 py-1.5 rounded border border-border bg-white text-xs text-foreground focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 outline-none";
-
-/** 认领建议候选（/api/user/enterprise/suggest 返回，仅目录公开字段） */
-interface ClaimSuggestion {
-  id: number;
-  company: string;
-  country: string | null;
-  industry: string | null;
-}
+export type { ClaimSuggestion } from "./enterprise-edit/ClaimSuggestBar";
 
 export interface EnterpriseEditFormProps {
   /** 编辑态初始值（已绑定行）；新建传 null */
@@ -47,72 +44,10 @@ export interface EnterpriseEditFormProps {
   onClaimRequest?: (supplier: { id: number; company: string }) => void;
 }
 
-interface OptionDef { value: string; labelKey: string; fallback: string }
-interface FieldDef {
-  key: string;
-  labelKey: string;
-  fallback: string;
-  full?: boolean;
-  textarea?: boolean;
-  options?: OptionDef[];
-  placeholderKey?: string;
-  placeholder?: string;
-}
-
-const BASIC_FIELDS: FieldDef[] = [
-  { key: "company", labelKey: "authEnterpriseName", fallback: "企业名称", placeholderKey: "authEnterpriseNamePh" },
-  // english_name（企业英文法务名）输入框已于 2026-09-26 撤下：实库该列一行都没填过；
-  // 2026-09-28 影子表重建时列已物理删除，如需复活须先走一次加列迁移。
-  { key: "province", labelKey: "authEnterpriseProvince", fallback: "省份", placeholderKey: "authEnterpriseProvincePh" },
-  { key: "city", labelKey: "authEnterpriseCity", fallback: "城市", placeholderKey: "authEnterpriseCityPh" },
-  { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址", full: true, placeholderKey: "authEnterpriseBizAddressPh" },
-  { key: "registered_address", labelKey: "authEnterpriseRegAddress", fallback: "注册地址", full: true, placeholderKey: "authEnterpriseRegAddressPh" },
-];
-const CONTACT_FIELDS: FieldDef[] = [
-  { key: "contact", labelKey: "authEnterpriseContact", fallback: "联系人", placeholderKey: "authEnterpriseContactPh" },
-  { key: "position", labelKey: "authEnterprisePosition", fallback: "职位", placeholderKey: "authEnterprisePositionPh" },
-  { key: "phone", labelKey: "authEnterprisePhone", fallback: "联系电话", placeholderKey: "authEnterprisePhonePh" },
-  { key: "email", labelKey: "authEnterpriseEmail", fallback: "邮箱", placeholderKey: "authEnterpriseEmailPh" },
-  { key: "website", labelKey: "authEnterpriseWebsite", fallback: "官网", full: true, placeholderKey: "authEnterpriseWebsitePh" },
-];
-const BUSINESS_FIELDS: FieldDef[] = [
-  { key: "legal_rep", labelKey: "authEnterpriseLegalRep", fallback: "法定代表人", placeholderKey: "authEnterpriseLegalRepPh" },
-  { key: "established_at", labelKey: "authEnterpriseEstablished", fallback: "成立日期", placeholderKey: "authEnterpriseEstablishedPh" },
-  { key: "registered_capital", labelKey: "authEnterpriseCapital", fallback: "注册资本", placeholderKey: "authEnterpriseCapitalPh" },
-  { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码", placeholderKey: "authEnterpriseCreditCodePh" },
-  { key: "certification", labelKey: "authEnterpriseCertifications", fallback: "资质认证", placeholderKey: "authEnterpriseCertificationsPh" },
-  { key: "intro", labelKey: "authEnterpriseIntro", fallback: "企业简介", full: true, textarea: true, placeholderKey: "authEnterpriseIntroPh" },
-];
-
-/** 必填字段（预提交阻断校验点名用） */
-const REQUIRED_KEYS: { key: string; labelKey: string; fallback: string }[] = [
-  { key: "company", labelKey: "authEnterpriseName", fallback: "企业名称" },
-  { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码" },
-  { key: "legal_rep", labelKey: "authEnterpriseLegalRep", fallback: "法定代表人" },
-  { key: "province", labelKey: "authEnterpriseProvince", fallback: "省份" },
-  { key: "city", labelKey: "authEnterpriseCity", fallback: "城市" },
-  { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址" },
-  { key: "contact", labelKey: "authEnterpriseContact", fallback: "联系人" },
-  { key: "phone", labelKey: "authEnterprisePhone", fallback: "联系电话" },
-  { key: "products", labelKey: "authEnterpriseProductIntro", fallback: "产品介绍" },
-];
-
-function GroupTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 mb-2">
-      <span className="w-1 h-4 rounded bg-brand-500" />
-      <h3 className="text-sm font-medium text-foreground">{children}</h3>
-    </div>
-  );
-}
-
 export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onSubmit, onCancel, licenseUrl, onLicenseUploaded, onClaimRequest }: EnterpriseEditFormProps) {
   const { t } = useLocale();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-  const [localLicenseUrl, setLocalLicenseUrl] = useState(licenseUrl || "");
   const [formError, setFormError] = useState<string | null>(null);
+  const [localLicenseUrl, setLocalLicenseUrl] = useState(licenseUrl || "");
   const [suggestions, setSuggestions] = useState<ClaimSuggestion[]>([]);
   const [suggestDismissed, setSuggestDismissed] = useState(false);
   const suggestCheckedRef = useRef("");
@@ -120,7 +55,7 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
   const [commodityNodes, setCommodityNodes] = useState<CommodityNodeBrief[]>(initialCommodityNodes ?? []);
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = { province: "", city: "" };
-    for (const group of [BASIC_FIELDS, CONTACT_FIELDS, BUSINESS_FIELDS]) {
+    for (const group of ALL_FIELD_GROUPS) {
       for (const f of group) {
         const v = initial?.[f.key];
         init[f.key] = v === null || v === undefined ? "" : String(v);
@@ -134,7 +69,7 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
     return init;
   });
 
-  const set = (key: string, v: string) => setValues((s) => ({ ...s, [key]: v }));
+  const set = useCallback((key: string, v: string) => setValues((s) => ({ ...s, [key]: v })), []);
 
   // 认领引导：仅未绑定新建时，公司名失焦查库内已认证同名/近似企业（查询失败静默，不阻断填写）
   const checkCompanySuggest = async (raw: string) => {
@@ -152,120 +87,12 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
       /* 建议接口失败不打断填写 */
     }
   };
+  const handleCompanyBlur = useCallback(() => { void checkCompanySuggest(values.company); }, [values.company]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 必填字段 Set（用于 label 星号标识）
-  const requiredKeys = new Set(REQUIRED_KEYS.map((r) => r.key));
-
-  const renderField = (f: FieldDef) => {
-    const ph = f.placeholderKey ? (t(f.placeholderKey) || f.placeholder || "") : (f.placeholder || "");
-    const isRequired = requiredKeys.has(f.key);
-    return (
-      <div key={f.key} className="contents">
-        <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border flex items-center">
-          {t(f.labelKey) || f.fallback}
-          {isRequired && <span className="ml-0.5 text-danger-500" aria-hidden="true">*</span>}
-        </div>
-        <div className={`px-3 py-2 ${f.full ? "col-span-3" : "col-span-1"}`}>
-          {f.textarea ? (
-            <textarea
-              className={`${inputCls} min-h-16 resize-y`}
-              value={values[f.key] || ""}
-              onChange={(e) => set(f.key, e.target.value)}
-              placeholder={ph}
-            />
-          ) : f.options ? (
-            <select
-              className={inputCls}
-              value={values[f.key] || ""}
-              onChange={(e) => set(f.key, e.target.value)}
-            >
-              <option value="">{t("authEnterpriseSelectPlaceholder") || "请选择"}</option>
-              {f.options.map((o) => (
-                <option key={o.value} value={o.value}>{t(o.labelKey) || o.fallback}</option>
-              ))}
-            </select>
-          ) : (
-            <input
-              className={inputCls}
-              value={values[f.key] || ""}
-              onChange={(e) => set(f.key, e.target.value)}
-              onBlur={f.key === "company" ? () => checkCompanySuggest(values.company) : undefined}
-              placeholder={ph}
-            />
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderGroup = (fields: FieldDef[]) => {
-    const rows: React.ReactNode[] = [];
-    let cur: FieldDef[] = [];
-    const flush = () => {
-      if (!cur.length) return;
-      const rowFields = cur;
-      rows.push(
-        <div key={`r-${rowFields[0].key}`} className="grid grid-cols-4 border-b border-border">
-          {rowFields.map(renderField)}
-          {rowFields.length === 1 && !rowFields[0].full && (
-            <>
-              <div className="bg-secondary-50 px-3 py-2 border-r border-border" />
-              <div className="px-3 py-2" />
-            </>
-          )}
-        </div>,
-      );
-      cur = [];
-    };
-    for (const f of fields) {
-      if (f.full) { flush(); rows.push(<div key={`f-${f.key}`} className="grid grid-cols-4 border-b border-border">{renderField(f)}</div>); }
-      else { cur.push(f); if (cur.length === 2) flush(); }
-    }
-    flush();
-    return (
-      <div className="border border-border rounded-md overflow-hidden bg-white">
-        {rows}
-      </div>
-    );
-  };
-
-  const handleLicenseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("文件大小不能超过 5MB");
-      return;
-    }
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setUploadError("仅支持 JPG、PNG、WebP 格式");
-      return;
-    }
-    setUploadError("");
-    setUploading(true);
-    try {
-      // 客户端压缩（减少上传体积和存储成本）
-      const compressedBlob = await compressImage(file, {
-        maxWidth: 2560,
-        maxHeight: 2560,
-        quality: 0.9,
-        targetType: "image/jpeg", // 统一转为 JPEG 以获得更好压缩率
-      });
-      const compressedFile = blobToFile(compressedBlob, file.name);
-
-      const formData = new FormData();
-      formData.append("file", compressedFile);
-      const res: { url: string } = await api("/api/user/enterprise/license-upload", {
-        method: "POST",
-        body: formData,
-      });
-      setLocalLicenseUrl(res.url);
-      onLicenseUploaded?.(res.url);
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "上传失败");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+  // 执照以保存为单一入口：段组件上抛 → 容器同步 URL 状态与外层回调（与原时机一致）
+  const handleLicenseChange = (url: string) => {
+    setLocalLicenseUrl(url);
+    onLicenseUploaded?.(url);
   };
 
   const handleSubmit = () => {
@@ -298,105 +125,23 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
   return (
     <div className="space-y-6">
       {/* 认领引导：库内已有认证同名/近似企业时提示，提示但不阻断 */}
-      {suggestions.length > 0 && !suggestDismissed && (
-        <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 space-y-2">
-          <p className="text-xs font-medium text-brand-700">
-            {t("authEnterpriseClaimHint") || "供应商库中已存在以下已认证企业，认领通过后即可完成绑定："}
-          </p>
-          <ul className="space-y-1">
-            {suggestions.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-foreground truncate">
-                  {s.company}
-                  {s.country ? <span className="text-muted-foreground"> · {s.country}</span> : null}
-                  {s.industry ? <span className="text-muted-foreground"> · {s.industry}</span> : null}
-                </span>
-                <button
-                  type="button"
-                  className="text-xs font-medium text-brand-600 hover:text-brand-700 shrink-0 cursor-pointer"
-                  onClick={() => onClaimRequest?.({ id: Number(s.id), company: String(s.company ?? "") })}
-                >
-                  {t("authEnterpriseClaimAction") || "去认领"}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-            onClick={() => setSuggestDismissed(true)}
-          >
-            {t("authEnterpriseClaimDismiss") || "都不是我的公司，继续填写"}
-          </button>
-        </div>
+      {!suggestDismissed && (
+        <ClaimSuggestBar suggestions={suggestions} onClaim={onClaimRequest} onDismiss={() => setSuggestDismissed(true)} />
       )}
 
-      {/* 营业执照上传 */}
-      <section>
-        <GroupTitle>
-          {t("authEnterpriseLicense") || "营业执照"}
-          <span className="ml-0.5 text-danger-500" aria-hidden="true">*</span>
-        </GroupTitle>
-        <div className="border border-border rounded-md overflow-hidden bg-white p-4">
-          {localLicenseUrl ? (
-            <div className="flex items-center gap-4">
-              <div className="w-32 h-24 rounded border border-border overflow-hidden bg-secondary-50 flex items-center justify-center">
-                <AuthLicenseImage url={localLicenseUrl} alt="营业执照" className="w-full h-full object-contain" />
-              </div>
-              <div className="flex-1 space-y-2">
-                <p className="text-xs text-success-600 font-medium">营业执照已上传</p>
-                <button
-                  type="button"
-                  onClick={() => { setLocalLicenseUrl(""); onLicenseUploaded?.(""); }}
-                  className="text-xs text-danger-500 hover:text-danger-700 flex items-center gap-1"
-                >
-                  <X className="w-3 h-3" /> 移除执照
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <div className="w-32 h-24 rounded border border-dashed border-border bg-secondary-50 flex items-center justify-center">
-                <ImageIcon className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <div className="flex-1 space-y-2">
-                <p className="text-xs text-muted-foreground">请上传营业执照（JPG/PNG/WebP，最大 5MB）</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleLicenseUpload}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors disabled:opacity-50"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  {uploading ? "上传中…" : "选择文件上传"}
-                </button>
-              </div>
-            </div>
-          )}
-          {uploadError && (
-            <p className="text-xs text-danger-600 mt-2">{uploadError}</p>
-          )}
-        </div>
-      </section>
+      <LicenseUploadSection value={localLicenseUrl} onChange={handleLicenseChange} />
 
       <section>
         <GroupTitle>{t("settingsBasicInfo") || "基本信息"}</GroupTitle>
-        {renderGroup(BASIC_FIELDS)}
+        <FieldGrid fields={BASIC_FIELDS} values={values} onSet={set} onCompanyBlur={handleCompanyBlur} />
       </section>
       <section>
         <GroupTitle>{t("authEnterpriseGroupContact") || "联系信息"}</GroupTitle>
-        {renderGroup(CONTACT_FIELDS)}
+        <FieldGrid fields={CONTACT_FIELDS} values={values} onSet={set} />
       </section>
       <section>
         <GroupTitle>{t("authEnterpriseGroupBusiness") || "工商与业务信息"}</GroupTitle>
-        {renderGroup(BUSINESS_FIELDS)}
+        <FieldGrid fields={BUSINESS_FIELDS} values={values} onSet={set} />
       </section>
 
       {/* 主营产品：展示属性（自由文本）与商品属性（品目树落点）并列展示，同属一个概念的两个侧面 */}

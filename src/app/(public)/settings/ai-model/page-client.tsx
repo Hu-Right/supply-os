@@ -1,6 +1,6 @@
 "use client";
 /**
- * AI 模型配置页
+ * AI 模型配置页 — 容器
  * @module app/(public)/settings/ai-model/page-client
  * @description 面向非技术用户：通过下拉选择器切换预置模型（DeepSeek / 通义 / 智谱 / Kimi / OpenAI 等），
  *              自动填充 Base URL 与模型名；用户只需粘贴 API Key。
@@ -8,8 +8,11 @@
  *              保存调用 PUT /api/user/llm-config，apiKey 不做本地持久化。
  *              保存成功后自动发起一次连接测试（POST /api/user/llm-config/test，
  *              max_tokens=1 最小探测），把 Key 无效/模型名错/欠费等错误提前暴露为中文提示。
+ *
+ *              2026-10 组件化拆分（332→约 190 行）：选择器/自定义字段/授权告知/消息行
+ *              见 ./components/parts，JSX 逐字不变；本文件保留表单状态与保存/测试编排。
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/shared/ui";
 import { api } from "@/core/http";
@@ -23,6 +26,7 @@ import {
   CUSTOM_PRESET_ID,
   matchPresetByConfig,
 } from "@/lib/services/ai-summary/config";
+import { ModelSelector, CustomFields, ApiKeyField, ConsentNotice, MessageLine, type LlmForm } from "./components/parts";
 
 export default function AiModelSettingsClient() {
   const router = useRouter();
@@ -34,7 +38,7 @@ export default function AiModelSettingsClient() {
   const [testing, setTesting] = useState(false);
   const [existing, setExisting] = useState<LlmConfigData | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<string>(PRESET_LLM_MODELS[0].id);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<LlmForm>({
     providerName: PRESET_LLM_MODELS[0].providerName,
     baseUrl: PRESET_LLM_MODELS[0].baseUrl,
     apiKey: "",
@@ -44,10 +48,6 @@ export default function AiModelSettingsClient() {
   const [outboundConsent, setOutboundConsent] = useState(false);
 
   const isCustom = selectedPresetId === CUSTOM_PRESET_ID;
-  const currentPreset = useMemo(
-    () => PRESET_LLM_MODELS.find((p) => p.id === selectedPresetId) ?? null,
-    [selectedPresetId],
-  );
 
   useEffect(() => {
     fetchLlmConfig()
@@ -175,9 +175,6 @@ export default function AiModelSettingsClient() {
     return <div className="py-16 text-center text-sm text-slate-400">加载中…</div>;
   }
 
-  const field =
-    "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-400 focus:outline-none";
-
   return (
     <Card className="rounded-2xl p-6 space-y-5">
       <div>
@@ -193,126 +190,16 @@ export default function AiModelSettingsClient() {
         </div>
       )}
 
-      {/* 模型选择器：预置项 + 自定义 */}
-      <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1">选择模型</label>
-        <select
-          className={field}
-          value={selectedPresetId}
-          onChange={(e) => handlePresetChange(e.target.value)}
-        >
-          {PRESET_LLM_MODELS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.model}
-            </option>
-          ))}
-          <option value={CUSTOM_PRESET_ID}>
-            自定义（高级用户 · 手动填写 Base URL / 模型名称）
-          </option>
-        </select>
-
-        {!isCustom && currentPreset && (
-          <div className="mt-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-[11px] text-slate-600 space-y-1">
-            <div>
-              Base URL：<span className="font-mono text-slate-800">{currentPreset.baseUrl}</span>
-            </div>
-            <div>
-              模型名称：<span className="font-mono text-slate-800">{currentPreset.model}</span>
-            </div>
-            {currentPreset.docsUrl && (
-              <div>
-                <a
-                  href={currentPreset.docsUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="text-teal-600 hover:underline"
-                >
-                  前往 {currentPreset.providerName} 申请 API Key →
-                </a>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <ModelSelector selectedPresetId={selectedPresetId} onChange={handlePresetChange} />
 
       {/* 自定义模式下展开原有三项输入 */}
-      {isCustom && (
-        <>
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1">提供商名称</label>
-            <input
-              className={field}
-              value={form.providerName}
-              maxLength={100}
-              onChange={(e) => setForm({ ...form, providerName: e.target.value })}
-              placeholder="如 DeepSeek"
-            />
-          </div>
+      {isCustom && <CustomFields form={form} onChange={setForm} />}
 
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1">Base URL</label>
-            <input
-              className={field}
-              value={form.baseUrl}
-              onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
-              placeholder="https://api.deepseek.com"
-            />
-          </div>
+      <ApiKeyField value={form.apiKey} onChange={(v) => setForm({ ...form, apiKey: v })} configured={!!existing?.configured} />
 
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1">模型名称</label>
-            <input
-              className={field}
-              value={form.model}
-              onChange={(e) => setForm({ ...form, model: e.target.value })}
-              placeholder="deepseek-flash / gpt-6-astra"
-            />
-          </div>
-        </>
-      )}
+      <ConsentNotice checked={outboundConsent} onChange={setOutboundConsent} />
 
-      <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1">API Key</label>
-        <input
-          className={field}
-          type="password"
-          value={form.apiKey}
-          onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-          placeholder={existing?.configured ? "重新填写以更新 Key" : "sk-..."}
-        />
-      </div>
-
-      {/* BYOK 数据出站告知与授权（合规） */}
-      <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 space-y-2">
-        <p className="text-[11px] text-amber-800 leading-4">
-          使用自有 API Key 时，公告原文及企业/工厂画像数据将发送至您所配置的第三方模型服务端点（如 OpenAI、DeepSeek）。该服务由您自行选择与控制，请确认其隐私政策。
-        </p>
-        <label className="flex items-start gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            className="mt-0.5 accent-teal-600"
-            checked={outboundConsent}
-            onChange={(e) => setOutboundConsent(e.target.checked)}
-          />
-          <span className="text-[11px] font-bold text-amber-900 leading-4">
-            我知晓并同意将上述数据发送至我配置的模型服务端点
-          </span>
-        </label>
-      </div>
-
-      {message && (
-        <p
-          className={`text-xs font-bold ${
-            messageKind === "ok"
-              ? "text-teal-700"
-              : messageKind === "pending"
-                ? "text-slate-500"
-                : "text-rose-600"
-          }`}
-        >
-          {message}
-        </p>
-      )}
+      <MessageLine message={message} kind={messageKind} />
 
       <div className="flex gap-3 flex-wrap">
         <Button onClick={handleSave} disabled={saving} variant="primary">
