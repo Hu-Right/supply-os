@@ -66,7 +66,7 @@ describe("resolveMode · prefs 的渐进放宽序列", () => {
       userId: 7,
       commodityCode: "UGT-4321150301",
       deepestLevel: 5,
-      groupCode: "UGT-G-07",
+      l1Code: "UGT-43",
       industryTitleZh: "夹具",
     });
     const r = await resolveMode(fakePool(), params({ mode: "prefs", userId: 7 }));
@@ -86,7 +86,7 @@ describe("resolveMode · prefs 的渐进放宽序列", () => {
       userId: 8,
       commodityCode: "UGT-30883401",
       deepestLevel: 4,
-      groupCode: "UGT-G-07",
+      l1Code: "UGT-30",
       industryTitleZh: "夹具",
     });
     const r = await resolveMode(fakePool(), params({ mode: "prefs", userId: 8 }));
@@ -102,7 +102,7 @@ describe("resolveMode · prefs 的渐进放宽序列", () => {
       userId: 9,
       commodityCode: "43211503",
       deepestLevel: 0,
-      groupCode: null,
+      l1Code: null,
       industryTitleZh: null,
     });
     const r = await resolveMode(fakePool(), params({ mode: "prefs", userId: 9 }));
