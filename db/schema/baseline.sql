@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 89 张，导出 86 张，排除 3 张。
+--           源库共 89 张，导出 85 张，排除 4 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -57,9 +57,12 @@ CREATE TABLE `crm_agency_aliases` (
   `canonical` varchar(255) NOT NULL COMMENT '标准机构名（展示用）',
   `alias` varchar(255) NOT NULL COMMENT '别名（匹配用，大写存储）',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `name_i18n` json DEFAULT NULL COMMENT '机构名多语言翻译 {zh, fr, ru, es, ar}',
+  `name_i18n` json DEFAULT NULL,
+  `normalized_alias` varchar(255) GENERATED ALWAYS AS (upper(trim(`alias`))) STORED,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `source_ref` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_alias` (`alias`),
+  UNIQUE KEY `uk_normalized_alias` (`normalized_alias`),
   KEY `idx_canonical` (`canonical`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='机构归一化';
 
@@ -95,6 +98,22 @@ CREATE TABLE `crm_api_usage` (
   KEY `idx_key_date` (`api_key_id`,`created_at`),
   KEY `idx_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='外部API获取的信息。';
+
+-- ── crm_appointments ──
+CREATE TABLE `crm_appointments` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned DEFAULT NULL,
+  `user_name` varchar(100) DEFAULT NULL,
+  `employee_id` int unsigned DEFAULT NULL,
+  `employee_name` varchar(100) DEFAULT NULL,
+  `appointment_time` datetime DEFAULT NULL,
+  `topic` varchar(300) DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'pending',
+  `remark` text,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── crm_benefit_catalog ──
 CREATE TABLE `crm_benefit_catalog` (
@@ -384,7 +403,7 @@ CREATE TABLE `crm_commodity_backbone` (
   KEY `idx_parent` (`parent_code`),
   KEY `idx_level` (`level`),
   FULLTEXT KEY `ft_backbone_names` (`name_zh`,`name_en`) /*!50100 WITH PARSER `ngram` */ 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='五级品目树';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='五级品目树。';
 
 -- ── crm_consent_log ──
 CREATE TABLE `crm_consent_log` (
@@ -994,7 +1013,7 @@ CREATE TABLE `crm_reco_weight_profile` (
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='推荐权重档案。';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户个性化推荐权重档案表。';
 
 -- ── crm_refresh_tokens ──
 CREATE TABLE `crm_refresh_tokens` (
@@ -1008,15 +1027,6 @@ CREATE TABLE `crm_refresh_tokens` (
   KEY `idx_token_hash` (`token_hash`),
   KEY `idx_expires_at` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='前台哈希登记表';
-
--- ── crm_rfx_platform_map ──
-CREATE TABLE `crm_rfx_platform_map` (
-  `platform_key` varchar(64) NOT NULL,
-  `name_zh` varchar(100) NOT NULL,
-  `name_en` varchar(120) NOT NULL,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`platform_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='招标平台中英文名映射';
 
 -- ── crm_service_catalog ──
 CREATE TABLE `crm_service_catalog` (
@@ -1514,15 +1524,9 @@ CREATE TABLE `supplier` (
   `email` varchar(150) NOT NULL DEFAULT '' COMMENT '邮箱',
   `address` varchar(500) DEFAULT '' COMMENT '地址',
   `website` varchar(255) NOT NULL DEFAULT '' COMMENT '官网',
-  `industry` varchar(200) NOT NULL DEFAULT '' COMMENT '行业/主要产品',
   `industry_code` varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '主行业码 UGT-I-*（V3 直标）',
   `certification` varchar(500) DEFAULT NULL,
   `products` varchar(500) DEFAULT '' COMMENT '主营产品',
-  `product_keywords` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '产品关键词/别名/采集抽取词，用于品目补码与商机匹配',
-  `unspsc_codes_snapshot` text COMMENT '供应商品类候选码快照(JSON)，用于快速查看和审计',
-  `unspsc_match_status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT '品类补码状态：pending待识别 matched已匹配 reviewed已复核 failed失败',
-  `data_quality_score` decimal(5,2) GENERATED ALWAYS AS (round(((((((((((((((((((((((`country` is not null) and (trim(`country`) <> _utf8mb4'')) + ((`province` is not null) and (trim(`province`) <> _utf8mb4''))) + ((`city` is not null) and (trim(`city`) <> _utf8mb4''))) + ((`address` is not null) and (trim(`address`) <> _utf8mb4''))) + ((`contact` is not null) and (trim(`contact`) <> _utf8mb4''))) + ((`position` is not null) and (trim(`position`) <> _utf8mb4''))) + ((`phone` is not null) and (trim(`phone`) <> _utf8mb4''))) + ((`email` is not null) and (trim(`email`) <> _utf8mb4''))) + ((`website` is not null) and (trim(`website`) <> _utf8mb4''))) + ((`industry` is not null) and (trim(`industry`) <> _utf8mb4''))) + ((`products` is not null) and (trim(`products`) <> _utf8mb4''))) + ((`type` is not null) and (trim(`type`) <> _utf8mb4''))) + ((`business_type` is not null) and (trim(`business_type`) <> _utf8mb4''))) + ((`certification` is not null) and (trim(`certification`) <> _utf8mb4''))) + ((`established_at` is not null) and (trim(`established_at`) <> _utf8mb4''))) + ((`registered_capital` is not null) and (trim(`registered_capital`) <> _utf8mb4''))) + ((`credit_code` is not null) and (trim(`credit_code`) <> _utf8mb4''))) + ((`legal_rep` is not null) and (trim(`legal_rep`) <> _utf8mb4''))) + ((`intro` is not null) and (trim(`intro`) <> _utf8mb4''))) + ((`registered_address` is not null) and (trim(`registered_address`) <> _utf8mb4''))) * 5.0),2)) STORED NOT NULL,
-  `type` varchar(20) NOT NULL DEFAULT 'foreign' COMMENT 'foreign=国外 domestic=国内',
   `business_type` varchar(50) DEFAULT NULL COMMENT '供应商业务身份，如制造商/贸易公司/认证供应商',
   `coop_status` tinyint NOT NULL DEFAULT '2' COMMENT '0=已停止 1=合作中 2=待评估',
   `remark` text COMMENT '备注',
@@ -1532,12 +1536,11 @@ CREATE TABLE `supplier` (
   `legal_rep` varchar(50) DEFAULT NULL,
   `intro` text,
   `business_scope` text COMMENT '经营范围（来源：supplier_merged 清洗合并）',
-  `name_confirmed` varchar(120) DEFAULT NULL,
   `registered_address` varchar(255) DEFAULT NULL,
   `registered_phone` varchar(40) DEFAULT NULL,
   `registered_email` varchar(120) DEFAULT NULL,
-  `established_at` varchar(20) DEFAULT NULL,
-  `registered_capital` varchar(40) DEFAULT NULL,
+  `established_at` date DEFAULT NULL COMMENT '成立日期',
+  `registered_capital` decimal(16,2) DEFAULT NULL COMMENT '注册资本',
   `credit_code` varchar(30) DEFAULT NULL,
   `info_checked` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否核对过(公司中文名+联系方式)',
   `check_note` varchar(500) DEFAULT NULL COMMENT '核对信息表述',
@@ -1549,15 +1552,15 @@ CREATE TABLE `supplier` (
   `enrich_status` varchar(20) DEFAULT NULL COMMENT 'AI补全状态: pending_review/applied/rejected',
   `business_type_code` enum('manufacturer','trader','service_provider','other') DEFAULT NULL COMMENT '业务身份枚举：business_type 文本的结构化派生，人工编辑/补全应用时同步',
   `certification_tags` json DEFAULT NULL COMMENT '认证规范标签数组：certification 文本解析派生，如 ["ISO9001","CE"]',
+  `data_quality_score` decimal(5,2) GENERATED ALWAYS AS (round((((((((((((((((((((((`country` is not null) and (trim(`country`) <> _utf8mb4'')) + ((`province` is not null) and (trim(`province`) <> _utf8mb4''))) + ((`city` is not null) and (trim(`city`) <> _utf8mb4''))) + ((`address` is not null) and (trim(`address`) <> _utf8mb4''))) + ((`contact` is not null) and (trim(`contact`) <> _utf8mb4''))) + ((`position` is not null) and (trim(`position`) <> _utf8mb4''))) + ((`phone` is not null) and (trim(`phone`) <> _utf8mb4''))) + ((`email` is not null) and (trim(`email`) <> _utf8mb4''))) + ((`website` is not null) and (trim(`website`) <> _utf8mb4''))) + ((`industry_code` is not null) and (trim(`industry_code`) <> _utf8mb4''))) + ((`products` is not null) and (trim(`products`) <> _utf8mb4''))) + ((`business_type` is not null) and (trim(`business_type`) <> _utf8mb4''))) + ((`certification` is not null) and (trim(`certification`) <> _utf8mb4''))) + ((`established_at` is not null) and (trim(`established_at`) <> _utf8mb4''))) + ((`registered_capital` is not null) and (trim(`registered_capital`) <> _utf8mb4''))) + ((`credit_code` is not null) and (trim(`credit_code`) <> _utf8mb4''))) + ((`legal_rep` is not null) and (trim(`legal_rep`) <> _utf8mb4''))) + ((`intro` is not null) and (trim(`intro`) <> _utf8mb4''))) + ((`registered_address` is not null) and (trim(`registered_address`) <> _utf8mb4''))) * 5.0),2)) STORED NOT NULL COMMENT '资料完整度。',
   PRIMARY KEY (`id`),
-  KEY `idx_type` (`type`),
   KEY `idx_verify_status` (`verify_status`,`id`),
   KEY `idx_claim_status` (`claim_status`),
   KEY `idx_btype_code` (`business_type_code`),
   KEY `idx_coop_status` (`coop_status`,`id`),
   KEY `idx_credit_code` (`credit_code`),
   KEY `idx_company` (`company`(64)),
-  FULLTEXT KEY `ft_supplier_products` (`products`,`product_keywords`) /*!50100 WITH PARSER `ngram` */ 
+  FULLTEXT KEY `ft_supplier_products` (`products`) /*!50100 WITH PARSER `ngram` */ 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商管理';
 
 -- ── sys_audit_logs ──
@@ -1678,22 +1681,6 @@ CREATE TABLE `training_courses` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_training_courses_status` (`status`,`sort_order`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ── training_gallery_categories ──
-CREATE TABLE `training_gallery_categories` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `name_zh` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `name_en` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
-  `description_zh` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
-  `description_en` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
-  `cover_image` varchar(255) DEFAULT NULL,
-  `sort_order` int NOT NULL DEFAULT '0',
-  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'active',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_training_gallery_cat_status` (`status`,`sort_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── training_orders ──

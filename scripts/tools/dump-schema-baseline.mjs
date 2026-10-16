@@ -34,6 +34,10 @@ const EXCLUDE_RES = [
   /_(?:bak|backup|old|copy)_?\d*$/,
   /__new$/,
   /__drill$/,
+  // 供应商退役批次的蓝绿影子/保留表：supplier__gs 在途影子、supplier__legacy 观察期保留、
+  // supplier__gs_dropped 回滚残留——均为切换窗口内的临时物，不属于终态结构，不进基线。
+  /__gs(_dropped)?$/,
+  /__legacy$/,
   /_retired_/,
   // outreach 系为内网爬虫侧拥有的镜像表（列集合随爬虫源漂移，含 supplier 快照列），
   // 结构事实源在内网，不进本基线（旧字典零残留门禁对它的豁免口径见 check-legacy-dict-residue.mjs）。
