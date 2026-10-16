@@ -6,12 +6,11 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cpu, User, Building2, Package, AlertTriangle, ClipboardList, KeyRound, Tags, ListChecks } from "lucide-react";
+import { Cpu, User, Building2, Package, AlertTriangle, ClipboardList, KeyRound } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils/cn";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 import { useHasSupplierPool } from "@/shared/hooks/useHasSupplierPool";
-import { useIsAdmin } from "@/shared/hooks/useIsAdmin";
 import { useUserId } from "@/core/auth/useUserId";
 
 const NAV_ITEMS = [
@@ -23,17 +22,10 @@ const NAV_ITEMS = [
   { href: "/settings/ai-model", labelKey: "settingsAiModel", icon: Cpu },
 ];
 
-/** 运维导航（ADMIN_EMAILS 白名单可见）：公告打标 / 公告管理 */
-const ADMIN_NAV_ITEMS = [
-  { href: "/settings/notice-tagging", label: "公告打标", icon: Tags },
-  { href: "/settings/notice-manage", label: "公告管理", icon: ListChecks },
-];
-
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { t } = useLocale();
   const userId = useUserId();
-  const isAdmin = useIsAdmin();
   const { bound, loading: entLoading, error: entError } = useEnterpriseInfo();
   const { hasPool, loading: poolLoading, error: poolError } = useHasSupplierPool(userId);
 
@@ -90,30 +82,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               </Link>
             );
           })}
-          {isAdmin && (
-            <>
-              <p className="hidden md:block text-2xs text-muted-foreground px-3 mt-3 mb-2">运维</p>
-              {ADMIN_NAV_ITEMS.map((item) => {
-                const active = pathname.startsWith(item.href);
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors",
-                      active
-                        ? "bg-secondary-100 text-foreground font-medium"
-                        : "text-muted-foreground hover:bg-secondary-50 hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="w-4 h-4 shrink-0" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </>
-          )}
         </nav>
         {/* 右侧内容区 */}
         <div className="min-w-0">{children}</div>
