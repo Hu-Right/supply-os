@@ -6,7 +6,7 @@
  * @description 与展示表格同构的可编辑表格：label 灰底单元格 + 输入框值单元格，
  *              分组（基本信息/联系信息/工商与业务信息）。所见即所填、所填即所显。
  *              面向中国场景：国家/国家代码不填写不入库（提交留空）；
- *              省/市用级联下拉（对标采购需求地址表单）；供应商类型为下拉选择。
+ *              省/市用级联下拉（对标采购需求地址表单）。
  *              提交值为 supplier 列名（snake_case）键值对；保存动作由外层 onSubmit 负责。
  */
 import { useState, useRef } from "react";
@@ -59,13 +59,6 @@ interface FieldDef {
   placeholder?: string;
 }
 
-/** 供应商类型下拉选项 */
-const SUPPLIER_TYPE_OPTIONS: OptionDef[] = [
-  { value: "factory", labelKey: "authEnterpriseTypeFactory", fallback: "工厂" },
-  { value: "trader", labelKey: "authEnterpriseTypeTrader", fallback: "贸易商" },
-  { value: "factory_trader", labelKey: "authEnterpriseTypeFactoryTrader", fallback: "工贸一体" },
-];
-
 const BASIC_FIELDS: FieldDef[] = [
   { key: "company", labelKey: "authEnterpriseName", fallback: "企业名称", placeholderKey: "authEnterpriseNamePh" },
   // english_name（企业英文法务名）输入框已于 2026-09-26 撤下：实库该列一行都没填过；
@@ -87,7 +80,6 @@ const BUSINESS_FIELDS: FieldDef[] = [
   { key: "established_at", labelKey: "authEnterpriseEstablished", fallback: "成立日期", placeholderKey: "authEnterpriseEstablishedPh" },
   { key: "registered_capital", labelKey: "authEnterpriseCapital", fallback: "注册资本", placeholderKey: "authEnterpriseCapitalPh" },
   { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码", placeholderKey: "authEnterpriseCreditCodePh" },
-  { key: "type", labelKey: "authEnterpriseSupplierType", fallback: "供应商类型", options: SUPPLIER_TYPE_OPTIONS },
   { key: "certification", labelKey: "authEnterpriseCertifications", fallback: "资质认证", placeholderKey: "authEnterpriseCertificationsPh" },
   { key: "intro", labelKey: "authEnterpriseIntro", fallback: "企业简介", full: true, textarea: true, placeholderKey: "authEnterpriseIntroPh" },
 ];
@@ -103,7 +95,6 @@ const REQUIRED_KEYS: { key: string; labelKey: string; fallback: string }[] = [
   { key: "contact", labelKey: "authEnterpriseContact", fallback: "联系人" },
   { key: "phone", labelKey: "authEnterprisePhone", fallback: "联系电话" },
   { key: "products", labelKey: "authEnterpriseProductIntro", fallback: "产品介绍" },
-  { key: "type", labelKey: "authEnterpriseSupplierType", fallback: "供应商类型" },
 ];
 
 function GroupTitle({ children }: { children: React.ReactNode }) {

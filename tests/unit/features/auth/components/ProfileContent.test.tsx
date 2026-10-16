@@ -121,7 +121,7 @@ describe("ProfileContent", () => {
     expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
 
     // 已认证 → 显示公司名 + 已认证徽章
-    mockEnterpriseData = { verify_status: "done", name_confirmed: "杭州中建工程技术有限公司" };
+    mockEnterpriseData = { verify_status: "done", company: "杭州中建工程技术有限公司" };
     rerender(<ProfileContent />);
     expect(screen.getByText("杭州中建工程技术有限公司")).toBeInTheDocument();
     expect(screen.getByText("authEnterpriseVerifyApproved")).toBeInTheDocument();
@@ -181,7 +181,7 @@ describe("ProfileContent", () => {
   it("t() 缺键（服务端 bundle 未含该键）→ 区块标题与字段标签回落中文兜底", () => {
     mockAuthUser = { nickname: "测试昵称", email: "test@example.com", supplier_id: 42 };
     mockEnterpriseBound = true;
-    mockEnterpriseData = { verify_status: "done", name_confirmed: "杭州中建工程技术有限公司" };
+    mockEnterpriseData = { verify_status: "done", company: "杭州中建工程技术有限公司" };
     tState.impl = () => "";
     try {
       render(<ProfileContent />);

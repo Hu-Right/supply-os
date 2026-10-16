@@ -82,7 +82,7 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
     ? String(enterprise.enterprise.check_note || "")
     : "";
   const companyName = enterprise.enterprise
-    ? String(enterprise.enterprise.name_confirmed || enterprise.enterprise.company || "")
+    ? String(enterprise.enterprise.company || "")
     : "";
 
   if (!authUser) return null;

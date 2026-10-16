@@ -179,7 +179,7 @@ export function EnterpriseInfoCard({
 
   // ── 已绑定：分组表格 ──
   const row = enterprise;
-  const companyName = sv(row, "name_confirmed") !== "-" ? sv(row, "name_confirmed") : sv(row, "company");
+  const companyName = sv(row, "company");
   const isIntl = String(row.country_code || "") !== "" && String(row.country_code) !== "CN";
   const coop = Number(row.coop_status || 0) === 1;
   // 认证状态与账户设置页、后端排他闸口同一口径（verify_status=资质 / claim_status=归属）
@@ -213,7 +213,7 @@ export function EnterpriseInfoCard({
     { label: t("authEnterpriseEstablished") || "成立日期", value: sv(row, "established_at") },
     { label: t("authEnterpriseCapital") || "注册资本", value: sv(row, "registered_capital") },
     { label: t("authEnterpriseCreditCode") || "统一社会信用代码", value: sv(row, "credit_code") },
-    { label: t("authEnterpriseSupplierType") || "供应商类型", value: sv(row, "type") || sv(row, "business_type") },
+    { label: t("authEnterpriseSupplierType") || "供应商类型", value: sv(row, "business_type") },
     { label: t("authEnterpriseCertifications") || "资质认证", value: sv(row, "certification") },
     { label: t("authEnterpriseIntro") || "企业简介", value: sv(row, "intro"), full: true },
   ];

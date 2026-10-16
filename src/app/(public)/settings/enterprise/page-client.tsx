@@ -66,7 +66,7 @@ export default function EnterpriseSettingsClient() {
   const bindState = classifyEnterpriseBindState(enterprise.enterprise);
   const bindText = enterpriseBindStateText(bindState);
   const boundCompany = enterprise.enterprise
-    ? String(enterprise.enterprise.name_confirmed || enterprise.enterprise.company || "")
+    ? String(enterprise.enterprise.company || "")
     : "";
   // 换绑出口（与服务端闸口同一分状态口径）：还没拿下认证的绑定可自助撤回；
   // 已认证的不能自助拆（只能后台重审/客服），所以连按钮也不出现，避免点了才报错。
