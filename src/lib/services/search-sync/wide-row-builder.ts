@@ -20,7 +20,7 @@ import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 import { WIDE_OPP_JOIN, WIDE_SYNC_JOIN } from "./wide-sync-sql";
 import { upsertNoticeNodes } from "./notice-nodes";
 import { SUPPORTED_LANGS } from "../../utils/languages";
-import { loadAgencyAliasSnapshot } from "../agency/alias-store";
+import { loadAgencyAliasSnapshot, normalizeAliasKey } from "../agency/alias-store";
 
 export { WIDE_OPP_JOIN, WIDE_SYNC_JOIN };
 
@@ -184,7 +184,7 @@ export function buildWideRow(
   // 共享 normalizeCountry 始终返回英文标准名（含子国家归并、脏数据清理）
   const countryStd = normalizeCountry(String(r.country || "")).slice(0, 100);
 
-  const agencyStd = (agency ? (aliasMap.get(agency.toUpperCase()) || agency) : "").slice(0, 200);
+  const agencyStd = (agency ? (aliasMap.get(normalizeAliasKey(agency)) || agency) : "").slice(0, 200);
   const typeInfo = agencyStd && countryStd ? classifyAgencyType(agencyStd, countryStd) : null;
   // [修复] _INTL 类型国家级聚合键不一致问题：
   // classifyAgencyType(agencyStd, countryStd) 对国际机构返回国家级 typeKey

@@ -7,7 +7,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { AgencyCacheItem } from "../types";
 import { translateByPattern, classifyAgencyType, COUNTRY_ZH } from "../../agency/index";
-import { loadAgencyAliasSnapshot } from "../../agency/alias-store";
+import { loadAgencyAliasSnapshot, normalizeAliasKey } from "../../agency/alias-store";
 import { ACTIVE_NOTICE_WHERE } from "../../../utils/notice-expired";
 import { setAgencyCacheData } from "./cache";
 import { needsTranslationFix, buildZhFromKeywords, extractCountryFromName } from "./translate";
@@ -113,11 +113,11 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
     const raw = String(row.agency || "").trim();
     const country = String(row.country || "").trim();
     if (!raw) continue;
-    const upperKey = raw.toUpperCase();
+    const upperKey = normalizeAliasKey(raw);
     const aliasEntry = aliasMap.get(upperKey);
     const canonical = aliasEntry?.canonical || raw;
     const i18n = aliasEntry?.i18n || null;
-    const mergeKey = canonical.toUpperCase();
+    const mergeKey = normalizeAliasKey(canonical);
     const existing = merged.get(mergeKey);
     if (existing) {
       existing.count += Number(row.cnt);
