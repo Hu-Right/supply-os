@@ -14,7 +14,7 @@ import { Clock, Gem, Search } from "lucide-react";
 
 import { cn } from "@/shared/utils";
 import { Button, CountryFlag, EmptyState, Input, SegmentedControl, Select } from "@/shared/ui";
-import { provinces as chinaProvinces } from "@/data/chinaDivision";
+import { provinces as chinaProvinces } from "@/data/china-division/provinces";
 import type { PlazaRfq } from "../types";
 import { useRfqPlaza, type RfqSortKey } from "../hooks/useRfqPlaza";
 

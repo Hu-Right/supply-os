@@ -3,7 +3,8 @@
  * @module features/rfq/components/RfqWizard/hooks/useLocationData
  */
 import { useState, useEffect } from "react";
-import { cities as chinaCities, areas as chinaAreas } from "@/data/chinaDivision";
+import { cities as chinaCities } from "@/data/china-division/cities";
+import { areas as chinaAreas } from "@/data/china-division/areas";
 import type { RfqFormState } from "../../../types";
 
 /**

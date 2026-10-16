@@ -3,7 +3,7 @@
  * @module features/rfq/components/RfqWizard/steps/Step2BusinessTerms
  */
 import { ChipToggleGroup, Input, SearchableSelect, Select } from "@/shared/ui";
-import { provinces as chinaProvinces } from "@/data/chinaDivision";
+import { provinces as chinaProvinces } from "@/data/china-division/provinces";
 import {
   INCOTERM_OPTIONS, PAYMENT_OPTIONS, CURRENCY_OPTIONS,
 } from "../../../constants";
