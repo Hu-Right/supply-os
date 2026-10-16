@@ -7,6 +7,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { AgencyCacheItem } from "../types";
 import { translateByPattern, classifyAgencyType, COUNTRY_ZH } from "../../agency/index";
+import { loadAgencyAliasSnapshot } from "../../agency/alias-store";
 import { ACTIVE_NOTICE_WHERE } from "../../../utils/notice-expired";
 import { setAgencyCacheData } from "./cache";
 import { needsTranslationFix, buildZhFromKeywords, extractCountryFromName } from "./translate";
@@ -93,23 +94,8 @@ export const TYPE_KEY_SQL_PATTERNS: Record<string, string> = {
 
 /** 从数据库重新查询并刷新机构缓存 */
 export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem[]> {
-  // 1) 加载机构别名映射表
-  const aliasMap = new Map<string, { canonical: string; i18n: Record<string, string> | null }>();
-  try {
-    const [aliasRows] = await pool.query("SELECT canonical, alias, name_i18n FROM crm_agency_aliases");
-    for (const row of aliasRows as RowDataPacket[]) {
-      const canonical = String(row.canonical || "").trim();
-      let i18n: Record<string, string> | null = null;
-      if (row.name_i18n) {
-        try {
-          i18n = typeof row.name_i18n === "string" ? JSON.parse(row.name_i18n) : row.name_i18n;
-        } catch { /* JSON 解析失败则保持 null */ }
-      }
-      aliasMap.set(String(row.alias || "").trim().toUpperCase(), { canonical, i18n });
-    }
-  } catch {
-    // 表不存在或查询失败：静默降级
-  }
+  // 1) 机构别名映射（canonical + i18n）统一来自共享 store（缓存/归一/降级/JSON 容错均在其内）
+  const aliasMap = (await loadAgencyAliasSnapshot(pool)).byAlias;
 
   // 2) 查询原始机构数据
   const [rows] = await pool.query(
