@@ -57,66 +57,6 @@ export interface TrainingOrderRow extends RowDataPacket {
   user_id: number | null;
 }
 
-export interface InstructorRow extends RowDataPacket {
-  id: number;
-  name_zh: string;
-  name_en: string | null;
-  roles: string;
-  title_zh: string;
-  title_en: string | null;
-  bio_zh: string;
-  bio_en: string | null;
-  avatar_path: string;
-  is_featured: number;
-  sort_order: number;
-}
-
-export interface TeamMemberRow extends RowDataPacket {
-  id: number;
-  name_zh: string;
-  name_en: string | null;
-  title_zh: string | null;
-  title_en: string | null;
-  roles: string | null;
-  avatar_path: string;
-  sort_order: number;
-}
-
-export interface GalleryCategoryRow extends RowDataPacket {
-  id: number;
-  name_zh: string;
-  name_en: string | null;
-  description_zh: string | null;
-  description_en: string | null;
-  cover_image: string | null;
-  sort_order: number;
-}
-
-export interface GalleryImageRow extends RowDataPacket {
-  id: number;
-  category_id: number;
-  image_path: string;
-  sort_order: number;
-}
-
-export interface TestimonialRow extends RowDataPacket {
-  id: number;
-  quote_zh: string;
-  quote_en: string | null;
-  author_name: string;
-  author_title: string | null;
-  sort_order: number;
-}
-
-export interface FaqRow extends RowDataPacket {
-  id: number;
-  question_zh: string;
-  question_en: string | null;
-  answer_zh: string;
-  answer_en: string | null;
-  sort_order: number;
-}
-
 export interface ParticipantRow extends RowDataPacket {
   id: number;
   order_id: number;
@@ -185,7 +125,7 @@ export class TrainingRepo {
   // 旧 crm_training_download_stats 并行计数（incrementDownloadCount / listDownloadStats）及其 stats 端点无消费方，已移除。
   // 表本身保留（历史数据），如需清理另走迁移。
 
-  // ── 落地页内容（034 迁移，全部 DB 驱动，无种子数据） ──
+  // ── 落地页动态内容：课程 + 期次（报名支付依据）；讲师/团队/照片/反馈/FAQ 已前端静态化 ──
 
   /** 查询当前激活课程（按 sort_order 取第一条） */
   async getActiveCourse(): Promise<CourseRow | null> {
@@ -211,14 +151,6 @@ export class TrainingRepo {
       [scheduleId],
     );
     return (rows as ScheduleRow[])[0] ?? null;
-  }
-
-  /** 支付成功后递增期次报名人数 */
-  async incrementEnrolledCount(scheduleId: number, delta = 1): Promise<void> {
-    await this.pool.execute(
-      "UPDATE training_schedules SET enrolled_count = enrolled_count + ? WHERE id = ?",
-      [delta, scheduleId],
-    );
   }
 
   /** 创建培训支付订单，返回自增 id */
@@ -322,55 +254,6 @@ export class TrainingRepo {
       [delta, scheduleId, delta],
     );
     return Number((result as { affectedRows?: number }).affectedRows ?? 0);
-  }
-
-  /** 查询核心讲师（featured 大卡片） */
-  async listFeaturedInstructors(): Promise<InstructorRow[]> {
-    const [rows] = await this.pool.execute(
-      "SELECT * FROM training_instructors WHERE status = 'active' AND is_featured = 1 ORDER BY sort_order ASC, id ASC",
-    );
-    return rows as InstructorRow[];
-  }
-
-  /** 查询团队成员（小头像网格） */
-  async listTeamMembers(): Promise<TeamMemberRow[]> {
-    const [rows] = await this.pool.execute(
-      "SELECT * FROM training_team_members WHERE status = 'active' ORDER BY sort_order ASC, id ASC",
-    );
-    return rows as TeamMemberRow[];
-  }
-
-  /** 查询课堂照片分类 */
-  async listGalleryCategories(): Promise<GalleryCategoryRow[]> {
-    const [rows] = await this.pool.execute(
-      "SELECT * FROM training_gallery_categories WHERE status = 'active' ORDER BY sort_order ASC, id ASC",
-    );
-    return rows as GalleryCategoryRow[];
-  }
-
-  /** 查询某分类下的课堂照片 */
-  async listGalleryImagesByCategory(categoryId: number): Promise<GalleryImageRow[]> {
-    const [rows] = await this.pool.execute(
-      "SELECT * FROM training_gallery_images WHERE category_id = ? ORDER BY sort_order ASC, id ASC",
-      [categoryId],
-    );
-    return rows as GalleryImageRow[];
-  }
-
-  /** 查询学员反馈 */
-  async listTestimonials(): Promise<TestimonialRow[]> {
-    const [rows] = await this.pool.execute(
-      "SELECT * FROM training_testimonials WHERE status = 'active' ORDER BY sort_order ASC, id ASC",
-    );
-    return rows as TestimonialRow[];
-  }
-
-  /** 查询常见问题 */
-  async listFaqs(): Promise<FaqRow[]> {
-    const [rows] = await this.pool.execute(
-      "SELECT * FROM training_faqs WHERE status = 'active' ORDER BY sort_order ASC, id ASC",
-    );
-    return rows as FaqRow[];
   }
 
   /** 保存学员信息（批量插入/更新） */
