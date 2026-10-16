@@ -36,7 +36,6 @@ import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_ENTERPRISE_NOT_BOUND, EC_ENTER
 /** 企业信息填写/编辑 body：全部可选字符串，键为 supplier 列名 */
 const enterpriseBodySchema = z.object({
   company: z.string().max(200).optional(),
-  name_confirmed: z.string().max(120).optional(),
   country: z.string().max(100).optional(),
   country_code: z.string().max(5).optional(),
   province: z.string().max(50).optional(),
@@ -54,7 +53,6 @@ const enterpriseBodySchema = z.object({
   established_at: z.string().max(20).optional(),
   registered_capital: z.string().max(40).optional(),
   credit_code: z.string().max(30).optional(),
-  type: z.string().max(20).optional(),
   business_type: z.string().max(50).optional(),
   certification: z.string().max(500).optional(),
   products: z.string().max(500).optional(),
@@ -246,7 +244,7 @@ export const POST = withRoute(async (req) => {
   const repo = ctx.supplier.directoryRepo;
   const body = await parseJson(req, enterpriseBodySchema);
 
-  const companyName = String(body.company || body.name_confirmed || "").trim();
+  const companyName = String(body.company || "").trim();
   if (!companyName) {
     routeError(400, EC_INVALID_PARAMS, "企业名称不能为空");
   }
@@ -313,7 +311,7 @@ export const POST = withRoute(async (req) => {
 
   // ── 新建：审核中 + 自注册来源 ──
   const newId = await repo.insertEnterprise(
-    { ...(body as Record<string, unknown>), company: companyName, name_confirmed: companyName },
+    { ...(body as Record<string, unknown>), company: companyName },
     { verify_status: "pending", source_channel: "self_register" },
   );
   if (!newId) {

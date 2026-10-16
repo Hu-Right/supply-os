@@ -38,7 +38,7 @@ export interface CurrentBinding {
 
 /** 公司名进文案前先截断：错误响应会被前端整段渲染，长名称会撑爆提示条 */
 function shortName(row: BoundSubjectRow): string {
-  const name = String(row.name_confirmed || row.company || "").trim();
+  const name = String(row.company || "").trim();
   if (!name) return "已绑定企业";
   return name.length > 24 ? `${name.slice(0, 24)}…` : name;
 }
@@ -70,8 +70,8 @@ export function describeBindingConflict(binding: CurrentBinding, action: Binding
   return `企业${name}已认证，一个账号只能认证一家企业；如需修改资料请在企业信息页编辑，如需变更主体请联系客服由后台重新审核。`;
 }
 
-/** 认证主体身份三要素：改写它们 = 把已通过的认证挪到另一家公司 */
-const IDENTITY_KEYS = ["company", "name_confirmed", "credit_code"] as const;
+/** 认证主体身份要素：改写它们 = 把已通过的认证挪到另一家公司（name_confirmed 已并入 company） */
+const IDENTITY_KEYS = ["company", "credit_code"] as const;
 
 /** 身份字段归一：信用代码大小写不敏感，公司名剔除空白差异（表单回传常带尾部空格） */
 function normalizeIdentity(key: (typeof IDENTITY_KEYS)[number], value: unknown): string {

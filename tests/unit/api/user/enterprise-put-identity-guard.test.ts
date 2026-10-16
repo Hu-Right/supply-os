@@ -1,8 +1,8 @@
 /**
- * PUT /api/user/enterprise — 已认证主体身份三要素不可改写
+ * PUT /api/user/enterprise — 已认证主体身份要素不可改写
  * @module tests/unit/api/user/enterprise-put-identity-guard.test.ts
  * @description 堵住「换主体」的最后一条暗道：已认证账号原本可以用 PUT 把 company /
- *              name_confirmed / credit_code 直接改成另一家公司，等于绕过审核把平台认证
+ *              credit_code 直接改成另一家公司，等于绕过审核把平台认证
  *              挪到别处（POST/认领侧已被账号排他拦死，编辑侧却没有）。口径：
  *              1. verified + 身份字段有实际变化 → 400，不落库；
  *              2. verified + 身份字段原值回传（表单每次都全量提交）→ 放行；
@@ -28,7 +28,6 @@ import { upsertPendingLicenseChange } from "@/lib/services/license-change";
 const STORED = {
   id: 100,
   company: "杭州原绑定企业有限公司",
-  name_confirmed: "杭州原绑定企业有限公司",
   credit_code: "91330100MA2XXXXXX1",
   contact: "张三",
   phone: "15800000000",
@@ -64,7 +63,7 @@ function putReq(body: Record<string, unknown>) {
   });
 }
 
-describe("PUT /api/user/enterprise 身份三要素闸口", () => {
+describe("PUT /api/user/enterprise 身份要素闸口", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(requireUserKeyOrThrow).mockResolvedValue({ userId: 42, authViaJwt: true });
@@ -95,7 +94,6 @@ describe("PUT /api/user/enterprise 身份三要素闸口", () => {
 
     const res = await PUT(putReq({
       company: STORED.company,
-      name_confirmed: STORED.name_confirmed,
       credit_code: STORED.credit_code,
       products: "新增主营产品",
     }));

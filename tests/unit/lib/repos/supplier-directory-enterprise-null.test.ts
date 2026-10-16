@@ -38,12 +38,9 @@ describe("SupplierDirectoryRepo 写入：留空字段绑定 ''（非 NULL），�
     await repo.insertEnterprise(
       {
         company: "复现公司",
-        name_confirmed: "复现公司",
         contact: "张三",
         phone: "13800000000",
-        industry: "机械",
         products: "阀门",
-        type: "factory",
         credit_code: "91310000XXXXXXXXXX",
         email: "",
         website: "",

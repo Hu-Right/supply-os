@@ -26,7 +26,6 @@ export interface SupplierDirectoryRow {
   /** 主行业码（crm_industry_nodes.code，UGT-I- 前缀）；行业面标准口径（industry 自由文本列已退役） */
   industry_code?: string | null;
   certification: string | null;
-  type: string | null;
   /** 业务身份枚举：manufacturer=工厂 / trader=贸易商（卡片徽章与「工厂/贸易商」维度同源；其余值不展示） */
   business_type_code?: string | null;
   /** 认证状态：done=已认证 / pending=审核中（防重分支据此区分「转认领 / 直接绑定」） */
@@ -44,7 +43,6 @@ export interface SupplierDirectoryRow {
 export interface CompanyCandidateRow extends RowDataPacket {
   id: number;
   company: string | null;
-  type: string | null;
   business_type: string | null;
   province: string | null;
   city: string | null;
@@ -71,7 +69,6 @@ export interface ClaimOwnership {
 export interface BoundSubjectRow extends RowDataPacket {
   id: number;
   company: string | null;
-  name_confirmed: string | null;
   verify_status: string | null;
   claim_status: string | null;
 }
@@ -118,7 +115,7 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code,
               province, city,
-              contact, phone, email, products, industry_code, certification, type,
+              contact, phone, email, products, industry_code, certification,
               business_type_code,
               data_quality_score
        FROM supplier
@@ -164,7 +161,7 @@ export class SupplierDirectoryRepo {
       // ★ MATCH 与 LIKE 用 OR 组合后 MySQL 不再走全文索引快路径（退化为对已过滤行逐行判定），
       //   但公司名 LIKE '%x%' 本就是前导通配全扫、可见供应商量级小，代价可忽略；排序走
       //   最新/完整度白名单、不依赖相关度，故合并搜索不丢排序。用户输入只进占位符，无注入面。
-      conditions.push("(MATCH(s.products, s.product_keywords) AGAINST(? IN BOOLEAN MODE) OR s.company LIKE ?)");
+      conditions.push("(MATCH(s.products) AGAINST(? IN BOOLEAN MODE) OR s.company LIKE ?)");
       // L-BIZ-1：转义用户输入中的 LIKE 通配符（% _），避免被当成「匹配全部」
       values.push(search, `%${escapeLikeWildcard(search)}%`);
     }
@@ -210,7 +207,7 @@ export class SupplierDirectoryRepo {
 
     // 分页数据查询
     const [rows] = await this.pool.query(
-      `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city, s.contact, s.phone, s.email, s.products, s.industry_code, s.certification, s.type,
+      `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city, s.contact, s.phone, s.email, s.products, s.industry_code, s.certification,
               s.business_type_code,
               s.data_quality_score
        FROM supplier s
@@ -227,7 +224,7 @@ export class SupplierDirectoryRepo {
   async findById(id: number): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry_code, certification, type,
+              contact, phone, email, products, industry_code, certification,
               business_type_code,
               data_quality_score
        FROM supplier
@@ -256,13 +253,16 @@ export class SupplierDirectoryRepo {
     return ((rows as Record<string, unknown>[])[0]) ?? null;
   }
 
-  /** 企业信息可编辑列白名单（与 supplier 最终表结构一致） */
+  /** 强类型可空列：空串必须转 NULL 写入，避免 STRICT 模式 ''→DATE/DECIMAL 报错（列型变更见影子表迁移） */
+  static readonly TYPED_NULLABLE_COLS = new Set<string>(["established_at", "registered_capital"]);
+
+  /** 企业信息可编辑列白名单（与 supplier 最终表结构一致；type/name_confirmed 已退役） */
   static readonly EDITABLE_COLUMNS = [
-    "company", "name_confirmed", "country", "country_code", "province", "city",
+    "company", "country", "country_code", "province", "city",
     "address", "registered_address", "contact", "position", "phone", "email",
     "registered_phone", "registered_email", "website", "legal_rep",
     "established_at", "registered_capital", "credit_code",
-    "type", "business_type", "certification", "products", "intro", "remark",
+    "business_type", "certification", "products", "intro", "remark",
   ] as const;
 
   /**
@@ -293,7 +293,14 @@ export class SupplierDirectoryRepo {
     for (const col of SupplierDirectoryRepo.EDITABLE_COLUMNS) {
       if (!(col in input)) continue;
       const v = input[col];
-      out[col] = v === undefined || v === null ? null : String(v);
+      if (v === undefined || v === null) {
+        out[col] = null;
+        continue;
+      }
+      const s = String(v);
+      // established_at(DATE)/registered_capital(DECIMAL) 为强类型可空列：空串落 NULL，
+      // 否则 STRICT 模式把 '' 绑进 DATE/DECIMAL 直接报错；其余可空文本列维持 '' 语义不变。
+      out[col] = s === "" && SupplierDirectoryRepo.TYPED_NULLABLE_COLS.has(col) ? null : s;
     }
     return out;
   }
@@ -325,7 +332,7 @@ export class SupplierDirectoryRepo {
   async findByCreditCode(creditCode: string): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry, certification, type, verify_status
+              contact, phone, email, products, certification, verify_status
        FROM supplier WHERE credit_code = ? LIMIT 1`,
       [creditCode],
     );
@@ -356,7 +363,7 @@ export class SupplierDirectoryRepo {
   async findByCompanyBest(companyName: string): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, certification, type, verify_status
+              contact, phone, email, products, certification, verify_status
        FROM supplier
        WHERE company = ?
        ORDER BY (
@@ -397,7 +404,7 @@ export class SupplierDirectoryRepo {
     // 与 findVerifiedByNameSimilar 同口径转义 LIKE 通配符，否则用户输入 % 会退化为全表匹配
     const escaped = kw.replace(/[\\%_]/g, (c) => `\\${c}`);
     const [rows] = await this.pool.query<CompanyCandidateRow[]>(
-      `SELECT id, company, type, business_type, province, city,
+      `SELECT id, company, business_type, province, city,
               established_at, legal_rep, credit_code, verify_status, claim_status,
               EXISTS(
                 SELECT 1 FROM crm_users cu
@@ -557,7 +564,7 @@ export class SupplierDirectoryRepo {
    */
   async findBoundSubjectByUserId(userId: number): Promise<BoundSubjectRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT s.id, s.company, s.name_confirmed, s.verify_status, s.claim_status
+      `SELECT s.id, s.company, s.verify_status, s.claim_status
          FROM crm_users u
          JOIN supplier s ON s.id = u.supplier_id
         WHERE u.id = ? AND u.supplier_id IS NOT NULL AND u.supplier_id > 0

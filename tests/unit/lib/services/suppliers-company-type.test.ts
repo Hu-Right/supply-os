@@ -24,7 +24,6 @@ function row(over: Partial<SupplierDirectoryRow> = {}): SupplierDirectoryRow {
     products: "数控机床",
     industry: "机械",
     certification: null,
-    type: null,
     ...over,
   };
 }

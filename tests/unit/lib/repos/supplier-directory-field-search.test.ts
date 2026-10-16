@@ -44,7 +44,7 @@ describe("SupplierDirectoryRepo.listDirectoryPaginated — 检索条件拼装", 
 
   it("关键词 → 一条括号条件里 OR 合并「产品 FULLTEXT + 公司名 LIKE」", async () => {
     const { sql, values } = await call({ search: "LED" });
-    expect(sql).toContain("(MATCH(s.products, s.product_keywords) AGAINST(? IN BOOLEAN MODE) OR s.company LIKE ?)");
+    expect(sql).toContain("(MATCH(s.products) AGAINST(? IN BOOLEAN MODE) OR s.company LIKE ?)");
     // 两个占位符：MATCH 用原词，LIKE 用 %转义词%
     expect(values).toContain("LED");
     expect(values).toContain("%LED%");
@@ -101,7 +101,7 @@ describe("SupplierDirectoryRepo.listDirectoryPaginated — 检索条件拼装", 
     const { sql, values } = await call({
       search: "电气", industryCode: "UGT-I-03", industryCodes: ["UGT-I-0326"],
     });
-    expect(sql).toContain("MATCH(s.products, s.product_keywords)");
+    expect(sql).toContain("MATCH(s.products)");
     expect((sql.match(/ir\.industry_code LIKE \?/g) ?? []).length).toBe(2);
     expect(values).toContain("UGT-I-03%");
     expect(values).toContain("UGT-I-0326%");

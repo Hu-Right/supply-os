@@ -35,9 +35,9 @@ describe("readCurrentBinding", () => {
     expect(await readCurrentBinding(ctxWith(null), 42)).toBeNull();
   });
 
-  it("绑定行按状态归类，公司名取 name_confirmed 优先", async () => {
+  it("绑定行按状态归类，公司名取 company", async () => {
     const b = await readCurrentBinding(
-      ctxWith({ id: 100, company: "旧名", name_confirmed: "杭州原绑定企业有限公司", verify_status: "done", claim_status: null }),
+      ctxWith({ id: 100, company: "杭州原绑定企业有限公司", verify_status: "done", claim_status: null }),
       42,
     );
     expect(b).toEqual({ supplierId: 100, companyName: "杭州原绑定企业有限公司", state: "verified" });
