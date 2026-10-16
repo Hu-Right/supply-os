@@ -1,5 +1,5 @@
 /**
- * 公告分享面板
+ * 公告分享面板 — 容器
  * Notice Share Modal — 自建分享入口（替代脆弱的 navigator.share）
  *
  * @module features/procurement/components/NoticeDetail/ShareModal
@@ -11,26 +11,26 @@
  *   2) 渠道真实可点：各分享渠道改用标准网页分享意图（WhatsApp/Facebook/X/
  *      LinkedIn/邮件/Gmail/Outlook），微信走「复制链接 + 扫码」，复制用 sonner
  *      toast 反馈；navigator.share 仅作为可选「系统分享」并处理 AbortError。
+ *
+ *   2026-10 组件化拆分（294→约 170 行）：剪贴板工具上收 shared/utils/clipboard，
+ *   渠道定义见 ./share/channels，渠道网格见 ./share/ChannelGrid；本文件保留
+ *   深链/二维码/复制状态编排。
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AtSign,
   Check,
   Copy,
-  Facebook,
-  Inbox,
-  Linkedin,
   Link2,
-  Mail,
-  MessageCircle,
-  QrCode,
   Send,
-  Twitter,
+  QrCode,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { Modal } from "@/shared/ui";
+import { copyToClipboard } from "@/shared/utils/clipboard";
+import { buildShareChannels } from "./share/channels";
+import { ChannelGrid } from "./share/ChannelGrid";
 
 export interface ShareModalProps {
   open: boolean;
@@ -39,51 +39,6 @@ export interface ShareModalProps {
   noticeId: number | undefined;
   /** 分享标题（公告标题，已按语言解析） */
   title: string;
-}
-
-/** 打开分享窗口（弹窗尺寸，noopener 防反向控制） */
-function openShareWindow(url: string) {
-  window.open(url, "_blank", "noopener,noreferrer,width=680,height=560");
-}
-
-/**
- * 复制文本到剪贴板：安全上下文（HTTPS/localhost）优先用异步 Clipboard API；
- * 否则（如局域网 http://192.168.x.x）navigator.clipboard 不可用，回退到
- * document.execCommand("copy")。兜底优先选中弹窗内已渲染的元素（el）——
- * Radix Dialog 有焦点陷阱，挂到 document.body 的临时节点会被抢焦点导致选中失效。
- * 返回是否成功。
- */
-async function copyToClipboard(text: string, el?: HTMLInputElement | null): Promise<boolean> {
-  if (typeof navigator !== "undefined" && navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      /* Clipboard API 被拒（权限/失焦等），继续走 execCommand 兜底 */
-    }
-  }
-  try {
-    if (el) {
-      el.focus();
-      el.select();
-      if (document.execCommand("copy")) return true;
-    }
-    // 末位兜底：无可用弹窗内元素时临时挂一个 textarea
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.top = "0";
-    ta.style.left = "-9999px";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    return ok;
-  } catch {
-    return false;
-  }
 }
 
 export function ShareModal({ open, onClose, noticeId, title }: ShareModalProps) {
@@ -136,84 +91,20 @@ export function ShareModal({ open, onClose, noticeId, title }: ShareModalProps) 
     }
   };
 
-  const enc = encodeURIComponent;
-  const channels: Array<{
-    key: string;
-    label: string;
-    icon: typeof Link2;
-    className: string;
-    onClick: () => void;
-  }> = [
-    {
-      key: "wechat",
-      label: "微信",
-      icon: MessageCircle,
-      className: "bg-[#07c160] hover:bg-[#06ad56]",
-      // 微信无网页分享意图：复制链接并提示扫码/粘贴发送
-      onClick: () => {
+  // 渠道列表：useMemo 稳定引用，ChannelGrid 的 memo 才有效
+  const channels = useMemo(
+    () => buildShareChannels({
+      translate: t,
+      shareText,
+      shareUrl,
+      onCopyWechat: () => {
         void handleCopy();
         toast.info(t("detail_shareWechatHint") || "链接已复制，可粘贴到微信；或让对方扫右侧二维码");
       },
-    },
-    {
-      key: "whatsapp",
-      label: "WhatsApp",
-      icon: MessageCircle,
-      className: "bg-[#25d366] hover:bg-[#1ebe5b]",
-      onClick: () => openShareWindow(`https://api.whatsapp.com/send?text=${enc(`${shareText} ${shareUrl}`)}`),
-    },
-    {
-      key: "facebook",
-      label: "Facebook",
-      icon: Facebook,
-      className: "bg-[#1877f2] hover:bg-[#0f65d8]",
-      onClick: () => openShareWindow(`https://www.facebook.com/sharer/sharer.php?u=${enc(shareUrl)}`),
-    },
-    {
-      key: "twitter",
-      label: "X / Twitter",
-      icon: Twitter,
-      className: "bg-black hover:bg-neutral-800",
-      onClick: () => openShareWindow(`https://twitter.com/intent/tweet?text=${enc(shareText)}&url=${enc(shareUrl)}`),
-    },
-    {
-      key: "linkedin",
-      label: "LinkedIn",
-      icon: Linkedin,
-      className: "bg-[#0a66c2] hover:bg-[#0857a6]",
-      onClick: () => openShareWindow(`https://www.linkedin.com/sharing/share-offsite/?url=${enc(shareUrl)}`),
-    },
-    {
-      key: "telegram",
-      label: "Telegram",
-      icon: Send,
-      className: "bg-[#229ed9] hover:bg-[#1c8bc0]",
-      onClick: () => openShareWindow(`https://t.me/share/url?url=${enc(shareUrl)}&text=${enc(shareText)}`),
-    },
-    {
-      key: "email",
-      label: t("detail_shareEmail") || "邮件",
-      icon: Mail,
-      className: "bg-slate-600 hover:bg-slate-700",
-      onClick: () => {
-        window.location.href = `mailto:?subject=${enc(shareText)}&body=${enc(shareUrl)}`;
-      },
-    },
-    {
-      key: "gmail",
-      label: "Gmail",
-      icon: AtSign,
-      className: "bg-[#ea4335] hover:bg-[#d33426]",
-      onClick: () => openShareWindow(`https://mail.google.com/mail/?view=cm&fs=1&su=${enc(shareText)}&body=${enc(shareUrl)}`),
-    },
-    {
-      key: "outlook",
-      label: "Outlook",
-      icon: Inbox,
-      className: "bg-[#0f6cbd] hover:bg-[#0d5aa0]",
-      onClick: () => openShareWindow(`https://outlook.live.com/mail/0/deeplink/compose?subject=${enc(shareText)}&body=${enc(shareUrl)}`),
-    },
-  ];
+    }),
+    // handleCopy 仅消费 shareUrl/linkRef/toast，shareText/shareUrl 变化时重建即可
+    [t, shareText, shareUrl], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
@@ -277,29 +168,7 @@ export function ShareModal({ open, onClose, noticeId, title }: ShareModalProps) 
         </div>
 
         {/* ── 分享方式 ── */}
-        <div>
-          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-slate-400">
-            {t("detail_shareVia") || "分享到"}
-          </p>
-          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-5">
-            {channels.map((c) => {
-              const Icon = c.icon;
-              return (
-                <button
-                  key={c.key}
-                  type="button"
-                  onClick={c.onClick}
-                  title={c.label}
-                  aria-label={c.label}
-                  className={`flex flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-white transition-colors ${c.className}`}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-2xs font-semibold leading-none">{c.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <ChannelGrid channels={channels} />
       </div>
     </Modal>
   );

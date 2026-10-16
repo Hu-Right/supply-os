@@ -1,37 +1,34 @@
+/**
+ * 全球采购机会库页 — 容器
+ * @module features/procurement/pages/ProcurementPage
+ * @description 2026-10 组件化拆分（408→约 250 行）：搜索/筛选面板、结果头部、偏好提示条、
+ *              结果列表分支移入 ../components/procurement-page/*，JSX 与行为逐字不变；
+ *              本文件保留 hooks 编排、支付事件监听与首屏计时。
+ */
 import { useRef, useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Crown, Search, Target, Download, LayoutList, LayoutGrid } from "lucide-react";
-import { useLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
 import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
-import { flags } from "@/core/flags";
 import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentUnlocks } from "../components/RecentUnlocks";
 import { FavoriteNotices } from "../components/FavoriteNotices";
 import type { NoticeItem } from "../types";
 import { NoticeDetail } from "../components/NoticeDetail";
-import { CommodityLevelSelector } from "../components/CommodityLevelSelector";
-import { NoticeSearchBar } from "../components/NoticeSearchBar";
-import { AdvancedSearchPanel } from "../components/AdvancedSearchPanel";
-import { EnhancedNoticeList } from "../components/EnhancedNoticeList";
-import { Button, LoadingOverlay, ToggleButton } from "@/shared/ui";
-import { NoticeList } from "../components/NoticeList";
-import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
+import { LoadingOverlay } from "@/shared/ui";
 import { ListingStatsBar } from "../components/ListingStatsBar";
-import { MatchRelaxedHint } from "../components/MatchRelaxedHint";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
 import { useListingStats } from "../hooks/useListingStats";
-import { NOTICE_PAGE_SIZE } from "../constants";
 import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
 import { useCommodityCascade } from "../hooks/useCommodityCascade";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
 import { useNoticeActions } from "../hooks/useNoticeActions";
-import { getCountryDisplayName } from "@/shared/data/countryNames";
+import { SearchFilterSection } from "../components/procurement-page/SearchFilterSection";
+import { ResultsHeader } from "../components/procurement-page/ResultsHeader";
+import { PrefsBanner, ResultsList, MatchRelaxedHint } from "../components/procurement-page/ResultsSections";
 
 export default function ProcurementPage() {
-  const { t, locale } = useLocale();
   const { authUser, isVip, refreshAuth, authReady } = useAuth();
   const router = useRouter();
   const userId = useUserId();
@@ -178,183 +175,28 @@ export default function ProcurementPage() {
       {/* 模块02 深色页头：库存感 + 实时规模条（已提取为独立组件） */}
       <ListingStatsBar stats={listingStats} />
 
-      <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
-        <div className="p-5 space-y-4">
-          {flags.ADVANCED_SEARCH ? (
-            <AdvancedSearchPanel
-              form={search.form}
-              query={search.query}
-              countries={search.result.countries}
-              agencies={search.result.agencies}
-              applySearch={search.actions.applySearch}
-              clearSearch={search.actions.clearSearch}
-              toggleFeatured={search.actions.toggleFeatured}
-              advancedSearchEntitled={actions.membership?.gates?.advanced_keyword_search === "free" || actions.membership?.gates?.advanced_keyword_search === "included"}
-              keywordLibEntitled={actions.membership?.gates?.product_keyword_lib === "free" || actions.membership?.gates?.product_keyword_lib === "included"}
-            />
-          ) : (
-            <NoticeSearchBar
-              form={search.form}
-              query={search.query}
-              countries={search.result.countries}
-              agencies={search.result.agencies}
-              applySearch={search.actions.applySearch}
-              clearSearch={search.actions.clearSearch}
-              toggleFeatured={search.actions.toggleFeatured}
-            />
-          )}
-
-          {/* 品目分类五级下拉（大类 → 段 → 族 → 类 → 品目），五级同源同树。
-              原本上方还有一行 32 大类 chip，与这里的第一级完全重叠，已下线。 */}
-          <div className="border-t border-slate-100 pt-4">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setCommodityExpanded(!commodityExpanded)}
-              className="gap-2 px-0 text-sm text-slate-600 hover:text-teal-700 hover:bg-transparent"
-            >
-              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${commodityExpanded ? "rotate-180" : ""}`} />
-              {t("procurement_commodityCategory")}
-            </Button>
-            <div className={`overflow-hidden transition-all duration-200 ease-in-out ${commodityExpanded ? "max-h-60 mt-3 opacity-100" : "max-h-0 mt-0 opacity-0"}`}>
-              <CommodityLevelSelector
-                levels={commodity.levels}
-                selectedKeys={commodity.selectedKeys}
-                onChange={(level, key) => {
-                  // 手动改选即作废在飞的偏好探测，并退回全量检索（匹配模式的结果不是用户选的这一层筛出来的）
-                  markManualCategoryPick();
-                  search.actions.setCommodityLevel(level, key);
-                }}
-              />
-            </div>
-          </div>
-
-          {/* 操作按钮行：搜索 / 清除筛选 / 只看精选 —— 移至卡片底部 */}
-          <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center gap-2">
-            <Button
-              type="submit"
-              form="procurement-search-form"
-              variant="primary"
-              className="font-black whitespace-nowrap"
-            >
-              <Search className="w-4 h-4 mr-1" />
-              {t("procurement_searchBtn")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={search.actions.clearSearch}
-              className="px-3 whitespace-nowrap"
-            >
-              {t("procurement_clearSearch")}
-            </Button>
-            <ToggleButton
-              pressed={search.query.activeFeatured}
-              onClick={search.actions.toggleFeatured}
-              tone="amber"
-              className="py-2.5"
-            >
-              <Crown className="w-3.5 h-3.5" />
-              {t("procurement_featuredOnly")}
-            </ToggleButton>
-            {/* 品目匹配按钮：账号已设置默认品目大类时始终显示，根据当前模式切换文案和行为 */}
-            {hasIndustryPrefs && prefsMode !== "loading" && (
-              <ToggleButton
-                variant="solid"
-                pressed={prefsMode === "prefs"}
-                onClick={prefsMode === "prefs" ? exitAutoMode : handleRestoreCommodityMatch}
-                className="py-2.5"
-              >
-                <Target className="w-3.5 h-3.5" />
-                {prefsMode === "prefs" ? t("procurement_cancelCommodityMatch") : t("procurement_restoreCommodityMatch")}
-              </ToggleButton>
-            )}
-          </div>
-        </div>
-      </section>
+      <SearchFilterSection
+        search={search}
+        commodity={commodity}
+        markManualCategoryPick={markManualCategoryPick}
+        commodityExpanded={commodityExpanded}
+        onToggleExpanded={() => setCommodityExpanded(!commodityExpanded)}
+        advancedSearchEntitled={actions.membership?.gates?.advanced_keyword_search === "free" || actions.membership?.gates?.advanced_keyword_search === "included"}
+        keywordLibEntitled={actions.membership?.gates?.product_keyword_lib === "free" || actions.membership?.gates?.product_keyword_lib === "included"}
+        hasIndustryPrefs={hasIndustryPrefs}
+        prefsMode={prefsMode}
+        onTogglePrefs={() => { if (prefsMode === "prefs") { void exitAutoMode(); } else { handleRestoreCommodityMatch(); } }}
+      />
 
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-        {/* 结果头部：结果数 + 已筛条件 + 排序/导出/视图 */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-extrabold text-slate-900">
-              {t("procurement_resultsCount", { count: (search.query.hasSearch ? search.result.total : (listingStats.active || search.result.total)).toLocaleString() })}
-            </span>
-            {/* 已筛条件标签 */}
-            {(search.query.activeCountry || search.query.activeQ) && (
-              <>
-                <span className="text-xs text-slate-400">{t("procurement_filteredConditions")}</span>
-                {search.query.activeCountry && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs text-teal-700 font-medium">
-                    {t("procurement_country")}: {getCountryDisplayName(search.query.activeCountry, locale)}
-                  </span>
-                )}
-                {search.query.activeQ && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs text-teal-700 font-medium">
-                    {search.query.activeQ}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={search.actions.clearSearch}
-                  className="text-xs text-slate-400 hover:text-teal-600 font-medium underline"
-                >
-                  {t("procurement_clearAll")}
-                </button>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            {/* 排序下拉 */}
-            <select
-              value={search.query.activeSort}
-              onChange={(e) => {
-                const v = e.target.value;
-                search.actions.applySearch(v === "latest" ? "latest" : v === "deadline" ? "deadline" : "deadline_farthest");
-              }}
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 focus:border-teal-400 outline-none cursor-pointer"
-            >
-              <option value="latest">{t("procurement_sortByLatest")}</option>
-              <option value="deadline">{t("procurement_sortByDeadline")}</option>
-              <option value="deadline_farthest">{t("procurement_sortByDeadlineFarthest")}</option>
-            </select>
-            {/* 导出列表 */}
-            <button
-              type="button"
-              onClick={() => alert(t("procurement_comingSoon"))}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              {t("procurement_exportList")}
-            </button>
-            {/* 视图切换 */}
-            <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
-              <button type="button" className="p-1.5 bg-teal-50 text-teal-700" aria-label="列表视图">
-                <LayoutList className="w-3.5 h-3.5" />
-              </button>
-              <button type="button" className="p-1.5 bg-white text-slate-400 hover:text-slate-600" aria-label="网格视图">
-                <LayoutGrid className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
+        <ResultsHeader
+          query={search.query}
+          displayTotal={search.query.hasSearch ? search.result.total : ((listingStats.active || 0) || search.result.total)}
+          onClearSearch={search.actions.clearSearch}
+          onSortChange={(sort) => search.actions.applySearch(sort)}
+        />
 
-        {/* 自动筛选提示条：偏好/推荐模式的状态告知（纯信息展示，无操作入口）
-            “查看全部”按钮已全模式移除：推荐态由搜索栏“清除筛选”替代，
-            行业匹配态由工具栏“取消行业匹配”按钮替代（同一 exitAutoMode 降级链），
-            原文案与实际跳转行为不符，保留会误导用户 */}
-        {(prefsMode === "prefs" || prefsMode === "recommended") && (
-          <div className="mb-4 flex items-center gap-3 p-3 rounded-lg bg-teal-50 border border-teal-100 text-xs font-bold text-teal-700">
-            <span>
-              {prefsMode === "prefs"
-                ? search.query.hasSearch
-                  ? `${t("procurement_prefsBanner", { name: prefsBannerName })} + ${search.query.activeQ ? `“${search.query.activeQ}”` : ""}${search.query.activeCountry ? ` ${search.query.activeCountry}` : ""}${search.query.activeAgency ? ` ${search.query.activeAgency}` : ""}${search.query.activeFeatured ? ` ${t("procurement_featuredOnly")}` : ""}`.replace(/^\s*\+\s*/, "").trim()
-                  : t("procurement_prefsBanner", { name: prefsBannerName })
-                : t("procurement_recommendedBanner")}
-            </span>
-          </div>
-        )}
+        <PrefsBanner prefsMode={prefsMode} prefsBannerName={prefsBannerName} query={search.query} />
 
         {userId && actions.favoriteIds.size > 0 && (
           <FavoriteNotices favoriteIds={actions.favoriteIds} onOpenNotice={actions.openNoticeById} />
@@ -367,39 +209,16 @@ export default function ProcurementPage() {
             易误读为硬 AND 命中数；放宽仅在 AND 零结果时触发，文案以「未找到…」直述零命中 */}
         {search.result.matchRelaxed && <MatchRelaxedHint />}
 
-        {/* 首次加载显示骨架屏（数量对齐 NOTICE_PAGE_SIZE），后续搜索由 LoadingOverlay 覆盖 */}
-        {search.result.loading && search.result.items.length === 0
-          ? <NoticeListSkeleton count={NOTICE_PAGE_SIZE} />
-          : flags.ADVANCED_SEARCH
-            ? <EnhancedNoticeList
-                items={search.result.items}
-                loading={search.result.loading}
-                page={page}
-                totalPages={search.result.totalPages}
-                serverPageSize={search.result.serverPageSize}
-                total={search.result.total}
-                setPage={setPage}
-                openNotice={actions.openNotice}
-                feedbackEnabled={feedback.feedbackEnabled}
-                observeCard={feedback.observeCard}
-                favoriteIds={actions.favoriteIds}
-                onToggleFavorite={handleToggleFavorite}
-              />
-            : <NoticeList
-                items={search.result.items}
-                loading={search.result.loading}
-                page={page}
-                totalPages={search.result.totalPages}
-                serverPageSize={search.result.serverPageSize}
-                total={search.result.total}
-                setPage={setPage}
-                openNotice={actions.openNotice}
-                feedbackEnabled={feedback.feedbackEnabled}
-                observeCard={feedback.observeCard}
-                favoriteIds={actions.favoriteIds}
-                onToggleFavorite={handleToggleFavorite}
-              />
-        }
+        <ResultsList
+          result={search.result}
+          page={page}
+          setPage={setPage}
+          openNotice={actions.openNotice}
+          feedbackEnabled={feedback.feedbackEnabled}
+          observeCard={feedback.observeCard}
+          favoriteIds={actions.favoriteIds}
+          onToggleFavorite={handleToggleFavorite}
+        />
       </section>
     </div>
     </>
