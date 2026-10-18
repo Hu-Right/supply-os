@@ -52,6 +52,11 @@ describe("checkQuoteEligibility", () => {
     const rfq = { ...publishedRfq, deadlineSec: Math.floor(Date.now() / 1000) - 10 };
     expect(await checkQuoteEligibility(pool(q), rfq, 42)).toEqual({ ok: false, reason: "expired" });
   });
+  it("对自家 published RFQ 报价 → self（不查库）", async () => {
+    const q = vi.fn();
+    expect(await checkQuoteEligibility(pool(q), publishedRfq, 6)).toEqual({ ok: false, reason: "self" });
+    expect(q).not.toHaveBeenCalled();
+  });
   it("非认证供应商 → not_supplier", async () => {
     const q = vi.fn().mockResolvedValue([[{ supplier_link_status: "none", supplier_id: null, account_status: "active" }]]);
     expect(await checkQuoteEligibility(pool(q), publishedRfq, 42)).toEqual({ ok: false, reason: "not_supplier" });
@@ -116,7 +121,7 @@ describe("awardQuote", () => {
     const conn = {
       beginTransaction: vi.fn().mockResolvedValue(undefined),
       query: vi.fn()
-        .mockResolvedValueOnce([[{ user_id: 6 }]])
+        .mockResolvedValueOnce([[{ user_id: 6, rfq_status: "published" }]])
         .mockResolvedValueOnce([[{ supplier_user_id: 42 }]])
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         .mockResolvedValueOnce([{ affectedRows: 2 }]),
@@ -156,13 +161,40 @@ describe("awardQuote", () => {
     const conn = {
       beginTransaction: vi.fn().mockResolvedValue(undefined),
       query: vi.fn()
-        .mockResolvedValueOnce([[{ user_id: 6 }]])
+        .mockResolvedValueOnce([[{ user_id: 6, rfq_status: "published" }]])
         .mockResolvedValueOnce([[]]),
       commit: vi.fn(), rollback: vi.fn().mockResolvedValue(undefined), release: vi.fn(),
     };
     const p = pool(vi.fn(), vi.fn().mockResolvedValue(conn));
     const res = await awardQuote(p, { rfqId: 5, winnerQuoteId: 7, buyerUserId: 6 });
     expect(res).toEqual({ ok: false, reason: "no_winner" });
+    expect(conn.rollback).toHaveBeenCalled();
+  });
+
+  it("非 published（已撤回） → closed 并回滚", async () => {
+    const conn = {
+      beginTransaction: vi.fn().mockResolvedValue(undefined),
+      query: vi.fn().mockResolvedValueOnce([[{ user_id: 6, rfq_status: "closed" }]]),
+      commit: vi.fn(), rollback: vi.fn().mockResolvedValue(undefined), release: vi.fn(),
+    };
+    const p = pool(vi.fn(), vi.fn().mockResolvedValue(conn));
+    const res = await awardQuote(p, { rfqId: 5, winnerQuoteId: 7, buyerUserId: 6 });
+    expect(res).toEqual({ ok: false, reason: "closed" });
+    expect(conn.rollback).toHaveBeenCalled();
+    expect(conn.commit).not.toHaveBeenCalled();
+  });
+
+  it("中标为买家自己 → self 并回滚", async () => {
+    const conn = {
+      beginTransaction: vi.fn().mockResolvedValue(undefined),
+      query: vi.fn()
+        .mockResolvedValueOnce([[{ user_id: 6, rfq_status: "published" }]])
+        .mockResolvedValueOnce([[{ supplier_user_id: 6 }]]),
+      commit: vi.fn(), rollback: vi.fn().mockResolvedValue(undefined), release: vi.fn(),
+    };
+    const p = pool(vi.fn(), vi.fn().mockResolvedValue(conn));
+    const res = await awardQuote(p, { rfqId: 5, winnerQuoteId: 7, buyerUserId: 6 });
+    expect(res).toEqual({ ok: false, reason: "self" });
     expect(conn.rollback).toHaveBeenCalled();
   });
 });

@@ -247,3 +247,20 @@ export async function sendRfqAwardedEmail(
     "RFQ中标",
   );
 }
+
+/** 落选通知：告知供应商本次未被选中。 */
+export async function sendRfqRejectedEmail(
+  email: string,
+  opts: { rfqTitle: string; rfqLink: string },
+): Promise<void> {
+  await dispatchEmail(
+    email,
+    "采购需求报价结果",
+    emailShell("报价结果", `
+      <p>您参与的采购需求<strong>《${opts.rfqTitle}》</strong>已完成供应商选定，本次未被选中。</p>
+      <p>欢迎继续关注需求广场的其他采购需求。</p>
+      <p><a href="${opts.rfqLink}" style="display:inline-block;padding:10px 18px;background:#0d9488;color:#fff;border-radius:8px;text-decoration:none;">查看需求详情</a></p>
+    `),
+    "RFQ落选",
+  );
+}

@@ -50,6 +50,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       if (elig.reason === "not_supplier") routeError(403, EC_ENTERPRISE_NOT_BOUND, "仅已认证企业供应商可报价");
       if (elig.reason === "not_invited") routeError(403, EC_FORBIDDEN, "该需求为定向邀约，你未被邀约");
       if (elig.reason === "awarded") routeError(409, EC_FORBIDDEN, "该需求已完成供应商选定，不再接受报价");
+      if (elig.reason === "self") routeError(403, EC_FORBIDDEN, "不能对自己的采购需求报价");
       routeError(400, EC_INVALID_PARAMS, "该需求当前不接受报价");
     }
 

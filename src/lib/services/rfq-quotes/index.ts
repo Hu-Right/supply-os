@@ -11,7 +11,7 @@ import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql
 import { RFQ_STATUS, QUOTE_STATUS } from "@/shared/constants/rfq";
 import { pushNotification } from "@/lib/services/notifications";
 import { absoluteUrl } from "@/lib/services/seo/site";
-import { isEmailConfigured, sendRfqQuoteReceivedEmail, sendRfqAwardedEmail } from "@/lib/services/email";
+import { isEmailConfigured, sendRfqQuoteReceivedEmail, sendRfqAwardedEmail, sendRfqRejectedEmail } from "@/lib/services/email";
 
 export interface QuoteableRfq {
   id: number;
@@ -25,7 +25,7 @@ export interface QuoteableRfq {
 
 export interface Eligibility {
   ok: boolean;
-  /** not_found | not_open | expired | not_invited | not_supplier | awarded */
+  /** not_found | not_open | expired | not_invited | not_supplier | awarded | self */
   reason?: string;
 }
 
@@ -77,6 +77,7 @@ export async function checkQuoteEligibility(
 ): Promise<Eligibility> {
   if (!rfq) return { ok: false, reason: "not_found" };
   if (rfq.status !== RFQ_STATUS.PUBLISHED) return { ok: false, reason: "not_open" };
+  if (rfq.userId === userId) return { ok: false, reason: "self" };
   if (rfq.deadlineSec !== 0 && rfq.deadlineSec < nowSec()) return { ok: false, reason: "expired" };
 
   if (!(await isVerifiedSupplier(dbPool, userId))) return { ok: false, reason: "not_supplier" };
@@ -138,30 +139,34 @@ export async function submitQuote(
     ],
   );
   const quoteId = (result as ResultSetHeader).insertId;
+  // ODKU：affectedRows=1 为新增报价、=2 为更新既有报价。仅新增时打扰采购方，避免反复改价多次通知
+  const isNewQuote = (result as ResultSetHeader).affectedRows === 1;
 
-  // 通知采购方（失败不阻断报价落库）
-  try {
-    await pushNotification(dbPool, {
-      userId: input.buyerUserId,
-      type: "rfq_quoted",
-      title: `收到一条新报价：${input.rfqTitle}`.slice(0, 200),
-      body: `报价金额 ${input.price} ${input.currency}`,
-      link: `/rfq/${input.rfqId}`,
-      refId: input.rfqId,
-    });
-  } catch (e) {
-    console.warn("[rfq-quotes] 报价通知失败（不影响报价落库）:", (e as Error).message);
-  }
-
-  // 邮件通知采购方（best-effort：未配 SMTP 或失败均不阻断报价落库）
-  if (input.buyerEmail && isEmailConfigured()) {
+  if (isNewQuote) {
+    // 通知采购方（失败不阻断报价落库）
     try {
-      await sendRfqQuoteReceivedEmail(input.buyerEmail, {
-        rfqTitle: input.rfqTitle,
-        rfqLink: absoluteUrl(`/rfq/${input.rfqId}`),
+      await pushNotification(dbPool, {
+        userId: input.buyerUserId,
+        type: "rfq_quoted",
+        title: `收到一条新报价：${input.rfqTitle}`.slice(0, 200),
+        body: `报价金额 ${input.price} ${input.currency}`,
+        link: `/rfq/${input.rfqId}`,
+        refId: input.rfqId,
       });
     } catch (e) {
-      console.warn("[rfq-quotes] 报价邮件失败（不影响报价落库）:", (e as Error).message);
+      console.warn("[rfq-quotes] 报价通知失败（不影响报价落库）:", (e as Error).message);
+    }
+
+    // 邮件通知采购方（best-effort：未配 SMTP 或失败均不阻断报价落库）
+    if (input.buyerEmail && isEmailConfigured()) {
+      try {
+        await sendRfqQuoteReceivedEmail(input.buyerEmail, {
+          rfqTitle: input.rfqTitle,
+          rfqLink: absoluteUrl(`/rfq/${input.rfqId}`),
+        });
+      } catch (e) {
+        console.warn("[rfq-quotes] 报价邮件失败（不影响报价落库）:", (e as Error).message);
+      }
     }
   }
 
@@ -237,7 +242,7 @@ export async function withdrawQuote(dbPool: Pool, quoteId: number, userId: numbe
 
 export interface AwardResult {
   ok: boolean;
-  /** not_found | forbidden | no_winner */
+  /** not_found | forbidden | no_winner | closed | self */
   reason?: string;
   winnerSupplierUserId?: number;
   rejectedCount?: number;
@@ -256,7 +261,7 @@ export async function awardQuote(
     await conn.beginTransaction();
 
     const [rf] = await conn.query(
-      `SELECT user_id FROM crm_bid_notices
+      `SELECT rfq_status, user_id FROM crm_bid_notices
         WHERE id = ? AND notice_type = 'RFQ' AND entry_source = 'platform' LIMIT 1`,
       [opts.rfqId],
     );
@@ -268,6 +273,11 @@ export async function awardQuote(
     if (Number(rfqRow.user_id) !== opts.buyerUserId) {
       await conn.rollback();
       return { ok: false, reason: "forbidden" };
+    }
+    // 仅已发布的 RFQ 可选定：已撤回(closed)/未发布不得选定，避免对已下架需求落标
+    if (String(rfqRow.rfq_status) !== RFQ_STATUS.PUBLISHED) {
+      await conn.rollback();
+      return { ok: false, reason: "closed" };
     }
 
     const [wq] = await conn.query(
@@ -281,6 +291,11 @@ export async function awardQuote(
       return { ok: false, reason: "no_winner" };
     }
     const winnerSupplierUserId = Number(winner.supplier_user_id);
+    // 不能选定自己为中标供应商（防御；正常自报价已被资格闸拦截，此处为数据一致性兵卒）
+    if (winnerSupplierUserId === opts.buyerUserId) {
+      await conn.rollback();
+      return { ok: false, reason: "self" };
+    }
 
     await conn.query(
       `UPDATE crm_rfq_quotes SET status = ? WHERE id = ? AND rfq_id = ?`,
@@ -320,6 +335,40 @@ export async function awardQuote(
       } catch (e) {
         console.warn("[rfq-quotes] 中标邮件失败（不影响选定落库）:", (e as Error).message);
       }
+    }
+
+    // 落选通知：给本次未中选的供应商发站内信 + 邮件（best-effort，不影响选定结果）
+    try {
+      const [lrows] = await dbPool.query(
+        `SELECT q.supplier_user_id AS uid, u.email AS email
+           FROM crm_rfq_quotes q
+           JOIN crm_users u ON u.id = q.supplier_user_id
+          WHERE q.rfq_id = ? AND q.status = ? AND q.supplier_user_id <> ?`,
+        [opts.rfqId, QUOTE_STATUS.REJECTED, winnerSupplierUserId],
+      );
+      const link = absoluteUrl(`/rfq/${opts.rfqId}`);
+      for (const l of lrows as RowDataPacket[]) {
+        const uid = Number(l.uid);
+        const email = String(l.email || "");
+        if (!uid) continue;
+        try {
+          await pushNotification(dbPool, {
+            userId: uid,
+            type: "rfq_rejected",
+            title: "很遗憾，本次报价未被选中",
+            link: `/rfq/${opts.rfqId}`,
+            refId: opts.rfqId,
+          });
+        } catch { /* 单个落选站内信失败不阻断其余 */ }
+        if (email && isEmailConfigured()) {
+          try {
+            const [tr] = await dbPool.query(`SELECT title FROM crm_bid_notices WHERE id = ? LIMIT 1`, [opts.rfqId]);
+            await sendRfqRejectedEmail(email, { rfqTitle: String((tr as RowDataPacket[])[0]?.title || ""), rfqLink: link });
+          } catch { /* 邮件失败忽略 */ }
+        }
+      }
+    } catch (e) {
+      console.warn("[rfq-quotes] 落选通知失败（不影响选定落库）:", (e as Error).message);
     }
 
     return { ok: true, winnerSupplierUserId, rejectedCount };

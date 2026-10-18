@@ -34,6 +34,8 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     if (!result.ok) {
       if (result.reason === "not_found") routeError(404, EC_NOT_FOUND, "RFQ 不存在");
       if (result.reason === "forbidden") routeError(403, EC_FORBIDDEN, "仅创建者可选定中标");
+      if (result.reason === "closed") routeError(409, EC_FORBIDDEN, "该需求已撤回或未发布，无法选定");
+      if (result.reason === "self") routeError(400, EC_INVALID_PARAMS, "不能选定自己的报价为中标");
       routeError(400, EC_INVALID_PARAMS, "中标报价不存在或不可选定");
     }
 
