@@ -29,6 +29,7 @@ interface MyRfq {
   status: string;
   publishedDate: string | null;
   createdAt: string | null;
+  quoteCount?: number;
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -182,6 +183,11 @@ export default function MyRfqSettingsClient() {
                         <Clock className="w-3.5 h-3.5" /> 截止 {formatDeadlineDateYMD(rfq.deadlineSec, { utc: true })}
                       </span>
                       {rfq.country && <span>{rfq.country}</span>}
+                      {(rfq.quoteCount ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-2xs font-bold text-teal-700">
+                          收到 {rfq.quoteCount} 条报价
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

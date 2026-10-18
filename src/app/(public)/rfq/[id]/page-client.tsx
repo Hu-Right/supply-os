@@ -16,8 +16,11 @@ import {
 } from "lucide-react";
 
 import { api } from "@/core/http";
+import { useAuth } from "@/core/auth";
 import { Button, Card } from "@/shared/ui";
 import { formatDeadlineDateYMD, currencySymbol } from "@/shared/utils/format";
+import { QuoteDialog } from "@/features/rfq/components/QuoteDialog";
+import { QuotesPanel } from "@/features/rfq/components/QuotesPanel";
 
 interface RfqDetail {
   id: number;
@@ -80,6 +83,8 @@ export default function RfqDetailPageClient() {
   const [detail, setDetail] = useState<RfqDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const { authUser } = useAuth();
+  const [quoteOpen, setQuoteOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -153,6 +158,22 @@ export default function RfqDetailPageClient() {
         </div>
       </Card>
 
+      {/* 报价入口：已发布 + 非创建者 + 已登录（资格/截止由后端闸口把关） */}
+      {detail.status === "published" && !detail.isOwner && authUser && (
+        <Card className="rounded-2xl p-5 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-secondary-800">对此需求报价</p>
+            <p className="text-xs text-secondary-400 mt-0.5">报价截止：{formatDeadlineDateYMD(detail.deadlineSec)}</p>
+          </div>
+          <Button size="sm" onClick={() => setQuoteOpen(true)} className="shrink-0">立即报价</Button>
+        </Card>
+      )}
+
+      {/* 创建者：报价汇总 / 比价 / 选定 */}
+      {detail.isOwner && authUser && (
+        <QuotesPanel rfqId={detail.id} />
+      )}
+
       {/* 商务条款 */}
       <Card className="rounded-2xl p-6">
         <h2 className="text-sm font-extrabold text-secondary-900 mb-4">商务条款</h2>
@@ -189,6 +210,13 @@ export default function RfqDetailPageClient() {
           {detail.description}
         </p>
       </Card>
+
+      <QuoteDialog
+        open={quoteOpen}
+        rfqId={detail.id}
+        defaultCurrency={detail.currency}
+        onClose={() => setQuoteOpen(false)}
+      />
     </div>
   );
 }

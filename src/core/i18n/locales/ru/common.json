@@ -1,5 +1,9 @@
 {
   "brandName": "Yunjing · Международная платформа закупок",
+  "notifBellAria": "Центр уведомлений",
+  "notifTitle": "Уведомления",
+  "notifEmpty": "Нет уведомлений",
+  "notifLoading": "Загрузка…",
   "navHome": "Главная",
   "navGlobalOpportunities": "Глобальные возможности",
   "navAwardIntelligence": "Разведка тендеров",

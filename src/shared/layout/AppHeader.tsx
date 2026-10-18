@@ -17,6 +17,7 @@ import { Globe, Crown, Menu, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { NotificationBell } from "./NotificationBell";
 import { NAV_TABS } from "./nav-tabs";
 import { MobileDrawer } from "./MobileDrawer";
 
@@ -109,6 +110,8 @@ export function AppHeader({
           </div>
           {/* 右侧：用户操作区 */}
           <div className="flex items-center space-x-3 shrink-0">
+            {/* 通知铃铛（仅登录可见，组件内部判空） */}
+            <NotificationBell />
             <button onClick={onOpenAccount}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-accent-100 text-accent-800 border border-accent-300" : "bg-secondary-100 text-secondary-500 border border-secondary-200 hover:bg-secondary-200"}`}>
               <Crown className="w-3.5 h-3.5" />

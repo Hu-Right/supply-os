@@ -1,5 +1,9 @@
 {
   "brandName": "يونجينغ · منصة المشتريات الدولية",
+  "notifBellAria": "مركز الإشعارات",
+  "notifTitle": "الإشعارات",
+  "notifEmpty": "لا توجد إشعارات",
+  "notifLoading": "جارٍ التحميل…",
   "navHome": "الرئيسية",
   "navGlobalOpportunities": "الفرص العالمية",
   "navAwardIntelligence": "استخبارات المناقصات",

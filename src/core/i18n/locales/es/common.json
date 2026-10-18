@@ -1,5 +1,9 @@
 {
   "brandName": "Yunjing · Plataforma de Compras Internacionales",
+  "notifBellAria": "Centro de notificaciones",
+  "notifTitle": "Notificaciones",
+  "notifEmpty": "Sin notificaciones",
+  "notifLoading": "Cargando…",
   "navHome": "Inicio",
   "navGlobalOpportunities": "Oportunidades globales",
   "navAwardIntelligence": "Inteligencia de adjudicaciones",

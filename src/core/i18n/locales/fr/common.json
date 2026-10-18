@@ -1,5 +1,9 @@
 {
   "brandName": "Yunjing · Plateforme d'Approvisionnement International",
+  "notifBellAria": "Centre de notifications",
+  "notifTitle": "Notifications",
+  "notifEmpty": "Aucune notification",
+  "notifLoading": "Chargement…",
   "navHome": "Accueil",
   "navGlobalOpportunities": "Opportunités globales",
   "navAwardIntelligence": "Intelligence des adjudications",

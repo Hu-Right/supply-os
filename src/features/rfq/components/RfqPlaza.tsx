@@ -10,6 +10,7 @@
  *              未登录点击"查看详情"唤起登录弹层（信息脱敏策略）。
  */
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/core/auth";
 import { Clock, Gem, Search } from "lucide-react";
 
 import { cn } from "@/shared/utils";
@@ -45,6 +46,8 @@ export function RfqPlaza() {
     sort, setSort,
     items, loading, total, l1Options,
   } = useRfqPlaza();
+  const { authUser } = useAuth();
+  const router = useRouter();
 
   return (
     <section className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs" id="rfq-plaza">
@@ -53,6 +56,14 @@ export function RfqPlaza() {
           <h2 className="text-lg font-extrabold text-secondary-900">需求广场</h2>
           <p className="text-xs text-secondary-400 mt-1">
             来自全球采购方的真实需求{total > 0 && `（${total} 条）`}，登录后可查看详情
+            {authUser && (
+              <button
+                onClick={() => router.push("/rfq/my-quotes")}
+                className="ml-2 text-secondary-600 font-bold underline underline-offset-2 hover:text-secondary-800"
+              >
+                我的报价
+              </button>
+            )}
           </p>
         </div>
         <SegmentedControl size="sm" value={sort} onChange={(v) => setSort(v as RfqSortKey)}
@@ -150,6 +161,9 @@ function PlazaCard({ rfq }: { rfq: PlazaRfq }) {
           </p>
         )}
         <p>预算：{rfq.budgetDisplay}</p>
+        {rfq.responses > 0 && (
+          <p className="text-secondary-600 font-semibold">已有 {rfq.responses} 家供应商报价</p>
+        )}
         {rfq.deadline && (
           <p className={cn("flex items-center gap-1", urgent && "text-amber-700 font-bold")}>
             <Clock className="w-3 h-3" /> 截止 {rfq.deadline}（{remainText}）

@@ -1,5 +1,9 @@
 {
   "brandName": "Yunjing · International Procurement Platform",
+  "notifBellAria": "Notification center",
+  "notifTitle": "Notifications",
+  "notifEmpty": "No notifications",
+  "notifLoading": "Loading…",
   "navHome": "Home",
   "navGlobalOpportunities": "Global Opportunities",
   "navAwardIntelligence": "Award Intelligence",

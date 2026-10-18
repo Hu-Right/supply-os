@@ -1,5 +1,9 @@
 {
   "brandName": "云境·国际采购平台",
+  "notifBellAria": "通知中心",
+  "notifTitle": "通知",
+  "notifEmpty": "暂无通知",
+  "notifLoading": "加载中…",
   "navHome": "首页",
   "navGlobalOpportunities": "全球商机",
   "navAwardIntelligence": "中标情报",
