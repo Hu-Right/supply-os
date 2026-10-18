@@ -38,7 +38,8 @@ export const GET = withRoute(async (req: NextRequest) => {
     pool.query(
       `SELECT n.id, n.reference, n.title, n.country, n.estimated_value, n.currency, n.deadline_sec,
               n.rfq_status, n.published_date, n.create_time,
-              (SELECT COUNT(*) FROM crm_rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count
+              (SELECT COUNT(*) FROM crm_rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count,
+              (SELECT COUNT(*) FROM crm_rfq_quotes q2 WHERE q2.rfq_id = n.id AND q2.status = 'submitted') AS quote_pending
        FROM crm_bid_notices n WHERE ${whereSql}
        ORDER BY n.id DESC LIMIT ? OFFSET ?`,
       [...params, pageSize, offset],
@@ -63,6 +64,7 @@ export const GET = withRoute(async (req: NextRequest) => {
     publishedDate: String(row.rfq_status) === RFQ_STATUS.PUBLISHED && row.published_date ? String(row.published_date) : null,
     createdAt: row.create_time != null ? String(row.create_time) : null,
     quoteCount: Number(row.quote_count) || 0,
+    quotePending: Number(row.quote_pending) || 0,
   }));
 
   return NextResponse.json({ items, total, page, page_size: pageSize });

@@ -30,6 +30,7 @@ interface MyRfq {
   publishedDate: string | null;
   createdAt: string | null;
   quoteCount?: number;
+  quotePending?: number;
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -186,6 +187,11 @@ export default function MyRfqSettingsClient() {
                       {(rfq.quoteCount ?? 0) > 0 && (
                         <span className="inline-flex items-center gap-1 rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-2xs font-bold text-teal-700">
                           收到 {rfq.quoteCount} 条报价
+                        </span>
+                      )}
+                      {(rfq.quotePending ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-2xs font-bold text-amber-700">
+                          待选 {rfq.quotePending}
                         </span>
                       )}
                     </div>
