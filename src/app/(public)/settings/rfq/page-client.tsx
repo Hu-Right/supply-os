@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, Eye, Lock, FileText, Pencil } from "lucide-react";
+import { Clock, Eye, Lock, FileText, Pencil, RotateCcw } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
@@ -63,6 +63,7 @@ export default function MyRfqSettingsClient() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [withdrawing, setWithdrawing] = useState<number | null>(null);
+  const [reopening, setReopening] = useState<number | null>(null);
 
   const fetchList = useCallback(() => {
     setLoading(true);
@@ -88,6 +89,20 @@ export default function MyRfqSettingsClient() {
       alert((err as Error).message || "撤回失败");
     } finally {
       setWithdrawing(null);
+    }
+  };
+
+  const handleReopen = async (id: number) => {
+    if (!confirm("重新开启此需求？将回到草稿状态，需编辑后重新提交审核。")) return;
+    setReopening(id);
+    try {
+      await api(`/api/rfq/${id}/reopen`, { method: "PATCH", body: {} });
+      router.push(`/settings/rfq/${id}/edit`);
+    } catch (err) {
+      alert((err as Error).message || "重新开启失败");
+      fetchList();
+    } finally {
+      setReopening(null);
     }
   };
 
@@ -216,6 +231,17 @@ export default function MyRfqSettingsClient() {
                         className="text-rose-600 border-rose-200 hover:bg-rose-50"
                       >
                         {withdrawing === rfq.id ? "撤回中…" : "撤回"}
+                      </Button>
+                    )}
+                    {rfq.status === "closed" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleReopen(rfq.id)}
+                        disabled={reopening === rfq.id}
+                        className="gap-1"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" /> {reopening === rfq.id ? "开启中…" : "重新开启"}
                       </Button>
                     )}
                     <Button variant="ghost" size="sm" className="gap-1" onClick={() => router.push(`/rfq/${rfq.id}`)}>

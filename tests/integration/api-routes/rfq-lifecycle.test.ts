@@ -299,3 +299,41 @@ describe("PATCH /api/rfq/[id]/withdraw — 撤回", () => {
     expect(missing.status).toBe(404);
   });
 });
+
+describe("PATCH /api/rfq/[id]/reopen — 重新开启（closed→draft）", () => {
+  it("closed → draft（不自动发布）", async () => {
+    poolQuery
+      .mockResolvedValueOnce([rfqRow({ rfq_status: "closed" })])
+      .mockResolvedValueOnce([{ affectedRows: 1 }]);
+    const { PATCH } = await import("@/app/api/rfq/[id]/reopen/route");
+    const res = await PATCH(patch("/api/rfq/501/reopen", {}), {
+      params: Promise.resolve({ id: "501" }),
+    });
+    expect(res.status).toBe(200);
+    expect(poolQuery.mock.calls[1][1]).toEqual(["draft", 501, OWNER_ID]);
+  });
+
+  it("非 closed（published）→ 400", async () => {
+    poolQuery.mockResolvedValueOnce([rfqRow({ rfq_status: "published" })]);
+    const { PATCH } = await import("@/app/api/rfq/[id]/reopen/route");
+    const res = await PATCH(patch("/api/rfq/501/reopen", {}), {
+      params: Promise.resolve({ id: "501" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("非创建者 → 403；不存在 → 404", async () => {
+    const { PATCH } = await import("@/app/api/rfq/[id]/reopen/route");
+    poolQuery.mockResolvedValueOnce([rfqRow({ rfq_status: "closed", user_id: 999 })]);
+    const forbidden = await PATCH(patch("/api/rfq/501/reopen", {}), {
+      params: Promise.resolve({ id: "501" }),
+    });
+    expect(forbidden.status).toBe(403);
+
+    poolQuery.mockResolvedValueOnce([[]]);
+    const missing = await PATCH(patch("/api/rfq/501/reopen", {}), {
+      params: Promise.resolve({ id: "501" }),
+    });
+    expect(missing.status).toBe(404);
+  });
+});
