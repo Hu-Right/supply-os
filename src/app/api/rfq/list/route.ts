@@ -85,7 +85,8 @@ export const GET = withRoute(async (req: NextRequest) => {
           `SELECT n.id, n.reference, n.title, n.country, n.province_name,
                   n.category_code, c1.name_zh AS category_name,
                   c0.name_zh AS category_l1_name,
-                  n.estimated_value, n.currency, n.deadline_sec, n.is_featured, n.agency
+                  n.estimated_value, n.currency, n.deadline_sec, n.is_featured, n.agency,
+                  (SELECT COUNT(*) FROM crm_rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count
            FROM crm_bid_notices n
            LEFT JOIN crm_commodity_backbone c1 ON c1.code = n.category_code
            LEFT JOIN crm_commodity_backbone c0 ON c0.code = LEFT(n.category_code, 6) AND c0.level = 1
@@ -121,7 +122,7 @@ export const GET = withRoute(async (req: NextRequest) => {
         budgetUsd: Number(row.estimated_value) || 0,
         currency: String(row.currency || "CNY"),
         deadline: formatDeadlineDateYMD(Number(row.deadline_sec) || 0, { utc: true, emptyText: "" }),
-        responses: 0,
+        responses: Number(row.quote_count) || 0,
         boosted: Boolean(row.is_featured),
       };
     });

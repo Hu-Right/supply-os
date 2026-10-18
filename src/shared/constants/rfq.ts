@@ -33,3 +33,18 @@ export const RFQ_USER_FILTERABLE_STATUSES = [
   RFQ_STATUS.REJECTED,
   RFQ_STATUS.CLOSED,
 ] as const;
+
+/**
+ * RFQ 报价状态机（crm_rfq_quotes.status）
+ * 选定/中标在此层表达，不动 rfq_status（见 spec §1）。
+ *   submitted ──撤回──→ withdrawn
+ *   submitted ──选定──→ won（中标）/ rejected（落选）
+ */
+export const QUOTE_STATUS = {
+  SUBMITTED: "submitted",
+  WITHDRAWN: "withdrawn",
+  WON: "won",
+  REJECTED: "rejected",
+} as const;
+
+export type QuoteStatus = (typeof QUOTE_STATUS)[keyof typeof QUOTE_STATUS];

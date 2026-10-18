@@ -37,7 +37,8 @@ export const GET = withRoute(async (req: NextRequest) => {
     pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${whereSql}`, params),
     pool.query(
       `SELECT n.id, n.reference, n.title, n.country, n.estimated_value, n.currency, n.deadline_sec,
-              n.rfq_status, n.published_date, n.create_time
+              n.rfq_status, n.published_date, n.create_time,
+              (SELECT COUNT(*) FROM crm_rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count
        FROM crm_bid_notices n WHERE ${whereSql}
        ORDER BY n.id DESC LIMIT ? OFFSET ?`,
       [...params, pageSize, offset],
@@ -61,6 +62,7 @@ export const GET = withRoute(async (req: NextRequest) => {
     // 发布日仅在已发布时有意义（历史脏数据：旧版 create 在草稿期就写了 CURDATE）
     publishedDate: String(row.rfq_status) === RFQ_STATUS.PUBLISHED && row.published_date ? String(row.published_date) : null,
     createdAt: row.create_time != null ? String(row.create_time) : null,
+    quoteCount: Number(row.quote_count) || 0,
   }));
 
   return NextResponse.json({ items, total, page, page_size: pageSize });
