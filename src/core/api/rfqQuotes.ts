@@ -58,6 +58,11 @@ export async function awardRfqQuote(rfqId: number, quoteId: number): Promise<{ w
   return res.data;
 }
 
+/** 供应商撤回自己的一份 submitted 报价（已选定/已撤回则失败）。 */
+export async function withdrawRfqQuote(rfqId: number, quoteId: number): Promise<void> {
+  await api<Envelope<{ withdrawn: boolean }>>(`/api/rfq/${rfqId}/quotes`, { method: "DELETE", body: { quoteId } });
+}
+
 /** 供应商“我的报价”行（对应 /api/rfq/my-quotes）。 */
 export interface MyQuoteRow {
   quoteId: number;

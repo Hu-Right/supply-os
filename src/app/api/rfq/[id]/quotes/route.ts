@@ -1,6 +1,7 @@
 /**
- * POST /api/rfq/[id]/quotes — 认证供应商提交/更新报价
- * GET  /api/rfq/[id]/quotes — 采购方（创建者）查看该 RFQ 报价汇总（密封比价）
+ * POST   /api/rfq/[id]/quotes — 认证供应商提交/更新报价
+ * GET    /api/rfq/[id]/quotes — 采购方（创建者）查看该 RFQ 报价汇总（密封比价）
+ * DELETE /api/rfq/[id]/quotes — 供应商撤回自己的 submitted 报价（body: {quoteId}）
  *
  * @module app/api/rfq/[id]/quotes/route
  */
@@ -19,6 +20,7 @@ import {
   checkQuoteEligibility,
   submitQuote,
   listQuotesForBuyer,
+  withdrawQuote,
 } from "@/lib/services/rfq-quotes";
 
 function str(val: unknown, max: number): string {
@@ -87,5 +89,30 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     const items = await listQuotesForBuyer(pool, rfqId);
     return NextResponse.json({ code: 0, message: "ok", data: { items, total: items.length } });
+  },
+);
+
+export const DELETE = withRoute<{ params: Promise<{ id: string }> }>(
+  async (req, { params }) => {
+    const auth = await requireUserKeyOrThrow(req);
+    const { id } = await params;
+    const rfqId = Number(id);
+    if (!Number.isFinite(rfqId) || rfqId <= 0) routeError(400, EC_INVALID_PARAMS, "无效的 RFQ ID");
+
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      routeError(400, EC_INVALID_PARAMS, "请求体非法 JSON");
+    }
+    const quoteId = Number(body.quoteId);
+    if (!Number.isFinite(quoteId) || quoteId <= 0) routeError(400, EC_INVALID_PARAMS, "缺少有效的 quoteId");
+
+    const pool = getPool();
+    // 仅本人、仅 submitted 可撤回（won/rejected/withdrawn 均不命中）
+    const ok = await withdrawQuote(pool, quoteId, auth.userId);
+    if (!ok) routeError(404, EC_NOT_FOUND, "报价不存在或不可撤回（已选定或已撤回）");
+
+    return NextResponse.json({ code: 0, message: "ok", data: { withdrawn: true } });
   },
 );

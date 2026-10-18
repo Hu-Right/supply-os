@@ -10,6 +10,7 @@ import {
   checkQuoteEligibility,
   submitQuote,
   awardQuote,
+  withdrawQuote,
   type QuoteableRfq,
 } from "@/lib/services/rfq-quotes";
 
@@ -196,5 +197,18 @@ describe("awardQuote", () => {
     const res = await awardQuote(p, { rfqId: 5, winnerQuoteId: 7, buyerUserId: 6 });
     expect(res).toEqual({ ok: false, reason: "self" });
     expect(conn.rollback).toHaveBeenCalled();
+  });
+});
+
+describe("withdrawQuote", () => {
+  it("命中 submitted 报价 → true（参数化 with 仅 submitted）", async () => {
+    const q = vi.fn().mockResolvedValue([{ affectedRows: 1 }]);
+    expect(await withdrawQuote(pool(q), 77, 42)).toBe(true);
+    expect(String(q.mock.calls[0][0])).toContain("status = ?");
+    expect(q.mock.calls[0][1]).toEqual(["withdrawn", 77, 42, "submitted"]);
+  });
+  it("未命中（非本人/非 submitted）→ false", async () => {
+    const q = vi.fn().mockResolvedValue([{ affectedRows: 0 }]);
+    expect(await withdrawQuote(pool(q), 77, 42)).toBe(false);
   });
 });

@@ -8,14 +8,14 @@
  * @description 认证供应商查看自己对多条采购需求的报价及中标结果（评审中/已中标/未中标）。
  *              数据来自 GET /api/rfq/my-quotes。需登录；沿用账户页中文直写风格。
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, Lock, Trophy } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
 import { Button, EmptyState } from "@/shared/ui";
 import { currencySymbol } from "@/shared/utils/format";
-import { fetchMyQuotes, type MyQuoteRow } from "@/core/api/rfqQuotes";
+import { fetchMyQuotes, withdrawRfqQuote, type MyQuoteRow } from "@/core/api/rfqQuotes";
 
 const QUOTE_BADGE: Record<string, { label: string; cls: string }> = {
   submitted: { label: "评审中", cls: "bg-slate-100 text-slate-600 border-slate-200" },
@@ -29,17 +29,32 @@ export default function MyQuotesClient() {
   const [rows, setRows] = useState<MyQuoteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState<number | null>(null);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     if (!authUser) { setLoading(false); return; }
-    let cancelled = false;
     setLoading(true);
+    setErr("");
     fetchMyQuotes()
-      .then((r) => { if (!cancelled) setRows(r); })
-      .catch((e: Error) => { if (!cancelled) setErr(e?.message || "加载失败"); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((r) => setRows(r))
+      .catch((e: Error) => setErr(e?.message || "加载失败"))
+      .finally(() => setLoading(false));
   }, [authUser]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  const handleWithdraw = async (rfqId: number, quoteId: number) => {
+    if (!confirm("确认撤回这份报价？撤回后该需求不再计入你的报价。")) return;
+    setBusy(quoteId);
+    try {
+      await withdrawRfqQuote(rfqId, quoteId);
+      reload();
+    } catch (e) {
+      setErr((e as Error).message || "撤回失败");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   if (!authUser) {
     return (
@@ -103,9 +118,22 @@ export default function MyQuotesClient() {
                       {q.leadTimeDays != null && <span>交付周期：{q.leadTimeDays} 天</span>}
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" className="gap-1 shrink-0" onClick={() => router.push(`/rfq/${q.rfqId}`)}>
-                    <Eye className="w-3.5 h-3.5" /> 查看需求
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {q.quoteStatus === "submitted" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-rose-600 border-rose-200 hover:bg-rose-50"
+                        disabled={busy === q.quoteId}
+                        onClick={() => handleWithdraw(q.rfqId, q.quoteId)}
+                      >
+                        {busy === q.quoteId ? "撤回中…" : "撤回"}
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" className="gap-1" onClick={() => router.push(`/rfq/${q.rfqId}`)}>
+                      <Eye className="w-3.5 h-3.5" /> 查看需求
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
