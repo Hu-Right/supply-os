@@ -7,10 +7,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const { poolQuery, requireUserKeyOrThrow, withdrawQuote } = vi.hoisted(() => ({
+const { poolQuery, requireUserKeyOrThrow, withdrawQuote, unawardQuote } = vi.hoisted(() => ({
   poolQuery: vi.fn(),
   requireUserKeyOrThrow: vi.fn(),
   withdrawQuote: vi.fn(),
+  unawardQuote: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -23,11 +24,20 @@ vi.mock("@/lib/services/rfq-quotes", () => ({
   submitQuote: vi.fn(),
   listQuotesForBuyer: vi.fn(),
   withdrawQuote,
+  unawardQuote,
 }));
 
 function del(url: string, body: unknown): NextRequest {
   return new NextRequest(new URL(url, "http://localhost"), {
     method: "DELETE",
+    body: JSON.stringify(body),
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function post(url: string, body: unknown): NextRequest {
+  return new NextRequest(new URL(url, "http://localhost"), {
+    method: "POST",
     body: JSON.stringify(body),
     headers: { "content-type": "application/json" },
   });
@@ -61,5 +71,32 @@ describe("DELETE /api/rfq/[id]/quotes", () => {
     expect((await call("5", {})).status).toBe(400);
     expect((await call("x", { quoteId: 77 })).status).toBe(400);
     expect(withdrawQuote).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/rfq/[id]/unaward", () => {
+  async function callUnaward(rfqId: string) {
+    const { POST } = await import("@/app/api/rfq/[id]/unaward/route");
+    return POST(post(`/api/rfq/${rfqId}/unaward`, {}), { params: Promise.resolve({ id: rfqId }) });
+  }
+
+  it("成功 → 200 revoked", async () => {
+    unawardQuote.mockResolvedValueOnce({ ok: true, winnerSupplierUserId: 42 });
+    const res = await callUnaward("5");
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.revoked).toBe(true);
+  });
+
+  it("forbidden → 403；closed → 409；no_winner → 409", async () => {
+    unawardQuote.mockResolvedValueOnce({ ok: false, reason: "forbidden" });
+    expect((await callUnaward("5")).status).toBe(403);
+    unawardQuote.mockResolvedValueOnce({ ok: false, reason: "closed" });
+    expect((await callUnaward("5")).status).toBe(409);
+    unawardQuote.mockResolvedValueOnce({ ok: false, reason: "no_winner" });
+    expect((await callUnaward("5")).status).toBe(409);
+  });
+
+  it("非法 rfqId → 400", async () => {
+    expect((await callUnaward("0")).status).toBe(400);
   });
 });

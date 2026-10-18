@@ -63,6 +63,11 @@ export async function withdrawRfqQuote(rfqId: number, quoteId: number): Promise<
   await api<Envelope<{ withdrawn: boolean }>>(`/api/rfq/${rfqId}/quotes`, { method: "DELETE", body: { quoteId } });
 }
 
+/** 采购方撤销本需求的中选选定（won/rejected 回退 submitted，重新开放报价）。 */
+export async function unawardRfqQuote(rfqId: number): Promise<void> {
+  await api<Envelope<{ revoked: boolean }>>(`/api/rfq/${rfqId}/unaward`, { method: "POST", body: {} });
+}
+
 /** 供应商“我的报价”行（对应 /api/rfq/my-quotes）。 */
 export interface MyQuoteRow {
   quoteId: number;

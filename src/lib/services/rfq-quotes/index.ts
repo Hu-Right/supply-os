@@ -11,7 +11,7 @@ import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql
 import { RFQ_STATUS, QUOTE_STATUS } from "@/shared/constants/rfq";
 import { pushNotification } from "@/lib/services/notifications";
 import { absoluteUrl } from "@/lib/services/seo/site";
-import { isEmailConfigured, sendRfqQuoteReceivedEmail, sendRfqAwardedEmail, sendRfqRejectedEmail } from "@/lib/services/email";
+import { isEmailConfigured, sendRfqQuoteReceivedEmail, sendRfqAwardedEmail, sendRfqRejectedEmail, sendRfqAwardRevokedEmail } from "@/lib/services/email";
 
 export interface QuoteableRfq {
   id: number;
@@ -423,4 +423,82 @@ export async function listMyQuotes(dbPool: Pool, userId: number): Promise<MyQuot
     deadlineSec: Number(r.deadlineSec) || 0,
     updatedAt: r.updatedAt != null ? String(r.updatedAt) : "",
   }));
+}
+
+/**
+ * 撤销选定（仅采购方）：事务内将该 RFQ 的 won/rejected 全部回退 submitted，重新开放收价。
+ * 不改 rfq_status（保持可搜）；best-effort 通知原中标方「中标结果已作废」。
+ */
+export async function unawardQuote(
+  dbPool: Pool,
+  opts: { rfqId: number; buyerUserId: number },
+): Promise<{ ok: boolean; reason?: string; winnerSupplierUserId?: number }> {
+  const conn: PoolConnection = await dbPool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rf] = await conn.query(
+      `SELECT rfq_status, user_id FROM crm_bid_notices
+        WHERE id = ? AND notice_type = 'RFQ' AND entry_source = 'platform' LIMIT 1`,
+      [opts.rfqId],
+    );
+    const rfqRow = (rf as RowDataPacket[])[0];
+    if (!rfqRow) { await conn.rollback(); return { ok: false, reason: "not_found" }; }
+    if (Number(rfqRow.user_id) !== opts.buyerUserId) { await conn.rollback(); return { ok: false, reason: "forbidden" }; }
+    if (String(rfqRow.rfq_status) !== RFQ_STATUS.PUBLISHED) { await conn.rollback(); return { ok: false, reason: "closed" }; }
+
+    const [w] = await conn.query(
+      `SELECT supplier_user_id FROM crm_rfq_quotes WHERE rfq_id = ? AND status = ? LIMIT 1`,
+      [opts.rfqId, QUOTE_STATUS.WON],
+    );
+    const winner = (w as RowDataPacket[])[0];
+    if (!winner) { await conn.rollback(); return { ok: false, reason: "no_winner" }; }
+    const winnerSupplierUserId = Number(winner.supplier_user_id);
+
+    // 选定回退：won → submitted，rejected → submitted（仅本 RFQ）
+    await conn.query(
+      `UPDATE crm_rfq_quotes SET status = ? WHERE rfq_id = ? AND status = ?`,
+      [QUOTE_STATUS.SUBMITTED, opts.rfqId, QUOTE_STATUS.WON],
+    );
+    await conn.query(
+      `UPDATE crm_rfq_quotes SET status = ? WHERE rfq_id = ? AND status = ?`,
+      [QUOTE_STATUS.SUBMITTED, opts.rfqId, QUOTE_STATUS.REJECTED],
+    );
+
+    await conn.commit();
+
+    // 通知原中标方（站内信 best-effort）
+    try {
+      await pushNotification(dbPool, {
+        userId: winnerSupplierUserId,
+        type: "rfq_award_revoked",
+        title: "中标结果已作废",
+        body: "采购方撤销了本需求的中标选定",
+        link: `/rfq/${opts.rfqId}`,
+        refId: opts.rfqId,
+      });
+    } catch (e) {
+      console.warn("[rfq-quotes] 撤销选定通知失败（不影响回退落库）:", (e as Error).message);
+    }
+    // 邮件通知原中标方（best-effort）
+    if (isEmailConfigured()) {
+      try {
+        const [ur] = await dbPool.query(`SELECT email FROM crm_users WHERE id = ? LIMIT 1`, [winnerSupplierUserId]);
+        const email = String((ur as RowDataPacket[])[0]?.email || "");
+        if (email) {
+          const [tr] = await dbPool.query(`SELECT title FROM crm_bid_notices WHERE id = ? LIMIT 1`, [opts.rfqId]);
+          await sendRfqAwardRevokedEmail(email, { rfqTitle: String((tr as RowDataPacket[])[0]?.title || ""), rfqLink: absoluteUrl(`/rfq/${opts.rfqId}`) });
+        }
+      } catch (e) {
+        console.warn("[rfq-quotes] 撤销选定邮件失败（不影响回退落库）:", (e as Error).message);
+      }
+    }
+
+    return { ok: true, winnerSupplierUserId };
+  } catch (e) {
+    try { await conn.rollback(); } catch { /* 回滚失败不掩盖原错 */ }
+    throw e;
+  } finally {
+    conn.release();
+  }
 }

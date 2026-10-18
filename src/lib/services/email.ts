@@ -264,3 +264,20 @@ export async function sendRfqRejectedEmail(
     "RFQ落选",
   );
 }
+
+/** 中标作废通知：采购方撤销了选定。 */
+export async function sendRfqAwardRevokedEmail(
+  email: string,
+  opts: { rfqTitle: string; rfqLink: string },
+): Promise<void> {
+  await dispatchEmail(
+    email,
+    "采购需求中标作废",
+    emailShell("中标作废", `
+      <p>采购需求<strong>《${opts.rfqTitle}》</strong>的中标选定已被采购方撤销。</p>
+      <p>如有已按中标开展的准备，请与采购方核实最新安排。</p>
+      <p><a href="${opts.rfqLink}" style="display:inline-block;padding:10px 18px;background:#0d9488;color:#fff;border-radius:8px;text-decoration:none;">查看需求详情</a></p>
+    `),
+    "RFQ中标作废",
+  );
+}

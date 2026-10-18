@@ -11,6 +11,7 @@ import {
   submitQuote,
   awardQuote,
   withdrawQuote,
+  unawardQuote,
   type QuoteableRfq,
 } from "@/lib/services/rfq-quotes";
 
@@ -210,5 +211,51 @@ describe("withdrawQuote", () => {
   it("未命中（非本人/非 submitted）→ false", async () => {
     const q = vi.fn().mockResolvedValue([{ affectedRows: 0 }]);
     expect(await withdrawQuote(pool(q), 77, 42)).toBe(false);
+  });
+});
+
+describe("unawardQuote", () => {
+  it("有 won → 回退 won/rejected 为 submitted，并 commit", async () => {
+    const conn = {
+      beginTransaction: vi.fn().mockResolvedValue(undefined),
+      query: vi.fn()
+        .mockResolvedValueOnce([[{ rfq_status: "published", user_id: 6 }]])
+        .mockResolvedValueOnce([[{ supplier_user_id: 42 }]])
+        .mockResolvedValueOnce([{ affectedRows: 1 }])
+        .mockResolvedValueOnce([{ affectedRows: 2 }]),
+      commit: vi.fn().mockResolvedValue(undefined),
+      rollback: vi.fn().mockResolvedValue(undefined),
+      release: vi.fn(),
+    };
+    const p = pool(vi.fn().mockResolvedValue([{ insertId: 9 }]), vi.fn().mockResolvedValue(conn));
+    const res = await unawardQuote(p, { rfqId: 5, buyerUserId: 6 });
+    expect(res).toEqual({ ok: true, winnerSupplierUserId: 42 });
+    expect(conn.commit).toHaveBeenCalled();
+    expect(conn.query.mock.calls[2]?.[1]).toEqual(["submitted", 5, "won"]);
+    expect(conn.query.mock.calls[3]?.[1]).toEqual(["submitted", 5, "rejected"]);
+    expect(conn.release).toHaveBeenCalled();
+  });
+  it("非创建者 → forbidden 并回滚", async () => {
+    const conn = {
+      beginTransaction: vi.fn().mockResolvedValue(undefined),
+      query: vi.fn().mockResolvedValueOnce([[{ rfq_status: "published", user_id: 99 }]]),
+      commit: vi.fn(), rollback: vi.fn().mockResolvedValue(undefined), release: vi.fn(),
+    };
+    const p = pool(vi.fn(), vi.fn().mockResolvedValue(conn));
+    expect(await unawardQuote(p, { rfqId: 5, buyerUserId: 6 })).toEqual({ ok: false, reason: "forbidden" });
+    expect(conn.rollback).toHaveBeenCalled();
+    expect(conn.commit).not.toHaveBeenCalled();
+  });
+  it("无 won → no_winner 并回滚", async () => {
+    const conn = {
+      beginTransaction: vi.fn().mockResolvedValue(undefined),
+      query: vi.fn()
+        .mockResolvedValueOnce([[{ rfq_status: "published", user_id: 6 }]])
+        .mockResolvedValueOnce([[]]),
+      commit: vi.fn(), rollback: vi.fn().mockResolvedValue(undefined), release: vi.fn(),
+    };
+    const p = pool(vi.fn(), vi.fn().mockResolvedValue(conn));
+    expect(await unawardQuote(p, { rfqId: 5, buyerUserId: 6 })).toEqual({ ok: false, reason: "no_winner" });
+    expect(conn.rollback).toHaveBeenCalled();
   });
 });

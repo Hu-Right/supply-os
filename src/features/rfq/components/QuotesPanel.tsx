@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/shared/ui";
 import { currencySymbol } from "@/shared/utils/format";
-import { fetchBuyerQuotes, awardRfqQuote, type QuoteRow } from "@/core/api/rfqQuotes";
+import { fetchBuyerQuotes, awardRfqQuote, unawardRfqQuote, type QuoteRow } from "@/core/api/rfqQuotes";
 
 export interface QuotesPanelProps {
   rfqId: number;
@@ -31,6 +31,8 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
   const [err, setErr] = useState("");
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [awarding, setAwarding] = useState<number | null>(null);
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const [revoking, setRevoking] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -66,12 +68,45 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
     }
   };
 
+  const onUnaward = async () => {
+    if (!confirmRevoke) {
+      setConfirmRevoke(true);
+      return;
+    }
+    setRevoking(true);
+    try {
+      await unawardRfqQuote(rfqId);
+      toast.success("已撤销选定，重新开放报价");
+      await reload();
+    } catch (e) {
+      toast.error((e as Error).message || "撤销失败，请稍后重试");
+    } finally {
+      setConfirmRevoke(false);
+      setRevoking(false);
+    }
+  };
+
+  const hasWinner = rows.some((r) => r.status === "won");
+
   return (
     <Card2 title="报价汇总（密封比价）" onRefresh={() => void reload()}>
       {loading && <p className="text-sm text-secondary-400 py-6 text-center">加载报价中…</p>}
       {!loading && err && <p className="text-sm text-danger-500 py-4 text-center">{err}</p>}
       {!loading && !err && rows.length === 0 && (
         <p className="text-sm text-secondary-400 py-6 text-center">暂无供应商报价</p>
+      )}
+      {!loading && !err && hasWinner && (
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-primary-50 px-3 py-2">
+          <span className="text-xs font-semibold text-primary-700">已完成选定中标</span>
+          <Button
+            size="sm"
+            variant={confirmRevoke ? "danger" : "outline"}
+            onClick={() => void onUnaward()}
+            disabled={revoking}
+          >
+            {revoking ? "撤销中…" : confirmRevoke ? "确认撤销？将重新开放报价" : "撤销选定"}
+          </Button>
+        </div>
       )}
       {!loading && !err && rows.length > 0 && (
         <div className="divide-y divide-secondary-100">
