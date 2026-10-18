@@ -18,7 +18,7 @@ function pool(query: ReturnType<typeof vi.fn>, getConnection?: ReturnType<typeof
 }
 
 const publishedRfq: QuoteableRfq = {
-  id: 5, userId: 6, status: "published", visibility: "public", deadlineSec: 0, title: "采购 X",
+  id: 5, userId: 6, status: "published", visibility: "public", deadlineSec: 0, title: "采购 X", contactEmail: "buyer@x.com",
 };
 
 describe("isVerifiedSupplier", () => {

@@ -165,3 +165,85 @@ export async function sendEmailBindingCode(email: string, code: string): Promise
     throw err;
   }
 }
+
+// ── RFQ 采购闭环邮件触达（⑦报价通知 / ⑩中标通知 / 发布邀约） ──
+
+/** 通用系统邮件发送：复用 transporter 单例，失败清单例并上抛（调用方 best-effort 捕获）。 */
+async function dispatchEmail(email: string, subject: string, html: string, tag: string): Promise<void> {
+  const transporter = getTransporter();
+  const cfg = getSmtpConfig();
+  try {
+    await transporter.sendMail({ from: cfg.from, to: email, subject, html });
+    log.info(`${tag} 邮件发送成功 to=${email}`);
+  } catch (err) {
+    log.error(`${tag} 邮件发送失败 to=${email}: ${(err as Error).message || "未知错误"}`);
+    resetTransporter();
+    throw err;
+  }
+}
+
+/** 轻量邮件外壳（与验证码邮件同风格，480px 卡片）。 */
+function emailShell(title: string, inner: string): string {
+  return `
+    <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; line-height: 1.6;">
+      <h2 style="margin: 0 0 12px;">${title}</h2>
+      ${inner}
+      <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">本邮件由国际采购供应链平台自动发送，请勿直接回复。</p>
+    </div>
+  `;
+}
+
+/** 发布邀约：邀请认证供应商就某采购需求报价。 */
+export async function sendRfqInviteEmail(
+  email: string,
+  opts: { rfqTitle: string; rfqLink: string; deadlineText?: string; budgetText?: string },
+): Promise<void> {
+  const meta = [opts.budgetText ? `预算：${opts.budgetText}` : "", opts.deadlineText ? `截止：${opts.deadlineText}` : ""]
+    .filter(Boolean)
+    .join(" ｜ ");
+  await dispatchEmail(
+    email,
+    "新采购需求邀请您报价",
+    emailShell("新采购需求邀请您报价", `
+      <p>平台有一条与您相关的采购需求，欢迎登录查看详情并提交报价：</p>
+      <div style="padding: 12px 16px; background: #f8fafc; border-radius: 8px; margin: 12px 0;">
+        <strong>${opts.rfqTitle}</strong>
+        ${meta ? `<div style="color: #64748b; font-size: 14px; margin-top: 4px;">${meta}</div>` : ""}
+      </div>
+      <p><a href="${opts.rfqLink}" style="display:inline-block;padding:10px 18px;background:#0d9488;color:#fff;border-radius:8px;text-decoration:none;">查看需求并报价</a></p>
+    `),
+    "RFQ邀约",
+  );
+}
+
+/** 报价到达：通知采购方收到一条新报价。 */
+export async function sendRfqQuoteReceivedEmail(
+  email: string,
+  opts: { rfqTitle: string; rfqLink: string },
+): Promise<void> {
+  await dispatchEmail(
+    email,
+    "收到一条新报价",
+    emailShell("收到一条新报价", `
+      <p>您的采购需求<strong>《${opts.rfqTitle}》</strong>收到一条供应商报价。</p>
+      <p><a href="${opts.rfqLink}" style="display:inline-block;padding:10px 18px;background:#0d9488;color:#fff;border-radius:8px;text-decoration:none;">登录查看报价并比价</a></p>
+    `),
+    "RFQ收到报价",
+  );
+}
+
+/** 中标通知：恭喜供应商在某采购需求中中选。 */
+export async function sendRfqAwardedEmail(
+  email: string,
+  opts: { rfqTitle: string; rfqLink: string },
+): Promise<void> {
+  await dispatchEmail(
+    email,
+    "恭喜：您已中选采购需求",
+    emailShell("恭喜：您已中选", `
+      <p>恭喜！您在采购需求<strong>《${opts.rfqTitle}》</strong>中中选。</p>
+      <p><a href="${opts.rfqLink}" style="display:inline-block;padding:10px 18px;background:#0d9488;color:#fff;border-radius:8px;text-decoration:none;">查看中标详情</a></p>
+    `),
+    "RFQ中标",
+  );
+}

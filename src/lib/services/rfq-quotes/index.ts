@@ -10,6 +10,8 @@
 import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import { RFQ_STATUS, QUOTE_STATUS } from "@/shared/constants/rfq";
 import { pushNotification } from "@/lib/services/notifications";
+import { absoluteUrl } from "@/lib/services/seo/site";
+import { isEmailConfigured, sendRfqQuoteReceivedEmail, sendRfqAwardedEmail } from "@/lib/services/email";
 
 export interface QuoteableRfq {
   id: number;
@@ -18,6 +20,7 @@ export interface QuoteableRfq {
   visibility: string;
   deadlineSec: number;
   title: string;
+  contactEmail: string;
 }
 
 export interface Eligibility {
@@ -47,7 +50,7 @@ export async function isVerifiedSupplier(dbPool: Pool, userId: number): Promise<
 /** 取可报价的 RFQ 主行（platform/RFQ）；不存在返回 null。 */
 export async function getQuoteableRfq(dbPool: Pool, rfqId: number): Promise<QuoteableRfq | null> {
   const [rows] = await dbPool.query(
-    `SELECT id, user_id, rfq_status, visibility, deadline_sec, title
+    `SELECT id, user_id, rfq_status, visibility, deadline_sec, title, contact_email
        FROM crm_bid_notices
       WHERE id = ? AND notice_type = 'RFQ' AND entry_source = 'platform'
       LIMIT 1`,
@@ -62,6 +65,7 @@ export async function getQuoteableRfq(dbPool: Pool, rfqId: number): Promise<Quot
     visibility: String(r.visibility || "public"),
     deadlineSec: Number(r.deadline_sec) || 0,
     title: String(r.title || ""),
+    contactEmail: String(r.contact_email || ""),
   };
 }
 
@@ -105,6 +109,8 @@ export interface SubmitQuoteInput {
   note?: string | null;
   buyerUserId: number;
   rfqTitle: string;
+  /** 采购方联系邮箱（有且 SMTP 已配时 best-effort 邮件提醒收到报价）。 */
+  buyerEmail?: string | null;
 }
 
 /** 提交/更新报价（一供应商一有效报价，upsert）。best-effort 通知采购方收到报价。 */
@@ -145,6 +151,18 @@ export async function submitQuote(
     });
   } catch (e) {
     console.warn("[rfq-quotes] 报价通知失败（不影响报价落库）:", (e as Error).message);
+  }
+
+  // 邮件通知采购方（best-effort：未配 SMTP 或失败均不阻断报价落库）
+  if (input.buyerEmail && isEmailConfigured()) {
+    try {
+      await sendRfqQuoteReceivedEmail(input.buyerEmail, {
+        rfqTitle: input.rfqTitle,
+        rfqLink: absoluteUrl(`/rfq/${input.rfqId}`),
+      });
+    } catch (e) {
+      console.warn("[rfq-quotes] 报价邮件失败（不影响报价落库）:", (e as Error).message);
+    }
   }
 
   return { quoteId };
@@ -287,6 +305,21 @@ export async function awardQuote(
       });
     } catch (e) {
       console.warn("[rfq-quotes] 中选通知失败（不影响选定落库）:", (e as Error).message);
+    }
+
+    // 邮件通知中标供应商（best-effort）
+    if (isEmailConfigured()) {
+      try {
+        const [ur] = await dbPool.query(`SELECT email FROM crm_users WHERE id = ? LIMIT 1`, [winnerSupplierUserId]);
+        const email = String((ur as RowDataPacket[])[0]?.email || "");
+        if (email) {
+          const [tr] = await dbPool.query(`SELECT title FROM crm_bid_notices WHERE id = ? LIMIT 1`, [opts.rfqId]);
+          const title = String((tr as RowDataPacket[])[0]?.title || "");
+          await sendRfqAwardedEmail(email, { rfqTitle: title, rfqLink: absoluteUrl(`/rfq/${opts.rfqId}`) });
+        }
+      } catch (e) {
+        console.warn("[rfq-quotes] 中标邮件失败（不影响选定落库）:", (e as Error).message);
+      }
     }
 
     return { ok: true, winnerSupplierUserId, rejectedCount };

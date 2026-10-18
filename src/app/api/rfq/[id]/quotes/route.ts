@@ -65,6 +65,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       note: str(body.note, 1000) || null,
       buyerUserId: rfq!.userId,
       rfqTitle: rfq!.title,
+      buyerEmail: rfq!.contactEmail,
     });
 
     return NextResponse.json({ code: 0, message: "ok", data: { quoteId } }, { status: 201 });
