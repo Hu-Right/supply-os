@@ -21,6 +21,7 @@ import { Button, Card } from "@/shared/ui";
 import { formatDeadlineDateYMD, currencySymbol } from "@/shared/utils/format";
 import { QuoteDialog } from "@/features/rfq/components/QuoteDialog";
 import { QuotesPanel } from "@/features/rfq/components/QuotesPanel";
+import { InvitePanel } from "@/features/rfq/components/InvitePanel";
 
 interface RfqDetail {
   id: number;
@@ -167,6 +168,11 @@ export default function RfqDetailPageClient() {
           </div>
           <Button size="sm" onClick={() => setQuoteOpen(true)} className="shrink-0">立即报价</Button>
         </Card>
+      )}
+
+      {/* 创建者：邀约匹配供应商报价（已发布） */}
+      {detail.isOwner && authUser && detail.status === "published" && (
+        <InvitePanel rfqId={detail.id} visibility={detail.visibility} />
       )}
 
       {/* 创建者：报价汇总 / 比价 / 选定 */}
