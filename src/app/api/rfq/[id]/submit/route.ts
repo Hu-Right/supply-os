@@ -20,14 +20,9 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, 40001, "无效的 RFQ ID");
     }
 
-    let body: Record<string, unknown>;
-    try {
-      body = await req.json();
-    } catch {
-      routeError(400, 40002, "请求体非法 JSON");
-    }
-
-    const newStatus = body.status === RFQ_STATUS.PUBLISHED ? RFQ_STATUS.PUBLISHED : RFQ_STATUS.PENDING_REVIEW;
+    // submit 只允许 draft/rejected → pending_review；published 由库外审核写入（红线 5）。
+    // 不解析 body.status：接受客户端自发布 = 绕过审核的完整性漏洞。
+    const newStatus = RFQ_STATUS.PENDING_REVIEW;
 
     const pool = getPool();
 
@@ -42,27 +37,25 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     if (Number(row.user_id) !== auth.userId) {
       routeError(403, 40004, "无权操作此 RFQ");
     }
-    if (row.rfq_status === RFQ_STATUS.PUBLISHED && newStatus === RFQ_STATUS.PUBLISHED) {
-      // 幂等：已发布的不再重复更新
-      return NextResponse.json({ code: 0, message: "ok", already_published: true });
-    }
-    if (row.rfq_status === "closed") {
+    if (row.rfq_status === RFQ_STATUS.CLOSED) {
       routeError(400, 40005, "已撤回的 RFQ 无法重新提交");
     }
-
-    // 发布时间语义：只有真正转为 published 才写 published_date（审核通过时点），
-    // 创建/提交审核阶段保持 NULL，前端“发布于”仅在已发布时展示。
-    const setClause = newStatus === RFQ_STATUS.PUBLISHED
-      ? `rfq_status = ?, published_date = CURDATE()`
-      : `rfq_status = ?`;
+    // 已发布 / 已在待审：幂等放行，不回退状态、不改内容（published 由库外审核维护）
+    if (
+      row.rfq_status === RFQ_STATUS.PUBLISHED ||
+      row.rfq_status === RFQ_STATUS.PENDING_REVIEW
+    ) {
+      return NextResponse.json({ code: 0, message: "ok", status: row.rfq_status });
+    }
+    // 仅 draft / rejected 走到这里：提交为待审核（不写 published_date，那是审核时点）
     const [result] = await pool.query(
-      `UPDATE crm_bid_notices SET ${setClause} WHERE id = ? AND user_id = ?`,
+      `UPDATE crm_bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
       [newStatus, rfqId, auth.userId],
     );
 
     const affected = (result as ResultSetHeader).affectedRows;
     if (affected === 0) routeError(500, 50001, "更新失败");
 
-    return NextResponse.json({ code: 0, message: "ok" });
+    return NextResponse.json({ code: 0, message: "ok", status: newStatus });
   },
 );

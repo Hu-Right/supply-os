@@ -14,6 +14,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { normalizeBackboneNodeKey } from "@/lib/services/commodity/backbone-path";
 import { isCommodityNodeKey } from "@/lib/services/commodity/tree";
+import { registerRfqGuard } from "@/lib/services/rfq-guard";
 import type { ResultSetHeader } from "mysql2/promise";
 
 /** 安全截断字符串 */
@@ -66,7 +67,8 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, EC_INVALID_PARAMS, "联系邮箱格式无效");
   }
 
-  const status = body.status === RFQ_STATUS.PUBLISHED ? RFQ_STATUS.PUBLISHED : RFQ_STATUS.DRAFT;
+  // 创建恒为 draft；发布(published)由库外审核写（红线 5），不接受客户端直发。
+  const status = RFQ_STATUS.DRAFT;
   const budgetConfidential = Boolean(body.budget_confidential);
   const budget = Number(body.budget) || 0;
   const currency = str(body.currency || "CNY", 10);
@@ -152,6 +154,14 @@ export const POST = withRoute(async (req: NextRequest) => {
       `UPDATE crm_bid_notices SET reference = ?, notice_id = ? WHERE id = ?`,
       [ref, ref, insertId],
     );
+
+    // 登记预期归属到 crm_rfq_guard（爬虫永不触碰的哨兵表），供周期对账检出被改写/消失。
+    // best-effort：登记失败不影响建单本身（后台 syncRunner 平台护栏已是主防线），仅记日志。
+    try {
+      await registerRfqGuard(pool, { rfqId: insertId, reference: ref, userId: auth.userId ?? null });
+    } catch (e) {
+      console.warn("[api/rfq/create] 守护登记失败（不影响建单，仅降低可观测性）:", (e as Error).message);
+    }
 
     return NextResponse.json(
       { code: 0, message: "ok", data: { id: insertId } },

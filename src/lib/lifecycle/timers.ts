@@ -12,6 +12,7 @@ import { refreshNoticeCountries, refreshNoticeAgencies } from "../services/notic
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
 import { syncWideIds } from "../services/search-sync/index";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
+import { reconcileRfqGuard } from "../services/rfq-guard";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { releaseExpiredClaims } from "../services/supplier-claim";
 import {
@@ -224,6 +225,36 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   //    派生列，镜像对正常路径为空操作，10 分钟一轮的常驻扫描是纯开销。runAttributionMirror
   //    保留导出，ops 手工刷列后按需单次触发（npx tsx -e 或临时脚本）；
   //    「落点 ⊇ 列值」不变量由 BB15c/d 门禁连库断言兜底。
+
+  // 9. 平台 RFQ 守护对账（RFQ_GUARD_ENABLED=off 关闭；RFQ_GUARD_INTERVAL_MINUTES 控制间隔，默认 30 分钟）。
+  //    哨兵：定时比对 crm_rfq_guard（supply-os 独占登记表）与 crm_bid_notices 主行，
+  //    检出“登记在册但主行已被改写为非 platform/RFQ、或消失”——即后台 syncRunner
+  //    平台行护栏被移除后的静默跨系统契约回归。仅告警不自愈（回写需人工确认）。
+  let rfqGuardTimer: NodeJS.Timeout | null = null;
+  if (String(process.env.RFQ_GUARD_ENABLED ?? "on").toLowerCase() !== "off") {
+    const rfqGuardIntervalMin = Math.max(1, Number(process.env.RFQ_GUARD_INTERVAL_MINUTES || 30));
+    const runRfqGuard = async () => {
+      try {
+        const { checked, violations } = await reconcileRfqGuard(dbPool);
+        if (violations.length > 0) {
+          console.error(
+            `[rfq-guard] ⚠ 检出 ${violations.length}/${checked} 条平台RFQ登记与主表不符（疑似被外部爬虫按主键改写/消失，请核查后台 syncRunner 平台行护栏是否失效）:`,
+            violations.slice(0, 20).map((v) => ({ rfqId: v.rfqId, ref: v.reference, curSource: v.curSource, curType: v.curType })),
+          );
+        } else if (checked > 0) {
+          console.log(`[rfq-guard] 对账通过：${checked} 条平台RFQ登记均为主表 platform/RFQ`);
+        }
+      } catch (e) {
+        console.error("[rfq-guard] 对账失败（不影响下次扫描）:", (e as Error).message);
+      }
+    };
+    // 启动时延迟 30s 先对账一次存量（与其它启动任务错开，不阻塞启动）
+    setTimeout(() => { void runRfqGuard(); }, 30_000);
+    rfqGuardTimer = setInterval(() => {
+      void runRfqGuard();
+    }, rfqGuardIntervalMin * 60_000);
+  }
+
   return {
     stop() {
       clearInterval(featuredRefreshTimer);
@@ -232,6 +263,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       if (paymentMaintenanceTimer) clearInterval(paymentMaintenanceTimer);
       if (paymentTierSyncTimer) clearTimeout(paymentTierSyncTimer);
       if (claimExpiryTimer) clearInterval(claimExpiryTimer);
+      if (rfqGuardTimer) clearInterval(rfqGuardTimer);
     },
   };
 }

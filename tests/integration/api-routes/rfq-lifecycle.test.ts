@@ -5,7 +5,7 @@
  *              - create：字段校验边界（标题/描述/截止时间/联系人/邮箱）、
  *                写入 crm_bid_notices（notice_type='RFQ', entry_source='platform'）、
  *                reference/notice_id 回填 OSRFQ-{id 12位补零}
- *              - submit：draft→published（写 published_date）、幂等重复发布、
+ *              - submit：draft/rejected→pending_review（published 由库外审核写，客户端不可自发布）、幂等放行、
  *                closed 拒绝、非创建者 403、不存在 404
  *              - withdraw：published/pending_review→closed、draft 拒绝、越权 403
  *              Mock DB Pool 与鉴权，验证路由逻辑与 SQL 语义。
@@ -152,14 +152,16 @@ describe("POST /api/rfq/create — 写入语义", () => {
     expect(poolQuery.mock.calls[1][1]).toEqual(["OSRFQ-000000000501", "OSRFQ-000000000501", 501]);
   });
 
-  it("status=published 的初始状态被接受", async () => {
+  it("客户端传 status=published 被忽略——创建恒为 draft（红线 5：发布由库外审核写）", async () => {
     poolQuery
       .mockResolvedValueOnce([{ insertId: 502, affectedRows: 1 }])
       .mockResolvedValueOnce([{ affectedRows: 1 }]);
     const { POST } = await import("@/app/api/rfq/create/route");
     const res = await POST(post("/api/rfq/create", validBody({ status: "published" })));
     expect(res.status).toBe(201);
-    expect(poolQuery.mock.calls[0][1]).toContain("published");
+    // INSERT 参数里状态写的是 draft，绝不因 body.status 变 published
+    expect(poolQuery.mock.calls[0][1]).toContain("draft");
+    expect(poolQuery.mock.calls[0][1]).not.toContain("published");
   });
 
   it("INSERT 失败 → 500 兜底文案（不泄露 SQL 细节）", async () => {
@@ -174,7 +176,7 @@ describe("POST /api/rfq/create — 写入语义", () => {
 });
 
 describe("PATCH /api/rfq/[id]/submit — 状态机", () => {
-  it("draft → published：写 published_date", async () => {
+  it("客户端传 status=published 提交 → 仍强制 pending_review，不写 published_date（自发布漏洞已封堵）", async () => {
     poolQuery
       .mockResolvedValueOnce([rfqRow({ rfq_status: "draft" })]) // SELECT
       .mockResolvedValueOnce([{ affectedRows: 1 }]); // UPDATE
@@ -184,8 +186,8 @@ describe("PATCH /api/rfq/[id]/submit — 状态机", () => {
     });
     expect(res.status).toBe(200);
     const updateSql = String(poolQuery.mock.calls[1][0]);
-    expect(updateSql).toContain("published_date = CURDATE()");
-    expect(poolQuery.mock.calls[1][1]).toEqual(["published", 501, OWNER_ID]);
+    expect(updateSql).not.toContain("published_date");
+    expect(poolQuery.mock.calls[1][1]).toEqual(["pending_review", 501, OWNER_ID]);
   });
 
   it("draft → pending_review：不写 published_date", async () => {
@@ -200,7 +202,7 @@ describe("PATCH /api/rfq/[id]/submit — 状态机", () => {
     expect(String(poolQuery.mock.calls[1][0])).not.toContain("published_date");
   });
 
-  it("已 published 再提交 → 幂等 200 already_published，不执行 UPDATE", async () => {
+  it("已 published 再提交 → 幂等 200（status=published），不回退、不执行 UPDATE", async () => {
     poolQuery.mockResolvedValueOnce([rfqRow({ rfq_status: "published" })]);
     const { PATCH } = await import("@/app/api/rfq/[id]/submit/route");
     const res = await PATCH(patch("/api/rfq/501/submit", { status: "published" }), {
@@ -208,7 +210,7 @@ describe("PATCH /api/rfq/[id]/submit — 状态机", () => {
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.already_published).toBe(true);
+    expect(body.status).toBe("published");
     expect(poolQuery).toHaveBeenCalledTimes(1);
   });
 
