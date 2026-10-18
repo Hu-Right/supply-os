@@ -21,9 +21,18 @@
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
+import { migration as rfqGuardMigration } from "./migrations/001-rfq-guard";
+import { migration as rfqQuotesMigration } from "./migrations/002-rfq-quotes";
+import { migration as notificationsMigration } from "./migrations/003-notifications";
+import { migration as rfqInvitesMigration } from "./migrations/004-rfq-invites";
 
 /** 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。 */
-const ALL_MIGRATIONS: Migration[] = [];
+const ALL_MIGRATIONS: Migration[] = [
+  rfqGuardMigration,
+  rfqQuotesMigration,
+  notificationsMigration,
+  rfqInvitesMigration,
+];
 
 /**
  * 执行所有待应用的 schema 迁移。

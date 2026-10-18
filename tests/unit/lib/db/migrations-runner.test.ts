@@ -103,8 +103,10 @@ describe("runMigrations", () => {
 });
 
 describe("ensureProcurementSchema", () => {
-  it("当前 ALL_MIGRATIONS 为空：调用等价于只做账本检查", async () => {
-    const { pool } = makePool({ applied: [1, 2, 106] });
+  it("当前所有迁移版本均已应用：调用等价于只做账本检查（幂等，返回 0）", async () => {
+    // ALL_MIGRATIONS 现含 version 1..4（rfq_guard/rfq_quotes/notifications/rfq_invites）；
+    // 全部登记为已应用后，pending 为空 → 执行数 0。
+    const { pool } = makePool({ applied: [1, 2, 3, 4] });
 
     await expect(ensureProcurementSchema(pool)).resolves.toBe(0);
   });
