@@ -2,6 +2,10 @@
  * 骨架节点码形制 — 全库唯一实现（纯函数，无依赖）
  * Commodity backbone node code shape (SSOT)
  *
+ * 码前缀 `UGT` = **Unified Global Taxonomy（统一全球分类码）**——融合国际与国家标准、由我方统一维护的分类体系。
+ * 权威命名、标准清单与宣传口径见
+ * `docs/数据库设计/UGT统一分类码-命名与口径.md`，定义只在那一份，此处不复述。
+ *
  * @module shared/constants/commodity-code
  * @description 2026-10 分层治理：本层原驻 `lib/services/commodity/backbone-path.ts` /
  *              `tree.ts`，但 features 客户端组件（五级级联、热门大类过滤）需要同一
@@ -15,7 +19,10 @@
  *              形制不符一律返回 0/空（调用方据此拒收，不猜、不 trim 放脏码进门）。
  */
 
-/** 骨架节点码前缀：`crm_commodity_backbone.code` 的形制 */
+/**
+ * 骨架节点码前缀：`crm_commodity_backbone.code` 的形制。
+ * `UGT-` = Unified Global Taxonomy（统一全球分类码），品目面现行标准形（原 `UGT-B-` 已去别字并入）。
+ */
 export const BACKBONE_NODE_PREFIX = "UGT-";
 
 /** 节点码形制：前缀 + 2/4/6/8/10 位数字（奇数位一律不认） */

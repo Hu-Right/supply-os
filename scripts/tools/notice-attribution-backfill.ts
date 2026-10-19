@@ -1,5 +1,5 @@
 /**
- * 公告品目归属落点：存量灌入 + 三条对账闸口（UNSPSC 退役 R1）
+ * 公告品目归属落点：存量灌入 + 三条对账闸口（旧品类字典码退役 R1）
  *
  * 做什么：把宽表 `crm_notice_search.backbone_path`（60 万行的派生列）压回**最深落点**，
  *         灌进 `crm_notice_attribution_nodes`，`source='legacy_tag'`。

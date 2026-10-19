@@ -2,6 +2,10 @@
  * 行业码制工具 — crm_industry_nodes 码形的单一事实源（纯函数，无依赖）
  * Industry Code Helpers (SSOT)
  *
+ * 码前缀 `UGT` = **Unified Global Taxonomy（统一全球分类码）**——融合国际与国家标准、
+ * 由我方统一维护的分类体系，`UGT-I-` 是其中的行业面。权威命名、标准清单与宣传口径见
+ * `docs/数据库设计/UGT统一分类码-命名与口径.md`，定义只在那一份，此处不复述。
+ *
  * @module shared/constants/industry-code
  * @description 2026-10 分层治理：行业级联是 features 客户端能力，而红线 3 禁止
  *              features import `@/lib/**`；码形判定属纯数据规则，按红线 1 的通道
@@ -20,7 +24,10 @@
  *                因此本模块不需要在运行期再做结构校验。
  */
 
-/** 行业面码前缀 */
+/**
+ * 行业面码前缀：`UGT-I-` = Unified Global Taxonomy 的 **I**ndustry（行业）面。
+ * 全称与口径见 `docs/数据库设计/UGT统一分类码-命名与口径.md`。
+ */
 export const INDUSTRY_CODE_PREFIX = "UGT-I-";
 
 /** 树上层级（与 crm_industry_nodes.level 词表一致） */

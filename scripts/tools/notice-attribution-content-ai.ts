@@ -41,7 +41,7 @@
  *   # 历史粗落点（只挂 L1 大类）重推：锚定成功后同事务删该公告的 legacy_tag 粗码行
  *   npx tsx scripts/tools/notice-attribution-content-ai.ts --scope --target=coarse  # 不调API：报「粗落点待重推」体量
  *   npx tsx scripts/tools/notice-attribution-content-ai.ts --target=coarse --apply --yes
- *   # 全量按内容重推（摘除 UNSPSC 路线）：--target 选人群，--replace-legacy 覆盖并删除 legacy_tag
+ *   # 全量按内容重推（摘除旧品类字典码路线）：--target 选人群，--replace-legacy 覆盖并删除 legacy_tag
  *   npx tsx scripts/tools/notice-attribution-content-ai.ts --scope --target=classified   # 不调API：报「已归类待重推」体量
  *   npx tsx scripts/tools/notice-attribution-content-ai.ts --scope --target=all          # 不调API：报「全量内容集」体量
  *   npx tsx scripts/tools/notice-attribution-content-ai.ts --target=all --replace-legacy --apply --yes   # 须先 --scope/--dry 审

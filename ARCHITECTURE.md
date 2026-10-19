@@ -36,6 +36,8 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 - **搜索**：`lib/services/search-sync`（宽表同步）与 `lib/services/search-orchestrator`（查询编排）**已解环**（A2/ARCH-P3，2026-09-05）：orchestrator 注册缓存失效回调供 sync 完成后调用，二者互相引用改为「回调 + 无依赖叶子模块直引」，不再经 barrel 回环。新代码禁止重新引入二者的直接 import。
 - **宽表一致性**：判据由源指纹 `crm_notice_search.sync_src_hash` 承担——构建时与内容同快照写入，对账时用同一 `WIDE_FP_EXPR` 在 SQL 内实时重算比较（按主键游标窗口轮转），不等则委托 `syncWideIds` 重建。修复方即构建方，故必然收敛（可断言「连续两轮对账变更数为 0」）。**能力边界**：指纹只覆盖「输入侧变更」，宽表内容被旁路改坏它看不见——该完整性由红线 6（单一写入者 + 门禁）保证；若历史上存在疑义，把 `sync_src_hash` 批量置 `''` 即强制全表重导。`crm_agency_aliases` / 品目骨架树自身的变更不进指纹，需刷新走 `requestIndexRebuild`。详见 `docs/adr/0002-wide-table-single-writer.md`。**0002 的补集（2026-10-11）**：宽表派生列（`backbone_path` / `precise_backbone_path` 这类由其它表码集合换算出来的列）必须由 `buildWideRow` 计算并与业务列同一批 `upsertWideRows` 写入，禁止另起定时任务或人工脚本补列；且运行中的构建产物只能有一个 —— 列清单落后的第二个进程不会改坏内容，而是**少写一列**，指纹对它无感，只有闭合断言（有码必填、无码必空）查得出。详见 `docs/adr/0007-derived-columns-computed-by-builder.md`。
 
+- **统一分类码 UGT**：全库权威类目树共用码前缀 `UGT-` = **Unified Global Taxonomy（统一全球分类码）**——把旧的品类字典码、桥表码与旧 8 位品类码收敛成一套 SSOT，融合国际商品分类标准、联合国 ISIC Rev.4 与国标 GB/T 4754 而成（非"凭空自研"）。核心不变量「码长即层级、父码=去末两位」⇒ 祖先链/子树前缀纯字符串可推，跨层筛选键同源。品目面 `UGT-`（SSOT：`shared/constants/commodity-code.ts`）、行业面 `UGT-I-`（SSOT：`shared/constants/industry-code.ts`）。命名与对外宣传口径的唯一出处：`docs/数据库设计/UGT统一分类码-命名与口径.md`。
+
 ## 测试与门禁
 
 - 单测门禁 90%（白名单制 `vitest.config.ts coverage.include`——新文件需手动纳入）；集成门禁 80%。

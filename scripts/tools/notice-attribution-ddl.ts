@@ -1,7 +1,7 @@
 /**
  * 公告品目归属落点表：幂等 DDL
  *
- * 做什么：建 `crm_notice_attribution_nodes` —— UNSPSC 退役后公告品目归属的**唯一事实源**，
+ * 做什么：建 `crm_notice_attribution_nodes` —— 旧品类字典码退役后公告品目归属的**唯一事实源**，
  *         一行 = 「某公告在某节点上有最深落点」。宽表 `backbone_path` 继续是派生列，
  *         由 `src/lib/services/commodity/attribution.ts` 的 `pathOfLandingNodes()` 补祖先产出，
  *         `buildWideRow` 依旧是唯一写入方（ADR-0007 前提不废，只是换了输入源）。
@@ -12,7 +12,7 @@
  *   - `level` 冗余存储但不作判据：码长唯一决定层级，读侧一律现算（与 crm_commodity_backbone
  *     不存 level 同一条纪律）；这一列只为人工排查时肉眼分组。
  *   - 不建外键到 crm_bid_notices：本表由灌入脚本与 AI worker 写入，公告行可能尚未同步；
- *     与 crm_bid_notice_unspsc_codes 同一做法（那张表也只有索引没有外键；已于 2026-10-14 退役）。
+ *     与已退役的旧公告×字典码桥表同一做法（那张表也只有索引没有外键；已于 2026-10-14 退役）。
  *   - notice_pk 用**内部主键**而不是 notice_id 外部编号：实测外部编号有撞号
  *     （crm_bid_opportunities.source_notice_id 与宽表 id 域相撞，见 match-nodes.ts:16-20），拿它接会接错行。
  *   - 排序规则跟库默认 utf8mb4_0900_ai_ci，**不上 _bin**：本表的 node_code 迟早要和
@@ -98,7 +98,7 @@ const DDL = `CREATE TABLE \`${TABLE}\` (
   UNIQUE KEY \`uk_notice_node\` (\`notice_pk\`,\`node_code\`),
   KEY \`idx_source_notice\` (\`source\`,\`notice_pk\`),
   KEY \`idx_node\` (\`node_code\`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告品目归属落点（唯一事实源，替代 UNSPSC 桥表口径）'`;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告品目归属落点（唯一事实源，替代旧品类字典桥表口径）'`;
 
 const conn = await mysql.createConnection({
   host: process.env.DB_HOST ?? "127.0.0.1", port: Number(process.env.DB_PORT) || 3306,
