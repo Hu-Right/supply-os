@@ -65,7 +65,7 @@ export async function fetchSupplierProfile(
   if (!supplierId) return null;
 
   const [supRows] = await pool.query(
-    `SELECT s.company, s.products, s.certification, s.country, s.city, s.type,
+    `SELECT s.company, s.products, s.certification, s.country, s.city, s.business_type,
             s.registered_capital, s.established_at, s.intro,
             ${diagnosisColumnSelect("q")}
      FROM supplier s
@@ -85,7 +85,7 @@ export async function fetchSupplierProfile(
     certification: s(row.certification),
     country: s(row.country),
     city: s(row.city),
-    type: s(row.type),
+    type: s(row.business_type),
     registered_capital: s(row.registered_capital),
     established_at: s(row.established_at),
     intro: s(row.intro),

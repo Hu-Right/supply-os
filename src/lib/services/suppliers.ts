@@ -44,7 +44,7 @@ export function mapSupplierRow(
   const productsZh = splitListField(row.products);
   const cityZh = String(row.city || "").trim() || String(row.province || "").trim() || "—";
   const companyName = String(row.company || "").trim();
-  // supplier.type 存经营类型（如 foreign），国内/国际改由 country_code 判定（与目录筛选一致）
+  // supplier.business_type 存经营类型（如 foreign），国内/国际改由 country_code 判定（与目录筛选一致）
   const isInternational = Boolean(row.country_code) && row.country_code !== "CN";
   const countryRaw = String(row.country || "").trim();
   return {
