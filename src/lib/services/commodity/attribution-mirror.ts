@@ -11,7 +11,7 @@
  *   现改为契约现成判据 `missingLandingPairs()`：列隐含落点 − 现有落点 ≠ ∅ 即为候选，
  *   与门禁、灌入脚本共用同一份纯函数（判据单一来源）。
  *
- * 纪律（与 scripts/ops/notice-attribution-backfill.ts 同口径，绝不"顺手修好"脏存量）：
+ * 纪律（与 scripts/tools/notice-attribution-backfill.ts 同口径，绝不"顺手修好"脏存量）：
  *   - 只镜像闭包稳定的列：closureOfPathColumn(col) !== col ⇒ 脏列，整条跳过交人工（改了会改写现网归属）；
  *   - 无幻觉：每个缺对叶子都必须在启用树里，出现树外码 ⇒ 整条不落笔；
  *   - 幂等：INSERT IGNORE 撞 uk_notice_node 静默跳过；
