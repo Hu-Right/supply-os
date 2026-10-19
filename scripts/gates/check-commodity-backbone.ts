@@ -31,7 +31,7 @@
  *   BB15 落点表是 backbone_path 的事实源（旧品类码全面退役 R1）：落点全在树、
  *      同一公告的落点互不为祖先（全表不抽样）、列值 = 落点闭包（抽两头）、
  *      与宽表双向闭合（有列值必有落点行、有落点行必有列值）；BB15d 按 source 分档与 AS2/AS4 同口径。
- *      ↳ 表未建只 WARN（建表是人工闸口 scripts/ops/notice-attribution-ddl.ts）；
+ *      ↳ 表未建只 WARN（建表是人工闸口 scripts/tools/notice-attribution-ddl.ts）；
  *        R2 把读侧切到落点表后，WARN 转绿是上线清单的一项
  *   CG6/CG7（自 check-commodity-groups.ts 迁入，G 码退役 2026-10-15）：大类维表族零 SQL 引用（静态）
  *      且不在场（--db）——「两张维表可以删且不回来」的机器证明（ADR-0008 / ADR-0009）
@@ -285,7 +285,10 @@ const pathCol = await one(
   `SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='crm_notice_search' AND column_name='backbone_path'`,
 );
 if (Number(pathCol.n) === 0) {
-  fail("BB7 宽表没有 backbone_path 列：先 npx tsx scripts/ops/commodity-backbone-path-ddl.ts --apply --yes 加列，再跑回填");
+  fail(
+    "BB7 宽表没有 backbone_path 列：加列属一次性 DDL（原迁移件已随退役删除、不入库），"
+      + "需按 docs/adr/0003 影子表/DDL 流程重新出件加列，再跑落点回填"
+  );
 } else {
   // 索引先构：R4' 后 BB7/BB15/BB16 都在同一棵树上跑；构索引本身失配 ⇒ 红（不抱预期默认它可用）
   // 旧的 BB7 “可算必填”与 BB9/BB10 都拿它反查数字码入口⇒入口剥后不再消费实例。
@@ -323,7 +326,7 @@ if (Number(pathCol.n) === 0) {
     `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='crm_notice_attribution_nodes'`,
   );
   if (Number(attrExistsForBb7.n) === 0) {
-    console.log("⚠ BB7 落点表不存在，活跃公告同步缺位断言本轮未执行（建表前置：scripts/ops/notice-attribution-ddl.ts --apply --yes）");
+    console.log("⚠ BB7 落点表不存在，活跃公告同步缺位断言本轮未执行（建表前置：scripts/tools/notice-attribution-ddl.ts --apply --yes）");
   } else {
     const noWide = await one(
       `SELECT COUNT(*) n FROM (SELECT n.id FROM crm_notice_attribution_nodes a
@@ -479,7 +482,7 @@ function bandof(parentLevel: number) {
     `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='${ATTR_TAB}'`,
   );
   if (Number(hasAttr.n) === 0) {
-    console.log(`⚠ BB15 表 ${ATTR_TAB} 不存在：本轮只 WARN（建表是人工闸口：scripts/ops/notice-attribution-ddl.ts --apply --yes）；`);
+    console.log(`⚠ BB15 表 ${ATTR_TAB} 不存在：本轮只 WARN（建表是人工闸口：scripts/tools/notice-attribution-ddl.ts --apply --yes）；`);
     console.log("  读侧（宽表构建器）一旦改吃落点表，这条必须转绿：没落点数据就切读侧 = 公告分类全空");
   } else {
     // 1) 无幻觉：每个落点都必须是启用中的树节点。灌入脚本已在写入前挡过一道，

@@ -10,7 +10,8 @@
  *              同一批键是 0.09s/0.05s/0.04s（探针110，同库同轮交错跑）。
  *
  *              边界（红线）：
- *              - 本表内容只由本模块写；建表与灌数在 scripts/ops/commodity-notice-nodes-{ddl,backfill}.ts，
+ *              - 本表内容只由本模块写；建表在 scripts/ops/commodity-notice-nodes-ddl.ts、
+ *                存量灌数在 scripts/ops/commodity-notice-nodes-backfill.ts（两件均为一次性，不入库），
  *                运行期增量由 upsertWideRows / purgeNoticeSearch / reconcileGhostRows 三个既有收口点调用本模块。
  *              - 列值→节点码集合的拆分只用 commodity/backbone-path 的 fromBackbonePathColumn，
  *                本模块不写第二套拆列逻辑（口径单一事实源，I2）。

@@ -13,10 +13,11 @@
  *                 ——倒排就是 backbone_path 的行化（自身+全部祖先），天然等价于旧的
  *                 前缀展开产物，且不依赖公告主表的 旧品类快照列；
  *              2. code 存 UGT 节点码（"UGT-" + 2/4/6/8/10 位数字），列已加宽到
- *                 varchar(24)（scripts/ops/user-interest-code-widen-ddl.ts）；
+ *                 varchar(24)（一次性 DDL 件 user-interest-code-widen-ddl，已执行完、不入库，
+ *                 最终形制以 db/schema/baseline.sql 为准）；
  *              3. 推荐读侧（recall.ts processInterestCodes）经骨架索引 pathOf 直认
  *                 UGT 节点键，无需任何字典换算；存量数字码行仍走原换算路径衰减消化，
- *                 上线日由 scripts/ops/user-interest-ugt-migrate.ts 批量转写。
+ *                 上线日由一次性迁移件 user-interest-ugt-migrate 批量转写（该件已随迁移完成删除、不入库）。
  */
 import type { Pool } from "mysql2/promise";
 import { NOTICE_NODES_TABLE } from "../search-sync/notice-nodes";

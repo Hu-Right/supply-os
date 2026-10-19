@@ -3,7 +3,8 @@
  *
  * @module lib/services/commodity/backbone-path
  * @description 本模块从“把旧品类码换成 UGT 节点”收敛为“在 UGT 节点上直接检索”。
- *              小表剥离上线日迁移（scripts/ops/user-interest-ugt-migrate.ts）+ 遗留清理（scripts/ops/interest-tables-purge-legacy.ts）
+ *              小表剥离上线日迁移（一次性迁移件 user-interest-ugt-migrate）+ 遗留清理（同批件 interest-tables-purge-legacy）
+ *              ——两件均属一次性，当时放 ops 不入库、现已删除；最终形制以 db/schema/baseline.sql 为准。
  *              完成后，`crm_user_interest_codes` / `crm_supplier_backbone_interests`（原 `旧供应商兴趣表`，§7 RENAME）已全部重写成 `UGT-*`，
  *              运行期再无数字码入口⇒ match/pathOf 只保留 UGT 节点直认一条分支。
  *
@@ -18,7 +19,7 @@
  *
  * @rules 换算口径只在这里实现一份；运行期与回填/镜像同一入口（loadBackboneIndex），不允许第二份实现。
  * @limits 纯函数，不写库、不猜名：换不出进 misses，不静默丢。
- * @see scripts/ops/user-interest-ugt-migrate.ts
+ * @see db/schema/baseline.sql（兴趣两表最终形制；上线日迁移件属一次性、已删除不入库）
  * @see scripts/gates/check-commodity-backbone.ts
  */
 
