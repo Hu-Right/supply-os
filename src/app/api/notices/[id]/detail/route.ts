@@ -9,6 +9,8 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "@/lib/services/notices";
+import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
+import { platformInfo } from "@/lib/services/platform/resolve";
 import { canAccessNotice } from "@/lib/services/industry-scope";
 import { EC_OUT_OF_CATEGORY } from "@/shared/constants/api";
 
@@ -37,6 +39,10 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // 查询合格机会：精选公告必有合格机会，report_available/report_url 依赖此数据
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
     const payload = normalizeNoticeDetailPayload(notice, unlock, opportunity);
-    return NextResponse.json(payload);
+    // 来源平台归一：服务端读 crm_platform_aliases（唯一入口）解析后随 payload 下发，
+    // 前端不再走静态域名字典——展示数据来自表、语言由前端在 canonical/zh 间取舍。
+    const platformSnap = await loadPlatformAliasSnapshot(ctx.dbPool);
+    const platform = platformInfo(String(notice.url || opportunity?.source_url || ""), platformSnap);
+    return NextResponse.json({ ...payload, platform });
   },
 );

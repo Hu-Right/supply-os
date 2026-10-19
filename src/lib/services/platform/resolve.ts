@@ -59,6 +59,22 @@ export function platformCodeForName(name: string, snapshot: PlatformAliasSnapsho
 }
 
 /**
+ * 平台展示信息（服务端回填给前端的精简体）：canonical 官方简称、code 稳定 slug、zh 中文名。
+ * 非 platform 或未解析 → null（前端据此回退中性文案，不编造）。
+ * 展示仍由前端按 locale 在 canonical/zh 间取舍（与国家展示 getCountryDisplayName 同为“数据源自表、语言本地选”）。
+ */
+export interface PlatformInfo {
+  canonical: string;
+  code: string | null;
+  zh: string;
+}
+export function platformInfo(raw: string, snapshot: PlatformAliasSnapshot): PlatformInfo | null {
+  const e = resolvePlatform(raw, snapshot).ref;
+  if (!e || e.kind !== "platform") return null;
+  return { canonical: e.canonical, code: e.code, zh: e.zh };
+}
+
+/**
  * 平台展示名（表驱动）：zh 环境优先 name_i18n.zh（缺省回退 canonical），
  * 其余语言返回 canonical（官方简称，各语言通用，与国家映射非 zh 回退原文口径一致）。
  * 未解析/other/invalid → 返回空串（调用方自行回退中性文案，不编造）。

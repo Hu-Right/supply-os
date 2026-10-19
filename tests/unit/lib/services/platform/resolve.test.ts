@@ -2,7 +2,7 @@
  * platform/resolve 单测：纯表驱动解析（整键命中 / host 子域后缀下钻 / 未解析回填 / 展示分语言）。
  */
 import { describe, it, expect } from "vitest";
-import { resolvePlatform, platformCodeForName, platformDisplayName } from "@/lib/services/platform/resolve";
+import { resolvePlatform, platformCodeForName, platformDisplayName, platformInfo } from "@/lib/services/platform/resolve";
 import { normalizePlatformKey } from "@/lib/services/platform/alias-store";
 import type { PlatformAliasSnapshot, PlatformAliasEntry } from "@/lib/services/platform/alias-store";
 
@@ -58,5 +58,14 @@ describe("platformCodeForName / platformDisplayName", () => {
     expect(platformDisplayName("sam.gov", S, "en")).toBe("SAM.gov");
     expect(platformDisplayName("nope.gov", S, "zh")).toBe("");
     expect(platformDisplayName("manual", S, "zh")).toBe("");
+  });
+});
+
+describe("platformInfo（服务端回填体）", () => {
+  it("命中 platform 给 {canonical,code,zh}；other/invalid/未命中给 null", () => {
+    expect(platformInfo("ted.europa.eu", S)).toEqual({ canonical: "TED", code: "ted", zh: "欧盟招标公告网" });
+    expect(platformInfo("https://www.sam.gov/n/1", S)).toEqual({ canonical: "SAM.gov", code: "sam", zh: "美国联邦采购网" });
+    expect(platformInfo("manual", S)).toBeNull();
+    expect(platformInfo("nope.gov", S)).toBeNull();
   });
 });

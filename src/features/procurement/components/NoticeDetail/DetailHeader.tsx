@@ -4,7 +4,6 @@
  */
 import { ArrowLeft, Bookmark, ExternalLink, Share2 } from "lucide-react";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
-import { getSourcePlatformName } from "@/shared/data/sourcePlatforms";
 
 interface DetailHeaderProps {
   displayTitle: string;
@@ -13,6 +12,8 @@ interface DetailHeaderProps {
   visibleAgency: string;
   country: string;
   sourceUrl?: string;
+  /** 来源平台归一信息（/detail 服务端从 crm_platform_aliases 回填） */
+  platform?: { canonical: string; code: string | null; zh: string } | null;
   publishDate: string;
   deadlineText: string;
   countdown: { days: number; time: string } | null;
@@ -31,10 +32,13 @@ interface DetailHeaderProps {
 
 export function DetailHeader({
   displayTitle, typeLabel, noticeId, visibleAgency, country,
-  sourceUrl, publishDate, deadlineText, countdown, budgetText,
+  sourceUrl, platform, publishDate, deadlineText, countdown, budgetText,
   onBack, favorited, onToggleFavorite, onShare, t, locale,
 }: DetailHeaderProps) {
-  const sourceName = getSourcePlatformName(sourceUrl, locale);
+  // 平台展示名：数据源自表（platform），语言按 locale 在 zh/canonical 间取舍，与源国家展示同口径。
+  const sourceName = platform
+    ? (locale !== "zh" ? platform.canonical : (platform.zh ? `${platform.zh}（${platform.canonical}）` : platform.canonical))
+    : "";
 
   return (
     <>

@@ -143,7 +143,7 @@ export function NoticeDetail({
       <article className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
         <DetailHeader
           displayTitle={displayTitle} typeLabel={typeLabel}
-          noticeId={notice.reference} visibleAgency={visibleAgency} country={notice.country || ""} sourceUrl={notice.source_url}
+          noticeId={notice.reference} visibleAgency={visibleAgency} country={notice.country || ""} sourceUrl={notice.source_url} platform={notice.platform ?? null}
           publishDate={publishDate} deadlineText={deadlineText} countdown={countdown}
           budgetText={budgetText} onBack={onBack} t={t} locale={locale}
           favorited={favorited} onToggleFavorite={onToggleFavorite}

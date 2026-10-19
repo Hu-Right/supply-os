@@ -76,6 +76,8 @@ export interface NoticeListItem {
 /** 解锁详情级字段（由 /api/notices/:id/detail 补充） */
 export interface NoticeDetailFields {
   url?: string;
+  /** 来源平台归一信息（由 /detail 服务端读 crm_platform_aliases 回填；null=未识别） */
+  platform?: { canonical: string; code: string | null; zh: string } | null;
   agency_full?: string;
   published_date?: string;
   difficulty?: string;
