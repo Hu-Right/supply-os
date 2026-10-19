@@ -28,6 +28,29 @@ export interface LlmCallResult {
   outputTokens: number | null;
 }
 
+/**
+ * 读取厂商错误体并保留可诊断原因：拼成 `LLM_HTTP_<status>: <reason>`。
+ * 保留 `LLM_HTTP_<status>` 令牌前缀（classifyApiError 仍按令牌归类），追加
+ * OpenAI 兼容 `{error:{message}}` 或原始文本片段（截断），避免真因被吞成「系统繁忙」。
+ */
+async function llmHttpError(res: Response): Promise<string> {
+  const token = `LLM_HTTP_${res.status}`;
+  try {
+    const raw = (await res.text()).replace(/\s+/g, " ").trim().slice(0, 300);
+    if (!raw) return token;
+    let reason = raw;
+    try {
+      const msg = (JSON.parse(raw) as { error?: { message?: string } })?.error?.message;
+      if (msg) reason = msg;
+    } catch {
+      /* 非 JSON：用原始文本 */
+    }
+    return `${token}: ${reason.slice(0, 200)}`;
+  } catch {
+    return token;
+  }
+}
+
 /** 解析 LLM 返回文本为 6 维度对象（容错 markdown 围栏与前后杂讯） */
 export function parseAiSummaryResponse(content: string): AiSummaryRaw {
   const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
@@ -81,7 +104,7 @@ export async function callLlmForSummary(
     body: JSON.stringify(payload),
   }, creds.summaryTimeoutMs ?? DEFAULT_SUMMARY_TIMEOUT_MS);
 
-  if (!res.ok) throw new Error(`LLM_HTTP_${res.status}`);
+  if (!res.ok) throw new Error(await llmHttpError(res));
   const body = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
     usage?: { prompt_tokens?: number; completion_tokens?: number };
@@ -125,7 +148,7 @@ export async function* callLlmForSummaryStream(
     body: JSON.stringify(payload),
   }, creds.summaryTimeoutMs ?? DEFAULT_SUMMARY_TIMEOUT_MS);
 
-  if (!res.ok) throw new Error(`LLM_HTTP_${res.status}`);
+  if (!res.ok) throw new Error(await llmHttpError(res));
   if (!res.body) throw new Error("LLM_NO_BODY");
 
   const reader = res.body.getReader();

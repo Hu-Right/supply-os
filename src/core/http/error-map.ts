@@ -174,7 +174,7 @@ const TOKEN_RULES: Array<{ tokens: string[]; kind: ErrorKind; key: string }> = [
   { tokens: ["SUPPLIER_PROFILE_REQUIRED"], kind: "ai", key: "aiSupplierProfileRequired" },
   { tokens: ["LLM_HTTP_429", "rate", "频繁"], kind: "ai", key: "aiErrRateLimited" },
   { tokens: ["LLM_BAD_JSON", "LLM_BAD_SHAPE", "LLM_EMPTY", "LLM 返回格式异常"], kind: "ai", key: "aiErrBadFormat" },
-  { tokens: ["LLM_HTTP_5", "LLM 调用失败", "timeout", "network", "offline"], kind: "ai", key: "aiErrCallFailed" },
+  { tokens: ["LLM_HTTP_5", "LLM_HTTP_4", "LLM 调用失败", "timeout", "network", "offline"], kind: "ai", key: "aiErrCallFailed" },
   { tokens: ["NOTICE_NOT_FOUND"], kind: "business", key: "errNoticeNotFound" },
   // 锁定 / 未解锁（core_locked detail 之外的令牌兜底）
   { tokens: ["core_locked", "请先解锁", "公告已锁定"], kind: "forbidden", key: "errUnlockRequired" },

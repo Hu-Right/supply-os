@@ -74,6 +74,13 @@ describe("令牌桥接（AI / 遗留）", () => {
     expect(classifyApiError(new Error("SUPPLIER_PROFILE_REQUIRED")).key).toBe("aiSupplierProfileRequired");
   });
 
+  it("LLM_HTTP_400/404 等 4xx（非凭证/限流）归「模型调用失败」，不再塌成系统繁忙；但 401/402/403/429 仍优先各归其类", () => {
+    expect(classifyApiError(new Error("LLM_HTTP_400: The model does not exist")).key).toBe("aiErrCallFailed");
+    expect(classifyApiError(new Error("LLM_HTTP_404: not found")).key).toBe("aiErrCallFailed");
+    expect(classifyApiError(new Error("LLM_HTTP_403: forbidden")).key).toBe("aiErrKeyRejected");
+    expect(classifyApiError(new Error("LLM_HTTP_429: slow down")).key).toBe("aiErrRateLimited");
+  });
+
   it("流式回传的裸字符串（非 Error 实例）同样走令牌桥接", () => {
     expect(mapApiError("LLM_HTTP_429", t)).toBe("K:aiErrRateLimited");
   });

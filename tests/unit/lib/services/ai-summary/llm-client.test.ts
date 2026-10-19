@@ -101,6 +101,21 @@ describe("callLlmForSummary 非流式调用", () => {
       .rejects.toThrow("LLM_HTTP_503");
   });
 
+  it("HTTP 非 2xx 带厂商 JSON 错误体 → 保留令牌 + 真实原因", async () => {
+    fetchWithTimeout.mockResolvedValue({
+      ok: false, status: 400,
+      text: async () => JSON.stringify({ error: { message: "The model does not exist" } }),
+    });
+    await expect(callLlmForSummary({ baseUrl: "https://x", apiKey: "k", model: "m" }, "s", "u"))
+      .rejects.toThrow(/LLM_HTTP_400.*does not exist/);
+  });
+
+  it("HTTP 非 2xx 非 JSON 体 → 用原始文本片段兑底", async () => {
+    fetchWithTimeout.mockResolvedValue({ ok: false, status: 404, text: async () => "Upstream not found" });
+    await expect(callLlmForSummary({ baseUrl: "https://x", apiKey: "k", model: "m" }, "s", "u"))
+      .rejects.toThrow(/LLM_HTTP_404.*Upstream not found/);
+  });
+
   it("空内容 → LLM_EMPTY", async () => {
     fetchWithTimeout.mockResolvedValue(okRes({ choices: [{ message: { content: "  " } }] }));
     await expect(callLlmForSummary({ baseUrl: "https://x", apiKey: "k", model: "m" }, "s", "u"))
@@ -163,6 +178,18 @@ describe("callLlmForSummaryStream 流式调用", () => {
         void _;
       }
     }).rejects.toThrow("LLM_HTTP_500");
+  });
+
+  it("HTTP 非 2xx 带厂商错误体 → 令牌 + 原因（流式）", async () => {
+    fetchWithTimeout.mockResolvedValue({
+      ok: false, status: 400,
+      text: async () => JSON.stringify({ error: { message: "context length exceeded" } }),
+    });
+    await expect(async () => {
+      for await (const _ of callLlmForSummaryStream({ baseUrl: "https://x", apiKey: "k", model: "m" }, "s", "u")) {
+        void _;
+      }
+    }).rejects.toThrow(/LLM_HTTP_400.*context length exceeded/);
   });
 
   it("响应无 body → LLM_NO_BODY", async () => {

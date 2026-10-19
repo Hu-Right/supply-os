@@ -52,6 +52,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
             );
           } catch (err) {
             const msg = err instanceof Error ? err.message : "未知错误";
+            console.error(`[ai-summary/stream] 脱敏生成失败 notice=${noticeId} user=${auth.userId}:`, msg);
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
           } finally {
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -72,6 +73,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (err) {
           const msg = err instanceof Error ? err.message : "未知错误";
+          console.error(`[ai-summary/stream] 流式生成失败 notice=${noticeId} user=${auth.userId}:`, msg);
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: msg })}\n\n`));
         } finally {
           controller.close();
