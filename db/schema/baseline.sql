@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 89 张，导出 85 张，排除 4 张。
+--           源库共 104 张，导出 101 张，排除 3 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -420,6 +420,97 @@ CREATE TABLE `crm_consent_log` (
   KEY `idx_consent_log_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='协议同意审计日志。';
 
+-- ── crm_country_aliases ──
+CREATE TABLE `crm_country_aliases` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `canonical` varchar(100) NOT NULL COMMENT '国家标准英文名（归一锚点）',
+  `country_code` char(2) DEFAULT NULL COMMENT 'ISO 3166-1 alpha-2，对齐 supplier.country_code / 国旗；region/invalid 为 NULL',
+  `alias` varchar(255) NOT NULL COMMENT '别名/变体（匹配键）',
+  `normalized_alias` varchar(255) GENERATED ALWAYS AS (upper(trim(`alias`))) STORED,
+  `kind` enum('country','region','invalid') NOT NULL DEFAULT 'country' COMMENT 'country=真国家(可下拉) / region=区域聚合(排除) / invalid=非国家脏值(排除)',
+  `name_i18n` json DEFAULT NULL COMMENT '多语言展示名{zh,en}',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `source_ref` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_normalized_alias` (`normalized_alias`),
+  KEY `idx_canonical` (`canonical`),
+  KEY `idx_code` (`country_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='国家归一化';
+
+-- ── crm_email_accounts ──
+CREATE TABLE `crm_email_accounts` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `account_name` varchar(100) NOT NULL COMMENT '账号别名',
+  `provider` varchar(30) NOT NULL DEFAULT 'custom' COMMENT 'sendgrid/mailgun/ses/aliyun/tencent/custom',
+  `smtp_host` varchar(200) NOT NULL DEFAULT '' COMMENT 'SMTP主机',
+  `smtp_port` smallint NOT NULL DEFAULT '587' COMMENT 'SMTP端口',
+  `smtp_encryption` varchar(10) NOT NULL DEFAULT 'tls' COMMENT 'tls/ssl/none',
+  `smtp_user` varchar(200) NOT NULL DEFAULT '' COMMENT 'SMTP用户名/API Key',
+  `smtp_pass` varchar(500) NOT NULL DEFAULT '' COMMENT 'SMTP密码(AES加密)',
+  `smtp_proxy` varchar(100) DEFAULT NULL COMMENT 'SOCKS5代理 格式: 127.0.0.1:7890，留空不使用代理',
+  `sender_name` varchar(100) NOT NULL DEFAULT '' COMMENT '发件人显示名',
+  `sender_email` varchar(200) NOT NULL DEFAULT '' COMMENT '发件人邮箱',
+  `reply_to` varchar(200) DEFAULT NULL COMMENT '回复地址',
+  `imap_host` varchar(200) NOT NULL DEFAULT '' COMMENT 'IMAP主机',
+  `imap_port` smallint NOT NULL DEFAULT '993' COMMENT 'IMAP端口',
+  `imap_encryption` varchar(10) NOT NULL DEFAULT 'ssl' COMMENT 'ssl/tls/none',
+  `imap_folder` varchar(100) NOT NULL DEFAULT 'INBOX' COMMENT '监听收件箱',
+  `sync_enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否开启收件同步',
+  `last_sync_at` int DEFAULT NULL COMMENT '最后同步时间',
+  `last_sync_uid` int DEFAULT '0' COMMENT '最后同步的IMAP UID',
+  `daily_limit` int NOT NULL DEFAULT '500' COMMENT '每日上限',
+  `today_sent` int NOT NULL DEFAULT '0' COMMENT '今日已发',
+  `last_reset_date` date DEFAULT NULL COMMENT '今日发送量最后重置日期',
+  `warmup_stage` tinyint(1) NOT NULL DEFAULT '0' COMMENT '暖机阶段0-5',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1正常 0停用 2超配额 3连接失败',
+  `last_check_at` int DEFAULT NULL COMMENT '最后检测时间',
+  `last_error` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_default` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否默认账号',
+  `remark` varchar(255) DEFAULT NULL COMMENT '备注',
+  `config` text COMMENT '账号级配置 JSON（自动回复等）',
+  `creator_id` int NOT NULL DEFAULT '0',
+  `tenant_id` int NOT NULL DEFAULT '0',
+  `create_time` int DEFAULT NULL,
+  `update_time` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Email发件账号表';
+
+-- ── crm_email_messages ──
+CREATE TABLE `crm_email_messages` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `account_id` int NOT NULL COMMENT '发件/收件账号ID',
+  `thread_id` varchar(200) NOT NULL DEFAULT '' COMMENT '线程ID（按主题归组）',
+  `message_uid` varchar(200) NOT NULL DEFAULT '' COMMENT 'IMAP UID 或发出时生成',
+  `message_id_hdr` varchar(500) DEFAULT NULL COMMENT '邮件头 Message-ID',
+  `in_reply_to` varchar(500) DEFAULT NULL COMMENT '邮件头 In-Reply-To',
+  `direction` tinyint(1) NOT NULL DEFAULT '0' COMMENT '0=收到 1=发出',
+  `from_email` varchar(200) NOT NULL DEFAULT '' COMMENT '发件人邮箱',
+  `from_name` varchar(200) NOT NULL DEFAULT '' COMMENT '发件人名称',
+  `to_email` varchar(500) NOT NULL DEFAULT '' COMMENT '收件人邮箱（多个逗号分隔）',
+  `to_name` varchar(500) NOT NULL DEFAULT '' COMMENT '收件人名称',
+  `subject` varchar(500) NOT NULL DEFAULT '' COMMENT '邮件主题',
+  `body_html` mediumtext COMMENT 'HTML 正文',
+  `body_text` text COMMENT '纯文本正文',
+  `body_translated` mediumtext,
+  `translated_lang` varchar(16) NOT NULL DEFAULT '',
+  `has_attachment` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否含附件',
+  `attachments` text COMMENT '附件信息JSON',
+  `is_read` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否已读',
+  `is_starred` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否星标',
+  `lead_id` int DEFAULT NULL COMMENT '关联线索ID',
+  `received_at` datetime DEFAULT NULL COMMENT '邮件时间',
+  `create_time` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_account_uid` (`account_id`,`message_uid`),
+  KEY `idx_account_thread` (`account_id`,`thread_id`),
+  KEY `idx_account_recv` (`account_id`,`received_at`),
+  KEY `idx_lead` (`lead_id`),
+  KEY `idx_from_email` (`from_email`(100))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件消息表';
+
 -- ── crm_email_templates ──
 CREATE TABLE `crm_email_templates` (
   `id` int NOT NULL,
@@ -436,6 +527,18 @@ CREATE TABLE `crm_email_templates` (
   `update_time` int DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件模板库';
+
+-- ── crm_email_unsubscribe ──
+CREATE TABLE `crm_email_unsubscribe` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `email` varchar(200) NOT NULL COMMENT '退订邮箱',
+  `reason` varchar(50) NOT NULL DEFAULT 'manual' COMMENT 'manual/bounce_hard/bounce_soft/complaint/unsubscribe_link',
+  `source_task_id` int DEFAULT NULL COMMENT '来源任务ID',
+  `unsubscribe_at` int DEFAULT NULL,
+  `tenant_id` int NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_email_tenant` (`email`(100),`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='退订黑名单表';
 
 -- ── crm_employees ──
 CREATE TABLE `crm_employees` (
@@ -546,6 +649,62 @@ CREATE TABLE `crm_license_changes` (
   KEY `idx_uploaded_by` (`uploaded_by`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='已认证供应商换照变更流水';
 
+-- ── crm_mass_send_logs ──
+CREATE TABLE `crm_mass_send_logs` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `task_id` int NOT NULL,
+  `channel` enum('whatsapp','email') DEFAULT 'whatsapp',
+  `email_account_id` int NOT NULL DEFAULT '0' COMMENT '邮件账号ID',
+  `email_subject` varchar(500) NOT NULL DEFAULT '' COMMENT '邮件主题',
+  `lead_id` int DEFAULT '0',
+  `recipient` varchar(100) DEFAULT '',
+  `recipient_name` varchar(100) DEFAULT '',
+  `message_content` text,
+  `media_url` varchar(500) DEFAULT NULL COMMENT '媒体文件URL（媒体群发时记录）',
+  `send_status` enum('pending','sent','failed','cancelled') DEFAULT NULL,
+  `send_time` datetime DEFAULT NULL,
+  `scheduled_at` datetime DEFAULT NULL COMMENT '计划发送时间',
+  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+  `tenant_id` int NOT NULL DEFAULT '0' COMMENT '租户ID',
+  `reply_time` datetime DEFAULT NULL,
+  `error_msg` varchar(500) DEFAULT '',
+  `email_message_id` varchar(200) DEFAULT NULL COMMENT 'SMTP Message-ID',
+  PRIMARY KEY (`id`),
+  KEY `idx_task` (`task_id`,`send_status`),
+  KEY `idx_lead` (`lead_id`),
+  KEY `idx_reply` (`reply_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── crm_mass_send_tasks ──
+CREATE TABLE `crm_mass_send_tasks` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `task_name` varchar(100) NOT NULL,
+  `channel` enum('whatsapp','email') DEFAULT 'whatsapp',
+  `email_subject` varchar(200) DEFAULT NULL COMMENT 'Email主题(channel=email时用)',
+  `email_account_id` int DEFAULT NULL COMMENT 'Email发件账号ID',
+  `template_id` int NOT NULL,
+  `msg_type` varchar(20) NOT NULL DEFAULT 'text' COMMENT '消息类型: text/image/video/document',
+  `media_url` varchar(500) DEFAULT NULL COMMENT '媒体文件URL',
+  `media_filename` varchar(255) DEFAULT NULL COMMENT '媒体文件名',
+  `target_lead_ids` text,
+  `use_ai` tinyint(1) DEFAULT '0',
+  `custom_vars` json DEFAULT NULL,
+  `total_count` int DEFAULT '0',
+  `sent_count` int DEFAULT '0',
+  `success_count` int DEFAULT '0',
+  `reply_count` int DEFAULT '0',
+  `status` enum('draft','pending','sending','completed','failed','paused','cancelled') DEFAULT NULL,
+  `creator_id` int DEFAULT '0',
+  `account_id` int DEFAULT '0',
+  `tenant_id` int DEFAULT '0',
+  `scheduled_task_id` int unsigned DEFAULT NULL COMMENT '关联定时任务ID',
+  `create_time` datetime DEFAULT NULL,
+  `complete_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_creator` (`creator_id`,`create_time`),
+  KEY `idx_status` (`status`,`channel`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- ── crm_match_verdict ──
 CREATE TABLE `crm_match_verdict` (
   `supplier_id` int NOT NULL COMMENT '内网爬虫库 supplier.id',
@@ -599,6 +758,25 @@ CREATE TABLE `crm_message_tracking` (
   UNIQUE KEY `uq_message_id` (`message_id`),
   UNIQUE KEY `uq_tracking_token` (`tracking_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邮件发送/打开/回复跟踪';
+
+-- ── crm_message_tracking_callbacks ──
+CREATE TABLE `crm_message_tracking_callbacks` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `event_key` char(64) NOT NULL,
+  `message_id` varchar(80) NOT NULL,
+  `event` varchar(80) NOT NULL,
+  `payload` longtext NOT NULL,
+  `attempts` tinyint unsigned NOT NULL DEFAULT '0',
+  `next_attempt_at` datetime NOT NULL,
+  `last_error` varchar(1000) DEFAULT NULL,
+  `delivered_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_message_tracking_callback_event` (`event_key`),
+  KEY `idx_message_tracking_callback_retry` (`delivered_at`,`next_attempt_at`,`attempts`),
+  KEY `idx_message_tracking_callback_message` (`message_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── crm_monthly_kpi ──
 CREATE TABLE `crm_monthly_kpi` (
@@ -730,6 +908,7 @@ CREATE TABLE `crm_notice_search` (
   `title_en` varchar(1000) NOT NULL DEFAULT '',
   `description_en` text NOT NULL,
   `country_std` varchar(100) NOT NULL DEFAULT '',
+  `country_codes` varchar(500) NOT NULL DEFAULT '' COMMENT '拆分后的可筛国家 ISO2 码集(逗号分隔，纯表驱动回填)',
   `agency_std` varchar(200) NOT NULL DEFAULT '',
   `agency_group` varchar(100) NOT NULL DEFAULT '',
   `notice_type_std` varchar(20) NOT NULL DEFAULT '',
@@ -779,6 +958,21 @@ CREATE TABLE `crm_notice_translations` (
   KEY `idx_translations_notice_lang` (`notice_id`,`lang`),
   FULLTEXT KEY `ft_trans_search` (`title_tr`,`description_tr`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='翻译表';
+
+-- ── crm_notifications ──
+CREATE TABLE `crm_notifications` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned NOT NULL COMMENT '收件人 user_id',
+  `type` varchar(32) NOT NULL COMMENT '类型：rfq_new/rfq_quoted/rfq_won 等',
+  `title` varchar(200) NOT NULL COMMENT '标题',
+  `body` varchar(500) DEFAULT NULL COMMENT '正文摘要',
+  `link` varchar(200) DEFAULT NULL COMMENT '跳转链接，如 /rfq/{id}',
+  `ref_id` bigint unsigned DEFAULT NULL COMMENT '关联业务对象 id，幂等/去重用',
+  `is_read` tinyint(1) NOT NULL DEFAULT '0' COMMENT '0未读 1已读',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_notif_user` (`user_id`,`is_read`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站内信收件箱：RFQ闭环等站内提醒；ref_id 供幂等去重';
 
 -- ── crm_opportunity_translations ──
 CREATE TABLE `crm_opportunity_translations` (
@@ -959,6 +1153,47 @@ CREATE TABLE `crm_product_keyword_groups` (
   KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='关键词组';
 
+-- ── crm_reco_follow_up_logs ──
+CREATE TABLE `crm_reco_follow_up_logs` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `reco_item_id` bigint NOT NULL,
+  `follow_type` varchar(32) NOT NULL,
+  `reply_intent` varchar(32) DEFAULT NULL,
+  `biz_status` varchar(32) DEFAULT NULL,
+  `sales_feedback` varchar(32) DEFAULT NULL,
+  `content` text,
+  `next_follow_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_reco_item` (`reco_item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── crm_reco_outreach_items ──
+CREATE TABLE `crm_reco_outreach_items` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `batch_no` varchar(64) NOT NULL,
+  `supplier_id` bigint NOT NULL,
+  `company_name` varchar(255) NOT NULL DEFAULT '',
+  `salutation` varchar(128) NOT NULL DEFAULT '',
+  `email` varchar(255) NOT NULL DEFAULT '',
+  `phone` varchar(128) NOT NULL DEFAULT '',
+  `reco_id` bigint DEFAULT NULL,
+  `reco_family` varchar(64) DEFAULT NULL,
+  `reco_opp_id` bigint DEFAULT NULL,
+  `reco_top3` varchar(255) DEFAULT NULL,
+  `ab_variant` varchar(32) NOT NULL DEFAULT 'new',
+  `send_status` varchar(32) NOT NULL DEFAULT 'pending',
+  `message_id` varchar(255) DEFAULT NULL,
+  `tracking_token` varchar(64) DEFAULT NULL,
+  `account_id` int DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_batch_company` (`batch_no`,`supplier_id`),
+  KEY `idx_message` (`message_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- ── crm_reco_supplier_opportunity ──
 CREATE TABLE `crm_reco_supplier_opportunity` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1027,6 +1262,73 @@ CREATE TABLE `crm_refresh_tokens` (
   KEY `idx_token_hash` (`token_hash`),
   KEY `idx_expires_at` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='前台哈希登记表';
+
+-- ── crm_rfq_guard ──
+CREATE TABLE `crm_rfq_guard` (
+  `rfq_id` int NOT NULL COMMENT '平台RFQ在 crm_bid_notices.id 的落位（本表主键；爬虫同步不触碰本表）',
+  `reference` varchar(100) NOT NULL COMMENT 'OSRFQ-{id} 唯一编号快照，供对账定位',
+  `user_id` int DEFAULT NULL COMMENT '创建者 user_id 快照，对账时校验主行归属未被改写',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '登记时间',
+  PRIMARY KEY (`rfq_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='平台RFQ守护登记表：记录每条RFQ预期归属，对账检出被爬虫按主键改写/消失（跨系统契约哨兵）';
+
+-- ── crm_rfq_invites ──
+CREATE TABLE `crm_rfq_invites` (
+  `rfq_id` int NOT NULL COMMENT '目标 RFQ 的 crm_bid_notices.id 落位',
+  `supplier_user_id` int unsigned NOT NULL COMMENT '被邀约供应商 user_id',
+  `invited_by` int unsigned NOT NULL COMMENT '发起邀约的采购方 user_id',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`rfq_id`,`supplier_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='RFQ定向邀约名单：targeted RFQ 的报价资格白名单，public 不使用';
+
+-- ── crm_rfq_outreach ──
+CREATE TABLE `crm_rfq_outreach` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `rfq_id` int NOT NULL COMMENT '平台RFQ在 crm_bid_notices.id 的落位',
+  `recipient` varchar(190) NOT NULL COMMENT '收件邮箱（匹配供应商或显式收件）',
+  `supplier_user_id` int unsigned DEFAULT NULL COMMENT '若收件对应平台供应商账号则记录其 user_id，显式外部邮箱为 NULL',
+  `contacted_at` int unsigned NOT NULL DEFAULT '0' COMMENT '首次触达时间（epoch 秒）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rfq_recipient` (`rfq_id`,`recipient`),
+  KEY `idx_rfq` (`rfq_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='RFQ发布邀约触达账本：记录已发邀约的收件，供发布触达去重';
+
+-- ── crm_rfq_quotes ──
+CREATE TABLE `crm_rfq_quotes` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `rfq_id` int NOT NULL COMMENT '所报 RFQ 的 crm_bid_notices.id 落位',
+  `supplier_user_id` int unsigned NOT NULL COMMENT '报价供应商 user_id（认证企业）',
+  `price` decimal(20,2) NOT NULL COMMENT '报价金额',
+  `currency` varchar(10) NOT NULL DEFAULT 'CNY' COMMENT '币种',
+  `lead_time_days` int DEFAULT NULL COMMENT '交付周期（天）',
+  `delivery_terms` varchar(200) DEFAULT NULL COMMENT '交付/商务条款',
+  `note` varchar(1000) DEFAULT NULL COMMENT '报价说明',
+  `status` varchar(16) NOT NULL DEFAULT 'submitted' COMMENT 'submitted/withdrawn/won/rejected',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_rfq_supplier` (`rfq_id`,`supplier_user_id`),
+  KEY `idx_quotes_rfq` (`rfq_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='RFQ密封报价表：认证供应商报价，选定以status表达，不动rfq_status/可搜口径';
+
+-- ── crm_rfx_country_map ──
+CREATE TABLE `crm_rfx_country_map` (
+  `name_raw` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `alpha2` char(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `name_zh` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `name_en` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`name_raw`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── crm_rfx_platform_map ──
+CREATE TABLE `crm_rfx_platform_map` (
+  `platform_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `name_zh` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `name_en` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`platform_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── crm_service_catalog ──
 CREATE TABLE `crm_service_catalog` (
@@ -1293,7 +1595,7 @@ CREATE TABLE `crm_upload_files` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`filename`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='运行时上传文件（字节入库，门户/后台共享，替代本地磁盘落盘）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文件上传表';
 
 -- ── crm_user_industry_prefs ──
 CREATE TABLE `crm_user_industry_prefs` (
