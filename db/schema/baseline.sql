@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 104 张，导出 101 张，排除 3 张。
+--           源库共 105 张，导出 102 张，排除 3 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -1139,6 +1139,26 @@ CREATE TABLE `crm_plan_subscriptions` (
   CONSTRAINT `fk_sub_replaced__p3` FOREIGN KEY (`replaced_by_id`) REFERENCES `crm_plan_subscriptions` (`id`),
   CONSTRAINT `crm_plan_subscriptions_chk_1` CHECK (((`expires_at` is null) or (`expires_at` > `started_at`)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='套餐订阅表：记录用户对套餐的每一次购买事实（归属人、成交订单号、实付与席位快照、有效期与状态、升级链）';
+
+-- ── crm_platform_aliases ──
+CREATE TABLE `crm_platform_aliases` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `canonical` varchar(100) NOT NULL COMMENT '平台官方简称（归一锚点）',
+  `platform_code` varchar(50) DEFAULT NULL COMMENT '稳定 slug（筛选/聚合用）',
+  `alias` varchar(255) NOT NULL COMMENT '变体（域名/下划线码/Camel/显示名/短码）',
+  `normalized_alias` varchar(255) GENERATED ALWAYS AS (upper(trim(`alias`))) STORED,
+  `host` varchar(120) DEFAULT NULL COMMENT '注册域（子域后缀匹配），纯码/名行为 NULL',
+  `kind` enum('platform','other','invalid') NOT NULL DEFAULT 'platform',
+  `name_i18n` json DEFAULT NULL COMMENT '多语言展示名{zh,en}',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `source_ref` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_normalized_alias` (`normalized_alias`),
+  KEY `idx_canonical` (`canonical`),
+  KEY `idx_code` (`platform_code`),
+  KEY `idx_host` (`host`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='来源/采购平台归一化';
 
 -- ── crm_product_keyword_groups ──
 CREATE TABLE `crm_product_keyword_groups` (
