@@ -18,18 +18,50 @@
  *                          这是 AS1/AS4 之间的黑洞：撞 uk 把 legacy 行吞了、那一行
  *                          的 source 变成别人的 —— 三条规则全绿，而归属事实已被替换。
  *
+ *              「有效落点」（2026-10-19 新增，不是 AS 破口而是**待办队列的选人口径**）：
+ *                落点行里存在 L2+ 节点 ⇒ 有效；只有 L1 大类码（码长 6）⇒ 粗落点，
+ *                与「零落点」同等对待。依据是 2026-10-19 生产实测：14.3 万条公告的
+ *                全部落点只是一个 L1 码，宽表 backbone_path 里它就是一串大类码——
+ *                品目撮合、行业墙、定向邀请都吃不到它，但旧口径把它算成「已有归属」，
+ *                于是 AI 管道的「只锚零落点」纪律永远跳过这批，覆盖率指标却把它们算成已覆盖。
+ *                判据只吃 node_code 码长，绝不吃落点表 level 冗余列（该列注释明令不作判据）。
+ *
  *              AI 侧不参与 AS2：野码分类的目的就是让列值从无到有，拿「不改归属」要求它
  *              等于把成果判成事故；它只进 stats.aiNotices 单独计数。
  *
  * @limits 纯函数：不连库、不查树（形制判定走 attribution 那份，不在此重拆列形制）。
+ *         SQL 片段只做**字符串拼装**，不执行；表名仍过 assertTableName（反引号不转义）。
  *         违规文本上限 40 条，但 stats 恒为全量计数 —— 刷屏会掩盖规模，只报数字会掩盖样本。
  * @see docs/adr/0014-attribution-landing-table-two-writers.md
  */
 import { closureOfPathColumn, leafNodesOfPathColumn, pathOfLandingNodes } from "./attribution";
 import { fromBackbonePathColumn, toBackbonePathColumn } from "./backbone-path";
+import { BACKBONE_NODE_PREFIX, backboneNodeLevel } from "@/shared/constants/commodity-code";
 
-/** 存量快照的 source 字面量：与 scripts/ops/notice-attribution-backfill.ts 写入的同一份 */
+/** 存量快照的 source 字面量：与 scripts/tools/notice-attribution-backfill.ts 写入的同一份 */
 export const ATTR_SOURCE_LEGACY = "legacy_tag";
+
+/** 落点表表名：契约侧唯一登记处，需要拼 SQL 的调用方从这里取，不再各写一遍字面量 */
+export const ATTR_LANDING_TABLE = "crm_notice_attribution_nodes";
+
+/**
+ * 有效落点的最浅层级：L2 起。
+ * L1 大类码只有 32 个值（实测），一条公告「归属到 UGT-22」等于没归属——
+ * 它既不能喂品目撮合，也不能过行业墙，所以队列选人与覆盖率都按 L2+ 算。
+ * 与 AI 管道的 `MIN_LEVEL`（默认 2）是同一条下限的两侧：那里挡写入，这里选待办。
+ */
+export const ATTR_VALID_MIN_LEVEL = 2;
+
+/** L2 节点码的码长（前缀 + 2 层 × 2 位）；SQL 侧判据用它，不用 level 冗余列 */
+export const ATTR_VALID_MIN_CODE_LEN = BACKBONE_NODE_PREFIX.length + ATTR_VALID_MIN_LEVEL * 2;
+
+/**
+ * 「正文够打标」下限（**字符数**）：归类靠正文里的标的物描述，短于这个数只能猜标题，不算证据。
+ * 本常量是队列选人的唯一口径：AI 生产者脚本、规则上限工具、门禁 Q5 都从这里取。
+ * 2026-10-19 前的现状是生产脚本里写死字节口径 `LENGTH(...) > 40`（CJK 下约等于 13 字），
+ * 与任何报表口径都对不上 ⇒ 统一成字符口径，字节/字符不再混用。
+ */
+export const ATTR_MIN_CONTENT_CHARS = 41;
 
 /** 一条落点行（只取判据需要的三列） */
 export type LandingRow = { pk: number; code: string; source: string };
@@ -55,6 +87,9 @@ export type ContractStats = {
   /** 有非 legacy 行但无 legacy 行、且列闭包不成立：不判红（形制问题不是归属问题），但必须报出来。
    *  没这个计数的话，“脏列交人工”那句注释就是没人接的一句话。 */
   dirtyColumnNotices: number;
+  /** 只有粗落点（全行都 < L2）的公告数：不算 AS 破口，但必须报数 ——
+   *  它决定 AI/规则管道的待办队列有多大（旧口径把这批算成「已有归属」，队列因此几乎为空）。 */
+  coarseOnlyNotices: number;
   landingRows: number;
 };
 
@@ -72,6 +107,53 @@ export function assertTableName(name: string): void {
   if (!/^crm_[a-z0-9_]{1,60}$/.test(name)) {
     throw new Error(`表名形制非法（只允许 crm_ 开头、小写下划线、长度 ≤60）：${name}`);
   }
+}
+
+/**
+ * 单条落点码是否算「有效归属」：只看码长层级，脏码一律无效（不猜层级）。
+ * 形制解析只走 `backboneNodeLevel` 那一份，本函数不重拆码。
+ */
+export function isValidLandingCode(code: unknown): boolean {
+  return backboneNodeLevel(code) >= ATTR_VALID_MIN_LEVEL;
+}
+
+/** 一批落点码里是否存在有效落点（调用方手上只有码集时用它，不查库） */
+export function hasValidLanding(codes: Iterable<unknown>): boolean {
+  for (const c of codes) if (isValidLandingCode(c)) return true;
+  return false;
+}
+
+/**
+ * 「粗落点」判定：有行、但没有一行能到 L2。
+ * 脏 token（形制非法）算「有行但无效」⇒ 一并归入粗落点：它们同样接不住撮合，
+ * 需要重推；与「零落点」的区别只在写入侧要不要先删旧行（防 AS1 混源），那是调用方的事。
+ */
+export function coarseOnlyLanding(codes: Iterable<unknown>): boolean {
+  let any = false;
+  for (const c of codes) {
+    any = true;
+    if (isValidLandingCode(c)) return false;
+  }
+  return any;
+}
+
+/**
+ * 「该公告无有效落点」的 SQL 片段（与 @see coarseOnlyLanding 同一条下限，只允许这一份实现）：
+ * 零落点与粗落点都命中它 ⇒ 同时把「从未归过位」与「只挂到大类」的两批公告收进同一条待办队列。
+ * @param table 落点表名（演练表 __drill 也要走这里，不另拼一份 SQL）
+ * @param alias 主表别名；片段假定连接键是 `<alias>.id = 落点表.notice_pk`
+ */
+export function withoutValidLandingWhere(table: string = ATTR_LANDING_TABLE, alias = "n"): string {
+  assertTableName(table);
+  return `NOT EXISTS (SELECT 1 FROM \`${table}\` a WHERE a.notice_pk = ${alias}.id AND LENGTH(a.node_code) >= ${ATTR_VALID_MIN_CODE_LEN})`;
+}
+
+/**
+ * 「正文够打标」的 SQL 片段（与 @see ATTR_MIN_CONTENT_CHARS 同一份下限）：
+ * 队列选人用它，门禁用它拆「能直接打标」与「必须先重采正文」两批——两个数必须能相加。
+ */
+export function withMinContentWhere(alias = "n"): string {
+  return `CHAR_LENGTH(TRIM(${alias}.description)) >= ${ATTR_MIN_CONTENT_CHARS}`;
 }
 
 type Bucket = { legacy: string[]; other: string[]; otherSources: Set<string> };
@@ -144,6 +226,7 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
     orphanColumnNotices: 0,
     sourceReplacedNotices: 0,
     dirtyColumnNotices: 0,
+    coarseOnlyNotices: 0,
     landingRows: 0,
   };
   const push = (msg: string) => {
@@ -153,6 +236,10 @@ export function auditLanding(landings: Iterable<LandingRow>, columns: Iterable<C
   for (const [pk, b] of byPk) {
     stats.landingRows += b.legacy.length + b.other.length;
     const col = colByPk.get(pk) ?? "";
+
+    // 粗落点计数必须在任何 continue 之前：AS1 混源、AI 侧早退都会把公告跳过，
+    // 而「只有 L1」与这些形态并不互斥——放在后面就会漏计，队列规模又会变回说不清的那个数。
+    if (coarseOnlyLanding([...b.legacy, ...b.other])) stats.coarseOnlyNotices++;
 
     // AS1 的谓词 = 公告的 source 去重数 > 1，与 ADR-0014 写的 `HAVING COUNT(DISTINCT source) > 1` 逐字等价。
     // 不能只判「legacy 与非 legacy 共在」：那会漏掉两种非 legacy source 共存（`ai_content` + `manual`，

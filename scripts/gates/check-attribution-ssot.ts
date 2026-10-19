@@ -21,6 +21,8 @@ import {
   assertTableName,
   auditLanding,
   ATTR_SOURCE_LEGACY,
+  withoutValidLandingWhere,
+  withMinContentWhere,
   type ColumnRow,
   type ContractStats,
   type LandingRow,
@@ -43,6 +45,7 @@ function report(violations: string[], stats: ContractStats) {
   console.log(
     `落点：${stats.noticesWithLanding} 公告 / ${stats.landingRows} 行；列值：${stats.noticesWithColumn} 公告；` +
       `纯 legacy 一致 ${stats.legacyNotices}；ai_content 公告 ${stats.aiNotices}` +
+      (stats.coarseOnlyNotices ? `；只有粗落点(<L2) ${stats.coarseOnlyNotices} 公告（不判红，但它们等于没归属）` : "") +
       (stats.dirtyColumnNotices ? `；非 legacy 侧脏列 ${stats.dirtyColumnNotices} 条（不判红，只报数）` : ""),
   );
   if (stats.mixedSourceNotices) fails.push(`AS1 混源公告 ${stats.mixedSourceNotices} 条`);
@@ -63,16 +66,31 @@ const zeroStats = (): ContractStats => ({
   orphanColumnNotices: 0,
   sourceReplacedNotices: 0,
   dirtyColumnNotices: 0,
+  coarseOnlyNotices: 0,
   landingRows: 0,
 });
 
 /**
+ * 分批累加：按字段名逐键相加，**不再手写清单**。
+ * 2026-10-19 实测踩过：新增 coarseOnlyNotices 后，手写累加清单把它静默漏成 0，
+ * 而 zeroStats 的「缺字段就编译不过」只能拦住初始化、拦不住累加 ——
+ * 于是门禁全量跑完全绿，报表里的粗落点数永远是 0。逐键循环把这一整类「加了判据忘统计」堵住。
+ * 分批里也不会命中 AS4（本页 pk 是从落点表取的，有列值必有落点），真断供由后面的反连接找；
+ * 两个渠道都写进同一个字段，门禁才不会只红一边。
+ */
+function accumulate(dst: ContractStats, src: ContractStats): void {
+  for (const k of Object.keys(dst) as Array<keyof ContractStats>) dst[k] += src[k];
+}
+
+/**
  * 质量指标（WARN-only）：开“新事实源推进度”的窗口。
  *
- * 它们不参与 AS1~AS5 契约判定，仅把以下三个数字喷到日志，阅后人工判定：
+ * 它们不参与 AS1~AS5 契约判定，仅把以下几个数字喷到日志，阅后人工判定：
  *   Q1 活跃集 AI/手工 覆盖率：多少活跃公告已被非 legacy_tag 落点接住
  *   Q2 活跃集待清洗量：多少活跃公告只有 legacy_tag 历史快照（“错但稳定”的那部分）
  *   Q3 ai_content / manual 落点的层级分布：行行锁到多深，看锤粗/锤细
+ *   Q4 非 legacy 落点的层级直方图（代码里叫 Q4，与上面三行同一份 dist 结果）
+ *   Q5 活跃集无有效落点(L2+)：拆成「正文够打标」与「必须先重采」两批（打标与采集的排期分开）
  *
  * 活跃口径用 ACTIVE_NOTICE_WHERE（与搜索口径一致）。失败不阻断主流程（fail-open），
  * 只记一行 ⚠；主契约红不红与它无关。
@@ -122,6 +140,17 @@ async function runQuality(
           AND NOT EXISTS (SELECT 1 FROM \`${TABLE}\` a WHERE a.notice_pk = n.id)`,
     );
     const noLandingN = Number(noLanding[0]?.n ?? 0);
+    // Q5 活跃集无有效落点（L2+），并拆成「正文够打标」与「必须先重采正文」两批。
+    // 与旧口径的区别：Q3 只数「零落点」，把 14 万条只挂到 L1 大类的公告算成已覆盖；
+    // 而它们对品目撮合毫无用处，于是队列看起来是空的、覆盖率看起来却不低。
+    // 两个子项相加 = 总数，因为下限只写在 ATTR_* 那两份片段里（不在此重拼口径）。
+    const noValid = await q<{ n: number; with_content: number }>(
+      `SELECT COUNT(*) n, SUM(${withMinContentWhere("n")}) with_content
+         FROM crm_bid_notices n
+        WHERE ${ACTIVE_NOTICE_WHERE} AND ${withoutValidLandingWhere(TABLE)}`,
+    );
+    const noValidN = Number(noValid[0]?.n ?? 0);
+    const noValidWithContentN = Number(noValid[0]?.with_content ?? 0);
 
     const pct = (x: number) => `${((x / total) * 100).toFixed(2)}%`;
     console.log(`Q0 活跃公告基数：${total}`);
@@ -133,6 +162,10 @@ async function runQuality(
     );
     console.log(
       `Q3 活跃集无任何落点：${noLandingN} = ${pct(noLandingN)}（新公告未接住 或 历史漏写；与 AS4 不同，AS4 测“有列值无落点”）`,
+    );
+    console.log(
+      `Q5 活跃集无有效落点(<L2)：${noValidN} = ${pct(noValidN)}｜其中正文够打标 ${noValidWithContentN}（可直接推队列）、` +
+        `正文不够 ${noValidN - noValidWithContentN}（只能先重采）—— 前者是打标待办，后者是采集待办，混在一起两个都没法排期`,
     );
     if (dist.length) {
       const byLevel = new Map<number, { ai: number; manual: number }>();
@@ -210,18 +243,7 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
         cols.map((x) => ({ pk: Number(x.pk), col: String(x.col ?? "") })),
       );
       all.push(...r.violations);
-      stats.noticesWithLanding += r.stats.noticesWithLanding;
-      stats.noticesWithColumn += r.stats.noticesWithColumn;
-      stats.landingRows += r.stats.landingRows;
-      stats.legacyNotices += r.stats.legacyNotices;
-      stats.aiNotices += r.stats.aiNotices;
-      stats.mixedSourceNotices += r.stats.mixedSourceNotices;
-      stats.legacyDriftNotices += r.stats.legacyDriftNotices;
-      // 分批里不会命中 AS4（本页 pk 是从落点表取的，有列值必有落点），归 0 直接累；
-      // 真断供由下面那条反连接找。两个渠道都写进同一个字段，门禁才不会只红一边。
-      stats.orphanColumnNotices += r.stats.orphanColumnNotices;
-      stats.sourceReplacedNotices += r.stats.sourceReplacedNotices;
-      stats.dirtyColumnNotices += r.stats.dirtyColumnNotices;
+      accumulate(stats, r.stats);
       batches += 1;
     }
     // AS4 走 SQL 反连接：分批喂给纯函数会把「本批没取到列值」假报成断供
@@ -263,7 +285,12 @@ if (FIXTURE) {
     if (!Array.isArray(data.landings) || !Array.isArray(data.columns)) {
       throw new Error("夹具必须同时含 landings[] 与 columns[] 两个数组");
     }
-    const { violations, stats } = auditLanding(data.landings, data.columns);
+    // 夹具也走 zeroStats + accumulate 这一条累加路：累加器只在全量连库分支被用到，
+    // 而 CI 没有生产库 ⇒ 「新增判据忘了累加」这类事故（2026-10-19 的 coarseOnlyNotices）
+    // 原本只有手动连库才看得见，夹具自测完全绕过。让两条分支共用同一份累加，CI 就能拦住。
+    const { violations, stats: added } = auditLanding(data.landings, data.columns);
+    const stats = zeroStats();
+    accumulate(stats, added);
     report(violations, stats);
   } catch (e) {
     console.error(`✗ 夹具不可用：${(e as Error).message}`);
@@ -286,7 +313,7 @@ if (FIXTURE) {
 if (fails.length) {
   console.error(`✗ 落点表契约未通过：${fails.join("；")}`);
   console.error(
-    "修法：AS1 混源 ⇒ 人工定归属（ADR-0014 结论 4）；AS2/AS4 ⇒ 跑 scripts/ops/notice-attribution-backfill.ts --apply --yes 补齐后复扫",
+    "修法：AS1 混源 ⇒ 人工定归属（ADR-0014 结论 4）；AS2/AS4 ⇒ 跑 scripts/tools/notice-attribution-backfill.ts --apply --yes 补齐后复扫",
   );
   process.exit(1);
 }

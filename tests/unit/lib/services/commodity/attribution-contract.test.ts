@@ -10,7 +10,14 @@ import {
   auditLanding,
   assertDroppable,
   missingLandingPairs,
+  isValidLandingCode,
+  hasValidLanding,
+  coarseOnlyLanding,
+  withoutValidLandingWhere,
+  withMinContentWhere,
   ATTR_SOURCE_LEGACY,
+  ATTR_VALID_MIN_CODE_LEN,
+  ATTR_MIN_CONTENT_CHARS,
   type LandingRow,
 } from "@/lib/services/commodity/attribution-contract";
 
@@ -191,6 +198,49 @@ describe("assertTableName（三个入口共用一份）", () => {
     expect(() => assertTableName("crm_x`; DELETE FROM y")).toThrow(/形制非法/);
     expect(() => assertTableName("")).toThrow(/形制非法/);
     expect(() => assertTableName("not_crm_x")).toThrow(/形制非法/);
+  });
+});
+
+describe("有效落点判据（L2+）：粗落点 = 零落点，同一个待办口径", () => {
+  it("下限就是 L2 的码长（前缀+2 层×2 位），不拿 level 冗余列当判据", () => {
+    expect(ATTR_VALID_MIN_CODE_LEN).toBe(8);
+    expect(isValidLandingCode("UGT-01")).toBe(false); // L1 大类码不算归属
+    expect(isValidLandingCode("UGT-0102")).toBe(true);
+    expect(isValidLandingCode("UGT-B-0102")).toBe(false); // 旧形制不认（不猜层级）
+    expect(isValidLandingCode(null)).toBe(false);
+  });
+
+  it("coarseOnlyLanding：有行但全粗 ⇒ 粗；全空 ⇒ 不判粗（那是零落点，另一个形态）", () => {
+    expect(coarseOnlyLanding(["UGT-01"])).toBe(true);
+    expect(coarseOnlyLanding(["UGT-01", "UGT-0102"])).toBe(false);
+    expect(coarseOnlyLanding([])).toBe(false);
+    // 脏 token 归入粗：它同样接不住撮合，且写入侧必须知道「有行要先清」（防 AS1 混源）
+    expect(coarseOnlyLanding(["JUNK"])).toBe(true);
+    expect(hasValidLanding(["UGT-01", "JUNK"])).toBe(false);
+  });
+
+  it("SQL 片段只拼一份下限，与 JS 判据同一条（两侧分开错就是 BB10 那一类事故）", () => {
+    const frag = withoutValidLandingWhere();
+    expect(frag).toContain("a.notice_pk = n.id");
+    expect(frag).toContain(`LENGTH(a.node_code) >= ${ATTR_VALID_MIN_CODE_LEN}`);
+    expect(withoutValidLandingWhere("crm_notice_attribution_nodes__drill", "x")).toContain("a.notice_pk = x.id");
+    expect(() => withoutValidLandingWhere("crm_x`;")).toThrow(/形制非法/);
+    expect(withMinContentWhere("n")).toContain(`CHAR_LENGTH(TRIM(n.description)) >= ${ATTR_MIN_CONTENT_CHARS}`);
+  });
+
+  it("auditLanding 计粗落点：纯 L1 与混源/AI 早退的公告都要计入，不能只数剩下那批", () => {
+    const r = auditLanding(
+      [
+        { pk: 1, code: "UGT-01", source: ATTR_SOURCE_LEGACY }, // 纯粗
+        { pk: 2, code: "UGT-01", source: ATTR_SOURCE_LEGACY },
+        { pk: 2, code: "UGT-0102", source: ATTR_SOURCE_LEGACY }, // 有深码 ⇒ 不算粗
+        { pk: 3, code: "UGT-01", source: ATTR_SOURCE_LEGACY },
+        { pk: 3, code: "UGT-01", source: "ai_content" }, // 混源且全粗 ⇒ 早退前也要计
+      ],
+      [],
+    );
+    expect(r.stats.coarseOnlyNotices).toBe(2);
+    expect(r.stats.mixedSourceNotices).toBe(1);
   });
 });
 

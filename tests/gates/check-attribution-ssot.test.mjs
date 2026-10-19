@@ -102,6 +102,43 @@ test("干净夹具必须绿（防止门禁只会红、不会绿）", () => {
   assert.match(r.out, /落点表契约通过/);
 });
 
+test(
+  "粗落点(<L2)计数：必须从契约流到报表、且只数真的那一条（累加器丢字段就会静默变 0）",
+  () => {
+    // pk=9 只挂到 L1 大类：结构上自洽（AS2 不会红），但对品目撮合等于没归属；
+    // pk=10 挂到 L5。两者都得算进 legacy 侧，但粗落点只能报 1。
+    const f = fixture({
+      landings: [{ pk: 9, code: "UGT-02", source: "legacy_tag" }, ...chain(10)],
+      columns: [
+        { pk: 9, col: "UGT-02" },
+        { pk: 10, col: CHAIN },
+      ],
+    });
+    const r = run({ ATTR_SSOT_FIXTURE: f });
+    assert.equal(r.code, 0, `粗落点不该判红：${r.out}`);
+    assert.match(r.out, /纯 legacy 一致 2/);
+    assert.match(r.out, /只有粗落点\(<L2\) 1 公告/);
+  },
+);
+
+test(
+  "混源公告同样可以是粗落点：计数必须发生在任何 continue 之前",
+  () => {
+    // AS1 一命中就 continue；若粗落点计数跟在那句后面，队列规模会永远偏小且无人察觉。
+    const f = fixture({
+      landings: [
+        { pk: 11, code: "UGT-03", source: "legacy_tag" },
+        { pk: 11, code: "UGT-04", source: "ai_content" },
+      ],
+      columns: [],
+    });
+    const r = run({ ATTR_SSOT_FIXTURE: f });
+    assert.equal(r.code, 1, "混源没被拦住");
+    assert.match(r.out, /AS1 混源公告 1 条/);
+    assert.match(r.out, /只有粗落点\(<L2\) 1 公告/);
+  },
+);
+
 test("坏夹具宁可红，不能当“干净”打印通过", () => {
   const f = fixture({});
   const r = run({ ATTR_SSOT_FIXTURE: f });

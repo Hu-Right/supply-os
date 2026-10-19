@@ -8,7 +8,7 @@
  *              野码进 intake——该通道连同码本身一起废弃）。本模块在应用内
  *              crawler-sync 每轮同步后，把**无 UGT 归属的活跃公告**登记进
  *              crm_taxonomy_intake（status='pending'），交由 AI 归属管道
- *              （scripts/ops/notice-attribution-content-ai.ts，人工放量）
+ *              （scripts/tools/notice-attribution-content-ai.ts，人工放量）
  *              按正文语义归类。不带任何旧品类码——归属质量由 AI 把关，
  *              不再回头信任爬虫码。
  *
@@ -17,13 +17,15 @@
  *     已 resolved 的行同样挡住重登（归类是一次性判定，不反复翻案）。
  *   - notice_id 存外部编号：AI 管道的候选谓词与 resolved 翻转都按它匹配。
  *   - code=''：本队列不再承载码，只承载「这条公告需要归类」这个事实。
- *   - 归属判定 = 落点表 EXISTS（与 AI 管道候选谓词同一条口径）；
+ *   - 归属判定 = 落点表存在 **L2+ 有效落点**（与 AI 管道候选谓词同一条口径，
+ *     走 attribution-contract 的 withoutValidLandingWhere，不在本文件重拼一份）；
  *     只登记活跃公告（已过期的分类是浪费 AI 钱）。
  *
  * 本模块只写 crm_taxonomy_intake，不碰落点表与宽表（写入者另有其人）。
  */
 import type { Pool, ResultSetHeader } from "mysql2/promise";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
+import { ATTR_LANDING_TABLE, withoutValidLandingWhere } from "./attribution-contract";
 
 /** 单轮登记上限：爬虫首轮全量变更可能上万，按轮分批消化，避免队列瞬间堆爆 */
 const ENQUEUE_CAP_DEFAULT = 2000;
@@ -52,13 +54,14 @@ export async function enqueueUnattributedNotices(
   const ids = [...new Set(noticeIds.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
   if (ids.length === 0) return empty;
 
-  // 候选：活跃 + 无落点归属（与 AI 管道候选谓词同一条口径：NOT EXISTS 落点）。
+  // 候选：活跃 + 无有效落点（与 AI 管道候选谓词同一条口径：零落点与只挂 L1 大类的
+  // 「粗落点」都算待办 —— 后者接不住撮合，当作已覆盖就是把 14 万条公告永久关在门外）。
   // 已有 intake 行的公告靠 uk_src + INSERT IGNORE 幂等挡住（含已 resolved，不翻案）。
   const [rows] = await pool.query(
     `SELECT n.id, n.notice_id FROM crm_bid_notices n
      WHERE n.id IN (${ids.map(() => "?").join(",")})
        AND ${ACTIVE_NOTICE_WHERE}
-       AND NOT EXISTS (SELECT 1 FROM crm_notice_attribution_nodes a WHERE a.notice_pk = n.id)
+       AND ${withoutValidLandingWhere(ATTR_LANDING_TABLE)}
        AND NOT EXISTS (SELECT 1 FROM crm_taxonomy_intake i WHERE i.source_table = 'crm_bid_notices' AND i.source_pk = n.id)`,
     ids,
   );

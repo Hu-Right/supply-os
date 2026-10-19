@@ -5,7 +5,9 @@
  * 1. INSERT 形制对齐消费端（notice-attribution-content-ai）：uk_src 幂等键 =
  *    (source_table='crm_bid_notices', source_pk=内部 id)，notice_id 存外部编号，
  *    code=''（队列不承载码），status='pending'；
- * 2. 候选谓词与 AI 管道同一条口径：活跃 + NOT EXISTS 落点 + NOT EXISTS 已登记；
+ * 2. 候选谓词与 AI 管道同一条口径：活跃 + 无有效落点(L2+) + NOT EXISTS 已登记
+ *    （「无有效落点」的写法来自 attribution-contract.withoutValidLandingWhere，
+ *     钉码长下限而不是只钉表名：退回「任何落点行都算已覆盖」就是本测试该拦的事）；
  * 3. 单轮上限截断：deferred 留给下一轮爬虫同步，不一次性堆爆队列。
  */
 import { describe, it, expect, vi } from "vitest";
@@ -49,12 +51,16 @@ describe("enqueueUnattributedNotices", () => {
     expect(insert!.sql).toContain("'pending'");
   });
 
-  it("候选谓词带齐三道闸：活跃 + 无落点 + 未登记（与 AI 管道同口径）", async () => {
+  it("候选谓词带齐三道闸：活跃 + 无有效落点(L2+) + 未登记（与 AI 管道同口径）", async () => {
     const { pool, calls } = fakePool([]);
     await enqueueUnattributedNotices(pool, [11, 12]);
     const select = calls.find((c) => c.sql.includes("FROM crm_bid_notices"))!;
     expect(select.sql).toContain("deadline_sec"); // 活跃闸（ACTIVE_NOTICE_WHERE 展开形态）
-    expect(select.sql).toContain("NOT EXISTS (SELECT 1 FROM crm_notice_attribution_nodes a WHERE a.notice_pk = n.id)");
+    // 下限必须是码长 ≥8（L2 起）：少了这段，谓词就退化成「有任意落点行即算已归属」，
+    // 而只挂到 L1 大类的 14 万条公告会被永久关在队列外。
+    expect(select.sql).toContain(
+      "NOT EXISTS (SELECT 1 FROM `crm_notice_attribution_nodes` a WHERE a.notice_pk = n.id AND LENGTH(a.node_code) >= 8)",
+    );
     expect(select.sql).toContain("NOT EXISTS (SELECT 1 FROM crm_taxonomy_intake i WHERE i.source_table = 'crm_bid_notices'");
   });
 
