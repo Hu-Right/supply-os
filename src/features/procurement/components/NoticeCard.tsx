@@ -20,8 +20,7 @@ import { getCountryDisplayName } from "@/shared/data/countryNames";
 // 秒/毫秒归一化 + 日历剩余天数（2026-09-12 收敛）：与 formatDeadlineZh 的
 // "今天/明天/后天" 标签同口径，避免"明天 + 剩余 2 天"的矛盾组合
 import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
-// 来源平台与详情页共用统一注册表（shared/data）；列表列展示通用简称
-import { matchSourcePlatform } from "@/shared/data/sourcePlatforms";
+// 来源平台展示名改由服务端下发 item.platform（crm_platform_aliases 归一），不再客户端解析域名
 
 /**
  * 金额紧凑格式（样图口径：3.2M / 980K）；无金额返回空串由调用方回退。
@@ -65,7 +64,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
     ? (formatDeadlineZh(item.deadline, item.deadline_ts) || t("procurement_noDeadline"))
     : (item.deadline || t("procurement_noDeadline"));
   const valueText = compactValue(item.estimated_value);
-  const sourceName = matchSourcePlatform(item.source_url)?.name ?? "";
+  const sourceName = item.platform?.canonical ?? "";
   const isUnlocked = item.core_locked === false;
 
   return (
