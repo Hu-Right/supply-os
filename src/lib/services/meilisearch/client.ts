@@ -125,6 +125,7 @@ export function buildNoticeIndexSettings(): Settings {
     ],
     filterableAttributes: [
       "country",
+      "country_codes",
       "agency",
       "agency_group",
       "notice_type_normalized",

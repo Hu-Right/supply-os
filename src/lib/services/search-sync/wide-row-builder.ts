@@ -10,8 +10,8 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { classifyAgencyType } from "../agency/index";
-import { COUNTRY_NAME_ZH } from "../../data/countryNames";
-import { normalizeCountry } from "../../utils/countryNormalize";
+import { resolveCountries, countryCanonicalsOf, countryCodesOf } from "../country/resolve";
+import type { CountryAliasSnapshot } from "../country/alias-store";
 import { toBackbonePathColumn } from "../commodity/backbone-path";
 import { pathOfLandingNodes } from "../commodity/attribution";
 import { DESC_SOURCE_EXPR, WIDE_LIMITS, TRANSLATION_MODEL, truncate } from "../../utils/notice-field-limits";
@@ -157,15 +157,11 @@ export async function loadBackboneMap(
 // PreciseLevels）已于 B1 退役：那五个 id 只服务宽表 precise_level1~5 五列，而公告分类的唯一口径
 // 已是节点码 —— 精准侧由 ops 回填脚本用同一份纯函数算出 precise_backbone_path，运行期不再参与。
 
-// ── 受援助国标准化：逐个翻译为中文 ──
-function normalizeBeneficiaryCountries(raw: string): string {
-  if (!raw) return "";
-  const parts = raw.split(",").map(s => s.trim()).filter(Boolean);
-  const translated = parts.map(name => {
-    const canonical = normalizeCountry(name); // 归一化为英文标准名
-    return COUNTRY_NAME_ZH[canonical] || canonical; // 查中文名，未命中保留英文
-  }).filter(Boolean);
-  return translated.join(", ").slice(0, WIDE_LIMITS.beneficiary);
+// ── 受援助国标准化：一切以 crm_country_aliases 为准（表驱动拆多国 + 表内中文名）──
+function normalizeBeneficiaryCountries(raw: string, snapshot?: CountryAliasSnapshot): string {
+  if (!raw || !snapshot) return "";
+  const refs = resolveCountries(raw, snapshot).refs.filter((r) => r.kind === "country");
+  return refs.map((r) => r.zh || r.canonical).filter(Boolean).join(", ").slice(0, WIDE_LIMITS.beneficiary);
 }
 
 // ── 宽表行构建 ──
@@ -178,11 +174,15 @@ export function buildWideRow(
   aliasMap: Map<string, string>,
   landing?: { backbone: string },
   translations?: Record<string, WideTranslation>,
+  countrySnap?: CountryAliasSnapshot,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 宽表行含动态列（title_<lang>/description_<lang>）与多种计算列，返回具体类型会破坏以扁平 mock 断言字段前缀的既有测试
 ): Record<string, any> {
   const agency = String(r.agency || "").trim();
-  // 共享 normalizeCountry 始终返回英文标准名（含子国家归并、脏数据清理）
-  const countryStd = normalizeCountry(String(r.country || "")).slice(0, 100);
+  // 国家归一一切以表为准：country_std=主国家（展示单值），country_codes=拆分后多国 ISO2 集（筛选用）。
+  // 无快照时不兜底旧静态 → 置空（由全量回填/门禁保证快照已装载）。
+  const cRes = countrySnap ? resolveCountries(String(r.country || ""), countrySnap) : null;
+  const countryStd = cRes ? (countryCanonicalsOf(cRes)[0] || "").slice(0, 100) : "";
+  const countryCodes = cRes ? [...new Set(countryCodesOf(cRes))].join(",") : "";
 
   const agencyStd = (agency ? (aliasMap.get(normalizeAliasKey(agency)) || agency) : "").slice(0, 200);
   const typeInfo = agencyStd && countryStd ? classifyAgencyType(agencyStd, countryStd) : null;
@@ -232,6 +232,7 @@ export function buildWideRow(
     description: String(r.description || "").slice(0, WIDE_LIMITS.description),
     ...langFields,
     country_std: countryStd,
+    country_codes: countryCodes,
     agency_std: agencyStd,
     agency_group: agencyGroup,
     notice_type_std: noticeTypeStd,
@@ -244,7 +245,7 @@ export function buildWideRow(
     backbone_path: landing?.backbone ? landing.backbone : null,
     description_cn: String(r.description_cn || "").slice(0, WIDE_LIMITS.descriptionCn),
     bid_overview: String(r.bid_overview || "").slice(0, WIDE_LIMITS.bidOverview),
-    beneficiary_countries: normalizeBeneficiaryCountries(String(r.beneficiary_countries || "")),
+    beneficiary_countries: normalizeBeneficiaryCountries(String(r.beneficiary_countries || ""), countrySnap),
     documents_count: docs.length,
     published_date: String(r.published_date || "").slice(0, WIDE_LIMITS.publishedDate),
     // 指纹：与内容同快照由 SQL 侧唯一表达式算出，此处只透传不计算（I1）。
@@ -284,7 +285,7 @@ export async function upsertWideRows(
   const allColumns = [
     "id", "notice_id", "title", "reference", "description",
     ...langColumns,
-    "country_std", "agency_std", "agency_group", "notice_type_std",
+    "country_std", "country_codes", "agency_std", "agency_group", "notice_type_std",
     "deadline_sec", "estimated_value", "is_featured", "entry_source",
     // B1 起不再写旧字典分类列（旧五级列~5 / precise_level1~5）：列暂留 schema、历史值不再更新也无人读，
     // DROP 与 baseline 重导在 B2 走蓝绿（见 2026-10-12-notice-classification-commodity-tree-only）。
@@ -306,7 +307,7 @@ export async function upsertWideRows(
       params.push(
         row.id, row.notice_id, row.title, row.reference, row.description,
         ...SUPPORTED_LANGS.flatMap(lang => [row[`title_${lang}`], row[`description_${lang}`]]),
-        row.country_std, row.agency_std, row.agency_group, row.notice_type_std,
+        row.country_std, row.country_codes, row.agency_std, row.agency_group, row.notice_type_std,
         row.deadline_sec, row.estimated_value, row.is_featured, row.entry_source,
         // 列清单与这里的取值必须同批增减（多一个少一个都是 Unknown column / 参数错位）
         row.backbone_path,

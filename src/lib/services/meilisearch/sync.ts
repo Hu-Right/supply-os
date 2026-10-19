@@ -55,6 +55,9 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     // 只落 notice_type_normalized 一个属性：2026-10-15 审计确认原 notice_type 属性是
     // 同一归一化值的第二份拷贝（settings/检索口径只认 normalized），双写即每文档一个死字段。
     country: String(r.country_std || ""),
+    // 多国可筛 facet：宽表 country_codes 为拆分后的 ISO2 集（逗号分隔），展成数组后
+    // Meili 对数组属性支持 `country_codes = "NG"` 等值命中任一无关项（各国都算命中）。
+    country_codes: String(r.country_codes || "").split(",").map((s) => s.trim()).filter(Boolean),
     agency: String(r.agency_std || ""),
     agency_group: String(r.agency_group || ""),
     notice_type_normalized: normalizeNoticeType(r.notice_type_std),
@@ -79,7 +82,7 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 const WIDE_TABLE_SYNC_SQL = `
   SELECT id, notice_id, reference, title, description,
-         country_std, agency_std, agency_group, notice_type_std,
+         country_std, country_codes, agency_std, agency_group, notice_type_std,
          deadline_sec, is_featured, estimated_value, documents_count,
          backbone_path,
          title_zh, description_zh, title_en, description_en,

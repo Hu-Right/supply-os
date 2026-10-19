@@ -9,7 +9,8 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnifiedSearchParams, FilterPlan } from "./types";
-import { expandCountryAllForms, expandCountryAliases } from "../notice-search/countries";
+import { loadCountryAliasSnapshot } from "../country/alias-store";
+import { countryCodeForName } from "../country/resolve";
 import { getAgencyCacheData } from "../notice-search/agencies/index";
 import { isCommodityNodeKey } from "../commodity/tree";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
@@ -109,23 +110,9 @@ function expandAgency(agency: string): AgencyExpansion {
 
   if (cached?.agencyGroup?.startsWith("FORCE_COUNTRY_")) {
     const forceCountry = cached.agencyGroup.slice(14);
-    const variants = expandCountryAliases(forceCountry);
-    if (variants.length > 1) {
-      return {
-        forceCountry,
-        hasSqlPattern: false,
-        // [阶段0 T3] 去 UPPER() 包裹：utf8mb4_0900_ai_ci 本就大小写不敏感，
-        // 函数作用于列会使 country/agency 索引全部失效（降级路径退化为全表扫描）
-        mysqlClause: `n.country IN (${variants.map(() => "?").join(",")})`,
-        mysqlParams: variants.map((c) => c.toUpperCase()),
-      };
-    }
-    return {
-      forceCountry,
-      hasSqlPattern: false,
-      mysqlClause: "n.country = ?",
-      mysqlParams: [forceCountry.toUpperCase()],
-    };
+    // 强制国家的谓词不在此拼（buildFilterPlan 会把它并入 country 条件走 country_codes 表驱动）；
+    // 这里仅回传 forceCountry 标记，避免与 country 块重复约束。
+    return { forceCountry, hasSqlPattern: false, mysqlClause: "1 = 1", mysqlParams: [] };
   }
   if (cached?.sqlPattern) {
     // Meilisearch: 用 agency_group 字段（存 typeKey）过滤
@@ -175,36 +162,36 @@ export async function buildFilterPlan(
   const mysqlParams: unknown[] = [];
   const digestParts: string[] = [];
 
+  // 国家归一事实源：crm_country_aliases（表驱动，无兜底）
+  const snap = await loadCountryAliasSnapshot(pool);
+
   // ── 机构扩展（需先于国家处理：FORCE_COUNTRY 覆盖国家）──
   let agencyExp: AgencyExpansion | null = null;
   let effectiveCountry = p.country;
   if (p.agency) {
     agencyExp = expandAgency(p.agency);
     if (agencyExp.forceCountry) {
-      // FORCE_COUNTRY 与用户所选国家矛盾 → 空结果
-      if (p.country && p.country.toUpperCase() !== agencyExp.forceCountry.toUpperCase()
-        && !expandCountryAliases(agencyExp.forceCountry).some((v) => v.toUpperCase() === p.country.toUpperCase())) {
+      // FORCE_COUNTRY 与用户所选国家矛盾（按表内 ISO2 码判等，同国不同写法不误判）→ 空结果
+      const fcCode = countryCodeForName(agencyExp.forceCountry, snap);
+      const uCode = p.country ? countryCodeForName(p.country, snap) : null;
+      if (p.country && (!fcCode || !uCode || uCode.toUpperCase() !== fcCode.toUpperCase())) {
         return { meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true, digest: "FORCE_COUNTRY_CONFLICT" };
       }
       effectiveCountry = agencyExp.forceCountry;
     }
   }
 
-  // ── 国家 ──
+  // ── 国家：命中表内国家码 → 走多国列 country_codes（各国都算命中）──
   if (effectiveCountry) {
-    const variants = expandCountryAllForms(effectiveCountry);
-    if (variants.length > 1) {
-      const orParts = variants.map((v) => `country = "${escapeFilter(v)}"`).join(" OR ");
-      meiliFilters.push(`(${orParts})`);
-      // [阶段0 T3] 同 expandAgency：去 UPPER() 包裹，恢复索引可用性（collation 为 ai_ci）
-      mysqlWhere.push(`n.country IN (${variants.map(() => "?").join(",")})`);
-      mysqlParams.push(...variants.map((v) => v.toUpperCase()));
-    } else {
-      meiliFilters.push(`country = "${escapeFilter(effectiveCountry)}"`);
-      mysqlWhere.push("n.country = ?");
-      mysqlParams.push(effectiveCountry.toUpperCase());
+    const code = countryCodeForName(effectiveCountry, snap);
+    if (!code) {
+      // 表里没有该国家 → 不可筛（不兜底），返回空集
+      return { meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true, digest: `country:no-code:${effectiveCountry}` };
     }
-    digestParts.push(`country:${effectiveCountry}`);
+    meiliFilters.push(`country_codes = "${escapeFilter(code)}"`);
+    mysqlWhere.push("EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.country_codes))");
+    mysqlParams.push(code);
+    digestParts.push(`country:${code}`);
   }
 
   // ── 机构（FORCE_COUNTRY 机构已转为国家条件，不再叠加机构条件）──

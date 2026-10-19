@@ -6,6 +6,28 @@
  */
 import { describe, it, expect } from "vitest";
 import { buildWideRow } from "@/lib/services/search-sync/wide-row-builder";
+import type { CountryAliasSnapshot, CountryAliasEntry } from "@/lib/services/country/alias-store";
+
+/** 与 store 同口径（clean 后大写去重音）构造最小国家表快照 */
+function csnap(pairs: Array<[string, { canonical: string; zh?: string }]>): CountryAliasSnapshot {
+  const byKey = new Map<string, CountryAliasEntry>();
+  const forms = new Map<string, string[]>();
+  for (const [alias, e] of pairs) {
+    const key = alias.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+    byKey.set(key, { canonical: e.canonical, code: null, kind: "country", zh: e.zh ?? "" });
+    const arr = forms.get(e.canonical) ?? [];
+    arr.push(key);
+    forms.set(e.canonical, arr);
+  }
+  return { byKey, formsByCanonical: forms };
+}
+const CN = csnap([
+  ["Brasil", { canonical: "Brazil", zh: "巴西" }],
+  ["RUS", { canonical: "Russia", zh: "俄罗斯" }],
+  ["巴西", { canonical: "Brazil", zh: "巴西" }],
+  ["China", { canonical: "China", zh: "中国" }],
+  ["中国", { canonical: "China", zh: "中国" }],
+]);
 
 const base = {
   id: 1, notice_id: "N1", title: "T", reference: "R", description: "D",
@@ -16,9 +38,9 @@ const base = {
 };
 
 describe("country_std / agency_std", () => {
-  it("国家名归一化为英文标准名（多种历史写法）", () => {
+  it("国家名归一化为英文标准名（多种历史写法，一切以表为准）", () => {
     for (const [raw, expected] of [["Brasil", "Brazil"], ["RUS", "Russia"], ["巴西", "Brazil"]] as const) {
-      expect(buildWideRow({ ...base, country: raw }, new Map()).country_std).toBe(expected);
+      expect(buildWideRow({ ...base, country: raw }, new Map(), undefined, undefined, CN).country_std).toBe(expected);
     }
   });
 
@@ -38,10 +60,10 @@ describe("country_std / agency_std", () => {
   });
 
   it("受援助国逐个归一并转中文，超长结果按 300 截断", () => {
-    const row = buildWideRow({ ...base, beneficiary_countries: "RUS, 中国 , Unknownland" }, new Map());
+    const row = buildWideRow({ ...base, beneficiary_countries: "RUS, 中国 , Unknownland" }, new Map(), undefined, undefined, CN);
     expect(row.beneficiary_countries).toContain("俄罗斯");
     expect(row.beneficiary_countries).toContain("中国");
-    const long = buildWideRow({ ...base, beneficiary_countries: "RUS,".repeat(80) }, new Map());
+    const long = buildWideRow({ ...base, beneficiary_countries: "RUS,".repeat(80) }, new Map(), undefined, undefined, CN);
     expect(long.beneficiary_countries.length).toBeLessThanOrEqual(300);
   });
 });

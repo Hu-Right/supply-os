@@ -1,141 +1,56 @@
 /**
- * 国家下拉数据源
- * Country dropdown data source
+ * 国家下拉数据源（一切以 crm_country_aliases 为准）
+ * Country dropdown data source — table-driven
  *
  * @module server/services/notice-search/countries
- * @description 国家下拉列表的查询与缓存。每日凌晨 5 点定时刷新，启动时预热。
- *              国家名归一化：复用前端 COUNTRY_NAME_ZH 映射表（200+ 条覆盖）
- *              作为归一化依据，将数据库中同一国家的不同名称变体合并为标准名，
- *              避免下拉列表中出现重复国家（如 "Philippines" 和 "The Philippines"
- *              都显示为"菲律宾"）。
+ * @description 国家下拉的查询与缓存：每日凌晨 5 点定时刷新，启动预热。归一与合并全部走
+ *              country/resolve（纯表驱动）：同一国家的各写法/子国家/多国串经 resolveCountries
+ *              拆并到标准名，按 kind=country 聚合计数；region/invalid 天然被排除（不在表内 country）。
+ *              别名展开（canonical → 全部归一键大写形态）同样由表快照 formsByCanonical 提供。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { COUNTRY_NAME_ZH } from "../../data/countryNames";
-import { normalizeCountry } from "../../utils/countryNormalize";
+import { loadCountryAliasSnapshot } from "../country/alias-store";
+import type { CountryAliasSnapshot } from "../country/alias-store";
+import { resolveCountries, countryCanonicalsOf } from "../country/resolve";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 
 let noticeCountriesCache: { data: Array<{ country: string; count: number }> } | null = null;
-
-// ── 构建归一化映射：利用 COUNTRY_NAME_ZH 自动生成 ──────────────────────────
-
-/** 中文名 → 所有已知英文名变体（含原始大小写形式） */
-const ZH_TO_EN_FORMS = new Map<string, string[]>();
-
-/** 标准英文名 → 所有已知大写形式（供 MySQL UPPER(n.country) IN (...) 使用） */
-const CANONICAL_TO_UPPER_FORMS = new Map<string, string[]>();
-
-/** 标准英文名 → 所有已知原始大小写形式（供 Meilisearch 精确匹配使用） */
-const CANONICAL_TO_ORIGINAL_FORMS = new Map<string, string[]>();
-
-{
-  // Step 1: 按中文名分组，收集所有英文名变体
-  const zhGroups = new Map<string, string[]>();
-  for (const [en, zh] of Object.entries(COUNTRY_NAME_ZH)) {
-    if (!zhGroups.has(zh)) zhGroups.set(zh, []);
-    zhGroups.get(zh)!.push(en);
-  }
-
-  // Step 2: 为每组选择标准名，建立 canonical → 形式列表
-  // 注意：UPPER_TO_CANONICAL 已从 countryNormalize.ts 导入（共享单一数据源）
-  for (const [zh, forms] of zhGroups) {
-    if (["东部和南部非洲", "西部和中部非洲", "西南印度洋", "多国", "区域"].includes(zh)) continue;
-
-    ZH_TO_EN_FORMS.set(zh, [...forms]);
-    const canonical = forms.find((f) => /[a-z]/.test(f)) || forms[0];
-
-    // canonical → 形式列表（供搜索过滤展开别名使用）
-    const upperForms = [...new Set(forms.map((f) => f.toUpperCase()))];
-    CANONICAL_TO_UPPER_FORMS.set(canonical, upperForms);
-    const originalForms = [...new Set([...forms, ...upperForms])];
-    CANONICAL_TO_ORIGINAL_FORMS.set(canonical, originalForms);
-  }
-}
+/** 最近一次刷新装载的表快照，供热路径同口径复用（TTL 内不重复查库）。 */
+let _snap: CountryAliasSnapshot | null = null;
 
 /**
- * 获取国家名的所有已知大写形式（供 MySQL 搜索 SQL 的 UPPER(n.country) IN (...) 使用）
- * 当用户选择 "South Korea" 时，先归一化到 "Korea, Republic of"，然后返回 ["KOREA, REPUBLIC OF", "REPUBLIC OF KOREA", "SOUTH KOREA", "R.O.K"]
+ * 国家写法/标准名 → 该标准名在表内的全部归一键（大写、去重音），供 `n.country IN (...)`
+ * 之类的形态并集匹配。无快照/未收录时退化为原值大写（不兜底旧静态）。
  */
-export function expandCountryAliases(country: string): string[] {
-  const canonical = normalizeCountry(country);
-  return CANONICAL_TO_UPPER_FORMS.get(canonical) || [country.toUpperCase()];
+export function expandCountryAliases(country: string, snapshot: CountryAliasSnapshot): string[] {
+  const canonical = resolveCountries(country, snapshot).refs.find((r) => r.kind === "country")?.canonical ?? country;
+  const forms = snapshot.formsByCanonical.get(canonical);
+  return forms && forms.length ? forms : [country.trim().toUpperCase()];
 }
 
-/**
- * 获取国家名的所有已知形式（原始大小写 + 大写，供 Meilisearch 精确匹配使用）
- * Meilisearch 过滤器大小写敏感，需同时包含原始形式和大写形式以覆盖索引中的各种存储
- */
-export function expandCountryAllForms(country: string): string[] {
-  const canonical = normalizeCountry(country);
-  return CANONICAL_TO_ORIGINAL_FORMS.get(canonical) || [country, country.toUpperCase()];
+/** 与 expandCountryAliases 同形态（归一键即大写去重音），保留以兼容调用点名。 */
+export function expandCountryAllForms(country: string, snapshot: CountryAliasSnapshot): string[] {
+  return expandCountryAliases(country, snapshot);
 }
 
-/**
- * 将数据库 country 字段拆分为独立国家列表。
- *
- * 数据库中部分公告的 country 字段存储了多国列表：
- * - 逗号分隔："EU 27, Afghanistan, Argentina"
- * - 短横线分隔："DRC - Angola"
- * 需检测并拆分；而 "Congo, Democratic Republic of the" 等合法含逗号国名不可拆分。
- *
- * 判定规则：
- * 1. 先尝试按 " - " 拆分，若 2+ 部分均可识别为独立国家 → 多国列表
- * 2. 归一化后仍含逗号 → 按逗号拆分 → 若 2+ 部分匹配已知国家 → 多国列表
- */
-function splitCountryEntry(raw: string): string[] {
-  const single = normalizeCountry(raw);
-
-  // 0. 先尝试按 " - " 拆分（处理 "DRC - Angola" 等多国组合）
-  if (raw.includes(" - ")) {
-    const dashParts = raw.split(" - ").map((p) => p.trim()).filter(Boolean);
-    if (dashParts.length >= 2) {
-      const recognized = dashParts
-        .map((p) => normalizeCountry(p))
-        .filter((n) => n && COUNTRY_NAME_ZH[n]);
-      if (recognized.length >= 2) return [...new Set(recognized)];
-    }
-  }
-
-  // 1. 归一化结果不含逗号 → 单国家
-  if (!single.includes(",")) return [single];
-
-  // 2. 归一化后仍含逗号：可能是合法国名，也可能是多国列表
-  const parts = single.split(",").map((p) => p.trim()).filter(Boolean);
-  const recognized: string[] = [];
-  for (const part of parts) {
-    const normalized = normalizeCountry(part);
-    if (normalized !== part || COUNTRY_NAME_ZH[part]) {
-      recognized.push(normalized);
-    }
-  }
-  if (recognized.length >= 2) return recognized;
-  return [single];
+/** 当前装载的国家表快照（未装载为 null）。 */
+export function getCountrySnapshot(): CountryAliasSnapshot | null {
+  return _snap;
 }
 
-/** 非国家实体（区域 grouping、国际组织等），从国家下拉中排除 */
-const NON_COUNTRY_ENTRIES = new Set([
-  "EU 27", "EU 28", "EU", "European Union",
-  "GCC", "ASEAN", "SAARC", "MERCOSUR",
-  "Sub-Saharan Africa", "East Africa", "West Africa",
-  "Latin America", "Caribbean", "Central America",
-  "Middle East", "North Africa", "Southeast Asia",
-  "Pacific", "Oceania",
-]);
-
-/** 从数据库重新查询并刷新国家缓存（含归一化合并） */
+/** 从数据库重新查询并刷新国家缓存（纯表驱动归一 + 按 kind=country 聚合） */
 export async function refreshNoticeCountries(pool: Pool): Promise<Array<{ country: string; count: number }>> {
-  // 修复：与搜索路径口径统一，只用 deadline_sec 实时判断，移除 is_active 依赖
+  _snap = await loadCountryAliasSnapshot(pool);
+  const snap = _snap;
   const [rows] = await pool.query(
     `SELECT n.country, COUNT(*) AS cnt FROM crm_bid_notices n
      WHERE ${ACTIVE_NOTICE_WHERE}
        AND n.country IS NOT NULL AND n.country <> ''
      GROUP BY n.country ORDER BY cnt DESC`
   );
-  // 归一化合并：将同一国家的不同名称变体的计数合并到标准名
   const merged = new Map<string, number>();
   for (const row of rows as RowDataPacket[]) {
-    const countries = splitCountryEntry(String(row.country || ""));
-    for (const canonical of countries) {
-      if (!canonical || NON_COUNTRY_ENTRIES.has(canonical)) continue;
+    for (const canonical of countryCanonicalsOf(resolveCountries(String(row.country || ""), snap))) {
       merged.set(canonical, (merged.get(canonical) || 0) + Number(row.cnt));
     }
   }

@@ -22,6 +22,7 @@ import { ACTIVE_OPP_WHERE } from "@/lib/utils/notice-expired";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { toBeijingUnixTs } from "../../utils/notice-expired";
 import { expandCountryAliases } from "../notice-search/countries";
+import { loadCountryAliasSnapshot } from "../country/alias-store";
 
 /** 工程类 industry 关键词 */
 const ENGINEERING_INDUSTRY_KEYWORDS = [
@@ -128,8 +129,8 @@ export async function queryEngineeringList(
   const queryParams: (string | number)[] = [];
 
   if (country) {
-    // 与主站检索同口径：国家别名展开（Brazil/BR/巴西…命中任一形态即算），不再裸等值
-    const forms = expandCountryAliases(country);
+    // 与主站检索同口径：国家别名展开（一切以 crm_country_aliases 为准），不再裸等值
+    const forms = expandCountryAliases(country, await loadCountryAliasSnapshot(dbPool));
     conditions.push(`o.country IN (${forms.map(() => "?").join(",")})`);
     queryParams.push(...forms);
   }

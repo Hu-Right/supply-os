@@ -25,6 +25,7 @@ import {
 } from "./wide-row-reconcile";
 import { detectWideFingerprintDrift, isFingerprintColumn } from "./wide-fingerprint";
 import { purgeNoticeSearch } from "../search-visibility";
+import { loadCountryAliasSnapshot } from "../country/alias-store";
 
 /**
  * 全量回填宽表
@@ -32,6 +33,7 @@ import { purgeNoticeSearch } from "../search-visibility";
 export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapsed: number }> {
   const start = Date.now();
   const aliasMap = await loadAliasMap(pool);
+  const countrySnap = await loadCountryAliasSnapshot(pool);
   
   let lastId = 0;
   let totalSynced = 0;
@@ -63,6 +65,7 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
         r, aliasMap,
         landingMap.get(String(r.notice_id)),
         translationsMap.get(Number(r.id)),
+        countrySnap,
       ));
       const synced = await upsertWideRows(pool, wideRows, withFp);
       totalSynced += synced;
@@ -87,6 +90,7 @@ export async function incrementalWideSync(
   watermark: number,
 ): Promise<{ synced: number; newWatermark: number }> {
   const aliasMap = await loadAliasMap(pool);
+  const countrySnap = await loadCountryAliasSnapshot(pool);
   const withFp = await isFingerprintColumn(pool);
   const selectSql = wideSyncSelect(withFp);
 
@@ -112,6 +116,7 @@ export async function incrementalWideSync(
       r, aliasMap,
       landingMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
+      countrySnap,
     ));
     const synced = await upsertWideRows(pool, wideRows, withFp);
     // [阶段0 A4-1] 宽表已更新：失效搜索结果缓存。外部 CRM 管道的新数据经本函数入库，
@@ -131,6 +136,7 @@ export async function incrementalWideSync(
 export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: number }> {
   if (ids.length === 0) return { synced: 0 };
   const aliasMap = await loadAliasMap(pool);
+  const countrySnap = await loadCountryAliasSnapshot(pool);
   const withFp = await isFingerprintColumn(pool);
   const selectSql = wideSyncSelect(withFp);
 
@@ -152,6 +158,7 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
       r, aliasMap,
       landingMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
+      countrySnap,
     ));
     const synced = await upsertWideRows(pool, wideRows, withFp);
     // 宽表已更新：失效搜索结果缓存，确保下次列表请求读到最新译文
