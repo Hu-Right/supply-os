@@ -12,6 +12,8 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
 import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
+import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
+import { platformInfo } from "@/lib/services/platform/resolve";
 import {
   buildBidReportDocx,
   mergeBidReportRow,
@@ -59,6 +61,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const opportunity = fullOpportunity || qualified;
 
     const row = mergeBidReportRow(notice, opportunity);
+    // 平台展示名改由 crm_platform_aliases 表驱动（唯一入口）：解析 url/码后注入 row.platform_display
+    const platformSnap = await loadPlatformAliasSnapshot(ctx.dbPool);
+    row.platform_display = platformInfo(String(row.source_url || row.source_platform || ""), platformSnap)?.canonical ?? "";
     const fileName = bidReportFileName(row);
 
     const fingerprint = createHash("md5")

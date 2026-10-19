@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { safe, safeObj, PLATFORMS, INDUSTRY_MAP, SONG, HEI, NAVY } from "@/lib/services/bid-report/constants";
+import { safe, safeObj, INDUSTRY_MAP, SONG, HEI, NAVY } from "@/lib/services/bid-report/constants";
 
 describe("safe", () => {
   it("null/undefined/false/空串 → 空串", () => {
@@ -40,11 +40,6 @@ describe("safeObj", () => {
 });
 
 describe("常量", () => {
-  it("PLATFORMS 包含主要平台", () => {
-    expect(PLATFORMS.ungm).toContain("UNGM");
-    expect(PLATFORMS.worldbank).toContain("World Bank");
-  });
-
   it("INDUSTRY_MAP 包含主要行业", () => {
     expect(INDUSTRY_MAP.medical).toContain("医疗");
     expect(INDUSTRY_MAP.it).toContain("信息");

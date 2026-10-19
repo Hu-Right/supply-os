@@ -10,7 +10,7 @@ import {
   Table,
   TextRun,
 } from "docx";
-import { PLATFORMS, INDUSTRY_MAP, SONG, safe, safeObj, type Row } from "./constants";
+import { INDUSTRY_MAP, SONG, safe, safeObj, type Row } from "./constants";
 import { title0, h1, h2, line, bodyText, bullet, kvTable, boqTable, aiAnalysisBlocks, formatNow } from "./builders";
 
 /**
@@ -21,7 +21,7 @@ import { title0, h1, h2, line, bodyText, bullet, kvTable, boqTable, aiAnalysisBl
 export async function buildBidReportDocx(row: Row): Promise<Buffer> {
   const agencyFull = safe(row.agency_full || row.agency);
   const platformKey = safe(row.source_platform);
-  const platform = PLATFORMS[platformKey] || platformKey.toUpperCase();
+  const platform = safe(row.platform_display) || platformKey.toUpperCase();
   const reference = safe(row.reference);
   const title = safe(row.title);
 

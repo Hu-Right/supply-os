@@ -2,7 +2,7 @@
  * bid-report 纯文本预览生成
  * Preview text generation for bid reports
  */
-import { PLATFORMS, INDUSTRY_MAP, safe, safeObj, type Row } from "./constants";
+import { INDUSTRY_MAP, safe, safeObj, type Row } from "./constants";
 
 /** 报告预览段落 */
 export interface ReportPreviewSection {
@@ -17,7 +17,7 @@ export interface ReportPreviewSection {
 export function estimateFullReportCharCount(row: Row): number {
   const agencyFull = safe(row.agency_full || row.agency);
   const platformKey = safe(row.source_platform);
-  const platform = PLATFORMS[platformKey] || platformKey.toUpperCase();
+  const platform = safe(row.platform_display) || platformKey.toUpperCase();
   const reference = safe(row.reference);
   const title = safe(row.title);
   const aiProducts = Array.isArray(row.ai_products) ? row.ai_products : [];

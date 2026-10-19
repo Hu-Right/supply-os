@@ -4,23 +4,7 @@
  */
 import { safeJson } from "../../utils/json";
 
-// ── 平台标签映射（与 PHP 版 PLATFORMS 一致）──
-export const PLATFORMS: Record<string, string> = {
-  ungm: "UNGM (ungm.org)",
-  undp: "UNDP Procurement",
-  unops: "UNOPS eSourcing",
-  wfp: "WFP eSourcing",
-  unicef: "UNICEF Supply Division",
-  who: "WHO eTendering",
-  worldbank: "World Bank",
-  dgmarket: "DG Market",
-  idb: "IDB (Americas)",
-  afdb: "AfDB",
-  adb: "ADB",
-  ted: "TED (EU)",
-  sam: "SAM.gov (US Federal)",
-  other: "其他",
-};
+// ── 平台展示名不再在此静态维护：改由 crm_platform_aliases 表驱动，路由 merge 后注入 row.platform_display ──
 
 // ── 行业标签映射（与 PHP 版 INDUSTRY_MAP 一致）──
 export const INDUSTRY_MAP: Record<string, string> = {

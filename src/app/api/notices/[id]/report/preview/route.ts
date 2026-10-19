@@ -15,6 +15,8 @@ import {
   mergeBidReportRow,
 } from "@/lib/services/bid-report";
 import { EC_NOTICE_NOT_FOUND_404, EC_REPORT_NOT_AVAILABLE } from "@/shared/constants/api";
+import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
+import { platformInfo } from "@/lib/services/platform/resolve";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -44,6 +46,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const fullOpportunity = await opportunitiesRepo.findFullById(Number(qualified.id));
     const opportunity = fullOpportunity || qualified;
     const row = mergeBidReportRow(notice, opportunity);
+    // 平台展示名改由 crm_platform_aliases 表驱动（唯一入口）：解析 url/码后注入 row.platform_display
+    const platformSnap = await loadPlatformAliasSnapshot(ctx.dbPool);
+    row.platform_display = platformInfo(String(row.source_url || row.source_platform || ""), platformSnap)?.canonical ?? "";
 
     const lang = req.nextUrl.searchParams.get("lang") || "zh";
     const sections = buildBidReportPreviewText(row, lang);
