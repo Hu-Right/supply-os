@@ -8,6 +8,9 @@
  *
  * 用法：npx tsx scripts/tools/supplier-anchor-rule-ceiling.ts [--cap=0] [--products-only]
  *
+ * 除规则上限外，还量「可达性阱门」：站内推荐不限认证，但 RFQ 邮件邀约只给
+ * verified+有邮箱的供应商，所以补锚的即时收益 = 可补锚 ∩ verified（第 6 节）。
+ *
  * @limits 只读：对 supplier / crm_supplier_backbone_interests / 落点表 / 骨架表只发 SELECT。
  *         锚表按 (supplier_table, supplier_id) 复合键定位 —— 只用 supplier_id 会把两张供应商表的
  *         同号 id 混成一个，那个数就是错的（本次一并修正口径）。
@@ -91,6 +94,7 @@ say(`公告侧活跃有效落点节点：${noticeMap.size}｜供应侧已挂节�
 type Stat = { none: number; single: number; ambiguous: number; coarse: number };
 const st: Stat = { none: 0, single: 0, ambiguous: 0, coarse: 0 };
 const hitSup = new Map<string, number>(); // 节点 → 命中它的未锚供应商数
+const hitIds = new Set<number>(); // 可直落的供应商 id（第 6 节算可达交集要用个体，不能只看节点计数）
 const samples: string[] = ["verdict\tcompany\tproducts\thit_code\tlevel\tevidence"];
 let scanned = 0;
 let lastId = 0;
@@ -115,6 +119,7 @@ for (;;) {
     else if (v.state === "too-coarse") st.coarse++;
     else {
       st.single++;
+      hitIds.add(Number(r.id));
       const code = v.code ?? "";
       hitSup.set(code, (hitSup.get(code) ?? 0) + 1);
       if (samples.length <= 40) {
@@ -156,6 +161,28 @@ say(`当前交集节点 ${baseInter}｜当前「公告≥5 且 供应商≥3」=
 say(`规则层补锚后：新增有公告承载的节点 ${newNode} 个；其中凑够「≥5 且 ≥3」的 +${newReady5x3} ⇒ 约 ${baseReady + newReady5x3} 个`);
 say(`  新增节点里公告最厚 Top10：${addedNodes.sort((a, b) => b[1] - a[1]).slice(0, 10).map(([c, na, ns]) => `${c}(告${na}/供${ns})`).join(" ")}`);
 say(`  命中节点集中度：${[...hitSup.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([c, n]) => `${c}×${n}`).join(" ")}`);
+
+// ── 6. 可达性阱门（选起点的关键：锚不是唯一门槛）──
+// 撮合两个消费端门槛不一样：站内推荐（ai-match）的候选池由调用方给、不限认证；
+// RFQ 邮件邀约 matchSuppliers() 硬要求 crm_users.supplier_link_status='verified' 且有邮箱，
+// 并且先只取 300 家地域候选再做类目交集（CANDIDATE_POOL）。
+// ⇒ 补锚对“邮件触达”的即时收益 = 可补锚 ∩ verified。这个数不量就会把话讲大。
+const reachable = new Set(
+  (
+    await q<{ sid: number }>(
+      `SELECT DISTINCT supplier_id sid FROM crm_users
+        WHERE supplier_link_status = 'verified' AND supplier_id IS NOT NULL
+          AND email IS NOT NULL AND email <> ''
+          AND (account_status IS NULL OR (account_status <> 'disabled' AND account_status <> 'rejected'))`,
+    )
+  ).map((r) => Number(r.sid)),
+);
+say(`\n=== 可达性阱门 ===`);
+const supTotal = Number((await q<{ n: number }>(`SELECT COUNT(*) n FROM supplier`))[0].n);
+say(`verified 且有邮箱、账号未禁的供应商：${reachable.size} 家（全量 supplier ${supTotal} 家 ⇒ ${((reachable.size / supTotal) * 100).toFixed(2)}%）`);
+say(`  已锚 ${anchoredSet.size} 家里可达：${[...anchoredSet].filter((id) => reachable.has(id)).length} 家`);
+say(`  规则可补锚 ${hitIds.size} 家里可达：${[...hitIds].filter((id) => reachable.has(id)).length} 家 —— 邮件邀约能立刻用上的量`);
+say(`  两边都不可达时，补锚只增强站内推荐（ai-match 候选不限认证），不会增加邮件触达`);
 
 writeFileSync("runtime/supplier-anchor-sample.tsv", samples.join("\n") + "\n", "utf8");
 say(`\n✓ 人工判读样本 → runtime/supplier-anchor-sample.tsv（公司名 + products 原文 + 命中码 + 证据名）`);
