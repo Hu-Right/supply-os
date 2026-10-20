@@ -13,6 +13,8 @@
  *   node daily-sync.cjs               # 持续运行，每小时同步一次
  *   node daily-sync.cjs --once        # 只跑一次（手动触发 / cron 调用）
  *   node daily-sync.cjs --print-config # 只打印解析后的连接配置（密码掩码）与取值来源，不连库
+ *   node daily-sync.cjs --once --apply        # 单轮：增量 upsert + 内容对账，并把差异行真正写回目标
+ *   node daily-sync.cjs --once --no-reconcile # 单轮：只做旧「水位线增量」，完全不做内容对账
  *
  * 环境变量（三级取值：进程环境 → 仓库根 .env → 下列默认值；空串一律视为「未提供」）:
  *   SYNC_INTERVAL_MS       同步间隔（默认 3600000 = 1 小时）
@@ -38,6 +40,13 @@
  *   update_time 水位线按列原生类型读写比较（DATETIME 字符串 / Unix 秒整数）
  *   DATETIME 列以原值字符串同步与比较（dateStrings），不做时区转换
  *   定时循环带防重入：上一轮未结束时自动跳过本轮
+ *
+ *   ⚠ 纯水位线增量接不住「内容变了但 update_time 没动」的行：documents / procurement_files /
+ *   external_links 等常被外部/爬虫管道补写，而 update_time 纹丝不动（本库实测踩过，见
+ *   notices-shadow-phase2-cutover.mjs 第 9-13 行同款结论）。故水位线之外再跑一遍
+ *   「按全列行指纹」内容对账：逐片聚合比对，只在指纹不等的片上下钻到行、分块补 upsert。
+ *   对账默认 DRY（只报待补行数 + 差异列分解，不写库），带 --apply 才真正写入；
+ *   --no-reconcile 整体跳过。判据与影子表 findDirtyRows 同口径（NULL 与空串必须可区分）。
  */
 
 // ═══════════════════════════════════════════
@@ -50,6 +59,8 @@
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
+// 内容对账的纯 SQL/判定构件（零副作用叶子，可单测；与 crawler-sync-sql.ts 同构的分离法）
+const ds = require('./daily-sync-sql.cjs');
 
 // ═══════════════════════════════════════════
 // 环境变量读取（单一入口，杜绝残破值拼进连接串）
@@ -198,8 +209,13 @@ const SYNC_TABLES = [
 
 const BATCH_SIZE = 200;
 
-// update_time 可能的数值列类型（存 Unix 秒，如 crm_bid_notices）
-const NUMERIC_TYPES = new Set(['tinyint', 'smallint', 'mediumint', 'int', 'bigint', 'float', 'double', 'decimal']);
+// 内容对账：片大小（按行数取窗口边界，本表 id 稀疏不能按固定步长）与差异行 IN 分块。
+// 片大→聚合轮次少但单语句重；IN 分块控 max_allowed_packet，与 sync.ts 的批口径同源。
+const RECONCILE_SLICE = readPositiveInt('RECONCILE_SLICE', ['RECONCILE_SLICE'], 5000);
+const RECONCILE_IN_BATCH = 500;
+
+// update_time 可能的数值列类型（单一事实源在 daily-sync-sql.cjs 叶子，与对账/ODKU 共享同一集合）
+const NUMERIC_TYPES = ds.NUMERIC_TYPES;
 
 /**
  * 非破坏式合并列（人工/官方收录侧拥有）
@@ -225,6 +241,8 @@ const LOG_FILE = path.join(__dirname, 'daily-sync.log');
 const WATERMARK_FILE = path.join(__dirname, '.sync-watermark.json');
 const ONCE_MODE = process.argv.includes('--once');
 const PRINT_CONFIG_MODE = process.argv.includes('--print-config');
+const APPLY_RECONCILE = process.argv.includes('--apply'); // 对账真正写入（否则仅 DRY 预览）
+const NO_RECONCILE = process.argv.includes('--no-reconcile'); // 整体跳过内容对账
 
 /**
  * 配置自检：打印解析后的连接字段与每个字段的取值来源（哪个变量 / 进程环境还是 .env / 默认值）。
@@ -394,17 +412,9 @@ async function syncTable(source, target, table, watermark, onWatermark) {
   const colList = colNames.map(c => `\`${c}\``).join(', ');
   const updateCols = colNames.filter(c => !pkCols.includes(c));
   // 人工/官方收录列走非破坏式合并，其余列保持既有「源库直通覆盖」语义
+  // 子句构造下沉到叶子，与内容对账共享同一覆盖口径（杜绝「看着一样其实不一样」的漂移）
   const keepCols = new Set(NON_DESTRUCTIVE_COLUMNS[table] || []);
-  const updateClause = updateCols.length > 0
-    ? updateCols.map(c => {
-        if (!keepCols.has(c)) return `\`${c}\` = VALUES(\`${c}\`)`;
-        // 数值列：仅 NULL 算未提供（0 是合法值）；字符串列：NULL 与空串都算未提供
-        const emptyTest = NUMERIC_TYPES.has(colTypes[c])
-          ? `VALUES(\`${c}\`) IS NULL`
-          : `(VALUES(\`${c}\`) IS NULL OR VALUES(\`${c}\`) = '')`;
-        return `\`${c}\` = IF(${emptyTest}, \`${c}\`, VALUES(\`${c}\`))`;
-      }).join(', ')
-    : `\`${pkCol}\` = VALUES(\`${pkCol}\`)`;
+  const updateClause = ds.buildOdkuUpdateClause(updateCols, colTypes, keepCols, pkCol);
 
   // 提取 ID 水位线和更新时间水位线
   const idWm = getWatermarkId(watermark);
@@ -499,6 +509,119 @@ async function syncTable(source, target, table, watermark, onWatermark) {
 }
 
 // ═══════════════════════════════════════════
+// 内容对账（按全列行指纹拾「改了但不推 update_time」的行）
+// ═══════════════════════════════════════════
+
+/** 报告用的宽松值比较：仅用于「差异列分解」展示，不参与是否补同步的判定（判定走行指纹） */
+function normForCompare(v) {
+  if (v === null || v === undefined) return '\u0000NULL';
+  // 目标连接未开 dateStrings，DATETIME 会被 mysql2 解成 Date；按本地时区还原成与源一致的串，
+  // 否则「日期列同值」会被误计入差异分解（仅展示噪声，不影响补同步判定）
+  if (v instanceof Date) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${v.getFullYear()}-${pad(v.getMonth() + 1)}-${pad(v.getDate())} ${pad(v.getHours())}:${pad(v.getMinutes())}:${pad(v.getSeconds())}`;
+  }
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
+/**
+ * 单表内容对账：以**源库**驱动按行取片（id 稀疏，不能用固定步长），片级用聚合指纹粗筛，
+ * 只在「行数不等或聚合指纹不等」的片上下钻到行、定位差异 id，再分块补 upsert。
+ *
+ * 语义与安全：
+ *   - 驱动窗口取源库 ⇒ 仅目标有、源没有的行（如平台自助发布的 RFQ）根本不参与，不会被覆盖；
+ *   - 指纹比对覆盖「ODKU 会写入的内容列」（交集列去主键、去非破坏 keepCols）：
+ *     keepCols 本就要保留目标值，其差异不应触发补同步（否则空转）；
+ *   - 补写沿用与增量完全一致的 updateClause（源直覆 / keepCols 保留），只增不删。
+ * @param {boolean} opts.dry 默认 true：只统计待补行数与差异列分解，不写库；false 才 upsert。
+ */
+async function reconcileTable(source, target, table, opts) {
+  const dry = opts.dry !== false; // 默认 DRY
+  const slice = opts.sliceSize || RECONCILE_SLICE;
+
+  const columns = await getTableColumns(source, table, 'source');
+  const targetColumns = await getTableColumns(target, table, 'target');
+  const effCols = ds.computeEffectiveColumns(columns, targetColumns);
+  const pkCols = columns.filter(c => c.COLUMN_KEY === 'PRI').map(c => c.COLUMN_NAME);
+  const pkCol = pkCols[0];
+  const result = { scanned: 0, drift: 0, colCounts: {}, applied: 0 };
+  if (!pkCol) { log(`  [对账] ${table}: 无主键，跳过`); return result; }
+
+  const colTypes = {};
+  columns.forEach(c => { colTypes[c.COLUMN_NAME] = c.DATA_TYPE; });
+  const keepCols = new Set(NON_DESTRUCTIVE_COLUMNS[table] || []);
+  const updateCols = effCols.filter(c => !pkCols.includes(c));
+  // 触发补同步的列 = 会被源覆盖的列（去掉 keepCols：那些差异保留目标值，不该拉起重同步）
+  const fpCols = updateCols.filter(c => !keepCols.has(c));
+  if (updateCols.length === 0 || fpCols.length === 0) {
+    log(`  [对账] ${table}: 无可比对列，跳过`);
+    return result;
+  }
+
+  const updateClause = ds.buildOdkuUpdateClause(updateCols, colTypes, keepCols, pkCol);
+  const sliceFp = ds.buildSliceFingerprintExpr(fpCols);
+  const rowFp = ds.buildRowFingerprintExpr(fpCols);
+  const insertColList = effCols.map(c => `\`${c}\``).join(', ');
+
+  let lastHi = 0;
+  for (;;) {
+    const [ws] = await source.execute(
+      `SELECT MIN(id) lo, MAX(id) hi, COUNT(*) n FROM (SELECT \`${pkCol}\` id FROM \`${table}\` WHERE \`${pkCol}\` > ? ORDER BY \`${pkCol}\` ASC LIMIT ${slice}) t`,
+      [lastHi]
+    );
+    const w = ws[0];
+    if (!w || w.lo == null) break;
+    lastHi = Number(w.hi);
+    result.scanned += Number(w.n);
+    const range = `\`${pkCol}\` BETWEEN ${w.lo} AND ${w.hi}`;
+
+    // 片级粗筛：两侧一次聚合，行数 + 聚合指纹都相等才跳过（SUM 与行序无关，跨库可比）
+    const aggSql = `SELECT COUNT(*) n, ${sliceFp} fp FROM \`${table}\` WHERE ${range}`;
+    const [sagg] = await source.execute(aggSql);
+    const [tagg] = await target.execute(aggSql);
+    if (Number(sagg[0].n) === Number(tagg[0].n) && String(sagg[0].fp) === String(tagg[0].fp)) continue;
+
+    // 下钻到行：源、目标各取 (pk, 行指纹)，定位差异行（含目标缺行）
+    const rowSql = `SELECT \`${pkCol}\` AS id, ${rowFp} AS fp FROM \`${table}\` WHERE ${range}`;
+    const [srows] = await source.execute(rowSql);
+    const [trows] = await target.execute(rowSql);
+    const driftIds = ds.selectDriftIds(srows, trows);
+    if (driftIds.length === 0) continue;
+    result.drift += driftIds.length;
+
+    // 分块：取源/目标整行→算差异列分解（报告）→ 非 DRY 则按 updateClause 幂等补 upsert
+    for (let i = 0; i < driftIds.length; i += RECONCILE_IN_BATCH) {
+      const chunk = driftIds.slice(i, i + RECONCILE_IN_BATCH).map(Number).filter(Number.isFinite);
+      if (chunk.length === 0) continue;
+      const ph = chunk.map(() => '?').join(',');
+      const selByPk = `SELECT ${insertColList} FROM \`${table}\` WHERE \`${pkCol}\` IN (${ph})`;
+      const [sfull] = await source.execute(selByPk, chunk);
+      const [tfull] = await target.execute(selByPk, chunk);
+      const tmap = new Map(tfull.map(r => [Number(r[pkCol]), r]));
+      for (const sr of sfull) {
+        const tr = tmap.get(Number(sr[pkCol]));
+        for (const c of updateCols) {
+          if (!tr || normForCompare(sr[c]) !== normForCompare(tr[c])) result.colCounts[c] = (result.colCounts[c] || 0) + 1;
+        }
+      }
+      if (!dry) {
+        const valueRows = sfull.map(row => `(${effCols.map(c => escapeVal(row[c], colTypes[c])).join(', ')})`);
+        if (valueRows.length > 0) {
+          await target.execute(
+            `INSERT INTO \`${table}\` (${insertColList}) VALUES ${valueRows.join(',')} ON DUPLICATE KEY UPDATE ${updateClause}`
+          );
+          result.applied += valueRows.length;
+        }
+      }
+    }
+    process.stdout.write(`\r    [对账] ${table}: 已扫 ${result.scanned} 行 · 差异 ${result.drift}`);
+  }
+  if (result.scanned > 0) console.log();
+  return result;
+}
+
+// ═══════════════════════════════════════════
 // 单轮同步
 // ═══════════════════════════════════════════
 
@@ -555,6 +678,18 @@ async function runSyncOnce() {
       saveWatermarks(watermarks);
       const tableElapsed = Date.now() - t1;
       log(`  ${table}: 新增 ${result.synced} 条 | 耗时 ${fmtDuration(tableElapsed)}`);
+    }
+
+    // ── 内容对账：接住「documents 等被补写但不推 update_time」的漏同步行（默认 DRY，--apply 才写）──
+    if (!NO_RECONCILE) {
+      log(`  ── 内容对账（按全列行指纹）${APPLY_RECONCILE ? '· 将写入' : '· DRY 预览（加 --apply 才写入）'} ──`);
+      for (const table of SYNC_TABLES) {
+        const t2 = Date.now();
+        const r = await reconcileTable(source, target, table, { dry: !APPLY_RECONCILE, sliceSize: RECONCILE_SLICE });
+        const entries = Object.entries(r.colCounts).sort((a, b) => b[1] - a[1]);
+        log(`  [对账] ${table}: 扫描 ${r.scanned} 行 · 差异 ${r.drift} 行 · ${APPLY_RECONCILE ? `已补同步 ${r.applied} 行` : '未写入'} | 耗时 ${fmtDuration(Date.now() - t2)}`);
+        if (entries.length) log(`        差异列分解：${entries.map(([k, v]) => `${k}×${v}`).join(', ')}`);
+      }
     }
 
     await target.execute('SET FOREIGN_KEY_CHECKS=1');
