@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { noticeTypeKey } from "@/shared/utils/notice-type";
+import { noticeTypeKey, noticeTypeCodeLabel } from "@/shared/utils/notice-type";
 
 describe("noticeTypeKey — 短代码精确匹配", () => {
   it("ITB → procurement_type_itb", () => {
@@ -70,5 +70,24 @@ describe("noticeTypeKey — 优先级验证", () => {
 
   it("RFQ 优先于 request", () => {
     expect(noticeTypeKey("Request for Quotation")).toBe("procurement_type_rfq");
+  });
+});
+
+describe("noticeTypeCodeLabel — SEO/无 locale 展示（单一源同口径）", () => {
+  it("已识别值返回标准码", () => {
+    expect(noticeTypeCodeLabel("invitation_for_bids")).toBe("ITB");
+    expect(noticeTypeCodeLabel("国际招标公告")).toBe("ITB");
+    expect(noticeTypeCodeLabel("Request for Quotation")).toBe("RFQ");
+    expect(noticeTypeCodeLabel("Avis de marché")).toBe("CONTRACT_NOTICE");
+  });
+  it("字面 OTHER 返回 OTHER；未识别长尾回退原文（不伪装成 OTHER）", () => {
+    expect(noticeTypeCodeLabel("OTHER")).toBe("OTHER");
+    expect(noticeTypeCodeLabel("Тендер")).toBe("Тендер");
+    expect(noticeTypeCodeLabel("xyz_unknown")).toBe("xyz_unknown");
+  });
+  it("空值返回空串", () => {
+    expect(noticeTypeCodeLabel(null)).toBe("");
+    expect(noticeTypeCodeLabel("")).toBe("");
+    expect(noticeTypeCodeLabel("   ")).toBe("");
   });
 });

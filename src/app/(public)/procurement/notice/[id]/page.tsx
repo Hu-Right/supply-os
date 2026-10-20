@@ -21,6 +21,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContext } from "@/lib/db/context";
 import { absoluteUrl } from "@/lib/services/seo/site";
+import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
 
 export const revalidate = 3600;
 
@@ -62,10 +63,11 @@ function formatDeadline(row: NoticeSeoRow): string {
 }
 
 function buildSummary(row: NoticeSeoRow): string {
+  const nt = noticeTypeCodeLabel(row.notice_type);
   const parts = [
     row.agency || row.agency_full,
     row.country,
-    row.notice_type ? `${row.notice_type} 采购公告` : "国际采购公告",
+    nt ? `${nt} 采购公告` : "国际采购公告",
   ].filter(Boolean);
   const head = parts.join(" · ");
   const teaser = (row.description || "").replace(/\s+/g, " ").trim().slice(0, 160);
@@ -162,9 +164,9 @@ export default async function NoticeSeoPage({ params }: PageProps) {
 
       {/* 标题 + 类型徽标 */}
       <header className="space-y-3">
-        {row.notice_type && (
+        {noticeTypeCodeLabel(row.notice_type) && (
           <span className="inline-block rounded-full bg-training-green/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-training-green">
-            {row.notice_type}
+            {noticeTypeCodeLabel(row.notice_type)}
           </span>
         )}
         <h1 className="text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{row.title}</h1>

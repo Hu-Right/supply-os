@@ -74,6 +74,20 @@ export function noticeTypeKey(raw: string | undefined | null): LocaleKey | null 
 }
 
 /**
+ * 无 locale 的展示场景（SEO 服务端页等）：返回归一后的标准码字符串，与站内同口径。
+ * 与 noticeTypeKey 同一条边界：未识别长尾回退**原始值**（不把脏值伪装成 OTHER、也不外泄 OTHER 噪声）；
+ * 空值返回空串，由调用方决定是否兜底文案。
+ */
+export function noticeTypeCodeLabel(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const std = normalizeNoticeType(trimmed);
+  if (std === "OTHER" && trimmed.toUpperCase() !== "OTHER") return trimmed;
+  return std;
+}
+
+/**
  * 高级搜索「采购方式」筛选下拉的唯一数据源。
  * 由 std 码枚举派生标签键，杜绝此前手写 { value, labelKey } 与归一化体系漂移
  *（如旧值 "DIRECT" 并非标准码、normalizeNoticeType 实际落 OTHER，导致筛选静默失效）。
