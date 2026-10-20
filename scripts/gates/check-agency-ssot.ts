@@ -45,6 +45,11 @@ for (const f of DISPLAY_FILES) {
   if (bypassSym.test(text)) fails.push(`AS2 ${f} 直连 translateByPattern（两套归一各写一遍的根因，禁用）`);
 }
 
+// AS3 采购主体锁定 agency_full：宽表归一的输入必须先取 agency_full（agency 常为发布平台码）
+const WIDE_BUILDER = "src/lib/services/search-sync/wide-row-builder.ts";
+const wbText = readFileSync(WIDE_BUILDER, "utf8");
+if (!/r\.agency_full/.test(wbText)) fails.push(`AS3 ${WIDE_BUILDER} 归一输入未取 agency_full（采购主体必须优先全称）`);
+
 if (fails.length) {
   for (const f of fails) console.error("  ✗ " + f);
   console.error("✗ 机构 SSOT 门禁未通过");
