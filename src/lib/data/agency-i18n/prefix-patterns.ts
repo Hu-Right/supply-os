@@ -9,37 +9,58 @@ n *              已移至 translate.ts 的 translateByPattern() 中处理，以
  */
 import type { PatternI18nResult } from "./types";
 
+// ── 葡语领域通用治理名词 → 中文（仅收录有限、可核验的名词；地名/专名一律保留原文，绝不臆造） ──
+const BR_DOMAIN_ZH = new Map<string, string>([
+  ["SAUDE", "卫生"], ["SAUDE MENTAL", "心理健康"], ["EDUCACAO", "教育"], ["ASSISTENCIA SOCIAL", "社会救助"],
+  ["SEGURANCA PUBLICA", "公共安全"], ["SEGURANCA", "安全"], ["ADMINISTRACAO PENITENCIARIA", "监所行政"],
+  ["ADMINISTRACAO", "行政"], ["JUSTICA", "司法"], ["OBRAS", "工程"], ["CULTURA", "文化"],
+  ["MEIO AMBIENTE", "环境"], ["CIENCIA E TECNOLOGIA", "科技"], ["AGUA E ESGOTO", "水务"],
+  ["PLANEJAMENTO", "规划"], ["FINANCAS", "财政"], ["TRANSPORTE", "交通"], ["ENERGIA", "能源"],
+  ["AGRICULTURA", "农业"], ["PECUARIA", "畜牧"], ["TRABALHO", "劳动"], ["EXERCITO", "陆军"],
+  ["MARINHA", "海军"], ["AERONAUTICA", "空军"], ["DEFESA CIVIL", "民防"], ["DEFESA", "防务"],
+  ["CIDADANIA", "公民"], ["DIREITOS HUMANOS", "人权"], ["DESENVOLVIMENTO RURAL", "农村发展"],
+  ["DESENVOLVIMENTO", "发展"], ["TURISMO", "旅游"], ["ESPORTE", "体育"], ["LAZER", "休闲"],
+  ["SUPERIOR DO TRABALHO", "高级劳动"], ["SUPERIOR ELEITORAL", "高级选举"], ["SUPERIOR DE JUSTICA", "高级司法"],
+]);
+// 归一化 rest：去前导冠词；整段命中词表则译为中文，否则保留原文（地名/专名不臆造）。
+function localizeRest(rest: string): string {
+  const s = String(rest).trim().replace(/^(?:DE|DA|DO|DOS|DAS|D|A)\s+/i, "").trim();
+  // 查表时折叠变音符（EDUCAÇÃO→EDUCACAO），仅用于匹配；未命中仍返回带原文重音的 s（不臆造）。
+  const fold = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  return BR_DOMAIN_ZH.get(fold) || s;
+}
+
 // ── 巴西葡萄牙语机构类型前缀映射 ──
 export const BR_PREFIX_MAP: Array<[RegExp, (rest: string) => PatternI18nResult]> = [
   // 市级政府
   [/^MUNICIPIO (?:DE|DO|DA)\s+(.+)/i, (rest) => ({
     canonical: `MUNICIPIO DE ${rest}`,
-    i18n: { zh: `${rest}市`, fr: `Municipalité de ${rest}`, ru: `Муниципалитет ${rest}`, es: `Municipio de ${rest}`, ar: `بلدية ${rest}` },
+    i18n: { zh: `${localizeRest(rest)}市`, fr: `Municipalité de ${rest}`, ru: `Муниципалитет ${rest}`, es: `Municipio de ${rest}`, ar: `بلدية ${rest}` },
   })],
   // 州/市级厅局
-  [/^SECRETARIA (?:DE|DA|DO|DE ESTADO (?:DE|DA|DO))\s+(.+)/i, (rest) => ({
+  [/^SECRETARIA (?:DE ESTADO (?:DE|DA|DO)|DE|DA|DO)\s+(.+)/i, (rest) => ({
     canonical: `SECRETARIA DE ${rest}`,
-    i18n: { zh: `${rest}厅`, fr: `Secrétariat de ${rest}`, ru: `Секретариат ${rest}`, es: `Secretaría de ${rest}`, ar: `أمانة ${rest}` },
+    i18n: { zh: `${localizeRest(rest)}厅`, fr: `Secrétariat de ${rest}`, ru: `Секретариат ${rest}`, es: `Secretaría de ${rest}`, ar: `أمانة ${rest}` },
   })],
   // 市级基金
   [/^FUNDO MUNICIPAL DE\s+(.+)/i, (rest) => ({
     canonical: `FUNDO MUNICIPAL DE ${rest}`,
-    i18n: { zh: `${rest}市基金`, fr: `Fonds municipal de ${rest}`, ru: `Муниципальный фонд ${rest}`, es: `Fondo municipal de ${rest}`, ar: `صندوق بلدية ${rest}` },
+    i18n: { zh: `市政${localizeRest(rest)}基金`, fr: `Fonds municipal de ${rest}`, ru: `Муниципальный фонд ${rest}`, es: `Fondo municipal de ${rest}`, ar: `صندوق بلدية ${rest}` },
   })],
   // 州级基金
   [/^FUNDO ESTADUAL DE\s+(.+)/i, (rest) => ({
     canonical: `FUNDO ESTADUAL DE ${rest}`,
-    i18n: { zh: `${rest}州基金`, fr: `Fonds étatique de ${rest}`, ru: `Региональный фонд ${rest}`, es: `Fondo estatal de ${rest}`, ar: `صندوق ولاية ${rest}` },
+    i18n: { zh: `州${localizeRest(rest)}基金`, fr: `Fonds étatique de ${rest}`, ru: `Региональный фонд ${rest}`, es: `Fondo estatal de ${rest}`, ar: `صندوق ولاية ${rest}` },
   })],
   // 州政府
   [/^ESTADO (?:DE|DO|DA)\s+(.+)/i, (rest) => ({
     canonical: `ESTADO DE ${rest}`,
-    i18n: { zh: `${rest}州`, fr: `État de ${rest}`, ru: `Штат ${rest}`, es: `Estado de ${rest}`, ar: `ولاية ${rest}` },
+    i18n: { zh: `${localizeRest(rest)}州`, fr: `État de ${rest}`, ru: `Штат ${rest}`, es: `Estado de ${rest}`, ar: `ولاية ${rest}` },
   })],
   // 军事司令部
   [/^COMANDO (?:DO|DA|DE)\s+(.+)/i, (rest) => ({
     canonical: `COMANDO DO ${rest}`,
-    i18n: { zh: `${rest}司令部`, fr: `Commandement de ${rest}`, ru: `Командование ${rest}`, es: `Comando de ${rest}`, ar: `قيادة ${rest}` },
+    i18n: { zh: `${localizeRest(rest)}司令部`, fr: `Commandement de ${rest}`, ru: `Командование ${rest}`, es: `Comando de ${rest}`, ar: `قيادة ${rest}` },
   })],
   // 医院
   [/^HOSPITAL (?:DAS|DO|DE|DA)\s+(.+)/i, (rest) => ({
@@ -49,12 +70,12 @@ export const BR_PREFIX_MAP: Array<[RegExp, (rest: string) => PatternI18nResult]>
   // 法院/法庭
   [/^TRIBUNAL\s+(.+)/i, (rest) => ({
     canonical: `TRIBUNAL ${rest}`,
-    i18n: { zh: `${rest}法院`, fr: `Tribunal de ${rest}`, ru: `Суд ${rest}`, es: `Tribunal de ${rest}`, ar: `محكمة ${rest}` },
+    i18n: { zh: `${localizeRest(rest)}法院`, fr: `Tribunal de ${rest}`, ru: `Суд ${rest}`, es: `Tribunal de ${rest}`, ar: `محكمة ${rest}` },
   })],
   // 大学
   [/^UNIVERSIDADE\s+(.+)/i, (rest) => ({
     canonical: `UNIVERSIDADE ${rest}`,
-    i18n: { zh: `${rest}大学`, fr: `Université de ${rest}`, ru: `Университет ${rest}`, es: `Universidad de ${rest}`, ar: `جامعة ${rest}` },
+    i18n: { zh: `${localizeRest(rest)}大学`, fr: `Université de ${rest}`, ru: `Университет ${rest}`, es: `Universidad de ${rest}`, ar: `جامعة ${rest}` },
   })],
   // 委员会/理事会
   [/^CONSELHO\s+(.+)/i, (rest) => ({
@@ -149,12 +170,12 @@ export const BR_EXTRA_PREFIX_MAP: Array<[RegExp, (rest: string) => PatternI18nRe
   // 市级厅局: SECRETARIA MUNICIPAL DE EDUCACAO
   [/^SECRETARIA MUNICIPAL\s+(?:DE|DA|DO)\s+(.+)/i, (rest) => ({
     canonical: `SECRETARIA MUNICIPAL DE ${rest}`,
-    i18n: { zh: `${rest}市教育局`, fr: `Secrétariat municipal de ${rest}`, ru: `Муниципальный секретариат ${rest}`, es: `Secretaría municipal de ${rest}`, ar: `أمانة بلدية ${rest}` },
+    i18n: { zh: `市${localizeRest(rest)}厅`, fr: `Secrétariat municipal de ${rest}`, ru: `Муниципальный секретариат ${rest}`, es: `Secretaría municipal de ${rest}`, ar: `أمانة بلدية ${rest}` },
   })],
   // 州级厅局: SECRETARIA ESTADUAL DE DEFESA CIVIL
   [/^SECRETARIA ESTADUAL\s+(?:DE|DA|DO)\s+(.+)/i, (rest) => ({
     canonical: `SECRETARIA ESTADUAL DE ${rest}`,
-    i18n: { zh: `${rest}州教育局`, fr: `Secrétariat d'État de ${rest}`, ru: `Государственный секретариат ${rest}`, es: `Secretaría estatal de ${rest}`, ar: `أمانة ولاية ${rest}` },
+    i18n: { zh: `州${localizeRest(rest)}厅`, fr: `Secrétariat d'État de ${rest}`, ru: `Государственный секретариат ${rest}`, es: `Secretaría estatal de ${rest}`, ar: `أمانة ولاية ${rest}` },
   })],
   // 带地名前缀的厅局: SAO PAULO SECRETARIA DA SEGURANCA
   [/^(?:GOVERNO\s+(?:DO|DA)\s+)?[A-Z]+(?:\s+[A-Z]+)*\s+SECRETARIA\s+(?:DE\s+|DA\s+|DO\s+|DOS\s+|DE\s+ESTADO\s+DA\s+|DE\s+ESTADO\s+DO\s+)?(.+)/i, (rest) => ({

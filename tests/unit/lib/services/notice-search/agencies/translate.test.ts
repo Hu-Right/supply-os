@@ -116,3 +116,16 @@ describe("translateByPattern — 平台代码占位 agency（2026-10-12 公告�
     expect(translateByPattern("IRELAND ETENDERS")?.i18n.zh).not.toBe("南非电子招标网");
   });
 });
+
+describe("translateByPattern — 巴西机构中文准确性（重锚后禁硬造/错译）", () => {
+  const zh = (s: string) => translateByPattern(s)?.i18n.zh;
+  it("COMANDO DO EXERCITO → 陆军司令部", () => expect(zh("COMANDO DO EXERCITO")).toBe("陆军司令部"));
+  it("FUNDO MUNICIPAL DE SAUDE → 市政卫生基金", () => expect(zh("FUNDO MUNICIPAL DE SAUDE")).toBe("市政卫生基金"));
+  it("SECRETARIA MUNICIPAL DE SAUDE → 市卫生厅（不得再误判为教育）", () => expect(zh("SECRETARIA MUNICIPAL DE SAUDE")).toBe("市卫生厅"));
+  it("SECRETARIA MUNICIPAL DE EDUCACAO → 市教育厅（教育类仍对）", () => expect(zh("SECRETARIA MUNICIPAL DE EDUCACAO")).toBe("市教育厅"));
+  it("SECRETARIA DE ESTADO DA SAUDE → 卫生厅", () => expect(zh("SECRETARIA DE ESTADO DA SAUDE")).toBe("卫生厅"));
+  it("TRIBUNAL SUPERIOR DO TRABALHO → 高级劳动法院", () => expect(zh("TRIBUNAL SUPERIOR DO TRABALHO")).toBe("高级劳动法院"));
+  it("UNIVERSIDADE DE SAO PAULO → SAO PAULO大学（冠词剔除、地名不臆造）", () => expect(zh("UNIVERSIDADE DE SAO PAULO")).toBe("SAO PAULO大学"));
+  it("FUNDO MUNICIPAL DE EDUCAÇÃO（带重音）→ 折叠后命中 教育", () => expect(zh("FUNDO MUNICIPAL DE EDUCAÇÃO")).toBe("市政教育基金"));
+  it("MUNICIPIO DE TARUMA → TARUMA市", () => expect(zh("MUNICIPIO DE TARUMA")).toBe("TARUMA市"));
+});
