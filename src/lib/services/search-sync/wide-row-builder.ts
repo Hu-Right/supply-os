@@ -45,7 +45,7 @@ export function wideSyncSelect(withFp: boolean): string {
   SELECT n.id, n.notice_id, n.reference, n.title,
          ${withFp ? `${WIDE_FP_EXPR} AS ${WIDE_FP_COLUMN},` : ""}
          ${DESC_SOURCE_EXPR} AS description,
-         n.country, n.agency, n.notice_type, n.deadline_sec,
+         n.country, n.agency, n.agency_full, n.notice_type, n.deadline_sec,
          n.is_featured,
          n.estimated_value, n.documents, n.procurement_files,
          n.published_date, n.entry_source,
@@ -177,7 +177,9 @@ export function buildWideRow(
   countrySnap?: CountryAliasSnapshot,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 宽表行含动态列（title_<lang>/description_<lang>）与多种计算列，返回具体类型会破坏以扁平 mock 断言字段前缀的既有测试
 ): Record<string, any> {
-  const agency = String(r.agency || "").trim();
+  // 采购主体以 agency_full 为准（缺失才回退 agency）：很多源的 agency 实为发布平台码，
+  // agency_full 才是真实采购单位；下游 agency_std/卡片/详情/筛选统一按真买家。
+  const agency = String(r.agency_full || "").trim() || String(r.agency || "").trim();
   // 国家归一一切以表为准：country_std=主国家（展示单值），country_codes=拆分后多国 ISO2 集（筛选用）。
   // 无快照时不兜底旧静态 → 置空（由全量回填/门禁保证快照已装载）。
   const cRes = countrySnap ? resolveCountries(String(r.country || ""), countrySnap) : null;

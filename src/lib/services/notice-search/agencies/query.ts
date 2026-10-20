@@ -100,12 +100,13 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   await ensureAgencyDisplaySnapshot(pool); // 机构展示单一入口预热（下游同步 resolveAgencyDisplay 依赖）
   await ensureCountryDisplaySnapshot(pool); // 国家展示预热：下游同步 countryZhOf 依赖（走归一入口）
 
-  // 2) 查询原始机构数据
+  // 2) 查询原始机构数据（采购主体：与宽表 agency_std 同锚 agency_full||agency，保证下拉与筛选一致）
   const [rows] = await pool.query(
-    `SELECT n.agency, ANY_VALUE(n.country) AS country, COUNT(*) AS cnt FROM crm_bid_notices n
+    `SELECT COALESCE(NULLIF(n.agency_full, ''), n.agency) AS agency, ANY_VALUE(n.country) AS country, COUNT(*) AS cnt FROM crm_bid_notices n
      WHERE ${ACTIVE_NOTICE_WHERE}
-       AND n.agency IS NOT NULL AND n.agency <> ''
-     GROUP BY n.agency ORDER BY cnt DESC`
+       AND COALESCE(NULLIF(n.agency_full, ''), n.agency) IS NOT NULL
+       AND COALESCE(NULLIF(n.agency_full, ''), n.agency) <> ''
+     GROUP BY agency ORDER BY cnt DESC`
   );
 
   // 3) 归一化去重
