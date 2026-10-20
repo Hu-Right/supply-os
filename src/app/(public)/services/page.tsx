@@ -9,7 +9,8 @@ import PageClient from "./page-client";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: BROWSER_TITLE.zh,
+  // 只写页面名：网站名由根 layout 的 title.template 拼在首位
+  title: "供应链服务生态",
   description: "云境·国际采购平台服务生态：投标辅助、国际物流、产品认证、翻译服务等供应链相关服务，一站式对接专业服务商。",
   openGraph: {
     title: BROWSER_TITLE.zh,

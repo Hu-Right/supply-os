@@ -12,7 +12,8 @@ import PageClient from "./page-client";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: BROWSER_TITLE.zh,
+  // 只写页面名：网站名由根 layout 的 title.template 拼在首位
+  title: "供应商投标能力诊断",
   description: "云境·国际采购平台供应商投标能力诊断：10 个维度评估国际公共采购就绪度，出具等级与能力缺口清单。",
   openGraph: {
     title: BROWSER_TITLE.zh,

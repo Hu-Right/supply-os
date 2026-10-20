@@ -11,7 +11,8 @@ import PageClient from "./page-client";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: BROWSER_TITLE.zh,
+  // 只写页面名：网站名由根 layout 的 title.template 拼在首位
+  title: "国际采购研修班",
   description: "云境·国际采购平台研修班：国际公共采购实战培训，联合国采购流程、投标技巧、供应商管理，行业专家手把手教学。",
   openGraph: {
     title: BROWSER_TITLE.zh,

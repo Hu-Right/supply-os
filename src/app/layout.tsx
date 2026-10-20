@@ -13,6 +13,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { getLocaleDir } from "@/core/i18n/bundles";
+import { BROWSER_TITLE, BROWSER_TITLE_TEMPLATE } from "@/lib/i18n/metadata";
 import { SITE_URL, absoluteUrl } from "@/lib/services/seo/site";
 import Providers from "./providers";
 
@@ -21,7 +22,14 @@ export const metadata: Metadata = {
   // 不设时 Next 会回落到 http://localhost:3039，分享卡片的 og:image 全部失效。
   // SITE_URL 是全站域名单一事实源（src/lib/services/seo/site.ts）。
   metadataBase: new URL(SITE_URL),
-  title: "云境·国际采购平台 | 云境OS | OS",
+  // 审核口径：浏览器标签页标题「网站名在前」，全站每个页面都成立。
+  //   default  —— 未声明页面名的段（首页与各大入口页）用三段式全站品牌标题；
+  //   template —— 子页面只写页面名，Next 自动拼成「云境·国际采购平台 | 页面名」。
+  // 两者均来自单一事实源 src/lib/i18n/metadata.ts，不得在页面里重复拼网站名。
+  title: {
+    default: BROWSER_TITLE.zh,
+    template: BROWSER_TITLE_TEMPLATE,
+  },
   description: "云境·国际采购平台：联合国及全球政府采购公告搜索、供应商目录、CRM 客户管理、投标服务、学习培训一站式平台。助力中国企业连接全球采购机遇。",
   keywords: ["云境", "国际采购", "政府采购", "联合国采购", "供应商管理", "招标", "投标", "CRM", "海外展厅", "UN procurement", "global sourcing"],
   alternates: {
