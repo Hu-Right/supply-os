@@ -8,8 +8,8 @@
  *
  * 选择器约定：
  *   - 页面识别使用「内容锚点」（标志性 heading/控件）而非 document.title——
- *     全站浏览器标题为统一的 BROWSER_TITLE 三段式品牌标题（src/lib/i18n/metadata.ts），
- *     不携带页面级语义；
+ *     浏览器标题统一为「网站名 | 页面名」（网站名固定在前，见 src/lib/i18n/metadata.ts），
+ *     入口页只有三段式品牌标题，两者都不足以稳定区分页面；
  *   - 控件定位使用 role + 可访问名（Playwright 最佳实践），
  *     不依赖 input[type] / data-testid 等实现细节，且不受渲染语言外的属性影响。
  *
