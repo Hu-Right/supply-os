@@ -7,10 +7,10 @@
  * 本文件钉住三件事：
  * ① 法语值归到正确桶（含重音/弯引号变体与幂等）；
  * ② 原有英/西/中值行为零变化；
- * ③ **两层一致性的适用边界**：同一原值在 lib（std 码）与 shared（i18n 键）给出同结论；
- *    但「同时含两种类型关键词的复合值」两层规则顺序本就不同（EOI 优先 vs ITB 优先），
- *    属本次改动之前就存在的分叉，此处如实钉住现状并标注，不静默"修正"——
- *    任一侧改序都会重桶化现网存量数据，须单独走口径变更评审。
+ * ③ **两层口径已收敛为单一归一器**：shared 的 noticeTypeKey 现直接委托 lib 的
+ *    normalizeNoticeType（std 码），二者对任意原值恒同结论——历史上 shared 自带第二套
+ *    正则导致的复合值分叉（EOI 优先 vs ITB 优先、SERVICES/SUPPLIES/WORKS 缺子串规则）
+ *    已随「一处归一、其余查表」消除，std 码优先级以 lib 为唯一真相。
  */
 import { describe, it, expect } from "vitest";
 
@@ -105,22 +105,126 @@ describe("两层口径一致性 · 单一类型关键词的常规值", () => {
   });
 });
 
-describe("已知分叉（本次改动前即存在，如实钉住，改序须单独评审）", () => {
-  it("复合值：lib 把 EOI 放最前，shared 把 ITB 放在 EOI 之前 → 同值不同桶", () => {
+describe("两层口径已收敛 · 复合值现恒同结论（单一归一器，lib 优先级为准）", () => {
+  it("复合值：lib 把 EOI 放最前 → shared 亦落 EOI（不再 ITB）", () => {
     const raw = "Manifestation d'intérêt pour appel d'offres";
     expect(normalizeNoticeType(raw)).toBe("EOI");
-    expect(noticeTypeKey(raw)).toBe("procurement_type_itb");
+    expect(noticeTypeKey(raw)).toBe("procurement_type_eoi");
   });
 
-  it("复合值：「投标邀请书(ITB)-框架协议」lib 落 FRAMEWORK、shared 落 ITB", () => {
+  it("复合值：「投标邀请书(ITB)-框架协议」两层均落 FRAMEWORK（framework 先于 itb）", () => {
     const raw = "投标邀请书(ITB)-框架协议";
     expect(normalizeNoticeType(raw)).toBe("FRAMEWORK");
-    expect(noticeTypeKey(raw)).toBe("procurement_type_itb");
+    expect(noticeTypeKey(raw)).toBe("procurement_type_framework");
   });
 
-  it("西/葡语合同分类：lib 有 WORKS/SERVICES 规则，shared 无对应子串规则（返回 null 由调用方原样回退）", () => {
+  it("西/葡语合同分类：shared 不再依赖自带子串规则，改由 std 码查表命中（不再返回 null）", () => {
     expect(normalizeNoticeType("Obras de construcción")).toBe("WORKS");
-    expect(noticeTypeKey("Obras de construcción")).toBeNull();
+    expect(noticeTypeKey("Obras de construcción")).toBe("procurement_type_works");
     expect(noticeTypeKey("WORKS")).toBe("procurement_type_works");
+  });
+});
+
+describe("OTHER 长尾覆盖 · A 类（分类完备性补齐，探针实测高频值）", () => {
+  it("Avis de marché（法语 EU 合同通知）归 CONTRACT_NOTICE", () => {
+    expect(normalizeNoticeType("Avis de marché")).toBe("CONTRACT_NOTICE");
+    expect(noticeTypeKey("Avis de marché")).toBe("procurement_type_contract_notice");
+  });
+
+  it("Obras* 无空格连写归 WORKS（词边界放宽至词首）", () => {
+    expect(normalizeNoticeType("ObrasInstalación eléctrica")).toBe("WORKS");
+    expect(normalizeNoticeType("ObrasDemolición de inmuebles y movimientos de tierras")).toBe("WORKS");
+    expect(normalizeNoticeType("Obras de construcción")).toBe("WORKS"); // 既有不回归
+  });
+
+  it("RFT→ITB、ITQ→RFQ（招标/报价缩写码）", () => {
+    expect(normalizeNoticeType("RFT")).toBe("ITB");
+    expect(normalizeNoticeType("ITQ")).toBe("RFQ");
+  });
+
+  it("Open procedure / Two-stage Tendering → ITB", () => {
+    expect(normalizeNoticeType("Open procedure")).toBe("ITB");
+    expect(normalizeNoticeType("Two-stage Tendering")).toBe("ITB");
+  });
+
+  it("Invitation to Qualify → PQ", () => {
+    expect(normalizeNoticeType("Invitation to Qualify")).toBe("PQ");
+  });
+
+  it("Sole/Single source / Directed Contract → DIRECT_CONTRACTING", () => {
+    expect(normalizeNoticeType("Sole source bidding")).toBe("DIRECT_CONTRACTING");
+    expect(normalizeNoticeType("Single source bidding")).toBe("DIRECT_CONTRACTING");
+    expect(normalizeNoticeType("Directed Contract")).toBe("DIRECT_CONTRACTING");
+  });
+
+  it("Procurement notice (goods) → SUPPLIES", () => {
+    expect(normalizeNoticeType("Procurement notice (goods)")).toBe("SUPPLIES");
+  });
+});
+
+describe("OTHER 长尾覆盖 · B 类（新增采购/通知形态 + 高频歧义并入）", () => {
+  it("世行顾问选择类：Individual / Firm / merit competition → IC", () => {
+    expect(normalizeNoticeType("Individual")).toBe("IC");
+    expect(normalizeNoticeType("Firm")).toBe("IC");
+    expect(normalizeNoticeType("Open merit competition (consultancy)")).toBe("IC");
+  });
+
+  it("事前/意向通知族 → PIN（不与已有 AWARD 争抢）", () => {
+    expect(normalizeNoticeType("Notice of Intent (BPS)")).toBe("PIN");
+    expect(normalizeNoticeType("NOI")).toBe("PIN");
+    expect(normalizeNoticeType("Advance Notice")).toBe("PIN");
+    expect(normalizeNoticeType("Voluntary Ex-Ante Transparency (EU)")).toBe("PIN");
+    // 回归：含 award 的预告仍走 AWARD（PIN 的 advance notice 不截胡）
+    expect(normalizeNoticeType("Advance Contract Award Notice")).toBe("AWARD");
+  });
+
+  it("竞价/拍卖 → 新桶 AUCTION", () => {
+    expect(normalizeNoticeType("Reverse auction (electronic)")).toBe("AUCTION");
+    expect(normalizeNoticeType("Timber Auction")).toBe("AUCTION");
+    expect(normalizeNoticeType("Abbreviated selection (reverse auction)")).toBe("AUCTION");
+    expect(noticeTypeKey("Reverse auction")).toBe("procurement_type_auction");
+  });
+
+  it("小额/最低价采购 → 新桶 LOW_VALUE", () => {
+    expect(normalizeNoticeType("Minimum value purchase")).toBe("LOW_VALUE");
+    expect(normalizeNoticeType("Abbreviated selection (lowest value)")).toBe("LOW_VALUE");
+  });
+
+  it("西语资产类合同 → 新桶 PATRIMONIAL", () => {
+    expect(normalizeNoticeType("PatrimonialConcesión demanial")).toBe("PATRIMONIAL");
+    expect(normalizeNoticeType("PatrimonialArrendamiento de inmuebles")).toBe("PATRIMONIAL");
+  });
+
+  it("更正/变更通知 → 新桶 AMENDMENT", () => {
+    expect(normalizeNoticeType("Announcement amendment")).toBe("AMENDMENT");
+    expect(normalizeNoticeType("Modification Notice (EU)")).toBe("AMENDMENT");
+    expect(normalizeNoticeType("Corrigendum (EU)")).toBe("AMENDMENT");
+    expect(normalizeNoticeType("Agreement Update Notice")).toBe("AMENDMENT");
+  });
+
+  it("比价/报价 → RFQ", () => {
+    expect(normalizeNoticeType("Price comparison")).toBe("RFQ");
+    expect(normalizeNoticeType("Request for Quote")).toBe("RFQ");
+  });
+
+  it("REQUEST 错桶修正：Request for Bid/Tender 应归 ITB（不再误落 REQUEST）", () => {
+    expect(normalizeNoticeType("Request for Bid(Open-Tender)")).toBe("ITB");
+    expect(normalizeNoticeType("Request for Tender")).toBe("ITB");
+    // 真·通用请求仍留 REQUEST
+    expect(normalizeNoticeType("Request for Submissions")).toBe("REQUEST");
+  });
+
+  it("新桶幂等且进入合法集（否则筛选白名单会拒）", () => {
+    for (const s of ["AUCTION", "LOW_VALUE", "PATRIMONIAL", "AMENDMENT"]) {
+      expect(normalizeNoticeType(s)).toBe(s);
+    }
+    expect(normalizeNoticeType("Timber Auction")).toBe("AUCTION");
+  });
+
+  it("C 轮：Special Notice（美国 SAM 预招标/意向伞类）→ PIN", () => {
+    expect(normalizeNoticeType("Special Notice")).toBe("PIN");
+    expect(noticeTypeKey("Special Notice")).toBe("procurement_type_pin");
+    // 不误伤同为 special 开头但语义不同的值
+    expect(normalizeNoticeType("Special regime contracting")).toBe("OTHER");
   });
 });
