@@ -12,7 +12,7 @@
  *              依赖图：仅依赖 mysql2 类型，与 agency/alias-store 平级、互不引用。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { cleanCountryRaw } from "../../data/countryNames";
+import { cleanCountryRaw } from "./clean";
 
 export type CountryKind = "country" | "region" | "invalid";
 export interface CountryAliasEntry {

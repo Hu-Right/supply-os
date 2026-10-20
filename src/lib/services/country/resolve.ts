@@ -7,7 +7,7 @@
  *              多国串按 "," / " - " 拆段，逐段查表；≥2 段命中国家 → 多国，否则视为不可
  *              置信解析（多半是 "国家, 区域" 这类未整串入表的情况）→ unresolved。
  */
-import { cleanCountryRaw } from "../../data/countryNames";
+import { cleanCountryRaw } from "./clean";
 import { normalizeCountryKey } from "./alias-store";
 import type { CountryAliasSnapshot, CountryAliasEntry } from "./alias-store";
 

@@ -7,7 +7,8 @@ import { Supplier } from "../types/supplier";
 import type { SupplierDirectoryRow } from "../repos/suppliers";
 import type { SupplierIndustryInfo } from "./industry-labels";
 import { maskPhone, maskEmail, splitListField } from "../utils/mask";
-import { getCountryDisplayName, getCountryEnglishName } from "../data/countryNames";
+import { primaryCountryOf } from "./country/resolve";
+import type { CountryAliasSnapshot } from "./country/alias-store";
 
 // ── 资料完整度 ─
 // 统一口径：直接取 supplier.data_quality_score（DB 生成列，20 字段非空各计 5 分），
@@ -35,6 +36,7 @@ const COMPANY_TYPE_BY_CODE: Partial<Record<string, "factory" | "trader">> = {
 export function mapSupplierRow(
   row: SupplierDirectoryRow,
   industry?: SupplierIndustryInfo | null,
+  snap?: CountryAliasSnapshot,
 ): Supplier {
   const industryText = splitListField(row.products)[0] || "其他";
   const standard = industry?.primary ?? null;
@@ -47,6 +49,9 @@ export function mapSupplierRow(
   // supplier.business_type 存经营类型（如 foreign），国内/国际改由 country_code 判定（与目录筛选一致）
   const isInternational = Boolean(row.country_code) && row.country_code !== "CN";
   const countryRaw = String(row.country || "").trim();
+  const countryKey = countryRaw || "China";
+  // 国家展示走表（crm_country_aliases）：命中取 name_i18n.zh + canonical，未命中回原值（无静态字典兼底）。
+  const centry = snap ? primaryCountryOf(countryKey, snap) : undefined;
   return {
     id: `sup-db-${row.id}`,
     nameZh: companyName,
@@ -59,9 +64,9 @@ export function mapSupplierRow(
     industryPathZh: standard ? industry?.pathZh : undefined,
     industryPathEn: standard ? industry?.pathEn : undefined,
     industryTags: standard ? industry?.tags : undefined,
-    // supplier.country 存英文名，中文环境经 getCountryDisplayName 转中文展示
-    countryZh: getCountryDisplayName(countryRaw || "China", "zh"),
-    countryEn: getCountryEnglishName(countryRaw) || "China",
+    // supplier.country 展示统一走表解析（与归一同一入口）
+    countryZh: centry?.zh || centry?.canonical || countryKey,
+    countryEn: centry?.canonical || countryKey,
     cityZh,
     cityEn: cityZh,
     mainProductsZh: productsZh,

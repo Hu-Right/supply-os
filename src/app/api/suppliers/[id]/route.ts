@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { mapSupplierRow } from "@/lib/services/suppliers";
+import { loadCountryAliasSnapshot, type CountryAliasSnapshot } from "@/lib/services/country/alias-store";
 import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
 import type { SupplierIndustryInfo } from "@/lib/services/industry-labels";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
@@ -50,7 +51,14 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       console.error("[suppliers/:id GET] 行业面标签装配失败，本次退回自填文本:", err);
     }
 
-    return NextResponse.json({ ...mapSupplierRow(row, industry), claimed });
+    let snap: CountryAliasSnapshot | undefined;
+    try {
+      snap = await loadCountryAliasSnapshot(ctx.dbPool);
+    } catch (err) {
+      console.error("[suppliers/:id GET] 国家展示快照加载失败，本次退回原文:", err);
+    }
+
+    return NextResponse.json({ ...mapSupplierRow(row, industry, snap), claimed });
   } catch (err) {
     console.error("[suppliers/:id GET]", err);
     routeError(500, EC_INTERNAL_ERROR, "查询供应商失败");

@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { mapSupplierRow } from "@/lib/services/suppliers";
+import { loadCountryAliasSnapshot, type CountryAliasSnapshot } from "@/lib/services/country/alias-store";
 import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
 import type { SupplierIndustryInfo } from "@/lib/services/industry-labels";
 import { resolveIndustryKeywordCodes } from "@/lib/services/industry-facets";
@@ -40,7 +41,14 @@ async function mapSupplierItems(
     // 字典层故障必须报出来（否则整站默默退回旧文本而无人知道），但不阻断目录
     console.error("[suppliers GET] 行业面标签装配失败，本次退回自填文本:", err);
   }
-  return rows.map((row) => mapSupplierRow(row, industryById.get(Number(row.id)) ?? null));
+  let snap: CountryAliasSnapshot | undefined;
+  try {
+    snap = await loadCountryAliasSnapshot(getContext().dbPool);
+  } catch (err) {
+    // 表快照拉不到 → 本次退回原文（不阻断目录）；展示仍不回落静态字典
+    console.error("[suppliers GET] 国家展示快照加载失败，本次退回原文:", err);
+  }
+  return rows.map((row) => mapSupplierRow(row, industryById.get(Number(row.id)) ?? null, snap));
 }
 
 export const GET = withRoute(async (req: NextRequest) => {

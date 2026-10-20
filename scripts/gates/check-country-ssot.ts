@@ -8,7 +8,7 @@
  * 用法：npx tsx scripts/gates/check-country-ssot.ts
  * @limits 只读。口径与 scripts/ops/country-codes-backfill.ts 完全一致（同一 resolveCountries + 同清洗键）。
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import mysql from "mysql2/promise";
 import { ACTIVE_NOTICE_WHERE } from "../../src/lib/utils/notice-expired";
 import { loadCountryAliasSnapshot } from "../../src/lib/services/country/alias-store";
@@ -32,6 +32,17 @@ const conn = await mysql.createConnection({
 });
 
 const q = async <T>(sql: string): Promise<T[]> => ((await conn.query(sql)) as unknown as [T[]])[0];
+
+/** 递归收集 src 下 .ts/.tsx 源文件（正斜杠路径，跨平台一致）。 */
+function walk(dir: string): string[] {
+  const acc: string[] = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = `${dir}/${e.name}`;
+    if (e.isDirectory()) acc.push(...walk(p));
+    else if (/\.tsx?$/.test(e.name)) acc.push(p);
+  }
+  return acc;
+}
 
 try {
   await conn.query(`SET SESSION MAX_EXECUTION_TIME = ${MAX_EXEC_MS}`);
@@ -73,8 +84,25 @@ try {
     }
   }
 
+  // CS3 展示旁路锁定：src 不得从静态字典 lib/data/countryNames 引入展示函数
+  //   （客户端 @/shared/data/countryNames 是表驱动运行时入口，放行；agency-i18n 引数据 map 非展示函数，放行）
+  const displayFnRe = /\b(getCountryDisplayName|getCountryEnglishName)\b/;
+  const staticImportRe = /from\s+["'][^"']*data\/countryNames["']/;
+  const bypass: string[] = [];
+  for (const f of walk("src")) {
+    if (f.endsWith("lib/data/countryNames.ts")) continue; // 定义处
+    const text = readFileSync(f, "utf8");
+    for (const line of text.split(/\r?\n/)) {
+      if (!staticImportRe.test(line) || !displayFnRe.test(line)) continue;
+      if (line.includes("shared/data/countryNames")) continue; // 客户端表驱动入口
+      bypass.push(`${f}: ${line.trim()}`);
+    }
+  }
+
   if (gaps > 0) fails.push(`CS1 表缺口 ${gaps} 条（样例：${gapSample.join(" ; ")}）⇒ 需补 crm_country_aliases`);
   if (drift > 0) fails.push(`CS2 country_codes 与表现算不一致 ${drift} 行（样例：${driftSample.join(" ; ")}）⇒ 复跑 country-codes-backfill --apply`);
+
+  if (bypass.length) fails.push(`CS3 展示旁路：src 从静态字典 lib/data 引入展示函数\n    ${bypass.join("\n    ")}\n    ⇒ 展示须走 /api/catalog/country-name-map（表）或 country/resolve`);
 
   console.log(`别名表快照：${snap.byKey.size} 键 · 写法 ${writings.length} 种 · 分布 ${dist.length} 组`);
   if (fails.length) {
@@ -82,7 +110,7 @@ try {
     console.error("✗ 国家 SSOT 门禁未通过");
     process.exit(1);
   }
-  console.log("✓ 国家 SSOT 门禁通过（CS1 零表缺口 / CS2 country_codes 与表现算逐写法一致）");
+  console.log("✓ 国家 SSOT 门禁通过（CS1 零表缺口 / CS2 country_codes 与表现算逐写法一致 / CS3 展示无静态旁路）");
 } finally {
   await conn.end();
 }
