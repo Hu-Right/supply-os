@@ -4,25 +4,15 @@
  * @module features/procurement/components/advanced-search/constants
  */
 import type { TermMode } from "@/shared/utils/advanced-syntax";
+import { NOTICE_TYPE_FILTER_OPTIONS } from "@/shared/utils/notice-type";
 
-/** 公告类型选项（复用现有 notice_type 归一化体系，标签显示为"采购方式"） */
-export const NOTICE_TYPE_OPTIONS = [
-  { value: "", labelKey: "procurement_noticeTypeAll" as const },
-  { value: "ITB", labelKey: "procurement_type_itb" as const },
-  { value: "RFQ", labelKey: "procurement_type_rfq" as const },
-  { value: "RFP", labelKey: "procurement_type_rfp" as const },
-  { value: "EOI", labelKey: "procurement_type_eoi" as const },
-  { value: "PQ", labelKey: "procurement_type_prequalification" as const },
-  { value: "AWARD", labelKey: "procurement_type_contract_award" as const },
-  { value: "GPN", labelKey: "procurement_type_gpn" as const },
-  { value: "RFI", labelKey: "procurement_type_rfi" as const },
-  { value: "COMPETITIVE", labelKey: "procurement_type_competitive" as const },
-  { value: "FRAMEWORK", labelKey: "procurement_type_framework" as const },
-  { value: "DIRECT", labelKey: "procurement_type_direct_contracting" as const },
-  { value: "RESTRICTED", labelKey: "procurement_type_restricted" as const },
-  { value: "PIN", labelKey: "procurement_type_pin" as const },
-  { value: "PMC", labelKey: "procurement_type_pmc" as const },
-];
+/**
+ * 公告类型选项（复用现有 notice_type 归一化体系，标签显示为"采购方式"）。
+ * 唯一数据源：由 shared/utils/notice-type 的 NOTICE_TYPE_FILTER_OPTIONS 派生，
+ * 值取自标准码、标签取自 CODE_TO_LOCALE_KEY，杜绝手写枚举与归一化体系漂移
+ *（如旧值 "DIRECT" 非标准码、归一化落 OTHER 致筛选静默失效，现为 "DIRECT_CONTRACTING"）。
+ */
+export const NOTICE_TYPE_OPTIONS = NOTICE_TYPE_FILTER_OPTIONS;
 
 /** chip 点击时的模式循环：包含 → 排除 → 精确短语（非「包含」受 advanced_keyword_search 门控） */
 export const MODE_CYCLE: TermMode[] = ["include", "exclude", "phrase"];

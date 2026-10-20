@@ -1,29 +1,28 @@
 /**
- * Notice type normalization — 跨 feature 公共工具
- * Notice type normalization — shared utility
+ * Notice type 展示层 — i18n 键映射 + 前端筛选枚举（SSOT·展示层）
+ * Notice type presentation layer — i18n mapping + filter enumeration
  *
  * @module shared/utils/notice-type
- * @description 将数据库 notice_type 的原始值（英文枚举/中文/中英混排长文本）
- *              归一化为 i18n 键，未命中的长尾脏值返回 null 由调用方原样回退。
- *              从 features/procurement/notice-type.ts 提升至 shared 层，
- *              消除 home→procurement 跨 feature 依赖（A3 解耦）。
+ * @description 归一化「逻辑」已收敛至 shared/constants/notice-type 的唯一 normalizeNoticeType。
+ *              本文件不再自带第二套正则，只负责把标准码映射为 i18n 键、并派生前端筛选枚举，
+ *              实现「单一数据源驱动展示」。
+ *              未识别的长尾脏值仍返回 null，交由调用方原样回退（不硬塞"其他"、不假装命中）。
  */
 import type { LocaleKey } from "@/core/i18n";
+import { NOTICE_TYPE_CODES, normalizeNoticeType, type NoticeTypeStdCode } from "@/shared/constants/notice-type";
 
-// 短代码精确匹配（大小写不敏感）
-const CODE_MAP: Record<string, LocaleKey> = {
+// 标准短代码 → i18n 键（唯一映射表，键集与 NOTICE_TYPE_CODES 一一对应）。
+// 注意：原始别名（ITT/PRE/AO/AOI…）不在此表——它们先经 normalizeNoticeType 收敛为 std 码，
+// 再落到此处，杜绝别名与正码两张表各自维护导致的漂移。
+export const CODE_TO_LOCALE_KEY: Record<NoticeTypeStdCode, LocaleKey> = {
   ITB: "procurement_type_itb",
-  ITT: "procurement_type_itb",
   RFQ: "procurement_type_rfq",
   RFP: "procurement_type_rfp",
   EOI: "procurement_type_eoi",
   PQ: "procurement_type_prequalification",
-  PRE: "procurement_type_prequalification",
   IC: "procurement_type_consultant",
   RFI: "procurement_type_rfi",
   GPN: "procurement_type_gpn",
-  OTHER: "procurement_type_other",
-  // 服务端扩展标准代码（normalizeNoticeType 升级后输出的新 std 值）
   AWARD: "procurement_type_contract_award",
   CONTRACT_NOTICE: "procurement_type_contract_notice",
   COMPETITIVE: "procurement_type_competitive",
@@ -34,7 +33,6 @@ const CODE_MAP: Record<string, LocaleKey> = {
   SERVICES: "procurement_type_services",
   SUPPLIES: "procurement_type_supplies",
   WORKS: "procurement_type_works",
-  // 新增扩展类型（与 normalizeNoticeType 全量对齐）
   MULTI_USE_LIST: "procurement_type_multi_use_list",
   DIALOGUE: "procurement_type_dialogue",
   DPS: "procurement_type_dps",
@@ -47,86 +45,50 @@ const CODE_MAP: Record<string, LocaleKey> = {
   FRAMEWORK: "procurement_type_framework",
   DIRECT_CONTRACTING: "procurement_type_direct_contracting",
   REQUEST: "procurement_type_request",
-  // 法语原生短代码（与 lib/utils/notice-type 的 SHORT_CODES 同步）
-  AO: "procurement_type_itb",
-  AOI: "procurement_type_itb",
-  AOD: "procurement_type_itb",
-  AOM: "procurement_type_itb",
+  // B 轮新增采购/通知形态
+  AUCTION: "procurement_type_auction",
+  LOW_VALUE: "procurement_type_low_value",
+  PATRIMONIAL: "procurement_type_patrimonial",
+  AMENDMENT: "procurement_type_amendment",
+  OTHER: "procurement_type_other",
 };
 
-// 子串规则按优先级排列：
-// ITB 先于 EOI（"投标邀请书(ITB)-框架协议"含"意向表达"但应归 ITB），
-// ITB 先于 request（"Request for Bid(Open-Tender)"应归 ITB 而非 request），
-// framework 先于 EOI（含"框架协议"的 ITB 文本不被"意向表达"误匹配），
-// EOI 先于资格预审（"意向表达…预审阶段"归 EOI），
-// RFQ/RFP/资格预审先于 ITB（"报价请求…重新招标"归 RFQ）
-const PATTERN_RULES: Array<[LocaleKey, RegExp]> = [
-  ["procurement_type_rfq", /quotation|报价|询价|demande\s+de\s+cotation|demande\s+de\s+prix/],
-  ["procurement_type_rfp", /\brfp\b|proposal|提案|建议书|demande\s+de\s+propositions/],
-  ["procurement_type_prequalification", /pre[\s-]?qualif|qualification|资格预审/],
-  ["procurement_type_consultant", /consultant|顾问/],
-  ["procurement_type_rfi", /request for information|信息征询/],
-  ["procurement_type_gpn", /general procurement notice/],
-  ["procurement_type_contract_award", /contract award|award notice|授标|中标|attribution\s+du\s+marche|avis\s+dattribution/],
-  // 长尾采购类型：多供应商清单 / 框架协议 / 直接 contracting / 供应商名单
-  ["procurement_type_multi_use_list", /multi[\s-]?use list|qualified supplier|vendor list|供应商名单|多用途清单/],
-  // 竞争性对话（EU Competitive Dialogue）- 必须在 competitive 之前，避免 "competitive dialogue" 被误匹配
-  ["procurement_type_dialogue", /competitive dialogue|dialogue|竞争性对话/],
-  // 竞争性公开招标（EU/国际公共采购常见类型）
-  ["procurement_type_competitive", /competitive|open bidding|竞争性|公开招标/],
-  // EU/National 门槛程序（EU public procurement threshold procedures）
-  ["procurement_type_threshold", /threshold procedures|threshold procedure|门槛程序|阈值程序/],
-  // 初步市场咨询（Preliminary Market Consultation / PMC）
-  ["procurement_type_pmc", /preliminary market consultation|\bpmc\b|初步市场咨询|事前市场咨询/],
-  // 限制性程序（EU Restricted Procedure）
-  ["procurement_type_restricted", /restricted procedure|restricted|限制性程序|限制程序/],
-  // 谈判程序（EU Negotiated Procedure）
-  ["procurement_type_negotiated", /negotiated procedure|negotiated|谈判程序/],
-  // 创新合作伙伴关系（EU Innovation Partnership）
-  ["procurement_type_innovation", /innovation partnership|innovation|创新合作伙伴|创新伙伴关系/],
-  // 动态采购系统（EU Dynamic Purchasing System / DPS）
-  ["procurement_type_dps", /dynamic purchasing system|\bdps\b|动态采购系统/],
-  // 设计竞赛（EU Design Contest）
-  ["procurement_type_design_contest", /design contest|design competition|设计竞赛|设计比赛/],
-  // 事前信息通知（Prior Information Notice / PIN）
-  ["procurement_type_pin", /prior information notice|\bpin\b|事前信息通知|预先信息通知/],
-  // 分包通知（Subcontract Notice）- 必须在 contract_notice 之前，避免 "subcontract notice" 被误匹配
-  ["procurement_type_subcontract", /subcontract|sub-contract|分包通知|分包公告/],
-  // 合同通知（Contract Notice）
-  ["procurement_type_contract_notice", /contract notice|合同通知|合同公告/],
-  // 资格系统（Qualification System）
-  ["procurement_type_qualification_system", /qualification system|资格系统/],
-  // 短名单（Shortlist）
-  ["procurement_type_shortlist", /shortlist|short list|短名单/],
-  // ITB 提前至 framework/EOI/request 之前：避免 "Request for Bid" 被 request 误匹配、
-  // "投标邀请书(ITB)-框架协议" 被 framework("框架协议") 或 EOI("意向表达") 误匹配
-  ["procurement_type_itb", /\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标|appels?\s+doffres|avis\s+dappel/],
-  ["procurement_type_framework", /framework agreement|framework|standing offer|框架协议/],
-  ["procurement_type_direct_contracting", /direct contract|direct procurement|直接合同|直接采购/],
-  ["procurement_type_eoi", /expression of interest|express of interest|意向表达|意向征集|\beoi\b|manifestation\s+dinteret/],
-  ["procurement_type_request", /request for(?! information)|征询请求|采购请求/],
-  ["procurement_type_other", /\bother\b|其他/],
-];
-
+/**
+ * 将数据库 notice_type 的原始值映射为 i18n 键。
+ * 逻辑完全委托唯一归一器 normalizeNoticeType，本函数只做「std 码 → LocaleKey」查表。
+ *
+ * 边界：normalizeNoticeType 对「空值」与「无法识别的长尾脏值」都返回 "OTHER"（其他桶）。
+ * 展示层须区分二者——
+ *  - 原值字面就是 "OTHER" 码 → 归 i18n「其他」；
+ *  - "OTHER" 是兜底产物（原值不认识/为空）→ 返回 null，让徽章回退原文，
+ *    避免把长尾脏值一律误标为"其他"（保持既有 null 契约与 UX）。
+ */
 export function noticeTypeKey(raw: string | undefined | null): LocaleKey | null {
   if (!raw) return null;
   const trimmed = raw.trim();
   if (!trimmed) return null;
 
-  const exact = CODE_MAP[trimmed.toUpperCase()];
-  if (exact) return exact;
-
-  // 归一化：小写 + 下划线/连字符/括号等转空格，让 \b 边界对 snake_case 生效
-  // 重音与撇号剥离与 lib/utils/notice-type 保持同款（法语原生值不剥即落 OTHER 兜底）
-  const normalized = trimmed
-    .toLowerCase()
-    .replace(/[_\-–—()（）./\\]/g, " ")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\u2019\u02bc']/g, "")
-    .replace(/\s+/g, " ");
-  for (const [key, pattern] of PATTERN_RULES) {
-    if (pattern.test(normalized)) return key;
-  }
-  return null;
+  const std = normalizeNoticeType(trimmed);
+  if (std === "OTHER" && trimmed.toUpperCase() !== "OTHER") return null;
+  return CODE_TO_LOCALE_KEY[std as NoticeTypeStdCode] ?? null;
 }
+
+/**
+ * 高级搜索「采购方式」筛选下拉的唯一数据源。
+ * 由 std 码枚举派生标签键，杜绝此前手写 { value, labelKey } 与归一化体系漂移
+ *（如旧值 "DIRECT" 并非标准码、normalizeNoticeType 实际落 OTHER，导致筛选静默失效）。
+ * 仅暴露主流形态子集；如需全量类型，直接 map(NOTICE_TYPE_CODES) 即可，口径已在唯一源收敛。
+ */
+const FILTERABLE_NOTICE_TYPE_CODES: NoticeTypeStdCode[] = [
+  "ITB", "RFQ", "RFP", "EOI", "PQ",
+  "AWARD", "GPN", "RFI",
+  "COMPETITIVE", "FRAMEWORK", "DIRECT_CONTRACTING", "RESTRICTED", "PIN", "PMC",
+];
+
+export const NOTICE_TYPE_FILTER_OPTIONS: Array<{ value: string; labelKey: LocaleKey }> = [
+  { value: "", labelKey: "procurement_noticeTypeAll" },
+  ...FILTERABLE_NOTICE_TYPE_CODES.map((code) => ({ value: code, labelKey: CODE_TO_LOCALE_KEY[code] })),
+];
+
+// 供跨端复用（如测试校验枚举覆盖）：标准码全集来自唯一逻辑源。
+export { NOTICE_TYPE_CODES };
