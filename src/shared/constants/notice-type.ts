@@ -19,7 +19,7 @@
 /** 标准短代码全集（有序）；CODE_TO_LOCALE_KEY 与筛选枚举均以此为准，新增类型只改这里 + 映射表。 */
 export const NOTICE_TYPE_CODES = [
   "ITB", "RFQ", "RFP", "EOI", "PQ", "IC", "RFI", "GPN", "AWARD",
-  "CONTRACT_NOTICE", "COMPETITIVE", "THRESHOLD", "PIN", "PMC", "NEGOTIATED",
+  "CONTRACT_NOTICE", "COMPETITIVE", "THRESHOLD", "PIN", "PMC", "NEGOTIATED", "SPECIAL_REGIME",
   "SERVICES", "SUPPLIES", "WORKS", "MULTI_USE_LIST", "DIALOGUE", "DPS",
   "DESIGN_CONTEST", "INNOVATION", "RESTRICTED", "SUBCONTRACT", "QUAL_SYSTEM",
   "SHORTLIST", "FRAMEWORK", "DIRECT_CONTRACTING", "REQUEST",
@@ -50,7 +50,7 @@ const SHORT_CODES: Record<string, string> = {
   INNOVATION: "INNOVATION", RESTRICTED: "RESTRICTED",
   SUBCONTRACT: "SUBCONTRACT", QUAL_SYSTEM: "QUAL_SYSTEM",
   SHORTLIST: "SHORTLIST", FRAMEWORK: "FRAMEWORK",
-  DIRECT_CONTRACTING: "DIRECT_CONTRACTING", REQUEST: "REQUEST",
+  DIRECT_CONTRACTING: "DIRECT_CONTRACTING", REQUEST: "REQUEST", SPECIAL_REGIME: "SPECIAL_REGIME",
   // B 轮新增（幂等自映射，保证 std 码再归一不漂移）
   AUCTION: "AUCTION", LOW_VALUE: "LOW_VALUE", PATRIMONIAL: "PATRIMONIAL", AMENDMENT: "AMENDMENT",
   // 法语原生采购类型（UNGM / AfDB / 北非与西非公共采购的主流形态）：
@@ -91,6 +91,8 @@ const STD_PATTERN_RULES: Array<[NoticeTypeStdCode, RegExp]> = [
   ["DESIGN_CONTEST", /design contest|design competition|设计竞赛|设计比赛/i],
   ["INNOVATION", /innovation partnership|innovation|创新合作伙伴|创新伙伴关系/i],
   ["RESTRICTED", /restricted procedure|restricted|限制性程序|限制程序/i],
+  // 特别/例外程序（EU/西语特别体制：Special regime contracting / Exceptional procedure / Régimen especial）
+  ["SPECIAL_REGIME", /special regime|exceptional procedure|regimen especial|regime special|procedimiento excepcional|administrativo especial|contratacion especial/i],
   ["NEGOTIATED", /negotiated procedure|negotiated|谈判程序|谈判采购/i],
   ["THRESHOLD", /\bthreshold\b|threshold procedures|门槛程序|阈值程序/i],
   // 分包通知（Subcontract Notice）— 须在 contract_notice 之前

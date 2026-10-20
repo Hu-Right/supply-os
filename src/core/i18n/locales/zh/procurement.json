@@ -119,6 +119,7 @@
   "procurement_type_pmc": "初步市场咨询（PMC）",
   "procurement_type_restricted": "限制性程序（RP）",
   "procurement_type_negotiated": "谈判程序（NP）",
+  "procurement_type_special_regime": "特别程序（SR）",
   "procurement_type_dialogue": "竞争性对话（CD）",
   "procurement_type_innovation": "创新合作伙伴关系（IP）",
   "procurement_type_dps": "动态采购系统（DPS）",

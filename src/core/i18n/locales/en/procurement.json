@@ -119,6 +119,7 @@
   "procurement_type_pmc": "Preliminary Market Consultation (PMC)",
   "procurement_type_restricted": "Restricted Procedure (RP)",
   "procurement_type_negotiated": "Negotiated Procedure (NP)",
+  "procurement_type_special_regime": "Special Regime Procedure (SR)",
   "procurement_type_dialogue": "Competitive Dialogue (CD)",
   "procurement_type_innovation": "Innovation Partnership (IP)",
   "procurement_type_dps": "Dynamic Purchasing System (DPS)",

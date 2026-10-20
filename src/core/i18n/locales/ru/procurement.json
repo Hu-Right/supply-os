@@ -119,6 +119,7 @@
   "procurement_type_pmc": "Предварительная консультация рынка (ПКК)",
   "procurement_type_restricted": "Ограниченная процедура",
   "procurement_type_negotiated": "Переговорная процедура",
+  "procurement_type_special_regime": "Особый режим / исключительная процедура",
   "procurement_type_dialogue": "Конкурентный диалог",
   "procurement_type_innovation": "Инновационное партнёрство",
   "procurement_type_dps": "Динамическая система закупок (ДСЗ)",

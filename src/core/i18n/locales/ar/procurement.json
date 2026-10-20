@@ -119,6 +119,7 @@
   "procurement_type_pmc": "استشارة السوق الأولية (PMC)",
   "procurement_type_restricted": "الإجراء المقيد",
   "procurement_type_negotiated": "الإجراء التفاوضي",
+  "procurement_type_special_regime": "نظام خاص / إجراء استثنائي",
   "procurement_type_dialogue": "الحوار التنافسي",
   "procurement_type_innovation": "شراكة الابتكار",
   "procurement_type_dps": "نظام الشراء الديناميكي (DPS)",

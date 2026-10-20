@@ -224,7 +224,26 @@ describe("OTHER 长尾覆盖 · B 类（新增采购/通知形态 + 高频歧义
   it("C 轮：Special Notice（美国 SAM 预招标/意向伞类）→ PIN", () => {
     expect(normalizeNoticeType("Special Notice")).toBe("PIN");
     expect(noticeTypeKey("Special Notice")).toBe("procurement_type_pin");
-    // 不误伤同为 special 开头但语义不同的值
-    expect(normalizeNoticeType("Special regime contracting")).toBe("OTHER");
+    // Special regime 另入 SPECIAL_REGIME（A 轮提质：不再误留 OTHER）
+    expect(normalizeNoticeType("Special regime contracting")).toBe("SPECIAL_REGIME");
+  });
+});
+
+describe("特别/例外程序 → SPECIAL_REGIME（A 轮提质：把 OTHER 里的真类型提出来）", () => {
+  it("Special regime / Exceptional procedure / 西语特别体制 → SPECIAL_REGIME", () => {
+    expect(normalizeNoticeType("Special regime contracting")).toBe("SPECIAL_REGIME");
+    expect(normalizeNoticeType("Exceptional procedure")).toBe("SPECIAL_REGIME");
+    expect(normalizeNoticeType("Administrativo especial")).toBe("SPECIAL_REGIME");
+    expect(normalizeNoticeType("Contratación especial")).toBe("SPECIAL_REGIME");
+    expect(noticeTypeKey("Special regime contracting")).toBe("procurement_type_special_regime");
+  });
+  it("幂等：SPECIAL_REGIME 再归一不漂移、且属合法类型", () => {
+    expect(normalizeNoticeType("SPECIAL_REGIME")).toBe("SPECIAL_REGIME");
+    expect(isKnownNoticeType("Exceptional procedure")).toBe(true);
+  });
+  it("不误伤同含 procedure 的既有桶（回归）", () => {
+    expect(normalizeNoticeType("Open procedure")).toBe("ITB");
+    expect(normalizeNoticeType("Negotiated procedure")).toBe("NEGOTIATED");
+    expect(normalizeNoticeType("Restricted procedure")).toBe("RESTRICTED");
   });
 });

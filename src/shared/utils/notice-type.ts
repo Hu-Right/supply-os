@@ -30,6 +30,7 @@ export const CODE_TO_LOCALE_KEY: Record<NoticeTypeStdCode, LocaleKey> = {
   PIN: "procurement_type_pin",
   PMC: "procurement_type_pmc",
   NEGOTIATED: "procurement_type_negotiated",
+  SPECIAL_REGIME: "procurement_type_special_regime",
   SERVICES: "procurement_type_services",
   SUPPLIES: "procurement_type_supplies",
   WORKS: "procurement_type_works",
