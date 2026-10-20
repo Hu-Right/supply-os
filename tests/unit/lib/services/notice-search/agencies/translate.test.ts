@@ -5,10 +5,18 @@ import { KNOWN_ACRONYMS } from "@/lib/data/agency-i18n/known-acronyms";
 import { __setCountryDisplaySnapshotForTest } from "@/lib/services/country/display";
 import type { CountryAliasEntry } from "@/lib/services/country/alias-store";
 
-// extractCountryFromName 的 ISO/ccTLD 回退已改走归一查表；单测注入含 BR 的最小快照。
+// extractCountryFromName 已改为表驱动（matchCountryZhInText + countryZhOf）；注入含常用国家的最小快照。
 beforeEach(() => {
-  const entry: CountryAliasEntry = { canonical: "Brazil", code: "BR", kind: "country", zh: "巴西" };
-  __setCountryDisplaySnapshotForTest({ byKey: new Map([["BR", entry]]), formsByCanonical: new Map() });
+  const mk = (canonical: string, zh: string): CountryAliasEntry => ({ canonical, code: null, kind: "country", zh });
+  __setCountryDisplaySnapshotForTest({
+    byKey: new Map([
+      ["BR", mk("Brazil", "巴西")],
+      ["BRAZIL", mk("Brazil", "巴西")],
+      ["CHINA", mk("China", "中国")],
+      ["JAPAN", mk("Japan", "日本")],
+    ]),
+    formsByCanonical: new Map(),
+  });
 });
 
 describe("needsTranslationFix", () => {
@@ -74,24 +82,9 @@ describe("extractCountryFromName", () => {
 });
 
 describe("translateByPattern — 平台代码占位 agency（2026-10-12 公告列表露码修复）", () => {
-  it("mercadopublico_cl → 智利公共采购网", () => {
-    const r = translateByPattern("mercadopublico_cl");
-    expect(r?.i18n.zh).toBe("智利公共采购网");
-    expect(r?.i18n.en).toBe("Mercado Público");
-  });
-
-  it("comprasestatales_uy → 乌拉圭国家采购局", () => {
-    expect(translateByPattern("comprasestatales_uy")?.i18n.zh).toBe("乌拉圭国家采购局");
-  });
-
-  it("eTenders / etenders_gov_za → 南非电子招标网（库内裸 eTenders 全为南非行）", () => {
-    expect(translateByPattern("eTenders")?.i18n.zh).toBe("南非电子招标网");
-    expect(translateByPattern("etenders_gov_za")?.i18n.zh).toBe("南非电子招标网");
-  });
-
-  it("SPAIN_PCSP / HUNGARY_EKR 等国家平台代码", () => {
-    expect(translateByPattern("SPAIN_PCSP")?.i18n.zh).toBe("西班牙公共采购平台");
-    expect(translateByPattern("HUNGARY_EKR")?.i18n.zh).toBe("匈牙利统一采购系统");
+  it("平台代码不再由机构模块命名（已收敛到 crm_platform_aliases）→ 原样回显", () => {
+    expect(translateByPattern("mercadopublico_cl")?.i18n.zh).toBe("mercadopublico_cl");
+    expect(translateByPattern("SPAIN_PCSP")?.i18n.zh).toBe("SPAIN_PCSP");
   });
 
   it("聚合键字面量（正则自匹配不到的）→ TYPE_PATTERNS 同名翻译", () => {

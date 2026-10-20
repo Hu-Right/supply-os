@@ -28,6 +28,37 @@ export function countryEnNames(): string[] {
   return _snap ? [..._snap.formsByCanonical.keys()] : [];
 }
 
+// ── 表驱动的「文本内国家名」识别（取代机构模块里残留的静态国家名词表）──
+// 吃 crm_country_aliases 全部别名形态（byKey，已归一大写无音符），仅取「字母+空格、长度≥4」的
+// 词形（跳过 ISO2/短码/含符号形态，避免 "BR" 之类误匹配），按长度降序做词边界匹配。
+let _phraseSrc: CountryAliasSnapshot | null = null;
+let _phraseList: { form: string; zh: string }[] = [];
+function ensurePhraseCache(): void {
+  if (_phraseSrc === _snap) return;
+  _phraseSrc = _snap;
+  const list: { form: string; zh: string }[] = [];
+  if (_snap) {
+    for (const [form, e] of _snap.byKey) {
+      if (!e.zh || !e.zh.trim()) continue;
+      if (!/^[A-Z][A-Z ]{3,}$/.test(form)) continue;
+      list.push({ form, zh: e.zh });
+    }
+  }
+  list.sort((a, b) => b.form.length - a.form.length);
+  _phraseList = list;
+}
+
+/** 从任意文本（如机构名）中识别国家 → 中文名；走表，快照未就绪/未命中 → null。 */
+export function matchCountryZhInText(name: string): string | null {
+  ensurePhraseCache();
+  const up = String(name ?? "").toUpperCase();
+  if (!up) return null;
+  for (const { form, zh } of _phraseList) {
+    if (new RegExp(`\\b${form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(up)) return zh;
+  }
+  return null;
+}
+
 /** 测试钩子：直接注入/清空快照（单元测试无 DB 时用）。 */
 export function __setCountryDisplaySnapshotForTest(s: CountryAliasSnapshot | null): void {
   _snap = s;

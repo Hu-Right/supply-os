@@ -128,46 +128,11 @@ export const KNOWN_ACRONYMS = new Map<string, PatternI18nResult>([
   ["BRB BANCO DE BRASILIA SA", { canonical: "BRB", i18n: { zh: "巴西利亚银行", fr: "BRB", ru: "БРБ Банк", es: "BRB", ar: "بنك برازيليا" } }],
 ]);
 
-// ── 采购平台代码（数据管道写入的占位 agency 值 → 平台本地化名）──
-// 上游管道在原始公告无买家字段时，会把来源平台代码直接写进 agency
-// （如 mercadopublico_cl / SPAIN_PCSP / FindATender）。这些值不是真实机构，
-// 在此统一给出平台展示名；zh 用与 shared/data/sourcePlatforms 注册表一致的中文名，
-// 其余语言回退平台官方简称，en 也给出可读名（formatItems 直接取 i18n[locale]）。
-// canonical 不改动原代码以外的归并（alias 表归 alias 管），仅 en 展示更可读。
-const PLATFORM_CODES: Array<[code: string, name: string, zh: string]> = [
-  ["MERCADOPUBLICO_CL", "Mercado Público", "智利公共采购网"],
-  ["COMPRASESTATALES_UY", "Compras Estatales", "乌拉圭国家采购局"],
-  ["ETENDERS_GOV_ZA", "eTenders (South Africa)", "南非电子招标网"],
-  // 库内 eTenders 值经核实全部为南非行（etenders.gov.za）；爱尔兰平台仅保留
-  // IRELAND ETENDERS 别名（见 aliases.ts），不得再抢占此代码。
-  ["ETENDERS", "eTenders (South Africa)", "南非电子招标网"],
-  ["EGP_GOV_TH", "Thai e-GP", "泰国政府采购网"],
-  ["EJN_GOV_BA", "EJN (Bosnia and Herzegovina)", "波黑电子采购网"],
-  ["BUTB_BY", "BUTB", "白俄罗斯商品交易所"],
-  ["PRAZ_GOV_ZW", "PRAZ EGP", "津巴布韦电子采购网"],
-  ["UJN_GOV_RS", "UJP Portal", "塞尔维亚采购门户"],
-  ["EZAMOWIENIA", "eZamowienia", "波兰电子采购网"],
-  ["TENDERGOVMN", "tender.gov.mn", "蒙古政府采购网"],
-  ["HUNGARY_EKR", "EKR (Hungary)", "匈牙利统一采购系统"],
-  ["ENAROCANJE_SI", "eNarocanje", "斯洛文尼亚电子采购网"],
-  ["EGP_GOV_ET", "Ethiopian eGP", "埃塞俄比亚电子采购网"],
-  ["MTENDER_GOV_MD", "MTender", "摩尔多瓦电子采购网"],
-  ["GETS_NZ", "GETS (New Zealand)", "新西兰政府采购网"],
-  ["CEJN_GOV_ME", "EJN (Montenegro)", "黑山电子采购网"],
-  ["EPROCUREMENT_GOV_CY", "eProcurement (Cyprus)", "塞浦路斯电子采购网"],
-  ["MR_GOV_IL", "mr.gov.il", "以色列政府采购网"],
-  ["SPAIN_PCSP", "PCSP (Spain)", "西班牙公共采购平台"],
-  ["COMPRAR", "Comprar (Argentina)", "阿根廷国家采购网"],
-  ["GPD_JORDAN", "GPD (Jordan)", "约旦政府采购局"],
-  ["ZPPA_GOV_ZM", "ZPPA (Zambia)", "赞比亚采购管理局"],
-  ["CERPP_GOV_GR", "CERPP (Greece)", "希腊公共采购平台"],
-  ["ATAMIS_DEFRA_UK", "Atamis (Defra UK)", "英国环境食品农村事务部采购平台"],
-  ["SADC_INT", "SADC", "南部非洲发展共同体"],
-  ["DGMARKET", "dgMarket", "全球招标聚合平台"],
-];
-for (const [code, name, zh] of PLATFORM_CODES) {
-  KNOWN_ACRONYMS.set(code, { canonical: name, i18n: { en: name, zh, fr: name, ru: name, es: name, ar: name } });
-}
+// ── 平台代码不再在此静态维护 ──
+// 历史曾把 mercadopublico_cl / SPAIN_PCSP 等平台码硬编码成平台中文名喂机构翻译，
+// 与 crm_platform_aliases 构成“平台命名两个源”。现采购主体已重锚到 agency_full（真买家），
+// 平台名唯一走 crm_platform_aliases（见 platform/resolve + NoticeCard.item.platform）；机构模块不再代管平台名。
+// 残留混进 agency 的平台码（无买家的平台源）属 p9 上游去污染范畴，展示层按原样可见即可（它本就不是机构）。
 
 // ── 聚合类型键的字面量兜底 ──
 // 数据管道会把聚合 typeKey 直接写入 agency（如 MUNICIPIO_BR / UN_SYSTEM）。

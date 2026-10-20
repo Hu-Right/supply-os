@@ -104,6 +104,10 @@ try {
 
   if (bypass.length) fails.push(`CS3 展示旁路：src 从静态字典 lib/data 引入展示函数\n    ${bypass.join("\n    ")}\n    ⇒ 展示须走 /api/catalog/country-name-map（表）或 country/resolve`);
 
+  // CS3b 静态国家名词表残留锁定：src 任何模块不得再维护 COUNTRY_NAME_KW（国家名一律走 crm_country_aliases）
+  const staticCountryKw = walk("src").filter((f) => /\bCOUNTRY_NAME_KW\b/.test(readFileSync(f, "utf8")));
+  if (staticCountryKw.length) fails.push(`CS3b 静态国家名词表残留：\n    ${staticCountryKw.join("\n    ")}\n    ⇒ 国家名一律走 crm_country_aliases（country/display matchCountryZhInText）`);
+
   console.log(`别名表快照：${snap.byKey.size} 键 · 写法 ${writings.length} 种 · 分布 ${dist.length} 组`);
   if (fails.length) {
     for (const f of fails) console.error("  ✗ " + f);
