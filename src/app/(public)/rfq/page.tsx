@@ -10,7 +10,8 @@ import { absoluteUrl } from "@/lib/services/seo/site";
 import PageClient from "./page-client";
 
 export const metadata: Metadata = {
-  title: "采购需求发布 / RFQ | 供应商快速响应",
+  // 只写页面名（网站名由根 layout 模板拼在首位）；“供应商快速响应”等卖点归入 description
+  title: "采购需求发布 / RFQ",
   description: "一键发布采购需求，获取优质供应商报价与平台顾问支持",
   alternates: {
     canonical: absoluteUrl("/rfq"),

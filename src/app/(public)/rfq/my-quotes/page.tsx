@@ -7,7 +7,8 @@ import type { Metadata } from "next";
 import PageClient from "./page-client";
 
 export const metadata: Metadata = {
-  title: "我的报价 | 采购需求",
+  // 只写页面名：网站名由根 layout 的 title.template 拼在首位
+  title: "我的报价",
   robots: "noindex, follow",
 };
 
