@@ -101,6 +101,42 @@ export async function loadCountryAliasSnapshot(pool: Pool): Promise<CountryAlias
   }
 }
 
+export interface CountryNameMaps {
+  /** 英文写法（canonical 及各别名变体）→ 中文名 */
+  countries: Record<string, string>;
+  /** 区域英文名 → 中文 */
+  regions: Record<string, string>;
+  /** 中文名 → 英文 canonical（反向辅助） */
+  zhToEn: Record<string, string>;
+}
+
+/**
+ * 从 crm_country_aliases 构建国家名展示映射（取代静态字典 lib/data/countryNames）。
+ * 仍在唯一读表入口模块内，不旁路。kind=region 入 regions；其余入 countries；
+ * zhToEn 以 canonical 作英文回推（同名 zh 首个胜）。无 zh 的行跳过（不入图）。
+ */
+export async function buildCountryNameMaps(pool: Pool): Promise<CountryNameMaps> {
+  const countries: Record<string, string> = {};
+  const regions: Record<string, string> = {};
+  const zhToEn: Record<string, string> = {};
+  const [rows] = await pool.query(
+    "SELECT canonical, alias, kind, JSON_UNQUOTE(JSON_EXTRACT(name_i18n,'$.zh')) zh FROM crm_country_aliases WHERE is_active = 1",
+  );
+  for (const row of rows as RowDataPacket[]) {
+    const zh = String(row.zh ?? "").trim();
+    const alias = String(row.alias ?? "").trim();
+    const canonical = String(row.canonical ?? "").trim();
+    if (!zh || !alias) continue;
+    if (row.kind === "region") {
+      regions[alias] = zh;
+    } else {
+      countries[alias] = zh;
+      if (canonical && !(zh in zhToEn)) zhToEn[zh] = canonical;
+    }
+  }
+  return { countries, regions, zhToEn };
+}
+
 /** 主动失效（供改表后编排调用；见 onCountryAliasesChanged） */
 export function invalidateCountryAliasCache(): void {
   _cache = null;
