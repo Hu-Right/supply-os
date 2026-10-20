@@ -6,8 +6,9 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { AgencyCacheItem } from "../types";
-import { translateByPattern, classifyAgencyType } from "../../agency/index";
-import { loadAgencyAliasSnapshot, normalizeAliasKey } from "../../agency/alias-store";
+import { classifyAgencyType } from "../../agency/index";
+import { normalizeAliasKey } from "../../agency/alias-store";
+import { resolveAgencyDisplay, ensureAgencyDisplaySnapshot } from "../../agency/resolve";
 import { ACTIVE_NOTICE_WHERE } from "../../../utils/notice-expired";
 import { setAgencyCacheData } from "./cache";
 import { needsTranslationFix, buildZhFromKeywords, extractCountryFromName } from "./translate";
@@ -96,7 +97,7 @@ export const TYPE_KEY_SQL_PATTERNS: Record<string, string> = {
 /** 从数据库重新查询并刷新机构缓存 */
 export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem[]> {
   // 1) 机构别名映射（canonical + i18n）统一来自共享 store（缓存/归一/降级/JSON 容错均在其内）
-  const aliasMap = (await loadAgencyAliasSnapshot(pool)).byAlias;
+  await ensureAgencyDisplaySnapshot(pool); // 机构展示单一入口预热（下游同步 resolveAgencyDisplay 依赖）
   await ensureCountryDisplaySnapshot(pool); // 国家展示预热：下游同步 countryZhOf 依赖（走归一入口）
 
   // 2) 查询原始机构数据
@@ -115,10 +116,9 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
     const raw = String(row.agency || "").trim();
     const country = String(row.country || "").trim();
     if (!raw) continue;
-    const upperKey = normalizeAliasKey(raw);
-    const aliasEntry = aliasMap.get(upperKey);
-    const canonical = aliasEntry?.canonical || raw;
-    const i18n = aliasEntry?.i18n || null;
+    const disp = resolveAgencyDisplay(raw);
+    const canonical = disp.canonical;
+    const i18n = disp.i18n;
     const mergeKey = normalizeAliasKey(canonical);
     const existing = merged.get(mergeKey);
     if (existing) {
@@ -135,31 +135,7 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
     }
   }
 
-  // 3.5) 模式化翻译兜底
-  for (const [, item] of merged) {
-    if (!item.i18n) {
-      const patternResult = translateByPattern(item.agency);
-      if (patternResult) {
-        if (patternResult.canonical !== item.agency && !aliasMap.has(item.agency.toUpperCase())) {
-          const oldMergeKey = item.agency.toUpperCase();
-          const oldOriginals = canonicalToOriginals.get(oldMergeKey);
-          const oldCountry = canonicalToCountry.get(oldMergeKey);
-          item.agency = patternResult.canonical;
-          const newMergeKey = item.agency.toUpperCase();
-          if (oldOriginals && !canonicalToOriginals.has(newMergeKey)) {
-            canonicalToOriginals.set(newMergeKey, oldOriginals);
-          }
-          if (oldCountry && !canonicalToCountry.has(newMergeKey)) {
-            canonicalToCountry.set(newMergeKey, oldCountry);
-          }
-        }
-        if (patternResult.i18n.zh !== item.agency) {
-          item.i18n = patternResult.i18n;
-        }
-      }
-    }
-  }
-
+  // (原「3.5 模式化兜底」已折叠进 resolveAgencyDisplay 单一入口)
   // 3.5.1) 去重
   const deduped = new Map<string, AgencyCacheItem>();
   const dedupedOriginals = new Map<string, string[]>();
