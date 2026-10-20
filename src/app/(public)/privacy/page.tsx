@@ -5,7 +5,8 @@ import type { Metadata } from "next";
 import { LegalPageContent } from "../legal-page";
 
 export const metadata: Metadata = {
-  title: "隐私政策 — OS NEO SMART",
+  // 只写文档名：网站名由根 layout 的 title.template 拼在首位
+  title: "隐私政策",
   description: "OS NEO SMART 隐私政策（Privacy Policy），版本 V2.0，2026年9月2日生效"
 };
 

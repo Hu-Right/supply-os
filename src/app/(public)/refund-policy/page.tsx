@@ -5,7 +5,8 @@ import type { Metadata } from "next";
 import { LegalPageContent } from "../legal-page";
 
 export const metadata: Metadata = {
-  title: "付费会员及退款规则 — OS NEO SMART",
+  // 只写文档名：网站名由根 layout 的 title.template 拼在首位
+  title: "付费会员及退款规则",
   description: "OS NEO SMART 付费会员及退款规则，版本 V1.0，2026年8月29日生效",
 };
 
