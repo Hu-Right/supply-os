@@ -1,6 +1,6 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 
 // 以 locales/zh/*.json 为键基准（LocaleKey 来源），校验其余语言包键完全一致。
 // 脚本位于 scripts/gates/，故需上溯两级回到仓库根再进 src/。
@@ -60,8 +60,40 @@ for (const lang of LANGS.filter((l) => l !== "zh")) {
   }
 }
 
+// 代码引用完整性：src 里 t("字面量") 引用的键必须在 zh 基准中存在。
+// 原本此门禁只校验六语 parity——一个键只要六语「一致地缺失」就放行，
+// 抓不到「代码在用、语言包却没有」这类线上只刷 LocaleContext 告警、界面退化成兜底串的缺陷。
+function collectReferencedKeys(dir: string, out: Map<string, string[]> = new Map()): Map<string, string[]> {
+  for (const name of readdirSync(dir)) {
+    const p = resolve(dir, name);
+    if (statSync(p).isDirectory()) {
+      if (name === "node_modules" || name === ".next" || name === "__tests__") continue;
+      collectReferencedKeys(p, out);
+    } else if (/\.(ts|tsx)$/.test(name) && !/\.d\.ts$/.test(name)) {
+      const src = readFileSync(p, "utf8");
+      for (const m of src.matchAll(/\bt\(\s*"([a-zA-Z0-9_]+)"/g)) {
+        const list = out.get(m[1]);
+        if (list) list.push(p);
+        else out.set(m[1], [p]);
+      }
+    }
+  }
+  return out;
+}
+const baseSet = new Set(baseKeys);
+const refs = collectReferencedKeys(resolve(dirname(fileURLToPath(import.meta.url)), "../../src"));
+const undefinedRefs = [...refs.keys()].filter((k) => !baseSet.has(k));
+if (undefinedRefs.length) {
+  hasError = true;
+  console.error(`\u274c 代码引用了 ${undefinedRefs.length} 个未在任何语言包定义的 t() 键（运行时只会显示兜底串）：`);
+  for (const k of undefinedRefs.sort()) {
+    const files = [...new Set(refs.get(k)!)].map((f) => relative(process.cwd(), f)).slice(0, 3);
+    console.error(`   - ${k}  \u2190 ${files.join(", ")}`);
+  }
+}
+
 if (!hasError) {
-  console.log("✅ 六语言键一致且无重复键（zh 基准），共", baseKeys.length, "个键 ×", LANGS.length, "语言");
+  console.log("\u2705 六语言键一致、无重复键（zh 基准），且代码 t() 引用均有定义，共", baseKeys.length, "个键 \u00d7", LANGS.length, "语言");
   process.exit(0);
 } else {
   process.exit(1);
