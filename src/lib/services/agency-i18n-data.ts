@@ -10,7 +10,7 @@
  *   data/agency-i18n/
  *   ├── types.ts            ← PatternI18nResult 类型定义
  *   ├── known-acronyms.ts   ← KNOWN_ACRONYMS（100+ 国际机构缩写）
- *   ├── country-zh.ts       ← COUNTRY_ZH + INTL_TYPE_EN
+ *   ├── country-zh.ts       ← INTL_TYPE_EN（国家名映射已迁 crm_country_aliases）
  *   ├── prefix-patterns.ts  ← BR_PREFIX_MAP / BR_EXTRA_PREFIX_MAP / KENYA_PREFIX_MAP / INTL_PREFIX_MAP
  *   ├── type-patterns.ts    ← TYPE_PATTERNS + INTL_TYPE_PATTERNS
  *   └── translate.ts        ← translateByPattern() 函数
@@ -21,7 +21,7 @@ export type { PatternI18nResult } from "../data/agency-i18n/types";
 
 // ── 纯数据 ──
 export { KNOWN_ACRONYMS } from "../data/agency-i18n/known-acronyms";
-export { COUNTRY_ZH, INTL_TYPE_EN } from "../data/agency-i18n/country-zh";
+export { INTL_TYPE_EN } from "../data/agency-i18n/country-zh";
 
 // ── RegExp 模式数据 ──
 export {

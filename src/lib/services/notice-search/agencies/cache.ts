@@ -6,7 +6,8 @@
  */
 import type { Pool } from "mysql2/promise";
 import type { AgencyCacheItem } from "../types";
-import { INTL_TYPE_EN, COUNTRY_ZH } from "../../agency-i18n-data";
+import { INTL_TYPE_EN } from "../../agency-i18n-data";
+import { countryEnNames, ensureCountryDisplaySnapshot } from "../../country/display";
 
 let noticeAgenciesCache: { data: AgencyCacheItem[]; timestamp: number } | null = null;
 const AGENCIES_CACHE_TTL = 10 * 60 * 1000; // 10 分钟
@@ -56,7 +57,7 @@ function buildEnglishFallback(item: AgencyCacheItem): string {
     return enLabel || agency.replace(/_INTL$/, "").replace(/_/g, " ");
   }
   // 国家级国际类型（如 "Brazil Committees"）：拆出国家 + 类型
-  for (const [countryEn] of Object.entries(COUNTRY_ZH)) {
+  for (const countryEn of countryEnNames()) {
     if (agency.startsWith(countryEn + " ")) {
       const typePart = agency.slice(countryEn.length + 1);
       const typeKey = _singularToIntlKey[typePart.toLowerCase()];
@@ -81,6 +82,7 @@ export async function getNoticeAgencies(
   locale?: string,
   refreshFn?: (pool: Pool) => Promise<AgencyCacheItem[]>,
 ): Promise<Array<{ agency: string; count: number; agency_i18n?: string }>> {
+  await ensureCountryDisplaySnapshot(pool); // buildEnglishFallback 同步依赖归一快照
   const cacheValid = noticeAgenciesCache && Date.now() - noticeAgenciesCache.timestamp < AGENCIES_CACHE_TTL;
   let items: AgencyCacheItem[];
   if (cacheValid) {

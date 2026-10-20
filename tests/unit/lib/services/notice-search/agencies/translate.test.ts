@@ -1,7 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { needsTranslationFix, buildZhFromKeywords, extractCountryFromName } from "@/lib/services/notice-search/agencies/translate";
 import { translateByPattern } from "@/lib/data/agency-i18n/translate";
 import { KNOWN_ACRONYMS } from "@/lib/data/agency-i18n/known-acronyms";
+import { __setCountryDisplaySnapshotForTest } from "@/lib/services/country/display";
+import type { CountryAliasEntry } from "@/lib/services/country/alias-store";
+
+// extractCountryFromName 的 ISO/ccTLD 回退已改走归一查表；单测注入含 BR 的最小快照。
+beforeEach(() => {
+  const entry: CountryAliasEntry = { canonical: "Brazil", code: "BR", kind: "country", zh: "巴西" };
+  __setCountryDisplaySnapshotForTest({ byKey: new Map([["BR", entry]]), formsByCanonical: new Map() });
+});
 
 describe("needsTranslationFix", () => {
   it("undefined → true", () => {

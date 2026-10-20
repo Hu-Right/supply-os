@@ -6,11 +6,12 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { AgencyCacheItem } from "../types";
-import { translateByPattern, classifyAgencyType, COUNTRY_ZH } from "../../agency/index";
+import { translateByPattern, classifyAgencyType } from "../../agency/index";
 import { loadAgencyAliasSnapshot, normalizeAliasKey } from "../../agency/alias-store";
 import { ACTIVE_NOTICE_WHERE } from "../../../utils/notice-expired";
 import { setAgencyCacheData } from "./cache";
 import { needsTranslationFix, buildZhFromKeywords, extractCountryFromName } from "./translate";
+import { countryZhOf, ensureCountryDisplaySnapshot } from "../../country/display";
 
 /** typeKey → SQL LIKE 模式映射 */
 export const TYPE_KEY_SQL_PATTERNS: Record<string, string> = {
@@ -96,6 +97,7 @@ export const TYPE_KEY_SQL_PATTERNS: Record<string, string> = {
 export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem[]> {
   // 1) 机构别名映射（canonical + i18n）统一来自共享 store（缓存/归一/降级/JSON 容错均在其内）
   const aliasMap = (await loadAgencyAliasSnapshot(pool)).byAlias;
+  await ensureCountryDisplaySnapshot(pool); // 国家展示预热：下游同步 countryZhOf 依赖（走归一入口）
 
   // 2) 查询原始机构数据
   const [rows] = await pool.query(
@@ -294,7 +296,7 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
     const parts = typeKey.split(' ');
     if (parts.length >= 2) {
       const countryName = parts[0];
-      if (COUNTRY_ZH[countryName]) return countryName;
+      if (countryZhOf(countryName)) return countryName;
     }
     return null;
   };
@@ -325,7 +327,7 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
         }
       }
     }
-    const countryZh = COUNTRY_ZH[country];
+    const countryZh = countryZhOf(country);
     if (countryZh) {
       const bucketKey = `ORPHAN_${country}`;
       const existing = orphanByCountry.get(bucketKey);
@@ -370,13 +372,13 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   const resolveCountryZh = (key: string, item: AgencyCacheItem): string | null => {
     const country = canonicalToCountry.get(key.toUpperCase()) || "";
     if (country) {
-      const zh = COUNTRY_ZH[country];
+      const zh = countryZhOf(country);
       if (zh) return zh;
     }
     if (key.startsWith("ORPHAN_")) {
       const extracted = key.slice(7);
       if (extracted !== "OTHER") {
-        const zh = COUNTRY_ZH[extracted];
+        const zh = countryZhOf(extracted);
         if (zh) return zh;
       }
     }
@@ -384,7 +386,7 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
       for (const orig of item.originalAgencies) {
         const c = canonicalToCountry.get(orig.toUpperCase());
         if (c) {
-          const zh = COUNTRY_ZH[c];
+          const zh = countryZhOf(c);
           if (zh) return zh;
         }
       }

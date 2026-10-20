@@ -4,7 +4,7 @@
  *
  * @module server/services/notice-search/agencies/translate
  */
-import { COUNTRY_ZH } from "../../agency/index";
+import { countryZhOf } from "../../country/display";
 
 /** 判断翻译是否需要修复 */
 export function needsTranslationFix(s: string | undefined, agency: string): boolean {
@@ -120,13 +120,13 @@ export function extractCountryFromName(name: string): string | null {
   const isoMatch = upper.match(/[_.]([A-Z]{2})(?:[_.]|$)/);
   if (isoMatch) {
     const isoCode = isoMatch[1];
-    const countryZh = COUNTRY_ZH[isoCode];
+    const countryZh = countryZhOf(isoCode);
     if (countryZh) return countryZh;
   }
   const govMatch = upper.match(/GOV[._]([A-Z]{2})(?:[._]|$)/);
   if (govMatch) {
     const tld = govMatch[1];
-    const countryZh = COUNTRY_ZH[tld];
+    const countryZh = countryZhOf(tld);
     if (countryZh) return countryZh;
   }
   return null;

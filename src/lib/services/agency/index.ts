@@ -11,15 +11,15 @@
  */
 
 export type { PatternI18nResult } from "../agency-i18n-data";
-export { translateByPattern, COUNTRY_ZH } from "../agency-i18n-data";
+export { translateByPattern } from "../agency-i18n-data";
 
 import {
   KNOWN_ACRONYMS,
-  COUNTRY_ZH,
   TYPE_PATTERNS,
   INTL_TYPE_PATTERNS,
   INTL_TYPE_EN,
 } from "../agency-i18n-data";
+import { countryZhOf } from "../country/display";
 
 /**
  * 判断机构是否应按类型聚合（支持按国家维度细分）
@@ -47,7 +47,7 @@ export function classifyAgencyType(
   for (const [regex, typeInfo] of INTL_TYPE_PATTERNS) {
     if (regex.test(trimmed)) {
       if (country) {
-        const countryZh = COUNTRY_ZH[country];
+        const countryZh = countryZhOf(country);
         if (countryZh) {
           // 有中文名 → 生成国家级聚合条目
           const enLabel = INTL_TYPE_EN[typeInfo.typeKey] || typeInfo.typeKey;

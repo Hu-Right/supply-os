@@ -1,25 +1,11 @@
 /**
- * 国家名称中文映射 + 国际机构类型英文标签
- * Country Name Chinese Mapping & International Type English Labels
+ * 国际机构类型英文标签（国家级聚合的可读 display name）
+ * International-agency Type English Labels
  *
  * @module server/data/agency-i18n/country-zh
- * @description COUNTRY_ZH 从主映射表 COUNTRY_NAME_ZH 展开，仅追加少量独有增量。
- *              ISO 3166 代码等通用条目已合并到 COUNTRY_NAME_ZH，消除数据漂移。
+ * @description 国家名中文映射已迁至 crm_country_aliases（经 country/display 归一查表），
+ *              本文件不再持有任何国家数据，仅保留机构类型标签这类非国家字典。
  */
-
-import { COUNTRY_NAME_ZH } from "../countryNames";
-
-// ── 国家名称中文映射（用于按国家聚合机构时的 i18n 生成）──
-// 继承主映射表全部条目（含 ISO 代码、变体名等），仅追加以下独有增量：
-// - "Ivory Coast"（COUNTRY_NAME_ZH 仅有 "Côte d'Ivoire"）
-// - "Swaziland"（COUNTRY_NAME_ZH 仅有 "Eswatini"）
-// - "Burma"（COUNTRY_NAME_ZH 仅有 "Myanmar" / "Myanmar/Burma"）
-export const COUNTRY_ZH: Record<string, string> = {
-  ...COUNTRY_NAME_ZH,
-  "Ivory Coast": "科特迪瓦",
-  "Swaziland": "斯威士兰",
-  "Burma": "缅甸",
-};
 
 // ── INTL 类型英文标签（用于国家级聚合时的可读 display name）──
 export const INTL_TYPE_EN: Record<string, string> = {
