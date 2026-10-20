@@ -597,5 +597,6 @@
   "diagReportLockedTitle": "获取完整诊断报告",
   "diagReportLockedDesc": "本次诊断已得出综合总分。完整的分维度评估、证据与改进建议报告，请添加客服微信，由客服为你发送报告文件。",
   "diagContactQrAlt": "客服微信二维码",
-  "diagContactQrHint": "扫码添加客服微信，获取完整诊断报告"
+  "diagContactQrHint": "扫码添加客服微信，获取完整诊断报告",
+  "aiScoreReasoning": "AI 分析推理过程"
 }

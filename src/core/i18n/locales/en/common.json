@@ -358,5 +358,20 @@
   "aboutStep4Title": "Fulfill",
   "aboutStep4Desc": "Contract, logistics and settlement support",
   "aboutCtaTitle": "Ready to start your global procurement journey?",
-  "aboutCtaDesc": "Search live opportunities now, or register as a certified supplier"
+  "aboutCtaDesc": "Search live opportunities now, or register as a certified supplier",
+  "authEnterpriseLicense": "Business License",
+  "authEnterpriseGroupProducts": "Main Products",
+  "authEnterpriseProductIntro": "Product Introduction",
+  "authEnterpriseForDisplay": "(for display)",
+  "authEnterpriseProductIntroPh": "Describe your main products shown to others in one sentence",
+  "authEnterpriseProductIntroHint": "The product description text shown externally.",
+  "authEnterpriseCommodityNodes": "Main Commodity Categories",
+  "authEnterpriseForMatch": "(for matching)",
+  "authEnterpriseCommodityHint": "Drill down the five-level taxonomy and click “Add to selected”, or type a keyword and pick from candidates (candidates show their parent category). You can add/remove freely; select at least to the sub-category level.",
+  "authEnterpriseCommoditySearchPh": "Enter a main-product keyword, e.g. LED lighting",
+  "authEnterpriseCommodityAdd": "Add to selected",
+  "authEnterpriseCommodityRemove": "Remove",
+  "authEnterpriseCommodityEmpty": "No main products selected yet.",
+  "settingsLogoutDesc": "Sign out of the current account",
+  "supplierPoolUpdateDiag": "Update diagnosis form"
 }

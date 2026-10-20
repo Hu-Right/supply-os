@@ -358,5 +358,20 @@
   "aboutStep4Title": "تنفيذ",
   "aboutStep4Desc": "العقد واللوجستيات والتسويات",
   "aboutCtaTitle": "هل أنت مستعد لبدء رحلة المشتريات العالمية؟",
-  "aboutCtaDesc": "ابحث عن الفرص الآن أو سجّل كمورد معتمد"
+  "aboutCtaDesc": "ابحث عن الفرص الآن أو سجّل كمورد معتمد",
+  "authEnterpriseLicense": "رخصة الأعمال",
+  "authEnterpriseGroupProducts": "المنتجات الرئيسية",
+  "authEnterpriseProductIntro": "تعريف المنتجات",
+  "authEnterpriseForDisplay": "(للعرض)",
+  "authEnterpriseProductIntroPh": "صف منتجاتك الرئيسية المعروضة للآخرين في جملة واحدة",
+  "authEnterpriseProductIntroHint": "نص وصف المنتجات المعروض خارجيًا.",
+  "authEnterpriseCommodityNodes": "فئات المنتجات الرئيسية",
+  "authEnterpriseForMatch": "(للمطابقة)",
+  "authEnterpriseCommodityHint": "تصفّح التصنيف الخماسي مستوى بمستوى ثم انقر «إضافة إلى المحدد»، أو اكتب كلمة مفتاحية واختر من المرشحين (تُعرض الفئة الأم). يمكنك الإضافة/الحذف بحرية؛ اختر حتى مستوى الفئة الفرعية على الأقل.",
+  "authEnterpriseCommoditySearchPh": "أدخل كلمة مفتاحية للمنتج، مثل: إضاءة LED",
+  "authEnterpriseCommodityAdd": "إضافة إلى المحدد",
+  "authEnterpriseCommodityRemove": "إزالة",
+  "authEnterpriseCommodityEmpty": "لم يتم اختيار منتجات رئيسية بعد.",
+  "settingsLogoutDesc": "تسجيل الخروج من الحساب الحالي",
+  "supplierPoolUpdateDiag": "تحديث نموذج التشخيص"
 }

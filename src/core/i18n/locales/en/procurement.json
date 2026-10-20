@@ -597,5 +597,6 @@
   "diagReportLockedTitle": "Get the full report",
   "diagReportLockedDesc": "Your overall score is shown above. For the complete report with per-dimension scores, evidence and recommendations, add our service on WeChat and we will send you the file.",
   "diagContactQrAlt": "Customer service WeChat QR code",
-  "diagContactQrHint": "Scan to add us on WeChat and get the full report"
+  "diagContactQrHint": "Scan to add us on WeChat and get the full report",
+  "aiScoreReasoning": "AI reasoning process"
 }

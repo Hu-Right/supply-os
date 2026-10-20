@@ -597,5 +597,6 @@
   "diagReportLockedTitle": "Obtenir le rapport complet",
   "diagReportLockedDesc": "Votre score global est affiché ci-dessus. Pour le rapport complet (scores par axe, preuves et recommandations), ajoutez-nous sur WeChat ; notre service client vous enverra le fichier.",
   "diagContactQrAlt": "Code QR WeChat du service client",
-  "diagContactQrHint": "Scannez pour nous ajouter sur WeChat et recevoir le rapport complet"
+  "diagContactQrHint": "Scannez pour nous ajouter sur WeChat et recevoir le rapport complet",
+  "aiScoreReasoning": "Processus de raisonnement de l’IA"
 }

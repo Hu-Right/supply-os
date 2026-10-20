@@ -358,5 +358,20 @@
   "aboutStep4Title": "Исполнение",
   "aboutStep4Desc": "Контракт, логистика и расчёты",
   "aboutCtaTitle": "Готовы к мировым закупкам?",
-  "aboutCtaDesc": "Ищите актуальные возможности сейчас или зарегистрируйтесь как поставщик"
+  "aboutCtaDesc": "Ищите актуальные возможности сейчас или зарегистрируйтесь как поставщик",
+  "authEnterpriseLicense": "Лицензия предприятия",
+  "authEnterpriseGroupProducts": "Основная продукция",
+  "authEnterpriseProductIntro": "Описание продукции",
+  "authEnterpriseForDisplay": "(для отображения)",
+  "authEnterpriseProductIntroPh": "Опишите одним предложением вашу основную продукцию для внешнего отображения",
+  "authEnterpriseProductIntroHint": "Текст описания продукции, отображаемый снаружи.",
+  "authEnterpriseCommodityNodes": "Категории основной продукции",
+  "authEnterpriseForMatch": "(для подбора)",
+  "authEnterpriseCommodityHint": "Спускайтесь по пятиуровневой классификации и нажимайте «Добавить в выбранное», либо введите ключевое слово и выберите из кандидатов (указывается родительская категория). Можно добавлять/удалять; выберите минимум до подкатегории.",
+  "authEnterpriseCommoditySearchPh": "Введите ключевое слово продукции, напр.: светодиодное освещение",
+  "authEnterpriseCommodityAdd": "Добавить в выбранное",
+  "authEnterpriseCommodityRemove": "Удалить",
+  "authEnterpriseCommodityEmpty": "Основная продукция ещё не выбрана.",
+  "settingsLogoutDesc": "Выйти из текущего аккаунта",
+  "supplierPoolUpdateDiag": "Обновить форму диагностики"
 }

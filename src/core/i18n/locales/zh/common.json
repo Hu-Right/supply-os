@@ -358,5 +358,20 @@
   "aboutStep4Title": "履约",
   "aboutStep4Desc": "合同、物流、结算全程保障",
   "aboutCtaTitle": "准备好开启全球采购之旅？",
-  "aboutCtaDesc": "立即搜索实时商机，或注册成为认证供应商"
+  "aboutCtaDesc": "立即搜索实时商机，或注册成为认证供应商",
+  "authEnterpriseLicense": "营业执照",
+  "authEnterpriseGroupProducts": "主营产品",
+  "authEnterpriseProductIntro": "产品介绍",
+  "authEnterpriseForDisplay": "（展示用）",
+  "authEnterpriseProductIntroPh": "用一句话描述贵司对外展示的主营产品",
+  "authEnterpriseProductIntroHint": "对外展示的产品描述文本。",
+  "authEnterpriseCommodityNodes": "主营品目",
+  "authEnterpriseForMatch": "（匹配用）",
+  "authEnterpriseCommodityHint": "按五级分类逐级下钻后点「加入已选」，或输入关键词从候选中点选（候选会标注其父级分类）；可自行添加/删除，至少选到中类。",
+  "authEnterpriseCommoditySearchPh": "输入主营产品关键词，如：LED 灯具",
+  "authEnterpriseCommodityAdd": "加入已选",
+  "authEnterpriseCommodityRemove": "移除",
+  "authEnterpriseCommodityEmpty": "尚未选择主营产品。",
+  "settingsLogoutDesc": "退出当前账号的登录状态",
+  "supplierPoolUpdateDiag": "更新诊断表"
 }

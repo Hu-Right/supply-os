@@ -358,5 +358,20 @@
   "aboutStep4Title": "Cumplir",
   "aboutStep4Desc": "Contrato, logística y liquidación",
   "aboutCtaTitle": "¿Listo para comenzar sus compras globales?",
-  "aboutCtaDesc": "Busque oportunidades ahora o regístrese como proveedor certificado"
+  "aboutCtaDesc": "Busque oportunidades ahora o regístrese como proveedor certificado",
+  "authEnterpriseLicense": "Licencia comercial",
+  "authEnterpriseGroupProducts": "Productos principales",
+  "authEnterpriseProductIntro": "Presentación de productos",
+  "authEnterpriseForDisplay": "(para mostrar)",
+  "authEnterpriseProductIntroPh": "Describe en una frase tus productos principales mostrados públicamente",
+  "authEnterpriseProductIntroHint": "El texto de descripción de productos que se muestra externamente.",
+  "authEnterpriseCommodityNodes": "Categorías de productos principales",
+  "authEnterpriseForMatch": "(para coincidencias)",
+  "authEnterpriseCommodityHint": "Recorre la taxonomía de cinco niveles y pulsa «Añadir a seleccionados», o escribe una palabra clave y elige entre candidatos (se indica la categoría padre). Puedes añadir/eliminar libremente; selecciona al menos hasta la subcategoría.",
+  "authEnterpriseCommoditySearchPh": "Introduce una palabra clave de producto, p. ej. iluminación LED",
+  "authEnterpriseCommodityAdd": "Añadir a seleccionados",
+  "authEnterpriseCommodityRemove": "Eliminar",
+  "authEnterpriseCommodityEmpty": "Aún no has seleccionado productos principales.",
+  "settingsLogoutDesc": "Cerrar la sesión de la cuenta actual",
+  "supplierPoolUpdateDiag": "Actualizar el formulario de diagnóstico"
 }
