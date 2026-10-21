@@ -154,6 +154,19 @@ const SERVICE_UPDATES = [
   { service_code: "svc_annual_advisor", set: { is_active: 0 } },
 ];
 
+// 门控收紧：个人版（含个人商机会员 ¥1299）不含中文译文（公告全文翻译），仅企业版可见。
+// 依用户明确口径「个人版看不了中文，只有企业版可以」；AI 摘要按各自权益等级下发，不在此列。
+const MATRIX_OVERRIDES = [
+  {
+    plan_code: "unlimited",
+    benefit_code: "notice_translation",
+    value_level: 0,
+    value_num: null,
+    value_amount: null,
+    note_zh: "个人版不含中文译文（公告全文翻译）；仅企业商机版及以上可见。依 2026-10 渠道版口径收紧。",
+  },
+];
+
 const cols = (o) => Object.keys(o);
 const ph = (n) => Array(n).fill("?").join(",");
 
@@ -230,6 +243,17 @@ async function main() {
       }
     }
     summary.push(`[matrix] 补齐新权益格 ${cellCount} 格（${allPlanCodes.length} 档 × ${NEW_BENEFITS.length} 权益）`);
+
+    // 5.5) 门控收紧：改写指定已有权益格（个人版中文译文 → 0，仅企业版可见）
+    for (const m of MATRIX_OVERRIDES) {
+      await conn.query(
+        `INSERT INTO crm_plan_benefits (plan_code, benefit_code, value_level, value_num, value_amount, note_zh)
+         VALUES (?,?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE value_level=VALUES(value_level), value_num=VALUES(value_num), value_amount=VALUES(value_amount), note_zh=VALUES(note_zh)`,
+        [m.plan_code, m.benefit_code, m.value_level, m.value_num, m.value_amount, m.note_zh],
+      );
+      summary.push(`[matrix] ${m.plan_code}.${m.benefit_code} → level=${m.value_level}（门控收紧）`);
+    }
 
     // 6) 服务改名/改价/去重
     for (const { service_code, set } of SERVICE_UPDATES) {
