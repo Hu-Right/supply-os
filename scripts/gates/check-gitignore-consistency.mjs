@@ -10,6 +10,8 @@
  *       引用仍在执行机的一次性件只 WARN（ADR-0010 明写那类脚本不入库），
  *       但文件已消失就是死指令，当场拦下（2026-10-19 实测：落点表门禁与 backbone-path
  *       让操作者去跑四个已删除的迁移件）。边界：docs/** 不受约束，那里是历史记录。
+ *       R5 的判据只在执行机（有 scripts/ops/ 目录）上成立；CI 的 clone 里 ops 整目录
+ *       按约定不存在，死/活无法分辨 ⇒ 降为 WARN，防呆职责归执行机的 lint/pre-push。
  *
  * 设计前提：.gitignore 采用「默认跟踪 scripts/gates|tools，仅忽略 ops/生成物」的分层模型，
  * 因此新增长期脚本无需再回来加白名单；放错目录 / 忘了跟踪都会在这里被当场拦下。
@@ -73,14 +75,20 @@ for (const f of tracked) {
 // 引用了仍在 ops 的一次性件（ADR-0010 明写这些脚本不入库）只给 WARN：它是已知约定，不是破口。
 // 扫描范围：src / scripts/gates / scripts/tools / tests（这些里的路径是给人和机器照着执行的）；
 // docs 里的历史路径是证据，不拿它当破口。
+// 执行机感知：ops 目录整体不存在 ⇒ 必是 CI 等干净 clone（一次性件按约定不入库），
+// 那里「文件不存在」对所有 ops 引用恒真，死/活无从分辨，只能降为 WARN；
+// 「已消失的死指令」由装有 ops 目录的执行机在 lint / pre-push 当场拦下。
 const OPS_REF = /scripts\/(?:ops|out|backups)\/[\w.,{}-]+\.(?:ts|tsx|mjs|cjs|js|sh)/g;
 const INSTRUCTION_SCOPES = [/^src\//, /^scripts\/gates\//, /^scripts\/tools\//, /^tests\//];
+const opsDirPresent = ["scripts/ops", "scripts/out", "scripts/backups"].some((d) => existsSync(d));
 const warnings = [];
 for (const f of tracked) {
   if (!INSTRUCTION_SCOPES.some((re) => re.test(f))) continue;
   for (const h of new Set(readFileSync(f, "utf8").match(OPS_REF) ?? [])) {
     if (existsSync(h)) {
       warnings.push(`R5⚠ ${f} 指向未入库的一次性脚本 ${h}（仅本机可跑；若是长期件请归入 scripts/tools/）`);
+    } else if (!opsDirPresent) {
+      warnings.push(`R5⚠ ${f} 指向 ${h}：本机无 scripts/ops 目录（CI 干净 clone），无法判生死，不判红；请在执行机跑 npm run check:gitignore 复核`);
     } else {
       problems.push(`R5 死引用：${f} 让操作者去跑 ${h}，但该文件已不存在（长期件归入 scripts/tools/；一次性件已删则改成不带路径的历史叙述）`);
     }
