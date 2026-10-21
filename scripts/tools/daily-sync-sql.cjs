@@ -92,7 +92,9 @@ function buildOdkuUpdateClause(updateCols, colTypes, keepCols, pkCol) {
       if (!keepCols.has(c)) return "`" + c + "` = VALUES(`" + c + "`)";
       const emptyTest = NUMERIC_TYPES.has(colTypes[c])
         ? "VALUES(`" + c + "`) IS NULL"
-        : "(VALUES(`" + c + "`) IS NULL OR VALUES(`" + c + "`) = '')";
+        : colTypes[c] === "json"
+          ? "(VALUES(`" + c + "`) IS NULL OR JSON_LENGTH(VALUES(`" + c + "`)) = 0)"
+          : "(VALUES(`" + c + "`) IS NULL OR VALUES(`" + c + "`) = '')";
       return "`" + c + "` = IF(" + emptyTest + ", `" + c + "`, VALUES(`" + c + "`))";
     })
     .join(", ");

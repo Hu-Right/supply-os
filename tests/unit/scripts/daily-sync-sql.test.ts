@@ -107,6 +107,19 @@ describe("buildOdkuUpdateClause", () => {
     );
   });
 
+  it("非破坏 JSON 列：NULL / [] / {} 保留目标值", () => {
+    expect(
+      ds.buildOdkuUpdateClause(
+        ["documents"],
+        { ...colTypes, documents: "json" },
+        new Set(["documents"]),
+        "id",
+      ),
+    ).toBe(
+      "`documents` = IF((VALUES(`documents`) IS NULL OR JSON_LENGTH(VALUES(`documents`)) = 0), `documents`, VALUES(`documents`))",
+    );
+  });
+
   it("无更新列 → 退化为主键自等（幂等空更新）", () => {
     expect(ds.buildOdkuUpdateClause([], colTypes, new Set(), "id")).toBe("`id` = VALUES(`id`)");
   });
