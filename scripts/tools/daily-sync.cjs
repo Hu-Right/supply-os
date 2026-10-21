@@ -212,7 +212,7 @@ const BATCH_SIZE = 200;
 // 内容对账：片大小（按行数取窗口边界，本表 id 稀疏不能按固定步长）与差异行 IN 分块。
 // 片大→聚合轮次少但单语句重；IN 分块控 max_allowed_packet，与 sync.ts 的批口径同源。
 const RECONCILE_SLICE = readPositiveInt('RECONCILE_SLICE', ['RECONCILE_SLICE'], 5000);
-const RECONCILE_IN_BATCH = 500;
+const RECONCILE_IN_BATCH = 100; // 含 LONGTEXT/JSON 的行单批不宜大，防超 max_allowed_packet
 
 // update_time 可能的数值列类型（单一事实源在 daily-sync-sql.cjs 叶子，与对账/ODKU 共享同一集合）
 const NUMERIC_TYPES = ds.NUMERIC_TYPES;
@@ -233,7 +233,9 @@ const NUMERIC_TYPES = ds.NUMERIC_TYPES;
  * 若将来重新引入人工精编列，必须同时在本表和 src/lib/services/search-sync/crawler-sync-sql.ts 登记。
  */
 const NON_DESTRUCTIVE_COLUMNS = {
-  // crm_bid_opportunities: [ ...人工列... ],
+  // 附件/外链是采集与外部文档管道补齐的字段；源库为空数组时不得把云端已有值抹掉
+  // （2026-10-21：实测 daily-sync 用源库 [] 覆盖了主表 documents，附件 URL 丢失）
+  crm_bid_notices: ["documents", "procurement_files", "external_links"],
 };
 
 const SYNC_INTERVAL = readPositiveInt('SYNC_INTERVAL_MS', ['SYNC_INTERVAL_MS'], 3600000); // 默认 1 小时
@@ -372,11 +374,15 @@ function escapeVal(val, dataType) {
   if (typeof val === 'number') return Number.isFinite(val) ? val : 'NULL';
   if (val instanceof Date) return `'${formatLocalDatetime(val)}'`;
   if (Buffer.isBuffer(val)) return `X'${val.toString('hex')}'`;
-  const str = String(val);
+  // JSON 列：mysql2 二进制协议（execute）自动把 JSON 解析为 JS object/array，
+  // 必须 JSON.stringify 还原为合法 JSON 文本；直接 String(object) 得到
+  // "[object Object]" → 下游 JSON.parse 失败 → 写成 NULL → 对账全行误判差异。
   if (dataType === 'json') {
-    // JSON 列：验证合法性后原样写入
+    const str = (typeof val === 'object') ? JSON.stringify(val) : String(val);
     try { JSON.parse(str); } catch { return 'NULL'; }
+    return `'${str.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
   }
+  const str = String(val);
   return `'${str.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
@@ -591,18 +597,23 @@ async function reconcileTable(source, target, table, opts) {
     result.drift += driftIds.length;
 
     // 分块：取源/目标整行→算差异列分解（报告）→ 非 DRY 则按 updateClause 幂等补 upsert
+    let batchDone = 0;
+    const totalBatch = Math.ceil(driftIds.length / RECONCILE_IN_BATCH);
     for (let i = 0; i < driftIds.length; i += RECONCILE_IN_BATCH) {
       const chunk = driftIds.slice(i, i + RECONCILE_IN_BATCH).map(Number).filter(Number.isFinite);
       if (chunk.length === 0) continue;
       const ph = chunk.map(() => '?').join(',');
       const selByPk = `SELECT ${insertColList} FROM \`${table}\` WHERE \`${pkCol}\` IN (${ph})`;
       const [sfull] = await source.execute(selByPk, chunk);
-      const [tfull] = await target.execute(selByPk, chunk);
-      const tmap = new Map(tfull.map(r => [Number(r[pkCol]), r]));
-      for (const sr of sfull) {
-        const tr = tmap.get(Number(sr[pkCol]));
-        for (const c of updateCols) {
-          if (!tr || normForCompare(sr[c]) !== normForCompare(tr[c])) result.colCounts[c] = (result.colCounts[c] || 0) + 1;
+      if (dry) {
+        // DRY 模式才取目标全行做差异列分解（报告用）
+        const [tfull] = await target.execute(selByPk, chunk);
+        const tmap = new Map(tfull.map(r => [Number(r[pkCol]), r]));
+        for (const sr of sfull) {
+          const tr = tmap.get(Number(sr[pkCol]));
+          for (const c of updateCols) {
+            if (!tr || normForCompare(sr[c]) !== normForCompare(tr[c])) result.colCounts[c] = (result.colCounts[c] || 0) + 1;
+          }
         }
       }
       if (!dry) {
@@ -614,8 +625,10 @@ async function reconcileTable(source, target, table, opts) {
           result.applied += valueRows.length;
         }
       }
+      batchDone++;
+      process.stdout.write(`\r    [对账] ${table}: 已扫 ${result.scanned} 行 · 差异 ${result.drift} · 已补 ${result.applied}${dry ? '' : ` (批 ${batchDone}/${totalBatch})`}`);
     }
-    process.stdout.write(`\r    [对账] ${table}: 已扫 ${result.scanned} 行 · 差异 ${result.drift}`);
+    process.stdout.write(`\r    [对账] ${table}: 已扫 ${result.scanned} 行 · 差异 ${result.drift}        `);
   }
   if (result.scanned > 0) console.log();
   return result;
