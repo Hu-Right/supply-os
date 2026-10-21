@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 105 张，导出 102 张，排除 3 张。
+--           源库共 114 张，导出 110 张，排除 4 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -843,6 +843,27 @@ CREATE TABLE `crm_notice_amount_cache` (
   KEY `idx_amount_cache_notice_amount` (`notice_id`,`amount_usd`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告金额解析缓存表';
 
+-- ── crm_notice_attachment_text ──
+CREATE TABLE `crm_notice_attachment_text` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `notice_pk` int NOT NULL,
+  `source_url` varchar(1024) NOT NULL,
+  `file_name` varchar(255) DEFAULT NULL,
+  `http_status` int DEFAULT NULL,
+  `content_type` varchar(100) DEFAULT NULL,
+  `bytes` int DEFAULT NULL,
+  `text_chars` int NOT NULL DEFAULT '0',
+  `text_text` longtext,
+  `sha256` char(64) DEFAULT NULL,
+  `parser` varchar(32) DEFAULT NULL,
+  `status` varchar(20) NOT NULL,
+  `error` varchar(255) DEFAULT NULL,
+  `fetched_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_notice_url` (`notice_pk`,`source_url`(255)),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- ── crm_notice_attribution_nodes ──
 CREATE TABLE `crm_notice_attribution_nodes` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -868,6 +889,81 @@ CREATE TABLE `crm_notice_backbone_nodes` (
   PRIMARY KEY (`notice_id`,`node`),
   KEY `idx_node` (`node`,`notice_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告×品目骨架节点码倒排表';
+
+-- ── crm_notice_body ──
+CREATE TABLE `crm_notice_body` (
+  `notice_pk` int NOT NULL,
+  `body_text` longtext,
+  `body_chars` int NOT NULL DEFAULT '0',
+  `body_source` varchar(20) NOT NULL,
+  `content_level` varchar(20) NOT NULL,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`notice_pk`),
+  KEY `idx_chars` (`body_chars`),
+  KEY `idx_level` (`content_level`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── crm_notice_content_lock ──
+CREATE TABLE `crm_notice_content_lock` (
+  `notice_pk` int NOT NULL,
+  `old_description` longtext,
+  `old_chars` int NOT NULL DEFAULT '0',
+  `new_source` varchar(20) NOT NULL DEFAULT 'attachment',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`notice_pk`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── crm_notice_deadline ──
+CREATE TABLE `crm_notice_deadline` (
+  `notice_pk` int NOT NULL,
+  `deadline_state` varchar(20) NOT NULL COMMENT 'known/unknown/placeholder/typo_suspect/framework_end/invalid',
+  `deadline_type` varchar(20) NOT NULL DEFAULT 'bid' COMMENT 'bid/framework_end/registration/award/info',
+  `effective_ts` bigint DEFAULT NULL COMMENT '对外有效截止时间（UTC 秒）；不可信时为 NULL',
+  `confidence` tinyint NOT NULL DEFAULT '0' COMMENT '0-100',
+  `reason` varchar(255) DEFAULT NULL,
+  `source_rule` varchar(64) DEFAULT NULL,
+  `source_value` varchar(50) DEFAULT NULL COMMENT '原始 deadline 文本，留证',
+  `reviewed_by` varchar(64) DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`notice_pk`),
+  KEY `idx_state_type` (`deadline_state`,`deadline_type`),
+  KEY `idx_effective` (`effective_ts`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告截止时间语义层；主表 deadline/deadline_ts 保留为源值';
+
+-- ── crm_notice_deadline_lock ──
+CREATE TABLE `crm_notice_deadline_lock` (
+  `notice_pk` int NOT NULL,
+  `old_deadline` varchar(50) DEFAULT NULL,
+  `old_deadline_ts` bigint DEFAULT NULL,
+  `new_deadline` varchar(50) DEFAULT NULL,
+  `new_deadline_ts` bigint DEFAULT NULL,
+  `state` varchar(20) NOT NULL,
+  `reason` varchar(255) NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`notice_pk`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── crm_notice_deadline_quarantine ──
+CREATE TABLE `crm_notice_deadline_quarantine` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `notice_pk` int NOT NULL,
+  `raw_deadline` varchar(50) DEFAULT NULL,
+  `raw_deadline_ts` bigint DEFAULT NULL,
+  `published_date` varchar(50) DEFAULT NULL,
+  `state` varchar(20) NOT NULL,
+  `reason` varchar(255) NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/approved/rejected',
+  `reviewer` varchar(64) DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_notice_pk` (`notice_pk`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='截止时间可疑值隔离队列；API 默认不返回';
 
 -- ── crm_notice_favorites ──
 CREATE TABLE `crm_notice_favorites` (
@@ -942,6 +1038,32 @@ CREATE TABLE `crm_notice_search` (
   KEY `idx_ns_featured` (`is_featured`),
   KEY `idx_ns_reference` (`reference`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='宽表';
+
+-- ── crm_notice_title ──
+CREATE TABLE `crm_notice_title` (
+  `notice_pk` int NOT NULL,
+  `title_raw` varchar(500) DEFAULT NULL,
+  `title_clean` varchar(500) DEFAULT NULL,
+  `title_suggested` varchar(500) DEFAULT NULL,
+  `title_quality` varchar(20) NOT NULL,
+  `title_source` varchar(20) NOT NULL,
+  `changed` tinyint(1) NOT NULL DEFAULT '0',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`notice_pk`),
+  KEY `idx_quality` (`title_quality`),
+  KEY `idx_changed` (`changed`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── crm_notice_title_lock ──
+CREATE TABLE `crm_notice_title_lock` (
+  `notice_pk` int NOT NULL,
+  `old_title` varchar(500) DEFAULT NULL,
+  `new_title` varchar(500) DEFAULT NULL,
+  `reason` varchar(64) NOT NULL DEFAULT 'title-normalize',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`notice_pk`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── crm_notice_translations ──
 CREATE TABLE `crm_notice_translations` (
