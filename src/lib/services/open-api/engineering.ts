@@ -167,11 +167,13 @@ export async function queryEngineeringList(
   const total = Number(countRows[0]?.total ?? 0);
 
   // 查列表
+  // 排序用 create_time（干净、已建索引的 DATETIME）而非 published_date（源库自由文本，
+  // ISO 与 dd-Mon-yyyy 混存，字符串 ORDER BY 会把 2019 排在 2026 前）。
   const [rows] = await dbPool.query<RowDataPacket[]>(
     `SELECT ${fields}
      FROM crm_bid_opportunities o
      WHERE ${whereClause}
-     ORDER BY o.published_date DESC, o.id DESC
+     ORDER BY o.create_time DESC, o.id DESC
      LIMIT ? OFFSET ?`,
     [...queryParams, limit, offset],
   );
