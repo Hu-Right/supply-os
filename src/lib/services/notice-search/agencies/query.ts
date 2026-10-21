@@ -106,7 +106,7 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
      WHERE ${ACTIVE_NOTICE_WHERE}
        AND COALESCE(NULLIF(n.agency_full, ''), n.agency) IS NOT NULL
        AND COALESCE(NULLIF(n.agency_full, ''), n.agency) <> ''
-     GROUP BY agency ORDER BY cnt DESC`
+     GROUP BY COALESCE(NULLIF(n.agency_full, ''), n.agency) ORDER BY cnt DESC`
   );
 
   // 3) 归一化去重
