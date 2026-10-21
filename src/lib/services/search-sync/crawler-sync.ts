@@ -23,11 +23,12 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { getSourcePool } from "@/lib/db/source-pool";
+import { normalizeTitle } from "../notice-content/title";
 import { enqueueUnattributedNotices } from "../commodity/taxonomy-intake";
 import {
   SYNC_TABLES, NOTICE_TABLE,
   escapeVal, buildOdkuClause, buildIncrementalWhere, buildWatermark,
-  NUMERIC_TYPES, NON_DESTRUCTIVE_COLUMNS,
+  NUMERIC_TYPES, NON_DESTRUCTIVE_COLUMNS, MONOTONE_RISE_COLUMNS, TARGET_WINS_COLUMNS, PLATFORM_IMMUNE,
   type Watermark,
 } from "./crawler-sync-sql";
 
@@ -79,17 +80,53 @@ export async function saveWatermark(target: Pool, table: string, wm: Watermark):
   );
 }
 
+/**
+ * 行级写入清洗：title 走 SSOT 纯函数 normalizeTitle（去 HTML 实体/标签、压缩空白、去门户前缀与尾省略号）。
+ * 为何必须在写入前做：现网主表 title 存量已是清洗过的（后台正式写入者同款算法，
+ * 实测 1,106/1,106 行可逐字复现，runtime/api-dq-143）；若把源库原值直通覆盖，
+ * 会把已清洗标题打回 `&amp;`/双空格（且这些行两侧 update_time 相等，每轮对账都会重新判差异、永不对齐）。
+ * 主键与 update_time 仍取源行原值（水位口径不被清洗污染）。
+ */
+export function normalizeNoticeRow(row: RowDataPacket): Record<string, unknown> {
+  return { ...row, title: normalizeTitle(row.title, row.description).clean };
+}
+
+/**
+ * 平台行整行免疫：取目标库里不可被源库改写的行主键集。
+ * 量级是「用户发布量」（远小于爬虫存量），走 idx_entry_source（迁移 069），每表每轮一次。
+ * 返回空集 ⇒ 不过滤（零成本路径）。
+ */
+export async function loadPlatformImmuneIds(
+  target: Pool, table: string, pkCol: string,
+): Promise<Set<number>> {
+  if (PLATFORM_IMMUNE.table !== table) return new Set();
+  try {
+    const [rows] = await target.query(
+      `SELECT \`${pkCol}\` AS id FROM \`${table}\` WHERE \`${PLATFORM_IMMUNE.column}\` = ?`,
+      [PLATFORM_IMMUNE.value],
+    );
+    return new Set((rows as RowDataPacket[]).map((r) => Number(r.id)));
+  } catch (err) {
+    // 读不到免疫集就拒绝写本表：宁可漏同步一轮，也不能把平台行覆盖掉（护栏失守必须可见）
+    console.error(`[crawler-sync] ${table} 平台行免疫集读取失败，本轮跳过该表写入: ${(err as Error).message}`);
+    throw err;
+  }
+}
+
 export interface SyncTableResult {
   synced: number;
   newWm: Watermark;
   /** 仅 NOTICE_TABLE 有值：本批成功 upsert 的主键 id，供级联宽表 */
   changedIds: number[];
+  /** 被整行免疫拦下的源库行数（撞号的平台行）：它们不会入库，与后台 syncRunner 同净效果 */
+  immuneSkipped: number;
 }
 
 /**
  * 单表增量同步：keyset 分页拉取源库变更 → 批量 ODKU 写目标 → 每批成功后落水位线。
  * @param onWatermark 每批成功后的水位线回调（用于崩溃续传）
- * @param normalize 行级归一（仅桥表传入）：只影响拼入 SQL 的值，不改变水位与变更 id 的取值口径
+ * @param normalize 行级写入清洗（公告表传 normalizeNoticeRow）：只影响拼入 SQL 的值，
+ *                  不改变水位与变更 id 的取值口径
  */
 export async function syncTable(
   source: Pool,
@@ -114,7 +151,7 @@ export async function syncTable(
   const pkCols = effectiveColumns.filter((c) => c.COLUMN_KEY === "PRI").map((c) => c.COLUMN_NAME);
   if (pkCols.length === 0) {
     console.warn(`[crawler-sync] ${table}: 无主键，跳过`);
-    return { synced: 0, newWm: wm, changedIds: [] };
+    return { synced: 0, newWm: wm, changedIds: [], immuneSkipped: 0 };
   }
 
   const pkCol = pkCols[0];
@@ -122,15 +159,21 @@ export async function syncTable(
   const utIsNumeric = hasUpdateTime && NUMERIC_TYPES.has(colTypes["update_time"]);
   const colList = colNames.map((c) => `\`${c}\``).join(", ");
   const keepCols = new Set(NON_DESTRUCTIVE_COLUMNS[table] || []);
-  const updateClause = buildOdkuClause(colNames, pkCols, colTypes, keepCols, pkCol);
+  const updateClause = buildOdkuClause(colNames, pkCols, colTypes, keepCols, pkCol, {
+    monotoneCols: new Set(MONOTONE_RISE_COLUMNS[table] || []),
+    targetWins: new Set(TARGET_WINS_COLUMNS[table] || []),
+  });
+  // 平台行整行免疫（护栏失守会抛错，不静默降级）
+  const immuneIds = await loadPlatformImmuneIds(target, table, pkCol);
   const baseWhere = buildIncrementalWhere(pkCol, wm.id, wm.time, hasUpdateTime, utIsNumeric);
   const baseWhereBody = baseWhere.replace(/^WHERE \((.*)\)$/, "$1"); // 供 keyset 追加 AND 条件
 
   const [countRows] = await source.query(`SELECT COUNT(*) AS cnt FROM \`${table}\` ${baseWhere}`);
   const newCount = Number((countRows as RowDataPacket[])[0]?.cnt || 0);
-  if (newCount === 0) return { synced: 0, newWm: wm, changedIds: [] };
+  if (newCount === 0) return { synced: 0, newWm: wm, changedIds: [], immuneSkipped: 0 };
 
   let synced = 0;
+  let immuneSkipped = 0;
   let maxId = wm.id;
   let maxUpdateTime: string | null = utIsNumeric
     ? (wm.time && Number(wm.time) > 0 ? wm.time : null)
@@ -149,13 +192,19 @@ export async function syncTable(
     const batch = rows as RowDataPacket[];
     if (batch.length === 0) break;
 
-    const valueRows = batch.map((raw) => {
-      // 归一只在拼 SQL 前改写五级路径列；主键与 update_time 仍取源行原值
+    // 整行免疫：平台行一律不进写集（与列序无关，逐列 CASE 会因赋值求值顺序只护住半截列）
+    const writable = immuneIds.size > 0 ? batch.filter((r) => !immuneIds.has(Number(r[pkCol]))) : batch;
+    immuneSkipped += batch.length - writable.length;
+
+    const valueRows = writable.map((raw) => {
+      // 归一只是拼 SQL 前改写行值；主键与 update_time 仍取源行原值（水位与变更 id 口径不变）
       const row = normalize ? normalize(raw) : raw;
       return `(${colNames.map((c) => escapeVal(row[c], colTypes[c])).join(", ")})`;
     });
-    const sql = `INSERT INTO \`${table}\` (${colList}) VALUES ${valueRows.join(",")} ON DUPLICATE KEY UPDATE ${updateClause}`;
-    await target.query(sql);
+    if (valueRows.length > 0) {
+      const sql = `INSERT INTO \`${table}\` (${colList}) VALUES ${valueRows.join(",")} ON DUPLICATE KEY UPDATE ${updateClause}`;
+      await target.query(sql);
+    }
 
     synced += batch.length;
     const lastId = Number(batch[batch.length - 1][pkCol]);
@@ -163,7 +212,7 @@ export async function syncTable(
     lastPk = lastId;
 
     if (collectIds) {
-      for (const row of batch) {
+      for (const row of writable) {
         const id = Number(row[pkCol]);
         if (Number.isFinite(id) && id > 0) changedIds.push(id);
       }
@@ -192,7 +241,7 @@ export async function syncTable(
     if (onWatermark) await onWatermark(batchWm);
   }
 
-  return { synced, newWm: buildWatermark(hasUpdateTime, maxId, maxUpdateTime), changedIds };
+  return { synced, newWm: buildWatermark(hasUpdateTime, maxId, maxUpdateTime), changedIds, immuneSkipped };
 }
 
 export interface CrawlerSyncResult {
@@ -202,6 +251,8 @@ export interface CrawlerSyncResult {
   perTable: Record<string, number>;
   /** 本轮登记进品目归类队列（crm_taxonomy_intake）的无归属公告数（非关键路径） */
   intakeEnqueued: number;
+  /** 被平台行整行免疫拦下的源库行数（>0 即意味着撞号，需人工看那几条源行为何没入库） */
+  immuneSkipped: number;
 }
 
 /**
@@ -219,22 +270,31 @@ export interface CrawlerSyncResult {
  */
 export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResult> {
   const source = getSourcePool();
-  if (!source) return { skipped: true, totalSynced: 0, changedNoticeIds: [], perTable: {}, intakeEnqueued: 0 };
+  if (!source)
+    return { skipped: true, totalSynced: 0, changedNoticeIds: [], perTable: {}, intakeEnqueued: 0, immuneSkipped: 0 };
 
   const wms = await loadWatermarks(target);
   let totalSynced = 0;
+  let immuneSkipped = 0;
   const changedNoticeIds: number[] = [];
   const perTable: Record<string, number> = {};
 
   for (const table of SYNC_TABLES) {
     const wm = wms.get(table) ?? { id: 0, time: null };
-    const result = await syncTable(source, target, table, wm, (batchWm) => saveWatermark(target, table, batchWm));
+    const result = await syncTable(source, target, table, wm, (batchWm) => saveWatermark(target, table, batchWm),
+      table === NOTICE_TABLE ? normalizeNoticeRow : undefined);
     // 兜底：本轮结束再落一次最终水位（与每批一致，幂等）
     await saveWatermark(target, table, result.newWm);
     wms.set(table, result.newWm);
     perTable[table] = result.synced;
     totalSynced += result.synced;
+    immuneSkipped += result.immuneSkipped;
     if (table === NOTICE_TABLE) changedNoticeIds.push(...result.changedIds);
+  }
+
+  // 免疫拦下不等于失败，但必须可见：那些源行因 id 撞上平台行而被丢弃（与后台 syncRunner 同取舍）
+  if (immuneSkipped > 0) {
+    console.warn(`[crawler-sync] 平台行整行免疫拦下 ${immuneSkipped} 条源库行（撞号，未入库；需人工核对那几条源行）`);
   }
 
   let intakeEnqueued = 0;
@@ -251,5 +311,5 @@ export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResul
     }
   }
 
-  return { skipped: false, totalSynced, changedNoticeIds, perTable, intakeEnqueued };
+  return { skipped: false, totalSynced, changedNoticeIds, perTable, intakeEnqueued, immuneSkipped };
 }

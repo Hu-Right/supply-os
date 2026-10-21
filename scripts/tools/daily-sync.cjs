@@ -47,6 +47,16 @@
  *   「按全列行指纹」内容对账：逐片聚合比对，只在指纹不等的片上下钻到行、分块补 upsert。
  *   对账默认 DRY（只报待补行数 + 差异列分解，不写库），带 --apply 才真正写入；
  *   --no-reconcile 整体跳过。判据与影子表 findDirtyRows 同口径（NULL 与空串必须可区分）。
+ *
+ * 列所有权与平台行护栏（2026-10-21 实测后补，登记均在叶子 daily-sync-sql.cjs）：
+ *   · 平台行（entry_source='platform'）整行免疫：本仓旧版本无护栏，而云端 AUTO_INCREMENT
+ *     恰等于源库 MAX(id)+1 ⇒ 新建 RFQ 会占用爬虫库下一个 id，撞号即被就地改写
+ *     （铁证见 docs/reviews/2026-10-17-RFQ覆盖P0修复报告.md §1）；
+ *   · is_featured 单调上升：实测 5 行云端=1/源库=0 且两侧 update_time 相等 ⇒ 精选是云端后写的，
+ *     不能被源库非空值 0 抹掉（那种情况 keepCols「源空才保留」不生效）；
+ *   · title 目标优先：后台正式写入者入库前用 normalizeTitle 清洗（实测 1,106/1,106 可复现），
+ *     本脚本没有那一步 ⇒ 若源值直通覆盖会把已清洗标题打回原形，且因两侧 update_time 相等而永不对齐。
+ *     代价：本脚本不跟进源库的标题修改（靠后台或人工 notice-public-v2 --ids 重算）。
  */
 
 // ═══════════════════════════════════════════
@@ -59,6 +69,7 @@
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 // 内容对账的纯 SQL/判定构件（零副作用叶子，可单测；与 crawler-sync-sql.ts 同构的分离法）
 const ds = require('./daily-sync-sql.cjs');
 
@@ -218,29 +229,37 @@ const RECONCILE_IN_BATCH = 100; // 含 LONGTEXT/JSON 的行单批不宜大，防
 const NUMERIC_TYPES = ds.NUMERIC_TYPES;
 
 /**
- * 非破坏式合并列（人工/官方收录侧拥有）
- *
- * 背景：本脚本的 ODKU 默认把「除主键外全部列」写成 `col = VALUES(col)`。内网源库一旦补建
- * 同名列但值为 NULL/空串，每轮同步都会把云端已填好的值整体抹掉（与 spec D9 同一机理，
- * 只是作用域从平台行扩到人工列）。
- *
- * 规则：数值列只在「源值为 NULL」时保留目标值（0 是合法业务值，如
- * prequalification_required=0 表示不需资格预审，不得当空处理）；字符串列额外把空串视作未提供。
- *
- * 2026-10-12 清空：原先登记的迁移 088 的 17 个国际采购列整族退役（云端零消费、
- * 全库仅 1 行有值且那行内容贴错），待删列清单见 scripts/tools/opp-slim-plan.mjs。
- * 列删后本脚本无需改动：按「源∩目标」交集写列，源库多出的列自动跳过并告警。
- * 若将来重新引入人工精编列，必须同时在本表和 src/lib/services/search-sync/crawler-sync-sql.ts 登记。
+ * 列所有权登记一律取自零副作用叶子 daily-sync-sql.cjs（单一事实源，机理注释在该处）：
+ *   NON_DESTRUCTIVE_COLUMNS——非破坏合并（源空则保留目标）；
+ *   MONOTONE_RISE_COLUMNS——单调上升合并（云端拥有的运营标记，如 is_featured）；
+ *   TARGET_WINS_COLUMNS——目标优先（本脚本没有写入侧 title 清洗，靠它防回退）；
+ *   PLATFORM_IMMUNE——平台行整行免疫（entry_source='platform' 一行都不改）。
+ * 与应用内正式写入者 crawler-sync-sql.ts 的口径一致性由
+ * tests/unit/lib/services/search-sync/crawler-sync-ownership.test.ts 钉死。
  */
-const NON_DESTRUCTIVE_COLUMNS = {
-  // 附件/外链是采集与外部文档管道补齐的字段；源库为空数组时不得把云端已有值抹掉
-  // （2026-10-21：实测 daily-sync 用源库 [] 覆盖了主表 documents，附件 URL 丢失）
-  crm_bid_notices: ["documents", "procurement_files", "external_links"],
-};
+const NON_DESTRUCTIVE_COLUMNS = ds.NON_DESTRUCTIVE_COLUMNS;
+const MONOTONE_RISE_COLUMNS = ds.MONOTONE_RISE_COLUMNS;
+const TARGET_WINS_COLUMNS = ds.TARGET_WINS_COLUMNS;
+const PLATFORM_IMMUNE = ds.PLATFORM_IMMUNE;
+
+/**
+ * 平台行整行免疫集：取目标库里不可被源库改写的行主键。
+ * 采用整行过滤而非逐列 IF(entry_source=…)：ODKU 赋值从左到右求值，列序在 entry_source
+ * 之后的列读到的是已改写值，逐列护栏只能护住半截列（会产出「爬虫内容+平台附件」缝合行）。
+ */
+async function loadPlatformImmuneIds(target, table, pkCol) {
+  if (PLATFORM_IMMUNE.table !== table) return new Set();
+  const [rows] = await target.execute(
+    `SELECT \`${pkCol}\` AS id FROM \`${table}\` WHERE \`${PLATFORM_IMMUNE.column}\` = ?`,
+    [PLATFORM_IMMUNE.value],
+  );
+  return new Set(rows.map((r) => Number(r.id)));
+}
 
 const SYNC_INTERVAL = readPositiveInt('SYNC_INTERVAL_MS', ['SYNC_INTERVAL_MS'], 3600000); // 默认 1 小时
 const LOG_FILE = path.join(__dirname, 'daily-sync.log');
 const WATERMARK_FILE = path.join(__dirname, '.sync-watermark.json');
+const SERVICE_WATERMARK_FILE = path.join(__dirname, '.service-watermark.json');
 const ONCE_MODE = process.argv.includes('--once');
 const PRINT_CONFIG_MODE = process.argv.includes('--print-config');
 const APPLY_RECONCILE = process.argv.includes('--apply'); // 对账真正写入（否则仅 DRY 预览）
@@ -417,10 +436,16 @@ async function syncTable(source, target, table, watermark, onWatermark) {
   const utIsNumeric = hasUpdateTime && NUMERIC_TYPES.has(colTypes['update_time']);
   const colList = colNames.map(c => `\`${c}\``).join(', ');
   const updateCols = colNames.filter(c => !pkCols.includes(c));
-  // 人工/官方收录列走非破坏式合并，其余列保持既有「源库直通覆盖」语义
+  // 人工/官方收录列走非破坏式合并，单调上升/目标优先列走各自合并语义，其余列保持既有「源库直通覆盖」语义
   // 子句构造下沉到叶子，与内容对账共享同一覆盖口径（杜绝「看着一样其实不一样」的漂移）
   const keepCols = new Set(NON_DESTRUCTIVE_COLUMNS[table] || []);
-  const updateClause = ds.buildOdkuUpdateClause(updateCols, colTypes, keepCols, pkCol);
+  const ownershipOpts = {
+    monotoneCols: new Set(MONOTONE_RISE_COLUMNS[table] || []),
+    targetWins: new Set(TARGET_WINS_COLUMNS[table] || []),
+  };
+  const updateClause = ds.buildOdkuUpdateClause(updateCols, colTypes, keepCols, pkCol, ownershipOpts);
+  // 平台行整行免疫：护栏读取失败即中断本轮（宁可漏同步，不可静默覆盖平台行）
+  const immuneIds = await loadPlatformImmuneIds(target, table, pkCol);
 
   // 提取 ID 水位线和更新时间水位线
   const idWm = getWatermarkId(watermark);
@@ -453,6 +478,7 @@ async function syncTable(source, target, table, watermark, onWatermark) {
   }
 
   let synced = 0;
+  let immuneSkipped = 0;
   let maxId = idWm;
   // maxUpdateTime 跟随列原生类型：数值列存 Unix 秒（0 表示未见），时间列存 "YYYY-MM-DD HH:MM:SS"
   let maxUpdateTime = utIsNumeric
@@ -470,11 +496,15 @@ async function syncTable(source, target, table, watermark, onWatermark) {
     if (rows.length === 0) break;
     const lastId = Number(rows[rows.length - 1][pkCol]);
 
+    // 整行免疫：平台行不进写集（分页/水位仍按源页全量推进，否则会死循环）
+    const writable = immuneIds.size > 0 ? rows.filter(r => !immuneIds.has(Number(r[pkCol]))) : rows;
+    immuneSkipped += rows.length - writable.length;
+
     // 批量构建 VALUES（源库直通覆盖，行级白名单闸已随旧字典桥表退役）
-    const valueRows = rows.map(row =>
+    const valueRows = writable.map(row =>
       `(${colNames.map(c => escapeVal(row[c], colTypes[c])).join(', ')})`
     );
-    if (rows.length > 0) {
+    if (valueRows.length > 0) {
       const sql = `INSERT INTO \`${table}\` (${colList}) VALUES ${valueRows.join(',')} ON DUPLICATE KEY UPDATE ${updateClause}`;
       await target.execute(sql);
     }
@@ -511,6 +541,7 @@ async function syncTable(source, target, table, watermark, onWatermark) {
 
   const elapsed = Date.now() - t0;
   const newWatermark = buildWatermark(hasUpdateTime, maxId, maxUpdateTime);
+  if (immuneSkipped > 0) log(`  ⚠ ${table}: 平台行整行免疫拦下 ${immuneSkipped} 条源库行（撞号，未入库，需人工核对）`);
   return { synced, newWatermark, elapsed };
 }
 
@@ -551,21 +582,29 @@ async function reconcileTable(source, target, table, opts) {
   const effCols = ds.computeEffectiveColumns(columns, targetColumns);
   const pkCols = columns.filter(c => c.COLUMN_KEY === 'PRI').map(c => c.COLUMN_NAME);
   const pkCol = pkCols[0];
-  const result = { scanned: 0, drift: 0, colCounts: {}, applied: 0 };
+  const result = { scanned: 0, drift: 0, colCounts: {}, applied: 0, immuneSkipped: 0 };
   if (!pkCol) { log(`  [对账] ${table}: 无主键，跳过`); return result; }
+  // 与增量同一道免疫拦截：平台行不进补写集（fpCols 已排掉不回退的列，这里排掉整行）
+  const immuneIds = await loadPlatformImmuneIds(target, table, pkCol);
 
   const colTypes = {};
   columns.forEach(c => { colTypes[c.COLUMN_NAME] = c.DATA_TYPE; });
   const keepCols = new Set(NON_DESTRUCTIVE_COLUMNS[table] || []);
+  const monotoneCols = new Set(MONOTONE_RISE_COLUMNS[table] || []);
+  const targetWinsCols = new Set(TARGET_WINS_COLUMNS[table] || []);
   const updateCols = effCols.filter(c => !pkCols.includes(c));
-  // 触发补同步的列 = 会被源覆盖的列（去掉 keepCols：那些差异保留目标值，不该拉起重同步）
-  const fpCols = updateCols.filter(c => !keepCols.has(c));
+  // 触发补同步的列 = 会被源覆盖的列。keepCols/单调上升/目标优先三类都要剔除：
+  // 它们的差异是**设计如此**（写完仍与源不等），留着就会每轮“报差异→补写→无变化”空转。
+  // 代价（必须知道）：这三类列上的真实源变更只能靠增量水位那一接，内容对账接不到。
+  const fpCols = updateCols.filter(c => !keepCols.has(c) && !monotoneCols.has(c) && !targetWinsCols.has(c));
   if (updateCols.length === 0 || fpCols.length === 0) {
     log(`  [对账] ${table}: 无可比对列，跳过`);
     return result;
   }
 
-  const updateClause = ds.buildOdkuUpdateClause(updateCols, colTypes, keepCols, pkCol);
+  const updateClause = ds.buildOdkuUpdateClause(updateCols, colTypes, keepCols, pkCol, {
+    monotoneCols, targetWins: targetWinsCols,
+  });
   const sliceFp = ds.buildSliceFingerprintExpr(fpCols);
   const rowFp = ds.buildRowFingerprintExpr(fpCols);
   const insertColList = effCols.map(c => `\`${c}\``).join(', ');
@@ -595,12 +634,15 @@ async function reconcileTable(source, target, table, opts) {
     const driftIds = ds.selectDriftIds(srows, trows);
     if (driftIds.length === 0) continue;
     result.drift += driftIds.length;
-
+    // 整行免疫：平台行不补写（它们永远与源不等，不拦就会每轮重复报差异）
+    const todoIds = immuneIds.size > 0 ? driftIds.filter((id) => !immuneIds.has(Number(id))) : driftIds;
+    result.immuneSkipped += driftIds.length - todoIds.length;
+    if (todoIds.length === 0) continue;
     // 分块：取源/目标整行→算差异列分解（报告）→ 非 DRY 则按 updateClause 幂等补 upsert
     let batchDone = 0;
-    const totalBatch = Math.ceil(driftIds.length / RECONCILE_IN_BATCH);
-    for (let i = 0; i < driftIds.length; i += RECONCILE_IN_BATCH) {
-      const chunk = driftIds.slice(i, i + RECONCILE_IN_BATCH).map(Number).filter(Number.isFinite);
+    const totalBatch = Math.ceil(todoIds.length / RECONCILE_IN_BATCH);
+    for (let i = 0; i < todoIds.length; i += RECONCILE_IN_BATCH) {
+      const chunk = todoIds.slice(i, i + RECONCILE_IN_BATCH).map(Number).filter(Number.isFinite);
       if (chunk.length === 0) continue;
       const ph = chunk.map(() => '?').join(',');
       const selByPk = `SELECT ${insertColList} FROM \`${table}\` WHERE \`${pkCol}\` IN (${ph})`;
@@ -631,6 +673,7 @@ async function reconcileTable(source, target, table, opts) {
     process.stdout.write(`\r    [对账] ${table}: 已扫 ${result.scanned} 行 · 差异 ${result.drift}        `);
   }
   if (result.scanned > 0) console.log();
+  if (result.immuneSkipped > 0) log(`        ⚠ 其中 ${result.immuneSkipped} 行为平台行，整行免疫不补写`);
   return result;
 }
 
@@ -654,8 +697,41 @@ async function runSync() {
   }
 }
 
+function loadServiceWatermark() {
+  try {
+    if (fs.existsSync(SERVICE_WATERMARK_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(SERVICE_WATERMARK_FILE, 'utf8'));
+      return { lastSuccess: Number(raw.lastSuccess) || 0 };
+    }
+  } catch { /* fall through */ }
+  return { lastSuccess: 0 };
+}
+
+function saveServiceWatermark(lastSuccess) {
+  fs.writeFileSync(SERVICE_WATERMARK_FILE, JSON.stringify({ lastSuccess }, null, 2));
+}
+
+/**
+ * 主表同步完成后，按 update_time 增量归一化到 crm_notice_public。
+ * 子进程运行 TS builder，避免把归一化逻辑复制进 CJS；失败只告警，下一轮重试。
+ */
+function runServiceNormalization(since) {
+  const repoRoot = path.join(__dirname, '..', '..');
+  const tsxCli = path.join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+  const script = path.join(repoRoot, 'scripts', 'ops', 'notice-public-v2.ts');
+  log(`  [服务表] 归一化 since=${since}（${new Date(since * 1000).toISOString()}）`);
+  const res = spawnSync(process.execPath, [tsxCli, script, `--since-update=${since}`, '--apply'], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    env: process.env,
+  });
+  if (res.error) throw res.error;
+  if (res.status !== 0) throw new Error(`notice-public-v2 退出码 ${res.status}`);
+}
+
 async function runSyncOnce() {
   const t0 = Date.now();
+  const syncStartedAt = Math.floor(Date.now() / 1000);
   log('───────────────────────────────────────');
   log('开始同步');
   // 先把解析结果打出来：配置被截断/取错时，这一行就是第一现场
@@ -702,6 +778,21 @@ async function runSyncOnce() {
         const entries = Object.entries(r.colCounts).sort((a, b) => b[1] - a[1]);
         log(`  [对账] ${table}: 扫描 ${r.scanned} 行 · 差异 ${r.drift} 行 · ${APPLY_RECONCILE ? `已补同步 ${r.applied} 行` : '未写入'} | 耗时 ${fmtDuration(Date.now() - t2)}`);
         if (entries.length) log(`        差异列分解：${entries.map(([k, v]) => `${k}×${v}`).join(', ')}`);
+      }
+    }
+
+    // ── 服务表归一化：主表同步/对账完成后，按 update_time 增量写 crm_notice_public ──
+    if (!process.argv.includes('--no-service')) {
+      const svcWm = loadServiceWatermark();
+      const since = svcWm.lastSuccess > 0
+        ? Math.max(0, svcWm.lastSuccess - 300) // 5 分钟重叠，防边界漏行
+        : Math.floor(Date.now() / 1000) - 86400;
+      try {
+        runServiceNormalization(since);
+        saveServiceWatermark(syncStartedAt);
+        log(`  [服务表] 归一化完成（水位 ${new Date(syncStartedAt * 1000).toISOString()}）`);
+      } catch (err) {
+        log(`  [服务表] 归一化失败（下轮重试）: ${err.message}`);
       }
     }
 
