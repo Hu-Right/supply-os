@@ -99,6 +99,7 @@ export class NoticeDetailRepo {
       `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.agency, n.agency_full,
          n.country, n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value,
          n.published_date,
+         d.deadline_state, d.deadline_type, d.effective_ts,
          LEFT(COALESCE(
            (SELECT opp.description FROM crm_bid_opportunities opp
             WHERE opp.source_notice_id = n.notice_id
@@ -113,7 +114,9 @@ export class NoticeDetailRepo {
             LIMIT 1),
            n.description
          )) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated
-       FROM crm_bid_notices n WHERE n.id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
+       FROM crm_bid_notices n
+       LEFT JOIN crm_notice_deadline d ON d.notice_pk = n.id
+       WHERE n.id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
       [noticeId],
     );
     return (rows as RowDataPacket[])[0] ?? null;

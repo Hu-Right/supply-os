@@ -25,6 +25,7 @@ import { ReportPreviewPanel } from "../ReportPreviewPanel";
 import { AiSummarySection } from "../AiSummarySection";
 import { NextStepsPanel } from "../NextStepsPanel";
 import { getCountdown } from "@/shared/utils/countdown";
+import { formatNoticeDateOrNull } from "@/shared/utils/notice-datetime/format";
 
 import { DetailHeader } from "./DetailHeader";
 import { DetailTabs } from "./DetailTabs";
@@ -132,8 +133,8 @@ export function NoticeDetail({
     : showSkeleton ? t("procurement_loading")
     : notice.agency_i18n || notice.agency || notice.organization || t("procurement_unknownAgency");
 
-  // 信息表数据
-  const publishDate = notice.published_date || "-";
+  // 信息表数据（发布日走统一解析+UTC 格式化，与 SEO 页同口径；不可解析回落占位）
+  const publishDate = formatNoticeDateOrNull(notice.published_date) || "-";
   const deadlineText = notice.deadline || t("procurement_noDeadline");
   const budgetText = notice.estimated_value || t("procurement_budgetPending");
   const typeLabel = typeKey ? t(typeKey) : notice.notice_type || "-";

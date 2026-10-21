@@ -22,6 +22,7 @@ import { notFound } from "next/navigation";
 import { getContext } from "@/lib/db/context";
 import { absoluteUrl } from "@/lib/services/seo/site";
 import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
+import { formatNoticeUTCDate, formatNoticeDate, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
 
 export const revalidate = 3600;
 
@@ -37,6 +38,9 @@ interface NoticeSeoRow extends RowDataPacket {
   deadline: string | null;
   deadline_ts: number | null;
   deadline_sec: number | null;
+  deadline_state: string | null;
+  deadline_type: string | null;
+  effective_ts: number | null;
   estimated_value: string | null;
   published_date: string | null;
   description: string | null;
@@ -53,13 +57,18 @@ function parseNoticeId(raw: string): number | null {
   return id > 0 && id <= 0xffffffff ? id : null;
 }
 
-/** 截止日期：优先源数据原始串（含时区语义最完整），回退 deadline_sec 格式化 */
+/**
+ * 截止日期：统一走语义层口径（resolveNoticeDeadlineTs）。
+ * 非 known（unknown/placeholder/typo_suspect/invalid）→「未公布」；未回填退化到 deadline_sec。
+ * 时刻维度待语义层记录 hasTime 后再放开，此处先只显日期。
+ */
 function formatDeadline(row: NoticeSeoRow): string {
-  if (row.deadline && row.deadline.trim()) return row.deadline.trim();
-  if (row.deadline_sec && row.deadline_sec > 0) {
-    return new Date(row.deadline_sec * 1000).toISOString().slice(0, 10);
-  }
-  return "无截止日期（长期有效）";
+  const ts = resolveNoticeDeadlineTs({
+    state: row.deadline_state,
+    effectiveTs: row.effective_ts,
+    fallbackSec: row.deadline_sec,
+  });
+  return ts ? formatNoticeUTCDate(ts, false) : UNPUBLISHED_LABEL;
 }
 
 function buildSummary(row: NoticeSeoRow): string {
@@ -178,7 +187,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
         <MetaItem label="机构全称" value={row.agency_full && row.agency_full !== row.agency ? row.agency_full : null} />
         <MetaItem label="国家/地区" value={row.country} />
         <MetaItem label="截止时间" value={deadline} />
-        <MetaItem label="发布时间" value={row.published_date} />
+        <MetaItem label="发布时间" value={formatNoticeDate(row.published_date)} />
         <MetaItem label="公告编号" value={row.reference} />
         <MetaItem label="预算/金额" value={row.estimated_value} />
         <MetaItem label="来源编号" value={row.notice_id} />
