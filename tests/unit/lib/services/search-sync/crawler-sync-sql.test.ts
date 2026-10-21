@@ -28,6 +28,13 @@ describe("escapeVal", () => {
     expect(escapeVal("not-json", "json")).toBe("NULL");
   });
 
+  it("JSON 列：mysql2 二进制协议返回 object 时须 JSON.stringify 而非 String(object)", () => {
+    // mysql2 execute() 自动解析 JSON → JS object，旧代码 String(object) = "[object Object]" 导致写 NULL
+    expect(escapeVal({ a: 1 }, "json")).toBe("'{\"a\":1}'");
+    expect(escapeVal([1, 2, 3], "json")).toBe("'[1,2,3]'");
+    expect(escapeVal({ nested: { x: "y" } }, "json")).toBe("'{\"nested\":{\"x\":\"y\"}}'");
+  });
+
   it("Buffer → 十六进制字面量", () => {
     expect(escapeVal(Buffer.from([0xde, 0xad]), "blob")).toBe("X'dead'");
   });
@@ -56,15 +63,30 @@ describe("buildOdkuClause", () => {
     );
   });
 
+  it("非破坏 JSON 列：NULL / [] / {} 都保留目标值", () => {
+    const clause = buildOdkuClause(
+      ["id", "documents"], ["id"], { ...colTypes, documents: "json" },
+      new Set(["documents"]), "id",
+    );
+    expect(clause).toBe(
+      "`documents` = IF((VALUES(`documents`) IS NULL OR JSON_LENGTH(VALUES(`documents`)) = 0), `documents`, VALUES(`documents`))",
+    );
+  });
+
   it("普通列：源库直通覆盖", () => {
     const clause = buildOdkuClause(["id", "title"], ["id"], colTypes, new Set(), "id");
     expect(clause).toBe("`title` = VALUES(`title`)");
   });
 
-  it("机会表已无人工精编保护列（2026-10-12 随 17 个国际采购列退役清空）", () => {
+  it("机会表已无人工精编保护列；公告表保护附件/外链 JSON（2026-10-21）", () => {
     // 反向断言：若有人把退役列重新登记回白名单，本用例必须红
     expect(NON_DESTRUCTIVE_COLUMNS.crm_bid_opportunities).toBeUndefined();
-    expect(Object.keys(NON_DESTRUCTIVE_COLUMNS)).toHaveLength(0);
+    expect(NON_DESTRUCTIVE_COLUMNS.crm_bid_notices).toEqual([
+      "documents",
+      "procurement_files",
+      "external_links",
+    ]);
+    expect(Object.keys(NON_DESTRUCTIVE_COLUMNS)).toHaveLength(1);
   });
 });
 

@@ -37,7 +37,11 @@ export const NUMERIC_TYPES = new Set([
  * 待删列清单见 scripts/tools/opp-slim-plan.mjs；列删后同步走「源∩目标」交集，
  * 源库多出的列自动跳过并告警，不报错。若将来重新引入人工精编列，必须在这里登记。
  */
-export const NON_DESTRUCTIVE_COLUMNS: Record<string, string[]> = {};
+export const NON_DESTRUCTIVE_COLUMNS: Record<string, string[]> = {
+  // 附件/外链是采集与外部文档管道补齐的字段；源库为空数组时不得把云端已有值抹掉
+  // （2026-10-21：实测 daily-sync 用源库 [] 覆盖了主表 documents，附件 URL 丢失）
+  crm_bid_notices: ["documents", "procurement_files", "external_links"],
+};
 
 /** 水位线：id 高水位 + update_time 高水位（字符串，跟随列原生类型；null 表示本批未见到有效值） */
 export interface Watermark {
@@ -55,10 +59,15 @@ export function escapeVal(val: unknown, dataType: string): string {
     return `'${s}'`;
   }
   if (Buffer.isBuffer(val)) return `X'${val.toString("hex")}'`;
-  const str = String(val);
+  // JSON 列：mysql2 二进制协议（execute）自动把 JSON 解析为 JS object/array，
+  // 必须 JSON.stringify 还原为合法 JSON 文本；直接 String(object) 得到
+  // "[object Object]" → 下游 JSON.parse 失败 → 写成 NULL → 数据丢失。
   if (dataType === "json") {
+    const str = (typeof val === "object") ? JSON.stringify(val) : String(val);
     try { JSON.parse(str); } catch { return "NULL"; }
+    return `'${str.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
   }
+  const str = String(val);
   return `'${str.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }
 
@@ -77,7 +86,9 @@ export function buildOdkuClause(
       if (!keepCols.has(c)) return `\`${c}\` = VALUES(\`${c}\`)`;
       const emptyTest = NUMERIC_TYPES.has(colTypes[c])
         ? `VALUES(\`${c}\`) IS NULL`
-        : `(VALUES(\`${c}\`) IS NULL OR VALUES(\`${c}\`) = '')`;
+        : colTypes[c] === "json"
+          ? `(VALUES(\`${c}\`) IS NULL OR JSON_LENGTH(VALUES(\`${c}\`)) = 0)`
+          : `(VALUES(\`${c}\`) IS NULL OR VALUES(\`${c}\`) = '')`;
       return `\`${c}\` = IF(${emptyTest}, \`${c}\`, VALUES(\`${c}\`))`;
     })
     .join(", ");
