@@ -44,6 +44,32 @@ export const PLATFORM_PUBLISHED_ONLY_NO_ALIAS =
   `(entry_source <> 'platform' OR IFNULL(rfq_status, '') = ${JSON.stringify(RFQ_STATUS.PUBLISHED)})`;
 
 /**
+ * 可投公告 WHERE 片段（n. 别名）—— 对外 API 的默认口径
+ *
+ * 与 ACTIVE_NOTICE_WHERE 的区别：
+ * - ACTIVE_NOTICE_WHERE 是「站内展示」口径：没有截止日（deadline_sec=0）也算未过期；
+ * - 本常量是「对外可投」口径：只认 crm_notice_deadline 里 state=known、type=bid、
+ *   且 effective_ts 落在未来 12 个月内的记录。
+ *
+ * 背景：源库把「无截止日」「框架/注册制结束日」「年份笔误（2050/2206/2225…）」
+ * 和「一次性投标截止日」混在 deadline 字符串里；主表 deadline_ts 不能直接对外。
+ * 语义分类结果在 crm_notice_deadline（notice_pk 关联），主表原值保留。
+ *
+ * 适用表：crm_bid_notices（别名 n）+ crm_notice_deadline（别名 d）
+ * 注意：本常量依赖 crm_notice_deadline 表；调用方需保证该表已迁移（baseline）。
+ */
+export const ACTIONABLE_NOTICE_WHERE =
+  `EXISTS (
+     SELECT 1 FROM crm_notice_deadline d
+      WHERE d.notice_pk = n.id
+        AND d.deadline_state = 'known'
+        AND d.deadline_type = 'bid'
+        AND d.effective_ts > UNIX_TIMESTAMP(NOW())
+        AND d.effective_ts <= UNIX_TIMESTAMP(NOW()) + 31536000
+   ) AND ` +
+  PLATFORM_PUBLISHED_ONLY;
+
+/**
  * 有效公告 WHERE 片段（n. 别名）—— MySQL 查询主口径
  *
  * 语义：无截止日期（deadline_sec = 0 → 永不过期，含 deadline_ts IS NULL 和 deadline_ts = 0）

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ACTIVE_NOTICE_WHERE,
+  ACTIONABLE_NOTICE_WHERE,
   ACTIVE_OPP_WHERE,
   ACTIVE_NOTICE_WHERE_NO_ALIAS,
   MEILI_ACTIVE_FILTER,
@@ -12,6 +13,14 @@ describe("公告过期常量", () => {
     expect(ACTIVE_NOTICE_WHERE).toContain("n.deadline_sec");
     expect(ACTIVE_NOTICE_WHERE).toContain("deadline_sec = 0");
     expect(ACTIVE_NOTICE_WHERE).toContain("UNIX_TIMESTAMP(NOW())");
+  });
+
+  it("ACTIONABLE_NOTICE_WHERE 只认 known/bid + 12 个月窗口，不再把 0 当可投", () => {
+    expect(ACTIONABLE_NOTICE_WHERE).toContain("crm_notice_deadline");
+    expect(ACTIONABLE_NOTICE_WHERE).toContain("deadline_state = 'known'");
+    expect(ACTIONABLE_NOTICE_WHERE).toContain("deadline_type = 'bid'");
+    expect(ACTIONABLE_NOTICE_WHERE).toContain("effective_ts");
+    expect(ACTIONABLE_NOTICE_WHERE).not.toContain("deadline_sec = 0");
   });
 
   it("ACTIVE_OPP_WHERE 使用 o. 别名", () => {
