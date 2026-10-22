@@ -78,6 +78,28 @@ test("fixture：非 v2 代码手写 UPDATE 服务表（越权写）→ 拦截", 
   assert.match(r.out, /单一写入者/);
 });
 
+test("fixture：非 v2 代码 TRUNCATE 服务表（越权写）→ 拦截", () => {
+  const root = fixture({
+    "db/schema/baseline.sql": baseline(OKCOLS),
+    "scripts/ops/notice-public-v2.ts": v2(OKCOLS),
+    "src/lib/repos/rogue.ts": 'await conn.query("TRUNCATE TABLE crm_notice_public");',
+  });
+  const r = run({ NP_SCAN_ROOT: root });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /单一写入者/);
+});
+
+test("fixture：非 v2 代码 REPLACE INTO 服务表（越权写）→ 拦截", () => {
+  const root = fixture({
+    "db/schema/baseline.sql": baseline(OKCOLS),
+    "scripts/ops/notice-public-v2.ts": v2(OKCOLS),
+    "src/lib/repos/rogue.ts": 'await conn.query("REPLACE INTO crm_notice_public (notice_pk) VALUES (?)");',
+  });
+  const r = run({ NP_SCAN_ROOT: root });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /单一写入者/);
+});
+
 test("fixture：baseline 未定义服务表 → 拦截", () => {
   const root = fixture({
     "db/schema/baseline.sql": "CREATE TABLE `other` (`id` int);\n",

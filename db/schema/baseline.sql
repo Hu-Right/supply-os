@@ -66,6 +66,34 @@ CREATE TABLE `crm_agency_aliases` (
   KEY `idx_canonical` (`canonical`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='机构归一化';
 
+-- ── crm_agency_types ──
+-- 机构类型字典：类型键、生效国家、多语言名。country_code=NULL 表示全球通用。
+CREATE TABLE `crm_agency_types` (
+  `type_key` varchar(100) NOT NULL,
+  `country_code` char(2) DEFAULT NULL COMMENT 'NULL=全球；BR/KE=国家特定',
+  `name_i18n` json DEFAULT NULL COMMENT '类型多语言名称',
+  `priority` int NOT NULL DEFAULT '0',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`type_key`),
+  KEY `idx_agency_types_country` (`country_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='机构类型字典';
+
+-- ── crm_agency_type_rules ──
+-- 机构名 → 类型规则的唯一数据源；country_code 必须与规则匹配的国家一致。
+CREATE TABLE `crm_agency_type_rules` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `type_key` varchar(100) NOT NULL,
+  `country_code` char(2) DEFAULT NULL COMMENT 'NULL=全球；非 NULL 时只在对应国家生效',
+  `pattern` varchar(1000) NOT NULL COMMENT 'JS 正则 source',
+  `flags` varchar(10) NOT NULL DEFAULT 'i',
+  `priority` int NOT NULL DEFAULT '0',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`),
+  KEY `idx_rules_type` (`type_key`),
+  KEY `idx_rules_country_priority` (`country_code`,`priority`),
+  CONSTRAINT `fk_agency_rule_type` FOREIGN KEY (`type_key`) REFERENCES `crm_agency_types` (`type_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='机构类型匹配规则';
+
 -- ── crm_api_keys ──
 CREATE TABLE `crm_api_keys` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,

@@ -7,7 +7,7 @@ import path from "node:path";
  *
  * 规则：
  *   N1) 只有 scripts/ops/notice-public-v2.ts 可对 crm_notice_public 执行
- *       INSERT/UPDATE/DELETE。其余任何代码手写刷服务表，都会与 v2 构建口径分叉
+ *       INSERT/REPLACE/UPDATE/DELETE/TRUNCATE。其余任何代码手写刷服务表，都会与 v2 构建口径分叉
  *       （本项目已多次实测踩到「表↔builder 两套 DDL 打架」导致刷新链崩溃）。
  *   N2) db/schema/baseline.sql 里 crm_notice_public 的列集合，必须与 v2 的 COLS 集合
  *       完全一致。手改表忘改 builder（或反之）= 漂移，此门禁当场拦截。
@@ -35,8 +35,8 @@ function walk(target) {
   const relNorm = rel.replace(/^\.\//, "");
   fs.readFileSync(target, "utf8").split(/\r?\n/).forEach((line, i) => {
     const at = `${rel}:${i + 1}`;
-    const writes =
-      new RegExp("(INSERT\\s+INTO|UPDATE|DELETE\\s+FROM)\\s*`?" + TABLE + "`?", "i").test(line);
+  const writes =
+    new RegExp("(INSERT\\s+INTO|REPLACE\\s+INTO|UPDATE|DELETE\\s+FROM|TRUNCATE(?:\\s+TABLE)?)\\s*`?" + TABLE + "`?", "i").test(line);
     if (writes && relNorm !== WRITER) {
       violations.push(`N1 服务表单一写入者 → ${at}: ${line.trim()}`);
     }
