@@ -59,3 +59,5 @@ export function FavoriteNotices({ favoriteIds, onOpenNotice }: FavoriteNoticesPr
 }
 
 FavoriteNotices.displayName = "FavoriteNotices";
+
+

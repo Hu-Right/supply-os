@@ -51,3 +51,4 @@ describe("NextStepsPanel", () => {
     expect(buttons.length).toBeGreaterThanOrEqual(4);
   });
 });
+

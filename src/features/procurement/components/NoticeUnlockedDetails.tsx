@@ -46,10 +46,10 @@ function contactName(item: RawContact): string {
  * 导出供详情页拆解文件指示器共用同一判断口径。
  */
 export function collectBreakdownFiles(notice: NoticeItem): RawAttachment[] {
-  const documents = (notice.documents as RawAttachment[] | undefined) || [];
-  const procurementFiles = (notice.procurement_files as RawAttachment[] | undefined) || [];
+  const documents = (notice.attachments as RawAttachment[] | undefined) || [];
+  
   const seenFiles = new Set<string>();
-  return [...documents, ...procurementFiles].filter((item) => {
+  return [...documents].filter((item) => {
     if (!attachmentUrl(item) && attachmentName(item) === "-") return false;
     const key = `${attachmentUrl(item) || ""}|${attachmentName(item)}`.toLowerCase();
     if (seenFiles.has(key)) return false;
@@ -70,7 +70,7 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
 
   const contacts = (notice.contacts as RawContact[] | undefined) || [];
   // key_contacts 兼容字符串（整体文本）与对象数组两种形态
-  const rawKeyContacts = notice.key_contacts;
+  const rawKeyContacts = undefined;
   const keyContactsText = typeof rawKeyContacts === "string" ? rawKeyContacts : "";
   const keyContacts: RawContact[] =
     typeof rawKeyContacts === "string" ? [] : (rawKeyContacts as RawContact[] | undefined) || [];
@@ -94,29 +94,29 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
   };
 
   // 采购方/机构信息：完整机构名优先，逐级回退
-  const agencyInfo = notice.agency_i18n || notice.agency_full || notice.agency || notice.organization || "";
+  const agencyInfo = notice.agency_i18n || notice.buyer_name || "";
 
   const hasContent =
     allContacts.length > 0 ||
     files.length > 0 ||
     externalLinks.length > 0 ||
     !!agencyInfo ||
-    !!notice.published_date ||
+    !!notice.published_ts ||
     !!keyContactsText ||
-    !!notice.url;
+    !!notice.source_url;
 
   if (!hasContent) return null;
 
   // 机构信息卡四行（原版布局），缺失值以 "-" 兖底
   const agencyRows: Array<[string, ReactNode]> = [
     [t("procurement_agencyFullName"), agencyInfo || "-"],
-    [t("procurement_country"), getCountryDisplayName(notice.country || "", locale) || "-"],
-    [t("procurement_publishedDate"), notice.published_date || "-"],
+    [t("procurement_country"), getCountryDisplayName(notice.country_code || "", locale) || "-"],
+    [t("procurement_publishedDate"), (notice.published_ts ? new Date(Number(notice.published_ts) * 1000).toISOString().slice(0, 10) : "-")],
     [
       t("procurement_originalLink"),
-      notice.url ? (
+      notice.source_url ? (
         <a
-          href={notice.url}
+          href={notice.source_url}
           target="_blank"
           rel="noreferrer"
           className="font-black text-blue-700 hover:text-blue-900 hover:underline"
@@ -217,9 +217,9 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
             <div className="space-y-2">
               <p className="text-slate-400">{t("procurement_reportPending")}</p>
               {/* 解锁后确认无报告：展示微信客服引导横幅（已按 notice_id 会话去重） */}
-              {!notice.report_available && notice.id != null && (
+              {!notice.report_available && notice.notice_pk != null && (
                 <ReportUnavailableBanner
-                  noticeId={notice.id}
+                  noticeId={notice.notice_pk}
                   isVip={isVip}
                   isLoggedIn={!!authUser}
                 />
@@ -276,3 +276,5 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
 }
 
 NoticeUnlockedDetails.displayName = "NoticeUnlockedDetails";
+
+

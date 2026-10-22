@@ -76,24 +76,24 @@ export function useNoticeUnlock({
       return;
     }
     try {
-      const detail = await fetchNoticeDetail(notice.id);
+      const detail = await fetchNoticeDetail(notice.notice_pk);
       setSelectedNotice((prev) => {
-        if (!prev || prev.id !== notice.id) return prev;
+        if (!prev || prev.notice_pk !== notice.notice_pk) return prev;
         // 显式重置数组字段，防止前一个公告的数据残留
         return {
           ...prev,
           ...detail,
-          documents: detail.documents ?? [],
-          procurement_files: detail.procurement_files ?? [],
+          attachments: detail.attachments ?? [],
+          
           external_links: detail.external_links ?? [],
           contacts: detail.contacts ?? [],
         };
       });
-      markUnlocked(notice.id);
+      markUnlocked(notice.notice_pk);
     } catch {
       // 未解锁或加载失败：保留列表数据，不阻断详情页
     } finally {
-      setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
+      setDetailLoadingId((prev) => (prev === notice.notice_pk ? null : prev));
     }
   }, [userId, setSelectedNotice, markUnlocked]);
 
@@ -102,15 +102,15 @@ export function useNoticeUnlock({
   const loadNoticePreview = useCallback(async (notice: NoticeItem) => {
     if (!userId) return;
     try {
-      const preview = await fetchNoticePreview(notice.id);
+      const preview = await fetchNoticePreview(notice.notice_pk);
       setSelectedNotice((prev) => {
-        if (!prev || prev.id !== notice.id) return prev;
+        if (!prev || prev.notice_pk !== notice.notice_pk) return prev;
         // 预览接口不返回数组字段，显式清空防止残留
         return {
           ...prev,
           ...preview,
-          documents: [],
-          procurement_files: [],
+          attachments: [],
+          
           external_links: [],
         };
       });
@@ -125,10 +125,10 @@ export function useNoticeUnlock({
   // 避免卡片与详情页语言显示不一致（卡片通过 description_cn 显示中文）；
   // fire-and-forget 模式，失败静默不阻断详情页
   const loadNoticeContent = useCallback((notice: NoticeItem) => {
-    fetchNoticeContent(notice.id)
+    fetchNoticeContent(notice.notice_pk)
       .then((content) => {
         setSelectedNotice((prev) =>
-          prev && prev.id === notice.id
+          prev && prev.notice_pk === notice.notice_pk
             ? {
                 ...prev,
                 description: content.description,
@@ -148,7 +148,7 @@ export function useNoticeUnlock({
 
   // 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情）
   const openNoticeById = useCallback(async (id: number) => {
-    const base = items.find((it) => it.id === id) || ({ id } as NoticeItem);
+    const base = items.find((it) => it.notice_pk === id) || ({ notice_pk: id } as NoticeItem);
     setDetailLoadingId(id);
     setSelectedNotice(base);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -169,3 +169,5 @@ export function useNoticeUnlock({
     openNoticeById,
   };
 }
+
+

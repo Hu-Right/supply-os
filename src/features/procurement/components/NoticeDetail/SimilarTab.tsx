@@ -31,13 +31,13 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
   const [exhausted, setExhausted] = useState(false);
 
   useEffect(() => {
-    if (notice.id == null) { setItems([]); setExhausted(true); setLoading(false); return; }
+    if (notice.notice_pk == null) { setItems([]); setExhausted(true); setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setExhausted(false);
     setItems([]);
 
-    fetchSimilarNotices(notice.id, SIMILAR_LIMIT, locale)
+    fetchSimilarNotices(notice.notice_pk, SIMILAR_LIMIT, locale)
       .then((res) => {
         if (cancelled) return;
         const hits = res.items || [];
@@ -48,7 +48,7 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [notice.id, locale]);
+  }, [notice.notice_pk, locale]);
 
   const metaLine = (item: NoticeItem) => {
     const country = getCountryDisplayName(item.country || "", locale);
@@ -115,3 +115,5 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
     </section>
   );
 }
+
+

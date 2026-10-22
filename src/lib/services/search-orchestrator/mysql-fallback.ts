@@ -141,11 +141,11 @@ export async function mysqlFallback(
     fromSql = `crm_bid_notices n INNER JOIN (${kw.sql}) _kw ON _kw.id = n.id`;
     queryParams.push(...kw.params);
   } else {
-    fromSql = "crm_bid_notices n";
+    fromSql = "crm_bid_notices n FORCE INDEX (idx_deadline_sec)";
   }
   queryParams.push(...plan.mysqlParams);
 
-  const countSql = `SELECT COUNT(DISTINCT n.id) AS total FROM ${fromSql} WHERE ${whereSql}`;
+  const countSql = `SELECT ${p.q ? "COUNT(DISTINCT n.id)" : "COUNT(*)"} AS total FROM ${fromSql} WHERE ${whereSql}`;
   const idSql = `SELECT n.id FROM ${fromSql} WHERE ${whereSql} ORDER BY ${buildOrderBy(p)} LIMIT ? OFFSET ?`;
   const idParams = [...queryParams, p.pageSize, offset];
 
@@ -166,3 +166,5 @@ export async function mysqlFallback(
     return { ids: [], total: 0 };
   }
 }
+
+

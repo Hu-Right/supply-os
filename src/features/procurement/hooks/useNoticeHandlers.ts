@@ -64,18 +64,18 @@ export function useNoticeHandlers({
     }
 
     // T-B9 点击埋点：仅推荐模式上报（正反馈联动兴趣码权重，D.7）
-    trackClick(notice.id);
+    trackClick(notice.notice_pk);
 
-    const alreadyUnlocked = isUnlocked(notice.id);
+    const alreadyUnlocked = isUnlocked(notice.notice_pk);
     // 免费试用已移除（2026-08-30）：未解锁用户打开详情由服务端 403 core_locked
     // 付费墙接管（本地 localStorage 计数门槛已删除），此处不再前置拦截
 
     // T-C7：详情真实打开（过付费墙拦截后）才计隐式信号——会话内回看 +0.5；记录进入时刻供退出结算
-    trackDetailOpen(notice.id);
+    trackDetailOpen(notice.notice_pk);
 
     // 三请求并行：浏览计数与配额刷新不再阻塞详情数据到达
-    void viewNotice(notice.id);
-    setDetailLoadingId(alreadyUnlocked ? notice.id : null);
+    void viewNotice(notice.notice_pk);
+    setDetailLoadingId(alreadyUnlocked ? notice.notice_pk : null);
     setSelectedNotice(notice);
     setActionMessage("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -111,12 +111,12 @@ export function useNoticeHandlers({
 
     const nextUnlockType = unlockType || "subscription";
     // 解锁发起即进入加载态：锁定面板让位于骨架屏，直至详情返回
-    setDetailLoadingId(notice.id);
+    setDetailLoadingId(notice.notice_pk);
     try {
       // P2-10：价格由服务端按套餐定价，前端固定传 0
-      await unlockNotice(notice.id, nextUnlockType, 0);
+      await unlockNotice(notice.notice_pk, nextUnlockType, 0);
     } catch (err) {
-      setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
+      setDetailLoadingId((prev) => (prev === notice.notice_pk ? null : prev));
       if (err instanceof ApiError && err.status === 402) {
         setActionMessage(t("procurement_paidQuotaRequired"));
       } else {
@@ -127,7 +127,7 @@ export function useNoticeHandlers({
     }
 
     await refreshMembership();
-    markUnlocked(notice.id);
+    markUnlocked(notice.notice_pk);
     // P2-5 安全修复：解锁成功后清除解锁历史缓存，确保 RecentUnlocks 立即刷新
     clearApiCache("/api/payment/unlocks");
     setActionMessage(t("procurement_paidUnlockOk"));
@@ -143,7 +143,7 @@ export function useNoticeHandlers({
     }
 
     try {
-      await expressInterest(notice.id, interestType);
+      await expressInterest(notice.notice_pk, interestType);
     } catch {
       setActionMessage(t("procurement_actionFailed"));
       return;
@@ -155,3 +155,4 @@ export function useNoticeHandlers({
 
   return { openNotice, handleUnlockNotice, handleExpressInterest };
 }
+

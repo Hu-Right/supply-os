@@ -4,7 +4,7 @@
  *
  * @module features/procurement/components/NoticeDetail/FilesTab
  * @description 展示采购文件下载列表与外部参考链接。
- *              数据来自 notice.documents / notice.external_links。
+ *              数据来自 notice.attachments / notice.external_links。
  *              区分文件类型（PDF/DOC/ZIP等），展示文件计数与分类统计。
  */
 import { Download, ExternalLink, FileText, Link, FileArchive, FileSpreadsheet, File } from "lucide-react";
@@ -45,7 +45,7 @@ function getFileIcon(name: string) {
 export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
   const { t } = useLocale();
 
-  const documents = ((notice.documents as RawAttachment[] | undefined) || []);
+  const documents = ((notice.attachments as RawAttachment[] | undefined) || []);
   const externalLinks = ((notice.external_links as RawAttachment[] | undefined) || []);
   const hasFiles = documents.length > 0 || externalLinks.length > 0;
 
@@ -234,3 +234,4 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
     </section>
   );
 }
+

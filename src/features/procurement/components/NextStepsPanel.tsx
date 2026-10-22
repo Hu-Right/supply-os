@@ -110,7 +110,7 @@ export function NextStepsPanel({
         } else if (!isLoggedIn) {
           emitAppEvent("supply-os:require-login");
         } else {
-          router.push(`/membership?notice_id=${notice.id}`);
+          router.push(`/membership?notice_id=${notice.notice_pk}`);
         }
       },
     },
@@ -125,7 +125,7 @@ export function NextStepsPanel({
         if (onBookConsultant) {
           onBookConsultant();
         } else {
-          router.push(`/services?notice_id=${notice.id}`);
+          router.push(`/services?notice_id=${notice.notice_pk}`);
         }
       },
     },
@@ -192,7 +192,7 @@ export function NextStepsPanel({
           <span className="truncate">{t("procurement_subscribeNotice") || "订阅商机"}</span>
         </Button>
         <Button
-          onClick={() => (canUsePaidQuota ? onUnlock?.() : router.push(`/membership?notice_id=${notice.id}`))}
+          onClick={() => (canUsePaidQuota ? onUnlock?.() : router.push(`/membership?notice_id=${notice.notice_pk}`))}
           variant={canUsePaidQuota ? "secondary" : "cta"}
           className="flex-1 min-w-0 gap-1.5 px-2 py-2 text-xs"
         >
@@ -205,7 +205,7 @@ export function NextStepsPanel({
       {!isVip && (
         <div className="mt-3 pt-3 border-t border-slate-200 hidden md:block">
           <Button
-            onClick={() => router.push(`/membership?notice_id=${notice.id}`)}
+            onClick={() => router.push(`/membership?notice_id=${notice.notice_pk}`)}
             variant="dark"
             className="w-full rounded-xl py-3 text-sm"
           >
@@ -218,3 +218,4 @@ export function NextStepsPanel({
     </aside>
   );
 }
+

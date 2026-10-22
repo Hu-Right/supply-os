@@ -109,7 +109,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
   const eligibility = notice.eligibility || "";
   const technicalHurdles = notice.technical_hurdles || "";
   const hasContent = supplierConditions || eligibility || technicalHurdles;
-  const levelConfig = getLevelConfig(notice.registration_level);
+  const levelConfig = getLevelConfig(notice.registration_level ?? undefined);
 
   // ── 未解锁：展示具体锁定提示 ──
   if (!coreUnlocked) {
@@ -220,3 +220,4 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
     </section>
   );
 }
+

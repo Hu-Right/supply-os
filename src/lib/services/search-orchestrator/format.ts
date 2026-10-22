@@ -7,7 +7,7 @@
  *              与 mapResultItems（行业匹配）的字段口径，所有数据源行为一致。
  */
 import type { RowDataPacket } from "mysql2/promise";
-import { normalizeDocumentRows } from "../../utils/normalize";
+
 import { getAgencyCacheData } from "../notice-search/agencies/index";
 import { classifyAgencyType } from "../agency/index";
 import { resolveAgencyDisplay } from "../agency/resolve";
@@ -41,15 +41,16 @@ function perDocMatchScore(
 }
 
 /**
- * 机构 i18n 三级回退（共享助手）：
- * 1. 缓存精确匹配：agency_std 大写 → agencyI18nMap（来自下拉 API 缓存）
- * 2. 聚合键回退：agency_group（classifyAgencyType 聚合键，如 "MUNICIPIO_BR"）
+ * 机构 i18n 三级回退（共享助手），输入行一律用**服务表原字段**：
+ * 1. 缓存精确匹配：buyer_name 大写 → agencyI18nMap（来自下拉 API 缓存）
+ * 2. 聚合键回退：buyer_group（classifyAgencyType 聚合键，如 "MUNICIPIO_BR"）
  * 3. 直接计算回退：经 resolveAgencyDisplay 走「别名表→正则」单一入口（与下拉 query 同源）；
- *    无 i18n 时再经 classifyAgencyType 计算聚合 i18n。确保卡片与下拉框展示完全一致。
+ *    无 i18n 时再经 classifyAgencyType 计算聚合 i18n（国家取 country_code）。确保卡片与下拉框展示完全一致。
  *    全程纯内存正则匹配，无 DB/缓存依赖，开销可忽略。
  *
  * 2026-10-12 从 formatItems 抽出：推荐管道（recommend/recall）此前不做机构
  * 翻译，占位平台代码（mercadopublico_cl 等）在"智能推荐"列表原样露出。
+ * ⚠ 下拉缓存条目自身的键名仍是 `agency`（那是下拉 API 的形状），与公告行字段名无关。
  */
 export function enrichAgencyI18n(
   items: Array<Record<string, unknown>>,
@@ -64,17 +65,17 @@ export function enrichAgencyI18n(
     }
   }
   for (const item of items) {
-    const agencyUpper = String(item.agency || "").toUpperCase();
+    const agencyUpper = String(item.buyer_name || "").toUpperCase();
     let i18n = agencyI18nMap.get(agencyUpper)
-      || (item.agency_group ? agencyI18nMap.get(String(item.agency_group)) : undefined);
-    if (!i18n && item.agency) {
+      || (item.buyer_group ? agencyI18nMap.get(String(item.buyer_group)) : undefined);
+    if (!i18n && item.buyer_name) {
       // 与下拉管线同一入口：表→正则 经 resolveAgencyDisplay（不在此重复写两套）
-      const disp = resolveAgencyDisplay(String(item.agency));
+      const disp = resolveAgencyDisplay(String(item.buyer_name));
       if (disp.i18n) {
         i18n = disp.i18n;
       } else {
         // 无 i18n → 聚合分类计算回退（用解析后的 canonical）
-        const typeInfo = classifyAgencyType(disp.canonical, item.country ? String(item.country) : undefined);
+        const typeInfo = classifyAgencyType(disp.canonical, item.country_code ? String(item.country_code) : undefined);
         if (typeInfo?.i18n) i18n = typeInfo.i18n;
       }
     }
@@ -84,7 +85,9 @@ export function enrichAgencyI18n(
 }
 
 /**
- * 格式化搜索结果 items。
+ * 格式化搜索结果 items（服务表原字段直出）。
+ * 只补两件事：列表侧一律 core_locked=true（详情才由解锁记录定值）+ 机构 i18n。
+ * 不做字段别名、不做布尔归一、不解析附件造计数——那些口径的唯一事实源在服务表行本身。
  * @param rows 详情行（fetchDetailsByIds 输出）
  * @param locale 界面语言（agency_i18n 取值）
  * @param profileNodes 可选：用户行业画像的节点码序列（prefs 模式；逐文档计算匹配档次）
@@ -95,18 +98,9 @@ export function formatItems(
   profileNodes?: Array<{ level: number; node: string }>,
 ): Array<Record<string, unknown>> {
   const items = rows.map((row) => {
-    // breakdown_file_count：宽表直取；多表 JOIN 回退路径解析 JSON
-    const breakdownCount = row.breakdown_file_count !== undefined
-      ? (Number(row.breakdown_file_count) || undefined)
-      : (normalizeDocumentRows(row.documents, row.procurement_files).length || undefined);
-
     const item: Record<string, unknown> = {
       ...row,
-      organization: null,
-      source_url: null,
       core_locked: true,
-      is_featured: row.is_featured ? true : false,
-      breakdown_file_count: breakdownCount,
     };
 
     // prefs 模式：逐文档计算匹配分与档次标签（[阶段0 A2] 替代旧版整页统一赋分：
@@ -122,3 +116,5 @@ export function formatItems(
   });
   return enrichAgencyI18n(items, locale);
 }
+
+

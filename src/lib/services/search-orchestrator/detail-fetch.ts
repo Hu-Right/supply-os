@@ -31,23 +31,25 @@ export async function fetchDetailsByIds(
   const useWideTable = await isWideTableReady(pool);
 
   if (useWideTable) {
-    const i18nTitleExpr = `title_${lang}`;
-    const i18nDescExpr = `description_${lang}`;
+    const i18nTitleExpr = `s.title_${lang}`;
+    const i18nDescExpr = `s.description_${lang}`;
     const [rows] = await pool.query(
-      `SELECT id, notice_id, reference, title, notice_type_std AS notice_type,
-         country_std AS country, agency_std AS agency, agency_group,
-         NULLIF(deadline_sec, 0) AS deadline_sec, NULLIF(deadline_sec, 0) AS deadline_ts,
-         estimated_value, is_featured, entry_source,
-         LEFT(description, ${WIDE_LIMITS.lockedTeaser}) AS description,
-         CASE WHEN LENGTH(description) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
+      `SELECT p.notice_pk, p.notice_id, p.source_url, p.reference, p.title,
+         LEFT(p.description, ${WIDE_LIMITS.lockedTeaser}) AS description,
+         CASE WHEN LENGTH(p.description) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
+         p.description_cn, p.notice_type_code, p.country_code,
+         p.buyer_name, p.buyer_group, p.deadline_ts, p.published_ts,
+         p.estimated_value, p.currency_code, p.platform_name,
+         p.attachments, p.contacts, p.is_opportunity, p.content_level,
+         p.industry, p.difficulty, p.registration_level, p.beneficiary_countries,
+         p.updated_at,
          ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, ${WIDE_LIMITS.i18nTeaser}) AS description_i18n,
-         title_en, LEFT(description_en, ${WIDE_LIMITS.i18nTeaser}) AS description_en,
-         description_cn, bid_overview, beneficiary_countries,
-         documents_count AS breakdown_file_count,
-         backbone_path
-       FROM crm_notice_search
-       WHERE id IN (${ids.map(() => "?").join(",")})
-       ORDER BY FIELD(id, ${ids.map(() => "?").join(",")})`,
+         s.title_en, LEFT(s.description_en, ${WIDE_LIMITS.i18nTeaser}) AS description_en,
+         s.bid_overview, s.backbone_path, s.entry_source
+       FROM crm_notice_public p
+       LEFT JOIN crm_notice_search s ON s.id = p.notice_pk
+       WHERE p.notice_pk IN (${ids.map(() => "?").join(",")})
+       ORDER BY FIELD(p.notice_pk, ${ids.map(() => "?").join(",")})`,
       [...ids, ...ids],
     );
     // 模块02 NEW 标签：create_time 在主表（宽表无此列）。按 PK 二次查询后在内存合并，
@@ -58,7 +60,7 @@ export async function fetchDetailsByIds(
     );
     const timeMap = new Map<number, unknown>();
     for (const r of timeRows as RowDataPacket[]) timeMap.set(Number(r.id), r.create_time);
-    return (rows as RowDataPacket[]).map((r) => ({ ...r, create_time: timeMap.get(Number(r.id)) ?? null }));
+    return (rows as RowDataPacket[]).map((r) => ({ ...r, create_time: timeMap.get(Number(r.notice_pk)) ?? null }));
   }
 
   // 回退路径：原始多表 JOIN（宽表未就绪）
@@ -84,3 +86,4 @@ export async function fetchDetailsByIds(
   );
   return rows as RowDataPacket[];
 }
+

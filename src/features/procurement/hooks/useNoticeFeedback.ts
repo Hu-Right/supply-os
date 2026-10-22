@@ -175,7 +175,7 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
   // T-C7：详情滚动到底 +0.1（NoticeDetail 为整页布局，监听 window 滚动；每卡每会话只报一次）
   useEffect(() => {
     if (!selectedNotice || !feedbackEnabled || !userId) return;
-    const noticeId = selectedNotice.id;
+    const noticeId = selectedNotice.notice_pk;
     const onScroll = () => {
       if (scrollEndReportedRef.current.has(noticeId)) return;
       if (window.innerHeight + window.scrollY < document.documentElement.scrollHeight - 60) return;
@@ -194,3 +194,4 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
     trackDetailOpen,
   };
 }
+

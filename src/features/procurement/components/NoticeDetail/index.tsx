@@ -67,7 +67,7 @@ export function NoticeDetail({
   const authContext = useOptionalAuth();
   const userId = useUserId();
   const router = useRouter();
-  const noticeId = (notice as { id?: number }).id;
+  const noticeId = notice.notice_pk;
   // 锁定态：core_locked === false 为已解锁（列表标记或 /detail 合并结果）。
   // 上移至 hooks 之前：AI 摘要与翻译一致，锁定态不发请求/不开放"开始分析"（后端必 403 core_locked）。
   const coreUnlocked = notice.core_locked === false;
@@ -93,13 +93,13 @@ export function NoticeDetail({
   // 切换到另一条公告（如相似机会跳转）时回到概况 Tab
   useEffect(() => {
     setActiveTab("summary");
-  }, [notice.id]);
+  }, [notice.notice_pk]);
 
   // 翻译：锁定态不发起请求——/translation 同属付费墙闸口（ARCH-P0 2026-09-05），
   // 锁定态发起必 403 core_locked；锁定面板标题来自列表 i18n 字段，无需译文。
   // 解锁后 core_locked 翻转为 false，钩子自动补发。
   const { translation, displayTitle: hookDisplayTitle, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
-    coreUnlocked && canSeeChinese ? (notice as { id?: number }).id : undefined, locale,
+    coreUnlocked && canSeeChinese ? notice.notice_pk : undefined, locale,
     `${notice.title || ""}\n${notice.description || ""}`,
     canSeeChinese && locale === "zh" ? (notice.title_i18n || undefined) : undefined,
   );
@@ -124,27 +124,27 @@ export function NoticeDetail({
     : typeof notice.breakdown_file_count === "number" ? notice.breakdown_file_count : undefined;
   const hasReport = coreUnlocked
     ? notice.report_available === true
-    : typeof notice.report_available === "boolean" ? notice.report_available : notice.is_featured === true;
-  const reportKnown = coreUnlocked || typeof notice.report_available === "boolean" || typeof notice.is_featured === "boolean";
-  const typeKey = noticeTypeKey(notice.notice_type);
+    : typeof notice.report_available === "boolean" ? notice.report_available : Number(notice.is_opportunity) === 1;
+  const reportKnown = coreUnlocked || typeof notice.report_available === "boolean" || typeof notice.is_opportunity === "boolean";
+  const typeKey = noticeTypeKey(notice.notice_type_code);
   const showReportGuide = !showSkeleton && reportKnown && !hasReport;
   const visibleAgency = coreUnlocked
-    ? notice.agency_i18n || notice.agency_full || notice.agency || notice.organization || t("procurement_unknownAgency")
+    ? notice.agency_i18n || notice.buyer_name || t("procurement_unknownAgency")
     : showSkeleton ? t("procurement_loading")
-    : notice.agency_i18n || notice.agency || notice.organization || t("procurement_unknownAgency");
+    : notice.agency_i18n || notice.buyer_name || t("procurement_unknownAgency");
 
   // 信息表数据（发布日走统一解析+UTC 格式化，与 SEO 页同口径；不可解析回落占位）
-  const publishDate = formatNoticeDateOrNull(notice.published_date) || "-";
-  const deadlineText = notice.deadline || t("procurement_noDeadline");
-  const budgetText = notice.estimated_value || t("procurement_budgetPending");
-  const typeLabel = typeKey ? t(typeKey) : notice.notice_type || "-";
+  const publishDate = formatNoticeDateOrNull(notice.published_ts ? new Date(Number(notice.published_ts) * 1000).toISOString().slice(0, 10) : "") || "-";
+  const deadlineText = (notice.deadline_ts ? new Date(Number(notice.deadline_ts) * 1000).toISOString().slice(0, 10) : "") || t("procurement_noDeadline");
+  const budgetText = notice.estimated_value == null ? t("procurement_budgetPending") : String(notice.estimated_value);
+  const typeLabel = typeKey ? t(typeKey) : notice.notice_type_code || "-";
 
   return (
     <div className="space-y-5">
       <article className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
         <DetailHeader
           displayTitle={displayTitle} typeLabel={typeLabel}
-          noticeId={notice.reference} visibleAgency={visibleAgency} country={notice.country || ""} sourceUrl={notice.source_url} platform={notice.platform ?? null}
+          noticeId={notice.reference || undefined} visibleAgency={visibleAgency} country={notice.country_code || ""} sourceUrl={notice.source_url || undefined} platform={notice.platform ?? null}
           publishDate={publishDate} deadlineText={deadlineText} countdown={countdown}
           budgetText={budgetText} onBack={onBack} t={t} locale={locale}
           favorited={favorited} onToggleFavorite={onToggleFavorite}
@@ -193,7 +193,7 @@ export function NoticeDetail({
                   hasTranslation={hasTranslation} showOriginal={showOriginal}
                   showTranslated={!showOriginal && hasTranslation}
                   toggleOriginal={toggleOriginal}
-                  displayDescription={displayDescription}
+                  displayDescription={displayDescription || ""}
                   descriptionTruncated={!!notice.description_truncated}
                 />
 
@@ -204,16 +204,16 @@ export function NoticeDetail({
                   />
                 )}
 
-                {showReportGuide && notice.id != null && (
+                {showReportGuide && notice.notice_pk != null && (
                   <ReportUnavailableBanner
-                    noticeId={notice.id} isVip={isVip}
+                    noticeId={notice.notice_pk} isVip={isVip}
                     isLoggedIn={!!authContext?.authUser}
                   />
                 )}
 
-                {notice.id != null && userId && reportKnown && hasReport && (
+                {notice.notice_pk != null && userId && reportKnown && hasReport && (
                   <ReportPreviewPanel
-                    noticeId={notice.id} userId={userId} isVip={isVip}
+                    noticeId={notice.notice_pk} userId={userId} isVip={isVip}
                     onUnlock={onUnlock} coreLocked={!coreUnlocked}
                   />
                 )}
@@ -287,3 +287,7 @@ export function NoticeDetail({
     </div>
   );
 }
+
+
+
+
