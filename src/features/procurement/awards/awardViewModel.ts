@@ -38,6 +38,9 @@ export interface AwardViewModel {
   categories: Section<CategoryRow[]>;
   recentAwards: RecentRow[];
   copy: { heroTitle: string; heroSubtitle: string; cnCasesNote: string };
+  /** 取数三态透传：页面据此铺骨架（loading）/渲染错误重试（error 且无真数据）/诚实空态 */
+  loading: boolean;
+  error: boolean;
 }
 
 /** 金额紧凑显示：>=1e9→B, >=1e6→M, >=1e3→K（仅金额可用时调用） */
@@ -142,7 +145,7 @@ export function buildAwardViewModel(data: AwardsData): AwardViewModel {
     cnCasesNote: "以下为中国企业联合国采购中标精选案例（人工核验官方公示，非平台聚合数据）",
   };
 
-  return { coverage, statsCards, infoCards, trend, buyerProfile, topWinners, categories, recentAwards, copy };
+  return { coverage, statsCards, infoCards, trend, buyerProfile, topWinners, categories, recentAwards, copy, loading: data.loading, error: data.error };
 }
 
 function aggregateCategories(rows: AwardsData["recentAwards"]): CategoryRow[] {

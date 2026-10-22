@@ -48,5 +48,5 @@ export const GET = withRoute(async (req: NextRequest) => {
     sortDir,
   });
 
-  return NextResponse.json(result);
+  return NextResponse.json(result, { headers: { "Cache-Control": "public, max-age=600" } });
 });

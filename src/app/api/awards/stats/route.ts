@@ -15,5 +15,5 @@ export const dynamic = "force-dynamic";
 /** GET /api/awards/stats — 统计摘要 */
 export const GET = withRoute(async () => {
   const stats = await getAwardStats(getContext().dbPool);
-  return NextResponse.json(stats);
+  return NextResponse.json(stats, { headers: { "Cache-Control": "public, max-age=600" } });
 });

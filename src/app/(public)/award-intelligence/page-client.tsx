@@ -23,6 +23,7 @@ import {
   ReminderModal, CnCaseDetailModal,
 } from "./Modals";
 import { CnCaseSection } from "./sections/CnCaseSection";
+import { AwardsBadgesSkeleton, AwardsSkeleton, AwardsErrorState } from "./sections/PageStates";
 import { InfoCardsGrid, BuyerProfileCard, TopWinnersCard, RecentAwardsCard } from "./sections/cards";
 
 export default function PageClient() {
@@ -40,6 +41,8 @@ export default function PageClient() {
   // ── 真实中标数据 → 视图模型（唯一取数口径）；useMemo 稳定引用，避免交互时图表重建 ──
   const awardsData = useAwardsData();
   const vm = useMemo(() => buildAwardViewModel(awardsData), [awardsData]);
+  // 接口失败且无真数据 → 错误态（区别于「空库」诚实空态）；部分失败但有数据 → 照常渲染
+  const showError = vm.error && !awardsData.hasRealData;
 
   const handleSearch = () => {
     const q = searchQuery.trim();
@@ -59,17 +62,26 @@ export default function PageClient() {
     <div className="min-h-screen bg-slate-50">
       <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 px-4 sm:px-6 lg:px-8 py-10">
         <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-2">{vm.copy.heroTitle}</h1>
-        <p className="text-slate-300 text-sm max-w-3xl">{vm.copy.heroSubtitle}</p>
-        <div className="mt-3 flex flex-wrap gap-2 text-2xs text-teal-200">
-          <span className="px-2 py-0.5 rounded bg-white/10">来源：{vm.coverage.sources.join("、") || "接入中"}</span>
-          <span className="px-2 py-0.5 rounded bg-white/10">{vm.coverage.recordCount.toLocaleString()} 条记录</span>
-          <span className="px-2 py-0.5 rounded bg-white/10">覆盖 {vm.coverage.countries.length} 国</span>
-          {vm.coverage.amountAvailable
-            ? <span className="px-2 py-0.5 rounded bg-white/10">金额已接入</span>
-            : <span className="px-2 py-0.5 rounded bg-white/10">金额未公开（接入中）</span>}
-        </div>
+        <p className="text-slate-300 text-sm max-w-3xl">{vm.loading ? "正在接入真实中标数据…" : vm.copy.heroSubtitle}</p>
+        {vm.loading ? (
+          <AwardsBadgesSkeleton />
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-2 text-2xs text-teal-200">
+            <span className="px-2 py-0.5 rounded bg-white/10">来源：{vm.coverage.sources.join("、") || "接入中"}</span>
+            <span className="px-2 py-0.5 rounded bg-white/10">{vm.coverage.recordCount.toLocaleString()} 条记录</span>
+            <span className="px-2 py-0.5 rounded bg-white/10">覆盖 {vm.coverage.countries.length} 国</span>
+            {vm.coverage.amountAvailable
+              ? <span className="px-2 py-0.5 rounded bg-white/10">金额已接入</span>
+              : <span className="px-2 py-0.5 rounded bg-white/10">金额未公开（接入中）</span>}
+          </div>
+        )}
       </section>
 
+      {vm.loading ? (
+        <AwardsSkeleton />
+      ) : showError ? (
+        <AwardsErrorState onRetry={awardsData.refetch} />
+      ) : (
       <div className="px-4 sm:px-6 lg:px-8 -mt-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {vm.statsCards.length > 0 ? vm.statsCards.map((s) => (
@@ -109,6 +121,7 @@ export default function PageClient() {
           <RecentAwardsCard rows={vm.recentAwards} />
         </div>
       </div>
+      )}
 
       <CnCaseSection note={vm.copy.cnCasesNote} onOpenDetail={(c) => setCnDetail(c)} />
 

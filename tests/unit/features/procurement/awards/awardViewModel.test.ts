@@ -13,12 +13,14 @@ const emptyData = (): AwardsData => ({
   recentAwards: [],
   hasRealData: false,
   loading: false,
+  error: false,
 });
 
 /** 现状真实形制：单来源 ccgp、无金额、无品类、月份集中在近年 */
 const ccgpData = (): AwardsData => ({
   hasRealData: true,
   loading: false,
+  error: false,
   topWinners: [
     { name: "某某科技有限公司", country: "中国", count: 7, total_usd: 0 },
     { name: "某某贸易公司", country: "中国", count: 3, total_usd: 0 },
@@ -103,5 +105,25 @@ describe("buildAwardViewModel · 诚实化", () => {
     expect(all).not.toMatch(/22\.7B/);
     expect(all).not.toMatch(/Siemens|McKesson|Cardinal Health|Medtronic/);
     expect(all).not.toMatch(/联合国儿童基金会|UNICEF/);
+  });
+});
+
+describe("buildAwardViewModel · 三态透传（loading/error 供页面分支）", () => {
+  it("透传 loading：加载中数据 → vm.loading=true，且不当作错误", () => {
+    const vm = buildAwardViewModel({ ...emptyData(), loading: true, error: false });
+    expect(vm.loading).toBe(true);
+    expect(vm.error).toBe(false);
+  });
+
+  it("透传 error：接口失败数据 → vm.error=true，供页面渲染『加载失败/重试』而非空态『接入中』", () => {
+    const vm = buildAwardViewModel({ ...emptyData(), loading: false, error: true });
+    expect(vm.error).toBe(true);
+    expect(vm.loading).toBe(false);
+  });
+
+  it("就绪：有真数据且无错 → vm.loading=false, vm.error=false", () => {
+    const vm = buildAwardViewModel(ccgpData());
+    expect(vm.loading).toBe(false);
+    expect(vm.error).toBe(false);
   });
 });

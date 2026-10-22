@@ -18,5 +18,5 @@ export const GET = withRoute(async (req: NextRequest) => {
   const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit") || 20)));
 
   const result = await getTopWinners(getContext().dbPool, limit);
-  return NextResponse.json(result);
+  return NextResponse.json(result, { headers: { "Cache-Control": "public, max-age=600" } });
 });
