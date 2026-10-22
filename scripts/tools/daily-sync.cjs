@@ -697,30 +697,26 @@ async function runSync() {
   }
 }
 
-function loadServiceWatermark() {
-  try {
-    if (fs.existsSync(SERVICE_WATERMARK_FILE)) {
-      const raw = JSON.parse(fs.readFileSync(SERVICE_WATERMARK_FILE, 'utf8'));
-      return { lastSuccess: Number(raw.lastSuccess) || 0 };
-    }
-  } catch { /* fall through */ }
-  return { lastSuccess: 0 };
-}
-
 function saveServiceWatermark(lastSuccess) {
   fs.writeFileSync(SERVICE_WATERMARK_FILE, JSON.stringify({ lastSuccess }, null, 2));
 }
 
 /**
- * 主表同步完成后，按 update_time 增量归一化到 crm_notice_public。
+ * 主表同步完成后，重算服务表 crm_notice_public。
  * 子进程运行 TS builder，避免把归一化逻辑复制进 CJS；失败只告警，下一轮重试。
+ *
+ * 选行口径用 --changed（不等式判据）而不再用时间窗口：窗口会把当天所有变更行重刷
+ * （输入未变也写，等于多余覆盖），而且接不住两类真漏行：
+ *   · update_time 很老但内容确实变了的行（内容对账补写、管道静默改写）；
+ *   · update_time IS NULL 的行（永远落在任何窗口之外）。
+ * 服务表水位文件仅留作观测（上一轮成功时刻），不再参与选行。
  */
-function runServiceNormalization(since) {
+function runServiceNormalization() {
   const repoRoot = path.join(__dirname, '..', '..');
   const tsxCli = path.join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
   const script = path.join(repoRoot, 'scripts', 'ops', 'notice-public-v2.ts');
-  log(`  [服务表] 归一化 since=${since}（${new Date(since * 1000).toISOString()}）`);
-  const res = spawnSync(process.execPath, [tsxCli, script, `--since-update=${since}`, '--apply'], {
+  log('  [服务表] 归一化选行=--changed（只重算缺行与交付层落后的行）');
+  const res = spawnSync(process.execPath, [tsxCli, script, '--changed', '--apply'], {
     cwd: repoRoot,
     stdio: 'inherit',
     env: process.env,
@@ -781,16 +777,12 @@ async function runSyncOnce() {
       }
     }
 
-    // ── 服务表归一化：主表同步/对账完成后，按 update_time 增量写 crm_notice_public ──
+    // ── 服务表归一化：主表同步/对账完成后，只重算「输入比交付层新/服务表缺行」的行 ──
     if (!process.argv.includes('--no-service')) {
-      const svcWm = loadServiceWatermark();
-      const since = svcWm.lastSuccess > 0
-        ? Math.max(0, svcWm.lastSuccess - 300) // 5 分钟重叠，防边界漏行
-        : Math.floor(Date.now() / 1000) - 86400;
       try {
-        runServiceNormalization(since);
+        runServiceNormalization();
         saveServiceWatermark(syncStartedAt);
-        log(`  [服务表] 归一化完成（水位 ${new Date(syncStartedAt * 1000).toISOString()}）`);
+        log(`  [服务表] 归一化完成（本轮时刻 ${new Date(syncStartedAt * 1000).toISOString()}）`);
       } catch (err) {
         log(`  [服务表] 归一化失败（下轮重试）: ${err.message}`);
       }
