@@ -952,6 +952,8 @@ CREATE TABLE `crm_notice_deadline` (
   `reason` varchar(255) DEFAULT NULL,
   `source_rule` varchar(64) DEFAULT NULL,
   `source_value` varchar(50) DEFAULT NULL COMMENT '原始 deadline 文本，留证',
+  `deadline_timezone` varchar(64) DEFAULT NULL COMMENT '源时间时区/偏移',
+  `timezone_source` varchar(20) DEFAULT NULL COMMENT 'explicit/date/assumed_utc',
   `reviewed_by` varchar(64) DEFAULT NULL,
   `reviewed_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1054,6 +1056,7 @@ CREATE TABLE `crm_notice_public` (
   PRIMARY KEY (`notice_pk`),
   KEY `idx_deadline` (`deadline_ts`),
   KEY `idx_country_type` (`country_code`,`notice_type_code`),
+  KEY `idx_deadline_state_ts` (`deadline_state`,`deadline_ts`),
   UNIQUE KEY `uq_notice_id` (`notice_id`),
   FULLTEXT KEY `ft_title_desc` (`title`,`description`) /*!50100 WITH PARSER ngram */
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
@@ -2285,3 +2288,4 @@ CREATE TABLE `ungm_1v1_appointments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='预约专业服务顾问';
 
 SET FOREIGN_KEY_CHECKS = 1;
+

@@ -52,6 +52,9 @@ export interface DeadlineVerdict {
   confidence: number;
   reason: string;
   sourceRule: string;
+  /** 源时间的时区/偏移；纯日期或无法识别时为 null */
+  timezone?: string | null;
+  timezoneSource?: "explicit" | "date" | "assumed_utc" | null;
 }
 
 /** 已知的「无截止日 / 长期开放」哨兵；新增来源时在这里登记，不要散落到 SQL */
@@ -81,6 +84,70 @@ function normalizeTs(raw: number | string | null): number | null {
   if (!Number.isFinite(n) || n <= 0) return null;
   // 源库混用秒/毫秒；与 crm_bid_notices.deadline_sec 生成列同一判据
   return n > 100_000_000_000 ? Math.floor(n / 1000) : Math.floor(n);
+}
+
+interface ParsedDeadlineText {
+  ts: number;
+  timezone: string | null;
+  timezoneSource: "explicit" | "date" | "assumed_utc";
+}
+
+/**
+ * 解析源 deadline 文本为 UTC 秒。
+ * 重点：DD-Mon-YYYY HH:mm (GMT ±x.xx) 必须按显式偏移换算，不能忽略时分/偏移。
+ */
+function parseDeadlineText(raw: string): ParsedDeadlineText | null {
+  const s = raw.trim();
+  if (!s) return null;
+
+  let y = 0, mo = 0, d = 0;
+  let hh: number | null = null, mm = 0, ss = 0;
+
+  let m = /^(\d{1,2})[-/ ]([A-Za-z]{3})[A-Za-z]*[-/ ](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(s);
+  if (m) {
+    const mon = MONTHS[m[2].toLowerCase()];
+    if (mon === undefined) return null;
+    y = Number(m[3]); mo = mon; d = Number(m[1]);
+    if (m[4] != null) { hh = Number(m[4]); mm = Number(m[5]); ss = Number(m[6] ?? 0); }
+  } else {
+    m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(s);
+    if (!m) return null;
+    y = Number(m[1]); mo = Number(m[2]) - 1; d = Number(m[3]);
+    if (m[4] != null) { hh = Number(m[4]); mm = Number(m[5]); ss = Number(m[6] ?? 0); }
+  }
+
+  const local = Date.UTC(y, mo, d, hh ?? 0, mm, ss);
+  if (!Number.isFinite(local)) return null;
+  if (hh == null) return { ts: Math.floor(local / 1000), timezone: null, timezoneSource: "date" };
+
+  // 显式 GMT/UTC 偏移：(GMT -4.00) / GMT+2 / UTC-03:30
+  let offsetMin: number | null = null;
+  let timezone: string | null = null;
+  const gmt = /(?:GMT|UTC)\s*([+-]?\d{1,2})(?:[.:](\d{1,2}))?/i.exec(s);
+  if (gmt) {
+    const sign = gmt[1].startsWith("-") ? -1 : 1;
+    offsetMin = sign * (Math.abs(Number(gmt[1])) * 60 + Number(gmt[2] ?? 0));
+    const abs = Math.abs(Number(gmt[1]));
+    timezone = `GMT${offsetMin < 0 ? "-" : "+"}${String(abs).padStart(2, "0")}:${String(Number(gmt[2] ?? 0)).padStart(2, "0")}`;
+  } else {
+    const trailing = /([+-])(\d{2}):?(\d{2})\s*$/.exec(s);
+    if (trailing) {
+      offsetMin = (trailing[1] === "-" ? -1 : 1) * (Number(trailing[2]) * 60 + Number(trailing[3]));
+      timezone = `GMT${trailing[1]}${trailing[2]}:${trailing[3]}`;
+    } else if (/Z\s*$/i.test(s)) {
+      offsetMin = 0;
+      timezone = "UTC";
+    }
+  }
+
+  if (offsetMin != null) {
+    return {
+      ts: Math.floor(local / 1000) - offsetMin * 60,
+      timezone,
+      timezoneSource: "explicit",
+    };
+  }
+  return { ts: Math.floor(local / 1000), timezone: null, timezoneSource: "assumed_utc" };
 }
 
 function utcParts(ts: number): { y: number; m: number; d: number } {
@@ -132,7 +199,9 @@ function classifyType(input: DeadlineInput, year: number | null, nowYear: number
  */
 export function classifyDeadline(input: DeadlineInput, now = Math.floor(Date.now() / 1000)): DeadlineVerdict {
   const raw = (input.deadline ?? "").trim();
-  const ts = normalizeTs(input.deadlineTs);
+  const parsed = parseDeadlineText(raw);
+  const ts = parsed?.ts ?? normalizeTs(input.deadlineTs);
+  const tzFields = { timezone: parsed?.timezone ?? null, timezoneSource: parsed?.timezoneSource ?? null };
   const nowYear = new Date(now * 1000).getUTCFullYear();
   const yearMaybe = ts ? utcParts(ts).y : null;
   const type = classifyType(input, yearMaybe, nowYear);
@@ -186,7 +255,7 @@ export function classifyDeadline(input: DeadlineInput, now = Math.floor(Date.now
       effectiveTs: ts,
       confidence: 70,
       reason: "framework-end",
-      sourceRule: "FRAMEWORK_END",
+      sourceRule: "FRAMEWORK_END", ...tzFields,
     };
   }
 
@@ -210,7 +279,7 @@ export function classifyDeadline(input: DeadlineInput, now = Math.floor(Date.now
       effectiveTs: ts,
       confidence: 60,
       reason: "registration-end",
-      sourceRule: "REGISTRATION_END",
+      sourceRule: "REGISTRATION_END", ...tzFields,
     };
   }
 
@@ -233,6 +302,8 @@ export function classifyDeadline(input: DeadlineInput, now = Math.floor(Date.now
     effectiveTs: ts,
     confidence: 100,
     reason: "ok",
-    sourceRule: "OK",
+    sourceRule: "OK", ...tzFields,
   };
 }
+
+
