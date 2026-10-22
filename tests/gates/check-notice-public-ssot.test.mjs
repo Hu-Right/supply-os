@@ -47,6 +47,18 @@ test("真实仓应通过（baseline==v2 且仅 v2 写服务表）", () => {
   assert.match(r.out, /检查通过/);
 });
 
+test("fixture：CI 干净 clone（无 scripts/ops 目录）→ v2 未入库，N2 无从判定，降为通过不判红", () => {
+  // 只放已跟踪的 baseline.sql，不建 scripts/ops → 复现 CI 干净 clone：
+  // v2 builder 按约定不入库，「baseline vs v2 COLS」无法判生死 ⇒ 不得误报「找不到 v2」而判红。
+  // 口径同 check-gitignore-consistency R5：ops 整目录缺失必是干净 clone，防呆职责归执行机。
+  const root = fixture({
+    "db/schema/baseline.sql": baseline(OKCOLS),
+  });
+  const r = run({ NP_SCAN_ROOT: root });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /检查通过/);
+});
+
 test("fixture：baseline 与 v2 列一致 → 通过", () => {
   const root = fixture({
     "db/schema/baseline.sql": baseline(OKCOLS),
