@@ -221,4 +221,14 @@ export const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<
   [/\b(?:Bundesministerium|Ministerium)\b/i, { typeKey: "MINISTRY_INTL", i18n: { zh: "各国部委", fr: "Ministères", ru: "Министерства", es: "Ministerios", ar: "الوزارات" } }],
   [/\b(?:Beschaffungsamt)\b/i, { typeKey: "PROCUREMENT_AGENCY_INTL", i18n: { zh: "各采购机构", fr: "Agences d’achat", ru: "Закупочные органы", es: "Agencias de compras", ar: "وكالات المشتريات" } }],
   [/\b(?:CENTRAL DE ABASTECIMIENTO|Abastecimiento)\b/i, { typeKey: "HEALTH_INTL", i18n: { zh: "各卫生供应机构", fr: "Approvisionnement sanitaire", ru: "Медицинское снабжение", es: "Abastecimiento sanitario", ar: "إمدادات الصحة" } }],
+  [/\bELEKTRO\w*/i, { typeKey: "ENERGY_INTL", i18n: { zh: "各电力能源机构", fr: "Énergie", ru: "Энергетика", es: "Energía", ar: "الطاقة" } }],
+  [/\b(?:Gemeente|GRAD|Bangkok|Intendence|Prijestonica)\b/i, { typeKey: "MUNICIPALITY_INTL", i18n: { zh: "各市政府", fr: "Municipalités", ru: "Муниципалитеты", es: "Municipios", ar: "البلديات" } }],
+  [/\b(?:Komenda|Policji|Polícia|Policía)\b/i, { typeKey: "POLICE_INTL", i18n: { zh: "各警察机构", fr: "Police", ru: "Полиция", es: "Policía", ar: "الشرطة" } }],
+  [/\bPublic Works\b/i, { typeKey: "PUBLIC_WORKS_INTL", i18n: { zh: "各公共工程机构", fr: "Travaux publics", ru: "Общественные работы", es: "Obras públicas", ar: "الأشغال العامة" } }],
+  [/\b(?:Servicio de Salud|Health Service)\b/i, { typeKey: "HEALTH_INTL", i18n: { zh: "各卫生机构", fr: "Santé", ru: "Здравоохранение", es: "Salud", ar: "الصحة" } }],
+  [/\b(?:PKP|Kolejowe|Railway|Eisenbahn)\b/i, { typeKey: "RAILWAY_INTL", i18n: { zh: "各铁路机构", fr: "Chemins de fer", ru: "Железные дороги", es: "Ferrocarriles", ar: "السكك الحديدية" } }],
+  [/\b(?:Wodociągów|Wodne|Waterworks)\b/i, { typeKey: "WATER_INTL", i18n: { zh: "各水务机构", fr: "Eau", ru: "Водоснабжение", es: "Agua", ar: "المياه" } }],
+  [/\b(?:UPRAVA|Uprava|Dirección|Direccion)\b/i, { typeKey: "PUBLIC_ADMIN_INTL", i18n: { zh: "各公共行政机构", fr: "Administration publique", ru: "Государственное управление", es: "Administración pública", ar: "الإدارة العامة" } }],
+  [/\b(?:Úrad|Urad)\w*/i, { typeKey: "REGULATORY_INTL", i18n: { zh: "各监管机构", fr: "Régulateurs", ru: "Регуляторы", es: "Reguladores", ar: "الهيئات التنظيمية" } }],
 ];
+
