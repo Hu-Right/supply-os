@@ -60,12 +60,12 @@ describe("POST /api/rfq/[id]/invite", () => {
     const res = await call({ action: "preview" });
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.data).toMatchObject({ strategy: "region", total: 2 });
-    expect(json.data.candidates).toEqual([
+    expect(json).toMatchObject({ strategy: "region", total: 2 });
+    expect(json.candidates).toEqual([
       { company: "A公司", matchCount: 0 },
       { company: "B公司", matchCount: 1 },
     ]);
-    expect(JSON.stringify(json.data.candidates)).not.toContain("@x.com");
+    expect(JSON.stringify(json.candidates)).not.toContain("@x.com");
     expect(outreachPublishedRfq.mock.calls[0][1].dryRun).toBe(true);
     expect(addInvites).not.toHaveBeenCalled();
   });
@@ -78,7 +78,7 @@ describe("POST /api/rfq/[id]/invite", () => {
     });
     const res = await call({ action: "send" });
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toMatchObject({ emailed: 2, invited: 0, strategy: "category" });
+    expect((await res.json())).toMatchObject({ emailed: 2, invited: 0, strategy: "category" });
     expect(outreachPublishedRfq.mock.calls[0][1].dryRun).toBe(false);
     expect(addInvites).not.toHaveBeenCalled();
   });
@@ -95,7 +95,7 @@ describe("POST /api/rfq/[id]/invite", () => {
     addInvites.mockResolvedValueOnce(2);
     const res = await call({ action: "send" });
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toMatchObject({ emailed: 2, invited: 2 });
+    expect((await res.json())).toMatchObject({ emailed: 2, invited: 2 });
     expect(addInvites.mock.calls[0][1]).toEqual(501);
     expect(addInvites.mock.calls[0][2]).toEqual(OWNER_ID);
     expect(addInvites.mock.calls[0][3]).toEqual([41, 42]);

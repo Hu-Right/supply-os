@@ -42,6 +42,6 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
 
     if ((result as ResultSetHeader).affectedRows === 0) routeError(500, 50001, "重新开启失败");
 
-    return NextResponse.json({ code: 0, message: "ok", status: RFQ_STATUS.DRAFT });
+    return NextResponse.json({ status: RFQ_STATUS.DRAFT });
   },
 );

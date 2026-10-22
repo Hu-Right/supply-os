@@ -44,11 +44,11 @@ export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: 
     setPhase("loading");
     setError("");
     try {
-      const res = await api<{ code: number; data: PreviewData }>(`/api/rfq/${rfqId}/invite`, {
+      const res = await api<PreviewData>(`/api/rfq/${rfqId}/invite`, {
         method: "POST",
         body: { action: "preview" },
       });
-      setPreview(res.data);
+      setPreview(res);
       setPhase("preview");
     } catch (err) {
       setError((err as Error).message || "预览失败");
@@ -60,11 +60,11 @@ export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: 
     setPhase("sending");
     setError("");
     try {
-      const res = await api<{ code: number; data: SendData }>(`/api/rfq/${rfqId}/invite`, {
+      const res = await api<SendData>(`/api/rfq/${rfqId}/invite`, {
         method: "POST",
         body: { action: "send" },
       });
-      setResult(res.data);
+      setResult(res);
       setPhase("done");
     } catch (err) {
       setError((err as Error).message || "邀约失败");

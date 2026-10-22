@@ -42,6 +42,6 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(500, 50001, "撤回失败");
     }
 
-    return NextResponse.json({ code: 0, message: "ok" });
+    return NextResponse.json({ ok: true });
   },
 );

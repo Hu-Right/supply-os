@@ -71,7 +71,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       buyerEmail: rfq!.contactEmail,
     });
 
-    return NextResponse.json({ code: 0, message: "ok", data: { quoteId } }, { status: 201 });
+    return NextResponse.json({ quoteId }, { status: 201 });
   },
 );
 
@@ -88,7 +88,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (rfq!.userId !== auth.userId) routeError(403, EC_FORBIDDEN, "仅创建者可查看报价汇总");
 
     const items = await listQuotesForBuyer(pool, rfqId);
-    return NextResponse.json({ code: 0, message: "ok", data: { items, total: items.length } });
+    return NextResponse.json({ items, total: items.length });
   },
 );
 
@@ -113,6 +113,6 @@ export const DELETE = withRoute<{ params: Promise<{ id: string }> }>(
     const ok = await withdrawQuote(pool, quoteId, auth.userId);
     if (!ok) routeError(404, EC_NOT_FOUND, "报价不存在或不可撤回（已选定或已撤回）");
 
-    return NextResponse.json({ code: 0, message: "ok", data: { withdrawn: true } });
+    return NextResponse.json({ withdrawn: true });
   },
 );

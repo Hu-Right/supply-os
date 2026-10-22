@@ -45,7 +45,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       row.rfq_status === RFQ_STATUS.PUBLISHED ||
       row.rfq_status === RFQ_STATUS.PENDING_REVIEW
     ) {
-      return NextResponse.json({ code: 0, message: "ok", status: row.rfq_status });
+      return NextResponse.json({ status: row.rfq_status });
     }
     // 仅 draft / rejected 走到这里：提交为待审核（不写 published_date，那是审核时点）
     const [result] = await pool.query(
@@ -56,6 +56,6 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     const affected = (result as ResultSetHeader).affectedRows;
     if (affected === 0) routeError(500, 50001, "更新失败");
 
-    return NextResponse.json({ code: 0, message: "ok", status: newStatus });
+    return NextResponse.json({ status: newStatus });
   },
 );

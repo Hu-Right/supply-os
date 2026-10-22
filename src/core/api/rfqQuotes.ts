@@ -28,44 +28,37 @@ export interface QuoteRow {
   createdAt: string;
 }
 
-interface Envelope<T> {
-  code: number;
-  message: string;
-  data: T;
-}
-
 /** 提交/更新当前供应商对该 RFQ 的报价，返回 quoteId。 */
 export async function submitRfqQuote(rfqId: number, payload: QuotePayload): Promise<{ quoteId: number }> {
-  const res = await api<Envelope<{ quoteId: number }>>(`/api/rfq/${rfqId}/quotes`, {
+  // 2026-10 信封迁移：端点已改返裸载荷，直接透传
+  return api<{ quoteId: number }>(`/api/rfq/${rfqId}/quotes`, {
     method: "POST",
     body: payload,
   });
-  return res.data;
 }
 
 /** 采购方查看该 RFQ 报价汇总（仅创建者；按价升序）。 */
 export async function fetchBuyerQuotes(rfqId: number): Promise<QuoteRow[]> {
-  const res = await api<Envelope<{ items: QuoteRow[]; total: number }>>(`/api/rfq/${rfqId}/quotes`);
-  return res.data.items;
+  const res = await api<{ items: QuoteRow[]; total: number }>(`/api/rfq/${rfqId}/quotes`);
+  return res.items;
 }
 
 /** 采购方选定中标（仅创建者）。 */
 export async function awardRfqQuote(rfqId: number, quoteId: number): Promise<{ winnerSupplierUserId: number; rejectedCount: number }> {
-  const res = await api<Envelope<{ winnerSupplierUserId: number; rejectedCount: number }>>(`/api/rfq/${rfqId}/award`, {
+  return api<{ winnerSupplierUserId: number; rejectedCount: number }>(`/api/rfq/${rfqId}/award`, {
     method: "POST",
     body: { quoteId },
   });
-  return res.data;
 }
 
 /** 供应商撤回自己的一份 submitted 报价（已选定/已撤回则失败）。 */
 export async function withdrawRfqQuote(rfqId: number, quoteId: number): Promise<void> {
-  await api<Envelope<{ withdrawn: boolean }>>(`/api/rfq/${rfqId}/quotes`, { method: "DELETE", body: { quoteId } });
+  await api<{ withdrawn: boolean }>(`/api/rfq/${rfqId}/quotes`, { method: "DELETE", body: { quoteId } });
 }
 
 /** 采购方撤销本需求的中选选定（won/rejected 回退 submitted，重新开放报价）。 */
 export async function unawardRfqQuote(rfqId: number): Promise<void> {
-  await api<Envelope<{ revoked: boolean }>>(`/api/rfq/${rfqId}/unaward`, { method: "POST", body: {} });
+  await api<{ revoked: boolean }>(`/api/rfq/${rfqId}/unaward`, { method: "POST", body: {} });
 }
 
 /** 供应商“我的报价”行（对应 /api/rfq/my-quotes）。 */

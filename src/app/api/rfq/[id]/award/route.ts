@@ -40,9 +40,8 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     return NextResponse.json({
-      code: 0,
-      message: "ok",
-      data: { winnerSupplierUserId: result.winnerSupplierUserId, rejectedCount: result.rejectedCount },
+      winnerSupplierUserId: result.winnerSupplierUserId,
+      rejectedCount: result.rejectedCount,
     });
   },
 );

@@ -53,13 +53,9 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     if (action === "preview") {
       return NextResponse.json({
-        code: 0,
-        message: "ok",
-        data: {
-          strategy: res.strategy,
-          total: res.recipients,
-          candidates: (res.preview ?? []).map((p) => ({ company: p.company, matchCount: p.matchCount })),
-        },
+        strategy: res.strategy,
+        total: res.recipients,
+        candidates: (res.preview ?? []).map((p) => ({ company: p.company, matchCount: p.matchCount })),
       });
     }
 
@@ -71,9 +67,10 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     return NextResponse.json({
-      code: 0,
-      message: "ok",
-      data: { emailed: res.emailed, skipped: res.skipped, invited, strategy: res.strategy },
+      emailed: res.emailed,
+      skipped: res.skipped,
+      invited,
+      strategy: res.strategy,
     });
   },
 );

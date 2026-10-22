@@ -27,6 +27,6 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(409, EC_FORBIDDEN, "当前没有可撤销的中选选定");
     }
 
-    return NextResponse.json({ code: 0, message: "ok", data: { revoked: true, winnerSupplierUserId: result.winnerSupplierUserId } });
+    return NextResponse.json({ revoked: true, winnerSupplierUserId: result.winnerSupplierUserId });
   },
 );

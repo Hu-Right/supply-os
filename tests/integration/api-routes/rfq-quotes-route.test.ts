@@ -58,7 +58,7 @@ describe("DELETE /api/rfq/[id]/quotes", () => {
     withdrawQuote.mockResolvedValueOnce(true);
     const res = await call("5", { quoteId: 77 });
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ withdrawn: true });
+    expect((await res.json())).toEqual({ withdrawn: true });
     expect(withdrawQuote.mock.calls[0].slice(1)).toEqual([77, 42]);
   });
 
@@ -84,7 +84,7 @@ describe("POST /api/rfq/[id]/unaward", () => {
     unawardQuote.mockResolvedValueOnce({ ok: true, winnerSupplierUserId: 42 });
     const res = await callUnaward("5");
     expect(res.status).toBe(200);
-    expect((await res.json()).data.revoked).toBe(true);
+    expect((await res.json()).revoked).toBe(true);
   });
 
   it("forbidden → 403；closed → 409；no_winner → 409", async () => {
