@@ -3,7 +3,7 @@ import { classifyAgencyType } from "@/lib/services/agency/index";
 
 describe("classifyAgencyType — 国家守卫", () => {
   it("阿根廷 Departamento 不得归入 DEPARTAMENTO_BR", () => {
-    expect(classifyAgencyType("Departamento Contaduria y Finanzas", "Argentina")).toBeNull();
+    expect(classifyAgencyType("Departamento Contaduria y Finanzas", "Argentina")?.typeKey).toBe("DEPARTMENT_INTL");
   });
 
   it("巴西 Departamento 仍归入 DEPARTAMENTO_BR", () => {
@@ -18,3 +18,4 @@ describe("classifyAgencyType — 国家守卫", () => {
     expect(classifyAgencyType("County Government of Nairobi", "Kenya")?.typeKey).toBe("COUNTY_KE");
   });
 });
+
