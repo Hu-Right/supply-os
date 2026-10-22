@@ -15,6 +15,8 @@
  *   node daily-sync.cjs --print-config # 只打印解析后的连接配置（密码掩码）与取值来源，不连库
  *   node daily-sync.cjs --once --apply        # 单轮：增量 upsert + 内容对账，并把差异行真正写回目标
  *   node daily-sync.cjs --once --no-reconcile # 单轮：只做旧「水位线增量」，完全不做内容对账
+ *   node daily-sync.cjs --once --prune-source-deleted          # 加一步「源撤回下传」体检（无 --apply 只报数）
+ *   node daily-sync.cjs --once --prune-source-deleted --apply # 真删源库已撤回的云端主表行（四道护栏，备份后执行）
  *
  * 环境变量（三级取值：进程环境 → 仓库根 .env → 下列默认值；空串一律视为「未提供」）:
  *   SYNC_INTERVAL_MS       同步间隔（默认 3600000 = 1 小时）
@@ -264,6 +266,12 @@ const ONCE_MODE = process.argv.includes('--once');
 const PRINT_CONFIG_MODE = process.argv.includes('--print-config');
 const APPLY_RECONCILE = process.argv.includes('--apply'); // 对账真正写入（否则仅 DRY 预览）
 const NO_RECONCILE = process.argv.includes('--no-reconcile'); // 整体跳过内容对账
+
+// 源撤回下传（删除）：默认完全关，必须显式 --prune-source-deleted 才进入该步骤，且不
+// 带 --apply 只 DRY 报数。范围只公告主表：商机行可由平台侧自建，「源库没有」对商机表
+// 不构成删除理由（口径不同，不做同一个开关顺手删）。
+const PRUNE_SOURCE_DELETED = process.argv.includes('--prune-source-deleted');
+const PRUNE_MAX = readPositiveInt('PRUNE_MAX', ['PRUNE_MAX'], 20000); // 单次删除上限
 
 /**
  * 配置自检：打印解析后的连接字段与每个字段的取值来源（哪个变量 / 进程环境还是 .env / 默认值）。
@@ -702,6 +710,68 @@ function saveServiceWatermark(lastSuccess) {
 }
 
 /**
+ * 源撤回下传：删除「云端主表有、源库已无」的行，并让下游两层跟着收敛。
+ *
+ * 护栏四道，任一不过即抛错中止（不做半截删除）：
+ *   G1 源库 id 集为空 ⇒ 视为连接/权限故障，绝不等于「源库全空」；
+ *   G2 源库行数 < 云端行数 90% ⇒ 疑似连错库/取数被截断（差异集会是几十万而非几千）；
+ *   G3 单次删除超 PRUNE_MAX ⇒ 量级不对；
+ *   G4 删除集含已付费解锁记录（crm_opportunity_unlocks.notice_id）⇒ 权益处置交人工。
+ * 此外永远排除平台行（PLATFORM_IMMUNE）：那些行本仓自建、源库永远没有。
+ * 真删前先把 id 清单落 runtime/backups/，按单行主键可重灌。
+ */
+async function pruneSourceDeleted(source, target) {
+  const table = 'crm_bid_notices';
+  log(`  ── 源撤回下传（${table}）${APPLY_RECONCILE ? '· 将删除' : '· DRY 预览（加 --apply 才删除）'} ──`);
+
+  const [srcRows] = await source.query(`SELECT id FROM \`${table}\``);
+  const srcIds = new Set(srcRows.map(r => Number(r.id)));
+  if (srcIds.size === 0) throw new Error('G1 源库 id 集为空：视为连接故障，中止');
+
+  const [cloudRows] = await target.query(
+    `SELECT id, \`${PLATFORM_IMMUNE.column}\` AS entry_source FROM \`${table}\``);
+  if (srcIds.size < cloudRows.length * 0.9) {
+    throw new Error(`G2 源库 ${srcIds.size} 行 < 云端 ${cloudRows.length} 行的 90%：疑似连错库或取数被截断，中止`);
+  }
+
+  const immuneSet = new Set(
+    cloudRows.filter(r => String(r.entry_source) === PLATFORM_IMMUNE.value).map(r => Number(r.id)));
+  const absent = cloudRows.filter(r => !srcIds.has(Number(r.id)));
+  const doomed = absent.filter(r => !immuneSet.has(Number(r.id))).map(r => Number(r.id));
+  const immuneSkipped = absent.length - doomed.length;
+  log(`        源库 ${srcIds.size} 行 · 云端 ${cloudRows.length} 行 · 源库已无 ${absent.length} 行（其中平台行受免疫保护 ${immuneSkipped} 行）· 待删 ${doomed.length} 行`);
+  if (doomed.length === 0) return;
+  if (doomed.length > PRUNE_MAX) throw new Error(`G3 待删 ${doomed.length} 行超上限 ${PRUNE_MAX}：量级不对，中止`);
+
+  const [paid] = await target.query(
+    `SELECT COUNT(*) AS n, COUNT(DISTINCT notice_id) AS notices FROM crm_opportunity_unlocks WHERE notice_id IN (?)`,
+    [doomed],
+  );
+  if (Number(paid[0].n) > 0) {
+    throw new Error(`G4 删除集含 ${paid[0].n} 笔已付费解锁（${paid[0].notices} 条公告）：权益不能由脚本单方面收回，中止`);
+  }
+
+  let lo = doomed[0], hi = doomed[0];
+  for (const id of doomed) { if (id < lo) lo = id; if (id > hi) hi = id; }
+  log(`        id 范围 ${lo} ~ ${hi} · 样例 ${doomed.slice(0, 5).join(', ')}${doomed.length > 5 ? ' …' : ''}`);
+  if (!APPLY_RECONCILE) { log('        DRY：未删除任何行'); return; }
+
+  const backupDir = path.join(__dirname, '..', '..', 'runtime', 'backups');
+  fs.mkdirSync(backupDir, { recursive: true });
+  const backupFile = path.join(backupDir, `source-deleted-${table}-${Date.now()}.json`);
+  fs.writeFileSync(backupFile, JSON.stringify({ table, at: new Date().toISOString(), ids: doomed }));
+  log(`        已备份 id 清单：${path.relative(path.join(__dirname, '..', '..'), backupFile)}（可据此重灌）`);
+
+  let deleted = 0;
+  for (let i = 0; i < doomed.length; i += 500) {
+    const chunk = doomed.slice(i, i + 500);
+    const [res] = await target.query(`DELETE FROM \`${table}\` WHERE id IN (?)`, [chunk]);
+    deleted += res.affectedRows;
+  }
+  log(`        已删除主表 ${deleted} 行；宽表由既有 ghost 清理收敛，服务表需另跑 --prune`);
+}
+
+/**
  * 主表同步完成后，重算服务表 crm_notice_public。
  * 子进程运行 TS builder，避免把归一化逻辑复制进 CJS；失败只告警，下一轮重试。
  *
@@ -716,7 +786,10 @@ function runServiceNormalization() {
   const tsxCli = path.join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
   const script = path.join(repoRoot, 'scripts', 'ops', 'notice-public-v2.ts');
   log('  [服务表] 归一化选行=--changed（只重算缺行与交付层落后的行）');
-  const res = spawnSync(process.execPath, [tsxCli, script, '--changed', '--apply'], {
+  const builderArgs = [tsxCli, script, '--changed', '--apply'];
+  // 只有开了源撤回下传，才附带 ghost 清理：普通轮次绝不删服务表一行
+  if (PRUNE_SOURCE_DELETED) builderArgs.push('--prune');
+  const res = spawnSync(process.execPath, builderArgs, {
     cwd: repoRoot,
     stdio: 'inherit',
     env: process.env,
@@ -774,6 +847,15 @@ async function runSyncOnce() {
         const entries = Object.entries(r.colCounts).sort((a, b) => b[1] - a[1]);
         log(`  [对账] ${table}: 扫描 ${r.scanned} 行 · 差异 ${r.drift} 行 · ${APPLY_RECONCILE ? `已补同步 ${r.applied} 行` : '未写入'} | 耗时 ${fmtDuration(Date.now() - t2)}`);
         if (entries.length) log(`        差异列分解：${entries.map(([k, v]) => `${k}×${v}`).join(', ')}`);
+      }
+    }
+
+    // ── 源撤回下传：默认关，需显式 --prune-source-deleted（护栏任一不过即中止）──
+    if (PRUNE_SOURCE_DELETED) {
+      try {
+        await pruneSourceDeleted(source, target);
+      } catch (err) {
+        log(`  [源撤回] 中止: ${err.message}`);
       }
     }
 
