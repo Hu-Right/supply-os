@@ -30,7 +30,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 ## 关键机制
 
 - **认证**：`supply_os_auth_user`（AuthContext 持有）+ `supply_os_auth_token`（api-client 持有）；401 由 api-client 广播 `supply-os:unauthorized`，AuthContext 订阅处理（单向依赖 + 事件回传，无环）。
-- **服务端状态**：无 react-query；`api-client` 模块级 TTL 缓存（5 分钟/容量 200/飞行中去重）承担 query 层——**仅 `apiCached()` 走该缓存**，裸 `api()` 无缓存无去重；首页类多实例共享数据源的 hooks（useHomeStats/useHotTopics/ContentColumns）必须经 `apiCached()`，公开聚合端点（notices/stats、notices/countries、hot-topics）配套 `Cache-Control: public, max-age=600`。
+- **服务端状态**：无 react-query；`api-client` 模块级 TTL 缓存（5 分钟/容量 200/飞行中去重）承担 query 层——**仅 `apiCached()` 走该缓存**，裸 `api()` 无缓存无去重；首页类多实例共享数据源的 hooks（useHomeStats/useHotTopics/ContentColumns/useAwardsData）必须经 `apiCached()`，公开聚合端点（notices/stats、notices/countries、hot-topics、awards / awards/stats / awards/top）配套 `Cache-Control: public, max-age=600`。
 - **首屏/i18n 分包**（2026-10）：客户端 i18n 初始资源只静态内联 zh（`core/i18n/client-bundles.ts`），其余语言经 `core/i18n/loader.ts` 动态 import 懒加载，语言检测/切换就绪后才 setLocale（失败保持当前语言不写 Cookie）；**loader 的 JSON 清单必须与 `locales/<lang>/*.json` 同步**，键一致性由 `check-i18n` 拦截。首页 page.tsx 与其它公开页同口径 `revalidate=3600`，并在渲染期直出 `lib/services/home-snapshot`（数字墙/地图初值进静态 HTML，口径与公开端点同一份 service）。`core/perf` 采集入口在 `src/app/providers.tsx` 的 AppInit 调用 `initPerfMonitor()`（旧注释的 main.tsx 为 Vite 遗留，不存在）。
 - **支付**：`lib/payment/PaymentService` + provider 策略（mock/alipay/wechat）；回调路由 F20（TRADE_CLOSED → reverse）；状态机白名单 F19（仅 pending 可流转）。相关决策见 `docs/adr/`。
 - **搜索**：`lib/services/search-sync`（宽表同步）与 `lib/services/search-orchestrator`（查询编排）**已解环**（A2/ARCH-P3，2026-09-05）：orchestrator 注册缓存失效回调供 sync 完成后调用，二者互相引用改为「回调 + 无依赖叶子模块直引」，不再经 barrel 回环。新代码禁止重新引入二者的直接 import。
@@ -71,7 +71,10 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 - 错误反馈：表单内联校验错误 → 组件 message state；跨组件/异步操作结果 → sonner toast。
 - 安全：出站 URL 仅 http/https 公网（`OutboundUrlSchema`）；DB 配置经 zod 校验（`DbConfigSchema`）；SQL 一律参数绑定；日志文件名过 basename；出站 MySQL 连接禁 multipleStatements。
 - 新 API 路由：纯 service 委托（route 仅鉴权/参数校验/编排调用，业务 SQL 下沉 `lib/services`，不得在 route 内 `new XxxRepo()` 直连）+ 错误 envelope `{code, message}`（4xx/5xx），成功默认返回裸载荷（2xx）。
-  - **已知例外（待统一）**：AI 相关端点（`/api/notices/[id]/ai-score|ai-match|ai-summary` 等，约 11 个）仍返回 `{code:0, message, data}` 三字段信封，客户端按端点解包。因涉及全部消费方解析链，信封统一列为后续项，暂不改动 wire 格式。
+  - **历史成功信封已归零（2026-10-22 迁移完成）**：原 26 个返回 `{code:0, message, data}` 成功信封的端点已全部改为成功返裸载荷——最后一批为 **AI（notices/[id] 的 ai-match、ai-summary，共 2）+ RFQ 域（create + [id] 及其 award/invite/quotes/reopen/submit/unaward/withdraw，共 9）**（此前已迁：notifications、supplier-diagnosis、suppliers/similar、user/enterprise、user/keyword-groups、user/llm-config、user/supplier-pool 共 7 个域）。AI 的流式摘要走独立 `/ai-summary/stream`（SSE，不受影响），仅 GET/POST 去信封，wrapper 内部解包、hook 消费方签名不变零改动；RFQ 域 route + 消费方（rfqQuotes/InvitePanel/详情页/edit 页/RfqWizard）+ 3 个集成测试（rfq-lifecycle/quotes/invite）同步。旧文档所称「约 11 个 AI 端点」与 `/ai-score` 均与代码不符（`/api/notices/[id]/ai-score` 路由不存在）。
+  - **迁移口径（已完成域采用）**：有唯一 client wrapper 的域（keyword-groups/notifications/diagnosis/llm-config），只改 route + wrapper、对外签名不变→消费方零改动；无 wrapper 直调的（supplier-pool/enterprise），逐消费方清点去 `.data`（本批共 4 处）。错误信封 `{code, message}`（4xx/5xx）统一保留。
+  - **红线守卫**：`scripts/gates/check-api-success-shape.mjs`（`npm run lint` / CI）拦截 2xx 成功信封——任何 `route.ts` 出现成功哨兵 `code: 0` 即失败。**2026-10-22 迁移全部完成后递减白名单已清空为空集**，红线转为零容忍；若未来确需例外须显式从空集重新登记（应尽量避免）。
+  - **未治理的第三种约定（待决策，不在上述契约范畴）**：另有一批路由返 `{ success: true, ... }`（少数如 `/api/supplier-claims` GET 用嵌套 `{ success, data }`），而非 `{code,message,data}`。它不含成功哨兵 `code:0`，故本门禁不覆盖；语义上 `success` 标志冗余但非破损（`useClaimExpiry` 读 `res.data` 对 supplier-claims 的 `{success,data}` 是正确的）。是否统一并入裸载荷（含新增第二条门禁 + 逐消费方清点）留作独立批次决策。
 
 ### Hooks 命名与职责约定
 
