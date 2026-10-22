@@ -29,9 +29,9 @@ export interface AiSummaryResponse {
   outputTokens: number | null;
 }
 
-/** 生成/获取 AI 摘要（非流式，用于缓存回填） */
+/** 生成/获取 AI 摘要（非流式，用于缓存回填）；端点已返裸载荷 */
 export const generateAiSummary = (noticeId: number, forceRegenerate = false) =>
-  api<{ code: number; data: AiSummaryResponse }>(`/api/notices/${noticeId}/ai-summary`, {
+  api<AiSummaryResponse>(`/api/notices/${noticeId}/ai-summary`, {
     method: "POST",
     body: { forceRegenerate },
   });
@@ -39,10 +39,10 @@ export const generateAiSummary = (noticeId: number, forceRegenerate = false) =>
 /** 只读缓存：进页面时判断是否已有历史分析（不消耗 LLM） */
 export async function fetchAiSummaryCache(noticeId: number): Promise<AiSummaryResponse | null> {
   try {
-    const res = await api<{ code: number; data: AiSummaryResponse & { cached: boolean } }>(
+    const res = await api<AiSummaryResponse & { cached: boolean }>(
       `/api/notices/${noticeId}/ai-summary`,
     );
-    return res.data?.cached ? res.data : null;
+    return res?.cached ? res : null;
   } catch {
     return null;
   }
@@ -133,9 +133,8 @@ export interface LlmConfigData {
   isActive?: boolean;
 }
 
-/** 获取用户 LLM 配置状态 */
-export const fetchLlmConfig = () =>
-  api<{ code: number; data: LlmConfigData }>("/api/user/llm-config");
+/** 获取用户 LLM 配置状态（端点已返裸载荷） */
+export const fetchLlmConfig = () => api<LlmConfigData>("/api/user/llm-config");
 
 export interface LlmTestResult {
   ok: boolean;
@@ -154,7 +153,7 @@ export const testLlmConnection = (payload?: {
   model: string;
   outboundConsent: boolean;
 }) =>
-  api<{ code: number; data: LlmTestResult }>("/api/user/llm-config/test", {
+  api<LlmTestResult>("/api/user/llm-config/test", {
     method: "POST",
     body: payload ?? {},
   });

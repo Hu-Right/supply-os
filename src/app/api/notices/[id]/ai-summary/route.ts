@@ -47,11 +47,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const level = await summaryLevel(auth.userId);
     // 低档（level<1）完全不展示摘要：不读缓存，直接回 locked（只看原文）
     if (level < AI_SUMMARY_MIN_VIEW_LEVEL) {
-      return NextResponse.json({ code: 0, message: "ok", data: { cached: false, locked: true } });
+      return NextResponse.json({ cached: false, locked: true });
     }
     const cached = await repo.find(auth.userId, noticeId);
     if (!cached || !cached.core_deliverables) {
-      return NextResponse.json({ code: 0, message: "ok", data: { cached: false } });
+      return NextResponse.json({ cached: false });
     }
     const full = {
       cached: true,
@@ -65,7 +65,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const data = level < AI_SUMMARY_FULL_LEVEL
       ? { ...maskSummaryForFree(full), masked: true }
       : full;
-    return NextResponse.json({ code: 0, message: "ok", data });
+    return NextResponse.json(data);
   },
 );
 
@@ -91,6 +91,6 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const data = level < AI_SUMMARY_FULL_LEVEL
       ? { ...maskSummaryForFree(result), masked: true }
       : result;
-    return NextResponse.json({ code: 0, message: "ok", data });
+    return NextResponse.json(data);
   },
 );

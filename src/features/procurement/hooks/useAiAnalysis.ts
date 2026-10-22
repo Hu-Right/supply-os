@@ -148,7 +148,7 @@ export function useAiAnalysis(
       try {
         const cfg = await fetchLlmConfig();
         if (cancelled) return;
-        setLlmConfigured(!!cfg.data?.configured);
+        setLlmConfigured(!!cfg.configured);
         // 自动加载历史缓存（不触发生成）
         const cachedData = await fetchAiSummaryCache(noticeId);
         if (cancelled) return;

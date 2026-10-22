@@ -67,8 +67,6 @@ export const POST = withRoute(async (req: NextRequest) => {
     return NextResponse.json({ code: 50201, message: result.error }, { status: 400 });
   }
   return NextResponse.json({
-    code: 0,
-    message: "ok",
-    data: { ok: true, model: result.model, latencyMs: result.latencyMs },
+    ok: true, model: result.model, latencyMs: result.latencyMs,
   });
 });

@@ -52,7 +52,7 @@ export default function AiModelSettingsClient() {
   useEffect(() => {
     fetchLlmConfig()
       .then((res) => {
-        const d = res.data;
+        const d = res;
         setExisting(d);
         if (d?.configured) {
           const baseUrl = d.baseUrl || "";
@@ -100,9 +100,9 @@ export default function AiModelSettingsClient() {
     setMessage("正在测试连接…");
     try {
       const res = await testLlmConnection(payload);
-      const ms = res.data?.latencyMs;
+      const ms = res.latencyMs;
       setMessageKind("ok");
-      setMessage(`连接成功：${res.data?.model || "已配置模型"}${ms != null ? `（耗时 ${(ms / 1000).toFixed(1)} 秒）` : ""}`);
+      setMessage(`连接成功：${res.model || "已配置模型"}${ms != null ? `（耗时 ${(ms / 1000).toFixed(1)} 秒）` : ""}`);
     } catch (err) {
       setMessageKind("err");
       setMessage(`连接失败：${err instanceof Error ? err.message : "未知错误"}`);
@@ -139,7 +139,7 @@ export default function AiModelSettingsClient() {
       });
       setForm((f) => ({ ...f, apiKey: "" }));
       const res = await fetchLlmConfig();
-      setExisting(res.data);
+      setExisting(res);
       // 保存成功后自动验证连通性：成功/失败均写回 message（失败不阻断保存结果，
       // 配置已落库，用户可按提示修 Key/模型名后重测）
       await runConnectionTest();

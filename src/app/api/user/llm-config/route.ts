@@ -34,20 +34,17 @@ export const GET = withRoute(async (req) => {
   const repo = new LlmConfigRepo(pool);
   const row = await repo.findActiveByUser(auth.userId);
   if (!row) {
-    return NextResponse.json({ code: 0, message: "ok", data: { configured: false } });
+    return NextResponse.json({ configured: false });
   }
   // api_key 掩码：仅保留末 4 位（密文本身不可逆推明文）
   const masked = `****${row.api_key.slice(-4)}`;
   return NextResponse.json({
-    code: 0, message: "ok",
-    data: {
-      configured: true,
-      providerName: row.provider_name,
-      baseUrl: row.base_url,
-      model: row.model,
-      apiKeyMasked: masked,
-      isActive: row.is_active === 1,
-    },
+    configured: true,
+    providerName: row.provider_name,
+    baseUrl: row.base_url,
+    model: row.model,
+    apiKeyMasked: masked,
+    isActive: row.is_active === 1,
   });
 });
 
@@ -79,5 +76,5 @@ export const PUT = withRoute(async (req) => {
     console.error("[llm-config] 出站授权审计记录失败:", err instanceof Error ? err.message : err);
   }
 
-  return NextResponse.json({ code: 0, message: "ok" });
+  return NextResponse.json({ ok: true });
 });

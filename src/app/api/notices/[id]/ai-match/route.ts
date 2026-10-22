@@ -35,22 +35,22 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const ctx = getContext();
     // 走法②：无 ai_match 权益（低档）即使有历史缓存也不回读，防直接打接口绕过（与 POST 门控对称）
     if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, "ai_match"))) {
-      return NextResponse.json({ code: 0, message: "ok", data: { cached: false, locked: true } });
+      return NextResponse.json({ cached: false, locked: true });
     }
     const [cached, diagPending] = await Promise.all([
       new AiSummaryRepo(ctx.dbPool).findMatch(auth.userId, noticeId),
       new UserSupplierPoolRepo(ctx.dbPool).countDiagnosisPending(auth.userId),
     ]);
     if (!cached?.match_results) {
-      return NextResponse.json({ code: 0, message: "ok", data: { cached: false, diagPending } });
+      return NextResponse.json({ cached: false, diagPending });
     }
     try {
       const parsed = JSON.parse(cached.match_results);
       if (Array.isArray(parsed)) {
-        return NextResponse.json({ code: 0, message: "ok", data: { cached: true, top: parsed, diagPending } });
+        return NextResponse.json({ cached: true, top: parsed, diagPending });
       }
     } catch { /* 缓存损坏按无缓存处理 */ }
-    return NextResponse.json({ code: 0, message: "ok", data: { cached: false, diagPending } });
+    return NextResponse.json({ cached: false, diagPending });
   },
 );
 
@@ -83,6 +83,6 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     const body = await parseJson(req, bodySchema);
     const result = await getOrGenerateAiMatch(ctx.dbPool, auth.userId, noticeId, body.forceRegenerate);
-    return NextResponse.json({ code: 0, message: "ok", data: result });
+    return NextResponse.json(result);
   },
 );
