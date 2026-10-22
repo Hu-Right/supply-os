@@ -80,15 +80,20 @@ export function NoticeDetail({
   const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreUnlocked, aiSummaryEnabled);
   const aiMatch = useAiMatch(noticeId, aiMatchEnabled);
   const [activeTab, setActiveTab] = useState("summary");
-  const [countdown, setCountdown] = useState(getCountdown(notice.deadline_ts));
+  const bidDeadline = !notice.deadline_type || notice.deadline_type === "bid";
+  const [countdown, setCountdown] = useState(bidDeadline ? getCountdown(notice.deadline_ts) : null);
   // 分享面板开关（链接由公告数值 id 拼成规范公开详情页）
   const [shareOpen, setShareOpen] = useState(false);
 
-  // 倒计时每秒刷新
+  // 倒计时每秒刷新；注册制/框架结束日不是投标截止，不显示倒计时
   useEffect(() => {
+    if (!bidDeadline) {
+      setCountdown(null);
+      return;
+    }
     const id = setInterval(() => setCountdown(getCountdown(notice.deadline_ts)), 1000);
     return () => clearInterval(id);
-  }, [notice.deadline_ts]);
+  }, [notice.deadline_ts, bidDeadline]);
 
   // 切换到另一条公告（如相似机会跳转）时回到概况 Tab
   useEffect(() => {
@@ -135,7 +140,16 @@ export function NoticeDetail({
 
   // 信息表数据（发布日走统一解析+UTC 格式化，与 SEO 页同口径；不可解析回落占位）
   const publishDate = formatNoticeDateOrNull(notice.published_ts ? new Date(Number(notice.published_ts) * 1000).toISOString().slice(0, 10) : "") || "-";
-  const deadlineText = (notice.deadline_ts ? new Date(Number(notice.deadline_ts) * 1000).toISOString().slice(0, 10) : "") || t("procurement_noDeadline");
+  const deadlineText = (() => {
+    const date = (notice.deadline_ts ? new Date(Number(notice.deadline_ts) * 1000).toISOString().slice(0, 10) : "") || t("procurement_noDeadline");
+    const typeLabel = notice.deadline_type === "registration"
+      ? t("procurement_deadlineRegistration")
+      : notice.deadline_type === "framework_end"
+        ? t("procurement_deadlineFramework")
+        : "";
+    const prefix = typeLabel ? `${typeLabel}${locale === "zh" ? "：" : ": "}` : "";
+    return `${prefix}${date}${notice.deadline_timezone ? ` (${notice.deadline_timezone})` : ""}`;
+  })();
   const budgetText = notice.estimated_value == null ? t("procurement_budgetPending") : String(notice.estimated_value);
   const typeLabel = typeKey ? t(typeKey) : notice.notice_type_code || "-";
 

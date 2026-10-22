@@ -602,5 +602,8 @@
   "diagReportLockedDesc": "Общий балл показан выше. Полный отчёт — с оценками по каждому показателю, доказательствами и рекомендациями — вам отправит наш специалист: добавьте нас в WeChat.",
   "diagContactQrAlt": "QR-код WeChat службы поддержки",
   "diagContactQrHint": "Отсканируйте, чтобы добавить нас в WeChat и получить полный отчёт",
-  "aiScoreReasoning": "Процесс рассуждения ИИ"
+  "aiScoreReasoning": "Процесс рассуждения ИИ",
+  "procurement_deadlineBid": "Срок подачи заявки",
+  "procurement_deadlineRegistration": "Окончание регистрации",
+  "procurement_deadlineFramework": "Окончание рамочного соглашения"
 }

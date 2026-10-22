@@ -38,16 +38,17 @@ export async function fetchDetailsByIds(
          LEFT(p.description, ${WIDE_LIMITS.lockedTeaser}) AS description,
          CASE WHEN LENGTH(p.description) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
          p.description_cn, p.notice_type_code, p.country_code,
-         p.buyer_name, p.buyer_group, p.deadline_ts, p.published_ts,
+         p.buyer_name, p.buyer_group, p.deadline_ts, p.deadline_state, p.published_ts, d.deadline_type, d.deadline_timezone, d.timezone_source,
          p.estimated_value, p.currency_code, p.platform_name,
          p.attachments, p.contacts, p.is_opportunity, p.content_level,
-         p.industry, p.difficulty, p.registration_level, p.beneficiary_countries,
+         p.industry, p.registration_level, p.beneficiary_countries,
          p.updated_at,
          ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, ${WIDE_LIMITS.i18nTeaser}) AS description_i18n,
          s.title_en, LEFT(s.description_en, ${WIDE_LIMITS.i18nTeaser}) AS description_en,
          s.bid_overview, s.backbone_path, s.entry_source
        FROM crm_notice_public p
        LEFT JOIN crm_notice_search s ON s.id = p.notice_pk
+       LEFT JOIN crm_notice_deadline d ON d.notice_pk = p.notice_pk
        WHERE p.notice_pk IN (${ids.map(() => "?").join(",")})
        ORDER BY FIELD(p.notice_pk, ${ids.map(() => "?").join(",")})`,
       [...ids, ...ids],
@@ -86,4 +87,7 @@ export async function fetchDetailsByIds(
   );
   return rows as RowDataPacket[];
 }
+
+
+
 

@@ -132,21 +132,32 @@ export async function mysqlFallback(
   plan: FilterPlan,
 ): Promise<{ ids: number[]; total: number }> {
   const offset = (p.page - 1) * p.pageSize;
-  const whereSql = [ACTIVE_NOTICE_WHERE, ...plan.mysqlWhere].join(" AND ");
+  // 截止时间以服务表归一后的 deadline_ts 为准，不再使用主表未修正时区的 deadline_sec
+  const serviceDeadline = (sql: string) => sql
+    .replace(/n\.deadline_sec\s*=\s*0/g, "(p.deadline_ts IS NULL OR p.deadline_ts = 0)")
+    .replace(/\bn\.deadline_sec\b/g, "p.deadline_ts");
+  const whereSql = [
+    serviceDeadline(ACTIVE_NOTICE_WHERE),
+    ...plan.mysqlWhere.map(serviceDeadline),
+    "p.deadline_state IN ('known','unknown')",
+  ].join(" AND ");
 
   let fromSql: string;
   const queryParams: unknown[] = [];
   if (p.q) {
     const kw = buildKeywordUnion(p.q, p.matchMode ?? "all");
-    fromSql = `crm_bid_notices n INNER JOIN (${kw.sql}) _kw ON _kw.id = n.id`;
+    fromSql = `crm_bid_notices n INNER JOIN (${kw.sql}) _kw ON _kw.id = n.id
+      JOIN crm_notice_public p ON p.notice_pk = n.id`;
     queryParams.push(...kw.params);
   } else {
-    fromSql = "crm_bid_notices n FORCE INDEX (idx_deadline_sec)";
+    // 从服务表起 JOIN：deadline 过滤/排序走 idx_deadline_state_ts，
+    // 从主表起会被 FORCE INDEX 带成全表扫描。
+    fromSql = `crm_notice_public p JOIN crm_bid_notices n ON n.id = p.notice_pk`;
   }
   queryParams.push(...plan.mysqlParams);
 
   const countSql = `SELECT ${p.q ? "COUNT(DISTINCT n.id)" : "COUNT(*)"} AS total FROM ${fromSql} WHERE ${whereSql}`;
-  const idSql = `SELECT n.id FROM ${fromSql} WHERE ${whereSql} ORDER BY ${buildOrderBy(p)} LIMIT ? OFFSET ?`;
+  const idSql = `SELECT n.id FROM ${fromSql} WHERE ${whereSql} ORDER BY ${serviceDeadline(buildOrderBy(p))} LIMIT ? OFFSET ?`;
   const idParams = [...queryParams, p.pageSize, offset];
 
   try {

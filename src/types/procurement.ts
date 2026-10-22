@@ -16,6 +16,9 @@ export interface NoticeListItem {
   published_ts?: number | null;
   deadline_ts?: number | null;
   deadline_state?: string | null;
+  deadline_type?: string | null;
+  deadline_timezone?: string | null;
+  timezone_source?: string | null;
   country_code?: string | null;
   country_codes?: string[] | null;
   notice_type_code?: string | null;
@@ -67,7 +70,7 @@ export interface NoticeDetailFields {
   technical_hurdles?: string;
   ai_products?: unknown;
   ai_analysis?: Record<string, unknown>;
-  deadline_timezone?: string;
+  deadline_timezone?: string | null;
   description_other?: string;
   original_description?: string;
 }
@@ -104,4 +107,7 @@ export interface NoticeResponse {
   advanced_degraded?: boolean;
   match_relaxed?: boolean;
 }
+
+
+
 

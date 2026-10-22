@@ -56,13 +56,20 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
   // ── 状态标签组 ──
   const docCount = item.attachments?.length ?? 0;
   // 剩余天数：日历口径（CST），与左侧 formatDeadlineZh 相对日期标签对齐
-  const daysLeft = calendarDaysLeftCst(toUnixMs(item.deadline_ts));
+  const daysLeft = item.deadline_type && item.deadline_type !== "bid" ? null : calendarDaysLeftCst(toUnixMs(item.deadline_ts));
   // Tender ID：reference 优先，回退 notice_id
   const tenderId = item.reference || item.notice_id || "";
 
-  const deadlineText = locale === "zh"
+  const deadlineDate = locale === "zh"
     ? (formatDeadlineZh("", item.deadline_ts) || t("procurement_noDeadline"))
     : ((item.deadline_ts ? new Date(Number(item.deadline_ts) * 1000).toISOString().slice(0, 10) : "") || t("procurement_noDeadline"));
+  const deadlineTypeLabel = item.deadline_type === "registration"
+    ? t("procurement_deadlineRegistration")
+    : item.deadline_type === "framework_end"
+      ? t("procurement_deadlineFramework")
+      : "";
+  const deadlinePrefix = deadlineTypeLabel ? `${deadlineTypeLabel}${locale === "zh" ? "：" : ": "}` : "";
+  const deadlineText = `${deadlinePrefix}${deadlineDate}${item.deadline_timezone ? ` (${item.deadline_timezone})` : ""}`;
   const valueText = compactValue(item.estimated_value == null ? undefined : String(item.estimated_value));
   const sourceName = item.platform_name ?? "";
   const isUnlocked = item.core_locked === false;
@@ -208,6 +215,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
     </Card>
   );
 });
+
 
 
 

@@ -602,5 +602,8 @@
   "diagReportLockedDesc": "Your overall score is shown above. For the complete report with per-dimension scores, evidence and recommendations, add our service on WeChat and we will send you the file.",
   "diagContactQrAlt": "Customer service WeChat QR code",
   "diagContactQrHint": "Scan to add us on WeChat and get the full report",
-  "aiScoreReasoning": "AI reasoning process"
+  "aiScoreReasoning": "AI reasoning process",
+  "procurement_deadlineBid": "Bid deadline",
+  "procurement_deadlineRegistration": "Registration closes",
+  "procurement_deadlineFramework": "Framework agreement ends"
 }

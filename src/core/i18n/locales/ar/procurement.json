@@ -602,5 +602,8 @@
   "diagReportLockedDesc": "تظهر درجتك الإجمالية أعلاه. للحصول على التقرير الكامل (درجات كل محور والأدلة والتوصيات)، أضِفنا على WeChat وسيرسل لك فريق الخدمة الملف.",
   "diagContactQrAlt": "رمز WeChat لخدمة العملاء",
   "diagContactQrHint": "امسح الرمز لإضافتنا على WeChat والحصول على التقرير الكامل",
-  "aiScoreReasoning": "عملية استدلال الذكاء الاصطناعي"
+  "aiScoreReasoning": "عملية استدلال الذكاء الاصطناعي",
+  "procurement_deadlineBid": "الموعد النهائي لتقديم العطاء",
+  "procurement_deadlineRegistration": "انتهاء التسجيل",
+  "procurement_deadlineFramework": "انتهاء الاتفاق الإطاري"
 }
