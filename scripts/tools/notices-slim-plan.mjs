@@ -225,7 +225,7 @@ export const GUARDED_COLUMNS = {
   contacts: "在用（normalizeContactRows 合并展示）",
   external_links: "在用（FilesTab 外部链接）",
   key_contacts: "在用（前端与 contacts 合并），虽然 12,117 行是空壳 []",
-  difficulty: "在用（NoticeCoreContent 门槛评级展示）",
+  difficulty: "列保留但已零消费（2026-10-22 难度展示收敛到 registration_level）；如需彻底退役走 slim 删列轮，勿凭零引用直删",
   registration_level: "在用（QualificationTab 动态注册等级）",
   url: "在用（解锁详情原文链接 + 付费历史）",
   organization: "在用（机构名兜底链 agency ‖ agency_full ‖ organization）",
