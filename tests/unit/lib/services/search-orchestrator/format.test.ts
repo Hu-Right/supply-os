@@ -11,7 +11,7 @@ vi.mock("@/lib/data/agency-i18n/translate", () => ({
   translateByPattern: () => null,
 }));
 
-import { matchScoreToTierLabel, formatItems } from "@/lib/services/search-orchestrator/format";
+import { matchScoreToTierLabel, formatItems, ensureNoticePk } from "@/lib/services/search-orchestrator/format";
 
 describe("matchScoreToTierLabel", () => {
   it("score ≥ 5 → precise", () => {
@@ -102,5 +102,37 @@ describe("formatItems", () => {
     const rows = [{ id: 1, is_featured: 0 }] as never;
     const result = formatItems(rows, "en");
     expect(result[0].is_featured).toBe(0);
+  });
+
+  it("降级多表 JOIN 行（只带 id）→ 补齐 notice_pk，供 NoticeList key 使用", () => {
+    // crm_bid_notices.id 即 notice_pk（三表同值，见 baseline.sql）：宽表未就绪的降级路径
+    // 与推荐路径按主表 id 投影，行里没有 notice_pk ⇒ formatItems 统一补齐，
+    // 否则 NoticeList 的 key={item.notice_pk} 拿到 undefined 触发 React 缺失 key 警告
+    const rows = [{ id: 123, notice_id: "N123", title: "T" }] as never;
+    const result = formatItems(rows, "en");
+    expect(result[0].notice_pk).toBe(123);
+  });
+
+  it("服务表直读行（已带 notice_pk）→ 不被 id 覆盖", () => {
+    const rows = [{ id: 5, notice_pk: 888, title: "T" }] as never;
+    const result = formatItems(rows, "en");
+    expect(result[0].notice_pk).toBe(888);
+  });
+});
+
+describe("ensureNoticePk — 列表项主键统一（id 即 notice_pk）", () => {
+  it("只带 id 的行 → 补 notice_pk = Number(id)", () => {
+    const out = ensureNoticePk({ id: 42, title: "x" } as Record<string, unknown>);
+    expect(out.notice_pk).toBe(42);
+  });
+
+  it("已带 notice_pk 的行不动（服务表直读口径优先）", () => {
+    const out = ensureNoticePk({ id: 7, notice_pk: 99 } as Record<string, unknown>);
+    expect(out.notice_pk).toBe(99);
+  });
+
+  it("id 与 notice_pk 皆无 → 不凭空造字段", () => {
+    const out = ensureNoticePk({ title: "x" } as Record<string, unknown>);
+    expect(out.notice_pk).toBeUndefined();
   });
 });
