@@ -992,6 +992,44 @@ CREATE TABLE `crm_notice_interests` (
   KEY `idx_notice_type` (`notice_id`,`interest_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告意向表。（感兴趣/订阅）';
 
+-- ── crm_notice_public ──
+CREATE TABLE `crm_notice_public` (
+  `notice_pk` int NOT NULL COMMENT '公告主键，=crm_bid_notices.id，服务表 1:1 幂等锚点',
+  `notice_id` varchar(100) NOT NULL COMMENT '外部公告编号（源库业务ID），API 对外查找键（UNIQUE，无编号行不入表）',
+  `source_url` varchar(1024) DEFAULT NULL COMMENT '公告原文链接',
+  `reference` varchar(255) DEFAULT NULL COMMENT '采购/标段参考编号',
+  `title` varchar(500) DEFAULT NULL COMMENT '归一化标题（去噪后）',
+  `description` longtext COMMENT '正文，优先取旁表 body_text，回退主表 description',
+  `description_cn` longtext COMMENT '中文译文，仅当关联到已译商机时非空（稀疏，非全量译文库）',
+  `content_level` varchar(20) DEFAULT NULL COMMENT '正文质量分级：empty/echo/thin/substantive',
+  `published_ts` bigint DEFAULT NULL COMMENT '发布时间 epoch 秒（UTC）',
+  `deadline_ts` bigint DEFAULT NULL COMMENT '截止时间 epoch 秒，仅 deadline_state=known 时有值',
+  `deadline_state` varchar(20) DEFAULT NULL COMMENT '截止语义状态：known/unknown/placeholder/typo_suspect 等',
+  `country_code` char(2) DEFAULT NULL COMMENT '主国家 ISO2 码（别名归一后）',
+  `country_codes` json DEFAULT NULL COMMENT '全部国家 ISO2 码数组（多国家公告）',
+  `notice_type_code` varchar(30) DEFAULT NULL COMMENT '采购类型归一码（normalizeNoticeType 单一事实源）',
+  `platform_name` varchar(100) DEFAULT NULL COMMENT '发布平台规范名（platform 别名归一后）',
+  `buyer_name` varchar(500) DEFAULT NULL COMMENT '采购人/机构规范名（agency 别名归一后）',
+  `buyer_group` varchar(100) DEFAULT NULL COMMENT '机构类型分类键（classifyAgencyType 的 typeKey）',
+  `estimated_value` decimal(20,2) DEFAULT NULL COMMENT '预算金额（归一数值）',
+  `currency_code` char(3) DEFAULT NULL COMMENT '币种 ISO4217 码',
+  `currency_source` varchar(20) DEFAULT NULL COMMENT '币种判定来源（见 normalizeAmount）',
+  `contacts` json DEFAULT NULL COMMENT '联系方式数组（归一，正则抽取，需按可信度使用）',
+  `attachments` json DEFAULT NULL COMMENT '附件列表（旁表 attachment_text 优先，回退 documents/procurement_files）',
+  `external_links` json DEFAULT NULL COMMENT '外部链接（已排除与附件重复项）',
+  `difficulty` varchar(20) DEFAULT NULL COMMENT '采购难度：low/medium/high/unknown',
+  `registration_level` varchar(20) DEFAULT NULL COMMENT '注册层级：basic/level1..3/medium/high/standard/unknown',
+  `beneficiary_countries` varchar(500) DEFAULT NULL COMMENT '受援国/受益国（原文列表）',
+  `updated_at` bigint DEFAULT NULL COMMENT '行刷新水位 epoch 秒（增量 reconcile 依据）',
+  `industry` varchar(100) DEFAULT NULL COMMENT '行业 slug（约 239 类，主表直取，已归一）',
+  `is_opportunity` tinyint NOT NULL DEFAULT '0' COMMENT '是否已成商机：1=is_featured 或关联合格/在架/过审商机；0 否',
+  PRIMARY KEY (`notice_pk`),
+  KEY `idx_deadline` (`deadline_ts`),
+  KEY `idx_country_type` (`country_code`,`notice_type_code`),
+  UNIQUE KEY `uq_notice_id` (`notice_id`),
+  FULLTEXT KEY `ft_title_desc` (`title`,`description`) /*!50100 WITH PARSER ngram */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
+
 -- ── crm_notice_search ──
 CREATE TABLE `crm_notice_search` (
   `id` int unsigned NOT NULL,
