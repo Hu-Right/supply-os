@@ -38,7 +38,7 @@ import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expir
 import { columns } from "../../utils/sql-columns";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
-import { enrichAgencyI18n } from "../search-orchestrator/format";
+import { enrichAgencyI18n, ensureNoticePk } from "../search-orchestrator/format";
 import { getBackboneIndex } from "../commodity/backbone-cache";
 import { backboneNodeLevel, rootNodes } from "../commodity/backbone-path";
 import { NOTICE_NODES_TABLE } from "../search-sync/notice-nodes";
@@ -169,7 +169,7 @@ export async function deadlineFallback(
   const [fallbackRows] = await pool.query(
     `SELECT ${selectList}
      FROM crm_bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
-  const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ({
+  const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ensureNoticePk({
     // Suministros BUG 修复：同推荐主查询，notice_type 归一化对齐宽表口径
     ...row, notice_type: normalizeNoticeType(row.notice_type),
     match_score: 0, reco_score: 0, organization: null, source_url: null,

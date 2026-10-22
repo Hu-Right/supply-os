@@ -209,5 +209,7 @@ describe("deadlineFallback", () => {
     expect(result.pageSize).toBe(10);
     expect(result.fallback).toBe("deadline");
     expect(result.items).toHaveLength(1);
+    // 主键统一：降级行按主表 id 投影，须补齐 notice_pk（=id）供 NoticeList key 使用
+    expect(result.items[0].notice_pk).toBe(1);
   });
 });

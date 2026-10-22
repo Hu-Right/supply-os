@@ -28,7 +28,7 @@ import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expir
 import { normalizeNoticeType } from "../../utils/notice-type";
 // 买家名与搜索主管道同口径（2026-10-12）：推荐管道此前不做机构翻译，
 // 占位平台代码（mercadopublico_cl 等）在"智能推荐"列表原样露出
-import { enrichAgencyI18n } from "../search-orchestrator/format";
+import { enrichAgencyI18n, ensureNoticePk } from "../search-orchestrator/format";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
 
@@ -196,7 +196,7 @@ export async function recommendNotices(
   const nowSec = Math.floor(Date.now() / 1000);
   const resultItems = mmrRerankPage(rows as RowDataPacket[]).map((row) => {
     const { l4_hit, amount_usd_cached, codes_concat, documents, procurement_files, ...rest } = row;
-    return {
+    return ensureNoticePk({
       // Suministros BUG 修复：主表 notice_type 含西班牙语等源数据脏值（如
       // "SuministrosAdquisición"），搜索路径读宽表 notice_type_std 已归一化，
       // 推荐路径直取原始值导致前端徽章原样展示外语脏值——此处复用与宽表
@@ -206,7 +206,7 @@ export async function recommendNotices(
       reco_reasons: buildRecoReasons(row, nowSec), organization: null, source_url: null,
       core_locked: true,
       breakdown_file_count: normalizeDocumentRows(documents, procurement_files).length,
-    };
+    });
   });
 
   // 列表译文仅从已有缓存读取（trJoin），不触发任何翻译请求。
