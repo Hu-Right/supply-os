@@ -83,7 +83,7 @@ export async function saveWatermark(target: Pool, table: string, wm: Watermark):
 /**
  * 行级写入清洗：title 走 SSOT 纯函数 normalizeTitle（去 HTML 实体/标签、压缩空白、去门户前缀与尾省略号）。
  * 为何必须在写入前做：现网主表 title 存量已是清洗过的（后台正式写入者同款算法，
- * 实测 1,106/1,106 行可逐字复现，runtime/api-dq-143）；若把源库原值直通覆盖，
+ * 实测 1,106/1,106 行可逐字复现）；若把源库原值直通覆盖，
  * 会把已清洗标题打回 `&amp;`/双空格（且这些行两侧 update_time 相等，每轮对账都会重新判差异、永不对齐）。
  * 主键与 update_time 仍取源行原值（水位口径不被清洗污染）。
  */

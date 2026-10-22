@@ -38,7 +38,7 @@ const NON_DESTRUCTIVE_COLUMNS = {
 
 /**
  * 单调上升列（云端拥有的布尔型运营标记）：任一侧为 1 即保留 1，只允许 0→1、禁止 1→0。
- * 实测依据（runtime/api-dq-142 W3）：5 行 is_featured 云端=1 / 源库=0 且两侧 update_time 相等
+ * 实测依据：5 行 is_featured 云端=1 / 源库=0 且两侧 update_time 相等
  * ⇒ 精选是云端后写的运营动作，不能被源库的非空值 0 抹掉（那种情况 keepCols「源空才保留」不生效）。
  * 商机表审核四列方向相反（源库较新、要往云端流），不得登记进本表。
  */
@@ -59,7 +59,7 @@ const PLATFORM_IMMUNE = { table: "crm_bid_notices", column: "entry_source", valu
  *
  * 为何只有本脚本需要这一档（与应用内 crawler-sync 的有意不对称，两道测试各自钉死）：
  * 后台正式写入者在入库前对 title 做过 normalizeTitle 清洗（实测 1,106/1,106 行本仓
- * normalizeTitle 可逐字复现云端值，见 runtime/api-dq-143），而本脚本没有那一步；
+ * normalizeTitle 可逐字复现云端值），而本脚本没有那一步；
  * 若让源值直通覆盖，会把云端已清洗的标题打回带 `&amp;`/双空格的原始值（样本 5.6%，
  * 按 70 万行量级外推近 4 万行）。更坑的是这些行两侧 update_time 相等 ⇒ 内容对账
  * 每轮都会重新判差异、每轮都回退，**永不对齐**。目标优先保证：新行照旧带源标题入库，

@@ -53,7 +53,7 @@ export interface Watermark {
  * 单调上升列（云端拥有的布尔型运营标记）：任一侧为 1 即保留 1，只允许 0→1、禁止 1→0。
  *
  * 为什么不能走 keepCols（「源空则保留目标」）：源库对这类列有**合法的非空值 0**，
- * 直通覆盖会把云端刚标的精选抹掉。实测坐实（runtime/api-dq-142 W3）：
+ * 直通覆盖会把云端刚标的精选抹掉。实测坐实：
  * 5 行 `is_featured` 云端=1 / 源库=0，且两侧 update_time 完全相等 ⇒ 值不是源库推的，
  * 是云端后写的运营动作，因此它属于「云端拥有」。
  *
@@ -84,7 +84,7 @@ export const PLATFORM_IMMUNE = { table: "crm_bid_notices", column: "entry_source
  *
  * 与手动兜底脚本 scripts/tools/daily-sync-sql.cjs 的有意不对称（那边登记了 title）：
  * 本路径是应用内正式写入者，写入前会用 SSOT 纯函数 normalizeTitle 清洗 title
- * （见 crawler-sync.ts 的行级归一入口；实测可逐字复现现网已清洗值，runtime/api-dq-143），
+ * （见 crawler-sync.ts 的行级归一入口；实测可逐字复现现网已清洗值），
  * 所给的是「清洗后的源值」，不存在回退问题 ⇒ 源值照旧直通覆盖，标题更新能正常流入。
  * daily-sync 没有那一步清洗，只能靠目标优先防回退。不变式是**净效果一致**：
  * 两路都不会把已清洗的标题打回原形。两道断言一起写在

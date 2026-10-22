@@ -10,6 +10,7 @@ import type { Pool } from "mysql2/promise";
 import type { SupplierDirectoryRepo } from "../repos/suppliers/index";
 import { refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
 import { searchUnified, type RawSearchParams } from "../services/search-orchestrator/index";
+import { loadAgencyTypeRules } from "../services/agency/type-store";
 
 export interface WarmupDeps {
   dbPool: Pool;
@@ -28,6 +29,7 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
   // 重构后：统一编排器 searchUnified（mode=default）接管全部搜索预热
   const warm = (extra: Partial<RawSearchParams>) =>
     searchUnified(dbPool, { mode: "default", page: 1, pageSize: 9, locale: "zh", ...extra });
+  await loadAgencyTypeRules(dbPool);
   await Promise.all([
     // 首页（中文 + 英文）
     warm({ locale: "zh" }),
