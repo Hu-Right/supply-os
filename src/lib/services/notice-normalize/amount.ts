@@ -151,6 +151,12 @@ export function normalizeAmount(rawValue: unknown, opts: { currencyHint?: unknow
   }
   if (!text) return { raw, amount: null, min: null, max: null, currency: null, currencySource: "none", confidence: 0, flags: ["amount_missing"] };
   const cur = detectCurrency(text, opts.currencyHint, opts.countryCode);
+  // 金额字段本身没写币种时，再从正文找显式币种；不接受仅按国家推断
+  let curFromDesc = cur;
+  if (!cur.code && description && description !== text) {
+    const d = detectCurrency(description, opts.currencyHint, opts.countryCode);
+    if (d.code && d.source !== "inferred") curFromDesc = d;
+  }
   const amt = findAmount(text, opts.countryCode);
   if (amt.amount) {
     const scaled = scaleSuffix(amt.amount, text);
@@ -161,13 +167,14 @@ export function normalizeAmount(rawValue: unknown, opts: { currencyHint?: unknow
       amt.flags.push("amount_zero");
     }
   }
-  const flags = [...new Set([...cur.flags, ...amt.flags])];
+  const flags = [...new Set([...curFromDesc.flags, ...amt.flags])];
   if (sourceText === "description") flags.push("amount_from_description");
-  if (!cur.code) flags.push("currency_unknown");
+  if (!curFromDesc.code) flags.push("currency_unknown");
   if (!amt.amount && !amt.min) flags.push("amount_missing");
-  let confidence = Math.min(amt.confidence, cur.code ? 95 : 70);
-  if (cur.source === "inferred") confidence = Math.min(confidence, 70);
+  let confidence = Math.min(amt.confidence, curFromDesc.code ? 95 : 70);
+  if (curFromDesc.source === "inferred") confidence = Math.min(confidence, 70);
   if (flags.includes("amount_confidential_or_unknown")) confidence = 0;
   if (flags.includes("ambiguous_currency_symbol")) confidence = Math.min(confidence, 50);
-  return { raw, amount: amt.amount ?? null, min: amt.min ?? null, max: amt.max ?? null, currency: cur.code, currencySource: cur.source, confidence, flags: [...new Set(flags)] };
+  return { raw, amount: amt.amount ?? null, min: amt.min ?? null, max: amt.max ?? null, currency: curFromDesc.code, currencySource: curFromDesc.source, confidence, flags: [...new Set(flags)] };
 }
+
