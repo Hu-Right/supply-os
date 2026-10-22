@@ -81,9 +81,9 @@ export default function RfqEditSettingsPageClient() {
 
   useEffect(() => {
     if (!id) return;
-    api<{ code: number; data: RfqEditData }>(`/api/rfq/${id}`)
+    api<RfqEditData>(`/api/rfq/${id}`)
       .then((res) => {
-        const d = res.data;
+        const d = res;
         if (!d.isOwner) {
           setDenied("仅创建者可编辑此需求");
           return;

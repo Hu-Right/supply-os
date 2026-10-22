@@ -207,7 +207,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     setSubmitting(true);
     try {
       // api() 内部已 JSON.stringify，body 直接传对象（切勿二次 stringify）
-      const res = await api<{ code: number; data: { id: number } }>("/api/rfq/create", {
+      const res = await api<{ id: number }>("/api/rfq/create", {
         method: "POST",
         body: {
           title: form.title.trim(),
@@ -231,7 +231,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
           status: "draft",
         },
       });
-      const rfqId = res.data?.id;
+      const rfqId = res?.id;
       if (!rfqId) throw new Error("创建失败");
       await api(`/api/rfq/${rfqId}/submit`, { method: "PATCH", body: {} });
       setSubmitted(true);

@@ -134,8 +134,8 @@ describe("POST /api/rfq/create — 写入语义", () => {
     const res = await POST(post("/api/rfq/create", validBody()));
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.code).toBe(0);
-    expect(body.data.id).toBe(501);
+    // 2026-10 信封迁移：create 现返裸 {id}
+    expect(body.id).toBe(501);
 
     const insertSql = String(poolQuery.mock.calls[0][0]);
     expect(insertSql).toContain("INSERT INTO crm_bid_notices");

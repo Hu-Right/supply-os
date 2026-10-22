@@ -163,10 +163,7 @@ export const POST = withRoute(async (req: NextRequest) => {
       console.warn("[api/rfq/create] 守护登记失败（不影响建单，仅降低可观测性）:", (e as Error).message);
     }
 
-    return NextResponse.json(
-      { code: 0, message: "ok", data: { id: insertId } },
-      { status: 201 },
-    );
+    return NextResponse.json({ id: insertId }, { status: 201 });
   } catch (err) {
     console.warn("[api/rfq/create] INSERT failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "创建失败，请稍后重试");

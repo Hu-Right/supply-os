@@ -75,38 +75,34 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     const confidential = Number(row.budget_confidential) === 1;
     return NextResponse.json({
-      code: 0,
-      message: "ok",
-      data: {
-        id: Number(row.id),
-        reference: String(row.reference || ""),
-        title: String(row.title || ""),
-        description: String(row.description || ""),
-        status: String(row.rfq_status || RFQ_STATUS.DRAFT),
-        categoryCode: String(row.category_code || ""),
-        categoryL1: String(row.category_l1_name || ""),
-        categoryL2: String(row.category_name || ""),
-        province: String(row.province_name || ""),
-        budget: confidential ? null : Number(row.estimated_value) || 0,
-        budgetConfidential: confidential,
-        currency: String(row.currency || "CNY"),
-        incoterm: String(row.incoterm || ""),
-        deliveryTime: String(row.delivery_time || ""),
-        deliveryAddress: String(row.delivery_address || ""),
-        paymentTerms: String(row.payment_terms || "").split(",").filter(Boolean),
-        supplierReqs: String(row.supplier_reqs || "").split(",").filter(Boolean),
-        visibility: String(row.visibility || "public"),
-        deadlineSec: Number(row.deadline_sec) || 0,
-        // 发布日仅对已发布记录输出（旧数据可能在草稿期就写了 published_date）
-        publishedDate: String(row.rfq_status) === RFQ_STATUS.PUBLISHED && row.published_date ? String(row.published_date) : null,
-        isOwner,
-        // 联系方式仅创建者可见（编辑回显用）
-        ...(isOwner ? {
-          contactName: String(row.contact_name || ""),
-          contactEmail: String(row.contact_email || ""),
-          contactPhone: String(row.contact_phone || ""),
-        } : {}),
-      },
+      id: Number(row.id),
+      reference: String(row.reference || ""),
+      title: String(row.title || ""),
+      description: String(row.description || ""),
+      status: String(row.rfq_status || RFQ_STATUS.DRAFT),
+      categoryCode: String(row.category_code || ""),
+      categoryL1: String(row.category_l1_name || ""),
+      categoryL2: String(row.category_name || ""),
+      province: String(row.province_name || ""),
+      budget: confidential ? null : Number(row.estimated_value) || 0,
+      budgetConfidential: confidential,
+      currency: String(row.currency || "CNY"),
+      incoterm: String(row.incoterm || ""),
+      deliveryTime: String(row.delivery_time || ""),
+      deliveryAddress: String(row.delivery_address || ""),
+      paymentTerms: String(row.payment_terms || "").split(",").filter(Boolean),
+      supplierReqs: String(row.supplier_reqs || "").split(",").filter(Boolean),
+      visibility: String(row.visibility || "public"),
+      deadlineSec: Number(row.deadline_sec) || 0,
+      // 发布日仅对已发布记录输出（旧数据可能在草稿期就写了 published_date）
+      publishedDate: String(row.rfq_status) === RFQ_STATUS.PUBLISHED && row.published_date ? String(row.published_date) : null,
+      isOwner,
+      // 联系方式仅创建者可见（编辑回显用）
+      ...(isOwner ? {
+        contactName: String(row.contact_name || ""),
+        contactEmail: String(row.contact_email || ""),
+        contactPhone: String(row.contact_phone || ""),
+      } : {}),
     });
   },
 );
@@ -271,6 +267,6 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(500, EC_INTERNAL_ERROR, "更新失败");
     }
 
-    return NextResponse.json({ code: 0, message: "ok" });
+    return NextResponse.json({ ok: true });
   },
 );

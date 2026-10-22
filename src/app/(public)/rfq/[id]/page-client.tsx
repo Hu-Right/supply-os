@@ -90,8 +90,8 @@ export default function RfqDetailPageClient() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    api<{ code: number; data: RfqDetail }>(`/api/rfq/${id}`)
-      .then((res) => setDetail(res.data))
+    api<RfqDetail>(`/api/rfq/${id}`)
+      .then((res) => setDetail(res))
       .catch((err: Error) => setError(err.message || "加载失败"))
       .finally(() => setLoading(false));
   }, [id]);
