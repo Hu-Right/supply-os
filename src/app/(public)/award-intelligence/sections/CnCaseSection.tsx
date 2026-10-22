@@ -12,7 +12,7 @@ import { useState, memo } from "react";
 import { Search, ArrowRight } from "lucide-react";
 import { CN_AWARD_CASES, CN_CASE_CATEGORIES, type CnAwardCase } from "@/data/cn-award-cases";
 
-export const CnCaseSection = memo(function CnCaseSection({ onOpenDetail }: { onOpenDetail: (c: CnAwardCase) => void }) {
+export const CnCaseSection = memo(function CnCaseSection({ note, onOpenDetail }: { note?: string; onOpenDetail: (c: CnAwardCase) => void }) {
   const [cnCategory, setCnCategory] = useState("全部");
   const [cnSearch, setCnSearch] = useState("");
   const [cnShowAll, setCnShowAll] = useState(false);
@@ -24,6 +24,7 @@ export const CnCaseSection = memo(function CnCaseSection({ onOpenDetail }: { onO
           <div>
             <h3 className="text-base font-extrabold text-slate-900">中国企业联合国采购中标案例</h3>
             <p className="text-xs text-slate-500 mt-0.5">30 个官方可核验案例 · 涵盖 UNICEF / WHO / UNDP / UNOPS / UNHCR</p>
+            {note && <p className="text-2xs text-amber-600 mt-1">{note}</p>}
           </div>
           <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg">{CN_AWARD_CASES.length} 例</span>
         </div>
