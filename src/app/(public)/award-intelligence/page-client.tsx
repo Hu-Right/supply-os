@@ -10,7 +10,7 @@
  *              数据来自 useAwardsData（/api/awards*）；趋势图/卡片/弹窗分别见 ./TrendChart、
  *              ./sections/cards、./Modals。
  */
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
@@ -37,9 +37,9 @@ export default function PageClient() {
   const [selectedSupplier, setSelectedSupplier] = useState<WinnerRow | null>(null);
   const [cnDetail, setCnDetail] = useState<CnAwardCase | null>(null);
 
-  // ── 真实中标数据 → 视图模型（唯一取数口径） ──
+  // ── 真实中标数据 → 视图模型（唯一取数口径）；useMemo 稳定引用，避免交互时图表重建 ──
   const awardsData = useAwardsData();
-  const vm = buildAwardViewModel(awardsData);
+  const vm = useMemo(() => buildAwardViewModel(awardsData), [awardsData]);
 
   const handleSearch = () => {
     const q = searchQuery.trim();

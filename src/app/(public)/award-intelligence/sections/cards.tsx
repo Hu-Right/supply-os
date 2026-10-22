@@ -61,7 +61,7 @@ export const TopWinnersCard = memo(function TopWinnersCard({ section, onSelectSu
 }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-      <h3 className="text-base font-extrabold text-slate-900 mb-3">主要中标商 TOP 5 <span className="text-xs font-normal text-slate-400">（按中标次数）</span></h3>
+      <h3 className="text-base font-extrabold text-slate-900 mb-3">主要中标商 <span className="text-xs font-normal text-slate-400">（近期样本·按中标次数）</span></h3>
       {section.present ? (
         <>
           <div className="overflow-x-auto">
@@ -74,7 +74,7 @@ export const TopWinnersCard = memo(function TopWinnersCard({ section, onSelectSu
                 </tr>
               </thead>
               <tbody>
-                {section.data.map((w) => (
+                {section.data.slice(0, 5).map((w) => (
                   <tr key={w.rank} className="border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer" onClick={() => onSelectSupplier(w)}>
                     <td className="py-2.5 font-bold text-slate-400">{w.rank}</td>
                     <td className="py-2.5 font-bold text-teal-700 hover:underline">{w.name}</td>
@@ -85,7 +85,7 @@ export const TopWinnersCard = memo(function TopWinnersCard({ section, onSelectSu
             </table>
           </div>
           <p className="text-2xs text-slate-400 mt-2">中标商数据清洗进行中，名称以来源公示原文为准</p>
-          <button onClick={onOpenWinners} className="mt-2 text-sm font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1">查看完整名单 <ArrowRight className="w-3.5 h-3.5" /></button>
+          <button onClick={onOpenWinners} className="mt-2 text-sm font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1">查看更多中标商 <ArrowRight className="w-3.5 h-3.5" /></button>
         </>
       ) : (
         <EmptyState title="暂无中标商" description={section.reason} className="p-4" />

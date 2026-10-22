@@ -73,7 +73,7 @@ export function buildAwardViewModel(data: AwardsData): AwardViewModel {
   const statsCards: StatCard[] =
     hasReal && stats
       ? [
-          { label: "中标记录", value: stats.total.toLocaleString(), sub: monthsDesc[0] ? `本月 +${monthsDesc[0].count}` : "" },
+          { label: "中标记录", value: stats.total.toLocaleString(), sub: monthsDesc[0] ? `最新月 +${monthsDesc[0].count}` : "" },
           { label: "采购机构档案", value: String(stats.by_agency.length), sub: `覆盖 ${countries.length} 个国家` },
           { label: "可追踪竞争对手", value: `${data.topWinners.length}`, sub: "持续更新中" },
           { label: "数据追踪", value: coverage.earliestYear ? `${coverage.earliestYear}年起` : "—", sub: "持续更新中" },
@@ -111,13 +111,15 @@ export function buildAwardViewModel(data: AwardsData): AwardViewModel {
     ? { present: true, data: aggregateCategories(data.recentAwards) }
     : { present: false, reason: "品类分布待来源补齐品类字段后接入" };
 
+  // 注：上游 /api/awards/top 现按金额(total_usd)排序采样，金额缺失时为近期样本、
+  //      非全量按次数权威排名（S1 数据层改为按 count 排序 + 全量聚合后再上调用）。
   const topWinners: Section<WinnerRow[]> =
     data.topWinners.length > 0
       ? {
           present: true,
           data: [...data.topWinners]
             .sort((a, b) => b.count - a.count || b.total_usd - a.total_usd)
-            .slice(0, 5)
+            .slice(0, 10)
             .map((w, i) => ({ rank: i + 1, name: w.name, country: w.country, count: w.count, totalUsd: w.total_usd })),
         }
       : { present: false, reason: "暂无中标商数据" };
