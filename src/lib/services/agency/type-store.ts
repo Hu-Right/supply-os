@@ -12,8 +12,16 @@ export interface AgencyTypeRule {
   i18n: Record<string, string>;
 }
 
+export interface AgencyTypeAssignment {
+  canonical: string;
+  countryCode: string | null;
+  typeKey: string;
+  i18n: Record<string, string>;
+}
+
 const TTL_MS = 10 * 60 * 1000;
 let _rules: AgencyTypeRule[] | null = null;
+let _assignments: Map<string, AgencyTypeAssignment> | null = null;
 let _loadedAt = 0;
 
 export async function loadAgencyTypeRules(pool: Pool, force = false): Promise<void> {
@@ -43,7 +51,24 @@ export async function loadAgencyTypeRules(pool: Pool, force = false): Promise<vo
         // 单条坏正则跳过，不阻塞整张表
       }
     }
+    const [assignmentRows] = await pool.query(
+      `SELECT a.canonical, a.country_code, a.type_key, t.name_i18n
+         FROM crm_agency_type_assignments a
+         JOIN crm_agency_types t ON t.type_key = a.type_key
+        WHERE a.is_active = 1 AND t.is_active = 1`,
+    );
+    const assignments = new Map<string, AgencyTypeAssignment>();
+    for (const row of assignmentRows as Array<Record<string, unknown>>) {
+      const i18n = typeof row.name_i18n === "string" ? JSON.parse(row.name_i18n) : (row.name_i18n ?? {});
+      assignments.set(String(row.canonical).trim().toUpperCase(), {
+        canonical: String(row.canonical),
+        countryCode: row.country_code == null ? null : String(row.country_code),
+        typeKey: String(row.type_key),
+        i18n: (i18n ?? {}) as Record<string, string>,
+      });
+    }
     _rules = next;
+    _assignments = assignments;
     _loadedAt = Date.now();
   } catch {
     // 表未就绪时保留旧缓存；没有旧缓存则回退静态规则
@@ -55,7 +80,17 @@ export function getAgencyTypeRules(): AgencyTypeRule[] | null {
   return _rules;
 }
 
+export function getAgencyTypeAssignment(name: string, country?: string | null): AgencyTypeAssignment | null {
+  const key = name.trim().toUpperCase();
+  const hit = _assignments?.get(key);
+  if (!hit) return null;
+  const countryCode = String(country ?? "").trim().toUpperCase();
+  if (hit.countryCode && countryCode && hit.countryCode !== countryCode) return null;
+  return hit;
+}
+
 export function clearAgencyTypeCache(): void {
   _rules = null;
+  _assignments = null;
   _loadedAt = 0;
 }

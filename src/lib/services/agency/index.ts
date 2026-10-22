@@ -20,7 +20,7 @@ import {
   INTL_TYPE_EN,
 } from "../agency-i18n-data";
 import { countryZhOf } from "../country/display";
-import { getAgencyTypeRules } from "./type-store";
+import { getAgencyTypeAssignment, getAgencyTypeRules } from "./type-store";
 
 /**
  * 判断机构是否应按类型聚合（支持按国家维度细分）
@@ -38,6 +38,10 @@ export function classifyAgencyType(
   // 精确匹配的特定机构不聚合（如 UNDP、WHO、WTO 等）
   const upper = trimmed.toUpperCase();
   if (KNOWN_ACRONYMS.has(upper)) return null;
+
+  // 精确覆盖优先于 pattern rules；用于高频、规则无法稳定判断的机构
+  const assigned = getAgencyTypeAssignment(trimmed, country);
+  if (assigned) return { typeKey: assigned.typeKey, i18n: assigned.i18n };
 
   const countryKey = (country ?? "").trim().toLowerCase();
   const matchesCountry = (typeKey: string): boolean => {
@@ -105,3 +109,4 @@ export function classifyAgencyType(
   // 未匹配任何模式 → 不聚合
   return null;
 }
+

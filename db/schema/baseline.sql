@@ -94,6 +94,20 @@ CREATE TABLE `crm_agency_type_rules` (
   CONSTRAINT `fk_agency_rule_type` FOREIGN KEY (`type_key`) REFERENCES `crm_agency_types` (`type_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='机构类型匹配规则';
 
+-- ── crm_agency_type_assignments ──
+-- 精确机构分类覆盖：用于规则无法稳定判断的高频机构；优先级高于 pattern rules。
+CREATE TABLE `crm_agency_type_assignments` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `canonical` varchar(255) NOT NULL COMMENT '机构规范名（统一大写匹配）',
+  `country_code` char(2) DEFAULT NULL,
+  `type_key` varchar(100) NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_assignment_canonical` (`canonical`),
+  KEY `idx_assignment_type` (`type_key`),
+  CONSTRAINT `fk_agency_assignment_type` FOREIGN KEY (`type_key`) REFERENCES `crm_agency_types` (`type_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='机构类型精确覆盖';
+
 -- ── crm_api_keys ──
 CREATE TABLE `crm_api_keys` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
