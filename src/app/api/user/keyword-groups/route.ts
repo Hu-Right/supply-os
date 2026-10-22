@@ -16,7 +16,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
   const data = await listKeywordGroups(ctx.user.keywordGroupsRepo, ctx.benefitSystemRepo, auth.userId);
-  return NextResponse.json({ code: 0, message: "ok", data });
+  return NextResponse.json(data);
 });
 
 const createBodySchema = z.object({
@@ -43,5 +43,5 @@ export const POST = withRoute(async (req: NextRequest) => {
     }
     routeError(400, EC_KEYWORD_GROUP_NAME_INVALID, "词组名或关键词不合法");
   }
-  return NextResponse.json({ code: 0, message: "ok", data: { id: result.id } });
+  return NextResponse.json({ id: result.id });
 });

@@ -118,7 +118,7 @@ describe("PUT /api/user/enterprise 身份要素闸口", () => {
 
     const res = await PUT(putReq({ contact: "李四" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ claimCreated: true, licensePendingReview: false });
+    expect((await res.json())).toEqual({ claimCreated: true, licensePendingReview: false });
     expect(claimRepo.insertClaim).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 42, supplierId: 100 }),
     );
@@ -131,7 +131,7 @@ describe("PUT /api/user/enterprise 身份要素闸口", () => {
 
     const res = await PUT(putReq({ contact: "李四" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ claimCreated: false, licensePendingReview: false });
+    expect((await res.json())).toEqual({ claimCreated: false, licensePendingReview: false });
     expect(claimRepo.insertClaim).not.toHaveBeenCalled();
   });
 
@@ -144,7 +144,7 @@ describe("PUT /api/user/enterprise 身份要素闸口", () => {
 
     const res = await PUT(putReq({ license_url: "/api/user/enterprise/license/license_42_2222222222.png" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ claimCreated: false, licensePendingReview: true });
+    expect((await res.json())).toEqual({ claimCreated: false, licensePendingReview: true });
     expect(upsertPendingLicenseChange).toHaveBeenCalledWith({
       supplierId: 100,
       filename: "license_42_2222222222.png",
@@ -167,7 +167,7 @@ describe("PUT /api/user/enterprise 身份要素闸口", () => {
 
     const res = await PUT(putReq({ license_url: "/api/user/enterprise/license/license_42_2222222222.png" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ claimCreated: false, licensePendingReview: true });
+    expect((await res.json())).toEqual({ claimCreated: false, licensePendingReview: true });
     expect(upsertPendingLicenseChange).toHaveBeenCalledWith({
       supplierId: 100,
       filename: "license_42_2222222222.png",
@@ -183,7 +183,7 @@ describe("PUT /api/user/enterprise 身份要素闸口", () => {
 
     const res = await PUT(putReq({ license_url: "/api/user/enterprise/license/license_42_3333333333.png" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ claimCreated: true, licensePendingReview: false });
+    expect((await res.json())).toEqual({ claimCreated: true, licensePendingReview: false });
     expect(upsertPendingLicenseChange).not.toHaveBeenCalled();
     expect(directoryRepo.updateLicenseUrl).toHaveBeenCalled();
   });

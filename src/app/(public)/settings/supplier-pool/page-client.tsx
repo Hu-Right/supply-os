@@ -46,8 +46,8 @@ export default function SupplierPoolPageClient() {
     if (!userId) return;
     setListError(false);
     try {
-      const res = await api<{ data?: { list?: PoolItem[] } }>("/api/user/supplier-pool");
-      setItems(res.data?.list || []);
+      const res = await api<{ list?: PoolItem[] }>("/api/user/supplier-pool");
+      setItems(res.list || []);
     } catch {
       // 加载失败必须与空态区分：显示错误态 + 重试，而非伪装成"暂无工厂"
       setListError(true);
@@ -70,10 +70,10 @@ export default function SupplierPoolPageClient() {
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await api<{ data?: { candidates?: PoolCandidate[] } }>(
+        const res = await api<{ candidates?: PoolCandidate[] }>(
           `/api/user/supplier-pool/search?q=${encodeURIComponent(kw)}`,
         );
-        if (!cancelled) setCandidates(res.data?.candidates || []);
+        if (!cancelled) setCandidates(res.candidates || []);
       } catch {
         if (!cancelled) setCandidates([]);
       } finally {

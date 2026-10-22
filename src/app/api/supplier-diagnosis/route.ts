@@ -112,19 +112,15 @@ export const POST = withRoute(async (req: NextRequest) => {
     });
 
     return NextResponse.json({
-      code: 0,
-      message: "ok",
-      data: {
-        id: Number(stored.id),
-        supplier_id: supplierId,
-        claim_required: claimRequired,
-        score_total: scoring.totalScore,
-        score_grade: scoring.grade,
-        grade_label: scoring.gradeLabel,
-        dimensions: scoring.dimensions,
-        top_gaps: scoring.topGaps,
-        override_gate: { triggered: scoring.overrideGateTriggered, reason: scoring.overrideGateReason },
-      },
+      id: Number(stored.id),
+      supplier_id: supplierId,
+      claim_required: claimRequired,
+      score_total: scoring.totalScore,
+      score_grade: scoring.grade,
+      grade_label: scoring.gradeLabel,
+      dimensions: scoring.dimensions,
+      top_gaps: scoring.topGaps,
+      override_gate: { triggered: scoring.overrideGateTriggered, reason: scoring.overrideGateReason },
     }, { status: 201 });
   } catch (err) {
     console.error("[supplier-diagnosis POST]", err);

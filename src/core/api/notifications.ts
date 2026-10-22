@@ -1,15 +1,9 @@
 /**
  * 通知（站内信/收件箱）API client
  * @module core/api/notifications
- * @description 供顶栏铃铛使用；api() 自动附带 JWT。列表端点返回 {items,total,unread}。
+ * @description 供顶栏铃铛使用；api() 自动附带 JWT。列表端点返回裸载荷 {items,total,unread,...}。
  */
 import { api } from "@/core/http";
-
-interface Envelope<T> {
-  code: number;
-  message: string;
-  data: T;
-}
 
 export interface NotificationItem {
   id: number;
@@ -27,10 +21,9 @@ export interface NotificationList {
   unread: number;
 }
 
-/** 拉取收件箱首页（含未读数）。 */
+/** 拉取收件箱首页（含未读数）。端点已返裸载荷，直接透传本体。 */
 export async function fetchNotifications(pageSize = 20): Promise<NotificationList> {
-  const res = await api<Envelope<NotificationList>>(`/api/notifications?page_size=${pageSize}`);
-  return res.data;
+  return api<NotificationList>(`/api/notifications?page_size=${pageSize}`);
 }
 
 /** 标记单条已读。 */

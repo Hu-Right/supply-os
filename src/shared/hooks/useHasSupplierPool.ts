@@ -32,11 +32,11 @@ export function useHasSupplierPool(userId: number | undefined): {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    api<{ data?: { list?: unknown[] } }>("/api/user/supplier-pool")
+    api<{ list?: unknown[] }>("/api/user/supplier-pool")
       .then((res) => {
         if (cancelled) return;
-        // 后端为信封返回 { code, message, data: { list } }，须读 data.list（勿读顶层 res.list）
-        const list = res?.data?.list;
+        // 2026-10 信封迁移：后端已返裸载荷 { list }，直接读顶层 res.list
+        const list = res?.list;
         setHasPool(!!list && list.length > 0);
       })
       .catch((e) => {

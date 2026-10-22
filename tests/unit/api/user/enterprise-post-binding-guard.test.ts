@@ -78,7 +78,7 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
 
     const res = await POST(postReq({ company: "上海新主体有限公司", credit_code: "91310000XXXXXXXXXX" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ supplierId: 777, reused: false, claimCreated: true });
+    expect((await res.json())).toEqual({ supplierId: 777, reused: false, claimCreated: true });
     expect(poolExecute.mock.calls[0][0]).toContain("supplier_id = NULL");
     expect(poolExecute.mock.calls[0][1]).toEqual([42, 100]);
     expect(directoryRepo.insertEnterprise).toHaveBeenCalledTimes(1);
@@ -107,7 +107,7 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
 
     const res = await POST(postReq({ company: "上海新主体有限公司" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ supplierId: 777, reused: false, claimCreated: true });
+    expect((await res.json())).toEqual({ supplierId: 777, reused: false, claimCreated: true });
     expect(usersRepo.bindSupplier).toHaveBeenCalledWith(42, 777, "verified");
     expect(claimRepo.insertClaim).toHaveBeenCalledTimes(1);
   });
@@ -126,7 +126,7 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
     const res = await POST(postReq({ company: "杭州原绑定企业有限公司" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.data).toEqual({ supplierId: 100, reused: true, claimCreated: true, licensePendingReview: false });
+    expect(json).toEqual({ supplierId: 100, reused: true, claimCreated: true, licensePendingReview: false });
     expect(claimRepo.insertClaim).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 42, supplierId: 100 }),
     );
@@ -147,7 +147,7 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
 
     const res = await POST(postReq({ company: "杭州原绑定企业有限公司" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ supplierId: 100, reused: true, claimCreated: false, licensePendingReview: false });
+    expect((await res.json())).toEqual({ supplierId: 100, reused: true, claimCreated: false, licensePendingReview: false });
     expect(claimRepo.insertClaim).not.toHaveBeenCalled();
     expect(usersRepo.bindSupplier).toHaveBeenCalledWith(42, 100, "verified");
   });
@@ -163,7 +163,7 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
       license_url: "/api/user/enterprise/license/license_42_1791943258896.jpg",
     }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ supplierId: 300, reused: true, claimCreated: true, licensePendingReview: false });
+    expect((await res.json())).toEqual({ supplierId: 300, reused: true, claimCreated: true, licensePendingReview: false });
     expect(claimRepo.insertClaim).toHaveBeenCalledTimes(1);
     // createClaimWithBinding 的执照落库：UPDATE supplier 带 license_url
     const licenseUpdate = poolExecute.mock.calls.find(
@@ -180,7 +180,7 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
 
     const res = await POST(postReq({ company: "北京已认证企业有限公司" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ supplierId: 555, claimRequired: true });
+    expect((await res.json())).toEqual({ supplierId: 555, claimRequired: true });
   });
 
   it("未绑定账号全新主体 → 建档并绑定（不变）", async () => {
@@ -189,7 +189,7 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
 
     const res = await POST(postReq({ company: "广州全新主体有限公司" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ supplierId: 777, reused: false, claimCreated: true });
+    expect((await res.json())).toEqual({ supplierId: 777, reused: false, claimCreated: true });
     expect(usersRepo.bindSupplier).toHaveBeenCalledWith(42, 777, "verified");
     expect(claimRepo.insertClaim).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 42, supplierId: 777 }),

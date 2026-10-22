@@ -28,15 +28,11 @@ import type { TermRow } from "@/shared/utils/advanced-syntax";
 
 const fetchMock = vi.fn<typeof fetch>();
 
-/** 词组读接口信封：groups 名字带序号，便于断言「显示的是谁的词组」 */
+/** 词组读接口裸载荷（2026-10 去信封）：groups 名字带序号，便于断言「显示的是谁的词组」 */
 function groupsResponse(n: number) {
   return Response.json({
-    code: 0,
-    message: "ok",
-    data: {
-      entitled: true,
-      groups: [{ id: n, name: `用户${n}的词组`, terms: ["光伏", "逆变器"] }],
-    },
+    entitled: true,
+    groups: [{ id: n, name: `用户${n}的词组`, terms: ["光伏", "逆变器"] }],
   });
 }
 

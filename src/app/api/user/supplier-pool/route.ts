@@ -32,7 +32,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   // V2（ADR-0004）：企业账号也可拥有并使用供应商资源库，不再按身份返回空列表。
   const repo = new UserSupplierPoolRepo(ctx.dbPool);
   const items = await repo.listByUser(auth.userId);
-  return NextResponse.json({ code: 0, message: "ok", data: { list: items } });
+  return NextResponse.json({ list: items });
 });
 
 const addBodySchema = z.object({
@@ -66,7 +66,6 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   await invalidateMatchCacheSafely(ctx.dbPool, auth.userId);
   return NextResponse.json({
-    code: 0, message: "ok",
-    data: { poolId: result.poolId, source: result.source, supplierId: result.supplierId },
+    poolId: result.poolId, source: result.source, supplierId: result.supplierId,
   });
 });

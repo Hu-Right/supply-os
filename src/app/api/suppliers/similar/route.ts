@@ -6,7 +6,7 @@
  *              repo 的字段白名单 + 本文件的 credit_code 绕码共同保证）。
  *              登录态才可用（诊断本身已收敛为登录后填写），并做用户维度限流，
  *              防止把主数据目录当免费检索接口爬。
- *              响应为信封结构，前端必须读 `res.data.list`。
+ *              响应为裸载荷 `{ list }`，前端读 `res.list`。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -27,25 +27,21 @@ export const GET = withRoute(async (req: NextRequest) => {
   try {
     const rows = await getContext().supplier.directoryRepo.findDiagnosisCandidatesByName(keyword, 5, auth.userId);
     return NextResponse.json({
-      code: 0,
-      message: "ok",
-      data: {
-        list: rows.map((r) => ({
-          supplierId: Number(r.id),
-          company: r.company ?? "",
-          province: r.province ?? "",
-          city: r.city ?? "",
-          establishedAt: r.established_at ?? "",
-          legalRep: r.legal_rep ?? "",
-          // 只给掩码：足以在"同名不同主体"之间辨认，不足以取走完整信用代码
-          creditCodeMasked: maskCreditCode(r.credit_code),
-          businessType: r.business_type ?? "",
-          verified: String(r.verify_status ?? "") === "done",
-          claimPending: String(r.claim_status ?? "") === "pending",
-          // 已被其他用户/账户绑定（已在 repo 层排除当前用户），供弹窗提示「该公司已被绑定」
-          bound: Number(r.bound) === 1,
-        })),
-      },
+      list: rows.map((r) => ({
+        supplierId: Number(r.id),
+        company: r.company ?? "",
+        province: r.province ?? "",
+        city: r.city ?? "",
+        establishedAt: r.established_at ?? "",
+        legalRep: r.legal_rep ?? "",
+        // 只给掩码：足以在"同名不同主体"之间辨认，不足以取走完整信用代码
+        creditCodeMasked: maskCreditCode(r.credit_code),
+        businessType: r.business_type ?? "",
+        verified: String(r.verify_status ?? "") === "done",
+        claimPending: String(r.claim_status ?? "") === "pending",
+        // 已被其他用户/账户绑定（已在 repo 层排除当前用户），供弹窗提示「该公司已被绑定」
+        bound: Number(r.bound) === 1,
+      })),
     });
   } catch (err) {
     console.error("[suppliers similar GET]", err);

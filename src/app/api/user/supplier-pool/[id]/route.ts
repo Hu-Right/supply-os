@@ -40,7 +40,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     const ctx = getContext();
     const repo = new UserSupplierPoolRepo(ctx.dbPool);
     await repo.updateNotes(auth.userId, poolId, body.notes);
-    return NextResponse.json({ code: 0, message: "ok" });
+    return NextResponse.json({ ok: true });
   },
 );
 
@@ -57,6 +57,6 @@ export const DELETE = withRoute<{ params: Promise<{ id: string }> }>(
     const repo = new UserSupplierPoolRepo(ctx.dbPool);
     await repo.remove(auth.userId, poolId);
     await invalidateMatchCacheSafely(ctx.dbPool, auth.userId);
-    return NextResponse.json({ code: 0, message: "ok" });
+    return NextResponse.json({ ok: true });
   },
 );

@@ -17,8 +17,6 @@ export interface KeywordGroup {
   updatedAt?: string;
 }
 
-interface Envelope<T> { code: number; message: string; data: T; }
-
 /** 唯一端点常量：缓存键与失效前缀同源，避免字面量散落导致漏失效 */
 const ENDPOINT = "/api/user/keyword-groups";
 
@@ -63,25 +61,24 @@ if (typeof window !== "undefined") {
 export async function fetchKeywordGroups(
   force = false,
 ): Promise<{ entitled: boolean; groups: KeywordGroup[] }> {
-  // 信封在本模块唯一处解包：漏读 .data 会让下拉恒空（历史踩坑，测试已钉死）
-  const res = await apiCached<Envelope<{ entitled: boolean; groups: KeywordGroup[] }>>(
+  // 2026-10 信封迁移：端点已改返裸载荷 { entitled, groups }，client 直接透传本体
+  return apiCached<{ entitled: boolean; groups: KeywordGroup[] }>(
     ENDPOINT,
     CACHE_TTL_STANDARD_MS,
     undefined,
     force,
   );
-  return res.data;
 }
 
 export async function createKeywordGroup(name: string, terms: string[]): Promise<{ id: number }> {
   // api() 第二参对 body 自动 JSON 序列化并补 Content-Type（api-client.ts:223/227），
   // 此处直接传对象，避免 JSON.stringify 双重序列化
-  const res = await api<Envelope<{ id: number }>>(ENDPOINT, {
+  const res = await api<{ id: number }>(ENDPOINT, {
     method: "POST",
     body: { name, terms },
   });
   invalidateAcrossTabs();
-  return res.data;
+  return res;
 }
 
 export async function updateKeywordGroup(

@@ -29,5 +29,5 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   const ctx = getContext();
   const candidates = await searchPoolCandidates(ctx.dbPool, auth.userId, q, 8);
-  return NextResponse.json({ code: 0, message: "ok", data: { candidates } });
+  return NextResponse.json({ candidates });
 });

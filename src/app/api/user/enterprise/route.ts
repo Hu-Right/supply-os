@@ -180,7 +180,7 @@ export const GET = withRoute(async (req) => {
   const linkStatus = String(user?.supplier_link_status || "none");
 
   if (!supplierId) {
-    return NextResponse.json({ code: 0, message: "ok", data: { bound: false, linkStatus, enterprise: null } });
+    return NextResponse.json({ bound: false, linkStatus, enterprise: null });
   }
 
   // 只读自己绑定的那一行。旧逻辑命中「空壳行」时会静默换成同名更完整的行，
@@ -190,7 +190,7 @@ export const GET = withRoute(async (req) => {
   const row = await repo.findFullById(supplierId);
 
   if (!row) {
-    return NextResponse.json({ code: 0, message: "ok", data: { bound: false, linkStatus, enterprise: null } });
+    return NextResponse.json({ bound: false, linkStatus, enterprise: null });
   }
 
   // 换照审核进展（闭环的前台状态源）：先审后生效期间前台据此展示「审核中/被驳回」，
@@ -200,7 +200,7 @@ export const GET = withRoute(async (req) => {
   // 自报主营品目（编辑页回填）：读失败兜底空数组，不阻断企业页展示（与行业面装配失败退回自填文本同风格）。
   const commodityNodes = await listSupplierSelfReport(ctx.dbPool, supplierId).catch(() => []);
 
-  return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: row, licenseChange, commodityNodes } });
+  return NextResponse.json({ bound: true, linkStatus, enterprise: row, licenseChange, commodityNodes });
 });
 
 /** 已绑定：更新企业行可编辑列（已认证主体的身份三要素不可改写） */
@@ -231,7 +231,7 @@ export const PUT = withRoute(async (req) => {
   const claimCreated = await ensurePendingClaim(ctx, auth.userId, supplierId, undefined);
   // 主营品目自报：仅在 body 显式携带 commodity_nodes 时替换 self_report 落点（服务端解析的 supplierId）。
   await persistSelfReportIfPresent(ctx, supplierId, body);
-  return NextResponse.json({ code: 0, message: "ok", data: { claimCreated, licensePendingReview } });
+  return NextResponse.json({ claimCreated, licensePendingReview });
 });
 
 /** 未绑定：新建企业行并绑定到当前用户；防重：credit_code 优先、其次公司名，已存在则直接绑定已有行不新建；
@@ -279,7 +279,7 @@ export const POST = withRoute(async (req) => {
   const isOwnBoundRow = !!binding && binding.supplierId === existingId;
 
   if (existingId && existingVerified && !isOwnBoundRow) {
-    return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, claimRequired: true } });
+    return NextResponse.json({ supplierId: existingId, claimRequired: true });
   }
 
   // 未认证主体的复用绑定同样受认领排他约束：已被他人认领/他人认领处理中的公司
@@ -306,7 +306,7 @@ export const POST = withRoute(async (req) => {
     }
     // 自有行重复保存：同 PUT 口径协调自报品目（仅 body 携键时）。
     await persistSelfReportIfPresent(ctx, existingId, body);
-    return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, reused: true, claimCreated, licensePendingReview } });
+    return NextResponse.json({ supplierId: existingId, reused: true, claimCreated, licensePendingReview });
   }
 
   // ── 新建：审核中 + 自注册来源 ──
@@ -329,5 +329,5 @@ export const POST = withRoute(async (req) => {
   });
   // 新建建档：本次勾选的自报品目随新行落库（仅 body 携键时）。
   await persistSelfReportIfPresent(ctx, newId, body);
-  return NextResponse.json({ code: 0, message: "ok", data: { supplierId: newId, reused: false, claimCreated: true } });
+  return NextResponse.json({ supplierId: newId, reused: false, claimCreated: true });
 });

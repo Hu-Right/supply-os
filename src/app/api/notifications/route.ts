@@ -24,5 +24,5 @@ export const GET = withRoute(async (req: NextRequest) => {
     unreadCount(pool, auth.userId),
   ]);
 
-  return NextResponse.json({ code: 0, message: "ok", data: { items, total, unread, page, page_size: pageSize } });
+  return NextResponse.json({ items, total, unread, page, page_size: pageSize });
 });

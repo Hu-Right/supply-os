@@ -21,6 +21,6 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     const ok = await markRead(pool, auth.userId, notifId);
     if (!ok) routeError(404, EC_NOT_FOUND, "通知不存在或无权访问");
 
-    return NextResponse.json({ code: 0, message: "ok" });
+    return NextResponse.json({ ok: true });
   },
 );

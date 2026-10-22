@@ -27,12 +27,8 @@ export const POST = withRoute(async (req: NextRequest) => {
   const withdrawn = await withdrawCurrentBinding(getContext(), auth.userId);
 
   return NextResponse.json({
-    code: 0,
-    message: "ok",
-    data: {
-      withdrawn: !!withdrawn,
-      company: withdrawn?.companyName ?? null,
-      state: withdrawn?.state ?? null,
-    },
+    withdrawn: !!withdrawn,
+    company: withdrawn?.companyName ?? null,
+    state: withdrawn?.state ?? null,
   });
 });

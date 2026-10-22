@@ -48,7 +48,7 @@ describe("POST /api/user/enterprise/withdraw", () => {
     const res = await POST(withdrawReq());
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.data).toEqual({
+    expect(json).toEqual({
       withdrawn: true,
       company: "杭州原绑定企业有限公司",
       state: "pending",
@@ -72,7 +72,7 @@ describe("POST /api/user/enterprise/withdraw", () => {
 
     const res = await POST(withdrawReq());
     expect(res.status).toBe(200);
-    expect((await res.json()).data.withdrawn).toBe(false);
+    expect((await res.json()).withdrawn).toBe(false);
     expect(poolExecute).not.toHaveBeenCalled();
   });
 

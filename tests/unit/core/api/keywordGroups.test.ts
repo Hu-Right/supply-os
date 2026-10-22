@@ -3,7 +3,7 @@
  * @module tests/unit/core/api/keywordGroups.test
  * @description 钉住「我的词组」下拉的加载路径契约（性能根因所在）：
  *              ① 读走 apiCached —— 重复打开/并发打开只发一次请求；
- *              ② 信封必须在 client 唯一处解包 —— 漏读 .data 会让下拉恒空（历史踩坑）；
+ *              ② 端点返回裸载荷，client 直接透传本体（2026-10 迁移：去 {code:0,message,data} 信封）；
  *              ③ 任何写操作（建/改/删）后必须失效 —— 管理页与搜索面板共用同一份缓存；
  *              ④ 换账号可主动失效 —— 缓存键只有 URL，词组却是用户私有数据。
  *              t/lodash 无关：本文件不触碰 DOM，只 stub fetch。
@@ -22,14 +22,10 @@ vi.mock("@/core/perf", () => ({ recordApiMetric: vi.fn() }));
 
 const fetchMock = vi.fn<typeof fetch>();
 
-const envelope = (n: number) =>
+const listResp = (n: number) =>
   Response.json({
-    code: 0,
-    message: "ok",
-    data: {
-      entitled: true,
-      groups: [{ id: n, name: `词组${n}`, terms: ["光伏", "逆变器"] }],
-    },
+    entitled: true,
+    groups: [{ id: n, name: `词组${n}`, terms: ["光伏", "逆变器"] }],
   });
 
 beforeEach(() => {
@@ -51,21 +47,21 @@ const readCalls = () =>
 
 describe("fetchKeywordGroups 加载路径", () => {
   it("连续两次读取只发一次请求（命中 TTL 缓存，下拉二次打开零延迟）", async () => {
-    fetchMock.mockResolvedValue(envelope(1));
+    fetchMock.mockResolvedValue(listResp(1));
     await fetchKeywordGroups();
     await fetchKeywordGroups();
     expect(readCalls()).toBe(1);
   });
 
   it("并发读取只发一次请求（飞行中去重，快速反复点开不叠加请求）", async () => {
-    fetchMock.mockResolvedValue(envelope(1));
+    fetchMock.mockResolvedValue(listResp(1));
     const [a, b] = await Promise.all([fetchKeywordGroups(), fetchKeywordGroups()]);
     expect(readCalls()).toBe(1);
     expect(a).toEqual(b);
   });
 
-  it("解包信封：返回 { entitled, groups } 本体而非 { code, message, data }", async () => {
-    fetchMock.mockResolvedValue(envelope(7));
+  it("读取裸载荷：返回 { entitled, groups } 本体（服务端已不包信封）", async () => {
+    fetchMock.mockResolvedValue(listResp(7));
     const r = await fetchKeywordGroups();
     expect(r.entitled).toBe(true);
     expect(r.groups).toHaveLength(1);
@@ -75,7 +71,7 @@ describe("fetchKeywordGroups 加载路径", () => {
   });
 
   it("force=true 跳过缓存重取（管理页 reload 用）", async () => {
-    fetchMock.mockResolvedValueOnce(envelope(1)).mockResolvedValueOnce(envelope(2));
+    fetchMock.mockResolvedValueOnce(listResp(1)).mockResolvedValueOnce(listResp(2));
     await fetchKeywordGroups();
     const r = await fetchKeywordGroups(true);
     expect(readCalls()).toBe(2);
@@ -85,41 +81,41 @@ describe("fetchKeywordGroups 加载路径", () => {
 
 describe("写操作后缓存失效", () => {
   it("新建后读取必须重新发请求，且拿到新数据", async () => {
-    fetchMock.mockResolvedValueOnce(envelope(1));
+    fetchMock.mockResolvedValueOnce(listResp(1));
     await fetchKeywordGroups();
     expect(readCalls()).toBe(1);
 
-    fetchMock.mockResolvedValueOnce(Response.json({ code: 0, message: "ok", data: { id: 2 } }));
+    fetchMock.mockResolvedValueOnce(Response.json({ id: 2 }));
     await createKeywordGroup("新词组", ["风机"]);
 
-    fetchMock.mockResolvedValueOnce(envelope(2));
+    fetchMock.mockResolvedValueOnce(listResp(2));
     const after = await fetchKeywordGroups();
     expect(readCalls()).toBe(2);
     expect(after.groups[0].name).toBe("词组2");
   });
 
   it("改名后读取重新发请求", async () => {
-    fetchMock.mockResolvedValueOnce(envelope(1));
+    fetchMock.mockResolvedValueOnce(listResp(1));
     await fetchKeywordGroups();
-    fetchMock.mockResolvedValueOnce(Response.json({ code: 0, message: "ok", data: {} }));
+    fetchMock.mockResolvedValueOnce(Response.json({ ok: true }));
     await updateKeywordGroup(1, { name: "改名后" });
-    fetchMock.mockResolvedValueOnce(envelope(3));
+    fetchMock.mockResolvedValueOnce(listResp(3));
     await fetchKeywordGroups();
     expect(readCalls()).toBe(2);
   });
 
   it("删除后读取重新发请求", async () => {
-    fetchMock.mockResolvedValueOnce(envelope(1));
+    fetchMock.mockResolvedValueOnce(listResp(1));
     await fetchKeywordGroups();
-    fetchMock.mockResolvedValueOnce(Response.json({ code: 0, message: "ok", data: {} }));
+    fetchMock.mockResolvedValueOnce(Response.json({ ok: true }));
     await deleteKeywordGroup(1);
-    fetchMock.mockResolvedValueOnce(envelope(4));
+    fetchMock.mockResolvedValueOnce(listResp(4));
     await fetchKeywordGroups();
     expect(readCalls()).toBe(2);
   });
 
   it("写失败不得清空缓存（失败仍是旧数据，下次打开照常命中）", async () => {
-    fetchMock.mockResolvedValueOnce(envelope(1));
+    fetchMock.mockResolvedValueOnce(listResp(1));
     await fetchKeywordGroups();
     fetchMock.mockResolvedValueOnce(
       Response.json({ code: 40001, message: "已存在同名词组" }, { status: 400 }),
@@ -130,7 +126,7 @@ describe("写操作后缓存失效", () => {
   });
 
   it("invalidateKeywordGroups 供调用方主动失效（换账号场景）", async () => {
-    fetchMock.mockResolvedValueOnce(envelope(1)).mockResolvedValueOnce(envelope(2));
+    fetchMock.mockResolvedValueOnce(listResp(1)).mockResolvedValueOnce(listResp(2));
     await fetchKeywordGroups();
     invalidateKeywordGroups();
     const r = await fetchKeywordGroups();
@@ -154,13 +150,13 @@ describe("跨标签页失效广播", () => {
   });
 
   it("写成功时敲下 localStorage 水位键，供其他标签页监听", async () => {
-    fetchMock.mockResolvedValue(Response.json({ code: 0, message: "ok", data: { id: 5 } }));
+    fetchMock.mockResolvedValue(Response.json({ id: 5 }));
     await createKeywordGroup("新词组", ["a"]);
     expect(window.localStorage.getItem(CROSS_TAB_KEY)).toBeTruthy();
   });
 
   it("其他标签页写入后，本标签页下一次读重新发请求", async () => {
-    fetchMock.mockResolvedValueOnce(envelope(1)).mockResolvedValueOnce(envelope(2));
+    fetchMock.mockResolvedValueOnce(listResp(1)).mockResolvedValueOnce(listResp(2));
     await fetchKeywordGroups();
     expect(readCalls()).toBe(1);
 
@@ -172,7 +168,7 @@ describe("跨标签页失效广播", () => {
   });
 
   it("无关 key 的 storage 事件不误伤词组缓存", async () => {
-    fetchMock.mockResolvedValue(envelope(1));
+    fetchMock.mockResolvedValue(listResp(1));
     await fetchKeywordGroups();
     expect(readCalls()).toBe(1);
 

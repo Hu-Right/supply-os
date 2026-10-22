@@ -87,10 +87,11 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    api<{ code: number; data: EnterpriseResponse }>("/api/user/enterprise")
+    api<EnterpriseResponse>("/api/user/enterprise")
       .then((res) => {
         if (cancelled) return;
-        const d = res.data;
+        // 2026-10 信封迁移：GET /api/user/enterprise 已返裸载荷，res 即 EnterpriseResponse 本体
+        const d = res;
         setBound(!!d?.bound);
         setLinkStatus(d?.linkStatus || "none");
         setEnterprise(d?.enterprise ?? null);

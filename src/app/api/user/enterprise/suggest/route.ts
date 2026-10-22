@@ -28,5 +28,5 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   const ctx = getContext();
   const matches = await ctx.supplier.directoryRepo.findVerifiedByNameSimilar(name, 5);
-  return NextResponse.json({ code: 0, message: "ok", data: { matches } });
+  return NextResponse.json({ matches });
 });

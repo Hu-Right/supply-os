@@ -60,7 +60,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       throw err;
     }
     if (!updated) routeError(404, EC_INVALID_PARAMS, "词组不存在");
-    return NextResponse.json({ code: 0, message: "ok" });
+    return NextResponse.json({ ok: true });
   },
 );
 
@@ -68,6 +68,6 @@ export const DELETE = withRoute<{ params: Promise<{ id: string }> }>(
   async (req: NextRequest, { params }) => {
     const { userId, id, repo } = await guardWrite(req, (await params).id);
     await repo.remove(userId, id);
-    return NextResponse.json({ code: 0, message: "ok" });
+    return NextResponse.json({ ok: true });
   },
 );

@@ -18,20 +18,16 @@ export const GET = withRoute(async (req: NextRequest) => {
   try {
     const rows = await new SupplierDiagnosisRepo(getPool()).findMine(auth.userId);
     return NextResponse.json({
-      code: 0,
-      message: "ok",
-      data: {
-        list: rows.map((r) => ({
-          id: Number(r.id),
-          supplier_id: Number(r.supplier_id),
-          company_name: r.company_name,
-          schema_version: Number(r.schema_version),
-          score_total: r.score_total === null ? null : Number(r.score_total),
-          score_grade: r.score_grade,
-          submitted_at: r.submitted_at,
-          answers: diagnosisAnswersOf(r),
-        })),
-      },
+      list: rows.map((r) => ({
+        id: Number(r.id),
+        supplier_id: Number(r.supplier_id),
+        company_name: r.company_name,
+        schema_version: Number(r.schema_version),
+        score_total: r.score_total === null ? null : Number(r.score_total),
+        score_grade: r.score_grade,
+        submitted_at: r.submitted_at,
+        answers: diagnosisAnswersOf(r),
+      })),
     });
   } catch (err) {
     console.error("[supplier-diagnosis mine GET]", err);

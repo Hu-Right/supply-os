@@ -3,17 +3,10 @@
  * Diagnosis (v2) API client
  *
  * @module shared/api/diagnosis
- * @description 三个新端点都是**信封响应**（`{ code, message, data }`），本层负责统一解包，
- *              调用方拿到的直接是 data 内容 —— 这正是 v1 供应商资源库踩过的坑
- *              （前端读顶层 res.list 恒空），这里在出口处一次性解决。
+ * @description 三个端点均返回**裸载荷**（2026-10 去 {code:0,message,data} 信封迁移），
+ *              本层直接把裸载荷本体交给调用方；出口只一处读字段，避免前端读错层。
  */
 import { api } from "@/core/http";
-
-interface Envelope<T> {
-  code: number;
-  message: string;
-  data: T;
-}
 
 /** 相似公司候选（已脱敏：无联系人/电话/邮箱，信用代码为掩码） */
 export interface DiagnosisCandidate {
@@ -71,7 +64,7 @@ export type DiagnosisAnswers = Record<string, string | string[]>;
 
 export function findSimilarCompanies(company: string): Promise<DiagnosisCandidate[]> {
   const url = `/api/suppliers/similar?company=${encodeURIComponent(company.trim())}`;
-  return api<Envelope<{ list: DiagnosisCandidate[] }>>(url).then((res) => res?.data?.list ?? []);
+  return api<{ list: DiagnosisCandidate[] }>(url).then((res) => res?.list ?? []);
 }
 
 export function submitDiagnosis(payload: {
@@ -79,14 +72,14 @@ export function submitDiagnosis(payload: {
   supplierId: number | null;
   answers: DiagnosisAnswers;
 }): Promise<DiagnosisSubmitResult> {
-  return api<Envelope<DiagnosisSubmitResult>>("/api/supplier-diagnosis", {
+  return api<DiagnosisSubmitResult>("/api/supplier-diagnosis", {
     method: "POST",
     body: payload as unknown as BodyInit,
-  }).then((res) => res.data);
+  });
 }
 
 export function fetchMyDiagnoses(): Promise<MyDiagnosis[]> {
-  return api<Envelope<{ list: MyDiagnosis[] }>>("/api/supplier-diagnosis/mine").then(
-    (res) => res?.data?.list ?? [],
+  return api<{ list: MyDiagnosis[] }>("/api/supplier-diagnosis/mine").then(
+    (res) => res?.list ?? [],
   );
 }
