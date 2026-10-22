@@ -111,16 +111,19 @@ function resolveRegionDisplayName(value: string): string | null {
  * @returns 中文环境下返回中文名（含区域值解析），其他语言回退英文原名
  */
 export function getCountryDisplayName(englishName: string, locale: string): string {
-  if (locale !== "zh") return englishName;
+  const raw = /^[A-Za-z]{2}$/.test(englishName)
+    ? (new Intl.DisplayNames(["en"], { type: "region" }).of(englishName.toUpperCase()) ?? englishName)
+    : englishName;
+  if (locale !== "zh") return raw;
   // 特殊值：跨国采购
-  if (englishName === "Multiple destinations") return "多国";
+  if (raw === "Multiple destinations") return "多国";
   // 先精确匹配
-  if (_countryNameZh[englishName]) return _countryNameZh[englishName];
+  if (_countryNameZh[raw]) return _countryNameZh[raw];
   // 大小写不敏感匹配（处理 "america" → "美国" 等）
-  const matched = matchCountryZh(englishName);
+  const matched = matchCountryZh(raw);
   if (matched) return matched;
   // "国家, 区域" 值拆分解析（如 "Canada, British Columbia" → "加拿大（不列颠哥伦比亚）"）
-  return resolveRegionDisplayName(englishName) ?? englishName;
+  return resolveRegionDisplayName(raw) ?? raw;
 }
 
 /**
@@ -144,3 +147,4 @@ export function getCountryEnglishName(rawName: string): string {
   // Step 4: 如果已经是英文标准名，直接返回
   return rawName;
 }
+

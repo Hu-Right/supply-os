@@ -20,6 +20,7 @@ import {
   INTL_TYPE_EN,
 } from "../agency-i18n-data";
 import { countryZhOf } from "../country/display";
+import { getAgencyTypeRules } from "./type-store";
 
 /**
  * 判断机构是否应按类型聚合（支持按国家维度细分）
@@ -38,9 +39,42 @@ export function classifyAgencyType(
   const upper = trimmed.toUpperCase();
   if (KNOWN_ACRONYMS.has(upper)) return null;
 
-  // 按模式匹配分类：先检查巴西/肯尼亚特定模式（已按国家聚合），直接返回
+  const countryKey = (country ?? "").trim().toLowerCase();
+  const matchesCountry = (typeKey: string): boolean => {
+    if (!countryKey) return true; // 无国家上下文：保留历史默认行为
+    if (typeKey.endsWith("_BR")) {
+      return countryKey === "brazil" || countryKey === "brasil" || countryKey === "br";
+    }
+    if (typeKey.endsWith("_KE")) {
+      return countryKey === "kenya" || countryKey === "ke";
+    }
+    return true;
+  };
+
+  const countryCode = countryKey === "brazil" || countryKey === "brasil" ? "BR"
+    : countryKey === "kenya" ? "KE"
+      : /^[a-z]{2}$/.test(countryKey) ? countryKey.toUpperCase() : "";
+  const matchesRuleCountry = (ruleCountry: string | null): boolean => {
+    if (!ruleCountry) return true;
+    return !!countryCode && countryCode === ruleCountry.toUpperCase();
+  };
+
+  // 优先使用 crm_agency_type_rules；表未加载时回退代码内静态规则。
+  const dbRules = getAgencyTypeRules();
+  if (dbRules) {
+    for (const rule of dbRules) {
+      if (!matchesRuleCountry(rule.countryCode)) continue;
+      if (rule.regex.test(trimmed)) {
+        return { typeKey: rule.typeKey, i18n: rule.i18n };
+      }
+    }
+    return null;
+  }
+
+  // 按模式匹配分类：先检查国家特定模式（巴西/肯尼亚）。
+  // 必须校验国家，否则阿根廷的 “Departamento ...” 会被错误归到 DEPARTAMENTO_BR。
   for (const [regex, typeInfo] of TYPE_PATTERNS) {
-    if (regex.test(trimmed)) return typeInfo;
+    if (regex.test(trimmed) && matchesCountry(typeInfo.typeKey)) return typeInfo;
   }
 
   // 国际通用模式：如果知道国家，按国家+类型聚合（如「乌干达各委员会」）

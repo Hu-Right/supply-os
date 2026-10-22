@@ -15,6 +15,7 @@ import { COUNTRY_NAME_ISO2 } from "@/shared/data/countryIso2";
 export function lookupCountryIso2(name: string): string | undefined {
   const n = name.trim().toLowerCase();
   if (!n) return undefined;
+  if (/^[a-z]{2}$/.test(n)) return n.toUpperCase();
   if (COUNTRY_NAME_ISO2[n]) return COUNTRY_NAME_ISO2[n];
   if (n.includes(", ")) {
     const reordered = n.split(", ").reverse().join(" ");
@@ -39,3 +40,4 @@ export function CountryFlag({ name, className = "h-3.5 w-5" }: { name: string; c
     />
   );
 }
+
