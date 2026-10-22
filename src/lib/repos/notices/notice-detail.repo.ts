@@ -46,7 +46,7 @@ export class NoticeDetailRepo {
       `SELECT id, notice_id, reference, title, notice_type, agency, organization, country,
        deadline, deadline_ts, estimated_value, description, industry, url, contacts,
        documents, procurement_files, external_links, agency_full, published_date,
-       difficulty, registration_level, key_contacts, converted_opp_id
+       registration_level, key_contacts, converted_opp_id
      FROM crm_bid_notices WHERE id = ? LIMIT 1`,
       [noticeId],
     );
@@ -65,7 +65,7 @@ export class NoticeDetailRepo {
       `SELECT id, notice_id, reference, title, notice_type, agency, organization, country,
        deadline, deadline_ts, estimated_value, description, industry, url, contacts,
        documents, procurement_files, external_links, agency_full, published_date,
-       difficulty, registration_level, key_contacts, converted_opp_id
+       registration_level, key_contacts, converted_opp_id
      FROM crm_bid_notices WHERE id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
       [noticeId],
     );
@@ -76,7 +76,7 @@ export class NoticeDetailRepo {
   async findPreview(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
       `SELECT id, notice_id, reference, title, agency, organization, agency_full, published_date,
-         difficulty, registration_level, contacts, key_contacts, description,
+         registration_level, contacts, key_contacts, description,
          converted_opp_id
        FROM crm_bid_notices WHERE id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
       [noticeId],

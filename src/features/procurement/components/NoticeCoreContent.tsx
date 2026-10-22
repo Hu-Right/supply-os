@@ -58,7 +58,6 @@ export function NoticeCoreContent({
   // 服务端从不下发，锁定态仅渲染数量预告锁卡。
   const secondaryMetrics = [
     { label: t("procurement_publishedDate"), value: (notice.published_ts ? new Date(Number(notice.published_ts) * 1000).toISOString().slice(0, 10) : "") },
-    { label: t("procurement_bidDifficulty"), value: notice.difficulty || "" },
     { label: t("procurement_bidRegBar"), value: notice.registration_level || "" },
   ].filter((metric) => Boolean(metric.value));
   const hasSecondaryPreview = secondaryMetrics.length > 0;

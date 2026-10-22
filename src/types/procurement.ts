@@ -28,7 +28,6 @@ export interface NoticeListItem {
   contacts?: NoticeContact[] | null;
   attachments?: NoticeAttachment[] | null;
   external_links?: NoticeAttachment[] | null;
-  difficulty?: string | null;
   registration_level?: string | null;
   beneficiary_countries?: string | null;
   updated_at?: number | null;
