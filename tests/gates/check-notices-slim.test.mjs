@@ -70,6 +70,17 @@ const OPP_SIDE_SQL = [
   "  AND (o.is_qualified = 1 OR o.status = 1)`;",
 ].join("\n");
 
+/** v2 服务表构建器里 is_opportunity 的 CASE 表达式：同一条字面量既有
+ * `FROM crm_bid_notices n` 又有 `crm_bid_opportunities o` 子查询里的 `o.is_qualified`。
+ * 与 OPP_SIDE_SQL 同一误报形制，取的是商机侧列，本表那份零读取。 */
+const V2_OPP_SIDE_SQL = [
+  "export const rows = await q(`SELECT n.id,",
+  "  CASE WHEN EXISTS (SELECT 1 FROM crm_bid_opportunities o",
+  "    WHERE (o.id = n.converted_opp_id OR o.source_notice_id = n.notice_id)",
+  "      AND (o.is_qualified = 1 OR o.status = 1 OR o.audit_status = 1)) THEN 1 ELSE 0 END AS is_opportunity",
+  "  FROM crm_bid_notices n WHERE n.id IN (?)`);",
+].join("\n");
+
 test("已登记豁免的文件：门禁绿，且成功行必把豁免条数说出来（豁免不得隐身）", () => {
   const root = fixture({
     "db/schema/baseline.sql": BASELINE_QUALIFIED_GONE,
@@ -78,6 +89,18 @@ test("已登记豁免的文件：门禁绿，且成功行必把豁免条数说�
   const r = run({ NOTICES_SLIM_SCAN_ROOT: root, NOTICES_SLIM_BASELINE: join(root, "db/schema/baseline.sql") });
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /人工豁免 1 处（is_qualified）/, "豁免生效了却没报告，等于静默放宽判据");
+});
+
+test("已登记的 v2 服务表构建器：商机侧误报走豁免，门禁绿且报告豁免条数", () => {
+  // 复现 v2 里 is_opportunity CASE 表达式的误报形制：scripts/ops/ 下的构建器
+  // 同一条字面量提及 crm_bid_notices 与 o.is_qualified（商机侧），已逐行核过非本表读写点。
+  const root = fixture({
+    "db/schema/baseline.sql": BASELINE_QUALIFIED_GONE,
+    "scripts/ops/notice-public-v2.ts": V2_OPP_SIDE_SQL,
+  });
+  const r = run({ NOTICES_SLIM_SCAN_ROOT: root, NOTICES_SLIM_BASELINE: join(root, "db/schema/baseline.sql") });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /人工豁免 1 处（is_qualified）/, "v2 豁免生效了却没报告，等于静默放宽判据");
 });
 
 test("豁免不得连带放行：同样形态出现在未登记的文件里必须照旧拦", () => {

@@ -321,6 +321,12 @@ export const NOTICE_REF_WAIVERS = [
     reason:
       "同上 enrichFromOpportunity 路径：列只可能来自商机行（SELECT o.* FROM crm_bid_opportunities o），本表仅作为子查询参与匹配。",
   },
+  {
+    file: "scripts/ops/notice-public-v2.ts",
+    col: "is_qualified",
+    reason:
+      "服务表构建器 is_opportunity 的 CASE 表达式：外层主表是 crm_bid_notices n（SELECT 清单里无 is_qualified），is_qualified 只出现在 EXISTS 子查询的 crm_bid_opportunities o 上（AND (o.is_qualified = 1 ...)）。与上面两份同形制的商机侧误报，本表那份零读取；已逐行核过 v2 全文 is_qualified 仅此 1 处且带 o. 限定。v2 属 scripts/ops（不入库），此豁免仅在装有该文件的执行机上生效；CI 干净 clone 无此文件时豁免不命中，门禁不因此判红。",
+  },
 ];
 
 /** 取某列在某文件上的豁免（无则返回 undefined）。 */
