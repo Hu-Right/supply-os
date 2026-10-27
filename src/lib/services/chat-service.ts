@@ -7,6 +7,7 @@
  *              消除路由层直接 import repo 的架构违规。
  */
 import type { ChatRepo, ChatSessionRow, ChatMessageRow } from "@/lib/repos/chat.repo";
+import { EC_FORBIDDEN, EC_CHAT_SESSION_MISSING, EC_CHAT_SESSION_CLOSED, EC_CHAT_RATE_INVALID } from "@/shared/constants/api";
 
 // ── 归属校验（从 chat.repo 提升至此，消除路由→repo 直连） ──
 
@@ -67,8 +68,8 @@ export async function closeSessionWithAuth(
   auth: { userId?: number | null },
 ): Promise<void> {
   const session = await chatRepo.findSessionById(sessionId);
-  if (!session) throw { status: 404, code: 40023, message: "会话不存在" };
-  if (!sessionOwnedBy(session, auth)) throw { status: 403, code: 40003, message: "无权关闭此会话" };
+  if (!session) throw { status: 404, code: EC_CHAT_SESSION_MISSING, message: "会话不存在" };
+  if (!sessionOwnedBy(session, auth)) throw { status: 403, code: EC_FORBIDDEN, message: "无权关闭此会话" };
   await chatRepo.closeSession(sessionId);
 }
 
@@ -82,8 +83,8 @@ export async function listMessagesWithAuth(
   limit: number,
 ): Promise<ChatMessageRow[]> {
   const session = await chatRepo.findSessionById(sessionId);
-  if (!session) throw { status: 404, code: 40040, message: "会话不存在" };
-  if (!sessionOwnedBy(session, auth)) throw { status: 403, code: 40003, message: "无权访问此会话" };
+  if (!session) throw { status: 404, code: EC_CHAT_SESSION_MISSING, message: "会话不存在" };
+  if (!sessionOwnedBy(session, auth)) throw { status: 403, code: EC_FORBIDDEN, message: "无权访问此会话" };
   return chatRepo.listMessages(sessionId, limit);
 }
 
@@ -98,9 +99,9 @@ export async function sendCustomerMessage(
   metadata?: Record<string, unknown>,
 ): Promise<ChatMessageRow> {
   const session = await chatRepo.findSessionById(sessionId);
-  if (!session) throw { status: 404, code: 40040, message: "会话不存在" };
-  if (!sessionOwnedBy(session, auth)) throw { status: 403, code: 40003, message: "无权操作此会话" };
-  if (session.status === "closed") throw { status: 409, code: 40901, message: "会话已结束" };
+  if (!session) throw { status: 404, code: EC_CHAT_SESSION_MISSING, message: "会话不存在" };
+  if (!sessionOwnedBy(session, auth)) throw { status: 403, code: EC_FORBIDDEN, message: "无权操作此会话" };
+  if (session.status === "closed") throw { status: 409, code: EC_CHAT_SESSION_CLOSED, message: "会话已结束" };
 
   // ai_handled_count 仅统计人工接入前（waiting）的客户消息
   if (session.status === "waiting") {
@@ -135,9 +136,9 @@ export async function rateSessionWithAuth(
   input: { satisfaction: number; tag?: string; comment?: string },
 ): Promise<void> {
   const session = await chatRepo.findSessionById(sessionId);
-  if (!session) throw { status: 404, code: 40023, message: "会话不存在" };
-  if (!sessionOwnedBy(session, auth)) throw { status: 403, code: 40003, message: "无权评价此会话" };
+  if (!session) throw { status: 404, code: EC_CHAT_SESSION_MISSING, message: "会话不存在" };
+  if (!sessionOwnedBy(session, auth)) throw { status: 403, code: EC_FORBIDDEN, message: "无权评价此会话" };
 
   const ok = await chatRepo.rateSession(sessionId, input);
-  if (!ok) throw { status: 409, code: 40901, message: "会话未结束或已评价过" };
+  if (!ok) throw { status: 409, code: EC_CHAT_RATE_INVALID, message: "会话未结束或已评价过" };
 }

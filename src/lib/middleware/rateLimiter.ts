@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { extractClientIp } from "../utils/ip";
+import { EC_RATE_LIMITED } from "@/shared/constants/api";
 
 /** 共享限流 Map 的容量上限（审查 F31：防 XFF 伪造无限造键导致内存耗尽） */
 const MAX_KEYS = 100_000;
@@ -181,7 +182,7 @@ export function checkRateLimit(
   const rl = limiter.check(key);
   if (rl.blocked) {
     return NextResponse.json(
-      { code: 42001, message: "请求过于频繁", error: "请求过于频繁", retry_after_seconds: rl.retryAfterSec },
+      { code: EC_RATE_LIMITED, message: "请求过于频繁", error: "请求过于频繁", retry_after_seconds: rl.retryAfterSec },
       { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
     );
   }

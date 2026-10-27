@@ -8,6 +8,7 @@
  */
 import { getPool } from "@/lib/db/pool";
 import { LearningMaterialsRepo } from "@/lib/repos/learning-materials.repo";
+import { EC_NOT_FOUND, EC_USER_REQUIRED, EC_ACCESS_FORBIDDEN } from "@/shared/constants/api";
 
 /** 学习资料列表项（API 响应格式） */
 export interface LearningMaterialListItem {
@@ -82,7 +83,7 @@ export async function getMaterialContent(
 ): Promise<MaterialContentResult> {
   const repo = new LearningMaterialsRepo(getPool());
   const material = await repo.findByMaterialId(materialId);
-  if (!material) throw { status: 404, code: 40044, message: "学习资料不存在" };
+  if (!material) throw { status: 404, code: EC_NOT_FOUND, message: "学习资料不存在" };
 
   const payload: MaterialContentResult = {
     contentZh: material.content_zh ?? "",
@@ -95,9 +96,9 @@ export async function getMaterialContent(
   if (material.is_premium !== 1) return payload;
 
   // premium 资料：需登录 + 已购买
-  if (!userId) throw { status: 401, code: 40001, message: "请先登录" };
+  if (!userId) throw { status: 401, code: EC_USER_REQUIRED, message: "请先登录" };
   const purchasedIds = await repo.findPurchasedMaterialIds(userId);
-  if (!purchasedIds.includes(materialId)) throw { status: 403, code: 40301, message: "请先购买后查看" };
+  if (!purchasedIds.includes(materialId)) throw { status: 403, code: EC_ACCESS_FORBIDDEN, message: "请先购买后查看" };
 
   return payload;
 }

@@ -3,25 +3,29 @@
  * @module lib/services/ai-summary/errors
  */
 import { RouteError } from "../../middleware/route-handler";
+import {
+  EC_AI_NOT_CONFIGURED, EC_NOTICE_NOT_FOUND, EC_AI_CALL_FAILED,
+  EC_AI_BAD_FORMAT, EC_SUPPLIER_PROFILE_REQUIRED,
+} from "@/shared/constants/api";
 
 /** 用户未配置 LLM API Key（400） */
 export function errLlmNotConfigured(): never {
-  throw new RouteError(400, 40001, "请先配置 LLM API Key");
+  throw new RouteError(400, EC_AI_NOT_CONFIGURED, "请先配置 LLM API Key");
 }
 
 /** 公告不存在（404） */
 export function errNoticeNotFound(): never {
-  throw new RouteError(404, 40006, "公告不存在");
+  throw new RouteError(404, EC_NOTICE_NOT_FOUND, "公告不存在");
 }
 
 /** LLM 调用失败（502） */
 export function errLlmCallFailed(detail?: string): never {
-  throw new RouteError(502, 50002, `LLM 调用失败${detail ? `：${detail}` : ""}`);
+  throw new RouteError(502, EC_AI_CALL_FAILED, `LLM 调用失败${detail ? `：${detail}` : ""}`);
 }
 
 /** LLM 返回格式异常（422） */
 export function errLlmBadFormat(): never {
-  throw new RouteError(422, 40010, "LLM 返回格式异常，请尝试重新分析");
+  throw new RouteError(422, EC_AI_BAD_FORMAT, "LLM 返回格式异常，请尝试重新分析");
 }
 
 /**
@@ -30,5 +34,5 @@ export function errLlmBadFormat(): never {
  * （而非默认“AI 错误”兼底）；不因身份/认证“惩罚式”拦截，仅在确实无评分对象时提示。
  */
 export function errSupplierProfileRequired(): never {
-  throw new RouteError(400, 40009, "SUPPLIER_PROFILE_REQUIRED:未绑定企业或缺少企业画像资料，无法进行 AI 适配评分");
+  throw new RouteError(400, EC_SUPPLIER_PROFILE_REQUIRED, "SUPPLIER_PROFILE_REQUIRED:未绑定企业或缺少企业画像资料，无法进行 AI 适配评分");
 }

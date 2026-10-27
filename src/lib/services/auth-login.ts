@@ -9,7 +9,7 @@
  */
 import type { AppContext } from "../db/context";
 import { RouteError } from "../middleware/route-handler";
-import { EC_AUTH_REQUIRED, EC_PASSWORD_RESET_REQUIRED } from "@/shared/constants/api";
+import { EC_AUTH_REQUIRED, EC_PASSWORD_RESET_REQUIRED, EC_ACCOUNT_DISABLED } from "@/shared/constants/api";
 import { verifyPassword, buildUserResponse, issueTokenPair } from "./auth";
 
 // 恒时验证用的固定 bcrypt 哈希（对应用户不存在时的时序攻击防护）
@@ -50,7 +50,7 @@ export async function loginWithPassword(
     throw new RouteError(401, EC_AUTH_REQUIRED, "账号或密码错误");
   }
   if (user.account_status === "disabled" || user.account_status === "rejected") {
-    throw new RouteError(403, 40003, "账号未通过审核或已停用");
+    throw new RouteError(403, EC_ACCOUNT_DISABLED, "账号未通过审核或已停用");
   }
 
   await ctx.user.usersRepo.updateLastLoginById(user.id);

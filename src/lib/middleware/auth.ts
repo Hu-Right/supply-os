@@ -52,7 +52,7 @@ export async function requireUserKey(req: NextRequest): Promise<AuthResult | Res
 export async function requireUserKeyOrThrow(req: NextRequest): Promise<AuthResult> {
   const result = await extractUserKey(req);
   if (!result.userId) {
-    throw new RouteError(401, 40042, "请先登录");
+    throw new RouteError(401, EC_AUTH_REQUIRED, "请先登录");
   }
   return result;
 }

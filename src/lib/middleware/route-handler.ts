@@ -12,7 +12,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
-import { EC_INTERNAL_ERROR } from "@/shared/constants/api";
+import { EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 /** 业务错误：withRoute 捕获后按 status/code/message 输出标准 envelope */
 export class RouteError extends Error {
@@ -50,7 +50,7 @@ export async function parseJson<T>(
   try {
     raw = await req.json();
   } catch {
-    routeError(400, 40000, "请求体不是合法 JSON");
+    routeError(400, EC_INVALID_PARAMS, "请求体不是合法 JSON");
   }
   try {
     return schema.parse(raw);
@@ -58,7 +58,7 @@ export async function parseJson<T>(
     if (err instanceof ZodError) {
       const issue = err.issues[0];
       const path = String(issue?.path[0] ?? "");
-      routeError(400, codeByPath[path] ?? 40000, issue?.message ?? "请求参数不合法");
+      routeError(400, codeByPath[path] ?? EC_INVALID_PARAMS, issue?.message ?? "请求参数不合法");
     }
     throw err;
   }
@@ -78,7 +78,7 @@ export function withRoute<C>(handler: RouteHandler<C>): (req: NextRequest, ctx?:
       }
       if (err instanceof ZodError) {
         return NextResponse.json(
-          { code: 40000, message: err.issues[0]?.message ?? "请求参数不合法" },
+          { code: EC_INVALID_PARAMS, message: err.issues[0]?.message ?? "请求参数不合法" },
           { status: 400 },
         );
       }

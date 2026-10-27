@@ -10,6 +10,7 @@ import type { Pool } from "mysql2/promise";
 import type { NoticeDetailRepo } from "../../repos/notices/notice-detail.repo";
 import type { NoticeTranslationRepo } from "../../repos/notices/notice-translation.repo";
 import { RouteError } from "../../middleware/route-handler";
+import { EC_TRANSLATION_UNAVAILABLE, EC_NOTICE_NOT_FOUND } from "@/shared/constants/api";
 import {
   getTranslatedNoticeDetail,
   detectSourceLang,
@@ -114,10 +115,10 @@ export async function getNoticeTranslation(
     return result;
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "TRANSLATION_UNAVAILABLE") {
-      throw new RouteError(503, 50001, "翻译服务暂不可用");
+      throw new RouteError(503, EC_TRANSLATION_UNAVAILABLE, "翻译服务暂不可用");
     }
     if (err instanceof Error && err.message === "NOTICE_NOT_FOUND") {
-      throw new RouteError(404, 40006, "公告不存在");
+      throw new RouteError(404, EC_NOTICE_NOT_FOUND, "公告不存在");
     }
     throw err;
   }
