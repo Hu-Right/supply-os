@@ -46,6 +46,17 @@ import {
   EC_PAYMENT_USER_PLAN_REQUIRED, EC_PAYMENT_PLAN_NOT_SELLABLE, EC_PAYMENT_AMOUNT_INVALID,
   EC_PAYMENT_FREE_PLAN, EC_PAYMENT_UPGRADE_INVALID, EC_PAYMENT_SINGLE_FIRST_PURCHASE,
   EC_PAYMENT_SERVICE_UNAVAILABLE, EC_PAYMENT_SERVICE_ADVISORY_ONLY, EC_PAYMENT_SIGN_VERIFY_FAILED,
+  // 认证/账号域专属码（auth 治本）
+  EC_PHONE_NOT_BOUND, EC_EMAIL_NOT_BOUND, EC_PHONE_ALREADY_BOUND, EC_EMAIL_ALREADY_BOUND,
+  EC_CONTACT_TAKEN_BY_OTHER, EC_TOO_MANY_ATTEMPTS, EC_SMS_NOT_CONFIGURED, EC_EMAIL_NOT_CONFIGURED,
+  EC_SMS_SEND_FAILED, EC_EMAIL_SEND_FAILED, EC_REFRESH_TOKEN_MISSING, EC_REFRESH_TOKEN_INVALID,
+  EC_REFRESH_TOKEN_EXPIRED, EC_REFRESH_TOKEN_REVOKED, EC_NICKNAME_INVALID, EC_ACCOUNT_DISABLED,
+  // 内容锁定 / 客服会话 / 限流（全域治本）
+  EC_CONTENT_LOCKED, EC_CHAT_SESSION_CLOSED, EC_CHAT_RATE_INVALID, EC_RATE_LIMITED,
+  // 推荐反馈批量校验码（全域治本）
+  EC_SESSION_REQUIRED, EC_TOO_MANY_ACTIONS, EC_NO_VALID_ACTIONS,
+  // AI 摘要 / 邀请码专属码（service 层错误码治本）
+  EC_AI_NOT_CONFIGURED, EC_AI_BAD_FORMAT, EC_SUPPLIER_PROFILE_REQUIRED, EC_AI_CALL_FAILED, EC_INVITE_CODE_INVALID,
 } from "@/shared/constants/api";
 
 /** 注入式翻译函数（与 useLocale 的 t 对齐；params 预留插值） */
@@ -152,6 +163,38 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_PAYMENT_SERVICE_UNAVAILABLE]: { kind: "payment", key: "payErrServiceUnavailable" },
   [EC_PAYMENT_SERVICE_ADVISORY_ONLY]: { kind: "payment", key: "payErrServiceAdvisoryOnly" },
   [EC_PAYMENT_SIGN_VERIFY_FAILED]: { kind: "payment", key: "payErrSignVerifyFailed" },
+  // 认证/账号域专属码（auth 治本）
+  [EC_PHONE_NOT_BOUND]: { kind: "business", key: "errPhoneNotBound" },
+  [EC_EMAIL_NOT_BOUND]: { kind: "business", key: "errEmailNotBound" },
+  [EC_PHONE_ALREADY_BOUND]: { kind: "business", key: "errPhoneAlreadyBound" },
+  [EC_EMAIL_ALREADY_BOUND]: { kind: "business", key: "errEmailAlreadyBound" },
+  [EC_CONTACT_TAKEN_BY_OTHER]: { kind: "business", key: "errContactTakenByOther" },
+  [EC_TOO_MANY_ATTEMPTS]: { kind: "business", key: "errTooManyAttempts" },
+  [EC_SMS_NOT_CONFIGURED]: { kind: "system", key: "errSmsNotConfigured" },
+  [EC_EMAIL_NOT_CONFIGURED]: { kind: "system", key: "errEmailNotConfigured" },
+  [EC_SMS_SEND_FAILED]: { kind: "system", key: "errSmsSendFailed" },
+  [EC_EMAIL_SEND_FAILED]: { kind: "system", key: "errEmailSendFailed" },
+  [EC_REFRESH_TOKEN_MISSING]: { kind: "auth", key: "errLoginRequired" },
+  [EC_REFRESH_TOKEN_INVALID]: { kind: "auth", key: "errSessionExpired" },
+  [EC_REFRESH_TOKEN_EXPIRED]: { kind: "auth", key: "errSessionExpired" },
+  [EC_REFRESH_TOKEN_REVOKED]: { kind: "auth", key: "errSessionExpired" },
+  [EC_NICKNAME_INVALID]: { kind: "business", key: "errNicknameInvalid" },
+  [EC_ACCOUNT_DISABLED]: { kind: "forbidden", key: "errAccountDisabled" },
+  // 内容锁定 / 客服会话 / 限流（全域治本）
+  [EC_CONTENT_LOCKED]: { kind: "forbidden", key: "errUnlockRequired" },
+  [EC_CHAT_SESSION_CLOSED]: { kind: "business", key: "errChatSessionClosed" },
+  [EC_CHAT_RATE_INVALID]: { kind: "business", key: "errChatNotRatable" },
+  [EC_RATE_LIMITED]: { kind: "system", key: "errRateLimited" },
+  // 推荐反馈批量校验（全域治本）
+  [EC_SESSION_REQUIRED]: { kind: "business", key: "errSessionRequired" },
+  [EC_TOO_MANY_ACTIONS]: { kind: "business", key: "errTooManyActions" },
+  [EC_NO_VALID_ACTIONS]: { kind: "business", key: "errNoValidActions" },
+  // AI 摘要 / 邀请码（service 层治本；复用既有 aiErr* 文案键）
+  [EC_AI_NOT_CONFIGURED]: { kind: "ai", key: "aiErrNotConfigured" },
+  [EC_AI_BAD_FORMAT]: { kind: "ai", key: "aiErrBadFormat" },
+  [EC_SUPPLIER_PROFILE_REQUIRED]: { kind: "ai", key: "aiSupplierProfileRequired" },
+  [EC_AI_CALL_FAILED]: { kind: "ai", key: "aiErrCallFailed" },
+  [EC_INVITE_CODE_INVALID]: { kind: "business", key: "errInviteCodeInvalid" },
 };
 
 /** HTTP 状态兜底（无稳定码命中时） */

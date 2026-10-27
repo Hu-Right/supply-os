@@ -214,6 +214,74 @@ export const EC_PAYMENT_SERVICE_ADVISORY_ONLY = 40077;
 /** 支付：签名验证失败 */
 export const EC_PAYMENT_SIGN_VERIFY_FAILED = 40078;
 
+// ── 认证/账号域专属码（auth 治本，2026-10-22）──────────────────────────────────
+// 背景：auth 路由历史上直接手写裸数字（40030/40010/40029/40050-52/40060-62 等），
+//       与他域 EC_ 常量撞值，导致 error-map 按码号取 i18n 时张冠李戴
+//       （如「尚未绑定手机号」被解析成「课程不存在」）。统一迁入空闲 411xx 段并登记。
+
+/** 尚未绑定手机号 */
+export const EC_PHONE_NOT_BOUND = 41103;
+/** 尚未绑定邮箱 */
+export const EC_EMAIL_NOT_BOUND = 41104;
+/** 已绑定手机号（须先解绑或换绑） */
+export const EC_PHONE_ALREADY_BOUND = 41105;
+/** 已绑定邮箱（须先解绑） */
+export const EC_EMAIL_ALREADY_BOUND = 41106;
+/** 手机号/邮箱已被其他用户绑定 */
+export const EC_CONTACT_TAKEN_BY_OTHER = 41107;
+/** 验证码尝试次数过多（须重新获取） */
+export const EC_TOO_MANY_ATTEMPTS = 41108;
+/** 短信服务未配置 */
+export const EC_SMS_NOT_CONFIGURED = 41109;
+/** 邮件服务未配置 */
+export const EC_EMAIL_NOT_CONFIGURED = 41110;
+/** 短信发送失败 */
+export const EC_SMS_SEND_FAILED = 41111;
+/** 邮件发送失败 */
+export const EC_EMAIL_SEND_FAILED = 41112;
+/** 缺少刷新令牌 */
+export const EC_REFRESH_TOKEN_MISSING = 41113;
+/** 刷新令牌无效 */
+export const EC_REFRESH_TOKEN_INVALID = 41114;
+/** 刷新令牌已过期 */
+export const EC_REFRESH_TOKEN_EXPIRED = 41115;
+/** 刷新令牌已失效（已撤销） */
+export const EC_REFRESH_TOKEN_REVOKED = 41116;
+/** 昵称不合法（长度或字符） */
+export const EC_NICKNAME_INVALID = 41117;
+/** 账号未通过审核或已停用 */
+export const EC_ACCOUNT_DISABLED = 41118;
+
+// ── 内容锁定 / 客服会话 / 限流（全域错误码治本，2026-10-22）──────────────────
+// 同为“auth 手写裸数字撞他域”治理延伸：这些语义此前散用 40013/40901/42001 等裸数字，
+// 或属未登记、或与他域 i18n 撞号，统一迁入唯一码。
+
+/** 内容已锁定，需先解锁（公告/商机等） */
+export const EC_CONTENT_LOCKED = 41201;
+/** 客服会话已结束（不可再发消息） */
+export const EC_CHAT_SESSION_CLOSED = 41203;
+/** 客服会话评价条件不满足（未结束或已评价） */
+export const EC_CHAT_RATE_INVALID = 41204;
+/** 请求过于频繁（限流拦截） */
+export const EC_RATE_LIMITED = 42001;
+
+// ── AI 摘要 / 翻译 / 邀请码专属码（service 层错误码治本，2026-10-27）──────────────
+// 背景：ai-summary/errors.ts、translation-flow.ts、auth-register.ts 此前直接手写裸数字
+//       （40001/40010/50001/40031/40006 等），与登录态/支付/公告等他域 EC_ 常量撞值，
+//       导致前端按码取 i18n 张冠李戴（如「请先配置 LLM Key」弹成「请先登录」）。
+//       统一迁入空闲 413xx / 513xx 段并登记（复用既有 aiErr* 文案键）。
+
+/** AI：用户未配置 LLM API Key */
+export const EC_AI_NOT_CONFIGURED = 41301;
+/** AI：LLM 返回格式异常 */
+export const EC_AI_BAD_FORMAT = 41302;
+/** AI：缺少企业画像资料，无法评分 */
+export const EC_SUPPLIER_PROFILE_REQUIRED = 41303;
+/** AI：LLM 调用失败（服务端） */
+export const EC_AI_CALL_FAILED = 51301;
+/** 注册：邀请码无效 */
+export const EC_INVITE_CODE_INVALID = 41119;
+
 // ── 分页限制常量（Pagination Limits）───────────────────────────────────────────
 
 /** 通用 API 分页默认大小 */
