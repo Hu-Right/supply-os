@@ -134,7 +134,7 @@ async function hydrateListItems(pool: Pool, noticeIds: string[], locale?: string
   // 以前这里用两个各自带尾逗号的片段拼在 FROM 前，不传 locale 时也会多出个尾逗号，
   // MySQL 直接 1064 —— 相似公告上线三周每次都返回 500，单测因为 mock 了 pool.query 全绿。
   const selectList = columns(
-    "n.id, n.notice_id, n.reference, n.title, n.notice_type, n.agency, n.country",
+    "n.id, n.id AS notice_pk, n.notice_id, n.reference, n.title, n.notice_type, n.agency, n.country",
     "n.deadline, n.deadline_ts, n.estimated_value",
     locale && "tr.title_tr AS title_i18n",
     "tre.title_tr AS title_en",

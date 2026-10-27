@@ -170,6 +170,8 @@ describe("findSimilarNotices", () => {
       expect(sql).not.toMatch(/,\s*\n?\s*FROM/i);
       expect(sql).not.toMatch(/,\s*,/);            // 相邻两个逗号：空列位
       expect(sql).toMatch(/SELECT\s+[^,\s][\s\S]*\bFROM\b/i); // SELECT 后紧跟真实列，不是空白/逗号
+      // 活 bug 回归：相似水合必须带 notice_pk（=n.id），否则点开详情缺主键、/detail·/preview 拉不到、详情空白
+      expect(sql).toMatch(/n\.id AS notice_pk/);
     }
   });
 });
