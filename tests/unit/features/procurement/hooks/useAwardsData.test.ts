@@ -30,20 +30,20 @@ function routeStatsTopList(stats: unknown, topItems: unknown, listItems: unknown
   });
 }
 
-const oneWinner = [{ name: "甲公司", country: "中国", count: 3, total_usd: 0 }];
+const oneWinner = [{ name: "甲公司", country: "中国", count: 3, totalUsd: 0 }];
 const oneAward = [
   {
     id: 1,
     title: "某中标公告",
-    title_cn: null,
+    titleCn: null,
     reference: null,
     agency: "中国政府采购网",
     country: "中国",
-    award_date: null,
-    contract_value_usd: null,
+    awardDate: null,
+    contractValueUsd: null,
     currency: "CNY",
     category: null,
-    source_platform: "ccgp",
+    sourcePlatform: "ccgp",
   },
 ];
 
@@ -60,7 +60,7 @@ describe("useAwardsData · 三态区分", () => {
 
   it("成功加载真数据：hasRealData=true, loading=false, error=false", async () => {
     routeStatsTopList(
-      { total: 1669, total_value_usd: 0, by_agency: [], by_country: [], by_month: [], top_winners: [] },
+      { total: 1669, totalValueUsd: 0, byAgency: [], byCountry: [], byMonth: [], topWinners: [] },
       oneWinner,
       oneAward,
     );
@@ -74,7 +74,7 @@ describe("useAwardsData · 三态区分", () => {
 
   it("空库（成功但无记录）：hasRealData=false, error=false —— 空态不是错误", async () => {
     routeStatsTopList(
-      { total: 0, total_value_usd: 0, by_agency: [], by_country: [], by_month: [], top_winners: [] },
+      { total: 0, totalValueUsd: 0, byAgency: [], byCountry: [], byMonth: [], topWinners: [] },
       [],
       [],
     );
@@ -95,7 +95,7 @@ describe("useAwardsData · 三态区分", () => {
   it("部分失败（stats 成功、top 失败）：hasRealData=true 且 error=true（有数据但标记异常）", async () => {
     mockApiCached.mockImplementation((endpoint: string) => {
       if (endpoint.startsWith("/api/awards/stats"))
-        return Promise.resolve({ total: 10, total_value_usd: 0, by_agency: [], by_country: [], by_month: [], top_winners: [] });
+        return Promise.resolve({ total: 10, totalValueUsd: 0, byAgency: [], byCountry: [], byMonth: [], topWinners: [] });
       return Promise.reject(new Error("top down"));
     });
     const { result } = renderHook(() => useAwardsData());
@@ -106,7 +106,7 @@ describe("useAwardsData · 三态区分", () => {
 
   it("refetch 触发再次取数（force 跳缓存）", async () => {
     routeStatsTopList(
-      { total: 1, total_value_usd: 0, by_agency: [], by_country: [], by_month: [], top_winners: [] },
+      { total: 1, totalValueUsd: 0, byAgency: [], byCountry: [], byMonth: [], topWinners: [] },
       oneWinner,
       oneAward,
     );

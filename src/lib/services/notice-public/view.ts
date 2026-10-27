@@ -11,40 +11,17 @@
  *              1. 列的唯一事实源是表；手工表会随加列腐化（新列忘登记 = 该列悄悄以 snake 出面或被漏发）。
  *              2. 机械规则下新列自动进入 camel 契约，转换逻辑仍只有这一处，不存在双口径。
  *              3. 表列名与本域类型名不再需要人肉对齐，`types/procurement.ts` 只描述契约。
+ *              （改名规则本身已抽到 shared/utils/case-keys，与 awards 等其它域共用。）
  *
  *              ⚠ 不要用本函数做「字段裁剪」：它是整行改名，会保留所有列。
  *                 需要只发部分字段的端点（如付费墙预览 /api/notices/:id/preview）必须继续显式列键，
  *                 否则会把 description / description_cn / 附件等解锁后内容一起发出去。
  */
 import type { NoticeItem } from "@/types/procurement";
+import { toCamelKeys, type RowLike } from "@/shared/utils/case-keys";
 
 /** 行对象：DB 驱动的返回结构（列名 → 值） */
-export type NoticeRow = Record<string, unknown>;
-
-/**
- * 单键 snake_case → camelCase。
- * 已是 camelCase 或全小写无下划线的键原样返回，因此本函数幂等：
- * 对同一份数据重复转换不会改变结果（防止端点与 mapper 双重转换时出现漂移）。
- */
-export function toCamelKey(key: string): string {
-  // 只把「下划线 + 小写字母/数字」提升为大写；连续下划线按逐个处理，
-  // 与 types/procurement.ts 里人工登记的 camel 字段名保持一致口径
-  return key.replace(/_+([a-z0-9])/g, (_m, ch: string) => ch.toUpperCase());
-}
-
-/**
- * 行→视图的通用改名（只改顶层键名，值原样不动）。
- * 供形状不是公告主体、但同样来自行结构的响应复用（如机构下拉的 `agency_i18n`），
- * 免得同一个命名规则在多处各写一份。
- */
-export function toCamelKeys(row: NoticeRow): NoticeRow {
-  const out: NoticeRow = {};
-  for (const [key, value] of Object.entries(row)) {
-    // undefined 键保持"不下发"语义（JSON.stringify 会丢弃 undefined，迁移前后一致）
-    out[toCamelKey(key)] = value;
-  }
-  return out;
-}
+export type NoticeRow = RowLike;
 
 /**
  * 行 → 视图。

@@ -14,7 +14,15 @@
  *              （listAwards/stats/top）不受影响。
  */
 import type { Pool } from "mysql2/promise";
-import { AwardsRepo, type AwardRow, type AwardStats } from "../repos/awards.repo";
+import { AwardsRepo, type AwardStats } from "../repos/awards.repo";
+import {
+  awardsViewOf,
+  awardStatsViewOf,
+  winnerViewsOf,
+  type AwardStatsView,
+  type AwardView,
+  type AwardWinnerView,
+} from "./awards/view";
 
 export interface AwardListParams {
   page: number;
@@ -30,23 +38,21 @@ export interface AwardListParams {
   sortDir?: "asc" | "desc";
 }
 
+/**
+ * 列表响应体（被 GET /api/awards 直接 json 透出）。
+ * items 是对外视图（红线② camelCase）；page/page_size/total_pages 是分页元数据，
+ * 按口径保留现有名字（它们不是实体字段）。
+ */
 export interface AwardListResult {
-  items: AwardRow[];
+  items: AwardView[];
   total: number;
   page: number;
   page_size: number;
   total_pages: number;
 }
 
-export interface AwardWinnerRow {
-  name: string;
-  country: string | null;
-  count: number;
-  total_usd: number;
-}
-
 export interface AwardTopResult {
-  items: AwardWinnerRow[];
+  items: AwardWinnerView[];
   total: number;
 }
 
@@ -56,7 +62,7 @@ export async function listAwards(pool: Pool, params: AwardListParams): Promise<A
   const { page, pageSize, ...filters } = params;
   const { items, total } = await repo.list({ page, pageSize, ...filters });
   return {
-    items,
+    items: awardsViewOf(items),
     total,
     page,
     page_size: pageSize,
@@ -64,13 +70,14 @@ export async function listAwards(pool: Pool, params: AwardListParams): Promise<A
   };
 }
 
-/** 中标统计摘要（仪表板数据） */
-export function getAwardStats(pool: Pool): Promise<AwardStats> {
-  return new AwardsRepo(pool).getStats();
+/** 中标统计摘要（仪表板数据）：聚合别名经视图后对外 camelCase */
+export async function getAwardStats(pool: Pool): Promise<AwardStatsView> {
+  const stats: AwardStats = await new AwardsRepo(pool).getStats();
+  return awardStatsViewOf(stats);
 }
 
 /** 中标商排行榜 */
 export async function getTopWinners(pool: Pool, limit: number): Promise<AwardTopResult> {
-  const items = await new AwardsRepo(pool).topWinners(limit);
+  const items = winnerViewsOf(await new AwardsRepo(pool).topWinners(limit));
   return { items, total: items.length };
 }

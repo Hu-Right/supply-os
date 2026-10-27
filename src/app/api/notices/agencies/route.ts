@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getNoticeAgencies } from "@/lib/services/notice-search";
-import { toCamelKeys } from "@/lib/services/notice-public/view";
+import { toCamelKeys } from "@/shared/utils/case-keys";
 import { withRoute } from "@/lib/middleware/route-handler";
 
 export const GET = withRoute(async (req: NextRequest) => {

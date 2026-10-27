@@ -18,32 +18,43 @@ import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 
 // ── 类型定义 ──
 
+// 以下两个类型是服务端对外视图的镜像（lib/services/awards/view）：
+// 不直接 import 是为了不引入 features→lib 依赖，代价是两边得一起改。
+
+/** 统计摘要（服务端 AwardStatsView 镜像，红线② camelCase） */
 export interface AwardStatsData {
   total: number;
-  total_value_usd: number;
-  by_agency: Array<{ agency: string; count: number; total_usd: number }>;
-  by_country: Array<{ country: string; count: number }>;
-  by_month: Array<{ month: string; count: number; total_usd: number }>;
-  top_winners: Array<{ name: string; count: number; total_usd: number; country: string | null }>;
+  totalValueUsd: number;
+  byAgency: Array<{ agency: string; count: number; totalUsd: number }>;
+  byCountry: Array<{ country: string; count: number }>;
+  byMonth: Array<{ month: string; count: number; totalUsd: number }>;
+  topWinners: Array<{ name: string; count: number; totalUsd: number; country: string | null }>;
 }
 
+/** 中标记录（服务端 AwardView 镜像） */
 export interface AwardListItem {
   id: number;
   title: string;
-  title_cn: string | null;
+  titleCn: string | null;
   reference: string | null;
+  contractNo: string | null;
   agency: string | null;
+  agencyFull: string | null;
   country: string | null;
-  award_date: string | null;
-  contract_value_usd: number | null;
+  awardDate: string | null;
+  contractValue: number | null;
+  contractValueUsd: number | null;
   currency: string;
+  description: string | null;
+  descriptionCn: string | null;
   category: string | null;
-  source_platform: string;
+  industry: string | null;
+  sourcePlatform: string;
 }
 
 export interface AwardsData {
   stats: AwardStatsData | null;
-  topWinners: Array<{ name: string; country: string | null; count: number; total_usd: number }>;
+  topWinners: Array<{ name: string; country: string | null; count: number; totalUsd: number }>;
   recentAwards: AwardListItem[];
   hasRealData: boolean;
   loading: boolean;
@@ -68,7 +79,7 @@ const INITIAL: AwardsData = {
 /** 自动刷新间隔：15 分钟 */
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
 
-type TopResp = { items: Array<{ name: string; country: string | null; count: number; total_usd: number }> };
+type TopResp = { items: Array<{ name: string; country: string | null; count: number; totalUsd: number }> };
 type ListResp = { items: AwardListItem[]; total: number };
 
 /**
