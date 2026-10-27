@@ -6,6 +6,19 @@
  * @description 深蓝科技风 Hero，采购机会搜索入口。
  *              背景与导航栏连为一体，地球装饰在右侧。
  *              热门标签数据由 useHotTopics hook 统一提供。
+ *
+ *              2026-10-22 路由口径修复（为什么必须改）：旧代码把国家与品类大类标签
+ *              一律塞进 ?q=<文本> 做全文关键词检索 —— 大类标签明明携带着 L1 树码
+ *              （hot-topics 聚合注释写死「code = 前端拼筛选链接」），点进去却变成
+ *              「标题含这几个字的公告」，与标签标称的大类结果数（同一包含关系聚合）
+ *              对不上。现在按数据类型分流：
+ *              - 品类大类 → hotGroupView 的 ?commodity=<L1 码>（与首页热门品目行同一份口径，
+ *                检索侧落在 backbone_path 包含谓词，标称数 = 兑现数）；
+ *              - 国家 → ?country=<canonical>（crm_country_aliases 表驱动 ISO2 谓词；
+ *                canonical 名白名单内自指 alias 行实测全命中，无码即空集的纪律不会误伤）；
+ *              - 数据未返回的兜底国家 → 无 canonical 可筛，诚实保持 ?q= 关键词。
+ *              URL 携带筛选值、展示走本地化名（两者分离）；点击不再回填搜索框，
+ *              筛选态与关键词态不互相污染。
  */
 import { memo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -14,6 +27,13 @@ import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { useHotTopics, hotGroupView } from "../hooks/useHotTopics";
 import { Search } from "lucide-react";
 
+/** 单个热标签：展示名与跳转链接分离（href 携带的是筛选谓词参数，不是展示文案） */
+interface HotTagItem {
+  key: string;
+  label: string;
+  href: string;
+}
+
 /** Hero 区 — 采购机会搜索 + 热门标签（纯展示，页面其它区块 state 变化不重渲染） */
 export const HeroSection = memo(function HeroSection() {
   const router = useRouter();
@@ -21,15 +41,28 @@ export const HeroSection = memo(function HeroSection() {
   const [query, setQuery] = useState("");
   const { topics: hotTags } = useHotTopics();
 
+  // 兜底（聚合未返回）：没有 canonical 也没有 L1 码，只能诚实走关键词
   const fallbackCountries = ["肯尼亚", "美国", "联合国", "菲律宾"];
-  // 热门大类的名字走 locale 键（与首页热门行、五级下拉第一级同一份）：服务端只给码，
-  // 这里不再拿 DB 的 title_zh/title，避免长出第二套名字口径
-  const hotTags_list = hotTags
+  // 热门标签分流（口径定义见文件头）：大类链接复用 hotGroupView 的 href，
+  // 不在本组件重新拼第二份 ?commodity= 字符串
+  const hotTags_list: HotTagItem[] = hotTags
     ? [
-        ...hotTags.countries.slice(0, 4).map((c) => getCountryDisplayName(c.country, locale)),
-        ...hotGroupView(hotTags.industries.slice(0, 4)).map((g) => g.label),
+        ...hotTags.countries.slice(0, 4).map((c) => ({
+          key: `country:${c.country}`,
+          label: getCountryDisplayName(c.country, locale),
+          href: `/procurement?country=${encodeURIComponent(c.country)}`,
+        })),
+        ...hotGroupView(hotTags.industries.slice(0, 4)).map((g) => ({
+          key: `commodity:${g.key}`,
+          label: g.label,
+          href: g.href,
+        })),
       ]
-    : fallbackCountries;
+    : fallbackCountries.map((name) => ({
+        key: `fallback:${name}`,
+        label: name,
+        href: `/procurement?q=${encodeURIComponent(name)}`,
+      }));
 
   const handleSearch = () => {
     if (query.trim()) {
@@ -89,16 +122,15 @@ export const HeroSection = memo(function HeroSection() {
           <div className="flex flex-wrap items-center gap-1">
             <span className="text-slate-500 text-xs">{t("homeHotSearchLabel")}</span>
             {hotTags_list.map((tag, idx) => (
-              <span key={tag} className="inline-flex items-center gap-1">
+              <span key={tag.key} className="inline-flex items-center gap-1">
                 {idx > 0 && <span className="text-slate-600 text-xs">/</span>}
                 <button
                   onClick={() => {
-                    setQuery(tag);
-                    router.push(`/procurement?q=${encodeURIComponent(tag)}`);
+                    router.push(tag.href);
                   }}
                   className="text-xs text-slate-300 hover:text-teal-300 transition-colors"
                 >
-                  {tag}
+                  {tag.label}
                 </button>
               </span>
             ))}

@@ -152,6 +152,12 @@ export default defineConfig({
         "src/features/procurement/notice-type.ts",
         "src/features/procurement/hooks/searchFormReducer.ts",
         "src/features/procurement/hooks/search/useSearchFormState.ts",
+        // 中标情报页视图模型（真实数据派生 + 诚实空态，纯函数）
+        "src/features/procurement/awards/awardViewModel.ts",
+
+        // ── src/features/home — 组件（有测试）──
+        // 热门标签分流路由（品类 ?commodity= / 国家 ?country=，2026-10-22 修复）
+        "src/features/home/components/HeroSection.tsx",
 
         // ── src/features/training — 组件（有测试）──
         "src/features/training/components/TrainingPaymentModal.tsx",
