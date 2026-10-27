@@ -124,8 +124,8 @@ export const GET = withRoute(async (req: NextRequest) => {
   const ctx = getContext();
   try {
     const claim = await ctx.supplier.claimRepo.findByUserAndSupplier(auth.userId, supplierId);
-    // 2xx 裸载荷：无认领记录即返回 null。这里曾手搭过一层 {success,data} 包装——
-    // 它不命中只认 `code: 0` 哨兵的信封门禁，又与同资源 POST 的裸载荷不同形，属于第三种形状。
+    // 2xx 裸载荷：无认领记录即返回 null。这里曾手搭过一层 success/data 包装——
+    // 它既不命中成功信封门禁，又与同资源 POST 的裸载荷不同形，属于第三种形状。
     return NextResponse.json(
       claim
         ? { id: claim.id, status: claim.status, createdAt: claim.created_at, expiresAt: claim.expires_at }
