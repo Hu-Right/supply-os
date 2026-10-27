@@ -153,3 +153,51 @@ export interface ServiceCatalogRow {
   deliverable_note_zh: string | null;
   sort_order: number;
 }
+
+// ── 对外视图（命名红线②）──
+// 上面的 *Row 是行形状（列名），服务内部逻辑照旧按列名读；下面的 *View 是
+// HTTP 响应体契约（camelCase）。两者由 lib/services/membership/view.ts 的
+// mapper 唯一衔接，所以视图字段不需要手写第二份清单：由行类型机械推导，
+// 新增列自动进入契约，不会出现「改了表忘了改契约」。
+
+/** 单键 snake→camel（类型层），与 shared/utils/case-keys 的运行期规则同一口径 */
+type SnakeToCamelKey<S extends string> = S extends `${infer H}_${infer T}`
+  ? `${H}${Capitalize<SnakeToCamelKey<T>>}`
+  : S;
+
+/** 只改属性名、不改属性值类型（嵌套容器需由 mapper 显式转换，见 view.ts） */
+export type ViewOf<T> = { [K in keyof T as K extends string ? SnakeToCamelKey<K> : K]: T[K] };
+
+export type PlanView = ViewOf<PlanCatalogRow>;
+export type SubscriptionView = ViewOf<ActivePlanRow>;
+export type QuotaView = ViewOf<QuotaBalanceRow>;
+export type BenefitDefView = ViewOf<BenefitDefRow>;
+export type ResolvedCellView = ViewOf<ResolvedCell>;
+export type ServiceCatalogView = ViewOf<ServiceCatalogRow>;
+export type AnnualCreditView = ViewOf<AnnualPlanCredit>;
+
+/** 升级抵扣窗口（嵌套对象：days/open/deadline_at 也是契约的一部分） */
+export type UpgradeCreditWindowView = { days: number; open: boolean; deadlineAt: string | null };
+
+/** GET /api/membership/status 响应体 */
+export type MembershipStatusView = {
+  plan: PlanView;
+  subscription: SubscriptionView | null;
+  quotas: QuotaView[];
+  /** benefit_code -> GateState：键是权益码（数据），不按列名规则改 */
+  gates?: Record<string, GateState>;
+  upgradeCredit?: UpgradeCreditWindowView;
+};
+
+/** GET /api/membership/plans 响应体（六卡 + 权益矩阵） */
+export type ComparisonView = {
+  plans: PlanView[];
+  rows: Array<{ benefit: BenefitDefView; cells: Record<string, ResolvedCellView> }>;
+};
+
+/** GET /api/membership/upgrade/preview 响应体 */
+export type UpgradePreviewView = ViewOf<Omit<UpgradePreview, "current_plan" | "target_plan" | "subscription">> & {
+  currentPlan: PlanView | null;
+  targetPlan: PlanView | null;
+  subscription: SubscriptionView | null;
+};

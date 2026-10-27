@@ -13,12 +13,12 @@ import { Check, PhoneCall } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { serviceDisplayName } from "../utils";
-import type { ServiceCatalogRow } from "@/types/membership";
+import type { ServiceCatalogView } from "@/types/membership";
 
 export interface EnterpriseCompanionCardProps {
-  row: ServiceCatalogRow;
+  row: ServiceCatalogView;
   /** 有价分支：父级负责登录判断 + emit supply-os:pay */
-  onPay: (row: ServiceCatalogRow) => void;
+  onPay: (row: ServiceCatalogView) => void;
 }
 
 /** 价值清单 i18n 键（人工服务卖点，与订阅卡的权益清单区分）。 */
@@ -27,9 +27,9 @@ const BULLET_KEYS = ["entCompanionBullet1", "entCompanionBullet2", "entCompanion
 export function EnterpriseCompanionCard({ row, onPay }: EnterpriseCompanionCardProps) {
   const { t, locale } = useLocale();
   const name = serviceDisplayName(row, locale);
-  const amount = row.standard_price == null ? 0 : Number(row.standard_price);
+  const amount = row.standardPrice == null ? 0 : Number(row.standardPrice);
   const symbol = row.currency === "CNY" ? "¥" : "$";
-  const note = locale.toLowerCase().startsWith("zh") ? row.deliverable_note_zh : null;
+  const note = locale.toLowerCase().startsWith("zh") ? row.deliverableNoteZh : null;
 
   return (
     <div

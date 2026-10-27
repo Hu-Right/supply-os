@@ -10,14 +10,16 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/core/auth";
 import { fetchMembershipPlans, fetchMembershipStatus, fetchAnnualPlanCredit } from "@/core/api/membership";
 import { unlockRemaining } from "@/shared/utils/membership-view";
-import type { AnnualPlanCredit, ComparisonTable, MembershipStatus, PlanCatalogRow } from "@/types";
+import type {
+  AnnualCreditView, ComparisonView, MembershipStatusView, PlanView, UpgradeCreditWindowView,
+} from "@/types";
 
 export interface UseMembershipDataReturn {
   /** 六卡商品行（来自对比矩阵 plans 列，服务端已排除 free） */
-  plans: PlanCatalogRow[];
-  /** 完整对比矩阵（各卡按 plan_code 取自身列渲染权益 chip） */
-  comparison: ComparisonTable | null;
-  membership: MembershipStatus | null;
+  plans: PlanView[];
+  /** 完整对比矩阵（各卡按 plan code 取自身列渲染权益 chip） */
+  comparison: ComparisonView | null;
+  membership: MembershipStatusView | null;
   loading: boolean;
   error: string | null;
   /** 总可用解锁次数（额度账本 notice_view 池，"不限"归一为 UNLIMITED_QUOTA=-1） */
@@ -29,17 +31,17 @@ export interface UseMembershipDataReturn {
   /** 当前生效套餐名称（含普通用户 free 档） */
   currentPlanName: string | null;
   /** 升级全额抵扣窗口（服务端下发；当前档无窗口承诺时为 null） */
-  upgradeCredit: MembershipStatus["upgrade_credit"] | null;
+  upgradeCredit: UpgradeCreditWindowView | null;
   /** 可用的年包抵扣单（文档「199 升级年包可全额抵扣」；无则 null） */
-  annualCredit: AnnualPlanCredit | null;
+  annualCredit: AnnualCreditView | null;
 }
 
 export function useMembershipData(): UseMembershipDataReturn {
   const { authUser } = useAuth();
-  const [plans, setPlans] = useState<PlanCatalogRow[]>([]);
-  const [comparison, setComparison] = useState<ComparisonTable | null>(null);
-  const [membership, setMembership] = useState<MembershipStatus | null>(null);
-  const [annualCredit, setAnnualCredit] = useState<AnnualPlanCredit | null>(null);
+  const [plans, setPlans] = useState<PlanView[]>([]);
+  const [comparison, setComparison] = useState<ComparisonView | null>(null);
+  const [membership, setMembership] = useState<MembershipStatusView | null>(null);
+  const [annualCredit, setAnnualCredit] = useState<AnnualCreditView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +84,7 @@ export function useMembershipData(): UseMembershipDataReturn {
 
   // 升级判断以「当前有效订阅」为准；普通用户（无订阅）不进入升级差价路径。
   const hasSubscription = Boolean(membership?.subscription);
-  const currentPlanCode = hasSubscription ? membership?.plan.plan_code ?? null : null;
+  const currentPlanCode = hasSubscription ? membership?.plan.planCode ?? null : null;
   const currentPlanPrice = hasSubscription ? Number(membership?.plan.price) : null;
 
   return {
@@ -94,8 +96,8 @@ export function useMembershipData(): UseMembershipDataReturn {
     totalRemaining: unlockRemaining(membership?.quotas),
     currentPlanCode,
     currentPlanPrice,
-    currentPlanName: membership?.plan?.name_zh ?? null,
-    upgradeCredit: membership?.upgrade_credit ?? null,
+    currentPlanName: membership?.plan?.nameZh ?? null,
+    upgradeCredit: membership?.upgradeCredit ?? null,
     annualCredit,
   };
 }

@@ -4,7 +4,7 @@
  * @module features/membership/components/ServiceCard
  * @description 数据源 crm_service_catalog 行。价格移到标题下方独立行（根治长价挤标题）；
  *              分类归组由父级按 category 呈现，卡片不再逐张打撞词标签。
- *              分支（2026-09-28 与 260928 报价表对齐）：sale_mode='self' 且有正标价 → 「立即支付」(实心, 由父级 onPay 发 supply-os:pay)；
+ *              分支（2026-09-28 与 260928 报价表对齐）：saleMode='self' 且有正标价 → 「立即支付」(实心, 由父级 onPay 发 supply-os:pay)；
  *                    其余（留资/合同成交、token/quote/contact 无价行）→ 「预约顾问」(描边, 弹 ContactQrModal)，
  *                    由顾问对接人工报价与收费，不提供自助支付。
  */
@@ -14,12 +14,12 @@ import { useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { resolveServiceBranch, serviceDisplayName } from "../utils";
 import { ContactQrModal } from "./ContactQrModal";
-import type { ServiceCatalogRow } from "@/types/membership";
+import type { ServiceCatalogView } from "@/types/membership";
 
 export interface ServiceCardProps {
-  row: ServiceCatalogRow;
+  row: ServiceCatalogView;
   /** 有价分支：父级负责登录判断 + emit supply-os:pay */
-  onPay: (row: ServiceCatalogRow) => void;
+  onPay: (row: ServiceCatalogView) => void;
 }
 
 const SUFFIX_KEY: Record<string, string> = {
@@ -40,13 +40,13 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
   const [consultOpen, setConsultOpen] = useState(false);
   const branch = resolveServiceBranch(row);
   const name = serviceDisplayName(row, locale);
-  const suffixKey = SUFFIX_KEY[row.price_mode];
-  const note = locale.toLowerCase().startsWith("zh") ? row.deliverable_note_zh : null;
-  const amount = row.standard_price == null ? 0 : Number(row.standard_price);
+  const suffixKey = SUFFIX_KEY[row.priceMode];
+  const note = locale.toLowerCase().startsWith("zh") ? row.deliverableNoteZh : null;
+  const amount = row.standardPrice == null ? 0 : Number(row.standardPrice);
   // 价格锚点与成交分支是两件事：文档写明「N 元起」的行（拆解报告 500~3,000/单、定制调研 1,280 起、
-  // 单项目陪跑 26,800 起）即使只能预约询价，也要把起点价显示出来；而「面议/按需报价」类（price_from=0
+  // 单项目陪跑 26,800 起）即使只能预约询价，也要把起点价显示出来；而「面议/按需报价」类（priceFrom=0
   // 且非自助，如 KA）不能把参考价当成交价展示，仍用「定制报价」标签。
-  const showPrice = amount > 0 && (branch === "pay" || row.price_from === 1);
+  const showPrice = amount > 0 && (branch === "pay" || row.priceFrom === 1);
 
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
@@ -56,7 +56,7 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
       {/* 价格独立成行，有层级 */}
       {showPrice ? (
         <div className="mt-2 flex items-baseline gap-1">
-          {row.price_from === 1 && (
+          {row.priceFrom === 1 && (
             <span className="text-xs font-semibold text-slate-500">{t("svcPriceFrom")}</span>
           )}
           <span className="text-2xl font-black text-slate-900">¥{amount.toLocaleString()}</span>
@@ -65,12 +65,12 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
       ) : (
         <div className="mt-2">
           <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-            {t(NO_PRICE_LABEL[row.price_mode] ?? "svcLabelQuote")}
+            {t(NO_PRICE_LABEL[row.priceMode] ?? "svcLabelQuote")}
           </span>
         </div>
       )}
 
-      {row.member_discount !== "none" && (
+      {row.memberDiscount !== "none" && (
         <span className="mt-2 inline-flex w-fit items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
           {t("svcMemberExclusive")}
         </span>

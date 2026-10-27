@@ -10,12 +10,15 @@ vi.mock("@/lib/db/context", () => ({
 describe("GET /api/membership/services", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("返回服务目录数组", async () => {
+  it("返回服务目录数组（整块透出的端点：键名由本断言钉住 camel）", async () => {
     listActiveServices.mockResolvedValue([{ service_code: "svc_x", standard_price: "199.00" }]);
     const { GET } = await import("@/app/api/membership/services/route");
     const body = await (await GET(new NextRequest("http://localhost:3000/api/membership/services"))).json();
     expect(Array.isArray(body)).toBe(true);
-    expect(body[0].service_code).toBe("svc_x");
+    expect(body[0].serviceCode).toBe("svc_x");
+    expect(body[0].standardPrice).toBe("199.00");
+    expect(body[0]).not.toHaveProperty("service_code");
+    expect(body[0]).not.toHaveProperty("standard_price");
   });
 
   it("空目录返回 []", async () => {

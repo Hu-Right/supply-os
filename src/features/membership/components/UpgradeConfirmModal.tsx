@@ -9,11 +9,11 @@ import { ArrowUpCircle, Clock, Loader2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button, Modal } from "@/shared/ui";
 import { formatDateShort } from "@/shared/utils/format";
-import type { UpgradePreview } from "@/types";
+import type { UpgradePreviewView } from "@/types";
 
 export interface UpgradeConfirmModalProps {
   open: boolean;
-  preview: UpgradePreview | null;
+  preview: UpgradePreviewView | null;
   /** 加载升级预览中 */
   loading: boolean;
   /** 确认升级下单中 */
@@ -58,15 +58,15 @@ export function UpgradeConfirmModal({
             <Loader2 className="w-6 h-6 animate-spin mb-2" />
             <p className="text-sm">{t("upgradeLoading")}</p>
           </div>
-        ) : !preview.can_upgrade ? (
+        ) : !preview.canUpgrade ? (
           <div className="py-8 text-center">
             {preview.reason === "UPGRADE_CREDIT_WINDOW_CLOSED" ? (
               /* 抵扣窗口已过：不是「不能升级」，而是不再享受全额抵扣 → 引导按原价新购（旧档不被动） */
               <>
                 <p className="text-sm font-semibold text-amber-700">
                   {t("upgradeCreditClosedNote", {
-                    days: preview.credit_days ?? "",
-                    price: `${symbol}${Number(preview.new_purchase_price ?? preview.target_plan?.price ?? 0).toLocaleString()}`,
+                    days: preview.creditDays ?? "",
+                    price: `${symbol}${Number(preview.newPurchasePrice ?? preview.targetPlan?.price ?? 0).toLocaleString()}`,
                   })}
                 </p>
                 <Button
@@ -95,29 +95,29 @@ export function UpgradeConfirmModal({
             {/* 当前套餐 */}
             <div className="rounded-xl bg-slate-50 border border-slate-200/60 p-3.5">
               <p className="text-3xs font-bold text-slate-400 uppercase">{t("upgradeCurrentPlan")}</p>
-              <p className="text-sm font-bold text-slate-800 mt-1">{preview.current_plan?.name_zh}</p>
+              <p className="text-sm font-bold text-slate-800 mt-1">{preview.currentPlan?.nameZh}</p>
               <p className="text-xs text-slate-500 mt-0.5">
-                {t("upgradeUsed")}：{preview.quota_used} {t("statusPanelTimes")}
+                {t("upgradeUsed")}：{preview.quotaUsed} {t("statusPanelTimes")}
               </p>
             </div>
 
             {/* 目标套餐 */}
             <div className="rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 p-3.5">
               <p className="text-3xs font-bold text-amber-600 uppercase">{t("upgradeTargetPlan")}</p>
-              <p className="text-sm font-bold text-slate-900 mt-1">{preview.target_plan?.name_zh}</p>
+              <p className="text-sm font-bold text-slate-900 mt-1">{preview.targetPlan?.nameZh}</p>
               <div className="mt-1.5 space-y-0.5">
                 <p className="text-xs text-slate-600">
                   {t("upgradeRemaining")}：
                   <span className="font-bold text-amber-700">
-                    {preview.remaining_after_upgrade === null ? t("membershipUnlimited") : preview.remaining_after_upgrade}
+                    {preview.remainingAfterUpgrade === null ? t("membershipUnlimited") : preview.remainingAfterUpgrade}
                   </span>
                   {" "}{t("statusPanelTimes")}
                 </p>
                 <p className="text-xs text-slate-600 inline-flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {t("upgradeValidity")}：{t("upgradeValidityUnchanged")}
-                  {preview.subscription?.expires_at && (
-                    <span className="text-slate-400">（{formatDateShort(preview.subscription.expires_at)}）</span>
+                  {preview.subscription?.expiresAt && (
+                    <span className="text-slate-400">（{formatDateShort(preview.subscription.expiresAt)}）</span>
                   )}
                 </p>
               </div>
@@ -127,14 +127,14 @@ export function UpgradeConfirmModal({
             <div className="flex items-center justify-between rounded-xl bg-slate-900 px-4 py-3">
               <span className="text-xs font-semibold text-slate-300">{t("upgradePriceDiff")}</span>
               <span className="text-lg font-extrabold text-amber-400">
-                {symbol}{preview.price_difference.toLocaleString()}
+                {symbol}{preview.priceDifference.toLocaleString()}
               </span>
             </div>
-            {preview.credit_deadline_at && (
+            {preview.creditDeadlineAt && (
               <p className="text-2xs text-slate-500">
                 {t("upgradeCreditDeadline", {
-                  days: preview.credit_days ?? "",
-                  deadline: formatDateShort(preview.credit_deadline_at),
+                  days: preview.creditDays ?? "",
+                  deadline: formatDateShort(preview.creditDeadlineAt),
                 })}
               </p>
             )}
@@ -157,7 +157,7 @@ export function UpgradeConfirmModal({
           type="button"
           variant="accent"
           onClick={onConfirm}
-          disabled={submitting || loading || !preview?.can_upgrade}
+          disabled={submitting || loading || !preview?.canUpgrade}
           className="flex-1 py-2.5 rounded-xl text-sm shadow-md transition-all duration-300 gap-1.5"
         >
           {submitting && <Loader2 className="w-4 h-4 animate-spin" />}

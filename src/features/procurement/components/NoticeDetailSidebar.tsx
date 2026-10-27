@@ -11,11 +11,11 @@ import { Bell, Heart, Lock, Crown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import type { NoticeItem, MembershipStatus } from "../types";
+import type { NoticeItem, MembershipStatusView } from "../types";
 
 export interface NoticeDetailSidebarProps {
   notice: NoticeItem;
-  membership: MembershipStatus | null;
+  membership: MembershipStatusView | null;
   canUsePaidQuota: boolean;
   isVip: boolean;
   /** 总可用解锁次数 */

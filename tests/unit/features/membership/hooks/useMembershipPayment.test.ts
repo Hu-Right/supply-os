@@ -23,12 +23,12 @@ vi.mock("@/core/api/membership", () => ({
 // Mock @/types — 无需 mock，仅类型导入
 
 const mockPlan = {
-  plan_code: "radar",
-  name_zh: "雷达版",
+  planCode: "radar",
+  nameZh: "雷达版",
   price: "799",
   currency: "CNY",
-  price_mode: "fixed",
-} as unknown as import("@/types").PlanCatalogRow;
+  priceMode: "fixed",
+} as unknown as import("@/types").PlanView;
 
 describe("useMembershipPayment", () => {
   beforeEach(() => {
@@ -86,7 +86,7 @@ describe("useMembershipPayment", () => {
   it("startUpgrade 打开弹窗并拉取升级预览", async () => {
     mockAuthUser.mockReturnValue({ id: "user1" });
     mockFetchUpgradePreview.mockResolvedValueOnce({
-      can_upgrade: true, price_difference: 500,
+      canUpgrade: true, priceDifference: 500,
     });
 
     const { result } = renderHook(() => useMembershipPayment());
@@ -100,7 +100,7 @@ describe("useMembershipPayment", () => {
     await vi.waitFor(() => {
       expect(result.current.upgradeLoading).toBe(false);
     });
-    expect(result.current.upgradePreview).toEqual({ can_upgrade: true, price_difference: 500 });
+    expect(result.current.upgradePreview).toEqual({ canUpgrade: true, priceDifference: 500 });
   });
 
   it("升级预览失败时使用兜底值", async () => {
@@ -116,13 +116,13 @@ describe("useMembershipPayment", () => {
     });
 
     expect(result.current.upgradePreview).toEqual(
-      expect.objectContaining({ can_upgrade: false, reason: "PREVIEW_LOAD_FAILED" })
+      expect.objectContaining({ canUpgrade: false, reason: "PREVIEW_LOAD_FAILED" })
     );
   });
 
   it("closeUpgradeModal 关闭弹窗", async () => {
     mockAuthUser.mockReturnValue({ id: "user1" });
-    mockFetchUpgradePreview.mockResolvedValueOnce({ can_upgrade: true, price_difference: 0 });
+    mockFetchUpgradePreview.mockResolvedValueOnce({ canUpgrade: true, priceDifference: 0 });
 
     const { result } = renderHook(() => useMembershipPayment());
 
@@ -134,8 +134,8 @@ describe("useMembershipPayment", () => {
   });
 
   const contactPlan = {
-    plan_code: "enterprise", name_zh: "机构/API版", price: "0", currency: "CNY", price_mode: "contact",
-  } as unknown as import("@/types").PlanCatalogRow;
+    planCode: "enterprise", nameZh: "机构/API版", price: "0", currency: "CNY", priceMode: "contact",
+  } as unknown as import("@/types").PlanView;
 
   it("contact 档 buyPlan 打开客服码、不触发 pay/require-login（游客亦可）", () => {
     mockAuthUser.mockReturnValue(null);

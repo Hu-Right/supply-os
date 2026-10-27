@@ -10,13 +10,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
-import type { AnnualPlanCredit } from "@/types/membership";
+import type { AnnualCreditView } from "@/types/membership";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   const credit = await getContext().payment.paymentsRepo.findUsableAnnualPlanCredit(auth.userId);
-  const body: AnnualPlanCredit | null = credit
-    ? { source_order_no: credit.order_no, amount: Number(credit.amount), currency: credit.currency }
+  // 字段就三个，直接写 camel 字面量（静态门禁看得见）；credit.order_no 是行列名，只读到这一层
+  const body: AnnualCreditView | null = credit
+    ? { sourceOrderNo: credit.order_no, amount: Number(credit.amount), currency: credit.currency }
     : null;
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
 });

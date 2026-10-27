@@ -23,7 +23,7 @@ import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
 import { useServiceCatalog } from "../hooks/useServiceCatalog";
 import { groupPlansByAudience, groupServicesByCategory, pickServiceTabGroups, serviceDisplayName, resolveServiceBranch, pickEnterpriseTabServices } from "../utils";
-import type { ServiceCatalogRow } from "@/types/membership";
+import type { ServiceCatalogView } from "@/types/membership";
 
 type MembershipTab = "personal" | "enterprise" | "services";
 const MEMBERSHIP_TABS: { key: MembershipTab; labelKey: string }[] = [
@@ -64,7 +64,7 @@ export default function MembershipPage() {
   };
 
   /** 有价服务：未登录→登录引导；已登录→发 supply-os:pay（与套餐同一支付弹窗） */
-  const handleServicePay = (row: ServiceCatalogRow) => {
+  const handleServicePay = (row: ServiceCatalogView) => {
     if (!authUser) {
       emitAppEvent("supply-os:require-login");
       return;
@@ -73,9 +73,9 @@ export default function MembershipPage() {
     if (resolveServiceBranch(row) !== "pay") return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     emitAppEvent("supply-os:pay", {
-      code: row.service_code,
+      code: row.serviceCode,
       name: serviceDisplayName(row, locale),
-      price: Number(row.standard_price),
+      price: Number(row.standardPrice),
       currency: row.currency || "CNY",
       noticeId: noticeId ? Number(noticeId) : undefined,
       returnUrl: `${origin}/membership`,
@@ -132,7 +132,7 @@ export default function MembershipPage() {
                   <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">{t(GROUP_TITLE_KEY[cat] ?? cat)}</h3>
                   <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                     {rows.map((row) => (
-                      <ServiceCard key={row.service_code} row={row} onPay={handleServicePay} />
+                      <ServiceCard key={row.serviceCode} row={row} onPay={handleServicePay} />
                     ))}
                   </div>
                 </div>
@@ -176,7 +176,7 @@ export default function MembershipPage() {
                     {comparison &&
                       currentPlans.map((plan) => (
                         <PlanCard
-                          key={plan.plan_code}
+                          key={plan.planCode}
                           plan={plan}
                           table={comparison}
                           currentPlanPrice={currentPlanPrice}
@@ -194,7 +194,7 @@ export default function MembershipPage() {
                     )}
                     {/* 企业 Tab：与订阅卡并列的人工服务卡（199，同一视觉语言） */}
                     {enterpriseServices.map((row) => (
-                      <EnterpriseCompanionCard key={row.service_code} row={row} onPay={handleServicePay} />
+                      <EnterpriseCompanionCard key={row.serviceCode} row={row} onPay={handleServicePay} />
                     ))}
                   </div>
 

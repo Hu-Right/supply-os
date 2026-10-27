@@ -8,9 +8,12 @@
  *              会员套餐/状态/升级预览的网络请求以本文件为单一事实源。
  */
 import { api, apiCached } from "@/core/http";
-import type { ComparisonTable, MembershipStatus, UpgradePreview, ServiceCatalogRow, AnnualPlanCredit } from "@/types";
+import type {
+  ComparisonView, MembershipStatusView, UpgradePreviewView, ServiceCatalogView, AnnualCreditView,
+} from "@/types";
 
-export type { ComparisonTable, MembershipStatus, UpgradePreview, ServiceCatalogRow, AnnualPlanCredit };
+// 客户端拿到的都是**对外视图**（红线② camelCase），不是 repo 行形状。
+export type { ComparisonView, MembershipStatusView, UpgradePreviewView, ServiceCatalogView, AnnualCreditView };
 
 /**
  * 拉取官网六卡 + 原生权益矩阵（带内存缓存）。
@@ -18,23 +21,23 @@ export type { ComparisonTable, MembershipStatus, UpgradePreview, ServiceCatalogR
  * force：登录态调用方传 true 跳过缓存，确保拿到与当前身份一致的视图。
  */
 export const fetchMembershipPlans = (force = false) =>
-  apiCached<ComparisonTable>("/api/membership/plans", undefined, undefined, force);
+  apiCached<ComparisonView>("/api/membership/plans", undefined, undefined, force);
 
 /** 拉取订制服务目录（crm_service_catalog 快照，带内存缓存）。 */
 export const fetchServices = (force = false) =>
-  apiCached<ServiceCatalogRow[]>("/api/membership/services", undefined, undefined, force);
+  apiCached<ServiceCatalogView[]>("/api/membership/services", undefined, undefined, force);
 
 // B1 legacy 退役（2026-08-19）：user_key 兜底参数已删除，身份由 JWT 承载（api() 自动携带）
 /** 查询用户会员状态（配额/订阅/到期） */
 export const fetchMembershipStatus = (useCache = false) => {
   return useCache
-    ? apiCached<MembershipStatus>("/api/membership/status")
-    : api<MembershipStatus>("/api/membership/status");
+    ? apiCached<MembershipStatusView>("/api/membership/status")
+    : api<MembershipStatusView>("/api/membership/status");
 };
 
 /** 预览会员升级（差价/次数保留/有效期追溯） */
-export async function fetchUpgradePreview(targetPlanCode: string): Promise<UpgradePreview> {
-  return api<UpgradePreview>(
+export async function fetchUpgradePreview(targetPlanCode: string): Promise<UpgradePreviewView> {
+  return api<UpgradePreviewView>(
     `/api/membership/upgrade/preview?target_plan_code=${encodeURIComponent(targetPlanCode)}`,
   );
 }
@@ -43,4 +46,4 @@ export async function fetchUpgradePreview(targetPlanCode: string): Promise<Upgra
  * 查当前可用的年包抵扣单（文档「199 升级年包可全额抵扣」）；无可用单返回 null。
  * 不缓存：抵扣权会被另一张订单核销，缓存就会把“已花掉”的抵扣再显示一次。
  */
-export const fetchAnnualPlanCredit = () => api<AnnualPlanCredit | null>("/api/membership/credits");
+export const fetchAnnualPlanCredit = () => api<AnnualCreditView | null>("/api/membership/credits");

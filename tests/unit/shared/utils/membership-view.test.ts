@@ -6,13 +6,13 @@ import {
   UNLIMITED_QUOTA,
   UNLOCK_BENEFIT_CODE,
 } from "@/shared/utils/membership-view";
-import type { QuotaBalanceRow } from "@/types";
+import type { QuotaView } from "@/types";
 
-const pool = (remaining: number | null): QuotaBalanceRow =>
-  ({ benefit_code: UNLOCK_BENEFIT_CODE, remaining }) as QuotaBalanceRow;
+const pool = (remaining: number | null): QuotaView =>
+  ({ benefitCode: UNLOCK_BENEFIT_CODE, remaining }) as QuotaView;
 
 describe("membership-view — 不限额度哨兵 -1（清理旧 9999 魔法数）", () => {
-  it("UNLIMITED_QUOTA 为 -1（与后端 quota_total=-1 同源）", () => {
+  it("UNLIMITED_QUOTA 为 -1（与后端 quotaTotal=-1 同源）", () => {
     expect(UNLIMITED_QUOTA).toBe(-1);
   });
 

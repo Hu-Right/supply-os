@@ -25,7 +25,7 @@ describe("GET /api/membership/credits", () => {
     const { GET } = await import("@/app/api/membership/credits/route");
     const res = await GET(req());
     expect(res.headers.get("Cache-Control")).toBe("no-store");
-    expect(await res.json()).toEqual({ source_order_no: "SV1", amount: 199, currency: "CNY" });
+    expect(await res.json()).toEqual({ sourceOrderNo: "SV1", amount: 199, currency: "CNY" });
     expect(findUsableAnnualPlanCredit).toHaveBeenCalledWith(123);
   });
 

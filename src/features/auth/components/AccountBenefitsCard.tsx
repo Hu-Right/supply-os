@@ -17,7 +17,7 @@ import { Button } from "@/shared/ui";
 import { formatDateShort } from "@/shared/utils/format";
 import { unlockRemaining, isUnlimitedQuota } from "@/shared/utils/membership-view";
 import { fetchMembershipStatus } from "@/core/api/membership";
-import type { MembershipStatus } from "@/types";
+import type { MembershipStatusView } from "@/types";
 
 export interface AccountBenefitsCardProps {
   /** 点击"查看套餐"时的回调（可选） */
@@ -28,7 +28,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
   const { t } = useLocale();
   const { authUser } = useAuth();
   const router = useRouter();
-  const [membership, setMembership] = useState<MembershipStatus | null>(null);
+  const [membership, setMembership] = useState<MembershipStatusView | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -118,11 +118,11 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
           <div className="flex items-center gap-1.5 text-3xs">
             <Crown className="w-3 h-3 text-accent-500 flex-shrink-0" />
             <span className="font-medium text-foreground">{t("statusPanelSubscriptionTitle")}</span>
-            <span className="text-muted-foreground truncate">{plan.name_zh}</span>
-            {subscription.expires_at ? (
+            <span className="text-muted-foreground truncate">{plan.nameZh}</span>
+            {subscription.expiresAt ? (
               <span className="flex items-center gap-0.5 text-muted-foreground ml-auto">
                 <Clock className="w-2.5 h-2.5" />
-                {formatDateShort(subscription.expires_at)}
+                {formatDateShort(subscription.expiresAt)}
               </span>
             ) : (
               <span className="flex items-center gap-0.5 text-success-600 ml-auto">

@@ -4,7 +4,8 @@
 // Notice-related types share the single source of truth in `@/types`; re-exported here for feature-local use.
 export type { NoticeItem, NoticeListItem, NoticeDetailItem, NoticeDetailFields, NoticeContact, NoticeAttachment, NoticeResponse } from "@/types";
 // 会员类型同样以 `@/types` 为单一事实源
-export type { PlanCatalogRow, MembershipStatus } from "@/types";
+// 会员侧消费的是对外视图（红线②），不是 repo 行类型
+export type { PlanView, MembershipStatusView } from "@/types";
 
 /**
  * 进入公采页的初始化状态机（本地差异 #5）：

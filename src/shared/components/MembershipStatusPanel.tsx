@@ -18,10 +18,10 @@ import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { formatDateShort } from "@/shared/utils/format";
 import { isUnlimitedQuota, hasUnlockQuota } from "@/shared/utils/membership-view";
-import type { MembershipStatus } from "@/types";
+import type { MembershipStatusView } from "@/types";
 
 export interface MembershipStatusPanelProps {
-  membership: MembershipStatus | null;
+  membership: MembershipStatusView | null;
   /** 总可用解锁次数（由 Hook 计算） */
   totalRemaining: number;
   /** 是否已登录 */
@@ -92,11 +92,11 @@ export function MembershipStatusPanel({
           <div className="flex items-center gap-2 text-xs">
             <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />
             <span className="font-bold text-slate-700">{t("statusPanelSubscriptionTitle")}</span>
-            <span className="text-slate-600">{plan.name_zh}</span>
-            {subscription.expires_at ? (
+            <span className="text-slate-600">{plan.nameZh}</span>
+            {subscription.expiresAt ? (
               <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
                 <Clock className="w-3 h-3" />
-                {formatDateShort(subscription.expires_at)}
+                {formatDateShort(subscription.expiresAt)}
               </span>
             ) : (
               <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">

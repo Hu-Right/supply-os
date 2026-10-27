@@ -15,22 +15,22 @@ import { useState, useCallback } from "react";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
 import { fetchUpgradePreview } from "@/core/api/membership";
-import type { AnnualPlanCredit, PlanCatalogRow, UpgradePreview } from "@/types";
+import type { AnnualCreditView, PlanView, UpgradePreviewView } from "@/types";
 
 /** 升级预览加载失败时的兜底值 */
-const FALLBACK_PREVIEW: UpgradePreview = {
-  can_upgrade: false,
+const FALLBACK_PREVIEW: UpgradePreviewView = {
+  canUpgrade: false,
   reason: "PREVIEW_LOAD_FAILED",
-  current_plan: null,
-  target_plan: null,
+  currentPlan: null,
+  targetPlan: null,
   subscription: null,
-  quota_used: 0,
-  price_difference: 0,
-  remaining_after_upgrade: 0,
-  expires_at_unchanged: true,
-  credit_days: null,
-  credit_deadline_at: null,
-  new_purchase_price: null,
+  quotaUsed: 0,
+  priceDifference: 0,
+  remainingAfterUpgrade: 0,
+  expiresAtUnchanged: true,
+  creditDays: null,
+  creditDeadlineAt: null,
+  newPurchasePrice: null,
 };
 
 export interface UseMembershipPaymentOptions {
@@ -42,7 +42,7 @@ export interface UseMembershipPaymentOptions {
    * 可用的年包抵扣单（文档「199 升级年包可全额抵扣」，服务端下发）：
    * 只用于把弹窗展示价与真实应付对齐；核销与最终金额由支付服务端下单时再算一次。
    */
-  annualCredit?: AnnualPlanCredit | null;
+  annualCredit?: AnnualCreditView | null;
 }
 
 export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) {
@@ -51,10 +51,10 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
 
   // ── 升级弹窗状态 ──
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
-  const [upgradePreview, setUpgradePreview] = useState<UpgradePreview | null>(null);
+  const [upgradePreview, setUpgradePreview] = useState<UpgradePreviewView | null>(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
-  const [upgradeTargetPlan, setUpgradeTargetPlan] = useState<PlanCatalogRow | null>(null);
+  const [upgradeTargetPlan, setUpgradeTargetPlan] = useState<PlanView | null>(null);
 
   // ── 联系咨询客服码弹窗状态 ──
   const [contactQrOpen, setContactQrOpen] = useState(false);
@@ -70,8 +70,8 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
   }, [noticeId]);
 
   /** 点击「立即购买 / 联系咨询」：contact 档弹客服码（不登录/不下单）；fixed 档走支付 */
-  const buyPlan = useCallback((plan: PlanCatalogRow) => {
-    if (plan.price_mode === "contact") {
+  const buyPlan = useCallback((plan: PlanView) => {
+    if (plan.priceMode === "contact") {
       openContactQr();
       return;
     }
@@ -79,10 +79,10 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
       emitAppEvent("supply-os:require-login");
       return;
     }
-    if (plan.price_mode !== "fixed") return;
-    // 年付档（billing_period_days 非空且 >= 360）才吃年包抵扣；与 applyAnnualPlanCredit 同口径，
+    if (plan.priceMode !== "fixed") return;
+    // 年付档（billingPeriodDays 非空且 >= 360）才吃年包抵扣；与 applyAnnualPlanCredit 同口径，
     // 仅用于展示金额对齐（真实核销在服务端下单时重算）。
-    const period = Number(plan.billing_period_days ?? 0);
+    const period = Number(plan.billingPeriodDays ?? 0);
     const credit =
       annualCredit && annualCredit.currency === (plan.currency || "CNY") && period >= 360
         ? Number(annualCredit.amount)
@@ -91,8 +91,8 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
     const creditCents = Math.round(credit * 100);
     const payable = creditCents > 0 && creditCents < priceCents ? (priceCents - creditCents) / 100 : Number(plan.price);
     emitAppEvent("supply-os:pay", {
-      code: plan.plan_code,
-      name: plan.name_zh,
+      code: plan.planCode,
+      name: plan.nameZh,
       price: payable,
       currency: plan.currency || "CNY",
       noticeId: noticeId ? Number(noticeId) : undefined,
@@ -101,7 +101,7 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
   }, [authUser, noticeId, buildReturnUrl, openContactQr, annualCredit]);
 
   /** 点击"升级"：拉取升级预览并打开确认弹窗 */
-  const startUpgrade = useCallback((plan: PlanCatalogRow) => {
+  const startUpgrade = useCallback((plan: PlanView) => {
     if (!authUser) {
       emitAppEvent("supply-os:require-login");
       return;
@@ -112,7 +112,7 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
     setUpgradePreview(null);
     setUpgradeError(null);
 
-    fetchUpgradePreview(plan.plan_code)
+    fetchUpgradePreview(plan.planCode)
       .then((preview) => {
         setUpgradePreview(preview);
         setUpgradeError(null);
@@ -126,12 +126,12 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
 
   /** 确认升级：关闭弹窗，触发带 upgrade 标记的支付 */
   const confirmUpgrade = useCallback(() => {
-    if (!upgradePreview?.can_upgrade || !upgradeTargetPlan) return;
+    if (!upgradePreview?.canUpgrade || !upgradeTargetPlan) return;
     setUpgradeModalOpen(false);
     emitAppEvent("supply-os:pay", {
-      code: upgradeTargetPlan.plan_code,
-      name: upgradeTargetPlan.name_zh,
-      price: upgradePreview.price_difference,
+      code: upgradeTargetPlan.planCode,
+      name: upgradeTargetPlan.nameZh,
+      price: upgradePreview.priceDifference,
       currency: upgradeTargetPlan.currency || "CNY",
       noticeId: noticeId ? Number(noticeId) : undefined,
       returnUrl: buildReturnUrl(),

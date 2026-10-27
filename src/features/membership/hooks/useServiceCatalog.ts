@@ -8,10 +8,10 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { fetchServices } from "@/core/api/membership";
-import type { ServiceCatalogRow } from "@/types/membership";
+import type { ServiceCatalogView } from "@/types/membership";
 
 export function useServiceCatalog() {
-  const [services, setServices] = useState<ServiceCatalogRow[]>([]);
+  const [services, setServices] = useState<ServiceCatalogView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 

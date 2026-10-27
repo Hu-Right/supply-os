@@ -6,6 +6,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_UPGRADE_PLAN_REQUIRED } from "@/shared/constants/api";
+import { upgradePreviewViewOf } from "@/lib/services/membership/view";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -16,5 +17,5 @@ export const GET = withRoute(async (req: NextRequest) => {
     routeError(400, EC_UPGRADE_PLAN_REQUIRED, "请指定目标套餐");
   }
   const result = await previewUpgrade(getContext().benefitSystemRepo, auth.userId, targetPlanCode);
-  return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(upgradePreviewViewOf(result), { headers: { "Cache-Control": "no-store" } });
 });

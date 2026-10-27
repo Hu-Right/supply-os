@@ -196,12 +196,17 @@ describe("GET /api/membership/plans", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.plans).toHaveLength(2);
-    expect(body.plans[0].plan_code).toBe("personal_std_999");
+    // 路线整块透出（json(变量)），静态门禁看不见键名 → 这里钉住 camel
+    expect(body.plans[0].planCode).toBe("personal_std_999");
+    expect(body.plans[0]).not.toHaveProperty("plan_code");
     // quota 行：正数额度按原值展示，-1 展示「不限」且视为享有
-    const row = body.rows.find((r: { benefit: { benefit_code: string } }) => r.benefit.benefit_code === "notice_view");
+    const row = body.rows.find((r: { benefit: { benefitCode: string } }) => r.benefit.benefitCode === "notice_view");
     expect(row.cells["personal_std_999"].display).toBe("100");
     expect(row.cells["enterprise_8800"].display).toBe("不限");
     expect(row.cells["enterprise_8800"].enabled).toBe(true);
+    // cells 的键是套餐码（数据），不得被当成列名改掉；权益行本身也是 camel
+    expect(row.benefit).not.toHaveProperty("benefit_code");
+    expect(row.benefit.valueKind).toBe("quota");
   });
 });
 
@@ -296,9 +301,12 @@ describe("GET /api/membership/status", () => {
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.plan.plan_code).toBe("personal_pro_1299");
-    expect(body.subscription.plan_code).toBe("personal_pro_1299");
+    expect(body.plan.planCode).toBe("personal_pro_1299");
+    expect(body.subscription.planCode).toBe("personal_pro_1299");
+    expect(body.plan).not.toHaveProperty("plan_code");
     expect(body.quotas[0].remaining).toBe(7);
+    expect(body.quotas[0].benefitCode).toBe("notice_view");
+    expect(body.quotas[0]).not.toHaveProperty("benefit_code");
     expect(resolveMembershipState).toHaveBeenCalledWith(expect.anything(), 101, true);
   });
 
@@ -321,7 +329,7 @@ describe("GET /api/membership/status", () => {
     });
     const body = await (await GET(req)).json();
     expect(body.subscription).toBeNull();
-    expect(body.plan.plan_code).toBe("free");
+    expect(body.plan.planCode).toBe("free");
     expect(body.quotas).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { ServiceCatalogRow } from "@/types/membership";
+import type { ServiceCatalogView } from "@/types/membership";
 
 vi.mock("@/core/i18n", () => ({
   useLocale: () => ({
@@ -22,10 +22,10 @@ vi.mock("@/features/membership/components/ContactQrModal", () => ({
 
 import { ServiceCard } from "@/features/membership/components/ServiceCard";
 
-const row = (over: Partial<ServiceCatalogRow>): ServiceCatalogRow => ({
-  service_code: "svc_x", category: "pro_service", name_zh: "AI 单标解析", name_en: "AI Tender",
-  price_mode: "per_unit", standard_price: "199.00", price_from: 0, currency: "CNY",
-  sale_mode: "self", member_discount: "none", credit_to_annual_plan: 0, deliverable_note_zh: "说明", sort_order: 1, ...over,
+const row = (over: Partial<ServiceCatalogView>): ServiceCatalogView => ({
+  serviceCode: "svc_x", category: "pro_service", nameZh: "AI 单标解析", nameEn: "AI Tender",
+  priceMode: "per_unit", standardPrice: "199.00", priceFrom: 0, currency: "CNY",
+  saleMode: "self", memberDiscount: "none", creditToAnnualPlan: 0, deliverableNoteZh: "说明", sortOrder: 1, ...over,
 });
 
 beforeEach(() => vi.clearAllMocks());
@@ -40,15 +40,15 @@ describe("ServiceCard", () => {
     expect(onPay).toHaveBeenCalledWith(r);
   });
 
-  it("price_from=1 显示「起」", () => {
-    render(<ServiceCard row={row({ standard_price: "9800.00", price_mode: "contact", price_from: 1 })} onPay={vi.fn()} />);
+  it("priceFrom=1 显示「起」", () => {
+    render(<ServiceCard row={row({ standardPrice: "9800.00", priceMode: "contact", priceFrom: 1 })} onPay={vi.fn()} />);
     expect(screen.getByText("svcPriceFrom")).toBeInTheDocument();
   });
 
   // 报价表「500元~3,000元/单」类行：价格锚点要显示，但收款不能落在底价。
   it("起点价行：仍显示「起 ¥500」但按钮是「预约顾问」，不走 onPay", () => {
     const onPay = vi.fn();
-    render(<ServiceCard row={row({ standard_price: "500.00", price_from: 1 })} onPay={onPay} />);
+    render(<ServiceCard row={row({ standardPrice: "500.00", priceFrom: 1 })} onPay={onPay} />);
     expect(screen.getByText("svcPriceFrom")).toBeInTheDocument();
     expect(screen.getByText(/500/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /svcCtaPay/ })).not.toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("ServiceCard", () => {
   });
 
   it("无价：显示定制报价标签，点「预约顾问」开客服码", () => {
-    render(<ServiceCard row={row({ standard_price: null, price_mode: "quote" })} onPay={vi.fn()} />);
+    render(<ServiceCard row={row({ standardPrice: null, priceMode: "quote" })} onPay={vi.fn()} />);
     expect(screen.getByText("svcLabelQuote")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /svcCtaConsult/ }));
     expect(screen.getByText("QR-MODAL")).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe("ServiceCard", () => {
   it("预约顾问弹窗文案带本商品名，不回落到机构/API 版默认文案", () => {
     render(
       <ServiceCard
-        row={row({ service_code: "svc_bid_doc_analysis", name_zh: "投标辅助，标讯深度拆解报告", standard_price: "500.00", price_from: 1 })}
+        row={row({ serviceCode: "svc_bid_doc_analysis", nameZh: "投标辅助，标讯深度拆解报告", standardPrice: "500.00", priceFrom: 1 })}
         onPay={vi.fn()}
       />,
     );
@@ -80,9 +80,9 @@ describe("ServiceCard", () => {
   });
 
   // 260928 报价表：这类商品是「按需报价/面议」，即使目录存了参考起价也不能出现自助支付按钮
-  it("合同成交（sale_mode=contract）有价行：仍是「预约顾问」，不走 onPay", () => {
+  it("合同成交（saleMode=contract）有价行：仍是「预约顾问」，不走 onPay", () => {
     const onPay = vi.fn();
-    render(<ServiceCard row={row({ standard_price: "26800.00", price_mode: "project", price_from: 1, sale_mode: "contract" })} onPay={onPay} />);
+    render(<ServiceCard row={row({ standardPrice: "26800.00", priceMode: "project", priceFrom: 1, saleMode: "contract" })} onPay={onPay} />);
     expect(screen.queryByRole("button", { name: /svcCtaPay/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /svcCtaConsult/ }));
     expect(onPay).not.toHaveBeenCalled();

@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { apiCached } from "@/core/http";
 import { useAuth } from "@/core/auth";
-import type { MembershipStatus } from "@/types";
+import type { MembershipStatusView } from "@/types";
 
 export interface UseMembershipTierReturn {
   /** 等级标签（个人版/基础版/旗舰版/至尊版），无套餐或兜底时为空串由调用方回退 VIP */
@@ -28,7 +28,7 @@ const TIER_CACHE_TTL = 60_000;
 
 export function useMembershipTier(): UseMembershipTierReturn {
   const { authUser } = useAuth();
-  const [status, setStatus] = useState<MembershipStatus | null>(null);
+  const [status, setStatus] = useState<MembershipStatusView | null>(null);
 
   useEffect(() => {
     if (!authUser) {
@@ -36,7 +36,7 @@ export function useMembershipTier(): UseMembershipTierReturn {
       return;
     }
     let alive = true;
-    apiCached<MembershipStatus>(
+    apiCached<MembershipStatusView>(
       // B1 legacy 退役：user_key 兜底参数已删除，身份由 JWT 承载
       "/api/membership/status",
       TIER_CACHE_TTL,
@@ -56,9 +56,9 @@ export function useMembershipTier(): UseMembershipTierReturn {
   // 新体系：会员状态 = { plan, subscription, quotas }；普通用户（无订阅）不算 VIP。
   const hasSubscription = Boolean(status?.subscription);
   return {
-    tierLabel: hasSubscription ? status?.plan.name_zh || "" : "",
-    currentPlanCode: hasSubscription ? status?.plan.plan_code ?? null : null,
+    tierLabel: hasSubscription ? status?.plan.nameZh || "" : "",
+    currentPlanCode: hasSubscription ? status?.plan.planCode ?? null : null,
     currentPlanPrice: hasSubscription ? Number(status?.plan.price) : null,
-    currentPlanName: status?.plan?.name_zh ?? null,
+    currentPlanName: status?.plan?.nameZh ?? null,
   };
 }

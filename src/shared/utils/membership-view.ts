@@ -7,7 +7,7 @@
  *              与后端门控/升级预览同源；此处集中供六卡状态卡、账号卡、公告侧栏复用，
  *              避免各组件各自拼装额度字段。
  */
-import type { QuotaBalanceRow } from "@/types";
+import type { QuotaView } from "@/types";
 
 /** 解锁额度权益码：与 membership-upgrade 服务、门控常量同源。 */
 export const UNLOCK_BENEFIT_CODE = "notice_view";
@@ -32,8 +32,8 @@ export function hasUnlockQuota(remaining: number): boolean {
  * - 其余取非负余额。
  * 消费方判"不限"用 isUnlimitedQuota、判"可用"用 hasUnlockQuota，勿再裸比较 9999/>0。
  */
-export function unlockRemaining(quotas: QuotaBalanceRow[] | null | undefined): number {
-  const pool = quotas?.find((q) => q.benefit_code === UNLOCK_BENEFIT_CODE);
+export function unlockRemaining(quotas: QuotaView[] | null | undefined): number {
+  const pool = quotas?.find((q) => q.benefitCode === UNLOCK_BENEFIT_CODE);
   if (!pool) return 0;
   if (pool.remaining === null) return UNLIMITED_QUOTA;
   return Math.max(0, pool.remaining);
