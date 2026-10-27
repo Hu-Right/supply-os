@@ -2,8 +2,9 @@
  * 注册编排服务（架构评估 A4：自 auth/register 路由下沉）
  *
  * @module lib/services/auth-register
- * @description 收口"手机号注册"的多仓库编排：密码策略、邀请码校验、
- *              短信验证码核销、建号（自动昵称）、登录时间补记、KPI 归属递增、
+ * @description 收口"手机号注册"的多仓库编排：密码策略、邀请码校验（员工码 EMP- / 渠道码 CH-
+ *              两个命名空间按前缀分流）、短信验证码核销、建号（自动昵称）、登录时间补记、
+ *              归属记账（员工走 KPI 递增，渠道走注册台账）、
  *              合规同意日志（失败不阻断）、载荷与 Token 签发（注册即登录）。
  *              路由层只保留：请求解析、Cookie 邀请码回退、IP/UA 提取、Cookie 清理。
  *              业务失败以 RouteError（lib 级业务错误，含 status/code 元数据）抛出。
@@ -13,6 +14,7 @@
  *              不再依赖 user_key 列做查询。
  */
 import type { AppContext } from "../db/context";
+import type { CodeOwner } from "../repos/invitation.repo";
 import { RouteError } from "../middleware/route-handler";
 import {
   EC_INVALID_PARAMS, EC_INVITE_CODE_INVALID, EC_INVALID_CODE, EC_TOO_MANY_ATTEMPTS,
@@ -65,13 +67,14 @@ export async function registerUser(
   if (!pwCheck.valid) throw new RouteError(400, EC_INVALID_PARAMS, pwCheck.message);
 
   // ── 邀请码有效性校验（可选：有邀请码时校验，无则跳过） ──
-  let referralEmployeeId: number | null = null;
+  // 两个命名空间按前缀分流（EMP- 员工 / CH- 渠道），互斥、不做双向 fallback。
+  let owner: CodeOwner | null = null;
   if (inviteCode) {
     const inviteValidation = await ctx.user.invitationRepo.validateCode(inviteCode);
     if (!inviteValidation.valid) {
       throw new RouteError(400, EC_INVITE_CODE_INVALID, inviteValidation.reason || "邀请码无效");
     }
-    referralEmployeeId = inviteValidation.employee_id!;
+    owner = inviteValidation.owner ?? null;
   }
 
   // ── 短信验证码校验：以手机号为唯一锚点（注册时账号不存在，不依赖 user_key/user_id） ──
@@ -95,7 +98,8 @@ export async function registerUser(
     password_hash: await hashPassword(pw),
     phone: targetPhone,
     referral_code: inviteCode,
-    referral_employee_id: referralEmployeeId ?? undefined,
+    // 渠道码不得写进员工列：那是 crm_employees 的归属语义，串了会在员工后台看见不属于他的人头
+    referral_employee_id: owner !== null && owner.namespace === "employee" ? owner.employeeId : undefined,
   });
   if (!newUserId) throw new RouteError(400, EC_INVALID_REQUEST, "注册失败，请稍后重试");
 
@@ -109,9 +113,17 @@ export async function registerUser(
   // 位置在核销验证码与建号之后：密码策略/邀请码/验证码/判重等失败路径均已在其上方早退，不会写。
   await ctx.user.usersRepo.updateLastLoginById(newUserId);
 
-  // 仅在邀请码有效时递增 KPI 归属计数（注册 KPI「个人起步」：认证转企业由后台审核事件翻转）
-  if (referralEmployeeId) {
-    await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, "personal");
+  // 归属记账：员工码走 crm_monthly_kpi 的「个人起步」桶（认证转企业由后台审核事件翻转）；
+  // 渠道码走 crm_channel_registrations 台账（一人一行，库内幂等）。两者互斥、各写各的。
+  // 失败一律向上抛，不静默吞：KPI 与台账都是对账凭据，少记一笔就是少结一笔（与上方合规日志的「不阻断」刻意相反）。
+  if (owner !== null && owner.namespace === "employee") {
+    await ctx.user.invitationRepo.incrementMonthlyActual(owner.employeeId, "personal");
+  } else if (owner !== null && owner.namespace === "channel") {
+    await ctx.user.invitationRepo.recordChannelRegistration({
+      userId: newUserId,
+      code: owner.code,
+      partnerId: owner.partnerId,
+    });
   }
 
   // 取回创建后的用户行（payload 组装 + 同意日志 user_id 双写均需要）——按 id 定位
