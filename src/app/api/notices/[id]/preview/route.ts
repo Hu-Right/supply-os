@@ -21,17 +21,18 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const notice = await detailRepo.findDetailPublished(noticeId);
     if (!notice) routeError(404, 40044, "公告不存在");
 
-    // 返回有限预览字段：机构名、国家、分类、截止日期等（不含完整描述）
+    // 有限预览字段：对齐服务宽表列名（与 unified-search / NoticeDetail 同口径）。
+    // 基表 crm_bid_notices 的历史列名在本路由一次性映射为宽表名，
+    // 否则锁定公告深链进入详情时消费方按宽表名取值落空，回落"未知机构/全球/暂无截止/0.00"。
     return NextResponse.json({
-      id: notice.id,
-      title: notice.title || "",
-      agency: notice.agency || notice.agency_full || notice.organization || "",
-      agency_full: notice.agency_full || "",
-      country: notice.country || "",
-      notice_type: notice.notice_type || "",
-      deadline: notice.deadline || "",
-      estimated_value: notice.estimated_value || "",
+      notice_pk: notice.id,
       reference: notice.reference || "",
+      title: notice.title || "",
+      notice_type_code: notice.notice_type || "",
+      country_code: notice.country || "",
+      buyer_name: notice.agency_full || notice.agency || notice.organization || "",
+      deadline_ts: notice.deadline_ts ?? null,
+      estimated_value: notice.estimated_value || "",
     });
   },
 );
