@@ -113,7 +113,7 @@ export function Step3PublishSettings({ form, errors, update, termsOpen, setTerms
           <SummaryItem label="需求标题" value={form.title} onEdit={() => setStep(0)} />
           <SummaryItem label="产品分类" value={categoryDisplay} onEdit={() => setStep(0)} />
           <SummaryItem label="预算" value={form.budgetConfidential ? "保密" : form.budget ? `${form.budget} 万元` : ""} onEdit={() => setStep(1)} />
-          <SummaryItem label="交付地点" value={[form.provinceName, form.cityName, form.districtName, form.address].filter(Boolean).join(" ")} onEdit={() => setStep(1)} />
+          <SummaryItem label="交付地点" value={form.address} onEdit={() => setStep(1)} />
           <SummaryItem label="报价截止" value={form.deadline || ""} onEdit={() => setStep(1)} />
           <SummaryItem label="可见范围" value={form.visibility === "public" ? "公开询价" : "定向邀约"} onEdit={() => setStep(2)} />
           <SummaryItem label="附件" value={form.attachments.length ? `${form.attachments.length} 个文件` : ""} onEdit={() => setStep(2)} />

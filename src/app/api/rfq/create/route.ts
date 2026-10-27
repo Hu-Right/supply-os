@@ -77,13 +77,14 @@ export const POST = withRoute(async (req: NextRequest) => {
   const estimatedValue = budgetConfidential ? 0 : budget;
 
   const contactPhone = str(body.contact_phone, 50);
-  const provinceName = str(body.province_name, 50);
+  // 交付地点：手动填写完整地址（2026-10-22 省市区级联与 province_name 写入退役，历史行仅读）
+  const deliveryAddress = str(body.delivery_address, 500);
+  if (!deliveryAddress) routeError(400, EC_INVALID_PARAMS, "请填写交付地点");
   // 品目分类：UGT 最深节点码（旧 category_l1_id/l2_id 字典 id 随旧品类字典退役停写）
   const categoryCode = normalizeBackboneNodeKey(str(body.category_code, 24));
   if (categoryCode && !isCommodityNodeKey(categoryCode)) {
     routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 骨架节点码）");
   }
-  const deliveryAddress = str(body.delivery_address, 500);
   const incoterm = str(body.incoterm, 20);
   const deliveryTime = str(body.delivery_time, 200);
   const visibility = body.visibility === "targeted" ? "targeted" : "public";
@@ -96,8 +97,6 @@ export const POST = withRoute(async (req: NextRequest) => {
     ? body.supplier_reqs.map((v: unknown) => str(v, 100)).filter(Boolean).join(",")
     : "";
 
-
-
   // ── 写入 crm_bid_notices（商务条款走独立列，不再拼接 description）──
   const pool = getPool();
 
@@ -108,19 +107,18 @@ export const POST = withRoute(async (req: NextRequest) => {
     // published 时才由 submit/后台写入），避免草稿/待审核阶段误显“发布于”。
     const [result] = await pool.query(
       `INSERT INTO crm_bid_notices
-        (title, description, country, province_name, category_code,
+        (title, description, country, category_code,
          notice_type, deadline, deadline_ts, create_time,
          estimated_value, currency, rfq_status,
          contact_email, contact_phone, user_id, entry_source,
          contact_name, budget_confidential,
          incoterm, delivery_time, delivery_address, payment_terms, supplier_reqs, visibility)
-       VALUES (?, ?, ?, ?, ?, 'RFQ', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'platform',
+       VALUES (?, ?, ?, ?, 'RFQ', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'platform',
                ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
         description.slice(0, 10000),
         "China",
-        provinceName,
         categoryCode || null,
         deadline,
         deadlineSec,

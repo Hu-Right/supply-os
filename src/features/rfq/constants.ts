@@ -3,7 +3,7 @@
  * RFQ Page Constants
  *
  * @module features/rfq/constants
- * @description 发布向导表单选项与默认值。类目走旧品类码 API 级联加载。
+ * @description 发布向导表单选项与默认值。品目分类走 UGT 骨架树接口级联加载。
  */
 import type { RfqFormState } from "./types";
 
@@ -33,18 +33,13 @@ export const DEFAULT_RFQ_FORM: RfqFormState = {
   title: "",
   categoryL1: "",
   categoryL2: "",
+  categoryL3: "",
   purchaseType: "once",
   description: "",
   budget: "",
   budgetConfidential: false,
   currency: "CNY",
-  // 交付地点（省→市→区/县三级联动 + 详细地址）
-  provinceId: null,
-  provinceName: "",
-  cityId: null,
-  cityName: "",
-  districtId: null,
-  districtName: "",
+  // 交付地点（手动填写完整地址，含国家/省/市）
   address: "",
   incoterm: "",
   deliveryTime: "",

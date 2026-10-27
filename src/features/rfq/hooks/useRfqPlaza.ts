@@ -3,11 +3,12 @@
  * RFQ Plaza search/data hook
  *
  * @module features/rfq/hooks/useRfqPlaza
- * @description 承载需求广场的筛选状态（关键词/省份/品目大类/排序）、32 大类选项装载、
+ * @description 承载需求广场的筛选状态（关键词/品目大类/排序）、32 大类选项装载、
  *              300ms 防抖请求与列表状态；组件仅负责展示（约定：数据获取统一在 hooks 层）。
  *              原为 RfqPlaza 组件内联逻辑，行为一致。
  *              2026-10-15 G 码退役：大类选项改走树接口（L1 行直出，树名即展示名），
  *              category_l1 的值携带 L1 树码（UGT-xx）。
+ *              2026-10-22 交付地点改手动填写地址（仅展示），省份筛选随省市区级联一并退役。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/core/http";
@@ -25,7 +26,6 @@ interface ApiResponse {
 
 export function useRfqPlaza() {
   const [keyword, setKeyword] = useState("");
-  const [province, setProvince] = useState("");
   const [categoryL1, setCategoryL1] = useState("");
   const [sort, setSort] = useState<RfqSortKey>("newest");
   const [items, setItems] = useState<PlazaRfq[]>([]);
@@ -49,10 +49,9 @@ export function useRfqPlaza() {
     sp.set("page_size", "24");
     sp.set("sort", sort);
     if (keyword.trim()) sp.set("q", keyword.trim());
-    if (province) sp.set("province", province);
     if (categoryL1) sp.set("category_l1", categoryL1);
     return sp.toString();
-  }, [keyword, province, categoryL1, sort]);
+  }, [keyword, categoryL1, sort]);
 
   // 防抖请求
   const fetchList = useCallback(() => {
@@ -78,7 +77,6 @@ export function useRfqPlaza() {
 
   return {
     keyword, setKeyword,
-    province, setProvince,
     categoryL1, setCategoryL1,
     sort, setSort,
     items, loading, total, l1Options,

@@ -3,6 +3,7 @@
  *
  * @module app/api/rfq/list/route
  * @description 从 crm_bid_notices 查询 entry_source='platform' AND notice_type='RFQ' AND rfq_status='published' 的记录。
+ *              筛选：关键词 + 品目大类（UGT L1 树码前缀）；交付地点为手动填写地址，仅展示不筛选。
  *              替代旧版前端 PLAZA_RFQS 静态数组。
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
@@ -31,7 +32,6 @@ export const GET = withRoute(async (req: NextRequest) => {
   const page = Math.max(1, Number(sp.get("page")) || 1);
   const pageSize = Math.min(Math.max(Number(sp.get("page_size")) || 12, 4), 48);
   const q = String(sp.get("q") || "").trim().slice(0, 200);
-  const province = String(sp.get("province") || "").trim().slice(0, 50);
   // 品目大类筛选：L1 树码 UGT-xx（2026-10-15 G 码退役；旧字典行 id 参数随旧品类字典退役停用）
   const categoryL1 = String(sp.get("category_l1") || "").trim().slice(0, 16);
   const sort = sp.get("sort") === "deadline" ? "deadline" : sp.get("sort") === "budget" ? "budget" : "newest";
@@ -51,10 +51,6 @@ export const GET = withRoute(async (req: NextRequest) => {
   if (q) {
     conditions.push("(n.title LIKE ? OR LEFT(n.description, 500) LIKE ?)");
     params.push(`%${q}%`, `%${q}%`);
-  }
-  if (province) {
-    conditions.push("n.province_name = ?");
-    params.push(province);
   }
   if (categoryL1) {
     // 非法码直接当空条件处理（不 500：筛选参数可手输）
@@ -82,7 +78,7 @@ export const GET = withRoute(async (req: NextRequest) => {
          WHERE ${whereSql}`, params), timeout]),
       Promise.race([
         pool.query(
-          `SELECT n.id, n.reference, n.title, n.country, n.province_name,
+          `SELECT n.id, n.reference, n.title, n.country, n.province_name, n.delivery_address,
                   n.category_code, c1.name_zh AS category_name,
                   c0.name_zh AS category_l1_name,
                   n.estimated_value, n.currency, n.deadline_sec, n.is_featured, n.agency,
@@ -103,7 +99,10 @@ export const GET = withRoute(async (req: NextRequest) => {
     const total = Number(countRows[0]?.total || 0);
 
     const items = rows.map((row) => {
-      const province = String(row.province_name || "");
+      // 交付地点：手动填写地址优先；province_name 仅历史行残留（不再写、不再筛选）
+      const address = String(row.delivery_address || "");
+      const legacyProvince = String(row.province_name || "");
+      const location = address || legacyProvince;
       // 一级名 = 所在大类（L1）的树名，二级名 = 存储节点自身名称；无码的老行两列皆空
       const catL1 = String(row.category_l1_name || "");
       const catL2 = String(row.category_name || "");
@@ -113,9 +112,10 @@ export const GET = withRoute(async (req: NextRequest) => {
         industry: catL1 || catL2,
         tag: catL1 || catL2,
         title: String(row.title || ""),
-        countryZh: province || "中国",
+        countryZh: "中国",
         countryEn: "China",
-        province,
+        address: location,
+        province: legacyProvince || undefined,
         categoryL1: catL1,
         categoryL2: catL2,
         budgetDisplay: formatBudget(Number(row.estimated_value) || 0, String(row.currency || "CNY")),

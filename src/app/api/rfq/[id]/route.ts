@@ -180,9 +180,12 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       updateParams.push(str(body.currency || "CNY", 10));
     }
 
-    if (body.province_name !== undefined) {
-      updates.push("province_name = ?");
-      updateParams.push(str(body.province_name, 50));
+    if (body.delivery_address !== undefined) {
+      // 交付地点：手动填写完整地址（province_name 写入已退役，历史行仅读）
+      const deliveryAddress = str(body.delivery_address, 500);
+      if (!deliveryAddress) routeError(400, EC_INVALID_PARAMS, "交付地点不能为空");
+      updates.push("delivery_address = ?");
+      updateParams.push(deliveryAddress);
     }
 
     if (body.category_code !== undefined) {
@@ -222,11 +225,6 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     if (body.delivery_time !== undefined) {
       updates.push("delivery_time = ?");
       updateParams.push(str(body.delivery_time, 200) || null);
-    }
-
-    if (body.delivery_address !== undefined) {
-      updates.push("delivery_address = ?");
-      updateParams.push(str(body.delivery_address, 500) || null);
     }
 
     if (body.payment_terms !== undefined) {

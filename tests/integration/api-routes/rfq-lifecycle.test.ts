@@ -42,6 +42,7 @@ function validBody(overrides: Record<string, unknown> = {}) {
     title: "E2E 集成测试采购需求标题（长度充足）",
     description: "这是一个用于集成测试的采购需求描述，内容长度超过五十字的下限要求，用于验证发布校验与写入链路的完整性与状态流转。",
     deadline: inSevenDays(),
+    delivery_address: "中国 陕西省 西安市 高新区测试路 1 号",
     contact_name: "集成测试",
     contact_email: "it@example.com",
     ...overrides,
@@ -122,6 +123,14 @@ describe("POST /api/rfq/create — 参数校验边界", () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(400);
+  });
+
+  it("交付地点缺失 → 400（2026-10-22 手动地址为必填，省市区级联已退役）", async () => {
+    const { POST } = await import("@/app/api/rfq/create/route");
+    const res = await POST(post("/api/rfq/create", validBody({ delivery_address: "" })));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toContain("交付地点");
   });
 });
 

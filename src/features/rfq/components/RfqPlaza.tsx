@@ -5,7 +5,8 @@
  * RFQ Plaza
  *
  * @module features/rfq/components/RfqPlaza
- * @description 已发布 RFQ 的可检索列表：关键词 + 国家 + 预算筛选与排序。
+ * @description 已发布 RFQ 的可检索列表：关键词 + 品目大类（UGT L1 树码）筛选与排序；
+ *              交付地点为手动填写地址仅作展示，不做筛选。
  *              数据从 GET /api/rfq/list 获取（替代旧版 PLAZA_RFQS 静态数组）。
  *              未登录点击"查看详情"唤起登录弹层（信息脱敏策略）。
  */
@@ -15,7 +16,6 @@ import { Clock, Gem, Search } from "lucide-react";
 
 import { cn } from "@/shared/utils";
 import { Button, CountryFlag, EmptyState, Input, SegmentedControl, Select } from "@/shared/ui";
-import { provinces as chinaProvinces } from "@/data/china-division/provinces";
 import type { PlazaRfq } from "../types";
 import { useRfqPlaza, type RfqSortKey } from "../hooks/useRfqPlaza";
 
@@ -41,7 +41,6 @@ export function RfqPlaza() {
 
   const {
     keyword, setKeyword,
-    province, setProvince,
     categoryL1, setCategoryL1,
     sort, setSort,
     items, loading, total, l1Options,
@@ -74,19 +73,15 @@ export function RfqPlaza() {
           ]} />
       </div>
 
-      {/* 筛选行 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-5">
+      {/* 筛选行：品目大类走 UGT 骨架树 L1 码；地点为手动地址不筛选 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-5">
         <Input leftIcon={<Search className="w-4 h-4" />} value={keyword}
           onChange={(e) => setKeyword(e.target.value)} placeholder="搜索需求关键词" aria-label="搜索需求关键词" />
-        <Select value={categoryL1} onChange={(e) => setCategoryL1(e.target.value)} aria-label="行业筛选">
-          <option value="">全部行业</option>
+        <Select value={categoryL1} onChange={(e) => setCategoryL1(e.target.value)} aria-label="品目大类筛选">
+          <option value="">全部品目大类</option>
           {l1Options.map((o) => (
             <option key={o.key} value={o.key}>{o.nameZh || o.nameEn || o.key}</option>
           ))}
-        </Select>
-        <Select value={province} onChange={(e) => setProvince(e.target.value)} aria-label="省份筛选">
-          <option value="">全部省份</option>
-          {chinaProvinces.map((p) => <option key={p.code} value={p.name}>{p.name}</option>)}
         </Select>
       </div>
 
@@ -155,9 +150,9 @@ function PlazaCard({ rfq }: { rfq: PlazaRfq }) {
       </div>
       <h4 className="text-sm font-bold text-secondary-900 mb-2 leading-snug line-clamp-2">{rfq.title}</h4>
       <div className="space-y-1 text-xs text-secondary-500 flex-1">
-        {rfq.province && (
-          <p className="flex items-center gap-1.5">
-            <CountryFlag name="China" /> {rfq.province}
+        {(rfq.address || rfq.province) && (
+          <p className="flex items-center gap-1.5 line-clamp-1">
+            <CountryFlag name="China" /> {rfq.address || rfq.province}
           </p>
         )}
         <p>预算：{rfq.budgetDisplay}</p>

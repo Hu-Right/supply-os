@@ -6,8 +6,10 @@
  *
  * @module features/rfq/components/ResponseFlow
  * @description 发布 → 审核匹配 → 报价 → 比价 → 履约 五步全链路展示，
- *              回答"发布后会发生什么"的信任问题。浅色横排，移动端可横滑。
+ *              回答"发布后会发生什么"的信任问题。浅色横排，五步 flex 均分撑满整行，
+ *              移动端可横滑。
  */
+import { Fragment } from "react";
 import { FileText, ShieldCheck, Mail, Scale, Handshake, ChevronRight } from "lucide-react";
 
 const FLOW = [
@@ -31,23 +33,25 @@ export function ResponseFlow() {
         {FLOW.map((step, idx) => {
           const Icon = step.icon;
           return (
-            <div key={step.title} className="flex items-start gap-2 min-w-0">
-              <div className="flex flex-col items-center text-center min-w-[96px] px-1">
-                <div className="w-11 h-11 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center mb-2">
-                  <Icon className="w-5 h-5 text-primary-600" />
+            <Fragment key={step.title}>
+              <div className="flex-1 flex justify-center min-w-0">
+                <div className="flex flex-col items-center text-center min-w-[96px] px-1">
+                  <div className="w-11 h-11 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center mb-2">
+                    <Icon className="w-5 h-5 text-primary-600" />
+                  </div>
+                  <div className="text-xs font-bold text-secondary-900 mb-1">
+                    <span className="text-primary-600 mr-1">{idx + 1}</span>
+                    {step.title}
+                  </div>
+                  <p className="text-2xs text-secondary-400 leading-relaxed">{step.desc}</p>
                 </div>
-                <div className="text-xs font-bold text-secondary-900 mb-1">
-                  <span className="text-primary-600 mr-1">{idx + 1}</span>
-                  {step.title}
-                </div>
-                <p className="text-2xs text-secondary-400 leading-relaxed">{step.desc}</p>
               </div>
               {idx < FLOW.length - 1 && (
                 <div className="flex items-center pt-4 text-secondary-300 shrink-0">
                   <ChevronRight className="w-4 h-4" />
                 </div>
               )}
-            </div>
+            </Fragment>
           );
         })}
       </div>

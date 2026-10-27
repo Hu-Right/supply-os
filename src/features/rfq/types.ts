@@ -27,19 +27,14 @@ export interface RfqFormState {
   title: string;
   categoryL1: string;
   categoryL2: string;
+  categoryL3: string;
   purchaseType: PurchaseType;
   description: string;
   // Step 2 商务条款
   budget: string;
   budgetConfidential: boolean;
   currency: string;
-  // 交付地点（省→市→区/县三级联动 + 详细地址）
-  provinceId: number | null;
-  provinceName: string;
-  cityId: number | null;
-  cityName: string;
-  districtId: number | null;
-  districtName: string;
+  // 交付地点（手动填写完整地址，含国家/省/市；不再做省市区级联与省份筛选）
   address: string;
   incoterm: string;
   deliveryTime: string;
@@ -71,7 +66,9 @@ export interface PlazaRfq {
   countryZh: string;
   /** 英文名，供 CountryFlag 匹配 ISO2 */
   countryEn: string;
-  /** 交付省份 */
+  /** 交付地点（手动填写的完整地址；旧数据为主表省份名） */
+  address?: string;
+  /** 交付省份（历史行残留，新行不再写） */
   province?: string;
   /** 一级分类名称 */
   categoryL1?: string;

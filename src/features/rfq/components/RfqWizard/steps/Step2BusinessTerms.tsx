@@ -1,9 +1,8 @@
 /**
- * Step 2 — 商务条款：预算、交付地点、贸易术语、付款方式、报价截止
+ * Step 2 — 商务条款：预算、交付地点（手动填写）、贸易术语、付款方式、报价截止
  * @module features/rfq/components/RfqWizard/steps/Step2BusinessTerms
  */
-import { ChipToggleGroup, Input, SearchableSelect, Select } from "@/shared/ui";
-import { provinces as chinaProvinces } from "@/data/china-division/provinces";
+import { ChipToggleGroup, Input, Select, Textarea } from "@/shared/ui";
 import {
   INCOTERM_OPTIONS, PAYMENT_OPTIONS, CURRENCY_OPTIONS,
 } from "../../../constants";
@@ -15,11 +14,9 @@ export interface Step2Props {
   form: RfqFormState;
   errors: FieldErrors;
   update: <K extends keyof RfqFormState>(key: K, value: RfqFormState[K]) => void;
-  citiesList: typeof chinaProvinces;
-  districtsList: typeof chinaProvinces;
 }
 
-export function Step2BusinessTerms({ form, errors, update, citiesList, districtsList }: Step2Props) {
+export function Step2BusinessTerms({ form, errors, update }: Step2Props) {
   return (
     <div className="space-y-5">
       <Field label="预算金额" required={!form.budgetConfidential} error={errors.budget}
@@ -40,57 +37,17 @@ export function Step2BusinessTerms({ form, errors, update, citiesList, districts
         </div>
       </Field>
 
-      <Field label="交付地点" required error={errors.provinceId}>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <SearchableSelect
-            options={chinaProvinces.map((p) => ({ value: Number(p.code), label: p.name }))}
-            value={form.provinceId}
-            onChange={(id) => {
-              const p = chinaProvinces.find((x) => Number(x.code) === Number(id));
-              update("provinceId", id ? Number(id) : null);
-              update("provinceName", p?.name ?? "");
-              update("cityId", null);
-              update("cityName", "");
-              update("districtId", null);
-              update("districtName", "");
-            }}
-            placeholder="搜索省份"
-          />
-          <SearchableSelect
-            options={citiesList.map((c) => ({ value: Number(c.code), label: c.name }))}
-            value={form.cityId}
-            onChange={(id) => {
-              const c = citiesList.find((x) => Number(x.code) === Number(id));
-              update("cityId", id ? Number(id) : null);
-              update("cityName", c?.name ?? "");
-              update("districtId", null);
-              update("districtName", "");
-            }}
-            placeholder={form.provinceId ? "搜索城市" : "先选省份"}
-            disabled={!form.provinceId}
-          />
-          <SearchableSelect
-            options={districtsList.map((a) => ({ value: Number(a.code), label: a.name }))}
-            value={form.districtId}
-            onChange={(id) => {
-              const a = districtsList.find((x) => Number(x.code) === Number(id));
-              update("districtId", id ? Number(id) : null);
-              update("districtName", a?.name ?? "");
-            }}
-            placeholder={form.cityId ? "搜索区/县" : "先选城市"}
-            disabled={!form.cityId}
-          />
-          <Input
-            value={form.address}
-            onChange={(e) => update("address", e.target.value)}
-            placeholder="详细地址（街道、门牌号等）"
-          />
-        </div>
-        {form.provinceName && (
-          <p className="text-2xs text-secondary-500 mt-1.5">
-            {[form.provinceName, form.cityName, form.districtName, form.address].filter(Boolean).join(" ")}
-          </p>
-        )}
+      <Field
+        label="交付地点"
+        required
+        error={errors.address}
+        htmlFor="rfq-address"
+        hint="手动填写完整地址即可（含国家/省/市/详细地址），不参与筛选"
+      >
+        <Textarea id="rfq-address" rows={2} maxLength={500} value={form.address}
+          error={!!errors.address}
+          onChange={(e) => update("address", e.target.value)}
+          placeholder="例：中国 陕西省 西安市 高新区 XX 路 XX 号" />
       </Field>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

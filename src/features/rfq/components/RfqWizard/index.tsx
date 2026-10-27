@@ -28,7 +28,6 @@ import type { FieldErrors, RfqFormState } from "../../types";
 import { DESCRIPTION_TEMPLATE, STEP_META } from "./constants";
 import { tomorrowIso } from "./utils";
 import { StepIndicator } from "./ui/StepIndicator";
-import { useLocationData } from "./hooks/useLocationData";
 import { Step1ProductInfo } from "./steps/Step1ProductInfo";
 import { Step2BusinessTerms } from "./steps/Step2BusinessTerms";
 import { Step3PublishSettings } from "./steps/Step3PublishSettings";
@@ -80,9 +79,10 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
   const [submitted, setSubmitted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // ── 品目分类（UGT 骨架树）：一级 = 32 个 L1 行（树接口直出），二级按 L1 码拉品目树 ──
+  // ── 品目分类（UGT 骨架树）：一级 = 32 个 L1 行，二级 = 中类，三级 = 小类（发布定位到小类）──
   const [l1Options, setL1Options] = useState<CommodityTreeOption[]>([]);
   const [l2Options, setL2Options] = useState<CommodityTreeOption[]>([]);
+  const [l3Options, setL3Options] = useState<CommodityTreeOption[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,8 +99,12 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
       .catch((e) => { console.warn("[RfqWizard] 品目二级加载失败:", e); setL2Options([]); });
   }, [form.categoryL1]);
 
-  // ── 省市区级联 ──
-  const { citiesList, districtsList } = useLocationData(form);
+  useEffect(() => {
+    if (!form.categoryL2) { setL3Options([]); return; }
+    fetchCommodityTreeChildren(form.categoryL2)
+      .then((rows) => setL3Options(Array.isArray(rows) ? rows : []))
+      .catch((e) => { console.warn("[RfqWizard] 品目三级加载失败:", e); setL3Options([]); });
+  }, [form.categoryL2]);
 
   /** 联系方式登录态预填（仅在字段为空时，不覆盖已填内容） */
   useEffect(() => {
@@ -126,18 +130,25 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     });
   }
 
-  /** 切换一级类目：重置二级 */
+  /** 切换一级类目：重置二、三级；切换二级：重置三级 */
   function onCategoryL1(v: string) {
-    setForm((prev) => ({ ...prev, categoryL1: v, categoryL2: "" }));
-    setErrors((prev) => ({ ...prev, categoryL2: "" }));
+    setForm((prev) => ({ ...prev, categoryL1: v, categoryL2: "", categoryL3: "" }));
+    setErrors((prev) => ({ ...prev, categoryL2: "", categoryL3: "" }));
   }
 
-  /** 产品分类展示文案：大类与二级都取品目树名称（供第三步摘要核对） */
+  function onCategoryL2(v: string) {
+    setForm((prev) => ({ ...prev, categoryL2: v, categoryL3: "" }));
+    setErrors((prev) => ({ ...prev, categoryL3: "" }));
+  }
+
+  /** 产品分类展示文案：三级全取品目树名称（供第三步摘要核对） */
   const categoryDisplay = (() => {
     const l1Name = l1Options.find((o) => o.key === form.categoryL1)?.nameZh || "";
-    const pick = l2Options.find((o) => String(o.key) === String(form.categoryL2));
-    const l2Name = pick ? pick.nameZh || pick.nameEn || pick.key : "";
-    return [l1Name, l2Name].filter(Boolean).join(" / ");
+    const l2Pick = l2Options.find((o) => String(o.key) === String(form.categoryL2));
+    const l2Name = l2Pick ? l2Pick.nameZh || l2Pick.nameEn || l2Pick.key : "";
+    const l3Pick = l3Options.find((o) => String(o.key) === String(form.categoryL3));
+    const l3Name = l3Pick ? l3Pick.nameZh || l3Pick.nameEn || l3Pick.key : "";
+    return [l1Name, l2Name, l3Name].filter(Boolean).join(" / ");
   })();
 
   // ── 校验 ──
@@ -147,7 +158,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
       const title = form.title.trim();
       if (title.length < 10) e.title = `标题至少 10 个字（当前 ${title.length}），建议写明产品和数量，例如"采购光伏组件 10MW"`;
       else if (title.length > 50) e.title = "标题不能超过 50 个字";
-      if (!form.categoryL2) e.categoryL2 = "请选择产品/服务分类";
+      if (!form.categoryL3) e.categoryL3 = "请选择三级分类（小类）";
       const desc = form.description.trim();
       if (desc.length < 50) e.description = `描述至少 50 个字（当前 ${desc.length}），请补充用途、技术要求与验收标准`;
       else if (desc.length > 2000) e.description = "描述不能超过 2000 字";
@@ -155,7 +166,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     if (s === 1) {
       if (!form.deadline) e.deadline = "请选择报价截止时间";
       else if (form.deadline < tomorrowIso()) e.deadline = "截止时间至少在 24 小时以后";
-      if (!form.provinceId) e.provinceId = "请选择省份";
+      if (!form.address.trim()) e.address = "请填写交付地点";
       if (!form.incoterm) e.incoterm = "请选择贸易术语";
       if (!form.deliveryTime.trim()) e.deliveryTime = "请填写交付时间";
       if (!form.budgetConfidential) {
@@ -216,9 +227,8 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
           budget_confidential: form.budgetConfidential,
           currency: form.currency || "CNY",
           country: "China",
-          province_name: form.provinceName || "",
-          category_code: form.categoryL2 || form.categoryL1 || undefined,
-          delivery_address: [form.cityName, form.districtName, form.address].filter(Boolean).join(" "),
+          category_code: form.categoryL3 || form.categoryL2 || form.categoryL1 || undefined,
+          delivery_address: form.address.trim(),
           incoterm: form.incoterm,
           delivery_time: form.deliveryTime,
           payment_terms: form.paymentTerms,
@@ -270,15 +280,15 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
 
       {step === 0 && (
         <Step1ProductInfo
-          form={form} errors={errors} update={update} onCategoryL1={onCategoryL1}
-          l1Options={l1Options} l2Options={l2Options}
+          form={form} errors={errors} update={update}
+          onCategoryL1={onCategoryL1} onCategoryL2={onCategoryL2}
+          l1Options={l1Options} l2Options={l2Options} l3Options={l3Options}
         />
       )}
 
       {step === 1 && (
         <Step2BusinessTerms
           form={form} errors={errors} update={update}
-          citiesList={citiesList} districtsList={districtsList}
         />
       )}
 
