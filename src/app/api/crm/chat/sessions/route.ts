@@ -15,7 +15,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { chatSessionCreateSchema } from "@/lib/validators/chat";
-import { sessionOwnedBy } from "@/lib/services/chat-service";
+import { sessionOwnedBy, sessionViewOf, sessionsViewOf } from "@/lib/services/chat-service";
 import { EC_INVALID_REQUEST, EC_CHAT_SESSION_MISSING, EC_FORBIDDEN } from "@/shared/constants/api";
 import path from "path";
 
@@ -36,6 +36,8 @@ const readLimiterConfig = {
 /**
  * GET /api/crm/chat/sessions
  * 列出当前用户的活跃会话（waiting/active）
+ *
+ * 响应体走 chat-service 的会话视图（列名不外泄、内部标识不外卖）。
  */
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -45,7 +47,7 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   const chatRepo = getContext().chatRepo;
   const sessions = await chatRepo.listSessionsByCustomer(auth.userId);
-  return NextResponse.json(sessions);
+  return NextResponse.json(sessionsViewOf(sessions));
 });
 
 /**
@@ -74,10 +76,10 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const chatRepo = getContext().chatRepo;
 
-  // 复用既有 waiting/active 会话（取最近一条）
+  // 复用既有 waiting/active 会话（取最近一条）；回显与 GET 列表同一命名
   const existing = await chatRepo.listSessionsByCustomer(auth.userId);
   if (existing.length > 0) {
-    return NextResponse.json(existing[0]);
+    return NextResponse.json(sessionViewOf(existing[0]));
   }
 
   const { customerName, leadId, locale, aiSummary } = parsed.data!;
@@ -91,7 +93,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   });
 
   const session = await chatRepo.findSessionById(sessionId);
-  return NextResponse.json(session, { status: 201 });
+  return NextResponse.json(session ? sessionViewOf(session) : null, { status: 201 });
 });
 
 /**

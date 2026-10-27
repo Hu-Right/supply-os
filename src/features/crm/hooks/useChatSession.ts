@@ -12,7 +12,7 @@ import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { attachmentMarkerFromMetadata } from "./chat-types";
 import type { MessageRole, ChatMessage, AssistantMode } from "./chat-types";
-import type { ChatSessionRow, ChatMessageView } from "../types";
+import type { ChatSessionView, ChatMessageView } from "../types";
 
 export interface UseChatSessionReturn {
   chatSessionId: number | null;
@@ -77,7 +77,7 @@ export function useChatSession(): UseChatSessionReturn {
     setMode("waiting");
     appendMessage("system", t("crmAssistantWaitingMsg"));
     try {
-      const session = await api<{ id: number; customer_name: string | null }>("/api/crm/chat/sessions", {
+      const session = await api<{ id: number }>("/api/crm/chat/sessions", {
         method: "POST",
         retryOnAuth: true,
         body: {
@@ -124,13 +124,13 @@ export function useChatSession(): UseChatSessionReturn {
   ) => {
     if (chatSessionIdRef.current) return;
     try {
-      const sessions = await api<ChatSessionRow[]>("/api/crm/chat/sessions");
+      const sessions = await api<ChatSessionView[]>("/api/crm/chat/sessions");
       const latest = sessions?.[0];
       if (!latest) return;
       setChatSessionId(latest.id);
       if (latest.status === "active") {
         setMode("human");
-        setAgentName(latest.agent_email);
+        setAgentName(latest.agentName);
       } else {
         setMode("waiting");
       }

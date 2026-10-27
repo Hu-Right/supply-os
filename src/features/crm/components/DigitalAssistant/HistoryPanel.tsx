@@ -14,15 +14,23 @@ import type { ChatMessage } from "../../hooks/useDigitalAssistant";
 import { attachmentMarkerFromMetadata } from "../../hooks/useDigitalAssistant";
 import { MessageBubble } from "./MessageBubble";
 
-/** 历史会话列表项（GET /sessions/history 返回） */
+/**
+ * 历史会话列表项（GET /sessions/history 返回）。
+ * 镜像服务端 ChatHistorySessionView（红线② camelCase），时间字段是序列化后的 ISO 串。
+ */
 interface HistoryItem {
   id: number;
-  agent_email: string | null;
-  created_at: string;
-  closed_at: string | null;
+  status: "waiting" | "active" | "closed";
+  mode: "ai" | "human" | "hybrid";
+  locale: string;
+  agentName: string | null;
+  aiSummary: string | null;
+  createdAt: string;
+  acceptedAt: string | null;
+  closedAt: string | null;
   satisfaction: number | null;
-  last_message: string | null;
-  message_count: number;
+  lastMessage: string | null;
+  messageCount: number;
 }
 
 export interface HistoryPanelProps {
@@ -82,7 +90,7 @@ export function HistoryPanel({ onClose }: HistoryPanelProps) {
   }
 
   function historyDate(item: HistoryItem): string {
-    const d = item.closed_at ?? item.created_at;
+    const d = item.closedAt ?? item.createdAt;
     return new Date(d).toLocaleString(undefined, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
   }
 
@@ -127,7 +135,7 @@ export function HistoryPanel({ onClose }: HistoryPanelProps) {
                   )}
                 </div>
                 <p className="text-xs text-slate-700 truncate">
-                  {item.last_message ? item.last_message.slice(0, 60) : t("crmAssistantHistoryEmpty")}
+                  {item.lastMessage ? item.lastMessage.slice(0, 60) : t("crmAssistantHistoryEmpty")}
                 </p>
               </button>
             ))}

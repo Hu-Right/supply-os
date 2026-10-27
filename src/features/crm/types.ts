@@ -1,27 +1,30 @@
 // CRM 模块类型定义
 
-/** 客服会话行（与 lib/repos/chat.repo 的 ChatSessionRow 对齐，避免 features→lib 依赖） */
-export interface ChatSessionRow {
+/**
+ * 客服会话视图（镜像 lib/services/chat-service 的 ChatSessionView）。
+ *
+ * 对齐的是**对外视图**而不是 repo 行：列名（agent_email/created_at …）与
+ * 内部标识列（user_id/customer_id/agent_id/assigned_*）都不再出现在响应里。
+ * 时间字段写 string：服务端给 Date，经 JSON 序列化后就是 ISO 串。
+ */
+export interface ChatSessionView {
   id: number;
-  user_id: number | null;
-  customer_id: string;
-  customer_name: string | null;
-  lead_id: string | null;
-  agent_id: string | null;
-  agent_email: string | null;
   status: "waiting" | "active" | "closed";
   mode: "ai" | "human" | "hybrid";
-  ai_handled_count: number;
   locale: string;
-  ai_summary: string | null;
-  created_at: Date;
-  accepted_at: Date | null;
-  closed_at: Date | null;
-  last_message_at: Date | null;
+  customerName: string | null;
+  /** 客服署名（服务端取自 agent_email 列） */
+  agentName: string | null;
+  aiSummary: string | null;
+  aiHandledCount: number;
+  createdAt: string;
+  acceptedAt: string | null;
+  closedAt: string | null;
+  lastMessageAt: string | null;
   satisfaction: number | null;
-  satisfaction_tag: string | null;
-  satisfaction_comment: string | null;
-  rated_at: Date | null;
+  satisfactionTag: string | null;
+  satisfactionComment: string | null;
+  ratedAt: string | null;
 }
 
 /**

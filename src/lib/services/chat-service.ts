@@ -44,6 +44,113 @@ export function messageViewOf(row: ChatMessageRow): ChatMessageView {
 /** 批量出口（GET 列表与 SSE 增量都用它） */
 export const messagesViewOf = (rows: ChatMessageRow[]): ChatMessageView[] => rows.map(messageViewOf);
 
+// ── 会话对外视图（命名红线② 的收口点） ────────────────────────────
+
+/**
+ * 会话对外视图。
+ * @description repo 用 SELECT * 拉 crm_chat_sessions，列名（user_id / customer_id /
+ *              agent_id / agent_email / assigned_uid / assigned_at / ai_handled_count …）
+ *              会直接变成响应键。本视图只做两件事：
+ *              1) 键名归位 camelCase（值原样透传，时间仍是驱动给的 Date，序列化结果不变）；
+ *              2) 内部标识列不外发：user_id / customer_id / customer 侧无需的 agent_id /
+ *                  assigned_uid / assigned_at / lead_id 都不进出参（客服署名用 agentName，
+ *                  值就是 agent_email，客户端拿到它直接当显示名）。
+ */
+export interface ChatSessionView {
+  id: number;
+  status: ChatSessionRow["status"];
+  mode: ChatSessionRow["mode"];
+  locale: string;
+  customerName: string | null;
+  /** 客服署名（取自 agent_email 列） */
+  agentName: string | null;
+  aiSummary: string | null;
+  aiHandledCount: number;
+  createdAt: Date;
+  acceptedAt: Date | null;
+  closedAt: Date | null;
+  lastMessageAt: Date | null;
+  satisfaction: number | null;
+  satisfactionTag: string | null;
+  satisfactionComment: string | null;
+  ratedAt: Date | null;
+}
+
+export function sessionViewOf(row: ChatSessionRow): ChatSessionView {
+  return {
+    id: Number(row.id),
+    status: row.status,
+    mode: row.mode,
+    locale: row.locale,
+    customerName: row.customer_name ?? null,
+    agentName: row.agent_email ?? null,
+    aiSummary: row.ai_summary ?? null,
+    aiHandledCount: Number(row.ai_handled_count ?? 0),
+    createdAt: row.created_at,
+    acceptedAt: row.accepted_at ?? null,
+    closedAt: row.closed_at ?? null,
+    lastMessageAt: row.last_message_at ?? null,
+    satisfaction: row.satisfaction ?? null,
+    satisfactionTag: row.satisfaction_tag ?? null,
+    satisfactionComment: row.satisfaction_comment ?? null,
+    ratedAt: row.rated_at ?? null,
+  };
+}
+
+/** 会话列表/单条回显共用（POST 回显不能与 GET 列表分裂成两种命名） */
+export const sessionsViewOf = (rows: ChatSessionRow[]): ChatSessionView[] => rows.map(sessionViewOf);
+
+/**
+ * 历史会话对外视图（GET /api/crm/chat/sessions/history）。
+ * 行由 listHistorySessions 的显式列 + 两个子查询组成；口径与 ChatSessionView 一致。
+ */
+export interface ChatHistorySessionView {
+  id: number;
+  status: ChatSessionRow["status"];
+  mode: ChatSessionRow["mode"];
+  locale: string;
+  agentName: string | null;
+  aiSummary: string | null;
+  createdAt: Date;
+  acceptedAt: Date | null;
+  closedAt: Date | null;
+  satisfaction: number | null;
+  /** 最后一条消息预览（列表子查询） */
+  lastMessage: string | null;
+  messageCount: number;
+}
+
+export function historySessionViewOf(
+  row: Pick<
+    ChatSessionRow,
+    | "id" | "agent_email" | "status" | "mode" | "locale" | "ai_summary"
+    | "created_at" | "accepted_at" | "closed_at" | "satisfaction"
+  > & { last_message: string | null; message_count: number },
+): ChatHistorySessionView {
+  return {
+    id: Number(row.id),
+    status: row.status,
+    mode: row.mode,
+    locale: row.locale,
+    agentName: row.agent_email ?? null,
+    aiSummary: row.ai_summary ?? null,
+    createdAt: row.created_at,
+    acceptedAt: row.accepted_at ?? null,
+    closedAt: row.closed_at ?? null,
+    satisfaction: row.satisfaction ?? null,
+    lastMessage: row.last_message ?? null,
+    messageCount: Number(row.message_count ?? 0),
+  };
+}
+
+export const historySessionsViewOf = (
+  rows: Array<Pick<
+    ChatSessionRow,
+    | "id" | "agent_email" | "status" | "mode" | "locale" | "ai_summary"
+    | "created_at" | "accepted_at" | "closed_at" | "satisfaction"
+  > & { last_message: string | null; message_count: number }>,
+): ChatHistorySessionView[] => rows.map(historySessionViewOf);
+
 /**
  * 会话归属校验：优先比对 user_id（迁移 062 后的统一关联键）。
  * 从 chat.repo 提升至此，供路由层薄壳调用。

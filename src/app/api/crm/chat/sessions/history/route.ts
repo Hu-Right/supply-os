@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
+import { historySessionsViewOf } from "@/lib/services/chat-service";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import path from "path";
 import { ONE_MINUTE_MS } from "@/shared/constants/time";
@@ -29,5 +30,6 @@ export const GET = withRoute(async (req: NextRequest) => {
   const offset = Math.max(0, Number(req.nextUrl.searchParams.get("offset")) || 0);
 
   const sessions = await getContext().chatRepo.listHistorySessions(auth.userId, limit, offset);
-  return NextResponse.json({ sessions, limit, offset });
+  // 响应体走会话视图（列名不外泄；last_message/message_count 两个子查询列归位 camel）
+  return NextResponse.json({ sessions: historySessionsViewOf(sessions), limit, offset });
 });
