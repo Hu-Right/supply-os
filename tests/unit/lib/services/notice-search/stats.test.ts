@@ -20,9 +20,9 @@ describe("getNoticeStats", () => {
     expect(result.active).toBe(100);
     expect(result.bridged).toBe(50);
     expect(result.featured).toBe(10);
-    expect(result.bridge_gap).toBe(50);
-    expect(result.deadline_in_30d).toBe(20);
-    expect(result.with_original_docs).toBe(80);
+    expect(result.bridgeGap).toBe(50);
+    expect(result.deadlineIn30d).toBe(20);
+    expect(result.withOriginalDocs).toBe(80);
     clearStatsCache();
   });
 

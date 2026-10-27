@@ -46,9 +46,9 @@ export interface NoticeStatsResult {
   active: number;
   bridged: number;
   featured: number;
-  bridge_gap: number;
+  bridgeGap: number;
   /** 未来 30 天内截止的有效公告数（模块02 规模条口径） */
-  deadline_in_30d: number;
+  deadlineIn30d: number;
   /** 含原始文件（宽表 documents_count>0）的有效公告数 */
-  with_original_docs: number;
+  withOriginalDocs: number;
 }

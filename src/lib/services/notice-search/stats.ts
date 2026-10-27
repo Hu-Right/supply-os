@@ -61,9 +61,9 @@ export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
       const bridged = Number((bridgedRows as RowDataPacket[])[0]?.total || 0);
       const data: NoticeStatsResult = {
         raw: Number((rawRows as RowDataPacket[])[0]?.total || 0), active, bridged,
-        featured: Number((featuredRows as RowDataPacket[])[0]?.total || 0), bridge_gap: active - bridged,
-        deadline_in_30d: Number((deadline30Rows as RowDataPacket[])[0]?.total || 0),
-        with_original_docs: Number((docsRows as RowDataPacket[])[0]?.total || 0),
+        featured: Number((featuredRows as RowDataPacket[])[0]?.total || 0), bridgeGap: active - bridged,
+        deadlineIn30d: Number((deadline30Rows as RowDataPacket[])[0]?.total || 0),
+        withOriginalDocs: Number((docsRows as RowDataPacket[])[0]?.total || 0),
       };
       noticeStatsCache = { data, expires: Date.now() + 10 * 60 * 1000 };
       return data;

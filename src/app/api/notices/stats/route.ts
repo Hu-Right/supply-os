@@ -16,13 +16,16 @@ export const GET = withRoute(async () => {
   const pool = getPool();
   const stats = await getNoticeStats(pool);
   // 今日新增基于 create_time Unix 时间戳，按北京时间自然日切窗（口径见 stats.ts）
+  let todayNew = 0;
+  let yesterdayNew = 0;
   try {
     const daily = await getNoticeDailyNew(pool);
-    (stats as any).todayNew = daily.todayNew;
-    (stats as any).yesterdayNew = daily.yesterdayNew;
+    todayNew = daily.todayNew;
+    yesterdayNew = daily.yesterdayNew;
   } catch {
-    (stats as any).todayNew = 0;
-    (stats as any).yesterdayNew = 0;
+    // 每日新增取不到不阻断整块统计：规模条按零值渲染（原口径不变）
   }
-  return NextResponse.json(stats, { headers: { "Cache-Control": "public, max-age=600" } });
+  // 不直接往 stats 上写：getNoticeStats 命中时返回的是共享缓存对象，
+  // 就地改会让同进程后续请求读到上一轮的每日新增（跨请求脏写）。
+  return NextResponse.json({ ...stats, todayNew, yesterdayNew }, { headers: { "Cache-Control": "public, max-age=600" } });
 });

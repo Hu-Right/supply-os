@@ -14,8 +14,8 @@ const ZERO_STATS = {
   active: 0,
   todayNew: 0,
   yesterdayNew: 0,
-  deadline_in_30d: 0,
-  with_original_docs: 0,
+  deadlineIn30d: 0,
+  withOriginalDocs: 0,
 };
 
 describe("useListingStats", () => {
@@ -31,8 +31,8 @@ describe("useListingStats", () => {
 
   it("成功加载后返回统计数据", async () => {
     mockApi.mockResolvedValueOnce({
-      active: 5000, todayNew: 12, deadline_in_30d: 200,
-      with_original_docs: 800, bridged: 50,
+      active: 5000, todayNew: 12, deadlineIn30d: 200,
+      withOriginalDocs: 800, bridged: 50,
     });
 
     const { result } = renderHook(() => useListingStats());
@@ -42,8 +42,8 @@ describe("useListingStats", () => {
     });
 
     expect(result.current.todayNew).toBe(12);
-    expect(result.current.deadline_in_30d).toBe(200);
-    expect(result.current.with_original_docs).toBe(800);
+    expect(result.current.deadlineIn30d).toBe(200);
+    expect(result.current.withOriginalDocs).toBe(800);
   });
 
   it("API 失败时保持零值占位（不渲染脏数据）", async () => {
@@ -70,7 +70,7 @@ describe("useListingStats", () => {
     });
 
     expect(result.current.todayNew).toBe(0);
-    expect(result.current.deadline_in_30d).toBe(0);
-    expect(result.current.with_original_docs).toBe(0);
+    expect(result.current.deadlineIn30d).toBe(0);
+    expect(result.current.withOriginalDocs).toBe(0);
   });
 });

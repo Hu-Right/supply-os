@@ -38,8 +38,8 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
   // 数字从 0 缓动到真实值（与首页 StatsWall 一致）
   const animActive = useCountUp(stats.active);
   const animTodayNew = useCountUp(stats.todayNew);
-  const animDeadline30 = useCountUp(stats.deadline_in_30d);
-  const animWithDocs = useCountUp(stats.with_original_docs);
+  const animDeadline30 = useCountUp(stats.deadlineIn30d);
+  const animWithDocs = useCountUp(stats.withOriginalDocs);
 
   // 计算今日新增的环比变化
   const changeRate = calcChangeRate(stats.todayNew, stats.yesterdayNew);
