@@ -44,11 +44,12 @@ export function useClaimExpiry(
     setLoading(true);
     (async () => {
       try {
-        const res: { data?: { expires_at?: string } } = await api(
+        // GET /api/supplier-claims 直接出裸载荷（无认领记录为 null），字段 camelCase
+        const res = await api<{ id: number; status: string; createdAt?: string; expiresAt?: string } | null>(
           `/api/supplier-claims?supplier_id=${supplierId}`,
         );
-        if (res.data?.expires_at) {
-          setClaimExpiry(res.data.expires_at);
+        if (res?.expiresAt) {
+          setClaimExpiry(res.expiresAt);
         } else {
           setClaimExpiry(null);
           setRemaining(null);

@@ -76,8 +76,6 @@ const ALLOWLIST = new Set([
   "src/app/api/payments/config-status/route.ts#merchant_id",
   "src/app/api/payments/config-status/route.ts#notify_url",
   "src/app/api/payments/config-status/route.ts#required_env",
-  "src/app/api/supplier-claims/route.ts#created_at",
-  "src/app/api/supplier-claims/route.ts#expires_at",
 ]);
 
 const repoRoot = scanRoot();

@@ -212,7 +212,8 @@ describe("GET /api/supplier-claims — 状态查询", () => {
     expect(res.status).toBe(400);
   });
 
-  it("有认领记录 → 200 返回状态；无记录 → data null", async () => {
+  // 命名红线② + 2xx 裸载荷：本端点不再套 {success,data}，无记录直接 null
+  it("有认领记录 → 200 裸载荷 camelCase；无记录 → null", async () => {
     const { GET } = await import("@/app/api/supplier-claims/route");
     findByUserAndSupplier.mockResolvedValue({
       id: 8001, status: "approved", created_at: "2026-10-01", expires_at: "2026-10-08",
@@ -221,12 +222,17 @@ describe("GET /api/supplier-claims — 状态查询", () => {
     let res = await GET(req);
     expect(res.status).toBe(200);
     let body = await res.json();
-    expect(body.data.status).toBe("approved");
+    expect(body.status).toBe("approved");
+    expect(body.createdAt).toBe("2026-10-01");
+    expect(body.expiresAt).toBe("2026-10-08");
+    expect(body.created_at).toBeUndefined();
+    expect(body.expires_at).toBeUndefined();
+    expect(body.data).toBeUndefined();
 
     findByUserAndSupplier.mockResolvedValue(null);
     req = new NextRequest("http://localhost:3000/api/supplier-claims?supplier_id=18084");
     res = await GET(req);
     body = await res.json();
-    expect(body.data).toBeNull();
+    expect(body).toBeNull();
   });
 });

@@ -102,7 +102,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
     return NextResponse.json({
       success: true, id: result.claimId, status: "pending",
-      expires_at: result.expiresAt,
+      expiresAt: result.expiresAt,
       message: "认领成功，请在 1 小时内前往企业信息页上传营业执照并保存，逾期将自动解绑",
     }, { status: 201 });
   } catch (err) {
@@ -124,10 +124,13 @@ export const GET = withRoute(async (req: NextRequest) => {
   const ctx = getContext();
   try {
     const claim = await ctx.supplier.claimRepo.findByUserAndSupplier(auth.userId, supplierId);
-    return NextResponse.json({
-      success: true,
-      data: claim ? { id: claim.id, status: claim.status, created_at: claim.created_at, expires_at: claim.expires_at } : null,
-    });
+    // 2xx 裸载荷：无认领记录即返回 null。这里曾手搭过一层 {success,data} 包装——
+    // 它不命中只认 `code: 0` 哨兵的信封门禁，又与同资源 POST 的裸载荷不同形，属于第三种形状。
+    return NextResponse.json(
+      claim
+        ? { id: claim.id, status: claim.status, createdAt: claim.created_at, expiresAt: claim.expires_at }
+        : null,
+    );
   } catch (err) {
     console.error("[supplier-claims GET]", err);
     routeError(500, EC_INTERNAL_ERROR, "查询认领状态失败");
