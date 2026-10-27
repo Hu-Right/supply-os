@@ -35,6 +35,6 @@ export const POST = withRoute<{ params: Promise<{ orderNo: string }> }>(
     );
     if (!found) routeError(404, EC_PAYMENT_ORDER_NOT_FOUND, "订单不存在");
 
-    return NextResponse.json({ success: true, order_no: orderNo, status: "paid" });
+    return NextResponse.json({ success: true, orderNo, status: "paid" });
   },
 );

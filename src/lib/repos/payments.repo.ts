@@ -2,11 +2,6 @@
 import type { Pool, PoolConnection, ResultSetHeader } from "mysql2/promise";
 import type { PaymentOrderRow } from "./types";
 
-export interface PaymentProviderConfigRow {
-  provider: string; mode: string; app_id: string | null;
-  merchant_id: string | null; notify_url: string | null; is_active: number;
-}
-
 export class PaymentsRepo {
   constructor(private pool: Pool) {}
   getConnection(): Promise<PoolConnection> { return this.pool.getConnection(); }
@@ -80,14 +75,6 @@ export class PaymentsRepo {
       [p.amount, p.currency, p.payUrl, p.qrCodeUrl, p.rawRequest, orderNo],
     );
     if (updated.affectedRows !== 1) throw new Error("ORDER_STATE_CONFLICT");
-  }
-
-  async listActiveProviderConfigs(): Promise<PaymentProviderConfigRow[]> {
-    const [rows] = await this.pool.query(
-      `SELECT provider, mode, app_id, merchant_id, notify_url, is_active
-         FROM crm_payment_provider_configs WHERE is_active = 1 ORDER BY provider, id DESC`,
-    );
-    return rows as PaymentProviderConfigRow[];
   }
 
   async findOrderForUpdate(conn: PoolConnection, orderNo: string): Promise<PaymentOrderRow | null> {

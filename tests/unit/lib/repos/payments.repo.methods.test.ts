@@ -64,14 +64,6 @@ describe("PaymentsRepo 非事务方法", () => {
     expect(params).toEqual([700, "CNY", "/pay", "qr", "{}", "SO1"]);
   });
 
-  it("listActiveProviderConfigs → 返回渠道配置行", async () => {
-    vi.mocked(pool.query).mockResolvedValue(rowsOf([{ provider: "alipay", mode: "live" }]));
-    const rows = await repo.listActiveProviderConfigs();
-    const [sql] = lastSql(pool.query as never);
-    expect(sql).toContain("crm_payment_provider_configs");
-    expect(rows).toHaveLength(1);
-  });
-
   it("findOrderAmount → 命中返回金额/状态，未命中返回 null", async () => {
     vi.mocked(pool.query).mockResolvedValue(rowsOf([{ amount: "799", status: "paid" }]));
     expect(await repo.findOrderAmount("SO1")).toEqual({ amount: 799, status: "paid" });

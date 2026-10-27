@@ -66,13 +66,6 @@ const ALLOWLIST = new Set([
   "src/app/api/payment/orders/route.ts#pay_url",
   "src/app/api/payment/orders/route.ts#payment_mode",
   "src/app/api/payment/orders/route.ts#qr_code_url",
-  "src/app/api/payments/[orderNo]/mock-paid/route.ts#order_no",
-  "src/app/api/payments/config-status/route.ts#active_provider_configs",
-  "src/app/api/payments/config-status/route.ts#app_id",
-  "src/app/api/payments/config-status/route.ts#is_active",
-  "src/app/api/payments/config-status/route.ts#merchant_id",
-  "src/app/api/payments/config-status/route.ts#notify_url",
-  "src/app/api/payments/config-status/route.ts#required_env",
 ]);
 
 const repoRoot = scanRoot();
