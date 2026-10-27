@@ -26,12 +26,51 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import type { OpportunityListItemRow } from "@/lib/repos/opportunities.repo";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { EC_AUTH_REQUIRED } from "@/shared/constants/api";
 
 /** description 截断阈值（与公告搜索列表 300 字符对齐） */
 const LIST_DESC_MAX_CHARS = 300;
+
+/** 商机列表对外视图（② camelCase 实体契约） */
+interface OpportunityListItemView {
+  id: number;
+  title: string | null;
+  reference: string | null;
+  noticeType: string | null;
+  agency: string | null;
+  country: string | null;
+  deadline: string | null;
+  deadlineTs: number | null;
+  estimatedValue: string | null;
+  description: string | null;
+  industry: string | null;
+}
+
+/**
+ * 行→视图：多词 snake 列迁 camel（②）；省略 `deadline_sec`（仅内部排序键）与
+ * `source_url`（付费内容，仅解锁后详情端点返回，ARCH-P0）；正文按 300 字截断。
+ */
+function toOpportunityListItemView(row: OpportunityListItemRow): OpportunityListItemView {
+  return {
+    id: row.id,
+    title: row.title,
+    reference: row.reference,
+    noticeType: row.notice_type,
+    agency: row.agency,
+    country: row.country,
+    deadline: row.deadline,
+    deadlineTs: row.deadline_ts,
+    estimatedValue: row.estimated_value,
+    description:
+      row.description && row.description.length > LIST_DESC_MAX_CHARS
+        ? row.description.slice(0, LIST_DESC_MAX_CHARS) + "…"
+        : row.description,
+    industry: row.industry,
+  };
+}
 
 // ── GET /api/opportunities — 商机列表（需认证，脱敏口径，有界 80 条）──
 export const GET = withRoute(
@@ -43,15 +82,7 @@ export const GET = withRoute(
 
     const ctx = getContext();
     const items = await ctx.opportunitiesRepo.listOpportunities();
-    return NextResponse.json(
-      items.map((row) => ({
-        ...row,
-        // ARCH-P0：截断全文 + 移除外部链接，付费内容仅在解锁后详情端点返回
-        description: row.description && row.description.length > LIST_DESC_MAX_CHARS
-          ? row.description.slice(0, LIST_DESC_MAX_CHARS) + "…"
-          : row.description,
-        source_url: undefined,
-      })),
-    );
+    // ② 行→视图：响应实体键统一 camelCase；source_url/deadline_sec 不下发（ARCH-P0 + 内部列）
+    return NextResponse.json(items.map(toOpportunityListItemView));
   },
 );

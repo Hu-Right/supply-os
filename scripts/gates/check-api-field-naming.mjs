@@ -40,12 +40,13 @@ const METADATA_KEYS = new Set([
 ]);
 
 // 递减白名单（`<相对 route.ts>#<snake 键>`）：存量显式 snake 响应键，迁移一个删一行；新增不得进入。
+// 2026-10-27：② 存量已归零——opportunities 列表最后一个显式 snake 键（source_url 脱敏位）
+// 改走行→camel 视图（items.map(toOpportunityListItemView)），不再靠字面键。
 const DEFAULT_ALLOWLIST = new Set([
   // notices 全域（detail 12 项 + preview 6 项）与 content（2 项）已于 2026-10-27 迁完：
   // 行→视图统一走 lib/services/notice-public/view.ts（机械改名，值原样透传），
   // 响应契约由 types/procurement.ts 的 camelCase 字段定义，不再镜像列名。
   // preview 故意不调 mapper：它是付费墙，只发已登记的 8 个键（mapper 是改名不裁剪）。
-  "src/app/api/opportunities/route.ts#source_url",
   // payment/orders 的 pay_url / qr_code_url / payment_mode 已于 2026-10-27 随支付建单查单
   // 整族迁 camelCase（四服务响应类型 + 三端点 + 弹窗镜像一起改，不半截）。
 ]);

@@ -171,9 +171,10 @@ test.describe("商机浏览与解锁旅程", () => {
 
     const withDesc = items.find((i: { description?: string }) => i.description);
     if (withDesc) {
-      // 列表脱敏口径：description ≤ 300 字符（含省略号），source_url 不下发
+      // 列表脱敏口径：description ≤ 300 字符（含省略号），source_url 不下发（② 后 camel 名 sourceUrl 亦无）
       expect(withDesc.description.length).toBeLessThanOrEqual(301);
       expect(withDesc).not.toHaveProperty("source_url");
+      expect(withDesc).not.toHaveProperty("sourceUrl");
     }
   });
 
@@ -191,7 +192,7 @@ test.describe("商机浏览与解锁旅程", () => {
     )).json();
     const unlockedIds = new Set(
       (Array.isArray(unlocks) ? unlocks : unlocks.items ?? [])
-        .map((u: { opportunity_id?: number; id?: number }) => u.opportunity_id ?? u.id),
+        .map((u: { opportunityId: number }) => u.opportunityId),
     );
     const target = (Array.isArray(list) ? list : []).find(
       (i: { id: number }) => !unlockedIds.has(i.id),
@@ -234,8 +235,7 @@ test.describe("商机浏览与解锁旅程", () => {
     const unlockList = await unlocks.json();
     const arr = Array.isArray(unlockList) ? unlockList : unlockList.items ?? [];
     expect(
-      arr.some((u: { opportunity_id?: number; id?: number }) =>
-        (u.opportunity_id ?? u.id) === OPP_ID),
+      arr.some((u: { opportunityId: number }) => u.opportunityId === OPP_ID),
     ).toBeTruthy();
   });
 

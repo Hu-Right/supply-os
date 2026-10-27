@@ -81,10 +81,19 @@ describe("GET /api/opportunities — 不再以旧字典 code_id 为必要条件"
     expect(mocks.listOpportunities.mock.calls[0]).toEqual([]);
   });
 
-  it("ARCH-P0 脱敏口径不变：description 截断至 301 且不下发 source_url", async () => {
+  it("② camelCase 契约 + ARCH-P0 脱敏：多词键迁 camel、description 截断、source_url 与内部列不下发", async () => {
     const body = await (await GET(req())).json();
+    // 命名统一：DB snake 列经行→视图迁 camel
+    expect(body[0].noticeType).toBe("公开招标");
+    expect(body[0].deadlineTs).toBe(1);
+    expect(body[0]).toHaveProperty("estimatedValue");
+    // 旧 snake 键不再出现在响应
+    for (const k of ["notice_type", "deadline_ts", "deadline_sec", "estimated_value", "source_url"]) {
+      expect(body[0]).not.toHaveProperty(k);
+    }
+    // ARCH-P0：付费外链（camel 名亦无）不下发、正文截断
+    expect(body[0]).not.toHaveProperty("sourceUrl");
     expect(body[0].description.length).toBeLessThanOrEqual(301);
-    expect(body[0]).not.toHaveProperty("source_url");
     // R5' + 源列已物理退役：本端点不再下发旧品类码快照字段
     for (const k of Object.keys(body[0])) expect(k).not.toMatch(/_codes$/);
   });
