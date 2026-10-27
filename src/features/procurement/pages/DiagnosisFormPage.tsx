@@ -46,10 +46,10 @@ function ResultView({
         <CheckCircle2 className="mx-auto h-9 w-9 text-teal-600" />
         <p className="mt-2 text-base font-black text-slate-900">{t("diagSuccessTitle")}</p>
         <p className="mt-1 text-sm font-bold text-teal-700">
-          {r.score_total} / 100 · {r.grade_label}
+          {r.scoreTotal} / 100 · {r.gradeLabel}
         </p>
-        {r.override_gate.triggered && (
-          <p className="mt-2 text-xs text-amber-700">{r.override_gate.reason}</p>
+        {r.overrideGate.triggered && (
+          <p className="mt-2 text-xs text-amber-700">{r.overrideGate.reason}</p>
         )}
       </div>
 
@@ -73,7 +73,7 @@ function ResultView({
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <p className="text-sm font-bold text-slate-800">{t("diagNextStepTitle")}</p>
         <p className="mt-1 text-xs leading-relaxed text-slate-500">
-          {r.claim_required ? t("diagNextStepClaim") : t("diagNextStepProfile")}
+          {r.claimRequired ? t("diagNextStepClaim") : t("diagNextStepProfile")}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" variant="secondary" onClick={() => window.location.assign("/settings/enterprise")}>
@@ -114,7 +114,7 @@ export default function DiagnosisFormPage() {
   const missingSet = useMemo(() => new Set(form.missingRequired), [form.missingRequired]);
 
   const startEdit = (item: MyDiagnosis) => {
-    form.loadForEdit({ company: item.company_name, supplierId: item.supplier_id, answers: item.answers });
+    form.loadForEdit({ company: item.companyName, supplierId: item.supplierId, answers: item.answers });
     toast.success(t("diagLoadedForEdit"));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -148,9 +148,9 @@ export default function DiagnosisFormPage() {
             {mine.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3.5 py-2.5">
                 <div className="min-w-0">
-                  <p dir="ltr" className="truncate text-sm font-semibold text-slate-700">{item.company_name}</p>
+                  <p dir="ltr" className="truncate text-sm font-semibold text-slate-700">{item.companyName}</p>
                   <p className="text-2xs text-slate-500">
-                    {item.score_total ?? "-"} / 100 · {new Date(item.submitted_at).toLocaleDateString()}
+                    {item.scoreTotal ?? "-"} / 100 · {new Date(item.submittedAt).toLocaleDateString()}
                   </p>
                 </div>
                 <Button size="sm" variant="outline" className="shrink-0" onClick={() => startEdit(item)}>

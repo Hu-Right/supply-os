@@ -20,12 +20,12 @@ export const GET = withRoute(async (req: NextRequest) => {
     return NextResponse.json({
       list: rows.map((r) => ({
         id: Number(r.id),
-        supplier_id: Number(r.supplier_id),
-        company_name: r.company_name,
-        schema_version: Number(r.schema_version),
-        score_total: r.score_total === null ? null : Number(r.score_total),
-        score_grade: r.score_grade,
-        submitted_at: r.submitted_at,
+        supplierId: Number(r.supplier_id),
+        companyName: r.company_name,
+        schemaVersion: Number(r.schema_version),
+        scoreTotal: r.score_total === null ? null : Number(r.score_total),
+        scoreGrade: r.score_grade,
+        submittedAt: r.submitted_at,
         answers: diagnosisAnswersOf(r),
       })),
     });

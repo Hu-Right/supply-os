@@ -38,24 +38,24 @@ export interface DiagnosisDimensionResult {
 
 export interface DiagnosisSubmitResult {
   id: number;
-  supplier_id: number;
-  claim_required: boolean;
-  score_total: number;
-  score_grade: string;
-  grade_label: string;
+  supplierId: number;
+  claimRequired: boolean;
+  scoreTotal: number;
+  scoreGrade: string;
+  gradeLabel: string;
   dimensions: DiagnosisDimensionResult[];
-  top_gaps: { dimension: string; dimensionEn: string; priority: string }[];
-  override_gate: { triggered: boolean; reason: string };
+  topGaps: { dimension: string; dimensionEn: string; priority: string }[];
+  overrideGate: { triggered: boolean; reason: string };
 }
 
 export interface MyDiagnosis {
   id: number;
-  supplier_id: number;
-  company_name: string;
-  schema_version: number;
-  score_total: number | null;
-  score_grade: string | null;
-  submitted_at: string;
+  supplierId: number;
+  companyName: string;
+  schemaVersion: number;
+  scoreTotal: number | null;
+  scoreGrade: string | null;
+  submittedAt: string;
   answers: Record<string, string | string[]>;
 }
 
