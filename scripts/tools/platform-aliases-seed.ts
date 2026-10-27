@@ -1,7 +1,7 @@
 // 平台（发布机构/站点）别名 seed：只写 crm_platform_aliases（别名表本仓可直接维护）。
 // 服务表 crm_notice_public 的 platform_name 归一不在本脚本做：红线 N1 规定服务表内容只能由
-// scripts/ops/notice-public-v2.ts 写入，而 v2 构建时已按 host/alias 从本表 resolve（见其
-// platformOf）。手写 UPDATE 只会造出「表↔builder 两套口径」的分叉，下次重建就被覆盖——
+// ops 目录的服务表构建脚本 notice-public-v2 写入，而它构建时已按 host/alias 从本表
+// resolve（见其 platformOf）。手写 UPDATE 只会造出「表↔builder 两套口径」的分叉，下次重建就被覆盖——
 // 因此 seed 完别名后需要归一历史行，就重跑 v2，而不是在这里刷表。
 import { readFileSync } from "node:fs";
 import mysql from "mysql2/promise";
@@ -95,5 +95,5 @@ const [statRows] = await c.query(
 );
 const serviceTable = (statRows as Array<Record<string, unknown>>)[0];
 console.log({ seededPlatforms: platforms.length, serviceTable });
-console.log("提示：别名已入库；服务表 platform_name 的归一请重跑 scripts/ops/notice-public-v2.ts（红线 N1：唯一写入者）。");
+console.log("提示：别名已入库；服务表 platform_name 的归一请重跑 ops 的服务表构建脚本 notice-public-v2（红线 N1：唯一写入者，本机保留不入库）。");
 await c.end();

@@ -41,7 +41,8 @@ const NEVER_TRACKED = [
   /^scripts\/backups\//,
   /^runtime\//,
   /^temp\//,
-  /\.sync-watermark\.json$/,
+  // 水位线生成物（daily-sync.cjs 写 .sync / .service 两份）：任何 *-watermark.json 都不得跟踪
+  /\.[a-z-]+watermark\.json$/,
 ];
 for (const f of tracked) {
   if (NEVER_TRACKED.some((re) => re.test(f))) {

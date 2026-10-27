@@ -34,7 +34,8 @@ pnpm-debug.log*
 /scripts/ops/
 /scripts/out/
 /scripts/backups/
-**/.sync-watermark.json
+# 同步水位线生成物（daily-sync.cjs 按批持久化：.sync-watermark.json / .service-watermark.json）
+**/.*-watermark.json
 
 # ===== 一次性数据库工具与运行产物（影子表蓝绿切换等，见 ADR-0003）=====
 /runtime/

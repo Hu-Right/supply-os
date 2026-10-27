@@ -51,7 +51,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 - `scripts/gates/`：CI / lint / build 门禁与必需工具（`check-*`、`coverage-gate`、`css-compat-gate`、`serve-style-smoke`、`verify-industry-links` 等）——**整目录跟踪**，缺脚本即流程断。
 - `scripts/tools/`：持久但手动调用的运维工具（`daily-sync.cjs`、`deploy.sh`、`migrate-licenses`）——**跟踪**，须随 clone 存在。
 - `scripts/ops/`：一次性 / 连生产库的探针 / 本机应急脚本（影子表切换、`verify-wide-ssot` 等）——**默认忽略**，本地保留不入库。
-- 生成物一律落 `scripts/out`、`scripts/backups`、`**/.sync-watermark.json`、`runtime/`、`temp/`（均忽略）。
+- 生成物一律落 `scripts/out`、`scripts/backups`、`**/.*-watermark.json`（`daily-sync.cjs` 的 `.sync` / `.service` 两份水位线）、`runtime/`、`temp/`（均忽略）。
 - **一致性由 `scripts/gates/check-gitignore-consistency.mjs` 在 `npm run lint` / CI 强制**：禁止「跟踪却被忽略」的隐身文件、禁止越界跟踪 ops/生成物、禁止 npm 脚本引用未入库的 `scripts/**`、禁止 `scripts/` 根散放脚本。
 
 ### 测试目录分层（一目录一 runner）
