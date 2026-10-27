@@ -44,6 +44,7 @@
   "errKeywordGroupLimit": "You've reached the keyword group limit; delete unused groups before creating",
   "errKeywordGroupDuplicate": "A keyword group with this name already exists",
   "errKeywordGroupNameInvalid": "Invalid group name or keywords",
+  "errKeywordGroupNameReserved": "This name is reserved by an official keyword group",
   "errDiagnosisAnswersIncomplete": "Answers are incomplete; please complete them and retry",
   "errDiagnosisEntityNotFound": "The specified company does not exist",
   "errPoolFull": "Your supplier pool is full; remove unused suppliers before adding",

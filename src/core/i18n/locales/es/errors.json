@@ -44,6 +44,7 @@
   "errKeywordGroupLimit": "Se alcanzó el límite de grupos de palabras clave; elimine grupos sin usar antes de crear",
   "errKeywordGroupDuplicate": "Ya existe un grupo de palabras clave con este nombre",
   "errKeywordGroupNameInvalid": "Nombre de grupo o palabras clave no válidos",
+  "errKeywordGroupNameReserved": "Este nombre está reservado por un grupo oficial de palabras clave",
   "errDiagnosisAnswersIncomplete": "Respuestas incompletas; complételas y reintente",
   "errDiagnosisEntityNotFound": "La empresa especificada no existe",
   "errPoolFull": "Su reserva de proveedores está llena; retire proveedores sin usar antes de añadir",

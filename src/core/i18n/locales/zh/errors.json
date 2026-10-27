@@ -44,6 +44,7 @@
   "errKeywordGroupLimit": "词组数量已达上限，请删除不用的词组后再创建",
   "errKeywordGroupDuplicate": "已存在同名词组",
   "errKeywordGroupNameInvalid": "词组名或关键词不合法",
+  "errKeywordGroupNameReserved": "该名称为官方词组名称，请换一个",
   "errDiagnosisAnswersIncomplete": "答题内容不完整，请补全后重试",
   "errDiagnosisEntityNotFound": "指定的企业主体不存在",
   "errPoolFull": "资源库已满，请移除不用的供应商后再添加",

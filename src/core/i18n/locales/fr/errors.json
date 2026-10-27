@@ -44,6 +44,7 @@
   "errKeywordGroupLimit": "Limite de groupes de mots-clés atteinte ; supprimez des groupes avant d'en créer",
   "errKeywordGroupDuplicate": "Un groupe de mots-clés portant ce nom existe déjà",
   "errKeywordGroupNameInvalid": "Nom de groupe ou mots-clés invalides",
+  "errKeywordGroupNameReserved": "Ce nom est réservé par un groupe de mots-clés officiel",
   "errDiagnosisAnswersIncomplete": "Réponses incomplètes ; veuillez les compléter puis réessayer",
   "errDiagnosisEntityNotFound": "L'entreprise spécifiée n'existe pas",
   "errPoolFull": "Votre pool de fournisseurs est plein ; retirez des fournisseurs avant d'en ajouter",

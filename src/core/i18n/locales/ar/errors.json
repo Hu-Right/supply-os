@@ -44,6 +44,7 @@
   "errKeywordGroupLimit": "تم بلوغ الحد الأقصى لمجموعات الكلمات الرئيسية، احذف مجموعات غير مستخدمة قبل الإنشاء",
   "errKeywordGroupDuplicate": "توجد مجموعة كلمات رئيسية بهذا الاسم بالفعل",
   "errKeywordGroupNameInvalid": "اسم المجموعة أو الكلمات الرئيسية غير صالح",
+  "errKeywordGroupNameReserved": "هذا الاسم محجوز لمجموعة كلمات رئيسية رسمية",
   "errDiagnosisAnswersIncomplete": "الإجابات غير مكتملة، يرجى إكمالها وإعادة المحاولة",
   "errDiagnosisEntityNotFound": "الشركة المحددة غير موجودة",
   "errPoolFull": "مخزون الموردين لديك ممتلئ، احذف موردين غير مستخدمين قبل الإضافة",

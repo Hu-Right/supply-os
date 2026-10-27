@@ -187,6 +187,8 @@ export const EC_OPPORTUNITY_CODE_REQUIRED = 40065;
 export const EC_LEAD_FIELDS_REQUIRED = 40066;
 /** 跟进状态非法（不在白名单） */
 export const EC_LEAD_STATUS_INVALID = 40067;
+/** 词组库：名称为官方词组保留名 */
+export const EC_KEYWORD_GROUP_NAME_RESERVED = 40068;
 
 // ── 支付细分码（承接原 mapPaymentError 全部分支语义，按码 i18n 化）──────────────
 /** 支付：套餐方案不存在 */

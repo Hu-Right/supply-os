@@ -25,6 +25,7 @@ import {
   EC_INVALID_PARAMS, EC_USER_REQUIRED,
   EC_AI_NOT_CONFIGURED, EC_AI_BAD_FORMAT, EC_AI_CALL_FAILED, EC_SUPPLIER_PROFILE_REQUIRED,
   EC_INVITE_CODE_INVALID, EC_TRANSLATION_UNAVAILABLE,
+  EC_KEYWORD_GROUP_NAME_RESERVED,
 } from "@/shared/constants/api";
 import zhErrors from "@/core/i18n/locales/zh/errors.json";
 import enErrors from "@/core/i18n/locales/en/errors.json";
@@ -103,6 +104,13 @@ describe("稳定码 → i18n 键", () => {
     expect(mapApiError(new ApiError(503, "翻译服务暂不可用", EC_TRANSLATION_UNAVAILABLE), t)).toBe("K:errServiceUnavailable");
     // 旧：邀请码无效用 40031 → 撞 EC_TRAINING_COURSE_NOT_FOUND
     expect(mapApiError(new ApiError(400, "邀请码无效", EC_INVITE_CODE_INVALID), t)).toBe("K:errInviteCodeInvalid");
+  });
+
+  it("官方词组保留名 40068：business 类归键 errKeywordGroupNameReserved", () => {
+    const c = classifyApiError(new ApiError(400, "该名称为官方词组名称，请换一个", EC_KEYWORD_GROUP_NAME_RESERVED));
+    expect(c.kind).toBe("business");
+    expect(c.key).toBe("errKeywordGroupNameReserved");
+    expect(mapApiError(new ApiError(400, "该名称为官方词组名称，请换一个", EC_KEYWORD_GROUP_NAME_RESERVED), t)).toBe("K:errKeywordGroupNameReserved");
   });
 });
 
