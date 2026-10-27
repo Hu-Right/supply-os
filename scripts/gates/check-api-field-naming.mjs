@@ -90,6 +90,18 @@ const SNAKE_RE = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/; // 纯 snake_case（含至少�
 const EMIT_SEED = process.env.API_FIELDNAMING_EMIT_SEED === "1";
 const JSON_CALL = /(?:NextResponse|Response)\.json\s*\(/;
 
+/**
+ * 从 X.json(...) 参数文本里抽对象键，两类都要抓：
+ *   ① 显式 `foo_bar:`；② ES6 简写 `{ foo_bar, }` / `{ foo_bar }`——
+ *   简写曾被漏过（report/preview 的 total_report_chars 就是这样溜过门禁的：
+ *   键名即变量名，写的人根本不会意识到自己在往外吐 snake 键）。
+ * 简写模式要求键后面紧跟 `,` 或 `}`，因此不会误抢 `k:`、数组元素、`obj.k` 或函数实参。
+ */
+function* objectKeys(args) {
+  for (const m of args.matchAll(/[{,]\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g)) yield { key: m[1], index: m.index };
+  for (const m of args.matchAll(/[{,]\s*([a-z][a-zA-Z0-9_]*)\s*(?:,|\})/g)) yield { key: m[1], index: m.index };
+}
+
 for (const file of collectRouteFiles(apiDir)) {
   scanned++;
   const rel = relOf(repoRoot, file);
@@ -97,14 +109,13 @@ for (const file of collectRouteFiles(apiDir)) {
 
   // 定位每个 X.json(...) 调用的参数区，抽其对象字面量显式键
   for (const { open, args } of callSites(src, JSON_CALL)) {
-    for (const km of args.matchAll(/[{,]\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g)) {
-      const key = km[1];
+    for (const { key, index } of objectKeys(args)) {
       if (METADATA_KEYS.has(key)) continue;
       if (!SNAKE_RE.test(key)) continue;
       const id = `${rel}#${key}`;
       allOffenders.add(id);
       if (ALLOWLIST.has(id)) continue;
-      problems.push(`[SNAKE-KEY] ${rel}:${lineOf(src, open + 1 + km.index)}: 响应体键 "${key}" 为 snake_case（实体字段应 camelCase；存量请登记递减白名单）`);
+      problems.push(`[SNAKE-KEY] ${rel}:${lineOf(src, open + 1 + index)}: 响应体键 "${key}" 为 snake_case（实体字段应 camelCase；存量请登记递减白名单）`);
     }
   }
 }

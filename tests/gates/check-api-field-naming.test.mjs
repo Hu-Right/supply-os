@@ -60,3 +60,25 @@ test("已登记递减白名单的存量键不报错（冻结现状），新键�
     assert.match(r.out, /newer\/route\.ts/);
   });
 });
+
+test("简写键 { total_report_chars, } 同样是响应键 → 必须被拦（已闭的盲点）", () => {
+  withFixture("fieldname-shorthand", {
+    "src/app/api/short/route.ts": ROUTE("{ total_report_chars, noticeId: 1 }"),
+  }, (root) => {
+    const r = runAgainst(root, GATE);
+    assert.equal(r.code, 1, "简写 snake 键没被拦——盲点未闭合");
+    assert.match(r.out, /\[SNAKE-KEY\]/);
+    assert.match(r.out, /total_report_chars/);
+  });
+});
+
+test("不误伤：camelCase 简写键、以及 snake 「值」（不是键）一律不计", () => {
+  withFixture("fieldname-value", {
+    // notice_id 在值位（payload: 之后）、raw_rows 在数组元素位、notice 是 camelCase 简写键——
+    // 三者都不是 snake 响应键，一个都不该计入
+    "src/app/api/val/route.ts": ROUTE("{ notice, items: [raw_rows], payload: notice_id, meta: { pageCount: 2 } }"),
+  }, (root) => {
+    const r = runAgainst(root, GATE);
+    assert.equal(r.code, 0, `值位 snake 标识被误判为键：\n${r.out}`);
+  });
+});

@@ -88,7 +88,10 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 
 - **为什么③要治本**：api-client 把 `res.status === 401` 当作「access token 过期 → 刷新重试，刷新失败即清凭据 + 登出」的信号。把「密码错误」「refresh token 已死」写成 401 会误触发刷新/登出链路（登录失败去刷一个新 session 根本没有的 token），且让 401 含义漂移。改 403 后**客户端行为不变**：`tryRefreshToken()` 对 `!res.ok` 一律返回 `null`，仍然清凭据 + 广播 `supply-os:unauthorized`。
 - **递减白名单怎么减**：迁移一个端点 = 同批改掉前端读取点（`src/features/**`、wrapper）+ 删掉白名单对应行；门禁会在「登记项已不再命中」时打印待收敛提示，机器兜住「忘了删行」。
-- **`...row` 展开区**：命名红线看不见的地方（宽表/直查列名透传）以各域 mapper 为改造点——在 service 层出 camelCase，route 只做拼装；不得靠往白名单加行来「解决」门禁。
+- **`...row` 展开区**：命名红线看不见的地方只剩宽表/直查列名的展开透传（`{ ...row }`）——
+  已覆盖显式 `k:` 与 ES6 简写 `{ k, }` 两类键（简写曾漏过 report/preview 的 `total_report_chars`，
+  现由自测钉住）；改造点在各域 mapper：在 service 层出 camelCase，route 只做拼装，
+  不得靠往白名单加行来「解决」门禁。
 
 ### Hooks 命名与职责约定
 
