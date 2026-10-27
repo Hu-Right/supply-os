@@ -84,6 +84,8 @@ const opsDirPresent = ["scripts/ops", "scripts/out", "scripts/backups"].some((d)
 const warnings = [];
 for (const f of tracked) {
   if (!INSTRUCTION_SCOPES.some((re) => re.test(f))) continue;
+  // 工作区在途删除（git 已跟踪、磁盘上还没）不得把门禁跑崩：它既非死引用也非活引用，跳过即可
+  if (!existsSync(f)) continue;
   for (const h of new Set(readFileSync(f, "utf8").match(OPS_REF) ?? [])) {
     if (existsSync(h)) {
       warnings.push(`R5⚠ ${f} 指向未入库的一次性脚本 ${h}（仅本机可跑；若是长期件请归入 scripts/tools/）`);
