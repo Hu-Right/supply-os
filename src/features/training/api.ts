@@ -51,23 +51,25 @@ export interface CreateTrainingOrderRequest {
   telephone?: string;
 }
 
+/** 建单响应体（服务端 TrainingOrderResult 的镜像，红线② camelCase） */
 export interface TrainingOrderResponse {
   success: boolean;
-  order_no: string;
+  orderNo: string;
   provider: string;
   amount: number;
   currency: string;
-  qr_code: string | null;
-  pay_url: string | null;
+  qrCodeUrl: string | null;
+  payUrl: string | null;
   status: string;
-  expires_at: string;
+  expiresAt: string;
 }
 
+/** 查单响应体（金额键与会员/学习/服务三个分支一致用 amount） */
 export interface TrainingOrderStatusResponse {
-  order_no: string;
+  orderNo: string;
   status: string;
-  total_amount: number;
-  paid_at: string | null;
+  amount: number;
+  paidAt: string | null;
 }
 
 export interface TrainingParticipant {

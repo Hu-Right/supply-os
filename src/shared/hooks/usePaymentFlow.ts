@@ -19,13 +19,16 @@ import { usePaymentPolling } from "./usePaymentPolling";
 
 export type PaymentModalStep = "choose" | "waiting" | "success" | "failed";
 
-/** 适配器返回的统一订单形状 */
+/**
+ * 适配器返回的统一订单形状（与各支付端点的响应体同名同形，所以用 camelCase）。
+ * 字段名就是契约：弹窗侧不得再给同一个概念起第三个名字。
+ */
 export interface PaymentModalOrder {
-  order_no: string;
+  orderNo: string;
   provider: string;
   /** 二维码图片（data URL）；存在时 waiting 页直接展示二维码（零跳转主路径） */
-  qr_code?: string | null;
-  pay_url?: string | null;
+  qrCodeUrl?: string | null;
+  payUrl?: string | null;
 }
 
 export interface UsePaymentFlowOptions {
@@ -131,7 +134,7 @@ export function usePaymentFlow({
       const created = await onCreateOrder(provider);
       setOrder(created);
       setStep("waiting");
-      startPolling(created.order_no);
+      startPolling(created.orderNo);
     } catch (err) {
       console.warn("[PaymentModalCore] create order failed:", err);
       setError(mapApiError(err, t));
@@ -143,10 +146,10 @@ export function usePaymentFlow({
   const handleMockConfirm = useCallback(async () => {
     if (!order || !onMockConfirm) return;
     try {
-      await onMockConfirm(order.order_no);
+      await onMockConfirm(order.orderNo);
       stopPolling();
       setStep("success");
-      onSuccessRef.current?.(order.order_no);
+      onSuccessRef.current?.(order.orderNo);
     } catch {
       setStep("failed");
     }
@@ -159,8 +162,8 @@ export function usePaymentFlow({
   }, []);
 
   const handleOpenPayUrl = useCallback(() => {
-    if (order?.pay_url && order.provider !== "mock") {
-      window.open(order.pay_url, "_blank");
+    if (order?.payUrl && order.provider !== "mock") {
+      window.open(order.payUrl, "_blank");
     }
   }, [order]);
 
@@ -175,7 +178,7 @@ export function usePaymentFlow({
     [t],
   );
 
-  const qrImage = order?.qr_code && order.qr_code.startsWith("data:image") ? order.qr_code : null;
+  const qrImage = order?.qrCodeUrl && order.qrCodeUrl.startsWith("data:image") ? order.qrCodeUrl : null;
 
   return {
     step,

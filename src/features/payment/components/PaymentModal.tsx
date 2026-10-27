@@ -45,26 +45,19 @@ export default function PaymentModal({
   const { t } = useLocale();
   const currencySymbol = currency === "CNY" ? "¥" : "$";
 
-  // 会员下单适配器：qr_code_url 为服务端渲染的二维码图片（data URL），弹窗内直接扫码
+  // 会员下单适配器：建单响应体就是订单契约（camelCase），直接透传给统一弹窗。
+  // qrCodeUrl 为服务端渲染的二维码图片（data URL），弹窗内直接扫码。
   const handleCreateOrder = useCallback(
-    async (provider: "alipay" | "wechat") => {
-      const order = await createOrder({
-        planCode,
-        provider,
-        noticeId,
-        returnUrl,
-        orderType,
-        originalPlanCode,
-        amount,
-        bundleItems,
-      });
-      return {
-        order_no: order.order_no,
-        provider: order.provider,
-        qr_code: order.qr_code_url ?? null,
-        pay_url: order.pay_url,
-      };
-    },
+    async (provider: "alipay" | "wechat") => createOrder({
+      planCode,
+      provider,
+      noticeId,
+      returnUrl,
+      orderType,
+      originalPlanCode,
+      amount,
+      bundleItems,
+    }),
     [planCode, noticeId, returnUrl, orderType, originalPlanCode, amount, bundleItems],
   );
 

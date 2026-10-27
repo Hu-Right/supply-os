@@ -11,9 +11,9 @@
  *              原路径改为 re-export 保持存量导入兼容。
  */
 import { api } from "@/core/http";
-import type { OrderInfo } from "@/types/payment";
+import type { OrderInfo, OrderStatusResult } from "@/types/payment";
 
-export type { OrderInfo };
+export type { OrderInfo, OrderStatusResult };
 
 export type CreateOrderParams = {
   planCode: string;
@@ -54,12 +54,15 @@ export async function createOrder(params: CreateOrderParams): Promise<OrderInfo>
 
 /**
  * 查询订单状态
+ *
+ * @remarks 返回体是查单契约（OrderStatusResult），不是建单契约（OrderInfo）：
+ *          查单不返 payUrl，旧标注把两者混为一谈。
  */
-export async function getOrderStatus(orderNo: string, tradeNo?: string): Promise<OrderInfo> {
+export async function getOrderStatus(orderNo: string, tradeNo?: string): Promise<OrderStatusResult> {
   const url = tradeNo
     ? `/api/payment/orders/${orderNo}?trade_no=${encodeURIComponent(tradeNo)}`
     : `/api/payment/orders/${orderNo}`;
-  return api<OrderInfo>(url);
+  return api<OrderStatusResult>(url);
 }
 
 /**

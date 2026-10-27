@@ -98,22 +98,22 @@ export const POST = withRoute(
       }
 
       const clientPayUrl = result.provider === "alipay"
-        ? `/api/payment/alipay/redirect/${encodeURIComponent(result.order_no)}`
-        : result.pay_url;
+        ? `/api/payment/alipay/redirect/${encodeURIComponent(result.orderNo)}`
+        : result.payUrl;
 
       // 仅支付宝通道强制二维码（当面付 precreate）；mock 等跳转式通道
-      // 以 pay_url 为准（MockProvider 有意不返回 qr_code_url）
-      if (result.provider === "alipay" && !result.qr_code_url) {
+      // 以 payUrl 为准（MockProvider 有意不返回 qrCodeUrl）
+      if (result.provider === "alipay" && !result.qrCodeUrl) {
         routeError(500, EC_PAYMENT_QR_CODE_MISSING, '支付宝二维码生成失败，请确认已开通\u201C当面付\u201D产品后重试');
       }
-      const qrCodeUrl = result.qr_code_url ? await toQrDataUrl(result.qr_code_url) : null;
+      const qrCodeUrl = result.qrCodeUrl ? await toQrDataUrl(result.qrCodeUrl) : null;
 
       return NextResponse.json(
         {
           ...result,
-          pay_url: clientPayUrl,
-          qr_code_url: qrCodeUrl,
-          payment_mode: paymentMode === "live" ? "configured" : "mock",
+          payUrl: clientPayUrl,
+          qrCodeUrl,
+          paymentMode: paymentMode === "live" ? "configured" : "mock",
         },
         { status: 201 },
       );

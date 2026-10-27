@@ -28,6 +28,8 @@ import {
  * 违规 exit 1，供 npm run lint 与 CI 拦截。
  *   API_CONTRACT_SCAN_ROOT=<path>  把扫描根换到 <path>（自测 fixture 用；默认仓库根）
  *   API_FIELDNAMING_EMIT_SEED=1    导出当前全部显式 snake 键（造初白名单用）
+ *   API_FIELD_NAMING_ALLOWLIST_EXTRA=a#key,b#key  追加登记项（仅自测用；让 fixture
+ *     自带样本存量项，不再绑定真实白名单——否则每迁完一族都要回来改 fixture）
  */
 
 // 合法保留 snake_case 的响应元数据/分页键（规范允许 snake，非实体字段）。
@@ -38,18 +40,21 @@ const METADATA_KEYS = new Set([
 ]);
 
 // 递减白名单（`<相对 route.ts>#<snake 键>`）：存量显式 snake 响应键，迁移一个删一行；新增不得进入。
-const ALLOWLIST = new Set([
+const DEFAULT_ALLOWLIST = new Set([
   // notices 全域（detail 12 项 + preview 6 项）与 content（2 项）已于 2026-10-27 迁完：
   // 行→视图统一走 lib/services/notice-public/view.ts（机械改名，值原样透传），
   // 响应契约由 types/procurement.ts 的 camelCase 字段定义，不再镜像列名。
   // preview 故意不调 mapper：它是付费墙，只发已登记的 8 个键（mapper 是改名不裁剪）。
   "src/app/api/opportunities/route.ts#source_url",
-  // ⚠ 下面 3 项不单独改：本端点响应由四个业务服务（membership/learning/training/service）
-  // 的同一形状透出，只改建单会让同一条支付流程“建单 camel、轮询 snake”，
-  // 必须整族（OrderInfo/OrderStatusResult/四服务/三端点/前端）一次迁完。
-  "src/app/api/payment/orders/route.ts#pay_url",
-  "src/app/api/payment/orders/route.ts#payment_mode",
-  "src/app/api/payment/orders/route.ts#qr_code_url",
+  // payment/orders 的 pay_url / qr_code_url / payment_mode 已于 2026-10-27 随支付建单查单
+  // 整族迁 camelCase（四服务响应类型 + 三端点 + 弹窗镜像一起改，不半截）。
+]);
+
+// 自测追加项（见文件头）：只影响本次进程，不改真实存量。
+const ALLOWLIST = new Set([
+  ...DEFAULT_ALLOWLIST,
+  ...(process.env.API_FIELD_NAMING_ALLOWLIST_EXTRA || "")
+    .split(",").map((s) => s.trim()).filter(Boolean),
 ]);
 
 const repoRoot = scanRoot();
@@ -112,5 +117,5 @@ reportAndExit({
   shown: 60,
   stale: staleAllowlistEntries(ALLOWLIST, allOffenders, repoRoot),
   guidance: "准则：API 响应实体字段用 camelCase（请求参数/分页元数据用 snake_case）。",
-  okLine: `✓ API 响应字段命名红线通过（扫描 ${scanned} 个 route.ts，显式 snake 键 ${ALLOWLIST.size} 项冻结递减）`,
+  okLine: `✓ API 响应字段命名红线通过（扫描 ${scanned} 个 route.ts，显式 snake 键 ${DEFAULT_ALLOWLIST.size} 项冻结递减）`,
 });

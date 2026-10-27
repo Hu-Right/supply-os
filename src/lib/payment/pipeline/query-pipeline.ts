@@ -41,17 +41,20 @@ export interface QueryPipelineInput {
   providerTradeNo?: string;
 }
 
-/** 查询管道返回结果 */
+/**
+ * 查询管道返回结果——这就是对外响应体（被路由直接 json 透出），所以键名按红线② 用 camelCase。
+ * 注意与上面的 QueryableOrderRow 区分：那个是 DB 行形状（列名），不得跟着改。
+ */
 export interface QueryPipelineResult {
-  order_no: string;
+  orderNo: string;
   status: string;
   provider?: PaymentProviderName;
-  plan_code?: string;
+  planCode?: string;
   amount?: number;
   currency?: string;
-  provider_trade_no?: string;
-  paid_at?: string;
-  notice_id?: number | null;
+  providerTradeNo?: string;
+  paidAt?: string;
+  noticeId?: number | null;
 }
 
 /**
@@ -73,21 +76,22 @@ export async function queryOrderWithGatewayPoll(
 
   const dbOrder = await findOrder();
   if (!dbOrder) {
-    return { order_no: orderNo, status: ORDER_STATUS.CLOSED };
+    return { orderNo: orderNo, status: ORDER_STATUS.CLOSED };
   }
 
-  // 非 pending 状态直接返回 DB 值（无需轮询网关）
+  // 非 pending 状态直接返回 DB 值（无需轮询网关）；键名为对外契约（红线②），
+  // 值仍取自 dbOrder 的行列（服务端内部形状）
   if (dbOrder.status !== ORDER_STATUS.PENDING) {
     return {
-      order_no: dbOrder.order_no,
+      orderNo: dbOrder.order_no,
       status: dbOrder.status,
       provider: dbOrder.provider as PaymentProviderName,
-      plan_code: dbOrder.plan_code,
+      planCode: dbOrder.plan_code,
       amount: Number(dbOrder.amount || 0),
       currency: dbOrder.currency || "CNY",
-      provider_trade_no: dbOrder.provider_trade_no || undefined,
-      paid_at: dbOrder.paid_at ? new Date(dbOrder.paid_at as string).toISOString() : undefined,
-      notice_id: dbOrder.notice_id ?? null,
+      providerTradeNo: dbOrder.provider_trade_no || undefined,
+      paidAt: dbOrder.paid_at ? new Date(dbOrder.paid_at as string).toISOString() : undefined,
+      noticeId: dbOrder.notice_id ?? null,
     };
   }
 
@@ -101,29 +105,29 @@ export async function queryOrderWithGatewayPoll(
         // 网关确认已付 → 触发履约（幂等）
         await onFulfill(orderNo, result.provider_trade_no || "");
         return {
-          order_no: orderNo,
+          orderNo: orderNo,
           status: ORDER_STATUS.PAID,
           provider: dbOrder.provider as PaymentProviderName,
-          plan_code: dbOrder.plan_code,
+          planCode: dbOrder.plan_code,
           amount: Number(dbOrder.amount || 0),
           currency: dbOrder.currency || "CNY",
-          provider_trade_no: result.provider_trade_no,
-          paid_at: new Date().toISOString(),
-          notice_id: dbOrder.notice_id ?? null,
+          providerTradeNo: result.provider_trade_no,
+          paidAt: new Date().toISOString(),
+          noticeId: dbOrder.notice_id ?? null,
         };
       }
 
       if (result.status !== ORDER_STATUS.PENDING) {
         // 网关返回非 pending 终态（如 closed/failed）
         return {
-          order_no: orderNo,
+          orderNo: orderNo,
           status: result.status,
           provider: dbOrder.provider as PaymentProviderName,
-          plan_code: dbOrder.plan_code,
+          planCode: dbOrder.plan_code,
           amount: Number(dbOrder.amount || 0),
           currency: dbOrder.currency || "CNY",
-          provider_trade_no: result.provider_trade_no,
-          notice_id: dbOrder.notice_id ?? null,
+          providerTradeNo: result.provider_trade_no,
+          noticeId: dbOrder.notice_id ?? null,
         };
       }
     } catch {
@@ -133,14 +137,14 @@ export async function queryOrderWithGatewayPoll(
 
   // 仍为 pending（网关不可用或确认 pending）
   return {
-    order_no: dbOrder.order_no,
+    orderNo: dbOrder.order_no,
     status: dbOrder.status,
     provider: dbOrder.provider as PaymentProviderName,
-    plan_code: dbOrder.plan_code,
+    planCode: dbOrder.plan_code,
     amount: Number(dbOrder.amount || 0),
     currency: dbOrder.currency || "CNY",
-    provider_trade_no: dbOrder.provider_trade_no || undefined,
-    paid_at: dbOrder.paid_at ? new Date(dbOrder.paid_at as string).toISOString() : undefined,
-    notice_id: dbOrder.notice_id ?? null,
+    providerTradeNo: dbOrder.provider_trade_no || undefined,
+    paidAt: dbOrder.paid_at ? new Date(dbOrder.paid_at as string).toISOString() : undefined,
+    noticeId: dbOrder.notice_id ?? null,
   };
 }

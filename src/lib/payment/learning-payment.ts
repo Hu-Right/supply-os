@@ -55,14 +55,14 @@ export class LearningPaymentService {
     returnUrl?: string;
     clientIp?: string;
   }): Promise<{
-    order_no: string;
+    orderNo: string;
     provider: PaymentProviderName;
     amount: number;
     currency: string;
-    pay_url: string;
-    qr_code_url: string | undefined;
+    payUrl: string;
+    qrCodeUrl: string | undefined;
     status: "pending";
-    created_at: string;
+    createdAt: string;
   }> {
     const { userId, planCode, provider } = params;
 
@@ -104,9 +104,10 @@ export class LearningPaymentService {
     });
 
     return {
-      order_no: orderNo, provider, amount, currency: "CNY",
-      pay_url, qr_code_url, status: "pending",
-      created_at: new Date().toISOString(),
+      // 对外响应体：契约键 camelCase（红线②）；pay_url/qr_code_url 是渠道策略的第三方字段镜像
+      orderNo, provider, amount, currency: "CNY",
+      payUrl: pay_url, qrCodeUrl: qr_code_url, status: "pending",
+      createdAt: new Date().toISOString(),
     };
   }
 
@@ -117,14 +118,14 @@ export class LearningPaymentService {
    * 消除与 PaymentService.queryOrder() 的重复逻辑。
    */
   async queryOrder(orderNo: string, providerTradeNo?: string): Promise<{
-    order_no: string;
+    orderNo: string;
     status: string;
     provider: PaymentProviderName;
-    plan_code: string;
+    planCode: string;
     amount: number;
     currency: string;
-    provider_trade_no?: string;
-    paid_at?: string;
+    providerTradeNo?: string;
+    paidAt?: string;
   } | null> {
     const dbOrder = await this.learningOrdersRepo.findByOrderNo(orderNo);
     if (!dbOrder) return null;
@@ -138,14 +139,14 @@ export class LearningPaymentService {
     });
 
     return {
-      order_no: result.order_no,
+      orderNo: result.orderNo,
       status: result.status,
       provider: (result.provider || dbOrder.provider) as PaymentProviderName,
-      plan_code: result.plan_code || dbOrder.plan_code,
+      planCode: result.planCode || dbOrder.plan_code,
       amount: result.amount ?? Number(dbOrder.amount),
       currency: result.currency || dbOrder.currency,
-      provider_trade_no: result.provider_trade_no,
-      paid_at: result.paid_at,
+      providerTradeNo: result.providerTradeNo,
+      paidAt: result.paidAt,
     };
   }
 

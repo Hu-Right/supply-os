@@ -9,21 +9,25 @@ import type { OrderRecord, UnlockRecord } from "../../api";
 
 export type RecordRow = OrderRecord | UnlockRecord;
 
-/** 记录时间：解锁时间 → 支付时间 → 创建时间 逐级回落 */
+/**
+ * 记录时间：解锁时间 → 支付时间 → 创建时间 逐级回落。
+ * unlocked_at 属 unlocks 端点（尚未迁移），paidAt/createdAt 属订单端点（已迁 camelCase），
+ * 两者是不同响应体，故逐支按其自身契约读。
+ */
 export const recordTime = (row: RecordRow) =>
   formatDateTimeZh(
     ("unlocked_at" in row ? row.unlocked_at : undefined) ||
-      ("paid_at" in row ? row.paid_at : undefined) ||
-      ("created_at" in row ? row.created_at : undefined),
+      ("paidAt" in row ? row.paidAt : undefined) ||
+      ("createdAt" in row ? row.createdAt : undefined),
   );
 
-/** 记录标题：公告标题优先；订单按 plan_code 前缀生成可读类型名 */
+/** 记录标题：公告标题优先；订单按 planCode 前缀生成可读类型名 */
 export function recordTitle(row: RecordRow, t: (key: string) => string): string {
   // 公告标题优先
   if (row.notice?.title) return row.notice.title;
-  // 订单类型：按 plan_code 生成可读标题
-  if ("order_no" in row) {
-    const planCode = (row as OrderRecord).plan_code || "";
+  // 订单类型：按 planCode 生成可读标题
+  if ("orderNo" in row) {
+    const planCode = row.planCode || "";
     if (planCode.startsWith("material_")) return t("myRecordsLearningMaterial");
     if (planCode.startsWith("bundle_")) return t("myRecordsLearningBundle");
     if (planCode.startsWith("training_course_")) return t("myRecordsTraining");
@@ -37,9 +41,8 @@ export function recordTitle(row: RecordRow, t: (key: string) => string): string 
 /** 订单副标题：金额 + 时间（不展示订单号） */
 export function recordSubtitle(row: RecordRow, t: (key: string) => string): string {
   void t; // 保持与旧内联闭包相同的调用面（当前无文案分支）
-  if ("order_no" in row) {
-    const o = row as OrderRecord;
-    const amt = `${o.currency || "CNY"} ${Number(o.amount || 0).toFixed(2)}`;
+  if ("orderNo" in row) {
+    const amt = `${row.currency || "CNY"} ${Number(row.amount || 0).toFixed(2)}`;
     return `${amt} · ${recordTime(row)}`;
   }
   return `${row.unlock_type || "unlock"} · ${recordTime(row)}`;

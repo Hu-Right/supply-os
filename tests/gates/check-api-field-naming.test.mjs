@@ -45,18 +45,19 @@ test("camelCase 键 + 分页元数据 snake 键 → 通过（不误伤）", () =
 });
 
 test("已登记递减白名单的存量键不报错（冻结现状），新键仍被拦", () => {
-  // 白名单里的真实存量项 + 一个未登记项：只应报未登记的那条
-  // （auth 全域、supplier-diagnosis、learning/training、report-preview、claims/interest/unlock、
-  //   crm/chat/messages、notices 全域（detail/preview/content/unified-search）均已迁 camelCase
-  //   并从白名单删除，样本改用仍存量登记的 payment/orders 两键）
+  // 样本存量项由 API_FIELD_NAMING_ALLOWLIST_EXTRA 注入，不绑真实白名单：
+  // 真实存量会随各域迁移逐行删完，绑上去就等于每迁一族都要回来改 fixture。
   withFixture("fieldname-allow", {
-    "src/app/api/payment/orders/route.ts": ROUTE('{ pay_url: "https://x", payment_mode: "mock" }'),
-    "src/app/api/newer/route.ts": ROUTE('{ pay_url: "c" }'),
+    "src/app/api/allow-sample/route.ts": ROUTE('{ legacy_total_usd: "1", page_size: 2 }'),
+    "src/app/api/newer/route.ts": ROUTE('{ legacy_total_usd: "c" }'),
   }, (root) => {
-    const r = runAgainst(root, GATE);
+    const r = runAgainst(root, GATE, {
+      API_FIELD_NAMING_ALLOWLIST_EXTRA: "src/app/api/allow-sample/route.ts#legacy_total_usd",
+    });
     assert.equal(r.code, 1, "未登记的 snake 键没被拦");
     // 只应报未登记那一条：已登记键计入违规则违规数会是 2
-    // （不断言“不含 forgot-password 字样”——fixture 下「白名单待收敛」提示会列出未命中的登记项）
+    // （不断言“不含某个真实存量路径”——fixture 下真实登记项未命中，
+    //   「白名单待收敛」提示会把它列出来，那不是违规）
     assert.match(r.out, /违规 1 处：/, `违规条数不是 1：\n${r.out}`);
     assert.match(r.out, /newer\/route\.ts/);
   });

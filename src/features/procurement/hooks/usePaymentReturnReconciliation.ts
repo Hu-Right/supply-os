@@ -59,7 +59,7 @@ export function usePaymentReturnReconciliation({
           if (status.status === ORDER_STATUS.PAID) {
             setActionMessage(t("procurement_paymentReturnPaid"));
             await refreshMembership();
-            const nid = status.notice_id ?? (noticeIdParam ? Number(noticeIdParam) : null);
+            const nid = status.noticeId ?? (noticeIdParam ? Number(noticeIdParam) : null);
             // P0-9 安全修复：paid 分支先执行解锁，再打开详情（否则详情接口返回 403 NOTICE_LOCKED）
             if (nid && userId) {
               try {

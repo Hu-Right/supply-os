@@ -42,32 +42,32 @@ export interface CreateOrderRequest {
   bundle_items?: string[]; // 打包套餐包含的资料 ID 列表（写入 raw_request 供履约解析）
 }
 
-// 订单信息
+// 订单信息（对外响应体，命名红线② 用 camelCase；入参 CreateOrderRequest 按口径继续用 snake）
 export interface OrderInfo {
-  order_no: string; // 订单编号
-  pay_url: string; // 支付 URL
-  qr_code_url?: string; // 二维码 URL
+  orderNo: string; // 订单编号
+  payUrl: string; // 支付 URL（支付宝通道下为本站 redirect 地址）
+  qrCodeUrl?: string; // 二维码 URL（或 data URL）
   provider: PaymentProviderName; // 支付渠道
   status: PaymentOrderStatus; // 订单状态
-  notice_id?: number | null; // 解锁的资料 ID
-  payment_mode?: "configured" | "mock"; // 支付模式：configured=真实网关，mock=本地模拟
-  plan_code?: string; // 套餐代码
+  noticeId?: number | null; // 解锁的资料 ID
+  paymentMode?: "configured" | "mock"; // 支付模式：configured=真实网关，mock=本地模拟
+  planCode?: string; // 套餐代码
   amount?: number; // 订单金额
   currency?: string; // 币种
-  created_at?: string; // 创建时间
+  createdAt?: string; // 创建时间
 }
 
-// 订单状态查询结果
+// 订单状态查询结果（同样是对外的响应体）
 export interface OrderStatusResult {
-  order_no: string; // 订单编号
+  orderNo: string; // 订单编号
   status: PaymentOrderStatus; // 订单状态
-  notice_id?: number | null; // 解锁的资料 ID
-  provider?: PaymentProviderName; // 支付渠道 
-  plan_code?: string; // 套餐代码
+  noticeId?: number | null; // 解锁的资料 ID
+  provider?: PaymentProviderName; // 支付渠道
+  planCode?: string; // 套餐代码
   amount?: number; // 订单金额
   currency?: string; // 币种
-  provider_trade_no?: string; // 支付渠道订单编号
-  paid_at?: string; // 支付时间
+  providerTradeNo?: string; // 支付渠道订单编号
+  paidAt?: string; // 支付时间
 }
 
 // 支付回调结果

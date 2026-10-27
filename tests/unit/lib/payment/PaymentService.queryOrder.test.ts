@@ -65,7 +65,7 @@ describe("PaymentService.queryOrder（委托统一查询管道）", () => {
 
   it("订单不存在 → closed", async () => {
     const { svc } = await getService(makeRepo(null));
-    expect(await svc.queryOrder("SOX")).toMatchObject({ order_no: "SOX", status: "closed" });
+    expect(await svc.queryOrder("SOX")).toMatchObject({ orderNo: "SOX", status: "closed" });
   });
 
   it("pending + 渠道轮询返回 paid → 主动履约并返回渠道结果快照", async () => {
@@ -76,7 +76,7 @@ describe("PaymentService.queryOrder（委托统一查询管道）", () => {
     const result = await svc.queryOrder("SO1");
     // onFulfill → activatePaidOrder(repo, orderNo, providerTradeNo, benefitDeps)
     expect(activatePaidOrder).toHaveBeenCalledWith(repo, "SO1", "T9", benefitDeps);
-    expect(result).toMatchObject({ status: "paid", plan_code: "pro", amount: 999 });
+    expect(result).toMatchObject({ status: "paid", planCode: "pro", amount: 999 });
   });
 
   it("pending + 渠道判定失败（非 paid 非 pending）→ 透传渠道结果，不履约", async () => {
@@ -102,12 +102,12 @@ describe("PaymentService.queryOrder（委托统一查询管道）", () => {
     expect(activatePaidOrder).not.toHaveBeenCalled();
   });
 
-  it("已支付订单（非 pending）→ 直接返回 DB 快照，paid_at 转 ISO", async () => {
+  it("已支付订单（非 pending）→ 直接返回 DB 快照，paidAt 转 ISO", async () => {
     const paidAt = new Date("2026-09-03T08:00:00Z");
     const { svc } = await getService(makeRepo(dbOrder({ status: "paid", provider_trade_no: "T1", paid_at: paidAt })));
     const result = await svc.queryOrder("SO1");
-    expect(result).toMatchObject({ status: "paid", provider_trade_no: "T1" });
-    expect(result.paid_at).toBe(paidAt.toISOString());
+    expect(result).toMatchObject({ status: "paid", providerTradeNo: "T1" });
+    expect(result.paidAt).toBe(paidAt.toISOString());
   });
 });
 

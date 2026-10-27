@@ -19,15 +19,16 @@ import type { PaymentProviderName } from "../types/payment";
 import type { ServiceOrdersRepo } from "../repos/service-orders.repo";
 import { SITE_URL } from "../services/seo/site";
 
+/** 对外响应体（路由直接透出）：契约键 camelCase（红线②） */
 export interface ServiceCreateOrderResult {
-  order_no: string;
+  orderNo: string;
   provider: PaymentProviderName;
   amount: number;
   currency: string;
-  pay_url: string;
-  qr_code_url?: string;
+  payUrl: string;
+  qrCodeUrl?: string;
   status: "pending";
-  created_at: string;
+  createdAt: string;
 }
 
 interface ServicePriceRow {
@@ -97,14 +98,15 @@ export class ServicePaymentService {
     });
 
     return {
-      order_no: orderNo, provider, amount, currency,
-      pay_url, qr_code_url, status: "pending", created_at: new Date().toISOString(),
+      // 对外响应体：契约键 camelCase（红线②）
+      orderNo, provider, amount, currency,
+      payUrl: pay_url, qrCodeUrl: qr_code_url, status: "pending", createdAt: new Date().toISOString(),
     };
   }
 
   /** 查询订单状态（读 DB，同培训分支；不落库渠道）。 */
   async queryOrder(orderNo: string): Promise<{
-    order_no: string; status: string; amount: number; currency: string; paid_at: string | null;
+    orderNo: string; status: string; amount: number; currency: string; paidAt: string | null;
   } | null> {
     const st = await this.ordersRepo.queryStatus(orderNo);
     if (!st) return null;
@@ -122,8 +124,8 @@ export class ServicePaymentService {
       } catch { /* mock 未注册或查询失败：以 DB 状态为准 */ }
     }
     return {
-      order_no: orderNo, status, amount: Number(st.amount_total),
-      currency: "CNY", paid_at: paidAt ? new Date(paidAt).toISOString() : null,
+      orderNo, status, amount: Number(st.amount_total),
+      currency: "CNY", paidAt: paidAt ? new Date(paidAt).toISOString() : null,
     };
   }
 

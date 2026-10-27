@@ -28,22 +28,26 @@ import type { PaymentHistoryRepo } from "../repos/payment-history.repo";
 import type { BenefitFulfillDeps } from "./benefit-grant";
 import { TrainingPaymentService } from "./TrainingPaymentService";
 
-/** 聚合后的统一订单行 */
+/**
+ * 聚合后的统一订单行——这就是 GET /api/payment/orders 的 list 元素（对外响应体），
+ * 所以键名按红线② 用 camelCase；入参侧的 DB 行列名（normalizeOrder 的 row 参数）
+ * 仍是 snake，不得跟着改。
+ */
 export interface NormalizedOrder {
-  order_no: string; // 订单编号
-  user_id: number; // 内部用户 ID
-  business_type: "membership" | "learning" | "training" | "service"; // ARCH-PN：业务类型
+  orderNo: string; // 订单编号
+  userId: number; // 内部用户 ID
+  businessType: "membership" | "learning" | "training" | "service"; // ARCH-PN：业务类型
   provider: string; // 支付渠道
-  plan_code: string; // 套餐代码
-  notice_id: number | null; // 解锁的资料 ID
+  planCode: string; // 套餐代码
+  noticeId: number | null; // 解锁的资料 ID
   amount: number; // 订单金额
   currency: string; // 币种
   status: string; // 订单状态
-  provider_trade_no: string | null; // 支付渠道订单编号
-  paid_at: string | null; // 支付时间
-  created_at: string; // 创建时间
-  updated_at: string | null; // 更新时间
-  expires_at: string | null; // ARCH-PN：过期时间
+  providerTradeNo: string | null; // 支付渠道订单编号
+  paidAt: string | null; // 支付时间
+  createdAt: string; // 创建时间
+  updatedAt: string | null; // 更新时间
+  expiresAt: string | null; // ARCH-PN：过期时间
 }
 
 // 订单号前缀常量  SO：会员服务，LE：学习资料，TR：培训
@@ -213,20 +217,24 @@ export class PaymentOrchestrator {
 
   // ── 订单状态查询 ──────────────────────────────────────────────────────────
 
+  /**
+   * 培训订单查询分支：需要 AppContext 以访问支付策略，此处直接查 DB 状态。
+   * 返回体与其余三个分支同走对外契约（红线② camelCase）；金额键与
+   * membership/learning/service 一致用 amount（DB 列 total_amount 是行形状）。
+   */
   async queryOrder(orderNo: string, providerTradeNo?: string) {
     const business = getOrderBusiness(orderNo);
     switch (business) {
       case "learning":
         return this.learningPaymentService.queryOrder(orderNo, providerTradeNo);
       case "training": {
-        // 培训订单查询：需要 AppContext 以访问支付策略，此处直接查 DB 状态
         const order = await this.trainingRepo.findOrderByNo(orderNo);
-        if (!order) return { order_no: orderNo, status: "closed" };
+        if (!order) return { orderNo, status: "closed" };
         return {
-          order_no: order.order_no,
+          orderNo: order.order_no,
           status: order.status,
-          total_amount: Number(order.total_amount || 0),
-          paid_at: order.paid_at ? new Date(order.paid_at).toISOString() : null,
+          amount: Number(order.total_amount || 0),
+          paidAt: order.paid_at ? new Date(order.paid_at).toISOString() : null,
         };
       }
       case "service":
@@ -314,6 +322,10 @@ export class PaymentOrchestrator {
   }
 
   // ── 订单查找（身份校验用） ────────────────────────────────────────────────
+  /**
+   * 仅供路由做身份校验、不进出参响应体，因此保留 DB 行列名 user_id：
+   * 它是行形状而非对外契约，跟着视图改名反而误导。
+   */
   async findOrder(orderNo: string): Promise<{ user_id: number; status: string } | null> {
     const business = getOrderBusiness(orderNo);
     switch (business) {
@@ -348,20 +360,20 @@ export class PaymentOrchestrator {
     notice_id?: number | null; expires_at?: Date | string | null;
   }, businessType: "membership" | "learning" | "training" | "service"): NormalizedOrder {
     return {
-      order_no: row.order_no,
-      user_id: row.user_id ?? 0,
-      business_type: businessType,
+      orderNo: row.order_no,
+      userId: row.user_id ?? 0,
+      businessType,
       provider: row.provider,
-      plan_code: row.plan_code,
-      notice_id: row.notice_id ?? null,
+      planCode: row.plan_code,
+      noticeId: row.notice_id ?? null,
       amount: Number(row.amount),
       currency: row.currency,
       status: row.status,
-      provider_trade_no: row.provider_trade_no,
-      paid_at: row.paid_at ? new Date(row.paid_at as string).toISOString() : null,
-      created_at: new Date(row.created_at as string).toISOString(),
-      updated_at: row.updated_at ? new Date(row.updated_at as string).toISOString() : null,
-      expires_at: row.expires_at ? new Date(row.expires_at as string).toISOString() : null,
+      providerTradeNo: row.provider_trade_no,
+      paidAt: row.paid_at ? new Date(row.paid_at as string).toISOString() : null,
+      createdAt: new Date(row.created_at as string).toISOString(),
+      updatedAt: row.updated_at ? new Date(row.updated_at as string).toISOString() : null,
+      expiresAt: row.expires_at ? new Date(row.expires_at as string).toISOString() : null,
     };
   }
 
@@ -406,7 +418,7 @@ export class PaymentOrchestrator {
       }, "service")),
     ];
 
-    all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const list = all.slice(offset, offset + limit);
     return { total, list };
   }

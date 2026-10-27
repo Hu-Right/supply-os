@@ -156,11 +156,11 @@ export const WaitingStep = memo(function WaitingStep({
       {qrImage ? (
         <div className="mx-auto w-fit rounded-xl border-2 border-slate-200 bg-white p-2">
           {/* NOTE: 保留原生 <img> — qrImage 为 data URL（qrcode 库生成），next/image 不支持 data: 协议 */}
-          <img src={qrImage} alt={order.order_no} className="h-48 w-48 object-contain" />
+          <img src={qrImage} alt={order.orderNo} className="h-48 w-48 object-contain" />
         </div>
       ) : (
         <div className="space-y-2">
-          {order.pay_url && order.provider !== "mock" && (
+          {order.payUrl && order.provider !== "mock" && (
             <Button
               type="button"
               variant="dark"
@@ -190,7 +190,7 @@ export const WaitingStep = memo(function WaitingStep({
       )}
 
       <p className="font-mono text-xs text-slate-400">
-        {t("paymentOrderNo")}: {order.order_no}
+        {t("paymentOrderNo")}: {order.orderNo}
       </p>
     </div>
   );
@@ -214,7 +214,7 @@ export const SuccessStep = memo(function SuccessStep({
       <p className="mt-1 text-sm text-teal-700">{texts.successDesc ?? t("paymentSuccessDesc")}</p>
       {order && (
         <p className="mt-2 font-mono text-xs text-teal-500">
-          {t("paymentOrderNo")}: {order.order_no}
+          {t("paymentOrderNo")}: {order.orderNo}
         </p>
       )}
       <Button

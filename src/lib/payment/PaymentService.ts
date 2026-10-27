@@ -201,15 +201,17 @@ export class PaymentService {
     }
 
     return {
-      order_no: orderNo,
+      // 对外响应体：契约键 camelCase（红线②）；pay_url/qr_code_url 是渠道策略返回的
+      // 第三方字段镜像，只在服务内部保留，不直接当对外契约。
+      orderNo,
       provider,
       amount,
       currency,
-      pay_url,
-      qr_code_url,
+      payUrl: pay_url,
+      qrCodeUrl: qr_code_url,
       status: "pending",
-      notice_id: noticeId,
-      created_at: new Date().toISOString(),
+      noticeId,
+      createdAt: new Date().toISOString(),
     };
   }
 

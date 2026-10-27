@@ -77,7 +77,7 @@ describe("年包抵扣（199 → 年付套餐）", () => {
     vi.mocked(repo.findPendingOrder).mockResolvedValueOnce({ order_no: "SO_OLD" } as never);
     const r = await svc.createOrder(order());
     expect(r.amount).toBe(8800);
-    expect(r.order_no).toBe("SO_OLD");
+    expect(r.orderNo).toBe("SO_OLD");
     expect(repo.updatePendingOrder).toHaveBeenCalled();
     expect(repo.createOrder).not.toHaveBeenCalled();
   });

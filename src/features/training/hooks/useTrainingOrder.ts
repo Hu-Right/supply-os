@@ -30,12 +30,9 @@ export function useTrainingOrder(
         participant_count: participantCount,
         provider,
       });
-      return {
-        order_no: result.order_no,
-        provider: result.provider,
-        qr_code: result.qr_code,
-        pay_url: result.pay_url,
-      };
+      // 建单响应体与弹窗订单形状同名同形（都是 camelCase 契约），直接透传，
+      // 弹窗只读 orderNo / provider / qrCodeUrl / payUrl 四个字段。
+      return result;
     },
     [course, selectedScheduleId, registrationId, participantCount],
   );

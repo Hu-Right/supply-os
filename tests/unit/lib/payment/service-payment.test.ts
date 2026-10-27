@@ -36,9 +36,9 @@ describe("ServicePaymentService", () => {
     const svc = new ServicePaymentService(repo as never, svcPool("199.00"));
     svc.setStrategyResolver(resolver);
     const r = await svc.createOrder({ userId: 5, serviceCode: "svc_x", provider: "mock" });
-    expect(r.order_no).toMatch(/^SV/);
+    expect(r.orderNo).toMatch(/^SV/);
     expect(r.amount).toBe(199);
-    expect(r.qr_code_url).toBe("https://qr");
+    expect(r.qrCodeUrl).toBe("https://qr");
     expect(r.status).toBe("pending");
     const input = repo.createOrder.mock.calls[0][0];
     expect(input.amountTotal).toBe("199.00");

@@ -72,9 +72,11 @@ export const RecordRowCard = memo(function RecordRowCard({
   onOpenNotice: (noticeId: number) => void;
 }) {
   const { t } = useLocale();
-  const isOrder = "order_no" in row;
+  const isOrder = "orderNo" in row;
+  // 公告主键：订单行按已迁移的 noticeId，解锁行仍按 unlocks 端点自己的列名
+  const noticeId = isOrder ? row.noticeId : row.notice_id;
   const canOpen = Boolean(
-    row.notice_id && (isUnlocksView || (isOrder && row.status === ORDER_STATUS.PAID)),
+    noticeId && (isUnlocksView || (isOrder && row.status === ORDER_STATUS.PAID)),
   );
   return (
     <article
@@ -108,7 +110,7 @@ export const RecordRowCard = memo(function RecordRowCard({
             type="button"
             variant="link"
             size="sm"
-            onClick={() => onOpenNotice(Number(row.notice_id))}
+            onClick={() => onOpenNotice(Number(noticeId))}
             className="shrink-0 px-0 font-black"
           >
             {t("myPurchasesOpenDetail")}

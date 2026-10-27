@@ -47,28 +47,38 @@ export type OrderNoticeBrief = {
 };
 
 /**
- * 支付订单记录
- * Payment order record
+ * 支付订单记录——GET /api/payment/orders 的 list 元素（服务端 NormalizedOrder 镜像）。
+ * Payment order record（红线② camelCase，不再镜像 DB 列名）
+ *
+ * @remarks notice 字段对订单始终为空：在线路径（orchestrator.normalizeOrder）
+ *          不拼公告摘要，拼摘要的旧 paymentHistory 服务已删除。
+ *          解锁行的公告摘要属于 unlocks 端点自身的迁移议题，本批不动。
  */
 export type OrderRecord = {
-  order_no: string;
-  user_id: number;
+  orderNo: string;
+  userId: number;
+  businessType?: "membership" | "learning" | "training" | "service";
   provider: "alipay" | "wechat" | "mock";
-  plan_code: string;
-  notice_id?: number | null;
+  planCode: string;
+  noticeId?: number | null;
   amount: number;
   currency: string;
   status: string;
-  provider_trade_no?: string | null;
-  paid_at?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
+  providerTradeNo?: string | null;
+  paidAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  expiresAt?: string | null;
   notice?: OrderNoticeBrief | null;
 };
 
 /**
- * 解锁记录
+ * 解锁记录——GET /api/payment/unlocks 的 list 元素。
  * Unlock record
+ *
+ * ⚠ 本端点尚未迁命名红线：服务端现在是把 repo 平铺行整行透出（静态门禁
+ *    看不见展开行），所以这里声明的 notice 与实际 wire 不一致。
+ *    unlocks 自己的 mapper 迁入后本类型才会与响应体对齐。
  */
 export type UnlockRecord = {
   user_id: number;

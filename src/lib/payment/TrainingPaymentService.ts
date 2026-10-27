@@ -41,15 +41,20 @@ export interface CreateTrainingOrderParams {
   baseUrl?: string;
 }
 
+/**
+ * 建单结果——被 POST /api/training/orders 整块透出，是对外响应体（红线② camelCase）。
+ * qrCodeUrl / payUrl 与会员侧 OrderInfo 同名同义（都是二维码图片 data URL / 收银台链接），
+ * 不再用第三个名字 qr_code。
+ */
 export interface TrainingOrderResult {
-  order_no: string;
+  orderNo: string;
   provider: PaymentProviderName;
   amount: number;
   currency: string;
-  qr_code: string | null;
-  pay_url: string | null;
+  qrCodeUrl: string | null;
+  payUrl: string | null;
   status: string;
-  expires_at: string;
+  expiresAt: string;
 }
 
 // ── 服务类 ────────────────────────────────────────────────────────────────────
@@ -160,25 +165,25 @@ export class TrainingPaymentService {
     });
 
     return {
-      order_no: orderNo,
+      orderNo,
       provider,
       amount: totalAmount,
       currency: course.currency || "CNY",
-      qr_code: qrCode,
-      pay_url: payUrl,
+      qrCodeUrl: qrCode,
+      payUrl,
       status: ORDER_STATUS.PENDING,
-      expires_at: expiresAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
     };
   }
 
   // ── 查询订单 ──────────────────────────────────────────────────────────────
 
   /**
-   * 查询培训订单状态
+   * 查询培训订单状态（对外响应体，金额键与其余三个业务分支一致用 amount）
    * 使用统一查询管道：pending 时主动向网关轮询，已付则触发履约
    */
   async queryOrder(orderNo: string): Promise<{
-    order_no: string; status: string; total_amount: number; paid_at: string | null;
+    orderNo: string; status: string; amount: number; paidAt: string | null;
   }> {
     const order = await this.trainingRepo.findOrderByNo(orderNo);
     if (!order) throw new Error("ORDER_NOT_FOUND");
@@ -195,10 +200,10 @@ export class TrainingPaymentService {
         if (result.status === ORDER_STATUS.PAID) {
           await this.fulfillOrder(orderNo, result.provider_trade_no || null);
           return {
-            order_no: orderNo,
+            orderNo,
             status: ORDER_STATUS.PAID,
-            total_amount: Number(order.total_amount || 0),
-            paid_at: new Date().toISOString(),
+            amount: Number(order.total_amount || 0),
+            paidAt: new Date().toISOString(),
           };
         }
       } catch (err) {
@@ -208,19 +213,19 @@ export class TrainingPaymentService {
       if (isPending && isPastExpiry) {
         await this.trainingRepo.updateOrderStatus(orderNo, ORDER_STATUS.EXPIRED);
         return {
-          order_no: orderNo,
+          orderNo,
           status: ORDER_STATUS.EXPIRED,
-          total_amount: Number(order.total_amount || 0),
-          paid_at: null,
+          amount: Number(order.total_amount || 0),
+          paidAt: null,
         };
       }
     }
 
     return {
-      order_no: orderNo,
+      orderNo,
       status: order.status,
-      total_amount: Number(order.total_amount || 0),
-      paid_at: order.paid_at ? new Date(order.paid_at).toISOString() : null,
+      amount: Number(order.total_amount || 0),
+      paidAt: order.paid_at ? new Date(order.paid_at).toISOString() : null,
     };
   }
 

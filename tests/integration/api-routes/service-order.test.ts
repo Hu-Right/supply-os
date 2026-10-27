@@ -37,17 +37,17 @@ function post(body: unknown): NextRequest {
 beforeEach(() => vi.clearAllMocks());
 
 describe("POST /api/payment/orders — svc_ 分支", () => {
-  it("有价服务码 → 走 ServicePaymentService，201 透传 order_no", async () => {
+  it("有价服务码 → 走 ServicePaymentService，201 透传 orderNo", async () => {
     createOrder.mockResolvedValue({
-      order_no: "SV20260923ABC", provider: "mock", amount: 199, currency: "CNY",
-      pay_url: "/pay/mock", qr_code_url: "https://qr", status: "pending", created_at: new Date().toISOString(),
+      orderNo: "SV20260923ABC", provider: "mock", amount: 199, currency: "CNY",
+      payUrl: "/pay/mock", qrCodeUrl: "https://qr", status: "pending", createdAt: new Date().toISOString(),
     });
     const { POST } = await import("@/app/api/payment/orders/route");
     const res = await POST(post({ plan_code: "svc_manual_bid_match", provider: "mock" }));
     expect(createOrder).toHaveBeenCalled();
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.order_no).toBe("SV20260923ABC");
+    expect(body.orderNo).toBe("SV20260923ABC");
   });
 
   it("服务不可用（抛 SERVICE_UNAVAILABLE）→ 400", async () => {

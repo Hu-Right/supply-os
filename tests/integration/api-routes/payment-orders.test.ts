@@ -71,14 +71,14 @@ vi.mock("@/lib/db/context", () => ({
         getStrategy: vi.fn().mockReturnValue(mockStrategy),
         setStrategyResolver: vi.fn(),
         createOrder: vi.fn().mockResolvedValue({
-          order_no: "LE20260904TEST001",
+          orderNo: "LE20260904TEST001",
           provider: "mock",
           amount: 99,
           currency: "CNY",
-          pay_url: "/pay/mock",
-          qr_code_url: "data:image/png;base64,mock_qr",
+          payUrl: "/pay/mock",
+          qrCodeUrl: "data:image/png;base64,mock_qr",
           status: "pending",
-          created_at: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
         }),
       },
       trainingPaymentService: {
@@ -127,7 +127,7 @@ describe("POST /api/payment/orders", () => {
       const body = await res.json();
 
       expect(res.status).toBe(201);
-      expect(body.order_no).toMatch(/^LE/);
+      expect(body.orderNo).toMatch(/^LE/);
       expect(body.provider).toBe("mock");
       expect(body.status).toBe("pending");
     });
@@ -142,7 +142,7 @@ describe("POST /api/payment/orders", () => {
       const res = await POST(req);
       const body = await res.json();
 
-      expect(body.order_no).toMatch(/^LE\d{8}/);
+      expect(body.orderNo).toMatch(/^LE\d{8}/);
     });
   });
 
@@ -158,7 +158,7 @@ describe("POST /api/payment/orders", () => {
       const body = await res.json();
 
       expect(res.status).toBe(201);
-      expect(body.order_no).toMatch(/^LE/);
+      expect(body.orderNo).toMatch(/^LE/);
     });
   });
 
@@ -173,16 +173,16 @@ describe("POST /api/payment/orders", () => {
       const res = await POST(req);
       const body = await res.json();
 
-      expect(body).toHaveProperty("order_no");
+      expect(body).toHaveProperty("orderNo");
       expect(body).toHaveProperty("provider");
       expect(body).toHaveProperty("amount");
       expect(body).toHaveProperty("currency");
       expect(body).toHaveProperty("status");
-      expect(body).toHaveProperty("pay_url");
-      expect(body).toHaveProperty("qr_code_url");
+      expect(body).toHaveProperty("payUrl");
+      expect(body).toHaveProperty("qrCodeUrl");
     });
 
-    it("mock 模式下 payment_mode 为 mock", async () => {
+    it("mock 模式下 paymentMode 为 mock", async () => {
       const { POST } = await import("@/app/api/payment/orders/route");
       const req = createOrderRequest({
         plan_code: "material_001",
@@ -192,7 +192,7 @@ describe("POST /api/payment/orders", () => {
       const res = await POST(req);
       const body = await res.json();
 
-      expect(body.payment_mode).toBe("mock");
+      expect(body.paymentMode).toBe("mock");
     });
   });
 });
