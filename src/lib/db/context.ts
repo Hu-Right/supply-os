@@ -44,6 +44,7 @@ import { OpenApiRepo } from "../repos/open-api.repo";
 import { AwardsRepo } from "../repos/awards.repo";
 import { UserPrefsRepo } from "../repos/user-prefs.repo";
 import { KeywordGroupsRepo } from "../repos/keyword-groups.repo";
+import { OfficialKeywordGroupsRepo } from "../repos/official-keyword-groups.repo";
 import { LeadsRepo } from "../repos/leads.repo";
 import { InvitationRepo } from "../repos/invitation.repo";
 import { ChatRepo } from "../repos/chat.repo";
@@ -112,6 +113,8 @@ export type AppContext = {
   chatRepo: ChatRepo;
   trainingRepo: TrainingRepo;
   systemRepo: SystemRepo;
+  /** 官方精选词组只读投影（crm_official_keyword_groups，后台维护，本项目无写路径） */
+  officialKeywordGroupsRepo: OfficialKeywordGroupsRepo;
 };
 
 const globalForCtx = globalThis as unknown as { _appCtx: AppContext | undefined };
@@ -153,6 +156,7 @@ export function getContext(): AppContext {
   const awardsRepo = new AwardsRepo(dbPool);
   const userPrefsRepo = new UserPrefsRepo(dbPool);
   const keywordGroupsRepo = new KeywordGroupsRepo(dbPool);
+  const officialKeywordGroupsRepo = new OfficialKeywordGroupsRepo(dbPool);
   const invitationRepo = new InvitationRepo(dbPool);
   const leadsRepo = new LeadsRepo(dbPool);
   const chatRepo = new ChatRepo(dbPool);
@@ -234,6 +238,7 @@ export function getContext(): AppContext {
     chatRepo,
     trainingRepo,
     systemRepo,
+    officialKeywordGroupsRepo,
   };
 
   globalForCtx._appCtx = ctx;

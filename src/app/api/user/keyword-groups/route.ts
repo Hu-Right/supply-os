@@ -10,7 +10,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { listKeywordGroups, createKeywordGroup } from "@/lib/services/keyword-groups";
-import { EC_VIP_ONLY, EC_KEYWORD_GROUP_LIMIT, EC_KEYWORD_GROUP_DUPLICATE, EC_KEYWORD_GROUP_NAME_INVALID } from "@/shared/constants/api";
+import { EC_VIP_ONLY, EC_KEYWORD_GROUP_LIMIT, EC_KEYWORD_GROUP_DUPLICATE, EC_KEYWORD_GROUP_NAME_INVALID, EC_KEYWORD_GROUP_NAME_RESERVED } from "@/shared/constants/api";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -29,7 +29,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const body = await parseJson(req, createBodySchema);
   const ctx = getContext();
   const result = await createKeywordGroup(
-    ctx.user.keywordGroupsRepo, ctx.benefitSystemRepo, auth.userId, body,
+    ctx.user.keywordGroupsRepo, ctx.benefitSystemRepo, auth.userId, body, ctx.officialKeywordGroupsRepo,
   );
   if (!result.ok) {
     if (result.reason === "forbidden") {
@@ -37,6 +37,9 @@ export const POST = withRoute(async (req: NextRequest) => {
     }
     if (result.reason === "pool_full") {
       routeError(400, EC_KEYWORD_GROUP_LIMIT, "词组数量已达上限（10 组），请删除不用的词组后再创建");
+    }
+    if (result.reason === "name_reserved") {
+      routeError(400, EC_KEYWORD_GROUP_NAME_RESERVED, "该名称为官方词组名称，请换一个");
     }
     if (result.reason === "duplicate") {
       routeError(400, EC_KEYWORD_GROUP_DUPLICATE, "已存在同名词组");
