@@ -12,6 +12,7 @@ import { registerUser } from "@/lib/services/auth-register";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
+import { EC_INVALID_PARAMS, EC_PHONE_ISSUE } from "@/shared/constants/api";
 
 // 字段顺序即校验优先级（zod issues[0] 与原实现的报错顺序一致）
 const registerSchema = z.object({
@@ -26,8 +27,10 @@ const registerSchema = z.object({
 });
 
 export const POST = withRoute(async (req: NextRequest) => {
+  // 字段级校验失败统一走通用参数码（EC_INVALID_PARAMS 不登记，后端 message 直出）；
+  // phone 例外给专属码。旧值 password:40001 会被 error-map 误判为「请先登录」（撞 EC_USER_REQUIRED）。
   const body = await parseJson(req, registerSchema, {
-    display_name: 40000, phone: 40011, password: 40001, verify_code: 40005,
+    display_name: EC_INVALID_PARAMS, phone: EC_PHONE_ISSUE, password: EC_INVALID_PARAMS, verify_code: EC_INVALID_PARAMS,
   });
 
   // 限流：IP + 手机号双维度，防批量注册攻击/短信通道消耗

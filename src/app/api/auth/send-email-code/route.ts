@@ -9,6 +9,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_REQUEST, EC_EMAIL_NOT_CONFIGURED, EC_NOT_FOUND, EC_EMAIL_ISSUE, EC_EMAIL_ALREADY_BOUND, EC_EMAIL_NOT_BOUND, EC_CONTACT_TAKEN_BY_OTHER, EC_EMAIL_SEND_FAILED } from "@/shared/constants/api";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
@@ -24,31 +25,31 @@ const sendEmailSchema = z.object({
 
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
-  const { email, scene } = await parseJson(req, sendEmailSchema, { scene: 40020 });
+  const { email, scene } = await parseJson(req, sendEmailSchema, { scene: EC_INVALID_REQUEST });
   if (!isEmailConfigured()) {
-    routeError(503, 40060, "邮件服务暂未配置，请稍后重试");
+    routeError(503, EC_EMAIL_NOT_CONFIGURED, "邮件服务暂未配置，请稍后重试");
   }
 
   const ctx = getContext();
   const user = await ctx.user.usersRepo.findById(auth.userId!);
-  if (!user) routeError(404, 40044, "用户不存在");
+  if (!user) routeError(404, EC_NOT_FOUND, "用户不存在");
 
   const targetEmail = scene === "unbind" ? (user.email || "") : String(email || "").trim().toLowerCase();
   if (!targetEmail || !EMAIL_RE.test(targetEmail)) {
-    routeError(400, 40010, "请输入有效的邮箱地址");
+    routeError(400, EC_EMAIL_ISSUE, "请输入有效的邮箱地址");
   }
   if (scene === "bind" && user.email) {
-    routeError(409, 40031, "已绑定邮箱，请先解绑");
+    routeError(409, EC_EMAIL_ALREADY_BOUND, "已绑定邮箱，请先解绑");
   }
   if (scene === "unbind" && !user.email) {
-    routeError(400, 40030, "尚未绑定邮箱");
+    routeError(400, EC_EMAIL_NOT_BOUND, "尚未绑定邮箱");
   }
 
   // 检查邮箱是否已被其他用户绑定（身份比对按内部 id；无法确认归属时 fail-closed 拒绝）
   if (scene === "bind") {
     const existingByEmail = await ctx.user.usersRepo.findByEmail(targetEmail);
     if (existingByEmail && (auth.userId == null || existingByEmail.id !== auth.userId)) {
-      routeError(409, 40032, "该邮箱已被其他用户绑定");
+      routeError(409, EC_CONTACT_TAKEN_BY_OTHER, "该邮箱已被其他用户绑定");
     }
   }
 
@@ -78,7 +79,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     await ctx.user.authRepo.markEmailSent(resetId, false, (err as Error).message);
   }
   if (!emailSent) {
-    routeError(500, 40062, "邮件发送失败，请稍后重试");
+    routeError(500, EC_EMAIL_SEND_FAILED, "邮件发送失败，请稍后重试");
   }
   return NextResponse.json({ success: true, email_sent: true });
 });

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
+import { EC_NOT_FOUND, EC_PHONE_NOT_BOUND, EC_INVALID_CODE, EC_TOO_MANY_ATTEMPTS } from "@/shared/constants/api";
 import { hashVerificationCode } from "@/lib/services/auth";
 
 const unbindSchema = z.object({
@@ -12,19 +13,19 @@ const unbindSchema = z.object({
 
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
-  const { code } = await parseJson(req, unbindSchema, { code: 40005 });
+  const { code } = await parseJson(req, unbindSchema, { code: EC_INVALID_CODE });
 
   const ctx = getContext();
   const user = await ctx.user.usersRepo.findById(auth.userId!);
-  if (!user) routeError(404, 40044, "用户不存在");
-  if (!user.phone) routeError(400, 40030, "尚未绑定手机号");
+  if (!user) routeError(404, EC_NOT_FOUND, "用户不存在");
+  if (!user.phone) routeError(400, EC_PHONE_NOT_BOUND, "尚未绑定手机号");
 
   const record = await ctx.user.authRepo.findLatestActiveCode(auth.userId!, "phone_unbind", user.phone);
-  if (!record) routeError(400, 40007, "验证码无效，请重新获取");
-  if (record.attempts >= 5) routeError(429, 40029, "尝试次数过多");
+  if (!record) routeError(400, EC_INVALID_CODE, "验证码无效，请重新获取");
+  if (record.attempts >= 5) routeError(429, EC_TOO_MANY_ATTEMPTS, "尝试次数过多");
   if (record.code !== hashVerificationCode(code)) {
     await ctx.user.authRepo.incrementCodeAttempts(record.id);
-    routeError(400, 40007, "验证码无效，请重新获取");
+    routeError(400, EC_INVALID_CODE, "验证码无效，请重新获取");
   }
 
   await ctx.user.usersRepo.unbindPhoneById(auth.userId!);

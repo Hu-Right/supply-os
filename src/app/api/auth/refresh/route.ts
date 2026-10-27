@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_REFRESH_TOKEN_MISSING, EC_REFRESH_TOKEN_INVALID, EC_REFRESH_TOKEN_EXPIRED, EC_REFRESH_TOKEN_REVOKED, EC_NOT_FOUND, EC_ACCOUNT_DISABLED } from "@/shared/constants/api";
 import { signAccessToken, signRefreshToken, verifyRefreshToken, hashRefreshToken, getRefreshTokenExpiresAt } from "@/lib/services/jwt";
 import { readRefreshCookieFromRequest, setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
@@ -25,7 +26,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     } catch { /* body 非 JSON，忽略 */ }
   }
   if (!refreshToken) {
-    routeError(400, 40050, "缺少刷新令牌");
+    routeError(400, EC_REFRESH_TOKEN_MISSING, "缺少刷新令牌");
   }
 
   // 新 token 必须以 uid 为身份锚点；旧 token 无 uid → 直接拒绝（要求用户重新登录）
@@ -33,10 +34,10 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     payload = verifyRefreshToken(refreshToken);
   } catch {
-    routeError(401, 40051, "刷新令牌无效");
+    routeError(401, EC_REFRESH_TOKEN_INVALID, "刷新令牌无效");
   }
   if (!payload.uid) {
-    routeError(401, 40051, "刷新令牌已过期，请重新登录");
+    routeError(401, EC_REFRESH_TOKEN_EXPIRED, "刷新令牌已过期，请重新登录");
   }
 
   const authRepo = getContext().user.authRepo;
@@ -44,20 +45,20 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 非严格轮换：只查询不删除。旧 token 保留至自然过期，避免多标签页互踢。
   const stored = await authRepo.findRefreshTokenByHash(hashRefreshToken(refreshToken));
   if (!stored) {
-    routeError(401, 40052, "刷新令牌已失效");
+    routeError(401, EC_REFRESH_TOKEN_REVOKED, "刷新令牌已失效");
   }
 
   const usersRepo = getContext().user.usersRepo;
   const user = await usersRepo.findProfileById(payload.uid);
   if (!user) {
-    routeError(404, 40044, "用户不存在");
+    routeError(404, EC_NOT_FOUND, "用户不存在");
   }
 
   // 账号状态校验（审查 F32）：被禁用/驳回的账号不得续期，并吊销其全部会话
   const status = (user as { account_status?: string }).account_status;
   if (status === "disabled" || status === "rejected") {
     await authRepo.deleteRefreshTokensByUser(user.id!);
-    routeError(403, 40003, "账号未通过审核或已停用");
+    routeError(403, EC_ACCOUNT_DISABLED, "账号未通过审核或已停用");
   }
 
   // 签发新 Token 对：新 refresh token 入库，旧 token 保留至自然过期

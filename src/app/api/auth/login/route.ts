@@ -12,6 +12,7 @@ import { loginWithPassword } from "@/lib/services/auth-login";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
+import { EC_PHONE_ISSUE } from "@/shared/constants/api";
 
 const loginSchema = z.object({
   identifier: z.string({ error: "请输入手机号或邮箱" }).trim().min(1, "请输入手机号或邮箱"),
@@ -19,7 +20,7 @@ const loginSchema = z.object({
 });
 
 export const POST = withRoute(async (req: NextRequest) => {
-  const { identifier, password } = await parseJson(req, loginSchema, { identifier: 40011 });
+  const { identifier, password } = await parseJson(req, loginSchema, { identifier: EC_PHONE_ISSUE });
 
   // 限流（审查 F11）：IP 与账号双维度，防密码爆破/撞库
   const rlIp = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 30 },

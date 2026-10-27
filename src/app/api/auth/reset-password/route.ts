@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_REQUEST, EC_INVALID_CODE, EC_TOO_MANY_ATTEMPTS, EC_ACCOUNT_DISABLED } from "@/shared/constants/api";
 import { hashPassword, hashVerificationCode, buildUserResponse, issueTokenPair } from "@/lib/services/auth";
 import { validatePassword } from "@/lib/utils/passwordPolicy";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
@@ -31,7 +32,7 @@ function detectChannel(identifier: string): "sms" | "email" {
 
 export const POST = withRoute(async (req: NextRequest) => {
   const body = await parseJson(req, resetSchema, {
-    identifier: 40002, code: 40002, new_password: 40002,
+    identifier: EC_INVALID_REQUEST, code: EC_INVALID_CODE, new_password: EC_INVALID_REQUEST,
   });
   const identifier = body.identifier;
   const verifyCode = body.code;
@@ -40,7 +41,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const channel: "sms" | "email" = body.channel || detectChannel(identifier);
 
   const pwCheck = validatePassword(newPassword);
-  if (!pwCheck.valid) routeError(400, 40006, pwCheck.message);
+  if (!pwCheck.valid) routeError(400, EC_INVALID_REQUEST, pwCheck.message);
 
   const ctx = getContext();
   let resolvedUserId: number;
@@ -49,29 +50,29 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 按 identifier 查找用户（手机走 findByPhone，邮箱走 findByEmail）
   if (channel === "sms" && PHONE_RE.test(identifier)) {
     user = await ctx.user.usersRepo.findByPhone(identifier);
-    if (!user) routeError(400, 40007, "验证码无效，请重新获取");
+    if (!user) routeError(400, EC_INVALID_CODE, "验证码无效，请重新获取");
     resolvedUserId = user.id!;
   } else {
     user = await ctx.user.usersRepo.findByEmail(identifier);
-    if (!user) routeError(400, 40007, "验证码无效，请重新获取");
+    if (!user) routeError(400, EC_INVALID_CODE, "验证码无效，请重新获取");
     resolvedUserId = user.id!;
   }
 
   // 查找验证码记录（按 user_id）
   const codeType = channel === "sms" ? "phone_reset" : "email_reset";
   const record = await ctx.user.authRepo.findLatestActiveCode(resolvedUserId, codeType);
-  if (!record) routeError(400, 40007, "验证码无效，请重新获取");
-  if (record.attempts >= 5) routeError(429, 40029, "尝试次数过多，请重新获取验证码");
+  if (!record) routeError(400, EC_INVALID_CODE, "验证码无效，请重新获取");
+  if (record.attempts >= 5) routeError(429, EC_TOO_MANY_ATTEMPTS, "尝试次数过多，请重新获取验证码");
   if (record.code !== hashVerificationCode(verifyCode)) {
     await ctx.user.authRepo.incrementCodeAttempts(record.id);
-    routeError(400, 40007, "验证码无效，请重新获取");
+    routeError(400, EC_INVALID_CODE, "验证码无效，请重新获取");
   }
 
-  // 账号状态闸门（与 loginWithPassword / refresh 同口径 403/40003）：
+  // 账号状态闸门（与 loginWithPassword / refresh 同口径「账号未通过审核/停用」）：
   // 停用/驳回账号不得重置密码后拿到会话。置于验证码校验之后：
   // 仅持有验证码的人能得知账号状态，保持与上方「账号不存在」一致的防枚举口径。
   if (user.account_status === "disabled" || user.account_status === "rejected") {
-    routeError(403, 40003, "账号未通过审核或已停用");
+    routeError(403, EC_ACCOUNT_DISABLED, "账号未通过审核或已停用");
   }
 
   // 重置密码（按 user_id）

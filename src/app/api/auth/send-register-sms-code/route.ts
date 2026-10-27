@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
+import { EC_PHONE_ISSUE, EC_SMS_NOT_CONFIGURED, EC_DUPLICATE, EC_SMS_SEND_FAILED } from "@/shared/constants/api";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
@@ -19,10 +20,10 @@ const registerSmsSchema = z.object({
 });
 
 export const POST = withRoute(async (req: NextRequest) => {
-  const { phone: targetPhone } = await parseJson(req, registerSmsSchema, { phone: 40011 });
+  const { phone: targetPhone } = await parseJson(req, registerSmsSchema, { phone: EC_PHONE_ISSUE });
 
   if (!isSmsConfigured()) {
-    routeError(503, 40061, "短信服务暂未配置，请稍后重试");
+    routeError(503, EC_SMS_NOT_CONFIGURED, "短信服务暂未配置，请稍后重试");
   }
 
   const ctx = getContext();
@@ -30,7 +31,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 检查手机号是否已注册
   const existing = await ctx.user.usersRepo.findByPhone(targetPhone);
   if (existing) {
-    routeError(400, 40008, "该手机号已注册，请直接登录");
+    routeError(400, EC_DUPLICATE, "该手机号已注册，请直接登录");
   }
 
   // 限流：同一手机号 60 秒内只能发一次
@@ -69,7 +70,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   if (!smsSent) {
-    routeError(500, 40062, "短信发送失败，请稍后重试");
+    routeError(500, EC_SMS_SEND_FAILED, "短信发送失败，请稍后重试");
   }
 
   return NextResponse.json({ success: true, sms_sent: true });

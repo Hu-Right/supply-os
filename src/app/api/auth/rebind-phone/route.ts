@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
+import { EC_NOT_FOUND, EC_PHONE_NOT_BOUND, EC_PHONE_ISSUE, EC_INVALID_CODE, EC_TOO_MANY_ATTEMPTS, EC_CONTACT_TAKEN_BY_OTHER } from "@/shared/constants/api";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { maskPhone } from "@/lib/utils/mask";
 
@@ -14,24 +15,24 @@ const rebindPhoneSchema = z.object({
 
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
-  const { new_phone, code } = await parseJson(req, rebindPhoneSchema, { new_phone: 40011, code: 40005 });
+  const { new_phone, code } = await parseJson(req, rebindPhoneSchema, { new_phone: EC_PHONE_ISSUE, code: EC_INVALID_CODE });
 
   const ctx = getContext();
   const user = await ctx.user.usersRepo.findById(auth.userId!);
-  if (!user) routeError(404, 40044, "用户不存在");
-  if (!user.phone) routeError(400, 40030, "尚未绑定手机号");
+  if (!user) routeError(404, EC_NOT_FOUND, "用户不存在");
+  if (!user.phone) routeError(400, EC_PHONE_NOT_BOUND, "尚未绑定手机号");
 
   const record = await ctx.user.authRepo.findLatestActiveCode(auth.userId!, "phone_rebind", new_phone);
-  if (!record) routeError(400, 40007, "验证码无效，请重新获取");
-  if (record.attempts >= 5) routeError(429, 40029, "尝试次数过多");
+  if (!record) routeError(400, EC_INVALID_CODE, "验证码无效，请重新获取");
+  if (record.attempts >= 5) routeError(429, EC_TOO_MANY_ATTEMPTS, "尝试次数过多");
   if (record.code !== hashVerificationCode(code)) {
     await ctx.user.authRepo.incrementCodeAttempts(record.id);
-    routeError(400, 40007, "验证码无效，请重新获取");
+    routeError(400, EC_INVALID_CODE, "验证码无效，请重新获取");
   }
 
   const existingByPhone = await ctx.user.usersRepo.findByPhone(new_phone);
   if (existingByPhone && (auth.userId == null || existingByPhone.id !== auth.userId)) {
-    routeError(409, 40032, "该手机号已被其他用户绑定");
+    routeError(409, EC_CONTACT_TAKEN_BY_OTHER, "该手机号已被其他用户绑定");
   }
   await ctx.user.usersRepo.bindPhoneById(auth.userId!, new_phone);
   await ctx.user.authRepo.markCodeUsed(record.id);

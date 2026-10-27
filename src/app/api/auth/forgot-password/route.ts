@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_REQUEST, EC_PHONE_ISSUE, EC_SMS_NOT_CONFIGURED, EC_EMAIL_ISSUE, EC_EMAIL_NOT_CONFIGURED } from "@/shared/constants/api";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendPasswordResetEmail, isEmailConfigured } from "@/lib/services/email";
 import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
@@ -32,7 +33,7 @@ function detectChannel(identifier: string): "sms" | "email" {
 }
 
 export const POST = withRoute(async (req: NextRequest) => {
-  const body = await parseJson(req, forgotSchema, { channel: 40020 });
+  const body = await parseJson(req, forgotSchema, { channel: EC_INVALID_REQUEST });
   const identifier = String(body.identifier || "").trim();
   // 前端可显式指定 channel，未指定时自动识别
   const channel: "sms" | "email" = body.channel || detectChannel(identifier);
@@ -50,14 +51,14 @@ export const POST = withRoute(async (req: NextRequest) => {
       return NextResponse.json({ success: true, message: "验证码发送请求已提交", sms_sent: false, support_hint: "该格式为邮箱，请使用邮箱验证方式" });
     }
     if (!PHONE_RE.test(identifier)) {
-      routeError(400, 40011, "请输入有效的手机号");
+      routeError(400, EC_PHONE_ISSUE, "请输入有效的手机号");
     }
     const user = await ctx.user.usersRepo.findByIdentifier(identifier);
     if (!user || !user.phone || !user.phone_verified) {
       return NextResponse.json({ success: true, message: "验证码发送请求已提交", sms_sent: false, support_hint: null });
     }
     if (!isSmsConfigured()) {
-      routeError(503, 40061, "短信服务暂未配置，请使用邮箱验证");
+      routeError(503, EC_SMS_NOT_CONFIGURED, "短信服务暂未配置，请使用邮箱验证");
     }
 
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRES_MS);
@@ -81,10 +82,10 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   // ── 邮箱渠道（备用） ──
   if (!identifier || !EMAIL_RE.test(identifier)) {
-    routeError(400, 40010, "请输入有效的邮箱地址");
+    routeError(400, EC_EMAIL_ISSUE, "请输入有效的邮箱地址");
   }
   if (!isEmailConfigured()) {
-    routeError(503, 40060, "邮件服务暂未配置，请联系客服重置密码");
+    routeError(503, EC_EMAIL_NOT_CONFIGURED, "邮件服务暂未配置，请联系客服重置密码");
   }
 
   const user = await ctx.user.usersRepo.findByIdentifier(identifier);
