@@ -46,11 +46,11 @@ test("camelCase 键 + 分页元数据 snake 键 → 通过（不误伤）", () =
 
 test("已登记递减白名单的存量键不报错（冻结现状），新键仍被拦", () => {
   // 白名单里的真实存量项 + 一个未登记项：只应报未登记的那条
-  // （auth 域 refresh_token / email_sent / sms_sent / support_hint 已全部迁 camelCase 并从白名单删除，
-  //   改用仍存量登记的 crm/chat/messages 两键做样本）
+  // （auth 全域、supplier-diagnosis、learning/training、report-preview、claims/interest/unlock、
+  //   crm/chat/messages 均已迁 camelCase 并从白名单删除，改用仍存量登记的 notices/[id]/preview 两键）
   withFixture("fieldname-allow", {
-    "src/app/api/crm/chat/messages/route.ts": ROUTE('{ created_at: "2026-01-01", session_id: 7 }'),
-    "src/app/api/newer/route.ts": ROUTE('{ created_at: "c" }'),
+    "src/app/api/notices/[id]/preview/route.ts": ROUTE('{ buyer_name: "x", country_code: "CN" }'),
+    "src/app/api/newer/route.ts": ROUTE('{ buyer_name: "c" }'),
   }, (root) => {
     const r = runAgainst(root, GATE);
     assert.equal(r.code, 1, "未登记的 snake 键没被拦");

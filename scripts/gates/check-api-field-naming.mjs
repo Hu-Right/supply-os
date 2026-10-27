@@ -39,8 +39,6 @@ const METADATA_KEYS = new Set([
 
 // 递减白名单（`<相对 route.ts>#<snake 键>`）：存量显式 snake 响应键，迁移一个删一行；新增不得进入。
 const ALLOWLIST = new Set([
-  "src/app/api/crm/chat/messages/route.ts#created_at",
-  "src/app/api/crm/chat/messages/route.ts#session_id",
   "src/app/api/notices/[id]/content/route.ts#description_cn",
   "src/app/api/notices/[id]/detail/route.ts#ai_analysis",
   "src/app/api/notices/[id]/detail/route.ts#ai_products",

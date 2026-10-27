@@ -15,7 +15,7 @@
 import { NextRequest } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { verifyChatTicket } from "@/lib/services/chatTicket";
-import { sessionOwnedBy } from "@/lib/services/chat-service";
+import { sessionOwnedBy, messageViewOf } from "@/lib/services/chat-service";
 import { SSE_POLL_INTERVAL_MS, SSE_HEARTBEAT_INTERVAL_MS, SSE_MAX_IDLE_MS } from "@/shared/constants/time";
 import { EC_AUTH_REQUIRED, EC_INVALID_PARAMS, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING } from "@/shared/constants/api";
 
@@ -151,7 +151,9 @@ export async function GET(req: NextRequest) {
               if (newMessages.length > 0) {
                 lastActivity = Date.now();
                 for (const msg of newMessages) {
-                  safeEnqueue(`event: message\ndata: ${JSON.stringify(msg)}\n\n`);
+                  // 推视图而不是 DB 行：与 GET/POST 两个出口同一命名口径（红线②）
+                  const view = messageViewOf(msg);
+                  safeEnqueue(`event: message\ndata: ${JSON.stringify(view)}\n\n`);
                   lastMessageId = msg.id;
                 }
               }

@@ -57,7 +57,7 @@ export function HistoryPanel({ onClose }: HistoryPanelProps) {
     setTranscriptLoading(true);
     setTranscript(null);
     try {
-      const rows = await api<Array<{ id: number; role: string; content: string; metadata: unknown; created_at: string }>>(
+      const rows = await api<Array<{ id: number; role: string; content: string; metadata: unknown; createdAt: string }>>(
         `/api/crm/chat/messages?sessionId=${item.id}&limit=200`,
       );
       setTranscript(
@@ -65,7 +65,7 @@ export function HistoryPanel({ onClose }: HistoryPanelProps) {
           id: `h_${m.id}`,
           role: (m.role === "customer" ? "user" : "assistant") as ChatMessage["role"],
           content: m.content + attachmentMarkerFromMetadata(m.metadata),
-          timestamp: new Date(m.created_at).getTime() || Date.now(),
+          timestamp: new Date(m.createdAt).getTime() || Date.now(),
           isHistory: true,
         })),
       );

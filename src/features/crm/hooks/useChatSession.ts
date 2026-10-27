@@ -12,7 +12,7 @@ import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { attachmentMarkerFromMetadata } from "./chat-types";
 import type { MessageRole, ChatMessage, AssistantMode } from "./chat-types";
-import type { ChatSessionRow, ChatMessageRow } from "../types";
+import type { ChatSessionRow, ChatMessageView } from "../types";
 
 export interface UseChatSessionReturn {
   chatSessionId: number | null;
@@ -134,7 +134,7 @@ export function useChatSession(): UseChatSessionReturn {
       } else {
         setMode("waiting");
       }
-      const history = await api<ChatMessageRow[]>(
+      const history = await api<ChatMessageView[]>(
         `/api/crm/chat/messages?sessionId=${latest.id}`,
       );
       if (history?.length > 0) {
@@ -143,7 +143,7 @@ export function useChatSession(): UseChatSessionReturn {
             id: `hist_${m.id}`,
             role: (m.role === "customer" ? "user" : "assistant") as MessageRole,
             content: m.content + attachmentMarkerFromMetadata(m.metadata),
-            timestamp: new Date(m.created_at).getTime() || Date.now(),
+            timestamp: new Date(m.createdAt).getTime() || Date.now(),
             isHistory: true,
           })),
         );

@@ -24,12 +24,17 @@ export interface ChatSessionRow {
   rated_at: Date | null;
 }
 
-/** 客服消息行（与 lib/repos/chat.repo 的 ChatMessageRow 对齐） */
-export interface ChatMessageRow {
+/**
+ * 客服消息对外视图（与 lib/services/chat-service 的 ChatMessageView 同一契约）
+ * @description 这里不直接 import 服务端模块（chat-service 带 repo/mysql 类型，客户端引入是架构违规），
+ *              而是镜像对外那一份。字段已从 DB 列名 session_id/created_at 改为 camelCase（命名红线②）；
+ *              不再叫 …Row 是因为本对象不对应任何表行。
+ */
+export interface ChatMessageView {
   id: number;
-  session_id: number;
+  sessionId: number;
   role: "customer" | "ai" | "agent";
   content: string;
   metadata: string | null;
-  created_at: Date;
+  createdAt: Date;
 }

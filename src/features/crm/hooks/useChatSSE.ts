@@ -11,7 +11,7 @@
  */
 import { useEffect, useRef, useCallback, useState } from "react";
 import { api } from "@/core/http";
-import type { ChatMessageRow } from "../types";
+import type { ChatMessageView } from "../types";
 
 export type SSEStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -19,7 +19,7 @@ export interface UseChatSSEOptions {
   /** 会话 ID（null 时不建立连接） */
   sessionId: number | null;
   /** 收到新消息回调 */
-  onMessage?: (msg: ChatMessageRow) => void;
+  onMessage?: (msg: ChatMessageView) => void;
   /** 会话关闭回调 */
   onSessionClosed?: () => void;
   /** Agent 接入回调（内网运营经理接入会话时触发） */
@@ -170,7 +170,7 @@ export function useChatSSE(options: UseChatSSEOptions): UseChatSSEReturn {
         es.addEventListener("message", (event: MessageEvent) => {
           lastEventAtRef.current = Date.now();
           try {
-            const msg = JSON.parse(event.data) as ChatMessageRow;
+            const msg = JSON.parse(event.data) as ChatMessageView;
             callbacksRef.current.onMessage?.(msg);
           } catch {
             // 忽略解析错误

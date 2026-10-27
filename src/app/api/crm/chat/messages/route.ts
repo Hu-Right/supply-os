@@ -13,7 +13,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { chatMessageSendSchema, sanitizeMetadata } from "@/lib/validators/chat";
-import { sessionOwnedBy } from "@/lib/services/chat-service";
+import { sessionOwnedBy, messageViewOf, messagesViewOf } from "@/lib/services/chat-service";
 import path from "path";
 import { ONE_MINUTE_MS } from "@/shared/constants/time";
 import { EC_INVALID_REQUEST, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING, EC_CHAT_SESSION_CLOSED } from "@/shared/constants/api";
@@ -55,7 +55,8 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   const limit = clampLimit(req.nextUrl.searchParams.get("limit"), CHAT_MESSAGES_DEFAULT_LIMIT, CHAT_MESSAGES_MAX_LIMIT);
   const messages = await chatRepo.listMessages(sessionId, limit);
-  return NextResponse.json(messages);
+  // 出 service 层视图而不是 DB 行（命名红线②）
+  return NextResponse.json(messagesViewOf(messages));
 });
 
 /**
@@ -109,15 +110,18 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   // 按 insertId 精确回查（审查 P0-B8：此前取列表第一条，多消息时回显错误）
   const createdMsg = await chatRepo.findMessageById(messageId);
+  // 回查失败时的本地兜底同样走视图（否则主路 snake、兜底 camel = 一个对象两种形状）
   return NextResponse.json(
-    createdMsg ?? {
-      id: messageId,
-      session_id: sessionId,
-      role: effectiveRole,
-      content,
-      metadata: metadata ?? null,
-      created_at: new Date(),
-    },
+    createdMsg
+      ? messageViewOf(createdMsg)
+      : {
+          id: messageId,
+          sessionId,
+          role: effectiveRole,
+          content,
+          metadata: metadata ?? null,
+          createdAt: new Date(),
+        },
     { status: 201 },
   );
 });
