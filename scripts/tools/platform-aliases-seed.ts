@@ -1,3 +1,8 @@
+// 平台（发布机构/站点）别名 seed：只写 crm_platform_aliases（别名表本仓可直接维护）。
+// 服务表 crm_notice_public 的 platform_name 归一不在本脚本做：红线 N1 规定服务表内容只能由
+// scripts/ops/notice-public-v2.ts 写入，而 v2 构建时已按 host/alias 从本表 resolve（见其
+// platformOf）。手写 UPDATE 只会造出「表↔builder 两套口径」的分叉，下次重建就被覆盖——
+// 因此 seed 完别名后需要归一历史行，就重跑 v2，而不是在这里刷表。
 import { readFileSync } from "node:fs";
 import mysql from "mysql2/promise";
 for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
@@ -85,13 +90,10 @@ for (const [host, canonical, code] of platforms) {
     [canonical, code, host, host, JSON.stringify({ zh: canonical, en: canonical })],
   );
 }
-const [r] = await c.query(
-  `UPDATE crm_notice_public p
-     JOIN crm_platform_aliases a ON a.host=p.platform_name AND a.kind='platform' AND a.is_active=1
-      SET p.platform_name=a.canonical
-    WHERE NOT (p.platform_name <=> a.canonical)`,
+const [statRows] = await c.query(
+  `SELECT COUNT(*) AS total, SUM(platform_name REGEXP '\\.[a-z]{2,}$') AS still_host FROM crm_notice_public`,
 );
-console.log({ platforms: platforms.length, updated: (r as { affectedRows?: number }).affectedRows });
-const [n] = await c.query(`SELECT COUNT(*) n, SUM(platform_name LIKE '%.%') host_like, SUM(platform_name IS NULL OR platform_name='') missing FROM crm_notice_public`);
-console.log((n as Array<Record<string, unknown>>)[0]);
+const serviceTable = (statRows as Array<Record<string, unknown>>)[0];
+console.log({ seededPlatforms: platforms.length, serviceTable });
+console.log("提示：别名已入库；服务表 platform_name 的归一请重跑 scripts/ops/notice-public-v2.ts（红线 N1：唯一写入者）。");
 await c.end();

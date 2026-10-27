@@ -59,7 +59,7 @@ const PLAN_UPDATES = [
     set: {
       name_zh: "企业商机版",
       price: "16800.00",
-      positioning_zh: "资质和材料达标 60 分以上、有真实投标计划的企业：企业产品画像、UNSPSC/CPV、每日智能匹配、订单 CRM、Bid/No-Bid 判断、资格与缺口识别、技术/商务要求矩阵。",
+      positioning_zh: "资质和材料达标 60 分以上、有真实投标计划的企业：企业产品画像、UGT 统一全球分类码、每日智能匹配、订单 CRM、Bid/No-Bid 判断、资格与缺口识别、技术/商务要求矩阵。",
     },
   },
   {
