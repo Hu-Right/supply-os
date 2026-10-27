@@ -27,11 +27,11 @@ export function useRegisterCode() {
     setRegisterCodeLoading(true);
     setRegisterCodeError("");
     try {
-      const data = await api<{ sms_sent?: boolean }>(
+      const data = await api<{ smsSent?: boolean }>(
         "/api/auth/send-register-sms-code",
         { method: "POST", body: { phone } },
       );
-      if (!data.sms_sent) {
+      if (!data.smsSent) {
         setRegisterCodeError(t("authSmsSendFailed") || "短信发送失败");
       } else {
         setRegisterCodeSent(true);

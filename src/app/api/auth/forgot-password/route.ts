@@ -48,14 +48,14 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (channel === "sms") {
     // 邮箱格式误入短信渠道：引导使用邮箱验证
     if (EMAIL_RE.test(identifier)) {
-      return NextResponse.json({ success: true, message: "验证码发送请求已提交", sms_sent: false, support_hint: "该格式为邮箱，请使用邮箱验证方式" });
+      return NextResponse.json({ success: true, message: "验证码发送请求已提交", smsSent: false, supportHint: "该格式为邮箱，请使用邮箱验证方式" });
     }
     if (!PHONE_RE.test(identifier)) {
       routeError(400, EC_PHONE_ISSUE, "请输入有效的手机号");
     }
     const user = await ctx.user.usersRepo.findByIdentifier(identifier);
     if (!user || !user.phone || !user.phone_verified) {
-      return NextResponse.json({ success: true, message: "验证码发送请求已提交", sms_sent: false, support_hint: null });
+      return NextResponse.json({ success: true, message: "验证码发送请求已提交", smsSent: false, supportHint: null });
     }
     if (!isSmsConfigured()) {
       routeError(503, EC_SMS_NOT_CONFIGURED, "短信服务暂未配置，请使用邮箱验证");
@@ -77,7 +77,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     } catch (err) {
       await ctx.user.authRepo.markSmsSent(resetId, false, (err as Error).message);
     }
-    return NextResponse.json({ success: true, message: "验证码已发送到您的手机", sms_sent: smsSent, support_hint: smsSent ? null : "短信发送失败，请使用邮箱验证或联系客服" });
+    return NextResponse.json({ success: true, message: "验证码已发送到您的手机", smsSent: smsSent, supportHint: smsSent ? null : "短信发送失败，请使用邮箱验证或联系客服" });
   }
 
   // ── 邮箱渠道（备用） ──
@@ -113,7 +113,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   return NextResponse.json({
     success: true,
     message: emailSent ? "验证码已发送到您的邮箱" : "如该邮箱已注册，验证码将发送到您的邮箱",
-    email_sent: emailSent,
-    support_hint: emailSent ? null : "未收到验证码？请检查邮箱地址是否正确，或联系客服协助重置密码",
+    emailSent: emailSent,
+    supportHint: emailSent ? null : "未收到验证码？请检查邮箱地址是否正确，或联系客服协助重置密码",
   });
 });

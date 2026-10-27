@@ -73,5 +73,5 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(500, EC_SMS_SEND_FAILED, "短信发送失败，请稍后重试");
   }
 
-  return NextResponse.json({ success: true, sms_sent: true });
+  return NextResponse.json({ success: true, smsSent: true });
 });

@@ -80,14 +80,14 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
     setLoading(true);
     setMessage("");
     try {
-      const data = await api<{ sms_sent: boolean; error?: string }>("/api/auth/send-phone-code", {
+      const data = await api<{ smsSent: boolean; error?: string }>("/api/auth/send-phone-code", {
         method: "POST",
         body: {
           phone: scene === "unbind" ? "" : phone,
           scene,
         },
       });
-      if (!data.sms_sent) {
+      if (!data.smsSent) {
         setMessage(data.error || t("authPhoneSendFailed"));
         setIsError(true);
       } else {

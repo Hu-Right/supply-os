@@ -39,12 +39,6 @@ const METADATA_KEYS = new Set([
 
 // 递减白名单（`<相对 route.ts>#<snake 键>`）：存量显式 snake 响应键，迁移一个删一行；新增不得进入。
 const ALLOWLIST = new Set([
-  "src/app/api/auth/forgot-password/route.ts#email_sent",
-  "src/app/api/auth/forgot-password/route.ts#sms_sent",
-  "src/app/api/auth/forgot-password/route.ts#support_hint",
-  "src/app/api/auth/send-email-code/route.ts#email_sent",
-  "src/app/api/auth/send-phone-code/route.ts#sms_sent",
-  "src/app/api/auth/send-register-sms-code/route.ts#sms_sent",
   "src/app/api/crm/chat/messages/route.ts#created_at",
   "src/app/api/crm/chat/messages/route.ts#session_id",
   "src/app/api/learning/purchased/route.ts#material_ids",

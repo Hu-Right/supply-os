@@ -81,5 +81,5 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (!emailSent) {
     routeError(500, EC_EMAIL_SEND_FAILED, "邮件发送失败，请稍后重试");
   }
-  return NextResponse.json({ success: true, email_sent: true });
+  return NextResponse.json({ success: true, emailSent: true });
 });

@@ -86,20 +86,20 @@ export function useForgotPassword(onSuccess: () => void) {
     setForgotLoading(true);
     try {
       // 双轨制退役（轨道C）：统一走 api()；非 2xx 抛 ApiError（message = 服务端 error 字段）
-      const data = await api<{ sms_sent?: boolean; email_sent?: boolean; support_hint?: string | null }>(
+      const data = await api<{ smsSent?: boolean; emailSent?: boolean; supportHint?: string | null }>(
         "/api/auth/forgot-password",
         { method: "POST", body: { identifier, channel } },
       );
       if (channel === "sms") {
-        if (data.sms_sent === false) {
+        if (data.smsSent === false) {
           setShowSupportHint(true);
-          setForgotError(data.support_hint || "短信发送失败");
+          setForgotError(data.supportHint || "短信发送失败");
         } else {
           setForgotStep(2);
           setForgotSuccess(t("authForgotSmsCodeSent") || "验证码已发送到您的手机，请查收");
         }
       } else {
-        if (data.email_sent === false) {
+        if (data.emailSent === false) {
           setShowSupportHint(true);
           setForgotError(t("authForgotEmailSendFailed") || "验证码邮件发送失败，请检查邮箱地址是否正确");
         } else {

@@ -74,14 +74,14 @@ export function useEmailBinding(): UseEmailBindingReturn {
     setLoading(true);
     setMessage("");
     try {
-      const data = await api<{ email_sent: boolean; error?: string }>("/api/auth/send-email-code", {
+      const data = await api<{ emailSent: boolean; error?: string }>("/api/auth/send-email-code", {
         method: "POST",
         body: {
           email: scene === "unbind" ? "" : email,
           scene,
         },
       });
-      if (!data.email_sent) {
+      if (!data.emailSent) {
         setMessage(data.error || (t("authEmailSendFailed") || "邮件发送失败"));
         setIsError(true);
       } else {
