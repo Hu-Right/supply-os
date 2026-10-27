@@ -33,6 +33,7 @@
   "errTooManyActions": "单次提交的操作过多",
   "errNoValidActions": "没有有效的操作",
   "errInviteCodeInvalid": "邀请码无效",
+  "errEndpointRetired": "该接口已废弃，请使用新版端点",
 
   "errClaimSupplierNotFound": "要认领的供应商不存在",
   "errClaimSelfBound": "您已绑定该企业，无需重复认领",

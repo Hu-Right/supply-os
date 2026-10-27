@@ -33,6 +33,7 @@
   "errTooManyActions": "عدد كبير جدًا من الإجراءات في طلب واحد",
   "errNoValidActions": "لم يتم تقديم أي إجراء صالح",
   "errInviteCodeInvalid": "رمز الدعوة غير صالح",
+  "errEndpointRetired": "تم إلغاء هذا المسار، يُرجى استخدام المسار الجديد",
 
   "errClaimSupplierNotFound": "المورّد المطلوب المطالبة به غير موجود",
   "errClaimSelfBound": "أنت مرتبط بهذه الشركة بالفعل، لا حاجة للمطالبة مجددًا",

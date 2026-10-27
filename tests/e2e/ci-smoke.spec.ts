@@ -108,14 +108,15 @@ test.describe("鉴权与参数边界", () => {
     expect(JSON.stringify(body)).not.toContain("at ");
   });
 
-  test("不存在的账号登录 → 401 恒时语义（空 crm_users 也不得 500）", async ({ request }) => {
+  test("不存在的账号登录 → 403 凭据被拒（恒时语义不变，空 crm_users 也不得 500）", async ({ request }) => {
     const ghost = `ci-smoke-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.com`;
     const res = await request.post(`${BASE}/api/auth/login`, {
       data: { identifier: ghost, password: "definitely-wrong-password" },
     });
-    expect(res.status()).toBe(401);
+    // 401 语义红线（③）：凭据被拒 = 会话已死 → 403 + EC_ACCOUNT_ISSUE(40013)，不再误触发客户端刷新链路
+    expect(res.status()).toBe(403);
     const body = await res.json();
-    expect(body.code).toBe(40042);
+    expect(body.code).toBe(40013);
   });
 
   test("未登录访问解锁端点 → 401（写路径同样先过鉴权）", async ({ request }) => {

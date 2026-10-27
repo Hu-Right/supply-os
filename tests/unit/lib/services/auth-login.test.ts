@@ -16,6 +16,7 @@ vi.mock("@/lib/services/auth", async (importOriginal) => {
 
 import { loginWithPassword } from "@/lib/services/auth-login";
 import { verifyPassword, issueTokenPair } from "@/lib/services/auth";
+import { EC_ACCOUNT_ISSUE } from "@/shared/constants/api";
 
 function makeCtx(overrides: Record<string, any> = {}) {
   return {
@@ -41,14 +42,16 @@ describe("loginWithPassword", () => {
     vi.mocked(issueTokenPair).mockResolvedValue({ token: "access", refresh_token: "refresh" });
   });
 
-  it("用户不存在 → 401（恒时验证仍执行）", async () => {
+  // 401 语义红线（③）：凭据被拒是「会话已死」，不是「未登录可刷新」——403 + 专属码，
+  // 避开 api-client 的 401 刷新重试/登出陷阱（时序攻击防护不变：仍跑一次恒时验证）。
+  it("用户不存在 → 403 + EC_ACCOUNT_ISSUE（恒时验证仍执行）", async () => {
     const ctx = makeCtx();
     await expect(loginWithPassword(ctx, { identifier: "nobody", password: "pw" }))
-      .rejects.toMatchObject({ status: 401, code: 40042 });
+      .rejects.toMatchObject({ status: 403, code: EC_ACCOUNT_ISSUE });
     expect(verifyPassword).toHaveBeenCalled(); // 恒时验证
   });
 
-  it("密码错误 → 401", async () => {
+  it("密码错误 → 403 + EC_ACCOUNT_ISSUE", async () => {
     vi.mocked(verifyPassword).mockResolvedValueOnce(false);
     const ctx = makeCtx({
       usersRepo: {
@@ -58,7 +61,7 @@ describe("loginWithPassword", () => {
       },
     });
     await expect(loginWithPassword(ctx, { identifier: "u@t.com", password: "wrong" }))
-      .rejects.toMatchObject({ status: 401 });
+      .rejects.toMatchObject({ status: 403, code: EC_ACCOUNT_ISSUE });
   });
 
   it("账号禁用 → 403", async () => {

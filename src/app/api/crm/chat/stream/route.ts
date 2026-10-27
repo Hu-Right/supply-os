@@ -17,6 +17,7 @@ import { getContext } from "@/lib/db/context";
 import { verifyChatTicket } from "@/lib/services/chatTicket";
 import { sessionOwnedBy } from "@/lib/services/chat-service";
 import { SSE_POLL_INTERVAL_MS, SSE_HEARTBEAT_INTERVAL_MS, SSE_MAX_IDLE_MS } from "@/shared/constants/time";
+import { EC_AUTH_REQUIRED, EC_INVALID_PARAMS, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING } from "@/shared/constants/api";
 
 /** 轮询间隔（毫秒） */
 const POLL_INTERVAL = SSE_POLL_INTERVAL_MS;
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
   const verified = ticket ? verifyChatTicket(ticket) : null;
   if (!verified) {
     return Response.json(
-      { code: 40042, message: "SSE 凭据无效或已过期", error: "Invalid or expired ticket" },
+      { code: EC_AUTH_REQUIRED, message: "SSE 凭据无效或已过期", error: "Invalid or expired ticket" },
       { status: 401 },
     );
   }
@@ -40,14 +41,14 @@ export async function GET(req: NextRequest) {
   const sessionId = Number(req.nextUrl.searchParams.get("sessionId"));
   if (!sessionId) {
     return Response.json(
-      { code: 40022, message: "缺少 sessionId", error: "Missing sessionId" },
+      { code: EC_INVALID_PARAMS, message: "缺少 sessionId", error: "Missing sessionId" },
       { status: 400 },
     );
   }
   // ticket 与 sessionId 必须匹配，防止用 A 会话的 ticket 监听 B 会话
   if (sessionId !== ticketSessionId) {
     return Response.json(
-      { code: 40003, message: "凭据与会话不匹配", error: "Ticket/session mismatch" },
+      { code: EC_FORBIDDEN, message: "凭据与会话不匹配", error: "Ticket/session mismatch" },
       { status: 403 },
     );
   }
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
   const session = await chatRepo.findSessionById(sessionId);
   if (!session) {
     return Response.json(
-      { code: 40023, message: "会话不存在", error: "Session not found" },
+      { code: EC_CHAT_SESSION_MISSING, message: "会话不存在", error: "Session not found" },
       { status: 404 },
     );
   }
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
   // 权限检查：仅会话所有者可访问（user_id 为准，历史行回退 customer_id）
   if (!sessionOwnedBy(session, { userId: ticketUserId })) {
     return Response.json(
-      { code: 40003, message: "无权访问此会话", error: "无权访问此会话" },
+      { code: EC_FORBIDDEN, message: "无权访问此会话", error: "无权访问此会话" },
       { status: 403 },
     );
   }

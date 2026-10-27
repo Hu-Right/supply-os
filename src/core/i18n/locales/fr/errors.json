@@ -33,6 +33,7 @@
   "errTooManyActions": "Trop d'actions dans une seule requête",
   "errNoValidActions": "Aucune action valide fournie",
   "errInviteCodeInvalid": "Code d'invitation invalide",
+  "errEndpointRetired": "Cet endpoint est déprécié, veuillez utiliser le nouvel endpoint",
 
   "errClaimSupplierNotFound": "Le fournisseur à revendiquer n'existe pas",
   "errClaimSelfBound": "Vous êtes déjà lié à cette entreprise ; inutile de revendiquer à nouveau",

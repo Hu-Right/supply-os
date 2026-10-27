@@ -8,6 +8,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { EC_NOT_FOUND } from "@/shared/constants/api";
 
 // ── POST /api/payment/notify/alipay — 支付宝异步通知 ──
 export async function POST(req: NextRequest) {
@@ -62,5 +63,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ code: 40404, message: "通知路由不存在" }, { status: 404 });
+  return NextResponse.json({ code: EC_NOT_FOUND, message: "通知路由不存在" }, { status: 404 });
 }

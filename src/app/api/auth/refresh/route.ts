@@ -7,7 +7,7 @@
  * 进而误清全局认证状态。非严格轮换下旧 token 始终可验证，彻底消除该竞态。
  *
  * crm_users.user_key 列退役收尾：payload 中已彻底移除 user_key 字段，
- * 旧 token（无 uid 仅 user_key）不再兼容——直接返回 401，用户重新登录即可。
+ * 旧 token（无 uid 仅 user_key）不再兼容——直接返回 403（会话已死、不可刷新），用户重新登录即可。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -34,10 +34,10 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     payload = verifyRefreshToken(refreshToken);
   } catch {
-    routeError(401, EC_REFRESH_TOKEN_INVALID, "刷新令牌无效");
+    routeError(403, EC_REFRESH_TOKEN_INVALID, "刷新令牌无效");
   }
   if (!payload.uid) {
-    routeError(401, EC_REFRESH_TOKEN_EXPIRED, "刷新令牌已过期，请重新登录");
+    routeError(403, EC_REFRESH_TOKEN_EXPIRED, "刷新令牌已过期，请重新登录");
   }
 
   const authRepo = getContext().user.authRepo;
@@ -45,7 +45,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 非严格轮换：只查询不删除。旧 token 保留至自然过期，避免多标签页互踢。
   const stored = await authRepo.findRefreshTokenByHash(hashRefreshToken(refreshToken));
   if (!stored) {
-    routeError(401, EC_REFRESH_TOKEN_REVOKED, "刷新令牌已失效");
+    routeError(403, EC_REFRESH_TOKEN_REVOKED, "刷新令牌已失效");
   }
 
   const usersRepo = getContext().user.usersRepo;

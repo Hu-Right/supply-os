@@ -16,6 +16,7 @@ import { withRoute } from "@/lib/middleware/route-handler";
 import { resolveLlmCredentials } from "@/lib/services/ai/shared/llm-credentials";
 import { testLlmConnection } from "@/lib/services/ai-summary/test-connection";
 import { OutboundUrl } from "../route";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 const postSchema = z.object({
   baseUrl: OutboundUrl.optional(),
@@ -42,13 +43,13 @@ export const POST = withRoute(async (req: NextRequest) => {
     // 测试未保存的新配置：明文 Key 仅在本次请求内存中使用，不落库
     if (body.outboundConsent !== true) {
       return NextResponse.json(
-        { code: 40001, message: "请先勾选数据出站授权" },
+        { code: EC_INVALID_PARAMS, message: "请先勾选数据出站授权" },
         { status: 400 },
       );
     }
     if (!body.baseUrl || !body.model) {
       return NextResponse.json(
-        { code: 40002, message: "测试新配置需同时填写 Base URL 与模型名称" },
+        { code: EC_INVALID_PARAMS, message: "测试新配置需同时填写 Base URL 与模型名称" },
         { status: 400 },
       );
     }
@@ -64,7 +65,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const result = await testLlmConnection(target);
   if (!result.ok) {
-    return NextResponse.json({ code: 50201, message: result.error }, { status: 400 });
+    return NextResponse.json({ code: EC_INVALID_PARAMS, message: result.error }, { status: 400 });
   }
   return NextResponse.json({
     ok: true, model: result.model, latencyMs: result.latencyMs,

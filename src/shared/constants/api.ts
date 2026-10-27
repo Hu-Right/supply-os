@@ -282,6 +282,10 @@ export const EC_AI_CALL_FAILED = 51301;
 /** 注册：邀请码无效 */
 export const EC_INVITE_CODE_INVALID = 41119;
 
+// ── 端点废弃码（Response.json 裸码字面量治本，2026-10-27）─────────────────
+/** 该端点已废弃，请使用子路由 */
+export const EC_ENDPOINT_RETIRED = 41010;
+
 // ── 分页限制常量（Pagination Limits）───────────────────────────────────────────
 
 /** 通用 API 分页默认大小 */

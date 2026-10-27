@@ -57,6 +57,7 @@ import {
   EC_SESSION_REQUIRED, EC_TOO_MANY_ACTIONS, EC_NO_VALID_ACTIONS,
   // AI 摘要 / 邀请码专属码（service 层错误码治本）
   EC_AI_NOT_CONFIGURED, EC_AI_BAD_FORMAT, EC_SUPPLIER_PROFILE_REQUIRED, EC_AI_CALL_FAILED, EC_INVITE_CODE_INVALID,
+  EC_ENDPOINT_RETIRED,
 } from "@/shared/constants/api";
 
 /** 注入式翻译函数（与 useLocale 的 t 对齐；params 预留插值） */
@@ -195,6 +196,7 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_SUPPLIER_PROFILE_REQUIRED]: { kind: "ai", key: "aiSupplierProfileRequired" },
   [EC_AI_CALL_FAILED]: { kind: "ai", key: "aiErrCallFailed" },
   [EC_INVITE_CODE_INVALID]: { kind: "business", key: "errInviteCodeInvalid" },
+  [EC_ENDPOINT_RETIRED]: { kind: "business", key: "errEndpointRetired" },
 };
 
 /** HTTP 状态兜底（无稳定码命中时） */

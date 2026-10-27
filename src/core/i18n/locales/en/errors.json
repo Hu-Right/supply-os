@@ -33,6 +33,7 @@
   "errTooManyActions": "Too many actions in a single request",
   "errNoValidActions": "No valid actions provided",
   "errInviteCodeInvalid": "Invalid invitation code",
+  "errEndpointRetired": "This endpoint is deprecated, please use the new endpoint",
 
   "errClaimSupplierNotFound": "The supplier to claim does not exist",
   "errClaimSelfBound": "You are already bound to this company; no need to claim again",

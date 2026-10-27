@@ -3,7 +3,9 @@
  * @module tests/unit/api/auth/refresh.test.ts
  * @description 覆盖：缺少 token、无效 token、token 已失效、用户不存在、
  *              账号禁用（吊销会话）、正常刷新、多标签页安全（旧 token 不删除）、
- *              旧 token 无 uid → 401（user_key 回退路径已退役）。
+ *              旧 token 无 uid → 403（user_key 回退路径已退役）。
+ * 401 语义红线（③）：刷新令牌无效/过期/撤销 = 会话已死、不可刷新，用 403；
+ *   客户端行为不变（api-client 的 tryRefreshToken 对 !res.ok 一律返回 null → 清凭据 + 广播登出事件）。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -57,23 +59,23 @@ describe("POST /api/auth/refresh", () => {
     expect((await res.json()).code).toBe(EC_REFRESH_TOKEN_MISSING);
   });
 
-  it("token 验证失败 → 401/EC_REFRESH_TOKEN_INVALID", async () => {
+  it("token 验证失败 → 403/EC_REFRESH_TOKEN_INVALID", async () => {
     vi.mocked(readRefreshCookieFromRequest).mockReturnValue("bad-token");
     vi.mocked(verifyRefreshToken).mockImplementation(() => {
       throw new Error("invalid");
     });
     const res = await POST(makeReq());
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
     expect((await res.json()).code).toBe(EC_REFRESH_TOKEN_INVALID);
   });
 
-  it("DB 中无存储 → 401/EC_REFRESH_TOKEN_REVOKED", async () => {
+  it("DB 中无存储 → 403/EC_REFRESH_TOKEN_REVOKED", async () => {
     vi.mocked(readRefreshCookieFromRequest).mockReturnValue("old-token");
     vi.mocked(verifyRefreshToken).mockReturnValue({ uid: 1 } as any);
     const ctx = getContext() as any;
     ctx.user.authRepo.findRefreshTokenByHash.mockResolvedValue(null);
     const res = await POST(makeReq());
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
     expect((await res.json()).code).toBe(EC_REFRESH_TOKEN_REVOKED);
   });
 
@@ -131,12 +133,12 @@ describe("POST /api/auth/refresh", () => {
     expect(ctx.user.authRepo.insertRefreshToken).toHaveBeenCalledWith(1, "new-hash", expect.any(Date));
   });
 
-  it("旧 token 无 uid → 401（user_key 回退路径已退役）", async () => {
+  it("旧 token 无 uid → 403（user_key 回退路径已退役）", async () => {
     // crm_users.user_key 列退役收尾：不再兼容无 uid 的旧 token，直接拒绝要求重新登录
     vi.mocked(readRefreshCookieFromRequest).mockReturnValue("old-token");
     vi.mocked(verifyRefreshToken).mockReturnValue({ uid: undefined } as any);
     const res = await POST(makeReq());
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
     expect((await res.json()).code).toBe(EC_REFRESH_TOKEN_EXPIRED);
   });
 });

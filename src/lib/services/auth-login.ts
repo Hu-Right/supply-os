@@ -9,7 +9,7 @@
  */
 import type { AppContext } from "../db/context";
 import { RouteError } from "../middleware/route-handler";
-import { EC_AUTH_REQUIRED, EC_PASSWORD_RESET_REQUIRED, EC_ACCOUNT_DISABLED } from "@/shared/constants/api";
+import { EC_ACCOUNT_ISSUE, EC_PASSWORD_RESET_REQUIRED, EC_ACCOUNT_DISABLED } from "@/shared/constants/api";
 import { verifyPassword, buildUserResponse, issueTokenPair } from "./auth";
 
 // 恒时验证用的固定 bcrypt 哈希（对应用户不存在时的时序攻击防护）
@@ -34,8 +34,9 @@ export async function loginWithPassword(
 
   if (!user || !user.password_hash) {
     // 恒时验证防时序攻击
+    // 凭据被拒不是「未登录需刷新」：用 403 + EC_ACCOUNT_ISSUE，避开 api-client 的 401 刷新/登出陷阱。
     await verifyPassword(password || "", DUMMY_BCRYPT_HASH);
-    throw new RouteError(401, EC_AUTH_REQUIRED, "账号或密码错误");
+    throw new RouteError(403, EC_ACCOUNT_ISSUE, "账号或密码错误");
   }
   // SHA-256 弱哈希已退役：不再校验旧密码，存量账号一律引导先重置。
   // 重置成功写入 bcrypt 后自然恢复登录；403 语义避开 api-client 401 刷新重试路径。
@@ -47,7 +48,7 @@ export async function loginWithPassword(
     );
   }
   if (!(await verifyPassword(password || "", user.password_hash))) {
-    throw new RouteError(401, EC_AUTH_REQUIRED, "账号或密码错误");
+    throw new RouteError(403, EC_ACCOUNT_ISSUE, "账号或密码错误");
   }
   if (user.account_status === "disabled" || user.account_status === "rejected") {
     throw new RouteError(403, EC_ACCOUNT_DISABLED, "账号未通过审核或已停用");

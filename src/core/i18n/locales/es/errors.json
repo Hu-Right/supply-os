@@ -33,6 +33,7 @@
   "errTooManyActions": "Demasiadas acciones en una sola solicitud",
   "errNoValidActions": "No se proporcionaron acciones válidas",
   "errInviteCodeInvalid": "Código de invitación inválido",
+  "errEndpointRetired": "Este endpoint está obsoleto, use el nuevo endpoint",
 
   "errClaimSupplierNotFound": "El proveedor a reclamar no existe",
   "errClaimSelfBound": "Ya está vinculado a esta empresa; no es necesario reclamar de nuevo",
