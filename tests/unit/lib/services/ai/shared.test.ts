@@ -83,13 +83,13 @@ describe("resolveLlmCredentials", () => {
     expect(creds.supportsTemperature).toBe(false);
   });
 
-  it("配置缺失 → 40001 errLlmNotConfigured", async () => {
+  it("配置缺失 → 41301 errLlmNotConfigured", async () => {
     findActiveByUser.mockResolvedValue(null);
-    await expect(resolveLlmCredentials({} as any, 1)).rejects.toMatchObject({ status: 400, code: 40001 });
+    await expect(resolveLlmCredentials({} as any, 1)).rejects.toMatchObject({ status: 400, code: 41301 }); // EC_AI_NOT_CONFIGURED
   });
 
-  it("解密失败 → 40001 errLlmNotConfigured", async () => {
+  it("解密失败 → 41301 errLlmNotConfigured", async () => {
     decryptMock.mockImplementationOnce(() => { throw new Error("bad key"); });
-    await expect(resolveLlmCredentials({} as any, 1)).rejects.toMatchObject({ status: 400, code: 40001 });
+    await expect(resolveLlmCredentials({} as any, 1)).rejects.toMatchObject({ status: 400, code: 41301 }); // EC_AI_NOT_CONFIGURED
   });
 });

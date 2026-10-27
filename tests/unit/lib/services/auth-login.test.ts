@@ -70,7 +70,7 @@ describe("loginWithPassword", () => {
       },
     });
     await expect(loginWithPassword(ctx, { identifier: "u@t.com", password: "ok" }))
-      .rejects.toMatchObject({ status: 403, code: 40003 });
+      .rejects.toMatchObject({ status: 403, code: 41118 }); // EC_ACCOUNT_DISABLED
   });
 
   it("账号驳回 → 403", async () => {
@@ -82,7 +82,7 @@ describe("loginWithPassword", () => {
       },
     });
     await expect(loginWithPassword(ctx, { identifier: "u@t.com", password: "ok" }))
-      .rejects.toMatchObject({ status: 403, code: 40003 });
+      .rejects.toMatchObject({ status: 403, code: 41118 }); // EC_ACCOUNT_DISABLED
   });
 
   it("正常登录 → 返回 payload + tokens", async () => {

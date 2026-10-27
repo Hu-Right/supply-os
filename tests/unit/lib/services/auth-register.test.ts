@@ -79,18 +79,18 @@ describe("registerUser", () => {
     });
   });
 
-  it("密码不符合策略 → 400/40006", async () => {
+  it("密码不符合策略 → 400/40000 EC_INVALID_PARAMS（旧 40006 撞公告不存在）", async () => {
     const ctx = makeCtx();
     await expect(registerUser(ctx, { ...baseParams, password: "123" }))
-      .rejects.toMatchObject({ status: 400, code: 40006 });
+      .rejects.toMatchObject({ status: 400, code: 40000 });
   });
 
-  it("邀请码无效 → 400/40031", async () => {
+  it("邀请码无效 → 400/41119 EC_INVITE_CODE_INVALID（旧 40031 撞课程不存在）", async () => {
     const ctx = makeCtx({
       invitationRepo: { validateCode: vi.fn().mockResolvedValue({ valid: false, reason: "已过期" }) },
     });
     await expect(registerUser(ctx, { ...baseParams, inviteCode: "BAD" }))
-      .rejects.toMatchObject({ status: 400, code: 40031 });
+      .rejects.toMatchObject({ status: 400, code: 41119 });
   });
 
   it("验证码不存在 → 400/40007", async () => {
@@ -114,14 +114,14 @@ describe("registerUser", () => {
     expect(inc).toHaveBeenCalledWith(1);
   });
 
-  it("验证码尝试过多 → 429/40029", async () => {
+  it("验证码尝试过多 → 429/41108 EC_TOO_MANY_ATTEMPTS", async () => {
     const ctx = makeCtx({
       authRepo: {
         findLatestActiveCodeByPhone: vi.fn().mockResolvedValue({ id: 1, code: "hash:123456", attempts: 5 }),
       },
     });
     await expect(registerUser(ctx, baseParams))
-      .rejects.toMatchObject({ status: 429, code: 40029 });
+      .rejects.toMatchObject({ status: 429, code: 41108 });
   });
 
   it("手机号已注册 → 400/40008", async () => {
@@ -248,12 +248,12 @@ describe("registerUser", () => {
     expect(result.refreshToken).toBeNull();
   });
 
-  it("create() 返回 0 → 400/40008 注册失败", async () => {
+  it("create() 返回 0 → 400/40022 EC_INVALID_REQUEST 注册失败", async () => {
     const ctx = makeCtx({
       usersRepo: { create: vi.fn().mockResolvedValue(0) },
     });
     await expect(registerUser(ctx, baseParams))
-      .rejects.toMatchObject({ status: 400, code: 40008 });
+      .rejects.toMatchObject({ status: 400, code: 40022 });
   });
 
   it("markPhoneVerifiedById 按新用户 id 调用（非 user_key）", async () => {

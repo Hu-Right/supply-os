@@ -111,16 +111,16 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
     expect(res.details).toEqual({});
   });
 
-  it("LLM 配置缺失 → 40001 errLlmNotConfigured", async () => {
+  it("LLM 配置缺失 → 41301 errLlmNotConfigured", async () => {
     findScore.mockResolvedValue(null);
     findActiveByUser.mockResolvedValue(null);
-    await expect(getOrGenerateAiScore({} as any, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40001 });
+    await expect(getOrGenerateAiScore({} as any, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 41301 }); // EC_AI_NOT_CONFIGURED
   });
 
-  it("API Key 解密失败 → 40001 errLlmNotConfigured", async () => {
+  it("API Key 解密失败 → 41301 errLlmNotConfigured", async () => {
     findScore.mockResolvedValue(null);
     decryptMock.mockImplementationOnce(() => { throw new Error("bad key"); });
-    await expect(getOrGenerateAiScore(mockPoolForGeneration(), 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40001 });
+    await expect(getOrGenerateAiScore(mockPoolForGeneration(), 1, 2, false)).rejects.toMatchObject({ status: 400, code: 41301 }); // EC_AI_NOT_CONFIGURED
   });
 
   it("公告不存在 → 404 errNoticeNotFound", async () => {
@@ -132,7 +132,7 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
   it("LLM 调用失败 → 502 errLlmCallFailed", async () => {
     findScore.mockResolvedValue(null);
     callLlmForScore.mockRejectedValue(new Error("LLM_HTTP_500"));
-    await expect(getOrGenerateAiScore(mockPoolForGeneration(), 1, 2, false)).rejects.toMatchObject({ status: 502, code: 50002 });
+    await expect(getOrGenerateAiScore(mockPoolForGeneration(), 1, 2, false)).rejects.toMatchObject({ status: 502, code: 51301 }); // EC_AI_CALL_FAILED
   });
 
   it("生成成功 → upsertScore 落库并返回 cached:false", async () => {
@@ -151,7 +151,7 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
         .mockResolvedValueOnce([[{ eligibility: "", technical_hurdles: "", supplier_conditions: "" }]])
         .mockResolvedValueOnce([[{ supplier_id: 0 }]]),
     } as any;
-    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40009 });
+    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 41303 }); // EC_SUPPLIER_PROFILE_REQUIRED
     expect(callLlmForScore).not.toHaveBeenCalled();
   });
 
@@ -164,7 +164,7 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
         .mockResolvedValueOnce([[{ supplier_id: 10 }]])
         .mockResolvedValueOnce([[]]),
     } as any;
-    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40009 });
+    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 41303 }); // EC_SUPPLIER_PROFILE_REQUIRED
   });
 
   it("画像字段全为 NULL → 逐字段空串兜底", async () => {
@@ -197,6 +197,6 @@ describe("getOrGenerateAiScore 画像缺失边界", () => {
         .mockResolvedValueOnce([[{ eligibility: "", technical_hurdles: "", supplier_conditions: "" }]])
         .mockResolvedValueOnce([[]]),
     } as any;
-    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40009 });
+    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 41303 }); // EC_SUPPLIER_PROFILE_REQUIRED
   });
 });

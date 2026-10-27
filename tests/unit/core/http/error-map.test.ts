@@ -19,6 +19,12 @@ import { classifyApiError, mapApiError, resolveErrorText } from "@/core/http/err
 import {
   EC_VIP_ONLY, EC_CLAIM_BOUND_BY_OTHER, EC_POOL_FULL, EC_LEAD_STATUS_INVALID,
   EC_PAYMENT_SINGLE_FIRST_PURCHASE, EC_PAYMENT_AMOUNT_INVALID, EC_INTERNAL_ERROR,
+  EC_PHONE_NOT_BOUND, EC_ACCOUNT_DISABLED, EC_TOO_MANY_ATTEMPTS, EC_REFRESH_TOKEN_INVALID,
+  EC_CONTENT_LOCKED, EC_CHAT_SESSION_CLOSED, EC_CHAT_RATE_INVALID,
+  EC_SESSION_REQUIRED, EC_TOO_MANY_ACTIONS, EC_NO_VALID_ACTIONS,
+  EC_INVALID_PARAMS, EC_USER_REQUIRED,
+  EC_AI_NOT_CONFIGURED, EC_AI_BAD_FORMAT, EC_AI_CALL_FAILED, EC_SUPPLIER_PROFILE_REQUIRED,
+  EC_INVITE_CODE_INVALID, EC_TRANSLATION_UNAVAILABLE,
 } from "@/shared/constants/api";
 import zhErrors from "@/core/i18n/locales/zh/errors.json";
 import enErrors from "@/core/i18n/locales/en/errors.json";
@@ -53,6 +59,50 @@ describe("稳定码 → i18n 键", () => {
 
   it("VIP 档位码缺 detail → requiredRank 为 undefined，不写进 0 档", () => {
     expect(classifyApiError(new ApiError(403, "VIP only", EC_VIP_ONLY)).requiredRank).toBeUndefined();
+  });
+
+  it("auth 治本：认证域专属码各自成键，不再借他域号导致张冠李戴", () => {
+    expect(mapApiError(new ApiError(400, "尚未绑定手机号", EC_PHONE_NOT_BOUND), t)).toBe("K:errPhoneNotBound");
+    expect(mapApiError(new ApiError(403, "账号已停用", EC_ACCOUNT_DISABLED), t)).toBe("K:errAccountDisabled");
+    expect(mapApiError(new ApiError(429, "尝试次数过多", EC_TOO_MANY_ATTEMPTS), t)).toBe("K:errTooManyAttempts");
+    expect(classifyApiError(new ApiError(401, "刷新令牌无效", EC_REFRESH_TOKEN_INVALID)).key).toBe("errSessionExpired");
+  });
+
+  it("回归：解绑手机错误不再被解析为「课程不存在」（旧 40030 撞码缺陷）", () => {
+    // 历史 auth 用裸数字 40030（= EC_TRAINING_COURSE_NOT_FOUND），导致前端弹课程文案。
+    // 治本后该语义改用 EC_PHONE_NOT_BOUND(41103)，映射须归 errPhoneNotBound 而非 errTrainingCourseNotFound。
+    expect(classifyApiError(new ApiError(400, "尚未绑定手机号", EC_PHONE_NOT_BOUND)).key).not.toBe("errTrainingCourseNotFound");
+  });
+
+  it("全域治本：内容锁定/会话/反馈批量码各自成键，历史撞码点全部归位", () => {
+    expect(mapApiError(new ApiError(403, "公告已锁定，请先解锁", EC_CONTENT_LOCKED, { core_locked: true }), t)).toBe("K:errUnlockRequired");
+    expect(mapApiError(new ApiError(409, "会话已结束", EC_CHAT_SESSION_CLOSED), t)).toBe("K:errChatSessionClosed");
+    expect(mapApiError(new ApiError(409, "会话未结束或已评价过", EC_CHAT_RATE_INVALID), t)).toBe("K:errChatNotRatable");
+    expect(mapApiError(new ApiError(400, "缺少会话标识", EC_SESSION_REQUIRED), t)).toBe("K:errSessionRequired");
+    expect(mapApiError(new ApiError(400, "单次最多 50 条操作", EC_TOO_MANY_ACTIONS), t)).toBe("K:errTooManyActions");
+    expect(mapApiError(new ApiError(400, "无有效操作", EC_NO_VALID_ACTIONS), t)).toBe("K:errNoValidActions");
+  });
+
+  it("回归：注册字段校验不再借 40001 弹「请先登录」（旧 codeByPath password:40001 撞 EC_USER_REQUIRED）", () => {
+    // 治本后 register codeByPath 用 EC_INVALID_PARAMS（刻意不登记）→ 后端 message 直出，绝不落到 errLoginRequired。
+    expect(classifyApiError(new ApiError(400, "密码不能为空", EC_INVALID_PARAMS)).key).not.toBe("errLoginRequired");
+    expect(mapApiError(new ApiError(400, "密码不能为空", EC_INVALID_PARAMS), () => "")).toBe("密码不能为空");
+    // 对照：真正的 EC_USER_REQUIRED 才应翻成登录提示
+    expect(classifyApiError(new ApiError(401, "请先登录", EC_USER_REQUIRED)).key).toBe("errLoginRequired");
+  });
+
+  it("回归：service 层 AI/翻译/邀请码不再撞他域码（旧 40001/40010/50002/50001/40031 错弹）", () => {
+    // 旧：errLlmNotConfigured 用 40001 → 撞 EC_USER_REQUIRED 弹「请先登录」
+    expect(mapApiError(new ApiError(400, "请先配置 LLM API Key", EC_AI_NOT_CONFIGURED), t)).toBe("K:aiErrNotConfigured");
+    // 旧：errLlmBadFormat 用 40010 → 撞 EC_PAYMENT_PROVIDER_UNAVAILABLE 弹「支付渠道」
+    expect(mapApiError(new ApiError(422, "LLM 返回格式异常", EC_AI_BAD_FORMAT), t)).toBe("K:aiErrBadFormat");
+    // 旧：errLlmCallFailed 用 50002 → 撞 EC_TRANSLATION_UNAVAILABLE
+    expect(mapApiError(new ApiError(502, "LLM 调用失败", EC_AI_CALL_FAILED), t)).toBe("K:aiErrCallFailed");
+    expect(mapApiError(new ApiError(400, "SUPPLIER_PROFILE_REQUIRED", EC_SUPPLIER_PROFILE_REQUIRED), t)).toBe("K:aiSupplierProfileRequired");
+    // 旧：翻译不可用用 50001 → 撞 EC_PAYMENT_QR_CODE_MISSING
+    expect(mapApiError(new ApiError(503, "翻译服务暂不可用", EC_TRANSLATION_UNAVAILABLE), t)).toBe("K:errServiceUnavailable");
+    // 旧：邀请码无效用 40031 → 撞 EC_TRAINING_COURSE_NOT_FOUND
+    expect(mapApiError(new ApiError(400, "邀请码无效", EC_INVITE_CODE_INVALID), t)).toBe("K:errInviteCodeInvalid");
   });
 });
 

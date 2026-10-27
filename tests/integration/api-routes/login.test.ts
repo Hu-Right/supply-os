@@ -113,7 +113,7 @@ describe("POST /api/auth/login", () => {
 
     const res = await callLogin({ identifier: "user-1@test.com", password: "pw" });
     expect(res.status).toBe(403);
-    expect(await res.json()).toMatchObject({ code: 40003 });
+    expect(await res.json()).toMatchObject({ code: 41118 }); // EC_ACCOUNT_DISABLED
   });
 
   it("sha256 弱哈希账号 → 403 引导先重置密码（不再校验旧密码）", async () => {

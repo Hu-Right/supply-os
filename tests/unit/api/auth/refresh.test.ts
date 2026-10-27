@@ -27,6 +27,9 @@ import { POST } from "@/app/api/auth/refresh/route";
 import { getContext } from "@/lib/db/context";
 import { verifyRefreshToken } from "@/lib/services/jwt";
 import { readRefreshCookieFromRequest } from "@/lib/utils/auth-cookies-next";
+import {
+  EC_REFRESH_TOKEN_MISSING, EC_REFRESH_TOKEN_INVALID, EC_REFRESH_TOKEN_EXPIRED, EC_REFRESH_TOKEN_REVOKED,
+} from "@/shared/constants/api";
 
 function makeReq() {
   return new NextRequest("http://localhost/api/auth/refresh", { method: "POST" });
@@ -47,31 +50,31 @@ describe("POST /api/auth/refresh", () => {
     } as any);
   });
 
-  it("缺少 refresh token → 400/40050", async () => {
+  it("缺少 refresh token → 400/EC_REFRESH_TOKEN_MISSING", async () => {
     vi.mocked(readRefreshCookieFromRequest).mockReturnValue("");
     const res = await POST(makeReq());
     expect(res.status).toBe(400);
-    expect((await res.json()).code).toBe(40050);
+    expect((await res.json()).code).toBe(EC_REFRESH_TOKEN_MISSING);
   });
 
-  it("token 验证失败 → 401/40051", async () => {
+  it("token 验证失败 → 401/EC_REFRESH_TOKEN_INVALID", async () => {
     vi.mocked(readRefreshCookieFromRequest).mockReturnValue("bad-token");
     vi.mocked(verifyRefreshToken).mockImplementation(() => {
       throw new Error("invalid");
     });
     const res = await POST(makeReq());
     expect(res.status).toBe(401);
-    expect((await res.json()).code).toBe(40051);
+    expect((await res.json()).code).toBe(EC_REFRESH_TOKEN_INVALID);
   });
 
-  it("DB 中无存储 → 401/40052", async () => {
+  it("DB 中无存储 → 401/EC_REFRESH_TOKEN_REVOKED", async () => {
     vi.mocked(readRefreshCookieFromRequest).mockReturnValue("old-token");
     vi.mocked(verifyRefreshToken).mockReturnValue({ uid: 1 } as any);
     const ctx = getContext() as any;
     ctx.user.authRepo.findRefreshTokenByHash.mockResolvedValue(null);
     const res = await POST(makeReq());
     expect(res.status).toBe(401);
-    expect((await res.json()).code).toBe(40052);
+    expect((await res.json()).code).toBe(EC_REFRESH_TOKEN_REVOKED);
   });
 
   it("用户不存在 → 404/40044", async () => {
@@ -134,6 +137,6 @@ describe("POST /api/auth/refresh", () => {
     vi.mocked(verifyRefreshToken).mockReturnValue({ uid: undefined } as any);
     const res = await POST(makeReq());
     expect(res.status).toBe(401);
-    expect((await res.json()).code).toBe(40051);
+    expect((await res.json()).code).toBe(EC_REFRESH_TOKEN_EXPIRED);
   });
 });

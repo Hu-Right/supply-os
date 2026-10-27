@@ -126,7 +126,7 @@ describe("POST /api/auth/reset-password", () => {
     stubRows({ id: 5, code: "hash:123456", attempts: 5 });
     const res = await callReset({ identifier: PHONE, code: "123456", new_password: NEW_PASSWORD });
     expect(res.status).toBe(429);
-    expect((await res.json()).code).toBe(40029);
+    expect((await res.json()).code).toBe(41108); // EC_TOO_MANY_ATTEMPTS
     expect(lastLoginWrites()).toHaveLength(0);
   });
 
@@ -138,7 +138,7 @@ describe("POST /api/auth/reset-password", () => {
     expect(lastLoginWrites()).toHaveLength(0);
   });
 
-  it("账号已停用 → 403/40003，不写 last_login_at、不改密码、不签发会话", async () => {
+  it("账号已停用 → 403/41118（EC_ACCOUNT_DISABLED），不写 last_login_at、不改密码、不签发会话", async () => {
     poolQuery.mockImplementation((sql: string) => {
       if (String(sql).includes("FROM crm_users")) {
         return Promise.resolve([[{ ...USER_ROW, account_status: "disabled" }]]);
@@ -149,7 +149,7 @@ describe("POST /api/auth/reset-password", () => {
 
     const res = await callReset({ identifier: PHONE, code: "123456", new_password: NEW_PASSWORD });
     expect(res.status).toBe(403);
-    expect((await res.json()).code).toBe(40003);
+    expect((await res.json()).code).toBe(41118); // EC_ACCOUNT_DISABLED
     expect(lastLoginWrites()).toHaveLength(0);
     expect(
       poolExecute.mock.calls.some(([sql]) => /UPDATE crm_users SET password_hash/i.test(String(sql))),

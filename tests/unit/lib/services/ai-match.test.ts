@@ -318,18 +318,18 @@ describe("错误与缓存损坏分支", () => {
     expect(res.cached).toBe(false);
   });
 
-  it("LLM 配置缺失 → 40001 errLlmNotConfigured", async () => {
+  it("LLM 配置缺失 → 41301 errLlmNotConfigured", async () => {
     findMatch.mockResolvedValue(null);
     fetchSupplierProfiles.mockResolvedValue([supplierRow]);
     findActiveByUser.mockResolvedValue(null);
-    await expect(getOrGenerateAiMatch(noticePool(), 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40001 });
+    await expect(getOrGenerateAiMatch(noticePool(), 1, 2, false)).rejects.toMatchObject({ status: 400, code: 41301 }); // EC_AI_NOT_CONFIGURED
   });
 
-  it("API Key 解密失败 → 40001 errLlmNotConfigured", async () => {
+  it("API Key 解密失败 → 41301 errLlmNotConfigured", async () => {
     findMatch.mockResolvedValue(null);
     fetchSupplierProfiles.mockResolvedValue([supplierRow]);
     decryptMock.mockImplementationOnce(() => { throw new Error("bad key"); });
-    await expect(getOrGenerateAiMatch(noticePool(), 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40001 });
+    await expect(getOrGenerateAiMatch(noticePool(), 1, 2, false)).rejects.toMatchObject({ status: 400, code: 41301 }); // EC_AI_NOT_CONFIGURED
   });
 
   it("公告不存在 → 404 errNoticeNotFound", async () => {
