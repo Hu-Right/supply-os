@@ -1,12 +1,10 @@
 /**
- * AdvancedSearchPanel「我的词组」下拉加载契约测试
+ * AdvancedSearchPanel 词组选择器（双分区）加载契约测试
  * @module tests/unit/features/procurement/components/AdvancedSearchPanel.keywordGroups.test
- * @description 不 mock API 模块，只 stub fetch，从而把「点开下拉到底发几次网络请求」这一
- *              真实性能指标钉在渲染层（缓存层的行为另有 keywordGroups.test.ts 覆盖）：
- *              ① 请求未完成时给加载占位，而非整块空白（旧实现 !data ? null）；
- *              ② TTL 内二次点开只发一次请求 —— 打开延迟的根因（此前每次点开都全量查询）；
- *              ③ 失败呈现为「可重试」，不再伪装成无权益的「去管理词组」空态；
- *              ④ 换账号后重新发请求，且不得把上一位用户的词组留在面板里。
+ * @description 不 mock API 模块，只 stub fetch（按 URL 分流），把点开弹层的网络行为钉在渲染层：
+ *              ① 我的词组：请求在途给占位、TTL 内二次点开不再打网络、失败呈「可重试」非空态、
+ *                 换账号失效重取且不残留上一位词组；
+ *              ② 官方精选：随弹层并行加载、点选走同一 onPick、**换账号不失效**（公开数据与账号无关）。
  *              t 返回 key 本身，断言以 key 字符串进行。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,13 +26,31 @@ import type { TermRow } from "@/shared/utils/advanced-syntax";
 
 const fetchMock = vi.fn<typeof fetch>();
 
-/** 词组读接口裸载荷（2026-10 去信封）：groups 名字带序号，便于断言「显示的是谁的词组」 */
-function groupsResponse(n: number) {
+const USER_URL = "/api/user/keyword-groups";
+const OFF_URL = "/api/keyword-groups/official";
+
+/** 我的词组读接口裸载荷：名字带序号，便于断言「显示的是谁的词组」 */
+function userResp(n: number) {
   return Response.json({
     entitled: true,
     groups: [{ id: n, name: `用户${n}的词组`, terms: ["光伏", "逆变器"] }],
   });
 }
+/** 官方精选读接口裸载荷：名字与用户区分明，避免 getByText 撞名 */
+function offResp() {
+  return Response.json({
+    groups: [{ id: 101, name: "官方X", terms: ["组件"], categoryCode: "energy", sortOrder: 0 }],
+  });
+}
+
+/** 默认路由：两区各自成功 */
+const bothOk = () =>
+  fetchMock.mockImplementation((input: unknown) =>
+    Promise.resolve(String(input).includes(OFF_URL) ? offResp() : userResp(1)),
+  );
+
+const userCalls = () => fetchMock.mock.calls.filter(([u]) => String(u).includes(USER_URL)).length;
+const officialCalls = () => fetchMock.mock.calls.filter(([u]) => String(u).includes(OFF_URL)).length;
 
 function makeForm() {
   const rows: TermRow[] = [];
@@ -57,7 +73,6 @@ function makeForm() {
   };
 }
 
-/** 面板元素：rerender 时复用同一份 props，保持组件实例（换账号分支必须走同一实例才成立） */
 function panel(form: ReturnType<typeof makeForm>) {
   return (
     <AdvancedSearchPanel
@@ -78,7 +93,6 @@ function renderPanel(form = makeForm()) {
   return { form, ...render(panel(form)) };
 }
 
-/** 触发器点一下=开，再点一下=关（Radix 语义）：用例里要么成对点，要么显式收起 */
 const openPicker = () => fireEvent.click(screen.getByTestId("kw-group-picker"));
 const closePicker = async () => {
   fireEvent.click(screen.getByTestId("kw-group-picker"));
@@ -100,67 +114,111 @@ afterEach(() => {
 
 describe("「我的词组」下拉加载", () => {
   it("请求在途时显示加载占位，而不是整块空白", async () => {
-    let resolveFetch!: (r: Response) => void;
-    fetchMock.mockReturnValueOnce(new Promise<Response>((res) => { resolveFetch = res; }));
+    let resolveUser!: (r: Response) => void;
+    fetchMock.mockImplementation((input: unknown) => {
+      if (String(input).includes(OFF_URL)) return Promise.resolve(offResp());
+      return new Promise<Response>((res) => { resolveUser = res; });
+    });
     renderPanel();
     openPicker();
 
-    // 旧实现此处渲染 null：弹层打开却什么都没有，用户感知为「卡住」
     expect(screen.getByText("uiLoadingDots")).toBeTruthy();
 
-    act(() => resolveFetch(groupsResponse(1)));
+    act(() => resolveUser(userResp(1)));
     await waitFor(() => expect(screen.getByText("用户1的词组")).toBeTruthy());
   });
 
-  it("TTL 内二次点开只发一次请求（打开延迟根因）", async () => {
-    fetchMock.mockResolvedValue(groupsResponse(1));
+  it("TTL 内二次点开只发一次（我的+官方各一次），点开延迟根因", async () => {
+    bothOk();
     renderPanel();
 
     openPicker();
     await waitFor(() => expect(screen.getByText("用户1的词组")).toBeTruthy());
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(userCalls()).toBe(1);
+    expect(officialCalls()).toBe(1);
 
-    // 收起再点开：命中缓存，不再打网络，也不再触发服务端权益 3 查 + 列表 1 查
     await closePicker();
     openPicker();
     await waitFor(() => expect(screen.getByText("用户1的词组")).toBeTruthy());
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByText("用户1的词组"));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(userCalls()).toBe(1); // 命中缓存，不再打网络
+    expect(officialCalls()).toBe(1);
   });
 
-  it("请求失败呈现为可重试，不伪装成无权益空态", async () => {
-    fetchMock.mockResolvedValue(Response.json({ code: 50000, message: "服务器内部错误" }, { status: 500 }));
+  it("我的词组请求失败呈现为可重试，不伪装成无权益空态", async () => {
+    fetchMock.mockImplementation((input: unknown) =>
+      Promise.resolve(
+        String(input).includes(OFF_URL)
+          ? offResp()
+          : Response.json({ code: 50000, message: "服务器内部错误" }, { status: 500 }),
+      ),
+    );
     renderPanel();
     openPicker();
 
     await waitFor(() => expect(screen.getByTestId("kw-group-retry")).toBeTruthy());
-    // 「去管理词组」空态是无权益/无数据的语义，网络故障不该走到这条分支
     expect(screen.queryByText("procurement_manageKeywordGroups")).toBeNull();
 
-    // 点重试：恢复后正常渲染
-    fetchMock.mockResolvedValue(groupsResponse(2));
+    bothOk();
     fireEvent.click(screen.getByTestId("kw-group-retry"));
-    await waitFor(() => expect(screen.getByText("用户2的词组")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("用户1的词组")).toBeTruthy());
   });
 
-  it("换账号后重新发请求，且不残留上一位用户的词组", async () => {
-    fetchMock.mockResolvedValueOnce(groupsResponse(1));
+  it("换账号后我的词组重新发请求且不残留；官方区不失效（公开数据）", async () => {
+    bothOk();
     const view = renderPanel();
     openPicker();
     await waitFor(() => expect(screen.getByText("用户1的词组")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("官方X")).toBeTruthy());
     await closePicker();
 
-    // 同一实例上切换身份：缓存键只有 URL，词组却是私有数据，必须失效重取
     identity.currentUserId = 2;
-    fetchMock.mockResolvedValueOnce(groupsResponse(2));
+    fetchMock.mockImplementation((input: unknown) =>
+      Promise.resolve(String(input).includes(OFF_URL) ? offResp() : userResp(2)),
+    );
     view.rerender(panel(view.form));
     await waitFor(() => expect(screen.queryByText("用户1的词组")).toBeNull());
 
     openPicker();
     await waitFor(() => expect(screen.getByText("用户2的词组")).toBeTruthy());
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(screen.queryByText("用户1的词组")).toBeNull();
+    expect(userCalls()).toBe(2);      // 换账号失效重取
+    expect(officialCalls()).toBe(1);  // 官方区跨账号保留，不再请求
+    expect(screen.getByText("官方X")).toBeTruthy();
+  });
+});
+
+describe("「官方精选」区", () => {
+  it("无权益也能进弹层看到官方区；我的词组区显示锁定入口", async () => {
+    bothOk();
+    const form = makeForm();
+    render(
+      <AdvancedSearchPanel
+        form={form as never}
+        query={{} as never}
+        countries={[]}
+        agencies={[]}
+        applySearch={vi.fn() as never}
+        clearSearch={vi.fn()}
+        toggleFeatured={vi.fn()}
+        keywordLibEntitled={false}
+        advancedSearchEntitled={false}
+      />,
+    );
+    openPicker();
+    await waitFor(() => expect(screen.getByText("官方X")).toBeTruthy());
+    // 无权益：我的词组区呈锁定入口（点击才弹升级框），官方区仍可选用
+    expect(screen.getByTestId("kw-group-locked")).toBeTruthy();
+  });
+
+  it("点官方词组 → 整组灌入 onPick（replaceRows），与我的词组同一路径", async () => {
+    bothOk();
+    const form = makeForm();
+    renderPanel(form);
+    openPicker();
+    await waitFor(() => expect(screen.getByText("官方X")).toBeTruthy());
+    fireEvent.click(screen.getByText("官方X"));
+    expect(form.replaceRows).toHaveBeenCalledTimes(1);
+    const rows = form.replaceRows.mock.calls[0][0] as TermRow[];
+    expect(rows.map((r) => r.term)).toEqual(["组件"]);
+    expect(rows.every((r) => r.mode === "include")).toBe(true);
   });
 });

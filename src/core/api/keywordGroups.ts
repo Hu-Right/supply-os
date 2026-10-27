@@ -20,6 +20,9 @@ export interface KeywordGroup {
 /** 唯一端点常量：缓存键与失效前缀同源，避免字面量散落导致漏失效 */
 const ENDPOINT = "/api/user/keyword-groups";
 
+/** 官方精选词组端点（公开只读）：与用户私有词组缓存完全分离 */
+const OFFICIAL_ENDPOINT = "/api/keyword-groups/official";
+
 /**
  * 跨标签页失效水位键：只存时间戳，不存任何业务数据。
  * apiCached 的缓存是模块级 Map = **每个标签页各一份**，只在写接口里 clearApiCache
@@ -92,4 +95,30 @@ export async function updateKeywordGroup(
 export async function deleteKeywordGroup(id: number): Promise<void> {
   await api(`${ENDPOINT}/${id}`, { method: "DELETE" });
   invalidateAcrossTabs();
+}
+
+/** 官方精选词组实体（公开数据，无 entitled 档位概念） */
+export interface OfficialKeywordGroup {
+  id: number;
+  name: string;
+  terms: string[];
+  categoryCode: string | null;
+  sortOrder: number;
+}
+
+/**
+ * 读取官方精选词组（公开、全员可用）。
+ * 独立长缓存：不接入 invalidateKeywordGroups / 跨标签页水位——公开数据与账号无关，
+ * 换账号不清此缓存（见 KeywordGroupPicker 账号切换分支）。
+ * @param force 跳过缓存直取
+ */
+export async function fetchOfficialKeywordGroups(
+  force = false,
+): Promise<{ groups: OfficialKeywordGroup[] }> {
+  return apiCached<{ groups: OfficialKeywordGroup[] }>(
+    OFFICIAL_ENDPOINT,
+    CACHE_TTL_STANDARD_MS,
+    undefined,
+    force,
+  );
 }

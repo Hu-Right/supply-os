@@ -11,6 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fetchKeywordGroups,
+  fetchOfficialKeywordGroups,
   createKeywordGroup,
   updateKeywordGroup,
   deleteKeywordGroup,
@@ -44,6 +45,32 @@ const readCalls = () =>
   fetchMock.mock.calls.filter(
     ([, init]) => !init?.method || init.method === "GET",
   ).length;
+
+/** 官方端点 GET 次数：验证与用户私有词组缓存完全分离 */
+const officialCalls = () =>
+  fetchMock.mock.calls.filter(([u]) => String(u).includes("/api/keyword-groups/official")).length;
+
+const officialResp = () =>
+  Response.json({ groups: [{ id: 1, name: "官方A", terms: ["x"], categoryCode: "energy", sortOrder: 0 }] });
+
+describe("fetchOfficialKeywordGroups（公开数据独立缓存）", () => {
+  it("读取 { groups }（camelCase）；写我的词组不失效官方缓存", async () => {
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.includes("/api/keyword-groups/official")) return Promise.resolve(officialResp());
+      return Promise.resolve(listResp(1));
+    });
+    const r = await fetchOfficialKeywordGroups();
+    expect(r.groups[0].name).toBe("官方A");
+    expect(r.groups[0].categoryCode).toBe("energy");
+    expect(officialCalls()).toBe(1);
+    // 写我的词组→仅失效用户前缀缓存，官方缓存不动 → 再读仍命中，不再发请求
+    fetchMock.mockResolvedValueOnce(Response.json({ id: 2 }));
+    await createKeywordGroup("新词组", ["a"]);
+    await fetchOfficialKeywordGroups();
+    expect(officialCalls()).toBe(1);
+  });
+});
 
 describe("fetchKeywordGroups 加载路径", () => {
   it("连续两次读取只发一次请求（命中 TTL 缓存，下拉二次打开零延迟）", async () => {
