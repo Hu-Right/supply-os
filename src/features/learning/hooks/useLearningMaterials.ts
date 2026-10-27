@@ -82,8 +82,8 @@ export function useLearningMaterials() {
       return;
     }
     try {
-      const data = await api<{ material_ids: string[] }>("/api/learning/purchased", { method: "GET" });
-      setPurchasedIds(new Set(data.material_ids ?? []));
+      const data = await api<{ materialIds: string[] }>("/api/learning/purchased", { method: "GET" });
+      setPurchasedIds(new Set(data.materialIds ?? []));
     } catch {
       // 静默失败
     }

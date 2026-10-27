@@ -83,15 +83,15 @@ export interface TrainingParticipant {
 export interface SaveParticipantsResponse {
   success: boolean;
   message: string;
-  order_no: string;
-  participant_count: number;
+  orderNo: string;
+  participantCount: number;
 }
 
 export interface GetParticipantsResponse {
   success: boolean;
-  order_no: string;
+  orderNo: string;
   participants: TrainingParticipant[];
-  participant_count: number;
+  participantCount: number;
 }
 
 /**

@@ -52,7 +52,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     const lang = req.nextUrl.searchParams.get("lang") || "zh";
     const sections = buildBidReportPreviewText(row, lang);
-    const total_report_chars = estimateFullReportCharCount(row);
+    const totalReportChars = estimateFullReportCharCount(row);
 
     // 中文报告属"中文能力"资产：无 notice_translation 权益（129/999 等）即使已解锁，预览也降级为截断 teaser（2026-09-25 权益重设计）
     const canSeeChineseReport = await ctx.benefitSystemRepo.isEntitled(userId, NOTICE_TRANSLATION_BENEFIT);
@@ -68,9 +68,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     return NextResponse.json({
       sections: safeSections,
-      is_unlocked: !!unlock,
-      has_full_report: true,
-      total_report_chars,
+      isUnlocked: !!unlock,
+      hasFullReport: true,
+      totalReportChars,
     });
   },
 );

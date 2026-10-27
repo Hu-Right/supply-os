@@ -11,13 +11,13 @@ import { withRoute } from "@/lib/middleware/route-handler";
 export const GET = withRoute(async (req: NextRequest) => {
   const { userId } = await extractUserKey(req);
   if (!userId) {
-    return NextResponse.json({ material_ids: [] });
+    return NextResponse.json({ materialIds: [] });
   }
 
   try {
     const materialIds = await listPurchasedMaterialIds(userId);
-    return NextResponse.json({ material_ids: materialIds });
+    return NextResponse.json({ materialIds });
   } catch {
-    return NextResponse.json({ material_ids: [] });
+    return NextResponse.json({ materialIds: [] });
   }
 });

@@ -25,10 +25,10 @@ export interface ReportPreviewSection {
 export interface ReportPreviewData {
   sections: ReportPreviewSection[];
   /** 当前用户是否已解锁该公告 */
-  is_unlocked: boolean;
-  has_full_report: boolean;
+  isUnlocked: boolean;
+  hasFullReport: boolean;
   /** 完整 Word 报告总字符数（用于预览百分比计算） */
-  total_report_chars: number;
+  totalReportChars: number;
 }
 
 export function useReportPreview(

@@ -27,9 +27,9 @@ export const GET = withRoute<{ params: Promise<{ orderNo: string }> }>(
     const participants = await trainingRepo.getParticipantsByOrderId(order.id);
     return NextResponse.json({
       success: true,
-      order_no: orderNo,
+      orderNo,
       participants,
-      participant_count: participants.length,
+      participantCount: participants.length,
     });
   },
 );
@@ -70,8 +70,8 @@ export const POST = withRoute<{ params: Promise<{ orderNo: string }> }>(
     return NextResponse.json({
       success: true,
       message: "学员信息保存成功",
-      order_no: orderNo,
-      participant_count: participants.length,
+      orderNo,
+      participantCount: participants.length,
     });
   },
 );

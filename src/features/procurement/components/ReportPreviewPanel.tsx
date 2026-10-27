@@ -28,9 +28,9 @@ export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLock
   const { preview, loading, error } = useReportPreview(noticeId, userId, locale, coreLocked);
   const [collapsed, setCollapsed] = useState(false);
 
-  const isUnlocked = preview?.is_unlocked ?? false;
+  const isUnlocked = preview?.isUnlocked ?? false;
   const sections = useMemo(() => preview?.sections ?? [], [preview]);
-  const totalReportChars = preview?.total_report_chars ?? 0;
+  const totalReportChars = preview?.totalReportChars ?? 0;
 
   // 预览截断逻辑：每章节最多展示 500 字符，百分比基于完整报告总字符数
   const { visibleSections, shownCharCount } = useMemo(() => {

@@ -41,7 +41,6 @@ const METADATA_KEYS = new Set([
 const ALLOWLIST = new Set([
   "src/app/api/crm/chat/messages/route.ts#created_at",
   "src/app/api/crm/chat/messages/route.ts#session_id",
-  "src/app/api/learning/purchased/route.ts#material_ids",
   "src/app/api/notices/[id]/content/route.ts#description_cn",
   "src/app/api/notices/[id]/detail/route.ts#ai_analysis",
   "src/app/api/notices/[id]/detail/route.ts#ai_products",
@@ -62,8 +61,6 @@ const ALLOWLIST = new Set([
   "src/app/api/notices/[id]/preview/route.ts#estimated_value",
   "src/app/api/notices/[id]/preview/route.ts#notice_pk",
   "src/app/api/notices/[id]/preview/route.ts#notice_type_code",
-  "src/app/api/notices/[id]/report/preview/route.ts#has_full_report",
-  "src/app/api/notices/[id]/report/preview/route.ts#is_unlocked",
   "src/app/api/notices/[id]/unlock/route.ts#unlock_type",
   "src/app/api/notices/unified-search/route.ts#advanced_degraded",
   "src/app/api/notices/unified-search/route.ts#needs_industry_selection",
@@ -81,9 +78,6 @@ const ALLOWLIST = new Set([
   "src/app/api/payments/config-status/route.ts#required_env",
   "src/app/api/supplier-claims/route.ts#created_at",
   "src/app/api/supplier-claims/route.ts#expires_at",
-  "src/app/api/training/orders/[orderNo]/mock-paid/route.ts#order_no",
-  "src/app/api/training/orders/[orderNo]/participants/route.ts#order_no",
-  "src/app/api/training/orders/[orderNo]/participants/route.ts#participant_count",
 ]);
 
 const repoRoot = scanRoot();

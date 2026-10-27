@@ -28,6 +28,6 @@ export const POST = withRoute<{ params: Promise<{ orderNo: string }> }>(
     if (order.user_id && order.user_id !== auth.userId) routeError(403, EC_TRAINING_ORDER_FORBIDDEN, "无权操作此订单");
 
     await ctx.payment.trainingPaymentService.fulfillOrder(orderNo, `MOCK-${orderNo}`);
-    return NextResponse.json({ success: true, order_no: orderNo, status: "paid" });
+    return NextResponse.json({ success: true, orderNo, status: "paid" });
   },
 );
