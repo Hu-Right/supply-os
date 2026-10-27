@@ -48,7 +48,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       if (result.alreadyUnlocked) {
         return NextResponse.json({ success: true, alreadyUnlocked: true });
       }
-      return NextResponse.json({ success: true, unlock_type: result.unlockType }, { status: 201 });
+      return NextResponse.json({ success: true, unlockType: result.unlockType }, { status: 201 });
     } catch (err) {
       if (err instanceof NoticeNotFoundError) {
         routeError(404, EC_NOTICE_NOT_FOUND, "公告不存在");

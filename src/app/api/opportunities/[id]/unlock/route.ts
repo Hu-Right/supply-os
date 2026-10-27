@@ -57,7 +57,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       if (result.alreadyUnlocked) {
         return NextResponse.json({ success: true, alreadyUnlocked: true });
       }
-      return NextResponse.json({ success: true, unlock_type: unlockType }, { status: 201 });
+      return NextResponse.json({ success: true, unlockType }, { status: 201 });
     } catch (err) {
       if (err instanceof OpportunityUnlockError) {
         if (err.code === "FREE_LIMIT_REACHED") {

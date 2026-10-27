@@ -21,7 +21,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     try {
       await submitNoticeInterest({ userId: auth.userId, noticeId, interestType, note });
-      return NextResponse.json({ success: true, interest_type: interestType }, { status: 201 });
+      return NextResponse.json({ success: true, interestType }, { status: 201 });
     } catch (err) {
       if (err instanceof NoticeNotFoundError) {
         routeError(404, EC_NOTICE_NOT_FOUND, "公告不存在");

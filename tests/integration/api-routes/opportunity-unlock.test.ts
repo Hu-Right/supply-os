@@ -155,7 +155,7 @@ describe("POST /api/opportunities/[id]/unlock", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.unlock_type).toBe("subscription");
+    expect(body.unlockType).toBe("subscription");
 
     const insertCall = connQuery.mock.calls.find(([sql]: string[]) =>
       String(sql).includes("INSERT INTO crm_opportunity_unlocks"));
