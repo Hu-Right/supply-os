@@ -30,7 +30,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const ctx = getContext();
   // 行业墙：被行业限定档位的用户只能访问其绑定品目大类内的公告（8,800元/行业口径）
   if (!(await canAccessNotice(ctx.dbPool, ctx.benefitSystemRepo, auth.userId, noticeId))) {
-    routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { out_of_category: true });
+    routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { outOfCategory: true });
   }
     const { detailRepo, unlockRepo } = ctx.notice;
 
@@ -38,7 +38,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       unlockRepo.findUnlock(auth.userId, noticeId),
       detailRepo.findDetailPublished(noticeId),
     ]);
-    if (!unlock) routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { core_locked: true });
+    if (!unlock) routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { coreLocked: true });
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
     
     // 从机会表取完整描述（主表 description 仅存标题，完整原文在 crm_bid_opportunities）
@@ -51,9 +51,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     return NextResponse.json({
       description: fullDescription,
       title: notice.title || "",
-      description_cn: descriptionCn,
+      // 响应实体字段用 camelCase（命名红线②）；它们与 DB 列 description_cn 同名不同名无关，
+      // 本层是对外契约，列名只在 SQL 与行类型里存留。
+      descriptionCn,
       // 保留完整原文供"查看原文"切换使用（主表 description 仅存标题）
-      original_description: fullDescription,
+      originalDescription: fullDescription,
     });
   },
 );

@@ -41,7 +41,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     {
       const scope = await resolveIndustryScope(dbPool, benefitSystemRepo, auth.userId);
       if (scope.scoped && !(await opportunityInCategory(dbPool, opportunityId, scope.l1Code))) {
-        routeError(403, EC_OUT_OF_CATEGORY, "该商机不在您订阅的行业范围内", { out_of_category: true });
+        routeError(403, EC_OUT_OF_CATEGORY, "该商机不在您订阅的行业范围内", { outOfCategory: true });
       }
     }
     try {

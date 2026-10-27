@@ -39,31 +39,14 @@ const METADATA_KEYS = new Set([
 
 // 递减白名单（`<相对 route.ts>#<snake 键>`）：存量显式 snake 响应键，迁移一个删一行；新增不得进入。
 const ALLOWLIST = new Set([
-  "src/app/api/notices/[id]/content/route.ts#description_cn",
-  // 修好“键之间夹注释就漏检”的门禁盲点后，本键才第一次被看到（它早就在响应里）。
-  // 它与 description_cn 同属 content 响应，而消费方把值合并进共享类型 NoticeItem
-  // （features/procurement/types）——所以下游迁移动要和 notices detail/preview 那批一起做，
-  // 单独改 content 会造出一个“端点 camel 、前端类型 snake”的中间态。
-  "src/app/api/notices/[id]/content/route.ts#original_description",
-  "src/app/api/notices/[id]/detail/route.ts#ai_analysis",
-  "src/app/api/notices/[id]/detail/route.ts#ai_products",
-  "src/app/api/notices/[id]/detail/route.ts#bid_overview",
-  "src/app/api/notices/[id]/detail/route.ts#core_locked",
-  "src/app/api/notices/[id]/detail/route.ts#deadline_timezone",
-  "src/app/api/notices/[id]/detail/route.ts#description_other",
-  "src/app/api/notices/[id]/detail/route.ts#report_available",
-  "src/app/api/notices/[id]/detail/route.ts#report_url",
-  "src/app/api/notices/[id]/detail/route.ts#supplier_conditions",
-  "src/app/api/notices/[id]/detail/route.ts#technical_hurdles",
-  "src/app/api/notices/[id]/detail/route.ts#unlock_type",
-  "src/app/api/notices/[id]/detail/route.ts#unlocked_at",
-  "src/app/api/notices/[id]/preview/route.ts#buyer_name",
-  "src/app/api/notices/[id]/preview/route.ts#country_code",
-  "src/app/api/notices/[id]/preview/route.ts#deadline_ts",
-  "src/app/api/notices/[id]/preview/route.ts#estimated_value",
-  "src/app/api/notices/[id]/preview/route.ts#notice_pk",
-  "src/app/api/notices/[id]/preview/route.ts#notice_type_code",
+  // notices 全域（detail 12 项 + preview 6 项）与 content（2 项）已于 2026-10-27 迁完：
+  // 行→视图统一走 lib/services/notice-public/view.ts（机械改名，值原样透传），
+  // 响应契约由 types/procurement.ts 的 camelCase 字段定义，不再镜像列名。
+  // preview 故意不调 mapper：它是付费墙，只发已登记的 8 个键（mapper 是改名不裁剪）。
   "src/app/api/opportunities/route.ts#source_url",
+  // ⚠ 下面 3 项不单独改：本端点响应由四个业务服务（membership/learning/training/service）
+  // 的同一形状透出，只改建单会让同一条支付流程“建单 camel、轮询 snake”，
+  // 必须整族（OrderInfo/OrderStatusResult/四服务/三端点/前端）一次迁完。
   "src/app/api/payment/orders/route.ts#pay_url",
   "src/app/api/payment/orders/route.ts#payment_mode",
   "src/app/api/payment/orders/route.ts#qr_code_url",

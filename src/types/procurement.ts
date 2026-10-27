@@ -1,74 +1,79 @@
 /**
- * 采购公告类型 —— 以 crm_notice_public 原字段为准。
- * 读服务表的列表/详情不再起旧别名。
+ * 采购公告类型 —— 对外契约（camelCase）
+ *
+ * 字段名不再镜像 crm_notice_public 列名：列名属存储层，契约由本文件定义，
+ * 行→视图的改名集中在 lib/services/notice-public/view.ts 一处（命名红线②）。
+ * 因此本文件里的名字就是响应 JSON 的键名，与 SQL 里的列名可以不同名。
  */
 
 export interface NoticeListItem {
-  notice_pk: number;
-  notice_id: string;
-  source_url?: string | null;
+  noticePk: number;
+  noticeId: string;
+  sourceUrl?: string | null;
   reference?: string | null;
   title: string;
   description?: string | null;
-  description_cn?: string | null;
-  content_level?: string | null;
+  descriptionCn?: string | null;
+  contentLevel?: string | null;
   industry?: string | null;
-  published_ts?: number | null;
-  deadline_ts?: number | null;
-  deadline_state?: string | null;
-  deadline_type?: string | null;
-  deadline_timezone?: string | null;
-  timezone_source?: string | null;
-  country_code?: string | null;
-  country_codes?: string[] | null;
-  notice_type_code?: string | null;
-  platform_name?: string | null;
-  buyer_name?: string | null;
-  buyer_group?: string | null;
-  estimated_value?: string | number | null;
-  currency_code?: string | null;
-  currency_source?: string | null;
+  publishedTs?: number | null;
+  deadlineTs?: number | null;
+  deadlineState?: string | null;
+  deadlineType?: string | null;
+  deadlineTimezone?: string | null;
+  timezoneSource?: string | null;
+  countryCode?: string | null;
+  countryCodes?: string[] | null;
+  noticeTypeCode?: string | null;
+  platformName?: string | null;
+  buyerName?: string | null;
+  buyerGroup?: string | null;
+  estimatedValue?: string | number | null;
+  currencyCode?: string | null;
+  currencySource?: string | null;
   contacts?: NoticeContact[] | null;
   attachments?: NoticeAttachment[] | null;
-  external_links?: NoticeAttachment[] | null;
-  registration_level?: string | null;
-  beneficiary_countries?: string | null;
-  updated_at?: number | null;
-  is_opportunity?: number | boolean | null;
+  externalLinks?: NoticeAttachment[] | null;
+  difficulty?: string | null;
+  registrationLevel?: string | null;
+  beneficiaryCountries?: string | null;
+  updatedAt?: number | null;
+  isOpportunity?: number | boolean | null;
 
-  // 搜索/翻译/门控补充字段（宽表或接口计算，不是服务表列）
-  agency_i18n?: string;
-  title_i18n?: string;
-  description_i18n?: string;
-  title_en?: string;
-  description_en?: string;
-  bid_overview?: string;
-  backbone_path?: string;
-  create_time?: string;
-  core_locked?: boolean;
-  breakdown_file_count?: number;
-  contact_count?: number;
-  unlock_type?: string;
-  unlocked_at?: string;
-  match_score?: number;
-  match_tier?: string;
-  reco_reasons?: string[];
-  description_truncated?: number | boolean;
-  report_available?: boolean;
-  report_url?: string;
+  // 搜索/翻译/门控补充字段（接口计算或由关联表补，不是服务表列）
+  agencyI18n?: string;
+  titleI18n?: string;
+  descriptionI18n?: string;
+  titleEn?: string;
+  descriptionEn?: string;
+  bidOverview?: string;
+  backbonePath?: string;
+  entrySource?: string;
+  createTime?: string;
+  coreLocked?: boolean;
+  breakdownFileCount?: number;
+  contactCount?: number;
+  unlockType?: string;
+  unlockedAt?: string;
+  matchScore?: number;
+  matchTier?: string;
+  recoReasons?: string[];
+  descriptionTruncated?: number | boolean;
+  reportAvailable?: boolean;
+  reportUrl?: string;
 }
 
 /** 解锁详情级补充字段（资格/报告仍由商机表补） */
 export interface NoticeDetailFields {
   platform?: { canonical: string; code: string | null; zh: string } | null;
-  supplier_conditions?: string;
+  supplierConditions?: string;
   eligibility?: string;
-  technical_hurdles?: string;
-  ai_products?: unknown;
-  ai_analysis?: Record<string, unknown>;
-  deadline_timezone?: string | null;
-  description_other?: string;
-  original_description?: string;
+  technicalHurdles?: string;
+  aiProducts?: unknown;
+  aiAnalysis?: Record<string, unknown>;
+  deadlineTimezone?: string | null;
+  descriptionOther?: string;
+  originalDescription?: string;
 }
 
 export interface NoticeDetailItem extends NoticeListItem, NoticeDetailFields {}
@@ -109,7 +114,7 @@ export interface NoticeResponse {
   advancedDegraded?: boolean;
   /** 检索范围不足以给出有意义的结果，需先选行业 */
   needsIndustrySelection?: boolean;
-  match_relaxed?: boolean;
+  matchRelaxed?: boolean;
 }
 
 

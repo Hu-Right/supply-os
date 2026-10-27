@@ -331,7 +331,7 @@ async function _searchCore(
     page: p.page,
     pageSize: p.pageSize,
     fallback: path === "mysql" ? "mysql_degraded" : "none",
-    ...(matchRelaxed ? { match_relaxed: true } : {}),
+    ...(matchRelaxed ? { matchRelaxed: true } : {}),
   };
   cacheSet(cacheKey, result);
 

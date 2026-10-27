@@ -8,6 +8,7 @@ import { extractUserKey } from "@/lib/middleware/auth";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { searchUnified } from "@/lib/services/search-orchestrator";
+import { toNoticeListView } from "@/lib/services/notice-public/view";
 import type { RawSearchParams } from "@/lib/services/search-orchestrator/params";
 import { getPool } from "@/lib/db/pool";
 import { withRoute } from "@/lib/middleware/route-handler";
@@ -107,7 +108,7 @@ export const GET = withRoute(async (req: NextRequest) => {
       sort: params.sort,
       wall_nodes: params.wall?.nodes,
       advanced_degraded: advancedDegraded || undefined,
-      match_relaxed: result.match_relaxed || undefined,
+      match_relaxed: result.matchRelaxed || undefined,
       fallback: result.fallback || undefined,
       variant: result.variant || undefined,
     });
@@ -118,6 +119,9 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   return NextResponse.json({
     ...result,
+    // 行→视图：列表项不再以crm_notice_public 列名对外（红线②）。
+    // 信封上的分页元数据（page/pageSize/total）按口径保留 snake 别名（page_size）。
+    items: toNoticeListView(result.items),
     page_size: result.pageSize,
     // 状态标志不是分页元数据，按命名红线② 用 camelCase。
     // 注：src 内目前无读取方——降级/需选行业这两件事还没接到前端 UI，属待补产品链路（非命名问题）。

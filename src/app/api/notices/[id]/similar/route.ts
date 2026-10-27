@@ -11,6 +11,7 @@ import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { findSimilarNotices } from "@/lib/services/notices/similar";
+import { toNoticeListView } from "@/lib/services/notice-public/view";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(async (req, { params }) => {
   const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 60 }, () => `similar:${extractClientIp(req)}`);
@@ -27,5 +28,6 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(async (req, { 
 
   const ctx = getContext();
   const items = await findSimilarNotices(ctx.dbPool, noticeId, limit, locale);
-  return NextResponse.json({ items });
+  // 与 unified-search / detail 同一口径：行先过 view mapper 再对外（红线②）
+  return NextResponse.json({ items: toNoticeListView(items) });
 });

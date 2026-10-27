@@ -24,17 +24,18 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
 
     // 有限预览：改读服务宽表投影 crm_notice_public（与 /detail、unified-search 同源的 SSOT），
-    // 直接取归一列，机构名/国家码不再来自基表原始值。仅返回已登记的键：
-    // 显式不吐 description/description_cn/附件（付费墙），也不新增 snake 键（② 命名红线）。
+    // 直接取归一列。这里故意不整行过 toNoticeView：那个 mapper 是改名不裁剪，
+    // 会把 description / description_cn / 附件（解锁后内容）一起发出去。
+    // 仅返回已登记的键，键名按红线② 用 camelCase（值仍取自行列）。
     return NextResponse.json({
-      notice_pk: notice.notice_pk,
+      noticePk: notice.notice_pk,
       reference: notice.reference || "",
       title: notice.title || "",
-      notice_type_code: notice.notice_type_code || "",
-      country_code: notice.country_code || "",
-      buyer_name: notice.buyer_name || "",
-      deadline_ts: notice.deadline_ts ?? null,
-      estimated_value: notice.estimated_value || "",
+      noticeTypeCode: notice.notice_type_code || "",
+      countryCode: notice.country_code || "",
+      buyerName: notice.buyer_name || "",
+      deadlineTs: notice.deadline_ts ?? null,
+      estimatedValue: notice.estimated_value || "",
     });
   },
 );

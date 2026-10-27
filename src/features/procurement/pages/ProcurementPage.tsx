@@ -148,7 +148,7 @@ export default function ProcurementPage() {
         isVip={isVip}
         totalRemaining={actions.totalRemaining}
         isLoggedIn={!!authUser}
-        detailLoading={actions.detailLoadingId === selectedNotice.notice_pk}
+        detailLoading={actions.detailLoadingId === selectedNotice.noticePk}
         onBack={() => {
           feedback.reportDetailExit();
           actions.setDetailLoadingId(null);
@@ -157,8 +157,8 @@ export default function ProcurementPage() {
         onExpressInterest={actions.handleExpressInterest}
         onUnlock={(n: NoticeItem) => actions.handleUnlockNotice(n)}
         onOpenNotice={actions.openNotice}
-        favorited={actions.isFavorite(selectedNotice.notice_pk)}
-        onToggleFavorite={() => void actions.toggleFavorite(selectedNotice.notice_pk)}
+        favorited={actions.isFavorite(selectedNotice.noticePk)}
+        onToggleFavorite={() => void actions.toggleFavorite(selectedNotice.noticePk)}
       />
       </Suspense>
       </>

@@ -31,13 +31,13 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
   const [exhausted, setExhausted] = useState(false);
 
   useEffect(() => {
-    if (notice.notice_pk == null) { setItems([]); setExhausted(true); setLoading(false); return; }
+    if (notice.noticePk == null) { setItems([]); setExhausted(true); setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setExhausted(false);
     setItems([]);
 
-    fetchSimilarNotices(notice.notice_pk, SIMILAR_LIMIT, locale)
+    fetchSimilarNotices(notice.noticePk, SIMILAR_LIMIT, locale)
       .then((res) => {
         if (cancelled) return;
         const hits = res.items || [];
@@ -48,14 +48,14 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [notice.notice_pk, locale]);
+  }, [notice.noticePk, locale]);
 
   const metaLine = (item: NoticeItem) => {
-    const country = getCountryDisplayName(item.country_code || "", locale);
-    const deadline = item.deadline_ts
+    const country = getCountryDisplayName(item.countryCode || "", locale);
+    const deadline = item.deadlineTs
       ? locale === "zh"
-        ? formatDeadlineZh(null, item.deadline_ts)
-        : new Date(Number(item.deadline_ts) * 1000).toISOString().slice(0, 10)
+        ? formatDeadlineZh(null, item.deadlineTs)
+        : new Date(Number(item.deadlineTs) * 1000).toISOString().slice(0, 10)
       : "";
     return [country, deadline].filter(Boolean).join(" · ");
   };
@@ -95,7 +95,7 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
         <div className="grid sm:grid-cols-2 gap-2">
           {items.map((item) => (
             <button
-              key={item.notice_pk}
+              key={item.noticePk}
               type="button"
               onClick={() => onOpen(item)}
               className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 hover:border-teal-200 hover:bg-teal-50/50 transition-colors text-left group"
@@ -104,7 +104,7 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
                 dir="auto"
                 className="text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-teal-700 transition-colors"
               >
-                {item.title_i18n || item.title_en || item.title}
+                {item.titleI18n || item.titleEn || item.title}
               </p>
               {metaLine(item) && (
                 <p className="text-2xs text-slate-400 mt-1 truncate">{metaLine(item)}</p>

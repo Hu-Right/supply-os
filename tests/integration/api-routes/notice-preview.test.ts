@@ -5,9 +5,10 @@
  *              （findDetailPublished）改读服务宽表投影 crm_notice_public（findPublicDetail），
  *              使锁定公告深链详情的机构名 / 国家码走归一 SSOT（如 country_code=LV、
  *              buyer_name 为归一全称），与 /detail、unified-search 同口径。
- *              受 ② 响应字段命名红线约束（"新增不得进入"递减白名单），本路由只返回
- *              已冻结的 6 个 snake 键 + 单词键，绝不新增 published_ts 等 snake 键，
- *              亦绝不吐正文 description（付费墙）。
+ *              受 ② 响应字段命名红线约束，本路由只返回已登记的 8 个键（camelCase）+ 单词键；
+ *              未登记的列（如 publishedTs 等宽表列）与正文 description（付费墙）均不对外。
+ *              注：本路由故意不用行→视图 mapper（mapper 只改名不裁剪），因此这里的键名
+ *              由路由显式控制；serviceRow() 仍是 snake，它模拟的是 DB 行而不是响应。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -58,7 +59,7 @@ describe("GET /api/notices/[id]/preview", () => {
 
   it("改读服务宽表投影：机构/国家走归一 SSOT 值", async () => {
     findPublicDetail.mockResolvedValue(serviceRow());
-    // 旧基表行：agency_full 未归一、country 非码；若仍走旧源则 buyer_name/country_code 断言失败
+    // 旧基表行：agency_full 未归一、country 非码；若仍走旧源则 buyerName/countryCode 断言失败
     findDetailPublished.mockResolvedValue({
       id: 1786635783, reference: "R", title: "T", notice_type: "ITB", country: "Latvia",
       agency: "RAW", agency_full: "RAW FULL AGENCY", organization: "O",
@@ -69,14 +70,14 @@ describe("GET /api/notices/[id]/preview", () => {
 
     expect(findPublicDetail).toHaveBeenCalledWith(expect.anything(), 1786635783);
     expect(body).toMatchObject({
-      notice_pk: 1786635783,
+      noticePk: 1786635783,
       reference: "VNĪ 2026/2-17/AK-66",
       title: "Purchasing and assembly of ASSA Abloy lathe machinery",
-      notice_type_code: "ITB",
-      country_code: "LV",
-      buyer_name: "Valsts nekustamie īpašumi",
-      deadline_ts: 1794902400,
-      estimated_value: "0.00",
+      noticeTypeCode: "ITB",
+      countryCode: "LV",
+      buyerName: "Valsts nekustamie īpašumi",
+      deadlineTs: 1794902400,
+      estimatedValue: "0.00",
     });
   });
 
@@ -87,11 +88,13 @@ describe("GET /api/notices/[id]/preview", () => {
     const body = await callPreview("1");
 
     // 付费墙：正文/附件绝不外露
-    for (const secret of ["description", "description_cn", "contacts", "attachments", "external_links"]) {
+    for (const secret of ["description", "descriptionCn", "contacts", "attachments", "externalLinks"]) {
       expect(body).not.toHaveProperty(secret);
     }
-    // 命名红线（递减白名单"新增不得进入"）：不 mint 未登记的 snake 键
-    for (const newKey of ["published_ts", "currency_code", "platform_name", "deadline_type", "deadline_timezone"]) {
+    // 命名红线：未登记的列不得出现在响应上（camel 与 snake 两面都钉住，
+    // 防的是将来改用整行 mapper 时把付费墙以外的列一并带出）
+    for (const newKey of ["publishedTs", "currencyCode", "platformName", "deadlineType", "deadlineTimezone",
+      "published_ts", "currency_code", "platform_name", "deadline_type", "deadline_timezone"]) {
       expect(body).not.toHaveProperty(newKey);
     }
     // 基表历史列名不再外露（统一走宽表名）

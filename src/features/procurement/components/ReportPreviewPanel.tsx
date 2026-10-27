@@ -130,7 +130,7 @@ export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLock
             {isVip ? (
               /* P1-14 安全修复：假对象补全 title，避免空标题 */
               <Button
-                onClick={() => onUnlock({ notice_pk: noticeId, notice_id: String(noticeId), title: `#${noticeId}` } as NoticeItem)}
+                onClick={() => onUnlock({ noticePk: noticeId, noticeId: String(noticeId), title: `#${noticeId}` } as NoticeItem)}
                 variant="primary"
                 className="sm:px-5 py-2 text-xs sm:text-sm font-black shadow-sm whitespace-nowrap min-w-0 max-w-full"
               >

@@ -4,26 +4,26 @@ import {
   type NoticeDisplayFields,
 } from "@/shared/utils/noticeDisplay";
 
-// 2026-10 修复首页 NoticeScrollCard 崩溃：展示层字段口径对齐 unified-search 真实宽表列
-// （country_code / notice_type_code / deadline_ts / buyer_name），不再是历史展示名。
+// 2026-10 修复首页 NoticeScrollCard 崩溃：展示层字段口径对齐 unified-search 的响应视图
+// （countryCode / noticeTypeCode / deadlineTs / buyerName），不再是历史展示名。
 function makeNotice(overrides: Partial<NoticeDisplayFields> = {}): NoticeDisplayFields {
   return {
     title: "原始标题",
-    country_code: "CN",
-    estimated_value: "1000.00",
-    deadline_ts: null,
+    countryCode: "CN",
+    estimatedValue: "1000.00",
+    deadlineTs: null,
     ...overrides,
   };
 }
 
 describe("displayNoticeTitle", () => {
   it("优先返回 title_i18n", () => {
-    expect(displayNoticeTitle(makeNotice({ title_i18n: "本地化标题", title_en: "English" })))
+    expect(displayNoticeTitle(makeNotice({ titleI18n: "本地化标题", titleEn: "English" })))
       .toBe("本地化标题");
   });
 
   it("无 title_i18n 时回退到 title_en", () => {
-    expect(displayNoticeTitle(makeNotice({ title_en: "English" })))
+    expect(displayNoticeTitle(makeNotice({ titleEn: "English" })))
       .toBe("English");
   });
 
@@ -35,12 +35,12 @@ describe("displayNoticeTitle", () => {
 
 describe("displayNoticeAgency", () => {
   it("优先返回 agency_i18n", () => {
-    expect(displayNoticeAgency(makeNotice({ agency_i18n: "联合国开发计划署", buyer_name: "UNDP" })))
+    expect(displayNoticeAgency(makeNotice({ agencyI18n: "联合国开发计划署", buyerName: "UNDP" })))
       .toBe("联合国开发计划署");
   });
 
   it("无 agency_i18n 时回退到 buyer_name（宽表真实机构列）", () => {
-    expect(displayNoticeAgency(makeNotice({ buyer_name: "UNDP" })))
+    expect(displayNoticeAgency(makeNotice({ buyerName: "UNDP" })))
       .toBe("UNDP");
   });
 

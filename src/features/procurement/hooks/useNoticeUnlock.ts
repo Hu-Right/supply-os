@@ -76,24 +76,24 @@ export function useNoticeUnlock({
       return;
     }
     try {
-      const detail = await fetchNoticeDetail(notice.notice_pk);
+      const detail = await fetchNoticeDetail(notice.noticePk);
       setSelectedNotice((prev) => {
-        if (!prev || prev.notice_pk !== notice.notice_pk) return prev;
+        if (!prev || prev.noticePk !== notice.noticePk) return prev;
         // 显式重置数组字段，防止前一个公告的数据残留
         return {
           ...prev,
           ...detail,
           attachments: detail.attachments ?? [],
           
-          external_links: detail.external_links ?? [],
+          external_links: detail.externalLinks ?? [],
           contacts: detail.contacts ?? [],
         };
       });
-      markUnlocked(notice.notice_pk);
+      markUnlocked(notice.noticePk);
     } catch {
       // 未解锁或加载失败：保留列表数据，不阻断详情页
     } finally {
-      setDetailLoadingId((prev) => (prev === notice.notice_pk ? null : prev));
+      setDetailLoadingId((prev) => (prev === notice.noticePk ? null : prev));
     }
   }, [userId, setSelectedNotice, markUnlocked]);
 
@@ -102,9 +102,9 @@ export function useNoticeUnlock({
   const loadNoticePreview = useCallback(async (notice: NoticeItem) => {
     if (!userId) return;
     try {
-      const preview = await fetchNoticePreview(notice.notice_pk);
+      const preview = await fetchNoticePreview(notice.noticePk);
       setSelectedNotice((prev) => {
-        if (!prev || prev.notice_pk !== notice.notice_pk) return prev;
+        if (!prev || prev.noticePk !== notice.noticePk) return prev;
         // 预览接口不返回数组字段，显式清空防止残留
         return {
           ...prev,
@@ -121,22 +121,22 @@ export function useNoticeUnlock({
 
   // 公告全文内容加载：搜索 SQL 将 description 截断为 300 字符，
   // 本函数拉取完整 description 替换截断版本，确保"查看原文"开关有意义；
-  // 同时获取 description_cn（来自机会表），确保中文环境下详情页可立即显示中文描述，
-  // 避免卡片与详情页语言显示不一致（卡片通过 description_cn 显示中文）；
-  // fire-and-forget 模式，失败静默不阻断详情页
+  // 全文端点响应与 NoticeItem 同一个契约（均 camelCase，红线②），不再需要桥接：
+  // 同时取 descriptionCn（来自机会表），确保中文环境下详情页立即显示中文描述，
+  // 避免卡片与详情页语言显示不一致；fire-and-forget 模式，失败静默不阻断详情页
   const loadNoticeContent = useCallback((notice: NoticeItem) => {
-    fetchNoticeContent(notice.notice_pk)
+    fetchNoticeContent(notice.noticePk)
       .then((content) => {
         setSelectedNotice((prev) =>
-          prev && prev.notice_pk === notice.notice_pk
+          prev && prev.noticePk === notice.noticePk
             ? {
                 ...prev,
                 description: content.description,
                 title: content.title,
-                // description_cn 确保中文环境下详情页立即显示中文，无需等待翻译 API
-                ...(content.description_cn ? { description_cn: content.description_cn } : {}),
+                // 中文译文：立即显示中文，无需等翻译 API
+                ...(content.descriptionCn ? { descriptionCn: content.descriptionCn } : {}),
                 // 完整原文供"查看原文"切换（主表 description 仅存标题）
-                ...(content.original_description ? { original_description: content.original_description } : {}),
+                ...(content.originalDescription ? { originalDescription: content.originalDescription } : {}),
               }
             : prev,
         );
@@ -148,7 +148,7 @@ export function useNoticeUnlock({
 
   // 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情）
   const openNoticeById = useCallback(async (id: number) => {
-    const base = items.find((it) => it.notice_pk === id) || ({ notice_pk: id } as NoticeItem);
+    const base = items.find((it) => it.noticePk === id) || ({ noticePk: id } as NoticeItem);
     setDetailLoadingId(id);
     setSelectedNotice(base);
     window.scrollTo({ top: 0, behavior: "smooth" });

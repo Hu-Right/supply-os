@@ -75,7 +75,7 @@ describe("稳定码 → i18n 键", () => {
   });
 
   it("全域治本：内容锁定/会话/反馈批量码各自成键，历史撞码点全部归位", () => {
-    expect(mapApiError(new ApiError(403, "公告已锁定，请先解锁", EC_CONTENT_LOCKED, { core_locked: true }), t)).toBe("K:errUnlockRequired");
+    expect(mapApiError(new ApiError(403, "公告已锁定，请先解锁", EC_CONTENT_LOCKED, { coreLocked: true }), t)).toBe("K:errUnlockRequired");
     expect(mapApiError(new ApiError(409, "会话已结束", EC_CHAT_SESSION_CLOSED), t)).toBe("K:errChatSessionClosed");
     expect(mapApiError(new ApiError(409, "会话未结束或已评价过", EC_CHAT_RATE_INVALID), t)).toBe("K:errChatNotRatable");
     expect(mapApiError(new ApiError(400, "缺少会话标识", EC_SESSION_REQUIRED), t)).toBe("K:errSessionRequired");
@@ -137,8 +137,8 @@ describe("令牌桥接（AI / 遗留）", () => {
 });
 
 describe("状态兜底与锁定 detail", () => {
-  it("403 + core_locked detail → 引导解锁", () => {
-    const c = classifyApiError(new ApiError(403, "Forbidden", undefined, { core_locked: true }));
+  it("403 + coreLocked detail → 引导解锁", () => {
+    const c = classifyApiError(new ApiError(403, "Forbidden", undefined, { coreLocked: true }));
     expect(c).toMatchObject({ kind: "forbidden", key: "errUnlockRequired" });
   });
 

@@ -9,23 +9,24 @@
  */
 
 /**
- * 公告宽表字段子集 — 展示层所需的最小字段口径。
- * 2026-10：字段名对齐 /api/notices/unified-search 真实下发的宽表列
- * （country_code / notice_type_code / deadline_ts / buyer_name），与列表页 NoticeCard 同口径；
+ * 公告展示层所需的最小字段口径。
+ * 2026-10：字段名对齐 /api/notices/unified-search 的响应视图
+ * （countryCode / noticeTypeCode / deadlineTs / buyerName），与列表页 NoticeCard 同口径。
  * 历史展示名（country / notice_type / deadline_sec / agency）已废弃——首页卡片此前正因此读到
  * undefined 而在 getCountryDisplayName 内 toLowerCase 崩溃。
+ * 旧版此处曾直接镜像服务表列名（snake），现统一按红线② 用 camelCase 契约名。
  */
 export interface NoticeDisplayFields {
   title: string;
-  title_i18n?: string;
-  title_en?: string;
-  agency_i18n?: string;
-  buyer_name?: string;
-  country_code: string;
-  estimated_value: string | null;
-  deadline_ts: number | string | null;
-  notice_type_code?: string;
-  deadline_type?: string;
+  titleI18n?: string;
+  titleEn?: string;
+  agencyI18n?: string;
+  buyerName?: string;
+  countryCode: string;
+  estimatedValue: string | null;
+  deadlineTs: number | string | null;
+  noticeTypeCode?: string;
+  deadlineType?: string;
 }
 
 /**
@@ -33,14 +34,14 @@ export interface NoticeDisplayFields {
  * 与 procurement/NoticeCard 保持一致。
  */
 export function displayNoticeTitle(n: NoticeDisplayFields): string {
-  return n.title_i18n || n.title_en || n.title;
+  return n.titleI18n || n.titleEn || n.title;
 }
 
 /**
- * 采购机构显示回退链：i18n 机构名 → 宽表 buyer_name → 空串。
+ * 采购机构显示回退链：i18n 机构名 → 视图 buyerName → 空串。
  */
 export function displayNoticeAgency(n: NoticeDisplayFields): string {
-  return n.agency_i18n || n.buyer_name || "";
+  return n.agencyI18n || n.buyerName || "";
 }
 
 /**

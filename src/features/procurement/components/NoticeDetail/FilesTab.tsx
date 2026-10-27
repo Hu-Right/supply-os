@@ -46,12 +46,12 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
   const { t } = useLocale();
 
   const documents = ((notice.attachments as RawAttachment[] | undefined) || []);
-  const externalLinks = ((notice.external_links as RawAttachment[] | undefined) || []);
+  const externalLinks = ((notice.externalLinks as RawAttachment[] | undefined) || []);
   const hasFiles = documents.length > 0 || externalLinks.length > 0;
 
   // ─ 未解锁：按「是否确认收录了文件」分流锁定提示 ──
   if (!coreUnlocked) {
-    const fileCount = typeof notice.breakdown_file_count === "number" ? notice.breakdown_file_count : undefined;
+    const fileCount = typeof notice.breakdownFileCount === "number" ? notice.breakdownFileCount : undefined;
     // 库内 99.9% 公告未收录文件链接（仅 UNGM 部分行有）：确认有文件才保留"解锁下载"承诺，
     // 其余一律引导去来源平台，避免付费承诺与实际交付的落差
     if ((fileCount ?? 0) > 0) {
@@ -103,9 +103,9 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
         <p className="text-xs text-slate-400 mb-4">
           {t("detail_filesLockedNoneHint") || "原始文件请前往来源平台查看与下载"}
         </p>
-        {notice.source_url && (
+        {notice.sourceUrl && (
           <a
-            href={notice.source_url}
+            href={notice.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline"
@@ -126,9 +126,9 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
         <p className="text-sm text-slate-500 mb-1">
           {t("procurement_noFiles") || "本公告暂无可下载的招标文件"}
         </p>
-        {notice.source_url && (
+        {notice.sourceUrl && (
           <a
-            href={notice.source_url}
+            href={notice.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-2"

@@ -47,7 +47,7 @@ export interface UnifiedSearchParams {
   matchMode?: "all" | "any";
 }
 
-/** 统一搜索结果（与前端 NoticeResponse 对齐） */
+/** 统一搜索结果（与前端 NoticeResponse 对齐；本对象被路由直接当响应体透出，所以键名就是对外契约） */
 export interface UnifiedSearchResult {
   items: Array<Record<string, unknown>>;
   total: number;
@@ -57,8 +57,8 @@ export interface UnifiedSearchResult {
   variant?: string;
   /** no_prefs=无行业偏好 / no_match=无匹配 / mysql_degraded=MySQL 应急降级 / none=正常 */
   fallback?: "no_prefs" | "no_match" | "mysql_degraded" | "none";
-  /** 硬 AND 零结果时自动放宽为 OR 的标志（仅放宽时出现） */
-  match_relaxed?: boolean;
+  /** 硬 AND 零结果时自动放宽为 OR 的标志（仅放宽时出现）；契约键用 camelCase（红线②） */
+  matchRelaxed?: boolean;
 }
 
 /** Meilisearch filter 计划（filter-builder 输出） */

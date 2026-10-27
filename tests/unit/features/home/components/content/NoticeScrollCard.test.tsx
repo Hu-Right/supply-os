@@ -13,19 +13,19 @@ import { NoticeScrollCard, type HomeNoticeItem } from "@/features/home/component
 
 const t = (key: string) => key;
 
-// 一条与 unified-search 真实返回同形的宽表 item
+// 一条与 unified-search 真实返回同形的视图项（经 view mapper 后统一 camelCase，红线②）
 const item: HomeNoticeItem = {
-  notice_pk: 12345,
-  notice_id: "UN-12345",
+  noticePk: 12345,
+  noticeId: "UN-12345",
   reference: "OS-REF-1",
   title: "某医院数字影像设备采购",
-  title_en: "Digital imaging equipment procurement",
-  country_code: "CN",
-  notice_type_code: "Tender",
-  buyer_name: "联合国项目事务署",
-  estimated_value: "50000.00",
-  deadline_ts: Math.floor(Date.now() / 1000) + 10 * 86400,
-  deadline_type: "bid",
+  titleEn: "Digital imaging equipment procurement",
+  countryCode: "CN",
+  noticeTypeCode: "Tender",
+  buyerName: "联合国项目事务署",
+  estimatedValue: "50000.00",
+  deadlineTs: Math.floor(Date.now() / 1000) + 10 * 86400,
+  deadlineType: "bid",
 };
 
 describe("NoticeScrollCard", () => {

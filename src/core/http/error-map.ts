@@ -254,7 +254,7 @@ export function classifyApiError(err: unknown): ErrorClassification {
 
   // 0) 未解锁闸门优先：部分路由复用 40013（与 EC_ACCOUNT_ISSUE 同值）携 core_locked detail，
   //    必须在按码映射前拦截，否则锁定态会被误判成“账号异常”。
-  if (status === 403 && detail && (detail.core_locked === true || detail.locked === true)) {
+  if (status === 403 && detail && (detail.coreLocked === true || detail.locked === true)) {
     return { kind: "forbidden", key: "errUnlockRequired", code, status, message };
   }
 

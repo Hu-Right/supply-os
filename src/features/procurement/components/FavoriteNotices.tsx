@@ -32,17 +32,17 @@ export function FavoriteNotices({ favoriteIds, onOpenNotice }: FavoriteNoticesPr
       </p>
       <ul className="space-y-2">
         {items.map((item) => {
-          const title = item.title_i18n || item.title || `#${item.notice_pk}`;
+          const title = item.titleI18n || item.title || `#${item.noticePk}`;
           return (
             <li
-              key={item.notice_pk}
+              key={item.noticePk}
               className="group flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-100 px-3.5 py-2.5 shadow-sm hover:border-amber-200 hover:shadow-md transition-all duration-200"
             >
               <span dir="auto" className="text-sm font-semibold text-slate-700 truncate min-w-0 flex-1">
                 {title}
               </span>
               <Button
-                onClick={() => onOpenNotice(item.notice_pk)}
+                onClick={() => onOpenNotice(item.noticePk)}
                 variant="link"
                 size="sm"
                 className="gap-1 px-0 text-teal-600 font-semibold hover:text-teal-800 cursor-pointer opacity-70 group-hover:opacity-100 transition-opacity shrink-0"

@@ -57,13 +57,13 @@ export function NoticeCoreContent({
   // 由预览端点真实下发直接展示；核心敏感信息（联系人身份/文件清单/报告/来源链接）
   // 服务端从不下发，锁定态仅渲染数量预告锁卡。
   const secondaryMetrics = [
-    { label: t("procurement_publishedDate"), value: (notice.published_ts ? new Date(Number(notice.published_ts) * 1000).toISOString().slice(0, 10) : "") },
-    { label: t("procurement_bidRegBar"), value: notice.registration_level || "" },
+    { label: t("procurement_publishedDate"), value: (notice.publishedTs ? new Date(Number(notice.publishedTs) * 1000).toISOString().slice(0, 10) : "") },
+    { label: t("procurement_bidRegBar"), value: notice.registrationLevel || "" },
   ].filter((metric) => Boolean(metric.value));
   const hasSecondaryPreview = secondaryMetrics.length > 0;
-  const contactCount = Number(notice.contact_count || 0);
+  const contactCount = Number(notice.contactCount || 0);
   const fileCount = Number(breakdownFileCount || 0);
-  const showReportTeaser = Number(notice.is_opportunity) === 1;
+  const showReportTeaser = Number(notice.isOpportunity) === 1;
 
   return (
     <div className="space-y-4">

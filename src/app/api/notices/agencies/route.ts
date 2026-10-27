@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getNoticeAgencies } from "@/lib/services/notice-search";
+import { toCamelKeys } from "@/lib/services/notice-public/view";
 import { withRoute } from "@/lib/middleware/route-handler";
 
 export const GET = withRoute(async (req: NextRequest) => {
@@ -15,7 +16,9 @@ export const GET = withRoute(async (req: NextRequest) => {
   try {
     const pool = getPool();
     const agencies = await getNoticeAgencies(pool, lang);
-    return NextResponse.json(agencies, {
+    // 行形状经通用改名后对外（`agency_i18n` → `agencyI18n`，红线②）；
+    // 内部 i18n 缓存与搜索行仍保持列名，不在本层依赖下游改名。
+    return NextResponse.json(agencies.map(toCamelKeys), {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
       },

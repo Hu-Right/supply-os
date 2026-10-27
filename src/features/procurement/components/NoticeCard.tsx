@@ -49,34 +49,34 @@ interface NoticeCardProps {
 export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, favorited, onToggleFavorite }: NoticeCardProps) {
   const { t, locale } = useLocale();
   // 标题国际化回退链：当前语言缓存 → 英文缓存 → 原文
-  const displayTitle = item.title_i18n || item.title_en || item.title;
+  const displayTitle = item.titleI18n || item.titleEn || item.title;
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
-  const typeKey = noticeTypeKey(item.notice_type_code);
+  const typeKey = noticeTypeKey(item.noticeTypeCode);
 
   // ── 状态标签组 ──
   const docCount = item.attachments?.length ?? 0;
   // 剩余天数：日历口径（CST），与左侧 formatDeadlineZh 相对日期标签对齐
-  const daysLeft = item.deadline_type && item.deadline_type !== "bid" ? null : calendarDaysLeftCst(toUnixMs(item.deadline_ts));
+  const daysLeft = item.deadlineType && item.deadlineType !== "bid" ? null : calendarDaysLeftCst(toUnixMs(item.deadlineTs));
   // Tender ID：reference 优先，回退 notice_id
-  const tenderId = item.reference || item.notice_id || "";
+  const tenderId = item.reference || item.noticeId || "";
 
   const deadlineDate = locale === "zh"
-    ? (formatDeadlineZh("", item.deadline_ts) || t("procurement_noDeadline"))
-    : ((item.deadline_ts ? new Date(Number(item.deadline_ts) * 1000).toISOString().slice(0, 10) : "") || t("procurement_noDeadline"));
-  const deadlineTypeLabel = item.deadline_type === "registration"
+    ? (formatDeadlineZh("", item.deadlineTs) || t("procurement_noDeadline"))
+    : ((item.deadlineTs ? new Date(Number(item.deadlineTs) * 1000).toISOString().slice(0, 10) : "") || t("procurement_noDeadline"));
+  const deadlineTypeLabel = item.deadlineType === "registration"
     ? t("procurement_deadlineRegistration")
-    : item.deadline_type === "framework_end"
+    : item.deadlineType === "framework_end"
       ? t("procurement_deadlineFramework")
       : "";
   const deadlinePrefix = deadlineTypeLabel ? `${deadlineTypeLabel}${locale === "zh" ? "：" : ": "}` : "";
-  const deadlineText = `${deadlinePrefix}${deadlineDate}${item.deadline_timezone ? ` (${item.deadline_timezone})` : ""}`;
-  const valueText = compactValue(item.estimated_value == null ? undefined : String(item.estimated_value));
-  const sourceName = item.platform_name ?? "";
-  const isUnlocked = item.core_locked === false;
+  const deadlineText = `${deadlinePrefix}${deadlineDate}${item.deadlineTimezone ? ` (${item.deadlineTimezone})` : ""}`;
+  const valueText = compactValue(item.estimatedValue == null ? undefined : String(item.estimatedValue));
+  const sourceName = item.platformName ?? "";
+  const isUnlocked = item.coreLocked === false;
 
   return (
     <Card
-      ref={(el) => observe?.(el, item.notice_pk)}
+      ref={(el) => observe?.(el, item.noticePk)}
       interactive
       className="p-3 sm:p-4"
       data-testid="notice-card"
@@ -85,7 +85,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
         {/* ── 状态标签列：公告类型 + 附件 ── */}
         <div className="flex lg:flex-col flex-wrap lg:flex-nowrap items-start gap-1 lg:w-28 shrink-0">
           <Badge shape="tag" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-3xs font-bold w-fit whitespace-nowrap">
-            {typeKey ? t(typeKey) : item.notice_type_code || "Notice"}
+            {typeKey ? t(typeKey) : item.noticeTypeCode || "Notice"}
           </Badge>
           {docCount > 0 && (
             <Badge variant="info" shape="tag" className="text-3xs font-bold w-fit whitespace-nowrap">
@@ -111,10 +111,10 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
           </p>
           {/* 移动端紧凑 meta：桌面端由右侧各列展示 */}
           <div className="md:hidden flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs text-slate-500">
-            {item.country_code && (
+            {item.countryCode && (
               <>
-                <CountryFlag name={item.country_code} />
-                <span>{getCountryDisplayName(item.country_code, locale)}</span>
+                <CountryFlag name={item.countryCode} />
+                <span>{getCountryDisplayName(item.countryCode, locale)}</span>
               </>
             )}
             <span className="font-bold text-slate-700">{valueText || t("procurement_budgetPending")}</span>
@@ -128,15 +128,15 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
         {/* ── 买家列（lg+） ── */}
         <div className="hidden lg:block w-44 shrink-0">
           <p className="text-xs text-slate-700 font-bold truncate">
-            {item.agency_i18n || item.buyer_name || t("procurement_unknownAgency")}
+            {item.agencyI18n || item.buyerName || t("procurement_unknownAgency")}
           </p>
         </div>
 
         {/* ── 国家列（md+） ── */}
         <div className="hidden md:flex items-center gap-1.5 w-24 shrink-0">
-          {item.country_code && <CountryFlag name={item.country_code} />}
+          {item.countryCode && <CountryFlag name={item.countryCode} />}
           <span className="text-xs text-slate-600 truncate">
-            {item.country_code ? getCountryDisplayName(item.country_code, locale) : ""}
+            {item.countryCode ? getCountryDisplayName(item.countryCode, locale) : ""}
           </span>
         </div>
 
@@ -159,13 +159,13 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
 
         {/* ── 来源列（lg+）：已收录平台才展示，未收录域名隐藏 ── */}
         <div className="hidden lg:block w-28 shrink-0">
-          {item.source_url && sourceName && (
+          {item.sourceUrl && sourceName && (
             <a
-              href={item.source_url}
+              href={item.sourceUrl}
               target="_blank"
               rel="noreferrer noopener"
               className="text-xs text-teal-700 hover:text-teal-900 font-medium truncate block"
-              title={item.source_url}
+              title={item.sourceUrl}
             >
               {sourceName}
             </a>
@@ -198,7 +198,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onToggleFavorite(item.notice_pk);
+                onToggleFavorite(item.noticePk);
               }}
               className={`p-2 rounded-lg border transition-colors ${
                 favorited

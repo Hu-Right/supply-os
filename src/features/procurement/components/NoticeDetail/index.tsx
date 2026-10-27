@@ -67,10 +67,10 @@ export function NoticeDetail({
   const authContext = useOptionalAuth();
   const userId = useUserId();
   const router = useRouter();
-  const noticeId = notice.notice_pk;
+  const noticeId = notice.noticePk;
   // 锁定态：core_locked === false 为已解锁（列表标记或 /detail 合并结果）。
   // 上移至 hooks 之前：AI 摘要与翻译一致，锁定态不发请求/不开放"开始分析"（后端必 403 core_locked）。
-  const coreUnlocked = notice.core_locked === false;
+  const coreUnlocked = notice.coreLocked === false;
   // 档位中文能力（服务端按矩阵下发 gates）：notice_translation 控译文、ai_summary 控 AI 摘要。
   // free/included 才算当前用户享有；其余（upgrade/contact/unlock）一律回落原文。
   const gates = membership?.gates;
@@ -80,8 +80,8 @@ export function NoticeDetail({
   const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreUnlocked, aiSummaryEnabled);
   const aiMatch = useAiMatch(noticeId, aiMatchEnabled);
   const [activeTab, setActiveTab] = useState("summary");
-  const bidDeadline = !notice.deadline_type || notice.deadline_type === "bid";
-  const [countdown, setCountdown] = useState(bidDeadline ? getCountdown(notice.deadline_ts) : null);
+  const bidDeadline = !notice.deadlineType || notice.deadlineType === "bid";
+  const [countdown, setCountdown] = useState(bidDeadline ? getCountdown(notice.deadlineTs) : null);
   // 分享面板开关（链接由公告数值 id 拼成规范公开详情页）
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -91,33 +91,33 @@ export function NoticeDetail({
       setCountdown(null);
       return;
     }
-    const id = setInterval(() => setCountdown(getCountdown(notice.deadline_ts)), 1000);
+    const id = setInterval(() => setCountdown(getCountdown(notice.deadlineTs)), 1000);
     return () => clearInterval(id);
-  }, [notice.deadline_ts, bidDeadline]);
+  }, [notice.deadlineTs, bidDeadline]);
 
   // 切换到另一条公告（如相似机会跳转）时回到概况 Tab
   useEffect(() => {
     setActiveTab("summary");
-  }, [notice.notice_pk]);
+  }, [notice.noticePk]);
 
   // 翻译：锁定态不发起请求——/translation 同属付费墙闸口（ARCH-P0 2026-09-05），
   // 锁定态发起必 403 core_locked；锁定面板标题来自列表 i18n 字段，无需译文。
   // 解锁后 core_locked 翻转为 false，钩子自动补发。
   const { translation, displayTitle: hookDisplayTitle, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
-    coreUnlocked && canSeeChinese ? notice.notice_pk : undefined, locale,
+    coreUnlocked && canSeeChinese ? notice.noticePk : undefined, locale,
     `${notice.title || ""}\n${notice.description || ""}`,
-    canSeeChinese && locale === "zh" ? (notice.title_i18n || undefined) : undefined,
+    canSeeChinese && locale === "zh" ? (notice.titleI18n || undefined) : undefined,
   );
   // 标题回退链：无中文能力→原文标题；否则 hook 译文 > 列表 i18n 标题 > 原文
   const displayTitle = canSeeChinese
-    ? (hookDisplayTitle || notice.title_i18n || notice.title)
+    ? (hookDisplayTitle || notice.titleI18n || notice.title)
     : notice.title;
   const displayDescription = !canSeeChinese
-    ? (notice.original_description || notice.description)
+    ? (notice.originalDescription || notice.description)
     : showOriginal
-      ? (notice.original_description || notice.description)
-      : (locale === "zh" && notice.description_cn) || translation?.description || notice.description;
-  const descResolved = canSeeChinese && locale === "zh" && !!notice.description_cn;
+      ? (notice.originalDescription || notice.description)
+      : (locale === "zh" && notice.descriptionCn) || translation?.description || notice.description;
+  const descResolved = canSeeChinese && locale === "zh" && !!notice.descriptionCn;
   const showTranslating = canSeeChinese && translating && !descResolved;
   // 切换按钮可见性：需有中文能力且有译文（API 译文 或 description_cn 直出）
   const hasTranslation = canSeeChinese && (!!translation || descResolved);
@@ -126,39 +126,39 @@ export function NoticeDetail({
   const showSkeleton = !coreUnlocked && !!detailLoading;
   const breakdownFileCount = coreUnlocked
     ? collectBreakdownFiles(notice).length
-    : typeof notice.breakdown_file_count === "number" ? notice.breakdown_file_count : undefined;
+    : typeof notice.breakdownFileCount === "number" ? notice.breakdownFileCount : undefined;
   const hasReport = coreUnlocked
-    ? notice.report_available === true
-    : typeof notice.report_available === "boolean" ? notice.report_available : Number(notice.is_opportunity) === 1;
-  const reportKnown = coreUnlocked || typeof notice.report_available === "boolean" || typeof notice.is_opportunity === "boolean";
-  const typeKey = noticeTypeKey(notice.notice_type_code);
+    ? notice.reportAvailable === true
+    : typeof notice.reportAvailable === "boolean" ? notice.reportAvailable : Number(notice.isOpportunity) === 1;
+  const reportKnown = coreUnlocked || typeof notice.reportAvailable === "boolean" || typeof notice.isOpportunity === "boolean";
+  const typeKey = noticeTypeKey(notice.noticeTypeCode);
   const showReportGuide = !showSkeleton && reportKnown && !hasReport;
   const visibleAgency = coreUnlocked
-    ? notice.agency_i18n || notice.buyer_name || t("procurement_unknownAgency")
+    ? notice.agencyI18n || notice.buyerName || t("procurement_unknownAgency")
     : showSkeleton ? t("procurement_loading")
-    : notice.agency_i18n || notice.buyer_name || t("procurement_unknownAgency");
+    : notice.agencyI18n || notice.buyerName || t("procurement_unknownAgency");
 
   // 信息表数据（发布日走统一解析+UTC 格式化，与 SEO 页同口径；不可解析回落占位）
-  const publishDate = formatNoticeDateOrNull(notice.published_ts ? new Date(Number(notice.published_ts) * 1000).toISOString().slice(0, 10) : "") || "-";
+  const publishDate = formatNoticeDateOrNull(notice.publishedTs ? new Date(Number(notice.publishedTs) * 1000).toISOString().slice(0, 10) : "") || "-";
   const deadlineText = (() => {
-    const date = (notice.deadline_ts ? new Date(Number(notice.deadline_ts) * 1000).toISOString().slice(0, 10) : "") || t("procurement_noDeadline");
-    const typeLabel = notice.deadline_type === "registration"
+    const date = (notice.deadlineTs ? new Date(Number(notice.deadlineTs) * 1000).toISOString().slice(0, 10) : "") || t("procurement_noDeadline");
+    const typeLabel = notice.deadlineType === "registration"
       ? t("procurement_deadlineRegistration")
-      : notice.deadline_type === "framework_end"
+      : notice.deadlineType === "framework_end"
         ? t("procurement_deadlineFramework")
         : "";
     const prefix = typeLabel ? `${typeLabel}${locale === "zh" ? "：" : ": "}` : "";
-    return `${prefix}${date}${notice.deadline_timezone ? ` (${notice.deadline_timezone})` : ""}`;
+    return `${prefix}${date}${notice.deadlineTimezone ? ` (${notice.deadlineTimezone})` : ""}`;
   })();
-  const budgetText = notice.estimated_value == null ? t("procurement_budgetPending") : String(notice.estimated_value);
-  const typeLabel = typeKey ? t(typeKey) : notice.notice_type_code || "-";
+  const budgetText = notice.estimatedValue == null ? t("procurement_budgetPending") : String(notice.estimatedValue);
+  const typeLabel = typeKey ? t(typeKey) : notice.noticeTypeCode || "-";
 
   return (
     <div className="space-y-5">
       <article className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
         <DetailHeader
           displayTitle={displayTitle} typeLabel={typeLabel}
-          noticeId={notice.reference || undefined} visibleAgency={visibleAgency} country={notice.country_code || ""} sourceUrl={notice.source_url || undefined} platform={notice.platform ?? null}
+          noticeId={notice.reference || undefined} visibleAgency={visibleAgency} country={notice.countryCode || ""} sourceUrl={notice.sourceUrl || undefined} platform={notice.platform ?? null}
           publishDate={publishDate} deadlineText={deadlineText} countdown={countdown}
           budgetText={budgetText} onBack={onBack} t={t} locale={locale}
           favorited={favorited} onToggleFavorite={onToggleFavorite}
@@ -208,7 +208,7 @@ export function NoticeDetail({
                   showTranslated={!showOriginal && hasTranslation}
                   toggleOriginal={toggleOriginal}
                   displayDescription={displayDescription || ""}
-                  descriptionTruncated={!!notice.description_truncated}
+                  descriptionTruncated={!!notice.descriptionTruncated}
                 />
 
                 {!showSkeleton && (
@@ -218,16 +218,16 @@ export function NoticeDetail({
                   />
                 )}
 
-                {showReportGuide && notice.notice_pk != null && (
+                {showReportGuide && notice.noticePk != null && (
                   <ReportUnavailableBanner
-                    noticeId={notice.notice_pk} isVip={isVip}
+                    noticeId={notice.noticePk} isVip={isVip}
                     isLoggedIn={!!authContext?.authUser}
                   />
                 )}
 
-                {notice.notice_pk != null && userId && reportKnown && hasReport && (
+                {notice.noticePk != null && userId && reportKnown && hasReport && (
                   <ReportPreviewPanel
-                    noticeId={notice.notice_pk} userId={userId} isVip={isVip}
+                    noticeId={notice.noticePk} userId={userId} isVip={isVip}
                     onUnlock={onUnlock} coreLocked={!coreUnlocked}
                   />
                 )}

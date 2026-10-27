@@ -12,7 +12,7 @@ import { useMemo } from "react";
 import { useLocale } from "@/core/i18n";
 import { Combobox, type ComboboxItem } from "@/shared/ui/Combobox";
 
-export interface AgencyFilterItem { agency: string; count: number; agency_i18n?: string; }
+export interface AgencyFilterItem { agency: string; count: number; agencyI18n?: string; }
 
 export interface AgencyFilterProps {
   agencies: AgencyFilterItem[];
@@ -40,7 +40,7 @@ export function AgencyFilter({
     () =>
       agencies.map((a) => ({
         value: a.agency,
-        label: a.agency_i18n || a.agency,
+        label: a.agencyI18n || a.agency,
         hint: String(a.count),
       })),
     [agencies],

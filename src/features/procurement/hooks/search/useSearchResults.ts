@@ -134,7 +134,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
           variantRef.current = typeof json.variant === "string" ? json.variant : undefined;
           setItems(Array.isArray(json.items) ? json.items : []);
           setTotal(Number(json.total || 0));
-          setMatchRelaxed(json.match_relaxed === true);
+          setMatchRelaxed(json.matchRelaxed === true);
           setServerPageSize(nextPageSize);
         })
         .catch((err) => {

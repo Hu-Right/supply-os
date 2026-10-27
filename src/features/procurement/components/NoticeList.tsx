@@ -53,12 +53,12 @@ export const NoticeList = memo(function NoticeList({
       <div className="flex flex-col gap-3" data-testid="search-results">
         {items.map((item) => (
           <NoticeCard
-            key={item.notice_pk}
+            key={item.noticePk}
             item={item}
             onClick={openNotice}
             // [dismiss/收藏功能临时禁用 2026-07-30] 反馈按钮 props 已移除
             observe={feedbackEnabled ? observeCard : undefined}
-            favorited={favoriteIds?.has(item.notice_pk)}
+            favorited={favoriteIds?.has(item.noticePk)}
             onToggleFavorite={onToggleFavorite}
           />
         ))}

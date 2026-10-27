@@ -58,7 +58,7 @@ export function NoticeDetailSidebar({
         <span className="truncate">{t("procurement_subscribeNotice")}</span>
       </Button>
       <Button
-        onClick={() => (canUsePaidQuota ? onUnlock(notice) : router.push(`/membership?notice_id=${notice.notice_pk}`))}
+        onClick={() => (canUsePaidQuota ? onUnlock(notice) : router.push(`/membership?notice_id=${notice.noticePk}`))}
         variant={canUsePaidQuota ? "secondary" : "cta"}
         className="flex-1 min-w-0 gap-1.5 px-2 text-xs py-2.5 font-semibold"
       >

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { listNoticeFavorites } from "@/lib/services/notice-service";
+import { toNoticeListView } from "@/lib/services/notice-public/view";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, clampLimit } from "@/shared/constants/api";
 
 export const GET = withRoute(async (req: NextRequest) => {
@@ -21,5 +22,6 @@ export const GET = withRoute(async (req: NextRequest) => {
   const { total, items } = await listNoticeFavorites({
     userId: auth.userId, limit, offset, lang: lang || null,
   });
-  return NextResponse.json({ total, page, limit, list: items });
+  // 收藏列表项与搜索列表同形制，同样先过 view mapper（红线②）
+  return NextResponse.json({ total, page, limit, list: toNoticeListView(items) });
 });

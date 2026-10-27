@@ -4,8 +4,8 @@
  * 隔离边界：mode-resolver / filter-builder / meili-query / mysql-fallback /
  * detail-fetch / format / meilisearch client+sync / agencies 全部 vi.mock，
  * 只保留真实 params（validateParams 归一化 matchMode）与真实编排主流程。
- * 验证：① AND 零结果 → 以 OR 重查并标 match_relaxed；② AND 有结果（含极少）→ 绝不放宽；
- *      ③ 用户显式 any → 不二次放宽；④ OR 也是零 → 不标 match_relaxed；
+ * 验证：① AND 零结果 → 以 OR 重查并标 matchRelaxed；② AND 有结果（含极少）→ 绝不放宽；
+ *      ③ 用户显式 any → 不二次放宽；④ OR 也是零 → 不标 matchRelaxed；
  *      ⑤ 降级路径同样仅在零结果时放宽；⑥ 空索引降级后已有结果 → 不重复放宽。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -81,7 +81,7 @@ beforeEach(() => {
 });
 
 describe("软 AND 放宽闸口（仅零结果，_searchCore）", () => {
-  it("硬 AND 零结果 → 以 OR 重查一次并采用 + match_relaxed", async () => {
+  it("硬 AND 零结果 → 以 OR 重查一次并采用 + matchRelaxed", async () => {
     mocks.meiliQuery
       .mockResolvedValueOnce({ ids: [], total: 0, totalIsPrecise: true }) // all
       .mockResolvedValueOnce({ ids: idsOf(28), total: 28, totalIsPrecise: true }); // any
@@ -92,7 +92,7 @@ describe("软 AND 放宽闸口（仅零结果，_searchCore）", () => {
     expect(mocks.meiliQuery.mock.calls[0][5]).toBe("all");
     expect(mocks.meiliQuery.mock.calls[1][5]).toBe("any");
     expect(res.total).toBe(28);
-    expect(res.match_relaxed).toBe(true);
+    expect(res.matchRelaxed).toBe(true);
   });
 
   it("硬 AND 命中极少（3 条）但非零 → 绝不放宽（本期收紧的核心断言）", async () => {
@@ -104,17 +104,17 @@ describe("软 AND 放宽闸口（仅零结果，_searchCore）", () => {
 
     expect(mocks.meiliQuery).toHaveBeenCalledTimes(1);
     expect(res.total).toBe(3);
-    expect(res).not.toHaveProperty("match_relaxed");
+    expect(res).not.toHaveProperty("matchRelaxed");
   });
 
-  it("硬 AND 结果充足 → 不触发放宽，无 match_relaxed", async () => {
+  it("硬 AND 结果充足 → 不触发放宽，无 matchRelaxed", async () => {
     mocks.meiliQuery.mockResolvedValueOnce({ ids: idsOf(50), total: 50, totalIsPrecise: true });
 
     const res = await searchUnified(noopPool, { q: "water supply plant", page: 1, pageSize: 10 });
 
     expect(mocks.meiliQuery).toHaveBeenCalledTimes(1);
     expect(res.total).toBe(50);
-    expect(res).not.toHaveProperty("match_relaxed");
+    expect(res).not.toHaveProperty("matchRelaxed");
   });
 
   it("用户显式选 any → 主查询即 any，不再二次放宽", async () => {
@@ -124,10 +124,10 @@ describe("软 AND 放宽闸口（仅零结果，_searchCore）", () => {
 
     expect(mocks.meiliQuery).toHaveBeenCalledTimes(1);
     expect(mocks.meiliQuery.mock.calls[0][5]).toBe("any");
-    expect(res).not.toHaveProperty("match_relaxed");
+    expect(res).not.toHaveProperty("matchRelaxed");
   });
 
-  it("零结果且 OR 也零 → 不标 match_relaxed（确实无匹配，非放宽所得）", async () => {
+  it("零结果且 OR 也零 → 不标 matchRelaxed（确实无匹配，非放宽所得）", async () => {
     mocks.meiliQuery
       .mockResolvedValueOnce({ ids: [], total: 0, totalIsPrecise: true })
       .mockResolvedValueOnce({ ids: [], total: 0, totalIsPrecise: true });
@@ -136,7 +136,7 @@ describe("软 AND 放宽闸口（仅零结果，_searchCore）", () => {
 
     expect(mocks.meiliQuery).toHaveBeenCalledTimes(2);
     expect(res.total).toBe(0);
-    expect(res).not.toHaveProperty("match_relaxed");
+    expect(res).not.toHaveProperty("matchRelaxed");
   });
 
   it("降级路径：MySQL 硬 AND 零结果才放宽，且第二次以 matchMode=any 下发", async () => {
@@ -151,7 +151,7 @@ describe("软 AND 放宽闸口（仅零结果，_searchCore）", () => {
     expect(mocks.mysqlFallback.mock.calls[0][1].matchMode).not.toBe("any");
     expect(mocks.mysqlFallback.mock.calls[1][1].matchMode).toBe("any");
     expect(res.total).toBe(9);
-    expect(res.match_relaxed).toBe(true);
+    expect(res.matchRelaxed).toBe(true);
   });
 
   it("降级路径：MySQL 有结果（哪怕 1 条）→ 不放宽，不额外打库", async () => {
@@ -162,7 +162,7 @@ describe("软 AND 放宽闸口（仅零结果，_searchCore）", () => {
 
     expect(mocks.mysqlFallback).toHaveBeenCalledTimes(1);
     expect(res.total).toBe(1);
-    expect(res).not.toHaveProperty("match_relaxed");
+    expect(res).not.toHaveProperty("matchRelaxed");
   });
 
   it("Meili 零结果但索引为空→降级 MySQL 拿到结果 → 不重复放宽", async () => {
@@ -175,6 +175,6 @@ describe("软 AND 放宽闸口（仅零结果，_searchCore）", () => {
     // 空索引降级只查一次 MySQL；因已有 5 条结果，放宽闸口不得再发二次查询
     expect(mocks.mysqlFallback).toHaveBeenCalledTimes(1);
     expect(res.total).toBe(5);
-    expect(res).not.toHaveProperty("match_relaxed");
+    expect(res).not.toHaveProperty("matchRelaxed");
   });
 });

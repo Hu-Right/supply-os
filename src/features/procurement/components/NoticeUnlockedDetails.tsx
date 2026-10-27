@@ -74,7 +74,7 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
   const keyContactsText = typeof rawKeyContacts === "string" ? rawKeyContacts : "";
   const keyContacts: RawContact[] =
     typeof rawKeyContacts === "string" ? [] : (rawKeyContacts as RawContact[] | undefined) || [];
-  const externalLinks = (notice.external_links as RawAttachment[] | undefined) || [];
+  const externalLinks = (notice.externalLinks as RawAttachment[] | undefined) || [];
 
   const allContacts = [...keyContacts, ...contacts];
 
@@ -84,39 +84,39 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
   // 中文版订单拆解报告下载：需后端 report_available + 登录态
   // （端点自身仍校验解锁记录，此处仅决定是否展示下载项）
   // B1 配套：下载改为带 JWT 的 Blob 拉取（原 <a> 链接无法携带 Authorization 头）
-  const canDownloadReport = Boolean(notice.report_available && notice.report_url && authUser);
+  const canDownloadReport = Boolean(notice.reportAvailable && notice.reportUrl && authUser);
 
   const handleDownloadReport = () => {
-    if (!notice.report_url) return;
-    void downloadNoticeReport(notice.report_url).catch((e) => {
+    if (!notice.reportUrl) return;
+    void downloadNoticeReport(notice.reportUrl).catch((e) => {
       console.warn("[NoticeDetails] 报告下载失败:", e);
     });
   };
 
   // 采购方/机构信息：完整机构名优先，逐级回退
-  const agencyInfo = notice.agency_i18n || notice.buyer_name || "";
+  const agencyInfo = notice.agencyI18n || notice.buyerName || "";
 
   const hasContent =
     allContacts.length > 0 ||
     files.length > 0 ||
     externalLinks.length > 0 ||
     !!agencyInfo ||
-    !!notice.published_ts ||
+    !!notice.publishedTs ||
     !!keyContactsText ||
-    !!notice.source_url;
+    !!notice.sourceUrl;
 
   if (!hasContent) return null;
 
   // 机构信息卡四行（原版布局），缺失值以 "-" 兖底
   const agencyRows: Array<[string, ReactNode]> = [
     [t("procurement_agencyFullName"), agencyInfo || "-"],
-    [t("procurement_country"), getCountryDisplayName(notice.country_code || "", locale) || "-"],
-    [t("procurement_publishedDate"), (notice.published_ts ? new Date(Number(notice.published_ts) * 1000).toISOString().slice(0, 10) : "-")],
+    [t("procurement_country"), getCountryDisplayName(notice.countryCode || "", locale) || "-"],
+    [t("procurement_publishedDate"), (notice.publishedTs ? new Date(Number(notice.publishedTs) * 1000).toISOString().slice(0, 10) : "-")],
     [
       t("procurement_originalLink"),
-      notice.source_url ? (
+      notice.sourceUrl ? (
         <a
-          href={notice.source_url}
+          href={notice.sourceUrl}
           target="_blank"
           rel="noreferrer"
           className="font-black text-blue-700 hover:text-blue-900 hover:underline"
@@ -217,9 +217,9 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
             <div className="space-y-2">
               <p className="text-slate-400">{t("procurement_reportPending")}</p>
               {/* 解锁后确认无报告：展示微信客服引导横幅（已按 notice_id 会话去重） */}
-              {!notice.report_available && notice.notice_pk != null && (
+              {!notice.reportAvailable && notice.noticePk != null && (
                 <ReportUnavailableBanner
-                  noticeId={notice.notice_pk}
+                  noticeId={notice.noticePk}
                   isVip={isVip}
                   isLoggedIn={!!authUser}
                 />

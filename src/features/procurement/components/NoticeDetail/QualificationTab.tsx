@@ -105,16 +105,16 @@ function ConditionBlock({
 export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationTabProps) {
   const { t } = useLocale();
 
-  const supplierConditions = notice.supplier_conditions || "";
+  const supplierConditions = notice.supplierConditions || "";
   const eligibility = notice.eligibility || "";
-  const technicalHurdles = notice.technical_hurdles || "";
+  const technicalHurdles = notice.technicalHurdles || "";
   const hasContent = supplierConditions || eligibility || technicalHurdles;
-  const levelConfig = getLevelConfig(notice.registration_level ?? undefined);
+  const levelConfig = getLevelConfig(notice.registrationLevel ?? undefined);
 
   // ── 未解锁：展示具体锁定提示 ──
   if (!coreUnlocked) {
     const lockedItems = [
-      hasContent || notice.registration_level ? t("detail_qualLockedLevel") || "注册等级要求与详细说明" : null,
+      hasContent || notice.registrationLevel ? t("detail_qualLockedLevel") || "注册等级要求与详细说明" : null,
       supplierConditions ? t("detail_qualLockedConditions") || "供应商投标条件全文" : null,
       eligibility ? t("detail_qualLockedEligibility") || "资格要求细则" : null,
       technicalHurdles ? t("detail_qualLockedHurdles") || "技术门槛与资质清单" : null,

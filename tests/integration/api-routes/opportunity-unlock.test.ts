@@ -207,7 +207,7 @@ describe("POST /api/opportunities/[id]/unlock", () => {
     const res = await POST(unlockRequest(176, { unlock_type: "subscription" }), routeParams(176));
     expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.out_of_category).toBe(true);
+    expect(body.outOfCategory).toBe(true);
     // 商机侧判定输入是大类码（那张表没有 backbone_path）
     expect(opportunityInCategory).toHaveBeenCalledWith(expect.anything(), 176, "UGT-25");
     expect(connQuery).not.toHaveBeenCalled();

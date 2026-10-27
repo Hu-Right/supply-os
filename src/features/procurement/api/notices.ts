@@ -10,7 +10,7 @@ export const fetchNoticeCountries = () =>
 
 export const fetchNoticeAgencies = (locale?: string) => {
   const qs = locale ? `?locale=${encodeURIComponent(locale)}` : "";
-  return apiCached<Array<{ agency: string; count: number; agency_i18n?: string }>>(`/api/notices/agencies${qs}`);
+  return apiCached<Array<{ agency: string; count: number; agencyI18n?: string }>>(`/api/notices/agencies${qs}`);
 };
 
 // B1 legacy 清理（2026-08-20）：身份一律由 JWT 承载（api() 自动携带），
@@ -48,16 +48,24 @@ export const fetchNoticePreview = (noticeId: number): Promise<Partial<NoticeItem
   return apiCached<Partial<NoticeItem>>(`/api/notices/${noticeId}/preview`, 10 * 60 * 1000);
 };
 
-export const fetchNoticeContent = (noticeId: number): Promise<{ description: string; title: string; description_cn: string; original_description?: string }> => {
+/** 公告全文端点的响应（命名红线②：响应键 camelCase；与 NoticeItem 内部 snake 字段不同名） */
+export interface NoticeContentResult {
+  description: string;
+  title: string;
+  descriptionCn: string;
+  originalDescription?: string;
+}
+
+export const fetchNoticeContent = (noticeId: number): Promise<NoticeContentResult> => {
   const url = `/api/notices/${noticeId}/content`;
-  return apiCached<{ description: string; title: string; description_cn: string; original_description?: string }>(url, 10 * 60 * 1000);
+  return apiCached<NoticeContentResult>(url, 10 * 60 * 1000);
 };
 
 export const fetchUnlockedNoticeIds = async (): Promise<number[]> => {
   try {
     const rows = await apiCached<unknown[]>("/api/notices/unlocks", 5 * 60 * 1000);
     return Array.isArray(rows)
-      ? rows.map((row) => Number((row as Record<string, unknown>)?.notice_id)).filter((id) => Number.isFinite(id) && id > 0)
+      ? rows.map((row) => Number((row as Record<string, unknown>)?.noticeId)).filter((id) => Number.isFinite(id) && id > 0)
       : [];
   } catch {
     return [];
@@ -150,7 +158,7 @@ export const toggleNoticeFavorite = (noticeId: number) =>
 export const fetchNoticeFavoriteIds = () =>
   api<{ ids: number[] }>("/api/notices/favorites/ids");
 
-/** 我的收藏（分页，按收藏时间倒序）——条目与服务表宽表项同形制（notice_pk / country_code / buyer_name / deadline_ts…） */
+/** 我的收藏（分页，按收藏时间倒序）——条目与搜索列表同一视图口径（noticePk / countryCode / buyerName / deadlineTs…） */
 export const fetchNoticeFavorites = (params: { page?: number; limit?: number } = {}) =>
   api<{ total: number; page: number; limit: number; list: NoticeItem[] }>(
     `/api/notices/favorites?page=${params.page ?? 1}&limit=${params.limit ?? 20}`,
