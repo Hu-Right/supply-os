@@ -81,7 +81,9 @@ describe("classifyDeadline", () => {
     );
     expect(v.state).toBe("known");
     expect(v.type).toBe("framework_end");
-    expect(v.effectiveTs).toBe(ts("2039-06-29"));
+    // 文本写了 23:59 就按 23:59 算，不抹成午夜（无偏移标记 ⇒ assumed_utc）
+    expect(v.effectiveTs).toBe(Math.floor(Date.UTC(2039, 5, 29, 23, 59) / 1000));
+    expect(v.timezoneSource).toBe("assumed_utc");
     expect(v.confidence).toBe(70);
   });
 
@@ -99,7 +101,10 @@ describe("classifyDeadline", () => {
     );
     expect(v.state).toBe("known");
     expect(v.type).toBe("framework_end");
-    expect(v.effectiveTs).toBe(ts("2050-09-30"));
+    // 显式偏移换算：10:00 @ UTC-04:00 = 14:00 UTC（旧断言午夜是时分被丢掉时的残留）
+    expect(v.effectiveTs).toBe(Math.floor(Date.UTC(2050, 8, 30, 14, 0) / 1000));
+    expect(v.timezone).toBe("GMT-04:00");
+    expect(v.timezoneSource).toBe("explicit");
   });
 
   it("2100 加拿大框架 → 30 年以上，placeholder", () => {
