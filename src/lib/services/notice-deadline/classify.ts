@@ -100,7 +100,8 @@ function parseDeadlineText(raw: string): ParsedDeadlineText | null {
   const s = raw.trim();
   if (!s) return null;
 
-  let y = 0, mo = 0, d = 0;
+  // 两个分枝都会在用到前赋值，故不给初值（给了就是永不被读的死赋值）
+  let y: number, mo: number, d: number;
   let hh: number | null = null, mm = 0, ss = 0;
 
   let m = /^(\d{1,2})[-/ ]([A-Za-z]{3})[A-Za-z]*[-/ ](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(s);

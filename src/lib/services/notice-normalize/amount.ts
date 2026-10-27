@@ -24,7 +24,9 @@ const SYMBOLS: Array<[RegExp, string]> = [
   [/₹/i, "INR"], [/₽/i, "RUB"], [/₺/i, "TRY"], [/₴/i, "UAH"], [/zł/i, "PLN"], [/Kč/i, "CZK"],
   [/CHF/i, "CHF"], [/¥/i, "JPY"],
 ];
-const COMMA_DECIMAL = new Set(["BR", "AR", "CL", "CO", "PE", "UY", "PY", "EC", "VE", "BO", "ES", "PT", "FR", "DE", "IT", "NL", "BE", "AT", "PL", "RU", "UA", "TR", "SE", "NO", "DK", "FI", "CZ", "SK", "HU", "RO", "BG", "HR", "RS", "GR", "ID", "VN"]);
+// 小数点/千分位不再按国家白名单判定（旧 COMMA_DECIMAL 集合）：下面 parseDecimal 用结构规则
+// （分隔符个数 + 尾段长度）定千分位/小数，模糊处一律打 separator_assumed_thousands 标记，
+// 不拿国家代码去猜——同一国家内两种写法都实测存在，猜出来的数字比标错更贵。
 const COUNTRY_CURRENCY: Record<string, string> = {
   BR: "BRL", FR: "EUR", PH: "PHP", ET: "ETB", CL: "CLP", NZ: "NZD", PT: "EUR",
   PK: "PKR", GE: "GEL", GB: "GBP", CA: "CAD", NL: "EUR", KE: "KES", AU: "AUD",
@@ -75,7 +77,8 @@ function detectCurrency(text: string, hint?: unknown, countryCode?: string | nul
   return { code: null, source: "none", flags };
 }
 
-function parseDecimal(token: string, countryCode?: string | null): { value: string; flags: string[] } | null {
+/** 结构式解析：靠分隔符个数与尾段长度定小数位，不需要国家码（模糊处只打 flag，不猜） */
+function parseDecimal(token: string): { value: string; flags: string[] } | null {
   let t = token.replace(/[ \u00a0'’]/g, "");
   const flags: string[] = [];
   const hasDot = t.includes(".");
@@ -110,7 +113,7 @@ function parseDecimal(token: string, countryCode?: string | null): { value: stri
   return { value, flags };
 }
 
-function findAmount(text: string, countryCode?: string | null): { amount?: string; min?: string; max?: string; flags: string[]; confidence: number } {
+function findAmount(text: string): { amount?: string; min?: string; max?: string; flags: string[]; confidence: number } {
   const flags: string[] = [];
   if (NONE_WORDS.test(text)) return { flags: ["amount_confidential_or_unknown"], confidence: 0 };
   if (/%|percent|per\s*cent|por\s*cento/i.test(text)) flags.push("percentage_not_total");
@@ -118,7 +121,7 @@ function findAmount(text: string, countryCode?: string | null): { amount?: strin
     .map((m) => m[0].trim())
     .filter((n) => n && !/^(19|20)\d{2}$/.test(n.replace(/[.,]/g, "")));
   if (nums.length === 0) return { flags: ["amount_missing"], confidence: 0 };
-  const parsed = nums.map((n) => ({ raw: n, ...parseDecimal(n, countryCode) })).filter((x) => x.value) as Array<{ raw: string; value: string; flags: string[] }>;
+  const parsed = nums.map((n) => ({ raw: n, ...parseDecimal(n) })).filter((x) => x.value) as Array<{ raw: string; value: string; flags: string[] }>;
   if (parsed.length === 0) return { flags: ["amount_unparseable"], confidence: 0 };
   const range = /\b(a|to|até|ate|hasta|à|–|-)\b/i.test(text) && parsed.length >= 2;
   if (range) {
@@ -157,7 +160,7 @@ export function normalizeAmount(rawValue: unknown, opts: { currencyHint?: unknow
     const d = detectCurrency(description, opts.currencyHint, opts.countryCode);
     if (d.code && d.source !== "inferred") curFromDesc = d;
   }
-  const amt = findAmount(text, opts.countryCode);
+  const amt = findAmount(text);
   if (amt.amount) {
     const scaled = scaleSuffix(amt.amount, text);
     amt.amount = scaled.amount;
