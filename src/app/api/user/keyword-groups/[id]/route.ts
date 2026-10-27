@@ -10,7 +10,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { validateGroupInput } from "@/lib/services/keyword-groups";
-import { EC_INVALID_PARAMS, EC_INVALID_REQUEST, EC_VIP_ONLY } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_INVALID_REQUEST, EC_VIP_ONLY, EC_KEYWORD_GROUP_NAME_RESERVED } from "@/shared/constants/api";
 
 const patchBodySchema = z.object({
   name: z.string().optional(),
@@ -26,12 +26,12 @@ async function guardWrite(req: NextRequest, idRaw: string) {
   if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, "product_keyword_lib"))) {
     routeError(403, EC_VIP_ONLY, "产品关键词库为企业版权益", { feature: "product_keyword_lib" });
   }
-  return { userId: auth.userId, id, repo: ctx.user.keywordGroupsRepo };
+  return { userId: auth.userId, id, repo: ctx.user.keywordGroupsRepo, officialRepo: ctx.officialKeywordGroupsRepo };
 }
 
 export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
   async (req: NextRequest, { params }) => {
-    const { userId, id, repo } = await guardWrite(req, (await params).id);
+    const { userId, id, repo, officialRepo } = await guardWrite(req, (await params).id);
     const body = await parseJson(req, patchBodySchema);
     // 落库前规范化（与 POST 口径一致）：trim、去重、20 词上限、100 字名上限——持久化校验后的值而非裸 body
     const patch: { name?: string; terms?: string[] } = {};
@@ -47,6 +47,10 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     }
     if (!patch.name && !patch.terms) {
       routeError(400, EC_INVALID_PARAMS, "至少提供 name 或 terms 之一");
+    }
+    // 改名不得占用官方保留名（硬约束 spec §2.2，与 POST 同口径）：update 前拦截
+    if (patch.name !== undefined && (await officialRepo.isOfficialName(patch.name))) {
+      routeError(400, EC_KEYWORD_GROUP_NAME_RESERVED, "该名称为官方词组名称，请换一个");
     }
     // KeywordGroupsRepo.update 不捕获 ER_DUP_ENTRY（改名撞同名词组时直接抛错）：
     // 路由层兜底转 400/EC_INVALID_REQUEST，其余错误原样上抛交 withRoute 统一处理。
