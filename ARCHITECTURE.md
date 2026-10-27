@@ -29,7 +29,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 
 ## 关键机制
 
-- **认证**：`supply_os_auth_user`（AuthContext 持有）+ `supply_os_auth_token`（api-client 持有）；401 由 api-client 广播 `supply-os:unauthorized`，AuthContext 订阅处理（单向依赖 + 事件回传，无环）。
+- **认证**：`supply_os_auth_user`（AuthContext 持有）+ `supply_os_auth_token`（api-client 持有）；**401 只承载「未登录/凭据可刷新」语义**（见「API 契约规范」红线③），由 api-client 广播 `supply-os:unauthorized`，AuthContext 订阅处理（单向依赖 + 事件回传，无环）；会话已死（密码错、refresh token 无效/过期/撤销）走 403 + 专属码。
 - **服务端状态**：无 react-query；`api-client` 模块级 TTL 缓存（5 分钟/容量 200/飞行中去重）承担 query 层——**仅 `apiCached()` 走该缓存**，裸 `api()` 无缓存无去重；首页类多实例共享数据源的 hooks（useHomeStats/useHotTopics/ContentColumns/useAwardsData）必须经 `apiCached()`，公开聚合端点（notices/stats、notices/countries、hot-topics、awards / awards/stats / awards/top）配套 `Cache-Control: public, max-age=600`。
 - **首屏/i18n 分包**（2026-10）：客户端 i18n 初始资源只静态内联 zh（`core/i18n/client-bundles.ts`），其余语言经 `core/i18n/loader.ts` 动态 import 懒加载，语言检测/切换就绪后才 setLocale（失败保持当前语言不写 Cookie）；**loader 的 JSON 清单必须与 `locales/<lang>/*.json` 同步**，键一致性由 `check-i18n` 拦截。首页 page.tsx 与其它公开页同口径 `revalidate=3600`，并在渲染期直出 `lib/services/home-snapshot`（数字墙/地图初值进静态 HTML，口径与公开端点同一份 service）。`core/perf` 采集入口在 `src/app/providers.tsx` 的 AppInit 调用 `initPerfMonitor()`（旧注释的 main.tsx 为 Vite 遗留，不存在）。
 - **支付**：`lib/payment/PaymentService` + provider 策略（mock/alipay/wechat）；回调路由 F20（TRADE_CLOSED → reverse）；状态机白名单 F19（仅 pending 可流转）。相关决策见 `docs/adr/`。
@@ -75,6 +75,20 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   - **迁移口径（已完成域采用）**：有唯一 client wrapper 的域（keyword-groups/notifications/diagnosis/llm-config），只改 route + wrapper、对外签名不变→消费方零改动；无 wrapper 直调的（supplier-pool/enterprise），逐消费方清点去 `.data`（本批共 4 处）。错误信封 `{code, message}`（4xx/5xx）统一保留。
   - **红线守卫**：`scripts/gates/check-api-success-shape.mjs`（`npm run lint` / CI）拦截 2xx 成功信封——任何 `route.ts` 出现成功哨兵 `code: 0` 即失败。**2026-10-22 迁移全部完成后递减白名单已清空为空集**，红线转为零容忍；若未来确需例外须显式从空集重新登记（应尽量避免）。
   - **未治理的第三种约定（待决策，不在上述契约范畴）**：另有一批路由返 `{ success: true, ... }`（少数如 `/api/supplier-claims` GET 用嵌套 `{ success, data }`），而非 `{code,message,data}`。它不含成功哨兵 `code:0`，故本门禁不覆盖；语义上 `success` 标志冗余但非破损（`useClaimExpiry` 读 `res.data` 对 supplier-claims 的 `{success,data}` 是正确的）。是否统一并入裸载荷（含新增第二条门禁 + 逐消费方清点）留作独立批次决策。
+
+### API 契约规范（三条红线 · 同一套门禁骨架）
+
+四条 API 契约红线（成功形态 + 下述①②③）**共用一份扫描骨架** `scripts/gates/lib/api-contract.mjs`：递归收集、括号配平取调用实参、字符偏移→行号、`✖ [TAG] 违规 N 处：` 报告格式、递减白名单「已不再命中就提示删行」的卫生检查都在骨架里单点实现——新增第 N 条红线只写规则本体，不再各抄一份扫描器。扫描根统一由环境变量 `API_CONTRACT_SCAN_ROOT` 覆盖（自测 fixture 用）。自测统一走 `tests/gates/lib/gate-runner.mjs`，每条红线三面必测：**真仓库必绿 + fixture 必拦得住 + 合规写法不得误伤**（`node --test`，已接 `npm run lint`）。
+
+| 红线 | 口径 | 门禁 | 现状（2026-10-27） |
+|---|---|---|---|
+| **①** 错误码 SSOT | 码值只集中在 `shared/constants/api`（同值不得多常量）；调用处必须引用 `EC_` 常量，禁裸数字（含 `routeError` 第二参、`codeByPath`、响应体 `code:` 字面量）；被路由引用的码必须已登记进 `core/http/error-map` 的 `CODE_MAP`——`EC_INVALID_PARAMS`/`EC_INVALID_REQUEST` 刻意不登记，让后端 message 直出 | `check-api-error-codes.mjs` | 全域零裸数字、引用码全登记 |
+| **②** 响应字段命名 | **响应实体字段用 `camelCase`**；请求参数与分页/元数据键允许 `snake_case`（`page_size`/`total`/`limit`/`next_cursor`… 见门禁内 `METADATA_KEYS`）。只静态检查 `NextResponse.json(...)`/`Response.json(...)` 的**显式对象字面量键**；`...row` 展开与 mapper 产出的键不在本静态面内，由分域迁移 + 端到端验证覆盖 | `check-api-field-naming.mjs` | 存量显式 snake 键 68 项冻结为**递减白名单**，新代码写 snake 键即失败 |
+| **③** 401 语义单一化 | `401` = 「未登录/需要认证（凭据缺失或过期，**可刷新**）」，业务码只允许 `EC_AUTH_REQUIRED`/`EC_USER_REQUIRED`/`EC_API_KEY_INVALID`/`EC_API_KEY_EXPIRED`；**会话已死与凭据被拒一律 403 + 专属码**：登录密码错→`EC_ACCOUNT_ISSUE`，refresh token 无效/过期/撤销→`EC_REFRESH_TOKEN_*`（均 403）。开放 API 的 `X-API-Key` 边界保留 401（标准 REST 语义，不经本刷新链路） | `check-api-401-semantics.mjs` | 已普查并归位：会话已死/凭据被拒的 5 处改 403（登录 2 处 + 刷新 3 处）；剩下的 401 发放点（requireUserKey / premium 需登录 / SSE 票券 / 开放 API Key 边界）全为认证语义，且码必须是允许集内的 `EC_` 常量（裸数字同判，与①同口径） |
+
+- **为什么③要治本**：api-client 把 `res.status === 401` 当作「access token 过期 → 刷新重试，刷新失败即清凭据 + 登出」的信号。把「密码错误」「refresh token 已死」写成 401 会误触发刷新/登出链路（登录失败去刷一个新 session 根本没有的 token），且让 401 含义漂移。改 403 后**客户端行为不变**：`tryRefreshToken()` 对 `!res.ok` 一律返回 `null`，仍然清凭据 + 广播 `supply-os:unauthorized`。
+- **递减白名单怎么减**：迁移一个端点 = 同批改掉前端读取点（`src/features/**`、wrapper）+ 删掉白名单对应行；门禁会在「登记项已不再命中」时打印待收敛提示，机器兜住「忘了删行」。
+- **`...row` 展开区**：命名红线看不见的地方（宽表/直查列名透传）以各域 mapper 为改造点——在 service 层出 camelCase，route 只做拼装；不得靠往白名单加行来「解决」门禁。
 
 ### Hooks 命名与职责约定
 
