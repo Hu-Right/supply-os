@@ -150,22 +150,8 @@ export const toggleNoticeFavorite = (noticeId: number) =>
 export const fetchNoticeFavoriteIds = () =>
   api<{ ids: number[] }>("/api/notices/favorites/ids");
 
-/** 我的收藏（分页，按收藏时间倒序） */
-export interface NoticeFavoriteEntry {
-  id: number;
-  reference?: string | null;
-  title: string;
-  title_i18n?: string | null;
-  country?: string | null;
-  notice_type?: string | null;
-  agency?: string | null;
-  deadline?: string | null;
-  deadline_ts?: number | null;
-  estimated_value?: string | null;
-  favorited_at?: string;
-}
-
+/** 我的收藏（分页，按收藏时间倒序）——条目与服务表宽表项同形制（notice_pk / country_code / buyer_name / deadline_ts…） */
 export const fetchNoticeFavorites = (params: { page?: number; limit?: number } = {}) =>
-  api<{ total: number; page: number; limit: number; list: NoticeFavoriteEntry[] }>(
+  api<{ total: number; page: number; limit: number; list: NoticeItem[] }>(
     `/api/notices/favorites?page=${params.page ?? 1}&limit=${params.limit ?? 20}`,
   );

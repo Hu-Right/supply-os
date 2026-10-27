@@ -54,42 +54,31 @@ export class NoticeFavoriteRepo {
     return (rows as RowDataPacket[]).map((r) => Number(r.notice_id));
   }
 
-  /** 我的收藏分页（INNER JOIN 过滤已删除公告，按收藏时间倒序；lang 附标题译文） */
+  /**
+   * 我的收藏分页（按收藏时间倒序）——只出有序 notice_pk 列表 + 总数。
+   * INNER JOIN 服务投影表 crm_notice_public 自然过滤掉已下架/未发布收藏；
+   * 字段水合统一交由 search-orchestrator 的 fetchDetailsByIds + formatItems（与主列表同一条尾）。
+   */
   async listFavorites(
     userId: number,
     limit: number,
     offset: number,
-    lang: string | null,
-  ): Promise<{ total: number; items: RowDataPacket[] }> {
+  ): Promise<{ total: number; ids: number[] }> {
+    const base = `FROM crm_notice_favorites f
+       JOIN crm_notice_public p ON p.notice_pk = f.notice_id
+       WHERE f.user_id = ?`;
     const [countRows] = await this.pool.query(
-      `SELECT COUNT(*) AS total
-       FROM crm_notice_favorites f
-       JOIN crm_bid_notices n ON n.id = f.notice_id
-       WHERE f.user_id = ?`,
+      `SELECT COUNT(*) AS total ${base}`,
       [userId],
     );
     const [rows] = await this.pool.query(
-      lang
-        ? `SELECT f.notice_id AS id, n.reference, n.title, n.country, n.notice_type,
-                  n.agency, n.deadline, n.deadline_ts, n.estimated_value,
-                  tr.title_tr AS title_i18n, f.created_at AS favorited_at
-           FROM crm_notice_favorites f
-           JOIN crm_bid_notices n ON n.id = f.notice_id
-           LEFT JOIN crm_notice_translations tr ON tr.notice_id = f.notice_id AND tr.lang = ?
-           WHERE f.user_id = ?
-           ORDER BY f.created_at DESC
-           LIMIT ? OFFSET ?`
-        : `SELECT f.notice_id AS id, n.reference, n.title, n.country, n.notice_type,
-                  n.agency, n.deadline, n.deadline_ts, n.estimated_value,
-                  f.created_at AS favorited_at
-           FROM crm_notice_favorites f
-           JOIN crm_bid_notices n ON n.id = f.notice_id
-           WHERE f.user_id = ?
-           ORDER BY f.created_at DESC
-           LIMIT ? OFFSET ?`,
-      lang ? [lang, userId, limit, offset] : [userId, limit, offset],
+      `SELECT f.notice_id AS notice_pk ${base}
+       ORDER BY f.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [userId, limit, offset],
     );
     const total = Number((countRows as RowDataPacket[])[0]?.total || 0);
-    return { total, items: rows as RowDataPacket[] };
+    const ids = (rows as RowDataPacket[]).map((r) => Number(r.notice_pk)).filter(Boolean);
+    return { total, ids };
   }
 }

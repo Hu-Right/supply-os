@@ -10,15 +10,15 @@
 import { useEffect, useState } from "react";
 import { api } from "@/core/http";
 import { pickNoticeApiLang } from "@/shared/constants/langs";
-import type { NoticeFavoriteEntry } from "../api";
+import type { NoticeItem } from "../types";
 
 /** 拉取收藏公告；favoriteIds 内容或 locale 变化时刷新 */
 export function useFavoriteNotices(
   favoriteIds: Set<number>,
   locale: string,
   limit = 5,
-): { items: NoticeFavoriteEntry[] } {
-  const [items, setItems] = useState<NoticeFavoriteEntry[]>([]);
+): { items: NoticeItem[] } {
+  const [items, setItems] = useState<NoticeItem[]>([]);
   // 集合内容序列化作为刷新信号（引用变化但内容相同的渲染不重复请求）
   const idsKey = Array.from(favoriteIds).sort((a, b) => a - b).join(",");
 
@@ -30,7 +30,7 @@ export function useFavoriteNotices(
     let cancelled = false;
     const apiLang = pickNoticeApiLang(locale);
     const lang = apiLang ? `&lang=${apiLang}` : "";
-    api<{ list: NoticeFavoriteEntry[] }>(`/api/notices/favorites?limit=${limit}${lang}`)
+    api<{ list: NoticeItem[] }>(`/api/notices/favorites?limit=${limit}${lang}`)
       .then((res) => {
         if (!cancelled) setItems(res.list || []);
       })

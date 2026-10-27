@@ -26,7 +26,6 @@ export {
   fetchNoticeFavoriteIds,
   fetchNoticeFavorites,
 } from "./notices";
-export type { NoticeFavoriteEntry } from "./notices";
 
 export {
   sendNoticeFeedback,

@@ -15,6 +15,8 @@ import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeTranslationRepo } from "@/lib/repos/notices/notice-translation.repo";
 import { NoticeFeedbackRepo } from "@/lib/repos/notices/notice-feedback.repo";
 import { NoticeFavoriteRepo } from "@/lib/repos/notices/notice-favorite.repo";
+import { fetchDetailsByIds } from "./search-orchestrator/detail-fetch";
+import { formatItems } from "./search-orchestrator/format";
 import { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
 import { BenefitWriteRepo } from "@/lib/repos/benefit-write.repo";
 import {
@@ -96,13 +98,17 @@ export async function listNoticeFavoriteIds(userId: number): Promise<number[]> {
   return new NoticeFavoriteRepo(getPool()).listNoticeIds(userId);
 }
 
-/** 我的收藏分页列表 */
+/** 我的收藏分页列表：repo 只出有序 notice_pk，字段水合走主列表同一条 SSOT 尾（服务表宽表名 + 多语言）。 */
 export async function listNoticeFavorites(params: {
   userId: number; limit: number; offset: number; lang?: string | null;
 }): Promise<{ total: number; items: unknown[] }> {
-  const { total, items } = await new NoticeFavoriteRepo(getPool()).listFavorites(
-    params.userId, params.limit, params.offset, params.lang || null,
+  const pool = getPool();
+  const lang = params.lang || "en";
+  const { total, ids } = await new NoticeFavoriteRepo(pool).listFavorites(
+    params.userId, params.limit, params.offset,
   );
+  const details = await fetchDetailsByIds(pool, ids, lang);
+  const items = formatItems(details, lang);
   return { total, items };
 }
 
