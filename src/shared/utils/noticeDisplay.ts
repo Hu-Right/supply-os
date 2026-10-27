@@ -8,17 +8,24 @@
  *              确保首页卡片与列表页的显示口径完全一致。
  */
 
-/** 公告宽表字段子集 — 展示层所需的最小字段口径 */
+/**
+ * 公告宽表字段子集 — 展示层所需的最小字段口径。
+ * 2026-10：字段名对齐 /api/notices/unified-search 真实下发的宽表列
+ * （country_code / notice_type_code / deadline_ts / buyer_name），与列表页 NoticeCard 同口径；
+ * 历史展示名（country / notice_type / deadline_sec / agency）已废弃——首页卡片此前正因此读到
+ * undefined 而在 getCountryDisplayName 内 toLowerCase 崩溃。
+ */
 export interface NoticeDisplayFields {
   title: string;
   title_i18n?: string;
   title_en?: string;
-  agency?: string;
   agency_i18n?: string;
-  country: string;
-  estimated_value: string;
-  deadline_sec: number | null;
-  notice_type?: string;
+  buyer_name?: string;
+  country_code: string;
+  estimated_value: string | null;
+  deadline_ts: number | string | null;
+  notice_type_code?: string;
+  deadline_type?: string;
 }
 
 /**
@@ -30,10 +37,10 @@ export function displayNoticeTitle(n: NoticeDisplayFields): string {
 }
 
 /**
- * 采购机构显示回退链：i18n 机构名 → 原始机构名 → 空串。
+ * 采购机构显示回退链：i18n 机构名 → 宽表 buyer_name → 空串。
  */
 export function displayNoticeAgency(n: NoticeDisplayFields): string {
-  return n.agency_i18n || n.agency || "";
+  return n.agency_i18n || n.buyer_name || "";
 }
 
 /**
@@ -56,13 +63,14 @@ export function displayNoticeBudget(estimatedValue: string | null | undefined): 
  *
  * （原 ContentColumns 内联逻辑，与 procurement/utils/formatDeadlineZh 互补）
  */
-export function displayDeadlineLabel(deadlineSec: number | null | undefined): string {
-  if (deadlineSec == null || deadlineSec === 0) return "长期有效";
+export function displayDeadlineLabel(deadlineTs: number | string | null | undefined): string {
+  const sec = deadlineTs == null || deadlineTs === "" ? 0 : Number(deadlineTs);
+  if (!Number.isFinite(sec) || sec === 0) return "长期有效";
   const nowMs = Date.now();
-  const left = Math.ceil((new Date(deadlineSec * 1000).getTime() - nowMs) / (1000 * 60 * 60 * 24));
+  const left = Math.ceil((new Date(sec * 1000).getTime() - nowMs) / (1000 * 60 * 60 * 24));
   if (left <= 0) return "已截止";
   if (left > 365) {
-    const d = new Date(deadlineSec * 1000);
+    const d = new Date(sec * 1000);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} 截止`;
   }
   return `截止 ${left} 天`;

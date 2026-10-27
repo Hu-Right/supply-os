@@ -13,9 +13,11 @@ import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { noticeTypeKey } from "@/shared/utils/notice-type";
 import { displayNoticeTitle, displayNoticeAgency, displayNoticeBudget, displayDeadlineLabel, type NoticeDisplayFields } from "@/shared/utils/noticeDisplay";
 
-/** 三栏公告卡共用的宽表字段口径（与列表页 NoticeCard 一致） */
+/** 三栏公告卡共用的宽表字段口径（与列表页 NoticeCard 一致；notice_pk 为详情链接主键） */
 export interface HomeNoticeItem extends NoticeDisplayFields {
-  id: number;
+  notice_pk: number;
+  notice_id?: string;
+  reference?: string;
 }
 
 type TFn = (key: string, params?: Record<string, string | number>) => string;
@@ -38,11 +40,11 @@ export function NoticeScrollCard({
     ? "group-hover:border-blue-400 group-hover:text-blue-700"
     : "group-hover:border-teal-400 group-hover:text-teal-700";
   // 采购类型徽章文案：noticeTypeKey + i18n，未知类型不展示
-  const typeKey = noticeTypeKey(notice.notice_type);
+  const typeKey = noticeTypeKey(notice.notice_type_code);
   const typeLabel = typeKey ? t(typeKey) : "";
 
   return (
-    <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4">
+    <a key={notice.notice_pk} href={`/procurement?notice_id=${notice.notice_pk}`} className="block group py-4">
       <div className="flex items-center gap-2">
         {isRfq ? (
           <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-2xs font-bold text-blue-700">
@@ -50,8 +52,8 @@ export function NoticeScrollCard({
           </span>
         ) : (
           <>
-            <CountryFlag name={notice.country} />
-            {notice.notice_type && (
+            <CountryFlag name={notice.country_code} />
+            {notice.notice_type_code && (
               <span className="px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-2xs font-bold text-teal-700">
                 {typeLabel}
               </span>
@@ -59,7 +61,7 @@ export function NoticeScrollCard({
           </>
         )}
         <span className={`ml-auto text-xs shrink-0 ${isRfq ? "text-slate-400" : "text-amber-600"}`}>
-          {displayDeadlineLabel(notice.deadline_sec)}
+          {displayDeadlineLabel(notice.deadline_ts)}
         </span>
       </div>
       <p className={`text-[15px] font-extrabold text-slate-900 ${hover} transition-colors line-clamp-2 mt-2`}>
@@ -67,8 +69,8 @@ export function NoticeScrollCard({
       </p>
       <p className="text-xs text-slate-500 mt-1.5 truncate">
         {isRfq
-          ? [displayNoticeAgency(notice), getCountryDisplayName(notice.country, locale)].filter(Boolean).join(" / ")
-          : [getCountryDisplayName(notice.country, locale), displayNoticeAgency(notice)].filter(Boolean).join(" / ")}
+          ? [displayNoticeAgency(notice), getCountryDisplayName(notice.country_code || "", locale)].filter(Boolean).join(" / ")
+          : [getCountryDisplayName(notice.country_code || "", locale), displayNoticeAgency(notice)].filter(Boolean).join(" / ")}
       </p>
       <div className="flex items-center justify-between mt-2">
         {notice.estimated_value && notice.estimated_value !== "0.00" ? (
