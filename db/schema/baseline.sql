@@ -378,6 +378,47 @@ CREATE TABLE `crm_bid_opportunities` (
   KEY `idx_review_deadline` (`review_status`,`deadline_sec`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机表（人工拆单）';
 
+-- ── crm_channel_codes ──
+CREATE TABLE `crm_channel_codes` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `code` varchar(32) NOT NULL COMMENT '邀请码，CH- 前缀，与员工 EMP- 不撞',
+  `partner_id` int unsigned NOT NULL COMMENT '归属主体，码必须生在主体名下（无悬空码）',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '0=停码，注册校验即拒',
+  `remark` varchar(255) DEFAULT NULL,
+  `created_by` int unsigned DEFAULT NULL COMMENT '发放人 cmd_accounts.id，追责用',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_channel_code` (`code`),
+  KEY `idx_channel_code_partner` (`partner_id`),
+  CONSTRAINT `fk_channel_code_partner` FOREIGN KEY (`partner_id`) REFERENCES `crm_channel_partners` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── crm_channel_partners ──
+CREATE TABLE `crm_channel_partners` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL COMMENT '渠道商主体名称（唯一，防同名裂行致分佣分裂）',
+  `contact` varchar(100) DEFAULT NULL COMMENT '联系人/手机/微信，自由文本一列',
+  `remark` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '0=停用，名下一切码门户即时拒，且不可再发新码',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_channel_partner_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── crm_channel_registrations ──
+CREATE TABLE `crm_channel_registrations` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned NOT NULL COMMENT 'crm_users.id；一人一行=幂等锚点',
+  `code` varchar(32) NOT NULL COMMENT '注册当时填的码（冗余留痕，码停用后仍可追溯）',
+  `partner_id` int unsigned NOT NULL COMMENT '写账瞬间从码上抄下的主体快照',
+  `user_type` enum('personal','enterprise') NOT NULL DEFAULT 'personal' COMMENT '与 crm_users.user_type 同语义；认证转企业时翻转',
+  `registered_at` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_channel_reg_user` (`user_id`),
+  KEY `idx_channel_reg_partner` (`partner_id`,`registered_at`),
+  KEY `idx_channel_reg_code` (`code`,`registered_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- ── crm_chat_messages ──
 CREATE TABLE `crm_chat_messages` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
