@@ -1,9 +1,17 @@
-import fs from "node:fs";
 import path from "node:path";
+import {
+  scanRoot,
+  relOf,
+  readText,
+  collectTsFiles,
+  callSites,
+  lineOf,
+  reportAndExit,
+} from "./lib/api-contract.mjs";
 
 /**
  * 架构红线守卫：API 错误码 SSOT 与「码 → i18n」映射一致性（全域治本，2026-10-22）。
- * @see ARCHITECTURE.md 约定「错误 envelope {code,message}」「业务码集中于 shared/constants/api」
+ * @see ARCHITECTURE.md「API 契约规范（三条红线）」——错误码集中于 shared/constants/api，以 EC_ 常量引用
  *
  * 背景：error-map.ts 的 CODE_MAP 以「码号」为全站唯一长键取 i18n；一旦两条不同语义
  *   复用同一码号（历史手写裸数字撞了他域 EC_ 常量值），前端就会把 A 语义的错
@@ -15,60 +23,18 @@ import path from "node:path";
  *            error-map CODE_MAP（通用参数码 EC_INVALID_PARAMS/EC_INVALID_REQUEST 例外——
  *            刻意不登记，让后端 message 直出）。
  *
+ * 扫描/报告口径走共享骨架 `lib/api-contract.mjs`（四条 API 契约门禁同一口径）。
  * 违规 exit 1，供 npm run lint 与 CI 拦截。
- *   API_ERRCODE_SCAN_ROOT=<path>  把扫描根换到 <path>（自测 fixture 用；默认仓库根）
+ *   API_CONTRACT_SCAN_ROOT=<path>  把扫描根换到 <path>（自测 fixture 用；默认仓库根）
  */
 
 // 刻意不登记进 CODE_MAP 的通用参数码（保留后端 message 直出的具体细节）。
 const GENERIC_UNREGISTERED = new Set(["EC_INVALID_PARAMS", "EC_INVALID_REQUEST"]);
 
-const repoRoot = process.env.API_ERRCODE_SCAN_ROOT || process.cwd();
+const repoRoot = scanRoot();
 const constantsFile = path.join(repoRoot, "src", "shared", "constants", "api.ts");
 const errorMapFile = path.join(repoRoot, "src", "core", "http", "error-map.ts");
-const apiDir = path.join(repoRoot, "src", "app", "api");
 const srcDir = path.join(repoRoot, "src");
-
-function exists(p) { return fs.existsSync(p); }
-function read(p) { return exists(p) ? fs.readFileSync(p, "utf8") : ""; }
-
-// 递归收集 route.ts
-function collectRouteFiles(dir, out = []) {
-  if (!exists(dir)) return out;
-  for (const item of fs.readdirSync(dir)) {
-    const full = path.join(dir, item);
-    if (fs.statSync(full).isDirectory()) collectRouteFiles(full, out);
-    else if (item === "route.ts") out.push(full);
-  }
-  return out;
-}
-// 递归收集全部待扫 .ts（route.ts + service/middleware 里的 new RouteError）；排除测试
-function collectScanFiles(dir, out = []) {
-  if (!exists(dir)) return out;
-  for (const item of fs.readdirSync(dir)) {
-    const full = path.join(dir, item);
-    if (fs.statSync(full).isDirectory()) {
-      if (item === "__tests__") continue;
-      collectScanFiles(full, out);
-    } else if (item.endsWith(".ts") && !item.endsWith(".test.ts")) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-const relPath = (p) => path.relative(repoRoot, p).split(path.sep).join("/");
-
-// 找与 openIdx 处 '(' 配平的 ')'（跳过字符串）
-function matchParen(text, openIdx) {
-  let depth = 0, inStr = null;
-  for (let i = openIdx; i < text.length; i++) {
-    const c = text[i];
-    if (inStr) { if (c === "\\") { i++; continue; } if (c === inStr) inStr = null; continue; }
-    if (c === '"' || c === "'" || c === "`") { inStr = c; continue; }
-    if (c === "(") depth++;
-    else if (c === ")") { depth--; if (depth === 0) return i; }
-  }
-  return -1;
-}
 
 const problems = [];
 
@@ -76,7 +42,7 @@ const problems = [];
 const ecValueToNames = new Map(); // value → [names]
 const ecNameSet = new Set();
 {
-  const src = read(constantsFile);
+  const src = readText(constantsFile);
   const re = /export\s+const\s+(EC_[A-Z0-9_]+)\s*=\s*(\d+)\s*;/g;
   let m;
   while ((m = re.exec(src))) {
@@ -86,7 +52,7 @@ const ecNameSet = new Set();
     ecValueToNames.get(val).push(name);
   }
   if (ecNameSet.size === 0) {
-    problems.push(`[UNIQUE] 未能从 constants/api.ts 解析出任何 EC_ 常量（扫描根错误？）：${relPath(constantsFile)}`);
+    problems.push(`[UNIQUE] 未能从 constants/api.ts 解析出任何 EC_ 常量（扫描根错误？）：${relOf(repoRoot, constantsFile)}`);
   }
   for (const [val, names] of ecValueToNames) {
     if (names.length > 1) problems.push(`[UNIQUE] 错误码 ${val} 被多个常量占用：${names.join(", ")}`);
@@ -96,7 +62,7 @@ const ecNameSet = new Set();
 // ── error-map 已登记键名集合（供 Rule C）──
 const registeredNames = new Set();
 {
-  const src = read(errorMapFile);
+  const src = readText(errorMapFile);
   const re = /\[(EC_[A-Z0-9_]+)\]\s*:/g;
   let m;
   while ((m = re.exec(src))) registeredNames.add(m[1]);
@@ -104,11 +70,14 @@ const registeredNames = new Set();
 
 // ── Rule B：禁裸数字 routeError/new RouteError / codeByPath（全局）；Rule C：全域引用码须登记 ──
 const NUMERIC_RE = /(?:\brouteError|new\s+RouteError)\s*\(\s*\d+\s*,\s*\d/;
+const ERR_CALL = /(?:\brouteError|new\s+RouteError)\s*\(/;
+const PARSE_JSON_CALL = /\bparseJson\s*\(/;
 let scanned = 0;
-for (const file of collectScanFiles(srcDir)) {
+
+for (const file of collectTsFiles(srcDir)) {
   scanned++;
-  const rel = relPath(file);
-  const src = read(file);
+  const rel = relOf(repoRoot, file);
+  const src = readText(file);
 
   // Rule B-1：routeError / new RouteError(<status>, <裸数字码>)
   const lines = src.split(/\r?\n/);
@@ -119,36 +88,30 @@ for (const file of collectScanFiles(srcDir)) {
   });
 
   // Rule B-2：parseJson 的 codeByPath 里等于已知 EC 值的字面数字（应改用 EC_ 常量）
-  const pjRe = /\bparseJson\s*\(/g;
-  let pm;
-  while ((pm = pjRe.exec(src))) {
-    const open = pjRe.lastIndex - 1;
-    const close = matchParen(src, open);
-    if (close < 0) continue;
-    const args = src.slice(open + 1, close);
+  for (const { open, args } of callSites(src, PARSE_JSON_CALL)) {
     for (const bm of args.matchAll(/:\s*(\d{4,})/g)) {
       if (ecValueToNames.has(Number(bm[1]))) {
-        const ln = src.slice(0, open + bm.index).split("\n").length;
-        problems.push(`[BARE] ${rel}:${ln}: codeByPath 裸码 ${bm[1]}（应引用 EC_ 常量）`);
+        problems.push(`[BARE] ${rel}:${lineOf(src, open + bm.index)}: codeByPath 裸码 ${bm[1]}（应引用 EC_ 常量）`);
       }
     }
   }
 
+  // Rule B-3：响应体 `{ code: <裸数字> }` 字面量（Response/NextResponse.json 直出的错误码，绕过 routeError 的盲区）
+  lines.forEach((line, i) => {
+    const t = line.trim();
+    if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return;
+    if (/\bcode:\s*\d{4,6}\b/.test(line)) {
+      problems.push(`[BARE] ${rel}:${i + 1}: 响应体 code 裸数字（应引用 EC_ 常量）：${t.slice(0, 80)}`);
+    }
+  });
+
   // Rule C：全域引用的 EC_ 码（routeError/new RouteError 第二参 + codeByPath 值）须登记
   const codeRefs = new Set();
-  const callRe = /(?:\brouteError|new\s+RouteError)\s*\(/g;
-  let m;
-  while ((m = callRe.exec(src))) {
-    const open = callRe.lastIndex - 1;
-    const close = matchParen(src, open);
-    if (close < 0) continue;
-    const inner = src.slice(open + 1, close);
-    const codeExpr = inner.split(",")[1] ?? "";
+  for (const { args } of callSites(src, ERR_CALL)) {
+    const codeExpr = args.split(",")[1] ?? "";
     for (const x of codeExpr.matchAll(/\bEC_[A-Z0-9_]+\b/g)) codeRefs.add(x[0]);
   }
-  const cbRe = /\bparseJson\s*\([^)]*\{([^}]*)\}/g;
-  let cb;
-  while ((cb = cbRe.exec(src))) {
+  for (const cb of src.matchAll(/\bparseJson\s*\([^)]*\{([^}]*)\}/g)) {
     for (const x of cb[1].matchAll(/\bEC_[A-Z0-9_]+\b/g)) codeRefs.add(x[0]);
   }
   for (const n of codeRefs) {
@@ -158,12 +121,10 @@ for (const file of collectScanFiles(srcDir)) {
   }
 }
 
-if (problems.length) {
-  console.error(`✖ [API-ERR-CODES] 错误码红线违规 ${problems.length} 处：`);
-  for (const p of problems.slice(0, 40)) console.error(`  · ${p}`);
-  if (problems.length > 40) console.error(`  · …另有 ${problems.length - 40} 处`);
-  console.error("  准则：错误码须集中于 shared/constants/api（唯一值）、以 EC_ 常量引用、路由引用码须登记进 error-map。");
-  process.exit(1);
-}
-
-console.log(`✓ API 错误码红线通过（扫描 ${scanned} 个 .ts，码唯一性 OK，全域零裸数字 + 引用码全部登记）`);
+reportAndExit({
+  tag: "API-ERR-CODES",
+  title: "错误码红线",
+  problems,
+  guidance: "准则：错误码须集中于 shared/constants/api（唯一值）、以 EC_ 常量引用、路由引用码须登记进 error-map。",
+  okLine: `✓ API 错误码红线通过（扫描 ${scanned} 个 .ts，码唯一性 OK，全域零裸数字 + 引用码全部登记）`,
+});
