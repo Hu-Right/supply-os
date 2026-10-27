@@ -83,7 +83,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 | 红线 | 口径 | 门禁 | 现状（2026-10-27） |
 |---|---|---|---|
 | **①** 错误码 SSOT | 码值只集中在 `shared/constants/api`（同值不得多常量）；调用处必须引用 `EC_` 常量，禁裸数字（含 `routeError` 第二参、`codeByPath`、响应体 `code:` 字面量）；被路由引用的码必须已登记进 `core/http/error-map` 的 `CODE_MAP`——`EC_INVALID_PARAMS`/`EC_INVALID_REQUEST` 刻意不登记，让后端 message 直出 | `check-api-error-codes.mjs` | 全域零裸数字、引用码全登记 |
-| **②** 响应字段命名 | **响应实体字段用 `camelCase`**；请求参数与分页/元数据键允许 `snake_case`（`page_size`/`total`/`limit`/`next_cursor`… 见门禁内 `METADATA_KEYS`）。只静态检查 `NextResponse.json(...)`/`Response.json(...)` 的**显式对象字面量键**；`...row` 展开与 mapper 产出的键不在本静态面内，由分域迁移 + 端到端验证覆盖 | `check-api-field-naming.mjs` | 存量显式 snake 键 68 项冻结为**递减白名单**，新代码写 snake 键即失败 |
+| **②** 响应字段命名 | **响应实体字段用 `camelCase`**；请求参数与分页/元数据键允许 `snake_case`（`page_size`/`total`/`limit`/`next_cursor`… 见门禁内 `METADATA_KEYS`）。只静态检查 `NextResponse.json(...)`/`Response.json(...)` 的**显式对象字面量键**（含 ES6 简写）；`...row` 展开与 mapper 产出的键不在本静态面内，由分域迁移 + 端到端验证覆盖 | `check-api-field-naming.mjs` | 已从 68 项实质迁至 **27 项**递减白名单（auth 全域清零、supplier-diagnosis 13、learning/training/report-preview 6、claims/interest/unlock 4、另有 7 项随死端点删除）；新代码写 snake 键即失败 |
 | **③** 401 语义单一化 | `401` = 「未登录/需要认证（凭据缺失或过期，**可刷新**）」，业务码只允许 `EC_AUTH_REQUIRED`/`EC_USER_REQUIRED`/`EC_API_KEY_INVALID`/`EC_API_KEY_EXPIRED`；**会话已死与凭据被拒一律 403 + 专属码**：登录密码错→`EC_ACCOUNT_ISSUE`，refresh token 无效/过期/撤销→`EC_REFRESH_TOKEN_*`（均 403）。开放 API 的 `X-API-Key` 边界保留 401（标准 REST 语义，不经本刷新链路） | `check-api-401-semantics.mjs` | 已普查并归位：会话已死/凭据被拒的 5 处改 403（登录 2 处 + 刷新 3 处）；剩下的 401 发放点（requireUserKey / premium 需登录 / SSE 票券 / 开放 API Key 边界）全为认证语义，且码必须是允许集内的 `EC_` 常量（裸数字同判，与①同口径） |
 
 - **为什么③要治本**：api-client 把 `res.status === 401` 当作「access token 过期 → 刷新重试，刷新失败即清凭据 + 登出」的信号。把「密码错误」「refresh token 已死」写成 401 会误触发刷新/登出链路（登录失败去刷一个新 session 根本没有的 token），且让 401 含义漂移。改 403 后**客户端行为不变**：`tryRefreshToken()` 对 `!res.ok` 一律返回 `null`，仍然清凭据 + 广播 `supply-os:unauthorized`。
@@ -92,6 +92,28 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   已覆盖显式 `k:` 与 ES6 简写 `{ k, }` 两类键（简写曾漏过 report/preview 的 `total_report_chars`，
   现由自测钉住）；改造点在各域 mapper：在 service 层出 camelCase，route 只做拼装，
   不得靠往白名单加行来「解决」门禁。
+
+### 数据库列名对照表（② 的下游守卫）
+
+② 的存量证明一件事：命名问题不从列名开始就治不完。全库核查（114 表 / 1378 列）后的结论是
+**列名纪律本身良好**（`user_id` 30 列零别名、`supplier_id` 10 列零别名、`created_at` 72 / `updated_at` 48），
+真正该钉住的是两条：
+
+| 规则 | 口径 | 存量 |
+|---|---|---|
+| **BG1 同义同名** | 同含义 + 同类型 + 同单位 → 必用 canonical 列名；写别名即失败 | 确证别名仅币种一族（`currency` vs `currency_code`），冻结 1 列 |
+| **BG2 后缀名实相符** | `_ts`=整数 epoch 秒、`_at`=DATETIME/TIMESTAMP/DATE、`_url`/`_uri`=字符列 | `_ts`/`_url` 零违规；5 个 `_at` 实存 Unix 秒，已冻结为技术债清单 |
+
+门禁 `check-db-column-glossary.mjs`（`check:db-glossary`，已接 `npm run lint`）扫 `src`/`scripts`/`db/schema` 下的
+CREATE TABLE **与 ALTER TABLE ADD/CHANGE COLUMN**（新增列的真实来路），自测三面必测。
+
+- **已核实为不同含义、禁止合并的列族**（这些名字必须保持不同，强行“统一”即造 bug）：
+  `deadline`(原文串) ≠ `deadline_ts`(epoch) ≠ `deadline_sec`(生成列 ms→s)；`published_date`(varchar 原文)
+  ≠ `published_ts`；`country`(名) ≠ `country_code`(ISO 单码) ≠ `country_codes`(多码集)；
+  `source`(provenance 来源渠道) ≠ `source_url`(链接) ≠ `host`(注册域) ≠ `platform_name`(归一规范名)；
+  `notice_id`(外部编号，实测撞号) ≠ `notice_pk`(内部主键/服务表 1:1 锚点)。
+- **不靠改列名治 ②**：宽表改名要走影子表蓝绿切换，且改名不会自动修好契约。存量列名不动，
+  只要求新增列遵守本表；② 的收口点在**各域 mapper**。
 
 ### Hooks 命名与职责约定
 
