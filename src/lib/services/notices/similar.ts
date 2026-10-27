@@ -7,8 +7,8 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
-import { columns } from "../../utils/sql-columns";
-import { normalizeNoticeType } from "../../utils/notice-type";
+import { fetchDetailsByIds } from "../search-orchestrator/detail-fetch";
+import { formatItems } from "../search-orchestrator/format";
 import { backboneNodeLevel, fromBackbonePathColumn } from "../commodity/backbone-path";
 import { rankSimilarPeers, type NodeRow } from "./similar-scoring";
 import { NOTICE_NODES_TABLE } from "../search-sync/notice-nodes";
@@ -38,8 +38,8 @@ function nodesByDepth(nodes: string[]): string[][] {
   return [fine, fam, seg].filter((t) => t.length > 0);
 }
 
-/** 步骤 1-4：返回按相似度排序的 peer 外部 notice_id（最多 limit 个） */
-export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit: number): Promise<string[]> {
+/** 步骤 1-4：返回按相似度排序的 peer 内部主键 notice_pk（=crm_bid_notices.id=服务表主键，最多 limit 个） */
+export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit: number): Promise<number[]> {
   // 候选水合与打分侧都要外部编号，先换出来
   const [idRows] = await pool.query<RowDataPacket[]>(
     "SELECT notice_id FROM crm_bid_notices n WHERE n.id = ? LIMIT 1",
@@ -121,45 +121,17 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
     candidateRows,
     limit,
     deadlineTs,
-  ).map((x) => x.notice_id);
+  )
+    .map((x) => peers.get(x.notice_id)?.wideId)
+    .filter((id): id is number => id != null);
 }
 
-/** 步骤 5：把 notice_id 集合水合为列表项 */
-async function hydrateListItems(pool: Pool, noticeIds: string[], locale?: string): Promise<RowDataPacket[]> {
-  if (noticeIds.length === 0) return [];
-  const ph = noticeIds.map(() => "?").join(",");
-  const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
-  const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  // 列清单交给 columns() 拼：分隔符只有一个出处，条件列不启用就传 falsy。
-  // 以前这里用两个各自带尾逗号的片段拼在 FROM 前，不传 locale 时也会多出个尾逗号，
-  // MySQL 直接 1064 —— 相似公告上线三周每次都返回 500，单测因为 mock 了 pool.query 全绿。
-  const selectList = columns(
-    "n.id, n.id AS notice_pk, n.notice_id, n.reference, n.title, n.notice_type, n.agency, n.country",
-    "n.deadline, n.deadline_ts, n.estimated_value",
-    locale && "tr.title_tr AS title_i18n",
-    "tre.title_tr AS title_en",
-  );
-  const params = [...(locale ? [locale] : []), ...noticeIds];
-  const [rows] = await pool.query(
-    `SELECT ${selectList}
-     FROM crm_bid_notices n
-     ${trJoin} ${treJoin}
-     WHERE n.notice_id IN (${ph}) AND ${ACTIVE_NOTICE_WHERE}`,
-    params,
-  );
-  return rows as RowDataPacket[];
-}
-
-/** 编排：打分取 Top-N notice_id → 水合 → 按相似度顺序返回；无结果即空数组 */
+/** 编排：打分取 Top-N notice_pk → 复用主列表同一条尾（fetchDetailsByIds+formatItems）水合为服务表宽表项；无结果即空数组 */
 export async function findSimilarNotices(
   pool: Pool, noticeDbId: number, limit: number, locale?: string,
 ): Promise<RowDataPacket[]> {
-  const ids = await findSimilarNoticeIds(pool, noticeDbId, limit);
+  const ids = await findSimilarNoticeIds(pool, noticeDbId, limit); // 有序 notice_pk
   if (ids.length === 0) return [];
-  const rows = await hydrateListItems(pool, ids, locale);
-  const order = new Map(ids.map((id, i) => [id, i]));
-  return rows
-    .slice()
-    .sort((a, b) => (order.get(String(a.notice_id)) ?? 1e9) - (order.get(String(b.notice_id)) ?? 1e9))
-    .map((r) => ({ ...r, notice_type: normalizeNoticeType(r.notice_type as string) }));
+  const details = await fetchDetailsByIds(pool, ids, locale || "en"); // FIELD 保留相似排序
+  return formatItems(details, locale || "en") as unknown as RowDataPacket[];
 }

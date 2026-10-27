@@ -1,11 +1,20 @@
 /**
- * findSimilarNotices：验证「无行/无码/无候选 → 空数组」短路 + 节点深度分档优先 + 三段查询串联。
+ * findSimilarNoticeIds：验证「无行/无码/无候选 → 空数组」短路 + 节点深度分档优先 + 三段查询串联 + 返回有序 notice_pk。
+ * findSimilarNotices：验证编排改为复用主列表同一条尾 fetchDetailsByIds + formatItems（mock 之）。
  * 排序正确性已在 similar-scoring.test.ts 覆盖，此处只测编排、短路和检索口径。
- * 小表剥离（2026-10-14）：候选检索改走倒排表 UGT 节点（peer.node IN），不再读桥表原始码。
+ * 小表剥离（2026-10-14）：候选检索走倒排表 UGT 节点（peer.node IN）。
+ * 并轨服务表投影（2026-10-27）：相似项水合不再手写基表 SQL，改走 SSOT 尾，返回宽表名字段。
  */
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import type { Pool } from "mysql2/promise";
+
+// 复用主列表的 SSOT 水合尾：本测试以 mock 断言编排，不重跑其内部 SQL（其正确性由 detail-fetch/format 自身测试覆盖）
+vi.mock("@/lib/services/search-orchestrator/detail-fetch", () => ({ fetchDetailsByIds: vi.fn() }));
+vi.mock("@/lib/services/search-orchestrator/format", () => ({ formatItems: vi.fn() }));
+
 import { findSimilarNotices, findSimilarNoticeIds } from "@/lib/services/notices/similar";
+import { fetchDetailsByIds } from "@/lib/services/search-orchestrator/detail-fetch";
+import { formatItems } from "@/lib/services/search-orchestrator/format";
 
 /** 按 SQL 关键字分派返回行数组（未命中返回空集）；调用参数可直接从 query.mock.calls 取 */
 function makePool(byKeyword: Array<[RegExp, unknown[]]>) {
@@ -29,7 +38,7 @@ const ID_MAP: Array<[RegExp, unknown[]]> = [
 describe("findSimilarNoticeIds", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("按分数降序返回 peer notice_id", async () => {
+  it("按分数降序返回 peer 的有序 notice_pk（wide_id）", async () => {
     const { pool } = makePool([
       ...ID_MAP,
       [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
@@ -42,8 +51,8 @@ describe("findSimilarNoticeIds", () => {
         { id: 12, p: "UGT-07" },
       ]],
     ]);
-    // 两侧都只取叶子做代表：A 共享到中类（0.6），B 只共享到大类（0.4）
-    expect(await findSimilarNoticeIds(pool, 1, 6)).toEqual(["A", "B"]);
+    // 两侧都只取叶子做代表：A 共享到中类（0.6），B 只共享到大类（0.4）→ 顺序 A(11) 先于 B(12)
+    expect(await findSimilarNoticeIds(pool, 1, 6)).toEqual([11, 12]);
   });
 
   it("检索按节点深度分档：L4 先问、L3 次之、L2 最后，且后一轮窗口按已收集数收窄", async () => {
@@ -120,7 +129,14 @@ describe("findSimilarNoticeIds", () => {
   });
 });
 
-describe("findSimilarNotices", () => {
+describe("findSimilarNotices（并轨：复用 fetchDetailsByIds + formatItems）", () => {
+  const fetchMock = fetchDetailsByIds as ReturnType<typeof vi.fn>;
+  const formatMock = formatItems as ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("当前公告无节点码 → 返回空数组，且不进入候选/水合查询（无兜底）", async () => {
     const { pool, query } = makePool([
       ...ID_MAP,
@@ -129,49 +145,39 @@ describe("findSimilarNotices", () => {
     const res = await findSimilarNotices(pool, 1, 6, "zh");
     expect(res).toEqual([]);
     expect(query.mock.calls.length).toBeLessThanOrEqual(2); // 未进入候选/水合查询
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("有候选时水合并返回 NoticeListItem 形状（含 title_i18n/country/deadline_ts，不外泄内部列）", async () => {
+  it("有候选：以有序 notice_pk 调 fetchDetailsByIds，再交 formatItems 产出宽表项", async () => {
     const { pool } = makePool([
       ...ID_MAP,
       [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
-      [/peer\.node IN/, [{ notice_id: "A", wide_id: 11, deadline_ts: 1790000000 }]],
-      [/FROM crm_notice_search WHERE id IN/, [{ id: 11, p: "UGT-07,UGT-0702" }]],
-      [/FROM crm_bid_notices n[\s\S]*n\.notice_id IN/, [{
-        id: 11, notice_id: "A", reference: "R-A", title: "标题A", title_i18n: "A中文", title_en: "Aen",
-        notice_type: "Supply", country: "KE", deadline: "2026-10-01", deadline_ts: 1790000000,
-        estimated_value: "USD 1", agency: "AG",
-      }]],
+      [/peer\.node IN/, [
+        { notice_id: "A", wide_id: 11, deadline_ts: 1790000000 },
+        { notice_id: "B", wide_id: 12, deadline_ts: 1790000000 },
+      ]],
+      [/FROM crm_notice_search WHERE id IN/, [
+        { id: 11, p: "UGT-07,UGT-0702" },
+        { id: 12, p: "UGT-07" },
+      ]],
     ]);
-    const res = await findSimilarNotices(pool, 1, 6, "zh");
-    expect(res).toHaveLength(1);
-    expect(res[0]).toMatchObject({ id: 11, title_i18n: "A中文", country: "KE", deadline_ts: 1790000000 });
-    expect(res[0]).not.toHaveProperty("peer");
-  });
+    const details = [{ notice_pk: 11 }, { notice_pk: 12 }];
+    const formatted = [
+      { notice_pk: 11, country_code: "KE", notice_type_code: "Supply", buyer_name: "AG", deadline_ts: 1790000000 },
+      { notice_pk: 12, country_code: "US", notice_type_code: "Tender", buyer_name: "X", deadline_ts: 1790000000 },
+    ];
+    fetchMock.mockResolvedValue(details);
+    formatMock.mockReturnValue(formatted);
 
-  // 线上事故回归：水合查询的列清单曾用两个自带尾逗号的片段拼在 FROM 前，
-  // 不传 locale 也一样多出个尾逗号 → MySQL 1064，相似公告上线三周每次 500。
-  // 当时所有单测全绿（mock 了 pool.query、不解析 SQL），所以这条断言必须打在拼好的 SQL 文本上。
-  it("水合 SQL 不得出现「列清单尾逗号紧跟 FROM」（传与不传 locale 两种形状）", async () => {
-    const hydrateSql = async (locale?: string) => {
-      const { pool, query } = makePool([
-        ...ID_MAP,
-        [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
-        [/peer\.node IN/, [{ notice_id: "A", wide_id: 11, deadline_ts: 1790000000 }]],
-        [/FROM crm_notice_search WHERE id IN/, [{ id: 11, p: "UGT-07,UGT-0702" }]],
-      ]);
-      await findSimilarNotices(pool, 1, 6, locale);
-      const call = query.mock.calls.find((c) => /FROM crm_bid_notices n[\s\S]*n\.notice_id IN/.test(String(c[0])));
-      expect(call, `没发出水合查询（locale=${locale ?? "无"}）`).toBeDefined();
-      return String(call![0]);
-    };
-    for (const locale of ["zh", undefined] as const) {
-      const sql = await hydrateSql(locale);
-      expect(sql).not.toMatch(/,\s*\n?\s*FROM/i);
-      expect(sql).not.toMatch(/,\s*,/);            // 相邻两个逗号：空列位
-      expect(sql).toMatch(/SELECT\s+[^,\s][\s\S]*\bFROM\b/i); // SELECT 后紧跟真实列，不是空白/逗号
-      // 活 bug 回归：相似水合必须带 notice_pk（=n.id），否则点开详情缺主键、/detail·/preview 拉不到、详情空白
-      expect(sql).toMatch(/n\.id AS notice_pk/);
+    const res = await findSimilarNotices(pool, 1, 6, "zh");
+
+    // 有序 notice_pk（相似排序保留），交给服务表水合
+    expect(fetchMock).toHaveBeenCalledWith(expect.anything(), [11, 12], "zh");
+    expect(formatMock).toHaveBeenCalledWith(details, "zh");
+    expect(res).toEqual(formatted);
+    // 并轨后不再吐基表历史列名
+    for (const stale of ["country", "notice_type", "agency", "deadline", "id"]) {
+      expect(res[0]).not.toHaveProperty(stale);
     }
   });
 });

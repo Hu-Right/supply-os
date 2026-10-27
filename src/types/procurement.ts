@@ -35,10 +35,6 @@ export interface NoticeListItem {
   beneficiary_countries?: string | null;
   updated_at?: number | null;
   is_opportunity?: number | boolean | null;
-  /** 非服务表端点（相似/收藏）兼容字段 */
-  id?: number;
-  country?: string;
-  deadline?: string;
 
   // 搜索/翻译/门控补充字段（宽表或接口计算，不是服务表列）
   agency_i18n?: string;

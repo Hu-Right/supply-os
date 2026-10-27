@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
 import { NextStepsPanel } from "@/features/procurement/components/NextStepsPanel";
 import type { NoticeItem } from "@/features/procurement/types";
 
-const mockNotice = { id: 1, title: "Test Notice" } as NoticeItem;
+const mockNotice = { notice_pk: 1, notice_id: "N1", title: "Test Notice" } as NoticeItem;
 
 describe("NextStepsPanel", () => {
   it("渲染标题", () => {

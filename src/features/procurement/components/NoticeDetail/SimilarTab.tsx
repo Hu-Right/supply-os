@@ -51,11 +51,12 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
   }, [notice.notice_pk, locale]);
 
   const metaLine = (item: NoticeItem) => {
-    const country = getCountryDisplayName(item.country || "", locale);
-    const deadline =
-      locale === "zh"
-        ? formatDeadlineZh(item.deadline, item.deadline_ts) || ""
-        : item.deadline || "";
+    const country = getCountryDisplayName(item.country_code || "", locale);
+    const deadline = item.deadline_ts
+      ? locale === "zh"
+        ? formatDeadlineZh(null, item.deadline_ts)
+        : new Date(Number(item.deadline_ts) * 1000).toISOString().slice(0, 10)
+      : "";
     return [country, deadline].filter(Boolean).join(" · ");
   };
 
@@ -94,7 +95,7 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
         <div className="grid sm:grid-cols-2 gap-2">
           {items.map((item) => (
             <button
-              key={item.id}
+              key={item.notice_pk}
               type="button"
               onClick={() => onOpen(item)}
               className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5 hover:border-teal-200 hover:bg-teal-50/50 transition-colors text-left group"
