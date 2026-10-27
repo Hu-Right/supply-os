@@ -10,7 +10,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { EC_LEAD_FIELDS_REQUIRED, EC_LEAD_STATUS_INVALID } from "@/shared/constants/api";
+import { EC_LEAD_FIELDS_REQUIRED, EC_LEAD_STATUS_INVALID, EC_VIP_ONLY, EC_NOT_FOUND } from "@/shared/constants/api";
 import { resolveMembershipState } from "@/lib/services/membership-status";
 import { mapUngmAppointmentRow, mapLeadForMemberView } from "@/lib/services/leads";
 import type { Lead } from "@/types";
@@ -48,7 +48,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 与线索读取同权限（仅 VIP 会员）
   const state = await resolveMembershipState(ctx.benefitSystemRepo, auth.userId);
   if (!state.subscription) {
-    routeError(403, 40041, "线索跟进仅对 VIP 会员开放");
+    routeError(403, EC_VIP_ONLY, "线索跟进仅对 VIP 会员开放");
   }
 
   // 状态白名单 + 内容限长（审查 F5）：nextStatus 此前为任意字符串断言，
@@ -59,7 +59,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const safeContent = String(content).trim().slice(0, 2000);
 
   const row = await ctx.leadsRepo.findByKey(String(leadId).slice(0, 100));
-  if (!row) routeError(404, 40044, "线索不存在");
+  if (!row) routeError(404, EC_NOT_FOUND, "线索不存在");
 
   // 变更走全量视图（需要读写完整 follow_up_logs），响应走会员视图（隐私收口）
   const targetLead = mapUngmAppointmentRow(row);

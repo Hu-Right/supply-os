@@ -10,12 +10,13 @@
 import { NextResponse } from "next/server";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { getMaterialContent } from "@/lib/services/learning-service";
 
 export const GET = withRoute<{ params: Promise<{ materialId: string }> }>(
   async (req, { params }) => {
     const { materialId } = await params;
-    if (!materialId) routeError(400, 40000, "Invalid material ID");
+    if (!materialId) routeError(400, EC_INVALID_PARAMS, "Invalid material ID");
 
     // 先尝试无认证获取（免费资料无需登录）
     // 若资料是 premium 则 service 会抛 401，此时再走认证流程
@@ -26,7 +27,7 @@ export const GET = withRoute<{ params: Promise<{ materialId: string }> }>(
       return NextResponse.json(payload);
     } catch (err: unknown) {
       const e = err as { status?: number; code?: number; message?: string };
-      if (e.status) routeError(e.status, e.code ?? 40000, e.message ?? "Unknown error");
+      if (e.status) routeError(e.status, e.code ?? EC_INVALID_PARAMS, e.message ?? "Unknown error");
       throw err;
     }
   },

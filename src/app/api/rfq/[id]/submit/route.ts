@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_FORBIDDEN, EC_INVALID_REQUEST, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
 export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
@@ -17,7 +18,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     const { id } = await params;
     const rfqId = Number(id);
     if (!Number.isFinite(rfqId) || rfqId <= 0) {
-      routeError(400, 40001, "无效的 RFQ ID");
+      routeError(400, EC_INVALID_PARAMS, "无效的 RFQ ID");
     }
 
     // submit 只允许 draft/rejected → pending_review；published 由库外审核写入（红线 5）。
@@ -33,12 +34,12 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       [rfqId],
     );
     const row = (existing as RowDataPacket[])[0];
-    if (!row) routeError(404, 40003, "RFQ 不存在");
+    if (!row) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
     if (Number(row.user_id) !== auth.userId) {
-      routeError(403, 40004, "无权操作此 RFQ");
+      routeError(403, EC_FORBIDDEN, "无权操作此 RFQ");
     }
     if (row.rfq_status === RFQ_STATUS.CLOSED) {
-      routeError(400, 40005, "已撤回的 RFQ 无法重新提交");
+      routeError(400, EC_INVALID_REQUEST, "已撤回的 RFQ 无法重新提交");
     }
     // 已发布 / 已在待审：幂等放行，不回退状态、不改内容（published 由库外审核维护）
     if (
@@ -54,7 +55,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     );
 
     const affected = (result as ResultSetHeader).affectedRows;
-    if (affected === 0) routeError(500, 50001, "更新失败");
+    if (affected === 0) routeError(500, EC_INTERNAL_ERROR, "更新失败");
 
     return NextResponse.json({ status: newStatus });
   },

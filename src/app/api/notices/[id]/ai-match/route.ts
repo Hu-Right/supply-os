@@ -11,7 +11,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { EC_INVALID_PARAMS, EC_VIP_ONLY } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_VIP_ONLY, EC_CONTENT_LOCKED } from "@/shared/constants/api";
 import { getOrGenerateAiMatch } from "@/lib/services/ai-match";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
@@ -71,7 +71,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     // 解锁校验
     const unlock = await ctx.notice.unlockRepo.findUnlock(auth.userId, noticeId);
-    if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
+    if (!unlock) routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { core_locked: true });
 
     // 权益闸门：AI 智能匹配按矩阵 ai_match 行判定（价格文档为唯一事实源，不再比档位）
     if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, "ai_match"))) {

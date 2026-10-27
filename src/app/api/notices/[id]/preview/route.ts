@@ -8,18 +8,19 @@
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS, EC_NOT_FOUND } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (_req, { params }) => {
 
     const { id } = await params;
     const noticeId = Number(id);
-    if (!noticeId) routeError(400, 40000, "无效的公告 ID");
+    if (!noticeId) routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
 
     const ctx = getContext();
     const { detailRepo } = ctx.notice;
     const notice = await detailRepo.findDetailPublished(noticeId);
-    if (!notice) routeError(404, 40044, "公告不存在");
+    if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
 
     // 有限预览字段：对齐服务宽表列名（与 unified-search / NoticeDetail 同口径）。
     // 基表 crm_bid_notices 的历史列名在本路由一次性映射为宽表名，

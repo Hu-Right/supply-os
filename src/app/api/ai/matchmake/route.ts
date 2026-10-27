@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 const sanitizeField = (value: unknown, maxLen = 200): string => String(value ?? "").slice(0, maxLen);
 
@@ -15,7 +16,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const { supplier, opportunity, language } = await req.json();
   if (!supplier || !opportunity) {
-    routeError(400, 40000, "Required supplier and opportunity object parameters!");
+    routeError(400, EC_INVALID_PARAMS, "Required supplier and opportunity object parameters!");
   }
   const lang = language || "zh";
 

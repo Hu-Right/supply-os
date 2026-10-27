@@ -9,6 +9,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
+import { EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { LlmConfigRepo } from "@/lib/repos/llm-config.repo";
 import { saveLlmConfig } from "@/lib/services/ai-summary";
 import { extractClientIp } from "@/lib/utils/ip";
@@ -57,7 +58,7 @@ export const PUT = withRoute(async (req) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg === "LLM_KEY_SECRET_NOT_CONFIGURED") {
-      routeError(500, 50000, "服务端未配置加密密钥，无法保存");
+      routeError(500, EC_INTERNAL_ERROR, "服务端未配置加密密钥，无法保存");
     }
     throw err;
   }

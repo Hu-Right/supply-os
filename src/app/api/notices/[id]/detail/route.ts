@@ -13,7 +13,7 @@ import { findPublicDetail } from "@/lib/services/notice-public/read";
 import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
 import { platformInfo } from "@/lib/services/platform/resolve";
 import { canAccessNotice } from "@/lib/services/industry-scope";
-import { EC_OUT_OF_CATEGORY } from "@/shared/constants/api";
+import { EC_OUT_OF_CATEGORY, EC_INVALID_PARAMS, EC_CONTENT_LOCKED, EC_NOT_FOUND } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -21,7 +21,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     const { id } = await params;
     const noticeId = Number(id);
-    if (!noticeId) routeError(400, 40000, "无效的公告 ID");
+    if (!noticeId) routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
 
     const ctx = getContext();
   // 行业墙：被行业限定档位的用户只能访问其绑定品目大类内的公告（8,800元/行业口径）
@@ -34,8 +34,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       unlockRepo.findUnlock(auth.userId, noticeId),
       findPublicDetail(ctx.dbPool, noticeId),
     ]);
-    if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
-    if (!notice) routeError(404, 40044, "公告不存在");
+    if (!unlock) routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { core_locked: true });
+    if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
 
     // 合格商机只用于资格 Tab / 报告；详情主内容字段全部来自服务表原字段。
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);

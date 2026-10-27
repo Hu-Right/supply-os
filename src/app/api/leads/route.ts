@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey, requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_VIP_ONLY, EC_INVALID_REQUEST } from "@/shared/constants/api";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { resolveMembershipState } from "@/lib/services/membership-status";
@@ -22,7 +23,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const ctx = getContext();
   const state = await resolveMembershipState(ctx.benefitSystemRepo, auth.userId);
   if (!state.subscription) {
-    routeError(403, 40041, "线索视图仅对 VIP 会员开放");
+    routeError(403, EC_VIP_ONLY, "线索视图仅对 VIP 会员开放");
   }
 
   const rows = await ctx.leadsRepo.listAppointments();
@@ -51,7 +52,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   } = body;
 
   if (!companyName || !contactPerson || !contactMethod) {
-    routeError(400, 40022, "请填写必填字段");
+    routeError(400, EC_INVALID_REQUEST, "请填写必填字段");
   }
 
   const newLead: Lead = {

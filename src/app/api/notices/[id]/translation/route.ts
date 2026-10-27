@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS, EC_CONTENT_LOCKED, EC_VIP_ONLY } from "@/shared/constants/api";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { NOTICE_TRANSLATION_LANGS } from "@/lib/services/translation/notice";
 import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
@@ -30,17 +31,17 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const lang = req.nextUrl.searchParams.get("lang")?.toLowerCase() || "";
 
     if (!noticeId || !NOTICE_TRANSLATION_LANGS[lang]) {
-      routeError(400, 40007, "无效的公告 ID 或语言参数");
+      routeError(400, EC_INVALID_PARAMS, "无效的公告 ID 或语言参数");
     }
 
     // ARCH-P0（2026-09-05）：付费墙闸口 — 译文属解锁后内容，必须先校验解锁态
     const ctx = getContext();
     const unlock = await ctx.notice.unlockRepo.findUnlock(auth.userId, noticeId);
-    if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
+    if (!unlock) routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { core_locked: true });
 
     // 档位门控（2026-09-24）：译文按矩阵 notice_translation 判定，129/999 等低档只给原文，不产出译文
     if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, NOTICE_TRANSLATION_BENEFIT))) {
-      routeError(403, 40013, "当前套餐不包含译文，仅可查看原文", { feature: NOTICE_TRANSLATION_BENEFIT });
+      routeError(403, EC_VIP_ONLY, "当前套餐不包含译文，仅可查看原文", { feature: NOTICE_TRANSLATION_BENEFIT });
     }
 
     const result = await fetchNoticeTranslation(noticeId, lang);

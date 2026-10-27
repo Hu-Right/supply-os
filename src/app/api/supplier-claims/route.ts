@@ -9,7 +9,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { EC_INVALID_PARAMS, EC_CLAIM_SUPPLIER_NOT_FOUND, EC_CLAIM_SELF_BOUND, EC_CLAIM_BOUND_BY_OTHER, EC_CLAIM_PENDING } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_CLAIM_SUPPLIER_NOT_FOUND, EC_CLAIM_SELF_BOUND, EC_CLAIM_BOUND_BY_OTHER, EC_CLAIM_PENDING } from "@/shared/constants/api";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { assertBindingAllowsSubject, readCurrentBinding } from "@/lib/services/enterprise-binding";
 import { LICENSE_URL_PREFIX, LICENSE_FILENAME_RE } from "@/lib/services/file-upload";
@@ -25,7 +25,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     body = await req.json();
   } catch {
-    routeError(400, 40000, "请求数据格式错误");
+    routeError(400, EC_INVALID_PARAMS, "请求数据格式错误");
   }
 
   const supplierIdRaw = Number(body.supplier_id);
@@ -107,7 +107,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     }, { status: 201 });
   } catch (err) {
     console.error("[supplier-claims POST]", err);
-    routeError(500, 50000, "认领申请提交失败");
+    routeError(500, EC_INTERNAL_ERROR, "认领申请提交失败");
   }
 });
 
@@ -130,6 +130,6 @@ export const GET = withRoute(async (req: NextRequest) => {
     });
   } catch (err) {
     console.error("[supplier-claims GET]", err);
-    routeError(500, 50000, "查询认领状态失败");
+    routeError(500, EC_INTERNAL_ERROR, "查询认领状态失败");
   }
 });

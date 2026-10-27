@@ -8,18 +8,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_REQUEST, EC_CHAT_SESSION_MISSING, EC_FORBIDDEN } from "@/shared/constants/api";
 import { sessionOwnedBy } from "@/lib/services/chat-service";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
 
   const sessionId = Number(req.nextUrl.searchParams.get("sessionId"));
-  if (!sessionId) routeError(400, 40022, "缺少 sessionId");
+  if (!sessionId) routeError(400, EC_INVALID_REQUEST, "缺少 sessionId");
 
   const chatRepo = getContext().chatRepo;
   const session = await chatRepo.findSessionById(sessionId);
-  if (!session) routeError(404, 40023, "会话不存在");
-  if (!sessionOwnedBy(session, auth)) routeError(403, 40003, "无权访问此会话");
+  if (!session) routeError(404, EC_CHAT_SESSION_MISSING, "会话不存在");
+  if (!sessionOwnedBy(session, auth)) routeError(403, EC_FORBIDDEN, "无权访问此会话");
 
   // 仅 waiting 会话有排队语义；active/closed 返回空态，前端据此停止轮询
   if (session.status !== "waiting") {

@@ -16,7 +16,7 @@ import { chatMessageSendSchema, sanitizeMetadata } from "@/lib/validators/chat";
 import { sessionOwnedBy } from "@/lib/services/chat-service";
 import path from "path";
 import { ONE_MINUTE_MS } from "@/shared/constants/time";
-import { EC_INVALID_REQUEST, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING } from "@/shared/constants/api";
+import { EC_INVALID_REQUEST, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING, EC_CHAT_SESSION_CLOSED } from "@/shared/constants/api";
 import { CHAT_MESSAGES_DEFAULT_LIMIT, CHAT_MESSAGES_MAX_LIMIT, clampLimit } from "@/shared/constants/api";
 
 /** 消息发送限流：同一用户每分钟最多 30 条 */
@@ -92,7 +92,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (!sessionOwnedBy(session, auth)) routeError(403, EC_FORBIDDEN, "无权操作此会话");
 
   // 已关闭会话拒绝写入，防止"用户以为在跟人工对话实际无人响应"
-  if (session.status === "closed") routeError(409, 40901, "会话已结束");
+  if (session.status === "closed") routeError(409, EC_CHAT_SESSION_CLOSED, "会话已结束");
 
   // ai_handled_count 仅统计人工接入前（waiting，AI 模式）的客户消息
   if (session.status === "waiting") {

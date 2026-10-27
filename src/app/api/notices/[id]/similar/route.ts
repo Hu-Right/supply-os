@@ -9,6 +9,7 @@ import { extractUserKey } from "@/lib/middleware/auth";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { findSimilarNotices } from "@/lib/services/notices/similar";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(async (req, { params }) => {
@@ -18,7 +19,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(async (req, { 
 
   const { id } = await params;
   const noticeId = Number(id);
-  if (!noticeId) routeError(400, 40000, "无效的公告 ID");
+  if (!noticeId) routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
 
   const sp = new URL(req.url).searchParams;
   const limit = Math.min(12, Math.max(1, Number(sp.get("limit")) || 6));

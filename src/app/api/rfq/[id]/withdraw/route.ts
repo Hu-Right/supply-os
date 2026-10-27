@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_FORBIDDEN, EC_INVALID_REQUEST, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
 export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
@@ -17,7 +18,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     const { id } = await params;
     const rfqId = Number(id);
     if (!Number.isFinite(rfqId) || rfqId <= 0) {
-      routeError(400, 40001, "无效的 RFQ ID");
+      routeError(400, EC_INVALID_PARAMS, "无效的 RFQ ID");
     }
 
     const pool = getPool();
@@ -29,9 +30,9 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       [rfqId],
     );
     const row = (existing as RowDataPacket[])[0];
-    if (!row) routeError(404, 40002, "RFQ 不存在");
-    if (Number(row.user_id) !== auth.userId) routeError(403, 40003, "无权操作此 RFQ");
-    if (row.rfq_status !== RFQ_STATUS.PUBLISHED && row.rfq_status !== RFQ_STATUS.PENDING_REVIEW) routeError(400, 40004, "仅已发布或待审核的 RFQ 可撤回");
+    if (!row) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
+    if (Number(row.user_id) !== auth.userId) routeError(403, EC_FORBIDDEN, "无权操作此 RFQ");
+    if (row.rfq_status !== RFQ_STATUS.PUBLISHED && row.rfq_status !== RFQ_STATUS.PENDING_REVIEW) routeError(400, EC_INVALID_REQUEST, "仅已发布或待审核的 RFQ 可撤回");
 
     const [result] = await pool.query(
       `UPDATE crm_bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
@@ -39,7 +40,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     );
 
     if ((result as ResultSetHeader).affectedRows === 0) {
-      routeError(500, 50001, "撤回失败");
+      routeError(500, EC_INTERNAL_ERROR, "撤回失败");
     }
 
     return NextResponse.json({ ok: true });

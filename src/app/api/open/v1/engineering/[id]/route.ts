@@ -12,7 +12,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { authenticateOpenApiKey } from "@/lib/middleware/open-api-auth";
 import { queryEngineeringDetail } from "@/lib/services/open-api/engineering";
 import { extractClientIp } from "@/lib/utils/ip";
-import { EC_OPPORTUNITY_NOT_FOUND, EC_ACCESS_FORBIDDEN } from "@/shared/constants/api";
+import { EC_OPPORTUNITY_NOT_FOUND, EC_ACCESS_FORBIDDEN, EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -31,7 +31,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const { id } = await params;
     const opportunityId = Number(id);
     if (!opportunityId) {
-      routeError(400, 40000, "无效的机会 ID");
+      routeError(400, EC_INVALID_PARAMS, "无效的机会 ID");
     }
 
     const item = await queryEngineeringDetail(ctx.dbPool, opportunityId);

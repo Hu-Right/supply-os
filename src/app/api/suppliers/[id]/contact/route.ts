@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS, EC_VIP_ONLY, EC_NOT_FOUND } from "@/shared/constants/api";
 import { resolveMembershipState } from "@/lib/services/membership-status";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -15,7 +16,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // mapSupplierRow 产出的 id 带 sup-db- 前缀（区分数据源），此处剥离后取数字主键
     const rawId = id.startsWith("sup-db-") ? id.slice("sup-db-".length) : id;
     const supplierId = Number(rawId);
-    if (!supplierId) routeError(400, 40000, "无效的供应商 ID");
+    if (!supplierId) routeError(400, EC_INVALID_PARAMS, "无效的供应商 ID");
 
     const ctx = getContext();
     const { directoryRepo } = ctx.supplier;
@@ -23,11 +24,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // VIP 校验
     const memberState = await resolveMembershipState(ctx.benefitSystemRepo, auth.userId);
     if (!memberState.subscription) {
-      routeError(403, 40003, "需要 VIP 会员才能查看联系方式");
+      routeError(403, EC_VIP_ONLY, "需要 VIP 会员才能查看联系方式");
     }
 
     const contact = await directoryRepo.findContact(supplierId);
-    if (!contact) routeError(404, 40044, "供应商不存在");
+    if (!contact) routeError(404, EC_NOT_FOUND, "供应商不存在");
 
     // 字段名映射：DB 列名 → 前端期望字段
     return NextResponse.json({

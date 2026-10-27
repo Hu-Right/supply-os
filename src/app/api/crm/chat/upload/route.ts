@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_REQUEST } from "@/shared/constants/api";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { checkUploadFile } from "@/lib/utils/fileSniff";
 import { writeFile, mkdir } from "node:fs/promises";
@@ -40,20 +41,20 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     formData = await req.formData();
   } catch {
-    routeError(400, 40022, "无效的表单数据");
+    routeError(400, EC_INVALID_REQUEST, "无效的表单数据");
   }
 
   const file = formData!.get("file") as File | null;
-  if (!file) routeError(400, 40022, "缺少文件");
+  if (!file) routeError(400, EC_INVALID_REQUEST, "缺少文件");
 
   // 校验文件大小
-  if (file.size > MAX_FILE_SIZE) routeError(400, 40024, "文件过大（最大 10MB）");
+  if (file.size > MAX_FILE_SIZE) routeError(400, EC_INVALID_REQUEST, "文件过大（最大 10MB）");
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
   // 扩展名白名单 + 内容嗅探（mime 为客户端可控值，不作为信任依据）
   const check = checkUploadFile(file.name, buffer);
-  if (!check.ok) routeError(400, 40023, check.reason ?? "不支持的文件");
+  if (!check.ok) routeError(400, EC_INVALID_REQUEST, check.reason ?? "不支持的文件");
 
   // 生成唯一文件名（扩展名使用白名单校验后的安全值）
   const safeName = `${randomUUID()}.${check.safeExt}`;
