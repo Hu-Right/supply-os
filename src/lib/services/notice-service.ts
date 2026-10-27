@@ -41,10 +41,30 @@ export async function recordNoticeView(params: { userId: number; noticeId: numbe
 
 // ── 解锁列表 ──
 
-/** 查询用户解锁的公告列表 */
-export async function listUserUnlocks(userId: number): Promise<unknown[]> {
+/**
+ * 解锁列表的对外视图（GET /api/notices/unlocks 的响应体）。
+ *
+ * 为什么在 service 层显式列键而不是 `...row` 透出：本端点的行只有三列，
+ * 但返回类型历史上是 `unknown[]`，键名完全由 DB 列名决定——客户端
+ * `fetchUnlockedNoticeIds` 一直在读 `noticeId`，而 wire 上的是 `notice_id`，
+ * `Number(undefined)` 变 NaN 被过滤掉，**已解锁集合永远为空**（预取退化成
+ * 每帧骨架屏）。行形状留在 repo，视图形状留在这里，两边不得混用。
+ */
+export interface NoticeUnlockView {
+  noticeId: number;
+  unlockType: string;
+  unlockedAt: string | null;
+}
+
+/** 查询用户解锁的公告列表（service 层出 camelCase 视图，路由只拼装） */
+export async function listUserUnlocks(userId: number): Promise<NoticeUnlockView[]> {
   const repo = new NoticeUnlockRepo(getPool());
-  return repo.listNoticeUnlocks(userId);
+  const rows = await repo.listNoticeUnlocks(userId);
+  return rows.map((row) => ({
+    noticeId: Number(row.notice_id),
+    unlockType: String(row.unlock_type ?? ""),
+    unlockedAt: row.unlocked_at ? new Date(row.unlocked_at).toISOString() : null,
+  }));
 }
 
 // ── 意向提交（包装 submitInterest，消除路由侧 DI 构造） ──

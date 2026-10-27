@@ -19,7 +19,6 @@ import { ArrowLeft } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useUserId } from "@/core/auth";
 import { Button } from "@/shared/ui";
-import type { UnlockRecord } from "../api";
 import { useOrderHistory, type PurchaseTab } from "../hooks/useOrderHistory";
 import { useRecordsSummary } from "../hooks/useRecordsSummary";
 import { OverviewCards, RecordRowCard, PagerBar } from "./records-panel/parts";
@@ -65,7 +64,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
   const rows: RecordRow[] =
     view === "orders" ? history.orders?.list || [] : history.unlocks?.list || [];
   const rowKey = (row: RecordRow) =>
-    "orderNo" in row ? row.orderNo : `${row.notice_id}-${(row as UnlockRecord).unlocked_at}`;
+    "orderNo" in row ? row.orderNo : `${row.noticeId}-${row.unlockedAt ?? ""}`;
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4">

@@ -50,7 +50,7 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
   if (records.length === 0) return null;
 
   // 任一条有译文才提供"查看原文"切换与 AI 来源提示（en 环境恒为原文，无切换）
-  const hasTranslation = records.some((record) => !!record.notice?.title_i18n);
+  const hasTranslation = records.some((record) => !!record.notice?.titleI18n);
 
   return (
     <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -72,14 +72,14 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
       </div>
       <ul className="space-y-2">
         {records.map((record) => {
-          const translatedTitle = record.notice?.title_i18n;
+          const translatedTitle = record.notice?.titleI18n;
           const title =
             (!showOriginal && translatedTitle) ||
             record.notice?.title ||
-            `#${record.notice_id}`;
+            `#${record.noticeId}`;
           return (
             <li
-              key={`${record.notice_id}-${record.unlocked_at || ""}`}
+              key={`${record.noticeId}-${record.unlockedAt || ""}`}
               className="flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-100 px-3 py-2"
             >
               <span dir="auto" className="text-sm font-bold text-slate-700 truncate min-w-0 flex-1">
@@ -87,13 +87,13 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
               </span>
               {/* 已过期标签紧贴"查看详情"按钮前方，保证所有列表项视觉对齐 */}
               <span className="shrink-0 flex items-center gap-1.5">
-                {record.notice?.deadline_expired === true && (
+                {record.notice?.deadlineExpired === true && (
                   <span className="rounded-full bg-rose-50 px-2 py-0.5 text-3xs font-black text-rose-700">
                     {t("myRecordsExpired")}
                   </span>
                 )}
                 <Button
-                  onClick={() => onOpenNotice(record.notice_id)}
+                  onClick={() => onOpenNotice(record.noticeId)}
                   variant="link"
                   size="sm"
                   className="gap-1 px-0 font-black hover:text-teal-800 cursor-pointer"

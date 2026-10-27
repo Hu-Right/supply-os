@@ -73,8 +73,8 @@ export const RecordRowCard = memo(function RecordRowCard({
 }) {
   const { t } = useLocale();
   const isOrder = "orderNo" in row;
-  // 公告主键：订单行按已迁移的 noticeId，解锁行仍按 unlocks 端点自己的列名
-  const noticeId = isOrder ? row.noticeId : row.notice_id;
+  // 两个端的契约现在都叫 noticeId（订单行 NormalizedOrder / 解锁行 UnlockRecord）
+  const noticeId = row.noticeId;
   const canOpen = Boolean(
     noticeId && (isUnlocksView || (isOrder && row.status === ORDER_STATUS.PAID)),
   );
@@ -124,7 +124,7 @@ export const RecordRowCard = memo(function RecordRowCard({
           <span className="truncate">
             {t("myRecordsDeadline")}: {row.notice.deadline}
           </span>
-          {row.notice.deadline_expired === true && (
+          {row.notice.deadlineExpired === true && (
             <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 font-black text-rose-700">
               {t("myRecordsExpired")}
             </span>

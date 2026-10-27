@@ -146,3 +146,30 @@ export async function executeOpportunityUnlock(
     conn.release();
   }
 }
+
+// ── 已解锁列表（对外视图） ────────────────────────────────────────────
+
+/**
+ * GET /api/opportunities/unlocks 的响应体（红线② camelCase）。
+ *
+ * repo 行是列名形状（opportunity_id …），不得直接当对外契约：
+ * 之前路由把整行 json 出去，前端拿到的是 DB 列名。
+ */
+export interface OpportunityUnlockView {
+  opportunityId: number;
+  unlockType: string;
+  unlockedAt: string | null;
+}
+
+/** 用户已解锁商机列表（服务层出视图，路由只拼装） */
+export async function listUserOpportunityUnlocks(
+  repo: OpportunitiesRepo,
+  userId: number,
+): Promise<OpportunityUnlockView[]> {
+  const rows = await repo.listUnlocks(userId);
+  return rows.map((row) => ({
+    opportunityId: Number(row.opportunity_id),
+    unlockType: String(row.unlock_type ?? ""),
+    unlockedAt: row.unlocked_at ? new Date(row.unlocked_at).toISOString() : null,
+  }));
+}

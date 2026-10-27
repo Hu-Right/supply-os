@@ -25,23 +25,23 @@ import { api, apiCached, buildQuery } from "@/core/http";
 import { pickNoticeApiLang } from "@/shared/constants/langs";
 
 /**
- * 关联公告摘要（订单/解锁记录列表内嵌）
- * Related notice brief embedded in order/unlock records
+ * 关联公告摘要（解锁记录内嵌）
+ * Related notice brief embedded in unlock records
+ *
+ * 镜像 lib/services/payment-history-view 的 UnlockNoticeBriefView（红线② camelCase）。
  */
 export type OrderNoticeBrief = {
-  id: number;
-  notice_id?: string | null;
   reference?: string | null;
   title?: string | null;
   /** 当前界面语言的标题译文（仅 fetchUnlocks 传 lang 时返回；缺译为 null） */
-  title_i18n?: string | null;
-  notice_type?: string | null;
+  titleI18n?: string | null;
+  noticeType?: string | null;
   agency?: string | null;
-  agency_full?: string | null;
+  agencyFull?: string | null;
   country?: string | null;
   deadline?: string | null;
   /** 公采搜索功能（本地差异 #6 配套）：服务端按 deadline_ts 算好的过期标志（无时间戳为 null） */
-  deadline_expired?: boolean | null;
+  deadlineExpired?: boolean | null;
   url?: string | null;
   industry?: string | null;
 };
@@ -50,9 +50,9 @@ export type OrderNoticeBrief = {
  * 支付订单记录——GET /api/payment/orders 的 list 元素（服务端 NormalizedOrder 镜像）。
  * Payment order record（红线② camelCase，不再镜像 DB 列名）
  *
- * @remarks notice 字段对订单始终为空：在线路径（orchestrator.normalizeOrder）
+ * @remarks notice 字段对订单不返回：在线路径（orchestrator.normalizeOrder）
  *          不拼公告摘要，拼摘要的旧 paymentHistory 服务已删除。
- *          解锁行的公告摘要属于 unlocks 端点自身的迁移议题，本批不动。
+ *          解锁行（UnlockRecord）才带公告摘要。
  */
 export type OrderRecord = {
   orderNo: string;
@@ -74,18 +74,17 @@ export type OrderRecord = {
 
 /**
  * 解锁记录——GET /api/payment/unlocks 的 list 元素。
- * Unlock record
+ * Unlock record（镜像服务端 UnlockRecordView，红线② camelCase）
  *
- * ⚠ 本端点尚未迁命名红线：服务端现在是把 repo 平铺行整行透出（静态门禁
- *    看不见展开行），所以这里声明的 notice 与实际 wire 不一致。
- *    unlocks 自己的 mapper 迁入后本类型才会与响应体对齐。
+ * 历史：这一族曾经把 repo 平铺行直接 json 出去，而本类型声明的是嵌套 notice，
+ * 所以解锁行的标题/国家/编号/截止日/过期标记在运行时全为空；
+ * 现在 wire 按本形状出，user_id 与 description 不再外发。
  */
 export type UnlockRecord = {
-  user_id: number;
-  notice_id: number;
-  unlock_type: string;
+  noticeId: number;
+  unlockType: string;
   price: number;
-  unlocked_at?: string | null;
+  unlockedAt?: string | null;
   notice?: OrderNoticeBrief | null;
 };
 

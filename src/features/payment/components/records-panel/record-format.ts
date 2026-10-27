@@ -11,12 +11,12 @@ export type RecordRow = OrderRecord | UnlockRecord;
 
 /**
  * 记录时间：解锁时间 → 支付时间 → 创建时间 逐级回落。
- * unlocked_at 属 unlocks 端点（尚未迁移），paidAt/createdAt 属订单端点（已迁 camelCase），
- * 两者是不同响应体，故逐支按其自身契约读。
+ * 两个端点（/api/payment/orders 与 /api/payment/unlocks）都是 camel 契约，
+ * 但属于不同响应体，字段并不共有，故逐支用 `in` 窄化后读自己那个键。
  */
 export const recordTime = (row: RecordRow) =>
   formatDateTimeZh(
-    ("unlocked_at" in row ? row.unlocked_at : undefined) ||
+    ("unlockedAt" in row ? row.unlockedAt : undefined) ||
       ("paidAt" in row ? row.paidAt : undefined) ||
       ("createdAt" in row ? row.createdAt : undefined),
   );
@@ -34,7 +34,7 @@ export function recordTitle(row: RecordRow, t: (key: string) => string): string 
     if (planCode.startsWith("svc_")) return t("myRecordsServiceOrder");
     return t("myRecordsMembershipOrder");
   }
-  if (row.notice_id) return String(row.notice_id);
+  if (row.noticeId) return String(row.noticeId);
   return t("myRecordsUntitled");
 }
 
@@ -45,5 +45,5 @@ export function recordSubtitle(row: RecordRow, t: (key: string) => string): stri
     const amt = `${row.currency || "CNY"} ${Number(row.amount || 0).toFixed(2)}`;
     return `${amt} · ${recordTime(row)}`;
   }
-  return `${row.unlock_type || "unlock"} · ${recordTime(row)}`;
+  return `${row.unlockType || "unlock"} · ${recordTime(row)}`;
 }

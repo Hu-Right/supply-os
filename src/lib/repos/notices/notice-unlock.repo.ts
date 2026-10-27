@@ -9,16 +9,23 @@
  */
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 
+/** 解锁流水行（DB 列形状，只能给服务层读；对外视图见 lib/services/notice-service.ts） */
+export interface NoticeUnlockRow {
+  notice_id: number;
+  unlock_type: string | null;
+  unlocked_at: Date | string | null;
+}
+
 export class NoticeUnlockRepo {
   constructor(private pool: Pool) {}
 
   /** 用户公告解锁流水（仅公告，按解锁时间倒序） */
-  async listNoticeUnlocks(userId: number): Promise<RowDataPacket[]> {
+  async listNoticeUnlocks(userId: number): Promise<NoticeUnlockRow[]> {
     const [rows] = await this.pool.query(
       "SELECT notice_id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_id = ? AND notice_id IS NOT NULL ORDER BY unlocked_at DESC",
       [userId],
     );
-    return rows as RowDataPacket[];
+    return rows as NoticeUnlockRow[];
   }
 
   /** 已有解锁记录（幂等判定，无记录返回 null） */

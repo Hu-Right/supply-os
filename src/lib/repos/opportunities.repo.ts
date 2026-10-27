@@ -61,10 +61,17 @@ export class OpportunitiesRepo {
     return rows as OpportunityListItemRow[];
   }
 
-  /** 用户商机解锁流水（按解锁时间倒序） */
+  /**
+   * 用户商机解锁流水（按解锁时间倒序）。
+   *
+   * crm_opportunity_unlocks 是公告解锁与商机解锁共用的流水表：
+   * 公告行 opportunity_id 为 NULL。不过滤的话本端点会返一大片
+   * `{opportunity_id: null}`（类型声明写的是 number，等于在谎报），
+   * 下游“已解锁集合”根本无法使用。口径与 NoticeUnlockRepo.listNoticeUnlocks 对称。
+   */
   async listUnlocks(userId: number): Promise<OpportunityUnlockRow[]> {
     const [rows] = await this.pool.query(
-      "SELECT opportunity_id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_id = ? ORDER BY unlocked_at DESC",
+      "SELECT opportunity_id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_id = ? AND opportunity_id IS NOT NULL ORDER BY unlocked_at DESC",
       [userId],
     );
     return rows as OpportunityUnlockRow[];

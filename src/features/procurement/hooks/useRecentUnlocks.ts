@@ -11,17 +11,16 @@ import { useEffect, useState } from "react";
 import { apiCached, buildQuery } from "@/core/http";
 import { pickNoticeApiLang } from "@/shared/constants/langs";
 
-/** 解锁记录（与 payment/api UnlockRecord 对齐） */
+/** 解锁记录（与 payment/api UnlockRecord 对齐：都是 /api/payment/unlocks 的 camel 契约） */
 export interface UnlockRecord {
-  user_id: number;
-  notice_id: number;
-  unlock_type: string;
+  noticeId: number;
+  unlockType: string;
   price: number;
-  unlocked_at?: string | null;
+  unlockedAt?: string | null;
   notice?: {
     title?: string | null;
-    title_i18n?: string | null;
-    deadline_expired?: boolean | null;
+    titleI18n?: string | null;
+    deadlineExpired?: boolean | null;
   } | null;
 }
 
