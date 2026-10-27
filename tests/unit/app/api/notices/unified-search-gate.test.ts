@@ -3,7 +3,7 @@
  *
  * 隔离边界：auth / 限流 / DB 池 / context（权益仓储）/ 编排器全部 vi.mock，
  * 直接调用路由导出的 GET，走真实 withRoute + NextRequest + 纯函数解析链。
- * 验证：有权益透传（无标志）、无权益剥离降级（advanced_degraded: true）、
+ * 验证：有权益透传（无标志）、无权益剥离降级（advancedDegraded: true）、
  * 匿名恒按 free 口径且不触权益查询、q 无高级语法时不发权益查询（前置短路）。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -72,7 +72,7 @@ function expectUnifiedCalledOnceWithQ(q: string) {
 }
 
 describe("unified-search 高级语法档位门控（路由级）", () => {
-  it("有权益：排除语法透传，无 advanced_degraded 标志", async () => {
+  it("有权益：排除语法透传，无 advancedDegraded 标志", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
     mocks.isEntitled.mockResolvedValue(true);
 
@@ -83,10 +83,10 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(mocks.isEntitled).toHaveBeenCalledWith(7, "advanced_keyword_search");
     expectUnifiedCalledOnceWithQ("solar -battery");
     expect(body.page_size).toBe(10);
-    expect(body).not.toHaveProperty("advanced_degraded");
+    expect(body).not.toHaveProperty("advancedDegraded");
   });
 
-  it("无权益：排除词剥离降级，advanced_degraded: true", async () => {
+  it("无权益：排除词剥离降级，advancedDegraded: true", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
     mocks.isEntitled.mockResolvedValue(false);
 
@@ -96,7 +96,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(res.status).toBe(200);
     expect(mocks.isEntitled).toHaveBeenCalledWith(7, "advanced_keyword_search");
     expectUnifiedCalledOnceWithQ("solar");
-    expect(body.advanced_degraded).toBe(true);
+    expect(body.advancedDegraded).toBe(true);
   });
 
   it("匿名：恒按 free 口径降级，权益查询不触库", async () => {
@@ -108,7 +108,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(res.status).toBe(200);
     expect(mocks.isEntitled).not.toHaveBeenCalled();
     expectUnifiedCalledOnceWithQ("solar");
-    expect(body.advanced_degraded).toBe(true);
+    expect(body.advancedDegraded).toBe(true);
   });
 
   it("普通多词（无高级语法）：登录用户也不发权益查询，原样透传无标志", async () => {
@@ -120,7 +120,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(res.status).toBe(200);
     expect(mocks.isEntitled).not.toHaveBeenCalled();
     expectUnifiedCalledOnceWithQ("solar panel");
-    expect(body).not.toHaveProperty("advanced_degraded");
+    expect(body).not.toHaveProperty("advancedDegraded");
   });
 
   it("行业墙：被限定档位用户注入 wall.nodes，recommended 收编进 prefs 管道", async () => {
@@ -137,7 +137,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(res.status).toBe(200);
     expect(mocks.searchUnified).toHaveBeenCalledTimes(1);
     expect(mocks.searchUnified.mock.calls[0][1]).toMatchObject({ mode: "prefs", wall: { nodes: ["UGT-85"] } });
-    expect(body.needs_industry_selection).toBeUndefined();
+    expect(body.needsIndustrySelection).toBeUndefined();
   });
 
   it("行业墙：偏好码推导不出大类 → 仍注入空 wall（给空结果而不是放开全量）", async () => {
@@ -154,7 +154,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     warn.mockRestore();
   });
 
-  it("行业墙：被限定档位未绑大类 → 不注入 wall，带 needs_industry_selection 引导标志", async () => {
+  it("行业墙：被限定档位未绑大类 → 不注入 wall，带 needsIndustrySelection 引导标志", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
     mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
     mocks.isEntitled.mockImplementation(async (_uid: number, code: string) => code === "industry_scoped");
@@ -165,7 +165,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
 
     expect(res.status).toBe(200);
     expect(mocks.searchUnified.mock.calls[0][1]).not.toHaveProperty("wall");
-    expect(body.needs_industry_selection).toBe(true);
+    expect(body.needsIndustrySelection).toBe(true);
   });
 
   it("搜索日志：登录用户带词检索落库（记录实际执行的 q 与结果总数）", async () => {

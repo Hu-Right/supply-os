@@ -98,9 +98,17 @@ export interface NoticeResponse {
   items?: NoticeItem[];
   total?: number;
   pageSize?: number;
+  /** 分页元数据：按命名红线② 口径允许 snake（与 pageSize 同值，服务端两个都发） */
   page_size?: number;
   variant?: string;
-  advanced_degraded?: boolean;
+  /**
+   * 高级关键词因未授权而被退化为基础词。
+   * 与 needsIndustrySelection 都是状态标志（非分页元数据），因此按红线② 用 camelCase。
+   * ⚠ 全仓暂无读取方：服务端已发旗标，前端尚未把它接成提示 UI。
+   */
+  advancedDegraded?: boolean;
+  /** 检索范围不足以给出有意义的结果，需先选行业 */
+  needsIndustrySelection?: boolean;
   match_relaxed?: boolean;
 }
 

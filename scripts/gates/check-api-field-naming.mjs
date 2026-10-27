@@ -40,6 +40,11 @@ const METADATA_KEYS = new Set([
 // 递减白名单（`<相对 route.ts>#<snake 键>`）：存量显式 snake 响应键，迁移一个删一行；新增不得进入。
 const ALLOWLIST = new Set([
   "src/app/api/notices/[id]/content/route.ts#description_cn",
+  // 修好“键之间夹注释就漏检”的门禁盲点后，本键才第一次被看到（它早就在响应里）。
+  // 它与 description_cn 同属 content 响应，而消费方把值合并进共享类型 NoticeItem
+  // （features/procurement/types）——所以下游迁移动要和 notices detail/preview 那批一起做，
+  // 单独改 content 会造出一个“端点 camel 、前端类型 snake”的中间态。
+  "src/app/api/notices/[id]/content/route.ts#original_description",
   "src/app/api/notices/[id]/detail/route.ts#ai_analysis",
   "src/app/api/notices/[id]/detail/route.ts#ai_products",
   "src/app/api/notices/[id]/detail/route.ts#bid_overview",
@@ -58,8 +63,6 @@ const ALLOWLIST = new Set([
   "src/app/api/notices/[id]/preview/route.ts#estimated_value",
   "src/app/api/notices/[id]/preview/route.ts#notice_pk",
   "src/app/api/notices/[id]/preview/route.ts#notice_type_code",
-  "src/app/api/notices/unified-search/route.ts#advanced_degraded",
-  "src/app/api/notices/unified-search/route.ts#needs_industry_selection",
   "src/app/api/opportunities/route.ts#source_url",
   "src/app/api/payment/orders/route.ts#pay_url",
   "src/app/api/payment/orders/route.ts#payment_mode",
@@ -82,10 +85,16 @@ const JSON_CALL = /(?:NextResponse|Response)\.json\s*\(/;
  *   简写曾被漏过（report/preview 的 total_report_chars 就是这样溜过门禁的：
  *   键名即变量名，写的人根本不会意识到自己在往外吐 snake 键）。
  * 简写模式要求键后面紧跟 `,` 或 `}`，因此不会误抢 `k:`、数组元素、`obj.k` 或函数实参。
+ * 分隔部分允许空白 / 整行 `//` 注释 / 块注释：实测两个键之间夹一行说明注释就会漏检
+ * （notices/[id]/content 的 original_description 正是这样溜过去的）。不用“先把注释刷成
+ * 空格”的全文预处理——那会把字符串里的 `://`（本域 URL 极多）当注释切断，反而制造新的漏检。
  */
 function* objectKeys(args) {
-  for (const m of args.matchAll(/[{,]\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g)) yield { key: m[1], index: m.index };
-  for (const m of args.matchAll(/[{,]\s*([a-z][a-zA-Z0-9_]*)\s*(?:,|\})/g)) yield { key: m[1], index: m.index };
+  const sep = "(?:\\s|\\/\\/[^\\n]*\\n|\\/\\*[\\s\\S]*?\\*\\/)*";
+  const labelRe = new RegExp("[{,]" + sep + "([a-zA-Z_][a-zA-Z0-9_]*)\\s*:", "g");
+  const shortRe = new RegExp("[{,]" + sep + "([a-z][a-zA-Z0-9_]*)\\s*(?:,|\\})", "g");
+  for (const m of args.matchAll(labelRe)) yield { key: m[1], index: m.index };
+  for (const m of args.matchAll(shortRe)) yield { key: m[1], index: m.index };
 }
 
 for (const file of collectRouteFiles(apiDir)) {

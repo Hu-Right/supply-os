@@ -119,7 +119,9 @@ export const GET = withRoute(async (req: NextRequest) => {
   return NextResponse.json({
     ...result,
     page_size: result.pageSize,
-    ...(advancedDegraded ? { advanced_degraded: true as const } : {}),
-    ...(scope.needsIndustry ? { needs_industry_selection: true as const } : {}),
+    // 状态标志不是分页元数据，按命名红线② 用 camelCase。
+    // 注：src 内目前无读取方——降级/需选行业这两件事还没接到前端 UI，属待补产品链路（非命名问题）。
+    ...(advancedDegraded ? { advancedDegraded: true as const } : {}),
+    ...(scope.needsIndustry ? { needsIndustrySelection: true as const } : {}),
   });
 });
