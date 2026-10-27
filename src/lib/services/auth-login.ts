@@ -57,7 +57,7 @@ export async function loginWithPassword(
   await ctx.user.usersRepo.updateLastLoginById(user.id);
 
   const payload = await buildUserResponse(user, ctx.benefitSystemRepo, ctx.supplier.directoryRepo);
-  let tokens: { token: string; refresh_token: string } | null = null;
+  let tokens: { token: string; refreshToken: string } | null = null;
   try {
     tokens = await issueTokenPair(ctx.user.authRepo, user.id);
   } catch { /* JWT_SECRET 未配置，静默降级 */ }
@@ -65,6 +65,6 @@ export async function loginWithPassword(
   return {
     payload,
     accessToken: tokens?.token ?? null,
-    refreshToken: tokens?.refresh_token ?? null,
+    refreshToken: tokens?.refreshToken ?? null,
   };
 }

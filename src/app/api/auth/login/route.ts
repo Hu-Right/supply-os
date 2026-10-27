@@ -33,12 +33,13 @@ export const POST = withRoute(async (req: NextRequest) => {
   const { payload, accessToken, refreshToken } = await loginWithPassword(getContext(), { identifier, password });
 
   // 契约保真：无 token 时键省略（undefined），而非显式 null
-  // refresh_token 同时写入响应体（客户端 localStorage 降级存储）+ HttpOnly Cookie
+  // refreshToken 同时写入响应体（客户端 localStorage 降级存储）+ HttpOnly Cookie
+  // 响应键用 camelCase（命名红线②）；Cookie 名与请求体字段按契约仍用 snake_case
   const response = NextResponse.json({
     success: true,
     user: payload,
     token: accessToken ?? undefined,
-    refresh_token: refreshToken ?? undefined,
+    refreshToken: refreshToken ?? undefined,
   });
   if (refreshToken) setRefreshCookieOnResponse(response, refreshToken);
   return response;

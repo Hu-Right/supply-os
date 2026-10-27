@@ -22,7 +22,7 @@ import { onAppEvent } from "@/core/events";
  * Refresh Token 同时经 HttpOnly Cookie + 响应体下发，客户端双存储） */
 interface AuthResponse {
   token?: string;
-  refresh_token?: string;
+  refreshToken?: string;
   user: AuthUser;
   [key: string]: unknown;
 }
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       // 存储 Access Token + Refresh Token（Refresh Token 同时经 HttpOnly Cookie + localStorage 降级存储）
       if (data.token) {
-        setAuthTokens(data.token, data.refresh_token);
+        setAuthTokens(data.token, data.refreshToken);
       }
       // 跨账号隔离：apiCached 的 TTL 缓存按端点为键（membership/status、unlocks、词组等
       // 用户态数据），登录/换号时必须清空，否则下一账号在 TTL 窗口内读到上一账号的缓存
@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 存储 Access Token + Refresh Token（注册即登录）
       if (data.token) {
-        setAuthTokens(data.token, data.refresh_token);
+        setAuthTokens(data.token, data.refreshToken);
       }
       // 跨账号隔离：与 login 同理，清空上一身份的 TTL 缓存（注册常发生在登出后，防御旧缓存残留）
       clearApiCache();
@@ -200,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       // 存储 Access Token + Refresh Token（重置后自动登录）
       if (data.token) {
-        setAuthTokens(data.token, data.refresh_token);
+        setAuthTokens(data.token, data.refreshToken);
       }
       // 跨账号隔离：与 login 同理（重置密码发生在未登录态，防御同浏览器旧身份缓存）
       clearApiCache();

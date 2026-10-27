@@ -158,7 +158,7 @@ async function tryRefreshToken(): Promise<string | null> {
   isRefreshing = true;
   refreshPromise = (async () => {
     try {
-      // 降级：cookie 未设置时从 localStorage 读取 refresh_token，通过 body 发送
+      // 降级：cookie 未设置时从 localStorage 读取 refresh token，通过 body 发送（请求体字段按契约用 snake）
       const fallbackRefreshToken = getRefreshToken();
       const res = await fetch("/api/auth/refresh", {
         method: "POST",
@@ -170,9 +170,9 @@ async function tryRefreshToken(): Promise<string | null> {
       const data = await res.json();
       if (data.token) {
         updateAuthToken(data.token);
-        // 服务端响应可能携带新 refresh_token（降级存储同步更新）
-        if (data.refresh_token) {
-          try { window.localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token); } catch { /* */ }
+        // 服务端响应可能携带新 refreshToken（降级存储同步更新）
+        if (data.refreshToken) {
+          try { window.localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken); } catch { /* */ }
         }
         return data.token as string;
       }

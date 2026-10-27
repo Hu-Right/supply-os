@@ -10,7 +10,7 @@ vi.mock("@/lib/services/auth", async (importOriginal) => {
     ...actual,
     verifyPassword: vi.fn(),
     buildUserResponse: vi.fn().mockResolvedValue({ id: 1, email: "u@t.com", nickname: "Test" }),
-    issueTokenPair: vi.fn().mockResolvedValue({ token: "access", refresh_token: "refresh" }),
+    issueTokenPair: vi.fn().mockResolvedValue({ token: "access", refreshToken: "refresh" }),
   };
 });
 
@@ -39,7 +39,7 @@ describe("loginWithPassword", () => {
     vi.clearAllMocks();
     // 恢复默认 mock
     vi.mocked(verifyPassword).mockResolvedValue(true);
-    vi.mocked(issueTokenPair).mockResolvedValue({ token: "access", refresh_token: "refresh" });
+    vi.mocked(issueTokenPair).mockResolvedValue({ token: "access", refreshToken: "refresh" });
   });
 
   // 401 语义红线（③）：凭据被拒是「会话已死」，不是「未登录可刷新」——403 + 专属码，

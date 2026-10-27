@@ -34,7 +34,7 @@ vi.mock("@/lib/services/auth", () => ({
   hashPassword: vi.fn().mockResolvedValue("bcrypt-hash"),
   hashVerificationCode: vi.fn((c: string) => `hash:${c}`),
   buildUserResponse: vi.fn().mockResolvedValue({ id: 1, nickname: "采友_TEST" }),
-  issueTokenPair: vi.fn().mockResolvedValue({ token: "access", refresh_token: "refresh" }),
+  issueTokenPair: vi.fn().mockResolvedValue({ token: "access", refreshToken: "refresh" }),
 }));
 
 // 文件日志器走真实实现会落盘，测试内以空实现替代

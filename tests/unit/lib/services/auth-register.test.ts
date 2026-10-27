@@ -12,7 +12,7 @@ vi.mock("@/lib/services/auth", async (importOriginal) => {
     hashVerificationCode: vi.fn((c: string) => `hash:${c}`),
     generateNickname: vi.fn(() => "采友_TEST"),
     buildUserResponse: vi.fn().mockResolvedValue({ id: 99, nickname: "采友_TEST" }),
-    issueTokenPair: vi.fn().mockResolvedValue({ token: "access", refresh_token: "refresh" }),
+    issueTokenPair: vi.fn().mockResolvedValue({ token: "access", refreshToken: "refresh" }),
   };
 });
 
@@ -75,7 +75,7 @@ describe("registerUser", () => {
     // 恢复默认 mock
     vi.mocked(issueTokenPair).mockResolvedValue({
       token: "access",
-      refresh_token: "refresh",
+      refreshToken: "refresh",
     });
   });
 

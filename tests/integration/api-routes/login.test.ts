@@ -128,6 +128,26 @@ describe("POST /api/auth/login", () => {
     expect(verifyPassword).not.toHaveBeenCalled(); // 弱哈希不参与任何密码比对
   });
 
+  // 命名红线②：响应实体字段用 camelCase（请求体字段与 Cookie 名依旧 snake，两者不得混淆）
+  it("登录成功 → 200 裸载荷带 camelCase refreshToken，不再出现 snake 键", async () => {
+    const { verifyPassword, buildUserResponse, issueTokenPair } =
+      await import("@/lib/services/auth");
+    vi.mocked(verifyPassword).mockResolvedValue(true);
+    vi.mocked(buildUserResponse).mockResolvedValue({ id: 1, nickname: "Test" } as never);
+    vi.mocked(issueTokenPair).mockResolvedValue({ token: "access-jwt", refreshToken: "refresh-jwt" });
+    poolQuery.mockResolvedValue([[AUTH_USER_ROW]]);
+
+    const res = await callLogin({ identifier: "user-1@test.com", password: "pw" });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // 2xx 裸载荷（无 success 信封包裹层）+ 两个 Token 均 camelCase
+    expect(body.token).toBe("access-jwt");
+    expect(body.refreshToken).toBe("refresh-jwt");
+    expect(body.refresh_token).toBeUndefined();
+    // Cookie 名不受命名迁移影响（外部存储契约）
+    expect(res.headers.get("set-cookie")).toContain("supply_os_refresh_token=refresh-jwt");
+  });
+
   it("issueTokenPair 抛错 → 静默降级，返回 200 但无 token 无 Cookie", async () => {
     const { verifyPassword, buildUserResponse, issueTokenPair } =
       await import("@/lib/services/auth");
@@ -141,6 +161,7 @@ describe("POST /api/auth/login", () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.token).toBeUndefined();
+    expect(body.refreshToken).toBeUndefined();
     expect(res.headers.get("set-cookie")).toBeNull();
   });
 

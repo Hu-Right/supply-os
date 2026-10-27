@@ -46,13 +46,16 @@ test("camelCase 键 + 分页元数据 snake 键 → 通过（不误伤）", () =
 
 test("已登记递减白名单的存量键不报错（冻结现状），新键仍被拦", () => {
   // 白名单里的真实存量项 + 一个未登记项：只应报未登记的那条
+  // （auth 域 refresh_token 已迁 camelCase 并从白名单删除，改用仍存量登记的 forgot-password 做样本）
   withFixture("fieldname-allow", {
-    "src/app/api/auth/login/route.ts": ROUTE('{ token: "a", refresh_token: "b" }'),
-    "src/app/api/newer/route.ts": ROUTE('{ refresh_token: "c" }'),
+    "src/app/api/auth/forgot-password/route.ts": ROUTE('{ success: true, email_sent: true, sms_sent: false }'),
+    "src/app/api/newer/route.ts": ROUTE('{ email_sent: "c" }'),
   }, (root) => {
     const r = runAgainst(root, GATE);
     assert.equal(r.code, 1, "未登记的 snake 键没被拦");
+    // 只应报未登记那一条：已登记键计入违规则违规数会是 2
+    // （不断言“不含 forgot-password 字样”——fixture 下「白名单待收敛」提示会列出未命中的登记项）
+    assert.match(r.out, /违规 1 处：/, `违规条数不是 1：\n${r.out}`);
     assert.match(r.out, /newer\/route\.ts/);
-    assert.doesNotMatch(r.out, /auth\/login\/route\.ts/);
   });
 });

@@ -37,14 +37,14 @@ describe("issueTokenPair", () => {
     getRefreshTokenExpiresAt: vi.fn(() => new Date("2099-01-01")),
   }));
 
-  it("返回 token + refresh_token（仅传 userId，无 user_key 参数）", async () => {
+  it("返回 token + refreshToken（仅传 userId，无 user_key 参数）", async () => {
     const { issueTokenPair } = await import("@/lib/services/auth");
     const mockAuthRepo = {
       insertRefreshToken: vi.fn().mockResolvedValue(undefined),
     };
     const result = await issueTokenPair(mockAuthRepo as any, 42);
     expect(result.token).toBe("mock-access-token");
-    expect(result.refresh_token).toBe("mock-refresh-token");
+    expect(result.refreshToken).toBe("mock-refresh-token");
   });
 
   it("insertRefreshToken 失败 → 错误仅记日志，token 仍正常返回", async () => {
@@ -55,7 +55,7 @@ describe("issueTokenPair", () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await issueTokenPair(mockAuthRepo as any, 42);
     expect(result.token).toBe("mock-access-token");
-    expect(result.refresh_token).toBe("mock-refresh-token");
+    expect(result.refreshToken).toBe("mock-refresh-token");
     expect(errSpy).toHaveBeenCalled();
     errSpy.mockRestore();
   });

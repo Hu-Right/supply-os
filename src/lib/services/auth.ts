@@ -55,7 +55,7 @@ export function generateNickname(locale?: string): string {
 export async function issueTokenPair(
   authRepo: AuthRepo,
   userId: number,
-): Promise<{ token: string; refresh_token: string }> {
+): Promise<{ token: string; refreshToken: string }> {
   const accessToken = signAccessToken({ uid: userId });
   const { token: refreshToken, tokenHash } = signRefreshToken({ uid: userId });
   const expiresAt = getRefreshTokenExpiresAt();
@@ -66,7 +66,7 @@ export async function issueTokenPair(
   } catch (err) {
     console.error("[jwt] refresh token 入库失败:", (err as Error).message);
   }
-  return { token: accessToken, refresh_token: refreshToken };
+  return { token: accessToken, refreshToken };
 }
 
 /**

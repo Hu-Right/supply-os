@@ -69,7 +69,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const response = NextResponse.json({
     success: true,
     token: newAccessToken,
-    refresh_token: newRefreshToken,
+    refreshToken: newRefreshToken,
   });
   setRefreshCookieOnResponse(response, newRefreshToken);
   return response;

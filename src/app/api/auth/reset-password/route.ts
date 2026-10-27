@@ -88,7 +88,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 置于 issueTokenPair 之前：密码策略/账号不存在/验证码无效/尝试超限等失败路径已在上方 routeError 早退，不会写。
   await ctx.user.usersRepo.updateLastLoginById(resolvedUserId);
   const payload = await buildUserResponse(user, ctx.benefitSystemRepo, ctx.supplier.directoryRepo);
-  let tokens: { token: string; refresh_token: string } | null = null;
+  let tokens: { token: string; refreshToken: string } | null = null;
   try {
     tokens = await issueTokenPair(ctx.user.authRepo, user.id!);
   } catch (err) {
@@ -99,8 +99,8 @@ export const POST = withRoute(async (req: NextRequest) => {
     success: true,
     user: payload,
     token: tokens?.token ?? undefined,
-    refresh_token: tokens?.refresh_token ?? undefined,
+    refreshToken: tokens?.refreshToken ?? undefined,
   });
-  if (tokens) setRefreshCookieOnResponse(response, tokens.refresh_token);
+  if (tokens) setRefreshCookieOnResponse(response, tokens.refreshToken);
   return response;
 });
