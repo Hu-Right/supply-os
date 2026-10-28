@@ -36,7 +36,7 @@ export class OpenApiRepo {
   /** 按 Key 哈希查找 active 的 Key 行 */
   async findByHash(keyHash: string): Promise<ApiKeyRow | null> {
     const [rows] = await this.pool.query<ApiKeyRow[]>(
-      "SELECT * FROM crm_api_keys WHERE key_hash = ? LIMIT 1",
+      "SELECT * FROM api_keys WHERE key_hash = ? LIMIT 1",
       [keyHash],
     );
     return rows[0] ?? null;
@@ -44,7 +44,7 @@ export class OpenApiRepo {
 
   /** 更新最后使用时间 */
   async touchLastUsed(keyId: number): Promise<void> {
-    await this.pool.query("UPDATE crm_api_keys SET last_used_at = NOW() WHERE id = ?", [keyId]);
+    await this.pool.query("UPDATE api_keys SET last_used_at = NOW() WHERE id = ?", [keyId]);
   }
 
   // ── 用量计量 ──────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ export class OpenApiRepo {
   /** 记录一次 API 调用 */
   async recordUsage(apiKeyId: number, endpoint: string, tier: ApiKeyTier, responseCode: number, ip: string): Promise<void> {
     await this.pool.query(
-      "INSERT INTO crm_api_usage (api_key_id, endpoint, tier, response_code, ip_address) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO api_usage (api_key_id, endpoint, tier, response_code, ip_address) VALUES (?, ?, ?, ?, ?)",
       [apiKeyId, endpoint, tier, responseCode, ip],
     );
   }
@@ -60,7 +60,7 @@ export class OpenApiRepo {
   /** 查询某 Key 今日调用次数 */
   async getTodayUsage(apiKeyId: number): Promise<number> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      "SELECT COUNT(*) AS cnt FROM crm_api_usage WHERE api_key_id = ? AND DATE(created_at) = CURDATE()",
+      "SELECT COUNT(*) AS cnt FROM api_usage WHERE api_key_id = ? AND DATE(created_at) = CURDATE()",
       [apiKeyId],
     );
     return Number(rows[0]?.cnt ?? 0);
@@ -73,7 +73,7 @@ export class OpenApiRepo {
               COUNT(*) AS total_calls,
               SUM(tier = 'basic') AS basic_calls,
               SUM(tier = 'pro') AS pro_calls
-       FROM crm_api_usage
+       FROM api_usage
        WHERE api_key_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
        GROUP BY DATE(created_at)
        ORDER BY call_date DESC`,

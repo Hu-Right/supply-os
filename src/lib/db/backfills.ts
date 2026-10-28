@@ -18,7 +18,7 @@ import { isParseablePrivateKey, normalizePem } from "../payment/keys";
  */
 export async function backfillIndustryPrefsL45Null(dbPool: Pool): Promise<number> {
   const [result] = await dbPool.execute(
-    `UPDATE crm_user_industry_prefs
+    `UPDATE user_industry_prefs
      SET level4_id = NULL, level5_id = NULL
      WHERE level4_id IS NOT NULL OR level5_id IS NOT NULL`
   );
@@ -28,7 +28,7 @@ export async function backfillIndustryPrefsL45Null(dbPool: Pool): Promise<number
 export async function hydratePaymentEnvFromDb(dbPool: Pool) {
   const [rows] = await dbPool.query(
     `SELECT provider, mode, app_id, notify_url, return_url, public_key, private_key_ref, is_active
-     FROM crm_payment_provider_configs
+     FROM payment_provider_configs
      WHERE provider = 'alipay' AND is_active = 1
      ORDER BY id DESC
      LIMIT 1`
@@ -39,7 +39,7 @@ export async function hydratePaymentEnvFromDb(dbPool: Pool) {
   // 私钥不可解析（占位符/示例值）时不注入 env、不切 live：
   // 否则下单才在签名环节失败，订单已落库但二维码/支付链接为空
   if (!isParseablePrivateKey(String(alipay.private_key_ref || ""))) {
-    console.warn("[hydratePaymentEnvFromDb] crm_payment_provider_configs 中支付宝私钥无法解析，渠道保持未开通；请在后台配置真实商户密钥");
+    console.warn("[hydratePaymentEnvFromDb] payment_provider_configs 中支付宝私钥无法解析，渠道保持未开通；请在后台配置真实商户密钥");
     return false;
   }
 

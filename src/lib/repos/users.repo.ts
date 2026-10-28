@@ -8,7 +8,7 @@
  * @module repos/users.repo
  * @description 身份一律以 id (user_id) 为唯一锚点：
  *              - 所有查询/更新均按 user_id，SELECT 不回读任何身份列；
- *              - crm_users.user_key 已于迁移 068 DROP COLUMN，create() 的 INSERT 不含该列；
+ *              - users.user_key 已于迁移 068 DROP COLUMN，create() 的 INSERT 不含该列；
  *              - 业务表侧已收尾（2026-09-30 全库只读实测）：information_schema 扫到
  *                含 user_key 列的表为 **0 张**，本仓代码亦无任何非注释引用，该字段已彻底退役。
  *                警示：它不是逐表 ALTER DROP 的，而是随当日 17 张基表的**整表重建**一并消失（
@@ -25,7 +25,7 @@ export class UsersRepo {
   async findProfileById(userId: number): Promise<Partial<UserRow> | null> {
     const [rows] = await this.pool.query(
       `SELECT id, email, email_verified, phone, phone_verified, display_name, nickname, account_status, supplier_id, supplier_link_status
-       FROM crm_users WHERE id = ? LIMIT 1`,
+       FROM users WHERE id = ? LIMIT 1`,
       [userId],
     );
     return (rows as Partial<UserRow>[])[0] ?? null;
@@ -34,7 +34,7 @@ export class UsersRepo {
   /** 绑定/更新用户的企业关联（supplier_id + 绑定状态） */
   async bindSupplier(userId: number, supplierId: number, status = "verified"): Promise<void> {
     await this.pool.query(
-      "UPDATE crm_users SET supplier_id = ?, supplier_link_status = ? WHERE id = ?",
+      "UPDATE users SET supplier_id = ?, supplier_link_status = ? WHERE id = ?",
       [supplierId, status, userId],
     );
   }
@@ -42,7 +42,7 @@ export class UsersRepo {
   /** 按 user_id 查找用户（完整行，含 phone/email 等；供已认证路由使用） */
   async findById(userId: number): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
-      "SELECT * FROM crm_users WHERE id = ? LIMIT 1",
+      "SELECT * FROM users WHERE id = ? LIMIT 1",
       [userId],
     );
     return (rows as UserRow[])[0] ?? null;
@@ -53,7 +53,7 @@ export class UsersRepo {
     const [rows] = await this.pool.query(
       `SELECT id, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
               account_status, supplier_id, supplier_link_status
-       FROM crm_users WHERE phone = ? LIMIT 1`,
+       FROM users WHERE phone = ? LIMIT 1`,
       [phone],
     );
     return (rows as UserRow[])[0] ?? null;
@@ -61,9 +61,9 @@ export class UsersRepo {
 
   /**
    * 创建用户（INSERT ONLY，不覆盖已有记录），返回自增 id（0 表示失败）。
-   * 迁移 068 已 DROP COLUMN crm_users.user_key，INSERT 不再包含该列。
+   * 迁移 068 已 DROP COLUMN users.user_key，INSERT 不再包含该列。
    * membership_tier 已随影子表重构退役（scripts/shadow-users-phase1.mjs），会员身份
-   * 一律以 resolveMembershipState 实时读 crm_plan_subscriptions 为准。
+   * 一律以 resolveMembershipState 实时读 plan_subscriptions 为准。
    */
   async create(data: {
     email: string | null;
@@ -80,7 +80,7 @@ export class UsersRepo {
     // 注册 KPI「个人起步 · 认证转企业」：起步一律 personal，认证通过后由后台翻转（见注册KPI口径设计文档 §3.2）
     const userType = data.user_type ?? "personal";
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_users (email, display_name, nickname, password_hash, password_hash_type, account_status, user_type, phone, referral_code, referral_employee_id)
+      `INSERT INTO users (email, display_name, nickname, password_hash, password_hash_type, account_status, user_type, phone, referral_code, referral_employee_id)
        VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
       [data.email, data.display_name, data.nickname ?? null, data.password_hash, hashType, userType, data.phone ?? null, data.referral_code ?? null, data.referral_employee_id ?? null],
     );
@@ -90,7 +90,7 @@ export class UsersRepo {
   /** 更新密码及哈希类型（找回密码 / 透明升级）——按 user_id */
   async updatePasswordById(userId: number, hash: string, hashType: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET password_hash = ?, password_hash_type = ?, updated_at = NOW() WHERE id = ?",
+      "UPDATE users SET password_hash = ?, password_hash_type = ?, updated_at = NOW() WHERE id = ?",
       [hash, hashType, userId],
     );
   }
@@ -98,7 +98,7 @@ export class UsersRepo {
   /** 标记邮箱已验证——按 user_id */
   async markEmailVerifiedById(userId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET email_verified = 1, updated_at = NOW() WHERE id = ?",
+      "UPDATE users SET email_verified = 1, updated_at = NOW() WHERE id = ?",
       [userId],
     );
   }
@@ -106,7 +106,7 @@ export class UsersRepo {
   /** 标记手机已验证——按 user_id（注册流程 create 后立即调用） */
   async markPhoneVerifiedById(userId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET phone_verified = 1, updated_at = NOW() WHERE id = ?",
+      "UPDATE users SET phone_verified = 1, updated_at = NOW() WHERE id = ?",
       [userId],
     );
   }
@@ -114,7 +114,7 @@ export class UsersRepo {
   /** 更新昵称（不触碰密码）——按 user_id */
   async updateProfileById(userId: number, nickname: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET nickname = ?, updated_at = NOW() WHERE id = ?",
+      "UPDATE users SET nickname = ?, updated_at = NOW() WHERE id = ?",
       [nickname, userId],
     );
   }
@@ -122,7 +122,7 @@ export class UsersRepo {
   /** 绑定手机号（同时标记已验证）——按 user_id */
   async bindPhoneById(userId: number, phone: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET phone = ?, phone_verified = 1, updated_at = NOW() WHERE id = ?",
+      "UPDATE users SET phone = ?, phone_verified = 1, updated_at = NOW() WHERE id = ?",
       [phone, userId],
     );
   }
@@ -133,7 +133,7 @@ export class UsersRepo {
    */
   async bindPhoneIfUnboundById(userId: number, phone: string): Promise<boolean> {
     const [result] = await this.pool.execute(
-      "UPDATE crm_users SET phone = ?, phone_verified = 1, updated_at = NOW() WHERE id = ? AND phone IS NULL",
+      "UPDATE users SET phone = ?, phone_verified = 1, updated_at = NOW() WHERE id = ? AND phone IS NULL",
       [phone, userId],
     );
     return (result as ResultSetHeader).affectedRows > 0;
@@ -142,7 +142,7 @@ export class UsersRepo {
   /** 解绑手机号——按 user_id */
   async unbindPhoneById(userId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET phone = NULL, phone_verified = 0, updated_at = NOW() WHERE id = ?",
+      "UPDATE users SET phone = NULL, phone_verified = 0, updated_at = NOW() WHERE id = ?",
       [userId],
     );
   }
@@ -150,7 +150,7 @@ export class UsersRepo {
   /** 绑定邮箱（同时标记已验证）——按 user_id */
   async bindEmailById(userId: number, email: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET email = ?, email_verified = 1, updated_at = NOW() WHERE id = ?",
+      "UPDATE users SET email = ?, email_verified = 1, updated_at = NOW() WHERE id = ?",
       [email.toLowerCase(), userId],
     );
   }
@@ -158,7 +158,7 @@ export class UsersRepo {
   /** 解绑邮箱——按 user_id */
   async unbindEmailById(userId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET email = NULL, email_verified = 0, updated_at = NOW() WHERE id = ?",
+      "UPDATE users SET email = NULL, email_verified = 0, updated_at = NOW() WHERE id = ?",
       [userId],
     );
   }
@@ -166,7 +166,7 @@ export class UsersRepo {
   /** 按手机号查找用户（换绑冲突检测） */
   async findByPhone(phone: string): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
-      "SELECT * FROM crm_users WHERE phone = ? LIMIT 1",
+      "SELECT * FROM users WHERE phone = ? LIMIT 1",
       [phone],
     );
     return (rows as UserRow[])[0] ?? null;
@@ -175,7 +175,7 @@ export class UsersRepo {
   /** 按邮箱查找用户（邮箱绑定冲突检测 / 邮箱注册查重） */
   async findByEmail(email: string): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
-      "SELECT * FROM crm_users WHERE email = ? LIMIT 1",
+      "SELECT * FROM users WHERE email = ? LIMIT 1",
       [email.toLowerCase()],
     );
     return (rows as UserRow[])[0] ?? null;
@@ -188,7 +188,7 @@ export class UsersRepo {
       return this.findByPhone(identifier);
     }
     const [rows] = await this.pool.query(
-      "SELECT * FROM crm_users WHERE email = ? LIMIT 1",
+      "SELECT * FROM users WHERE email = ? LIMIT 1",
       [identifier.toLowerCase()],
     );
     return (rows as UserRow[])[0] ?? null;
@@ -206,7 +206,7 @@ export class UsersRepo {
     const [rows] = await this.pool.query(
       `SELECT id, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
               account_status, supplier_id, supplier_link_status
-       FROM crm_users WHERE email = ? LIMIT 1`,
+       FROM users WHERE email = ? LIMIT 1`,
       [identifier.toLowerCase()],
     );
     return (rows as UserRow[])[0] ?? null;
@@ -215,7 +215,7 @@ export class UsersRepo {
   /** 更新最后登录时间——按 user_id */
   async updateLastLoginById(userId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET last_login_at = NOW() WHERE id = ?",
+      "UPDATE users SET last_login_at = NOW() WHERE id = ?",
       [userId],
     );
   }

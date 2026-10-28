@@ -17,7 +17,7 @@ import { invalidateSearchCache } from "../search-common/sync-events";
 import { PLATFORM_PUBLISHED_ONLY } from "../../utils/notice-expired";
 import {
   wideSyncSelect, WIDE_SYNC_JOIN,
-  loadAliasMap, loadTranslationsByNoticeIds, loadBackboneMap,
+  loadTranslationsByNoticeIds, loadBackboneMap,
   buildWideRow, upsertWideRows,
 } from "./wide-row-builder";
 import {
@@ -26,13 +26,13 @@ import {
 import { detectWideFingerprintDrift, isFingerprintColumn } from "./wide-fingerprint";
 import { purgeNoticeSearch } from "../search-visibility";
 import { loadCountryAliasSnapshot } from "../country/alias-store";
+import { rebuildNoticePublicChanged } from "../notice-public/rebuild";
 
 /**
  * 全量回填宽表
  */
 export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapsed: number }> {
   const start = Date.now();
-  const aliasMap = await loadAliasMap(pool);
   const countrySnap = await loadCountryAliasSnapshot(pool);
   
   let lastId = 0;
@@ -62,7 +62,7 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
       ]);
 
       const wideRows = rawRows.map((r) => buildWideRow(
-        r, aliasMap,
+        r,
         landingMap.get(String(r.notice_id)),
         translationsMap.get(Number(r.id)),
         countrySnap,
@@ -89,7 +89,6 @@ export async function incrementalWideSync(
   pool: Pool,
   watermark: number,
 ): Promise<{ synced: number; newWatermark: number }> {
-  const aliasMap = await loadAliasMap(pool);
   const countrySnap = await loadCountryAliasSnapshot(pool);
   const withFp = await isFingerprintColumn(pool);
   const selectSql = wideSyncSelect(withFp);
@@ -113,7 +112,7 @@ export async function incrementalWideSync(
     ]);
 
     const wideRows = allRaw.map((r) => buildWideRow(
-      r, aliasMap,
+      r,
       landingMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
       countrySnap,
@@ -135,7 +134,6 @@ export async function incrementalWideSync(
  */
 export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: number }> {
   if (ids.length === 0) return { synced: 0 };
-  const aliasMap = await loadAliasMap(pool);
   const countrySnap = await loadCountryAliasSnapshot(pool);
   const withFp = await isFingerprintColumn(pool);
   const selectSql = wideSyncSelect(withFp);
@@ -155,7 +153,7 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
       loadTranslationsByNoticeIds(pool, (rows as RowDataPacket[]).map((r) => Number(r.id))),
     ]);
     const wideRows = (rows as RowDataPacket[]).map((r) => buildWideRow(
-      r, aliasMap,
+      r,
       landingMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
       countrySnap,
@@ -202,8 +200,8 @@ export { isWideTableReady } from "../search-common/wide-table-readiness";
  *
  * 三个独立定时器：
  * - 增量同步（5 秒）：拉取新行写入宽表（主键水位轻扫描，[阶段0 S3] 从 30 秒缩短至 5 秒）
- * - deadline 对账（60 秒）：检测旧行 deadline_sec 陈旧并修复
- * - 全量对账（5 分钟）：ghost 行清理 + is_featured 同步
+ * - deadline 对账（60 秒）：检测旧行 deadline 投影陈旧并修复
+ * - 全量对账（5 分钟）：①服务表增量重建 + ghost 行清理 + 平台可见性集合差 + 源指纹轮转
  *
  * 分离原因：
  * - deadline_sec 变更来自外部数据管道（批量导入），日常极少发生
@@ -235,11 +233,11 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
         }
         const result = await fullBackfill(pool);
         if (result.synced > 0) {
-          const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM crm_notice_search");
+          const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM notice_search");
           watermark = Number((maxRows as RowDataPacket[])[0]?.max_id || 0);
         }
       } else {
-        const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM crm_notice_search");
+        const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM notice_search");
         watermark = Number((maxRows as RowDataPacket[])[0]?.max_id || 0);
       }
       initDone = true;
@@ -305,10 +303,19 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
   }, reconcileIntervalMs);
   stopFns.push(() => clearInterval(reconcileTimer));
 
-  // 定时器 3：全量对账（平台可见性集合差 + ghost 清理 + 源指纹轮转）
+  // 定时器 3：全量对账（①归一层重建 + 平台可见性集合差 + ghost 清理 + 源指纹轮转）
   const fullReconcileTimer = setInterval(async () => {
     if (stopped) return;
     try {
+      // 0) ①归一层增量重建（2026-10-27 管道翻转：主表 → ①服务表 → ②宽表）。
+      //    ①先走，下面的平台/指纹检测才能基于新归一值；单飞+节流在 runner 内部，
+      //    失败仅告警，交下轮再试（平台自录行不依赖爬虫 tick，靠这里覆盖）。
+      try {
+        await rebuildNoticePublicChanged(pool);
+      } catch (err) {
+        console.warn("[wide-table] 服务表增量重建异常（下轮再试）:", (err as Error).message);
+      }
+
       // 1) 平台公告状态漂移：先修可见性再做 ghost 清理，避免同一行两路径争抢删除
       const { toSync: platformSyncIds, toPurge: platformPurgeIds } = await detectPlatformStatusDrift(pool);
       if (platformPurgeIds.length > 0) await purgeNoticeSearch(pool, platformPurgeIds);

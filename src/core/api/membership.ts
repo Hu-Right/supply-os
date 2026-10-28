@@ -23,7 +23,7 @@ export type { ComparisonView, MembershipStatusView, UpgradePreviewView, ServiceC
 export const fetchMembershipPlans = (force = false) =>
   apiCached<ComparisonView>("/api/membership/plans", undefined, undefined, force);
 
-/** 拉取订制服务目录（crm_service_catalog 快照，带内存缓存）。 */
+/** 拉取订制服务目录（service_catalog 快照，带内存缓存）。 */
 export const fetchServices = (force = false) =>
   apiCached<ServiceCatalogView[]>("/api/membership/services", undefined, undefined, force);
 

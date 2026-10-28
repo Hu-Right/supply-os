@@ -91,7 +91,7 @@ export type SupplierContext = {
   dbPool: Pool;
   directoryRepo: SupplierDirectoryRepo;
   claimRepo: SupplierClaimRepo;
-  /** 行业面（crm_industry_nodes + 挂靠表）读层：门户把行业码翻成双语标签与筛选项的唯一入口 */
+  /** 行业面（industry_nodes + 挂靠表）读层：门户把行业码翻成双语标签与筛选项的唯一入口 */
   industryRepo: IndustryNodeRepo;
 };
 
@@ -101,9 +101,9 @@ export type AppContext = {
   payment: PaymentContext;
   user: UserContext;
   supplier: SupplierContext;
-  /** 权益体系新表组（crm_benefit_catalog / crm_plan_* / crm_benefit_quotas）读层 */
+  /** 权益体系新表组（benefit_catalog / crm_plan_* / benefit_quotas）读层 */
   benefitSystemRepo: BenefitSystemRepo;
-  /** 权益体系写层：订阅事实 + 额度账本（crm_plan_subscriptions / crm_benefit_quotas） */
+  /** 权益体系写层：订阅事实 + 额度账本（plan_subscriptions / benefit_quotas） */
   benefitWriteRepo: BenefitWriteRepo;
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;
@@ -113,7 +113,7 @@ export type AppContext = {
   chatRepo: ChatRepo;
   trainingRepo: TrainingRepo;
   systemRepo: SystemRepo;
-  /** 官方精选词组只读投影（crm_official_keyword_groups，后台维护，本项目无写路径） */
+  /** 官方精选词组只读投影（official_keyword_groups，后台维护，本项目无写路径） */
   officialKeywordGroupsRepo: OfficialKeywordGroupsRepo;
 };
 

@@ -3,8 +3,8 @@
  *
  * @module lib/services/rfq-quotes
  * @description 闭环后半段（⑦报价 → ⑧比价 → ⑩选定）的数据面。报价密封：供应商只见己方、
- *              采购方（创建者）见全部。选定/中标以 crm_rfq_quotes.status 表达，不改 rfq_status。
- *              资格：已认证企业（crm_users.supplier_link_status='verified' 且绑定 supplier）
+ *              采购方（创建者）见全部。选定/中标以 rfq_quotes.status 表达，不改 rfq_status。
+ *              资格：已认证企业（users.supplier_link_status='verified' 且绑定 supplier）
  *              + RFQ 为 platform/published + 未过 deadline + (public 或 targeted 且在邀约名单)。
  */
 import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
@@ -37,7 +37,7 @@ function nowSec(): number {
 export async function isVerifiedSupplier(dbPool: Pool, userId: number): Promise<boolean> {
   const [rows] = await dbPool.query(
     `SELECT supplier_link_status, supplier_id, account_status
-       FROM crm_users WHERE id = ? LIMIT 1`,
+       FROM users WHERE id = ? LIMIT 1`,
     [userId],
   );
   const u = (rows as RowDataPacket[])[0];
@@ -51,7 +51,7 @@ export async function isVerifiedSupplier(dbPool: Pool, userId: number): Promise<
 export async function getQuoteableRfq(dbPool: Pool, rfqId: number): Promise<QuoteableRfq | null> {
   const [rows] = await dbPool.query(
     `SELECT id, user_id, rfq_status, visibility, deadline_sec, title, contact_email
-       FROM crm_bid_notices
+       FROM bid_notices
       WHERE id = ? AND notice_type = 'RFQ' AND entry_source = 'platform'
       LIMIT 1`,
     [rfqId],
@@ -84,7 +84,7 @@ export async function checkQuoteEligibility(
 
   if (rfq.visibility === "targeted") {
     const [rows] = await dbPool.query(
-      `SELECT 1 FROM crm_rfq_invites WHERE rfq_id = ? AND supplier_user_id = ? LIMIT 1`,
+      `SELECT 1 FROM rfq_invites WHERE rfq_id = ? AND supplier_user_id = ? LIMIT 1`,
       [rfq.id, userId],
     );
     if ((rows as RowDataPacket[]).length === 0) return { ok: false, reason: "not_invited" };
@@ -92,7 +92,7 @@ export async function checkQuoteEligibility(
 
   // 已完成供应商选定（存在 won 报价）→ 封停报价：避免 ODKU 把 won 覆盖回 submitted 并重复通知
   const [awarded] = await dbPool.query(
-    `SELECT 1 FROM crm_rfq_quotes WHERE rfq_id = ? AND status = ? LIMIT 1`,
+    `SELECT 1 FROM rfq_quotes WHERE rfq_id = ? AND status = ? LIMIT 1`,
     [rfq.id, QUOTE_STATUS.WON],
   );
   if ((awarded as RowDataPacket[]).length > 0) return { ok: false, reason: "awarded" };
@@ -120,7 +120,7 @@ export async function submitQuote(
   input: SubmitQuoteInput,
 ): Promise<{ quoteId: number }> {
   const [result] = await dbPool.query(
-    `INSERT INTO crm_rfq_quotes
+    `INSERT INTO rfq_quotes
        (rfq_id, supplier_user_id, price, currency, lead_time_days, delivery_terms, note, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
@@ -194,8 +194,8 @@ export async function listQuotesForBuyer(
   const [rows] = await dbPool.query(
     `SELECT q.id, q.supplier_user_id, s.company, q.price, q.currency,
             q.lead_time_days, q.delivery_terms, q.note, q.status, q.created_at
-       FROM crm_rfq_quotes q
-       LEFT JOIN crm_users u ON u.id = q.supplier_user_id
+       FROM rfq_quotes q
+       LEFT JOIN users u ON u.id = q.supplier_user_id
        LEFT JOIN supplier s ON s.id = u.supplier_id
       WHERE q.rfq_id = ? AND q.status <> ?
       ORDER BY q.price ASC`,
@@ -222,7 +222,7 @@ export async function getOwnQuote(
   userId: number,
 ): Promise<{ id: number; status: string } | null> {
   const [rows] = await dbPool.query(
-    `SELECT id, status FROM crm_rfq_quotes WHERE rfq_id = ? AND supplier_user_id = ? LIMIT 1`,
+    `SELECT id, status FROM rfq_quotes WHERE rfq_id = ? AND supplier_user_id = ? LIMIT 1`,
     [rfqId, userId],
   );
   const r = (rows as RowDataPacket[])[0];
@@ -233,7 +233,7 @@ export async function getOwnQuote(
 /** 供应商撤回自己的 submitted 报价。返回是否命中。 */
 export async function withdrawQuote(dbPool: Pool, quoteId: number, userId: number): Promise<boolean> {
   const [result] = await dbPool.query(
-    `UPDATE crm_rfq_quotes SET status = ?
+    `UPDATE rfq_quotes SET status = ?
       WHERE id = ? AND supplier_user_id = ? AND status = ?`,
     [QUOTE_STATUS.WITHDRAWN, quoteId, userId, QUOTE_STATUS.SUBMITTED],
   );
@@ -261,7 +261,7 @@ export async function awardQuote(
     await conn.beginTransaction();
 
     const [rf] = await conn.query(
-      `SELECT rfq_status, user_id FROM crm_bid_notices
+      `SELECT rfq_status, user_id FROM bid_notices
         WHERE id = ? AND notice_type = 'RFQ' AND entry_source = 'platform' LIMIT 1`,
       [opts.rfqId],
     );
@@ -281,7 +281,7 @@ export async function awardQuote(
     }
 
     const [wq] = await conn.query(
-      `SELECT supplier_user_id FROM crm_rfq_quotes
+      `SELECT supplier_user_id FROM rfq_quotes
         WHERE id = ? AND rfq_id = ? AND status = ? LIMIT 1`,
       [opts.winnerQuoteId, opts.rfqId, QUOTE_STATUS.SUBMITTED],
     );
@@ -298,11 +298,11 @@ export async function awardQuote(
     }
 
     await conn.query(
-      `UPDATE crm_rfq_quotes SET status = ? WHERE id = ? AND rfq_id = ?`,
+      `UPDATE rfq_quotes SET status = ? WHERE id = ? AND rfq_id = ?`,
       [QUOTE_STATUS.WON, opts.winnerQuoteId, opts.rfqId],
     );
     const [rej] = await conn.query(
-      `UPDATE crm_rfq_quotes SET status = ?
+      `UPDATE rfq_quotes SET status = ?
         WHERE rfq_id = ? AND id <> ? AND status = ?`,
       [QUOTE_STATUS.REJECTED, opts.rfqId, opts.winnerQuoteId, QUOTE_STATUS.SUBMITTED],
     );
@@ -325,10 +325,10 @@ export async function awardQuote(
     // 邮件通知中标供应商（best-effort）
     if (isEmailConfigured()) {
       try {
-        const [ur] = await dbPool.query(`SELECT email FROM crm_users WHERE id = ? LIMIT 1`, [winnerSupplierUserId]);
+        const [ur] = await dbPool.query(`SELECT email FROM users WHERE id = ? LIMIT 1`, [winnerSupplierUserId]);
         const email = String((ur as RowDataPacket[])[0]?.email || "");
         if (email) {
-          const [tr] = await dbPool.query(`SELECT title FROM crm_bid_notices WHERE id = ? LIMIT 1`, [opts.rfqId]);
+          const [tr] = await dbPool.query(`SELECT title FROM bid_notices WHERE id = ? LIMIT 1`, [opts.rfqId]);
           const title = String((tr as RowDataPacket[])[0]?.title || "");
           await sendRfqAwardedEmail(email, { rfqTitle: title, rfqLink: absoluteUrl(`/rfq/${opts.rfqId}`) });
         }
@@ -341,8 +341,8 @@ export async function awardQuote(
     try {
       const [lrows] = await dbPool.query(
         `SELECT q.supplier_user_id AS uid, u.email AS email
-           FROM crm_rfq_quotes q
-           JOIN crm_users u ON u.id = q.supplier_user_id
+           FROM rfq_quotes q
+           JOIN users u ON u.id = q.supplier_user_id
           WHERE q.rfq_id = ? AND q.status = ? AND q.supplier_user_id <> ?`,
         [opts.rfqId, QUOTE_STATUS.REJECTED, winnerSupplierUserId],
       );
@@ -362,7 +362,7 @@ export async function awardQuote(
         } catch { /* 单个落选站内信失败不阻断其余 */ }
         if (email && isEmailConfigured()) {
           try {
-            const [tr] = await dbPool.query(`SELECT title FROM crm_bid_notices WHERE id = ? LIMIT 1`, [opts.rfqId]);
+            const [tr] = await dbPool.query(`SELECT title FROM bid_notices WHERE id = ? LIMIT 1`, [opts.rfqId]);
             await sendRfqRejectedEmail(email, { rfqTitle: String((tr as RowDataPacket[])[0]?.title || ""), rfqLink: link });
           } catch { /* 邮件失败忽略 */ }
         }
@@ -404,8 +404,8 @@ export async function listMyQuotes(dbPool: Pool, userId: number): Promise<MyQuot
     `SELECT q.id AS quoteId, q.rfq_id AS rfqId, q.price, q.currency,
             q.lead_time_days AS leadTimeDays, q.status AS quoteStatus, q.updated_at AS updatedAt,
             n.title, n.reference, n.rfq_status AS rfqStatus, n.deadline_sec AS deadlineSec
-       FROM crm_rfq_quotes q
-       JOIN crm_bid_notices n ON n.id = q.rfq_id
+       FROM rfq_quotes q
+       JOIN bid_notices n ON n.id = q.rfq_id
       WHERE q.supplier_user_id = ? AND q.status <> ?
       ORDER BY q.id DESC`,
     [userId, QUOTE_STATUS.WITHDRAWN],
@@ -438,7 +438,7 @@ export async function unawardQuote(
     await conn.beginTransaction();
 
     const [rf] = await conn.query(
-      `SELECT rfq_status, user_id FROM crm_bid_notices
+      `SELECT rfq_status, user_id FROM bid_notices
         WHERE id = ? AND notice_type = 'RFQ' AND entry_source = 'platform' LIMIT 1`,
       [opts.rfqId],
     );
@@ -448,7 +448,7 @@ export async function unawardQuote(
     if (String(rfqRow.rfq_status) !== RFQ_STATUS.PUBLISHED) { await conn.rollback(); return { ok: false, reason: "closed" }; }
 
     const [w] = await conn.query(
-      `SELECT supplier_user_id FROM crm_rfq_quotes WHERE rfq_id = ? AND status = ? LIMIT 1`,
+      `SELECT supplier_user_id FROM rfq_quotes WHERE rfq_id = ? AND status = ? LIMIT 1`,
       [opts.rfqId, QUOTE_STATUS.WON],
     );
     const winner = (w as RowDataPacket[])[0];
@@ -457,11 +457,11 @@ export async function unawardQuote(
 
     // 选定回退：won → submitted，rejected → submitted（仅本 RFQ）
     await conn.query(
-      `UPDATE crm_rfq_quotes SET status = ? WHERE rfq_id = ? AND status = ?`,
+      `UPDATE rfq_quotes SET status = ? WHERE rfq_id = ? AND status = ?`,
       [QUOTE_STATUS.SUBMITTED, opts.rfqId, QUOTE_STATUS.WON],
     );
     await conn.query(
-      `UPDATE crm_rfq_quotes SET status = ? WHERE rfq_id = ? AND status = ?`,
+      `UPDATE rfq_quotes SET status = ? WHERE rfq_id = ? AND status = ?`,
       [QUOTE_STATUS.SUBMITTED, opts.rfqId, QUOTE_STATUS.REJECTED],
     );
 
@@ -483,10 +483,10 @@ export async function unawardQuote(
     // 邮件通知原中标方（best-effort）
     if (isEmailConfigured()) {
       try {
-        const [ur] = await dbPool.query(`SELECT email FROM crm_users WHERE id = ? LIMIT 1`, [winnerSupplierUserId]);
+        const [ur] = await dbPool.query(`SELECT email FROM users WHERE id = ? LIMIT 1`, [winnerSupplierUserId]);
         const email = String((ur as RowDataPacket[])[0]?.email || "");
         if (email) {
-          const [tr] = await dbPool.query(`SELECT title FROM crm_bid_notices WHERE id = ? LIMIT 1`, [opts.rfqId]);
+          const [tr] = await dbPool.query(`SELECT title FROM bid_notices WHERE id = ? LIMIT 1`, [opts.rfqId]);
           await sendRfqAwardRevokedEmail(email, { rfqTitle: String((tr as RowDataPacket[])[0]?.title || ""), rfqLink: absoluteUrl(`/rfq/${opts.rfqId}`) });
         }
       } catch (e) {

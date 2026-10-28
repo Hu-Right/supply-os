@@ -152,7 +152,7 @@ async function detectIndexIssues(pool: Pool): Promise<string[]> {
   if (!hasDeadlineField) issues.push("缺少 has_deadline 字段");
 
   // 检测 ghost IDs：索引文档数应等于宽表行数（索引同步的事实源）。
-  // 注：不能用 crm_bid_notices 总行数作基线——该表在外部迁移时会被临时清空，
+  // 注：不能用 bid_notices 总行数作基线——该表在外部迁移时会被临时清空，
   // 误触发全量重建（回归演练期间实测多次重建）
   const [meiliCount, wideCount] = await Promise.all([getDocCount(), getWideTableCount(pool)]);
   if (meiliCount > wideCount * 1.01) {

@@ -5,10 +5,10 @@
  * @description 本模块从“把旧品类码换成 UGT 节点”收敛为“在 UGT 节点上直接检索”。
  *              小表剥离上线日迁移（一次性迁移件 user-interest-ugt-migrate）+ 遗留清理（同批件 interest-tables-purge-legacy）
  *              ——两件均属一次性，当时放 ops 不入库、现已删除；最终形制以 db/schema/baseline.sql 为准。
- *              完成后，`crm_user_interest_codes` / `crm_supplier_backbone_interests`（原 `旧供应商兴趣表`，§7 RENAME）已全部重写成 `UGT-*`，
+ *              完成后，`user_interest_codes` / `supplier_backbone_interests`（原 `旧供应商兴趣表`，§7 RENAME）已全部重写成 `UGT-*`，
  *              运行期再无数字码入口⇒ match/pathOf 只保留 UGT 节点直认一条分支。
  *
- *              历史四条换算规则（品目/类/族/段）与 crm_commodity_backbone 的旧前缀映射列读取均随 R4' 剥开；
+ *              历史四条换算规则（品目/类/族/段）与 commodity_backbone 的旧前缀映射列读取均随 R4' 剥开；
  *              列物理 DROP 后下一轮重导 baseline 就不带它了（门禁那边同步剥 BB2/BB3/BB4 旧品类码分支/BB9）。
  *
  *              树形不变量（仍然成立、仍进门禁）：
@@ -131,7 +131,7 @@ export function buildBackboneIndex(rows: BackboneRow[]): BackboneIndex {
 }
 
 /**
- * 从库构索引：只读新树（crm_commodity_backbone）一张表，不回读 crm_commodity_nodes，
+ * 从库构索引：只读新树（commodity_backbone）一张表，不回读 crm_commodity_nodes，
  * 也不再回读大类段归属表（crm_commodity_group_segments 已按 ADR-0009 退役）。
  * 树是 159,429 行量级，一次载入内存（回填要跑几十万条公告，逐条查库会把生产拖死）。
  *
@@ -147,7 +147,7 @@ export async function loadBackboneIndex(
     code: string;
     parent_code: string;
     level: number;
-  }>(`SELECT code, parent_code, level FROM crm_commodity_backbone WHERE status = 1`);
+  }>(`SELECT code, parent_code, level FROM commodity_backbone WHERE status = 1`);
   return buildBackboneIndex(
     rows.map((r) => ({ code: r.code, parentCode: r.parent_code, level: Number(r.level) })),
   );

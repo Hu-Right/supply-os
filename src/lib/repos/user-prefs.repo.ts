@@ -23,7 +23,7 @@ export class UserPrefsRepo {
   /** 查询用户行业偏好 */
   async getIndustryPrefs(userId: number): Promise<UserIndustryPrefsRow | null> {
     const [rows] = await this.pool.query(
-      "SELECT commodity_code, updated_at FROM crm_user_industry_prefs WHERE user_id = ? LIMIT 1",
+      "SELECT commodity_code, updated_at FROM user_industry_prefs WHERE user_id = ? LIMIT 1",
       [userId],
     );
     return (rows as UserIndustryPrefsRow[])[0] ?? null;
@@ -31,7 +31,7 @@ export class UserPrefsRepo {
 
   /** 清除用户行业偏好 */
   async deleteIndustryPrefs(userId: number): Promise<void> {
-    await this.pool.execute("DELETE FROM crm_user_industry_prefs WHERE user_id = ?", [userId]);
+    await this.pool.execute("DELETE FROM user_industry_prefs WHERE user_id = ?", [userId]);
   }
 
   /**
@@ -42,7 +42,7 @@ export class UserPrefsRepo {
    */
   async upsertIndustryPrefs(userId: number, commodityCode: string | null): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO crm_user_industry_prefs (user_id, commodity_code)
+      `INSERT INTO user_industry_prefs (user_id, commodity_code)
        VALUES (?, ?)
        ON DUPLICATE KEY UPDATE
          commodity_code = VALUES(commodity_code), updated_at = NOW()`,

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * 订制服务目录数据 Hook — 读 /api/membership/services（crm_service_catalog 快照）
+ * 订制服务目录数据 Hook — 读 /api/membership/services（service_catalog 快照）
  *
  * @module features/membership/hooks/useServiceCatalog
  * @description 走 fetchServices（apiCached）拉取启用中的服务目录；失败暴露 error + reload 供重试。

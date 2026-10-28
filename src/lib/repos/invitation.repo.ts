@@ -23,7 +23,7 @@ export type PoolLike = Pick<Pool, "query" | "execute">;
 
 /**
  * 归因主体：两个命名空间互斥，不做双向 fallback（一个码只可能属于一个命名空间）。
- * employee 走 crm_monthly_kpi 累加列；channel 走 crm_channel_registrations 台账（一人一行）。
+ * employee 走 monthly_kpi 累加列；channel 走 channel_registrations 台账（一人一行）。
  */
 export type CodeOwner =
   | { namespace: "employee"; employeeId: number }
@@ -51,7 +51,7 @@ export class InvitationRepo {
   async findByCode(code: string): Promise<{ employee_id: number; name: string; department: string | null; invitation_code: string } | null> {
     const [rows] = await this.pool.query(
       `SELECT id AS employee_id, name, department, invitation_code
-       FROM crm_employees
+       FROM employees
        WHERE invitation_code = ? AND is_active = 1
        LIMIT 1`,
       [code],
@@ -65,8 +65,8 @@ export class InvitationRepo {
   ): Promise<{ code: string; partner_id: number; partner_name: string } | null> {
     const [rows] = await this.pool.query(
       `SELECT c.code, c.partner_id, p.name AS partner_name
-       FROM crm_channel_codes c
-       JOIN crm_channel_partners p ON p.id = c.partner_id
+       FROM channel_codes c
+       JOIN channel_partners p ON p.id = c.partner_id
        WHERE c.code = ? AND c.is_active = 1 AND p.is_active = 1
        LIMIT 1`,
       [code],
@@ -76,7 +76,7 @@ export class InvitationRepo {
 
   /**
    * 验证邀请码有效性并按前缀分流归因命名空间。
-   * EMP- 及其余存量码走原 crm_employees 逻辑（一字不动）；CH- 只查渠道两张表。
+   * EMP- 及其余存量码走原 employees 逻辑（一字不动）；CH- 只查渠道两张表。
    * 两边的失败文案分开：渠道商要靠这句话自查自己的推广链接是不是印错了。
    */
   async validateCode(code: string): Promise<{ valid: boolean; reason?: string; owner?: CodeOwner }> {
@@ -120,7 +120,7 @@ export class InvitationRepo {
     }
 
     await this.pool.execute(
-      `INSERT INTO crm_channel_registrations (user_id, code, partner_id, user_type, registered_at)
+      `INSERT INTO channel_registrations (user_id, code, partner_id, user_type, registered_at)
        VALUES (?, ?, ?, 'personal', NOW())
        ON DUPLICATE KEY UPDATE user_id = user_id`,
       [userId, code, partnerId],
@@ -135,7 +135,7 @@ export class InvitationRepo {
     const kpiMonth = month ?? currentMonth();
     const column = userType === "personal" ? "actual_personal" : "actual_enterprise";
     await this.pool.execute(
-      `INSERT INTO crm_monthly_kpi (employee_id, kpi_month, ${column})
+      `INSERT INTO monthly_kpi (employee_id, kpi_month, ${column})
        VALUES (?, ?, 1)
        ON DUPLICATE KEY UPDATE ${column} = ${column} + 1`,
       [employeeId, kpiMonth],

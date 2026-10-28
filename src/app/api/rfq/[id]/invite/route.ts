@@ -4,8 +4,8 @@
  * @module app/api/rfq/[id]/invite/route
  * @description 仅创建者、仅 published。两步式（外发副作用需人工放行）：
  *   - action:"preview" → dryRun，返回将触达的策略与供应商名单（公司名 + 品类匹配度），不发送/不写库；
- *   - action:"send"    → 邮件邀约匹配供应商（写 crm_rfq_outreach 去重）；若需求为 targeted，
- *                        同时把这些供应商写入 crm_rfq_invites 报价白名单。
+ *   - action:"send"    → 邮件邀约匹配供应商（写 rfq_outreach 去重）；若需求为 targeted，
+ *                        同时把这些供应商写入 rfq_invites 报价白名单。
  *   public 需求只触达、不改可见性、不写 invites。
  */
 import { NextResponse } from "next/server";
@@ -40,7 +40,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     const pool = getPool();
     const [rows] = await pool.query(
-      `SELECT user_id, rfq_status, visibility FROM crm_bid_notices
+      `SELECT user_id, rfq_status, visibility FROM bid_notices
         WHERE id = ? AND notice_type = 'RFQ' AND entry_source = 'platform' LIMIT 1`,
       [rfqId],
     );

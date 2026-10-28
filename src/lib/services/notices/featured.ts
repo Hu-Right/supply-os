@@ -27,10 +27,10 @@ export { qualifiedOppWhere };
 // 用非相关 IN 子查询（MySQL 物化一次 + 逐行 hash 查找）而非相关 EXISTS：
 // 生产库实测 OR 连接两路相关 EXISTS 会阻止半连接转换、5.5 万行基线上超时，
 // IN 物化且语义等价。
-// 依赖外层查询别名 n = crm_bid_notices；可投标期限由列表既有 is_expired/deadline_ts 条件保障
+// 依赖外层查询别名 n = bid_notices；可投标期限由列表既有 is_expired/deadline_ts 条件保障
 export const FEATURED_NOTICE_EXISTS = `(
-  n.converted_opp_id IN (SELECT o1.id FROM crm_bid_opportunities o1 WHERE ${qualifiedOppWhere("o1")})
-  OR n.notice_id IN (SELECT o2.source_notice_id FROM crm_bid_opportunities o2
+  n.converted_opp_id IN (SELECT o1.id FROM bid_opportunities o1 WHERE ${qualifiedOppWhere("o1")})
+  OR n.notice_id IN (SELECT o2.source_notice_id FROM bid_opportunities o2
     WHERE ${qualifiedOppWhere("o2")} AND o2.source_notice_id IS NOT NULL AND o2.source_notice_id <> '')
 )`;
 
@@ -112,7 +112,7 @@ async function queryQualifiedOpportunity(dbPool: Pool, notice: NoticeIdentity) {
   if (Number(notice.converted_opp_id || 0) > 0) {
     const [rows] = await dbPool.query(
       `SELECT ${fields}
-       FROM crm_bid_opportunities
+       FROM bid_opportunities
        WHERE id = ? AND ${qualifiedWhere}
        LIMIT 1`,
       [Number(notice.converted_opp_id)]
@@ -123,7 +123,7 @@ async function queryQualifiedOpportunity(dbPool: Pool, notice: NoticeIdentity) {
   if (notice.notice_id) {
     const [rows] = await dbPool.query(
       `SELECT ${fields}
-       FROM crm_bid_opportunities
+       FROM bid_opportunities
        WHERE source_notice_id = ? AND ${qualifiedWhere}
        ORDER BY is_qualified DESC, id DESC
        LIMIT 1`,
@@ -138,7 +138,7 @@ async function queryQualifiedOpportunity(dbPool: Pool, notice: NoticeIdentity) {
     // 相似度低于阈值（Jaccard < 0.3）则跳过，避免详情页被不相关机会数据覆盖。
     const [rows] = await dbPool.query(
       `SELECT ${fields}
-       FROM crm_bid_opportunities
+       FROM bid_opportunities
        WHERE reference = ? AND ${qualifiedWhere}
        ORDER BY is_qualified DESC, id DESC`,
       [String(notice.reference)]
@@ -152,7 +152,7 @@ async function queryQualifiedOpportunity(dbPool: Pool, notice: NoticeIdentity) {
 }
 
 // ── P6 性能优化：is_featured 预计算列刷新 ──
-// 用 FEATURED_NOTICE_EXISTS 实时计算结果同步到 crm_bid_notices.is_featured 列
+// 用 FEATURED_NOTICE_EXISTS 实时计算结果同步到 bid_notices.is_featured 列
 // 启动时执行一次初始回填，之后每 30 分钟增量刷新
 // 回滚：删除 refreshFeaturedColumn 函数，移除 bootstrap.ts 中的调用
 
@@ -169,13 +169,13 @@ export function registerFeaturedSyncCallback(cb: (ids: number[]) => void): void 
 export async function refreshFeaturedColumn(dbPool: Pool): Promise<{ marked: number; unmarked: number; changedIds: number[] }> {
   // 步骤 1：查询即将被标记为 featured 的 ID（当前 is_featured=0 但符合条件）
   const [toMarkRows] = await dbPool.query(
-    `SELECT n.id FROM crm_bid_notices n WHERE ${FEATURED_NOTICE_EXISTS} AND n.is_featured = 0`
+    `SELECT n.id FROM bid_notices n WHERE ${FEATURED_NOTICE_EXISTS} AND n.is_featured = 0`
   );
   const toMarkIds = (toMarkRows as RowDataPacket[]).map(r => Number(r.id));
 
   // 步骤 2：查询即将被取消 featured 的 ID（当前 is_featured=1 但不再符合条件）
   const [toUnmarkRows] = await dbPool.query(
-    `SELECT n.id FROM crm_bid_notices n WHERE n.is_featured = 1 AND NOT (${FEATURED_NOTICE_EXISTS})`
+    `SELECT n.id FROM bid_notices n WHERE n.is_featured = 1 AND NOT (${FEATURED_NOTICE_EXISTS})`
   );
   const toUnmarkIds = (toUnmarkRows as RowDataPacket[]).map(r => Number(r.id));
 
@@ -183,14 +183,14 @@ export async function refreshFeaturedColumn(dbPool: Pool): Promise<{ marked: num
   if (toMarkIds.length > 0) {
     const placeholders = toMarkIds.map(() => "?").join(",");
     await dbPool.query(
-      `UPDATE crm_bid_notices SET is_featured = 1 WHERE id IN (${placeholders})`,
+      `UPDATE bid_notices SET is_featured = 1 WHERE id IN (${placeholders})`,
       toMarkIds
     );
   }
   if (toUnmarkIds.length > 0) {
     const placeholders = toUnmarkIds.map(() => "?").join(",");
     await dbPool.query(
-      `UPDATE crm_bid_notices SET is_featured = 0 WHERE id IN (${placeholders})`,
+      `UPDATE bid_notices SET is_featured = 0 WHERE id IN (${placeholders})`,
       toUnmarkIds
     );
   }

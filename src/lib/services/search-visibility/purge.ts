@@ -35,7 +35,7 @@ export async function purgeNoticeSearch(pool: Pool, ids: number[]): Promise<numb
     const batch = clean.slice(i, i + PURGE_BATCH);
     const placeholders = batch.map(() => "?").join(",");
     const [res] = await pool.query(
-      `DELETE FROM crm_notice_search WHERE id IN (${placeholders})`,
+      `DELETE FROM notice_search WHERE id IN (${placeholders})`,
       batch,
     );
     deleted += Number((res as { affectedRows?: number }).affectedRows ?? 0);

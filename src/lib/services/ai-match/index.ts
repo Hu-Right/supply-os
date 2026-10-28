@@ -27,7 +27,7 @@ export interface MatchedSupplier extends AiScoreRaw {
   source: "self" | "pool";
   /** 基本信息（supplier 主表）是否完整 */
   baseComplete: boolean;
-  /** 诊断表（v2 crm_supplier_diagnosis）是否已填 */
+  /** 诊断表（v2 supplier_diagnosis）是否已填 */
   diagComplete: boolean;
 }
 
@@ -92,7 +92,7 @@ export async function getOrGenerateAiMatch(
   const creds = await resolveLlmCredentials(pool, userId);
 
   // self：绑定的企业主体（owner 画像：基本信息 + owner 诊断）
-  const [uRows] = await pool.query("SELECT supplier_id FROM crm_users WHERE id = ? LIMIT 1", [userId]);
+  const [uRows] = await pool.query("SELECT supplier_id FROM users WHERE id = ? LIMIT 1", [userId]);
   const selfSupplierId = Number((uRows as RowDataPacket[])[0]?.supplier_id || 0);
   const selfProfile = selfSupplierId ? await fetchSupplierProfile(pool, userId) : null;
 

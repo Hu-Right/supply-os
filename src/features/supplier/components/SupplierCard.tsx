@@ -35,7 +35,7 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
   const certs = supplier.certifications ?? supplier.complianceLabelsZh ?? [];
   const tags = supplier.capabilityTags ?? [];
   const completeness = supplier.dataCompleteness ?? 0;
-  // 行业：有标准码走权威树（supplier.industry_code → crm_industry_nodes），无码回落自填文本；
+  // 行业：有标准码走权威树（supplier.industry_code → industry_nodes），无码回落自填文本；
   // 两者占同一个位置，不把两个口径并排给用户看
   const industryName = pickLocale(locale, supplier.industryZh, supplier.industryEn);
   const industryPath = (locale === "zh" ? supplier.industryPathZh : supplier.industryPathEn) ?? [];

@@ -4,7 +4,7 @@
  * @module server/services/agency/resolve
  * @description 全项目唯一的「原始机构写法 → 展示用 canonical + i18n」口径，供下拉(query)
  *              与卡片(format)共用，消除两处各写一遍导致的展示漂移。优先级：
- *              ① crm_agency_aliases 命中 → canonical 恒取表、i18n 取表；表有 canonical 但无多语名 → i18n 用模式补；
+ *              ① agency_aliases 命中 → canonical 恒取表、i18n 取表；表有 canonical 但无多语名 → i18n 用模式补；
  *              ② 未命中 → translateByPattern（确定性规则）；③ 再无 → 原样、i18n 空。
  *              读表仍只经 alias-store 唯一入口；本文件不自建 SQL。
  */

@@ -38,11 +38,11 @@ function nodesByDepth(nodes: string[]): string[][] {
   return [fine, fam, seg].filter((t) => t.length > 0);
 }
 
-/** 步骤 1-4：返回按相似度排序的 peer 内部主键 notice_pk（=crm_bid_notices.id=服务表主键，最多 limit 个） */
+/** 步骤 1-4：返回按相似度排序的 peer 内部主键 notice_pk（=bid_notices.id=服务表主键，最多 limit 个） */
 export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit: number): Promise<number[]> {
   // 候选水合与打分侧都要外部编号，先换出来
   const [idRows] = await pool.query<RowDataPacket[]>(
-    "SELECT notice_id FROM crm_bid_notices n WHERE n.id = ? LIMIT 1",
+    "SELECT notice_id FROM bid_notices n WHERE n.id = ? LIMIT 1",
     [noticeDbId],
   );
   const currentNoticeId = idRows[0]?.notice_id as string | undefined;
@@ -50,7 +50,7 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
 
   // 当前公告的节点码：宽表派生列按主键点查（与筛选谓词同一列，不存在第二份口径）
   const [curWide] = await pool.query<RowDataPacket[]>(
-    `SELECT backbone_path p FROM crm_notice_search WHERE id = ? LIMIT 1`,
+    `SELECT backbone_path p FROM notice_search WHERE id = ? LIMIT 1`,
     [noticeDbId],
   );
   if (curWide.length === 0) {
@@ -80,7 +80,7 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
                 n.id AS wide_id,
                 MAX(n.deadline_ts) AS deadline_ts
          FROM ${NOTICE_NODES_TABLE} peer
-         JOIN crm_bid_notices n ON n.id = peer.notice_id AND ${ACTIVE_NOTICE_WHERE}
+         JOIN bid_notices n ON n.id = peer.notice_id AND ${ACTIVE_NOTICE_WHERE}
          WHERE peer.notice_id <> ? AND peer.node IN (${chunk.map(() => "?").join(",")})
          GROUP BY n.notice_id, n.id
          LIMIT ${CANDIDATE_LIMIT - peers.size}`,
@@ -101,7 +101,7 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
   const wideIds = [...peers.values()].map((p) => p.wideId).filter((x) => Number.isFinite(x) && x > 0);
   if (wideIds.length === 0) return [];
   const [pathRows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, backbone_path p FROM crm_notice_search WHERE id IN (${wideIds.map(() => "?").join(",")})`,
+    `SELECT id, backbone_path p FROM notice_search WHERE id IN (${wideIds.map(() => "?").join(",")})`,
     wideIds,
   );
   const wideToExt = new Map<number, string>();

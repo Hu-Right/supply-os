@@ -101,7 +101,7 @@ export async function toggleNoticeFavorite(params: {
   }
   await repo.insert(params.userId, params.noticeId);
   // 收藏写入兴趣节点画像（feedback_favorite +0.8，白名单既有来源）：
-  // 仅喂推荐画像，不写 crm_notice_interests（销售线索漏斗保持纯净）；
+  // 仅喂推荐画像，不写 notice_interests（销售线索漏斗保持纯净）；
   // 取消收藏不衰减，与其他来源口径一致；反复 toggle 由单码 500 软上限兜底。
   // 小表剥离后兴趣画像吃 UGT 归属节点（倒排行），不再读主表 旧品类快照列
   try {
@@ -143,7 +143,7 @@ export async function unlockNotice(params: {
   const pool = getPool();
 
   // 单价快照：一次性解锁卡已下架（旧 single_89 is_active=0），新目录无"一次性商品"形态，
-  // 因此解锁流水的 price 恒为 0（额度消耗已改记 crm_benefit_quotas，不再以单价计量）。
+  // 因此解锁流水的 price 恒为 0（额度消耗已改记 benefit_quotas，不再以单价计量）。
   const price = 0;
 
   return executeUnlock(

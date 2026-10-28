@@ -14,7 +14,7 @@
  *              对不上。现在按数据类型分流：
  *              - 品类大类 → hotGroupView 的 ?commodity=<L1 码>（与首页热门品目行同一份口径，
  *                检索侧落在 backbone_path 包含谓词，标称数 = 兑现数）；
- *              - 国家 → ?country=<canonical>（crm_country_aliases 表驱动 ISO2 谓词；
+ *              - 国家 → ?country=<canonical>（country_aliases 表驱动 ISO2 谓词；
  *                canonical 名白名单内自指 alias 行实测全命中，无码即空集的纪律不会误伤）；
  *              - 数据未返回的兜底国家 → 无 canonical 可筛，诚实保持 ?q= 关键词。
  *              URL 携带筛选值、展示走本地化名（两者分离）；点击不再回填搜索框，

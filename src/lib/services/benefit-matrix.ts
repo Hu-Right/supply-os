@@ -3,10 +3,10 @@
  *
  * @module lib/services/benefit-matrix
  * @description 权益门控的单一事实源已收口到 src/lib/repos/benefit-system.repo.ts
- *              （按 crm_plan_benefits 矩阵逐格判定，未订阅一律读 free 列基线）。
+ *              （按 plan_benefits 矩阵逐格判定，未订阅一律读 free 列基线）。
  *              本模块只保留两件事，且不再携带任何"档位数字（benefit_rank）"概念：
  *              1. ai_summary 权益码与"完整"层级常量——层级含义的权威定义在库内
- *                 crm_benefit_catalog.level_dict（1=部分脱敏 / 2=完整），此处只引用数字；
+ *                 benefit_catalog.level_dict（1=部分脱敏 / 2=完整），此处只引用数字；
  *              2. 免费档摘要脱敏纯函数 maskSummaryForFree（ai-summary 非流式与流式路由共用）。
  *              摘要/评分生成走用户 BYOK 大模型凭证（resolveLlmCredentials），平台无边际成本。
  */
@@ -32,7 +32,7 @@ const FREE_SUMMARY_PREVIEW: Partial<Record<SummaryDimension, number>> = {
 
 /**
  * 采购摘要的权益码与"完整"层级。
- * 层级含义的权威定义在库内 crm_benefit_catalog.level_dict
+ * 层级含义的权威定义在库内 benefit_catalog.level_dict
  * （1=部分脱敏 / 2=完整），此处只引用数字不重复写文字，避免文案两处存放。
  * 免费档取 L1：服务端脱敏（高价值维度整段置空），与 xlsx 逐字一致。
  */

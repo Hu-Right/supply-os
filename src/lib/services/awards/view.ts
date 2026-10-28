@@ -3,7 +3,7 @@
  *
  * @module lib/services/awards/view
  * @description /api/awards、/api/awards/stats、/api/awards/top 原先把 repo 行 /
- *              聚合结果整块 json 出去，响应键就是 crm_bid_awards 的列名与 SQL 别名。
+ *              聚合结果整块 json 出去，响应键就是 bid_awards 的列名与 SQL 别名。
  *              本模块把它们收成一个显式契约：键名 camelCase，值原样透传。
  *
  *              为什么这里的记录视图是**显式列字段**而不是整行机械改名：

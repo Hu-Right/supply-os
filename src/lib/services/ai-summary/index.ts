@@ -35,7 +35,7 @@ async function fetchNoticeForPrompt(pool: Pool, noticeId: number): Promise<RowDa
   const [rows] = await pool.query(
     `SELECT n.id, n.title, n.notice_type, n.agency, n.country, n.deadline,
             n.estimated_value, n.description, n.documents
-     FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`,
+     FROM bid_notices n WHERE n.id = ? LIMIT 1`,
     [noticeId],
   );
   return (rows as RowDataPacket[])[0] ?? null;
@@ -46,8 +46,8 @@ async function enrichFromOpportunity(pool: Pool, noticeId: number, notice: RowDa
   const [rows] = await pool.query(
     `SELECT o.eligibility, o.technical_hurdles, o.supplier_conditions,
             o.description_cn, o.agency_full, o.documents
-     FROM crm_bid_opportunities o
-     WHERE o.source_notice_id = (SELECT notice_id FROM crm_bid_notices WHERE id = ? LIMIT 1)
+     FROM bid_opportunities o
+     WHERE o.source_notice_id = (SELECT notice_id FROM bid_notices WHERE id = ? LIMIT 1)
        AND (o.is_qualified = 1 OR o.status = 1 OR o.audit_status = 1)
      LIMIT 1`,
     [noticeId],

@@ -1,5 +1,5 @@
 /**
- * 国家下拉数据源（一切以 crm_country_aliases 为准）
+ * 国家下拉数据源（一切以 country_aliases 为准）
  * Country dropdown data source — table-driven
  *
  * @module server/services/notice-search/countries
@@ -43,7 +43,7 @@ export async function refreshNoticeCountries(pool: Pool): Promise<Array<{ countr
   _snap = await loadCountryAliasSnapshot(pool);
   const snap = _snap;
   const [rows] = await pool.query(
-    `SELECT n.country, COUNT(*) AS cnt FROM crm_bid_notices n
+    `SELECT n.country, COUNT(*) AS cnt FROM bid_notices n
      WHERE ${ACTIVE_NOTICE_WHERE}
        AND n.country IS NOT NULL AND n.country <> ''
      GROUP BY n.country ORDER BY cnt DESC`

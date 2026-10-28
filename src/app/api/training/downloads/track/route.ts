@@ -26,10 +26,10 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, EC_INVALID_PARAMS, "缺少资料 ID");
   }
 
-  // 单一权威计数源：crm_learning_materials.downloads_count（前端 MaterialCard 展示口径）
+  // 单一权威计数源：learning_materials.downloads_count（前端 MaterialCard 展示口径）
   const ctx = getContext();
   await ctx.dbPool.execute(
-    "UPDATE crm_learning_materials SET downloads_count = downloads_count + 1 WHERE material_id = ?",
+    "UPDATE learning_materials SET downloads_count = downloads_count + 1 WHERE material_id = ?",
     [materialId],
   );
 

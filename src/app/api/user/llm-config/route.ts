@@ -63,7 +63,7 @@ export const PUT = withRoute(async (req) => {
     throw err;
   }
 
-  // 合规审计：出站授权同意留痕（crm_consent_log）；失败不阻断主流程
+  // 合规审计：出站授权同意留痕（consent_log）；失败不阻断主流程
   try {
     await getContext().user.authRepo.recordConsentLog({
       userId: auth.userId,

@@ -124,7 +124,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   //    a) 超时未支付订单每 60 分钟关闭一次（支付宝侧 timeout_express 30 分钟，DB 侧延后 2 小时兜底），
   //       避免 pending 订单永久滞留；PAYMENT_MAINTENANCE_ENABLED=off 关闭。
   //       订单已按业务拆分为三张物理表，需逐表清扫：
-  //         · crm_payment_orders（会员）：created_at 超 2 小时 → closed
+  //         · payment_orders（会员）：created_at 超 2 小时 → closed
   //         · learning_orders（学习）  ：created_at 超 2 小时 → closed（该表无独立过期列）
   //         · training_orders（培训）   ：expires_at 到期 → expired（与懒过期语义一致，保留迟到付款复活通道）
   //    b) 权益体系新账本到期扫描（启动后一次 + 每日）：新表组过期订阅整批置 expired 并冻结其额度池
@@ -134,9 +134,9 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     // 三张订单表的超时清理语句；逐表 try/catch，单表失败不影响其余表
     const STALE_ORDER_CLEANUPS: Array<{ table: string; label: string; sql: string }> = [
       {
-        table: "crm_payment_orders",
+        table: "payment_orders",
         label: "会员订单",
-        sql: `UPDATE crm_payment_orders SET status = 'closed'
+        sql: `UPDATE payment_orders SET status = 'closed'
               WHERE status = 'pending' AND created_at < NOW() - INTERVAL 2 HOUR`,
       },
       {
@@ -169,7 +169,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       if (total > 0) console.log(`[payment-maintenance] 本次累计清理 ${total} 笔超时未支付订单`);
     };
     // 权益体系新账本到期扫描：active 且 expires_at 已过的订阅整批改 expired 并冻结其额度池。
-    //    门控读路径本按 expires_at 实时判定，此任务使 crm_plan_subscriptions/crm_benefit_quotas
+    //    门控读路径本按 expires_at 实时判定，此任务使 plan_subscriptions/benefit_quotas
     //    的落库状态与账本口径对齐（升级承接、退款冻池依赖 expired/frozen 语义），勿删。
     //    （原 membership_tier 每日兜底降级任务已随该列退役删除，见 scripts/shadow-users-phase1.mjs）
     const expireOverdueBenefitSubs = async () => {
@@ -228,7 +228,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   //    「落点 ⊇ 列值」不变量由 BB15c/d 门禁连库断言兜底。
 
   // 9. 平台 RFQ 守护对账（RFQ_GUARD_ENABLED=off 关闭；RFQ_GUARD_INTERVAL_MINUTES 控制间隔，默认 30 分钟）。
-  //    哨兵：定时比对 crm_rfq_guard（supply-os 独占登记表）与 crm_bid_notices 主行，
+  //    哨兵：定时比对 rfq_guard（supply-os 独占登记表）与 bid_notices 主行，
   //    检出“登记在册但主行已被改写为非 platform/RFQ、或消失”——即后台 syncRunner
   //    平台行护栏被移除后的静默跨系统契约回归。仅告警不自愈（回写需人工确认）。
   let rfqGuardTimer: NodeJS.Timeout | null = null;

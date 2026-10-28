@@ -2,9 +2,9 @@
  * AI 匹配粗筛数据加载器（骨架节点码口径）
  * @module lib/services/ai-match/match-nodes
  * @description 两条只读查询为 pre-filter 准备层级匹配数据，两侧都归一到骨架节点码 `UGT-*`：
- *              公告侧 = 宽表 `crm_notice_search.backbone_path` 按主键点查（挂靠结果已在同步链路
+ *              公告侧 = 宽表 `notice_search.backbone_path` 按主键点查（挂靠结果已在同步链路
  *              算好，运行期不再碰桥表）；
- *              供应商侧 = `crm_supplier_backbone_interests.code`（R4' 上线日迁移后已是 UGT-* 节点码）
+ *              供应商侧 = `supplier_backbone_interests.code`（R4' 上线日迁移后已是 UGT-* 节点码）
  *              交骨架索引换算成节点码集合。
  *
  *              2026-10-11 换口径（为什么不能用桥表旧键）：公告侧原本读桥表 `level1_id..level5_id`
@@ -39,7 +39,7 @@ async function loadInterestCodes(pool: Pool, supplierIds: number[]): Promise<Map
   const placeholders = supplierIds.map(() => "?").join(",");
   const [rows] = await pool.query(
     `SELECT supplier_id, code
-     FROM crm_supplier_backbone_interests
+     FROM supplier_backbone_interests
      WHERE supplier_id IN (${placeholders}) AND code <> ''`,
     supplierIds,
   );
@@ -71,7 +71,7 @@ export async function loadMatchNodeData(
   try {
     // 公告侧：宽表主键点查，列值拆只走 fromBackbonePathColumn（脏 token 进不了集合）
     const [noticeRows] = await pool.query(
-      `SELECT backbone_path AS p FROM crm_notice_search WHERE id = ? LIMIT 1`,
+      `SELECT backbone_path AS p FROM notice_search WHERE id = ? LIMIT 1`,
       [noticeId],
     );
     const noticeNodes = new Set(fromBackbonePathColumn((noticeRows as RowDataPacket[])[0]?.p));

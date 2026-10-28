@@ -68,7 +68,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // ── 账号侧换绑闸口（分状态）──
   // 下面的 ownership 只回答「这家主体归谁」，不回答「这个账号已经绑了谁」：
   // 已绑定 A 的账号去认领无人认领的 B 会一路放行，createClaimWithBinding 随即把
-  // crm_users.supplier_id 覆盖成 B——审核中的 A 被抛下、已认证的 A 被顶掉，且无入口换回。
+  // users.supplier_id 覆盖成 B——审核中的 A 被抛下、已认证的 A 被顶掉，且无入口换回。
   // 现在：A 未拿下认证 → 先显式撤回 A（解绑 + 作废旧 pending 认领）再认领 B；
   // A 已认证 → 400。目标恰为当前绑定行时放行，由下面的 selfBound 分支给「无需重复认领」文案。
   const binding = await readCurrentBinding(ctx, auth.userId);

@@ -3,7 +3,7 @@
  * @module features/procurement/components/NoticeDetail/utils
  *
  * 各 Tab 的角标不再是硬编码档位：每个模块声明其门控来源（某权益编码，或"需解锁本条公告"），
- * 真实可见性/解锁由服务端按 crm_plan_benefits 矩阵逐格判定并随 /api/membership/status 下发
+ * 真实可见性/解锁由服务端按 plan_benefits 矩阵逐格判定并随 /api/membership/status 下发
  * （见 lib/repos/benefit-system.repo#resolveGates），前端仅据下发的 gates 派生展示状态。
  */
 import type { GateState } from "@/types";
@@ -28,7 +28,7 @@ export const DETAIL_TABS: DetailTab[] = [
   { key: "files", labelKey: "detail_tabOriginalFiles", gate: { kind: "unlock" } },
   { key: "ai-score", labelKey: "detail_tabAiScore", gate: { kind: "benefit", benefitCode: "ai_match" } },
   // "history"（同类品类历史中标）已随旧品类码小表剥离整链下线（2026-10-14）：
-  // crm_bid_awards 的旧码列全表 0 行非空，该 Tab 自上线起恒为空态，属零数据空转
+  // bid_awards 的旧码列全表 0 行非空，该 Tab 自上线起恒为空态，属零数据空转
   { key: "similar", labelKey: "detail_tabSimilar", gate: { kind: "benefit", benefitCode: "similar_opportunity" } },
 ];
 

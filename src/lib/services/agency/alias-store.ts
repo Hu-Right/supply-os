@@ -3,7 +3,7 @@
  * Agency Alias Store (single source of truth)
  *
  * @module server/services/agency/alias-store
- * @description 全项目唯一读取 crm_agency_aliases 的入口：一份 10 分钟缓存、
+ * @description 全项目唯一读取 agency_aliases 的入口：一份 10 分钟缓存、
  *              一份归一函数 normalizeAliasKey、一份降级策略（限频 warn + JSON 容错）。
  *              消费方：wide-row-builder.loadAliasMap（取 canonical）、
  *                      notice-search/agencies/query（取 canonical + i18n）。
@@ -42,7 +42,7 @@ export async function loadAgencyAliasSnapshot(pool: Pool): Promise<AgencyAliasSn
 
   const byAlias = new Map<string, AgencyAliasEntry>();
   try {
-    const [rows] = await pool.query("SELECT canonical, alias, name_i18n FROM crm_agency_aliases");
+    const [rows] = await pool.query("SELECT canonical, alias, name_i18n FROM agency_aliases");
     for (const row of rows as RowDataPacket[]) {
       const canonical = String(row.canonical || "").trim();
       if (!canonical) continue; // 空 canonical 无意义，跳过（避免把机构归到空名）
@@ -62,7 +62,7 @@ export async function loadAgencyAliasSnapshot(pool: Pool): Promise<AgencyAliasSn
   } catch (err) {
     throttledWarn(
       "query",
-      `[agency-alias] crm_agency_aliases 查询失败（降级：${_cache ? "沿用旧缓存" : "返回空快照"}，将在下次调用重试）: ${(err as Error).message}`,
+      `[agency-alias] agency_aliases 查询失败（降级：${_cache ? "沿用旧缓存" : "返回空快照"}，将在下次调用重试）: ${(err as Error).message}`,
     );
     if (_cache) return _cache;
     return { byAlias };

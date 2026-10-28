@@ -12,7 +12,7 @@ interface DetailHeaderProps {
   visibleAgency: string;
   country: string;
   sourceUrl?: string;
-  /** 来源平台归一信息（/detail 服务端从 crm_platform_aliases 回填） */
+  /** 来源平台归一信息（/detail 服务端从 platform_aliases 回填） */
   platform?: { canonical: string; code: string | null; zh: string } | null;
   publishDate: string;
   deadlineText: string;

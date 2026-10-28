@@ -4,8 +4,8 @@
  *
  * @module repos/auth.repo
  * @description #6（2026-08-20）：原散落在 routes/auth/* 路由内的裸 SQL 统一下沉至此。
- *              - crm_password_resets：注册/找回/手机绑定验证码的创建、查询、核销、重试计数
- *              - crm_refresh_tokens：Refresh Token 的入库、按哈希查询/撤销、过期清理
+ *              - password_resets：注册/找回/手机绑定验证码的创建、查询、核销、重试计数
+ *              - refresh_tokens：Refresh Token 的入库、按哈希查询/撤销、过期清理
  *              SQL 文本与原路由实现逐字等价（行为等价迁移，零逻辑变更）。
  */
 import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
@@ -21,13 +21,13 @@ export interface AuthCodeRow {
 export class AuthRepo {
   constructor(private pool: Pool) {}
 
-  // ── crm_password_resets：验证码生命周期 ────────────────────────────────────
+  // ── password_resets：验证码生命周期 ────────────────────────────────────
 
   /** 失效某用户某类型下所有未使用的验证码（M-3：发新码前作废旧码）
    *  仅登录态场景使用（发码时已知 user_id）；注册场景以 phone 为锚点，不走此路径。 */
   async invalidateUnusedCodes(userId: number, codeType: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_password_resets SET used = 1 WHERE user_id = ? AND code_type = ? AND used = 0",
+      "UPDATE password_resets SET used = 1 WHERE user_id = ? AND code_type = ? AND used = 0",
       [userId, codeType],
     );
   }
@@ -42,7 +42,7 @@ export class AuthRepo {
     phone?: string;
   }): Promise<number> {
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_password_resets (user_id, phone, code, code_type, expires_at, ip)
+      `INSERT INTO password_resets (user_id, phone, code, code_type, expires_at, ip)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [params.userId ?? null, params.phone ?? null, params.codeHash, params.codeType, params.expiresAt, params.ip],
     );
@@ -56,7 +56,7 @@ export class AuthRepo {
     phone?: string,
   ): Promise<AuthCodeRow | null> {
     const sql = `SELECT id, code, expires_at, attempts
-       FROM crm_password_resets
+       FROM password_resets
        WHERE user_id = ? AND ${phone ? "phone = ? AND " : ""}code_type = ? AND used = 0 AND expires_at > NOW()
        ORDER BY created_at DESC LIMIT 1`;
     const args = phone ? [userId, phone, codeType] : [userId, codeType];
@@ -75,7 +75,7 @@ export class AuthRepo {
   ): Promise<AuthCodeRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, code, expires_at, attempts
-         FROM crm_password_resets
+         FROM password_resets
          WHERE phone = ? AND code_type = ? AND used = 0 AND expires_at > NOW()
          ORDER BY created_at DESC LIMIT 1`,
       [phone, codeType],
@@ -89,7 +89,7 @@ export class AuthRepo {
    */
   async backfillCodeUserId(resetId: number, userId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_password_resets SET user_id = ? WHERE id = ?",
+      "UPDATE password_resets SET user_id = ? WHERE id = ?",
       [userId, resetId],
     );
   }
@@ -97,7 +97,7 @@ export class AuthRepo {
   /** 查询验证码记录绑定的手机号（短信重置渠道的身份一致性校验用） */
   async findCodePhone(resetId: number): Promise<string | null> {
     const [rows] = await this.pool.query(
-      "SELECT phone FROM crm_password_resets WHERE id = ? AND phone IS NOT NULL LIMIT 1",
+      "SELECT phone FROM password_resets WHERE id = ? AND phone IS NOT NULL LIMIT 1",
       [resetId],
     );
     return ((rows as RowDataPacket[])[0]?.phone as string) ?? null;
@@ -106,23 +106,23 @@ export class AuthRepo {
   /** 验证失败时累加尝试次数（达到上限后由路由层拒绝） */
   async incrementCodeAttempts(resetId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?",
+      "UPDATE password_resets SET attempts = attempts + 1 WHERE id = ?",
       [resetId],
     );
   }
 
   /** 核销验证码（验证通过后标记已使用） */
   async markCodeUsed(resetId: number): Promise<void> {
-    await this.pool.execute("UPDATE crm_password_resets SET used = 1 WHERE id = ?", [resetId]);
+    await this.pool.execute("UPDATE password_resets SET used = 1 WHERE id = ?", [resetId]);
   }
 
   /** 记录邮件发送结果（成功置 1；失败置 0 并记录错误信息） */
   async markEmailSent(resetId: number, sent: boolean, errorMsg?: string): Promise<void> {
     if (sent) {
-      await this.pool.execute("UPDATE crm_password_resets SET email_sent = 1 WHERE id = ?", [resetId]);
+      await this.pool.execute("UPDATE password_resets SET email_sent = 1 WHERE id = ?", [resetId]);
     } else {
       await this.pool.execute(
-        "UPDATE crm_password_resets SET email_sent = 0, email_error = ? WHERE id = ?",
+        "UPDATE password_resets SET email_sent = 0, email_error = ? WHERE id = ?",
         [errorMsg ?? "", resetId],
       );
     }
@@ -131,21 +131,21 @@ export class AuthRepo {
   /** 记录短信发送结果（成功置 1；失败置 0 并记录错误信息） */
   async markSmsSent(resetId: number, sent: boolean, errorMsg?: string): Promise<void> {
     if (sent) {
-      await this.pool.execute("UPDATE crm_password_resets SET sms_sent = 1 WHERE id = ?", [resetId]);
+      await this.pool.execute("UPDATE password_resets SET sms_sent = 1 WHERE id = ?", [resetId]);
     } else {
       await this.pool.execute(
-        "UPDATE crm_password_resets SET sms_sent = 0, sms_error = ? WHERE id = ?",
+        "UPDATE password_resets SET sms_sent = 0, sms_error = ? WHERE id = ?",
         [errorMsg ?? "", resetId],
       );
     }
   }
 
-  // ── crm_refresh_tokens：Refresh Token 生命周期 ─────────────────────────────
+  // ── refresh_tokens：Refresh Token 生命周期 ─────────────────────────────
 
   /** 入库新签发的 Refresh Token 哈希（纯 user_id 路径；user_key 退役列已于迁移 095 DROP） */
   async insertRefreshToken(userId: number, tokenHash: string, expiresAt: Date): Promise<void> {
     await this.pool.execute(
-      "INSERT INTO crm_refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+      "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
       [userId, tokenHash, expiresAt],
     );
   }
@@ -153,7 +153,7 @@ export class AuthRepo {
   /** 按哈希查询有效（未过期）Refresh Token 归属（仅返回 id + user_id） */
   async findRefreshTokenByHash(tokenHash: string): Promise<{ id: number; user_id: number | null } | null> {
     const [rows] = await this.pool.query(
-      "SELECT id, user_id FROM crm_refresh_tokens WHERE token_hash = ? AND expires_at > NOW() LIMIT 1",
+      "SELECT id, user_id FROM refresh_tokens WHERE token_hash = ? AND expires_at > NOW() LIMIT 1",
       [tokenHash],
     );
     return ((rows as RowDataPacket[])[0] as { id: number; user_id: number | null }) ?? null;
@@ -162,7 +162,7 @@ export class AuthRepo {
   /** 按哈希撤销单个 Refresh Token（轮换/登出）；返回受影响行数供原子轮换判定 */
   async deleteRefreshTokenByHash(tokenHash: string): Promise<number> {
     const [result] = await this.pool.execute(
-      "DELETE FROM crm_refresh_tokens WHERE token_hash = ?",
+      "DELETE FROM refresh_tokens WHERE token_hash = ?",
       [tokenHash],
     );
     return Number((result as { affectedRows?: number }).affectedRows ?? 0);
@@ -170,23 +170,23 @@ export class AuthRepo {
 
   /** 撤销某用户全部 Refresh Token（H-1：密码重置后强制重新登录）——纯 user_id */
   async deleteRefreshTokensByUser(userId: number): Promise<void> {
-    await this.pool.execute("DELETE FROM crm_refresh_tokens WHERE user_id = ?", [userId]);
+    await this.pool.execute("DELETE FROM refresh_tokens WHERE user_id = ?", [userId]);
   }
 
   /** 清理全部过期 Refresh Token（由 auth.routes 定时器周期调用） */
   async deleteExpiredRefreshTokens(): Promise<void> {
-    await this.pool.execute("DELETE FROM crm_refresh_tokens WHERE expires_at < NOW()");
+    await this.pool.execute("DELETE FROM refresh_tokens WHERE expires_at < NOW()");
   }
 
 
-  // ── crm_consent_log：协议同意审计日志（P0 合规） ─────────────────────────────
+  // ── consent_log：协议同意审计日志（P0 合规） ─────────────────────────────
 
   /**
    * 记录用户协议同意日志（纯 user_id 路径）。
    *
    * 结构事实源：`src/lib/db/migrations/099-consent-log-birth-structure.ts`（全新环境出生结构）
    *   + `scripts/consent-log-shadow-phase1/2`（已部署库的影子表蓝绿切换），表级/列级注释见
-   *   `docs/数据库设计/crm_consent_log-协议同意审计表.md`。
+   *   `docs/数据库设计/consent_log-协议同意审计表.md`。
    *
    * 已退役列（不得再出现在本 INSERT 中，否则切换后报 Unknown column）：
    *   - `user_key`：身份锚点已于迁移 068 统一到 user_id，实库 155 行全部为 NULL；
@@ -210,7 +210,7 @@ export class AuthRepo {
     userAgent: string;
   }): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO crm_consent_log
+      `INSERT INTO consent_log
         (user_id, consent_type, document_version, action, ip_address, user_agent)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [

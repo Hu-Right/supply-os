@@ -21,7 +21,7 @@ export async function referenceFastPath(pool: Pool, q: string): Promise<number |
     const wideReady = await isWideTableReady(pool);
     if (!wideReady) return null;
     const [rows] = await pool.query(
-      `SELECT id FROM crm_notice_search
+      `SELECT id FROM notice_search
        WHERE reference = ?
          AND (deadline_sec = 0 OR deadline_sec >= UNIX_TIMESTAMP(NOW()))
        LIMIT 1`,

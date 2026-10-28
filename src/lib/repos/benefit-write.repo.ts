@@ -4,7 +4,7 @@
  *
  * @module repos/benefit-write.repo
  * @description 只写迁移 092 建的 2 张事实/账本表：
- *              crm_plan_subscriptions / crm_benefit_quotas。
+ *              plan_subscriptions / benefit_quotas。
  *              目录侧（套餐、权益、矩阵）一律经 BenefitSystemRepo 读，不在本模块复制口径。
  *
  *              纪律（勿加回来）：
@@ -83,7 +83,7 @@ export class BenefitWriteRepo {
     const [rows] = await conn.query<RowDataPacket[]>(
       `SELECT id, owner_user_id, plan_code, source_order_no, currency, status, started_at, expires_at, replaced_by_id,
               (status = 'active' AND (expires_at IS NULL OR expires_at > NOW())) AS is_current
-         FROM crm_plan_subscriptions WHERE id = ? FOR UPDATE`, [id],
+         FROM plan_subscriptions WHERE id = ? FOR UPDATE`, [id],
     );
     return (rows[0] as LockedSubscriptionRow | undefined) ?? null;
   }
@@ -137,7 +137,7 @@ export class BenefitWriteRepo {
       throw new Error("insertSubscription 拒绝：plan_code 为空，订阅必须指向在售套餐");
     }
     const [res] = await db.execute<ResultSetHeader>(
-      `INSERT INTO crm_plan_subscriptions
+      `INSERT INTO plan_subscriptions
         (owner_user_id, plan_code, source_order_no, price_paid, currency, status, started_at, expires_at)
        VALUES (?, ?, ?, ?, ?, 'active', COALESCE(?, NOW()), ?)`,
       [p.ownerUserId, p.planCode, orderNo, p.pricePaid, p.currency ?? "CNY", p.startedAt ?? null, p.expiresAt],
@@ -154,7 +154,7 @@ export class BenefitWriteRepo {
     params: { oldSubscriptionId: number; newSubscriptionId: number },
   ): Promise<void> {
     await db.execute(
-      `UPDATE crm_plan_subscriptions
+      `UPDATE plan_subscriptions
           SET replaced_by_id = ?, status = 'cancelled', updated_at = NOW()
         WHERE id = ?`,
       [params.newSubscriptionId, params.oldSubscriptionId],
@@ -169,7 +169,7 @@ export class BenefitWriteRepo {
    */
   async findSubscriptionIdBySourceOrder(db: Db, sourceOrderNo: string): Promise<number | null> {
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT id FROM crm_plan_subscriptions WHERE source_order_no = ? ORDER BY id FOR UPDATE`,
+      `SELECT id FROM plan_subscriptions WHERE source_order_no = ? ORDER BY id FOR UPDATE`,
       [sourceOrderNo],
     );
     if (rows.length > 1) throw new Error("DUPLICATE_ORDER_SUBSCRIPTION");
@@ -185,13 +185,13 @@ export class BenefitWriteRepo {
   async refundSubscription(db: Db, subscriptionId: number): Promise<{ frozenPools: number }> {
     return this.inTx(db, async (conn) => {
       const [res] = await conn.execute<ResultSetHeader>(
-        `UPDATE crm_benefit_quotas SET status = 'frozen', updated_at = NOW()
+        `UPDATE benefit_quotas SET status = 'frozen', updated_at = NOW()
           WHERE subscription_id = ? AND status IN ('active', 'exhausted')`,
         [subscriptionId],
       );
       // 先冻池再改状态：万一下一步失败，至少不会退完款还能接着消耗
       await conn.execute(
-        `UPDATE crm_plan_subscriptions SET status = 'refunded', updated_at = NOW() WHERE id = ?`,
+        `UPDATE plan_subscriptions SET status = 'refunded', updated_at = NOW() WHERE id = ?`,
         [subscriptionId],
       );
       return { frozenPools: res.affectedRows };
@@ -207,7 +207,7 @@ export class BenefitWriteRepo {
   async expireOverdueSubscriptions(db: Db): Promise<number[]> {
     return this.inTx(db, async (conn) => {
       const [rows] = await conn.query<RowDataPacket[]>(
-        `SELECT id FROM crm_plan_subscriptions
+        `SELECT id FROM plan_subscriptions
           WHERE status = 'active' AND expires_at IS NOT NULL AND expires_at <= NOW()
                     ORDER BY id FOR UPDATE`,
       );
@@ -216,12 +216,12 @@ export class BenefitWriteRepo {
 
       const ph = ids.map(() => "?").join(",");
       await conn.execute(
-        `UPDATE crm_benefit_quotas SET status = 'frozen', updated_at = NOW()
+        `UPDATE benefit_quotas SET status = 'frozen', updated_at = NOW()
           WHERE subscription_id IN (${ph}) AND status IN ('active', 'exhausted')`,
         ids,
       );
       await conn.execute(
-        `UPDATE crm_plan_subscriptions SET status = 'expired', updated_at = NOW() WHERE id IN (${ph})`,
+        `UPDATE plan_subscriptions SET status = 'expired', updated_at = NOW() WHERE id IN (${ph})`,
         ids,
       );
       return ids;
@@ -258,10 +258,10 @@ export class BenefitWriteRepo {
     },
   ): Promise<void> {
     await db.execute(
-      `INSERT INTO crm_benefit_quotas
+      `INSERT INTO benefit_quotas
         (subscription_id, user_id, benefit_code, quota_total, quota_used, period_starts_at, status)
        VALUES (?, ?, ?, ?, 0,
-               COALESCE(?, IFNULL((SELECT s.started_at FROM crm_plan_subscriptions s WHERE s.id = ?),
+               COALESCE(?, IFNULL((SELECT s.started_at FROM plan_subscriptions s WHERE s.id = ?),
                                   '1970-01-01 00:00:00')),
                'active')
        ON DUPLICATE KEY UPDATE
@@ -332,7 +332,7 @@ export class BenefitWriteRepo {
   ): Promise<LockedPoolRow | null> {
     const [rows] = await conn.query<RowDataPacket[]>(
       `SELECT id, subscription_id, user_id, benefit_code, quota_total, quota_used, status
-         FROM crm_benefit_quotas
+         FROM benefit_quotas
         WHERE subscription_pool_key = ? AND user_id = ? AND benefit_code = ?
           AND period_starts_at <= NOW()
         ORDER BY period_starts_at DESC, id DESC
@@ -366,7 +366,7 @@ export class BenefitWriteRepo {
     // （与标准 SQL 的"同时赋值"不同）。故此处判耗尽用 quota_used（已是 +1 后的值），
     // 若写成 quota_used + 1 会提前一格把池标成 exhausted。
     const [res] = await db.execute<ResultSetHeader>(
-      `UPDATE crm_benefit_quotas
+      `UPDATE benefit_quotas
           SET quota_used = quota_used + 1,
               status = IF(quota_used >= quota_total, 'exhausted', status),
               updated_at = NOW()
@@ -382,7 +382,7 @@ export class BenefitWriteRepo {
    */
   async freezePoolsOfSubscription(db: Db, subscriptionId: number): Promise<number> {
     const [res] = await db.execute<ResultSetHeader>(
-      `UPDATE crm_benefit_quotas SET status = 'frozen', updated_at = NOW()
+      `UPDATE benefit_quotas SET status = 'frozen', updated_at = NOW()
         WHERE subscription_id = ? AND status IN ('active', 'exhausted')`,
       [subscriptionId],
     );

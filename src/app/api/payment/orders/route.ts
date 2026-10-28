@@ -74,7 +74,7 @@ export const POST = withRoute(
           clientIp: clientIp,
         });
       } else if (planCode.startsWith("svc_")) {
-        // 增值服务一次性下单：读 crm_service_catalog 定价、写 crm_service_orders（不动会员核心）
+        // 增值服务一次性下单：读 service_catalog 定价、写 service_orders（不动会员核心）
         result = await ctx.payment.servicePaymentService.createOrder({
           userId: auth.userId,
           serviceCode: planCode,

@@ -15,7 +15,7 @@ import { SUPPORTED_LANGS } from "../../utils/languages";
 // NULL deadline 的哨兵值：0（纪元起点）
 const NULL_DEADLINE_SENTINEL = 0;
 
-// ── 机构别名归一：Meili 从宽表读已归好的 agency_std/agency_group，无需本地别名缓存。
+// ── 机构别名归一：Meili 从宽表读已归好的 buyer_name/buyer_group，无需本地别名缓存。
 //（旧 _getAliasMap 死代码已删；读表归一唯一入口见 wide-row-builder.loadAliasMap → agency/alias-store）──
 
 // ── 支持的语言列表：唯一来源 utils/languages ──
@@ -54,13 +54,13 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     // 与推荐链路/宽表构建同一函数同一口径，防止历史存量 std 漂移入索引）。
     // 只落 notice_type_normalized 一个属性：2026-10-15 审计确认原 notice_type 属性是
     // 同一归一化值的第二份拷贝（settings/检索口径只认 normalized），双写即每文档一个死字段。
-    country: String(r.country_std || ""),
+    country: String(r.country_name || ""),
     // 多国可筛 facet：宽表 country_codes 为拆分后的 ISO2 集（逗号分隔），展成数组后
     // Meili 对数组属性支持 `country_codes = "NG"` 等值命中任一无关项（各国都算命中）。
     country_codes: String(r.country_codes || "").split(",").map((s) => s.trim()).filter(Boolean),
-    agency: String(r.agency_std || ""),
-    agency_group: String(r.agency_group || ""),
-    notice_type_normalized: normalizeNoticeType(r.notice_type_std),
+    agency: String(r.buyer_name || ""),
+    agency_group: String(r.buyer_group || ""),
+    notice_type_normalized: normalizeNoticeType(r.notice_type_code),
     deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
     has_deadline: r.deadline_sec ? 1 : 0, // 排序辅助：NULL 截止日期排到最后（has_deadline:desc 优先）
     is_featured: r.is_featured ? 1 : 0,
@@ -82,13 +82,13 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 const WIDE_TABLE_SYNC_SQL = `
   SELECT id, notice_id, reference, title, description,
-         country_std, country_codes, agency_std, agency_group, notice_type_std,
+         country_name, country_codes, buyer_name, buyer_group, notice_type_code,
          deadline_sec, is_featured, estimated_value, documents_count,
          backbone_path,
          title_zh, description_zh, title_en, description_en,
          title_fr, description_fr, title_ru, description_ru,
          title_es, description_es, title_ar, description_ar
-  FROM crm_notice_search
+  FROM notice_search
 `;
 
 /**
@@ -303,7 +303,7 @@ export async function incrementalSync(
           const batch = updatedIds.slice(i, i + BATCH);
           const ph = batch.map(() => "?").join(",");
           const [statusRows] = await pool.query(
-            `SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec FROM crm_bid_notices WHERE id IN (${ph})`,
+            `SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec FROM bid_notices WHERE id IN (${ph})`,
             batch,
           );
           for (const row of statusRows as RowDataPacket[]) {
@@ -354,7 +354,7 @@ export async function incrementalSync(
  * 按 ID 重新同步指定公告到 Meilisearch（从宽表）
  * 内部分批处理，支持大批量 ID（如 is_active 刷新产生的数万条变更）
  *
- * 修复：is_active/is_featured 从 crm_bid_notices 主表读取（权威数据源），
+ * 修复：is_active/is_featured 从 bid_notices 主表读取（权威数据源），
  *       不依赖宽表（宽表更新可能失败或被增量同步覆盖，导致 Meilisearch 状态不一致）
  *
  * 索引残留清理：宽表缺行的公告，按三档口径决定是否删除索引文档：
@@ -395,7 +395,7 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
         pool.query(
           `SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec,
                   entry_source, IFNULL(rfq_status, '') AS rfq_status
-           FROM crm_bid_notices WHERE id IN (${placeholders})`,
+           FROM bid_notices WHERE id IN (${placeholders})`,
           batch,
         ),
       ]);
@@ -452,7 +452,7 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
 /** 获取 MySQL 中公告总数 */
 export async function getMysqlActiveCount(pool: Pool): Promise<number> {
   try {
-    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM crm_bid_notices");
+    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM bid_notices");
     return Number((rows as RowDataPacket[])[0]?.cnt || 0);
   } catch {
     return 0;
@@ -462,7 +462,7 @@ export async function getMysqlActiveCount(pool: Pool): Promise<number> {
 /** 获取宽表行数（索引同步的事实源） */
 export async function getWideTableCount(pool: Pool): Promise<number> {
   try {
-    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM crm_notice_search");
+    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM notice_search");
     return Number((rows as RowDataPacket[])[0]?.cnt || 0);
   } catch {
     return 0;

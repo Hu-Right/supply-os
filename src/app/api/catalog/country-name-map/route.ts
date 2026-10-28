@@ -1,6 +1,6 @@
 /**
  * GET /api/catalog/country-name-map — 国家名展示映射（公开，24h 缓存）
- * 数据源＝ crm_country_aliases（国家归一单一事实源）；不再用静态字典。
+ * 数据源＝ country_aliases（国家归一单一事实源）；不再用静态字典。
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";

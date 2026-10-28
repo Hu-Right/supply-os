@@ -1,5 +1,5 @@
 /**
- * 行业码制工具 — crm_industry_nodes 码形的单一事实源（纯函数，无依赖）
+ * 行业码制工具 — industry_nodes 码形的单一事实源（纯函数，无依赖）
  * Industry Code Helpers (SSOT)
  *
  * 码前缀 `UGT` = **Unified Global Taxonomy（统一全球分类码）**——融合国际与国家标准、
@@ -30,7 +30,7 @@
  */
 export const INDUSTRY_CODE_PREFIX = "UGT-I-";
 
-/** 树上层级（与 crm_industry_nodes.level 词表一致） */
+/** 树上层级（与 industry_nodes.level 词表一致） */
 export type IndustryLevel = "section" | "division" | "group" | "subclass" | "extension";
 
 /** 层级 → 码内数字位数（UGT-I- 之后的位数） */

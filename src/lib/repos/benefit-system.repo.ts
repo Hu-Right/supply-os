@@ -4,8 +4,8 @@
  *
  * @module repos/benefit-system.repo
  * @description 数据源**只有**迁移 092 建的 7 张权益体系表：
- *              crm_benefit_catalog / crm_plan_catalog / crm_plan_benefits
- *              crm_plan_subscriptions / crm_benefit_quotas。
+ *              benefit_catalog / plan_catalog / plan_benefits
+ *              plan_subscriptions / benefit_quotas。
  *
  *              纪律（勿加回来）：
  *              - 不读写旧三表（crm_membership_plans / crm_user_subscriptions /
@@ -109,7 +109,7 @@ export class BenefitSystemRepo {
       `SELECT plan_code, name_en, name_zh, positioning_zh, price, price_mode, price_incl_tax, currency,
               billing_period_days, commercial_tier, cta_i18n_key, badge, sort_order, is_active,
               upgrade_credit_days
-         FROM crm_plan_catalog WHERE is_active = 1 ORDER BY sort_order`,
+         FROM plan_catalog WHERE is_active = 1 ORDER BY sort_order`,
     );
     return (rows as PlanCatalogRow[]).map((r) => ({ ...r, audience: deriveAudience(r.commercial_tier) }));
   }
@@ -119,7 +119,7 @@ export class BenefitSystemRepo {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT service_code, category, name_zh, name_en, price_mode, standard_price, price_from,
               currency, sale_mode, member_discount, credit_to_annual_plan, deliverable_note_zh, sort_order
-         FROM crm_service_catalog
+         FROM service_catalog
         WHERE is_active = 1
         ORDER BY category, sort_order`,
     );
@@ -135,7 +135,7 @@ export class BenefitSystemRepo {
       `SELECT plan_code, name_en, name_zh, positioning_zh, price, price_mode, price_incl_tax, currency,
               billing_period_days, commercial_tier, cta_i18n_key, badge, sort_order, is_active,
               upgrade_credit_days
-         FROM crm_plan_catalog WHERE plan_code = ? LIMIT 1`,
+         FROM plan_catalog WHERE plan_code = ? LIMIT 1`,
       [planCode],
     );
     const row = (rows as PlanCatalogRow[])[0] ?? null;
@@ -148,7 +148,7 @@ export class BenefitSystemRepo {
   async listBenefits(): Promise<BenefitDefRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT benefit_code, name_zh, value_kind, level_dict, sort_order
-         FROM crm_benefit_catalog
+         FROM benefit_catalog
         WHERE benefit_code NOT IN (${INTERNAL_MATRIX_BENEFITS.map(() => "?").join(",")})
         ORDER BY sort_order, benefit_code`,
       [...INTERNAL_MATRIX_BENEFITS],
@@ -169,7 +169,7 @@ export class BenefitSystemRepo {
     }
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT plan_code, benefit_code, value_level, value_num, value_amount, note_zh
-         FROM crm_plan_benefits ${where} ORDER BY plan_code, benefit_code`,
+         FROM plan_benefits ${where} ORDER BY plan_code, benefit_code`,
       params,
     );
     return rows as MatrixCellRow[];
@@ -217,8 +217,8 @@ export class BenefitSystemRepo {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT s.id AS subscription_id, s.owner_user_id, s.plan_code, s.expires_at,
               p.sort_order, s.started_at, s.source_order_no, s.price_paid, s.currency
-         FROM crm_plan_subscriptions s
-         JOIN crm_plan_catalog p ON p.plan_code = s.plan_code
+         FROM plan_subscriptions s
+         JOIN plan_catalog p ON p.plan_code = s.plan_code
         WHERE s.owner_user_id = ? AND s.status = 'active'
           AND (s.expires_at IS NULL OR s.expires_at > NOW())
         ORDER BY p.sort_order DESC, s.id DESC
@@ -239,7 +239,7 @@ export class BenefitSystemRepo {
   async getBenefit(benefitCode: string): Promise<BenefitDefRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT benefit_code, name_zh, value_kind, level_dict, sort_order
-         FROM crm_benefit_catalog WHERE benefit_code = ?`,
+         FROM benefit_catalog WHERE benefit_code = ?`,
       [benefitCode],
     );
     const r = (rows as Array<Record<string, unknown>>)[0];
@@ -276,7 +276,7 @@ export class BenefitSystemRepo {
    * 用户当前生效档位在某枚举行上的层级（未订阅一律按 free 档）。
    *
    * 只服务 bool/enum 行的服务端分支（典型：摘要"部分脱敏 / 完整"）。
-   * 计量型权益的余量一律以 crm_benefit_quotas 池为准，不得拿本方法代替——
+   * 计量型权益的余量一律以 benefit_quotas 池为准，不得拿本方法代替——
    * 矩阵 value_num 是"应发额度"，池是"已剩额度"，两者不是一回事。
    */
   async levelForUser(userId: number | null, benefitCode: string): Promise<number> {
@@ -293,7 +293,7 @@ export class BenefitSystemRepo {
   async listQuotaBalances(userId: number, subscriptionId: number | null): Promise<QuotaBalanceRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT benefit_code, quota_total, quota_used, status, period_starts_at
-         FROM crm_benefit_quotas
+         FROM benefit_quotas
         WHERE subscription_pool_key = ? AND user_id = ?
           AND period_starts_at <= NOW()
         ORDER BY benefit_code, period_starts_at DESC, id DESC`,

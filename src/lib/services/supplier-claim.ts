@@ -28,7 +28,7 @@ export interface CreateClaimResult {
 
 /**
  * 创建认领记录并执行临时绑定（执照可选：有则随认领落库）
- * 跨域操作：crm_supplier_claims + crm_users + supplier
+ * 跨域操作：supplier_claims + users + supplier
  * （2026-09-29 简化：联系人字段废弃；认领改为"确认即绑定 + 跳设置页限时上传执照"）
  */
 export async function createClaimWithBinding(
@@ -78,19 +78,19 @@ export interface ClaimExpiryRelease {
  * 计数与更新共用同一套片段：两处各写一份 SQL 的话，改守卫时很容易只改一处，
  * 导致日志报的条数与实际释放的行数对不上。
  */
-const EXPIRED_CLAIM_JOIN = `crm_supplier_claims c
-  LEFT JOIN crm_users u
+const EXPIRED_CLAIM_JOIN = `supplier_claims c
+  LEFT JOIN users u
     ON u.id = c.user_id AND u.supplier_id = c.supplier_id
   JOIN supplier s ON s.id = c.supplier_id
   LEFT JOIN (SELECT DISTINCT user_id, supplier_id
-               FROM crm_supplier_claims WHERE status = 'approved') ok
+               FROM supplier_claims WHERE status = 'approved') ok
     ON ok.user_id = c.user_id AND ok.supplier_id = c.supplier_id`;
 
 const EXPIRED_CLAIM_WHERE = `c.status = 'pending' AND c.expires_at < NOW() AND ok.user_id IS NULL`;
 
 /**
  * 清理过期认领：解除用户绑定 + 重置供应商状态 + 认领记录置 expired
- * 一次调用同时写三张表：crm_supplier_claims + crm_users + supplier
+ * 一次调用同时写三张表：supplier_claims + users + supplier
  *
  * 三重守卫，防止把已确定的归属误释放（数据史上有 pending 与 verified 并存的脏数据）：
  * - u 只按「仍绑定在该主体上」关联（LEFT JOIN … AND u.supplier_id = c.supplier_id）：

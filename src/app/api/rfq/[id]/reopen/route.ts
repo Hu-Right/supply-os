@@ -26,7 +26,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
 
     // 权限 + 状态校验：仅已撤回(closed)可重新开启
     const [existing] = await pool.query(
-      `SELECT id, rfq_status, user_id FROM crm_bid_notices
+      `SELECT id, rfq_status, user_id FROM bid_notices
        WHERE id = ? AND notice_type = 'RFQ' LIMIT 1`,
       [rfqId],
     );
@@ -37,7 +37,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
 
     // closed → draft（不写 published_date；发布仍需库外审核）
     const [result] = await pool.query(
-      `UPDATE crm_bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
+      `UPDATE bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
       [RFQ_STATUS.DRAFT, rfqId, auth.userId],
     );
 

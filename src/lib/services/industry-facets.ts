@@ -3,7 +3,7 @@
  * Industry Facets & Keyword Resolution
  *
  * @module lib/services/industry-facets
- * @description 本模块围绕权威行业树（crm_industry_nodes）提供两类口子：
+ * @description 本模块围绕权威行业树（industry_nodes）提供两类口子：
  *                - 级联下拉（门类→大类→中类→小类）：按层级 / 按父码读**完整分类树**，
  *                  零挂靠节点同样下发、同样可选——选中无供应商的节点就正常返回「无结果」，
  *                  不再按门户可见供应商数过滤（2026-10-12 由「只显示有供应商的 facet」改为此口径）；

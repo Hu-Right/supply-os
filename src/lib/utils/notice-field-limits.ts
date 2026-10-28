@@ -62,7 +62,7 @@ export const WIDE_LIMITS = {
 } as const;
 
 /**
- * 国际公共采购结构化列（迁移 088 加在 crm_bid_opportunities 的 17 列）已于 2026-10-12 退役，
+ * 国际公共采购结构化列（迁移 088 加在 bid_opportunities 的 17 列）已于 2026-10-12 退役，
  * 本模块不再导出其清单——历史上它被**机会表 SELECT**（featured.ts）、**详情合并**（notices/index.ts）、
  * **类型**（types/procurement.ts）三处派生，退役即三处同批摘除，不留第二份口径。
  *
@@ -73,7 +73,7 @@ export const WIDE_LIMITS = {
  * - 合计占用 < 1 MB，留着只增加同步白名单与契约维护成本。
  *
  * 待删列名唯一事实源：scripts/tools/opp-slim-plan.mjs 的 RETIRED_INTL_COLUMNS；
- * 逐列含义与恢复前提见 docs/数据库设计/crm_bid_opportunities-投标商机表.md。
+ * 逐列含义与恢复前提见 docs/数据库设计/bid_opportunities-投标商机表.md。
  * 恢复前提：先补前端渲染消费方并修正错位数据，再重新加列。
  *
  * 注：搜索侧本来就不进宽表（这些是详情级字段），宽表描述仍由 opp.description 经

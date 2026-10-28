@@ -3,12 +3,12 @@
  * Country Alias Store (single source of truth)
  *
  * @module server/services/country/alias-store
- * @description 全项目唯一读取 crm_country_aliases 的入口：一份 10 分钟缓存、
+ * @description 全项目唯一读取 country_aliases 的入口：一份 10 分钟缓存、
  *              一份归一键 normalizeCountryKey（去重音 + trim + 大写，与唯一索引
  *              uk_normalized_alias 在 utf8mb4_0900_ai_ci 下的判等口径对齐）、
  *              一份降级策略（限频 warn + JSON 容错）。
  *              消费方：notice-search/countries（下拉聚合 + 别名展开）、
- *                      search-sync/wide-row-builder（country_std 归一）。
+ *                      notice-public/build 与 search-sync/wide-row-builder（country_name 归一/投影）。
  *              依赖图：仅依赖 mysql2 类型，与 agency/alias-store 平级、互不引用。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
@@ -65,7 +65,7 @@ export async function loadCountryAliasSnapshot(pool: Pool): Promise<CountryAlias
   const formsByCanonical = new Map<string, string[]>();
   try {
     const [rows] = await pool.query(
-      "SELECT canonical, country_code, alias, kind, name_i18n FROM crm_country_aliases WHERE is_active = 1"
+      "SELECT canonical, country_code, alias, kind, name_i18n FROM country_aliases WHERE is_active = 1"
     );
     for (const row of rows as RowDataPacket[]) {
       const canonical = String(row.canonical || "").trim();
@@ -94,7 +94,7 @@ export async function loadCountryAliasSnapshot(pool: Pool): Promise<CountryAlias
   } catch (err) {
     throttledWarn(
       "query",
-      `[country-alias] crm_country_aliases 查询失败（降级：${_cache ? "沿用旧缓存" : "返回空快照"}，将在下次调用重试）: ${(err as Error).message}`,
+      `[country-alias] country_aliases 查询失败（降级：${_cache ? "沿用旧缓存" : "返回空快照"}，将在下次调用重试）: ${(err as Error).message}`,
     );
     if (_cache) return _cache;
     return { byKey, formsByCanonical };
@@ -111,7 +111,7 @@ export interface CountryNameMaps {
 }
 
 /**
- * 从 crm_country_aliases 构建国家名展示映射（取代静态字典 lib/data/countryNames）。
+ * 从 country_aliases 构建国家名展示映射（取代静态字典 lib/data/countryNames）。
  * 仍在唯一读表入口模块内，不旁路。kind=region 入 regions；其余入 countries；
  * zhToEn 以 canonical 作英文回推（同名 zh 首个胜）。无 zh 的行跳过（不入图）。
  */
@@ -120,7 +120,7 @@ export async function buildCountryNameMaps(pool: Pool): Promise<CountryNameMaps>
   const regions: Record<string, string> = {};
   const zhToEn: Record<string, string> = {};
   const [rows] = await pool.query(
-    "SELECT canonical, alias, kind, JSON_UNQUOTE(JSON_EXTRACT(name_i18n,'$.zh')) zh FROM crm_country_aliases WHERE is_active = 1",
+    "SELECT canonical, alias, kind, JSON_UNQUOTE(JSON_EXTRACT(name_i18n,'$.zh')) zh FROM country_aliases WHERE is_active = 1",
   );
   for (const row of rows as RowDataPacket[]) {
     const zh = String(row.zh ?? "").trim();

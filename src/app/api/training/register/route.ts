@@ -25,12 +25,12 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 行业：UGT-I 行业面节点码（旧 industry_id 字典行 id 随旧品类字典退役停用）
   const industryCode = body.industry_code ? String(body.industry_code).trim().slice(0, 40) : "";
 
-  // 根据行业码查询名称（crm_industry_nodes）
+  // 根据行业码查询名称（industry_nodes）
   let industryName = "";
   if (industryCode) {
     try {
       const [rows] = await ctx.dbPool.execute(
-        "SELECT name_zh FROM crm_industry_nodes WHERE code = ? LIMIT 1",
+        "SELECT name_zh FROM industry_nodes WHERE code = ? LIMIT 1",
         [industryCode],
       );
       const row = (rows as Array<{ name_zh: string | null }>)[0];

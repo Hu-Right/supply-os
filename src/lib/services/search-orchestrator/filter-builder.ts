@@ -30,7 +30,7 @@ async function getAllNoticeTypes(pool: Pool): Promise<string[]> {
   if (_noticeTypesCache && _noticeTypesCache.expires > Date.now()) return _noticeTypesCache.types;
   try {
     const [rows] = await pool.query(
-      "SELECT DISTINCT notice_type FROM crm_bid_notices WHERE notice_type IS NOT NULL AND notice_type != '' LIMIT 500",
+      "SELECT DISTINCT notice_type FROM bid_notices WHERE notice_type IS NOT NULL AND notice_type != '' LIMIT 500",
     );
     const types = (rows as RowDataPacket[]).map((r) => String(r.notice_type));
     _noticeTypesCache = { types, expires: Date.now() + NOTICE_TYPES_TTL };
@@ -61,7 +61,7 @@ function nodeMeiliFilter(attr: string, nodes: string[]): string {
 function nodeMysqlWhere(nodes: string[], col = "backbone_path"): string {
   const one = `FIND_IN_SET(?, ns.${col})`;
   const inner = nodes.length === 1 ? one : `(${nodes.map(() => one).join(" OR ")})`;
-  return `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND ${inner})`;
+  return `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND ${inner})`;
 }
 
 /** 机构扩展解析结果（两种方言共用） */
@@ -78,27 +78,27 @@ interface AgencyExpansion {
 }
 
 /**
- * 生成机构 MySQL 子查询：通过宽表 agency_std 列匹配。
+ * 生成机构 MySQL 子查询：通过宽表 buyer_name 列匹配。
  *
- * 根因：mysqlFallback 查 crm_bid_notices（主表原始值），但缓存中的机构名
+ * 根因：mysqlFallback 查 bid_notices（主表原始值），但缓存中的机构名
  * 是规范名（经别名映射/模式翻译），两者可能不同（如 "EU" vs "EUROPEAN UNION"）。
- * 改用宽表子查询确保匹配规范后的 agency_std 列（与旧品类码端口一致）。
+ * 改用宽表子查询确保匹配规范后的 buyer_name 列（与旧品类码端口一致）。
  */
-function agencyStdSubquery(values: string[], useLike?: string): { mysqlClause: string; mysqlParams: unknown[] } {
+function buyerNameSubquery(values: string[], useLike?: string): { mysqlClause: string; mysqlParams: unknown[] } {
   if (useLike) {
     return {
-      mysqlClause: "EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND ns.agency_std LIKE ?)",
+      mysqlClause: "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND ns.buyer_name LIKE ?)",
       mysqlParams: [useLike],
     };
   }
   if (values.length === 1) {
     return {
-      mysqlClause: "EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND ns.agency_std = ?)",
+      mysqlClause: "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND ns.buyer_name = ?)",
       mysqlParams: [values[0]],
     };
   }
   return {
-    mysqlClause: `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND ns.agency_std IN (${values.map(() => "?").join(",")}))`,
+    mysqlClause: `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND ns.buyer_name IN (${values.map(() => "?").join(",")}))`,
     mysqlParams: [...values],
   };
 }
@@ -116,33 +116,33 @@ function expandAgency(agency: string): AgencyExpansion {
   }
   if (cached?.sqlPattern) {
     // Meilisearch: 用 agency_group 字段（存 typeKey）过滤
-    // MySQL: 用宽表 agency_std LIKE 子查询（主表无 LIKE 规范名）
+    // MySQL: 用宽表 buyer_name LIKE 子查询（主表无 LIKE 规范名）
     return {
       hasSqlPattern: true,
       meiliAgencyGroup: cached.agencyGroup || agency,
-      ...agencyStdSubquery([], cached.sqlPattern),
+      ...buyerNameSubquery([], cached.sqlPattern),
     };
   }
   if (cached?.agencyGroup && !cached.agencyGroup.startsWith("ORPHAN_")) {
     // Meilisearch 用 agency_group 聚合字段
-    // MySQL 用宽表 agency_std 子查询（确保匹配规范名而非主表原始名）
+    // MySQL 用宽表 buyer_name 子查询（确保匹配规范名而非主表原始名）
     return {
       hasSqlPattern: false,
       meiliAgencyGroup: cached.agencyGroup,
-      ...agencyStdSubquery(cached.originalAgencies?.length ? cached.originalAgencies : [agency]),
+      ...buyerNameSubquery(cached.originalAgencies?.length ? cached.originalAgencies : [agency]),
     };
   }
   if (cached?.originalAgencies && cached.originalAgencies.length > 0) {
     return {
       hasSqlPattern: false,
       meiliAgencies: cached.originalAgencies,
-      ...agencyStdSubquery(cached.originalAgencies),
+      ...buyerNameSubquery(cached.originalAgencies),
     };
   }
   return {
     hasSqlPattern: false,
     meiliAgencies: [agency],
-    ...agencyStdSubquery([agency]),
+    ...buyerNameSubquery([agency]),
   };
 }
 
@@ -162,7 +162,7 @@ export async function buildFilterPlan(
   const mysqlParams: unknown[] = [];
   const digestParts: string[] = [];
 
-  // 国家归一事实源：crm_country_aliases（表驱动，无兜底）
+  // 国家归一事实源：country_aliases（表驱动，无兜底）
   const snap = await loadCountryAliasSnapshot(pool);
 
   // ── 机构扩展（需先于国家处理：FORCE_COUNTRY 覆盖国家）──
@@ -189,7 +189,7 @@ export async function buildFilterPlan(
       return { meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true, digest: `country:no-code:${effectiveCountry}` };
     }
     meiliFilters.push(`country_codes = "${escapeFilter(code)}"`);
-    mysqlWhere.push("EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.country_codes))");
+    mysqlWhere.push("EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.country_codes))");
     mysqlParams.push(code);
     digestParts.push(`country:${code}`);
   }

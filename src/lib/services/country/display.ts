@@ -1,5 +1,5 @@
 /**
- * 国家展示 · agency i18n 归一查表入口（一切以 crm_country_aliases 为准，无静态字典）
+ * 国家展示 · agency i18n 归一查表入口（一切以 country_aliases 为准，无静态字典）
  *
  * @module server/services/country/display
  * @description 供机构名 i18n 聚合按「国家英文名/ISO/重音变体」查中文展示名。走归一唯一入口
@@ -29,7 +29,7 @@ export function countryEnNames(): string[] {
 }
 
 // ── 表驱动的「文本内国家名」识别（取代机构模块里残留的静态国家名词表）──
-// 吃 crm_country_aliases 全部别名形态（byKey，已归一大写无音符），仅取「字母+空格、长度≥4」的
+// 吃 country_aliases 全部别名形态（byKey，已归一大写无音符），仅取「字母+空格、长度≥4」的
 // 词形（跳过 ISO2/短码/含符号形态，避免 "BR" 之类误匹配），按长度降序做词边界匹配。
 let _phraseSrc: CountryAliasSnapshot | null = null;
 let _phraseList: { form: string; zh: string }[] = [];

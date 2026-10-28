@@ -19,19 +19,19 @@
  *              group_concat_max_len（默认 1024 字节）截断，超限后的内容变化指纹看不见。
  *              聚合顺序无关（宽表按 lang/level 归并成 Map，本就与行序无关）。
  *
- *              已知边界（不假装完备）：crm_agency_aliases 与旧品类字典树自身的变更不进入
+ *              已知边界（不假装完备）：agency_aliases 与旧品类字典树自身的变更不进入
  *              指纹（二者是全表级维度，且构建侧有 10 分钟缓存 TTL），需要刷新时走
  *              search-common/rebuild-trigger 的 requestIndexRebuild 全量重建。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { DESC_SOURCE_EXPR, WIDE_LIMITS } from "../../utils/notice-field-limits";
 // 从叶子模块导入，不得从 wide-row-builder 导入（builder 已依赖本模块的 WIDE_FP_EXPR，会成环）
-import { WIDE_OPP_JOIN } from "./wide-sync-sql";
+import { WIDE_OPP_JOIN, WIDE_PUBLIC_JOIN } from "./wide-sync-sql";
 
 /** 字段分隔符：ASCII 单元分隔符（0x1f），业务文本中不出现，避免拼接歧义 */
 const SEP = "CHAR(31 USING utf8mb4)";
 
-/** 指纹列名（宽表 crm_notice_search） */
+/** 指纹列名（宽表 notice_search） */
 export const WIDE_FP_COLUMN = "sync_src_hash";
 
 let _fpColOk: boolean | null = null;
@@ -55,7 +55,7 @@ export async function isFingerprintColumn(pool: Pool): Promise<boolean> {
   try {
     const [rows] = await pool.query(
       `SELECT COUNT(*) AS total FROM INFORMATION_SCHEMA.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_notice_search' AND COLUMN_NAME = ?`,
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notice_search' AND COLUMN_NAME = ?`,
       [WIDE_FP_COLUMN],
     );
     ok = Number((rows as RowDataPacket[])[0]?.total || 0) > 0;
@@ -80,7 +80,7 @@ export function __resetFingerprintColumnCache(): void {
 }
 
 /**
- * 宽表源指纹 SQL 表达式（依赖别名 n = crm_bid_notices、opp = crm_bid_opportunities，
+ * 宽表源指纹 SQL 表达式（依赖别名 n = bid_notices、opp = bid_opportunities，
  * 与 WIDE_OPP_JOIN 同构）。全库唯一定义点：WIDE_SYNC_SELECT 与本文件的漂移检测都拼
  * 本常量，禁止再写第二份。
  *
@@ -88,13 +88,21 @@ export function __resetFingerprintColumnCache(): void {
  * 输入项随之移除 ⇒ 整条指纹哈希会变，上线需预留一次全量重刷宽表指纹的窗口。
  */
 /**
- * 品目归属指纹段：与 loadBackboneMap 同一份事实源——落点表 crm_notice_attribution_nodes
+ * 品目归属指纹段：与 loadBackboneMap 同一份事实源——落点表 notice_attribution_nodes
  * （notice_pk=n.id 的 COUNT+SUM(CRC32(node_code))）。旧品类桥表分支已随小表剥离删除
  * （2026-10-14）⇒ 本段不再受 ATTRIBUTION_READ flag 控制。R2-d 切读那刻哈希已变过一次，
  * 全量重刷已完成；指纹仍「不含派生列」（只吃输入），ADR-0007 前提不废。
  */
 const ITEM_SEG =
-  `IFNULL((SELECT CONCAT(COUNT(*), ':', IFNULL(SUM(CRC32(node_code)), -1)) FROM crm_notice_attribution_nodes WHERE notice_pk = n.id), 'x')`;
+  `IFNULL((SELECT CONCAT(COUNT(*), ':', IFNULL(SUM(CRC32(node_code)), -1)) FROM notice_attribution_nodes WHERE notice_pk = n.id), 'x')`;
+
+/**
+ * 服务表水位段（2026-10-27 管道翻转）：宽表的归一化字段投影自 notice_public（①归一层），
+ * 归一化规则/别名表/平台自录状态变化只会前移 p.updated_at 而不动主表输入 ⇒ 宽表指纹必须
+ * 吃进它，②才能跟着 ① 重投影。这也顺带闭合了旧指纹「别名表变更不可见」的已知边界
+ * （别名表变更 → ① 重算该行 → p.updated_at 前移 → 本段变化 → ② 重建）。
+ */
+const PUBLIC_SEG = `CAST(IFNULL(p.updated_at, 0) AS CHAR)`;
 
 export const WIDE_FP_EXPR = `MD5(CONCAT_WS(${SEP},
   IFNULL(LEFT(n.title, ${WIDE_LIMITS.title}), ''),
@@ -119,7 +127,8 @@ export const WIDE_FP_EXPR = `MD5(CONCAT_WS(${SEP},
   ${ITEM_SEG},
   IFNULL((SELECT CONCAT(COUNT(*), ':', IFNULL(SUM(CRC32(CONCAT_WS(${SEP},
             lang, IFNULL(model, ''), IFNULL(title_tr, ''), IFNULL(description_tr, '')))), -1))
-          FROM crm_notice_translations WHERE notice_id = n.id), 'x')
+          FROM notice_translations WHERE notice_id = n.id), 'x'),
+  ${PUBLIC_SEG}
 ))`;
 
 /**
@@ -150,7 +159,7 @@ export async function detectWideFingerprintDrift(pool: Pool): Promise<number[]> 
     // 1) 取本轮窗口边界（走宽表主键序，成本恒定）
     const [winRows] = await pool.query(
       `SELECT MIN(id) AS lo, MAX(id) AS hi
-       FROM (SELECT id FROM crm_notice_search WHERE id > ? ORDER BY id LIMIT ${FP_SLICE_SIZE}) t`,
+       FROM (SELECT id FROM notice_search WHERE id > ? ORDER BY id LIMIT ${FP_SLICE_SIZE}) t`,
       [_fpCursor],
     );
     const win = (winRows as RowDataPacket[])[0];
@@ -164,9 +173,9 @@ export async function detectWideFingerprintDrift(pool: Pool): Promise<number[]> 
     // 2) 只在该窗口内比较指纹（比较下推给 DB，仅回传差异主键）
     const [rows] = await pool.query(
       `SELECT n.id
-       FROM crm_bid_notices n
-       ${WIDE_OPP_JOIN}
-       INNER JOIN crm_notice_search ns ON ns.id = n.id
+       FROM bid_notices n
+       ${WIDE_OPP_JOIN}${WIDE_PUBLIC_JOIN}
+       INNER JOIN notice_search ns ON ns.id = n.id
        WHERE ns.id BETWEEN ? AND ?
          AND ${WIDE_FP_EXPR} <> ns.${WIDE_FP_COLUMN}`,
       [win.lo, win.hi],

@@ -3,7 +3,7 @@
  * Enterprise Info Hook
  *
  * @module shared/hooks/useEnterpriseInfo
- * @description 调用 GET /api/user/enterprise（后端按 crm_users.supplier_id 关联
+ * @description 调用 GET /api/user/enterprise（后端按 users.supplier_id 关联
  *              supplier 企业表）获取当前用户企业信息。未绑定返回 bound=false。
  *              提供 loading/error/retry。
  *              架构解耦：原 features/auth/hooks 提升至 shared，供 auth/home/settings

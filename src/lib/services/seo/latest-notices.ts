@@ -27,7 +27,7 @@ export async function fetchLatestActiveNotices(pool?: Pool, limit = 10): Promise
   const safeLimit = Math.min(Math.max(limit, 1), 50);
   const [rows] = await db.query(
     `SELECT n.id, n.title, n.agency, n.country, n.notice_type, n.deadline_sec
-     FROM crm_bid_notices n
+     FROM bid_notices n
      WHERE ${ACTIVE_NOTICE_WHERE}
      ORDER BY n.update_time DESC
      LIMIT ${safeLimit}`,

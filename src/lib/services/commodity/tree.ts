@@ -4,13 +4,13 @@
  *
  * @module lib/services/commodity/tree
  * @description 商机页五级下拉的取数口：大类(L1) → 中类(L2) → 小类(L3) → 子类(L4) → 品目(L5)，
- *              全部读 `crm_commodity_backbone`（一张表，83,033 行，门禁 BB1~BB15 守着）。
+ *              全部读 `commodity_backbone`（一张表，83,033 行，门禁 BB1~BB15 守着）。
  *              本层不再读 `crm_commodity_nodes`（旧树）——公告归属已由
  *              `lib/services/commodity/backbone-path` 换算进宽表 `backbone_path`。
  *
  *              四条形制规则（2026-10-11 实测，temp/probe64）：
  *              1. **筛选键就是节点码 `UGT-…`**（码长即层级：2/4/6/8/10 位）。公告侧
- *                 `crm_notice_search.backbone_path` 存的是同一套码（含全部祖先），两边同口径
+ *                 `notice_search.backbone_path` 存的是同一套码（含全部祖先），两边同口径
  *                 ⇒ 选到哪一层就等值命中哪一层。
  *              2. **大类身份 = L1 树码本身**（2026-10-15 G 码退役）：旧的 UGT-G-xx 独立编号
  *                 随 G 码体系删除，任意节点的所属大类就是它祖先链的第一位（`l1CodeOfNode`，
@@ -44,7 +44,7 @@ export interface CommodityTreeOption {
   nameEn: string;
 }
 
-/** 骨架节点码前缀（与 crm_commodity_backbone.code 形制一致；定义已下沉 shared，这里保留历史导出面） */
+/** 骨架节点码前缀（与 commodity_backbone.code 形制一致；定义已下沉 shared，这里保留历史导出面） */
 export const COMMODITY_NODE_PREFIX = BACKBONE_NODE_PREFIX;
 
 function toOption(row: RowDataPacket): CommodityTreeOption {
@@ -58,7 +58,7 @@ function toOption(row: RowDataPacket): CommodityTreeOption {
 /** 取某个父节点码的全部子级：走 idx_parent 等值，按码序（=建树时的公告量序）返回 */
 async function childrenOf(pool: Pool, parentCode: string): Promise<CommodityTreeOption[]> {
   const [rows] = await pool.query(
-    `SELECT code, name_zh, name_en FROM crm_commodity_backbone
+    `SELECT code, name_zh, name_en FROM commodity_backbone
       WHERE parent_code = ? AND status = 1 ORDER BY code`,
     [parentCode],
   );
@@ -79,7 +79,7 @@ export async function listCommodityTreeOptions(pool: Pool, parent: string): Prom
   const p = String(parent ?? "").trim();
   if (!p) {
     const [rows] = await pool.query(
-      `SELECT code, name_zh, name_en FROM crm_commodity_backbone
+      `SELECT code, name_zh, name_en FROM commodity_backbone
         WHERE level = 1 AND status = 1 ORDER BY code`,
     );
     return (rows as RowDataPacket[]).map(toOption);
@@ -112,7 +112,7 @@ export async function resolveCommodityCodeToPath(
   const keys = chain.filter(Boolean);
   if (keys.length === 0) return { l1Code: null, options: [] };
   const [rows] = await pool.query(
-    `SELECT code, name_zh, name_en FROM crm_commodity_backbone
+    `SELECT code, name_zh, name_en FROM commodity_backbone
       WHERE code IN (${keys.map(() => "?").join(",")}) AND status = 1`,
     keys,
   );

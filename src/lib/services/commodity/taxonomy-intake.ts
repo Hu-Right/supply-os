@@ -7,7 +7,7 @@
  *              旧的登记通道（daily-sync.cjs 的桥表入库校验：合法码直通桥表、
  *              野码进 intake——该通道连同码本身一起废弃）。本模块在应用内
  *              crawler-sync 每轮同步后，把**无 UGT 归属的活跃公告**登记进
- *              crm_taxonomy_intake（status='pending'），交由 AI 归属管道
+ *              taxonomy_intake（status='pending'），交由 AI 归属管道
  *              （scripts/tools/notice-attribution-content-ai.ts，人工放量）
  *              按正文语义归类。不带任何旧品类码——归属质量由 AI 把关，
  *              不再回头信任爬虫码。
@@ -21,7 +21,7 @@
  *     走 attribution-contract 的 withoutValidLandingWhere，不在本文件重拼一份）；
  *     只登记活跃公告（已过期的分类是浪费 AI 钱）。
  *
- * 本模块只写 crm_taxonomy_intake，不碰落点表与宽表（写入者另有其人）。
+ * 本模块只写 taxonomy_intake，不碰落点表与宽表（写入者另有其人）。
  */
 import type { Pool, ResultSetHeader } from "mysql2/promise";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
@@ -42,7 +42,7 @@ export interface IntakeEnqueueResult {
 /**
  * 把无 UGT 归属的活跃公告登记进品目归类队列。
  *
- * @param noticeIds - 本轮爬虫同步变更的公告内部 id（crm_bid_notices.id）
+ * @param noticeIds - 本轮爬虫同步变更的公告内部 id（bid_notices.id）
  * @param cap - 单轮登记上限
  */
 export async function enqueueUnattributedNotices(
@@ -58,11 +58,11 @@ export async function enqueueUnattributedNotices(
   // 「粗落点」都算待办 —— 后者接不住撮合，当作已覆盖就是把 14 万条公告永久关在门外）。
   // 已有 intake 行的公告靠 uk_src + INSERT IGNORE 幂等挡住（含已 resolved，不翻案）。
   const [rows] = await pool.query(
-    `SELECT n.id, n.notice_id FROM crm_bid_notices n
+    `SELECT n.id, n.notice_id FROM bid_notices n
      WHERE n.id IN (${ids.map(() => "?").join(",")})
        AND ${ACTIVE_NOTICE_WHERE}
        AND ${withoutValidLandingWhere(ATTR_LANDING_TABLE)}
-       AND NOT EXISTS (SELECT 1 FROM crm_taxonomy_intake i WHERE i.source_table = 'crm_bid_notices' AND i.source_pk = n.id)`,
+       AND NOT EXISTS (SELECT 1 FROM taxonomy_intake i WHERE i.source_table = 'bid_notices' AND i.source_pk = n.id)`,
     ids,
   );
   const candidates = (rows as Array<{ id: number; notice_id: string | null }>)
@@ -74,10 +74,10 @@ export async function enqueueUnattributedNotices(
   if (batch.length === 0) return { enqueued: 0, skipped, deferred };
 
   // uk_src(source_table, source_pk) 幂等：一条公告终身一行；INSERT IGNORE 撞键静默跳过
-  const placeholders = batch.map(() => "('crm_bid_notices', ?, ?, '', ?, 'pending')").join(",");
+  const placeholders = batch.map(() => "('bid_notices', ?, ?, '', ?, 'pending')").join(",");
   const params = batch.flatMap((r) => [String(r.id), String(r.notice_id), "公告无 UGT 归属（桥表退役后由 AI 管道归类）"]);
   const [ret] = await pool.query(
-    `INSERT IGNORE INTO crm_taxonomy_intake (source_table, source_pk, notice_id, code, reason, status) VALUES ${placeholders}`,
+    `INSERT IGNORE INTO taxonomy_intake (source_table, source_pk, notice_id, code, reason, status) VALUES ${placeholders}`,
     params,
   );
   return { enqueued: (ret as ResultSetHeader).affectedRows ?? 0, skipped, deferred };

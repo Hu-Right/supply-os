@@ -18,7 +18,7 @@ export interface PlanFeatureChip {
 
 /**
  * 推荐档判定：官网角标 `most_popular`（结构化字段驱动，前端零硬编码）。
- * 对应 crm_plan_catalog.badge 枚举，与旧体系按 benefit_rank 硬编码 PRO 档同源退役。
+ * 对应 plan_catalog.badge 枚举，与旧体系按 benefit_rank 硬编码 PRO 档同源退役。
  */
 export function isRecommendedPlan(plan: PlanView): boolean {
   return plan.badge === "most_popular";

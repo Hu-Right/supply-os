@@ -75,8 +75,8 @@ export async function getUserUnlockKeywords(dbPool: Pick<Pool, "query">, userId:
   try {
     const [rows] = await dbPool.query(
       `SELECT n.title
-       FROM crm_opportunity_unlocks u
-       INNER JOIN crm_bid_notices n ON n.id = u.notice_id
+       FROM opportunity_unlocks u
+       INNER JOIN bid_notices n ON n.id = u.notice_id
        WHERE u.user_id = ? AND u.notice_id IS NOT NULL
        ORDER BY u.unlocked_at DESC
        LIMIT 50`,

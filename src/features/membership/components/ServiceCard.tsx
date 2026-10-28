@@ -2,7 +2,7 @@
  * 订制服务卡片（DB 驱动 · 重做版）
  *
  * @module features/membership/components/ServiceCard
- * @description 数据源 crm_service_catalog 行。价格移到标题下方独立行（根治长价挤标题）；
+ * @description 数据源 service_catalog 行。价格移到标题下方独立行（根治长价挤标题）；
  *              分类归组由父级按 category 呈现，卡片不再逐张打撞词标签。
  *              分支（2026-09-28 与 260928 报价表对齐）：saleMode='self' 且有正标价 → 「立即支付」(实心, 由父级 onPay 发 supply-os:pay)；
  *                    其余（留资/合同成交、token/quote/contact 无价行）→ 「预约顾问」(描边, 弹 ContactQrModal)，

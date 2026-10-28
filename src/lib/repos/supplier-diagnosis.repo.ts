@@ -3,7 +3,7 @@
  * Supplier Bid-Capability Diagnosis (v2) Repository
  *
  * @module lib/repos/supplier-diagnosis.repo
- * @description 只操作 `crm_supplier_diagnosis`（v1 旧表已退役 DROP）。幂等口径是规范 N5——一个用户 × 一家公司只有一行，
+ * @description 只操作 `supplier_diagnosis`（v1 旧表已退役 DROP）。幂等口径是规范 N5——一个用户 × 一家公司只有一行，
  *              重复提交走 `INSERT ... ON DUPLICATE KEY UPDATE` 命中唯一键 `uk_user_supplier`，
  *              不使用「先 SELECT 再写」（并发下会双插）。
  *              写库后以 affectedRows + 回读双校验为准再报成功（本仓既有教训：不校验会静默零更新）。
@@ -74,7 +74,7 @@ export class SupplierDiagnosisRepo {
 
   async findById(id: number): Promise<DiagnosisRow | null> {
     const [rows] = await this.pool.execute<DiagnosisRow[]>(
-      `SELECT * FROM crm_supplier_diagnosis WHERE id = ? LIMIT 1`,
+      `SELECT * FROM supplier_diagnosis WHERE id = ? LIMIT 1`,
       [id],
     );
     return rows[0] ?? null;
@@ -83,7 +83,7 @@ export class SupplierDiagnosisRepo {
   /** 回显用：本人全部诊断记录，一家公司一条，按最近提交倒序 */
   async findMine(userId: number): Promise<DiagnosisRow[]> {
     const [rows] = await this.pool.execute<DiagnosisRow[]>(
-      `SELECT * FROM crm_supplier_diagnosis WHERE user_id = ? ORDER BY submitted_at DESC, id DESC`,
+      `SELECT * FROM supplier_diagnosis WHERE user_id = ? ORDER BY submitted_at DESC, id DESC`,
       [userId],
     );
     return rows as DiagnosisRow[];
@@ -91,7 +91,7 @@ export class SupplierDiagnosisRepo {
 
   async findByUserAndSupplier(userId: number, supplierId: number): Promise<DiagnosisRow | null> {
     const [rows] = await this.pool.execute<DiagnosisRow[]>(
-      `SELECT * FROM crm_supplier_diagnosis WHERE user_id = ? AND supplier_id = ? LIMIT 1`,
+      `SELECT * FROM supplier_diagnosis WHERE user_id = ? AND supplier_id = ? LIMIT 1`,
       [userId, supplierId],
     );
     return rows[0] ?? null;
@@ -137,7 +137,7 @@ export class SupplierDiagnosisRepo {
     ].join(", ");
 
     const [result] = await this.pool.query<ResultSetHeader>(
-      `INSERT INTO crm_supplier_diagnosis (${insertCols.join(", ")}, scored_at, submitted_at)
+      `INSERT INTO supplier_diagnosis (${insertCols.join(", ")}, scored_at, submitted_at)
        VALUES (${placeholders}, NOW(), NOW())
        ON DUPLICATE KEY UPDATE ${updateSets}`,
       values,

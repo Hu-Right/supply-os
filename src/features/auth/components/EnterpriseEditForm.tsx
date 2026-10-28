@@ -165,7 +165,7 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
               <p className="mt-1 text-2xs text-muted-foreground">{t("authEnterpriseProductIntroHint") || "对外展示的产品描述文本。"}</p>
             </div>
           </div>
-          {/* 商品属性：品目树落点（crm_supplier_backbone_interests self_report），用于公告/商机匹配 */}
+          {/* 商品属性：品目树落点（supplier_backbone_interests self_report），用于公告/商机匹配 */}
           <div className="grid grid-cols-4">
             <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border pt-3 align-top">
               {t("authEnterpriseCommodityNodes") || "主营品目"}

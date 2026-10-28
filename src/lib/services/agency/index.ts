@@ -63,7 +63,7 @@ export function classifyAgencyType(
     return !!countryCode && countryCode === ruleCountry.toUpperCase();
   };
 
-  // 优先使用 crm_agency_type_rules；表未加载时回退代码内静态规则。
+  // 优先使用 agency_type_rules；表未加载时回退代码内静态规则。
   const dbRules = getAgencyTypeRules();
   if (dbRules) {
     for (const rule of dbRules) {

@@ -90,7 +90,7 @@ export async function countStaleData(
        SUM(n.id IS NULL) AS orphan_rows,
        SUM(n.id IS NOT NULL AND n.is_expired = 1) AS expired_rows
      FROM ${target.table} t
-     LEFT JOIN crm_bid_notices n ON n.${target.mainJoinColumn} = t.${target.joinColumn}`,
+     LEFT JOIN bid_notices n ON n.${target.mainJoinColumn} = t.${target.joinColumn}`,
   );
   const row = (staleRows as RowDataPacket[])[0];
   return {
@@ -131,7 +131,7 @@ export async function runStaleDataCleanup(
             SUM(n.id IS NULL) OVER() AS orphan_rows,
             SUM(n.id IS NOT NULL AND n.is_expired = 1) OVER() AS expired_rows
      FROM ${target.table} t
-     LEFT JOIN crm_bid_notices n ON n.${target.mainJoinColumn} = t.${target.joinColumn}
+     LEFT JOIN bid_notices n ON n.${target.mainJoinColumn} = t.${target.joinColumn}
      WHERE ${where}`,
   );
   const staleData = staleRows as RowDataPacket[];

@@ -3,7 +3,7 @@
  * International-agency Type English Labels
  *
  * @module server/data/agency-i18n/country-zh
- * @description 国家名中文映射已迁至 crm_country_aliases（经 country/display 归一查表），
+ * @description 国家名中文映射已迁至 country_aliases（经 country/display 归一查表），
  *              本文件不再持有任何国家数据，仅保留机构类型标签这类非国家字典。
  */
 

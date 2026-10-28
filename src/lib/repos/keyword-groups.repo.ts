@@ -3,7 +3,7 @@
  * Keyword Groups Repository
  *
  * @module lib/repos/keyword-groups.repo
- * @description 操作 crm_product_keyword_groups 表（迁移 101）：用户私有词组，
+ * @description 操作 product_keyword_groups 表（迁移 101）：用户私有词组，
  *              terms 为 JSON 字符串数组；所有查询 user_id 隔离（越权不可能）。
  */
 import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
@@ -21,7 +21,7 @@ export class KeywordGroupsRepo {
 
   async listByUser(userId: number): Promise<KeywordGroupRow[]> {
     const [rows] = await this.pool.query(
-      "SELECT id, name, terms, created_at, updated_at FROM crm_product_keyword_groups WHERE user_id = ? ORDER BY id DESC",
+      "SELECT id, name, terms, created_at, updated_at FROM product_keyword_groups WHERE user_id = ? ORDER BY id DESC",
       [userId],
     );
     return (rows as RowDataPacket[]).map((r) => ({
@@ -37,7 +37,7 @@ export class KeywordGroupsRepo {
   async create(userId: number, name: string, terms: string[]): Promise<{ id: number } | null> {
     try {
       const [res] = await this.pool.execute(
-        "INSERT INTO crm_product_keyword_groups (user_id, name, terms) VALUES (?, ?, ?)",
+        "INSERT INTO product_keyword_groups (user_id, name, terms) VALUES (?, ?, ?)",
         [userId, name, JSON.stringify(terms)],
       );
       return { id: Number((res as ResultSetHeader).insertId) };
@@ -58,7 +58,7 @@ export class KeywordGroupsRepo {
     if (!sets.length) return true;
     params.push(userId, id);
     const [res] = await this.pool.execute(
-      `UPDATE crm_product_keyword_groups SET ${sets.join(", ")} WHERE user_id = ? AND id = ?`,
+      `UPDATE product_keyword_groups SET ${sets.join(", ")} WHERE user_id = ? AND id = ?`,
       params,
     );
     return Number((res as ResultSetHeader).affectedRows) > 0;
@@ -66,14 +66,14 @@ export class KeywordGroupsRepo {
 
   async remove(userId: number, id: number): Promise<void> {
     await this.pool.execute(
-      "DELETE FROM crm_product_keyword_groups WHERE user_id = ? AND id = ?",
+      "DELETE FROM product_keyword_groups WHERE user_id = ? AND id = ?",
       [userId, id],
     );
   }
 
   async countByUser(userId: number): Promise<number> {
     const [rows] = await this.pool.query(
-      "SELECT COUNT(*) AS cnt FROM crm_product_keyword_groups WHERE user_id = ?",
+      "SELECT COUNT(*) AS cnt FROM product_keyword_groups WHERE user_id = ?",
       [userId],
     );
     return Number((rows as RowDataPacket[])[0]?.cnt || 0);

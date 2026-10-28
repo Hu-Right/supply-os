@@ -1,5 +1,5 @@
 /**
- * 服务表详情读取：直接返回 crm_notice_public 原字段，不做别名映射。
+ * 服务表详情读取：直接返回 notice_public 原字段，不做别名映射。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
@@ -11,8 +11,8 @@ export async function findPublicDetail(pool: Pool, noticePk: number): Promise<Ro
             p.buyer_name, p.buyer_group, p.estimated_value, p.currency_code, p.currency_source,
             p.contacts, p.attachments, p.external_links, p.difficulty, p.registration_level,
             p.beneficiary_countries, p.updated_at, p.is_opportunity, d.deadline_type, d.deadline_timezone, d.timezone_source
-       FROM crm_notice_public p
-       LEFT JOIN crm_notice_deadline d ON d.notice_pk = p.notice_pk
+       FROM notice_public p
+       LEFT JOIN notice_deadline d ON d.notice_pk = p.notice_pk
       WHERE p.notice_pk = ? LIMIT 1`,
     [noticePk],
   );

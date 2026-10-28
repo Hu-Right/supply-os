@@ -12,7 +12,7 @@ export interface LearningBundle {
   id: string;
   labelZh: string;
   labelEn: string;
-  /** 套餐包含的 crm_learning_materials.material_id 列表 */
+  /** 套餐包含的 learning_materials.material_id 列表 */
   includesIds: string[];
   price: number;
 }

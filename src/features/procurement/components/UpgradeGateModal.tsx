@@ -6,7 +6,7 @@
  * @description 无权益用户触发受控功能（高级关键词行 / 产品关键词库）时弹出，
  *              取代此前"内嵌锁定态 + 后端静默降级横幅"的被动提示。
  *              门控判定由服务端 gates（/api/membership/status）驱动，本组件只呈现文案，
- *              不含任何档位常量——避免前端硬编码档位与 crm_plan_benefits 漂移。
+ *              不含任何档位常量——避免前端硬编码档位与 plan_benefits 漂移。
  *              配色对齐 AiEvaluationPanel 的琥珀引导卡（amber-200/50/600）。
  */
 import { Lock } from "lucide-react";

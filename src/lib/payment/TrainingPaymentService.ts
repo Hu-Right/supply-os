@@ -10,7 +10,7 @@
  *
  *              职责边界：
  *              - 订单存于 training_orders 表（物理隔离）
- *              - 履约写入 training_orders（状态）+ crm_training_registrations（报名状态）
+ *              - 履约写入 training_orders（状态）+ training_registrations（报名状态）
  *                + training_schedules（期次人数）
  *              - 定价从 TrainingRepo（training_courses 表）读取（零硬编码）
  *              - 支付渠道策略由 Orchestrator 通过 resolver 注入
@@ -316,7 +316,7 @@ export class TrainingPaymentService {
       // 回滚报名支付状态
       if (order.registration_id) {
         await conn.execute(
-          "UPDATE crm_training_registrations SET payment_status = 'refunded', order_id = NULL WHERE id = ?",
+          "UPDATE training_registrations SET payment_status = 'refunded', order_id = NULL WHERE id = ?",
           [order.registration_id],
         );
       }

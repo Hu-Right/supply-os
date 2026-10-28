@@ -46,7 +46,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const fullOpportunity = await opportunitiesRepo.findFullById(Number(qualified.id));
     const opportunity = fullOpportunity || qualified;
     const row = mergeBidReportRow(notice, opportunity);
-    // 平台展示名改由 crm_platform_aliases 表驱动（唯一入口）：解析 url/码后注入 row.platform_display
+    // 平台展示名改由 platform_aliases 表驱动（唯一入口）：解析 url/码后注入 row.platform_display
     const platformSnap = await loadPlatformAliasSnapshot(ctx.dbPool);
     row.platform_display = platformInfo(String(row.source_url || row.source_platform || ""), platformSnap)?.canonical ?? "";
 

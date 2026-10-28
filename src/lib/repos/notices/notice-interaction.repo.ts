@@ -3,7 +3,7 @@
  * Notice Interaction Repository
  *
  * @module server/repos/notices/notice-interaction.repo
- * @description 操作 crm_user_notice_views + crm_notice_interests 表。
+ * @description 操作 user_notice_views + notice_interests 表。
  */
 import type { Pool } from "mysql2/promise";
 
@@ -13,7 +13,7 @@ export class NoticeInteractionRepo {
   /** 记录公告浏览流水 */
   async insertView(params: { userId: number; noticeId: number; ip: string }): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO crm_user_notice_views (user_id, notice_id, viewed_at, ip)
+      `INSERT INTO user_notice_views (user_id, notice_id, viewed_at, ip)
        VALUES (?, ?, NOW(), ?)`,
       [params.userId, params.noticeId, params.ip],
     );
@@ -27,7 +27,7 @@ export class NoticeInteractionRepo {
     note: string;
   }): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO crm_notice_interests (user_id, notice_id, interest_type, source, note)
+      `INSERT INTO notice_interests (user_id, notice_id, interest_type, source, note)
        VALUES (?, ?, ?, 'detail_page', ?)
        ON DUPLICATE KEY UPDATE note = VALUES(note), updated_at = NOW()`,
       [params.userId, params.noticeId, params.interestType, params.note],

@@ -2,7 +2,7 @@
  * Next.js Route Handler 认证 helper
  *
  * 从 JWT Access Token 提取 userId，供 Route Handler 使用。
- * userId 为唯一身份标识（crm_users.user_key 列退役路线图收尾）。
+ * userId 为唯一身份标识（users.user_key 列退役路线图收尾）。
  */
 import type { NextRequest } from "next/server";
 import type { UserId } from "@/lib/types/identity";

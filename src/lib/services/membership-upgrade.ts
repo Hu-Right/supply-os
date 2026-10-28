@@ -2,7 +2,7 @@
  * 升级预览：新目录 + 当前订阅 + 真实账本，并按目录属性判定「全额抵扣」资格。
  *
  * @module lib/services/membership-upgrade
- * @description 抵扣口径来自 260928 报价表（落在 crm_plan_catalog.upgrade_credit_days，迁移 104）：
+ * @description 抵扣口径来自 260928 报价表（落在 plan_catalog.upgrade_credit_days，迁移 104）：
  *              - 档位声明了窗口（129/999＝7 天）：自订阅生效起 N 天内升级 = 已付款全额抵扣（补差价）；
  *                超窗口**不再有抵扣路径**——返回 UPGRADE_CREDIT_WINDOW_CLOSED 与原价新购金额，
  *                因为升级履约会把旧订阅置为被替代并冻结其额度池，若让它按原价走 upgrade 单，

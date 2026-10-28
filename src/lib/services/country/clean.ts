@@ -1,6 +1,6 @@
 /**
  * 国家归一键的原始清洗（纯函数，从退役的静态字典 lib/data/countryNames 迁出）。
- * 归一 SSOT 唯一依赖此清洗；展示映射已改由 crm_country_aliases 提供，本文件不再含任何名映射表。
+ * 归一 SSOT 唯一依赖此清洗；展示映射已改由 country_aliases 提供，本文件不再含任何名映射表。
  */
 
 /**

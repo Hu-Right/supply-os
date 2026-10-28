@@ -74,7 +74,7 @@ export class ChatRepo {
     aiSummary?: string;
   }): Promise<number> {
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_chat_sessions (user_id, customer_id, customer_name, lead_id, locale, ai_summary)
+      `INSERT INTO chat_sessions (user_id, customer_id, customer_name, lead_id, locale, ai_summary)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [
         params.userId ?? null,
@@ -91,7 +91,7 @@ export class ChatRepo {
   /** 按 ID 查询会话 */
   async findSessionById(sessionId: number): Promise<ChatSessionRow | null> {
     const [rows] = await this.pool.execute(
-      "SELECT * FROM crm_chat_sessions WHERE id = ? LIMIT 1",
+      "SELECT * FROM chat_sessions WHERE id = ? LIMIT 1",
       [sessionId],
     );
     return (rows as ChatSessionRow[])[0] ?? null;
@@ -100,7 +100,7 @@ export class ChatRepo {
   /** 列出客户的活跃/等待会话（按 user_id 查询） */
   async listSessionsByCustomer(userId: number): Promise<ChatSessionRow[]> {
     const [rows] = await this.pool.execute(
-      `SELECT * FROM crm_chat_sessions
+      `SELECT * FROM chat_sessions
        WHERE user_id = ? AND status IN ('waiting', 'active')
        ORDER BY created_at DESC LIMIT 20`,
       [userId],
@@ -111,7 +111,7 @@ export class ChatRepo {
   /** 列出所有等待/活跃会话（运营经理视角） */
   async listActiveSessions(): Promise<ChatSessionRow[]> {
     const [rows] = await this.pool.query(
-      `SELECT * FROM crm_chat_sessions
+      `SELECT * FROM chat_sessions
        WHERE status IN ('waiting', 'active')
        ORDER BY status ASC, created_at DESC LIMIT 50`,
     );
@@ -125,7 +125,7 @@ export class ChatRepo {
    */
   async acceptSession(sessionId: number, agentId: string, agentEmail: string): Promise<boolean> {
     const [result] = await this.pool.execute(
-      `UPDATE crm_chat_sessions
+      `UPDATE chat_sessions
        SET status = 'active', mode = 'human', agent_id = ?, agent_email = ?, accepted_at = NOW()
        WHERE id = ? AND status = 'waiting'`,
       [agentId, agentEmail, sessionId],
@@ -136,7 +136,7 @@ export class ChatRepo {
   /** 关闭会话 */
   async closeSession(sessionId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_chat_sessions SET status = 'closed', closed_at = NOW() WHERE id = ?",
+      "UPDATE chat_sessions SET status = 'closed', closed_at = NOW() WHERE id = ?",
       [sessionId],
     );
   }
@@ -151,7 +151,7 @@ export class ChatRepo {
     input: { satisfaction: number; tag?: string; comment?: string },
   ): Promise<boolean> {
     const [result] = await this.pool.execute(
-      `UPDATE crm_chat_sessions
+      `UPDATE chat_sessions
        SET satisfaction = ?, satisfaction_tag = ?, satisfaction_comment = ?, rated_at = NOW()
        WHERE id = ? AND status = 'closed' AND rated_at IS NULL`,
       [input.satisfaction, input.tag ?? null, input.comment ?? null, sessionId],
@@ -176,9 +176,9 @@ export class ChatRepo {
     const [rows] = await this.pool.execute(
       `SELECT s.id, s.agent_email, s.status, s.mode, s.locale, s.ai_summary,
               s.created_at, s.accepted_at, s.closed_at, s.satisfaction,
-              (SELECT m.content FROM crm_chat_messages m WHERE m.session_id = s.id ORDER BY m.id DESC LIMIT 1) AS last_message,
-              (SELECT COUNT(*) FROM crm_chat_messages m WHERE m.session_id = s.id) AS message_count
-       FROM crm_chat_sessions s
+              (SELECT m.content FROM chat_messages m WHERE m.session_id = s.id ORDER BY m.id DESC LIMIT 1) AS last_message,
+              (SELECT COUNT(*) FROM chat_messages m WHERE m.session_id = s.id) AS message_count
+       FROM chat_sessions s
        WHERE s.user_id = ? AND s.status = 'closed'
        ORDER BY s.closed_at DESC
        LIMIT ? OFFSET ?`,
@@ -196,7 +196,7 @@ export class ChatRepo {
   /** 递增 AI 回复计数 */
   async incrementAiCount(sessionId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_chat_sessions SET ai_handled_count = ai_handled_count + 1, last_message_at = NOW() WHERE id = ?",
+      "UPDATE chat_sessions SET ai_handled_count = ai_handled_count + 1, last_message_at = NOW() WHERE id = ?",
       [sessionId],
     );
   }
@@ -209,7 +209,7 @@ export class ChatRepo {
     metadata?: Record<string, unknown>;
   }): Promise<number> {
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_chat_messages (session_id, role, content, metadata)
+      `INSERT INTO chat_messages (session_id, role, content, metadata)
        VALUES (?, ?, ?, ?)`,
       [
         params.sessionId,
@@ -220,7 +220,7 @@ export class ChatRepo {
     );
     // 同步更新会话的最后消息时间
     await this.pool.execute(
-      "UPDATE crm_chat_sessions SET last_message_at = NOW() WHERE id = ?",
+      "UPDATE chat_sessions SET last_message_at = NOW() WHERE id = ?",
       [params.sessionId],
     );
     return (result as { insertId: number }).insertId;
@@ -229,7 +229,7 @@ export class ChatRepo {
   /** 查询会话的消息列表 */
   async listMessages(sessionId: number, limit = 100): Promise<ChatMessageRow[]> {
     const [rows] = await this.pool.execute(
-      `SELECT * FROM crm_chat_messages
+      `SELECT * FROM chat_messages
        WHERE session_id = ?
        ORDER BY created_at ASC LIMIT ?`,
       [sessionId, limit],
@@ -240,7 +240,7 @@ export class ChatRepo {
   /** 按 ID 精确查询单条消息（插入后回显用，审查 P0-B8） */
   async findMessageById(messageId: number): Promise<ChatMessageRow | null> {
     const [rows] = await this.pool.execute(
-      "SELECT * FROM crm_chat_messages WHERE id = ? LIMIT 1",
+      "SELECT * FROM chat_messages WHERE id = ? LIMIT 1",
       [messageId],
     );
     return (rows as ChatMessageRow[])[0] ?? null;
@@ -253,7 +253,7 @@ export class ChatRepo {
    */
   async listMessagesAfter(sessionId: number, afterId: number, limit = 200): Promise<ChatMessageRow[]> {
     const [rows] = await this.pool.execute(
-      `SELECT * FROM crm_chat_messages
+      `SELECT * FROM chat_messages
        WHERE session_id = ? AND id > ?
        ORDER BY id ASC LIMIT ?`,
       [sessionId, afterId, limit],
@@ -265,7 +265,7 @@ export class ChatRepo {
   async listRecentMessages(sessionId: number, limit = 20): Promise<ChatMessageRow[]> {
     const [rows] = await this.pool.execute(
       `SELECT * FROM (
-         SELECT * FROM crm_chat_messages
+         SELECT * FROM chat_messages
          WHERE session_id = ?
          ORDER BY created_at DESC LIMIT ?
        ) sub ORDER BY created_at ASC`,
@@ -288,8 +288,8 @@ export class ChatRepo {
     avgAcceptSeconds: number | null;
   }> {
     const [ahead] = await this.pool.execute(
-      `SELECT COUNT(*) AS ahead FROM crm_chat_sessions
-       WHERE status = 'waiting' AND created_at < (SELECT created_at FROM crm_chat_sessions WHERE id = ?)`,
+      `SELECT COUNT(*) AS ahead FROM chat_sessions
+       WHERE status = 'waiting' AND created_at < (SELECT created_at FROM chat_sessions WHERE id = ?)`,
       [sessionId],
     );
     const [online] = await this.pool.query(
@@ -298,7 +298,7 @@ export class ChatRepo {
     const [avg] = await this.pool.query(
       `SELECT AVG(wait_seconds) AS avg_seconds FROM (
          SELECT TIMESTAMPDIFF(SECOND, created_at, accepted_at) AS wait_seconds
-         FROM crm_chat_sessions
+         FROM chat_sessions
          WHERE accepted_at IS NOT NULL
          ORDER BY accepted_at DESC LIMIT 20
        ) recent`,

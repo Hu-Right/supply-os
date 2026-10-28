@@ -50,7 +50,7 @@ export function mapSupplierRow(
   const isInternational = Boolean(row.country_code) && row.country_code !== "CN";
   const countryRaw = String(row.country || "").trim();
   const countryKey = countryRaw || "China";
-  // 国家展示走表（crm_country_aliases）：命中取 name_i18n.zh + canonical，未命中回原值（无静态字典兼底）。
+  // 国家展示走表（country_aliases）：命中取 name_i18n.zh + canonical，未命中回原值（无静态字典兼底）。
   const centry = snap ? primaryCountryOf(countryKey, snap) : undefined;
   return {
     id: `sup-db-${row.id}`,

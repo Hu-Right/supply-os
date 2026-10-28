@@ -2,7 +2,7 @@
  * POST /api/rfq/create — 创建 RFQ 采购需求
  *
  * @module app/api/rfq/create/route
- * @description 将前端 RFQ 向导表单数据写入 crm_bid_notices（notice_type='RFQ', entry_source='platform'）。
+ * @description 将前端 RFQ 向导表单数据写入 bid_notices（notice_type='RFQ', entry_source='platform'）。
  *              需登录（JWT）。支持 draft / published 两种初始状态。
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
@@ -97,16 +97,16 @@ export const POST = withRoute(async (req: NextRequest) => {
     ? body.supplier_reqs.map((v: unknown) => str(v, 100)).filter(Boolean).join(",")
     : "";
 
-  // ── 写入 crm_bid_notices（商务条款走独立列，不再拼接 description）──
+  // ── 写入 bid_notices（商务条款走独立列，不再拼接 description）──
   const pool = getPool();
 
   try {
-    // deadline_sec 是 crm_bid_notices 的 STORED 生成列（迁移 009：基于 deadline_ts 自动折算），
+    // deadline_sec 是 bid_notices 的 STORED 生成列（迁移 009：基于 deadline_ts 自动折算），
     // 不可显式写入；改为写入基色列 deadline_ts（秒）与展示列 deadline（ISO 日期串）。
     // 时间语义：create_time = 创建时刻；published_date 不在创建时写（审核通过转
     // published 时才由 submit/后台写入），避免草稿/待审核阶段误显“发布于”。
     const [result] = await pool.query(
-      `INSERT INTO crm_bid_notices
+      `INSERT INTO bid_notices
         (title, description, country, category_code,
          notice_type, deadline, deadline_ts, create_time,
          estimated_value, currency, rfq_status,
@@ -149,11 +149,11 @@ export const POST = withRoute(async (req: NextRequest) => {
     // 不可能出现的形态（实测全库 0 条），实现数学级隔离。存量迁移见 085/086。
     const ref = `OSRFQ-${String(insertId).padStart(12, "0")}`;
     await pool.query(
-      `UPDATE crm_bid_notices SET reference = ?, notice_id = ? WHERE id = ?`,
+      `UPDATE bid_notices SET reference = ?, notice_id = ? WHERE id = ?`,
       [ref, ref, insertId],
     );
 
-    // 登记预期归属到 crm_rfq_guard（爬虫永不触碰的哨兵表），供周期对账检出被改写/消失。
+    // 登记预期归属到 rfq_guard（爬虫永不触碰的哨兵表），供周期对账检出被改写/消失。
     // best-effort：登记失败不影响建单本身（后台 syncRunner 平台护栏已是主防线），仅记日志。
     try {
       await registerRfqGuard(pool, { rfqId: insertId, reference: ref, userId: auth.userId ?? null });

@@ -7,7 +7,7 @@
  *
  * @module repos/opportunities.repo
  * @description 旧品类码退役 R5'（2026-10-14）：主表那个 JSON 快照列运行期不再 SELECT；
- *              列形制属历史采集快照，与新事实源 crm_notice_attribution_nodes 不相关。
+ *              列形制属历史采集快照，与新事实源 notice_attribution_nodes 不相关。
  *              物理 DROP 属下一批次（§9 桥表 / 主表 JSON 列同批）。消费方（merge/route）一律写死 []。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
@@ -53,7 +53,7 @@ export class OpportunitiesRepo {
          o.id, o.title, o.reference, o.notice_type, o.agency, o.country,
          o.deadline, o.deadline_ts, o.deadline_sec, o.estimated_value, o.description,
          o.industry, o.source_url
-       FROM crm_bid_opportunities o
+       FROM bid_opportunities o
        WHERE ${ACTIVE_OPP_WHERE}
        ORDER BY (o.deadline_sec = 0), o.deadline_sec ASC, o.id DESC
        LIMIT 80`,
@@ -64,14 +64,14 @@ export class OpportunitiesRepo {
   /**
    * 用户商机解锁流水（按解锁时间倒序）。
    *
-   * crm_opportunity_unlocks 是公告解锁与商机解锁共用的流水表：
+   * opportunity_unlocks 是公告解锁与商机解锁共用的流水表：
    * 公告行 opportunity_id 为 NULL。不过滤的话本端点会返一大片
    * `{opportunity_id: null}`（类型声明写的是 number，等于在谎报），
    * 下游“已解锁集合”根本无法使用。口径与 NoticeUnlockRepo.listNoticeUnlocks 对称。
    */
   async listUnlocks(userId: number): Promise<OpportunityUnlockRow[]> {
     const [rows] = await this.pool.query(
-      "SELECT opportunity_id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_id = ? AND opportunity_id IS NOT NULL ORDER BY unlocked_at DESC",
+      "SELECT opportunity_id, unlock_type, unlocked_at FROM opportunity_unlocks WHERE user_id = ? AND opportunity_id IS NOT NULL ORDER BY unlocked_at DESC",
       [userId],
     );
     return rows as OpportunityUnlockRow[];
@@ -83,7 +83,7 @@ export class OpportunitiesRepo {
     lang: string,
   ): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT title_tr, description_tr FROM crm_opportunity_translations WHERE opportunity_id = ? AND lang = ? LIMIT 1",
+      "SELECT title_tr, description_tr FROM opportunity_translations WHERE opportunity_id = ? AND lang = ? LIMIT 1",
       [opportunityId, lang],
     );
     return (rows as RowDataPacket[])[0] ?? null;
@@ -94,7 +94,7 @@ export class OpportunitiesRepo {
     opportunityId: number,
   ): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT title, description FROM crm_bid_opportunities WHERE id = ? LIMIT 1",
+      "SELECT title, description FROM bid_opportunities WHERE id = ? LIMIT 1",
       [opportunityId],
     );
     return (rows as RowDataPacket[])[0] ?? null;
@@ -109,7 +109,7 @@ export class OpportunitiesRepo {
     model: string,
   ): Promise<void> {
     await this.pool.query(
-      `INSERT INTO crm_opportunity_translations (opportunity_id, lang, title_tr, description_tr, model)
+      `INSERT INTO opportunity_translations (opportunity_id, lang, title_tr, description_tr, model)
        VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
       [opportunityId, lang, titleTr, descriptionTr, model],
@@ -122,7 +122,7 @@ export class OpportunitiesRepo {
     opportunityId: number,
   ): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT id, unlock_type FROM crm_opportunity_unlocks WHERE user_id = ? AND opportunity_id = ? LIMIT 1",
+      "SELECT id, unlock_type FROM opportunity_unlocks WHERE user_id = ? AND opportunity_id = ? LIMIT 1",
       [userId, opportunityId],
     );
     return (rows as RowDataPacket[])[0] ?? null;
@@ -139,7 +139,7 @@ export class OpportunitiesRepo {
               supplier_conditions, eligibility, technical_hurdles, training_link, remark,
               source_url, ai_products, ai_analysis,
               documents, external_links, contacts, update_time
-       FROM crm_bid_opportunities WHERE id = ? LIMIT 1`,
+       FROM bid_opportunities WHERE id = ? LIMIT 1`,
       [opportunityId],
     );
     return (rows as RowDataPacket[])[0] ?? null;
@@ -148,7 +148,7 @@ export class OpportunitiesRepo {
   /** 按 id 查商机存在性（解锁入口先验存在；字段拉取交给 findFullById）*/
   async findById(opportunityId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT id FROM crm_bid_opportunities WHERE id = ? LIMIT 1",
+      "SELECT id FROM bid_opportunities WHERE id = ? LIMIT 1",
       [opportunityId],
     );
     return (rows as RowDataPacket[])[0] ?? null;

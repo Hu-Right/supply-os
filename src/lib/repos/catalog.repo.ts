@@ -26,7 +26,7 @@ export class CatalogRepo {
   /** 查询全部激活的供应商资质证书 */
   async listActiveCertifications(): Promise<CertificationRow[]> {
     const [rows] = await this.pool.query(
-      "SELECT id, name FROM crm_supplier_certifications WHERE is_active = 1 ORDER BY sort_order",
+      "SELECT id, name FROM supplier_certifications WHERE is_active = 1 ORDER BY sort_order",
     );
     return rows as CertificationRow[];
   }

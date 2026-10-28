@@ -86,9 +86,9 @@ export function enrichAgencyI18n(
 
 /**
  * 统一列表项主键口径：`notice_pk` 是前端唯一主键字段（NoticeList 的 key、NoticeCard 的收藏/曝光上报均读它）。
- * 服务表直读行天然带 `notice_pk`；而宽表未就绪的降级多表 JOIN 与推荐管道都按主表 `crm_bid_notices.id` 投影，
- * 行里只有 `id`。三表主键同值（见 baseline.sql：crm_notice_public.notice_pk = crm_bid_notices.id，
- * crm_notice_search.id = notice_pk）⇒ 缺 `notice_pk` 时由 `id` 补齐，已有值不覆盖、两者皆无则不凭空造。
+ * 服务表直读行天然带 `notice_pk`；而宽表未就绪的降级多表 JOIN 与推荐管道都按主表 `bid_notices.id` 投影，
+ * 行里只有 `id`。三表主键同值（见 baseline.sql：notice_public.notice_pk = bid_notices.id，
+ * notice_search.id = notice_pk）⇒ 缺 `notice_pk` 时由 `id` 补齐，已有值不覆盖、两者皆无则不凭空造。
  * 各产出层（formatItems / recommend / deadlineFallback）共用本助手，避免 key={undefined} 触发 React 缺失 key 警告。
  */
 export function ensureNoticePk(item: Record<string, unknown>): Record<string, unknown> {

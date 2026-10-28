@@ -2,7 +2,7 @@
  * 迁移 003 · 站内信/收件箱
  *
  * @module server/db/migrations/003-notifications
- * @description 建 crm_notifications：站内信收件箱（此前系统仅有邮件跟踪，无站内信设施）。
+ * @description 建 notifications：站内信收件箱（此前系统仅有邮件跟踪，无站内信设施）。
  *              RFQ 闭环触达用（新RFQ/收到报价/中标），亦可复用于其他站内提醒。
  *              ref_id 供业务侧幂等去重；派发失败不阻断主流程由服务层保证。
  */
@@ -14,7 +14,7 @@ export const migration: Migration = {
   name: "notifications",
   async up(dbPool: Pool): Promise<void> {
     await dbPool.query(
-      "CREATE TABLE IF NOT EXISTS `crm_notifications` (" +
+      "CREATE TABLE IF NOT EXISTS `notifications` (" +
         "`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, " +
         "`user_id` INT UNSIGNED NOT NULL COMMENT '收件人 user_id', " +
         "`type` VARCHAR(32) NOT NULL COMMENT '类型：rfq_new/rfq_quoted/rfq_won 等', " +

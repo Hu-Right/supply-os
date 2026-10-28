@@ -108,7 +108,7 @@ export class TrainingRepo {
     ip: string;
   }): Promise<number> {
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_training_registrations
+      `INSERT INTO training_registrations
         (company_name, industry_id, industry, main_product, export_experience, certification, contact_name, position, telephone, email, remark, created_at, ip, audit_status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 'pending')`,
       [
@@ -121,8 +121,8 @@ export class TrainingRepo {
     return Number((result as RowDataPacket).insertId);
   }
 
-  // 下载计数单一权威源：crm_learning_materials.downloads_count（由 /api/training/downloads/track 直接递增）。
-  // 旧 crm_training_download_stats 并行计数（incrementDownloadCount / listDownloadStats）及其 stats 端点无消费方，已移除。
+  // 下载计数单一权威源：learning_materials.downloads_count（由 /api/training/downloads/track 直接递增）。
+  // 旧 training_download_stats 并行计数（incrementDownloadCount / listDownloadStats）及其 stats 端点无消费方，已移除。
   // 表本身保留（历史数据），如需清理另走迁移。
 
   // ── 落地页动态内容：课程 + 期次（报名支付依据）；讲师/团队/照片/反馈/FAQ 已前端静态化 ──
@@ -197,7 +197,7 @@ export class TrainingRepo {
   /** 更新报名记录的支付状态与关联订单 */
   async updateRegistrationPayment(registrationId: number, orderId: number, paymentStatus: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
+      "UPDATE training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
       [paymentStatus, orderId, registrationId],
     );
   }
@@ -236,7 +236,7 @@ export class TrainingRepo {
   /** 事务内更新报名记录支付状态 */
   async updateRegistrationPaymentInTransaction(conn: PoolConnection, registrationId: number, orderId: number, paymentStatus: string): Promise<void> {
     await conn.execute(
-      "UPDATE crm_training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
+      "UPDATE training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
       [paymentStatus, orderId, registrationId],
     );
   }

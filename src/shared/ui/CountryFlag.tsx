@@ -3,7 +3,7 @@
  * Country flag image component
  *
  * @module shared/ui/CountryFlag
- * @description 输入英文国家名（宽表 country_std 口径），经 COUNTRY_NAME_ISO2
+ * @description 输入英文国家名（宽表 country_name 口径），经 COUNTRY_NAME_ISO2
  *              全量映射（308 键，生成物见 shared/data/countryIso2）转为 ISO2，
  *              渲染本地国旗图；名称未命中时回退地球图标。
  *              本地资产不依赖外链（flagcdn 在部分网络环境不可达）。

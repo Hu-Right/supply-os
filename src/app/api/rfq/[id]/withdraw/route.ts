@@ -25,7 +25,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
 
     // 权限 + 状态校验
     const [existing] = await pool.query(
-      `SELECT id, rfq_status, user_id FROM crm_bid_notices
+      `SELECT id, rfq_status, user_id FROM bid_notices
        WHERE id = ? AND notice_type = 'RFQ' LIMIT 1`,
       [rfqId],
     );
@@ -35,7 +35,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     if (row.rfq_status !== RFQ_STATUS.PUBLISHED && row.rfq_status !== RFQ_STATUS.PENDING_REVIEW) routeError(400, EC_INVALID_REQUEST, "仅已发布或待审核的 RFQ 可撤回");
 
     const [result] = await pool.query(
-      `UPDATE crm_bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
+      `UPDATE bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
       [RFQ_STATUS.CLOSED, rfqId, auth.userId],
     );
 

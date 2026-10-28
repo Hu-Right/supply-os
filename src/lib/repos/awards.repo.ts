@@ -4,7 +4,7 @@
  *
  * @module repos/awards.repo
  * @description 提供中标记录的查询、写入、统计等操作。
- *              数据存于 crm_bid_awards 表；历史采集脚本 scripts/crawl-awards/ 已于
+ *              数据存于 bid_awards 表；历史采集脚本 scripts/crawl-awards/ 已于
  *              2026-09-19 移除（未入仓库的本地脚本），后续采集如需恢复参照本 repo
  *              的列结构重建写入链路。
  */
@@ -150,7 +150,7 @@ export class AwardsRepo {
     const order = `${sortBy} ${sortDir === "asc" ? "ASC" : "DESC"}`;
 
     const [countRows] = await this.pool.query(
-      `SELECT COUNT(*) AS total FROM crm_bid_awards WHERE ${where}`,
+      `SELECT COUNT(*) AS total FROM bid_awards WHERE ${where}`,
       values,
     );
     const total = Number((countRows as RowDataPacket[])[0]?.total || 0);
@@ -161,7 +161,7 @@ export class AwardsRepo {
               award_date, contract_value, contract_value_usd, currency,
               description, description_cn, category, industry,
               source_notice_id, crawl_time
-       FROM crm_bid_awards
+       FROM bid_awards
        WHERE ${where}
        ORDER BY ${order}
        LIMIT ? OFFSET ?`,
@@ -174,14 +174,14 @@ export class AwardsRepo {
   /** 按 ID 查中标详情（含中标商） */
   async findById(awardId: number): Promise<AwardWithWinners | null> {
     const [rows] = await this.pool.query(
-      `SELECT * FROM crm_bid_awards WHERE id = ? LIMIT 1`,
+      `SELECT * FROM bid_awards WHERE id = ? LIMIT 1`,
       [awardId],
     );
     const award = (rows as AwardRow[])[0];
     if (!award) return null;
 
     const [winners] = await this.pool.query(
-      `SELECT * FROM crm_bid_award_winners WHERE award_id = ?`,
+      `SELECT * FROM bid_award_winners WHERE award_id = ?`,
       [awardId],
     );
     return { ...award, winners: winners as AwardWinnerRow[] };
@@ -190,7 +190,7 @@ export class AwardsRepo {
   /** 按 external_id + platform 查重（爬虫去重用） */
   async findByExternalId(platform: string, externalId: string): Promise<AwardRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT id FROM crm_bid_awards WHERE source_platform = ? AND external_id = ? LIMIT 1`,
+      `SELECT id FROM bid_awards WHERE source_platform = ? AND external_id = ? LIMIT 1`,
       [platform, externalId],
     );
     return (rows as AwardRow[])[0] ?? null;
@@ -202,19 +202,19 @@ export class AwardsRepo {
   async getStats(): Promise<AwardStats> {
     const [totalRow] = await this.pool.query(
       `SELECT COUNT(*) AS total, COALESCE(SUM(contract_value_usd), 0) AS total_value_usd
-       FROM crm_bid_awards`,
+       FROM bid_awards`,
     );
     const { total, total_value_usd } = (totalRow as RowDataPacket[])[0];
 
     const [byAgency] = await this.pool.query(
       `SELECT agency, COUNT(*) AS count, COALESCE(SUM(contract_value_usd), 0) AS total_usd
-       FROM crm_bid_awards WHERE agency IS NOT NULL
+       FROM bid_awards WHERE agency IS NOT NULL
        GROUP BY agency ORDER BY total_usd DESC LIMIT 20`,
     );
 
     const [byCountry] = await this.pool.query(
       `SELECT country, COUNT(*) AS count
-       FROM crm_bid_awards WHERE country IS NOT NULL
+       FROM bid_awards WHERE country IS NOT NULL
        GROUP BY country ORDER BY count DESC LIMIT 20`,
     );
 
@@ -222,7 +222,7 @@ export class AwardsRepo {
       `SELECT DATE_FORMAT(award_date, '%Y-%m') AS month,
               COUNT(*) AS count,
               COALESCE(SUM(contract_value_usd), 0) AS total_usd
-       FROM crm_bid_awards WHERE award_date IS NOT NULL
+       FROM bid_awards WHERE award_date IS NOT NULL
        GROUP BY month ORDER BY month DESC LIMIT 24`,
     );
 
@@ -230,8 +230,8 @@ export class AwardsRepo {
       `SELECT w.winner_name AS name, COUNT(*) AS count,
               COALESCE(SUM(a.contract_value_usd), 0) AS total_usd,
               w.winner_country AS country
-       FROM crm_bid_award_winners w
-       JOIN crm_bid_awards a ON a.id = w.award_id
+       FROM bid_award_winners w
+       JOIN bid_awards a ON a.id = w.award_id
        GROUP BY w.winner_name, w.winner_country
        ORDER BY total_usd DESC LIMIT 20`,
     );
@@ -251,7 +251,7 @@ export class AwardsRepo {
     const [rows] = await this.pool.query(
       `SELECT id, title, title_cn, reference, agency, country, award_date,
               contract_value_usd, currency, category
-       FROM crm_bid_awards WHERE agency = ?
+       FROM bid_awards WHERE agency = ?
        ORDER BY award_date DESC LIMIT ?`,
       [agency, limit],
     );
@@ -266,8 +266,8 @@ export class AwardsRepo {
       `SELECT w.winner_name AS name, w.winner_country AS country,
               COUNT(*) AS count,
               COALESCE(SUM(a.contract_value_usd), 0) AS total_usd
-       FROM crm_bid_award_winners w
-       JOIN crm_bid_awards a ON a.id = w.award_id
+       FROM bid_award_winners w
+       JOIN bid_awards a ON a.id = w.award_id
        GROUP BY w.winner_name, w.winner_country
        ORDER BY total_usd DESC LIMIT ?`,
       [limit],
@@ -312,7 +312,7 @@ export class AwardsRepo {
       .map((c) => `${c} = VALUES(${c})`)
       .join(", ");
 
-    const sql = `INSERT INTO crm_bid_awards (${cols.join(", ")})
+    const sql = `INSERT INTO bid_awards (${cols.join(", ")})
                  VALUES (${placeholders})
                  ON DUPLICATE KEY UPDATE ${updates}, update_time = VALUES(update_time)`;
 
@@ -321,7 +321,7 @@ export class AwardsRepo {
     let awardId = result.insertId;
     if (!awardId && award.external_id) {
       const [rows] = await this.pool.query(
-        `SELECT id FROM crm_bid_awards WHERE source_platform = ? AND external_id = ? LIMIT 1`,
+        `SELECT id FROM bid_awards WHERE source_platform = ? AND external_id = ? LIMIT 1`,
         [award.source_platform, award.external_id],
       );
       awardId = Number((rows as RowDataPacket[])[0]?.id || 0);
@@ -330,12 +330,12 @@ export class AwardsRepo {
     // 写入中标商（先清后插，保证幂等）
     if (awardId > 0 && winners.length > 0) {
       await this.pool.execute(
-        `DELETE FROM crm_bid_award_winners WHERE award_id = ?`,
+        `DELETE FROM bid_award_winners WHERE award_id = ?`,
         [awardId],
       );
       for (const w of winners) {
         await this.pool.execute(
-          `INSERT INTO crm_bid_award_winners
+          `INSERT INTO bid_award_winners
              (award_id, winner_name, winner_name_cn, winner_country, winner_type,
               registration_level, certifications, share_amount, share_currency,
               contact_email, contact_phone, website)

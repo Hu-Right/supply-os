@@ -25,7 +25,7 @@ export async function fetchNoticeContext(pool: Pool, noticeId: number): Promise<
   const [rows] = await pool.query(
     `SELECT n.id, n.title, n.notice_type, n.country, n.deadline, n.estimated_value,
             LEFT(n.description, 2000) AS description
-     FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`,
+     FROM bid_notices n WHERE n.id = ? LIMIT 1`,
     [noticeId],
   );
   const base = (rows as RowDataPacket[])[0];
@@ -34,8 +34,8 @@ export async function fetchNoticeContext(pool: Pool, noticeId: number): Promise<
   // 机会表补充资格条件
   const [oppRows] = await pool.query(
     `SELECT o.eligibility, o.technical_hurdles, o.supplier_conditions
-     FROM crm_bid_opportunities o
-     WHERE o.source_notice_id = (SELECT notice_id FROM crm_bid_notices WHERE id = ? LIMIT 1)
+     FROM bid_opportunities o
+     WHERE o.source_notice_id = (SELECT notice_id FROM bid_notices WHERE id = ? LIMIT 1)
        AND (o.is_qualified = 1 OR o.status = 1 OR o.audit_status = 1)
      LIMIT 1`,
     [noticeId],

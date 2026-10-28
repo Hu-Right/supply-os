@@ -3,15 +3,15 @@
  * Notice × Backbone Nodes inverted table writer
  *
  * @module server/services/search-sync/notice-nodes
- * @description crm_notice_backbone_nodes 是宽表 backbone_path 的「行化镜像」：一行一个节点码
+ * @description notice_backbone_nodes 是宽表 backbone_path 的「行化镜像」：一行一个节点码
  *              (notice_id, node)。建它的原因只有一条 —— 读侧那句「给定 N 个节点码，捞出挂了
  *              其中任一个的公告」用 FIND_IN_SET 写在 backbone_path 上永远用不到索引，实测
  *              2.4s/3.8s/1.4s（EXPLAIN type=ALL，每次扫 677,629 行），而行化 + idx_node 后
  *              同一批键是 0.09s/0.05s/0.04s（探针110，同库同轮交错跑）。
  *
  *              边界（红线）：
- *              - 本表内容只由本模块写；建表在 scripts/ops/commodity-notice-nodes-ddl.ts、
- *                存量灌数在 scripts/ops/commodity-notice-nodes-backfill.ts（两件均为一次性，不入库），
+ *              - 本表内容只由本模块写；建表与存量灌数由一次性 DDL/回填脚本完成（2026-10 已执行收尾，
+ *                两件均为一次性不入库、已删除；表定义以 db/schema/baseline.sql 为准），
  *                运行期增量由 upsertWideRows / purgeNoticeSearch / reconcileGhostRows 三个既有收口点调用本模块。
  *              - 列值→节点码集合的拆分只用 commodity/backbone-path 的 fromBackbonePathColumn，
  *                本模块不写第二套拆列逻辑（口径单一事实源，I2）。
@@ -29,7 +29,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { fromBackbonePathColumn } from "../commodity/backbone-path";
 
 /** 表名唯一事实源：门禁与 ops 脚本都引用它 */
-export const NOTICE_NODES_TABLE = "crm_notice_backbone_nodes";
+export const NOTICE_NODES_TABLE = "notice_backbone_nodes";
 
 /** 一条查询里最多带多少个 id（增量批 5000 行时要分几次问） */
 const ID_CHUNK = 1000;
@@ -77,7 +77,7 @@ const READY_TTL = 5 * 60 * 1000;
 
 /**
  * 桥表是否已建好。缺失时本模块所有写操作直接返回零值，一次进程内只警告一条 ——
- * 建表是人工闸口动作（scripts/ops/commodity-notice-nodes-ddl.ts --apply --yes），
+ * 建表是人工闸口动作（按 db/schema/baseline.sql 的定义人工执行），
  * 代码不能因为它还没发生就每 5 秒往日志里灌一遍，也不能因为它的缺失就弄坏宽表同步。
  */
 export async function noticeNodesTableReady(pool: Pool): Promise<boolean> {
@@ -96,7 +96,7 @@ export async function noticeNodesTableReady(pool: Pool): Promise<boolean> {
   if (!ok && _ready !== false) {
     console.warn(
       `[notice-nodes] 表 ${NOTICE_NODES_TABLE} 不可用 → 节点码倒排写入自动关闭（宽表同步不受影响）；` +
-      "建表灌数：npx tsx scripts/ops/commodity-notice-nodes-ddl.ts --apply --yes",
+      "建表：按 db/schema/baseline.sql 中本表定义人工执行（一次性 DDL/回填脚本已收尾删除）",
     );
   }
   _ready = ok;
@@ -111,7 +111,7 @@ export function __resetNoticeNodesCache(): void {
 }
 
 export interface NoticeNodesRowInput {
-  /** 公告主键 id（=crm_bid_notices.id=crm_notice_search.id） */
+  /** 公告主键 id（=bid_notices.id=notice_search.id） */
   id: number;
   /** 宽表列值原文；空串/NULL 表示该公告没有节点码（桥表里必须一行都不留） */
   backbone_path?: string | null;
@@ -259,7 +259,7 @@ export async function detectNoticeNodesMismatchIds(pool: Pool, ids: readonly num
               IF(ns.backbone_path IS NULL OR ns.backbone_path = '', 0,
                  CHAR_LENGTH(ns.backbone_path) - CHAR_LENGTH(REPLACE(ns.backbone_path, ',', '')) + 1) want,
               IFNULL(t.got, 0) got
-       FROM crm_notice_search ns
+       FROM notice_search ns
        LEFT JOIN (SELECT notice_id, COUNT(*) got FROM ${NOTICE_NODES_TABLE}
                   WHERE notice_id IN (${ph}) GROUP BY notice_id) t ON t.notice_id = ns.id
        WHERE ns.id IN (${ph})`,

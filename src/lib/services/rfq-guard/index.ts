@@ -3,9 +3,9 @@
  *
  * @module lib/services/rfq-guard
  * @description 跨系统契约哨兵：外部爬虫同步（intelligence-daily syncRunner）与平台 RFQ 共用
- *              crm_bid_notices 的自增 id 空间，靠后台「platform 行不覆盖」护栏保护。护栏一旦被
+ *              bid_notices 的自增 id 空间，靠后台「platform 行不覆盖」护栏保护。护栏一旦被
  *              移除，RFQ 会被爬虫按主键静默改写/消失、无告警。本服务在 supply-os 独占表
- *              crm_rfq_guard 里登记每条 RFQ 的预期归属，并周期对账主表，检出「登记在册但主行
+ *              rfq_guard 里登记每条 RFQ 的预期归属，并周期对账主表，检出「登记在册但主行
  *              已非 platform/RFQ/同 owner」的偏差——即护栏失效信号。登记表爬虫永不触碰，故为可靠「预期真相」。
  *
  *              口径：撤回（withdraw）仅置 rfq_status=closed、不删行，主行仍是 platform/RFQ，
@@ -34,7 +34,7 @@ export interface RfqGuardViolation {
  */
 export async function registerRfqGuard(dbPool: Pool, ref: RfqGuardRef): Promise<void> {
   await dbPool.query(
-    `INSERT INTO crm_rfq_guard (rfq_id, reference, user_id)
+    `INSERT INTO rfq_guard (rfq_id, reference, user_id)
      VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE reference = VALUES(reference), user_id = VALUES(user_id)`,
     [ref.rfqId, ref.reference, ref.userId],
@@ -48,14 +48,14 @@ export async function registerRfqGuard(dbPool: Pool, ref: RfqGuardRef): Promise<
 export async function reconcileRfqGuard(
   dbPool: Pool,
 ): Promise<{ checked: number; violations: RfqGuardViolation[] }> {
-  const [countRows] = await dbPool.query(`SELECT COUNT(*) AS total FROM crm_rfq_guard`);
+  const [countRows] = await dbPool.query(`SELECT COUNT(*) AS total FROM rfq_guard`);
   const checked = Number((countRows as RowDataPacket[])[0]?.total || 0);
 
   const [rows] = await dbPool.query(
     `SELECT g.rfq_id AS rfqId, g.reference AS reference, g.user_id AS expectUserId,
             n.entry_source AS curSource, n.notice_type AS curType, n.user_id AS curUserId
-       FROM crm_rfq_guard g
-       LEFT JOIN crm_bid_notices n ON n.id = g.rfq_id
+       FROM rfq_guard g
+       LEFT JOIN bid_notices n ON n.id = g.rfq_id
       WHERE n.id IS NULL
          OR n.entry_source <> 'platform'
          OR n.notice_type <> 'RFQ'

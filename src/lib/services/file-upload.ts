@@ -3,7 +3,7 @@
  * File Upload Service
  *
  * @module lib/services/file-upload
- * @description 营业执照等运行时上传文件统一【字节入库】（crm_upload_files）：
+ * @description 营业执照等运行时上传文件统一【字节入库】（upload_files）：
  *              门户（云端）与后台审核（本地）连同一个数据库，文件随库共享，
  *              不依赖任何一台机器的磁盘路径。2026-10-14 执照文件随 standalone
  *              重部署蒸发的事故根因即"落盘在构建产物目录内"，入库后该类风险整体消失。
@@ -64,7 +64,7 @@ export async function saveLicenseFile(params: {
     throw new Error("非法的执照文件名");
   }
   await getPool().execute(
-    `INSERT INTO crm_upload_files (filename, content, content_type, size_bytes, uploaded_by)
+    `INSERT INTO upload_files (filename, content, content_type, size_bytes, uploaded_by)
      VALUES (?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE content = VALUES(content), content_type = VALUES(content_type),
                              size_bytes = VALUES(size_bytes), uploaded_by = VALUES(uploaded_by)`,
@@ -79,7 +79,7 @@ export async function getLicenseFile(
 ): Promise<{ buffer: Buffer; contentType: string } | null> {
   if (!LICENSE_FILENAME_RE.test(filename)) return null;
   const [rows] = await getPool().execute(
-    `SELECT content, content_type FROM crm_upload_files WHERE filename = ? LIMIT 1`,
+    `SELECT content, content_type FROM upload_files WHERE filename = ? LIMIT 1`,
     [filename],
   );
   const row = (rows as Array<{ content: Buffer; content_type: string }>)[0];
@@ -95,6 +95,6 @@ export async function deleteFile(url: string): Promise<void> {
   const filename = licenseFilenameFromUrl(url);
   if (!filename) return;
   await getPool()
-    .execute(`DELETE FROM crm_upload_files WHERE filename = ?`, [filename])
+    .execute(`DELETE FROM upload_files WHERE filename = ?`, [filename])
     .catch(() => undefined);
 }

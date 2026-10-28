@@ -4,7 +4,7 @@
  *
  * @module lib/services/commodity/supplier-self-report
  * @description 归属人在企业信息编辑页勾选「主营产品（按品目树）」后，把选中的 UGT 节点码写成
- *              `crm_supplier_backbone_interests` 的 `source='self_report'` 行。这条落点的唯一消费方
+ *              `supplier_backbone_interests` 的 `source='self_report'` 行。这条落点的唯一消费方
  *              是 `ai-match` 粗筛（`SELECT supplier_id, code` → `getBackboneIndex().pathOf` 展开祖先），
  *              所以本服务只保证三件事，其余一律不做：
  *              1. 落点精准（宁缺毋滥）：只收形制合法（2~5 级）且**树里真实存在**的码；
@@ -69,7 +69,7 @@ async function resolveExisting(
   const out = new Map<string, { nameZh: string; level: number }>();
   if (codes.length === 0) return out;
   const [rows] = await pool.query(
-    `SELECT code, name_zh, level FROM crm_commodity_backbone
+    `SELECT code, name_zh, level FROM commodity_backbone
       WHERE code IN (${codes.map(() => "?").join(",")}) AND status = 1`,
     [...codes],
   );
@@ -111,7 +111,7 @@ export async function replaceSupplierSelfReport(
   // 1) 删除不再自报的行（仅 self_report 来源）。空集合即「清空该供应商全部自报」。
   if (stored.length === 0) {
     await pool.query(
-      `DELETE FROM crm_supplier_backbone_interests WHERE supplier_id = ? AND source = ?`,
+      `DELETE FROM supplier_backbone_interests WHERE supplier_id = ? AND source = ?`,
       [sid, SELF_REPORT_SOURCE],
     );
     return { stored, dropped };
@@ -120,7 +120,7 @@ export async function replaceSupplierSelfReport(
   // 2) 保留集之外、且属于 self_report 的旧行删掉（不误伤其它来源）
   const inPlaceholders = stored.map(() => "?").join(",");
   await pool.query(
-    `DELETE FROM crm_supplier_backbone_interests
+    `DELETE FROM supplier_backbone_interests
       WHERE supplier_id = ? AND source = ? AND code NOT IN (${inPlaceholders})`,
     [sid, SELF_REPORT_SOURCE, ...stored],
   );
@@ -141,7 +141,7 @@ export async function replaceSupplierSelfReport(
     );
   }
   await pool.query(
-    `INSERT INTO crm_supplier_backbone_interests
+    `INSERT INTO supplier_backbone_interests
        (supplier_id, code, name, level, source, weight, confidence, created_at, updated_at)
      VALUES ${valuesSql}
      ON DUPLICATE KEY UPDATE
@@ -164,7 +164,7 @@ export async function listSupplierSelfReport(
   const sid = Number(supplierId);
   if (!Number.isInteger(sid) || sid <= 0) return [];
   const [rows] = await pool.query(
-    `SELECT code, name FROM crm_supplier_backbone_interests
+    `SELECT code, name FROM supplier_backbone_interests
       WHERE supplier_id = ? AND source = ? AND code <> '' ORDER BY code`,
     [sid, SELF_REPORT_SOURCE],
   );

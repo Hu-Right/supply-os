@@ -72,9 +72,9 @@ export class PaymentService {
    * 新套餐体系（129/999/1299/8800）无促销规则。
    *
    * 260928 报价表（迁移 104）带来的**两条不是促销、而是商品属性**的抵扣规则，在此落实：
-   * 1) 「7天内升级版本，可全额抵扣」——由 crm_plan_catalog.upgrade_credit_days 驱动，
+   * 1) 「7天内升级版本，可全额抵扣」——由 plan_catalog.upgrade_credit_days 驱动，
    *    资格判定在 previewUpgrade（超窗口 → UPGRADE_CREDIT_WINDOW_CLOSED，不得走 upgrade 单）；
-   * 2) 「199 升级年包可全额抵扣」——由 crm_service_catalog.credit_to_annual_plan 驱动，
+   * 2) 「199 升级年包可全额抵扣」——由 service_catalog.credit_to_annual_plan 驱动，
    *    在 applyAnnualPlanCredit 核销一张已成交且未被引用的服务单。
    *
    * @throws UPGRADE_NOT_SUPPORTED / NO_ACTIVE_PLAN_TO_UPGRADE /

@@ -1,5 +1,5 @@
 /**
- * 国家归一 · 服务层解析器（一切以 crm_country_aliases 表为准，无静态兜底）
+ * 国家归一 · 服务层解析器（一切以 country_aliases 表为准，无静态兜底）
  *
  * @module server/services/country/resolve
  * @description 归一只认表：命中即用表内 canonical/code/kind；查不到即视为「表不完善」，

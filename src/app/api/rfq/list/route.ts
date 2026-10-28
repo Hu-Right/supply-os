@@ -2,7 +2,7 @@
  * GET /api/rfq/list — RFQ 需求广场列表
  *
  * @module app/api/rfq/list/route
- * @description 从 crm_bid_notices 查询 entry_source='platform' AND notice_type='RFQ' AND rfq_status='published' 的记录。
+ * @description 从 bid_notices 查询 entry_source='platform' AND notice_type='RFQ' AND rfq_status='published' 的记录。
  *              筛选：关键词 + 品目大类（UGT L1 树码前缀）；交付地点为手动填写地址，仅展示不筛选。
  *              替代旧版前端 PLAZA_RFQS 静态数组。
  */
@@ -74,7 +74,7 @@ export const GET = withRoute(async (req: NextRequest) => {
     const [countResult, dataResult] = await Promise.all([
       Promise.race([pool.query(
         // 计数不再 JOIN：大类筛选走 category_code 前缀，条件全部落在主表
-        `SELECT COUNT(*) AS total FROM crm_bid_notices n
+        `SELECT COUNT(*) AS total FROM bid_notices n
          WHERE ${whereSql}`, params), timeout]),
       Promise.race([
         pool.query(
@@ -82,10 +82,10 @@ export const GET = withRoute(async (req: NextRequest) => {
                   n.category_code, c1.name_zh AS category_name,
                   c0.name_zh AS category_l1_name,
                   n.estimated_value, n.currency, n.deadline_sec, n.is_featured, n.agency,
-                  (SELECT COUNT(*) FROM crm_rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count
-           FROM crm_bid_notices n
-           LEFT JOIN crm_commodity_backbone c1 ON c1.code = n.category_code
-           LEFT JOIN crm_commodity_backbone c0 ON c0.code = LEFT(n.category_code, 6) AND c0.level = 1
+                  (SELECT COUNT(*) FROM rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count
+           FROM bid_notices n
+           LEFT JOIN commodity_backbone c1 ON c1.code = n.category_code
+           LEFT JOIN commodity_backbone c0 ON c0.code = LEFT(n.category_code, 6) AND c0.level = 1
            WHERE ${whereSql} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
           [...params, pageSize, offset],
         ),

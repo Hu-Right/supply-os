@@ -1,5 +1,5 @@
 /**
- * 来源/采购平台归一 · 服务层解析器（一切以 crm_platform_aliases 表为准，无静态兜底）
+ * 来源/采购平台归一 · 服务层解析器（一切以 platform_aliases 表为准，无静态兜底）
  *
  * @module server/services/platform/resolve
  * @description 归一只认表：命中即用表内 canonical/code/kind/zh；查不到即视为「表不完善」，

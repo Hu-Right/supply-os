@@ -45,7 +45,7 @@ export class LearningMaterialsRepo {
   /** 获取全部学习资料（按 number 排序） */
   async findAll(): Promise<LearningMaterialRow[]> {
     const [rows] = await this.pool.query(
-      `SELECT * FROM crm_learning_materials ORDER BY number ASC, id ASC`,
+      `SELECT * FROM learning_materials ORDER BY number ASC, id ASC`,
     );
     return rows as LearningMaterialRow[];
   }
@@ -53,7 +53,7 @@ export class LearningMaterialsRepo {
   /** 按 material_id 获取单个资料 */
   async findByMaterialId(materialId: string): Promise<LearningMaterialRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT * FROM crm_learning_materials WHERE material_id = ? LIMIT 1`,
+      `SELECT * FROM learning_materials WHERE material_id = ? LIMIT 1`,
       [materialId],
     );
     return (rows as LearningMaterialRow[])[0] ?? null;
@@ -64,7 +64,7 @@ export class LearningMaterialsRepo {
     if (materialIds.length === 0) return [];
     const placeholders = materialIds.map(() => "?").join(",");
     const [rows] = await this.pool.query(
-      `SELECT * FROM crm_learning_materials WHERE material_id IN (${placeholders}) ORDER BY number ASC`,
+      `SELECT * FROM learning_materials WHERE material_id IN (${placeholders}) ORDER BY number ASC`,
       materialIds,
     );
     return rows as LearningMaterialRow[];
@@ -73,7 +73,7 @@ export class LearningMaterialsRepo {
   /** 获取用户已购买的资料 material_id 列表 */
   async findPurchasedMaterialIds(userId: number): Promise<string[]> {
     const [rows] = await this.pool.query(
-      `SELECT material_id FROM crm_learning_material_purchases WHERE user_id = ?`,
+      `SELECT material_id FROM learning_material_purchases WHERE user_id = ?`,
       [userId],
     );
     return (rows as RowDataPacket[]).map((r) => r.material_id as string);
@@ -88,7 +88,7 @@ export class LearningMaterialsRepo {
     amount: number,
   ): Promise<void> {
     await conn.execute(
-      `INSERT INTO crm_learning_material_purchases (user_id, material_id, order_no, amount)
+      `INSERT INTO learning_material_purchases (user_id, material_id, order_no, amount)
        VALUES (?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE order_no = VALUES(order_no), amount = VALUES(amount)`,
       [userId, materialId, orderNo, amount],
@@ -107,7 +107,7 @@ export class LearningMaterialsRepo {
     const perItemAmount = amount / materialIds.length;
     for (const materialId of materialIds) {
       await conn.execute(
-        `INSERT INTO crm_learning_material_purchases (user_id, material_id, order_no, amount)
+        `INSERT INTO learning_material_purchases (user_id, material_id, order_no, amount)
          VALUES (?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE order_no = VALUES(order_no), amount = VALUES(amount)`,
         [userId, materialId, orderNo, perItemAmount],
@@ -121,7 +121,7 @@ export class LearningMaterialsRepo {
     materialId: string,
   ): Promise<void> {
     await conn.execute(
-      `UPDATE crm_learning_materials SET downloads_count = downloads_count + 1 WHERE material_id = ?`,
+      `UPDATE learning_materials SET downloads_count = downloads_count + 1 WHERE material_id = ?`,
       [materialId],
     );
   }

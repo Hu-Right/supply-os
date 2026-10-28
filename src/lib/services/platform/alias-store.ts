@@ -3,7 +3,7 @@
  * Platform Alias Store (single source of truth)
  *
  * @module server/services/platform/alias-store
- * @description 全项目唯一读取 crm_platform_aliases 的入口：一份 10 分钟缓存、
+ * @description 全项目唯一读取 platform_aliases 的入口：一份 10 分钟缓存、
  *              一份归一键 normalizePlatformKey（小写、去协议/www/路径、去非字母数字，
  *              折叠 "域名 / 下划线码 / Camel / 显示名 / 短码" 多种拼法）、
  *              一份 host 维表 byHost（注册域 → 条目，兼容子域后缀匹配），
@@ -84,7 +84,7 @@ export async function loadPlatformAliasSnapshot(pool: Pool): Promise<PlatformAli
   const formsByCanonical = new Map<string, string[]>();
   try {
     const [rows] = await pool.query(
-      "SELECT canonical, platform_code, alias, host, kind, name_i18n FROM crm_platform_aliases WHERE is_active = 1"
+      "SELECT canonical, platform_code, alias, host, kind, name_i18n FROM platform_aliases WHERE is_active = 1"
     );
     for (const row of rows as RowDataPacket[]) {
       const canonical = String(row.canonical || "").trim();
@@ -123,7 +123,7 @@ export async function loadPlatformAliasSnapshot(pool: Pool): Promise<PlatformAli
   } catch (err) {
     throttledWarn(
       "query",
-      `[platform-alias] crm_platform_aliases 查询失败（降级：${_cache ? "沿用旧缓存" : "返回空快照"}，将在下次调用重试）: ${(err as Error).message}`,
+      `[platform-alias] platform_aliases 查询失败（降级：${_cache ? "沿用旧缓存" : "返回空快照"}，将在下次调用重试）: ${(err as Error).message}`,
     );
     if (_cache) return _cache;
     return { byKey, byHost, formsByCanonical };

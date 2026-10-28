@@ -2,7 +2,7 @@
  * GET /api/user/enterprise/license/[filename] — 鉴权回显营业执照图片
  *
  * @module app/api/user/enterprise/license/[filename]/route
- * @description 执照字节存于 crm_upload_files（门户与后台共享同一数据库，不落任何磁盘），
+ * @description 执照字节存于 upload_files（门户与后台共享同一数据库，不落任何磁盘），
  *              此处按文件名取库回图。文件名格式 license_<userId>_<ts>.<ext> 内嵌上传者
  *              uid，鉴权口径为「文件名中的 uid == 当前登录用户」——既杜绝越权（IDOR），
  *              又不依赖企业绑定状态（新用户入驻上传后、尚未保存企业即可预览自己的执照）。

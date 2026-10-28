@@ -17,12 +17,21 @@ import { qualifiedOppWhere } from "../../utils/notice-qualified";
 /** 机会表合格行 JOIN 片段（别名 opp），供宽表主查询、翻译批量查询与指纹检测共用；
  *  谓词由 utils/notice-qualified 唯一派生，与精选判定同口径（I2） */
 export const WIDE_OPP_JOIN = `
-  LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id
+  LEFT JOIN bid_opportunities opp ON opp.source_notice_id = n.notice_id
     AND ${qualifiedOppWhere("opp")}
 `;
 
-/** 宽表主查询 FROM + JOIN（依赖别名 n = crm_bid_notices） */
+/**
+ * 服务表（①归一层）JOIN 片段（别名 p）：宽表的归一化字段（买家/类型分组/国家/金额/截止）
+ * 2026-10-27 起改为投影自 notice_public，本层不再执行归一化。主查询与指纹检测共用，
+ * 保证「指纹含 p.updated_at 段」时两侧的 JOIN 形态一致。
+ */
+export const WIDE_PUBLIC_JOIN = `
+  LEFT JOIN notice_public p ON p.notice_pk = n.id
+`;
+
+/** 宽表主查询 FROM + JOIN（依赖别名 n = bid_notices） */
 export const WIDE_SYNC_JOIN = `
-  FROM crm_bid_notices n
-  ${WIDE_OPP_JOIN}
+  FROM bid_notices n
+  ${WIDE_OPP_JOIN}${WIDE_PUBLIC_JOIN}
 `;

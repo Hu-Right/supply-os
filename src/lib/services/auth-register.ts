@@ -9,7 +9,7 @@
  *              路由层只保留：请求解析、Cookie 邀请码回退、IP/UA 提取、Cookie 清理。
  *              业务失败以 RouteError（lib 级业务错误，含 status/code 元数据）抛出。
  *
- *              crm_users.user_key 列退役收尾：create() 返回 insertId 后，
+ *              users.user_key 列退役收尾：create() 返回 insertId 后，
  *              后续 markPhoneVerified/findAuthByKey 全部改为按 id 定位，
  *              不再依赖 user_key 列做查询。
  */
@@ -38,7 +38,7 @@ export interface RegisterUserParams {
   /** 合规审计字段 */
   agreementVersion?: string;
   /**
-   * 客户端声明的协议同意时刻（ISO 8601）。**不再入库**：crm_consent_log.consent_timestamp 列已退役
+   * 客户端声明的协议同意时刻（ISO 8601）。**不再入库**：consent_log.consent_timestamp 列已退役
    * （原实现只剥 T/Z 不做时区换算，落库值恒早 8 小时），同意时间以服务端 created_at 为唯一事实。
    * 保留入参仅为兼容旧前端契约，勿误以为可从本字段取证。
    */
@@ -98,7 +98,7 @@ export async function registerUser(
     password_hash: await hashPassword(pw),
     phone: targetPhone,
     referral_code: inviteCode,
-    // 渠道码不得写进员工列：那是 crm_employees 的归属语义，串了会在员工后台看见不属于他的人头
+    // 渠道码不得写进员工列：那是 employees 的归属语义，串了会在员工后台看见不属于他的人头
     referral_employee_id: owner !== null && owner.namespace === "employee" ? owner.employeeId : undefined,
   });
   if (!newUserId) throw new RouteError(400, EC_INVALID_REQUEST, "注册失败，请稍后重试");
@@ -113,8 +113,8 @@ export async function registerUser(
   // 位置在核销验证码与建号之后：密码策略/邀请码/验证码/判重等失败路径均已在其上方早退，不会写。
   await ctx.user.usersRepo.updateLastLoginById(newUserId);
 
-  // 归属记账：员工码走 crm_monthly_kpi 的「个人起步」桶（认证转企业由后台审核事件翻转）；
-  // 渠道码走 crm_channel_registrations 台账（一人一行，库内幂等）。两者互斥、各写各的。
+  // 归属记账：员工码走 monthly_kpi 的「个人起步」桶（认证转企业由后台审核事件翻转）；
+  // 渠道码走 channel_registrations 台账（一人一行，库内幂等）。两者互斥、各写各的。
   // 失败一律向上抛，不静默吞：KPI 与台账都是对账凭据，少记一笔就是少结一笔（与上方合规日志的「不阻断」刻意相反）。
   if (owner !== null && owner.namespace === "employee") {
     await ctx.user.invitationRepo.incrementMonthlyActual(owner.employeeId, "personal");
@@ -133,7 +133,7 @@ export async function registerUser(
   }
 
   // ── 合规审计：记录用户协议同意日志（P0）——失败不阻断主流程 ──
-  // 纯 user_id 路径（迁移 068 已 DROP crm_users.user_key；本表 user_key / consent_timestamp
+  // 纯 user_id 路径（迁移 068 已 DROP users.user_key；本表 user_key / consent_timestamp
   // 两列已随影子表切换退役（另有 source_page，与 consent_type 同义），同意时间以服务端 created_at
   // 为唯一事实，发生场景由 consent_type 定位，见 auth.repo.recordConsentLog）
   try {

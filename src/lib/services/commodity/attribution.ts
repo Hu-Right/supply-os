@@ -3,15 +3,15 @@
  * Attribution landing nodes (pure functions, dependency leaf)
  *
  * @module lib/services/commodity/attribution
- * @description 退役旧品类码之后的分工：`crm_notice_attribution_nodes.node_code` 存**最深落点**
+ * @description 退役旧品类码之后的分工：`notice_attribution_nodes.node_code` 存**最深落点**
  *              （AI 打标产出，或存量由 `backbone_path` 反推的 legacy 落点），宽表 `backbone_path`
  *              仍是派生列，由本模块 `pathOfLandingNodes()` 补全祖先产出，`buildWideRow`
  *              依旧是唯一写入方 —— 事实源换input，ADR-0007「派生列由构建方算」的前提不废。
  *
  *              为什么只存落点、不存祖先链：祖先由节点码唯一决定（`chainOfNode` 纯切片，
  *              BB1 把「父码 = 自身码去掉末两位」钉成不变量）。存两份就是造第二个事实源 ——
- *              树正名或挪归属改一次，落库的旧链就悄悄对不上。与 `crm_commodity_backbone`
- *              不存 level、`crm_notice_backbone_nodes` 不存 precise 是同一条纪律。
+ *              树正名或挪归属改一次，落库的旧链就悄悄对不上。与 `commodity_backbone`
+ *              不存 level、`notice_backbone_nodes` 不存 precise 是同一条纪律。
  *
  *              为什么本模块不碰旧品类码：签名与判据里没有任何 8 位码概念，形制判定只用
  *              `backboneNodeLevel()`。退役完成后公告域不再有「码→树」的换算面，

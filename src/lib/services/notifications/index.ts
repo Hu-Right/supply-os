@@ -2,7 +2,7 @@
  * 站内信/收件箱服务
  *
  * @module lib/services/notifications
- * @description crm_notifications 读写（系统此前无站内信设施，RFQ 闭环触达新建）。
+ * @description notifications 读写（系统此前无站内信设施，RFQ 闭环触达新建）。
  *              pushNotification 由业务事件调用，失败不应阻断主流程（调用方 try/catch 兜底）。
  */
 import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
@@ -32,7 +32,7 @@ export async function pushNotification(
   input: PushNotificationInput,
 ): Promise<number> {
   const [result] = await dbPool.query(
-    `INSERT INTO crm_notifications (user_id, type, title, body, link, ref_id)
+    `INSERT INTO notifications (user_id, type, title, body, link, ref_id)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [
       input.userId,
@@ -58,14 +58,14 @@ export async function listNotifications(
 
   const where = "user_id = ?" + (unreadOnly ? " AND is_read = 0" : "");
   const [countRows] = await dbPool.query(
-    `SELECT COUNT(*) AS total FROM crm_notifications WHERE ${where}`,
+    `SELECT COUNT(*) AS total FROM notifications WHERE ${where}`,
     [userId],
   );
   const total = Number((countRows as RowDataPacket[])[0]?.total || 0);
 
   const [rows] = await dbPool.query(
     `SELECT id, type, title, body, link, is_read, created_at
-       FROM crm_notifications WHERE ${where}
+       FROM notifications WHERE ${where}
       ORDER BY id DESC LIMIT ? OFFSET ?`,
     [userId, limit, offset],
   );
@@ -85,7 +85,7 @@ export async function listNotifications(
 /** 未读数。 */
 export async function unreadCount(dbPool: Pool, userId: number): Promise<number> {
   const [rows] = await dbPool.query(
-    `SELECT COUNT(*) AS total FROM crm_notifications WHERE user_id = ? AND is_read = 0`,
+    `SELECT COUNT(*) AS total FROM notifications WHERE user_id = ? AND is_read = 0`,
     [userId],
   );
   return Number((rows as RowDataPacket[])[0]?.total || 0);
@@ -94,7 +94,7 @@ export async function unreadCount(dbPool: Pool, userId: number): Promise<number>
 /** 标记单条已读（限本人）。返回是否命中。 */
 export async function markRead(dbPool: Pool, userId: number, id: number): Promise<boolean> {
   const [result] = await dbPool.query(
-    `UPDATE crm_notifications SET is_read = 1 WHERE id = ? AND user_id = ?`,
+    `UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?`,
     [id, userId],
   );
   return (result as ResultSetHeader).affectedRows > 0;

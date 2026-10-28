@@ -42,7 +42,7 @@ import { BACKBONE_NODE_PREFIX, backboneNodeLevel } from "@/shared/constants/comm
 export const ATTR_SOURCE_LEGACY = "legacy_tag";
 
 /** 落点表表名：契约侧唯一登记处，需要拼 SQL 的调用方从这里取，不再各写一遍字面量 */
-export const ATTR_LANDING_TABLE = "crm_notice_attribution_nodes";
+export const ATTR_LANDING_TABLE = "notice_attribution_nodes";
 
 /**
  * 有效落点的最浅层级：L2 起。

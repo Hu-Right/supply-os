@@ -32,20 +32,20 @@ export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
 
   statsCalcPromise = (async () => {
     try {
-      const [rawRows] = await pool.query("SELECT COUNT(*) AS total FROM crm_bid_notices n");
-      const [activeRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}`);
+      const [rawRows] = await pool.query("SELECT COUNT(*) AS total FROM bid_notices n");
+      const [activeRows] = await pool.query(`SELECT COUNT(*) AS total FROM bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}`);
       const [bridgedRows] = await pool.query(
-        `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}
-         AND EXISTS (SELECT 1 FROM crm_notice_backbone_nodes b WHERE b.notice_id = n.id)`
+        `SELECT COUNT(*) AS total FROM bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}
+         AND EXISTS (SELECT 1 FROM notice_backbone_nodes b WHERE b.notice_id = n.id)`
       );
       const [featuredRows] = await pool.query(
-        `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS} AND n.is_featured = 1`
+        `SELECT COUNT(*) AS total FROM bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS} AND n.is_featured = 1`
       );
       // 模块02 规模条口径（谓词字面内联以通过静态扫描，与 ACTIVE_NOTICE_WHERE_NO_ALIAS
       // 逐字一致，口径变更须与 utils/notice-expired 两处同步）：
       // 未来 30 天截止（把握近期机会）
       const [deadline30Rows] = await pool.query(
-        `SELECT COUNT(*) AS total FROM crm_bid_notices n
+        `SELECT COUNT(*) AS total FROM bid_notices n
          WHERE (n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
            AND n.deadline_sec > UNIX_TIMESTAMP(NOW())
            AND n.deadline_sec <= UNIX_TIMESTAMP(NOW()) + 30 * 86400
@@ -53,7 +53,7 @@ export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
       );
       // 含原始文件（宽表 documents_count>0，可下载附件）
       const [docsRows] = await pool.query(
-        `SELECT COUNT(*) AS total FROM crm_notice_search ns
+        `SELECT COUNT(*) AS total FROM notice_search ns
          WHERE (ns.deadline_sec = 0 OR ns.deadline_sec >= UNIX_TIMESTAMP(NOW()))
            AND ns.documents_count > 0`
       );
@@ -126,11 +126,11 @@ export async function getNoticeDailyNew(pool: Pool): Promise<{ todayNew: number;
 
   const [todayResult, yesterdayResult] = await Promise.all([
     pool.query(
-      "SELECT COUNT(*) AS total FROM crm_bid_notices WHERE create_time >= ? AND create_time < ?",
+      "SELECT COUNT(*) AS total FROM bid_notices WHERE create_time >= ? AND create_time < ?",
       [todayStart, todayEnd]
     ),
     pool.query(
-      "SELECT COUNT(*) AS total FROM crm_bid_notices WHERE create_time >= ? AND create_time < ?",
+      "SELECT COUNT(*) AS total FROM bid_notices WHERE create_time >= ? AND create_time < ?",
       [yesterdayStart, yesterdayEnd]
     ),
   ]);

@@ -3,9 +3,9 @@
  * User interest node persistence
  *
  * @module lib/services/commodity/interest
- * @description 旧品类码小表剥离（2026-10-14）：`crm_user_interest_codes.code` 不再存
+ * @description 旧品类码小表剥离（2026-10-14）：`user_interest_codes.code` 不再存
  *              旧品类码 8 位前缀，改存公告的 UGT 归属节点码（含祖先链，与倒排镜像
- *              `crm_notice_backbone_nodes` 同一口径）。行为语义不变：解锁/订阅/收藏/
+ *              `notice_backbone_nodes` 同一口径）。行为语义不变：解锁/订阅/收藏/
  *              反馈等动作仍按来源白名单给权重，单码 LEAST 封顶，quick_exit 走衰减。
  *
  *              与旧版（旧字典目录下的 interest.ts，已删）的三处实质差别：
@@ -63,7 +63,7 @@ export async function loadNoticeNodeCodes(
 }
 
 /**
- * 持久化用户兴趣节点：写入 crm_user_interest_codes（code 存 UGT 节点码）
+ * 持久化用户兴趣节点：写入 user_interest_codes（code 存 UGT 节点码）
  *
  * @param nodeCodes - 公告 UGT 节点码集合（倒排行，去重后逐条落列）
  * @param source - 来源（必须在白名单内）
@@ -92,7 +92,7 @@ export async function persistInterestNodeCodes(
   if (rows.length === 0) return;
   // 多行 VALUES 的动态占位符不走 prepare（execute 的 unknown[] 重载不接受），query 足够
   await dbPool.query(
-    `INSERT INTO crm_user_interest_codes (user_id, code, level, source, weight, updated_at)
+    `INSERT INTO user_interest_codes (user_id, code, level, source, weight, updated_at)
      VALUES ${rows.join(", ")}
      ON DUPLICATE KEY UPDATE weight = LEAST(${INTEREST_WEIGHT_CAP}, weight + VALUES(weight)), updated_at = NOW()`,
     params,
@@ -117,7 +117,7 @@ export async function decayInterestNodeCodes(
   if (seen.size === 0) return;
   const list = [...seen];
   await dbPool.execute(
-    `UPDATE crm_user_interest_codes
+    `UPDATE user_interest_codes
      SET weight = GREATEST(0.01, weight * ?), updated_at = NOW()
      WHERE user_id = ? AND code IN (${list.map(() => "?").join(",")})`,
     [factor, userId, ...list],
@@ -132,8 +132,8 @@ export async function loadOpportunityNoticeNodeCodes(
   if (!Number.isInteger(opportunityId) || opportunityId <= 0) return [];
   const [rows] = await pool.query(
     `SELECT cand.node
-       FROM crm_bid_opportunities o
-       JOIN crm_bid_notices n ON n.notice_id = o.source_notice_id
+       FROM bid_opportunities o
+       JOIN bid_notices n ON n.notice_id = o.source_notice_id
        JOIN ${NOTICE_NODES_TABLE} cand ON cand.notice_id = n.id
       WHERE o.id = ?`,
     [opportunityId],

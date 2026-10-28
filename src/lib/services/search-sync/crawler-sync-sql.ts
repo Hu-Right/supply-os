@@ -15,14 +15,14 @@
 /** 同步表顺序：旧公告桥表已随小表剥离移出同步清单
  *  （2026-10-14）——公告归属唯一事实源是落点表，桥表进入只出不进的封存态。 */
 export const SYNC_TABLES = [
-  "crm_bid_notices",
-  "crm_bid_opportunities",
+  "bid_notices",
+  "bid_opportunities",
 ] as const;
 
 /** 公告主表名（其变更 id 需级联到宽表） */
-export const NOTICE_TABLE = "crm_bid_notices";
+export const NOTICE_TABLE = "bid_notices";
 
-/** update_time 可能为数值列（存 Unix 秒，如 crm_bid_notices）或 DATETIME 列 */
+/** update_time 可能为数值列（存 Unix 秒，如 bid_notices）或 DATETIME 列 */
 export const NUMERIC_TYPES = new Set([
   "tinyint", "smallint", "mediumint", "int", "bigint", "float", "double", "decimal",
 ]);
@@ -32,7 +32,7 @@ export const NUMERIC_TYPES = new Set([
  * 源库补建同名列但值为 NULL/空串时，不得把云端已填好的值整体抹掉。
  * 数值列仅 NULL 算未提供（0 是合法业务值）；字符串列额外把空串视作未提供。
  *
- * 2026-10-12 清空：原 crm_bid_opportunities 的 17 个国际采购列整族退役，
+ * 2026-10-12 清空：原 bid_opportunities 的 17 个国际采购列整族退役，
  * 云端已无人读且全库仅 1 行有值（那行还贴错了行），保护它们没有意义。
  * 待删列清单见 scripts/tools/opp-slim-plan.mjs；列删后同步走「源∩目标」交集，
  * 源库多出的列自动跳过并告警，不报错。若将来重新引入人工精编列，必须在这里登记。
@@ -40,7 +40,7 @@ export const NUMERIC_TYPES = new Set([
 export const NON_DESTRUCTIVE_COLUMNS: Record<string, string[]> = {
   // 附件/外链是采集与外部文档管道补齐的字段；源库为空数组时不得把云端已有值抹掉
   // （2026-10-21：实测 daily-sync 用源库 [] 覆盖了主表 documents，附件 URL 丢失）
-  crm_bid_notices: ["documents", "procurement_files", "external_links"],
+  bid_notices: ["documents", "procurement_files", "external_links"],
 };
 
 /** 水位线：id 高水位 + update_time 高水位（字符串，跟随列原生类型；null 表示本批未见到有效值） */
@@ -62,7 +62,7 @@ export interface Watermark {
  * 流入，绝不能登记进本表，否则会把审核结果永久堵在门外（同测试文件里有反向断言）。
  */
 export const MONOTONE_RISE_COLUMNS: Record<string, string[]> = {
-  crm_bid_notices: ["is_featured"],
+  bid_notices: ["is_featured"],
 };
 
 /**
@@ -77,7 +77,7 @@ export const MONOTONE_RISE_COLUMNS: Record<string, string[]> = {
  * 新值（'crawl'），护栏会只覆盖前半截列 ⇒ 产出「爬虫内容 + 平台附件」的缝合行。
  * 整行过滤与列序无关，且让免疫行完全不参与写入（与后台 syncRunner 的净效果一致）。
  */
-export const PLATFORM_IMMUNE = { table: "crm_bid_notices", column: "entry_source", value: "platform" } as const;
+export const PLATFORM_IMMUNE = { table: "bid_notices", column: "entry_source", value: "platform" } as const;
 
 /**
  * 目标优先列（已存在行不让源值覆盖，仅当目标为空才写）—— 本路径**故意留空**。

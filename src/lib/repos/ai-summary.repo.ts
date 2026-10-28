@@ -1,7 +1,7 @@
 /**
  * AI 摘要缓存数据访问层 v2
  * @module lib/repos/ai-summary.repo
- * @description 操作 crm_notice_ai_summaries 表（user_id + notice_id 唯一）。
+ * @description 操作 notice_ai_summaries 表（user_id + notice_id 唯一）。
  *              支持 6 维度：核心交付/资质门槛/商务要素/竞争格局/投标策略/风险提示。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
@@ -43,7 +43,7 @@ export class AiSummaryRepo {
   /** 查缓存（无则 null） */
   async find(userId: number, noticeId: number): Promise<AiSummaryRow | null> {
     const [rows] = await this.pool.query(
-      "SELECT * FROM crm_notice_ai_summaries WHERE user_id = ? AND notice_id = ? LIMIT 1",
+      "SELECT * FROM notice_ai_summaries WHERE user_id = ? AND notice_id = ? LIMIT 1",
       [userId, noticeId],
     );
     return (rows as AiSummaryRow[])[0] ?? null;
@@ -52,7 +52,7 @@ export class AiSummaryRepo {
   /** UPSERT 分析结果（6 维度） */
   async upsert(input: AiSummaryInput): Promise<void> {
     await this.pool.query(
-      `INSERT INTO crm_notice_ai_summaries
+      `INSERT INTO notice_ai_summaries
          (user_id, notice_id, core_deliverables, key_qualifications, payment_cycle,
           competitive_landscape, bid_strategy, risk_alerts,
           model, provider_base_url, input_tokens, output_tokens)
@@ -81,7 +81,7 @@ export class AiSummaryRepo {
   /** 删除缓存（强制重新分析时用） */
   async remove(userId: number, noticeId: number): Promise<void> {
     await this.pool.query(
-      "DELETE FROM crm_notice_ai_summaries WHERE user_id = ? AND notice_id = ?",
+      "DELETE FROM notice_ai_summaries WHERE user_id = ? AND notice_id = ?",
       [userId, noticeId],
     );
   }
@@ -91,7 +91,7 @@ export class AiSummaryRepo {
   /** 查评分缓存 */
   async findScore(userId: number, noticeId: number): Promise<(AiSummaryRow & { score_reasons: string | null; score_reasoning: string | null }) | null> {
     const [rows] = await this.pool.query(
-      "SELECT * FROM crm_notice_ai_summaries WHERE user_id = ? AND notice_id = ? LIMIT 1",
+      "SELECT * FROM notice_ai_summaries WHERE user_id = ? AND notice_id = ? LIMIT 1",
       [userId, noticeId],
     );
     return (rows as (AiSummaryRow & { score_reasons: string | null; score_reasoning: string | null })[])[0] ?? null;
@@ -107,7 +107,7 @@ export class AiSummaryRepo {
     model: string; providerBaseUrl: string;
   }): Promise<void> {
     await this.pool.query(
-      `INSERT INTO crm_notice_ai_summaries
+      `INSERT INTO notice_ai_summaries
          (user_id, notice_id, model, provider_base_url,
           score_qualification, score_experience, score_certification,
           score_region, score_scale, score_delivery, score_price, score_overall, score_reasons, score_reasoning)
@@ -136,7 +136,7 @@ export class AiSummaryRepo {
   /** 删除评分缓存（清空全部评分列，含 score_reasoning，避免残留脏数据） */
   async removeScore(userId: number, noticeId: number): Promise<void> {
     await this.pool.query(
-      `UPDATE crm_notice_ai_summaries SET
+      `UPDATE notice_ai_summaries SET
          score_qualification = NULL, score_experience = NULL, score_certification = NULL,
          score_region = NULL, score_scale = NULL, score_delivery = NULL,
          score_price = NULL, score_overall = NULL, score_reasons = NULL, score_reasoning = NULL
@@ -153,7 +153,7 @@ export class AiSummaryRepo {
     noticeId: number,
   ): Promise<{ match_results: string; model: string } | null> {
     const [rows] = await this.pool.query(
-      "SELECT match_results, model FROM crm_notice_ai_summaries WHERE user_id = ? AND notice_id = ? LIMIT 1",
+      "SELECT match_results, model FROM notice_ai_summaries WHERE user_id = ? AND notice_id = ? LIMIT 1",
       [userId, noticeId],
     );
     const row = (rows as { match_results: string | null; model: string }[])[0];
@@ -166,7 +166,7 @@ export class AiSummaryRepo {
     model: string; providerBaseUrl: string;
   }): Promise<void> {
     await this.pool.query(
-      `INSERT INTO crm_notice_ai_summaries
+      `INSERT INTO notice_ai_summaries
          (user_id, notice_id, model, provider_base_url, match_results)
        VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
@@ -181,7 +181,7 @@ export class AiSummaryRepo {
   /** 按用户失效全部匹配缓存（资源库增删供应商后，旧匹配结果不再可信） */
   async removeMatchByUser(userId: number): Promise<void> {
     await this.pool.query(
-      "UPDATE crm_notice_ai_summaries SET match_results = NULL WHERE user_id = ?",
+      "UPDATE notice_ai_summaries SET match_results = NULL WHERE user_id = ?",
       [userId],
     );
   }

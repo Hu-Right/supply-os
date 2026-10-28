@@ -53,7 +53,7 @@ export function buildZhFromKeywords(name: string): string | null {
   return null;
 }
 
-/** 国家名关键词映射已删：一律走 crm_country_aliases（matchCountryZhInText），不再在机构模块内维护静态国家字典。 */
+/** 国家名关键词映射已删：一律走 country_aliases（matchCountryZhInText），不再在机构模块内维护静态国家字典。 */
 
 /** 从机构名中提取国家名（表驱动：先按国家词形包含匹配，再退 ISO/ccTLD，均查归一表）。 */
 export function extractCountryFromName(name: string): string | null {

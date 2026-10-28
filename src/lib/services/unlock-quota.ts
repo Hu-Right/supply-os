@@ -8,13 +8,13 @@
  *              "有订阅即无限放行、从不扣减"曾构成资损风险，收敛为一份逻辑防分叉。
  *
  *              记账原则（2026-09-23 切换到权益体系新账本，勿擅改）：
- *              - 配额发放/消耗唯一权威源 = crm_benefit_quotas 的 notice_view 池行；
- *              - 池的额度来自 crm_plan_benefits 矩阵格 value_num，不在代码里写数字；
+ *              - 配额发放/消耗唯一权威源 = benefit_quotas 的 notice_view 池行；
+ *              - 池的额度来自 plan_benefits 矩阵格 value_num，不在代码里写数字；
  *              - 未订阅用户按 free 档那一列判定（free.notice_view 实库为 0，即已裁决的零额度）；
  *              - 不再"懒补建物化权益"：旧体系那套是为填补"有订阅无权益行"的历史缺口，
  *                新体系的池由履约时按矩阵批量开立，缺池只可能来自履约失败或矩阵缺格，
  *                此处按需开池仅限一次并用矩阵值封顶，不会像旧口径那样拿流水数反推用量。
- *              - crm_opportunity_unlocks 流水仍写，但只作访问授权与审计明细，不作记账源。
+ *              - opportunity_unlocks 流水仍写，但只作访问授权与审计明细，不作记账源。
  *              调用方须处于解锁事务内（FOR UPDATE 序列化同一用户并发）。
  */
 import type { PoolConnection } from "mysql2/promise";

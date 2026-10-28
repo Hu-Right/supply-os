@@ -4,7 +4,7 @@
  */
 import { safeJson } from "../../utils/json";
 
-// ── 平台展示名不再在此静态维护：改由 crm_platform_aliases 表驱动，路由 merge 后注入 row.platform_display ──
+// ── 平台展示名不再在此静态维护：改由 platform_aliases 表驱动，路由 merge 后注入 row.platform_display ──
 
 // ── 行业标签映射（与 PHP 版 INDUSTRY_MAP 一致）──
 export const INDUSTRY_MAP: Record<string, string> = {

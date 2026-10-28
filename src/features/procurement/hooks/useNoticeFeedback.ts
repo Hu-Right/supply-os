@@ -5,7 +5,7 @@
  * @module features/procurement/hooks/useNoticeFeedback
   // 说明：dismiss（不感兴趣）与 favorite 反馈事件已于 2026-09-30 整体砍除（不是临时禁用）——
   // 前端入口自 2026-07-30 移除后从未恢复、库内 0 行数据，服务端的受理与降权分支一并删除。
-  // （公采公告的收藏/书签功能与此无关，它走 /api/notices/[id]/favorite 与 crm_notice_favorites。）
+  // （公采公告的收藏/书签功能与此无关，它走 /api/notices/[id]/favorite 与 notice_favorites。）
  * @description T-B9 显式反馈（曝光/点击）与 T-C7 隐式偏好信号
  *              （dwell/scroll_end/quick_exit/revisit）的门控、采集与批量上报。
  *              仅推荐模式采集，避免污染搜索/筛选场景的反馈数据。

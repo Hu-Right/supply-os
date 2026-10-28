@@ -8,7 +8,7 @@
  *
  *              职责边界：
  *              - 订单存于 learning_orders 表（独立物理表）
- *              - 履约写入 crm_learning_material_purchases（权益表，不变）
+ *              - 履约写入 learning_material_purchases（权益表，不变）
  *              - 定价从 LearningMaterialsRepo（单资料）或 learning-bundles.ts（套餐）获取
  *              - 支付渠道策略（Alipay/Wechat/Mock）由外部注入，复用统一通道
  */
@@ -256,7 +256,7 @@ export class LearningPaymentService {
   // ── 退款逆向 ──────────────────────────────────────────────────────────────
 
   /**
-   * 退款后删除 crm_learning_material_purchases 购买记录
+   * 退款后删除 learning_material_purchases 购买记录
    * 幂等：仅 paid 订单可逆向
    */
   async reverseOrder(orderNo: string): Promise<{ found: boolean; reversed: boolean }> {
@@ -273,7 +273,7 @@ export class LearningPaymentService {
 
       // 删除购买记录
       await conn.execute(
-        "DELETE FROM crm_learning_material_purchases WHERE order_no = ? AND user_id = ?",
+        "DELETE FROM learning_material_purchases WHERE order_no = ? AND user_id = ?",
         [orderNo, order.user_id],
       );
 

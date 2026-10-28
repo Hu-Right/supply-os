@@ -21,8 +21,8 @@ export async function backfillNoticeAmountCache(dbPool: Pool, noticeIds?: number
   const idFilter = noticeIds && noticeIds.length ? `AND n.id IN (${noticeIds.map(() => "?").join(",")})` : "";
   const [rows] = await dbPool.query(
     `SELECT n.id, n.estimated_value, n.country
-     FROM crm_bid_notices n
-     LEFT JOIN crm_notice_amount_cache c ON c.notice_id = n.id AND c.parse_version = ?
+     FROM bid_notices n
+     LEFT JOIN notice_amount_cache c ON c.notice_id = n.id AND c.parse_version = ?
      WHERE c.notice_id IS NULL ${idFilter}
      LIMIT ?`,
     [AMOUNT_PARSE_VERSION, ...(noticeIds || []), batchLimit]
@@ -42,7 +42,7 @@ export async function backfillNoticeAmountCache(dbPool: Pool, noticeIds?: number
     );
   }
   await dbPool.query(
-    `INSERT INTO crm_notice_amount_cache (notice_id, amount, currency, amount_usd, inferred, parse_version)
+    `INSERT INTO notice_amount_cache (notice_id, amount, currency, amount_usd, inferred, parse_version)
      VALUES ${pending.map(() => "(?,?,?,?,?,?)").join(",")}
      ON DUPLICATE KEY UPDATE amount=VALUES(amount), currency=VALUES(currency), amount_usd=VALUES(amount_usd),
        inferred=VALUES(inferred), parse_version=VALUES(parse_version), parsed_at=CURRENT_TIMESTAMP`,

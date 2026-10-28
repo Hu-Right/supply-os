@@ -3,7 +3,7 @@
  * Notice Translation Repository
  *
  * @module server/repos/notices/notice-translation.repo
- * @description 操作 crm_notice_translations 表。
+ * @description 操作 notice_translations 表。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
@@ -13,7 +13,7 @@ export class NoticeTranslationRepo {
   /** 公告译文缓存（无缓存返回 null；description_tr 可能为 null） */
   async findTranslationCache(noticeId: number, lang: string): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT title_tr, description_tr FROM crm_notice_translations WHERE notice_id = ? AND lang = ? LIMIT 1",
+      "SELECT title_tr, description_tr FROM notice_translations WHERE notice_id = ? AND lang = ? LIMIT 1",
       [noticeId, lang],
     );
     return (rows as RowDataPacket[])[0] ?? null;
@@ -22,7 +22,7 @@ export class NoticeTranslationRepo {
   /** 仅更新译文描述（机会表覆盖重翻 / 描述补翻） */
   async updateTranslationDescription(noticeId: number, lang: string, descriptionTr: string, model: string): Promise<void> {
     await this.pool.query(
-      `UPDATE crm_notice_translations SET description_tr = ?, model = ? WHERE notice_id = ? AND lang = ?`,
+      `UPDATE notice_translations SET description_tr = ?, model = ? WHERE notice_id = ? AND lang = ?`,
       [descriptionTr, model, noticeId, lang],
     );
   }
@@ -36,7 +36,7 @@ export class NoticeTranslationRepo {
     model: string,
   ): Promise<void> {
     await this.pool.query(
-      `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
+      `INSERT INTO notice_translations (notice_id, lang, title_tr, description_tr, model)
        VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
       [noticeId, lang, titleTr, descriptionTr, model],
@@ -46,7 +46,7 @@ export class NoticeTranslationRepo {
   /** 指定语言译文是否已存在（英文中枢兜底前置检查） */
   async hasTranslation(noticeId: number, lang: string): Promise<boolean> {
     const [rows] = await this.pool.query(
-      "SELECT id FROM crm_notice_translations WHERE notice_id = ? AND lang = ? LIMIT 1",
+      "SELECT id FROM notice_translations WHERE notice_id = ? AND lang = ? LIMIT 1",
       [noticeId, lang],
     );
     return (rows as RowDataPacket[]).length > 0;
@@ -60,7 +60,7 @@ export class NoticeTranslationRepo {
     model: string,
   ): Promise<void> {
     await this.pool.query(
-      `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
+      `INSERT INTO notice_translations (notice_id, lang, title_tr, description_tr, model)
        VALUES (?, 'en', ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          title_tr = COALESCE(VALUES(title_tr), title_tr),

@@ -3,14 +3,12 @@
  * Wide Row Builder & Data Loading
  *
  * @module server/services/search-sync/wide-row-builder
- * @description 负责 crm_notice_search 宽表的数据加载、行构建、deadline 对账和批量写入。
+ * @description 负责 notice_search 宽表的数据加载、行构建、deadline 对账和批量写入。
  *              与 sync-scheduler.ts（调度层）分离，实现数据构建与同步时机的解耦。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
-import { normalizeNoticeType } from "../../utils/notice-type";
-import { classifyAgencyType } from "../agency/index";
-import { resolveCountries, countryCanonicalsOf, countryCodesOf } from "../country/resolve";
+import { resolveCountries } from "../country/resolve";
 import type { CountryAliasSnapshot } from "../country/alias-store";
 import { toBackbonePathColumn } from "../commodity/backbone-path";
 import { pathOfLandingNodes } from "../commodity/attribution";
@@ -20,7 +18,7 @@ import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 import { WIDE_OPP_JOIN, WIDE_SYNC_JOIN } from "./wide-sync-sql";
 import { upsertNoticeNodes } from "./notice-nodes";
 import { SUPPORTED_LANGS } from "../../utils/languages";
-import { loadAgencyAliasSnapshot, normalizeAliasKey } from "../agency/alias-store";
+import { loadAgencyAliasSnapshot } from "../agency/alias-store";
 
 export { WIDE_OPP_JOIN, WIDE_SYNC_JOIN };
 
@@ -50,7 +48,12 @@ export function wideSyncSelect(withFp: boolean): string {
          n.estimated_value, n.documents, n.procurement_files,
          n.published_date, n.entry_source,
          opp.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
-         opp.beneficiary_countries
+         opp.beneficiary_countries,
+         p.buyer_name, p.buyer_group, p.country_name,
+         p.country_codes AS public_country_codes,
+         p.notice_type_code, p.deadline_ts,
+         p.estimated_value AS public_estimated_value,
+         p.updated_at AS public_updated_at
 `;
 }
 /** 机会表合格行 JOIN 片段与主查询 JOIN 均定义于 wide-sync-sql（叶子模块），
@@ -76,7 +79,7 @@ export async function loadTranslationsByNoticeIds(pool: Pool, noticeIds: number[
   const placeholders = noticeIds.map(() => "?").join(",");
   const [rows] = await pool.query(
     `SELECT notice_id, lang, title_tr, description_tr, model
-     FROM crm_notice_translations
+     FROM notice_translations
      WHERE notice_id IN (${placeholders})`,
     noticeIds,
   );
@@ -94,33 +97,22 @@ export async function loadTranslationsByNoticeIds(pool: Pool, noticeIds: number[
   return result;
 }
 
-// ── 金额字段解析：提取数值部分（处理 "USD 14,000" 等格式）──
-function parseDecimalValue(raw: unknown): number {
-  if (raw === null || raw === undefined) return 0;
-  if (typeof raw === "number") return raw;
-  const str = String(raw).trim();
-  if (!str) return 0;
-  const cleaned = str.replace(/[^0-9.-]/g, "");
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : num;
-}
-
 // ── 品目归属装载（按 notice_pk 从落点表取最深落点）──
 /**
- * 一行的归属输入：`pk` 是 crm_notice_attribution_nodes.notice_pk 的连接键；
+ * 一行的归属输入：`pk` 是 notice_attribution_nodes.notice_pk 的连接键；
  * `noticeId` 仅作返回 Map 的 key 用（buildWideRow 按它取本行的 backbone）。
  * 旧品类桥表读取路径已随小表剥离删除（2026-10-14）——归属唯一事实源是落点表。
  */
 export interface AttributionSourceRow {
-  /** 桥表外部编号（= crm_bid_notices.notice_id）；返回 Map 以此 key */
+  /** 桥表外部编号（= bid_notices.notice_id）；返回 Map 以此 key */
   noticeId: string;
-  /** 主表自增 id（= crm_notice_attribution_nodes.notice_pk）；按它取最深落点 */
+  /** 主表自增 id（= notice_attribution_nodes.notice_pk）；按它取最深落点 */
   pk?: number;
 }
 
 /**
  * 品目归属装载的唯一入口（sync-scheduler 只调这一个）：按 notice_pk 读
- * crm_notice_attribution_nodes 落点表 → 最深落点 → 服务端补祖先 → 列形制。
+ * notice_attribution_nodes 落点表 → 最深落点 → 服务端补祖先 → 列形制。
  * 无 pk 的调用方 / 落点表无该公告行 ⇒ 结果缺席 ⇒ buildWideRow 写 NULL
  * （分类缺席，靠 BB16 覆盖率 WARN 暴露，不臆测、不兜桥表）。
  * 归属换源不改列形制：值仍是「含全部祖先的节点码集，ASCII 逗号分隔」。
@@ -135,7 +127,7 @@ export async function loadBackboneMap(
   const pks = [...byPk.keys()];
   if (pks.length === 0) return new Map(); // 全部缺 pk：结果整体缺席，交上游写 NULL
   const [rows] = await pool.query(
-    `SELECT notice_pk, node_code FROM crm_notice_attribution_nodes WHERE notice_pk IN (${pks.map(() => "?").join(",")})`,
+    `SELECT notice_pk, node_code FROM notice_attribution_nodes WHERE notice_pk IN (${pks.map(() => "?").join(",")})`,
     pks,
   );
   const nodesByPk = new Map<number, string[]>();
@@ -157,57 +149,54 @@ export async function loadBackboneMap(
 // PreciseLevels）已于 B1 退役：那五个 id 只服务宽表 precise_level1~5 五列，而公告分类的唯一口径
 // 已是节点码 —— 精准侧由 ops 回填脚本用同一份纯函数算出 precise_backbone_path，运行期不再参与。
 
-// ── 受援助国标准化：一切以 crm_country_aliases 为准（表驱动拆多国 + 表内中文名）──
+// ── 受援助国标准化：一切以 country_aliases 为准（表驱动拆多国 + 表内中文名）──
 function normalizeBeneficiaryCountries(raw: string, snapshot?: CountryAliasSnapshot): string {
   if (!raw || !snapshot) return "";
   const refs = resolveCountries(raw, snapshot).refs.filter((r) => r.kind === "country");
   return refs.map((r) => r.zh || r.canonical).filter(Boolean).join(", ").slice(0, WIDE_LIMITS.beneficiary);
 }
 
-// ── 宽表行构建 ──
+// ── 宽表行构建（②投影层）──
 /**
  * @param landing 本行的品目归属（`backbone` = 节点码集合含全部祖先，由 loadBackboneMap 从落点表算出）
+ *
+ * 2026-10-27 管道翻转：归一化字段（买家/类型分组/国家/金额/截止）不再是本层计算，
+ * 而是投影自服务表 notice_public（①归一层，SELECT 里 WIDE_PUBLIC_JOIN 带出）。
+ * 本层只补检索专有字段：多语翻译、品目归属、商机富化、受援国展示形。
  */
 export function buildWideRow(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 宽表映射函数：源行动态多列 + 测试以扁平 mock 传参，收敛为具体类型会破坏既有测试契约
   r: any,
-  aliasMap: Map<string, string>,
   landing?: { backbone: string },
   translations?: Record<string, WideTranslation>,
   countrySnap?: CountryAliasSnapshot,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 宽表行含动态列（title_<lang>/description_<lang>）与多种计算列，返回具体类型会破坏以扁平 mock 断言字段前缀的既有测试
 ): Record<string, any> {
-  // 采购主体以 agency_full 为准（缺失才回退 agency）：很多源的 agency 实为发布平台码，
-  // agency_full 才是真实采购单位；下游 agency_std/卡片/详情/筛选统一按真买家。
-  const agency = String(r.agency_full || "").trim() || String(r.agency || "").trim();
-  // 国家归一一切以表为准：country_std=主国家（展示单值），country_codes=拆分后多国 ISO2 集（筛选用）。
-  // 无快照时不兜底旧静态 → 置空（由全量回填/门禁保证快照已装载）。
-  const cRes = countrySnap ? resolveCountries(String(r.country || ""), countrySnap) : null;
-  const countryStd = cRes ? (countryCanonicalsOf(cRes)[0] || "").slice(0, 100) : "";
-  const countryCodes = cRes ? [...new Set(countryCodesOf(cRes))].join(",") : "";
-
-  const agencyStd = (agency ? (aliasMap.get(normalizeAliasKey(agency)) || agency) : "").slice(0, 200);
-  const typeInfo = agencyStd && countryStd ? classifyAgencyType(agencyStd, countryStd) : null;
-  // [修复] _INTL 类型国家级聚合键不一致问题：
-  // classifyAgencyType(agencyStd, countryStd) 对国际机构返回国家级 typeKey
-  // （如 "Brazil Committee"），但内存缓存（agencies/query.ts stage 3.6）使用
-  // 通用 typeKey（如 "COMMITTEE_INTL"）。不一致导致 Meilisearch filter
-  // agency_group = "COMMITTEE_INTL" 匹配不到索引中的 "Brazil Committee"。
-  // 修复：对 _INTL 后缀类型，用无国家参数重新分类获取通用 typeKey，
-  // 确保宽表 agency_group 与缓存 agencyGroup 一致。
-  let agencyGroup = (typeInfo?.typeKey || "").slice(0, 100);
-  if (typeInfo && typeInfo.typeKey.endsWith("_INTL")) {
-    const genericInfo = classifyAgencyType(agencyStd);
-    if (genericInfo) {
-      agencyGroup = genericInfo.typeKey.slice(0, 100);
-    }
+  // ── 归一化字段：服务表现成值直拷（投影）──
+  // LEFT JOIN 未命中（未准入行 / ① 尚未构建）时为空值：草稿行本就不该有对外 facet；
+  // 交付顺序由调度保证（主表 → ① → ②），缺行由指纹对账（p.updated_at 段）自愈。
+  const buyerName = String(r.buyer_name ?? "").slice(0, 200);
+  const buyerGroup = String(r.buyer_group ?? "").slice(0, 100);
+  const countryName = String(r.country_name ?? "").slice(0, 100);
+  let countryCodes = "";
+  if (typeof r.public_country_codes === "string" && r.public_country_codes) {
+    try {
+      const arr = JSON.parse(r.public_country_codes);
+      if (Array.isArray(arr)) {
+        countryCodes = [...new Set(arr.map(String).filter((c) => /^[A-Z]{2}$/.test(c)))].join(",");
+      }
+    } catch { /* JSON 损坏按空处理：指纹含 p.updated_at，下一轮对账整行重建 */ }
   }
-  const noticeTypeStd = normalizeNoticeType(r.notice_type).slice(0, 20);
+  const noticeTypeCode = String(r.notice_type_code ?? "").slice(0, 20);
   const docs = normalizeDocumentRows(r.documents, r.procurement_files);
-  // 修复 030：宽表 deadline_sec 已扩容为 BIGINT UNSIGNED，不再需要 INT UNSIGNED 截断。
-  // 仅保留 NaN / 负值保护（防御主表生成列异常值）。
-  const rawDeadline = r.deadline_sec ? Number(r.deadline_sec) : 0;
-  const deadlineSec = isNaN(rawDeadline) || rawDeadline < 0 ? 0 : rawDeadline;
+  // 截止投影自服务表 deadline_ts（deadline 旁表语义：effective_ts 优先、typo/unknown 置空）。
+  // 仅保留 NaN / 负值保护（宽表列为 BIGINT UNSIGNED）。
+  const rawDeadline = r.deadline_ts != null ? Number(r.deadline_ts) : 0;
+  const deadlineSec = Number.isFinite(rawDeadline) && rawDeadline > 0 ? rawDeadline : 0;
+  // 金额投影自服务表：预算保密行在 ① 已整体置空 ⇒ 搜索金额/排序同口径不泄露；
+  // DECIMAL 字符串直接 Number，畸形/负值落 0。
+  const parsedValue = r.public_estimated_value == null ? 0 : Number(r.public_estimated_value);
+  const estimatedValue = Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
 
   // 构建多语言翻译字段
   // PERF: 所有 description_* 截断到 WIDE_LIMITS.description，与 TEXT 列实际使用上限对齐
@@ -233,16 +222,16 @@ export function buildWideRow(
     reference: String(r.reference || "").slice(0, WIDE_LIMITS.reference),
     description: String(r.description || "").slice(0, WIDE_LIMITS.description),
     ...langFields,
-    country_std: countryStd,
+    country_name: countryName,
     country_codes: countryCodes,
-    agency_std: agencyStd,
-    agency_group: agencyGroup,
-    notice_type_std: noticeTypeStd,
+    buyer_name: buyerName,
+    buyer_group: buyerGroup,
+    notice_type_code: noticeTypeCode,
     deadline_sec: deadlineSec,
-    estimated_value: parseDecimalValue(r.estimated_value),
+    estimated_value: estimatedValue,
     is_featured: r.is_featured ? 1 : 0,
     entry_source: String(r.entry_source || "crawl").slice(0, 20),
-    // 品目归属：只此一条口径（骨架节点码，含全部祖先），事实源是 crm_notice_attribution_nodes
+    // 品目归属：只此一条口径（骨架节点码，含全部祖先），事实源是 notice_attribution_nodes
     // 落点表（loadBackboneMap 唯一装载入口）；无落点/无 pk ⇒ NULL（BB7：空串算违规），不退回桥表。
     backbone_path: landing?.backbone ? landing.backbone : null,
     description_cn: String(r.description_cn || "").slice(0, WIDE_LIMITS.descriptionCn),
@@ -287,7 +276,7 @@ export async function upsertWideRows(
   const allColumns = [
     "id", "notice_id", "title", "reference", "description",
     ...langColumns,
-    "country_std", "country_codes", "agency_std", "agency_group", "notice_type_std",
+    "country_name", "country_codes", "buyer_name", "buyer_group", "notice_type_code",
     "deadline_sec", "estimated_value", "is_featured", "entry_source",
     // B1 起不再写旧字典分类列（旧五级列~5 / precise_level1~5）：列暂留 schema、历史值不再更新也无人读，
     // DROP 与 baseline 重导在 B2 走蓝绿（见 2026-10-12-notice-classification-commodity-tree-only）。
@@ -309,7 +298,7 @@ export async function upsertWideRows(
       params.push(
         row.id, row.notice_id, row.title, row.reference, row.description,
         ...SUPPORTED_LANGS.flatMap(lang => [row[`title_${lang}`], row[`description_${lang}`]]),
-        row.country_std, row.country_codes, row.agency_std, row.agency_group, row.notice_type_std,
+        row.country_name, row.country_codes, row.buyer_name, row.buyer_group, row.notice_type_code,
         row.deadline_sec, row.estimated_value, row.is_featured, row.entry_source,
         // 列清单与这里的取值必须同批增减（多一个少一个都是 Unknown column / 参数错位）
         row.backbone_path,
@@ -319,7 +308,7 @@ export async function upsertWideRows(
       );
     }
     await pool.query(
-      `INSERT INTO crm_notice_search (${allColumns.join(", ")}) VALUES ${batchPlaceholders}
+      `INSERT INTO notice_search (${allColumns.join(", ")}) VALUES ${batchPlaceholders}
       ON DUPLICATE KEY UPDATE ${updateColumns}`,
       params,
     );

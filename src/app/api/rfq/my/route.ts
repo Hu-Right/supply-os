@@ -34,13 +34,13 @@ export const GET = withRoute(async (req: NextRequest) => {
   // pool.query 的 Promise 解析为 [rows, fields] 元组；Promise.all 结果是
   // [[rows1,fields1],[rows2,fields2]]，必须取每个结果的 [0] 才是真实行数组。
   const [countRes, dataRes] = await Promise.all([
-    pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${whereSql}`, params),
+    pool.query(`SELECT COUNT(*) AS total FROM bid_notices n WHERE ${whereSql}`, params),
     pool.query(
       `SELECT n.id, n.reference, n.title, n.country, n.estimated_value, n.currency, n.deadline_sec,
               n.rfq_status, n.published_date, n.create_time,
-              (SELECT COUNT(*) FROM crm_rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count,
-              (SELECT COUNT(*) FROM crm_rfq_quotes q2 WHERE q2.rfq_id = n.id AND q2.status = 'submitted') AS quote_pending
-       FROM crm_bid_notices n WHERE ${whereSql}
+              (SELECT COUNT(*) FROM rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count,
+              (SELECT COUNT(*) FROM rfq_quotes q2 WHERE q2.rfq_id = n.id AND q2.status = 'submitted') AS quote_pending
+       FROM bid_notices n WHERE ${whereSql}
        ORDER BY n.id DESC LIMIT ? OFFSET ?`,
       [...params, pageSize, offset],
     ),

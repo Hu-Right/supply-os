@@ -28,7 +28,7 @@ export class OpportunityUnlockError extends Error {
 export interface OpportunityUnlockDeps {
   dbPool: Pool;
   opportunitiesRepo: OpportunitiesRepo;
-  /** 配额判定/消耗的共享口径依赖（新账本：crm_benefit_quotas 的 notice_view 池） */
+  /** 配额判定/消耗的共享口径依赖（新账本：benefit_quotas 的 notice_view 池） */
   quotaDeps: { catalog: BenefitSystemRepo; write: BenefitWriteRepo };
 }
 
@@ -71,7 +71,7 @@ export async function executeOpportunityUnlock(
 
     // 事务内复查（并发请求可能已通过快速路径）
     const [existingRows] = await conn.query(
-      "SELECT id FROM crm_opportunity_unlocks WHERE user_id = ? AND opportunity_id = ? LIMIT 1",
+      "SELECT id FROM opportunity_unlocks WHERE user_id = ? AND opportunity_id = ? LIMIT 1",
       [userId, opportunityId],
     );
     if ((existingRows as unknown[]).length > 0) {
@@ -102,7 +102,7 @@ export async function executeOpportunityUnlock(
 
     // 插入解锁记录（uk_user_opportunity 唯一约束兜底）
     await conn.query(
-      `INSERT INTO crm_opportunity_unlocks
+      `INSERT INTO opportunity_unlocks
         (user_id, opportunity_id, unlock_type, price, unlocked_at)
        VALUES (?, ?, ?, ?, NOW())`,
       [userId, opportunityId, unlockType, price],
@@ -122,12 +122,12 @@ export async function executeOpportunityUnlock(
     }
 
     // 注：商机表不再维护 unlock_count 计数列（2026-09-30 外部 DDL 已删），
-    // 解锁量以 crm_opportunity_unlocks 流水 COUNT 为准，此处不再同事务自增计数。
+    // 解锁量以 opportunity_unlocks 流水 COUNT 为准，此处不再同事务自增计数。
 
     await conn.commit();
 
     // 事务外：兴趣节点（非关键路径）。商机表无归属列，经关联公告取倒排行
-    // （source_notice_id → 主表内部 id → crm_notice_backbone_nodes）
+    // （source_notice_id → 主表内部 id → notice_backbone_nodes）
     if (userId) {
       try {
         const nodes = await loadOpportunityNoticeNodeCodes(dbPool, opportunityId);

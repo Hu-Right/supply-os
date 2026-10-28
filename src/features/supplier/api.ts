@@ -77,7 +77,7 @@ export interface CertificationItem {
 }
 
 /**
- * 查询认证资质参考列表（crm_supplier_certifications 表）
+ * 查询认证资质参考列表（supplier_certifications 表）
  */
 export async function fetchCertifications(): Promise<CertificationItem[]> {
   return api<CertificationItem[]>("/api/certifications");

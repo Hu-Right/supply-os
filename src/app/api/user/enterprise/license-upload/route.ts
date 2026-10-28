@@ -2,7 +2,7 @@
  * POST /api/user/enterprise/license-upload — 上传营业执照图片（仅存字节）
  *
  * @module app/api/user/enterprise/license-upload/route
- * @description 接收营业执照图片（multipart/form-data），字节直接入 crm_upload_files
+ * @description 接收营业执照图片（multipart/form-data），字节直接入 upload_files
  *              （门户与后台共享同一数据库，不落任何磁盘），返回鉴权 URL。
  *              **不直接写 supplier**——回写 supplier.license_url 与旧文件清理
  *              统一由企业保存端点（POST/PUT /api/user/enterprise）作为单一入口处理，

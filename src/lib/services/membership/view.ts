@@ -4,8 +4,8 @@
  * @module lib/services/membership/view
  * @description 五个会员端点（plans / status / services / upgrade-preview / credits）
  *              原先都是 `NextResponse.json(变量)` 整块透出：响应体就是 repo 的行形状
- *              （crm_plan_catalog / crm_plan_subscriptions / crm_benefit_quotas /
- *              crm_service_catalog 的列名）与服务内部结果类型。列名属于存储层，
+ *              （plan_catalog / plan_subscriptions / benefit_quotas /
+ *              service_catalog 的列名）与服务内部结果类型。列名属于存储层，
  *              不是对外契约，本模块把它们收成 camelCase 视图。
  *
  *              行类型（*Row）保留不动：会员状态被 auth 热路径、门控、额度扣减、

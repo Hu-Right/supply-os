@@ -58,9 +58,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
               n.estimated_value, n.deadline_sec, n.rfq_status,
               n.published_date, n.user_id,
               n.contact_name, n.contact_email, n.contact_phone
-       FROM crm_bid_notices n
-       LEFT JOIN crm_commodity_backbone c1 ON c1.code = n.category_code
-       LEFT JOIN crm_commodity_backbone c0 ON c0.code = LEFT(n.category_code, 6) AND c0.level = 1
+       FROM bid_notices n
+       LEFT JOIN commodity_backbone c1 ON c1.code = n.category_code
+       LEFT JOIN commodity_backbone c0 ON c0.code = LEFT(n.category_code, 6) AND c0.level = 1
        WHERE n.id = ? AND n.notice_type = 'RFQ' AND n.entry_source = 'platform'
        LIMIT 1`,
       [rfqId],
@@ -127,7 +127,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
 
     // 权限 + 状态校验
     const [existing] = await pool.query(
-      `SELECT id, rfq_status, user_id FROM crm_bid_notices
+      `SELECT id, rfq_status, user_id FROM bid_notices
        WHERE id = ? AND notice_type = 'RFQ' LIMIT 1`,
       [rfqId],
     );
@@ -257,7 +257,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     updateParams.push(RFQ_STATUS.DRAFT);
 
     const [result] = await pool.query(
-      `UPDATE crm_bid_notices SET ${updates.join(", ")} WHERE id = ? AND user_id = ?`,
+      `UPDATE bid_notices SET ${updates.join(", ")} WHERE id = ? AND user_id = ?`,
       [...updateParams, rfqId, auth.userId],
     );
 

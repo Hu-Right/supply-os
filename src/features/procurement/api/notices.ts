@@ -72,7 +72,7 @@ export const fetchUnlockedNoticeIds = async (): Promise<number[]> => {
   }
 };
 
-// 翻译 API 不使用 apiCached：后端已有数据库缓存（crm_notice_translations），
+// 翻译 API 不使用 apiCached：后端已有数据库缓存（notice_translations），
 // 前端二次缓存会导致原文响应被缓存 5 分钟，即使后端翻译完成仍返回原文。
 export const fetchNoticeTranslation = (noticeId: number, lang: string) =>
   api<NoticeTranslation>(

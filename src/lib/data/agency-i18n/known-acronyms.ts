@@ -130,8 +130,8 @@ export const KNOWN_ACRONYMS = new Map<string, PatternI18nResult>([
 
 // ── 平台代码不再在此静态维护 ──
 // 历史曾把 mercadopublico_cl / SPAIN_PCSP 等平台码硬编码成平台中文名喂机构翻译，
-// 与 crm_platform_aliases 构成“平台命名两个源”。现采购主体已重锚到 agency_full（真买家），
-// 平台名唯一走 crm_platform_aliases（见 platform/resolve + NoticeCard.item.platform）；机构模块不再代管平台名。
+// 与 platform_aliases 构成“平台命名两个源”。现采购主体已重锚到 agency_full（真买家），
+// 平台名唯一走 platform_aliases（见 platform/resolve + NoticeCard.item.platform）；机构模块不再代管平台名。
 // 残留混进 agency 的平台码（无买家的平台源）属 p9 上游去污染范畴，展示层按原样可见即可（它本就不是机构）。
 
 // ── 聚合类型键的字面量兜底 ──

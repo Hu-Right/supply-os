@@ -15,7 +15,7 @@ import type { ChatSessionRow, ChatMessageRow } from "@/lib/repos/chat.repo";
 
 /**
  * 消息对外视图（命名红线② 的收口点）
- * @description DB 行（ChatMessageRow）的 `session_id`/`created_at` 是 crm_chat_messages 列名，
+ * @description DB 行（ChatMessageRow）的 `session_id`/`created_at` 是 chat_messages 列名，
  *              不得直接当对外契约。本层只**归位键名**，值原样透传（created_at 仍是驱动返回的
  *              Date/字符串），因此响应字节与形状变化无关——避免“改名”顺带改了时间格式这种隐性行为变更。
  *              三个出口（GET 列表、POST 回显、SSE 推送）必须统一走这里，否则同一对象会分裂成两种命名。
@@ -48,7 +48,7 @@ export const messagesViewOf = (rows: ChatMessageRow[]): ChatMessageView[] => row
 
 /**
  * 会话对外视图。
- * @description repo 用 SELECT * 拉 crm_chat_sessions，列名（user_id / customer_id /
+ * @description repo 用 SELECT * 拉 chat_sessions，列名（user_id / customer_id /
  *              agent_id / agent_email / assigned_uid / assigned_at / ai_handled_count …）
  *              会直接变成响应键。本视图只做两件事：
  *              1) 键名归位 camelCase（值原样透传，时间仍是驱动给的 Date，序列化结果不变）；

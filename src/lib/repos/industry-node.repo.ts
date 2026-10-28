@@ -1,5 +1,5 @@
 /**
- * 行业面读层 — crm_industry_nodes / crm_supplier_industry_rel
+ * 行业面读层 — industry_nodes / supplier_industry_rel
  * Industry Facet Repository
  *
  * @module lib/repos/industry-node.repo
@@ -45,7 +45,7 @@ export class IndustryNodeRepo {
     const placeholders = codes.map(() => "?").join(", ");
     const [rows] = await this.pool.query(
       `SELECT code, name_zh, name_en, level, parent_code
-         FROM crm_industry_nodes
+         FROM industry_nodes
         WHERE code IN (${placeholders})`,
       [...codes],
     );
@@ -59,7 +59,7 @@ export class IndustryNodeRepo {
     const placeholders = numeric.map(() => "?").join(", ");
     const [rows] = await this.pool.query(
       `SELECT r.supplier_id, r.industry_code
-         FROM crm_supplier_industry_rel r
+         FROM supplier_industry_rel r
         WHERE r.supplier_id IN (${placeholders})
         ORDER BY r.supplier_id, r.industry_code`,
       numeric,
@@ -92,7 +92,7 @@ export class IndustryNodeRepo {
     const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 500);
     const [rows] = await this.pool.query(
       `SELECT code, name_zh, name_en, level, parent_code
-         FROM crm_industry_nodes
+         FROM industry_nodes
         WHERE name_zh LIKE ? OR name_en LIKE ?${withDescription ? " OR description LIKE ?" : ""}
         ORDER BY CHAR_LENGTH(code), code
         LIMIT ?`,
@@ -111,7 +111,7 @@ export class IndustryNodeRepo {
     if (!NAV_INDUSTRIES_LEVELS.includes(level)) return [];
     const [rows] = await this.pool.query(
       `SELECT code, name_zh, name_en, level, parent_code
-         FROM crm_industry_nodes
+         FROM industry_nodes
         WHERE level = ? AND status = 1
         ORDER BY code`,
       [level],
@@ -129,7 +129,7 @@ export class IndustryNodeRepo {
     if (!isIndustryCode(parentCode)) return [];
     const [rows] = await this.pool.query(
       `SELECT code, name_zh, name_en, level, parent_code
-         FROM crm_industry_nodes
+         FROM industry_nodes
         WHERE parent_code = ? AND status = 1
         ORDER BY code`,
       [parentCode],

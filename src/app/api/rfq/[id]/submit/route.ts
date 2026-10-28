@@ -29,7 +29,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
 
     // 权限校验：仅创建者可操作
     const [existing] = await pool.query(
-      `SELECT id, rfq_status, user_id FROM crm_bid_notices
+      `SELECT id, rfq_status, user_id FROM bid_notices
        WHERE id = ? AND notice_type = 'RFQ' LIMIT 1`,
       [rfqId],
     );
@@ -50,7 +50,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     }
     // 仅 draft / rejected 走到这里：提交为待审核（不写 published_date，那是审核时点）
     const [result] = await pool.query(
-      `UPDATE crm_bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
+      `UPDATE bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
       [newStatus, rfqId, auth.userId],
     );
 

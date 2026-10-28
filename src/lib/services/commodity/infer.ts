@@ -42,7 +42,7 @@ async function fulltextCandidates(pool: Pool, kw: string): Promise<CommodityInfe
   const [rows] = await pool.query(
     `SELECT code, name_zh, name_en,
             MATCH(name_zh, name_en) AGAINST (? IN NATURAL LANGUAGE MODE) AS raw_score
-       FROM crm_commodity_backbone
+       FROM commodity_backbone
       WHERE MATCH(name_zh, name_en) AGAINST (? IN NATURAL LANGUAGE MODE)
         AND level >= 2 AND status = 1
       ORDER BY raw_score DESC, level DESC, CHAR_LENGTH(name_zh) ASC
@@ -66,7 +66,7 @@ async function fulltextCandidates(pool: Pool, kw: string): Promise<CommodityInfe
 async function likeCandidates(pool: Pool, kw: string): Promise<CommodityInferCandidate[]> {
   const [rows] = await pool.query(
     `SELECT code, name_zh, name_en
-       FROM crm_commodity_backbone
+       FROM commodity_backbone
       WHERE level >= 2 AND status = 1 AND (name_zh LIKE ? OR name_en LIKE ?)
       ORDER BY level DESC, CHAR_LENGTH(name_zh) ASC
       LIMIT ${CANDIDATE_LIMIT}`,
@@ -94,7 +94,7 @@ async function attachPaths(pool: Pool, cands: CommodityInferCandidate[]): Promis
   const codes = [...codeSet];
   if (codes.length === 0) return;
   const [rows] = await pool.query(
-    `SELECT code, name_zh, name_en FROM crm_commodity_backbone
+    `SELECT code, name_zh, name_en FROM commodity_backbone
       WHERE code IN (${codes.map(() => "?").join(",")}) AND status = 1`,
     codes,
   );

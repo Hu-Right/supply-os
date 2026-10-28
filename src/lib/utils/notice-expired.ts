@@ -20,8 +20,8 @@ import { RFQ_STATUS } from "@/shared/constants/rfq";
  *              统一改为基于 deadline_sec = 0 判定，与宽表/Meilisearch 口径完全对齐。
  *
  *              别名约定：
- *              - ACTIVE_NOTICE_WHERE  使用 n. 别名（crm_bid_notices n）
- *              - ACTIVE_OPP_WHERE     使用 o. 别名（crm_bid_opportunities o）
+ *              - ACTIVE_NOTICE_WHERE  使用 n. 别名（bid_notices n）
+ *              - ACTIVE_OPP_WHERE     使用 o. 别名（bid_opportunities o）
  *              - ACTIVE_NOTICE_WHERE_NO_ALIAS 无别名（统计表 / 子查询）
  *              - MEILI_ACTIVE_FILTER  Meilisearch 索引侧等价 filter
  */
@@ -48,19 +48,19 @@ export const PLATFORM_PUBLISHED_ONLY_NO_ALIAS =
  *
  * 与 ACTIVE_NOTICE_WHERE 的区别：
  * - ACTIVE_NOTICE_WHERE 是「站内展示」口径：没有截止日（deadline_sec=0）也算未过期；
- * - 本常量是「对外可投」口径：只认 crm_notice_deadline 里 state=known、type=bid、
+ * - 本常量是「对外可投」口径：只认 notice_deadline 里 state=known、type=bid、
  *   且 effective_ts 落在未来 12 个月内的记录。
  *
  * 背景：源库把「无截止日」「框架/注册制结束日」「年份笔误（2050/2206/2225…）」
  * 和「一次性投标截止日」混在 deadline 字符串里；主表 deadline_ts 不能直接对外。
- * 语义分类结果在 crm_notice_deadline（notice_pk 关联），主表原值保留。
+ * 语义分类结果在 notice_deadline（notice_pk 关联），主表原值保留。
  *
- * 适用表：crm_bid_notices（别名 n）+ crm_notice_deadline（别名 d）
- * 注意：本常量依赖 crm_notice_deadline 表；调用方需保证该表已迁移（baseline）。
+ * 适用表：bid_notices（别名 n）+ notice_deadline（别名 d）
+ * 注意：本常量依赖 notice_deadline 表；调用方需保证该表已迁移（baseline）。
  */
 export const ACTIONABLE_NOTICE_WHERE =
   `EXISTS (
-     SELECT 1 FROM crm_notice_deadline d
+     SELECT 1 FROM notice_deadline d
       WHERE d.notice_pk = n.id
         AND d.deadline_state = 'known'
         AND d.deadline_type = 'bid'
@@ -78,16 +78,16 @@ export const ACTIONABLE_NOTICE_WHERE =
  * [修复 030-b] 原条件 `deadline_ts IS NULL` 遗漏 deadline_ts=0 的 ~10,849 条记录，
  * 改为 `deadline_sec = 0` 与宽表/Meilisearch 口径完全对齐。
  *
- * 适用表：crm_bid_notices（别名 n）
+ * 适用表：bid_notices（别名 n）
  */
 export const ACTIVE_NOTICE_WHERE =
   "(n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW())) AND " +
   PLATFORM_PUBLISHED_ONLY;
 
 /**
- * 有效公告 WHERE 片段（o. 别名）—— 用于 crm_bid_opportunities 表
+ * 有效公告 WHERE 片段（o. 别名）—— 用于 bid_opportunities 表
  *
- * 适用表：crm_bid_opportunities（别名 o）
+ * 适用表：bid_opportunities（别名 o）
  */
 export const ACTIVE_OPP_WHERE =
   "(o.deadline_sec = 0 OR o.deadline_sec >= UNIX_TIMESTAMP(NOW()))";

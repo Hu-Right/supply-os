@@ -29,7 +29,7 @@ export async function recomputeRecoWeightProfile(dbPool: Pool, userId: number): 
   const safetyTimer = setTimeout(() => recoWeightRefreshing.delete(userId), RECO_REFRESH_TIMEOUT);
   try {
     const [rows] = await dbPool.query(
-      `SELECT action FROM crm_user_reco_feedback
+      `SELECT action FROM user_reco_feedback
        WHERE user_id = ? AND action IN ('click','quick_exit')
        ORDER BY created_at DESC, id DESC
        LIMIT 200`,
@@ -47,7 +47,7 @@ export async function recomputeRecoWeightProfile(dbPool: Pool, userId: number): 
     // （全档位为正，w_agency/w_geo 不动，总和恒 1.000）
     const delta = Math.max(-0.1, Math.min(0.1, (ema - 0.5) * 0.2));
     await dbPool.execute(
-      `INSERT INTO crm_reco_weight_profile (user_id, w_commodity, w_agency, w_amount, w_geo, w_urgency, updated_at)
+      `INSERT INTO reco_weight_profile (user_id, w_commodity, w_agency, w_amount, w_geo, w_urgency, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE
          w_commodity = VALUES(w_commodity), w_agency = VALUES(w_agency), w_amount = VALUES(w_amount),

@@ -129,7 +129,7 @@ export async function queryEngineeringList(
   const queryParams: (string | number)[] = [];
 
   if (country) {
-    // 与主站检索同口径：国家别名展开（一切以 crm_country_aliases 为准），不再裸等值
+    // 与主站检索同口径：国家别名展开（一切以 country_aliases 为准），不再裸等值
     const forms = expandCountryAliases(country, await loadCountryAliasSnapshot(dbPool));
     conditions.push(`o.country IN (${forms.map(() => "?").join(",")})`);
     queryParams.push(...forms);
@@ -161,7 +161,7 @@ export async function queryEngineeringList(
 
   // 查总数
   const [countRows] = await dbPool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS total FROM crm_bid_opportunities o WHERE ${whereClause}`,
+    `SELECT COUNT(*) AS total FROM bid_opportunities o WHERE ${whereClause}`,
     queryParams,
   );
   const total = Number(countRows[0]?.total ?? 0);
@@ -171,7 +171,7 @@ export async function queryEngineeringList(
   // ISO 与 dd-Mon-yyyy 混存，字符串 ORDER BY 会把 2019 排在 2026 前）。
   const [rows] = await dbPool.query<RowDataPacket[]>(
     `SELECT ${fields}
-     FROM crm_bid_opportunities o
+     FROM bid_opportunities o
      WHERE ${whereClause}
      ORDER BY o.create_time DESC, o.id DESC
      LIMIT ? OFFSET ?`,
@@ -193,7 +193,7 @@ export async function queryEngineeringDetail(
 
   const [rows] = await dbPool.query<RowDataPacket[]>(
     `SELECT ${fields}
-     FROM crm_bid_opportunities o
+     FROM bid_opportunities o
      WHERE o.id = ?
        AND ${engineeringWhere}
      LIMIT 1`,
@@ -215,7 +215,7 @@ export async function getEngineeringStats(dbPool: Pool): Promise<RowDataPacket> 
        COUNT(DISTINCT o.country) AS country_count,
        MIN(o.published_date) AS earliest_date,
        MAX(o.published_date) AS latest_date
-     FROM crm_bid_opportunities o
+     FROM bid_opportunities o
      WHERE ${engineeringWhere}
        AND o.is_qualified = 1
        AND o.status = 0`,

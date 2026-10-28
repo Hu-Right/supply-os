@@ -1,7 +1,7 @@
 /**
  * 采购公告类型 —— 对外契约（camelCase）
  *
- * 字段名不再镜像 crm_notice_public 列名：列名属存储层，契约由本文件定义，
+ * 字段名不再镜像 notice_public 列名：列名属存储层，契约由本文件定义，
  * 行→视图的改名集中在 lib/services/notice-public/view.ts 一处（命名红线②）。
  * 因此本文件里的名字就是响应 JSON 的键名，与 SQL 里的列名可以不同名。
  */

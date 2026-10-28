@@ -105,7 +105,7 @@ export default function MembershipPage() {
       </div>
 
       {tab === "services" ? (
-        /* 订制服务 Tab：读 crm_service_catalog，按 category 分组渲染 */
+        /* 订制服务 Tab：读 service_catalog，按 category 分组渲染 */
         <section className="py-2">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">

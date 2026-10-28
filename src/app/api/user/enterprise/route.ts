@@ -3,7 +3,7 @@
  *
  * @module app/api/user/enterprise/route
  * @description
- *   GET  按 crm_users.supplier_id 关联 supplier 企业表，返回整行（SELECT * 透传），
+ *   GET  按 users.supplier_id 关联 supplier 企业表，返回整行（SELECT * 透传），
  *        供前端分组表格渲染（有则展示、无则 -）；读写严格指向同一个绑定行。
  *   PUT  已绑定：按 supplier 最终表可编辑列白名单 UPDATE 该行（企业信息编辑）。
  *   POST 未绑定：先防重（credit_code 优先、其次公司名）——命中**已认证**行不绑定，
@@ -89,7 +89,7 @@ async function persistSelfReportIfPresent(
  * 双时钟：本次为"写入非空执照"时，把该用户对此主体的 pending 认领从 1 小时限时上传期
  * 续期到 7 天管理员审核期。
  * 先审后生效（2026-10-14）：已认证供应商换照不直接生效——
- * 新图登记 crm_license_changes 待审，supplier.license_url 保持旧图、旧图永不删除，
+ * 新图登记 license_changes 待审，supplier.license_url 保持旧图、旧图永不删除，
  * 后台「资质变更」人工通过后才切换；清空执照同样需要审核。
  * 「已认证」= 认证已通过（verify done）**或**认领已通过（claim verified，永久绑定）——
  * 两者的执照当初都经人工核验，换照必须复审（仅判 verify done 会漏掉
@@ -272,7 +272,7 @@ export const POST = withRoute(async (req) => {
   // （认领通过 → claim approved，后台据此完成注册 KPI「个人→企业」翻转）
   //
   // 账号侧换绑闸口先于 claimRequired：旧行为下「一账号一主体」只靠前端 bound ? PUT : POST
-  // 隐式保证，直接 POST 会让已绑定账号再建一行 supplier 并静默挪走 crm_users.supplier_id（把
+  // 隐式保证，直接 POST 会让已绑定账号再建一行 supplier 并静默挪走 users.supplier_id（把
   // 审核中的原主体抛下）；现在旧绑定未认证则先显式撤回，已认证则 400 并给出客服出口。
   const binding = await readCurrentBinding(ctx, auth.userId);
   await assertBindingAllowsSubject(ctx, auth.userId, binding, existingId, "certify");

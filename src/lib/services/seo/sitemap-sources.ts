@@ -4,7 +4,7 @@
  *
  * @module lib/services/seo/sitemap-sources
  * @description 为 app/sitemap.ts 提供类型化的动态 URL 数据。
- *              表名/列名以真实 schema 为准（crm_bid_notices / supplier），
+ *              表名/列名以真实 schema 为准（bid_notices / supplier），
  *              「有效公告」判定复用 utils/notice-expired 的 ACTIVE_NOTICE_WHERE
  *              权威过滤器 —— 搜索侧与 sitemap 侧永不脱节。
  *              历史缺陷背景（2026-08-28 修复）：sitemap 曾查询不存在的
@@ -38,7 +38,7 @@ export async function fetchSitemapNotices(pool?: Pool): Promise<SitemapNoticeRow
   const db = pool ?? getPool();
   const [rows] = await db.query(
     `SELECT n.id, n.update_time
-     FROM crm_bid_notices n
+     FROM bid_notices n
      WHERE ${ACTIVE_NOTICE_WHERE}
      ORDER BY n.update_time DESC
      LIMIT ${NOTICE_LIMIT}`,

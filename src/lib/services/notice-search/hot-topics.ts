@@ -70,8 +70,8 @@ interface CountRow extends RowDataPacket {
  */
 export const HOT_TOP_GROUPS_SQL = `
   SELECT b.code AS code, b.name_zh, COUNT(*) AS cnt
-  FROM crm_commodity_backbone b
-  JOIN crm_notice_search ns ON ns.backbone_path <> '' AND FIND_IN_SET(b.code, ns.backbone_path)
+  FROM commodity_backbone b
+  JOIN notice_search ns ON ns.backbone_path <> '' AND FIND_IN_SET(b.code, ns.backbone_path)
   WHERE b.level = 1 AND b.status = 1
     AND (ns.deadline_sec = 0 OR ns.deadline_sec >= UNIX_TIMESTAMP(NOW()))
   GROUP BY b.code, b.name_zh

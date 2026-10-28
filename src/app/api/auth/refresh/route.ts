@@ -6,7 +6,7 @@
  * Tab A 轮换成功后 Tab B 用同一旧 token 刷新失败（deleted===0 → 401），
  * 进而误清全局认证状态。非严格轮换下旧 token 始终可验证，彻底消除该竞态。
  *
- * crm_users.user_key 列退役收尾：payload 中已彻底移除 user_key 字段，
+ * users.user_key 列退役收尾：payload 中已彻底移除 user_key 字段，
  * 旧 token（无 uid 仅 user_key）不再兼容——直接返回 403（会话已死、不可刷新），用户重新登录即可。
  */
 import { NextRequest, NextResponse } from "next/server";

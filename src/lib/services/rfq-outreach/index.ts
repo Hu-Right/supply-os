@@ -4,10 +4,10 @@
  * @module server/services/rfq-outreach
  * @description 把一条已发布 RFQ 邀约给「匹配的认证供应商」并邮件触达：
  *              - 匹配（非-AI）：品目口径 = RFQ `category_code`(UGT 节点码) 与供应商
- *                `crm_supplier_backbone_interests.code` 经 `getBackboneIndex().pathOf` 展开
+ *                `supplier_backbone_interests.code` 经 `getBackboneIndex().pathOf` 展开
  *                成祖先节点集后求交集（同一祖先即命中，越大类越近权重越高）；地域以省份相近优先。
  *                无品类码 / 索引不可用 / 交集为空 → 保守回退「省份 + 活跃认证供应商」Top-N（strategy=region）。
- *              - 触达账本 crm_rfq_outreach 按 (rfq_id, recipient) 去重，避免对同一供应商重复群发。
+ *              - 触达账本 rfq_outreach 按 (rfq_id, recipient) 去重，避免对同一供应商重复群发。
  *              - 显式收件（指定邮箱）为管理/测试快路径，不走匹配器。
  *              ⚠️ 群发是外发副作用：默认仅 dryRun 预览；放量须调用方显式 dryRun:false（并遵守“付费/外发由用户放行”）。
  *              复用 lib/services/email 模板与 seo/site absoluteUrl；不 import features/core（分层红线1）。
@@ -57,7 +57,7 @@ function deadlineText(deadline: unknown): string | undefined {
 /** 该 RFQ 是否已向此邮箱触达过。 */
 async function alreadyReached(dbPool: DbPool, rfqId: number, email: string): Promise<boolean> {
   const [rows] = await dbPool.query(
-    `SELECT 1 FROM crm_rfq_outreach WHERE rfq_id = ? AND recipient = ? LIMIT 1`,
+    `SELECT 1 FROM rfq_outreach WHERE rfq_id = ? AND recipient = ? LIMIT 1`,
     [rfqId, email],
   );
   return (rows as RowDataPacket[]).length > 0;
@@ -71,7 +71,7 @@ async function recordOutreach(
   supplierUserId: number | null,
 ): Promise<void> {
   await dbPool.query(
-    `INSERT INTO crm_rfq_outreach (rfq_id, recipient, supplier_user_id, contacted_at)
+    `INSERT INTO rfq_outreach (rfq_id, recipient, supplier_user_id, contacted_at)
      VALUES (?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE contacted_at = contacted_at`,
     [rfqId, email, supplierUserId, Math.floor(Date.now() / 1000)],
@@ -80,7 +80,7 @@ async function recordOutreach(
 
 /**
  * 匹配「可邀约的认证供应商」收件人（非-AI：品目祖先交集 + 地域优先）。
- * 已触达（crm_rfq_outreach）者排除；上限 limit。
+ * 已触达（rfq_outreach）者排除；上限 limit。
  */
 export async function matchSuppliers(
   dbPool: DbPool,
@@ -90,13 +90,13 @@ export async function matchSuppliers(
   // 地域候选池：活跃认证供应商（有邮箱、有 supplier 档案），省份相符者优先
   const [crows] = await dbPool.query(
     `SELECT u.id AS user_id, u.email, u.supplier_id, s.company, s.province
-       FROM crm_users u
+       FROM users u
        JOIN supplier s ON s.id = u.supplier_id
       WHERE u.supplier_link_status = 'verified'
         AND u.supplier_id IS NOT NULL
         AND (u.account_status IS NULL OR (u.account_status <> 'disabled' AND u.account_status <> 'rejected'))
         AND u.email IS NOT NULL AND u.email <> ''
-        AND NOT EXISTS (SELECT 1 FROM crm_rfq_outreach o WHERE o.rfq_id = ? AND o.recipient = u.email)
+        AND NOT EXISTS (SELECT 1 FROM rfq_outreach o WHERE o.rfq_id = ? AND o.recipient = u.email)
       ORDER BY (s.province <=> ?) DESC, u.id ASC
       LIMIT ?`,
     [rfq.id, rfq.province, CANDIDATE_POOL],
@@ -121,7 +121,7 @@ export async function matchSuppliers(
         if (ids.length > 0) {
           const ph = ids.map(() => "?").join(",");
           const [irows] = await dbPool.query(
-            `SELECT supplier_id, code FROM crm_supplier_backbone_interests
+            `SELECT supplier_id, code FROM supplier_backbone_interests
              WHERE supplier_id IN (${ph}) AND code <> ''`,
             ids,
           );
@@ -166,7 +166,7 @@ export async function addInvites(dbPool: DbPool, rfqId: number, invitedBy: numbe
   const params: unknown[] = [];
   for (const id of ids) params.push(rfqId, id, invitedBy);
   const [result] = await dbPool.query(
-    `INSERT IGNORE INTO crm_rfq_invites (rfq_id, supplier_user_id, invited_by) VALUES ${values}`,
+    `INSERT IGNORE INTO rfq_invites (rfq_id, supplier_user_id, invited_by) VALUES ${values}`,
     params,
   );
   return (result as { affectedRows: number }).affectedRows;
@@ -183,7 +183,7 @@ export async function outreachPublishedRfq(
 ): Promise<OutreachResult> {
   const [rows] = await dbPool.query(
     `SELECT title, deadline, rfq_status, category_code, province_name, visibility
-       FROM crm_bid_notices WHERE id = ? AND notice_type = 'RFQ' AND entry_source = 'platform' LIMIT 1`,
+       FROM bid_notices WHERE id = ? AND notice_type = 'RFQ' AND entry_source = 'platform' LIMIT 1`,
     [input.rfqId],
   );
   const rfq = (rows as RowDataPacket[])[0];
@@ -280,12 +280,12 @@ export async function outreachPublishedRfq(
 export async function pendingOutreachRfqIds(dbPool: DbPool, limit = 5): Promise<number[]> {
   const [rows] = await dbPool.query(
     `SELECT n.id
-       FROM crm_bid_notices n
+       FROM bid_notices n
       WHERE n.entry_source = 'platform'
         AND n.notice_type = 'RFQ'
         AND n.rfq_status = ?
         AND (n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
-        AND NOT EXISTS (SELECT 1 FROM crm_rfq_outreach o WHERE o.rfq_id = n.id)
+        AND NOT EXISTS (SELECT 1 FROM rfq_outreach o WHERE o.rfq_id = n.id)
       ORDER BY n.id DESC
       LIMIT ?`,
     [RFQ_STATUS.PUBLISHED, limit],

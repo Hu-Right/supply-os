@@ -9,7 +9,7 @@
  *              当前 ALL_MIGRATIONS 为空，schema 阶段只做账本检查，不产生任何 DDL。
  *
  *              【已落实，勿再当待办】宽表源指纹列（原迁移 087）已在生产完成：2026-10-08 实测
- *              crm_notice_search.sync_src_hash 存在（char(32) NOT NULL DEFAULT ''），573,018 行中
+ *              notice_search.sync_src_hash 存在（char(32) NOT NULL DEFAULT ''），573,018 行中
  *              空指纹 0 行、指纹值 573,018 个各不相同；死全文索引 ft_search_en 已清，
  *              precise_levelN 原码污染 0 行；运行期 isFingerprintColumn() 实测返回 true（不再降级）。
  *              因此 ALL_MIGRATIONS 无需再为它挂 001——结构已到位，重挂也只会因幂等而跳过。
@@ -42,7 +42,7 @@ export const schemaPhase: Phase = {
 };
 
 // 阶段 2（backfill）已于 2026-10-15 拆除：其唯一职责「清洗行业偏好 L4/L5 推断残留」
-// 随 crm_user_industry_prefs 的 level1_id~level5_id 五列物理 DROP 失去对象——
+// 随 user_industry_prefs 的 level1_id~level5_id 五列物理 DROP 失去对象——
 // 写入方此前就在 INSERT/ODKU 两侧显式置 NULL，线上 12 行全空，纯死列死清洗。
 
 /**

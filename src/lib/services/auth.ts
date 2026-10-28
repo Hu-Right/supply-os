@@ -50,7 +50,7 @@ export function generateNickname(locale?: string): string {
  * Refresh Token 哈希入库后再返回——必须 await，否则客户端在登录/注册后立即
  * 发 /api/auth/refresh 时 token 可能尚未落库，导致刷新失败（401 级联根因之一）。
  *
- * crm_users.user_key 列退役收尾：payload 以 uid 为唯一身份锚点，不再携带 user_key/email。
+ * users.user_key 列退役收尾：payload 以 uid 为唯一身份锚点，不再携带 user_key/email。
  */
 export async function issueTokenPair(
   authRepo: AuthRepo,

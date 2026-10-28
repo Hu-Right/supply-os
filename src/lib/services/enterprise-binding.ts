@@ -140,11 +140,11 @@ export async function withdrawBinding(userId: number, binding: CurrentBinding): 
   }
   const pool = getPool();
   await pool.execute(
-    "UPDATE crm_users SET supplier_id = NULL, supplier_link_status = 'none' WHERE id = ? AND supplier_id = ?",
+    "UPDATE users SET supplier_id = NULL, supplier_link_status = 'none' WHERE id = ? AND supplier_id = ?",
     [userId, binding.supplierId],
   );
   await pool.execute(
-    `UPDATE crm_supplier_claims SET status = 'cancelled', updated_at = NOW()
+    `UPDATE supplier_claims SET status = 'cancelled', updated_at = NOW()
       WHERE user_id = ? AND supplier_id = ? AND status = 'pending'`,
     [userId, binding.supplierId],
   );
@@ -152,7 +152,7 @@ export async function withdrawBinding(userId: number, binding: CurrentBinding): 
     `UPDATE supplier SET claim_status = NULL
       WHERE id = ? AND claim_status = 'pending'
         AND NOT EXISTS (
-          SELECT 1 FROM crm_supplier_claims c
+          SELECT 1 FROM supplier_claims c
            WHERE c.supplier_id = supplier.id AND c.status IN ('approved', 'pending')
         )`,
     [binding.supplierId],
@@ -178,7 +178,7 @@ export async function withdrawCurrentBinding(
  * 账号侧换绑闸口（分状态）：
  * - 目标即当前绑定行 → 放行（那是「重复保存自己的资料」，不是新的认证/认领）；
  * - 已认证 → 400，一个账号只能认证/认领一家企业；
- * - 其余已绑定状态 → 先显式撤回旧绑定再放行，把旧行为（静默把 crm_users.supplier_id
+ * - 其余已绑定状态 → 先显式撤回旧绑定再放行，把旧行为（静默把 users.supplier_id
  *   从 A 覆盖成 B）换成有记录、有提示的正当切换。
  * @returns 被切换掉的旧绑定（未发生切换时为 null，供调用方按需提示）
  */

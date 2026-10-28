@@ -3,7 +3,7 @@
  * Supplier Claim Repository
  *
  * @module server/repos/suppliers/supplier-claim.repo
- * @description 操作 crm_supplier_claims 表：供应商认领流程。
+ * @description 操作 supplier_claims 表：供应商认领流程。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
@@ -17,7 +17,7 @@ export class SupplierClaimRepo {
     expiresAt: string; // DATETIME 字符串
   }): Promise<number> {
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_supplier_claims
+      `INSERT INTO supplier_claims
         (user_id, supplier_id, contact_name, contact_phone, status, expires_at)
        VALUES (?, ?, NULL, NULL, 'pending', ?)`,
       [
@@ -33,7 +33,7 @@ export class SupplierClaimRepo {
    */
   async extendPendingClaimExpiry(userId: number, supplierId: number, expiresAt: string): Promise<void> {
     await this.pool.execute(
-      `UPDATE crm_supplier_claims SET expires_at = ?
+      `UPDATE supplier_claims SET expires_at = ?
        WHERE user_id = ? AND supplier_id = ? AND status = 'pending'`,
       [expiresAt, userId, supplierId],
     );
@@ -47,7 +47,7 @@ export class SupplierClaimRepo {
     id: number; status: string; created_at: string | null; expires_at: string | null;
   } | null> {
     const [rows] = await this.pool.execute<RowDataPacket[]>(
-      `SELECT id, status, created_at, expires_at FROM crm_supplier_claims
+      `SELECT id, status, created_at, expires_at FROM supplier_claims
        WHERE user_id = ? AND supplier_id = ? AND status IN ('pending', 'approved')
        ORDER BY id DESC LIMIT 1`,
       [userId, supplierId],

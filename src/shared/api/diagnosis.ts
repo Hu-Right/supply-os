@@ -20,7 +20,7 @@ export interface DiagnosisCandidate {
   businessType: string;
   verified: boolean;
   claimPending: boolean;
-  /** 已被其他用户/账户绑定（存在 crm_users 关联记录且非当前用户）；弹窗据此提示「该公司已被绑定」 */
+  /** 已被其他用户/账户绑定（存在 users 关联记录且非当前用户）；弹窗据此提示「该公司已被绑定」 */
   bound: boolean;
 }
 

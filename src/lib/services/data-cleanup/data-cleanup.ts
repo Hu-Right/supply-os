@@ -3,15 +3,15 @@
  * Notice Dependent-data Stale Data Cleanup Service
  *
  * @module server/services/data-cleanup/data-cleanup
- * @description 比对 crm_bid_notices（主表）与两个附属数据源，清理"主表已不存在
+ * @description 比对 bid_notices（主表）与两个附属数据源，清理"主表已不存在
  *              （或已失效）"的记录，与桥接表清理（bridge-cleanup.ts）模式一致：
  *              统计 → 备份 → 分批删除 → 日志报告，供一次性清理脚本
  *              （scripts/cleanup-notice-data.ts）与后台定时任务
  *              （server/lifecycle/timers.ts）复用。
  *
  *              关联口径（已按 INFORMATION_SCHEMA 实际结构核实）：
- *              - crm_notice_translations.notice_id（BIGINT）→ crm_bid_notices.id
- *              - crm_notice_search.notice_id（VARCHAR）→ crm_bid_notices.notice_id（外部编号）
+ *              - notice_translations.notice_id（BIGINT）→ bid_notices.id
+ *              - notice_search.notice_id（VARCHAR）→ bid_notices.notice_id（外部编号）
  *
  *              过期口径与桥接表一致：主表 is_expired = 1 视为已失效；
  *              默认仅清理"主表完全不存在"的硬死数据，过期数据通过
@@ -30,19 +30,19 @@ export type CleanupTargetKey = "translations" | "wide";
 export const CLEANUP_TARGETS: Record<CleanupTargetKey, CleanupTarget> = {
   // 翻译表 notice_id 是 BIGINT，存的是主表自增 id
   translations: {
-    table: "crm_notice_translations",
+    table: "notice_translations",
     idColumn: "id",
     joinColumn: "notice_id",
     mainJoinColumn: "id",
-    backupPrefix: "crm_notice_translations_backup",
+    backupPrefix: "notice_translations_backup",
   },
   // 宽表 notice_id 是外部公告编号（与主表 notice_id 同源，与桥接表一致）
   wide: {
-    table: "crm_notice_search",
+    table: "notice_search",
     idColumn: "id",
     joinColumn: "notice_id",
     mainJoinColumn: "notice_id",
-    backupPrefix: "crm_notice_search_backup",
+    backupPrefix: "notice_search_backup",
   },
 };
 
@@ -77,3 +77,4 @@ export async function cleanupStaleNoticeData(
   };
   return runStaleDataCleanup(pool, target, options, prefixedLogger);
 }
+

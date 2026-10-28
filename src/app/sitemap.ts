@@ -24,7 +24,7 @@ export const revalidate = 3600;
 
 function isoOrNull(v: Date | string | number | null): string | undefined {
   if (v === null || v === undefined || v === "") return undefined;
-  // crm_bid_notices.update_time / supplier.addtime 实际为 Unix 秒时间戳（数字）
+  // bid_notices.update_time / supplier.addtime 实际为 Unix 秒时间戳（数字）
   const d = typeof v === "number" ? new Date(v * 1000) : new Date(v);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 }

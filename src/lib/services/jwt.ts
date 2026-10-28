@@ -8,7 +8,7 @@
  *              Refresh Token 有效期 7d（长生命周期，支持无感续期）。
  *              密钥从环境变量 JWT_SECRET 读取；缺失时抛出错误，阻止启动。
  *
- *              crm_users.user_key 列退役路线图（迁移 062/065/066）代码侧收尾：
+ *              users.user_key 列退役路线图（迁移 062/065/066）代码侧收尾：
  *              payload 中已彻底移除 user_key 字段，uid 为唯一身份锚点。
  *              流通中的旧 token（无 uid 仅 user_key）将被 verifyXxxToken 直接拒绝。
  */
@@ -31,7 +31,7 @@ if (!JWT_SECRET) {
 }
 
 // ── Token Payload 类型 ──
-// uid 为唯一身份锚点（crm_users.id）；user_key/email 已彻底移除。
+// uid 为唯一身份锚点（users.id）；user_key/email 已彻底移除。
 export interface AccessTokenPayload {
   /** 内部用户 ID（身份主锚点） */
   uid: number;

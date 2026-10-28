@@ -11,7 +11,7 @@
  *              `FIND_IN_SET(?, ns.backbone_path)`（与检索侧同一列同一关系），口径对了但形状错了：
  *              对列值做函数永远用不到索引，EXPLAIN `type=ALL` 每次扫 677,629 行 ——
  *              实测候选召回 2.4s / 3.8s / 1.4s，完整主查询 5.2s / 9.8s（探针110/111）。
- *              现在读 crm_notice_backbone_nodes（那一列的行化镜像，2026-10-11 建表 + 全量回填
+ *              现在读 notice_backbone_nodes（那一列的行化镜像，2026-10-11 建表 + 全量回填
  *              1,508,793 行）：`cand.node IN (节点码…)` 走 idx_node 的 range，同一轮交错实测
  *              候选收窄 93ms / 50ms / 37ms（探针110）。
  *              换完以后的实况（探针117，直接调 recommendNotices 量真实端到端）：
@@ -113,7 +113,7 @@ export async function processInterestCodes(
     if (decayed <= 0) continue; // 零权重照常召回（与旧实现一致），但不进打分与归一分母
     interestTotal += decayed;
     // 有效位数：UGT 节点键取数字体长度（码长即层级）。
-    // R4' 剥数字码入口后，`crm_user_interest_codes` 全为 UGT 节点码⇒不再需要尾零归一 fallback。
+    // R4' 剥数字码入口后，`user_interest_codes` 全为 UGT 节点码⇒不再需要尾零归一 fallback。
     const precision = code.startsWith("UGT-") ? Math.min(10, code.length - 4) : 0;
     const depth = Math.min(4, Math.max(1, precision / 2));
     const weighted = decayed * (depthFactor[depth] ?? 1.0);
@@ -141,13 +141,13 @@ export async function deadlineFallback(
   pool: Pool, page: number, pageSize: number, offset: number,
   locale?: string,
 ): Promise<{ items: Array<Record<string, unknown>>; total: number; page: number; pageSize: number; fallback: string }> {
-  const [cntRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`);
+  const [cntRows] = await pool.query(`SELECT COUNT(*) AS total FROM bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`);
   const cntRow = (cntRows as RowDataPacket[])[0];
-  const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
+  const trJoin = locale ? "LEFT JOIN notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
   const trParams = locale ? [locale] : [];
-  const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
+  const treJoin = "LEFT JOIN notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
   const oppSubPrefix = "(SELECT opp.";
-  const oppSubWhere = " FROM crm_bid_opportunities opp WHERE opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1) LIMIT 1)";
+  const oppSubWhere = " FROM bid_opportunities opp WHERE opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1) LIMIT 1)";
   const descCnSub = `${oppSubPrefix}description_cn${oppSubWhere} AS description_cn`;
   const descSub = `LEFT(${oppSubPrefix}description${oppSubWhere}, 300) AS description`;
   const descTruncSub = `CASE WHEN LENGTH(${oppSubPrefix}description${oppSubWhere}) > 300 THEN 1 ELSE 0 END AS description_truncated`;
@@ -168,7 +168,7 @@ export async function deadlineFallback(
   );
   const [fallbackRows] = await pool.query(
     `SELECT ${selectList}
-     FROM crm_bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
+     FROM bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
   const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ensureNoticePk({
     // Suministros BUG 修复：同推荐主查询，notice_type 归一化对齐宽表口径
     ...row, notice_type: normalizeNoticeType(row.notice_type),

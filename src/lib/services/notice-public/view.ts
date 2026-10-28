@@ -2,7 +2,7 @@
  * 公告对外视图 mapper —— 命名红线② 的唯一收口点
  *
  * @module lib/services/notice-public/view
- * @description 服务表投影（crm_notice_public / crm_notice_search / crm_notice_deadline）的列名是
+ * @description 服务表投影（notice_public / notice_search / notice_deadline）的列名是
  *              snake_case，而列名属于存储层，不是对外契约。本模块把「行」转成「视图」：键名机械
  *              camelCase 化，**值一律原样透传**（不改时间格式、不改数字/字符串类型、不做二次归一），
  *              所以这次迁移改变的只是键名，不是数据。

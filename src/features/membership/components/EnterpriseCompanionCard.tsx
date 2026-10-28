@@ -4,7 +4,7 @@
  *
  * @module features/membership/components/EnterpriseCompanionCard
  * @description 企业版收敛为「199 人工找单 + 8800 企业智能版」两档并列。8800 是订阅（走 PlanCard），
- *              199 是一次性人工服务（crm_service_catalog 行）。通用 ServiceCard 面向服务 Tab 的小卡，
+ *              199 是一次性人工服务（service_catalog 行）。通用 ServiceCard 面向服务 Tab 的小卡，
  *              直接与企业订阅卡并列会因内容稀疏 + grid 拉伸出现大片空白，故本组件复用 PlanCard 的
  *              视觉语言（卡头色带 + 价格块 + 价值清单 + CTA），让它读起来像一张对等的企业档位卡。
  *              商品属性（名称/价格/交付说明）仍读服务目录行，前端不硬编码价格。

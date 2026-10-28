@@ -46,9 +46,9 @@ export async function fetchDetailsByIds(
          ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, ${WIDE_LIMITS.i18nTeaser}) AS description_i18n,
          s.title_en, LEFT(s.description_en, ${WIDE_LIMITS.i18nTeaser}) AS description_en,
          s.bid_overview, s.backbone_path, s.entry_source
-       FROM crm_notice_public p
-       LEFT JOIN crm_notice_search s ON s.id = p.notice_pk
-       LEFT JOIN crm_notice_deadline d ON d.notice_pk = p.notice_pk
+       FROM notice_public p
+       LEFT JOIN notice_search s ON s.id = p.notice_pk
+       LEFT JOIN notice_deadline d ON d.notice_pk = p.notice_pk
        WHERE p.notice_pk IN (${ids.map(() => "?").join(",")})
        ORDER BY FIELD(p.notice_pk, ${ids.map(() => "?").join(",")})`,
       [...ids, ...ids],
@@ -56,7 +56,7 @@ export async function fetchDetailsByIds(
     // 模块02 NEW 标签：create_time 在主表（宽表无此列）。按 PK 二次查询后在内存合并，
     // 不在宽表 SELECT 上 JOIN——两表 title/description 等列同名，JOIN 会引入歧义。
     const [timeRows] = await pool.query(
-      `SELECT id, create_time FROM crm_bid_notices WHERE id IN (${ids.map(() => "?").join(",")})`,
+      `SELECT id, create_time FROM bid_notices WHERE id IN (${ids.map(() => "?").join(",")})`,
       ids,
     );
     const timeMap = new Map<number, unknown>();
@@ -76,10 +76,10 @@ export async function fetchDetailsByIds(
        opp.description_cn,
        LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
        opp.beneficiary_countries
-     FROM crm_bid_notices n
-     LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?
-     LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'
-     LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id
+     FROM bid_notices n
+     LEFT JOIN notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?
+     LEFT JOIN notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'
+     LEFT JOIN bid_opportunities opp ON opp.source_notice_id = n.notice_id
        AND ${qualifiedOppWhere("opp")}
      WHERE n.id IN (${ids.map(() => "?").join(",")})
      ORDER BY FIELD(n.id, ${ids.map(() => "?").join(",")})`,

@@ -51,10 +51,10 @@ export async function clearExpiredTranslations(
   dbPool: Pool
 ): Promise<{ notices: number; opportunities: number }> {
   const [noticeResult] = await dbPool.query(
-    "DELETE t FROM crm_notice_translations t JOIN crm_bid_notices n ON n.id = t.notice_id WHERE n.deadline_sec > 0 AND n.deadline_sec < UNIX_TIMESTAMP(NOW()) - 90 * 86400"
+    "DELETE t FROM notice_translations t JOIN bid_notices n ON n.id = t.notice_id WHERE n.deadline_sec > 0 AND n.deadline_sec < UNIX_TIMESTAMP(NOW()) - 90 * 86400"
   );
   const [oppResult] = await dbPool.query(
-    "DELETE t FROM crm_opportunity_translations t JOIN crm_bid_opportunities n ON n.id = t.opportunity_id WHERE n.deadline_sec > 0 AND n.deadline_sec < UNIX_TIMESTAMP(NOW()) - 90 * 86400"
+    "DELETE t FROM opportunity_translations t JOIN bid_opportunities n ON n.id = t.opportunity_id WHERE n.deadline_sec > 0 AND n.deadline_sec < UNIX_TIMESTAMP(NOW()) - 90 * 86400"
   );
   return {
     notices: (noticeResult as RowDataPacket).affectedRows ?? 0,

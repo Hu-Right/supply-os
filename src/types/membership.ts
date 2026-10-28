@@ -74,7 +74,7 @@ export interface QuotaBalanceRow {
   benefit_code: string;
   quota_total: number;
   quota_used: number;
-  /** 池状态：扣满置 exhausted，退款/升级承接置 frozen；订阅过期由 crm_plan_subscriptions 表达 */
+  /** 池状态：扣满置 exhausted，退款/升级承接置 frozen；订阅过期由 plan_subscriptions 表达 */
   status: "active" | "exhausted" | "frozen";
   /** 当前发放代次起点（幂等锚点：订阅池=该订阅 started_at，普通用户池=1970-01-01 终身哨兵） */
   period_starts_at: Date | string;
@@ -108,7 +108,7 @@ export interface MembershipStatus {
 }
 
 /**
- * 可用的年包抵扣单（文档「199 升级年包可全额抵扣」）：服务端从 crm_service_orders
+ * 可用的年包抵扣单（文档「199 升级年包可全额抵扣」）：服务端从 service_orders
  * 找出一张已成交且未被任何 pending/paid 订单引用的可抵扣单，金额取成交快照单价。
  */
 export interface AnnualPlanCredit {
@@ -136,7 +136,7 @@ export interface UpgradePreview {
   new_purchase_price: number | null;
 }
 
-/** 增值服务目录行（crm_service_catalog，is_active=1）— 前端订制服务 Tab 渲染契约 */
+/** 增值服务目录行（service_catalog，is_active=1）— 前端订制服务 Tab 渲染契约 */
 export interface ServiceCatalogRow {
   service_code: string;
   category: string;

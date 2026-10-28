@@ -14,7 +14,7 @@ import type { MatchedSupplier } from "../api/ai-match";
 
 /**
  * 7 维度定义（key 与评分链路、score_* 列名同一套，勿改名）。
- * label/criteria 已按 v2 诊断表字段重述：每个维度的判据都能对应到 crm_supplier_diagnosis 的具体列，
+ * label/criteria 已按 v2 诊断表字段重述：每个维度的判据都能对应到 supplier_diagnosis 的具体列，
  * 与 ai-score/prompt.ts 的 DIMENSION_V2_SOURCES 保持同一语义（那边负责把字段喂给模型，这边负责把口径展示给用户）。
  */
 export const EVAL_DIMENSIONS = [

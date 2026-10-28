@@ -3,7 +3,7 @@
  * Unified search orchestrator — parameter validation & normalization
  *
  * @module server/services/search-orchestrator/params
- * @description crm_users.user_key 列退役收尾：身份参数仅保留 userId，
+ * @description users.user_key 列退役收尾：身份参数仅保留 userId，
  *              缓存键生成不再回退 userKey，避免游客/登录用户键混淆。
  */
 import type { UnifiedSearchParams, SearchMode } from "./types";

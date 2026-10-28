@@ -9,7 +9,7 @@
  *              依赖方向：route → service → repo → pool。
  *
  *              小表剥离（2026-10-14）：getAwardHistoryForNotice（按公告旧品类码
- *              LIKE 匹配历史中标）整链下线——crm_bid_awards 的旧码列全表
+ *              LIKE 匹配历史中标）整链下线——bid_awards 的旧码列全表
  *              0 行非空，该功能自上线起恒返回空态，属零数据空转；中标库浏览
  *              （listAwards/stats/top）不受影响。
  */

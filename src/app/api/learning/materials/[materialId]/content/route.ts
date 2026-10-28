@@ -2,7 +2,7 @@
  * GET /api/learning/materials/[materialId]/content — 学习资料正文与下载地址
  *
  * 付费墙闸口（审查报告 F4）：
- * - premium 资料：需登录 + 已购买（crm_learning_material_purchases 记录）才返回
+ * - premium 资料：需登录 + 已购买（learning_material_purchases 记录）才返回
  * - 免费资料：直接返回
  *
  * @module app/api/learning/materials/[materialId]/content/route

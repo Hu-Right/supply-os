@@ -1,7 +1,7 @@
 /**
  * 桥表→落点 增量镜像（旧品类码退役 混合①的非 API 生产者）
  *
- * 干什么：把「宽表 backbone_path 列值隐含、但 crm_notice_attribution_nodes 里缺」的落点，
+ * 干什么：把「宽表 backbone_path 列值隐含、但 notice_attribution_nodes 里缺」的落点，
  *         按最深落点压回事实源（source='legacy_tag'）。保持「落点 ⊇ 列值」不变量，
  *         为 R2 切读铺路（切读后列值改由落点派生，缺对即断供）。
  *
@@ -15,7 +15,7 @@
  *   - 只镜像闭包稳定的列：closureOfPathColumn(col) !== col ⇒ 脏列，整条跳过交人工（改了会改写现网归属）；
  *   - 无幻觉：每个缺对叶子都必须在启用树里，出现树外码 ⇒ 整条不落笔；
  *   - 幂等：INSERT IGNORE 撞 uk_notice_node 静默跳过；
- *   - 只写 crm_notice_attribution_nodes 事实源，不碰宽表列（ADR-0002/0007 单一写入者）。
+ *   - 只写 notice_attribution_nodes 事实源，不碰宽表列（ADR-0002/0007 单一写入者）。
  *
  * 扫描指针：落 runtime/attribution-mirror-watermark.json（lastPk）。新判据下候选不再
  *   自排干（脏列/幻觉行会永远缺对），固定从 0 扫会把游标卡死在表头、新公告永不被扫到
@@ -76,7 +76,7 @@ export async function runAttributionMirror(
   let cur = readWatermark();
   while (res.scanned < MAX) {
     const [rowsRaw] = await pool.query(
-      `SELECT ns.id pk, ns.backbone_path col FROM crm_notice_search ns
+      `SELECT ns.id pk, ns.backbone_path col FROM notice_search ns
         WHERE ns.id > ? AND ns.backbone_path IS NOT NULL AND ns.backbone_path <> ''
         ORDER BY ns.id LIMIT ${BATCH}`,
       [cur],
@@ -94,7 +94,7 @@ export async function runAttributionMirror(
 
     // 契约判据（单一来源）：列隐含落点 − 现有落点 ≠ ∅ 的 (pk, leaf) 对即为本批候选
     const landingRaw = (await pool.query(
-      `SELECT a.notice_pk pk, a.node_code code, a.source FROM crm_notice_attribution_nodes a
+      `SELECT a.notice_pk pk, a.node_code code, a.source FROM notice_attribution_nodes a
         WHERE a.notice_pk IN (${rows.map(() => "?").join(",")})`,
       rows.map((r) => r.pk),
     ))[0] as Array<{ pk: number; code: string; source: string }>;
@@ -126,7 +126,7 @@ export async function runAttributionMirror(
       const ph = chunk.map(() => "(?, ?, ?, 1.00, 'legacy_tag', '', '')").join(",");
       const params = chunk.flatMap(([pk, code, lv]) => [pk, code, lv]);
       const [retRaw] = await pool.query(
-        `INSERT IGNORE INTO crm_notice_attribution_nodes (notice_pk, node_code, level, confidence, source, model, evidence_text) VALUES ${ph}`,
+        `INSERT IGNORE INTO notice_attribution_nodes (notice_pk, node_code, level, confidence, source, model, evidence_text) VALUES ${ph}`,
         params,
       );
       res.writtenRows += (retRaw as unknown as ResultSetHeader).affectedRows ?? 0;

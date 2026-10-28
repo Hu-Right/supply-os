@@ -1,7 +1,7 @@
 /**
  * 公告截止时间语义分类器（纯函数，唯一规则实现）
  *
- * 背景：crm_bid_notices.deadline 是源库自由文本，不同源把「无截止日」
+ * 背景：bid_notices.deadline 是源库自由文本，不同源把「无截止日」
  * （西班牙 PLACSP 的 2125-12-31）、「框架/注册制结束日」、「年份笔误」
  * （2050/2206/2226）和「一次性投标截止日」混在同一个字符串里。
  * 本分类器不修改主表，只回答四件事：
@@ -82,7 +82,7 @@ function normalizeTs(raw: number | string | null): number | null {
   if (raw === null || raw === undefined || raw === "") return null;
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return null;
-  // 源库混用秒/毫秒；与 crm_bid_notices.deadline_sec 生成列同一判据
+  // 源库混用秒/毫秒；与 bid_notices.deadline_sec 生成列同一判据
   return n > 100_000_000_000 ? Math.floor(n / 1000) : Math.floor(n);
 }
 

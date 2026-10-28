@@ -23,7 +23,7 @@ export interface SupplierDirectoryRow {
   products: string | null;
   /** 遗留展示字段（supplier.industry 列已于 2026-10-15 退役）：仅供认领建议占位为 ''，目录/详情不再读 */
   industry?: string | null;
-  /** 主行业码（crm_industry_nodes.code，UGT-I- 前缀）；行业面标准口径（industry 自由文本列已退役） */
+  /** 主行业码（industry_nodes.code，UGT-I- 前缀）；行业面标准口径（industry 自由文本列已退役） */
   industry_code?: string | null;
   certification: string | null;
   /** 业务身份枚举：manufacturer=工厂 / trader=贸易商（卡片徽章与「工厂/贸易商」维度同源；其余值不展示） */
@@ -51,7 +51,7 @@ export interface CompanyCandidateRow extends RowDataPacket {
   credit_code: string | null;
   verify_status: string | null;
   claim_status: string | null;
-  /** 是否已被**其他**用户/账户绑定（crm_users.supplier_id 命中且非当前用户）；0/1 */
+  /** 是否已被**其他**用户/账户绑定（users.supplier_id 命中且非当前用户）；0/1 */
   bound: number;
 }
 
@@ -99,7 +99,7 @@ export function maskCreditCode(value: string | null | undefined): string {
  */
 function subtreeExists(codes: readonly string[]): { sql: string; values: string[] } {
   return {
-    sql: `EXISTS (SELECT 1 FROM crm_supplier_industry_rel ir
+    sql: `EXISTS (SELECT 1 FROM supplier_industry_rel ir
                    WHERE ir.supplier_id = s.id AND (${codes.map(() => "ir.industry_code LIKE ?").join(" OR ")}))`,
     // 码已过 isIndustryCode 白名单（字集只含 UGT-I- 与数字），不命 LIKE 元字符；
     // 也不能先转义再补通配符——那会把刚补上的 % 一起转掉，条件退化成匹配字面量。
@@ -388,7 +388,7 @@ export class SupplierDirectoryRepo {
    * 不按 verify_status 过滤：库里绝大多数行是爬虫同步的 pending（done 仅个位数），一旦过滤，
    * 整库在诊断入口不可见；pending 行同样是 D1 的正当评价对象（与 findProfileBits /
    * findByCompanyBest 同口径），脱敏由 /api/suppliers/similar 的字段白名单 + 掩码保证。
-   * `bound`：附带「是否已被其他用户/账户绑定」标记（crm_users.supplier_id 命中且非 excludeUserId），
+   * `bound`：附带「是否已被其他用户/账户绑定」标记（users.supplier_id 命中且非 excludeUserId），
    * 供「检测并确认主体」弹窗提示「该公司已被绑定」，避免用户对已归属企业重复认领。
    */
   async findDiagnosisCandidatesByName(
@@ -407,7 +407,7 @@ export class SupplierDirectoryRepo {
       `SELECT id, company, business_type, province, city,
               established_at, legal_rep, credit_code, verify_status, claim_status,
               EXISTS(
-                SELECT 1 FROM crm_users cu
+                SELECT 1 FROM users cu
                  WHERE cu.supplier_id = supplier.id
                    AND cu.id <> ?
               ) AS bound
@@ -494,11 +494,11 @@ export class SupplierDirectoryRepo {
     const [intlRows] = await this.pool.query(
       "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND verify_status = 'done'",
     );
-    // 已认证 且 在 backbone 兴趣表里有行的供应商数（JOIN crm_supplier_backbone_interests）
+    // 已认证 且 在 backbone 兴趣表里有行的供应商数（JOIN supplier_backbone_interests）
     // ↳ 字段旧名带品类字典后缀，随字典退役一并改成 commodityMatched（前端 5 处消费方同步）。
     const [commodityRows] = await this.pool.query(
       `SELECT COUNT(DISTINCT u.supplier_id) as total
-       FROM crm_supplier_backbone_interests u
+       FROM supplier_backbone_interests u
        JOIN supplier s ON s.id = u.supplier_id
        WHERE s.verify_status = 'done' AND s.company <> '测试'`,
     );
@@ -536,7 +536,7 @@ export class SupplierDirectoryRepo {
   async getClaimOwnership(supplierId: number, userId: number): Promise<ClaimOwnership> {
     const [boundRows] = await this.pool.query<RowDataPacket[]>(
       `SELECT SUM(id <> ?) AS others, SUM(id = ?) AS mine
-         FROM crm_users WHERE supplier_id = ?`,
+         FROM users WHERE supplier_id = ?`,
       [userId, userId, supplierId],
     );
     const bound = boundRows[0] as { others: number | null; mine: number | null } | undefined;
@@ -558,14 +558,14 @@ export class SupplierDirectoryRepo {
    *
    * 与 getClaimOwnership 的分工：那边回答「**这家主体**归谁」，这边回答
    * 「**这个账号**已经绑了谁」。认领排他此前只有前者，于是已绑 A 的账号认领无人
-   * 认领的 B 会一路放行，createClaimWithBinding 再把 crm_users.supplier_id 覆盖成 B
+   * 认领的 B 会一路放行，createClaimWithBinding 再把 users.supplier_id 覆盖成 B
    * ——审核中的 A 被抛下、已认证的 A 被顶掉，且没有任何入口能换回来。
    * 只取排他判定所需的识别列，不复用 findFullById（整行含联系方式与执照 URL）。
    */
   async findBoundSubjectByUserId(userId: number): Promise<BoundSubjectRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT s.id, s.company, s.verify_status, s.claim_status
-         FROM crm_users u
+         FROM users u
          JOIN supplier s ON s.id = u.supplier_id
         WHERE u.id = ? AND u.supplier_id IS NOT NULL AND u.supplier_id > 0
         LIMIT 1`,

@@ -5,7 +5,7 @@
  * @module lib/services/ai/shared/supplier-profile
  * @description ai-summary 与 ai-score 原先各抄一份几乎相同的 JOIN，且都挂在已作废的 v1 诊断表上。
  *              诊断表切到 v2 后合并为一份，并且：
- *              1) 走 `crm_supplier_diagnosis`，按 (user_id, supplier_id) 唯一键命中，
+ *              1) 走 `supplier_diagnosis`，按 (user_id, supplier_id) 唯一键命中，
  *                 不再用 `ORDER BY q.id DESC LIMIT 1` 猜最新一条；
  *              2) **不再把 v2 字段伪装成 v1 键名**（早期为省事把 team_discipline 别名成
  *                 employee_count、把英文两题拼成 english_team，结果 prompt 里"员工规模"
@@ -58,7 +58,7 @@ export async function fetchSupplierProfile(
   userId: number,
 ): Promise<SupplierProfileForAi | null> {
   const [userRows] = await pool.query(
-    "SELECT supplier_id FROM crm_users WHERE id = ? LIMIT 1",
+    "SELECT supplier_id FROM users WHERE id = ? LIMIT 1",
     [userId],
   );
   const supplierId = Number((userRows as RowDataPacket[])[0]?.supplier_id || 0);
@@ -69,8 +69,8 @@ export async function fetchSupplierProfile(
             s.registered_capital, s.established_at, s.intro,
             ${diagnosisColumnSelect("q")}
      FROM supplier s
-     LEFT JOIN crm_users u ON u.supplier_id = s.id
-     LEFT JOIN crm_supplier_diagnosis q ON q.supplier_id = s.id AND q.user_id = u.id
+     LEFT JOIN users u ON u.supplier_id = s.id
+     LEFT JOIN supplier_diagnosis q ON q.supplier_id = s.id AND q.user_id = u.id
      WHERE s.id = ?
      LIMIT 1`,
     [supplierId],

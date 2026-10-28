@@ -48,22 +48,22 @@ export function buildKeywordUnion(
         .join(conj);
       return {
         sql:
-          "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
+          "SELECT n2.id FROM bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
           " AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
           " UNION " +
-          "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND " + likeSql,
+          "SELECT qzh.notice_id FROM notice_translations qzh WHERE qzh.lang = 'zh' AND " + likeSql,
         params,
       };
     }
     return {
       sql:
-        "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
+        "SELECT n2.id FROM bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
         " AND MATCH(n2.title, n2.reference) AGAINST(? IN BOOLEAN MODE)" +
         " UNION " +
-        "SELECT sn.id FROM crm_bid_notices sn WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
+        "SELECT sn.id FROM bid_notices sn WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
         " AND MATCH(sn.description) AGAINST(? IN BOOLEAN MODE)" +
         " UNION " +
-        "SELECT qen.notice_id FROM crm_notice_translations qen WHERE qen.lang = 'en' AND MATCH(qen.title_tr, qen.description_tr) AGAINST(? IN BOOLEAN MODE)",
+        "SELECT qen.notice_id FROM notice_translations qen WHERE qen.lang = 'en' AND MATCH(qen.title_tr, qen.description_tr) AGAINST(? IN BOOLEAN MODE)",
       params: [q, q, q],
     };
   }
@@ -86,12 +86,12 @@ export function buildKeywordUnion(
   const negSql = parsed.excludes.map(() => "(title_tr NOT LIKE ? AND description_tr NOT LIKE ?)").join(" AND ");
   const likeWhere = [posSql, negSql].filter(Boolean).map((s) => `(${s})`).join(" AND ");
   const likeBranch = posTokens.length
-    ? ` UNION SELECT qtr.notice_id FROM crm_notice_translations qtr WHERE qtr.lang = '${isChinese ? "zh" : "en"}' AND ${likeWhere}`
+    ? ` UNION SELECT qtr.notice_id FROM notice_translations qtr WHERE qtr.lang = '${isChinese ? "zh" : "en"}' AND ${likeWhere}`
     : "";
   const likeParams = likeBranch ? [...posParams, ...negParams] : [];
 
   const sql =
-    "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
+    "SELECT n2.id FROM bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
     " AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
     likeBranch;
   return { sql, params: [boolQ, ...likeParams] };
@@ -146,13 +146,13 @@ export async function mysqlFallback(
   const queryParams: unknown[] = [];
   if (p.q) {
     const kw = buildKeywordUnion(p.q, p.matchMode ?? "all");
-    fromSql = `crm_bid_notices n INNER JOIN (${kw.sql}) _kw ON _kw.id = n.id
-      JOIN crm_notice_public p ON p.notice_pk = n.id`;
+    fromSql = `bid_notices n INNER JOIN (${kw.sql}) _kw ON _kw.id = n.id
+      JOIN notice_public p ON p.notice_pk = n.id`;
     queryParams.push(...kw.params);
   } else {
     // 从服务表起 JOIN：deadline 过滤/排序走 idx_deadline_state_ts，
     // 从主表起会被 FORCE INDEX 带成全表扫描。
-    fromSql = `crm_notice_public p JOIN crm_bid_notices n ON n.id = p.notice_pk`;
+    fromSql = `notice_public p JOIN bid_notices n ON n.id = p.notice_pk`;
   }
   queryParams.push(...plan.mysqlParams);
 

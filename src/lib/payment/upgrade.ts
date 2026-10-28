@@ -34,7 +34,7 @@ export async function performUpgradeInTransaction(
     throw new Error("UPGRADE_PRICE_DRIFT");
   }
   const [pools] = await conn.query<RowDataPacket[]>(
-    `SELECT benefit_code, quota_used, status FROM crm_benefit_quotas
+    `SELECT benefit_code, quota_used, status FROM benefit_quotas
       WHERE subscription_id = ? AND period_starts_at <= NOW()
       ORDER BY benefit_code, period_starts_at DESC, id DESC FOR UPDATE`, [sourceId],
   );
@@ -54,7 +54,7 @@ export async function performUpgradeInTransaction(
     if (!pool || (pool.quota_total !== -1 && pool.quota_total < Number(row.quota_used))) throw new Error("UPGRADE_QUOTA_INVALID");
     const used = pool.quota_total === -1 ? 0 : Number(row.quota_used);
     const [updated] = await conn.execute<ResultSetHeader>(
-      `UPDATE crm_benefit_quotas SET quota_used = ?, status = IF(quota_total >= 0 AND quota_used >= quota_total, 'exhausted', 'active') WHERE id = ?`,
+      `UPDATE benefit_quotas SET quota_used = ?, status = IF(quota_total >= 0 AND quota_used >= quota_total, 'exhausted', 'active') WHERE id = ?`,
       [used, pool.id],
     );
     if (updated.affectedRows !== 1) throw new Error("UPGRADE_QUOTA_INVALID");

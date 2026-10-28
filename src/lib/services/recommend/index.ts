@@ -70,7 +70,7 @@ export async function recommendNotices(
     `SELECT code, level,
             SUM(weight * EXP(-LN(2) * GREATEST(0, DATEDIFF(NOW(), COALESCE(updated_at, created_at))) / 90)) AS decayed_weight,
             MAX(COALESCE(updated_at, created_at)) AS last_update
-     FROM crm_user_interest_codes WHERE user_id = ?
+     FROM user_interest_codes WHERE user_id = ?
      GROUP BY code, level ORDER BY decayed_weight DESC, last_update DESC LIMIT 80`,
     [userId],
   );
@@ -95,7 +95,7 @@ export async function recommendNotices(
       // 而不是 COUNT(DISTINCT n.id)：倒排读法上 DISTINCT 会把优化器带去选错索引
       // （实测同一条句子 9.3s vs FORCE INDEX 3.2s，探针108）。
       `SELECT COUNT(*) AS total FROM (
-         SELECT n.id FROM crm_bid_notices n
+         SELECT n.id FROM bid_notices n
          ${clauses.join}
          WHERE ${ACTIVE_NOTICE_WHERE}
          GROUP BY n.id
@@ -103,7 +103,7 @@ export async function recommendNotices(
       clauses.params,
     ),
     pool.query(
-      `SELECT w_commodity, w_agency, w_amount, w_geo, w_urgency, updated_at FROM crm_reco_weight_profile WHERE user_id = ? LIMIT 1`,
+      `SELECT w_commodity, w_agency, w_amount, w_geo, w_urgency, updated_at FROM reco_weight_profile WHERE user_id = ? LIMIT 1`,
       [userId],
     ),
   ]);
@@ -131,10 +131,10 @@ export async function recommendNotices(
   // 上一版把 trParams 拼在第一个，传了 locale 的请求里语种串就被绑到打分位上：
   // MAX(cand.node = 'zh') 永远是 0，兴趣分整块静默归零（排序退化成只看截止/金额），
   // 而搜索链路默认就传 locale —— 这一条由 index.param-order 那组单测钉住。
-  const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
+  const trJoin = locale ? "LEFT JOIN notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
   const trParams = locale ? [locale] : [];
-  const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  const oppJoin = "LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.source_notice_id = n.notice_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 1 OR opp_desc.audit_status = 1)";
+  const treJoin = "LEFT JOIN notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
+  const oppJoin = "LEFT JOIN bid_opportunities opp_desc ON opp_desc.source_notice_id = n.notice_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 1 OR opp_desc.audit_status = 1)";
   // 列清单全部交给 columns()：以前两个译文片段各自带尾逗号、靠在后面的列兼容，
   // 一旦顺序调整就是 MySQL 1064（相似公告就是这么上线失败的）。分隔符只留一个出处。
   const selectList = columns(
@@ -159,10 +159,10 @@ export async function recommendNotices(
   try {
     [rows] = await pool.query(
       `SELECT ${selectList}
-       FROM crm_bid_notices n
+       FROM bid_notices n
        ${clauses.join}
-       INNER JOIN crm_notice_search ns ON ns.id = n.id
-       LEFT JOIN crm_notice_amount_cache amc ON amc.notice_id = n.id
+       INNER JOIN notice_search ns ON ns.id = n.id
+       LEFT JOIN notice_amount_cache amc ON amc.notice_id = n.id
        ${trJoin}
        ${treJoin}
        ${oppJoin}
@@ -198,7 +198,7 @@ export async function recommendNotices(
     const { l4_hit, amount_usd_cached, codes_concat, documents, procurement_files, ...rest } = row;
     return ensureNoticePk({
       // Suministros BUG 修复：主表 notice_type 含西班牙语等源数据脏值（如
-      // "SuministrosAdquisición"），搜索路径读宽表 notice_type_std 已归一化，
+      // "SuministrosAdquisición"），搜索路径读宽表 notice_type_code 已归一化，
       // 推荐路径直取原始值导致前端徽章原样展示外语脏值——此处复用与宽表
       // 同口径的 normalizeNoticeType 对齐（脏值归 OTHER，前端展示 i18n“其他”）
       ...rest, notice_type: normalizeNoticeType(row.notice_type as string | null | undefined),

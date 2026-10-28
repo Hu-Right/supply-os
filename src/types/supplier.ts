@@ -15,7 +15,7 @@ export interface Supplier {
   industryZh: string;
   industryEn: string;
   /**
-   * 行业面标准口径主标签码（crm_industry_nodes.code，UGT-I- 前缀）。
+   * 行业面标准口径主标签码（industry_nodes.code，UGT-I- 前缀）。
    * 有码 ⇒ industryZh/En 来自权威树（非中文界面拿到 ISIC 官方英文名）；
    * 无码 ⇒ 两列回落主营产品首项（supplier.industry 自由文本列已退役）。
    */
@@ -25,7 +25,7 @@ export interface Supplier {
   /** 标准口径路径名（门类 → 大类 → 中类 → 主码所在层），与 industryCode 同进同出 */
   industryPathZh?: string[];
   industryPathEn?: string[];
-  /** 多行业标签（crm_supplier_industry_rel，主码在前，最多 3 个） */
+  /** 多行业标签（supplier_industry_rel，主码在前，最多 3 个） */
   industryTags?: Array<{ code: string; nameZh: string; nameEn: string }>;
   countryZh: string;
   countryEn: string;

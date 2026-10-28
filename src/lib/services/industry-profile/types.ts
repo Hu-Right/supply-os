@@ -14,7 +14,7 @@
 /** 用户行业画像（由 resolve.ts 解析，码版：偏好表存最深 UGT 节点码） */
 export interface UserIndustryProfile {
   userId: number;
-  /** 最深已选 UGT 骨架节点码（crm_user_industry_prefs.commodity_code，已过形制校验） */
+  /** 最深已选 UGT 骨架节点码（user_industry_prefs.commodity_code，已过形制校验） */
   commodityCode: string;
   /** 码长即层级（1~5，BB1 不变量） */
   deepestLevel: number;

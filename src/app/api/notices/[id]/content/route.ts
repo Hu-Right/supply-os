@@ -41,7 +41,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (!unlock) routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { coreLocked: true });
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
     
-    // 从机会表取完整描述（主表 description 仅存标题，完整原文在 crm_bid_opportunities）
+    // 从机会表取完整描述（主表 description 仅存标题，完整原文在 bid_opportunities）
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
     const fullDescription = String(preferValue(opportunity?.description, notice.description) || "");
     // 档位门控（2026-09-24）：description_cn 属中文内容，无 notice_translation 权益时置空，前端回落原文

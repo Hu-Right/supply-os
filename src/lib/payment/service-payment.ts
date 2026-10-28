@@ -2,8 +2,8 @@
  * 增值服务支付业务服务 — 一次性「服务」下单（不动会员核心）
  *
  * @module lib/payment/service-payment
- * @description 与 LearningPaymentService 对称：订单号前缀 SV，价格服务端权威读 crm_service_catalog，
- *              复用同一 PaymentStrategy 出码；回调/mock 命中仅把 crm_service_orders 标为 paid，
+ * @description 与 LearningPaymentService 对称：订单号前缀 SV，价格服务端权威读 service_catalog，
+ *              复用同一 PaymentStrategy 出码；回调/mock 命中仅把 service_orders 标为 paid，
  *              不做额度/订阅发放（设计 B4）。表无 provider/trade_no/expiry 列 → 查询走 DB status。
  *              返回结构与 learning 下单一致，供 /api/payment/orders 路由统一后处理。
  *
@@ -67,7 +67,7 @@ export class ServicePaymentService {
 
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT standard_price, currency, sale_mode, price_from, is_active, name_zh
-         FROM crm_service_catalog WHERE service_code = ? LIMIT 1`,
+         FROM service_catalog WHERE service_code = ? LIMIT 1`,
       [serviceCode],
     );
     const svc = rows[0] as ServicePriceRow | undefined;

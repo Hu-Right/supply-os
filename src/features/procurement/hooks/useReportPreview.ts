@@ -9,7 +9,7 @@
  *              Fetches structured JSON summary (now only the Chinese procurement
  *              description section) for preview rendering. Silently falls back on error.
  *
- *              crm_users.user_key 列退役收尾：身份参数改为 userId（number），
+ *              users.user_key 列退役收尾：身份参数改为 userId（number），
  *              与服务端 JWT 身份锚点保持一致，避免误用已废弃的 user_key 概念。
  */
 import { useEffect, useState } from "react";

@@ -4,7 +4,7 @@
  *
  * @module repos/payment-history.repo
  * @description ARCH-P4b（2026-09-01）：从 payments.repo.ts 拆出的查询视图聚合。
- *              操作 crm_payment_orders + crm_opportunity_unlocks LEFT JOIN 公告摘要，
+ *              操作 payment_orders + opportunity_unlocks LEFT JOIN 公告摘要，
  *              供「我的记录」面板（订单历史 + 解锁历史）使用。
  *
  *              与 PaymentsRepo（订单 CRUD + 履约事务）职责分离：
@@ -15,7 +15,7 @@ import type { PaymentOrderRow } from "./types";
 
 /**
  * 订单历史查询行（订单 LEFT JOIN 公告，供列表映射）。
- * 列口径以云库为准：crm_bid_notices 无 source_channel/urgency（见 ADR-0012），
+ * 列口径以云库为准：bid_notices 无 source_channel/urgency（见 ADR-0012），
  * 查询不得引用内网库独有的列，否则线上 500。
  */
 export interface OrderHistoryRow extends PaymentOrderRow {
@@ -66,7 +66,7 @@ export class PaymentHistoryRepo {
     }
     const [rows] = await this.pool.query(
       `SELECT COUNT(*) AS total
-       FROM crm_payment_orders o
+       FROM payment_orders o
        ${where}`,
       params,
     );
@@ -88,8 +88,8 @@ export class PaymentHistoryRepo {
          o.status, o.provider_trade_no, o.paid_at, o.created_at, o.updated_at,
          n.notice_id AS external_notice_id, n.reference, n.title,
          n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.url, n.industry
-       FROM crm_payment_orders o
-       LEFT JOIN crm_bid_notices n ON n.id = o.notice_id
+       FROM payment_orders o
+       LEFT JOIN bid_notices n ON n.id = o.notice_id
        ${where}
        ORDER BY o.id DESC
        LIMIT ? OFFSET ?`,
@@ -102,7 +102,7 @@ export class PaymentHistoryRepo {
   async countUnlocks(userId: number): Promise<number> {
     const [rows] = await this.pool.query(
       `SELECT COUNT(*) AS total
-       FROM crm_opportunity_unlocks u
+       FROM opportunity_unlocks u
        WHERE u.user_id = ? AND u.notice_id IS NOT NULL`,
       [userId],
     );
@@ -126,9 +126,9 @@ export class PaymentHistoryRepo {
              n.notice_id AS external_notice_id, n.reference, n.title,
              n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry,
              n.description, tr.title_tr AS title_i18n
-           FROM crm_opportunity_unlocks u
-           LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
-           LEFT JOIN crm_notice_translations tr ON tr.notice_id = u.notice_id AND tr.lang = ?
+           FROM opportunity_unlocks u
+           LEFT JOIN bid_notices n ON n.id = u.notice_id
+           LEFT JOIN notice_translations tr ON tr.notice_id = u.notice_id AND tr.lang = ?
            WHERE u.user_id = ? AND u.notice_id IS NOT NULL
            ORDER BY u.id DESC
            LIMIT ? OFFSET ?`
@@ -136,8 +136,8 @@ export class PaymentHistoryRepo {
              u.user_id, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
              n.notice_id AS external_notice_id, n.reference, n.title,
              n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry
-           FROM crm_opportunity_unlocks u
-           LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
+           FROM opportunity_unlocks u
+           LEFT JOIN bid_notices n ON n.id = u.notice_id
            WHERE u.user_id = ? AND u.notice_id IS NOT NULL
            ORDER BY u.id DESC
            LIMIT ? OFFSET ?`,
@@ -149,7 +149,7 @@ export class PaymentHistoryRepo {
   /** 公告译文缓存 upsert（后台补翻落库） */
   async upsertNoticeTranslation(noticeId: number, lang: string, titleTr: string, descriptionTr: string, model: string): Promise<void> {
     await this.pool.query(
-      `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
+      `INSERT INTO notice_translations (notice_id, lang, title_tr, description_tr, model)
        VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
       [noticeId, lang, titleTr, descriptionTr, model],

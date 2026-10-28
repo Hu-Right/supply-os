@@ -12,7 +12,7 @@ import type { QuotaView } from "@/types";
 /** 解锁额度权益码：与 membership-upgrade 服务、门控常量同源。 */
 export const UNLOCK_BENEFIT_CODE = "notice_view";
 
-/** "不限"额度的内部哨兵值：与后端 crm_benefit_quotas.quota_total = -1 同源（不再用 9999 魔法数）。 */
+/** "不限"额度的内部哨兵值：与后端 benefit_quotas.quota_total = -1 同源（不再用 9999 魔法数）。 */
 export const UNLIMITED_QUOTA = -1;
 
 /** 是否"不限"额度：unlockRemaining 命中后端 quota_total=-1 时返回 UNLIMITED_QUOTA。 */

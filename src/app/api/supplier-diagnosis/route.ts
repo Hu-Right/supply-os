@@ -6,7 +6,7 @@
  *              1. 登录闸门在 API（规范 N4），不再靠前端跳转兜 authenticity；
  *              2. 幂等按 (user_id, supplier_id) 覆盖写（规范 N5），一家公司不会再堆多条；
  *              3. 主体先确定后写诊断（规范 N6）：命中即关联，未命中由本端点建档。
- *              本端点**不写** supplier.claim_status、**不写** crm_users.supplier_id（规范 N7）：
+ *              本端点**不写** supplier.claim_status、**不写** users.supplier_id（规范 N7）：
  *              现场确认只是候选，排他认领权只有上传执照 + 人工审核的 /api/supplier-claims 能给。
  *              建档与写诊断不套长事务：与 /api/user/enterprise POST 同口径——建档失败即中断，
  *              写诊断失败时留下的 pending 档案行会被下一次提交按公司名命中复用，不产生重复主体。

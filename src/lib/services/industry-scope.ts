@@ -6,7 +6,7 @@
  * @description 落地「8,800元/行业」口径（2026-09-29）：企业年度会员（industry_scoped=1 的档位）
  *              只能浏览其绑定品目大类下的公告。
  *              全部取值由权益矩阵驱动，无套餐码硬编码：
- *              - 哪些档被限 → crm_plan_benefits 的 industry_scoped 格（当前仅 business=1）；
+ *              - 哪些档被限 → plan_benefits 的 industry_scoped 格（当前仅 business=1）；
  *              - 谁看全量   → all_category_access 格（internal_demo=1，演示/内部档旁路）。
  *
  *              2026-10-11 backbone 化：公告侧不再 JOIN 桥表，改读宽表 backbone_path（主键点查）；
@@ -82,7 +82,7 @@ export interface NoticeCategoryCheck {
 /**
  * 公告与大类的命中检查（一次点查同时给出「有无类目数据」与「是否命中」）。
  *
- * 2026-10-11 backbone 化：读 `crm_notice_search.backbone_path`（列值解析只走
+ * 2026-10-11 backbone 化：读 `notice_search.backbone_path`（列值解析只走
  * `fromBackbonePathColumn`），不再 JOIN 桥表。宽表 `ns.id` 与主表内部 id 同域
  * （BB7 逐行核对），点查即终点。
  *
@@ -96,7 +96,7 @@ export async function checkNoticeCategory(
   pool: Pool, noticeDbId: number, l1Nodes: readonly string[],
 ): Promise<NoticeCategoryCheck> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT backbone_path AS p FROM crm_notice_search WHERE id = ? LIMIT 1`,
+    `SELECT backbone_path AS p FROM notice_search WHERE id = ? LIMIT 1`,
     [noticeDbId],
   );
   const nodes = fromBackbonePathColumn(rows[0]?.p);
@@ -128,9 +128,9 @@ export async function opportunityInCategory(pool: Pool, opportunityId: number, l
   if (!l1Code) return false;
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT ns.backbone_path AS p
-       FROM crm_bid_opportunities o
-       JOIN crm_bid_notices n ON n.notice_id = o.source_notice_id
-       JOIN crm_notice_search ns ON ns.id = n.id
+       FROM bid_opportunities o
+       JOIN bid_notices n ON n.notice_id = o.source_notice_id
+       JOIN notice_search ns ON ns.id = n.id
       WHERE o.id = ? LIMIT 1`,
     [opportunityId],
   );

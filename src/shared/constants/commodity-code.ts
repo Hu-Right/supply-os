@@ -20,7 +20,7 @@
  */
 
 /**
- * 骨架节点码前缀：`crm_commodity_backbone.code` 的形制。
+ * 骨架节点码前缀：`commodity_backbone.code` 的形制。
  * `UGT-` = Unified Global Taxonomy（统一全球分类码），品目面现行标准形（原 `UGT-B-` 已去别字并入）。
  */
 export const BACKBONE_NODE_PREFIX = "UGT-";

@@ -1,5 +1,5 @@
 /**
- * 机构类型规则缓存：唯一读取 crm_agency_types / crm_agency_type_rules 的入口。
+ * 机构类型规则缓存：唯一读取 agency_types / agency_type_rules 的入口。
  * classifyAgencyType 优先使用这里的规则；表不可用时回退代码内静态规则。
  */
 import type { Pool } from "mysql2/promise";
@@ -29,8 +29,8 @@ export async function loadAgencyTypeRules(pool: Pool, force = false): Promise<vo
   try {
     const [rows] = await pool.query(
       `SELECT r.type_key, r.country_code, r.pattern, r.flags, r.priority, t.name_i18n
-         FROM crm_agency_type_rules r
-         JOIN crm_agency_types t ON t.type_key = r.type_key
+         FROM agency_type_rules r
+         JOIN agency_types t ON t.type_key = r.type_key
         WHERE r.is_active = 1 AND t.is_active = 1
         ORDER BY r.priority, r.id`,
     );
@@ -53,8 +53,8 @@ export async function loadAgencyTypeRules(pool: Pool, force = false): Promise<vo
     }
     const [assignmentRows] = await pool.query(
       `SELECT a.canonical, a.country_code, a.type_key, t.name_i18n
-         FROM crm_agency_type_assignments a
-         JOIN crm_agency_types t ON t.type_key = a.type_key
+         FROM agency_type_assignments a
+         JOIN agency_types t ON t.type_key = a.type_key
         WHERE a.is_active = 1 AND t.is_active = 1`,
     );
     const assignments = new Map<string, AgencyTypeAssignment>();

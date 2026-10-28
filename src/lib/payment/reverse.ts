@@ -19,7 +19,7 @@ export async function reverseFulfilledOrder(
     const subscription = await benefit.write.findSubscriptionForUpdate(conn, subscriptionId);
     if (!subscription || subscription.owner_user_id !== order.user_id) throw new Error("REFUND_SUBSCRIPTION_MISMATCH");
     const [linked] = await conn.query<RowDataPacket[]>(
-      "SELECT order_no FROM crm_payment_orders WHERE original_order_no = ? AND status IN ('pending','paid') LIMIT 1", [orderNo],
+      "SELECT order_no FROM payment_orders WHERE original_order_no = ? AND status IN ('pending','paid') LIMIT 1", [orderNo],
     );
     await benefit.write.refundSubscription(conn, subscriptionId);
     // 源单退款时沿替代链冻结后续权益；后续订单的资金处置留人工，不自动退差价或恢复旧池。
@@ -31,11 +31,11 @@ export async function reverseFulfilledOrder(
       const next = await benefit.write.findSubscriptionForUpdate(conn, nextId);
       if (!next || next.owner_user_id !== order.user_id) throw new Error("REFUND_SUBSCRIPTION_MISMATCH");
       await benefit.write.freezePoolsOfSubscription(conn, nextId);
-      await conn.execute("UPDATE crm_plan_subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = ? AND status <> 'refunded'", [nextId]);
+      await conn.execute("UPDATE plan_subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = ? AND status <> 'refunded'", [nextId]);
       nextId = next.replaced_by_id;
     }
     const [updated] = await conn.execute<ResultSetHeader>(
-      "UPDATE crm_payment_orders SET status = 'refunded', updated_at = NOW() WHERE order_no = ? AND status = 'paid'", [orderNo],
+      "UPDATE payment_orders SET status = 'refunded', updated_at = NOW() WHERE order_no = ? AND status = 'paid'", [orderNo],
     );
     if (updated.affectedRows !== 1) throw new Error("REFUND_ORDER_CONFLICT");
     await conn.commit();

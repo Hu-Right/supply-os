@@ -4,7 +4,7 @@
  * @description 7 维度结构化评分：资质合规 / 投标履历 / 强制文件 / 地域可达 / 规模团队 / 交付受控 / 成本条款。
  *              输出 JSON：7 维度分数 + 综合分 + 每维度结构化证据（reason + matched + gaps）。
  *
- *              v3 的关键变化：每个维度的**判据字段**明确钉到 `crm_supplier_diagnosis` 的具体列，
+ *              v3 的关键变化：每个维度的**判据字段**明确钉到 `supplier_diagnosis` 的具体列，
  *              模型不再靠"企业简介"猜能力；`DIMENSION_V2_SOURCES` 是这份映射的唯一出处，
  *              并由单元测试钉住「19 列不重不漏」，防止加题后某一题从未进过 prompt。
  *
@@ -73,7 +73,7 @@ const DIMENSION_LABELS: Record<ScoreDimension, string> = {
 };
 
 /**
- * 每个维度的判据字段 = crm_supplier_diagnosis 的列名。
+ * 每个维度的判据字段 = supplier_diagnosis 的列名。
  * 除 bid_willingness（纯意向、不计分）外，19 列必须在此被引用且互不复用。
  */
 export const DIMENSION_V2_SOURCES: Record<ScoreDimension, readonly string[]> = {

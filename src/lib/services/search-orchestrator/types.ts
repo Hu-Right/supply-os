@@ -5,7 +5,7 @@
  * @module server/services/search-orchestrator/types
  * @description 三种搜索模式（default/prefs/recommended）的统一参数与结果类型。
  *              对应《搜索链路架构级统一重构方案》第三节设计。
- *              crm_users.user_key 列退役收尾：身份参数仅保留 userId。
+ *              users.user_key 列退役收尾：身份参数仅保留 userId。
  */
 
 /** 搜索模式：default=全量搜索 / prefs=行业精准匹配 / recommended=行为推荐 */

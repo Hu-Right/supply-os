@@ -1,7 +1,7 @@
 /**
  * 用户供应商资源库数据访问层
  * @module lib/repos/user-supplier-pool.repo
- * @description crm_user_supplier_pool 表 CRUD + JOIN 查询。
+ * @description user_supplier_pool 表 CRUD + JOIN 查询。
  */
 import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import { diagnosisColumnSelect } from "@/shared/constants/diagnosis-dimensions";
@@ -36,9 +36,9 @@ export class UserSupplierPoolRepo {
               '' AS industry,
               CASE WHEN q.id IS NOT NULL THEN 1 ELSE 0 END AS has_qualification,
               p.notes, p.source, p.created_at
-       FROM crm_user_supplier_pool p
+       FROM user_supplier_pool p
        LEFT JOIN supplier s ON s.id = p.supplier_id
-       LEFT JOIN crm_supplier_diagnosis q ON q.supplier_id = p.supplier_id AND q.user_id = p.user_id
+       LEFT JOIN supplier_diagnosis q ON q.supplier_id = p.supplier_id AND q.user_id = p.user_id
        WHERE p.user_id = ?
        ORDER BY p.created_at DESC`,
       [userId],
@@ -49,7 +49,7 @@ export class UserSupplierPoolRepo {
   /** 从平台目录添加（supplier_id 有值；conn 用于事务，下同） */
   async addFromPlatform(userId: number, supplierId: number, conn?: PoolConnection): Promise<number> {
     const [result] = await this.exec(conn).execute(
-      `INSERT IGNORE INTO crm_user_supplier_pool (user_id, supplier_id, source)
+      `INSERT IGNORE INTO user_supplier_pool (user_id, supplier_id, source)
        VALUES (?, ?, 'platform')`,
       [userId, supplierId],
     );
@@ -59,7 +59,7 @@ export class UserSupplierPoolRepo {
   /** 手动添加（supplier_id 有值，指向新创建的 supplier 记录） */
   async addManual(userId: number, supplierId: number, conn?: PoolConnection): Promise<number> {
     const [result] = await this.exec(conn).execute(
-      `INSERT INTO crm_user_supplier_pool (user_id, supplier_id, source)
+      `INSERT INTO user_supplier_pool (user_id, supplier_id, source)
        VALUES (?, ?, 'manual')`,
       [userId, supplierId],
     );
@@ -73,7 +73,7 @@ export class UserSupplierPoolRepo {
    *   `supplier` 共 54 列且**不存在 created_at / updated_at**（INFORMATION_SCHEMA 与 SHOW COLUMNS
    *   双向对异，且 SELECT created_at 直接报 ER_BAD_FIELD_ERROR）——旧写法在这里会直接抛 1054，
    *   而调用方 supplier-pool.ts 只特判 ER_DUP_ENTRY，其余 throw → “往资源库添加一家目录里
-   *   不存在的公司”整个功能 500（实库 crm_user_supplier_pool 行数 = 0，与“从未成功过”一致）。
+   *   不存在的公司”整个功能 500（实库 user_supplier_pool 行数 = 0，与“从未成功过”一致）。
    *   另：本表其余 NOT NULL 列均带默认值（已用事务内试写—回滚验证），因此只写三列合法。
    *   addtime 也是门户企业卡片“录入时间”真正读的那一列。
    */
@@ -101,7 +101,7 @@ export class UserSupplierPoolRepo {
     const sql = `
       SELECT s.id, s.company${userId ? ", (p.id IS NOT NULL) AS in_pool" : ", 0 AS in_pool"}
       FROM supplier s
-      ${userId ? "LEFT JOIN crm_user_supplier_pool p ON p.supplier_id = s.id AND p.user_id = ?" : ""}
+      ${userId ? "LEFT JOIN user_supplier_pool p ON p.supplier_id = s.id AND p.user_id = ?" : ""}
       WHERE s.company LIKE ? AND s.verify_status = 'done'
       ORDER BY CHAR_LENGTH(s.company) ASC
       LIMIT ${Math.max(1, Math.min(20, Number(limit) || 8))}`;
@@ -140,7 +140,7 @@ export class UserSupplierPoolRepo {
   /** 更新备注 */
   async updateNotes(userId: number, poolId: number, notes: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_user_supplier_pool SET notes = ? WHERE id = ? AND user_id = ?",
+      "UPDATE user_supplier_pool SET notes = ? WHERE id = ? AND user_id = ?",
       [notes, poolId, userId],
     );
   }
@@ -148,7 +148,7 @@ export class UserSupplierPoolRepo {
   /** 删除记录 */
   async remove(userId: number, poolId: number): Promise<void> {
     await this.pool.execute(
-      "DELETE FROM crm_user_supplier_pool WHERE id = ? AND user_id = ?",
+      "DELETE FROM user_supplier_pool WHERE id = ? AND user_id = ?",
       [poolId, userId],
     );
   }
@@ -156,7 +156,7 @@ export class UserSupplierPoolRepo {
   /** 统计用户资源库数量 */
   async countByUser(userId: number): Promise<number> {
     const [rows] = await this.pool.query(
-      "SELECT COUNT(*) AS cnt FROM crm_user_supplier_pool WHERE user_id = ?",
+      "SELECT COUNT(*) AS cnt FROM user_supplier_pool WHERE user_id = ?",
       [userId],
     );
     return Number((rows as RowDataPacket[])[0]?.cnt ?? 0);
@@ -166,8 +166,8 @@ export class UserSupplierPoolRepo {
   async countDiagnosisPending(userId: number): Promise<number> {
     const [rows] = await this.pool.query(
       `SELECT COUNT(*) AS cnt
-       FROM crm_user_supplier_pool p
-       LEFT JOIN crm_supplier_diagnosis q ON q.supplier_id = p.supplier_id AND q.user_id = p.user_id
+       FROM user_supplier_pool p
+       LEFT JOIN supplier_diagnosis q ON q.supplier_id = p.supplier_id AND q.user_id = p.user_id
        WHERE p.user_id = ? AND p.supplier_id IS NOT NULL AND q.id IS NULL`,
       [userId],
     );
@@ -183,9 +183,9 @@ export class UserSupplierPoolRepo {
               s.company, s.products, s.certification,
               s.country, s.city, s.business_type AS type, s.registered_capital, s.established_at, s.intro,
               ${diagnosisColumnSelect("q")}
-       FROM crm_user_supplier_pool p
+       FROM user_supplier_pool p
        INNER JOIN supplier s ON s.id = p.supplier_id
-       LEFT JOIN crm_supplier_diagnosis q ON q.supplier_id = p.supplier_id AND q.user_id = p.user_id
+       LEFT JOIN supplier_diagnosis q ON q.supplier_id = p.supplier_id AND q.user_id = p.user_id
        WHERE p.user_id = ? AND p.supplier_id IS NOT NULL`,
       [userId],
     );

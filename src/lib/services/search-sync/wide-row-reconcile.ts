@@ -14,7 +14,7 @@
  *              - 窗口算法缺陷：只扫 id ≤ 2000，而现网 id 为 Unix 时间戳量级 → 生产几乎不生效。
  *              现在宽表的唯一写入者是 buildWideRow，内容一致性判据由源指纹承担
  *              （见 wide-fingerprint.ts），本层只保留两类**指纹覆盖不到**的判据：
- *              - deadline_sec：主表生成列 vs 宽表静态拷贝，需分钟级感知（搜索活跃度过滤依赖它）；
+ *              - deadline_sec：①deadline_ts 投影 vs ②静态拷贝，需分钟级感知（搜索活跃度过滤依赖它）；
  *              - 行存在性：ghost 行清理与平台公告可见性集合差。
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
@@ -32,8 +32,18 @@ function reconcileLog(type: string, count: number, msg: string): void {
   console.log(msg);
 }
 
-/** deadline_sec 安全表达式：与 buildWideRow 的 NaN/负值保护同口径（宽表列为 BIGINT UNSIGNED） */
-export const WIDE_DEADLINE_EXPR = `GREATEST(COALESCE(n.deadline_sec, 0), 0)`;
+/**
+ * deadline_sec 漂移检测（60 秒高频，只检测）。
+ *
+ * 为何不用指纹覆盖：deadline_sec 决定公告在搜索侧是否「活跃」，指纹轮转是全表小时级覆盖，
+ * 过期状态若等指纹会滞后过久，故保留分钟级独立检测。修复仍走 syncWideIds（内容 + 指纹
+ * 一并重建），不在此处写宽表列。
+ *
+ * 2026-10-27 管道翻转：宽表 deadline_sec 投影自服务表 deadline_ts（deadline 旁表语义，
+ * effective_ts 优先、typo/unknown 置空），比对基准从主表生成列改为 ① 的列——deadline
+ * 旁表变化 → ① 重算前移 updated_at → 本检测分钟级把 ② 拉齐。
+ */
+export const WIDE_DEADLINE_EXPR = `GREATEST(COALESCE(p.deadline_ts, 0), 0)`;
 
 /**
  * deadline_sec 漂移检测（60 秒高频，只检测）。
@@ -45,8 +55,9 @@ export const WIDE_DEADLINE_EXPR = `GREATEST(COALESCE(n.deadline_sec, 0), 0)`;
 export async function detectDeadlineDrift(pool: Pool, limit = 5000): Promise<number[]> {
   const [rows] = await pool.query(
     `SELECT n.id
-     FROM crm_bid_notices n
-     INNER JOIN crm_notice_search ns ON ns.id = n.id
+     FROM bid_notices n
+     LEFT JOIN notice_public p ON p.notice_pk = n.id
+     INNER JOIN notice_search ns ON ns.id = n.id
      WHERE ns.deadline_sec != ${WIDE_DEADLINE_EXPR}
      LIMIT ${limit}`,
   );
@@ -67,8 +78,8 @@ export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
   try {
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const [ghostRows] = await pool.query(
-        `SELECT ns.id FROM crm_notice_search ns
-         LEFT JOIN crm_bid_notices n ON n.id = ns.id
+        `SELECT ns.id FROM notice_search ns
+         LEFT JOIN bid_notices n ON n.id = ns.id
          WHERE n.id IS NULL
             OR (n.entry_source = 'platform' AND IFNULL(n.rfq_status, '') <> ${JSON.stringify(RFQ_STATUS.PUBLISHED)})
          LIMIT 5000`,
@@ -82,7 +93,7 @@ export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
       for (let i = 0; i < ids.length; i += BATCH) {
         const batch = ids.slice(i, i + BATCH);
         const ph = batch.map(() => "?").join(",");
-        await pool.query(`DELETE FROM crm_notice_search WHERE id IN (${ph})`, batch);
+        await pool.query(`DELETE FROM notice_search WHERE id IN (${ph})`, batch);
       }
       // 节点码倒排表跟删：ghost 行的定义就是「这条公告不再进搜索」，桥表不能还挂着它的码
       try {
@@ -124,8 +135,8 @@ export interface PlatformDrift {
 export async function detectPlatformStatusDrift(pool: Pool): Promise<PlatformDrift> {
   const [rows] = await pool.query(
     `SELECT n.id, ns.id AS wide_id
-     FROM crm_bid_notices n
-     LEFT JOIN crm_notice_search ns ON ns.id = n.id
+     FROM bid_notices n
+     LEFT JOIN notice_search ns ON ns.id = n.id
      WHERE n.entry_source = 'platform'
        AND (
          (IFNULL(n.rfq_status, '') = ${JSON.stringify(RFQ_STATUS.PUBLISHED)} AND ns.id IS NULL)

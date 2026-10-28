@@ -57,7 +57,7 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   const auth = await extractUserKey(req);
   const params = parseSearchParams(req);
-  // 身份参数仅传 userId（crm_users.user_key 列退役收尾）
+  // 身份参数仅传 userId（users.user_key 列退役收尾）
   params.userId = auth.userId || undefined;
   // 高级语法档位门控（spec §3.3）：含 -排除/"短语" 时按 advanced_keyword_search 判档，
   // 无权益剥离降级（普通多词 AND 是既有行为，不受影响）；匿名恒按 free 口径
@@ -119,7 +119,7 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   return NextResponse.json({
     ...result,
-    // 行→视图：列表项不再以crm_notice_public 列名对外（红线②）。
+    // 行→视图：列表项不再以notice_public 列名对外（红线②）。
     // 信封上的分页元数据（page/pageSize/total）按口径保留 snake 别名（page_size）。
     items: toNoticeListView(result.items),
     page_size: result.pageSize,

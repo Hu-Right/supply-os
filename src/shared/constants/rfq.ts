@@ -1,7 +1,7 @@
 /**
  * RFQ 状态机常量
  * @module shared/constants/rfq
- * @description RFQ（需求单）复用 crm_bid_notices 表的 rfq_status 列。
+ * @description RFQ（需求单）复用 bid_notices 表的 rfq_status 列。
  *              状态值此前以裸字符串散落在多个路由/服务文件（069 迁移注释声明三态，
  *              实际运行时已漂移为四/五态），此文件为唯一收敛点：
  *              写入与比较一律引用 RFQ_STATUS，禁止新的裸字符串。
@@ -35,7 +35,7 @@ export const RFQ_USER_FILTERABLE_STATUSES = [
 ] as const;
 
 /**
- * RFQ 报价状态机（crm_rfq_quotes.status）
+ * RFQ 报价状态机（rfq_quotes.status）
  * 选定/中标在此层表达，不动 rfq_status（见 spec §1）。
  *   submitted ──撤回──→ withdrawn
  *   submitted ──选定──→ won（中标）/ rejected（落选）

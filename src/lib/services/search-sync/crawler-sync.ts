@@ -5,13 +5,13 @@
  * @module lib/services/search-sync/crawler-sync
  * @description 移植自 scripts/daily-sync.cjs，改为在 Next 进程内运行：读源库 getSourcePool()、
  *              写主库 getPool()，按「父表先于子表」顺序增量 upsert，水位线持久化到
- *              crm_sync_watermark 控制表（仅确认写入后推进，崩溃从断点续）。
+ *              sync_watermark 控制表（仅确认写入后推进，崩溃从断点续）。
  *              纯 SQL 构件（转义/ODKU/WHERE/水位线）在叶子模块 crawler-sync-sql.ts（可单测）。
  *
  *              与 .cjs 的关键差异（并入应用必须处理）：
  *              1. **不关闭 FOREIGN_KEY_CHECKS**（主池全站共享，关它会影响其他请求）
  *                 → 改为按父→子表顺序同步 + ODKU 幂等；
- *              2. **收集本轮 crm_bid_notices 变更 id**，交由调度器在主表全部写完后
+ *              2. **收集本轮 bid_notices 变更 id**，交由调度器在主表全部写完后
  *                 级联宽表（syncWideIds 内部再级联 Meili），实现「主表完整 → 才更新宽表」
  *                 的同进程串行顺序。
  *
@@ -61,7 +61,7 @@ async function getTableColumns(pool: Pool, table: string, ns: string): Promise<C
 export async function loadWatermarks(target: Pool): Promise<Map<string, Watermark>> {
   const map = new Map<string, Watermark>();
   try {
-    const [rows] = await target.query("SELECT table_name, id_wm, time_wm FROM crm_sync_watermark");
+    const [rows] = await target.query("SELECT table_name, id_wm, time_wm FROM sync_watermark");
     for (const r of rows as RowDataPacket[]) {
       map.set(String(r.table_name), { id: Number(r.id_wm) || 0, time: r.time_wm == null ? null : String(r.time_wm) });
     }
@@ -74,7 +74,7 @@ export async function loadWatermarks(target: Pool): Promise<Map<string, Watermar
 /** 落库单表水位线（仅确认写入后调用） */
 export async function saveWatermark(target: Pool, table: string, wm: Watermark): Promise<void> {
   await target.query(
-    `INSERT INTO crm_sync_watermark (table_name, id_wm, time_wm) VALUES (?, ?, ?)
+    `INSERT INTO sync_watermark (table_name, id_wm, time_wm) VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE id_wm = VALUES(id_wm), time_wm = VALUES(time_wm)`,
     [table, wm.id, wm.time],
   );
@@ -249,7 +249,7 @@ export interface CrawlerSyncResult {
   totalSynced: number;
   changedNoticeIds: number[];
   perTable: Record<string, number>;
-  /** 本轮登记进品目归类队列（crm_taxonomy_intake）的无归属公告数（非关键路径） */
+  /** 本轮登记进品目归类队列（taxonomy_intake）的无归属公告数（非关键路径） */
   intakeEnqueued: number;
   /** 被平台行整行免疫拦下的源库行数（>0 即意味着撞号，需人工看那几条源行为何没入库） */
   immuneSkipped: number;
@@ -261,11 +261,11 @@ export interface CrawlerSyncResult {
  *
  * 小表剥离（2026-10-14）：旧公告桥表移出同步清单，
  * 归一字典与商机桥表补行（syncMissingOppBridge）一并下线——公告归属的唯一事实源
- * 是落点表 crm_notice_attribution_nodes（镜像 + AI 管道），桥表进入只出不进的封存态，
+ * 是落点表 notice_attribution_nodes（镜像 + AI 管道），桥表进入只出不进的封存态，
  * 物理删除随 D1' 批次。
  *
  * 归属登记口：主表同步完后，把本轮变更里**无 UGT 归属的活跃公告**登记进
- * crm_taxonomy_intake（taxonomy-intake，uk_src 幂等 + 单轮上限），交 AI 归属管道
+ * taxonomy_intake（taxonomy-intake，uk_src 幂等 + 单轮上限），交 AI 归属管道
  * 消化。登记失败不影响本轮主表成果与宽表级联（非关键路径）。
  */
 export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResult> {

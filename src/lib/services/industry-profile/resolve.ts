@@ -3,7 +3,7 @@
  * User industry profile resolution
  *
  * @module server/services/industry-profile/resolve
- * @description 读取 crm_user_industry_prefs 并解析为匹配画像：偏好表存
+ * @description 读取 user_industry_prefs 并解析为匹配画像：偏好表存
  *              最深已选 UGT 节点码（commodity_code），层级由码长现算（BB1 不变量），
  *              所属大类（L1 树码）由码前缀纯切片得出；节点中文名按 code 点查品目树补齐。
  *              防御脏数据：码形制非法或树里查无此码时返回 null（按 no_prefs 处理），
@@ -55,7 +55,7 @@ export async function resolveUserIndustryProfile(
   let titleZh: string | null;
   try {
     const [nodes] = await pool.query(
-      `SELECT name_zh FROM crm_commodity_backbone WHERE code = ? AND status = 1 LIMIT 1`,
+      `SELECT name_zh FROM commodity_backbone WHERE code = ? AND status = 1 LIMIT 1`,
       [code],
     );
     titleZh = (String((nodes as RowDataPacket[])[0]?.name_zh ?? "") || null);
