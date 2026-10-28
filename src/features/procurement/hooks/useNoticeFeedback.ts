@@ -48,9 +48,8 @@ export interface UseNoticeFeedbackReturn {
 export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeFeedbackReturn {
   const { userId, prefsMode, hasSearch, activeSort, selectedNotice, variantRef } = options;
 
-  // ── T-B9 推荐反馈采集（本地差异 #13：D.7 前端侧）──
-  // 仅推荐模式采集曝光/点击/停留/滚动到底/秒退/回看，避免污染搜索/筛选场景的反馈数据
-  const feedbackEnabled = Boolean(userId) && prefsMode === "recommended" && !hasSearch && activeSort === "latest";
+  // 智能推荐已下线：不再采集推荐反馈（代码保留，恢复推荐时再打开）
+  const feedbackEnabled = false;
   // 曝光去重：本地 Set 记录已上报卡片（同 session 同卡只报一次；服务端唯一键幂等兜底）
   const impressionReportedRef = useRef<Set<number>>(new Set());
   const impressionPendingRef = useRef<number[]>([]);

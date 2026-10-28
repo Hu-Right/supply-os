@@ -3,7 +3,7 @@
  * Industry Preferences Hook
  *
  * @module features/procurement/hooks/useIndustryPrefs
- * @description 账号默认偏好三级降级（偏好 → 推荐 → 全量）与提示条名称。
+ * @description 账号默认偏好二级降级（偏好 → 全量）与提示条名称。
  *              2026-10-11 五级下拉换成品目树后的收敛：本 hook **不再持有任何下拉选中态**
  *              （选中态的唯一事实源是 URL 的 group / commodity，见 useCommodityCascade），
  *              只保留模式判定与提示条。
@@ -20,9 +20,7 @@ import { clearApiCache } from "@/core/http";
 import { useLocale } from "@/core/i18n";
 import type { PrefsMode } from "../types";
 import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
-import { fetchUnifiedSearch } from "../api";
 import { fetchCommodityPrefsPath, type CommodityTreeOption } from "../api/commodityTree";
-import { NOTICE_PAGE_SIZE } from "../constants";
 
 export interface UseIndustryPrefsOptions {
   /** 当前登录用户 key，未登录直接回 default 全量 */
@@ -128,16 +126,6 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
           return;
         }
         setHasIndustryPrefs(false);
-        try {
-          const probe = await fetchUnifiedSearch({ mode: "recommended", page: 1, pageSize: NOTICE_PAGE_SIZE });
-          if (stale()) return;
-          if (Number(probe.total || 0) > 0) {
-            setPrefsMode("recommended");
-            return;
-          }
-        } catch {
-          // 推荐接口异常同样回退全量
-        }
         if (!stale()) setPrefsMode("default");
       } catch {
         if (!stale()) setPrefsMode("default");
@@ -175,27 +163,8 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   }, [prefsPath, locale]);
 
   const exitAutoMode = () => {
-    const mySeq = exitSeqRef.current + 1;
-    exitSeqRef.current = mySeq;
-
-    if (prefsMode === "prefs" && userId) {
-      fetchUnifiedSearch({ mode: "recommended", page: 1, pageSize: NOTICE_PAGE_SIZE })
-        .then((probe) => {
-          if (exitSeqRef.current !== mySeq) return;
-          if (Number(probe.total || 0) > 0) {
-            setPrefsMode("recommended");
-          } else {
-            setPrefsMode("default");
-          }
-        })
-        .catch(() => { if (exitSeqRef.current === mySeq) setPrefsMode("default"); });
-    } else if (prefsMode === "recommended" && userId && hasIndustryPrefs) {
-      if (exitSeqRef.current !== mySeq) return;
-      setPrefsMode("prefs");
-      void restorePrefsMode();
-    } else {
-      setPrefsMode("default");
-    }
+    exitSeqRef.current += 1;
+    setPrefsMode("default");
     setPrefsPath({ options: [] });
     setPage(1);
   };
@@ -210,3 +179,4 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     markManualCategoryPick,
   };
 }
+

@@ -62,9 +62,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     const currentDataSource =
       prefsMode === "prefs" && userId
         ? "industry-matched"       // 行业匹配模式：始终走行业匹配 API（携带筛选参数）
-        : prefsMode === "recommended" && userId && !query.hasOtherSearch
-          ? "recommended"          // 推荐模式：无筛选时走推荐
-          : "search";              // 其他：全量搜索
+        : "search";                // 其他：全量搜索
 
     const searchKeyUnchanged = prevSearchKeyForSkipRef.current === query.searchKey;
     const dataSourceUnchanged = prevDataSourceForPrefsRef.current === currentDataSource;
@@ -101,11 +99,8 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       }, SEARCH_TIMEOUT_MS);
 
       // 重构方案 §4：单一端点统一调用，数据源差异由 mode 参数表达
-      // search→default / industry-matched→prefs / recommended→recommended
-      const unifiedMode =
-        currentDataSource === "industry-matched" ? "prefs"
-        : currentDataSource === "recommended" ? "recommended"
-        : "default";
+      // search→default / industry-matched→prefs
+      const unifiedMode = currentDataSource === "industry-matched" ? "prefs" : "default";
       const request = fetchUnifiedSearch({
         mode: unifiedMode,
         page,
@@ -165,19 +160,9 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   // [F4 优化] prefs 模式同样预取：此前因最慢模式无预取导致翻页始终冷请求
   useEffect(() => {
     if (loading || items.length === 0 || page >= totalPages) return;
-    // 与主请求的 unifiedMode 计算保持一致（审查 F47）：此前预取只区分
-    // recommended/default，行业匹配（prefs）模式下预取 key 与真实翻页
-    // 请求不同，预取无效且请求翻倍
-    const dataSource =
-      prefsMode === "prefs" && userId
-        ? "industry-matched"
-        : prefsMode === "recommended" && userId && !query.hasOtherSearch
-          ? "recommended"
-          : "search";
-    const prefetchMode =
-      dataSource === "industry-matched" ? "prefs"
-      : dataSource === "recommended" ? "recommended"
-      : "default";
+    // 与主请求的 unifiedMode 计算保持一致
+    const dataSource = prefsMode === "prefs" && userId ? "industry-matched" : "search";
+    const prefetchMode = dataSource === "industry-matched" ? "prefs" : "default";
     const nextPage = page + 1;
     fetchUnifiedSearch({
       mode: prefetchMode,
@@ -212,3 +197,4 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     setError,
   };
 }
+

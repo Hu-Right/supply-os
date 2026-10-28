@@ -108,9 +108,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (matchMode === "any") next.match_mode = "any";
     const sortValue = sortOverride ?? query.activeSort;
     if (sortValue !== "latest") next.sort = sortValue;
-    if (prefsMode === "default") {
-      // 全量搜索模式：行为不变
-    } else if (prefsMode === "recommended") {
+    if (prefsMode !== "default") {
       setPrefsMode("default");
     }
     setPage(1);
@@ -123,7 +121,6 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     const next = new URLSearchParams(searchParams ?? undefined);
     if (query.activeFeatured) next.delete("featured");
     else next.set("featured", "1");
-    if (prefsMode === "recommended") setPrefsMode("default");
     setPage(1);
     setSelectedNotice(null);
     const qs = next.toString();
@@ -143,7 +140,6 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     const effective = key || fallback;
     if (effective) next.set("commodity", effective);
     else next.delete("commodity");
-    if (prefsMode === "recommended") setPrefsMode("default");
     setPage(1);
     setSelectedNotice(null);
     const qs = next.toString();
@@ -167,3 +163,4 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     markUserSubmitted,
   };
 }
+

@@ -24,18 +24,16 @@ export function PrefsBanner({ prefsMode, prefsBannerName, query }: {
   query: SearchState["query"];
 }) {
   const { t } = useLocale();
-  if (!(prefsMode === "prefs" || prefsMode === "recommended")) return null;
+  if (prefsMode !== "prefs") return null;
   return (
     /* “查看全部”按钮已全模式移除：推荐态由搜索栏“清除筛选”替代，
        行业匹配态由工具栏“取消行业匹配”按钮替代（同一 exitAutoMode 降级链），
        原文案与实际跳转行为不符，保留会误导用户 */
     <div className="mb-4 flex items-center gap-3 p-3 rounded-lg bg-teal-50 border border-teal-100 text-xs font-bold text-teal-700">
       <span>
-        {prefsMode === "prefs"
-          ? query.hasSearch
-            ? `${t("procurement_prefsBanner", { name: prefsBannerName })} + ${query.activeQ ? `“${query.activeQ}”` : ""}${query.activeCountry ? ` ${query.activeCountry}` : ""}${query.activeAgency ? ` ${query.activeAgency}` : ""}${query.activeFeatured ? ` ${t("procurement_featuredOnly")}` : ""}`.replace(/^\s*\+\s*/, "").trim()
-            : t("procurement_prefsBanner", { name: prefsBannerName })
-          : t("procurement_recommendedBanner")}
+        {query.hasSearch
+          ? `${t("procurement_prefsBanner", { name: prefsBannerName })} + ${query.activeQ ? `“${query.activeQ}”` : ""}${query.activeCountry ? ` ${query.activeCountry}` : ""}${query.activeAgency ? ` ${query.activeAgency}` : ""}${query.activeFeatured ? ` ${t("procurement_featuredOnly")}` : ""}`.replace(/^\s*\+\s*/, "").trim()
+          : t("procurement_prefsBanner", { name: prefsBannerName })}
       </span>
     </div>
   );
