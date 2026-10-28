@@ -105,7 +105,6 @@ export default function ProcurementPage() {
     userId, isVip, authReady,
     items: search.result.items,
     setSelectedNotice,
-    selectedNoticePk: selectedNotice?.noticePk ?? null,
     trackClick: feedback.trackClick,
     trackDetailOpen: feedback.trackDetailOpen,
   });

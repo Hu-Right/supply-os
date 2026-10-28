@@ -26,9 +26,6 @@ export interface UsePaymentReturnReconciliationOptions {
   userId?: number;
   /** 认证初始化是否完成：未就绪时不得判定为未登录（避免误弹登录框） */
   authReady?: boolean;
-  /** 当前已打开详情的公告主键：对 ?notice_id 做幂等——若该公告已是当前打开项（页面点开/选中态同步写 URL 所致），
-   *  回跳不再重复打开，避免「页面写 notice_id ↔ 回跳再打开」来回触发 */
-  selectedNoticePk?: number | null;
 }
 
 export function usePaymentReturnReconciliation({
@@ -38,25 +35,33 @@ export function usePaymentReturnReconciliation({
   onRequireLogin,
   userId,
   authReady,
-  selectedNoticePk,
 }: UsePaymentReturnReconciliationOptions) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
   const router = useRouter();
   // 订单对账幂等：同一 order_no 只跑一次业务（加入 userId 依赖后登录态变化会重跑本 effect）
   const reconciledOrderRef = useRef<string | null>(null);
+  // 到达机会一次性消费：每次页面加载（分享/刷新/直达/支付回跳都属整页加载，ref 重置）只在首次
+  // 可判定时按 URL 打开一次；之后点开写进 URL 的 notice_id 不再被回跳重复打开，关闭也不会被重开。
+  const arrivalResolvedRef = useRef(false);
 
   useEffect(() => {
     const orderNo = searchParams.get("order_no");
     const noticeIdParam = searchParams.get("notice_id");
     const tradeNo = searchParams.get("trade_no") || undefined;
-    if (!orderNo && !noticeIdParam) return;
+    if (!orderNo && !noticeIdParam) {
+      // 无到达参数：一旦 auth 可判定即消费“到达机会”，此后点开写进 URL 的 notice_id 不会被回跳重复打开
+      if (!arrivalResolvedRef.current && (userId || authReady)) arrivalResolvedRef.current = true;
+      return;
+    }
     // 已对账过的订单直接跳过（避免 userId 从 undefined→set 触发重复对账）
     if (orderNo && reconciledOrderRef.current === orderNo) return;
     let cancelled = false;
     (async () => {
       if (orderNo) {
         reconciledOrderRef.current = orderNo;
+        // 支付回跳会自行打开公告：消费到达机会，避免清理 order_no 后又从裸 notice_id 重开
+        arrivalResolvedRef.current = true;
         try {
           const status = await getOrderStatus(orderNo, tradeNo);
           if (cancelled) return;
@@ -85,18 +90,16 @@ export function usePaymentReturnReconciliation({
           if (!cancelled) setActionMessage(t("procurement_paymentReturnFailed"));
         }
       } else if (noticeIdParam) {
-        // 未登录直达详情：SPA 详情为登录后可见（列表点击 openNotice 对未登录一律弹登录），
-        // 不能渲染空壳。区分三种态：已登录→打开；确认未登录→弹登录并保留 notice_id
-        // 供登录后重跑；auth 未就绪→不空开也不误弹，等 userId/authReady 变化后重跑。
-        const nid = Number(noticeIdParam);
-        // 幂等：该公告已由页面选中态驱动打开（点开/同步写 URL），回跳不重复开，也不做清理替换（防循环）
-        if (nid === selectedNoticePk) return;
+        // 到达型深链（分享/刷新/直达，均属整页加载，arrivalResolvedRef 已重置）：本次加载只消费一次。
+        // auth 未就绪→不空开也不误弹，等 userId/authReady 变化后重跑；确认未登录→弹登录并保留 notice_id，
+        // 登录后整页刷新重放。置位后，点开写进 URL 的 notice_id 不再被回跳重复打开，关闭也不会被重开。
+        if (arrivalResolvedRef.current) return;
+        if (!userId && !authReady) return;
+        arrivalResolvedRef.current = true;
         if (userId) {
-          await openNoticeById(nid);
-        } else if (authReady) {
-          onRequireLogin();
-          return;
+          await openNoticeById(Number(noticeIdParam));
         } else {
+          onRequireLogin();
           return;
         }
       }
@@ -114,5 +117,5 @@ export function usePaymentReturnReconciliation({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, userId, authReady, selectedNoticePk]);
+  }, [searchParams, userId, authReady]);
 }
