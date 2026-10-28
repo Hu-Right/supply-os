@@ -49,7 +49,7 @@ export function wideSyncSelect(withFp: boolean): string {
          n.published_date, n.entry_source,
          opp.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
          opp.beneficiary_countries,
-         p.buyer_name, p.buyer_group, p.country_name,
+         p.buyer_name, p.buyer_group, n.country AS country_name,
          p.country_codes AS public_country_codes,
          p.notice_type_code, p.deadline_ts,
          p.estimated_value AS public_estimated_value,
