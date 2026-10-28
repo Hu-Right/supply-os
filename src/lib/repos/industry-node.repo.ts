@@ -5,7 +5,7 @@
  * @module lib/repos/industry-node.repo
  * @description 行业面主表是供应商**行业身份**的唯一权威树（GB/T 4754-2017 四级 + 自研延伸层），
  *              但门户此前只读 `supplier.industry` 自由文本，整棵树在门户侧零消费：
- *              非中文界面拿到的是中文文本（`mapSupplierRow` 把 industryEn 直接等于 industryZh），
+ *              非中文界面拿到的是中文文本（`supplierViewOf` 把 industryEn 直接等于 industryZh），
  *              行业下拉则是把整页供应商拉回前端去重出来的字符串集合。
  *              本 repo 只做四类读：
  *                1. 按码批量取节点（把 UGT-I-xxx 翻成中英双语标签、拼祖先路径）；

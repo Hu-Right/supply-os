@@ -30,7 +30,7 @@ vi.mock("@/features/supplier-profile/components/SupplierClaimModal", () => ({
   SupplierClaimModal: () => null,
 }));
 
-// ── 供应商数据：真实 mapSupplierRow 只写 complianceLabels*，不写 certifications ──
+// ── 供应商数据：真实 supplierViewOf 只写 complianceLabels*，不写 certifications ──
 const { mockSupplier } = vi.hoisted(() => ({
   mockSupplier: {
     id: "sup-db-123",
@@ -45,7 +45,7 @@ const { mockSupplier } = vi.hoisted(() => ({
     cityEn: "Hangzhou",
     mainProductsZh: ["数控机床"],
     mainProductsEn: ["CNC Machine"],
-    // 真实认证数据落在 complianceLabels 上（与后端 mapSupplierRow 一致）
+    // 真实认证数据落在 complianceLabels 上（与后端 supplierViewOf 一致）
     complianceLabelsZh: ["ISO9001质量管理体系认证", "CE认证（欧盟）"],
     complianceLabelsEn: ["ISO9001", "CE"],
     // certifications 故意缺失——复现"详情页只读 certifications 导致恒空"的场景

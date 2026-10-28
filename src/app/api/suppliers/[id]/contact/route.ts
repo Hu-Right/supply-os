@@ -13,7 +13,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const auth = await requireUserKeyOrThrow(req);
 
     const { id } = await params;
-    // mapSupplierRow 产出的 id 带 sup-db- 前缀（区分数据源），此处剥离后取数字主键
+    // supplierViewOf 产出的 id 带 sup-db- 前缀（区分数据源），此处剥离后取数字主键
     const rawId = id.startsWith("sup-db-") ? id.slice("sup-db-".length) : id;
     const supplierId = Number(rawId);
     if (!supplierId) routeError(400, EC_INVALID_PARAMS, "无效的供应商 ID");

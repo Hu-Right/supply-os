@@ -9,7 +9,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { mapSupplierRow } from "@/lib/services/suppliers";
+import { supplierViewOf } from "@/lib/services/suppliers";
 import { loadCountryAliasSnapshot, type CountryAliasSnapshot } from "@/lib/services/country/alias-store";
 import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
 import type { SupplierIndustryInfo } from "@/lib/services/industry-labels";
@@ -58,7 +58,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       console.error("[suppliers/:id GET] 国家展示快照加载失败，本次退回原文:", err);
     }
 
-    return NextResponse.json({ ...mapSupplierRow(row, industry, snap), claimed });
+    return NextResponse.json({ ...supplierViewOf(row, industry, snap), claimed });
   } catch (err) {
     console.error("[suppliers/:id GET]", err);
     routeError(500, EC_INTERNAL_ERROR, "查询供应商失败");

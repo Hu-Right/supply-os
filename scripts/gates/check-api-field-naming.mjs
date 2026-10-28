@@ -117,7 +117,6 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/notices/countries/route.ts#countries",
   "src/app/api/notices/hot-topics/route.ts#data",
   "src/app/api/payment/orders/route.ts#result",
-  "src/app/api/suppliers/route.ts#dtoItems",
   "src/app/api/system/icp/route.ts#icpCache",
   "src/app/api/system/links/route.ts#items",
   "src/app/api/system/links/route.ts#linksCache.items",
@@ -126,13 +125,14 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // 以下 5 个原本「未实测」，现已拿到真实响应键集合，但仍未收进 *ViewOf 视图，故留在 B：
   //   suppliers/stats（6 键全 camel）、industries/tree（key/nameZh/nameEn）、
   //   learning/materials/[id]/content（contentZh/contentEn/fileUrl/fileName）、
-  //   suppliers/[id]（已过 mapSupplierRow，26 键全 camel）、
+  //   suppliers/[id]（已过 supplierViewOf，26 键全 camel）、
   //   notices/unified-search（143 键全 camel；items 已过 toNoticeListView；
   //     本次 Meili 不健康走 SQL 回退路径，但两路出同一 mapper）
+  // suppliers 两条已于 2026-10-28 移出登记集：探针早已实测无 snake，但 mapSupplierRow /
+  // mapSupplierItems 不合约定名，静态面认不出已收口 → 改名 supplierViewOf / toSupplierListView。
   "src/app/api/industries/tree/route.ts#options",
   "src/app/api/learning/materials/[materialId]/content/route.ts#payload",
   "src/app/api/notices/unified-search/route.ts#result",
-  "src/app/api/suppliers/[id]/route.ts#mapSupplierRow",
   "src/app/api/suppliers/stats/route.ts#stats",
   // 【C 尚未实测·逐条写明为什么拿不到证据】不得笼统当成「应该没事」：
   // 全是写路径、触付费 LLM、触外部网关或库里无数据，只读探针跑不了。

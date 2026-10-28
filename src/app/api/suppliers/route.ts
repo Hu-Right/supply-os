@@ -2,7 +2,7 @@
  * GET  /api/suppliers — 供应商目录列表（公开，支持分页/全量模式）
  *
  * @module app/api/suppliers/route
- * @description GET 返回的 items 已通过 mapSupplierRow 映射为前端 Supplier DTO，
+ * @description GET 返回的 items 已通过 supplierViewOf 映射为前端 Supplier DTO，
  *              含联系方式脱敏。DB 查询失败时返回空结构（非 500），前端显示空状态而非白屏。
  *              供应商入驻注册已统一迁移至 POST /api/user/enterprise（写 supplier 表）。
  *
@@ -19,7 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { withRoute } from "@/lib/middleware/route-handler";
-import { mapSupplierRow } from "@/lib/services/suppliers";
+import { supplierViewOf } from "@/lib/services/suppliers";
 import { loadCountryAliasSnapshot, type CountryAliasSnapshot } from "@/lib/services/country/alias-store";
 import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
 import type { SupplierIndustryInfo } from "@/lib/services/industry-labels";
@@ -29,8 +29,9 @@ import type { IndustryNodeRepo } from "@/lib/repos/industry-node.repo";
 import type { SupplierDirectoryRow } from "@/lib/repos/suppliers";
 import type { Supplier } from "@/types";
 
-/** 批量映射：原始 DB 行 → 前端 Supplier DTO（column→field 转换 + 脱敏 + 行业面标签） */
-async function mapSupplierItems(
+/** 批量映射：原始 DB 行 → 前端 Supplier DTO（column→field 转换 + 脱敏 + 行业面标签）
+ * 名字沿用 to*View 约定，让命名红线② 规则二在本文件出口处自己看得出「已经过视图」 */
+async function toSupplierListView(
   rows: SupplierDirectoryRow[],
   industryRepo: IndustryNodeRepo,
 ): Promise<Supplier[]> {
@@ -48,7 +49,7 @@ async function mapSupplierItems(
     // 表快照拉不到 → 本次退回原文（不阻断目录）；展示仍不回落静态字典
     console.error("[suppliers GET] 国家展示快照加载失败，本次退回原文:", err);
   }
-  return rows.map((row) => mapSupplierRow(row, industryById.get(Number(row.id)) ?? null, snap));
+  return rows.map((row) => supplierViewOf(row, industryById.get(Number(row.id)) ?? null, snap));
 }
 
 export const GET = withRoute(async (req: NextRequest) => {
@@ -83,12 +84,12 @@ export const GET = withRoute(async (req: NextRequest) => {
       const { items, total } = await directoryRepo.listDirectoryPaginated({
         limit: pageSize, offset, search, sort, industryCode, industryCodes,
       });
-      const dtoItems = await mapSupplierItems(items, industryRepo);
+      const dtoItems = await toSupplierListView(items, industryRepo);
       return NextResponse.json({ items: dtoItems, total, page, pageSize });
     }
 
     const rows = await directoryRepo.listDirectory();
-    const dtoItems = await mapSupplierItems(rows, industryRepo);
+    const dtoItems = await toSupplierListView(rows, industryRepo);
     return NextResponse.json(dtoItems);
   } catch (err) {
     console.error("[suppliers GET]", err);

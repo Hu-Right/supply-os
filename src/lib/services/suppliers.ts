@@ -32,8 +32,12 @@ const COMPANY_TYPE_BY_CODE: Partial<Record<string, "factory" | "trader">> = {
  * @param industry 行业面视图（lib/services/industry-labels 批量装配）。给了且能解析到节点
  *                 就把行业展示从「自填文本」升级为「权威树标签 + 双语名」；不给/解析不到
  *                 则回落到主营产品首项（industry 自由文本列已于 2026-10-15 退役）。
+ *
+ * 名字里的 `ViewOf` 是命名红线② 的约定后缀（与 toNoticeView / awardViewOf / engineeringItemViewOf 同族）：
+ * 规则二靠它认出「该出口已经过视图」。旧名 mapSupplierRow 不是不好，而是静态面看不见它，
+ * 于是两个供应商端点一直占着整块透出登记位。
  */
-export function mapSupplierRow(
+export function supplierViewOf(
   row: SupplierDirectoryRow,
   industry?: SupplierIndustryInfo | null,
   snap?: CountryAliasSnapshot,

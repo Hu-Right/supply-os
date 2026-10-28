@@ -9,7 +9,7 @@
  */
 import { avatarColorFromName } from "@/shared/utils/format";
 
-/** /api/suppliers 分页 items 的前端 DTO 形状（mapSupplierRow 产物，仅本卡用到的字段） */
+/** /api/suppliers 分页 items 的前端 DTO 形状（supplierViewOf 产物，仅本卡用到的字段） */
 export interface HomeSupplierItem {
   id: string;
   nameZh: string;
