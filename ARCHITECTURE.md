@@ -83,7 +83,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 | 红线 | 口径 | 门禁 | 现状（2026-10-28） |
 |---|---|---|---|
 | **①** 错误码 SSOT | 码值只集中在 `shared/constants/api`（同值不得多常量）；调用处必须引用 `EC_` 常量，禁裸数字（含 `routeError` 第二参、`codeByPath`、响应体 `code:` 字面量）；被路由引用的码必须已登记进 `core/http/error-map` 的 `CODE_MAP`——`EC_INVALID_PARAMS`/`EC_INVALID_REQUEST` 刻意不登记，让后端 message 直出 | `check-api-error-codes.mjs` | 全域零裸数字、引用码全登记 |
-| **②** 响应字段命名 | **响应实体字段用 `camelCase`**；请求参数与分页/元数据键允许 `snake_case`（`page_size`/`total`/`limit`/`next_cursor`… 见门禁内 `METADATA_KEYS`）。两条规则同走 `NextResponse.json(...)`/`Response.json(...)` 一面：规则一查**对象字面量键**（显式 `k:`、ES6 简写 `{ k, }`，以及 `const body = { … }; json(body)` 这种键在声明处的间接字面量）；规则二拦**整块透出**（`json(变量)` / `json({ ...盲区源 })`）——实参与其本地初始化式里没有视图 mapper 痕迹又未登记→ 当场失败。mapper 产出的键仍不在本静态面内，由分域迁移 + 路由级断言 + 只读探针覆盖 | `check-api-field-naming.mjs` | 显式 snake 键：递减白名单 68 项已**清零**（登记行全删）——auth 全域、supplier-diagnosis、learning/training/report-preview、claims/interest/unlock、crm/chat（消息 + 会话四处出口）、notices 全域（detail/preview/content/unified-search/stats）、payment/orders 建单与查单、解锁记录三端点、opportunities 与 awards 列表、membership 五端点整族均已迁 camelCase，新代码写 snake 键即失败。整块透出（2026-10-28 新规则暴露）：**登记 24 处**，全部为 A（已收视图 + 实测/断言）/ B 实测无 snake 但未收 mapper **已清零** / C 尚未实测 **已清零**。开放 API 已按（乙）整族迁 camel，于同日入库。 |
+| **②** 响应字段命名 | **响应实体字段用 `camelCase`**；请求参数与分页/元数据键允许 `snake_case`（`page_size`/`total`/`limit`/`next_cursor`… 见门禁内 `METADATA_KEYS`）。三条规则同走 `NextResponse.json(...)`/`Response.json(...)` 一面：规则一查**对象字面量键**（显式 `k:`、ES6 简写 `{ k, }`，以及 `const body = { … }; json(body)` 这种键在声明处的间接字面量）；规则二拦**整块透出**（`json(变量)` / `json({ ...盲区源 })`）——实参与其本地初始化式里没有视图 mapper 痕迹又未登记→ 当场失败；规则三拦**字面量包 opaque 值**（`json({ 键: 服务返回值 })`，含解构出口与 ES6 简写条目）——外层键看得见但值内部的键看不见，同样要么过约定名 mapper、要么登记（只排除分页/元数据键、举得出证的内建标量生产者、键写在文本里的 `rows.map(r => ({ … }))` 内联映射）。mapper 产出的键仍不在本静态面内，由分域迁移 + 路由级断言 + 只读探针覆盖 | `check-api-field-naming.mjs` | 显式 snake 键：递减白名单 68 项已**清零**（登记行全删）——auth 全域、supplier-diagnosis、learning/training/report-preview、claims/interest/unlock、crm/chat（消息 + 会话四处出口）、notices 全域（detail/preview/content/unified-search/stats）、payment/orders 建单与查单、解锁记录三端点、opportunities 与 awards 列表、membership 五端点整族均已迁 camelCase，新代码写 snake 键即失败。整块透出（2026-10-28 新规则暴露）：**登记 24 处**，全部为 A（已收视图 + 实测/断言）/ B 实测无 snake 但未收 mapper **已清零** / C 尚未实测 **已清零**。开放 API 已按（乙）整族迁 camel，于同日入库。字面量包 opaque 值（2026-10-28 新开的规则三）：**另登 36 项**，此面初开即扫出 4 处已知 snake 上网·待收口。 |
 | **③** 401 语义单一化 | `401` = 「未登录/需要认证（凭据缺失或过期，**可刷新**）」，业务码只允许 `EC_AUTH_REQUIRED`/`EC_USER_REQUIRED`/`EC_API_KEY_INVALID`/`EC_API_KEY_EXPIRED`；**会话已死与凭据被拒一律 403 + 专属码**：登录密码错→`EC_ACCOUNT_ISSUE`，refresh token 无效/过期/撤销→`EC_REFRESH_TOKEN_*`（均 403）。开放 API 的 `X-API-Key` 边界保留 401（标准 REST 语义，不经本刷新链路） | `check-api-401-semantics.mjs` | 已普查并归位：会话已死/凭据被拒的 5 处改 403（登录 2 处 + 刷新 3 处）；剩下的 401 发放点（requireUserKey / premium 需登录 / SSE 票券 / 开放 API Key 边界）全为认证语义，且码必须是允许集内的 `EC_` 常量（裸数字同判，与①同口径） |
 
 - **为什么③要治本**：api-client 把 `res.status === 401` 当作「access token 过期 → 刷新重试，刷新失败即清凭据 + 登出」的信号。把「密码错误」「refresh token 已死」写成 401 会误触发刷新/登出链路（登录失败去刷一个新 session 根本没有的 token），且让 401 含义漂移。改 403 后**客户端行为不变**：`tryRefreshToken()` 对 `!res.ok` 一律返回 `null`，仍然清凭据 + 广播 `supply-os:unauthorized`。
@@ -91,7 +91,14 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   自测不再绑真实存量：样本登记项由 `API_FIELD_NAMING_ALLOWLIST_EXTRA` 注入 fixture 子进程，
   否则每迁完一族都要回头改自测（payment/orders 迁走时就是这样把自测改红的）。
 - **白名单清零 ≠ 债务清零（`...row` 展开与整块透出区）**：静态面原先只看得见 `json({ 显式键 })`（已覆盖显式 `k:` 与 ES6 简写 `{ k, }` 两类，简写曾漏过 report/preview 的 `total_report_chars`，现由自测钉住）；而全站有 30+ 个出口是 `NextResponse.json(变量)` 整块透出（repo 行 / 服务结果直接上网），门禁一个键都看不见。**2026-10-28 起这条盲区本身进门禁**（② 加规则二）：`json(变量)`、`json({ ...盲区源 })` 只要实参（或其本地 `const X = …` 初始化式）里没有视图 mapper 痕迹，就当场失败，除非登记在 `OPAQUE_ALLOWLIST`；反过来 `const body = { user_id: … }; json(body)` 这种「键在声明处」的间接字面量现在也被规则一查得到（行号指声明行）。登记集现状 **24 处**，按证据强度分组写明：A「已收视图 + 真库探针实测 snake 键 0」24 处、B「实测无 snake 键但未收 mapper」**已清零**、C「**尚未实测**」**已清零**（均 2026-10-28）。重出清单：`API_FIELD_NAMING_EMIT_OPAQUE=1 node scripts/gates/check-api-field-naming.mjs`（分组计数由 `runtime/count-opaque-groups.mjs` 复核）。
-  登记集靠两样东西继续收敛：
+  **2026-10-28 又开了第三面**（规则三 `WRAPPED-VALUE`）：上面那些登记项只覆盖「整个响应体看不见」，
+  而 `json({ list: rows })` 这种「字面量包一个服务返回值」两面都不报——两个真违规（资源库直透列名、
+  认证响应体七键）就是从这道缺口流出去的。现第三面另有**递减登记集 36 项**（甲：值已收视图/出口已显式映射；
+  乙：值是标量或 ID 数组；**丙：已知 snake 上网·待收口 4 处**——user/enterprise 整行 30 键、
+  training/landing 的 `SELECT *` 课程行、training/orders/[orderNo]/participants 的 `SELECT *` 学员行
+  （含姓名与手机号）、user/industry-prefs 的 `commodity_code`）。
+  重出清单：`API_FIELD_NAMING_EMIT_WRAPPED=1 node scripts/gates/check-api-field-naming.mjs`。
+  规则二那条登记集靠两样东西继续收敛：
   ① 每个域一个唯一 mapper（`notice-public/view.ts`、`membership/view.ts`、`awards/view.ts`、
   `payment-history-view.ts`、`chat-service` 的消息/会话视图、`opportunities/route.ts` 的行→视图函数），
   改名规则本身在 `shared/utils/case-keys`；在 service/出口层出 camelCase，route 只做拼装，
@@ -195,19 +202,37 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   裁剪留给产品裁定；② 服务端另发 `accountStatus`，站内无消费方，所以前端类型**有意不声明**它（不给幻影字段开口子）；
   ③ 旧 localStorage 快照存的是 snake 键，启动恢复时 `isVip` 会临时算作 false，直到 `refreshAuth` 拿新响应覆盖
   （代码路径如此，**未做浏览器实测**，DB 隧道仍断）。
-- **同一盲区的暴露面已重新量过（探针 v2，离线静态）**：v1 有两个漏报——只认 ES6 带标签条目（漏了简写
-  `{ bound, linkStatus, enterprise: row, licenseChange, commodityNodes }` 里的后两个），且只认「init 以 `await` 开头」
-  （漏了 `const { payload } = await loginWithPassword(…)` 这种解构出口，login/register 两处因此没上报，
-  才把「五处」估成「三处」）。v2 修正后：全站 `json({ 键: 一次调用的结果 })` 浅层条目共 **80 处**，
-  其中变量名似「记录/列表」的 **22 处**（含至少 4 处 ID 数组/标量误报）——文本面分不出值是对象还是数字，
-  所以这个数只能当「值得人工看的子集」，不能当硬判定。
-  真正的大头是 `GET /api/user/enterprise` 的 `{ enterprise: row }`：上网的是 `PORTAL_COLUMNS` 整行
-  （22 个可编辑列 + 8 个状态列 = 30 个列名键），而前端企业表单的字段 key 就是列名、PUT 请求体也发列名——
-  收口它需要先在「响应 camel / 请求 snake」的口径下做一次单向映射，口径选型待定（未开工）。
-- **规则二自身的已知限制（不假装盖全）**：它拦 `json(变量)` 与 `json({ ...盲区源 })`，但**不拦 `json({ items: 变量 })` 这种「字面量包 opaque 值」**——items 里数组元素的键对静态面不可见。`/api/open/v1/engineering` 的 list/detail 就是这个形状
-  （`items: rows` 直接透传列名，2026-10-28 之前门禁对它完全说不了）。这类只能靠端点级断言 + 探针发现。
-  即使已改成 `items: 视图数组`，静态面依旧看不见它——**加了 mapper 不等于被门禁看见**，
-  所以这个形状必须配路由级/视图单测。
+- **命名门禁新增规则三「字面量包 opaque 值」（2026-10-28 第九批）——登记集 24 处之外又开一面，当场扫出 4 个真违规**。
+  之前的离线探针（`runtime/probe-wrapped-opaque.mjs` v2）量的【80 处 / 22 处】是启发式计数（只按变量名长相圈“值得人工看”），不能当判定；
+  本批把它做成门禁硬规则：信封是字面量，而某个**浅层条目**的值是个裸标识符（含 ES6 简写），
+  且该标识符的声明式是一次调用（含 `const { payload } = await …` 这种解构出口）→ 必须过约定名 mapper
+  或登记。只排除举得出证的不携带者：分页/元数据键、内建标量生产者（`Math./Number/String/Boolean/clampLimit/JSON.stringify/…searchParams.get()`）、
+  初始化式本身就是字面量、以及 `rows.map(r => ({ … }))` 这种**键写在文本里**的内联映射
+  （后者顺带按规则一再查一遍：规则一原本只看 `json(…)` 括号内，映不到 map 回调）。
+  扫出来共 **36 项**（已全部登记，含逐条依据），分三组：
+  【甲】值已收视图/出口已显式映射（认证五出口、资源库两端点、开放 API 详情、订单列表、
+  报价两列表、smart-infer/official词组/learning 列表/notifications/licenseChange 等）；
+  【乙】值是标量或 ID 数组（无键可漏，登记只为「以后改成对象」当场报错）；
+  **【丙】已知 snake 上网·待收口 4 处**，本面上线前无人知晓：
+  ① `GET /api/user/enterprise` 的 `{ enterprise: row }`——`PORTAL_COLUMNS` 整行 30 个列名键
+  （前端企业表单字段 key 就是列名、PUT 请求体也发列名，收口要按「响应 camel / 请求 snake」做一次单向映射）；
+  ② `GET /api/training/landing` 的 `{ course }`——`SELECT * FROM training_courses` 整行
+  （同出口的 `schedules` 也是 `SELECT *`，但写成三元表达式、本面暂时看不见，收口时两条一起改）；
+  ③ `GET /api/training/orders/[orderNo]/participants` 的 `{ participants }`——`SELECT * FROM training_participants`
+  整行（order_id/participant_no/full_name/company_name/created_at），**学员姓名与手机号原样下发**，收口时顺带核隐私口径；
+  ④ `GET /api/user/industry-prefs` 的 `{ prefs }`——`UserIndustryPrefsRow`（commodity_code/updated_at），
+  前端 `core/api/industry-prefs.ts` 的镜像也是 snake，要两端同改。
+  跑具：`tests/gates/check-api-field-naming.test.mjs` 新增 5 例（带标签/简写、解构出口、
+  内联映射两面、已收口不误伤、与规则二不重报），共 19 例全绿。
+  排除项为什么不用变量名启发式：v2 探针的教训——名称启发既漏（`{ list: rows }` 名字不似列表）
+  又误（`{ materialIds }` 其实是 string[]）；现在只排除类型上举得出证的，剩下的全部要登记。
+- **规则二与规则三的分工（不假装盖全）**：规则二拦 `json(变量)` 与 `json({ ...盲区源 })`（整个响应体看不见），
+  规则三拦 `json({ 键: 变量 })`（外层键看得见、值内部的键看不见）。两面都用「约定名 + 递减登记集」收敛，
+  登记键不重叠（`rel#变量` vs `rel#键`），`json(变量)` 不会重复报成第三面（有回归用例钉着）。
+  仍盖不到的两个形状：① 值写成三元/短路等表达式（`json({ schedules: course ? await listSchedules(…) : [] })`）；
+  ② 嵌套层内部的键（规则一只查 `json(…)` 括号内与已解析到的字面量，map 回调本批已补）。
+  `/api/open/v1/engineering/[id]` 的 `{ item }` 现在也占了登记位（视图早先已收在 `lib/services/open-api/view.ts`）；
+  **加了 mapper 不等于被门禁看见**，所以这个形状仍必须配路由级/视图单测。
 - **开放 API（`/api/open/v1/**`）命名口径已定：与主站同走 camelCase（2026-10-28 用户选定「整族迁」）**。
   背景：只读探针实测 `engineering?stats=1` 在吐 `total_count/country_count/earliest_date/latest_date`，
   而同一外发面的 list/detail 本来就把列名直接透传（`items: rows`）——整块对外 API 都是 snake 风格。

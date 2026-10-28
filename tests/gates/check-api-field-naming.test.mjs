@@ -208,3 +208,96 @@ test("不误伤：变量初始化式里的「请求参数」snake 键不计为�
     assert.doesNotMatch(r.out, /\[SNAKE-KEY\]/);
   });
 });
+
+// ―― 规则三「字面量包 opaque 值」：`json({ 键: 服务返回值 })` 外层键看得见、值内部的键看不见 ――
+// 本面是 2026-10-28 补的：两个真违规（资源库直透列名、认证响应体七键）都是这个形状，
+// 而规则一与规则二对它一个字都没说。
+
+test("[WRAPPED-VALUE]：带标签与 ES6 简写两种写法都要拦，登记后放行", () => {
+  const decls = "  const rows = await ctx.repo.listRows();";
+  withFixture("fieldname-wrapped", {
+    "src/app/api/wb-labeled/route.ts": ROUTE_BODY(decls, "{ list: rows, total: 3 }"),
+    "src/app/api/wb-short/route.ts": ROUTE_BODY(decls, "{ bound: true, rows }"),
+  }, (root) => {
+    const r = runAgainst(root, GATE);
+    assert.equal(r.code, 1, "「键: 裸服务返回值」没被拦");
+    assert.match(r.out, /\[WRAPPED-VALUE\]/);
+    assert.match(r.out, /wb-labeled\/route\.ts:\d+:/); // 给到文件:行号
+    assert.match(r.out, /wb-short\/route\.ts/); // 简写条目同样不能逃（探针 v1 就是漏在这里）
+    const ok = runAgainst(root, GATE, {
+      API_FIELD_NAMING_WRAPPED_EXTRA: "src/app/api/wb-labeled/route.ts#list,src/app/api/wb-short/route.ts#rows",
+    });
+    assert.equal(ok.code, 0, `登记后仍拦：\n${ok.out}`);
+  });
+});
+
+test("解构出口不能逃：`const { payload } = await login()` + json({ user: payload })", () => {
+  // 探针 v1 只认「init 以 await 开头」，登录/注册两个出口因此没上报（把五处估成三处）
+  withFixture("fieldname-destructure", {
+    "src/app/api/ds/route.ts": ROUTE_BODY(
+      "  const { payload, token } = await loginWithPassword(ctx, { identifier, password });",
+      "{ success: true, user: payload, token }",
+    ),
+  }, (root) => {
+    const r = runAgainst(root, GATE);
+    assert.equal(r.code, 1, "解构出口没被拦");
+    assert.match(r.out, /ds\/route\.ts/);
+    assert.match(r.out, /"user"/);
+    // token 也来自同一次解构（值同样是服务返回值），所以一并要求登记，不静默过关
+    const ok = runAgainst(root, GATE, {
+      API_FIELD_NAMING_WRAPPED_EXTRA: "src/app/api/ds/route.ts#user,src/app/api/ds/route.ts#token",
+    });
+    assert.equal(ok.code, 0, `登记后仍拦：\n${ok.out}`);
+  });
+});
+
+test("内联映射不误伤：`rows.map(r => ({ … }))` 键在文本里；但里面的 snake 键得报出来", () => {
+  withFixture("fieldname-inlinemap", {
+    "src/app/api/im-ok/route.ts": ROUTE_BODY(
+      [ "  const rows = await ctx.repo.list();",
+        "  const items = rows.map((row) => ({", // 表达式体包裹写法
+        "    nameZh: String(row.name_zh || \"\"),", // 列名在值位：允许
+        "    id: Number(row.id),", // 声明式带类型/注解的同样要能解析
+        "  }));" ].join("\n"),
+      "{ items }",
+    ),
+    "src/app/api/im-bad/route.ts": ROUTE_BODY(
+      [ "  const rows = await ctx.repo.list();",
+        "  const items = rows.map((row) => ({ name_zh: String(row.name_zh) }));" ].join("\n"),
+      "{ items }",
+    ),
+  }, (root) => {
+    const r = runAgainst(root, GATE);
+    assert.match(r.out, /im-bad\/route\.ts/, "内联映射里写的 snake 键没被拦");
+    assert.match(r.out, /\[SNAKE-KEY\]/);
+    assert.doesNotMatch(r.out, /im-ok\/route\.ts/, "键全写在文本里还被要求登记 → 假债");
+    assert.doesNotMatch(r.out, /\[WRAPPED-VALUE\].*im-ok/s);
+  });
+});
+
+test("不误伤：视图名出口、元数据键、不可能带键的内建生产者", () => {
+  withFixture("fieldname-wrapped-ok", {
+    "src/app/api/wo/route.ts": ROUTE_BODY(
+      [ "  const rows = await ctx.repo.list();",
+        "  const list = rows.map(noticeRowViewOf);", // 约定名 mapper
+        "  const pageSize = Math.min(Number(sp.get(\"page_size\")) || 20, 100);", // 内建标量
+        "  const lang = req.nextUrl.searchParams.get(\"lang\")?.toLowerCase() || \"\";", // URLSearchParams.get → string | null
+        "  const total = Number(rows.length);" ].join("\n"),
+      "{ list, page_size: pageSize, lang, total }",
+    ),
+  }, (root) => {
+    const r = runAgainst(root, GATE);
+    assert.equal(r.code, 0, `已收口/标量位被误拦：\n${r.out}`);
+  });
+});
+
+test("整块透出仍走规则二：json(变量) 不该重复报成第三面", () => {
+  withFixture("fieldname-notwice", {
+    "src/app/api/nw/route.ts": ROUTE_BODY("  const rows = await ctx.repo.list();", "rows"),
+  }, (root) => {
+    const r = runAgainst(root, GATE);
+    assert.equal(r.code, 1);
+    assert.match(r.out, /\[OPAQUE-PAYLOAD\]/);
+    assert.doesNotMatch(r.out, /\[WRAPPED-VALUE\]/); // 同一出口不报两道，否则登记位要占两行
+  });
+});

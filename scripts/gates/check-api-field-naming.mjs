@@ -6,6 +6,7 @@ import {
   collectRouteFiles,
   callSites,
   lineOf,
+  matchParen,
   reportAndExit,
   staleAllowlistEntries,
 } from "./lib/api-contract.mjs";
@@ -25,7 +26,9 @@ import {
  *   规则一 拦显式 snake 键（含 `const body = { … }; json(body)` 这种间接字面量：
  *     响应体变量的键名在声明处，不在调用括号里，旧版完全看不见）；
  *   规则二 拦「整块透出」（`json(变量)` / `json({ ...row })`）——这种出口静态面看不见键，
- *     必须过视图 mapper 或登记递减清单（登记集见 OPAQUE_ALLOWLIST，含「已实测/待核验」分组）。
+ *     必须过视图 mapper 或登记递减清单（登记集见 OPAQUE_ALLOWLIST，含「已实测/待核验」分组）；
+ *   规则三 拦「字面量包 opaque 值」（`json({ list: rows })`，rows 来自一次服务调用）——
+ *     外层键看得见、值内部的键看不见，两面都漏过（登记集见 WRAPPED_ALLOWLIST）。
  *   mapper 产出的键仍不在静态面内（由分域迁移 + 端点级断言 + 只读探针覆盖）。
  *
  * 扫描/报告/白名单卫生均走共享骨架 `lib/api-contract.mjs`（四条 API 契约门禁同一口径）。
@@ -36,6 +39,8 @@ import {
  *     自带样本存量项，不再绑定真实白名单——否则每迁完一族都要回来改 fixture）
  *   API_FIELD_NAMING_OPAQUE_EXTRA=rel#var  追加「整块透出」登记项（仅自测用，同上理由）
  *   API_FIELD_NAMING_EMIT_OPAQUE=1  导出当前全部「整块透出」出口（造初登记清单用）
+ *   API_FIELD_NAMING_WRAPPED_EXTRA=rel#key 追加「字面量包 opaque 值」浅层条目登记项（仅自测用）
+ *   API_FIELD_NAMING_EMIT_WRAPPED=1 导出当前全部「字面量包 opaque 值」浅层条目（造初登记清单用）
  */
 
 // 合法保留 snake_case 的响应元数据/分页键（规范允许 snake，非实体字段）。
@@ -180,6 +185,112 @@ const OPAQUE_ALLOWLIST = new Set([
     .split(",").map((s) => s.trim()).filter(Boolean),
 ]);
 
+/**
+ * 第三面登记集（`<相对 route.ts>#<浅层键名>`）：「字面量包 opaque 值」的出口。
+ *
+ * 为什么要单开第三面（2026-10-28）：规则二只看整个实参，规则一只看键名，于是
+ * `json({ list: rows })` 这种写法两面都不报——外层键 `list` 在字面量里（合法 camel），
+ * 而值内部的键完全来自一次服务/仓储调用（静态面不可见）。真实代价已经吃过两次：
+ *   · 供应商资源库两个 GET 直透 `pool_id`/`supplier_id`/`has_qualification`/`created_at`；
+ *   · 认证响应体七个 `users.*` 列名键被 `{ user: payload }` 包着上了五个出口。
+ * 两边都不是「门禁报了没改」，而是「门禁一个字没说」。
+ *
+ * 不拦的形态（只排除「确定不可能携带键」的值，不靠变量名猜安不安全）：
+ *   ① 键名已在 METADATA_KEYS（分页/元数据按口径允许 snake，本来就是标量位）；
+ *   ② 值由内建标量生产者产出（Math./Number/String/Boolean/clampLimit/JSON.stringify 等，不可能带键）；
+ *   ③ 声明式里有 mapper 痕迹（*ViewOf / toCamel* / to*View）；
+ *   ④ 声明式本身是对象/数组字面量（键在静态面可见，已由规则一查过）；
+ *   ⑤ 已在本清单登记的存量。
+ *   新写 `json({ 键: 服务返回值 })` 且没过 mapper → 当场失败，要么收视图、要么登记并写清依据。
+ */
+const DEFAULT_WRAPPED_ALLOWLIST = new Set([
+  // 【甲 已收视图·键集合由类型或单测钉住】值来自一个已定形的出口（不是「看起来没事」）。
+  // 认证五出口共用同一响应体：AuthUserResponse 已于 2026-10-28 逐键改 camel，
+  // 键集合由 tests/unit/lib/services/auth.test.ts 的定形例钉住（11 键 + 「带下划线的键必须为零」）。
+  "src/app/api/auth/login/route.ts#user",
+  "src/app/api/auth/profile/route.ts#user",
+  "src/app/api/auth/register/route.ts#user",
+  "src/app/api/auth/reset-password/route.ts#user",
+  "src/app/api/auth/user/route.ts#user",
+  // 供应商资源库两端点：行→视图收在 lib/services/supplier-pool.ts（poolSupplierViewOf /
+  // poolCandidateViewOf），证据 tests/unit/app/api/supplier-pool-view.test.ts（假仓储）。
+  "src/app/api/user/supplier-pool/route.ts#list",
+  "src/app/api/user/supplier-pool/search/route.ts#candidates",
+  // 开放 API 详情：EngineeringItemView（lib/services/open-api/view.ts 显式列字段），
+  // 证据 tests/unit/lib/services/open-api/view.test.ts。
+  "src/app/api/open/v1/engineering/[id]/route.ts#item",
+  // 服务/仓储出口已做显式列映射（键名在出口处就换成了 camel，不是靠名字担心）：
+  //   smart-infer → CommodityInferCandidate（code/nameZh/nameEn/level/score/path）；
+  //   keyword-groups/official → OfficialKeywordGroupsRepo.listEnabled 内将
+  //     category_code/sort_order 换成 categoryCode/sortOrder 并解析 terms；
+  //   learning/materials → listMaterials 内 map 出显式字面量（premium 正文不下发）；
+  //   notices/[id]/detail → PlatformInfo = { canonical, code, zh }（本批只登记，没改该路由）；
+  //   notifications → NotificationItem（isRead/createdAt）；
+  //   license-change → 服务内显式将 reject_reason/created_at 映成 rejectReason/createdAt。
+  "src/app/api/commodity/smart-infer/route.ts#candidates",
+  "src/app/api/keyword-groups/official/route.ts#groups",
+  "src/app/api/learning/materials/route.ts#materials",
+  "src/app/api/notices/[id]/detail/route.ts#platform",
+  "src/app/api/notifications/route.ts#items",
+  "src/app/api/user/enterprise/route.ts#licenseChange",
+  //   rfq 两条报价列表：my-quotes 的 SQL 已用 AS camel 别名（quoteId/rfqId/leadTimeDays…）
+  //   且声明为 MyQuoteRow；[id]/quotes 的 buyer 列表声明为显式内联类型（supplierUserId/deliveryTerms…）。
+  "src/app/api/rfq/my-quotes/route.ts#items",
+  "src/app/api/rfq/[id]/quotes/route.ts#items",
+  // 订单历史：orchestrator.listAllOrders 返 NormalizedOrder[]，服务内逐键组装（createdAt/updatedAt/expiresAt）。
+  "src/app/api/payment/orders/route.ts#list",
+  // 自报品目落点：SupplierSelfReportNode = { code, nameZh }。
+  "src/app/api/user/enterprise/route.ts#commodityNodes",
+  // 企业名联想：Pick<SupplierDirectoryRow, "id"|"company"|"country"|"industry">，
+  // 四个键本身都是单词（无 snake 形式）——但 `'' AS industry` 恒为空串，
+  // 与资源库同类的产品数据链路缺口，本门禁管不了值只管得了键。
+  "src/app/api/user/enterprise/suggest/route.ts#matches",
+  // 匹配回读缓存：JSON.parse 的结果不过任何 mapper，但读取处有「无 supplierId 即视为未命中」
+  // 的缓存闸（列名口径的旧缓存不原样吐上网），证据 tests/unit/lib/services/ai-match.test.ts。
+  "src/app/api/notices/[id]/ai-match/route.ts#top",
+
+  // 【乙 值是标量或 ID 数组】无键可漏，登记只为让「以后改成对象」当场报错。
+  // 逐条举得出型：string[] / number[] / Promise<number> / Promise<string> / Promise<boolean>。
+  "src/app/api/learning/purchased/route.ts#materialIds", // string[]
+  "src/app/api/notices/favorites/ids/route.ts#ids", // number[]
+  "src/app/api/notices/[id]/ai-match/route.ts#diagPending", // countDiagnosisPending(): Promise<number>
+  "src/app/api/notices/[id]/report/preview/route.ts#totalReportChars", // estimateFullReportCharCount(): number
+  "src/app/api/notifications/route.ts#unread", // unreadCount(): Promise<number>
+  "src/app/api/rfq/[id]/quotes/route.ts#quoteId", // submitQuote(): Promise<{ quoteId: number }>
+  "src/app/api/suppliers/stats/route.ts#registered", // countApproved(): Promise<number>
+  "src/app/api/system/icp/route.ts#bah", // getIcpBah(): Promise<string>，形状由 tests/unit/app/api/system-view.test.ts 钉住
+  "src/app/api/training/register/route.ts#id", // insertRegistration(): Promise<number>（自增 id）
+  "src/app/api/user/enterprise/license-upload/route.ts#url", // UploadResult.url: string
+  "src/app/api/user/enterprise/route.ts#claimCreated", // ensurePendingClaim(): Promise<boolean>
+  "src/app/api/user/enterprise/route.ts#supplierId", // insertEnterprise(): Promise<number>
+
+  // 【丙 已知 snake 上网·待收口】本面刚上线拓出来的真违规，登记不等于放过：
+  // 每一行都写清「现在网上到底是哪些列名键」，收口完必须删行（不删就是陈旧项，当场红）。
+  // GET /api/user/enterprise：row 是 SupplierDirectoryRepo.PORTAL_COLUMNS 整行（22 可编辑列
+  // + 8 状态列 = 30 个列名键，如 credit_code/license_url/verify_status/registered_capital）；
+  // 前端企业表单字段 key 就是列名、PUT 请求体也发列名，收口需按「响应 camel / 请求 snake」
+  // 做一次单向映射（下一批）。
+  "src/app/api/user/enterprise/route.ts#enterprise",
+  // GET /api/training/landing：getActiveCourse() 是 `SELECT * FROM training_courses` 的整行
+  // （name_zh/name_en/description_zh/unit_price/sort_order…）。同出口的 `schedules` 也是
+  // SELECT *（listSchedules），但它写成三元表达式，本面目前看不见——收口时必须两条一起改。
+  "src/app/api/training/landing/route.ts#course",
+  // GET /api/training/orders/[orderNo]/participants：getParticipantsByOrderId() 是
+  // `SELECT * FROM training_participants` 整行（order_id/participant_no/full_name/
+  // company_name/created_at/updated_at）——学员手机号与姓名原样下发，收口时顺带核隐私口径。
+  "src/app/api/training/orders/[orderNo]/participants/route.ts#participants",
+  // GET /api/user/industry-prefs：prefs 是 UserIndustryPrefsRow（commodity_code/updated_at），
+  // POST 请求体同样写 commodity_code（请求侧允许）；前端 core/api/industry-prefs.ts 的
+  // IndustryPrefs 镜像也是 snake，收口要两端同改。
+  "src/app/api/user/industry-prefs/route.ts#prefs",
+]);
+
+const WRAPPED_ALLOWLIST = new Set([
+  ...DEFAULT_WRAPPED_ALLOWLIST,
+  ...(process.env.API_FIELD_NAMING_WRAPPED_EXTRA || "")
+    .split(",").map((s) => s.trim()).filter(Boolean),
+]);
+
 const repoRoot = scanRoot();
 const apiDir = path.join(repoRoot, "src", "app", "api");
 
@@ -187,9 +298,11 @@ const problems = [];
 let scanned = 0;
 const allOffenders = new Set(); // 全部显式 snake 响应键（rel#key），不受白名单影响
 const allOpaque = new Set(); // 全部「整块透出」出口（rel#变量/callee），不受登记集影响
+const allWrapped = new Set(); // 全部「字面量包 opaque 值」浅层条目（rel#键），不受登记集影响
 const SNAKE_RE = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/; // 纯 snake_case（含至少一个下划线）
 const EMIT_SEED = process.env.API_FIELDNAMING_EMIT_SEED === "1";
 const EMIT_OPAQUE = process.env.API_FIELD_NAMING_EMIT_OPAQUE === "1";
+const EMIT_WRAPPED = process.env.API_FIELD_NAMING_EMIT_WRAPPED === "1";
 const JSON_CALL = /(?:NextResponse|Response)\.json\s*\(/;
 
 /**
@@ -336,6 +449,149 @@ function blindSpreadSources(text) {
 }
 
 /**
+ * 内建标量生产者：这些调用的返回值不可能携带键，所以浅层条目无需登记。
+ * 排除项只列「举证得清的」内建/工具函数，不靠变量名长相猜安全（上一版的名称启发式
+ * 既漏报又误报：runtime/probe-wrapped-opaque.mjs v1 因只认 await 开头、只认带标签条目，
+ * 把五个认证出口中的两个漏成了「三处」）。
+ * `…searchParams.get()` 也算在内：URLSearchParams.get 的返回型就是 string | null。
+ */
+const SCALAR_VALUE_CALL =
+  /^(?:Math\.[A-Za-z]|Number\(|String\(|Boolean\(|parseInt\(|parseFloat\(|JSON\.stringify\(|encodeURIComponent\(|decodeURIComponent\(|clampLimit\(|Array\.isArray\(|Object\.(?:keys|values|entries)\(|new Date\(|Date\.now\(|globalThis\.|signAccessToken\(|signRefreshToken\(|maskPhone\(|maskName\(|(?:[A-Za-z_$][\w$]*\.)*searchParams\.get\()/;
+
+/**
+ * 变量声明式查找的「宽松版」：除了 `const x = …`，还认
+ * `const { x, y } = await f(…)` / `const [x, y] = await Promise.all([…])`。
+ * 为什么必须认解构：登录/注册两个出口写的就是 `const { payload, … } = await loginWithPassword(…)`，
+ * 只认直接声明就会重复上一版探针的漏报。
+ * @returns {{offset:number, text:string}|null} offset 为 `=` 右侧起点，text 为语句级初始化式
+ */
+function declInitLoose(src, name, beforeIdx) {
+  const esc = name.replace(/\$/g, "\\$");
+  const re = new RegExp(
+    `(?:const|let|var)\\s+(?:${esc}\\b|\\{[^{}]*\\b${esc}\\b[^{}]*\\}|\\[[^\\[\\]]*\\b${esc}\\b[^\\[\\]]*\\])\\s*(?::[^\\n=]*)?=\\s*`,
+    "g",
+  );
+  let last = null;
+  let m;
+  while ((m = re.exec(src))) if (m.index < beforeIdx) last = m;
+  if (!last) return null;
+  const offset = last.index + last[0].length;
+  return { offset, text: statementAt(src, offset) };
+}
+
+/** 判定一个初始化式是不是「只能靠名字看、静态面读不出键」的调用出口 */
+function isOpaqueValueInit(text) {
+  const head = text.trimStart().replace(/^await\s+/, "");
+  if (!head) return false;
+  const lead = head[0];
+  if (lead === "{" || lead === "[") return false; // 字面量：键区已由规则一查过
+  if (MAPPER_HINT.test(head)) return false; // 已过视图 mapper
+  if (SCALAR_VALUE_CALL.test(head)) return false; // 不可能带键
+  return /^[A-Za-z_$][\w$.]*\s*\(/.test(head); // 只有一次调用的出口才算 opaque
+}
+
+/**
+ * 内联映射回调（`rows.map((row) => ({ … }))`）的元素形状就写在文本里，不该算 opaque。
+ * 只取 `.map( … )` 括号内的回调体（再用 stripCallArgs 把回调里的函数实参刷掉，
+ * 那里面的花括号是请求参数不是响应键），返回其浅层键；无 `.map(` 或回调体无字面量时返回 null。
+ * 为什么要单独认这一形：不认就会把 rfq/list 这种「键全写得出来」的出口误报成债，
+ * 而认了还能顺手查出内联映射里写的 snake 键（规则一原本只查 json(...) 括号内，看不到这里）。
+ */
+function mapCallbackKeys(initText) {
+  const at = initText.search(/\.map\s*\(/);
+  if (at < 0) return null;
+  const open = initText.indexOf("(", at);
+  const close = matchParen(initText, open);
+  if (close < 0) return null;
+  // 下面逐次剪掉回调外壳（参数表 / 包裹括号），同时记录起点偏移，报错行号才能算准
+  let start = open + 1;
+  let text = initText.slice(start, close);
+  const lead = text.trimStart();
+  start += text.length - lead.length;
+  text = lead;
+  const param = /^\((?:[^()]*)\)\s*=>\s*|^[A-Za-z_$][\w$]*\s*=>\s*|^function\s*\((?:[^()]*)\)\s*/.exec(text);
+  if (param) {
+    start += param[0].length;
+    text = text.slice(param[0].length);
+  }
+  // 表达式体常写成 `=> ({ … })`：先剥掉包裹的括号，否则 stripCallArgs 会把键区一起刷白
+  if (text.startsWith("(")) {
+    const inner = matchParen(text, 0);
+    if (inner > 0) {
+      start += 1;
+      text = text.slice(1, inner);
+    }
+  }
+  const visible = stripCallArgs(text);
+  if (!visible.includes("{")) return null;
+  return { offset: start, keys: [...objectKeys(visible)] };
+}
+
+/** 吃掉片段开头的空白与注释（与 objectKeys 同一理由：键区中间可能夹说明注释） */
+function stripLeadingTrivia(piece) {
+  const re = /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*/;
+  const n = re.exec(piece)[0].length;
+  return { text: piece.slice(n), offset: n };
+}
+
+/**
+ * 取对象字面量（含外层花括号）的浅层条目，只返回「值是裸标识符（可带 `|| 兜底`）」或简写的那些：
+ * 这是第三面的入口——外层键看得见、值内部的键看不见。
+ * 不取嵌套层（里面的键规则一已查过），也不取展开/计算键/三元/函数值。
+ * @returns {Array<{key:string, value:string, index:number}>} index 相对 lit 起点，用于算行号
+ */
+function shallowValueEntries(lit) {
+  const out = [];
+  const pieces = [];
+  let depth = 0;
+  let inStr = null;
+  // start = 1：跳过外层 `{` 本身（写成 0 会把花括号当成第一个片段的一部分，
+  // 于是 `{ materials }` 的片段变成 "{ materials"，标识符判定全部失效、本面静默归零）。
+  let start = 1;
+  for (let i = 1; i < lit.length; i++) {
+    const c = lit[i];
+    if (inStr) {
+      if (c === "\\") i++;
+      else if (c === inStr) inStr = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") { inStr = c; continue; }
+    if (c === "(" || c === "{" || c === "[") depth++;
+    else if (c === ")" || c === "}" || c === "]") {
+      if (depth === 0) { pieces.push([start, i]); start = i + 1; break; } // 字面量收尾
+      depth--;
+    } else if (c === "," && depth === 0) { pieces.push([start, i]); start = i + 1; }
+  }
+  for (const [from, to] of pieces) {
+    const raw = lit.slice(from, to);
+    const { text, offset } = stripLeadingTrivia(raw);
+    const at = from + offset;
+    if (!text || text.startsWith("...")) continue;
+    // 找深度 0 的第一个 `:` 分标签/值
+    let d = 0;
+    let colon = -1;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === "(" || c === "{" || c === "[") d++;
+      else if (c === ")" || c === "}" || c === "]") d--;
+      else if (c === ":" && d === 0) { colon = i; break; }
+    }
+    if (colon < 0) {
+      const name = text.trim();
+      if (/^[A-Za-z_$][\w$]*$/.test(name)) out.push({ key: name, value: name, index: at });
+      continue;
+    }
+    const key = text.slice(0, colon).trim();
+    if (!/^[A-Za-z_$][\w$]*$/.test(key)) continue; // 计算键 `[x]:` 等不在口径内
+    const valueText = text.slice(colon + 1).trim();
+    const m = /^([A-Za-z_$][\w$]*)(?:\s*\|\|[\s\S]*)?$/.exec(valueText);
+    if (!m) continue; // 函数值 / 三元 / 表达式：不属于本面
+    out.push({ key, value: m[1], index: at });
+  }
+  return out;
+}
+
+/**
  * 判定一个 json(…) 实参的形态。
  * @returns {{kind:"literal"|"indirect"|"mapped"|"opaque", arg:string, text:string, offset?:number}}
  *   literal → 直接内联字面量，键名已由规则一逐个看过；
@@ -425,6 +681,47 @@ for (const file of collectRouteFiles(apiDir)) {
         problems.push(`[OPAQUE-PAYLOAD] ${rel}:${lineOf(src, open)}: 响应体整块透出 ${cls.arg}（静态面看不见它的键）——请过本域视图 mapper（*ViewOf / toCamel*），或确实无需转换时登记递减清单`);
       }
     }
+
+    // 规则三：「字面量包 opaque 值」。信封是字面量（所以上面的键不会被误当成整块透出），
+    // 但某个浅层条目的值是一个本地标识符，而且该标识符的初始化式又是一次调用——
+    // 那个值内部的键在静态面完全不可见（供应商资源库与认证响应体两个真违规都是这个形状）。
+    const litRaw = cls.kind === "literal" || cls.kind === "indirect" ? firstArgOf(args) : null;
+    const litText = litRaw !== null && litRaw !== undefined ? litRaw.trimStart() : "";
+    let litBase = 0;
+    if (cls.kind === "indirect" && cls.text.startsWith("{")) {
+      litBase = cls.offset;
+    } else if (litText.startsWith("{")) {
+      litBase = open + 1 + (litRaw.length - litText.length);
+    } else {
+      litBase = -1;
+    }
+    if (litBase >= 0) {
+      const source = cls.kind === "indirect" ? cls.text : litText;
+      for (const e of shallowValueEntries(source)) {
+        if (METADATA_KEYS.has(e.key)) continue; // 分页/元数据位按口径本来就该是标量
+        const decl = declInitLoose(src, e.value, matchIndex);
+        if (!decl) continue;
+        const inline = mapCallbackKeys(decl.text);
+        if (inline) {
+          // 元素键就写在路由文件里：不要求登记，但逐个按规则一查一遍
+          for (const { key, index } of inline.keys) {
+            if (METADATA_KEYS.has(key) || !SNAKE_RE.test(key)) continue;
+            const kid = `${rel}#${key}`;
+            allOffenders.add(kid);
+            if (ALLOWLIST.has(kid)) continue;
+            problems.push(`[SNAKE-KEY] ${rel}:${lineOf(src, decl.offset + inline.offset + index)}: 响应体键 "${e.key}" 的内联映射里写了 snake_case 键 "${key}"`);
+          }
+          continue;
+        }
+        if (!isOpaqueValueInit(decl.text)) continue;
+        const id = `${rel}#${e.key}`;
+        allWrapped.add(id);
+        if (EMIT_WRAPPED) continue;
+        if (!WRAPPED_ALLOWLIST.has(id)) {
+          problems.push(`[WRAPPED-VALUE] ${rel}:${lineOf(src, litBase + e.index)}: 响应体键 "${e.key}" 的值 ${e.value} 是一次调用的返回值（静态面看不见它内部的键）——请过本域视图 mapper（*ViewOf / toCamel*），或确实无需转换时登记递减清单`);
+        }
+      }
+    }
   }
 }
 
@@ -442,6 +739,13 @@ if (EMIT_OPAQUE) {
   process.exit(0);
 }
 
+if (EMIT_WRAPPED) {
+  const arr = [...allWrapped].sort();
+  console.log(`// 「字面量包 opaque 值」浅层条目共 ${arr.length} 项，逐个人工核实后粘贴进 WRAPPED_ALLOWLIST：`);
+  for (const k of arr) console.log(`  "${k}",`);
+  process.exit(0);
+}
+
 reportAndExit({
   tag: "API-FIELD-NAMING",
   title: "响应字段命名",
@@ -450,7 +754,8 @@ reportAndExit({
   stale: [
     ...staleAllowlistEntries(ALLOWLIST, allOffenders, repoRoot),
     ...staleAllowlistEntries(OPAQUE_ALLOWLIST, allOpaque, repoRoot),
+    ...staleAllowlistEntries(WRAPPED_ALLOWLIST, allWrapped, repoRoot),
   ],
-  guidance: "准则：API 响应实体字段用 camelCase（请求参数/分页元数据用 snake_case）；整块透出必须过视图 mapper。",
-  okLine: `✓ API 响应字段命名红线通过（扫描 ${scanned} 个 route.ts：显式 snake 键 ${DEFAULT_ALLOWLIST.size} 项、整块透出登记 ${DEFAULT_OPAQUE_ALLOWLIST.size} 处，均为递减存量）`,
+  guidance: "准则：API 响应实体字段用 camelCase（请求参数/分页元数据用 snake_case）；整块透出与「包在服务返回值里的键」都必须过视图 mapper。",
+  okLine: `✓ API 响应字段命名红线通过（扫描 ${scanned} 个 route.ts：显式 snake 键 ${DEFAULT_ALLOWLIST.size} 项、整块透出登记 ${DEFAULT_OPAQUE_ALLOWLIST.size} 处、浅层 opaque 值登记 ${DEFAULT_WRAPPED_ALLOWLIST.size} 处，均为递减存量）`,
 });
