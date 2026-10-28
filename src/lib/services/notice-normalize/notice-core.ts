@@ -49,14 +49,20 @@ export function classifyBuyerGroup(buyerName: string, countryName: string): stri
  * @param agencyAliases alias（归一大写键）→ canonical；来源 agency/alias-store 快照
  */
 export function normalizeBuyerCountry(
-  input: { agency?: unknown; agencyFull?: unknown; country?: unknown },
+  input: { agency?: unknown; agencyFull?: unknown; organization?: unknown; country?: unknown },
   agencyAliases: Map<string, string>,
   countrySnap?: CountryAliasSnapshot,
 ): BuyerCountryCore {
   // 采购主体以 agency_full 为准（缺失才回退 agency）：很多源的 agency 实为发布平台码，
   // agency_full 才是真实采购单位；下游 std/卡片/详情/筛选统一按真买家。
   const agencyRaw = String(input.agencyFull ?? "").trim() || String(input.agency ?? "").trim();
-  const candidate = agencyRaw ? agencyAliases.get(normalizeAliasKey(agencyRaw)) || agencyRaw : "";
+  let candidate = agencyRaw ? agencyAliases.get(normalizeAliasKey(agencyRaw)) || agencyRaw : "";
+  // 部分源把平台码写进 agency，真实采购单位在 organization（常为 A||B||C 的层级串）：
+  // 平台占位名不可对外，回退 organization 的首段，而不是直接落 NULL。
+  if (!candidate || isAgencyPlaceholder(candidate)) {
+    const orgRaw = String(input.organization ?? "").split("||")[0].trim();
+    if (orgRaw) candidate = agencyAliases.get(normalizeAliasKey(orgRaw)) || orgRaw;
+  }
   const buyerName = candidate && !isAgencyPlaceholder(candidate) ? candidate : null;
 
   const cRes = countrySnap ? resolveCountries(String(input.country ?? ""), countrySnap) : null;

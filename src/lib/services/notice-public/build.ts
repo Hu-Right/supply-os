@@ -294,7 +294,7 @@ export function buildPublicRow(
 
   // 买家/国家/机构类型：唯一口径 notice-normalize/notice-core
   const core = normalizeBuyerCountry(
-    { agency: r.agency, agencyFull: r.agency_full, country: r.country },
+    { agency: r.agency, agencyFull: r.agency_full, organization: r.organization, country: r.country },
     ctx.agencyAliases, ctx.countrySnap,
   );
   const buyerName = core.buyerName?.slice(0, 500) ?? null;

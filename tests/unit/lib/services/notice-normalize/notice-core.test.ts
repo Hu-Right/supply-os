@@ -43,6 +43,16 @@ describe("normalizeBuyerCountry · 买家", () => {
     const core = normalizeBuyerCountry({ agency: "PLATFORM_CODE", agencyFull: "Real Buyer Co", country: "" }, new Map());
     expect(core.buyerName).toBe("Real Buyer Co");
   });
+
+  it("平台占位名回退 organization 首段（真实采购单位藏在层级串里）", () => {
+    const core = normalizeBuyerCountry({
+      agency: "eprocure_gov_in",
+      agencyFull: "eprocure_gov_in",
+      organization: "Delhi Development Authority||CE-South Zone-DDA||EE-SWD-5-Sarita Vihar-DDA",
+      country: "India",
+    }, new Map());
+    expect(core.buyerName).toBe("Delhi Development Authority");
+  });
 });
 
 describe("normalizeBuyerCountry · 国家", () => {
