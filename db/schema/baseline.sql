@@ -1092,7 +1092,6 @@ CREATE TABLE `notice_public` (
   `deadline_state` varchar(20) DEFAULT NULL COMMENT '截止语义状态：known/unknown/placeholder/typo_suspect 等',
   `country_code` char(2) DEFAULT NULL COMMENT '主国家 ISO2 码（别名归一后）',
   `country_codes` json DEFAULT NULL COMMENT '全部国家 ISO2 码数组（多国家公告）',
-  `country_name` varchar(100) DEFAULT NULL COMMENT '主国家英文标准名（别名归一后，宽表 country_name 投影源）',
   `notice_type_code` varchar(30) DEFAULT NULL COMMENT '采购类型归一码（normalizeNoticeType 单一事实源）',
   `platform_name` varchar(100) DEFAULT NULL COMMENT '发布平台规范名（platform 别名归一后）',
   `buyer_name` varchar(500) DEFAULT NULL COMMENT '采购人/机构规范名（agency 别名归一后）',

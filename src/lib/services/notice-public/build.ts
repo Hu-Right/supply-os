@@ -310,9 +310,11 @@ export function buildPublicRow(
     amount.amount = null; amount.min = null; amount.max = null;
     amount.currency = null; amount.currencySource = "none";
   }
-  // DECIMAL(20,2) 上限；源值畸形/超长时整体置空，不能截断成假金额
-  const MAX_AMOUNT = 999999999999999999.99;
-  if (amount.amount != null && (!Number.isFinite(Number(amount.amount)) || Math.abs(Number(amount.amount)) > MAX_AMOUNT)) {
+  // DECIMAL(20,2) 上限；源值畸形/超长时整体置空，不能截断成假金额。
+  // 上界写作 1e18（DECIMAL 最大 1e18-0.01，≥1e18 即存不下）：1e18 在 double 里精确可表，
+  // 而 999999999999999999.99 这个字面量本身就会丢精度（no-loss-of-precision）。
+  const MAX_AMOUNT = 1e18;
+  if (amount.amount != null && (!Number.isFinite(Number(amount.amount)) || Math.abs(Number(amount.amount)) >= MAX_AMOUNT)) {
     amount.amount = null;
   }
   // 没有金额就不保留孤立币种；金额为空时币种必须为空
