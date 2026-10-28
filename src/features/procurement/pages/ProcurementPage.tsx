@@ -15,7 +15,7 @@ import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentUnlocks } from "../components/RecentUnlocks";
 import { FavoriteNotices } from "../components/FavoriteNotices";
 import type { NoticeItem } from "../types";
-import { applyNoticeIdParam, readNoticeIdParam } from "../lib/deepLink";
+import { applyNoticeIdParam } from "../lib/deepLink";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { LoadingOverlay } from "@/shared/ui";
 import { ListingStatsBar } from "../components/ListingStatsBar";
@@ -119,13 +119,18 @@ export default function ProcurementPage() {
   );
 
   // ── 详情深链同步：选中公告 ↔ URL ?notice_id（可分享/可刷新）──
-  // 点开写入、返回清除；与当前 URL 一致则 no-op，避免无谓 replace 与循环。
-  // 其余筛选/分页参数由 applyNoticeIdParam 原样保留。
+  // 仅在选中态「真实变化」时改 URL：点开(prev null→pk)写入、关闭(prev pk→null)清除；
+  // 初始 prev 与 pk 均 null 时不动，避免误清「到达型深链」里回跳尚未打开完的 ?notice_id。
+  // 其余筛选/分页参数由 applyNoticeIdParam 原样保留；与当前串一致则 no-op（防 replace 循环）。
+  const prevDeepLinkPkRef = useRef<number | null>(null);
   useEffect(() => {
     const pk = selectedNotice?.noticePk ?? null;
-    const cur = readNoticeIdParam(searchParams?.toString() ?? "");
-    if (pk === cur) return;
-    const qs = applyNoticeIdParam(searchParams?.toString() ?? "", pk);
+    const prev = prevDeepLinkPkRef.current;
+    if (pk === prev) return;
+    prevDeepLinkPkRef.current = pk;
+    const curStr = searchParams?.toString() ?? "";
+    const qs = applyNoticeIdParam(curStr, pk);
+    if (qs === curStr) return;
     router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
   }, [selectedNotice?.noticePk, searchParams, router]);
 
