@@ -104,8 +104,12 @@ const MAX_REPORT = 40;
  * 只挡形制不挡身份：“扫哪张表”由调用方自己拿主意（正名表的身份线在 DROP 侧单独卡）。
  */
 export function assertTableName(name: string): void {
-  if (!/^crm_[a-z0-9_]{1,60}$/.test(name)) {
-    throw new Error(`表名形制非法（只允许 crm_ 开头、小写下划线、长度 ≤60）：${name}`);
+  // 0973a970 去前缀后正名表为裸名；crm_ 前缀保留给影子/drill 表（只许出现在开头），
+  // 名字中段冒出 crm_ 一律形制非法（防新旧命名混淆的伪表名）。
+  const shapeLegal = /^[a-z][a-z0-9_]{0,59}$/.test(name);
+  const crmPlacementLegal = name.startsWith("crm_") || !name.includes("crm_");
+  if (!shapeLegal || !crmPlacementLegal) {
+    throw new Error(`表名形制非法（小写下划线、长度 ≤60；crm_ 前缀可选且只许在开头）：${name}`);
   }
 }
 

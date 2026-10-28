@@ -552,7 +552,8 @@ describe("反向守门 · 写路径不得触碰旧三表", () => {
     // 且只写这三张表
     const targets = new Set(
       calls
-        .map((c) => (c.sql.match(/(?:INTO|UPDATE|FROM) (crm_[a-z_]+)/) || [])[1])
+        // 0973a970 去 crm_ 前缀后按裸表名提取（正名表无前缀，影子表才带）
+        .map((c) => (c.sql.match(/(?:INTO|UPDATE|FROM) ([a-z][a-z0-9_]*)/) || [])[1])
         .filter(Boolean) as string[],
     );
     // 席位表已退役，写路径只剩订阅与额度两张表
