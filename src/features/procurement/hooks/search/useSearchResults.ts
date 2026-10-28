@@ -130,7 +130,8 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
         .then((json) => {
           if (requestSeq !== noticesRequestSeq.current) return;
           if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
-          const nextPageSize = Number(json.pageSize || json.page_size || NOTICE_PAGE_SIZE);
+          // 分页元数据只认 page_size（服务端已不双发 pageSize；同值别名就是 camel↔snake 桥）。
+          const nextPageSize = Number(json.page_size || NOTICE_PAGE_SIZE);
           variantRef.current = typeof json.variant === "string" ? json.variant : undefined;
           setItems(Array.isArray(json.items) ? json.items : []);
           setTotal(Number(json.total || 0));

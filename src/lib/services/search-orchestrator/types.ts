@@ -47,7 +47,12 @@ export interface UnifiedSearchParams {
   matchMode?: "all" | "any";
 }
 
-/** 统一搜索结果（与前端 NoticeResponse 对齐；本对象被路由直接当响应体透出，所以键名就是对外契约） */
+/**
+ * 统一搜索结果。2026-10-28 起不再是「隐式对外契约」：
+ * 路由已把 `{ ...result }` 改成显式列举信封（/api/notices/unified-search），在本类型上加字段
+ * 不会自动上网；要对外必须同时去路由信封里加一行。因此本类型的键名约束降为“内部统一”，
+ * 但 items 里的列名依旧不得直接上网（那些行要过 toNoticeListView，红线②）。
+ */
 export interface UnifiedSearchResult {
   items: Array<Record<string, unknown>>;
   total: number;

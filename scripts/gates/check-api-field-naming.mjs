@@ -163,8 +163,11 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // suppliers 两条已于 2026-10-28 移出登记集：探针早已实测无 snake，但 mapSupplierRow /
   // mapSupplierItems 不合约定名，静态面认不出已收口 → 改名 supplierViewOf / toSupplierListView。
   // industries/tree 已于同日升到 A（树族共用同一行→选项映射，见 A 段说明）。
+  // notices/unified-search 已于 2026-10-28 整条删除登记位：路由不再 `json({ ...result, … })`，
+  // 改成显式列举信封（键集合由 tests/unit/app/api/notices/unified-search-gate.test.ts 钉住），
+  // 盲区已不成立→登记必须跟着删（登记集只反映「真的看不见」的出口）；
+  // 同时撤掉 spread 漏出来的同值 pageSize，分页元数据只发 page_size。
   "src/app/api/learning/materials/[materialId]/content/route.ts#payload",
-  "src/app/api/notices/unified-search/route.ts#result",
   "src/app/api/suppliers/stats/route.ts#stats",
   // 【C 尚未实测】2026-10-28 已清零：原本剩下五条全部拿到进程内断言证据并升 A。
   // 下一批整块透出落进本组时，必须逐条写明「为什么拿不到证据」

@@ -25,7 +25,8 @@ const fixtures = {
   "/api/notices/stats": { active: 0, todayNew: 0, yesterdayNew: 0 },
   "/api/notices/countries": [],
   "/api/suppliers": { items: [], total: 0, page: 1, pageSize: 20 },
-  "/api/notices/unified-search": { items: [], total: 0, page: 1, pageSize: 20 },
+  // unified-search 的样例跟着真实信封走：分页元数据只有 page_size（服务端已不双发 pageSize）。
+  "/api/notices/unified-search": { items: [], total: 0, page: 1, page_size: 20 },
   "/api/user/enterprise": { code: 0, data: { bound: false, linkStatus: "none", enterprise: null } },
 };
 const mimeTypes = {

@@ -102,10 +102,15 @@ export interface NoticeAttachment {
 export interface NoticeResponse {
   items?: NoticeItem[];
   total?: number;
-  pageSize?: number;
-  /** 分页元数据：按命名红线② 口径允许 snake（与 pageSize 同值，服务端两个都发） */
+  page?: number;
+  /** 分页元数据：按命名红线② 口径允许 snake（与请求参数 page_size 同名同义）。
+   *  2026-10-28：路由信封改为显式列举后，spread 漏出来的同值 `pageSize` 已撤——
+   *  同一名值不双发，不做 camel↔snake 桥。 */
   page_size?: number;
+  /** 推荐模式 A/B 桶标记 */
   variant?: string;
+  /** 检索降级路径（服务侧诊断键，全 src 无读取方，留着供排障看响应） */
+  fallback?: "no_prefs" | "no_match" | "mysql_degraded" | "none";
   /**
    * 高级关键词因未授权而被退化为基础词。
    * 与 needsIndustrySelection 都是状态标志（非分页元数据），因此按红线② 用 camelCase。

@@ -117,12 +117,24 @@ export const GET = withRoute(async (req: NextRequest) => {
       .catch(() => undefined);
   }
 
+  // 信封显式列举（红线② 2026-10-28）：原来写的是 `{ ...result, … }`，编排器给 UnifiedSearchResult
+  // 加任何内部字段都会自动上网，静态面看不见、门禁也拦不住（整块透出的盲区）。
+  // 列举之后，新增对外键必须回到这里显式同意一次——这才是想要的摩擦方向。
+  // 顺带撤掉 spread 漏出来的 pageSize：对外分页元数据按口径只发 page_size（与请求参数同名），
+  // 同值双发等于自己造一条 camel↔snake 桥（已明令禁止）。
   return NextResponse.json({
-    ...result,
-    // 行→视图：列表项不再以notice_public 列名对外（红线②）。
-    // 信封上的分页元数据（page/pageSize/total）按口径保留 snake 别名（page_size）。
+    // 行→视图：列表项不再以 notice_public 列名对外（红线②）。
     items: toNoticeListView(result.items),
+    // total/page/page_size 是必填的分页元数据，直发不做条件展开：
+    // 前端读不到 page_size 时不报错，只静默退回默认页宽——这种退让不该由本层制造。
+    total: result.total,
+    page: result.page,
     page_size: result.pageSize,
+    // 诊断/状态键按红线② 用 camelCase。三者都由服务在真实分支上赋值，
+    // 用条件展开只是为了「没发生就不占键位」，不改变已有分支的键集合。
+    ...(result.variant ? { variant: result.variant } : {}),
+    ...(result.fallback ? { fallback: result.fallback } : {}),
+    ...(result.matchRelaxed ? { matchRelaxed: true as const } : {}),
     // 状态标志不是分页元数据，按命名红线② 用 camelCase。
     // 注：src 内目前无读取方——降级/需选行业这两件事还没接到前端 UI，属待补产品链路（非命名问题）。
     ...(advancedDegraded ? { advancedDegraded: true as const } : {}),

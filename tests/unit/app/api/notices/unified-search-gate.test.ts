@@ -5,6 +5,7 @@
  * 直接调用路由导出的 GET，走真实 withRoute + NextRequest + 纯函数解析链。
  * 验证：有权益透传（无标志）、无权益剥离降级（advancedDegraded: true）、
  * 匿名恒按 free 口径且不触权益查询、q 无高级语法时不发权益查询（前置短路）。
+ * 另一组钉住响应信封的键集合（命名红线②：路由已从 `json({ ...result })` 收为显式列举）。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -197,5 +198,61 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
     await GET(makeReq("http://localhost:3000/api/notices/unified-search?mode=recommended&page=1"));
     expect(mocks.logSearch).not.toHaveBeenCalled();
+  });
+});
+
+const SNAKE_KEY = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/;
+
+/**
+ * 信封键集合钉（2026-10-28 红线② B 组收敛）。
+ * 这一条登记项原先停在「路由整块透出，静态面看不见键」：`json({ ...result, … })` 把
+ * UnifiedSearchResult 的任何字段直接顶成响应键，所以服务改一次、wire 就静默改一次。
+ * 路由改成显式列举后，拿假编排器返回值就能把信封钉死——不需要真库、不需要打 Meili。
+ */
+describe("unified-search 响应信封（红线②：整块透出已收口）", () => {
+  beforeEach(() => {
+    mocks.extractUserKey.mockResolvedValue({ userId: 0, authViaJwt: false });
+  });
+
+  it("服务结果里的内部字段不得随信封上网；分页元数据只有 page_size，不留 camel 同值别名", async () => {
+    mocks.searchUnified.mockResolvedValue({
+      items: [], total: 7, page: 2, pageSize: 12,
+      variant: "B", fallback: "mysql_degraded", matchRelaxed: true,
+      // 编排器类型上随时可能多出来的内部字段（日志/耗时/策略）——示例两条，必须被信封挡住
+      digest: "mode=default|q=solar", meiliMs: 12,
+    });
+
+    const body = await (await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar&page=2"))).json();
+
+    expect(body).toEqual({
+      items: [], total: 7, page: 2, page_size: 12,
+      variant: "B", fallback: "mysql_degraded", matchRelaxed: true,
+    });
+    // spread 时代这里同时有 pageSize（服务字段名）与 page_size（元数据口径）——同值双名就是桥
+    expect(body).not.toHaveProperty("pageSize");
+    expect(Object.keys(body).filter((k) => SNAKE_KEY.test(k))).toEqual(["page_size"]);
+  });
+
+  it("未发生的状态不占键位：无 variant/fallback/matchRelaxed 时信封就只有四项", async () => {
+    mocks.searchUnified.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 10 });
+
+    const body = await (await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar"))).json();
+
+    expect([...Object.keys(body)].sort()).toEqual(["items", "page", "page_size", "total"]);
+  });
+
+  it("items 仍走行→视图：宽表列名在信封里已换成 camel 键（值原样）", async () => {
+    mocks.searchUnified.mockResolvedValue({
+      items: [{ notice_pk: 12345, notice_id: "UN-12345", title_zh: "标题", country_code: "CN", deadline_ts: 1700000000 }],
+      total: 1, page: 1, pageSize: 10, fallback: "none",
+    });
+
+    const body = await (await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar"))).json();
+
+    expect([...Object.keys(body.items[0])].sort()).toEqual([
+      "countryCode", "deadlineTs", "noticeId", "noticePk", "titleZh",
+    ]);
+    expect(body.items[0].noticePk).toBe(12345);
+    expect(Object.keys(body.items[0]).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
   });
 });
