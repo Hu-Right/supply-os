@@ -27,13 +27,13 @@ const MUST_EXCLUDE = [
 ];
 
 const MUST_KEEP = [
-  "crm_bid_notices",
-  "crm_bid_opportunities",
-  "crm_notice_search",
+  "bid_notices",
+  "bid_opportunities",
+  "notice_search",
   "supplier",
-  "crm_users",
-  "crm_plan_benefits",
-  "crm_upload_files",
+  "users",
+  "plan_benefits",
+  "upload_files",
 ];
 
 test("影子/备份/镜像表全部命中排除清单", () => {

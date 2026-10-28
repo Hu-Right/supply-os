@@ -66,7 +66,7 @@ describe("SupplierDirectoryRepo.listDirectoryPaginated — 检索条件拼装", 
     expect(where).toContain("s.company LIKE ?");
     expect(where).not.toContain("country_code");
     expect(where).not.toContain("business_type");
-    expect(where).not.toContain("crm_supplier_backbone_interests");
+    expect(where).not.toContain("supplier_backbone_interests");
   });
 
   it("用户输入永不拼进 SQL（无注入面）：注入串只作为绑定值出现", async () => {
@@ -77,21 +77,21 @@ describe("SupplierDirectoryRepo.listDirectoryPaginated — 检索条件拼装", 
 
   it("industryCodes 未提（undefined）→ 不产生任何行业条件", async () => {
     const { sql } = await call({ search: "LED" });
-    expect(sql).not.toContain("crm_supplier_industry_rel");
+    expect(sql).not.toContain("supplier_industry_rel");
     expect(sql).not.toContain("1 = 0");
   });
 
   it("industryCodes 提了但树上解不到（空数组）→ 1 = 0，不默默退回文本口径", async () => {
     const { sql } = await call({ industryCodes: [] });
     expect(sql).toContain("1 = 0");
-    expect(sql).not.toContain("crm_supplier_industry_rel");
+    expect(sql).not.toContain("supplier_industry_rel");
     // 非法码等同于解不到：不得把注入串当码前缀
     expect((await call({ industryCodes: ["UGT-I-03' OR 1=1--"] })).sql).toContain("1 = 0");
   });
 
   it("industryCodes 解到了 → 子树前缀 OR，多个候选就多条占位符", async () => {
     const { sql, values } = await call({ industryCodes: ["UGT-I-03", "UGT-I-33"] });
-    expect(sql).toContain("EXISTS (SELECT 1 FROM crm_supplier_industry_rel ir");
+    expect(sql).toContain("EXISTS (SELECT 1 FROM supplier_industry_rel ir");
     expect((sql.match(/ir\.industry_code LIKE \?/g) ?? []).length).toBe(2);
     expect(values).toContain("UGT-I-03%");
     expect(values).toContain("UGT-I-33%");

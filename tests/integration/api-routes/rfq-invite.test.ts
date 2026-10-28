@@ -83,7 +83,7 @@ describe("POST /api/rfq/[id]/invite", () => {
     expect(addInvites).not.toHaveBeenCalled();
   });
 
-  it("send + targeted → 命中供应商写入 crm_rfq_invites", async () => {
+  it("send + targeted → 命中供应商写入 rfq_invites", async () => {
     poolQuery.mockResolvedValueOnce(rfqRow({ visibility: "targeted" }));
     outreachPublishedRfq.mockResolvedValueOnce({
       published: true, recipients: 2, emailed: 2, skipped: 0, dryRun: false, strategy: "region",

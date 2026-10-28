@@ -1,8 +1,8 @@
 /**
  * GET /api/notices/[id]/preview 路由集成测试（mock 服务表读取）。
  *
- * @description 钉住 2026-10 preview 数据源迁移：从遗留基表 crm_bid_notices
- *              （findDetailPublished）改读服务宽表投影 crm_notice_public（findPublicDetail），
+ * @description 钉住 2026-10 preview 数据源迁移：从遗留基表 bid_notices
+ *              （findDetailPublished）改读服务宽表投影 notice_public（findPublicDetail），
  *              使锁定公告深链详情的机构名 / 国家码走归一 SSOT（如 country_code=LV、
  *              buyer_name 为归一全称），与 /detail、unified-search 同口径。
  *              本路由显式控制返回键（camelCase 有限预览）：登记集合含发布时间 publishedTs

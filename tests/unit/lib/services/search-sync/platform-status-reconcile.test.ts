@@ -35,15 +35,15 @@ describe("detectPlatformStatusDrift", () => {
     expect(query).toHaveBeenCalledTimes(1);
   });
 
-  it("SQL 形状：按 entry_source='platform' 走 idx_entry_source，且不出现 UPDATE/DELETE crm_notice_search", async () => {
+  it("SQL 形状：按 entry_source='platform' 走 idx_entry_source，且不出现 UPDATE/DELETE notice_search", async () => {
     const { pool, query } = makePool([[]]);
     await detectPlatformStatusDrift(pool);
     const sql = String(query.mock.calls[0][0]);
     expect(sql).toContain("n.entry_source = 'platform'");
     // 枚举值经 JSON.stringify 注入（双引号），断言容忍两种引号风格
     expect(sql).toMatch(/IFNULL\(n\.rfq_status,\s*''\)\s*=\s*["']published["']/);
-    expect(sql).not.toMatch(/UPDATE\s+crm_notice_search/i);
-    expect(sql).not.toMatch(/DELETE\s+FROM\s+crm_notice_search/i);
+    expect(sql).not.toMatch(/UPDATE\s+notice_search/i);
+    expect(sql).not.toMatch(/DELETE\s+FROM\s+notice_search/i);
   });
 
   it("无漂移 → 两个空数组", async () => {

@@ -43,7 +43,7 @@ function fixture(entries) {
  * 注意 ai_products 必须只留在商机表那侧，否则它就不算退役，NS2 不误伤的用例会变成空跑。 */
 const BASELINE_DROPPED = [
   "-- fixture",
-  "CREATE TABLE `crm_bid_notices` (",
+  "CREATE TABLE `bid_notices` (",
   "  `id` int NOT NULL AUTO_INCREMENT,",
   "  `title` varchar(500) DEFAULT NULL,",
   "  `is_converted` tinyint(1) NOT NULL DEFAULT '0',",
@@ -51,7 +51,7 @@ const BASELINE_DROPPED = [
   "  `category_l1_id` int unsigned DEFAULT NULL,",
   ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='招标公告表。';",
   "",
-  "CREATE TABLE `crm_bid_opportunities` (",
+  "CREATE TABLE `bid_opportunities` (",
   "  `id` int unsigned NOT NULL AUTO_INCREMENT,",
   "  `ai_products` json DEFAULT NULL,",
   ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商机表（人工拆单）';",
@@ -62,23 +62,23 @@ const BASELINE_DROPPED = [
  * 与 BASELINE_DROPPED 的唯一差别就是少 `is_qualified` 一行。 */
 const BASELINE_QUALIFIED_GONE = BASELINE_DROPPED.replace("  `is_qualified` tinyint(1) DEFAULT '0',\n", "");
 
-/** 判据①的真实命中形制：同一条字面量里既有 crm_bid_notices（子查询）又有 o.is_qualified（商机列）。
+/** 判据①的真实命中形制：同一条字面量里既有 bid_notices（子查询）又有 o.is_qualified（商机列）。
  * 这是 AI 链路逐行看过的误报形态，两条豁免登记的就是它。 */
 const OPP_SIDE_SQL = [
-  "export const q = `SELECT o.eligibility FROM crm_bid_opportunities o",
-  "  WHERE o.source_notice_id = (SELECT notice_id FROM crm_bid_notices WHERE id = ? LIMIT 1)",
+  "export const q = `SELECT o.eligibility FROM bid_opportunities o",
+  "  WHERE o.source_notice_id = (SELECT notice_id FROM bid_notices WHERE id = ? LIMIT 1)",
   "  AND (o.is_qualified = 1 OR o.status = 1)`;",
 ].join("\n");
 
 /** v2 服务表构建器里 is_opportunity 的 CASE 表达式：同一条字面量既有
- * `FROM crm_bid_notices n` 又有 `crm_bid_opportunities o` 子查询里的 `o.is_qualified`。
+ * `FROM bid_notices n` 又有 `bid_opportunities o` 子查询里的 `o.is_qualified`。
  * 与 OPP_SIDE_SQL 同一误报形制，取的是商机侧列，本表那份零读取。 */
 const V2_OPP_SIDE_SQL = [
   "export const rows = await q(`SELECT n.id,",
-  "  CASE WHEN EXISTS (SELECT 1 FROM crm_bid_opportunities o",
+  "  CASE WHEN EXISTS (SELECT 1 FROM bid_opportunities o",
   "    WHERE (o.id = n.converted_opp_id OR o.source_notice_id = n.notice_id)",
   "      AND (o.is_qualified = 1 OR o.status = 1 OR o.audit_status = 1)) THEN 1 ELSE 0 END AS is_opportunity",
-  "  FROM crm_bid_notices n WHERE n.id IN (?)`);",
+  "  FROM bid_notices n WHERE n.id IN (?)`);",
 ].join("\n");
 
 test("已登记豁免的文件：门禁绿，且成功行必把豁免条数说出来（豁免不得隐身）", () => {
@@ -91,16 +91,17 @@ test("已登记豁免的文件：门禁绿，且成功行必把豁免条数说�
   assert.match(r.out, /人工豁免 1 处（is_qualified）/, "豁免生效了却没报告，等于静默放宽判据");
 });
 
-test("已登记的 v2 服务表构建器：商机侧误报走豁免，门禁绿且报告豁免条数", () => {
-  // 复现 v2 里 is_opportunity CASE 表达式的误报形制：scripts/ops/ 下的构建器
-  // 同一条字面量提及 crm_bid_notices 与 o.is_qualified（商机侧），已逐行核过非本表读写点。
+test("已登记的服务表构建器（notice-public/build）：商机侧误报走豁免，门禁绿且报告豁免条数", () => {
+  // 复现服务表构建器里 is_opportunity CASE 表达式的误报形制：同一条字面量提及
+  // bid_notices 与 o.is_qualified（商机侧），已逐行核过非本表读写点。
+  // 2026-10-27 管道翻转：构建器迁入 src/lib/services/notice-public/build.ts，豁免随唯一写入者迁址。
   const root = fixture({
     "db/schema/baseline.sql": BASELINE_QUALIFIED_GONE,
-    "scripts/ops/notice-public-v2.ts": V2_OPP_SIDE_SQL,
+    "src/lib/services/notice-public/build.ts": V2_OPP_SIDE_SQL,
   });
   const r = run({ NOTICES_SLIM_SCAN_ROOT: root, NOTICES_SLIM_BASELINE: join(root, "db/schema/baseline.sql") });
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /人工豁免 1 处（is_qualified）/, "v2 豁免生效了却没报告，等于静默放宽判据");
+  assert.match(r.out, /人工豁免 1 处（is_qualified）/, "构建器豁免生效了却没报告，等于静默放宽判据");
 });
 
 test("豁免不得连带放行：同样形态出现在未登记的文件里必须照旧拦", () => {
@@ -126,7 +127,7 @@ test("NS1 破坏性：本表 SQL 重新 SELECT 已退役列必须报错（列已
     "db/schema/baseline.sql": BASELINE_DROPPED,
     "src/lib/repos/notices/notice-detail.repo.ts": [
       "export const q = `SELECT id, title, thresholds, response_count",
-      "  FROM crm_bid_notices WHERE id = ? LIMIT 1`;",
+      "  FROM bid_notices WHERE id = ? LIMIT 1`;",
     ].join("\n"),
   });
   const r = run({ NOTICES_SLIM_SCAN_ROOT: root, NOTICES_SLIM_BASELINE: join(root, "db/schema/baseline.sql") });
@@ -177,7 +178,7 @@ test("并行轮次摘除的列同样不得复活（且在场列不被误判为�
   const root = fixture({
     "db/schema/baseline.sql": BASELINE_DROPPED,
     "src/lib/services/search-sync/wide-row-builder.ts": [
-      "export const noticesSql = `SELECT id FROM crm_bid_notices`;",
+      "export const noticesSql = `SELECT id FROM bid_notices`;",
       "export const wideSel = `n.category_l2_id, n.category_l1_id`;",
     ].join("\n"),
   });

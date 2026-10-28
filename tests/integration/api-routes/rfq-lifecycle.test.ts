@@ -3,7 +3,7 @@
  *
  * @description 覆盖 RFQ 需求发布全生命周期的服务端规则：
  *              - create：字段校验边界（标题/描述/截止时间/联系人/邮箱）、
- *                写入 crm_bid_notices（notice_type='RFQ', entry_source='platform'）、
+ *                写入 bid_notices（notice_type='RFQ', entry_source='platform'）、
  *                reference/notice_id 回填 OSRFQ-{id 12位补零}
  *              - submit：draft/rejected→pending_review（published 由库外审核写，客户端不可自发布）、幂等放行、
  *                closed 拒绝、非创建者 403、不存在 404
@@ -147,7 +147,7 @@ describe("POST /api/rfq/create — 写入语义", () => {
     expect(body.id).toBe(501);
 
     const insertSql = String(poolQuery.mock.calls[0][0]);
-    expect(insertSql).toContain("INSERT INTO crm_bid_notices");
+    expect(insertSql).toContain("INSERT INTO bid_notices");
     expect(insertSql).toContain("'RFQ'");
     expect(insertSql).toContain("'platform'");
     // deadline 写基色列 deadline_ts（STORED 生成列 deadline_sec 不可写）

@@ -105,7 +105,7 @@ describe("formatItems", () => {
   });
 
   it("降级多表 JOIN 行（只带 id）→ 补齐 notice_pk，供 NoticeList key 使用", () => {
-    // crm_bid_notices.id 即 notice_pk（三表同值，见 baseline.sql）：宽表未就绪的降级路径
+    // bid_notices.id 即 notice_pk（三表同值，见 baseline.sql）：宽表未就绪的降级路径
     // 与推荐路径按主表 id 投影，行里没有 notice_pk ⇒ formatItems 统一补齐，
     // 否则 NoticeList 的 key={item.notice_pk} 拿到 undefined 触发 React 缺失 key 警告
     const rows = [{ id: 123, notice_id: "N123", title: "T" }] as never;

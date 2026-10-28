@@ -38,7 +38,7 @@ const TREE = [
 function fakePool(opts: { tree?: typeof TREE; failTree?: boolean } = {}) {
   const query = vi.fn(async (sql: string) => {
     const s = String(sql);
-    if (/FROM crm_commodity_backbone WHERE status = 1/.test(s)) {
+    if (/FROM commodity_backbone WHERE status = 1/.test(s)) {
       if (opts.failTree) throw new Error("db down");
       return [opts.tree ?? TREE];
     }

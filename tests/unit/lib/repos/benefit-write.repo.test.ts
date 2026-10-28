@@ -67,7 +67,7 @@ describe("insertSubscription · 订阅事实准入守卫", () => {
 
     expect(id).toBe(101);
     expect(calls).toHaveLength(1);
-    expect(calls[0].sql).toContain("INSERT INTO crm_plan_subscriptions");
+    expect(calls[0].sql).toContain("INSERT INTO plan_subscriptions");
     for (const col of [
       "owner_user_id",
       "plan_code",
@@ -171,7 +171,7 @@ describe("grantQuotaPoolsForPlan · 按矩阵发池", () => {
     expect(calls).toHaveLength(2);
     expect(calls[0].params).toContain(-1);
     expect(calls[1].params).toContain(0); // 0 是"明确无额度"的显式账，照常建行
-    expect(calls.every((c) => c.sql.includes("crm_benefit_quotas"))).toBe(true);
+    expect(calls.every((c) => c.sql.includes("benefit_quotas"))).toBe(true);
   });
 
   it("非 quota 行不发池：即使矩阵里有格子也不能越权开额度", async () => {
@@ -255,7 +255,7 @@ describe("findAndLockCurrentPool / consumeLockedPool · 扣减持复", () => {
 
   it("非 active 池不扣（exhausted / frozen 一律拒），且不发 SQL", async () => {
     const repo = new BenefitWriteRepo();
-    // status 取值域已收窄为三值：订阅过期由 crm_plan_subscriptions 表达，池侧不存在 expired
+    // status 取值域已收窄为三值：订阅过期由 plan_subscriptions 表达，池侧不存在 expired
     for (const st of ["exhausted", "frozen"] as const) {
       const { db, calls } = makeDb();
       expect(await repo.consumeLockedPool(db, pool({ status: st }))).toBe("denied");
@@ -293,9 +293,9 @@ describe("expireOverdueSubscriptions / freezePoolsOfSubscription · 到期与冻
     expect(await repo.expireOverdueSubscriptions(db)).toEqual([3, 8]);
 
     expect(calls).toHaveLength(3);
-    expect(calls[0].sql).toContain("SELECT id FROM crm_plan_subscriptions");
+    expect(calls[0].sql).toContain("SELECT id FROM plan_subscriptions");
     expect(calls[0].sql).toContain("FOR UPDATE");
-    expect(calls[1].sql).toContain("UPDATE crm_benefit_quotas");
+    expect(calls[1].sql).toContain("UPDATE benefit_quotas");
     expect(calls[1].sql).toContain("status = 'frozen'");
     expect(calls[2].sql).toContain("status = 'expired'");
     expect(calls[1].params).toEqual([3, 8]);
@@ -364,11 +364,11 @@ describe("expireOverdueSubscriptions · 事务边界（缺陷 1 复现）", () =
     const joined = connCalls.join(" ; ");
     expect(joined).toMatch(/START TRANSACTION|BEGIN/);
     expect(joined).toMatch(/COMMIT/);
-    expect(connCalls.filter((s) => /UPDATE crm_benefit_quotas/.test(s))).toHaveLength(1);
-    expect(connCalls.filter((s) => /UPDATE crm_plan_subscriptions/.test(s))).toHaveLength(1);
+    expect(connCalls.filter((s) => /UPDATE benefit_quotas/.test(s))).toHaveLength(1);
+    expect(connCalls.filter((s) => /UPDATE plan_subscriptions/.test(s))).toHaveLength(1);
     // 顺序：开事务 → 查 id → 冻池 → 置 expired → 提交
-    expect(connCalls.findIndex((s) => /UPDATE crm_benefit_quotas/.test(s))).toBeLessThan(
-      connCalls.findIndex((s) => /UPDATE crm_plan_subscriptions/.test(s)),
+    expect(connCalls.findIndex((s) => /UPDATE benefit_quotas/.test(s))).toBeLessThan(
+      connCalls.findIndex((s) => /UPDATE plan_subscriptions/.test(s)),
     );
     expect(connCalls.some((s) => /RELEASE|ROLLBACK/.test(s))).toBe(false);
     // 自开的事务必须把连接归还连接池
@@ -385,7 +385,7 @@ describe("expireOverdueSubscriptions · 事务边界（缺陷 1 复现）", () =
   it("中途报错必须回滚并抛出，不能留下「池已冻、订阅仍 active」的半状态", async () => {
     const repo = new BenefitWriteRepo();
     // 冻池成功、下一条置 expired 失败
-    const { pool, connCalls } = makePoolLike({ rows: [{ id: 3 }], failOn: /UPDATE crm_plan_subscriptions/ });
+    const { pool, connCalls } = makePoolLike({ rows: [{ id: 3 }], failOn: /UPDATE plan_subscriptions/ });
     await expect(repo.expireOverdueSubscriptions(pool)).rejects.toThrow("模拟到期更新失败");
     expect(connCalls.some((s) => /ROLLBACK/.test(s))).toBe(true);
     expect(connCalls.some((s) => /COMMIT/.test(s))).toBe(false);
@@ -436,7 +436,7 @@ describe("openQuotaPool · 代次起点确定性（缺陷 7 复现）", () => {
     const { db, calls } = makeDb();
     await repo.openQuotaPool(db, { subscriptionId: 9, userId: 42, benefitCode: "notice_view", quotaTotal: 100 });
     const sql = calls[0].sql;
-    expect(sql).toContain("SELECT s.started_at FROM crm_plan_subscriptions s WHERE s.id = ?");
+    expect(sql).toContain("SELECT s.started_at FROM plan_subscriptions s WHERE s.id = ?");
     expect(sql).toContain("'1970-01-01 00:00:00'");
     // 子查询用的 subscription_id 必须真的绑上：漏绑就等于把所有池子锁到同一个哨兵上
     expect(calls[0].params[5]).toBe(9);
@@ -498,8 +498,8 @@ describe("refundSubscription · 退款原子性（缺陷 6 复现）", () => {
     expect(r.frozenPools).toBe(1);
     // 写语句不得走 pool 直连（否则两步各自提交，存在退完款还能扣的窗口）
     expect(poolCalls.filter((s) => /UPDATE/i.test(s))).toEqual([]);
-    const iFreeze = connCalls.findIndex((s) => /UPDATE crm_benefit_quotas/.test(s));
-    const iRefund = connCalls.findIndex((s) => /UPDATE crm_plan_subscriptions.*refunded/.test(s));
+    const iFreeze = connCalls.findIndex((s) => /UPDATE benefit_quotas/.test(s));
+    const iRefund = connCalls.findIndex((s) => /UPDATE plan_subscriptions.*refunded/.test(s));
     expect(iFreeze).toBeGreaterThanOrEqual(0);
     expect(iRefund).toBeGreaterThanOrEqual(0);
     expect(iFreeze).toBeLessThan(iRefund);
@@ -557,8 +557,8 @@ describe("反向守门 · 写路径不得触碰旧三表", () => {
     );
     // 席位表已退役，写路径只剩订阅与额度两张表
     expect([...targets].sort()).toEqual([
-      "crm_benefit_quotas",
-      "crm_plan_subscriptions",
+      "benefit_quotas",
+      "plan_subscriptions",
     ]);
   });
 });
@@ -571,7 +571,7 @@ describe("findSubscriptionIdBySourceOrder · 逆向/对账锚点查询", () => {
 
     expect(id).toBe(101);
     expect(calls).toHaveLength(1);
-    expect(calls[0].sql).toContain("FROM crm_plan_subscriptions");
+    expect(calls[0].sql).toContain("FROM plan_subscriptions");
     expect(calls[0].sql).toContain("source_order_no = ?");
     expect(calls[0].sql).toContain("FOR UPDATE");
     expect(calls[0].params).toEqual(["ALI-20260923-0001"]);

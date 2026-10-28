@@ -19,7 +19,7 @@ describe("pushNotification", () => {
     });
     expect(id).toBe(55);
     const [sql, params] = q.mock.calls[0];
-    expect(String(sql)).toContain("INSERT INTO crm_notifications");
+    expect(String(sql)).toContain("INSERT INTO notifications");
     expect(params).toEqual([6, "rfq_quoted", "新报价", "100 CNY", "/rfq/5", 777]);
   });
 });

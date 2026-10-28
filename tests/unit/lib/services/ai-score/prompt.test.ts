@@ -47,7 +47,7 @@ describe("buildScoreUserPrompt 画像组装", () => {
     eligibility: "ISO9001", technical_hurdles: "", supplier_conditions: "",
   };
 
-  /** 画像：基本信息 + v2 诊断列（列名与 crm_supplier_diagnosis 一致） */
+  /** 画像：基本信息 + v2 诊断列（列名与 supplier_diagnosis 一致） */
   const supplier = {
     company: "工厂A", industry: "电子", products: "LED", certification: "ISO9001",
     country: "CN", city: "深圳", type: "工厂", registered_capital: "500万",

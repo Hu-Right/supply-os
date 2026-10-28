@@ -21,14 +21,14 @@ const base = {
 
 describe("buildWideRow 多语言回填", () => {
   it("same-lang-passthrough 且无译文描述 → 回填原文描述（不再恒空）", () => {
-    const row = buildWideRow({ ...base, sync_src_hash: "h" }, new Map(), undefined, {
+    const row = buildWideRow({ ...base, sync_src_hash: "h" }, undefined, {
       zh: { title: "采购光伏组件 10MW", description: "", model: TRANSLATION_MODEL.SAME_LANG },
     });
     expect(row.description_zh).toContain("详细描述");
   });
 
   it("非直通的空描述不得被原文顶掉（保持空，避免把别的语言内容当译文）", () => {
-    const row = buildWideRow({ ...base }, new Map(), undefined, {
+    const row = buildWideRow({ ...base }, undefined, {
       fr: { title: "Titre", description: "", model: "deeplex" },
     });
     expect(row.description_fr).toBe("");
@@ -36,7 +36,7 @@ describe("buildWideRow 多语言回填", () => {
   });
 
   it("正常译文存在时优先用译文，不被原文覆盖", () => {
-    const row = buildWideRow({ ...base }, new Map(), undefined, {
+    const row = buildWideRow({ ...base }, undefined, {
       en: { title: "Solar PV", description: "English body", model: "dealy" },
     });
     expect(row.title_en).toBe("Solar PV");
@@ -44,7 +44,7 @@ describe("buildWideRow 多语言回填", () => {
   });
 
   it("精选公告中文描述走 description_cn（优先级 1，人工拆解结果不被机器译文顶掉）", () => {
-    const row = buildWideRow({ ...base, is_featured: 1, description_cn: "人工拆解的中文摘要" }, new Map(), undefined, {
+    const row = buildWideRow({ ...base, is_featured: 1, description_cn: "人工拆解的中文摘要" }, undefined, {
       zh: { title: "中文标题", description: "机器译文描述", model: "dealy" },
     });
     expect(row.description_zh).toBe("人工拆解的中文摘要");
@@ -65,7 +65,7 @@ describe("buildWideRow 多语言回填", () => {
 
   it("所有语言描述列按 WIDE_LIMITS.description、标题按 title 截断", () => {
     const long = "x".repeat(WIDE_LIMITS.description + 500);
-    const row = buildWideRow({ ...base, description: long }, new Map(), undefined, {
+    const row = buildWideRow({ ...base, description: long }, undefined, {
       fr: { title: "y".repeat(WIDE_LIMITS.title + 10), description: long, model: "dealy" },
     });
     expect(row.description_fr).toHaveLength(WIDE_LIMITS.description);

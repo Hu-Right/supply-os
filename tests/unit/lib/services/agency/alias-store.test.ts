@@ -33,7 +33,7 @@ describe("normalizeAliasKey", () => {
 describe("loadAgencyAliasSnapshot", () => {
   it("成功构建 alias→{canonical,i18n}，key 归一，name_i18n JSON 解析", async () => {
     const { pool } = makePool([[
-      /crm_agency_aliases/, [[
+      /agency_aliases/, [[
         { canonical: "UNDP", alias: "  united nations development programme ", name_i18n: '{"zh":"联合国开发计划署"}' },
         { canonical: "WHO", alias: "who", name_i18n: null },
       ]],
@@ -46,7 +46,7 @@ describe("loadAgencyAliasSnapshot", () => {
   });
 
   it("第二次调用命中缓存，不再查库", async () => {
-    const { pool, query } = makePool([[/crm_agency_aliases/, [[{ canonical: "X", alias: "y", name_i18n: null }]]]]);
+    const { pool, query } = makePool([[/agency_aliases/, [[{ canonical: "X", alias: "y", name_i18n: null }]]]]);
     await loadAgencyAliasSnapshot(pool);
     const before = query.mock.calls.length;
     await loadAgencyAliasSnapshot(pool);
@@ -56,7 +56,7 @@ describe("loadAgencyAliasSnapshot", () => {
   it("查库失败且无缓存 → 返回空快照 + 告警（不抛）", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      const { pool } = makePool([], /crm_agency_aliases/);
+      const { pool } = makePool([], /agency_aliases/);
       const snap = await loadAgencyAliasSnapshot(pool);
       expect(snap.byAlias.size).toBe(0);
       expect(warn).toHaveBeenCalled();
@@ -67,7 +67,7 @@ describe("loadAgencyAliasSnapshot", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const { pool } = makePool([[
-        /crm_agency_aliases/, [[
+        /agency_aliases/, [[
           { canonical: "BAD", alias: "bad", name_i18n: "{不是合法json" },
           { canonical: "GOOD", alias: "good", name_i18n: '{"zh":"好"}' },
         ]],
@@ -81,7 +81,7 @@ describe("loadAgencyAliasSnapshot", () => {
 
   it("canonical 为空的行被跳过；invalidate 生效", async () => {
     const { pool } = makePool([[
-      /crm_agency_aliases/, [[
+      /agency_aliases/, [[
         { canonical: "", alias: "noop", name_i18n: null },
         { canonical: "K", alias: "k", name_i18n: null },
       ]],
@@ -91,7 +91,7 @@ describe("loadAgencyAliasSnapshot", () => {
     expect(snap.byAlias.has("K")).toBe(true);
     invalidateAgencyAliasCache();
     // 失效后再次加载应重新查库
-    const { pool: p2, query } = makePool([[/crm_agency_aliases/, [[{ canonical: "Z", alias: "z", name_i18n: null }]]]]);
+    const { pool: p2, query } = makePool([[/agency_aliases/, [[{ canonical: "Z", alias: "z", name_i18n: null }]]]]);
     const snap2 = await loadAgencyAliasSnapshot(p2);
     expect(query).toHaveBeenCalledTimes(1);
     expect(snap2.byAlias.get("Z")?.canonical).toBe("Z");

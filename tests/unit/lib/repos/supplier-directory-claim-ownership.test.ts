@@ -19,9 +19,9 @@ describe("SupplierDirectoryRepo.getClaimOwnership", () => {
   beforeEach(() => {
     repo = new SupplierDirectoryRepo(mockPool);
     mockQuery.mockReset();
-    // 第一次 query 命中 crm_users 聚合，第二次命中 supplier.claim_status
+    // 第一次 query 命中 users 聚合，第二次命中 supplier.claim_status
     mockQuery.mockImplementation(async (sql: unknown) => {
-      if (String(sql).includes("crm_users")) return [[{ others: 0, mine: 1 }]];
+      if (String(sql).includes("users")) return [[{ others: 0, mine: 1 }]];
       return [[{ claim_status: null }]];
     });
   });
@@ -34,7 +34,7 @@ describe("SupplierDirectoryRepo.getClaimOwnership", () => {
 
   it("他人已绑定：boundByOther=true", async () => {
     mockQuery.mockImplementation(async (sql: unknown) => {
-      if (String(sql).includes("crm_users")) return [[{ others: 1, mine: 0 }]];
+      if (String(sql).includes("users")) return [[{ others: 1, mine: 0 }]];
       return [[{ claim_status: null }]];
     });
     expect(await repo.getClaimOwnership(18, 42)).toEqual({
@@ -44,7 +44,7 @@ describe("SupplierDirectoryRepo.getClaimOwnership", () => {
 
   it("无绑定但 claim_status=pending：claimPending=true", async () => {
     mockQuery.mockImplementation(async (sql: unknown) => {
-      if (String(sql).includes("crm_users")) return [[{ others: 0, mine: 0 }]];
+      if (String(sql).includes("users")) return [[{ others: 0, mine: 0 }]];
       return [[{ claim_status: "pending" }]];
     });
     expect(await repo.getClaimOwnership(18, 42)).toEqual({
@@ -54,7 +54,7 @@ describe("SupplierDirectoryRepo.getClaimOwnership", () => {
 
   it("绑定行 SUM 空集（NULL）不误判为已绑定", async () => {
     mockQuery.mockImplementation(async (sql: unknown) => {
-      if (String(sql).includes("crm_users")) return [[{ others: null, mine: null }]];
+      if (String(sql).includes("users")) return [[{ others: null, mine: null }]];
       return [[{ claim_status: null }]];
     });
     expect(await repo.getClaimOwnership(18, 42)).toEqual({
@@ -64,7 +64,7 @@ describe("SupplierDirectoryRepo.getClaimOwnership", () => {
 
   it("isClaimed 以 uid=0 复用同一查询：任意绑定都算已认领", async () => {
     mockQuery.mockImplementation(async (sql: unknown) => {
-      if (String(sql).includes("crm_users")) return [[{ others: 1, mine: 0 }]];
+      if (String(sql).includes("users")) return [[{ others: 1, mine: 0 }]];
       return [[{ claim_status: null }]];
     });
     expect(await repo.isClaimed(18)).toBe(true);

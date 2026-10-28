@@ -52,7 +52,7 @@ describe("purgeNoticeSearch", () => {
     const { pool, query } = makePool();
     expect(await purgeNoticeSearch(pool, [42])).toBe(1);
     expect(query).toHaveBeenCalledWith(
-      expect.stringContaining("DELETE FROM crm_notice_search WHERE id IN (?)"),
+      expect.stringContaining("DELETE FROM notice_search WHERE id IN (?)"),
       [42],
     );
     // 桥表跟删：宽表行没了而节点码还挂着 = 从倒排方向能查出一条不存在的公告

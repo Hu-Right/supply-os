@@ -21,7 +21,7 @@ describe("onAgencyAliasesChanged", () => {
     expect(invalidateAgencyAliasCache).toHaveBeenCalled();
     expect(clearAgenciesCache).toHaveBeenCalled();
     expect(invalidateSearchCache).toHaveBeenCalled();
-    // fullBackfill 必须早于 requestIndexRebuild（否则 Meili 读到旧 agency_std）
+    // fullBackfill 必须早于 requestIndexRebuild（否则 Meili 读到旧 buyer_name）
     expect(vi.mocked(fullBackfill).mock.invocationCallOrder[0])
       .toBeLessThan(vi.mocked(requestIndexRebuild).mock.invocationCallOrder[0]);
   });

@@ -16,7 +16,7 @@ describe("ServiceOrdersRepo", () => {
     });
     expect(id).toBe(7);
     const [sql, params] = query.mock.calls[0] as [string, unknown[]];
-    expect(sql).toContain("INSERT INTO crm_service_orders");
+    expect(sql).toContain("INSERT INTO service_orders");
     expect(sql).toContain("'pending'");
     expect(params).toContain("SV20260923A1");
     expect(params).toContain("self");

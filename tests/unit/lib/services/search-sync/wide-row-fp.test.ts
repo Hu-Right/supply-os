@@ -83,12 +83,12 @@ describe("指纹同快照", () => {
   });
 
   it("buildWideRow 透传指纹，不重新计算", () => {
-    const row = buildWideRow(rawPlatform, new Map());
+    const row = buildWideRow(rawPlatform);
     expect(row.sync_src_hash).toBe("abc123");
   });
 
   it("指纹缺失时落空串（不抛错，交由下轮对账重建）", () => {
-    const row = buildWideRow({ id: 2, notice_id: "N2", title: "T" }, new Map());
+    const row = buildWideRow({ id: 2, notice_id: "N2", title: "T" });
     expect(row.sync_src_hash).toBe("");
   });
 
@@ -96,7 +96,7 @@ describe("指纹同快照", () => {
     // 入参带类型标注，否则 vi.fn 推为零参签名，无法取到 mock.calls 里的 sql/params
     const query = vi.fn(async (_sql: string, _values?: unknown[]) => [{ affectedRows: 1 }]);
     const pool = { query } as unknown as Pool;
-    await upsertWideRows(pool, [buildWideRow(rawPlatform, new Map())], true);
+    await upsertWideRows(pool, [buildWideRow(rawPlatform)], true);
     const sql = String(query.mock.calls[0][0]);
     const params = query.mock.calls[0][1] as unknown[];
     expect(sql).toContain(WIDE_FP_COLUMN);
@@ -109,7 +109,7 @@ describe("指纹同快照", () => {
   it("upsertWideRows(withFp=false) 不写指纹列，且列数与参数仍对齐", async () => {
     const query = vi.fn(async (_sql: string, _values?: unknown[]) => [{ affectedRows: 1 }]);
     const pool = { query } as unknown as Pool;
-    await upsertWideRows(pool, [buildWideRow(rawPlatform, new Map())], false);
+    await upsertWideRows(pool, [buildWideRow(rawPlatform)], false);
     const sql = String(query.mock.calls[0][0]);
     const params = query.mock.calls[0][1] as unknown[];
     expect(sql).not.toContain(WIDE_FP_COLUMN);
@@ -124,7 +124,7 @@ describe("指纹同快照", () => {
     upsertNoticeNodes.mockClear();
     const query = vi.fn(async (_sql: string, _values?: unknown[]) => [{ affectedRows: 1 }]);
     const pool = { query } as unknown as Pool;
-    await upsertWideRows(pool, [buildWideRow(rawPlatform, new Map())], true);
+    await upsertWideRows(pool, [buildWideRow(rawPlatform)], true);
     expect(upsertNoticeNodes).toHaveBeenCalledTimes(1);
     // 无码公告传下来的是 null，不是空串：桥表对「没码」的语义必须是不留行
     expect(upsertNoticeNodes.mock.calls[0][1]).toEqual([{ id: 1, backbone_path: null }]);

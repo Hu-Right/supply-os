@@ -45,7 +45,7 @@ function mockPoolForGeneration() {
     query: vi.fn()
       .mockResolvedValueOnce([[{ id: 1, title: "T", notice_type: "RFQ", country: "CN", deadline: 0, estimated_value: 0 }]]) // notice base
       .mockResolvedValueOnce([[{ eligibility: "", technical_hurdles: "", supplier_conditions: "" }]]) // opp
-      .mockResolvedValueOnce([[{ supplier_id: 10 }]]) // crm_users
+      .mockResolvedValueOnce([[{ supplier_id: 10 }]]) // users
       .mockResolvedValueOnce([[{ company: "C", industry: "I", products: "P", certification: "", country: "CN", city: "", type: "", registered_capital: "", established_at: "", intro: "", employee_count: "", export_scale: "", service_countries: "", overseas_companies: "", ungm_status: "", english_team: "", payment_terms: "", bid_willingness: "" }]]), // supplier
   } as any;
 }
@@ -189,7 +189,7 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
 });
 
 describe("getOrGenerateAiScore 画像缺失边界", () => {
-  it("crm_users 行缺失 → supplier_id 兜底 0，无评估对象报 SUPPLIER_PROFILE_REQUIRED", async () => {
+  it("users 行缺失 → supplier_id 兜底 0，无评估对象报 SUPPLIER_PROFILE_REQUIRED", async () => {
     findScore.mockResolvedValue(null);
     const pool = {
       query: vi.fn()

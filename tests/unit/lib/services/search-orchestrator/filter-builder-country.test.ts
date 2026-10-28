@@ -19,7 +19,7 @@ const ALIAS_ROWS = [
 ];
 function fakePool(): Pool {
   return {
-    query: async (sql: string) => (String(sql).includes("crm_country_aliases") ? [ALIAS_ROWS] : [[]]),
+    query: async (sql: string) => (String(sql).includes("country_aliases") ? [ALIAS_ROWS] : [[]]),
   } as unknown as Pool;
 }
 
@@ -31,7 +31,7 @@ describe("buildFilterPlan 国家筛选", () => {
     expect(plan.conflictEmpty).toBe(false);
     expect(plan.meiliFilters).toContain('country_codes = "BR"');
     expect(plan.mysqlWhere).toContain(
-      "EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.country_codes))",
+      "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.country_codes))",
     );
     expect(plan.mysqlParams).toContain("BR");
   });

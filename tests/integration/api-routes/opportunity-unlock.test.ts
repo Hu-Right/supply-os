@@ -134,7 +134,7 @@ describe("POST /api/opportunities/[id]/unlock", () => {
     expect(body.message).toContain("免费");
     // 事务内只允许幂等复查的 SELECT，不得出现解锁流水的 INSERT
     const insertCalled = connQuery.mock.calls.some(([sql]: string[]) =>
-      String(sql).includes("INSERT INTO crm_opportunity_unlocks"));
+      String(sql).includes("INSERT INTO opportunity_unlocks"));
     expect(insertCalled).toBe(false);
   });
 
@@ -146,8 +146,8 @@ describe("POST /api/opportunities/[id]/unlock", () => {
 
   it("成功解锁 → 201，事务内写入解锁流水（单价快照恒 0）", async () => {
     connQuery.mockImplementation(async (sql: string) => {
-      if (String(sql).includes("SELECT id FROM crm_opportunity_unlocks")) return [[]];
-      if (String(sql).includes("INSERT INTO crm_opportunity_unlocks")) return [{ insertId: 1 }];
+      if (String(sql).includes("SELECT id FROM opportunity_unlocks")) return [[]];
+      if (String(sql).includes("INSERT INTO opportunity_unlocks")) return [{ insertId: 1 }];
       return [{ affectedRows: 1 }];
     });
     const { POST } = await import("@/app/api/opportunities/[id]/unlock/route");
@@ -158,7 +158,7 @@ describe("POST /api/opportunities/[id]/unlock", () => {
     expect(body.unlockType).toBe("subscription");
 
     const insertCall = connQuery.mock.calls.find(([sql]: string[]) =>
-      String(sql).includes("INSERT INTO crm_opportunity_unlocks"));
+      String(sql).includes("INSERT INTO opportunity_unlocks"));
     expect(insertCall).toBeTruthy();
     // 解锁流水参数：user_id, opportunity_id, unlock_type, price
     expect(insertCall![1]).toEqual([6, 176, "subscription", 0]);

@@ -22,14 +22,14 @@ function makePool(existing: Record<string, { name_zh: string; level: number }>) 
   const calls: Call[] = [];
   const query = vi.fn(async (sql: string, params: unknown[] = []) => {
     calls.push({ sql, params: params as unknown[] });
-    if (/FROM crm_commodity_backbone/.test(sql)) {
+    if (/FROM commodity_backbone/.test(sql)) {
       const codes = params as string[];
       const rows = codes
         .filter((c) => existing[c])
         .map((c) => ({ code: c, name_zh: existing[c].name_zh, level: existing[c].level }));
       return [rows];
     }
-    if (/SELECT code, name FROM crm_supplier_backbone_interests/.test(sql)) {
+    if (/SELECT code, name FROM supplier_backbone_interests/.test(sql)) {
       return [[]];
     }
     return [{ affectedRows: 0 }];
@@ -56,7 +56,7 @@ describe("replaceSupplierSelfReport", () => {
     expect(r.stored).toEqual(["UGT-0101"]);
     expect(r.dropped).toEqual([]);
 
-    const treeCall = calls.find((c) => /FROM crm_commodity_backbone/.test(c.sql))!;
+    const treeCall = calls.find((c) => /FROM commodity_backbone/.test(c.sql))!;
     // 只有合法且去重后的 UGT-0101 进了存在性点查，L1/脏码根本没被拿去问树
     expect(treeCall.params).toEqual(["UGT-0101"]);
   });
@@ -72,7 +72,7 @@ describe("replaceSupplierSelfReport", () => {
     expect(r.stored).toEqual(["UGT-0101"]);
     expect(r.dropped).toEqual(["UGT-999999"]);
 
-    const insert = calls.find((c) => /INSERT INTO crm_supplier_backbone_interests/.test(c.sql))!;
+    const insert = calls.find((c) => /INSERT INTO supplier_backbone_interests/.test(c.sql))!;
     expect(insert.sql).toContain("ON DUPLICATE KEY UPDATE");
     // params 结构：[sid, code, name, level, source, weight, confidence] × 1 行
     expect(insert.params).toEqual([7, "UGT-0101", "电力、热力", 2, "self_report", 3.0, 1.0]);
@@ -91,7 +91,7 @@ describe("replaceSupplierSelfReport", () => {
     expect(r.stored).toEqual([]);
     expect(r.dropped).toEqual(["UGT-0101"]);
 
-    const dels = calls.filter((c) => /DELETE FROM crm_supplier_backbone_interests/.test(c.sql));
+    const dels = calls.filter((c) => /DELETE FROM supplier_backbone_interests/.test(c.sql));
     expect(dels).toHaveLength(1);
     expect(dels[0].sql).not.toContain("NOT IN");
     expect(dels[0].params).toEqual([7, "self_report"]);
@@ -107,7 +107,7 @@ describe("replaceSupplierSelfReport", () => {
     const r = await replaceSupplierSelfReport(pool, 7, []);
 
     expect(r).toEqual({ stored: [], dropped: [] });
-    const dels = calls.filter((c) => /DELETE FROM crm_supplier_backbone_interests/.test(c.sql));
+    const dels = calls.filter((c) => /DELETE FROM supplier_backbone_interests/.test(c.sql));
     expect(dels).toHaveLength(1);
     expect(dels[0].params).toEqual([7, "self_report"]);
   });
@@ -124,12 +124,12 @@ describe("replaceSupplierSelfReport", () => {
     const r = await replaceSupplierSelfReport(pool, 7, ["UGT-0101", "UGT-010101"]);
     expect(r.stored.sort()).toEqual(["UGT-0101", "UGT-010101"]);
 
-    const del = calls.find((c) => /DELETE FROM crm_supplier_backbone_interests/.test(c.sql))!;
+    const del = calls.find((c) => /DELETE FROM supplier_backbone_interests/.test(c.sql))!;
     expect(del.sql).toContain("NOT IN");
     expect(del.sql).toContain("source = ?");
     expect(del.params).toEqual([7, "self_report", "UGT-0101", "UGT-010101"]);
 
-    const insert = calls.find((c) => /INSERT INTO crm_supplier_backbone_interests/.test(c.sql))!;
+    const insert = calls.find((c) => /INSERT INTO supplier_backbone_interests/.test(c.sql))!;
     expect(insert.sql).toContain("source");
     // 两行 × 7 列
     expect(insert.params).toHaveLength(14);

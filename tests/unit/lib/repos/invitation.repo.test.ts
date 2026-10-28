@@ -35,14 +35,14 @@ function makePool(rows: unknown[] = []) {
 const channelRow = { code: "CH-AB2345CD", partner_id: 5, partner_name: "渠道A" };
 
 describe("validateCode · 命名空间隔离", () => {
-  it("CH- 码只查渠道两张表，绝不碰 crm_employees", async () => {
+  it("CH- 码只查渠道两张表，绝不碰 employees", async () => {
     const { pool, calls } = makePool([channelRow]);
     const res = await new InvitationRepo(pool).validateCode("CH-AB2345CD");
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].sql).toContain("crm_channel_codes");
-    expect(calls[0].sql).toContain("crm_channel_partners");
-    expect(calls[0].sql).not.toContain("crm_employees");
+    expect(calls[0].sql).toContain("channel_codes");
+    expect(calls[0].sql).toContain("channel_partners");
+    expect(calls[0].sql).not.toContain("employees");
     expect(res.valid).toBe(true);
     expect(res.owner).toEqual({ namespace: "channel", code: "CH-AB2345CD", partnerId: 5 });
   });
@@ -61,7 +61,7 @@ describe("validateCode · 命名空间隔离", () => {
     const res = await new InvitationRepo(pool).validateCode("EMP-XCAO26A1");
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].sql).toContain("FROM crm_employees");
+    expect(calls[0].sql).toContain("FROM employees");
     expect(calls[0].sql).not.toContain("crm_channel");
     expect(res.owner).toEqual({ namespace: "employee", employeeId: 7 });
   });
@@ -70,7 +70,7 @@ describe("validateCode · 命名空间隔离", () => {
     const { pool, calls } = makePool([{ employee_id: 8, name: "李四", department: null, invitation_code: "XCAO26A1" }]);
     const res = await new InvitationRepo(pool).validateCode("XCAO26A1");
 
-    expect(calls[0].sql).toContain("FROM crm_employees");
+    expect(calls[0].sql).toContain("FROM employees");
     expect(res.valid).toBe(true);
   });
 
@@ -78,7 +78,7 @@ describe("validateCode · 命名空间隔离", () => {
     const { pool, calls } = makePool([channelRow]);
     await new InvitationRepo(pool).validateCode("ch-ab2345cd");
 
-    expect(calls[0].sql).toContain("crm_channel_codes");
+    expect(calls[0].sql).toContain("channel_codes");
     expect(calls[0].params).toEqual(["CH-AB2345CD"]);
   });
 
@@ -102,7 +102,7 @@ describe("recordChannelRegistration · 一人一行", () => {
 
     const { sql, params } = calls[0];
     expect(calls[0].kind).toBe("execute");
-    expect(sql).toContain("INSERT INTO crm_channel_registrations");
+    expect(sql).toContain("INSERT INTO channel_registrations");
     expect(sql).toContain("ON DUPLICATE KEY UPDATE user_id = user_id");
     // partner_id 由码行带出（写账瞬间的快照），不在 SQL 里反查
     expect(params).toEqual([99, "CH-AB2345CD", 5]);

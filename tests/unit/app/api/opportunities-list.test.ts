@@ -6,7 +6,7 @@
  *   - 全 src/app/api 里只有这一个端点列商机（unified-search 不返回商机），
  *     删掉就是「商机列表」HTTP 能力归零，且连带删掉一条活着的安全断言
  *     （ARCH-P0：无认证不得拉全量、source_url 不得下发、description 截断）；
- *   - crm_bid_opportunities 上没有任何 backbone/UGT 列，
+ *   - bid_opportunities 上没有任何 backbone/UGT 列，
  *     所以「换成 UGT 入参」在商机表上物理不成立。
  * 取「去掉旧字典过滤、保留有界列表」：listOpportunities 的 SQL 本来就带 LIMIT 80，
  * 且认证要求不变 ⇒ 数据暴露面不扩大（最多 80 条未过期商机的列表级字段）。

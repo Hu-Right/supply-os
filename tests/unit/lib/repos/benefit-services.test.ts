@@ -21,7 +21,7 @@ describe("BenefitSystemRepo.listActiveServices", () => {
     expect(res[0].service_code).toBe("svc_manual_bid_match");
     expect(res[0].standard_price).toBe("199.00");
     const sql = query.mock.calls[0][0] as string;
-    expect(sql).toContain("crm_service_catalog");
+    expect(sql).toContain("service_catalog");
     expect(sql).toContain("is_active = 1");
     expect(sql).toContain("credit_to_annual_plan");
     expect(sql).toContain("ORDER BY category, sort_order");

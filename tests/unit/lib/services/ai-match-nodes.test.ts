@@ -3,9 +3,9 @@
  *
  * 为什么必须改：旧实现两条 SQL 都活在旧字典上：
  * - 公告侧读桥表 `level1_id..level5_id`（旧字典行 id 空间），且要经
- *   `crm_bid_notices.notice_id`（外部编号）中转 —— 那个编号实测有 21,524 条撞号风险，
+ *   `bid_notices.notice_id`（外部编号）中转 —— 那个编号实测有 21,524 条撞号风险，
  *   相似公告与行业墙都因此改成宽表主键点查，这里不改就是第三处例外；
- * - 供应商侧 `crm_supplier_backbone_interests` INNER JOIN 字典 + 4 级父链自 JOIN
+ * - 供应商侧 `supplier_backbone_interests` INNER JOIN 字典 + 4 级父链自 JOIN
  *   （字典只镜像了旧品类码的一部分：品目层 10,661 行 vs 骨架树 150,006 行）。
  * 改后：公告侧点查宽表 `backbone_path`；供应商侧直接取兴趣表自带的 8 位 `code`，
  * 交同一份骨架索引（commodity/backbone-cache）换算成节点码 —— 换算口径不在这里重写。
@@ -49,10 +49,10 @@ describe("公告侧", () => {
     pathOf.mockReturnValue({ codes: CHAIN_5, deepest: [], misses: [], tiers: {} });
     const pool = makePool([[{ p: CHAIN_5.join(",") }], [{ supplier_id: 7, code: "42101503" }]]);
     const data = await loadMatchNodeData(pool, 1, [7]);
-    expect(sqls[0]).toContain("crm_notice_search");
+    expect(sqls[0]).toContain("notice_search");
     expect(sqls[0]).toContain("backbone_path");
     expect(sqls[0]).toMatch(/id = \?/);
-    expect(sqls[0]).not.toMatch(/crm_bid_notice_\w*_codes\b|crm_bid_notices|level[1-5]_id/);
+    expect(sqls[0]).not.toMatch(/crm_bid_notice_\w*_codes\b|bid_notices|level[1-5]_id/);
     expect([...data.noticeNodes]).toEqual(CHAIN_5);
   });
 
@@ -88,7 +88,7 @@ describe("供应商侧", () => {
       ],
     ]);
     const data = await loadMatchNodeData(pool, 1, [7, 8]);
-    expect(sqls[1]).toContain("crm_supplier_backbone_interests");
+    expect(sqls[1]).toContain("supplier_backbone_interests");
     expect(sqls[1]).not.toContain(LEGACY_DICT_TABLE);
     expect([...data.supplierNodes.keys()]).toEqual([7, 8]);
     expect([...data.supplierNodes.get(7)!]).toEqual(CHAIN_5);

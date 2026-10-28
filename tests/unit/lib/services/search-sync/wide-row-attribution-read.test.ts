@@ -2,7 +2,7 @@
  * 归属装载入口 loadBackboneMap 的行为覆盖（小表剥离后：落点表是唯一事实源）
  *
  * 断言的是「会静默改变分类结果」的分支：
- *   - 按 notice_pk 读 crm_notice_attribution_nodes、以 notice_id 为 key 回列形制；
+ *   - 按 notice_pk 读 notice_attribution_nodes、以 notice_id 为 key 回列形制；
  *   - 有落点 vs 无落点（空 ⇒ buildWideRow 转 NULL，不臆测）；
  *   - 调用方没带 pk ⇒ 结果缺席（不退回桥表，交上游写 NULL）；
  *   - 空 sources ⇒ 零查询。
@@ -27,7 +27,7 @@ function makePool(byKeyword: Array<[RegExp, unknown[][]]>) {
 describe("loadBackboneMap（落点表唯一入口）", () => {
   it("读落点表：按最深落点补全祖先，以 notice_id 为 key 回列形制", async () => {
     const { pool, query } = makePool([
-      [/FROM crm_notice_attribution_nodes WHERE notice_pk IN/, [[{ notice_pk: 1, node_code: "UGT-0101010101" }]]],
+      [/FROM notice_attribution_nodes WHERE notice_pk IN/, [[{ notice_pk: 1, node_code: "UGT-0101010101" }]]],
     ]);
     const r = (await loadBackboneMap(pool, [{ noticeId: "N1", pk: 1 }])).get("N1")!;
     expect(r.backbone).toBe("UGT-01,UGT-0101,UGT-010101,UGT-01010101,UGT-0101010101");
@@ -37,7 +37,7 @@ describe("loadBackboneMap（落点表唯一入口）", () => {
   });
 
   it("落点表无该公告行 → backbone 空串（交 buildWideRow 写 NULL，不臆测）", async () => {
-    const { pool } = makePool([[/FROM crm_notice_attribution_nodes/, [[]]]]);
+    const { pool } = makePool([[/FROM notice_attribution_nodes/, [[]]]]);
     const r = (await loadBackboneMap(pool, [{ noticeId: "N1", pk: 1 }])).get("N1")!;
     expect(r.backbone).toBe("");
   });

@@ -83,7 +83,7 @@ test(`B1 后索引层不再豁免：meilisearch/ 引用 ${LEGACY_DICT}_level1 �
   }
 });
 
-test("裸 levelN_id 不误报（与用户偏好 crm_user_industry_prefs 同命名空间）", () => {
+test("裸 levelN_id 不误报（与用户偏好 user_industry_prefs 同命名空间）", () => {
   const root = fixture(
     join("src", "app", "api", "user", "industry-prefs", "route.ts"),
     'export const P = { level1_id: 1, level3_id: null };\n',

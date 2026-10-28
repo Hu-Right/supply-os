@@ -82,7 +82,7 @@ describe("extractCountryFromName", () => {
 });
 
 describe("translateByPattern — 平台代码占位 agency（2026-10-12 公告列表露码修复）", () => {
-  it("平台代码不再由机构模块命名（已收敛到 crm_platform_aliases）→ 原样回显", () => {
+  it("平台代码不再由机构模块命名（已收敛到 platform_aliases）→ 原样回显", () => {
     expect(translateByPattern("mercadopublico_cl")?.i18n.zh).toBe("mercadopublico_cl");
     expect(translateByPattern("SPAIN_PCSP")?.i18n.zh).toBe("SPAIN_PCSP");
   });
@@ -104,7 +104,7 @@ describe("translateByPattern — 平台代码占位 agency（2026-10-12 公告�
   });
 
   it("裸代码条目不吞爱尔兰别名：IRELAND ETENDERS 交回 DB 别名表管线处理", () => {
-    // 爱尔兰译名由 query.ts stage 1 的 crm_agency_aliases 查询给出，
+    // 爱尔兰译名由 query.ts stage 1 的 agency_aliases 查询给出，
     // translateByPattern 对它走通用兜底即可，关键是不得误配南非名。
     expect(translateByPattern("IRELAND ETENDERS")?.i18n.zh).not.toBe("南非电子招标网");
   });

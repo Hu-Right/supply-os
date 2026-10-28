@@ -3,8 +3,8 @@
  *
  * @description 验证代码中的 SQL 语句与数据库表结构定义匹配。
  *              防止字段缺失、类型不匹配等迁移遗留问题。
- *              crm_users.user_key 列退役路线图收尾（2026-09-04）：
- *              learning_orders / crm_payment_orders / training_orders 三张业务表
+ *              users.user_key 列退役路线图收尾（2026-09-04）：
+ *              learning_orders / payment_orders / training_orders 三张业务表
  *              的 INSERT 语句已不再包含 user_key 字段（前次任务已清理），
  *              本测试同步更新为断言 user_key 已移除，防止回归。
  */
@@ -70,16 +70,16 @@ describe("Schema 验证测试", () => {
     });
   });
 
-  describe("crm_payment_orders 表（会员订单）", () => {
+  describe("payment_orders 表（会员订单）", () => {
     const repoPath = resolve(__dirname, "../../../src/lib/repos/payments.repo.ts");
 
     it("INSERT 语句必须包含 user_id 字段", () => {
-      const fields = extractInsertFields(repoPath, "crm_payment_orders");
+      const fields = extractInsertFields(repoPath, "payment_orders");
       expect(fields).toContain("user_id");
     });
 
     it("INSERT 语句不再包含 user_key 字段（列退役收尾）", () => {
-      const fields = extractInsertFields(repoPath, "crm_payment_orders");
+      const fields = extractInsertFields(repoPath, "payment_orders");
       expect(fields).not.toContain("user_key");
     });
   });

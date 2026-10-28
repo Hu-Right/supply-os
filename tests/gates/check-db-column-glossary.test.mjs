@@ -40,13 +40,13 @@ test("[BG1] 新表写 currency_code（与 currency 同义）必须被拦", () =>
 test("[BG1] ALTER TABLE ADD COLUMN 新增别名同样被拦（新增列的真实来路）", () => {
   withFixture("glossary-alter", {
     "src/lib/db/migrations/001.sql": [
-      "ALTER TABLE `crm_bid_notices` ADD COLUMN `ccy` varchar(10) DEFAULT NULL;",
+      "ALTER TABLE `bid_notices` ADD COLUMN `ccy` varchar(10) DEFAULT NULL;",
     ],
   }, (root) => {
     const r = run(root);
     assert.equal(r.code, 1, "ALTER 新增别名没被拦：\n" + r.out);
     assert.match(r.out, /\[GLOSSARY-ALIAS\]/);
-    assert.match(r.out, /crm_bid_notices\.ccy/);
+    assert.match(r.out, /bid_notices\.ccy/);
   });
 });
 
@@ -72,7 +72,7 @@ test("不误伤：canonical 名 + 后缀名实相符 + 已冻结存量，一律�
         "`paid_at` datetime DEFAULT NULL", "`source_url` varchar(1024) DEFAULT NULL"]),
       "",
       // 冻结表里的真实存量：不应因新代码而报错
-      "CREATE TABLE `crm_notice_public` (",
+      "CREATE TABLE `notice_public` (",
       "  `notice_pk` int NOT NULL,",
       "  `currency_code` char(3) DEFAULT NULL,",
       "  `updated_at` bigint DEFAULT NULL,",
@@ -97,7 +97,7 @@ test("生成列（deadline_sec 这类）按声明类型判定，不因 GENERATED
 });
 
 test("白名单卫生：冻结项不再命中时附「该删行」提示（机器兜住「忘了删」）", () => {
-  // 冻结项 crm_notice_public.currency_code 在 fixture 里不存在 → 必须提示删行。
+  // 冻结项 notice_public.currency_code 在 fixture 里不存在 → 必须提示删行。
   // 注意走失败态断言：共享跑具只在非零退出时合并 stderr（卫生提示本身走 stderr，
   // 真实 npm run lint 终端里可见），成功态拿不到它。
   withFixture("glossary-stale", {

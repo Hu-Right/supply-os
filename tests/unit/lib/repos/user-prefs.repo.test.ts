@@ -60,7 +60,7 @@ describe("UserPrefsRepo 行业偏好的选择键列", () => {
   it("deleteIndustryPrefs 仍按 user_id 精确删", async () => {
     await repo.deleteIndustryPrefs(42);
     const [sql, params] = mockExecute.mock.calls[0] as [string, unknown[]];
-    expect(sql).toContain("DELETE FROM crm_user_industry_prefs WHERE user_id = ?");
+    expect(sql).toContain("DELETE FROM user_industry_prefs WHERE user_id = ?");
     expect(params).toEqual([42]);
   });
 });

@@ -192,8 +192,8 @@ test("11 写语句一律抛错", () => {
   assert.equal(assertReadOnlySql("SELECT created_at FROM supplier"), true, "列名含 create 字样不误伤");
   for (const bad of [
     "UPDATE supplier SET industry_code=NULL",
-    "DELETE FROM crm_supplier_industry_rel",
-    "INSERT INTO crm_industry_nodes VALUES (1)",
+    "DELETE FROM supplier_industry_rel",
+    "INSERT INTO industry_nodes VALUES (1)",
     "ALTER TABLE supplier ADD COLUMN x int",
     "RENAME TABLE a TO b",
     "SELECT 1; DROP TABLE supplier",

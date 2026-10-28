@@ -38,7 +38,7 @@ describe("extractUserKey", () => {
     const result = await extractUserKey(makeReq("Bearer valid"));
     expect(result.userId).toBe(42);
     expect(result.authViaJwt).toBe(true);
-    // crm_users.user_key 列退役收尾：AuthResult 不再包含 userKey 字段
+    // users.user_key 列退役收尾：AuthResult 不再包含 userKey 字段
     expect((result as unknown as Record<string, unknown>).userKey).toBeUndefined();
   });
 

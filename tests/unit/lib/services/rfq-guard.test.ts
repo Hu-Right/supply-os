@@ -44,7 +44,7 @@ describe("reconcileRfqGuard", () => {
     });
     // 偏差查询走 LEFT JOIN + 非 platform/RFQ/归属不符 谓词
     const detailSql = String(query.mock.calls[1]?.[0] ?? "");
-    expect(detailSql).toContain("LEFT JOIN crm_bid_notices");
+    expect(detailSql).toContain("LEFT JOIN bid_notices");
     expect(detailSql).toContain("n.entry_source <> 'platform'");
   });
 
@@ -70,7 +70,7 @@ describe("registerRfqGuard", () => {
     });
 
     const [sql, params] = query.mock.calls[0];
-    expect(String(sql)).toContain("INSERT INTO crm_rfq_guard");
+    expect(String(sql)).toContain("INSERT INTO rfq_guard");
     expect(String(sql)).toContain("ON DUPLICATE KEY UPDATE");
     expect(params).toEqual([9001, "OSRFQ-000000009001", 6]);
   });

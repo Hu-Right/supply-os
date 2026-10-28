@@ -1,7 +1,7 @@
 /**
  * 解锁配额共享口径固化测试（unlock-quota · 权益体系新账本）
  *
- * 该模块是公告解锁与商机解锁的唯一记账口径，记账源 = crm_benefit_quotas 的
+ * 该模块是公告解锁与商机解锁的唯一记账口径，记账源 = benefit_quotas 的
  * notice_view 池行。固化以下语义，任何修改必须同步两条解锁链路与本测试：
  * 1. 池的额度只从矩阵格 value_num 取，代码里不出现任何额度数字；
  * 2. 缺格 / value_num 为 NULL / 额度为 0 → PAID_QUOTA_REQUIRED，且**不开池**

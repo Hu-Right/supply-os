@@ -46,7 +46,7 @@ describe("persistInterestNodeCodes — 码源已切 UGT 节点码", () => {
   it("INSERT 形制 (user_id, code, level, source, weight, updated_at)：level 由码长现算，ODKU 封顶沿用", async () => {
     const { pool, calls } = fakePool();
     await persistInterestNodeCodes(pool, 7, ["UGT-0101010101"], "unlock_order", 2.5);
-    const insert = calls.find((c) => c.sql.includes("INSERT INTO crm_user_interest_codes"));
+    const insert = calls.find((c) => c.sql.includes("INSERT INTO user_interest_codes"));
     expect(insert).toBeTruthy();
     expect(insert!.sql).not.toContain("code_id");
     expect(insert!.sql).toContain("ON DUPLICATE KEY UPDATE");
@@ -64,7 +64,7 @@ describe("persistInterestNodeCodes — 码源已切 UGT 节点码", () => {
     expect(calls).toHaveLength(0); // 白名单外一条不发
 
     await persistInterestNodeCodes(pool, 7, ["43211600", "UGT-XX", "UGT-0101", "UGT-0101"], "unlock_order", 2.5);
-    const inserts = calls.filter((c) => c.sql.includes("INSERT INTO crm_user_interest_codes"));
+    const inserts = calls.filter((c) => c.sql.includes("INSERT INTO user_interest_codes"));
     expect(inserts).toHaveLength(1);
     expect(inserts[0].args![1]).toBe("UGT-0101");
   });
@@ -74,7 +74,7 @@ describe("decayInterestNodeCodes / loadNoticeNodeCodes", () => {
   it("衰减按 UGT 键精确 UPDATE，非法码不入列表", async () => {
     const { pool, calls } = fakePool();
     await decayInterestNodeCodes(pool, 7, ["UGT-0101", "43211600"], 0.95);
-    const update = calls.find((c) => c.sql.includes("UPDATE crm_user_interest_codes"));
+    const update = calls.find((c) => c.sql.includes("UPDATE user_interest_codes"));
     expect(update).toBeTruthy();
     expect(update!.args).toEqual([0.95, 7, "UGT-0101"]);
   });
@@ -86,7 +86,7 @@ describe("decayInterestNodeCodes / loadNoticeNodeCodes", () => {
       { notice_id: 12, node: "UGT-4301" },
     ]);
     const map = await loadNoticeNodeCodes(pool, [11, 12]);
-    expect(calls[0].sql).toContain("crm_notice_backbone_nodes");
+    expect(calls[0].sql).toContain("notice_backbone_nodes");
     expect(map.get(11)).toEqual(["UGT-01", "UGT-0101"]);
     expect(map.get(12)).toEqual(["UGT-4301"]);
   });

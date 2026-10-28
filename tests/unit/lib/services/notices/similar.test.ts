@@ -32,7 +32,7 @@ const CUR_PATH = [{ p: "UGT-07,UGT-0702" }];
 const CUR_PATH_DEEP = [{ p: "UGT-07,UGT-0702,UGT-070201,UGT-07020102" }];
 
 const ID_MAP: Array<[RegExp, unknown[]]> = [
-  [/FROM crm_bid_notices n WHERE n\.id/, [{ notice_id: "CUR" }]],
+  [/FROM bid_notices n WHERE n\.id/, [{ notice_id: "CUR" }]],
 ];
 
 describe("findSimilarNoticeIds", () => {
@@ -41,12 +41,12 @@ describe("findSimilarNoticeIds", () => {
   it("按分数降序返回 peer 的有序 notice_pk（wide_id）", async () => {
     const { pool } = makePool([
       ...ID_MAP,
-      [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
+      [/FROM notice_search WHERE id = \?/, CUR_PATH],
       [/peer\.node IN/, [
         { notice_id: "A", wide_id: 11, deadline_ts: 100 },
         { notice_id: "B", wide_id: 12, deadline_ts: 100 },
       ]],
-      [/FROM crm_notice_search WHERE id IN/, [
+      [/FROM notice_search WHERE id IN/, [
         { id: 11, p: "UGT-07,UGT-0702" },
         { id: 12, p: "UGT-07" },
       ]],
@@ -58,9 +58,9 @@ describe("findSimilarNoticeIds", () => {
   it("检索按节点深度分档：L4 先问、L3 次之、L2 最后，且后一轮窗口按已收集数收窄", async () => {
     const { pool, query } = makePool([
       ...ID_MAP,
-      [/FROM crm_notice_search WHERE id = \?/, CUR_PATH_DEEP],
+      [/FROM notice_search WHERE id = \?/, CUR_PATH_DEEP],
       [/peer\.node IN/, [{ notice_id: "A", wide_id: 11, deadline_ts: 1 }]],
-      [/FROM crm_notice_search WHERE id IN/, [{ id: 11, p: "UGT-07020102" }]],
+      [/FROM notice_search WHERE id IN/, [{ id: 11, p: "UGT-07020102" }]],
     ]);
     await findSimilarNoticeIds(pool, 1, 6);
     const candCalls = query.mock.calls.filter((c) => /peer\.node IN/.test(String(c[0])));
@@ -76,12 +76,12 @@ describe("findSimilarNoticeIds", () => {
   it("候选 SQL 直认 UGT 节点（倒排表），不出现桥表/旧字典列的任何影子", async () => {
     const { pool, query } = makePool([
       ...ID_MAP,
-      [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
+      [/FROM notice_search WHERE id = \?/, CUR_PATH],
       [/peer\.node IN/, []],
     ]);
     await findSimilarNoticeIds(pool, 1, 6);
     const peerSql = String(query.mock.calls.find((c) => /peer\.node IN/.test(String(c[0])))?.[0] || "");
-    expect(peerSql).toContain("crm_notice_backbone_nodes");
+    expect(peerSql).toContain("notice_backbone_nodes");
     expect(peerSql).toContain("peer.node IN");
     expect(peerSql).not.toMatch(/crm_bid_notice_\w*_codes\b/);
     expect(peerSql).not.toMatch(/level[1-5]_id/);
@@ -91,7 +91,7 @@ describe("findSimilarNoticeIds", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { pool, query } = makePool([
       ...ID_MAP,
-      [/FROM crm_notice_search WHERE id = \?/, []],
+      [/FROM notice_search WHERE id = \?/, []],
     ]);
     expect(await findSimilarNoticeIds(pool, 42, 6)).toEqual([]);
     expect(warn).toHaveBeenCalledTimes(1);
@@ -103,7 +103,7 @@ describe("findSimilarNoticeIds", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { pool } = makePool([
       ...ID_MAP,
-      [/FROM crm_notice_search WHERE id = \?/, [{ p: null }]],
+      [/FROM notice_search WHERE id = \?/, [{ p: null }]],
     ]);
     expect(await findSimilarNoticeIds(pool, 1, 6)).toEqual([]);
     expect(warn).not.toHaveBeenCalled();
@@ -112,7 +112,7 @@ describe("findSimilarNoticeIds", () => {
   it("节点全是大类 L1 → 空数组（L1 过宽不进候选检索）", async () => {
     const { pool, query } = makePool([
       ...ID_MAP,
-      [/FROM crm_notice_search WHERE id = \?/, [{ p: "UGT-07" }]],
+      [/FROM notice_search WHERE id = \?/, [{ p: "UGT-07" }]],
     ]);
     expect(await findSimilarNoticeIds(pool, 1, 6)).toEqual([]);
     expect(query.mock.calls.some((c) => /peer\.node IN/.test(String(c[0])))).toBe(false);
@@ -121,9 +121,9 @@ describe("findSimilarNoticeIds", () => {
   it("候选有行但宽表一个都查不到 → 空数组（不用空节点码硬凑分数）", async () => {
     const { pool } = makePool([
       ...ID_MAP,
-      [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
+      [/FROM notice_search WHERE id = \?/, CUR_PATH],
       [/peer\.node IN/, [{ notice_id: "A", wide_id: 11, deadline_ts: 1 }]],
-      [/FROM crm_notice_search WHERE id IN/, []],
+      [/FROM notice_search WHERE id IN/, []],
     ]);
     expect(await findSimilarNoticeIds(pool, 1, 6)).toEqual([]);
   });
@@ -140,7 +140,7 @@ describe("findSimilarNotices（并轨：复用 fetchDetailsByIds + formatItems�
   it("当前公告无节点码 → 返回空数组，且不进入候选/水合查询（无兜底）", async () => {
     const { pool, query } = makePool([
       ...ID_MAP,
-      [/FROM crm_notice_search WHERE id = \?/, [{ p: "" }]],
+      [/FROM notice_search WHERE id = \?/, [{ p: "" }]],
     ]);
     const res = await findSimilarNotices(pool, 1, 6, "zh");
     expect(res).toEqual([]);
@@ -151,12 +151,12 @@ describe("findSimilarNotices（并轨：复用 fetchDetailsByIds + formatItems�
   it("有候选：以有序 notice_pk 调 fetchDetailsByIds，再交 formatItems 产出宽表项", async () => {
     const { pool } = makePool([
       ...ID_MAP,
-      [/FROM crm_notice_search WHERE id = \?/, CUR_PATH],
+      [/FROM notice_search WHERE id = \?/, CUR_PATH],
       [/peer\.node IN/, [
         { notice_id: "A", wide_id: 11, deadline_ts: 1790000000 },
         { notice_id: "B", wide_id: 12, deadline_ts: 1790000000 },
       ]],
-      [/FROM crm_notice_search WHERE id IN/, [
+      [/FROM notice_search WHERE id IN/, [
         { id: 11, p: "UGT-07,UGT-0702" },
         { id: 12, p: "UGT-07" },
       ]],

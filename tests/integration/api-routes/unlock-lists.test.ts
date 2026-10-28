@@ -127,7 +127,7 @@ describe("GET /api/notices/unlocks", () => {
     expect(snakeKeys(rows[0])).toEqual([]);
     expect(rows[0].unlockedAt).toBe(new Date("2026-10-20T01:02:03Z").toISOString());
 
-    const sql = recorded.sqls.find((s) => s.includes("crm_opportunity_unlocks"));
+    const sql = recorded.sqls.find((s) => s.includes("opportunity_unlocks"));
     expect(sql).toBeTruthy();
     expect(sql).toContain("notice_id IS NOT NULL");
   });

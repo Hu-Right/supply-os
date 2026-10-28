@@ -185,9 +185,9 @@ const MATRIX_CELL_ROWS = [
 describe("GET /api/membership/plans", () => {
   it("返回服务端 ComparisonTable（plans + rows 逐格解析），免费档不进六卡", async () => {
     poolQuery.mockImplementation(async (sql: string) => {
-      if (sql.includes("crm_plan_benefits")) return [MATRIX_CELL_ROWS];
-      if (sql.includes("crm_benefit_catalog")) return [BENEFIT_DEF_ROWS];
-      if (sql.includes("crm_plan_catalog")) return [PLAN_CATALOG_ROWS];
+      if (sql.includes("plan_benefits")) return [MATRIX_CELL_ROWS];
+      if (sql.includes("benefit_catalog")) return [BENEFIT_DEF_ROWS];
+      if (sql.includes("plan_catalog")) return [PLAN_CATALOG_ROWS];
       return [[]];
     });
     const { GET } = await import("@/app/api/membership/plans/route");

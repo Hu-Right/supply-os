@@ -23,7 +23,7 @@ describe("OfficialKeywordGroupsRepo", () => {
     ]);
     const out = await new OfficialKeywordGroupsRepo(pool).listEnabled();
     const sql = String(query.mock.calls[0][0]);
-    expect(sql).toContain("FROM crm_official_keyword_groups");
+    expect(sql).toContain("FROM official_keyword_groups");
     expect(sql).toContain("`status` = 1");
     expect(sql).toContain("ORDER BY sort_order ASC, id ASC");
     expect(out[0]).toEqual({ id: 1, name: "医疗", terms: ["手术"], categoryCode: null, sortOrder: 0 });

@@ -26,7 +26,7 @@ const BASE = process.env.BASE_URL || "http://localhost:3000";
 // ══════════════════════════════════════════════════════════════════════════════
 
 test.describe("结构基线可用（空库可查询）", () => {
-  test("公开 RFQ 列表 API → 200 且结构完整（读 crm_bid_notices）", async ({ request }) => {
+  test("公开 RFQ 列表 API → 200 且结构完整（读 bid_notices）", async ({ request }) => {
     const res = await request.get(`${BASE}/api/rfq/list`);
     expect(res.status(), "空库下 RFQ 列表应返回 200 空集，而不是 500").toBe(200);
     const body = await res.json();
@@ -35,7 +35,7 @@ test.describe("结构基线可用（空库可查询）", () => {
     expect(Array.isArray(body.items)).toBeTruthy();
   });
 
-  test("套餐目录 API → 200 且返回数组（读 crm_plan_catalog）", async ({ request }) => {
+  test("套餐目录 API → 200 且返回数组（读 plan_catalog）", async ({ request }) => {
     const res = await request.get(`${BASE}/api/membership/plans`);
     expect(res.status(), "空目录应返回 200 空数组，而不是 500").toBe(200);
     const body = await res.json();
@@ -108,7 +108,7 @@ test.describe("鉴权与参数边界", () => {
     expect(JSON.stringify(body)).not.toContain("at ");
   });
 
-  test("不存在的账号登录 → 403 凭据被拒（恒时语义不变，空 crm_users 也不得 500）", async ({ request }) => {
+  test("不存在的账号登录 → 403 凭据被拒（恒时语义不变，空 users 也不得 500）", async ({ request }) => {
     const ghost = `ci-smoke-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.com`;
     const res = await request.post(`${BASE}/api/auth/login`, {
       data: { identifier: ghost, password: "definitely-wrong-password" },

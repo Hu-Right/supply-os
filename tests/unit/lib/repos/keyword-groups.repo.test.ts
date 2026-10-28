@@ -16,7 +16,7 @@ describe("KeywordGroupsRepo", () => {
     mockExecute.mockResolvedValue([{ insertId: 42 }]);
     const r = await repo.create(7, "光伏逆变器", ["光伏", "inverter"]);
     expect(mockExecute).toHaveBeenCalledWith(
-      "INSERT INTO crm_product_keyword_groups (user_id, name, terms) VALUES (?, ?, ?)",
+      "INSERT INTO product_keyword_groups (user_id, name, terms) VALUES (?, ?, ?)",
       [7, "光伏逆变器", JSON.stringify(["光伏", "inverter"])],
     );
     expect(r).toEqual({ id: 42 });
@@ -48,7 +48,7 @@ describe("KeywordGroupsRepo", () => {
     mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
     await repo.remove(7, 3);
     expect(mockExecute).toHaveBeenCalledWith(
-      "DELETE FROM crm_product_keyword_groups WHERE user_id = ? AND id = ?", [7, 3],
+      "DELETE FROM product_keyword_groups WHERE user_id = ? AND id = ?", [7, 3],
     );
   });
   it("countByUser：有行取 cnt，0 或无行都回 0", async () => {

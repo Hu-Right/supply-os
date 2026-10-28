@@ -20,7 +20,7 @@ import type { Pool } from "mysql2/promise";
 function fakePool(l1Rows: Array<{ g: string; node: string }> = []): Pool {
   return {
     query: async (sql: string) =>
-      String(sql).includes("crm_commodity_backbone") ? [l1Rows] : [[]],
+      String(sql).includes("commodity_backbone") ? [l1Rows] : [[]],
   } as unknown as Pool;
 }
 
@@ -53,7 +53,7 @@ describe("buildFilterPlan 骨架节点筛选", () => {
     expect(plan.conflictEmpty).toBe(false);
     expect(plan.meiliFilters).toContain('backbone_node = "UGT-0101"');
     expect(plan.mysqlWhere).toContain(
-      "EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.backbone_path))",
+      "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.backbone_path))",
     );
     expect(plan.mysqlParams).toEqual(["UGT-0101"]);
     expect(plan.digest).toContain("commodity:UGT-0101");

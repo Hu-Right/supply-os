@@ -2,7 +2,7 @@
  * 对账层单一写入者契约（I1）
  *
  * 对账函数必须是**纯检测**：只发 SELECT，宽表内容列的修复一律交 syncWideIds。
- * 用「记录全部 SQL 的假 pool」直接证明没有任何 UPDATE crm_notice_search 逃逸出来 ——
+ * 用「记录全部 SQL 的假 pool」直接证明没有任何 UPDATE notice_search 逃逸出来 ——
  * 这正是历史上 5 段手写 UPDATE 与 buildWideRow 口径分叉（错值、原码污染、优先级被抹）的根因。
  */
 import { describe, it, expect, vi } from "vitest";
@@ -53,7 +53,7 @@ describe("对账层只检测不修复", () => {
       "src/lib/services/search-sync/wide-fingerprint.ts",
     ]) {
       const src = fs.readFileSync(path.resolve(process.cwd(), rel), "utf8");
-      expect(src, rel).not.toMatch(/UPDATE\s+crm_notice_search/i);
+      expect(src, rel).not.toMatch(/UPDATE\s+notice_search/i);
     }
   });
 

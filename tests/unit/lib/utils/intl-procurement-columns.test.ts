@@ -2,7 +2,7 @@
  * 国际采购 17 列退役守卫（2026-10-12）+ 详情透出口径不回退
  *
  * 原用例守的是「清单与类型键集相等且详情必透出 17 键」；这批列已整族退役
- * （判据见 scripts/tools/opp-slim-plan.mjs 与 docs/数据库设计/crm_bid_opportunities-投标商机表.md），
+ * （判据见 scripts/tools/opp-slim-plan.mjs 与 docs/数据库设计/bid_opportunities-投标商机表.md），
  * 守卫随之**反向**：即便机会行里还带着这些键，详情合并也不得再向下游透出。
  *
  * 退役键名在本文件**独立钉死**（不复用 opp-slim-plan 的导出）：清单与守卫来自两份

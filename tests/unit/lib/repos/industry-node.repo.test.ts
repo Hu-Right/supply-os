@@ -54,7 +54,7 @@ describe("IndustryNodeRepo", () => {
     expect(sql).toContain("status = 1");
     expect(sql).toContain("ORDER BY code");
     expect(sql).not.toContain("WITH RECURSIVE");
-    expect(sql).not.toContain("crm_supplier_industry_rel");
+    expect(sql).not.toContain("supplier_industry_rel");
     expect(params).toEqual(["section"]);
     expect(sql).not.toContain("section' --");
   });
@@ -68,7 +68,7 @@ describe("IndustryNodeRepo", () => {
     expect(sql).toContain("parent_code = ?");
     expect(sql).toContain("status = 1");
     expect(sql).toContain("ORDER BY code");
-    expect(sql).not.toContain("crm_supplier_industry_rel");
+    expect(sql).not.toContain("supplier_industry_rel");
     expect(params).toEqual(["UGT-I-03"]);
   });
 

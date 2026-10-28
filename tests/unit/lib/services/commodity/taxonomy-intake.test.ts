@@ -3,7 +3,7 @@
  *
  * 钉住三件事（桥表退役后这是新公告获得 UGT 归属的唯一登记口）：
  * 1. INSERT 形制对齐消费端（notice-attribution-content-ai）：uk_src 幂等键 =
- *    (source_table='crm_bid_notices', source_pk=内部 id)，notice_id 存外部编号，
+ *    (source_table='bid_notices', source_pk=内部 id)，notice_id 存外部编号，
  *    code=''（队列不承载码），status='pending'；
  * 2. 候选谓词与 AI 管道同一条口径：活跃 + 无有效落点(L2+) + NOT EXISTS 已登记
  *    （「无有效落点」的写法来自 attribution-contract.withoutValidLandingWhere，
@@ -22,7 +22,7 @@ function fakePool(candidateRows: Array<{ id: number; notice_id: string }>) {
   const pool = {
     query: vi.fn(async (sql: string, args: unknown[] = []) => {
       calls.push({ sql: String(sql), args });
-      if (String(sql).includes("FROM crm_bid_notices")) return [candidateRows];
+      if (String(sql).includes("FROM bid_notices")) return [candidateRows];
       // INSERT：affectedRows 按实际绑定行数回（每行 3 个绑定参数），cap 截断才有意义
       return [{ affectedRows: args.length / 3 }];
     }),
@@ -42,26 +42,26 @@ describe("enqueueUnattributedNotices", () => {
     const { pool, calls } = fakePool([{ id: 11, notice_id: "EXT-11" }]);
     const r = await enqueueUnattributedNotices(pool, [11]);
     expect(r).toEqual({ enqueued: 1, skipped: 0, deferred: 0 });
-    const insert = calls.find((c) => c.sql.includes("INSERT IGNORE INTO crm_taxonomy_intake"));
+    const insert = calls.find((c) => c.sql.includes("INSERT IGNORE INTO taxonomy_intake"));
     expect(insert).toBeTruthy();
     expect(insert!.sql).toContain("source_table, source_pk, notice_id, code, reason, status");
     // 每行 3 个绑定参数：source_pk / notice_id / reason；表名与 pending 是字面量
     expect(insert!.args).toEqual(["11", "EXT-11", "公告无 UGT 归属（桥表退役后由 AI 管道归类）"]);
-    expect(insert!.sql).toContain("'crm_bid_notices'");
+    expect(insert!.sql).toContain("'bid_notices'");
     expect(insert!.sql).toContain("'pending'");
   });
 
   it("候选谓词带齐三道闸：活跃 + 无有效落点(L2+) + 未登记（与 AI 管道同口径）", async () => {
     const { pool, calls } = fakePool([]);
     await enqueueUnattributedNotices(pool, [11, 12]);
-    const select = calls.find((c) => c.sql.includes("FROM crm_bid_notices"))!;
+    const select = calls.find((c) => c.sql.includes("FROM bid_notices"))!;
     expect(select.sql).toContain("deadline_sec"); // 活跃闸（ACTIVE_NOTICE_WHERE 展开形态）
     // 下限必须是码长 ≥8（L2 起）：少了这段，谓词就退化成「有任意落点行即算已归属」，
     // 而只挂到 L1 大类的 14 万条公告会被永久关在队列外。
     expect(select.sql).toContain(
-      "NOT EXISTS (SELECT 1 FROM `crm_notice_attribution_nodes` a WHERE a.notice_pk = n.id AND LENGTH(a.node_code) >= 8)",
+      "NOT EXISTS (SELECT 1 FROM `notice_attribution_nodes` a WHERE a.notice_pk = n.id AND LENGTH(a.node_code) >= 8)",
     );
-    expect(select.sql).toContain("NOT EXISTS (SELECT 1 FROM crm_taxonomy_intake i WHERE i.source_table = 'crm_bid_notices'");
+    expect(select.sql).toContain("NOT EXISTS (SELECT 1 FROM taxonomy_intake i WHERE i.source_table = 'bid_notices'");
   });
 
   it("单轮上限截断：deferred 留给下一轮", async () => {

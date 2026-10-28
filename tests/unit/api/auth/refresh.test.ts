@@ -134,7 +134,7 @@ describe("POST /api/auth/refresh", () => {
   });
 
   it("旧 token 无 uid → 403（user_key 回退路径已退役）", async () => {
-    // crm_users.user_key 列退役收尾：不再兼容无 uid 的旧 token，直接拒绝要求重新登录
+    // users.user_key 列退役收尾：不再兼容无 uid 的旧 token，直接拒绝要求重新登录
     vi.mocked(readRefreshCookieFromRequest).mockReturnValue("old-token");
     vi.mocked(verifyRefreshToken).mockReturnValue({ uid: undefined } as any);
     const res = await POST(makeReq());

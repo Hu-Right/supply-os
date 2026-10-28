@@ -193,7 +193,7 @@ describe("AS5 换源（AS1 与 AS4 之间的黑洞）", () => {
 
 describe("assertTableName（三个入口共用一份）", () => {
   it("止于合法表名，拦下拼进反引号的片段", () => {
-    expect(() => assertTableName("crm_notice_attribution_nodes")).not.toThrow();
+    expect(() => assertTableName("notice_attribution_nodes")).not.toThrow();
     expect(() => assertTableName("crm_notice_attribution_nodes__drill")).not.toThrow();
     expect(() => assertTableName("crm_x`; DELETE FROM y")).toThrow(/形制非法/);
     expect(() => assertTableName("")).toThrow(/形制非法/);

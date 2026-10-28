@@ -6,7 +6,7 @@
  *                （selfBound 已绑定 / boundByOther 被他人认领 / claimPending 处理中）
  *              - 200：本人已有 pending/approved 认领 → 幂等返回
  *              - 201：成功认领 → 三表写入
- *                （crm_supplier_claims INSERT + crm_users 绑定 + supplier.claim_status='pending'）
+ *                （supplier_claims INSERT + users 绑定 + supplier.claim_status='pending'）
  *              - GET：认领状态查询
  *              Mock ctx 仓储与 DB Pool，保持路由 + createClaimWithBinding 服务为真实实现。
  */

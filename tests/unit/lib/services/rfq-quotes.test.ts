@@ -82,7 +82,7 @@ describe("checkQuoteEligibility", () => {
       .mockResolvedValueOnce([[{ 1: 1 }]]);
     expect(await checkQuoteEligibility(pool(q), publishedRfq, 42)).toEqual({ ok: false, reason: "awarded" });
     const awardedCall = q.mock.calls[1];
-    expect(String(awardedCall?.[0])).toContain("FROM crm_rfq_quotes");
+    expect(String(awardedCall?.[0])).toContain("FROM rfq_quotes");
     expect(awardedCall?.[1]).toEqual([5, "won"]);
   });
 });
@@ -98,11 +98,11 @@ describe("submitQuote", () => {
     });
     expect(res).toEqual({ quoteId: 777 });
     const [insertSql, insertParams] = q.mock.calls[0];
-    expect(String(insertSql)).toContain("INSERT INTO crm_rfq_quotes");
+    expect(String(insertSql)).toContain("INSERT INTO rfq_quotes");
     expect(String(insertSql)).toContain("ON DUPLICATE KEY UPDATE");
     expect(insertParams).toEqual([5, 42, 100, "CNY", 30, "DDP", "含税", "submitted"]);
     // 第 2 次为站内信写入（通知采购方）
-    expect(String(q.mock.calls[1]?.[0])).toContain("INSERT INTO crm_notifications");
+    expect(String(q.mock.calls[1]?.[0])).toContain("INSERT INTO notifications");
   });
 
   it("站内信失败不影响报价落库", async () => {

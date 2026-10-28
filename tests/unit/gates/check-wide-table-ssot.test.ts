@@ -42,8 +42,8 @@ function rm(rel: string): void {
 }
 
 describe("check-wide-table-ssot", () => {
-  it("I1：services 里 UPDATE crm_notice_search → fail", () => {
-    write("services/search-sync/bad.ts", `const s = "UPDATE crm_notice_search SET title = 'x'";\nexport default s;`);
+  it("I1：services 里 UPDATE notice_search → fail", () => {
+    write("services/search-sync/bad.ts", `const s = "UPDATE notice_search SET title = 'x'";\nexport default s;`);
     const r = run(tmp);
     expect(r.code).toBe(1);
     expect(r.out).toContain("I1");
@@ -53,7 +53,7 @@ describe("check-wide-table-ssot", () => {
 
   it("I1：db/migrations 下的一次性收敛不在扫描范围", () => {
     fs.mkdirSync(path.join(tmp, "src/lib/db/migrations"), { recursive: true });
-    write("db/migrations/032-x.ts", `const s = "UPDATE crm_notice_search SET description = LEFT(description, 2000)";\nexport default s;`);
+    write("db/migrations/032-x.ts", `const s = "UPDATE notice_search SET description = LEFT(description, 2000)";\nexport default s;`);
     expect(run(tmp).code).toBe(0);
     rm("db/migrations/032-x.ts");
   });

@@ -35,7 +35,7 @@ describe("normalizeCountryKey", () => {
 describe("loadCountryAliasSnapshot", () => {
   it("成功构建 byKey→{canonical,code,kind,zh}，并生成 canonical→forms 反向展开", async () => {
     const { pool } = makePool([[
-      /crm_country_aliases/, [[
+      /country_aliases/, [[
         { canonical: "Turkey", country_code: "TR", alias: "Türkiye", kind: "country", name_i18n: '{"zh":"土耳其"}' },
         { canonical: "Turkey", country_code: "TR", alias: "Turkey", kind: "country", name_i18n: null },
         { canonical: "Asia", country_code: null, alias: "Asia", kind: "region", name_i18n: '{"zh":"亚洲"}' },
@@ -49,7 +49,7 @@ describe("loadCountryAliasSnapshot", () => {
   });
 
   it("第二次调用命中缓存，不再查库", async () => {
-    const { pool, query } = makePool([[/crm_country_aliases/, [[{ canonical: "X", country_code: null, alias: "x", kind: "country", name_i18n: null }]]]]);
+    const { pool, query } = makePool([[/country_aliases/, [[{ canonical: "X", country_code: null, alias: "x", kind: "country", name_i18n: null }]]]]);
     await loadCountryAliasSnapshot(pool);
     const before = query.mock.calls.length;
     await loadCountryAliasSnapshot(pool);
@@ -59,7 +59,7 @@ describe("loadCountryAliasSnapshot", () => {
   it("查库失败且无缓存 → 返回空快照 + 告警（不抛）", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      const { pool } = makePool([], /crm_country_aliases/);
+      const { pool } = makePool([], /country_aliases/);
       const snap = await loadCountryAliasSnapshot(pool);
       expect(snap.byKey.size).toBe(0);
       expect(warn).toHaveBeenCalled();
@@ -70,7 +70,7 @@ describe("loadCountryAliasSnapshot", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const { pool } = makePool([[
-        /crm_country_aliases/, [[
+        /country_aliases/, [[
           { canonical: "BAD", country_code: null, alias: "bad", kind: "country", name_i18n: "{不是合法json" },
           { canonical: "GOOD", country_code: "G", alias: "good", kind: "country", name_i18n: '{"zh":"好"}' },
         ]],
@@ -84,7 +84,7 @@ describe("loadCountryAliasSnapshot", () => {
 
   it("canonical 为空的行被跳过；invalidate 生效", async () => {
     const { pool } = makePool([[
-      /crm_country_aliases/, [[
+      /country_aliases/, [[
         { canonical: "", country_code: null, alias: "noop", kind: "country", name_i18n: null },
         { canonical: "K", country_code: null, alias: "k", kind: "country", name_i18n: null },
       ]],
@@ -93,7 +93,7 @@ describe("loadCountryAliasSnapshot", () => {
     expect(snap.byKey.has("NOOP")).toBe(false);
     expect(snap.byKey.has("K")).toBe(true);
     invalidateCountryAliasCache();
-    const { pool: p2, query } = makePool([[/crm_country_aliases/, [[{ canonical: "Z", country_code: null, alias: "z", kind: "country", name_i18n: null }]]]]);
+    const { pool: p2, query } = makePool([[/country_aliases/, [[{ canonical: "Z", country_code: null, alias: "z", kind: "country", name_i18n: null }]]]]);
     const snap2 = await loadCountryAliasSnapshot(p2);
     expect(query).toHaveBeenCalledTimes(1);
     expect(snap2.byKey.get("Z")?.canonical).toBe("Z");

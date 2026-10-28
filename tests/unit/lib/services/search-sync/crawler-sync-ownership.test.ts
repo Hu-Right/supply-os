@@ -76,7 +76,7 @@ describe("两个写入者的 ODKU 口径一致性", () => {
     // 应用内路径写入前已用 normalizeTitle 清洗 ⇒ 不登记；
     // daily-sync 没有那一步 ⇒ 只能靠目标优先防回退。两边不能同开、也不能同关。
     expect(TARGET_WINS_COLUMNS).toEqual({});
-    expect(ds.TARGET_WINS_COLUMNS).toEqual({ crm_bid_notices: ["title"] });
+    expect(ds.TARGET_WINS_COLUMNS).toEqual({ bid_notices: ["title"] });
   });
 
   it("目标优先式：目标非空就不动，空了才接源值", () => {
@@ -86,17 +86,17 @@ describe("两个写入者的 ODKU 口径一致性", () => {
   });
 
   it("登记内容钉死：公告表保护附件三列 + is_featured 单调上升；商机表零保护列", () => {
-    expect(NON_DESTRUCTIVE_COLUMNS.crm_bid_notices).toEqual(["documents", "procurement_files", "external_links"]);
-    expect(MONOTONE_RISE_COLUMNS.crm_bid_notices).toEqual(["is_featured"]);
+    expect(NON_DESTRUCTIVE_COLUMNS.bid_notices).toEqual(["documents", "procurement_files", "external_links"]);
+    expect(MONOTONE_RISE_COLUMNS.bid_notices).toEqual(["is_featured"]);
     // 反向断言：商机审核域是「源库→云端」的正向流入，任何人把它登记成保护列都必须红
-    expect(NON_DESTRUCTIVE_COLUMNS.crm_bid_opportunities).toBeUndefined();
-    expect(MONOTONE_RISE_COLUMNS.crm_bid_opportunities).toBeUndefined();
+    expect(NON_DESTRUCTIVE_COLUMNS.bid_opportunities).toBeUndefined();
+    expect(MONOTONE_RISE_COLUMNS.bid_opportunities).toBeUndefined();
   });
 });
 
 describe("平台行整行免疫", () => {
   it("钉死挂点：公告表有 entry_source，商机表没有（护栏只能挂在公告表）", () => {
-    expect(PLATFORM_IMMUNE).toEqual({ table: "crm_bid_notices", column: "entry_source", value: "platform" });
+    expect(PLATFORM_IMMUNE).toEqual({ table: "bid_notices", column: "entry_source", value: "platform" });
   });
 
   it("源码里必须真的把免疫集合用上（防止只改常量不改调用点的半截改动）", () => {

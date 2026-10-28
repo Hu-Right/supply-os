@@ -35,7 +35,7 @@ function makeCatalog(opts: { plan?: { plan_code: string } | null; scoped?: boole
 let wideRows: RowDataPacket[] = [];
 const query = vi.fn(async (sql: string, _params?: unknown[]) => {
   const s = String(sql);
-  if (s.includes("crm_notice_search")) return [wideRows];
+  if (s.includes("notice_search")) return [wideRows];
   return [[]];
 });
 const pool = { query } as unknown as Pool;
@@ -73,7 +73,7 @@ describe("resolveIndustryScope · 判定链", () => {
 
   it("限定档 + 已绑行业 → 墙启动，l1Code 即偏好的 L1 前缀（零查库推导）", async () => {
     profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-85010101" });
-    // 关键：全程不查 crm_commodity_backbone（大类翻译层已随 G 码退役消失）
+    // 关键：全程不查 commodity_backbone（大类翻译层已随 G 码退役消失）
     expect(await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 42)).toEqual({
       scoped: true, l1Code: "UGT-85", l1Nodes: ["UGT-85"], needsIndustry: false,
     });
@@ -140,11 +140,11 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
     await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9007);
     // 大类翻译查询已消失（L1 由码前缀推导），命中检查就是唯一一次查库
     const sql = String(query.mock.calls.at(-1)![0]);
-    expect(sql).toContain("crm_notice_search");
+    expect(sql).toContain("notice_search");
     expect(sql).toContain("backbone_path");
     expect(sql).toContain("WHERE id = ?");
     expect(sql).not.toMatch(/crm_bid_notice_\w*_codes\b/);
-    expect(sql).not.toContain("crm_bid_notices");
+    expect(sql).not.toContain("bid_notices");
     expect(sql).not.toMatch(/level1_id/);
     expect(query.mock.calls).toHaveLength(1);
     expect(query.mock.calls[0]![1]).toEqual([9007]);

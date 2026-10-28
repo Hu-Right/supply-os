@@ -105,8 +105,8 @@ describe("buildComparisonTable · 完整性", () => {
     const plans = [{ plan_code: "pro", price_mode: "fixed", sort_order: 2 }] as never;
     const defs = [ENUM_DEF] as never;
     const { repo } = makePool((sql) => {
-      if (sql.includes("crm_plan_catalog")) return plans;
-      if (sql.includes("crm_benefit_catalog")) return defs;
+      if (sql.includes("plan_catalog")) return plans;
+      if (sql.includes("benefit_catalog")) return defs;
       return []; // 矩阵一行都没有 → 全缺格
     });
     const table = await repo.buildComparisonTable();
@@ -120,8 +120,8 @@ describe("buildComparisonTable · 完整性", () => {
       { plan_code: "pro", price_mode: "fixed", sort_order: 2 },
     ] as never;
     const { repo } = makePool((sql) => {
-      if (sql.includes("crm_plan_catalog")) return plans;
-      if (sql.includes("crm_benefit_catalog")) return [ENUM_DEF];
+      if (sql.includes("plan_catalog")) return plans;
+      if (sql.includes("benefit_catalog")) return [ENUM_DEF];
       return [cell({ plan_code: "pro", value_level: 2 }), cell({ plan_code: "free", value_level: 0 })];
     });
     expect((await repo.buildComparisonTable()).plans.map((p) => p.plan_code)).toEqual(["pro"]);
@@ -136,7 +136,7 @@ describe("findActivePlanForUser · 本人订阅解析", () => {
     const { repo, calls } = makePool(() => []);
     await repo.findActivePlanForUser(42);
     const sql = calls[0];
-    for (const t of ["crm_plan_subscriptions", "crm_plan_catalog"]) {
+    for (const t of ["plan_subscriptions", "plan_catalog"]) {
       expect(sql).toContain(t);
     }
     // 兼容/映射层回流的守门断言：读层一旦出现旧表名或已退役的席位表即为违约
@@ -178,19 +178,19 @@ describe("isEntitled · 门控唯一入口（未订阅基线 = free 档那一列
 
   it("未登录按 free 档格子取值，且不去查订阅表", async () => {
     const { repo, calls } = makePool((sql) => {
-      if (sql.includes("crm_benefit_catalog")) return [def({})];
+      if (sql.includes("benefit_catalog")) return [def({})];
       return [{ plan_code: "free", benefit_code: "global_search", value_level: 1 }];
     });
     expect(await repo.isEntitled(null, "global_search")).toBe(true);
-    expect(calls.some((s) => s.includes("crm_plan_subscriptions"))).toBe(false);
-    expect(calls.some((s) => s.includes("crm_plan_benefits"))).toBe(true);
+    expect(calls.some((s) => s.includes("plan_subscriptions"))).toBe(false);
+    expect(calls.some((s) => s.includes("plan_benefits"))).toBe(true);
   });
 
   it("误放回归：不需订阅但 free 档额度为 0 → 不享有", async () => {
     // tech_support / procurement_consult 即此类：不需订阅，但全档额度都是 0。
     // 旧实现按 requires_subscription=0 直接判可用，把人放进了用不到的门。
     const { repo } = makePool((sql) => {
-      if (sql.includes("crm_benefit_catalog")) {
+      if (sql.includes("benefit_catalog")) {
         return [def({ benefit_code: "tech_support", value_kind: "quota" })];
       }
       return [{ plan_code: "free", benefit_code: "tech_support", value_num: 0 }];
@@ -201,7 +201,7 @@ describe("isEntitled · 门控唯一入口（未订阅基线 = free 档那一列
   it("目录标记不再直接判死：取值改由 free 列说了算", async () => {
     const responder = (freeNum: number) =>
       makePool((sql) => {
-        if (sql.includes("crm_benefit_catalog")) {
+        if (sql.includes("benefit_catalog")) {
           return [def({ benefit_code: "notice_view", value_kind: "quota" })];
         }
         return [{ plan_code: "free", benefit_code: "notice_view", value_num: freeNum }];
@@ -215,10 +215,10 @@ describe("isEntitled · 门控唯一入口（未订阅基线 = free 档那一列
 
   it("有生效订阅时按本档矩阵格取值，0 额度格判为不享有", async () => {
     const { repo } = makePool((sql) => {
-      if (sql.includes("crm_benefit_catalog")) {
+      if (sql.includes("benefit_catalog")) {
         return [def({ benefit_code: "notice_view", value_kind: "quota" })];
       }
-      if (sql.includes("crm_plan_subscriptions")) return [{ plan_code: "starter", subscription_id: 9 }];
+      if (sql.includes("plan_subscriptions")) return [{ plan_code: "starter", subscription_id: 9 }];
       return [{ plan_code: "starter", benefit_code: "notice_view", value_num: 0 }];
     });
     expect(await repo.isEntitled(42, "notice_view")).toBe(false);
@@ -226,7 +226,7 @@ describe("isEntitled · 门控唯一入口（未订阅基线 = free 档那一列
 
   it("矩阵缺格不猜默认值：判为不享有（而非按 0 或按上层档位放行）", async () => {
     const { repo } = makePool((sql) => {
-      if (sql.includes("crm_benefit_catalog")) return [def({})];
+      if (sql.includes("benefit_catalog")) return [def({})];
       return []; // 该套餐这一格不存在
     });
     expect(await repo.isEntitled(null, "global_search")).toBe(false);

@@ -281,7 +281,7 @@ describe("registerUser", () => {
         recordConsentLog: consent,
       },
     });
-    // 客户端仍会传 agreementAcceptedAt（旧前端契约），但 crm_consent_log.consent_timestamp 已退役：
+    // 客户端仍会传 agreementAcceptedAt（旧前端契约），但 consent_log.consent_timestamp 已退役：
     // 落库时间事实由服务端 created_at 承担，因此该值不得再向下传递。
     await registerUser(ctx, { ...baseParams, agreementVersion: "V3.0", agreementAcceptedAt: "2026-09-26T01:02:03.000Z" });
 

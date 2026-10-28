@@ -46,14 +46,14 @@ function makeEnv(opts: {
     rollback: vi.fn(async () => {}),
     release: vi.fn(async () => {}),
     query: vi.fn(async (sql: string) => {
-      if (sql.includes("FROM crm_opportunity_unlocks WHERE")) {
+      if (sql.includes("FROM opportunity_unlocks WHERE")) {
         return [opts.inTxnAlreadyUnlocked ? [{ id: 1 }] : []];
       }
-      if (sql.includes("INSERT INTO crm_opportunity_unlocks")) {
+      if (sql.includes("INSERT INTO opportunity_unlocks")) {
         if (opts.insertError) throw opts.insertError;
         return [{}];
       }
-      if (sql.includes("UPDATE crm_bid_opportunities SET unlock_count")) {
+      if (sql.includes("UPDATE bid_opportunities SET unlock_count")) {
         return [{}];
       }
       return [[]];
@@ -65,7 +65,7 @@ function makeEnv(opts: {
     getConnection: vi.fn(async () => conn),
     // 兴趣节点取数（事务外非关键路径）：商机关联公告的倒排行
     query: vi.fn(async (sql: string) => {
-      if (String(sql).includes("crm_notice_backbone_nodes")) return [[{ node: "UGT-4301" }]];
+      if (String(sql).includes("notice_backbone_nodes")) return [[{ node: "UGT-4301" }]];
       return [[]];
     }),
   } as unknown as Pool;
@@ -146,7 +146,7 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
     const { deps, params, conn, quotaDeps } = makeEnv({ active: ACTIVE, pool: POOL });
     const result = await executeOpportunityUnlock(deps, params);
     expect(result).toEqual({ alreadyUnlocked: false, unlockType: "single" });
-    const insertCall = conn.query.mock.calls.find(([sql]: string[]) => sql.includes("INSERT INTO crm_opportunity_unlocks"));
+    const insertCall = conn.query.mock.calls.find(([sql]: string[]) => sql.includes("INSERT INTO opportunity_unlocks"));
     expect(insertCall).toBeTruthy();
     // userId 直存（identity 重构后无子查询反查）；快照列已退役，只写五列
     expect(insertCall![1]).toEqual([101, 42, "single", 99]);
@@ -166,7 +166,7 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
       userId: 101, opportunityId: 42, unlockType: "subscription", price: 0,
     });
     await expect(result).rejects.toThrow("PAID_QUOTA_REQUIRED");
-    expect(conn.query.mock.calls.some(([sql]: string[]) => String(sql).includes("INSERT INTO crm_opportunity_unlocks"))).toBe(false);
+    expect(conn.query.mock.calls.some(([sql]: string[]) => String(sql).includes("INSERT INTO opportunity_unlocks"))).toBe(false);
     expect(quotaDeps.write.consumeLockedPool).not.toHaveBeenCalled();
     expect(conn.rollback).toHaveBeenCalled();
     expect(conn.commit).not.toHaveBeenCalled();

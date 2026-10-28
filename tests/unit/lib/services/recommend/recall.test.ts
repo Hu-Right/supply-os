@@ -6,13 +6,13 @@ import type { Pool } from "mysql2/promise";
 /**
  * 召回层：兴趣码 → 骨架节点码（口径单测在 commodity/backbone-path.test.ts，这里测召回形状）
  *
- * R4' 后兴趣码全部 UGT 化：`crm_user_interest_codes` / `crm_supplier_backbone_interests`（§7 前为 `旧供应商兴趣表`）上线日
- * 已由一次性迁移件 user-interest-ugt-migrate 全表重写为 `UGT-*`，`crm_user_interest_codes`
+ * R4' 后兴趣码全部 UGT 化：`user_interest_codes` / `supplier_backbone_interests`（§7 前为 `旧供应商兴趣表`）上线日
+ * 已由一次性迁移件 user-interest-ugt-migrate 全表重写为 `UGT-*`，`user_interest_codes`
  * 里换不出的 65 行也由同批件 interest-tables-purge-legacy 清干净（两件均不入库、已随迁移完成删除）。运行期再无数字码入口
  * ⇒ 本文件所有用例改喂 UGT 节点键，数字码入参一律落 misses（与 backbone-path R4' 后 match() 对齐）。
  *
  * 钉住四件事：
- * 1. 谓词只落在节点码倒排表上（`INNER JOIN crm_notice_backbone_nodes cand ON cand.notice_id = n.id
+ * 1. 谓词只落在节点码倒排表上（`INNER JOIN notice_backbone_nodes cand ON cand.notice_id = n.id
  *    AND cand.node IN (?)`），宽表 backbone_path 的 FIND_IN_SET、桥表 `b.levelN_id IN`、
  *    `b.code LIKE` 与字典行 id 一个都不许再出现（前者口径对但形状错：全表扫，实测 2.4s~3.8s）；
  * 2. 大类层（L1）落点不进谓词 —— 旧实现同样只在 interest.level>=2 时才拼召回条件；
@@ -63,7 +63,7 @@ describe("processInterestCodes", () => {
     pathOf.mockImplementation(chainFor({ "UGT-05020301": ["UGT-05", "UGT-0502", "UGT-050203", "UGT-05020301"] }));
     const out = await processInterestCodes(pool, rows({ code: "UGT-05020301" }), { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 });
     expect(out.clauses.join).toBe(
-      "INNER JOIN crm_notice_backbone_nodes cand ON cand.notice_id = n.id AND cand.node IN (?)",
+      "INNER JOIN notice_backbone_nodes cand ON cand.notice_id = n.id AND cand.node IN (?)",
     );
     expect(out.clauses.params).toEqual(["UGT-05020301"]);
     expect(out.clauses.join).not.toMatch(/b\.level[1-5]_id|b\.code|LIKE|backbone_path/);

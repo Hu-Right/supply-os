@@ -64,8 +64,8 @@ const USER_ROW = {
 /** 按 SQL 关键字分派行数据：账号行 / 验证码行 */
 function stubRows(codeRow: Record<string, unknown> | null) {
   poolQuery.mockImplementation((sql: string) => {
-    if (String(sql).includes("FROM crm_users")) return Promise.resolve([[USER_ROW]]);
-    if (String(sql).includes("FROM crm_password_resets")) {
+    if (String(sql).includes("FROM users")) return Promise.resolve([[USER_ROW]]);
+    if (String(sql).includes("FROM password_resets")) {
       return Promise.resolve(codeRow ? [[codeRow]] : [[]]);
     }
     return Promise.resolve([[]]);
@@ -140,7 +140,7 @@ describe("POST /api/auth/reset-password", () => {
 
   it("账号已停用 → 403/41118（EC_ACCOUNT_DISABLED），不写 last_login_at、不改密码、不签发会话", async () => {
     poolQuery.mockImplementation((sql: string) => {
-      if (String(sql).includes("FROM crm_users")) {
+      if (String(sql).includes("FROM users")) {
         return Promise.resolve([[{ ...USER_ROW, account_status: "disabled" }]]);
       }
       return Promise.resolve([[{ id: 5, code: "hash:123456", attempts: 0 }]]);
@@ -152,7 +152,7 @@ describe("POST /api/auth/reset-password", () => {
     expect((await res.json()).code).toBe(41118); // EC_ACCOUNT_DISABLED
     expect(lastLoginWrites()).toHaveLength(0);
     expect(
-      poolExecute.mock.calls.some(([sql]) => /UPDATE crm_users SET password_hash/i.test(String(sql))),
+      poolExecute.mock.calls.some(([sql]) => /UPDATE users SET password_hash/i.test(String(sql))),
     ).toBe(false);
     expect(issueTokenPair).not.toHaveBeenCalled();
   });

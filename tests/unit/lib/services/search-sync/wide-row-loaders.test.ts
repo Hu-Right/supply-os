@@ -30,13 +30,13 @@ function makePool(byKeyword: Array<[RegExp, unknown[][]]>, alsoThrow?: RegExp) {
 
 describe("loadAliasMap", () => {
   it("查询失败且无缓存 → 返回空映射（不抛错，宽表构建继续）", async () => {
-    const { pool } = makePool([], /crm_agency_aliases/);
+    const { pool } = makePool([], /agency_aliases/);
     expect((await loadAliasMap(pool)).size).toBe(0);
   });
 
   it("成功构建 alias→canonical（大写归一 key）", async () => {
     const { pool } = makePool([
-      [/crm_agency_aliases/, [[
+      [/agency_aliases/, [[
         { canonical: "United Nations Development Programme", alias: " undp " },
         { canonical: "UNICEF", alias: "unicef" },
       ]]],
@@ -47,7 +47,7 @@ describe("loadAliasMap", () => {
   });
 
   it("第二次调用命中 10 分钟缓存，不再查库", async () => {
-    const { pool, query } = makePool([[/crm_agency_aliases/, [[{ canonical: "X", alias: "y" }]]]]);
+    const { pool, query } = makePool([[/agency_aliases/, [[{ canonical: "X", alias: "y" }]]]]);
     await loadAliasMap(pool);
     const before = query.mock.calls.length;
     await loadAliasMap(pool);
@@ -64,7 +64,7 @@ describe("loadTranslationsByNoticeIds", () => {
 
   it("原样返回译文与 model（不在此处做同语言回填，规则唯一在 buildWideRow）", async () => {
     const { pool } = makePool([
-      [/crm_notice_translations/, [[
+      [/notice_translations/, [[
         { notice_id: 7, lang: "zh", title_tr: "标题", description_tr: null, model: "same-lang-passthrough" },
         { notice_id: 7, lang: "en", title_tr: "Title", description_tr: "Body", model: "dealy" },
       ]]],
@@ -106,16 +106,16 @@ describe("reconcileGhostRows", () => {
   it("分批删除宽表残留行并返回被删 id", async () => {
     const ghosts = Array.from({ length: 3 }, (_, i) => ({ id: i + 1 }));
     const { pool, query } = makePool([
-      [/SELECT ns\.id FROM crm_notice_search ns/, [ghosts]],
+      [/SELECT ns\.id FROM notice_search ns/, [ghosts]],
     ]);
     expect(await reconcileGhostRows(pool)).toEqual([1, 2, 3]);
-    const deletes = query.mock.calls.filter((c) => /DELETE FROM crm_notice_search/i.test(String(c[0])));
+    const deletes = query.mock.calls.filter((c) => /DELETE FROM notice_search/i.test(String(c[0])));
     expect(deletes).toHaveLength(1);
     expect(deletes[0][1]).toEqual([1, 2, 3]);
   });
 
   it("查询异常 → 静默降级返回已收集 id（不阻断对账定时器）", async () => {
-    const { pool } = makePool([], /SELECT ns\.id FROM crm_notice_search ns/);
+    const { pool } = makePool([], /SELECT ns\.id FROM notice_search ns/);
     expect(await reconcileGhostRows(pool)).toEqual([]);
   });
 });

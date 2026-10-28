@@ -58,7 +58,7 @@ test("SQ2：逗号紧跟 FROM 的语句必须报错", () => {
     "bad2.ts",
     [
       'export const SQL = `SELECT n.id, n.title,',
-      '     FROM crm_bid_notices n`;',
+      '     FROM bid_notices n`;',
     ].join("\n"),
   );
   const r = run({ SQL_SHAPE_SCAN_ROOT: root });

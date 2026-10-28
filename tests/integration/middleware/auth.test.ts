@@ -40,7 +40,7 @@ describe("extractUserKey", () => {
     const result = await extractUserKey(makeRequest({ authorization: "Bearer valid-token" }));
     expect(result.userId).toBe(55);
     expect(result.authViaJwt).toBe(true);
-    // crm_users.user_key 列退役收尾：AuthResult 已不再暴露 userKey 字段
+    // users.user_key 列退役收尾：AuthResult 已不再暴露 userKey 字段
     expect((result as unknown as Record<string, unknown>).userKey).toBeUndefined();
   });
 

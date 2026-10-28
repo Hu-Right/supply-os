@@ -2,7 +2,7 @@
  * LearningOrdersRepo 集成测试
  *
  * @description 验证 LearningOrdersRepo 的 SQL 语句与数据库 schema 匹配。
- *              crm_users.user_key 列退役收尾（2026-09-04）：
+ *              users.user_key 列退役收尾（2026-09-04）：
  *              INSERT 语句已不再包含 user_key 字段（前次任务已清理），
  *              本测试同步更新为断言 user_key 已移除，防止回归。
  *              Mock DB Pool，验证 SQL 语句结构正确。
@@ -45,7 +45,7 @@ describe("LearningOrdersRepo 集成测试", () => {
       expect(mockExecute).toHaveBeenCalledTimes(1);
       const [sql, params] = mockExecute.mock.calls[0];
 
-      // crm_users.user_key 列退役收尾：INSERT 不再包含 user_key
+      // users.user_key 列退役收尾：INSERT 不再包含 user_key
       expect(sql).not.toContain("user_key");
       // 验证 SQL 包含 user_id 字段
       expect(sql).toContain("user_id");

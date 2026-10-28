@@ -1,7 +1,7 @@
 /**
  * file-upload（字节入库版）单元测试
  * @module tests/unit/lib/services/file-upload.test.ts
- * @description 2026-10-14 起执照字节统一存 crm_upload_files（双端共享库，不落磁盘）。
+ * @description 2026-10-14 起执照字节统一存 upload_files（双端共享库，不落磁盘）。
  *              钉住：纯函数层（uid 提取/文件名白名单/URL 解析）+ DB 层
  *              （save 幂等 upsert、get 命中与未命中、delete 按 URL 删行且非执照 URL 静默忽略）。
  */
@@ -83,7 +83,7 @@ describe("saveLicenseFile（字节入库）", () => {
     const res = await saveLicenseFile({ filename: "license_42_1.jpg", buffer, contentType: "image/jpeg", uploadedBy: 42 });
     expect(res).toEqual({ url: `${LICENSE_URL_PREFIX}/license_42_1.jpg`, filename: "license_42_1.jpg" });
     const [sql, params] = poolExecute.mock.calls[0];
-    expect(String(sql)).toContain("INSERT INTO crm_upload_files");
+    expect(String(sql)).toContain("INSERT INTO upload_files");
     expect(String(sql)).toContain("ON DUPLICATE KEY UPDATE");
     expect(params[0]).toBe("license_42_1.jpg");
     expect(params[1]).toBe(buffer);
@@ -110,7 +110,7 @@ describe("getLicenseFile（按名取字节）", () => {
     const res = await getLicenseFile("license_42_1.png");
     expect(res).toEqual({ buffer: content, contentType: "image/png" });
     const [sql, params] = poolExecute.mock.calls[0];
-    expect(String(sql)).toContain("FROM crm_upload_files WHERE filename = ?");
+    expect(String(sql)).toContain("FROM upload_files WHERE filename = ?");
     expect(params).toEqual(["license_42_1.png"]);
   });
 
@@ -129,7 +129,7 @@ describe("deleteFile（按 URL 删记录）", () => {
   it("执照 URL → DELETE 对应文件名", async () => {
     await deleteFile(`${LICENSE_URL_PREFIX}/license_42_1.jpg`);
     const [sql, params] = poolExecute.mock.calls[0];
-    expect(String(sql)).toContain("DELETE FROM crm_upload_files WHERE filename = ?");
+    expect(String(sql)).toContain("DELETE FROM upload_files WHERE filename = ?");
     expect(params).toEqual(["license_42_1.jpg"]);
   });
 

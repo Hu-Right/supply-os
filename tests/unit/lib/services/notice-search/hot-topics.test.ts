@@ -40,7 +40,7 @@ beforeEach(() => {
 
 describe("热门品目按骨架 L1 聚合", () => {
   it("SQL 读 backbone_path 与骨架 L1 行，不读旧字典/precise_levelN/group_code", () => {
-    expect(HOT_TOP_GROUPS_SQL).toContain("crm_commodity_backbone");
+    expect(HOT_TOP_GROUPS_SQL).toContain("commodity_backbone");
     expect(HOT_TOP_GROUPS_SQL).toMatch(/b\.level = 1/);
     expect(HOT_TOP_GROUPS_SQL).toContain("backbone_path");
     expect(HOT_TOP_GROUPS_SQL).toContain("name_zh");

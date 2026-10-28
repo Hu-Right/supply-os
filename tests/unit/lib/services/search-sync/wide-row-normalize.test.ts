@@ -1,14 +1,16 @@
 /**
- * buildWideRow 归一化分支（决定搜索筛选与排序的可取值）
+ * buildWideRow 投影分支（决定搜索筛选与排序的可取值）
  *
- * 这些分支静默决定 country_std / agency_std / agency_group / notice_type_std /
- * deadline_sec / estimated_value 的落库值，进而决定筛选能否命中与金额排序是否正确。
+ * 2026-10-27 管道翻转后 buildWideRow 是纯投影：归一化字段（买家/类型分组/国家/金额/截止）
+ * 从服务表 notice_public 的 SELECT 别名直拷，本层不做任何归一化计算——归一化语义
+ * 的测试归 notice-normalize/notice-core 与 notice-public/build。这里钉的是投影搬运与
+ * 检索专有字段（受援国展示形 / entry_source / backbone / 文档计数 / 指纹透传）。
  */
 import { describe, it, expect } from "vitest";
 import { buildWideRow } from "@/lib/services/search-sync/wide-row-builder";
 import type { CountryAliasSnapshot, CountryAliasEntry } from "@/lib/services/country/alias-store";
 
-/** 与 store 同口径（clean 后大写去重音）构造最小国家表快照 */
+/** 与 store 同口径（clean 后大写去重音）构造最小国家表快照（受援国展示形仍在②算） */
 function csnap(pairs: Array<[string, { canonical: string; zh?: string }]>): CountryAliasSnapshot {
   const byKey = new Map<string, CountryAliasEntry>();
   const forms = new Map<string, string[]>();
@@ -22,10 +24,7 @@ function csnap(pairs: Array<[string, { canonical: string; zh?: string }]>): Coun
   return { byKey, formsByCanonical: forms };
 }
 const CN = csnap([
-  ["Brasil", { canonical: "Brazil", zh: "巴西" }],
   ["RUS", { canonical: "Russia", zh: "俄罗斯" }],
-  ["巴西", { canonical: "Brazil", zh: "巴西" }],
-  ["China", { canonical: "China", zh: "中国" }],
   ["中国", { canonical: "China", zh: "中国" }],
 ]);
 
@@ -37,71 +36,87 @@ const base = {
   description_cn: null, bid_overview: null, beneficiary_countries: null,
 };
 
-describe("country_std / agency_std", () => {
-  it("国家名归一化为英文标准名（多种历史写法，一切以表为准）", () => {
-    for (const [raw, expected] of [["Brasil", "Brazil"], ["RUS", "Russia"], ["巴西", "Brazil"]] as const) {
-      expect(buildWideRow({ ...base, country: raw }, new Map(), undefined, undefined, CN).country_std).toBe(expected);
-    }
+/** ①归一层带出的归一化字段（SELECT 别名形态） */
+const publicHit = {
+  buyer_name: "Acme Works Ltd.",
+  buyer_group: "PUBLIC_ENTERPRISE_INTL",
+  country_name: "Brazil",
+  public_country_codes: '["BR","CN"]',
+  notice_type_code: "RFQ",
+  deadline_ts: 1800000000,
+  public_estimated_value: "14000.00",
+  public_updated_at: 1760000000,
+};
+
+describe("归一化字段投影（服务表 → 宽表）", () => {
+  it("买家/类型分组/国家直拷自服务表别名", () => {
+    const row = buildWideRow({ ...base, ...publicHit });
+    expect(row.buyer_name).toBe("Acme Works Ltd.");
+    expect(row.buyer_group).toBe("PUBLIC_ENTERPRISE_INTL");
+    expect(row.country_name).toBe("Brazil");
+    expect(row.notice_type_code).toBe("RFQ");
   });
 
-  it("空国家与空机构 → 空串，且不触发机构分类（agency_group 为空）", () => {
-    const row = buildWideRow({ ...base, country: "", agency: "" }, new Map());
-    expect(row.country_std).toBe("");
-    expect(row.agency_std).toBe("");
-    expect(row.agency_group).toBe("");
+  it("country_codes 由 JSON 数组投影为逗号串并保序去重", () => {
+    const row = buildWideRow({ ...base, ...publicHit, public_country_codes: '["BR","CN","BR","X"]' });
+    expect(row.country_codes).toBe("BR,CN");
   });
 
-  it("机构别名表命中则用 canonical，未命中则保留原名", () => {
-    const alias = new Map([["UNDP", "United Nations Development Programme"]]);
-    expect(buildWideRow({ ...base, agency: "undp" }, alias).agency_std)
-      .toBe("United Nations Development Programme");
-    expect(buildWideRow({ ...base, agency: "Some Local Bureau" }, alias).agency_std)
-      .toBe("Some Local Bureau");
+  it("①未命中（LEFT JOIN 空 / JSON 损坏）时归一化字段全空，不臆测", () => {
+    const miss = buildWideRow({ ...base });
+    expect(miss.buyer_name).toBe("");
+    expect(miss.buyer_group).toBe("");
+    expect(miss.country_name).toBe("");
+    expect(miss.country_codes).toBe("");
+    expect(miss.notice_type_code).toBe("");
+    const broken = buildWideRow({ ...base, ...publicHit, public_country_codes: "{oops" });
+    expect(broken.country_codes).toBe("");
   });
 
-  it("受援助国逐个归一并转中文，超长结果按 300 截断", () => {
-    const row = buildWideRow({ ...base, beneficiary_countries: "RUS, 中国 , Unknownland" }, new Map(), undefined, undefined, CN);
-    expect(row.beneficiary_countries).toContain("俄罗斯");
-    expect(row.beneficiary_countries).toContain("中国");
-    const long = buildWideRow({ ...base, beneficiary_countries: "RUS,".repeat(80) }, new Map(), undefined, undefined, CN);
-    expect(long.beneficiary_countries.length).toBeLessThanOrEqual(300);
+  it("截止投影自 deadline_ts：异常值（NaN/负/缺失）一律归零", () => {
+    expect(buildWideRow({ ...base, ...publicHit }).deadline_sec).toBe(1800000000);
+    expect(buildWideRow({ ...base, deadline_ts: "abc" }).deadline_sec).toBe(0);
+    expect(buildWideRow({ ...base, deadline_ts: -5 }).deadline_sec).toBe(0);
+    expect(buildWideRow({ ...base }).deadline_sec).toBe(0);
+  });
+
+  it("金额投影自服务表归一值：DECIMAL 字符串转数值，缺失/畸形/保密置空落 0", () => {
+    expect(buildWideRow({ ...base, ...publicHit }).estimated_value).toBe(14000);
+    expect(buildWideRow({ ...base }).estimated_value).toBe(0);
+    expect(buildWideRow({ ...base, public_estimated_value: null }).estimated_value).toBe(0);
+    expect(buildWideRow({ ...base, public_estimated_value: "oops" }).estimated_value).toBe(0);
+  });
+
+  it("有买家无国家（或反之）在 ① 已折算：② 只搬运不补算，buyer_group 缺就是空", () => {
+    const row = buildWideRow({ ...base, ...publicHit, buyer_group: null, buyer_name: "Acme Works Ltd." });
+    expect(row.buyer_name).toBe("Acme Works Ltd.");
+    expect(row.buyer_group).toBe("");
   });
 });
 
-describe("notice_type_std / deadline_sec / estimated_value", () => {
-  it("自然语言类型归一为标准短码", () => {
-    expect(buildWideRow({ ...base, notice_type: "Request for Quotation" }, new Map()).notice_type_std).toBe("RFQ");
-    expect(buildWideRow({ ...base, notice_type: null }, new Map()).notice_type_std).toBe("OTHER");
-  });
-
-  it("deadline_sec 的异常值一律归零（NaN / 负数 / null）", () => {
-    expect(buildWideRow({ ...base, deadline_sec: -5 }, new Map()).deadline_sec).toBe(0);
-    expect(buildWideRow({ ...base, deadline_sec: "abc" }, new Map()).deadline_sec).toBe(0);
-    expect(buildWideRow({ ...base, deadline_sec: null }, new Map()).deadline_sec).toBe(0);
-    expect(buildWideRow({ ...base, deadline_sec: "2000000000" }, new Map()).deadline_sec).toBe(2000000000);
-  });
-
-  it("金额从含币种与千分位的字符串提取数值", () => {
-    expect(buildWideRow({ ...base, estimated_value: "USD 14,000" }, new Map()).estimated_value).toBe(14000);
-    expect(buildWideRow({ ...base, estimated_value: "免费" }, new Map()).estimated_value).toBe(0);
-    expect(buildWideRow({ ...base, estimated_value: null }, new Map()).estimated_value).toBe(0);
+describe("检索专有字段（②自产）", () => {
+  it("受援助国逐个归一并转中文，超长结果按 300 截断", () => {
+    const row = buildWideRow({ ...base, beneficiary_countries: "RUS, 中国 , Unknownland" }, undefined, undefined, CN);
+    expect(row.beneficiary_countries).toContain("俄罗斯");
+    expect(row.beneficiary_countries).toContain("中国");
+    const long = buildWideRow({ ...base, beneficiary_countries: "RUS,".repeat(80) }, undefined, undefined, CN);
+    expect(long.beneficiary_countries.length).toBeLessThanOrEqual(300);
   });
 
   it("entry_source 缺失时默认 crawl（平台/爬虫归属不得留空）", () => {
-    expect(buildWideRow({ ...base, entry_source: null }, new Map()).entry_source).toBe("crawl");
-    expect(buildWideRow({ ...base, entry_source: "platform" }, new Map()).entry_source).toBe("platform");
+    expect(buildWideRow({ ...base, entry_source: null }).entry_source).toBe("crawl");
+    expect(buildWideRow({ ...base, entry_source: "platform" }).entry_source).toBe("platform");
   });
 
   it("无品目归属时 backbone_path 落 NULL（空串在门禁 BB7 里算违规）", () => {
-    const row = buildWideRow(base, new Map());
+    const row = buildWideRow(base);
     expect(row.backbone_path).toBeNull();
     expect(row.documents_count).toBe(0);
   });
 
   it("有归属时只落 backbone_path，旧口径分类列一个都不产出", () => {
-    const row = buildWideRow(base, new Map(), { backbone: "UGT-01,UGT-0101" });
+    const row = buildWideRow(base, { backbone: "UGT-01,UGT-0101" });
     expect(row.backbone_path).toBe("UGT-01,UGT-0101");
-    // 按列族拦截（旧五级 + precise 镜像同族）：改名复活一样报错
     for (const key of Object.keys(row)) expect(key).not.toMatch(/^\w*level[1-5]$/);
   });
 
@@ -109,30 +124,27 @@ describe("notice_type_std / deadline_sec / estimated_value", () => {
     const row = buildWideRow({
       ...base,
       documents: JSON.stringify([{ name: "TOR.pdf", url: "https://x/TOR.pdf" }]),
-    }, new Map());
+    });
     expect(row.documents_count).toBeGreaterThan(0);
-  });
-
-  it("有机构无国家（或反之）时不做类型聚合，agency_group 保持空", () => {
-    const alias = new Map([["UNDP", "United Nations Development Programme"]]);
-    expect(buildWideRow({ ...base, agency: "undp", country: "" }, alias).agency_group).toBe("");
-    expect(buildWideRow({ ...base, agency: "", country: "Kenya" }, alias).agency_group).toBe("");
-  });
-
-  it("空串类型与 null 同样归入 OTHER（筛选短码集合不得出现空值）", () => {
-    expect(buildWideRow({ ...base, notice_type: "" }, new Map()).notice_type_std).toBe("OTHER");
   });
 
   it("已为数值/数组的输入不得被重复解析或误归零", () => {
     const row = buildWideRow({
       ...base,
-      estimated_value: 5000.5,
       documents: [{ name: "a.pdf", url: "https://x/a.pdf" }],
       procurement_files: [{ name: "b.pdf", url: "https://x/b.pdf" }],
       is_featured: 1,
-    }, new Map());
-    expect(row.estimated_value).toBe(5000.5);
+    });
     expect(row.is_featured).toBe(1);
     expect(row.documents_count).toBe(2);
+  });
+
+  it("主表原始归一输入（agency/country/notice_type/estimated_value/deadline_sec）不再进任何产出列", () => {
+    const row = buildWideRow({ ...base, agency: "undp", country: "Brasil", notice_type: "RFQ" });
+    expect(row).not.toHaveProperty("agency");
+    expect(row).not.toHaveProperty("country");
+    expect(row).not.toHaveProperty("estimated_value_raw");
+    // 归一化语义的守卫已上移：宽表构建器不再引用 notice-core / normalizeAmount
+    expect(row.buyer_group).toBe("");
   });
 });

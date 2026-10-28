@@ -29,7 +29,7 @@ describe("UserSupplierPoolRepo", () => {
     await repo.addFromPlatform(100, 10);
     expect(mockExecute).toHaveBeenCalledTimes(1);
     const sql = mockExecute.mock.calls[0][0];
-    expect(sql).toContain("INSERT IGNORE INTO crm_user_supplier_pool");
+    expect(sql).toContain("INSERT IGNORE INTO user_supplier_pool");
     expect(mockExecute.mock.calls[0][1]).toEqual([100, 10]);
   });
 
@@ -38,7 +38,7 @@ describe("UserSupplierPoolRepo", () => {
     await repo.addManual(100, 30);
     expect(mockExecute).toHaveBeenCalledTimes(1);
     const sql = mockExecute.mock.calls[0][0];
-    expect(sql).toContain("INSERT INTO crm_user_supplier_pool");
+    expect(sql).toContain("INSERT INTO user_supplier_pool");
   });
 
   it("updateNotes 更新备注", async () => {
@@ -46,7 +46,7 @@ describe("UserSupplierPoolRepo", () => {
     await repo.updateNotes(100, 5, "新备注");
     expect(mockExecute).toHaveBeenCalledTimes(1);
     const sql = mockExecute.mock.calls[0][0];
-    expect(sql).toContain("UPDATE crm_user_supplier_pool SET notes");
+    expect(sql).toContain("UPDATE user_supplier_pool SET notes");
   });
 
   it("remove 删除记录", async () => {
@@ -54,7 +54,7 @@ describe("UserSupplierPoolRepo", () => {
     await repo.remove(100, 5);
     expect(mockExecute).toHaveBeenCalledTimes(1);
     const sql = mockExecute.mock.calls[0][0];
-    expect(sql).toContain("DELETE FROM crm_user_supplier_pool");
+    expect(sql).toContain("DELETE FROM user_supplier_pool");
   });
 
   it("countByUser 统计数量", async () => {
@@ -103,7 +103,7 @@ describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排�
     const rows = await repo.searchVerifiedByCompany("50%折扣_厂", 8, 100);
     expect(rows[0]).toEqual({ id: 11, company: "工厂A有限公司", industry: "", in_pool: 1 });
     const [sql, params] = mockQuery.mock.calls[0];
-    expect(sql).toContain("LEFT JOIN crm_user_supplier_pool");
+    expect(sql).toContain("LEFT JOIN user_supplier_pool");
     expect(params[0]).toBe(100);
     expect(params[1]).toBe("%50\\%折扣\\_厂%");
   });
@@ -156,7 +156,7 @@ describe("searchVerifiedByCompany / findVerifiedById 边界", () => {
     const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
     await repo.searchVerifiedByCompany("工厂", 8);
     const [sql, params] = mockQuery.mock.calls[0];
-    expect(sql).not.toContain("LEFT JOIN crm_user_supplier_pool");
+    expect(sql).not.toContain("LEFT JOIN user_supplier_pool");
     expect(params).toEqual(["%工厂%"]);
   });
 

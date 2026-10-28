@@ -104,7 +104,7 @@ test("反例：baseline 精确豁免只放两列，旧五级列混进基线仍�
   const repo = makeRepo([
     {
       path: "db/schema/baseline.sql",
-      content: `CREATE TABLE \`crm_bid_notices\` (\n  \`${LEVEL_COL}\` int,\n);`,
+      content: `CREATE TABLE \`bid_notices\` (\n  \`${LEVEL_COL}\` int,\n);`,
     },
   ]);
   const r = run(repo);

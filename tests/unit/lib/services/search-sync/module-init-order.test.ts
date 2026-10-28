@@ -19,7 +19,7 @@ describe("模块初始化顺序", () => {
     const builder = await import("@/lib/services/search-sync/wide-row-builder");
     expect(fp.WIDE_FP_EXPR.startsWith("MD5(")).toBe(true);
     expect(builder.wideSyncSelect(true)).toContain(fp.WIDE_FP_EXPR);
-    expect(builder.WIDE_SYNC_JOIN).toContain("crm_bid_opportunities");
+    expect(builder.WIDE_SYNC_JOIN).toContain("bid_opportunities");
   });
 
   it("以 builder 为入口：指纹表达式同样完整可用", async () => {

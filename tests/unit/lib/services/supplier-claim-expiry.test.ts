@@ -70,7 +70,7 @@ describe("releaseExpiredClaims", () => {
     // ① 用户只按「仍绑定在该主体上」关联
     expect(update).toContain("ON u.id = c.user_id AND u.supplier_id = c.supplier_id");
     // ② 同用户同主体已有 approved 认领的行被排除
-    expect(update).toContain("FROM crm_supplier_claims WHERE status = 'approved') ok");
+    expect(update).toContain("FROM supplier_claims WHERE status = 'approved') ok");
     // ③ 主体归属标记只在 pending 时重置，不抹掉后台写出的 verified
     expect(update).toContain("s.claim_status = IF(s.claim_status = 'pending', NULL, s.claim_status)");
     // 认领记录原地留痕为 expired（客服查表即可，不依赖日志）

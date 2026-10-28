@@ -27,7 +27,7 @@ describe("宽表同步 SQL 口径", () => {
   });
 
   it("机会行过滤条件挂在 JOIN 的 ON 上而非 WHERE（左连接不得退化为内连接）", () => {
-    expect(WIDE_OPP_JOIN).toMatch(/LEFT JOIN crm_bid_opportunities opp ON[\s\S]*AND/);
+    expect(WIDE_OPP_JOIN).toMatch(/LEFT JOIN bid_opportunities opp ON[\s\S]*AND/);
     expect(WIDE_OPP_JOIN).not.toMatch(/\bWHERE\b/);
   });
 });

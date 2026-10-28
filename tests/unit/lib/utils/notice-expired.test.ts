@@ -16,7 +16,7 @@ describe("公告过期常量", () => {
   });
 
   it("ACTIONABLE_NOTICE_WHERE 只认 known/bid + 12 个月窗口，不再把 0 当可投", () => {
-    expect(ACTIONABLE_NOTICE_WHERE).toContain("crm_notice_deadline");
+    expect(ACTIONABLE_NOTICE_WHERE).toContain("notice_deadline");
     expect(ACTIONABLE_NOTICE_WHERE).toContain("deadline_state = 'known'");
     expect(ACTIONABLE_NOTICE_WHERE).toContain("deadline_type = 'bid'");
     expect(ACTIONABLE_NOTICE_WHERE).toContain("effective_ts");

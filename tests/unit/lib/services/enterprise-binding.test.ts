@@ -77,8 +77,8 @@ describe("withdrawBinding", () => {
   it("审核中 → 先解绑账号，再作废 pending 认领，最后清主体的认领中标记", async () => {
     await withdrawBinding(42, { supplierId: 100, companyName: "审核中公司", state: "pending" });
     const sqls = poolExecute.mock.calls.map((c) => String(c[0]).replace(/\s+/g, " "));
-    expect(sqls[0]).toContain("UPDATE crm_users SET supplier_id = NULL, supplier_link_status = 'none'");
-    expect(sqls[1]).toContain("UPDATE crm_supplier_claims SET status = 'cancelled'");
+    expect(sqls[0]).toContain("UPDATE users SET supplier_id = NULL, supplier_link_status = 'none'");
+    expect(sqls[1]).toContain("UPDATE supplier_claims SET status = 'cancelled'");
     expect(sqls[1]).toContain("AND status = 'pending'");
     expect(sqls[2]).toContain("UPDATE supplier SET claim_status = NULL");
     expect(sqls[2]).toContain("AND claim_status = 'pending'");

@@ -60,7 +60,7 @@ describe("PaymentsRepo 非事务方法", () => {
       amount: 700, currency: "CNY", payUrl: "/pay", qrCodeUrl: "qr", rawRequest: "{}",
     });
     const [sql, params] = lastSql(pool.execute as never);
-    expect(sql).toContain("UPDATE crm_payment_orders");
+    expect(sql).toContain("UPDATE payment_orders");
     expect(params).toEqual([700, "CNY", "/pay", "qr", "{}", "SO1"]);
   });
 
@@ -87,13 +87,13 @@ describe("PaymentsRepo 事务方法（InTransaction 系列）", () => {
     const c = makeConn();
     await repo.markAsMockPaidInTransaction(c, "SO1", "raw");
     const [sql] = lastSql(c.execute as never);
-    expect(sql).toContain("UPDATE crm_payment_orders");
+    expect(sql).toContain("UPDATE payment_orders");
   });
 
   it("upsertNoticeInterestInTransaction → upsert 公告兴趣", async () => {
     const c = makeConn();
     await repo.upsertNoticeInterestInTransaction(c, 7, 42);
     const [sql] = lastSql(c.execute as never);
-    expect(sql).toContain("INSERT INTO crm_notice_interests");
+    expect(sql).toContain("INSERT INTO notice_interests");
   });
 });

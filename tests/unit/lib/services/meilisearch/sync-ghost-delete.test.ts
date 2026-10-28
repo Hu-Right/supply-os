@@ -31,7 +31,7 @@ import { syncNoticeIds } from "@/lib/services/meilisearch/sync";
 function makePool(wide: unknown[][], main: unknown[][]) {
   const query = vi.fn(async (sql: string) => {
     const s = String(sql);
-    if (s.includes("crm_notice_search")) return [wide.shift() ?? []];
+    if (s.includes("notice_search")) return [wide.shift() ?? []];
     return [main.shift() ?? []];
   });
   return { pool: { query } as unknown as Pool, query };
@@ -77,7 +77,7 @@ describe("syncNoticeIds 索引残留清理", () => {
     await syncNoticeIds(pool, [9]);
     const mainSql = query.mock.calls
       .map((c: unknown[]) => String(c[0]))
-      .find((sql: string) => sql.includes("crm_bid_notices")) ?? "";
+      .find((sql: string) => sql.includes("bid_notices")) ?? "";
     expect(mainSql).toContain("entry_source");
     expect(mainSql).toContain("rfq_status");
   });

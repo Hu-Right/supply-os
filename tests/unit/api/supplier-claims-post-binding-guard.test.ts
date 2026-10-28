@@ -3,7 +3,7 @@
  * @module tests/unit/api/supplier-claims-post-binding-guard.test.ts
  * @description 认领排他此前只查「主体侧」（这家供应商是不是已被绑定/认领中），从不查
  *              「账号侧」（当前账号是不是已经绑定了另一家企业）。由于 createClaimWithBinding
- *              会无条件 UPDATE crm_users.supplier_id，已绑定 A 的账号认领 B 会静默把绑定
+ *              会无条件 UPDATE users.supplier_id，已绑定 A 的账号认领 B 会静默把绑定
  *              从 A 搬到 B（审核中的 A 被抛下、已认证的 A 被顶掉）。本测试钉住新口径（路线三）：
  *              1. 已认证账号认领另一家 → 400，不建认领、不换绑；
  *              2. 旧绑定尚未拿下认证（审核中）→ 先显式撤回旧绑定再建认领，不静默覆盖；
@@ -71,7 +71,7 @@ describe("POST /api/supplier-claims 账号侧排他", () => {
 
     const res = await POST(claimReq(200));
     expect(res.status).toBe(201);
-    // 旧绑定被显式作废：crm_users 解绑 + 旧 pending 认领作废
+    // 旧绑定被显式作废：users 解绑 + 旧 pending 认领作废
     expect(poolExecute.mock.calls[0][0]).toContain("supplier_id = NULL");
     expect(poolExecute.mock.calls[0][1]).toEqual([42, 100]);
     expect(createClaimWithBinding).toHaveBeenCalledTimes(1);

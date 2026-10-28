@@ -17,7 +17,7 @@ describe("signAccessToken / verifyAccessToken", () => {
     const payload = jwt.verifyAccessToken(token);
     expect(payload.uid).toBe(42);
     expect(payload.type).toBe("access");
-    // crm_users.user_key 列退役收尾：payload 不再包含 user_key 字段
+    // users.user_key 列退役收尾：payload 不再包含 user_key 字段
     expect((payload as unknown as Record<string, unknown>).user_key).toBeUndefined();
   });
 

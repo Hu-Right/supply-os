@@ -80,8 +80,8 @@ describe("buildOdkuClause", () => {
 
   it("机会表已无人工精编保护列；公告表保护附件/外链 JSON（2026-10-21）", () => {
     // 反向断言：若有人把退役列重新登记回白名单，本用例必须红
-    expect(NON_DESTRUCTIVE_COLUMNS.crm_bid_opportunities).toBeUndefined();
-    expect(NON_DESTRUCTIVE_COLUMNS.crm_bid_notices).toEqual([
+    expect(NON_DESTRUCTIVE_COLUMNS.bid_opportunities).toBeUndefined();
+    expect(NON_DESTRUCTIVE_COLUMNS.bid_notices).toEqual([
       "documents",
       "procurement_files",
       "external_links",

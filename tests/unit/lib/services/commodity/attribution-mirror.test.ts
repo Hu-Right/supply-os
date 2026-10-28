@@ -25,9 +25,9 @@ function makePool(candidates: Array<{ pk: number; col: string }>) {
   const inserts: unknown[][] = [];
   const query = vi.fn(async (sql: string, params: unknown = null) => {
     const s = String(sql);
-    if (/FROM crm_commodity_backbone/.test(s)) return [TREE_ROWS];
-    if (/FROM crm_notice_search/.test(s)) { selectSeq++; return [selectSeq === 1 ? candidates : []]; }
-    if (/INSERT IGNORE INTO crm_notice_attribution_nodes/.test(s)) {
+    if (/FROM commodity_backbone/.test(s)) return [TREE_ROWS];
+    if (/FROM notice_search/.test(s)) { selectSeq++; return [selectSeq === 1 ? candidates : []]; }
+    if (/INSERT IGNORE INTO notice_attribution_nodes/.test(s)) {
       const p = (params ?? []) as unknown[];
       inserts.push(p);
       return [{ affectedRows: p.length / 3 }]; // 每行 3 个绑定参数

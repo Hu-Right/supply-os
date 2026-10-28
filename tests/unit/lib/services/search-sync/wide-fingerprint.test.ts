@@ -26,8 +26,8 @@ describe("WIDE_FP_EXPR", () => {
     expect(WIDE_FP_EXPR).toContain("opp.description_cn");
     expect(WIDE_FP_EXPR).toContain("opp.bid_overview");
     expect(WIDE_FP_EXPR).toContain("opp.beneficiary_countries");
-    expect(WIDE_FP_EXPR).toContain("crm_notice_attribution_nodes");
-    expect(WIDE_FP_EXPR).toContain("crm_notice_translations");
+    expect(WIDE_FP_EXPR).toContain("notice_attribution_nodes");
+    expect(WIDE_FP_EXPR).toContain("notice_translations");
     // 指纹不再吃旧字典资产（与 loadBackboneMap 同一事实源）：按表族拦截，连改名复活一并拦住
     expect(WIDE_FP_EXPR).not.toMatch(/crm_bid_notice_\w*_codes\b/);
     expect(WIDE_FP_EXPR).not.toMatch(/crm_bid_opportunity_\w*_candidates\b/);
@@ -43,7 +43,7 @@ describe("WIDE_FP_EXPR", () => {
   });
 
   it("不引用宽表列（否则指纹随修复结果自反馈，永不收敛）", () => {
-    expect(WIDE_FP_EXPR).not.toMatch(/crm_notice_search|ns\./);
+    expect(WIDE_FP_EXPR).not.toMatch(/notice_search|ns\./);
   });
 
   it("长度全部来自 WIDE_LIMITS 常量", () => {

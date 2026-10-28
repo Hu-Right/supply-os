@@ -34,7 +34,7 @@ vi.mock("@/lib/db/pool", () => ({
 }));
 
 // Mock auth middleware
-// crm_users.user_key 列退役收尾：AuthResult 已不再包含 userKey 字段
+// users.user_key 列退役收尾：AuthResult 已不再包含 userKey 字段
 // 同时暴露 requireUserKey 与 requireUserKeyOrThrow（路由实际使用后者）
 vi.mock("@/lib/middleware/auth", () => ({
   requireUserKey: vi.fn().mockResolvedValue({ userId: 123, authViaJwt: true }),
