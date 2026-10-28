@@ -24,7 +24,15 @@ export const GET = withRoute<{ params: Promise<{ materialId: string }> }>(
 
     try {
       const payload = await getMaterialContent(materialId, auth.userId);
-      return NextResponse.json(payload);
+      // 信封显式列举（命名红线② 2026-10-28）：MaterialContentResult 是服务出口结构，
+      // `json(payload)` 会让它新加的字段（例如内部 materialId / 购买标记）直接变成对外契约。
+      // 付费墙已在 service 里判完，这里只拆键位不改任何取值逻辑。
+      return NextResponse.json({
+        contentZh: payload.contentZh,
+        contentEn: payload.contentEn,
+        fileUrl: payload.fileUrl,
+        fileName: payload.fileName,
+      });
     } catch (err: unknown) {
       const e = err as { status?: number; code?: number; message?: string };
       if (e.status) routeError(e.status, e.code ?? EC_INVALID_PARAMS, e.message ?? "Unknown error");

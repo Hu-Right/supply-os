@@ -138,41 +138,33 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // 不连库、不打网关、不写数据）；该文件同时钉住「履约用的是网关回传流水号而非库内旧值」。
   "src/app/api/training/orders/[orderNo]/route.ts#result",
   "src/app/api/training/orders/route.ts#result",
+  // 我的词组列表：映射在仓储出口（KeywordGroupsRepo.listByUser 已把 created_at/updated_at 换成
+  // camel 并解析 JSON terms），但路由侧只能 `json(data)`，数组元素键在静态面不可见。
+  // 键集合由 tests/unit/app/api/passthrough-envelope-keys.test.ts 钉住（假仓储，不连库）：
+  // 有权益时 { entitled, groups[5 键] }，无权益时 entitled:false + 空数组而不是报错。
+  "src/app/api/user/keyword-groups/route.ts#data",
   // 【B 字段命名 sweep 实测无 snake 键·但仍未收 mapper】键是本域约定名或 SQL 聚合别名；
   // 迁视图时请顺手删行，让登记集只反映「真的看不见」的出口。
-  "src/app/api/catalog/country-name-map/route.ts#maps",
-  // certifications 与 suppliers/stats 已于 2026-10-28 整条删除登记位：
-  //   /api/certifications 原是 `json(rows)`（repo 行直接上网）→ 抽出约定名 certificationViewOf；
-  //   /api/suppliers/stats 原是 `json({ ...stats, registered })` → 成功分支改显式列举六个计数键，
-  //   与降级分支硬编的六键对齐。两路形状现由 tests/unit/app/api/supplier-catalog-view.test.ts 钉住。
-  // 同批还拆了前端幻影字段：CertificationRefItem 里的 title_zh / title_en 在库里根本不存在。
-  // leads 两条已于 2026-10-28 移出登记集：路由本来就在过隐私收窄 DTO，只是函数名叫
-  // mapLeadForMemberView——规则二只认 *ViewOf / to*View 这类约定名。改名 leadMemberViewOf
-  // 后静态面自己能认出已收视图，无需再占登记位（键集合由 tests/unit/lib/services/leads.test.ts 钉住）。
-  // countries / hot-topics 两条已于同日升到 A（有假 pool 单测钉键集合，见上面 A 段说明）。
+  // 已删行（均为 2026-10-28，按手法归类）：
+  //   约定名收口：leads 两条（mapLeadForMemberView → leadMemberViewOf，路由本来就在过隐私收窄 DTO，
+  //     规则二只认 *ViewOf / to*View 这类约定名）、suppliers 两条（mapSupplierRow/mapSupplierItems →
+  //     supplierViewOf / toSupplierListView）、certifications（`json(rows)` → 抽 certificationViewOf）；
+  //   显式列举信封：system/icp（不再把内部缓存时间戳 ts 送上网）、system/links 首次出口（抽出
+  //     footerLinkViewOf，内联 (r: any) 映射不再隐身）、notices/unified-search（不再 `json({ ...result })`，
+  //     并撤掉同值双发的 pageSize）、suppliers/stats（成功分支六键与降级分支硬编对齐）、
+  //     catalog/country-name-map（{countries, regions, zhToEn}）、learning/materials/[materialId]/content
+  //     （{contentZh, contentEn, fileUrl, fileName}）——后三条的键集合由
+  //     tests/unit/app/api/passthrough-envelope-keys.test.ts 钉住。
+  // 已升 A（映射在 service/仓储出口，路由只能 `json(变量)`，删行会等于假装静态面看见了）：
+  //   awards 族、notices/stats与解锁记录、open/v1/engineering、公告详情三出口、system/links 缓存命中、
+  //   notice-search 两个聚合、级联树族四条、ai 与客服三出口、training 订单两条、user/keyword-groups
+  //   （映射在 KeywordGroupsRepo.listByUser：created_at/updated_at 已换 camel 并解析 JSON terms，
+  //     数组元素键无法在路由侧列举，键集合由 tests/unit/app/api/passthrough-envelope-keys.test.ts 钉住）。
   "src/app/api/payment/orders/route.ts#result",
-  // system 族两条已于 2026-10-28 处理（键集合由 tests/unit/app/api/system-view.test.ts 钉住）：
-  //   links 首次出口改收 footerLinkViewOf → 静态面能认出，登记删除；
-  //   icp 改为显式字面量出口（不再把内部缓存时间戳 ts 送上网）→ 登记删除；
-  //   linksCache.items（TTL 命中分支）已升到 A：它是模块级可变缓存，内容与
-  //   footerLinkViewOf 产出的是同一个数组，属「已收口但静态看不见」。
-  "src/app/api/user/keyword-groups/route.ts#data",
   // 2026-10-28 只读探针实测无 snake 键（runtime/probe-opaque-c-group.ts，走与路由同一条生产链）：
-  // 以下 5 个原本「未实测」，现已拿到真实响应键集合，但仍未收进 *ViewOf 视图，故留在 B：
-  //   suppliers/stats（6 键全 camel）、industries/tree（key/nameZh/nameEn）、
-  //   learning/materials/[id]/content（contentZh/contentEn/fileUrl/fileName）、
-  //   suppliers/[id]（已过 supplierViewOf，26 键全 camel）、
-  //   notices/unified-search（143 键全 camel；items 已过 toNoticeListView；
-  //     本次 Meili 不健康走 SQL 回退路径，但两路出同一 mapper）
-  // suppliers 两条已于 2026-10-28 移出登记集：探针早已实测无 snake，但 mapSupplierRow /
-  // mapSupplierItems 不合约定名，静态面认不出已收口 → 改名 supplierViewOf / toSupplierListView。
-  // industries/tree 已于同日升到 A（树族共用同一行→选项映射，见 A 段说明）。
-  // notices/unified-search 已于 2026-10-28 整条删除登记位：路由不再 `json({ ...result, … })`，
-  // 改成显式列举信封（键集合由 tests/unit/app/api/notices/unified-search-gate.test.ts 钉住），
-  // 盲区已不成立→登记必须跟着删（登记集只反映「真的看不见」的出口）；
-  // 同时撤掉 spread 漏出来的同值 pageSize，分页元数据只发 page_size。
-  "src/app/api/learning/materials/[materialId]/content/route.ts#payload",
-  // （本行原为 suppliers/stats#stats：已按上面 certifications 那条说明整条删除）
+  // 当时以下 5 个原本「未实测」的项拿到真实响应键集合但未收进 *ViewOf 视图，所以先登 B；
+  // 其中 industries/tree、suppliers/[id]、suppliers/stats、notices/unified-search、
+  // learning/materials/[id]/content 均已在本日后续处理（见上面两组归类）。
   // 【C 尚未实测】2026-10-28 已清零：原本剩下五条全部拿到进程内断言证据并升 A。
   // 下一批整块透出落进本组时，必须逐条写明「为什么拿不到证据」
   // （写路径 / 触付费 LLM / 触外部网关 / 库里无数据），不得笼统当成「应该没事」；
