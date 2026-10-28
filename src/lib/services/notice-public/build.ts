@@ -2,10 +2,9 @@
  * 服务表 notice_public 构建核心（唯一写入者代码路径）。
  *
  * 2026-10-27 管道翻转（主表 → ①服务表 → ②宽表 → Meili）：服务表从"ops 本机脚本第三棒"
- * 升级为应用内归一层，构建逻辑从 scripts/ops/notice-public-v2.ts（gitignore、仅存本机、
- * standalone 部署缺失即静默跳过）抽入本模块——仓库内可审、生产可跑、换机不丢。
- * v2 脚本保留为 CLI 壳（--all/--reset/--since 等运维模式），与本模块共享同一份构建/选行/
- * 写入代码；门禁 check-notice-public-ssot 的 N1/N2 以本文件为唯一基准。
+ * 升级为应用内归一层，构建逻辑从当日的本机一次性 ops 脚本（gitignore、仅存本机、
+ * standalone 部署缺失即静默跳过；后随翻转落地删除）抽入本模块——仓库内可审、生产可跑、
+ * 换机不丢。门禁 check-notice-public-ssot 的 N1/N2 以本文件为唯一基准。
  *
  * 归一化口径：买家/国家/机构类型走 notice-normalize/notice-core（与宽表投影同源）；
  * 金额/联系方式/标题/正文分级在本模块内完成，产出即对外事实。
