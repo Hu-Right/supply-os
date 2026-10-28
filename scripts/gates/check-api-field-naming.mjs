@@ -107,6 +107,12 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // system/links 的缓存命中分支：数组本体由同文件的 footerLinkViewOf 产出，
   // 首次与命中两个出口的形状由 tests/unit/app/api/system-view.test.ts 钉住（假 repo，不连库）。
   "src/app/api/system/links/route.ts#linksCache.items",
+  // notice-search 两个聚合端点（国家分布 / 热门标签）：服务出口是显式字面量映射
+  // （SQL 别名 cnt / name_zh 在 countries.ts 与 hot-topics.ts 内就换成了 count / nameZh），
+  // 但路由侧只能 json(变量)——键集合现由 tests/unit/lib/services/notice-search-aggregates-view.test.ts
+  // 钉住（假 pool）：两项键定形、多余列名不上网、国家计数归一后总量守恒。
+  "src/app/api/notices/countries/route.ts#countries",
+  "src/app/api/notices/hot-topics/route.ts#data",
   // AI 与客服三出口原停在 C「触付费 LLM / 库里无数据，探针跑不了」，但键名其实不必花 LLM 就能钉：
   // 服务出口只有一个形状，用假 repo 打缓存命中那一条路径即可。
   //   notices/[id]/ai-summary → AiSummaryResult 10 键（tests/unit/lib/services/ai-summary-view.test.ts）；
@@ -134,8 +140,7 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // leads 两条已于 2026-10-28 移出登记集：路由本来就在过隐私收窄 DTO，只是函数名叫
   // mapLeadForMemberView——规则二只认 *ViewOf / to*View 这类约定名。改名 leadMemberViewOf
   // 后静态面自己能认出已收视图，无需再占登记位（键集合由 tests/unit/lib/services/leads.test.ts 钉住）。
-  "src/app/api/notices/countries/route.ts#countries",
-  "src/app/api/notices/hot-topics/route.ts#data",
+  // countries / hot-topics 两条已于同日升到 A（有假 pool 单测钉键集合，见上面 A 段说明）。
   "src/app/api/payment/orders/route.ts#result",
   // system 族两条已于 2026-10-28 处理（键集合由 tests/unit/app/api/system-view.test.ts 钉住）：
   //   links 首次出口改收 footerLinkViewOf → 静态面能认出，登记删除；
