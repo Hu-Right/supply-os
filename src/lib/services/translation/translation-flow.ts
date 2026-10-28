@@ -32,6 +32,15 @@ interface ZhFastPathPayload {
   source: string;
 }
 
+/**
+ * 译文对外契约（`/api/notices/:id/translation` 直接 json 出去的就是它）。
+ * 之所以要把两个分支的并集具名导出：上一版 `notice-service.fetchNoticeTranslation`
+ * 把返回类型抹成了 `Promise<unknown>`，于是路由侧、门禁、tsc 三方都看不见键名
+ * （红线② 的整块透出只能靠类型层兜住时，类型不能再被抹平）。
+ * 本契约字段全 camelCase：lang/title/description/cached/source/passthrough。
+ */
+export type NoticeTranslationPayload = TranslationPayload | ZhFastPathPayload;
+
 export interface NoticeTranslationDeps {
   pool: Pool;
   detailRepo: NoticeDetailRepo;
@@ -47,7 +56,7 @@ export async function getNoticeTranslation(
   deps: NoticeTranslationDeps,
   noticeId: number,
   lang: string,
-): Promise<TranslationPayload | ZhFastPathPayload> {
+): Promise<NoticeTranslationPayload> {
   const { pool, detailRepo, translationRepo } = deps;
 
   // ── 中文快速路径：机会表 description_cn 直出（零翻译 API 调用）──

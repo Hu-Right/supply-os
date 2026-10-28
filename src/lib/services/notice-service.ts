@@ -25,8 +25,9 @@ import {
   processFeedback,
   NoticeNotFoundError,
   QuotaExceededError,
+  type FeedbackResult,
 } from "./notice-actions";
-import { getNoticeTranslation } from "./translation/translation-flow";
+import { getNoticeTranslation, type NoticeTranslationPayload } from "./translation/translation-flow";
 import { loadNoticeNodeCodes, persistInterestNodeCodes } from "./commodity/interest";
 import type { RecoFeedbackItem } from "@/lib/repos/notices/notice-feedback.repo";
 export type { RecoFeedbackItem } from "@/lib/repos/notices/notice-feedback.repo";
@@ -118,10 +119,12 @@ export async function listNoticeFavoriteIds(userId: number): Promise<number[]> {
   return new NoticeFavoriteRepo(getPool()).listNoticeIds(userId);
 }
 
-/** 我的收藏分页列表：repo 只出有序 notice_pk，字段水合走主列表同一条 SSOT 尾（服务表宽表名 + 多语言）。 */
+/** 我的收藏分页列表：repo 只出有序 notice_pk，字段水合走主列表同一条 SSOT 尾（服务表宽表名 + 多语言）。
+ *  items 是列名口径的内部行（formatItems 产出），对外契约由路由侧 toNoticeListView 统一收；
+ *  本层不得再返回 unknown[]（被抹平后 tsc 与门禁都看不见键名）。 */
 export async function listNoticeFavorites(params: {
   userId: number; limit: number; offset: number; lang?: string | null;
-}): Promise<{ total: number; items: unknown[] }> {
+}): Promise<{ total: number; items: Array<Record<string, unknown>> }> {
   const pool = getPool();
   const lang = params.lang || "en";
   const { total, ids } = await new NoticeFavoriteRepo(pool).listFavorites(
@@ -129,7 +132,7 @@ export async function listNoticeFavorites(params: {
   );
   const details = await fetchDetailsByIds(pool, ids, lang);
   const items = formatItems(details, lang);
-  return { total, items };
+  return { total, items: items as Array<Record<string, unknown>> };
 }
 
 // ── 解锁公告（包装 executeUnlock，消除路由侧 DI 构造） ──
@@ -159,8 +162,8 @@ export async function unlockNotice(params: {
 
 // ── 翻译获取（包装 getNoticeTranslation） ──
 
-/** 获取公告翻译（含付费墙前置校验由路由负责） */
-export async function fetchNoticeTranslation(noticeId: number, lang: string): Promise<unknown> {
+/** 获取公告翻译（含付费墙前置校验由路由负责）；返回类型即 wire 契约，全 camelCase */
+export async function fetchNoticeTranslation(noticeId: number, lang: string): Promise<NoticeTranslationPayload> {
   const pool = getPool();
   return getNoticeTranslation(
     { pool, detailRepo: new NoticeDetailRepo(pool), translationRepo: new NoticeTranslationRepo(pool) },
@@ -171,10 +174,10 @@ export async function fetchNoticeTranslation(noticeId: number, lang: string): Pr
 
 // ── 推荐反馈（包装 processFeedback） ──
 
-/** 处理推荐反馈 */
+/** 处理推荐反馈（返回计数结果，字段全 camel：received/inserted/deduped） */
 export async function submitNoticeFeedback(params: {
   userId: number; sessionId: string; items: RecoFeedbackItem[];
-}): Promise<Record<string, unknown>> {
+}): Promise<FeedbackResult> {
   const pool = getPool();
   return processFeedback(
     {
@@ -182,5 +185,5 @@ export async function submitNoticeFeedback(params: {
       dbPool: pool,
     },
     params,
-  ) as unknown as Promise<Record<string, unknown>>;
+  );
 }

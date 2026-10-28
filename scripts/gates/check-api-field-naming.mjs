@@ -95,6 +95,15 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // 证据是路由级单测 tests/unit/lib/services/open-api/view.test.ts（不依赖库）；
   // 运行期 HTTP 取证本轮未做（隧道断开），所以进 A 的依据是 mapper + 单测，不是探针。
   "src/app/api/open/v1/engineering/route.ts#stats",
+  // 公告详情侧三出口（收藏 toggle / 按需译文 / 推荐反馈）：本批不是靠探针，而是先把
+  // 「看不见」变成「可查」——上一版 fetchNoticeTranslation 把返回类型抹成 Promise<unknown>、
+  // submitNoticeFeedback 抹成 Record<string, unknown>（还带一次 as unknown as 双断言），
+  // 于是类型层这道唯一兜底被自己拆掉。现恢复具名契约
+  // （NoticeTranslationPayload / FeedbackResult / { favorited: boolean } ），
+  // 并用 tests/unit/lib/services/notice-detail-contracts.test.ts 钉住键集合（假 repo，不连库）。
+  "src/app/api/notices/[id]/favorite/route.ts#result",
+  "src/app/api/notices/[id]/translation/route.ts#result",
+  "src/app/api/notices/feedback/route.ts#result",
   // 【B 字段命名 sweep 实测无 snake 键·但仍未收 mapper】键是本域约定名或 SQL 聚合别名；
   // 迁视图时请顺手删行，让登记集只反映「真的看不见」的出口。
   "src/app/api/catalog/country-name-map/route.ts#maps",
@@ -129,9 +138,6 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/leads/log/route.ts#responseLead", // POST 写跟进日志，探针会落库
   "src/app/api/notices/[id]/ai-match/route.ts#result", // POST 生成分支触付费 LLM
   "src/app/api/notices/[id]/ai-summary/route.ts#data", // GET 缓存分支已实测 8 键全 camel；POST 生成分支触 LLM，整条不升组
-  "src/app/api/notices/[id]/favorite/route.ts#result", // POST 切换收藏（写）
-  "src/app/api/notices/[id]/translation/route.ts#result", // 未核验：可能触外部翻译服务
-  "src/app/api/notices/feedback/route.ts#result", // POST 写反馈
   "src/app/api/training/orders/[orderNo]/route.ts#result", // 查单触外部支付网关
   "src/app/api/training/orders/route.ts#result", // POST 建单（写 + 外部）
 ]);
