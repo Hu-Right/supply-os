@@ -39,7 +39,7 @@ export const PoolItemRow = memo(function PoolItemRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-bold text-slate-800 truncate">{item.company || "未知"}</p>
-            {item.has_qualification ? (
+            {item.hasQualification ? (
               <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xs font-bold">
                 {t("supplierPoolDiagDone") || "已完善"}
               </span>
@@ -61,7 +61,7 @@ export const PoolItemRow = memo(function PoolItemRow({
                 className="flex-1 rounded border border-slate-200 px-2 py-1 text-xs outline-none focus:border-purple-400"
                 placeholder={t("supplierPoolNotes") || "备注"}
               />
-              <button onClick={() => onSaveNotes(item.pool_id)} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded">
+              <button onClick={() => onSaveNotes(item.poolId)} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded">
                 <Check className="w-3.5 h-3.5" />
               </button>
               <button onClick={onCancelEdit} className="p-1 text-slate-400 hover:bg-slate-50 rounded">
@@ -76,7 +76,7 @@ export const PoolItemRow = memo(function PoolItemRow({
           <a
             href="/procurement/diagnosis"
             className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded transition-colors"
-            title={item.has_qualification
+            title={item.hasQualification
               ? (t("supplierPoolUpdateDiag") || "更新诊断表")
               : (t("supplierPoolFillDiag") || "填写诊断表")}
           >

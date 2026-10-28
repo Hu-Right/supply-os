@@ -82,7 +82,7 @@ export const AddPanel = memo(function AddPanel({
                 <button
                   key={c.id}
                   type="button"
-                  disabled={!!c.in_pool || addByIdLoading !== null}
+                  disabled={!!c.inPool || addByIdLoading !== null}
                   onClick={() => onAddById(c.id, c.company)}
                   className="w-full flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-purple-300 hover:bg-purple-50/40 disabled:opacity-60 disabled:hover:border-slate-200 disabled:hover:bg-white transition-colors"
                 >
@@ -90,7 +90,7 @@ export const AddPanel = memo(function AddPanel({
                     <p className="text-xs font-bold text-slate-800 truncate">{c.company}</p>
                     {c.industry && <p className="text-2xs text-slate-500">{c.industry}</p>}
                   </div>
-                  {c.in_pool ? (
+                  {c.inPool ? (
                     <span className="text-2xs text-emerald-600 border border-emerald-200 bg-emerald-50 rounded px-1.5 py-0.5">
                       {t("supplierPoolAlreadyInPool") || "已添加"}
                     </span>

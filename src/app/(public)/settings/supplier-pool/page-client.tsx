@@ -132,7 +132,7 @@ export default function SupplierPoolPageClient() {
     if (!removing) return;
     setRemoveLoading(true);
     try {
-      await api(`/api/user/supplier-pool/${removing.pool_id}`, { method: "DELETE" });
+      await api(`/api/user/supplier-pool/${removing.poolId}`, { method: "DELETE" });
       toast.success(t("supplierPoolRemoveSuccess") || "已移除");
       setRemoving(null);
       fetchList();
@@ -160,7 +160,7 @@ export default function SupplierPoolPageClient() {
 
   // 行级编辑回调（容器稳定引用，保证 PoolItemRow memo 有效）
   const startEdit = useCallback((item: PoolItem) => {
-    setEditingId(item.pool_id);
+    setEditingId(item.poolId);
     setEditNotes(item.notes || "");
   }, []);
   const cancelEdit = useCallback(() => setEditingId(null), []);
@@ -227,10 +227,10 @@ export default function SupplierPoolPageClient() {
         <div className="space-y-2">
           {items.map((item) => (
             <PoolItemRow
-              key={item.pool_id}
+              key={item.poolId}
               item={item}
-              editing={editingId === item.pool_id}
-              editNotes={editingId === item.pool_id ? editNotes : ""}
+              editing={editingId === item.poolId}
+              editNotes={editingId === item.poolId ? editNotes : ""}
               onEditNotesChange={setEditNotes}
               onSaveNotes={handleSaveNotes}
               onCancelEdit={cancelEdit}

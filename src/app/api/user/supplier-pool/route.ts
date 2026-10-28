@@ -10,9 +10,10 @@ import type { Pool } from "mysql2/promise";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
-import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
-import { addSupplierToPool, addSupplierByIdToPool, MAX_POOL_SIZE } from "@/lib/services/supplier-pool";
+import {
+  addSupplierToPool, addSupplierByIdToPool, listPoolSupplierViews, MAX_POOL_SIZE,
+} from "@/lib/services/supplier-pool";
 import { EC_POOL_FULL, EC_POOL_SUPPLIER_NOT_VERIFIED, EC_POOL_SUPPLIER_DUPLICATE } from "@/shared/constants/api";
 
 /** 资源库变更后失效该用户的匹配缓存（失败不影响主流程，仅记录日志） */
@@ -27,12 +28,13 @@ async function invalidateMatchCacheSafely(dbPool: Pool, userId: number): Promise
 /** GET: 列出我的供应商资源库 */
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
-  const ctx = getContext();
 
   // V2（ADR-0004）：企业账号也可拥有并使用供应商资源库，不再按身份返回空列表。
-  const repo = new UserSupplierPoolRepo(ctx.dbPool);
-  const items = await repo.listByUser(auth.userId);
-  return NextResponse.json({ list: items });
+  // 取数与行→视图都收在 service（命名红线② + 分层）：旧写法是路由 new repo 后
+  // `json({ list: rows })`，于是 `pool_id`/`supplier_id`/`has_qualification`/`created_at`
+  // 四个列名（含 SQL 别名）直接当对外键——POST 早就是 camel，只有 GET 漏了。
+  const list = await listPoolSupplierViews(getContext().dbPool, auth.userId);
+  return NextResponse.json({ list });
 });
 
 const addBodySchema = z.object({

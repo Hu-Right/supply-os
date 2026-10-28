@@ -171,10 +171,22 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   同批跑过 `tests/integration/api-routes/payment-orders*.test.ts` + `service-order.test.ts`（9 例全绿）。
   **写这类断言时记住：`Array#sort()` 按 UTF-16 码点，`payUrl < paymentMode`、`provider < qrCodeUrl`——
   同一坑本批踩了两次，现在把码点顺序写成注释并抽了共用常量。**
-- **命名口径的另一个发现（未开工，待定）**：`/api/supplier-pool` 一行就把 `pool_id`/`supplier_id`/`has_qualification`/`created_at`
-  直接下发（`SELECT p.id AS pool_id` 的 SQL 别名当响应键），前端 `settings/supplier-pool/page-client.tsx` 已在读 `item.pool_id`。
-  它不在登记集里，因为出口形如 `json({ items: 变量 })`——正是规则二已声明的已知盲区（见下条），
-  不是「已核过」。要治就按 supplier 族老路子：域内建视图 + 前端读取点同批改 + 键集合断言。
+- **「字面量包 opaque 值」盲区首例已治：供应商资源库两端点（2026-10-28）——登记集之外的真违规**。
+  `GET /api/user/supplier-pool` 以前是路由 `new UserSupplierPoolRepo()` 后 `json({ list: rows })`，
+  于是四个列名/SQL 别名直接当对外键：`pool_id` / `supplier_id` / `has_qualification` / `created_at`；
+  `/api/user/supplier-pool/search` 同样直透 `in_pool`（而同一文件的 POST 早就发 `poolId`/`supplierId`——
+  一个端点内两套口径比全 snake 更易误读）。现已在 `lib/services/supplier-pool.ts` 建
+  `PoolSupplierView` + `poolSupplierViewOf` / `toPoolSupplierListView` / `listPoolSupplierViews`
+  与 `PoolCandidateView` + `poolCandidateViewOf`（值原样：`hasQualification` 仍 0/1、`notes` 仍可为 null），
+  前端读取点同批改（`settings/supplier-pool` 的 types.ts + page-client + PoolItemRow + AddPanel，**不做桥接**）；
+  取数也从路由收回 service（顺手消掉一处「路由直连仓储」），键集合由
+  `tests/unit/app/api/supplier-pool-view.test.ts`（5 例，假仓储）钉住。**两个恒为空串的字段已写进视图注释**：
+  SQL 里写的 `'' AS industry`，所以前端的 `item.industry && …` 分支实际不会渲染（属产品数据链路缺口，不是命名问题）。
+- **同一盲区的下一个候选（已量暴露面，未开工）**：`runtime/probe-wrapped-opaque.mjs`（离线静态）扫全站
+  `json({ 键: 变量 })` 且变量直接来自一次 `await` 出口——共 6 处，其中 2 处值是标量（`{ id: result }`、
+  `{ supplierId: newId }`，无键可漏），**真正需要收口的是 4 处**：`buildUserResponse` 的三个认证出口
+  （`{ user: payload }`）与 `user/enterprise` 的 `{ enterprise: row }`（后者拿的是 directoryRepo.findFullById 的行）。
+  它们不在登记集内，因为规则二只拦 `json(变量)` 与 `json({ ...盲区源 })`。
 - **规则二自身的已知限制（不假装盖全）**：它拦 `json(变量)` 与 `json({ ...盲区源 })`，但**不拦 `json({ items: 变量 })` 这种「字面量包 opaque 值」**——items 里数组元素的键对静态面不可见。`/api/open/v1/engineering` 的 list/detail 就是这个形状
   （`items: rows` 直接透传列名，2026-10-28 之前门禁对它完全说不了）。这类只能靠端点级断言 + 探针发现。
   即使已改成 `items: 视图数组`，静态面依旧看不见它——**加了 mapper 不等于被门禁看见**，

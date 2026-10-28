@@ -4,22 +4,25 @@
  * @module app/(public)/settings/supplier-pool/components/types
  */
 
-/** 资源库行（/api/user/supplier-pool 返回） */
+/** 资源库行（GET /api/user/supplier-pool 的 list 项）。
+ *  2026-10-28 命名红线②：服务端以前直透列名/SQL 别名（pool_id / supplier_id /
+ *  has_qualification / created_at），现在走 service 视图 camelCase，不保留名称桥。 */
 export interface PoolItem {
-  pool_id: number;
-  supplier_id: number | null;
+  poolId: number;
+  supplierId: number | null;
   company: string;
   industry: string;
-  has_qualification: number;
+  /** 是否已有 v2 诊断（0/1，值口径未改） */
+  hasQualification: number;
   notes: string | null;
   source: string;
-  created_at: string;
+  createdAt: string;
 }
 
-/** 候选搜索项（/api/user/supplier-pool/search 返回） */
+/** 候选搜索项（/api/user/supplier-pool/search 返回；旧名 in_pool 已收 inPool） */
 export interface PoolCandidate {
   id: number;
   company: string;
   industry: string;
-  in_pool: number;
+  inPool: number;
 }

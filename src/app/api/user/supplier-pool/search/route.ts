@@ -28,6 +28,8 @@ export const GET = withRoute(async (req: NextRequest) => {
   }
 
   const ctx = getContext();
+  // 候选项的 `in_pool`（SQL 别名）已在 service 出口换成 `inPool`（命名红线②）：
+  // 路由拿到的就是视图，不是仓分行。
   const candidates = await searchPoolCandidates(ctx.dbPool, auth.userId, q, 8);
   return NextResponse.json({ candidates });
 });
