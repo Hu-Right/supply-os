@@ -9,6 +9,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { toQrDataUrl } from "@/lib/payment/qr";
+import type { OrderInfo } from "@/types/payment";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, clampLimit } from "@/shared/constants/api";
 import {
   EC_PAYMENT_PROVIDER_UNAVAILABLE, EC_PAYMENT_QR_CODE_MISSING,
@@ -64,7 +65,8 @@ export const POST = withRoute(
 
       // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单路由至 LearningPaymentService
       const planCode = String(body.plan_code || "");
-      let result;
+      // 契约类型显式写出来：三个分支都得产出 OrderInfo（前端 wrapper `core/payment/api.ts` 也按它接）。
+      let result: OrderInfo;
       if (planCode.startsWith("material_") || planCode.startsWith("bundle_")) {
         result = await ctx.payment.learningPaymentService.createOrder({
           userId: auth.userId,
@@ -108,12 +110,25 @@ export const POST = withRoute(
       }
       const qrCodeUrl = result.qrCodeUrl ? await toQrDataUrl(result.qrCodeUrl) : null;
 
+      // 建单响应体显式列举（命名红线② 2026-10-28）：这里原来写的是 `{ ...result, … }`，
+      // 而 result 来自三条不同的 createOrder（会员单 / 学习资料·打包 / 增值服务），
+      // spread 让任何一条在服务里加字段都直接变成对外键。列举后新增对外键必须
+      // 同时改 types/payment.ts 的 OrderInfo 与这里，服务侧加字段不再等于对外承诺。
       return NextResponse.json(
         {
-          ...result,
+          orderNo: result.orderNo,
+          provider: result.provider,
+          status: result.status,
+          // 支付宝通道下走本站 redirect（上一行已做过二维码硬卡）
           payUrl: clientPayUrl,
           qrCodeUrl,
           paymentMode: paymentMode === "live" ? "configured" : "mock",
+          // 以下为可选契约键：服务未给时 JSON 自然不包（与 spread 时代行为一致）
+          noticeId: result.noticeId,
+          planCode: result.planCode,
+          amount: result.amount,
+          currency: result.currency,
+          createdAt: result.createdAt,
         },
         { status: 201 },
       );

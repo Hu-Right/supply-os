@@ -143,8 +143,9 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // 键集合由 tests/unit/app/api/passthrough-envelope-keys.test.ts 钉住（假仓储，不连库）：
   // 有权益时 { entitled, groups[5 键] }，无权益时 entitled:false + 空数组而不是报错。
   "src/app/api/user/keyword-groups/route.ts#data",
-  // 【B 字段命名 sweep 实测无 snake 键·但仍未收 mapper】键是本域约定名或 SQL 聚合别名；
-  // 迁视图时请顺手删行，让登记集只反映「真的看不见」的出口。
+  // 【B 字段命名 sweep 实测无 snake 键·但仍未收 mapper】2026-10-28 已清零。
+  // 以后落进本组的新条目必须写明「为什么不能直接收口」：能改成约定名 mapper、
+  // 或能把信封显式列举的，都不属于 B——直接删行并把键集合写进单测。
   // 已删行（均为 2026-10-28，按手法归类）：
   //   约定名收口：leads 两条（mapLeadForMemberView → leadMemberViewOf，路由本来就在过隐私收窄 DTO，
   //     规则二只认 *ViewOf / to*View 这类约定名）、suppliers 两条（mapSupplierRow/mapSupplierItems →
@@ -153,14 +154,15 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   //     footerLinkViewOf，内联 (r: any) 映射不再隐身）、notices/unified-search（不再 `json({ ...result })`，
   //     并撤掉同值双发的 pageSize）、suppliers/stats（成功分支六键与降级分支硬编对齐）、
   //     catalog/country-name-map（{countries, regions, zhToEn}）、learning/materials/[materialId]/content
-  //     （{contentZh, contentEn, fileUrl, fileName}）——后三条的键集合由
-  //     tests/unit/app/api/passthrough-envelope-keys.test.ts 钉住。
+  //     （{contentZh, contentEn, fileUrl, fileName}）、payment/orders 建单（不再 spread 三条不同
+  //     createOrder 的结果，改按 OrderInfo 逐键列举，并给 `let result` 显式标上契约类型）；
+  //     后四条的键集合由 tests/unit/app/api/passthrough-envelope-keys.test.ts 与
+  //     tests/unit/app/api/payment-orders-create-envelope.test.ts 钉住。
   // 已升 A（映射在 service/仓储出口，路由只能 `json(变量)`，删行会等于假装静态面看见了）：
   //   awards 族、notices/stats与解锁记录、open/v1/engineering、公告详情三出口、system/links 缓存命中、
   //   notice-search 两个聚合、级联树族四条、ai 与客服三出口、training 订单两条、user/keyword-groups
   //   （映射在 KeywordGroupsRepo.listByUser：created_at/updated_at 已换 camel 并解析 JSON terms，
   //     数组元素键无法在路由侧列举，键集合由 tests/unit/app/api/passthrough-envelope-keys.test.ts 钉住）。
-  "src/app/api/payment/orders/route.ts#result",
   // 2026-10-28 只读探针实测无 snake 键（runtime/probe-opaque-c-group.ts，走与路由同一条生产链）：
   // 当时以下 5 个原本「未实测」的项拿到真实响应键集合但未收进 *ViewOf 视图，所以先登 B；
   // 其中 industries/tree、suppliers/[id]、suppliers/stats、notices/unified-search、
