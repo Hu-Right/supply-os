@@ -27,6 +27,8 @@ export interface UseNoticeActionsOptions {
   authReady?: boolean;
   items: NoticeItem[]; // 当前列表数据（openNoticeById 复用列表内已有项）
   setSelectedNotice: Dispatch<SetStateAction<NoticeItem | null>>; // Page 持有的选中详情设置器
+  /** 当前已打开详情的公告主键（透传给回跳对账做 ?notice_id 幂等） */
+  selectedNoticePk?: number | null;
   trackClick: (noticeId: number) => void; // T-B9 点击埋点（useNoticeFeedback）
   trackDetailOpen: (noticeId: number) => void; // T-C7 详情打开埋点（useNoticeFeedback）
 }
@@ -69,7 +71,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
   };
 
   // 支付整页跳回后的对账：?order_no=&trade_no=&notice_id= 或仅 ?notice_id=
-  usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById, setActionMessage, onRequireLogin, userId, authReady });
+  usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById, setActionMessage, onRequireLogin, userId, authReady, selectedNoticePk: options.selectedNoticePk });
 
   return {
     ...membership,

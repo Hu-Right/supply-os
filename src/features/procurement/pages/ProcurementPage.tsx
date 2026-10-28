@@ -6,7 +6,7 @@
  *              本文件保留 hooks 编排、支付事件监听与首屏计时。
  */
 import { useRef, useState, useEffect, useCallback, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, useUserId } from "@/core/auth";
 import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
@@ -15,6 +15,7 @@ import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentUnlocks } from "../components/RecentUnlocks";
 import { FavoriteNotices } from "../components/FavoriteNotices";
 import type { NoticeItem } from "../types";
+import { applyNoticeIdParam, readNoticeIdParam } from "../lib/deepLink";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { LoadingOverlay } from "@/shared/ui";
 import { ListingStatsBar } from "../components/ListingStatsBar";
@@ -31,6 +32,7 @@ import { PrefsBanner, ResultsList, MatchRelaxedHint } from "../components/procur
 export default function ProcurementPage() {
   const { authUser, isVip, refreshAuth, authReady } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const userId = useUserId();
 
   // ── 性能监控：首屏计时 ──
@@ -103,6 +105,7 @@ export default function ProcurementPage() {
     userId, isVip, authReady,
     items: search.result.items,
     setSelectedNotice,
+    selectedNoticePk: selectedNotice?.noticePk ?? null,
     trackClick: feedback.trackClick,
     trackDetailOpen: feedback.trackDetailOpen,
   });
@@ -114,6 +117,17 @@ export default function ProcurementPage() {
     (id: number) => { void toggleFavorite(id); },
     [toggleFavorite],
   );
+
+  // ── 详情深链同步：选中公告 ↔ URL ?notice_id（可分享/可刷新）──
+  // 点开写入、返回清除；与当前 URL 一致则 no-op，避免无谓 replace 与循环。
+  // 其余筛选/分页参数由 applyNoticeIdParam 原样保留。
+  useEffect(() => {
+    const pk = selectedNotice?.noticePk ?? null;
+    const cur = readNoticeIdParam(searchParams?.toString() ?? "");
+    if (pk === cur) return;
+    const qs = applyNoticeIdParam(searchParams?.toString() ?? "", pk);
+    router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+  }, [selectedNotice?.noticePk, searchParams, router]);
 
   // ── P0-8 安全修复：监听支付成功事件，自动解锁公告 ──
   useEffect(() => {

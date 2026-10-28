@@ -26,6 +26,9 @@ export interface UsePaymentReturnReconciliationOptions {
   userId?: number;
   /** 认证初始化是否完成：未就绪时不得判定为未登录（避免误弹登录框） */
   authReady?: boolean;
+  /** 当前已打开详情的公告主键：对 ?notice_id 做幂等——若该公告已是当前打开项（页面点开/选中态同步写 URL 所致），
+   *  回跳不再重复打开，避免「页面写 notice_id ↔ 回跳再打开」来回触发 */
+  selectedNoticePk?: number | null;
 }
 
 export function usePaymentReturnReconciliation({
@@ -35,6 +38,7 @@ export function usePaymentReturnReconciliation({
   onRequireLogin,
   userId,
   authReady,
+  selectedNoticePk,
 }: UsePaymentReturnReconciliationOptions) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
@@ -84,8 +88,11 @@ export function usePaymentReturnReconciliation({
         // 未登录直达详情：SPA 详情为登录后可见（列表点击 openNotice 对未登录一律弹登录），
         // 不能渲染空壳。区分三种态：已登录→打开；确认未登录→弹登录并保留 notice_id
         // 供登录后重跑；auth 未就绪→不空开也不误弹，等 userId/authReady 变化后重跑。
+        const nid = Number(noticeIdParam);
+        // 幂等：该公告已由页面选中态驱动打开（点开/同步写 URL），回跳不重复开，也不做清理替换（防循环）
+        if (nid === selectedNoticePk) return;
         if (userId) {
-          await openNoticeById(Number(noticeIdParam));
+          await openNoticeById(nid);
         } else if (authReady) {
           onRequireLogin();
           return;
@@ -93,11 +100,11 @@ export function usePaymentReturnReconciliation({
           return;
         }
       }
-      // 回跳参数清理（审查 F46）：仅剔除支付对账参数，保留用户原有搜索条件
-      if (!cancelled) {
+      // 回跳参数清理：仅剔除支付对账参数（order_no/trade_no）；notice_id 交由页面选中态同步统一管理
+      // （保留在 URL 里，详情页才可分享/刷新）。只有确实带了支付参数时才改写 URL，避免无谓 replace 触发重渲染。
+      if (!cancelled && (orderNo || tradeNo)) {
         const params = new URLSearchParams(window.location.search);
         params.delete("order_no");
-        params.delete("notice_id");
         params.delete("trade_no");
         const qs = params.toString();
         router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
@@ -107,5 +114,5 @@ export function usePaymentReturnReconciliation({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, userId, authReady]);
+  }, [searchParams, userId, authReady, selectedNoticePk]);
 }
