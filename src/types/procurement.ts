@@ -46,10 +46,8 @@ export interface NoticeListItem {
   descriptionI18n?: string;
   titleEn?: string;
   descriptionEn?: string;
-  bidOverview?: string;
   backbonePath?: string;
   entrySource?: string;
-  createTime?: string;
   coreLocked?: boolean;
   breakdownFileCount?: number;
   contactCount?: number;

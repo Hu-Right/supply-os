@@ -45,7 +45,7 @@ export async function fetchDetailsByIds(
          p.updated_at,
          ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, ${WIDE_LIMITS.i18nTeaser}) AS description_i18n,
          s.title_en, LEFT(s.description_en, ${WIDE_LIMITS.i18nTeaser}) AS description_en,
-         s.bid_overview, s.backbone_path, s.entry_source
+         s.backbone_path, s.entry_source
        FROM notice_public p
        LEFT JOIN notice_search s ON s.id = p.notice_pk
        LEFT JOIN notice_deadline d ON d.notice_pk = p.notice_pk
@@ -53,20 +53,12 @@ export async function fetchDetailsByIds(
        ORDER BY FIELD(p.notice_pk, ${ids.map(() => "?").join(",")})`,
       [...ids, ...ids],
     );
-    // 模块02 NEW 标签：create_time 在主表（宽表无此列）。按 PK 二次查询后在内存合并，
-    // 不在宽表 SELECT 上 JOIN——两表 title/description 等列同名，JOIN 会引入歧义。
-    const [timeRows] = await pool.query(
-      `SELECT id, create_time FROM bid_notices WHERE id IN (${ids.map(() => "?").join(",")})`,
-      ids,
-    );
-    const timeMap = new Map<number, unknown>();
-    for (const r of timeRows as RowDataPacket[]) timeMap.set(Number(r.id), r.create_time);
-    return (rows as RowDataPacket[]).map((r) => ({ ...r, create_time: timeMap.get(Number(r.notice_pk)) ?? null }));
+    return rows as RowDataPacket[];
   }
 
   // 回退路径：原始多表 JOIN（宽表未就绪）
   const [rows] = await pool.query(
-    `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country, n.create_time,
+    `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
        n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
        n.is_featured, n.documents, n.procurement_files,
        LEFT(${DESC_SOURCE_EXPR}, ${WIDE_LIMITS.lockedTeaser}) AS description,
@@ -74,7 +66,6 @@ export async function fetchDetailsByIds(
        tr.title_tr AS title_i18n, tr.description_tr AS description_i18n,
        tre.title_tr AS title_en, tre.description_tr AS description_en,
        opp.description_cn,
-       LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
        opp.beneficiary_countries
      FROM bid_notices n
      LEFT JOIN notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?
