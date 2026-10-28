@@ -21,10 +21,10 @@ import { AiEvaluationPanel } from "@/features/procurement/components/AiEvaluatio
 import type { AiMatchData, MatchedSupplier } from "@/features/procurement/api/ai-match";
 import type { ErrorClassification } from "@/core/http";
 
-function candidate(partial: Partial<MatchedSupplier> & { supplier_id: number; company: string; isSelf: boolean }): MatchedSupplier {
+function candidate(partial: Partial<MatchedSupplier> & { supplierId: number; company: string; isSelf: boolean }): MatchedSupplier {
   return {
     qualification: 60, experience: 60, certification: 60, region: 60, scale: 60, delivery: 60, price: 60,
-    overall: 60, details: {}, reasoning: "", pool_id: null, source: partial.isSelf ? "self" : "pool",
+    overall: 60, details: {}, reasoning: "", poolId: null, source: partial.isSelf ? "self" : "pool",
     baseComplete: true, diagComplete: true,
     ...partial,
   } as MatchedSupplier;
@@ -47,8 +47,8 @@ describe("AiEvaluationPanel 状态渲染", () => {
     const data: AiMatchData = {
       cached: false, poolSize: 2, evaluated: 2, failed: 0, diagPending: 0,
       top: [
-        candidate({ supplier_id: 10, company: "我的公司", isSelf: true, overall: 75 }),
-        candidate({ supplier_id: 12, company: "工厂B", isSelf: false, overall: 88, pool_id: 6, baseComplete: false, diagComplete: false }),
+        candidate({ supplierId: 10, company: "我的公司", isSelf: true, overall: 75 }),
+        candidate({ supplierId: 12, company: "工厂B", isSelf: false, overall: 88, poolId: 6, baseComplete: false, diagComplete: false }),
       ],
     };
     render(<AiEvaluationPanel data={data} {...baseProps} />);

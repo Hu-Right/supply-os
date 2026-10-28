@@ -46,7 +46,12 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
     try {
       const parsed = JSON.parse(cached.match_results);
-      if (Array.isArray(parsed)) {
+      // 与 service 缓存闸同一口径（2026-10-28 红线②）：旧缓存里仍是 pool_id/supplier_id 列名，
+      // 不能原样吐上网 → 按「无缓存」回空，用户下次评估自然重算（不做 camel↔snake 桥接）。
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((i) => i && typeof i === "object" && "supplierId" in i)
+      ) {
         return NextResponse.json({ cached: true, top: parsed, diagPending });
       }
     } catch { /* 缓存损坏按无缓存处理 */ }

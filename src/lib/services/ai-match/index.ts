@@ -17,9 +17,9 @@ import { preFilterSuppliers } from "./pre-filter";
 import { loadMatchNodeData } from "./match-nodes";
 
 export interface MatchedSupplier extends AiScoreRaw {
-  /** 资源库行 id；self 行为 null */
-  pool_id: number | null;
-  supplier_id: number;
+  /** 资源库行 id；self 行为 null（旧名 pool_id，2026-10-28 按命名红线② 收 camel） */
+  poolId: number | null;
+  supplierId: number;
   company: string;
   /** 是否为用户自己绑定的企业（高亮标识） */
   isSelf: boolean;
@@ -68,13 +68,15 @@ export async function getOrGenerateAiMatch(
   const poolRepo = new UserSupplierPoolRepo(pool);
 
   // 检查缓存（match_results 独立列，与评分 score_reasons 分键，互不覆盖）
-  // 版本位：仅当每项都带 isSelf 字段才视为新版结构命中，旧版（无 isSelf）自动重生成。
+  // 版本位：仅当每项都带 isSelf 且已经是 camel 的 supplierId 才视为新版结构命中；
+  // 旧版（无 isSelf / 仍是 pool_id・supplier_id 列名口径）一律重生成——
+  // 红线② 不允许在此加 camel↔snake 桥接，宁可多跑一次 LLM 也不把列名吐上网。
   if (!forceRegenerate) {
     const cached = await summaryRepo.findMatch(userId, noticeId);
     if (cached?.match_results) {
       try {
         const parsed = JSON.parse(cached.match_results);
-        if (Array.isArray(parsed) && parsed.every((i) => i && typeof i.isSelf === "boolean")) {
+        if (Array.isArray(parsed) && parsed.every((i) => i && typeof i.isSelf === "boolean" && "supplierId" in i)) {
           return {
             top: parsed, cached: true,
             poolSize: parsed.length, evaluated: parsed.length, failed: 0,
@@ -143,8 +145,8 @@ export async function getOrGenerateAiMatch(
         const comp = completeness(c.profile);
         scored.push({
           ...result.data,
-          pool_id: c.poolId,
-          supplier_id: c.supplierId,
+          poolId: c.poolId,
+          supplierId: c.supplierId,
           company: String(c.profile.company || ""),
           isSelf: c.isSelf,
           source: c.isSelf ? "self" : "pool",
@@ -158,12 +160,12 @@ export async function getOrGenerateAiMatch(
     }
   }
 
-  // 排序：综合分降序；同分 self 优先，再按 supplier_id 升序（保证可复现）
+  // 排序：综合分降序；同分 self 优先，再按 supplierId 升序（保证可复现）
   scored.sort(
     (a, b) =>
       b.overall - a.overall ||
       Number(b.isSelf) - Number(a.isSelf) ||
-      a.supplier_id - b.supplier_id,
+      a.supplierId - b.supplierId,
   );
   // self 不截断：展示全部已评估候选（≤ 5 池 + 1 self）
   const top = scored;
@@ -173,7 +175,7 @@ export async function getOrGenerateAiMatch(
     await summaryRepo.upsertMatch({
       userId, noticeId,
       matchResults: JSON.stringify(top.map((s) => ({
-        pool_id: s.pool_id, supplier_id: s.supplier_id, company: s.company,
+        poolId: s.poolId, supplierId: s.supplierId, company: s.company,
         overall: s.overall, details: s.details, reasoning: s.reasoning,
         isSelf: s.isSelf, source: s.source, baseComplete: s.baseComplete, diagComplete: s.diagComplete,
       }))),

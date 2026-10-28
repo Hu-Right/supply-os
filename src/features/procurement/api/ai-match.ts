@@ -13,8 +13,8 @@ export interface DimensionDetail {
 
 export interface MatchedSupplier {
   /** 资源库行 id；self 行为 null */
-  pool_id: number | null;
-  supplier_id: number;
+  poolId: number | null;
+  supplierId: number;
   company: string;
   /** 是否为用户自己绑定的企业 */
   isSelf: boolean;

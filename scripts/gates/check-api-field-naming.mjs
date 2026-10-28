@@ -104,6 +104,16 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/notices/[id]/favorite/route.ts#result",
   "src/app/api/notices/[id]/translation/route.ts#result",
   "src/app/api/notices/feedback/route.ts#result",
+  // AI 与客服三出口原停在 C「触付费 LLM / 库里无数据，探针跑不了」，但键名其实不必花 LLM 就能钉：
+  // 服务出口只有一个形状，用假 repo 打缓存命中那一条路径即可。
+  //   notices/[id]/ai-summary → AiSummaryResult 10 键（tests/unit/lib/services/ai-summary-view.test.ts）；
+  //   crm/chat/sessions/queue → 路由两分支同 4 键 + repo 将 ahead/total/avg_seconds 映射为 camel
+  //     （tests/unit/app/api/chat-queue-view.test.ts）。
+  // notices/[id]/ai-match 不是「未实测」而是**真违规**：MatchedSupplier 带 pool_id/supplier_id 上网（前端还照抄）。
+  // 已改 poolId/supplierId，并把缓存版本闸收到同一口径（旧列名缓存不命中、重生成，不做 camel↔snake 桥接）。
+  "src/app/api/crm/chat/sessions/queue/route.ts#info",
+  "src/app/api/notices/[id]/ai-match/route.ts#result",
+  "src/app/api/notices/[id]/ai-summary/route.ts#data",
   // 【B 字段命名 sweep 实测无 snake 键·但仍未收 mapper】键是本域约定名或 SQL 聚合别名；
   // 迁视图时请顺手删行，让登记集只反映「真的看不见」的出口。
   "src/app/api/catalog/country-name-map/route.ts#maps",
@@ -135,10 +145,7 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/notices/unified-search/route.ts#result",
   "src/app/api/suppliers/stats/route.ts#stats",
   // 【C 尚未实测·逐条写明为什么拿不到证据】不得笼统当成「应该没事」：
-  // 全是写路径、触付费 LLM、触外部网关或库里无数据，只读探针跑不了。
-  "src/app/api/crm/chat/sessions/queue/route.ts#info", // 库里无会话行；返回类型已显式钉 3 键 + status 字面量
-  "src/app/api/notices/[id]/ai-match/route.ts#result", // POST 生成分支触付费 LLM
-  "src/app/api/notices/[id]/ai-summary/route.ts#data", // GET 缓存分支已实测 8 键全 camel；POST 生成分支触 LLM，整条不升组
+  // 剩下的两条都触外部支付网关（建单还要写库），只读探针跑不了。
   "src/app/api/training/orders/[orderNo]/route.ts#result", // 查单触外部支付网关
   "src/app/api/training/orders/route.ts#result", // POST 建单（写 + 外部）
 ]);

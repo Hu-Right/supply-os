@@ -139,7 +139,7 @@ export function AiEvaluationPanel({
         )}
         {poolRows.map((s, idx) => (
           <AiEvaluationRow
-            key={`${s.pool_id ?? "x"}-${s.supplier_id}`}
+            key={`${s.poolId ?? "x"}-${s.supplierId}`}
             supplier={s}
             rank={idx + 1}
             t={t}

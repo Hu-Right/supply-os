@@ -111,9 +111,9 @@ beforeEach(() => {
 });
 
 describe("统一评估缓存分键与版本", () => {
-  it("新版 match_results（含 isSelf）命中 → 直接返回，不调用 LLM", async () => {
+  it("新版 match_results（含 isSelf 且键已收 camel）命中 → 直接返回，不调用 LLM", async () => {
     findMatch.mockResolvedValue({
-      match_results: JSON.stringify([{ pool_id: 5, supplier_id: 10, company: "工厂A", overall: 88, details: {}, reasoning: "r", isSelf: false, source: "pool", baseComplete: true, diagComplete: false }]),
+      match_results: JSON.stringify([{ poolId: 5, supplierId: 10, company: "工厂A", overall: 88, details: {}, reasoning: "r", isSelf: false, source: "pool", baseComplete: true, diagComplete: false }]),
     });
     const res = await getOrGenerateAiMatch({} as any, 1, 2, false);
     expect(res.cached).toBe(true);
@@ -132,6 +132,19 @@ describe("统一评估缓存分键与版本", () => {
     expect(callLlmForScore).toHaveBeenCalledTimes(1);
   });
 
+  // 2026-10-28 红线②：MatchedSupplier 的 pool_id/supplier_id 改 poolId/supplierId。
+  // 旧缓存里即使有 isSelf，只要还是列名口径就不能命中——宁可重跑 LLM，
+  // 也不在读取处加 camel↔snake 桥接（那等于把违规永久化）。
+  it("列名口径的旧缓存（有 isSelf 但仍是 supplier_id）→ 同样视为未命中", async () => {
+    findMatch.mockResolvedValue({
+      match_results: JSON.stringify([{ pool_id: 5, supplier_id: 10, company: "工厂A", overall: 88, details: {}, reasoning: "r", isSelf: false, source: "pool", baseComplete: true, diagComplete: false }]),
+    });
+    fetchSupplierProfiles.mockResolvedValue([supplierRow]);
+    const res = await getOrGenerateAiMatch(noticePool(), 1, 2, false);
+    expect(res.cached).toBe(false);
+    expect(callLlmForScore).toHaveBeenCalledTimes(1);
+  });
+
   it("生成后写 match_results（含 isSelf/reasoning），不触碰评分列", async () => {
     findMatch.mockResolvedValue(null);
     fetchSupplierProfiles.mockResolvedValue([supplierRow]);
@@ -143,6 +156,13 @@ describe("统一评估缓存分键与版本", () => {
     expect(cached[0].reasoning).toBe("r");
     expect(cached[0].isSelf).toBe(false);
     expect(cached[0].source).toBe("pool");
+    // wire 键集合（红线② 的 C 组取证）：top 整块透出到前端，没有一个列名可以搭车；
+    // 写进缓存的 JSON 就是下一轮回读的响应体，两边必须是同一套 camel 键。
+    const SNAKE_KEY = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/;
+    expect(Object.keys(res.top[0]).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
+    expect(res.top[0]).toMatchObject({ poolId: 5, supplierId: 10 });
+    expect(Object.keys(cached[0]).filter((k: string) => SNAKE_KEY.test(k))).toEqual([]);
+    expect(Object.keys(res).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
     expect(upsertScore).not.toHaveBeenCalled();
     expect(findScore).not.toHaveBeenCalled();
   });
