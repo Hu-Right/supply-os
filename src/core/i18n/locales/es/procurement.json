@@ -453,7 +453,6 @@
   "detail_bidStrategy": "Estrategia de oferta",
   "detail_aiSummaryStreaming": "Analizando…",
   "detail_aiSummaryGenerating": "Generando…",
-  "detail_sourceOfficial": "Portal oficial",
   "procurement_aiSummaryTitle": "Resumen IA de licitación",
   "procurement_aiSummaryLocked": "Mejore para desbloquear análisis IA completo",
   "procurement_aiSummaryUnavailable": "El análisis IA se está generando, actualice más tarde.",
@@ -609,5 +608,6 @@
   "aiScoreReasoning": "Proceso de razonamiento de la IA",
   "procurement_deadlineBid": "Fecha límite de licitación",
   "procurement_deadlineRegistration": "Fin del registro",
-  "procurement_deadlineFramework": "Fin del acuerdo marco"
+  "procurement_deadlineFramework": "Fin del acuerdo marco",
+  "detail_reference": "N.º de referencia"
 }

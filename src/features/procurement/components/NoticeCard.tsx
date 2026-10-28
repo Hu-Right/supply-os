@@ -15,24 +15,11 @@ import { useLocale } from "@/core/i18n";
 import { Button, Card, Badge, CountryFlag } from "@/shared/ui";
 import type { NoticeItem } from "../types";
 import { noticeTypeKey } from "@/shared/utils/notice-type";
-import { formatDeadlineZh } from "../utils/formatDeadlineZh";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
-// 秒/毫秒归一化 + 日历剩余天数（2026-09-12 收敛）：与 formatDeadlineZh 的
-// "今天/明天/后天" 标签同口径，避免"明天 + 剩余 2 天"的矛盾组合
+import { formatNoticeAmount, formatNoticeDeadline, formatNoticeReference } from "../utils/noticeDisplay";
+// 秒/毫秒归一化 + 日历剩余天数（2026-09-12 收敛）：相对日期标签与
+// 绝对截止时间分开计算，避免"明天 + 剩余 2 天"的矛盾组合
 import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
-// 来源平台展示名改由服务端下发 item.platform（platform_aliases 归一），不再客户端解析域名
-
-/**
- * 金额紧凑格式（样图口径：3.2M / 980K）；无金额返回空串由调用方回退。
- * 原始值约 56% 为纯数字（无币种线索），币种未知时不得加 $ 等符号冒充美元。
- */
-function compactValue(v?: string): string {
-  const n = Number(v);
-  if (!Number.isFinite(n) || n <= 0) return "";
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${Math.round(n / 1e3)}K`;
-  return n.toLocaleString();
-}
 
 interface NoticeCardProps {
   item: NoticeItem;
@@ -55,23 +42,15 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
 
   // ── 状态标签组 ──
   const docCount = item.attachments?.length ?? 0;
-  // 剩余天数：日历口径（CST），与左侧 formatDeadlineZh 相对日期标签对齐
+  // 剩余天数：注册制/框架结束日不是投标截止，不显示倒计时
   const daysLeft = item.deadlineType && item.deadlineType !== "bid" ? null : calendarDaysLeftCst(toUnixMs(item.deadlineTs));
-  // Tender ID：reference 优先，回退 notice_id
-  const tenderId = item.reference || item.noticeId || "";
+  // 参考编号：与详情页共用同一回退链
+  const tenderId = formatNoticeReference(item.reference, item.noticeId);
 
-  const deadlineDate = locale === "zh"
-    ? (formatDeadlineZh("", item.deadlineTs) || t("procurement_noDeadline"))
-    : ((item.deadlineTs ? new Date(Number(item.deadlineTs) * 1000).toISOString().slice(0, 10) : "") || t("procurement_noDeadline"));
-  const deadlineTypeLabel = item.deadlineType === "registration"
-    ? t("procurement_deadlineRegistration")
-    : item.deadlineType === "framework_end"
-      ? t("procurement_deadlineFramework")
-      : "";
-  const deadlinePrefix = deadlineTypeLabel ? `${deadlineTypeLabel}${locale === "zh" ? "：" : ": "}` : "";
-  const deadlineText = `${deadlinePrefix}${deadlineDate}${item.deadlineTimezone ? ` (${item.deadlineTimezone})` : ""}`;
-  const valueText = compactValue(item.estimatedValue == null ? undefined : String(item.estimatedValue));
-  const sourceName = item.platformName ?? "";
+  const deadlineText = formatNoticeDeadline(
+    item.deadlineTs, item.deadlineType, item.deadlineTimezone, locale, t,
+  ) || t("procurement_noDeadline");
+  const valueText = formatNoticeAmount(item.estimatedValue, item.currencyCode, locale, true);
   const isUnlocked = item.coreLocked === false;
 
   return (
@@ -157,20 +136,8 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
           )}
         </div>
 
-        {/* ── 来源列（lg+）：已收录平台才展示，未收录域名隐藏 ── */}
-        <div className="hidden lg:block w-28 shrink-0">
-          {item.sourceUrl && sourceName && (
-            <a
-              href={item.sourceUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-xs text-teal-700 hover:text-teal-900 font-medium truncate block"
-              title={item.sourceUrl}
-            >
-              {sourceName}
-            </a>
-          )}
-        </div>
+        {/* ── 来源列已退役（2026-10-28 用户口径）：来源平台属解锁后可见信息，
+             列表卡片一律不展示，详情页解锁后才可见；列表载荷也不再下发该字段 ── */}
 
         {/* ── 解锁动作 + 收藏：锁定态金色「会员解锁」，解锁态「查看详情」 ─ */}
         <div className="shrink-0 self-start lg:self-center flex items-center gap-2">
@@ -215,6 +182,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
     </Card>
   );
 });
+
 
 
 

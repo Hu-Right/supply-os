@@ -35,10 +35,28 @@ export function DetailHeader({
   sourceUrl, platform, publishDate, deadlineText, countdown, budgetText,
   onBack, favorited, onToggleFavorite, onShare, t, locale,
 }: DetailHeaderProps) {
-  // 平台展示名：数据源自表（platform），语言按 locale 在 zh/canonical 间取舍，与源国家展示同口径。
+  // 平台展示名：数据源自表（platform），zh 纯中文名（缺省回退 canonical），与国家展示同口径。
+  // platform 为 null（锁定态预览不下发 / 无来源）→ 整个「来源平台」信息位隐藏：
+  // 该信息属解锁后可见（2026-10-28 用户口径），锁定详情不露出字段占位。
   const sourceName = platform
-    ? (locale !== "zh" ? platform.canonical : (platform.zh ? `${platform.zh}（${platform.canonical}）` : platform.canonical))
+    ? (locale !== "zh" ? platform.canonical : (platform.zh || platform.canonical))
     : "";
+  const infoRows: Array<[string, React.ReactNode]> = [
+    [t("detail_reference"), sourceUrl
+      ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="flex min-w-0 max-w-full items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline group/notice-id" title={noticeId || "-"}><span className="min-w-0 truncate">{noticeId || "-"}</span><ExternalLink className="w-3 h-3 shrink-0" /></a>
+      : <span className="block min-w-0 truncate" title={noticeId || "-"}>{noticeId || "-"}</span>],
+    [t("detail_buyer"), visibleAgency],
+    [t("detail_countryRegion"), getCountryDisplayName(country, locale) || t("procurement_global")],
+    ...(platform ? [[t("detail_sourcePlatform"), sourceName] as [string, React.ReactNode]] : []),
+    [t("detail_publishDate"), publishDate],
+    [t("detail_deadline"), deadlineText],
+    [t("detail_countdown"), countdown
+      ? <span className="text-rose-600 font-bold font-mono">{t("detail_countdownDays", { days: countdown.days })} {countdown.time}</span>
+      : t("procurement_noDeadline")],
+    [t("detail_procurementType"), typeLabel],
+    [t("detail_budgetAmount"),
+      <span className="text-teal-700 font-extrabold">{budgetText}</span>],
+  ];
 
   return (
     <>
@@ -82,27 +100,12 @@ export function DetailHeader({
         </div>
       </div>
 
-      {/* ═══ 9列信息速览表 ═══ */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3 mb-6 p-4 rounded-xl bg-slate-50/70 border border-slate-100">
-        {[
-          [t("detail_noticeId"), sourceUrl
-            ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline group/notice-id" title={noticeId || "-"}><span className="truncate block max-w-full">{noticeId || "-"}</span><ExternalLink className="w-3 h-3 shrink-0" /></a>
-            : <span className="truncate block max-w-full" title={noticeId || "-"}>{noticeId || "-"}</span>],
-          [t("detail_buyer"), visibleAgency],
-          [t("detail_countryRegion"), getCountryDisplayName(country, locale) || t("procurement_global")],
-          [t("detail_sourcePlatform"), sourceName || t("detail_sourceOfficial")],
-          [t("detail_publishDate"), publishDate],
-          [t("detail_deadline"), deadlineText],
-          [t("detail_countdown"), countdown
-            ? <span className="text-rose-600 font-bold font-mono">{t("detail_countdownDays", { days: countdown.days })} {countdown.time}</span>
-            : t("procurement_noDeadline")],
-          [t("detail_procurementType"), typeLabel],
-          [t("detail_budgetAmount"),
-            <span className="text-teal-700 font-extrabold">{budgetText}</span>],
-        ].map(([label, value]) => (
-          <div key={label as string} className="min-w-0">
-            <p className="text-2xs font-bold text-slate-400 uppercase mb-1 truncate">{label as string}</p>
-            <p className="text-xs font-bold text-slate-800 break-words leading-snug">{value as React.ReactNode}</p>
+      {/* ═══ 信息速览表（来源平台位仅解锁且确有来源时渲染；列数随之 9/8） ═══ */}
+      <div className={`grid grid-cols-2 sm:grid-cols-3 ${platform ? "lg:grid-cols-9" : "lg:grid-cols-8"} gap-3 mb-6 p-4 rounded-xl bg-slate-50/70 border border-slate-100`}>
+        {infoRows.map(([label, value]) => (
+          <div key={label} className="min-w-0">
+            <p className="text-2xs font-bold text-slate-400 uppercase mb-1 truncate">{label}</p>
+            <p className="text-xs font-bold text-slate-800 break-words leading-snug">{value}</p>
           </div>
         ))}
       </div>

@@ -453,7 +453,6 @@
   "detail_bidStrategy": "Stratégie d'offre",
   "detail_aiSummaryStreaming": "Analyse en cours…",
   "detail_aiSummaryGenerating": "Génération en cours…",
-  "detail_sourceOfficial": "Portail officiel",
   "procurement_aiSummaryTitle": "Résumé IA de l'appel d'offres",
   "procurement_aiSummaryLocked": "Mettez à niveau pour débloquer l'analyse IA complète",
   "procurement_aiSummaryUnavailable": "L'analyse IA est en cours de génération, veuillez actualiser plus tard.",
@@ -609,5 +608,6 @@
   "aiScoreReasoning": "Processus de raisonnement de l’IA",
   "procurement_deadlineBid": "Date limite de soumission",
   "procurement_deadlineRegistration": "Fin d’enregistrement",
-  "procurement_deadlineFramework": "Fin de l’accord-cadre"
+  "procurement_deadlineFramework": "Fin de l’accord-cadre",
+  "detail_reference": "N° de référence"
 }

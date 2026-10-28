@@ -453,7 +453,6 @@
   "detail_bidStrategy": "استراتيجية العطاء",
   "detail_aiSummaryStreaming": "جاري التحليل…",
   "detail_aiSummaryGenerating": "جاري الإنشاء…",
-  "detail_sourceOfficial": "البوابة الرسمية",
   "procurement_aiSummaryTitle": "ملخص الذكاء الاصطناعي للمناقصة",
   "procurement_aiSummaryLocked": "قم بالترقية لفتح تحليل الذكاء الاصطناعي الكامل",
   "procurement_aiSummaryUnavailable": "جاري إنشاء تحليل الذكاء الاصطناعي، يرجى التحديث لاحقاً.",
@@ -609,5 +608,6 @@
   "aiScoreReasoning": "عملية استدلال الذكاء الاصطناعي",
   "procurement_deadlineBid": "الموعد النهائي لتقديم العطاء",
   "procurement_deadlineRegistration": "انتهاء التسجيل",
-  "procurement_deadlineFramework": "انتهاء الاتفاق الإطاري"
+  "procurement_deadlineFramework": "انتهاء الاتفاق الإطاري",
+  "detail_reference": "رقم المرجع"
 }

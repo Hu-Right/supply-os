@@ -608,5 +608,6 @@
   "aiScoreReasoning": "AI reasoning process",
   "procurement_deadlineBid": "Bid deadline",
   "procurement_deadlineRegistration": "Registration closes",
-  "procurement_deadlineFramework": "Framework agreement ends"
+  "procurement_deadlineFramework": "Framework agreement ends",
+  "detail_reference": "Reference No."
 }

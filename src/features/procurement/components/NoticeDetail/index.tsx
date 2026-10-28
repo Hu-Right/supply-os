@@ -26,6 +26,7 @@ import { AiSummarySection } from "../AiSummarySection";
 import { NextStepsPanel } from "../NextStepsPanel";
 import { getCountdown } from "@/shared/utils/countdown";
 import { formatNoticeDateOrNull } from "@/shared/utils/notice-datetime/format";
+import { formatNoticeAmount, formatNoticeDeadline, formatNoticeReference } from "../../utils/noticeDisplay";
 
 import { DetailHeader } from "./DetailHeader";
 import { DetailTabs } from "./DetailTabs";
@@ -140,17 +141,10 @@ export function NoticeDetail({
 
   // 信息表数据（发布日走统一解析+UTC 格式化，与 SEO 页同口径；不可解析回落占位）
   const publishDate = formatNoticeDateOrNull(notice.publishedTs ? new Date(Number(notice.publishedTs) * 1000).toISOString().slice(0, 10) : "") || "-";
-  const deadlineText = (() => {
-    const date = (notice.deadlineTs ? new Date(Number(notice.deadlineTs) * 1000).toISOString().slice(0, 10) : "") || t("procurement_noDeadline");
-    const typeLabel = notice.deadlineType === "registration"
-      ? t("procurement_deadlineRegistration")
-      : notice.deadlineType === "framework_end"
-        ? t("procurement_deadlineFramework")
-        : "";
-    const prefix = typeLabel ? `${typeLabel}${locale === "zh" ? "：" : ": "}` : "";
-    return `${prefix}${date}${notice.deadlineTimezone ? ` (${notice.deadlineTimezone})` : ""}`;
-  })();
-  const budgetText = notice.estimatedValue == null ? t("procurement_budgetPending") : String(notice.estimatedValue);
+  const deadlineText = formatNoticeDeadline(
+    notice.deadlineTs, notice.deadlineType, notice.deadlineTimezone, locale, t,
+  ) || t("procurement_noDeadline");
+  const budgetText = formatNoticeAmount(notice.estimatedValue, notice.currencyCode, locale) || t("procurement_budgetPending");
   const typeLabel = typeKey ? t(typeKey) : notice.noticeTypeCode || "-";
 
   return (
@@ -158,7 +152,9 @@ export function NoticeDetail({
       <article className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
         <DetailHeader
           displayTitle={displayTitle} typeLabel={typeLabel}
-          noticeId={notice.reference || undefined} visibleAgency={visibleAgency} country={notice.countryCode || ""} sourceUrl={notice.sourceUrl || undefined} platform={notice.platform ?? null}
+          // 公告编号：来源方真实标号（reference）优先；来源没给编号时（如 JP-GP 这类
+          // 门户原文只有路径、爬虫不落 reference）回退平台编号 noticeId，绝不显示 URL 路径
+          noticeId={formatNoticeReference(notice.reference, notice.noticeId) || undefined} visibleAgency={visibleAgency} country={notice.countryCode || ""} sourceUrl={notice.sourceUrl || undefined} platform={notice.platform ?? null}
           publishDate={publishDate} deadlineText={deadlineText} countdown={countdown}
           budgetText={budgetText} onBack={onBack} t={t} locale={locale}
           favorited={favorited} onToggleFavorite={onToggleFavorite}
@@ -301,6 +297,7 @@ export function NoticeDetail({
     </div>
   );
 }
+
 
 
 
