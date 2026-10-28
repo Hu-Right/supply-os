@@ -35,7 +35,7 @@ export const PUBLIC_COLS = [
   "notice_pk", "notice_id", "source_url", "reference",
   "title", "description", "description_cn", "content_level", "industry",
   "published_ts", "deadline_ts", "deadline_state",
-  "country_code", "country_codes", "country_name", "notice_type_code",
+  "country_code", "country_codes", "notice_type_code",
   "platform_name",
   "buyer_name", "buyer_group",
   "estimated_value", "currency_code", "currency_source",
