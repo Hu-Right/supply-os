@@ -6,6 +6,8 @@
  *              认证方式：X-API-Key 请求头。
  *              分档返回：basic 档返回基础元数据，pro 档返回完整数据。
  *              每次调用记录用量。
+ *              响应实体字段一律 camelCase（行→视图在 lib/services/open-api/view.ts 收口）；
+ *              2026-10-28 本端点由列名口径迁为 camel，属对外破坏性变更，字段对照见 ARCHITECTURE.md。
  *
  * 查询参数：
  * - page: 页码（默认 1）

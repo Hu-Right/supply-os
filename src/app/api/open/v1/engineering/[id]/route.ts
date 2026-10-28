@@ -5,6 +5,7 @@
  * @description 对外开放 API 端点，返回单条工程类采购商机完整数据。
  *              认证方式：X-API-Key 请求头。
  *              仅 pro 档可访问详情端点，basic 档返回 403。
+ *              item 字段同样 camelCase（与列表同一个视图），2026-10-28 随开放 API 命名迁移生效。
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";

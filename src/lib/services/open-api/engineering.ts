@@ -23,6 +23,15 @@ import { normalizeNoticeType } from "../../utils/notice-type";
 import { toBeijingUnixTs } from "../../utils/notice-expired";
 import { expandCountryAliases } from "../notice-search/countries";
 import { loadCountryAliasSnapshot } from "../country/alias-store";
+import {
+  engineeringItemViewsOf,
+  engineeringItemViewOf,
+  engineeringStatsViewOf,
+  type EngineeringItemView,
+  type EngineeringRow,
+  type EngineeringStatsRow,
+  type EngineeringStatsView,
+} from "./view";
 
 /** 工程类 industry 关键词 */
 const ENGINEERING_INDUSTRY_KEYWORDS = [
@@ -86,7 +95,8 @@ export interface EngineeringListResult {
   total: number;
   page: number;
   limit: number;
-  items: RowDataPacket[];
+  /** 对外视图（camelCase）：行→视图在本域 view.ts 唯一收口，route 只拼装 */
+  items: EngineeringItemView[];
 }
 
 /**
@@ -178,7 +188,7 @@ export async function queryEngineeringList(
     [...queryParams, limit, offset],
   );
 
-  return { total, page, limit, items: rows };
+  return { total, page, limit, items: engineeringItemViewsOf(rows as unknown as EngineeringRow[]) };
 }
 
 /**
@@ -187,7 +197,7 @@ export async function queryEngineeringList(
 export async function queryEngineeringDetail(
   dbPool: Pool,
   opportunityId: number,
-): Promise<RowDataPacket | null> {
+): Promise<EngineeringItemView | null> {
   const fields = `${BASIC_FIELDS}${PRO_EXTRA_FIELDS}`;
   const engineeringWhere = buildEngineeringWhere();
 
@@ -200,13 +210,13 @@ export async function queryEngineeringDetail(
     [opportunityId],
   );
 
-  return rows[0] ?? null;
+  return rows[0] ? engineeringItemViewOf(rows[0] as unknown as EngineeringRow) : null;
 }
 
 /**
  * 获取工程类数据统计（供 API 文档/概览用）
  */
-export async function getEngineeringStats(dbPool: Pool): Promise<RowDataPacket> {
+export async function getEngineeringStats(dbPool: Pool): Promise<EngineeringStatsView> {
   const engineeringWhere = buildEngineeringWhere();
 
   const [rows] = await dbPool.query<RowDataPacket[]>(
@@ -221,5 +231,6 @@ export async function getEngineeringStats(dbPool: Pool): Promise<RowDataPacket> 
        AND o.status = 0`,
   );
 
-  return rows[0] ?? { total_count: 0, country_count: 0, earliest_date: null, latest_date: null };
+  const fallback: EngineeringStatsRow = { total_count: 0, country_count: 0, earliest_date: null, latest_date: null };
+  return engineeringStatsViewOf((rows[0] ?? fallback) as unknown as EngineeringStatsRow);
 }

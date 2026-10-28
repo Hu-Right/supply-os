@@ -90,6 +90,11 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/notices/unlocks/route.ts#rows",
   "src/app/api/opportunities/unlocks/route.ts#unlocks",
   "src/app/api/payment/orders/[orderNo]/route.ts#result",
+  // 开放 API engineering stats：2026-10-28 实测发现 4 个 snake 键（total_count 等）后，
+  // 整族收进 lib/services/open-api/view.ts（item 27 键 + stats 4 键，值原样透传），
+  // 证据是路由级单测 tests/unit/lib/services/open-api/view.test.ts（不依赖库）；
+  // 运行期 HTTP 取证本轮未做（隧道断开），所以进 A 的依据是 mapper + 单测，不是探针。
+  "src/app/api/open/v1/engineering/route.ts#stats",
   // 【B 字段命名 sweep 实测无 snake 键·但仍未收 mapper】键是本域约定名或 SQL 聚合别名；
   // 迁视图时请顺手删行，让登记集只反映「真的看不见」的出口。
   "src/app/api/catalog/country-name-map/route.ts#maps",
@@ -129,12 +134,6 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/notices/feedback/route.ts#result", // POST 写反馈
   "src/app/api/training/orders/[orderNo]/route.ts#result", // 查单触外部支付网关
   "src/app/api/training/orders/route.ts#result", // POST 建单（写 + 外部）
-  // 【D 实测发现 snake 键·属对外契约决策，未擅改】探针拿到 total_count/country_count/
-  // earliest_date/latest_date 四个。同一外发面（open/v1 engineering list/detail）直接透传列名
-  // （items: rows），所以这不是单个漏网，而是整块对外 API 的既定命名口径：
-  // 改 = 对已授权客户破坏契约，需要版本化/客户同步；不改 = 得把豁免写进文档，而不是假装看不见。
-  // 详见 ARCHITECTURE.md「开放 API 的命名口径待决策」。
-  "src/app/api/open/v1/engineering/route.ts#stats",
 ]);
 
 // 自测追加项（见文件头）：只影响本次进程，不改真实登记存量。
