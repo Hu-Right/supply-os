@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   getAgencyCacheData: vi.fn(),
   classifyAgencyType: vi.fn(),
   translateByPattern: vi.fn(),
+  countryZhOf: vi.fn(),
 }));
 
 vi.mock("@/lib/services/notice-search/agencies/index", () => ({
@@ -25,6 +26,9 @@ vi.mock("@/lib/services/agency/index", () => ({
 }));
 vi.mock("@/lib/data/agency-i18n/translate", () => ({
   translateByPattern: mocks.translateByPattern,
+}));
+vi.mock("@/lib/services/country/display", () => ({
+  countryZhOf: mocks.countryZhOf,
 }));
 
 import { formatItems } from "@/lib/services/search-orchestrator/format";
@@ -38,6 +42,7 @@ beforeEach(() => {
   mocks.getAgencyCacheData.mockReturnValue([]);
   mocks.translateByPattern.mockReturnValue(null);
   mocks.classifyAgencyType.mockReturnValue(null);
+  mocks.countryZhOf.mockReturnValue(null);
 });
 
 describe("formatItems — 机构 i18n 三级回退", () => {
@@ -128,5 +133,57 @@ describe("enrichAgencyI18n — 推荐管道共享助手（2026-10-12 推荐列�
     mocks.getAgencyCacheData.mockReturnValue([{ agency: "unicef", i18n: { zh: "联合国儿童基金会" } }]);
     const items = enrichAgencyI18n([{ agency: "UNICEF" }] as Array<Record<string, unknown>>, "zh");
     expect(items[0].agency_i18n).toBeUndefined();
+  });
+
+  it("[统一中文 2026-10-28] 精确解析的含汉字 zh 胜过缓存聚合桶的通用修复标签", () => {
+    // 缓存优先的旧序会让「黑山各机构」遮住别名表精名「黑山临床中心」
+    mocks.getAgencyCacheData.mockReturnValue([{ agency: "KCCG", i18n: { zh: "黑山各机构" } }]);
+    mocks.translateByPattern.mockReturnValue({ canonical: "KCCG", i18n: { zh: "黑山临床中心" } });
+    const items = formatItems([row({ buyer_name: "KCCG", country_code: "ME" })], "zh");
+    expect(items[0].agency_i18n).toBe("黑山临床中心");
+  });
+
+  it("[统一中文 2026-10-28] 纯透传（zh 无汉字）不算翻译：露码原文仍由缓存修复标签兜底", () => {
+    mocks.getAgencyCacheData.mockReturnValue([{ agency: "mercadopublico_cl", i18n: { zh: "政府采购系统" } }]);
+    mocks.translateByPattern.mockReturnValue({ canonical: "mercadopublico_cl", i18n: { zh: "mercadopublico_cl" } });
+    const items = formatItems([row({ buyer_name: "mercadopublico_cl", country_code: "CL" })], "zh");
+    expect(items[0].agency_i18n).toBe("政府采购系统");
+  });
+
+  it("[统一中文 2026-10-28] 透传且类型桶/缓存均未接住 → 国家级「XX各机构」zh 终兜底", () => {
+    mocks.countryZhOf.mockReturnValue("日本");
+    const items = formatItems([row({ buyer_name: "Aomori", country_code: "JP" })], "zh");
+    expect(items[0].agency_i18n).toBe("日本各机构");
+  });
+
+  it("country_code 缺省时回退 country_codes 首码（推荐管道行只有宽表逗号列）", () => {
+    mocks.classifyAgencyType.mockReturnValue({ i18n: { zh: "日本各研究所" } });
+    mocks.translateByPattern.mockReturnValue({ canonical: "OME INSTITUTE" });
+    formatItems([row({ buyer_name: "OME", country_codes: "JP,US" })], "zh");
+    expect(mocks.classifyAgencyType).toHaveBeenCalledWith("OME INSTITUTE", "JP");
+  });
+
+  it("country_code/codes 皆缺 → 回退主表 n.country 英文名（推荐行国家上下文末位）", () => {
+    mocks.countryZhOf.mockImplementation((s: string) => (s === "Japan" ? "日本" : null));
+    const items = formatItems([row({ buyer_name: "Aomori", country: "Japan" })], "zh");
+    expect(items[0].agency_i18n).toBe("日本各机构");
+  });
+
+  it("非 zh 不做国家终兜底（外文原文是 en 等语言的合法展示）", () => {
+    mocks.countryZhOf.mockReturnValue("日本");
+    const items = formatItems([row({ buyer_name: "Aomori", country_code: "JP" })], "en");
+    expect(items[0].agency_i18n).toBeUndefined();
+  });
+});
+
+describe("formatItems — 来源字段裁剪（2026-10-28 用户口径：来源平台解锁后才可见）", () => {
+  it("列表载荷剔除 source_url / platform_name，锁定详情合成不再泄漏原文外链", () => {
+    const items = formatItems(
+      [row({ buyer_name: "UNICEF", source_url: "https://example.org/t/1", platform_name: "example" })],
+      "zh",
+    );
+    expect(items[0].source_url).toBeUndefined();
+    expect(items[0].platform_name).toBeUndefined();
+    expect(items[0].buyer_name).toBe("UNICEF");
   });
 });

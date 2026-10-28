@@ -156,7 +156,10 @@ export async function deadlineFallback(
   // 列清单由 columns() 拼（分隔符单一出处）；条件列不启用传 falsy，不留空尾逗号的坑。
   const selectList = columns(
     "DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country",
-    "n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency, n.is_featured",
+    // 买家字段取宽表投影（同推荐主查询口径）；LEFT JOIN 不收窄兜底结果集，
+    // 宽表缺行时 buyer 为 NULL → 前端按「未知机构」占位，不回退露平台码的 n.agency。
+    // 国家上下文用行内 n.country（英文名）；来源平台不下发（解锁后可见）。
+    "n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.is_featured, ns.buyer_name, ns.buyer_group",
     descSub,
     descTruncSub,
     "n.documents, n.procurement_files",
@@ -168,7 +171,9 @@ export async function deadlineFallback(
   );
   const [fallbackRows] = await pool.query(
     `SELECT ${selectList}
-     FROM bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
+     FROM bid_notices n
+     LEFT JOIN notice_search ns ON ns.id = n.id
+     ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
   const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ensureNoticePk({
     // Suministros BUG 修复：同推荐主查询，notice_type 归一化对齐宽表口径
     ...row, notice_type: normalizeNoticeType(row.notice_type),

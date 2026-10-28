@@ -2,7 +2,7 @@
  * platform/resolve 单测：纯表驱动解析（整键命中 / host 子域后缀下钻 / 未解析回填 / 展示分语言）。
  */
 import { describe, it, expect } from "vitest";
-import { resolvePlatform, platformCodeForName, platformDisplayName, platformInfo } from "@/lib/services/platform/resolve";
+import { resolvePlatform, platformCodeForName, platformInfo, platformInfoWithFallback } from "@/lib/services/platform/resolve";
 import { normalizePlatformKey } from "@/lib/services/platform/alias-store";
 import type { PlatformAliasSnapshot, PlatformAliasEntry } from "@/lib/services/platform/alias-store";
 
@@ -47,17 +47,11 @@ describe("resolvePlatform", () => {
   });
 });
 
-describe("platformCodeForName / platformDisplayName", () => {
+describe("platformCodeForName", () => {
   it("取码：platform 命中给 slug，非 platform / 未命中给 null", () => {
     expect(platformCodeForName("TED", S)).toBe("ted");
     expect(platformCodeForName("manual", S)).toBeNull(); // invalid
     expect(platformCodeForName("nope.gov", S)).toBeNull();
-  });
-  it("展示名：zh 用「中文名（简称）」，非 zh 用简称，未解析/invalid 返回空串", () => {
-    expect(platformDisplayName("sam.gov", S, "zh")).toBe("美国联邦采购网（SAM.gov）");
-    expect(platformDisplayName("sam.gov", S, "en")).toBe("SAM.gov");
-    expect(platformDisplayName("nope.gov", S, "zh")).toBe("");
-    expect(platformDisplayName("manual", S, "zh")).toBe("");
   });
 });
 
@@ -67,5 +61,19 @@ describe("platformInfo（服务端回填体）", () => {
     expect(platformInfo("https://www.sam.gov/n/1", S)).toEqual({ canonical: "SAM.gov", code: "sam", zh: "美国联邦采购网" });
     expect(platformInfo("manual", S)).toBeNull();
     expect(platformInfo("nope.gov", S)).toBeNull();
+  });
+});
+
+describe("platformInfoWithFallback（详情/预览：未命中回落服务表 platform_name）", () => {
+  it("表命中 → 表值优先，服务表名不参与", () => {
+    expect(platformInfoWithFallback("sam.gov", S, "SAM.gov")).toEqual({ canonical: "SAM.gov", code: "sam", zh: "美国联邦采购网" });
+  });
+  it("未命中 → 服务表 platform_name 兜底（build 侧域名/canonical 产物），code/zh 置空", () => {
+    expect(platformInfoWithFallback("information1.gov-procurement.go.jp", S, "information1.gov-procurement.go.jp"))
+      .toEqual({ canonical: "information1.gov-procurement.go.jp", code: null, zh: "" });
+  });
+  it("两者皆空 → null（调用方显示占位符）", () => {
+    expect(platformInfoWithFallback("", S, "")).toBeNull();
+    expect(platformInfoWithFallback("nope.gov", S, null)).toBeNull();
   });
 });

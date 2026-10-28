@@ -73,9 +73,12 @@ export function translateByPattern(agencyName: string): PatternI18nResult | null
       ];
       for (const [regex, typeZh] of TYPE_KEYWORDS) {
         if (regex.test(trimmed)) {
+          // [统一中文 2026-10-28] 类型词居中时删词拼接会破坏专名（"National University Corporation"
+          // 曾变"National Corporation大学"），与肯尼亚 KENYA 前缀 2026-08-29 修复同判：留名不译，
+          // 整名恰为类型词时才给纯中文；头部机构的规范中文走 agency_aliases 表驱动批次补。
           const namePart = trimmed.replace(regex, "").trim().replace(/\s+/g, " ");
-          if (namePart) return { canonical: trimmed, i18n: { zh: `${namePart}${typeZh}`, fr: trimmed, ru: trimmed, es: trimmed, ar: trimmed } };
-          else return { canonical: trimmed, i18n: { zh: typeZh, fr: trimmed, ru: trimmed, es: trimmed, ar: trimmed } };
+          if (!namePart) return { canonical: trimmed, i18n: { zh: typeZh, fr: trimmed, ru: trimmed, es: trimmed, ar: trimmed } };
+          return { canonical: trimmed, i18n: null };
         }
       }
       return { canonical: trimmed, i18n: { zh: trimmed, fr: trimmed, ru: trimmed, es: trimmed, ar: trimmed } };

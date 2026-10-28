@@ -40,12 +40,17 @@ export const expressInterest = (
     body: { interest_type: interestType },
   });
 
-export const fetchNoticeDetail = (noticeId: number): Promise<NoticeItem> => {
-  return apiCached<NoticeItem>(`/api/notices/${noticeId}/detail`, 10 * 60 * 1000);
+/** 详情/预览的机构名与平台名按界面语言下发（统一中文 2026-10-28）：
+ *  locale 走查询参而非请求头，因为 apiCached 以 URL 为键——不进 URL 就会
+ *  在切换语言后继续复用上一语言的 10 分钟缓存。 */
+export const fetchNoticeDetail = (noticeId: number, locale?: string): Promise<NoticeItem> => {
+  const qs = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  return apiCached<NoticeItem>(`/api/notices/${noticeId}/detail${qs}`, 10 * 60 * 1000);
 };
 
-export const fetchNoticePreview = (noticeId: number): Promise<Partial<NoticeItem>> => {
-  return apiCached<Partial<NoticeItem>>(`/api/notices/${noticeId}/preview`, 10 * 60 * 1000);
+export const fetchNoticePreview = (noticeId: number, locale?: string): Promise<Partial<NoticeItem>> => {
+  const qs = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  return apiCached<Partial<NoticeItem>>(`/api/notices/${noticeId}/preview${qs}`, 10 * 60 * 1000);
 };
 
 /** 公告全文端点的响应（命名红线②：响应键 camelCase；与 NoticeItem 内部 snake 字段不同名） */

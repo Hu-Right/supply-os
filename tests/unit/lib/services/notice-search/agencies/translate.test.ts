@@ -83,14 +83,14 @@ describe("extractCountryFromName", () => {
 
 describe("translateByPattern — 平台代码占位 agency（2026-10-12 公告列表露码修复）", () => {
   it("平台代码不再由机构模块命名（已收敛到 platform_aliases）→ 原样回显", () => {
-    expect(translateByPattern("mercadopublico_cl")?.i18n.zh).toBe("mercadopublico_cl");
-    expect(translateByPattern("SPAIN_PCSP")?.i18n.zh).toBe("SPAIN_PCSP");
+    expect(translateByPattern("mercadopublico_cl")?.i18n?.zh).toBe("mercadopublico_cl");
+    expect(translateByPattern("SPAIN_PCSP")?.i18n?.zh).toBe("SPAIN_PCSP");
   });
 
   it("聚合键字面量（正则自匹配不到的）→ TYPE_PATTERNS 同名翻译", () => {
-    expect(translateByPattern("MUNICIPIO_BR")?.i18n.zh).toBe("巴西各市政府");
-    expect(translateByPattern("UN_SYSTEM")?.i18n.zh).toBe("联合国系统");
-    expect(translateByPattern("MINISTRY_INTL")?.i18n.zh).toBe("各国部委");
+    expect(translateByPattern("MUNICIPIO_BR")?.i18n?.zh).toBe("巴西各市政府");
+    expect(translateByPattern("UN_SYSTEM")?.i18n?.zh).toBe("联合国系统");
+    expect(translateByPattern("MINISTRY_INTL")?.i18n?.zh).toBe("各国部委");
   });
 
   it("正则可自匹配的聚合键不注册，保持原类型桶聚合路径", () => {
@@ -100,18 +100,29 @@ describe("translateByPattern — 平台代码占位 agency（2026-10-12 公告�
   });
 
   it("真实机构不受影响：UNDP 精确缩写仍命中", () => {
-    expect(translateByPattern("UNDP")?.i18n.zh).toBe("联合国开发计划署");
+    expect(translateByPattern("UNDP")?.i18n?.zh).toBe("联合国开发计划署");
   });
 
   it("裸代码条目不吞爱尔兰别名：IRELAND ETENDERS 交回 DB 别名表管线处理", () => {
     // 爱尔兰译名由 query.ts stage 1 的 agency_aliases 查询给出，
     // translateByPattern 对它走通用兜底即可，关键是不得误配南非名。
-    expect(translateByPattern("IRELAND ETENDERS")?.i18n.zh).not.toBe("南非电子招标网");
+    expect(translateByPattern("IRELAND ETENDERS")?.i18n?.zh).not.toBe("南非电子招标网");
+  });
+});
+
+describe("translateByPattern — TYPE_KEYWORDS 兜底（统一中文 2026-10-28：留名不译，不再删词拼接）", () => {
+  const zh = (s: string) => translateByPattern(s)?.i18n?.zh ?? null;
+  it("类型词居中：不删词、不产中英混合，留名不译（i18n null → 上层回落类型分类）", () => {
+    expect(translateByPattern("National University Corporation")?.i18n).toBeNull();
+    expect(zh("Department of National Defence (DND)")).toBeNull();
+  });
+  it("整名恰为类型词 → 纯中文类型词", () => {
+    expect(zh("UNIVERSITY")).toBe("大学");
   });
 });
 
 describe("translateByPattern — 巴西机构中文准确性（重锚后禁硬造/错译）", () => {
-  const zh = (s: string) => translateByPattern(s)?.i18n.zh;
+  const zh = (s: string) => translateByPattern(s)?.i18n?.zh;
   it("COMANDO DO EXERCITO → 陆军司令部", () => expect(zh("COMANDO DO EXERCITO")).toBe("陆军司令部"));
   it("FUNDO MUNICIPAL DE SAUDE → 市政卫生基金", () => expect(zh("FUNDO MUNICIPAL DE SAUDE")).toBe("市政卫生基金"));
   it("SECRETARIA MUNICIPAL DE SAUDE → 市卫生厅（不得再误判为教育）", () => expect(zh("SECRETARIA MUNICIPAL DE SAUDE")).toBe("市卫生厅"));

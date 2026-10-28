@@ -47,9 +47,12 @@ describe("formatItems", () => {
     // 这里曾把它强转 boolean，服务表切换后一律原字段直出，不再起转换别名
     expect(result[0].is_featured).toBe(1);
     expect(result[0].core_locked).toBe(true);
-    // 旧版把 organization/source_url 硬置 null（当时宽表无真值）；服务表两列有值 ⇒ 不得再抹
+    // 旧版把 organization 硬置 null（当时宽表无真值）；服务表有值 ⇒ 不得再抹
     expect(result[0].organization).toBe("UNDP");
-    expect(result[0].source_url).toBe("https://www.undp.org/x");
+    // source_url / platform_name 是仅有的两个剔除列（2026-10-28 用户口径：来源平台
+    // 属解锁后可见信息，列表不下发，/detail 独家）；其余列仍原字段直出
+    expect(result[0].source_url).toBeUndefined();
+    expect(result[0].platform_name).toBeUndefined();
     // 旧品类码快照列已物理退役：*_codes 形制只剩服务表真列 country_codes
     for (const k of Object.keys(result[0])) {
       if (/_codes$/.test(k)) expect(k).toBe("country_codes");

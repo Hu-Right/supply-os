@@ -75,13 +75,18 @@ export function platformInfo(raw: string, snapshot: PlatformAliasSnapshot): Plat
 }
 
 /**
- * 平台展示名（表驱动）：zh 环境优先 name_i18n.zh（缺省回退 canonical），
- * 其余语言返回 canonical（官方简称，各语言通用，与国家映射非 zh 回退原文口径一致）。
- * 未解析/other/invalid → 返回空串（调用方自行回退中性文案，不编造）。
+ * 详情侧平台信息：表命中 → canonical/code/zh；未命中回落服务表 platform_name
+ * （build 侧 toNoticeView 同源产物：登记 → canonical、未登记 → 源站域名兜底）。
+ * 仅 /detail（解锁后）消费——来源平台属解锁后可见信息，列表与 /preview 均不下发；
+ * 两者皆空（无 source_url 且 platform_name 空）→ null，调用方隐藏该信息位，不编造文案。
  */
-export function platformDisplayName(raw: string, snapshot: PlatformAliasSnapshot, locale: string): string {
-  const e = resolvePlatform(raw, snapshot).ref;
-  if (!e || e.kind !== "platform") return "";
-  if (locale !== "zh") return e.canonical;
-  return e.zh ? `${e.zh}（${e.canonical}）` : e.canonical;
+export function platformInfoWithFallback(
+  raw: string,
+  snapshot: PlatformAliasSnapshot,
+  servicePlatformName: unknown,
+): PlatformInfo | null {
+  return (
+    platformInfo(raw, snapshot) ??
+    (servicePlatformName ? { canonical: String(servicePlatformName), code: null, zh: "" } : null)
+  );
 }

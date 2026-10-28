@@ -12,7 +12,9 @@ import { findQualifiedOpportunityForNotice } from "@/lib/services/notices";
 import { findPublicDetail } from "@/lib/services/notice-public/read";
 import { toNoticeView } from "@/lib/services/notice-public/view";
 import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
-import { platformInfo } from "@/lib/services/platform/resolve";
+import { platformInfoWithFallback } from "@/lib/services/platform/resolve";
+import { enrichAgencyI18n, ensureAgencyI18nWarmup } from "@/lib/services/search-orchestrator/format";
+import { pickNoticeApiLang } from "@/shared/constants/langs";
 import { canAccessNotice } from "@/lib/services/industry-scope";
 import { EC_OUT_OF_CATEGORY, EC_INVALID_PARAMS, EC_CONTENT_LOCKED, EC_NOT_FOUND } from "@/shared/constants/api";
 
@@ -41,7 +43,21 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // 合格商机只用于资格 Tab / 报告；详情主内容字段全部来自服务表原字段。
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
     const platformSnap = await loadPlatformAliasSnapshot(ctx.dbPool);
-    const platform = platformInfo(String(notice.source_url || opportunity?.source_url || ""), platformSnap);
+    // 来源平台只在解锁后的详情下发（2026-10-28 用户口径：列表/预览一律不下发）；
+    // 未命中别名表则回落服务表 platform_name（build 侧域名兜底），两者皆空→ null，前端隐藏该信息位
+    const platform = platformInfoWithFallback(
+      String(notice.source_url || opportunity?.source_url || ""),
+      platformSnap,
+      notice.platform_name,
+    );
+    // 机构名与列表卡片同源（统一中文 2026-10-28）：走 enrichAgencyI18n 同一条回退链补
+    // agency_i18n，再由下面的 view mapper 改名为 agencyI18n。直达深链/新页面进详情时
+    // 前端没有列表项可借，缺这一层就会卡片中文、详情英文。
+    const locale = pickNoticeApiLang(new URL(req.url).searchParams.get("locale"));
+    if (locale) {
+      await ensureAgencyI18nWarmup(ctx.dbPool);
+      enrichAgencyI18n([notice as unknown as Record<string, unknown>], locale);
+    }
     return NextResponse.json({
       // 服务表行先过 view mapper（红线② 唯一收口点），不再把列名当对外契约直接透传；
       // 下面这些补充键直接写 camel——它们读的是商机行（服务端内部形状，仍为列名）。

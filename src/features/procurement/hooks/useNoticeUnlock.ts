@@ -8,8 +8,9 @@
  *              Unlocked id set, detail loading state and extended detail
  *              fetch/merge; prefetches unlocked ids after login.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { useLocale } from "@/core/i18n";
 import type { NoticeItem } from "../types";
 import { fetchNoticeDetail, fetchNoticePreview, fetchNoticeContent, fetchUnlockedNoticeIds } from "../api";
 
@@ -47,6 +48,13 @@ export function useNoticeUnlock({
   const [unlockedIds, setUnlockedIds] = useState<Set<number>>(new Set());
   const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
 
+  // 详情/预览要按界面语言取机构译名（统一中文 2026-10-28）。
+  // P2-2 口径：locale 同步到 ref 而不是进 useCallback 依赖，保持导出函数引用稳定；
+  // 语言切换本就会重渲染整棵详情树，无需靠引用变化触发重拉。
+  const { locale } = useLocale();
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
+
   // P2-2：全部导出函数 useCallback 稳定化，作为下游 openNotice memo 依赖链的稳定源头
   const markUnlocked = useCallback((id: number) =>
     setUnlockedIds((prev) => {
@@ -76,7 +84,7 @@ export function useNoticeUnlock({
       return;
     }
     try {
-      const detail = await fetchNoticeDetail(notice.noticePk);
+      const detail = await fetchNoticeDetail(notice.noticePk, localeRef.current);
       setSelectedNotice((prev) => {
         if (!prev || prev.noticePk !== notice.noticePk) return prev;
         // 显式重置数组字段，防止前一个公告的数据残留
@@ -102,7 +110,7 @@ export function useNoticeUnlock({
   const loadNoticePreview = useCallback(async (notice: NoticeItem) => {
     if (!userId) return;
     try {
-      const preview = await fetchNoticePreview(notice.noticePk);
+      const preview = await fetchNoticePreview(notice.noticePk, localeRef.current);
       setSelectedNotice((prev) => {
         if (!prev || prev.noticePk !== notice.noticePk) return prev;
         // 预览接口不返回数组字段，显式清空防止残留

@@ -139,7 +139,12 @@ export async function recommendNotices(
   // 一旦顺序调整就是 MySQL 1064（相似公告就是这么上线失败的）。分隔符只留一个出处。
   const selectList = columns(
     "n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country",
-    "n.deadline, n.deadline_ts, n.estimated_value, n.agency, n.is_featured",
+    // 买家字段取宽表投影（服务表 buyer_name，agency_full 重锚后的真买家）；n.agency 是
+    // 发布平台码（comprasestatales_uy 等），2026-10-20 换锚后下拉缓存已无此键，
+    // 继续 SELECT 只会在响应体露码、卡片却显示「未知机构」——停发，与搜索路径同形状。
+    // 国家上下文用行内已有的 n.country（英文名，enrichAgencyI18n 兜底链末位读取）；
+    // ns.country_codes 是全空死列（0/757947）不取。来源平台不下发（解锁后可见），/detail 独家。
+    "n.deadline, n.deadline_ts, n.estimated_value, n.is_featured, ns.buyer_name, ns.buyer_group",
     "LEFT(MAX(opp_desc.description), 300) AS description",
     "CASE WHEN LENGTH(MAX(opp_desc.description)) > 300 THEN 1 ELSE 0 END AS description_truncated",
     "n.documents, n.procurement_files",
