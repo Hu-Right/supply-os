@@ -1,5 +1,5 @@
 /**
- * 来源机构重锚 cutover（部署后在云端执行）：把宽表 agency_std 重算为 agency_full||agency，
+ * 来源机构重锚 cutover（部署后在云端执行）：把宽表 buyer_name 重算为 agency_full||agency，
  * 再蓝绿重建 Meili 索引，使「来源机构」展示/筛选真正落到采购主体。顺带完成 p8（country_codes 进索引）。
  *
  * 用法：
@@ -33,7 +33,7 @@ const pool = await mysql.createPool({
 const [r] = ((await pool.query(
   `SELECT COUNT(*) tot,
      SUM(CASE WHEN agency_full IS NOT NULL AND agency_full<>'' AND agency_full<>IFNULL(agency,'') THEN 1 ELSE 0 END) changed
-   FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`,
+   FROM bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`,
 )) as unknown as [{ tot: number; changed: number }[], unknown]);
 const tot = Number(r[0].tot), changed = Number(r[0].changed);
 console.log(`活跃公告 ${tot.toLocaleString()} 行 · 重锚将改变机构展示 ${changed.toLocaleString()} 行 (${(changed / tot * 100).toFixed(1)}%)`);

@@ -26,7 +26,7 @@
  *      ↳ 原树名本身在场只 WARN（回滚演练合法），否则真回滚时这条断言会把跨树对账一起误杀
  *   BB14 节点码倒排表是 backbone_path 的行化镜像：总行数 = 列值 token 总数、公告数闭合、
  *      不留残行、形制合法、抽样 300 条逐集合对拍（COUNT + SUM(CRC32)）差异必须 0
- *      ↳ 表未建只 WARN：建表是人工闸口（scripts/ops/commodity-notice-nodes-ddl.ts），
+ *      ↳ 表未建只 WARN：建表是人工闸口（一次性 DDL 脚本已执行完删除，表定义以 db/schema/baseline.sql 为准），
  *        但读侧一旦切到倒排表，这条就必须转绿 —— 它也是上线清单里的那一项
  *   BB15 落点表是 backbone_path 的事实源（旧品类码全面退役 R1）：落点全在树、
  *      同一公告的落点互不为祖先（全表不抽样）、列值 = 落点闭包（抽两头）、
@@ -68,7 +68,7 @@ if (!LEGACY_RE.test("SELECT 1 FROM crm.crm_commodity_nodes_retired_20261011")) {
   fail("BB8 自检失败：带库名限定的旧树表名没被抓到");
 }
 // 反例样本换成仍在场的表：大类维表族（crm_commodity_groups / crm_commodity_group_segments）已按 ADR-0008/0009 先后退役
-if (LEGACY_RE.test("SELECT 1 FROM crm_commodity_backbone") || LEGACY_RE.test("SELECT 1 FROM crm_notice_search")) {
+if (LEGACY_RE.test("SELECT 1 FROM commodity_backbone") || LEGACY_RE.test("SELECT 1 FROM notice_search")) {
   fail("BB8 自检失败：正则把新树/宽表误判成旧树");
 }
 const srcFiles: string[] = [];
@@ -110,7 +110,7 @@ if (!RETIRED_GROUP_RE.test("SELECT 1 FROM crm.crm_commodity_groups")) {
 if (!RETIRED_GROUP_RE.test("SELECT 1 FROM crm_commodity_group_segments")) {
   fail("CG6 自检失败：段归属表没进禁列（它已在 ADR-0009 一并退役）");
 }
-if (RETIRED_GROUP_RE.test("SELECT 1 FROM crm_commodity_backbone")) {
+if (RETIRED_GROUP_RE.test("SELECT 1 FROM commodity_backbone")) {
   fail("CG6 自检失败：正则把新树误判成退役表");
 }
 const cg6Scanned: string[] = [];
@@ -196,14 +196,14 @@ if (Number(legacyHere.n) !== 0)
       `CG7 大类维表族仍在库里：${stillThere.map((r) => r.t).join("、")}` +
         ` ⇒ 两张表已分别按 ADR-0008（crm_commodity_groups）与 ADR-0009（crm_commodity_group_segments）退役，` +
         `大类身份由骨架树承载。` +
-        `收尾：npx tsx scripts/ops/commodity-groups-retire.ts --apply --yes（或 …-segments-retire.ts）；` +
-        `回滚：把 runtime/commodity-group*-dump-*.sql 回灌`,
+        `收尾：两张维表的 DROP 由一次性退役脚本执行，2026-10 已收尾删除；此时仍在库里就是漏删，` +
+        `按 ADR-0008/0009 人工确认后手动 DROP 该表`,
     );
   }
 }
 
 const rows = await q(
-  `SELECT code, parent_code, level, name_zh FROM crm_commodity_backbone`,
+  `SELECT code, parent_code, level, name_zh FROM commodity_backbone`,
 ) as unknown as { code: string; parent_code: string; level: number; name_zh: string }[];
 /**
  * 跨树对账的对照物。旧树 crm_commodity_nodes 一旦下线，BB2 的码域比对、BB3 的族数比对、
@@ -282,7 +282,7 @@ if (orig) {
 // ── BB7 公告归属已落到骨架（不硬编码条数，只锁闭合关系：新公告进来照样成立）──
 let pathStat = "";
 const pathCol = await one(
-  `SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='crm_notice_search' AND column_name='backbone_path'`,
+  `SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='notice_search' AND column_name='backbone_path'`,
 );
 if (Number(pathCol.n) === 0) {
   fail(
@@ -307,7 +307,7 @@ if (Number(pathCol.n) === 0) {
     `SELECT SUM(backbone_path IS NOT NULL AND backbone_path<>'') filled,
             SUM(backbone_path='') blank,
             SUM(backbone_path REGEXP '[^0-9A-Za-z,-]') bad,
-            SUM(CHAR_LENGTH(backbone_path)>1000000) tooLong FROM crm_notice_search`,
+            SUM(CHAR_LENGTH(backbone_path)>1000000) tooLong FROM notice_search`,
   );
   // 宽表形制不变量：非空串 / 合法字符 / 不超长
   if (Number(p.blank) !== 0) fail(`BB7 宽表有 ${p.blank} 行 backbone_path 是空串，应为 NULL`);
@@ -315,7 +315,7 @@ if (Number(pathCol.n) === 0) {
   if (Number(p.tooLong) !== 0) fail(`BB7 有 ${p.tooLong} 行超过 1,000,000 字符上限，回填脚本应拒写而非截断`);
   // 祖先全存的不变量：排好序后第一个码必为大类行（否则说明回填时漏了链顶）
   const noTop = await one(
-    `SELECT COUNT(*) n FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>''
+    `SELECT COUNT(*) n FROM notice_search WHERE backbone_path IS NOT NULL AND backbone_path<>''
        AND SUBSTRING_INDEX(backbone_path, ',', 1) NOT REGEXP '^UGT-[0-9]{2}$'`,
   );
   if (Number(noTop.n) !== 0) fail(`BB7 有 ${noTop.n} 行 backbone_path 的链顶不是大类，祖先没存全`);
@@ -323,15 +323,15 @@ if (Number(pathCol.n) === 0) {
   // 旧判据“活跃公告挂码却无宽表”已跟桥表下线；新判据以落点表为源。
   // 落点表不存在时（CI e2e 建表前置）只 WARN，不阻断——与 BB15/BB16 同一处置。
   const attrExistsForBb7 = await one(
-    `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='crm_notice_attribution_nodes'`,
+    `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='notice_attribution_nodes'`,
   );
   if (Number(attrExistsForBb7.n) === 0) {
     console.log("⚠ BB7 落点表不存在，活跃公告同步缺位断言本轮未执行（建表前置：scripts/tools/notice-attribution-ddl.ts --apply --yes）");
   } else {
     const noWide = await one(
-      `SELECT COUNT(*) n FROM (SELECT n.id FROM crm_notice_attribution_nodes a
-         JOIN crm_bid_notices n ON n.id = a.notice_pk
-        WHERE ${ACTIVE_NOTICE_WHERE} AND NOT EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id)
+      `SELECT COUNT(*) n FROM (SELECT n.id FROM notice_attribution_nodes a
+         JOIN bid_notices n ON n.id = a.notice_pk
+        WHERE ${ACTIVE_NOTICE_WHERE} AND NOT EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id)
         GROUP BY n.id) x`,
     );
     if (Number(noWide.n) !== 0) {
@@ -340,16 +340,16 @@ if (Number(pathCol.n) === 0) {
   }
   // 抽样验真：最长的 100 行 + 最早的 200 行（不用 RAND，保证可复现），拆开后逐个对树
   const sample = await q(
-    `SELECT p FROM (SELECT id, backbone_path p FROM crm_notice_search
+    `SELECT p FROM (SELECT id, backbone_path p FROM notice_search
        WHERE backbone_path IS NOT NULL ORDER BY CHAR_LENGTH(backbone_path) DESC LIMIT 100) a
      UNION ALL
-     SELECT p FROM (SELECT id, backbone_path p FROM crm_notice_search
+     SELECT p FROM (SELECT id, backbone_path p FROM notice_search
        WHERE backbone_path IS NOT NULL ORDER BY id LIMIT 200) b`,
   );
   const pc = new Set<string>();
   for (const r of sample) for (const x of String(r.p).split(",")) if (x) pc.add(x);
   const hit = pc.size
-    ? await one(`SELECT COUNT(DISTINCT code) n FROM crm_commodity_backbone WHERE code IN ('${[...pc].join("','")}')`)
+    ? await one(`SELECT COUNT(DISTINCT code) n FROM commodity_backbone WHERE code IN ('${[...pc].join("','")}')`)
     : { n: 0 };
   if (Number(hit.n) !== pc.size) fail(`BB7 抽样里 ${pc.size - Number(hit.n)} 个 backbone_path 码在树里不存在`);
 
@@ -359,7 +359,7 @@ if (Number(pathCol.n) === 0) {
   // 偏好表不再有大类列；levelN_id 五列亦已物理 DROP（写侧本来就恒置 NULL），触发条件随之消失：
   // 只断言「填了码就必须是合法树码」，空码 = 未绑行业（needsIndustry 引导），是合法态。
   const prefBadCode = await one(
-    `SELECT COUNT(*) n FROM crm_user_industry_prefs
+    `SELECT COUNT(*) n FROM user_industry_prefs
       WHERE commodity_code IS NOT NULL AND commodity_code <> ''
         AND commodity_code NOT REGEXP '^UGT-([0-9]{2}){1,5}$'`,
   );
@@ -387,19 +387,19 @@ function bandof(parentLevel: number) {
 }
 // ── BB14 节点码倒排表是 backbone_path 的行化镜像 ──
 {
-  const NODES_TAB = "crm_notice_backbone_nodes";
+  const NODES_TAB = "notice_backbone_nodes";
   const hasNodes = await one(
     `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='${NODES_TAB}'`,
   );
   if (Number(hasNodes.n) === 0) {
-    console.log(`⚠ BB14 表 ${NODES_TAB} 不存在：本轮只 WARN（建表是人工闸口：scripts/ops/commodity-notice-nodes-ddl.ts --apply --yes）；`);
+    console.log(`⚠ BB14 表 ${NODES_TAB} 不存在：本轮只 WARN（建表是人工闸口：按 db/schema/baseline.sql 的定义人工执行）；`);
     console.log("  读侧一旦改成按倒排表 JOIN，这条必须转绿：没建表就切读侧 = 推荐/热门全部返回空");
   } else {
     // 1) 总行数 = 列值 token 总数（2026-10-11 实测基线 1,508,793 行 / 353,875 公告）
     const src = await one(
       `SELECT COUNT(*) notices,
               SUM(CHAR_LENGTH(backbone_path) - CHAR_LENGTH(REPLACE(backbone_path, ',', '')) + 1) tokens
-       FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''`,
+       FROM notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''`,
     );
     const dst = await one(
       `SELECT COUNT(*) rows_, COUNT(DISTINCT notice_id) notices,
@@ -414,7 +414,7 @@ function bandof(parentLevel: number) {
       + `（形制非法 ${Number(dst.badShape ?? 0)}，前缀不对 ${Number(dst.badPrefix ?? 0)}）`,
     );
     if (dstRows !== srcTokens) {
-      fail(`BB14 行数与列值 token 总数不等（差 ${Math.abs(dstRows - srcTokens)}）⇒ 回填漏灌或残行：重跑 scripts/ops/commodity-notice-nodes-backfill.ts --apply --yes`);
+      fail(`BB14 行数与列值 token 总数不等（差 ${Math.abs(dstRows - srcTokens)}）⇒ 回填漏灌或残行：按 src/lib/services/search-sync/notice-nodes.ts 的行化镜像口径重灌（一次性回填脚本已收尾删除）`);
     }
     if (Number(dst.notices) !== Number(src.notices)) {
       fail(`BB14 公告数不闭合（桥表 ${Number(dst.notices)} vs 源 ${Number(src.notices)}）：多=该公告已去码/已删但桥表留行，少=回填没覆盖到`);
@@ -425,7 +425,7 @@ function bandof(parentLevel: number) {
     // 2) 不留残行：桥表每一行必须能回到一条有列值的宽表行
     const orphan = await one(
       `SELECT COUNT(*) n FROM ${NODES_TAB} bn
-       LEFT JOIN crm_notice_search ns ON ns.id = bn.notice_id
+       LEFT JOIN notice_search ns ON ns.id = bn.notice_id
        WHERE ns.id IS NULL OR ns.backbone_path IS NULL OR ns.backbone_path = ''`,
     );
     if (Number(orphan.n) > 0) {
@@ -434,12 +434,12 @@ function bandof(parentLevel: number) {
     // 3) 逐集合对拍：拿头部/腰部/尾部各 100 条，SQL 侧用 JSON_TABLE 拆列算 COUNT+SUM(CRC32)，
     //    与桥表侧同一口径。CRC32 两侧同值、且拿 300 条真数据对拍过（2026-10-11 探针116）。
     const sample = await q(
-      `(SELECT id FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> '' ORDER BY id ASC LIMIT 100)
+      `(SELECT id FROM notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> '' ORDER BY id ASC LIMIT 100)
        UNION ALL
-       (SELECT id FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''
-          AND id >= (SELECT FLOOR(MAX(id) / 2) FROM crm_notice_search) ORDER BY id ASC LIMIT 100)
+       (SELECT id FROM notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''
+          AND id >= (SELECT FLOOR(MAX(id) / 2) FROM notice_search) ORDER BY id ASC LIMIT 100)
        UNION ALL
-       (SELECT id FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> '' ORDER BY id DESC LIMIT 100)`,
+       (SELECT id FROM notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> '' ORDER BY id DESC LIMIT 100)`,
     );
     const sids = sample.map((r) => Number(r.id));
     if (sids.length === 0) {
@@ -448,7 +448,7 @@ function bandof(parentLevel: number) {
       const sph = sids.map(() => "?").join(",");
       const fromCol = await q(
         `SELECT ns.id, COUNT(*) c, IFNULL(SUM(CRC32(jt.node)), 0) s
-         FROM crm_notice_search ns,
+         FROM notice_search ns,
               JSON_TABLE(CONCAT('["', REPLACE(ns.backbone_path, ',', '","'), '"]'),
                          '$[*]' COLUMNS (node VARCHAR(16) PATH '$')) jt
          WHERE ns.id IN (${sph}) GROUP BY ns.id`,
@@ -477,7 +477,7 @@ function bandof(parentLevel: number) {
 
 // ── BB15 落点表是 backbone_path 的事实源（旧品类码全面退役 R1）──
 {
-  const ATTR_TAB = "crm_notice_attribution_nodes";
+  const ATTR_TAB = "notice_attribution_nodes";
   const hasAttr = await one(
     `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='${ATTR_TAB}'`,
   );
@@ -489,14 +489,14 @@ function bandof(parentLevel: number) {
     //    这里防的是「绕过脚本直接写表」（人工补数、AI worker 自行 INSERT）把脏码灌成事实
     const phantom = await one(
       `SELECT COUNT(*) n FROM ${ATTR_TAB} a
-       LEFT JOIN crm_commodity_backbone b ON b.code = a.node_code AND b.status = 1
+       LEFT JOIN commodity_backbone b ON b.code = a.node_code AND b.status = 1
        WHERE b.code IS NULL`,
     );
     console.log(`BB15a 树外落点：${Number(phantom.n)} 行`);
     if (Number(phantom.n) > 0) {
       const sample = await q(
         `SELECT CONCAT(a.notice_pk, '/', a.node_code) pk FROM ${ATTR_TAB} a
-         LEFT JOIN crm_commodity_backbone b ON b.code = a.node_code AND b.status = 1
+         LEFT JOIN commodity_backbone b ON b.code = a.node_code AND b.status = 1
          WHERE b.code IS NULL LIMIT 3`,
       );
       fail(`BB15a 有 ${Number(phantom.n)} 行落点不在启用树里：公告挂在不存在的节点上，品目下拉永远筛不到它：${sample.map((r) => String(r.pk)).join("；")}`);
@@ -516,11 +516,11 @@ function bandof(parentLevel: number) {
     }
     // 3) 列值 = 落点闭包（抽两头）：落点表能无损还原出宽表列值，是「换源不改归属」的唯一机器证明
     const head = await q(
-      `SELECT a.notice_pk id FROM ${ATTR_TAB} a JOIN crm_notice_search ns ON ns.id = a.notice_pk
+      `SELECT a.notice_pk id FROM ${ATTR_TAB} a JOIN notice_search ns ON ns.id = a.notice_pk
         WHERE ns.backbone_path IS NOT NULL AND ns.backbone_path <> '' GROUP BY a.notice_pk, ns.backbone_path ORDER BY a.notice_pk ASC LIMIT 200`,
     );
     const tail = await q(
-      `SELECT a.notice_pk id FROM ${ATTR_TAB} a JOIN crm_notice_search ns ON ns.id = a.notice_pk
+      `SELECT a.notice_pk id FROM ${ATTR_TAB} a JOIN notice_search ns ON ns.id = a.notice_pk
         WHERE ns.backbone_path IS NOT NULL AND ns.backbone_path <> '' GROUP BY a.notice_pk, ns.backbone_path ORDER BY a.notice_pk DESC LIMIT 200`,
     );
     const pks = [...new Set([...head, ...tail].map((r) => Number(r.id)))];
@@ -529,7 +529,7 @@ function bandof(parentLevel: number) {
     } else {
       const ph = pks.map(() => "?").join(",");
       const attrRows = await q(`SELECT notice_pk pk, node_code code FROM ${ATTR_TAB} WHERE notice_pk IN (${ph})`, pks);
-      const colRows = await q(`SELECT id pk, backbone_path p FROM crm_notice_search WHERE id IN (${ph})`, pks);
+      const colRows = await q(`SELECT id pk, backbone_path p FROM notice_search WHERE id IN (${ph})`, pks);
       const byNotice = new Map<number, string[]>();
       for (const r of attrRows) {
         const list = byNotice.get(Number(r.pk));
@@ -558,18 +558,18 @@ function bandof(parentLevel: number) {
     //    · 有非 legacy_tag 落点却没列值 = AI/manual 已锈定但 wide 尚未回派生，中间态⇒WARN
     //    旧版不分 source 一律判红，与 AS2/AS4 结论相反（2026-10-13 实测），已修正。
     const noAttr = await one(
-      `SELECT COUNT(*) n FROM crm_notice_search ns
+      `SELECT COUNT(*) n FROM notice_search ns
        LEFT JOIN ${ATTR_TAB} a ON a.notice_pk = ns.id
        WHERE ns.backbone_path IS NOT NULL AND ns.backbone_path <> '' AND a.notice_pk IS NULL`,
     );
     const orphanLegacy = await one(
       `SELECT COUNT(*) n FROM ${ATTR_TAB} a
-       LEFT JOIN crm_notice_search ns ON ns.id = a.notice_pk
+       LEFT JOIN notice_search ns ON ns.id = a.notice_pk
        WHERE a.source = 'legacy_tag' AND (ns.id IS NULL OR ns.backbone_path IS NULL OR ns.backbone_path = '')`,
     );
     const orphanNew = await one(
       `SELECT COUNT(*) n FROM ${ATTR_TAB} a
-       LEFT JOIN crm_notice_search ns ON ns.id = a.notice_pk
+       LEFT JOIN notice_search ns ON ns.id = a.notice_pk
        WHERE a.source <> 'legacy_tag' AND (ns.id IS NULL OR ns.backbone_path IS NULL OR ns.backbone_path = '')`,
     );
     const olN = Number(orphanLegacy.n);
@@ -592,13 +592,13 @@ function bandof(parentLevel: number) {
 // ── BB16 新公告落点覆盖率红信号（R2 切读后 MUST：跌破阈值 WARN，不许静默缺席。仅 WARN，不影响退出码）──
 {
   const attrExists = await one(
-    `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='crm_notice_attribution_nodes'`,
+    `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='notice_attribution_nodes'`,
   );
   if (Number(attrExists.n) > 0) {
     const cov = await one(
       `SELECT COUNT(*) total,
-              COALESCE(SUM(EXISTS(SELECT 1 FROM crm_notice_attribution_nodes a WHERE a.notice_pk = n.id)), 0) covered
-         FROM crm_bid_notices n
+              COALESCE(SUM(EXISTS(SELECT 1 FROM notice_attribution_nodes a WHERE a.notice_pk = n.id)), 0) covered
+         FROM bid_notices n
         WHERE n.create_time >= UNIX_TIMESTAMP(NOW() - INTERVAL 7 DAY)`,
     );
     const total = Number(cov.total), covered = Number(cov.covered);

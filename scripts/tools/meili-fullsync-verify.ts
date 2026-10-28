@@ -73,7 +73,7 @@ o.push(`  全清单：${filt.join(", ")}`);
 if (!filt.includes("backbone_node") || filt.includes("precise_backbone_node")) bad++;
 
 const stats = await client.index(name).getStats();
-const wide = await q<{ n: number }>(`SELECT COUNT(*) n FROM crm_notice_search`);
+const wide = await q<{ n: number }>(`SELECT COUNT(*) n FROM notice_search`);
 o.push(`\n==== 2. 覆盖率 ====`);
 o.push(`  Meili ${stats.numberOfDocuments} 文档 / 宽表 ${wide[0]!.n} 行`);
 
@@ -88,7 +88,7 @@ for (const code of CODES) {
   const counts = hit as unknown as { totalHits?: number | null; estimatedTotalHits?: number | null };
   const meiliN = Number(counts.totalHits ?? counts.estimatedTotalHits ?? -1);
   const my = await q<{ n: number }>(
-    `SELECT COUNT(*) n FROM crm_notice_search WHERE FIND_IN_SET(?, backbone_path)`,
+    `SELECT COUNT(*) n FROM notice_search WHERE FIND_IN_SET(?, backbone_path)`,
     [code],
   );
   const mysqlN = Number(my[0]!.n);

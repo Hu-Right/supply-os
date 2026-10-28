@@ -3,8 +3,8 @@
  *
  * @module scripts/tools/migrate-pricing-202610
  * @description 依据 docs/云境OS国际公采API授权及产品收费表渠道版(1).docx「一 个人与企业会员产品」
- *              调整运行库四张目录表：crm_plan_catalog / crm_benefit_catalog /
- *              crm_plan_benefits / crm_service_catalog。仅动个人/企业这条线，机构 API、
+ *              调整运行库四张目录表：plan_catalog / benefit_catalog /
+ *              plan_benefits / service_catalog。仅动个人/企业这条线，机构 API、
  *              渠道佣金、单项专业服务、成功费一律不碰。
  *
  *              安全口径：
@@ -177,7 +177,7 @@ async function main() {
     await conn.beginTransaction();
 
     // 现有全部档位码（用于给每档补新权益格）
-    const [planRows] = await conn.query("SELECT plan_code FROM crm_plan_catalog");
+    const [planRows] = await conn.query("SELECT plan_code FROM plan_catalog");
     const allPlanCodes = planRows.map((r) => r.plan_code);
     if (!allPlanCodes.includes("strategic")) allPlanCodes.push("strategic");
 
@@ -185,7 +185,7 @@ async function main() {
     for (const { plan_code, set } of PLAN_UPDATES) {
       const keys = cols(set);
       const [res] = await conn.query(
-        `UPDATE crm_plan_catalog SET ${keys.map((k) => `${k}=?`).join(",")} WHERE plan_code=?`,
+        `UPDATE plan_catalog SET ${keys.map((k) => `${k}=?`).join(",")} WHERE plan_code=?`,
         [...keys.map((k) => set[k]), plan_code],
       );
       summary.push(`[plan] ${plan_code} → ${keys.join(",")} (影响 ${res.affectedRows})`);
@@ -196,7 +196,7 @@ async function main() {
       const keys = cols(NEW_PLAN);
       const updates = keys.filter((k) => k !== "plan_code").map((k) => `${k}=VALUES(${k})`);
       await conn.query(
-        `INSERT INTO crm_plan_catalog (${keys.join(",")}) VALUES (${ph(keys.length)})
+        `INSERT INTO plan_catalog (${keys.join(",")}) VALUES (${ph(keys.length)})
          ON DUPLICATE KEY UPDATE ${updates.join(",")}`,
         keys.map((k) => NEW_PLAN[k]),
       );
@@ -205,9 +205,9 @@ async function main() {
 
     // 3) 战略客户版现有权益格 = 复制 advisor 基线（只复制非本批新增的格，避免与第 5 步重复）
     await conn.query(
-      `INSERT INTO crm_plan_benefits (plan_code, benefit_code, value_level, value_num, value_amount, note_zh)
+      `INSERT INTO plan_benefits (plan_code, benefit_code, value_level, value_num, value_amount, note_zh)
        SELECT 'strategic', benefit_code, value_level, value_num, value_amount, note_zh
-         FROM crm_plan_benefits
+         FROM plan_benefits
         WHERE plan_code='advisor' AND benefit_code NOT IN (${ph(NEW_BENEFIT_CODES.length)})
        ON DUPLICATE KEY UPDATE value_level=VALUES(value_level), value_num=VALUES(value_num), value_amount=VALUES(value_amount), note_zh=VALUES(note_zh)`,
       NEW_BENEFIT_CODES,
@@ -217,7 +217,7 @@ async function main() {
     // 4) 新增权益码
     for (const b of NEW_BENEFITS) {
       await conn.query(
-        `INSERT INTO crm_benefit_catalog (benefit_code, name_zh, value_kind, level_dict, sort_order)
+        `INSERT INTO benefit_catalog (benefit_code, name_zh, value_kind, level_dict, sort_order)
          VALUES (?,?,?,?,?)
          ON DUPLICATE KEY UPDATE name_zh=VALUES(name_zh), value_kind=VALUES(value_kind), sort_order=VALUES(sort_order)`,
         [b.code, b.name, b.kind, null, b.sort],
@@ -234,7 +234,7 @@ async function main() {
         const valueLevel = isQuota ? null : v;
         const valueNum = isQuota ? v : null;
         await conn.query(
-          `INSERT INTO crm_plan_benefits (plan_code, benefit_code, value_level, value_num)
+          `INSERT INTO plan_benefits (plan_code, benefit_code, value_level, value_num)
            VALUES (?,?,?,?)
            ON DUPLICATE KEY UPDATE value_level=VALUES(value_level), value_num=VALUES(value_num)`,
           [planCode, b.code, valueLevel, valueNum],
@@ -247,7 +247,7 @@ async function main() {
     // 5.5) 门控收紧：改写指定已有权益格（个人版中文译文 → 0，仅企业版可见）
     for (const m of MATRIX_OVERRIDES) {
       await conn.query(
-        `INSERT INTO crm_plan_benefits (plan_code, benefit_code, value_level, value_num, value_amount, note_zh)
+        `INSERT INTO plan_benefits (plan_code, benefit_code, value_level, value_num, value_amount, note_zh)
          VALUES (?,?,?,?,?,?)
          ON DUPLICATE KEY UPDATE value_level=VALUES(value_level), value_num=VALUES(value_num), value_amount=VALUES(value_amount), note_zh=VALUES(note_zh)`,
         [m.plan_code, m.benefit_code, m.value_level, m.value_num, m.value_amount, m.note_zh],
@@ -259,7 +259,7 @@ async function main() {
     for (const { service_code, set } of SERVICE_UPDATES) {
       const keys = cols(set);
       const [res] = await conn.query(
-        `UPDATE crm_service_catalog SET ${keys.map((k) => `${k}=?`).join(",")} WHERE service_code=?`,
+        `UPDATE service_catalog SET ${keys.map((k) => `${k}=?`).join(",")} WHERE service_code=?`,
         [...keys.map((k) => set[k]), service_code],
       );
       summary.push(`[service] ${service_code} → ${keys.join(",")} (影响 ${res.affectedRows})`);
@@ -272,7 +272,7 @@ async function main() {
     console.log("\n===== 变更后档位 =====");
     const [plans] = await conn.query(
       `SELECT plan_code, name_zh, price, price_mode, billing_period_days, commercial_tier, badge, sort_order, is_active, upgrade_credit_days
-         FROM crm_plan_catalog ORDER BY sort_order`,
+         FROM plan_catalog ORDER BY sort_order`,
     );
     console.table(plans);
 
@@ -280,8 +280,8 @@ async function main() {
     console.log("\n===== 缺格自检（应为 0 行）=====");
     const [gaps] = await conn.query(
       `SELECT p.plan_code, b.benefit_code
-         FROM crm_plan_catalog p CROSS JOIN crm_benefit_catalog b
-         LEFT JOIN crm_plan_benefits pb ON pb.plan_code=p.plan_code AND pb.benefit_code=b.benefit_code
+         FROM plan_catalog p CROSS JOIN benefit_catalog b
+         LEFT JOIN plan_benefits pb ON pb.plan_code=p.plan_code AND pb.benefit_code=b.benefit_code
         WHERE pb.id IS NULL AND (p.is_active=1 OR p.plan_code='free')
         ORDER BY p.sort_order, b.sort_order`,
     );

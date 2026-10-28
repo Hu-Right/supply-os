@@ -1,7 +1,7 @@
 /**
- * crm_bid_notices 精简清单 —— 唯一事实源
+ * bid_notices 精简清单 —— 唯一事实源
  *
- * 与兄弟表 crm_bid_opportunities 那一轮同构（见 scripts/tools/opp-slim-plan.mjs）：
+ * 与兄弟表 bid_opportunities 那一轮同构（见 scripts/tools/opp-slim-plan.mjs）：
  * 阶段一（建影子表改结构）与阶段二（补增量原子切换）都从本模块派生列集，
  * 不允许在脚本里各写一份清单。作业脚本：
  *   scripts/tools/notices-shadow-phase1.mjs        建 <表>__new + 改结构 + 分批回填 + 分片对账
@@ -33,7 +33,7 @@
  * 必须把牵连项写进该批的 PREREQ，未清障不得进入该批。
  *
  * ⚠️ 与并行作业的对账（2026-10-15，看到底才算数）：本表上同时有人在做精简，分两个阶段 observed：
- *   阶段一：一条 `ALTER TABLE crm_bid_notices DROP COLUMN category_l1_id, DROP COLUMN category_l2_id,
+ *   阶段一：一条 `ALTER TABLE bid_notices DROP COLUMN category_l1_id, DROP COLUMN category_l2_id,
  *   DROP COLUMN response_count`（ALGORITHM=COPY，全程锁写），跑到 1042s 后从 processlist 消失。
  *   实测判定它**未落地即中止**（probe252：本表仍 55 列、三列全部在场、无 `#sql-*` 孤儿临时表、
  *   performance_schema.metadata_locks 对本表 0 条锁）。
@@ -42,7 +42,7 @@
  *   正在用 `INSERT IGNORE INTO crm_bid_notices__new (id, notice_id, ...)` 回填（04 次采样：
  *   320,000 → 340,000 → 360,000 → 380,000 行，state=waiting for handler commit）。
  * ⇒ 结论与后续（已落地，非推测）：对方轮次于 07:12Z 切换完成，probe263 逐项核验通过：
- *   crm_bid_notices 现 52 列 / 精确 645,521 行（与切换前逐行相等）；与旧表位比只消失
+ *   bid_notices 现 52 列 / 精确 645,521 行（与切换前逐行相等）；与旧表位比只消失
  *   category_l1_id / category_l2_id / response_count 三列且无新增；3 个 FULLTEXT 齐全
  *   且 `ft_notices_search` 的 `WITH PARSER ngram` 未丢，三种 MATCH 签名逐个跑通；
  *   `deadline_sec` 仍是 STORED GENERATED（表达式未漂）。旧表位名为 `crm_bid_notices_retired_20261015`
@@ -75,12 +75,12 @@
  *        且它已被 dump-schema-baseline 的 /_(?:bak|backup|old|copy)_?\d*$/ 排除（probe276/277 取证）。
  */
 
-export const NOTICES_TABLE = "crm_bid_notices";
+export const NOTICES_TABLE = "bid_notices";
 export const SHADOW_TABLE = `${NOTICES_TABLE}__new`;
 
 /**
  * ⚠ 本表只能走影子表，不存在「直接 ALTER 删列」这条路（2026-10-15 现网实测）：
- *   ALTER TABLE crm_bid_notices DROP COLUMN ... 试 ALGORITHM=INSTANT 与 INPLACE 均被拒，
+ *   ALTER TABLE bid_notices DROP COLUMN ... 试 ALGORITHM=INSTANT 与 INPLACE 均被拒，
  *   原始报错同一句：`InnoDB presently supports one FULLTEXT index creation at a time`
  *   ——本表带 3 个 FULLTEXT 索引（ft_notices_search / ft_notices_en / ft_notices_desc），
  *   任何需要重建表的 ALTER 都得重建全文索引，而 InnoDB 一次只能建一个 ⇒ 只支持 COPY（全程锁写）。
@@ -119,7 +119,7 @@ export const BATCH_1_COLUMNS = ["thresholds", "ai_products"];
 export const BATCH_1_EVIDENCE = {
   thresholds:
     "零读取。代码命中只有两处噪声：featured.ts 的注释（说机会表那侧已删）、industry-gap-mine.mjs 的 summary.thresholds 局部对象。" +
-    "现网 644,587 行 NULL / 933 行空壳 [] / 真有内容 1 行。与 crm_bid_opportunities.thresholds 是孪生列，那边 2026-10-12 已删。",
+    "现网 644,587 行 NULL / 933 行空壳 [] / 真有内容 1 行。与 bid_opportunities.thresholds 是孪生列，那边 2026-10-12 已删。",
   ai_products:
     "零读取本表这份。bid-report 的 BoQ 章节读的是 row.ai_products，而 row 由 merge.ts 从 opp.ai_products 装配（商机表那份才是事实源）。" +
     "现网 920 行空壳 []|null / 真有内容 14 行。填充方（外置 AI worker）2026-09-17 停摆，见 docs/数据库设计/全表写入核对-20260930.md 问题⑦。",
@@ -199,7 +199,7 @@ export const BATCH_3_COLUMNS = [];
  * 批次四 · 商机镜像列（opp 轮已明确约定「单独一轮处理」）—— **已落库**（49 → 48）
  *
  * is_qualified 在本表是 8,492 行=1 的镜像位，但 23 处代码引用全部打在
- * crm_bid_opportunities 上（别名 o/opp），本表这份零读取。删它的前提是三方核对：
+ * bid_opportunities 上（别名 o/opp），本表这份零读取。删它的前提是三方核对：
  * 内网 CRM 是这份镜像的写入方，intelligence-daily 是否读不可见 —— 该前置已按用户
  * 2026-10-15 裁定移出（风险由用户承担）。本批实际执行时只做了三条本仓可自证的实测：
  * 不挂任何索引（16 个索引逐条核过）、不进宽表源指纹（⇒ 零重灌）、src 零 `isQualified` 消费；
@@ -250,10 +250,10 @@ export const GUARDED_COLUMNS = {
 export const APP_WRITABLE_COLUMNS = ["is_featured", "is_converted", "converted_opp_id", "rfq_status", "published_date"];
 
 /**
- * 兄弟表 crm_bid_opportunities **仍在场**的同名列（2026-10-15 对 baseline 实测）。
+ * 兄弟表 bid_opportunities **仍在场**的同名列（2026-10-15 对 baseline 实测）。
  * 用途：判据分级——只有「兄弟表没有同名列」的退役列才能全域硬拦；
  * 有同名列的（如 ai_products / is_qualified）代码里出现该名字很可能是合法的商机侧引用，
- * 全域硬拦会误伤，所以只拦「同一条含 crm_bid_notices 的 SQL 字面量」。
+ * 全域硬拦会误伤，所以只拦「同一条含 bid_notices 的 SQL 字面量」。
  */
 export const SIBLING_SAME_NAME_COLUMNS = ["ai_products", "is_qualified"];
 
@@ -271,8 +271,8 @@ export function extractSqlLiterals(text) {
 
 /**
  * 在一份源文本里找出「引用了本表该列」的位置。两路取并集，缺一都会漏：
- *   ① 同一条含 crm_bid_notices 的 SQL 字面量里出现列名（详情类未加别名的 SELECT 清单）；
- *   ② 别名限定形式 n.<col> / crm_bid_notices.<col>（且本文件确实提及 crm_bid_notices）——
+ *   ① 同一条含 bid_notices 的 SQL 字面量里出现列名（详情类未加别名的 SELECT 清单）；
+ *   ② 别名限定形式 n.<col> / bid_notices.<col>（且本文件确实提及 bid_notices）——
  *      构建层的 SQL 是多段拼接的（wideSyncSelect 不拼 FROM，表名在另一个常量里），
  *      只走① 会把 n.category_l1_id 这类真引用误判为「无引用」（实测踩过）。
  * @returns 命中片段数组（供人阅目）；空数组 = 无本表引用点
@@ -282,7 +282,7 @@ export function noticeSqlRefs(text, col) {
   const reCol = new RegExp(`(?<![A-Za-z0-9_])${col}(?![A-Za-z0-9_])`);
   // ① 同一条字面量
   for (const sql of extractSqlLiterals(text)) {
-    if (/crm_bid_notices/i.test(sql) && reCol.test(sql)) out.push(sql.replace(/\s+/g, " ").slice(0, 120));
+    if (/bid_notices/i.test(sql) && reCol.test(sql)) out.push(sql.replace(/\s+/g, " ").slice(0, 120));
   }
   // ② 别名限定（只在提及本表的文件里生效，避免误伤其他表的 n. 别名）
   if (new RegExp(NOTICES_TABLE).test(text)) {
@@ -298,10 +298,10 @@ export function noticeSqlRefs(text, col) {
 /**
  * 人工豁免登记（判据偏保守造成的假阳性，逐条写明凭什么不是本表读写点）。
  *
- * 为什么是「登记豁免」而不是「放宽判据」：判据 ① 是「同一条含 crm_bid_notices 的 SQL
+ * 为什么是「登记豁免」而不是「放宽判据」：判据 ① 是「同一条含 bid_notices 的 SQL
  * 字面量里出现列名」，而 AI 链路那两条 SQL 的子查询确实提及了本表
- * （`(SELECT notice_id FROM crm_bid_notices WHERE id = ?)`），但取的是商机侧的
- * `o.is_qualified`（FROM crm_bid_opportunities o）。若为了过闸把判据改成「列名必须带本表
+ * （`(SELECT notice_id FROM bid_notices WHERE id = ?)`），但取的是商机侧的
+ * `o.is_qualified`（FROM bid_opportunities o）。若为了过闸把判据改成「列名必须带本表
  * 别名」，会连带放过真正的拼接 SQL 引用——那正是批次三当年静默漏检的形态。
  * 所以只豁免「这一文件的这一列」，别处写同样形态照旧拦（自测有专门用例守这一点）。
  *
@@ -313,19 +313,19 @@ export const NOTICE_REF_WAIVERS = [
     file: "src/lib/services/ai/shared/notice-context.ts",
     col: "is_qualified",
     reason:
-      "该字面量只有标量子查询提及 crm_bid_notices（取 notice_id 做匹配），取的是 crm_bid_opportunities o 的列（FROM crm_bid_opportunities o / AND (o.is_qualified = 1 ...)）。本仓已逐行看过。",
+      "该字面量只有标量子查询提及 bid_notices（取 notice_id 做匹配），取的是 bid_opportunities o 的列（FROM bid_opportunities o / AND (o.is_qualified = 1 ...)）。本仓已逐行看过。",
   },
   {
     file: "src/lib/services/ai-summary/index.ts",
     col: "is_qualified",
     reason:
-      "同上 enrichFromOpportunity 路径：列只可能来自商机行（SELECT o.* FROM crm_bid_opportunities o），本表仅作为子查询参与匹配。",
+      "同上 enrichFromOpportunity 路径：列只可能来自商机行（SELECT o.* FROM bid_opportunities o），本表仅作为子查询参与匹配。",
   },
   {
-    file: "scripts/ops/notice-public-v2.ts",
+    file: "src/lib/services/notice-public/build.ts",
     col: "is_qualified",
     reason:
-      "服务表构建器 is_opportunity 的 CASE 表达式：外层主表是 crm_bid_notices n（SELECT 清单里无 is_qualified），is_qualified 只出现在 EXISTS 子查询的 crm_bid_opportunities o 上（AND (o.is_qualified = 1 ...)）。与上面两份同形制的商机侧误报，本表那份零读取；已逐行核过 v2 全文 is_qualified 仅此 1 处且带 o. 限定。v2 属 scripts/ops（不入库），此豁免仅在装有该文件的执行机上生效；CI 干净 clone 无此文件时豁免不命中，门禁不因此判红。",
+      "服务表构建器 is_opportunity 的 CASE 表达式：外层主表是 bid_notices n（SELECT 清单里无 is_qualified），is_qualified 只出现在 EXISTS 子查询的 bid_opportunities o 上（AND (o.is_qualified = 1 ...)）。与上面两份同形制的商机侧误报，本表那份零读取；已逐行核过 build.ts 全文 is_qualified 仅此 1 处且带 o. 限定。（2026-10-27 管道翻转：构建器从 gitignore 的 ops 一次性 CLI 壳迁入 src，豁免随唯一写入者迁址，现 CI 全量生效。）",
   },
 ];
 

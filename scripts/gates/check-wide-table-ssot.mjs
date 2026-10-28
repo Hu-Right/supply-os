@@ -7,7 +7,7 @@ import path from "node:path";
  * @see docs/superpowers/specs/2026-09-20-宽表统一执行标准与平台公告数据适配设计.md
  *
  * 规则：
- *   I1) src/lib/**（db/migrations 除外）不得出现 `UPDATE crm_notice_search`。
+ *   I1) src/lib/**（db/migrations 除外）不得出现 `UPDATE notice_search`。
  *       宽表内容的唯一写入路径是 buildWideRow → upsertWideRows；对账只返回待重建 id。
  *       历史 5 段手写 UPDATE 与构建口径分叉，实测造成 8,367 行描述错值、列语义污染、
  *       精选人工摘要被覆盖。
@@ -59,7 +59,7 @@ function walk(target) {
 
   fs.readFileSync(target, "utf8").split(/\r?\n/).forEach((line, i) => {
     const at = `${rel}:${i + 1}`;
-    if (/UPDATE\s+crm_notice_search/i.test(line)) {
+    if (/UPDATE\s+notice_search/i.test(line)) {
       violations.push(`I1 宽表单一写入者 → ${at}: ${line.trim()}`);
     }
     if (!inI2Scope || skipI2) return;

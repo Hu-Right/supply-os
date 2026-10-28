@@ -1,8 +1,8 @@
 /**
  * 公告品目归属落点：存量灌入 + 三条对账闸口（旧品类字典码退役 R1）
  *
- * 做什么：把宽表 `crm_notice_search.backbone_path`（60 万行的派生列）压回**最深落点**，
- *         灌进 `crm_notice_attribution_nodes`，`source='legacy_tag'`。
+ * 做什么：把宽表 `notice_search.backbone_path`（60 万行的派生列）压回**最深落点**，
+ *         灌进 `notice_attribution_nodes`，`source='legacy_tag'`。
  *         本脚本只写这张新表，**不碰宽表、不碰桥表** —— 切读在 R2，删源在 R3/R4。
  *
  * 为什么能从列值反推而不必回桥表：列值本就是「码→树」的产物且含全部祖先，取最深 token
@@ -84,7 +84,7 @@ function argTable(): string {
     }
     return v;
   }
-  return "crm_notice_attribution_nodes";
+  return "notice_attribution_nodes";
 }
 const TABLE = argTable();
 // 表名会拼进反引号与 information_schema 的字面量（反引号不转义），形制校验走契约那一份
@@ -96,7 +96,7 @@ try {
 }
 mkdirSync("runtime", { recursive: true }); // runtime/ 在 gitignore 内，新环境上不存在；登记失败不该阻断正文
 /** 正名表：它的状态文件就是现有的那几个（不带后缀，不迁移旧文件） */
-const CANON_TABLE = "crm_notice_attribution_nodes";
+const CANON_TABLE = "notice_attribution_nodes";
 /**
  * 状态/水位/台账路径按表名分域。不分域的话，一次 `--apply --table <影子表>` 演练会把
  * 影子表的游标写进**正名表**的水位文件 —— 之后 `--incremental` 对正名表就从演练游标起跑，
@@ -180,7 +180,7 @@ if (!tableExists && APPLY) {
 }
 if (!tableExists) console.log(`⚠ 表 ${TABLE} 尚未建（dry 继续：落点表计数按 0 报，三条闸口照常算）`);
 const srcTotal = await one<{ n: number }>(
-  `SELECT COUNT(*) n FROM crm_notice_search WHERE id > ${st.lastId} AND backbone_path IS NOT NULL AND backbone_path <> ''`,
+  `SELECT COUNT(*) n FROM notice_search WHERE id > ${st.lastId} AND backbone_path IS NOT NULL AND backbone_path <> ''`,
 );
 console.log(`灌入源：游标之上 ${srcTotal.n} 条公告有归属列；载入骨架树（闸口 3 用它判「码在不在树里」）…`);
 const idx = await loadBackboneIndex(<T>(sql: string) => q<T>(sql));
@@ -226,7 +226,7 @@ let batchNo = 0;
 for (;;) {
   if (batchNo >= LIMIT_BATCHES) { console.log(`⚠ 到 --limit-batches ${LIMIT_BATCHES} 上限，本轮停在游标 ${st.lastId}`); break; }
   const wide = await q<{ id: number; p: string }>(
-    `SELECT id, backbone_path p FROM crm_notice_search
+    `SELECT id, backbone_path p FROM notice_search
       WHERE id > ? AND backbone_path IS NOT NULL AND backbone_path <> ''
       ORDER BY id LIMIT ${BATCH}`,
     [st.lastId],
@@ -341,7 +341,7 @@ const counts = await q<{ k: string; n: number }>(
    UNION ALL `
       : `SELECT 'attribution_notices' k, 0 n
    UNION ALL `
-  }SELECT 'wide_filled', COUNT(*) FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''`,
+  }SELECT 'wide_filled', COUNT(*) FROM notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''`,
 );
 const c = Object.fromEntries(counts.map((r) => [r.k, Number(r.n)]));
 console.log(`\n闸口 1 逐条相等：闭包差异 ${st.closureDiff} 行 ⇒ ${st.closureDiff === 0 ? "✓" : "✗"}`);
@@ -351,7 +351,7 @@ console.log(`闸口 3 无幻觉：树外码 ${st.phantomCodes.length} 个、整�
 // 闸口 2 在 dry 也能判：本轮「落笔公告 + 排除公告」必须等于扫到的有归属公告数
 // 游标没追到最大 id 就是部分灌入（--limit-batches / --resume 断点）：这时拿全表数比必然不等，
 // 判 ✗ 是把「还没跑完」误报成「对不上」——只有全量跑完那一次才有权判守恒。
-const maxId = Number((await one<{ m: number | null }>(`SELECT MAX(id) m FROM crm_notice_search`)).m ?? 0);
+const maxId = Number((await one<{ m: number | null }>(`SELECT MAX(id) m FROM notice_search`)).m ?? 0);
 const partial = st.lastId < maxId;
 if (APPLY) {
   const ok2 = c.attribution_notices === c.wide_filled;

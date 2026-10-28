@@ -1,5 +1,5 @@
 /**
- * crm_bid_notices 影子表精简 · 阶段二（补增量 + 原子切换 + 可反切）
+ * bid_notices 影子表精简 · 阶段二（补增量 + 原子切换 + 可反切）
  *
  * 纪律见 docs/adr/0003-shadow-table-blue-green-migration.md 阶段二条：
  *   冻结外部同步 → 补增量 → 全表对账 → 原子 RENAME（保留旧表位）→ 解冻同步。

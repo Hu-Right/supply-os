@@ -2,11 +2,11 @@
  * 门禁 CSOT：国家归一「以表为准」不变量（fail-closed）
  *
  * 断言（对已入索引的活跃公告）：
- *   CS1 零表缺口：每个 country 写法都能被 crm_country_aliases 解析（resolveCountries 不产生 unresolved）；
+ *   CS1 零表缺口：每个 country 写法都能被 country_aliases 解析（resolveCountries 不产生 unresolved）；
  *   CS2 回填一致：country_codes 与「按表现算」逐写法相等（漂移即红，防止读切换后两套口径又分叉）。
  *
  * 用法：npx tsx scripts/gates/check-country-ssot.ts
- * @limits 只读。口径与 scripts/ops/country-codes-backfill.ts 完全一致（同一 resolveCountries + 同清洗键）。
+ * @limits 只读。口径与 2026-10 的一次性国家码回填脚本完全一致（同一 resolveCountries + 同清洗键；该脚本已收尾删除）。
  */
 import { readFileSync, readdirSync } from "node:fs";
 import mysql from "mysql2/promise";
@@ -53,8 +53,8 @@ try {
 
   // CS1 零表缺口：按写法去重
   const writings = await q<{ raw: string; cnt: number }>(
-    `SELECT n.country raw, COUNT(*) cnt FROM crm_bid_notices n
-     JOIN crm_notice_search w ON w.id = n.id
+    `SELECT n.country raw, COUNT(*) cnt FROM bid_notices n
+     JOIN notice_search w ON w.id = n.id
      WHERE ${ACTIVE_NOTICE_WHERE} AND n.country IS NOT NULL AND n.country <> ''
      GROUP BY n.country`
   );
@@ -69,8 +69,8 @@ try {
 
   // CS2 回填一致：逐写法×存量值 与现算比对
   const dist = await q<{ raw: string; codes_stored: string; cnt: number }>(
-    `SELECT n.country raw, w.country_codes codes_stored, COUNT(*) cnt FROM crm_bid_notices n
-     JOIN crm_notice_search w ON w.id = n.id
+    `SELECT n.country raw, w.country_codes codes_stored, COUNT(*) cnt FROM bid_notices n
+     JOIN notice_search w ON w.id = n.id
      WHERE ${ACTIVE_NOTICE_WHERE} AND n.country IS NOT NULL AND n.country <> ''
      GROUP BY n.country, w.country_codes`
   );
@@ -99,14 +99,14 @@ try {
     }
   }
 
-  if (gaps > 0) fails.push(`CS1 表缺口 ${gaps} 条（样例：${gapSample.join(" ; ")}）⇒ 需补 crm_country_aliases`);
+  if (gaps > 0) fails.push(`CS1 表缺口 ${gaps} 条（样例：${gapSample.join(" ; ")}）⇒ 需补 country_aliases`);
   if (drift > 0) fails.push(`CS2 country_codes 与表现算不一致 ${drift} 行（样例：${driftSample.join(" ; ")}）⇒ 复跑 country-codes-backfill --apply`);
 
   if (bypass.length) fails.push(`CS3 展示旁路：src 从静态字典 lib/data 引入展示函数\n    ${bypass.join("\n    ")}\n    ⇒ 展示须走 /api/catalog/country-name-map（表）或 country/resolve`);
 
-  // CS3b 静态国家名词表残留锁定：src 任何模块不得再维护 COUNTRY_NAME_KW（国家名一律走 crm_country_aliases）
+  // CS3b 静态国家名词表残留锁定：src 任何模块不得再维护 COUNTRY_NAME_KW（国家名一律走 country_aliases）
   const staticCountryKw = walk("src").filter((f) => /\bCOUNTRY_NAME_KW\b/.test(readFileSync(f, "utf8")));
-  if (staticCountryKw.length) fails.push(`CS3b 静态国家名词表残留：\n    ${staticCountryKw.join("\n    ")}\n    ⇒ 国家名一律走 crm_country_aliases（country/display matchCountryZhInText）`);
+  if (staticCountryKw.length) fails.push(`CS3b 静态国家名词表残留：\n    ${staticCountryKw.join("\n    ")}\n    ⇒ 国家名一律走 country_aliases（country/display matchCountryZhInText）`);
 
   console.log(`别名表快照：${snap.byKey.size} 键 · 写法 ${writings.length} 种 · 分布 ${dist.length} 组`);
   if (fails.length) {

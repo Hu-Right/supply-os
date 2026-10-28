@@ -89,13 +89,13 @@ async function main() {
 
   /* ── 2. 挂靠聚合（一次全表 GROUP BY，不做 2,080 次相关子查询） ── */
   const relTot = (
-    await q(`SELECT COUNT(*) rows_all, COUNT(DISTINCT supplier_id) sups, COUNT(DISTINCT industry_code) codes FROM crm_supplier_industry_rel`)
+    await q(`SELECT COUNT(*) rows_all, COUNT(DISTINCT supplier_id) sups, COUNT(DISTINCT industry_code) codes FROM supplier_industry_rel`)
   )[0];
-  const linkRows = await q(`SELECT industry_code, COUNT(*) direct_links FROM crm_supplier_industry_rel GROUP BY industry_code`);
+  const linkRows = await q(`SELECT industry_code, COUNT(*) direct_links FROM supplier_industry_rel GROUP BY industry_code`);
   const directByCode = new Map(linkRows.map((r) => [r.industry_code, Number(r.direct_links)]));
 
   /* ── 3. 树本体 + 在 JS 里算子树累计（O(N)，比递归 CTE 便宜且可控） ── */
-  const nodes = await q(`SELECT code, level, name_zh, parent_code FROM crm_industry_nodes`);
+  const nodes = await q(`SELECT code, level, name_zh, parent_code FROM industry_nodes`);
   const childrenByParent = new Map();
   const byCode = new Map();
   for (const n of nodes) {

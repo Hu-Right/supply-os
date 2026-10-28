@@ -1,10 +1,10 @@
 /**
- * crm_bid_notices 精简取证 · 静态引用全域扫描（可复跑判据入口）
+ * bid_notices 精简取证 · 静态引用全域扫描（可复跑判据入口）
  *
  * 判据口径对齐 scripts/tools/opp-slim-plan.mjs 的「一档」定义：
  *   src/ + scripts/ + tests/ 全域**词边界**扫描，snake 与 camel 双查均为 0 命中 → 才算云端零读写。
  *
- * 为什么不能只看「命中数」：同名列在 crm_bid_opportunities / crm_notice_search 上也存在
+ * 为什么不能只看「命中数」：同名列在 bid_opportunities / notice_search 上也存在
  * （thresholds / difficulty / is_qualified / documents / ai_products …），命中可能读的是
  * 兄弟表那一行；而 scripts/ops/*.sql 是历次删列前的 DDL 留底快照（回滚依据），不是读写方，
  * 混进来会让一列凭空多出 4 处「假引用」。所以本脚本：

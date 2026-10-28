@@ -92,22 +92,22 @@ const queueWhere =
 const oneNum = async (sql: string): Promise<number> => Number((await one<{ n: number }>(sql)).n ?? 0);
 
 // ── 1. 队列规模 + 正文下限的边界（正文不够的那批只能先重采，不属本档待办）──
-const total = await oneNum(`SELECT COUNT(*) n FROM crm_bid_notices n WHERE ${queueWhere}`);
+const total = await oneNum(`SELECT COUNT(*) n FROM bid_notices n WHERE ${queueWhere}`);
 const noContent = await oneNum(
-  `SELECT COUNT(*) n FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE} AND NOT ${withMinContentWhere("n")} AND ${noValid}`,
+  `SELECT COUNT(*) n FROM bid_notices n WHERE ${ACTIVE_NOTICE_WHERE} AND NOT ${withMinContentWhere("n")} AND ${noValid}`,
 );
 console.log(`\n队列 target=${TARGET}：可打标 ${total} 条｜同人群但正文不够（<${ATTR_MIN_CONTENT_CHARS} 字，需先重采）${noContent} 条`);
 
 // ── 2. 词表：骨架树自身（ADR-0005 词表 SSOT），一次载全树名 ──
 const t0 = Date.now();
 const nameRows = await q<{ code: string; nameZh: string; nameEn: string }>(
-  `SELECT code, name_zh AS nameZh, name_en AS nameEn FROM crm_commodity_backbone WHERE status=1 ORDER BY code`,
+  `SELECT code, name_zh AS nameZh, name_en AS nameEn FROM commodity_backbone WHERE status=1 ORDER BY code`,
 );
 const index = buildNameIndex(nameRows);
 console.log(`词表：${index.nodes} 节点 → ${index.size} 条整串名（zh+en，已过滤 <${4}/${8} 字符的短名） 建索引 ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
 // ── 3. 供应侧锚集（有规则落点却没有供应商接得住 = 单边空转）──
-const supRows = await q<{ code: string }>(`SELECT DISTINCT code FROM crm_supplier_backbone_interests`);
+const supRows = await q<{ code: string }>(`SELECT DISTINCT code FROM supplier_backbone_interests`);
 const supplierNodes = new Set(supRows.map((r) => r.code));
 console.log(`供应侧：${supplierNodes.size} 个品目码有供应商挂着`);
 
@@ -128,7 +128,7 @@ for (;;) {
   if (want <= 0) break;
   const list = await q<{ id: number; notice_id: string; title: string; head: string | null; title_zh: string }>(
     `SELECT n.id, n.notice_id, n.title, LEFT(n.description, 500) head, IFNULL(w.title_zh,'') title_zh
-       FROM crm_bid_notices n LEFT JOIN crm_notice_search w ON w.id = n.id
+       FROM bid_notices n LEFT JOIN notice_search w ON w.id = n.id
       WHERE n.id > ? AND ${queueWhere}${STRIDE > 1 ? ` AND MOD(n.id, ${STRIDE}) = 1` : ""}
       ORDER BY n.id LIMIT ${want}`,
     [lastId],

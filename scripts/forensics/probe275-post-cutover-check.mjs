@@ -35,7 +35,7 @@ const report = { at: new Date().toISOString(), tables: [], checks: [] };
 // ① 场内本表系列盘点：列数 + 精确行数（不用 TABLE_ROWS，那是估算，偏差实测可达 40%）
 const [rows] = await c.query(
   `SELECT TABLE_NAME t FROM information_schema.TABLES
-     WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME LIKE 'crm_bid_notices%' ORDER BY TABLE_NAME`,
+     WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME LIKE 'bid_notices%' ORDER BY TABLE_NAME`,
 );
 for (const r of rows) {
   const cols = await columnsOf(c, r.t);

@@ -1,5 +1,5 @@
 /**
- * crm_bid_notices 影子表精简 · 阶段一（建表 + 改结构 + 回填 + 校验，全程不触碰原表）
+ * bid_notices 影子表精简 · 阶段一（建表 + 改结构 + 回填 + 校验，全程不触碰原表）
  *
  * 纪律见 docs/adr/0003-shadow-table-blue-green-migration.md：
  *   阶段一只创建 `<原表>__new`，**旧表不改名、继续跑生产**；到此为止不 RENAME。

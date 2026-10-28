@@ -102,8 +102,8 @@ const bump = (map, gram, isUncoded) => {
 };
 
 async function loadTree() {
-  const nodes = await q(`SELECT code, level, name_zh, parent_code, description FROM crm_industry_nodes`);
-  const links = await q(`SELECT industry_code, COUNT(*) direct_links FROM crm_supplier_industry_rel GROUP BY industry_code`);
+  const nodes = await q(`SELECT code, level, name_zh, parent_code, description FROM industry_nodes`);
+  const links = await q(`SELECT industry_code, COUNT(*) direct_links FROM supplier_industry_rel GROUP BY industry_code`);
   return { nodes, directByCode: new Map(links.map((r) => [r.industry_code, Number(r.direct_links)])) };
 }
 
@@ -354,7 +354,7 @@ async function main() {
   }
 
   /* ── Q1：粗叶集 → Q1a 下钻清单 / Q1b 下切候选 ── */
-  const relRows = await q(`SELECT supplier_id, industry_code FROM crm_supplier_industry_rel`);
+  const relRows = await q(`SELECT supplier_id, industry_code FROM supplier_industry_rel`);
   const suppliersByCode = new Map();
   const codesBySupplier = new Map(); // 反向索引：用「这批人已挂在哪」反验候选是不是新维度
   for (const r of relRows) {

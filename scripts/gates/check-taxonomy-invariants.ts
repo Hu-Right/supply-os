@@ -3,7 +3,7 @@
  *
  * 用法：npx tsx scripts/check-taxonomy-invariants.ts
  *
- * 行业面 crm_industry_nodes 的结构约定落地为可执行门禁（口径同 db/schema/baseline.sql）：
+ * 行业面 industry_nodes 的结构约定落地为可执行门禁（口径同 db/schema/baseline.sql）：
  *   I 行业面：码长即层级 · 父指针闭合且等于码前缀 · 不跳级 · 英文名齐全 · 词表封闭
  *   X 跳面：行业挂靠零孤儿 · 主行业码零孤儿
  *   注：I6 自研来源标记与 I8 国标 src_code 形态随 source/src_code/version/supplier_count 列退役而移除；自研层即 level='extension'
@@ -27,7 +27,7 @@ const DB_CFG = DbConfigSchema.parse({
   database: process.env.DB_NAME || "crm",
 });
 
-const IND_NAME = "crm_industry_nodes";
+const IND_NAME = "industry_nodes";
 const IND = `\`${IND_NAME}\``;
 
 type Check = { name: string; sql: string };
@@ -74,7 +74,7 @@ const CHECKS: Check[] = [
   // ── 行业挂靠 ──
   {
     name: "X2 行业挂靠孤儿（应为 0）",
-    sql: `SELECT COUNT(*) n FROM crm_supplier_industry_rel r LEFT JOIN ${IND} t ON t.code = r.industry_code WHERE t.code IS NULL`,
+    sql: `SELECT COUNT(*) n FROM supplier_industry_rel r LEFT JOIN ${IND} t ON t.code = r.industry_code WHERE t.code IS NULL`,
   },
   {
     name: "X4 主行业码孤儿（应为 0）",

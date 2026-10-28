@@ -32,7 +32,7 @@ import { ACTIVE_NOTICE_WHERE } from "../../src/lib/utils/notice-expired";
 const FIXTURE = process.env.ATTR_SSOT_FIXTURE ?? "";
 // 用 || 而不是 ??：自测的“真实库”分支会显式传空串来清掉父 env 残留，
 // ?? 不接管空串 ⇒ 表名变 "" ⇒ 被下面的白名单判死，用例永远红在错误的原因上。
-const TABLE = process.env.ATTR_SSOT_TABLE || "crm_notice_attribution_nodes";
+const TABLE = process.env.ATTR_SSOT_TABLE || "notice_attribution_nodes";
 /** 每批多少个公告：一批落点 + 一批列值两份结果集，2000 条约几千行，够用且内存可控 */
 const BATCH = 2000;
 /** 打印破口样本的上限（与契约内的 MAX_REPORT 同值，双保险） */
@@ -102,7 +102,7 @@ async function runQuality(
   try {
     // Q0 活跃公告基数
     const base = await q<{ n: number }>(
-      `SELECT COUNT(*) n FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`,
+      `SELECT COUNT(*) n FROM bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`,
     );
     const total = Number(base[0]?.n ?? 0);
     if (total === 0) {
@@ -111,7 +111,7 @@ async function runQuality(
     }
     // Q1 活跃集非 legacy 覆盖（新事实源接住的部分：ai_content ∩ manual）
     const cov = await q<{ n: number }>(
-      `SELECT COUNT(DISTINCT n.id) n FROM crm_bid_notices n
+      `SELECT COUNT(DISTINCT n.id) n FROM bid_notices n
          JOIN \`${TABLE}\` a ON a.notice_pk = n.id
         WHERE a.source <> ? AND ${ACTIVE_NOTICE_WHERE}`,
       [ATTR_SOURCE_LEGACY],
@@ -119,7 +119,7 @@ async function runQuality(
     const covered = Number(cov[0]?.n ?? 0);
     // Q2 活跃集仅 legacy（待清洗存量）
     const legacyOnly = await q<{ n: number }>(
-      `SELECT COUNT(DISTINCT n.id) n FROM crm_bid_notices n
+      `SELECT COUNT(DISTINCT n.id) n FROM bid_notices n
          JOIN \`${TABLE}\` a ON a.notice_pk = n.id AND a.source = ?
         WHERE ${ACTIVE_NOTICE_WHERE}
           AND NOT EXISTS (SELECT 1 FROM \`${TABLE}\` b
@@ -135,7 +135,7 @@ async function runQuality(
     );
     // 活跃集完全无落点（上面三行未抓：既无 legacy、也无 ai/manual）
     const noLanding = await q<{ n: number }>(
-      `SELECT COUNT(*) n FROM crm_bid_notices n
+      `SELECT COUNT(*) n FROM bid_notices n
         WHERE ${ACTIVE_NOTICE_WHERE}
           AND NOT EXISTS (SELECT 1 FROM \`${TABLE}\` a WHERE a.notice_pk = n.id)`,
     );
@@ -146,7 +146,7 @@ async function runQuality(
     // 两个子项相加 = 总数，因为下限只写在 ATTR_* 那两份片段里（不在此重拼口径）。
     const noValid = await q<{ n: number; with_content: number }>(
       `SELECT COUNT(*) n, SUM(${withMinContentWhere("n")}) with_content
-         FROM crm_bid_notices n
+         FROM bid_notices n
         WHERE ${ACTIVE_NOTICE_WHERE} AND ${withoutValidLandingWhere(TABLE)}`,
     );
     const noValidN = Number(noValid[0]?.n ?? 0);
@@ -235,7 +235,7 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
         ids,
       );
       const cols = await q<{ pk: number; col: string | null }>(
-        `SELECT id pk, backbone_path col FROM crm_notice_search WHERE id IN (${ph})`,
+        `SELECT id pk, backbone_path col FROM notice_search WHERE id IN (${ph})`,
         ids,
       );
       const r = auditLanding(
@@ -248,7 +248,7 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
     }
     // AS4 走 SQL 反连接：分批喂给纯函数会把「本批没取到列值」假报成断供
     const orphan = await q<{ n: number }>(
-      `SELECT COUNT(*) n FROM crm_notice_search ns LEFT JOIN \`${TABLE}\` a ON a.notice_pk = ns.id
+      `SELECT COUNT(*) n FROM notice_search ns LEFT JOIN \`${TABLE}\` a ON a.notice_pk = ns.id
          WHERE ns.backbone_path IS NOT NULL AND ns.backbone_path <> '' AND a.notice_pk IS NULL`,
     );
     const orphanN = Number(orphan[0]?.n ?? 0);
@@ -258,7 +258,7 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
       all.push(`AS4 断供：${orphanN} 条公告有列值但落点表零行 ⇒ 切读那一刻会被清成 NULL`);
       // 只报总数等于让人再跑一次 SQL：顺手取 10 个 pk 当样本（仍只读）
       const sample = await q<{ pk: number }>(
-        `SELECT ns.id pk FROM crm_notice_search ns LEFT JOIN \`${TABLE}\` a ON a.notice_pk = ns.id
+        `SELECT ns.id pk FROM notice_search ns LEFT JOIN \`${TABLE}\` a ON a.notice_pk = ns.id
            WHERE ns.backbone_path IS NOT NULL AND ns.backbone_path <> '' AND a.notice_pk IS NULL
            ORDER BY ns.id LIMIT 10`,
       );

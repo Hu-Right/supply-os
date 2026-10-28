@@ -21,7 +21,7 @@ const c = await mysql.createConnection({
 });
 
 await c.query(
-  `CREATE TABLE IF NOT EXISTS crm_agency_types (
+  `CREATE TABLE IF NOT EXISTS agency_types (
      type_key VARCHAR(100) NOT NULL,
      country_code CHAR(2) NULL,
      name_i18n JSON NULL,
@@ -32,7 +32,7 @@ await c.query(
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
 );
 await c.query(
-  `CREATE TABLE IF NOT EXISTS crm_agency_type_rules (
+  `CREATE TABLE IF NOT EXISTS agency_type_rules (
      id INT UNSIGNED NOT NULL AUTO_INCREMENT,
      type_key VARCHAR(100) NOT NULL,
      country_code CHAR(2) NULL,
@@ -43,7 +43,7 @@ await c.query(
      PRIMARY KEY (id),
      KEY idx_rules_type (type_key),
      KEY idx_rules_country_priority (country_code, priority),
-     CONSTRAINT fk_agency_rule_type FOREIGN KEY (type_key) REFERENCES crm_agency_types (type_key)
+     CONSTRAINT fk_agency_rule_type FOREIGN KEY (type_key) REFERENCES agency_types (type_key)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`,
 );
 
@@ -65,10 +65,10 @@ for (const [regex, info] of INTL_TYPE_PATTERNS) {
   void regex;
 }
 
-await c.query(`DELETE FROM crm_agency_type_rules`);
+await c.query(`DELETE FROM agency_type_rules`);
 for (const [typeKey, t] of types) {
   await c.query(
-    `INSERT INTO crm_agency_types (type_key, country_code, name_i18n, priority, is_active)
+    `INSERT INTO agency_types (type_key, country_code, name_i18n, priority, is_active)
      VALUES (?,?,?,?,1)
      ON DUPLICATE KEY UPDATE country_code=VALUES(country_code), name_i18n=VALUES(name_i18n),
        priority=VALUES(priority), is_active=1`,
@@ -79,21 +79,21 @@ for (const [typeKey, t] of types) {
 let priority = 0;
 for (const [regex, info] of TYPE_PATTERNS) {
   await c.query(
-    `INSERT INTO crm_agency_type_rules (type_key, country_code, pattern, flags, priority, is_active)
+    `INSERT INTO agency_type_rules (type_key, country_code, pattern, flags, priority, is_active)
      VALUES (?,?,?,?,?,1)`,
     [info.typeKey, countryOf(info.typeKey), regex.source, regex.flags, priority++],
   );
 }
 for (const [regex, info] of INTL_TYPE_PATTERNS) {
   await c.query(
-    `INSERT INTO crm_agency_type_rules (type_key, country_code, pattern, flags, priority, is_active)
+    `INSERT INTO agency_type_rules (type_key, country_code, pattern, flags, priority, is_active)
      VALUES (?,?,?,?,?,1)`,
     [info.typeKey, countryOf(info.typeKey), regex.source, regex.flags, priority++],
   );
 }
 
 const [counts] = await c.query(
-  `SELECT (SELECT COUNT(*) FROM crm_agency_types) types, (SELECT COUNT(*) FROM crm_agency_type_rules) rules`,
+  `SELECT (SELECT COUNT(*) FROM agency_types) types, (SELECT COUNT(*) FROM agency_type_rules) rules`,
 );
 console.log((counts as Array<Record<string, unknown>>)[0]);
 await c.end();

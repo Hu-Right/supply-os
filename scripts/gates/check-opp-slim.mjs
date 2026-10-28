@@ -1,5 +1,5 @@
 /**
- * 机会表精简守卫（crm_bid_opportunities 退役列不得复活）
+ * 机会表精简守卫（bid_opportunities 退役列不得复活）
  *
  * 规则：
  *   [OS1] 退役契约符号不得再出现在 src 代码里：`intl_procurement` / `INTL_PROCUREMENT` /
@@ -8,7 +8,7 @@
  *         列在影子表精简后从库里消失，再被 SELECT 会直接报错而非静默 null，所以这条必须硬拦。
  *
  * 退役列清单唯一事实源：scripts/tools/opp-slim-plan.mjs（本门禁直接 import，不复制第二份）。
- * 判据与执行方案：docs/数据库设计/crm_bid_opportunities-投标商机表.md。
+ * 判据与执行方案：docs/数据库设计/bid_opportunities-投标商机表.md。
  *
  * 违规 exit 1，进 npm run lint 与 CI。扫描根可用 OPP_SLIM_SCAN_ROOT 覆盖（供自测夹具使用）。
  */
@@ -98,7 +98,7 @@ for (const rel of READ_SITES) {
 if (problems.length) {
   console.error("❌ 机会表精简守卫未通过：");
   for (const p of [...new Set(problems)]) console.error(`  - ${p}`);
-  console.error("\n口径见 docs/数据库设计/crm_bid_opportunities-投标商机表.md 与 scripts/tools/opp-slim-plan.mjs。");
+  console.error("\n口径见 docs/数据库设计/bid_opportunities-投标商机表.md 与 scripts/tools/opp-slim-plan.mjs。");
   process.exit(1);
 }
 console.log(`✅ 机会表精简守卫通过（禁复活退役列 ${RETIRED_COLUMNS.length} 个 · 读取点 ${READ_SITES.length} 处 · src 文件 ${walk(srcRoot, []).length} 个）`);

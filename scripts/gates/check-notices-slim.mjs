@@ -1,13 +1,13 @@
 /**
- * 公告主表精简守卫（crm_bid_notices 退役列不得复活）
+ * 公告主表精简守卫（bid_notices 退役列不得复活）
  *
  * 规则：
- *   [NS1] 退役列名不得出现在「引用 crm_bid_notices 的 SQL」里（判定走
+ *   [NS1] 退役列名不得出现在「引用 bid_notices 的 SQL」里（判定走
  *         scripts/tools/lib/notices-ref-scan.mjs，与取证/落刀前置闸同一实现）。
  *         列从库里消失后再被 SELECT 会直接报错而非静默变 null，所以这条必须硬拦。
  *         已登记的人工豁免（NOTICE_REF_WAIVERS，判据偏保守的商机侧误报）不算违规，
  *         但条数会打在成功行上——豁免不得静默成长，也不用担心它隐身。
- *   [NS2] 对「兄弟表 crm_bid_opportunities 没有同名列」的退役列，src/** 的任何代码行
+ *   [NS2] 对「兄弟表 bid_opportunities 没有同名列」的退役列，src/** 的任何代码行
  *         （剥离注释后）都不得再出现该名字——全域防复活，不留「先写进别处再拼回来」的缝。
  *         有同名列的（ai_products / is_qualified）不跑 NS2，否则会误伤合法的商机侧引用。
  *
@@ -15,7 +15,7 @@
  * 推导（「在册但已不在结构里」= 已退役）。⇒ 切换前本门禁自动空转，DROP 落库并重导
  * baseline 后自动上岗，无需人工维护「哪批已完成」的状态。
  *
- * 判据与执行方案：docs/数据库设计/crm_bid_notices-招标公告主表.md 与 scripts/tools/notices-slim-plan.mjs。
+ * 判据与执行方案：docs/数据库设计/bid_notices-招标公告主表.md 与 scripts/tools/notices-slim-plan.mjs。
  * 违规 exit 1，进 npm run lint 与 CI。扫描根与基线文件可用环境变量覆盖（供自测夹具）：
  *   NOTICES_SLIM_SCAN_ROOT / NOTICES_SLIM_BASELINE
  */
@@ -97,7 +97,7 @@ for (const file of walk(srcRoot, [])) {
 if (problems.length) {
   console.error("❌ 公告主表精简守卫未通过：");
   for (const p of [...new Set(problems)]) console.error(`  - ${p}`);
-  console.error("\n口径见 docs/数据库设计/crm_bid_notices-招标公告主表.md 与 scripts/tools/notices-slim-plan.mjs。");
+  console.error("\n口径见 docs/数据库设计/bid_notices-招标公告主表.md 与 scripts/tools/notices-slim-plan.mjs。");
   process.exit(1);
 }
 console.log(

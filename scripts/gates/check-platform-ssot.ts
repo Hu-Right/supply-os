@@ -2,10 +2,10 @@
  * 门禁 PSOT：来源/采购平台归一「以表为准 + 单一入口」不变量（fail-closed）
  *
  * 断言：
- *   PS0 表就位：crm_platform_aliases 快照非空。
+ *   PS0 表就位：platform_aliases 快照非空。
  *   PS1 零表缺口：opps/awards 的 source_platform、公告 url host、rfx platform_key
  *              每个观测写法都能被 resolvePlatform 解析（不产生 unresolved）⇒ 否则须补表。
- *   PS2 单一入口：src 内除 platform/alias-store.ts 外，任何文件不得再出现 "crm_platform_aliases"
+ *   PS2 单一入口：src 内除 platform/alias-store.ts 外，任何文件不得再出现 "platform_aliases"
  *              （禁旁路 SELECT，读表唯一入口）。
  *   PS3 退役不回潮：src 内不得再出现已退役的静态机制符号
  *              matchSourcePlatform / getSourcePlatformName / SOURCE_PLATFORMS / PLATFORMS[。
@@ -31,7 +31,7 @@ for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
 const SRC = nodePath.join(process.cwd(), "src");
 const ALLOW_READER = "src/lib/services/platform/alias-store.ts";
 // 只拦截“旁路 SQL”（真去 SELECT 本表）；注释里提到表名不算。
-const readerRe = /\bFROM\s+`?crm_platform_aliases`?/i;
+const readerRe = /\bFROM\s+`?platform_aliases`?/i;
 const retiredSym = /matchSourcePlatform|getSourcePlatformName|SOURCE_PLATFORMS|\bPLATFORMS\s*\[/;
 function walk(dir: string, cb: (file: string) => void): void {
   for (const name of readdirSync(dir)) {
@@ -62,25 +62,25 @@ const q = async <T>(sql: string): Promise<T[]> => ((await conn.query(sql)) as un
 try {
   await conn.query(`SET SESSION MAX_EXECUTION_TIME = ${MAX_EXEC_MS}`);
   const snap = await loadPlatformAliasSnapshot(conn as never);
-  if (snap.byKey.size === 0) fails.push("PS0 crm_platform_aliases 快照为空（表不存在或未灌数）");
+  if (snap.byKey.size === 0) fails.push("PS0 platform_aliases 快照为空（表不存在或未灌数）");
 
   // PS1 观测写法全解析：opp/award 码、公告 host、rfx key
   const forms = new Set<string>();
-  for (const r of await q<{ v: string }>("SELECT DISTINCT source_platform v FROM crm_bid_opportunities WHERE source_platform IS NOT NULL AND source_platform<>''")) if (r.v) forms.add(r.v);
-  for (const r of await q<{ v: string }>("SELECT DISTINCT source_platform v FROM crm_bid_awards WHERE source_platform IS NOT NULL AND source_platform<>''")) if (r.v) forms.add(r.v);
-  for (const r of await q<{ v: string }>("SELECT DISTINCT source_platform v FROM crm_bid_opportunities WHERE source_platform IS NOT NULL AND source_platform<>''")) if (r.v) forms.add(r.v);
+  for (const r of await q<{ v: string }>("SELECT DISTINCT source_platform v FROM bid_opportunities WHERE source_platform IS NOT NULL AND source_platform<>''")) if (r.v) forms.add(r.v);
+  for (const r of await q<{ v: string }>("SELECT DISTINCT source_platform v FROM bid_awards WHERE source_platform IS NOT NULL AND source_platform<>''")) if (r.v) forms.add(r.v);
+  for (const r of await q<{ v: string }>("SELECT DISTINCT source_platform v FROM bid_opportunities WHERE source_platform IS NOT NULL AND source_platform<>''")) if (r.v) forms.add(r.v);
   for (const r of await q<{ v: string }>(
     `SELECT DISTINCT SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(url,'://',-1),'/',1),':',1) v
-     FROM crm_bid_notices WHERE url IS NOT NULL AND url<>''`,
+     FROM bid_notices WHERE url IS NOT NULL AND url<>''`,
   )) if (r.v) forms.add(r.v);
-  for (const r of await q<{ v: string }>("SELECT DISTINCT platform_key v FROM crm_rfx_platform_map WHERE platform_key IS NOT NULL AND platform_key<>''")) if (r.v) forms.add(r.v);
+  for (const r of await q<{ v: string }>("SELECT DISTINCT platform_key v FROM rfx_platform_map WHERE platform_key IS NOT NULL AND platform_key<>''")) if (r.v) forms.add(r.v);
 
   const unresolved: string[] = [];
   for (const form of forms) {
     const host = hostOf(form);
     if (!resolvePlatform(host || form, snap).ref) unresolved.push(host || form);
   }
-  if (unresolved.length) fails.push(`PS1 表缺口 ${unresolved.length} 种写法（样例：${unresolved.slice(0, 20).map((s) => JSON.stringify(s)).join(" ; ")}）⇒ 需补 crm_platform_aliases`);
+  if (unresolved.length) fails.push(`PS1 表缺口 ${unresolved.length} 种写法（样例：${unresolved.slice(0, 20).map((s) => JSON.stringify(s)).join(" ; ")}）⇒ 需补 platform_aliases`);
 
   console.log(`别名表快照：${snap.byKey.size} 键 / ${snap.byHost.size} host · 观测 distinct 写法 ${forms.size} 种 · 未解析 ${unresolved.length} 种`);
   if (fails.length) {

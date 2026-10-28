@@ -29,7 +29,7 @@ const DB_CFG = DbConfigSchema.parse({
   database: process.env.DB_NAME || "crm",
 });
 
-const IND = "`crm_industry_nodes`";
+const IND = "`industry_nodes`";
 
 /** 目标线：终态要求，未达只报不红；--gate 时计入失败 */
 const TARGETS = {
@@ -78,16 +78,16 @@ async function main() {
   const portalCoverage = Number(cover.done) ? Number(cover.done_coded) / Number(cover.done) : 0;
 
   /* ── 2. 挂靠表本体量与层级分布 ── */
-  const rel = await one(`SELECT COUNT(*) rows_all, COUNT(DISTINCT supplier_id) sups, COUNT(DISTINCT industry_code) codes FROM crm_supplier_industry_rel`);
+  const rel = await one(`SELECT COUNT(*) rows_all, COUNT(DISTINCT supplier_id) sups, COUNT(DISTINCT industry_code) codes FROM supplier_industry_rel`);
   const byLevel = await q(`SELECT t.level, COUNT(*) rows_n, COUNT(DISTINCT r.supplier_id) sups
-    FROM crm_supplier_industry_rel r JOIN ${IND} t ON t.code = r.industry_code
+    FROM supplier_industry_rel r JOIN ${IND} t ON t.code = r.industry_code
     GROUP BY t.level ORDER BY rows_n DESC`);
   const leafRows = byLevel.filter((x) => x.level === "subclass" || x.level === "extension").reduce((a, b) => a + Number(b.rows_n), 0);
   const leafShare = Number(rel.rows_all) ? leafRows / Number(rel.rows_all) : 0;
 
   /* ── 3. 头部集中度 ── */
   const top = await q(`SELECT r.industry_code, t.name_zh, t.level, COUNT(DISTINCT r.supplier_id) sups
-    FROM crm_supplier_industry_rel r JOIN ${IND} t ON t.code = r.industry_code
+    FROM supplier_industry_rel r JOIN ${IND} t ON t.code = r.industry_code
     GROUP BY r.industry_code, t.name_zh, t.level ORDER BY sups DESC LIMIT 10`);
   const top1Share = Number(rel.sups) ? Number(top[0]?.sups ?? 0) / Number(rel.sups) : 0;
   const top10Share = Number(rel.sups) ? top.reduce((a, b) => a + Number(b.sups), 0) / Number(rel.sups) : 0;
@@ -96,13 +96,13 @@ async function main() {
   const sections = await q(`WITH RECURSIVE cl AS (
       SELECT code anc, code node FROM ${IND} WHERE level='section'
       UNION ALL SELECT cl.anc, n.code FROM ${IND} n JOIN cl ON n.parent_code = cl.node)
-    SELECT s.code, s.name_zh, (SELECT COUNT(DISTINCT r.supplier_id) FROM cl JOIN crm_supplier_industry_rel r ON r.industry_code = cl.node WHERE cl.anc = s.code) sups
+    SELECT s.code, s.name_zh, (SELECT COUNT(DISTINCT r.supplier_id) FROM cl JOIN supplier_industry_rel r ON r.industry_code = cl.node WHERE cl.anc = s.code) sups
     FROM ${IND} s WHERE s.level='section' ORDER BY sups DESC`);
   const sectionsUsed = sections.filter((s) => Number(s.sups) > 0).length;
   const maxSectionShare = Number(rel.sups) ? Number(sections[0]?.sups ?? 0) / Number(rel.sups) : 0;
 
   /* ── 5. 自研新兴节点可用性 ── */
-  const ext = await q(`SELECT t.code, t.name_zh, (SELECT COUNT(*) FROM crm_supplier_industry_rel r WHERE r.industry_code = t.code) direct
+  const ext = await q(`SELECT t.code, t.name_zh, (SELECT COUNT(*) FROM supplier_industry_rel r WHERE r.industry_code = t.code) direct
     FROM ${IND} t WHERE t.level='extension' ORDER BY direct DESC`);
   const extUsed = ext.filter((x) => Number(x.direct) > 0).length;
   // 分母动态取数：扩树后总节点/自研节点会变，写死 1996、24 会失真误导
@@ -112,12 +112,12 @@ async function main() {
   /* ── 6. 每供应商码数分布（多行业表达是否在用） ── */
   const perSup = await one(`SELECT
       SUM(n = 1) one_code, SUM(n BETWEEN 2 AND 3) two_three, SUM(n > 3) over_three, MAX(n) max_n, ROUND(AVG(n),2) avg_n
-    FROM (SELECT supplier_id, COUNT(DISTINCT industry_code) n FROM crm_supplier_industry_rel GROUP BY supplier_id) x`);
+    FROM (SELECT supplier_id, COUNT(DISTINCT industry_code) n FROM supplier_industry_rel GROUP BY supplier_id) x`);
 
   /* ── 7. 主行业码与挂靠表是否自洽（门户卡片靠它同时展示主标签与多标签）── */
   const primaryInRel = await one(`SELECT
       COUNT(*) coded,
-      SUM(EXISTS(SELECT 1 FROM crm_supplier_industry_rel r
+      SUM(EXISTS(SELECT 1 FROM supplier_industry_rel r
                   WHERE r.supplier_id = s.id AND r.industry_code = s.industry_code)) in_rel
     FROM supplier s WHERE s.industry_code IS NOT NULL AND s.industry_code <> ''`);
   const inRelShare = Number(primaryInRel.coded) ? Number(primaryInRel.in_rel) / Number(primaryInRel.coded) : 1;

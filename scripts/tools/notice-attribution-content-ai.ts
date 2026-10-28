@@ -4,8 +4,8 @@
  * ⚑ AI 触发权归用户（硬约束）：本脚本只在【你手动运行】时才调用付费 API；--scope 模式不调任何 API、只报体量。
  *   无任何自动/定时 AI 调用。放量 apply 前先用 --scope 看量、再 --dry 看落点质量，每一步都由你拍板。
  *
- * 做什么：把 crm_taxonomy_intake 里 pending 的野码公告，按【公告正文语义】靠拢到
- *         crm_commodity_backbone 上【已存在】的节点，落点写 crm_notice_attribution_nodes
+ * 做什么：把 taxonomy_intake 里 pending 的野码公告，按【公告正文语义】靠拢到
+ *         commodity_backbone 上【已存在】的节点，落点写 notice_attribution_nodes
  *         （source='ai_content'），并把该公告在 intake 里的 pending 行翻成 resolved。
  *
  * 铁律（探针 197~203 实测 + 用户约束定稿）：
@@ -91,7 +91,7 @@ const USAGE = { calls: 0, prompt: 0, completion: 0 };
 /** 精化阶段被硬闸拦下的次数（树长大了超过 MAX_CHILDREN 时会非 0，必须报数不能静默） */
 const ZOOM = { capped: 0, hops: 0 };
 const SRC = "ai_content";
-const TABLE = "crm_notice_attribution_nodes";
+const TABLE = "notice_attribution_nodes";
 const STATE = "runtime/notice-attribution-content-ai-state.json";
 const STAMP = new Date().toISOString().replace(/[:.]/g, "-");
 
@@ -128,7 +128,7 @@ function targetCond(): string {
   if (TARGET === "coarse") return `${active} AND ${content} AND ${hasAnyLanding} AND ${noValidLanding}`;
   if (TARGET === "classified") return `${active} AND ${content} AND ${hasLegacy} AND ${noAiLanding}`;
   if (TARGET === "all") return `${active} AND n.title IS NOT NULL AND n.title <> '' AND ${content} AND ${noAiLanding}`;
-  return `${active} AND ${content} AND EXISTS (SELECT 1 FROM crm_taxonomy_intake i WHERE i.notice_id = n.notice_id AND i.status = 'pending') AND ${noValidLanding}`;
+  return `${active} AND ${content} AND EXISTS (SELECT 1 FROM taxonomy_intake i WHERE i.notice_id = n.notice_id AND i.status = 'pending') AND ${noValidLanding}`;
 }
 
 /** 人群文字（--scope 报告用） */
@@ -147,7 +147,7 @@ if (!APPLY) console.log("  （dry：会真调 LLM 与召回，但【不写任何
 // ── --scope：只报体量，不调用任何 API（AI 花费由用户显式决定）──
 if (SCOPE) {
   const c = await q<{ n: number }>(
-    `SELECT COUNT(*) n FROM crm_bid_notices n
+    `SELECT COUNT(*) n FROM bid_notices n
       WHERE ${targetCond()}`,
   );
   const todo = Number(c[0].n);
@@ -156,7 +156,7 @@ if (SCOPE) {
   // 同一句里附「本档之外还有多少同类公告卡在采集环节」：活跃闸与正文闸已入 SQL，
   // 所以这里的差值 = 同人群但正文不够者——它们只能先重采，给 AI 钱也推不动。
   const noContent = await q<{ n: number }>(
-    `SELECT COUNT(*) n FROM crm_bid_notices n
+    `SELECT COUNT(*) n FROM bid_notices n
       WHERE ${ACTIVE_NOTICE_WHERE} AND NOT ${withMinContentWhere("n")} AND ${
         TARGET === "coarse" ? `EXISTS (SELECT 1 FROM ${TABLE} a WHERE a.notice_pk = n.id) AND ${withoutValidLandingWhere(TABLE)}` : withoutValidLandingWhere(TABLE)
       }`,
@@ -198,7 +198,7 @@ async function runPool<T, R>(items: T[], limit: number, fn: (it: T, i: number) =
 
 // 骨架索引（树内码闸口）+ L1 大类清单（stage1 闭集）
 const idx = await loadBackboneIndex(<T>(sql: string) => q<T>(sql));
-const l1rows = await q<{ code: string; name_zh: string; name_en: string }>(`SELECT code, name_zh, name_en FROM crm_commodity_backbone WHERE level=1 AND status=1 ORDER BY code`);
+const l1rows = await q<{ code: string; name_zh: string; name_en: string }>(`SELECT code, name_zh, name_en FROM commodity_backbone WHERE level=1 AND status=1 ORDER BY code`);
 const l1set = new Set(l1rows.map((r) => r.code));
 const l1List = l1rows.map((r) => `${r.code} ${r.name_zh}${r.name_en ? " / " + r.name_en : ""}`).join("\n");
 console.log(`骨架索引 ${idx.size} 节点，L1 大类 ${l1rows.length} 个\n`);
@@ -221,21 +221,21 @@ async function anchorOne(n: { pk: number; notice_id: string; title: string; desc
   const likeSql = groups.map(() => "code LIKE ?").join(" OR ");
   if (groups.length) {
     const gp = groups.map((g) => g + "%");
-    for (const r of await q<{ code: string }>(`SELECT code FROM crm_commodity_backbone WHERE status=1 AND level IN (2,3) AND (${likeSql})`, gp)) add(r.code, 3);
+    for (const r of await q<{ code: string }>(`SELECT code FROM commodity_backbone WHERE status=1 AND level IN (2,3) AND (${likeSql})`, gp)) add(r.code, 3);
     for (const query of [n.zh, n.title].filter(Boolean)) {
-      const deep = await q<{ code: string; rel: number }>(`SELECT code, MATCH(name_zh,name_en) AGAINST(? IN NATURAL LANGUAGE MODE) rel FROM crm_commodity_backbone WHERE status=1 AND level IN (4,5) AND (${likeSql}) AND MATCH(name_zh,name_en) AGAINST(? IN NATURAL LANGUAGE MODE) ORDER BY rel DESC LIMIT ?`, [query, ...gp, query, TOPK]);
+      const deep = await q<{ code: string; rel: number }>(`SELECT code, MATCH(name_zh,name_en) AGAINST(? IN NATURAL LANGUAGE MODE) rel FROM commodity_backbone WHERE status=1 AND level IN (4,5) AND (${likeSql}) AND MATCH(name_zh,name_en) AGAINST(? IN NATURAL LANGUAGE MODE) ORDER BY rel DESC LIMIT ?`, [query, ...gp, query, TOPK]);
       for (const r of deep) add(r.code, 2 + Number(r.rel) / 1000);
     }
   }
   for (const query of [n.zh, n.title].filter(Boolean)) {
-    const g = await q<{ code: string; rel: number }>(`SELECT code, MATCH(name_zh,name_en) AGAINST(? IN NATURAL LANGUAGE MODE) rel FROM crm_commodity_backbone WHERE status=1 AND MATCH(name_zh,name_en) AGAINST(? IN NATURAL LANGUAGE MODE) ORDER BY rel DESC, level DESC LIMIT ?`, [query, query, TOPK]);
+    const g = await q<{ code: string; rel: number }>(`SELECT code, MATCH(name_zh,name_en) AGAINST(? IN NATURAL LANGUAGE MODE) rel FROM commodity_backbone WHERE status=1 AND MATCH(name_zh,name_en) AGAINST(? IN NATURAL LANGUAGE MODE) ORDER BY rel DESC, level DESC LIMIT ?`, [query, query, TOPK]);
     for (const r of g) add(r.code, 1 + Number(r.rel) / 1000);
   }
   if (cand.size === 0) { plan.verdict = "no-candidate"; return plan; }
   const sel = new Map(cand);
   for (const [code, w] of cand) for (const a of ancestorCodes(code)) if (!sel.has(a)) sel.set(a, w - 1);
   const codes = [...sel.keys()];
-  const meta = new Map((await q<{ code: string; name_zh: string; level: number }>(`SELECT code, name_zh, level FROM crm_commodity_backbone WHERE code IN (${codes.map(() => "?").join(",")}) AND status=1`, codes)).map((r) => [r.code, { name: r.name_zh, level: r.level }]));
+  const meta = new Map((await q<{ code: string; name_zh: string; level: number }>(`SELECT code, name_zh, level FROM commodity_backbone WHERE code IN (${codes.map(() => "?").join(",")}) AND status=1`, codes)).map((r) => [r.code, { name: r.name_zh, level: r.level }]));
   const list = codes.filter((x) => meta.has(x)).sort((a, b) => (sel.get(b)! - sel.get(a)!) || (meta.get(b)!.level - meta.get(a)!.level)).slice(0, 160).map((code) => ({ code, path: ancestorCodes(code).map((a) => meta.get(a)?.name ?? "?").join(">") }));
   const s2 = `你是政府采购品目归类器。给你一条公告和一组【已存在的】候选品目节点（编号 | 层级路径 大类>中类>小类>子类>品目）。任务：选出公告所属的节点编号——判定标准是【容纳】，不是【相近】。规则：只能选候选里的编号，【禁止提新码/新类目】；候选里的叶子品目与公告标的物【完全对应】时才选叶子（越深越好）；叶子对应不上、但其父类(L4/L3/L2)能容纳时，【必须上挂父类】——语义相近但指代不同标的物的近邻叶子视为不贴切，宁上挂父类也不选它；【不得选 L1 大类】；候选里任何层级都不沾边才输出 NONE。confidence 只反映【容纳准确度】：上挂父类是正确行为，照常给高 confidence；只有选中「相近但不对应」的节点时才给低 confidence。只输出一个 JSON 对象，无解释无 markdown：{"code":"...","confidence":0.0到1.0,"reason":"一句话依据"}\n\n公告标题：${n.title}\n${n.zh ? `标题中文：${n.zh}\n` : ""}公告正文（截断）：${n.desc.slice(0, DESC_CAP)}\n\n候选：\n${list.map((x, k) => `[${k + 1}] ${x.code} | ${x.path}`).join("\n")}\n\n输出(JSON):`;
   let pick = { code: "NONE", confidence: 0, reason: "bad-json" };
@@ -260,7 +260,7 @@ async function anchorOne(n: { pk: number; notice_id: string; title: string; desc
   let curName = meta.get(code)?.name ?? "";
   for (let hop = 0; hop < MAX_ZOOM_HOPS && curLv < 5; hop++) {
     const kids = await q<{ code: string; name_zh: string; level: number }>(
-      `SELECT code, name_zh, level FROM crm_commodity_backbone
+      `SELECT code, name_zh, level FROM commodity_backbone
         WHERE status=1 AND level = ? AND code LIKE ? ORDER BY code`,
       [curLv + 1, `${cur}%`],
     );
@@ -325,7 +325,7 @@ for (;;) {
   const rows = await q<{ pk: number; notice_id: string; title: string; description: string; coarse_rows: number }>(
     `SELECT n.id pk, n.notice_id, n.title, n.description,
        (SELECT COUNT(*) FROM ${TABLE} a WHERE a.notice_pk = n.id AND LENGTH(a.node_code) < ${ATTR_VALID_MIN_CODE_LEN}) coarse_rows
-      FROM crm_bid_notices n
+      FROM bid_notices n
       WHERE n.id > ? AND ${targetCond()}
       ORDER BY n.id LIMIT ${BATCH}`, [st.lastId],
   );
@@ -365,7 +365,7 @@ for (;;) {
           // 即该公告已有同码落点——保留既有行，绝不 ODKU 原地覆盖（那会把
           // source/model/confidence 审计线整条抹掉，存量归属被悄悄换源而门禁全绿）。
           await conn.query(`INSERT IGNORE INTO \`${TABLE}\` (notice_pk, node_code, level, confidence, source, model, evidence_text) VALUES (?, ?, ?, ?, ?, ?, ?)`, [p.pk, p.code, p.level, p.conf.toFixed(3), SRC, MODEL, p.reason]);
-          await conn.query(`UPDATE crm_taxonomy_intake SET status='resolved' WHERE notice_id=? AND status='pending'`, [p.notice_id]);
+          await conn.query(`UPDATE taxonomy_intake SET status='resolved' WHERE notice_id=? AND status='pending'`, [p.notice_id]);
           // 粗落点清理（本人群专属，不走 --replace-legacy）：新行落进去后若还留着 L1 粗行，
           // 就是 AS1 混源 + BB15b 父子冗余。只删 legacy_tag 的粗码行；非 legacy 的粗行是不可重算
           // 的判定事实（与 assertDroppable 同纪律）⇒ 报错停下交人工，绝不默默删掉别人的判定。

@@ -1,7 +1,7 @@
 /**
  * 公告品目归属落点表：幂等 DDL
  *
- * 做什么：建 `crm_notice_attribution_nodes` —— 旧品类字典码退役后公告品目归属的**唯一事实源**，
+ * 做什么：建 `notice_attribution_nodes` —— 旧品类字典码退役后公告品目归属的**唯一事实源**，
  *         一行 = 「某公告在某节点上有最深落点」。宽表 `backbone_path` 继续是派生列，
  *         由 `src/lib/services/commodity/attribution.ts` 的 `pathOfLandingNodes()` 补祖先产出，
  *         `buildWideRow` 依旧是唯一写入方（ADR-0007 前提不废，只是换了输入源）。
@@ -9,14 +9,14 @@
  * 存什么 / 不存什么（都是有意的）：
  *   - 只存最深落点，**不存祖先链**：祖先由节点码唯一决定（`chainOfNode` 纯切片，BB1 钉的
  *     不变量）。存两份就是第二个事实源——树正名或挪归属改一次，落库的旧链就悄悄对不上。
- *   - `level` 冗余存储但不作判据：码长唯一决定层级，读侧一律现算（与 crm_commodity_backbone
+ *   - `level` 冗余存储但不作判据：码长唯一决定层级，读侧一律现算（与 commodity_backbone
  *     不存 level 同一条纪律）；这一列只为人工排查时肉眼分组。
- *   - 不建外键到 crm_bid_notices：本表由灌入脚本与 AI worker 写入，公告行可能尚未同步；
+ *   - 不建外键到 bid_notices：本表由灌入脚本与 AI worker 写入，公告行可能尚未同步；
  *     与已退役的旧公告×字典码桥表同一做法（那张表也只有索引没有外键；已于 2026-10-14 退役）。
  *   - notice_pk 用**内部主键**而不是 notice_id 外部编号：实测外部编号有撞号
- *     （crm_bid_opportunities.source_notice_id 与宽表 id 域相撞，见 match-nodes.ts:16-20），拿它接会接错行。
+ *     （bid_opportunities.source_notice_id 与宽表 id 域相撞，见 match-nodes.ts:16-20），拿它接会接错行。
  *   - 排序规则跟库默认 utf8mb4_0900_ai_ci，**不上 _bin**：本表的 node_code 迟早要和
- *     crm_commodity_backbone.code / backbone_path 直接比较，两侧 collation 不同会让 MySQL
+ *     commodity_backbone.code / backbone_path 直接比较，两侧 collation 不同会让 MySQL
  *     转列 —— 转列就是函数作用在列上，索引静默失效（与 commodity-notice-nodes-ddl.ts 同结论）。
  *
  * 用法：
@@ -33,7 +33,7 @@ import mysql from "mysql2/promise";
 import { assertDroppable, assertTableName } from "../../src/lib/services/commodity/attribution-contract";
 
 /** 正名表：--drop-table 对它的处置只看身份，不看内容（见下面 DROP 分支的注释） */
-const CANON = "crm_notice_attribution_nodes";
+const CANON = "notice_attribution_nodes";
 
 const APPLY = process.argv.includes("--apply");
 const DROP = process.argv.includes("--drop-table");
@@ -85,7 +85,7 @@ try {
 
 const DDL = `CREATE TABLE \`${TABLE}\` (
   \`id\` bigint unsigned NOT NULL AUTO_INCREMENT,
-  \`notice_pk\` int unsigned NOT NULL COMMENT 'crm_bid_notices.id 内部主键；不用 notice_id 外部编号（实测撞号）',
+  \`notice_pk\` int unsigned NOT NULL COMMENT 'bid_notices.id 内部主键；不用 notice_id 外部编号（实测撞号）',
   \`node_code\` varchar(40) NOT NULL COMMENT '最深落点 UGT-*；祖先不落库，由 attribution.pathOfLandingNodes 现算',
   \`level\` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '由 node_code 码长唯一决定，仅冗余展示用，不作任何判据',
   \`confidence\` decimal(5,2) NOT NULL DEFAULT 0 COMMENT 'AI 置信；legacy_tag 固定 1.00',
@@ -118,7 +118,7 @@ console.log(`表 ${TABLE}：${Number(tbl.n) > 0 ? "已存在" : "不存在"}`);
 
 // 派生列必须在场：宽表还没有 backbone_path 就是环境不对（本表是它的上游事实源）
 const srcCol = await one<{ n: number }>(
-  `SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='crm_notice_search' AND column_name='backbone_path'`,
+  `SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='notice_search' AND column_name='backbone_path'`,
 );
 if (Number(srcCol.n) === 0) {
   console.log("✗ 宽表没有 backbone_path 列：本库还没跑过上一轮 DDL，先确认环境再建表");
@@ -126,7 +126,7 @@ if (Number(srcCol.n) === 0) {
   process.exit(1);
 }
 const src = await one<{ notices: number }>(
-  `SELECT COUNT(*) notices FROM crm_notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''`,
+  `SELECT COUNT(*) notices FROM notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''`,
 );
 console.log(`灌入源：${src.notices} 条公告已有归属列（本表建成后由 backfill 脚本压出落点）`);
 

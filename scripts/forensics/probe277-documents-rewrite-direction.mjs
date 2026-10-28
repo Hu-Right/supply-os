@@ -15,7 +15,7 @@ import { conn } from "../../scripts/tools/lib/notices-slim-common.mjs";
 
 const arg = (name, dft) => (process.argv.find((a) => a.startsWith(`--${name}=`)) ?? "").split("=")[1] ?? dft;
 const BAK = "crm_bid_notices_documents_bak_20261015";
-const LIVE = "crm_bid_notices";
+const LIVE = "bid_notices";
 const OLD_PREV = "crm_bid_notices_retired_b2_20261015";
 // 只有 JSON 列才用得上 JSON_LENGTH；换成别的列就退回纯 NULL 判定
 const COL = arg("col", "documents");

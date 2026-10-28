@@ -4,8 +4,8 @@
  *    请在部署层移除对本脚本的 cron / 定时调用，避免与应用内同步形成「两个写入者并发 ODKU 主表」。
  *    本文件仅保留作手动应急兜底（如应用内同步异常时人工补跑一轮）。
  *    ⚠ 本脚本不同步任何品类/桥表（2026-10-15 起，与旧品类字典退役口径一致）：
- *    公告品目归属的唯一事实源是落点表 crm_notice_attribution_nodes（应用内管道写），
- *    本脚本只增量 upsert crm_bid_notices / crm_bid_opportunities 两张主表。
+ *    公告品目归属的唯一事实源是落点表 notice_attribution_nodes（应用内管道写），
+ *    本脚本只增量 upsert bid_notices / bid_opportunities 两张主表。
  *
  * 内网爬虫数据 → 线上生产库 定时增量同步
  *
@@ -64,7 +64,7 @@
 // ═══════════════════════════════════════════
 // 2026-10-15 恢复手动执行：退役原因（直插旧公告桥表）已随旧品类字典退役消除——
 //    桥表/候选表已移出 SYNC_TABLES，公告归属唯一事实源是落点表
-//    crm_notice_attribution_nodes（由应用内构建链路写，本脚本不碰）。
+//    notice_attribution_nodes（由应用内构建链路写，本脚本不碰）。
 //    本脚本仅作手动应急兜底（node daily-sync.cjs --once），不得挂 cron。
 // ═══════════════════════════════════════════
 
@@ -213,11 +213,11 @@ assertValidConfig('SOURCE', SOURCE);
 assertValidConfig('TARGET', TARGET);
 
 // 同步清单只保留两张主表：旧类目桥表已随字典退役（公告品目归属的唯一口径是
-// 落点表 crm_notice_attribution_nodes，由云端构建链路自己写，不再从源库直通）。
+// 落点表 notice_attribution_nodes，由云端构建链路自己写，不再从源库直通）。
 const SYNC_TABLES = [
-  'crm_bid_notices',
-  'crm_bid_opportunities',
-  // crm_bid_awards / crm_bid_award_winners 无需同步——数据本身就在云端库中
+  'bid_notices',
+  'bid_opportunities',
+  // bid_awards / bid_award_winners 无需同步——数据本身就在云端库中
 ];
 
 const BATCH_SIZE = 200;
@@ -323,8 +323,8 @@ function log(msg) {
 
 /**
  * 加载水位线（兼容旧版纯数字格式）
- * 新版格式: { "crm_bid_notices": { id: 1786254709, update_time: "2026-09-16 10:08:17" } }
- * 旧版格式: { "crm_bid_notices": 1786254709 }
+ * 新版格式: { "bid_notices": { id: 1786254709, update_time: "2026-09-16 10:08:17" } }
+ * 旧版格式: { "bid_notices": 1786254709 }
  */
 function loadWatermarks() {
   try {
@@ -716,12 +716,12 @@ function saveServiceWatermark(lastSuccess) {
  *   G1 源库 id 集为空 ⇒ 视为连接/权限故障，绝不等于「源库全空」；
  *   G2 源库行数 < 云端行数 90% ⇒ 疑似连错库/取数被截断（差异集会是几十万而非几千）；
  *   G3 单次删除超 PRUNE_MAX ⇒ 量级不对；
- *   G4 删除集含已付费解锁记录（crm_opportunity_unlocks.notice_id）⇒ 权益处置交人工。
+ *   G4 删除集含已付费解锁记录（opportunity_unlocks.notice_id）⇒ 权益处置交人工。
  * 此外永远排除平台行（PLATFORM_IMMUNE）：那些行本仓自建、源库永远没有。
  * 真删前先把 id 清单落 runtime/backups/，按单行主键可重灌。
  */
 async function pruneSourceDeleted(source, target) {
-  const table = 'crm_bid_notices';
+  const table = 'bid_notices';
   log(`  ── 源撤回下传（${table}）${APPLY_RECONCILE ? '· 将删除' : '· DRY 预览（加 --apply 才删除）'} ──`);
 
   const [srcRows] = await source.query(`SELECT id FROM \`${table}\``);
@@ -744,7 +744,7 @@ async function pruneSourceDeleted(source, target) {
   if (doomed.length > PRUNE_MAX) throw new Error(`G3 待删 ${doomed.length} 行超上限 ${PRUNE_MAX}：量级不对，中止`);
 
   const [paid] = await target.query(
-    `SELECT COUNT(*) AS n, COUNT(DISTINCT notice_id) AS notices FROM crm_opportunity_unlocks WHERE notice_id IN (?)`,
+    `SELECT COUNT(*) AS n, COUNT(DISTINCT notice_id) AS notices FROM opportunity_unlocks WHERE notice_id IN (?)`,
     [doomed],
   );
   if (Number(paid[0].n) > 0) {
@@ -772,7 +772,7 @@ async function pruneSourceDeleted(source, target) {
 }
 
 /**
- * 主表同步完成后，重算服务表 crm_notice_public。
+ * 主表同步完成后，重算服务表 notice_public。
  * 子进程运行 TS builder，避免把归一化逻辑复制进 CJS；失败只告警，下一轮重试。
  *
  * 选行口径用 --changed（不等式判据）而不再用时间窗口：窗口会把当天所有变更行重刷

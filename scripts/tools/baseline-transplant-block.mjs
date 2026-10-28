@@ -12,7 +12,7 @@
  * 移植前建议先跑 scripts/forensics/probe278-baseline-block-diff.mjs 看清「除本表外还有哪些块不同」。
  *
  * 用法：
- *   node scripts/tools/baseline-transplant-block.mjs --table=crm_bid_notices --fresh=runtime/baseline-fresh.sql
+ *   node scripts/tools/baseline-transplant-block.mjs --table=bid_notices --fresh=runtime/baseline-fresh.sql
  *   加 --check 只比对不写文件（等价 dry-run）
  * @see docs/adr/0003（影子表蓝绿切换）与 scripts/tools/notices-slim-plan.mjs 头注「落库终态」
  */

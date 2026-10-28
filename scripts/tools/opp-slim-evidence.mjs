@@ -1,8 +1,8 @@
 /**
- * crm_bid_opportunities 精简取证 · 可重跑证据脚本
+ * bid_opportunities 精简取证 · 可重跑证据脚本
  *
  * 一次跑齐精简方案依赖的六项事实，输出到控制台（判据全部写进
- * docs/数据库设计/crm_bid_opportunities-投标商机表.md，本文是复跑入口）：
+ * docs/数据库设计/bid_opportunities-投标商机表.md，本文是复跑入口）：
  *   1) 列清单与逐列充实度（有值行数 / 去重值数 / 非空样本）
  *   2) 体积按列归因（证明「砍小列不省空间，长文本才是主体」）
  *   3) 状态族等价性（audit_status / review_status / is_qualified / status / is_expired）
@@ -19,7 +19,7 @@
 import mysql from "mysql2/promise";
 import { RETIRED_INTL_COLUMNS } from "./opp-slim-plan.mjs";
 
-const TABLE = process.argv[2] ?? "crm_bid_opportunities";
+const TABLE = process.argv[2] ?? "bid_opportunities";
 const conn = await mysql.createConnection({
   host: process.env.DB_HOST ?? "127.0.0.1",
   port: Number(process.env.DB_PORT ?? 3306),
@@ -78,7 +78,7 @@ console.log("等价性:", JSON.stringify(await q(
 )));
 
 // 4) 与主表同名列重复率
-console.log("\n===== 与 crm_bid_notices 同名列重复率（配对行）=====");
+console.log("\n===== 与 bid_notices 同名列重复率（配对行）=====");
 const mirror = (await q(
   `SELECT COUNT(*) paired,
           SUM(o.title <=> n.title) title_same, SUM(o.agency <=> n.agency) agency_same,
@@ -87,7 +87,7 @@ const mirror = (await q(
           SUM(o.registration_level <=> n.registration_level) reglevel_same, SUM(o.country <=> n.country) country_same,
           SUM(o.notice_type <=> n.notice_type) type_same, SUM(o.estimated_value <=> n.estimated_value) value_same,
           SUM(o.description <=> n.description) desc_same
-     FROM \`${TABLE}\` o JOIN crm_bid_notices n ON n.notice_id = o.source_notice_id`,
+     FROM \`${TABLE}\` o JOIN bid_notices n ON n.notice_id = o.source_notice_id`,
 ))[0];
 console.log(JSON.stringify(mirror));
 

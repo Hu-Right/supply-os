@@ -2,30 +2,28 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * 架构红线守卫：服务表 crm_notice_public 单一写入者 + schema 单一事实源
+ * 架构红线守卫：服务表 notice_public 单一写入者 + schema 单一事实源
  * @see ARCHITECTURE.md 红线 #6（宽表单一写入者）同族纪律
  *
  * 规则：
- *   N1) 只有 scripts/ops/notice-public-v2.ts 可对 crm_notice_public 执行
- *       INSERT/REPLACE/UPDATE/DELETE/TRUNCATE。其余任何代码手写刷服务表，都会与 v2 构建口径分叉
+ *   N1) 只有 src/lib/services/notice-public/build.ts 可对 notice_public 执行
+ *       INSERT/REPLACE/UPDATE/DELETE/TRUNCATE。其余任何代码手写刷服务表，都会与构建口径分叉
  *       （本项目已多次实测踩到「表↔builder 两套 DDL 打架」导致刷新链崩溃）。
- *   N2) db/schema/baseline.sql 里 crm_notice_public 的列集合，必须与 v2 的 COLS 集合
- *       完全一致。手改表忘改 builder（或反之）= 漂移，此门禁当场拦截。
+ *       （2026-10-27 管道翻转：唯一写入者从 gitignore 的 ops 脚本迁入 src，仓库内可审、
+ *       CI 全量生效；ops 的 notice-public-v2.ts 降级为 CLI 壳，不再含写语句。）
+ *   N2) db/schema/baseline.sql 里 notice_public 的列集合，必须与 build.ts 的 PUBLIC_COLS
+ *       集合完全一致。手改表忘改 builder（或反之）= 漂移，此门禁当场拦截。
  *
- * 执行机感知（口径同 check-gitignore-consistency R5）：v2 builder 落在 scripts/ops/，按分层约定不入库；
- * CI 干净 clone 里 ops 整目录缺失 ⇒ N2 的「baseline vs v2 COLS」无从判生死 ⇒ 降为 SKIP 不判红，
- * 防呆职责归装有 scripts/ops/ 的执行机（npm run lint / pre-push）。N1（越权写扫描）针对已跟踪的
- * src/、scripts/，在 CI 仍全量生效。
+ * 执行机感知：写入者与 COLS 均在 src（已跟踪），N1/N2 在 CI 干净 clone 全量生效，
+ * 不再有「ops 目录缺失降级 SKIP」的形态。
  *
  * 违规 exit 1，供 lint / CI 拦截。扫描根可用 NP_SCAN_ROOT 覆盖（夹具测试用）。
  */
 const ROOT = process.env.NP_SCAN_ROOT || process.cwd();
-const TABLE = "crm_notice_public";
-const WRITER = "scripts/ops/notice-public-v2.ts";
+const TABLE = "notice_public";
+const WRITER = "src/lib/services/notice-public/build.ts";
 const EXT = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
 const SKIP_DIR = new Set(["node_modules", ".next", "dist", "coverage", ".git"]);
-// ops 整目录缺失 ⇒ 必是 CI 等干净 clone（v2 按约定不入库），N2 builder 侧无从判定 ⇒ 降为 SKIP。
-const OPS_DIR_PRESENT = fs.existsSync(path.join(ROOT, "scripts", "ops"));
 const violations = [];
 
 function walk(target) {
@@ -50,7 +48,7 @@ function walk(target) {
   });
 }
 
-/** 从 baseline.sql 抽 crm_notice_public 的列名集合 */
+/** 从 baseline.sql 抽 notice_public 的列名集合 */
 function baselineColumns() {
   const f = path.join(ROOT, "db", "schema", "baseline.sql");
   if (!fs.existsSync(f)) { violations.push("N2 找不到 db/schema/baseline.sql"); return null; }
@@ -67,20 +65,20 @@ function baselineColumns() {
   return cols;
 }
 
-/** 从 v2 抽 COLS 数组的列名集合 */
+/** 从 build.ts 抽 PUBLIC_COLS 数组的列名集合 */
 function builderColumns() {
-  const f = path.join(ROOT, "scripts", "ops", "notice-public-v2.ts");
-  if (!fs.existsSync(f)) { violations.push("N2 找不到 notice-public-v2.ts"); return null; }
+  const f = path.join(ROOT, "src", "lib", "services", "notice-public", "build.ts");
+  if (!fs.existsSync(f)) { violations.push("N2 找不到 src/lib/services/notice-public/build.ts"); return null; }
   const src = fs.readFileSync(f, "utf8");
-  const block = /const\s+COLS\s*=\s*\[([\s\S]*?)\]/.exec(src);
-  if (!block) { violations.push("N2 v2 里找不到 COLS 数组"); return null; }
+  const block = /const\s+PUBLIC_COLS\s*=\s*\[([\s\S]*?)\]/.exec(src);
+  if (!block) { violations.push("N2 build.ts 里找不到 PUBLIC_COLS 数组"); return null; }
   return [...block[1].matchAll(/"([a-z0-9_]+)"/gi)].map((m) => m[1]);
 }
 
 for (const dir of [path.join(ROOT, "src"), path.join(ROOT, "scripts")]) walk(dir);
 
 const bCols = baselineColumns();
-const vCols = OPS_DIR_PRESENT ? builderColumns() : null;
+const vCols = builderColumns();
 if (bCols && vCols) {
   const b = new Set(bCols), v = new Set(vCols);
   const onlyBase = [...b].filter((c) => !v.has(c));
@@ -97,13 +95,7 @@ if (bCols && vCols) {
 if (violations.length) {
   console.error(`✖ 违反服务表架构红线（${TABLE} 单一写入者 / schema 单一事实源）：`);
   for (const x of violations) console.error(`  - ${x}`);
-  console.error(`  服务表内容由 ${WRITER} 唯一写入；改表结构须同步改 v2 与 baseline。`);
+  console.error(`  服务表内容由 ${WRITER} 唯一写入；改表结构须同步改 PUBLIC_COLS 与 baseline。`);
   process.exit(1);
 }
-if (OPS_DIR_PRESENT) {
-  console.log(`✓ 服务表单一写入者与 schema 一致性检查通过（${bCols?.length} 列，baseline==v2）`);
-} else {
-  console.log(
-    `✓ 服务表单一写入者检查通过；CI 干净 clone 无 scripts/ops，v2↔baseline COLS 一致性在执行机校验（口径同 check:gitignore R5）`,
-  );
-}
+console.log(`✓ 服务表单一写入者与 schema 一致性检查通过（${bCols?.length} 列，baseline==PUBLIC_COLS）`);

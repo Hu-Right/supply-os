@@ -2,11 +2,11 @@
  * 野码「人工锚定」落点提交器（混合 A 的执行器 · 零 API · 默认 dry · 双闸 · 只锚零落点）
  *
  * 用途：我（会话里的 AI）按公告内容人工判定 UGT 落点后，把「pk → 已存在节点码」这层判定
- *       写进事实源 crm_notice_attribution_nodes(source='ai_content')，并把 intake pending 翻 resolved。
+ *       写进事实源 notice_attribution_nodes(source='ai_content')，并把 intake pending 翻 resolved。
  *       不调用任何 LLM/付费 API —— 判定是人做的，本脚本只负责【带闸落地】。
  *
  * 铁律（同 R3 生产者，防上次回滚的两类问题）：
- *   1) 禁造码/防幻觉：每个 code 必须在 crm_commodity_backbone(status=1)，命中不到就整条拒写；
+ *   1) 禁造码/防幻觉：每个 code 必须在 commodity_backbone(status=1)，命中不到就整条拒写；
  *   2) 防父子冗余(BB15b)：只写「当前零落点」的公告（已有落点默认跳过，--force 才覆盖）；
  *   3) 幂等：INSERT IGNORE（2026-10-14 由 ODKU 改起，ADR-0014 结论 7：撞 uk_notice_node
  *      即既有落点保留原行，绝不覆盖 source/model/confidence 审计线）；重跑不改口径；
@@ -29,7 +29,7 @@ const ai = process.argv.indexOf("--anchors");
 const ANCHORS_FILE = ai > 0 && process.argv[ai + 1] ? process.argv[ai + 1] : "temp/manual-anchors-1.json";
 const SRC = "ai_content";
 const MODEL = "manual_anchor";
-const TABLE = "crm_notice_attribution_nodes";
+const TABLE = "notice_attribution_nodes";
 
 if (APPLY && !YES) { console.error("✗ --apply 必须带 --yes（人工闸口）；先跑 dry 出写计划"); process.exit(1); }
 for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) { const m = line.match(/^([A-Z0-9_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, ""); }
@@ -48,11 +48,11 @@ type Plan = { pk: number; code: string; level: number; conf: number; reason: str
 const plans: Plan[] = [];
 const rejected: string[] = [];
 for (const a of anchors) {
-  const inTree = await q(`SELECT level FROM crm_commodity_backbone WHERE code = ? AND status = 1`, [a.code]);
+  const inTree = await q(`SELECT level FROM commodity_backbone WHERE code = ? AND status = 1`, [a.code]);
   if (!inTree.length) { rejected.push(`${a.pk}/${a.code}: 树外或非法(拒写)`); continue; }
   const level = Number(inTree[0].level);
   // notice_id 与 pk 一致性校验（防错挂）
-  const ns = await q(`SELECT id FROM crm_bid_notices WHERE notice_id = ?`, [a.notice_id]);
+  const ns = await q(`SELECT id FROM bid_notices WHERE notice_id = ?`, [a.notice_id]);
   if (!ns.length || Number(ns[0].id) !== a.pk) { rejected.push(`${a.pk}/${a.notice_id}: notice_id 与 pk 不匹配(拒写)`); continue; }
   if (!FORCE) {
     const has = await q(`SELECT 1 x FROM \`${TABLE}\` WHERE notice_pk = ? LIMIT 1`, [a.pk]);
@@ -73,7 +73,7 @@ for (const p of plans) {
     `INSERT IGNORE INTO \`${TABLE}\` (notice_pk, node_code, level, confidence, source, model, evidence_text) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [p.pk, p.code, p.level, p.conf.toFixed(3), SRC, MODEL, p.reason],
   );
-  await pool.query(`UPDATE crm_taxonomy_intake SET status='resolved' WHERE notice_id = ? AND status='pending'`, [p.nid]);
+  await pool.query(`UPDATE taxonomy_intake SET status='resolved' WHERE notice_id = ? AND status='pending'`, [p.nid]);
   written++;
 }
 console.log(`\n✓ 已写 ${written} 条 ai_content 落点 + 翻对应 intake resolved`);

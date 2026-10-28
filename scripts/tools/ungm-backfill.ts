@@ -1,6 +1,6 @@
 /**
  * UNGM 正文补采（页面固定结构，不调 LLM）。
- * 仅补活跃 empty/echo/thin 的 UNGM 公告，写入 crm_notice_body。
+ * 仅补活跃 empty/echo/thin 的 UNGM 公告，写入 notice_body。
  *
  * 用法：
  *   npx tsx scripts/tools/ungm-backfill.ts --limit=20 --dry-run
@@ -26,11 +26,11 @@ const c = await mysql.createConnection({
 });
 const [rows] = await c.query(
   `SELECT notice_pk, source_url, title, content_level
-     FROM crm_notice_public
+     FROM notice_public
     WHERE source_url LIKE '%ungm.org/Public/Notice/%'
       AND ((deadline_state='known' AND deadline_ts>=UNIX_TIMESTAMP(NOW())) OR deadline_state='unknown')
       AND content_level IN ('empty','echo','thin')
-      AND NOT EXISTS (SELECT 1 FROM crm_notice_body b WHERE b.notice_pk=crm_notice_public.notice_pk AND b.body_source='ungm')
+      AND NOT EXISTS (SELECT 1 FROM notice_body b WHERE b.notice_pk=notice_public.notice_pk AND b.body_source='ungm')
     ORDER BY is_opportunity DESC, notice_pk DESC
     LIMIT ?`,
   [LIMIT],
@@ -62,7 +62,7 @@ for (const r of rows as Array<Record<string, unknown>>) {
     const level = body.length >= 300 ? "substantive" : "thin";
     if (APPLY) {
       await c.query(
-        `INSERT INTO crm_notice_body (notice_pk,body_text,body_chars,body_source,content_level)
+        `INSERT INTO notice_body (notice_pk,body_text,body_chars,body_source,content_level)
          VALUES (?,?,?, 'ungm', ?)
          ON DUPLICATE KEY UPDATE body_text=VALUES(body_text), body_chars=VALUES(body_chars),
            body_source=VALUES(body_source), content_level=VALUES(content_level)`,

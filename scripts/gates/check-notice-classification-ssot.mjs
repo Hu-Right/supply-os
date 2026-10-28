@@ -7,7 +7,7 @@ import path from "node:path";
  *      （上述原文已不在仓内，口径与批次划分现由 docs/superpowers/specs/ 下的全面退役设计稿承接）
  *
  * 规则 NC1) 「读结果」链路（src/**，白名单目录除外）不得引用公告旧品类字典分类列：
- *   - 旧品类族与 precise 族的 `_level1~5`：宽表公告分类列（`crm_notice_search`）
+ *   - 旧品类族与 precise 族的 `_level1~5`：宽表公告分类列（`notice_search`）
  *   - `precise_level[1-5]_id`：旧字典 precise 口径的 Meili 镜像属性
  *   公告分类只认 backbone_path（Meili 侧 backbone_node；precise_backbone_node 已随 candidates 表退役）。
  *   旧字典 ID 仅可作两类非分类用途：「内容变更指纹锚」（在 search-sync/，
@@ -16,7 +16,7 @@ import path from "node:path";
  *   平台公告（桥表无行）的分类兜底也在翻译层：主表 category_l*_id → 旧字典 8 位码 → 同一份
  *   挂靠规则（D8）。它写在 search-sync/ 白名单内，但不拼任何 levelN 分类列。
  *
- *   注：裸 `level[1-5]_id` 不列为禁止项 —— 它与 `crm_user_industry_prefs`（用户五级行业偏好，
+ *   注：裸 `level[1-5]_id` 不列为禁止项 —— 它与 `user_industry_prefs`（用户五级行业偏好，
  *   R3 保留的输入键）同命名空间，宽列会误伤 70+ 处合法读用。公告 Meili `levelN_id` 属性由旧字典源列派生，
  *   禁住源头即可，无歧义 token 已覆盖真正的公告分类第二口径。
  *

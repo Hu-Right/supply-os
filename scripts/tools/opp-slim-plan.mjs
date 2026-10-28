@@ -1,5 +1,5 @@
 /**
- * crm_bid_opportunities 精简清单 —— 唯一事实源
+ * bid_opportunities 精简清单 —— 唯一事实源
  *
  * 阶段一（建影子表改结构）与阶段二（补增量切换）都从本模块派生列集与索引集，
  * 不允许在脚本里各写一份清单（同「SQL 列清单分隔符只能有一个出处」的红线口径）。
@@ -8,18 +8,18 @@
  * 每条都注明「为什么可删」。库归属口径同 docs/adr/0012：**列口径以云库为准**，
  * 云端删列不需内网同意（内网列不会因此消失，只是不再流入云端），反之内网多出的列也不得进新代码。
  *
- * 归属 scripts/tools 而非 scripts/ops：兄弟表 crm_bid_notices 三轮回滚脚本因留在
+ * 归属 scripts/tools 而非 scripts/ops：兄弟表 bid_notices 三轮回滚脚本因留在
  * ops/（被 gitignore）而失传，本轮起精简作业与证据脚本一律入库持久化。
  */
 
-export const OPP_TABLE = "crm_bid_opportunities";
+export const OPP_TABLE = "bid_opportunities";
 export const SHADOW_TABLE = `${OPP_TABLE}__new`;
 export const OLD_TABLE_PREFIX = `${OPP_TABLE}__old_`;
 
 /**
  * 一档：云端零读写（src/ + scripts/ + tests/ 全域词边界扫描，snake 与 camel 双查均为 0 命中）。
  * 这批列全部由内网 CRM/AI 管道写入云端，云端只落库不消费。
- * 与兄弟表 crm_bid_notices 第 7 节 R1/R3 轮删除的同名列完全一致（那边已验证可删）。
+ * 与兄弟表 bid_notices 第 7 节 R1/R3 轮删除的同名列完全一致（那边已验证可删）。
  */
 export const DEAD_COLUMNS = [
   // ── 内网 CRM 归属/分派流水（源库在用，云端无读者）──
@@ -43,11 +43,11 @@ export const DEAD_COLUMNS = [
 
 /**
  * 二档：被 SELECT 出来但在透出层被丢弃（读了不用），或数据已失真。
- * 删除前必须先在代码侧摘除读取点（见 docs/数据库设计/crm_bid_opportunities-投标商机表.md 第 6 节）。
+ * 删除前必须先在代码侧摘除读取点（见 docs/数据库设计/bid_opportunities-投标商机表.md 第 6 节）。
  */
 export const UNREAD_COLUMNS = [
   "thresholds", // featured SELECT 后不进 payload；271 行有真值，其余为 []
-  "difficulty", // 同上；UI 显示的是主表 crm_bid_notices.difficulty 那份
+  "difficulty", // 同上；UI 显示的是主表 bid_notices.difficulty 那份
   "extra", // 全库无读取点；569 行有真值
   "is_expired", // 无读取点且已失真：5240 行标 1，另 6734 行实际过期仍标 0
 ];

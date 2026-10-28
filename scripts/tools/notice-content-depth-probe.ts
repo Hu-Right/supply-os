@@ -43,7 +43,7 @@ const LEN = "CHAR_LENGTH(TRIM(IFNULL(n.description,'')))";
 /** 标题复读：正文前 25 字与标题前 25 字相同 ⇒ 正文没带来标题之外的信息（25 字是跨语言的粗下限） */
 const ECHO = "LEFT(TRIM(n.description),25) = LEFT(TRIM(n.title),25)";
 
-const base = await q<{ n: number }>(`SELECT COUNT(*) n FROM crm_bid_notices n WHERE ${POP}`);
+const base = await q<{ n: number }>(`SELECT COUNT(*) n FROM bid_notices n WHERE ${POP}`);
 const total = Number(base[0]?.n ?? 0);
 say(`人群（活跃 ∩ 无有效落点 L2+，口径 = 门禁 Q5）：${total}`);
 
@@ -59,7 +59,7 @@ const bands = await q<{ band: string; n: number; echo: number; with_url: number 
             WHEN ${LEN} < 1001 THEN '06 501-1000'
             ELSE '07 >1000' END band,
           COUNT(*) n, SUM(${ECHO}) echo, SUM(n.url IS NOT NULL AND n.url <> '') with_url
-     FROM crm_bid_notices n WHERE ${POP} GROUP BY band ORDER BY band`,
+     FROM bid_notices n WHERE ${POP} GROUP BY band ORDER BY band`,
 );
 say(`\n=== 正文长度分档（复读率 = 正文前25字与标题同）===`);
 for (const r of bands) {
@@ -81,12 +81,12 @@ const variants: Array<[string, string]> = [
   [`≥301 字`, `${LEN} >= 301`],
 ];
 for (const [label, expr] of variants) {
-  const r = await q<{ n: number }>(`SELECT COUNT(*) n FROM crm_bid_notices n WHERE ${POP} AND ${expr}`);
+  const r = await q<{ n: number }>(`SELECT COUNT(*) n FROM bid_notices n WHERE ${POP} AND ${expr}`);
   const n = Number(r[0]?.n ?? 0);
   say(`${label}：${n} = ${((n / total) * 100).toFixed(1)}% 可直接推给打标`);
 }
 const notYet = await q<{ n: number }>(
-  `SELECT COUNT(*) n FROM crm_bid_notices n WHERE ${POP} AND NOT (${variants[1][1]})`,
+  `SELECT COUNT(*) n FROM bid_notices n WHERE ${POP} AND NOT (${variants[1][1]})`,
 );
 say(`→ 按「≥41 且非复读」判，剩下的 ${notYet[0]?.n ?? 0} 条属于「补正文才有意义」那批`);
 
@@ -94,7 +94,7 @@ say(`→ 按「≥41 且非复读」判，剩下的 ${notYet[0]?.n ?? 0} 条属�
 for (const col of ["country", "notice_type"]) {
   const top = await q<{ v: string; n: number; thin: number; echo: number }>(
     `SELECT n.${col} v, COUNT(*) n, SUM(${LEN} < ${ATTR_MIN_CONTENT_CHARS}) thin, SUM(${ECHO}) echo
-       FROM crm_bid_notices n WHERE ${POP} GROUP BY n.${col} ORDER BY n DESC LIMIT 8`,
+       FROM bid_notices n WHERE ${POP} GROUP BY n.${col} ORDER BY n DESC LIMIT 8`,
   );
   say(`\n按 ${col} Top8：`);
   for (const r of top) {
@@ -114,7 +114,7 @@ const resid = await q<{ band: string; n: number; with_url: number }>(
             WHEN ${RESID} < 200 THEN 'R3 80-199 字'
             ELSE 'R4 ≥200 字（真正文）' END band,
           COUNT(*) n, SUM(n.url IS NOT NULL AND n.url <> '') with_url
-     FROM crm_bid_notices n WHERE ${POP} AND ${ECHO} GROUP BY band ORDER BY band`,
+     FROM bid_notices n WHERE ${POP} AND ${ECHO} GROUP BY band ORDER BY band`,
 );
 for (const r of resid) {
   const n = Number(r.n);
@@ -128,20 +128,20 @@ for (const [label, expr] of [
   [`中等：≥41 字且增量正文 ≥80 字（或非标题开头）`, `(${withMinContentWhere("n")}) AND (NOT (${ECHO}) OR ${RESID} >= 80)`],
   [`严格：增量正文 ≥80 字（或非标题开头）`, `(NOT (${ECHO}) OR ${RESID} >= 80)`],
 ] as Array<[string, string]>) {
-  const r = await q<{ n: number }>(`SELECT COUNT(*) n FROM crm_bid_notices n WHERE ${POP} AND ${expr}`);
+  const r = await q<{ n: number }>(`SELECT COUNT(*) n FROM bid_notices n WHERE ${POP} AND ${expr}`);
   const n = Number(r[0]?.n ?? 0);
   say(`${label}：${n} = ${((n / total) * 100).toFixed(1)}%`);
 }
 
 // ── 6. 内容是否本来就在附件里（决定「回拉页面」有没有用）──
 const wcols = await q<{ c: string }>(
-  `SELECT COLUMN_NAME c FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='crm_notice_search'`,
+  `SELECT COLUMN_NAME c FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='notice_search'`,
 );
 const docCol = wcols.map((r) => r.c).find((c) => /documents_count|attachment|file_count/i.test(c));
 if (docCol) {
   const d = await q<{ has_doc: number; n: number }>(
-    `SELECT SUM(w.${docCol} > 0) has_doc, COUNT(*) n FROM crm_bid_notices n
-       JOIN crm_notice_search w ON w.id = n.id
+    `SELECT SUM(w.${docCol} > 0) has_doc, COUNT(*) n FROM bid_notices n
+       JOIN notice_search w ON w.id = n.id
       WHERE ${POP} AND (${LEN} < ${ATTR_MIN_CONTENT_CHARS} OR (${ECHO} AND ${RESID} < 80))`,
   );
   say(`\n「正文无增量」人群中 ${docCol}>0：${d[0]?.has_doc ?? 0} / ${d[0]?.n ?? 0}（有附件 ⇒ 回拉页面未必拿得到正文）`);
@@ -158,7 +158,7 @@ for (const [label, expr] of [
 ] as Array<[string, string]>) {
   const rows = await q<{ notice_id: string; country: string; title: string; head: string; resid: number }>(
     `SELECT n.notice_id, n.country, LEFT(n.title,80) title, LEFT(TRIM(n.description),300) head, ${RESID} resid
-       FROM crm_bid_notices n WHERE ${POP} AND ${expr} ORDER BY n.id LIMIT 8`,
+       FROM bid_notices n WHERE ${POP} AND ${expr} ORDER BY n.id LIMIT 8`,
   );
   for (const r of rows) {
     sample.push([label, r.notice_id, r.country, JSON.stringify(r.title), JSON.stringify(r.head), String(r.resid)].join("\t"));
@@ -178,13 +178,13 @@ const src = await q<{ n: number; opp_row: number; opp_wins: number; ok_loose: nu
           SUM(opp.description IS NOT NULL AND CHAR_LENGTH(TRIM(opp.description)) > CHAR_LENGTH(TRIM(IFNULL(n.description,'')))) opp_wins,
           SUM(${LEN2} >= ${ATTR_MIN_CONTENT_CHARS}) ok_loose,
           SUM((${LEN2} >= ${ATTR_MIN_CONTENT_CHARS}) AND (NOT (${ECHO2}) OR ${RESID2} >= 80)) ok_mid
-     FROM crm_bid_notices n ${WIDE_OPP_JOIN} WHERE ${POP}`,
+     FROM bid_notices n ${WIDE_OPP_JOIN} WHERE ${POP}`,
 );
 const r0 = src[0];
 say(`机会表有行的：${r0?.opp_row ?? 0} / ${r0?.n ?? 0}（其中机会表正文比主表长的 ${r0?.opp_wins ?? 0} 条 ⇒ 打标现在读不到它）`);
 say(`按真实源「≥41 字」：${r0?.ok_loose ?? 0}｜按真实源「≥41 且增量≥80 或非标题开头」：${r0?.ok_mid ?? 0}`);
 const gap = await q<{ n: number }>(
-  `SELECT COUNT(*) n FROM crm_bid_notices n ${WIDE_OPP_JOIN}
+  `SELECT COUNT(*) n FROM bid_notices n ${WIDE_OPP_JOIN}
      WHERE ${POP} AND CHAR_LENGTH(TRIM(IFNULL(n.description,''))) < ${ATTR_MIN_CONTENT_CHARS}
        AND CHAR_LENGTH(TRIM(IFNULL(opp.description,''))) >= ${ATTR_MIN_CONTENT_CHARS}`,
 );

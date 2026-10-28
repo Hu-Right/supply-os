@@ -11,7 +11,7 @@
  * 除规则上限外，还量「可达性阱门」：站内推荐不限认证，但 RFQ 邮件邀约只给
  * verified+有邮箱的供应商，所以补锚的即时收益 = 可补锚 ∩ verified（第 6 节）。
  *
- * @limits 只读：对 supplier / crm_supplier_backbone_interests / 落点表 / 骨架表只发 SELECT。
+ * @limits 只读：对 supplier / supplier_backbone_interests / 落点表 / 骨架表只发 SELECT。
  *         锚表按 (supplier_table, supplier_id) 复合键定位 —— 只用 supplier_id 会把两张供应商表的
  *         同号 id 混成一个，那个数就是错的（本次一并修正口径）。
  */
@@ -53,7 +53,7 @@ const say = (s: string) => out.push(s);
 // ── 1. 锚表的 supplier_table 取值域（不猜）──
 const doms = await q<{ t: string; n: number; sup: number }>(
   `SELECT supplier_table t, COUNT(*) n, COUNT(DISTINCT CONCAT(supplier_table,':',supplier_id)) sup
-     FROM crm_supplier_backbone_interests GROUP BY supplier_table ORDER BY n DESC`,
+     FROM supplier_backbone_interests GROUP BY supplier_table ORDER BY n DESC`,
 );
 say(`锚表 supplier_table 取值域：`);
 for (const d of doms) say(`  ${d.t}：${d.n} 行 / ${d.sup} 家`);
@@ -61,7 +61,7 @@ const SUP_TABLE = doms[0]?.t ?? "supplier";
 
 // ── 2. 已锚集合（复合键）──
 const anchored = await q<{ k: number }>(
-  `SELECT DISTINCT supplier_id k FROM crm_supplier_backbone_interests WHERE supplier_table = ?`,
+  `SELECT DISTINCT supplier_id k FROM supplier_backbone_interests WHERE supplier_table = ?`,
   [SUP_TABLE],
 );
 const anchoredSet = new Set(anchored.map((r) => Number(r.k)));
@@ -69,7 +69,7 @@ say(`\n已锚（${SUP_TABLE} 域）：${anchoredSet.size} 家`);
 
 // ── 3. 词表：骨架树自身（与公告侧同一份实现）──
 const nameRows = await q<{ code: string; nameZh: string; nameEn: string }>(
-  `SELECT code, name_zh AS nameZh, name_en AS nameEn FROM crm_commodity_backbone WHERE status=1 ORDER BY code`,
+  `SELECT code, name_zh AS nameZh, name_en AS nameEn FROM commodity_backbone WHERE status=1 ORDER BY code`,
 );
 const index = buildNameIndex(nameRows);
 say(`词表：${index.nodes} 节点 → ${index.size} 条整串名`);
@@ -77,14 +77,14 @@ say(`词表：${index.nodes} 节点 → ${index.size} 条整串名`);
 // ── 4. 公告侧活跃有效落点节点（决定"补了锚能不能立刻撮合"）──
 const noticeNodes = await q<{ code: string; na: number }>(
   `SELECT a.node_code code, COUNT(DISTINCT a.notice_pk) na FROM \`${ATTR_LANDING_TABLE}\` a
-     JOIN crm_bid_notices n ON n.id = a.notice_pk
+     JOIN bid_notices n ON n.id = a.notice_pk
     WHERE ${ACTIVE_NOTICE_WHERE} AND LENGTH(a.node_code) >= ${ATTR_VALID_MIN_CODE_LEN}
     GROUP BY a.node_code`,
 );
 const noticeMap = new Map(noticeNodes.map((r) => [r.code, Number(r.na)]));
 const supPerNode = new Map<string, number>();
 for (const r of await q<{ code: string; k: string; n: number }>(
-  `SELECT code, supplier_table k, COUNT(DISTINCT supplier_id) n FROM crm_supplier_backbone_interests GROUP BY code, supplier_table`,
+  `SELECT code, supplier_table k, COUNT(DISTINCT supplier_id) n FROM supplier_backbone_interests GROUP BY code, supplier_table`,
 )) {
   supPerNode.set(r.code, (supPerNode.get(r.code) ?? 0) + Number(r.n));
 }
@@ -164,13 +164,13 @@ say(`  命中节点集中度：${[...hitSup.entries()].sort((a, b) => b[1] - a[1
 
 // ── 6. 可达性阱门（选起点的关键：锚不是唯一门槛）──
 // 撮合两个消费端门槛不一样：站内推荐（ai-match）的候选池由调用方给、不限认证；
-// RFQ 邮件邀约 matchSuppliers() 硬要求 crm_users.supplier_link_status='verified' 且有邮箱，
+// RFQ 邮件邀约 matchSuppliers() 硬要求 users.supplier_link_status='verified' 且有邮箱，
 // 并且先只取 300 家地域候选再做类目交集（CANDIDATE_POOL）。
 // ⇒ 补锚对“邮件触达”的即时收益 = 可补锚 ∩ verified。这个数不量就会把话讲大。
 const reachable = new Set(
   (
     await q<{ sid: number }>(
-      `SELECT DISTINCT supplier_id sid FROM crm_users
+      `SELECT DISTINCT supplier_id sid FROM users
         WHERE supplier_link_status = 'verified' AND supplier_id IS NOT NULL
           AND email IS NOT NULL AND email <> ''
           AND (account_status IS NULL OR (account_status <> 'disabled' AND account_status <> 'rejected'))`,

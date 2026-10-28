@@ -1,6 +1,6 @@
 /**
  * 只读校验：本机库的基表清单 vs 仓库 db/schema/baseline.sql 的表清单
- * 用途：crm_appointments 退役后，证明手工摘除的基线与库实际结构一致（不多不少）
+ * 用途：appointments 退役后，证明手工摘除的基线与库实际结构一致（不多不少）
  * 用法：npx tsx scripts/forensics/probe130-baseline-vs-db.ts（只读、可重跑；任何表退役后都能拿它对账基线）
  */
 import { readFileSync } from "node:fs";
@@ -36,5 +36,5 @@ console.log(`库内基表 ${inDb.length} 张（排除影子/备份 ${dbExcluded.
 console.log(`baseline.sql 里 ${inBaseline.length} 张`);
 console.log(`只在库里、基线缺的：${onlyDb.join(", ") || "无"}`);
 console.log(`只在基线、库里没有的：${onlySql.join(", ") || "无"}`);
-console.log(`含 crm_appointments 吗：库=${inDb.includes("crm_appointments")}｜退役名=${inDb.some((t) => t.includes("retired"))}｜基线=${inBaseline.includes("crm_appointments")}`);
+console.log(`含 appointments 吗：库=${inDb.includes("appointments")}｜退役名=${inDb.some((t) => t.includes("retired"))}｜基线=${inBaseline.includes("appointments")}`);
 console.log(onlyDb.length === 0 && onlySql.length === 0 ? "\n✅ 两边逐表一致" : "\n⚠️ 两边有差异（看上面两行）");

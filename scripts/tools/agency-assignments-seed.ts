@@ -14,7 +14,7 @@ const types: Array<[string, string, string]> = [
 ];
 for (const [key, zh, en] of types) {
   await c.query(
-    `INSERT INTO crm_agency_types (type_key,country_code,name_i18n,priority,is_active)
+    `INSERT INTO agency_types (type_key,country_code,name_i18n,priority,is_active)
      VALUES (?,NULL,?,0,1) ON DUPLICATE KEY UPDATE name_i18n=VALUES(name_i18n)`,
     [key, JSON.stringify({ zh, en })],
   );
@@ -59,12 +59,12 @@ const rows: Array<[string, string]> = [
 ];
 for (const [canonical, typeKey] of rows) {
   await c.query(
-    `INSERT INTO crm_agency_type_assignments (canonical,country_code,type_key,is_active)
+    `INSERT INTO agency_type_assignments (canonical,country_code,type_key,is_active)
      VALUES (?,NULL,?,1) ON DUPLICATE KEY UPDATE type_key=VALUES(type_key), is_active=1`,
     [canonical, typeKey],
   );
 }
-const [a] = await c.query(`SELECT COUNT(*) n FROM crm_agency_type_assignments`);
-const [t] = await c.query(`SELECT COUNT(*) n FROM crm_agency_types`);
+const [a] = await c.query(`SELECT COUNT(*) n FROM agency_type_assignments`);
+const [t] = await c.query(`SELECT COUNT(*) n FROM agency_types`);
 console.log({ assignments: (a as Array<Record<string, unknown>>)[0], types: (t as Array<Record<string, unknown>>)[0] });
 await c.end();

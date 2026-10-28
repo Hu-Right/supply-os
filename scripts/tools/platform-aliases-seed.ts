@@ -1,5 +1,5 @@
-// 平台（发布机构/站点）别名 seed：只写 crm_platform_aliases（别名表本仓可直接维护）。
-// 服务表 crm_notice_public 的 platform_name 归一不在本脚本做：红线 N1 规定服务表内容只能由
+// 平台（发布机构/站点）别名 seed：只写 platform_aliases（别名表本仓可直接维护）。
+// 服务表 notice_public 的 platform_name 归一不在本脚本做：红线 N1 规定服务表内容只能由
 // ops 目录的服务表构建脚本 notice-public-v2 写入，而它构建时已按 host/alias 从本表
 // resolve（见其 platformOf）。手写 UPDATE 只会造出「表↔builder 两套口径」的分叉，下次重建就被覆盖——
 // 因此 seed 完别名后需要归一历史行，就重跑 v2，而不是在这里刷表。
@@ -83,7 +83,7 @@ const platforms: Array<[string, string, string]> = [
 ];
 for (const [host, canonical, code] of platforms) {
   await c.query(
-    `INSERT INTO crm_platform_aliases (canonical,platform_code,alias,host,kind,name_i18n,is_active)
+    `INSERT INTO platform_aliases (canonical,platform_code,alias,host,kind,name_i18n,is_active)
      VALUES (?,?,?,?, 'platform', ?, 1)
      ON DUPLICATE KEY UPDATE canonical=VALUES(canonical), platform_code=VALUES(platform_code),
        host=VALUES(host), name_i18n=VALUES(name_i18n), is_active=1`,
@@ -91,7 +91,7 @@ for (const [host, canonical, code] of platforms) {
   );
 }
 const [statRows] = await c.query(
-  `SELECT COUNT(*) AS total, SUM(platform_name REGEXP '\\.[a-z]{2,}$') AS still_host FROM crm_notice_public`,
+  `SELECT COUNT(*) AS total, SUM(platform_name REGEXP '\\.[a-z]{2,}$') AS still_host FROM notice_public`,
 );
 const serviceTable = (statRows as Array<Record<string, unknown>>)[0];
 console.log({ seededPlatforms: platforms.length, serviceTable });

@@ -15,7 +15,7 @@ import { conn, columnsOf } from "../../scripts/tools/lib/notices-slim-common.mjs
 
 const arg = (name, dft) => (process.argv.find((a) => a.startsWith(`--${name}=`)) ?? "").split("=")[1] ?? dft;
 const BAK = arg("bak", "crm_bid_notices_documents_bak_20261015");
-const LIVE = "crm_bid_notices";
+const LIVE = "bid_notices";
 const OLD_PREV = "crm_bid_notices_retired_b2_20261015";
 const c = await conn();
 

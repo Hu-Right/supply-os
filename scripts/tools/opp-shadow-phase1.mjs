@@ -1,5 +1,5 @@
 /**
- * crm_bid_opportunities 影子表精简 · 阶段一（建表 + 改结构 + 回填 + 校验）
+ * bid_opportunities 影子表精简 · 阶段一（建表 + 改结构 + 回填 + 校验）
  *
  * 纪律见 docs/adr/0003-shadow-table-blue-green-migration.md：
  *   阶段一全程**不触碰原表**，原表继续服务生产；只创建 `<原表>__new`、在其上改结构、

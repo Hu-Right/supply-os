@@ -16,7 +16,7 @@
  *   对账链路，其判据必须与影子表 findDirtyRows 完全同口径（尤其 NULL 与空串必须可区分）。
  */
 
-/** update_time 可能为数值列（存 Unix 秒，如 crm_bid_notices）或 DATETIME 列；数值列的判型口径 */
+/** update_time 可能为数值列（存 Unix 秒，如 bid_notices）或 DATETIME 列；数值列的判型口径 */
 const NUMERIC_TYPES = new Set([
   "tinyint", "smallint", "mediumint", "int", "bigint", "float", "double", "decimal",
 ]);
@@ -33,7 +33,7 @@ const NUMERIC_TYPES = new Set([
 const NON_DESTRUCTIVE_COLUMNS = {
   // 附件/外链是采集与外部文档管道补齐的字段；源库为空数组时不得把云端已有值抹掉
   // （2026-10-21：实测 daily-sync 用源库 [] 覆盖了主表 documents，附件 URL 丢失）
-  crm_bid_notices: ["documents", "procurement_files", "external_links"],
+  bid_notices: ["documents", "procurement_files", "external_links"],
 };
 
 /**
@@ -43,7 +43,7 @@ const NON_DESTRUCTIVE_COLUMNS = {
  * 商机表审核四列方向相反（源库较新、要往云端流），不得登记进本表。
  */
 const MONOTONE_RISE_COLUMNS = {
-  crm_bid_notices: ["is_featured"],
+  bid_notices: ["is_featured"],
 };
 
 /**
@@ -52,7 +52,7 @@ const MONOTONE_RISE_COLUMNS = {
  * 列序在 entry_source 之后的列读到的是已改写的值，逐列护栏会只护住前半截列（缝合行）。
  * 机理与铁证见 docs/reviews/2026-10-17-RFQ覆盖P0修复报告.md §1。
  */
-const PLATFORM_IMMUNE = { table: "crm_bid_notices", column: "entry_source", value: "platform" };
+const PLATFORM_IMMUNE = { table: "bid_notices", column: "entry_source", value: "platform" };
 
 /**
  * 目标优先列（已存在行不让源值覆盖，仅当目标为空才写）。
@@ -65,10 +65,11 @@ const PLATFORM_IMMUNE = { table: "crm_bid_notices", column: "entry_source", valu
  * 每轮都会重新判差异、每轮都回退，**永不对齐**。目标优先保证：新行照旧带源标题入库，
  * 已存在行不回退。
  * 代价（必须知道）：源库真改了标题时，这一路不跟进；标题更新依赖后台正式写入者或
- * 人工 `node scripts/ops/notice-public-v2.ts --ids=…` 重算。
+ * 人工：对指定 id 重算服务表（2026-10-27 管道翻转后由 src 侧构建器 src/lib/services/notice-public/build.ts 承担，
+ * 原先的 ops 一次性 CLI 壳已删除）。
  */
 const TARGET_WINS_COLUMNS = {
-  crm_bid_notices: ["title"],
+  bid_notices: ["title"],
 };
 
 /**

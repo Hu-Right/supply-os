@@ -32,12 +32,12 @@ const say = (s: string) => out.push(s);
 
 // ── 供应表形制先摸清（探针不许猜列）──
 const scols = await q<{ c: string }>(
-  `SELECT COLUMN_NAME c FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='crm_supplier_backbone_interests'`,
+  `SELECT COLUMN_NAME c FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='supplier_backbone_interests'`,
 );
 const names = scols.map((r) => r.c);
 const pk = names.find((c) => /supplier_pk|supplier_id|fk_supplier|company_id/.test(c)) ?? null;
 const codeCol = names.find((c) => /^code$|node_code|backbone_code/.test(c)) ?? "code";
-say(`crm_supplier_backbone_interests 列：${names.join(" ")}`);
+say(`supplier_backbone_interests 列：${names.join(" ")}`);
 say(`  连接键取 ${pk ?? "（未识别！）"}｜品目列取 ${codeCol}`);
 if (!pk) {
   console.error("✗ 供应表没识别出供应商连接键，停止（不猜列名）");
@@ -47,16 +47,16 @@ const srcCol = names.includes("source") ? `, SUM(source='self_report') sr, SUM(s
 
 // ── 两侧节点集与交集 ──
 const N1 = `(SELECT a.node_code code, COUNT(DISTINCT a.notice_pk) na
-    FROM \`${ATTR_LANDING_TABLE}\` a JOIN crm_bid_notices n ON n.id = a.notice_pk
+    FROM \`${ATTR_LANDING_TABLE}\` a JOIN bid_notices n ON n.id = a.notice_pk
    WHERE ${ACTIVE_NOTICE_WHERE} AND LENGTH(a.node_code) >= ${ATTR_VALID_MIN_CODE_LEN}
    GROUP BY a.node_code)`;
 const S1 = `(SELECT ${codeCol} code, COUNT(DISTINCT ${pk}) ns${srcCol}
-    FROM crm_supplier_backbone_interests WHERE ${codeCol} IS NOT NULL AND ${codeCol} <> ''
+    FROM supplier_backbone_interests WHERE ${codeCol} IS NOT NULL AND ${codeCol} <> ''
    GROUP BY ${codeCol})`;
 
 const nCnt = await q<{ n: number }>(`SELECT COUNT(DISTINCT node_code) n FROM \`${ATTR_LANDING_TABLE}\` WHERE LENGTH(node_code) >= ${ATTR_VALID_MIN_CODE_LEN}`);
 const sAll = await q<{ n: number; sup: number }>(
-  `SELECT COUNT(DISTINCT ${codeCol}) n, COUNT(DISTINCT ${pk}) sup FROM crm_supplier_backbone_interests WHERE ${codeCol} IS NOT NULL AND ${codeCol} <> ''`,
+  `SELECT COUNT(DISTINCT ${codeCol}) n, COUNT(DISTINCT ${pk}) sup FROM supplier_backbone_interests WHERE ${codeCol} IS NOT NULL AND ${codeCol} <> ''`,
 );
 say(`\n公告侧有有效落点的品目节点（全库）：${nCnt[0].n}`);
 say(`供应侧挂着的品目节点：${sAll[0].n}（覆盖供应商 ${sAll[0].sup} 家）`);
