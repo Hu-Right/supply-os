@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapUngmAppointmentRow, mapLeadForMemberView } from "@/lib/services/leads";
+import { mapUngmAppointmentRow, leadMemberViewOf } from "@/lib/services/leads";
 
 const ROW = {
   appointment_key: "lead-user-1730000000000",
@@ -18,8 +18,35 @@ const ROW = {
   ]),
 };
 
-describe("mapLeadForMemberView（会员侧线索视图，隐私收口）", () => {
-  const lead = mapLeadForMemberView(ROW);
+describe("leadMemberViewOf（会员侧线索视图，隐私收口）", () => {
+  const lead = leadMemberViewOf(ROW);
+
+  // 这两个端点现在不再登在「整块透出」登记集里，依据就是这一例：
+  // 路由写的是 rows.map(leadMemberViewOf) / leadMemberViewOf(row)，键集合由此处定形。
+  // 新增/改名字段会在这里当场红，而不是等探针去现网猜。
+  it("wire 键集合定形且全 camelCase", () => {
+    // 按 mapper 声明顺序写（不是字典序），比对时两边同排，免得为 sort 口径返工
+    const LEAD_VIEW_KEYS = [
+      "id",
+      "companyName",
+      "country",
+      "city",
+      "contactPerson",
+      "contactMethod",
+      "email",
+      "industry",
+      "mainProducts",
+      "hasIntlProcurement",
+      "notes",
+      "type",
+      "status",
+      "createdAt",
+    ];
+    expect([...Object.keys(lead)].sort()).toEqual([...LEAD_VIEW_KEYS].sort());
+    expect(Object.keys(lead).filter((k) => /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(k))).toEqual([]);
+    // 跟进日志属内部记录（author 可能含其他会员手机号），有意不下发
+    expect(lead).not.toHaveProperty("followUpLogs");
+  });
 
   it("联系人姓名脱敏", () => {
     expect(lead.contactPerson).toBe("李**");
@@ -46,7 +73,7 @@ describe("mapLeadForMemberView（会员侧线索视图，隐私收口）", () =>
   });
 
   it("字符串日期兼容", () => {
-    const lead2 = mapLeadForMemberView({ ...ROW, created_at: "2026-09-01T08:30:00Z" });
+    const lead2 = leadMemberViewOf({ ...ROW, created_at: "2026-09-01T08:30:00Z" });
     expect(lead2.createdAt).toBe("2026-09-01T08:30:00.000Z");
   });
 });

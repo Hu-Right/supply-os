@@ -10,7 +10,7 @@ import { EC_VIP_ONLY, EC_INVALID_REQUEST } from "@/shared/constants/api";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { resolveMembershipState } from "@/lib/services/membership-status";
-import { mapLeadForMemberView } from "@/lib/services/leads";
+import { leadMemberViewOf } from "@/lib/services/leads";
 import type { Lead } from "@/types";
 
 export const GET = withRoute(async (req: NextRequest) => {
@@ -27,7 +27,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   }
 
   const rows = await ctx.leadsRepo.listAppointments();
-  const leads = rows.map(mapLeadForMemberView);
+  const leads = rows.map(leadMemberViewOf);
   return NextResponse.json(leads);
 });
 

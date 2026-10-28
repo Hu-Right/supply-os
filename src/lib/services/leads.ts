@@ -60,8 +60,11 @@ export function mapUngmAppointmentRow(row: LeadRow): Lead {
  * 线索是门户访客提交的咨询/注册意向，属运营方销售资产：联系人是提交表单的第三方个人，
  * 其姓名/联系方式/内部跟进记录不属于会员视图——审查 F5 的"VIP 可浏览线索"产品决策
  * 保留商机信号（公司/行业/国家/需求/状态/时间），联系方式一律不下发。
+ *
+ * 名字里的 `ViewOf` 不是装饰：命名红线② 的规则二靠这个后缀认出「该出口已经过视图」。
+ * 改回 map 前缀那类名字不会报错，但会让两个端点重新变成需要人工登记的整块透出。
  */
-export function mapLeadForMemberView(row: LeadRow): Lead {
+export function leadMemberViewOf(row: LeadRow): Lead {
   return {
     id: row.appointment_key,
     companyName: row.company_name,

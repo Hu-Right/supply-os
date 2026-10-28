@@ -111,7 +111,9 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/commodity/tree/prefs/route.ts#resolved",
   "src/app/api/commodity/tree/route.ts#options",
   "src/app/api/industries/facets/route.ts#sections",
-  "src/app/api/leads/route.ts#leads",
+  // leads 两条已于 2026-10-28 移出登记集：路由本来就在过隐私收窄 DTO，只是函数名叫
+  // mapLeadForMemberView——规则二只认 *ViewOf / to*View 这类约定名。改名 leadMemberViewOf
+  // 后静态面自己能认出已收视图，无需再占登记位（键集合由 tests/unit/lib/services/leads.test.ts 钉住）。
   "src/app/api/notices/countries/route.ts#countries",
   "src/app/api/notices/hot-topics/route.ts#data",
   "src/app/api/payment/orders/route.ts#result",
@@ -135,7 +137,6 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // 【C 尚未实测·逐条写明为什么拿不到证据】不得笼统当成「应该没事」：
   // 全是写路径、触付费 LLM、触外部网关或库里无数据，只读探针跑不了。
   "src/app/api/crm/chat/sessions/queue/route.ts#info", // 库里无会话行；返回类型已显式钉 3 键 + status 字面量
-  "src/app/api/leads/log/route.ts#responseLead", // POST 写跟进日志，探针会落库
   "src/app/api/notices/[id]/ai-match/route.ts#result", // POST 生成分支触付费 LLM
   "src/app/api/notices/[id]/ai-summary/route.ts#data", // GET 缓存分支已实测 8 键全 camel；POST 生成分支触 LLM，整条不升组
   "src/app/api/training/orders/[orderNo]/route.ts#result", // 查单触外部支付网关

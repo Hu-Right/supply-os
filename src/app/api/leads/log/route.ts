@@ -12,7 +12,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_LEAD_FIELDS_REQUIRED, EC_LEAD_STATUS_INVALID, EC_VIP_ONLY, EC_NOT_FOUND } from "@/shared/constants/api";
 import { resolveMembershipState } from "@/lib/services/membership-status";
-import { mapUngmAppointmentRow, mapLeadForMemberView } from "@/lib/services/leads";
+import { mapUngmAppointmentRow, leadMemberViewOf } from "@/lib/services/leads";
 import type { Lead } from "@/types";
 
 /** 跟进状态白名单（审查 F5）：与 Lead 类型定义保持一致，防任意值篡改状态 */
@@ -85,7 +85,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     targetLead.status,
   );
 
-  const responseLead = mapLeadForMemberView(row);
+  const responseLead = leadMemberViewOf(row);
   responseLead.status = targetLead.status;
   return NextResponse.json(responseLead);
 });

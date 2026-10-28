@@ -173,6 +173,28 @@ test("展开写法：`{ ...row }` 拦、`{ ...xViewOf(row) }` 放行", () => {
   });
 });
 
+test("约定名要真起作用：`.map(*ViewOf)` 放行、`.map(mapXxx)` 仍拦（leads 族改名的依据）", () => {
+  // 这两个出口本来就在过隐私收窄 DTO，只是函数名不合约定 → 始终得占登记位。
+  // 本例钉住「名字即证据」：改名前拦、改名后放行，防止将来被改回 map 前缀。
+  const declsOk = [
+    "  const rows = await ctx.leadsRepo.listAppointments();",
+    "  const leads = rows.map(leadMemberViewOf);",
+  ].join("\n");
+  const declsBad = [
+    "  const rows = await ctx.leadsRepo.listAppointments();",
+    "  const leads = rows.map(mapLeadForMemberView);",
+  ].join("\n");
+  withFixture("fieldname-mapper-name", {
+    "src/app/api/mn-ok/route.ts": ROUTE_BODY(declsOk, "leads"),
+    "src/app/api/mn-bad/route.ts": ROUTE_BODY(declsBad, "leads"),
+  }, (root) => {
+    const r = runAgainst(root, GATE);
+    assert.equal(r.code, 1, "不合约定的 mapper 名没被拦 → 约定名白给");
+    assert.match(r.out, /mn-bad\/route\.ts/);
+    assert.doesNotMatch(r.out, /mn-ok\/route\.ts/);
+  });
+});
+
 test("不误伤：变量初始化式里的「请求参数」snake 键不计为响应键", () => {
   // listRows({ user_id: 1 }) 是入参（口径允许 snake）；出口本身靠登记收敛，不靠猜测
   withFixture("fieldname-reqparam", {
