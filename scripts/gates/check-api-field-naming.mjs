@@ -104,6 +104,9 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/notices/[id]/favorite/route.ts#result",
   "src/app/api/notices/[id]/translation/route.ts#result",
   "src/app/api/notices/feedback/route.ts#result",
+  // system/links 的缓存命中分支：数组本体由同文件的 footerLinkViewOf 产出，
+  // 首次与命中两个出口的形状由 tests/unit/app/api/system-view.test.ts 钉住（假 repo，不连库）。
+  "src/app/api/system/links/route.ts#linksCache.items",
   // AI 与客服三出口原停在 C「触付费 LLM / 库里无数据，探针跑不了」，但键名其实不必花 LLM 就能钉：
   // 服务出口只有一个形状，用假 repo 打缓存命中那一条路径即可。
   //   notices/[id]/ai-summary → AiSummaryResult 10 键（tests/unit/lib/services/ai-summary-view.test.ts）；
@@ -134,9 +137,11 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/notices/countries/route.ts#countries",
   "src/app/api/notices/hot-topics/route.ts#data",
   "src/app/api/payment/orders/route.ts#result",
-  "src/app/api/system/icp/route.ts#icpCache",
-  "src/app/api/system/links/route.ts#items",
-  "src/app/api/system/links/route.ts#linksCache.items",
+  // system 族两条已于 2026-10-28 处理（键集合由 tests/unit/app/api/system-view.test.ts 钉住）：
+  //   links 首次出口改收 footerLinkViewOf → 静态面能认出，登记删除；
+  //   icp 改为显式字面量出口（不再把内部缓存时间戳 ts 送上网）→ 登记删除；
+  //   linksCache.items（TTL 命中分支）已升到 A：它是模块级可变缓存，内容与
+  //   footerLinkViewOf 产出的是同一个数组，属「已收口但静态看不见」。
   "src/app/api/user/keyword-groups/route.ts#data",
   // 2026-10-28 只读探针实测无 snake 键（runtime/probe-opaque-c-group.ts，走与路由同一条生产链）：
   // 以下 5 个原本「未实测」，现已拿到真实响应键集合，但仍未收进 *ViewOf 视图，故留在 B：
