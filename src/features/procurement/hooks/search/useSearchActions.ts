@@ -125,7 +125,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     setSelectedNotice(null);
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, query.activeFeatured, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
+  }, [searchParams, query.activeFeatured, setPage, setSelectedNotice, router, pathname]);
 
   /**
    * 五级下拉的任一层选中入 URL（URL 是唯一事实源，0~4 = 大类/中类/小类/子类/品目）。
@@ -144,7 +144,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     setSelectedNotice(null);
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, query.activeCommodity, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
+  }, [searchParams, query.activeCommodity, setPage, setSelectedNotice, router, pathname]);
 
   const clearSearch = useCallback(() => {
     clearForm();
@@ -163,4 +163,3 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     markUserSubmitted,
   };
 }
-
