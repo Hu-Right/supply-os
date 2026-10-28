@@ -36,6 +36,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       buyerName: notice.buyer_name || "",
       deadlineTs: notice.deadline_ts ?? null,
       estimatedValue: notice.estimated_value || "",
+      // 发布时间：锁定公告深链也应显示此公开元信息（与 /detail、列表、SEO 页同口径）
+      publishedTs: notice.published_ts ?? null,
     });
   },
 );

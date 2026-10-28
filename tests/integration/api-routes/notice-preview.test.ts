@@ -5,8 +5,9 @@
  *              （findDetailPublished）改读服务宽表投影 crm_notice_public（findPublicDetail），
  *              使锁定公告深链详情的机构名 / 国家码走归一 SSOT（如 country_code=LV、
  *              buyer_name 为归一全称），与 /detail、unified-search 同口径。
- *              受 ② 响应字段命名红线约束，本路由只返回已登记的 8 个键（camelCase）+ 单词键；
- *              未登记的列（如 publishedTs 等宽表列）与正文 description（付费墙）均不对外。
+ *              本路由显式控制返回键（camelCase 有限预览）：登记集合含发布时间 publishedTs
+ *              （锁定深链也应显示公开元信息，与 /detail、列表、SEO 页同口径）；
+ *              其余未登记宽表列（currencyCode/platformName 等）与正文 description（付费墙）均不对外。
  *              注：本路由故意不用行→视图 mapper（mapper 只改名不裁剪），因此这里的键名
  *              由路由显式控制；serviceRow() 仍是 snake，它模拟的是 DB 行而不是响应。
  */
@@ -78,6 +79,7 @@ describe("GET /api/notices/[id]/preview", () => {
       buyerName: "Valsts nekustamie īpašumi",
       deadlineTs: 1794902400,
       estimatedValue: "0.00",
+      publishedTs: 1792195200,
     });
   });
 
@@ -92,8 +94,10 @@ describe("GET /api/notices/[id]/preview", () => {
       expect(body).not.toHaveProperty(secret);
     }
     // 命名红线：未登记的列不得出现在响应上（camel 与 snake 两面都钉住，
-    // 防的是将来改用整行 mapper 时把付费墙以外的列一并带出）
-    for (const newKey of ["publishedTs", "currencyCode", "platformName", "deadlineType", "deadlineTimezone",
+    // 防的是将来改用整行 mapper 时把付费墙以外的列一并带出）。
+    // 例外：发布时间 publishedTs 已正名纳入（公开元信息），但其 snake 名仍不外露。
+    expect(body).toHaveProperty("publishedTs");
+    for (const newKey of ["currencyCode", "platformName", "deadlineType", "deadlineTimezone",
       "published_ts", "currency_code", "platform_name", "deadline_type", "deadline_timezone"]) {
       expect(body).not.toHaveProperty(newKey);
     }
