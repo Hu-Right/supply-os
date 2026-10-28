@@ -106,24 +106,35 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/system/links/route.ts#items",
   "src/app/api/system/links/route.ts#linksCache.items",
   "src/app/api/user/keyword-groups/route.ts#data",
-  // 【C 本轮新增规则暴露·尚未逐个实测】不得声称已核验：这些出口把服务/repo 结果或
-  // 展开块整块透出，静态面看不见键，HTTP 侧也未取到证据（dev server 不可用）。
-  // 它们是 ② 的已知待收敛面：逐域补 mapper 或补探针后删行。
-  "src/app/api/crm/chat/sessions/queue/route.ts#info",
+  // 2026-10-28 只读探针实测无 snake 键（runtime/probe-opaque-c-group.ts，走与路由同一条生产链）：
+  // 以下 5 个原本「未实测」，现已拿到真实响应键集合，但仍未收进 *ViewOf 视图，故留在 B：
+  //   suppliers/stats（6 键全 camel）、industries/tree（key/nameZh/nameEn）、
+  //   learning/materials/[id]/content（contentZh/contentEn/fileUrl/fileName）、
+  //   suppliers/[id]（已过 mapSupplierRow，26 键全 camel）、
+  //   notices/unified-search（143 键全 camel；items 已过 toNoticeListView；
+  //     本次 Meili 不健康走 SQL 回退路径，但两路出同一 mapper）
   "src/app/api/industries/tree/route.ts#options",
-  "src/app/api/leads/log/route.ts#responseLead",
   "src/app/api/learning/materials/[materialId]/content/route.ts#payload",
-  "src/app/api/notices/[id]/ai-match/route.ts#result",
-  "src/app/api/notices/[id]/ai-summary/route.ts#data",
-  "src/app/api/notices/[id]/favorite/route.ts#result",
-  "src/app/api/notices/[id]/translation/route.ts#result",
-  "src/app/api/notices/feedback/route.ts#result",
   "src/app/api/notices/unified-search/route.ts#result",
-  "src/app/api/open/v1/engineering/route.ts#stats",
   "src/app/api/suppliers/[id]/route.ts#mapSupplierRow",
   "src/app/api/suppliers/stats/route.ts#stats",
-  "src/app/api/training/orders/[orderNo]/route.ts#result",
-  "src/app/api/training/orders/route.ts#result",
+  // 【C 尚未实测·逐条写明为什么拿不到证据】不得笼统当成「应该没事」：
+  // 全是写路径、触付费 LLM、触外部网关或库里无数据，只读探针跑不了。
+  "src/app/api/crm/chat/sessions/queue/route.ts#info", // 库里无会话行；返回类型已显式钉 3 键 + status 字面量
+  "src/app/api/leads/log/route.ts#responseLead", // POST 写跟进日志，探针会落库
+  "src/app/api/notices/[id]/ai-match/route.ts#result", // POST 生成分支触付费 LLM
+  "src/app/api/notices/[id]/ai-summary/route.ts#data", // GET 缓存分支已实测 8 键全 camel；POST 生成分支触 LLM，整条不升组
+  "src/app/api/notices/[id]/favorite/route.ts#result", // POST 切换收藏（写）
+  "src/app/api/notices/[id]/translation/route.ts#result", // 未核验：可能触外部翻译服务
+  "src/app/api/notices/feedback/route.ts#result", // POST 写反馈
+  "src/app/api/training/orders/[orderNo]/route.ts#result", // 查单触外部支付网关
+  "src/app/api/training/orders/route.ts#result", // POST 建单（写 + 外部）
+  // 【D 实测发现 snake 键·属对外契约决策，未擅改】探针拿到 total_count/country_count/
+  // earliest_date/latest_date 四个。同一外发面（open/v1 engineering list/detail）直接透传列名
+  // （items: rows），所以这不是单个漏网，而是整块对外 API 的既定命名口径：
+  // 改 = 对已授权客户破坏契约，需要版本化/客户同步；不改 = 得把豁免写进文档，而不是假装看不见。
+  // 详见 ARCHITECTURE.md「开放 API 的命名口径待决策」。
+  "src/app/api/open/v1/engineering/route.ts#stats",
 ]);
 
 // 自测追加项（见文件头）：只影响本次进程，不改真实登记存量。
