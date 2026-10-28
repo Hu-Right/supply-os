@@ -113,6 +113,14 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // 钉住（假 pool）：两项键定形、多余列名不上网、国家计数归一后总量守恒。
   "src/app/api/notices/countries/route.ts#countries",
   "src/app/api/notices/hot-topics/route.ts#data",
+  // 级联树族四条（industries/facets、industries/tree、commodity/tree、commodity/tree/prefs）：
+  // 三者共用同一行→选项映射（code / name_zh / name_en → key / nameZh / nameEn），
+  // 键集合、脏行取舍（双语全空则丢）与非法码不给选项，现由
+  // tests/unit/lib/services/tree-options-view.test.ts 钉住（假 repo / 假 pool，不连库）。
+  "src/app/api/commodity/tree/prefs/route.ts#resolved",
+  "src/app/api/commodity/tree/route.ts#options",
+  "src/app/api/industries/facets/route.ts#sections",
+  "src/app/api/industries/tree/route.ts#options",
   // AI 与客服三出口原停在 C「触付费 LLM / 库里无数据，探针跑不了」，但键名其实不必花 LLM 就能钉：
   // 服务出口只有一个形状，用假 repo 打缓存命中那一条路径即可。
   //   notices/[id]/ai-summary → AiSummaryResult 10 键（tests/unit/lib/services/ai-summary-view.test.ts）；
@@ -134,9 +142,6 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // 迁视图时请顺手删行，让登记集只反映「真的看不见」的出口。
   "src/app/api/catalog/country-name-map/route.ts#maps",
   "src/app/api/certifications/route.ts#rows",
-  "src/app/api/commodity/tree/prefs/route.ts#resolved",
-  "src/app/api/commodity/tree/route.ts#options",
-  "src/app/api/industries/facets/route.ts#sections",
   // leads 两条已于 2026-10-28 移出登记集：路由本来就在过隐私收窄 DTO，只是函数名叫
   // mapLeadForMemberView——规则二只认 *ViewOf / to*View 这类约定名。改名 leadMemberViewOf
   // 后静态面自己能认出已收视图，无需再占登记位（键集合由 tests/unit/lib/services/leads.test.ts 钉住）。
@@ -157,7 +162,7 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   //     本次 Meili 不健康走 SQL 回退路径，但两路出同一 mapper）
   // suppliers 两条已于 2026-10-28 移出登记集：探针早已实测无 snake，但 mapSupplierRow /
   // mapSupplierItems 不合约定名，静态面认不出已收口 → 改名 supplierViewOf / toSupplierListView。
-  "src/app/api/industries/tree/route.ts#options",
+  // industries/tree 已于同日升到 A（树族共用同一行→选项映射，见 A 段说明）。
   "src/app/api/learning/materials/[materialId]/content/route.ts#payload",
   "src/app/api/notices/unified-search/route.ts#result",
   "src/app/api/suppliers/stats/route.ts#stats",
