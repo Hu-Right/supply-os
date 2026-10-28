@@ -80,24 +80,25 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 
 四条 API 契约红线（成功形态 + 下述①②③）**共用一份扫描骨架** `scripts/gates/lib/api-contract.mjs`：递归收集、括号配平取调用实参、字符偏移→行号、`✖ [TAG] 违规 N 处：` 报告格式、递减白名单「已不再命中就提示删行」的卫生检查都在骨架里单点实现——新增第 N 条红线只写规则本体，不再各抄一份扫描器。扫描根统一由环境变量 `API_CONTRACT_SCAN_ROOT` 覆盖（自测 fixture 用）。自测统一走 `tests/gates/lib/gate-runner.mjs`，每条红线三面必测：**真仓库必绿 + fixture 必拦得住 + 合规写法不得误伤**（`node --test`，已接 `npm run lint`）。
 
-| 红线 | 口径 | 门禁 | 现状（2026-10-27） |
+| 红线 | 口径 | 门禁 | 现状（2026-10-28） |
 |---|---|---|---|
 | **①** 错误码 SSOT | 码值只集中在 `shared/constants/api`（同值不得多常量）；调用处必须引用 `EC_` 常量，禁裸数字（含 `routeError` 第二参、`codeByPath`、响应体 `code:` 字面量）；被路由引用的码必须已登记进 `core/http/error-map` 的 `CODE_MAP`——`EC_INVALID_PARAMS`/`EC_INVALID_REQUEST` 刻意不登记，让后端 message 直出 | `check-api-error-codes.mjs` | 全域零裸数字、引用码全登记 |
-| **②** 响应字段命名 | **响应实体字段用 `camelCase`**；请求参数与分页/元数据键允许 `snake_case`（`page_size`/`total`/`limit`/`next_cursor`… 见门禁内 `METADATA_KEYS`）。只静态检查 `NextResponse.json(...)`/`Response.json(...)` 的**显式对象字面量键**（含 ES6 简写）；`...row` 展开与 mapper 产出的键不在本静态面内，由分域迁移 + 端到端验证覆盖 | `check-api-field-naming.mjs` | 递减白名单 68 项已**清零**（登记行全删）：auth 全域、supplier-diagnosis、learning/training/report-preview、claims/interest/unlock、crm/chat（消息 + 会话四处出口）、notices 全域（detail/preview/content/unified-search/stats）、payment/orders 建单与查单、解锁记录三端点、opportunities 列表均已整族迁 camelCase；新代码写 snake 键即失败 |
+| **②** 响应字段命名 | **响应实体字段用 `camelCase`**；请求参数与分页/元数据键允许 `snake_case`（`page_size`/`total`/`limit`/`next_cursor`… 见门禁内 `METADATA_KEYS`）。两条规则同走 `NextResponse.json(...)`/`Response.json(...)` 一面：规则一查**对象字面量键**（显式 `k:`、ES6 简写 `{ k, }`，以及 `const body = { … }; json(body)` 这种键在声明处的间接字面量）；规则二拦**整块透出**（`json(变量)` / `json({ ...盲区源 })`）——实参与其本地初始化式里没有视图 mapper 痕迹又未登记→ 当场失败。mapper 产出的键仍不在本静态面内，由分域迁移 + 路由级断言 + 只读探针覆盖 | `check-api-field-naming.mjs` | 显式 snake 键：递减白名单 68 项已**清零**（登记行全删）——auth 全域、supplier-diagnosis、learning/training/report-preview、claims/interest/unlock、crm/chat（消息 + 会话四处出口）、notices 全域（detail/preview/content/unified-search/stats）、payment/orders 建单与查单、解锁记录三端点、opportunities 与 awards 列表、membership 五端点整族均已迁 camelCase，新代码写 snake 键即失败。整块透出（2026-10-28 新规则暴露）：**登记 36 处**，A 已收视图+实测 7 / B sweep 实测无 snake 但未收 mapper 13 / C 尚未实测 16（C = 可见待办，见下条） |
 | **③** 401 语义单一化 | `401` = 「未登录/需要认证（凭据缺失或过期，**可刷新**）」，业务码只允许 `EC_AUTH_REQUIRED`/`EC_USER_REQUIRED`/`EC_API_KEY_INVALID`/`EC_API_KEY_EXPIRED`；**会话已死与凭据被拒一律 403 + 专属码**：登录密码错→`EC_ACCOUNT_ISSUE`，refresh token 无效/过期/撤销→`EC_REFRESH_TOKEN_*`（均 403）。开放 API 的 `X-API-Key` 边界保留 401（标准 REST 语义，不经本刷新链路） | `check-api-401-semantics.mjs` | 已普查并归位：会话已死/凭据被拒的 5 处改 403（登录 2 处 + 刷新 3 处）；剩下的 401 发放点（requireUserKey / premium 需登录 / SSE 票券 / 开放 API Key 边界）全为认证语义，且码必须是允许集内的 `EC_` 常量（裸数字同判，与①同口径） |
 
 - **为什么③要治本**：api-client 把 `res.status === 401` 当作「access token 过期 → 刷新重试，刷新失败即清凭据 + 登出」的信号。把「密码错误」「refresh token 已死」写成 401 会误触发刷新/登出链路（登录失败去刷一个新 session 根本没有的 token），且让 401 含义漂移。改 403 后**客户端行为不变**：`tryRefreshToken()` 对 `!res.ok` 一律返回 `null`，仍然清凭据 + 广播 `supply-os:unauthorized`。
 - **递减白名单怎么减**：迁移一个端点 = 同批改掉前端读取点（`src/features/**`、wrapper）+ 删掉白名单对应行；门禁会在「登记项已不再命中」时打印待收敛提示，机器兜住「忘了删行」。
   自测不再绑真实存量：样本登记项由 `API_FIELD_NAMING_ALLOWLIST_EXTRA` 注入 fixture 子进程，
   否则每迁完一族都要回头改自测（payment/orders 迁走时就是这样把自测改红的）。
-- **白名单清零 ≠ 债务清零（`...row` 展开与整块透出区）**：静态面只看得见 `json({ 显式键 })`（已覆盖显式 `k:` 与 ES6 简写 `{ k, }` 两类，简写曾漏过 report/preview 的 `total_report_chars`，现由自测钉住）；而全站有 40+ 个出口是 `NextResponse.json(变量)` 整块透出（repo 行 / 服务结果直接上网），门禁一个键都看不见。这类面靠两份东西兼顾：
+- **白名单清零 ≠ 债务清零（`...row` 展开与整块透出区）**：静态面原先只看得见 `json({ 显式键 })`（已覆盖显式 `k:` 与 ES6 简写 `{ k, }` 两类，简写曾漏过 report/preview 的 `total_report_chars`，现由自测钉住）；而全站有 30+ 个出口是 `NextResponse.json(变量)` 整块透出（repo 行 / 服务结果直接上网），门禁一个键都看不见。**2026-10-28 起这条盲区本身进门禁**（② 加规则二）：`json(变量)`、`json({ ...盲区源 })` 只要实参（或其本地 `const X = …` 初始化式）里没有视图 mapper 痕迹，就当场失败，除非登记在 `OPAQUE_ALLOWLIST`；反过来 `const body = { user_id: … }; json(body)` 这种「键在声明处」的间接字面量现在也被规则一查得到（行号指声明行）。登记集现状 **36 处**，按证据强度分组写明：A「已收视图 + 真库探针实测 snake 键 0」7 处、B「sweep 实测无 snake 键但未收 mapper」13 处、C「本轮新暴露、**尚未实测**」16 处——C 就是 ② 剩下的可见待办，不得当成已过关。重出清单：`API_FIELD_NAMING_EMIT_OPAQUE=1 node scripts/gates/check-api-field-naming.mjs`。
+  这类面另靠两样东西兼顾：
   ① 每个域一个唯一 mapper（`notice-public/view.ts`、`membership/view.ts`、`awards/view.ts`、
   `payment-history-view.ts`、`chat-service` 的消息/会话视图、`opportunities/route.ts` 的行→视图函数），
   改名规则本身在 `shared/utils/case-keys`；在 service/出口层出 camelCase，route 只做拼装，
   不得靠往白名单加行来「解决」门禁。
   ② 真实取证：只读探针跑真库/真 HTTP，列出仍在吐 snake 键的端点
   （`runtime/probe-api-field-naming-sweep.mjs` 等，runtime/ 不入库），配路由级断言钉住。
-  新端点直接 `json(行)` 属于同族违规：要么过 mapper，要么在探针里被拉到。
+  新端点直接 `json(行)` 属于同族违规：现在会被规则二当场拦下，而不是等探针事后拉到。
   整块透出的响应体（如 `NextResponse.json(list)`）靠路由级集成测试钉住键名：
   `tests/integration/api-routes/payment-orders-list.test.ts` 用真实 orchestrator + 假仓库
   跑路由，断言 wire 上无 snake 键；新迁入这种端点时补同样的测试，不要只改类型。
