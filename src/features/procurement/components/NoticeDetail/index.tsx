@@ -26,6 +26,7 @@ import { AiSummarySection } from "../AiSummarySection";
 import { NextStepsPanel } from "../NextStepsPanel";
 import { getCountdown } from "@/shared/utils/countdown";
 import { formatNoticeDateOrNull } from "@/shared/utils/notice-datetime/format";
+import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
 import { formatNoticeAmount, formatNoticeDeadline, formatNoticeReference } from "../../utils/noticeDisplay";
 
 import { DetailHeader } from "./DetailHeader";
@@ -37,6 +38,15 @@ import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
 import { AiEvaluationPanel } from "../AiEvaluationPanel";
 import { useAiMatch } from "../../hooks/useAiMatch";
+
+/** 倒计时的小时/分/秒用精确差值；「剩余 N 天」统一按日历天数，与列表一致。 */
+function getDisplayCountdown(deadlineTs: number | string | null | undefined) {
+  const countdown = getCountdown(deadlineTs);
+  if (!countdown) return null;
+  const days = calendarDaysLeftCst(toUnixMs(deadlineTs));
+  if (days == null || days < 0) return null;
+  return { ...countdown, days };
+}
 
 interface NoticeDetailProps {
   notice: NoticeDetailItem;
@@ -82,7 +92,7 @@ export function NoticeDetail({
   const aiMatch = useAiMatch(noticeId, aiMatchEnabled);
   const [activeTab, setActiveTab] = useState("summary");
   const bidDeadline = !notice.deadlineType || notice.deadlineType === "bid";
-  const [countdown, setCountdown] = useState(bidDeadline ? getCountdown(notice.deadlineTs) : null);
+  const [countdown, setCountdown] = useState(bidDeadline ? getDisplayCountdown(notice.deadlineTs) : null);
   // 分享面板开关（链接由公告数值 id 拼成规范公开详情页）
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -92,7 +102,7 @@ export function NoticeDetail({
       setCountdown(null);
       return;
     }
-    const id = setInterval(() => setCountdown(getCountdown(notice.deadlineTs)), 1000);
+    const id = setInterval(() => setCountdown(getDisplayCountdown(notice.deadlineTs)), 1000);
     return () => clearInterval(id);
   }, [notice.deadlineTs, bidDeadline]);
 
@@ -109,10 +119,9 @@ export function NoticeDetail({
     `${notice.title || ""}\n${notice.description || ""}`,
     canSeeChinese && locale === "zh" ? (notice.titleI18n || undefined) : undefined,
   );
-  // 标题回退链：无中文能力→原文标题；否则 hook 译文 > 列表 i18n 标题 > 原文
-  const displayTitle = canSeeChinese
-    ? (hookDisplayTitle || notice.titleI18n || notice.title)
-    : notice.title;
+  // 标题回退链：与列表共用 titleI18n → titleEn → 原文；中文能力命中时 hook 译文优先
+  const displayTitle = (canSeeChinese ? hookDisplayTitle : undefined)
+    || notice.titleI18n || notice.titleEn || notice.title;
   const displayDescription = !canSeeChinese
     ? (notice.originalDescription || notice.description)
     : showOriginal
@@ -134,10 +143,9 @@ export function NoticeDetail({
   const reportKnown = coreUnlocked || typeof notice.reportAvailable === "boolean" || typeof notice.isOpportunity === "boolean";
   const typeKey = noticeTypeKey(notice.noticeTypeCode);
   const showReportGuide = !showSkeleton && reportKnown && !hasReport;
-  const visibleAgency = coreUnlocked
-    ? notice.agencyI18n || notice.buyerName || t("procurement_unknownAgency")
-    : showSkeleton ? t("procurement_loading")
-    : notice.agencyI18n || notice.buyerName || t("procurement_unknownAgency");
+  const visibleAgency = !coreUnlocked
+    ? t("procurement_buyerLocked")
+    : (notice.agencyI18n || notice.buyerName || t("procurement_unknownAgency"));
 
   // 信息表数据（发布日走统一解析+UTC 格式化，与 SEO 页同口径；不可解析回落占位）
   const publishDate = formatNoticeDateOrNull(notice.publishedTs ? new Date(Number(notice.publishedTs) * 1000).toISOString().slice(0, 10) : "") || "-";
@@ -297,6 +305,7 @@ export function NoticeDetail({
     </div>
   );
 }
+
 
 
 

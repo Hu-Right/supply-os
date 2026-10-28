@@ -609,5 +609,6 @@
   "procurement_deadlineBid": "Fecha límite de licitación",
   "procurement_deadlineRegistration": "Fin del registro",
   "procurement_deadlineFramework": "Fin del acuerdo marco",
-  "detail_reference": "N.º de referencia"
+  "detail_reference": "N.º de referencia",
+  "procurement_buyerLocked": "Visible tras desbloquear"
 }

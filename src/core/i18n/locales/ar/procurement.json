@@ -609,5 +609,6 @@
   "procurement_deadlineBid": "الموعد النهائي لتقديم العطاء",
   "procurement_deadlineRegistration": "انتهاء التسجيل",
   "procurement_deadlineFramework": "انتهاء الاتفاق الإطاري",
-  "detail_reference": "رقم المرجع"
+  "detail_reference": "رقم المرجع",
+  "procurement_buyerLocked": "يظهر بعد الفتح"
 }

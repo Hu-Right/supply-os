@@ -64,7 +64,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
         {/* ── 状态标签列：公告类型 + 附件 ── */}
         <div className="flex lg:flex-col flex-wrap lg:flex-nowrap items-start gap-1 lg:w-28 shrink-0">
           <Badge shape="tag" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-3xs font-bold w-fit whitespace-nowrap">
-            {typeKey ? t(typeKey) : item.noticeTypeCode || "Notice"}
+            {typeKey ? t(typeKey) : item.noticeTypeCode || "-"}
           </Badge>
           {docCount > 0 && (
             <Badge variant="info" shape="tag" className="text-3xs font-bold w-fit whitespace-nowrap">
@@ -107,7 +107,9 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
         {/* ── 买家列（lg+） ── */}
         <div className="hidden lg:block w-44 shrink-0">
           <p className="text-xs text-slate-700 font-bold truncate">
-            {item.agencyI18n || item.buyerName || t("procurement_unknownAgency")}
+            {item.coreLocked === false
+              ? (item.agencyI18n || item.buyerName || t("procurement_unknownAgency"))
+              : t("procurement_buyerLocked")}
           </p>
         </div>
 
@@ -182,6 +184,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
     </Card>
   );
 });
+
 
 
 

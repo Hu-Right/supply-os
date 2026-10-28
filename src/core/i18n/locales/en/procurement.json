@@ -609,5 +609,6 @@
   "procurement_deadlineBid": "Bid deadline",
   "procurement_deadlineRegistration": "Registration closes",
   "procurement_deadlineFramework": "Framework agreement ends",
-  "detail_reference": "Reference No."
+  "detail_reference": "Reference No.",
+  "procurement_buyerLocked": "Unlock to view"
 }

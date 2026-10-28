@@ -609,5 +609,6 @@
   "procurement_deadlineBid": "Срок подачи заявки",
   "procurement_deadlineRegistration": "Окончание регистрации",
   "procurement_deadlineFramework": "Окончание рамочного соглашения",
-  "detail_reference": "Номер ссылки"
+  "detail_reference": "Номер ссылки",
+  "procurement_buyerLocked": "Доступно после разблокировки"
 }

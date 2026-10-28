@@ -609,5 +609,6 @@
   "procurement_deadlineBid": "投标截止",
   "procurement_deadlineRegistration": "注册制结束",
   "procurement_deadlineFramework": "框架协议结束",
-  "detail_reference": "参考编号"
+  "detail_reference": "参考编号",
+  "procurement_buyerLocked": "解锁后可见"
 }
