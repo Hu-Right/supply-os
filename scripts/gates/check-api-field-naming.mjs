@@ -141,7 +141,11 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // 【B 字段命名 sweep 实测无 snake 键·但仍未收 mapper】键是本域约定名或 SQL 聚合别名；
   // 迁视图时请顺手删行，让登记集只反映「真的看不见」的出口。
   "src/app/api/catalog/country-name-map/route.ts#maps",
-  "src/app/api/certifications/route.ts#rows",
+  // certifications 与 suppliers/stats 已于 2026-10-28 整条删除登记位：
+  //   /api/certifications 原是 `json(rows)`（repo 行直接上网）→ 抽出约定名 certificationViewOf；
+  //   /api/suppliers/stats 原是 `json({ ...stats, registered })` → 成功分支改显式列举六个计数键，
+  //   与降级分支硬编的六键对齐。两路形状现由 tests/unit/app/api/supplier-catalog-view.test.ts 钉住。
+  // 同批还拆了前端幻影字段：CertificationRefItem 里的 title_zh / title_en 在库里根本不存在。
   // leads 两条已于 2026-10-28 移出登记集：路由本来就在过隐私收窄 DTO，只是函数名叫
   // mapLeadForMemberView——规则二只认 *ViewOf / to*View 这类约定名。改名 leadMemberViewOf
   // 后静态面自己能认出已收视图，无需再占登记位（键集合由 tests/unit/lib/services/leads.test.ts 钉住）。
@@ -168,7 +172,7 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // 盲区已不成立→登记必须跟着删（登记集只反映「真的看不见」的出口）；
   // 同时撤掉 spread 漏出来的同值 pageSize，分页元数据只发 page_size。
   "src/app/api/learning/materials/[materialId]/content/route.ts#payload",
-  "src/app/api/suppliers/stats/route.ts#stats",
+  // （本行原为 suppliers/stats#stats：已按上面 certifications 那条说明整条删除）
   // 【C 尚未实测】2026-10-28 已清零：原本剩下五条全部拿到进程内断言证据并升 A。
   // 下一批整块透出落进本组时，必须逐条写明「为什么拿不到证据」
   // （写路径 / 触付费 LLM / 触外部网关 / 库里无数据），不得笼统当成「应该没事」；

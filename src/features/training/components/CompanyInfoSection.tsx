@@ -173,7 +173,9 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           selected={value.certification}
           onToggle={toggleCertification}
           items={certifications.map((item) => {
-            const name = item.name || item.title_zh || item.title_en || String(item.id);
+            // name 列 NOT NULL；空串（脏行）才回退到 id。旧版还挂了 title_zh/title_en 两个
+            // 服务端从不发的幻影键，已随 CertificationRefItem 一起删。
+            const name = item.name || String(item.id);
             return { value: name, label: name };
           })}
         />

@@ -148,7 +148,16 @@ export default function TrainingPage() {
         </div>
         <section>
           <p className="mb-2 text-xs font-extrabold text-slate-700">{t("trainingFormCertifications")}</p>
-          <ChipToggleGroup className="rounded-xl border border-slate-200 bg-slate-50 p-3" selected={form.certification} onToggle={toggleCertification} items={certifications.map((item) => ({ value: item.name || item.title_zh || item.title_en || String(item.id), label: item.name || item.title_zh || item.title_en || String(item.id) }))} />
+          <ChipToggleGroup
+            className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+            selected={form.certification}
+            onToggle={toggleCertification}
+            // 只读服务端真发的两键（name 为空串的脏行才回退到 id）
+            items={certifications.map((item) => {
+              const name = item.name || String(item.id);
+              return { value: name, label: name };
+            })}
+          />
           <Input name="other_certification" value={form.other_certification} onChange={handleChange} placeholder={t("trainingFormOtherCertPlaceholder")} className="mt-3" />
         </section>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

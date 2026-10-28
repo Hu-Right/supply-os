@@ -83,14 +83,14 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 | 红线 | 口径 | 门禁 | 现状（2026-10-28） |
 |---|---|---|---|
 | **①** 错误码 SSOT | 码值只集中在 `shared/constants/api`（同值不得多常量）；调用处必须引用 `EC_` 常量，禁裸数字（含 `routeError` 第二参、`codeByPath`、响应体 `code:` 字面量）；被路由引用的码必须已登记进 `core/http/error-map` 的 `CODE_MAP`——`EC_INVALID_PARAMS`/`EC_INVALID_REQUEST` 刻意不登记，让后端 message 直出 | `check-api-error-codes.mjs` | 全域零裸数字、引用码全登记 |
-| **②** 响应字段命名 | **响应实体字段用 `camelCase`**；请求参数与分页/元数据键允许 `snake_case`（`page_size`/`total`/`limit`/`next_cursor`… 见门禁内 `METADATA_KEYS`）。两条规则同走 `NextResponse.json(...)`/`Response.json(...)` 一面：规则一查**对象字面量键**（显式 `k:`、ES6 简写 `{ k, }`，以及 `const body = { … }; json(body)` 这种键在声明处的间接字面量）；规则二拦**整块透出**（`json(变量)` / `json({ ...盲区源 })`）——实参与其本地初始化式里没有视图 mapper 痕迹又未登记→ 当场失败。mapper 产出的键仍不在本静态面内，由分域迁移 + 路由级断言 + 只读探针覆盖 | `check-api-field-naming.mjs` | 显式 snake 键：递减白名单 68 项已**清零**（登记行全删）——auth 全域、supplier-diagnosis、learning/training/report-preview、claims/interest/unlock、crm/chat（消息 + 会话四处出口）、notices 全域（detail/preview/content/unified-search/stats）、payment/orders 建单与查单、解锁记录三端点、opportunities 与 awards 列表、membership 五端点整族均已迁 camelCase，新代码写 snake 键即失败。整块透出（2026-10-28 新规则暴露）：**登记 29 处**，A 已收视图+实测/断言 23 / B 实测无 snake 但未收 mapper 6 / **C 尚未实测 0（已清零）**。开放 API 已按（乙）整族迁 camel，于同日入库。 |
+| **②** 响应字段命名 | **响应实体字段用 `camelCase`**；请求参数与分页/元数据键允许 `snake_case`（`page_size`/`total`/`limit`/`next_cursor`… 见门禁内 `METADATA_KEYS`）。两条规则同走 `NextResponse.json(...)`/`Response.json(...)` 一面：规则一查**对象字面量键**（显式 `k:`、ES6 简写 `{ k, }`，以及 `const body = { … }; json(body)` 这种键在声明处的间接字面量）；规则二拦**整块透出**（`json(变量)` / `json({ ...盲区源 })`）——实参与其本地初始化式里没有视图 mapper 痕迹又未登记→ 当场失败。mapper 产出的键仍不在本静态面内，由分域迁移 + 路由级断言 + 只读探针覆盖 | `check-api-field-naming.mjs` | 显式 snake 键：递减白名单 68 项已**清零**（登记行全删）——auth 全域、supplier-diagnosis、learning/training/report-preview、claims/interest/unlock、crm/chat（消息 + 会话四处出口）、notices 全域（detail/preview/content/unified-search/stats）、payment/orders 建单与查单、解锁记录三端点、opportunities 与 awards 列表、membership 五端点整族均已迁 camelCase，新代码写 snake 键即失败。整块透出（2026-10-28 新规则暴露）：**登记 27 处**，A 已收视图+实测/断言 23 / B 实测无 snake 但未收 mapper 4 / **C 尚未实测 0（已清零）**。开放 API 已按（乙）整族迁 camel，于同日入库。 |
 | **③** 401 语义单一化 | `401` = 「未登录/需要认证（凭据缺失或过期，**可刷新**）」，业务码只允许 `EC_AUTH_REQUIRED`/`EC_USER_REQUIRED`/`EC_API_KEY_INVALID`/`EC_API_KEY_EXPIRED`；**会话已死与凭据被拒一律 403 + 专属码**：登录密码错→`EC_ACCOUNT_ISSUE`，refresh token 无效/过期/撤销→`EC_REFRESH_TOKEN_*`（均 403）。开放 API 的 `X-API-Key` 边界保留 401（标准 REST 语义，不经本刷新链路） | `check-api-401-semantics.mjs` | 已普查并归位：会话已死/凭据被拒的 5 处改 403（登录 2 处 + 刷新 3 处）；剩下的 401 发放点（requireUserKey / premium 需登录 / SSE 票券 / 开放 API Key 边界）全为认证语义，且码必须是允许集内的 `EC_` 常量（裸数字同判，与①同口径） |
 
 - **为什么③要治本**：api-client 把 `res.status === 401` 当作「access token 过期 → 刷新重试，刷新失败即清凭据 + 登出」的信号。把「密码错误」「refresh token 已死」写成 401 会误触发刷新/登出链路（登录失败去刷一个新 session 根本没有的 token），且让 401 含义漂移。改 403 后**客户端行为不变**：`tryRefreshToken()` 对 `!res.ok` 一律返回 `null`，仍然清凭据 + 广播 `supply-os:unauthorized`。
 - **递减白名单怎么减**：迁移一个端点 = 同批改掉前端读取点（`src/features/**`、wrapper）+ 删掉白名单对应行；门禁会在「登记项已不再命中」时打印待收敛提示，机器兜住「忘了删行」。
   自测不再绑真实存量：样本登记项由 `API_FIELD_NAMING_ALLOWLIST_EXTRA` 注入 fixture 子进程，
   否则每迁完一族都要回头改自测（payment/orders 迁走时就是这样把自测改红的）。
-- **白名单清零 ≠ 债务清零（`...row` 展开与整块透出区）**：静态面原先只看得见 `json({ 显式键 })`（已覆盖显式 `k:` 与 ES6 简写 `{ k, }` 两类，简写曾漏过 report/preview 的 `total_report_chars`，现由自测钉住）；而全站有 30+ 个出口是 `NextResponse.json(变量)` 整块透出（repo 行 / 服务结果直接上网），门禁一个键都看不见。**2026-10-28 起这条盲区本身进门禁**（② 加规则二）：`json(变量)`、`json({ ...盲区源 })` 只要实参（或其本地 `const X = …` 初始化式）里没有视图 mapper 痕迹，就当场失败，除非登记在 `OPAQUE_ALLOWLIST`；反过来 `const body = { user_id: … }; json(body)` 这种「键在声明处」的间接字面量现在也被规则一查得到（行号指声明行）。登记集现状 **29 处**，按证据强度分组写明：A「已收视图 + 真库探针实测 snake 键 0」23 处、B「实测无 snake 键但未收 mapper」6 处、C「**尚未实测**」**已清零**（2026-10-28）。重出清单：`API_FIELD_NAMING_EMIT_OPAQUE=1 node scripts/gates/check-api-field-naming.mjs`（分组计数由 `runtime/count-opaque-groups.mjs` 复核）。
+- **白名单清零 ≠ 债务清零（`...row` 展开与整块透出区）**：静态面原先只看得见 `json({ 显式键 })`（已覆盖显式 `k:` 与 ES6 简写 `{ k, }` 两类，简写曾漏过 report/preview 的 `total_report_chars`，现由自测钉住）；而全站有 30+ 个出口是 `NextResponse.json(变量)` 整块透出（repo 行 / 服务结果直接上网），门禁一个键都看不见。**2026-10-28 起这条盲区本身进门禁**（② 加规则二）：`json(变量)`、`json({ ...盲区源 })` 只要实参（或其本地 `const X = …` 初始化式）里没有视图 mapper 痕迹，就当场失败，除非登记在 `OPAQUE_ALLOWLIST`；反过来 `const body = { user_id: … }; json(body)` 这种「键在声明处」的间接字面量现在也被规则一查得到（行号指声明行）。登记集现状 **27 处**，按证据强度分组写明：A「已收视图 + 真库探针实测 snake 键 0」23 处、B「实测无 snake 键但未收 mapper」4 处、C「**尚未实测**」**已清零**（2026-10-28）。重出清单：`API_FIELD_NAMING_EMIT_OPAQUE=1 node scripts/gates/check-api-field-naming.mjs`（分组计数由 `runtime/count-opaque-groups.mjs` 复核）。
   登记集靠两样东西继续收敛：
   ① 每个域一个唯一 mapper（`notice-public/view.ts`、`membership/view.ts`、`awards/view.ts`、
   `payment-history-view.ts`、`chat-service` 的消息/会话视图、`opportunities/route.ts` 的行→视图函数），
@@ -137,6 +137,16 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   同步改了 `NoticeResponse`、`useSearchResults` 读取链、样式冒烟样例（`serve-style-smoke.mjs`）——
   **同值别名就是 camel↔snake 桥，按红线不得保留**；键集合由 `tests/unit/app/api/notices/unified-search-gate.test.ts`
   新增的三例钉住（假编排器返回值里故意放了 `digest`/`meiliMs` 两个内部字段，验证它们上不了网）。
+- **B 组收敛第五批：certifications 与 suppliers/stats（2026-10-28）——两条登记位一次真删，附送一个幻影字段**。两种收口手法各治一种形态：
+  `/api/certifications` 是 `json(rows)`（repo 行直接上网，表列就是契约）→ 抽出约定名 `certificationViewOf(row: CertificationRow)`，
+  静态面自己认出已收口→删行；`/api/suppliers/stats` 是 `json({ ...stats, registered })`→ 成功分支改成显式列举六个计数键，
+  与降级分支硬编的那六个对齐（以前两路形状只靠肉眼对齐，改一边就飘）。登记 29→27（A23/B4/C0），
+  证据是 `tests/unit/app/api/supplier-catalog-view.test.ts`（假仓储，不连库）：多余列/内部字段被挡住、脏值归一（`id: "7"`→7、`name: null`→`""`）、
+  降级分支与成功分支键集合完全一致。
+  拆登记时顺带挖到一条**前端幻影字段**：`features/training/api.ts` 的 `CertificationRefItem` 挂着 `title_zh`/`title_en`，
+  而 `supplier_certifications` 表只有 `id / name / sort_order / is_active / created_at`（端点也只 SELECT `id, name`）——
+  两处读取点写的 `item.name || item.title_zh || item.title_en || String(item.id)` 永远只会读到第一项。
+  已删类型字段并拆掉两条回退链（这跟 ai-match 的 `pool_id` 是同一个病根的两面：一边是服务把列名吐上网，一边是前端凭空镜像了一排列名）。
 - **命名口径的另一个发现（未开工，待定）**：`/api/supplier-pool` 一行就把 `pool_id`/`supplier_id`/`has_qualification`/`created_at`
   直接下发（`SELECT p.id AS pool_id` 的 SQL 别名当响应键），前端 `settings/supplier-pool/page-client.tsx` 已在读 `item.pool_id`。
   它不在登记集里，因为出口形如 `json({ items: 变量 })`——正是规则二已声明的已知盲区（见下条），

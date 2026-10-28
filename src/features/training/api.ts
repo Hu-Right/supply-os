@@ -114,12 +114,13 @@ export interface TrainingRegisterForm {
   remark: string;
 }
 
-/** 认证资质参考项（GET /api/certifications） */
+/** 认证资质参考项（GET /api/certifications）：服务端只发 id + name 两键。
+ *  2026-10-28 删掉 `title_zh` / `title_en`：`supplier_certifications` 表从来没这两列
+ *  （列只有 id / name / sort_order / is_active / created_at），端点也只 SELECT id, name，
+ *  所以它们是幻影字段；两处读取点靠它们做的回退链一并拆掉。 */
 export interface CertificationRefItem {
   id: number;
-  name?: string;
-  title_zh?: string;
-  title_en?: string;
+  name: string;
 }
 
 /** 资质证书参考项（与旧品类字典无关，独立端点） */
