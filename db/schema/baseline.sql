@@ -1090,6 +1090,8 @@ CREATE TABLE `notice_public` (
   `published_ts` bigint DEFAULT NULL COMMENT '发布时间 epoch 秒（UTC）',
   `deadline_ts` bigint DEFAULT NULL COMMENT '截止时间 epoch 秒，仅 deadline_state=known 时有值',
   `deadline_state` varchar(20) DEFAULT NULL COMMENT '截止语义状态：known/unknown/placeholder/typo_suspect 等',
+  `deadline_type` varchar(20) DEFAULT NULL COMMENT '截止类型：bid/registration/framework_end（展示事实）',
+  `deadline_timezone` varchar(64) DEFAULT NULL COMMENT '截止时间展示时区/偏移（展示事实）',
   `country_code` char(2) DEFAULT NULL COMMENT '主国家 ISO2 码（别名归一后）',
   `country_codes` json DEFAULT NULL COMMENT '全部国家 ISO2 码数组（多国家公告）',
   `notice_type_code` varchar(30) DEFAULT NULL COMMENT '采购类型归一码（normalizeNoticeType 单一事实源）',
