@@ -143,9 +143,8 @@ export function NoticeDetail({
   const reportKnown = coreUnlocked || typeof notice.reportAvailable === "boolean" || typeof notice.isOpportunity === "boolean";
   const typeKey = noticeTypeKey(notice.noticeTypeCode);
   const showReportGuide = !showSkeleton && reportKnown && !hasReport;
-  const visibleAgency = !coreUnlocked
-    ? t("procurement_buyerLocked")
-    : (notice.agencyI18n || notice.buyerName || t("procurement_unknownAgency"));
+  const visibleAgency = notice.agencyI18n || notice.buyerName
+    || (showSkeleton ? t("procurement_loading") : t("procurement_unknownAgency"));
 
   // 信息表数据（发布日走统一解析+UTC 格式化，与 SEO 页同口径；不可解析回落占位）
   const publishDate = formatNoticeDateOrNull(notice.publishedTs ? new Date(Number(notice.publishedTs) * 1000).toISOString().slice(0, 10) : "") || "-";

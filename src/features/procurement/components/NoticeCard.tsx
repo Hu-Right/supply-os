@@ -107,9 +107,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
         {/* ── 买家列（lg+） ── */}
         <div className="hidden lg:block w-44 shrink-0">
           <p className="text-xs text-slate-700 font-bold truncate">
-            {item.coreLocked === false
-              ? (item.agencyI18n || item.buyerName || t("procurement_unknownAgency"))
-              : t("procurement_buyerLocked")}
+            {item.agencyI18n || item.buyerName || t("procurement_unknownAgency")}
           </p>
         </div>
 
