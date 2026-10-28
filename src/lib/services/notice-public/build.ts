@@ -301,7 +301,7 @@ export function buildPublicRow(
   const buyerGroup = core.buyerGroup?.slice(0, 100) ?? null;
   const countryCode = core.countryCode;
   const countryCodes = core.countryCodes;
-  const countryName = core.countryName?.slice(0, 100) ?? null;
+  // 英文 canonical 名（core.countryName）只在上游 classifyBuyerGroup 内部消费，服务表不再落列
   const noticeType = normalizeNoticeType(String(r.notice_type ?? "")).slice(0, 20) || null;
   const platform = platformOf(ctx, r.url, r.agency, r.organization);
   const amount = normalizeAmount(r.estimated_value, { currencyHint: r.currency, countryCode, description: desc });
@@ -345,7 +345,7 @@ export function buildPublicRow(
     title.slice(0, 500), desc, contentZh, contentLevel,
     r.industry == null ? null : String(r.industry).slice(0, 100),
     publishedTs, deadlineTs, dstate,
-    countryCode, JSON.stringify(countryCodes), countryName, noticeType,
+    countryCode, JSON.stringify(countryCodes), noticeType,
     platform?.name ?? null,
     buyerName, buyerGroup,
     amount.amount, amount.currency, amount.currencySource,

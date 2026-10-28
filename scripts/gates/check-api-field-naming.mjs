@@ -114,6 +114,13 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/crm/chat/sessions/queue/route.ts#info",
   "src/app/api/notices/[id]/ai-match/route.ts#result",
   "src/app/api/notices/[id]/ai-summary/route.ts#data",
+  // 支付两条原停在 C「触外部网关，探针跑不了」，但键名同样不必打真网关：
+  // TrainingPaymentService.createOrder / queryOrder 都是显式列字段 return（网关回传的
+  // pay_url / qr_code_url / provider_trade_no 在方法内取成局部变量再装进 camel 键，无 {...gateway} 展开）。
+  // 因此用假 repo + 假 strategy 在进程内钉住键集合（tests/unit/lib/payment/training-orders-view.test.ts，
+  // 不连库、不打网关、不写数据）；该文件同时钉住「履约用的是网关回传流水号而非库内旧值」。
+  "src/app/api/training/orders/[orderNo]/route.ts#result",
+  "src/app/api/training/orders/route.ts#result",
   // 【B 字段命名 sweep 实测无 snake 键·但仍未收 mapper】键是本域约定名或 SQL 聚合别名；
   // 迁视图时请顺手删行，让登记集只反映「真的看不见」的出口。
   "src/app/api/catalog/country-name-map/route.ts#maps",
@@ -144,10 +151,10 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/learning/materials/[materialId]/content/route.ts#payload",
   "src/app/api/notices/unified-search/route.ts#result",
   "src/app/api/suppliers/stats/route.ts#stats",
-  // 【C 尚未实测·逐条写明为什么拿不到证据】不得笼统当成「应该没事」：
-  // 剩下的两条都触外部支付网关（建单还要写库），只读探针跑不了。
-  "src/app/api/training/orders/[orderNo]/route.ts#result", // 查单触外部支付网关
-  "src/app/api/training/orders/route.ts#result", // POST 建单（写 + 外部）
+  // 【C 尚未实测】2026-10-28 已清零：原本剩下五条全部拿到进程内断言证据并升 A。
+  // 下一批整块透出落进本组时，必须逐条写明「为什么拿不到证据」
+  // （写路径 / 触付费 LLM / 触外部网关 / 库里无数据），不得笼统当成「应该没事」；
+  // 能用假 repo 在进程内钉键集合的不属于 C——先钉完再登 A。
 ]);
 
 // 自测追加项（见文件头）：只影响本次进程，不改真实登记存量。
