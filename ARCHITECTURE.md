@@ -182,11 +182,28 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   取数也从路由收回 service（顺手消掉一处「路由直连仓储」），键集合由
   `tests/unit/app/api/supplier-pool-view.test.ts`（5 例，假仓储）钉住。**两个恒为空串的字段已写进视图注释**：
   SQL 里写的 `'' AS industry`，所以前端的 `item.industry && …` 分支实际不会渲染（属产品数据链路缺口，不是命名问题）。
-- **同一盲区的下一个候选（已量暴露面，未开工）**：`runtime/probe-wrapped-opaque.mjs`（离线静态）扫全站
-  `json({ 键: 变量 })` 且变量直接来自一次 `await` 出口——共 6 处，其中 2 处值是标量（`{ id: result }`、
-  `{ supplierId: newId }`，无键可漏），**真正需要收口的是 4 处**：`buildUserResponse` 的三个认证出口
-  （`{ user: payload }`）与 `user/enterprise` 的 `{ enterprise: row }`（后者拿的是 directoryRepo.findFullById 的行）。
-  它们不在登记集内，因为规则二只拦 `json(变量)` 与 `json({ ...盲区源 })`。
+- **盲区第二例已治：认证响应体本身是 snake（2026-10-28 第八批）——登记集之外的真违规，比上批严重**。
+  探针先量到 4 处候选，动手才发现 `buildUserResponse` 返的对象自己就带着七个列名键：
+  `has_subscription` / `account_status` / `supplier_id` / `supplier_industry_id` / `supplier_industry` /
+  `phone_verified` / `email_verified`，被 `json({ user: payload })` 包着发到 **login/register/profile/reset-password/user
+  五个出口**（不是探针估的三处）。规则一只检查**路由**那个字面量（只有 `user` 一键，合法），
+  所以这批键改了表、改了仓储、改了前端都没人报——一行未露。现已全部改 camelCase，
+  前端 4 个读取点同批改掉（`AuthContext` 的 isVip 判定、`useEmailBinding`、`usePhoneBinding`、
+  `SupplierProfilePage` 的归属判定）**不做桥接**；`types/auth.ts` 镜像同口径。
+  键集合由 `tests/unit/lib/services/auth.test.ts` 新增的定形例钉住（11 键列举 + 「带下划线的键必须为零」）。
+  三点如实记录：① `supplierIndustryId`/`supplierIndustry` 恒为 null（字段已退役），本批只改名不删键，
+  裁剪留给产品裁定；② 服务端另发 `accountStatus`，站内无消费方，所以前端类型**有意不声明**它（不给幻影字段开口子）；
+  ③ 旧 localStorage 快照存的是 snake 键，启动恢复时 `isVip` 会临时算作 false，直到 `refreshAuth` 拿新响应覆盖
+  （代码路径如此，**未做浏览器实测**，DB 隧道仍断）。
+- **同一盲区的暴露面已重新量过（探针 v2，离线静态）**：v1 有两个漏报——只认 ES6 带标签条目（漏了简写
+  `{ bound, linkStatus, enterprise: row, licenseChange, commodityNodes }` 里的后两个），且只认「init 以 `await` 开头」
+  （漏了 `const { payload } = await loginWithPassword(…)` 这种解构出口，login/register 两处因此没上报，
+  才把「五处」估成「三处」）。v2 修正后：全站 `json({ 键: 一次调用的结果 })` 浅层条目共 **80 处**，
+  其中变量名似「记录/列表」的 **22 处**（含至少 4 处 ID 数组/标量误报）——文本面分不出值是对象还是数字，
+  所以这个数只能当「值得人工看的子集」，不能当硬判定。
+  真正的大头是 `GET /api/user/enterprise` 的 `{ enterprise: row }`：上网的是 `PORTAL_COLUMNS` 整行
+  （22 个可编辑列 + 8 个状态列 = 30 个列名键），而前端企业表单的字段 key 就是列名、PUT 请求体也发列名——
+  收口它需要先在「响应 camel / 请求 snake」的口径下做一次单向映射，口径选型待定（未开工）。
 - **规则二自身的已知限制（不假装盖全）**：它拦 `json(变量)` 与 `json({ ...盲区源 })`，但**不拦 `json({ items: 变量 })` 这种「字面量包 opaque 值」**——items 里数组元素的键对静态面不可见。`/api/open/v1/engineering` 的 list/detail 就是这个形状
   （`items: rows` 直接透传列名，2026-10-28 之前门禁对它完全说不了）。这类只能靠端点级断言 + 探针发现。
   即使已改成 `items: 视图数组`，静态面依旧看不见它——**加了 mapper 不等于被门禁看见**，

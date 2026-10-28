@@ -57,7 +57,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
 
   const hasPhone = !!authUser?.phone;
   const currentPhone = authUser?.phone;
-  const isVerified = authUser?.phone_verified === 1;
+  const isVerified = authUser?.phoneVerified === 1;
 
   const resetState = () => {
     setPhone("");

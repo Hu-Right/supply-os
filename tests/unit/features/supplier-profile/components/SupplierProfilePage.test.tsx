@@ -9,7 +9,7 @@ vi.mock("@/core/i18n", async (importOriginal) => {
 
 // 登录态可变态：未登录（undefined）/ 已登录但未绑企业 / 已绑定另一家企业
 let mockUserId: number | undefined = undefined;
-let mockAuthUser: { id: number; supplier_id: number | null } | null = null;
+let mockAuthUser: { id: number; supplierId: number | null } | null = null;
 // 该主体是否已被认领（后端按 users.supplier_id / claim_status 判定的结果）
 let mockClaimed = false;
 
@@ -100,14 +100,14 @@ describe("SupplierProfilePage — 认领入口与换绑", () => {
 
   it("已登录且未绑定企业：可发起认领", () => {
     mockUserId = 42;
-    mockAuthUser = { id: 42, supplier_id: null };
+    mockAuthUser = { id: 42, supplierId: null };
     render(<SupplierProfilePage />);
     expect(screen.getByText("profile_claimTitle")).toBeInTheDocument();
   });
 
   it("已绑定其他企业：认领按钮仍可点（旧绑定未认证时由服务端显式撤回后切换）", () => {
     mockUserId = 42;
-    mockAuthUser = { id: 42, supplier_id: 100 };
+    mockAuthUser = { id: 42, supplierId: 100 };
     render(<SupplierProfilePage />);
     expect(screen.getByText("profile_claimTitle")).toBeInTheDocument();
     // 旧口径把按钮换成不可点的锁提示，已认证/审核中一律藏入口；现在交给后端分状态处理
@@ -116,7 +116,7 @@ describe("SupplierProfilePage — 认领入口与换绑", () => {
 
   it("已绑定的正是本页主体：保持「我已认领」，不叠加锁提示", () => {
     mockUserId = 42;
-    mockAuthUser = { id: 42, supplier_id: 123 };
+    mockAuthUser = { id: 42, supplierId: 123 };
     mockClaimed = true;
     render(<SupplierProfilePage />);
     expect(screen.getByText("profile_claimedByMe")).toBeInTheDocument();

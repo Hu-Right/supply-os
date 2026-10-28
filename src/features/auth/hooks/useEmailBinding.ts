@@ -51,7 +51,7 @@ export function useEmailBinding(): UseEmailBindingReturn {
 
   const hasEmail = !!authUser?.email;
   const currentEmail = authUser?.email;
-  const isVerified = authUser?.email_verified === 1;
+  const isVerified = authUser?.emailVerified === 1;
 
   const resetState = () => {
     setEmail("");

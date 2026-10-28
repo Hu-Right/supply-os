@@ -16,10 +16,10 @@ vi.mock("next/navigation", () => ({
 
 const mockLogout = vi.fn();
 const mockRefreshAuth = vi.fn(() => Promise.resolve());
-let mockAuthUser: { nickname: string; email: string; supplier_id: number | null } | null = {
+let mockAuthUser: { nickname: string; email: string; supplierId: number | null } | null = {
   nickname: "测试昵称",
   email: "test@example.com",
-  supplier_id: 42,
+  supplierId: 42,
 };
 let mockIsVip = true;
 
@@ -77,7 +77,7 @@ describe("ProfileContent", () => {
   beforeEach(() => {
     mockLogout.mockClear();
     mockRefreshAuth.mockClear();
-    mockAuthUser = { nickname: "测试昵称", email: "test@example.com", supplier_id: 42 };
+    mockAuthUser = { nickname: "测试昵称", email: "test@example.com", supplierId: 42 };
     mockIsVip = true;
     mockEnterpriseBound = false;
     mockEnterpriseData = null;
@@ -179,7 +179,7 @@ describe("ProfileContent", () => {
   });
 
   it("t() 缺键（服务端 bundle 未含该键）→ 区块标题与字段标签回落中文兜底", () => {
-    mockAuthUser = { nickname: "测试昵称", email: "test@example.com", supplier_id: 42 };
+    mockAuthUser = { nickname: "测试昵称", email: "test@example.com", supplierId: 42 };
     mockEnterpriseBound = true;
     mockEnterpriseData = { verify_status: "done", company: "杭州中建工程技术有限公司" };
     tState.impl = () => "";

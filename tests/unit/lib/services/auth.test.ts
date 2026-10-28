@@ -110,9 +110,9 @@ describe("buildUserResponse", () => {
     const result = await buildUserResponse(user, mockMembershipRepo as any, mockSupplierRepo as any);
     expect(result.id).toBe(1);
     expect(result.email).toBe("user@test.com");
-    expect(result.has_subscription).toBe(false);
+    expect(result.hasSubscription).toBe(false);
     expect(result.phone).toBeTruthy();
-    expect(result.phone_verified).toBe(1);
+    expect(result.phoneVerified).toBe(1);
   });
 
   it("有昵称 → 输出 nickname，且响应体不含 display_name（隐私收口验收断言）", async () => {
@@ -142,5 +142,49 @@ describe("buildUserResponse", () => {
     const user = { id: 4, email: "user@test.com" };
     const result = await buildUserResponse(user, mockMembershipRepo as any, mockSupplierRepo as any);
     expect(result.phone).toBeNull();
+  });
+
+  // 命名红线②：这个对象是 login/register/profile/reset-password/user 五个出口共用的响应体，
+  // 而路由写的是 `json({ user: payload })`——门禁规则一只看路由那个字面量（只有 user 一键），
+  // 永不可见本对象的键。所以键集合只能在这里钉：新增列名、或回到 snake 都会当场红。
+  it("响应体键集合定形：全部 camelCase，一个 snake 键都不允许上网", async () => {
+    const { buildUserResponse } = await import("@/lib/services/auth");
+    const user = {
+      id: 5,
+      email: "u@test.com",
+      display_name: "王大名",
+      nickname: "采友_ABC",
+      account_status: "active",
+      phone: "13900139000",
+      phone_verified: 1,
+      email_verified: 0,
+      supplier_id: 77,
+      supplier_link_status: "verified",
+    };
+    mockSupplierRepo.findAuthInfoById.mockResolvedValueOnce({ id: 77 });
+    const result = await buildUserResponse(user as any, mockMembershipRepo as any, mockSupplierRepo as any);
+
+    // 键集合直接比列举（此处相邻键要么前缀包含、要么同位置同小写，码点序与字典直觉一致）
+    expect(Object.keys(result).sort()).toEqual([
+      "accountStatus",
+      "email",
+      "emailVerified",
+      "hasSubscription",
+      "id",
+      "nickname",
+      "phone",
+      "phoneVerified",
+      "supplierId",
+      "supplierIndustry",
+      "supplierIndustryId",
+    ]);
+    // 双重固闸：即使有人绕过上面的列举，“带下划线的键”也必须为零
+    expect(Object.keys(result).filter((k) => k.includes("_"))).toEqual([]);
+    // 值口径不变：改名不改语义（supplierId 取自关联行、两个退役字段仍恒为 null）
+    expect(result.supplierId).toBe(77);
+    expect(result.supplierIndustryId).toBeNull();
+    expect(result.supplierIndustry).toBeNull();
+    expect(result.accountStatus).toBe("active");
+    expect(result.emailVerified).toBe(0);
   });
 });

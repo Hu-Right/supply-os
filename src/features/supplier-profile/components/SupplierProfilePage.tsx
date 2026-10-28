@@ -67,7 +67,7 @@ export function SupplierProfilePage() {
   // supplier.id 形如 "sup-db-123"（门户卡片包装），认领与归属判定都要先回到库内主键，
   // 否则 Number("sup-db-123")=NaN，归属人自己也会被误报为「已被认领」。
   const dbSupplierId = Number(String(supplier?.id ?? "").replace(/^sup-db-/, ""));
-  const myBoundSupplierId = Number(authUser?.supplier_id ?? 0);
+  const myBoundSupplierId = Number(authUser?.supplierId ?? 0);
   // 归属人＝当前账号绑定的正是本页主体
   const isMySubject = myBoundSupplierId > 0 && myBoundSupplierId === dbSupplierId;
 

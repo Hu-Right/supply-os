@@ -104,17 +104,20 @@ export interface AuthUserResponse {
   email: string;
   /** 对外展示名（昵称）。真实姓名 display_name 不进入任何 API 响应（隐私收口） */
   nickname: string;
-  has_subscription: boolean;
-  account_status: string;
-  supplier_id: number | null;
-  supplier_industry_id: number | null;
-  supplier_industry: string | null;
+  hasSubscription: boolean;
+  /** 账号审核状态（pending/active/disabled/rejected）；值口径同 users.account_status */
+  accountStatus: string;
+  supplierId: number | null;
+  /** 旧品类映射已退役，恒为 null——保留键位待产品裁定后再裁剪（不静默删契约） */
+  supplierIndustryId: number | null;
+  /** supplier.industry 自由文本列已于 2026-10-15 退役，恒为 null——同上 */
+  supplierIndustry: string | null;
   /** 已绑定手机号（脱敏显示） */
   phone: string | null;
   /** 手机号是否已验证 */
-  phone_verified: number;
+  phoneVerified: number;
   /** 邮箱是否已验证 */
-  email_verified: number;
+  emailVerified: number;
 }
 
 /**
@@ -139,18 +142,23 @@ export async function buildUserResponse(
   // 展示名收口：只输出昵称。窗口期兜底（代码先上、060 回填未跑时 nickname 为 NULL）——
   // 此时以姓名掩码临时展示，回填完成后此分支自然不再命中，可在稳定后移除。
   const nickname = user.nickname || maskName(user.display_name ?? "");
+  // 键名全部 camelCase（红线② 2026-10-28）：本对象是 login/register/profile/reset-password/user
+  // 五个出口共用的响应体，过去七个键沿用 users.* 列名，被 `json({ user: payload })` 包着——
+  // 门禁规则一只检查对象字面量的键，而它检查的是**路由**那个字面量（只有 user 一个键，合法），
+  // 所以这批 snake 键一直在网上一行未报。下面读到的 account_status/phone_verified/email_verified
+  // 仍是仓储行键（入参侧 snake 允许），只有出口键改名。
   return {
     id: user.id!,
     email: user.email ?? "",
     nickname,
-    has_subscription: hasSubscription,
-    account_status: user.account_status ?? "pending",
-    supplier_id: (supplier?.id as number) || null,
-    supplier_industry_id: null, // 旧品类映射已退役，不随登录响应下发
-    supplier_industry: null, // supplier.industry 自由文本列已于 2026-10-15 退役（行业口径改走 industry_code）
+    hasSubscription,
+    accountStatus: user.account_status ?? "pending",
+    supplierId: (supplier?.id as number) || null,
+    supplierIndustryId: null, // 旧品类映射已退役，不随登录响应下发
+    supplierIndustry: null, // supplier.industry 自由文本列已于 2026-10-15 退役（行业口径改走 industry_code）
     phone: user.phone ? maskPhone(user.phone) : null,
-    phone_verified: user.phone_verified ?? 0,
-    email_verified: user.email_verified ?? 0,
+    phoneVerified: user.phone_verified ?? 0,
+    emailVerified: user.email_verified ?? 0,
   };
 }
 

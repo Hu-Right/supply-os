@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const persistAuthUser = useCallback((user: AuthUser) => {
     authUserRef.current = user;
     setAuthUser(user);
-    setIsVip(user.has_subscription === true);
+    setIsVip(user.hasSubscription === true);
     // P2 容错：localStorage 满或隐私模式下可能抛异常，不阻断登录主流程
     // 隐私约束：此处只允许持久化脱敏后字段（昵称 nickname、掩码 phone），禁止存真实姓名
     try {
@@ -211,6 +211,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [persistAuthUser]);
 
   // 初始化：从 localStorage 恢复用户
+  // 命名红线②（2026-10-28）后的过渡行为记在这里：旧快照存的是 snake 键（has_subscription），
+  // 恢复时 user.hasSubscription 为 undefined → isVip 临时算作 false，直到下方 refreshAuth
+  // 拿到新响应被覆盖（按「禁止向后兼容」不加旧键读取分支）。守卫类消费方（DiagnosisFormPage、
+  // useNoticeActions）等 authReady 不会误判；但徽章这类直读 isVip 的不等 authReady，
+  // 过渡窗口（一个请求往返）内会短暂显示非会员；按下方代码路径（有缓存就必调 refreshAuth）
+  // 下次启动即自愈，但未做浏览器实测（DB 隧道断开中）。
   useEffect(() => {
     const savedUser = window.localStorage.getItem(AUTH_USER_KEY);
     if (savedUser) {
