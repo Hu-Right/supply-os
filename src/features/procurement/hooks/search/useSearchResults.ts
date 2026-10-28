@@ -46,7 +46,9 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const SEARCH_TIMEOUT_MS = 15_000;
+  // 本地 MySQL 降级（MEILI_ENABLED=off / 隧道）冷查询可到 10~20s；
+  // 15s 会在服务端即将返回时先 abort，表现为“搜索超时”。给足冷路径预算。
+  const SEARCH_TIMEOUT_MS = 30_000;
 
   const totalPages = calcTotalPages(total, serverPageSize);
 
