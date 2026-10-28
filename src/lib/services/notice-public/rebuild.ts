@@ -52,16 +52,33 @@ export async function rebuildNoticePublicChanged(
         const row = buildPublicRow(r, ctx, input);
         if (row) params.push(row);
       }
-      written += await upsertPublicRows(pool, params);
+      try {
+        written += await upsertPublicRows(pool, params);
+      } catch (chunkErr) {
+        // [2026-10-28 事故加固] 整块 all-or-nothing 会让单行坏数据毒化全部选中行：
+        // 同一批次每轮都在同一块上失败，~1.2 万行永远写不进服务表。降级逐行落盘，
+        // 隔离坏行并留痕（notice_pk = 行首列），修复数据后下轮自动补齐。
+        for (const row of params) {
+          try {
+            written += await upsertPublicRows(pool, [row]);
+          } catch (rowErr) {
+            console.error(`[notice-public] 单行写入失败（已隔离，notice_pk=${row[0]}）:`, (rowErr as Error).message);
+          }
+        }
+        console.warn(`[notice-public] 块写入失败已逐行降级（chunk ${i}-${i + params.length}）:`, (chunkErr as Error).message);
+      }
     }
     const ghostIds = await selectPublicGhostIds(pool);
     const pruned = ghostIds.length > 0 ? await deletePublicRows(pool, ghostIds) : 0;
-    _lastRunAt = Date.now();
     if (ids.length > 0 || ghostIds.length > 0) {
       console.log(`[notice-public] 增量重建：选行 ${ids.length} · 写入 ${written} · 清理 ${pruned}（${((Date.now() - t0) / 1000).toFixed(1)}s）`);
     }
     return { selected: ids.length, written, pruned };
   } finally {
+    // [2026-10-28 事故加固] 失败也走节流：此前 _lastRunAt 仅在成功路径更新，
+    // 一旦某批数据持续写失败（如单行坏 contacts JSON 毒化整块），每个对账 tick 都会
+    // 重跑昂贵的选行+取数（选行集 ~1.2 万行时分钟级），成为常态负载把 DB 拖死。
     _running = false;
+    _lastRunAt = Date.now();
   }
 }

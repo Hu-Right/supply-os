@@ -292,20 +292,30 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
   };
 
   // 定时器 2：deadline_sec 漂移（分钟级，搜索活跃度过滤依赖它；修复仍走 syncWideIds）
+  // [2026-10-28 事故加固] 该检测是无索引不等式全表 JOIN（实测忙时 3 分钟+），60 秒定时器
+  // 无闸时会多代叠加（曾 3 代并发把 DB 拖死、搜索兜底 15s 超时、全球商机页空窗）。
+  // 单飞：上一轮未跑完直接跳过本 tick。
+  let deadlineScanRunning = false;
   const reconcileTimer = setInterval(async () => {
-    if (stopped) return;
+    if (stopped || deadlineScanRunning) return;
+    deadlineScanRunning = true;
     try {
       const driftIds = await detectDeadlineDrift(pool);
       if (driftIds.length > 0) await syncWideIds(pool, driftIds);
     } catch (err) {
       console.warn("[wide-table] deadline 对账异常:", (err as Error).message);
+    } finally {
+      deadlineScanRunning = false;
     }
   }, reconcileIntervalMs);
   stopFns.push(() => clearInterval(reconcileTimer));
 
   // 定时器 3：全量对账（①归一层重建 + 平台可见性集合差 + ghost 清理 + 源指纹轮转）
+  // [2026-10-28 事故加固] 同 deadline 扫描：对账体分钟级，5 分钟定时器无闸会多代叠加。
+  let fullReconcileRunning = false;
   const fullReconcileTimer = setInterval(async () => {
-    if (stopped) return;
+    if (stopped || fullReconcileRunning) return;
+    fullReconcileRunning = true;
     try {
       // 0) ①归一层增量重建（2026-10-27 管道翻转：主表 → ①服务表 → ②宽表）。
       //    ①先走，下面的平台/指纹检测才能基于新归一值；单飞+节流在 runner 内部，
@@ -339,6 +349,8 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
       cascadeToMeili(ghostIds, "ghost-cleanup");
     } catch (err) {
       console.warn("[wide-table] 全量对账异常:", (err as Error).message);
+    } finally {
+      fullReconcileRunning = false;
     }
   }, fullReconcileIntervalMs);
   stopFns.push(() => clearInterval(fullReconcileTimer));
