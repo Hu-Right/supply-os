@@ -108,8 +108,8 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
         <div className="hidden lg:block w-44 shrink-0">
           <p className="text-xs text-slate-700 font-bold truncate">
             {locale === "zh"
-              ? (item.buyerNameCn || item.buyerName || t("procurement_unknownAgency"))
-              : (item.buyerName || t("procurement_unknownAgency"))}
+              ? (item.buyerNameCn || item.buyerName || t("procurement_buyerUnavailable"))
+              : (item.buyerName || t("procurement_buyerUnavailable"))}
           </p>
         </div>
 
@@ -184,6 +184,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
     </Card>
   );
 });
+
 
 
 

@@ -445,5 +445,6 @@
   "aiScoreReasoning": "عملية استدلال الذكاء الاصطناعي",
   "procurement_deadlineRegistration": "انتهاء التسجيل",
   "procurement_deadlineFramework": "انتهاء الاتفاق الإطاري",
-  "detail_reference": "رقم المرجع"
+  "detail_reference": "رقم المرجع",
+  "procurement_buyerUnavailable": "لم يقدم المصدر جهة الشراء"
 }

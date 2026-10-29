@@ -445,5 +445,6 @@
   "aiScoreReasoning": "Proceso de razonamiento de la IA",
   "procurement_deadlineRegistration": "Fin del registro",
   "procurement_deadlineFramework": "Fin del acuerdo marco",
-  "detail_reference": "N.º de referencia"
+  "detail_reference": "N.º de referencia",
+  "procurement_buyerUnavailable": "Comprador no facilitado por la fuente"
 }

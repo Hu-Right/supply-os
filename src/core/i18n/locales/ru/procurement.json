@@ -445,5 +445,6 @@
   "aiScoreReasoning": "Процесс рассуждения ИИ",
   "procurement_deadlineRegistration": "Окончание регистрации",
   "procurement_deadlineFramework": "Окончание рамочного соглашения",
-  "detail_reference": "Номер ссылки"
+  "detail_reference": "Номер ссылки",
+  "procurement_buyerUnavailable": "Заказчик не указан источником"
 }

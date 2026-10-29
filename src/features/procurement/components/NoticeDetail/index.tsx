@@ -162,8 +162,8 @@ export function NoticeDetail({
 
   const typeKey = noticeTypeKey(notice.noticeTypeCode);
   const visibleAgency = locale === "zh"
-    ? (notice.buyerNameCn || notice.buyerName || t("procurement_unknownAgency"))
-    : (notice.buyerName || t("procurement_unknownAgency"));
+    ? (notice.buyerNameCn || notice.buyerName || t("procurement_buyerUnavailable"))
+    : (notice.buyerName || t("procurement_buyerUnavailable"));
 
   // 信息表数据（发布日走统一解析+UTC 格式化，与 SEO 页同口径；不可解析回落占位）
   const publishDate = formatNoticeDateOrNull(notice.publishedTs ? new Date(Number(notice.publishedTs) * 1000).toISOString().slice(0, 10) : "") || "-";
@@ -322,6 +322,7 @@ export function NoticeDetail({
     </div>
   );
 }
+
 
 
 

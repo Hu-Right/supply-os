@@ -445,5 +445,6 @@
   "aiScoreReasoning": "AI 分析推理过程",
   "procurement_deadlineRegistration": "注册制结束",
   "procurement_deadlineFramework": "框架协议结束",
-  "detail_reference": "参考编号"
+  "detail_reference": "参考编号",
+  "procurement_buyerUnavailable": "来源未提供买家"
 }
