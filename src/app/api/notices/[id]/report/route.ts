@@ -14,6 +14,7 @@ import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featur
 import { BID_FEASIBILITY_REPORT_BENEFIT } from "@/lib/services/benefit-matrix";
 import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
 import { platformInfo } from "@/lib/services/platform/resolve";
+import { resolveNoticeAccess } from "@/lib/services/notice-access";
 import {
   buildBidReportDocx,
   mergeBidReportRow,
@@ -43,8 +44,15 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const { detailRepo, unlockRepo } = ctx.notice;
     const opportunitiesRepo = ctx.opportunitiesRepo;
 
-    const unlock = await unlockRepo.findUnlock(userId, noticeId);
-    if (!unlock) routeError(403, EC_ACCESS_FORBIDDEN, "公告已锁定，请先解锁", { core_locked: true });
+    const access = await resolveNoticeAccess({
+      userId,
+      noticeId,
+      unlockRepo,
+      benefitRepo: ctx.benefitSystemRepo,
+    });
+    if (!access.unlock && !access.accessibleByPlan) {
+      routeError(403, EC_ACCESS_FORBIDDEN, "公告已锁定，请先解锁", { core_locked: true });
+    }
 
     // 投标可行性报告属企业级工具（2026-10-29）：企业/人工档可下载；个人档引导升级企业版
     if (!(await ctx.benefitSystemRepo.isEntitled(userId, BID_FEASIBILITY_REPORT_BENEFIT))) {

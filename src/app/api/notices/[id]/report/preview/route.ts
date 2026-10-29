@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { resolveNoticeAccess } from "@/lib/services/notice-access";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
 import { BID_FEASIBILITY_REPORT_BENEFIT } from "@/lib/services/benefit-matrix";
 import {
@@ -34,8 +35,13 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const { detailRepo, unlockRepo } = ctx.notice;
     const opportunitiesRepo = ctx.opportunitiesRepo;
 
-    const [unlock, notice] = await Promise.all([
-      unlockRepo.findUnlock(userId, noticeId),
+    const [access, notice] = await Promise.all([
+      resolveNoticeAccess({
+        userId,
+        noticeId,
+        unlockRepo,
+        benefitRepo: ctx.benefitSystemRepo,
+      }),
       detailRepo.findDetailPublished(noticeId),
     ]);
     if (!notice) routeError(404, EC_NOTICE_NOT_FOUND_404, "公告不存在");
@@ -61,7 +67,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     // 未解锁（会员打开即自动解锁，此处仅覆盖竞态）：服务端截断 sections 内容
     const MAX_CHARS_PER_SECTION = 500;
-    const safeSections = unlock
+    const isUnlocked = !!access.unlock || access.accessibleByPlan;
+    const safeSections = isUnlocked
       ? sections
       : sections.map((s: { heading: string; body: string }) => ({
           ...s,
@@ -70,7 +77,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     return NextResponse.json({
       sections: safeSections,
-      isUnlocked: !!unlock,
+      isUnlocked,
       hasFullReport: true,
       totalReportChars,
     });

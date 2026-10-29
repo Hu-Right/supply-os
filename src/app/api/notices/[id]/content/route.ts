@@ -17,6 +17,7 @@ import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featur
 import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
 import { preferValue } from "@/lib/utils/json";
 import { canAccessNotice } from "@/lib/services/industry-scope";
+import { resolveNoticeAccess } from "@/lib/services/notice-access";
 import { EC_OUT_OF_CATEGORY, EC_INVALID_PARAMS, EC_CONTENT_LOCKED, EC_NOT_FOUND } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -34,11 +35,18 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   }
     const { detailRepo, unlockRepo } = ctx.notice;
 
-    const [unlock, notice] = await Promise.all([
-      unlockRepo.findUnlock(auth.userId, noticeId),
+    const [access, notice] = await Promise.all([
+      resolveNoticeAccess({
+        userId: auth.userId,
+        noticeId,
+        unlockRepo,
+        benefitRepo: ctx.benefitSystemRepo,
+      }),
       detailRepo.findDetailPublished(noticeId),
     ]);
-    if (!unlock) routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { coreLocked: true });
+    if (!access.unlock && !access.accessibleByPlan) {
+      routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { coreLocked: true });
+    }
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
     
     // 从机会表取完整描述（主表 description 仅存标题，完整原文在 bid_opportunities）

@@ -48,6 +48,9 @@ export const AI_SUMMARY_MIN_VIEW_LEVEL = 1;
  */
 export const NOTICE_TRANSLATION_BENEFIT = "notice_translation";
 
+/** 公告查看权益码：已包含的付费档可免单条解锁记录直接看全文 */
+export const NOTICE_VIEW_BENEFIT = "notice_view";
+
 /**
  * 投标可行性报告权益码（bool，2026-10-29）：中文版订单拆解报告/可行性报告的下载与预览门控。
  * 矩阵取值：企业档/人工档=1，个人档=0（与定价页「投标可行性报告 个人 ✗」一致）；

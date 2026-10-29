@@ -16,6 +16,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { NOTICE_TRANSLATION_LANGS } from "@/lib/services/translation/notice";
 import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
 import { fetchNoticeTranslation } from "@/lib/services/notice-service";
+import { resolveNoticeAccess } from "@/lib/services/notice-access";
 
 // ── GET /api/notices/[id]/translation — 公告翻译 ──
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -36,8 +37,15 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     // ARCH-P0（2026-09-05）：付费墙闸口 — 译文属解锁后内容，必须先校验解锁态
     const ctx = getContext();
-    const unlock = await ctx.notice.unlockRepo.findUnlock(auth.userId, noticeId);
-    if (!unlock) routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { core_locked: true });
+    const access = await resolveNoticeAccess({
+      userId: auth.userId,
+      noticeId,
+      unlockRepo: ctx.notice.unlockRepo,
+      benefitRepo: ctx.benefitSystemRepo,
+    });
+    if (!access.unlock && !access.accessibleByPlan) {
+      routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { core_locked: true });
+    }
 
     // 档位门控（2026-09-24）：译文按矩阵 notice_translation 判定，129/999 等低档只给原文，不产出译文
     if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, NOTICE_TRANSLATION_BENEFIT))) {

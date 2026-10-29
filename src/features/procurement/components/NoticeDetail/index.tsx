@@ -79,18 +79,16 @@ export function NoticeDetail({
   const userId = useUserId();
   const router = useRouter();
   const noticeId = notice.noticePk;
-  // 锁定态：core_locked === false 为已解锁（列表标记或 /detail 合并结果）。
-  // 上移至 hooks 之前：AI 摘要与翻译一致，锁定态不发请求/不开放"开始分析"（后端必 403 core_locked）。
-  const coreUnlocked = notice.coreLocked === false;
-  // 档位中文能力（服务端按矩阵下发 gates）：notice_translation 控译文、ai_summary 控 AI 摘要。
+  // 档位门控（服务端按矩阵下发 gates）：notice_translation 控译文、ai_summary 控 AI 摘要。
   // free/included 才算当前用户享有；其余（upgrade/contact/unlock）一律回落原文。
   const gates = membership?.gates;
+  // 锁定态：core_locked === false 为已解锁；notice_view 权益已包含的付费会员
+  // 不再依赖单条解锁记录（服务端同样按权益放行），避免出现“权益已包含却仍显示解锁”。
+  const accessIncluded = gates?.notice_view === "free" || gates?.notice_view === "included";
+  const coreUnlocked = notice.coreLocked === false || accessIncluded;
   const canSeeChinese = gates?.notice_translation === "free" || gates?.notice_translation === "included";
   const aiSummaryEnabled = gates?.ai_summary === "free" || gates?.ai_summary === "included";
   const aiMatchEnabled = gates?.ai_match === "free" || gates?.ai_match === "included";
-  // 会员含 notice_view 无限读取：打开即自动解锁。解锁记录/详情落库前，
-  // 先显示中性加载，不能把“已包含”用户显示成“升级会员/已锁定”。
-  const accessIncluded = gates?.notice_view === "free" || gates?.notice_view === "included";
   const accessPending = accessIncluded && !coreUnlocked && !actionMessage;
   // 匹配层级按会员等级差异化（数据来自 plan_catalog.commercial_tier，不硬编码档位常量）：
   // L1 个人=基础评估 / L3 企业=企业级评估 / L4+ 人工=可定制评估

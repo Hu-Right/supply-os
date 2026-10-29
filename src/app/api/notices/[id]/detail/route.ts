@@ -16,6 +16,7 @@ import { platformInfoWithFallback } from "@/lib/services/platform/resolve";
 import { enrichAgencyI18n, ensureAgencyDisplayWarmup } from "@/lib/services/search-orchestrator/format";
 import { pickNoticeApiLang } from "@/shared/constants/langs";
 import { canAccessNotice } from "@/lib/services/industry-scope";
+import { resolveNoticeAccess } from "@/lib/services/notice-access";
 import { EC_OUT_OF_CATEGORY, EC_INVALID_PARAMS, EC_CONTENT_LOCKED, EC_NOT_FOUND } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -33,11 +34,18 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   }
     const { unlockRepo } = ctx.notice;
 
-    const [unlock, notice] = await Promise.all([
-      unlockRepo.findUnlock(auth.userId, noticeId),
+    const [access, notice] = await Promise.all([
+      resolveNoticeAccess({
+        userId: auth.userId,
+        noticeId,
+        unlockRepo,
+        benefitRepo: ctx.benefitSystemRepo,
+      }),
       findPublicDetail(ctx.dbPool, noticeId),
     ]);
-    if (!unlock) routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { coreLocked: true });
+    if (!access.unlock && !access.accessibleByPlan) {
+      routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { coreLocked: true });
+    }
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
 
     // 合格商机只用于资格 Tab / 报告；详情主内容字段全部来自服务表原字段。
@@ -76,8 +84,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       // 下面这些补充键直接写 camel——它们读的是商机行（服务端内部形状，仍为列名）。
       ...toNoticeView(notice)!,
       coreLocked: false,
-      unlockType: unlock.unlock_type,
-      unlockedAt: unlock.unlocked_at,
+      unlockType: access.unlock?.unlock_type ?? "subscription",
+      unlockedAt: access.unlock?.unlocked_at ?? null,
       platform,
       reportAvailable: !!opportunity,
       reportUrl: opportunity ? `/api/notices/${notice.notice_pk}/report` : "",
