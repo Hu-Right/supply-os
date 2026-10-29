@@ -38,6 +38,16 @@ export type { Watermark } from "./crawler-sync-sql";
 
 const BATCH_SIZE = 200;
 
+/**
+ * 源库表名前缀：目标库/sync_watermark 键/列所有权登记一律用 SYNC_TABLES 的现行名，
+ * 只有「读源库」这一步可能要用旧前缀——2026-10-28「去 crm_ 前缀」批次改了云库与仓库代码，
+ * 内网源库若尚未改名（仍是 crm_bid_notices / crm_bid_opportunities），部署侧设
+ * SYNC_SOURCE_TABLE_PREFIX="crm_" 即可；内网改名后清空，本分支自然失效。
+ * （手动兜底 scripts/tools/daily-sync.cjs 读同一个变量，保持两条链路同口径。）
+ */
+const SOURCE_TABLE_PREFIX = process.env.SYNC_SOURCE_TABLE_PREFIX ?? "";
+const sourceTableName = (table: string): string => `${SOURCE_TABLE_PREFIX}${table}`;
+
 interface ColMeta { COLUMN_NAME: string; COLUMN_KEY: string; DATA_TYPE: string; }
 const _colCache = new Map<string, ColMeta[]>();
 
@@ -136,8 +146,17 @@ export async function syncTable(
   onWatermark?: (wm: Watermark) => Promise<void>,
   normalize?: (row: RowDataPacket) => Record<string, unknown>,
 ): Promise<SyncTableResult> {
-  const columns = await getTableColumns(source, table, "source");
+  const srcTable = sourceTableName(table);
+  const columns = await getTableColumns(source, srcTable, "source");
   const targetColumns = await getTableColumns(target, table, "target");
+  // 缺表单独报：否则会被下面「无主键」误导成建表缺陷（源库仍是旧前缀表名时实测踩过）
+  if (columns.length === 0 || targetColumns.length === 0) {
+    const missing = columns.length === 0
+      ? `源库缺表 ${srcTable}（检查 SYNC_SOURCE_TABLE_PREFIX / SYNC_SOURCE_DATABASE）`
+      : `目标库缺表 ${table}`;
+    console.warn(`[crawler-sync] ${table}: ${missing}，跳过`);
+    return { synced: 0, newWm: wm, changedIds: [], immuneSkipped: 0 };
+  }
   const targetColSet = new Set(targetColumns.map((c) => c.COLUMN_NAME));
   // 源/目标 schema 漂移：只同步交集列，缺失列跳过，避免 Unknown column 中断整轮
   const missingCols = columns.map((c) => c.COLUMN_NAME).filter((n) => !targetColSet.has(n));
@@ -168,7 +187,7 @@ export async function syncTable(
   const baseWhere = buildIncrementalWhere(pkCol, wm.id, wm.time, hasUpdateTime, utIsNumeric);
   const baseWhereBody = baseWhere.replace(/^WHERE \((.*)\)$/, "$1"); // 供 keyset 追加 AND 条件
 
-  const [countRows] = await source.query(`SELECT COUNT(*) AS cnt FROM \`${table}\` ${baseWhere}`);
+  const [countRows] = await source.query(`SELECT COUNT(*) AS cnt FROM \`${srcTable}\` ${baseWhere}`);
   const newCount = Number((countRows as RowDataPacket[])[0]?.cnt || 0);
   if (newCount === 0) return { synced: 0, newWm: wm, changedIds: [], immuneSkipped: 0 };
 
@@ -187,7 +206,7 @@ export async function syncTable(
     const conds = [baseWhereBody, lastPk !== null ? `\`${pkCol}\` > ${lastPk}` : null].filter(Boolean);
     const pageWhere = conds.length > 0 ? `WHERE ${conds.join(" AND ")}` : "";
     const [rows] = await source.query(
-      `SELECT * FROM \`${table}\` ${pageWhere} ORDER BY \`${pkCol}\` ASC LIMIT ${BATCH_SIZE}`,
+      `SELECT * FROM \`${srcTable}\` ${pageWhere} ORDER BY \`${pkCol}\` ASC LIMIT ${BATCH_SIZE}`,
     );
     const batch = rows as RowDataPacket[];
     if (batch.length === 0) break;
@@ -278,6 +297,12 @@ export async function runCrawlerSyncOnce(target: Pool): Promise<CrawlerSyncResul
   let immuneSkipped = 0;
   const changedNoticeIds: number[] = [];
   const perTable: Record<string, number> = {};
+
+  // 源/目标表名不同名时先留一行日志：排障时这一行就是第一现场
+  if (SOURCE_TABLE_PREFIX) {
+    console.log(`[crawler-sync] 源库表名前缀 ${JSON.stringify(SOURCE_TABLE_PREFIX)}（SYNC_SOURCE_TABLE_PREFIX）→ `
+      + SYNC_TABLES.map((t) => `${t}=${sourceTableName(t)}`).join("、"));
+  }
 
   for (const table of SYNC_TABLES) {
     const wm = wms.get(table) ?? { id: 0, time: null };
