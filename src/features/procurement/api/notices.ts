@@ -23,7 +23,7 @@ export const viewNotice = (noticeId: number) =>
 
 export const unlockNotice = (
   noticeId: number,
-  unlockType: "free" | "single" | "subscription",
+  unlockType: "free" | "subscription",
   price: number
 ) =>
   api(`/api/notices/${noticeId}/unlock`, {

@@ -15,7 +15,7 @@ import {
   EC_PAYMENT_PROVIDER_UNAVAILABLE, EC_PAYMENT_QR_CODE_MISSING,
   EC_PAYMENT_PLAN_NOT_FOUND, EC_PAYMENT_MATERIAL_NOT_FOUND, EC_PAYMENT_BUNDLE_NOT_FOUND,
   EC_PAYMENT_USER_PLAN_REQUIRED, EC_PAYMENT_PLAN_NOT_SELLABLE, EC_PAYMENT_AMOUNT_INVALID,
-  EC_PAYMENT_FREE_PLAN, EC_PAYMENT_UPGRADE_INVALID, EC_PAYMENT_SINGLE_FIRST_PURCHASE,
+  EC_PAYMENT_FREE_PLAN, EC_PAYMENT_UPGRADE_INVALID,
   EC_PAYMENT_SERVICE_UNAVAILABLE, EC_PAYMENT_SERVICE_ADVISORY_ONLY,
 } from "@/shared/constants/api";
 
@@ -146,7 +146,6 @@ export const POST = withRoute(
         { token: "BUNDLE_NOT_FOUND", status: 404, code: EC_PAYMENT_BUNDLE_NOT_FOUND, message: "打包套餐不存在或已下架" },
         { token: "SERVICE_ADVISORY_ONLY", status: 400, code: EC_PAYMENT_SERVICE_ADVISORY_ONLY, message: "该服务仅顾问对接，不支持自助下单" },
         { token: "SERVICE_UNAVAILABLE", status: 400, code: EC_PAYMENT_SERVICE_UNAVAILABLE, message: "该服务暂不支持在线下单" },
-        { token: "SINGLE_FIRST_PURCHASE_ONLY", status: 409, code: EC_PAYMENT_SINGLE_FIRST_PURCHASE, message: "首单特惠仅限首次购买，请选择标准单次解锁" },
         { token: "USER_AND_PLAN_REQUIRED", status: 400, code: EC_PAYMENT_USER_PLAN_REQUIRED, message: "请先登录后再尝试支付" },
         { token: "PLAN_NOT_SELLABLE", status: 400, code: EC_PAYMENT_PLAN_NOT_SELLABLE, message: "该套餐暂不可自助成交，请联系客服" },
         { token: "PLAN_NOT_FOUND", status: 404, code: EC_PAYMENT_PLAN_NOT_FOUND, message: "未找到对应的套餐方案，请刷新后重试" },

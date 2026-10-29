@@ -39,7 +39,7 @@ export interface UseNoticeHandlersOptions {
 
 export interface UseNoticeHandlersReturn {
   openNotice: (notice: NoticeItem) => Promise<void>;
-  handleUnlockNotice: (notice: NoticeItem, unlockType?: "free" | "single" | "subscription") => Promise<boolean>;
+  handleUnlockNotice: (notice: NoticeItem, unlockType?: "free" | "subscription") => Promise<boolean>;
   handleExpressInterest: (notice: NoticeItem, interestType: "interested" | "subscribed") => Promise<void>;
 }
 
@@ -97,7 +97,7 @@ export function useNoticeHandlers({
     setDetailLoadingId, refreshMembership, loadNoticeDetail, loadNoticePreview, loadNoticeContent,
   ]);
 
-  const handleUnlockNotice = async (notice: NoticeItem, unlockType?: "free" | "single" | "subscription") => {
+  const handleUnlockNotice = async (notice: NoticeItem, unlockType?: "free" | "subscription") => {
     if (!userId) {
       onRequireLogin();
       return false;

@@ -86,6 +86,7 @@ vi.mock("@/lib/db/context", () => ({
         quota_total: 100,
         quota_used: 5,
         status: "active",
+        period_starts_at: new Date("2026-01-01T00:00:00"),
       } satisfies LockedPoolRow),
       openQuotaPool: vi.fn().mockResolvedValue(undefined),
       consumeLockedPool,
@@ -194,7 +195,7 @@ describe("POST /api/opportunities/[id]/unlock", () => {
     loadCells.mockResolvedValue([{ benefit_code: "notice_view", value_num: 100 }]);
     consumeLockedPool.mockResolvedValue("denied" satisfies ConsumeResult);
     const { POST } = await import("@/app/api/opportunities/[id]/unlock/route");
-    const res = await POST(unlockRequest(176, { unlock_type: "single" }), routeParams(176));
+    const res = await POST(unlockRequest(176, { unlock_type: "subscription" }), routeParams(176));
     expect(res.status).toBe(402);
     const body = await res.json();
     expect(body.message).toContain("会员");

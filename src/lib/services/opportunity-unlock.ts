@@ -36,7 +36,7 @@ export interface OpportunityUnlockParams {
   /** 内部用户 ID */
   userId: number;
   opportunityId: number;
-  unlockType: "free" | "subscription" | "single";
+  unlockType: "free" | "subscription";
   price: number;
 }
 
@@ -88,7 +88,7 @@ export async function executeOpportunityUnlock(
 
     // 付费解锁：共享公告路径的配额记账口径（FOR UPDATE 锁住 notice_view 池行，
     // 额度取自矩阵格），杜绝"有订阅即无限放行"的路径分叉
-    if (unlockType === "subscription" || unlockType === "single") {
+    if (unlockType === "subscription") {
       try {
         consumedPool = await ensureConsumableQuota(conn, quotaDeps, { userId });
       } catch (quotaErr) {

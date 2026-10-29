@@ -41,7 +41,7 @@ export function useNoticeMembership({
   const paidRemaining = unlockRemaining(membership?.quotas);
   const canUsePaidQuota = isVip || hasUnlockQuota(paidRemaining);
 
-  // 总可用解锁次数 = 额度账本剩余（已与后端门控同源，不再叠加旧"单次卡"）
+  // 总可用解锁次数 = 额度账本剩余（已与后端门控同源）
   const totalRemaining = paidRemaining;
 
   // P2-2：useCallback 稳定引用，配合下游 openNotice 的 memo 化不击穿 NoticeCard

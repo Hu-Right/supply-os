@@ -3,7 +3,6 @@
  *
  * 重点覆盖与钱相关的 SQL 形状不变量：
  * - markAsPaidInTransaction 仅允许 pending 流转（审查 F19 状态机白名单）
- * - 首单特惠判定 LIKE 'single_%' 含 pending（产品决策 2026-08-30）
  * - 可抵扣单查询：7 天窗口 + 未被引用（一单只抵一次）
  * - 全部外部输入经 ? 参数绑定
  */
@@ -49,8 +48,8 @@ describe("PaymentsRepo 查询方法", () => {
   it("findPendingOrder：四元组参数按序绑定（含 notice_id <=> NULL 语义）", async () => {
     const { pool, query } = makePool([[]]);
     const repo = new PaymentsRepo(pool);
-    await repo.findPendingOrder({ userId: 101, planCode: "single_99", provider: "mock", noticeId: null });
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("notice_id <=> ?"), [101, "single_99", "mock", null]);
+    await repo.findPendingOrder({ userId: 101, planCode: "personal_m", provider: "mock", noticeId: null });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("notice_id <=> ?"), [101, "personal_m", "mock", null]);
   });
 });
 
@@ -61,13 +60,13 @@ describe("PaymentsRepo 订单写入", () => {
     const { pool, execute } = makePool([[]]);
     const repo = new PaymentsRepo(pool);
     await repo.createOrder({
-      userId: 101, orderNo: "SO1", provider: "mock", planCode: "single_99",
+      userId: 101, orderNo: "SO1", provider: "mock", planCode: "personal_m",
       noticeId: null, amount: 99, currency: "CNY", payUrl: "/pay", qrCodeUrl: null, rawRequest: "{}",
     });
     const [sql, params] = execute.mock.calls[0];
     expect(sql).toContain("'pending'");
     expect(params).toEqual([
-      101, "SO1", "mock", "single_99", "new", null,
+      101, "SO1", "mock", "personal_m", "new", null,
       null, 99, "CNY", "/pay", null, "{}",
     ]);
   });

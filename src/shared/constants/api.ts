@@ -207,8 +207,6 @@ export const EC_PAYMENT_AMOUNT_INVALID = 40072;
 export const EC_PAYMENT_FREE_PLAN = 40073;
 /** 支付：升级来源快照无效或已过期 */
 export const EC_PAYMENT_UPGRADE_INVALID = 40074;
-/** 支付：首单特惠仅限首次购买 */
-export const EC_PAYMENT_SINGLE_FIRST_PURCHASE = 40075;
 /** 支付：增值服务暂不支持在线下单 */
 export const EC_PAYMENT_SERVICE_UNAVAILABLE = 40076;
 /** 支付：该服务仅顾问对接，不支持自助下单 */

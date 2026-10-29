@@ -40,8 +40,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     } catch {
       body = {};
     }
-    const unlockType = body?.unlock_type === "subscription" || body?.unlock_type === "single"
-      ? body.unlock_type : "free";
+    const unlockType = body?.unlock_type === "subscription" ? "subscription" : "free";
 
     try {
       const result = await unlockNotice({ userId: auth.userId, noticeId, unlockType });

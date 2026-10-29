@@ -24,8 +24,7 @@ export interface PaymentOrderPlan {
   price: number; // 套餐价格
   currency: string; // 币种
   duration_days: number | null;  // 套餐时长天数
-  unlock_quota: number;  // 解锁额度
-  plan_type: "free" | "single" | "bundle" | "subscription";  // 套餐类型
+  plan_type: "free" | "bundle" | "subscription";  // 套餐类型
 }
 
 // 创建订单

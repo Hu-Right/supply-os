@@ -141,12 +141,11 @@ export { NoticeNotFoundError, QuotaExceededError };
 
 /** 解锁公告（含定价查询） */
 export async function unlockNotice(params: {
-  userId: number; noticeId: number; unlockType: "free" | "single" | "subscription";
+  userId: number; noticeId: number; unlockType: "free" | "subscription";
 }): Promise<{ alreadyUnlocked: boolean; unlockType: string }> {
   const pool = getPool();
 
-  // 单价快照：一次性解锁卡已下架（旧 single_89 is_active=0），新目录无"一次性商品"形态，
-  // 因此解锁流水的 price 恒为 0（额度消耗已改记 benefit_quotas，不再以单价计量）。
+  // 解锁流水 price 恒 0：额度消耗记账走 benefit_quotas 池，不再以单价计量
   const price = 0;
 
   return executeUnlock(

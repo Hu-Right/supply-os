@@ -68,9 +68,6 @@ export class PaymentService {
    * （金额一律取 DB/套餐配置，请求体 amount 不参与定价，审查 F2）→
    * 升级差价计算与快照（审查 F23）→ 生成订单号 + 渠道支付链接 + 落库（pending）。
    *
-   * V2 权益（2026-09-21）：single_99 首单特惠与 annual_799 首单抵扣随旧套餐下架一并移除，
-   * 新套餐体系（129/999/1299/8800）无促销规则。
-   *
    * 260928 报价表（迁移 104）带来的**两条不是促销、而是商品属性**的抵扣规则，在此落实：
    * 1) 「7天内升级版本，可全额抵扣」——由 plan_catalog.upgrade_credit_days 驱动，
    *    资格判定在 previewUpgrade（超窗口 → UPGRADE_CREDIT_WINDOW_CLOSED，不得走 upgrade 单）；

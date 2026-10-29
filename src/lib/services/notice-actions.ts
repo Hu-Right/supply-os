@@ -24,7 +24,7 @@ export interface UnlockParams {
   /** 内部用户 ID */
   userId: number;
   noticeId: number;
-  unlockType: "free" | "single" | "subscription";
+  unlockType: "free" | "subscription";
   price: number;
 }
 
@@ -79,7 +79,7 @@ export async function executeUnlock(
       throw new QuotaExceededError("FREE_LIMIT_REACHED");
     }
 
-    if (unlockType === "subscription" || unlockType === "single") {
+    if (unlockType === "subscription") {
       // 共享配额记账口径（unlock-quota）：FOR UPDATE 锁住 notice_view 池行，
       // 额度取自矩阵格 value_num，不在代码里写数字
       try {

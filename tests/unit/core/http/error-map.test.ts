@@ -18,7 +18,7 @@ import { ApiError } from "@/core/http/api-client";
 import { classifyApiError, mapApiError, resolveErrorText } from "@/core/http/error-map";
 import {
   EC_VIP_ONLY, EC_CLAIM_BOUND_BY_OTHER, EC_POOL_FULL, EC_LEAD_STATUS_INVALID,
-  EC_PAYMENT_SINGLE_FIRST_PURCHASE, EC_PAYMENT_AMOUNT_INVALID, EC_INTERNAL_ERROR,
+  EC_PAYMENT_AMOUNT_INVALID, EC_INTERNAL_ERROR,
   EC_PHONE_NOT_BOUND, EC_ACCOUNT_DISABLED, EC_TOO_MANY_ATTEMPTS, EC_REFRESH_TOKEN_INVALID,
   EC_CONTENT_LOCKED, EC_CHAT_SESSION_CLOSED, EC_CHAT_RATE_INVALID,
   EC_SESSION_REQUIRED, EC_TOO_MANY_ACTIONS, EC_NO_VALID_ACTIONS,
@@ -45,7 +45,6 @@ describe("稳定码 → i18n 键", () => {
   });
 
   it("支付细分码承接原 mapPaymentError 全部语义", () => {
-    expect(mapApiError(new ApiError(409, "首单特惠仅限首次购买", EC_PAYMENT_SINGLE_FIRST_PURCHASE), t)).toBe("K:payErrSingleFirstPurchase");
     expect(mapApiError(new ApiError(400, "支付金额异常", EC_PAYMENT_AMOUNT_INVALID), t)).toBe("K:payErrAmountInvalid");
   });
 

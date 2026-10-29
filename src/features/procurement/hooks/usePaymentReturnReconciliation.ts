@@ -72,7 +72,7 @@ export function usePaymentReturnReconciliation({
             // P0-9 安全修复：paid 分支先执行解锁，再打开详情（否则详情接口返回 403 NOTICE_LOCKED）
             if (nid && userId) {
               try {
-                await unlockNotice(nid, "single", 0);
+                await unlockNotice(nid, "subscription", 0);
               } catch {
                 // 解锁可能已在服务端完成，忽略失败
               }

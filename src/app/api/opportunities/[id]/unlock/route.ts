@@ -28,10 +28,9 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const { opportunitiesRepo: oppsRepo, dbPool, benefitSystemRepo, benefitWriteRepo } = ctx;
 
     const body = await req.json();
-    const unlockType = body.unlock_type === "subscription" || body.unlock_type === "single"
-      ? body.unlock_type : "free";
+    const unlockType = body.unlock_type === "subscription" ? "subscription" : "free";
 
-    // 单价快照恒 0：一次性解锁卡已下架，新目录无一次性形态，配额消耗改记额度池
+    // 解锁流水 price 恒 0：额度消耗记账走 benefit_quotas 池，不再以单价计量
     const price = 0;
 
     const opp = await oppsRepo.findById(opportunityId);
