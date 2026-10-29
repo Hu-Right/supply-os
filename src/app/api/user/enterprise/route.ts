@@ -22,6 +22,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { deleteFile } from "@/lib/services/file-upload";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
+import { supplierEnterpriseViewOf } from "@/lib/services/enterprise/view";
 import { upsertPendingLicenseChange, latestLicenseChangeForSupplier } from "@/lib/services/license-change";
 import { licenseFilenameFromUrl } from "@/lib/services/file-upload";
 import { assertBindingAllowsSubject, readCurrentBinding, assertVerifiedSubjectIdentityStable } from "@/lib/services/enterprise-binding";
@@ -200,7 +201,14 @@ export const GET = withRoute(async (req) => {
   // 自报主营品目（编辑页回填）：读失败兜底空数组，不阻断企业页展示（与行业面装配失败退回自填文本同风格）。
   const commodityNodes = await listSupplierSelfReport(ctx.dbPool, supplierId).catch(() => []);
 
-  return NextResponse.json({ bound: true, linkStatus, enterprise: row, licenseChange, commodityNodes });
+  return NextResponse.json({
+    bound: true,
+    linkStatus,
+    // 行是 PORTAL_COLUMNS 的 31 个列名键，必须过视图才上网（旧写法直接发列名）
+    enterprise: supplierEnterpriseViewOf(row),
+    licenseChange,
+    commodityNodes,
+  });
 });
 
 /** 已绑定：更新企业行可编辑列（已认证主体的身份三要素不可改写） */

@@ -220,7 +220,7 @@ export default function EnterpriseSettingsClient() {
           saving={saving}
           onSubmit={handleSubmit}
           onCancel={() => setEditing(false)}
-          licenseUrl={enterprise.enterprise?.license_url ? String(enterprise.enterprise.license_url) : null}
+          licenseUrl={enterprise.enterprise?.licenseUrl ? String(enterprise.enterprise.licenseUrl) : null}
           onClaimRequest={setClaimTarget}
         />
       ) : (

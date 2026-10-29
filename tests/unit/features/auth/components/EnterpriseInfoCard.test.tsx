@@ -11,34 +11,42 @@ vi.mock("@/core/i18n", () => ({
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
 import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
-// supplier 企业表整行（snake_case 列名）
+// GET /api/user/enterprise 的 enterprise 字段（响应视图，31 键全量）。
+// 以前这里是个任意键的 snake 字典（类型被抹平），所以缺键、多键都不报——现在按契约补齐：
+// 原来根本没给的键用空值（卡片仍渲染为 “-”，与旧行为逐格一致）。
 const mockRow: EnterpriseInfo = {
   id: 54,
   company: "宝通集团有限公司",
-  name_confirmed: "宝通集团有限公司",
   country: "中国",
-  country_code: "CN",
+  countryCode: "CN",
   province: "上海",
   city: "上海",
   address: "上海市徐汇区定安路55号",
-  registered_address: "香港九龙观塘成业街27号",
+  registeredAddress: "香港九龙观塘成业街27号",
   addtime: 1780000000,
-  data_quality_score: "75.00",
+  dataQualityScore: "75.00",
   contact: "卢慧慧",
   position: "销售经理",
   phone: "15849125405",
   email: "huihui.lu@ex-channel.com",
   website: "-",
-  legal_rep: "-",
-  established_at: "2003-09-19",
-  registered_capital: "3000万元",
-  credit_code: "-",
-  industry: "it",
-  type: "国内",
+  legalRep: "-",
+  establishedAt: "2003-09-19",
+  registeredCapital: "3000万元",
+  creditCode: "-",
   certification: "-",
   products: "智算模块",
   intro: "智算模块提供商",
-  coop_status: 1,
+  coopStatus: 1,
+  // 以下 8 键旧夹具根本没给（当时不报），现在显式给空值保持卡片渲染不变
+  registeredPhone: "",
+  registeredEmail: "",
+  remark: "",
+  businessType: "",
+  checkNote: "",
+  licenseUrl: "",
+  verifyStatus: null,
+  claimStatus: null,
 };
 
 const noop = vi.fn();
@@ -89,17 +97,17 @@ describe("EnterpriseInfoCard", () => {
 
   it("认证标三态：审核中/已认证/已驳回", () => {
     const { rerender } = render(
-      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: "pending" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: "pending" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
 
     rerender(
-      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: "done" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: "done" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseVerifyApproved")).toBeInTheDocument();
 
     rerender(
-      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: "rejected", check_note: "资质不全" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: "rejected", checkNote: "资质不全" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseVerifyRejected")).toBeInTheDocument();
     expect(screen.getByText(/资质不全/)).toBeInTheDocument();
@@ -109,7 +117,7 @@ describe("EnterpriseInfoCard", () => {
     // 与后端排他闸口同一口径（shared/utils/enterprise-status）：认领通过前，
     // 账号侧绑定仍是临时态，不能因为主体 verify_status=done 就报「已认证」。
     render(
-      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: "done", claim_status: "pending" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: "done", claimStatus: "pending" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
     expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
@@ -117,7 +125,7 @@ describe("EnterpriseInfoCard", () => {
 
   it("归属已确认但资质列未写（claim_status=verified、verify_status 为空）→ 不再报已认证，只报已绑定", () => {
     render(
-      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: null, claim_status: "verified" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: null, claimStatus: "verified" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
     expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
@@ -125,7 +133,7 @@ describe("EnterpriseInfoCard", () => {
 
   it("已绑定但无任何审核状态 → 中性「已绑定」标（复用他人历史档案的行）", () => {
     render(
-      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: null, claim_status: null }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: null, claimStatus: null }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
     expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
@@ -151,30 +159,27 @@ describe("EnterpriseInfoCard", () => {
       <EnterpriseInfoCard
         enterprise={{
           ...mockRow,
-          name_confirmed: "",
-          country_code: "US",
-          coop_status: 0,
+          countryCode: "US",
+          coopStatus: 0,
           province: "",
           city: "",
           address: "",
-          registered_address: "",
+          registeredAddress: "",
           addtime: 0,
-          data_quality_score: "0",
+          dataQualityScore: "0",
           contact: "",
           position: "",
           phone: "",
           email: "",
           website: "",
-          legal_rep: "",
-          established_at: "",
-          registered_capital: "",
-          credit_code: "",
-          industry: "",
-          type: "",
+          legalRep: "",
+          establishedAt: "",
+          registeredCapital: "",
+          creditCode: "",
           certification: "",
           products: "",
           intro: "",
-          check_note: "",
+          checkNote: "",
         }}
         loading={false}
         error={null}
@@ -182,7 +187,7 @@ describe("EnterpriseInfoCard", () => {
         onBind={noop}
       />,
     );
-    // name_confirmed 为空 → 取 company（卡片标题与表格内同一值，故允许多个）
+    // 卡片标题与表格内都取 company（同一值，故允许多个）
     expect(screen.getAllByText("宝通集团有限公司").length).toBeGreaterThan(0);
   });
 

@@ -24,30 +24,31 @@ describe("classifyEnterpriseBindState", () => {
   });
 
   it("claim_status=pending 优先于 verify_status=done（认领审核中）", () => {
-    expect(classifyEnterpriseBindState({ verify_status: "done", claim_status: "pending" })).toBe("pending");
-    expect(classifyEnterpriseBindState({ verify_status: null, claim_status: "pending" })).toBe("pending");
+    expect(classifyEnterpriseBindState({ verifyStatus: "done", claimStatus: "pending" })).toBe("pending");
+    expect(classifyEnterpriseBindState({ verifyStatus: null, claimStatus: "pending" })).toBe("pending");
   });
 
   it("资质只看 verify_status=done（claim_status=verified 不再被视同已认证）", () => {
-    expect(classifyEnterpriseBindState({ verify_status: "done", claim_status: null })).toBe("verified");
-    expect(classifyEnterpriseBindState({ verify_status: "done", claim_status: "verified" })).toBe("verified");
+    expect(classifyEnterpriseBindState({ verifyStatus: "done", claimStatus: null })).toBe("verified");
+    expect(classifyEnterpriseBindState({ verifyStatus: "done", claimStatus: "verified" })).toBe("verified");
     // 归属已确认但资质列未写：归 linked，这类行属于审核端回写不完整，应在后台修而非展示层兜底
-    expect(classifyEnterpriseBindState({ verify_status: null, claim_status: "verified" })).toBe("linked");
-    expect(classifyEnterpriseBindState({ verify_status: "pending", claim_status: "verified" })).toBe("pending");
+    expect(classifyEnterpriseBindState({ verifyStatus: null, claimStatus: "verified" })).toBe("linked");
+    expect(classifyEnterpriseBindState({ verifyStatus: "pending", claimStatus: "verified" })).toBe("pending");
   });
 
   it("自注册资料待审 → pending；驳回 → rejected", () => {
-    expect(classifyEnterpriseBindState({ verify_status: "pending", claim_status: null })).toBe("pending");
-    expect(classifyEnterpriseBindState({ verify_status: "rejected", claim_status: null })).toBe("rejected");
+    expect(classifyEnterpriseBindState({ verifyStatus: "pending", claimStatus: null })).toBe("pending");
+    expect(classifyEnterpriseBindState({ verifyStatus: "rejected", claimStatus: null })).toBe("rejected");
   });
 
   it("已绑定但无任何审核状态 → linked", () => {
-    expect(classifyEnterpriseBindState({ verify_status: null, claim_status: null })).toBe("linked");
-    expect(classifyEnterpriseBindState({})).toBe("linked");
+    expect(classifyEnterpriseBindState({ verifyStatus: null, claimStatus: null })).toBe("linked");
+    // 旧例还有一条 `classifyEnterpriseBindState({})`（两键都不给）：入参改成具名 Pick 后
+    // 那种写法编译不过——这正是目的：少给键不得默默跑成一个默认判定。
   });
 
   it("空串列视同 NULL（外部同步可能写入空串）", () => {
-    expect(classifyEnterpriseBindState({ verify_status: "", claim_status: "" })).toBe("linked");
+    expect(classifyEnterpriseBindState({ verifyStatus: "", claimStatus: "" })).toBe("linked");
   });
 });
 
@@ -71,6 +72,6 @@ describe("isBindingLockedForSubjectSwitch", () => {
   });
 
   it("认领待核也不锁（绑定仍是临时态，撤回旧申请是正当路径）", () => {
-    expect(isBindingLockedForSubjectSwitch(classifyEnterpriseBindState({ verify_status: "done", claim_status: "pending" }))).toBe(false);
+    expect(isBindingLockedForSubjectSwitch(classifyEnterpriseBindState({ verifyStatus: "done", claimStatus: "pending" }))).toBe(false);
   });
 });

@@ -50,7 +50,7 @@ describe("EnterpriseEditForm", () => {
     render(
       <EnterpriseEditForm
         initial={{
-          company: "X", credit_code: "91330000MA1234567X", legal_rep: "张三",
+          company: "X", creditCode: "91330000MA1234567X", legalRep: "张三",
           province: "浙江省", city: "杭州市", address: "某路1号",
           contact: "Y", phone: "123", products: "P",
         } as never}
@@ -90,7 +90,7 @@ describe("EnterpriseEditForm", () => {
     try {
       render(
         <EnterpriseEditForm
-          initial={{ company: "宝通集团", country_code: "US", province: "" } as never}
+          initial={{ company: "宝通集团", countryCode: "US", province: "" } as never}
           saving={false}
           onSubmit={vi.fn()}
           onCancel={vi.fn()}

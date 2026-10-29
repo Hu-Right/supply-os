@@ -55,12 +55,12 @@ export function EnterpriseInfoCard({
   // ── 已绑定：分组表格 ──
   const row = enterprise;
   const companyName = sv(row, "company");
-  const isIntl = String(row.country_code || "") !== "" && String(row.country_code) !== "CN";
-  const coop = Number(row.coop_status || 0) === 1;
+  const isIntl = String(row.countryCode || "") !== "" && String(row.countryCode) !== "CN";
+  const coop = Number(row.coopStatus || 0) === 1;
   // 认证状态与账户设置页、后端排他闸口同一口径（verify_status=资质 / claim_status=归属）
   const bindState = classifyEnterpriseBindState(row);
   const bindText = enterpriseBindStateText(bindState);
-  const checkNote = String(row.check_note || "");
+  const checkNote = String(row.checkNote || "");
 
   const basicCells: Cell[] = [
     { label: t("authEnterpriseId") || "ID", value: sv(row, "id") },
@@ -70,7 +70,7 @@ export function EnterpriseInfoCard({
     { label: t("authEnterpriseProvince") || "省份", value: sv(row, "province") },
     { label: t("authEnterpriseCity") || "城市", value: sv(row, "city") },
     { label: t("authEnterpriseBizAddress") || "经营地址", value: sv(row, "address"), full: true },
-    { label: t("authEnterpriseRegAddress") || "注册地址", value: sv(row, "registered_address"), full: true },
+    { label: t("authEnterpriseRegAddress") || "注册地址", value: sv(row, "registeredAddress"), full: true },
     { label: t("authEnterpriseAddTime") || "录入时间", value: fmtAddtime(row) },
     { label: t("authEnterpriseCompleteness") || "资料完整度", value: fmtScore(row) },
   ];
@@ -84,11 +84,11 @@ export function EnterpriseInfoCard({
   ];
 
   const businessCells: Cell[] = [
-    { label: t("authEnterpriseLegalRep") || "法定代表人", value: sv(row, "legal_rep") },
-    { label: t("authEnterpriseEstablished") || "成立日期", value: sv(row, "established_at") },
-    { label: t("authEnterpriseCapital") || "注册资本", value: sv(row, "registered_capital") },
-    { label: t("authEnterpriseCreditCode") || "统一社会信用代码", value: sv(row, "credit_code") },
-    { label: t("authEnterpriseSupplierType") || "供应商类型", value: sv(row, "business_type") },
+    { label: t("authEnterpriseLegalRep") || "法定代表人", value: sv(row, "legalRep") },
+    { label: t("authEnterpriseEstablished") || "成立日期", value: sv(row, "establishedAt") },
+    { label: t("authEnterpriseCapital") || "注册资本", value: sv(row, "registeredCapital") },
+    { label: t("authEnterpriseCreditCode") || "统一社会信用代码", value: sv(row, "creditCode") },
+    { label: t("authEnterpriseSupplierType") || "供应商类型", value: sv(row, "businessType") },
     { label: t("authEnterpriseCertifications") || "资质认证", value: sv(row, "certification") },
     { label: t("authEnterpriseIntro") || "企业简介", value: sv(row, "intro"), full: true },
   ];
@@ -152,7 +152,7 @@ export function EnterpriseInfoCard({
       {/* 营业执照 */}
       <section>
         <GroupTitle>{t("authEnterpriseLicense") || "营业执照"}</GroupTitle>
-        <LicenseView licenseUrl={row.license_url ? String(row.license_url) : ""} />
+        <LicenseView licenseUrl={row.licenseUrl ? String(row.licenseUrl) : ""} />
       </section>
 
       <section>

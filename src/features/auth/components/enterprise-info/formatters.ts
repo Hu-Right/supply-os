@@ -13,8 +13,8 @@ export interface Cell {
   full?: boolean;
 }
 
-/** 取字符串值（空/undefined → "-"） */
-export function sv(row: EnterpriseInfo, key: string): string {
+/** 取字符串值（空/undefined → "-"）。键限定在视图类型内：写错列名编译不过（以前传任意字符串没人管） */
+export function sv(row: EnterpriseInfo, key: keyof EnterpriseInfo): string {
   const v = row[key];
   if (v === null || v === undefined || v === "") return "-";
   return String(v);
@@ -31,7 +31,7 @@ export function fmtAddtime(row: EnterpriseInfo): string {
 
 /** 资料完整度 → 百分比 */
 export function fmtScore(row: EnterpriseInfo): string {
-  const s = row.data_quality_score;
+  const s = row.dataQualityScore;
   if (s === null || s === undefined || s === "") return "-";
   return `${s}%`;
 }

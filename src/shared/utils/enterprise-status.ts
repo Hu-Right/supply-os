@@ -8,17 +8,19 @@
  *              /api/user/enterprise/withdraw）与前端状态徽章（ProfileContent /
  *              EnterpriseInfoCard / 企业信息页）共用同一分类器，避免出现「页面说已绑定、
  *              接口却允许再认证」的两套真相。
- *              输入只依赖 supplier 行的两个状态列：
- *              - verify_status：主体资质审核（pending 审核中 / done 已认证 / rejected 已驳回）——唯一资质口径
- *              - claim_status：认领归属（仅 pending 参与判定：认领待核时账号侧仍为临时态）
+ *              输入只依赖 supplier 行的两个状态列（DB 列名 verify_status / claim_status，
+ *              响应侧按红线②以 camelCase 下发：verifyStatus / claimStatus）：
+ *              - verifyStatus：主体资质审核（pending 审核中 / done 已认证 / rejected 已驳回）——唯一资质口径
+ *              - claimStatus：认领归属（仅 pending 参与判定：认领待核时账号侧仍为临时态）
  */
+import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 /** 账号当前绑定状态：none=未绑定 / pending=审核中 / verified=已认证 / rejected=已驳回 / linked=已绑定但无审核状态 */
 export type EnterpriseBindState = "none" | "pending" | "verified" | "rejected" | "linked";
 
-/** 判定所需的最小字段集：入参按整行透传（supplier 行 / GET 接口的 snake_case 字典），
- *  取数时用 String() 归一，避开接口列序/空串漂移 */
-export type BindStatusSource = Record<string, unknown>;
+/** 判定所需的最小字段集：取响应视图的两个状态键（不是列名），
+ *  用 String() 归一，避开空串/null 漂移 */
+export type BindStatusSource = Pick<EnterpriseInfo, "verifyStatus" | "claimStatus">;
 
 /**
  * 归类绑定状态。
@@ -34,8 +36,8 @@ export type BindStatusSource = Record<string, unknown>;
  */
 export function classifyEnterpriseBindState(row: BindStatusSource | null | undefined): EnterpriseBindState {
   if (!row) return "none";
-  const verify = String(row.verify_status ?? "").trim();
-  const claim = String(row.claim_status ?? "").trim();
+  const verify = String(row.verifyStatus ?? "").trim();
+  const claim = String(row.claimStatus ?? "").trim();
   if (claim === "pending") return "pending";
   if (verify === "done") return "verified";
   if (verify === "pending") return "pending";

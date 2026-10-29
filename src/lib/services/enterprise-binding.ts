@@ -54,7 +54,9 @@ export async function readCurrentBinding(ctx: AppContext, userId: number): Promi
   return {
     supplierId: Number(row.id),
     companyName: shortName(row),
-    state: classifyEnterpriseBindState(row),
+    // DB 行是列名（snake），分类器吃的是响应口径的语义键：在这一道边界换键，
+    // 而不是给分类器加「两种键形都认」的入参（那就是双口径）。
+    state: classifyEnterpriseBindState({ verifyStatus: row.verify_status, claimStatus: row.claim_status }),
   };
 }
 
@@ -112,7 +114,15 @@ export async function assertVerifiedSubjectIdentityStable(
 ): Promise<void> {
   if (!touchesIdentityKeys(body)) return;
   const current = await ctx.supplier.directoryRepo.findFullById(supplierId);
-  if (classifyEnterpriseBindState(current) !== "verified") return;
+  // 无行必须仍走 “none”（不是传一个空对象进去被当成 linked）；
+  // findFullById 返回的是 Record<string, unknown>（列名键），这里逐键 String 归一后再进分类器。
+  const bindState = current
+    ? classifyEnterpriseBindState({
+        verifyStatus: current.verify_status == null ? null : String(current.verify_status),
+        claimStatus: current.claim_status == null ? null : String(current.claim_status),
+      })
+    : null;
+  if (bindState !== "verified") return;
   if (identitySubjectChanged(current, body)) {
     routeError(
       400,

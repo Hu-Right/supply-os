@@ -267,14 +267,13 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   // 【丙 已知 snake 上网·待收口】本面刚上线拓出来的真违规，登记不等于放过：
   // 每一行都写清「现在网上到底是哪些列名键」，收口完必须删行（不删就是陈旧项，当场红）。
   // 下面每条都附了 2026-10-29 只读探针（直调仓储层 + 只读事务）在真库上的实测键数。
-  // GET /api/user/enterprise：row 是 SupplierDirectoryRepo.PORTAL_COLUMNS 整行——实测 31 键
-  // （不是旧注释算的 30）。其中真正要改的只有 15 个带下划线的（credit_code/license_url/
-  // verify_status/claim_status/coop_status/check_note/data_quality_score/registered_address/
-  // registered_phone/registered_email/registered_capital/established_at/business_type/legal_rep/
-  // country_code），剩下 16 个单列名（company/country/id/phone/email/…）camel 与 snake 同形，
-  // 改名不产生差异。前端企业表单字段 key 就是列名、PUT 请求体也发列名，收口需按
-  // 「响应 camel / 请求 snake」做一次单向映射（下一批，工作量按 15 键计）。
-  "src/app/api/user/enterprise/route.ts#enterprise",
+  // 【已收口 2026-10-29】原登记项 user/enterprise#enterprise：出口改走 supplierEnterpriseViewOf
+  // （lib/services/enterprise/view.ts，改名复用 shared/utils/case-keys）。实测台账：
+  // PORTAL_COLUMNS 整行 31 键（不是旧注释算的 30），其中 15 个真带下划线需改名，剩下 16 个
+  // 单列名 camel 与 snake 同形。前端契约类型不再是 Record<string, unknown>（类型抹平曾让
+  // tsc/门禁/探针三路都看不见这批键）；表单字段 key 与 PUT body 仍是列名（请求侧允许），
+  // 只在 EnterpriseEditForm 回填处用 toCamelKey 换一次键。
+  // 键集合由 tests/integration/api-routes/user-enterprise.test.ts 钉（期望集从 PORTAL_COLUMNS 推）。
   // 【已收口 2026-10-29】原登记项 training/landing#course：出口改走
   // trainingCourseViewOf / trainingSchedulesViewOf（两条 SELECT * 整行都过视图），
   // 键集合由 tests/integration/api-routes/training-landing.test.ts 钉住。

@@ -79,7 +79,7 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
   const bindState = classifyEnterpriseBindState(enterprise.enterprise ?? null);
   const bindText = enterpriseBindStateText(bindState);
   const checkNote = enterprise.enterprise
-    ? String(enterprise.enterprise.check_note || "")
+    ? String(enterprise.enterprise.checkNote || "")
     : "";
   const companyName = enterprise.enterprise
     ? String(enterprise.enterprise.company || "")

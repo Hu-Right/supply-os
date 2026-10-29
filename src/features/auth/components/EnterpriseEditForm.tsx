@@ -17,6 +17,7 @@ import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { SupplierProductsPicker } from "./SupplierProductsPicker";
 import type { EnterpriseInfo, CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
+import { toCamelKey } from "@/shared/utils/case-keys";
 import {
   BASIC_FIELDS, CONTACT_FIELDS, BUSINESS_FIELDS, REQUIRED_KEYS, ALL_FIELD_GROUPS,
   btnBlue, btnPlain, inputCls,
@@ -55,9 +56,12 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
   const [commodityNodes, setCommodityNodes] = useState<CommodityNodeBrief[]>(initialCommodityNodes ?? []);
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = { province: "", city: "" };
+    // 读写不对称是故意的：响应侧 camelCase（红线②），而表单字段 key / PUT body 仍用 supplier 列名
+    // （请求侧允许 snake）。回填就是这里唯一一处换键，不另外维护一张对照表。
+    const wire = initial as Record<string, unknown> | null | undefined;
     for (const group of ALL_FIELD_GROUPS) {
       for (const f of group) {
-        const v = initial?.[f.key];
+        const v = wire?.[toCamelKey(f.key)];
         init[f.key] = v === null || v === undefined ? "" : String(v);
       }
     }

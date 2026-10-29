@@ -14,8 +14,54 @@ import { api } from "@/core/http";
 import { onAppEvent } from "@/core/events";
 import { useUserId } from "@/core/auth/useUserId";
 
-/** 企业信息（supplier 整行透传，键为 snake_case 列名） */
-export type EnterpriseInfo = Record<string, unknown>;
+/**
+ * 企业信息（GET /api/user/enterprise 的 enterprise 字段）。
+ *
+ * 以前这里是 `Record<string, unknown>`——类型被抹平，tsc/门禁/探针三路都看不见键名，
+ * 所以「库里 31 个列名直接上网」这件事在类型面上完全隐形（同口径红线见
+ * `types/auth.ts` 与 ARCHITECTURE.md 「先修类型抹平再谈探针」）。
+ * 现在按云库 PORTAL_COLUMNS 具名镜像（键 camelCase，与服务端
+ * `lib/services/enterprise/view.ts` 同口径）；读写不对称是故意的：
+ * **表单字段 key 仍是 supplier 列名**（请求侧允许 snake），回填时经 `toCamelKey` 换键。
+ */
+export interface EnterpriseInfo {
+  id: number;
+  company: string;
+  country: string;
+  countryCode: string | null;
+  province: string | null;
+  city: string | null;
+  address: string | null;
+  registeredAddress: string | null;
+  contact: string;
+  position: string | null;
+  phone: string;
+  email: string;
+  registeredPhone: string | null;
+  registeredEmail: string | null;
+  website: string;
+  legalRep: string | null;
+  /** DATE 列：服务端是 Date，过 HTTP 后是 ISO 串 */
+  establishedAt: string | null;
+  /** DECIMAL（无 decimalNumbers）⇒ 字符串 */
+  registeredCapital: string | null;
+  creditCode: string | null;
+  businessType: string | null;
+  /** varchar 逗号分隔文本，不是数组 */
+  certification: string | null;
+  products: string | null;
+  intro: string | null;
+  remark: string | null;
+  verifyStatus: string | null;
+  claimStatus: string | null;
+  coopStatus: number;
+  checkNote: string | null;
+  /** DECIMAL(5,2) NOT NULL ⇒ 字符串 */
+  dataQualityScore: string;
+  /** epoch 秒 */
+  addtime: number;
+  licenseUrl: string | null;
+}
 
 /** 换照审核进展（闭环前台状态源，GET /api/user/enterprise 随企业行一并返回） */
 export interface LicenseChangeBrief {
