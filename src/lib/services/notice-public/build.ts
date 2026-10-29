@@ -51,7 +51,7 @@ export interface PublicBuildContext {
   countrySnap: CountryAliasSnapshot;
   platformByHost: Map<string, PlatformEntry>;
   platformByAlias: Map<string, PlatformEntry>;
-  /** buyer_key（normalizeAliasKey）→ 中文买家名；来源 buyer_translation */
+  /** 规范买家名 → 中文买家名；来源 buyer_translation（key 用 buyer_name，避免超长键） */
   buyerTranslations: Map<string, string>;
 }
 
@@ -80,11 +80,11 @@ export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildCon
   }
   const buyerTranslations = new Map<string, string>();
   const [btRows] = await pool.query(
-    `SELECT buyer_key, buyer_name_zh FROM buyer_translation
+    `SELECT buyer_name, buyer_name_zh FROM buyer_translation
       WHERE status = 'translated' AND buyer_name_zh IS NOT NULL AND buyer_name_zh <> ''`,
   );
   for (const r of btRows as RowDataPacket[]) {
-    const key = String(r.buyer_key ?? "").trim();
+    const key = String(r.buyer_name ?? "").trim();
     const zh = String(r.buyer_name_zh ?? "").trim();
     if (key && zh) buyerTranslations.set(key, zh);
   }
@@ -355,7 +355,7 @@ export function buildPublicRow(
   const beneficiary = isOpp ? (opp?.beneficiary ?? null) : null;
   const titleCn = String(r.title_cn ?? "").trim().slice(0, 1000) || null;
   const buyerNameCn = buyerName
-    ? (ctx.buyerTranslations.get(normalizeAliasKey(buyerName)) ?? null)
+    ? (ctx.buyerTranslations.get(buyerName) ?? null)
     : null;
 
   return [
@@ -456,3 +456,4 @@ export async function deletePublicRows(pool: Pool, ids: number[]): Promise<numbe
   }
   return pruned;
 }
+
