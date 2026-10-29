@@ -109,6 +109,15 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   整块透出的响应体（如 `NextResponse.json(list)`）靠路由级集成测试钉住键名：
   `tests/integration/api-routes/payment-orders-list.test.ts` 用真实 orchestrator + 假仓库
   跑路由，断言 wire 上无 snake 键；新迁入这种端点时补同样的测试，不要只改类型。
+- **字段名之外还有一层「值从哪来」**（2026-10-29 升格为 [ADR-0015](docs/adr/0015-buyer-display-alias-only.md)）：
+  `agencyI18n`（买家中文名）曾同时混入**聚合类别名**（「法国各机构」——`buyer_group` 的语义是按国家 +
+  机构类型聚合，与“具体是谁”无关）与**模式合成头名**（`PHILIPPINE RECLAMATION管理局`），而前端读的是
+  `agencyI18n || buyerName`，所以类别名直接占掉了买家名的位置。现全链（列表/详情/预览）**只认
+  `crm_agency_aliases` 表内登记过的译名**（判定式 `resolveAgencyDisplay().i18nFrom === "alias"`），
+  未登记就不下发、前端回退真实原名（代价：卡片与详情约 99.7% 行显外文原名，这是主动取舍不是漏改）；
+  `buyer_group` 的聚合语义保留，但不得流入买家展示字段。由
+  `tests/integration/api-routes/notice-detail-agency.test.ts` 钉住（详情在表内无登记名时必须显式下发空串——
+  解锁合并是 `{...preview, ...detail}`，缺键会残留上一次下发的名字）。
 - **2026-10-28 C 组只读取证**（`runtime/probe-opaque-c-group.ts`，进程内调与路由同一条生产链）：6 条拿到真实键集合——`suppliers/stats`(6)、`industries/tree`、`learning/materials/[id]/content`(4)、`suppliers/[id]`(26)、`notices/unified-search`(143、items 已过 `toNoticeListView`) 全部无 snake→升 B；`notices/[id]/ai-summary` 的 GET 缓存分支 8 键全 camel，但同一登记 id 还覆盖 POST 生成分支，**整条不升组**。剩下的 C 全部是「跑不了」而不是「应该没事」：写路径（`leads/log`、`favorite`、`feedback`、`training/orders` 建单）、触付费 LLM（`ai-match`、`ai-summary` POST）、触外部网关（`training/orders/[orderNo]` 查单）、可能触外部翻译服务（`translation`）、库里无数据（`queue`）。
   取证过程中踩到一个**探针自身的假阳性**：直接扫 `searchUnified()` 的返回值会报 99 个 snake 键（那是服务内部字段），而路由实际写的是 `{ ...result, items: toNoticeListView(result.items), page_size }`——按路由出口复现后才是 0。**探针必须复现出口写法，不是拿服务结果乱扫**。
   还踩到一个静默降级：连不上库时 `loadIndustryChildren` 返回 `[]`，「0 个键」看着像过关——探针现在把「一个键都没扫到」判为 inconclusive，不计入已核。
