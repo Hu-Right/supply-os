@@ -6,4 +6,4 @@ import type { zh } from "./resources";
 
 export type LocaleKey = keyof zh;
 
-export type Locale = "zh" | "en" | "fr" | "ru" | "es" | "ar";
+export type Locale = "zh" | "en" | "fr" | "ru" | "es" | "ar" | "pt";

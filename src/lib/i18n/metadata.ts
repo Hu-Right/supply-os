@@ -20,6 +20,7 @@ const BRAND = {
   ru: "Yunjing",
   es: "Yunjing",
   ar: "يونجينغ",
+  pt: "Yunjing",
 } as const;
 
 /** 统一浏览器标签页标题三段式（全站默认标题：段内未声明页面名的页用它） */
@@ -30,6 +31,7 @@ export const BROWSER_TITLE = {
   ru: "Международная платформа закупок Юньцзин | Yunjing OS | OS",
   es: "Plataforma de Compras Internacionales Yunjing | Yunjing OS | OS",
   ar: "منصة المشتريات الدولية يونجينغ | Yunjing OS | OS",
+  pt: "Plataforma Internacional de Compras Yunjing | Yunjing OS | OS",
 } as const;
 
 /** 网站名 —— 审核口径：浏览器标签页标题首位必须是网站名，任何页面不得省略 */
@@ -56,6 +58,7 @@ const PAGE_METADATA: Record<string, Record<Locale, PageMetadata>> = {
     ru: { title: BROWSER_TITLE.ru, description: "Поиск тендеров и закупок от агентств ООН, правительств и международных организаций." },
     es: { title: BROWSER_TITLE.es, description: "Buscar licitaciones y anuncios de compras de agencias de la ONU, gobiernos y organizaciones internacionales." },
     ar: { title: BROWSER_TITLE.ar, description: "البحث في إعلانات المناقصات والمشتريات من وكالات الأمم المتحدة والحكومات والمنظمات الدولية." },
+    pt: { title: BROWSER_TITLE.pt, description: "Pesquisar licitações e anúncios de compras de agências da ONU, governos e organizações internacionais." },
   },
   supplier: {
     zh: { title: BROWSER_TITLE.zh, description: "云境·国际采购平台：查询全球认证供应商信息，按行业、地区、资质筛选。" },
@@ -64,6 +67,7 @@ const PAGE_METADATA: Record<string, Record<Locale, PageMetadata>> = {
     ru: { title: BROWSER_TITLE.ru, description: "Найти сертифицированных поставщиков по всему миру, фильтр по отрасли, региону и квалификации." },
     es: { title: BROWSER_TITLE.es, description: "Encontrar proveedores certificados en todo el mundo, filtrar por industria, región y calificaciones." },
     ar: { title: BROWSER_TITLE.ar, description: "البحث عن الموردين المعتمدين حول العالم، التصفية حسب الصناعة والمنطقة والمؤهلات." },
+    pt: { title: BROWSER_TITLE.pt, description: "Encontre fornecedores certificados no mundo todo, filtre por setor, região e qualificações." },
   },
   training: {
     zh: { title: BROWSER_TITLE.zh, description: "云境·国际采购平台：国际公共采购实战培训，联合国采购流程与投标技巧。" },
@@ -72,6 +76,7 @@ const PAGE_METADATA: Record<string, Record<Locale, PageMetadata>> = {
     ru: { title: BROWSER_TITLE.ru, description: "Практическое обучение международным государственным закупкам, процессы закупок ООН." },
     es: { title: BROWSER_TITLE.es, description: "Formación práctica en compras públicas internacionales, procesos de compras de la ONU." },
     ar: { title: BROWSER_TITLE.ar, description: "تدريب عملي على المشتريات العامة الدولية، عمليات مشتريات الأمم المتحدة." },
+    pt: { title: BROWSER_TITLE.pt, description: "Treinamento prático em compras públicas internacionais, processos de compras da ONU e habilidades de licitação." },
   },
   services: {
     zh: { title: BROWSER_TITLE.zh, description: "云境·国际采购平台：投标辅助、国际物流、产品认证等供应链服务一站式对接。" },
@@ -80,6 +85,7 @@ const PAGE_METADATA: Record<string, Record<Locale, PageMetadata>> = {
     ru: { title: BROWSER_TITLE.ru, description: "Помощь в тендерах, международная логистика, сертификация продукции." },
     es: { title: BROWSER_TITLE.es, description: "Asistencia en licitaciones, logística internacional, certificación de productos." },
     ar: { title: BROWSER_TITLE.ar, description: "المساعدة في العطاءات، الخدمات اللوجستية الدولية، شهادة المنتج." },
+    pt: { title: BROWSER_TITLE.pt, description: "Apoio a licitações, logística internacional, certificação de produtos e serviços de cadeia de suprimentos." },
   },
   learning: {
     zh: { title: BROWSER_TITLE.zh, description: "云境·国际采购平台：国际采购指南、投标技巧、行业报告等专业知识库。" },
@@ -88,6 +94,7 @@ const PAGE_METADATA: Record<string, Record<Locale, PageMetadata>> = {
     ru: { title: BROWSER_TITLE.ru, description: "Руководства по международным закупкам, навыки тендеров, отраслевые отчёты." },
     es: { title: BROWSER_TITLE.es, description: "Guías de compras internacionales, habilidades de licitación, informes de la industria." },
     ar: { title: BROWSER_TITLE.ar, description: "أدلة المشتريات الدولية، مهارات العطاءات، تقارير الصناعة." },
+    pt: { title: BROWSER_TITLE.pt, description: "Guias de compras internacionais, habilidades de licitação, relatórios setoriais e base de conhecimento profissional." },
   },
   membership: {
     zh: { title: BROWSER_TITLE.zh, description: "云境·国际采购平台：解锁更多采购公告、供应商数据、CRM 功能。" },
@@ -96,6 +103,7 @@ const PAGE_METADATA: Record<string, Record<Locale, PageMetadata>> = {
     ru: { title: BROWSER_TITLE.ru, description: "Разблокируйте уведомления о закупках, данные поставщиков и функции CRM." },
     es: { title: BROWSER_TITLE.es, description: "Desbloquear más avisos de compras, datos de proveedores y funciones CRM." },
     ar: { title: BROWSER_TITLE.ar, description: "فتح المزيد من إعلانات المشتريات وبيانات الموردين وميزات CRM." },
+    pt: { title: BROWSER_TITLE.pt, description: "Desbloqueie mais anúncios de compras, dados de fornecedores e recursos de CRM." },
   },
   qualification: {
     zh: { title: BROWSER_TITLE.zh, description: "云境·国际采购平台：申请成为认证供应商，获取全球政府采购投标资格。" },
@@ -104,6 +112,7 @@ const PAGE_METADATA: Record<string, Record<Locale, PageMetadata>> = {
     ru: { title: BROWSER_TITLE.ru, description: "Подать заявку на сертифицированного поставщика для участия в глобальных государственных тендерах." },
     es: { title: BROWSER_TITLE.es, description: "Solicitar ser proveedor certificado y acceder a licitaciones gubernamentales globales." },
     ar: { title: BROWSER_TITLE.ar, description: "التقدم لتصبح مورداً معتمداً والوصول إلى مناقصات الحكومة العالمية." },
+    pt: { title: BROWSER_TITLE.pt, description: "Candidate-se a fornecedor certificado e acesse licitações de governos do mundo todo." },
   },
   crm: {
     zh: { title: BROWSER_TITLE.zh, description: "云境·国际采购平台 CRM：管理客户关系、跟踪采购商机、记录投标进展。" },
@@ -112,6 +121,7 @@ const PAGE_METADATA: Record<string, Record<Locale, PageMetadata>> = {
     ru: { title: BROWSER_TITLE.ru, description: "Управление отношениями с клиентами, отслеживание возможностей закупок." },
     es: { title: BROWSER_TITLE.es, description: "Gestionar relaciones con clientes, rastrear oportunidades de compras." },
     ar: { title: BROWSER_TITLE.ar, description: "إدارة علاقات العملاء، تتبع فرص المشتريات." },
+    pt: { title: BROWSER_TITLE.pt, description: "Gerencie relacionamentos com clientes, acompanhe oportunidades de compras e registre o progresso das licitações." },
   },
 };
 

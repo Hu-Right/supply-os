@@ -11,7 +11,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 
-const SUPPORTED_LOCALES = ["zh", "en", "fr", "ru", "es", "ar"];
+const SUPPORTED_LOCALES = ["zh", "en", "fr", "ru", "es", "ar", "pt"];
 
 export function middleware(request: NextRequest) {
   let locale = request.cookies.get("supply_os_locale")?.value;

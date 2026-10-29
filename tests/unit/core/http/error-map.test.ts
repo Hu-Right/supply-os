@@ -6,7 +6,7 @@
  *   2) 令牌桥接优先级：BYOK 凭证类必须先于登录态（LLM_HTTP_401 含 "401" 子串，
  *      历史事故是把「模型 Key 被服务商拒绝」误报成「登录已过期」）
  *   3) 403 锁定 detail、HTTP 状态兜底、网络层失败、unknown 回落
- *   4) 键闭合：源码里出现的每个 i18n 键必须在六语 errors.json 都存在
+ *   4) 键闭合：源码里出现的每个 i18n 键必须在七语 errors.json 都存在
  *      （本模块的键是手写常量表，check-i18n 只比对包之间 parity，抓不到「引用了不存在的键」）
  */
 import { describe, it, expect, vi } from "vitest";
@@ -33,6 +33,7 @@ import ruErrors from "@/core/i18n/locales/ru/errors.json";
 import esErrors from "@/core/i18n/locales/es/errors.json";
 import frErrors from "@/core/i18n/locales/fr/errors.json";
 import arErrors from "@/core/i18n/locales/ar/errors.json";
+import ptErrors from "@/core/i18n/locales/pt/errors.json";
 
 /** 打标翻译器：断言「映射到哪一键」而不是「翻成哪国文案」 */
 const t = (key: string) => `K:${key}`;
@@ -201,8 +202,8 @@ describe("resolveErrorText：预先分类后存状态、渲染时再翻译", () 
   });
 });
 
-describe("键闭合：error-map 引用的每个键都要在六语 errors.json 里存在", () => {
-  const locales = { zh: zhErrors, en: enErrors, ru: ruErrors, es: esErrors, fr: frErrors, ar: arErrors };
+describe("键闭合：error-map 引用的每个键都要在七语 errors.json 里存在", () => {
+  const locales = { zh: zhErrors, en: enErrors, ru: ruErrors, es: esErrors, fr: frErrors, ar: arErrors, pt: ptErrors };
 
   const source = readFileSync("src/core/http/error-map.ts", "utf8");
   const referenced = new Set<string>();
@@ -220,7 +221,7 @@ describe("键闭合：error-map 引用的每个键都要在六语 errors.json �
     });
   }
 
-  it("六语 errors.json 键集完全一致", () => {
+  it("七语 errors.json 键集完全一致", () => {
     const base = Object.keys(zhErrors).sort();
     for (const [lang, bundle] of Object.entries(locales)) {
       if (lang === "zh") continue;

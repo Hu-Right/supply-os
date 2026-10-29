@@ -8,7 +8,7 @@ const localesDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../src/core/i18n/locales",
 );
-const LANGS = ["zh", "en", "fr", "ru", "es", "ar"] as const;
+const LANGS = ["zh", "en", "fr", "ru", "es", "ar", "pt"] as const;
 
 function loadLang(lang: string): Record<string, unknown> {
   const dir = resolve(localesDir, lang);
@@ -93,7 +93,8 @@ if (undefinedRefs.length) {
 }
 
 if (!hasError) {
-  console.log("\u2705 六语言键一致、无重复键（zh 基准），且代码 t() 引用均有定义，共", baseKeys.length, "个键 \u00d7", LANGS.length, "语言");
+  // 语言数写在文案里（原写死「六语言」）会在加语言时变成假信息，改成数据驱动。
+  console.log("\u2705", LANGS.length, "语言键一致、无重复键（zh 基准），且代码 t() 引用均有定义，共", baseKeys.length, "个键 \u00d7", LANGS.length, "语言");
   process.exit(0);
 } else {
   process.exit(1);

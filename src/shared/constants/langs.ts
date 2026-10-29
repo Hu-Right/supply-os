@@ -5,7 +5,10 @@
  * @module shared/constants/langs
  * @description 公告解锁/收藏等列表接口按需返回译文，仅接受以下六种界面语言作为
  *              lang 参数。收编此前散落在 features/payment/api 与 procurement hooks
- *              中逐字重复的 NOTICE_API_LANGS（SSOT）。与 core/i18n 的 Locale 口径一致。
+ *              中逐字重复的 NOTICE_API_LANGS（SSOT）。
+ *              与 core/i18n 的 Locale 口径**刻意不同**：pt（2026-10-28 新增）只做界面
+ *              层翻译，公告译文未进译链与宽表列（见 lib/utils/languages.ts），
+ *              葡语界面下公告内容回落 en——新增界面语言不一定等于新增译文语言。
  */
 
 /** 公告 API 可请求译文的目标语言（zh/en/fr/ru/es/ar） */

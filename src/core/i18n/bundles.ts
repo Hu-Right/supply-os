@@ -53,6 +53,18 @@ import frServices from "./locales/fr/services.json";
 import frSupplier from "./locales/fr/supplier.json";
 import frTraining from "./locales/fr/training.json";
 
+import ptAuth from "./locales/pt/auth.json";
+import ptCommon from "./locales/pt/common.json";
+import ptCrm from "./locales/pt/crm.json";
+import ptErrors from "./locales/pt/errors.json";
+import ptLearning from "./locales/pt/learning.json";
+import ptMembership from "./locales/pt/membership.json";
+import ptPayment from "./locales/pt/payment.json";
+import ptProcurement from "./locales/pt/procurement.json";
+import ptServices from "./locales/pt/services.json";
+import ptSupplier from "./locales/pt/supplier.json";
+import ptTraining from "./locales/pt/training.json";
+
 import ruAuth from "./locales/ru/auth.json";
 import ruCommon from "./locales/ru/common.json";
 import ruCrm from "./locales/ru/crm.json";
@@ -94,12 +106,13 @@ export const SERVER_BUNDLES: Record<string, { translation: Record<string, string
   en: { translation: mergeNamespaces(enAuth, enCommon, enCrm, enErrors, enLearning, enMembership, enPayment, enProcurement, enServices, enSupplier, enTraining) },
   es: { translation: mergeNamespaces(esAuth, esCommon, esCrm, esErrors, esLearning, esMembership, esPayment, esProcurement, esServices, esSupplier, esTraining) },
   fr: { translation: mergeNamespaces(frAuth, frCommon, frCrm, frErrors, frLearning, frMembership, frPayment, frProcurement, frServices, frSupplier, frTraining) },
+  pt: { translation: mergeNamespaces(ptAuth, ptCommon, ptCrm, ptErrors, ptLearning, ptMembership, ptPayment, ptProcurement, ptServices, ptSupplier, ptTraining) },
   ru: { translation: mergeNamespaces(ruAuth, ruCommon, ruCrm, ruErrors, ruLearning, ruMembership, ruPayment, ruProcurement, ruServices, ruSupplier, ruTraining) },
   zh: { translation: mergeNamespaces(zhAuth, zhCommon, zhCrm, zhErrors, zhLearning, zhMembership, zhPayment, zhProcurement, zhServices, zhSupplier, zhTraining) },
 };
 
 /** 支持的完整语言代码列表 */
-export const SUPPORTED_LOCALE_CODES = ["ar", "en", "es", "fr", "ru", "zh"] as const;
+export const SUPPORTED_LOCALE_CODES = ["ar", "en", "es", "fr", "pt", "ru", "zh"] as const;
 
 /** 语言类型 */
 export type { Locale } from "./types";
