@@ -41,6 +41,7 @@ export interface EvidenceView {
   validUntil: string | null;
   noExpiry: boolean;
   hasFile: boolean;
+  downloadUrl: string | null;
 }
 
 export interface EnterpriseProfileView {
@@ -64,10 +65,10 @@ export interface EnterpriseProfileRepoLike {
   }): Promise<number>;
   deleteCapability(enterpriseId: number, id: number): Promise<boolean>;
   listEvidence(enterpriseId: number): Promise<EvidenceRow[]>;
-  insertUploadFile(params: { filename: string; buffer: Buffer; contentType: string; uploadedBy: number }): Promise<number>;
+  insertUploadFile(params: { filename: string; buffer: Buffer; contentType: string; uploadedBy: number }): Promise<string>;
   insertEvidence(params: {
     enterpriseId: number;
-    uploadFileId: number | null;
+    uploadFilename: string | null;
     category: string;
     title: string;
     validFrom: string | null;
@@ -75,7 +76,8 @@ export interface EnterpriseProfileRepoLike {
     noExpiry: boolean;
     confirmed: boolean;
   }): Promise<number>;
-  deleteEvidence(enterpriseId: number, id: number): Promise<{ deleted: boolean; uploadFileId: number | null }>;
+  deleteEvidence(enterpriseId: number, id: number): Promise<{ deleted: boolean; uploadFilename: string | null }>;
+  findEvidenceFile(enterpriseId: number, evidenceId: number): Promise<{ filename: string; content: Buffer; content_type: string | null } | null>;
 }
 
 export function createEnterpriseProfileRepo(repo: EnterpriseProfileRepo): EnterpriseProfileRepoLike {
@@ -193,7 +195,8 @@ function evidenceViewOf(row: EvidenceRow): EvidenceView {
     validFrom: row.valid_from ? String(row.valid_from).slice(0, 10) : null,
     validUntil: row.valid_until ? String(row.valid_until).slice(0, 10) : null,
     noExpiry: Number(row.no_expiry) === 1,
-    hasFile: row.upload_file_id != null,
+    hasFile: !!row.upload_filename,
+    downloadUrl: row.upload_filename ? `/api/user/enterprise/evidence/${Number(row.id)}/file` : null,
   };
 }
 
@@ -289,13 +292,13 @@ export async function addEvidence(
     routeError(400, EC_INVALID_PARAMS, "证书类证据需填写有效期，或选择长期有效");
   }
 
-  let uploadFileId: number | null = null;
+  let uploadFilename: string | null = null;
   if (input.file) {
     if (input.file.size > MAX_EVIDENCE_BYTES) routeError(400, EC_INVALID_PARAMS, "证据文件不能超过 10MB");
     const ext = EVIDENCE_TYPES[input.file.contentType];
     if (!ext) routeError(400, EC_INVALID_PARAMS, "仅支持 PDF/图片/Office/zip 格式");
     const filename = `evidence_${userId}_${Date.now()}${ext}`;
-    uploadFileId = await repo.insertUploadFile({
+    uploadFilename = await repo.insertUploadFile({
       filename,
       buffer: input.file.buffer,
       contentType: input.file.contentType,
@@ -305,7 +308,7 @@ export async function addEvidence(
 
   const id = await repo.insertEvidence({
     enterpriseId: Number(enterprise.id),
-    uploadFileId,
+    uploadFilename,
     category,
     title,
     validFrom,
@@ -313,7 +316,16 @@ export async function addEvidence(
     noExpiry,
     confirmed: true,
   });
-  return { id, category, title, validFrom, validUntil: noExpiry ? null : validUntil, noExpiry, hasFile: uploadFileId != null };
+  return {
+    id,
+    category,
+    title,
+    validFrom,
+    validUntil: noExpiry ? null : validUntil,
+    noExpiry,
+    hasFile: uploadFilename != null,
+    downloadUrl: uploadFilename ? `/api/user/enterprise/evidence/${id}/file` : null,
+  };
 }
 
 export async function removeEvidence(
@@ -324,4 +336,20 @@ export async function removeEvidence(
   const enterprise = await requireEnterprise(repo, userId);
   const result = await repo.deleteEvidence(Number(enterprise.id), evidenceId);
   if (!result.deleted) routeError(404, EC_NOT_FOUND, "证据不存在");
+}
+
+/** 读取证据文件字节（鉴权后由路由回文件流） */
+export async function getEvidenceFile(
+  repo: EnterpriseProfileRepoLike,
+  userId: number,
+  evidenceId: number,
+): Promise<{ filename: string; content: Buffer; contentType: string }> {
+  const enterprise = await requireEnterprise(repo, userId);
+  const file = await repo.findEvidenceFile(Number(enterprise.id), evidenceId);
+  if (!file || !file.content) routeError(404, EC_NOT_FOUND, "证据文件不存在");
+  return {
+    filename: file.filename,
+    content: file.content,
+    contentType: file.content_type || "application/octet-stream",
+  };
 }

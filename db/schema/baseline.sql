@@ -661,6 +661,7 @@ CREATE TABLE `enterprise_evidence` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `enterprise_id` bigint unsigned NOT NULL COMMENT '企业主体（v0.1 = 已认证 supplier.id）',
   `upload_file_id` bigint unsigned DEFAULT NULL COMMENT '关联 upload_files 主键（无文件时为 NULL）',
+  `upload_filename` varchar(255) DEFAULT NULL COMMENT '关联 upload_files.filename（主键即文件名）',
   `category` varchar(32) NOT NULL DEFAULT 'other' COMMENT 'cert/experience/financial/personnel/other',
   `title` varchar(255) NOT NULL COMMENT '业务名称（如 ISO 14001 证书）',
   `valid_from` date DEFAULT NULL COMMENT '证据有效期起',
@@ -673,7 +674,7 @@ CREATE TABLE `enterprise_evidence` (
   PRIMARY KEY (`id`),
   KEY `idx_evidence_enterprise` (`enterprise_id`,`category`),
   KEY `idx_evidence_valid_until` (`valid_until`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：企业证据/资料库最小版';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：企业证据/资料库最小版'
 
 CREATE TABLE `feasibility_reports` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,

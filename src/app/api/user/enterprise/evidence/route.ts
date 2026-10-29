@@ -26,6 +26,7 @@ export const GET = withRoute(async (req: NextRequest) => {
       validUntil: e.validUntil,
       noExpiry: e.noExpiry,
       hasFile: e.hasFile,
+      downloadUrl: e.downloadUrl,
     })),
   });
 });
@@ -61,6 +62,7 @@ export const POST = withRoute(async (req: NextRequest) => {
       validUntil: created.validUntil,
       noExpiry: created.noExpiry,
       hasFile: created.hasFile,
+      downloadUrl: created.downloadUrl,
     },
     { status: 201 },
   );

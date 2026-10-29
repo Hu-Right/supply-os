@@ -6,7 +6,7 @@ vi.mock("@/core/i18n", () => ({
 }));
 
 const { apiMock } = vi.hoisted(() => ({ apiMock: vi.fn() }));
-vi.mock("@/core/http", () => ({ api: apiMock }));
+vi.mock("@/core/http", () => ({ api: apiMock, getAuthToken: () => "test-token" }));
 
 import { FeasibilityReportPanel } from "@/features/procurement/components/NoticeDetail/FeasibilityReportPanel";
 import type { FeasibilityReport } from "@/lib/services/feasibility-report/types";

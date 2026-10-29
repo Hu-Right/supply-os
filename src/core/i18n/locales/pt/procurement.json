@@ -633,5 +633,6 @@
   "procurement_deadlineBid": "Prazo da licitação",
   "procurement_deadlineRegistration": "Fim do registro",
   "procurement_deadlineFramework": "Fim do acordo-quadro",
-  "detail_reference": "Nº de referência"
+  "detail_reference": "Nº de referência",
+  "feasibilityExportWord": "Exportar Word"
 }

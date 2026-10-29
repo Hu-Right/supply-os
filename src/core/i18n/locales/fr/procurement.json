@@ -633,5 +633,6 @@
   "procurement_deadlineBid": "Date limite de soumission",
   "procurement_deadlineRegistration": "Fin d’enregistrement",
   "procurement_deadlineFramework": "Fin de l’accord-cadre",
-  "detail_reference": "N° de référence"
+  "detail_reference": "N° de référence",
+  "feasibilityExportWord": "Exporter Word"
 }

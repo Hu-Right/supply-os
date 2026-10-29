@@ -9,8 +9,8 @@
  *              文案 v0.2 先中文，后续接 i18n（settings 内部页）。
  */
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2, Upload } from "lucide-react";
-import { api } from "@/core/http";
+import { Plus, Eye, Trash2, Upload } from "lucide-react";
+import { api, getAuthToken } from "@/core/http";
 
 type CapabilityType =
   | "certification"
@@ -37,6 +37,7 @@ interface EvidenceView {
   validUntil: string | null;
   noExpiry: boolean;
   hasFile: boolean;
+  downloadUrl: string | null;
 }
 
 interface ProfileResponse {
@@ -238,6 +239,25 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
     }
   };
 
+  /** 证据文件走鉴权路由：带 Bearer 拉 Blob 后新窗口打开（<a> 无法附加 Authorization） */
+  const openEvidenceFile = async (url: string) => {
+    setError(null);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "same-origin",
+      });
+      if (!res.ok) throw new Error(`文件打开失败（${res.status}）`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      window.open(objectUrl, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "文件打开失败");
+    }
+  };
+
   if (!enabled) return null;
 
   return (
@@ -362,9 +382,16 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
                     {evidence.noExpiry ? " · 长期有效" : evidence.validUntil ? ` · 有效期至 ${evidence.validUntil}` : ""}
                   </p>
                 </div>
-                <button type="button" onClick={() => void deleteEvidence(evidence.id)} className="text-muted-foreground hover:text-rose-600 shrink-0" aria-label="删除证据">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {evidence.downloadUrl && (
+                    <button type="button" onClick={() => void openEvidenceFile(evidence.downloadUrl as string)} className="text-muted-foreground hover:text-brand-700" aria-label="查看证据文件">
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button type="button" onClick={() => void deleteEvidence(evidence.id)} className="text-muted-foreground hover:text-rose-600" aria-label="删除证据">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

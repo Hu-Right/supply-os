@@ -633,5 +633,6 @@
   "procurement_deadlineBid": "Срок подачи заявки",
   "procurement_deadlineRegistration": "Окончание регистрации",
   "procurement_deadlineFramework": "Окончание рамочного соглашения",
-  "detail_reference": "Номер ссылки"
+  "detail_reference": "Номер ссылки",
+  "feasibilityExportWord": "Экспорт в Word"
 }

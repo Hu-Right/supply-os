@@ -4,6 +4,7 @@
  * @module lib/repos/enterprise-profile.repo
  * @description 企业侧 `enterprise_capability_items` / `enterprise_evidence` / `upload_files`
  *              的读写；企业主体解析 = 账号绑定的已认证 supplier。
+ *              注意：upload_files 主键是 filename（无自增 id），证据按 upload_filename 关联。
  */
 import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
@@ -29,6 +30,7 @@ export interface EvidenceRow {
   id: number;
   enterprise_id: number;
   upload_file_id: number | null;
+  upload_filename: string | null;
   category: string;
   title: string;
   valid_from: string | null;
@@ -36,6 +38,12 @@ export interface EvidenceRow {
   no_expiry: number;
   confirmed: number;
   created_at: string;
+}
+
+export interface EvidenceFileRow {
+  filename: string;
+  content: Buffer;
+  content_type: string | null;
 }
 
 export class EnterpriseProfileRepo {
@@ -94,31 +102,34 @@ export class EnterpriseProfileRepo {
 
   async listEvidence(enterpriseId: number): Promise<EvidenceRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT id, enterprise_id, upload_file_id, category, title, valid_from, valid_until, no_expiry, confirmed, created_at
+      `SELECT id, enterprise_id, upload_file_id, upload_filename, category, title, valid_from, valid_until,
+              no_expiry, confirmed, created_at
          FROM enterprise_evidence WHERE enterprise_id = ? ORDER BY id DESC`,
       [enterpriseId],
     );
     return rows as unknown as EvidenceRow[];
   }
 
-  /** 证据文件字节入 upload_files（与执照同一张表/同一套共享库口径） */
+  /** 证据文件字节入 upload_files（主键=文件名，天然唯一）；返回 filename */
   async insertUploadFile(params: {
     filename: string;
     buffer: Buffer;
     contentType: string;
     uploadedBy: number;
-  }): Promise<number> {
-    const [res] = await this.pool.execute<ResultSetHeader>(
+  }): Promise<string> {
+    await this.pool.execute<ResultSetHeader>(
       `INSERT INTO upload_files (filename, content, content_type, size_bytes, uploaded_by)
-       VALUES (?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE content = VALUES(content), content_type = VALUES(content_type),
+                               size_bytes = VALUES(size_bytes), uploaded_by = VALUES(uploaded_by)`,
       [params.filename, params.buffer, params.contentType, params.buffer.length, params.uploadedBy],
     );
-    return Number(res.insertId);
+    return params.filename;
   }
 
   async insertEvidence(params: {
     enterpriseId: number;
-    uploadFileId: number | null;
+    uploadFilename: string | null;
     category: string;
     title: string;
     validFrom: string | null;
@@ -128,11 +139,11 @@ export class EnterpriseProfileRepo {
   }): Promise<number> {
     const [res] = await this.pool.execute<ResultSetHeader>(
       `INSERT INTO enterprise_evidence
-         (enterprise_id, upload_file_id, category, title, valid_from, valid_until, no_expiry, confirmed)
+         (enterprise_id, upload_filename, category, title, valid_from, valid_until, no_expiry, confirmed)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         params.enterpriseId,
-        params.uploadFileId,
+        params.uploadFilename,
         params.category,
         params.title,
         params.validFrom,
@@ -144,13 +155,27 @@ export class EnterpriseProfileRepo {
     return Number(res.insertId);
   }
 
-  async deleteEvidence(enterpriseId: number, id: number): Promise<{ deleted: boolean; uploadFileId: number | null }> {
+  async deleteEvidence(enterpriseId: number, id: number): Promise<{ deleted: boolean; uploadFilename: string | null }> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      "SELECT upload_file_id FROM enterprise_evidence WHERE id = ? AND enterprise_id = ? LIMIT 1",
+      "SELECT upload_filename FROM enterprise_evidence WHERE id = ? AND enterprise_id = ? LIMIT 1",
       [id, enterpriseId],
     );
-    if (!rows[0]) return { deleted: false, uploadFileId: null };
+    if (!rows[0]) return { deleted: false, uploadFilename: null };
     await this.pool.execute("DELETE FROM enterprise_evidence WHERE id = ? AND enterprise_id = ?", [id, enterpriseId]);
-    return { deleted: true, uploadFileId: rows[0].upload_file_id == null ? null : Number(rows[0].upload_file_id) };
+    return { deleted: true, uploadFilename: rows[0].upload_filename == null ? null : String(rows[0].upload_filename) };
+  }
+
+  /** 取证据文件字节（按归属校验） */
+  async findEvidenceFile(enterpriseId: number, evidenceId: number): Promise<EvidenceFileRow | null> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT f.filename, f.content, f.content_type
+         FROM enterprise_evidence e
+         JOIN upload_files f ON f.filename = e.upload_filename
+        WHERE e.id = ? AND e.enterprise_id = ? LIMIT 1`,
+      [evidenceId, enterpriseId],
+    );
+    const row = rows[0];
+    if (!row) return null;
+    return { filename: String(row.filename), content: row.content as Buffer, content_type: row.content_type == null ? null : String(row.content_type) };
   }
 }

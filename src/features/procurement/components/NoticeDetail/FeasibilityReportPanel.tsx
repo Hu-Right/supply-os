@@ -9,8 +9,8 @@
  *              报告里「确定性判定」与「AI 建议」分区展示（v0.1 aiAdvice 为空）。
  */
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, ShieldAlert, Sparkles } from "lucide-react";
-import { api } from "@/core/http";
+import { AlertTriangle, CheckCircle2, Download, Loader2, ShieldAlert, Sparkles } from "lucide-react";
+import { api, getAuthToken } from "@/core/http";
 import { useLocale } from "@/core/i18n";
 import type { Decision, FeasibilityReport, RuleStatus } from "@/lib/services/feasibility-report/types";
 
@@ -65,6 +65,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
   const { t } = useLocale();
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<FeasibilityReport | null>(null);
   const [enterprise, setEnterprise] = useState<{ id: number; name: string } | null>(null);
@@ -103,6 +104,34 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
     }
   }, [generating, noticePk]);
 
+  /** 导出 Word：鉴权路由回 docx 字节，浏览器下载 */
+  const exportWord = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    setError(null);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`/api/notices/${noticePk}/feasibility-report/export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "same-origin",
+      });
+      if (!res.ok) throw new Error(`导出失败（${res.status}）`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `投标可行性报告-${noticePk}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "export_failed");
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, noticePk]);
+
   if (!enabled) return null;
 
   return (
@@ -110,15 +139,27 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-black text-slate-900">{t("feasibilityTitle") || "投标可行性报告"}</p>
         {report && (
-          <span className={`px-2 py-0.5 rounded border text-2xs font-black ${decisionTone(report.verdict.decision)}`} data-testid="feasibility-decision">
-            {t(
-              report.verdict.decision === "go"
-                ? "feasibilityDecisionGo"
-                : report.verdict.decision === "no_go"
-                  ? "feasibilityDecisionNoGo"
-                  : "feasibilityDecisionConditional",
-            )}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-0.5 rounded border text-2xs font-black ${decisionTone(report.verdict.decision)}`} data-testid="feasibility-decision">
+              {t(
+                report.verdict.decision === "go"
+                  ? "feasibilityDecisionGo"
+                  : report.verdict.decision === "no_go"
+                    ? "feasibilityDecisionNoGo"
+                    : "feasibilityDecisionConditional",
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => void exportWord()}
+              disabled={exporting}
+              data-testid="feasibility-export"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-0.5 text-2xs font-bold text-slate-600 hover:border-teal-300 hover:text-teal-700 disabled:opacity-50"
+            >
+              {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+              {t("feasibilityExportWord") || "导出 Word"}
+            </button>
+          </div>
         )}
       </div>
 
