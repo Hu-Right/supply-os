@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 import { Button, Modal } from "@/shared/ui";
 import { ParticipantRow } from "./ParticipantRow";
-import type { TrainingParticipant } from "../api";
+import type { ParticipantInput } from "../api";
 import type { ReactNode } from "react";
 
 export interface ParticipantFormProps {
@@ -20,7 +20,7 @@ export interface ParticipantFormProps {
   onClose: () => void;
   orderNo: string;
   participantCount: number;
-  onSubmit: (participants: TrainingParticipant[]) => void | Promise<void>;
+  onSubmit: (participants: ParticipantInput[]) => void | Promise<void>;
   /** 期次选择器（支付前模式时展示在表单顶部） */
   scheduleSelector?: ReactNode;
   /** 参训人数选择器（支付前模式时展示） */
@@ -51,14 +51,14 @@ export default function ParticipantForm({
   preFormSubmitting,
 }: ParticipantFormProps) {
   const { t } = useLocale();
-  const [participants, setParticipants] = useState<TrainingParticipant[]>([]);
+  const [participants, setParticipants] = useState<ParticipantInput[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   // 初始化学员表单（仅在弹窗打开时初始化）
   useEffect(() => {
     if (open && participantCount > 0 && participants.length === 0) {
-      const initialParticipants: TrainingParticipant[] = Array.from(
+      const initialParticipants: ParticipantInput[] = Array.from(
         { length: participantCount },
         (_, i) => ({
           participant_no: i + 1,
@@ -101,7 +101,7 @@ export default function ParticipantForm({
     });
   }, [participantCount]);
 
-  const handleFieldChange = (index: number, field: keyof TrainingParticipant, value: string | null) => {
+  const handleFieldChange = (index: number, field: keyof ParticipantInput, value: string | null) => {
     setParticipants(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };

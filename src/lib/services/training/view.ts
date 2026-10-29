@@ -19,7 +19,7 @@
  *              （运行时靠 String 的 toLocaleString/arithmetic 兜住）。把这层类型谎改成
  *              诚实形态会连带改变价格显示（"3800.00" → "3,800"），属独立批次。
  */
-import type { CourseRow, ScheduleRow } from "@/lib/repos/training.repo";
+import type { CourseRow, ParticipantRow, ScheduleRow } from "@/lib/repos/training.repo";
 
 export interface TrainingCourseView {
   id: number;
@@ -76,3 +76,37 @@ export function trainingScheduleViewOf(row: ScheduleRow): TrainingScheduleView {
 
 export const trainingSchedulesViewOf = (rows: readonly ScheduleRow[]): TrainingScheduleView[] =>
   rows.map(trainingScheduleViewOf);
+
+/**
+ * 学员视图（GET /api/training/orders/[orderNo]/participants）。
+ *
+ * 只下发前端契约里的 7 个字段：`id` / `order_id` / `created_at` / `updated_at` 行元数据不上网。
+ * 隐私口径（登记行当初要求一并核的）：本接口只能读自己订单的名单（路由已校 user_id），
+ * 姓名与手机号是订单归属人自己提交的回显，属于正当读回；不下发的只是行元数据。
+ * 注：`email` 是真实列（旧注释“表里没这一列”于 2026-10-29 被只读探针推翻），
+ * 此前写入链路不写它、视图也不发它；本批两头一并补齐。
+ */
+export interface TrainingParticipantView {
+  participantNo: number;
+  fullName: string;
+  gender: string | null;
+  phone: string | null;
+  companyName: string | null;
+  position: string | null;
+  email: string | null;
+}
+
+export function trainingParticipantViewOf(row: ParticipantRow): TrainingParticipantView {
+  return {
+    participantNo: row.participant_no,
+    fullName: row.full_name,
+    gender: row.gender ?? null,
+    phone: row.phone ?? null,
+    companyName: row.company_name ?? null,
+    position: row.position ?? null,
+    email: row.email ?? null,
+  };
+}
+
+export const trainingParticipantsViewOf = (rows: readonly ParticipantRow[]): TrainingParticipantView[] =>
+  rows.map(trainingParticipantViewOf);

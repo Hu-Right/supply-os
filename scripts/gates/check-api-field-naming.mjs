@@ -277,12 +277,17 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   // 【已收口 2026-10-29】原登记项 training/landing#course：出口改走
   // trainingCourseViewOf / trainingSchedulesViewOf（两条 SELECT * 整行都过视图），
   // 键集合由 tests/integration/api-routes/training-landing.test.ts 钉住。
-  // GET /api/training/orders/[orderNo]/participants：getParticipantsByOrderId() 是
-  // `SELECT * FROM training_participants` 整行（order_id/participant_no/full_name/
-  // company_name/created_at/updated_at）——学员手机号与姓名原样下发，收口时顺带核隐私口径。
-  // 2026-10-29 实测：training_orders 0 行 / training_participants 0 行，本端点在生产无数据可达，
-  // 键集合只能从代码侧断言——因此收口优先级最低，但不构成删行理由（面还在网上）。
-  "src/app/api/training/orders/[orderNo]/participants/route.ts#participants",
+  // 【已收口 2026-10-29】原登记项 training/orders/[orderNo]/participants#participants：
+  // getParticipantsByOrderId() 是 `SELECT * FROM training_participants` 整行（11 列），
+  // 现出口改走 trainingParticipantsViewOf，只发前端契约里的 7 个字段，
+  // id/order_id/created_at/updated_at 行元数据不上网。隐私口径已核：该接口只能读
+  // 自己订单的名单（路由校 user_id），姓名/电话/邮箱都是提交人自己的回显。
+  // 附：本行旧版把 email 判成「幻影字段（表里没这一列）」——2026-10-29 只读探针推翻：
+  // varchar(200) 列真在（baseline:2298），真相是 saveParticipants() 的 INSERT 漏写它
+  // （用户填的邮箱一直静默丢弃）。本批两头补齐：写入口 + 视图下发，不拿删输入框掩盖。
+  // 真库实测两表 0 行（无数据可达），所以键集合由
+  // tests/integration/api-routes/training-participants.test.ts 从代码侧钉。
+  // 【丙】组至此清零：四处已知 snake 上网已全部收口并删行（2026-10-29）。
 ]);
 
 const WRAPPED_ALLOWLIST = new Set([

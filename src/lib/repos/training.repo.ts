@@ -66,6 +66,8 @@ export interface ParticipantRow extends RowDataPacket {
   phone: string | null;
   company_name: string | null;
   position: string | null;
+  /** 真实列 varchar(200)（baseline:2298）；2026-10-29 前类型漏声明它，INSERT 也没写它 */
+  email: string | null;
   created_at: Date;
   updated_at: Date | null;
 }
@@ -264,6 +266,7 @@ export class TrainingRepo {
     phone?: string | null;
     company_name?: string | null;
     position?: string | null;
+    email?: string | null;
   }>): Promise<void> {
     // 先删除该订单的旧学员记录（支持重新提交）
     await this.pool.execute("DELETE FROM training_participants WHERE order_id = ?", [orderId]);
@@ -279,17 +282,21 @@ export class TrainingRepo {
       p.phone || null,
       p.company_name || null,
       p.position || null,
+      // email 于 2026-10-29 补入：表单一直在采集，列一直存在，只是此前没人写它
+      // （用户填的邮箱静默丢弃；证书发放口径需要这一列）。
+      p.email || null,
     ]);
     
+    // 列清单与这里的 ? 个数必须同批增减（多一个少一个都是列/参数错位）。
     const placeholders = values.map(() => 
-      "(?, ?, ?, ?, ?, ?, ?)"
+      "(?, ?, ?, ?, ?, ?, ?, ?)"
     ).join(", ");
     
     const flatValues = values.flat();
     
     await this.pool.execute(
       `INSERT INTO training_participants (
-        order_id, participant_no, full_name, gender, phone, company_name, position
+        order_id, participant_no, full_name, gender, phone, company_name, position, email
       ) VALUES ${placeholders}`,
       flatValues
     );

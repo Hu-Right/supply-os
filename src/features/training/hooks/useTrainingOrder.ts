@@ -9,7 +9,7 @@ import {
   mockPayTrainingOrder,
   saveTrainingParticipants,
   type LandingCourse,
-  type TrainingParticipant,
+  type ParticipantInput,
 } from "../api";
 
 export function useTrainingOrder(
@@ -17,7 +17,7 @@ export function useTrainingOrder(
   selectedScheduleId: number | null,
   registrationId: number | null | undefined,
   participantCount: number,
-  pendingParticipants: TrainingParticipant[] | null,
+  pendingParticipants: ParticipantInput[] | null,
   onClose: () => void,
 ) {
   const handleCreateOrder = useCallback(

@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { trainingParticipantsViewOf } from "@/lib/services/training/view";
 import {
   EC_TRAINING_ORDER_NOT_FOUND, EC_TRAINING_ORDER_FORBIDDEN,
   EC_TRAINING_ORDER_NOT_PAID, EC_TRAINING_PARTICIPANTS_INVALID,
@@ -28,7 +29,9 @@ export const GET = withRoute<{ params: Promise<{ orderNo: string }> }>(
     return NextResponse.json({
       success: true,
       orderNo,
-      participants,
+      // 行是 SELECT * 整行（含 order_id/created_at/updated_at），必须过视图才上网；
+      // 下面的 participantCount 用原始长度，不受视图只发 7 键影响。
+      participants: trainingParticipantsViewOf(participants),
       participantCount: participants.length,
     });
   },

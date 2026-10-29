@@ -74,7 +74,29 @@ export interface TrainingOrderStatusResponse {
   paidAt: string | null;
 }
 
+/**
+ * 学员（GET 响应视图，红线② camelCase）。
+ * `email` 是真实列（baseline:2298 / 线上库 varchar(200)）：旧注释“表里没这一列”已于
+ * 2026-10-29 用只读探针推翻——列一直在，只是写入链路没写它（已补齐）。
+ */
 export interface TrainingParticipant {
+  participantNo: number;
+  fullName: string;
+  gender?: string | null;
+  phone?: string | null;
+  companyName?: string | null;
+  position?: string | null;
+  email?: string | null;
+}
+
+/**
+ * 学员录入/提交体（表单状态与 POST 请求体）。
+ * 键仍是 training_participants 列名（请求侧允许 snake，红线②只约束响应实体字段）；
+ * 与上面的响应类型刻意分成两个名字，免得“改名”把写入口径一起带走。
+ * 本类型与 ParticipantForm 初始化、仓储 saveParticipants 的 INSERT 列必须同集：
+ * email 曾在此缺席，导致输入框采集的邮箱不进入任何写入口径（已修）。
+ */
+export interface ParticipantInput {
   participant_no: number;
   full_name: string;
   gender?: string | null;
@@ -182,7 +204,7 @@ export const mockPayTrainingOrder = (orderNo: string) =>
  * 保存学员信息（支付完成后）
  * Save participant information (after payment)
  */
-export const saveTrainingParticipants = (orderNo: string, participants: TrainingParticipant[]) =>
+export const saveTrainingParticipants = (orderNo: string, participants: ParticipantInput[]) =>
   api<SaveParticipantsResponse>(`/api/training/orders/${encodeURIComponent(orderNo)}/participants`, {
     method: "POST",
     body: JSON.stringify({ participants }) as unknown as BodyInit,

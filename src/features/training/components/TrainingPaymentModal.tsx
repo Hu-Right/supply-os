@@ -12,7 +12,7 @@ import { useLocale } from "@/core/i18n";
 import { Button, SelectableCard } from "@/shared/ui";
 import { formatScheduleDate } from "@/shared/utils/format";
 import PaymentModalCore from "@/shared/components/PaymentModalCore";
-import type { LandingCourse, LandingSchedule, TrainingParticipant } from "../api";
+import type { LandingCourse, LandingSchedule, ParticipantInput } from "../api";
 import { ApiError } from "@/core/http";
 import { submitTrainingRegister } from "../api";
 import CompanyInfoSection, { type CompanyInfoData } from "./CompanyInfoSection";
@@ -41,7 +41,7 @@ export default function TrainingPaymentModal({
 
   // ── 两阶段流程 ──
   const [phase, setPhase] = useState<"participants" | "payment">("participants");
-  const [pendingParticipants, setPendingParticipants] = useState<TrainingParticipant[] | null>(null);
+  const [pendingParticipants, setPendingParticipants] = useState<ParticipantInput[] | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfoData>({
     company_name: "",
     industry_code: "",
@@ -72,7 +72,7 @@ export default function TrainingPaymentModal({
     useTrainingOrder(course, selectedScheduleId, registrationId, participantCount, pendingParticipants, onClose);
 
   // ── 阶段一：学员信息填写完成 → 先提交公司信息 → 再进入支付阶段 ──
-  const handleParticipantsReady = useCallback(async (participants: TrainingParticipant[]) => {
+  const handleParticipantsReady = useCallback(async (participants: ParticipantInput[]) => {
     if (!companyInfo.company_name || !companyInfo.contact_name || !companyInfo.telephone) {
       setCompanyError(t("tlCompanyInfoRequired"));
       return;

@@ -7,12 +7,12 @@
  *              消除 participants.map 内的重复 JSX（D4-1 拆分）。
  */
 import { useLocale } from "@/core/i18n";
-import type { TrainingParticipant } from "../api";
+import type { ParticipantInput } from "../api";
 
 interface ParticipantRowProps {
-  participant: TrainingParticipant;
+  participant: ParticipantInput;
   index: number;
-  onChange: (index: number, field: keyof TrainingParticipant, value: string | null) => void;
+  onChange: (index: number, field: keyof ParticipantInput, value: string | null) => void;
 }
 
 export function ParticipantRow({ participant, index, onChange }: ParticipantRowProps) {
@@ -60,6 +60,9 @@ export function ParticipantRow({ participant, index, onChange }: ParticipantRowP
             onChange={(e) => onChange(index, "position", e.target.value || null)}
             className={inputCls} placeholder={t("tlParticipantPositionPlaceholder")} />
         </div>
+        {/* 邮箱：表列 email varchar(200) 真实存在（baseline:2298 + 线上库实测），
+            但 2026-10-29 之前 saveParticipants() 的 INSERT 只写 7 列——用户填的一直被
+            静默丢弃。本批已补齐写入口（仓储 INSERT + 行类型 + 视图），不拿“删输入框”掩盖缺陷。 */}
         <div className="md:col-span-2">
           <label className={labelCls}>{t("tlParticipantEmailLabel")}</label>
           <input type="email" value={participant.email || ""}
