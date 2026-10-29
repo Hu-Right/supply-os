@@ -3,18 +3,21 @@
  * Membership plan card utilities — reads the server-resolved comparison matrix.
  *
  * @module features/membership/utils
- * @description 档位卡的 ✓/✗ 权益清单与额度展示一律读取 `/api/membership/plans` 返回的
- *              服务端解析矩阵（ComparisonView，已按 commercial_tier 归组为三档列）：
- *              enabled/display 由后端按矩阵逐格算好，前端不再维护 benefit_rank /
+ * @description 定价页布局：顶部「月 / 季度 / 年」三个周期 Tab，每 Tab 下三张档位卡
+ *              （个人版 / 企业版 / 人工对接）。卡内 ✓/✗ 权益清单与额度一律读
+ *              `/api/membership/plans` 返回的服务端解析矩阵（ComparisonView）：
+ *              enabled/display 由后端逐格算好，前端不维护 benefit_rank /
  *              COMPARISON_ROWS 客户端副本（旧客户端 SSOT 退役）。
  */
-import type { ComparisonView, PlanView, ResolvedCellView, TieredPlanView } from "@/types";
+import type { ComparisonView, PlanView, ResolvedCellView } from "@/types";
 
-/** 卡片权益 chip：一行权益在本档的解析结果 + 中文行名。 */
+/** 卡片权益 chip：一行权益在本档的解析结果 + 中文行名 + 是否「即将上线」。 */
 export interface PlanFeatureChip {
   benefitCode: string;
   label: string;
   cell: ResolvedCellView;
+  /** 视图层派生标记（功能未上线但已分配到档位），卡片渲染「即将上线」角标 */
+  isComingSoon?: boolean;
 }
 
 /**
@@ -33,7 +36,12 @@ export function isRecommendedPlan(plan: { badge: string }): boolean {
 export function getPlanFeatureChips(table: ComparisonView, planCode: string): PlanFeatureChip[] {
   return table.rows
     .filter((r) => r.benefit.valueKind === "bool" || r.benefit.valueKind === "enum")
-    .map((r) => ({ benefitCode: r.benefit.benefitCode, label: r.benefit.nameZh, cell: r.cells[planCode] }))
+    .map((r) => ({
+      benefitCode: r.benefit.benefitCode,
+      label: r.benefit.nameZh,
+      cell: r.cells[planCode],
+      isComingSoon: r.benefit.isComingSoon === true,
+    }))
     .filter((chip) => chip.cell != null);
 }
 
@@ -52,20 +60,6 @@ export function getPlanQuotaDisplay(
  * 2026-10-28 新服务目录（8 行）不再含旧的「199 人工找单」（svc_manual_bid_match），
  * 企业 Tab 收敛为 business + concierge 两张档位卡，无并列服务卡。
  */
-
-/** 按派生受众把套餐分为个人版 / 企业版两组（缺失 audience 归企业版，与后端兜底一致）。 */
-export function groupPlansByAudience<T extends PlanView>(plans: T[]): {
-  personal: T[];
-  enterprise: T[];
-} {
-  const personal: T[] = [];
-  const enterprise: T[] = [];
-  for (const p of plans) {
-    if (p.audience === "personal") personal.push(p);
-    else enterprise.push(p);
-  }
-  return { personal, enterprise };
-}
 
 /** 订制服务卡的两条成交分支：自助支付 / 预约顾问。 */
 export type ServiceBranch = "pay" | "consult";
@@ -136,20 +130,8 @@ export function tierDisplayName(plan: PlanView): { nameKey?: string; fallback: s
 }
 
 /**
- * 周期子行 → 档位卡展示行：在档内 periods 里选目标周期，缺该周期时回退最长周期行
- * （对"某档缺季付"之类的目录形态健壮），periods 为空则退回代表行本身。
+ * 周期天数 → 周期卡价格后缀单位键（/月 ·/季 ·/年）；无周期（永久行）由调用方另走「永久有效」文案。
  */
-export function pickPeriodRow(plan: PlanView, billingDays: number | null): PlanView {
-  const periods = (plan as TieredPlanView).periods ?? [];
-  if (periods.length === 0) return plan;
-  if (billingDays != null) {
-    const hit = periods.find((p) => p.billingPeriodDays === billingDays);
-    if (hit) return hit as PlanView;
-  }
-  return periods[periods.length - 1] as PlanView;
-}
-
-/** 周期天数 → 档位卡价格后缀单位键（/月 ·/季 ·/年）；无周期（永久行）由调用方另走「永久有效」文案。 */
 export function periodUnitKey(billingDays: number | null): string {
   if (billingDays == null) return "membershipValidityPermanent";
   if (billingDays <= 31) return "membershipMonth";
@@ -157,7 +139,7 @@ export function periodUnitKey(billingDays: number | null): string {
   return "membershipYear";
 }
 
-/** 周期天数 → 切换控件文案键（月付/季付/年付）；无周期行沿用「永久有效」。 */
+/** 周期天数 → 周期卡标签文案键（月付/季付/年付）；无周期行沿用「永久有效」。 */
 export function periodSwitchKey(billingDays: number | null): string {
   if (billingDays == null) return "membershipValidityPermanent";
   if (billingDays <= 31) return "periodMonthly";

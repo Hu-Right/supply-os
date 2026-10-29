@@ -209,3 +209,37 @@ describe("upgradePreviewViewOf", () => {
     expect(snake).toEqual([]);
   });
 });
+
+describe("tieredComparisonViewOf · 即将上线标记", () => {
+  const row = (code: string, tier: string) => ({
+    plan_code: code, name_en: code, name_zh: code, positioning_zh: "", price: "1", price_mode: "fixed",
+    price_incl_tax: 1, currency: "CNY", billing_period_days: 30, commercial_tier: tier, audience: "personal",
+    cta_i18n_key: "", badge: "none", sort_order: 1, is_active: 1, upgrade_credit_days: null,
+  });
+  const mk = (): ComparisonTable =>
+    ({
+      plans: [row("personal_m", "L1"), row("business_m", "L3"), row("concierge_m", "L4")],
+      rows: [
+        {
+          benefit: { benefit_code: "product_keyword_lib", name_zh: "产品关键词库", value_kind: "enum", level_dict: null, sort_order: 1 },
+          cells: { personal_m: { plan_code: "personal_m", benefit_code: "product_keyword_lib", value_level: 1, value_num: null } },
+        },
+        {
+          benefit: { benefit_code: "evidence_library", name_zh: "企业资料库与能力画像", value_kind: "bool", level_dict: null, sort_order: 2 },
+          cells: { business_m: { plan_code: "business_m", benefit_code: "evidence_library", value_level: 1, value_num: null } },
+        },
+        {
+          benefit: { benefit_code: "notice_translation", name_zh: "公告译文", value_kind: "bool", level_dict: null, sort_order: 3 },
+          cells: { personal_m: { plan_code: "personal_m", benefit_code: "notice_translation", value_level: 1, value_num: null } },
+        },
+      ],
+    }) as unknown as ComparisonTable;
+
+  it("已实现的 product_keyword_lib 不标「即将上线」；未完善的企业资料模块标记", () => {
+    const v = tieredComparisonViewOf(mk());
+    const byCode = new Map(v.rows.map((r) => [r.benefit.benefitCode, r.benefit.isComingSoon ?? false]));
+    expect(byCode.get("product_keyword_lib")).toBe(false); // 已实现：设置页 + API 均在
+    expect(byCode.get("evidence_library")).toBe(true); // 资料库与能力画像：功能未完善（标记仅内部元数据）
+    expect(byCode.get("notice_translation")).toBe(false); // 普通权益不带标记
+  });
+});

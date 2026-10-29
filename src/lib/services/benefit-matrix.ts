@@ -59,19 +59,18 @@ export const INDUSTRY_SCOPED_BENEFIT = "industry_scoped";
 export const ALL_CATEGORY_ACCESS_BENEFIT = "all_category_access";
 
 /**
- * 内部计量码（quota，2026-10-28 新矩阵新增）：AI 摘要/AI 匹配的月度次数池与行业加购包预留位。
+ * 内部计量码（quota，2026-10-28 新矩阵新增）：AI 摘要/AI 匹配的月度次数池。
  * 只被服务端额度池记账消费（unlock-quota 的月度换代池），不进官网对比表与 gates 下发（同一黑名单）。
+ * 2026-10-29：industry_addon（行业加购包预留位）已随「无功能实现的额度类权益删除」下线。
  */
 export const AI_SUMMARY_QUOTA_BENEFIT = "ai_summary_quota";
 export const AI_MATCH_QUOTA_BENEFIT = "ai_match_quota";
-export const INDUSTRY_ADDON_BENEFIT = "industry_addon";
 
 export const INTERNAL_MATRIX_BENEFITS = [
   INDUSTRY_SCOPED_BENEFIT,
   ALL_CATEGORY_ACCESS_BENEFIT,
   AI_SUMMARY_QUOTA_BENEFIT,
   AI_MATCH_QUOTA_BENEFIT,
-  INDUSTRY_ADDON_BENEFIT,
 ] as const;
 
 export interface MaskableSummary {

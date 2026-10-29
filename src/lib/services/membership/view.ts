@@ -66,12 +66,35 @@ export const serviceCatalogsViewOf = (rows: readonly ServiceCatalogRow[]): Servi
 const OFFICIAL_TABLE_HIDDEN_BENEFITS: ReadonlySet<string> = new Set(["history_notice_db"]);
 
 /**
+ * 「功能未完善」权益清单（2026-10-29 权益再分配 / 模块收敛）：这些模块已按阶梯分配到
+ * 企业/人工档（矩阵里已给值，卡片按 ✓ 展示），但功能尚未达到可交付状态。
+ *
+ * ⚠ 2026-10-29 产品口径：**不在页面展示「即将上线」角标**（先照常展示权益，功能后续补齐）。
+ * 本常量保留为 roadmap 元数据（API 仍下发 isComingSoon，供后台/将来的角标或内部报表用），
+ * 验收通过后从集合里删掉即可；前端不读取该字段。
+ *
+ * 2026-10-29 核对后已移出：product_keyword_lib（产品关键词库）——设置页 + 词组 CRUD
+ * API + 权益门控早已实现（/settings/keyword-library、/api/user/keyword-groups），
+ * 之前只是矩阵全档 0 把它门控死了，分配后企业/人工档应直接可用。
+ * 同日模块收敛：bid_nobid / qualification_gap / requirement_matrix 合并为
+ * bid_feasibility_report；enterprise_profile 并入 evidence_library；bid_collab、
+ * strategy_meeting 下线。
+ */
+const COMING_SOON_BENEFITS: ReadonlySet<string> = new Set([
+  "bid_feasibility_report",
+  "joint_bid_match",
+  "order_crm",
+  "evidence_library",
+  "ai_bid_review",
+]);
+
+/**
  * 官网对比表视图：按 commercial_tier 归组去重（9 周期行 → 3 档列）。
  *
  * - 归组完全按 commercial_tier 字段驱动，不假设行数：同档 m/q/y 三行 → 一列；
  *   旧目录数据（各档独占 tier）也能渲染，只是退化为每行一列。
  * - 每档取周期最短的在售行做代表（迁移后即 *_m 行）；代表行携带档内全部周期子行
- *   （periods，按周期升序），供档位卡的月/季/年切换控件取价。
+ *   （periods，按周期升序、与代表行同形的完整视图），供定价页按「月/季/年」各渲染一张卡。
  * - 权益格以代表行为准键到代表 plan_code 上（同档三行矩阵值相同；即便脏数据不同也不报错）。
  */
 export function tieredComparisonViewOf(table: ComparisonTable): ComparisonView {
@@ -94,25 +117,18 @@ export function tieredComparisonViewOf(table: ComparisonTable): ComparisonView {
     const repView = planViewOf(rep);
     plans.push({
       ...repView,
-      periods: sorted.map((r) => {
-        const v = planViewOf(r);
-        return {
-          planCode: v.planCode,
-          nameZh: v.nameZh,
-          price: v.price,
-          priceMode: v.priceMode,
-          currency: v.currency,
-          billingPeriodDays: v.billingPeriodDays,
-          badge: v.badge,
-        };
-      }),
+      // 完整视图（不裁字段）：周期卡要独立成交，前端不该在 onBuy 路径上做类型断言
+      periods: sorted.map(planViewOf),
     });
   }
 
   const rows = table.rows
     .filter((r) => !OFFICIAL_TABLE_HIDDEN_BENEFITS.has(r.benefit.benefit_code))
     .map((r) => ({
-      benefit: benefitDefViewOf(r.benefit),
+      benefit: {
+        ...benefitDefViewOf(r.benefit),
+        ...(COMING_SOON_BENEFITS.has(r.benefit.benefit_code) ? { isComingSoon: true } : {}),
+      },
       cells: Object.fromEntries(
         plans.map((p) => {
           const cell = r.cells[p.planCode] ?? null;

@@ -1,11 +1,12 @@
 /**
- * 会员套餐详情页面（个人版 / 企业版 / 人工服务版 / 增值服务 四分区）
- * Membership Plans Detail Page — Personal / Enterprise / Concierge / Services tabs
+ * 会员套餐详情页面（月 / 季度 / 年 三个周期 Tab + 增值服务）
+ * Membership Plans Detail Page — Monthly / Quarterly / Yearly tabs
  *
  * @module features/membership/pages/MembershipPage
- * @description 套餐按 commercial_tier 分个人版/企业版/人工服务版三个 Tab 渲染
- *              （新目录 L1=个人、L3=企业、L4=人工服务），增值服务 Tab 保持服务型 SKU；
- *              支付/升级/联系咨询逻辑下沉至 useMembershipPayment。
+ * @description 定价区按**周期**分 Tab：月付 → 季付 → 年付；每个 Tab 下三张档位卡：
+ *              个人版（L1）/ 企业版（L3）/ 人工对接（L4）——价格、权益、成交都在卡内。
+ *              周期 Tab 与周期数全部由目录字段（billingPeriodDays）驱动，不硬编码 30/90/365；
+ *              增值服务 Tab 保持服务型 SKU；支付/升级/联系咨询逻辑下沉至 useMembershipPayment。
  */
 
 import { useMemo, useState } from "react";
@@ -22,16 +23,8 @@ import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
 import { useServiceCatalog } from "../hooks/useServiceCatalog";
-import { groupPlansByAudience, groupServicesByCategory, pickServiceTabGroups, serviceDisplayName, resolveServiceBranch, periodSwitchKey } from "../utils";
+import { groupServicesByCategory, pickServiceTabGroups, serviceDisplayName, resolveServiceBranch, periodSwitchKey } from "../utils";
 import type { ServiceCatalogView } from "@/types/membership";
-
-type MembershipTab = "personal" | "enterprise" | "concierge" | "services";
-const MEMBERSHIP_TABS: { key: MembershipTab; labelKey: string }[] = [
-  { key: "personal", labelKey: "tabPersonal" },
-  { key: "enterprise", labelKey: "tabEnterprise" },
-  { key: "concierge", labelKey: "tabConcierge" },
-  { key: "services", labelKey: "tabServices" },
-];
 
 export default function MembershipPage() {
   const searchParams = useSearchParams();
@@ -48,14 +41,38 @@ export default function MembershipPage() {
     contactQrOpen, closeContactQr,
   } = useMembershipPayment({ noticeId, currentPlanCode, annualCredit });
 
-  const [tab, setTab] = useState<MembershipTab>("personal");
-  // 月/季/年切换：null = 未手动选过，按默认「年付」（无年付的档回退其最长周期）
-  const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
+  // 周期 Tab：由目录字段派生（月→季→年升序），不假设只有 3 个周期
+  const periodTabs = useMemo(() => {
+    const days = [
+      ...new Set(
+        plans
+          .flatMap((p) => ((p.periods ?? []).length > 0 ? p.periods : [p]).map((r) => r.billingPeriodDays))
+          .filter((d): d is number => d != null && Number.isFinite(d)),
+      ),
+    ].sort((a, b) => a - b);
+    return days.map((days) => ({ days, labelKey: periodSwitchKey(days) }));
+  }, [plans]);
 
-  const { personal, enterprise } = groupPlansByAudience(plans);
-  // 人工服务版独立成 Tab：L4 档从企业受众拆出（新目录 L3=企业、L4=人工对接）
-  const concierge = useMemo(() => enterprise.filter((p) => p.commercialTier === "L4"), [enterprise]);
-  const businessOnly = useMemo(() => enterprise.filter((p) => p.commercialTier !== "L4"), [enterprise]);
+  // 当前周期的天数：未手动选 / 选项失效时取最短周期（月付）
+  const [selectedDays, setSelectedDays] = useState<number | null>(null);
+  const activeDays =
+    selectedDays != null && periodTabs.some((p) => p.days === selectedDays)
+      ? selectedDays
+      : periodTabs[0]?.days ?? null;
+
+  // 增值服务是独立分区（与周期 Tab 互斥）
+  const [showServices, setShowServices] = useState(false);
+
+  /** 当前 Tab 的卡片：每档取该周期的执行行；档内缺该周期就不出现；无周期字段的旧目录退化为单卡 */
+  const periodCards = useMemo(() => {
+    return plans.flatMap((tier) => {
+      const rows = (tier.periods ?? []).length > 0 ? tier.periods : [tier];
+      const row = activeDays == null ? rows[0] : rows.find((r) => r.billingPeriodDays === activeDays);
+      return row ? [{ tier, row }] : [];
+    });
+  }, [plans, activeDays]);
+
+
   const { services, loading: servicesLoading, error: servicesError, reload: reloadServices } = useServiceCatalog();
   // 订制服务 Tab：读 service_catalog 按 category 分组（新服务目录 8 行，三类全放）。
   const groupedServices = pickServiceTabGroups(groupServicesByCategory(services));
@@ -85,55 +102,46 @@ export default function MembershipPage() {
     });
   };
 
-  const isPlanTab = tab !== "services";
-  // useMemo 稳定引用：currentPlans 依赖 tab 与各档分组，独立缓存避免每次渲染换数组
-  const currentPlans = useMemo(
-    () => (tab === "personal" ? personal : tab === "enterprise" ? businessOnly : tab === "concierge" ? concierge : []),
-    [tab, personal, businessOnly, concierge],
-  );
-  const sectionTitleKey =
-    tab === "personal" ? "membershipPlansPersonalTitle"
-    : tab === "enterprise" ? "membershipPlansEnterpriseTitle"
-    : "membershipPlansConciergeTitle";
-  const sectionDescKey =
-    tab === "personal" ? "membershipPlansPersonalDesc"
-    : tab === "enterprise" ? "membershipPlansEnterpriseDesc"
-    : "membershipPlansConciergeDesc";
-
-  // 周期选项 = 本 Tab 各档全部周期天数的并集（升序；纯按字段归组，不假设档数/周期数）
-  const periodOptions = useMemo(() => {
-    const days = new Set<number>();
-    for (const p of currentPlans) {
-      for (const opt of p.periods ?? []) {
-        if (opt.billingPeriodDays != null) days.add(opt.billingPeriodDays);
-      }
-    }
-    return [...days].sort((a, b) => a - b);
-  }, [currentPlans]);
-  // 生效周期：手动选择优先；未选/选项失效时默认最长周期（年付）
-  const activePeriod =
-    selectedPeriod != null && periodOptions.includes(selectedPeriod)
-      ? selectedPeriod
-      : periodOptions[periodOptions.length - 1] ?? null;
+  const hasPlans = plans.length > 0;
+  const tabBtn = (active: boolean) =>
+    `px-5 py-2 rounded-lg text-sm font-bold transition-colors cursor-pointer ${
+      active ? "bg-teal-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-teal-300"
+    }`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
-      {/* ══ Tab 导航 ══ */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        {MEMBERSHIP_TABS.map((tb) => (
+      {/* ══ Tab 导航：月付 / 季付 / 年付 / 增值服务 ══ */}
+      <div className="flex flex-wrap items-center gap-3 mb-6" role="tablist">
+        {periodTabs.map((pt) => (
           <button
-            key={tb.key}
-            onClick={() => setTab(tb.key)}
-            className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors cursor-pointer ${
-              tab === tb.key ? "bg-teal-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-teal-300"
-            }`}
+            key={pt.days}
+            type="button"
+            role="tab"
+            aria-selected={!showServices && activeDays === pt.days}
+            onClick={() => {
+              setSelectedDays(pt.days);
+              setShowServices(false);
+            }}
+            className={tabBtn(!showServices && activeDays === pt.days)}
+            data-testid="period-tab"
+            data-billing-days={pt.days}
           >
-            {t(tb.labelKey)}
+            {t(pt.labelKey)}
           </button>
         ))}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={showServices}
+          onClick={() => setShowServices(true)}
+          className={tabBtn(showServices)}
+          data-testid="services-tab"
+        >
+          {t("tabServices")}
+        </button>
       </div>
 
-      {tab === "services" ? (
+      {showServices ? (
         /* 订制服务 Tab：读 service_catalog，按 category 分组渲染 */
         <section className="py-2">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -170,18 +178,18 @@ export default function MembershipPage() {
         </section>
       ) : (
         <>
-          {/* 套餐卡片区域（个人版 / 企业版） */}
-          <section className="bg-gradient-to-b from-slate-50/80 to-white py-16 pb-20">
+          {/* 套餐卡片区：当前周期 Tab 下三张档位卡（个人版 / 企业版 / 人工对接） */}
+          <section className="bg-gradient-to-b from-slate-50/80 to-white py-12 pb-16">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center mb-10">
-                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">{t(sectionTitleKey)}</h2>
-                <p className="text-base text-slate-600 max-w-xl mx-auto">{t(sectionDescKey)}</p>
+              <div className="text-center mb-8">
+                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">{t("membershipTitle")}</h2>
+                <p className="text-base text-slate-600 max-w-xl mx-auto">{t("tabMembershipDesc")}</p>
               </div>
 
               {loading ? (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-72 rounded-2xl border border-slate-200/60 bg-slate-100/70 animate-pulse" />
+                    <div key={i} className="h-80 rounded-2xl border border-slate-200/60 bg-slate-100/70 animate-pulse" />
                   ))}
                 </div>
               ) : error ? (
@@ -201,44 +209,22 @@ export default function MembershipPage() {
                 </div>
               ) : (
                 <>
-                  {/* 月/季/年切换控件：只换卡上价格与周期文案，权益清单不变（同档三周期矩阵值相同） */}
-                  {periodOptions.length > 1 && (
-                    <div className="mb-6 flex items-center justify-center gap-2" data-testid="period-switch">
-                      <span className="mr-1 text-xs font-bold text-slate-500">{t("periodSwitchLabel")}</span>
-                      {periodOptions.map((days) => (
-                        <button
-                          key={days}
-                          type="button"
-                          onClick={() => setSelectedPeriod(days)}
-                          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                            activePeriod === days
-                              ? "bg-primary-600 text-white"
-                              : "bg-white border border-slate-200 text-slate-600 hover:border-primary-300"
-                          }`}
-                        >
-                          {t(periodSwitchKey(days))}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto" data-testid="plan-list">
+                  <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3" data-testid="plan-list">
                     {comparison &&
-                      currentPlans.map((plan) => (
+                      periodCards.map(({ tier, row }) => (
                         <PlanCard
-                          key={plan.planCode}
-                          plan={plan}
+                          key={row.planCode}
+                          tier={tier}
+                          row={row}
                           table={comparison}
-                          billingDays={activePeriod}
                           currentPlanPrice={currentPlanPrice}
                           currentPlanCode={currentPlanCode}
                           upgradeCreditOpen={upgradeCredit?.open ?? null}
-                          upgradeCreditDays={upgradeCredit?.days ?? null}
                           onBuy={buyPlan}
                           onUpgrade={startUpgrade}
                         />
                       ))}
-                    {currentPlans.length === 0 && (
+                    {!hasPlans && (
                       <div className="text-center py-12">
                         <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
                       </div>
@@ -259,7 +245,7 @@ export default function MembershipPage() {
           </section>
 
           {/* ═ 为什么升级会员 ═══ */}
-          {isPlanTab && !loading && currentPlans.length > 0 && (
+          {!loading && hasPlans && (
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
               <h2 className="text-xl font-extrabold text-slate-900 mb-6">{t("whyUpgradeTitle")}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

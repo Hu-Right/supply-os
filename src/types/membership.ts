@@ -168,16 +168,24 @@ type SnakeToCamelKey<S extends string> = S extends `${infer H}_${infer T}`
 /** 只改属性名、不改属性值类型（嵌套容器需由 mapper 显式转换，见 view.ts） */
 export type ViewOf<T> = { [K in keyof T as K extends string ? SnakeToCamelKey<K> : K]: T[K] };
 
-export type PlanView = ViewOf<PlanCatalogRow>;
-/** 档内周期子行：档位卡月/季/年切换控件消费的最小字段集（价格与周期文案随子行切换） */
-export type PlanPeriodView = Pick<
-  PlanView, "planCode" | "nameZh" | "price" | "priceMode" | "currency" | "billingPeriodDays" | "badge"
->;
+export type PlanView = ViewOf<PlanCatalogRow>;/**
+ * 档内周期子行：与套餐视图同形（不是最小字段集）。
+ * 定价页现在「一月/季/年各一张卡」，每张卡都要独立走成交/升级判断，
+ * 读的就是这套字段；裁字段会逼前端在成交路径上做类型断言。
+ */
+export type PlanPeriodView = PlanView;
 /** 归组后的档位行：代表行（迁移后取 *_m 行）+ 档内全部周期子行（按周期升序） */
 export type TieredPlanView = PlanView & { periods: PlanPeriodView[] };
 export type SubscriptionView = ViewOf<ActivePlanRow>;
 export type QuotaView = ViewOf<QuotaBalanceRow>;
-export type BenefitDefView = ViewOf<BenefitDefRow>;
+export type BenefitDefView = ViewOf<BenefitDefRow> & {
+  /**
+   * 「即将上线」标记（视图层派生，非 DB 列）：这些权益已分配进对应档位（矩阵里已给值），
+   * 但功能尚未上线，定价页列表里追加一个角标而不是假装已经可用。
+   * 单一事实源：lib/services/membership/view.ts 的 COMING_SOON_BENEFITS。
+   */
+  isComingSoon?: boolean;
+};
 export type ResolvedCellView = ViewOf<ResolvedCell>;
 export type ServiceCatalogView = ViewOf<ServiceCatalogRow>;
 export type AnnualCreditView = ViewOf<AnnualPlanCredit>;
