@@ -11,7 +11,7 @@
  */
 import { useEffect, useState } from "react";
 import type { ErrorClassification } from "@/core/http";
-import { AnalyzingPanel, UpgradeGatePanel, LockedPanel, NeedConfigPanel, ErrorPanel, StartPanel } from "./ai-summary/states";
+import { AnalyzingPanel, UpgradeGatePanel, LockedPanel, NeedConfigPanel, ErrorPanel, StartPanel, AccessPendingPanel } from "./ai-summary/states";
 import { SummaryGrid, buildSummaryItems } from "./ai-summary/SummaryGrid";
 
 /** AI 拆标摘要数据结构（6 维度） */
@@ -40,6 +40,8 @@ export interface AiSummarySectionProps {
   onRequestUnlock?: () => void;
   /** 已解锁但当前档位不含 AI 摘要权益（低档只看原文）：引导升级 */
   upgradeLocked?: boolean;
+  /** 会员已含 notice_view，但公告记录尚未落解锁/详情：先加载，不显示升级或锁定文案 */
+  accessPending?: boolean;
   /** 当前展示为服务端脱敏 teaser（低档 ai_summary=1）：底部内联"升级看完整"提示 */
   masked?: boolean;
   /** 点击"升级解锁 AI 能力"的回调 */
@@ -58,6 +60,7 @@ export function AiSummarySection({
   locked = false,
   onRequestUnlock,
   upgradeLocked = false,
+  accessPending = false,
   masked = false,
   onUpgrade,
 }: AiSummarySectionProps) {
@@ -74,6 +77,10 @@ export function AiSummarySection({
 
   // 加载中：明确的"分析中"动效面板（旋转+计时），而非静态骨架屏
   if (loading && !hasData) return <AnalyzingPanel elapsed={elapsed} />;
+
+  // 会员权益已包含读取权限，但公告解锁/详情仍在路上：先中性加载，
+  // 不能把“已包含”会员显示成“升级会员”。
+  if (accessPending && !hasData) return <AccessPendingPanel />;
 
   // 低档已解锁但无 AI 权益：引导升级（区别于未解锁的"引导解锁"）
   if (upgradeLocked && !hasData) return <UpgradeGatePanel onUpgrade={onUpgrade} />;

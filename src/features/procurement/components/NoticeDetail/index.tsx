@@ -88,6 +88,10 @@ export function NoticeDetail({
   const canSeeChinese = gates?.notice_translation === "free" || gates?.notice_translation === "included";
   const aiSummaryEnabled = gates?.ai_summary === "free" || gates?.ai_summary === "included";
   const aiMatchEnabled = gates?.ai_match === "free" || gates?.ai_match === "included";
+  // 会员含 notice_view 无限读取：打开即自动解锁。解锁记录/详情落库前，
+  // 先显示中性加载，不能把“已包含”用户显示成“升级会员/已锁定”。
+  const accessIncluded = gates?.notice_view === "free" || gates?.notice_view === "included";
+  const accessPending = accessIncluded && !coreUnlocked && !actionMessage;
   // 匹配层级按会员等级差异化（数据来自 plan_catalog.commercial_tier，不硬编码档位常量）：
   // L1 个人=基础评估 / L3 企业=企业级评估 / L4+ 人工=可定制评估
   const planTier = membership?.plan?.commercialTier ?? "";
@@ -155,7 +159,7 @@ export function NoticeDetail({
   const hasTranslation = canSeeChinese && (!!translation || descResolved);
 
   // 锁定态展示项
-  const showSkeleton = !coreUnlocked && !!detailLoading;
+  const showSkeleton = !coreUnlocked && (!!detailLoading || accessPending);
   const breakdownFileCount = coreUnlocked
     ? collectBreakdownFiles(notice).length
     : typeof notice.breakdownFileCount === "number" ? notice.breakdownFileCount : undefined;
@@ -220,6 +224,7 @@ export function NoticeDetail({
                   llmConfigured={aiSummary.llmConfigured}
                   locked={!coreUnlocked}
                   upgradeLocked={coreUnlocked && !aiSummaryEnabled}
+                  accessPending={accessPending}
                   masked={aiSummary.masked}
                   onUpgrade={() => router.push("/membership")}
                   onStart={() => aiSummary.triggerAnalysis(false)}
@@ -235,7 +240,7 @@ export function NoticeDetail({
                   toggleOriginal={toggleOriginal}
                   displayDescription={displayDescription || ""}
                   descriptionTruncated={!!notice.descriptionTruncated}
-                  loading={!!detailLoading}
+                  loading={!!detailLoading || accessPending}
                 />
 
                 {/* 解锁态：采购方/联系人 → 「采购方与联系人」Tab；报告/文件 → 「投标材料」Tab。
@@ -322,6 +327,7 @@ export function NoticeDetail({
     </div>
   );
 }
+
 
 
 

@@ -40,6 +40,22 @@ export const AnalyzingPanel = memo(function AnalyzingPanel({ elapsed }: { elapse
   );
 });
 
+/** 会员已含读取权益、公告解锁记录尚未落库：中性加载，不显示升级/锁定 */
+export const AccessPendingPanel = memo(function AccessPendingPanel() {
+  const { t } = useLocale();
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <Loader2 className="w-5 h-5 text-teal-600 animate-spin" />
+        <h3 className="text-base font-extrabold text-slate-900">
+          {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
+        </h3>
+      </div>
+      <p className="text-sm text-slate-500">{t("procurement_loading") || "正在加载..."}</p>
+    </section>
+  );
+});
+
 /** 低档已解锁但无 AI 权益：引导升级（区别于未解锁的"引导解锁"） */
 export const UpgradeGatePanel = memo(function UpgradeGatePanel({ onUpgrade }: { onUpgrade?: () => void }) {
   const { t } = useLocale();
