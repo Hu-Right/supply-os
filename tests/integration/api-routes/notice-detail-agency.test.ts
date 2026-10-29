@@ -46,7 +46,8 @@ vi.mock("@/lib/services/platform/alias-store", async (importOriginal) => ({
 }));
 vi.mock("@/lib/services/search-orchestrator/format", () => ({ enrichAgencyI18n, ensureAgencyI18nWarmup }));
 
-/** 服务表行（findPublicDetail 真实列口径的最小集） */
+/** 服务表行：按 findPublicDetail 的真实 SELECT 列全量给值（下面那条「无 snake 键」
+ *  不变量只有覆盖全部列才有意义——只放几个列就会漏住 mapper 认不到的那些） */
 function serviceRow(overrides: Record<string, unknown> = {}) {
   return {
     notice_pk: 1786635783,
@@ -54,14 +55,33 @@ function serviceRow(overrides: Record<string, unknown> = {}) {
     source_url: "https://eis.gov.lv/notice/1",
     reference: "VNĪ 2026/2-17/AK-66",
     title: "Purchasing and assembly of ASSA Abloy lathe machinery",
-    notice_type_code: "ITB",
+    description: "Body",
+    description_cn: "中文描述",
+    content_level: 2,
+    industry: "Construction",
+    published_ts: 1792195200,
+    deadline_ts: 1794902400,
+    deadline_state: "open",
+    deadline_type: "fixed",
+    deadline_timezone: "Europe/Riga",
     country_code: "LV",
+    country_codes: "LV",
+    notice_type_code: "ITB",
+    platform_name: "eis.gov.lv",
     buyer_name: "Valsts nekustamie īpašumi",
     buyer_group: "AGENCY_LV",
-    platform_name: "eis.gov.lv",
-    deadline_ts: 1794902400,
-    published_ts: 1792195200,
     estimated_value: "0.00",
+    currency_code: "EUR",
+    currency_source: "notice",
+    contacts: [{ name: "A" }],
+    attachments: [{ fileName: "a.pdf" }],
+    external_links: [{ title: "t", url: "u" }],
+    difficulty: null,
+    registration_level: null,
+    beneficiary_countries: "LV",
+    updated_at: "2026-10-28 09:00:00",
+    is_opportunity: 1,
+    timezone_source: "EET",
     ...overrides,
   };
 }
@@ -80,14 +100,26 @@ describe("GET /api/notices/[id]/detail 的机构名接线", () => {
     findUnlock.mockResolvedValue({ unlock_type: "quota", unlocked_at: 1 });
   });
 
-  it("带 locale：预热机构快照 → 走列表同一条链 → 改名为 agencyI18n 下发", async () => {
+  it("带 locale：预热机构快照 → 只接精确解析层 → 改名为 agencyI18n 下发", async () => {
     const body = await callDetail("zh");
 
     expect(ensureAgencyI18nWarmup).toHaveBeenCalledTimes(1);
     expect(enrichAgencyI18n).toHaveBeenCalledTimes(1);
+    // 详情不得接列表侧的国家级聚合桶（「法国各机构」会盖掉真实买家名）
+    expect(enrichAgencyI18n).toHaveBeenCalledWith([expect.any(Object)], "zh", { preciseOnly: true });
     expect(body.agencyI18n).toBe("拉脱维亚房地产局");
     // 行上的列名属存储层，不外露（命名红线②）
     expect(body).not.toHaveProperty("agency_i18n");
+  });
+
+  it("无精名：显式下发空串而不是缺键（不让 /preview 的聚合名在解锁后残留）", async () => {
+    // 前端解锁合并是 {...preview, ...detail}：detail 缺 agencyI18n 键时，
+    // 锁定态预览里那份「法国各机构」会继续盖住真名，所以空串必须下发。
+    enrichAgencyI18n.mockImplementationOnce((items) => items);
+    const body = await callDetail("zh");
+
+    expect(body.agencyI18n).toBe("");
+    expect(body.buyerName).toBe("Valsts nekustamie īpašumi");
   });
 
   it("不带 locale：不预热、不翻译（老客户端不传参也不报错）", async () => {
@@ -105,5 +137,25 @@ describe("GET /api/notices/[id]/detail 的机构名接线", () => {
 
     // 未命中别名表 → 回落服务表 platform_name（域名兜底），code/zh 置空
     expect(body.platform).toEqual({ canonical: "eis.gov.lv", code: null, zh: "" });
+  });
+
+  it("来源口径收口：死字段 platformName 不再下发，sourceUrl 保留（确有消费方）", async () => {
+    const body = await callDetail("zh");
+
+    // 行上的 platform_name 会被 mapper 改名成 platformName，但全仓无人读它（引用核查 2026-10-29）——
+    // 详情的来源平台只由 platform 对象承载，与列表侧 delete platform_name 同规格
+    expect(body).not.toHaveProperty("platformName");
+    expect(body).not.toHaveProperty("platform_name");
+    expect(body.platform).toBeTruthy();
+    // 解锁后的原文外链有真实消费方（FilesTab / DetailHeader / NoticeUnlockedDetails），必须保留
+    expect(body.sourceUrl).toBe("https://eis.gov.lv/notice/1");
+  });
+
+  it("红线②不变量：详情载荷顶层不得出现含下划线的键（整行过 mapper 后必须全 camel）", async () => {
+    // 不钉具体键集合（服务表加列就会误红），只钉「改名不能漏」这条不变量：
+    // toNoticeView 是改名不裁剪，任何带下划线的列名都不应出现在对外契约里。
+    const body = await callDetail("zh");
+    const offenders = Object.keys(body).filter((k) => /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(k));
+    expect(offenders).toEqual([]);
   });
 });
