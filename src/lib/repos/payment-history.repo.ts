@@ -42,6 +42,7 @@ export interface UnlockHistoryRow {
   reference: string | null;
   title: string | null;
   title_i18n?: string | null;
+  title_cn?: string | null;
   notice_type: string | null;
   agency: string | null;
   agency_full: string | null;
@@ -125,9 +126,10 @@ export class PaymentHistoryRepo {
              u.user_id, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
              n.notice_id AS external_notice_id, n.reference, n.title,
              n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry,
-             n.description, tr.title_tr AS title_i18n
+             n.description, tr.title_tr AS title_i18n, np.title_cn
            FROM opportunity_unlocks u
            LEFT JOIN bid_notices n ON n.id = u.notice_id
+           LEFT JOIN notice_public np ON np.notice_pk = u.notice_id
            LEFT JOIN notice_translations tr ON tr.notice_id = u.notice_id AND tr.lang = ?
            WHERE u.user_id = ? AND u.notice_id IS NOT NULL
            ORDER BY u.id DESC
@@ -135,9 +137,11 @@ export class PaymentHistoryRepo {
         : `SELECT
              u.user_id, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
              n.notice_id AS external_notice_id, n.reference, n.title,
-             n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry
+             n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry,
+             np.title_cn
            FROM opportunity_unlocks u
            LEFT JOIN bid_notices n ON n.id = u.notice_id
+           LEFT JOIN notice_public np ON np.notice_pk = u.notice_id
            WHERE u.user_id = ? AND u.notice_id IS NOT NULL
            ORDER BY u.id DESC
            LIMIT ? OFFSET ?`,

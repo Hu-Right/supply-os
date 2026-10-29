@@ -36,7 +36,7 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
 
   if (records.length === 0) return null;
 
-  const hasTranslation = records.some((record) => !!record.notice?.titleI18n);
+  const hasTranslation = locale === "zh" && records.some((record) => !!record.notice?.titleCn);
 
   return (
     <div className="mb-4 rounded-xl border border-slate-100 bg-gradient-to-r from-slate-50 to-white p-4">
@@ -58,7 +58,7 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
       </div>
       <ul className="space-y-2">
         {records.map((record) => {
-          const translatedTitle = record.notice?.titleI18n;
+          const translatedTitle = locale === "zh" ? record.notice?.titleCn : undefined;
           const title =
             (!showOriginal && translatedTitle) ||
             record.notice?.title ||
@@ -99,3 +99,4 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
 }
 
 RecentUnlocks.displayName = "RecentUnlocks";
+

@@ -33,6 +33,8 @@ import { pickNoticeApiLang } from "@/shared/constants/langs";
 export type OrderNoticeBrief = {
   reference?: string | null;
   title?: string | null;
+  /** 服务表中文标题缓存（中文界面优先） */
+  titleCn?: string | null;
   /** 当前界面语言的标题译文（仅 fetchUnlocks 传 lang 时返回；缺译为 null） */
   titleI18n?: string | null;
   noticeType?: string | null;

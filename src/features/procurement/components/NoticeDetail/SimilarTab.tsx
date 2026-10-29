@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { fetchSimilarNotices } from "../../api";
-import { formatDeadlineZh } from "../../utils/formatDeadlineZh";
+import { formatNoticeDeadline } from "../../utils/noticeDisplay";
 import type { NoticeItem } from "../../types";
 
 interface SimilarTabProps {
@@ -52,11 +52,9 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
 
   const metaLine = (item: NoticeItem) => {
     const country = getCountryDisplayName(item.countryCode || "", locale);
-    const deadline = item.deadlineTs
-      ? locale === "zh"
-        ? formatDeadlineZh(null, item.deadlineTs)
-        : new Date(Number(item.deadlineTs) * 1000).toISOString().slice(0, 10)
-      : "";
+    const deadline = formatNoticeDeadline(
+      item.deadlineTs, item.deadlineType, item.deadlineTimezone, locale, t,
+    );
     return [country, deadline].filter(Boolean).join(" · ");
   };
 
@@ -104,7 +102,7 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
                 dir="auto"
                 className="text-sm font-bold text-slate-800 line-clamp-2 group-hover:text-teal-700 transition-colors"
               >
-                {item.titleI18n || item.titleEn || item.title}
+                {locale === "zh" ? (item.titleCn || item.title) : item.title}
               </p>
               {metaLine(item) && (
                 <p className="text-2xs text-slate-400 mt-1 truncate">{metaLine(item)}</p>
@@ -116,5 +114,6 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
     </section>
   );
 }
+
 
 

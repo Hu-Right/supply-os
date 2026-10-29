@@ -13,7 +13,6 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { isWideTableReady } from "../search-common/wide-table-readiness";
 import { WIDE_LIMITS, DESC_SOURCE_EXPR } from "../../utils/notice-field-limits";
 import { qualifiedOppWhere } from "../../utils/notice-qualified";
-import { SUPPORTED_LANGS } from "../../utils/languages";
 
 /**
  * 按 ID 列表获取公告详情行。
@@ -27,12 +26,9 @@ export async function fetchDetailsByIds(
   locale: string,
 ): Promise<RowDataPacket[]> {
   if (ids.length === 0) return [];
-  const lang = locale && SUPPORTED_LANGS.includes(locale) ? locale : "en";
   const useWideTable = await isWideTableReady(pool);
 
   if (useWideTable) {
-    const i18nTitleExpr = `s.title_${lang}`;
-    const i18nDescExpr = `s.description_${lang}`;
     const [rows] = await pool.query(
       `SELECT p.notice_pk, p.notice_id, p.source_url, p.reference, p.title, p.title_cn,
          LEFT(p.description, ${WIDE_LIMITS.lockedTeaser}) AS description,
@@ -44,8 +40,6 @@ export async function fetchDetailsByIds(
          p.attachments, p.contacts, p.is_opportunity, p.content_level,
          p.industry, p.registration_level, p.beneficiary_countries,
          p.updated_at,
-         ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, ${WIDE_LIMITS.i18nTeaser}) AS description_i18n,
-         s.title_en, LEFT(s.description_en, ${WIDE_LIMITS.i18nTeaser}) AS description_en,
          s.backbone_path, s.entry_source
        FROM notice_public p
        LEFT JOIN notice_search s ON s.id = p.notice_pk
@@ -64,18 +58,14 @@ export async function fetchDetailsByIds(
        n.is_featured, n.documents, n.procurement_files,
        LEFT(${DESC_SOURCE_EXPR}, ${WIDE_LIMITS.lockedTeaser}) AS description,
        CASE WHEN LENGTH(${DESC_SOURCE_EXPR}) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
-       tr.title_tr AS title_i18n, tr.description_tr AS description_i18n,
-       tre.title_tr AS title_en, tre.description_tr AS description_en,
        opp.description_cn,
        opp.beneficiary_countries
      FROM bid_notices n
-     LEFT JOIN notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?
-     LEFT JOIN notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'
      LEFT JOIN bid_opportunities opp ON opp.source_notice_id = n.notice_id
        AND ${qualifiedOppWhere("opp")}
      WHERE n.id IN (${ids.map(() => "?").join(",")})
      ORDER BY FIELD(n.id, ${ids.map(() => "?").join(",")})`,
-    [locale || null, ...ids, ...ids],
+    [...ids, ...ids],
   );
   return rows as RowDataPacket[];
 }

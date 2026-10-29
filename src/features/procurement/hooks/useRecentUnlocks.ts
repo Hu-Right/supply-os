@@ -20,6 +20,7 @@ export interface UnlockRecord {
   notice?: {
     title?: string | null;
     titleI18n?: string | null;
+    titleCn?: string | null;
     deadlineExpired?: boolean | null;
   } | null;
 }

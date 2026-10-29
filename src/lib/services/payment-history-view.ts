@@ -22,6 +22,8 @@ export interface UnlockNoticeBriefView {
   title: string | null;
   /** 当前界面语言的标题译文（仅传 lang 时有值；缺译为 null） */
   titleI18n: string | null;
+  /** 服务表中文标题缓存；中文界面优先 */
+  titleCn: string | null;
   noticeType: string | null;
   agency: string | null;
   agencyFull: string | null;
@@ -71,6 +73,7 @@ export function toUnlockRecordView(
           reference: row.reference ?? null,
           title: row.title ?? null,
           titleI18n: row.title_i18n ?? null,
+          titleCn: row.title_cn ?? null,
           noticeType: row.notice_type ?? null,
           agency: row.agency ?? null,
           agencyFull: row.agency_full ?? null,

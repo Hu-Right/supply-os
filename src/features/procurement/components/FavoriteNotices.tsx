@@ -32,7 +32,9 @@ export function FavoriteNotices({ favoriteIds, onOpenNotice }: FavoriteNoticesPr
       </p>
       <ul className="space-y-2">
         {items.map((item) => {
-          const title = item.titleI18n || item.title || `#${item.noticePk}`;
+          const title = locale === "zh"
+            ? (item.titleCn || item.title || `#${item.noticePk}`)
+            : (item.title || `#${item.noticePk}`);
           return (
             <li
               key={item.noticePk}
