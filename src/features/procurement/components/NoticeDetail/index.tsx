@@ -289,7 +289,10 @@ export function NoticeDetail({
             <NextStepsPanel
               notice={notice} isLoggedIn={isLoggedIn} isVip={isVip}
               canUsePaidQuota={canUsePaidQuota}
+              gates={membership?.gates}
+              coreUnlocked={coreUnlocked}
               onUnlock={() => onUnlock(notice)}
+              onViewFiles={() => setActiveTab("files")}
               onExpressInterest={(type) => onExpressInterest(notice, type)}
             />
           </div>

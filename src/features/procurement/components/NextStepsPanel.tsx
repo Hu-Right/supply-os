@@ -1,10 +1,12 @@
 /**
  * 下一步动作面板
- * Next Steps Panel — 4-Step Action Guide
+ * Next Steps Panel — Action Guide (benefit-matrix driven)
  *
  * @module features/procurement/components/NextStepsPanel
- * @description 详情页右侧 4 步引导面板：上传资料 → 解锁内容 → 预约顾问 → CRM 跟进。
- *              每步标注权益层级（免费/会员/专业服务），点击触发对应动作。
+ * @description 详情页右侧动作区（2026-10-29 权益大一统）：
+ *              每个动作标注它对应的套餐权益（evidence_library / original_file_access /
+ *              concierge_service / order_crm），角标状态由服务端权益矩阵 gates 下发，
+ *              与详情页 Tab 同源；不再硬编码「免费 / 会员 / 专业服务」档位标签。
  *              面板固定在首屏可视区域，无需滚动即可操作。
  */
 import {
@@ -22,18 +24,17 @@ import { useRouter } from "next/navigation";
 import { emitAppEvent } from "@/core/events";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
+import type { GateState } from "@/types";
 import type { NoticeItem } from "../types";
-
-/** 步骤权益层级 */
-type StepTier = "free" | "member" | "professional";
+import { GATE_BADGE_STYLE, GATE_LABEL_KEY } from "./NoticeDetail/utils";
 
 export interface NextStep {
   icon: typeof Upload;
   titleKey: string;
   titleDefault: string;
-  tier: StepTier;
-  tierLabelKey: string;
-  tierLabelDefault: string;
+  /** 该动作对应的套餐权益码（矩阵 SSOT）：角标状态 = gates[benefitCode]，与详情页 Tab 同源 */
+  benefitCode: string;
+  onClick: () => void;
 }
 
 export interface NextStepsPanelProps {
@@ -44,23 +45,23 @@ export interface NextStepsPanelProps {
   isVip: boolean;
   /** 是否可使用付费配额 */
   canUsePaidQuota?: boolean;
-  /** 点击"上传资料"的回调 */
+  /** 服务端按权益矩阵下发的门控状态（/api/membership/status） */
+  gates?: Record<string, GateState> | undefined;
+  /** 当前公告是否已解锁（会员打开即自动解锁）：决定「查看原始文件」是切 Tab 还是发起解锁 */
+  coreUnlocked?: boolean;
+  /** 点击"完善企业资料"的回调 */
   onUploadMaterials?: () => void;
-  /** 点击"解锁内容"的回调 */
+  /** 点击"查看原始文件"且尚未解锁时的回调 */
   onUnlock?: () => void;
+  /** 点击"查看原始文件"且已解锁的回调（切到原始文件 Tab） */
+  onViewFiles?: () => void;
   /** 点击"预约顾问"的回调 */
   onBookConsultant?: () => void;
-  /** 点击"加入 CRM"的回调 */
+  /** 点击"加入跟进"的回调 */
   onJoinCrm?: () => void;
   /** 点击"感兴趣"的回调 */
   onExpressInterest?: (type: "interested" | "subscribed") => void;
 }
-
-const TIER_STYLES: Record<StepTier, { bg: string; text: string; border: string }> = {
-  free: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200" },
-  member: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-  professional: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
-};
 
 /** 下一步动作面板 */
 export function NextStepsPanel({
@@ -68,29 +69,33 @@ export function NextStepsPanel({
   isLoggedIn,
   isVip,
   canUsePaidQuota,
+  gates,
+  coreUnlocked,
   onUploadMaterials,
   onUnlock,
+  onViewFiles,
   onBookConsultant,
   onJoinCrm,
   onExpressInterest,
 }: NextStepsPanelProps) {
   const { t } = useLocale();
   const router = useRouter();
+  const goMembership = () => router.push(`/membership?notice_id=${notice.noticePk}`);
+  /** 与详情页 Tab 同一份门控：缺数据保守回退「需升级」 */
+  const gateOf = (code: string): GateState => gates?.[code] ?? "upgrade";
 
-  const steps: Array<NextStep & { onClick: () => void }> = [
+  const steps: NextStep[] = [
     {
       icon: Upload,
       titleKey: "detail_stepUpload",
-      titleDefault: "上传企业资料 → 匹配能力",
-      tier: "free",
-      tierLabelKey: "detail_tierFree",
-      tierLabelDefault: "免费",
+      titleDefault: "完善企业资料 → 生成能力画像",
+      benefitCode: "evidence_library",
       onClick: () => {
         if (onUploadMaterials) {
           onUploadMaterials();
         } else if (!isLoggedIn) {
           // 全站登录是 layout-shell 里的 AuthModal 弹窗，没有 /auth/login 路由（历史写法会 404）。
-          // 弹窗登录后用户仍停留在详情页，需再次点击「上传资料」进入诊断页。
+          // 弹窗登录后用户仍停留在详情页，需再次点击「完善企业资料」进入诊断页。
           emitAppEvent("supply-os:require-login");
         } else {
           router.push("/procurement/diagnosis");
@@ -100,27 +105,36 @@ export function NextStepsPanel({
     {
       icon: FileText,
       titleKey: "detail_stepUnlock",
-      titleDefault: "解锁原始文件与附件",
-      tier: "member",
-      tierLabelKey: "detail_tierMember",
-      tierLabelDefault: "会员",
+      titleDefault: "查看 / 下载原始文件",
+      benefitCode: "original_file_access",
       onClick: () => {
+        if (!isLoggedIn) {
+          emitAppEvent("supply-os:require-login");
+          return;
+        }
+        const state = gateOf("original_file_access");
+        const included = state === "included" || state === "free";
+        if (!included) {
+          goMembership();
+          return;
+        }
+        // 会员打开详情会自动解锁，解锁后本动作改为「切到原始文件 Tab」而不是重复解锁
+        if (coreUnlocked) {
+          onViewFiles?.();
+          return;
+        }
         if (onUnlock) {
           onUnlock();
-        } else if (!isLoggedIn) {
-          emitAppEvent("supply-os:require-login");
-        } else {
-          router.push(`/membership?notice_id=${notice.noticePk}`);
+          return;
         }
+        goMembership();
       },
     },
     {
       icon: UserCheck,
       titleKey: "detail_stepConsultant",
-      titleDefault: "预约标书顾问",
-      tier: "professional",
-      tierLabelKey: "detail_tierPro",
-      tierLabelDefault: "专业服务",
+      titleDefault: "人工服务包 · 预约顾问",
+      benefitCode: "concierge_service",
       onClick: () => {
         if (onBookConsultant) {
           onBookConsultant();
@@ -132,17 +146,15 @@ export function NextStepsPanel({
     {
       icon: MessageSquareText,
       titleKey: "detail_stepCrm",
-      titleDefault: "加入CRM跟进",
-      tier: "free",
-      tierLabelKey: "detail_tierFree",
-      tierLabelDefault: "免费",
+      titleDefault: "履约台账 · 加入跟进",
+      benefitCode: "order_crm",
       onClick: () => {
         if (onJoinCrm) {
           onJoinCrm();
         } else if (!isLoggedIn) {
           emitAppEvent("supply-os:require-login");
         } else {
-          router.push(`/crm`);
+          router.push("/crm");
         }
       },
     },
@@ -155,7 +167,7 @@ export function NextStepsPanel({
       </h3>
       <div className="space-y-2">
         {steps.map((step) => {
-          const tierStyle = TIER_STYLES[step.tier];
+          const state = gateOf(step.benefitCode);
           const Icon = step.icon;
           return (
             <button
@@ -171,10 +183,8 @@ export function NextStepsPanel({
                   {t(step.titleKey) || step.titleDefault}
                 </p>
               </div>
-              <span
-                className={`shrink-0 px-2 py-0.5 rounded border text-2xs font-bold ${tierStyle.bg} ${tierStyle.text} ${tierStyle.border}`}
-              >
-                {t(step.tierLabelKey) || step.tierLabelDefault}
+              <span className={`shrink-0 px-2 py-0.5 rounded border text-2xs font-bold ${GATE_BADGE_STYLE[state]}`}>
+                {t(GATE_LABEL_KEY[state]) || state}
               </span>
             </button>
           );
@@ -192,7 +202,7 @@ export function NextStepsPanel({
           <span className="truncate">{t("procurement_subscribeNotice") || "订阅商机"}</span>
         </Button>
         <Button
-          onClick={() => (canUsePaidQuota ? onUnlock?.() : router.push(`/membership?notice_id=${notice.noticePk}`))}
+          onClick={() => (canUsePaidQuota ? onUnlock?.() : goMembership())}
           variant={canUsePaidQuota ? "secondary" : "cta"}
           className="flex-1 min-w-0 gap-1.5 px-2 py-2 text-xs"
         >
@@ -205,7 +215,7 @@ export function NextStepsPanel({
       {!isVip && (
         <div className="mt-3 pt-3 border-t border-slate-200 hidden md:block">
           <Button
-            onClick={() => router.push(`/membership?notice_id=${notice.noticePk}`)}
+            onClick={goMembership}
             variant="dark"
             className="w-full rounded-xl py-3 text-sm"
           >
@@ -218,4 +228,3 @@ export function NextStepsPanel({
     </aside>
   );
 }
-
