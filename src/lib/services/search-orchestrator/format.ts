@@ -63,6 +63,10 @@ export async function ensureAgencyI18nWarmup(pool: Pool): Promise<void> {
  * 2. 解析无汉字 → classifyAgencyType 计算聚合 i18n（国家取 country_code，缺省取 country_codes 首码）。
  * 3. 下拉缓存回退：buyer_name 大写 → 精确；buyer_group → 聚合键（与下拉框展示一致的修复标签）。
  * 4. 仍无 → 国家级「XX各机构」兜底（仅 zh）：zh 卡片买家列不露外文原文，真实买家名进详情看。
+ * [详情分层 2026-10-29] opts.preciseOnly=true 时只用第 1 层（别名表精名 / 模式合成），
+ * 第 2~4 层的聚合桶一律不接：它们是「某一国一堆机构」的桶名（「法国各机构」），
+ * 用在详情上会盖掉真实买家名，与上面那句「真实买家名进详情看」直接冲突
+ * （真库探针：近 300 条公告的 buyer_name 全部落到国家级桶）。
  * ⚠ 下拉缓存条目自身的键名仍是 `agency`（那是下拉 API 的形状），与公告行字段名无关。
  */
 const CJK_RE = /[\u4e00-\u9fff]/;
@@ -70,7 +74,9 @@ const CJK_RE = /[\u4e00-\u9fff]/;
 export function enrichAgencyI18n(
   items: Array<Record<string, unknown>>,
   locale: string,
+  opts: { preciseOnly?: boolean } = {},
 ): Array<Record<string, unknown>> {
+  const preciseOnly = opts.preciseOnly === true;
   // 机构国际化映射（键统一大写，与 query.ts 缓存构建侧 mergeKey/typeKey 口径对齐）
   const agencyCache = getAgencyCacheData();
   const agencyI18nMap = new Map<string, Record<string, string>>();
@@ -92,18 +98,18 @@ export function enrichAgencyI18n(
       const disp = resolveAgencyDisplay(String(item.buyer_name));
       if (disp.i18n && disp.i18n.zh && CJK_RE.test(disp.i18n.zh)) {
         i18n = disp.i18n;
-      } else {
+      } else if (!preciseOnly) {
         // 透传或无 i18n → 聚合分类计算回退（用解析后的 canonical + 国家上下文）
         const typeInfo = classifyAgencyType(disp.canonical, countryContext);
         if (typeInfo?.i18n) i18n = typeInfo.i18n;
       }
     }
-    if (!i18n) {
+    if (!i18n && !preciseOnly) {
       i18n = agencyI18nMap.get(agencyUpper)
         || (item.buyer_group ? agencyI18nMap.get(String(item.buyer_group)) : undefined);
     }
     // zh 终兜底：类型桶/缓存都没接住 → 国家级聚合标签，卡片不露外文原名
-    if (!i18n && locale === "zh" && item.buyer_name) {
+    if (!i18n && !preciseOnly && locale === "zh" && item.buyer_name) {
       const countryZh = countryContext ? countryZhOf(countryContext) : null;
       if (countryZh) i18n = { zh: `${countryZh}各机构` };
     }

@@ -50,14 +50,27 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       platformSnap,
       notice.platform_name,
     );
-    // 机构名与列表卡片同源（统一中文 2026-10-28）：走 enrichAgencyI18n 同一条回退链补
+    // 机构名与列表卡片同源（统一中文 2026-10-28）：走 enrichAgencyI18n 同一条链补
     // agency_i18n，再由下面的 view mapper 改名为 agencyI18n。直达深链/新页面进详情时
     // 前端没有列表项可借，缺这一层就会卡片中文、详情英文。
+    // 但详情只接**精确解析层**（preciseOnly）：列表侧的「法国各机构」这类国家级聚合桶
+    // 在详情上是信息损失——前端取值链是 `agencyI18n || buyerName`，聚合名会直接盖掉真实
+    // 买家名，而口径是「卡片不露外文原文，真实买家名进详情看」（2026-10-29 真库探针订正）。
     const locale = pickNoticeApiLang(new URL(req.url).searchParams.get("locale"));
     if (locale) {
       await ensureAgencyI18nWarmup(ctx.dbPool);
-      enrichAgencyI18n([notice as unknown as Record<string, unknown>], locale);
+      enrichAgencyI18n([notice as unknown as Record<string, unknown>], locale, { preciseOnly: true });
+      // 无精名时必须显式下发空串：前端解锁合并是 {...preview, ...detail}，
+      // 缺键会让锁定态预览里那份聚合名（「法国各机构」）残留下来继续盖住真名。
+      (notice as unknown as Record<string, unknown>).agency_i18n = String(
+        (notice as unknown as Record<string, unknown>).agency_i18n ?? "",
+      );
     }
+    // 来源平台对外的唯一形状是上面的 `platform` 对象（canonical/code/zh）。
+    // 行上的 platform_name 被 mapper 改名成 platformName 后全仓无人读（引用核查 2026-10-29），
+    // 留着就是同一事实的第二份口径——在进 mapper 之前从行上摘掉，与列表侧
+    // `delete item.platform_name` 同规格（sourceUrl 不同，解锁后的原文外链有真实消费方）。
+    delete (notice as unknown as Record<string, unknown>).platform_name;
     return NextResponse.json({
       // 服务表行先过 view mapper（红线② 唯一收口点），不再把列名当对外契约直接透传；
       // 下面这些补充键直接写 camel——它们读的是商机行（服务端内部形状，仍为列名）。

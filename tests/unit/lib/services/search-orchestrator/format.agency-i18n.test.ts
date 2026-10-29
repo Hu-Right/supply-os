@@ -187,3 +187,52 @@ describe("formatItems — 来源字段裁剪（2026-10-28 用户口径：来源�
     expect(items[0].buyer_name).toBe("UNICEF");
   });
 });
+
+/**
+ * [详情分层 2026-10-29] preciseOnly：详情只认精确解析层。
+ * 真库探针实录近 300 条公告的 buyer_name 几乎全部落到国家级聚合桶（「法国各机构」），
+ * 而前端详情取值链是 `agencyI18n || buyerName` —— 聚合名会直接盖掉真实买家名。
+ * 列表/预览仍用默认链（不露外文原文），详情传 preciseOnly（不接 2~4 层）。
+ */
+describe("enrichAgencyI18n — preciseOnly（详情侧不分聚合桶）", () => {
+  it("国家级终兜底不接：同一行默认链得「日本各机构」，preciseOnly 得 undefined", () => {
+    mocks.countryZhOf.mockReturnValue("日本");
+    const [byDefault] = enrichAgencyI18n([{ buyer_name: "Aomori", country_code: "JP" }] as Array<Record<string, unknown>>, "zh");
+    const [precise] = enrichAgencyI18n([{ buyer_name: "Aomori", country_code: "JP" }] as Array<Record<string, unknown>>, "zh", { preciseOnly: true });
+    expect(byDefault.agency_i18n).toBe("日本各机构");
+    expect(precise.agency_i18n).toBeUndefined();
+  });
+
+  it("类型聚合桶与下拉缓存都不接（只走第 1 层）", () => {
+    mocks.classifyAgencyType.mockReturnValue({ typeKey: "X", i18n: { zh: "巴西各市联合体" } });
+    mocks.getAgencyCacheData.mockReturnValue([{ agency: "UNICEF", i18n: { zh: "联合国儿童基金会" } }]);
+    const items = enrichAgencyI18n(
+      [{ buyer_name: "OME", country_code: "BR" }, { buyer_name: "UNICEF" }] as Array<Record<string, unknown>>,
+      "zh",
+      { preciseOnly: true },
+    );
+    expect(items[0].agency_i18n).toBeUndefined();
+    expect(items[1].agency_i18n).toBeUndefined();
+  });
+
+  it("别名表精名/模式合成（含汉字）仍照下发", () => {
+    mocks.translateByPattern.mockReturnValue({ canonical: "KCCG", i18n: { zh: "黑山临床中心" } });
+    const items = enrichAgencyI18n(
+      [{ buyer_name: "KCCG", country_code: "ME" }] as Array<Record<string, unknown>>,
+      "zh",
+      { preciseOnly: true },
+    );
+    expect(items[0].agency_i18n).toBe("黑山临床中心");
+  });
+
+  it("纯透传（zh 无汉字）在 preciseOnly 下仍不算翻译，但也不会取聚合桶", () => {
+    mocks.translateByPattern.mockReturnValue({ canonical: "mercadopublico_cl", i18n: { zh: "mercadopublico_cl" } });
+    mocks.getAgencyCacheData.mockReturnValue([{ agency: "mercadopublico_cl", i18n: { zh: "政府采购系统" } }]);
+    const items = enrichAgencyI18n(
+      [{ buyer_name: "mercadopublico_cl", country_code: "CL" }] as Array<Record<string, unknown>>,
+      "zh",
+      { preciseOnly: true },
+    );
+    expect(items[0].agency_i18n).toBeUndefined();
+  });
+});
