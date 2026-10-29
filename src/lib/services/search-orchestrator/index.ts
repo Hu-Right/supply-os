@@ -137,10 +137,11 @@ async function _searchCore(
   const t0 = Date.now();
   // ── 机构缓存预热：formatItems 依赖 getAgencyCacheData() 返回的内存缓存，
   //    该缓存仅在 /api/notices/agencies 端点被调用后填充。
-  //    runWarmup 虽会预热但为后台异步（void），首次搜索可能在预热完成前到达。
-  //    此处惰性触发：缓存为空时主动拉取一次，后续请求直接命中缓存（零开销）。──
+  //    不能阻塞搜索：冷缓存时机构查询可达 20s+，会把首屏搜索拖过前端超时，
+  //    表现为“total 有值但 items 为空”。先让本次搜索用买家原名降级渲染，
+  //    后台预热完成后下一条搜索自然命中缓存。──
   if (!getAgencyCacheData()) {
-    await getNoticeAgencies(pool).catch(() => undefined);
+    void getNoticeAgencies(pool).catch(() => undefined);
   }
   // ── recommended 模式：委托既有推荐服务（模式专属管道）──
   if (p.mode === "recommended") {
