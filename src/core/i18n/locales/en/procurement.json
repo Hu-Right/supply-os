@@ -442,7 +442,7 @@
   "detail_budgetAmount": "Budget/Amount",
   "detail_noticeId": "Notice ID",
   "detail_tabListAria": "Notice information tabs",
-  "detail_tabBuyer": "Buyer & contacts",
+  "detail_tabBuyer": "Contacts",
   "detail_tabMaterials": "Bid materials",
   "detail_buyerLockedIntro": "Contact details are a member benefit. Upgrade to view them.",
   "procurement_noContacts": "No contact information provided for this notice.",

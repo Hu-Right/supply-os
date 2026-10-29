@@ -29,9 +29,9 @@ export interface DetailTab {
 export const DETAIL_TABS: DetailTab[] = [
   { key: "summary", labelKey: "detail_tabSummary", gate: { benefitCode: "ai_summary" } },
   { key: "qualification", labelKey: "detail_tabQualification", gate: { benefitCode: "qualification_access" } },
-  // 采购方/机构信息/原始链接是公开信息（列表与公开详情页均可见），不挂权益 = 全档可看；
-  // Tab 内的「联系人」仍按会员锁定（见 BuyerContactsTab）。
-  { key: "buyer", labelKey: "detail_tabBuyer" },
+  // 联系人属会员权益（采购方已在头部信息表/公开详情页展示，不在本 Tab 重复）；
+  // 免费档显示「需升级」，会员打开即自动解锁。
+  { key: "buyer", labelKey: "detail_tabBuyer", gate: { benefitCode: "notice_view" } },
   // 投标材料 = 中文拆解报告 + 原始招标文件（原「原始文件」Tab 扩容）
   { key: "files", labelKey: "detail_tabMaterials", gate: { benefitCode: "original_file_access" } },
   { key: "ai-score", labelKey: "detail_tabAiScore", gate: { benefitCode: "ai_match" } },

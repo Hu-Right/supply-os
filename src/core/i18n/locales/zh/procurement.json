@@ -442,7 +442,7 @@
   "detail_budgetAmount": "预算/金额",
   "detail_noticeId": "公告编号",
   "detail_tabListAria": "公告信息标签页",
-  "detail_tabBuyer": "采购方与联系人",
+  "detail_tabBuyer": "联系人",
   "detail_tabMaterials": "投标材料",
   "detail_buyerLockedIntro": "联系人信息为会员权益，升级会员后可查看。",
   "procurement_noContacts": "该公告暂未提供联系人信息",

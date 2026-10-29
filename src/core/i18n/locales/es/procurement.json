@@ -394,7 +394,7 @@
   "detail_budgetAmount": "Presupuesto/Monto",
   "detail_noticeId": "Número de aviso",
   "detail_tabListAria": "Pestañas de información del aviso",
-  "detail_tabBuyer": "Comprador y contactos",
+  "detail_tabBuyer": "Contactos",
   "detail_tabMaterials": "Materiales de licitación",
   "detail_buyerLockedIntro": "Los datos de contacto son un beneficio para miembros. Actualice para verlos.",
   "procurement_noContacts": "Esta licitación no proporciona información de contacto.",

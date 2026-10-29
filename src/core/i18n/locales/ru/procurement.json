@@ -394,7 +394,7 @@
   "detail_budgetAmount": "Бюджет/Сумма",
   "detail_noticeId": "Номер извещения",
   "detail_tabListAria": "Вкладки информации об объявлении",
-  "detail_tabBuyer": "Заказчик и контакты",
+  "detail_tabBuyer": "Контакты",
   "detail_tabMaterials": "Тендерные материалы",
   "detail_buyerLockedIntro": "Контактные данные доступны участникам. Оформите подписку, чтобы их увидеть.",
   "procurement_noContacts": "Контактная информация для этого уведомления не указана.",

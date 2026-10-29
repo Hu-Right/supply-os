@@ -394,7 +394,7 @@
   "detail_budgetAmount": "Budget/Montant",
   "detail_noticeId": "Référence de l'avis",
   "detail_tabListAria": "Onglets d'informations de l'avis",
-  "detail_tabBuyer": "Acheteur et contacts",
+  "detail_tabBuyer": "Contacts",
   "detail_tabMaterials": "Documents de soumission",
   "detail_buyerLockedIntro": "Les coordonnées sont un avantage réservé aux membres. Passez à un abonnement pour les voir.",
   "procurement_noContacts": "Aucune information de contact fournie pour cette annonce.",

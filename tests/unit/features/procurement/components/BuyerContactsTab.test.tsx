@@ -5,10 +5,6 @@ vi.mock("@/core/i18n", () => ({
   useLocale: () => ({ t: (key: string) => key, locale: "zh" }),
 }));
 
-vi.mock("@/shared/data/countryNames", () => ({
-  getCountryDisplayName: () => "法国",
-}));
-
 import { BuyerContactsTab } from "@/features/procurement/components/NoticeDetail/BuyerContactsTab";
 import type { NoticeItem } from "@/features/procurement/types";
 
@@ -26,26 +22,20 @@ const baseNotice = {
   ],
 } as unknown as NoticeItem;
 
-describe("BuyerContactsTab（采购方与联系人）", () => {
-  it("未解锁：采购方/原始链接公开可见，只有联系人锁定", () => {
+describe("BuyerContactsTab（联系人 Tab）", () => {
+  it("未解锁：展示会员专属引导，不泄露联系人", () => {
     render(<BuyerContactsTab notice={baseNotice} coreUnlocked={false} />);
-    // 公开信息照常展示
-    expect(screen.getByText("EAU DE PARIS")).toBeInTheDocument();
-    expect(screen.getByText("法国")).toBeInTheDocument();
-    expect(screen.getByText("procurement_openNotice").closest("a")).toHaveAttribute("href", "https://example.com/notice");
-    // 联系人锁定
+    expect(screen.getByText(/detail_tabBuyer/)).toBeInTheDocument();
     expect(screen.getByText("detail_buyerLockedIntro")).toBeInTheDocument();
     expect(screen.queryByText("sach-edp@eaudeparis.fr")).toBeNull();
   });
 
-  it("已解锁：机构信息 + 原始链接 + 联系人（邮箱兜底、去重）", () => {
+  it("已解锁：联系人列表（邮箱兜底、去重），不再重复采购方信息", () => {
     render(<BuyerContactsTab notice={baseNotice} coreUnlocked />);
-    expect(screen.getByText("EAU DE PARIS")).toBeInTheDocument();
-    expect(screen.getByText("法国")).toBeInTheDocument();
-    const link = screen.getByText("procurement_openNotice");
-    expect(link.closest("a")).toHaveAttribute("href", "https://example.com/notice");
-
-    // 两个同名/同邮箱联系人去重后只出现一次；条目数为 3（2 个邮箱兜底 + 1 个具名）
+    // 采购方信息已由头部信息表/公开详情页承担，本 Tab 不再重复
+    expect(screen.queryByText("EAU DE PARIS")).toBeNull();
+    expect(screen.queryByText("procurement_agencyFullName")).toBeNull();
+    // 两个同邮箱联系人去重后只出现一次
     expect(screen.getAllByText(/sach-edp@eaudeparis\.fr/)).toHaveLength(1);
     expect(screen.getAllByText(/greffe\.ta-paris@juradm\.fr/)).toHaveLength(1);
     expect(screen.getByText("Jean Dupont")).toBeInTheDocument();
