@@ -98,6 +98,39 @@ describe("PlanCard（档位卡）", () => {
     expect(screen.getByText("附件下载")).toBeInTheDocument();
   });
 
+  it("枚举权益展示矩阵等级标签（AI 智能匹配：企业级 / 可定制），bool 行不展示", () => {
+    const table = {
+      plans: [],
+      rows: [
+        {
+          benefit: { benefitCode: "ai_match", nameZh: "AI 智能匹配", valueKind: "enum", levelDict: { "3": "企业级" }, sortOrder: 1 },
+          cells: {
+            personal_m: {
+              planCode: "personal_m", benefitCode: "ai_match", kind: "enum",
+              raw: 3, enabled: true, display: "企业级", note: null,
+            },
+          },
+        },
+        {
+          benefit: { benefitCode: "a", nameZh: "普通权益", valueKind: "bool", levelDict: null, sortOrder: 2 },
+          cells: {
+            personal_m: {
+              planCode: "personal_m", benefitCode: "a", kind: "bool",
+              raw: 1, enabled: true, display: "✓", note: null,
+            },
+          },
+        },
+      ],
+    } as unknown as ComparisonView;
+
+    render(<PlanCard tier={tier([row()])} row={row()} table={table} onBuy={noop} />);
+    expect(screen.getByText("AI 智能匹配")).toBeInTheDocument();
+    expect(screen.getByText("企业级")).toBeInTheDocument();
+    // bool 行的 display 是 ✓，不再重复渲染等级标签
+    expect(screen.getByText("普通权益")).toBeInTheDocument();
+    expect(screen.queryAllByText("✓")).toHaveLength(0);
+  });
+
   it("全部权益平铺：✓ 与 ✗ 都展示（不折叠、不隐藏）", () => {
     const cell = (benefitCode: string, enabled: boolean) => ({
       planCode: "personal_m", benefitCode, kind: "bool" as const, raw: enabled ? 1 : 0, enabled, display: "", note: null,

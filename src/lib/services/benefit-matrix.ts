@@ -49,6 +49,13 @@ export const AI_SUMMARY_MIN_VIEW_LEVEL = 1;
 export const NOTICE_TRANSLATION_BENEFIT = "notice_translation";
 
 /**
+ * 投标可行性报告权益码（bool，2026-10-29）：中文版订单拆解报告/可行性报告的下载与预览门控。
+ * 矩阵取值：企业档/人工档=1，个人档=0（与定价页「投标可行性报告 个人 ✗」一致）；
+ * 报告属企业级工具，不再借用 notice_translation（译文全档可见）做门控。
+ */
+export const BID_FEASIBILITY_REPORT_BENEFIT = "bid_feasibility_report";
+
+/**
  * 内部语义权益（bool，2026-09-29）：驱动行业可见性墙，不在官网对比表/gates 下发中出现
  * （展示隔离见 BenefitSystemRepo.listBenefits 的黑名单），仅供服务端 isEntitled 判定：
  * - industry_scoped：该档按一级类目收窄数据范围（2026-10-28 新矩阵全档=1，free 列同限，

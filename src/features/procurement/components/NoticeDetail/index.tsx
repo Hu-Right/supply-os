@@ -88,6 +88,15 @@ export function NoticeDetail({
   const canSeeChinese = gates?.notice_translation === "free" || gates?.notice_translation === "included";
   const aiSummaryEnabled = gates?.ai_summary === "free" || gates?.ai_summary === "included";
   const aiMatchEnabled = gates?.ai_match === "free" || gates?.ai_match === "included";
+  // 匹配层级按会员等级差异化（数据来自 plan_catalog.commercial_tier，不硬编码档位常量）：
+  // L1 个人=基础评估 / L3 企业=企业级评估 / L4+ 人工=可定制评估
+  const planTier = membership?.plan?.commercialTier ?? "";
+  const aiMatchLevelKey =
+    planTier === "L4" || planTier === "L5" || planTier === "L6"
+      ? "detail_aiMatchLevelCustom"
+      : planTier === "L3"
+        ? "detail_aiMatchLevelEnterprise"
+        : "detail_aiMatchLevelBasic";
   const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreUnlocked, aiSummaryEnabled);
   const aiMatch = useAiMatch(noticeId, aiMatchEnabled);
   // 会员「标讯权益」不限次（notice_view=-1）：打开详情即自动解锁，避免"套餐已含却提示解锁"的割裂
@@ -240,22 +249,30 @@ export function NoticeDetail({
             )}
 
             {activeTab === "files" && (
-              <FilesTab notice={notice} coreUnlocked={coreUnlocked} isVip={isVip} userId={userId} onUnlock={onUnlock} />
+              <FilesTab notice={notice} coreUnlocked={coreUnlocked} isVip={isVip} userId={userId} onUnlock={onUnlock} gates={membership?.gates} />
             )}
 
             {activeTab === "ai-score" && (
-              <AiEvaluationPanel
-                data={aiMatch.data}
-                loading={aiMatch.loading}
-                cacheLoading={aiMatch.cacheLoading}
-                error={aiMatch.error}
-                upgradeLocked={!aiMatchEnabled}
-                onStart={() => aiMatch.triggerMatch(false)}
-                onRegenerate={() => aiMatch.triggerMatch(true)}
-                onGoToPool={() => router.push("/settings/supplier-pool")}
-                onGoToEnterprise={() => router.push("/settings/enterprise")}
-                onEditDiag={() => router.push("/settings/supplier-pool")}
-              />
+              <>
+                {/* 按会员等级展示匹配层级（矩阵 ai_match：个人=基础 / 企业=企业级 / 人工=可定制） */}
+                {aiMatchEnabled && (
+                  <p className="text-xs font-bold text-slate-500" data-testid="ai-match-level">
+                    {t(aiMatchLevelKey)}
+                  </p>
+                )}
+                <AiEvaluationPanel
+                  data={aiMatch.data}
+                  loading={aiMatch.loading}
+                  cacheLoading={aiMatch.cacheLoading}
+                  error={aiMatch.error}
+                  upgradeLocked={!aiMatchEnabled}
+                  onStart={() => aiMatch.triggerMatch(false)}
+                  onRegenerate={() => aiMatch.triggerMatch(true)}
+                  onGoToPool={() => router.push("/settings/supplier-pool")}
+                  onGoToEnterprise={() => router.push("/settings/enterprise")}
+                  onEditDiag={() => router.push("/settings/supplier-pool")}
+                />
+              </>
             )}
 
             {activeTab === "similar" && (

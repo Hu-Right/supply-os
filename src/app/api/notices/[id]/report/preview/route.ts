@@ -8,13 +8,13 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
-import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
+import { BID_FEASIBILITY_REPORT_BENEFIT } from "@/lib/services/benefit-matrix";
 import {
   buildBidReportPreviewText,
   estimateFullReportCharCount,
   mergeBidReportRow,
 } from "@/lib/services/bid-report";
-import { EC_NOTICE_NOT_FOUND_404, EC_REPORT_NOT_AVAILABLE } from "@/shared/constants/api";
+import { EC_ACCESS_FORBIDDEN, EC_NOTICE_NOT_FOUND_404, EC_REPORT_NOT_AVAILABLE } from "@/shared/constants/api";
 import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
 import { platformInfo } from "@/lib/services/platform/resolve";
 
@@ -54,12 +54,14 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const sections = buildBidReportPreviewText(row, lang);
     const totalReportChars = estimateFullReportCharCount(row);
 
-    // 中文报告属"中文能力"资产：无 notice_translation 权益（129/999 等）即使已解锁，预览也降级为截断 teaser（2026-09-25 权益重设计）
-    const canSeeChineseReport = await ctx.benefitSystemRepo.isEntitled(userId, NOTICE_TRANSLATION_BENEFIT);
+    // 投标可行性报告属企业级工具（2026-10-29）：企业/人工档可预览；个人档引导升级企业版
+    if (!(await ctx.benefitSystemRepo.isEntitled(userId, BID_FEASIBILITY_REPORT_BENEFIT))) {
+      routeError(403, EC_ACCESS_FORBIDDEN, "中文拆解报告为企业版权益", { feature: BID_FEASIBILITY_REPORT_BENEFIT });
+    }
 
-    // 未解锁或无中文能力权益：服务端截断 sections 内容
+    // 未解锁（会员打开即自动解锁，此处仅覆盖竞态）：服务端截断 sections 内容
     const MAX_CHARS_PER_SECTION = 500;
-    const safeSections = unlock && canSeeChineseReport
+    const safeSections = unlock
       ? sections
       : sections.map((s: { heading: string; body: string }) => ({
           ...s,

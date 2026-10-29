@@ -7,8 +7,9 @@
  *              上半部分 = 中文版订单拆解报告（下载 / 暂缺引导），下半部分 = 原始招标文件与外部链接。
  *              未解锁时展示会员专属引导（含报告预览 teaser）。
  */
-import { Download, ExternalLink, FileText, Link, FileArchive, FileSpreadsheet, File } from "lucide-react";
+import { Crown, Download, ExternalLink, FileText, Link, FileArchive, FileSpreadsheet, File } from "lucide-react";
 import { useOptionalAuth } from "@/core/auth";
+import type { GateState } from "@/types";
 import { useLocale } from "@/core/i18n";
 import { downloadFile } from "@/core/http";
 import type { NoticeAttachment, NoticeDetailItem, NoticeItem } from "../../types";
@@ -26,6 +27,8 @@ interface FilesTabProps {
   userId?: number | null;
   /** 解锁回调（报告预览面板用） */
   onUnlock?: (notice: NoticeItem) => void;
+  /** 服务端下发的权益门控（报告 = bid_feasibility_report，企业/人工档才可看） */
+  gates?: Record<string, GateState> | undefined;
 }
 
 type RawAttachment = NoticeAttachment | string;
@@ -50,7 +53,7 @@ function getFileIcon(name: string) {
   return { icon: File, color: "text-slate-400" };
 }
 
-export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock }: FilesTabProps) {
+export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock, gates }: FilesTabProps) {
   const { t } = useLocale();
   const authContext = useOptionalAuth();
   const authUser = authContext?.authUser ?? null;
@@ -64,6 +67,9 @@ export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock }: File
   const reportKnown =
     coreUnlocked || typeof notice.reportAvailable === "boolean" || typeof notice.isOpportunity === "boolean";
   const canDownloadReport = Boolean(notice.reportAvailable && notice.reportUrl && authUser);
+  // 中文拆解报告属企业级工具：个人档/免费档不渲染报告内容，改为升级企业版引导
+  const reportEntitled =
+    gates?.bid_feasibility_report === "included" || gates?.bid_feasibility_report === "free";
 
   const handleDownloadReport = () => {
     if (!notice.reportUrl) return;
@@ -140,7 +146,7 @@ export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock }: File
 
     return (
       <div className="space-y-4">
-        {userId && reportKnown && hasReport && (
+        {reportEntitled && userId && reportKnown && hasReport && (
           <ReportPreviewPanel
             noticeId={notice.noticePk}
             userId={userId}
@@ -169,7 +175,20 @@ export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock }: File
       {/* ① 中文版订单拆解报告 */}
       <div className="rounded-2xl border border-teal-100 bg-white p-4 space-y-2">
         <p className="text-sm font-black text-slate-900">{t("procurement_breakdownModuleTitle") || "中文版订单拆解报告"}</p>
-        {canDownloadReport ? (
+        {!reportEntitled ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5 space-y-2">
+            <p className="text-xs font-bold text-amber-800">
+              {t("detail_reportEnterpriseOnly") || "中文拆解报告为企业版权益"}
+            </p>
+            <a
+              href="/membership"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-black text-white hover:bg-amber-600"
+            >
+              <Crown className="w-3.5 h-3.5" />
+              {t("detail_reportEnterpriseCta") || "升级企业版解锁"}
+            </a>
+          </div>
+        ) : canDownloadReport ? (
           <button
             type="button"
             onClick={handleDownloadReport}
