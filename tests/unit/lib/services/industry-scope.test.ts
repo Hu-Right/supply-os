@@ -1,8 +1,11 @@
 /**
  * 行业可见性墙 — 范围判定与命中检查单测（2026-10-15 G 码退役 / L1 树码接管口径）
  *
- * 判定链的六个出口照旧钉住：匿名不墙 / 无订阅不墙 / 演示档旁路（all_category_access）/
+ * 判定链的出口照旧钉住：匿名不墙 / 演示档旁路（all_category_access）/
  * 非限定档不墙（industry_scoped=0）/ 限定档+已绑行业 → 墙 / 限定档+未绑行业 → 暂不墙+引导。
+ *
+ * 2026-10-28 free 化：是否被限唯一由 isEntitled 判定（有订阅读订阅档列，无订阅自动落
+ * free 列基线）——"无订阅即全量"分支已删除；free 列=1（新矩阵）时未订阅用户同样被墙。
  *
  * 本批改的是墙的**键**（G 码退役）：
  * - 大类身份 = L1 树码本身，由偏好 commodity_code 前缀纯切片推导（l1CodeOfNode，BB1 不变量），
@@ -23,11 +26,22 @@ import {
 import type { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
-function makeCatalog(opts: { plan?: { plan_code: string } | null; scoped?: boolean; bypass?: boolean } = {}) {
+function makeCatalog(opts: { scoped?: boolean; bypass?: boolean } = {}) {
+  // 墙判定一次 loadCells 取齐同列两格（2026-10-28 free 化）：无订阅 → findActivePlanForUser=null
+  // → loadCells(["free"])，free 列的格子决定是否收窄
+  const cells: Array<Record<string, unknown>> = [];
+  if (opts.scoped) {
+    cells.push({ plan_code: "free", benefit_code: "industry_scoped", value_level: 1, value_num: null, value_amount: null, note_zh: null });
+  }
+  if (opts.bypass) {
+    cells.push({ plan_code: "free", benefit_code: "all_category_access", value_level: 1, value_num: null, value_amount: null, note_zh: null });
+  }
   return {
-    findActivePlanForUser: vi.fn(async () => (opts.plan === undefined ? { plan_code: "business" } : opts.plan)),
-    isEntitled: vi.fn(async (_uid: number, code: string) =>
-      code === "all_category_access" ? !!opts.bypass : code === "industry_scoped" ? !!opts.scoped : false),
+    findActivePlanForUser: vi.fn(async () => null),
+    loadCells: vi.fn(async (planCodes: string[]) => {
+      expect(planCodes).toEqual(["free"]);
+      return cells;
+    }),
   } as unknown as BenefitSystemRepo;
 }
 
@@ -56,19 +70,26 @@ describe("resolveIndustryScope · 判定链", () => {
     });
   });
 
-  it("无生效订阅（普通用户）不墙", async () => {
-    expect(await resolveIndustryScope(pool, makeCatalog({ plan: null }), 7)).toMatchObject({ scoped: false });
+  it("free 基线列未声明行业限定（迁移前旧数据，industry_scoped 无格）不墙", async () => {
+    expect(await resolveIndustryScope(pool, makeCatalog(), 7)).toMatchObject({ scoped: false });
   });
 
-  it("全类目旁路（internal_demo 演示档）不墙，且不再查行业限定", async () => {
-    const catalog = makeCatalog({ bypass: true, scoped: false });
+  it("free 基线列=1（新矩阵，2026-10-28 free 化）：未订阅用户同样被墙", async () => {
+    profile.resolve.mockResolvedValue({ userId: 7, commodityCode: "UGT-85010101" });
+    expect(await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 7)).toEqual({
+      scoped: true, l1Code: "UGT-85", l1Nodes: ["UGT-85"], needsIndustry: false,
+    });
+  });
+
+  it("全类目旁路（internal_demo 演示档）不墙，且不再往后查行业限定", async () => {
+    const catalog = makeCatalog({ bypass: true, scoped: true });
     expect(await resolveIndustryScope(pool, catalog, 42)).toMatchObject({ scoped: false });
-    expect(catalog.isEntitled).toHaveBeenCalledWith(42, "all_category_access");
-    expect(catalog.isEntitled).not.toHaveBeenCalledWith(42, "industry_scoped");
+    // 热路径约束：同列两格一次取齐，不得再发第二次矩阵查询
+    expect(catalog.loadCells).toHaveBeenCalledTimes(1);
   });
 
-  it("非限定档（industry_scoped=0，个人三档）不墙", async () => {
-    expect(await resolveIndustryScope(pool, makeCatalog({ scoped: false }), 7)).toMatchObject({ scoped: false });
+  it("非限定档（industry_scoped 缺格/为 0）不墙", async () => {
+    expect(await resolveIndustryScope(pool, makeCatalog(), 7)).toMatchObject({ scoped: false });
   });
 
   it("限定档 + 已绑行业 → 墙启动，l1Code 即偏好的 L1 前缀（零查库推导）", async () => {

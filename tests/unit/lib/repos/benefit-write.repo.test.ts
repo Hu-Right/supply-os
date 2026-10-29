@@ -48,6 +48,7 @@ const pool = (over: Partial<LockedPoolRow> = {}): LockedPoolRow => ({
   quota_total: 10,
   quota_used: 3,
   status: "active",
+  period_starts_at: new Date("2026-01-01T00:00:00"),
   ...over,
 });
 

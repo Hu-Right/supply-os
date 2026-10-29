@@ -134,3 +134,62 @@ describe("consumeQuota · 扣减结果决定放行与否", () => {
     await expect(consumeQuota(conn, deps, pool({ status: "exhausted" }))).rejects.toThrow("PAID_QUOTA_REQUIRED");
   });
 });
+
+// ── 月度换代（2026-10-28 新矩阵 ai_summary_quota / ai_match_quota：次/月，日历月重置）──
+
+describe("ensureConsumableQuota · 月度换代池", () => {
+  const personal = { subscription_id: 55, owner_user_id: 101, plan_code: "personal_m" } as unknown as ActivePlanRow;
+  const monthStart = (() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  })();
+  const quotaCells = [{ benefit_code: "ai_summary_quota", value_num: 30 }];
+  const genPool = (period: Date, over: Partial<LockedPoolRow> = {}): LockedPoolRow =>
+    pool({ benefit_code: "ai_summary_quota", quota_total: 30, period_starts_at: period, ...over });
+
+  it("上月池（代次起点早于本月）→ 以本月 1 号开新一代次再锁", async () => {
+    const lastMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1);
+    const { deps, write } = makeDeps({
+      active: personal,
+      matrixCells: quotaCells,
+      pools: [genPool(lastMonth), genPool(monthStart)],
+    });
+    const got = await ensureConsumableQuota(conn, deps, { userId: 101, benefitCode: "ai_summary_quota" });
+
+    expect(write.openQuotaPool).toHaveBeenCalledWith(conn, {
+      subscriptionId: 55, userId: 101, benefitCode: "ai_summary_quota", quotaTotal: 30, periodStartsAt: monthStart,
+    });
+    expect(got.period_starts_at).toEqual(monthStart);
+  });
+
+  it("本月池已存在（代次起点=本月 1 号）→ 绝不再开池（同月重入幂等）", async () => {
+    const { deps, write } = makeDeps({
+      active: personal,
+      matrixCells: quotaCells,
+      pools: [genPool(monthStart)],
+    });
+    await ensureConsumableQuota(conn, deps, { userId: 101, benefitCode: "ai_summary_quota" });
+    expect(write.openQuotaPool).not.toHaveBeenCalled();
+  });
+
+  it("尚无任何池 → 直接以本月 1 号开首代次（不等订阅 started_at 哨兵）", async () => {
+    const { deps, write } = makeDeps({
+      active: personal,
+      matrixCells: quotaCells,
+      pools: [null, genPool(monthStart)],
+    });
+    await ensureConsumableQuota(conn, deps, { userId: 101, benefitCode: "ai_summary_quota" });
+    expect(write.openQuotaPool).toHaveBeenCalledWith(
+      conn,
+      expect.objectContaining({ periodStartsAt: monthStart }),
+    );
+  });
+
+  it("notice_view 不在换代名单：上月池原样返回，不开新代次（既有语义逐字不变）", async () => {
+    const lastMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1);
+    const { deps, write } = makeDeps({ active: personal, pools: [pool({ period_starts_at: lastMonth })] });
+    const got = await ensureConsumableQuota(conn, deps, { userId: 101 });
+    expect(write.openQuotaPool).not.toHaveBeenCalled();
+    expect(got.id).toBe(900);
+  });
+});

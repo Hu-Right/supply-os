@@ -3,11 +3,18 @@
  * Industry Scope Wall
  *
  * @module lib/services/industry-scope
- * @description 落地「8,800元/行业」口径（2026-09-29）：企业年度会员（industry_scoped=1 的档位）
+ * @description 落地「8,800元/行业」口径（2026-09-29）：industry_scoped=1 的档位
  *              只能浏览其绑定品目大类下的公告。
  *              全部取值由权益矩阵驱动，无套餐码硬编码：
- *              - 哪些档被限 → plan_benefits 的 industry_scoped 格（当前仅 business=1）；
+ *              - 哪些档被限 → plan_benefits 的 industry_scoped 格（一次 loadCells 取齐
+ *                同列两格，无生效订阅自动落 free 列基线）；
  *              - 谁看全量   → all_category_access 格（internal_demo=1，演示/内部档旁路）。
+ *
+ *              2026-10-28 free 化（新定价体系）：industry_scoped 格从「仅 business=1」
+ *              改为全档=1（含 free 列），本模块不再单独判"有无订阅"——被限与否完全由
+ *              isEntitled（订阅档列 or free 基线列）决定：旧矩阵 free 列无此格 ⇒ 未订阅
+ *              行为保持全量；迁移 SQL 执行后 free 列=1 ⇒ 未订阅用户同样收窄。
+ *              未绑行业的"暂不限 + 引导"与演示档旁路原样保留。
  *
  *              2026-10-11 backbone 化：公告侧不再 JOIN 桥表，改读宽表 backbone_path（主键点查）；
  *              口径从旧字典 level=1 行 id 改成骨架节点码。
@@ -25,6 +32,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
+import { FREE_PLAN_CODE } from "../repos/benefit-system.repo";
 import { INDUSTRY_SCOPED_BENEFIT, ALL_CATEGORY_ACCESS_BENEFIT } from "./benefit-matrix";
 import { resolveUserIndustryProfile } from "./industry-profile/resolve";
 import { fromBackbonePathColumn } from "./commodity/backbone-path";
@@ -45,7 +53,12 @@ const UNSCOPED: IndustryScope = { scoped: false, l1Code: null, l1Nodes: [], need
 
 /**
  * 判定用户的行业范围。判定链（任一不满足即不限）：
- * 已登录 → 有生效套餐 → 套餐无全类目旁路 → 套餐声明行业限定 → 已绑品目节点码。
+ * 已登录 → 有全类目旁路 → 档位（或 free 基线列）声明行业限定 → 已绑品目节点码。
+ *
+ * 是否被限唯一由矩阵 bool 格判定：有生效订阅读订阅档那一列，无订阅自动落 free 列
+ * （2026-10-28 free 化后 free 列=1，未订阅用户与付费档同墙）。这里不走 isEntitled
+ * 两次（那会把最热公共端点上每次检索的权益查询放大到 6 次），而是一次 loadCells
+ * 取齐同列两格——bool 判定口径与 isEntitled 一致：缺格/level=0 ⇒ 不享有，不猜默认值。
  *
  * 绑定的码推不出合法 L1（形制非法等脏数据，门禁 BB12 断言不该发生）：**仍然算已限定且 l1Nodes=[]**。
  * 消费方必须因此给空结果而不是放开全部 —— 宁可可见量错到 0 让人立刻发现，
@@ -58,9 +71,13 @@ export async function resolveIndustryScope(
 ): Promise<IndustryScope> {
   if (!userId) return UNSCOPED; // 匿名不限
   const plan = await catalog.findActivePlanForUser(userId);
-  if (!plan) return UNSCOPED; // 无生效订阅 = 普通用户，全量
-  if (await catalog.isEntitled(userId, ALL_CATEGORY_ACCESS_BENEFIT)) return UNSCOPED; // 演示/内部档旁路
-  if (!(await catalog.isEntitled(userId, INDUSTRY_SCOPED_BENEFIT))) return UNSCOPED; // 档位未声明行业限定
+  const cells = await catalog.loadCells([plan?.plan_code ?? FREE_PLAN_CODE]);
+  const levelOf = (benefitCode: string): number => {
+    const cell = cells.find((c) => c.benefit_code === benefitCode);
+    return cell ? Number(cell.value_level ?? 0) : 0;
+  };
+  if (levelOf(ALL_CATEGORY_ACCESS_BENEFIT) > 0) return UNSCOPED; // 演示/内部档旁路
+  if (levelOf(INDUSTRY_SCOPED_BENEFIT) <= 0) return UNSCOPED; // 档位/free 列未声明行业限定
   const profile = await resolveUserIndustryProfile(pool, userId);
   if (!profile) return { scoped: false, l1Code: null, l1Nodes: [], needsIndustry: true }; // 未绑行业：暂不限+引导
   const l1Code = l1CodeOfNode(profile.commodityCode);

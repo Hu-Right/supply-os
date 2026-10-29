@@ -57,6 +57,22 @@ const PRE_FILTER_LIMIT = 5;
 /** LLM 并发调用上限：5 个候选按 3 并发分两批，替代串行等待 */
 const LLM_CONCURRENCY = 3;
 
+/**
+ * 匹配缓存有效性判定（新版结构：每项都带 isSelf 且已是 camel 的 supplierId）。
+ * 独立导出供路由在扣计量前预判"本次是否会真生成"——命中口径必须与主入口一致，防两处漂移。
+ * @returns 新版缓存数组；null = 无缓存/损坏/旧版格式（都会重新生成）
+ */
+export function parseFreshMatchCache(raw: string | null | undefined): MatchedSupplier[] | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((i) => i && typeof i.isSelf === "boolean" && "supplierId" in i)) {
+      return parsed as MatchedSupplier[];
+    }
+  } catch { /* 数据损坏按无缓存处理 */ }
+  return null;
+}
+
 /** 主入口：统一评估（self + 资源库候选） */
 export async function getOrGenerateAiMatch(
   pool: Pool,
@@ -73,17 +89,13 @@ export async function getOrGenerateAiMatch(
   // 红线② 不允许在此加 camel↔snake 桥接，宁可多跑一次 LLM 也不把列名吐上网。
   if (!forceRegenerate) {
     const cached = await summaryRepo.findMatch(userId, noticeId);
-    if (cached?.match_results) {
-      try {
-        const parsed = JSON.parse(cached.match_results);
-        if (Array.isArray(parsed) && parsed.every((i) => i && typeof i.isSelf === "boolean" && "supplierId" in i)) {
-          return {
-            top: parsed, cached: true,
-            poolSize: parsed.length, evaluated: parsed.length, failed: 0,
-            diagPending: await poolRepo.countDiagnosisPending(userId),
-          };
-        }
-      } catch { /* 数据损坏/旧版格式，继续重新生成 */ }
+    const fresh = parseFreshMatchCache(cached?.match_results);
+    if (fresh) {
+      return {
+        top: fresh, cached: true,
+        poolSize: fresh.length, evaluated: fresh.length, failed: 0,
+        diagPending: await poolRepo.countDiagnosisPending(userId),
+      };
     }
   }
 

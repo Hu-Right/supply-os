@@ -38,25 +38,41 @@ const FREE_SUMMARY_PREVIEW: Partial<Record<SummaryDimension, number>> = {
  */
 export const AI_SUMMARY_BENEFIT = "ai_summary";
 export const AI_SUMMARY_FULL_LEVEL = 2;
-/** 低于此层级（=0，如 starter/pro）完全不展示摘要（只看原文）；=1 脱敏试读（free）；>=2 完整。 */
+/** 低于此层级（=0，矩阵声明无此权益的档）完全不展示摘要（只看原文）；=1 脱敏试读（free）；>=2 完整。 */
 export const AI_SUMMARY_MIN_VIEW_LEVEL = 1;
 
 /**
  * 公告译文权益码（bool）：/translation、/content 的 description_cn、前端「查看译文」切换的档位门控来源。
- * 矩阵取值：free/starter/pro=0（只看原文，无译文），unlimited 及以上=1（含中文报告）。
- * 与 ai_summary / ai_match 同属「中文/AI 加工能力」，1299+ 才解锁。
+ * 矩阵取值（2026-10-28 新矩阵）：全档=1 人人可见；"可配置"=后台改矩阵格子，不做独立开关。
+ * 与 ai_summary / ai_match 同属「中文/AI 加工能力」。
  */
 export const NOTICE_TRANSLATION_BENEFIT = "notice_translation";
 
 /**
  * 内部语义权益（bool，2026-09-29）：驱动行业可见性墙，不在官网对比表/gates 下发中出现
  * （展示隔离见 BenefitSystemRepo.listBenefits 的黑名单），仅供服务端 isEntitled 判定：
- * - industry_scoped：该档按一级类目收窄数据范围（当前仅 business=1，"8,800元/行业"口径）；
+ * - industry_scoped：该档按一级类目收窄数据范围（2026-10-28 新矩阵全档=1，free 列同限，
+ *   唯一例外 internal_demo=0；旧矩阵仅 business=1，迁移前行为不变）；
  * - all_category_access：旁路行业限定看全量（internal_demo=1，演示/内部档专用）。
  */
 export const INDUSTRY_SCOPED_BENEFIT = "industry_scoped";
 export const ALL_CATEGORY_ACCESS_BENEFIT = "all_category_access";
-export const INTERNAL_MATRIX_BENEFITS = [INDUSTRY_SCOPED_BENEFIT, ALL_CATEGORY_ACCESS_BENEFIT] as const;
+
+/**
+ * 内部计量码（quota，2026-10-28 新矩阵新增）：AI 摘要/AI 匹配的月度次数池与行业加购包预留位。
+ * 只被服务端额度池记账消费（unlock-quota 的月度换代池），不进官网对比表与 gates 下发（同一黑名单）。
+ */
+export const AI_SUMMARY_QUOTA_BENEFIT = "ai_summary_quota";
+export const AI_MATCH_QUOTA_BENEFIT = "ai_match_quota";
+export const INDUSTRY_ADDON_BENEFIT = "industry_addon";
+
+export const INTERNAL_MATRIX_BENEFITS = [
+  INDUSTRY_SCOPED_BENEFIT,
+  ALL_CATEGORY_ACCESS_BENEFIT,
+  AI_SUMMARY_QUOTA_BENEFIT,
+  AI_MATCH_QUOTA_BENEFIT,
+  INDUSTRY_ADDON_BENEFIT,
+] as const;
 
 export interface MaskableSummary {
   coreDeliverables: string;

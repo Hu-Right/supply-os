@@ -18,8 +18,12 @@ import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { getOrGenerateAiSummary } from "@/lib/services/ai-summary";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
-import { EC_INVALID_PARAMS, EC_ACCESS_FORBIDDEN } from "@/shared/constants/api";
-import { AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, AI_SUMMARY_MIN_VIEW_LEVEL, maskSummaryForFree } from "@/lib/services/benefit-matrix";
+import { consumeAiActionQuota, AiQuotaExceededError } from "@/lib/services/ai-quota";
+import { EC_INVALID_PARAMS, EC_ACCESS_FORBIDDEN, EC_PAID_QUOTA_REQUIRED } from "@/shared/constants/api";
+import {
+  AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, AI_SUMMARY_MIN_VIEW_LEVEL, AI_SUMMARY_QUOTA_BENEFIT,
+  maskSummaryForFree,
+} from "@/lib/services/benefit-matrix";
 
 const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
@@ -81,11 +85,35 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const body = await parseJson(req, bodySchema);
-    const pool = getContext().dbPool;
+    const ctx = getContext();
+    const pool = ctx.dbPool;
     const level = await summaryLevel(auth.userId);
     // 低档不允许生成摘要（只看原文）：服务端拒绝，不消耗 LLM
     if (level < AI_SUMMARY_MIN_VIEW_LEVEL) {
       routeError(403, EC_ACCESS_FORBIDDEN, "当前套餐不包含 AI 摘要，仅可查看原文", { feature: AI_SUMMARY_BENEFIT });
+    }
+    // 完整档生成前扣月度计量（ai_summary_quota，个人 30/月、企业/人工/内部不限）；
+    // 脱敏档（level=1，free）路径不计量。缓存命中不产生 LLM 成本，同样不扣（与
+    // getOrGenerateAiSummary 的命中口径一致：forceRegenerate 必生成，否则有缓存即命中）。
+    if (level >= AI_SUMMARY_FULL_LEVEL) {
+      const summaryRepo = new AiSummaryRepo(pool);
+      const willGenerate = body.forceRegenerate || !(await summaryRepo.find(auth.userId, noticeId));
+      if (willGenerate) {
+        try {
+          await consumeAiActionQuota(pool, { catalog: ctx.benefitSystemRepo, write: ctx.benefitWriteRepo }, {
+            userId: auth.userId,
+            benefitCode: AI_SUMMARY_QUOTA_BENEFIT,
+          });
+        } catch (err) {
+          if (err instanceof AiQuotaExceededError) {
+            routeError(402, EC_PAID_QUOTA_REQUIRED, "本月 AI 摘要生成次数已用完，请升级套餐或下月再试", {
+              feature: AI_SUMMARY_BENEFIT,
+              benefit_code: AI_SUMMARY_QUOTA_BENEFIT,
+            });
+          }
+          throw err;
+        }
+      }
     }
     const result = await getOrGenerateAiSummary(pool, auth.userId, noticeId, body.forceRegenerate);
     const data = level < AI_SUMMARY_FULL_LEVEL

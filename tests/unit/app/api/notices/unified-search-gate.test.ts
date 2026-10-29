@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   extractUserKey: vi.fn(),
   checkRateLimit: vi.fn(),
   isEntitled: vi.fn(),
+  loadCells: vi.fn(),
   searchUnified: vi.fn(),
   findActivePlan: vi.fn(),
   resolveProfile: vi.fn(),
@@ -34,6 +35,8 @@ vi.mock("@/lib/db/context", () => ({
     benefitSystemRepo: {
       isEntitled: mocks.isEntitled,
       findActivePlanForUser: mocks.findActivePlan,
+      // 2026-10-28 free 化：行业墙一次 loadCells 取齐同列两格（industry_scoped/all_category_access）
+      loadCells: mocks.loadCells,
     },
     notice: {
       feedbackRepo: { logSearch: mocks.logSearch },
@@ -59,9 +62,16 @@ beforeEach(() => {
   mocks.checkRateLimit.mockReturnValue(null);
   mocks.searchUnified.mockResolvedValue({ items: [], total: 0, pageSize: 10 });
   mocks.logSearch.mockResolvedValue(undefined);
-  // 默认无生效订阅 → 行业墙不启动（墙注入行为由专属用例覆盖）
+  // 默认无生效订阅 → free 列无行业墙格子 → 行业墙不启动（墙注入行为由专属用例覆盖）
   mocks.findActivePlan.mockResolvedValue(null);
+  mocks.loadCells.mockResolvedValue([]);
 });
+
+/** 行业墙列格子：industry_scoped=1、all_category_access 可选（演示档旁路） */
+const wallCells = (bypass = false) => [
+  { plan_code: "business", benefit_code: "industry_scoped", value_level: 1 },
+  ...(bypass ? [{ plan_code: "business", benefit_code: "all_category_access", value_level: 1 }] : []),
+];
 
 function makeReq(url = URL_WITH_EXCLUDE) {
   return new NextRequest(url);
@@ -127,8 +137,8 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
   it("行业墙：被限定档位用户注入 wall.nodes，recommended 收编进 prefs 管道", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
     mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
-    // industry_scoped=1（business）、all_category_access=0（非演示档）
-    mocks.isEntitled.mockImplementation(async (_uid: number, code: string) => code === "industry_scoped");
+    // 行业墙列：industry_scoped=1、all_category_access=0（非演示档）；isEntitled 只服务高级语法门控
+    mocks.loadCells.mockResolvedValue(wallCells());
     // 墙键 = 偏好 commodity_code 的 L1 前缀（2026-10-15 G 码退役，纯切片推导、零查库）
     mocks.resolveProfile.mockResolvedValue({ userId: 7, commodityCode: "UGT-85010101" });
 
@@ -144,7 +154,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
   it("行业墙：偏好码推导不出大类 → 仍注入空 wall（给空结果而不是放开全量）", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
     mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
-    mocks.isEntitled.mockImplementation(async (_uid: number, code: string) => code === "industry_scoped");
+    mocks.loadCells.mockResolvedValue(wallCells());
     mocks.resolveProfile.mockResolvedValue({ userId: 7, commodityCode: "UGT-XY" });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
@@ -158,7 +168,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
   it("行业墙：被限定档位未绑大类 → 不注入 wall，带 needsIndustrySelection 引导标志", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
     mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
-    mocks.isEntitled.mockImplementation(async (_uid: number, code: string) => code === "industry_scoped");
+    mocks.loadCells.mockResolvedValue(wallCells());
     mocks.resolveProfile.mockResolvedValue(null);
 
     const res = await GET(makeReq());
@@ -167,6 +177,18 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(res.status).toBe(200);
     expect(mocks.searchUnified.mock.calls[0][1]).not.toHaveProperty("wall");
     expect(body.needsIndustrySelection).toBe(true);
+  });
+
+  it("行业墙 free 化：无订阅但 free 列 industry_scoped=1 → 同样注入 wall", async () => {
+    mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
+    mocks.findActivePlan.mockResolvedValue(null);
+    mocks.loadCells.mockResolvedValue(wallCells());
+    mocks.resolveProfile.mockResolvedValue({ userId: 7, commodityCode: "UGT-85010101" });
+
+    const res = await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar&page=1"));
+
+    expect(res.status).toBe(200);
+    expect(mocks.searchUnified.mock.calls[0][1]).toMatchObject({ wall: { nodes: ["UGT-85"] } });
   });
 
   it("搜索日志：登录用户带词检索落库（记录实际执行的 q 与结果总数）", async () => {

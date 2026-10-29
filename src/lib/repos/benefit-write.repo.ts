@@ -37,6 +37,8 @@ export interface LockedPoolRow {
   quota_total: number;
   quota_used: number;
   status: "active" | "exhausted" | "frozen";
+  /** 本代次起点：月度换代码（ai_*_quota）凭它与日历月起点比较决定是否开新一代次 */
+  period_starts_at: Date;
 }
 
 export interface LockedSubscriptionRow {
@@ -331,7 +333,7 @@ export class BenefitWriteRepo {
     p: { userId: number; benefitCode: string; subscriptionId: number | null },
   ): Promise<LockedPoolRow | null> {
     const [rows] = await conn.query<RowDataPacket[]>(
-      `SELECT id, subscription_id, user_id, benefit_code, quota_total, quota_used, status
+      `SELECT id, subscription_id, user_id, benefit_code, quota_total, quota_used, status, period_starts_at
          FROM benefit_quotas
         WHERE subscription_pool_key = ? AND user_id = ? AND benefit_code = ?
           AND period_starts_at <= NOW()
@@ -350,6 +352,7 @@ export class BenefitWriteRepo {
       quota_total: Number(r.quota_total),
       quota_used: Number(r.quota_used),
       status: r.status as LockedPoolRow["status"],
+      period_starts_at: new Date(r.period_starts_at as string),
     };
   }
 

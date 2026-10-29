@@ -11,10 +11,12 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { EC_INVALID_PARAMS, EC_VIP_ONLY, EC_CONTENT_LOCKED } from "@/shared/constants/api";
-import { getOrGenerateAiMatch } from "@/lib/services/ai-match";
+import { EC_INVALID_PARAMS, EC_VIP_ONLY, EC_CONTENT_LOCKED, EC_PAID_QUOTA_REQUIRED } from "@/shared/constants/api";
+import { getOrGenerateAiMatch, parseFreshMatchCache } from "@/lib/services/ai-match";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
+import { consumeAiActionQuota, AiQuotaExceededError } from "@/lib/services/ai-quota";
+import { AI_MATCH_QUOTA_BENEFIT } from "@/lib/services/benefit-matrix";
 
 const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
@@ -87,6 +89,30 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const body = await parseJson(req, bodySchema);
+
+    // 享有 ai_match（enum>=1）且矩阵给了有限月度额度（ai_match_quota，个人 30/月）→ 生成前扣 1；
+    // -1 不限与矩阵缺行（迁移前旧库）不计量。缓存命中不产生 LLM 成本，同样不扣
+    // （命中口径与 getOrGenerateAiMatch 一致：forceRegenerate 必生成，否则须是新版结构缓存）。
+    const cached = body.forceRegenerate
+      ? null
+      : await new AiSummaryRepo(ctx.dbPool).findMatch(auth.userId, noticeId);
+    if (body.forceRegenerate || !parseFreshMatchCache(cached?.match_results)) {
+      try {
+        await consumeAiActionQuota(ctx.dbPool, { catalog: ctx.benefitSystemRepo, write: ctx.benefitWriteRepo }, {
+          userId: auth.userId,
+          benefitCode: AI_MATCH_QUOTA_BENEFIT,
+        });
+      } catch (err) {
+        if (err instanceof AiQuotaExceededError) {
+          routeError(402, EC_PAID_QUOTA_REQUIRED, "本月 AI 智能匹配次数已用完，请升级套餐或下月再试", {
+            feature: "ai_match",
+            benefit_code: AI_MATCH_QUOTA_BENEFIT,
+          });
+        }
+        throw err;
+      }
+    }
+
     const result = await getOrGenerateAiMatch(ctx.dbPool, auth.userId, noticeId, body.forceRegenerate);
     return NextResponse.json(result);
   },

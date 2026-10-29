@@ -10,9 +10,14 @@
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_PAID_QUOTA_REQUIRED } from "@/shared/constants/api";
 import { getOrGenerateAiSummary, streamAiSummary } from "@/lib/services/ai-summary";
-import { AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, AI_SUMMARY_MIN_VIEW_LEVEL, maskSummaryForFree } from "@/lib/services/benefit-matrix";
+import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
+import { consumeAiActionQuota, AiQuotaExceededError } from "@/lib/services/ai-quota";
+import {
+  AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, AI_SUMMARY_MIN_VIEW_LEVEL, AI_SUMMARY_QUOTA_BENEFIT,
+  maskSummaryForFree,
+} from "@/lib/services/benefit-matrix";
 
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -61,6 +66,29 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
         },
       });
       return sseResponse(stream);
+    }
+
+    // 完整档逐 token 流式：生成前扣月度计量（ai_summary_quota，个人 30/月、企业/人工/内部不限）。
+    // 计量要在开流**之前**做完——额度不足直接回 402 HTTP 错误（前端客户端读 body.message 呈现），
+    // 而不是流内 error 消息。缓存命中（有非空结果，与 streamAiSummary 命中口径一致）不产生
+    // LLM 成本，同样不扣；脱敏档（level=1，free）路径不计量。
+    const cachedRow = await new AiSummaryRepo(ctx.dbPool).find(auth.userId, noticeId);
+    const willGenerate = !cachedRow || !String(cachedRow.core_deliverables || "").trim();
+    if (willGenerate) {
+      try {
+        await consumeAiActionQuota(ctx.dbPool, { catalog: ctx.benefitSystemRepo, write: ctx.benefitWriteRepo }, {
+          userId: auth.userId,
+          benefitCode: AI_SUMMARY_QUOTA_BENEFIT,
+        });
+      } catch (err) {
+        if (err instanceof AiQuotaExceededError) {
+          routeError(402, EC_PAID_QUOTA_REQUIRED, "本月 AI 摘要生成次数已用完，请升级套餐或下月再试", {
+            feature: AI_SUMMARY_BENEFIT,
+            benefit_code: AI_SUMMARY_QUOTA_BENEFIT,
+          });
+        }
+        throw err;
+      }
     }
 
     const encoder = new TextEncoder();
