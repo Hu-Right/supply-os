@@ -35,8 +35,8 @@ interface NoticeCardProps {
 // P0 性能优化：React.memo 避免父组件 state 变化时列表行全部重渲染
 export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, favorited, onToggleFavorite }: NoticeCardProps) {
   const { t, locale } = useLocale();
-  // 标题国际化回退链：当前语言缓存 → 英文缓存 → 原文
-  const displayTitle = item.titleI18n || item.titleEn || item.title;
+  // 中文标题走服务表 title_cn 缓存，其他环境一律原文
+  const displayTitle = locale === "zh" ? (item.titleCn || item.title) : item.title;
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
   const typeKey = noticeTypeKey(item.noticeTypeCode);
 
@@ -107,7 +107,9 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
         {/* ── 买家列（lg+） ── */}
         <div className="hidden lg:block w-44 shrink-0">
           <p className="text-xs text-slate-700 font-bold truncate">
-            {item.agencyI18n || item.buyerName || t("procurement_unknownAgency")}
+            {locale === "zh"
+              ? (item.buyerNameCn || item.buyerName || t("procurement_unknownAgency"))
+              : (item.buyerName || t("procurement_unknownAgency"))}
           </p>
         </div>
 
@@ -182,6 +184,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
     </Card>
   );
 });
+
 
 
 
