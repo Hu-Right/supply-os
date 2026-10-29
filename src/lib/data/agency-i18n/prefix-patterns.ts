@@ -371,8 +371,13 @@ export const BR_EXTRA_PREFIX_MAP: Array<[RegExp, (rest: string) => PatternI18nRe
     canonical: `MINISTERIO PUBLICO ${rest}`,
     i18n: { zh: `${rest}检察院`, fr: `Ministère public ${rest}`, ru: `Прокуратура ${rest}`, es: `Ministerio Público ${rest}`, ar: `نيابة ${rest}` },
   })],
-  // CONS. / CONSORCIO 更宽泛
-  [/^(?:CIS[A-Z]+|CONS\.?|CONDERG)\s*[-.]?\s*(?:CONS\.?|DE DESENV\.?|INTERMU(?:ICIPAL)?)?\s*(?:DE\s+)?(?:SAUDE|PUBLICO|INTERMUNICIPAL)?\s*(.+)/i, (rest) => ({
+  // CONS. / CISxxxx / CONDERG（巴西跨市结合体的缩写形态）
+  // [修正 2026-10-29] 原条目带 /i 且无词尾边界，于是任何以 cons/cis 开头的专有词都被当成缩写：
+  // 真库只读探针实录 "Conseil Départemental de la Charente" 被切前 4 字母后拼成
+  // "eil Départemental de la Charente联合体"，"Cisterna Municipale" 被切成 "Municipale联合体"。
+  // 缩写条目本就该大小写敏感（库里这些形态是全大写），并加 (?![A-Za-z]) 词尾边界；
+  // 完整词 CONSORCIO/Consórcio 仍由 BR_PREFIX_MAP 的 /^CONSORCIO\s+/i 接住，收紧不影响它。
+  [/^(?:CIS[A-Z]{2,}|CONS|CONDERG)(?![A-Za-z])\.?\s*[-.]?\s*(?:CONS\.?|DE DESENV\.?|INTERMU(?:ICIPAL)?)?\s*(?:DE\s+)?(?:SAUDE|PUBLICO|INTERMUNICIPAL)?\s*(.+)/, (rest) => ({
     canonical: `CONSORCIO ${rest}`,
     i18n: { zh: `${rest}联合体`, fr: `Consortium ${rest}`, ru: `Консорциум ${rest}`, es: `Consorcio ${rest}`, ar: `اتحاد ${rest}` },
   })],
@@ -535,7 +540,11 @@ export const BR_EXTRA_PREFIX_MAP: Array<[RegExp, (rest: string) => PatternI18nRe
     i18n: { zh: `${rest}水务`, fr: `Eau ${rest}`, ru: `Водоснабжение ${rest}`, es: `Agua ${rest}`, ar: `مياه ${rest}` },
   })],
   // INST/INSTITUTO 缩写
-  [/^INST(?:\.|ITUTO)?\s*(?:\.?\s*NAC\.?\s*)?(?:DE\s+)?(.+)/i, (rest) => ({
+  // [修正 2026-10-29] 加词尾边界：原 /^INST(?:\.|ITUTO)?\s*/i 会把 "Institution de …" 的前 4 个
+  // 字母当缩写吃掉（探针实录 → "itution de Gestion Sociale des Armées - IGESA研究所"）。
+  // 现在只认 "INST"/"INST."（后面不是字母）或完整 "INSTITUTO"；首字母大写的 Instituto
+  // 依旧先由 BR_PREFIX_MAP 的 /^INSTITUTO\s+/i 接住，行为不变。
+  [/^INST(?:ITUTO)?(?![A-Za-z])\.?\s*(?:\.?\s*NAC\.?\s*)?(?:DE\s+)?(.+)/i, (rest) => ({
     canonical: `INSTITUTO ${rest}`,
     i18n: { zh: `${rest}研究所`, fr: `Institut ${rest}`, ru: `Институт ${rest}`, es: `Instituto ${rest}`, ar: `معهد ${rest}` },
   })],

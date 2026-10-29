@@ -29,7 +29,10 @@ export const TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<strin
   // 巴西各市研究所
   [/^INSTITUTO\s/i, { typeKey: "INSTITUTO_BR", i18n: { zh: "巴西各市研究所", fr: "Instituts du Brésil", ru: "Институты Бразилии", es: "Institutos de Brasil", ar: "معاهد البرازيل" } }],
   // 巴西各市联合体
-  [/^CONSORCIO|^CIS[A-Z]/i, { typeKey: "CONSORCIO_BR", i18n: { zh: "巴西各市联合体", fr: "Consortiums du Brésil", ru: "Консорциумы Бразилии", es: "Consorcios de Brasil", ar: "اتحادات البرازيل" } }],
+  [/^CONSORCIO/i, { typeKey: "CONSORCIO_BR", i18n: { zh: "巴西各市联合体", fr: "Consortiums du Brésil", ru: "Консорциумы Бразилии", es: "Consorcios de Brasil", ar: "اتحادات البرازيل" } }],
+  // CISxxxx 缩写单独一条，且本条区分大小写（故意不写 /i）：/i 下的 ^CIS[A-Z] 连 "Cisterna"（意大利地名）
+  // 也会一起吃进巴西联合体桶（2026-10-29 与 prefix-patterns 的 CONS/INST 同批修正）
+  [/^CIS[A-Z]{2,}(?![A-Za-z])/, { typeKey: "CONSORCIO_BR", i18n: { zh: "巴西各市联合体", fr: "Consortiums du Brésil", ru: "Консорциумы Бразилии", es: "Consorcios de Brasil", ar: "اتحادات البرازيل" } }],
   // 巴西各市法院
   [/TRIBUNAL/i, { typeKey: "TRIBUNAL_BR", i18n: { zh: "巴西各市法院", fr: "Tribunaux du Brésil", ru: "Суды Бразилии", es: "Tribunales de Brasil", ar: "محاكم البرازيل" } }],
   // 巴西各市服务
