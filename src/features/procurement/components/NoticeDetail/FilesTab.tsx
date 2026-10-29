@@ -1,16 +1,20 @@
 /**
- * 原始文件 Tab 内容
- * Files Tab Content
+ * 投标材料 Tab 内容
+ * Bid Materials Tab Content
  *
  * @module features/procurement/components/NoticeDetail/FilesTab
- * @description 展示采购文件下载列表与外部参考链接。
- *              数据来自 notice.attachments / notice.external_links。
- *              区分文件类型（PDF/DOC/ZIP等），展示文件计数与分类统计。
+ * @description 2026-10-29 信息架构拆分：原「原始文件」Tab 扩容为「投标材料」——
+ *              上半部分 = 中文版订单拆解报告（下载 / 暂缺引导），下半部分 = 原始招标文件与外部链接。
+ *              未解锁时展示会员专属引导（含报告预览 teaser）。
  */
 import { Download, ExternalLink, FileText, Link, FileArchive, FileSpreadsheet, File } from "lucide-react";
+import { useOptionalAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { downloadFile } from "@/core/http";
-import type { NoticeAttachment, NoticeDetailItem } from "../../types";
+import type { NoticeAttachment, NoticeDetailItem, NoticeItem } from "../../types";
+import { downloadNoticeReport } from "../../api";
+import { ReportUnavailableBanner } from "../ReportUnavailableBanner";
+import { ReportPreviewPanel } from "../ReportPreviewPanel";
 
 interface FilesTabProps {
   notice: NoticeDetailItem;
@@ -18,6 +22,10 @@ interface FilesTabProps {
   coreUnlocked: boolean;
   /** 是否 VIP */
   isVip?: boolean;
+  /** 当前登录用户（报告预览/下载需要） */
+  userId?: number | null;
+  /** 解锁回调（报告预览面板用） */
+  onUnlock?: (notice: NoticeItem) => void;
 }
 
 type RawAttachment = NoticeAttachment | string;
@@ -42,29 +50,44 @@ function getFileIcon(name: string) {
   return { icon: File, color: "text-slate-400" };
 }
 
-export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
+export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock }: FilesTabProps) {
   const { t } = useLocale();
+  const authContext = useOptionalAuth();
+  const authUser = authContext?.authUser ?? null;
 
   const documents = ((notice.attachments as RawAttachment[] | undefined) || []);
   const externalLinks = ((notice.externalLinks as RawAttachment[] | undefined) || []);
   const hasFiles = documents.length > 0 || externalLinks.length > 0;
 
-  // ─ 未解锁：按「是否确认收录了文件」分流锁定提示 ──
+  // ─ 报告可用性（与摘要页拆解指示器同口径）──
+  const hasReport = coreUnlocked ? notice.reportAvailable === true : Number(notice.isOpportunity) === 1;
+  const reportKnown =
+    coreUnlocked || typeof notice.reportAvailable === "boolean" || typeof notice.isOpportunity === "boolean";
+  const canDownloadReport = Boolean(notice.reportAvailable && notice.reportUrl && authUser);
+
+  const handleDownloadReport = () => {
+    if (!notice.reportUrl) return;
+    void downloadNoticeReport(notice.reportUrl).catch((e) => {
+      console.warn("[NoticeDetails] 报告下载失败:", e);
+    });
+  };
+
+  // ─ 未解锁：会员专属引导（含报告预览 teaser）──
   if (!coreUnlocked) {
     const fileCount = typeof notice.breakdownFileCount === "number" ? notice.breakdownFileCount : undefined;
-    // 库内 99.9% 公告未收录文件链接（仅 UNGM 部分行有）：确认有文件才保留"解锁下载"承诺，
+    // 库内 99.9% 公告未收录文件链接（仅 UNGM 部分行有）：确认有文件才保留"会员可下载"承诺，
     // 其余一律引导去来源平台，避免付费承诺与实际交付的落差
-    if ((fileCount ?? 0) > 0) {
-      return (
+    const lockedCard =
+      (fileCount ?? 0) > 0 ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
           <div className="flex items-center gap-2 mb-3">
             <FileText className="w-4 h-4 text-amber-600" />
             <h3 className="text-sm font-extrabold text-amber-800">
-              {t("detail_tabOriginalFiles") || "原始文件"} — {t("detail_memberExclusive") || "会员专享"}
+              {t("detail_tabMaterials") || "投标材料"} — {t("detail_memberExclusive") || "会员专享"}
             </h3>
           </div>
           <p className="text-xs text-amber-700 mb-3">
-            {t("detail_filesLockedIntro") || "解锁后可下载本公告的全部招标文件，包括："}
+            {t("detail_filesLockedIntro") || "会员可下载本公告的全部招标文件，包括："}
           </p>
           <ul className="space-y-1.5 mb-4">
             <li className="flex items-center gap-2 text-xs text-amber-700">
@@ -84,70 +107,58 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
           </ul>
           {isVip ? (
             <p className="text-xs font-bold text-amber-800 bg-amber-100/60 rounded-lg px-3 py-2 text-center">
-              {t("detail_filesVipHint") || "您已是会员，解锁本公告后即可下载全部文件"}
+              {t("detail_filesVipHint") || "您已是会员，可直接下载全部文件"}
             </p>
           ) : (
             <p className="text-xs text-amber-600 bg-amber-100/40 rounded-lg px-3 py-2 text-center">
-              {t("detail_filesUnlockHint") || "购买会员并解锁本公告即可获取全部招标文件"}
+              {t("detail_filesUnlockHint") || "升级会员即可获取全部招标文件"}
             </p>
           )}
         </section>
+      ) : (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+          <FileText className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm text-slate-500 mb-1">
+            {t("detail_filesLockedNoneIntro") || "本公告暂未收录可直接下载的招标文件"}
+          </p>
+          <p className="text-xs text-slate-400 mb-4">
+            {t("detail_filesLockedNoneHint") || "原始文件请前往来源平台查看与下载"}
+          </p>
+          {notice.sourceUrl && (
+            <a
+              href={notice.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline"
+            >
+              <ExternalLink className="w-3 h-3" />
+              {t("detail_goToSource") || "前往来源平台查看原始公告"}
+            </a>
+          )}
+        </section>
       );
-    }
+
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-        <FileText className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-        <p className="text-sm text-slate-500 mb-1">
-          {t("detail_filesLockedNoneIntro") || "本公告暂未收录可直接下载的招标文件"}
-        </p>
-        <p className="text-xs text-slate-400 mb-4">
-          {t("detail_filesLockedNoneHint") || "原始文件请前往来源平台查看与下载"}
-        </p>
-        {notice.sourceUrl && (
-          <a
-            href={notice.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline"
-          >
-            <ExternalLink className="w-3 h-3" />
-            {t("detail_goToSource") || "前往来源平台查看原始公告"}
-          </a>
+      <div className="space-y-4">
+        {userId && reportKnown && hasReport && (
+          <ReportPreviewPanel
+            noticeId={notice.noticePk}
+            userId={userId}
+            isVip={!!isVip}
+            onUnlock={onUnlock ?? (() => {})}
+            coreLocked
+          />
         )}
-      </section>
+        {lockedCard}
+      </div>
     );
   }
 
-  // ── 已解锁但无文件 ──
-  if (!hasFiles) {
-    return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-        <FileText className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-        <p className="text-sm text-slate-500 mb-1">
-          {t("procurement_noFiles") || "本公告暂无可下载的招标文件"}
-        </p>
-        {notice.sourceUrl && (
-          <a
-            href={notice.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-2"
-          >
-            <ExternalLink className="w-3 h-3" />
-            {t("detail_goToSource") || "前往来源平台查看原始公告"}
-          </a>
-        )}
-      </section>
-    );
-  }
-
-  // ── 已解锁：展示文件列表 ──
+  // ── 已解锁：投标材料（报告 + 文件列表）──
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-extrabold text-slate-900">
-          {t("detail_tabOriginalFiles") || "原始文件"}
-        </h3>
+        <h3 className="text-base font-extrabold text-slate-900">{t("detail_tabMaterials") || "投标材料"}</h3>
         <span className="text-xs text-slate-400 font-mono">
           {documents.length > 0 && t("detail_attachmentCount", { count: documents.length })}
           {documents.length > 0 && externalLinks.length > 0 && " · "}
@@ -155,7 +166,32 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
         </span>
       </div>
 
-      {/* 采购文件 */}
+      {/* ① 中文版订单拆解报告 */}
+      <div className="rounded-2xl border border-teal-100 bg-white p-4 space-y-2">
+        <p className="text-sm font-black text-slate-900">{t("procurement_breakdownModuleTitle") || "中文版订单拆解报告"}</p>
+        {canDownloadReport ? (
+          <button
+            type="button"
+            onClick={handleDownloadReport}
+            className="flex w-full items-center justify-between gap-3 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2.5 text-left hover:border-teal-400"
+          >
+            <span dir="auto" className="font-black text-teal-800 truncate">
+              {t("procurement_reportFileLabel") || "中文版订单拆解报告.docx"}
+            </span>
+            <Download className="w-4 h-4 shrink-0 text-teal-700" />
+          </button>
+        ) : !notice.reportAvailable && notice.noticePk != null ? (
+          <ReportUnavailableBanner
+            noticeId={notice.noticePk}
+            isVip={!!isVip}
+            isLoggedIn={!!authUser}
+          />
+        ) : (
+          <p className="text-xs text-slate-400">{t("procurement_reportPending") || "中文版拆解报告生成中，请稍后刷新。"}</p>
+        )}
+      </div>
+
+      {/* ② 原始招标文件 */}
       {documents.length > 0 && (
         <div>
           <p className="text-xs font-black text-slate-500 uppercase mb-2 flex items-center gap-1.5">
@@ -201,7 +237,7 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
         </div>
       )}
 
-      {/* 外部链接 */}
+      {/* ③ 外部链接 */}
       {externalLinks.length > 0 && (
         <div>
           <p className="text-xs font-black text-slate-500 uppercase mb-2 flex items-center gap-1.5">
@@ -231,7 +267,27 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
           </div>
         </div>
       )}
+
+      {/* ④ 已解锁但无文件 */}
+      {!hasFiles && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+          <FileText className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm text-slate-500 mb-1">
+            {t("procurement_noFiles") || "本公告暂无可下载的招标文件"}
+          </p>
+          {notice.sourceUrl && (
+            <a
+              href={notice.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-2"
+            >
+              <ExternalLink className="w-3 h-3" />
+              {t("detail_goToSource") || "前往来源平台查看原始公告"}
+            </a>
+          )}
+        </section>
+      )}
     </section>
   );
 }
-

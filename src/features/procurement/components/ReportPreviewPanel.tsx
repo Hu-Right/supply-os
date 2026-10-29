@@ -5,7 +5,7 @@
  * @module features/procurement/components/ReportPreviewPanel
  * @description 未解锁用户看到约 10% 预览内容（按语言环境自适应：zh 优先 description_cn，
  *              非 zh 直接 description）+ 模糊锁定 + 会员升级引导；已解锁用户下载链接
- *              已在 NoticeUnlockedDetails 中提供，本组件直接返回 null。
+ *              已在「投标材料」Tab 中提供，本组件直接返回 null。
  */
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, FileText, Lock, Crown, Unlock } from "lucide-react";
@@ -79,7 +79,7 @@ export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLock
   // 失败态或无报告数据：静默不渲染
   if (error || !preview || sections.length === 0) return null;
 
-  // 已解锁：下载链接已在 NoticeUnlockedDetails 中提供，无需预览卡片
+  // 已解锁：下载链接已在「投标材料」Tab 中提供，无需预览卡片
   if (isUnlocked) return null;
 
   // 未解锁：预览模式（10% 内容 + 模糊锁定 + 升级引导）

@@ -104,18 +104,26 @@ describe("deriveTabGateState（服务端矩阵 gates → Tab 角标状态）", (
     const gates: Record<string, GateState> = {
       ai_summary: "free",
       qualification_access: "included",
+      notice_view: "included",
       original_file_access: "included",
       ai_match: "upgrade",
       similar_opportunity: "free",
     };
     expect(deriveTabGateState(byKey("summary"), gates)).toBe("free");
     expect(deriveTabGateState(byKey("qualification"), gates)).toBe("included");
+    expect(deriveTabGateState(byKey("buyer"), gates)).toBe("included");
     expect(deriveTabGateState(byKey("files"), gates)).toBe("included");
     expect(deriveTabGateState(byKey("ai-score"), gates)).toBe("upgrade");
     expect(deriveTabGateState(byKey("similar"), gates)).toBe("free");
   });
 
-  it("资格条件/原始文件：付费档 included，免费档 upgrade", () => {
+  it("采购方与联系人：挂标讯权益（notice_view），免费档 upgrade", () => {
+    expect(deriveTabGateState(byKey("buyer"), { notice_view: "included" })).toBe("included");
+    expect(deriveTabGateState(byKey("buyer"), { notice_view: "upgrade" })).toBe("upgrade");
+    expect(deriveTabGateState(byKey("buyer"), undefined)).toBe("upgrade");
+  });
+
+  it("资格条件/投标材料：付费档 included，免费档 upgrade", () => {
     expect(deriveTabGateState(byKey("qualification"), { qualification_access: "included" })).toBe("included");
     expect(deriveTabGateState(byKey("files"), { original_file_access: "included" })).toBe("included");
     expect(deriveTabGateState(byKey("files"), { original_file_access: "upgrade" })).toBe("upgrade");

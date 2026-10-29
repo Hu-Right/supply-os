@@ -10,18 +10,18 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
-import { useOptionalAuth, useUserId } from "@/core/auth";
+import { useUserId } from "@/core/auth";
 import type { NoticeItem, NoticeDetailItem, MembershipStatusView } from "../../types";
 import { useNoticeTranslation } from "../../hooks/useNoticeTranslation";
 import { useAiAnalysis } from "../../hooks/useAiAnalysis";
 import { noticeTypeKey } from "@/shared/utils/notice-type";
-import { collectBreakdownFiles } from "../NoticeUnlockedDetails";
-import { ReportUnavailableBanner } from "../ReportUnavailableBanner";
+import { collectBreakdownFiles } from "./utils";
+
 import { NoticeDescriptionSection } from "../NoticeDescriptionSection";
-import { NoticeBreakdownIndicator } from "../NoticeBreakdownIndicator";
+
 import { NoticeCoreContent } from "../NoticeCoreContent";
 import { NoticeDetailSidebar } from "../NoticeDetailSidebar";
-import { ReportPreviewPanel } from "../ReportPreviewPanel";
+
 import { AiSummarySection } from "../AiSummarySection";
 import { NextStepsPanel } from "../NextStepsPanel";
 import { getCountdown } from "@/shared/utils/countdown";
@@ -34,6 +34,7 @@ import { DetailTabs } from "./DetailTabs";
 import { ShareModal } from "./ShareModal";
 import { tabPanelId, tabTriggerId } from "./utils";
 import { QualificationTab } from "./QualificationTab";
+import { BuyerContactsTab } from "./BuyerContactsTab";
 import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
 import { AiEvaluationPanel } from "../AiEvaluationPanel";
@@ -75,7 +76,6 @@ export function NoticeDetail({
   detailLoading,
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
-  const authContext = useOptionalAuth();
   const userId = useUserId();
   const router = useRouter();
   const noticeId = notice.noticePk;
@@ -148,12 +148,8 @@ export function NoticeDetail({
   const breakdownFileCount = coreUnlocked
     ? collectBreakdownFiles(notice).length
     : typeof notice.breakdownFileCount === "number" ? notice.breakdownFileCount : undefined;
-  const hasReport = coreUnlocked
-    ? notice.reportAvailable === true
-    : typeof notice.reportAvailable === "boolean" ? notice.reportAvailable : Number(notice.isOpportunity) === 1;
-  const reportKnown = coreUnlocked || typeof notice.reportAvailable === "boolean" || typeof notice.isOpportunity === "boolean";
+
   const typeKey = noticeTypeKey(notice.noticeTypeCode);
-  const showReportGuide = !showSkeleton && reportKnown && !hasReport;
   const visibleAgency = locale === "zh"
     ? (notice.buyerNameCn || notice.buyerName || t("procurement_unknownAgency"))
     : (notice.buyerName || t("procurement_unknownAgency"));
@@ -226,31 +222,11 @@ export function NoticeDetail({
                   descriptionTruncated={!!notice.descriptionTruncated}
                 />
 
-                {!showSkeleton && (
-                  <NoticeBreakdownIndicator
-                    hasReport={hasReport} reportKnown={reportKnown}
-                    breakdownFileCount={breakdownFileCount}
-                  />
-                )}
-
-                {showReportGuide && notice.noticePk != null && (
-                  <ReportUnavailableBanner
-                    noticeId={notice.noticePk} isVip={isVip}
-                    isLoggedIn={!!authContext?.authUser}
-                  />
-                )}
-
-                {notice.noticePk != null && userId && reportKnown && hasReport && (
-                  <ReportPreviewPanel
-                    noticeId={notice.noticePk} userId={userId} isVip={isVip}
-                    onUnlock={onUnlock} coreLocked={!coreUnlocked}
-                  />
-                )}
-
+                {/* 解锁态：采购方/联系人 → 「采购方与联系人」Tab；报告/文件 → 「投标材料」Tab。
+                    这里只保留锁定态的渐进预览（无敏感内容）。 */}
                 <NoticeCoreContent
                   notice={notice} coreUnlocked={coreUnlocked}
                   showSkeleton={showSkeleton} breakdownFileCount={breakdownFileCount}
-                  onViewFiles={() => setActiveTab("files")}
                 />
               </>
             )}
@@ -259,8 +235,12 @@ export function NoticeDetail({
               <QualificationTab notice={notice} coreUnlocked={coreUnlocked} isVip={isVip} />
             )}
 
+            {activeTab === "buyer" && (
+              <BuyerContactsTab notice={notice} coreUnlocked={coreUnlocked} />
+            )}
+
             {activeTab === "files" && (
-              <FilesTab notice={notice} coreUnlocked={coreUnlocked} isVip={isVip} />
+              <FilesTab notice={notice} coreUnlocked={coreUnlocked} isVip={isVip} userId={userId} onUnlock={onUnlock} />
             )}
 
             {activeTab === "ai-score" && (

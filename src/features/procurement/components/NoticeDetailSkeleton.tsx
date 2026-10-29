@@ -29,7 +29,7 @@ export function NoticeDetailSkeleton() {
       {/* 来源链接占位（text-sm 行高） */}
       <div className="h-5 w-40 bg-slate-200 rounded" />
 
-      {/* 解锁详情面板占位（对齐 NoticeUnlockedDetails：teal-200 边框 + 章节结构） */}
+      {/* 解锁详情面板占位（对齐「采购方与联系人 / 投标材料」Tab 的卡片结构） */}
       <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 space-y-4">
         {/* 面板标题：图标 + 文本 */}
         <div className="flex items-center gap-2">
