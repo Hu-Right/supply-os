@@ -193,7 +193,6 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
             n.entry_source, n.industry, n.beneficiary_countries, n.is_featured, n.converted_opp_id,
             n.rfq_status, n.visibility, n.budget_confidential,
             CASE
-              WHEN n.is_featured = 1 THEN 1
               WHEN EXISTS (
                 SELECT 1 FROM bid_opportunities o
                  WHERE (o.id = n.converted_opp_id OR o.source_notice_id = n.notice_id)
