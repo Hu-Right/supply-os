@@ -164,11 +164,17 @@ export async function unlockNotice(params: {
 /** 获取公告翻译（含付费墙前置校验由路由负责）；返回类型即 wire 契约，全 camelCase */
 export async function fetchNoticeTranslation(noticeId: number, lang: string): Promise<NoticeTranslationPayload> {
   const pool = getPool();
-  return getNoticeTranslation(
-    { pool, detailRepo: new NoticeDetailRepo(pool), translationRepo: new NoticeTranslationRepo(pool) },
+  const translationRepo = new NoticeTranslationRepo(pool);
+  const result = await getNoticeTranslation(
+    { pool, detailRepo: new NoticeDetailRepo(pool), translationRepo },
     noticeId,
     lang,
   );
+  // 详情很可能命中旧译文缓存（不经过 upsert）；列表只读服务表，必须在这里回写一次。
+  if (lang === "zh" && result.title) {
+    await translationRepo.syncServiceTitleCn(noticeId, result.title).catch(() => undefined);
+  }
+  return result;
 }
 
 // ── 推荐反馈（包装 processFeedback） ──
