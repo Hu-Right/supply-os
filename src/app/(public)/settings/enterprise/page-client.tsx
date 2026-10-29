@@ -17,6 +17,7 @@ import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
 import { ClaimExpiryBanner } from "@/features/auth/components/ClaimExpiryBanner";
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
 import { EnterpriseEditForm } from "@/features/auth/components/EnterpriseEditForm";
+import { EnterpriseCapabilitySection } from "@/features/auth/components/EnterpriseCapabilitySection";
 import { SupplierClaimModal } from "@/features/supplier-profile/components/SupplierClaimModal";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 import {
@@ -235,6 +236,9 @@ export default function EnterpriseSettingsClient() {
           onBind={() => setEditing(true)}
         />
       )}
+
+      {/* 企业能力档案 + 证据资料（投标可行性报告的数据来源） */}
+      <EnterpriseCapabilitySection enabled={enterprise.bound} />
 
       {/* 换绑二次确认：撤回后旧申请作废（不删企业资料），可重新为另一家提交 */}
       <ConfirmDialog
