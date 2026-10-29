@@ -34,11 +34,11 @@ export async function fetchDetailsByIds(
     const i18nTitleExpr = `s.title_${lang}`;
     const i18nDescExpr = `s.description_${lang}`;
     const [rows] = await pool.query(
-      `SELECT p.notice_pk, p.notice_id, p.source_url, p.reference, p.title,
+      `SELECT p.notice_pk, p.notice_id, p.source_url, p.reference, p.title, p.title_cn,
          LEFT(p.description, ${WIDE_LIMITS.lockedTeaser}) AS description,
          CASE WHEN LENGTH(p.description) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
          p.description_cn, p.notice_type_code, p.country_code,
-         p.buyer_name, p.buyer_group, p.deadline_ts, p.deadline_state, p.deadline_type, p.deadline_timezone,
+         p.buyer_name, p.buyer_name_cn, p.buyer_group, p.deadline_ts, p.deadline_state, p.deadline_type, p.deadline_timezone,
          p.published_ts, d.timezone_source,
          p.estimated_value, p.currency_code, p.platform_name,
          p.attachments, p.contacts, p.is_opportunity, p.content_level,
@@ -79,6 +79,7 @@ export async function fetchDetailsByIds(
   );
   return rows as RowDataPacket[];
 }
+
 
 
 

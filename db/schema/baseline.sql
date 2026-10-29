@@ -1084,6 +1084,7 @@ CREATE TABLE `notice_public` (
   `source_url` varchar(1024) DEFAULT NULL COMMENT '公告原文链接',
   `reference` varchar(255) DEFAULT NULL COMMENT '采购/标段参考编号',
   `title` varchar(500) DEFAULT NULL COMMENT '归一化标题（去噪后）',
+  `title_cn` varchar(1000) DEFAULT NULL COMMENT '中文标题缓存，来源 notice_translations.title_tr(lang=zh)',
   `description` longtext COMMENT '正文，优先取旁表 body_text，回退主表 description',
   `description_cn` longtext COMMENT '中文译文，仅当关联到已译商机时非空（稀疏，非全量译文库）',
   `content_level` varchar(20) DEFAULT NULL COMMENT '正文质量分级：empty/echo/thin/substantive',
@@ -1097,6 +1098,7 @@ CREATE TABLE `notice_public` (
   `notice_type_code` varchar(30) DEFAULT NULL COMMENT '采购类型归一码（normalizeNoticeType 单一事实源）',
   `platform_name` varchar(100) DEFAULT NULL COMMENT '发布平台规范名（platform 别名归一后）',
   `buyer_name` varchar(500) DEFAULT NULL COMMENT '采购人/机构规范名（agency 别名归一后）',
+  `buyer_name_cn` varchar(500) DEFAULT NULL COMMENT '中文买家名缓存，来源 buyer_translation.buyer_name_zh',
   `buyer_group` varchar(100) DEFAULT NULL COMMENT '机构类型分类键（classifyAgencyType 的 typeKey）',
   `estimated_value` decimal(20,2) DEFAULT NULL COMMENT '预算金额（归一数值）',
   `currency_code` char(3) DEFAULT NULL COMMENT '币种 ISO4217 码',
@@ -2343,6 +2345,20 @@ CREATE TABLE `ungm_1v1_appointments` (
   KEY `idx_ungm_1v1_status_created` (`status`,`created_at`),
   KEY `idx_ungm_1v1_contact_method` (`contact_method`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='预约专业服务顾问';
+
+-- 买家中文翻译字典：按唯一 buyer_key 翻译，公告只引用，不逐条翻译
+CREATE TABLE `buyer_translation` (
+  `buyer_key` varchar(255) NOT NULL COMMENT 'normalizeAliasKey(buyer_name)',
+  `buyer_name` varchar(500) NOT NULL COMMENT '规范买家名（原文）',
+  `buyer_name_zh` varchar(500) DEFAULT NULL COMMENT '中文买家名',
+  `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/translated/reviewed/failed',
+  `source_hash` char(64) DEFAULT NULL COMMENT '原文哈希，变化后重译',
+  `translated_at` bigint DEFAULT NULL,
+  `updated_at` bigint NOT NULL,
+  PRIMARY KEY (`buyer_key`),
+  KEY `idx_buyer_translation_status` (`status`),
+  KEY `idx_buyer_translation_name` (`buyer_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='买家中文翻译字典';
 
 SET FOREIGN_KEY_CHECKS = 1;
 

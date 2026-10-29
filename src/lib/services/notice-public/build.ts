@@ -32,11 +32,11 @@ export const PUBLIC_ADMIT_SQL = `(n.entry_source <> 'platform' OR n.rfq_status I
 /** 服务表列清单（= baseline.sql 的 notice_public 列集，门禁 N2 逐列比对） */
 export const PUBLIC_COLS = [
   "notice_pk", "notice_id", "source_url", "reference",
-  "title", "description", "description_cn", "content_level", "industry",
+  "title", "title_cn", "description", "description_cn", "content_level", "industry",
   "published_ts", "deadline_ts", "deadline_state", "deadline_type", "deadline_timezone",
   "country_code", "country_codes", "notice_type_code",
   "platform_name",
-  "buyer_name", "buyer_group",
+  "buyer_name", "buyer_name_cn", "buyer_group",
   "estimated_value", "currency_code", "currency_source",
   "contacts", "attachments", "external_links",
   "difficulty", "registration_level", "beneficiary_countries",
@@ -51,6 +51,8 @@ export interface PublicBuildContext {
   countrySnap: CountryAliasSnapshot;
   platformByHost: Map<string, PlatformEntry>;
   platformByAlias: Map<string, PlatformEntry>;
+  /** buyer_key（normalizeAliasKey）→ 中文买家名；来源 buyer_translation */
+  buyerTranslations: Map<string, string>;
 }
 
 export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildContext> {
@@ -76,7 +78,17 @@ export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildCon
       if (key) platformByAlias.set(key, entry);
     }
   }
-  return { agencyAliases, countrySnap, platformByHost, platformByAlias };
+  const buyerTranslations = new Map<string, string>();
+  const [btRows] = await pool.query(
+    `SELECT buyer_key, buyer_name_zh FROM buyer_translation
+      WHERE status = 'translated' AND buyer_name_zh IS NOT NULL AND buyer_name_zh <> ''`,
+  );
+  for (const r of btRows as RowDataPacket[]) {
+    const key = String(r.buyer_key ?? "").trim();
+    const zh = String(r.buyer_name_zh ?? "").trim();
+    if (key && zh) buyerTranslations.set(key, zh);
+  }
+  return { agencyAliases, countrySnap, platformByHost, platformByAlias, buyerTranslations };
 }
 
 function extractUrl(raw: unknown): string {
@@ -192,11 +204,13 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
             n.update_time,
             t.title_clean, t.title_quality, t.updated_at AS title_updated_at,
             b.body_text, b.body_chars, b.content_level,
-            d.deadline_state, d.deadline_type, d.deadline_timezone, d.effective_ts, d.confidence
+            d.deadline_state, d.deadline_type, d.deadline_timezone, d.effective_ts, d.confidence,
+            tr.title_tr AS title_cn
        FROM bid_notices n
        LEFT JOIN notice_title t ON t.notice_pk=n.id
        LEFT JOIN notice_body b ON b.notice_pk=n.id
        LEFT JOIN notice_deadline d ON d.notice_pk=n.id
+       LEFT JOIN notice_translations tr ON tr.notice_id=n.id AND tr.lang='zh'
       WHERE n.id IN (${chunk.map(() => "?").join(",")})`,
     chunk,
   );
@@ -339,15 +353,19 @@ export function buildPublicRow(
   const registration = normRegistration(r.registration_level);
   const contentZh = isOpp ? (opp?.cn ?? null) : null;
   const beneficiary = isOpp ? (opp?.beneficiary ?? null) : null;
+  const titleCn = String(r.title_cn ?? "").trim().slice(0, 1000) || null;
+  const buyerNameCn = buyerName
+    ? (ctx.buyerTranslations.get(normalizeAliasKey(buyerName)) ?? null)
+    : null;
 
   return [
     r.id, noticeId, extractUrl(r.url), String(r.reference ?? "").slice(0, 255) || null,
-    title.slice(0, 500), desc, contentZh, contentLevel,
+    title.slice(0, 500), titleCn, desc, contentZh, contentLevel,
     r.industry == null ? null : String(r.industry).slice(0, 100),
     publishedTs, deadlineTs, dstate, r.deadline_type ?? null, r.deadline_timezone ?? null,
     countryCode, JSON.stringify(countryCodes), noticeType,
     platform?.name ?? null,
-    buyerName, buyerGroup,
+    buyerName, buyerNameCn, buyerGroup,
     amount.amount, amount.currency, amount.currencySource,
     JSON.stringify(contacts.entries), JSON.stringify(attachments), JSON.stringify(externalLinks),
     difficulty, registration, beneficiary,

@@ -12,6 +12,7 @@ export interface NoticeListItem {
   sourceUrl?: string | null;
   reference?: string | null;
   title: string;
+  titleCn?: string | null;
   description?: string | null;
   descriptionCn?: string | null;
   contentLevel?: string | null;
@@ -27,6 +28,7 @@ export interface NoticeListItem {
   noticeTypeCode?: string | null;
   platformName?: string | null;
   buyerName?: string | null;
+  buyerNameCn?: string | null;
   buyerGroup?: string | null;
   estimatedValue?: string | number | null;
   currencyCode?: string | null;
