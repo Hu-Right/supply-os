@@ -61,7 +61,14 @@ export function formatNoticeDeadline(
   return `${prefix}${formatted}${tz ? ` (${tz})` : ""}`;
 }
 
-/** 参考编号优先，缺失才回退门户 notice_id；两处同一口径。 */
+/**
+ * 参考编号优先，缺失才回退门户 notice_id；两处同一口径。
+ * JP-GP（日本政府采购门户抓取管线）例外：该来源没有公开标号，reference 落的是
+ * 原站 URL 路径/base64（2026-10-28 已清存量 401 行，爬虫侧截断前此守卫防复发）——
+ * 编号是编号、网页是网页，一律显示平台编号 noticeId，不显示路径。
+ */
 export function formatNoticeReference(reference: unknown, noticeId: unknown): string {
-  return String(reference ?? "").trim() || String(noticeId ?? "").trim() || "";
+  const nid = String(noticeId ?? "").trim();
+  if (nid.startsWith("JP-GP-")) return nid;
+  return String(reference ?? "").trim() || nid || "";
 }
