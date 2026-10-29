@@ -69,7 +69,7 @@ export class FeasibilityReportRepo {
   async getNotice(noticePk: number): Promise<PublicNoticeRowLike | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT notice_pk, notice_id, title, description, description_cn, country_code, notice_type_code,
-              buyer_name, deadline_ts, deadline, attachments
+              buyer_name, deadline_ts, FROM_UNIXTIME(deadline_ts) AS deadline, attachments
          FROM notice_public WHERE notice_pk = ? LIMIT 1`,
       [noticePk],
     );
