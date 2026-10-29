@@ -22,14 +22,14 @@ vi.mock("@/lib/services/notice-public/read", () => ({ findPublicDetail }));
 
 // 机构译名链路：本文件只验路由「有没有把它接上 + 有没有改名下发」，
 // 取词口径由 tests/unit/.../format.agency-i18n.test.ts 钉住，故 mock 成可控写入。
-const { enrichAgencyI18n, ensureAgencyI18nWarmup } = vi.hoisted(() => ({
+const { enrichAgencyI18n, ensureAgencyDisplayWarmup } = vi.hoisted(() => ({
   enrichAgencyI18n: vi.fn((items: Array<Record<string, unknown>>) => {
     for (const item of items) item.agency_i18n = "拉脱维亚房地产局";
     return items;
   }),
-  ensureAgencyI18nWarmup: vi.fn(async () => undefined),
+  ensureAgencyDisplayWarmup: vi.fn(async () => undefined),
 }));
-vi.mock("@/lib/services/search-orchestrator/format", () => ({ enrichAgencyI18n, ensureAgencyI18nWarmup }));
+vi.mock("@/lib/services/search-orchestrator/format", () => ({ enrichAgencyI18n, ensureAgencyDisplayWarmup }));
 
 // 过渡期同时提供旧的 detailRepo：未迁移时当前代码仍走旧源 → 归一字段断言失败（RED 而非崩溃）
 const findDetailPublished = vi.fn();
@@ -130,7 +130,7 @@ describe("GET /api/notices/[id]/preview", () => {
 
     const body = await callPreview("1", "zh");
 
-    expect(ensureAgencyI18nWarmup).toHaveBeenCalledTimes(1);
+    expect(ensureAgencyDisplayWarmup).toHaveBeenCalledTimes(1);
     expect(body.agencyI18n).toBe("拉脱维亚房地产局");
     expect(body).not.toHaveProperty("agency_i18n");
     // 买家原名照旧下发：前端回退链 agencyI18n → buyerName 依赖它
@@ -142,7 +142,7 @@ describe("GET /api/notices/[id]/preview", () => {
 
     const body = await callPreview("1");
 
-    expect(ensureAgencyI18nWarmup).not.toHaveBeenCalled();
+    expect(ensureAgencyDisplayWarmup).not.toHaveBeenCalled();
     expect(body.agencyI18n).toBe("");
   });
 

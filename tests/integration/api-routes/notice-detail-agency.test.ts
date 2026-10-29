@@ -105,8 +105,9 @@ describe("GET /api/notices/[id]/detail 的机构名接线", () => {
 
     expect(ensureAgencyDisplayWarmup).toHaveBeenCalledTimes(1);
     expect(enrichAgencyI18n).toHaveBeenCalledTimes(1);
-    // 详情不得接国家级聚合桶，也不得接模式合成名（两者都会盖掉真实买家名）
-    expect(enrichAgencyI18n).toHaveBeenCalledWith([expect.any(Object)], "zh", { registeredOnly: true });
+    // [绝对准确 2026-10-29] 只认登记名已是全链唯一口径（列表/详情同一条链），
+    // 所以 enrichAgencyI18n 不再接受分层开关参数——详情传两参数即可，多传一个参就是回归。
+    expect(enrichAgencyI18n).toHaveBeenCalledWith([expect.any(Object)], "zh");
     expect(body.agencyI18n).toBe("拉脱维亚房地产局");
     // 行上的列名属存储层，不外露（命名红线②）
     expect(body).not.toHaveProperty("agency_i18n");
