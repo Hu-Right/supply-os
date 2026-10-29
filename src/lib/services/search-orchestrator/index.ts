@@ -26,6 +26,7 @@ import { isFullSyncRunning } from "../meilisearch/sync";
 import { tryRecover, getCachedDocCount } from "../meilisearch/client";
 import { referenceFastPath } from "./reference-fast-path";
 import { fetchDetailsByIds } from "./detail-fetch";
+import { repairNoticePublicIds } from "../notice-public/repair";
 import { formatItems } from "./format";
 import { logPerf, recordFallback } from "../search-common/metrics";
 import { requestIndexRebuild } from "../search-common/rebuild-trigger";
@@ -319,12 +320,30 @@ async function _searchCore(
   // 译文生产统一收敛到两条路径：定时任务（auto.ts 每日 06:00/13:00）与
   // 详情页按需翻译（/api/notices/:id/translation），均经 syncWideIds 级联回写宽表。
   const detailStart = Date.now();
-  const details = await fetchDetailsByIds(pool, ids, p.locale);
+  let details = await fetchDetailsByIds(pool, ids, p.locale);
+  if (details.length < ids.length) {
+    // 服务表覆盖兜底：Meili/宽表可能领先于服务表，先按缺失 ID 即时补建再取一次。
+    // 不把“total 有值、items 为空”直接返回给列表。
+    try {
+      const repaired = await repairNoticePublicIds(pool, ids);
+      if (repaired > 0) {
+        details = await fetchDetailsByIds(pool, ids, p.locale);
+        console.warn(`[search-orchestrator] 服务表覆盖修复 ids=${ids.length} repaired=${repaired} details=${details.length}`);
+      }
+    } catch (err) {
+      console.warn("[search-orchestrator] 服务表覆盖修复失败:", (err as Error).message);
+    }
+  }
   const detailMs = Date.now() - detailStart;
 
   // ── 格式化（prefs 模式逐文档计算匹配档次：公告自身 precise 节点码与用户画像比对，
   //    [阶段0 A2] 替代旧版整页统一赋分，放宽场景下深层精确命中不再被误标为宽泛相关）──
   const items = formatItems(details, p.locale, resolution.profileNodes ?? undefined);
+  // 覆盖兜底后仍为空：不能把 Meili/宽表的总数继续挂在 0 张卡片上。
+  if (items.length === 0 && total > 0) {
+    console.warn(`[search-orchestrator] total=${total} 但详情为 0，返回空结果（ids=${ids.length}）`);
+    total = 0;
+  }
 
   const result: UnifiedSearchResult = {
     items,
