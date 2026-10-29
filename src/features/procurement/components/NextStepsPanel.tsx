@@ -14,15 +14,10 @@ import {
   FileText,
   UserCheck,
   MessageSquareText,
-  Crown,
-  Briefcase,
-  Heart,
-  Bell,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { emitAppEvent } from "@/core/events";
 import { useLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
 import type { GateState } from "@/types";
 import type { NoticeItem } from "../types";
 import { GATE_BADGE_STYLE, GATE_LABEL_KEY } from "./NoticeDetail/utils";
@@ -40,10 +35,6 @@ export interface NextStepsPanelProps {
   notice: NoticeItem;
   /** 是否已登录 */
   isLoggedIn: boolean;
-  /** 是否为 VIP 会员 */
-  isVip: boolean;
-  /** 是否可使用付费配额 */
-  canUsePaidQuota?: boolean;
   /** 服务端按权益矩阵下发的门控状态（/api/membership/status） */
   gates?: Record<string, GateState> | undefined;
   /** 当前公告是否已解锁（会员打开即自动解锁）：决定「查看原始文件」是切 Tab 还是发起解锁 */
@@ -58,16 +49,12 @@ export interface NextStepsPanelProps {
   onBookConsultant?: () => void;
   /** 点击"加入跟进"的回调 */
   onJoinCrm?: () => void;
-  /** 点击"感兴趣"的回调 */
-  onExpressInterest?: (type: "interested" | "subscribed") => void;
 }
 
 /** 下一步动作面板 */
 export function NextStepsPanel({
   notice,
   isLoggedIn,
-  isVip,
-  canUsePaidQuota,
   gates,
   coreUnlocked,
   onUploadMaterials,
@@ -75,7 +62,6 @@ export function NextStepsPanel({
   onViewFiles,
   onBookConsultant,
   onJoinCrm,
-  onExpressInterest,
 }: NextStepsPanelProps) {
   const { t } = useLocale();
   const router = useRouter();
@@ -189,45 +175,8 @@ export function NextStepsPanel({
           );
         })}
       </div>
-
-      {/* 操作按钮组：仅桌面右列显示；移动端由固定底栏（NoticeDetailSidebar）承担，隐藏避免重复 */}
-      <div className="mt-3 pt-3 border-t border-slate-200 hidden md:flex gap-2">
-        <Button onClick={() => onExpressInterest?.("interested")} variant="primary" className="flex-1 min-w-0 gap-1.5 px-2 py-2 text-xs">
-          <Heart className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">{t("procurement_interested") || "感兴趣"}</span>
-        </Button>
-        <Button onClick={() => onExpressInterest?.("subscribed")} variant="dark" className="flex-1 min-w-0 gap-1.5 px-2 py-2 text-xs">
-          <Bell className="w-3.5 h-3.5 shrink-0 text-amber-300" />
-          <span className="truncate">{t("procurement_subscribeNotice") || "订阅商机"}</span>
-        </Button>
-        {/* 2026-10-29：会员打开公告即自动解锁、内容全可见 ⇒ 会员不再需要「查看/解锁」按钮，
-            仅免费用户看到升级 CTA（与移动端底栏同口径） */}
-        {!canUsePaidQuota && (
-          <Button
-            onClick={goMembership}
-            variant="cta"
-            className="flex-1 min-w-0 gap-1.5 px-2 py-2 text-xs"
-          >
-            <Crown className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{t("procurement_upgradeToUnlock") || "升级会员查看"}</span>
-          </Button>
-        )}
-      </div>
-
-      {/* 非 VIP 用户：底部升级提示（移动端由固定底栏承担，隐藏） */}
-      {!isVip && (
-        <div className="mt-3 pt-3 border-t border-slate-200 hidden md:block">
-          <Button
-            onClick={goMembership}
-            variant="dark"
-            className="w-full rounded-xl py-3 text-sm"
-          >
-            <Crown className="w-4 h-4" />
-            <Briefcase className="w-4 h-4" />
-            {t("detail_upgradeUnlock") || "升级会员，解锁完整执行信息"}
-          </Button>
-        </div>
-      )}
+      {/* 2026-10-29 操作条大一统：感兴趣/订阅/升级会员上移至详情头操作条（DetailHeader），
+          本面板回归纯「下一步动作」（权益推进路径）；移动端仍由固定底栏承担 */}
     </aside>
   );
 }

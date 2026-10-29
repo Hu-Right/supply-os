@@ -31,7 +31,7 @@ describe("NextStepsPanel（动作区由权益矩阵驱动）", () => {
   });
 
   it("渲染标题与 4 个动作（文案已对齐模块命名）", () => {
-    render(<NextStepsPanel notice={mockNotice} isLoggedIn isVip={false} gates={gatesOf()} />);
+    render(<NextStepsPanel notice={mockNotice} isLoggedIn gates={gatesOf()} />);
     expect(screen.getByText("detail_nextStepsTitle")).toBeInTheDocument();
     expect(screen.getByText("detail_stepUpload")).toBeInTheDocument();
     expect(screen.getByText("detail_stepUnlock")).toBeInTheDocument();
@@ -40,7 +40,7 @@ describe("NextStepsPanel（动作区由权益矩阵驱动）", () => {
   });
 
   it("角标由 gates 下发：已包含 / 需升级 取代硬编码档位标签", () => {
-    render(<NextStepsPanel notice={mockNotice} isLoggedIn isVip gates={gatesOf()} />);
+    render(<NextStepsPanel notice={mockNotice} isLoggedIn gates={gatesOf()} />);
     // evidence_library / original_file_access / order_crm = included；concierge_service = upgrade
     expect(screen.getAllByText("detail_gateIncluded")).toHaveLength(3);
     expect(screen.getByText("detail_gateUpgrade")).toBeInTheDocument();
@@ -51,7 +51,7 @@ describe("NextStepsPanel（动作区由权益矩阵驱动）", () => {
   });
 
   it("缺 gates 数据时四个动作保守回退「需升级」", () => {
-    render(<NextStepsPanel notice={mockNotice} isLoggedIn isVip gates={undefined} />);
+    render(<NextStepsPanel notice={mockNotice} isLoggedIn gates={undefined} />);
     expect(screen.getAllByText("detail_gateUpgrade")).toHaveLength(4);
   });
 
@@ -60,7 +60,7 @@ describe("NextStepsPanel（动作区由权益矩阵驱动）", () => {
     const onViewFiles = vi.fn();
     const { rerender } = render(
       <NextStepsPanel
-        notice={mockNotice} isLoggedIn isVip={false}
+        notice={mockNotice} isLoggedIn
         gates={gatesOf({ original_file_access: "included" })}
         coreUnlocked={false} onUnlock={onUnlock} onViewFiles={onViewFiles}
       />,
@@ -71,7 +71,7 @@ describe("NextStepsPanel（动作区由权益矩阵驱动）", () => {
 
     rerender(
       <NextStepsPanel
-        notice={mockNotice} isLoggedIn isVip={false}
+        notice={mockNotice} isLoggedIn
         gates={gatesOf({ original_file_access: "included" })}
         coreUnlocked onUnlock={onUnlock} onViewFiles={onViewFiles}
       />,
@@ -84,7 +84,7 @@ describe("NextStepsPanel（动作区由权益矩阵驱动）", () => {
     const onUnlock = vi.fn();
     render(
       <NextStepsPanel
-        notice={mockNotice} isLoggedIn isVip={false}
+        notice={mockNotice} isLoggedIn
         gates={gatesOf({ original_file_access: "upgrade" })}
         coreUnlocked={false} onUnlock={onUnlock}
       />,
@@ -97,20 +97,16 @@ describe("NextStepsPanel（动作区由权益矩阵驱动）", () => {
   it("「履约台账」动作触发加入跟进回调，缺失时跳转 /crm", () => {
     const onJoinCrm = vi.fn();
     const { rerender } = render(
-      <NextStepsPanel notice={mockNotice} isLoggedIn isVip={false} gates={gatesOf()} onJoinCrm={onJoinCrm} />,
+      <NextStepsPanel notice={mockNotice} isLoggedIn gates={gatesOf()} onJoinCrm={onJoinCrm} />,
     );
     fireEvent.click(screen.getByText("detail_stepCrm"));
     expect(onJoinCrm).toHaveBeenCalledTimes(1);
 
-    rerender(<NextStepsPanel notice={mockNotice} isLoggedIn isVip={false} gates={gatesOf()} />);
+    rerender(<NextStepsPanel notice={mockNotice} isLoggedIn gates={gatesOf()} />);
     fireEvent.click(screen.getByText("detail_stepCrm"));
     expect(pushMock).toHaveBeenCalledWith("/crm");
   });
 
-  it("非 VIP 显示升级按钮，VIP 不显示", () => {
-    const { rerender } = render(<NextStepsPanel notice={mockNotice} isLoggedIn isVip={false} gates={gatesOf()} />);
-    expect(screen.getByText("detail_upgradeUnlock")).toBeInTheDocument();
-    rerender(<NextStepsPanel notice={mockNotice} isLoggedIn isVip gates={gatesOf()} />);
-    expect(screen.queryByText("detail_upgradeUnlock")).toBeNull();
-  });
+  // 2026-10-29 操作条大一统：感兴趣/订阅/升级会员上移至 DetailHeader 操作条，
+  // 本面板不再渲染升级块（对应用例随功能迁移删除）。
 });

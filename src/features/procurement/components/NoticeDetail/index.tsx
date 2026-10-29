@@ -183,6 +183,10 @@ export function NoticeDetail({
           budgetText={budgetText} onBack={onBack} t={t} locale={locale}
           favorited={favorited} onToggleFavorite={onToggleFavorite}
           onShare={() => setShareOpen(true)}
+          // 操作条（2026-10-29 大一统）：感兴趣/订阅/升级会员与收藏分享同排
+          onExpressInterest={(type) => onExpressInterest(notice, type)}
+          canUsePaidQuota={canUsePaidQuota}
+          onUpgradeMembership={() => router.push(`/membership?notice_id=${notice.noticePk}`)}
         />
 
         <DetailTabs activeTab={activeTab} setActiveTab={setActiveTab} t={t} gates={membership?.gates} />
@@ -281,17 +285,16 @@ export function NoticeDetail({
           </main>
 
           {/* ── 右栏：下一步动作面板（首屏可见） ── */}
-          {/* onJoinCrm 不接订阅动作：四步引导的"加入CRM跟进"保持字面行为（跳转 /crm），
-              订阅商机按钮是 interest_type=subscribed 的唯一入口，避免同一请求两个入口 */}
+          {/* 2026-10-29 操作条大一统：感兴趣/订阅/升级会员上移至详情头操作条（DetailHeader）；
+              onJoinCrm 不接订阅动作：四步引导的"加入CRM跟进"保持字面行为（跳转 /crm），
+              订阅商机按钮是 interest_type=subscribed 的唯一入口（操作条），避免同一请求两个入口 */}
           <div className="space-y-4 lg:sticky lg:top-24">
             <NextStepsPanel
-              notice={notice} isLoggedIn={isLoggedIn} isVip={isVip}
-              canUsePaidQuota={canUsePaidQuota}
+              notice={notice} isLoggedIn={isLoggedIn}
               gates={membership?.gates}
               coreUnlocked={coreUnlocked}
               onUnlock={() => onUnlock(notice)}
               onViewFiles={() => setActiveTab("files")}
-              onExpressInterest={(type) => onExpressInterest(notice, type)}
             />
           </div>
         </div>
