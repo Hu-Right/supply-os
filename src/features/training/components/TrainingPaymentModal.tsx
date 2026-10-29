@@ -140,10 +140,10 @@ export default function TrainingPaymentModal({
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900">
-                          {t("tlPaymentSchedulePeriod").replace("{n}", String(s.period_number))}
+                          {t("tlPaymentSchedulePeriod").replace("{n}", String(s.periodNumber))}
                         </p>
                         <p className="mt-0.5 text-xs text-slate-500">
-                          {formatScheduleDate(s.start_date, locale)} · {s.city} · {s.format}
+                          {formatScheduleDate(s.startDate, locale)} · {s.city} · {s.format}
                         </p>
                       </div>
                       <span className="ml-3 shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-2xs font-bold text-emerald-700">
@@ -214,16 +214,16 @@ export default function TrainingPaymentModal({
       summaryNode={
         <>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-slate-600">{course?.name_zh}</span>
+            <span className="text-sm font-bold text-slate-600">{course?.nameZh}</span>
             <span className="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-xs text-white">
               {t("tlPaymentParticipants")}: {participantCount}
             </span>
           </div>
           {selectedSchedule && (
             <p className="mt-1 text-xs text-slate-500">
-              {t("tlPaymentSchedulePeriod").replace("{n}", String(selectedSchedule.period_number))}
+              {t("tlPaymentSchedulePeriod").replace("{n}", String(selectedSchedule.periodNumber))}
               {" · "}
-              {formatScheduleDate(selectedSchedule.start_date, locale)}
+              {formatScheduleDate(selectedSchedule.startDate, locale)}
               {" · "}
               {selectedSchedule.city}
             </p>

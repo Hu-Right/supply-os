@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { withRoute } from "@/lib/middleware/route-handler";
+import { trainingCourseViewOf, trainingSchedulesViewOf } from "@/lib/services/training/view";
 import type { ScheduleRow } from "@/lib/repos/training.repo";
 
 /**
@@ -38,7 +39,12 @@ export const GET = withRoute(async () => {
 
   // 课程 + 期次（报名支付的依据：course_id / schedule_id / 容量校验）
   const course = await trainingRepo.getActiveCourse();
-  const schedules = course ? keepUpcoming(await trainingRepo.listSchedules(course.id)) : [];
+  const upcoming = course ? keepUpcoming(await trainingRepo.listSchedules(course.id)) : [];
 
-  return NextResponse.json({ course, schedules });
+  // 两个值都是 `SELECT *` 整行，必须过视图才上网（旧写法里库里 12/11 列全部直接跟着出网）。
+  // 不写成三元内联：那种形状静态面看不见（本轮【丙】组就是这么漏掉 schedules 的）。
+  return NextResponse.json({
+    course: trainingCourseViewOf(course),
+    schedules: trainingSchedulesViewOf(upcoming),
+  });
 });

@@ -21,7 +21,7 @@ export function useTrainingSchedule(
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(initialScheduleId);
   const [participantCount, setParticipantCount] = useState(1);
 
-  const unitPrice = course?.unit_price ?? 0;
+  const unitPrice = course?.unitPrice ?? 0;
   const totalAmount = Math.round(unitPrice * participantCount * 100) / 100;
 
   const hasMultipleSchedules = openSchedules.length > 1;

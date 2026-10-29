@@ -275,12 +275,9 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   // 改名不产生差异。前端企业表单字段 key 就是列名、PUT 请求体也发列名，收口需按
   // 「响应 camel / 请求 snake」做一次单向映射（下一批，工作量按 15 键计）。
   "src/app/api/user/enterprise/route.ts#enterprise",
-  // GET /api/training/landing：getActiveCourse() 是 `SELECT * FROM training_courses` 的整行
-  // ——实测 12 键（name_zh/name_en/description_zh/description_en/unit_price/sort_order/
-  // created_at/updated_at 共 8 个带下划线）。同出口的 `schedules` 也是 SELECT *
-  // （listSchedules，实测 11 键含 course_id/period_number/start_date/enrolled_count/
-  // created_at/updated_at 6 个），但它写成三元表达式，本面目前看不见——收口时必须两条一起改。
-  "src/app/api/training/landing/route.ts#course",
+  // 【已收口 2026-10-29】原登记项 training/landing#course：出口改走
+  // trainingCourseViewOf / trainingSchedulesViewOf（两条 SELECT * 整行都过视图），
+  // 键集合由 tests/integration/api-routes/training-landing.test.ts 钉住。
   // GET /api/training/orders/[orderNo]/participants：getParticipantsByOrderId() 是
   // `SELECT * FROM training_participants` 整行（order_id/participant_no/full_name/
   // company_name/created_at/updated_at）——学员手机号与姓名原样下发，收口时顺带核隐私口径。

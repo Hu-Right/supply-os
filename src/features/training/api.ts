@@ -10,30 +10,32 @@
 import { api, apiCached } from "@/core/http";
 import type { IndustryTreeOption } from "@/lib/services/industry-facets";
 
-// ── 落地页动态数据类型（与后端 GET /api/training/landing 对齐） ──
+// ── 落地页动态数据类型（与后端 GET /api/training/landing 对齐，红线② camelCase）──
 // 说明：落地页仅课程与期次走动态数据（支撑报名支付链路）；
+//       同域的**请求体**（CreateTrainingOrderRequest 等）仍用 snake 列名口径，
+//       红线②只约束响应实体字段。
 //       讲师/团队/课堂照片与全部文案均为前端静态配置 + i18n。
 
 export interface LandingCourse {
   id: number;
-  name_zh: string;
-  name_en: string | null;
-  description_zh: string | null;
-  description_en: string | null;
-  unit_price: number;
+  nameZh: string;
+  nameEn: string | null;
+  descriptionZh: string | null;
+  descriptionEn: string | null;
+  unitPrice: number;
   currency: string;
   includes: string[];
 }
 
 export interface LandingSchedule {
   id: number;
-  period_number: number;
-  start_date: string | Date;
+  periodNumber: number;
+  startDate: string | Date;
   city: string;
   format: string;
   status: string;
   capacity: number | null;
-  enrolled_count: number;
+  enrolledCount: number;
 }
 
 export interface LandingDataResponse {

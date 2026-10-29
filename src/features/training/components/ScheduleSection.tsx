@@ -55,8 +55,8 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
                 <tbody>
                   {visibleSchedules.map((s) => (
                     <tr key={s.id} className="border-t border-slate-100">
-                      <td className="px-4 py-3 font-bold text-training-navy">{t("tlSchPeriodNo").replace("{n}", String(s.period_number))}</td>
-                      <td className="px-4 py-3 text-slate-600">{formatScheduleDate(s.start_date, locale)}</td>
+                      <td className="px-4 py-3 font-bold text-training-navy">{t("tlSchPeriodNo").replace("{n}", String(s.periodNumber))}</td>
+                      <td className="px-4 py-3 text-slate-600">{formatScheduleDate(s.startDate, locale)}</td>
                       <td className="px-4 py-3 text-slate-600">{s.city}</td>
                       <td className="px-4 py-3 text-slate-600">{s.format}</td>
                       <td className={`px-4 py-3 font-bold ${getStatusColor(s.status)}`}>
@@ -78,10 +78,10 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
             <div className="mt-6 overflow-hidden rounded-lg shadow-[0_4px_16px_rgba(10,42,85,0.10)]">
               {/* 上部藏青：课程名 + 价格 + 副标题 */}
               <div className="bg-[#11437E] p-6 text-white text-center">
-                <p className="text-base font-black">{pickLocale(locale, course.name_zh, course.name_en)}</p>
+                <p className="text-base font-black">{pickLocale(locale, course.nameZh, course.nameEn)}</p>
                 <p className="mt-3 text-4xl font-black">
                   <span className="align-top text-xl">¥</span>
-                  {course.unit_price.toLocaleString("zh-CN")}
+                  {course.unitPrice.toLocaleString("zh-CN")}
                   <span className="ml-1 text-base font-bold text-slate-300">{t("tlPricePerPerson")}</span>
                 </p>
                 <p className="mt-2 text-center text-xs text-slate-300">{t("tlFeeSub")}</p>

@@ -47,12 +47,12 @@ export function HeroSection({ course, onEnroll, onConsult }: HeroSectionProps) {
       <GlobeDots />
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <h1 className="text-3xl md:text-5xl font-black tracking-wide">
-          {course ? pickLocale(locale, course.name_zh, course.name_en) : t("tlFootBrandCourse")}
+          {course ? pickLocale(locale, course.nameZh, course.nameEn) : t("tlFootBrandCourse")}
         </h1>
         <p className="mt-5 text-lg md:text-2xl font-bold text-white tracking-wider">{t("tlHeroSubtitle")}</p>
         <p className="mt-5 max-w-2xl text-sm md:text-base leading-relaxed text-slate-300">
-          {course?.description_zh || course?.description_en
-            ? pickLocale(locale, course.description_zh || "", course.description_en)
+          {course?.descriptionZh || course?.descriptionEn
+            ? pickLocale(locale, course.descriptionZh || "", course.descriptionEn)
             : t("tlHeroDesc")}
         </p>
 

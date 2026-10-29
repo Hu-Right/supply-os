@@ -138,11 +138,11 @@ import type { LandingCourse, LandingSchedule } from "@/features/training/api";
 function makeCourse(overrides?: Partial<LandingCourse>): LandingCourse {
   return {
     id: 1,
-    name_zh: "联合国采购研修班",
-    name_en: "UN Procurement Training",
-    description_zh: "desc",
-    description_en: null,
-    unit_price: 1000,
+    nameZh: "联合国采购研修班",
+    nameEn: "UN Procurement Training",
+    descriptionZh: "desc",
+    descriptionEn: null,
+    unitPrice: 1000,
     currency: "CNY",
     includes: [],
     ...overrides,
@@ -152,13 +152,13 @@ function makeCourse(overrides?: Partial<LandingCourse>): LandingCourse {
 function makeSchedule(overrides?: Partial<LandingSchedule>): LandingSchedule {
   return {
     id: 1,
-    period_number: 1,
-    start_date: "2026-09-15",
+    periodNumber: 1,
+    startDate: "2026-09-15",
     city: "北京",
     format: "线下",
     status: "open",
     capacity: 30,
-    enrolled_count: 10,
+    enrolledCount: 10,
     ...overrides,
   };
 }
@@ -210,8 +210,8 @@ describe("TrainingPaymentModal", () => {
 
     it("多期次时显示期次选择器", () => {
       const schedules = [
-        makeSchedule({ id: 1, period_number: 1 }),
-        makeSchedule({ id: 2, period_number: 2, start_date: "2026-10-15" }),
+        makeSchedule({ id: 1, periodNumber: 1 }),
+        makeSchedule({ id: 2, periodNumber: 2, startDate: "2026-10-15" }),
       ];
       render(<TrainingPaymentModal {...defaultProps} schedules={schedules} />);
       // 多期次时 SelectableCard 被渲染
@@ -220,8 +220,8 @@ describe("TrainingPaymentModal", () => {
 
     it("defaultScheduleId 优先级最高", () => {
       const schedules = [
-        makeSchedule({ id: 1, period_number: 1 }),
-        makeSchedule({ id: 2, period_number: 2 }),
+        makeSchedule({ id: 1, periodNumber: 1 }),
+        makeSchedule({ id: 2, periodNumber: 2 }),
       ];
       render(<TrainingPaymentModal {...defaultProps} schedules={schedules} defaultScheduleId={2} />);
       // defaultScheduleId=2 → 第二个被选中
@@ -321,7 +321,7 @@ describe("TrainingPaymentModal", () => {
     it("金额 = 单价 × 人数", async () => {
       mockSubmitTrainingRegister.mockResolvedValue({ success: true, id: 1 });
 
-      render(<TrainingPaymentModal {...defaultProps} course={makeCourse({ unit_price: 500 })} />);
+      render(<TrainingPaymentModal {...defaultProps} course={makeCourse({ unitPrice: 500 })} />);
 
       // 默认 1 人 → 500
       fireEvent.change(screen.getByTestId("company-name-input"), { target: { value: "公司" } });
@@ -396,8 +396,8 @@ describe("TrainingPaymentModal", () => {
   describe("fmtDate 日期格式化", () => {
     it("中文环境显示「年月日」格式", () => {
       const schedules = [
-        makeSchedule({ id: 1, start_date: "2026-01-20" }),
-        makeSchedule({ id: 2, start_date: "2026-06-15", status: "open" }),
+        makeSchedule({ id: 1, startDate: "2026-01-20" }),
+        makeSchedule({ id: 2, startDate: "2026-06-15", status: "open" }),
       ];
       render(
         <TrainingPaymentModal
