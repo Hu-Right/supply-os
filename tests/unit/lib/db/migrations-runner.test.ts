@@ -104,9 +104,9 @@ describe("runMigrations", () => {
 
 describe("ensureProcurementSchema", () => {
   it("当前所有迁移版本均已应用：调用等价于只做账本检查（幂等，返回 0）", async () => {
-    // ALL_MIGRATIONS 现含 version 1..6（…/rfq_outreach/feasibility_report）；
+    // ALL_MIGRATIONS 现含 version 1..7（…/rfq_outreach/feasibility_report/evidence_filename）；
     // 全部登记为已应用后，pending 为空 → 执行数 0。
-    const { pool } = makePool({ applied: [1, 2, 3, 4, 5, 6] });
+    const { pool } = makePool({ applied: [1, 2, 3, 4, 5, 6, 7] });
 
     await expect(ensureProcurementSchema(pool)).resolves.toBe(0);
   });
