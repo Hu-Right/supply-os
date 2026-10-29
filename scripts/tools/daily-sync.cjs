@@ -10,8 +10,10 @@
  * 内网爬虫数据 → 线上生产库 定时增量同步
  *
  * 用法:
- *   node daily-sync.cjs               # 持续运行，每小时同步一次
- *   node daily-sync.cjs --once        # 只跑一次（手动触发 / cron 调用）
+ *   node daily-sync.cjs               # 持续运行，每小时同步一次（不得挂 cron，见下方停用说明）
+ *   node daily-sync.cjs --once        # 只跑一次（手动补跑）
+ *   node daily-sync.cjs --once --dry-run # 只读体检：解析源库表名 + 报待同步行数，不写库、不推进水位、不刷服务表
+ *                                        # （仍会跑只读的内容对账；只想快速看数就再加 --no-reconcile）
  *   node daily-sync.cjs --print-config # 只打印解析后的连接配置（密码掩码）与取值来源，不连库
  *   node daily-sync.cjs --once --apply        # 单轮：增量 upsert + 内容对账，并把差异行真正写回目标
  *   node daily-sync.cjs --once --no-reconcile # 单轮：只做旧「水位线增量」，完全不做内容对账
@@ -31,6 +33,9 @@
  *   SYNC_TARGET_PASSWORD   目标库密码（取 SYNC_TARGET_PASSWORD 或 DB_PASSWORD；
  *                          ⚠️ 无默认值——目标库是生产主库，两者都缺即报错退出，不再内置明文兜底）
  *   SYNC_TARGET_DATABASE   目标库库名（默认取 DB_NAME，再退到 crm）
+ *   SYNC_SOURCE_TABLE_PREFIX 源库表名前缀（默认空）。2026-10-28「去 crm_ 前缀」批次只改了
+ *                          云库与仓库代码，内网源库仍是旧表名（bid_notices → crm_bid_notices）
+ *                          时设 "crm_" 兼容；目标库与水位线键始终用现行表名。内网改名后清空即可。
  *
  *   目标库就是应用主库，所以默认整体继承 .env 的 DB_*（单一事实源），
  *   只有需要临时指向别的库时才显式设 SYNC_TARGET_*；变量命名与 .env.example /
@@ -220,6 +225,19 @@ const SYNC_TABLES = [
   // bid_awards / bid_award_winners 无需同步——数据本身就在云端库中
 ];
 
+/**
+ * 源库表名前缀：目标库/水位线键/列所有权登记一律用 SYNC_TABLES 里的现行名；
+ * 只有「读源库」这一步可能要用旧前缀——2026-10-28「去 crm_ 前缀」批次改了云库与仓库代码，
+ * 内网源库（192.168.1.14/crm）尚未改名，仍是 crm_bid_notices / crm_bid_opportunities。
+ * 用 SYNC_SOURCE_TABLE_PREFIX="crm_" 兼容；内网改名后清空即可，本分支自然失效。
+ */
+const SOURCE_TABLE_PREFIX = readEnv('SOURCE.tablePrefix', ['SYNC_SOURCE_TABLE_PREFIX'], '');
+if (SOURCE_TABLE_PREFIX && !/^[A-Za-z0-9_]+$/.test(SOURCE_TABLE_PREFIX)) {
+  fatal(`SYNC_SOURCE_TABLE_PREFIX 只允许字母/数字/下划线: ${JSON.stringify(SOURCE_TABLE_PREFIX)}`);
+}
+/** 目标表名（现行名）→ 源库实际表名 */
+const sourceTableName = (table) => `${SOURCE_TABLE_PREFIX}${table}`;
+
 const BATCH_SIZE = 200;
 
 // 内容对账：片大小（按行数取窗口边界，本表 id 稀疏不能按固定步长）与差异行 IN 分块。
@@ -264,6 +282,8 @@ const WATERMARK_FILE = path.join(__dirname, '.sync-watermark.json');
 const SERVICE_WATERMARK_FILE = path.join(__dirname, '.service-watermark.json');
 const ONCE_MODE = process.argv.includes('--once');
 const PRINT_CONFIG_MODE = process.argv.includes('--print-config');
+// 只读体检：解析源库表名 + 报待同步行数，不写库、不推进水位、不刷服务表（连库但零写入）
+const DRY_RUN = process.argv.includes('--dry-run');
 const APPLY_RECONCILE = process.argv.includes('--apply'); // 对账真正写入（否则仅 DRY 预览）
 const NO_RECONCILE = process.argv.includes('--no-reconcile'); // 整体跳过内容对账
 
@@ -289,6 +309,10 @@ if (PRINT_CONFIG_MODE) {
   show('SOURCE', SOURCE);
   show('TARGET', TARGET);
   console.log(`SYNC_INTERVAL_MS = ${SYNC_INTERVAL}  来源: ${ENV_PROVENANCE['SYNC_INTERVAL_MS']}`);
+  console.log(`SYNC_SOURCE_TABLE_PREFIX = ${SOURCE_TABLE_PREFIX || '(空)'}  来源: ${ENV_PROVENANCE['SOURCE.tablePrefix']}`);
+  if (SOURCE_TABLE_PREFIX) {
+    console.log(`  源库表名映射: ${SYNC_TABLES.map((t) => `${t} → ${sourceTableName(t)}`).join(' | ')}`);
+  }
   console.log(`.env 路径 = ${ENV_FILE_PATH}`);
   process.exit(0);
 }
@@ -371,7 +395,7 @@ function buildWatermark(hasUpdateTime, maxId, maxUpdateTime) {
 
 const _colCache = new Map();
 
-async function getTableColumns(pool, table, cacheNs) {
+async function getTableColumns(pool, table, cacheNs, database) {
   const cacheKey = `${cacheNs}:${table}`;
   if (_colCache.has(cacheKey)) return _colCache.get(cacheKey);
   const [columns] = await pool.execute(
@@ -379,7 +403,7 @@ async function getTableColumns(pool, table, cacheNs) {
      FROM information_schema.columns
      WHERE table_schema = ? AND table_name = ? AND EXTRA NOT LIKE '%GENERATED%'
      ORDER BY ordinal_position`,
-    [SOURCE.database, table]
+    [database, table]
   );
   _colCache.set(cacheKey, columns);
   return columns;
@@ -417,10 +441,18 @@ function escapeVal(val, dataType) {
 // 水位线增量 upsert（批量）
 // ═══════════════════════════════════════════
 
-async function syncTable(source, target, table, watermark, onWatermark) {
+async function syncTable(source, target, table, sourceTable, watermark, onWatermark, dryRun) {
   const t0 = Date.now();
-  const columns = await getTableColumns(source, table, 'source');
-  const targetColumns = await getTableColumns(target, table, 'target');
+  const columns = await getTableColumns(source, sourceTable, 'source', SOURCE.database);
+  const targetColumns = await getTableColumns(target, table, 'target', TARGET.database);
+  // 缺表单独报：否则会被下面的「无主键」误导成建表缺陷（2026-10-29 实测：源库还是 crm_ 旧表名时踩过）
+  if (columns.length === 0 || targetColumns.length === 0) {
+    const missing = columns.length === 0
+      ? `源库 ${SOURCE.database}.${sourceTable}（检查 SYNC_SOURCE_TABLE_PREFIX）`
+      : `目标库 ${TARGET.database}.${table}`;
+    log(`  ⚠ ${table}: ${missing} 不存在，跳过`);
+    return { synced: 0, newWatermark: watermark };
+  }
   const targetColSet = new Set(targetColumns.map(c => c.COLUMN_NAME));
   // 源/目标 schema 可能漂移（爬虫新增列）：只同步交集列，缺失列告警跳过，避免 Unknown column 中断整轮同步
   const missingCols = columns.map(c => c.COLUMN_NAME).filter(n => !targetColSet.has(n));
@@ -477,9 +509,15 @@ async function syncTable(source, target, table, watermark, onWatermark) {
   const whereClause = baseWhere ? `WHERE ${baseWhere}` : '';
 
   const [countRows] = await source.execute(
-    `SELECT COUNT(*) AS cnt FROM \`${table}\` ${whereClause}`
+    `SELECT COUNT(*) AS cnt FROM \`${sourceTable}\` ${whereClause}`
   );
   const newCount = Number(countRows[0].cnt);
+
+  // 只读体检：报数即止（不拉行、不写目标、不推进水位）
+  if (dryRun) {
+    log(`  ${table}: 待同步 ${newCount} 行（源库 ${SOURCE.database}.${sourceTable}，DRY 未写入）`);
+    return { synced: newCount, newWatermark: watermark };
+  }
 
   if (newCount === 0) {
     return { synced: 0, newWatermark: watermark };
@@ -499,7 +537,7 @@ async function syncTable(source, target, table, watermark, onWatermark) {
     const conds = [baseWhere, lastPk !== null ? `\`${pkCol}\` > ${lastPk}` : null].filter(Boolean);
     const pageWhere = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
     const [rows] = await source.execute(
-      `SELECT * FROM \`${table}\` ${pageWhere} ORDER BY \`${pkCol}\` ASC LIMIT ${BATCH_SIZE}`
+      `SELECT * FROM \`${sourceTable}\` ${pageWhere} ORDER BY \`${pkCol}\` ASC LIMIT ${BATCH_SIZE}`
     );
     if (rows.length === 0) break;
     const lastId = Number(rows[rows.length - 1][pkCol]);
@@ -580,17 +618,25 @@ function normForCompare(v) {
  *     keepCols 本就要保留目标值，其差异不应触发补同步（否则空转）；
  *   - 补写沿用与增量完全一致的 updateClause（源直覆 / keepCols 保留），只增不删。
  * @param {boolean} opts.dry 默认 true：只统计待补行数与差异列分解，不写库；false 才 upsert。
+ * @param {string} sourceTable 源库实际表名（现行名 + SYNC_SOURCE_TABLE_PREFIX）；目标库始终写现行名
  */
-async function reconcileTable(source, target, table, opts) {
+async function reconcileTable(source, target, table, sourceTable, opts) {
   const dry = opts.dry !== false; // 默认 DRY
   const slice = opts.sliceSize || RECONCILE_SLICE;
 
-  const columns = await getTableColumns(source, table, 'source');
-  const targetColumns = await getTableColumns(target, table, 'target');
+  const columns = await getTableColumns(source, sourceTable, 'source', SOURCE.database);
+  const targetColumns = await getTableColumns(target, table, 'target', TARGET.database);
+  const result = { scanned: 0, drift: 0, colCounts: {}, applied: 0, immuneSkipped: 0 };
+  if (columns.length === 0 || targetColumns.length === 0) {
+    const missing = columns.length === 0
+      ? `源库 ${SOURCE.database}.${sourceTable}（检查 SYNC_SOURCE_TABLE_PREFIX）`
+      : `目标库 ${TARGET.database}.${table}`;
+    log(`  [对账] ${table}: ${missing} 不存在，跳过`);
+    return result;
+  }
   const effCols = ds.computeEffectiveColumns(columns, targetColumns);
   const pkCols = columns.filter(c => c.COLUMN_KEY === 'PRI').map(c => c.COLUMN_NAME);
   const pkCol = pkCols[0];
-  const result = { scanned: 0, drift: 0, colCounts: {}, applied: 0, immuneSkipped: 0 };
   if (!pkCol) { log(`  [对账] ${table}: 无主键，跳过`); return result; }
   // 与增量同一道免疫拦截：平台行不进补写集（fpCols 已排掉不回退的列，这里排掉整行）
   const immuneIds = await loadPlatformImmuneIds(target, table, pkCol);
@@ -620,7 +666,7 @@ async function reconcileTable(source, target, table, opts) {
   let lastHi = 0;
   for (;;) {
     const [ws] = await source.execute(
-      `SELECT MIN(id) lo, MAX(id) hi, COUNT(*) n FROM (SELECT \`${pkCol}\` id FROM \`${table}\` WHERE \`${pkCol}\` > ? ORDER BY \`${pkCol}\` ASC LIMIT ${slice}) t`,
+      `SELECT MIN(id) lo, MAX(id) hi, COUNT(*) n FROM (SELECT \`${pkCol}\` id FROM \`${sourceTable}\` WHERE \`${pkCol}\` > ? ORDER BY \`${pkCol}\` ASC LIMIT ${slice}) t`,
       [lastHi]
     );
     const w = ws[0];
@@ -630,15 +676,17 @@ async function reconcileTable(source, target, table, opts) {
     const range = `\`${pkCol}\` BETWEEN ${w.lo} AND ${w.hi}`;
 
     // 片级粗筛：两侧一次聚合，行数 + 聚合指纹都相等才跳过（SUM 与行序无关，跨库可比）
-    const aggSql = `SELECT COUNT(*) n, ${sliceFp} fp FROM \`${table}\` WHERE ${range}`;
-    const [sagg] = await source.execute(aggSql);
-    const [tagg] = await target.execute(aggSql);
+    const aggSqlSrc = `SELECT COUNT(*) n, ${sliceFp} fp FROM \`${sourceTable}\` WHERE ${range}`;
+    const aggSqlTgt = `SELECT COUNT(*) n, ${sliceFp} fp FROM \`${table}\` WHERE ${range}`;
+    const [sagg] = await source.execute(aggSqlSrc);
+    const [tagg] = await target.execute(aggSqlTgt);
     if (Number(sagg[0].n) === Number(tagg[0].n) && String(sagg[0].fp) === String(tagg[0].fp)) continue;
 
     // 下钻到行：源、目标各取 (pk, 行指纹)，定位差异行（含目标缺行）
-    const rowSql = `SELECT \`${pkCol}\` AS id, ${rowFp} AS fp FROM \`${table}\` WHERE ${range}`;
-    const [srows] = await source.execute(rowSql);
-    const [trows] = await target.execute(rowSql);
+    const rowSqlSrc = `SELECT \`${pkCol}\` AS id, ${rowFp} AS fp FROM \`${sourceTable}\` WHERE ${range}`;
+    const rowSqlTgt = `SELECT \`${pkCol}\` AS id, ${rowFp} AS fp FROM \`${table}\` WHERE ${range}`;
+    const [srows] = await source.execute(rowSqlSrc);
+    const [trows] = await target.execute(rowSqlTgt);
     const driftIds = ds.selectDriftIds(srows, trows);
     if (driftIds.length === 0) continue;
     result.drift += driftIds.length;
@@ -653,11 +701,12 @@ async function reconcileTable(source, target, table, opts) {
       const chunk = todoIds.slice(i, i + RECONCILE_IN_BATCH).map(Number).filter(Number.isFinite);
       if (chunk.length === 0) continue;
       const ph = chunk.map(() => '?').join(',');
-      const selByPk = `SELECT ${insertColList} FROM \`${table}\` WHERE \`${pkCol}\` IN (${ph})`;
-      const [sfull] = await source.execute(selByPk, chunk);
+      const selByPkSrc = `SELECT ${insertColList} FROM \`${sourceTable}\` WHERE \`${pkCol}\` IN (${ph})`;
+      const selByPkTgt = `SELECT ${insertColList} FROM \`${table}\` WHERE \`${pkCol}\` IN (${ph})`;
+      const [sfull] = await source.execute(selByPkSrc, chunk);
       if (dry) {
         // DRY 模式才取目标全行做差异列分解（报告用）
-        const [tfull] = await target.execute(selByPk, chunk);
+        const [tfull] = await target.execute(selByPkTgt, chunk);
         const tmap = new Map(tfull.map(r => [Number(r[pkCol]), r]));
         for (const sr of sfull) {
           const tr = tmap.get(Number(sr[pkCol]));
@@ -720,11 +769,11 @@ function saveServiceWatermark(lastSuccess) {
  * 此外永远排除平台行（PLATFORM_IMMUNE）：那些行本仓自建、源库永远没有。
  * 真删前先把 id 清单落 runtime/backups/，按单行主键可重灌。
  */
-async function pruneSourceDeleted(source, target) {
+async function pruneSourceDeleted(source, target, sourceTable) {
   const table = 'bid_notices';
-  log(`  ── 源撤回下传（${table}）${APPLY_RECONCILE ? '· 将删除' : '· DRY 预览（加 --apply 才删除）'} ──`);
+  log(`  ── 源撤回下传（${table}，源库读 ${sourceTable}）${APPLY_RECONCILE ? '· 将删除' : '· DRY 预览（加 --apply 才删除）'} ──`);
 
-  const [srcRows] = await source.query(`SELECT id FROM \`${table}\``);
+  const [srcRows] = await source.query(`SELECT id FROM \`${sourceTable}\``);
   const srcIds = new Set(srcRows.map(r => Number(r.id)));
   if (srcIds.size === 0) throw new Error('G1 源库 id 集为空：视为连接故障，中止');
 
@@ -823,44 +872,58 @@ async function runSyncOnce() {
     const stats = {};
     let totalSynced = 0;
 
+    // 源库表名映射先落一行日志：源/目标不同名时，这一行就是排障第一现场
+    if (SOURCE_TABLE_PREFIX) {
+      log(`  源库表名前缀 ${JSON.stringify(SOURCE_TABLE_PREFIX)}（SYNC_SOURCE_TABLE_PREFIX）→ ${SYNC_TABLES.map((t) => `${t}=${sourceTableName(t)}`).join('、')}`);
+    }
+
     for (const table of SYNC_TABLES) {
       const wm = watermarks[table] || 0;
       const t1 = Date.now();
-      const result = await syncTable(source, target, table, wm, wm2 => {
+      const result = await syncTable(source, target, table, sourceTableName(table), wm, DRY_RUN ? undefined : (wm2 => {
         watermarks[table] = wm2;
         saveWatermarks(watermarks);
-      });
+      }), DRY_RUN);
       stats[table] = result.synced;
       totalSynced += result.synced;
-      watermarks[table] = result.newWatermark;
-      saveWatermarks(watermarks);
-      const tableElapsed = Date.now() - t1;
-      log(`  ${table}: 新增 ${result.synced} 条 | 耗时 ${fmtDuration(tableElapsed)}`);
+      if (!DRY_RUN) {
+        watermarks[table] = result.newWatermark;
+        saveWatermarks(watermarks);
+        const tableElapsed = Date.now() - t1;
+        log(`  ${table}: 新增 ${result.synced} 条 | 耗时 ${fmtDuration(tableElapsed)}`);
+      }
     }
 
     // ── 内容对账：接住「documents 等被补写但不推 update_time」的漏同步行（默认 DRY，--apply 才写）──
     if (!NO_RECONCILE) {
-      log(`  ── 内容对账（按全列行指纹）${APPLY_RECONCILE ? '· 将写入' : '· DRY 预览（加 --apply 才写入）'} ──`);
+      const dryReconcile = DRY_RUN || !APPLY_RECONCILE;
+      log(`  ── 内容对账（按全列行指纹）${dryReconcile ? '· DRY 预览' : '· 将写入'} ──`);
       for (const table of SYNC_TABLES) {
         const t2 = Date.now();
-        const r = await reconcileTable(source, target, table, { dry: !APPLY_RECONCILE, sliceSize: RECONCILE_SLICE });
+        const r = await reconcileTable(source, target, table, sourceTableName(table), { dry: dryReconcile, sliceSize: RECONCILE_SLICE });
         const entries = Object.entries(r.colCounts).sort((a, b) => b[1] - a[1]);
-        log(`  [对账] ${table}: 扫描 ${r.scanned} 行 · 差异 ${r.drift} 行 · ${APPLY_RECONCILE ? `已补同步 ${r.applied} 行` : '未写入'} | 耗时 ${fmtDuration(Date.now() - t2)}`);
+        log(`  [对账] ${table}: 扫描 ${r.scanned} 行 · 差异 ${r.drift} 行 · ${dryReconcile ? '未写入' : `已补同步 ${r.applied} 行`} | 耗时 ${fmtDuration(Date.now() - t2)}`);
         if (entries.length) log(`        差异列分解：${entries.map(([k, v]) => `${k}×${v}`).join(', ')}`);
       }
     }
 
     // ── 源撤回下传：默认关，需显式 --prune-source-deleted（护栏任一不过即中止）──
     if (PRUNE_SOURCE_DELETED) {
-      try {
-        await pruneSourceDeleted(source, target);
-      } catch (err) {
-        log(`  [源撤回] 中止: ${err.message}`);
+      if (DRY_RUN) {
+        log('  [源撤回] DRY：跳过（--dry-run 不做任何删除）');
+      } else {
+        try {
+          await pruneSourceDeleted(source, target, sourceTableName('bid_notices'));
+        } catch (err) {
+          log(`  [源撤回] 中止: ${err.message}`);
+        }
       }
     }
 
     // ── 服务表归一化：主表同步/对账完成后，只重算「输入比交付层新/服务表缺行」的行 ──
-    if (!process.argv.includes('--no-service')) {
+    if (DRY_RUN) {
+      log('  [服务表] DRY：跳过归一化（--dry-run 不写服务表）');
+    } else if (!process.argv.includes('--no-service')) {
       try {
         runServiceNormalization();
         saveServiceWatermark(syncStartedAt);
@@ -873,7 +936,7 @@ async function runSyncOnce() {
     await target.execute('SET FOREIGN_KEY_CHECKS=1');
 
     const elapsed = Date.now() - t0;
-    log(`同步完成 | 总计 ${totalSynced} 条 | 总耗时 ${fmtDuration(elapsed)}`);
+    log(`同步完成 | 总计 ${totalSynced} 条${DRY_RUN ? '（DRY：未写入任何库表/水位）' : ''} | 总耗时 ${fmtDuration(elapsed)}`);
   } finally {
     await source.end().catch(() => {});
     await target.end().catch(() => {});
