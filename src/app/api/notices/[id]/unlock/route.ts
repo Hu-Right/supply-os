@@ -54,7 +54,8 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       }
       if (err instanceof QuotaExceededError) {
         const code = err.code === "FREE_LIMIT_REACHED" ? EC_FREE_LIMIT_REACHED : EC_PAID_QUOTA_REQUIRED;
-        const message = err.code === "FREE_LIMIT_REACHED" ? "免费查看次数已用完" : "付费查看次数已用完";
+        // 免费试用已移除、付费档矩阵为不限量（-1）⇒ 402 只可能意味着「非会员」，按会员专属口径提示
+        const message = "该内容为会员专属，升级会员后可查看完整信息。";
         routeError(402, code, message);
       }
       throw err;

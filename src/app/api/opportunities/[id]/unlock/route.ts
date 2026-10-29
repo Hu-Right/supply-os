@@ -60,9 +60,9 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     } catch (err) {
       if (err instanceof OpportunityUnlockError) {
         if (err.code === "FREE_LIMIT_REACHED") {
-          routeError(402, EC_FREE_LIMIT_REACHED, "免费查看次数已用完");
+          routeError(402, EC_FREE_LIMIT_REACHED, "该内容为会员专属，升级会员后可查看完整信息。");
         }
-        routeError(402, EC_PAID_QUOTA_REQUIRED, "付费查看次数已用完，请开通会员");
+        routeError(402, EC_PAID_QUOTA_REQUIRED, "该内容为会员专属，升级会员后可查看完整信息。");
       }
       throw err;
     }
