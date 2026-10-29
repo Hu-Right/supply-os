@@ -62,11 +62,11 @@
   "myRecordsUnlocksTitle": "我的已解锁采购",
   "myRecordsUnlocksDesc": "集中管理已可查看完整信息的采购",
   "myRecordsUnlocksHint": "点击进入已解锁采购列表",
-    "myRecordsLearningMaterial": "学习资料",
-    "myRecordsServiceOrder": "增值服务订单",
-    "myRecordsLearningBundle": "资料套餐",
-    "myRecordsTraining": "研修班培训",
-      "myRecordsMembershipOrder": "会员订单",
+  "myRecordsLearningMaterial": "学习资料",
+  "myRecordsServiceOrder": "增值服务订单",
+  "myRecordsLearningBundle": "资料套餐",
+  "myRecordsTraining": "研修班培训",
+  "myRecordsMembershipOrder": "会员订单",
   "myRecordsUnlocksManage": "已解锁采购管理",
   "myRecordsUnlocksManageDesc": "按解锁时间倒序展示全部已解锁采购",
   "myRecordsBackTitle": "返回我的",
@@ -77,5 +77,7 @@
   "myRecordsLoading": "正在加载...",
   "myRecordsPagerInfo": "共 {total} 条 · 第 {page}/{pages} 页",
   "myRecordsUntitled": "未命名采购",
-  "myPurchasesOpenDetail": "打开详情"
+  "myPurchasesOpenDetail": "打开详情",
+  "paymentIndustryLabel": "行业大类",
+  "paymentIndustryPlaceholder": "请选择行业大类"
 }

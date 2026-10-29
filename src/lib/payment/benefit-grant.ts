@@ -20,6 +20,8 @@ export interface GrantParams {
   userId: number;
   orderNo: string;
   planCode: string;
+  /** 购买/续费时选择的 L1 品目大类；行业墙唯一绑定来源 */
+  industryCode?: string | null;
   pricePaid: number;
   currency?: string;
   /** 升级时继承来源订阅的期限，不重新购买一年。 */
@@ -58,7 +60,8 @@ export async function grantSubscriptionForPlan(
     }
   }
   const subscriptionId = await write.insertSubscription(conn, {
-    ownerUserId: params.userId, planCode: plan.plan_code, sourceOrderNo: orderNo,
+    ownerUserId: params.userId, planCode: plan.plan_code, industryCode: params.industryCode ?? null,
+    sourceOrderNo: orderNo,
     pricePaid: params.pricePaid, currency: params.currency ?? plan.currency, startedAt: params.startedAt, expiresAt,
   });
   const grant = await write.grantQuotaPoolsForPlan(conn, catalog, {

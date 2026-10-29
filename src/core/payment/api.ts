@@ -19,6 +19,8 @@ export type CreateOrderParams = {
   planCode: string;
   provider: "alipay" | "wechat" | "mock";
   noticeId?: number | null;
+  /** 会员购买时选择的 L1 品目大类节点码 */
+  industryCode?: string;
   /** 支付完成后的回跳地址（缺省为当前页 origin+pathname） */
   returnUrl?: string;
   /** 订单类型：'new'（新购，默认）/ 'upgrade'（升级补差） */
@@ -40,6 +42,7 @@ export async function createOrder(params: CreateOrderParams): Promise<OrderInfo>
     plan_code: params.planCode,
     provider: params.provider,
     notice_id: params.noticeId ?? null,
+    industry_code: params.industryCode || "",
     return_url: params.returnUrl || window.location.origin + window.location.pathname,
     order_type: params.orderType || "new",
     original_plan_code: params.originalPlanCode || "",

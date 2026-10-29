@@ -62,11 +62,11 @@
   "myRecordsUnlocksTitle": "Мои разблокированные закупки",
   "myRecordsUnlocksDesc": "Централизованное управление закупками с полным доступом к информации",
   "myRecordsUnlocksHint": "Нажмите, чтобы открыть список разблокированных закупок",
-    "myRecordsLearningMaterial": "Учебный материал",
-    "myRecordsServiceOrder": "Заказ услуги",
-    "myRecordsLearningBundle": "Пакет материалов",
-    "myRecordsTraining": "Тренинговый семинар",
-      "myRecordsMembershipOrder": "Заказ членства",
+  "myRecordsLearningMaterial": "Учебный материал",
+  "myRecordsServiceOrder": "Заказ услуги",
+  "myRecordsLearningBundle": "Пакет материалов",
+  "myRecordsTraining": "Тренинговый семинар",
+  "myRecordsMembershipOrder": "Заказ членства",
   "myRecordsUnlocksManage": "Управление разблокированными закупками",
   "myRecordsUnlocksManageDesc": "Все разблокированные закупки в обратном порядке по времени разблокировки",
   "myRecordsBackTitle": "Назад в мой раздел",
@@ -77,5 +77,7 @@
   "myRecordsLoading": "Загрузка...",
   "myRecordsPagerInfo": "Всего {total} · Стр. {page}/{pages}",
   "myRecordsUntitled": "Закупка без названия",
-  "myPurchasesOpenDetail": "Открыть детали"
+  "myPurchasesOpenDetail": "Открыть детали",
+  "paymentIndustryLabel": "Отраслевая категория",
+  "paymentIndustryPlaceholder": "Выберите отрасль"
 }

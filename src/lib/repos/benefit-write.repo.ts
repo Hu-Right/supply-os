@@ -67,6 +67,8 @@ export interface GrantResult {
 export interface NewSubscriptionParams {
   ownerUserId: number;
   planCode: string;
+  /** 当前订阅周期强绑定的 L1 品目大类节点码 */
+  industryCode?: string | null;
   sourceOrderNo: string;
   /** 实付金额（升级补差时不等于目录标价），财务口径快照 */
   pricePaid: number;
@@ -140,9 +142,9 @@ export class BenefitWriteRepo {
     }
     const [res] = await db.execute<ResultSetHeader>(
       `INSERT INTO plan_subscriptions
-        (owner_user_id, plan_code, source_order_no, price_paid, currency, status, started_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, 'active', COALESCE(?, NOW()), ?)`,
-      [p.ownerUserId, p.planCode, orderNo, p.pricePaid, p.currency ?? "CNY", p.startedAt ?? null, p.expiresAt],
+        (owner_user_id, plan_code, industry_code, source_order_no, price_paid, currency, status, started_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'active', COALESCE(?, NOW()), ?)`,
+      [p.ownerUserId, p.planCode, p.industryCode ?? null, orderNo, p.pricePaid, p.currency ?? "CNY", p.startedAt ?? null, p.expiresAt],
     );
     return res.insertId;
   }

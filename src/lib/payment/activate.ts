@@ -28,6 +28,7 @@ export async function activatePaidOrder(
     } else {
       await grantSubscriptionForPlan(deps, conn, {
         userId: order.user_id!, orderNo, planCode: order.plan_code,
+        industryCode: order.industry_code ?? null,
         pricePaid: Number(order.amount), currency: order.currency,
       });
     }

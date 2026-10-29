@@ -215,7 +215,7 @@ export class BenefitSystemRepo {
    */
   async findActivePlanForUser(userId: number): Promise<ActivePlanRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT s.id AS subscription_id, s.owner_user_id, s.plan_code, s.expires_at,
+      `SELECT s.id AS subscription_id, s.owner_user_id, s.plan_code, s.industry_code, s.expires_at,
               p.sort_order, s.started_at, s.source_order_no, s.price_paid, s.currency
          FROM plan_subscriptions s
          JOIN plan_catalog p ON p.plan_code = s.plan_code
@@ -226,6 +226,17 @@ export class BenefitSystemRepo {
       [userId],
     );
     return (rows as ActivePlanRow[])[0] ?? null;
+  }
+
+  /** 校验行业墙绑定码：必须是启用中的品目骨架 L1 大类节点（UGT-xx）。 */
+  async isValidIndustryL1(code: string): Promise<boolean> {
+    const value = String(code ?? "").trim();
+    if (!/^UGT-[0-9A-Z]{2}$/.test(value)) return false;
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT 1 FROM commodity_backbone WHERE code = ? AND level = 1 AND status = 1 LIMIT 1`,
+      [value],
+    );
+    return rows.length === 1;
   }
 
   /** 某套餐对某权益的取值（未定义该格时返回 null，不猜默认值） */

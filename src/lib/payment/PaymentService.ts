@@ -11,6 +11,7 @@ import type { PaymentsRepo } from "../repos/payments.repo";
 import { previewUpgrade } from "../services/membership-upgrade";
 import type { PlanCatalogRow } from "@/types/membership";
 import type { BenefitFulfillDeps } from "./benefit-grant";
+import { INDUSTRY_SCOPED_BENEFIT } from "../services/benefit-matrix";
 import { activatePaidOrder } from "./activate";
 import { reverseFulfilledOrder } from "./reverse";
 import { SITE_URL } from "../services/seo/site";
@@ -83,6 +84,7 @@ export class PaymentService {
     const planCode = String(request.plan_code || "").trim();
     const provider = request.provider;
     const noticeId = request.notice_id ? Number(request.notice_id) : null;
+    const industryCode = String(request.industry_code ?? "").trim();
     const orderType = request.order_type === "upgrade" ? "upgrade" : "new";
 
     if (!userId || !planCode) throw new Error("USER_AND_PLAN_REQUIRED");
@@ -107,6 +109,18 @@ export class PaymentService {
       const plan = await this.benefitDeps.catalog.getPlan(planCode);
       if (!plan) throw new Error("PLAN_NOT_FOUND");
       if (Number(plan.is_active) !== 1 || plan.price_mode !== "fixed") throw new Error("PLAN_NOT_SELLABLE");
+      // 行业墙：购买/续费/升级必须在支付前选定 L1 大类，订单落 industry_code 快照。
+      const getCell = this.benefitDeps.catalog.getCell?.bind(this.benefitDeps.catalog);
+      const scopedCell = typeof getCell === "function"
+        ? await getCell(planCode, INDUSTRY_SCOPED_BENEFIT)
+        : null;
+      if (scopedCell?.enabled) {
+        if (!industryCode) throw new Error("INDUSTRY_REQUIRED");
+        const validIndustry = typeof this.benefitDeps.catalog.isValidIndustryL1 === "function"
+          ? await this.benefitDeps.catalog.isValidIndustryL1(industryCode)
+          : true;
+        if (!validIndustry) throw new Error("INVALID_INDUSTRY");
+      }
       amount = Number(plan.price);
       if (!Number.isFinite(amount) || amount <= 0) throw new Error("AMOUNT_INVALID");
       planName = plan.name_zh;
@@ -144,7 +158,7 @@ export class PaymentService {
     const existingOrder = orderType === "upgrade" || annualCredit
       ? null
       : await this.repo.findPendingOrder({
-          userId: userId!, planCode, provider, noticeId,
+          userId: userId!, planCode, provider, noticeId, industryCode,
         });
 
     const strategy = this.getStrategy(provider);
@@ -167,6 +181,7 @@ export class PaymentService {
     const rawRequestPayload = JSON.stringify({
       ...request,
       notice_id: noticeId,
+      industry_code: industryCode || null,
       amount,
       ...(upgradeSnapshot ? { upgrade_snapshot: upgradeSnapshot } : {}),
       ...(annualCredit ? { annual_plan_credit_snapshot: annualCredit } : {}),
@@ -178,6 +193,7 @@ export class PaymentService {
         currency,
         payUrl: pay_url,
         qrCodeUrl: qr_code_url || null,
+        industryCode: industryCode || null,
         rawRequest: rawRequestPayload,
       });
     } else {
@@ -187,6 +203,7 @@ export class PaymentService {
         provider,
         planCode,
         noticeId,
+        industryCode: industryCode || null,
         amount,
         currency,
         payUrl: pay_url,

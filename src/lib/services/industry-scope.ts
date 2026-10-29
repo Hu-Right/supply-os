@@ -34,7 +34,6 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
 import { FREE_PLAN_CODE } from "../repos/benefit-system.repo";
 import { INDUSTRY_SCOPED_BENEFIT, ALL_CATEGORY_ACCESS_BENEFIT } from "./benefit-matrix";
-import { resolveUserIndustryProfile } from "./industry-profile/resolve";
 import { fromBackbonePathColumn } from "./commodity/backbone-path";
 import { l1CodeOfNode } from "./commodity/tree";
 
@@ -77,12 +76,13 @@ export async function resolveIndustryScope(
     return cell ? Number(cell.value_level ?? 0) : 0;
   };
   if (levelOf(ALL_CATEGORY_ACCESS_BENEFIT) > 0) return UNSCOPED; // 演示/内部档旁路
-  if (levelOf(INDUSTRY_SCOPED_BENEFIT) <= 0) return UNSCOPED; // 档位/free 列未声明行业限定
-  const profile = await resolveUserIndustryProfile(pool, userId);
-  if (!profile) return { scoped: false, l1Code: null, l1Nodes: [], needsIndustry: true }; // 未绑行业：暂不限+引导
-  const l1Code = l1CodeOfNode(profile.commodityCode);
-  if (!l1Code) {
-    console.warn(`[industry-scope] user=${userId} 的偏好码 ${profile.commodityCode} 推导不出 L1 大类码 ⇒ 本轮按空结果处理（不放开全量）`);
+  if (levelOf(INDUSTRY_SCOPED_BENEFIT) <= 0) return UNSCOPED; // free/未声明行业限定的档位不墙
+  // 行业墙只认当前生效订阅上购买时选择的 L1；用户资料偏好只用于推荐/默认筛选。
+  const industryCode = String(plan?.industry_code ?? "").trim();
+  if (!industryCode) return { scoped: false, l1Code: null, l1Nodes: [], needsIndustry: true };
+  const l1Code = l1CodeOfNode(industryCode);
+  if (!l1Code || l1Code !== industryCode) {
+    console.warn(`[industry-scope] subscription industry ${industryCode} 不是合法 L1 大类 ⇒ 本轮按空结果处理（不放开全量）`);
     return { scoped: true, l1Code: null, l1Nodes: [], needsIndustry: false };
   }
   return { scoped: true, l1Code, l1Nodes: [l1Code], needsIndustry: false };

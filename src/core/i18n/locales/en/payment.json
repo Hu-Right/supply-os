@@ -62,11 +62,11 @@
   "myRecordsUnlocksTitle": "My Unlocked Procurements",
   "myRecordsUnlocksDesc": "Manage procurements with full details already viewable",
   "myRecordsUnlocksHint": "Click to open the unlocked procurement list",
-    "myRecordsLearningMaterial": "Learning Material",
-    "myRecordsServiceOrder": "Service order",
-    "myRecordsLearningBundle": "Material Bundle",
-    "myRecordsTraining": "Training Workshop",
-      "myRecordsMembershipOrder": "Membership Order",
+  "myRecordsLearningMaterial": "Learning Material",
+  "myRecordsServiceOrder": "Service order",
+  "myRecordsLearningBundle": "Material Bundle",
+  "myRecordsTraining": "Training Workshop",
+  "myRecordsMembershipOrder": "Membership Order",
   "myRecordsUnlocksManage": "Unlocked Procurement Management",
   "myRecordsUnlocksManageDesc": "All unlocked procurements in reverse order of unlock time",
   "myRecordsBackTitle": "Back to My Account",
@@ -77,5 +77,7 @@
   "myRecordsLoading": "Loading...",
   "myRecordsPagerInfo": "{total} records · Page {page}/{pages}",
   "myRecordsUntitled": "Untitled procurement",
-  "myPurchasesOpenDetail": "Open details"
+  "myPurchasesOpenDetail": "Open details",
+  "paymentIndustryLabel": "Industry category",
+  "paymentIndustryPlaceholder": "Select an industry category"
 }

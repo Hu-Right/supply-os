@@ -17,6 +17,7 @@ import {
   EC_PAYMENT_USER_PLAN_REQUIRED, EC_PAYMENT_PLAN_NOT_SELLABLE, EC_PAYMENT_AMOUNT_INVALID,
   EC_PAYMENT_FREE_PLAN, EC_PAYMENT_UPGRADE_INVALID,
   EC_PAYMENT_SERVICE_UNAVAILABLE, EC_PAYMENT_SERVICE_ADVISORY_ONLY,
+  EC_PAYMENT_INDUSTRY_REQUIRED, EC_PAYMENT_INDUSTRY_INVALID,
 } from "@/shared/constants/api";
 
 // ── GET — 订单历史（聚合三表） ──
@@ -89,6 +90,7 @@ export const POST = withRoute(
           user_id: auth.userId,
           plan_code: planCode,
           notice_id: body.notice_id ? Number(body.notice_id) : null,
+          industry_code: String(body.industry_code || ""),
           provider,
           return_url: String(body.return_url || ""),
           client_ip: clientIp,
@@ -153,6 +155,8 @@ export const POST = withRoute(
         { token: "UPGRADE_SOURCE_INVALID", status: 400, code: EC_PAYMENT_UPGRADE_INVALID, message: "升级来源已变化，请重新发起升级" },
         { token: "AMOUNT_MISMATCH", status: 400, code: EC_PAYMENT_AMOUNT_INVALID, message: "支付金额异常，请联系客服处理" },
         { token: "AMOUNT_INVALID", status: 400, code: EC_PAYMENT_AMOUNT_INVALID, message: "支付金额异常，请联系客服处理" },
+        { token: "INDUSTRY_REQUIRED", status: 400, code: EC_PAYMENT_INDUSTRY_REQUIRED, message: "购买会员前请先选择行业大类" },
+        { token: "INVALID_INDUSTRY", status: 400, code: EC_PAYMENT_INDUSTRY_INVALID, message: "所选行业大类无效，请重新选择" },
       ];
       const hit = map.find((m) => raw.includes(m.token));
       if (hit) routeError(hit.status, hit.code, hit.message);

@@ -40,6 +40,7 @@ export async function performUpgradeInTransaction(
   );
   const granted = await grantSubscriptionForPlan(deps, conn, {
     userId: order.user_id!, orderNo: order.order_no, planCode: order.plan_code,
+    industryCode: order.industry_code ?? null,
     pricePaid: Number(order.amount), currency: order.currency,
     startedAt: source.started_at, expiresAt: source.expires_at,
   });

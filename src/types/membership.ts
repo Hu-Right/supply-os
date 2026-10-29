@@ -63,6 +63,7 @@ export interface ActivePlanRow {
   subscription_id: number;
   owner_user_id: number;
   plan_code: string;
+  industry_code?: string | null;
   source_order_no: string;
   price_paid: string;
   currency: string;
@@ -215,3 +216,4 @@ export type UpgradePreviewView = ViewOf<Omit<UpgradePreview, "current_plan" | "t
   targetPlan: PlanView | null;
   subscription: SubscriptionView | null;
 };
+

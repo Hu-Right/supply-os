@@ -62,11 +62,11 @@
   "myRecordsUnlocksTitle": "Mes marchés déverrouillés",
   "myRecordsUnlocksDesc": "Gérez les marchés dont les informations complètes sont accessibles",
   "myRecordsUnlocksHint": "Cliquez pour ouvrir la liste des marchés déverrouillés",
-    "myRecordsLearningMaterial": "Document de formation",
-    "myRecordsServiceOrder": "Commande de service",
-    "myRecordsLearningBundle": "Pack de documents",
-    "myRecordsTraining": "Atelier de formation",
-      "myRecordsMembershipOrder": "Commande d'adhésion",
+  "myRecordsLearningMaterial": "Document de formation",
+  "myRecordsServiceOrder": "Commande de service",
+  "myRecordsLearningBundle": "Pack de documents",
+  "myRecordsTraining": "Atelier de formation",
+  "myRecordsMembershipOrder": "Commande d'adhésion",
   "myRecordsUnlocksManage": "Gestion des marchés déverrouillés",
   "myRecordsUnlocksManageDesc": "Tous les marchés déverrouillés par ordre décroissant de déverrouillage",
   "myRecordsBackTitle": "Retour à mon compte",
@@ -77,5 +77,7 @@
   "myRecordsLoading": "Chargement...",
   "myRecordsPagerInfo": "{total} enregistrements · Page {page}/{pages}",
   "myRecordsUntitled": "Marché sans titre",
-  "myPurchasesOpenDetail": "Ouvrir les détails"
+  "myPurchasesOpenDetail": "Ouvrir les détails",
+  "paymentIndustryLabel": "Catégorie d'activité",
+  "paymentIndustryPlaceholder": "Sélectionnez une catégorie"
 }

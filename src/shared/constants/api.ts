@@ -213,6 +213,10 @@ export const EC_PAYMENT_SERVICE_UNAVAILABLE = 40076;
 export const EC_PAYMENT_SERVICE_ADVISORY_ONLY = 40077;
 /** 支付：签名验证失败 */
 export const EC_PAYMENT_SIGN_VERIFY_FAILED = 40078;
+/** 支付：会员购买必须选择行业大类 */
+export const EC_PAYMENT_INDUSTRY_REQUIRED = 40079;
+/** 支付：行业大类非法或已停用 */
+export const EC_PAYMENT_INDUSTRY_INVALID = 40080;
 
 // ── 认证/账号域专属码（auth 治本，2026-10-22）──────────────────────────────────
 // 背景：auth 路由历史上直接手写裸数字（40030/40010/40029/40050-52/40060-62 等），

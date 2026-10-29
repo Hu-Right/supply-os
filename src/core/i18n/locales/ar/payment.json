@@ -62,11 +62,11 @@
   "myRecordsUnlocksTitle": "المشتريات المفتوحة الخاصة بي",
   "myRecordsUnlocksDesc": "إدارة مركزية للمشتريات التي يمكن عرض معلوماتها الكاملة",
   "myRecordsUnlocksHint": "انقر للدخول إلى قائمة المشتريات المفتوحة",
-    "myRecordsLearningMaterial": "مادة تعليمية",
-    "myRecordsServiceOrder": "طلب خدمة",
-    "myRecordsLearningBundle": "حزمة مواد",
-    "myRecordsTraining": "ورشة تدريبية",
-      "myRecordsMembershipOrder": "طلب عضوية",
+  "myRecordsLearningMaterial": "مادة تعليمية",
+  "myRecordsServiceOrder": "طلب خدمة",
+  "myRecordsLearningBundle": "حزمة مواد",
+  "myRecordsTraining": "ورشة تدريبية",
+  "myRecordsMembershipOrder": "طلب عضوية",
   "myRecordsUnlocksManage": "إدارة المشتريات المفتوحة",
   "myRecordsUnlocksManageDesc": "جميع المشتريات المفتوحة مرتبة تنازليًا حسب وقت الفتح",
   "myRecordsBackTitle": "العودة إلى حسابي",
@@ -77,5 +77,7 @@
   "myRecordsLoading": "جارٍ التحميل...",
   "myRecordsPagerInfo": "{total} سجل · الصفحة {page}/{pages}",
   "myRecordsUntitled": "مشتريات بدون عنوان",
-  "myPurchasesOpenDetail": "فتح التفاصيل"
+  "myPurchasesOpenDetail": "فتح التفاصيل",
+  "paymentIndustryLabel": "فئة الصناعة",
+  "paymentIndustryPlaceholder": "اختر فئة الصناعة"
 }

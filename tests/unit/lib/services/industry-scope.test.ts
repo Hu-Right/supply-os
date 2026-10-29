@@ -26,9 +26,7 @@ import {
 import type { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
-function makeCatalog(opts: { scoped?: boolean; bypass?: boolean } = {}) {
-  // 墙判定一次 loadCells 取齐同列两格（2026-10-28 free 化）：无订阅 → findActivePlanForUser=null
-  // → loadCells(["free"])，free 列的格子决定是否收窄
+function makeCatalog(opts: { scoped?: boolean; bypass?: boolean; industryCode?: string | null } = {}) {
   const cells: Array<Record<string, unknown>> = [];
   if (opts.scoped) {
     cells.push({ plan_code: "free", benefit_code: "industry_scoped", value_level: 1, value_num: null, value_amount: null, note_zh: null });
@@ -37,7 +35,9 @@ function makeCatalog(opts: { scoped?: boolean; bypass?: boolean } = {}) {
     cells.push({ plan_code: "free", benefit_code: "all_category_access", value_level: 1, value_num: null, value_amount: null, note_zh: null });
   }
   return {
-    findActivePlanForUser: vi.fn(async () => null),
+    findActivePlanForUser: vi.fn(async () => (opts.scoped
+      ? { plan_code: "free", industry_code: "industryCode" in opts ? opts.industryCode : "UGT-85" }
+      : null)),
     loadCells: vi.fn(async (planCodes: string[]) => {
       expect(planCodes).toEqual(["free"]);
       return cells;
@@ -101,17 +101,15 @@ describe("resolveIndustryScope · 判定链", () => {
     expect(query).not.toHaveBeenCalled();
   });
 
-  it("限定档但没有偏好 → 暂不墙 + needsIndustry 引导", async () => {
-    profile.resolve.mockResolvedValue(null);
-    expect(await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 42)).toEqual({
+  it("限定档但订阅没有行业 → 暂不墙 + needsIndustry 引导", async () => {
+    expect(await resolveIndustryScope(pool, makeCatalog({ scoped: true, industryCode: null }), 42)).toEqual({
       scoped: false, l1Code: null, l1Nodes: [], needsIndustry: true,
     });
   });
 
-  it("偏好码推导不出大类（脏码）→ 仍算已限定且 nodes 为空，并留下 warn（不静默放开全量）", async () => {
-    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-XY" });
+  it("订阅行业码推导不出大类（脏码）→ 仍算已限定且 nodes 为空，并留下 warn（不静默放开全量）", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const r = await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 42);
+    const r = await resolveIndustryScope(pool, makeCatalog({ scoped: true, industryCode: "UGT-XY" }), 42);
     expect(r).toEqual({ scoped: true, l1Code: null, l1Nodes: [], needsIndustry: false });
     expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
@@ -136,7 +134,7 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
   it("公告祖先链命中 L1 的深层节点同样放行（码即全链，等值即包含）", async () => {
     profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-220101" });
     wideRows = wide("UGT-22,UGT-2201,UGT-220101");
-    expect(await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9003)).toBe(true);
+    expect(await canAccessNotice(pool, makeCatalog({ scoped: true, industryCode: "UGT-22" }), 42, 9003)).toBe(true);
   });
 
   it("公告本身无类目数据（宽表无行 / 列为 NULL）→ 放行，不被脏数据锁死", async () => {
@@ -148,10 +146,9 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
   });
 
   it("被墙但推导不出大类 → 有码公告一律拦（分叉态收窄，不放开）", async () => {
-    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-XY" });
     wideRows = wide("UGT-85,UGT-8501");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    expect(await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9006)).toBe(false);
+    expect(await canAccessNotice(pool, makeCatalog({ scoped: true, industryCode: "UGT-XY" }), 42, 9006)).toBe(false);
     warn.mockRestore();
   });
 
@@ -219,3 +216,4 @@ describe("opportunityInCategory · 商机侧（经关联公告宽表口径）", 
     expect(await opportunityInCategory(pool, 80, "UGT-85")).toBe(false);
   });
 });
+
