@@ -11,7 +11,7 @@ import { getContext } from "@/lib/db/context";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND } from "@/shared/constants/api";
 import { findPublicDetail } from "@/lib/services/notice-public/read";
-import { enrichAgencyI18n, ensureAgencyI18nWarmup } from "@/lib/services/search-orchestrator/format";
+import { enrichAgencyI18n, ensureAgencyDisplayWarmup } from "@/lib/services/search-orchestrator/format";
 import { pickNoticeApiLang } from "@/shared/constants/langs";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -30,7 +30,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const locale = pickNoticeApiLang(new URL(req.url).searchParams.get("locale"));
     let agencyI18n = "";
     if (locale) {
-      await ensureAgencyI18nWarmup(ctx.dbPool);
+      await ensureAgencyDisplayWarmup(ctx.dbPool);
       const [enriched] = enrichAgencyI18n([notice as unknown as Record<string, unknown>], locale);
       agencyI18n = String(enriched.agency_i18n || "");
     }

@@ -8,11 +8,8 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
-import { getAgencyCacheData, getNoticeAgencies } from "../notice-search/agencies/index";
-import { classifyAgencyType } from "../agency/index";
 import { resolveAgencyDisplay, ensureAgencyDisplaySnapshot } from "../agency/resolve";
 import { fromBackbonePathColumn } from "../commodity/backbone-path";
-import { countryZhOf } from "../country/display";
 
 /** 匹配分 → 档次标签（2 档分色；分数与 mode-resolver 绝对层级口径对齐：
  *  L4/L5 命中 → 5 → precise；L2/L3 命中 → 2 → relevant） */
@@ -43,94 +40,42 @@ function perDocMatchScore(
 
 /**
  * 机构展示的同步预热（详情/预览这类不走搜索主管道的单行出口专用，统一中文 2026-10-28）。
- * enrichAgencyI18n 的两层回退都读内存态：① resolveAgencyDisplay 依赖 agency_aliases 快照，
+ * enrichAgencyI18n 读内存态：resolveAgencyDisplay 依赖 agency_aliases 快照，
  * 而该快照原先只在 refreshNoticeAgencies（下拉刷新）内部 ensure —— 详情请求不经过下拉，
- * 不显式预热就永远拿不到别名表精名，卡片中文 / 详情英文的漂移由此产生；
- * ② 下拉缓存冷启动时补一次聚合查询。
- * 两个入口各自的表查询都带降级，这里统一吞掉异常：预热失败只是少一层翻译，不能让详情 500。
- *
- * [2026-10-29 拆成两层] 别名表快照是单表小查询，可以同步等；下拉聚合查询不行——
- * 主管道侧实测冷缓存时 getNoticeAgencies 可达 20s+，同步 await 会把单条公告的
- * 详情/预览拖过前端超时（即 _searchCore 里「total 有值但 items 为空」那一类事故），
- * 所以聚合缓存改成发了就不管：本次请求靠 classify / 国家级终兜底降级给中文标签，
- * 后台预热完成后下一条自然命中。
+ * 不显式预热就永远拿不到别名表精名，卡片中文 / 详情英文的漂移由此产生。
+ * 预热带降级：失败只是少一层翻译，不能让详情 500。
+ * [绝对准确 2026-10-29] 聚合桶退役后只剩别名快照一层，ensureAgencyI18nWarmup 并入本函数。
  */
 export async function ensureAgencyDisplayWarmup(pool: Pool): Promise<void> {
   await ensureAgencyDisplaySnapshot(pool).catch(() => undefined);
 }
 
-/** 需要完整回退链（列表口径，/preview 用）的预热：别名表同步等，聚合缓存不阻塞。 */
-export async function ensureAgencyI18nWarmup(pool: Pool): Promise<void> {
-  await ensureAgencyDisplayWarmup(pool);
-  if (!getAgencyCacheData()) void getNoticeAgencies(pool).catch(() => undefined);
-}
-
 /**
- * 机构 i18n 回退（共享助手），输入行一律用**服务表原字段**。
- * [统一中文 2026-10-28] 顺序为「精确解析优先」：
- * 1. resolveAgencyDisplay 精确解析（agency_aliases 精名 / 模式合成）——zh 须含汉字才视为翻译，
- *    胜过下拉聚合桶的通用修复标签（否则「黑山各机构」会遮住别名表的「黑山临床中心」）；
- *    纯透传（无汉字，如平台码/外文原名）不算翻译，继续走聚合回退，防露码回归（2026-10-12 红线）。
- * 2. 解析无汉字 → classifyAgencyType 计算聚合 i18n（国家取 country_code，缺省取 country_codes 首码）。
- * 3. 下拉缓存回退：buyer_name 大写 → 精确；buyer_group → 聚合键（与下拉框展示一致的修复标签）。
- * 4. 仍无 → 国家级「XX各机构」兜底（仅 zh）：zh 卡片买家列不露外文原文，真实买家名进详情看。
- * [详情分层 2026-10-29] opts.registeredOnly=true 时只认**别名表登记名**（i18nFrom === "alias"），
- * 第 2~4 层的聚合桶与模式合成名一律不接：
- * · 聚合桶是「某一国一堆机构」的桶名（「法国各机构」），用在详情上会盖掉真实买家名，
- *   与上面那句「真实买家名进详情看」直接冲突（真库探针：近 3000 行取样几乎全部落桶）；
- * · 模式合成名（"LAND REGISTRATION管理局"）是「整串原文 + 末尾类型词译中」的机械拼接，
- *   它丢了 "AUTHORITY"、又中英夹生，在用户据此判读的详情页上不如直接给真名
- *   （探针：这类名占取样机构的 5.3%，列表侧保留它、详情侧不接）。
- * ⚠ 下拉缓存条目自身的键名仍是 `agency`（那是下拉 API 的形状），与公告行字段名无关。
+ * 机构 i18n（共享助手），输入行一律用**服务表原字段**。
+ * [绝对准确 2026-10-29 口径] 买家字段只认**别名表登记名**（i18nFrom === "alias" 且 zh 含汉字）：
+ * · 聚合桶（classify 类型桶 / 下拉缓存桶 / 国家级「XX各机构」）是「某一国一堆机构」的类别名，
+ *   放在买家字段就是用桶名冒充买家名——用户明确要求绝对准确，全面退役；
+ * · 模式合成名（"LAND REGISTRATION管理局"）是整串原文+末尾类型词的机械拼接，中英夹生，一并退役；
+ * · 无登记名的买家显示真实原名（前端取值链 agencyI18n || buyerName 自然回退）——
+ *   原名永远准确，宁缺毋假；中文精名靠 agency_aliases 批次持续补
+ *   （runtime/agency-coverage.sql 月度巡检出清单）。
+ * 筛选下拉（/api/notices/agencies）的聚合桶不受影响：那是过滤导航的本职语义。
+ * ⚠ 下拉聚合缓存条目的键名仍是 `agency`（下拉 API 的形状），与公告行字段名无关；
+ *   本函数已不再消费聚合缓存。
  */
 const CJK_RE = /[\u4e00-\u9fff]/;
 
 export function enrichAgencyI18n(
   items: Array<Record<string, unknown>>,
   locale: string,
-  opts: { registeredOnly?: boolean } = {},
 ): Array<Record<string, unknown>> {
-  const registeredOnly = opts.registeredOnly === true;
-  // 机构国际化映射（键统一大写，与 query.ts 缓存构建侧 mergeKey/typeKey 口径对齐）
-  const agencyCache = getAgencyCacheData();
-  const agencyI18nMap = new Map<string, Record<string, string>>();
-  if (agencyCache) {
-    for (const item of agencyCache) {
-      if (item.i18n) agencyI18nMap.set(String(item.agency || "").toUpperCase(), item.i18n);
-    }
-  }
   for (const item of items) {
-    const agencyUpper = String(item.buyer_name || "").toUpperCase();
-    // 国家上下文（供聚合回退）：服务表单码 country_code 优先，其次宽表 country_codes 首码，
-    // 最后主表 n.country 英文名（推荐管道行只有它；countryZhOf/classify 均按归一键吃码与英文名）。
-    // ⚠ 宽表 country_codes 当前为全空列（2026-10-28 查库 0/757947），仅作前向兼容位保留。
-    const countryContext = (item.country_code ? String(item.country_code) : "")
-      || String(item.country_codes || "").split(",")[0]
-      || (item.country ? String(item.country) : "") || undefined;
-    let i18n: Record<string, string> | undefined;
-    if (item.buyer_name) {
-      const disp = resolveAgencyDisplay(String(item.buyer_name));
-      // zh 须含汉字；详情还额外要求译名来自别名表登记（模式合成名不算）
-      const preciseHit = !!disp.i18n && !!disp.i18n.zh && CJK_RE.test(disp.i18n.zh)
-        && (!registeredOnly || disp.i18nFrom === "alias");
-      if (preciseHit) {
-        i18n = disp.i18n!;
-      } else if (!registeredOnly) {
-        // 透传或无 i18n → 聚合分类计算回退（用解析后的 canonical + 国家上下文）
-        const typeInfo = classifyAgencyType(disp.canonical, countryContext);
-        if (typeInfo?.i18n) i18n = typeInfo.i18n;
-      }
-    }
-    if (!i18n && !registeredOnly) {
-      i18n = agencyI18nMap.get(agencyUpper)
-        || (item.buyer_group ? agencyI18nMap.get(String(item.buyer_group)) : undefined);
-    }
-    // zh 终兜底：类型桶/缓存都没接住 → 国家级聚合标签，卡片不露外文原名
-    if (!i18n && !registeredOnly && locale === "zh" && item.buyer_name) {
-      const countryZh = countryContext ? countryZhOf(countryContext) : null;
-      if (countryZh) i18n = { zh: `${countryZh}各机构` };
-    }
-    item.agency_i18n = i18n?.[locale] || undefined;
+    if (!item.buyer_name) continue;
+    const disp = resolveAgencyDisplay(String(item.buyer_name));
+    const hit = disp.i18nFrom === "alias"
+      && !!disp.i18n?.zh
+      && CJK_RE.test(disp.i18n.zh);
+    item.agency_i18n = hit ? disp.i18n?.[locale] || undefined : undefined;
   }
   return items;
 }
