@@ -643,6 +643,57 @@ CREATE TABLE `employees` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='有KPI要求的员工';
 
 -- ── follow_up_logs ──
+CREATE TABLE `enterprise_capability_items` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `enterprise_id` bigint unsigned NOT NULL COMMENT '企业主体（v0.1 = 已认证 supplier.id）',
+  `capability_type` varchar(32) NOT NULL COMMENT 'certification/experience/financial/personnel/localization/registration/technical/text',
+  `name` varchar(255) NOT NULL COMMENT '业务名称',
+  `value_json` json NOT NULL COMMENT '结构化能力值（kind + 字段，见数据契约 §3）',
+  `evidence_refs_json` json DEFAULT NULL COMMENT 'EvidenceRef 数组',
+  `confirmation_json` json DEFAULT NULL COMMENT '来源/确认人/确认时间',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_cap_enterprise_type` (`enterprise_id`,`capability_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：企业能力项（结构化档案+证据）';
+
+CREATE TABLE `enterprise_evidence` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `enterprise_id` bigint unsigned NOT NULL COMMENT '企业主体（v0.1 = 已认证 supplier.id）',
+  `upload_file_id` bigint unsigned DEFAULT NULL COMMENT '关联 upload_files 主键（无文件时为 NULL）',
+  `category` varchar(32) NOT NULL DEFAULT 'other' COMMENT 'cert/experience/financial/personnel/other',
+  `title` varchar(255) NOT NULL COMMENT '业务名称（如 ISO 14001 证书）',
+  `valid_from` date DEFAULT NULL COMMENT '证据有效期起',
+  `valid_until` date DEFAULT NULL COMMENT '证据有效期止（NULL=长期有效，需 no_expiry=1）',
+  `no_expiry` tinyint(1) NOT NULL DEFAULT '0' COMMENT '1=长期有效，与 valid_until 互斥',
+  `tags_json` json DEFAULT NULL COMMENT '标签（行业/品类/地区等）',
+  `confirmed` tinyint(1) NOT NULL DEFAULT '0' COMMENT '用户是否确认过该证据',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_evidence_enterprise` (`enterprise_id`,`category`),
+  KEY `idx_evidence_valid_until` (`valid_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：企业证据/资料库最小版';
+
+CREATE TABLE `feasibility_reports` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `notice_pk` bigint unsigned NOT NULL COMMENT '公告业务主键',
+  `enterprise_id` bigint unsigned NOT NULL COMMENT '企业主体',
+  `input_hash` char(64) NOT NULL COMMENT '输入快照 hash（公告+要求项版本+能力快照）',
+  `report_json` json NOT NULL COMMENT '报告本体（verdict/gaps/matrix/unknowns/aiAdvice）',
+  `prompt_version` varchar(64) NOT NULL COMMENT '生成 prompt 版本',
+  `model` varchar(64) DEFAULT NULL COMMENT '生成所用模型（BYOK）',
+  `status` varchar(16) NOT NULL DEFAULT 'ready' COMMENT 'queued/generating/ready/failed',
+  `reviewed_by` bigint unsigned DEFAULT NULL COMMENT '人工复核人 user_id',
+  `reviewed_at` datetime DEFAULT NULL COMMENT '人工复核时间',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_report_notice_enterprise_hash` (`notice_pk`,`enterprise_id`,`input_hash`),
+  KEY `idx_report_enterprise` (`enterprise_id`,`created_at`),
+  KEY `idx_report_notice` (`notice_pk`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：报告版本与复核状态';
+
 CREATE TABLE `follow_up_logs` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `item_id` bigint unsigned NOT NULL COMMENT 'outreach_items.id',
@@ -1121,6 +1172,28 @@ CREATE TABLE `notice_public` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
 
 -- ── notice_search ──
+CREATE TABLE `notice_requirement_items` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `notice_pk` bigint unsigned NOT NULL COMMENT '公告业务主键，对应 notice_public.notice_pk',
+  `version` int unsigned NOT NULL DEFAULT '1' COMMENT '抽取版本：重抽 +1，历史版本保留',
+  `seq` int unsigned NOT NULL COMMENT '项序号：同版本内唯一，跨版本稳定复用',
+  `requirement_type` varchar(32) NOT NULL COMMENT 'certification/experience/financial/personnel/localization/registration/technical/commercial/delivery/submission/bond/language/warranty/other',
+  `importance` varchar(16) NOT NULL DEFAULT 'scored' COMMENT 'mandatory=废标项/scored=评分项/preferred=加分项',
+  `title` varchar(255) NOT NULL COMMENT '业务可读标题',
+  `value_json` json DEFAULT NULL COMMENT '结构化要求（无法结构化时为空，用 raw_text）',
+  `raw_text` text NOT NULL COMMENT '公告原文片段（供人工复核）',
+  `source_json` json NOT NULL COMMENT '证据锚点：kind/ref/locator/quote/capturedAt',
+  `extraction_method` varchar(16) NOT NULL DEFAULT 'llm' COMMENT 'rule/llm/manual',
+  `confidence` decimal(3,2) NOT NULL DEFAULT '0.00' COMMENT '抽取置信度 0~1',
+  `prompt_version` varchar(64) DEFAULT NULL COMMENT '抽取 prompt 版本，便于复现',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_req_notice_version_seq` (`notice_pk`,`version`,`seq`),
+  KEY `idx_req_notice_version` (`notice_pk`,`version`),
+  KEY `idx_req_type` (`requirement_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：公告要求项（结构化+原文锚点）';
+
 CREATE TABLE `notice_search` (
   `id` int unsigned NOT NULL,
   `notice_id` varchar(100) NOT NULL,
