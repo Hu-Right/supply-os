@@ -131,6 +131,7 @@ export function buildNoticeIndexSettings(): Settings {
       "notice_type_normalized",
       "deadline_sec",
       "is_featured",
+      "is_opportunity",
       "reference",
       // 预算区间筛选（filter-builder 生成 estimated_value_num >= / <= 过滤，
       // 缺此字段会导致 Meili 报未知属性错并整体降级 MySQL CAST 全表扫描）

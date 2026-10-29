@@ -251,9 +251,10 @@ export async function buildFilterPlan(
 
   // ── 精选 ──
   if (p.featuredOnly) {
-    meiliFilters.push("is_featured = 1");
-    mysqlWhere.push("n.is_featured = 1");
-    digestParts.push("featured");
+    // “只看精选”口径 = 服务表商机集合（精选 ∪ 合格商机），不是原始公告的 is_featured。
+    meiliFilters.push("is_opportunity = 1");
+    mysqlWhere.push("p.is_opportunity = 1");
+    digestParts.push("opportunity");
   }
 
   // ── 类目条件（prefs 的渐进放宽档从这里出去）──

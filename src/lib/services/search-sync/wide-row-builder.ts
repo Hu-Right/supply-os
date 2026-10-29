@@ -50,6 +50,7 @@ export function wideSyncSelect(withFp: boolean): string {
          opp.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
          opp.beneficiary_countries,
          p.buyer_name, p.buyer_group, n.country AS country_name,
+         p.is_opportunity,
          p.country_codes AS public_country_codes,
          p.notice_type_code, p.deadline_ts,
          p.estimated_value AS public_estimated_value,
@@ -230,6 +231,7 @@ export function buildWideRow(
     deadline_sec: deadlineSec,
     estimated_value: estimatedValue,
     is_featured: r.is_featured ? 1 : 0,
+    is_opportunity: r.is_opportunity ? 1 : 0,
     entry_source: String(r.entry_source || "crawl").slice(0, 20),
     // 品目归属：只此一条口径（骨架节点码，含全部祖先），事实源是 notice_attribution_nodes
     // 落点表（loadBackboneMap 唯一装载入口）；无落点/无 pk ⇒ NULL（BB7：空串算违规），不退回桥表。
@@ -277,7 +279,7 @@ export async function upsertWideRows(
     "id", "notice_id", "title", "reference", "description",
     ...langColumns,
     "country_name", "country_codes", "buyer_name", "buyer_group", "notice_type_code",
-    "deadline_sec", "estimated_value", "is_featured", "entry_source",
+    "deadline_sec", "estimated_value", "is_featured", "is_opportunity", "entry_source",
     // B1 起不再写旧字典分类列（旧五级列~5 / precise_level1~5）：列暂留 schema、历史值不再更新也无人读，
     // DROP 与 baseline 重导在 B2 走蓝绿（见 2026-10-12-notice-classification-commodity-tree-only）。
     "backbone_path",
@@ -299,7 +301,7 @@ export async function upsertWideRows(
         row.id, row.notice_id, row.title, row.reference, row.description,
         ...SUPPORTED_LANGS.flatMap(lang => [row[`title_${lang}`], row[`description_${lang}`]]),
         row.country_name, row.country_codes, row.buyer_name, row.buyer_group, row.notice_type_code,
-        row.deadline_sec, row.estimated_value, row.is_featured, row.entry_source,
+        row.deadline_sec, row.estimated_value, row.is_featured, row.is_opportunity, row.entry_source,
         // 列清单与这里的取值必须同批增减（多一个少一个都是 Unknown column / 参数错位）
         row.backbone_path,
         row.description_cn, row.bid_overview, row.beneficiary_countries, row.documents_count,

@@ -64,6 +64,7 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
     has_deadline: r.deadline_sec ? 1 : 0, // 排序辅助：NULL 截止日期排到最后（has_deadline:desc 优先）
     is_featured: r.is_featured ? 1 : 0,
+    is_opportunity: r.is_opportunity ? 1 : 0,
     // 预算区间可筛数值（宽表 estimated_value 为 DECIMAL，转 number 入 filterable）
     estimated_value_num: Number(r.estimated_value) || 0,
     // 「含原始文件」筛选依据
@@ -83,7 +84,7 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
 const WIDE_TABLE_SYNC_SQL = `
   SELECT id, notice_id, reference, title, description,
          country_name, country_codes, buyer_name, buyer_group, notice_type_code,
-         deadline_sec, is_featured, estimated_value, documents_count,
+         deadline_sec, is_featured, is_opportunity, estimated_value, documents_count,
          backbone_path,
          title_zh, description_zh, title_en, description_en,
          title_fr, description_fr, title_ru, description_ru,

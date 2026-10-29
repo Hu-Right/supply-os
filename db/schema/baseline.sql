@@ -1213,6 +1213,7 @@ CREATE TABLE `notice_search` (
   `country_codes` varchar(500) NOT NULL DEFAULT '' COMMENT '拆分后的可筛国家 ISO2 码集(逗号分隔，纯表驱动回填)',
   `buyer_name` varchar(200) NOT NULL DEFAULT '' COMMENT '采购主体规范名（投影自 notice_public.buyer_name，与归一层同名）',
   `buyer_group` varchar(100) NOT NULL DEFAULT '' COMMENT '机构类型分类键（投影自 notice_public.buyer_group，与归一层同名）',
+  `is_opportunity` tinyint(1) NOT NULL DEFAULT '0' COMMENT '商机集合（投影自 notice_public.is_opportunity；精选/合格商机并集）',
   `notice_type_code` varchar(20) NOT NULL DEFAULT '' COMMENT '采购类型归一码（投影自 notice_public.notice_type_code，与归一层同名）',
   `deadline_sec` bigint unsigned NOT NULL DEFAULT '0',
   `estimated_value` decimal(20,2) NOT NULL DEFAULT '0.00',
