@@ -11,6 +11,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
+import { findPublicDetail } from "@/lib/services/notice-public/read";
 import { BID_FEASIBILITY_REPORT_BENEFIT } from "@/lib/services/benefit-matrix";
 import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
 import { platformInfo } from "@/lib/services/platform/resolve";
@@ -41,7 +42,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const ctx = getContext();
-    const { detailRepo, unlockRepo } = ctx.notice;
+    const { unlockRepo } = ctx.notice;
     const opportunitiesRepo = ctx.opportunitiesRepo;
 
     const access = await resolveNoticeAccess({
@@ -59,10 +60,44 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(403, EC_ACCESS_FORBIDDEN, "中文拆解报告为企业版权益", { feature: BID_FEASIBILITY_REPORT_BENEFIT });
     }
 
-    const notice = await detailRepo.findDetailPublished(noticeId);
-    if (!notice) routeError(404, EC_NOTICE_NOT_FOUND_404, "公告不存在");
+    const service = await findPublicDetail(ctx.dbPool, noticeId);
+    if (!service) routeError(404, EC_NOTICE_NOT_FOUND_404, "公告不存在");
+    // 报告公共字段一律取服务表；商机只补标题/中文正文/拆单内容。
+    const notice = {
+      id: service.notice_pk,
+      notice_id: service.notice_id,
+      reference: service.reference,
+      title: service.title,
+      notice_type: service.notice_type_code,
+      registration_level: service.registration_level,
+      agency: service.buyer_name,
+      agency_full: service.buyer_name_cn || service.buyer_name,
+      country: service.country_code,
+      published_date: service.published_ts
+        ? new Date(Number(service.published_ts) * 1000).toISOString().slice(0, 10)
+        : "",
+      deadline: service.deadline_ts
+        ? new Date(Number(service.deadline_ts) * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC"
+        : "",
+      deadline_timezone: service.deadline_timezone,
+      estimated_value: service.estimated_value == null
+        ? ""
+        : `${service.estimated_value} ${service.currency_code || ""}`.trim(),
+      industry: service.industry,
+      description: service.description,
+      description_cn: service.description_cn,
+      source_url: service.source_url,
+      source_platform: service.platform_name,
+      beneficiary_countries: service.beneficiary_countries,
+      documents: service.attachments,
+      external_links: service.external_links,
+      contacts: service.contacts,
+    };
 
-    const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
+    const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, {
+      id: service.notice_pk,
+      notice_id: service.notice_id,
+    });
     if (!qualified) routeError(404, EC_REPORT_NOT_AVAILABLE, "报告不可用");
 
     const fullOpportunity = await opportunitiesRepo.findFullById(Number(qualified.id));

@@ -178,7 +178,7 @@ const echo = (desc: unknown, title: unknown) =>
 export interface PublicInputBatch {
   rows: RowDataPacket[];
   attachmentMap: Map<number, Array<Record<string, unknown>>>;
-  oppMap: Map<string, { description: string | null; cn: string | null; beneficiary: string | null }>;
+  oppMap: Map<string, { title: string | null; cn: string | null; beneficiary: string | null }>;
   /** 商机侧两组水位映射（updated_at 取输入 max 的依据，保证商机侧选行收敛） */
   oppWmByNotice: Map<string, number>;
   oppWmById: Map<number, number>;
@@ -246,14 +246,14 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
   }
   const oppRows = oppWhere.length > 0
     ? (await pool.query(
-      `SELECT id, source_notice_id, description, description_cn, beneficiary_countries, update_time
+      `SELECT id, source_notice_id, title, description_cn, beneficiary_countries, update_time
          FROM bid_opportunities
         WHERE ${oppWhere.join(" OR ")}
         ORDER BY id DESC`,
       oppParams,
     ))[0] as RowDataPacket[]
     : [];
-  const oppMap = new Map<string, { description: string | null; cn: string | null; beneficiary: string | null }>();
+  const oppMap = new Map<string, { title: string | null; cn: string | null; beneficiary: string | null }>();
   const oppWmById = new Map<number, number>();
   const oppWmByNotice = new Map<string, number>();
   for (const o of oppRows) {
@@ -261,18 +261,24 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
     const oppId = Number(o.id);
     if (Number.isFinite(oppId)) oppWmById.set(oppId, Math.max(oppWmById.get(oppId) ?? 0, wm));
     const key = String(o.source_notice_id ?? "");
-    if (!key) continue;
-    oppWmByNotice.set(key, Math.max(oppWmByNotice.get(key) ?? 0, wm));
-    const prev = oppMap.get(key);
-    const description = String(o.description ?? "").trim() || null;
-    const cn = String(o.description_cn ?? "").trim() || null;
-    const beneficiary = String(o.beneficiary_countries ?? "").trim() || null;
-    if (!prev) oppMap.set(key, { description, cn, beneficiary });
-    else oppMap.set(key, {
-      description: prev.description || description,
-      cn: prev.cn || cn,
-      beneficiary: prev.beneficiary || beneficiary,
-    });
+    if (key) oppWmByNotice.set(key, Math.max(oppWmByNotice.get(key) ?? 0, wm));
+    const entry = {
+      title: String(o.title ?? "").trim() || null,
+      cn: String(o.description_cn ?? "").trim() || null,
+      beneficiary: String(o.beneficiary_countries ?? "").trim() || null,
+    };
+    // 商机既可能按 source_notice_id 关联，也可能只按 bid_notices.converted_opp_id 关联；
+    // 两种键都进 map，构建行时才能取到覆盖字段。
+    const keys = [key, String(oppId)].filter(Boolean);
+    for (const k of keys) {
+      const prev = oppMap.get(k);
+      if (!prev) oppMap.set(k, entry);
+      else oppMap.set(k, {
+        title: prev.title || entry.title,
+        cn: prev.cn || entry.cn,
+        beneficiary: prev.beneficiary || entry.beneficiary,
+      });
+    }
   }
   return { rows: rows as RowDataPacket[], attachmentMap, oppMap, oppWmByNotice, oppWmById };
 }
@@ -292,13 +298,14 @@ export function buildPublicRow(
     || ["published", "closed"].includes(String(r.rfq_status ?? "")))
     && String(r.visibility ?? "public") === "public";
   if (!admitted) return null;
-  const opp = maps.oppMap.get(noticeId);
-  const isOpp = Number(r.is_opportunity ?? 0) === 1;
+  const opp = maps.oppMap.get(noticeId) ?? maps.oppMap.get(String(r.converted_opp_id ?? ""));
   const body = r.body_text ? String(r.body_text) : null;
-  const desc = (isOpp && opp?.description) || body || String(r.description ?? "");
+  // 正文只显示公告原文；商机 description 不覆盖。
+  const desc = body || String(r.description ?? "");
   const rawTitle = String(r.title ?? "").trim();
   const norm = normalizeTitle(rawTitle, desc);
-  const title = String(r.title_clean ?? norm.clean ?? rawTitle).trim();
+  // 标题以商机表为准（人工拆单后的标题），商机无标题才回退归一化公告标题。
+  const title = String(opp?.title || r.title_clean || norm.clean || rawTitle).trim();
   const contentLevel = body
     ? String(r.content_level ?? (len(body) >= 300 ? "substantive" : "thin"))
     : len(desc) < 41 ? "empty"
@@ -350,8 +357,10 @@ export function buildPublicRow(
   const publishedTs = toEpoch(r.published_date);
   const difficulty = normDifficulty(r.difficulty);
   const registration = normRegistration(r.registration_level);
-  const contentZh = isOpp ? (opp?.cn ?? null) : null;
-  const beneficiary = isOpp ? (opp?.beneficiary ?? null) : null;
+  // 中文正文：商机表有中文描述就直接覆盖服务表；无则保留服务表已有中文内容。
+  const contentZh = opp?.cn ?? null;
+  // 受援国按服务表，不再由商机表覆盖。
+  const beneficiary = String(r.beneficiary_countries ?? "").trim().slice(0, 500) || null;
   const titleCn = String(r.title_cn ?? "").trim().slice(0, 1000) || null;
   const buyerNameCn = buyerName
     ? (ctx.buyerTranslations.get(buyerName) ?? null)

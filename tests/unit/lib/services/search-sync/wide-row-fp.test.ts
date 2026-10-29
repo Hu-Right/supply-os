@@ -22,7 +22,7 @@ import {
   wideSyncSelect, buildWideRow, upsertWideRows,
 } from "@/lib/services/search-sync/wide-row-builder";
 import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "@/lib/services/search-sync/wide-fingerprint";
-import { DESC_SOURCE_EXPR } from "@/lib/utils/notice-field-limits";
+
 
 const rawPlatform = {
   id: 1, notice_id: "OSRFQ-000000000001", title: "T", reference: "R",
@@ -49,7 +49,7 @@ describe("指纹同快照", () => {
     expect(sql).not.toContain(WIDE_FP_COLUMN);
     expect(sql).not.toContain(WIDE_FP_EXPR);
     // 其余字段不得因降级而丢失
-    expect(sql).toContain(`${DESC_SOURCE_EXPR} AS description`);
+    expect(sql).toContain(`p.description AS description`);
     expect(sql).not.toContain("n.category_l1_id");
   });
 
@@ -59,20 +59,20 @@ describe("指纹同快照", () => {
    */
   it("两种形态都选出全部普通列", () => {
     const plain = [
-      "n.id", "n.notice_id", "n.reference", "n.title", "n.country", "n.agency",
+      "n.id", "n.notice_id", "p.reference", "p.title", "n.country", "n.agency",
       "n.notice_type", "n.deadline_sec", "n.is_featured", "n.estimated_value",
       "n.documents", "n.procurement_files", "n.published_date", "n.entry_source",
-      "opp.description_cn", "opp.beneficiary_countries",
+      "p.description_cn", "opp.beneficiary_countries",
     ];
     for (const withFp of [true, false]) {
       const sql = wideSyncSelect(withFp);
       for (const col of plain) expect(sql, `${withFp}:${col}`).toContain(col);
-      expect(sql).toContain(`${DESC_SOURCE_EXPR} AS description`);
+      expect(sql).toContain(`p.description AS description`);
     }
   });
 
   it("主查询的描述列复用共享表达式（不再内联 COALESCE）", () => {
-    expect(wideSyncSelect(true)).toContain(`${DESC_SOURCE_EXPR} AS description`);
+    expect(wideSyncSelect(true)).toContain(`p.description AS description`);
   });
 
   it("主表分类列已随死列收刀退出快照（2026-10-15：线上全 NULL，列物理 DROP）", () => {
@@ -130,3 +130,4 @@ describe("指纹同快照", () => {
     expect(upsertNoticeNodes.mock.calls[0][1]).toEqual([{ id: 1, backbone_path: null }]);
   });
 });
+

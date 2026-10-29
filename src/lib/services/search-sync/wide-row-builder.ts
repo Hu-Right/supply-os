@@ -40,14 +40,14 @@ export { SUPPORTED_LANGS };
  */
 export function wideSyncSelect(withFp: boolean): string {
   return `
-  SELECT n.id, n.notice_id, n.reference, n.title,
+  SELECT n.id, n.notice_id, p.reference, p.title,
          ${withFp ? `${WIDE_FP_EXPR} AS ${WIDE_FP_COLUMN},` : ""}
-         ${DESC_SOURCE_EXPR} AS description,
+         p.description AS description,
          n.country, n.agency, n.agency_full, n.notice_type, n.deadline_sec,
          n.is_featured,
          n.estimated_value, n.documents, n.procurement_files,
          n.published_date, n.entry_source,
-         opp.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
+         p.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
          opp.beneficiary_countries,
          p.buyer_name, p.buyer_group, n.country AS country_name,
          p.is_opportunity,
@@ -207,7 +207,7 @@ export function buildWideRow(
     // 同语言直通：管道只缓存了标题（description_tr 为 NULL），描述回填原文而非留空
     const sameLangNoDesc = !!tr && tr.model === TRANSLATION_MODEL.SAME_LANG && !tr.description;
     const descForLang =
-      lang === "zh" && r.is_featured && r.description_cn
+      lang === "zh" && r.description_cn
         ? String(r.description_cn)
         : sameLangNoDesc
           ? String(r.description ?? "")

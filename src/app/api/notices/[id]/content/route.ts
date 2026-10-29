@@ -13,9 +13,8 @@ import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
+import { findPublicDetail } from "@/lib/services/notice-public/read";
 import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
-import { preferValue } from "@/lib/utils/json";
 import { canAccessNotice } from "@/lib/services/industry-scope";
 import { resolveNoticeAccess } from "@/lib/services/notice-access";
 import { EC_OUT_OF_CATEGORY, EC_INVALID_PARAMS, EC_CONTENT_LOCKED, EC_NOT_FOUND } from "@/shared/constants/api";
@@ -33,7 +32,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   if (!(await canAccessNotice(ctx.dbPool, ctx.benefitSystemRepo, auth.userId, noticeId))) {
     routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { outOfCategory: true });
   }
-    const { detailRepo, unlockRepo } = ctx.notice;
+    const { unlockRepo } = ctx.notice;
 
     const [access, notice] = await Promise.all([
       resolveNoticeAccess({
@@ -42,27 +41,23 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         unlockRepo,
         benefitRepo: ctx.benefitSystemRepo,
       }),
-      detailRepo.findDetailPublished(noticeId),
+      findPublicDetail(ctx.dbPool, noticeId),
     ]);
     if (!access.unlock && !access.accessibleByPlan) {
       routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { coreLocked: true });
     }
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
-    
-    // 从机会表取完整描述（主表 description 仅存标题，完整原文在 bid_opportunities）
-    const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
-    const fullDescription = String(preferValue(opportunity?.description, notice.description) || "");
-    // 档位门控（2026-09-24）：description_cn 属中文内容，无 notice_translation 权益时置空，前端回落原文
+
+    // 正文以服务表为准（公告原文）；标题也走服务表，商机标题已在构建时覆盖。
+    const fullDescription = String(notice.description || "");
+    // 中文正文：服务表已有商机中文描述则直接用；无译文权益时置空，前端回落原文
     const canSeeTranslation = await ctx.benefitSystemRepo.isEntitled(auth.userId, NOTICE_TRANSLATION_BENEFIT);
-    const descriptionCn = canSeeTranslation ? String(opportunity?.description_cn || "") : "";
-    
+    const descriptionCn = canSeeTranslation ? String(notice.description_cn || "") : "";
+
     return NextResponse.json({
       description: fullDescription,
       title: notice.title || "",
-      // 响应实体字段用 camelCase（命名红线②）；它们与 DB 列 description_cn 同名不同名无关，
-      // 本层是对外契约，列名只在 SQL 与行类型里存留。
       descriptionCn,
-      // 保留完整原文供"查看原文"切换使用（主表 description 仅存标题）
       originalDescription: fullDescription,
     });
   },

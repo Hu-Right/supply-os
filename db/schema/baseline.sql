@@ -1166,7 +1166,7 @@ CREATE TABLE `notice_public` (
   `beneficiary_countries` varchar(500) DEFAULT NULL COMMENT '受援国/受益国（原文列表）',
   `updated_at` bigint DEFAULT NULL COMMENT '行刷新水位 epoch 秒（增量 reconcile 依据）',
   `industry` varchar(100) DEFAULT NULL COMMENT '行业 slug（约 239 类，主表直取，已归一）',
-  `is_opportunity` tinyint NOT NULL DEFAULT '0' COMMENT '是否已成商机：1=is_featured 或关联合格/在架/过审商机；0 否',
+  `is_opportunity` tinyint NOT NULL DEFAULT '0' COMMENT '是否商机：1=存在人工拆单且合格/在架/过审商机；0 否（不含 is_featured）',
   PRIMARY KEY (`notice_pk`),
   KEY `idx_deadline` (`deadline_ts`),
   KEY `idx_country_type` (`country_code`,`notice_type_code`),
