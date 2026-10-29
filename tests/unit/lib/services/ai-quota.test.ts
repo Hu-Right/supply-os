@@ -2,7 +2,7 @@
  * AI 计量消费单测（ai-quota · ai_summary_quota / ai_match_quota 月度次数池）
  *
  * 固化四条口径：
- * 1. 矩阵缺行/缺格/NULL（迁移前旧库无这两个码）→ 不计量，零副作用放行（新旧数据两边正确）；
+ * 1. 矩阵缺行/缺格/NULL → 拒绝（数据缺陷必须浮出来，绝不静默当无限量）；
  * 2. -1 → 明确不限；0 → 该档明确零额度，拒绝且不碰池；
  * 3. 有限额度 → 独立短事务内 ensure+consume，提交后放行；
  * 4. 池耗尽/冻结（UnlockQuotaError）→ 翻译为 AiQuotaExceededError 并回滚事务。
@@ -25,7 +25,7 @@ function makeConn() {
 }
 
 function makeDeps(opts: {
-  /** 矩阵格：缺省=有 30 额度；[]=缺格（旧库）；value_num=null/0/-1 各有专用用例 */
+  /** 矩阵格：缺省=有 30 额度；[]=缺格（与 NULL 同路径，一律拒绝）；value_num=0/-1 各有专用用例 */
   cells?: Array<{ benefit_code: string; value_num: number | null }>;
   /** findAndLockCurrentPool 依次返回（缺省=现成 active 池） */
   pools?: Array<LockedPoolRow | null>;
@@ -56,10 +56,10 @@ function makePool(conn: PoolConnection) {
 const params = { userId: 101, benefitCode: "ai_summary_quota" };
 
 describe("consumeAiActionQuota · 计量判定", () => {
-  it("矩阵缺格（迁移前旧库无此码）→ 不计量，零副作用放行", async () => {
+  it("矩阵缺格（数据缺陷）→ 拒绝，不开池不扣减", async () => {
     const { conn } = makeConn();
     const { deps, write } = makeDeps({ cells: [] });
-    await expect(consumeAiActionQuota(makePool(conn), deps, params)).resolves.toBeUndefined();
+    await expect(consumeAiActionQuota(makePool(conn), deps, params)).rejects.toThrow(AiQuotaExceededError);
     expect(write.findAndLockCurrentPool).not.toHaveBeenCalled();
     expect(write.consumeLockedPool).not.toHaveBeenCalled();
   });

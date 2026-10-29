@@ -6,9 +6,10 @@
  *              企业/人工/内部 -1 不限，free 0——但 free 只到脱敏档，到不了本入口）。
  *              记账复用 unlock-quota 的开池/换代/扣减原语，额度唯一事实源 = 矩阵格 value_num。
  *
- *              新旧数据两边正确（迁移未执行前旧库无这两个码）：
- *              - 矩阵缺行/缺格、value_num 为 NULL → 不计量，行为与上线前完全一致；
- *              - value_num = -1 → 明确不限；
+ *              额度唯一事实源 = 矩阵格 value_num，一切以新矩阵为准，无迁移过渡分支：
+ *              - 矩阵缺行/缺格、value_num 为 NULL → 拒绝（数据缺陷必须浮出来，
+ *                同 isEntitled「缺格不猜默认值」纪律，绝不静默当无限量放行）；
+ *              - value_num = -1 → 明确不限（唯一不计量出口）；
  *              - value_num = 0 → 该档明确零额度，拒绝（矩阵显式账，不静默放行）；
  *              - 正数 → 月度池扣 1（日历月换代见 unlock-quota）。
  *
@@ -31,7 +32,7 @@ export class AiQuotaExceededError extends Error {
   }
 }
 
-/** 该用户档位在此计量码上的有限额度；null = 不计量（未配置 / 明确 -1 不限） */
+/** 该用户档位在此计量码上的有限额度；null = 明确 -1 不限（唯一不计量出口） */
 async function limitedQuotaTotal(
   catalog: BenefitSystemRepo,
   userId: number,
@@ -41,8 +42,10 @@ async function limitedQuotaTotal(
   const planCode = plan?.plan_code ?? FREE_PLAN_CODE;
   const cells = await catalog.loadCells([planCode]);
   const cell = cells.find((c) => c.benefit_code === benefitCode);
-  // 缺行/缺格（迁移前旧库）与 NULL：矩阵没配置计量就不管账，不猜默认额度
-  if (!cell || cell.value_num === null || cell.value_num === undefined) return null;
+  // 缺行/缺格/NULL：矩阵没声明计量 = 数据缺陷，拒绝而非静默无限量（新矩阵 330 格显式全填，正常路径到不了这里）
+  if (!cell || cell.value_num === null || cell.value_num === undefined) {
+    throw new AiQuotaExceededError(benefitCode);
+  }
   const total = Number(cell.value_num);
   if (total === -1) return null; // 明确不限
   return total;
@@ -58,7 +61,7 @@ export async function consumeAiActionQuota(
   params: { userId: number; benefitCode: string },
 ): Promise<void> {
   const total = await limitedQuotaTotal(deps.catalog, params.userId, params.benefitCode);
-  if (total === null) return; // 不计量（旧数据未迁移 / -1 不限）
+  if (total === null) return; // 明确 -1 不限
   if (total <= 0) throw new AiQuotaExceededError(params.benefitCode); // 0 = 该档明确零额度
 
   const conn = await pool.getConnection();
