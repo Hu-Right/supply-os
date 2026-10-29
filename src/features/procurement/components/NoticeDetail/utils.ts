@@ -22,14 +22,16 @@ export interface DetailTabGate {
 export interface DetailTab {
   key: string;
   labelKey: string;
-  gate: DetailTabGate;
+  /** 缺省 = 公开信息 Tab（不挂权益，角标显示「免费」） */
+  gate?: DetailTabGate;
 }
 
 export const DETAIL_TABS: DetailTab[] = [
   { key: "summary", labelKey: "detail_tabSummary", gate: { benefitCode: "ai_summary" } },
   { key: "qualification", labelKey: "detail_tabQualification", gate: { benefitCode: "qualification_access" } },
-  // 采购方/联系人/原始链接：内容归属「标讯权益（详情全量查看）」
-  { key: "buyer", labelKey: "detail_tabBuyer", gate: { benefitCode: "notice_view" } },
+  // 采购方/机构信息/原始链接是公开信息（列表与公开详情页均可见），不挂权益 = 全档可看；
+  // Tab 内的「联系人」仍按会员锁定（见 BuyerContactsTab）。
+  { key: "buyer", labelKey: "detail_tabBuyer" },
   // 投标材料 = 中文拆解报告 + 原始招标文件（原「原始文件」Tab 扩容）
   { key: "files", labelKey: "detail_tabMaterials", gate: { benefitCode: "original_file_access" } },
   { key: "ai-score", labelKey: "detail_tabAiScore", gate: { benefitCode: "ai_match" } },
@@ -96,6 +98,8 @@ export function deriveTabGateState(
   tab: DetailTab,
   gates: Record<string, GateState> | undefined,
 ): GateState {
+  // 未挂权益的 Tab（公开信息）对所有人展示「免费」
+  if (!tab.gate) return "free";
   return gates?.[tab.gate.benefitCode] ?? "upgrade";
 }
 

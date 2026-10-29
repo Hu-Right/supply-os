@@ -27,9 +27,13 @@ const baseNotice = {
 } as unknown as NoticeItem;
 
 describe("BuyerContactsTab（采购方与联系人）", () => {
-  it("未解锁：展示会员专属引导，不泄露联系人", () => {
+  it("未解锁：采购方/原始链接公开可见，只有联系人锁定", () => {
     render(<BuyerContactsTab notice={baseNotice} coreUnlocked={false} />);
-    expect(screen.getByText(/detail_tabBuyer/)).toBeInTheDocument();
+    // 公开信息照常展示
+    expect(screen.getByText("EAU DE PARIS")).toBeInTheDocument();
+    expect(screen.getByText("法国")).toBeInTheDocument();
+    expect(screen.getByText("procurement_openNotice").closest("a")).toHaveAttribute("href", "https://example.com/notice");
+    // 联系人锁定
     expect(screen.getByText("detail_buyerLockedIntro")).toBeInTheDocument();
     expect(screen.queryByText("sach-edp@eaudeparis.fr")).toBeNull();
   });

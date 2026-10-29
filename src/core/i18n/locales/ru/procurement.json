@@ -396,7 +396,7 @@
   "detail_tabListAria": "Вкладки информации об объявлении",
   "detail_tabBuyer": "Заказчик и контакты",
   "detail_tabMaterials": "Тендерные материалы",
-  "detail_buyerLockedIntro": "Участники могут видеть заказчика, контакты и исходную ссылку.",
+  "detail_buyerLockedIntro": "Контактные данные доступны участникам. Оформите подписку, чтобы их увидеть.",
   "procurement_noContacts": "Контактная информация для этого уведомления не указана.",
   "detail_tabSummary": "Сводка",
   "detail_tabQualification": "Квалификации",

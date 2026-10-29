@@ -396,7 +396,7 @@
   "detail_tabListAria": "Pestañas de información del aviso",
   "detail_tabBuyer": "Comprador y contactos",
   "detail_tabMaterials": "Materiales de licitación",
-  "detail_buyerLockedIntro": "Los miembros pueden ver el comprador, los contactos y el enlace original.",
+  "detail_buyerLockedIntro": "Los datos de contacto son un beneficio para miembros. Actualice para verlos.",
   "procurement_noContacts": "Esta licitación no proporciona información de contacto.",
   "detail_tabSummary": "Resumen",
   "detail_tabQualification": "Calificaciones",
