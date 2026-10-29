@@ -634,5 +634,7 @@
   "procurement_deadlineRegistration": "Fim do registro",
   "procurement_deadlineFramework": "Fim do acordo-quadro",
   "detail_reference": "Nº de referência",
-  "feasibilityExportWord": "Exportar Word"
+  "feasibilityExportWord": "Exportar Word",
+  "feasibilityStale": "O perfil da empresa ou os requisitos do anúncio mudaram; o relatório pode estar desatualizado.",
+  "feasibilityRegenerate": "Gerar novamente"
 }

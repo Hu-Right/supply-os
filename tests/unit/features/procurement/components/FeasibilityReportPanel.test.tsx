@@ -74,6 +74,18 @@ describe("FeasibilityReportPanel（投标可行性报告）", () => {
     expect(screen.getByText("feasibilityRetry")).toBeInTheDocument();
   });
 
+  it("档案已更新（stale）：提示过期并可重新生成", async () => {
+    apiMock.mockReset();
+    apiMock
+      .mockResolvedValueOnce({ report: fixtureReport(), enterprise: { id: 1001, name: "宁波照明" }, stale: true })
+      .mockResolvedValueOnce({ report: fixtureReport(), cached: false, enterprise: { id: 1001, name: "宁波照明" }, stale: false });
+    render(<FeasibilityReportPanel noticePk={7} enabled />);
+    expect(await screen.findByTestId("feasibility-stale")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("feasibility-regenerate"));
+    expect(apiMock).toHaveBeenCalledTimes(2);
+    expect(apiMock.mock.calls[1][1]).toMatchObject({ method: "POST", body: { regenerate: true } });
+  });
+
   it("未启用（无权益/未解锁）不渲染", () => {
     apiMock.mockReset();
     const { container } = render(<FeasibilityReportPanel noticePk={7} enabled={false} />);

@@ -634,5 +634,7 @@
   "procurement_deadlineRegistration": "انتهاء التسجيل",
   "procurement_deadlineFramework": "انتهاء الاتفاق الإطاري",
   "detail_reference": "رقم المرجع",
-  "feasibilityExportWord": "تصدير Word"
+  "feasibilityExportWord": "تصدير Word",
+  "feasibilityStale": "تغيّر ملف المؤسسة أو متطلبات الإعلان؛ قد يكون التقرير قديمًا.",
+  "feasibilityRegenerate": "إعادة الإنشاء"
 }

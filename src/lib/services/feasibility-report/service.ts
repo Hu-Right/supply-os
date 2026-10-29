@@ -111,28 +111,50 @@ function parseReport(row: FeasibilityReportRow | null): FeasibilityReport | null
   return raw as FeasibilityReport;
 }
 
-/** 读取已有报告（GET；不触发生成） */
+/** 读取已有报告（GET；不触发生成）；stale=企业档案/要求项已变化、缓存版本建议重新生成 */
 export async function getFeasibilityReportForNotice(
   deps: FeasibilityDeps,
   params: { userId: number; noticePk: number },
-): Promise<{ report: FeasibilityReport | null; enterprise: { id: number; name: string } | null }> {
+): Promise<{ report: FeasibilityReport | null; enterprise: { id: number; name: string } | null; stale: boolean }> {
   if (!(await deps.isEntitled(params.userId, BID_FEASIBILITY_REPORT_BENEFIT))) {
     routeError(403, EC_VIP_ONLY, "投标可行性报告为企业版权益", { feature: BID_FEASIBILITY_REPORT_BENEFIT });
   }
   const supplier = await deps.repo.findVerifiedSupplierForUser(params.userId);
-  if (!supplier) return { report: null, enterprise: null };
+  if (!supplier) return { report: null, enterprise: null, stale: false };
   const enterpriseId = Number(supplier.id);
   const row = await deps.repo.getLatestReport(params.noticePk, enterpriseId);
-  return {
-    report: parseReport(row),
-    enterprise: { id: enterpriseId, name: String(supplier.company ?? "") },
-  };
+  const report = parseReport(row);
+  if (!report || !row) {
+    return { report: null, enterprise: { id: enterpriseId, name: String(supplier.company ?? "") }, stale: false };
+  }
+
+  // 判断缓存是否过期：用当前企业档案 + 最新要求项重算 hash
+  let stale = false;
+  const latest = await deps.repo.getLatestRequirements(params.noticePk);
+  if (latest.rows.length > 0) {
+    const requirements = latest.rows.map((item) => requirementItemFromRow(item as never));
+    const [diagnosis, capabilityRows, evidenceRows] = await Promise.all([
+      deps.repo.findDiagnosis(params.userId, enterpriseId),
+      deps.repo.listCapabilityRows(enterpriseId),
+      deps.repo.listEvidenceRows(enterpriseId),
+    ]);
+    const capabilities = deriveCapabilities({ enterpriseId, supplier, diagnosis, capabilityRows, evidenceRows });
+    const currentHash = inputHashOf({
+      noticePk: params.noticePk,
+      enterpriseId,
+      requirementVersion: latest.version,
+      requirements,
+      capabilities,
+    });
+    stale = currentHash !== row.input_hash;
+  }
+  return { report, enterprise: { id: enterpriseId, name: String(supplier.company ?? "") }, stale };
 }
 
 /** 生成报告（POST）：无缓存则抽取要求项 + 判定 + 落库 */
 export async function generateFeasibilityReport(
   deps: FeasibilityDeps,
-  params: { userId: number; noticePk: number },
+  params: { userId: number; noticePk: number; regenerate?: boolean },
 ): Promise<{ report: FeasibilityReport; cached: boolean; enterprise: { id: number; name: string } }> {
   if (!(await deps.isEntitled(params.userId, BID_FEASIBILITY_REPORT_BENEFIT))) {
     routeError(403, EC_VIP_ONLY, "投标可行性报告为企业版权益", { feature: BID_FEASIBILITY_REPORT_BENEFIT });
@@ -152,12 +174,12 @@ export async function generateFeasibilityReport(
     (notice as PublicNoticeRowLike & { notice_id?: string | number }).notice_id ?? "",
   );
 
-  // 1) 要求项：有历史版本直接复用；否则 BYOK 抽取并落库
+  // 1) 要求项：有历史版本且未要求重抽 → 复用；否则 BYOK 抽取并落新版本
   const latest = await deps.repo.getLatestRequirements(params.noticePk);
   let version = latest.version;
   const rows = latest.rows;
   let requirements: RequirementItem[];
-  if (rows.length > 0) {
+  if (rows.length > 0 && !params.regenerate) {
     requirements = rows.map((row) => requirementItemFromRow(row as never));
   } else {
     const creds = await deps.getLlmCredentials(params.userId);
@@ -202,7 +224,7 @@ export async function generateFeasibilityReport(
     requirements,
     capabilities,
   });
-  const cachedRow = await deps.repo.findReportByHash(params.noticePk, enterpriseId, inputHash);
+  const cachedRow = params.regenerate ? null : await deps.repo.findReportByHash(params.noticePk, enterpriseId, inputHash);
   const cached = parseReport(cachedRow);
   if (cached) return { report: cached, cached: true, enterprise };
 

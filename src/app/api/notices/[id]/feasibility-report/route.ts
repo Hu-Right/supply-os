@@ -4,7 +4,7 @@
  *
  * @module app/api/notices/[id]/feasibility-report/route
  */
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
@@ -35,22 +35,27 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(async (req, { 
   return NextResponse.json({
     report: feasibilityReportViewOf(data.report),
     enterprise: feasibilityEnterpriseViewOf(data.enterprise),
+    stale: data.stale,
   });
 });
 
-export const POST = withRoute<{ params: Promise<{ id: string }> }>(async (req, { params }) => {
+export const POST = withRoute<{ params: Promise<{ id: string }> }>(async (req: NextRequest, { params }) => {
   const auth = await requireUserKeyOrThrow(req);
   const { id } = await params;
+  const body = (await req.json().catch(() => ({}))) as { regenerate?: unknown };
+  const regenerate = body?.regenerate === true;
   const ctx = getContext();
   const result = await generateFeasibilityReport(createFeasibilityDeps(ctx), {
     userId: auth.userId,
     noticePk: parseNoticePk(id),
+    regenerate,
   });
   return NextResponse.json(
     {
       report: feasibilityReportViewOf(result.report),
       cached: result.cached,
       enterprise: feasibilityEnterpriseViewOf(result.enterprise),
+      stale: false,
     },
     { status: result.cached ? 200 : 201 },
   );

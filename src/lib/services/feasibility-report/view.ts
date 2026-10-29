@@ -15,6 +15,8 @@ export interface FeasibilityEnterpriseView {
 export interface FeasibilityReportResponseView {
   report: FeasibilityReport | null;
   enterprise: FeasibilityEnterpriseView | null;
+  /** 企业档案/要求项已变化：当前缓存版本可能过期 */
+  stale: boolean;
 }
 
 export interface FeasibilityReportGenerateView {

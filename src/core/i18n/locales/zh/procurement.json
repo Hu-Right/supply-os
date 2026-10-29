@@ -634,5 +634,7 @@
   "procurement_deadlineRegistration": "注册制结束",
   "procurement_deadlineFramework": "框架协议结束",
   "detail_reference": "参考编号",
-  "feasibilityExportWord": "导出 Word"
+  "feasibilityExportWord": "导出 Word",
+  "feasibilityStale": "企业档案或公告要求项已更新，当前报告可能过期。",
+  "feasibilityRegenerate": "重新生成"
 }

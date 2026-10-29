@@ -226,4 +226,37 @@ describe("feasibility-report 编排服务", () => {
       code: EC_VIP_ONLY,
     });
   });
+
+  it("企业档案变化后 GET 标记 stale（建议重新生成）", async () => {
+    const state = baseState();
+    const deps = makeDeps(makeRepo(state), state);
+    await generateFeasibilityReport(deps, { userId: 1, noticePk: 7 });
+    const fresh = await getFeasibilityReportForNotice(deps, { userId: 1, noticePk: 7 });
+    expect(fresh.stale).toBe(false);
+
+    // 新增一条手工能力项 → 输入 hash 变化 → 旧报告过期
+    state.capabilityRows.push({
+      id: 1,
+      enterprise_id: 1001,
+      capability_type: "experience",
+      name: "新增业绩",
+      value_json: { kind: "experience", count: 2, years: 3 },
+      evidence_refs_json: [],
+      confirmation_json: {},
+    });
+    const staleData = await getFeasibilityReportForNotice(deps, { userId: 1, noticePk: 7 });
+    expect(staleData.stale).toBe(true);
+  });
+
+  it("regenerate：忽略缓存与历史要求项，重新抽取并生成", async () => {
+    const state = baseState();
+    const deps = makeDeps(makeRepo(state), state);
+    await generateFeasibilityReport(deps, { userId: 1, noticePk: 7 });
+    expect(state.extracted).toBe(1);
+
+    const regenerated = await generateFeasibilityReport(deps, { userId: 1, noticePk: 7, regenerate: true });
+    expect(regenerated.cached).toBe(false);
+    expect(state.extracted).toBe(2);
+    expect(state.savedRequirements).toBe(2);
+  });
 });

@@ -336,7 +336,14 @@ export function deriveCapabilities(input: {
       capturedAt: null,
     };
     const targetType = evidence.category === "cert" ? "certification" : evidence.category;
-    const target = capabilities.find((c) => c.type === targetType);
+    // 优先按证据标题匹配同名能力（如「ISO14001 证书」→ code ISO14001），否则挂到同类第一条
+    const titleNorm = String(evidence.title ?? "").toLowerCase();
+    const sameType = capabilities.filter((c) => c.type === targetType);
+    const target =
+      sameType.find((c) => {
+        const code = String((c.value as Record<string, unknown>)?.code ?? "").toLowerCase();
+        return titleNorm.includes(String(c.name).toLowerCase()) || (!!code && titleNorm.includes(code));
+      }) ?? sameType[0];
     if (!target) continue;
     target.evidenceRefs = [...(target.evidenceRefs ?? []), ref];
   }

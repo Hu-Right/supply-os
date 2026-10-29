@@ -634,5 +634,7 @@
   "procurement_deadlineRegistration": "Fin del registro",
   "procurement_deadlineFramework": "Fin del acuerdo marco",
   "detail_reference": "N.º de referencia",
-  "feasibilityExportWord": "Exportar Word"
+  "feasibilityExportWord": "Exportar Word",
+  "feasibilityStale": "El perfil de la empresa o los requisitos del anuncio cambiaron; el informe puede estar desactualizado.",
+  "feasibilityRegenerate": "Regenerar"
 }

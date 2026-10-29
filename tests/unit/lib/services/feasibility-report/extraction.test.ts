@@ -156,6 +156,20 @@ describe("feasibility-report 输入装配（DB 行 → 领域对象）", () => {
     expect(caps.find((c) => c.type === "registration")?.value).toMatchObject({ platform: "UNGM", status: "active" });
   });
 
+  it("证据按标题匹配到对应证书（而不是永远挂到第一条）", () => {
+    const caps = deriveCapabilities({
+      enterpriseId: 1001,
+      supplier: { id: 1001, certification: "ISO 9001, ISO 14001" },
+      evidenceRows: [
+        { id: 1, enterprise_id: 1001, category: "cert", title: "ISO14001 证书扫描件", no_expiry: 0, confirmed: 1, upload_file_id: null, upload_filename: "evidence_1_1.pdf" },
+      ] as never,
+    });
+    const iso9001 = caps.find((c) => c.type === "certification" && (c.value as Record<string, unknown>).code === "ISO9001");
+    const iso14001 = caps.find((c) => c.type === "certification" && (c.value as Record<string, unknown>).code === "ISO14001");
+    expect(iso14001?.evidenceRefs?.some((e) => e.id === "enterprise_evidence:1")).toBe(true);
+    expect(iso9001?.evidenceRefs?.some((e) => e.id === "enterprise_evidence:1")).toBe(false);
+  });
+
   it("enterprise_capability_items 行优先覆盖派生能力（同证书 code 去重）", () => {
     const rawRow = {
       id: 9, enterprise_id: 1001, capability_type: "certification", name: "ISO 14001",

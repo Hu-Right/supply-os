@@ -17,12 +17,14 @@ import type { Decision, FeasibilityReport, RuleStatus } from "@/lib/services/fea
 interface ReportResponse {
   report: FeasibilityReport | null;
   enterprise: { id: number; name: string } | null;
+  stale?: boolean;
 }
 
 interface GenerateResponse {
   report: FeasibilityReport;
   cached: boolean;
   enterprise: { id: number; name: string };
+  stale?: boolean;
 }
 
 const STATUS_TONE: Record<string, string> = {
@@ -69,6 +71,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<FeasibilityReport | null>(null);
   const [enterprise, setEnterprise] = useState<{ id: number; name: string } | null>(null);
+  const [stale, setStale] = useState(false);
 
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -78,6 +81,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
       const data = await api<ReportResponse>(`/api/notices/${noticePk}/feasibility-report`);
       setReport(data.report);
       setEnterprise(data.enterprise);
+      setStale(data.stale === true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "load_failed");
     } finally {
@@ -89,14 +93,18 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
     void load();
   }, [load]);
 
-  const generate = useCallback(async () => {
+  const generate = useCallback(async (regenerate = false) => {
     if (generating) return;
     setGenerating(true);
     setError(null);
     try {
-      const data = await api<GenerateResponse>(`/api/notices/${noticePk}/feasibility-report`, { method: "POST" });
+      const data = await api<GenerateResponse>(`/api/notices/${noticePk}/feasibility-report`, {
+        method: "POST",
+        body: regenerate ? { regenerate: true } : undefined,
+      });
       setReport(data.report);
       setEnterprise(data.enterprise);
+      setStale(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "generate_failed");
     } finally {
@@ -225,6 +233,22 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
               </span>
             )}
           </div>
+
+          {stale && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-2xs text-amber-700" data-testid="feasibility-stale">
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+              <span className="flex-1">{t("feasibilityStale") || "企业档案或公告要求项已更新，当前报告可能过期。"}</span>
+              <button
+                type="button"
+                onClick={() => void generate(true)}
+                disabled={generating}
+                data-testid="feasibility-regenerate"
+                className="shrink-0 font-black underline underline-offset-2 hover:text-amber-800 disabled:opacity-50"
+              >
+                {t("feasibilityRegenerate") || "重新生成"}
+              </button>
+            </div>
+          )}
 
           {report.verdict.reasons.length > 0 && (
             <ul className="space-y-1">

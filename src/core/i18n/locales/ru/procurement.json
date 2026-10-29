@@ -634,5 +634,7 @@
   "procurement_deadlineRegistration": "Окончание регистрации",
   "procurement_deadlineFramework": "Окончание рамочного соглашения",
   "detail_reference": "Номер ссылки",
-  "feasibilityExportWord": "Экспорт в Word"
+  "feasibilityExportWord": "Экспорт в Word",
+  "feasibilityStale": "Профиль предприятия или требования извещения изменились — отчёт может быть устаревшим.",
+  "feasibilityRegenerate": "Создать заново"
 }
