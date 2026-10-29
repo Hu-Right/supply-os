@@ -9,7 +9,7 @@
   "errPasswordResetRequired": "Esta cuenta debe restablecerse mediante \"Olvidé mi contraseña\" antes de iniciar sesión",
   "errRateLimited": "Demasiadas solicitudes, inténtelo de nuevo más tarde",
   "errNotFound": "El recurso solicitado no existe",
-  "errUnlockRequired": "Desbloquee este contenido antes de continuar",
+  "errUnlockRequired": "Se requiere membresía para ver este contenido",
   "errInvalidCode": "El código de verificación no es válido o expiró; solicite uno nuevo",
   "errDuplicate": "Esta acción ya existe; no la envíe de nuevo",
   "errAccountIssue": "Problema de cuenta o contraseña incorrecta; revise y reintente",

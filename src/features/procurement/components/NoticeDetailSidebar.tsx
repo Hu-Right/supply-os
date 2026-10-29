@@ -4,10 +4,10 @@
  *
  * @module features/procurement/components/NoticeDetailSidebar
  * @description 桌面端右栏内容（会员状态卡 + 下一步动作卡）已并入 NoticeDetail 主栅格，
- *              本组件仅承担移动端固定底栏三操作按钮（感兴趣/订阅/解锁）。
+ *              本组件仅承担移动端固定底栏操作按钮（感兴趣/订阅；升级 CTA 仅免费用户可见）。
  *              桌面端（md 以上）隐藏，避免与 NextStepsPanel 重复渲染操作按钮。
  */
-import { Bell, Heart, Lock, Crown } from "lucide-react";
+import { Bell, Heart, Crown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
@@ -25,14 +25,12 @@ export interface NoticeDetailSidebarProps {
   /** 骨架屏期间隐藏付费解锁按钮，防闪变 */
   showSkeleton: boolean;
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
-  onUnlock: (notice: NoticeItem) => void;
 }
 
 export function NoticeDetailSidebar({
   notice,
   canUsePaidQuota,
   onExpressInterest,
-  onUnlock,
 }: NoticeDetailSidebarProps) {
   const router = useRouter();
   const { t } = useLocale();
@@ -57,16 +55,17 @@ export function NoticeDetailSidebar({
         <Bell className="w-4 h-4 shrink-0 text-amber-300" />
         <span className="truncate">{t("procurement_subscribeNotice")}</span>
       </Button>
-      <Button
-        onClick={() => (canUsePaidQuota ? onUnlock(notice) : router.push(`/membership?notice_id=${notice.noticePk}`))}
-        variant={canUsePaidQuota ? "secondary" : "cta"}
-        className="flex-1 min-w-0 gap-1.5 px-2 text-xs py-2.5 font-semibold"
-      >
-        {canUsePaidQuota ? <Lock className="w-4 h-4 shrink-0" /> : <Crown className="w-4 h-4 shrink-0" />}
-        <span className="truncate">
-          {canUsePaidQuota ? t("procurement_memberUnlock") : t("procurement_upgradeToUnlock")}
-        </span>
-      </Button>
+      {/* 2026-10-29：会员打开公告即自动解锁、内容全可见 ⇒ 会员不再需要「查看/解锁」按钮，仅免费用户看到升级 CTA */}
+      {!canUsePaidQuota && (
+        <Button
+          onClick={() => router.push(`/membership?notice_id=${notice.noticePk}`)}
+          variant="cta"
+          className="flex-1 min-w-0 gap-1.5 px-2 text-xs py-2.5 font-semibold"
+        >
+          <Crown className="w-4 h-4 shrink-0" />
+          <span className="truncate">{t("procurement_upgradeToUnlock")}</span>
+        </Button>
+      )}
     </div>
   );
 }

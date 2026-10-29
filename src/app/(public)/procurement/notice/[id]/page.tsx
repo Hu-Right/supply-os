@@ -201,11 +201,11 @@ export default async function NoticeSeoPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* 解锁 CTA —— 完整公告内容/联系人/文档需登录解锁 */}
+      {/* 登录 CTA —— 完整公告内容/联系人/文档需登录后查看（2026-10-29：不再用「解锁」旧口径） */}
       <section className="rounded-2xl border border-training-green/20 bg-training-green/5 p-6">
         <h2 className="text-base font-bold text-slate-900">查看完整公告</h2>
         <p className="mt-1 text-sm text-slate-600">
-          完整描述、联系方式与采购文件需登录解锁后查看。
+          完整描述、联系方式与采购文件需登录后查看。
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link

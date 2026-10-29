@@ -9,7 +9,7 @@
   "errPasswordResetRequired": "This account must be reset via \"Forgot password\" before signing in",
   "errRateLimited": "Too many requests, please try again later",
   "errNotFound": "The requested resource does not exist",
-  "errUnlockRequired": "Please unlock this content before continuing",
+  "errUnlockRequired": "Membership required to view this content",
   "errInvalidCode": "Verification code is invalid or expired, please request a new one",
   "errDuplicate": "This action already exists; please don't submit it again",
   "errAccountIssue": "Account issue or incorrect password; please check and retry",

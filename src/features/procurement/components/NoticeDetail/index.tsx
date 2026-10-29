@@ -307,7 +307,6 @@ export function NoticeDetail({
         totalRemaining={totalRemaining} isLoggedIn={isLoggedIn}
         showSkeleton={showSkeleton}
         onExpressInterest={onExpressInterest}
-        onUnlock={onUnlock}
       />
 
       {/* 分享面板：链接直达规范公开详情页 /procurement/notice/{id} */}

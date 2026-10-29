@@ -78,7 +78,7 @@ export const LockedPanel = memo(function LockedPanel({ onRequestUnlock }: { onRe
         </h3>
       </div>
       <p className="text-sm text-slate-500 mb-4">
-        {t("detail_aiSummaryErrorLocked") || "请先解锁本公告，再进行 AI 分析。"}
+        {t("detail_aiSummaryErrorLocked") || "升级会员后可进行 AI 分析。"}
       </p>
       <button
         type="button"

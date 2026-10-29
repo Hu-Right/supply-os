@@ -130,7 +130,7 @@ export function useNoticeHandlers({
     markUnlocked(notice.noticePk);
     // P2-5 安全修复：解锁成功后清除解锁历史缓存，确保 RecentUnlocks 立即刷新
     clearApiCache("/api/payment/unlocks");
-    setActionMessage(t("procurement_paidUnlockOk"));
+    // 2026-10-29：会员打开公告即自动解锁，解锁不再是用户动作 ⇒ 不再弹「已解锁该商机」成功提示
     // 解锁成功后拉取拓展详情，实时补全联系人/文件等信息
     await loadNoticeDetail(notice);
     return true;

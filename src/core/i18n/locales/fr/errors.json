@@ -9,7 +9,7 @@
   "errPasswordResetRequired": "Ce compte doit être réinitialisé via « Mot de passe oublié » avant de se connecter",
   "errRateLimited": "Trop de requêtes, veuillez réessayer plus tard",
   "errNotFound": "La ressource demandée n'existe pas",
-  "errUnlockRequired": "Veuillez déverrouiller ce contenu avant de continuer",
+  "errUnlockRequired": "Un abonnement est requis pour voir ce contenu",
   "errInvalidCode": "Le code de vérification est invalide ou expiré, veuillez en demander un nouveau",
   "errDuplicate": "Cette action existe déjà ; veuillez ne pas la soumettre à nouveau",
   "errAccountIssue": "Problème de compte ou mot de passe incorrect ; vérifiez et réessayez",

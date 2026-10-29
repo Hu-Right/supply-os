@@ -18,7 +18,6 @@ import {
   Briefcase,
   Heart,
   Bell,
-  Lock,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { emitAppEvent } from "@/core/events";
@@ -201,14 +200,18 @@ export function NextStepsPanel({
           <Bell className="w-3.5 h-3.5 shrink-0 text-amber-300" />
           <span className="truncate">{t("procurement_subscribeNotice") || "订阅商机"}</span>
         </Button>
-        <Button
-          onClick={() => (canUsePaidQuota ? onUnlock?.() : goMembership())}
-          variant={canUsePaidQuota ? "secondary" : "cta"}
-          className="flex-1 min-w-0 gap-1.5 px-2 py-2 text-xs"
-        >
-          {canUsePaidQuota ? <Lock className="w-3.5 h-3.5 shrink-0" /> : <Crown className="w-3.5 h-3.5 shrink-0" />}
-          <span className="truncate">{canUsePaidQuota ? (t("procurement_memberUnlock") || "会员查看") : (t("procurement_upgradeToUnlock") || "升级会员解锁")}</span>
-        </Button>
+        {/* 2026-10-29：会员打开公告即自动解锁、内容全可见 ⇒ 会员不再需要「查看/解锁」按钮，
+            仅免费用户看到升级 CTA（与移动端底栏同口径） */}
+        {!canUsePaidQuota && (
+          <Button
+            onClick={goMembership}
+            variant="cta"
+            className="flex-1 min-w-0 gap-1.5 px-2 py-2 text-xs"
+          >
+            <Crown className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{t("procurement_upgradeToUnlock") || "升级会员查看"}</span>
+          </Button>
+        )}
       </div>
 
       {/* 非 VIP 用户：底部升级提示（移动端由固定底栏承担，隐藏） */}

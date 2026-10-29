@@ -11,10 +11,10 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   // 只写页面名：网站名由根 layout 的 title.template 拼在首位
   title: "会员套餐与权益",
-  description: "云境·国际采购平台会员套餐：解锁更多采购公告、供应商数据、CRM 功能，助力企业高效拓展全球采购业务。",
+  description: "云境·国际采购平台会员套餐：查看完整采购公告、供应商数据与 AI 投标工具，助力企业高效拓展全球采购业务。",
   openGraph: {
     title: BROWSER_TITLE.zh,
-    description: "解锁更多采购公告、供应商数据、CRM 功能，助力全球业务拓展。",
+    description: "查看完整采购公告、供应商数据与 AI 投标工具，助力全球业务拓展。",
     type: "website",
   },
   alternates: {
