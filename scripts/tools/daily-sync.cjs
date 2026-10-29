@@ -63,7 +63,7 @@
  *     不能被源库非空值 0 抹掉（那种情况 keepCols「源空才保留」不生效）；
  *   · title 目标优先：后台正式写入者入库前用 normalizeTitle 清洗（实测 1,106/1,106 可复现），
  *     本脚本没有那一步 ⇒ 若源值直通覆盖会把已清洗标题打回原形，且因两侧 update_time 相等而永不对齐。
- *     代价：本脚本不跟进源库的标题修改（靠后台或人工 notice-public-v2 --ids 重算）。
+ *     代价：本脚本不跟进源库的标题修改（靠后台正式写入者或 scripts/tools/notice-public-rebuild.ts 重算）。
  */
 
 // ═══════════════════════════════════════════
@@ -822,7 +822,9 @@ async function pruneSourceDeleted(source, target, sourceTable) {
 
 /**
  * 主表同步完成后，重算服务表 notice_public。
- * 子进程运行 TS builder，避免把归一化逻辑复制进 CJS；失败只告警，下一轮重试。
+ * 子进程运行 tracked CLI（scripts/tools/notice-public-rebuild.ts）→ 委托应用内唯一写入者
+ * src/lib/services/notice-public/build.ts，避免把归一化逻辑复制进 CJS。
+ * 2026-10-27 管道翻转后 ops 的一次性 CLI 已删除，这里改指向仓库内的构建入口；失败只告警，下一轮重试。
  *
  * 选行口径用 --changed（不等式判据）而不再用时间窗口：窗口会把当天所有变更行重刷
  * （输入未变也写，等于多余覆盖），而且接不住两类真漏行：
@@ -833,18 +835,18 @@ async function pruneSourceDeleted(source, target, sourceTable) {
 function runServiceNormalization() {
   const repoRoot = path.join(__dirname, '..', '..');
   const tsxCli = path.join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
-  const script = path.join(repoRoot, 'scripts', 'ops', 'notice-public-v2.ts');
+  const script = path.join(repoRoot, 'scripts', 'tools', 'notice-public-rebuild.ts');
   log('  [服务表] 归一化选行=--changed（只重算缺行与交付层落后的行）');
-  const builderArgs = [tsxCli, script, '--changed', '--apply'];
+  const builderArgs = [tsxCli, script, '--apply'];
   // 只有开了源撤回下传，才附带 ghost 清理：普通轮次绝不删服务表一行
-  if (PRUNE_SOURCE_DELETED) builderArgs.push('--prune');
+  if (!PRUNE_SOURCE_DELETED) builderArgs.push('--no-prune');
   const res = spawnSync(process.execPath, builderArgs, {
     cwd: repoRoot,
     stdio: 'inherit',
     env: process.env,
   });
   if (res.error) throw res.error;
-  if (res.status !== 0) throw new Error(`notice-public-v2 退出码 ${res.status}`);
+  if (res.status !== 0) throw new Error(`notice-public-rebuild 退出码 ${res.status}`);
 }
 
 async function runSyncOnce() {
