@@ -34,7 +34,6 @@
   "errNoValidActions": "Aucune action valide fournie",
   "errInviteCodeInvalid": "Code d'invitation invalide",
   "errEndpointRetired": "Cet endpoint est déprécié, veuillez utiliser le nouvel endpoint",
-
   "errClaimSupplierNotFound": "Le fournisseur à revendiquer n'existe pas",
   "errClaimSelfBound": "Vous êtes déjà lié à cette entreprise ; inutile de revendiquer à nouveau",
   "errClaimBoundByOther": "Cette entreprise a été revendiquée par un autre compte et ne peut l'être à nouveau",
@@ -77,7 +76,6 @@
   "errApiKeyExpired": "Clé API expirée",
   "errApiKeySuspended": "Clé API suspendue",
   "errApiQuotaExceeded": "Quota API quotidien épuisé",
-
   "payErrProviderUnavailable": "Ce mode de paiement n'est pas encore disponible ; choisissez-en un autre ou contactez le support",
   "payErrQrMissing": "Échec de génération du QR code de paiement ; assurez-vous que le « Paiement en face-à-face » est activé puis réessayez",
   "payErrOrderNotFound": "Commande introuvable ou expirée ; veuillez en créer une nouvelle",
@@ -89,12 +87,9 @@
   "payErrAmountInvalid": "Erreur de montant de paiement ; contactez le support",
   "payErrFreePlan": "Le forfait gratuit ne nécessite aucun paiement",
   "payErrUpgradeInvalid": "La source de mise à niveau a changé ; relancez la mise à niveau",
-  "payErrSingleFirstPurchase": "L'offre de premier achat ne s'applique qu'à votre première commande ; choisissez le déverrouillage standard",
   "payErrServiceUnavailable": "Ce service ne prend pas encore en charge la commande en ligne",
   "payErrServiceAdvisoryOnly": "Ce service est uniquement consultatif et ne prend pas en charge la commande en libre-service",
   "payErrSignVerifyFailed": "Échec de la vérification du paiement ; réessayez ou choisissez un autre mode",
-  "payErrCreateFailed": "Échec de création du paiement ; réessayez ou choisissez un autre mode",
-
   "aiErrRateLimited": "Le service IA reçoit trop de requêtes, réessayez plus tard",
   "aiErrKeyRejected": "Clé API du modèle invalide ou rejetée ; vérifiez la configuration de vos identifiants",
   "aiErrNotConfigured": "Veuillez configurer votre clé API de modèle avant l'utilisation",

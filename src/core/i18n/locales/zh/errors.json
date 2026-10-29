@@ -34,7 +34,6 @@
   "errNoValidActions": "没有有效的操作",
   "errInviteCodeInvalid": "邀请码无效",
   "errEndpointRetired": "该接口已废弃，请使用新版端点",
-
   "errClaimSupplierNotFound": "要认领的供应商不存在",
   "errClaimSelfBound": "您已绑定该企业，无需重复认领",
   "errClaimBoundByOther": "该公司已被其他账户认领，无法重复认领",
@@ -77,7 +76,6 @@
   "errApiKeyExpired": "API Key 已过期",
   "errApiKeySuspended": "API Key 已暂停",
   "errApiQuotaExceeded": "API 每日调用配额已用完",
-
   "payErrProviderUnavailable": "当前支付方式暂未开通，请选择其他支付方式或联系客服",
   "payErrQrMissing": "支付二维码生成失败，请确认已开通“当面付”后重试",
   "payErrOrderNotFound": "订单不存在或已过期，请重新创建",
@@ -89,12 +87,9 @@
   "payErrAmountInvalid": "支付金额异常，请联系客服处理",
   "payErrFreePlan": "免费套餐无需支付",
   "payErrUpgradeInvalid": "升级来源已变化，请重新发起升级",
-  "payErrSingleFirstPurchase": "首单特惠仅限首次购买，请选择标准单次解锁",
   "payErrServiceUnavailable": "该服务暂不支持在线下单",
   "payErrServiceAdvisoryOnly": "该服务仅顾问对接，不支持自助下单",
   "payErrSignVerifyFailed": "支付验证失败，请重试或更换支付方式",
-  "payErrCreateFailed": "支付创建失败，请稍后重试或更换支付方式",
-
   "aiErrRateLimited": "AI 服务请求过于频繁，请稍后再试",
   "aiErrKeyRejected": "模型 API Key 无效或被拒绝，请检查凭证配置",
   "aiErrNotConfigured": "请先配置模型 API Key 后使用",

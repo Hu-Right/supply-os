@@ -34,7 +34,6 @@
   "errNoValidActions": "No se proporcionaron acciones válidas",
   "errInviteCodeInvalid": "Código de invitación inválido",
   "errEndpointRetired": "Este endpoint está obsoleto, use el nuevo endpoint",
-
   "errClaimSupplierNotFound": "El proveedor a reclamar no existe",
   "errClaimSelfBound": "Ya está vinculado a esta empresa; no es necesario reclamar de nuevo",
   "errClaimBoundByOther": "Esta empresa fue reclamada por otra cuenta y no puede reclamarse de nuevo",
@@ -77,7 +76,6 @@
   "errApiKeyExpired": "La clave API ha expirado",
   "errApiKeySuspended": "Clave API suspendida",
   "errApiQuotaExceeded": "Cuota diaria de API agotada",
-
   "payErrProviderUnavailable": "Este método de pago aún no está disponible; elija otro o contacte al soporte",
   "payErrQrMissing": "No se pudo generar el código QR de pago; asegúrese de tener habilitado el \"Pago presencial\" y reintente",
   "payErrOrderNotFound": "Pedido no encontrado o expirado; cree uno nuevo",
@@ -89,12 +87,9 @@
   "payErrAmountInvalid": "Error en el importe del pago; contacte al soporte",
   "payErrFreePlan": "El plan gratuito no requiere pago",
   "payErrUpgradeInvalid": "La fuente de la mejora ha cambiado; reinicie la actualización",
-  "payErrSingleFirstPurchase": "La oferta de primera compra solo aplica a su primer pedido; elija el desbloqueo único estándar",
   "payErrServiceUnavailable": "Este servicio aún no admite pedidos en línea",
   "payErrServiceAdvisoryOnly": "Este servicio es solo de asesoría y no admite pedidos en autoservicio",
   "payErrSignVerifyFailed": "Falló la verificación del pago; reintente o elija otro método",
-  "payErrCreateFailed": "No se pudo crear el pago; reintente o elija otro método",
-
   "aiErrRateLimited": "El servicio de IA está recibiendo demasiadas solicitudes, inténtelo más tarde",
   "aiErrKeyRejected": "La clave API del modelo no es válida o fue rechazada; revise la configuración de sus credenciales",
   "aiErrNotConfigured": "Configure su clave API del modelo antes de usar",

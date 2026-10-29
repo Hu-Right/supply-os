@@ -34,7 +34,6 @@
   "errNoValidActions": "Nenhuma ação válida foi fornecida",
   "errInviteCodeInvalid": "Código de convite inválido",
   "errEndpointRetired": "Este endpoint está obsoleto, use o novo endpoint",
-
   "errClaimSupplierNotFound": "O fornecedor a reivindicar não existe",
   "errClaimSelfBound": "Você já está vinculado a esta empresa; não é necessário reivindicar novamente",
   "errClaimBoundByOther": "Esta empresa foi reivindicada por outra conta e não pode ser reivindicada novamente",
@@ -77,7 +76,6 @@
   "errApiKeyExpired": "A chave de API expirou",
   "errApiKeySuspended": "Chave de API suspensa",
   "errApiQuotaExceeded": "Cota diária de API esgotada",
-
   "payErrProviderUnavailable": "Este método de pagamento ainda não está disponível; escolha outro ou contate o suporte",
   "payErrQrMissing": "Não foi possível gerar o código QR de pagamento; verifique se o \"Pagamento presencial\" está habilitado e tente novamente",
   "payErrOrderNotFound": "Pedido não encontrado ou expirado; crie um novo",
@@ -89,12 +87,9 @@
   "payErrAmountInvalid": "Erro no valor do pagamento; contate o suporte",
   "payErrFreePlan": "O plano gratuito não requer pagamento",
   "payErrUpgradeInvalid": "A origem do upgrade mudou; reinicie o upgrade",
-  "payErrSingleFirstPurchase": "A oferta de primeira compra vale apenas para o seu primeiro pedido; escolha o desbloqueio avulso padrão",
   "payErrServiceUnavailable": "Este serviço ainda não aceita pedidos online",
   "payErrServiceAdvisoryOnly": "Este serviço é apenas consultivo e não aceita pedidos por autoatendimento",
   "payErrSignVerifyFailed": "Falha na verificação do pagamento; tente novamente ou escolha outro método",
-  "payErrCreateFailed": "Não foi possível criar o pagamento; tente novamente ou escolha outro método",
-
   "aiErrRateLimited": "O serviço de IA está recebendo solicitações demais, tente mais tarde",
   "aiErrKeyRejected": "A chave de API do modelo é inválida ou foi rejeitada; verifique a configuração das suas credenciais",
   "aiErrNotConfigured": "Configure sua chave de API do modelo antes de usar",
