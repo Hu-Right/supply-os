@@ -175,6 +175,23 @@ const len = (s: unknown) => String(s ?? "").trim().length;
 const echo = (desc: unknown, title: unknown) =>
   String(desc ?? "").trim().slice(0, 25) === String(title ?? "").trim().slice(0, 25);
 
+/** 文件型 URL：外链里命中这些扩展名的，应归入 attachments。 */
+const FILE_URL_RE = /\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|txt|csv|rtf|odt|ods)(?:[?#]|$)/i;
+const isFileUrl = (url: string) => FILE_URL_RE.test(url);
+
+/** 附件去重：同一 URL + 文件名只保留第一条；同一下载入口对应不同文件名时不能合并。 */
+function dedupeDocuments(rows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  const seen = new Set<string>();
+  return rows.filter((d) => {
+    const url = String(d.url ?? "").trim().toLowerCase();
+    const name = String(d.name ?? d.title ?? "").trim().toLowerCase();
+    const key = url ? `${url}|${name}` : name;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 // ── 输入行装载：主表 + 标题/正文/截止旁表 + 附件旁表 + 商机侧 ────────────────
 export interface PublicInputBatch {
   rows: RowDataPacket[];
@@ -349,16 +366,25 @@ export function buildPublicRow(
   const rawAttachments = (maps.attachmentMap.get(Number(r.id)) ?? []).length > 0
     ? maps.attachmentMap.get(Number(r.id))!
     : normalizeDocumentRows(r.documents, r.procurement_files);
-  // 去掉“Download all documents”这类聚合入口：它不是招标文件，计进附件数会让
-  // 列表文件数虚高，也会污染对外 API 的 attachments。
-  const attachments = rawAttachments.filter((d) => {
+  // 去掉“Download all documents”这类聚合入口；它是入口，不是招标文件。
+  const attachments = dedupeDocuments(rawAttachments.filter((d) => {
     const name = String((d as Record<string, unknown>).name ?? (d as Record<string, unknown>).title ?? "").trim();
     const url = String((d as Record<string, unknown>).url ?? "");
     return !/^download all documents$/i.test(name) && !/downloadalldocuments/i.test(url);
-  });
+  }));
   const attachmentUrls = new Set(attachments.map((d) => String(d.url ?? "").toLowerCase()));
-  const externalLinks = normalizeDocumentRows(r.external_links)
-    .filter((d) => !attachmentUrls.has(String(d.url ?? "").toLowerCase()));
+  // 外链只留“非文件页面”；文件型外链迁入附件并计数，避免同一资源两边都有。
+  const externalLinks = [];
+  for (const d of normalizeDocumentRows(r.external_links)) {
+    const url = String(d.url ?? "").trim();
+    if (!url || attachmentUrls.has(url.toLowerCase())) continue;
+    if (isFileUrl(url)) {
+      attachments.push(d);
+      attachmentUrls.add(url.toLowerCase());
+    } else {
+      externalLinks.push(d);
+    }
+  }
   const dstate = String(r.deadline_state ?? (Number(r.deadline_sec) > 0 ? "known" : "unknown"));
   const rawTs = r.effective_ts ?? r.deadline_sec;
   const deadlineTs = dstate === "typo_suspect" || dstate === "unknown" ? null : toEpoch(rawTs);
