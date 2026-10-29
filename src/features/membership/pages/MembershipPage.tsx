@@ -1,9 +1,10 @@
 /**
- * 会员套餐详情页面（个人版 / 企业版 / 增值服务 三分区）
- * Membership Plans Detail Page — Personal / Enterprise / Services tabs
+ * 会员套餐详情页面（个人版 / 企业版 / 人工服务版 / 增值服务 四分区）
+ * Membership Plans Detail Page — Personal / Enterprise / Concierge / Services tabs
  *
  * @module features/membership/pages/MembershipPage
- * @description 套餐按后端派生的 audience 分个人版/企业版两个 Tab 渲染，增值服务 Tab 保持现有服务型 SKU；
+ * @description 套餐按 commercial_tier 分个人版/企业版/人工服务版三个 Tab 渲染
+ *              （新目录 L1=个人、L3=企业、L4=人工服务），增值服务 Tab 保持服务型 SKU；
  *              支付/升级/联系咨询逻辑下沉至 useMembershipPayment。
  */
 
@@ -24,10 +25,11 @@ import { useServiceCatalog } from "../hooks/useServiceCatalog";
 import { groupPlansByAudience, groupServicesByCategory, pickServiceTabGroups, serviceDisplayName, resolveServiceBranch, periodSwitchKey } from "../utils";
 import type { ServiceCatalogView } from "@/types/membership";
 
-type MembershipTab = "personal" | "enterprise" | "services";
+type MembershipTab = "personal" | "enterprise" | "concierge" | "services";
 const MEMBERSHIP_TABS: { key: MembershipTab; labelKey: string }[] = [
   { key: "personal", labelKey: "tabPersonal" },
   { key: "enterprise", labelKey: "tabEnterprise" },
+  { key: "concierge", labelKey: "tabConcierge" },
   { key: "services", labelKey: "tabServices" },
 ];
 
@@ -51,6 +53,9 @@ export default function MembershipPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
 
   const { personal, enterprise } = groupPlansByAudience(plans);
+  // 人工服务版独立成 Tab：L4 档从企业受众拆出（新目录 L3=企业、L4=人工对接）
+  const concierge = useMemo(() => enterprise.filter((p) => p.commercialTier === "L4"), [enterprise]);
+  const businessOnly = useMemo(() => enterprise.filter((p) => p.commercialTier !== "L4"), [enterprise]);
   const { services, loading: servicesLoading, error: servicesError, reload: reloadServices } = useServiceCatalog();
   // 订制服务 Tab：读 service_catalog 按 category 分组（新服务目录 8 行，三类全放）。
   const groupedServices = pickServiceTabGroups(groupServicesByCategory(services));
@@ -81,13 +86,19 @@ export default function MembershipPage() {
   };
 
   const isPlanTab = tab !== "services";
-  // useMemo 稳定引用：currentPlans 依赖 tab/personal/enterprise，独立缓存避免每次渲染换数组
+  // useMemo 稳定引用：currentPlans 依赖 tab 与各档分组，独立缓存避免每次渲染换数组
   const currentPlans = useMemo(
-    () => (tab === "personal" ? personal : tab === "enterprise" ? enterprise : []),
-    [tab, personal, enterprise],
+    () => (tab === "personal" ? personal : tab === "enterprise" ? businessOnly : tab === "concierge" ? concierge : []),
+    [tab, personal, businessOnly, concierge],
   );
-  const sectionTitleKey = tab === "personal" ? "membershipPlansPersonalTitle" : "membershipPlansEnterpriseTitle";
-  const sectionDescKey = tab === "personal" ? "membershipPlansPersonalDesc" : "membershipPlansEnterpriseDesc";
+  const sectionTitleKey =
+    tab === "personal" ? "membershipPlansPersonalTitle"
+    : tab === "enterprise" ? "membershipPlansEnterpriseTitle"
+    : "membershipPlansConciergeTitle";
+  const sectionDescKey =
+    tab === "personal" ? "membershipPlansPersonalDesc"
+    : tab === "enterprise" ? "membershipPlansEnterpriseDesc"
+    : "membershipPlansConciergeDesc";
 
   // 周期选项 = 本 Tab 各档全部周期天数的并集（升序；纯按字段归组，不假设档数/周期数）
   const periodOptions = useMemo(() => {
