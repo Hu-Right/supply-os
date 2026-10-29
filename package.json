@@ -71,7 +71,8 @@
     "test:ci": "npm run test:unit && npm run test:coverage-gate -- coverage/unit 90 85 && npm run test:integration:coverage && npm run test:coverage-gate -- coverage/integration 80",
     "perf:check": "npx tsx scripts/gates/perf-budget-check.ts",
     "migrate:licenses": "node --env-file=.env scripts/tools/migrate-licenses-to-runtime.mjs",
-    "pre-push": "npm run check:encoding && npm run check-i18n && npm run typecheck && npm run lint && npm run test && npm run test:integration && npm run test:css-compat && npm run build"
+    "pre-push": "npm run check:encoding && npm run check-i18n && npm run typecheck && npm run lint && npm run test && npm run test:integration && npm run test:css-compat && npm run build",
+    "check:feasibility-eval": "npx tsx scripts/tools/feasibility-eval.ts"
   },
   "dependencies": {
     "@alicloud/dypnsapi20170525": "^2.0.0",
