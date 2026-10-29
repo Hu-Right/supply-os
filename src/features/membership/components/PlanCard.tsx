@@ -163,13 +163,6 @@ export function PlanCard({
               <X className="h-3.5 w-3.5 shrink-0 text-slate-300" />
             )}
             <span className={chip.cell.enabled ? "" : "line-through decoration-slate-300"}>{chip.label}</span>
-            {/* 枚举权益等级标签：AI 智能匹配当前各档功能并无差异，不展示“基础/企业级/可定制”，
-                避免制造不存在的产品差异；其他枚举权益仍按矩阵 level_dict 展示。 */}
-            {chip.benefitCode !== "ai_match" && chip.cell.enabled && chip.cell.display && !["✓", "—", "-", ""].includes(chip.cell.display.trim()) && (
-              <span className="ml-1 shrink-0 rounded bg-teal-50 px-1 py-0.5 text-[10px] font-bold leading-none text-teal-700">
-                {chip.cell.display}
-              </span>
-            )}
           </li>
         ))}
       </ul>
