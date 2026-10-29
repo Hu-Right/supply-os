@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   generateFeasibilityReport,
   getFeasibilityReportForNotice,
+  getReportHistory,
   type FeasibilityDeps,
   type FeasibilityReportRepoLike,
 } from "@/lib/services/feasibility-report/service";
@@ -70,6 +71,15 @@ function makeRepo(state: FakeState): FeasibilityReportRepoLike {
     },
     async findReportByHash(_noticePk, _enterpriseId, hash) {
       return state.reports.find((r) => r.input_hash === hash) ?? null;
+    },
+    async listReports() {
+      return state.reports.map((report, index) => ({
+        id: state.reports.length - index,
+        generated_at: (report.report_json as { meta?: { generatedAt?: string } }).meta?.generatedAt ?? null,
+        decision: (report.report_json as { verdict?: { decision?: string } }).verdict?.decision ?? null,
+        score: (report.report_json as { verdict?: { score?: number } }).verdict?.score ?? null,
+        prompt_version: report.prompt_version,
+      }));
     },
     async saveReport({ inputHash, report }) {
       state.savedReports += 1;
@@ -258,5 +268,17 @@ describe("feasibility-report 编排服务", () => {
     expect(regenerated.cached).toBe(false);
     expect(state.extracted).toBe(2);
     expect(state.savedRequirements).toBe(2);
+  });
+
+  it("历史版本：返回该公告+企业的报告版本（含结论/评分）", async () => {
+    const state = baseState();
+    const deps = makeDeps(makeRepo(state), state);
+    await generateFeasibilityReport(deps, { userId: 1, noticePk: 7 });
+    await generateFeasibilityReport(deps, { userId: 1, noticePk: 7, regenerate: true });
+
+    const versions = await getReportHistory(deps, { userId: 1, noticePk: 7 });
+    expect(versions.length).toBeGreaterThanOrEqual(1);
+    expect(versions[0].decision).toBe("conditional");
+    expect(versions[0].promptVersion).toBe("feas-rules-v0.1");
   });
 });

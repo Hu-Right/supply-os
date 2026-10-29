@@ -72,6 +72,8 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
   const [report, setReport] = useState<FeasibilityReport | null>(null);
   const [enterprise, setEnterprise] = useState<{ id: number; name: string } | null>(null);
   const [stale, setStale] = useState(false);
+  const [history, setHistory] = useState<Array<{ id: number; generatedAt: string | null; decision: string | null; score: number | null }> | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -111,6 +113,22 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
       setGenerating(false);
     }
   }, [generating, noticePk]);
+
+  /** 历史版本：按需拉取（不同输入快照/模型版本） */
+  const loadHistory = useCallback(async () => {
+    if (historyLoading) return;
+    setHistoryLoading(true);
+    try {
+      const data = await api<{ versions: Array<{ id: number; generatedAt: string | null; decision: string | null; score: number | null }> }>(
+        `/api/notices/${noticePk}/feasibility-report/history`,
+      );
+      setHistory(data.versions);
+    } catch {
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyLoading, noticePk]);
 
   /** 导出 Word：鉴权路由回 docx 字节，浏览器下载 */
   const exportWord = useCallback(async () => {
@@ -325,6 +343,31 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
               </ul>
             </div>
           )}
+
+          <div className="border-t border-slate-100 pt-2">
+            <button
+              type="button"
+              onClick={() => void (history === null ? loadHistory() : setHistory(null))}
+              data-testid="feasibility-history-toggle"
+              className="text-2xs font-bold text-slate-500 hover:text-teal-700"
+            >
+              {t("feasibilityHistory") || "历史版本"}
+              {historyLoading ? " …" : ""}
+            </button>
+            {history !== null && (
+              <ul className="mt-1 space-y-1">
+                {history.length === 0 && <li className="text-2xs text-slate-400">{t("feasibilityHistoryEmpty") || "暂无历史版本"}</li>}
+                {history.map((version) => (
+                  <li key={version.id} className="flex items-center justify-between gap-2 text-2xs text-slate-500">
+                    <span>{version.generatedAt ? version.generatedAt.slice(0, 19).replace("T", " ") : "—"}</span>
+                    <span>
+                      {version.decision ?? "—"} · {version.score == null ? "—" : `${Math.round(version.score * 100)} / 100`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <p className="text-2xs text-slate-400 border-t border-slate-100 pt-2">{report.disclaimer}</p>
         </div>

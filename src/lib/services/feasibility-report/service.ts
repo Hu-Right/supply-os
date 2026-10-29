@@ -43,6 +43,13 @@ export interface FeasibilityReportRepoLike {
   getLatestRequirements(noticePk: number): Promise<{ version: number; rows: unknown[] }>;
   saveRequirements(noticePk: number, items: RequirementItem[], promptVersion: string): Promise<number>;
   getLatestReport(noticePk: number, enterpriseId: number): Promise<FeasibilityReportRow | null>;
+  listReports(noticePk: number, enterpriseId: number, limit?: number): Promise<Array<{
+    id: number;
+    generated_at: string | null;
+    decision: string | null;
+    score: number | string | null;
+    prompt_version: string;
+  }>>;
   findReportByHash(noticePk: number, enterpriseId: number, inputHash: string): Promise<FeasibilityReportRow | null>;
   saveReport(params: {
     noticePk: number;
@@ -52,6 +59,14 @@ export interface FeasibilityReportRepoLike {
     promptVersion: string;
     model: string | null;
   }): Promise<void>;
+}
+
+export interface ReportHistoryItem {
+  id: number;
+  generatedAt: string | null;
+  decision: string | null;
+  score: number | null;
+  promptVersion: string;
 }
 
 export interface FeasibilityDeps {
@@ -149,6 +164,26 @@ export async function getFeasibilityReportForNotice(
     stale = currentHash !== row.input_hash;
   }
   return { report, enterprise: { id: enterpriseId, name: String(supplier.company ?? "") }, stale };
+}
+
+/** 报告历史版本（对比不同输入快照/模型版本） */
+export async function getReportHistory(
+  deps: FeasibilityDeps,
+  params: { userId: number; noticePk: number; limit?: number },
+): Promise<ReportHistoryItem[]> {
+  if (!(await deps.isEntitled(params.userId, BID_FEASIBILITY_REPORT_BENEFIT))) {
+    routeError(403, EC_VIP_ONLY, "投标可行性报告为企业版权益", { feature: BID_FEASIBILITY_REPORT_BENEFIT });
+  }
+  const supplier = await deps.repo.findVerifiedSupplierForUser(params.userId);
+  if (!supplier) return [];
+  const rows = await deps.repo.listReports(params.noticePk, Number(supplier.id), params.limit ?? 20);
+  return rows.map((row) => ({
+    id: Number(row.id),
+    generatedAt: row.generated_at,
+    decision: row.decision,
+    score: row.score == null ? null : Number(row.score),
+    promptVersion: String(row.prompt_version ?? ""),
+  }));
 }
 
 /** 生成报告（POST）：无缓存则抽取要求项 + 判定 + 落库 */

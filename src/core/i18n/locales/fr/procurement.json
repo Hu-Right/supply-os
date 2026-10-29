@@ -636,5 +636,7 @@
   "detail_reference": "N° de référence",
   "feasibilityExportWord": "Exporter Word",
   "feasibilityStale": "Votre profil d'entreprise ou les exigences de l'avis ont changé ; ce rapport peut être obsolète.",
-  "feasibilityRegenerate": "Régénérer"
+  "feasibilityRegenerate": "Régénérer",
+  "feasibilityHistory": "Historique des versions",
+  "feasibilityHistoryEmpty": "Aucune version précédente"
 }

@@ -17,6 +17,16 @@ import type {
 } from "../services/feasibility-report/inputs";
 import type { RequirementItem } from "../services/feasibility-report/types";
 
+export interface ReportHistoryRow {
+  id: number;
+  input_hash: string;
+  prompt_version: string;
+  created_at: string;
+  decision: string | null;
+  score: number | string | null;
+  generated_at: string | null;
+}
+
 export interface FeasibilityReportRow {
   report_json: unknown;
   input_hash: string;
@@ -218,5 +228,20 @@ export class FeasibilityReportRepo {
         params.model,
       ],
     );
+  }
+
+  /** 报告历史版本（最近 N 条，按时间倒序） */
+  async listReports(noticePk: number, enterpriseId: number, limit = 20): Promise<ReportHistoryRow[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT id, input_hash, prompt_version, created_at,
+              JSON_UNQUOTE(JSON_EXTRACT(report_json, '$.verdict.decision')) AS decision,
+              JSON_EXTRACT(report_json, '$.verdict.score') AS score,
+              JSON_UNQUOTE(JSON_EXTRACT(report_json, '$.meta.generatedAt')) AS generated_at
+         FROM feasibility_reports
+        WHERE notice_pk = ? AND enterprise_id = ?
+        ORDER BY id DESC LIMIT ?`,
+      [noticePk, enterpriseId, limit],
+    );
+    return rows as unknown as ReportHistoryRow[];
   }
 }

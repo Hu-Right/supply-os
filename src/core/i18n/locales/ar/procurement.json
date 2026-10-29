@@ -636,5 +636,7 @@
   "detail_reference": "رقم المرجع",
   "feasibilityExportWord": "تصدير Word",
   "feasibilityStale": "تغيّر ملف المؤسسة أو متطلبات الإعلان؛ قد يكون التقرير قديمًا.",
-  "feasibilityRegenerate": "إعادة الإنشاء"
+  "feasibilityRegenerate": "إعادة الإنشاء",
+  "feasibilityHistory": "سجل الإصدارات",
+  "feasibilityHistoryEmpty": "لا توجد إصدارات سابقة"
 }

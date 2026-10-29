@@ -636,5 +636,7 @@
   "detail_reference": "参考编号",
   "feasibilityExportWord": "导出 Word",
   "feasibilityStale": "企业档案或公告要求项已更新，当前报告可能过期。",
-  "feasibilityRegenerate": "重新生成"
+  "feasibilityRegenerate": "重新生成",
+  "feasibilityHistory": "历史版本",
+  "feasibilityHistoryEmpty": "暂无历史版本"
 }

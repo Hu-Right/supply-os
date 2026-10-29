@@ -636,5 +636,7 @@
   "detail_reference": "Reference No.",
   "feasibilityExportWord": "Export Word",
   "feasibilityStale": "Your enterprise profile or the notice requirements changed; this report may be out of date.",
-  "feasibilityRegenerate": "Regenerate"
+  "feasibilityRegenerate": "Regenerate",
+  "feasibilityHistory": "Version history",
+  "feasibilityHistoryEmpty": "No previous versions"
 }

@@ -636,5 +636,7 @@
   "detail_reference": "Номер ссылки",
   "feasibilityExportWord": "Экспорт в Word",
   "feasibilityStale": "Профиль предприятия или требования извещения изменились — отчёт может быть устаревшим.",
-  "feasibilityRegenerate": "Создать заново"
+  "feasibilityRegenerate": "Создать заново",
+  "feasibilityHistory": "История версий",
+  "feasibilityHistoryEmpty": "Предыдущих версий нет"
 }

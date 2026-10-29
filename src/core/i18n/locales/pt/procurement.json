@@ -636,5 +636,7 @@
   "detail_reference": "Nº de referência",
   "feasibilityExportWord": "Exportar Word",
   "feasibilityStale": "O perfil da empresa ou os requisitos do anúncio mudaram; o relatório pode estar desatualizado.",
-  "feasibilityRegenerate": "Gerar novamente"
+  "feasibilityRegenerate": "Gerar novamente",
+  "feasibilityHistory": "Histórico de versões",
+  "feasibilityHistoryEmpty": "Sem versões anteriores"
 }
