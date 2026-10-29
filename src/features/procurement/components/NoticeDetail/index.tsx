@@ -135,13 +135,15 @@ export function NoticeDetail({
   // 翻译：锁定态不发起请求——/translation 同属付费墙闸口（ARCH-P0 2026-09-05），
   // 锁定态发起必 403 core_locked；锁定面板标题来自列表 i18n 字段，无需译文。
   // 解锁后 core_locked 翻转为 false，钩子自动补发。
-  const { translation, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
+  const { translation, displayTitle: hookDisplayTitle, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
     coreUnlocked && canSeeChinese ? notice.noticePk : undefined, locale,
     `${notice.title || ""}\n${notice.description || ""}`,
     canSeeChinese && locale === "zh" ? (notice.titleI18n || undefined) : undefined,
   );
-  // 中文标题走服务表 title_cn 缓存，其他环境一律原文
-  const displayTitle = locale === "zh" ? (notice.titleCn || notice.title) : notice.title;
+  // 中文优先读服务表 title_cn；缺失时才走详情按需翻译，避免详情标题永远停在原文。
+  const displayTitle = locale === "zh"
+    ? (notice.titleCn || (canSeeChinese ? hookDisplayTitle : undefined) || notice.title)
+    : notice.title;
   const displayDescription = !canSeeChinese
     ? (notice.originalDescription || notice.description)
     : showOriginal
