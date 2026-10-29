@@ -14,6 +14,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { invalidateProfileCache } from "@/lib/services/industry-profile/resolve";
+import { industryPrefsViewOf } from "@/lib/services/industry-profile/view";
 import { normalizeBackboneNodeKey } from "@/lib/services/commodity/backbone-path";
 import { isCommodityNodeKey } from "@/lib/services/commodity/tree";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
@@ -21,7 +22,7 @@ import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   const prefs = await getContext().user.userPrefsRepo.getIndustryPrefs(auth.userId);
-  return NextResponse.json({ prefs: prefs || null });
+  return NextResponse.json({ prefs: industryPrefsViewOf(prefs) });
 });
 
 export const POST = withRoute(async (req: NextRequest) => {

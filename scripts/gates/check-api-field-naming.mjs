@@ -287,10 +287,6 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   // 2026-10-29 实测：training_orders 0 行 / training_participants 0 行，本端点在生产无数据可达，
   // 键集合只能从代码侧断言——因此收口优先级最低，但不构成删行理由（面还在网上）。
   "src/app/api/training/orders/[orderNo]/participants/route.ts#participants",
-  // GET /api/user/industry-prefs：prefs 是 UserIndustryPrefsRow（commodity_code/updated_at），
-  // 2026-10-29 实测 2 键均带下划线、表内确有行；POST 请求体同样写 commodity_code（请求侧允许）；
-  // 前端 core/api/industry-prefs.ts 的 IndustryPrefs 镜像也是 snake，收口要两端同改。
-  "src/app/api/user/industry-prefs/route.ts#prefs",
 ]);
 
 const WRAPPED_ALLOWLIST = new Set([

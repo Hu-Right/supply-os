@@ -81,8 +81,8 @@ export function IndustryPrefsForm() {
 
     // 从后端加载已保存的行业偏好（码版：commodity_code；所属大类由码前缀推导）
     fetchIndustryPrefs().then((prefs) => {
-      if (prefs?.commodity_code) {
-        applyInferredCode(prefs.commodity_code);
+      if (prefs?.commodityCode) {
+        applyInferredCode(prefs.commodityCode);
       }
     });
   }, [userId, resetCascade, applyInferredCode]);

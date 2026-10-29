@@ -9,9 +9,12 @@
  */
 import { api, apiCached } from "@/core/http";
 
-/** 账号默认行业偏好：UGT 最深骨架节点码（所属大类由码前缀推导，2026-10-15 G 码退役） */
+/** 账号默认行业偏好：UGT 最深骨架节点码（所属大类由码前缀推导，2026-10-15 G 码退役）
+ *  字段名与服务端响应同口径用 camelCase；POST 入参仍是 snake `commodity_code`（请求参数不受红线②约束）。*/
 export interface IndustryPrefs {
-  commodity_code: string | null;
+  commodityCode: string | null;
+  /** ISO 字符串；无写入时间时为 null */
+  updatedAt?: string | null;
 }
 
 /** 一条品目推断候选（/api/commodity/smart-infer） */

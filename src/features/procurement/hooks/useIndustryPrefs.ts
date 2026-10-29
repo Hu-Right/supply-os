@@ -66,12 +66,12 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
    * 按偏好路径切 prefs 模式（偏好键为 UGT 最深节点码，经品目树换名称）
    */
   const applyPrefsPath = useCallback(async (prefs: {
-    commodity_code?: string | null;
+    commodityCode?: string | null;
   }) => {
     const entrySeq = exitSeqRef.current;
     let resolved = { l1Code: null as string | null, options: [] as CommodityTreeOption[] };
     try {
-      resolved = await fetchCommodityPrefsPath(prefs.commodity_code || "");
+      resolved = await fetchCommodityPrefsPath(prefs.commodityCode || "");
     } catch {
       // 换算失败不阻断匹配模式：筛选本身由服务端按画像层级完成，提示条只是少一行名字
     }
@@ -89,7 +89,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     setPrefsMode("prefs");
     try {
       const prefs = await fetchIndustryPrefs();
-      if (prefs?.commodity_code) {
+      if (prefs?.commodityCode) {
         setHasIndustryPrefs(true);
         await applyPrefsPath(prefs);
       } else {
@@ -120,7 +120,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       try {
         const prefs = await fetchIndustryPrefs();
         if (stale()) return;
-        if (prefs?.commodity_code) {
+        if (prefs?.commodityCode) {
           setHasIndustryPrefs(true);
           await applyPrefsPath(prefs);
           return;
