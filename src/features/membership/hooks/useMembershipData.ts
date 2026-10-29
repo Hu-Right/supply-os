@@ -3,7 +3,7 @@
  * Membership Data Loading Hook
  *
  * @module features/membership/hooks/useMembershipData
- * @description 拉取服务端解析好的对比矩阵（六卡 + 逐格权益）与当前会员状态；
+ * @description 拉取服务端解析好的对比矩阵（commercial_tier 归组后的档位列 + 逐格权益）与当前会员状态；
  *              派生升级判断所需的当前订阅 code/price 与剩余解锁次数。
  */
 import { useEffect, useState } from "react";
@@ -11,12 +11,12 @@ import { useAuth } from "@/core/auth";
 import { fetchMembershipPlans, fetchMembershipStatus, fetchAnnualPlanCredit } from "@/core/api/membership";
 import { unlockRemaining } from "@/shared/utils/membership-view";
 import type {
-  AnnualCreditView, ComparisonView, MembershipStatusView, PlanView, UpgradeCreditWindowView,
+  AnnualCreditView, ComparisonView, MembershipStatusView, TieredPlanView, UpgradeCreditWindowView,
 } from "@/types";
 
 export interface UseMembershipDataReturn {
-  /** 六卡商品行（来自对比矩阵 plans 列，服务端已排除 free） */
-  plans: PlanView[];
+  /** 档位代表行（对比矩阵 plans 列，服务端已按 commercial_tier 归组并排除 free，行内携带 periods 周期子行） */
+  plans: TieredPlanView[];
   /** 完整对比矩阵（各卡按 plan code 取自身列渲染权益 chip） */
   comparison: ComparisonView | null;
   membership: MembershipStatusView | null;
@@ -38,7 +38,7 @@ export interface UseMembershipDataReturn {
 
 export function useMembershipData(): UseMembershipDataReturn {
   const { authUser } = useAuth();
-  const [plans, setPlans] = useState<PlanView[]>([]);
+  const [plans, setPlans] = useState<TieredPlanView[]>([]);
   const [comparison, setComparison] = useState<ComparisonView | null>(null);
   const [membership, setMembership] = useState<MembershipStatusView | null>(null);
   const [annualCredit, setAnnualCredit] = useState<AnnualCreditView | null>(null);

@@ -9,9 +9,9 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  comparisonViewOf,
   membershipStatusViewOf,
   planViewOf,
+  tieredComparisonViewOf,
   upgradePreviewViewOf,
 } from "@/lib/services/membership/view";
 import type { ComparisonTable, MembershipStatus, PlanCatalogRow, UpgradePreview } from "@/types/membership";
@@ -106,30 +106,76 @@ describe("membershipStatusViewOf", () => {
   });
 });
 
-describe("comparisonViewOf", () => {
-  it("cells 的键是套餐码，不参与改名；行与格都是视图形状", () => {
-    const table = {
-      plans: [PLAN],
+describe("tieredComparisonViewOf", () => {
+  const mkPlan = (over: Partial<PlanCatalogRow>): PlanCatalogRow =>
+    ({
+      ...PLAN,
+      plan_code: "personal_m",
+      name_zh: "个人会员·月",
+      price: "239.00",
+      billing_period_days: 30,
+      commercial_tier: "L1",
+      sort_order: 2,
+      ...over,
+    }) as PlanCatalogRow;
+
+  const cell = (planCode: string, benefit: string, display = "1") => ({
+    plan_code: planCode,
+    benefit_code: benefit,
+    kind: "enum" as const,
+    raw: 1,
+    enabled: true,
+    display,
+    note: null,
+  });
+
+  const mkTable = (): ComparisonTable =>
+    ({
+      plans: [
+        mkPlan({}),
+        mkPlan({ plan_code: "personal_q", name_zh: "个人会员·季", price: "499.00", billing_period_days: 90, sort_order: 3 }),
+        mkPlan({ plan_code: "personal_y", name_zh: "个人会员·年", price: "1299.00", billing_period_days: 365, sort_order: 4 }),
+        mkPlan({ plan_code: "business_m", name_zh: "企业会员·月", price: "780.00", commercial_tier: "L3", sort_order: 5 }),
+      ],
       rows: [
         {
-          benefit: { benefit_code: "notice_view", name_zh: "解锁额度", value_kind: "quota", level_dict: null, sort_order: 1 },
+          benefit: { benefit_code: "notice_view", name_zh: "标讯权益", value_kind: "quota", level_dict: null, sort_order: 1 },
           cells: {
-            personal_std_999: {
-              plan_code: "personal_std_999", benefit_code: "notice_view", kind: "quota",
-              raw: 100, enabled: true, display: "100", note: null,
-            },
+            personal_m: cell("personal_m", "notice_view", "-1"),
+            personal_q: cell("personal_q", "notice_view", "-1"),
+            personal_y: cell("personal_y", "notice_view", "-1"),
+            business_m: cell("business_m", "notice_view", "-1"),
+          },
+        },
+        {
+          benefit: { benefit_code: "history_notice_db", name_zh: "历史标讯库", value_kind: "enum", level_dict: null, sort_order: 2 },
+          cells: {
+            personal_m: cell("personal_m", "history_notice_db"),
+            personal_q: cell("personal_q", "history_notice_db"),
+            personal_y: cell("personal_y", "history_notice_db"),
+            business_m: cell("business_m", "history_notice_db"),
           },
         },
       ],
-    } as unknown as ComparisonTable;
+    }) as unknown as ComparisonTable;
 
-    const v = comparisonViewOf(table);
-    expect(Object.keys(v.rows[0].cells)).toEqual(["personal_std_999"]);
-    const cell = v.rows[0].cells["personal_std_999"];
-    expect(cell.planCode).toBe("personal_std_999");
-    expect(cell.benefitCode).toBe("notice_view");
+  it("按 commercial_tier 归组：三周期行收成一列，代表行取周期最短（*_m）行", () => {
+    const v = tieredComparisonViewOf(mkTable());
+    expect(v.plans.map((p) => p.planCode)).toEqual(["personal_m", "business_m"]);
+    const personal = v.plans[0];
+    expect(personal.periods.map((p) => p.planCode)).toEqual(["personal_m", "personal_q", "personal_y"]);
+    expect(personal.periods[2].price).toBe("1299.00");
+  });
+
+  it("权益格键到代表 plan_code 上，history_notice_db 行在视图层隐藏", () => {
+    const v = tieredComparisonViewOf(mkTable());
+    expect(v.rows.map((r) => r.benefit.benefitCode)).toEqual(["notice_view"]);
+    expect(Object.keys(v.rows[0].cells)).toEqual(["personal_m", "business_m"]);
+    // 格与行都是视图形状：cells 键是套餐码（数据键不改名），格内字段 camel
+    const cellView = v.rows[0].cells["personal_m"];
+    expect(cellView?.planCode).toBe("personal_m");
+    expect(cellView?.benefitCode).toBe("notice_view");
     expect(v.rows[0].benefit.valueKind).toBe("quota");
-    expect(v.plans[0].ctaI18nKey).toBe("cta_std");
   });
 });
 

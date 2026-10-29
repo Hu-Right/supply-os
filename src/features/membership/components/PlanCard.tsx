@@ -3,20 +3,23 @@
  * Plan Card Component — Horizontal Pricing Card
  *
  * @module features/membership/components/PlanCard
- * @description 新权益体系：卡片直接消费服务端解析好的 ComparisonView——
- *              卡头/价格读 plan_catalog 商品属性，✓/✗ 权益清单读矩阵逐格，
- *              推荐角标读 badge（前端零硬编码，不再按 benefit_rank 拼档位）。
+ * @description 新权益体系：卡片消费服务端解析好的 ComparisonView（已按 commercial_tier 归组成
+ *              三档列）——卡头读档位名（tier 未登记时回退代表行名），✓/✗ 权益清单读矩阵逐格，
+ *              价格与周期文案读父级选中的周期子行（plan.periods），推荐角标读 badge（前端零硬编码）。
  */
 import { ArrowRight, ArrowUpCircle, Check, X, Sparkles } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import type { ComparisonView, PlanView } from "@/types";
-import { getPlanFeatureChips, getPlanQuotaDisplay, isRecommendedPlan } from "../utils";
+import type { ComparisonView, PlanView, TieredPlanView } from "@/types";
+import { getPlanFeatureChips, getPlanQuotaDisplay, isRecommendedPlan, pickPeriodRow, periodUnitKey, tierDisplayName } from "../utils";
 
 export interface PlanCardProps {
-  plan: PlanView;
-  /** 服务端解析的完整对比矩阵（本卡按 planCode 取自身列） */
+  /** 档位代表行（服务端归组后下发，携带档内 periods 周期子行） */
+  plan: TieredPlanView;
+  /** 服务端解析的完整对比矩阵（本卡按代表行 planCode 取自身列） */
   table: ComparisonView;
+  /** 父级月/季/年切换选中的周期天数；null = 未选（回退档内最长周期行） */
+  billingDays: number | null;
   /** 用户当前有效订阅套餐价格（null = 无可升级订阅） */
   currentPlanPrice?: number | null;
   /** 用户当前有效订阅套餐 code */
@@ -34,23 +37,27 @@ export interface PlanCardProps {
 }
 
 export function PlanCard({
-  plan, table, currentPlanPrice, currentPlanCode, onBuy, onUpgrade, upgradeCreditOpen, upgradeCreditDays,
+  plan, table, billingDays, currentPlanPrice, currentPlanCode, onBuy, onUpgrade, upgradeCreditOpen, upgradeCreditDays,
 }: PlanCardProps) {
   const { t } = useLocale();
-  const recommended = isRecommendedPlan(plan);
-  const isContact = plan.priceMode === "contact";
-  const symbol = plan.currency === "CNY" ? "¥" : "$";
+  // 本卡展示的周期行：切档只换价格与周期文案，权益清单（代表行列）不变
+  const activeRow = pickPeriodRow(plan, billingDays);
+  // 推荐角标看整档任一周期行的 badge（迁移后 most_popular 在 business_y 行上）
+  const recommended = isRecommendedPlan(plan) || (plan.periods ?? []).some(isRecommendedPlan);
+  const isContact = activeRow.priceMode === "contact";
+  const symbol = activeRow.currency === "CNY" ? "¥" : "$";
   const audienceLabel = plan.audience === "enterprise" ? t("planAudienceEnterprise") : t("planAudiencePersonal");
+  const tierName = tierDisplayName(plan);
 
-  // 升级判断：存在可升级的固定价订阅，且本卡明码价高于当前订阅价（数据驱动，不硬编码）
+  // 升级判断：存在可升级的固定价订阅，且本卡当前周期明码价高于当前订阅价（数据驱动，不硬编码）
   const hasUpgradeablePlan = Boolean(currentPlanCode) && Number(currentPlanPrice || 0) > 0;
-  const priceDiff = Number(plan.price) - Number(currentPlanPrice || 0);
+  const priceDiff = Number(activeRow.price) - Number(currentPlanPrice || 0);
   const higherThanCurrent = hasUpgradeablePlan && priceDiff > 0;
   // 抵扣窗口已关：不能再走「升级补差价」（那条路径会冻结旧订阅），改按原价新购，旧会员继续有效至到期
   const creditWindowClosed = higherThanCurrent && upgradeCreditOpen === false;
   const isUpgradeTarget = !isContact && higherThanCurrent && !creditWindowClosed;
 
-  // ✓/✗ 权益清单：读矩阵 bool/enum 行；额度行由价格块下方 quotaDisplay 展示
+  // ✓/✗ 权益清单：读矩阵 bool/enum 行（键 = 代表行 planCode，同档三周期矩阵值相同）；额度行由价格块下方 quotaDisplay 展示
   const chips = getPlanFeatureChips(table, plan.planCode);
   const quotaDisplay = getPlanQuotaDisplay(table, plan.planCode);
   const quotaText =
@@ -81,11 +88,11 @@ export function PlanCard({
         <span className="mb-1 inline-block rounded-full bg-white/20 px-2 py-0.5 text-2xs font-bold uppercase tracking-wide text-white">
           {audienceLabel}
         </span>
-        <h3 className="text-base font-extrabold leading-tight">{plan.nameZh}</h3>
+        <h3 className="text-base font-extrabold leading-tight">{tierName.nameKey ? t(tierName.nameKey) : tierName.fallback}</h3>
         {plan.positioningZh && <p className="mt-1 text-xs text-white/85 line-clamp-2">{plan.positioningZh}</p>}
       </div>
 
-      {/* ═══ 价格块 ═══ */}
+      {/* ═══ 价格块（随月/季/年切换只换价格与周期文案）═══ */}
       <div className="px-5 pt-4">
         <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-center">
           {isContact ? (
@@ -93,15 +100,15 @@ export function PlanCard({
           ) : (
             <span className="text-2xl font-extrabold tracking-tight text-slate-900">
               {symbol}
-              {Number(plan.price).toLocaleString()}
-              {plan.billingPeriodDays != null && Number(plan.billingPeriodDays) >= 360 && (
-                <span className="text-sm font-medium text-slate-500">/{t("membershipYear")}</span>
+              {Number(activeRow.price).toLocaleString()}
+              {activeRow.billingPeriodDays != null && (
+                <span className="text-sm font-medium text-slate-500">/{t(periodUnitKey(activeRow.billingPeriodDays))}</span>
               )}
             </span>
           )}
           <p className="mt-0.5 text-2xs text-slate-500">
-            {plan.billingPeriodDays
-              ? `${plan.billingPeriodDays}${t("membershipDays")}`
+            {activeRow.billingPeriodDays
+              ? `${activeRow.billingPeriodDays}${t("membershipDays")}`
               : t("membershipValidityPermanent")}
             {quotaText ? ` · ${quotaText}` : ""}
           </p>
@@ -131,7 +138,7 @@ export function PlanCard({
           <Button
             type="button"
             variant="outline"
-            onClick={() => onBuy(plan)}
+            onClick={() => onBuy(activeRow)}
             className="w-full rounded-xl py-2.5 text-sm"
           >
             {t("membershipContactConsult")}
@@ -141,7 +148,7 @@ export function PlanCard({
           <Button
             type="button"
             variant="accent"
-            onClick={() => onUpgrade?.(plan)}
+            onClick={() => onUpgrade?.(activeRow)}
             className="w-full rounded-xl py-2.5 text-sm"
           >
             <ArrowUpCircle className="w-4 h-4" />
@@ -153,14 +160,14 @@ export function PlanCard({
             <Button
               type="button"
               variant="cta"
-              onClick={() => onBuy(plan)}
+              onClick={() => onBuy(activeRow)}
               className="w-full rounded-xl py-2.5 text-sm"
             >
               {t("upgradeBuyNewBtn")}
               <ArrowRight className="w-4 h-4" />
             </Button>
             <p className="text-2xs leading-relaxed text-slate-500">
-              {t("upgradeCreditClosedNote", { days: upgradeCreditDays ?? "", price: `${symbol}${Number(plan.price).toLocaleString()}` })}
+              {t("upgradeCreditClosedNote", { days: upgradeCreditDays ?? "", price: `${symbol}${Number(activeRow.price).toLocaleString()}` })}
             </p>
           </div>
         ) : hasUpgradeablePlan ? (
@@ -174,7 +181,7 @@ export function PlanCard({
           <Button
             type="button"
             variant="cta"
-            onClick={() => onBuy(plan)}
+            onClick={() => onBuy(activeRow)}
             className="w-full rounded-xl py-2.5 text-sm"
           >
             {t("membershipBuyNow")}

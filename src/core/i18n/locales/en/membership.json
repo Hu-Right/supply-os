@@ -158,10 +158,17 @@
   "servicesError": "Failed to load services",
   "servicesRetry": "Retry",
   "servicesEmpty": "No services available",
-  "entCompanionTag": "Manual Service",
-  "entCompanionPriceNote": "Per engagement · human-assisted",
-  "entCompanionBullet1": "1:1 advisor onboarding to clarify your capability and focus",
-  "entCompanionBullet2": "Hand-curated UN procurement opportunities matched to your company",
-  "entCompanionBullet3": "No self-searching required — ideal for first-time international bidders",
-  "entCompanionCta": "Order & book an advisor"
+  "tierPersonal": "Personal Member",
+  "tierBusiness": "Business Member",
+  "tierConcierge": "Concierge Service",
+  "membershipMonth": "month",
+  "membershipQuarter": "quarter",
+  "periodSwitchLabel": "Billing period",
+  "periodMonthly": "Monthly",
+  "periodQuarterly": "Quarterly",
+  "periodYearly": "Annual",
+  "industryGuideTitle": "Pick your industry to see relevant tenders",
+  "industryGuideDesc": "Free users only see tenders in their bound industry. Pick yours and the list shows only opportunities relevant to your business.",
+  "industryGuideCta": "Choose industry",
+  "industryGuideDismiss": "Not now"
 }

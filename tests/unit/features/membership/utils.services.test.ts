@@ -41,7 +41,7 @@ describe("groupServicesByCategory", () => {
 });
 
 describe("pickServiceTabGroups", () => {
-  it("三类全放（文档在售的 12 行服务都必须能点到）", () => {
+  it("三类全放（文档在售的服务都必须能点到）", () => {
     const g = groupServicesByCategory([
       row({ serviceCode: "svc_ka_service", category: "advisory" }),
       row({ serviceCode: "svc_intel_report", category: "pro_service" }),
@@ -49,25 +49,8 @@ describe("pickServiceTabGroups", () => {
     ]);
     expect(Object.keys(pickServiceTabGroups(g)).sort()).toEqual(["advisory", "api_license", "pro_service"]);
   });
-  it("已在企业 Tab 以档位卡呈现的服务从服务 Tab 剔除（同一商品不重复上架）", () => {
-    const g = groupServicesByCategory([
-      row({ serviceCode: "svc_manual_bid_match", category: "pro_service" }),
-      row({ serviceCode: "svc_intel_report", category: "pro_service" }),
-    ]);
-    const picked = pickServiceTabGroups(g);
-    expect(picked.pro_service).toHaveLength(1);
-    expect(picked.pro_service[0].serviceCode).toBe("svc_intel_report");
-  });
-  it("剔除后整组为空则丢弃该组", () => {
-    const picked = pickServiceTabGroups({ pro_service: [row({ serviceCode: "svc_manual_bid_match", category: "pro_service" })] });
+  it("整组为空则丢弃该组（2026-10-28 起不再做档位卡剔除，企业 Tab 无并列服务卡）", () => {
+    const picked = pickServiceTabGroups({ advisory: [] as ServiceCatalogView[] });
     expect(Object.keys(picked)).toHaveLength(0);
-  });
-  it("显式传排除列表时以传入为准", () => {
-    const g = groupServicesByCategory([
-      row({ serviceCode: "svc_manual_bid_match", category: "pro_service" }),
-      row({ serviceCode: "svc_intel_report", category: "pro_service" }),
-    ]);
-    const picked = pickServiceTabGroups(g, ["svc_intel_report"]);
-    expect(picked.pro_service.map((r) => r.serviceCode)).toEqual(["svc_manual_bid_match"]);
   });
 });

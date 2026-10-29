@@ -158,10 +158,17 @@
   "servicesError": "تعذر تحميل الخدمات",
   "servicesRetry": "إعادة المحاولة",
   "servicesEmpty": "لا توجد خدمات متاحة",
-  "entCompanionTag": "خدمة يدوية",
-  "entCompanionPriceNote": "لكل طلب · بتواصل بشري",
-  "entCompanionBullet1": "مستشار 1:1 لتحديد قدرات شركتك واتجاهها",
-  "entCompanionBullet2": "فرص مشتريات دولية منتقاة يدويًا تناسب شركتك",
-  "entCompanionBullet3": "لا حاجة للبحث بنفسك — مثالي للمتنافسين الجدد دوليًا",
-  "entCompanionCta": "اطلب واحجز مستشارًا"
+  "tierPersonal": "عضوية فردية",
+  "tierBusiness": "عضوية أعمال",
+  "tierConcierge": "خدمة كونسيرج",
+  "membershipMonth": "شهر",
+  "membershipQuarter": "ربع",
+  "periodSwitchLabel": "دورة الدفع",
+  "periodMonthly": "شهري",
+  "periodQuarterly": "ربع سنوي",
+  "periodYearly": "سنوي",
+  "industryGuideTitle": "اختر مجالك لمشاهدة المناقصات بدقة",
+  "industryGuideDesc": "يشاهد المستخدمون المجانيون المناقصات في مجالهم المرتبط فقط؛ بعد اختيار المجال ستعرض القائمة الفرص ذات الصلة بعملك فقط.",
+  "industryGuideCta": "اختر المجال",
+  "industryGuideDismiss": "ليس الآن"
 }

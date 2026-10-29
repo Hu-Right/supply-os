@@ -34,6 +34,7 @@ import type {
   ServiceCatalogRow,
   ServiceCatalogView,
   SubscriptionView,
+  TieredPlanView,
   UpgradePreview,
   UpgradePreviewView,
 } from "@/types/membership";
@@ -60,17 +61,67 @@ export const serviceCatalogsViewOf = (rows: readonly ServiceCatalogRow[]): Servi
 /** 年包抵扣单（/api/membership/credits）只有三个字段，由路由直接写 camel 字面量：
  *  静态门禁看得见它，不需要 mapper。 */
 
-/** 六卡 + 权益矩阵：cells 的键是套餐码，逐格转视图但不动键 */
-export function comparisonViewOf(table: ComparisonTable): ComparisonView {
-  return {
-    plans: plansViewOf(table.plans),
-    rows: table.rows.map((r) => ({
+/** 官网对比表额外隐藏行（2026-10-28 设计）：history_notice_db 划线砍掉不展示；
+ *  只在本视图收口，目录/门控照常下发（resolveGates 不走这里）。 */
+const OFFICIAL_TABLE_HIDDEN_BENEFITS: ReadonlySet<string> = new Set(["history_notice_db"]);
+
+/**
+ * 官网对比表视图：按 commercial_tier 归组去重（9 周期行 → 3 档列）。
+ *
+ * - 归组完全按 commercial_tier 字段驱动，不假设行数：同档 m/q/y 三行 → 一列；
+ *   旧目录数据（各档独占 tier）也能渲染，只是退化为每行一列。
+ * - 每档取周期最短的在售行做代表（迁移后即 *_m 行）；代表行携带档内全部周期子行
+ *   （periods，按周期升序），供档位卡的月/季/年切换控件取价。
+ * - 权益格以代表行为准键到代表 plan_code 上（同档三行矩阵值相同；即便脏数据不同也不报错）。
+ */
+export function tieredComparisonViewOf(table: ComparisonTable): ComparisonView {
+  // 归组保持服务端 sort_order 顺序；同档内按周期升序（无周期行排最后）
+  const groups = new Map<string, PlanCatalogRow[]>();
+  for (const row of table.plans) {
+    const bucket = groups.get(row.commercial_tier);
+    if (bucket) bucket.push(row);
+    else groups.set(row.commercial_tier, [row]);
+  }
+
+  const plans: TieredPlanView[] = [];
+  for (const [, rows] of groups) {
+    const sorted = [...rows].sort((a, b) => {
+      const da = a.billing_period_days ?? Number.POSITIVE_INFINITY;
+      const db = b.billing_period_days ?? Number.POSITIVE_INFINITY;
+      return da - db;
+    });
+    const rep = sorted[0];
+    const repView = planViewOf(rep);
+    plans.push({
+      ...repView,
+      periods: sorted.map((r) => {
+        const v = planViewOf(r);
+        return {
+          planCode: v.planCode,
+          nameZh: v.nameZh,
+          price: v.price,
+          priceMode: v.priceMode,
+          currency: v.currency,
+          billingPeriodDays: v.billingPeriodDays,
+          badge: v.badge,
+        };
+      }),
+    });
+  }
+
+  const rows = table.rows
+    .filter((r) => !OFFICIAL_TABLE_HIDDEN_BENEFITS.has(r.benefit.benefit_code))
+    .map((r) => ({
       benefit: benefitDefViewOf(r.benefit),
       cells: Object.fromEntries(
-        Object.entries(r.cells).map(([planCode, cell]) => [planCode, flatView<ResolvedCellView>(cell)]),
+        plans.map((p) => {
+          const cell = r.cells[p.planCode] ?? null;
+          return [p.planCode, cell ? flatView<ResolvedCellView>(cell) : null];
+        }).filter(([, cell]) => cell != null),
       ),
-    })),
-  };
+    }));
+
+  return { plans, rows };
 }
 
 /** 会员状态：plan/subscription/quotas 是行，upgrade_credit 是嵌套小对象 */

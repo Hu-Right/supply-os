@@ -169,6 +169,12 @@ type SnakeToCamelKey<S extends string> = S extends `${infer H}_${infer T}`
 export type ViewOf<T> = { [K in keyof T as K extends string ? SnakeToCamelKey<K> : K]: T[K] };
 
 export type PlanView = ViewOf<PlanCatalogRow>;
+/** 档内周期子行：档位卡月/季/年切换控件消费的最小字段集（价格与周期文案随子行切换） */
+export type PlanPeriodView = Pick<
+  PlanView, "planCode" | "nameZh" | "price" | "priceMode" | "currency" | "billingPeriodDays" | "badge"
+>;
+/** 归组后的档位行：代表行（迁移后取 *_m 行）+ 档内全部周期子行（按周期升序） */
+export type TieredPlanView = PlanView & { periods: PlanPeriodView[] };
 export type SubscriptionView = ViewOf<ActivePlanRow>;
 export type QuotaView = ViewOf<QuotaBalanceRow>;
 export type BenefitDefView = ViewOf<BenefitDefRow>;
@@ -189,9 +195,9 @@ export type MembershipStatusView = {
   upgradeCredit?: UpgradeCreditWindowView;
 };
 
-/** GET /api/membership/plans 响应体（六卡 + 权益矩阵） */
+/** GET /api/membership/plans 响应体（按 commercial_tier 归组后的档位列 + 权益矩阵） */
 export type ComparisonView = {
-  plans: PlanView[];
+  plans: TieredPlanView[];
   rows: Array<{ benefit: BenefitDefView; cells: Record<string, ResolvedCellView> }>;
 };
 

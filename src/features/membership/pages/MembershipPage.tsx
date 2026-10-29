@@ -7,7 +7,7 @@
  *              支付/升级/联系咨询逻辑下沉至 useMembershipPayment。
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, Rocket, Search, TrendingUp, Headphones } from "lucide-react";
 import { useLocale } from "@/core/i18n";
@@ -16,13 +16,12 @@ import { emitAppEvent } from "@/core/events";
 import { Button } from "@/shared/ui";
 import { PlanCard } from "../components/PlanCard";
 import { ServiceCard } from "../components/ServiceCard";
-import { EnterpriseCompanionCard } from "../components/EnterpriseCompanionCard";
 import { ContactQrModal } from "../components/ContactQrModal";
 import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
 import { useServiceCatalog } from "../hooks/useServiceCatalog";
-import { groupPlansByAudience, groupServicesByCategory, pickServiceTabGroups, serviceDisplayName, resolveServiceBranch, pickEnterpriseTabServices } from "../utils";
+import { groupPlansByAudience, groupServicesByCategory, pickServiceTabGroups, serviceDisplayName, resolveServiceBranch, periodSwitchKey } from "../utils";
 import type { ServiceCatalogView } from "@/types/membership";
 
 type MembershipTab = "personal" | "enterprise" | "services";
@@ -48,14 +47,13 @@ export default function MembershipPage() {
   } = useMembershipPayment({ noticeId, currentPlanCode, annualCredit });
 
   const [tab, setTab] = useState<MembershipTab>("personal");
+  // 月/季/年切换：null = 未手动选过，按默认「年付」（无年付的档回退其最长周期）
+  const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
 
   const { personal, enterprise } = groupPlansByAudience(plans);
   const { services, loading: servicesLoading, error: servicesError, reload: reloadServices } = useServiceCatalog();
-  // 订制服务 Tab：260928 报价表列的 12 行服务全部可达（三类全放），
-  // 仅把已在企业 Tab 以档位卡呈现的 199 人工找单剔除（同一商品不重复上架）。
+  // 订制服务 Tab：读 service_catalog 按 category 分组（新服务目录 8 行，三类全放）。
   const groupedServices = pickServiceTabGroups(groupServicesByCategory(services));
-  // 企业 Tab 额外并列的服务卡（199 人工找单）：非订阅档，从服务目录按集中常量取。
-  const enterpriseServices = tab === "enterprise" ? pickEnterpriseTabServices(services) : [];
 
   const GROUP_TITLE_KEY: Record<string, string> = {
     pro_service: "svcGroupProService",
@@ -83,9 +81,29 @@ export default function MembershipPage() {
   };
 
   const isPlanTab = tab !== "services";
-  const currentPlans = tab === "personal" ? personal : tab === "enterprise" ? enterprise : [];
+  // useMemo 稳定引用：currentPlans 依赖 tab/personal/enterprise，独立缓存避免每次渲染换数组
+  const currentPlans = useMemo(
+    () => (tab === "personal" ? personal : tab === "enterprise" ? enterprise : []),
+    [tab, personal, enterprise],
+  );
   const sectionTitleKey = tab === "personal" ? "membershipPlansPersonalTitle" : "membershipPlansEnterpriseTitle";
   const sectionDescKey = tab === "personal" ? "membershipPlansPersonalDesc" : "membershipPlansEnterpriseDesc";
+
+  // 周期选项 = 本 Tab 各档全部周期天数的并集（升序；纯按字段归组，不假设档数/周期数）
+  const periodOptions = useMemo(() => {
+    const days = new Set<number>();
+    for (const p of currentPlans) {
+      for (const opt of p.periods ?? []) {
+        if (opt.billingPeriodDays != null) days.add(opt.billingPeriodDays);
+      }
+    }
+    return [...days].sort((a, b) => a - b);
+  }, [currentPlans]);
+  // 生效周期：手动选择优先；未选/选项失效时默认最长周期（年付）
+  const activePeriod =
+    selectedPeriod != null && periodOptions.includes(selectedPeriod)
+      ? selectedPeriod
+      : periodOptions[periodOptions.length - 1] ?? null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
@@ -172,6 +190,27 @@ export default function MembershipPage() {
                 </div>
               ) : (
                 <>
+                  {/* 月/季/年切换控件：只换卡上价格与周期文案，权益清单不变（同档三周期矩阵值相同） */}
+                  {periodOptions.length > 1 && (
+                    <div className="mb-6 flex items-center justify-center gap-2" data-testid="period-switch">
+                      <span className="mr-1 text-xs font-bold text-slate-500">{t("periodSwitchLabel")}</span>
+                      {periodOptions.map((days) => (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => setSelectedPeriod(days)}
+                          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                            activePeriod === days
+                              ? "bg-primary-600 text-white"
+                              : "bg-white border border-slate-200 text-slate-600 hover:border-primary-300"
+                          }`}
+                        >
+                          {t(periodSwitchKey(days))}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto" data-testid="plan-list">
                     {comparison &&
                       currentPlans.map((plan) => (
@@ -179,6 +218,7 @@ export default function MembershipPage() {
                           key={plan.planCode}
                           plan={plan}
                           table={comparison}
+                          billingDays={activePeriod}
                           currentPlanPrice={currentPlanPrice}
                           currentPlanCode={currentPlanCode}
                           upgradeCreditOpen={upgradeCredit?.open ?? null}
@@ -192,10 +232,6 @@ export default function MembershipPage() {
                         <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
                       </div>
                     )}
-                    {/* 企业 Tab：与订阅卡并列的人工服务卡（199，同一视觉语言） */}
-                    {enterpriseServices.map((row) => (
-                      <EnterpriseCompanionCard key={row.serviceCode} row={row} onPay={handleServicePay} />
-                    ))}
                   </div>
 
                   {/* 年包抵扣预告：服务端发现可用的 199 成交单时才出现，与下单时真实核销同一口径 */}

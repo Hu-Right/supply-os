@@ -158,10 +158,17 @@
   "servicesError": "No se pudieron cargar los servicios",
   "servicesRetry": "Reintentar",
   "servicesEmpty": "No hay servicios disponibles",
-  "entCompanionTag": "Servicio manual",
-  "entCompanionPriceNote": "Por encargo · atención humana",
-  "entCompanionBullet1": "Asesor 1:1 para definir la capacidad y el enfoque de su empresa",
-  "entCompanionBullet2": "Oportunidades de compra pública internacional seleccionadas a mano",
-  "entCompanionBullet3": "Sin búsquedas manuales: ideal para nuevos licitantes internacionales",
-  "entCompanionCta": "Pedir y reservar asesor"
+  "tierPersonal": "Miembro Personal",
+  "tierBusiness": "Miembro Empresarial",
+  "tierConcierge": "Atención Concierge",
+  "membershipMonth": "mes",
+  "membershipQuarter": "trimestre",
+  "periodSwitchLabel": "Período de facturación",
+  "periodMonthly": "Mensual",
+  "periodQuarterly": "Trimestral",
+  "periodYearly": "Anual",
+  "industryGuideTitle": "Elige tu sector para ver ofertas precisas",
+  "industryGuideDesc": "Los usuarios gratuitos solo ven licitaciones de su sector vinculado; al elegirlo, la lista muestra solo oportunidades relevantes para tu negocio.",
+  "industryGuideCta": "Elegir sector",
+  "industryGuideDismiss": "Ahora no"
 }

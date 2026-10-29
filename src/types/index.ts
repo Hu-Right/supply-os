@@ -33,6 +33,6 @@ export type {
   PlanCatalogRow, MembershipStatus, UpgradePreview, ComparisonTable, QuotaBalanceRow, ResolvedCell, GateState,
   ServiceCatalogRow, AnnualPlanCredit,
   // 对外视图（红线②）：客户端消费的是这些，不是上面的行类型
-  PlanView, SubscriptionView, QuotaView, BenefitDefView, ResolvedCellView, ServiceCatalogView, AnnualCreditView,
+  PlanView, PlanPeriodView, TieredPlanView, SubscriptionView, QuotaView, BenefitDefView, ResolvedCellView, ServiceCatalogView, AnnualCreditView,
   MembershipStatusView, ComparisonView, UpgradePreviewView, UpgradeCreditWindowView,
 } from "./membership";

@@ -158,10 +158,17 @@
   "servicesError": "Не удалось загрузить услуги",
   "servicesRetry": "Повторить",
   "servicesEmpty": "Нет доступных услуг",
-  "entCompanionTag": "Ручной сервис",
-  "entCompanionPriceNote": "За заявку · живое сопровождение",
-  "entCompanionBullet1": "Консультант 1:1 определит возможности и фокус вашей компании",
-  "entCompanionBullet2": "Вручную отобранные тендеры, подходящие вашей компании",
-  "entCompanionBullet3": "Без самостоятельного поиска — подходит новичкам в международных закупках",
-  "entCompanionCta": "Заказать и записаться к консультанту"
+  "tierPersonal": "Персональный тариф",
+  "tierBusiness": "Корпоративный тариф",
+  "tierConcierge": "Консьерж-сервис",
+  "membershipMonth": "мес.",
+  "membershipQuarter": "кв.",
+  "periodSwitchLabel": "Период оплаты",
+  "periodMonthly": "Месяц",
+  "periodQuarterly": "Квартал",
+  "periodYearly": "Год",
+  "industryGuideTitle": "Выберите свою отрасль — точные результаты",
+  "industryGuideDesc": "Бесплатные пользователи видят тендеры только по привязанной отрасли; выберите отрасль, и в списке останутся только возможности, релевантные вашему бизнесу.",
+  "industryGuideCta": "Выбрать отрасль",
+  "industryGuideDismiss": "Позже"
 }
