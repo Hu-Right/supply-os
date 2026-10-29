@@ -266,22 +266,30 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
 
   // 【丙 已知 snake 上网·待收口】本面刚上线拓出来的真违规，登记不等于放过：
   // 每一行都写清「现在网上到底是哪些列名键」，收口完必须删行（不删就是陈旧项，当场红）。
-  // GET /api/user/enterprise：row 是 SupplierDirectoryRepo.PORTAL_COLUMNS 整行（22 可编辑列
-  // + 8 状态列 = 30 个列名键，如 credit_code/license_url/verify_status/registered_capital）；
-  // 前端企业表单字段 key 就是列名、PUT 请求体也发列名，收口需按「响应 camel / 请求 snake」
-  // 做一次单向映射（下一批）。
+  // 下面每条都附了 2026-10-29 只读探针（直调仓储层 + 只读事务）在真库上的实测键数。
+  // GET /api/user/enterprise：row 是 SupplierDirectoryRepo.PORTAL_COLUMNS 整行——实测 31 键
+  // （不是旧注释算的 30）。其中真正要改的只有 15 个带下划线的（credit_code/license_url/
+  // verify_status/claim_status/coop_status/check_note/data_quality_score/registered_address/
+  // registered_phone/registered_email/registered_capital/established_at/business_type/legal_rep/
+  // country_code），剩下 16 个单列名（company/country/id/phone/email/…）camel 与 snake 同形，
+  // 改名不产生差异。前端企业表单字段 key 就是列名、PUT 请求体也发列名，收口需按
+  // 「响应 camel / 请求 snake」做一次单向映射（下一批，工作量按 15 键计）。
   "src/app/api/user/enterprise/route.ts#enterprise",
   // GET /api/training/landing：getActiveCourse() 是 `SELECT * FROM training_courses` 的整行
-  // （name_zh/name_en/description_zh/unit_price/sort_order…）。同出口的 `schedules` 也是
-  // SELECT *（listSchedules），但它写成三元表达式，本面目前看不见——收口时必须两条一起改。
+  // ——实测 12 键（name_zh/name_en/description_zh/description_en/unit_price/sort_order/
+  // created_at/updated_at 共 8 个带下划线）。同出口的 `schedules` 也是 SELECT *
+  // （listSchedules，实测 11 键含 course_id/period_number/start_date/enrolled_count/
+  // created_at/updated_at 6 个），但它写成三元表达式，本面目前看不见——收口时必须两条一起改。
   "src/app/api/training/landing/route.ts#course",
   // GET /api/training/orders/[orderNo]/participants：getParticipantsByOrderId() 是
   // `SELECT * FROM training_participants` 整行（order_id/participant_no/full_name/
   // company_name/created_at/updated_at）——学员手机号与姓名原样下发，收口时顺带核隐私口径。
+  // 2026-10-29 实测：training_orders 0 行 / training_participants 0 行，本端点在生产无数据可达，
+  // 键集合只能从代码侧断言——因此收口优先级最低，但不构成删行理由（面还在网上）。
   "src/app/api/training/orders/[orderNo]/participants/route.ts#participants",
   // GET /api/user/industry-prefs：prefs 是 UserIndustryPrefsRow（commodity_code/updated_at），
-  // POST 请求体同样写 commodity_code（请求侧允许）；前端 core/api/industry-prefs.ts 的
-  // IndustryPrefs 镜像也是 snake，收口要两端同改。
+  // 2026-10-29 实测 2 键均带下划线、表内确有行；POST 请求体同样写 commodity_code（请求侧允许）；
+  // 前端 core/api/industry-prefs.ts 的 IndustryPrefs 镜像也是 snake，收口要两端同改。
   "src/app/api/user/industry-prefs/route.ts#prefs",
 ]);
 
