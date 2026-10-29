@@ -25,6 +25,8 @@ import { fetchCommodityPrefsPath, type CommodityTreeOption } from "../api/commod
 export interface UseIndustryPrefsOptions {
   /** 当前登录用户 key，未登录直接回 default 全量 */
   userId: number | undefined;
+  /** 是否付费会员：免费用户不自动套用行业偏好（行业墙只对付费生效） */
+  isVip: boolean;
   /** 页码设置器（自动筛选/手动改选时重置为 1） */
   setPage: (page: number) => void;
 }
@@ -43,7 +45,7 @@ export interface UseIndustryPrefsReturn {
 }
 
 export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryPrefsReturn {
-  const { userId, setPage } = options;
+  const { userId, isVip, setPage } = options;
   const { locale } = useLocale();
 
   // 品目匹配模式下的偏好路径（仅用于提示条展示品目名称；选中态在 URL 里）
@@ -84,7 +86,10 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
    * 恢复品目匹配
    */
   const restorePrefsMode = async () => {
-    if (!userId) return;
+    if (!userId || !isVip) {
+      setPrefsMode("default");
+      return;
+    }
     setPage(1);
     setPrefsMode("prefs");
     try {
@@ -109,6 +114,16 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
         setPrefsMode("default");
         setPrefsPath({ options: [] });
         setPage(1);
+      }
+      return;
+    }
+    // 免费用户不自动套用行业偏好：行业墙只在购买会员后按订阅行业生效。
+    if (!isVip) {
+      prefsInitKeyRef.current = null;
+      setHasIndustryPrefs(false);
+      if (prefsMode !== "default") {
+        setPrefsMode("default");
+        setPrefsPath({ options: [] });
       }
       return;
     }
@@ -137,7 +152,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
         setPrefsMode((prev) => prev === "loading" ? "default" : prev);
       }
     });
-  }, [userId, prefsMode, prefsRefreshTick, applyPrefsPath, setPage]);
+  }, [userId, isVip, prefsMode, prefsRefreshTick, applyPrefsPath, setPage]);
 
   useEffect(() => {
     const onPrefsUpdated = () => {

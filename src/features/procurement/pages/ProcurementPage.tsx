@@ -28,7 +28,6 @@ import { useNoticeActions } from "../hooks/useNoticeActions";
 import { SearchFilterSection } from "../components/procurement-page/SearchFilterSection";
 import { ResultsHeader } from "../components/procurement-page/ResultsHeader";
 import { PrefsBanner, ResultsList, MatchRelaxedHint } from "../components/procurement-page/ResultsSections";
-import { IndustryGuideBanner } from "../components/procurement-page/IndustryGuideBanner";
 
 export default function ProcurementPage() {
   const { authUser, isVip, refreshAuth, authReady } = useAuth();
@@ -56,11 +55,9 @@ export default function ProcurementPage() {
   const {
     prefsMode, setPrefsMode, prefsBannerName, exitAutoMode,
     hasIndustryPrefs, restorePrefsMode, markManualCategoryPick,
-  } = useIndustryPrefs({ userId, setPage });
+  } = useIndustryPrefs({ userId, isVip, setPage });
 
-  // 免费用户行业引导：无生效订阅且未绑行业时在列表页顶部展示（行业墙 free 化的引导入口）
-  const showIndustryGuide =
-    authReady && Boolean(authUser) && !isVip && prefsMode !== "loading" && !hasIndustryPrefs;
+  // 免费用户不显示行业引导/不为行业墙做预筛选：行业墙只在付费订阅后生效。
 
   // ── 五级下拉选项：品目大类 → 段 → 族 → 类 → 品目 ──
   const commodity = useCommodityCascade();
@@ -197,8 +194,6 @@ export default function ProcurementPage() {
     <div className="space-y-5">
       {/* 模块02 深色页头：库存感 + 实时规模条（已提取为独立组件） */}
       <ListingStatsBar stats={listingStats} />
-
-      <IndustryGuideBanner visible={showIndustryGuide} />
 
       <SearchFilterSection
         search={search}
