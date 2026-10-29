@@ -10,7 +10,6 @@
 
 export {
   fetchNoticeCountries,
-  fetchNoticeAgencies,
   viewNotice,
   unlockNotice,
   expressInterest,

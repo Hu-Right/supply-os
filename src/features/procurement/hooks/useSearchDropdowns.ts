@@ -1,15 +1,16 @@
 /**
- * 搜索下拉数据源 Hook（国家/机构列表 + sessionStorage 缓存）
+ * 搜索下拉数据源 Hook（国家列表 + sessionStorage 缓存）
  * Search dropdown data sources with sessionStorage caching
+ *
+ * [2026-10-29] 采购机构/买家筛选已下架（买家数据做完整后再恢复），
+ * 机构下拉数据源与 fetchNoticeAgencies 一并移除。
  *
  * @module features/procurement/hooks/useSearchDropdowns
  */
 import { useEffect, useState } from "react";
-import { useLocale } from "@/core/i18n";
-import { fetchNoticeCountries, fetchNoticeAgencies } from "../api";
+import { fetchNoticeCountries } from "../api";
 
 const COUNTRIES_CACHE_KEY = "supply-os:notice-countries";
-const AGENCIES_CACHE_KEY = "supply-os:notice-agencies";
 const CACHE_TTL = 10 * 60 * 1000; // 10 分钟
 
 function readSessionCache<T>(key: string): T | null {
@@ -26,9 +27,7 @@ function writeSessionCache(key: string, data: unknown): void {
 }
 
 export function useSearchDropdowns() {
-  const { locale } = useLocale();
   const [countries, setCountries] = useState<Array<{ country: string; count: number }>>([]);
-  const [agencies, setAgencies] = useState<Array<{ agency: string; count: number }>>([]);
 
   // 国家下拉数据源（sessionStorage 缓存优先）
   useEffect(() => {
@@ -43,19 +42,5 @@ export function useSearchDropdowns() {
       .catch(() => setCountries([]));
   }, []);
 
-  // 采购机构下拉数据源（sessionStorage 缓存优先，按 locale 分键）
-  useEffect(() => {
-    const cacheKey = `${AGENCIES_CACHE_KEY}:${locale}`;
-    const cached = readSessionCache<Array<{ agency: string; count: number }>>(cacheKey);
-    if (cached) { setAgencies(cached); return; }
-    fetchNoticeAgencies(locale)
-      .then((data) => {
-        const arr = Array.isArray(data) ? data : [];
-        setAgencies(arr);
-        if (arr.length > 0) writeSessionCache(cacheKey, arr);
-      })
-      .catch(() => setAgencies([]));
-  }, [locale]);
-
-  return { countries, agencies };
+  return { countries };
 }

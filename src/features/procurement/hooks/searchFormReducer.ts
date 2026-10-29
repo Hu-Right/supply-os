@@ -18,7 +18,6 @@ const MAX_TERM_LENGTH = 50;
 export interface SearchFormState {
   q: string;
   country: string;
-  agency: string;
   from: string;
   to: string;
   window: string;
@@ -29,7 +28,7 @@ export interface SearchFormState {
 }
 
 export type SearchFormAction =
-  | { type: "set_q" | "set_country" | "set_agency" | "set_from" | "set_to" | "set_window" | "set_notice_type"; payload: string }
+  | { type: "set_q" | "set_country" | "set_from" | "set_to" | "set_window" | "set_notice_type"; payload: string }
   | { type: "set_match_mode"; payload: "all" | "any" }
   | { type: "sync"; payload: SearchFormState }
   | { type: "clear" }
@@ -43,14 +42,13 @@ export function searchFormReducer(state: SearchFormState, action: SearchFormActi
   switch (action.type) {
     case "set_q": return { ...state, q: action.payload.slice(0, MAX_Q_LENGTH) };
     case "set_country": return { ...state, country: action.payload };
-    case "set_agency": return { ...state, agency: action.payload };
     case "set_from": return { ...state, from: action.payload };
     case "set_to": return { ...state, to: action.payload };
     case "set_window": return { ...state, window: action.payload };
     case "set_notice_type": return { ...state, noticeType: action.payload };
     case "set_match_mode": return { ...state, matchMode: action.payload };
     case "sync": return { ...action.payload };
-    case "clear": return { q: "", country: "", agency: "", from: "", to: "", window: "", noticeType: "", termRows: [], matchMode: "all" };
+    case "clear": return { q: "", country: "", from: "", to: "", window: "", noticeType: "", termRows: [], matchMode: "all" };
     case "add_row": {
       if (state.termRows.length >= MAX_KEYWORD_ROWS) return state;
       const nextId = state.termRows.reduce((m, r) => Math.max(m, r.id), 0) + 1;

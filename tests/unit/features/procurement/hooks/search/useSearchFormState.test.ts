@@ -43,7 +43,6 @@ describe("useSearchFormState", () => {
 
       expect(result.current.inputs.qInput).toBe("");
       expect(result.current.inputs.countryInput).toBe("");
-      expect(result.current.inputs.agencyInput).toBe("");
       expect(result.current.inputs.fromInput).toBe("");
       expect(result.current.inputs.toInput).toBe("");
       expect(result.current.inputs.windowInput).toBe("");
@@ -60,12 +59,6 @@ describe("useSearchFormState", () => {
       mockSearchParams.set("country", "Brazil");
       const { result } = renderHook(() => useSearchFormState());
       expect(result.current.inputs.countryInput).toBe("Brazil");
-    });
-
-    it("从 URL 参数初始化 agency", () => {
-      mockSearchParams.set("agency", "UNDP");
-      const { result } = renderHook(() => useSearchFormState());
-      expect(result.current.inputs.agencyInput).toBe("UNDP");
     });
 
     it("从 URL 参数初始化 deadline_from", () => {
@@ -95,11 +88,9 @@ describe("useSearchFormState", () => {
     it("多参数同时初始化", () => {
       mockSearchParams.set("q", "medical");
       mockSearchParams.set("country", "Kenya");
-      mockSearchParams.set("agency", "UNICEF");
       const { result } = renderHook(() => useSearchFormState());
       expect(result.current.inputs.qInput).toBe("medical");
       expect(result.current.inputs.countryInput).toBe("Kenya");
-      expect(result.current.inputs.agencyInput).toBe("UNICEF");
     });
   });
 
@@ -116,12 +107,6 @@ describe("useSearchFormState", () => {
       const { result } = renderHook(() => useSearchFormState());
       act(() => result.current.setters.setCountryInput("China"));
       expect(result.current.inputs.countryInput).toBe("China");
-    });
-
-    it("setAgencyInput 更新机构", () => {
-      const { result } = renderHook(() => useSearchFormState());
-      act(() => result.current.setters.setAgencyInput("WHO"));
-      expect(result.current.inputs.agencyInput).toBe("WHO");
     });
 
     it("setFromInput 更新起始日期", () => {
@@ -171,7 +156,6 @@ describe("useSearchFormState", () => {
       act(() => result.current.syncFromUrl({
         q: "new value",
         country: "France",
-        agency: "UNESCO",
         from: "2026-03-01",
         to: "2026-09-30",
         window: "90",
@@ -181,7 +165,6 @@ describe("useSearchFormState", () => {
 
       expect(result.current.inputs.qInput).toBe("new value");
       expect(result.current.inputs.countryInput).toBe("France");
-      expect(result.current.inputs.agencyInput).toBe("UNESCO");
       expect(result.current.inputs.fromInput).toBe("2026-03-01");
       expect(result.current.inputs.toInput).toBe("2026-09-30");
       expect(result.current.inputs.windowInput).toBe("90");
@@ -196,7 +179,6 @@ describe("useSearchFormState", () => {
       act(() => result.current.syncFromUrl({
         q: "",
         country: "",
-        agency: "",
         from: "",
         to: "",
         window: "",
@@ -218,7 +200,6 @@ describe("useSearchFormState", () => {
       act(() => {
         result.current.setters.setQInput("test");
         result.current.setters.setCountryInput("Japan");
-        result.current.setters.setAgencyInput("JICA");
         result.current.setters.setFromInput("2026-01-01");
         result.current.setters.setToInput("2026-12-31");
         result.current.setters.setWindowInput("30");
@@ -230,7 +211,6 @@ describe("useSearchFormState", () => {
 
       expect(result.current.inputs.qInput).toBe("");
       expect(result.current.inputs.countryInput).toBe("");
-      expect(result.current.inputs.agencyInput).toBe("");
       expect(result.current.inputs.fromInput).toBe("");
       expect(result.current.inputs.toInput).toBe("");
       expect(result.current.inputs.windowInput).toBe("");
@@ -261,12 +241,6 @@ describe("useSearchFormState", () => {
       const { result } = renderHook(() => useSearchFormState());
       act(() => result.current.setters.setCountryInput("Germany"));
       expect(result.current.inputs.countryInput).toBe(result.current.formState.country);
-    });
-
-    it("inputs.agencyInput === formState.agency", () => {
-      const { result } = renderHook(() => useSearchFormState());
-      act(() => result.current.setters.setAgencyInput("GIZ"));
-      expect(result.current.inputs.agencyInput).toBe(result.current.formState.agency);
     });
   });
 });

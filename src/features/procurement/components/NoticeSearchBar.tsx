@@ -14,7 +14,6 @@ import { memo, useState } from "react";
 import { Search, ChevronDown } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
-import { AgencyFilter } from "@/shared/filters/AgencyFilter";
 import { Input, Select, ToggleButton } from "@/shared/ui";
 import type { UseNoticeSearchReturn } from "../hooks/useNoticeSearch";
 
@@ -24,7 +23,6 @@ export interface NoticeSearchBarProps {
   /** URL 生效条件（来自 useNoticeSearch.query） */
   query: UseNoticeSearchReturn["query"];
   countries: Array<{ country: string; count: number }>;
-  agencies: Array<{ agency: string; count: number }>;
   /**
    * 搜索动作：全部从 useNoticeSearch 的返回类型派生，不在组件层手抄签名。
    * 此前 applySearch/clearSearch/toggleFeatured 是手写副本，上游一改签名
@@ -41,7 +39,6 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
   form,
   query,
   countries,
-  agencies,
   applySearch,
 }: NoticeSearchBarProps) {
   const { t, locale } = useLocale();
@@ -152,16 +149,8 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
           </Select>
         </div>
 
-        {/* 第 3 行：采购机构 + 国家 + 采购类型 */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px_minmax(0,1fr)] gap-3 lg:items-end">
-          <AgencyFilter
-            agencies={agencies}
-            value={form.agencyInput}
-            onChange={form.setAgencyInput}
-            placeholder={t("procurement_agencyAll")}
-            noResultsText={t("agencyFilter_noResults")}
-            className="w-full"
-          />
+        {/* 第 3 行：国家 + 采购类型 */}
+        <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-3 lg:items-end">
           <CountryFilter
             countries={countries}
             value={form.countryInput}

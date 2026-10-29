@@ -8,11 +8,6 @@ import { api, apiCached, buildQuery, downloadFile } from "@/core/http";
 export const fetchNoticeCountries = () =>
   apiCached<Array<{ country: string; count: number }>>("/api/notices/countries");
 
-export const fetchNoticeAgencies = (locale?: string) => {
-  const qs = locale ? `?locale=${encodeURIComponent(locale)}` : "";
-  return apiCached<Array<{ agency: string; count: number; agencyI18n?: string }>>(`/api/notices/agencies${qs}`);
-};
-
 // B1 legacy 清理（2026-08-20）：身份一律由 JWT 承载（api() 自动携带），
 // 不再拼装已废弃的 user_key 参数（服务端早已忽略该参数，且会污染 apiCached 的 URL 缓存 key）。
 export const viewNotice = (noticeId: number) =>

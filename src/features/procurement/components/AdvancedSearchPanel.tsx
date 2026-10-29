@@ -25,7 +25,6 @@ import { useLocale } from "@/core/i18n";
 import { MAX_KEYWORD_ROWS, composeQ, hasAdvancedSyntax, type TermMode, type TermRow } from "@/shared/utils/advanced-syntax";
 import { Input, Select } from "@/shared/ui";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
-import { AgencyFilter } from "@/shared/filters/AgencyFilter";
 import type { NoticeSearchBarProps } from "./NoticeSearchBar";
 import { UpgradeGateModal } from "./UpgradeGateModal";
 import { DateRangePicker } from "./advanced-search/DateRangePicker";
@@ -45,7 +44,6 @@ export function AdvancedSearchPanel({
   form,
   query: _query,
   countries,
-  agencies,
   applySearch,
   toggleFeatured: _toggleFeatured,
   advancedSearchEntitled = true,
@@ -221,22 +219,7 @@ export function AdvancedSearchPanel({
       </div>
 
       {/* ══ 行2：采购机构 / 采购方式 / 预算金额 ══ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-        {/* 采购机构/买家 */}
-        <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            {t("procurement_agency") || "采购机构"} / {t("procurement_buyer") || "买家"}
-          </label>
-          <AgencyFilter
-            agencies={agencies}
-            value={form.agencyInput}
-            onChange={form.setAgencyInput}
-            placeholder={t("procurement_agencyPlaceholder") || "输入机构名称或买家名称"}
-            noResultsText={t("agencyFilter_noResults")}
-            className="w-full"
-          />
-        </div>
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
         {/* 采购方式 */}
         <div>
           <label className="block text-xs font-bold text-slate-500 mb-1.5">

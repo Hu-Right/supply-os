@@ -35,7 +35,6 @@ export interface UseNoticeSearchReturn {
   query: {
     activeQ: string;
     activeCountry: string;
-    activeAgency: string;
     activeFrom: string;
     activeTo: string;
     activeSort: "deadline" | "latest" | "deadline_farthest";
@@ -54,8 +53,6 @@ export interface UseNoticeSearchReturn {
     setQInput: (value: string) => void;
     countryInput: string;
     setCountryInput: (value: string) => void;
-    agencyInput: string;
-    setAgencyInput: (value: string) => void;
     fromInput: string;
     setFromInput: (value: string) => void;
     toInput: string;
@@ -75,7 +72,6 @@ export interface UseNoticeSearchReturn {
   };
   result: {
     countries: Array<{ country: string; count: number }>;
-    agencies: Array<{ agency: string; count: number }>;
     items: NoticeItem[];
     total: number;
     matchRelaxed: boolean;
@@ -104,7 +100,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     variantRef,
     onClear,
   } = options;
-  const { countries, agencies } = useSearchDropdowns();
+  const { countries } = useSearchDropdowns();
 
   // 子 hooks
   const form = useSearchFormState();
@@ -133,21 +129,19 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     syncFromUrl({
       q: query.activeQ,
       country: query.activeCountry,
-      agency: query.activeAgency,
       from: query.activeFrom,
       to: query.activeTo,
       window: query.activeWindow,
       noticeType: query.activeNoticeType,
       matchMode: query.activeMatchMode,
     });
-  }, [syncFromUrl, query.activeQ, query.activeCountry, query.activeAgency, query.activeFrom, query.activeTo, query.activeWindow, query.activeNoticeType, query.activeMatchMode]);
+  }, [syncFromUrl, query.activeQ, query.activeCountry, query.activeFrom, query.activeTo, query.activeWindow, query.activeNoticeType, query.activeMatchMode]);
 
   // 组件挂载时立即从 URL 同步表单状态
   useEffect(() => {
     form.syncFromUrl({
       q: query.activeQ,
       country: query.activeCountry,
-      agency: query.activeAgency,
       from: query.activeFrom,
       to: query.activeTo,
       window: query.activeWindow,
@@ -177,8 +171,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     query: {
       activeQ: query.activeQ,
       activeCountry: query.activeCountry,
-      activeAgency: query.activeAgency,
-      activeFrom: query.activeFrom,
+        activeFrom: query.activeFrom,
       activeTo: query.activeTo,
       activeSort: query.activeSort,
       activeWindow: query.activeWindow,
@@ -195,8 +188,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       setQInput: form.setters.setQInput,
       countryInput: form.inputs.countryInput,
       setCountryInput: form.setters.setCountryInput,
-      agencyInput: form.inputs.agencyInput,
-      setAgencyInput: form.setters.setAgencyInput,
       fromInput: form.inputs.fromInput,
       setFromInput: form.setters.setFromInput,
       toInput: form.inputs.toInput,
@@ -216,7 +207,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     },
     result: {
       countries,
-      agencies,
       items: results.items,
       total: results.total,
       matchRelaxed: results.matchRelaxed,

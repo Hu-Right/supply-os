@@ -57,7 +57,6 @@ function makeForm() {
   return {
     qInput: "", setQInput: vi.fn(),
     countryInput: "", setCountryInput: vi.fn(),
-    agencyInput: "", setAgencyInput: vi.fn(),
     fromInput: "", setFromInput: vi.fn(),
     toInput: "", setToInput: vi.fn(),
     windowInput: "", setWindowInput: vi.fn(),
@@ -79,7 +78,6 @@ function panel(form: ReturnType<typeof makeForm>) {
       form={form as never}
       query={{} as never}
       countries={[]}
-      agencies={[]}
       applySearch={vi.fn() as never}
       clearSearch={vi.fn()}
       toggleFeatured={vi.fn()}
@@ -195,7 +193,6 @@ describe("「官方精选」区", () => {
         form={form as never}
         query={{} as never}
         countries={[]}
-        agencies={[]}
         applySearch={vi.fn() as never}
         clearSearch={vi.fn()}
         toggleFeatured={vi.fn()}

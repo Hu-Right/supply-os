@@ -12,7 +12,6 @@ import { parseQ, type TermRow, type TermMode } from "@/shared/utils/advanced-syn
 export interface SearchFormInputs {
   qInput: string;
   countryInput: string;
-  agencyInput: string;
   fromInput: string;
   toInput: string;
   windowInput: string;
@@ -24,7 +23,6 @@ export interface SearchFormInputs {
 export interface SearchFormSetters {
   setQInput: (value: string) => void;
   setCountryInput: (value: string) => void;
-  setAgencyInput: (value: string) => void;
   setFromInput: (value: string) => void;
   setToInput: (value: string) => void;
   setWindowInput: (value: string) => void;
@@ -44,7 +42,6 @@ export function useSearchFormState(): {
   syncFromUrl: (params: {
     q: string;
     country: string;
-    agency: string;
     from: string;
     to: string;
     window: string;
@@ -60,7 +57,6 @@ export function useSearchFormState(): {
     return {
       q: plain,
       country: searchParams.get("country") || "",
-      agency: searchParams.get("agency") || "",
       from: searchParams.get("deadline_from") || "",
       to: searchParams.get("deadline_to") || "",
       window: searchParams.get("deadline_within_days") || "",
@@ -72,7 +68,6 @@ export function useSearchFormState(): {
 
   const setQInput = useCallback((v: string) => dispatchForm({ type: "set_q", payload: v }), []);
   const setCountryInput = useCallback((v: string) => dispatchForm({ type: "set_country", payload: v }), []);
-  const setAgencyInput = useCallback((v: string) => dispatchForm({ type: "set_agency", payload: v }), []);
   const setFromInput = useCallback((v: string) => dispatchForm({ type: "set_from", payload: v }), []);
   const setToInput = useCallback((v: string) => dispatchForm({ type: "set_to", payload: v }), []);
   const setWindowInput = useCallback((v: string) => dispatchForm({ type: "set_window", payload: v }), []);
@@ -87,7 +82,6 @@ export function useSearchFormState(): {
   const syncFromUrl = useCallback((params: {
     q: string;
     country: string;
-    agency: string;
     from: string;
     to: string;
     window: string;
@@ -108,7 +102,6 @@ export function useSearchFormState(): {
     inputs: {
       qInput: formState.q,
       countryInput: formState.country,
-      agencyInput: formState.agency,
       fromInput: formState.from,
       toInput: formState.to,
       windowInput: formState.window,
@@ -119,7 +112,6 @@ export function useSearchFormState(): {
     setters: {
       setQInput,
       setCountryInput,
-      setAgencyInput,
       setFromInput,
       setToInput,
       setWindowInput,

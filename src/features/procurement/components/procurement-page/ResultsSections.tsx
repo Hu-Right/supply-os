@@ -32,7 +32,7 @@ export function PrefsBanner({ prefsMode, prefsBannerName, query }: {
     <div className="mb-4 flex items-center gap-3 p-3 rounded-lg bg-teal-50 border border-teal-100 text-xs font-bold text-teal-700">
       <span>
         {query.hasSearch
-          ? `${t("procurement_prefsBanner", { name: prefsBannerName })} + ${query.activeQ ? `“${query.activeQ}”` : ""}${query.activeCountry ? ` ${query.activeCountry}` : ""}${query.activeAgency ? ` ${query.activeAgency}` : ""}${query.activeFeatured ? ` ${t("procurement_featuredOnly")}` : ""}`.replace(/^\s*\+\s*/, "").trim()
+          ? `${t("procurement_prefsBanner", { name: prefsBannerName })} + ${query.activeQ ? `“${query.activeQ}”` : ""}${query.activeCountry ? ` ${query.activeCountry}` : ""}${query.activeFeatured ? ` ${t("procurement_featuredOnly")}` : ""}`.replace(/^\s*\+\s*/, "").trim()
           : t("procurement_prefsBanner", { name: prefsBannerName })}
       </span>
     </div>

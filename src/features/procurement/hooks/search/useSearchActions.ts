@@ -93,7 +93,6 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     const composedQ = composeQ(qInput, termRows);
     if (composedQ) next.q = composedQ;
     if (inputs.countryInput) next.country = inputs.countryInput;
-    if (inputs.agencyInput) next.agency = inputs.agencyInput;
     if (inputs.fromInput) next.deadline_from = inputs.fromInput;
     if (inputs.toInput) next.deadline_to = inputs.toInput;
     if (inputs.windowInput) next.deadline_within_days = inputs.windowInput;

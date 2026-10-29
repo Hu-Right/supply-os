@@ -5,7 +5,6 @@ import type { TermRow } from "@/shared/utils/advanced-syntax";
 const initialState: SearchFormState = {
   q: "",
   country: "",
-  agency: "",
   from: "",
   to: "",
   window: "",
@@ -61,7 +60,6 @@ describe("searchFormReducer", () => {
     const newState: SearchFormState = {
       q: "test",
       country: "US",
-      agency: "UNDP",
       from: "2026-01-01",
       to: "2026-12-31",
       window: "30d",
@@ -75,7 +73,7 @@ describe("searchFormReducer", () => {
 
   it("clear → 重置所有字段", () => {
     const dirty: SearchFormState = {
-      q: "test", country: "US", agency: "UNDP",
+      q: "test", country: "US",
       from: "2026-01-01", to: "2026-12-31", window: "30d", noticeType: "ITB",
       termRows: [], matchMode: "any",
     };
@@ -90,9 +88,7 @@ describe("searchFormReducer", () => {
 
   it("各字段独立更新（不影响其他字段）", () => {
     let state = searchFormReducer(initialState, { type: "set_q", payload: "test" });
-    state = searchFormReducer(state, { type: "set_agency", payload: "UNICEF" });
     expect(state.q).toBe("test");
-    expect(state.agency).toBe("UNICEF");
     expect(state.country).toBe("");
   });
 });

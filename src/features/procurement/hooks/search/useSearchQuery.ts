@@ -10,7 +10,6 @@ import { useSearchParams } from "next/navigation";
 export interface SearchQuery {
   activeQ: string;
   activeCountry: string;
-  activeAgency: string;
   activeFrom: string;
   activeTo: string;
   activeSort: "deadline" | "latest" | "deadline_farthest";
@@ -33,7 +32,6 @@ export function useSearchQuery(): SearchQuery {
 
   const activeQ = searchParams.get("q") || "";
   const activeCountry = searchParams.get("country") || "";
-  const activeAgency = searchParams.get("agency") || "";
   const activeFrom = searchParams.get("deadline_from") || "";
   const activeTo = searchParams.get("deadline_to") || "";
   const rawSort = searchParams.get("sort");
@@ -48,7 +46,7 @@ export function useSearchQuery(): SearchQuery {
   const activeCommodity = searchParams.get("commodity") || "";
 
   const hasSearch = Boolean(
-    activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
+    activeQ || activeCountry || activeFrom || activeTo ||
     activeWindow || activeNoticeType || activeFeatured ||
     activeBudgetMin || activeBudgetMax || activeCommodity
   );
@@ -56,17 +54,16 @@ export function useSearchQuery(): SearchQuery {
   // 统一化重构后：hasOtherSearch 仅影响推荐模式的退出判定
   // 不再影响行业匹配模式（行业匹配模式下筛选条件直接透传给后端）
   const hasOtherSearch = Boolean(
-    activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
+    activeQ || activeCountry || activeFrom || activeTo ||
     activeWindow || activeNoticeType || activeFeatured ||
     activeBudgetMin || activeBudgetMax || activeCommodity
   );
 
-  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}|${activeCommodity}`;
+  const searchKey = `${activeQ}|${activeCountry}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}|${activeCommodity}`;
 
   return useMemo(() => ({
     activeQ,
     activeCountry,
-    activeAgency,
     activeFrom,
     activeTo,
     activeSort,
@@ -80,5 +77,5 @@ export function useSearchQuery(): SearchQuery {
     hasSearch,
     hasOtherSearch,
     searchKey,
-  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeCommodity, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
+  }), [activeQ, activeCountry, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeCommodity, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
 }

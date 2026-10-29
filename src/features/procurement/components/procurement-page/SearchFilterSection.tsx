@@ -47,7 +47,6 @@ export function SearchFilterSection({
             form={search.form}
             query={search.query}
             countries={search.result.countries}
-            agencies={search.result.agencies}
             applySearch={search.actions.applySearch}
             clearSearch={search.actions.clearSearch}
             toggleFeatured={search.actions.toggleFeatured}
@@ -59,7 +58,6 @@ export function SearchFilterSection({
             form={search.form}
             query={search.query}
             countries={search.result.countries}
-            agencies={search.result.agencies}
             applySearch={search.actions.applySearch}
             clearSearch={search.actions.clearSearch}
             toggleFeatured={search.actions.toggleFeatured}
