@@ -127,12 +127,13 @@ describe("POST /api/opportunities/[id]/unlock", () => {
     expect(body.message).toContain("不存在");
   });
 
-  it("free 类型 → 402 免费硬闸（免费试用已移除，不落任何流水）", async () => {
+  it("free 类型 → 402 会员专属硬闸（免费试用已移除，不落任何流水）", async () => {
     const { POST } = await import("@/app/api/opportunities/[id]/unlock/route");
     const res = await POST(unlockRequest(176, { unlock_type: "free" }), routeParams(176));
     expect(res.status).toBe(402);
     const body = await res.json();
-    expect(body.message).toContain("免费");
+    expect(body.message).toContain("会员专属");
+    expect(body.message).toContain("升级会员");
     // 事务内只允许幂等复查的 SELECT，不得出现解锁流水的 INSERT
     const insertCalled = connQuery.mock.calls.some(([sql]: string[]) =>
       String(sql).includes("INSERT INTO opportunity_unlocks"));
