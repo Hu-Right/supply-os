@@ -2,7 +2,7 @@
  * 服务表 notice_public 增量重建 CLI —— daily-sync.cjs「服务表归一化」那一棒。
  *
  * 为什么存在：2026-10-27 管道翻转后，服务表的唯一写入者从本机 ops 一次性脚本
- * （scripts/ops/notice-public-v2.ts，gitignore、换机即丢）迁入 src（build.ts / rebuild.ts），
+ * （当时为 gitignore 下的本机脚本，换机即丢，后已删除）迁入 src（build.ts / rebuild.ts），
  * 但 daily-sync.cjs 仍 spawn 那个已删除的 ops 脚本 ⇒ 每次手动兜底都报
  * `ERR_MODULE_NOT_FOUND`（2026-10-29 实测）。本文件只做「连接池装配 + 参数解析」，
  * 构建/选行/写入/清理全部委托 src 侧唯一写入者，不复制任何归一化逻辑。
