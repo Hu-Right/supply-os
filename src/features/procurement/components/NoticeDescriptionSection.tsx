@@ -26,6 +26,8 @@ export interface NoticeDescriptionSectionProps {
   displayDescription: string | undefined;
   /** 描述是否被截断（SQL LEFT 300），用于显示 ... 提示 */
   descriptionTruncated?: boolean;
+  /** 详情仍在加载：先出骨架，避免已付费用户先看到列表截断版再跳全文 */
+  loading?: boolean;
 }
 
 export function NoticeDescriptionSection({
@@ -37,6 +39,7 @@ export function NoticeDescriptionSection({
   toggleOriginal,
   displayDescription,
   descriptionTruncated,
+  loading,
 }: NoticeDescriptionSectionProps) {
   const { t } = useLocale();
   return (
@@ -64,10 +67,18 @@ export function NoticeDescriptionSection({
           </Button>
         )}
       </div>
-      <p dir="auto" className="text-sm text-slate-600 leading-7 whitespace-pre-line break-words">
-        {displayDescription || t("procurement_noDesc")}
-        {descriptionTruncated && <span className="text-slate-400">...</span>}
-      </p>
+      {loading ? (
+        <div className="space-y-2 py-1" aria-busy="true">
+          <div className="h-4 w-full rounded bg-slate-100 animate-pulse" />
+          <div className="h-4 w-11/12 rounded bg-slate-100 animate-pulse" />
+          <div className="h-4 w-4/5 rounded bg-slate-100 animate-pulse" />
+        </div>
+      ) : (
+        <p dir="auto" className="text-sm text-slate-600 leading-7 whitespace-pre-line break-words">
+          {displayDescription || t("procurement_noDesc")}
+          {descriptionTruncated && <span className="text-slate-400">...</span>}
+        </p>
+      )}
       {showTranslated && (
         <p className="text-3xs text-slate-400 mt-2">{t("procurement_translateNote")}</p>
       )}

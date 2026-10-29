@@ -75,7 +75,7 @@ export function useNoticeHandlers({
 
     // 三请求并行：浏览计数与配额刷新不再阻塞详情数据到达
     void viewNotice(notice.noticePk);
-    setDetailLoadingId(alreadyUnlocked ? notice.noticePk : null);
+    setDetailLoadingId(notice.noticePk);
     setSelectedNotice(notice);
     setActionMessage("");
     window.scrollTo({ top: 0, behavior: "smooth" });

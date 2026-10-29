@@ -235,6 +235,7 @@ export function NoticeDetail({
                   toggleOriginal={toggleOriginal}
                   displayDescription={displayDescription || ""}
                   descriptionTruncated={!!notice.descriptionTruncated}
+                  loading={!!detailLoading}
                 />
 
                 {/* 解锁态：采购方/联系人 → 「采购方与联系人」Tab；报告/文件 → 「投标材料」Tab。
