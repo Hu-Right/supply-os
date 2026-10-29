@@ -98,7 +98,7 @@ describe("PlanCard（档位卡）", () => {
     expect(screen.getByText("附件下载")).toBeInTheDocument();
   });
 
-  it("枚举权益展示矩阵等级标签（AI 智能匹配：企业级 / 可定制），bool 行不展示", () => {
+  it("AI 智能匹配不展示无功能差异的档位标签，bool 行不展示等级", () => {
     const table = {
       plans: [],
       rows: [
@@ -125,7 +125,7 @@ describe("PlanCard（档位卡）", () => {
 
     render(<PlanCard tier={tier([row()])} row={row()} table={table} onBuy={noop} />);
     expect(screen.getByText("AI 智能匹配")).toBeInTheDocument();
-    expect(screen.getByText("企业级")).toBeInTheDocument();
+    expect(screen.queryByText("企业级")).not.toBeInTheDocument();
     // bool 行的 display 是 ✓，不再重复渲染等级标签
     expect(screen.getByText("普通权益")).toBeInTheDocument();
     expect(screen.queryAllByText("✓")).toHaveLength(0);
