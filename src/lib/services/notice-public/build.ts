@@ -13,6 +13,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeTitle } from "../notice-content/title";
 import { normalizeAmount } from "../notice-normalize/amount";
 import { normalizeContacts } from "../notice-normalize/phone";
+import { resolveCountries } from "../country/resolve";
 import { normalizeBuyerCountry } from "../notice-normalize/notice-core";
 import { loadAgencyAliasSnapshot, normalizeAliasKey } from "../agency/alias-store";
 import type { AgencyAliasSnapshot } from "../agency/alias-store";
@@ -359,8 +360,14 @@ export function buildPublicRow(
   const registration = normRegistration(r.registration_level);
   // 中文正文：商机表有中文描述就直接覆盖服务表；无则保留服务表已有中文内容。
   const contentZh = opp?.cn ?? null;
-  // 受援国按服务表，不再由商机表覆盖。
-  const beneficiary = String(r.beneficiary_countries ?? "").trim().slice(0, 500) || null;
+  // 受援国按服务表原文归一：统一成标准国家名，去重，避免自由文本直接透出。
+  const beneficiaryRaw = String(r.beneficiary_countries ?? "").trim();
+  const beneficiaryRefs = beneficiaryRaw
+    ? resolveCountries(beneficiaryRaw, ctx.countrySnap).refs.filter((ref) => ref.kind === "country")
+    : [];
+  const beneficiary = beneficiaryRefs.length > 0
+    ? [...new Set(beneficiaryRefs.map((ref) => ref.zh || ref.canonical).filter(Boolean))].join(", ").slice(0, 500)
+    : (beneficiaryRaw.slice(0, 500) || null);
   const titleCn = String(r.title_cn ?? "").trim().slice(0, 1000) || null;
   const buyerNameCn = buyerName
     ? (ctx.buyerTranslations.get(buyerName) ?? null)

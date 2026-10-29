@@ -49,6 +49,7 @@ export function wideSyncSelect(withFp: boolean): string {
          n.published_date, n.entry_source,
          p.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
          opp.beneficiary_countries,
+         p.beneficiary_countries AS public_beneficiary_countries,
          p.buyer_name, p.buyer_group, n.country AS country_name,
          p.is_opportunity,
          p.country_codes AS public_country_codes,
@@ -238,7 +239,7 @@ export function buildWideRow(
     backbone_path: landing?.backbone ? landing.backbone : null,
     description_cn: String(r.description_cn || "").slice(0, WIDE_LIMITS.descriptionCn),
     bid_overview: String(r.bid_overview || "").slice(0, WIDE_LIMITS.bidOverview),
-    beneficiary_countries: normalizeBeneficiaryCountries(String(r.beneficiary_countries || ""), countrySnap),
+    beneficiary_countries: String(r.public_beneficiary_countries || r.beneficiary_countries || "").slice(0, WIDE_LIMITS.beneficiary),
     documents_count: docs.length,
     published_date: String(r.published_date || "").slice(0, WIDE_LIMITS.publishedDate),
     // 指纹：与内容同快照由 SQL 侧唯一表达式算出，此处只透传不计算（I1）。
