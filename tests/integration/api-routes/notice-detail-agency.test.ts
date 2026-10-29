@@ -13,7 +13,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const { findPublicDetail, findUnlock, enrichAgencyI18n, ensureAgencyI18nWarmup } = vi.hoisted(() => ({
+const { findPublicDetail, findUnlock, enrichAgencyI18n, ensureAgencyDisplayWarmup } = vi.hoisted(() => ({
   findPublicDetail: vi.fn(),
   findUnlock: vi.fn(),
   // 列表链路的真实取词不在射程内：这里固定写一个译名，只验「有没有被接上 + 有没有改名」
@@ -21,7 +21,7 @@ const { findPublicDetail, findUnlock, enrichAgencyI18n, ensureAgencyI18nWarmup }
     for (const item of items) item.agency_i18n = "拉脱维亚房地产局";
     return items;
   }),
-  ensureAgencyI18nWarmup: vi.fn(async () => undefined),
+  ensureAgencyDisplayWarmup: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/middleware/auth", () => ({
@@ -44,7 +44,7 @@ vi.mock("@/lib/services/platform/alias-store", async (importOriginal) => ({
     byKey: new Map(), byHost: new Map(), formsByCanonical: new Map(),
   })),
 }));
-vi.mock("@/lib/services/search-orchestrator/format", () => ({ enrichAgencyI18n, ensureAgencyI18nWarmup }));
+vi.mock("@/lib/services/search-orchestrator/format", () => ({ enrichAgencyI18n, ensureAgencyDisplayWarmup }));
 
 /** 服务表行：按 findPublicDetail 的真实 SELECT 列全量给值（下面那条「无 snake 键」
  *  不变量只有覆盖全部列才有意义——只放几个列就会漏住 mapper 认不到的那些） */
@@ -103,7 +103,7 @@ describe("GET /api/notices/[id]/detail 的机构名接线", () => {
   it("带 locale：预热机构快照 → 只接精确解析层 → 改名为 agencyI18n 下发", async () => {
     const body = await callDetail("zh");
 
-    expect(ensureAgencyI18nWarmup).toHaveBeenCalledTimes(1);
+    expect(ensureAgencyDisplayWarmup).toHaveBeenCalledTimes(1);
     expect(enrichAgencyI18n).toHaveBeenCalledTimes(1);
     // 详情不得接列表侧的国家级聚合桶（「法国各机构」会盖掉真实买家名）
     expect(enrichAgencyI18n).toHaveBeenCalledWith([expect.any(Object)], "zh", { preciseOnly: true });
@@ -125,7 +125,7 @@ describe("GET /api/notices/[id]/detail 的机构名接线", () => {
   it("不带 locale：不预热、不翻译（老客户端不传参也不报错）", async () => {
     const body = await callDetail();
 
-    expect(ensureAgencyI18nWarmup).not.toHaveBeenCalled();
+    expect(ensureAgencyDisplayWarmup).not.toHaveBeenCalled();
     expect(enrichAgencyI18n).not.toHaveBeenCalled();
     expect(body).not.toHaveProperty("agencyI18n");
     // 买家原名仍在（前端回退链 agencyI18n → buyerName）

@@ -46,12 +46,23 @@ function perDocMatchScore(
  * enrichAgencyI18n 的两层回退都读内存态：① resolveAgencyDisplay 依赖 agency_aliases 快照，
  * 而该快照原先只在 refreshNoticeAgencies（下拉刷新）内部 ensure —— 详情请求不经过下拉，
  * 不显式预热就永远拿不到别名表精名，卡片中文 / 详情英文的漂移由此产生；
- * ② 下拉缓存冷启动时补一次聚合查询（命中则零开销，与 _searchCore 同口径）。
+ * ② 下拉缓存冷启动时补一次聚合查询。
  * 两个入口各自的表查询都带降级，这里统一吞掉异常：预热失败只是少一层翻译，不能让详情 500。
+ *
+ * [2026-10-29 拆成两层] 别名表快照是单表小查询，可以同步等；下拉聚合查询不行——
+ * 主管道侧实测冷缓存时 getNoticeAgencies 可达 20s+，同步 await 会把单条公告的
+ * 详情/预览拖过前端超时（即 _searchCore 里「total 有值但 items 为空」那一类事故），
+ * 所以聚合缓存改成发了就不管：本次请求靠 classify / 国家级终兜底降级给中文标签，
+ * 后台预热完成后下一条自然命中。
  */
-export async function ensureAgencyI18nWarmup(pool: Pool): Promise<void> {
+export async function ensureAgencyDisplayWarmup(pool: Pool): Promise<void> {
   await ensureAgencyDisplaySnapshot(pool).catch(() => undefined);
-  if (!getAgencyCacheData()) await getNoticeAgencies(pool).catch(() => undefined);
+}
+
+/** 需要完整回退链（列表口径，/preview 用）的预热：别名表同步等，聚合缓存不阻塞。 */
+export async function ensureAgencyI18nWarmup(pool: Pool): Promise<void> {
+  await ensureAgencyDisplayWarmup(pool);
+  if (!getAgencyCacheData()) void getNoticeAgencies(pool).catch(() => undefined);
 }
 
 /**

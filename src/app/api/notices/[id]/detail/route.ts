@@ -13,7 +13,7 @@ import { findPublicDetail } from "@/lib/services/notice-public/read";
 import { toNoticeView } from "@/lib/services/notice-public/view";
 import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
 import { platformInfoWithFallback } from "@/lib/services/platform/resolve";
-import { enrichAgencyI18n, ensureAgencyI18nWarmup } from "@/lib/services/search-orchestrator/format";
+import { enrichAgencyI18n, ensureAgencyDisplayWarmup } from "@/lib/services/search-orchestrator/format";
 import { pickNoticeApiLang } from "@/shared/constants/langs";
 import { canAccessNotice } from "@/lib/services/industry-scope";
 import { EC_OUT_OF_CATEGORY, EC_INVALID_PARAMS, EC_CONTENT_LOCKED, EC_NOT_FOUND } from "@/shared/constants/api";
@@ -58,7 +58,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // 买家名，而口径是「卡片不露外文原文，真实买家名进详情看」（2026-10-29 真库探针订正）。
     const locale = pickNoticeApiLang(new URL(req.url).searchParams.get("locale"));
     if (locale) {
-      await ensureAgencyI18nWarmup(ctx.dbPool);
+      // 只预热别名表快照：详情走 preciseOnly，根本不查下拉聚合缓存，拉它没有任何收益；
+      // 而那个聚合查询冷缓存下实测 20s+，多不等一步就多一分详情超时的风险。
+      await ensureAgencyDisplayWarmup(ctx.dbPool);
       enrichAgencyI18n([notice as unknown as Record<string, unknown>], locale, { preciseOnly: true });
       // 无精名时必须显式下发空串：前端解锁合并是 {...preview, ...detail}，
       // 缺键会让锁定态预览里那份聚合名（「法国各机构」）残留下来继续盖住真名。

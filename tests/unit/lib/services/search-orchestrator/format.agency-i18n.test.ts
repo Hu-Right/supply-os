@@ -13,6 +13,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getAgencyCacheData: vi.fn(),
+  getNoticeAgencies: vi.fn(),
+  ensureAgencyDisplaySnapshot: vi.fn(),
   classifyAgencyType: vi.fn(),
   translateByPattern: vi.fn(),
   countryZhOf: vi.fn(),
@@ -20,6 +22,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/services/notice-search/agencies/index", () => ({
   getAgencyCacheData: mocks.getAgencyCacheData,
+  getNoticeAgencies: mocks.getNoticeAgencies,
+}));
+// 只钉住预热入口（用部分 mock，保留 resolveAgencyDisplay 真实行为，上面所有回退链用例靠它）
+vi.mock("@/lib/services/agency/resolve", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/services/agency/resolve")>()),
+  ensureAgencyDisplaySnapshot: mocks.ensureAgencyDisplaySnapshot,
 }));
 vi.mock("@/lib/services/agency/index", () => ({
   classifyAgencyType: mocks.classifyAgencyType,
@@ -33,6 +41,7 @@ vi.mock("@/lib/services/country/display", () => ({
 
 import { formatItems } from "@/lib/services/search-orchestrator/format";
 import { enrichAgencyI18n } from "@/lib/services/search-orchestrator/format";
+import { ensureAgencyI18nWarmup, ensureAgencyDisplayWarmup } from "@/lib/services/search-orchestrator/format";
 
 const row = (over: Record<string, unknown> = {}) =>
   ({ buyer_name: "TEST", is_featured: 0, ...over }) as never;
@@ -40,6 +49,8 @@ const row = (over: Record<string, unknown> = {}) =>
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.getAgencyCacheData.mockReturnValue([]);
+  mocks.getNoticeAgencies.mockResolvedValue([]);
+  mocks.ensureAgencyDisplaySnapshot.mockResolvedValue(undefined);
   mocks.translateByPattern.mockReturnValue(null);
   mocks.classifyAgencyType.mockReturnValue(null);
   mocks.countryZhOf.mockReturnValue(null);
@@ -234,5 +245,41 @@ describe("enrichAgencyI18n — preciseOnly（详情侧不分聚合桶）", () =>
       { preciseOnly: true },
     );
     expect(items[0].agency_i18n).toBeUndefined();
+  });
+});
+
+/**
+ * [2026-10-29] 预热不得把出口拖住。主管道侧实测冷缓存时 getNoticeAgencies 可达 20s+，
+ * 同步 await 会把单条公告的详情/预览拖过前端超时（同 _searchCore 里「total 有值但
+ * items 为空」那一类事故），所以详情只等别名表快照，预览的聚合预热发了就不管。
+ */
+describe("ensureAgency*Warmup — 聚合缓存不阻塞出口", () => {
+  it("详情用的 ensureAgencyDisplayWarmup 只等别名表，不碰聚合缓存", async () => {
+    await ensureAgencyDisplayWarmup({} as never);
+    expect(mocks.ensureAgencyDisplaySnapshot).toHaveBeenCalledTimes(1);
+    expect(mocks.getNoticeAgencies).not.toHaveBeenCalled();
+  });
+
+  it("聚合查询挂住不返回时，ensureAgencyI18nWarmup 仍然立即完成", async () => {
+    mocks.getAgencyCacheData.mockReturnValue(null);
+    let released = false;
+    mocks.getNoticeAgencies.mockImplementation(
+      () => new Promise<void>((resolve) => setTimeout(() => { released = true; resolve(); }, 200)),
+    );
+    const t0 = Date.now();
+    await ensureAgencyI18nWarmup({} as never);
+    expect(Date.now() - t0).toBeLessThan(100);
+    expect(released).toBe(false);
+  });
+
+  it("聚合缓存已热（getAgencyCacheData 有值）→ 根本不重拉", async () => {
+    mocks.getAgencyCacheData.mockReturnValue([{ agency: "X", i18n: { zh: "Y" } }]);
+    await ensureAgencyI18nWarmup({} as never);
+    expect(mocks.getNoticeAgencies).not.toHaveBeenCalled();
+  });
+
+  it("别名表预热报错也不能让出口挂掉（预热失败只是少一层翻译）", async () => {
+    mocks.ensureAgencyDisplaySnapshot.mockRejectedValue(new Error("boom"));
+    await expect(ensureAgencyI18nWarmup({} as never)).resolves.toBeUndefined();
   });
 });
