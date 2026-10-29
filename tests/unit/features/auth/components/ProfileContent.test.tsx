@@ -116,18 +116,18 @@ describe("ProfileContent", () => {
   it("供应商状态同步企业认证进度（已认证/审核中/已驳回）", () => {
     // 审核中
     mockEnterpriseBound = true;
-    mockEnterpriseData = { verify_status: "pending" };
+    mockEnterpriseData = { verifyStatus: "pending" };
     const { rerender } = render(<ProfileContent />);
     expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
 
     // 已认证 → 显示公司名 + 已认证徽章
-    mockEnterpriseData = { verify_status: "done", company: "杭州中建工程技术有限公司" };
+    mockEnterpriseData = { verifyStatus: "done", company: "杭州中建工程技术有限公司" };
     rerender(<ProfileContent />);
     expect(screen.getByText("杭州中建工程技术有限公司")).toBeInTheDocument();
     expect(screen.getByText("authEnterpriseVerifyApproved")).toBeInTheDocument();
 
     // 已驳回
-    mockEnterpriseData = { verify_status: "rejected", check_note: "资料不全" };
+    mockEnterpriseData = { verifyStatus: "rejected", checkNote: "资料不全" };
     rerender(<ProfileContent />);
     expect(screen.getByText("authEnterpriseVerifyRejected")).toBeInTheDocument();
   });
@@ -137,8 +137,8 @@ describe("ProfileContent", () => {
     // 数据侧 14 行已于 2026-10-08 补齐资质列，今后应由审核端两列一起写。
     mockEnterpriseBound = true;
     mockEnterpriseData = {
-      verify_status: null,
-      claim_status: "verified",
+      verifyStatus: null,
+      claimStatus: "verified",
       company: "杭州中建工程技术有限公司",
     };
     render(<ProfileContent />);
@@ -150,7 +150,7 @@ describe("ProfileContent", () => {
 
   it("已绑定但状态未知（两列皆空）时显示「已绑定」文案，不再暴露主键 ID", () => {
     mockEnterpriseBound = true;
-    mockEnterpriseData = { verify_status: null, claim_status: null, company: "某公司" };
+    mockEnterpriseData = { verifyStatus: null, claimStatus: null, company: "某公司" };
     render(<ProfileContent />);
     expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
     expect(screen.queryByText(/已绑定 #42/)).not.toBeInTheDocument();
@@ -160,7 +160,7 @@ describe("ProfileContent", () => {
     // 真实场景：认领一家已认证主体后，行上 verify_status=done、claim_status=pending，
     // 账号侧仍是临时绑定；此处必须报审核中，与后端排他闸口同一口径。
     mockEnterpriseBound = true;
-    mockEnterpriseData = { verify_status: "done", claim_status: "pending", company: "某待核企业" };
+    mockEnterpriseData = { verifyStatus: "done", claimStatus: "pending", company: "某待核企业" };
     render(<ProfileContent />);
     expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
     expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
@@ -181,7 +181,7 @@ describe("ProfileContent", () => {
   it("t() 缺键（服务端 bundle 未含该键）→ 区块标题与字段标签回落中文兜底", () => {
     mockAuthUser = { nickname: "测试昵称", email: "test@example.com", supplierId: 42 };
     mockEnterpriseBound = true;
-    mockEnterpriseData = { verify_status: "done", company: "杭州中建工程技术有限公司" };
+    mockEnterpriseData = { verifyStatus: "done", company: "杭州中建工程技术有限公司" };
     tState.impl = () => "";
     try {
       render(<ProfileContent />);
