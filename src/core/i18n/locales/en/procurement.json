@@ -454,7 +454,7 @@
   "detail_tabSummary": "Summary",
   "detail_tabQualification": "Qualifications",
   "detail_tabOriginalFiles": "Original Files",
-  "detail_tabAiScore": "AI Fit Assessment",
+  "detail_tabAiScore": "AI Smart Match",
   "detail_tabSimilar": "Similar",
   "detail_aiScoreDesc": "AI will score the match between your company's qualifications and this tender's requirements across multiple dimensions, helping you quickly assess bid feasibility.",
   "detail_aiFeat1": "Qualification match analysis",

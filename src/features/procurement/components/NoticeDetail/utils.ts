@@ -8,11 +8,13 @@
  */
 import type { GateState } from "@/types";
 
-/** Tab 门控来源：benefit = 按矩阵权益判定；unlock = 需解锁本条公告（消耗 notice_view）。 */
+/** Tab 门控来源：权益编码（矩阵 SSOT）。
+ *  2026-10-29 权益大一统：资格条件/原始文件也收进矩阵（qualification_access /
+ *  original_file_access），详情页与定价页共用同一份权益定义，不再有独立的"解锁类"角标；
+ *  付费用户打开公告时由页面自动解锁（notice_view 不限次），内容直接可看。 */
 export interface DetailTabGate {
-  kind: "benefit" | "unlock";
-  /** kind=benefit 时对应的权益编码（矩阵 SSOT）。 */
-  benefitCode?: string;
+  /** 权益编码（benefit_code，矩阵 SSOT）。 */
+  benefitCode: string;
 }
 
 /** Tab 定义 */
@@ -23,13 +25,13 @@ export interface DetailTab {
 }
 
 export const DETAIL_TABS: DetailTab[] = [
-  { key: "summary", labelKey: "detail_tabSummary", gate: { kind: "benefit", benefitCode: "ai_summary" } },
-  { key: "qualification", labelKey: "detail_tabQualification", gate: { kind: "unlock" } },
-  { key: "files", labelKey: "detail_tabOriginalFiles", gate: { kind: "unlock" } },
-  { key: "ai-score", labelKey: "detail_tabAiScore", gate: { kind: "benefit", benefitCode: "ai_match" } },
+  { key: "summary", labelKey: "detail_tabSummary", gate: { benefitCode: "ai_summary" } },
+  { key: "qualification", labelKey: "detail_tabQualification", gate: { benefitCode: "qualification_access" } },
+  { key: "files", labelKey: "detail_tabOriginalFiles", gate: { benefitCode: "original_file_access" } },
+  { key: "ai-score", labelKey: "detail_tabAiScore", gate: { benefitCode: "ai_match" } },
   // "history"（同类品类历史中标）已随旧品类码小表剥离整链下线（2026-10-14）：
   // bid_awards 的旧码列全表 0 行非空，该 Tab 自上线起恒为空态，属零数据空转
-  { key: "similar", labelKey: "detail_tabSimilar", gate: { kind: "benefit", benefitCode: "similar_opportunity" } },
+  { key: "similar", labelKey: "detail_tabSimilar", gate: { benefitCode: "similar_opportunity" } },
 ];
 
 /** 门控状态 → 角标配色（按状态着色，随权益动态呈现，取代旧的静态档位配色）。 */
@@ -52,21 +54,13 @@ export const GATE_LABEL_KEY: Record<GateState, string> = {
 
 /**
  * 计算某 Tab 对当前用户的门控状态。gates 来自服务端矩阵（/api/membership/status 下发），
- * 前端不复制档位常量；'unlock' 需结合本条公告是否已解锁。缺数据时保守回退 'upgrade'。
+ * 前端不复制档位常量；缺数据时保守回退 'upgrade'。
  */
 export function deriveTabGateState(
   tab: DetailTab,
   gates: Record<string, GateState> | undefined,
-  coreUnlocked: boolean,
 ): GateState {
-  if (tab.gate.kind === "unlock") {
-    if (coreUnlocked) return "included";
-    // 未解锁：当前套餐有解锁额度（notice_view 已含）→ 提示"需解锁"；否则引导升级。
-    return gates?.notice_view === "included" ? "unlock" : "upgrade";
-  }
-  const code = tab.gate.benefitCode;
-  if (!code) return "upgrade";
-  return gates?.[code] ?? "upgrade";
+  return gates?.[tab.gate.benefitCode] ?? "upgrade";
 }
 
 /**

@@ -406,7 +406,7 @@
   "detail_tabSummary": "Resumen",
   "detail_tabQualification": "Calificaciones",
   "detail_tabOriginalFiles": "Archivos originales",
-  "detail_tabAiScore": "Evaluación IA",
+  "detail_tabAiScore": "Coincidencia IA",
   "detail_tabSimilar": "Similares",
   "detail_aiScoreDesc": "La IA puntuará la compatibilidad entre las cualificaciones de su empresa y los requisitos de esta licitación en múltiples dimensiones, ayudándole a valorar rápidamente la viabilidad de participar.",
   "detail_aiFeat1": "Análisis de compatibilidad de cualificaciones",

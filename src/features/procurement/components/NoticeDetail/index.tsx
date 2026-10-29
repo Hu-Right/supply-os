@@ -7,7 +7,7 @@
  *              Tab 导航 + 双栏布局（左：AI摘要/概况速览，右：下一步动作面板）。
  *              免费用户可判断价值，付费用户获取完整执行信息。
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { useOptionalAuth, useUserId } from "@/core/auth";
@@ -90,6 +90,18 @@ export function NoticeDetail({
   const aiMatchEnabled = gates?.ai_match === "free" || gates?.ai_match === "included";
   const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreUnlocked, aiSummaryEnabled);
   const aiMatch = useAiMatch(noticeId, aiMatchEnabled);
+  // 会员「标讯权益」不限次（notice_view=-1）：打开详情即自动解锁，避免"套餐已含却提示解锁"的割裂
+  // （2026-10-29 权益大一统：详情页 Tab 与定价页共用同一份矩阵；解锁只是内容获取动作，会员免点）。
+  // 每个 notice 只尝试一次，失败不重试，用户仍可手动点解锁。
+  const autoUnlockTried = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (!isLoggedIn || coreUnlocked) return;
+    const unlimitedAccess = gates?.notice_view === "included" || gates?.notice_view === "free";
+    if (!unlimitedAccess) return;
+    if (autoUnlockTried.current.has(noticeId)) return;
+    autoUnlockTried.current.add(noticeId);
+    onUnlock(notice);
+  }, [coreUnlocked, gates, isLoggedIn, notice, noticeId, onUnlock]);
   const [activeTab, setActiveTab] = useState("summary");
   const bidDeadline = !notice.deadlineType || notice.deadlineType === "bid";
   const [countdown, setCountdown] = useState(bidDeadline ? getDisplayCountdown(notice.deadlineTs) : null);
@@ -114,7 +126,7 @@ export function NoticeDetail({
   // 翻译：锁定态不发起请求——/translation 同属付费墙闸口（ARCH-P0 2026-09-05），
   // 锁定态发起必 403 core_locked；锁定面板标题来自列表 i18n 字段，无需译文。
   // 解锁后 core_locked 翻转为 false，钩子自动补发。
-  const { translation, displayTitle: hookDisplayTitle, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
+  const { translation, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
     coreUnlocked && canSeeChinese ? notice.noticePk : undefined, locale,
     `${notice.title || ""}\n${notice.description || ""}`,
     canSeeChinese && locale === "zh" ? (notice.titleI18n || undefined) : undefined,
@@ -168,7 +180,7 @@ export function NoticeDetail({
           onShare={() => setShareOpen(true)}
         />
 
-        <DetailTabs activeTab={activeTab} setActiveTab={setActiveTab} t={t} gates={membership?.gates} coreUnlocked={coreUnlocked} />
+        <DetailTabs activeTab={activeTab} setActiveTab={setActiveTab} t={t} gates={membership?.gates} />
 
         {/* ═══ 操作消息 ═══ */}
         {actionMessage && (

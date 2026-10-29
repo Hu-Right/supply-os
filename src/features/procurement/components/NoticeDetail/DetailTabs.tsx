@@ -25,11 +25,9 @@ interface DetailTabsProps {
   t: (key: string) => string;
   /** 服务端按矩阵下发的权益门控状态（benefit_code -> GateState）；缺省时角标保守展示。 */
   gates: Record<string, GateState> | undefined;
-  /** 本条公告是否已解锁（决定 unlock 类 Tab 的角标）。 */
-  coreUnlocked: boolean;
 }
 
-export function DetailTabs({ activeTab, setActiveTab, t, gates, coreUnlocked }: DetailTabsProps) {
+export function DetailTabs({ activeTab, setActiveTab, t, gates }: DetailTabsProps) {
   const tablistRef = useRef<HTMLDivElement>(null);
 
   /** 循环移动焦点并激活（automatic activation） */
@@ -61,7 +59,7 @@ export function DetailTabs({ activeTab, setActiveTab, t, gates, coreUnlocked }: 
     >
       {DETAIL_TABS.map((tab) => {
         const isActive = activeTab === tab.key;
-        const state = deriveTabGateState(tab, gates, coreUnlocked);
+        const state = deriveTabGateState(tab, gates);
         return (
           <button
             key={tab.key}

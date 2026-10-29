@@ -19,7 +19,6 @@ const renderTabs = (activeTab = "summary", setActiveTab = vi.fn()) => {
       setActiveTab={setActiveTab}
       t={t}
       gates={undefined}
-      coreUnlocked={false}
     />,
   );
   return setActiveTab;
@@ -101,22 +100,30 @@ describe("DetailTabs（ARIA Tabs / 键盘导航，spec 2026-09-21）", () => {
 describe("deriveTabGateState（服务端矩阵 gates → Tab 角标状态）", () => {
   const byKey = (k: string) => DETAIL_TABS.find((tab) => tab.key === k)!;
 
-  it("benefit 类：直接采用 gates 下发的状态", () => {
+  it("全部 Tab 都由权益矩阵驱动（不再有独立的解锁类）", () => {
     const gates: Record<string, GateState> = {
+      ai_summary: "free",
+      qualification_access: "included",
+      original_file_access: "included",
       ai_match: "upgrade",
       similar_opportunity: "free",
     };
-    expect(deriveTabGateState(byKey("ai-score"), gates, false)).toBe("upgrade");
-    expect(deriveTabGateState(byKey("similar"), gates, false)).toBe("free");
+    expect(deriveTabGateState(byKey("summary"), gates)).toBe("free");
+    expect(deriveTabGateState(byKey("qualification"), gates)).toBe("included");
+    expect(deriveTabGateState(byKey("files"), gates)).toBe("included");
+    expect(deriveTabGateState(byKey("ai-score"), gates)).toBe("upgrade");
+    expect(deriveTabGateState(byKey("similar"), gates)).toBe("free");
   });
 
-  it("unlock 类：已解锁→included；未解锁且有额度→unlock；无额度→upgrade", () => {
-    expect(deriveTabGateState(byKey("files"), { notice_view: "included" }, true)).toBe("included");
-    expect(deriveTabGateState(byKey("files"), { notice_view: "included" }, false)).toBe("unlock");
-    expect(deriveTabGateState(byKey("files"), { notice_view: "upgrade" }, false)).toBe("upgrade");
+  it("资格条件/原始文件：付费档 included，免费档 upgrade", () => {
+    expect(deriveTabGateState(byKey("qualification"), { qualification_access: "included" })).toBe("included");
+    expect(deriveTabGateState(byKey("files"), { original_file_access: "included" })).toBe("included");
+    expect(deriveTabGateState(byKey("files"), { original_file_access: "upgrade" })).toBe("upgrade");
+    expect(deriveTabGateState(byKey("qualification"), { qualification_access: "free" })).toBe("free");
   });
 
   it("缺 gates 数据时保守回退 upgrade", () => {
-    expect(deriveTabGateState(byKey("summary"), undefined, false)).toBe("upgrade");
+    expect(deriveTabGateState(byKey("summary"), undefined)).toBe("upgrade");
+    expect(deriveTabGateState(byKey("files"), undefined)).toBe("upgrade");
   });
 });

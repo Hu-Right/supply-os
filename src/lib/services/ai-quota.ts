@@ -2,8 +2,9 @@
  * AI 计量权益消费（ai_summary_quota / ai_match_quota 的月度次数池）
  *
  * @module lib/services/ai-quota
- * @description 摘要/AI 匹配路由在"完整档"生成前扣一次月度额度（新矩阵：个人 30/月，
- *              企业/人工/内部 -1 不限，free 0——但 free 只到脱敏档，到不了本入口）。
+ * @description 摘要/AI 匹配路由在"完整档"生成前扣一次月度额度（矩阵口径：个人档原 30/月，
+ *              2026-10-29 产品改口改为 -1 不限；企业/人工/内部 -1 不限，free 0——但 free 只到脱敏档，
+ *              到不了本入口）。
  *              记账复用 unlock-quota 的开池/换代/扣减原语，额度唯一事实源 = 矩阵格 value_num。
  *
  *              额度唯一事实源 = 矩阵格 value_num，一切以新矩阵为准，无迁移过渡分支：

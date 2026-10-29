@@ -406,7 +406,7 @@
   "detail_tabSummary": "Сводка",
   "detail_tabQualification": "Квалификации",
   "detail_tabOriginalFiles": "Оригинальные файлы",
-  "detail_tabAiScore": "Оценка ИИ",
+  "detail_tabAiScore": "ИИ-подбор",
   "detail_tabSimilar": "Похожие",
   "detail_aiScoreDesc": "ИИ оценит соответствие квалификаций вашей компании требованиям данного тендера по нескольким критериям, чтобы вы могли быстро оценить целесообразность участия.",
   "detail_aiFeat1": "Анализ соответствия квалификаций",
