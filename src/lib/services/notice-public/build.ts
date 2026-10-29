@@ -160,7 +160,7 @@ function normDifficulty(raw: unknown): string | null {
 
 function normRegistration(raw: unknown): string | null {
   const s = String(raw ?? "").toLowerCase().replace(/\s+/g, "");
-  if (!s) return null;
+  if (!s) return "unknown";
   if (s.includes("basic") || s.includes("基础")) return "basic";
   if (s.includes("level1") || s.includes("l1")) return "level1";
   if (s.includes("level2") || s.includes("l2")) return "level2";
@@ -346,9 +346,16 @@ export function buildPublicRow(
   const contacts = normalizeContacts(r.contacts, {
     contactPhone: r.contact_phone, contactEmail: r.contact_email, description: desc, countryCode,
   });
-  const attachments = (maps.attachmentMap.get(Number(r.id)) ?? []).length > 0
+  const rawAttachments = (maps.attachmentMap.get(Number(r.id)) ?? []).length > 0
     ? maps.attachmentMap.get(Number(r.id))!
     : normalizeDocumentRows(r.documents, r.procurement_files);
+  // 去掉“Download all documents”这类聚合入口：它不是招标文件，计进附件数会让
+  // 列表文件数虚高，也会污染对外 API 的 attachments。
+  const attachments = rawAttachments.filter((d) => {
+    const name = String((d as Record<string, unknown>).name ?? (d as Record<string, unknown>).title ?? "").trim();
+    const url = String((d as Record<string, unknown>).url ?? "");
+    return !/^download all documents$/i.test(name) && !/downloadalldocuments/i.test(url);
+  });
   const attachmentUrls = new Set(attachments.map((d) => String(d.url ?? "").toLowerCase()));
   const externalLinks = normalizeDocumentRows(r.external_links)
     .filter((d) => !attachmentUrls.has(String(d.url ?? "").toLowerCase()));
