@@ -15,6 +15,7 @@ import { downloadFile } from "@/core/http";
 import type { NoticeAttachment, NoticeDetailItem, NoticeItem } from "../../types";
 import { downloadNoticeReport } from "../../api";
 import { ReportUnavailableBanner } from "../ReportUnavailableBanner";
+import { FeasibilityReportPanel } from "./FeasibilityReportPanel";
 import { ReportPreviewPanel } from "../ReportPreviewPanel";
 
 interface FilesTabProps {
@@ -171,6 +172,9 @@ export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock, gates 
           {externalLinks.length > 0 && t("detail_linkCount", { count: externalLinks.length })}
         </span>
       </div>
+
+      {/* ⓪ 投标可行性报告（企业/人工档；规则判定 + 证据） */}
+      {notice.noticePk != null && <FeasibilityReportPanel noticePk={notice.noticePk} enabled={reportEntitled} />}
 
       {/* ① 中文版订单拆解报告 */}
       <div className="rounded-2xl border border-teal-100 bg-white p-4 space-y-2">
