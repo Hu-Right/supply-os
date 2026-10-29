@@ -113,7 +113,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   `agencyI18n`（买家中文名）曾同时混入**聚合类别名**（「法国各机构」——`buyer_group` 的语义是按国家 +
   机构类型聚合，与“具体是谁”无关）与**模式合成头名**（`PHILIPPINE RECLAMATION管理局`），而前端读的是
   `agencyI18n || buyerName`，所以类别名直接占掉了买家名的位置。现全链（列表/详情/预览）**只认
-  `crm_agency_aliases` 表内登记过的译名**（判定式 `resolveAgencyDisplay().i18nFrom === "alias"`），
+  `agency_aliases` 表内登记过的译名**（判定式 `resolveAgencyDisplay().i18nFrom === "alias"`），
   未登记就不下发、前端回退真实原名（代价：卡片与详情约 99.7% 行显外文原名，这是主动取舍不是漏改）；
   `buyer_group` 的聚合语义保留，但不得流入买家展示字段。由
   `tests/integration/api-routes/notice-detail-agency.test.ts` 钉住（详情在表内无登记名时必须显式下发空串——
