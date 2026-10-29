@@ -1,15 +1,12 @@
 /**
- * 中文拆解报告不可用时的微信客服引导横幅
- * WeChat customer-service guidance banner when Chinese breakdown report is unavailable
+ * 中文拆解报告不可用时的客服引导横幅
+ * Customer-service guidance banner when Chinese breakdown report is unavailable
  *
  * @module features/procurement/components/ReportUnavailableBanner
- * @description 当公告无法提供中文版拆解报告时，引导用户通过微信客服渠道获得人工定向处理服务。
- *              按用户类型（VIP / 普通已登录 / 未登录）差异化展示文案，
+ * @description 当公告无法提供中文版拆解报告时，引导用户通过客服渠道获得人工定向处理服务。
+ *              按用户类型（会员 / 普通已登录 / 未登录）差异化展示文案，
  *              通过 sessionStorage 实现同会话按 notice_id 粒度去重，避免频繁打扰。
- *              Shows a guidance banner directing users to WeChat customer service
- *              when a Chinese breakdown report is unavailable. Differentiates copy
- *              by user type (VIP / logged-in / guest). Dismissed banners are
- *              remembered per session via sessionStorage (per notice_id).
+ *              2026-10-29 权益大一统：不再用旧档位词"VIP"，改为「会员 / 人工服务包」口径。
  */
 
 import { useState, useCallback, useEffect } from "react";
@@ -93,7 +90,7 @@ export function ReportUnavailableBanner({
             {isVip && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-amber-300 bg-amber-100 text-2xs font-black text-amber-700">
                 <Crown className="w-3 h-3" />
-                VIP
+                {t("procurement_memberBadge")}
               </span>
             )}
           </p>

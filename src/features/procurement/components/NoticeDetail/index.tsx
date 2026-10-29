@@ -250,6 +250,7 @@ export function NoticeDetail({
                 <NoticeCoreContent
                   notice={notice} coreUnlocked={coreUnlocked}
                   showSkeleton={showSkeleton} breakdownFileCount={breakdownFileCount}
+                  onViewFiles={() => setActiveTab("files")}
                 />
               </>
             )}

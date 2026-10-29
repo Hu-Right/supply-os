@@ -27,6 +27,8 @@ export interface NoticeCoreContentProps {
   showSkeleton: boolean;
   /** 锁定态拆解文件计数预览（决定占位文件行数，缺失时取默认值） */
   breakdownFileCount?: number;
+  /** 跳到「原始文件」Tab（解锁详情卡里的原始文件跳转入口） */
+  onViewFiles?: () => void;
 }
 
 export function NoticeCoreContent({
@@ -34,6 +36,7 @@ export function NoticeCoreContent({
   coreUnlocked,
   showSkeleton,
   breakdownFileCount,
+  onViewFiles,
 }: NoticeCoreContentProps) {
   const { t } = useLocale();
 
@@ -43,7 +46,7 @@ export function NoticeCoreContent({
         {/* 原「标签」区随旧品类码退役删除：它只渲染那个码列表，
             自 R5' 停读后服务端恒下发空数组 ⇒ 只剩一个空标题。 */}
         {/* 「来源」链接（source_url）已删：与解锁详情卡内「原始链接/打开公告」（url）同一功能，去重 */}
-        <NoticeUnlockedDetails notice={notice} />
+        <NoticeUnlockedDetails notice={notice} onViewFiles={onViewFiles} />
       </>
     );
   }
