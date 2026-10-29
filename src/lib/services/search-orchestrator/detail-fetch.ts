@@ -17,13 +17,13 @@ import { qualifiedOppWhere } from "../../utils/notice-qualified";
 /**
  * 按 ID 列表获取公告详情行。
  * @param ids 公告 ID 列表（Meilisearch 返回，已按排序）
- * @param locale 界面语言（决定 title_i18n/description_i18n 取哪国译文）
+ * @param _locale 界面语言（历史参数；水合口径已统一为 title_cn/description，保留签名兼容调用方）
  * @returns 详情行数组，顺序与传入 ids 一致（缺失的行被跳过）
  */
 export async function fetchDetailsByIds(
   pool: Pool,
   ids: number[],
-  locale: string,
+  _locale: string,
 ): Promise<RowDataPacket[]> {
   if (ids.length === 0) return [];
   const useWideTable = await isWideTableReady(pool);

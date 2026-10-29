@@ -10,6 +10,7 @@ import type { NoticeTranslationRepo } from "../../repos/notices/notice-translati
 import { preferValue } from "../../utils/json";
 import { findQualifiedOpportunityForNotice } from "../notices";
 import { syncWideIds } from "../search-sync/index";
+import { syncNoticeTitleCn } from "../notice-public/build";
 import { TRANSLATION_MODEL } from "../../utils/notice-field-limits";
 
 export const NOTICE_TRANSLATION_LANGS: Record<string, string> = {
@@ -281,6 +282,7 @@ async function handleFullTranslation(
   if (zhDescCn && detectedSourceLang === "zh") {
     // 标题已是中文，无需翻译；仅缓存标题（description_cn 不存入翻译缓存表）
     await translationRepo.upsertTranslation(noticeId, "zh", String(notice.title || ""), null, TRANSLATION_MODEL.SAME_LANG);
+  await syncNoticeTitleCn(dbPool, noticeId, String(notice.title || "")).catch(() => undefined);
     // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
     void syncWideIds(dbPool, [noticeId]).catch(() => {});
     return { lang: "zh", title: String(notice.title || ""), description: zhDescCn, cached: false, source: "description_cn", passthrough: true };
@@ -325,12 +327,14 @@ async function handleFullTranslation(
     // 原文已是目标语言，缓存后下次搜索直接命中分支 1（缓存命中），不再进入翻译链。
     const descToCachePass = zhDescCn ? null : (translations[1] || null);
     await translationRepo.upsertTranslation(noticeId, lang, translations[0], descToCachePass, provider);
+    if (lang === "zh") await syncNoticeTitleCn(dbPool, noticeId, translations[0]).catch(() => undefined);
     void syncWideIds(dbPool, [noticeId]).catch(() => {});
     return { lang, title: translations[0], description: zhDescCn || translations[1], cached: false, passthrough: true };
   }
   // 有 description_cn 时仅缓存标题翻译，描述走 description_cn 直出
   const descToCache = zhDescCn ? null : translations[1];
   await translationRepo.upsertTranslation(noticeId, lang, translations[0], descToCache, provider);
+  if (lang === "zh") await syncNoticeTitleCn(dbPool, noticeId, translations[0]).catch(() => undefined);
 
   // 英文中枢兗底：小语种公告自动补齐英文译文
   if (lang !== "en" && detectedSourceLang && detectedSourceLang !== "en" && detectedSourceLang !== "zh") {

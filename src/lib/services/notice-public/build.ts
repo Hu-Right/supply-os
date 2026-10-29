@@ -457,3 +457,11 @@ export async function deletePublicRows(pool: Pool, ids: number[]): Promise<numbe
   return pruned;
 }
 
+
+/** 展示缓存写回：仅 build.ts 可写 notice_public（N1 红线）。
+ *  列表页只读 title_cn；详情命中旧译文缓存/异步标题翻译时回写一次，避免列表仍显示原文。 */
+export async function syncNoticeTitleCn(pool: Pool, noticePk: number, titleCn: string): Promise<void> {
+  const value = String(titleCn ?? "").trim();
+  if (!value) return;
+  await pool.execute("UPDATE notice_public SET title_cn = LEFT(?, 1000) WHERE notice_pk = ?", [value, noticePk]);
+}

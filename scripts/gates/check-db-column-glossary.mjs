@@ -60,6 +60,10 @@ const FROZEN_SUFFIX = new Set([
   "email_unsubscribe.unsubscribe_at",
   "notice_public.updated_at",
   "rfq_outreach.contacted_at",
+  // 买家中文翻译字典：translated_at/updated_at 实为 Unix 秒，由外部翻译脚本写入；
+  // 改名需连带改外部 ops 脚本，先冻结（只减不增），随该表迁移一并收敛为 _ts。
+  "buyer_translation.translated_at",
+  "buyer_translation.updated_at",
 ]);
 
 const TYPE_INT = /^(BIGINT|INT|INTEGER|TINYINT|SMALLINT|MEDIUMINT)\b/i;

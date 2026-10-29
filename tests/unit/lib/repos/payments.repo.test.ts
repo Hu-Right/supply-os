@@ -49,7 +49,7 @@ describe("PaymentsRepo 查询方法", () => {
     const { pool, query } = makePool([[]]);
     const repo = new PaymentsRepo(pool);
     await repo.findPendingOrder({ userId: 101, planCode: "personal_m", provider: "mock", noticeId: null });
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("notice_id <=> ?"), [101, "personal_m", "mock", null]);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("notice_id <=> ?"), [101, "personal_m", "mock", null, null]);
   });
 });
 
@@ -67,7 +67,7 @@ describe("PaymentsRepo 订单写入", () => {
     expect(sql).toContain("'pending'");
     expect(params).toEqual([
       101, "SO1", "mock", "personal_m", "new", null,
-      null, 99, "CNY", "/pay", null, "{}",
+      null, null, 99, "CNY", "/pay", null, "{}",
     ]);
   });
 

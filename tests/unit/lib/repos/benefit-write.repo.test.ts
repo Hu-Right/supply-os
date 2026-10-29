@@ -72,6 +72,7 @@ describe("insertSubscription · 订阅事实准入守卫", () => {
     for (const col of [
       "owner_user_id",
       "plan_code",
+      "industry_code",
       "source_order_no",
       "price_paid",
       "currency",
@@ -81,7 +82,7 @@ describe("insertSubscription · 订阅事实准入守卫", () => {
       expect(calls[0].sql).toContain(col);
     }
     // started_at 缺省传 null → SQL 端 COALESCE(?, NOW())；列为 …, currency, started_at, expires_at
-    expect(calls[0].params).toEqual([42, "business", "ALI-20260922-0001", 8800, "CNY", null, new Date(1800000000000)]);
+    expect(calls[0].params).toEqual([42, "business", null, "ALI-20260922-0001", 8800, "CNY", null, new Date(1800000000000)]);
   });
 
   it("无期限订阅传 NULL 而不是伪造远期时间", async () => {

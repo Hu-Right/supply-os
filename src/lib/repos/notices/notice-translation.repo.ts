@@ -41,23 +41,6 @@ export class NoticeTranslationRepo {
        ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
       [noticeId, lang, titleTr, descriptionTr, model],
     );
-    // 中文标题同步回服务表：列表页没有按需翻译，只能读 title_cn；不写回会导致
-    // 详情已翻译、列表仍原文。来源仍是翻译表，这里只是展示缓存。
-    if (lang === "zh" && titleTr) {
-      await this.pool.query(
-        `UPDATE notice_public SET title_cn = LEFT(?, 1000) WHERE notice_pk = ?`,
-        [titleTr, noticeId],
-      );
-    }
-  }
-
-  /** 把已命中的中文标题同步回服务表展示缓存（列表不按需翻译，只读 title_cn） */
-  async syncServiceTitleCn(noticeId: number, titleTr: string): Promise<void> {
-    if (!titleTr) return;
-    await this.pool.query(
-      `UPDATE notice_public SET title_cn = LEFT(?, 1000) WHERE notice_pk = ?`,
-      [titleTr, noticeId],
-    );
   }
 
   /** 指定语言译文是否已存在（英文中枢兜底前置检查） */

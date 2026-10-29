@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   searchUnified: vi.fn(),
   findActivePlan: vi.fn(),
   resolveProfile: vi.fn(),
+  resolveIndustryScope: vi.fn(),
   logSearch: vi.fn(),
 }));
 
@@ -43,6 +44,9 @@ vi.mock("@/lib/db/context", () => ({
     },
   }),
 }));
+vi.mock("@/lib/services/industry-scope", () => ({
+  resolveIndustryScope: mocks.resolveIndustryScope,
+}));
 vi.mock("@/lib/services/industry-profile/resolve", () => ({
   resolveUserIndustryProfile: mocks.resolveProfile,
   invalidateProfileCache: vi.fn(),
@@ -65,6 +69,7 @@ beforeEach(() => {
   // 默认无生效订阅 → free 列无行业墙格子 → 行业墙不启动（墙注入行为由专属用例覆盖）
   mocks.findActivePlan.mockResolvedValue(null);
   mocks.loadCells.mockResolvedValue([]);
+  mocks.resolveIndustryScope.mockResolvedValue({ scoped: false, l1Nodes: [], needsIndustry: false });
 });
 
 /** 行业墙列格子：industry_scoped=1、all_category_access 可选（演示档旁路） */
@@ -136,11 +141,8 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
 
   it("行业墙：被限定档位用户注入 wall.nodes，recommended 收编进 prefs 管道", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
-    mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
-    // 行业墙列：industry_scoped=1、all_category_access=0（非演示档）；isEntitled 只服务高级语法门控
-    mocks.loadCells.mockResolvedValue(wallCells());
-    // 墙键 = 偏好 commodity_code 的 L1 前缀（2026-10-15 G 码退役，纯切片推导、零查库）
-    mocks.resolveProfile.mockResolvedValue({ userId: 7, commodityCode: "UGT-85010101" });
+    // 行业墙已收口到 industry-scope 服务：直接控制其返回值（scoped + L1 节点码）
+    mocks.resolveIndustryScope.mockResolvedValue({ scoped: true, l1Nodes: ["UGT-85"], needsIndustry: false });
 
     const res = await GET(makeReq("http://localhost:3000/api/notices/unified-search?mode=recommended&page=1"));
     const body = await res.json();
@@ -153,9 +155,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
 
   it("行业墙：偏好码推导不出大类 → 仍注入空 wall（给空结果而不是放开全量）", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
-    mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
-    mocks.loadCells.mockResolvedValue(wallCells());
-    mocks.resolveProfile.mockResolvedValue({ userId: 7, commodityCode: "UGT-XY" });
+    mocks.resolveIndustryScope.mockResolvedValue({ scoped: true, l1Nodes: [], needsIndustry: false });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const res = await GET(makeReq());
@@ -167,9 +167,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
 
   it("行业墙：被限定档位未绑大类 → 不注入 wall，带 needsIndustrySelection 引导标志", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
-    mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
-    mocks.loadCells.mockResolvedValue(wallCells());
-    mocks.resolveProfile.mockResolvedValue(null);
+    mocks.resolveIndustryScope.mockResolvedValue({ scoped: false, l1Nodes: [], needsIndustry: true });
 
     const res = await GET(makeReq());
     const body = await res.json();
@@ -181,9 +179,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
 
   it("行业墙 free 化：无订阅但 free 列 industry_scoped=1 → 同样注入 wall", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
-    mocks.findActivePlan.mockResolvedValue(null);
-    mocks.loadCells.mockResolvedValue(wallCells());
-    mocks.resolveProfile.mockResolvedValue({ userId: 7, commodityCode: "UGT-85010101" });
+    mocks.resolveIndustryScope.mockResolvedValue({ scoped: true, l1Nodes: ["UGT-85"], needsIndustry: false });
 
     const res = await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar&page=1"));
 

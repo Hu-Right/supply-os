@@ -642,7 +642,7 @@ CREATE TABLE `employees` (
   UNIQUE KEY `invitation_code` (`invitation_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='有KPI要求的员工';
 
--- ── follow_up_logs ──
+-- ── enterprise_capability_items ──
 CREATE TABLE `enterprise_capability_items` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `enterprise_id` bigint unsigned NOT NULL COMMENT '企业主体（v0.1 = 已认证 supplier.id）',
@@ -657,6 +657,7 @@ CREATE TABLE `enterprise_capability_items` (
   KEY `idx_cap_enterprise_type` (`enterprise_id`,`capability_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：企业能力项（结构化档案+证据）';
 
+-- ── enterprise_evidence ──
 CREATE TABLE `enterprise_evidence` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `enterprise_id` bigint unsigned NOT NULL COMMENT '企业主体（v0.1 = 已认证 supplier.id）',
@@ -674,8 +675,9 @@ CREATE TABLE `enterprise_evidence` (
   PRIMARY KEY (`id`),
   KEY `idx_evidence_enterprise` (`enterprise_id`,`category`),
   KEY `idx_evidence_valid_until` (`valid_until`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：企业证据/资料库最小版'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：企业证据/资料库最小版';
 
+-- ── feasibility_reports ──
 CREATE TABLE `feasibility_reports` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `notice_pk` bigint unsigned NOT NULL COMMENT '公告业务主键',
@@ -695,6 +697,7 @@ CREATE TABLE `feasibility_reports` (
   KEY `idx_report_notice` (`notice_pk`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：报告版本与复核状态';
 
+-- ── follow_up_logs ──
 CREATE TABLE `follow_up_logs` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `item_id` bigint unsigned NOT NULL COMMENT 'outreach_items.id',
@@ -1172,7 +1175,7 @@ CREATE TABLE `notice_public` (
   FULLTEXT KEY `ft_title_desc` (`title`,`description`) /*!50100 WITH PARSER ngram */
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
 
--- ── notice_search ──
+-- ── notice_requirement_items ──
 CREATE TABLE `notice_requirement_items` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `notice_pk` bigint unsigned NOT NULL COMMENT '公告业务主键，对应 notice_public.notice_pk',
@@ -1195,6 +1198,7 @@ CREATE TABLE `notice_requirement_items` (
   KEY `idx_req_type` (`requirement_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：公告要求项（结构化+原文锚点）';
 
+-- ── notice_search ──
 CREATE TABLE `notice_search` (
   `id` int unsigned NOT NULL,
   `notice_id` varchar(100) NOT NULL,

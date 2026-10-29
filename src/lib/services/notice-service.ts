@@ -13,6 +13,7 @@ import { NoticeInteractionRepo } from "@/lib/repos/notices/notice-interaction.re
 import { NoticeUnlockRepo } from "@/lib/repos/notices/notice-unlock.repo";
 import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeTranslationRepo } from "@/lib/repos/notices/notice-translation.repo";
+import { syncNoticeTitleCn } from "./notice-public/build";
 import { NoticeFeedbackRepo } from "@/lib/repos/notices/notice-feedback.repo";
 import { NoticeFavoriteRepo } from "@/lib/repos/notices/notice-favorite.repo";
 import { fetchDetailsByIds } from "./search-orchestrator/detail-fetch";
@@ -172,7 +173,7 @@ export async function fetchNoticeTranslation(noticeId: number, lang: string): Pr
   );
   // 详情很可能命中旧译文缓存（不经过 upsert）；列表只读服务表，必须在这里回写一次。
   if (lang === "zh" && result.title) {
-    await translationRepo.syncServiceTitleCn(noticeId, result.title).catch(() => undefined);
+    await syncNoticeTitleCn(pool, noticeId, result.title).catch(() => undefined);
   }
   return result;
 }

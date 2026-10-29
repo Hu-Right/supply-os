@@ -18,6 +18,7 @@ import {
 } from "./notice";
 import { findQualifiedOpportunityForNotice } from "../notices/index";
 import { syncWideIds } from "../search-sync/index";
+import { syncNoticeTitleCn } from "../notice-public/build";
 import { TRANSLATION_MODEL } from "../../utils/notice-field-limits";
 
 /** 通用路径返回的翻译载荷 */
@@ -84,6 +85,7 @@ export async function getNoticeTranslation(
           // 原文已是中文：直接缓存标题，零 API 成本
           if (srcLang === "zh") {
             await translationRepo.upsertTranslation(noticeId, "zh", title, null, TRANSLATION_MODEL.SAME_LANG);
+            await syncNoticeTitleCn(pool, noticeId, title).catch(() => undefined);
             // 通过统一路径同步宽表
             void syncWideIds(pool, [noticeId]).catch(() => {});
           } else {
@@ -93,6 +95,7 @@ export async function getNoticeTranslation(
                 const result = await translateNoticeViaChain(title, "", "zh", srcLang);
                 if (result.provider !== TRANSLATION_MODEL.SAME_LANG && result.translations[0]) {
                   await translationRepo.upsertTranslation(noticeId, "zh", result.translations[0], null, result.provider);
+                  await syncNoticeTitleCn(pool, noticeId, result.translations[0]).catch(() => undefined);
                   void syncWideIds(pool, [noticeId]).catch(() => {});
                 }
               } catch {

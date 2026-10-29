@@ -61,7 +61,7 @@ describe("PaymentsRepo 非事务方法", () => {
     });
     const [sql, params] = lastSql(pool.execute as never);
     expect(sql).toContain("UPDATE payment_orders");
-    expect(params).toEqual([700, "CNY", "/pay", "qr", "{}", "SO1"]);
+    expect(params).toEqual([700, "CNY", "/pay", "qr", null, "{}", "SO1"]);
   });
 
   it("findOrderAmount → 命中返回金额/状态，未命中返回 null", async () => {
