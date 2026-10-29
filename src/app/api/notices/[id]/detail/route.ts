@@ -53,16 +53,17 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // 机构名与列表卡片同源（统一中文 2026-10-28）：走 enrichAgencyI18n 同一条链补
     // agency_i18n，再由下面的 view mapper 改名为 agencyI18n。直达深链/新页面进详情时
     // 前端没有列表项可借，缺这一层就会卡片中文、详情英文。
-    // 但详情只接**精确解析层**（preciseOnly）：列表侧的「法国各机构」这类国家级聚合桶
-    // 在详情上是信息损失——前端取值链是 `agencyI18n || buyerName`，聚合名会直接盖掉真实
-    // 买家名，而口径是「卡片不露外文原文，真实买家名进详情看」（2026-10-29 真库探针订正）。
+    // 但详情只接**别名表登记名**（registeredOnly）：列表侧的「法国各机构」这类国家级聚合桶
+    // 以及 "LAND REGISTRATION管理局" 这种模式合成名在详情上都是信息损失——前端取值链是
+    // `agencyI18n || buyerName`，任何非登记名都会直接盖掉真实买家名，而口径是「卡片不露
+    // 外文原文，真实买家名进详情看」（2026-10-29 真库探针订正）。
     const locale = pickNoticeApiLang(new URL(req.url).searchParams.get("locale"));
     if (locale) {
-      // 只预热别名表快照：详情走 preciseOnly，根本不查下拉聚合缓存，拉它没有任何收益；
+      // 只预热别名表快照：详情走 registeredOnly，根本不查下拉聚合缓存，拉它没有任何收益；
       // 而那个聚合查询冷缓存下实测 20s+，多不等一步就多一分详情超时的风险。
       await ensureAgencyDisplayWarmup(ctx.dbPool);
-      enrichAgencyI18n([notice as unknown as Record<string, unknown>], locale, { preciseOnly: true });
-      // 无精名时必须显式下发空串：前端解锁合并是 {...preview, ...detail}，
+      enrichAgencyI18n([notice as unknown as Record<string, unknown>], locale, { registeredOnly: true });
+      // 无登记名时必须显式下发空串：前端解锁合并是 {...preview, ...detail}，
       // 缺键会让锁定态预览里那份聚合名（「法国各机构」）残留下来继续盖住真名。
       (notice as unknown as Record<string, unknown>).agency_i18n = String(
         (notice as unknown as Record<string, unknown>).agency_i18n ?? "",

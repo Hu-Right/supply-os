@@ -42,12 +42,17 @@ vi.mock("@/lib/services/country/display", () => ({
 import { formatItems } from "@/lib/services/search-orchestrator/format";
 import { enrichAgencyI18n } from "@/lib/services/search-orchestrator/format";
 import { ensureAgencyI18nWarmup, ensureAgencyDisplayWarmup } from "@/lib/services/search-orchestrator/format";
+// 部分 mock 保留了真实 resolveAgencyDisplay，这两个入口用来注入/归零别名表快照
+import { __setAgencyDisplaySnapshotForTest } from "@/lib/services/agency/resolve";
+import { normalizeAliasKey } from "@/lib/services/agency/alias-store";
 
 const row = (over: Record<string, unknown> = {}) =>
   ({ buyer_name: "TEST", is_featured: 0, ...over }) as never;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // 别名表快照默认置空：上面的回退链用例都走「表未命中 → 模式合成」那条路
+  __setAgencyDisplaySnapshotForTest(null);
   mocks.getAgencyCacheData.mockReturnValue([]);
   mocks.getNoticeAgencies.mockResolvedValue([]);
   mocks.ensureAgencyDisplaySnapshot.mockResolvedValue(undefined);
@@ -200,49 +205,70 @@ describe("formatItems — 来源字段裁剪（2026-10-28 用户口径：来源�
 });
 
 /**
- * [详情分层 2026-10-29] preciseOnly：详情只认精确解析层。
- * 真库探针实录近 300 条公告的 buyer_name 几乎全部落到国家级聚合桶（「法国各机构」），
- * 而前端详情取值链是 `agencyI18n || buyerName` —— 聚合名会直接盖掉真实买家名。
- * 列表/预览仍用默认链（不露外文原文），详情传 preciseOnly（不接 2~4 层）。
+ * [详情分层 2026-10-29] registeredOnly：详情只认**别名表登记名**。
+ * 真库探针实录两点：① 近 3000 行取样的 buyer_name 几乎全部落到国家级聚合桶
+ * （「法国各机构」）；② 剩下能拿到「精名」的也只占取样机构的 5.3%，而且形态是
+ * "LAND REGISTRATION管理局" 这种「整串原文 + 末尾类型词译中」的机械拼接。
+ * 前端详情取值链是 `agencyI18n || buyerName`，两者都会盖掉真实买家名——
+ * 列表/预览仍用默认链（不露外文原文），详情传 registeredOnly。
  */
-describe("enrichAgencyI18n — preciseOnly（详情侧不分聚合桶）", () => {
-  it("国家级终兜底不接：同一行默认链得「日本各机构」，preciseOnly 得 undefined", () => {
+describe("enrichAgencyI18n — registeredOnly（详情侧不接聚合桶与合成名）", () => {
+  it("国家级终兜底不接：同一行默认链得「日本各机构」，registeredOnly 得 undefined", () => {
     mocks.countryZhOf.mockReturnValue("日本");
     const [byDefault] = enrichAgencyI18n([{ buyer_name: "Aomori", country_code: "JP" }] as Array<Record<string, unknown>>, "zh");
-    const [precise] = enrichAgencyI18n([{ buyer_name: "Aomori", country_code: "JP" }] as Array<Record<string, unknown>>, "zh", { preciseOnly: true });
+    const [registered] = enrichAgencyI18n([{ buyer_name: "Aomori", country_code: "JP" }] as Array<Record<string, unknown>>, "zh", { registeredOnly: true });
     expect(byDefault.agency_i18n).toBe("日本各机构");
-    expect(precise.agency_i18n).toBeUndefined();
+    expect(registered.agency_i18n).toBeUndefined();
   });
 
-  it("类型聚合桶与下拉缓存都不接（只走第 1 层）", () => {
+  it("类型聚合桶与下拉缓存都不接", () => {
     mocks.classifyAgencyType.mockReturnValue({ typeKey: "X", i18n: { zh: "巴西各市联合体" } });
     mocks.getAgencyCacheData.mockReturnValue([{ agency: "UNICEF", i18n: { zh: "联合国儿童基金会" } }]);
     const items = enrichAgencyI18n(
       [{ buyer_name: "OME", country_code: "BR" }, { buyer_name: "UNICEF" }] as Array<Record<string, unknown>>,
       "zh",
-      { preciseOnly: true },
+      { registeredOnly: true },
     );
     expect(items[0].agency_i18n).toBeUndefined();
     expect(items[1].agency_i18n).toBeUndefined();
   });
 
-  it("别名表精名/模式合成（含汉字）仍照下发", () => {
-    mocks.translateByPattern.mockReturnValue({ canonical: "KCCG", i18n: { zh: "黑山临床中心" } });
-    const items = enrichAgencyI18n(
-      [{ buyer_name: "KCCG", country_code: "ME" }] as Array<Record<string, unknown>>,
+  it("模式合成名（i18nFrom=pattern）不接：详情宁用真名，列表仍保留它", () => {
+    // 没有别名表登记时，resolveAgencyDisplay 的 i18n 完全由 translateByPattern 合成
+    mocks.translateByPattern.mockReturnValue({ canonical: "LAND REGISTRATION AUTHORITY", i18n: { zh: "LAND REGISTRATION管理局" } });
+    const [registered] = enrichAgencyI18n(
+      [{ buyer_name: "LAND REGISTRATION AUTHORITY", country_code: "PH" }] as Array<Record<string, unknown>>,
       "zh",
-      { preciseOnly: true },
+      { registeredOnly: true },
+    );
+    expect(registered.agency_i18n).toBeUndefined();
+    // 列表/预览侧这个合成名仍胜得过国家级桶名，所以默认链保留
+    const [byDefault] = enrichAgencyI18n(
+      [{ buyer_name: "LAND REGISTRATION AUTHORITY", country_code: "PH" }] as Array<Record<string, unknown>>,
+      "zh",
+    );
+    expect(byDefault.agency_i18n).toBe("LAND REGISTRATION管理局");
+  });
+
+  it("只认别名表登记名（表内有多语名才下发）", () => {
+    __setAgencyDisplaySnapshotForTest({
+      byAlias: new Map([[normalizeAliasKey("KCCG"), { canonical: "KCCG", i18n: { zh: "黑山临床中心" } }]]),
+    });
+    const items = enrichAgencyI18n(
+      [{ buyer_name: "kccg", country_code: "ME" }] as Array<Record<string, unknown>>,
+      "zh",
+      { registeredOnly: true },
     );
     expect(items[0].agency_i18n).toBe("黑山临床中心");
   });
 
-  it("纯透传（zh 无汉字）在 preciseOnly 下仍不算翻译，但也不会取聚合桶", () => {
+  it("纯透传（zh 无汉字）仍不算翻译，也不会退而去取聚合桶", () => {
     mocks.translateByPattern.mockReturnValue({ canonical: "mercadopublico_cl", i18n: { zh: "mercadopublico_cl" } });
     mocks.getAgencyCacheData.mockReturnValue([{ agency: "mercadopublico_cl", i18n: { zh: "政府采购系统" } }]);
     const items = enrichAgencyI18n(
       [{ buyer_name: "mercadopublico_cl", country_code: "CL" }] as Array<Record<string, unknown>>,
       "zh",
-      { preciseOnly: true },
+      { registeredOnly: true },
     );
     expect(items[0].agency_i18n).toBeUndefined();
   });

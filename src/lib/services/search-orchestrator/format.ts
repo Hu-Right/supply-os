@@ -74,10 +74,13 @@ export async function ensureAgencyI18nWarmup(pool: Pool): Promise<void> {
  * 2. 解析无汉字 → classifyAgencyType 计算聚合 i18n（国家取 country_code，缺省取 country_codes 首码）。
  * 3. 下拉缓存回退：buyer_name 大写 → 精确；buyer_group → 聚合键（与下拉框展示一致的修复标签）。
  * 4. 仍无 → 国家级「XX各机构」兜底（仅 zh）：zh 卡片买家列不露外文原文，真实买家名进详情看。
- * [详情分层 2026-10-29] opts.preciseOnly=true 时只用第 1 层（别名表精名 / 模式合成），
- * 第 2~4 层的聚合桶一律不接：它们是「某一国一堆机构」的桶名（「法国各机构」），
- * 用在详情上会盖掉真实买家名，与上面那句「真实买家名进详情看」直接冲突
- * （真库探针：近 300 条公告的 buyer_name 全部落到国家级桶）。
+ * [详情分层 2026-10-29] opts.registeredOnly=true 时只认**别名表登记名**（i18nFrom === "alias"），
+ * 第 2~4 层的聚合桶与模式合成名一律不接：
+ * · 聚合桶是「某一国一堆机构」的桶名（「法国各机构」），用在详情上会盖掉真实买家名，
+ *   与上面那句「真实买家名进详情看」直接冲突（真库探针：近 3000 行取样几乎全部落桶）；
+ * · 模式合成名（"LAND REGISTRATION管理局"）是「整串原文 + 末尾类型词译中」的机械拼接，
+ *   它丢了 "AUTHORITY"、又中英夹生，在用户据此判读的详情页上不如直接给真名
+ *   （探针：这类名占取样机构的 5.3%，列表侧保留它、详情侧不接）。
  * ⚠ 下拉缓存条目自身的键名仍是 `agency`（那是下拉 API 的形状），与公告行字段名无关。
  */
 const CJK_RE = /[\u4e00-\u9fff]/;
@@ -85,9 +88,9 @@ const CJK_RE = /[\u4e00-\u9fff]/;
 export function enrichAgencyI18n(
   items: Array<Record<string, unknown>>,
   locale: string,
-  opts: { preciseOnly?: boolean } = {},
+  opts: { registeredOnly?: boolean } = {},
 ): Array<Record<string, unknown>> {
-  const preciseOnly = opts.preciseOnly === true;
+  const registeredOnly = opts.registeredOnly === true;
   // 机构国际化映射（键统一大写，与 query.ts 缓存构建侧 mergeKey/typeKey 口径对齐）
   const agencyCache = getAgencyCacheData();
   const agencyI18nMap = new Map<string, Record<string, string>>();
@@ -107,20 +110,23 @@ export function enrichAgencyI18n(
     let i18n: Record<string, string> | undefined;
     if (item.buyer_name) {
       const disp = resolveAgencyDisplay(String(item.buyer_name));
-      if (disp.i18n && disp.i18n.zh && CJK_RE.test(disp.i18n.zh)) {
-        i18n = disp.i18n;
-      } else if (!preciseOnly) {
+      // zh 须含汉字；详情还额外要求译名来自别名表登记（模式合成名不算）
+      const preciseHit = !!disp.i18n && !!disp.i18n.zh && CJK_RE.test(disp.i18n.zh)
+        && (!registeredOnly || disp.i18nFrom === "alias");
+      if (preciseHit) {
+        i18n = disp.i18n!;
+      } else if (!registeredOnly) {
         // 透传或无 i18n → 聚合分类计算回退（用解析后的 canonical + 国家上下文）
         const typeInfo = classifyAgencyType(disp.canonical, countryContext);
         if (typeInfo?.i18n) i18n = typeInfo.i18n;
       }
     }
-    if (!i18n && !preciseOnly) {
+    if (!i18n && !registeredOnly) {
       i18n = agencyI18nMap.get(agencyUpper)
         || (item.buyer_group ? agencyI18nMap.get(String(item.buyer_group)) : undefined);
     }
     // zh 终兜底：类型桶/缓存都没接住 → 国家级聚合标签，卡片不露外文原名
-    if (!i18n && !preciseOnly && locale === "zh" && item.buyer_name) {
+    if (!i18n && !registeredOnly && locale === "zh" && item.buyer_name) {
       const countryZh = countryContext ? countryZhOf(countryContext) : null;
       if (countryZh) i18n = { zh: `${countryZh}各机构` };
     }

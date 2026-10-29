@@ -100,19 +100,19 @@ describe("GET /api/notices/[id]/detail 的机构名接线", () => {
     findUnlock.mockResolvedValue({ unlock_type: "quota", unlocked_at: 1 });
   });
 
-  it("带 locale：预热机构快照 → 只接精确解析层 → 改名为 agencyI18n 下发", async () => {
+  it("带 locale：预热别名表快照 → 只接表内登记名 → 改名为 agencyI18n 下发", async () => {
     const body = await callDetail("zh");
 
     expect(ensureAgencyDisplayWarmup).toHaveBeenCalledTimes(1);
     expect(enrichAgencyI18n).toHaveBeenCalledTimes(1);
-    // 详情不得接列表侧的国家级聚合桶（「法国各机构」会盖掉真实买家名）
-    expect(enrichAgencyI18n).toHaveBeenCalledWith([expect.any(Object)], "zh", { preciseOnly: true });
+    // 详情不得接国家级聚合桶，也不得接模式合成名（两者都会盖掉真实买家名）
+    expect(enrichAgencyI18n).toHaveBeenCalledWith([expect.any(Object)], "zh", { registeredOnly: true });
     expect(body.agencyI18n).toBe("拉脱维亚房地产局");
     // 行上的列名属存储层，不外露（命名红线②）
     expect(body).not.toHaveProperty("agency_i18n");
   });
 
-  it("无精名：显式下发空串而不是缺键（不让 /preview 的聚合名在解锁后残留）", async () => {
+  it("无登记名：显式下发空串而不是缺键（不让 /preview 的聚合名在解锁后残留）", async () => {
     // 前端解锁合并是 {...preview, ...detail}：detail 缺 agencyI18n 键时，
     // 锁定态预览里那份「法国各机构」会继续盖住真名，所以空串必须下发。
     enrichAgencyI18n.mockImplementationOnce((items) => items);
