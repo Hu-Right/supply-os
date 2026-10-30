@@ -46,7 +46,11 @@ export function resolveCountries(raw: string, snapshot: CountryAliasSnapshot): C
       if (h) hits.push(h);
     }
     const countries = hits.filter((h) => h.kind === "country");
-    if (countries.length >= 2) return { refs: dedupRefs(countries), unresolved: "" };
+    // ≥2 国家段 → 多国；仅 1 国家段且**全部段都命中**（"国家, 区域" 合法形态）→ 同样置信。
+    // 有段未命中即视为不可置信（"Country, garbage"），保持整串 unresolved 待补表。
+    if (countries.length >= 2 || (countries.length >= 1 && hits.length === parts.length)) {
+      return { refs: dedupRefs(hits), unresolved: "" };
+    }
   }
 
   // 表内查不到、又不能置信拆分 → 记为未解析（表不完善，待补行）

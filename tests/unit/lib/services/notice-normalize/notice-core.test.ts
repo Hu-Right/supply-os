@@ -86,6 +86,28 @@ describe("normalizeBuyerCountry · 国家", () => {
     expect(core.countryCodes).toEqual([]);
   });
 
+  it("国家, 区域 全段命中 → 置信解析；国家段给码，区域不入 ISO 数组", () => {
+    const byKey = new Map<string, CountryAliasEntry>([
+      ["MOZAMBIQUE", { canonical: "Mozambique", code: "MZ", kind: "country", zh: "莫桑比克" }],
+      ["SOUTHWEST INDIAN OCEAN", { canonical: "Southwest Indian Ocean", code: null, kind: "region", zh: "西南印度洋" }],
+    ]);
+    const snap: CountryAliasSnapshot = { byKey, formsByCanonical: new Map() };
+    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Mozambique, Southwest Indian Ocean" }, new Map(), snap);
+    expect(core.countryCode).toBe("MZ");
+    expect(core.countryName).toBe("Mozambique");
+    expect(core.countryCodes).toEqual(["MZ"]);
+  });
+
+  it("拆段有未命中段 → 不可置信，整串 unresolved", () => {
+    const byKey = new Map<string, CountryAliasEntry>([
+      ["MOZAMBIQUE", { canonical: "Mozambique", code: "MZ", kind: "country", zh: "莫桑比克" }],
+    ]);
+    const snap: CountryAliasSnapshot = { byKey, formsByCanonical: new Map() };
+    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Mozambique, garbage tail" }, new Map(), snap);
+    expect(core.countryCode).toBeNull();
+    expect(core.countryName).toBeNull();
+  });
+
   it("无快照时国家全空，买家照常归一", () => {
     const core = normalizeBuyerCountry({ agencyFull: "Some Bureau", country: "Brasil" }, new Map());
     expect(core.countryName).toBeNull();

@@ -12,6 +12,13 @@
  */
 export function cleanCountryRaw(raw: string): string {
   let cleaned = raw.trim();
+  // 剥 JSON 数组包裹（数据源把数组串写进国家/受援国字段：["Multi-Country"] / ["A","B"]）
+  cleaned = cleaned
+    .replace(/^\s*\[\s*/, "")
+    .replace(/\s*\]\s*$/, "")
+    .replace(/"\s*,\s*"/g, ", ")
+    .replace(/^"/, "")
+    .replace(/"$/, "");
   // 剥离 "/"、"/，"、"/, " 等前缀（数据源格式错误）
   cleaned = cleaned.replace(/^[/]+\s*[，,]?\s*/, "");
   // 剥离前导标点（逗号、分号、冒号、竖线等）

@@ -408,12 +408,12 @@ export function buildPublicRow(
   // 中文正文：商机表有中文描述就直接覆盖服务表；无则保留服务表已有中文内容。
   const contentZh = opp?.cn ? cleanContentText(opp.cn) : null;
   // 受援国按服务表原文归一：统一成标准国家名，去重，避免自由文本直接透出。
+  // refs 含国家+区域（"国家, 区域" 合法形态两段都映射，如「莫桑比克, 西南印度洋」）；
+  // 仅区域命中 → 区域名（与国家码 ZZ 口径一致）；两者皆无 → 原文回退（真缺表，巡检待补）。
   const beneficiaryRaw = String(r.beneficiary_countries ?? "").trim();
-  const beneficiaryRefs = beneficiaryRaw
-    ? resolveCountries(beneficiaryRaw, ctx.countrySnap).refs.filter((ref) => ref.kind === "country")
-    : [];
-  const beneficiary = beneficiaryRefs.length > 0
-    ? [...new Set(beneficiaryRefs.map((ref) => ref.zh || ref.canonical).filter(Boolean))].join(", ").slice(0, 500)
+  const bRes = beneficiaryRaw ? resolveCountries(beneficiaryRaw, ctx.countrySnap) : null;
+  const beneficiary = bRes && bRes.refs.length > 0
+    ? [...new Set(bRes.refs.map((ref) => ref.zh || ref.canonical).filter(Boolean))].join(", ").slice(0, 500)
     : (beneficiaryRaw.slice(0, 500) || null);
   const titleCn = String(r.title_cn ?? "").trim().slice(0, 1000) || null;
 

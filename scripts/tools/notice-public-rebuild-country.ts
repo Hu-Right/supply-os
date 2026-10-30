@@ -41,7 +41,8 @@ try {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT id FROM (
        SELECT p.notice_pk AS id FROM notice_public p
-        WHERE p.beneficiary_countries REGEXP '^[A-Za-z][A-Za-z ,]+\$'
+        WHERE p.beneficiary_countries IS NOT NULL AND p.beneficiary_countries <> ''
+          AND p.beneficiary_countries NOT REGEXP '[一-龥]'
        UNION
        SELECT p.notice_pk AS id
          FROM bid_notices n JOIN notice_public p ON p.notice_pk = n.id
