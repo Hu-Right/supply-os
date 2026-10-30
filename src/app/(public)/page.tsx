@@ -31,10 +31,27 @@ export const metadata: Metadata = {
   },
 };
 
-/** 服务端直出首页快照；任何失败（含 build 期无库）降级为 undefined，不阻断渲染 */
+/** 快照装载超时（毫秒）：静态生成的页面预算 60s，DB 链路挂起时下游降级链
+ *  （meili 探活 → mysql fallback 15s ×重试）会把预算撑爆——异常有 catch，「挂起」没有，
+ *  必须竞速兜底（2026-10-31 build 实测：库不可达时首页静态生成 3 次尝试全超时）。 */
+const SNAPSHOT_TIMEOUT_MS = 8_000;
+
+function withSnapshotTimeout<T>(p: Promise<T>, label: string): Promise<T | undefined> {
+  return Promise.race([
+    p,
+    new Promise<undefined>((resolve) =>
+      setTimeout(() => {
+        console.warn(`[${label}] 快照装载超过 ${SNAPSHOT_TIMEOUT_MS}ms，降级为客户端取数`);
+        resolve(undefined);
+      }, SNAPSHOT_TIMEOUT_MS),
+    ),
+  ]);
+}
+
+/** 服务端直出首页快照；任何失败（含 build 期无库/挂起）降级为 undefined，不阻断渲染 */
 async function loadInitialHome(): Promise<HomeStatsData | undefined> {
   try {
-    return await getHomeSnapshot(getPool());
+    return await withSnapshotTimeout(getHomeSnapshot(getPool()), "home");
   } catch (err) {
     console.warn("[home] 服务端快照不可用，降级为客户端取数:", (err as Error).message);
     return undefined;
@@ -44,7 +61,7 @@ async function loadInitialHome(): Promise<HomeStatsData | undefined> {
 /** 服务端直出三栏内容快照（内部逐列降级，整体失败则回退客户端取数） */
 async function loadInitialContent(): Promise<HomeContentSnapshot | undefined> {
   try {
-    return await getHomeContentSnapshot(getPool());
+    return await withSnapshotTimeout(getHomeContentSnapshot(getPool()), "home-content");
   } catch (err) {
     console.warn("[home] 三栏内容快照不可用，降级为客户端取数:", (err as Error).message);
     return undefined;

@@ -216,6 +216,10 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   // poolCandidateViewOf），证据 tests/unit/app/api/supplier-pool-view.test.ts（假仓储）。
   "src/app/api/user/supplier-pool/route.ts#list",
   "src/app/api/user/supplier-pool/search/route.ts#candidates",
+  // 供应商目录分页端点：items 是 Supplier DTO 视图（行→视图收在 lib/services/
+  // suppliers-directory.ts toSupplierListView，键集合由 src/types/supplier.ts 契约钉住）。
+  // 2026-10-30 RSC 直出改造：视图装配上移服务层，路由只剩转发，故走本登记面。
+  "src/app/api/suppliers/route.ts#items",
   // 开放 API 详情：EngineeringItemView（lib/services/open-api/view.ts 显式列字段），
   // 证据 tests/unit/lib/services/open-api/view.test.ts。
   "src/app/api/open/v1/engineering/[id]/route.ts#item",

@@ -30,11 +30,20 @@ export const metadata: Metadata = {
   },
 };
 
-/** 服务端直出对比矩阵；任何失败降级为 undefined，不阻断渲染 */
+/** 服务端直出对比矩阵；任何失败（含 build 期无库/挂起）降级为 undefined，不阻断渲染。
+ *  超时竞速同首页口径：挂起比异常更危险，静态生成的页面预算会被下游降级链撑爆。 */
 async function loadInitialComparison(): Promise<ComparisonView | undefined> {
   try {
-    const table = await getContext().benefitSystemRepo.buildComparisonTable();
-    return tieredComparisonViewOf(table);
+    const table = await Promise.race([
+      getContext().benefitSystemRepo.buildComparisonTable(),
+      new Promise<undefined>((resolve) =>
+        setTimeout(() => {
+          console.warn("[membership] 对比矩阵装载超过 8s，降级为客户端取数");
+          resolve(undefined);
+        }, 8_000),
+      ),
+    ]);
+    return table ? tieredComparisonViewOf(table) : undefined;
   } catch (err) {
     console.warn("[membership] 服务端对比矩阵不可用，降级为客户端取数:", (err as Error).message);
     return undefined;

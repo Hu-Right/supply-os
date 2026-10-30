@@ -22,10 +22,21 @@ export const metadata: Metadata = {
   },
 };
 
-/** 服务端直出首屏快照；任何失败（含 build 期无库）降级为 undefined，不阻断渲染 */
+/** 快照装载超时：build 期库挂起时下游降级链会把静态生成页面预算撑爆，竞速兜底（同首页口径） */
+const SNAPSHOT_TIMEOUT_MS = 8_000;
+
+/** 服务端直出首屏快照；任何失败（含 build 期无库/挂起）降级为 undefined，不阻断渲染 */
 async function loadInitialAwards(): Promise<AwardsPageSnapshot | undefined> {
   try {
-    return await getAwardsPageSnapshot(getPool());
+    return await Promise.race([
+      getAwardsPageSnapshot(getPool()),
+      new Promise<undefined>((resolve) =>
+        setTimeout(() => {
+          console.warn(`[awards] 快照装载超过 ${SNAPSHOT_TIMEOUT_MS}ms，降级为客户端取数`);
+          resolve(undefined);
+        }, SNAPSHOT_TIMEOUT_MS),
+      ),
+    ]);
   } catch (err) {
     console.warn("[awards] 服务端快照不可用，降级为客户端取数:", (err as Error).message);
     return undefined;
