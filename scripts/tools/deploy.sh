@@ -8,6 +8,7 @@ set -euo pipefail
 # 部署目录、应用名与分支（可通过环境变量覆盖）
 APP_DIR="${APP_DIR:-/root/supply-os}"
 APP_NAME="${APP_NAME:-supply-os}"
+APP_PORT="${APP_PORT:-3039}"
 BRANCH="${BRANCH:-main}"
 
 echo "[deploy] $(date '+%F %T') 开始部署: ${APP_DIR} (分支 ${BRANCH})"
@@ -107,8 +108,32 @@ echo "[deploy] 重启应用..."
 if command -v pm2 >/dev/null 2>&1; then
   pm2 delete "${APP_NAME}" 2>/dev/null || true
   pm2 kill 2>/dev/null || true
-  NODE_ENV=production PORT=3039 pm2 start .next/standalone/server.js --name "${APP_NAME}"
+  # pm2 kill 是异步收尾：打出「Daemon Stopped」时 daemon 进程可能还在退场。
+  # 旧 daemon 未退干净就 start，新 spawn 的 daemon 会被旧 daemon 的清理动作误伤——
+  # 表现为「进程活着但不应答 RPC」：start 客户端永久阻塞在 Spawning PM2 daemon，
+  # 应用没起来、站点停服（2026-10-30 实际事故，停服约 7 分钟）。
+  # 所以先等旧 daemon 进程消失（最多 10s）；仍不退 = 僵死，强杀并清掉 ipc/pid 残留。
+  for _ in $(seq 1 20); do
+    pgrep -f "PM2.*God Daemon" >/dev/null 2>&1 || break
+    sleep 0.5
+  done
+  if pgrep -f "PM2.*God Daemon" >/dev/null 2>&1; then
+    echo "[deploy] ⚠ pm2 daemon 僵死未退，强杀并清理 ipc 残留"
+    pkill -9 -f "PM2.*God Daemon" 2>/dev/null || true
+    sleep 1
+    rm -f "${HOME}/.pm2/pm2.pid" "${HOME}/.pm2/rpc.sock" "${HOME}/.pm2/pub.sock"
+  fi
+  # start 再包一层 timeout：若 daemon 再现「起而不应答」，部署当场报错退出
+  # （timeout exit 124 → set -e 中止），而不是把终端无限挂住、站点无声停服。
+  NODE_ENV=production PORT="${APP_PORT}" timeout 180 pm2 start .next/standalone/server.js --name "${APP_NAME}"
   pm2 save
+  # 起来后探活：端口有 HTTP 应答才算部署闭环（仅告警不判红，防 DB 冷启动误杀部署）
+  sleep 5
+  if curl -s -o /dev/null --max-time 20 "http://127.0.0.1:${APP_PORT}/"; then
+    echo "[deploy] 应用探活通过（端口 ${APP_PORT} HTTP 应答）"
+  else
+    echo "[deploy] ⚠ 端口 ${APP_PORT} 未应答，请检查：pm2 logs ${APP_NAME}"
+  fi
 else
   echo "[deploy] ⚠ 未安装 pm2，请先执行："
   echo "          npm i -g pm2"
