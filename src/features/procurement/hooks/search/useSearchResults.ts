@@ -159,17 +159,25 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
 
   // 分页预取（统一端点）
   // [F4 优化] prefs 模式同样预取：此前因最慢模式无预取导致翻页始终冷请求
+  // [2026-10-30 翻页成对卡顿修复] 预取窗口从「仅 page+1」改为 page+1 / page+2 两页：
+  //   只向前一页时，命中客户端缓存的那一跳不会再产出新的预取（其实会，但与
+  //   主请求的 abort/去重同帧交错，实测下来晚于用户点击），于是链条每两跳断一次 ——
+  //   用户感知为「1-2、3-4、5-6 成对快，其余长加载」。多留一页余量后，缓存命中那一跳
+  //   也有已热的下一页可用，链条不再断。
+  // [去重] 本 effect 依赖 query/t 等引用，重渲染会重放整段副作用（实测同一页被预取
+  //   5+ 次）；同一条件集内每页只预取一次，条件/语言变化（effect 重挂载）时重新开放。
+  const prefetchedRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    prefetchedRef.current.clear();
+  }, [query, locale, page]);
   useEffect(() => {
     if (loading || items.length === 0 || page >= totalPages) return;
     // 与主请求的 unifiedMode 计算保持一致
     const dataSource = prefsMode === "prefs" && userId ? "industry-matched" : "search";
     const prefetchMode = dataSource === "industry-matched" ? "prefs" : "default";
-    const nextPage = page + 1;
-    fetchUnifiedSearch({
-      mode: prefetchMode,
-      page: nextPage,
+    const baseParams = {
+      mode: prefetchMode as "default" | "prefs",
       pageSize: NOTICE_PAGE_SIZE,
-
       commodityPath: query.activeCommodity || undefined,
       q: query.activeQ || undefined,
       country: query.activeCountry || undefined,
@@ -183,7 +191,15 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       sort: query.activeSort,
       locale,
       matchMode: query.activeMatchMode,
-    }).catch((e) => { console.warn("[useSearchResults] prefetch failed (non-critical):", e); });
+    };
+    for (const offset of [1, 2]) {
+      const nextPage = page + offset;
+      if (nextPage > totalPages) break;
+      if (prefetchedRef.current.has(nextPage)) continue;
+      prefetchedRef.current.add(nextPage);
+      fetchUnifiedSearch({ ...baseParams, page: nextPage })
+        .catch((e) => { console.warn("[useSearchResults] prefetch failed (non-critical):", e); });
+    }
   }, [page, totalPages, items.length, loading, prefsMode, userId, query, locale]);
 
   return {

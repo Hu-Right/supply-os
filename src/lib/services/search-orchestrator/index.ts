@@ -34,7 +34,8 @@ import { registerInvalidateCallback } from "../search-common/sync-events";
 import { recommendNotices } from "../recommend/index";
 import { invalidateProfileCache } from "../industry-profile/resolve";
 import { noticeInCategory } from "../industry-scope";
-import { getNoticeAgencies, getAgencyCacheData } from "../notice-search/agencies/index";
+import { isAgencyDisplaySnapshotReady } from "../agency/resolve";
+import { ensureAgencyDisplayWarmup } from "./format";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 
 // ── 结果缓存（5 分钟 TTL，与旧模块口径一致）──
@@ -136,13 +137,18 @@ async function _searchCore(
   cacheKey: string,
 ): Promise<UnifiedSearchResult> {
   const t0 = Date.now();
-  // ── 机构缓存预热：formatItems 依赖 getAgencyCacheData() 返回的内存缓存，
-  //    该缓存仅在 /api/notices/agencies 端点被调用后填充。
-  //    不能阻塞搜索：冷缓存时机构查询可达 20s+，会把首屏搜索拖过前端超时，
-  //    表现为“total 有值但 items 为空”。先让本次搜索用买家原名降级渲染，
-  //    后台预热完成后下一条搜索自然命中缓存。──
-  if (!getAgencyCacheData()) {
-    void getNoticeAgencies(pool).catch(() => undefined);
+  // ── 机构中文名预热（2026-10-30 翻页卡顿修复）──
+  //    这里原先打的是 getNoticeAgencies（机构下拉聚合）：那是一条
+  //    `GROUP BY COALESCE(NULLIF(agency_full,''),agency)` 全表聚合（实测 EXPLAIN type=ALL
+  //    rows=984571、单条 40848ms、回 81836 行），10 分钟 TTL 过期后的第一条翻页会在后台
+  //    把它跑满数十秒；连接池只有 DB_POOL_LIMIT 格，翻页因此排队到前端 30s 硬超时。
+  //    自 2026-10-29「绝对准确」口径起，formatItems/enrichAgencyI18n 已不再消费该聚合缓存
+  //    （买家名直读服务宽表归一列），故本路径彻底摘掉它；聚合缓存的维护回归启动预热与
+  //    每日定时任务（lifecycle/warmup、lifecycle/timers），不在请求路径上跑。
+  //    买家中文精名仍依赖 agency_aliases 别名快照（轻量：全表 SELECT 无 GROUP BY），
+  //    快照就绪时零查库；不阻塞本次响应，未就绪时本次仍按买家原名降级渲染。
+  if (!isAgencyDisplaySnapshotReady()) {
+    void ensureAgencyDisplayWarmup(pool);
   }
   // ── recommended 模式：委托既有推荐服务（模式专属管道）──
   if (p.mode === "recommended") {

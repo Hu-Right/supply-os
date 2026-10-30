@@ -4,6 +4,7 @@
  */
 import type { NoticeResponse, NoticeItem, NoticeTranslation } from "../types";
 import { api, apiCached, buildQuery, downloadFile } from "@/core/http";
+import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 
 export const fetchNoticeCountries = () =>
   apiCached<Array<{ country: string; count: number }>>("/api/notices/countries");
@@ -135,7 +136,11 @@ export const fetchUnifiedSearch = (params: {
     budget_max: params.budgetMax?.toString(),
     match_mode: params.matchMode === "any" ? "any" : undefined,
   });
-  return apiCached<NoticeResponse>(`/api/notices/unified-search?${qs}`, 60 * 1000, signal);
+  // 客户端 TTL 与服务端结果缓存同口径（CACHE_TTL_STANDARD_MS=5 分钟）：
+  // 原先写 60s，而列表翻页的预取只向前一页（useSearchResults 预取 page+1），
+  // 于是只要在一页停留超过 1 分钟，预取条目就过期，下一跳又回到冷路径 ——
+  // 用户感知为「1-2、3-4 成对快，其余长加载」。两端对齐后预取链才能连续。
+  return apiCached<NoticeResponse>(`/api/notices/unified-search?${qs}`, CACHE_TTL_STANDARD_MS, signal);
 };
 
 /**

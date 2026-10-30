@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { withRoute, routeError, parseJson, RouteError } from "@/lib/middleware/route-handler";
+import { memoizeRequest } from "@/lib/middleware/request-cache";
 
 vi.mock("server-only", () => ({}));
 
@@ -60,8 +61,7 @@ describe("withRoute 错误映射", () => {
   });
 });
 
-describe("parseJson", () => {
-  it("合法 body → 返回解析结果", async () => {
+describe("parseJson", () => {  it("合法 body → 返回解析结果", async () => {
     const req = makeReq("http://localhost/x", {
       method: "POST",
       body: JSON.stringify({ phone: "13800000000", code: "123456" }),
@@ -112,5 +112,29 @@ describe("parseJson", () => {
     await expect(
       parseJson(req2, z.object({ identifier: z.string({ error: "请输入手机号或邮箱" }).min(1, "请输入手机号或邮箱") }), { identifier: 40011 }),
     ).rejects.toMatchObject({ code: 40011, message: "请输入手机号或邮箱" });
+  });
+});
+
+describe("withRoute 请求作用域缓存", () => {
+  it("同一次请求内相同 key 的重复读取只落一次 loader", async () => {
+    const loader = vi.fn().mockResolvedValue("v");
+    const handler = withRoute(async () => {
+      await memoizeRequest("k", loader);
+      await memoizeRequest("k", loader);
+      return new Response("{}");
+    });
+    await handler(makeReq(), {} as never);
+    expect(loader).toHaveBeenCalledTimes(1);
+  });
+
+  it("不同请求（两次调用）各自独立，不共享缓存", async () => {
+    const loader = vi.fn().mockResolvedValue("v");
+    const handler = withRoute(async () => {
+      await memoizeRequest("k", loader);
+      return new Response("{}");
+    });
+    await handler(makeReq(), {} as never);
+    await handler(makeReq(), {} as never);
+    expect(loader).toHaveBeenCalledTimes(2);
   });
 });

@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
 import { EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { runWithRequestCache } from "./request-cache";
 
 /** 业务错误：withRoute 捕获后按 status/code/message 输出标准 envelope */
 export class RouteError extends Error {
@@ -67,11 +68,12 @@ export async function parseJson<T>(
 type RouteHandler<C> = (req: NextRequest, ctx: C) => Promise<Response> | Response;
 
 /** 包装 Route Handler：统一错误捕获与 envelope，业务代码只写成功路径。
- *  外层签名 ctx 可选（兼容测试单参调用），内层 handler 拿到非可选 ctx（Next 恒传入）。 */
+ *  外层签名 ctx 可选（兼容测试单参调用），内层 handler 拿到非可选 ctx（Next 恒传入）。
+ *  同时建立「单次请求」作用域（request-cache）：同请求内重复判权/取矩阵只落一次库。 */
 export function withRoute<C>(handler: RouteHandler<C>): (req: NextRequest, ctx?: C) => Promise<Response> {
   return async (req: NextRequest, ctx?: C) => {
     try {
-      return await handler(req, ctx as C);
+      return await runWithRequestCache(() => handler(req, ctx as C));
     } catch (err) {
       if (err instanceof RouteError) {
         return NextResponse.json({ code: err.code, message: err.message, ...err.extra }, { status: err.status });

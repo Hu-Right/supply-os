@@ -62,12 +62,15 @@ function titleSimilarity(a: string, b: string): number {
 }
 
 // ── 合格机会查询进程内缓存 ──
-// 详情端点与翻译端点对同一公告反复调用 findQualifiedOpportunityForNotice（每次 1-3 次顺序 DB
-// 查询）。合格机会结果短期内不变，10 分钟 TTL 缓存消除重复查询；未命中（null）同样缓存，
-// 避免无合格机会的公告反复走三路回退查询。
+// 详情端点与翻译端点对同一公告反复调用 findQualifiedOpportunityForNotice（一次并发往返的 1-3 条
+// 候选查询）。合格机会结果短期内不变，10 分钟 TTL 缓存消除重复查询；未命中（null）同样缓存，
+// 避免无合格机会的公告反复走候选查询。
 /** 公告标识字段（调用方传入的行子集，字段可能缺失；索引签名兼容 RowDataPacket 调用方） */
 interface NoticeIdentity {
+  /** 公告内部主键（bid_notices.id / notice_public.notice_pk 同域） */
   id?: number | string;
+  /** notice_public 行的主键列名；与 id 等价，/detail 直接透传宽表行时用它参与缓存键 */
+  notice_pk?: number | string;
   converted_opp_id?: number | string | null;
   notice_id?: string | number;
   reference?: string;
@@ -81,9 +84,14 @@ const oppCache = new LRUCache<string, { row: RowDataPacket | null }>({
 });
 
 export async function findQualifiedOpportunityForNotice(dbPool: Pool, notice: NoticeIdentity) {
-  // 无 id 的载荷（如测试夹具/最小占位对象）无法稳定标识公告：跳过缓存直查
-  const cacheKey = notice?.id != null
-    ? `${notice.id}:${notice.converted_opp_id || 0}:${notice.notice_id || ""}`
+  // [2026-10-30 缓存键修复] 旧实现只认 `id`，而 /api/notices/[id]/detail 直接把
+  // notice_public 宽表行传进来（主键列名是 notice_pk，没有 id）⇒ cacheKey 恒为空串、
+  // 缓存形同虚设，每次打开详情都要重跑候选查询（本仓 dev 库经 SSH 隧道，单次往返抖动期 1-2s）。
+  // 宽表行与 bid_notices 主键同域（BB7），notice_pk 与 id 等价，两者都接受。
+  const noticePk = notice?.id ?? notice?.notice_pk;
+  // 无主键的载荷（如测试夹具/最小占位对象）无法稳定标识公告：跳过缓存直查
+  const cacheKey = noticePk != null
+    ? `${noticePk}:${notice.converted_opp_id || 0}:${notice.notice_id || ""}`
     : "";
   if (cacheKey) {
     const cached = oppCache.get(cacheKey);
@@ -108,44 +116,48 @@ async function queryQualifiedOpportunity(dbPool: Pool, notice: NoticeIdentity) {
     audit_status, review_status, is_qualified
   `;
   const qualifiedWhere = qualifiedOppWhere();
+  const convertedId = Number(notice.converted_opp_id || 0);
+  const noticeId = notice.notice_id ? String(notice.notice_id) : "";
+  const reference = notice.reference ? String(notice.reference) : "";
 
-  if (Number(notice.converted_opp_id || 0) > 0) {
-    const [rows] = await dbPool.query(
-      `SELECT ${fields}
-       FROM bid_opportunities
-       WHERE id = ? AND ${qualifiedWhere}
-       LIMIT 1`,
-      [Number(notice.converted_opp_id)]
-    );
-    if ((rows as RowDataPacket[])[0]) return (rows as RowDataPacket[])[0];
-  }
+  // [2026-10-30 详情首屏往返压缩] 旧实现一次只发一条候选查询、空命中再发下一条：
+  // 高延迟链路上，为「无合格机会」这种最常见结果要付 2-3 次串行往返。
+  // 三条候选路互不依赖 ⇒ 并发发出，按原优先级（converted → notice_id → reference）取第一个命中；
+  // 命中优先级与逐条串行的旧实现等价，只是把 2-3 次串行往返压成 1 次。
+  const fetchRows = async (sql: string, params: unknown[]): Promise<RowDataPacket[]> => {
+    const [rows] = await dbPool.query<RowDataPacket[]>(sql, params);
+    return rows;
+  };
+  const [convertedRows, noticeIdRows, referenceRows] = await Promise.all([
+    convertedId > 0
+      ? fetchRows(
+          `SELECT ${fields} FROM bid_opportunities WHERE id = ? AND ${qualifiedWhere} LIMIT 1`,
+          [convertedId],
+        )
+      : Promise.resolve([] as RowDataPacket[]),
+    noticeId
+      ? fetchRows(
+          `SELECT ${fields} FROM bid_opportunities WHERE source_notice_id = ? AND ${qualifiedWhere}
+            ORDER BY is_qualified DESC, id DESC LIMIT 1`,
+          [noticeId],
+        )
+      : Promise.resolve([] as RowDataPacket[]),
+    reference
+      ? fetchRows(
+          `SELECT ${fields} FROM bid_opportunities WHERE reference = ? AND ${qualifiedWhere}
+            ORDER BY is_qualified DESC, id DESC`,
+          [reference],
+        )
+      : Promise.resolve([] as RowDataPacket[]),
+  ]);
 
-  if (notice.notice_id) {
-    const [rows] = await dbPool.query(
-      `SELECT ${fields}
-       FROM bid_opportunities
-       WHERE source_notice_id = ? AND ${qualifiedWhere}
-       ORDER BY is_qualified DESC, id DESC
-       LIMIT 1`,
-      [String(notice.notice_id)]
-    );
-    if ((rows as RowDataPacket[])[0]) return (rows as RowDataPacket[])[0];
-  }
-
-  if (notice.reference) {
-    // [reference 撞号防御 2026-07-31] 全球招标编号体系不统一，同一 reference 可能对应多个不相关项目。
-    // 取消 LIMIT 1，遍历所有候选机会，用标题相似度过滤撞号污染。
-    // 相似度低于阈值（Jaccard < 0.3）则跳过，避免详情页被不相关机会数据覆盖。
-    const [rows] = await dbPool.query(
-      `SELECT ${fields}
-       FROM bid_opportunities
-       WHERE reference = ? AND ${qualifiedWhere}
-       ORDER BY is_qualified DESC, id DESC`,
-      [String(notice.reference)]
-    );
-    for (const opp of rows as RowDataPacket[]) {
-      if (titleSimilarity(notice.title ?? "", opp.title) >= 0.3) return opp;
-    }
+  if (convertedRows[0]) return convertedRows[0];
+  if (noticeIdRows[0]) return noticeIdRows[0];
+  // [reference 撞号防御 2026-07-31] 全球招标编号体系不统一，同一 reference 可能对应多个不相关项目。
+  // 不 LIMIT 1，遍历所有候选机会，用标题相似度过滤撞号污染；
+  // 相似度低于阈值（Jaccard < 0.3）则跳过，避免详情页被不相关机会数据覆盖。
+  for (const opp of referenceRows) {
+    if (titleSimilarity(String(notice.title ?? ""), String(opp.title ?? "")) >= 0.3) return opp;
   }
 
   return null;

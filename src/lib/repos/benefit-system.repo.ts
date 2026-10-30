@@ -20,6 +20,7 @@
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 import type { BenefitDefRow, PlanCatalogRow, MatrixCellRow, ResolvedCell, ActivePlanRow, QuotaBalanceRow, GateState, ComparisonTable, ServiceCatalogRow } from "@/types/membership";
 import { INTERNAL_MATRIX_BENEFITS } from "@/lib/services/benefit-matrix";
+import { memoizeRequest } from "@/lib/middleware/request-cache";
 
 /**
  * 未订阅基线档位码：`free` 列是价格文档「普通用户」列的逐字录入，
@@ -100,7 +101,14 @@ export function deriveAudience(commercialTier: string): "personal" | "enterprise
   return commercialTier === "L1" || commercialTier === "L2" ? "personal" : "enterprise";
 }
 
+/** 请求作用域 memo 的实例前缀（见 request-cache 模块头注释）。
+ *  app 池实例与支付事务连接实例（new BenefitSystemRepo(conn)）在同一请求里共用一份 ALS
+ *  缓存表，必须按实例隔离——否则事务内读到的未提交口径会被外层已提交口径复用。 */
+let repoInstanceSeq = 0;
+
 export class BenefitSystemRepo {
+  private readonly memoTag = `b${++repoInstanceSeq}`;
+
   constructor(private pool: Pool | PoolConnection) {}
 
   /** 在售套餐（含 free 行的排除：free 不售卖，is_active=0） */
@@ -159,8 +167,15 @@ export class BenefitSystemRepo {
     })) as BenefitDefRow[];
   }
 
-  /** 按套餐取全部格子（一次查询，供详情页/对比表/后台编辑器复用） */
+  /** 按套餐取全部格子（一次查询，供详情页/对比表/后台编辑器复用）
+   *  @description 请求内复用：详情/正文端点同请求会对同一套餐反复取矩阵格
+   *              （行业墙 + 解锁判定 + 权益门控各一次），高延迟链路上每次都是一次全往返。 */
   async loadCells(planCodes?: string[]): Promise<MatrixCellRow[]> {
+    const key = planCodes && planCodes.length > 0 ? [...planCodes].sort().join(",") : "*";
+    return memoizeRequest(`${this.memoTag}:cells:${key}`, () => this.queryCells(planCodes));
+  }
+
+  private async queryCells(planCodes?: string[]): Promise<MatrixCellRow[]> {
     const params: unknown[] = [];
     let where = "";
     if (planCodes && planCodes.length > 0) {
@@ -214,6 +229,10 @@ export class BenefitSystemRepo {
    * 无生效订阅返回 null —— 调用方按「普通用户」处理，取值基线一律落 free 档那一列。
    */
   async findActivePlanForUser(userId: number): Promise<ActivePlanRow | null> {
+    return memoizeRequest(`${this.memoTag}:plan:${userId}`, () => this.queryActivePlanForUser(userId));
+  }
+
+  private async queryActivePlanForUser(userId: number): Promise<ActivePlanRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT s.id AS subscription_id, s.owner_user_id, s.plan_code, s.industry_code, s.expires_at,
               p.sort_order, s.started_at, s.source_order_no, s.price_paid, s.currency
@@ -248,6 +267,10 @@ export class BenefitSystemRepo {
   }
 
   async getBenefit(benefitCode: string): Promise<BenefitDefRow | null> {
+    return memoizeRequest(`${this.memoTag}:def:${benefitCode}`, () => this.queryBenefit(benefitCode));
+  }
+
+  private async queryBenefit(benefitCode: string): Promise<BenefitDefRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT benefit_code, name_zh, value_kind, level_dict, sort_order
          FROM benefit_catalog WHERE benefit_code = ?`,

@@ -119,7 +119,7 @@ export type AppContext = {
 
 /** 开发态 HMR 兜底版本：globalThis 单例持有的是旧 repo 实例，新增 repo 方法在热更新后不生效；
  *  版本号变更时强制重建（生产单次启动无影响）。修改上下文中 repo 的方法/形状时 +1。 */
-const CTX_VERSION = 2;
+const CTX_VERSION = 3;
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };

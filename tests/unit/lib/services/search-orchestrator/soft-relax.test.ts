@@ -25,6 +25,8 @@ const mocks = vi.hoisted(() => ({
   tryRecover: vi.fn(),
   getAgencyCacheData: vi.fn(),
   getNoticeAgencies: vi.fn(),
+  ensureAgencyDisplayWarmup: vi.fn(),
+  isAgencyDisplaySnapshotReady: vi.fn(),
   logPerf: vi.fn(),
   recordFallback: vi.fn(),
   requestIndexRebuild: vi.fn(),
@@ -41,7 +43,11 @@ vi.mock("@/lib/services/search-orchestrator/meili-query", () => ({
 }));
 vi.mock("@/lib/services/search-orchestrator/mysql-fallback", () => ({ mysqlFallback: mocks.mysqlFallback }));
 vi.mock("@/lib/services/search-orchestrator/detail-fetch", () => ({ fetchDetailsByIds: mocks.fetchDetailsByIds }));
-vi.mock("@/lib/services/search-orchestrator/format", () => ({ formatItems: mocks.formatItems }));
+vi.mock("@/lib/services/search-orchestrator/format", () => ({
+  formatItems: mocks.formatItems,
+  // _searchCore 的机构中文名预热出口（轻量别名快照）；不声明会让它成为 undefined 而使主流程报错
+  ensureAgencyDisplayWarmup: mocks.ensureAgencyDisplayWarmup,
+}));
 vi.mock("@/lib/services/search-orchestrator/reference-fast-path", () => ({ referenceFastPath: mocks.referenceFastPath }));
 vi.mock("@/lib/services/meilisearch/sync", () => ({ isFullSyncRunning: mocks.isFullSyncRunning }));
 vi.mock("@/lib/services/meilisearch/client", () => ({
@@ -53,6 +59,9 @@ vi.mock("@/lib/services/search-common/rebuild-trigger", () => ({ requestIndexReb
 vi.mock("@/lib/services/search-common/sync-events", () => ({ registerInvalidateCallback: mocks.registerInvalidateCallback }));
 vi.mock("@/lib/services/recommend/index", () => ({ recommendNotices: mocks.recommendNotices }));
 vi.mock("@/lib/services/industry-profile/resolve", () => ({ invalidateProfileCache: mocks.invalidateProfileCache }));
+vi.mock("@/lib/services/agency/resolve", () => ({
+  isAgencyDisplaySnapshotReady: mocks.isAgencyDisplaySnapshotReady,
+}));
 vi.mock("@/lib/services/notice-search/agencies/index", () => ({
   getNoticeAgencies: mocks.getNoticeAgencies,
   getAgencyCacheData: mocks.getAgencyCacheData,
@@ -75,6 +84,8 @@ beforeEach(() => {
   mocks.getCachedDocCount.mockResolvedValue(100000);
   // 降级分支会先做健康探测（tryRecover().catch），必须返回 Promise否则探路本身报错
   mocks.tryRecover.mockResolvedValue(false);
+  mocks.ensureAgencyDisplayWarmup.mockResolvedValue(undefined);
+  mocks.isAgencyDisplaySnapshotReady.mockReturnValue(true); // 非冷快照 → 不触发别名预热，不干扰本文件的放宽断言
   mocks.getAgencyCacheData.mockReturnValue([{ agency: "x" }]); // 非空 → 跳过惰性预热
   mocks.fetchDetailsByIds.mockResolvedValue([]);
   mocks.formatItems.mockReturnValue([]);

@@ -57,6 +57,15 @@ export function resolveAgencyDisplay(raw: string): AgencyDisplay {
   return resolveAgencyDisplayWith(raw, _snap ?? EMPTY_SNAP);
 }
 
+/**
+ * 快照是否已就绪（只读判定，不查库）。
+ * 热路径（每次检索）用它做门控：就绪就零成本跳过，避免每 10 分钟 TTL 到期时
+ * 在请求路径上反复重读 agency_aliases；未就绪才交给异步预热出口。
+ */
+export function isAgencyDisplaySnapshotReady(): boolean {
+  return _snap !== null;
+}
+
 /** 仅测试用：注入/清空快照。 */
 export function __setAgencyDisplaySnapshotForTest(s: AgencyAliasSnapshot | null): void {
   _snap = s;
