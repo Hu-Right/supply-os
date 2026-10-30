@@ -19,7 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { withRoute } from "@/lib/middleware/route-handler";
-import { toSupplierListView, listSupplierDirectoryPage } from "@/lib/services/suppliers";
+import { toSupplierListView, listSupplierDirectoryPage } from "@/lib/services/suppliers-directory";
 import { resolveIndustryKeywordCodes } from "@/lib/services/industry-facets";
 import { sanitizeIndustryCode } from "@/lib/services/industry-code";
 

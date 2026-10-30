@@ -17,7 +17,7 @@ import { getContext } from "@/lib/db/context";
 import { getNoticeStats, getNoticeDailyNew, getNoticeCountries } from "./notice-search";
 import { searchUnified } from "./search-orchestrator";
 import { toNoticeListView } from "./notice-public/view";
-import { listSupplierDirectoryPage } from "./suppliers";
+import { listSupplierDirectoryPage } from "./suppliers-directory";
 import type { Supplier } from "../types/supplier";
 import type { NoticeDetailItem } from "../../types/procurement";
 
