@@ -110,6 +110,19 @@ function cleanText(raw: string): { text: string; truncated: boolean } {
   return { text: s, truncated: ell.truncated };
 }
 
+/** 正文清洗（对外展示/API 用）：解码实体、去标签、压空白，保留段落换行。 */
+export function cleanContentText(raw: unknown): string {
+  let s = String(raw ?? "");
+  s = decodeEntities(s);
+  s = stripHtml(s);
+  s = s.replace(/\u00a0/g, " ")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return s;
+}
+
 function isGeneric(title: string): boolean {
   return GENERIC_TITLES.has(title.toLowerCase().trim());
 }

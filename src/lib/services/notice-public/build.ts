@@ -10,7 +10,7 @@
  * 金额/联系方式/标题/正文分级在本模块内完成，产出即对外事实。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { normalizeTitle } from "../notice-content/title";
+import { normalizeTitle, cleanContentText } from "../notice-content/title";
 import { normalizeAmount } from "../notice-normalize/amount";
 import { normalizeContacts } from "../notice-normalize/phone";
 import { resolveCountries } from "../country/resolve";
@@ -318,12 +318,13 @@ export function buildPublicRow(
   if (!admitted) return null;
   const opp = maps.oppMap.get(noticeId) ?? maps.oppMap.get(String(r.converted_opp_id ?? ""));
   const body = r.body_text ? String(r.body_text) : null;
-  // 正文只显示公告原文；商机 description 不覆盖。
-  const desc = body || String(r.description ?? "");
+  // 正文只显示公告原文；商机 description 不覆盖。统一解码实体、去标签、压空白。
+  const desc = cleanContentText(body || String(r.description ?? ""));
   const rawTitle = String(r.title ?? "").trim();
   const norm = normalizeTitle(rawTitle, desc);
-  // 标题以商机表为准（人工拆单后的标题），商机无标题才回退归一化公告标题。
-  const title = String(opp?.title || r.title_clean || norm.clean || rawTitle).trim();
+  // 标题以商机表为准；商机标题也必须经过同一套实体/标签/空白清洗。
+  const oppTitle = opp?.title ? normalizeTitle(String(opp.title), desc).clean : "";
+  const title = String(oppTitle || r.title_clean || norm.clean || rawTitle).trim();
   const contentLevel = body
     ? String(r.content_level ?? (len(body) >= 300 ? "substantive" : "thin"))
     : len(desc) < 41 ? "empty"
@@ -392,7 +393,7 @@ export function buildPublicRow(
   const difficulty = normDifficulty(r.difficulty);
   const registration = normRegistration(r.registration_level);
   // 中文正文：商机表有中文描述就直接覆盖服务表；无则保留服务表已有中文内容。
-  const contentZh = opp?.cn ?? null;
+  const contentZh = opp?.cn ? cleanContentText(opp.cn) : null;
   // 受援国按服务表原文归一：统一成标准国家名，去重，避免自由文本直接透出。
   const beneficiaryRaw = String(r.beneficiary_countries ?? "").trim();
   const beneficiaryRefs = beneficiaryRaw
