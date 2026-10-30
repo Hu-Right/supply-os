@@ -117,14 +117,21 @@ export type AppContext = {
   officialKeywordGroupsRepo: OfficialKeywordGroupsRepo;
 };
 
-const globalForCtx = globalThis as unknown as { _appCtx: AppContext | undefined };
+/** 开发态 HMR 兜底版本：globalThis 单例持有的是旧 repo 实例，新增 repo 方法在热更新后不生效；
+ *  版本号变更时强制重建（生产单次启动无影响）。修改上下文中 repo 的方法/形状时 +1。 */
+const CTX_VERSION = 2;
+
+const globalForCtx = globalThis as unknown as {
+  _appCtx?: AppContext & { __ctxVersion?: number };
+};
 
 /**
  * 构建并缓存完整的 AppContext（globalThis 单例）。
  * 在 instrumentation.ts 的 6 阶段完成后调用。
  */
 export function getContext(): AppContext {
-  if (globalForCtx._appCtx) return globalForCtx._appCtx;
+  const cached = globalForCtx._appCtx;
+  if (cached && cached.__ctxVersion === CTX_VERSION) return cached;
 
   const dbPool = getPool();
   const paymentMode = (process.env.PAYMENT_MODE || "mock") as "live" | "mock";
@@ -219,7 +226,7 @@ export function getContext(): AppContext {
     paymentMode,
   });
 
-  const ctx: AppContext = {
+  const ctx: AppContext & { __ctxVersion: number } = {
     dbPool,
     notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo, favoriteRepo },
     payment: {
@@ -239,6 +246,7 @@ export function getContext(): AppContext {
     trainingRepo,
     systemRepo,
     officialKeywordGroupsRepo,
+    __ctxVersion: CTX_VERSION,
   };
 
   globalForCtx._appCtx = ctx;

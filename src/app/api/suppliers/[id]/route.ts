@@ -6,6 +6,8 @@
  *              找不到返回 404，参数无效返回 400。
  *              防重兜底：当查到的记录关键字段（products/industry）为空时，
  *              自动按公司名查找数据更完整的同公司记录（应对外部同步产生空字段重复记录）。
+ *              本人绑定主体（users.supplier_id）即使 verify_status=pending 也允许查看自己的档案：
+ *              资质评审/认领中的企业详情不该对所有者 404。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -13,7 +15,8 @@ import { supplierViewOf } from "@/lib/services/suppliers";
 import { loadCountryAliasSnapshot, type CountryAliasSnapshot } from "@/lib/services/country/alias-store";
 import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
 import type { SupplierIndustryInfo } from "@/lib/services/industry-labels";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
+import { extractUserKey } from "@/lib/middleware/auth";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { parseSupplierId } from "@/lib/utils/supplier-id";
 
@@ -28,7 +31,18 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const ctx = getContext();
-    const row = await ctx.supplier.directoryRepo.findByIdWithFallback(numericId);
+    let row = await ctx.supplier.directoryRepo.findByIdWithFallback(numericId);
+
+    // 公开面只认 verify_status='done'；本人绑定主体（认领/资质评审中）允许查看自己的档案
+    if (!row) {
+      const auth = await extractUserKey(req);
+      if (auth.userId) {
+        const me = await ctx.user.usersRepo.findProfileById(auth.userId);
+        if (Number(me?.supplier_id ?? 0) === numericId) {
+          row = await ctx.supplier.directoryRepo.findByIdAnyStatus(numericId);
+        }
+      }
+    }
 
     if (!row) {
       routeError(404, EC_NOT_FOUND, `供应商不存在: ${numericId}`);
@@ -60,6 +74,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     return NextResponse.json({ ...supplierViewOf(row, industry, snap), claimed });
   } catch (err) {
+    // 路由自身抛出的 400/404 必须原样返回；只有未预期异常才是 500
+    if (err instanceof RouteError) throw err;
     console.error("[suppliers/:id GET]", err);
     routeError(500, EC_INTERNAL_ERROR, "查询供应商失败");
   }

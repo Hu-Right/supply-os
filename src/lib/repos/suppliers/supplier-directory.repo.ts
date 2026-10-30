@@ -236,6 +236,25 @@ export class SupplierDirectoryRepo {
   }
 
   /**
+   * 按 ID 查询任意审核状态的供应商（仅供「本人绑定主体」自助查看）。
+   * 门户公开面仍走 findById 的 verify_status='done' 口径；本人绑定主体可能处于
+   * pending（诊断/认领中），详情页需要能看自己的档案，否则会 404。
+   */
+  async findByIdAnyStatus(id: number): Promise<SupplierDirectoryRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, company, country, country_code, province, city,
+              contact, phone, email, products, industry_code, certification,
+              business_type_code,
+              data_quality_score
+       FROM supplier
+       WHERE id = ?
+       LIMIT 1`,
+      [id],
+    );
+    return ((rows as SupplierDirectoryRow[])[0]) ?? null;
+  }
+
+  /**
    * 按 ID 查询单条供应商的「门户列白名单」（企业信息表格 / 编辑回填用）。
    *
    * ★ 历史上这里是 `SELECT *`——本表 54 列由 supply-os 与 intelligence-daily 两仓库共享，
