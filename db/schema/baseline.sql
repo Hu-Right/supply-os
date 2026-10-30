@@ -2459,5 +2459,21 @@ CREATE TABLE `buyer_alias` (
   KEY `idx_buyer_alias_name` (`alias`(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='买家实体别名';
 
+-- 未命中买家候选：构建时只登记，不自动创建实体
+CREATE TABLE `buyer_candidate` (
+  `candidate_key` char(64) NOT NULL COMMENT '国家+原始买家名哈希',
+  `country_code` char(2) DEFAULT NULL,
+  `raw_name` varchar(500) NOT NULL,
+  `normalized_name` varchar(500) NOT NULL,
+  `occurrence_count` int unsigned NOT NULL DEFAULT 1,
+  `first_seen_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_seen_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/merged/created/rejected',
+  `suggested_buyer_id` bigint unsigned DEFAULT NULL,
+  PRIMARY KEY (`candidate_key`),
+  KEY `idx_buyer_candidate_status` (`status`),
+  KEY `idx_buyer_candidate_name` (`normalized_name`(191))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='买家未命中候选';
+
 SET FOREIGN_KEY_CHECKS = 1;
 
