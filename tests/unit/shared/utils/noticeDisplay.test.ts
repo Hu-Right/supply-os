@@ -33,19 +33,31 @@ describe("displayNoticeTitle", () => {
   });
 });
 
-describe("displayNoticeAgency", () => {
-  it("优先返回 agency_i18n", () => {
-    expect(displayNoticeAgency(makeNotice({ agencyI18n: "联合国开发计划署", buyerName: "UNDP" })))
-      .toBe("联合国开发计划署");
+describe("displayNoticeAgency（2026-10-30 首页向服务表对齐：zh 读 buyerNameCn 快照列）", () => {
+  it("zh 下优先返回 buyerNameCn（与列表卡 NoticeCard 同源同值）", () => {
+    expect(displayNoticeAgency(makeNotice({ buyerNameCn: "南非国家公路局", buyerName: "SANRAL (South Africa)" }), "zh"))
+      .toBe("南非国家公路局");
   });
 
-  it("无 agency_i18n 时回退到 buyer_name（宽表真实机构列）", () => {
-    expect(displayNoticeAgency(makeNotice({ buyerName: "UNDP" })))
+  it("zh 下无中文列时回退到 buyerName 原名", () => {
+    expect(displayNoticeAgency(makeNotice({ buyerName: "UNDP" }), "zh"))
+      .toBe("UNDP");
+  });
+
+  it("非 zh 下返回 buyerName 原名，中文列不得漏进其他语言界面", () => {
+    expect(displayNoticeAgency(makeNotice({ buyerNameCn: "南非国家公路局", buyerName: "SANRAL (South Africa)" }), "en"))
+      .toBe("SANRAL (South Africa)");
+    expect(displayNoticeAgency(makeNotice({ buyerNameCn: "南非国家公路局", buyerName: "SANRAL (South Africa)" })))
+      .toBe("SANRAL (South Africa)");
+  });
+
+  it("agencyI18n 别名链退役：不再参与取值", () => {
+    expect(displayNoticeAgency(makeNotice({ agencyI18n: "别名链译名", buyerName: "UNDP" }), "zh"))
       .toBe("UNDP");
   });
 
   it("都为空时返回空串", () => {
-    expect(displayNoticeAgency(makeNotice())).toBe("");
+    expect(displayNoticeAgency(makeNotice(), "zh")).toBe("");
   });
 });
 

@@ -70,8 +70,8 @@ export function NoticeScrollCard({
       </p>
       <p className="text-xs text-slate-500 mt-1.5 truncate">
         {isRfq
-          ? [displayNoticeAgency(notice), getCountryDisplayName(notice.countryCode || "", locale)].filter(Boolean).join(" / ")
-          : [getCountryDisplayName(notice.countryCode || "", locale), displayNoticeAgency(notice)].filter(Boolean).join(" / ")}
+          ? [displayNoticeAgency(notice, locale), getCountryDisplayName(notice.countryCode || "", locale)].filter(Boolean).join(" / ")
+          : [getCountryDisplayName(notice.countryCode || "", locale), displayNoticeAgency(notice, locale)].filter(Boolean).join(" / ")}
       </p>
       <div className="flex items-center justify-between mt-2">
         {notice.estimatedValue && notice.estimatedValue !== "0.00" ? (

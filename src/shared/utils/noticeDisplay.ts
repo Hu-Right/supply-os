@@ -22,6 +22,7 @@ export interface NoticeDisplayFields {
   titleEn?: string;
   agencyI18n?: string;
   buyerName?: string;
+  buyerNameCn?: string;
   countryCode: string;
   estimatedValue: string | null;
   deadlineTs: number | string | null;
@@ -38,10 +39,15 @@ export function displayNoticeTitle(n: NoticeDisplayFields): string {
 }
 
 /**
- * 采购机构显示回退链：i18n 机构名 → 视图 buyerName → 空串。
+ * 采购机构显示回退链（2026-10-30 首页向服务表对齐）：
+ * zh → buyerNameCn（服务表快照列，与列表卡 NoticeCard 同源同值）→ buyerName；
+ * 非 zh → buyerName 原名（中文列不得漏进其他语言界面）。
+ * agencyI18n（别名表读时解析链）退役：同一买家此前会出现「列表页中文、首页英文」
+ * 的可见分歧（别名表未登记而机翻表已翻的名字），本链与之脱钩后三面统一。
  */
-export function displayNoticeAgency(n: NoticeDisplayFields): string {
-  return n.agencyI18n || n.buyerName || "";
+export function displayNoticeAgency(n: NoticeDisplayFields, locale?: string): string {
+  if (locale === "zh") return n.buyerNameCn || n.buyerName || "";
+  return n.buyerName || "";
 }
 
 /**
