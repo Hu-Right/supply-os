@@ -2459,19 +2459,5 @@ CREATE TABLE `buyer_alias` (
   KEY `idx_buyer_alias_name` (`alias`(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='买家实体别名';
 
--- 买家中文翻译字典：按唯一 buyer_key 翻译，公告只引用，不逐条翻译
-CREATE TABLE `buyer_translation` (
-  `buyer_key` varchar(255) NOT NULL COMMENT 'normalizeAliasKey(buyer_name)',
-  `buyer_name` varchar(500) NOT NULL COMMENT '规范买家名（原文）',
-  `buyer_name_zh` varchar(500) DEFAULT NULL COMMENT '中文买家名',
-  `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/translated/reviewed/failed',
-  `source_hash` char(64) DEFAULT NULL COMMENT '原文哈希，变化后重译',
-  `translated_at` bigint DEFAULT NULL,
-  `updated_at` bigint NOT NULL,
-  PRIMARY KEY (`buyer_key`),
-  KEY `idx_buyer_translation_status` (`status`),
-  KEY `idx_buyer_translation_name` (`buyer_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='买家中文翻译字典';
-
 SET FOREIGN_KEY_CHECKS = 1;
 

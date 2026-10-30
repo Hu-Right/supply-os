@@ -52,8 +52,6 @@ export interface PublicBuildContext {
   countrySnap: CountryAliasSnapshot;
   platformByHost: Map<string, PlatformEntry>;
   platformByAlias: Map<string, PlatformEntry>;
-  /** 规范买家名 → 中文买家名；来源 buyer_translation（key 用 buyer_name，避免超长键） */
-  buyerTranslations: Map<string, string>;
   /** 国家 + 买家名 → 买家实体（服务表落 buyer_id，展示用实体规范名） */
   buyerEntities: Map<string, { buyerId: number; canonical: string; nameZh: string | null; group: string | null }>;
 }
@@ -81,18 +79,6 @@ export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildCon
       if (key) platformByAlias.set(key, entry);
     }
   }
-  const buyerTranslations = new Map<string, string>();
-  const [btRows] = await pool.query(
-    `SELECT buyer_name, buyer_name_zh FROM buyer_translation
-      WHERE status = 'translated' AND buyer_name_zh IS NOT NULL AND buyer_name_zh <> ''`,
-  );
-  for (const r of btRows as RowDataPacket[]) {
-    // 归一键（trim+大写折叠）：服务表 buyer_name 同名多大小写变体时都能命中，
-    // 消除「bt 有中文、构建按字节精确匹配而 miss」的落空类（2026-10-30 批次实证）
-    const key = normalizeAliasKey(r.buyer_name);
-    const zh = String(r.buyer_name_zh ?? "").trim();
-    if (key && zh) buyerTranslations.set(key, zh);
-  }
   const buyerEntities = new Map<string, { buyerId: number; canonical: string; nameZh: string | null; group: string | null }>();
   const [baRows] = await pool.query(
     `SELECT a.alias, a.country_code, b.buyer_id, b.canonical_name, b.name_zh, b.buyer_group
@@ -107,7 +93,7 @@ export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildCon
       group: r.buyer_group ? String(r.buyer_group) : null,
     });
   }
-  return { agencyAliases, countrySnap, platformByHost, platformByAlias, buyerTranslations, buyerEntities };
+  return { agencyAliases, countrySnap, platformByHost, platformByAlias, buyerEntities };
 }
 
 function extractUrl(raw: unknown): string {
@@ -365,7 +351,7 @@ export function buildPublicRow(
   const buyerCanonical = buyerEntity?.canonical?.slice(0, 500) ?? buyerName;
   const buyerGroupFinal = (buyerEntity?.group?.slice(0, 100) ?? buyerGroup) || null;
   const buyerNameCn = buyerCanonical
-    ? (buyerEntity?.nameZh?.slice(0, 500) ?? ctx.buyerTranslations.get(normalizeAliasKey(buyerCanonical)) ?? null)
+    ? (buyerEntity?.nameZh?.slice(0, 500) ?? null)
     : null;
   // 英文 canonical 名（core.countryName）只在上游 classifyBuyerGroup 内部消费，服务表不再落列
   const noticeType = normalizeNoticeType(String(r.notice_type ?? "")).slice(0, 20) || null;
