@@ -176,6 +176,24 @@ function normRegistration(raw: unknown): string | null {
   return "unknown";
 }
 
+/** 平台默认币种：源库 currency 列大量是占位 CNY，不能直接采用；按平台/国家补。 */
+function inferPlatformCurrency(platformName: string | null | undefined): string | null {
+  const p = String(platformName ?? "").trim();
+  if (p === "EJN Montenegro") return "EUR";
+  if (p === "BUTB") return "BYN";
+  if (p === "Kyrgyz e-Procurement" || p === "OKMOT") return "KGS";
+  if (p === "Mongolia e-Procurement") return "MNT";
+  if (p === "TED") return "EUR";
+  if (p === "Find a Tender") return "GBP";
+  if (p === "UNGM" || p === "World Bank" || p === "ADB" || p === "IFAD") return "USD";
+  if (p === "GIZ") return "EUR";
+  if (p === "Umucyo") return "RWF";
+  if (p === "Türkmennebit") return "TMT";
+  if (p === "ITP Iraq") return "IQD";
+  if (p === "PPCC Liberia") return "LRD";
+  return null;
+}
+
 const len = (s: unknown) => String(s ?? "").trim().length;
 const echo = (desc: unknown, title: unknown) =>
   String(desc ?? "").trim().slice(0, 25) === String(title ?? "").trim().slice(0, 25);
@@ -374,6 +392,14 @@ export function buildPublicRow(
   if (amount.amount == null) {
     amount.currency = null;
     amount.currencySource = "none";
+  }
+  // 源库 currency=CNY 多为占位值；金额有值但币种缺失时，按平台默认币种兜底。
+  if (amount.amount != null && !amount.currency) {
+    const inferred = inferPlatformCurrency(platform?.name);
+    if (inferred) {
+      amount.currency = inferred;
+      amount.currencySource = "inferred";
+    }
   }
   const contacts = normalizeContacts(r.contacts, {
     contactPhone: r.contact_phone, contactEmail: r.contact_email, description: desc, countryCode,
