@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
-import { Button, Badge, EmptyState } from "@/shared/ui";
+import { Button, Badge, EmptyState, Skeleton } from "@/shared/ui";
 import { emitAppEvent } from "@/core/events";
 import { useSupplierProfile } from "../hooks/useSupplierProfile";
 import { fetchSupplierContact, type SupplierContact, type SupplierContactStatus } from "@/shared/api/supplier";
@@ -84,9 +84,23 @@ export function SupplierProfilePage() {
   const handleUpgrade = () => { setContactModal(null); emitAppEvent("supply-os:require-vip"); };
 
   if (loading) {
+    // 详情页骨架（2026-10-30 三态统一）：与 SupplierCardSkeleton 同族的画像页近似版
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-sm text-slate-400">加载中...</div>
+      <div className="space-y-6" aria-busy="true">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 flex items-start gap-5">
+          <Skeleton variant="rounded" className="w-20 h-20 shrink-0" />
+          <div className="flex-1 space-y-3 py-1">
+            <Skeleton variant="text" className="h-6 w-1/3" />
+            <Skeleton variant="text" className="h-4 w-1/2" />
+            <Skeleton variant="text" className="h-4 w-2/5" />
+          </div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+          <Skeleton variant="text" className="h-5 w-1/4" />
+          <Skeleton variant="text" className="h-4 w-full" />
+          <Skeleton variant="text" className="h-4 w-11/12" />
+          <Skeleton variant="text" className="h-4 w-4/5" />
+        </div>
       </div>
     );
   }
@@ -94,7 +108,7 @@ export function SupplierProfilePage() {
   if (!supplier) {
     return (
       <div className="py-20 text-center">
-        <EmptyState title="供应商不存在" description="该供应商ID无效或已被移除" />
+        <EmptyState title={t("supplierProfileNotFound")} description={t("supplierProfileNotFoundDesc")} />
       </div>
     );
   }

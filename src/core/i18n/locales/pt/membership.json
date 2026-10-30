@@ -84,5 +84,7 @@
   "membershipQuarter": "trimestre",
   "periodMonthly": "Mensal",
   "periodQuarterly": "Trimestral",
-  "periodYearly": "Anual"
+  "periodYearly": "Anual",
+  "membershipLoadFailed": "Falha ao carregar os planos. Tente novamente mais tarde.",
+  "membershipReload": "Recarregar"
 }

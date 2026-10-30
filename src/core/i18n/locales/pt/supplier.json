@@ -92,5 +92,7 @@
   "profile_claimConfirmCta": "Confirmar e enviar licença",
   "profile_claimSubmitting": "Reivindicando…",
   "profile_claimedByMe": "Reivindicada por mim",
-  "profile_claimedByOther": "Já reivindicada"
+  "profile_claimedByOther": "Já reivindicada",
+  "supplierProfileNotFound": "Fornecedor não encontrado",
+  "supplierProfileNotFoundDesc": "Este ID de fornecedor é inválido ou foi removido"
 }

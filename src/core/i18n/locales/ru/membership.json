@@ -84,5 +84,7 @@
   "membershipQuarter": "кв.",
   "periodMonthly": "Месяц",
   "periodQuarterly": "Квартал",
-  "periodYearly": "Год"
+  "periodYearly": "Год",
+  "membershipLoadFailed": "Не удалось загрузить тарифы. Повторите попытку позже.",
+  "membershipReload": "Обновить"
 }

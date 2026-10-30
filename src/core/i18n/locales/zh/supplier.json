@@ -92,5 +92,7 @@
   "profile_claimConfirmCta": "确认认领，去上传执照",
   "profile_claimSubmitting": "认领中…",
   "profile_claimedByMe": "我已认领",
-  "profile_claimedByOther": "已被认领"
+  "profile_claimedByOther": "已被认领",
+  "supplierProfileNotFound": "供应商不存在",
+  "supplierProfileNotFoundDesc": "该供应商ID无效或已被移除"
 }

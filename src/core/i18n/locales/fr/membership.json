@@ -84,5 +84,7 @@
   "membershipQuarter": "trimestre",
   "periodMonthly": "Mensuel",
   "periodQuarterly": "Trimestriel",
-  "periodYearly": "Annuel"
+  "periodYearly": "Annuel",
+  "membershipLoadFailed": "Échec du chargement des formules. Veuillez réessayer plus tard.",
+  "membershipReload": "Recharger"
 }

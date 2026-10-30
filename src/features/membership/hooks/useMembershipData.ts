@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from "react";
 import { useAuth } from "@/core/auth";
+import { useLocale } from "@/core/i18n";
 import { fetchMembershipPlans, fetchMembershipStatus, fetchAnnualPlanCredit } from "@/core/api/membership";
 import { unlockRemaining } from "@/shared/utils/membership-view";
 import type {
@@ -39,10 +40,13 @@ export interface UseMembershipDataReturn {
   upgradeCredit: UpgradeCreditWindowView | null;
   /** 可用的年包抵扣单（文档「199 升级年包可全额抵扣」；无则 null） */
   annualCredit: AnnualCreditView | null;
+  /** 手动重试（错误态恢复入口；替代 window.location.reload() 整页刷新） */
+  refresh: () => void;
 }
 
 export function useMembershipData(options?: UseMembershipDataOptions): UseMembershipDataReturn {
   const { authUser } = useAuth();
+  const { t } = useLocale();
   // RSC 初值：套餐矩阵是公开数据且与登录态无关（/api/membership/plans 两种身份同表），
   // 有初值就不再拉 plans——首屏直出，后续目录变更由 ISR revalidate 兜底
   const hasInitial = options?.initialComparison != null;
@@ -52,6 +56,8 @@ export function useMembershipData(options?: UseMembershipDataOptions): UseMember
   const [annualCredit, setAnnualCredit] = useState<AnnualCreditView | null>(null);
   const [loading, setLoading] = useState(!hasInitial);
   const [error, setError] = useState<string | null>(null);
+  // refresh() 的实现手段：递增 reloadKey 重放拉取 effect（不改 authUser/hasInitial 依赖语义）
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -78,7 +84,7 @@ export function useMembershipData(options?: UseMembershipDataOptions): UseMember
       })
       .catch(() => {
         if (alive && !hasInitial) {
-          setError("套餐数据加载失败，请稍后重试");
+          setError(t("membershipLoadFailed"));
           setPlans([]);
           setComparison(null);
           setAnnualCredit(null);
@@ -91,7 +97,9 @@ export function useMembershipData(options?: UseMembershipDataOptions): UseMember
     return () => {
       alive = false;
     };
-  }, [authUser, hasInitial]);
+    // t 随语言切换产生新引用会重放拉取：代价只是一次缓存命中的重复请求，可接受
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, hasInitial, reloadKey]);
 
   // 升级判断以「当前有效订阅」为准；普通用户（无订阅）不进入升级差价路径。
   const hasSubscription = Boolean(membership?.subscription);
@@ -110,5 +118,6 @@ export function useMembershipData(options?: UseMembershipDataOptions): UseMember
     currentPlanName: membership?.plan?.nameZh ?? null,
     upgradeCredit: membership?.upgradeCredit ?? null,
     annualCredit,
+    refresh: () => setReloadKey((k) => k + 1),
   };
 }

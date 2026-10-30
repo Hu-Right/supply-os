@@ -84,5 +84,7 @@
   "membershipQuarter": "ربع",
   "periodMonthly": "شهري",
   "periodQuarterly": "ربع سنوي",
-  "periodYearly": "سنوي"
+  "periodYearly": "سنوي",
+  "membershipLoadFailed": "فشل تحميل الخطط. يرجى المحاولة لاحقًا.",
+  "membershipReload": "إعادة التحميل"
 }

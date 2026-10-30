@@ -92,5 +92,7 @@
   "profile_claimConfirmCta": "تأكيد الطلب ورفع الرخصة",
   "profile_claimSubmitting": "جارٍ الطلب…",
   "profile_claimedByMe": "مملوكة من قبلي",
-  "profile_claimedByOther": "مملوكة بالفعل"
+  "profile_claimedByOther": "مملوكة بالفعل",
+  "supplierProfileNotFound": "المورّد غير موجود",
+  "supplierProfileNotFoundDesc": "معرّف المورّد هذا غير صالح أو تمت إزالته"
 }

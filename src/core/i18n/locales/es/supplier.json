@@ -92,5 +92,7 @@
   "profile_claimConfirmCta": "Confirmar y subir licencia",
   "profile_claimSubmitting": "Reclamando…",
   "profile_claimedByMe": "Reclamada por mí",
-  "profile_claimedByOther": "Ya reclamada"
+  "profile_claimedByOther": "Ya reclamada",
+  "supplierProfileNotFound": "Proveedor no encontrado",
+  "supplierProfileNotFoundDesc": "Este ID de proveedor no es válido o ha sido eliminado"
 }

@@ -11,11 +11,11 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertCircle, Rocket, Search, TrendingUp, Headphones } from "lucide-react";
+import { Rocket, Search, TrendingUp, Headphones } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
-import { Button } from "@/shared/ui";
+import { DataState } from "@/shared/ui";
 import { PlanCard } from "../components/PlanCard";
 import { ServiceCard } from "../components/ServiceCard";
 import { ContactQrModal } from "../components/ContactQrModal";
@@ -38,7 +38,7 @@ export default function MembershipPage({ initialComparison }: MembershipPageProp
   const { authUser } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
-  const { plans, comparison, loading, error, currentPlanCode, currentPlanPrice, upgradeCredit, annualCredit } = useMembershipData({ initialComparison });
+  const { plans, comparison, loading, error, refresh, currentPlanCode, currentPlanPrice, upgradeCredit, annualCredit } = useMembershipData({ initialComparison });
 
   const {
     buyPlan, startUpgrade, confirmUpgrade,
@@ -192,28 +192,20 @@ export default function MembershipPage({ initialComparison }: MembershipPageProp
                 <p className="text-base text-slate-600 max-w-xl mx-auto">{t("tabMembershipDesc")}</p>
               </div>
 
-              {loading ? (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-80 rounded-2xl border border-slate-200/60 bg-slate-100/70 animate-pulse" />
-                  ))}
-                </div>
-              ) : error ? (
-                <div className="text-center py-20">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
-                    <AlertCircle className="w-8 h-8 text-red-600" />
+              <DataState
+                loading={loading}
+                error={error}
+                onRetry={refresh}
+                errorText={error ?? undefined}
+                retryText={t("membershipReload")}
+                skeleton={
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-80 rounded-2xl border border-slate-200/60 bg-secondary-200 animate-pulse" />
+                    ))}
                   </div>
-                  <p className="text-slate-600 text-lg mb-2">{error}</p>
-                  <Button
-                    type="button"
-                    variant="link"
-                    onClick={() => window.location.reload()}
-                    className="px-0 text-sm font-medium cursor-pointer hover:text-teal-700"
-                  >
-                    重新加载
-                  </Button>
-                </div>
-              ) : (
+                }
+              >
                 <>
                   <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3" data-testid="plan-list">
                     {comparison &&
@@ -246,7 +238,7 @@ export default function MembershipPage({ initialComparison }: MembershipPageProp
                     </p>
                   )}
                 </>
-              )}
+              </DataState>
             </div>
           </section>
 

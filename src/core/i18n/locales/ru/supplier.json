@@ -92,5 +92,7 @@
   "profile_claimConfirmCta": "Подтвердить и загрузить лицензию",
   "profile_claimSubmitting": "Закрепление…",
   "profile_claimedByMe": "Закреплено мной",
-  "profile_claimedByOther": "Уже закреплено"
+  "profile_claimedByOther": "Уже закреплено",
+  "supplierProfileNotFound": "Поставщик не найден",
+  "supplierProfileNotFoundDesc": "Этот ID поставщика недействителен или был удалён"
 }

@@ -92,5 +92,7 @@
   "profile_claimConfirmCta": "Confirmer et téléverser la licence",
   "profile_claimSubmitting": "Réclamation…",
   "profile_claimedByMe": "Réclamée par moi",
-  "profile_claimedByOther": "Déjà réclamée"
+  "profile_claimedByOther": "Déjà réclamée",
+  "supplierProfileNotFound": "Fournisseur introuvable",
+  "supplierProfileNotFoundDesc": "Cet ID de fournisseur est invalide ou a été supprimé"
 }

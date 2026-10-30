@@ -49,6 +49,9 @@ export type { CardProps } from "./Card";
 export { EmptyState } from "./EmptyState";
 export type { EmptyStateProps } from "./EmptyState";
 
+export { DataState } from "./DataState";
+export type { DataStateProps } from "./DataState";
+
 export { Spinner } from "./Spinner";
 export type { SpinnerProps } from "./Spinner";
 
@@ -60,9 +63,6 @@ export type { PageErrorFallbackProps } from "./PageErrorFallback";
 
 export { Pagination } from "./Pagination";
 export type { PaginationProps, PaginationLabels } from "./Pagination";
-
-export { ListPage } from "./ListPage";
-export type { ListPageProps } from "./ListPage";
 
 export { Combobox } from "./Combobox";
 export type { ComboboxProps, ComboboxItem } from "./Combobox";

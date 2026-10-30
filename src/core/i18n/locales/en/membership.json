@@ -84,5 +84,7 @@
   "membershipQuarter": "quarter",
   "periodMonthly": "Monthly",
   "periodQuarterly": "Quarterly",
-  "periodYearly": "Annual"
+  "periodYearly": "Annual",
+  "membershipLoadFailed": "Failed to load plans. Please try again later.",
+  "membershipReload": "Reload"
 }

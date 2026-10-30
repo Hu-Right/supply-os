@@ -92,5 +92,7 @@
   "profile_claimConfirmCta": "Confirm claim, upload license",
   "profile_claimSubmitting": "Claiming…",
   "profile_claimedByMe": "Claimed by me",
-  "profile_claimedByOther": "Already claimed"
+  "profile_claimedByOther": "Already claimed",
+  "supplierProfileNotFound": "Supplier not found",
+  "supplierProfileNotFoundDesc": "This supplier ID is invalid or has been removed"
 }

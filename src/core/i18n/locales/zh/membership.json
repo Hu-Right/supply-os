@@ -84,5 +84,7 @@
   "membershipQuarter": "季",
   "periodMonthly": "月付",
   "periodQuarterly": "季付",
-  "periodYearly": "年付"
+  "periodYearly": "年付",
+  "membershipLoadFailed": "套餐数据加载失败，请稍后重试",
+  "membershipReload": "重新加载"
 }
