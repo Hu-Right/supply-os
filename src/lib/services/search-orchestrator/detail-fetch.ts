@@ -39,6 +39,7 @@ export async function fetchDetailsByIds(
          p.estimated_value, p.currency_code, p.platform_name,
          p.attachments, p.contacts, p.is_opportunity, p.content_level,
          p.industry, p.registration_level, p.beneficiary_countries,
+         p.supplier_conditions, p.eligibility, p.technical_hurdles,
          p.updated_at,
          s.backbone_path, s.entry_source
        FROM notice_public p
