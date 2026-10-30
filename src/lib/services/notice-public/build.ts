@@ -87,7 +87,9 @@ export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildCon
       WHERE status = 'translated' AND buyer_name_zh IS NOT NULL AND buyer_name_zh <> ''`,
   );
   for (const r of btRows as RowDataPacket[]) {
-    const key = String(r.buyer_name ?? "").trim();
+    // 归一键（trim+大写折叠）：服务表 buyer_name 同名多大小写变体时都能命中，
+    // 消除「bt 有中文、构建按字节精确匹配而 miss」的落空类（2026-10-30 批次实证）
+    const key = normalizeAliasKey(r.buyer_name);
     const zh = String(r.buyer_name_zh ?? "").trim();
     if (key && zh) buyerTranslations.set(key, zh);
   }
@@ -97,7 +99,7 @@ export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildCon
        FROM buyer_alias a JOIN buyer b ON b.buyer_id = a.buyer_id`,
   );
   for (const r of baRows as RowDataPacket[]) {
-    const key = `${String(r.country_code ?? "")}|${String(r.alias ?? "")}`;
+    const key = `${String(r.country_code ?? "")}|${normalizeAliasKey(r.alias)}`;
     buyerEntities.set(key, {
       buyerId: Number(r.buyer_id),
       canonical: String(r.canonical_name ?? r.alias ?? ""),
@@ -357,13 +359,13 @@ export function buildPublicRow(
   const countryCode = core.countryCode;
   const countryCodes = core.countryCodes;
   const buyerEntity = buyerName
-    ? ctx.buyerEntities.get(`${countryCode ?? ""}|${buyerName}`)
+    ? ctx.buyerEntities.get(`${countryCode ?? ""}|${normalizeAliasKey(buyerName)}`)
     : undefined;
   const buyerId = buyerEntity?.buyerId ?? null;
   const buyerCanonical = buyerEntity?.canonical?.slice(0, 500) ?? buyerName;
   const buyerGroupFinal = (buyerEntity?.group?.slice(0, 100) ?? buyerGroup) || null;
   const buyerNameCn = buyerCanonical
-    ? (buyerEntity?.nameZh?.slice(0, 500) ?? ctx.buyerTranslations.get(buyerCanonical) ?? null)
+    ? (buyerEntity?.nameZh?.slice(0, 500) ?? ctx.buyerTranslations.get(normalizeAliasKey(buyerCanonical)) ?? null)
     : null;
   // 英文 canonical 名（core.countryName）只在上游 classifyBuyerGroup 内部消费，服务表不再落列
   const noticeType = normalizeNoticeType(String(r.notice_type ?? "")).slice(0, 20) || null;
