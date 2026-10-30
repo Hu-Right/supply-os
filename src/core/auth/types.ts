@@ -19,6 +19,10 @@ export interface RegisterOptions {
   password: string;
   displayName?: string;
   verifyCode?: string;
+  /**
+   * 注册邀请码（业务必填，2026-10-30）：推荐链接会自动带入；
+   * 类型上保留可选是因为服务端还会回退读 ref_code Cookie（/r/[code] 落地页写入）。
+   */
   invitationCode?: string;
   phone?: string;
   /** 用户同意的协议版本号（如 "V2.0"），用于审计追踪 */

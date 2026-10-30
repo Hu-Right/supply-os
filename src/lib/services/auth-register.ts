@@ -2,7 +2,7 @@
  * 注册编排服务（架构评估 A4：自 auth/register 路由下沉）
  *
  * @module lib/services/auth-register
- * @description 收口"手机号注册"的多仓库编排：密码策略、邀请码校验（员工码 EMP- / 渠道码 CH-
+ * @description 收口"手机号注册"的多仓库编排：密码策略、邀请码校验（必填；员工码 EMP- / 渠道码 CH-
  *              两个命名空间按前缀分流）、短信验证码核销、建号（自动昵称）、登录时间补记、
  *              归属记账（员工走 KPI 递增，渠道走注册台账）、
  *              合规同意日志（失败不阻断）、载荷与 Token 签发（注册即登录）。
@@ -66,16 +66,19 @@ export async function registerUser(
   const pwCheck = validatePassword(pw);
   if (!pwCheck.valid) throw new RouteError(400, EC_INVALID_PARAMS, pwCheck.message);
 
-  // ── 邀请码有效性校验（可选：有邀请码时校验，无则跳过） ──
+  // ── 邀请码校验（必填，2026-10-30 老板需求）──
   // 两个命名空间按前缀分流（EMP- 员工 / CH- 渠道），互斥、不做双向 fallback。
-  let owner: CodeOwner | null = null;
-  if (inviteCode) {
-    const inviteValidation = await ctx.user.invitationRepo.validateCode(inviteCode);
-    if (!inviteValidation.valid) {
-      throw new RouteError(400, EC_INVITE_CODE_INVALID, inviteValidation.reason || "邀请码无效");
-    }
-    owner = inviteValidation.owner ?? null;
+  // 必填校验放在服务层而不是只依赖表单：API 直调同样要被拦下（trim 后再判，纯空白同为空）。
+  // 空值也复用「邀请码无效」业务码（41119）：前端有专门的必填文案，直调方拿到的是同一类可展示错误。
+  const normalizedInviteCode = inviteCode.trim().toUpperCase();
+  if (!normalizedInviteCode) {
+    throw new RouteError(400, EC_INVITE_CODE_INVALID, "请填写邀请码（可通过推荐链接自动带入）");
   }
+  const inviteValidation = await ctx.user.invitationRepo.validateCode(normalizedInviteCode);
+  if (!inviteValidation.valid) {
+    throw new RouteError(400, EC_INVITE_CODE_INVALID, inviteValidation.reason || "邀请码无效");
+  }
+  const owner: CodeOwner | null = inviteValidation.owner ?? null;
 
   // ── 短信验证码校验：以手机号为唯一锚点（注册时账号不存在，不依赖 user_key/user_id） ──
   const codeRecord = await ctx.user.authRepo.findLatestActiveCodeByPhone(targetPhone, "registration");
@@ -97,7 +100,7 @@ export async function registerUser(
     nickname: generateNickname(params.locale),
     password_hash: await hashPassword(pw),
     phone: targetPhone,
-    referral_code: inviteCode,
+    referral_code: normalizedInviteCode,
     // 渠道码不得写进员工列：那是 employees 的归属语义，串了会在员工后台看见不属于他的人头
     referral_employee_id: owner !== null && owner.namespace === "employee" ? owner.employeeId : undefined,
   });

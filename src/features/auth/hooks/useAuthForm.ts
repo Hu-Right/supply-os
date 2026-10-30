@@ -14,6 +14,17 @@ import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 /** 草稿过期时间：3 天，超过后自动清除 */
 export const DRAFT_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
+/**
+ * 读取推荐链接 Cookie（由 /r/[code] 落地页写入）。
+ * SSR 阶段无 document → 返回空串；服务端注册接口同样会回退读这个 Cookie，
+ * 所以「字段留空 + Cookie 有码」也是合法提交。
+ */
+function readRefCodeCookie(): string {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(/(?:^|;\s*)ref_code=([^;]*)/);
+  return match ? decodeURIComponent(match[1]).trim().toUpperCase() : "";
+}
+
 export interface AuthFormState {
   displayName: string;
   identifier: string; // 登录用：手机号或已绑定邮箱
@@ -41,25 +52,24 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
   // ★ 注册态表单 — localStorage 草稿持久化，弹窗意外关闭后重新打开自动恢复
   const [authForm, setAuthForm, clearAuthDraft] = usePersistedFormState<AuthFormState>(
     "draft:auth_register",
-    (() => {
-      let prefilledCode = "";
-      if (typeof document !== "undefined") {
-        const match = document.cookie.match(/(?:^|;\s*)ref_code=([^;]*)/);
-        if (match) prefilledCode = decodeURIComponent(match[1]).toUpperCase();
-      }
-      return {
-        displayName: "", identifier: "", email: "", phone: "",
-        password: "", invitationCode: prefilledCode,
-      };
-    })(),
+    {
+      displayName: "", identifier: "", email: "", phone: "",
+      password: "", invitationCode: readRefCodeCookie(),
+    },
     { excludeKeys: ["password"] as (keyof AuthFormState)[], ttlMs: DRAFT_TTL_MS },
   );
 
-  // ★ 切换模式时清空当前表单，切换到注册时从草稿恢复
+  // ★ 切换模式时清空当前表单，切换到注册时从草稿恢复。
+  //   邀请码改为必填后（2026-10-30），切到注册时若表单没有码、而用户是由推荐链接进来的
+  //   （ref_code Cookie 存在），自动回填，避免要求用户从链接里手抄一遍。
   useEffect(() => {
     if (authMode === "login") {
       setAuthForm({ displayName: "", identifier: "", email: "", phone: "", password: "", invitationCode: "" });
+      return;
     }
+    setAuthForm((prev) =>
+      prev.invitationCode.trim() ? prev : { ...prev, invitationCode: readRefCodeCookie() },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authMode]);
 
@@ -94,6 +104,13 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
         setAuthError(pwCheck.message);
         return;
       }
+      // 邀请码必填（2026-10-30 老板需求）：提前于短信校验判断，避免用户先发一条短信才被告知没填码。
+      // 推荐链接自动带入或手动填写；从 /r/[code] 落地页进来的用户即使字段为空，
+      // Cookie 里有码也允许提交（服务端会回退读 Cookie）。
+      if (!authForm.invitationCode.trim() && !readRefCodeCookie()) {
+        setAuthError(t("authErrInvitationCodeRequired"));
+        return;
+      }
       if (!registerCodeSent) {
         setAuthError(t("authErrSmsCodeFirst"));
         return;
@@ -102,7 +119,6 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
         setAuthError(t("authErrCodeLength"));
         return;
       }
-      // 邀请码为可选字段：推荐链接自动填入或手动输入，留空亦可提交
       // 协议勾选校验：必须用户主动勾选，不得默认勾选
       if (!agreedToTerms) {
         setAuthError(t("authErrAgreementRequired"));

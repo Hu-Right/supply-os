@@ -42,6 +42,8 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (rlPhone) return rlPhone;
 
   // ★ 邀请码优先级：手动填写 > Cookie ref_code（推荐链接自动带入）
+  //   必填校验在 registerUser 服务层做（空值时抛 41119）；这里只负责把 Cookie 回退解析出来，
+  //   保证 /r/[code] 推荐链接落地后即使表单没手动填也能带上码。
   let inviteCode = String(body.invitation_code || "").trim().toUpperCase();
   if (!inviteCode) {
     const cookieCode = req.cookies.get("ref_code")?.value;

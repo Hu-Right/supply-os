@@ -106,14 +106,15 @@ export function RegisterForm({
         minLength={PASSWORD_MIN_LENGTH}
       />
 
-      {/* 邀请码（选填） */}
+      {/* 邀请码（必填，2026-10-30 老板需求）：推荐链接自动带入，或手动填写 */}
       <div>
         <Input
           type="text"
           value={authForm.invitationCode}
           onChange={(e) => setAuthForm({ ...authForm, invitationCode: e.target.value.toUpperCase() })}
-          placeholder={t("authInvitationCodePlaceholder") || "请输入邀请码（选填）"}
+          placeholder={t("authInvitationCodePlaceholder") || "请输入邀请码（必填）"}
           className="uppercase tracking-wider"
+          aria-required="true"
         />
         {authForm.invitationCode && hasRefCookie && (
           <p className="text-xs text-teal-600 mt-1 flex items-center gap-1">

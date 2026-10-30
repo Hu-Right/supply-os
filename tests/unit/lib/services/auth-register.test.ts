@@ -46,7 +46,12 @@ function makeCtx(overrides: Record<string, any> = {}) {
         ...overrides.authRepo,
       },
       invitationRepo: {
-        validateCode: vi.fn().mockResolvedValue({ valid: false }),
+        // 2026-10-30 起邀请码必填：默认给一个有效员工码，让「验证码/判重/成功」等用例能走到被测分支；
+        // 专门验证归因行为的用例再各自覆盖 validateCode 返回值的 owner 命名空间。
+        validateCode: vi.fn().mockResolvedValue({
+          valid: true,
+          owner: { namespace: "employee", employeeId: 7 },
+        }),
         incrementMonthlyActual: vi.fn(),
         recordChannelRegistration: vi.fn(),
         ...overrides.invitationRepo,
@@ -65,7 +70,7 @@ const baseParams = {
   targetPhone: "13800000000",
   password: TEST_FIXTURE_PASSWORD,
   code: "123456",
-  inviteCode: "",
+  inviteCode: "EMP-TEST1234",
   clientIp: "1.2.3.4",
   userAgent: "test",
 };
@@ -262,13 +267,31 @@ describe("registerUser", () => {
     expect(ledger).not.toHaveBeenCalled();
   });
 
-  it("无邀请码注册 → 两个命名空间的账都不碰", async () => {
+  it("无邀请码 → 400/41119 直接拒绝，不查验证码、不建号（2026-10-30 必填口径）", async () => {
+    const create = vi.fn();
+    const validateCode = vi.fn();
     const inc = vi.fn();
     const ledger = vi.fn();
-    const ctx = makeCtx({ invitationRepo: { incrementMonthlyActual: inc, recordChannelRegistration: ledger } });
-    await registerUser(ctx, baseParams);
+    const findCode = vi.fn();
+    const ctx = makeCtx({
+      usersRepo: { create },
+      authRepo: { findLatestActiveCodeByPhone: findCode },
+      invitationRepo: { validateCode, incrementMonthlyActual: inc, recordChannelRegistration: ledger },
+    });
+    await expect(registerUser(ctx, { ...baseParams, inviteCode: "" }))
+      .rejects.toMatchObject({ status: 400, code: 41119, message: expect.stringContaining("邀请码") });
+    // 必填拦截发生在一切写操作之前：不校验码、不查验证码、不建号、不记账
+    expect(validateCode).not.toHaveBeenCalled();
+    expect(findCode).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
     expect(inc).not.toHaveBeenCalled();
     expect(ledger).not.toHaveBeenCalled();
+  });
+
+  it("邀请码仅空白 → 同样 400/41119（trim 后为空）", async () => {
+    const ctx = makeCtx();
+    await expect(registerUser(ctx, { ...baseParams, inviteCode: "   " }))
+      .rejects.toMatchObject({ status: 400, code: 41119 });
   });
 
   it("合规同意日志：terms + privacy 两条，且入参不再携带已退役列", async () => {
