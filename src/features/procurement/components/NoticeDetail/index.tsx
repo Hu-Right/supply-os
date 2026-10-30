@@ -66,14 +66,16 @@ interface NoticeDetailProps {
   favorited: boolean;
   /** 收藏/取消收藏（未登录由 hook 内部触发登录） */
   onToggleFavorite: () => void;
-  detailLoading?: boolean;
+  /** 当前公告的详情请求是否已落地（成功/失败都算）：决定"描述是否已是终态" */
+  detailSettled?: boolean;
+  /** 会员状态是否已就绪（未就绪时无法判断用户能否看全文） */
+  membershipReady?: boolean;
 }
 
 export function NoticeDetail({
   notice, actionMessage, membership, canUsePaidQuota, isVip,
-  totalRemaining, isLoggedIn, onBack, onExpressInterest, onUnlock, onOpenNotice,
-  favorited, onToggleFavorite,
-  detailLoading,
+  totalRemaining, isLoggedIn, onBack, onUnlock, onOpenNotice,
+  favorited, onToggleFavorite, detailSettled = false, membershipReady = true,
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
   const userId = useUserId();
@@ -90,6 +92,14 @@ export function NoticeDetail({
   const aiSummaryEnabled = gates?.ai_summary === "free" || gates?.ai_summary === "included";
   const aiMatchEnabled = gates?.ai_match === "free" || gates?.ai_match === "included";
   const accessPending = accessIncluded && !coreUnlocked && !actionMessage;
+  // ── 描述区付费口径（2026-10-30）──
+  // 列表项的 description 是 SQL LEFT(description,300) 截断版，全文只由 /detail 下发。
+  //   · 免费/锁定用户：拿不到全文（/detail 必 403），截断版就是终态 ⇒ 立即展示；
+  //   · 付费会员/已解锁用户：最终一定拿到全文 ⇒ 全文落地前不渲染描述区，
+  //     避免"先截断、后完整"的跳变；会员态还没查回来时按"可能有权限"处理
+  //     （宁可晚一点出现，也不闪一次截断版；查询失败会置 ready，自然回退截断版）。
+  const mayGetFullText = coreUnlocked || (!membershipReady && isLoggedIn);
+  const awaitingFullText = mayGetFullText && !detailSettled && !!notice.descriptionTruncated;
   // 匹配层级按会员等级差异化（数据来自 plan_catalog.commercial_tier，不硬编码档位常量）：
   // L1 个人=基础评估 / L3 企业=企业级评估 / L4+ 人工=可定制评估
   const planTier = membership?.plan?.commercialTier ?? "";
@@ -156,8 +166,7 @@ export function NoticeDetail({
   // 切换按钮可见性：需有中文能力且有译文（API 译文 或 description_cn 直出）
   const hasTranslation = canSeeChinese && (!!translation || descResolved);
 
-  // 锁定态展示项
-  const showSkeleton = !coreUnlocked && (!!detailLoading || accessPending);
+  // 锁定态展示项（2026-10-30：详情加载中不再出骨架屏，直接用列表/预览已有数据渲染）
   const breakdownFileCount = coreUnlocked
     ? collectBreakdownFiles(notice).length
     : typeof notice.breakdownFileCount === "number" ? notice.breakdownFileCount : undefined;
@@ -170,7 +179,7 @@ export function NoticeDetail({
   // 信息表数据（发布日走统一解析+UTC 格式化，与 SEO 页同口径；不可解析回落占位）
   const publishDate = formatNoticeDateOrNull(notice.publishedTs ? new Date(Number(notice.publishedTs) * 1000).toISOString().slice(0, 10) : "") || "-";
   const deadlineText = formatNoticeDeadline(
-    notice.deadlineTs, notice.deadlineType, notice.deadlineTimezone, locale, t,
+    notice.deadlineTs, notice.deadlineType, notice.deadlineTimezone, locale, t, notice.timezoneSource,
   ) || t("procurement_noDeadline");
   const budgetText = formatNoticeAmount(notice.estimatedValue, notice.currencyCode, locale) || t("procurement_budgetPending");
   const typeLabel = typeKey ? t(typeKey) : notice.noticeTypeCode || "-";
@@ -187,8 +196,6 @@ export function NoticeDetail({
           budgetText={budgetText} onBack={onBack} t={t} locale={locale}
           favorited={favorited} onToggleFavorite={onToggleFavorite}
           onShare={() => setShareOpen(true)}
-          // 操作条（2026-10-29 大一统）：感兴趣/订阅/升级会员与收藏分享同排
-          onExpressInterest={(type) => onExpressInterest(notice, type)}
           canUsePaidQuota={canUsePaidQuota}
           onUpgradeMembership={() => router.push(`/membership?notice_id=${notice.noticePk}`)}
         />
@@ -231,21 +238,22 @@ export function NoticeDetail({
                   onRegenerate={() => aiSummary.triggerAnalysis(true)}
                 />
 
-                <NoticeDescriptionSection
-                  translating={showTranslating} failed={failed}
-                  hasTranslation={hasTranslation} showOriginal={showOriginal}
-                  showTranslated={!showOriginal && hasTranslation}
-                  toggleOriginal={toggleOriginal}
-                  displayDescription={displayDescription || ""}
-                  descriptionTruncated={!!notice.descriptionTruncated}
-                  loading={!!detailLoading || accessPending}
-                />
+                {!awaitingFullText && (
+                  <NoticeDescriptionSection
+                    translating={showTranslating} failed={failed}
+                    hasTranslation={hasTranslation} showOriginal={showOriginal}
+                    showTranslated={!showOriginal && hasTranslation}
+                    toggleOriginal={toggleOriginal}
+                    displayDescription={displayDescription || ""}
+                    descriptionTruncated={!!notice.descriptionTruncated}
+                  />
+                )}
 
                 {/* 解锁态：采购方/联系人 → 「采购方与联系人」Tab；报告/文件 → 「投标材料」Tab。
                     这里只保留锁定态的渐进预览（无敏感内容）。 */}
                 <NoticeCoreContent
                   notice={notice} coreUnlocked={coreUnlocked}
-                  showSkeleton={showSkeleton} breakdownFileCount={breakdownFileCount}
+                  breakdownFileCount={breakdownFileCount}
                 />
               </>
             )}
@@ -311,8 +319,6 @@ export function NoticeDetail({
         notice={notice} membership={membership}
         canUsePaidQuota={canUsePaidQuota} isVip={isVip}
         totalRemaining={totalRemaining} isLoggedIn={isLoggedIn}
-        showSkeleton={showSkeleton}
-        onExpressInterest={onExpressInterest}
       />
 
       {/* 分享面板：链接直达规范公开详情页 /procurement/notice/{id} */}

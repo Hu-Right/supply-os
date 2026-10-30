@@ -55,7 +55,7 @@ export function useNoticeHandlers({
 }: UseNoticeHandlersOptions): UseNoticeHandlersReturn {
   const { t } = useLocale();
   const { canUsePaidQuota, refreshMembership } = membership;
-  const { isUnlocked, markUnlocked, loadNoticeDetail, loadNoticePreview, loadNoticeContent, setDetailLoadingId } = unlock;
+  const { isUnlocked, markUnlocked, loadNoticeDetail, loadNoticePreview } = unlock;
 
   const openNotice = useCallback(async (notice: NoticeItem) => {
     if (!userId) {
@@ -75,26 +75,26 @@ export function useNoticeHandlers({
 
     // 三请求并行：浏览计数与配额刷新不再阻塞详情数据到达
     void viewNotice(notice.noticePk);
-    setDetailLoadingId(notice.noticePk);
     setSelectedNotice(notice);
     setActionMessage("");
     window.scrollTo({ top: 0, behavior: "smooth" });
-    void refreshMembership();
+    // 会员状态取缓存版：/membership/status 一次要落 5-6 次库（套餐 + 门控矩阵 + 额度池），
+    // 每次点开详情都无缓存重打一枪，在库链路抖动时（本仓 dev 库走 SSH 隧道）足以把首屏拖到十几秒。
+    // 打开详情只是「看一眼当前权益」，不需要强一致；解锁/支付路径仍会显式 refreshMembership()
+    // 拿最新配额，这里用 TTL 缓存不会让扣费/升级结果延迟生效。
+    void refreshMembership(true);
     void loadNoticeDetail(notice);
-    // 锁定态渐进式预览：并行拉取机构名/分类标签等有限预览字段（无敏感数据）
-    if (!alreadyUnlocked) void loadNoticePreview(notice);
-    // 全文内容加载：搜索 SQL 截断 description 为 300 字符，本请求替换为完整原文，
-    // 确保详情页原文与译文（翻译 API 使用全文）长度一致，"查看原文"开关有意义。
-    // 仅解锁态发起：/content 自 2026-09-05 起属付费墙闸口（ARCH-P0），锁定态发起必 403；
-    // 解锁成功后全文由 loadNoticeDetail 的 detail 载荷合并，无需在此补发。
-    if (alreadyUnlocked || notice.coreLocked === false) loadNoticeContent(notice);
-    // P2-2：useCallback 稳定引用（上游依赖均已 useCallback 化），
-    // NoticeCard 的 React.memo 不再被每次渲染重建的 openNotice 击穿
+    // 锁定态渐进式预览：列表项本身已带全部预览字段（标题/编号/买家/截止/金额/发布日期），
+    // 只有深链打开时 base 是 { noticePk } 空壳，才需要 /preview 补字段。
+    if (!alreadyUnlocked && !notice.title) void loadNoticePreview(notice);
+    // 全文不再单独拉：/detail 返回的 description / title / descriptionCn 与 /content 同源
+    // （都读 notice_public 整行，只有列表 SQL 才截断 300 字符），详情打开后再打一枪 /content
+    // 属纯重复请求——隧道抖动时它还要占一次 5-6 次库的往返。
   }, [
     userId,
     onRequireLogin, trackClick, trackDetailOpen,
     isUnlocked, setSelectedNotice, setActionMessage,
-    setDetailLoadingId, refreshMembership, loadNoticeDetail, loadNoticePreview, loadNoticeContent,
+    refreshMembership, loadNoticeDetail, loadNoticePreview,
   ]);
 
   const handleUnlockNotice = async (notice: NoticeItem, unlockType?: "free" | "subscription") => {
@@ -110,13 +110,10 @@ export function useNoticeHandlers({
     }
 
     const nextUnlockType = unlockType || "subscription";
-    // 解锁发起即进入加载态：锁定面板让位于骨架屏，直至详情返回
-    setDetailLoadingId(notice.noticePk);
     try {
       // P2-10：价格由服务端按套餐定价，前端固定传 0
       await unlockNotice(notice.noticePk, nextUnlockType, 0);
     } catch (err) {
-      setDetailLoadingId((prev) => (prev === notice.noticePk ? null : prev));
       if (err instanceof ApiError && err.status === 402) {
         setActionMessage(t("procurement_paidQuotaRequired"));
       } else {

@@ -3,16 +3,16 @@
  * Notice Unlock Set & Detail Loading Hook
  *
  * @module features/procurement/hooks/useNoticeUnlock
- * @description 已解锁公告 id 集合、详情拓展加载态与拓展详情拉取合并；
- *              登录后预取已解锁集合，供详情首帧决定骨架屏还是锁定面板。
- *              Unlocked id set, detail loading state and extended detail
- *              fetch/merge; prefetches unlocked ids after login.
+ * @description 已解锁公告 id 集合与拓展详情拉取合并；
+ *              登录后预取已解锁集合，供详情首帧决定是否按已解锁口径渲染。
+ *              Unlocked id set and extended detail fetch/merge;
+ *              prefetches unlocked ids after login.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem } from "../types";
-import { fetchNoticeDetail, fetchNoticePreview, fetchNoticeContent, fetchUnlockedNoticeIds } from "../api";
+import { fetchNoticeDetail, fetchNoticePreview, fetchUnlockedNoticeIds } from "../api";
 
 export interface UseNoticeUnlockOptions {
   /** 当前登录用户 key */
@@ -24,17 +24,16 @@ export interface UseNoticeUnlockOptions {
 }
 
 export interface UseNoticeUnlockReturn {
-  /** 详情拓展加载中的公告 id；快速连续点击时 A 的 finally 不会误清 B 的加载态 */
-  detailLoadingId: number | null;
-  setDetailLoadingId: Dispatch<SetStateAction<number | null>>;
+  /** 详情已落地（成功或失败）的公告 pk；null=当前选中的详情还没回来。
+   *  用途：列表描述是 LEFT(300) 截断版，付费/已解锁用户要等全文落地后再渲染描述区，
+   *  避免"截断 → 完整"的跳变；免费用户不看这个（其详情必 403，截断版就是终态）。 */
+  detailSettledPk: number | null;
   isUnlocked: (id: number) => boolean;
   markUnlocked: (id: number) => void;
   /** 拉取已解锁公告的拓展详情并合并进当前选中项 */
   loadNoticeDetail: (notice: NoticeItem) => Promise<void>;
   /** 拉取锁定态有限预览（机构名/分类标签；VIP 另含机构全称与发布日期）并合并进当前选中项 */
   loadNoticePreview: (notice: NoticeItem) => Promise<void>;
-  /** 拉取公告全文内容替换搜索结果截断的 description；仅解锁态可调用（/content 属付费墙闸口，ARCH-P0 2026-09-05） */
-  loadNoticeContent: (notice: NoticeItem) => void;
   /** 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情） */
   openNoticeById: (id: number) => Promise<void>;
 }
@@ -44,9 +43,10 @@ export function useNoticeUnlock({
   items,
   setSelectedNotice,
 }: UseNoticeUnlockOptions): UseNoticeUnlockReturn {
-  // 已解锁公告 id 集合 + 详情拓展加载态（闪烁修复）
+  // 已解锁公告 id 集合
   const [unlockedIds, setUnlockedIds] = useState<Set<number>>(new Set());
-  const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
+  // 详情落地标记（成功/失败都算落地）：只做"描述是否已是终态"的判据，不再驱动任何加载态 UI
+  const [detailSettledPk, setDetailSettledPk] = useState<number | null>(null);
 
   // 详情/预览要按界面语言取机构译名（统一中文 2026-10-28）。
   // P2-2 口径：locale 同步到 ref 而不是进 useCallback 依赖，保持导出函数引用稳定；
@@ -79,10 +79,8 @@ export function useNoticeUnlock({
   }, [userId]);
 
   const loadNoticeDetail = useCallback(async (notice: NoticeItem) => {
-    if (!userId) {
-      setDetailLoadingId(null);
-      return;
-    }
+    if (!userId) return;
+    setDetailSettledPk(null);
     try {
       const detail = await fetchNoticeDetail(notice.noticePk, localeRef.current);
       setSelectedNotice((prev) => {
@@ -95,13 +93,17 @@ export function useNoticeUnlock({
           
           external_links: detail.externalLinks ?? [],
           contacts: detail.contacts ?? [],
+          // detail 的 description 已是服务表全文（列表 SQL 才做 LEFT 300 截断），
+          // 清掉列表项带下来的截断标记，避免全文后面仍挂一个「...」（骨架屏下线后首屏直接展示 teaser，更需要这条）
+          descriptionTruncated: false,
         };
       });
       markUnlocked(notice.noticePk);
     } catch {
       // 未解锁或加载失败：保留列表数据，不阻断详情页
     } finally {
-      setDetailLoadingId((prev) => (prev === notice.noticePk ? null : prev));
+      // 成功或失败都算"落地"：失败时（如行业墙/锁定 403）回退展示列表截断版，避免描述区永久空白
+      setDetailSettledPk(notice.noticePk);
     }
   }, [userId, setSelectedNotice, markUnlocked]);
 
@@ -127,37 +129,9 @@ export function useNoticeUnlock({
     }
   }, [userId, setSelectedNotice]);
 
-  // 公告全文内容加载：搜索 SQL 将 description 截断为 300 字符，
-  // 本函数拉取完整 description 替换截断版本，确保"查看原文"开关有意义；
-  // 全文端点响应与 NoticeItem 同一个契约（均 camelCase，红线②），不再需要桥接：
-  // 同时取 descriptionCn（来自机会表），确保中文环境下详情页立即显示中文描述，
-  // 避免卡片与详情页语言显示不一致；fire-and-forget 模式，失败静默不阻断详情页
-  const loadNoticeContent = useCallback((notice: NoticeItem) => {
-    fetchNoticeContent(notice.noticePk)
-      .then((content) => {
-        setSelectedNotice((prev) =>
-          prev && prev.noticePk === notice.noticePk
-            ? {
-                ...prev,
-                description: content.description,
-                title: content.title,
-                // 中文译文：立即显示中文，无需等翻译 API
-                ...(content.descriptionCn ? { descriptionCn: content.descriptionCn } : {}),
-                // 完整原文供"查看原文"切换（主表 description 仅存标题）
-                ...(content.originalDescription ? { originalDescription: content.originalDescription } : {}),
-              }
-            : prev,
-        );
-      })
-      .catch((e) => {
-        console.warn("[NoticeUnlock] 全文加载失败，保留截断版本:", e);
-      });
-  }, [setSelectedNotice]);
-
   // 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情）
   const openNoticeById = useCallback(async (id: number) => {
     const base = items.find((it) => it.noticePk === id) || ({ noticePk: id } as NoticeItem);
-    setDetailLoadingId(id);
     setSelectedNotice(base);
     window.scrollTo({ top: 0, behavior: "smooth" });
     if (!unlockedIds.has(id)) void loadNoticePreview(base);
@@ -167,13 +141,11 @@ export function useNoticeUnlock({
   const isUnlocked = useCallback((id: number) => unlockedIds.has(id), [unlockedIds]);
 
   return {
-    detailLoadingId,
-    setDetailLoadingId,
+    detailSettledPk,
     isUnlocked,
     markUnlocked,
     loadNoticeDetail,
     loadNoticePreview,
-    loadNoticeContent,
     openNoticeById,
   };
 }

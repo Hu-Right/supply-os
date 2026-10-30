@@ -2,7 +2,7 @@
  * 标题区 + 公告操作条 + 信息速览表
  * @module features/procurement/components/NoticeDetail/DetailHeader
  */
-import { ArrowLeft, Bell, Bookmark, Crown, ExternalLink, Heart, Share2 } from "lucide-react";
+import { ArrowLeft, Bookmark, Crown, ExternalLink, Share2 } from "lucide-react";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { Button } from "@/shared/ui";
 
@@ -26,8 +26,6 @@ interface DetailHeaderProps {
   onToggleFavorite?: () => void;
   /** 点击「分享」：打开应用内分享面板（由父级持有面板状态与公告 id） */
   onShare?: () => void;
-  /** 表达兴趣/订阅商机（2026-10-29 操作条大一统：从右栏底部上移，订阅是 interest_type=subscribed 唯一入口） */
-  onExpressInterest?: (type: "interested" | "subscribed") => void;
   /** 是否可解锁（会员/有额度）：false 时操作条显示「升级会员」CTA */
   canUsePaidQuota?: boolean;
   /** 点击「升级会员」：跳转会员页（带 notice_id 归因） */
@@ -41,7 +39,7 @@ export function DetailHeader({
   displayTitle, typeLabel, noticeId, visibleAgency, country,
   sourceUrl, platform, publishDate, deadlineText, countdown, budgetText,
   onBack, favorited, onToggleFavorite, onShare,
-  onExpressInterest, canUsePaidQuota, onUpgradeMembership, t, locale,
+  canUsePaidQuota, onUpgradeMembership, t, locale,
 }: DetailHeaderProps) {
   // 平台展示名：数据源自表（platform），zh 纯中文名（缺省回退 canonical），与国家展示同口径。
   // platform 为 null（锁定态预览不下发 / 无来源）→ 整个「来源平台」信息位隐藏：
@@ -90,62 +88,39 @@ export function DetailHeader({
         </div>
       </div>
 
-      {/* ═══ 操作栏：收藏/分享为次级操作；感兴趣/订阅/升级为主操作（移动端主操作仍由底部固定栏承担） ═══ */}
-      <div className="mb-6 flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onToggleFavorite}
-            className={`inline-flex items-center gap-1.5 h-8 rounded-lg border px-2.5 text-xs font-bold transition-colors ${
-              favorited
-                ? "border-amber-300 bg-amber-50 text-amber-600"
-                : "border-slate-200 bg-white text-slate-600 hover:border-teal-400 hover:text-teal-700"
-            }`}
-          >
-            <Bookmark className={`w-3.5 h-3.5 ${favorited ? "fill-amber-500 text-amber-500" : ""}`} />
-            {favorited ? (t("detail_collected") || "已收藏") : (t("detail_collect") || "收藏")}
-          </button>
-          <button
-            type="button"
-            onClick={onShare}
-            className="inline-flex items-center gap-1.5 h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 transition-colors hover:border-teal-400 hover:text-teal-700"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            {t("detail_share") || "分享"}
-          </button>
-        </div>
-
-        <div className="hidden md:flex items-center gap-2">
+      {/* ═══ 操作栏（2026-10-30：感兴趣/订阅商机退役，仅保留收藏/分享右置；免费用户附升级 CTA） ═══ */}
+      <div className="mb-6 flex items-center justify-end gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2.5">
+        <button
+          type="button"
+          onClick={onToggleFavorite}
+          className={`inline-flex items-center gap-1.5 h-8 rounded-lg border px-2.5 text-xs font-bold transition-colors ${
+            favorited
+              ? "border-amber-300 bg-amber-50 text-amber-600"
+              : "border-slate-200 bg-white text-slate-600 hover:border-teal-400 hover:text-teal-700"
+          }`}
+        >
+          <Bookmark className={`w-3.5 h-3.5 ${favorited ? "fill-amber-500 text-amber-500" : ""}`} />
+          {favorited ? (t("detail_collected") || "已收藏") : (t("detail_collect") || "收藏")}
+        </button>
+        <button
+          type="button"
+          onClick={onShare}
+          className="inline-flex items-center gap-1.5 h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 transition-colors hover:border-teal-400 hover:text-teal-700"
+        >
+          <Share2 className="w-3.5 h-3.5" />
+          {t("detail_share") || "分享"}
+        </button>
+        {!canUsePaidQuota && (
           <Button
             type="button"
-            onClick={() => onExpressInterest?.("interested")}
-            variant="primary"
+            onClick={onUpgradeMembership}
+            variant="cta"
             className="gap-1.5 px-3 py-2 text-xs"
           >
-            <Heart className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{t("procurement_interested") || "感兴趣"}</span>
+            <Crown className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{t("procurement_upgradeToUnlock") || "升级会员查看"}</span>
           </Button>
-          <Button
-            type="button"
-            onClick={() => onExpressInterest?.("subscribed")}
-            variant="dark"
-            className="gap-1.5 px-3 py-2 text-xs"
-          >
-            <Bell className="w-3.5 h-3.5 shrink-0 text-amber-300" />
-            <span className="truncate">{t("procurement_subscribeNotice") || "订阅商机"}</span>
-          </Button>
-          {!canUsePaidQuota && (
-            <Button
-              type="button"
-              onClick={onUpgradeMembership}
-              variant="cta"
-              className="gap-1.5 px-3 py-2 text-xs"
-            >
-              <Crown className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{t("procurement_upgradeToUnlock") || "升级会员查看"}</span>
-            </Button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* ═══ 信息速览表（来源平台位仅解锁且确有来源时渲染；列数随之 9/8） ═══ */}

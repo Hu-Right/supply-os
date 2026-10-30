@@ -4,11 +4,14 @@
  *
  * @module features/procurement/components/NoticeCoreContent
  * @description 主内容区核心块：已解锁时展示来源链接与
- *              拓展详情；加载详情时展示骨架屏；锁定时按敏感度分级渐进展示
+ *              拓展详情；锁定时按敏感度分级渐进展示
  *              （次要信息真实预览 → 核心敏感信息数量预告锁卡）。
  *              Core content block: unlocked view (tags, source link and
- *              extended details), skeleton while loading, locked progressive
- *              preview by sensitivity (secondary info → count-teaser lock cards).
+ *              extended details), locked progressive preview by sensitivity
+ *              (secondary info → count-teaser lock cards).
+ *
+ *              2026-10-30：详情加载中不再出骨架屏——列表/预览数据已足够渲染锁定态预览，
+ *              骨架屏换来的只是多一段空白等待（用户口径：点进详情不要再看到骨架屏）。
  *
  * 安全约束：核心敏感信息（联系人身份/文件清单/报告）服务端从不下发，
  * 锁定态锁卡仅渲染数量预告，DevTools 无法获取任何真实敏感内容。
@@ -16,14 +19,11 @@
 import { FileText, ListChecks, Lock, User } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem } from "../types";
-import { NoticeDetailSkeleton } from "./NoticeDetailSkeleton";
 
 export interface NoticeCoreContentProps {
   notice: NoticeItem;
   /** 核心信息已解锁 */
   coreUnlocked: boolean;
-  /** 拓展详情加载中（展示骨架屏） */
-  showSkeleton: boolean;
   /** 锁定态拆解文件计数预览（决定占位文件行数，缺失时取默认值） */
   breakdownFileCount?: number;
 }
@@ -31,7 +31,6 @@ export interface NoticeCoreContentProps {
 export function NoticeCoreContent({
   notice,
   coreUnlocked,
-  showSkeleton,
   breakdownFileCount,
 }: NoticeCoreContentProps) {
   const { t } = useLocale();
@@ -39,10 +38,6 @@ export function NoticeCoreContent({
   // 2026-10-29 信息架构拆分：解锁态内容已分别归入「采购方与联系人」「投标材料」Tab，
   // 采购摘要 Tab 不再承载机构/联系人/文件/报告块。
   if (coreUnlocked) return null;
-
-  if (showSkeleton) {
-    return <NoticeDetailSkeleton />;
-  }
 
   // ── 锁定态：按敏感度分级的渐进式展示 ──
   // 次要信息（真实数据，商业敏感度低）：发布日期/投标难度/注册门槛/行业分类，

@@ -164,14 +164,14 @@ export default function ProcurementPage() {
         notice={selectedNotice}
         actionMessage={actions.actionMessage}
         membership={actions.membership}
+        membershipReady={actions.membershipReady}
+        detailSettled={actions.detailSettledPk === selectedNotice.noticePk}
         canUsePaidQuota={actions.canUsePaidQuota}
         isVip={isVip}
         totalRemaining={actions.totalRemaining}
         isLoggedIn={!!authUser}
-        detailLoading={actions.detailLoadingId === selectedNotice.noticePk}
         onBack={() => {
           feedback.reportDetailExit();
-          actions.setDetailLoadingId(null);
           setSelectedNotice(null);
         }}
         onExpressInterest={actions.handleExpressInterest}

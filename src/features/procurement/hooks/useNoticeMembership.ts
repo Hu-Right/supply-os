@@ -21,6 +21,8 @@ export interface UseNoticeMembershipOptions {
 
 export interface UseNoticeMembershipReturn {
   membership: MembershipStatusView | null;
+  /** 会员状态是否已就绪（拉取成功或失败都算就绪；null 可能是"还没查"也可能是"查失败"） */
+  membershipReady: boolean;
   paidPlans: PlanView[];
   paidRemaining: number;
   canUsePaidQuota: boolean;
@@ -36,6 +38,7 @@ export function useNoticeMembership({
   isVip,
 }: UseNoticeMembershipOptions): UseNoticeMembershipReturn {
   const [membership, setMembership] = useState<MembershipStatusView | null>(null);
+  const [membershipReady, setMembershipReady] = useState(false);
   const [paidPlans, setPaidPlans] = useState<PlanView[]>([]);
 
   const paidRemaining = unlockRemaining(membership?.quotas);
@@ -48,6 +51,7 @@ export function useNoticeMembership({
   const refreshMembership = useCallback(async (useCache = false) => {
     if (!userId) {
       setMembership(null);
+      setMembershipReady(true);
       return;
     }
     try {
@@ -56,6 +60,8 @@ export function useNoticeMembership({
       setMembership(data);
     } catch {
       setMembership(null);
+    } finally {
+      setMembershipReady(true);
     }
   }, [userId]);
 
@@ -81,6 +87,7 @@ export function useNoticeMembership({
 
   return {
     membership,
+    membershipReady,
     paidPlans,
     paidRemaining,
     canUsePaidQuota,
