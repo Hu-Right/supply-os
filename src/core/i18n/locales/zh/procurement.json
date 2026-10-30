@@ -229,7 +229,7 @@
   "detail_regLevelL2": "L2 级",
   "detail_regLevelL2Guide": "需完成 UNGM L2 注册，额外提供审计报告、ISO 认证等资质文件。",
   "detail_regLevelL3": "L3 级",
-  "detail_regLevelL3Guide": "最高等级要求，需通过采购方现场审核与过往业绩验证。",
+  "detail_regLevelL3Guide": "最高等级要求，需通过机构现场审核与过往业绩验证。",
   "detail_qualLockedLevel": "注册等级要求与详细说明",
   "detail_qualLockedConditions": "供应商投标条件全文",
   "detail_qualLockedEligibility": "资格要求细则",
@@ -276,7 +276,7 @@
   "aiScoreCriteriaDelivery": "标书提交前复核流程、英文答疑能力 vs 公告交付周期、澄清会与里程碑要求",
   "aiScoreCriteriaPrice": "成本核算方式、FOB/CIF/DDP 报价能力、可否接受 30 天以上账期 vs 公告预算与付款条款",
   "detail_countdownDays": "{days}天",
-  "detail_buyer": "采购方",
+  "detail_buyer": "机构",
   "detail_countryRegion": "国家/地区",
   "detail_sourcePlatform": "来源平台",
   "detail_publishDate": "发布时间",
@@ -446,5 +446,5 @@
   "procurement_deadlineRegistration": "注册制结束",
   "procurement_deadlineFramework": "框架协议结束",
   "detail_reference": "参考编号",
-  "procurement_buyerUnavailable": "来源未提供买家"
+  "procurement_buyerUnavailable": "来源未提供机构"
 }

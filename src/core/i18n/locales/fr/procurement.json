@@ -229,7 +229,7 @@
   "detail_regLevelL2": "Niveau L2",
   "detail_regLevelL2Guide": "Nécessite l'enregistrement UNGM L2, plus rapports d'audit, certifications ISO et autres justificatifs.",
   "detail_regLevelL3": "Niveau L3",
-  "detail_regLevelL3Guide": "Niveau le plus élevé — audit sur place de l'acheteur et vérification des références requis.",
+  "detail_regLevelL3Guide": "Niveau le plus élevé — audit sur place de l'agence et vérification des références requis.",
   "detail_qualLockedLevel": "Exigences de niveau d'enregistrement et détails",
   "detail_qualLockedConditions": "Texte intégral des conditions fournisseurs",
   "detail_qualLockedEligibility": "Critères d'éligibilité détaillés",
@@ -243,7 +243,7 @@
   "detail_qualEmptyEligibility": "Aucune condition d'éligibilité spécifique — reportez-vous aux documents originaux",
   "detail_qualEmptyHurdles": "Aucun obstacle technique spécifique — reportez-vous aux documents originaux",
   "detail_countdownDays": "{days} j",
-  "detail_buyer": "Acheteur",
+  "detail_buyer": "Agence",
   "detail_countryRegion": "Pays/Région",
   "detail_sourcePlatform": "Plateforme source",
   "detail_publishDate": "Date de publication",
@@ -446,5 +446,5 @@
   "procurement_deadlineRegistration": "Fin d’enregistrement",
   "procurement_deadlineFramework": "Fin de l’accord-cadre",
   "detail_reference": "N° de référence",
-  "procurement_buyerUnavailable": "Acheteur non fourni par la source"
+  "procurement_buyerUnavailable": "Agence non fournie par la source"
 }

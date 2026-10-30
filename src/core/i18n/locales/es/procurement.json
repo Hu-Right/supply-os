@@ -229,7 +229,7 @@
   "detail_regLevelL2": "Nivel L2",
   "detail_regLevelL2Guide": "Requiere registro UNGM L2, más informes de auditoría, certificaciones ISO y otras credenciales.",
   "detail_regLevelL3": "Nivel L3",
-  "detail_regLevelL3Guide": "El nivel más alto: requiere auditoría in situ del comprador y verificación de experiencia previa.",
+  "detail_regLevelL3Guide": "El nivel más alto: requiere auditoría in situ de la agencia y verificación de experiencia previa.",
   "detail_qualLockedLevel": "Requisitos de nivel de registro y detalles",
   "detail_qualLockedConditions": "Texto completo de condiciones para proveedores",
   "detail_qualLockedEligibility": "Criterios de elegibilidad detallados",
@@ -243,7 +243,7 @@
   "detail_qualEmptyEligibility": "No se indican requisitos de elegibilidad específicos; consulte los documentos originales",
   "detail_qualEmptyHurdles": "No se indican barreras técnicas específicas; consulte los documentos originales",
   "detail_countdownDays": "{days}d",
-  "detail_buyer": "Comprador",
+  "detail_buyer": "Agencia",
   "detail_countryRegion": "País/Región",
   "detail_sourcePlatform": "Plataforma de origen",
   "detail_publishDate": "Fecha de publicación",
@@ -446,5 +446,5 @@
   "procurement_deadlineRegistration": "Fin del registro",
   "procurement_deadlineFramework": "Fin del acuerdo marco",
   "detail_reference": "N.º de referencia",
-  "procurement_buyerUnavailable": "Comprador no facilitado por la fuente"
+  "procurement_buyerUnavailable": "Agencia no facilitada por la fuente"
 }

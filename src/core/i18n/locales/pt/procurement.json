@@ -229,7 +229,7 @@
   "detail_regLevelL2": "Nível L2",
   "detail_regLevelL2Guide": "Exige registro UNGM L2, mais relatórios de auditoria, certificações ISO e outras credenciais.",
   "detail_regLevelL3": "Nível L3",
-  "detail_regLevelL3Guide": "O nível mais alto: exige auditoria in loco do comprador e verificação de experiência prévia.",
+  "detail_regLevelL3Guide": "O nível mais alto: exige auditoria in loco do órgão e verificação de experiência prévia.",
   "detail_qualLockedLevel": "Requisitos de nível de registro e detalhes",
   "detail_qualLockedConditions": "Texto completo das condições para fornecedores",
   "detail_qualLockedEligibility": "Critérios detalhados de elegibilidade",
@@ -243,7 +243,7 @@
   "detail_qualEmptyEligibility": "Não há requisitos de elegibilidade específicos; consulte os documentos originais",
   "detail_qualEmptyHurdles": "Não há barreiras técnicas específicas; consulte os documentos originais",
   "detail_countdownDays": "{days}d",
-  "detail_buyer": "Comprador",
+  "detail_buyer": "Órgão",
   "detail_countryRegion": "País/Região",
   "detail_sourcePlatform": "Plataforma de origem",
   "detail_publishDate": "Data de publicação",
@@ -252,9 +252,9 @@
   "detail_procurementType": "Tipo de contratação",
   "detail_budgetAmount": "Orçamento/Valor",
   "detail_tabListAria": "Abas de informações do anúncio",
-  "detail_tabBuyer": "Comprador e contatos",
+  "detail_tabBuyer": "Órgão e contatos",
   "detail_tabMaterials": "Materiais da licitação",
-  "detail_buyerLockedIntro": "Membros podem ver o comprador, os contatos e o link original.",
+  "detail_buyerLockedIntro": "Membros podem ver o órgão, os contatos e o link original.",
   "procurement_noContacts": "Esta licitação não fornece informações de contato.",
   "detail_tabSummary": "Resumo",
   "detail_tabQualification": "Qualificações",
@@ -446,5 +446,5 @@
   "procurement_deadlineRegistration": "Fim do registro",
   "procurement_deadlineFramework": "Fim do acordo-quadro",
   "detail_reference": "Nº de referência",
-  "procurement_buyerUnavailable": "Comprador não fornecido pela fonte"
+  "procurement_buyerUnavailable": "Órgão não fornecido pela fonte"
 }

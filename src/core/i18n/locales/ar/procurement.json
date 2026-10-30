@@ -229,7 +229,7 @@
   "detail_regLevelL2": "المستوى L2",
   "detail_regLevelL2Guide": "يتطلب تسجيل UNGM L2، بالإضافة إلى تقارير التدقيق وشهادات ISO وغيرها من الوثائق.",
   "detail_regLevelL3": "المستوى L3",
-  "detail_regLevelL3Guide": "أعلى مستوى — يتطلب تدقيقًا ميدانيًا من الجهة المشترية والتحقق من الأداء السابق.",
+  "detail_regLevelL3Guide": "أعلى مستوى — يتطلب تدقيقًا ميدانيًا من الوكالة والتحقق من الأداء السابق.",
   "detail_qualLockedLevel": "متطلبات مستوى التسجيل والتفاصيل",
   "detail_qualLockedConditions": "النص الكامل لشروط الموردين",
   "detail_qualLockedEligibility": "معايير الأهلية التفصيلية",
@@ -243,7 +243,7 @@
   "detail_qualEmptyEligibility": "لا توجد متطلبات أهلية محددة — يُرجى الرجوع إلى المستندات الأصلية",
   "detail_qualEmptyHurdles": "لا توجد عوائق تقنية محددة — يُرجى الرجوع إلى المستندات الأصلية",
   "detail_countdownDays": "{days} ي",
-  "detail_buyer": "المشتري",
+  "detail_buyer": "الوكالة",
   "detail_countryRegion": "الدولة/المنطقة",
   "detail_sourcePlatform": "منصة المصدر",
   "detail_publishDate": "تاريخ النشر",
@@ -446,5 +446,5 @@
   "procurement_deadlineRegistration": "انتهاء التسجيل",
   "procurement_deadlineFramework": "انتهاء الاتفاق الإطاري",
   "detail_reference": "رقم المرجع",
-  "procurement_buyerUnavailable": "لم يقدم المصدر جهة الشراء"
+  "procurement_buyerUnavailable": "لم يقدم المصدر الوكالة"
 }

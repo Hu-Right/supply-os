@@ -229,7 +229,7 @@
   "detail_regLevelL2": "Level L2",
   "detail_regLevelL2Guide": "Requires UNGM L2 registration, plus audit reports, ISO certifications and other credentials.",
   "detail_regLevelL3": "Level L3",
-  "detail_regLevelL3Guide": "The highest tier — requires on-site buyer audit and past performance verification.",
+  "detail_regLevelL3Guide": "The highest tier — requires on-site agency audit and past performance verification.",
   "detail_qualLockedLevel": "Registration level requirements and details",
   "detail_qualLockedConditions": "Full supplier requirements text",
   "detail_qualLockedEligibility": "Detailed eligibility criteria",
@@ -276,7 +276,7 @@
   "aiScoreCriteriaDelivery": "Pre-submission review process and English Q&A capability vs the notice's schedule, clarification meetings and milestones",
   "aiScoreCriteriaPrice": "Cost computation, FOB/CIF/DDP pricing capability and acceptance of payment terms beyond 30 days vs the notice's budget and payment terms",
   "detail_countdownDays": "{days}d",
-  "detail_buyer": "Buyer",
+  "detail_buyer": "Agency",
   "detail_countryRegion": "Country/Region",
   "detail_sourcePlatform": "Source Platform",
   "detail_publishDate": "Publish Date",
@@ -446,5 +446,5 @@
   "procurement_deadlineRegistration": "Registration closes",
   "procurement_deadlineFramework": "Framework agreement ends",
   "detail_reference": "Reference No.",
-  "procurement_buyerUnavailable": "Buyer not provided by source"
+  "procurement_buyerUnavailable": "Agency not provided by source"
 }

@@ -229,7 +229,7 @@
   "detail_regLevelL2": "Уровень L2",
   "detail_regLevelL2Guide": "Требуется регистрация UNGM L2, а также аудиторские отчёты, сертификаты ISO и другие документы.",
   "detail_regLevelL3": "Уровень L3",
-  "detail_regLevelL3Guide": "Высший уровень — требуется выездной аудит заказчика и проверка прошлого опыта.",
+  "detail_regLevelL3Guide": "Высший уровень — требуется выездной аудит агентства и проверка прошлого опыта.",
   "detail_qualLockedLevel": "Требования к уровню регистрации и подробности",
   "detail_qualLockedConditions": "Полный текст условий для поставщиков",
   "detail_qualLockedEligibility": "Подробные критерии допуска",
@@ -243,7 +243,7 @@
   "detail_qualEmptyEligibility": "Конкретные требования к участникам не указаны — см. исходные документы",
   "detail_qualEmptyHurdles": "Конкретные технические барьеры не указаны — см. исходные документы",
   "detail_countdownDays": "{days} д",
-  "detail_buyer": "Покупатель",
+  "detail_buyer": "Агентство",
   "detail_countryRegion": "Страна/Регион",
   "detail_sourcePlatform": "Платформа-источник",
   "detail_publishDate": "Дата публикации",
@@ -446,5 +446,5 @@
   "procurement_deadlineRegistration": "Окончание регистрации",
   "procurement_deadlineFramework": "Окончание рамочного соглашения",
   "detail_reference": "Номер ссылки",
-  "procurement_buyerUnavailable": "Заказчик не указан источником"
+  "procurement_buyerUnavailable": "Агентство не указано источником"
 }
