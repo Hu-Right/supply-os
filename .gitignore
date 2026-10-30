@@ -96,10 +96,11 @@ Desktop.ini
 !public/manifest.json
 !src/app/favicon.ico/
 
-# ===== 开发过程文档：仅 docs/adr/ 入库，其余（周报 / 收费资料 / 数据库设计等）本地 =====
-# 必须用 docs/*（而非 docs/）才能让下方 !docs/adr/ 例外生效——git 不进入被整目录排除的路径
+# ===== 开发过程文档：仅 docs/adr/ 与 docs/archive/ 入库，其余（周报 / 收费资料 / 数据库设计等）本地 =====
+# 必须用 docs/*（而非 docs/）才能让下方 ! 例外生效——git 不进入被整目录排除的路径
 docs/*
 !docs/adr/
+!docs/archive/
 
 # ===== 临时 / 个人过程文件（统一落 temp/，不再逐文件点名）=====
 /temp/
