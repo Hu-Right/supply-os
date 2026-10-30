@@ -53,7 +53,7 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
   const metaLine = (item: NoticeItem) => {
     const country = getCountryDisplayName(item.countryCode || "", locale);
     const deadline = formatNoticeDeadline(
-      item.deadlineTs, item.deadlineType, item.deadlineTimezone, locale, t,
+      item.deadlineTs, item.deadlineType, item.deadlineTimezone, locale, t, item.timezoneSource,
     );
     return [country, deadline].filter(Boolean).join(" · ");
   };

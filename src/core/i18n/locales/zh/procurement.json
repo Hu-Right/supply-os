@@ -281,7 +281,7 @@
   "detail_sourcePlatform": "来源平台",
   "detail_publishDate": "发布时间",
   "detail_deadline": "截止时间",
-  "detail_countdown": "倒计时（距北京时间）",
+  "detail_countdown": "倒计时",
   "detail_procurementType": "采购类型",
   "detail_budgetAmount": "预算/金额",
   "detail_tabListAria": "公告信息标签页",

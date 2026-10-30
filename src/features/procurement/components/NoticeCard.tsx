@@ -48,7 +48,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
   const tenderId = formatNoticeReference(item.reference, item.noticeId);
 
   const deadlineText = formatNoticeDeadline(
-    item.deadlineTs, item.deadlineType, item.deadlineTimezone, locale, t,
+    item.deadlineTs, item.deadlineType, item.deadlineTimezone, locale, t, item.timezoneSource,
   ) || t("procurement_noDeadline");
   const valueText = formatNoticeAmount(item.estimatedValue, item.currencyCode, locale, true);
   const isUnlocked = item.coreLocked === false;

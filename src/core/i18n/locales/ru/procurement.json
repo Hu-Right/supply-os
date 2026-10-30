@@ -248,7 +248,7 @@
   "detail_sourcePlatform": "Платформа-источник",
   "detail_publishDate": "Дата публикации",
   "detail_deadline": "Крайний срок",
-  "detail_countdown": "Обратный отсчёт (CST)",
+  "detail_countdown": "Обратный отсчёт",
   "detail_procurementType": "Тип закупки",
   "detail_budgetAmount": "Бюджет/Сумма",
   "detail_tabListAria": "Вкладки информации об объявлении",

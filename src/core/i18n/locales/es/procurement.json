@@ -248,7 +248,7 @@
   "detail_sourcePlatform": "Plataforma de origen",
   "detail_publishDate": "Fecha de publicación",
   "detail_deadline": "Fecha límite",
-  "detail_countdown": "Cuenta regresiva (CST)",
+  "detail_countdown": "Cuenta regresiva",
   "detail_procurementType": "Tipo de contratación",
   "detail_budgetAmount": "Presupuesto/Monto",
   "detail_tabListAria": "Pestañas de información del aviso",
