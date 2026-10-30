@@ -6,15 +6,17 @@
  */
 
 import { FileText, ClipboardList, Send, Award } from "lucide-react";
+import { useLocale } from "@/core/i18n";
 
 const PHASES = [
-  { key: "pre-bid", label: "投标前", sub: "资质诊断/合规评估", icon: FileText },
-  { key: "prep", label: "投标准备", sub: "方案准备/标书翻译", icon: ClipboardList },
-  { key: "submit", label: "投标提交", sub: "代投递交/澄清", icon: Send },
-  { key: "post-award", label: "中标后", sub: "谈判/履约/保函/物流", icon: Award },
+  { key: "pre-bid", labelKey: "svcPhasePreBid", subKey: "svcPhasePreBidSub", icon: FileText },
+  { key: "prep", labelKey: "svcPhasePrep", subKey: "svcPhasePrepSub", icon: ClipboardList },
+  { key: "submit", labelKey: "svcPhaseSubmit", subKey: "svcPhaseSubmitSub", icon: Send },
+  { key: "post-award", labelKey: "svcPhasePostAward", subKey: "svcPhasePostAwardSub", icon: Award },
 ];
 
 export function ServicesHero() {
+  const { t } = useLocale();
   return (
     <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0a1628] via-[#0f2035] to-[#0d2847] px-6 sm:px-8 py-10 md:py-14">
       {/* 右侧地球装饰 */}
@@ -26,10 +28,10 @@ export function ServicesHero() {
 
       <div className="relative z-10">
         <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
-          投标服务市场
+          {t("svcHeroTitle")}
         </h1>
         <p className="mt-3 text-sm md:text-base text-slate-400 max-w-2xl leading-relaxed">
-          按投标生命周期组织服务，明确交付物与报价，让高毛利服务更好成交。
+          {t("svcHeroSubtitle")}
         </p>
 
         {/* 4步生命周期步骤条 */}
@@ -63,14 +65,14 @@ export function ServicesHero() {
                         isActive ? "text-white" : "text-slate-300"
                       }`}
                     >
-                      {phase.label}
+                      {t(phase.labelKey)}
                     </div>
                     <div
                       className={`text-xs truncate ${
                         isActive ? "text-teal-100" : "text-slate-500"
                       }`}
                     >
-                      {phase.sub}
+                      {t(phase.subKey)}
                     </div>
                   </div>
                   <Icon

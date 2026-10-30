@@ -6,8 +6,14 @@
  * @description 把 useAwardsData 的真实返回（stats/topWinners/recentAwards）派生成页面各
  *              板块可直接渲染的视图模型；任何维度无真数据即置 present=false 并给 reason，
  *              绝不注入硬编码假数。纯函数、无副作用、可单测。
+ *              i18n：所有用户可见文案经注入的 t()（第二参）产出，键统一 award 前缀；
+ *              InfoCard.link 改为稳定动作码（trend/category/winners/reminder）供分发，
+ *              展示文案由 linkLabelKey 经渲染层 t() 出。
  */
 import type { AwardsData } from "@/features/procurement/hooks/useAwardsData";
+
+/** t 的最小结构签名（与 useLocale().t 一致）；VM 保持纯函数，不依赖 React 上下文 */
+export type AwardTranslateFn = (key: string, params?: Record<string, string | number>) => string;
 
 export interface CoverageInfo {
   sources: string[];
@@ -19,7 +25,9 @@ export interface CoverageInfo {
   totalValueUsd: number;
 }
 export interface StatCard { label: string; value: string; sub: string }
-export interface InfoCard { title: string; value: string; sub: string; badge: string; link: string }
+/** link 兼任动作分发键 → 改为稳定码；展示文案由 linkLabelKey 经渲染层 t() 出 */
+export type InfoCardAction = "trend" | "category" | "winners" | "reminder";
+export interface InfoCard { title: string; value: string; sub: string; badge: string; link: InfoCardAction; linkLabelKey: string }
 export interface ProfileRow { label: string; value: string }
 export interface WinnerRow { rank: number; name: string; country: string | null; count: number; totalUsd: number }
 export interface CategoryRow { name: string; count: number }
@@ -51,8 +59,8 @@ function compactUsd(n: number): string {
   return `US$${n.toFixed(0)}`;
 }
 
-/** 由真实中标数据派生页面视图模型（纯函数）。 */
-export function buildAwardViewModel(data: AwardsData): AwardViewModel {
+/** 由真实中标数据派生页面视图模型（纯函数）；所有用户可见文案经 t() 产出。 */
+export function buildAwardViewModel(data: AwardsData, t: AwardTranslateFn): AwardViewModel {
   const stats = data.stats;
   const hasReal = data.hasRealData;
   const monthsDesc = stats?.byMonth ?? []; // 服务端返回按 month DESC
@@ -61,6 +69,7 @@ export function buildAwardViewModel(data: AwardsData): AwardViewModel {
   const countries = (stats?.byCountry ?? []).map((c) => c.country);
   const totalValueUsd = stats?.totalValueUsd ?? 0;
   const amountAvailable = totalValueUsd > 0;
+  const enumSep = t("awardEnumSep");
 
   const coverage: CoverageInfo = {
     sources,
@@ -76,21 +85,21 @@ export function buildAwardViewModel(data: AwardsData): AwardViewModel {
   const statsCards: StatCard[] =
     hasReal && stats
       ? [
-          { label: "中标记录", value: stats.total.toLocaleString(), sub: monthsDesc[0] ? `最新月 +${monthsDesc[0].count}` : "" },
-          { label: "采购机构档案", value: String(stats.byAgency.length), sub: `覆盖 ${countries.length} 个国家` },
-          { label: "可追踪竞争对手", value: `${data.topWinners.length}`, sub: "持续更新中" },
-          { label: "数据追踪", value: coverage.earliestYear ? `${coverage.earliestYear}年起` : "—", sub: "持续更新中" },
+          { label: t("awardStatRecords"), value: stats.total.toLocaleString(), sub: monthsDesc[0] ? t("awardStatLatestMonth", { n: monthsDesc[0].count }) : "" },
+          { label: t("awardStatAgencies"), value: String(stats.byAgency.length), sub: t("awardStatCountries", { n: countries.length }) },
+          { label: t("awardStatCompetitors"), value: `${data.topWinners.length}`, sub: t("awardStatOngoing") },
+          { label: t("awardStatTracking"), value: coverage.earliestYear ? t("awardStatSinceYear", { y: coverage.earliestYear }) : "—", sub: t("awardStatOngoing") },
         ]
       : [];
 
-  // 速览动作卡：真实派生，保留四个动作链接（查看趋势/品类/名单/提醒）
+  // 速览动作卡：真实派生，保留四个动作码（趋势/品类/名单/提醒），文案经 linkLabelKey 出
   const infoCards: InfoCard[] =
     hasReal && stats
       ? [
-          { title: "数据来源", value: sources.join("、") || "接入中", sub: `${coverage.recordCount.toLocaleString()} 条记录`, badge: "覆盖", link: "查看趋势" },
-          { title: "金额", value: amountAvailable ? compactUsd(totalValueUsd) : "未公开", sub: amountAvailable ? "已按币种折算合计" : "来源未提供中标金额", badge: "金额", link: "查看品类" },
-          { title: "主要中标商", value: `${data.topWinners.length} 家可追踪`, sub: "", badge: "竞争情报", link: "查看名单" },
-          { title: "时间跨度", value: coverage.earliestYear && coverage.latestYear ? `${coverage.earliestYear}–${coverage.latestYear}` : "—", sub: "", badge: "趋势", link: "设置提醒" },
+          { title: t("awardInfoSourcesTitle"), value: sources.join(enumSep) || t("awardConnecting"), sub: t("awardRecordsCount", { n: coverage.recordCount.toLocaleString() }), badge: t("awardBadgeCoverage"), link: "trend", linkLabelKey: "awardCardLinkTrend" },
+          { title: t("awardInfoAmountTitle"), value: amountAvailable ? compactUsd(totalValueUsd) : t("awardAmountNotPublic"), sub: amountAvailable ? t("awardAmountConvertedSub") : t("awardAmountMissingSub"), badge: t("awardBadgeAmount"), link: "category", linkLabelKey: "awardCardLinkCategory" },
+          { title: t("awardInfoWinnersTitle"), value: t("awardWinnersTrackable", { n: data.topWinners.length }), sub: "", badge: t("awardBadgeIntel"), link: "winners", linkLabelKey: "awardCardLinkWinners" },
+          { title: t("awardInfoTimespanTitle"), value: coverage.earliestYear && coverage.latestYear ? `${coverage.earliestYear}–${coverage.latestYear}` : "—", sub: "", badge: t("awardBadgeTrend"), link: "reminder", linkLabelKey: "awardCardLinkReminder" },
         ]
       : [];
 
@@ -104,15 +113,15 @@ export function buildAwardViewModel(data: AwardsData): AwardViewModel {
             amountsUsd: amountAvailable ? monthsAsc.map((m) => m.totalUsd) : null,
           },
         }
-      : { present: false, reason: "暂无按月中标数据，接入中" };
+      : { present: false, reason: t("awardReasonNoTrend") };
 
   // S0：买家画像无可靠真实来源 → 诚实空态（S1 起接归一后的 agency 画像）
-  const buyerProfile: Section<ProfileRow[]> = { present: false, reason: "买家画像需多来源积累，S1（TED）起接入" };
+  const buyerProfile: Section<ProfileRow[]> = { present: false, reason: t("awardReasonBuyerProfile") };
 
   // 品类：有 category 原值才聚合，否则诚实空态
   const categories: Section<CategoryRow[]> = data.recentAwards.some((r) => r.category)
     ? { present: true, data: aggregateCategories(data.recentAwards) }
-    : { present: false, reason: "品类分布待来源补齐品类字段后接入" };
+    : { present: false, reason: t("awardReasonNoCategories") };
 
   // 注：上游 /api/awards/top 现按金额(totalUsd)排序采样，金额缺失时为近期样本、
   //      非全量按次数权威排名（S1 数据层改为按 count 排序 + 全量聚合后再上调用）。
@@ -125,7 +134,7 @@ export function buildAwardViewModel(data: AwardsData): AwardViewModel {
             .slice(0, 10)
             .map((w, i) => ({ rank: i + 1, name: w.name, country: w.country, count: w.count, totalUsd: w.totalUsd })),
         }
-      : { present: false, reason: "暂无中标商数据" };
+      : { present: false, reason: t("awardReasonNoWinners") };
 
   const recentAwards: RecentRow[] = data.recentAwards.map((r) => ({
     id: r.id,
@@ -138,11 +147,11 @@ export function buildAwardViewModel(data: AwardsData): AwardViewModel {
     currency: r.currency,
   }));
 
-  const srcLabel = sources.join("、") || "公开来源";
+  const srcLabel = sources.join(enumSep) || t("awardSourcesPublic");
   const copy = {
-    heroTitle: "中标结果 / 买家情报",
-    heroSubtitle: `聚合${srcLabel}中标数据 · 已覆盖 ${countries.length} 国 · 持续接入全球更多公开来源`,
-    cnCasesNote: "以下为中国企业联合国采购中标精选案例（人工核验官方公示，非平台聚合数据）",
+    heroTitle: t("awardCopyHeroTitle"),
+    heroSubtitle: t("awardCopyHeroSubtitle", { sources: srcLabel, n: countries.length }),
+    cnCasesNote: t("awardCopyCnCasesNote"),
   };
 
   return { coverage, statsCards, infoCards, trend, buyerProfile, topWinners, categories, recentAwards, copy, loading: data.loading, error: data.error };

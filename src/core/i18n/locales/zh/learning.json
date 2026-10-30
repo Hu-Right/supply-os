@@ -35,5 +35,7 @@
   "buyMaterialBtn": "购买资料",
   "learningBundleTitle": "📦 打包优惠购买",
   "learningContentLocked": "购买后可查看完整内容与下载",
-  "learningContentLoadedFailed": "内容加载失败，请刷新重试"
+  "learningContentLoadedFailed": "内容加载失败，请刷新重试",
+  "learnGetDownloadUrlFailed": "获取下载地址失败，请稍后重试或联系客服",
+  "learnNoDownloadFile": "该资料暂无可下载文件，请稍后重试或联系客服"
 }

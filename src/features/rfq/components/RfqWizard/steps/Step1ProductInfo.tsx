@@ -25,43 +25,43 @@ export function Step1ProductInfo({
   form, errors, update, onCategoryL1, onCategoryL2,
   l1Options, l2Options, l3Options,
 }: Step1Props) {
-  const { locale } = useLocale();
+  const { locale, t } = useLocale();
   return (
     <div className="space-y-5">
-      <Field label="需求标题" required error={errors.title} htmlFor="rfq-title"
+      <Field label={t("rfqFieldTitle")} required error={errors.title} htmlFor="rfq-title"
         counter={`${form.title.length}/50`}
-        hint="建议10-50字，格式：采购〔产品〕〔数量〕">
+        hint={t("rfqTitleHint")}>
         <Input id="rfq-title" maxLength={50} value={form.title} error={!!errors.title}
           onChange={(e) => update("title", e.target.value)}
-          placeholder="例：采购光伏组件 10MW" />
+          placeholder={t("rfqTitlePlaceholder")} />
       </Field>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Field label="一级分类" required error={errors.categoryL1} htmlFor="rfq-cat1">
+        <Field label={t("rfqFieldCategoryL1")} required error={errors.categoryL1} htmlFor="rfq-cat1">
           <Select id="rfq-cat1" value={form.categoryL1} error={!!errors.categoryL1}
             onChange={(e) => onCategoryL1(e.target.value)}>
-            <option value="">请选择一级分类</option>
+            <option value="">{t("rfqSelectCategoryL1")}</option>
             {l1Options.map((o) => (
               <option key={o.key} value={o.key}>{o.nameZh || o.nameEn || o.key}</option>
             ))}
           </Select>
         </Field>
-        <Field label="二级分类" required error={errors.categoryL2} htmlFor="rfq-cat2">
+        <Field label={t("rfqFieldCategoryL2")} required error={errors.categoryL2} htmlFor="rfq-cat2">
           <Select id="rfq-cat2" value={form.categoryL2} error={!!errors.categoryL2}
             onChange={(e) => onCategoryL2(e.target.value)}
             disabled={!form.categoryL1}>
-            <option value="">请选择二级分类</option>
+            <option value="">{t("rfqSelectCategoryL2")}</option>
             {l2Options.map((o) => {
               const label = (locale === "zh" ? o.nameZh : o.nameEn) || o.nameZh || o.nameEn || o.key;
               return <option key={o.key} value={o.key}>{label}</option>;
             })}
           </Select>
         </Field>
-        <Field label="三级分类" required error={errors.categoryL3} htmlFor="rfq-cat3">
+        <Field label={t("rfqFieldCategoryL3")} required error={errors.categoryL3} htmlFor="rfq-cat3">
           <Select id="rfq-cat3" value={form.categoryL3} error={!!errors.categoryL3}
             onChange={(e) => update("categoryL3", e.target.value)}
             disabled={!form.categoryL2}>
-            <option value="">请选择三级分类</option>
+            <option value="">{t("rfqSelectCategoryL3")}</option>
             {l3Options.map((o) => {
               const label = (locale === "zh" ? o.nameZh : o.nameEn) || o.nameZh || o.nameEn || o.key;
               return <option key={o.key} value={o.key}>{label}</option>;
@@ -70,24 +70,24 @@ export function Step1ProductInfo({
         </Field>
       </div>
 
-      <Field label="采购类型" required>
+      <Field label={t("rfqFieldPurchaseType")} required>
         <SegmentedControl items={[
-            { value: "once", label: "单次采购" },
-            { value: "framework", label: "框架协议" },
-            { value: "longterm", label: "长期供货" },
+            { value: "once", label: t("rfqPurchaseOnce") },
+            { value: "framework", label: t("rfqPurchaseFramework") },
+            { value: "longterm", label: t("rfqPurchaseLongterm") },
           ]} value={form.purchaseType}
           onChange={(v) => update("purchaseType", v)}
           fullWidth
         />
       </Field>
 
-      <Field label="需求描述" required error={errors.description} htmlFor="rfq-desc"
+      <Field label={t("rfqFieldDescription")} required error={errors.description} htmlFor="rfq-desc"
         counter={`${form.description.length}/2000`}
-        hint="建议包含：用途、技术要求、验收标准">
+        hint={t("rfqDescHint")}>
         <Textarea id="rfq-desc" rows={12} maxLength={2000} value={form.description}
           error={!!errors.description}
           onChange={(e) => update("description", e.target.value)}
-          placeholder="请在此填写您的采购需求…"
+          placeholder={t("rfqDescPlaceholder")}
           className="resize-none" />
       </Field>
     </div>

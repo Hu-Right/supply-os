@@ -17,15 +17,16 @@ import {
   AlertTriangle, Check, ChevronDown, ChevronLeft, Lock, Send,
 } from "lucide-react";
 
-import { Button } from "@/shared/ui";
+import { Button, Spinner } from "@/shared/ui";
 import { useAuth } from "@/core/auth";
+import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
 import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/features/procurement/api/commodityTree";
 import { DEFAULT_RFQ_FORM } from "../../constants";
 import type { FieldErrors, RfqFormState } from "../../types";
 
-import { DESCRIPTION_TEMPLATE, STEP_META } from "./constants";
+import { STEP_META } from "./constants";
 import { tomorrowIso } from "./utils";
 import { StepIndicator } from "./ui/StepIndicator";
 import { Step1ProductInfo } from "./steps/Step1ProductInfo";
@@ -45,15 +46,16 @@ interface RfqWizardProps {
  */
 export function RfqWizard({ initialData, authContact }: RfqWizardProps) {
   const { authUser } = useAuth();
+  const { t } = useLocale();
 
   if (!authUser) {
     return (
       <div className="rounded-2xl border border-secondary-200 bg-white p-12 text-center shadow-xs">
         <Lock className="w-12 h-12 text-secondary-300 mx-auto mb-4" />
-        <h3 className="text-lg font-extrabold text-secondary-900 mb-2">发布采购需求需要先登录</h3>
-        <p className="text-sm text-secondary-500 mb-6">登录后即可发布采购需求，平台将智能匹配供应商</p>
+        <h3 className="text-lg font-extrabold text-secondary-900 mb-2">{t("rfqWizardLoginRequired")}</h3>
+        <p className="text-sm text-secondary-500 mb-6">{t("rfqWizardLoginDesc")}</p>
         <Button variant="primary" onClick={() => emitAppEvent("supply-os:require-login")}>
-          立即登录
+          {t("rfqLoginCta")}
         </Button>
       </div>
     );
@@ -67,9 +69,10 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
   // 注意：不用 Button asChild + Link——React 19 的 Children.toArray 不再过滤 false 子节点，
   // 会与 Radix Slot 单元素约束冲突导致渲染报错；改用 router.push 导航。
   const router = useRouter();
+  const { t } = useLocale();
   const initialForm: RfqFormState = {
     ...initialData,
-    description: initialData.description || DESCRIPTION_TEMPLATE,
+    description: initialData.description || t("rfqDescTemplate"),
   };
   const [form, setForm] = useState<RfqFormState>(initialForm);
   const [step, setStep] = useState(0);
@@ -156,30 +159,30 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     const e: FieldErrors = {};
     if (s === 0) {
       const title = form.title.trim();
-      if (title.length < 10) e.title = `标题至少 10 个字（当前 ${title.length}），建议写明产品和数量，例如"采购光伏组件 10MW"`;
-      else if (title.length > 50) e.title = "标题不能超过 50 个字";
-      if (!form.categoryL3) e.categoryL3 = "请选择三级分类（小类）";
+      if (title.length < 10) e.title = t("rfqErrTitleMin", { count: title.length });
+      else if (title.length > 50) e.title = t("rfqErrTitleMax");
+      if (!form.categoryL3) e.categoryL3 = t("rfqErrCategoryRequired");
       const desc = form.description.trim();
-      if (desc.length < 50) e.description = `描述至少 50 个字（当前 ${desc.length}），请补充用途、技术要求与验收标准`;
-      else if (desc.length > 2000) e.description = "描述不能超过 2000 字";
+      if (desc.length < 50) e.description = t("rfqErrDescMin", { count: desc.length });
+      else if (desc.length > 2000) e.description = t("rfqErrDescMax");
     }
     if (s === 1) {
-      if (!form.deadline) e.deadline = "请选择报价截止时间";
-      else if (form.deadline < tomorrowIso()) e.deadline = "截止时间至少在 24 小时以后";
-      if (!form.address.trim()) e.address = "请填写交付地点";
-      if (!form.incoterm) e.incoterm = "请选择贸易术语";
-      if (!form.deliveryTime.trim()) e.deliveryTime = "请填写交付时间";
+      if (!form.deadline) e.deadline = t("rfqErrDeadlineRequired");
+      else if (form.deadline < tomorrowIso()) e.deadline = t("rfqErrDeadlineTooSoon");
+      if (!form.address.trim()) e.address = t("rfqErrAddressRequired");
+      if (!form.incoterm) e.incoterm = t("rfqErrIncotermRequired");
+      if (!form.deliveryTime.trim()) e.deliveryTime = t("rfqErrDeliveryTimeRequired");
       if (!form.budgetConfidential) {
         const budget = form.budget.trim();
-        if (!budget) e.budget = "请填写预算金额，或勾选'预算保密'";
+        if (!budget) e.budget = t("rfqErrBudgetRequired");
         else if (!Number.isFinite(Number(budget)) || Number(budget) <= 0)
-          e.budget = "请输入有效的预算金额（大于 0 的数字）";
+          e.budget = t("rfqErrBudgetInvalid");
       }
     }
     if (s === 2) {
-      if (!form.contactName.trim()) e.contactName = "请填写联系人姓名";
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail.trim())) e.contactEmail = "请输入有效邮箱，报价通知将发送至此";
-      if (!form.agreed) e.agreed = "请阅读并勾选发布承诺";
+      if (!form.contactName.trim()) e.contactName = t("rfqErrContactNameRequired");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail.trim())) e.contactEmail = t("rfqErrContactEmailInvalid");
+      if (!form.agreed) e.agreed = t("rfqErrAgreedRequired");
     }
     return e;
   }
@@ -242,12 +245,12 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
         },
       });
       const rfqId = res?.id;
-      if (!rfqId) throw new Error("创建失败");
+      if (!rfqId) throw new Error(t("rfqCreateFailed"));
       await api(`/api/rfq/${rfqId}/submit`, { method: "PATCH", body: {} });
       setSubmitted(true);
     } catch (err) {
       const msg = (err as Error).message || "";
-      const friendly = msg.includes("Request failed") ? "发布失败，请检查表单填写是否完整" : msg;
+      const friendly = msg.includes("Request failed") ? t("rfqPublishFailedFallback") : msg;
       setErrors({ _form: friendly });
       console.warn("[RfqWizard] submit failed:", err);
     } finally {
@@ -262,12 +265,12 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
         <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 mb-4">
           <Check className="h-8 w-8 text-teal-600" />
         </div>
-        <h3 className="text-lg font-extrabold text-secondary-900 mb-2">采购需求已提交</h3>
-        <p className="text-sm text-secondary-500 mb-6">平台审核通过后将自动展示在需求广场，您可以随时在"我的采购需求"中查看或编辑。</p>
+        <h3 className="text-lg font-extrabold text-secondary-900 mb-2">{t("rfqSubmittedTitle")}</h3>
+        <p className="text-sm text-secondary-500 mb-6">{t("rfqSubmittedDesc")}</p>
         <div className="flex items-center justify-center gap-3">
-          <Button variant="outline" onClick={() => router.push("/settings/rfq")}>查看我的采购需求</Button>
+          <Button variant="outline" onClick={() => router.push("/settings/rfq")}>{t("rfqViewMyRfqs")}</Button>
           <Button variant="primary" onClick={() => { setSubmitted(false); setForm(DEFAULT_RFQ_FORM); setStep(0); }}>
-            发布新需求
+            {t("rfqPublishNew")}
           </Button>
         </div>
       </div>
@@ -309,19 +312,19 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
       <div className="flex items-center justify-between mt-8 pt-5 border-t border-secondary-100">
         {step > 0 ? (
           <Button variant="outline" onClick={goPrev}>
-            <ChevronLeft className="w-4 h-4 mr-1" /> 上一步
+            <ChevronLeft className="w-4 h-4 mr-1" /> {t("rfqPrevStep")}
           </Button>
         ) : <div />}
         {step < STEP_META.length - 1 ? (
           <Button variant="primary" onClick={goNext}>
-            下一步 <ChevronDown className="w-4 h-4 ml-1 -rotate-90" />
+            {t("rfqNextStep")} <ChevronDown className="w-4 h-4 ml-1 -rotate-90" />
           </Button>
         ) : (
           <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
             {submitting ? (
-              <><span className="animate-spin mr-2">⏳</span> 发布中…</>
+              <><Spinner className="w-4 h-4 mr-2" aria-hidden="true" /><span aria-live="polite">{t("rfqPublishing")}</span></>
             ) : (
-              <><Send className="w-4 h-4 mr-1" /> 发布 RFQ</>
+              <><Send className="w-4 h-4 mr-1" /> {t("rfqPublishRfq")}</>
             )}
           </Button>
         )}

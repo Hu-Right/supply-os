@@ -10,9 +10,12 @@
  */
 import { useState, memo } from "react";
 import { Search, ArrowRight } from "lucide-react";
+import { useLocale } from "@/core/i18n";
 import { CN_AWARD_CASES, CN_CASE_CATEGORIES, type CnAwardCase } from "@/data/cn-award-cases";
 
 export const CnCaseSection = memo(function CnCaseSection({ note, onOpenDetail }: { note?: string; onOpenDetail: (c: CnAwardCase) => void }) {
+  const { t } = useLocale();
+  // 筛选态仍以原始类别值（含「全部」哨兵）比较，仅展示层经 t() 出文案
   const [cnCategory, setCnCategory] = useState("全部");
   const [cnSearch, setCnSearch] = useState("");
   const [cnShowAll, setCnShowAll] = useState(false);
@@ -22,11 +25,11 @@ export const CnCaseSection = memo(function CnCaseSection({ note, onOpenDetail }:
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900">中国企业联合国采购中标案例</h3>
-            <p className="text-xs text-slate-500 mt-0.5">30 个官方可核验案例 · 涵盖 UNICEF / WHO / UNDP / UNOPS / UNHCR</p>
+            <h3 className="text-base font-extrabold text-slate-900">{t("awardCnCaseTitle")}</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{t("awardCnCaseSubtitle")}</p>
             {note && <p className="text-2xs text-amber-600 mt-1">{note}</p>}
           </div>
-          <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg">{CN_AWARD_CASES.length} 例</span>
+          <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg">{t("awardCnCaseCountBadge", { n: CN_AWARD_CASES.length })}</span>
         </div>
 
         {/* 类别筛选 */}
@@ -36,7 +39,7 @@ export const CnCaseSection = memo(function CnCaseSection({ note, onOpenDetail }:
               className={`text-2xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
                 cnCategory === cat ? "bg-teal-600 text-white border-teal-600" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
               }`}>
-              {cat}
+              {cat === "全部" ? t("awardCnCaseFilterAll") : cat}
             </button>
           ))}
         </div>
@@ -45,7 +48,7 @@ export const CnCaseSection = memo(function CnCaseSection({ note, onOpenDetail }:
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input type="text" value={cnSearch} onChange={(e) => { setCnSearch(e.target.value); setCnShowAll(false); }}
-            placeholder="搜索：企业名 / 采购内容 / 合同编号 / UN机构"
+            placeholder={t("awardCnCaseSearchPlaceholder")}
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
         </div>
 
@@ -60,7 +63,7 @@ export const CnCaseSection = memo(function CnCaseSection({ note, onOpenDetail }:
           });
           const displayed = cnShowAll ? filtered : filtered.slice(0, 6);
           if (filtered.length === 0) {
-            return <p className="text-center text-xs text-slate-400 py-8">无匹配案例</p>;
+            return <p className="text-center text-xs text-slate-400 py-8">{t("awardCnCaseNoMatch")}</p>;
           }
           return (
             <>
@@ -90,7 +93,7 @@ export const CnCaseSection = memo(function CnCaseSection({ note, onOpenDetail }:
               {filtered.length > 6 && !cnShowAll && (
                 <button onClick={() => setCnShowAll(true)}
                   className="mt-4 mx-auto block text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1">
-                  查看全部 {filtered.length} 个案例 <ArrowRight className="w-3 h-3" />
+                  {t("awardCnCaseViewAll", { n: filtered.length })} <ArrowRight className="w-3 h-3" />
                 </button>
               )}
             </>

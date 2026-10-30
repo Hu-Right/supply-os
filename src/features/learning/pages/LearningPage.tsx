@@ -39,12 +39,12 @@ export default function LearningPage() {
       } catch {
         // 付费资料获取失败必须可见（E2）：此前仅 console 静默，用户无感知
         console.error("[learning] 获取下载地址失败");
-        toast.error("获取下载地址失败，请稍后重试或联系客服");
+        toast.error(t("learnGetDownloadUrlFailed"));
         return;
       }
     }
     if (!url) {
-      toast.error("该资料暂无可下载文件，请稍后重试或联系客服");
+      toast.error(t("learnNoDownloadFile"));
       return;
     }
     const a = document.createElement("a");

@@ -12,10 +12,11 @@ import { Globe, Plus } from "lucide-react";
 import { ECO_PARTNERS, ECO_PARTNER_CATEGORIES } from "@/data/services";
 import type { EcoPartnerItem, EcoPartnerStatus } from "@/data/services";
 import { emitAppEvent } from "@/core/events";
+import { useLocale } from "@/core/i18n";
 
-const STATUS_STYLE: Record<EcoPartnerStatus, { label: string; className: string }> = {
-  live: { label: "已入驻", className: "bg-teal-50 text-teal-700 border-teal-200" },
-  "in-talks": { label: "洽谈中", className: "bg-amber-50 text-amber-600 border-amber-200" },
+const STATUS_STYLE: Record<EcoPartnerStatus, { labelKey: string; className: string }> = {
+  live: { labelKey: "svcPartnerStatusLive", className: "bg-teal-50 text-teal-700 border-teal-200" },
+  "in-talks": { labelKey: "svcPartnerStatusInTalks", className: "bg-amber-50 text-amber-600 border-amber-200" },
 };
 
 const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
@@ -23,6 +24,7 @@ const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 function PartnerCard({ partner }: { partner: EcoPartnerItem }) {
+  const { t } = useLocale();
   const status = STATUS_STYLE[partner.status];
 
   return (
@@ -38,7 +40,7 @@ function PartnerCard({ partner }: { partner: EcoPartnerItem }) {
             <span
               className={`flex-shrink-0 px-2 py-0.5 rounded-full border text-[11px] font-bold ${status.className}`}
             >
-              {status.label}
+              {t(status.labelKey)}
             </span>
           </div>
           <p className="text-xs text-slate-400 truncate">{partner.nameEn}</p>
@@ -65,26 +67,27 @@ function PartnerCard({ partner }: { partner: EcoPartnerItem }) {
         onClick={() => emitAppEvent("supply-os:consult")}
         className="w-full py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
       >
-        咨询该服务
+        {t("svcPartnerCta")}
       </button>
     </div>
   );
 }
 
 export function PartnerEcosystem() {
+  const { t } = useLocale();
   return (
     <section>
       {/* 分区标题 + 四类类目标签 */}
       <div className="mb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg md:text-xl font-extrabold text-slate-900">第三方服务生态</h2>
+            <h2 className="text-lg md:text-xl font-extrabold text-slate-900">{t("svcEcoTitle")}</h2>
             <span className="px-2 py-0.5 rounded-full bg-teal-600/10 text-teal-700 text-xs font-bold">
-              邀约入驻
+              {t("svcEcoBadge")}
             </span>
           </div>
           <p className="mt-1 text-xs md:text-sm text-slate-500 max-w-2xl">
-            邀约合规、履约、售后、本地化运营等第三方伙伴入驻，与自营投标服务拼齐出海全链路。
+            {t("svcEcoDesc")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -109,16 +112,16 @@ export function PartnerEcosystem() {
           <div className="w-11 h-11 rounded-full bg-teal-50 flex items-center justify-center mb-3">
             <Plus className="w-5 h-5 text-teal-600" />
           </div>
-          <h3 className="text-sm font-extrabold text-slate-900 mb-1">成为生态伙伴</h3>
+          <h3 className="text-sm font-extrabold text-slate-900 mb-1">{t("svcEcoJoinTitle")}</h3>
           <p className="text-xs text-slate-500 leading-relaxed mb-4 max-w-[240px]">
-            贵司若在合规、履约、售后或本地化运营领域有成熟服务能力，欢迎申请入驻。
+            {t("svcEcoJoinDesc")}
           </p>
           <button
             type="button"
             onClick={() => emitAppEvent("supply-os:consult")}
             className="px-6 py-2.5 rounded-lg border border-teal-600 text-teal-700 hover:bg-teal-600 hover:text-white text-sm font-bold transition-colors"
           >
-            申请入驻
+            {t("svcEcoJoinCta")}
           </button>
         </div>
       </div>

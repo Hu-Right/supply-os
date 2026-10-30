@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Eye, Trash2, Upload } from "lucide-react";
 import { api, getAuthToken } from "@/core/http";
+import { useLocale } from "@/core/i18n";
 
 type CapabilityType =
   | "certification"
@@ -47,23 +48,23 @@ interface ProfileResponse {
   evidence: EvidenceView[];
 }
 
-const TYPE_LABELS: Record<CapabilityType, string> = {
-  certification: "证书/资质",
-  experience: "业绩/经验",
-  financial: "财务",
-  personnel: "人员",
-  localization: "本地化",
-  registration: "平台注册",
-  technical: "技术参数",
-  text: "文本能力",
+const TYPE_LABEL_KEYS: Record<CapabilityType, string> = {
+  certification: "capTypeCertification",
+  experience: "capTypeExperience",
+  financial: "capTypeFinancial",
+  personnel: "capTypePersonnel",
+  localization: "capTypeLocalization",
+  registration: "capTypeRegistration",
+  technical: "capTypeTechnical",
+  text: "capTypeText",
 };
 
-const EVIDENCE_LABELS: Record<string, string> = {
-  cert: "证书",
-  experience: "业绩合同",
-  financial: "财务资料",
-  personnel: "人员资料",
-  other: "其他",
+const EVIDENCE_LABEL_KEYS: Record<string, string> = {
+  cert: "capEvidenceCert",
+  experience: "capEvidenceExperience",
+  financial: "capEvidenceFinancial",
+  personnel: "capEvidencePersonnel",
+  other: "capEvidenceOther",
 };
 
 const inputCls =
@@ -71,24 +72,24 @@ const inputCls =
 
 type FieldValue = string | boolean;
 
-function capabilitySummary(capability: CapabilityView): string {
+function capabilitySummary(capability: CapabilityView, t: (key: string, params?: Record<string, string | number>) => string): string {
   const v = capability.value ?? {};
   const s = (key: string) => (v[key] == null || v[key] === "" ? "" : String(v[key]));
   switch (capability.type) {
     case "certification":
-      return [s("code"), s("validUntil") ? `有效期至 ${s("validUntil")}` : "长期有效"].filter(Boolean).join(" · ");
+      return [s("code"), s("validUntil") ? t("capValidUntil", { date: s("validUntil") }) : t("capNoExpiry")].filter(Boolean).join(" · ");
     case "experience":
-      return [s("count") && `${s("count")} 个`, s("years") && `近 ${s("years")} 年`, s("similarScope")].filter(Boolean).join(" · ");
+      return [s("count") && t("capSummaryCountItems", { count: s("count") }), s("years") && t("capSummaryYears", { years: s("years") }), s("similarScope")].filter(Boolean).join(" · ");
     case "financial":
       return [s("metric"), s("value"), s("year")].filter(Boolean).join(" · ");
     case "personnel":
-      return [s("role"), s("count") && `${s("count")} 人`].filter(Boolean).join(" · ");
+      return [s("role"), s("count") && t("capSummaryCountPeople", { count: s("count") })].filter(Boolean).join(" · ");
     case "localization":
       return [
         s("country"),
-        v.hasLocalOffice === true ? "本地机构" : "",
-        v.hasLocalAgent === true ? "本地代理" : "",
-        v.hasLocalTaxId === true ? "本地税号" : "",
+        v.hasLocalOffice === true ? t("capLocalOffice") : "",
+        v.hasLocalAgent === true ? t("capLocalAgent") : "",
+        v.hasLocalTaxId === true ? t("capLocalTaxId") : "",
       ].filter(Boolean).join(" · ");
     case "registration":
       return [s("platform"), s("status")].filter(Boolean).join(" · ");
@@ -105,6 +106,7 @@ export interface EnterpriseCapabilitySectionProps {
 }
 
 export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySectionProps) {
+  const { t } = useLocale();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,11 +129,11 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
     try {
       setProfile(await api<ProfileResponse>("/api/user/enterprise/capabilities"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("capLoadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (enabled) void load();
@@ -146,7 +148,7 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
       case "certification": {
         const validUntil = str("validUntil");
         if (!f.noExpiry && !validUntil) {
-          setError("证书需填写有效期，或选择「长期有效」");
+          setError(t("capCertExpiryRequired"));
           return null;
         }
         return { code: str("code") || capName, issuer: str("issuer") || null, noExpiry: f.noExpiry === true, validUntil: f.noExpiry ? null : validUntil };
@@ -171,7 +173,7 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
   const submitCapability = async () => {
     setError(null);
     if (!capName.trim()) {
-      setError("请填写能力名称");
+      setError(t("capNameRequired"));
       return;
     }
     const value = buildCapabilityValue();
@@ -183,7 +185,7 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
       setFields({ noExpiry: true });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存失败");
+      setError(e instanceof Error ? e.message : t("capSaveFailed"));
     } finally {
       setSavingCap(false);
     }
@@ -195,18 +197,18 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
       await api(`/api/user/enterprise/capabilities/${id}`, { method: "DELETE" });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "删除失败");
+      setError(e instanceof Error ? e.message : t("capDeleteFailed"));
     }
   };
 
   const submitEvidence = async () => {
     setError(null);
     if (!evidenceTitle.trim()) {
-      setError("请填写证据名称");
+      setError(t("capEvidenceTitleRequired"));
       return;
     }
     if (evidenceCategory === "cert" && !evidenceNoExpiry && !evidenceValidUntil) {
-      setError("证书类证据需填写有效期，或勾选「长期有效」");
+      setError(t("capEvidenceExpiryRequired"));
       return;
     }
     const form = new FormData();
@@ -223,7 +225,7 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
       setEvidenceValidUntil("");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "上传失败");
+      setError(e instanceof Error ? e.message : t("capUploadFailed"));
     } finally {
       setSavingEvidence(false);
     }
@@ -235,7 +237,7 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
       await api(`/api/user/enterprise/evidence/${id}`, { method: "DELETE" });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "删除失败");
+      setError(e instanceof Error ? e.message : t("capDeleteFailed"));
     }
   };
 
@@ -248,13 +250,13 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: "same-origin",
       });
-      if (!res.ok) throw new Error(`文件打开失败（${res.status}）`);
+      if (!res.ok) throw new Error(t("capFileOpenFailedStatus", { status: res.status }));
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
       window.open(objectUrl, "_blank", "noopener,noreferrer");
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "文件打开失败");
+      setError(e instanceof Error ? e.message : t("capFileOpenFailed"));
     }
   };
 
@@ -263,13 +265,13 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
   return (
     <section className="rounded-xl border border-border bg-white p-4 space-y-4" data-testid="enterprise-capability-section">
       <div>
-        <h3 className="text-sm font-bold text-foreground">能力档案（投标可行性报告依据）</h3>
+        <h3 className="text-sm font-bold text-foreground">{t("capSectionTitle")}</h3>
         <p className="text-2xs text-muted-foreground mt-0.5">
-          维护证书、业绩、财务、人员、本地化、平台注册与技术参数；报告只依据这里和已上传证据做判定，没有依据的项目会标为「待确认」。
+          {t("capSectionDesc")}
         </p>
       </div>
 
-      {loading && <p className="text-xs text-muted-foreground">加载中…</p>}
+      {loading && <p className="text-xs text-muted-foreground">{t("capLoading")}</p>}
       {!loading && error && <p className="text-xs text-rose-600">{error}</p>}
 
       {/* 能力列表 */}
@@ -279,12 +281,12 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
             <li key={capability.id} className="flex items-start justify-between gap-2 rounded-md bg-secondary-50 px-2.5 py-2">
               <div className="min-w-0">
                 <p className="text-xs font-bold text-foreground">
-                  <span className="mr-1.5 rounded bg-brand-50 px-1 py-0.5 text-2xs text-brand-700">{TYPE_LABELS[capability.type]}</span>
+                  <span className="mr-1.5 rounded bg-brand-50 px-1 py-0.5 text-2xs text-brand-700">{t(TYPE_LABEL_KEYS[capability.type])}</span>
                   {capability.name}
                 </p>
-                <p className="mt-0.5 text-2xs text-muted-foreground break-words">{capabilitySummary(capability)}</p>
+                <p className="mt-0.5 text-2xs text-muted-foreground break-words">{capabilitySummary(capability, t)}</p>
               </div>
-              <button type="button" onClick={() => void deleteCapability(capability.id)} className="text-muted-foreground hover:text-rose-600 shrink-0" aria-label="删除能力项">
+              <button type="button" onClick={() => void deleteCapability(capability.id)} className="text-muted-foreground hover:text-rose-600 shrink-0" aria-label={t("capDeleteItemAria")}>
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </li>
@@ -296,79 +298,79 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
       <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <select value={capType} onChange={(e) => { setCapType(e.target.value as CapabilityType); setFields({ noExpiry: true }); }} className={inputCls}>
-            {(Object.keys(TYPE_LABELS) as CapabilityType[]).map((type) => (
-              <option key={type} value={type}>{TYPE_LABELS[type]}</option>
+            {(Object.keys(TYPE_LABEL_KEYS) as CapabilityType[]).map((type) => (
+              <option key={type} value={type}>{t(TYPE_LABEL_KEYS[type])}</option>
             ))}
           </select>
-          <input value={capName} onChange={(e) => setCapName(e.target.value)} placeholder="名称（如 ISO 9001 证书 / 近三年同类项目）" className={inputCls} />
+          <input value={capName} onChange={(e) => setCapName(e.target.value)} placeholder={t("capNamePlaceholder")} className={inputCls} />
         </div>
 
         {capType === "certification" && (
           <div className="grid grid-cols-3 gap-2">
-            <input value={String(fields.code ?? "")} onChange={(e) => setField("code", e.target.value)} placeholder="证书编码（ISO9001）" className={inputCls} />
+            <input value={String(fields.code ?? "")} onChange={(e) => setField("code", e.target.value)} placeholder={t("capCertCodePlaceholder")} className={inputCls} />
             <input type="date" value={String(fields.validUntil ?? "")} onChange={(e) => setField("validUntil", e.target.value)} className={inputCls} disabled={fields.noExpiry === true} />
             <label className="flex items-center gap-1 text-2xs text-muted-foreground">
               <input type="checkbox" checked={fields.noExpiry === true} onChange={(e) => setField("noExpiry", e.target.checked)} />
-              长期有效
+              {t("capNoExpiry")}
             </label>
           </div>
         )}
         {capType === "experience" && (
           <div className="grid grid-cols-3 gap-2">
-            <input value={String(fields.count ?? "")} onChange={(e) => setField("count", e.target.value)} placeholder="同类项目数量" className={inputCls} />
-            <input value={String(fields.years ?? "")} onChange={(e) => setField("years", e.target.value)} placeholder="近 N 年" className={inputCls} />
-            <input value={String(fields.similarScope ?? "")} onChange={(e) => setField("similarScope", e.target.value)} placeholder="相似范围（照明/光伏…）" className={inputCls} />
+            <input value={String(fields.count ?? "")} onChange={(e) => setField("count", e.target.value)} placeholder={t("capExpCountPlaceholder")} className={inputCls} />
+            <input value={String(fields.years ?? "")} onChange={(e) => setField("years", e.target.value)} placeholder={t("capExpYearsPlaceholder")} className={inputCls} />
+            <input value={String(fields.similarScope ?? "")} onChange={(e) => setField("similarScope", e.target.value)} placeholder={t("capExpScopePlaceholder")} className={inputCls} />
           </div>
         )}
         {capType === "financial" && (
           <div className="grid grid-cols-3 gap-2">
-            <input value={String(fields.metric ?? "")} onChange={(e) => setField("metric", e.target.value)} placeholder="指标（revenue/creditLine）" className={inputCls} />
-            <input value={String(fields.value ?? "")} onChange={(e) => setField("value", e.target.value)} placeholder="数值（如 50000000）" className={inputCls} />
-            <input value={String(fields.year ?? "")} onChange={(e) => setField("year", e.target.value)} placeholder="年度（2025）" className={inputCls} />
+            <input value={String(fields.metric ?? "")} onChange={(e) => setField("metric", e.target.value)} placeholder={t("capFinMetricPlaceholder")} className={inputCls} />
+            <input value={String(fields.value ?? "")} onChange={(e) => setField("value", e.target.value)} placeholder={t("capFinValuePlaceholder")} className={inputCls} />
+            <input value={String(fields.year ?? "")} onChange={(e) => setField("year", e.target.value)} placeholder={t("capFinYearPlaceholder")} className={inputCls} />
           </div>
         )}
         {capType === "personnel" && (
           <div className="grid grid-cols-2 gap-2">
-            <input value={String(fields.role ?? "")} onChange={(e) => setField("role", e.target.value)} placeholder="岗位（电气工程师）" className={inputCls} />
-            <input value={String(fields.count ?? "")} onChange={(e) => setField("count", e.target.value)} placeholder="人数" className={inputCls} />
+            <input value={String(fields.role ?? "")} onChange={(e) => setField("role", e.target.value)} placeholder={t("capPerRolePlaceholder")} className={inputCls} />
+            <input value={String(fields.count ?? "")} onChange={(e) => setField("count", e.target.value)} placeholder={t("capPerCountPlaceholder")} className={inputCls} />
           </div>
         )}
         {capType === "localization" && (
           <div className="space-y-2">
-            <input value={String(fields.country ?? "")} onChange={(e) => setField("country", e.target.value)} placeholder="国家/地区（法国）" className={inputCls} />
+            <input value={String(fields.country ?? "")} onChange={(e) => setField("country", e.target.value)} placeholder={t("capLocCountryPlaceholder")} className={inputCls} />
             <div className="flex gap-4 text-2xs text-muted-foreground">
-              <label className="flex items-center gap-1"><input type="checkbox" checked={fields.hasLocalOffice === true} onChange={(e) => setField("hasLocalOffice", e.target.checked)} />本地机构</label>
-              <label className="flex items-center gap-1"><input type="checkbox" checked={fields.hasLocalAgent === true} onChange={(e) => setField("hasLocalAgent", e.target.checked)} />本地代理</label>
-              <label className="flex items-center gap-1"><input type="checkbox" checked={fields.hasLocalTaxId === true} onChange={(e) => setField("hasLocalTaxId", e.target.checked)} />本地税号</label>
+              <label className="flex items-center gap-1"><input type="checkbox" checked={fields.hasLocalOffice === true} onChange={(e) => setField("hasLocalOffice", e.target.checked)} />{t("capLocalOffice")}</label>
+              <label className="flex items-center gap-1"><input type="checkbox" checked={fields.hasLocalAgent === true} onChange={(e) => setField("hasLocalAgent", e.target.checked)} />{t("capLocalAgent")}</label>
+              <label className="flex items-center gap-1"><input type="checkbox" checked={fields.hasLocalTaxId === true} onChange={(e) => setField("hasLocalTaxId", e.target.checked)} />{t("capLocalTaxId")}</label>
             </div>
           </div>
         )}
         {capType === "registration" && (
           <div className="grid grid-cols-2 gap-2">
-            <input value={String(fields.platform ?? "")} onChange={(e) => setField("platform", e.target.value)} placeholder="平台（UNGM/世行/欧盟）" className={inputCls} />
-            <input value={String(fields.status ?? "")} onChange={(e) => setField("status", e.target.value)} placeholder="状态（active/inactive）" className={inputCls} />
+            <input value={String(fields.platform ?? "")} onChange={(e) => setField("platform", e.target.value)} placeholder={t("capRegPlatformPlaceholder")} className={inputCls} />
+            <input value={String(fields.status ?? "")} onChange={(e) => setField("status", e.target.value)} placeholder={t("capRegStatusPlaceholder")} className={inputCls} />
           </div>
         )}
         {capType === "technical" && (
           <div className="grid grid-cols-3 gap-2">
-            <input value={String(fields.parameter ?? "")} onChange={(e) => setField("parameter", e.target.value)} placeholder="参数（power/width）" className={inputCls} />
-            <input value={String(fields.value ?? "")} onChange={(e) => setField("value", e.target.value)} placeholder="数值" className={inputCls} />
-            <input value={String(fields.unit ?? "")} onChange={(e) => setField("unit", e.target.value)} placeholder="单位（kw/mm）" className={inputCls} />
+            <input value={String(fields.parameter ?? "")} onChange={(e) => setField("parameter", e.target.value)} placeholder={t("capTechParamPlaceholder")} className={inputCls} />
+            <input value={String(fields.value ?? "")} onChange={(e) => setField("value", e.target.value)} placeholder={t("capTechValuePlaceholder")} className={inputCls} />
+            <input value={String(fields.unit ?? "")} onChange={(e) => setField("unit", e.target.value)} placeholder={t("capTechUnitPlaceholder")} className={inputCls} />
           </div>
         )}
         {capType === "text" && (
-          <input value={String(fields.text ?? "")} onChange={(e) => setField("text", e.target.value)} placeholder="文本能力（如：英语可作投标语言）" className={inputCls} />
+          <input value={String(fields.text ?? "")} onChange={(e) => setField("text", e.target.value)} placeholder={t("capTextPlaceholder")} className={inputCls} />
         )}
 
         <button type="button" onClick={() => void submitCapability()} disabled={savingCap} className="inline-flex items-center gap-1 rounded-md bg-brand-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-700 disabled:bg-slate-300">
           <Plus className="h-3.5 w-3.5" />
-          {savingCap ? "保存中…" : "添加能力项"}
+          {savingCap ? t("capSaving") : t("capAddItem")}
         </button>
       </div>
 
       {/* 证据资料 */}
       <div className="border-t border-border pt-3 space-y-2">
-        <h4 className="text-xs font-bold text-foreground">证据资料（PDF/图片/Office/zip，≤10MB）</h4>
+        <h4 className="text-xs font-bold text-foreground">{t("capEvidenceSectionTitle")}</h4>
 
         {profile && profile.evidence.length > 0 && (
           <ul className="space-y-1.5">
@@ -377,18 +379,18 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-foreground">{evidence.title}</p>
                   <p className="mt-0.5 text-2xs text-muted-foreground">
-                    {EVIDENCE_LABELS[evidence.category] ?? evidence.category}
-                    {evidence.hasFile ? " · 已上传文件" : " · 仅登记"}
-                    {evidence.noExpiry ? " · 长期有效" : evidence.validUntil ? ` · 有效期至 ${evidence.validUntil}` : ""}
+                    {EVIDENCE_LABEL_KEYS[evidence.category] ? t(EVIDENCE_LABEL_KEYS[evidence.category]) : evidence.category}
+                    {evidence.hasFile ? ` · ${t("capHasFile")}` : ` · ${t("capRegisteredOnly")}`}
+                    {evidence.noExpiry ? ` · ${t("capNoExpiry")}` : evidence.validUntil ? ` · ${t("capValidUntil", { date: evidence.validUntil })}` : ""}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {evidence.downloadUrl && (
-                    <button type="button" onClick={() => void openEvidenceFile(evidence.downloadUrl as string)} className="text-muted-foreground hover:text-brand-700" aria-label="查看证据文件">
+                    <button type="button" onClick={() => void openEvidenceFile(evidence.downloadUrl as string)} className="text-muted-foreground hover:text-brand-700" aria-label={t("capViewEvidenceAria")}>
                       <Eye className="h-3.5 w-3.5" />
                     </button>
                   )}
-                  <button type="button" onClick={() => void deleteEvidence(evidence.id)} className="text-muted-foreground hover:text-rose-600" aria-label="删除证据">
+                  <button type="button" onClick={() => void deleteEvidence(evidence.id)} className="text-muted-foreground hover:text-rose-600" aria-label={t("capDeleteEvidenceAria")}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -400,24 +402,24 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
         <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <select value={evidenceCategory} onChange={(e) => setEvidenceCategory(e.target.value)} className={inputCls}>
-              {Object.entries(EVIDENCE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+              {Object.entries(EVIDENCE_LABEL_KEYS).map(([value, key]) => (
+                <option key={value} value={value}>{t(key)}</option>
               ))}
             </select>
-            <input value={evidenceTitle} onChange={(e) => setEvidenceTitle(e.target.value)} placeholder="证据名称（如 ISO9001 证书扫描件）" className={inputCls} />
+            <input value={evidenceTitle} onChange={(e) => setEvidenceTitle(e.target.value)} placeholder={t("capEvidenceNamePlaceholder")} aria-label={t("capEvidenceNamePlaceholder")} className={inputCls} />
           </div>
           <div className="grid grid-cols-3 items-center gap-2">
-            <input type="file" onChange={(e) => setEvidenceFile(e.target.files?.[0] ?? null)} className="col-span-2 text-2xs text-muted-foreground file:mr-2 file:rounded file:border-0 file:bg-brand-50 file:px-2 file:py-1 file:text-2xs file:font-bold file:text-brand-700" />
-            <input type="date" value={evidenceValidUntil} onChange={(e) => setEvidenceValidUntil(e.target.value)} className={inputCls} disabled={evidenceNoExpiry} />
+            <input type="file" onChange={(e) => setEvidenceFile(e.target.files?.[0] ?? null)} aria-label={t("capUploadEvidence")} className="col-span-2 text-2xs text-muted-foreground file:mr-2 file:rounded file:border-0 file:bg-brand-50 file:px-2 file:py-1 file:text-2xs file:font-bold file:text-brand-700" />
+            <input type="date" value={evidenceValidUntil} onChange={(e) => setEvidenceValidUntil(e.target.value)} aria-label={t("capValidUntil")} className={inputCls} disabled={evidenceNoExpiry} />
           </div>
           <div className="flex items-center justify-between gap-2">
             <label className="flex items-center gap-1 text-2xs text-muted-foreground">
               <input type="checkbox" checked={evidenceNoExpiry} onChange={(e) => setEvidenceNoExpiry(e.target.checked)} />
-              长期有效
+              {t("capNoExpiry")}
             </label>
             <button type="button" onClick={() => void submitEvidence()} disabled={savingEvidence} className="inline-flex items-center gap-1 rounded-md bg-brand-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-700 disabled:bg-slate-300">
               <Upload className="h-3.5 w-3.5" />
-              {savingEvidence ? "上传中…" : "上传证据"}
+              {savingEvidence ? t("capUploading") : t("capUploadEvidence")}
             </button>
           </div>
         </div>

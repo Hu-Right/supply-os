@@ -151,7 +151,7 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
         body: {
           leadId,
           content,
-          author: authUser?.email ? `运营经理 (${authUser.email})` : "Operator",
+          author: authUser?.email ? `${t("crmDefaultAgentName")} (${authUser.email})` : "Operator",
           nextStatus,
         },
       });

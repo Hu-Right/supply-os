@@ -94,5 +94,17 @@
   "profile_claimedByMe": "Reivindicada por mim",
   "profile_claimedByOther": "Já reivindicada",
   "supplierProfileNotFound": "Fornecedor não encontrado",
-  "supplierProfileNotFoundDesc": "Este ID de fornecedor é inválido ou foi removido"
+  "supplierProfileNotFoundDesc": "Este ID de fornecedor é inválido ou foi removido",
+  "profileTabCertCount": "{count} itens",
+  "profileTabCompliantLowRisk": "Em conformidade (baixo risco)",
+  "profileTabBilingualDocs": "Documentação bilíngue completa (chinês-inglês)",
+  "profileTabImproveAfterSales": "Aprimorar documentos de pós-venda",
+  "profileTabAfterSalesDone": "Concluído",
+  "profileTabNoProducts": "Ainda sem informações de produtos",
+  "profileTabNoProductsDesc": "Este fornecedor ainda não cadastrou o catálogo de produtos",
+  "profileTabNoCerts": "Ainda sem certificações",
+  "profileTabNoCertsDesc": "Este fornecedor ainda não enviou informações de certificações",
+  "profileTabNoOverseas": "Ainda sem informações no exterior",
+  "profileTabNoOverseasDesc": "Este fornecedor ainda não preencheu informações de atuação no exterior",
+  "profileTabUnlockBenefits": "Desbloqueie todos os benefícios de promoção de fornecedores"
 }

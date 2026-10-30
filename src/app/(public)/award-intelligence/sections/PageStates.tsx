@@ -5,8 +5,9 @@
  * @module app/(public)/award-intelligence/sections/PageStates
  * @description 落实 ARCHITECTURE.md 异常态要求：loading 铺骨架（不再渲染误导性「0 条记录」），
  *              error 且无真数据时给「加载失败 / 重试」而非「接入中」空态。纯展示件，样式沿用
- *              页面 slate/teal 配色与站内 animate-pulse 骨架范式。
+ *              页面 slate/teal 配色与站内 animate-pulse 骨架范式。文案经 useLocale().t 出。
  */
+import { useLocale } from "@/core/i18n";
 
 /** 覆盖度徽章骨架位（宽度错落，贴近真实文案长度） */
 function BadgePulse({ w }: { w: string }) {
@@ -47,16 +48,17 @@ export function AwardsSkeleton() {
 
 /** 错误态：接口失败且无真数据时的诚实提示 + 手动重试 */
 export function AwardsErrorState({ onRetry }: { onRetry: () => void }) {
+  const { t } = useLocale();
   return (
     <div className="px-4 sm:px-6 lg:px-8 -mt-6">
       <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-8 text-center shadow-sm">
-        <p className="text-base font-extrabold text-rose-700">中标数据加载失败</p>
-        <p className="text-xs text-rose-500 mt-2">网络连接或后端服务暂时不可用，未获取到真实中标数据。请稍后重试。</p>
+        <p className="text-base font-extrabold text-rose-700">{t("awardErrorTitle")}</p>
+        <p className="text-xs text-rose-500 mt-2">{t("awardErrorDesc")}</p>
         <button
           onClick={onRetry}
           className="mt-4 bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-lg text-sm font-bold transition-colors"
         >
-          重新加载
+          {t("awardErrorRetry")}
         </button>
       </div>
     </div>

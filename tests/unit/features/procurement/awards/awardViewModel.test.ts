@@ -3,8 +3,16 @@
  * @module tests/unit/features/procurement/awards/awardViewModel
  */
 import { describe, it, expect } from "vitest";
-import { buildAwardViewModel } from "@/features/procurement/awards/awardViewModel";
+import { buildAwardViewModel, type AwardTranslateFn } from "@/features/procurement/awards/awardViewModel";
 import type { AwardsData } from "@/features/procurement/hooks/useAwardsData";
+import zhPack from "@/core/i18n/locales/zh/procurement.json";
+
+/** t 桩：以 zh 语言包 {var} 插值产出，等价于 useLocale().t 的 zh 初值 */
+const t: AwardTranslateFn = (key, params) => {
+  let s: string = (zhPack as Record<string, string>)[key] ?? key;
+  if (params) for (const [k, v] of Object.entries(params)) s = s.split(`{${k}}`).join(String(v));
+  return s;
+};
 
 /** 空态：无真实数据 */
 const emptyData = (): AwardsData => ({
@@ -62,7 +70,7 @@ const ccgpData = (): AwardsData => ({
 
 describe("buildAwardViewModel · 诚实化", () => {
   it("无真实数据：statsCards/infoCards 为空，各 section present=false 且带 reason，覆盖计数为 0", () => {
-    const vm = buildAwardViewModel(emptyData());
+    const vm = buildAwardViewModel(emptyData(), t);
     expect(vm.statsCards).toEqual([]);
     expect(vm.infoCards).toEqual([]);
     expect(vm.trend.present).toBe(false);
@@ -73,7 +81,7 @@ describe("buildAwardViewModel · 诚实化", () => {
   });
 
   it("ccgp 现状：金额不可用 → trend.amountsUsd 为 null，金额卡显示『未公开』", () => {
-    const vm = buildAwardViewModel(ccgpData());
+    const vm = buildAwardViewModel(ccgpData(), t);
     expect(vm.coverage.amountAvailable).toBe(false);
     if (vm.trend.present) expect(vm.trend.data.amountsUsd).toBeNull();
     const amountCard = vm.infoCards.find((c) => c.title === "金额");
@@ -81,7 +89,7 @@ describe("buildAwardViewModel · 诚实化", () => {
   });
 
   it("topWinners 真实：按中标次数降序排 rank，展示真实中标商", () => {
-    const vm = buildAwardViewModel(ccgpData());
+    const vm = buildAwardViewModel(ccgpData(), t);
     expect(vm.topWinners.present).toBe(true);
     if (vm.topWinners.present) {
       expect(vm.topWinners.data[0].name).toBe("某某科技有限公司");
@@ -91,13 +99,13 @@ describe("buildAwardViewModel · 诚实化", () => {
   });
 
   it("buyerProfile/品类无货时诚实空态（S0 不臆造机构画像与品类分布）", () => {
-    const vm = buildAwardViewModel(ccgpData());
+    const vm = buildAwardViewModel(ccgpData(), t);
     expect(vm.buyerProfile.present).toBe(false);
     expect(vm.categories.present).toBe(false);
   });
 
   it("覆盖度：sources/countries/最早年来自真实 stats + recentAwards", () => {
-    const vm = buildAwardViewModel(ccgpData());
+    const vm = buildAwardViewModel(ccgpData(), t);
     expect(vm.coverage.sources).toEqual(["ccgp"]);
     expect(vm.coverage.countries).toEqual(["中国"]);
     expect(vm.coverage.earliestYear).toBe("2026");
@@ -105,7 +113,7 @@ describe("buildAwardViewModel · 诚实化", () => {
   });
 
   it("全模型不出现任何 curated 假数（12,847 / 22.7B / 193 / Siemens）", () => {
-    const vm = buildAwardViewModel(ccgpData());
+    const vm = buildAwardViewModel(ccgpData(), t);
     const all = JSON.stringify(vm);
     expect(all).not.toMatch(/12,?847/);
     expect(all).not.toMatch(/22\.7B/);
@@ -116,19 +124,19 @@ describe("buildAwardViewModel · 诚实化", () => {
 
 describe("buildAwardViewModel · 三态透传（loading/error 供页面分支）", () => {
   it("透传 loading：加载中数据 → vm.loading=true，且不当作错误", () => {
-    const vm = buildAwardViewModel({ ...emptyData(), loading: true, error: false });
+    const vm = buildAwardViewModel({ ...emptyData(), loading: true, error: false }, t);
     expect(vm.loading).toBe(true);
     expect(vm.error).toBe(false);
   });
 
   it("透传 error：接口失败数据 → vm.error=true，供页面渲染『加载失败/重试』而非空态『接入中』", () => {
-    const vm = buildAwardViewModel({ ...emptyData(), loading: false, error: true });
+    const vm = buildAwardViewModel({ ...emptyData(), loading: false, error: true }, t);
     expect(vm.error).toBe(true);
     expect(vm.loading).toBe(false);
   });
 
   it("就绪：有真数据且无错 → vm.loading=false, vm.error=false", () => {
-    const vm = buildAwardViewModel(ccgpData());
+    const vm = buildAwardViewModel(ccgpData(), t);
     expect(vm.loading).toBe(false);
     expect(vm.error).toBe(false);
   });

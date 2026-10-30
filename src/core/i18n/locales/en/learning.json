@@ -35,5 +35,7 @@
   "buyMaterialBtn": "Buy Material",
   "learningBundleTitle": " Bundle Discount Purchase",
   "learningContentLocked": "Purchase to unlock full content and download",
-  "learningContentLoadedFailed": "Content failed to load, please refresh and try again"
+  "learningContentLoadedFailed": "Content failed to load, please refresh and try again",
+  "learnGetDownloadUrlFailed": "Failed to get the download link. Please try again later or contact support",
+  "learnNoDownloadFile": "This material has no downloadable file yet. Please try again later or contact support"
 }

@@ -10,33 +10,35 @@
 import { Bell, Bot, ChevronRight, Headphones, UserCheck } from "lucide-react";
 
 import { Button, Card } from "@/shared/ui";
+import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 
 const SERVICES = [
-  { icon: Bot, title: "AI 推荐供应商", desc: "填写类目后，智能推荐匹配度最高的供应商" },
-  { icon: UserCheck, title: "定向邀请认证供应商", desc: "按行业 / 地区 / 认证定向邀约报价" },
-  { icon: Bell, title: "报价管理与提醒", desc: "集中管理报价，截止时间实时提醒" },
+  { icon: Bot, titleKey: "rfqServiceAiTitle", descKey: "rfqServiceAiDesc" },
+  { icon: UserCheck, titleKey: "rfqServiceInviteTitle", descKey: "rfqServiceInviteDesc" },
+  { icon: Bell, titleKey: "rfqServiceQuoteMgmtTitle", descKey: "rfqServiceQuoteMgmtDesc" },
 ];
 
 export function RfqSidebar() {
+  const { t } = useLocale();
   return (
     <div className="space-y-6">
       {/* 平台服务辅助 */}
       <Card className="rounded-2xl p-5">
-        <h3 className="text-sm font-extrabold text-secondary-900 mb-3">平台服务</h3>
+        <h3 className="text-sm font-extrabold text-secondary-900 mb-3">{t("rfqSidebarTitle")}</h3>
         <div className="space-y-1">
-          {SERVICES.map(({ icon: Icon, title, desc }) => (
-            <div key={title}
+          {SERVICES.map(({ icon: Icon, titleKey, descKey }) => (
+            <div key={titleKey}
               className="flex items-start gap-3 rounded-xl p-3 hover:bg-secondary-50 cursor-pointer transition-colors group">
               <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
                 <Icon className="w-4.5 h-4.5 text-primary-600" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <h4 className="text-sm font-bold text-secondary-800">{title}</h4>
+                  <h4 className="text-sm font-bold text-secondary-800">{t(titleKey)}</h4>
                   <ChevronRight className="w-3.5 h-3.5 text-secondary-300 group-hover:text-primary-600 shrink-0" />
                 </div>
-                <p className="text-xs text-secondary-400 leading-relaxed mt-0.5">{desc}</p>
+                <p className="text-xs text-secondary-400 leading-relaxed mt-0.5">{t(descKey)}</p>
               </div>
             </div>
           ))}
@@ -50,14 +52,14 @@ export function RfqSidebar() {
             <Headphones className="w-4.5 h-4.5 text-primary-600" />
           </div>
           <div className="min-w-0">
-            <h4 className="text-sm font-bold text-secondary-900">需要帮忙梳理需求？</h4>
+            <h4 className="text-sm font-bold text-secondary-900">{t("rfqConsultTitle")}</h4>
             <p className="text-xs text-secondary-500 leading-relaxed mt-1">
-              专业采购顾问 1 对 1 协助：明确采购要点、优化需求描述、跟进报价。
+              {t("rfqConsultDesc")}
             </p>
           </div>
         </div>
         <Button size="sm" variant="cta" className="w-full mt-4" onClick={() => emitAppEvent("supply-os:consult")}>
-          预约采购顾问
+          {t("rfqConsultCta")}
         </Button>
       </div>
     </div>

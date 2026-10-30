@@ -17,11 +17,13 @@ import {
 
 import { api } from "@/core/http";
 import { useAuth } from "@/core/auth";
+import { useLocale } from "@/core/i18n";
 import { Button, Card } from "@/shared/ui";
 import { formatDeadlineDateYMD, currencySymbol } from "@/shared/utils/format";
 import { QuoteDialog } from "@/features/rfq/components/QuoteDialog";
 import { QuotesPanel } from "@/features/rfq/components/QuotesPanel";
 import { InvitePanel } from "@/features/rfq/components/InvitePanel";
+import { PAYMENT_LABEL_KEYS, SUPPLIER_REQ_LABEL_KEYS } from "@/features/rfq/constants";
 
 interface RfqDetail {
   id: number;
@@ -46,20 +48,23 @@ interface RfqDetail {
   isOwner: boolean;
 }
 
+/** 状态 → i18n 键（未知状态原样展示，行为与旧版一致） */
 const STATUS_LABELS: Record<string, string> = {
-  draft: "草稿",
-  pending_review: "待审核",
-  published: "已发布",
-  rejected: "审核未通过",
-  closed: "已关闭",
+  draft: "rfqStatusDraft",
+  pending_review: "rfqStatusPendingReview",
+  published: "rfqStatusPublished",
+  rejected: "rfqStatusReviewFailed",
+  closed: "rfqStatusClosed",
 };
 
-function formatBudget(d: RfqDetail): string {
-  if (d.budgetConfidential) return "面议（预算保密）";
+type TFn = (key: string, params?: Record<string, string | number>) => string;
+
+function formatBudget(d: RfqDetail, t: TFn): string {
+  if (d.budgetConfidential) return t("rfqBudgetNegotiableConfidential");
   const budget = d.budget ?? 0;
-  if (!budget) return "面议";
+  if (!budget) return t("rfqBudgetNegotiable");
   // 平台预算以“万元”为单位，与广场/设置页同口径
-  return `${currencySymbol(d.currency)}${budget} 万`;
+  return t("rfqBudgetWanSymbol", { symbol: currencySymbol(d.currency), budget });
 }
 
 function TermItem({ icon: Icon, label, value }: {
@@ -85,6 +90,7 @@ export default function RfqDetailPageClient() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const { authUser } = useAuth();
+  const { t } = useLocale();
   const [quoteOpen, setQuoteOpen] = useState(false);
 
   useEffect(() => {
@@ -92,21 +98,22 @@ export default function RfqDetailPageClient() {
     setLoading(true);
     api<RfqDetail>(`/api/rfq/${id}`)
       .then((res) => setDetail(res))
-      .catch((err: Error) => setError(err.message || "加载失败"))
+      .catch((err: Error) => setError(err.message || t("rfqLoadFailed")))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 保持原依赖（仅 id），语言切换不触发重新拉取
   }, [id]);
 
   if (loading) {
     return (
-      <div className="py-16 text-center text-sm text-secondary-400">加载中…</div>
+      <div className="py-16 text-center text-sm text-secondary-400">{t("rfqLoading")}</div>
     );
   }
 
   if (error || !detail) {
     return (
       <div className="py-16 text-center space-y-4">
-        <p className="text-sm text-secondary-500">{error || "需求不存在"}</p>
-        <Button variant="outline" size="sm" onClick={() => window.history.back()}>返回</Button>
+        <p className="text-sm text-secondary-500">{error || t("rfqNotFound")}</p>
+        <Button variant="outline" size="sm" onClick={() => window.history.back()}>{t("rfqBack")}</Button>
       </div>
     );
   }
@@ -117,7 +124,7 @@ export default function RfqDetailPageClient() {
       <Card className="rounded-2xl p-6">
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <span className="px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-bold">
-            {STATUS_LABELS[detail.status] ?? detail.status}
+            {STATUS_LABELS[detail.status] ? t(STATUS_LABELS[detail.status]) : detail.status}
           </span>
           {detail.categoryL1 && (
             <span className="px-2.5 py-1 rounded-full bg-secondary-100 text-secondary-600 text-xs font-semibold">
@@ -126,7 +133,7 @@ export default function RfqDetailPageClient() {
           )}
           {detail.visibility === "targeted" && (
             <span className="px-2.5 py-1 rounded-full bg-secondary-100 text-secondary-600 text-xs font-semibold">
-              定向邀约
+              {t("rfqVisibilityTargeted")}
             </span>
           )}
         </div>
@@ -137,17 +144,17 @@ export default function RfqDetailPageClient() {
           {detail.reference && (
             <span className="flex items-center gap-1">
               <Hash className="w-3.5 h-3.5" />
-              公告编号 {detail.reference}
+              {t("rfqReferenceNo", { ref: detail.reference })}
             </span>
           )}
           <span className="flex items-center gap-1">
             <CalendarClock className="w-3.5 h-3.5" />
-            报价截止：{formatDeadlineDateYMD(detail.deadlineSec)}
+            {t("rfqDeadlineAt", { date: formatDeadlineDateYMD(detail.deadlineSec) })}
           </span>
           {detail.publishedDate && (
             <span className="flex items-center gap-1">
               <FileText className="w-3.5 h-3.5" />
-              发布于 {detail.publishedDate.slice(0, 10)}
+              {t("rfqPublishedOn", { date: detail.publishedDate.slice(0, 10) })}
             </span>
           )}
           {detail.province && (
@@ -163,10 +170,10 @@ export default function RfqDetailPageClient() {
       {detail.status === "published" && !detail.isOwner && authUser && (
         <Card className="rounded-2xl p-5 flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-sm font-bold text-secondary-800">对此需求报价</p>
-            <p className="text-xs text-secondary-400 mt-0.5">报价截止：{formatDeadlineDateYMD(detail.deadlineSec)}</p>
+            <p className="text-sm font-bold text-secondary-800">{t("rfqQuoteEntryTitle")}</p>
+            <p className="text-xs text-secondary-400 mt-0.5">{t("rfqDeadlineAt", { date: formatDeadlineDateYMD(detail.deadlineSec) })}</p>
           </div>
-          <Button size="sm" onClick={() => setQuoteOpen(true)} className="shrink-0">立即报价</Button>
+          <Button size="sm" onClick={() => setQuoteOpen(true)} className="shrink-0">{t("rfqQuoteNow")}</Button>
         </Card>
       )}
 
@@ -182,24 +189,24 @@ export default function RfqDetailPageClient() {
 
       {/* 商务条款 */}
       <Card className="rounded-2xl p-6">
-        <h2 className="text-sm font-extrabold text-secondary-900 mb-4">商务条款</h2>
+        <h2 className="text-sm font-extrabold text-secondary-900 mb-4">{t("rfqTermsSection")}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <TermItem icon={Wallet} label="采购预算" value={formatBudget(detail)} />
-          <TermItem icon={Truck} label="贸易术语" value={detail.incoterm} />
-          <TermItem icon={CalendarClock} label="交付时间" value={detail.deliveryTime} />
-          <TermItem icon={MapPin} label="交付地点" value={detail.deliveryAddress || detail.province} />
-          <TermItem icon={Landmark} label="付款方式" value={detail.paymentTerms.join("、")} />
-          <TermItem icon={Globe2} label="可见范围" value={detail.visibility === "public" ? "公开询价" : "定向邀约"} />
+          <TermItem icon={Wallet} label={t("rfqTermBudget")} value={formatBudget(detail, t)} />
+          <TermItem icon={Truck} label={t("rfqTermIncoterm")} value={detail.incoterm} />
+          <TermItem icon={CalendarClock} label={t("rfqTermDeliveryTime")} value={detail.deliveryTime} />
+          <TermItem icon={MapPin} label={t("rfqFieldAddress")} value={detail.deliveryAddress || detail.province} />
+          <TermItem icon={Landmark} label={t("rfqFieldPayment")} value={detail.paymentTerms.map((v) => (PAYMENT_LABEL_KEYS[v] ? t(PAYMENT_LABEL_KEYS[v]) : v)).join(t("rfqEnumSep"))} />
+          <TermItem icon={Globe2} label={t("rfqFieldVisibility")} value={detail.visibility === "public" ? t("rfqVisibilityPublic") : t("rfqVisibilityTargeted")} />
         </div>
         {detail.supplierReqs.length > 0 && (
           <div className="mt-4">
             <p className="text-xs text-secondary-400 mb-2 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" /> 供应商要求
+              <ShieldCheck className="w-3.5 h-3.5" /> {t("rfqSupplierReqsLabel")}
             </p>
             <div className="flex flex-wrap gap-2">
               {detail.supplierReqs.map((req) => (
                 <span key={req} className="px-2.5 py-1 rounded-lg bg-secondary-100 text-secondary-600 text-xs font-semibold">
-                  {req}
+                  {SUPPLIER_REQ_LABEL_KEYS[req] ? t(SUPPLIER_REQ_LABEL_KEYS[req]) : req}
                 </span>
               ))}
             </div>
@@ -210,7 +217,7 @@ export default function RfqDetailPageClient() {
       {/* 需求描述 */}
       <Card className="rounded-2xl p-6">
         <h2 className="text-sm font-extrabold text-secondary-900 mb-4 flex items-center gap-2">
-          <Building2 className="w-4 h-4 text-primary-600" /> 需求描述
+          <Building2 className="w-4 h-4 text-primary-600" /> {t("rfqFieldDescription")}
         </h2>
         <p className="text-sm text-secondary-700 leading-7 whitespace-pre-wrap">
           {detail.description}

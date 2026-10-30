@@ -94,5 +94,17 @@
   "profile_claimedByMe": "Закреплено мной",
   "profile_claimedByOther": "Уже закреплено",
   "supplierProfileNotFound": "Поставщик не найден",
-  "supplierProfileNotFoundDesc": "Этот ID поставщика недействителен или был удалён"
+  "supplierProfileNotFoundDesc": "Этот ID поставщика недействителен или был удалён",
+  "profileTabCertCount": "{count} шт.",
+  "profileTabCompliantLowRisk": "Соответствует (низкий риск)",
+  "profileTabBilingualDocs": "Полный двуязычный комплект (китайский и английский)",
+  "profileTabImproveAfterSales": "Дополнить документы сервисного обслуживания",
+  "profileTabAfterSalesDone": "Завершено",
+  "profileTabNoProducts": "Информация о товарах отсутствует",
+  "profileTabNoProductsDesc": "Поставщик ещё не заполнил каталог товаров",
+  "profileTabNoCerts": "Сертификаты отсутствуют",
+  "profileTabNoCertsDesc": "Поставщик ещё не загрузил сведения о сертификации",
+  "profileTabNoOverseas": "Информация о зарубежной деятельности отсутствует",
+  "profileTabNoOverseasDesc": "Поставщик ещё не заполнил сведения о зарубежном исполнении контрактов",
+  "profileTabUnlockBenefits": "Откройте все преимущества продвижения поставщиков"
 }

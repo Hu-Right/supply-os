@@ -4,16 +4,18 @@
  */
 import { Check } from "lucide-react";
 import { cn } from "@/shared/utils";
+import { useLocale } from "@/core/i18n";
 import { STEP_META } from "../constants";
 
 export function StepIndicator({ step }: { step: number }) {
+  const { t } = useLocale();
   return (
     <div className="flex items-center gap-2 mb-6">
       {STEP_META.map((s, i) => {
         const isActive = i === step;
         const isDone = i < step;
         return (
-          <div key={s.title} className="flex items-center gap-2 flex-1">
+          <div key={s.titleKey} className="flex items-center gap-2 flex-1">
             <div className={cn(
               "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shrink-0 transition-colors",
               isActive && "bg-teal-600 text-white",
@@ -25,7 +27,7 @@ export function StepIndicator({ step }: { step: number }) {
             <span className={cn(
               "text-sm font-bold truncate",
               isActive ? "text-secondary-900" : isDone ? "text-teal-700" : "text-secondary-400",
-            )}>{s.title}</span>
+            )}>{t(s.titleKey)}</span>
             {i < STEP_META.length - 1 && <div className="flex-1 h-px bg-secondary-200 mx-2" />}
           </div>
         );

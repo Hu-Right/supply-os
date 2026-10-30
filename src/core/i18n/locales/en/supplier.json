@@ -94,5 +94,17 @@
   "profile_claimedByMe": "Claimed by me",
   "profile_claimedByOther": "Already claimed",
   "supplierProfileNotFound": "Supplier not found",
-  "supplierProfileNotFoundDesc": "This supplier ID is invalid or has been removed"
+  "supplierProfileNotFoundDesc": "This supplier ID is invalid or has been removed",
+  "profileTabCertCount": "{count} items",
+  "profileTabCompliantLowRisk": "Compliant (low risk)",
+  "profileTabBilingualDocs": "Full bilingual documents (Chinese-English)",
+  "profileTabImproveAfterSales": "Improve after-sales service documents",
+  "profileTabAfterSalesDone": "Completed",
+  "profileTabNoProducts": "No product information yet",
+  "profileTabNoProductsDesc": "This supplier has not added a product catalog yet",
+  "profileTabNoCerts": "No certifications yet",
+  "profileTabNoCertsDesc": "This supplier has not uploaded certification information yet",
+  "profileTabNoOverseas": "No overseas information yet",
+  "profileTabNoOverseasDesc": "This supplier has not filled in overseas performance information yet",
+  "profileTabUnlockBenefits": "Unlock all supplier promotion benefits"
 }

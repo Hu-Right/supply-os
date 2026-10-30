@@ -94,5 +94,17 @@
   "profile_claimedByMe": "我已认领",
   "profile_claimedByOther": "已被认领",
   "supplierProfileNotFound": "供应商不存在",
-  "supplierProfileNotFoundDesc": "该供应商ID无效或已被移除"
+  "supplierProfileNotFoundDesc": "该供应商ID无效或已被移除",
+  "profileTabCertCount": "{count} 项",
+  "profileTabCompliantLowRisk": "合规（低风险）",
+  "profileTabBilingualDocs": "中英双语齐全",
+  "profileTabImproveAfterSales": "完善售后服务文件",
+  "profileTabAfterSalesDone": "已完善",
+  "profileTabNoProducts": "暂无产品信息",
+  "profileTabNoProductsDesc": "该供应商尚未录入产品目录",
+  "profileTabNoCerts": "暂无资质证书",
+  "profileTabNoCertsDesc": "该供应商尚未上传认证信息",
+  "profileTabNoOverseas": "暂无海外信息",
+  "profileTabNoOverseasDesc": "该供应商尚未填写海外履约信息",
+  "profileTabUnlockBenefits": "解锁全部供应商推广权益"
 }

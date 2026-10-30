@@ -94,5 +94,17 @@
   "profile_claimedByMe": "مملوكة من قبلي",
   "profile_claimedByOther": "مملوكة بالفعل",
   "supplierProfileNotFound": "المورّد غير موجود",
-  "supplierProfileNotFoundDesc": "معرّف المورّد هذا غير صالح أو تمت إزالته"
+  "supplierProfileNotFoundDesc": "معرّف المورّد هذا غير صالح أو تمت إزالته",
+  "profileTabCertCount": "{count} عناصر",
+  "profileTabCompliantLowRisk": "ممتثل (مخاطر منخفضة)",
+  "profileTabBilingualDocs": "مستندات ثنائية اللغة كاملة (الصينية والإنجليزية)",
+  "profileTabImproveAfterSales": "استكمال مستندات خدمة ما بعد البيع",
+  "profileTabAfterSalesDone": "مكتمل",
+  "profileTabNoProducts": "لا توجد معلومات عن المنتجات بعد",
+  "profileTabNoProductsDesc": "لم يسجّل هذا المورد كتالوج المنتجات بعد",
+  "profileTabNoCerts": "لا توجد شهادات مؤهلات بعد",
+  "profileTabNoCertsDesc": "لم يرفع هذا المورد معلومات الشهادات بعد",
+  "profileTabNoOverseas": "لا توجد معلومات خارجية بعد",
+  "profileTabNoOverseasDesc": "لم يعبّئ هذا المورد معلومات التنفيذ الخارجي بعد",
+  "profileTabUnlockBenefits": "افتح جميع مزايا الترويج للموردين"
 }

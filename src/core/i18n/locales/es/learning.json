@@ -35,5 +35,7 @@
   "buyMaterialBtn": "Comprar material",
   "learningBundleTitle": " Compra de paquete con descuento",
   "learningContentLocked": "Compre para desbloquear el contenido completo y la descarga",
-  "learningContentLoadedFailed": "Error al cargar el contenido, actualice e inténtelo de nuevo"
+  "learningContentLoadedFailed": "Error al cargar el contenido, actualice e inténtelo de nuevo",
+  "learnGetDownloadUrlFailed": "No se pudo obtener el enlace de descarga; inténtalo de nuevo más tarde o contacta con soporte",
+  "learnNoDownloadFile": "Este material aún no tiene archivo descargable; inténtalo de nuevo más tarde o contacta con soporte"
 }

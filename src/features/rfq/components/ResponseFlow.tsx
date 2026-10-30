@@ -11,29 +11,31 @@
  */
 import { Fragment } from "react";
 import { FileText, ShieldCheck, Mail, Scale, Handshake, ChevronRight } from "lucide-react";
+import { useLocale } from "@/core/i18n";
 
 const FLOW = [
-  { icon: FileText, title: "发布需求", desc: "四步填写结构化需求，选择公开或定向" },
-  { icon: ShieldCheck, title: "审核与匹配", desc: "平台真实性审核，匹配供应商并发出邀约" },
-  { icon: Mail, title: "供应商报价", desc: "认证供应商在线提交报价与资质文件" },
-  { icon: Scale, title: "比价与洽谈", desc: "多份报价同屏对比，在线洽谈确认" },
-  { icon: Handshake, title: "履约支持", desc: "顾问跟进合同、验货与交付落地" },
+  { icon: FileText, titleKey: "rfqFlow1Title", descKey: "rfqFlow1Desc" },
+  { icon: ShieldCheck, titleKey: "rfqFlow2Title", descKey: "rfqFlow2Desc" },
+  { icon: Mail, titleKey: "rfqFlow3Title", descKey: "rfqFlow3Desc" },
+  { icon: Scale, titleKey: "rfqFlow4Title", descKey: "rfqFlow4Desc" },
+  { icon: Handshake, titleKey: "rfqFlow5Title", descKey: "rfqFlow5Desc" },
 ];
 
 export function ResponseFlow() {
+  const { t } = useLocale();
   return (
     <section className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-lg font-extrabold text-secondary-900">发布后会发生什么</h2>
+        <h2 className="text-lg font-extrabold text-secondary-900">{t("rfqFlowTitle")}</h2>
         <span className="text-xs text-secondary-400 hidden sm:block">
-          平台对每条需求进行真实性审核，对供应商执行资质核验
+          {t("rfqFlowSubtitle")}
         </span>
       </div>
       <div className="flex items-start overflow-x-auto pb-1 scrollbar-none">
         {FLOW.map((step, idx) => {
           const Icon = step.icon;
           return (
-            <Fragment key={step.title}>
+            <Fragment key={step.titleKey}>
               <div className="flex-1 flex justify-center min-w-0">
                 <div className="flex flex-col items-center text-center min-w-[96px] px-1">
                   <div className="w-11 h-11 rounded-full bg-primary-50 border border-primary-100 flex items-center justify-center mb-2">
@@ -41,9 +43,9 @@ export function ResponseFlow() {
                   </div>
                   <div className="text-xs font-bold text-secondary-900 mb-1">
                     <span className="text-primary-600 mr-1">{idx + 1}</span>
-                    {step.title}
+                    {t(step.titleKey)}
                   </div>
-                  <p className="text-2xs text-secondary-400 leading-relaxed">{step.desc}</p>
+                  <p className="text-2xs text-secondary-400 leading-relaxed">{t(step.descKey)}</p>
                 </div>
               </div>
               {idx < FLOW.length - 1 && (

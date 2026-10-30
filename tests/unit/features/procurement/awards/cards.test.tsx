@@ -6,6 +6,43 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { InfoCardsGrid, BuyerProfileCard, TopWinnersCard, RecentAwardsCard } from "@/app/(public)/award-intelligence/sections/cards";
 
+/** useLocale 桩：zh 字典按 {var} 插值，与站内组件测试同一模式（缺键回退键名） */
+vi.mock("@/core/i18n", () => ({
+  useLocale: () => ({
+    locale: "zh",
+    t: (key: string, params?: Record<string, string | number>) => {
+      let s: string = dict[key] ?? key;
+      if (params) for (const [k, v] of Object.entries(params)) s = s.split(`{${k}}`).join(String(v));
+      return s;
+    },
+  }),
+}));
+
+const dict: Record<string, string> = {
+  awardDataConnecting: "数据接入中",
+  awardInfoGridEmptyDesc: "真实中标数据到位后自动展示速览卡",
+  awardCardLinkTrend: "查看趋势",
+  awardCardLinkCategory: "查看品类",
+  awardCardLinkWinners: "查看名单",
+  awardCardLinkReminder: "设置提醒",
+  awardBuyerProfileTitle: "采购机构画像",
+  awardBuyerProfileEmptyTitle: "暂无机构画像",
+  awardBuyerProfileDetailBtn: "查看机构详情",
+  awardWinnersCardTitle: "主要中标商",
+  awardWinnersCardSuffix: "（近期样本·按中标次数）",
+  awardThRank: "排名",
+  awardThSupplier: "供应商",
+  awardThWinCount: "中标次数",
+  awardWinnersCleansingNote: "中标商数据清洗进行中，名称以来源公示原文为准",
+  awardWinnersMoreBtn: "查看更多中标商",
+  awardWinnersEmptyTitle: "暂无中标商",
+  awardRecentEmptyTitle: "暂无最新中标记录",
+  awardRecentTitle: "最新中标记录",
+  awardThProject: "项目",
+  awardThBuyer: "采购方",
+  awardThDate: "日期",
+};
+
 describe("cards 诚实化", () => {
   it("infoCards 为空时展示诚实空态，不含假数字", () => {
     const { container } = render(<InfoCardsGrid cards={[]} onAction={vi.fn()} />);
@@ -14,7 +51,7 @@ describe("cards 诚实化", () => {
   });
 
   it("infoCards 有真实卡片时渲染真实值", () => {
-    render(<InfoCardsGrid cards={[{ title: "数据来源", value: "ccgp", sub: "1,669 条记录", badge: "覆盖", link: "查看趋势" }]} onAction={vi.fn()} />);
+    render(<InfoCardsGrid cards={[{ title: "数据来源", value: "ccgp", sub: "1,669 条记录", badge: "覆盖", link: "trend", linkLabelKey: "awardCardLinkTrend" }]} onAction={vi.fn()} />);
     expect(screen.getByText("数据来源")).toBeTruthy();
     expect(screen.getByText("ccgp")).toBeTruthy();
   });

@@ -35,5 +35,7 @@
   "buyMaterialBtn": "Acheter le document",
   "learningBundleTitle": " Achat groupé à prix réduit",
   "learningContentLocked": "Achetez pour débloquer le contenu complet et le téléchargement",
-  "learningContentLoadedFailed": "Échec du chargement du contenu, veuillez actualiser et réessayer"
+  "learningContentLoadedFailed": "Échec du chargement du contenu, veuillez actualiser et réessayer",
+  "learnGetDownloadUrlFailed": "Échec de l'obtention du lien de téléchargement ; réessayez plus tard ou contactez le support",
+  "learnNoDownloadFile": "Ce support n'a pas encore de fichier téléchargeable ; réessayez plus tard ou contactez le support"
 }

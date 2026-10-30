@@ -8,15 +8,17 @@
  * @description 页面容器：以视图模型（buildAwardViewModel）为唯一取数口径，把真实中标数据
  *              派生为各板块切片下发；无真数据即诚实空态，不再展示 curatedData 假数。
  *              数据来自 useAwardsData（/api/awards*）；趋势图/卡片/弹窗分别见 ./TrendChart、
- *              ./sections/cards、./Modals。
+ *              ./sections/cards、./Modals。i18n：t 由 useLocale 注入 VM，速览卡动作按
+ *              稳定码（InfoCardAction）分发。
  */
 import { useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
+import { useLocale } from "@/core/i18n";
 import type { CnAwardCase } from "@/data/cn-award-cases";
 import { useAwardsData, type UseAwardsDataOptions } from "@/features/procurement/hooks/useAwardsData";
-import { buildAwardViewModel, type WinnerRow } from "@/features/procurement/awards/awardViewModel";
+import { buildAwardViewModel, type InfoCardAction, type WinnerRow } from "@/features/procurement/awards/awardViewModel";
 import { TrendChart } from "./TrendChart";
 import {
   AgencyModal, CategoryModal, WinnersModal, SupplierModal, CalendarModal,
@@ -28,6 +30,7 @@ import { InfoCardsGrid, BuyerProfileCard, TopWinnersCard, RecentAwardsCard } fro
 
 export default function PageClient({ initialAwards }: { initialAwards?: UseAwardsDataOptions["initialData"] }) {
   const router = useRouter();
+  const { t } = useLocale();
   const trendRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -40,7 +43,7 @@ export default function PageClient({ initialAwards }: { initialAwards?: UseAward
 
   // ── 真实中标数据 → 视图模型（唯一取数口径）；useMemo 稳定引用，避免交互时图表重建 ──
   const awardsData = useAwardsData({ initialData: initialAwards });
-  const vm = useMemo(() => buildAwardViewModel(awardsData), [awardsData]);
+  const vm = useMemo(() => buildAwardViewModel(awardsData, t), [awardsData, t]);
   // 接口失败且无真数据 → 错误态（区别于「空库」诚实空态）；部分失败但有数据 → 照常渲染
   const showError = vm.error && !awardsData.hasRealData;
 
@@ -49,12 +52,12 @@ export default function PageClient({ initialAwards }: { initialAwards?: UseAward
     router.push(`/procurement${q ? `?q=${encodeURIComponent(q)}` : ""}`);
   };
 
-  // 速览卡动作分派（稳定引用，保证 InfoCardsGrid memo 有效）
-  const handleCardAction = useCallback((link: string) => {
-    if (link === "查看趋势") trendRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    else if (link === "查看品类") setCategoryOpen(true);
-    else if (link === "查看名单") setWinnersOpen(true);
-    else if (link === "设置提醒") setReminderOpen(true);
+  // 速览卡动作分派（按稳定码比较，稳定引用保证 InfoCardsGrid memo 有效）
+  const handleCardAction = useCallback((link: InfoCardAction) => {
+    if (link === "trend") trendRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    else if (link === "category") setCategoryOpen(true);
+    else if (link === "winners") setWinnersOpen(true);
+    else if (link === "reminder") setReminderOpen(true);
   }, []);
 
   return (
@@ -62,17 +65,17 @@ export default function PageClient({ initialAwards }: { initialAwards?: UseAward
     <div className="min-h-screen bg-slate-50">
       <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 px-4 sm:px-6 lg:px-8 py-10">
         <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-2">{vm.copy.heroTitle}</h1>
-        <p className="text-slate-300 text-sm max-w-3xl">{vm.loading ? "正在接入真实中标数据…" : vm.copy.heroSubtitle}</p>
+        <p className="text-slate-300 text-sm max-w-3xl">{vm.loading ? t("awardLoadingHero") : vm.copy.heroSubtitle}</p>
         {vm.loading ? (
           <AwardsBadgesSkeleton />
         ) : (
           <div className="mt-3 flex flex-wrap gap-2 text-2xs text-teal-200">
-            <span className="px-2 py-0.5 rounded bg-white/10">来源：{vm.coverage.sources.join("、") || "接入中"}</span>
-            <span className="px-2 py-0.5 rounded bg-white/10">{vm.coverage.recordCount.toLocaleString()} 条记录</span>
-            <span className="px-2 py-0.5 rounded bg-white/10">覆盖 {vm.coverage.countries.length} 国</span>
+            <span className="px-2 py-0.5 rounded bg-white/10">{t("awardHeroSources", { sources: vm.coverage.sources.join(t("awardEnumSep")) || t("awardConnecting") })}</span>
+            <span className="px-2 py-0.5 rounded bg-white/10">{t("awardRecordsCount", { n: vm.coverage.recordCount.toLocaleString() })}</span>
+            <span className="px-2 py-0.5 rounded bg-white/10">{t("awardHeroCountries", { n: vm.coverage.countries.length })}</span>
             {vm.coverage.amountAvailable
-              ? <span className="px-2 py-0.5 rounded bg-white/10">金额已接入</span>
-              : <span className="px-2 py-0.5 rounded bg-white/10">金额未公开（接入中）</span>}
+              ? <span className="px-2 py-0.5 rounded bg-white/10">{t("awardAmountReady")}</span>
+              : <span className="px-2 py-0.5 rounded bg-white/10">{t("awardAmountPending")}</span>}
           </div>
         )}
       </section>
@@ -90,17 +93,17 @@ export default function PageClient({ initialAwards }: { initialAwards?: UseAward
               <p className="text-xs text-slate-500 mt-1">{s.label}</p>
               {s.sub && <p className="text-2xs text-emerald-600 mt-0.5">{s.sub}</p>}
             </div>
-          )) : <div className="col-span-full text-center text-xs text-slate-400 py-4">真实中标数据接入中</div>}
+          )) : <div className="col-span-full text-center text-xs text-slate-400 py-4">{t("awardStatsEmpty")}</div>}
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6 flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="搜索：采购方 / 中标企业 / 项目"
+              placeholder={t("awardSearchPlaceholder")}
               className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
           </div>
-          <button onClick={handleSearch} className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-colors whitespace-nowrap">查中标情报</button>
+          <button onClick={handleSearch} className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-colors whitespace-nowrap">{t("awardSearchBtn")}</button>
         </div>
 
         <InfoCardsGrid cards={vm.infoCards} onAction={handleCardAction} />
@@ -109,9 +112,9 @@ export default function PageClient({ initialAwards }: { initialAwards?: UseAward
           <BuyerProfileCard section={vm.buyerProfile} onOpenAgency={() => setAgencyOpen(true)} />
 
           <div ref={trendRef} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm lg:col-span-1 scroll-mt-20">
-            <h3 className="text-base font-extrabold text-slate-900 mb-3">采购趋势 <span className="text-xs font-normal text-slate-400">（近 {vm.trend.present ? vm.trend.data.months.length : 0} 个月）</span></h3>
+            <h3 className="text-base font-extrabold text-slate-900 mb-3">{t("awardTrendTitle")} <span className="text-xs font-normal text-slate-400">{t("awardTrendMonthsSuffix", { n: vm.trend.present ? vm.trend.data.months.length : 0 })}</span></h3>
             {vm.trend.present ? <TrendChart series={vm.trend.data} /> : <p className="text-xs text-slate-400 py-8 text-center">{vm.trend.reason}</p>}
-            <button onClick={() => setCalendarOpen(true)} className="mt-3 text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 mx-auto">查看趋势详情</button>
+            <button onClick={() => setCalendarOpen(true)} className="mt-3 text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 mx-auto">{t("awardTrendDetailBtn")}</button>
           </div>
 
           <TopWinnersCard section={vm.topWinners} onSelectSupplier={(w) => setSelectedSupplier(w)} onOpenWinners={() => setWinnersOpen(true)} />

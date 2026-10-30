@@ -163,7 +163,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
   return (
     <div className="rounded-2xl border border-teal-100 bg-white p-4 space-y-3" data-testid="feasibility-report">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-black text-slate-900">{t("feasibilityTitle") || "投标可行性报告"}</p>
+        <p className="text-sm font-black text-slate-900">{t("feasibilityTitle")}</p>
         {report && (
           <div className="flex items-center gap-2">
             <span className={`px-2 py-0.5 rounded border text-2xs font-black ${decisionTone(report.verdict.decision)}`} data-testid="feasibility-decision">
@@ -183,7 +183,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
               className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-0.5 text-2xs font-bold text-slate-600 hover:border-teal-300 hover:text-teal-700 disabled:opacity-50"
             >
               {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-              {t("feasibilityExportWord") || "导出 Word"}
+              {t("feasibilityExportWord")}
             </button>
           </div>
         )}
@@ -192,7 +192,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
       {loading && (
         <p className="flex items-center gap-1.5 text-xs text-slate-500">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          {t("feasibilityLoading") || "加载报告…"}
+          {t("feasibilityLoading")}
         </p>
       )}
 
@@ -200,20 +200,20 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
         <div className="space-y-2">
           <p className="text-xs text-rose-600 flex items-center gap-1.5">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-            {t("feasibilityLoadFailed") || "报告加载失败"}
+            {t("feasibilityLoadFailed")}
             <span className="text-rose-400 break-all">{error}</span>
           </p>
           <button type="button" onClick={() => void load()} className="text-xs font-bold text-teal-700 hover:underline">
-            {t("feasibilityRetry") || "重试"}
+            {t("feasibilityRetry")}
           </button>
         </div>
       )}
 
       {!loading && !error && !enterprise && (
         <p className="text-xs text-slate-500">
-          {t("feasibilityNeedEnterprise") || "请先完成企业认证，再生成投标可行性报告。"}
+          {t("feasibilityNeedEnterprise")}
           <a href="/settings/enterprise" className="ml-1 font-bold text-teal-700 hover:underline">
-            {t("feasibilityGoEnterprise") || "去企业认证"}
+            {t("feasibilityGoEnterprise")}
           </a>
         </p>
       )}
@@ -231,7 +231,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
             className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-black text-white hover:bg-teal-700 disabled:bg-slate-300"
           >
             {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-            {generating ? t("feasibilityGenerating") || "生成中，约 30–60 秒…" : t("feasibilityGenerate") || "生成投标可行性报告"}
+            {generating ? t("feasibilityGenerating") : t("feasibilityGenerate")}
           </button>
         </div>
       )}
@@ -240,10 +240,10 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-2xs text-slate-500">
             <span className="font-bold text-slate-700">
-              {t("feasibilityScore") || "综合评分"}：{Math.round(report.verdict.score * 100)} / 100
+              {t("feasibilityScore")}：{Math.round(report.verdict.score * 100)} / 100
             </span>
             <span>
-              {t("feasibilityCompleteness") || "数据完整度"}：{report.meta.dataCompleteness.requirementItems} 项要求 / {report.meta.dataCompleteness.capabilities} 项能力
+              {t("feasibilityCompleteness")}：{report.meta.dataCompleteness.requirementItems} 项要求 / {report.meta.dataCompleteness.capabilities} 项能力
             </span>
             {report.deterministic.rulesUnknown > 0 && (
               <span className="text-amber-600">
@@ -255,7 +255,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
           {stale && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-2xs text-amber-700" data-testid="feasibility-stale">
               <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-              <span className="flex-1">{t("feasibilityStale") || "企业档案或公告要求项已更新，当前报告可能过期。"}</span>
+              <span className="flex-1">{t("feasibilityStale")}</span>
               <button
                 type="button"
                 onClick={() => void generate(true)}
@@ -263,7 +263,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
                 data-testid="feasibility-regenerate"
                 className="shrink-0 font-black underline underline-offset-2 hover:text-amber-800 disabled:opacity-50"
               >
-                {t("feasibilityRegenerate") || "重新生成"}
+                {t("feasibilityRegenerate")}
               </button>
             </div>
           )}
@@ -281,7 +281,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
 
           {report.gaps.length > 0 && (
             <div>
-              <p className="text-xs font-black text-slate-700 mb-1">{t("feasibilityGaps") || "资格与缺口"}</p>
+              <p className="text-xs font-black text-slate-700 mb-1">{t("feasibilityGaps")}</p>
               <ul className="space-y-1.5">
                 {report.gaps.map((gap) => (
                   <li key={gap.requirementId} className="flex items-start gap-2 text-xs">
@@ -300,14 +300,14 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
 
           {report.matrix.length > 0 && (
             <div>
-              <p className="text-xs font-black text-slate-700 mb-1">{t("feasibilityMatrix") || "要求对照"}</p>
+              <p className="text-xs font-black text-slate-700 mb-1">{t("feasibilityMatrix")}</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-2xs border-collapse" data-testid="feasibility-matrix">
                   <thead>
                     <tr className="text-slate-500">
-                      <th className="text-left font-bold py-1 pr-2">{t("feasibilityColRequirement") || "要求"}</th>
-                      <th className="text-left font-bold py-1 pr-2">{t("feasibilityColCapability") || "企业现状"}</th>
-                      <th className="text-left font-bold py-1">{t("feasibilityColStatus") || "判定"}</th>
+                      <th className="text-left font-bold py-1 pr-2">{t("feasibilityColRequirement")}</th>
+                      <th className="text-left font-bold py-1 pr-2">{t("feasibilityColCapability")}</th>
+                      <th className="text-left font-bold py-1">{t("feasibilityColStatus")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -332,7 +332,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
             <div>
               <p className="text-xs font-black text-amber-700 mb-1 flex items-center gap-1">
                 <ShieldAlert className="w-3.5 h-3.5" />
-                {t("feasibilityUnknowns") || "待确认项"}
+                {t("feasibilityUnknowns")}
               </p>
               <ul className="space-y-1">
                 {report.unknowns.map((item) => (
@@ -351,12 +351,12 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
               data-testid="feasibility-history-toggle"
               className="text-2xs font-bold text-slate-500 hover:text-teal-700"
             >
-              {t("feasibilityHistory") || "历史版本"}
+              {t("feasibilityHistory")}
               {historyLoading ? " …" : ""}
             </button>
             {history !== null && (
               <ul className="mt-1 space-y-1">
-                {history.length === 0 && <li className="text-2xs text-slate-400">{t("feasibilityHistoryEmpty") || "暂无历史版本"}</li>}
+                {history.length === 0 && <li className="text-2xs text-slate-400">{t("feasibilityHistoryEmpty")}</li>}
                 {history.map((version) => (
                   <li key={version.id} className="flex items-center justify-between gap-2 text-2xs text-slate-500">
                     <span>{version.generatedAt ? version.generatedAt.slice(0, 19).replace("T", " ") : "—"}</span>

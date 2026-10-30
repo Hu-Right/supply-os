@@ -7,12 +7,14 @@
 
 import type { ServiceItem } from "@/data/services";
 import { emitAppEvent } from "@/core/events";
+import { useLocale } from "@/core/i18n";
 
 export interface ServiceCardGridProps {
   services: ServiceItem[];
 }
 
 function ServiceCardItem({ service }: { service: ServiceItem }) {
+  const { t } = useLocale();
   const Icon = service.icon;
 
   // 根据服务类型选择图标背景色
@@ -41,14 +43,14 @@ function ServiceCardItem({ service }: { service: ServiceItem }) {
 
         {/* 适用对象 */}
         <p className="text-xs text-slate-500 mb-1">
-          <span className="text-slate-400">适用对象：</span>
+          <span className="text-slate-400">{t("svcCardAppliesTo")}</span>
           {service.desc}
         </p>
 
         {/* 价值 */}
         {service.specs[0] && (
           <p className="text-xs text-slate-500 mb-4">
-            <span className="text-slate-400">价值：</span>
+            <span className="text-slate-400">{t("svcCardValue")}</span>
             {service.specs[0]}
           </p>
         )}
@@ -69,7 +71,7 @@ function ServiceCardItem({ service }: { service: ServiceItem }) {
         onClick={() => emitAppEvent("supply-os:consult")}
         className="w-full py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
       >
-        立即咨询
+        {t("svcCardCta")}
       </button>
     </div>
   );

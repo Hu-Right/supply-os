@@ -4,8 +4,9 @@
  */
 import { AlertTriangle, ChevronDown, Upload } from "lucide-react";
 import { cn } from "@/shared/utils";
+import { useLocale } from "@/core/i18n";
 import { ChipToggleGroup, Input, SegmentedControl } from "@/shared/ui";
-import { SUPPLIER_REQ_OPTIONS } from "../../../constants";
+import { SUPPLIER_REQ_OPTIONS, SUPPLIER_REQ_LABEL_KEYS } from "../../../constants";
 import type { FieldErrors, RfqFormState } from "../../../types";
 import { Field } from "../ui/Field";
 import { SummaryItem } from "../ui/SummaryItem";
@@ -22,23 +23,24 @@ export interface Step3Props {
 }
 
 export function Step3PublishSettings({ form, errors, update, termsOpen, setTermsOpen, setStep, categoryDisplay }: Step3Props) {
+  const { t } = useLocale();
   return (
     <div className="space-y-5">
-      <Field label="可见范围" required>
+      <Field label={t("rfqFieldVisibility")} required>
         <SegmentedControl items={[
-            { value: "public", label: "公开询价" },
-            { value: "targeted", label: "定向邀约" },
+            { value: "public", label: t("rfqVisibilityPublic") },
+            { value: "targeted", label: t("rfqVisibilityTargeted") },
           ]} value={form.visibility}
           onChange={(v) => update("visibility", v)}
           fullWidth
         />
         <p className="text-2xs text-secondary-400 mt-1">
-          {form.visibility === "public" ? "所有认证供应商均可查看并报价" : "仅被邀请的供应商可以查看并报价"}
+          {form.visibility === "public" ? t("rfqVisibilityPublicHint") : t("rfqVisibilityTargetedHint")}
         </p>
       </Field>
 
-      <Field label="供应商资质要求">
-        <ChipToggleGroup items={SUPPLIER_REQ_OPTIONS.map((s) => ({ value: s, label: s }))}
+      <Field label={t("rfqFieldSupplierReqs")}>
+        <ChipToggleGroup items={SUPPLIER_REQ_OPTIONS.map((s) => ({ value: s, label: t(SUPPLIER_REQ_LABEL_KEYS[s]) }))}
           selected={form.supplierReqs}
           onToggle={(v) => {
             const next = form.supplierReqs.includes(v)
@@ -51,24 +53,24 @@ export function Step3PublishSettings({ form, errors, update, termsOpen, setTerms
       {/* 附件上传 — P2 接入 OSS 预签名直传 */}
       <div className="rounded-xl border border-dashed border-secondary-200 bg-secondary-50/30 p-6 text-center">
         <Upload className="w-8 h-8 text-secondary-300 mx-auto mb-2" />
-        <p className="text-sm font-bold text-secondary-500">附件上传功能即将开放</p>
-        <p className="text-2xs text-secondary-400 mt-1">如有技术图纸等文件，请在需求描述中注明</p>
+        <p className="text-sm font-bold text-secondary-500">{t("rfqAttachmentComingSoon")}</p>
+        <p className="text-2xs text-secondary-400 mt-1">{t("rfqAttachmentHint")}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="联系人姓名" required error={errors.contactName} htmlFor="rfq-name">
+        <Field label={t("rfqFieldContactName")} required error={errors.contactName} htmlFor="rfq-name">
           <Input id="rfq-name" value={form.contactName} error={!!errors.contactName}
-            onChange={(e) => update("contactName", e.target.value)} placeholder="您的姓名" />
+            onChange={(e) => update("contactName", e.target.value)} placeholder={t("rfqContactNamePlaceholder")} />
         </Field>
-        <Field label="联系邮箱" required error={errors.contactEmail} htmlFor="rfq-email">
+        <Field label={t("rfqFieldContactEmail")} required error={errors.contactEmail} htmlFor="rfq-email">
           <Input id="rfq-email" type="email" value={form.contactEmail} error={!!errors.contactEmail}
-            onChange={(e) => update("contactEmail", e.target.value)} placeholder="报价通知邮箱" />
+            onChange={(e) => update("contactEmail", e.target.value)} placeholder={t("rfqContactEmailPlaceholder")} />
         </Field>
       </div>
 
-      <Field label="联系电话">
+      <Field label={t("rfqFieldContactPhone")}>
         <Input value={form.contactPhone} onChange={(e) => update("contactPhone", e.target.value)}
-          placeholder="选填，方便供应商紧急联系" />
+          placeholder={t("rfqContactPhonePlaceholder")} />
       </Field>
 
       {/* 发布承诺 */}
@@ -83,15 +85,15 @@ export function Step3PublishSettings({ form, errors, update, termsOpen, setTerms
           <div className="flex-1">
             <button type="button" onClick={() => setTermsOpen(!termsOpen)}
               className="text-sm font-bold text-secondary-800 hover:text-teal-700 flex items-center gap-1">
-              我已阅读并同意《RFQ 发布承诺》
+              {t("rfqCommitmentAgree")}
               <ChevronDown className={cn("w-4 h-4 transition-transform", termsOpen && "rotate-180")} />
             </button>
             {termsOpen && (
               <ul className="mt-2 text-xs text-secondary-500 space-y-1 list-disc list-inside">
-                <li>本需求真实有效，不存在虚假信息</li>
-                <li>报价截止后将对中选供应商履行签约义务</li>
-                <li>同意平台对需求内容进行合规审核</li>
-                <li>理解并同意平台的隐私保护政策</li>
+                <li>{t("rfqCommitmentItem1")}</li>
+                <li>{t("rfqCommitmentItem2")}</li>
+                <li>{t("rfqCommitmentItem3")}</li>
+                <li>{t("rfqCommitmentItem4")}</li>
               </ul>
             )}
           </div>
@@ -106,18 +108,18 @@ export function Step3PublishSettings({ form, errors, update, termsOpen, setTerms
       {/* 发布前确认摘要 */}
       <div className="rounded-xl border border-secondary-200 bg-secondary-50/30 p-4">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-bold text-secondary-900">发布前请确认</h4>
-          <span className="text-2xs text-secondary-400">点击"修改"可返回对应步骤</span>
+          <h4 className="text-sm font-bold text-secondary-900">{t("rfqConfirmBeforePublish")}</h4>
+          <span className="text-2xs text-secondary-400">{t("rfqConfirmEditHint")}</span>
         </div>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
-          <SummaryItem label="需求标题" value={form.title} onEdit={() => setStep(0)} />
-          <SummaryItem label="产品分类" value={categoryDisplay} onEdit={() => setStep(0)} />
-          <SummaryItem label="预算" value={form.budgetConfidential ? "保密" : form.budget ? `${form.budget} 万元` : ""} onEdit={() => setStep(1)} />
-          <SummaryItem label="交付地点" value={form.address} onEdit={() => setStep(1)} />
-          <SummaryItem label="报价截止" value={form.deadline || ""} onEdit={() => setStep(1)} />
-          <SummaryItem label="可见范围" value={form.visibility === "public" ? "公开询价" : "定向邀约"} onEdit={() => setStep(2)} />
-          <SummaryItem label="附件" value={form.attachments.length ? `${form.attachments.length} 个文件` : ""} onEdit={() => setStep(2)} />
-          <SummaryItem label="联系人" value={form.contactName || form.contactEmail || ""} onEdit={() => setStep(2)} />
+          <SummaryItem label={t("rfqFieldTitle")} value={form.title} onEdit={() => setStep(0)} />
+          <SummaryItem label={t("rfqSummaryCategory")} value={categoryDisplay} onEdit={() => setStep(0)} />
+          <SummaryItem label={t("rfqSummaryBudget")} value={form.budgetConfidential ? t("rfqConfidential") : form.budget ? t("rfqBudgetWan", { budget: form.budget }) : ""} onEdit={() => setStep(1)} />
+          <SummaryItem label={t("rfqFieldAddress")} value={form.address} onEdit={() => setStep(1)} />
+          <SummaryItem label={t("rfqSummaryDeadline")} value={form.deadline || ""} onEdit={() => setStep(1)} />
+          <SummaryItem label={t("rfqFieldVisibility")} value={form.visibility === "public" ? t("rfqVisibilityPublic") : t("rfqVisibilityTargeted")} onEdit={() => setStep(2)} />
+          <SummaryItem label={t("rfqSummaryAttachments")} value={form.attachments.length ? t("rfqFileCount", { count: form.attachments.length }) : ""} onEdit={() => setStep(2)} />
+          <SummaryItem label={t("rfqSummaryContact")} value={form.contactName || form.contactEmail || ""} onEdit={() => setStep(2)} />
         </dl>
       </div>
     </div>

@@ -94,7 +94,7 @@ export function useDigitalAssistant(
             retryOnAuth: true,
             body: {
               sessionId: session.chatSessionIdRef.current,
-              content: text || attachment?.name || "[附件]",
+              content: text || attachment?.name || t("crmAssistantAttachmentFallback"),
               metadata: attachment ? { attachment } : undefined,
             },
           });

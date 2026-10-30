@@ -11,6 +11,7 @@
  */
 import { useState } from "react";
 import { api } from "@/core/http";
+import { useLocale } from "@/core/i18n";
 import { Button, Card } from "@/shared/ui";
 
 interface Candidate {
@@ -28,13 +29,15 @@ interface SendData {
   invited: number;
 }
 
+/** 策略提示文案的 i18n 键（按匹配策略） */
 const STRATEGY_HINT: Record<PreviewData["strategy"], string> = {
-  category: "按品目匹配到以下供应商",
-  region: "未匹配到精确品目，按地域粗筛出以下供应商",
-  explicit: "按指定名单",
+  category: "rfqInviteStrategyCategory",
+  region: "rfqInviteStrategyRegion",
+  explicit: "rfqInviteStrategyExplicit",
 };
 
 export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: string }) {
+  const { t } = useLocale();
   const [phase, setPhase] = useState<"idle" | "loading" | "preview" | "sending" | "done">("idle");
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [result, setResult] = useState<SendData | null>(null);
@@ -51,7 +54,7 @@ export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: 
       setPreview(res);
       setPhase("preview");
     } catch (err) {
-      setError((err as Error).message || "预览失败");
+      setError((err as Error).message || t("rfqInviteErrPreview"));
       setPhase("idle");
     }
   };
@@ -67,7 +70,7 @@ export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: 
       setResult(res);
       setPhase("done");
     } catch (err) {
-      setError((err as Error).message || "邀约失败");
+      setError((err as Error).message || t("rfqInviteErrSend"));
       setPhase("preview");
     }
   };
@@ -76,9 +79,9 @@ export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: 
     <Card className="rounded-2xl p-5">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-secondary-800">邀约匹配供应商报价</p>
+          <p className="text-sm font-bold text-secondary-800">{t("rfqInviteTitle")}</p>
           <p className="text-xs text-secondary-400 mt-0.5">
-            按品目与地域匹配认证供应商，邮件邀约{visibility === "targeted" ? "并加入定向白名单" : "触达"}（发送前可先预览）
+            {visibility === "targeted" ? t("rfqInviteDescTargeted") : t("rfqInviteDescPublic")}
           </p>
         </div>
         {phase !== "done" && (
@@ -89,7 +92,7 @@ export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: 
             onClick={loadPreview}
             disabled={phase === "loading" || phase === "preview" || phase === "sending"}
           >
-            {phase === "loading" ? "匹配中…" : phase === "preview" ? "已预览" : "预览可邀约供应商"}
+            {phase === "loading" ? t("rfqInvitePreviewing") : phase === "preview" ? t("rfqInvitePreviewed") : t("rfqInvitePreview")}
           </Button>
         )}
       </div>
@@ -99,8 +102,8 @@ export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: 
       {(phase === "preview" || phase === "sending") && preview && (
         <div className="mt-4 rounded-xl border border-secondary-100 bg-secondary-50/50 p-3 space-y-3">
           <p className="text-xs text-secondary-600">
-            {STRATEGY_HINT[preview.strategy]}：<span className="font-bold">{preview.total}</span> 家
-            {preview.total === 0 && "（暂无可邀约的匹配供应商，可稍后再试或调整需求品类）"}
+            {t("rfqInviteMatchedPrefix", { hint: t(STRATEGY_HINT[preview.strategy]) })}<span className="font-bold">{preview.total}</span>{t("rfqInviteMatchedSuffix")}
+            {preview.total === 0 && t("rfqInviteNoCandidates")}
           </p>
           {preview.candidates.length > 0 && (
             <ul className="flex flex-wrap gap-2">
@@ -109,9 +112,9 @@ export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: 
                   key={`${c.company}-${i}`}
                   className="px-2.5 py-1 rounded-lg bg-white border border-secondary-100 text-xs text-secondary-700"
                 >
-                  {c.company || "未命名供应商"}
+                  {c.company || t("rfqUnnamedSupplier")}
                   {preview.strategy === "category" && c.matchCount > 0 && (
-                    <span className="ml-1 text-primary-600 font-semibold">· 匹配 {c.matchCount}</span>
+                    <span className="ml-1 text-primary-600 font-semibold">{t("rfqInviteMatchCount", { count: c.matchCount })}</span>
                   )}
                 </li>
               ))}
@@ -119,7 +122,7 @@ export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: 
           )}
           {preview.total > 0 && (
             <Button size="sm" onClick={doSend} disabled={phase === "sending"}>
-              {phase === "sending" ? "发送中…" : `确认邀约 ${preview.total} 家`}
+              {phase === "sending" ? t("rfqInviteSending") : t("rfqInviteConfirm", { count: preview.total })}
             </Button>
           )}
         </div>
@@ -127,9 +130,9 @@ export function InvitePanel({ rfqId, visibility }: { rfqId: number; visibility: 
 
       {phase === "done" && result && (
         <p className="mt-3 text-xs text-teal-700">
-          已发出邀约 {result.emailed} 家
-          {result.skipped > 0 && `（${result.skipped} 家此前已触达，跳过）`}
-          {visibility === "targeted" && `，已加入定向白名单 ${result.invited} 家`}
+          {t("rfqInviteDoneMain", { count: result.emailed })}
+          {result.skipped > 0 && t("rfqInviteDoneSkipped", { count: result.skipped })}
+          {visibility === "targeted" && t("rfqInviteDoneWhitelisted", { count: result.invited })}
         </p>
       )}
     </Card>

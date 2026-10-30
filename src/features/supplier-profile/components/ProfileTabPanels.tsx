@@ -56,14 +56,14 @@ export function CapabilityPanel({ supplier, products, completeness, certs, count
               </div>
             </div>
           </div>
-          <InfoRow label={t("profile_certCount")} value={`${certs.length} 项`} />
+          <InfoRow label={t("profile_certCount")} value={t("profileTabCertCount", { count: certs.length })} />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold">
             {t("profile_dataCompleteness")} {completeness}%
           </span>
           <span className="px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold">
-            {t("profile_certCount")} {certs.length} 项
+            {t("profile_certCount")} {t("profileTabCertCount", { count: certs.length })}
           </span>
         </div>
         <button className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-900">
@@ -78,9 +78,9 @@ export function CapabilityPanel({ supplier, products, completeness, certs, count
         <div className="space-y-1">
           <InfoRow label={t("profile_complianceStandards")} value={certs.length > 0 ? certs.join(" / ") : <span className="text-slate-300">—</span>} />
           <InfoRow label={t("profile_qualificationPre")} value={completeness >= 80 ? t("profile_verified") : <span className="text-slate-300">—</span>} />
-          <InfoRow label={t("profile_restrictionAssess")} value={completeness >= 70 ? "合规（低风险）" : <span className="text-slate-300">—</span>} />
-          <InfoRow label={t("profile_docSupport")} value={completeness >= 60 ? "中英双语齐全" : <span className="text-slate-300">—</span>} />
-          <InfoRow label={t("profile_suggestOptimize")} value={completeness < 90 ? "完善售后服务文件" : <span className="text-teal-600">已完善</span>} />
+          <InfoRow label={t("profile_restrictionAssess")} value={completeness >= 70 ? t("profileTabCompliantLowRisk") : <span className="text-slate-300">—</span>} />
+          <InfoRow label={t("profile_docSupport")} value={completeness >= 60 ? t("profileTabBilingualDocs") : <span className="text-slate-300">—</span>} />
+          <InfoRow label={t("profile_suggestOptimize")} value={completeness < 90 ? t("profileTabImproveAfterSales") : <span className="text-teal-600">{t("profileTabAfterSalesDone")}</span>} />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <button className="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-100">
@@ -133,7 +133,7 @@ export function CapabilityPanel({ supplier, products, completeness, certs, count
 
 export function ProductsPanel({ products, t }: PanelProps & { products: string[] }) {
   if (products.length === 0) {
-    return <div className="py-10"><EmptyState title="暂无产品信息" description="该供应商尚未录入产品目录" /></div>;
+    return <div className="py-10"><EmptyState title={t("profileTabNoProducts")} description={t("profileTabNoProductsDesc")} /></div>;
   }
   return (
     <Card className="p-0 overflow-hidden">
@@ -158,7 +158,7 @@ export function ProductsPanel({ products, t }: PanelProps & { products: string[]
 
 export function CertsPanel({ certs, t }: PanelProps & { certs: string[] }) {
   if (certs.length === 0) {
-    return <div className="py-10"><EmptyState title="暂无资质证书" description="该供应商尚未上传认证信息" /></div>;
+    return <div className="py-10"><EmptyState title={t("profileTabNoCerts")} description={t("profileTabNoCertsDesc")} /></div>;
   }
   return (
     <Card className="p-5">
@@ -187,9 +187,9 @@ export function ProcurementPanel({ certs, completeness, t }: PanelProps & { cert
       <div className="space-y-1">
         <InfoRow label={t("profile_complianceStandards")} value={certs.length > 0 ? certs.join(" / ") : <span className="text-slate-300">—</span>} />
         <InfoRow label={t("profile_qualificationPre")} value={completeness >= 80 ? t("profile_verified") : <span className="text-slate-300">—</span>} />
-        <InfoRow label={t("profile_restrictionAssess")} value={completeness >= 70 ? "合规（低风险）" : <span className="text-slate-300">—</span>} />
-        <InfoRow label={t("profile_docSupport")} value={completeness >= 60 ? "中英双语齐全" : <span className="text-slate-300">—</span>} />
-        <InfoRow label={t("profile_suggestOptimize")} value={completeness < 90 ? "完善售后服务文件" : <span className="text-teal-600">已完善</span>} />
+        <InfoRow label={t("profile_restrictionAssess")} value={completeness >= 70 ? t("profileTabCompliantLowRisk") : <span className="text-slate-300">—</span>} />
+        <InfoRow label={t("profile_docSupport")} value={completeness >= 60 ? t("profileTabBilingualDocs") : <span className="text-slate-300">—</span>} />
+        <InfoRow label={t("profile_suggestOptimize")} value={completeness < 90 ? t("profileTabImproveAfterSales") : <span className="text-teal-600">{t("profileTabAfterSalesDone")}</span>} />
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button variant="outline" size="sm" className="gap-1.5 text-xs font-bold"><Target className="w-3.5 h-3.5" />{t("profile_aiDiagnosis")}</Button>
@@ -211,7 +211,7 @@ export function OverseasPanel({ country, t }: PanelProps & { country: string; ci
         <InfoRow label={t("profile_exportCountries")} value={country || <span className="text-slate-300">—</span>} />
         <InfoRow label={t("profile_overseasNodes")} value={<span className="text-slate-300">—</span>} />
       </div>
-      {country === "—" && <div className="mt-4"><EmptyState title="暂无海外信息" description="该供应商尚未填写海外履约信息" /></div>}
+      {country === "—" && <div className="mt-4"><EmptyState title={t("profileTabNoOverseas")} description={t("profileTabNoOverseasDesc")} /></div>}
     </Card>
   );
 }
@@ -244,7 +244,7 @@ export function OpportunitiesPanel({ t, onUpgrade }: PanelProps & { onUpgrade: (
       <div className="mt-4 flex items-center justify-between rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow">
         <div>
           <p className="text-sm font-extrabold">{t("profile_supplierMember")}</p>
-          <p className="text-xs text-amber-100">解锁全部供应商推广权益</p>
+          <p className="text-xs text-amber-100">{t("profileTabUnlockBenefits")}</p>
         </div>
         <Button onClick={onUpgrade} variant="outline" size="sm" className="bg-white text-amber-700 border-white font-extrabold gap-1.5 hover:bg-amber-50">
           {t("profile_upgradePlan")}<ArrowRight className="w-3.5 h-3.5" />

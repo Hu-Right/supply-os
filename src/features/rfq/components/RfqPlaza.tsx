@@ -12,6 +12,7 @@
  */
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
+import { useLocale } from "@/core/i18n";
 import { Clock, Gem, Search } from "lucide-react";
 
 import { cn } from "@/shared/utils";
@@ -46,39 +47,40 @@ export function RfqPlaza() {
     items, loading, total, l1Options,
   } = useRfqPlaza();
   const { authUser } = useAuth();
+  const { t } = useLocale();
   const router = useRouter();
 
   return (
     <section className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs" id="rfq-plaza">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-lg font-extrabold text-secondary-900">需求广场</h2>
+          <h2 className="text-lg font-extrabold text-secondary-900">{t("rfqPlazaTitle")}</h2>
           <p className="text-xs text-secondary-400 mt-1">
-            来自全球采购方的真实需求{total > 0 && `（${total} 条）`}，登录后可查看详情
+            {total > 0 ? t("rfqPlazaSubtitleWithCount", { count: total }) : t("rfqPlazaSubtitle")}
             {authUser && (
               <button
                 onClick={() => router.push("/rfq/my-quotes")}
                 className="ml-2 text-secondary-600 font-bold underline underline-offset-2 hover:text-secondary-800"
               >
-                我的报价
+                {t("rfqMyQuotesTitle")}
               </button>
             )}
           </p>
         </div>
         <SegmentedControl size="sm" value={sort} onChange={(v) => setSort(v as RfqSortKey)}
           items={[
-            { value: "newest", label: "最新发布" },
-            { value: "deadline", label: "截止临近" },
-            { value: "budget", label: "预算最高" },
+            { value: "newest", label: t("rfqSortNewest") },
+            { value: "deadline", label: t("rfqSortDeadline") },
+            { value: "budget", label: t("rfqSortBudget") },
           ]} />
       </div>
 
       {/* 筛选行：品目大类走 UGT 骨架树 L1 码；地点为手动地址不筛选 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-5">
         <Input leftIcon={<Search className="w-4 h-4" />} value={keyword}
-          onChange={(e) => setKeyword(e.target.value)} placeholder="搜索需求关键词" aria-label="搜索需求关键词" />
-        <Select value={categoryL1} onChange={(e) => setCategoryL1(e.target.value)} aria-label="品目大类筛选">
-          <option value="">全部品目大类</option>
+          onChange={(e) => setKeyword(e.target.value)} placeholder={t("rfqSearchPlaceholder")} aria-label={t("rfqSearchPlaceholder")} />
+        <Select value={categoryL1} onChange={(e) => setCategoryL1(e.target.value)} aria-label={t("rfqCategoryFilterAria")}>
+          <option value="">{t("rfqCategoryAll")}</option>
           {l1Options.map((o) => (
             <option key={o.key} value={o.key}>{o.nameZh || o.nameEn || o.key}</option>
           ))}
@@ -99,9 +101,9 @@ export function RfqPlaza() {
         </div>
       ) : items.length === 0 ? (
         <EmptyState
-          title="暂无采购需求"
-          description="平台正在收集全球采购方的真实需求，你也可以先发布你的采购需求"
-          action={<Button onClick={() => document.getElementById("rfq-form")?.scrollIntoView({ behavior: "smooth" })}>发布你的需求</Button>}
+          title={t("rfqEmptyTitle")}
+          description={t("rfqEmptyDesc")}
+          action={<Button onClick={() => document.getElementById("rfq-form")?.scrollIntoView({ behavior: "smooth" })}>{t("rfqEmptyCta")}</Button>}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -116,15 +118,16 @@ export function RfqPlaza() {
 
 function PlazaCard({ rfq }: { rfq: PlazaRfq }) {
   const router = useRouter();
+  const { t } = useLocale();
   const remain = remainingMs(rfq.deadline);
   const urgent = remain > 0 && remain < 72 * 3600 * 1000;
   const remainText = !rfq.deadline
-    ? "长期有效"
+    ? t("rfqRemainLongterm")
     : remain <= 0
-      ? "已截止"
+      ? t("rfqRemainClosed")
       : remain < 24 * 3600 * 1000
-        ? `剩 ${Math.max(1, Math.round(remain / 3600 / 1000))} 小时`
-        : `剩 ${Math.ceil(remain / 24 / 3600 / 1000)} 天`;
+        ? t("rfqRemainHours", { count: Math.max(1, Math.round(remain / 3600 / 1000)) })
+        : t("rfqRemainDays", { count: Math.ceil(remain / 24 / 3600 / 1000) });
 
   return (
     <div className={cn(
@@ -133,7 +136,7 @@ function PlazaCard({ rfq }: { rfq: PlazaRfq }) {
     )}>
       {rfq.boosted && (
         <span className="absolute -top-2.5 right-3 inline-flex items-center gap-1 rounded-full bg-primary-600 px-2 py-0.5 text-2xs font-bold text-white">
-          <Gem className="w-3 h-3" /> 精选
+          <Gem className="w-3 h-3" /> {t("rfqBoosted")}
         </span>
       )}
       <div className="flex items-center gap-2 mb-2">
@@ -155,19 +158,19 @@ function PlazaCard({ rfq }: { rfq: PlazaRfq }) {
             <CountryFlag name="China" /> {rfq.address || rfq.province}
           </p>
         )}
-        <p>预算：{rfq.budgetDisplay}</p>
+        <p>{t("rfqCardBudget", { value: rfq.budgetDisplay })}</p>
         {rfq.responses > 0 && (
-          <p className="text-secondary-600 font-semibold">已有 {rfq.responses} 家供应商报价</p>
+          <p className="text-secondary-600 font-semibold">{t("rfqCardResponses", { count: rfq.responses })}</p>
         )}
         {rfq.deadline && (
           <p className={cn("flex items-center gap-1", urgent && "text-amber-700 font-bold")}>
-            <Clock className="w-3 h-3" /> 截止 {rfq.deadline}（{remainText}）
+            <Clock className="w-3 h-3" /> {t("rfqCardDeadline", { date: rfq.deadline, remain: remainText })}
           </p>
         )}
       </div>
       <Button variant="outline" size="sm" className="mt-3 w-full"
         onClick={() => router.push(`/rfq/${rfq.id}`)}>
-        查看详情
+        {t("rfqViewDetail")}
       </Button>
     </div>
   );

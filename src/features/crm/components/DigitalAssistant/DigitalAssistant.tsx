@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { useLocale } from "@/core/i18n";
 import { useDigitalAssistant, attachmentMarkerFromMetadata } from "../../hooks/useDigitalAssistant";
 import { useChatSSE } from "../../hooks/useChatSSE";
 import { useQueueInfo } from "../../hooks/useQueueInfo";
@@ -35,6 +36,7 @@ export function DigitalAssistant({
   activeLeadCount = 0,
   suppliers = [],
 }: DigitalAssistantProps) {
+  const { t } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -140,6 +142,7 @@ export function DigitalAssistant({
           <div
             className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs md:hidden"
             onClick={closeDrawer}
+            aria-label={t("crmAssistantClose")}
           />
 
           {/* 抽屉主体 */}
