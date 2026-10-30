@@ -172,11 +172,12 @@ export function AdvancedSearchPanel({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
         {/* 关键词 */}
         <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1.5">
+          <label htmlFor="adv-keyword" className="block text-xs font-bold text-slate-500 mb-1.5">
             {t("procurement_keyword") || "关键词"}
           </label>
           <div className="relative">
             <Input
+              id="adv-keyword"
               value={form.qInput}
               onChange={(e) => form.setQInput(e.target.value)}
               placeholder={t("procurement_keywordPlaceholder") || "输入产品、项目、机构关键词"}
@@ -188,7 +189,7 @@ export function AdvancedSearchPanel({
 
         {/* 国家 */}
         <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1.5">
+          <label htmlFor="adv-country" className="block text-xs font-bold text-slate-500 mb-1.5">
             {t("procurement_country") || "国家"}
           </label>
           <CountryFilter
@@ -198,13 +199,15 @@ export function AdvancedSearchPanel({
             locale={useLocale().locale}
             placeholder={t("procurement_selectCountry") || "选择国家"}
             noResultsText={t("countryFilter_noResults")}
+            id="adv-country"
+            ariaLabel={t("procurement_country")}
             className="w-full"
           />
         </div>
 
         {/* 截止时间 */}
         <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1.5">
+          <label htmlFor="adv-deadline" className="block text-xs font-bold text-slate-500 mb-1.5">
             {t("procurement_deadline") || "截止时间"}
           </label>
           <DateRangePicker
@@ -214,6 +217,8 @@ export function AdvancedSearchPanel({
             onToChange={form.setToInput}
             placeholderFrom={t("procurement_startDate") || "开始日期"}
             placeholderTo={t("procurement_endDate") || "结束日期"}
+            triggerId="adv-deadline"
+            triggerLabel={t("procurement_deadline")}
           />
         </div>
       </div>
@@ -222,10 +227,11 @@ export function AdvancedSearchPanel({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
         {/* 采购方式 */}
         <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1.5">
+          <label htmlFor="adv-method" className="block text-xs font-bold text-slate-500 mb-1.5">
             {t("procurement_procurementMethod") || "采购方式"}
           </label>
           <Select
+            id="adv-method"
             value={form.noticeTypeInput}
             onChange={(e) => form.setNoticeTypeInput(e.target.value)}
             className="w-full"
@@ -238,13 +244,14 @@ export function AdvancedSearchPanel({
           </Select>
         </div>
 
-        {/* 预算金额 (USD) */}
+        {/* 预算金额 (USD)：一个 label 带两个输入——min 走 htmlFor 关联，max 用 aria-label 补足 */}
         <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1.5">
+          <label htmlFor="adv-budget-min" className="block text-xs font-bold text-slate-500 mb-1.5">
             {t("procurement_budgetAmount") || "预算金额（USD）"}
           </label>
           <div className="flex items-center gap-1.5">
             <Input
+              id="adv-budget-min"
               type="text"
               inputMode="numeric"
               value={budgetMin}
@@ -259,6 +266,7 @@ export function AdvancedSearchPanel({
               value={budgetMax}
               onChange={handleBudgetMaxChange}
               placeholder={t("procurement_maxValue") || "最大值"}
+              aria-label={t("procurement_maxValue")}
               className="w-full text-sm"
             />
           </div>

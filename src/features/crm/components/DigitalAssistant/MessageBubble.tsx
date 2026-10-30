@@ -7,27 +7,28 @@
  *              Renders message bubbles with different styles based on role (user / assistant / system)
  */
 
+import { useLocale } from "@/core/i18n";
 import type { ChatMessage } from "../../hooks/useDigitalAssistant";
 
 type MessageBubbleProps = {
   message: ChatMessage;
 };
 
-/** 格式化时间戳为 HH:MM:SS */
-function formatTime(ts: number): string {
+/** 格式化时间戳为 HH:MM:SS（跟随当前界面语言） */
+function formatTime(ts: number, locale: string): string {
   const d = new Date(ts);
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 /** 解析消息中的附件（从 content 中的 [attachment:...] 标记解析） */
-function parseAttachment(content: string): { url: string; name: string; isImage: boolean } | null {
+function parseAttachment(content: string, fallbackName: string): { url: string; name: string; isImage: boolean } | null {
   const match = content.match(/\[attachment:([^\]]+)\]/);
   if (!match) return null;
   try {
     const data = JSON.parse(match[1]);
     return {
       url: data.url,
-      name: data.name || "文件",
+      name: data.name || fallbackName,
       isImage: (data.type || "").startsWith("image/"),
     };
   } catch {
@@ -41,8 +42,9 @@ function stripAttachmentTag(content: string): string {
 }
 
 export function MessageBubble({ message }: MessageBubbleProps) {
+  const { t, locale } = useLocale();
   const { role, content, timestamp } = message;
-  const attachment = parseAttachment(content);
+  const attachment = parseAttachment(content, t("crmAssistantAttachmentFile"));
   const textContent = stripAttachmentTag(content);
 
   // ── 系统消息（居中分隔线样式） ──
@@ -69,15 +71,21 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             : "bg-slate-50 text-slate-700 border border-slate-200 rounded-es-sm"
           }`}
       >
-        {/* 图片附件 */}
+        {/* 图片附件：外层 a 承担打开语义，键盘与读屏走同一条路径（img onClick 2026-10-30 a11y 收编） */}
         {attachment?.isImage && (
           <div className="mb-2">
-            <img
-              src={attachment.url}
-              alt={attachment.name}
-              className="max-w-full max-h-60 rounded-lg cursor-pointer object-cover"
-              onClick={() => window.open(attachment.url, "_blank")}
-            />
+            <a
+              href={attachment.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block max-w-full max-h-60 rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <img
+                src={attachment.url}
+                alt={attachment.name}
+                className="max-w-full max-h-60 rounded-lg cursor-pointer object-cover"
+              />
+            </a>
           </div>
         )}
         {/* 文件附件 */}
@@ -102,7 +110,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             isUser ? "text-teal-200" : "text-slate-400"
           }`}
         >
-          {formatTime(timestamp)}
+          {formatTime(timestamp, locale)}
         </span>
       </div>
     </div>

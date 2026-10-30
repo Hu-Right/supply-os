@@ -18,6 +18,10 @@ export interface CountryFilterProps {
   searchPlaceholder?: string;
   noResultsText?: string;
   className?: string;
+  /** 内部 input 的 id（外置 label 的 htmlFor 指向它，2026-10-30 a11y） */
+  id?: string;
+  /** 内部 input 的 aria-label（视觉 label 不在组件内部时的读屏文案） */
+  ariaLabel?: string;
 }
 
 export function CountryFilter({
@@ -25,6 +29,8 @@ export function CountryFilter({
   locale = "en", placeholder = "All countries",
   noResultsText,
   className = "",
+  id,
+  ariaLabel,
 }: CountryFilterProps) {
   const { t } = useLocale();
   const resolvedNoResults: string = noResultsText ?? t("filterNoMatchCountries");
@@ -43,11 +49,13 @@ export function CountryFilter({
         <input
           ref={inputRef}
           type="text"
+          id={id}
           value={inputValue}
           onChange={(e) => { setQuery(e.target.value); setFocused(true); }}
           onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder={placeholder}
+          aria-label={ariaLabel}
           dir="auto"
           aria-haspopup="listbox"
           aria-expanded={showDropdown}

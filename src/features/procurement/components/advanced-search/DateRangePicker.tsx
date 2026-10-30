@@ -18,6 +18,8 @@ export const DateRangePicker = memo(function DateRangePicker({
   onToChange,
   placeholderFrom,
   placeholderTo,
+  triggerId,
+  triggerLabel,
 }: {
   fromValue: string;
   toValue: string;
@@ -25,6 +27,10 @@ export const DateRangePicker = memo(function DateRangePicker({
   onToChange: (v: string) => void;
   placeholderFrom: string;
   placeholderTo: string;
+  /** 触发按钮 id（外置 label 的 htmlFor 指向它，2026-10-30 a11y） */
+  triggerId?: string;
+  /** 触发按钮的 aria-label（读屏文案；视觉 label 在面板外） */
+  triggerLabel?: string;
 }) {
   const displayText = fromValue || toValue
     ? `${fromValue || placeholderFrom} ~ ${toValue || placeholderTo}`
@@ -35,6 +41,8 @@ export const DateRangePicker = memo(function DateRangePicker({
       <PopoverTrigger asChild>
         <button
           type="button"
+          id={triggerId}
+          aria-label={triggerLabel}
           className="w-full flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-left transition-colors hover:border-slate-300 focus:border-teal-400 focus:ring-1 focus:ring-teal-400 outline-none cursor-pointer"
         >
           <span className={`flex-1 truncate ${fromValue || toValue ? "text-slate-700" : "text-slate-400"}`}>
