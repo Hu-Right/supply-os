@@ -3,7 +3,7 @@
  * type-store 未装载 ⇒ classifyAgencyType 走代码内静态规则兜底，本文件全部走该路径。
  */
 import { describe, it, expect } from "vitest";
-import { normalizeBuyerCountry } from "@/lib/services/notice-normalize/notice-core";
+import { normalizeBuyerCountry, MULTI_REGION_COUNTRY_CODE } from "@/lib/services/notice-normalize/notice-core";
 import type { CountryAliasSnapshot, CountryAliasEntry } from "@/lib/services/country/alias-store";
 
 function csnap(pairs: Array<[string, { canonical: string; code?: string | null }]>): CountryAliasSnapshot {
@@ -74,6 +74,16 @@ describe("normalizeBuyerCountry · 国家", () => {
     expect(noCode.countryName).toBe("Brazil");
     expect(noCode.countryCodes).toEqual([]);
     expect(noCode.countryCode).toBeNull();
+  });
+
+  it("仅命中区域（kind=region）→ ZZ 多国/区域保留码，ISO 数组不含 ZZ", () => {
+    const byKey = new Map<string, CountryAliasEntry>([
+      ["MULTIPLE DESTINATIONS", { canonical: "Multi-Country", code: null, kind: "region", zh: "多国" }],
+    ]);
+    const snap: CountryAliasSnapshot = { byKey, formsByCanonical: new Map() };
+    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Multiple destinations" }, new Map(), snap);
+    expect(core.countryCode).toBe(MULTI_REGION_COUNTRY_CODE);
+    expect(core.countryCodes).toEqual([]);
   });
 
   it("无快照时国家全空，买家照常归一", () => {

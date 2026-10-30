@@ -15,6 +15,15 @@ import { classifyAgencyType } from "../agency";
 import { resolveCountries, countryCanonicalsOf, countryCodesOf } from "../country/resolve";
 import type { CountryAliasSnapshot } from "../country/alias-store";
 
+/**
+ * 多国/区域项目保留码（2026-10-30 用户拍板）：源数据为跨国/区域采购
+ * （"Multiple destinations"/"Eastern and Southern Africa"/"Regional"...）时，
+ * 解析只命中 region 而无单一国家 → country_code 落 ZZ 保留码（ISO2 user-assigned 段，
+ * 不与真实国家冲突），使其可筛选、可显示为「多国/区域」。前端显示名见
+ * shared/data/countryNames.ts 的 ZZ 特判；ISO 语义的 countryCodes 数组不含 ZZ。
+ */
+export const MULTI_REGION_COUNTRY_CODE = "ZZ";
+
 /** 买家/国家归一产物 */
 export interface BuyerCountryCore {
   /** 采购主体规范名：别名表命中取 canonical，占位平台名剔除后为 null（不可对外展示） */
@@ -68,7 +77,9 @@ export function normalizeBuyerCountry(
   const cRes = countrySnap ? resolveCountries(String(input.country ?? ""), countrySnap) : null;
   const countryName = cRes ? countryCanonicalsOf(cRes)[0] || null : null;
   const countryCodes = cRes ? [...new Set(countryCodesOf(cRes))].filter((c) => /^[A-Z]{2}$/.test(c)) : [];
-  const countryCode = countryCodes[0] ?? null;
+  // 无单一国家但命中区域（kind=region）→ 多国/区域保留码；两者皆无 → null（真缺表，待补）
+  const countryCode = countryCodes[0]
+    ?? (cRes && cRes.refs.some((r) => r.kind === "region") ? MULTI_REGION_COUNTRY_CODE : null);
 
   const buyerGroup = buyerName && countryName ? classifyBuyerGroup(buyerName, countryName) : null;
   return { buyerName, buyerGroup, countryName, countryCode, countryCodes };

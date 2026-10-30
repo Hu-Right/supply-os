@@ -114,9 +114,14 @@ export function getCountryDisplayName(englishName: string, locale: string): stri
   const raw = /^[A-Za-z]{2}$/.test(englishName)
     ? (new Intl.DisplayNames(["en"], { type: "region" }).of(englishName.toUpperCase()) ?? englishName)
     : englishName;
-  if (locale !== "zh") return raw;
+  if (locale !== "zh") {
+    // ZZ 保留码（notice-core MULTI_REGION_COUNTRY_CODE）：跨国/区域采购，Intl 不收录
+    return raw === "ZZ" ? "Multi-Country / Regional" : raw;
+  }
   // 特殊值：跨国采购
   if (raw === "Multiple destinations") return "多国";
+  // ZZ 保留码：多国/区域项目（构建层 region 命中而无单一国家时落此码）
+  if (raw === "ZZ") return "多国/区域";
   // 先精确匹配
   if (_countryNameZh[raw]) return _countryNameZh[raw];
   // 大小写不敏感匹配（处理 "america" → "美国" 等）
