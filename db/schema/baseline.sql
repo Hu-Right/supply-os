@@ -2477,3 +2477,27 @@ CREATE TABLE `buyer_candidate` (
 
 SET FOREIGN_KEY_CHECKS = 1;
 
+
+-- ── qualification_requirements ──
+CREATE TABLE `qualification_requirements` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `notice_pk` int NOT NULL,
+  `opportunity_id` int unsigned DEFAULT NULL,
+  `type` varchar(30) NOT NULL,
+  `requirement` text NOT NULL,
+  `mandatory` tinyint(1) NOT NULL DEFAULT '0',
+  `evidence_text` text NOT NULL,
+  `source_section` varchar(120) DEFAULT NULL,
+  `source_lang` varchar(16) NOT NULL DEFAULT '',
+  `source_kind` varchar(24) NOT NULL DEFAULT 'original_body',
+  `confidence` decimal(4,3) NOT NULL DEFAULT '0.000',
+  `status` varchar(20) NOT NULL DEFAULT 'pending',
+  `requirement_hash` char(64) NOT NULL,
+  `model` varchar(80) DEFAULT NULL,
+  `extracted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_notice_req` (`notice_pk`,`requirement_hash`),
+  KEY `idx_notice` (`notice_pk`),
+  KEY `idx_status` (`status`),
+  KEY `idx_opportunity` (`opportunity_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告结构化资格条件（AI抽取+原文证据校验）';
