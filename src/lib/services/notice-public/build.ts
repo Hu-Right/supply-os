@@ -15,6 +15,7 @@ import { normalizeAmount } from "../notice-normalize/amount";
 import { normalizeContacts } from "../notice-normalize/phone";
 import { resolveCountries } from "../country/resolve";
 import { normalizeBuyerCountry } from "../notice-normalize/notice-core";
+import { normalizeIndustry } from "../notice-normalize/industry";
 import { loadAgencyAliasSnapshot, normalizeAliasKey } from "../agency/alias-store";
 import type { AgencyAliasSnapshot } from "../agency/alias-store";
 import { loadCountryAliasSnapshot } from "../country/alias-store";
@@ -420,7 +421,7 @@ export function buildPublicRow(
   return [
     r.id, noticeId, extractUrl(r.url), String(r.reference ?? "").slice(0, 255) || null,
     title.slice(0, 500), titleCn, desc, contentZh, contentLevel,
-    r.industry == null ? null : String(r.industry).slice(0, 100),
+    normalizeIndustry(r.industry),
     publishedTs, deadlineTs, dstate, r.deadline_type ?? null, r.deadline_timezone ?? null,
     countryCode, JSON.stringify(countryCodes), noticeType,
     platform?.name ?? null,
