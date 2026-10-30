@@ -14,6 +14,11 @@ import type {
   AnnualCreditView, ComparisonView, MembershipStatusView, TieredPlanView, UpgradeCreditWindowView,
 } from "@/types";
 
+export interface UseMembershipDataOptions {
+  /** RSC 直出的对比矩阵初值（page.tsx 服务端取数）。提供时跳过 plans 拉取，只补登录态数据 */
+  initialComparison?: ComparisonView | null;
+}
+
 export interface UseMembershipDataReturn {
   /** 档位代表行（对比矩阵 plans 列，服务端已按 commercial_tier 归组并排除 free，行内携带 periods 周期子行） */
   plans: TieredPlanView[];
@@ -36,13 +41,16 @@ export interface UseMembershipDataReturn {
   annualCredit: AnnualCreditView | null;
 }
 
-export function useMembershipData(): UseMembershipDataReturn {
+export function useMembershipData(options?: UseMembershipDataOptions): UseMembershipDataReturn {
   const { authUser } = useAuth();
-  const [plans, setPlans] = useState<TieredPlanView[]>([]);
-  const [comparison, setComparison] = useState<ComparisonView | null>(null);
+  // RSC 初值：套餐矩阵是公开数据且与登录态无关（/api/membership/plans 两种身份同表），
+  // 有初值就不再拉 plans——首屏直出，后续目录变更由 ISR revalidate 兜底
+  const hasInitial = options?.initialComparison != null;
+  const [plans, setPlans] = useState<TieredPlanView[]>(hasInitial ? options!.initialComparison!.plans : []);
+  const [comparison, setComparison] = useState<ComparisonView | null>(options?.initialComparison ?? null);
   const [membership, setMembership] = useState<MembershipStatusView | null>(null);
   const [annualCredit, setAnnualCredit] = useState<AnnualCreditView | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!hasInitial);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,7 +58,7 @@ export function useMembershipData(): UseMembershipDataReturn {
 
     Promise.all([
       // 登录态强制跳过缓存：确保拿到与当前身份一致的视图（V2）
-      fetchMembershipPlans(Boolean(authUser)),
+      hasInitial ? Promise.resolve(null) : fetchMembershipPlans(Boolean(authUser)),
       // SSOT 修复：走 apiCached 与 useMembershipTier 共享同一份缓存，
       // 避免 MembershipPage 与 AppHeader 各发一次 /api/membership/status
       authUser ? fetchMembershipStatus(true).catch(() => null) : Promise.resolve(null),
@@ -59,14 +67,17 @@ export function useMembershipData(): UseMembershipDataReturn {
     ])
       .then(([table, status, credit]) => {
         if (!alive) return;
-        setComparison(table ?? null);
-        setPlans(Array.isArray(table?.plans) ? table.plans : []);
+        // 有 RSC 初值时不回写 null 覆盖直出内容；无初值且拉取失败才清空进错误态
+        if (table) {
+          setComparison(table);
+          setPlans(Array.isArray(table.plans) ? table.plans : []);
+        }
         setMembership(status);
         setAnnualCredit(credit ?? null);
         setError(null);
       })
       .catch(() => {
-        if (alive) {
+        if (alive && !hasInitial) {
           setError("套餐数据加载失败，请稍后重试");
           setPlans([]);
           setComparison(null);
@@ -80,7 +91,7 @@ export function useMembershipData(): UseMembershipDataReturn {
     return () => {
       alive = false;
     };
-  }, [authUser]);
+  }, [authUser, hasInitial]);
 
   // 升级判断以「当前有效订阅」为准；普通用户（无订阅）不进入升级差价路径。
   const hasSubscription = Boolean(membership?.subscription);

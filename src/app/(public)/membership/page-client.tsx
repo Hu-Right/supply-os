@@ -2,9 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { ErrorBoundary } from "@/shared/ui";
+import type { ComparisonView } from "@/types";
 
 const MembershipPage = dynamic(
-  () => import("@/features/membership").then(m => (m as any).default || m.MembershipPage),
+  () => import("@/features/membership/pages/MembershipPage").then(m => m.default),
 );
 
 function PageErrorFallback() {
@@ -24,10 +25,11 @@ function PageErrorFallback() {
   );
 }
 
-export default function PageClient() {
+export default function PageClient({ initialComparison }: { initialComparison?: ComparisonView | null }) {
   return (
     <ErrorBoundary fallback={<PageErrorFallback />}>
-      <MembershipPage />
+      {/* 对比矩阵是纯 JSON 视图，RSC 边界直接透传；形态由消费端 useMembershipData 保证 */}
+      <MembershipPage initialComparison={initialComparison} />
     </ErrorBoundary>
   );
 }

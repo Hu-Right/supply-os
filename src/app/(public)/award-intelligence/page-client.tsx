@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
 import type { CnAwardCase } from "@/data/cn-award-cases";
-import { useAwardsData } from "@/features/procurement/hooks/useAwardsData";
+import { useAwardsData, type UseAwardsDataOptions } from "@/features/procurement/hooks/useAwardsData";
 import { buildAwardViewModel, type WinnerRow } from "@/features/procurement/awards/awardViewModel";
 import { TrendChart } from "./TrendChart";
 import {
@@ -26,7 +26,7 @@ import { CnCaseSection } from "./sections/CnCaseSection";
 import { AwardsBadgesSkeleton, AwardsSkeleton, AwardsErrorState } from "./sections/PageStates";
 import { InfoCardsGrid, BuyerProfileCard, TopWinnersCard, RecentAwardsCard } from "./sections/cards";
 
-export default function PageClient() {
+export default function PageClient({ initialAwards }: { initialAwards?: UseAwardsDataOptions["initialData"] }) {
   const router = useRouter();
   const trendRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,7 +39,7 @@ export default function PageClient() {
   const [cnDetail, setCnDetail] = useState<CnAwardCase | null>(null);
 
   // ── 真实中标数据 → 视图模型（唯一取数口径）；useMemo 稳定引用，避免交互时图表重建 ──
-  const awardsData = useAwardsData();
+  const awardsData = useAwardsData({ initialData: initialAwards });
   const vm = useMemo(() => buildAwardViewModel(awardsData), [awardsData]);
   // 接口失败且无真数据 → 错误态（区别于「空库」诚实空态）；部分失败但有数据 → 照常渲染
   const showError = vm.error && !awardsData.hasRealData;

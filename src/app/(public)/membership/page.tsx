@@ -1,9 +1,16 @@
 /**
  * /membership — ISR (revalidate: 3600)
+ *
+ * RSC 直出：套餐对比矩阵是公开数据（/api/membership/plans 同源，与登录态无关），
+ * 渲染期服务端直取进静态 HTML，客户端 hook 只补登录态的订阅状态/年包抵扣单；
+ * DB 不可达（含 build 期）降级为不带初值，回退客户端拉水。
  */
 import type { Metadata } from "next";
 import { absoluteUrl } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
+import { getContext } from "@/lib/db/context";
+import { tieredComparisonViewOf } from "@/lib/services/membership/view";
+import type { ComparisonView } from "@/types";
 import PageClient from "./page-client";
 
 export const revalidate = 3600;
@@ -23,6 +30,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function MembershipPage() {
-  return <PageClient />;
+/** 服务端直出对比矩阵；任何失败降级为 undefined，不阻断渲染 */
+async function loadInitialComparison(): Promise<ComparisonView | undefined> {
+  try {
+    const table = await getContext().benefitSystemRepo.buildComparisonTable();
+    return tieredComparisonViewOf(table);
+  } catch (err) {
+    console.warn("[membership] 服务端对比矩阵不可用，降级为客户端取数:", (err as Error).message);
+    return undefined;
+  }
+}
+
+export default async function MembershipPage() {
+  const initialComparison = await loadInitialComparison();
+  return <PageClient initialComparison={initialComparison} />;
 }

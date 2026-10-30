@@ -8,6 +8,9 @@
  *              content/SupplierScrollCard（原内联 renderItem 共 180+ 行，
  *              单文件破 200 行红线）；头像色工具上收 shared/utils/format。
  *              本文件只保留取数编排 + 三列布局。
+ *              2026-10-30 RSC 直出：page.tsx 服务端注入 initialContent 三列初值，
+ *              静态 HTML 直接带真实列表（不再先出一段空滚动）；挂载后仍照常
+ *              apiCached 后台刷新保新鲜，与首页快照同一条信任口径。
  */
 import { memo, useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
@@ -16,13 +19,20 @@ import { VerticalMarquee } from "./VerticalMarquee";
 import { NoticeScrollCard, type HomeNoticeItem } from "./content/NoticeScrollCard";
 import { SupplierScrollCard, type HomeSupplierItem } from "./content/SupplierScrollCard";
 
+/** 三栏内容初值（形状与各端点响应的 items 一致；page-client 从 RSC 快照投影而来） */
+export interface HomeContentData {
+  hotNotices: HomeNoticeItem[];
+  rfqNotices: HomeNoticeItem[];
+  suppliers: HomeSupplierItem[];
+}
+
 /** 三栏内容区 — 热门商机 / 优质供应商 / RFQ 需求 */
-export const ContentColumns = memo(function ContentColumns() {
+export const ContentColumns = memo(function ContentColumns({ initialContent }: { initialContent?: HomeContentData } = {}) {
   const { t, locale } = useLocale();
-  const [suppliers, setSuppliers] = useState<HomeSupplierItem[]>([]);
-  const [hotNotices, setHotNotices] = useState<HomeNoticeItem[]>([]);
-  const [rfqNotices, setRfqNotices] = useState<HomeNoticeItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [suppliers, setSuppliers] = useState<HomeSupplierItem[]>(initialContent?.suppliers ?? []);
+  const [hotNotices, setHotNotices] = useState<HomeNoticeItem[]>(initialContent?.hotNotices ?? []);
+  const [rfqNotices, setRfqNotices] = useState<HomeNoticeItem[]>(initialContent?.rfqNotices ?? []);
+  const [loading, setLoading] = useState(!initialContent);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {

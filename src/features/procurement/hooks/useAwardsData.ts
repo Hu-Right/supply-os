@@ -82,13 +82,34 @@ const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
 type TopResp = { items: Array<{ name: string; country: string | null; count: number; totalUsd: number }> };
 type ListResp = { items: AwardListItem[]; total: number };
 
+export interface UseAwardsDataOptions {
+  /** RSC 直出首屏快照（page.tsx 服务端取数）。提供时首屏不再出骨架，挂载后照常后台刷新 */
+  initialData?: {
+    stats: AwardStatsData | null;
+    topWinners: UseAwardsDataReturn["topWinners"];
+    recentAwards: AwardListItem[];
+  } | null;
+}
+
 /**
  * 中标情报数据 hook。并行请求 stats + top winners + recent awards：
  * 单点失败不阻断整体（部分成功仍渲染有数据的板块），但会把 error 置真供页面提示；
  * 全部成功但库为空 → hasRealData=false 且 error=false（诚实空态，非错误）。
  */
-export function useAwardsData(): UseAwardsDataReturn {
-  const [data, setData] = useState<AwardsData>(INITIAL);
+export function useAwardsData(options?: UseAwardsDataOptions): UseAwardsDataReturn {
+  const initial = options?.initialData ?? null;
+  const [data, setData] = useState<AwardsData>(
+    initial
+      ? {
+          stats: initial.stats ?? null,
+          topWinners: initial.topWinners ?? [],
+          recentAwards: initial.recentAwards ?? [],
+          hasRealData: (initial.stats?.total ?? 0) > 0,
+          loading: false,
+          error: false,
+        }
+      : INITIAL,
+  );
   const mountedRef = useRef(true);
 
   const load = useCallback(async (force: boolean) => {

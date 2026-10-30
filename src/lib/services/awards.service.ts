@@ -81,3 +81,31 @@ export async function getTopWinners(pool: Pool, limit: number): Promise<AwardTop
   const items = winnerViewsOf(await new AwardsRepo(pool).topWinners(limit));
   return { items, total: items.length };
 }
+
+/** 中标情报页首屏快照：stats + top10 + 近期 10 条（与三个 /api/awards* 端点同一条 service 口径） */
+export interface AwardsPageSnapshot {
+  stats: AwardStatsView | null;
+  topWinners: AwardWinnerView[];
+  recentAwards: AwardView[];
+}
+
+/**
+ * 组装中标情报页快照（ISR/渲染期直出，客户端 useAwardsData 挂载后照常刷新）。
+ * 三路独立：单路失败该路落空值留 warn，不拖垮其余两路（与 hook 的逐请求兜底同语义）。
+ */
+export async function getAwardsPageSnapshot(pool: Pool): Promise<AwardsPageSnapshot> {
+  const [stats, top, list] = await Promise.allSettled([
+    getAwardStats(pool),
+    getTopWinners(pool, 10),
+    listAwards(pool, { page: 1, pageSize: 10 }),
+  ]);
+  const settled = <T,>(r: PromiseSettledResult<T>, label: string, fallback: T): T => {
+    if (r.status === "fulfilled") return r.value;
+    console.warn(`[awards] 快照 ${label} 失败，该路降级为空:`, (r.reason as Error)?.message);
+    return fallback;
+  };
+  const statsV = settled(stats, "stats", null);
+  const topV = settled(top, "topWinners", { items: [], total: 0 });
+  const listV = settled(list, "recentAwards", { items: [], total: 0, page: 1, page_size: 10, total_pages: 0 });
+  return { stats: statsV, topWinners: topV.items, recentAwards: listV.items };
+}

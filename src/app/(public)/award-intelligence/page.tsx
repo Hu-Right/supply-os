@@ -8,6 +8,8 @@
  */
 import type { Metadata } from "next";
 import { absoluteUrl } from "@/lib/services/seo/site";
+import { getPool } from "@/lib/db/pool";
+import { getAwardsPageSnapshot, type AwardsPageSnapshot } from "@/lib/services/awards.service";
 import PageClient from "./page-client";
 
 export const metadata: Metadata = {
@@ -20,6 +22,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AwardIntelligencePage() {
-  return <PageClient />;
+/** 服务端直出首屏快照；任何失败（含 build 期无库）降级为 undefined，不阻断渲染 */
+async function loadInitialAwards(): Promise<AwardsPageSnapshot | undefined> {
+  try {
+    return await getAwardsPageSnapshot(getPool());
+  } catch (err) {
+    console.warn("[awards] 服务端快照不可用，降级为客户端取数:", (err as Error).message);
+    return undefined;
+  }
+}
+
+export default async function AwardIntelligencePage() {
+  const initialAwards = await loadInitialAwards();
+  return <PageClient initialAwards={initialAwards} />;
 }

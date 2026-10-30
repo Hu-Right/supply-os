@@ -25,14 +25,20 @@ import { useMembershipPayment } from "../hooks/useMembershipPayment";
 import { useServiceCatalog } from "../hooks/useServiceCatalog";
 import { groupServicesByCategory, pickServiceTabGroups, serviceDisplayName, resolveServiceBranch, periodSwitchKey } from "../utils";
 import type { ServiceCatalogView } from "@/types/membership";
+import type { ComparisonView } from "@/types";
 
-export default function MembershipPage() {
+export interface MembershipPageProps {
+  /** RSC 直出的对比矩阵初值（page.tsx 服务端取数；undefined 时回退客户端拉取） */
+  initialComparison?: ComparisonView | null;
+}
+
+export default function MembershipPage({ initialComparison }: MembershipPageProps) {
   const searchParams = useSearchParams();
   const { t, locale } = useLocale();
   const { authUser } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
-  const { plans, comparison, loading, error, currentPlanCode, currentPlanPrice, upgradeCredit, annualCredit } = useMembershipData();
+  const { plans, comparison, loading, error, currentPlanCode, currentPlanPrice, upgradeCredit, annualCredit } = useMembershipData({ initialComparison });
 
   const {
     buyPlan, startUpgrade, confirmUpgrade,

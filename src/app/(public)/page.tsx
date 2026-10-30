@@ -14,7 +14,7 @@
 import type { Metadata } from "next";
 import { absoluteUrl } from "@/lib/services/seo/site";
 import { getPool } from "@/lib/db/pool";
-import { getHomeSnapshot } from "@/lib/services/home-snapshot";
+import { getHomeSnapshot, getHomeContentSnapshot, type HomeContentSnapshot } from "@/lib/services/home-snapshot";
 import PageClient from "./page-client";
 import type { HomeStatsData } from "@/features/home";
 
@@ -41,7 +41,17 @@ async function loadInitialHome(): Promise<HomeStatsData | undefined> {
   }
 }
 
+/** 服务端直出三栏内容快照（内部逐列降级，整体失败则回退客户端取数） */
+async function loadInitialContent(): Promise<HomeContentSnapshot | undefined> {
+  try {
+    return await getHomeContentSnapshot(getPool());
+  } catch (err) {
+    console.warn("[home] 三栏内容快照不可用，降级为客户端取数:", (err as Error).message);
+    return undefined;
+  }
+}
+
 export default async function HomePage() {
-  const initialHome = await loadInitialHome();
-  return <PageClient initialHome={initialHome} />;
+  const [initialHome, initialContent] = await Promise.all([loadInitialHome(), loadInitialContent()]);
+  return <PageClient initialHome={initialHome} initialContent={initialContent} />;
 }

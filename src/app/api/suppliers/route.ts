@@ -19,38 +19,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { withRoute } from "@/lib/middleware/route-handler";
-import { supplierViewOf } from "@/lib/services/suppliers";
-import { loadCountryAliasSnapshot, type CountryAliasSnapshot } from "@/lib/services/country/alias-store";
-import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
-import type { SupplierIndustryInfo } from "@/lib/services/industry-labels";
+import { toSupplierListView, listSupplierDirectoryPage } from "@/lib/services/suppliers";
 import { resolveIndustryKeywordCodes } from "@/lib/services/industry-facets";
 import { sanitizeIndustryCode } from "@/lib/services/industry-code";
-import type { IndustryNodeRepo } from "@/lib/repos/industry-node.repo";
-import type { SupplierDirectoryRow } from "@/lib/repos/suppliers";
-import type { Supplier } from "@/types";
-
-/** 批量映射：原始 DB 行 → 前端 Supplier DTO（column→field 转换 + 脱敏 + 行业面标签）
- * 名字沿用 to*View 约定，让命名红线② 规则二在本文件出口处自己看得出「已经过视图」 */
-async function toSupplierListView(
-  rows: SupplierDirectoryRow[],
-  industryRepo: IndustryNodeRepo,
-): Promise<Supplier[]> {
-  const industryById = new Map<number, SupplierIndustryInfo>();
-  try {
-    for (const [k, v] of await loadSupplierIndustryInfo(industryRepo, rows)) industryById.set(k, v);
-  } catch (err) {
-    // 字典层故障必须报出来（否则整站默默退回旧文本而无人知道），但不阻断目录
-    console.error("[suppliers GET] 行业面标签装配失败，本次退回自填文本:", err);
-  }
-  let snap: CountryAliasSnapshot | undefined;
-  try {
-    snap = await loadCountryAliasSnapshot(getContext().dbPool);
-  } catch (err) {
-    // 表快照拉不到 → 本次退回原文（不阻断目录）；展示仍不回落静态字典
-    console.error("[suppliers GET] 国家展示快照加载失败，本次退回原文:", err);
-  }
-  return rows.map((row) => supplierViewOf(row, industryById.get(Number(row.id)) ?? null, snap));
-}
 
 export const GET = withRoute(async (req: NextRequest) => {
   const pageParam = req.nextUrl.searchParams.get("page");
@@ -61,7 +32,6 @@ export const GET = withRoute(async (req: NextRequest) => {
     if (pageParam && Number(pageParam) >= 1) {
       const page = Number(pageParam);
       const pageSize = Math.min(Math.max(Number(req.nextUrl.searchParams.get("pageSize")) || 9, 1), 50);
-      const offset = (page - 1) * pageSize;
       const search = req.nextUrl.searchParams.get("q")?.trim() || undefined;
       // 行业面标准口径筛选：非法码静默丢弃（等同不筛选），不拼进 SQL
       const industryCode = sanitizeIndustryCode(req.nextUrl.searchParams.get("industry_code")) || undefined;
@@ -81,11 +51,10 @@ export const GET = withRoute(async (req: NextRequest) => {
         }
       }
 
-      const { items, total } = await directoryRepo.listDirectoryPaginated({
-        limit: pageSize, offset, search, sort, industryCode, industryCodes,
+      const { items, total } = await listSupplierDirectoryPage({
+        page, pageSize, sort, search, industryCode, industryCodes,
       });
-      const dtoItems = await toSupplierListView(items, industryRepo);
-      return NextResponse.json({ items: dtoItems, total, page, pageSize });
+      return NextResponse.json({ items, total, page, pageSize });
     }
 
     const rows = await directoryRepo.listDirectory();

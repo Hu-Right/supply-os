@@ -23,6 +23,8 @@ import {
   IdentityChoiceBanner,
 } from "@/features/home";
 import type { HomeStatsData } from "@/features/home";
+import type { HomeContentSnapshot } from "@/lib/services/home-snapshot";
+import type { HomeContentData } from "@/features/home/components/ContentColumns";
 import { ErrorBoundary } from "@/shared/ui";
 
 /** 首页全局错误降级 UI */
@@ -43,7 +45,7 @@ function HomeErrorFallback() {
   );
 }
 
-export default function PageClient({ initialHome }: { initialHome?: HomeStatsData } = {}) {
+export default function PageClient({ initialHome, initialContent }: { initialHome?: HomeStatsData; initialContent?: HomeContentSnapshot } = {}) {
   return (
     <ErrorBoundary fallback={<HomeErrorFallback />}>
       <div className="min-h-screen bg-white">
@@ -52,7 +54,9 @@ export default function PageClient({ initialHome }: { initialHome?: HomeStatsDat
         <StatsWall initialHome={initialHome} />
         <HotTopicsSection />
         <WorldMapSection initialHome={initialHome} />
-        <ContentColumns />
+        {/* RSC 快照行 → 卡片项：与 apiCached<{ items: HomeNoticeItem[] }> 泛型同一条信任口径
+            （视图行即卡片契约，无运行时校验），薄壳投影一次，features 内不引 lib 类型 */}
+        <ContentColumns initialContent={initialContent as HomeContentData | undefined} />
         <AboutSection initialHome={initialHome} />
       </div>
     </ErrorBoundary>
