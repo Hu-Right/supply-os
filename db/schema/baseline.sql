@@ -1153,7 +1153,8 @@ CREATE TABLE `notice_public` (
   `notice_type_code` varchar(30) DEFAULT NULL COMMENT '采购类型归一码（normalizeNoticeType 单一事实源）',
   `platform_name` varchar(100) DEFAULT NULL COMMENT '发布平台规范名（platform 别名归一后）',
   `buyer_name` varchar(500) DEFAULT NULL COMMENT '采购人/机构规范名（agency 别名归一后）',
-  `buyer_name_cn` varchar(500) DEFAULT NULL COMMENT '中文买家名缓存，来源 buyer_translation.buyer_name_zh',
+  `buyer_id` bigint unsigned DEFAULT NULL COMMENT '买家实体 ID（buyer.buyer_id）',
+  `buyer_name_cn` varchar(500) DEFAULT NULL COMMENT '中文买家名缓存，来源 buyer.name_zh',
   `buyer_group` varchar(100) DEFAULT NULL COMMENT '机构类型分类键（classifyAgencyType 的 typeKey）',
   `estimated_value` decimal(20,2) DEFAULT NULL COMMENT '预算金额（归一数值）',
   `currency_code` char(3) DEFAULT NULL COMMENT '币种 ISO4217 码',
@@ -2426,6 +2427,37 @@ CREATE TABLE `ungm_1v1_appointments` (
   KEY `idx_ungm_1v1_status_created` (`status`,`created_at`),
   KEY `idx_ungm_1v1_contact_method` (`contact_method`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='预约专业服务顾问';
+
+-- 买家实体：同一采购机构的所有别名归到一个 buyer_id
+CREATE TABLE `buyer` (
+  `buyer_id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `entity_key` char(64) NOT NULL COMMENT '国家+规范名哈希，去重键',
+  `canonical_name` varchar(500) NOT NULL COMMENT '规范买家名',
+  `country_code` char(2) DEFAULT NULL COMMENT '买家国家 ISO2',
+  `buyer_group` varchar(100) DEFAULT NULL COMMENT '机构类型分类键',
+  `name_zh` varchar(500) DEFAULT NULL COMMENT '中文规范名',
+  `parent_buyer_id` bigint unsigned DEFAULT NULL COMMENT '上级机构（如下属医院/部门）',
+  `status` varchar(20) NOT NULL DEFAULT 'active',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`buyer_id`),
+  UNIQUE KEY `uk_buyer_entity_key` (`entity_key`),
+  KEY `idx_buyer_country` (`country_code`),
+  KEY `idx_buyer_name` (`canonical_name`(191))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='买家实体主数据';
+
+-- 买家别名：原始写法 → buyer_id
+CREATE TABLE `buyer_alias` (
+  `alias_key` char(64) NOT NULL COMMENT '国家+原文买家名哈希',
+  `buyer_id` bigint unsigned NOT NULL,
+  `alias` varchar(500) NOT NULL COMMENT '原始买家名',
+  `country_code` char(2) DEFAULT NULL,
+  `source` varchar(50) NOT NULL DEFAULT 'notice',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`alias_key`),
+  KEY `idx_buyer_alias_buyer` (`buyer_id`),
+  KEY `idx_buyer_alias_name` (`alias`(191))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='买家实体别名';
 
 -- 买家中文翻译字典：按唯一 buyer_key 翻译，公告只引用，不逐条翻译
 CREATE TABLE `buyer_translation` (

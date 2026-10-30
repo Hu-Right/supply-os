@@ -37,7 +37,7 @@ export const PUBLIC_COLS = [
   "published_ts", "deadline_ts", "deadline_state", "deadline_type", "deadline_timezone",
   "country_code", "country_codes", "notice_type_code",
   "platform_name",
-  "buyer_name", "buyer_name_cn", "buyer_group",
+  "buyer_name", "buyer_id", "buyer_name_cn", "buyer_group",
   "estimated_value", "currency_code", "currency_source",
   "contacts", "attachments", "external_links",
   "difficulty", "registration_level", "beneficiary_countries",
@@ -54,6 +54,8 @@ export interface PublicBuildContext {
   platformByAlias: Map<string, PlatformEntry>;
   /** 规范买家名 → 中文买家名；来源 buyer_translation（key 用 buyer_name，避免超长键） */
   buyerTranslations: Map<string, string>;
+  /** 国家 + 买家名 → 买家实体（服务表落 buyer_id，展示用实体规范名） */
+  buyerEntities: Map<string, { buyerId: number; canonical: string; nameZh: string | null; group: string | null }>;
 }
 
 export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildContext> {
@@ -89,7 +91,21 @@ export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildCon
     const zh = String(r.buyer_name_zh ?? "").trim();
     if (key && zh) buyerTranslations.set(key, zh);
   }
-  return { agencyAliases, countrySnap, platformByHost, platformByAlias, buyerTranslations };
+  const buyerEntities = new Map<string, { buyerId: number; canonical: string; nameZh: string | null; group: string | null }>();
+  const [baRows] = await pool.query(
+    `SELECT a.alias, a.country_code, b.buyer_id, b.canonical_name, b.name_zh, b.buyer_group
+       FROM buyer_alias a JOIN buyer b ON b.buyer_id = a.buyer_id`,
+  );
+  for (const r of baRows as RowDataPacket[]) {
+    const key = `${String(r.country_code ?? "")}|${String(r.alias ?? "")}`;
+    buyerEntities.set(key, {
+      buyerId: Number(r.buyer_id),
+      canonical: String(r.canonical_name ?? r.alias ?? ""),
+      nameZh: r.name_zh ? String(r.name_zh) : null,
+      group: r.buyer_group ? String(r.buyer_group) : null,
+    });
+  }
+  return { agencyAliases, countrySnap, platformByHost, platformByAlias, buyerTranslations, buyerEntities };
 }
 
 function extractUrl(raw: unknown): string {
@@ -340,6 +356,15 @@ export function buildPublicRow(
   const buyerGroup = core.buyerGroup?.slice(0, 100) ?? null;
   const countryCode = core.countryCode;
   const countryCodes = core.countryCodes;
+  const buyerEntity = buyerName
+    ? ctx.buyerEntities.get(`${countryCode ?? ""}|${buyerName}`)
+    : undefined;
+  const buyerId = buyerEntity?.buyerId ?? null;
+  const buyerCanonical = buyerEntity?.canonical?.slice(0, 500) ?? buyerName;
+  const buyerGroupFinal = (buyerEntity?.group?.slice(0, 100) ?? buyerGroup) || null;
+  const buyerNameCn = buyerCanonical
+    ? (buyerEntity?.nameZh?.slice(0, 500) ?? ctx.buyerTranslations.get(buyerCanonical) ?? null)
+    : null;
   // 英文 canonical 名（core.countryName）只在上游 classifyBuyerGroup 内部消费，服务表不再落列
   const noticeType = normalizeNoticeType(String(r.notice_type ?? "")).slice(0, 20) || null;
   const platform = platformOf(ctx, r.url, r.agency, r.organization);
@@ -403,9 +428,6 @@ export function buildPublicRow(
     ? [...new Set(beneficiaryRefs.map((ref) => ref.zh || ref.canonical).filter(Boolean))].join(", ").slice(0, 500)
     : (beneficiaryRaw.slice(0, 500) || null);
   const titleCn = String(r.title_cn ?? "").trim().slice(0, 1000) || null;
-  const buyerNameCn = buyerName
-    ? (ctx.buyerTranslations.get(buyerName) ?? null)
-    : null;
 
   return [
     r.id, noticeId, extractUrl(r.url), String(r.reference ?? "").slice(0, 255) || null,
@@ -414,7 +436,7 @@ export function buildPublicRow(
     publishedTs, deadlineTs, dstate, r.deadline_type ?? null, r.deadline_timezone ?? null,
     countryCode, JSON.stringify(countryCodes), noticeType,
     platform?.name ?? null,
-    buyerName, buyerNameCn, buyerGroup,
+    buyerCanonical, buyerId, buyerNameCn, buyerGroupFinal,
     amount.amount, amount.currency, amount.currencySource,
     JSON.stringify(contacts.entries), JSON.stringify(attachments), JSON.stringify(externalLinks),
     difficulty, registration, beneficiary,
