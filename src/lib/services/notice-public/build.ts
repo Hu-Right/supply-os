@@ -15,7 +15,7 @@ import { normalizeAmount } from "../notice-normalize/amount";
 import { normalizeContacts } from "../notice-normalize/phone";
 import { resolveCountries } from "../country/resolve";
 import { normalizeBuyerCountry } from "../notice-normalize/notice-core";
-import { normalizeIndustry } from "../notice-normalize/industry";
+import { industryTreeSection } from "../notice-normalize/industry";
 import { loadAgencyAliasSnapshot, normalizeAliasKey } from "../agency/alias-store";
 import type { AgencyAliasSnapshot } from "../agency/alias-store";
 import { loadCountryAliasSnapshot } from "../country/alias-store";
@@ -245,7 +245,7 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
             t.title_clean, t.title_quality, t.updated_at AS title_updated_at,
             b.body_text, b.body_chars, b.content_level,
             d.deadline_state, d.deadline_type, d.deadline_timezone, d.effective_ts, d.confidence,
-            tr.title_tr AS title_cn
+            tr.title_tr AS title_cn, tr.description_tr AS description_cn_tr
        FROM bid_notices n
        LEFT JOIN notice_title t ON t.notice_pk=n.id
        LEFT JOIN notice_body b ON b.notice_pk=n.id
@@ -432,8 +432,11 @@ export function buildPublicRow(
   const publishedTs = toEpoch(r.published_date);
   const difficulty = normDifficulty(r.difficulty);
   const registration = normRegistration(r.registration_level);
-  // 中文正文：商机表有中文描述就直接覆盖服务表；无则保留服务表已有中文内容。
-  const contentZh = opp?.cn ? cleanContentText(opp.cn) : null;
+  // 中文正文取值链（2026-10-30 接入翻译旁表）：商机运营中文（最高优先）→
+  // 翻译旁表 description_tr（机翻存量，lang='zh'，构建 SELECT 已带出）→ NULL。
+  const contentZh = opp?.cn
+    ? cleanContentText(opp.cn)
+    : String(r.description_cn_tr ?? "").trim() || null;
   // 受援国按服务表原文归一：统一成标准国家名，去重，避免自由文本直接透出。
   // refs 含国家+区域（"国家, 区域" 合法形态两段都映射，如「莫桑比克, 西南印度洋」）；
   // 仅区域命中 → 区域名（与国家码 ZZ 口径一致）；两者皆无 → 原文回退（真缺表，巡检待补）。
@@ -447,7 +450,7 @@ export function buildPublicRow(
   return [
     r.id, noticeId, extractUrl(r.url), String(r.reference ?? "").slice(0, 255) || null,
     title.slice(0, 500), titleCn, desc, contentZh, contentLevel,
-    normalizeIndustry(r.industry),
+    industryTreeSection(r.industry),
     publishedTs, deadlineTs, dstate, r.deadline_type ?? null, r.deadline_timezone ?? null,
     countryCode, JSON.stringify(countryCodes), noticeType,
     platform?.name ?? null,

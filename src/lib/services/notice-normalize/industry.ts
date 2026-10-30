@@ -71,3 +71,48 @@ export function normalizeIndustry(raw: unknown): IndustryCanonical | null {
   if (CANONICAL_SET.has(s)) return s as IndustryCanonical;
   return ALIAS_MAP.get(s) ?? null;
 }
+
+/**
+ * 公告行业值 → 自建行业树 UGT-I 门类码（L1）。
+ * 只做能确定的门类挂靠；不按关键词猜细分，避免假精度。
+ */
+const INDUSTRY_TREE_SECTION: Record<IndustryCanonical, string | null> = {
+  agriculture: "UGT-I-01",
+  mining: "UGT-I-02",
+  manufacturing: "UGT-I-03",
+  engineering: "UGT-I-03",
+  electrical: "UGT-I-03",
+  machinery: "UGT-I-03",
+  furniture: "UGT-I-03",
+  printing: "UGT-I-03",
+  textile: "UGT-I-03",
+  chemicals: "UGT-I-03",
+  food: "UGT-I-03",
+  energy: "UGT-I-04",
+  building: "UGT-I-05",
+  shelter: "UGT-I-05",
+  vehicles: "UGT-I-06",
+  supplies: "UGT-I-06",
+  logistics: "UGT-I-07",
+  travel: "UGT-I-08",
+  it: "UGT-I-09",
+  telecom: "UGT-I-09",
+  finance: "UGT-I-10",
+  consulting: "UGT-I-13",
+  laboratory: "UGT-I-13",
+  water: "UGT-I-14",
+  environmental: "UGT-I-14",
+  services: "UGT-I-15",
+  education: "UGT-I-16",
+  medical: "UGT-I-17",
+  sports: "UGT-I-18",
+  safety: "UGT-I-19",
+  government: "UGT-I-19",
+  general: null,
+  other: null,
+};
+
+export function industryTreeSection(raw: unknown): string | null {
+  const canonical = normalizeIndustry(raw);
+  return canonical ? INDUSTRY_TREE_SECTION[canonical] : null;
+}
