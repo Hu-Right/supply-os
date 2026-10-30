@@ -33,6 +33,7 @@ export function isAgencyPlaceholder(name: string): boolean {
   // 纯数字/编号（"113"、"2026/001"）：不是机构名
   if (/^[\d\s.,:/()\-–—]+$/.test(normalized)) return true;
   // 控制字符：爬虫解析产物，非可展示名
+  // eslint-disable-next-line no-control-regex -- 刻意匹配控制字符识别爬虫脏名；保留 \t\n\r 等空白控制符不作占位符
   if (/[\u0000-\u0008\u000e-\u001f]/.test(name)) return true;
   return false;
 }

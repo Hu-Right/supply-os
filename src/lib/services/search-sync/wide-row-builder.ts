@@ -12,7 +12,8 @@ import { resolveCountries } from "../country/resolve";
 import type { CountryAliasSnapshot } from "../country/alias-store";
 import { toBackbonePathColumn } from "../commodity/backbone-path";
 import { pathOfLandingNodes } from "../commodity/attribution";
-import { DESC_SOURCE_EXPR, WIDE_LIMITS, TRANSLATION_MODEL, truncate } from "../../utils/notice-field-limits";
+// DESC_SOURCE_EXPR 的使用方在叶子模块 wide-fingerprint（自 import），本文件不再引用
+import { WIDE_LIMITS, TRANSLATION_MODEL, truncate } from "../../utils/notice-field-limits";
 import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 // JOIN 片段来自叶子模块 wide-sync-sql：不得在本文件定义后再被 fingerprint 反向导入（会成环）
 import { WIDE_OPP_JOIN, WIDE_SYNC_JOIN } from "./wide-sync-sql";

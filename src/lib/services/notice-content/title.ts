@@ -116,6 +116,7 @@ export function cleanContentText(raw: unknown): string {
   s = decodeEntities(s);
   s = stripHtml(s);
   s = s.replace(/\u00a0/g, " ")
+    // eslint-disable-next-line no-control-regex -- 刻意剥离控制字符但保留 \t\n\r，维持正文段落结构
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
