@@ -8,7 +8,7 @@
 import type { Pool } from "mysql2/promise";
 import {
   buildPublicRow, deletePublicRows, fetchPublicInputRows,
-  loadPublicBuildContext, selectChangedPublicIds, selectPublicGhostIds, upsertPublicRows,
+  loadPublicBuildContext, selectChangedPublicIds, selectPublicGhostIds, upsertPublicRows, syncBuyerCandidates,
 } from "./build";
 
 export interface RebuildResult {
@@ -76,6 +76,9 @@ export async function rebuildNoticePublicChanged(
     const pruned = ghostIds.length > 0 ? await deletePublicRows(pool, ghostIds) : 0;
     if (ids.length > 0 || ghostIds.length > 0) {
       console.log(`[notice-public] 增量重建：选行 ${ids.length} · 写入 ${written} · 清理 ${pruned}（${((Date.now() - t0) / 1000).toFixed(1)}s）`);
+      await syncBuyerCandidates(pool).catch((err: unknown) => {
+        console.warn("[notice-public] buyer_candidate 同步失败:", (err as Error).message);
+      });
     }
     return { selected: ids.length, written, pruned };
   } finally {

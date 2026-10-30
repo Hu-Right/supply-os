@@ -239,7 +239,9 @@ export function buildWideRow(
     backbone_path: landing?.backbone ? landing.backbone : null,
     description_cn: String(r.description_cn || "").slice(0, WIDE_LIMITS.descriptionCn),
     bid_overview: String(r.bid_overview || "").slice(0, WIDE_LIMITS.bidOverview),
-    beneficiary_countries: String(r.public_beneficiary_countries || r.beneficiary_countries || "").slice(0, WIDE_LIMITS.beneficiary),
+    beneficiary_countries: r.public_beneficiary_countries
+      ? String(r.public_beneficiary_countries).slice(0, WIDE_LIMITS.beneficiary)
+      : normalizeBeneficiaryCountries(String(r.beneficiary_countries || ""), countrySnap),
     documents_count: docs.length,
     published_date: String(r.published_date || "").slice(0, WIDE_LIMITS.publishedDate),
     // 指纹：与内容同快照由 SQL 侧唯一表达式算出，此处只透传不计算（I1）。

@@ -439,6 +439,37 @@ export function buildPublicRow(
   ];
 }
 
+/** 把未命中买家的原始来源名登记到 buyer_candidate（不自动创建买家实体）。 */
+export async function syncBuyerCandidates(pool: Pool): Promise<number> {
+  const [res] = await pool.query(
+    `INSERT INTO buyer_candidate
+       (candidate_key, country_code, raw_name, normalized_name, occurrence_count)
+     SELECT SHA2(CONCAT(COALESCE(x.country_code, ''), '|', x.raw_name), 256),
+            x.country_code,
+            LEFT(x.raw_name, 500),
+            LEFT(LOWER(TRIM(x.raw_name)), 500),
+            COUNT(*)
+       FROM (
+         SELECT p.country_code, TRIM(n.agency_full) AS raw_name
+           FROM notice_public p JOIN bid_notices n ON n.id = p.notice_pk
+          WHERE p.buyer_id IS NULL AND n.agency_full IS NOT NULL AND TRIM(n.agency_full) <> ''
+         UNION ALL
+         SELECT p.country_code, TRIM(n.organization) AS raw_name
+           FROM notice_public p JOIN bid_notices n ON n.id = p.notice_pk
+          WHERE p.buyer_id IS NULL AND n.organization IS NOT NULL AND TRIM(n.organization) <> ''
+       ) x
+      WHERE x.raw_name NOT REGEXP '^[a-z]{2,}_[a-z0-9_]+$'
+        AND NOT EXISTS (
+          SELECT 1 FROM buyer_alias a
+           WHERE a.alias_key = SHA2(CONCAT(COALESCE(x.country_code, ''), '|', x.raw_name), 256)
+        )
+      GROUP BY x.country_code, x.raw_name
+     ON DUPLICATE KEY UPDATE occurrence_count = occurrence_count + VALUES(occurrence_count),
+       raw_name = VALUES(raw_name)`,
+  );
+  return Number((res as { affectedRows?: number }).affectedRows ?? 0);
+}
+
 /** 批量 upsert 服务表（唯一写入路径；ODKU 全列覆盖，notice_pk 除外） */
 export async function upsertPublicRows(pool: Pool, params: unknown[][]): Promise<number> {
   if (params.length === 0) return 0;
