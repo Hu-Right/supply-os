@@ -69,8 +69,9 @@ test.describe("关键页面骨架可达", () => {
 
   test("采购公告页：高级搜索关键词框渲染（静态骨架）", async ({ page }) => {
     await page.goto(`${BASE}/procurement`);
+    // 可访问名 = 关联 label「关键词」（2539cad6 补 a11y 关联后不再回落 placeholder）
     await expect(
-      page.getByRole("textbox", { name: /输入产品、项目、机构、品类关键词/ }),
+      page.getByRole("textbox", { name: "关键词" }),
     ).toBeVisible({ timeout: 10_000 });
   });
 });
