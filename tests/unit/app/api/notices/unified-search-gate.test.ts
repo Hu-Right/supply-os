@@ -261,14 +261,14 @@ describe("unified-search 响应信封（红线②：整块透出已收口）", (
 
   it("items 仍走行→视图：宽表列名在信封里已换成 camel 键（值原样）", async () => {
     mocks.searchUnified.mockResolvedValue({
-      items: [{ notice_pk: 12345, notice_id: "UN-12345", title_zh: "标题", country_code: "CN", deadline_ts: 1700000000 }],
+      items: [{ notice_pk: 12345, notice_id: "UN-12345", title_cn: "标题", country_code: "CN", deadline_ts: 1700000000 }],
       total: 1, page: 1, pageSize: 10, fallback: "none",
     });
 
     const body = await (await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar"))).json();
 
     expect([...Object.keys(body.items[0])].sort()).toEqual([
-      "countryCode", "deadlineTs", "noticeId", "noticePk", "titleZh",
+      "countryCode", "deadlineTs", "noticeId", "noticePk", "titleCn",
     ]);
     expect(body.items[0].noticePk).toBe(12345);
     expect(Object.keys(body.items[0]).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
