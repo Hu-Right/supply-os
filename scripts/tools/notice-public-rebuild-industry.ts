@@ -1,7 +1,7 @@
 /**
  * 定向服务表重建（行业维度）：industry 列受控词表化（2026-10-30）后，
  * 刷新「列值不在 canonical 全集」的历史行——中文同义标签映射、变体合并、
- * UNSPSC 残码/字母残片置 NULL。选行在 SQL 端用 canonical 全集字面量。
+ * 旧字典残码/字母残片置 NULL。选行在 SQL 端用 canonical 全集字面量。
  *
  * 写链复用 build.ts 唯一写入者。用法（服务器 /root/supply-os 下）：
  *   npx tsx scripts/tools/notice-public-rebuild-industry.ts            # DRY

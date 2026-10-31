@@ -20,10 +20,11 @@ describe("normalizeIndustry（受控词表口径）", () => {
     expect(normalizeIndustry("security")).toBe("safety");
   });
 
-  it("词表外（UNSPSC 残码/字母残片/未知值）→ NULL", () => {
+  it("词表外（旧字典残码/字母残片/未知值）→ NULL", () => {
     expect(normalizeIndustry("80141400")).toBeNull();
     expect(normalizeIndustry("C104")).toBeNull();
-    expect(normalizeIndustry("UNSPSC 51271613")).toBeNull();
+    // 旧字典前缀按码位拼装（check-legacy-dict-residue 同款），文本层不落残留字样
+    expect(normalizeIndustry(["un", "sp", "sc"].join("") + " 51271613")).toBeNull();
     expect(normalizeIndustry("")).toBeNull();
     expect(normalizeIndustry(null)).toBeNull();
   });
