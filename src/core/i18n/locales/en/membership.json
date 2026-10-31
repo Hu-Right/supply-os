@@ -66,6 +66,7 @@
   "svcLabelToken": "Usage-based",
   "svcLabelQuote": "Custom quote",
   "svcLabelContact": "Custom quote",
+  "svcFree": "Free",
   "svcMemberExclusive": "Member exclusive",
   "svcCtaPay": "Pay now",
   "svcCtaConsult": "Book an Advisor",

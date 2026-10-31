@@ -15,7 +15,7 @@ import { SUPPORTED_LANGS } from "../../utils/languages";
 // NULL deadline 的哨兵值：0（纪元起点）
 const NULL_DEADLINE_SENTINEL = 0;
 
-// ── 机构归一：Meili 从宽表读已归好的 buyer_name/buyer_group，无需本地别名缓存。
+// ── 机构归一：Meili 从宽表读已归好的 buyer_name（buyer_group 维度 2026-10-31 退役）。
 //（2026-10-31 机构口径收敛：买家实体匹配唯一入口见 buyer/entity-index；旧 agency_aliases 已退役）──
 
 // ── 支持的语言列表：唯一来源 utils/languages ──
@@ -59,7 +59,6 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     // Meili 对数组属性支持 `country_codes = "NG"` 等值命中任一无关项（各国都算命中）。
     country_codes: String(r.country_codes || "").split(",").map((s) => s.trim()).filter(Boolean),
     agency: String(r.buyer_name || ""),
-    agency_group: String(r.buyer_group || ""),
     notice_type_normalized: normalizeNoticeType(r.notice_type_code),
     deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
     has_deadline: r.deadline_sec ? 1 : 0, // 排序辅助：NULL 截止日期排到最后（has_deadline:desc 优先）
@@ -83,7 +82,7 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 const WIDE_TABLE_SYNC_SQL = `
   SELECT id, notice_id, reference, title, description,
-         country_name, country_codes, buyer_name, buyer_group, notice_type_code,
+         country_name, country_codes, buyer_name, notice_type_code,
          deadline_sec, is_featured, is_opportunity, estimated_value, documents_count,
          backbone_path,
          title_zh, description_zh, title_en, description_en,

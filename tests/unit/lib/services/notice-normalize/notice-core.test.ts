@@ -38,7 +38,6 @@ describe("normalizeBuyerCountry · 买家", () => {
   it("占位平台名剔除为 null（宽表与服务表同款口径）", () => {
     const core = normalizeBuyerCountry({ agency: "SAM", country: "China" }, CN);
     expect(core.buyerName).toBeNull();
-    expect(core.buyerGroup).toBeNull();
   });
 
   it("agency_full 优先于 agency（platform 码不是真买家）", () => {
@@ -125,17 +124,3 @@ describe("normalizeBuyerCountry · 国家", () => {
   });
 });
 
-describe("normalizeBuyerCountry · 机构类型（静态规则兜底路径）", () => {
-  it("买家的机构名+国家交给 classifyAgencyType，产出通用 typeKey", () => {
-    const core = normalizeBuyerCountry(
-      { agencyFull: "UNIVERSIDADE FEDERAL DE SANTA MARIA", country: "Brasil" },
-      CN,
-    );
-    expect(core.buyerGroup).toBe("UNIVERSITY_BR");
-  });
-
-  it("有买家无国家（或反之）不分类，buyerGroup 为 null", () => {
-    expect(normalizeBuyerCountry({ agencyFull: "UNIVERSIDADE X", country: "" }).buyerGroup).toBeNull();
-    expect(normalizeBuyerCountry({ agencyFull: "", country: "Brasil" }, CN).buyerGroup).toBeNull();
-  });
-});

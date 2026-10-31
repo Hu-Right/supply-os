@@ -65,15 +65,12 @@ function nodeMysqlWhere(nodes: string[], col = "backbone_path"): string {
 
 /** 机构扩展解析结果（两种方言共用） */
 interface AgencyExpansion {
-  meiliAgencyGroup?: string;
   meiliAgencies?: string[];
   /** MySQL 方言机构子句 */
   mysqlClause: string;
   mysqlParams: unknown[];
   /** FORCE_COUNTRY 强制国家（机构隐含国家归属） */
   forceCountry?: string;
-  /** sqlPattern 类机构：Meilisearch 无法 LIKE，主路径退化为精确匹配标记 */
-  hasSqlPattern: boolean;
 }
 
 /**
@@ -110,7 +107,6 @@ function buyerNameSubquery(values: string[], useLike?: string): { mysqlClause: s
  */
 function expandAgency(agency: string): AgencyExpansion {
   return {
-    hasSqlPattern: false,
     meiliAgencies: [agency],
     ...buyerNameSubquery([agency]),
   };
@@ -166,9 +162,7 @@ export async function buildFilterPlan(
 
   // ── 机构（FORCE_COUNTRY 机构已转为国家条件，不再叠加机构条件）──
   if (p.agency && agencyExp && !agencyExp.forceCountry) {
-    if (agencyExp.meiliAgencyGroup) {
-      meiliFilters.push(`agency_group = "${escapeFilter(agencyExp.meiliAgencyGroup)}"`);
-    } else if (agencyExp.meiliAgencies && agencyExp.meiliAgencies.length > 1) {
+    if (agencyExp.meiliAgencies && agencyExp.meiliAgencies.length > 1) {
       const orParts = agencyExp.meiliAgencies.map((o) => `agency = "${escapeFilter(o)}"`).join(" OR ");
       meiliFilters.push(`(${orParts})`);
     } else if (agencyExp.meiliAgencies?.length === 1) {

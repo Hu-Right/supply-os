@@ -16,7 +16,6 @@
  * 归一键规则见 `buyer/normalize.ts`（NFKC + 空白折叠 + 大写，全项目唯一）。
  */
 import { isAgencyPlaceholder } from "../agency/placeholder";
-import { classifyAgencyType } from "../agency";
 import { resolveCountries, countryCanonicalsOf, countryCodesOf } from "../country/resolve";
 import type { CountryAliasSnapshot } from "../country/alias-store";
 
@@ -34,27 +33,12 @@ export interface BuyerCountryCore {
   /** 可对外展示的原始采购主体名（实体 canonical 由 buyer/entity-index 决定；占位/噪声名剔除后为 null） */
   buyerName: string | null;
   /** 机构类型分类键（_INTL 国家级键已折回）；实体命中时以 buyer.buyer_group 覆盖 */
-  buyerGroup: string | null;
   /** 主国家英文标准名（表驱动解析，无快照/未命中为 null） */
   countryName: string | null;
   /** 主国家 ISO2 码（第一个通过形制校验的） */
   countryCode: string | null;
   /** 全部国家 ISO2 码集（已按 /^[A-Z]{2}$/ 校验、去重、保序） */
   countryCodes: string[];
-}
-
-/**
- * classifyAgencyType 的唯一调用口径：对 _INTL 后缀的国家级聚合键，
- * 用无国家参数重分类折回通用键，保证服务表/宽表 buyer_group 与 Meilisearch filter 三处一致。
- */
-export function classifyBuyerGroup(buyerName: string, countryName: string): string | null {
-  const typeInfo = classifyAgencyType(buyerName, countryName);
-  if (!typeInfo) return null;
-  if (typeInfo.typeKey.endsWith("_INTL")) {
-    const generic = classifyAgencyType(buyerName);
-    if (generic) return generic.typeKey;
-  }
-  return typeInfo.typeKey;
 }
 
 /**
@@ -86,6 +70,5 @@ export function normalizeBuyerCountry(
   const countryCode = countryCodes[0]
     ?? (cRes && cRes.refs.some((r) => r.kind === "region") ? MULTI_REGION_COUNTRY_CODE : null);
 
-  const buyerGroup = buyerName && countryName ? classifyBuyerGroup(buyerName, countryName) : null;
-  return { buyerName, buyerGroup, countryName, countryCode, countryCodes };
+  return { buyerName, countryName, countryCode, countryCodes };
 }

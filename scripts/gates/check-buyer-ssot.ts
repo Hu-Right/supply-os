@@ -18,6 +18,8 @@
  *       `agencyFull: r.agency_full`（采购主体优先全称）；`notice-core.ts` 不得再出现
  *       `normalizeAliasKey` / `agencyAliases` 参数（旧 canonical 化路径不得回流）。
  *   B4) 归一键唯一：只有 `buyer/normalize.ts` 可定义 normalizeBuyerKey（其他文件只许 import）。
+ *   B5) 中文名纯度：仓库内译名台账（buyer-name-zh-seed.tsv）的 name_zh 必须是纯中文
+ *       （2026-10-31 用户口径：中文名就是纯中文，不允许任何外文字母）。
  *
  * 用法：npx tsx scripts/gates/check-buyer-ssot.ts
  * @limits 只读源码扫描，不连库。
@@ -97,6 +99,27 @@ for (const f of files) {
   }
 }
 if (!existsSync(NORMALIZE_OWNER)) fails.push(`B4 找不到买家归一键实现: ${NORMALIZE_OWNER}`);
+
+// ── B5 中文名纯度：tracked 译名台账必须纯中文（2026-10-31 用户口径：中文名就是纯中文）──
+// 只扫仓库内可版本化的台账；DB 全量纯度由 scripts/tools/verify-buyer-name-zh.ts 巡检。
+const NAME_LEDGER = "scripts/tools/buyer-name-zh-seed.tsv";
+if (existsSync(NAME_LEDGER)) {
+  const lines = readFileSync(NAME_LEDGER, "utf8").split(/\r?\n/);
+  let bad = 0;
+  const samples: string[] = [];
+  lines.forEach((line, i) => {
+    if (!line.trim()) return;
+    const cols = line.split("\t");
+    const zh = cols[cols.length - 1] ?? "";
+    if (/[A-Za-z]/.test(zh)) {
+      bad += 1;
+      if (samples.length < 5) samples.push(`L${i + 1}: ${zh.slice(0, 40)}`);
+    }
+  });
+  if (bad > 0) {
+    fails.push(`B5 ${NAME_LEDGER} 有 ${bad} 条中文名含拉丁字母（中文名必须纯中文；${samples.join("；")}）`);
+  }
+}
 
 if (fails.length) {
   for (const f of fails) console.error("  ✗ " + f);

@@ -22,6 +22,7 @@
  */
 import { readFileSync } from "node:fs";
 import mysql, { type ResultSetHeader, type RowDataPacket } from "mysql2/promise";
+import { isPureChineseBuyerName } from "../../src/lib/services/buyer/normalize";
 
 const APPLY = process.argv.includes("--apply");
 const TSV = "scripts/tools/buyer-name-zh-seed.tsv";
@@ -43,7 +44,8 @@ for (const line of readFileSync(TSV, "utf8").split(/\r?\n/)) {
   const [idRaw = "", name = "", zh = ""] = line.split("\t");
   const id = Number(idRaw);
   const z = zh.trim();
-  const okZh = CJK.test(z) && z !== name.trim();
+  // 2026-10-31 用户口径：中文名必须纯中文（不允许任何外文字母/原文缩写混排）
+  const okZh = CJK.test(z) && z !== name.trim() && isPureChineseBuyerName(z);
   const okKey = (Number.isInteger(id) && id > 0) || name.trim() !== "";
   if (okZh && okKey) seeds.push({ id: Number.isInteger(id) && id > 0 ? id : 0, name: name.trim(), zh: z });
   else dropped += 1;

@@ -28,6 +28,7 @@ const SUFFIX_KEY: Record<string, string> = {
   per_time: "svcPerTime",
   per_year: "svcPerYear",
   project: "svcPerProject",
+  free: "svcPerTime",
 };
 
 const NO_PRICE_LABEL: Record<string, string> = {
@@ -47,7 +48,8 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
   // 价格锚点与成交分支是两件事：文档写明「N 元起」的行（拆解报告 500~3,000/单、定制调研 1,280 起、
   // 单项目陪跑 26,800 起）即使只能预约询价，也要把起点价显示出来；而「面议/按需报价」类（priceFrom=0
   // 且非自助，如 KA）不能把参考价当成交价展示，仍用「定制报价」标签。
-  const showPrice = amount > 0 && (branch === "pay" || row.priceFrom === 1);
+  // free 形态（当前免费、0 是真实定价）必须露出 ¥0，不能被「未定价」标签吞掉。
+  const showPrice = amount > 0 ? branch === "pay" || row.priceFrom === 1 : row.priceMode === "free";
 
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
@@ -62,6 +64,9 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
           )}
           <span className="text-2xl font-black text-slate-900">{formatPrice(amount, "CNY")}</span>
           {suffixKey && <span className="text-xs font-semibold text-slate-500">{t(suffixKey)}</span>}
+          {row.priceMode === "free" && amount === 0 && (
+            <span className="text-xs font-semibold text-emerald-600">{t("svcFree")}</span>
+          )}
         </div>
       ) : (
         <div className="mt-2">

@@ -20,7 +20,6 @@ import { industryTreeSection } from "../notice-normalize/industry";
 import { loadBuyerEntityIndex, resolveBuyerEntity, type BuyerEntityIndex } from "../buyer/entity-index";
 import { loadCountryAliasSnapshot } from "../country/alias-store";
 import type { CountryAliasSnapshot } from "../country/alias-store";
-import { loadAgencyTypeRules } from "../agency/type-store";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { normalizeDocumentRows } from "../../utils/normalize";
 
@@ -38,7 +37,7 @@ export const PUBLIC_COLS = [
   "published_ts", "deadline_ts", "deadline_state", "deadline_type", "deadline_timezone",
   "country_code", "country_codes", "notice_type_code",
   "platform_name",
-  "buyer_name", "buyer_id", "buyer_name_cn", "buyer_group",
+  "buyer_name", "buyer_id", "buyer_name_cn",
   "estimated_value", "currency_code", "currency_source",
   "contacts", "attachments", "external_links",
   "difficulty", "registration_level", "beneficiary_countries",
@@ -63,7 +62,6 @@ export interface PublicBuildContext {
 }
 
 export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildContext> {
-  await loadAgencyTypeRules(pool, true);
   const countrySnap = await loadCountryAliasSnapshot(pool);
   const platformByHost = new Map<string, PlatformEntry>();
   const platformByAlias = new Map<string, PlatformEntry>();
@@ -368,7 +366,6 @@ export function buildPublicRow(
     ctx.countrySnap,
   );
   const buyerName = core.buyerName?.slice(0, 500) ?? null;
-  const buyerGroup = core.buyerGroup?.slice(0, 100) ?? null;
   const countryCode = core.countryCode;
   const countryCodes = core.countryCodes;
   // 实体匹配：国家维精确 → 全局唯一回退；歧义/未命中一律不猜（保持原始名并进候选队列）
@@ -377,11 +374,11 @@ export function buildPublicRow(
     : null;
   const buyerId = buyerEntity?.buyerId ?? null;
   const buyerCanonical = buyerEntity?.canonical?.slice(0, 500) ?? buyerName;
-  const buyerGroupFinal = (buyerEntity?.group?.slice(0, 100) ?? buyerGroup) || null;
   const buyerNameCn = buyerCanonical
     ? (buyerEntity?.nameZh?.slice(0, 500) ?? null)
     : null;
-  // 英文 canonical 名（core.countryName）只在上游 classifyBuyerGroup 内部消费，服务表不再落列
+  // [2026-10-31 机构类型维度退役] buyer_group 停写：agency_type 分类链整体退役，
+  // 该维度从服务表/Meili 同步摘除（列保留在 baseline，历史数据不动）
   const noticeType = normalizeNoticeType(String(r.notice_type ?? "")).slice(0, 20) || null;
   const platform = platformOf(ctx, r.url, r.agency, r.organization);
   const amount = normalizeAmount(r.estimated_value, { currencyHint: r.currency, countryCode, description: desc });
@@ -468,7 +465,7 @@ export function buildPublicRow(
     publishedTs, deadlineTs, dstate, r.deadline_type ?? null, r.deadline_timezone ?? null,
     countryCode, JSON.stringify(countryCodes), noticeType,
     platform?.name ?? null,
-    buyerCanonical, buyerId, buyerNameCn, buyerGroupFinal,
+    buyerCanonical, buyerId, buyerNameCn,
     amount.amount, amount.currency, amount.currencySource,
     JSON.stringify(contacts.entries), JSON.stringify(attachments), JSON.stringify(externalLinks),
     difficulty, registration, beneficiary,
