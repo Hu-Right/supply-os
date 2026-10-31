@@ -773,5 +773,8 @@
   "awardCnCaseSearchPlaceholder": "搜索：企业名 / 采购内容 / 合同编号 / UN机构",
   "awardCnCaseNoMatch": "无匹配案例",
   "awardCnCaseViewAll": "查看全部 {n} 个案例",
-  "awardCnCaseCountBadge": "{n} 例"
+  "awardCnCaseCountBadge": "{n} 例",
+  "aiScoreGradeHigh": "优",
+  "aiScoreGradeMid": "中",
+  "aiScoreGradeLow": "弱"
 }

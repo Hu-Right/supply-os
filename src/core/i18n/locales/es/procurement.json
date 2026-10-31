@@ -773,5 +773,8 @@
   "awardCnCaseSearchPlaceholder": "Buscar: empresa / objeto del contrato / n.º de contrato / organismo de la ONU",
   "awardCnCaseNoMatch": "Sin casos coincidentes",
   "awardCnCaseViewAll": "Ver los {n} casos",
-  "awardCnCaseCountBadge": "{n} casos"
+  "awardCnCaseCountBadge": "{n} casos",
+  "aiScoreGradeHigh": "Fuerte",
+  "aiScoreGradeMid": "Moderado",
+  "aiScoreGradeLow": "Débil"
 }

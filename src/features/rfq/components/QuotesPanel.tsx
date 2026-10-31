@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/shared/ui";
+import { Button, Badge, type BadgeVariant } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 import { currencySymbol } from "@/shared/utils/format";
 import { fetchBuyerQuotes, awardRfqQuote, unawardRfqQuote, type QuoteRow } from "@/core/api/rfqQuotes";
@@ -20,10 +20,11 @@ export interface QuotesPanelProps {
   rfqId: number;
 }
 
-const STATUS_BADGE: Record<string, { labelKey: string; cls: string }> = {
-  submitted: { labelKey: "rfqStatusPending", cls: "bg-secondary-100 text-secondary-600" },
-  won: { labelKey: "rfqStatusWon", cls: "bg-primary-50 text-primary-700" },
-  rejected: { labelKey: "rfqStatusRejected", cls: "bg-secondary-100 text-secondary-400" },
+/** 2026-10-31 徽章统一：值改 shared Badge 变体（submitted/rejected→中性，won→primary） */
+const STATUS_BADGE: Record<string, { labelKey: string; variant: BadgeVariant }> = {
+  submitted: { labelKey: "rfqStatusPending", variant: "soft-neutral" },
+  won: { labelKey: "rfqStatusWon", variant: "soft-info" },
+  rejected: { labelKey: "rfqStatusRejected", variant: "soft-neutral" },
 };
 
 export function QuotesPanel({ rfqId }: QuotesPanelProps) {
@@ -116,7 +117,6 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
           {rows.map((q, idx) => {
             const badge = STATUS_BADGE[q.status];
             const badgeLabel = badge ? t(badge.labelKey) : q.status;
-            const badgeCls = badge ? badge.cls : "bg-secondary-100 text-secondary-600";
             return (
               <div key={q.id} className="py-3 flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
@@ -127,7 +127,7 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
                     <span className="text-sm font-bold text-secondary-800 truncate">
                       {q.company || t("rfqSupplierNo", { id: q.supplierUserId })}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${badgeCls}`}>{badgeLabel}</span>
+                    <Badge shape="pill" variant={badge?.variant ?? "default"}>{badgeLabel}</Badge>
                   </div>
                   <div className="text-lg font-extrabold text-secondary-900 mt-1">
                     {currencySymbol(q.currency)}{q.price}

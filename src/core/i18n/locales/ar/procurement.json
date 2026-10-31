@@ -773,5 +773,8 @@
   "awardCnCaseSearchPlaceholder": "البحث: اسم الشركة / موضوع الشراء / رقم العقد / جهة أممية",
   "awardCnCaseNoMatch": "لا توجد حالات مطابقة",
   "awardCnCaseViewAll": "عرض جميع الحالات ({n})",
-  "awardCnCaseCountBadge": "{n} حالة"
+  "awardCnCaseCountBadge": "{n} حالة",
+  "aiScoreGradeHigh": "قوي",
+  "aiScoreGradeMid": "متوسط",
+  "aiScoreGradeLow": "ضعيف"
 }

@@ -10,6 +10,7 @@
  */
 import type { CommodityInferCandidate } from "@/core/api/industry-prefs";
 import { useLocale } from "@/core/i18n";
+import { Badge, type BadgeVariant } from "@/shared/ui";
 
 export interface CommodityInferCandidatesProps {
   candidates: CommodityInferCandidate[];
@@ -20,11 +21,11 @@ export interface CommodityInferCandidatesProps {
   onPick: (candidate: CommodityInferCandidate) => void;
 }
 
-/** 匹配分徽章：>= 0.8 高 / >= 0.6 中 / 其余低 */
-function scoreBadgeKey(score: number): { key: "authInferScoreHigh" | "authInferScoreMedium" | "authInferScoreLow"; cls: string } {
-  if (score >= 0.8) return { key: "authInferScoreHigh", cls: "text-emerald-700 bg-emerald-50 border-emerald-200" };
-  if (score >= 0.6) return { key: "authInferScoreMedium", cls: "text-teal-700 bg-teal-50 border-teal-200" };
-  return { key: "authInferScoreLow", cls: "text-amber-700 bg-amber-50 border-amber-200" };
+/** 匹配分徽章：>= 0.8 高 / >= 0.6 中 / 其余低（2026-10-31 徽章统一：cls 改 Badge soft 变体） */
+function scoreBadgeKey(score: number): { key: "authInferScoreHigh" | "authInferScoreMedium" | "authInferScoreLow"; cls: BadgeVariant } {
+  if (score >= 0.8) return { key: "authInferScoreHigh", cls: "soft-success" };
+  if (score >= 0.6) return { key: "authInferScoreMedium", cls: "soft-info" };
+  return { key: "authInferScoreLow", cls: "soft-warning" };
 }
 
 export function CommodityInferCandidates({ candidates, appliedCode, hint, onPick }: CommodityInferCandidatesProps) {
@@ -61,9 +62,9 @@ export function CommodityInferCandidates({ candidates, appliedCode, hint, onPick
                   </span>
                 )}
               </span>
-              <span className={`shrink-0 px-1.5 py-0.5 rounded-full border text-[10px] font-black ${badge.cls}`}>
+              <Badge shape="pill" variant={badge.cls} className="shrink-0 px-1.5 py-0.5 text-[10px] font-black">
                 {t(badge.key)}
-              </span>
+              </Badge>
             </button>
           );
         })}

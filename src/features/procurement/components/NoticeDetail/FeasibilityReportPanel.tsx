@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Download, Loader2, ShieldAlert, Sparkles } from "lucide-react";
 import { api, getAuthToken } from "@/core/http";
 import { useLocale } from "@/core/i18n";
+import { Badge, type BadgeVariant } from "@/shared/ui";
 import type { Decision, FeasibilityReport, RuleStatus } from "@/lib/services/feasibility-report/types";
 
 interface ReportResponse {
@@ -27,19 +28,20 @@ interface GenerateResponse {
   stale?: boolean;
 }
 
-const STATUS_TONE: Record<string, string> = {
-  satisfied: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  partial: "bg-amber-50 text-amber-700 border-amber-200",
-  missing: "bg-rose-50 text-rose-700 border-rose-200",
-  expired: "bg-rose-50 text-rose-700 border-rose-200",
-  unknown: "bg-slate-50 text-slate-600 border-slate-200",
-  not_applicable: "bg-slate-50 text-slate-500 border-slate-200",
+/** 2026-10-31 徽章统一：状态→shared Badge soft 变体（原手抄裸色类收编进设计令牌） */
+const STATUS_TONE: Record<string, BadgeVariant> = {
+  satisfied: "soft-success",
+  partial: "soft-warning",
+  missing: "soft-danger",
+  expired: "soft-danger",
+  unknown: "soft-neutral",
+  not_applicable: "soft-neutral",
 };
 
-function decisionTone(decision: Decision): string {
-  if (decision === "go") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-  if (decision === "no_go") return "bg-rose-50 text-rose-700 border-rose-200";
-  return "bg-amber-50 text-amber-700 border-amber-200";
+function decisionTone(decision: Decision): BadgeVariant {
+  if (decision === "go") return "soft-success";
+  if (decision === "no_go") return "soft-danger";
+  return "soft-warning";
 }
 
 function statusLabelKey(status: RuleStatus): string {
@@ -166,7 +168,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
         <p className="text-sm font-black text-slate-900">{t("feasibilityTitle")}</p>
         {report && (
           <div className="flex items-center gap-2">
-            <span className={`px-2 py-0.5 rounded border text-2xs font-black ${decisionTone(report.verdict.decision)}`} data-testid="feasibility-decision">
+            <Badge shape="tag" variant={decisionTone(report.verdict.decision)} className="text-2xs font-black" data-testid="feasibility-decision">
               {t(
                 report.verdict.decision === "go"
                   ? "feasibilityDecisionGo"
@@ -174,7 +176,7 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
                     ? "feasibilityDecisionNoGo"
                     : "feasibilityDecisionConditional",
               )}
-            </span>
+            </Badge>
             <button
               type="button"
               onClick={() => void exportWord()}
@@ -285,9 +287,9 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
               <ul className="space-y-1.5">
                 {report.gaps.map((gap) => (
                   <li key={gap.requirementId} className="flex items-start gap-2 text-xs">
-                    <span className={`shrink-0 px-1.5 py-0.5 rounded border text-2xs font-bold ${STATUS_TONE[gap.status] ?? STATUS_TONE.unknown}`}>
+                    <Badge shape="tag" variant={STATUS_TONE[gap.status] ?? "soft-neutral"} className="shrink-0 px-1.5 py-0.5 text-2xs font-bold">
                       {t(statusLabelKey(gap.status))}
-                    </span>
+                    </Badge>
                     <span className="text-slate-700 break-words">
                       {gap.title}
                       <span className="text-slate-400"> · {gap.suggest}</span>
@@ -316,9 +318,9 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
                         <td className="py-1 pr-2 text-slate-700">{row.requirement}</td>
                         <td className="py-1 pr-2 text-slate-500">{row.capability}</td>
                         <td className="py-1">
-                          <span className={`px-1.5 py-0.5 rounded border font-bold ${STATUS_TONE[row.status] ?? STATUS_TONE.unknown}`}>
+                          <Badge shape="tag" variant={STATUS_TONE[row.status] ?? "soft-neutral"} className="px-1.5 py-0.5 font-bold">
                             {t(statusLabelKey(row.status))}
-                          </span>
+                          </Badge>
                         </td>
                       </tr>
                     ))}

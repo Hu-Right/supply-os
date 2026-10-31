@@ -773,5 +773,8 @@
   "awardCnCaseSearchPlaceholder": "Search: company / procurement content / contract no. / UN agency",
   "awardCnCaseNoMatch": "No matching cases",
   "awardCnCaseViewAll": "View all {n} cases",
-  "awardCnCaseCountBadge": "{n} cases"
+  "awardCnCaseCountBadge": "{n} cases",
+  "aiScoreGradeHigh": "Strong",
+  "aiScoreGradeMid": "Moderate",
+  "aiScoreGradeLow": "Weak"
 }

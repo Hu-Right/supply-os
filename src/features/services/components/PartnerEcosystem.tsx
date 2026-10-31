@@ -13,10 +13,12 @@ import { ECO_PARTNERS, ECO_PARTNER_CATEGORIES } from "@/data/services";
 import type { EcoPartnerItem, EcoPartnerStatus } from "@/data/services";
 import { emitAppEvent } from "@/core/events";
 import { useLocale } from "@/core/i18n";
+import { Badge, type BadgeVariant } from "@/shared/ui";
 
-const STATUS_STYLE: Record<EcoPartnerStatus, { labelKey: string; className: string }> = {
-  live: { labelKey: "svcPartnerStatusLive", className: "bg-teal-50 text-teal-700 border-teal-200" },
-  "in-talks": { labelKey: "svcPartnerStatusInTalks", className: "bg-amber-50 text-amber-600 border-amber-200" },
+/** 2026-10-31 徽章统一：live→primary（teal 族）/ in-talks→accent，渲染走 shared Badge soft 变体 */
+const STATUS_STYLE: Record<EcoPartnerStatus, { labelKey: string; variant: BadgeVariant }> = {
+  live: { labelKey: "svcPartnerStatusLive", variant: "soft-info" },
+  "in-talks": { labelKey: "svcPartnerStatusInTalks", variant: "soft-warning" },
 };
 
 const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
@@ -37,11 +39,9 @@ function PartnerCard({ partner }: { partner: EcoPartnerItem }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-extrabold text-slate-900 truncate">{partner.name}</h3>
-            <span
-              className={`flex-shrink-0 px-2 py-0.5 rounded-full border text-[11px] font-bold ${status.className}`}
-            >
+            <Badge shape="pill" variant={status.variant} className="flex-shrink-0 text-[11px] font-bold">
               {t(status.labelKey)}
-            </span>
+            </Badge>
           </div>
           <p className="text-xs text-slate-400 truncate">{partner.nameEn}</p>
         </div>

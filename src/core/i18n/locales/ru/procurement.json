@@ -773,5 +773,8 @@
   "awardCnCaseSearchPlaceholder": "Поиск: компания / предмет закупки / номер контракта / учреждение ООН",
   "awardCnCaseNoMatch": "Подходящих случаев нет",
   "awardCnCaseViewAll": "Показать все {n} случаев",
-  "awardCnCaseCountBadge": "{n} кейсов"
+  "awardCnCaseCountBadge": "{n} кейсов",
+  "aiScoreGradeHigh": "Сильный",
+  "aiScoreGradeMid": "Средний",
+  "aiScoreGradeLow": "Слабый"
 }

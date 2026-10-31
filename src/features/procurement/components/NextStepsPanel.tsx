@@ -18,6 +18,7 @@ import {
 import { useRouter } from "next/navigation";
 import { emitAppEvent } from "@/core/events";
 import { useLocale } from "@/core/i18n";
+import { Badge } from "@/shared/ui";
 import type { GateState } from "@/types";
 import type { NoticeItem } from "../types";
 import { GATE_BADGE_STYLE, GATE_LABEL_KEY } from "./NoticeDetail/utils";
@@ -168,9 +169,9 @@ export function NextStepsPanel({
                   {t(step.titleKey) || step.titleDefault}
                 </p>
               </div>
-              <span className={`shrink-0 px-2 py-0.5 rounded border text-2xs font-bold ${GATE_BADGE_STYLE[state]}`}>
+              <Badge shape="tag" variant={GATE_BADGE_STYLE[state]} className="shrink-0 text-2xs font-bold px-2 py-0.5">
                 {t(GATE_LABEL_KEY[state]) || state}
-              </span>
+              </Badge>
             </button>
           );
         })}

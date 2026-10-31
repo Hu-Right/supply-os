@@ -12,6 +12,7 @@
  *              值格式化纯函数见 ./enterprise-info/formatters；本文件保留绑定态判定与单元格装配。
  */
 import { useLocale } from "@/core/i18n";
+import { Badge, type BadgeVariant } from "@/shared/ui";
 import {
   classifyEnterpriseBindState,
   enterpriseBindStateText,
@@ -34,13 +35,14 @@ export interface EnterpriseInfoCardProps {
   onBind: () => void;
 }
 
-/** 状态徽章配色：审核中/已认证/已驳回 各一色，无审核状态（复用历史档案行）走中性色 */
-const BADGE_TONE: Record<EnterpriseBindState, string> = {
-  verified: "border-success-200 bg-success-50 text-success-700",
-  pending: "border-accent-200 bg-accent-50 text-accent-700",
-  rejected: "border-danger-200 bg-danger-50 text-danger-700",
-  linked: "border-border bg-secondary-50 text-secondary-600",
-  none: "border-border bg-secondary-50 text-secondary-600",
+/** 状态徽章配色：审核中/已认证/已驳回 各一色，无审核状态（复用历史档案行）走中性色。
+ *  2026-10-31 徽章统一：值改 shared Badge soft 变体，渲染走 <Badge shape="tag">。 */
+const BADGE_TONE: Record<EnterpriseBindState, BadgeVariant> = {
+  verified: "soft-success",
+  pending: "soft-warning",
+  rejected: "soft-danger",
+  linked: "soft-neutral",
+  none: "soft-neutral",
 };
 
 export function EnterpriseInfoCard({
@@ -112,19 +114,21 @@ export function EnterpriseInfoCard({
         <h3 className="text-base font-semibold text-foreground">{companyName}</h3>
         <div className="flex gap-2 shrink-0 flex-wrap justify-end">
           {/* 走到这里 enterprise 必非空，绑定状态最少是 linked，无需再分情况判空 */}
-          <span
-            className={`px-2 py-0.5 rounded border text-2xs ${BADGE_TONE[bindState]}`}
+          <Badge
+            shape="tag"
+            variant={BADGE_TONE[bindState]}
+            className="text-2xs"
             title={bindState === "rejected" ? (checkNote || undefined) : undefined}
           >
             {t(bindText.key) || bindText.fallback}
-          </span>
-          <span className="px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-2xs">
+          </Badge>
+          <Badge shape="tag" variant="soft-success" className="text-2xs">
             {isIntl ? (t("authEnterpriseInternational") || "国际") : (t("authEnterpriseDomestic") || "国内")}
-          </span>
+          </Badge>
           {coop && (
-            <span className="px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-2xs">
+            <Badge shape="tag" variant="soft-success" className="text-2xs">
               {t("authEnterpriseCoop") || "已合作"}
-            </span>
+            </Badge>
           )}
         </div>
       </div>

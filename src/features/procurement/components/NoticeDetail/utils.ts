@@ -7,6 +7,7 @@
  * （见 lib/repos/benefit-system.repo#resolveGates），前端仅据下发的 gates 派生展示状态。
  */
 import type { GateState } from "@/types";
+import type { BadgeVariant } from "@/shared/ui";
 import type { NoticeAttachment, NoticeItem } from "../../types";
 
 /** Tab 门控来源：权益编码（矩阵 SSOT）。
@@ -72,13 +73,17 @@ export function collectBreakdownFiles(notice: NoticeItem): RawAttachment[] {
   });
 }
 
-/** 门控状态 → 角标配色（按状态着色，随权益动态呈现，取代旧的静态档位配色）。 */
-export const GATE_BADGE_STYLE: Record<GateState, string> = {
-  free: "bg-teal-50 text-teal-700 border-teal-200",
-  included: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  unlock: "bg-amber-50 text-amber-700 border-amber-200",
-  upgrade: "bg-purple-50 text-purple-700 border-purple-200",
-  contact: "bg-slate-100 text-slate-600 border-slate-200",
+/**
+ * 门控状态 → Badge 变体（2026-10-31 徽章统一：裸色类收编进 shared Badge 的 soft 族，
+ * 视觉近似映射 free→primary / included→success / unlock→accent / upgrade→紫 / contact→中性）。
+ * 消费方以 <Badge shape="tag" variant={GATE_BADGE_STYLE[state]}> 渲染。
+ */
+export const GATE_BADGE_STYLE: Record<GateState, BadgeVariant> = {
+  free: "soft-info",
+  included: "soft-success",
+  unlock: "soft-warning",
+  upgrade: "soft-special",
+  contact: "soft-neutral",
 };
 
 /** 门控状态 → i18n 文案键（free 复用既有 detail_free）。 */

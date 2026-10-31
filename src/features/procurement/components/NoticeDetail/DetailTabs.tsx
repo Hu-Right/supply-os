@@ -9,6 +9,7 @@
  */
 import { useRef, type KeyboardEvent } from "react";
 import type { GateState } from "@/types";
+import { Badge } from "@/shared/ui";
 import {
   DETAIL_TABS,
   GATE_BADGE_STYLE,
@@ -77,9 +78,9 @@ export function DetailTabs({ activeTab, setActiveTab, t, gates }: DetailTabsProp
             }`}
           >
             {t(tab.labelKey)}
-            <span className={`px-1.5 py-0.5 rounded text-2xs font-bold border ${GATE_BADGE_STYLE[state]}`}>
+            <Badge shape="tag" variant={GATE_BADGE_STYLE[state]} className="text-2xs font-bold px-1.5 py-0.5">
               {t(GATE_LABEL_KEY[state])}
-            </span>
+            </Badge>
           </button>
         );
       })}

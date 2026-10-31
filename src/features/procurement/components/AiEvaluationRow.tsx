@@ -10,6 +10,7 @@
  */
 import { useState } from "react";
 import { ChevronDown, Info, Sparkles, Building2, Pencil, Star } from "lucide-react";
+import { Badge, type BadgeVariant } from "@/shared/ui";
 import type { MatchedSupplier } from "../api/ai-match";
 
 /**
@@ -34,11 +35,11 @@ export const EVAL_DIMENSIONS = [
     criteriaKey: "aiScoreCriteriaPrice", criteriaDefault: "成本核算方式、FOB/CIF/DDP 报价能力、可否接受 30 天以上账期 vs 公告预算与付款条款" },
 ] as const;
 
-/** 分数 → 颜色/等级 */
+/** 分数 → 颜色/等级（2026-10-31 徽章统一：labelCls 改 Badge soft 变体；label 改 i18n 键） */
 export function evalScoreStyle(score: number) {
-  if (score >= 70) return { color: "text-emerald-600", bar: "bg-emerald-500", label: "优", labelCls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-  if (score >= 40) return { color: "text-amber-600", bar: "bg-amber-500", label: "中", labelCls: "bg-amber-50 text-amber-700 border-amber-200" };
-  return { color: "text-rose-600", bar: "bg-rose-500", label: "弱", labelCls: "bg-rose-50 text-rose-700 border-rose-200" };
+  if (score >= 70) return { color: "text-emerald-600", bar: "bg-emerald-500", labelKey: "aiScoreGradeHigh", labelVariant: "soft-success" as BadgeVariant };
+  if (score >= 40) return { color: "text-amber-600", bar: "bg-amber-500", labelKey: "aiScoreGradeMid", labelVariant: "soft-warning" as BadgeVariant };
+  return { color: "text-rose-600", bar: "bg-rose-500", labelKey: "aiScoreGradeLow", labelVariant: "soft-danger" as BadgeVariant };
 }
 
 /** 排名徽章颜色 */
@@ -97,7 +98,7 @@ export function AiEvaluationRow({ supplier, rank, t, onEditBase, onEditDiag }: A
         <div className="flex items-baseline gap-1.5 shrink-0">
           <span className={`text-2xl font-black ${overallStyle.color}`}>{supplier.overall}</span>
           <span className="text-2xs text-slate-400">/100</span>
-          <span className={`px-1.5 py-0.5 rounded border text-2xs font-bold ${overallStyle.labelCls}`}>{overallStyle.label}</span>
+          <Badge shape="tag" variant={overallStyle.labelVariant} className="text-2xs font-bold px-1.5 py-0.5">{t(overallStyle.labelKey)}</Badge>
         </div>
         <button
           type="button"

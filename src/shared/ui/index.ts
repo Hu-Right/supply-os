@@ -41,7 +41,7 @@ export { FormModal } from "./FormModal";
 export type { FormModalProps } from "./FormModal";
 
 export { Badge } from "./Badge";
-export type { BadgeProps } from "./Badge";
+export type { BadgeProps, BadgeVariant } from "./Badge";
 
 export { Card } from "./Card";
 export type { CardProps } from "./Card";
