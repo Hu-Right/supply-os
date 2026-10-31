@@ -96,5 +96,6 @@
   "aiErrCallFailed": "AI service is temporarily unavailable, please try again later",
   "aiErrBadFormat": "AI returned an unexpected format; please try analyzing again",
   "aiErrLoginRequired": "Your session has expired; please sign in again to retry",
-  "aiSupplierProfileRequired": "Please complete your company profile before AI fit scoring"
+  "aiSupplierProfileRequired": "Please complete your company profile before AI fit scoring",
+  "errProxyResponseTooLarge": "Target page response is too large to proxy"
 }

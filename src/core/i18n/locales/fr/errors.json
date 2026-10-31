@@ -96,5 +96,6 @@
   "aiErrCallFailed": "Le service IA est temporairement indisponible, réessayez plus tard",
   "aiErrBadFormat": "L'IA a renvoyé un format inattendu ; réessayez l'analyse",
   "aiErrLoginRequired": "Votre session a expiré ; reconnectez-vous pour réessayer",
-  "aiSupplierProfileRequired": "Veuillez compléter le profil de votre entreprise avant la notation d'adéquation IA"
+  "aiSupplierProfileRequired": "Veuillez compléter le profil de votre entreprise avant la notation d'adéquation IA",
+  "errProxyResponseTooLarge": "La réponse de la page cible est trop volumineuse pour être affichée"
 }

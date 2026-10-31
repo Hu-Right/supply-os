@@ -39,7 +39,7 @@ import {
   EC_KEYWORD_GROUP_NAME_RESERVED,
   EC_DIAGNOSIS_ANSWERS_INCOMPLETE, EC_DIAGNOSIS_ENTITY_NOT_FOUND,
   EC_POOL_FULL, EC_POOL_SUPPLIER_NOT_VERIFIED, EC_POOL_SUPPLIER_DUPLICATE,
-  EC_CHAT_SESSION_MISSING, EC_PROXY_URL_MISSING, EC_UPGRADE_PLAN_REQUIRED,
+  EC_CHAT_SESSION_MISSING, EC_PROXY_URL_MISSING, EC_UPGRADE_PLAN_REQUIRED, EC_PROXY_RESPONSE_TOO_LARGE,
   EC_OPPORTUNITY_CODE_REQUIRED, EC_LEAD_FIELDS_REQUIRED, EC_LEAD_STATUS_INVALID,
   // 支付细分码（Phase A）
   EC_PAYMENT_PROVIDER_UNAVAILABLE, EC_PAYMENT_QR_CODE_MISSING, EC_PAYMENT_ORDER_NOT_FOUND,
@@ -140,6 +140,7 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_KEYWORD_GROUP_NAME_INVALID]: { kind: "business", key: "errKeywordGroupNameInvalid" },
   [EC_KEYWORD_GROUP_NAME_RESERVED]: { kind: "business", key: "errKeywordGroupNameReserved" },
   [EC_DIAGNOSIS_ANSWERS_INCOMPLETE]: { kind: "business", key: "errDiagnosisAnswersIncomplete" },
+  [EC_PROXY_RESPONSE_TOO_LARGE]: { kind: "business", key: "errProxyResponseTooLarge" },
   [EC_DIAGNOSIS_ENTITY_NOT_FOUND]: { kind: "business", key: "errDiagnosisEntityNotFound" },
   [EC_POOL_FULL]: { kind: "business", key: "errPoolFull" },
   [EC_POOL_SUPPLIER_NOT_VERIFIED]: { kind: "business", key: "errPoolSupplierNotVerified" },

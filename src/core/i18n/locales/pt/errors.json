@@ -96,5 +96,6 @@
   "aiErrCallFailed": "O serviço de IA está temporariamente indisponível, tente mais tarde",
   "aiErrBadFormat": "A IA retornou um formato inesperado; tente analisar novamente",
   "aiErrLoginRequired": "Sua sessão expirou; entre novamente para tentar de novo",
-  "aiSupplierProfileRequired": "Complete o perfil da sua empresa antes da pontuação de aderência com IA"
+  "aiSupplierProfileRequired": "Complete o perfil da sua empresa antes da pontuação de aderência com IA",
+  "errProxyResponseTooLarge": "A resposta da página de destino é grande demais para exibir"
 }

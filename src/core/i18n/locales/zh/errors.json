@@ -96,5 +96,6 @@
   "aiErrCallFailed": "AI 服务暂时不可用，请稍后重试",
   "aiErrBadFormat": "AI 返回格式异常，请尝试重新分析",
   "aiErrLoginRequired": "登录已过期，请重新登录后重试",
-  "aiSupplierProfileRequired": "请先完善企业信息，再进行 AI 适配评分"
+  "aiSupplierProfileRequired": "请先完善企业信息，再进行 AI 适配评分",
+  "errProxyResponseTooLarge": "目标页面响应过大，暂不支持代理查看"
 }
