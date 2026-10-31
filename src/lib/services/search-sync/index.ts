@@ -9,7 +9,7 @@
 export {
   SUPPORTED_LANGS, wideSyncSelect, WIDE_SYNC_JOIN,
   loadTranslationsByNoticeIds, loadBackboneMap,
-  buildWideRow, loadAliasMap, upsertWideRows,
+  buildWideRow, upsertWideRows,
 } from "./wide-row-builder";
 
 // 对账层（只检测；修复统一走 syncWideIds / purgeNoticeSearch）

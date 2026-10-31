@@ -1,5 +1,5 @@
 /**
- * 国家别名表变更后的主动失效编排（对齐 agency-alias-refresh）
+ * 国家别名表变更后的主动失效编排（对齐 buyer/refresh 的“按受影响 id 重算”思路）
  * Country alias change → full invalidation orchestration
  *
  * @module server/services/search-sync/country-alias-refresh

@@ -2,8 +2,7 @@
  * 宽表数据加载与对账检测层覆盖（红线 #6 相关模块纳入覆盖率白名单的前置）
  *
  * 这些函数都是 DB 侧批处理：mocked pool 按 SQL 内容分派返回批次，
- * 断言的是「多行归并/去重/失败降级/缓存复用」这些真实会静默改变搜索结果的分支。
- * 模块级缓存（别名表）会跨用例存活，因此失败路径必须先于成功路径执行。
+ * 断言的是「多行归并/去重/失败降级」这些真实会静默改变搜索结果的分支。
  */
 import { describe, it, expect, vi } from "vitest";
 import type { Pool } from "mysql2/promise";
@@ -11,7 +10,7 @@ import type { Pool } from "mysql2/promise";
 vi.mock("server-only", () => ({}));
 
 import {
-  loadAliasMap, loadTranslationsByNoticeIds,
+  loadTranslationsByNoticeIds,
 } from "@/lib/services/search-sync/wide-row-builder";
 import { detectDeadlineDrift, reconcileGhostRows } from "@/lib/services/search-sync/wide-row-reconcile";
 
@@ -27,33 +26,6 @@ function makePool(byKeyword: Array<[RegExp, unknown[][]]>, alsoThrow?: RegExp) {
   });
   return { pool: { query } as unknown as Pool, query };
 }
-
-describe("loadAliasMap", () => {
-  it("查询失败且无缓存 → 返回空映射（不抛错，宽表构建继续）", async () => {
-    const { pool } = makePool([], /agency_aliases/);
-    expect((await loadAliasMap(pool)).size).toBe(0);
-  });
-
-  it("成功构建 alias→canonical（大写归一 key）", async () => {
-    const { pool } = makePool([
-      [/agency_aliases/, [[
-        { canonical: "United Nations Development Programme", alias: " undp " },
-        { canonical: "UNICEF", alias: "unicef" },
-      ]]],
-    ]);
-    const map = await loadAliasMap(pool);
-    expect(map.get("UNDP")).toBe("United Nations Development Programme");
-    expect(map.get("UNICEF")).toBe("UNICEF");
-  });
-
-  it("第二次调用命中 10 分钟缓存，不再查库", async () => {
-    const { pool, query } = makePool([[/agency_aliases/, [[{ canonical: "X", alias: "y" }]]]]);
-    await loadAliasMap(pool);
-    const before = query.mock.calls.length;
-    await loadAliasMap(pool);
-    expect(query.mock.calls.length).toBe(before);
-  });
-});
 
 describe("loadTranslationsByNoticeIds", () => {
   it("空 id 列表 → 零查询", async () => {

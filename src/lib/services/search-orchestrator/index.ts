@@ -114,7 +114,8 @@ async function _searchCore(
   const t0 = Date.now();
   // [2026-10-31 机构 i18n 链退役] 这里曾是两代机构预热（getNoticeAgencies 40s 全表聚合 →
   // agency_aliases 别名快照轻量预热），随 enrichAgencyI18n 退役全部摘除：前端取值链已
-  // 全面走 buyerNameCn || buyerName（写时快照列），读时解析零消费方。
+  // 全面走 buyerNameCn || buyerName（写时快照列），读时解析零消费方；写侧归一同步切到
+  // buyer 实体（ADR-0016），旧别名表整表退役。
   // ── recommended 模式：委托既有推荐服务（模式专属管道）──
   if (p.mode === "recommended") {
     const reco = await recommendNotices(pool, p.userId!, p.page, p.pageSize, p.locale || undefined);

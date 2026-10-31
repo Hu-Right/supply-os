@@ -2,12 +2,14 @@
  * 定向服务表重建：按买家名圈行，重跑唯一写入者链路（fetch → buildPublicRow → upsert）。
  *
  * 为什么存在：--changed 水位只含主表/商机/标题旁表（selectChangedPublicIds），
- * buyer_translation / agency_aliases 的改名不会重选已有行——中文名落库后必须用本脚本
- * 圈出相关买家的服务表行强制重建，列表页 buyer_name_cn 才会刷新。
+ * 买家改名（buyer.name_zh / canonical_name / buyer_alias）不会重选已有行——中文名落库后
+ * 必须强制重建相关买家行，列表页 buyer_name_cn 才会刷新。
  *
- * 圈行用 ai_ci IN（utf8mb4_0900_ai_ci 大小写/重音不敏感），同一买家的所有变体行一并重建；
- * 重建后变体经别名 canonical 统一。买家清单与
- * runtime/agency-alias-zh-head-20261030.sql / runtime/buyer-translation-zh-head-20261030.sql 同源。
+ * [2026-10-31 机构口径收敛] 新链路请优先用 `src/lib/services/buyer/refresh.ts` 的
+ * `refreshBuyerProjection(pool, { buyerIds })`（服务表→宽表→Meili 一起传播）；
+ * 本脚本保留为「按原始买家名圈行」的兜底工具，归一匹配走 buyer 实体（旧别名表已退役）。
+ *
+ * 圈行用 ai_ci IN（utf8mb4_0900_ai_ci 大小写/重音不敏感），同一买家的所有变体行一并重建。
  *
  * 用法（服务器 /root/supply-os 下执行，.env 即部署凭证）：
  *   npx tsx scripts/tools/notice-public-rebuild-buyers.ts            # DRY：只报圈中行数

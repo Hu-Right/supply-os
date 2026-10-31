@@ -6,7 +6,7 @@
  * @description 详情行 → 前端 NoticeItem 结构。对齐旧 formatSearchResult（搜索）
  *              与 mapResultItems（行业匹配）的字段口径，所有数据源行为一致。
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { RowDataPacket } from "mysql2/promise";
 
 import { fromBackbonePathColumn } from "../commodity/backbone-path";
 

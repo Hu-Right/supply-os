@@ -8,8 +8,13 @@
  *
  * 本模块产出语义值（不按列宽截断）；列宽截断与空值策略（NOT NULL 落空串 / 可空落 NULL）
  * 是各写入者自己的事。
+ *
+ * [2026-10-31 机构口径收敛] 本模块不再做「别名表 canonical 化」：买家实体的唯一匹配
+ * 入口是 `buyer/entity-index`（以 buyer_alias ⋈ buyer 为准，国家维度 + 唯一回退 + 歧义不猜）。
+ * 这里只负责「从主表三个候选列里挑出可对外展示的原始买家名」（agency_full > agency →
+ * organization 首段）、剔除平台占位/爬虫噪声名，以及国家与机构类型分类。
+ * 归一键规则见 `buyer/normalize.ts`（NFKC + 空白折叠 + 大写，全项目唯一）。
  */
-import { normalizeAliasKey } from "../agency/alias-store";
 import { isAgencyPlaceholder } from "../agency/placeholder";
 import { classifyAgencyType } from "../agency";
 import { resolveCountries, countryCanonicalsOf, countryCodesOf } from "../country/resolve";
@@ -26,9 +31,9 @@ export const MULTI_REGION_COUNTRY_CODE = "ZZ";
 
 /** 买家/国家归一产物 */
 export interface BuyerCountryCore {
-  /** 采购主体规范名：别名表命中取 canonical，占位平台名剔除后为 null（不可对外展示） */
+  /** 可对外展示的原始采购主体名（实体 canonical 由 buyer/entity-index 决定；占位/噪声名剔除后为 null） */
   buyerName: string | null;
-  /** 机构类型通用键（_INTL 国家级键已折回）；宽表与服务表的 buyer_group 同名同值（Meili 属性名仍为 agency_group） */
+  /** 机构类型分类键（_INTL 国家级键已折回）；实体命中时以 buyer.buyer_group 覆盖 */
   buyerGroup: string | null;
   /** 主国家英文标准名（表驱动解析，无快照/未命中为 null） */
   countryName: string | null;
@@ -40,8 +45,7 @@ export interface BuyerCountryCore {
 
 /**
  * classifyAgencyType 的唯一调用口径：对 _INTL 后缀的国家级聚合键，
- * 用无国家参数重分类折回通用键，保证宽表/服务表落库键与内存缓存（agencies/query）
- * 及 Meilisearch filter 三处一致。
+ * 用无国家参数重分类折回通用键，保证服务表/宽表 buyer_group 与 Meilisearch filter 三处一致。
  */
 export function classifyBuyerGroup(buyerName: string, countryName: string): string | null {
   const typeInfo = classifyAgencyType(buyerName, countryName);
@@ -54,23 +58,24 @@ export function classifyBuyerGroup(buyerName: string, countryName: string): stri
 }
 
 /**
- * 买家 + 国家 + 机构类型的一次性归一。
- * @param agencyAliases alias（归一大写键）→ canonical；来源 agency/alias-store 快照
+ * 买家候选名 + 国家 + 机构类型的一次性归一。
+ *
+ * 买家名只做「取哪个原始列 + 剔除不可展示名」；**不做别名 canonical 化**
+ * （旧 agency_aliases 体系已退役，实体匹配在 buyer/entity-index 完成）。
  */
 export function normalizeBuyerCountry(
   input: { agency?: unknown; agencyFull?: unknown; organization?: unknown; country?: unknown },
-  agencyAliases: Map<string, string>,
   countrySnap?: CountryAliasSnapshot,
 ): BuyerCountryCore {
   // 采购主体以 agency_full 为准（缺失才回退 agency）：很多源的 agency 实为发布平台码，
-  // agency_full 才是真实采购单位；下游 std/卡片/详情/筛选统一按真买家。
+  // agency_full 才是真实采购单位；下游卡片/详情/筛选统一按真买家。
   const agencyRaw = String(input.agencyFull ?? "").trim() || String(input.agency ?? "").trim();
-  let candidate = agencyRaw ? agencyAliases.get(normalizeAliasKey(agencyRaw)) || agencyRaw : "";
+  let candidate = agencyRaw;
   // 部分源把平台码写进 agency，真实采购单位在 organization（常为 A||B||C 的层级串）：
-  // 平台占位名不可对外，回退 organization 的首段，而不是直接落 NULL。
+  // 平台占位名/爬虫噪声名不可对外，先回退 organization 的首段，而不是直接落 NULL。
   if (!candidate || isAgencyPlaceholder(candidate)) {
     const orgRaw = String(input.organization ?? "").split("||")[0].trim();
-    if (orgRaw) candidate = agencyAliases.get(normalizeAliasKey(orgRaw)) || orgRaw;
+    if (orgRaw) candidate = orgRaw;
   }
   const buyerName = candidate && !isAgencyPlaceholder(candidate) ? candidate : null;
 

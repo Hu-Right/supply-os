@@ -15,8 +15,8 @@ import { SUPPORTED_LANGS } from "../../utils/languages";
 // NULL deadline 的哨兵值：0（纪元起点）
 const NULL_DEADLINE_SENTINEL = 0;
 
-// ── 机构别名归一：Meili 从宽表读已归好的 buyer_name/buyer_group，无需本地别名缓存。
-//（旧 _getAliasMap 死代码已删；读表归一唯一入口见 wide-row-builder.loadAliasMap → agency/alias-store）──
+// ── 机构归一：Meili 从宽表读已归好的 buyer_name/buyer_group，无需本地别名缓存。
+//（2026-10-31 机构口径收敛：买家实体匹配唯一入口见 buyer/entity-index；旧 agency_aliases 已退役）──
 
 // ── 支持的语言列表：唯一来源 utils/languages ──
 //（#8：normalizeNoticeType 已迁至 utils/notice-type.ts，本文件仅保留同步职责）

@@ -29,7 +29,7 @@ describe("classifyBuyerGroup · _INTL 折回", () => {
   it("带国家命中国家级 _INTL 规则时，折回无国家的通用键", () => {
     const core = normalizeBuyerCountry(
       { agencyFull: "National Global Space Agency", country: "Brasil" },
-      new Map(), CN,
+      CN,
     );
     expect(core.buyerGroup).toBe("AGENCY_GLOBAL");
   });

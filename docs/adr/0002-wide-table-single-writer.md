@@ -18,7 +18,7 @@
 ## 能力边界（明确不解决的）
 
 - 指纹只覆盖**输入侧变更**。若宽表内容被绕过 `upsertWideRows` 的第三方改坏，存盘指纹仍与输入一致，检测不到。该完整性由红线 #6 + 门禁保证；对历史存疑时把 `sync_src_hash` 批量置 `''` 即强制全表重导（首次上线即因新列默认 `''` 自动完成一次全表重建，顺带修掉上述 8,367 行）。
-- `crm_agency_aliases` 与旧字典树自身的变更不进入指纹（全表级维度，构建侧有 10 分钟缓存 TTL），需刷新走 `requestIndexRebuild`。
+- `buyer` / `buyer_alias`（机构实体与别名）与旧字典树自身的变更不进入指纹（全表级维度，构建侧有缓存 TTL）：买家数据变更走 `buyer/refresh.refreshBuyerProjection`（按受影响 id 重算服务表投影→宽表→Meili），旧字典树刷新走 `requestIndexRebuild`。
 
 ## 被否决的替代方案
 

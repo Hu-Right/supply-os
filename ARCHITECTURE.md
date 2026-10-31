@@ -34,7 +34,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 - **首屏/i18n 分包**（2026-10）：客户端 i18n 初始资源只静态内联 zh（`core/i18n/client-bundles.ts`），其余语言经 `core/i18n/loader.ts` 动态 import 懒加载，语言检测/切换就绪后才 setLocale（失败保持当前语言不写 Cookie）；**loader 的 JSON 清单必须与 `locales/<lang>/*.json` 同步**，键一致性由 `check-i18n` 拦截。首页 page.tsx 与其它公开页同口径 `revalidate=3600`，并在渲染期直出 `lib/services/home-snapshot`（数字墙/地图初值进静态 HTML，口径与公开端点同一份 service）。`core/perf` 采集入口在 `src/app/providers.tsx` 的 AppInit 调用 `initPerfMonitor()`（旧注释的 main.tsx 为 Vite 遗留，不存在）。
 - **支付**：`lib/payment/PaymentService` + provider 策略（mock/alipay/wechat）；回调路由 F20（TRADE_CLOSED → reverse）；状态机白名单 F19（仅 pending 可流转）。相关决策见 `docs/adr/`。
 - **搜索**：`lib/services/search-sync`（宽表同步）与 `lib/services/search-orchestrator`（查询编排）**已解环**（A2/ARCH-P3，2026-09-05）：orchestrator 注册缓存失效回调供 sync 完成后调用，二者互相引用改为「回调 + 无依赖叶子模块直引」，不再经 barrel 回环。新代码禁止重新引入二者的直接 import。
-- **宽表一致性**：判据由源指纹 `crm_notice_search.sync_src_hash` 承担——构建时与内容同快照写入，对账时用同一 `WIDE_FP_EXPR` 在 SQL 内实时重算比较（按主键游标窗口轮转），不等则委托 `syncWideIds` 重建。修复方即构建方，故必然收敛（可断言「连续两轮对账变更数为 0」）。**能力边界**：指纹只覆盖「输入侧变更」，宽表内容被旁路改坏它看不见——该完整性由红线 6（单一写入者 + 门禁）保证；若历史上存在疑义，把 `sync_src_hash` 批量置 `''` 即强制全表重导。`crm_agency_aliases` / 品目骨架树自身的变更不进指纹，需刷新走 `requestIndexRebuild`。详见 `docs/adr/0002-wide-table-single-writer.md`。**0002 的补集（2026-10-11）**：宽表派生列（`backbone_path` / `precise_backbone_path` 这类由其它表码集合换算出来的列）必须由 `buildWideRow` 计算并与业务列同一批 `upsertWideRows` 写入，禁止另起定时任务或人工脚本补列；且运行中的构建产物只能有一个 —— 列清单落后的第二个进程不会改坏内容，而是**少写一列**，指纹对它无感，只有闭合断言（有码必填、无码必空）查得出。详见 `docs/adr/0007-derived-columns-computed-by-builder.md`。
+- **宽表一致性**：判据由源指纹 `crm_notice_search.sync_src_hash` 承担——构建时与内容同快照写入，对账时用同一 `WIDE_FP_EXPR` 在 SQL 内实时重算比较（按主键游标窗口轮转），不等则委托 `syncWideIds` 重建。修复方即构建方，故必然收敛（可断言「连续两轮对账变更数为 0」）。**能力边界**：指纹只覆盖「输入侧变更」，宽表内容被旁路改坏它看不见——该完整性由红线 6（单一写入者 + 门禁）保证；若历史上存在疑义，把 `sync_src_hash` 批量置 `''` 即强制全表重导。`buyer` / `buyer_alias`（机构实体与别名）与品目骨架树自身的变更不进指纹：前者走 `buyer/refresh.refreshBuyerProjection`（按受影响 id 重算服务表投影→宽表→Meili），后者刷新走 `requestIndexRebuild`。详见 `docs/adr/0002-wide-table-single-writer.md`。**0002 的补集（2026-10-11）**：宽表派生列（`backbone_path` / `precise_backbone_path` 这类由其它表码集合换算出来的列）必须由 `buildWideRow` 计算并与业务列同一批 `upsertWideRows` 写入，禁止另起定时任务或人工脚本补列；且运行中的构建产物只能有一个 —— 列清单落后的第二个进程不会改坏内容，而是**少写一列**，指纹对它无感，只有闭合断言（有码必填、无码必空）查得出。详见 `docs/adr/0007-derived-columns-computed-by-builder.md`。
 
 - **统一分类码 UGT**：全库权威类目树共用码前缀 `UGT-` = **Unified Global Taxonomy（统一全球分类码）**——把旧的品类字典码、桥表码与旧 8 位品类码收敛成一套 SSOT，融合国际商品分类标准、联合国 ISIC Rev.4 与国标 GB/T 4754 而成（非"凭空自研"）。核心不变量「码长即层级、父码=去末两位」⇒ 祖先链/子树前缀纯字符串可推，跨层筛选键同源。品目面 `UGT-`（SSOT：`shared/constants/commodity-code.ts`）、行业面 `UGT-I-`（SSOT：`shared/constants/industry-code.ts`）。命名与对外宣传口径的唯一出处：`docs/数据库设计/UGT统一分类码-命名与口径.md`。
 
@@ -109,15 +109,16 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   整块透出的响应体（如 `NextResponse.json(list)`）靠路由级集成测试钉住键名：
   `tests/integration/api-routes/payment-orders-list.test.ts` 用真实 orchestrator + 假仓库
   跑路由，断言 wire 上无 snake 键；新迁入这种端点时补同样的测试，不要只改类型。
-- **字段名之外还有一层「值从哪来」**（2026-10-29 升格为 [ADR-0015](docs/adr/0015-buyer-display-alias-only.md)）：
-  `agencyI18n`（买家中文名）曾同时混入**聚合类别名**（「法国各机构」——`buyer_group` 的语义是按国家 +
-  机构类型聚合，与“具体是谁”无关）与**模式合成头名**（`PHILIPPINE RECLAMATION管理局`），而前端读的是
-  `agencyI18n || buyerName`，所以类别名直接占掉了买家名的位置。现全链（列表/详情/预览）**只认
-  `agency_aliases` 表内登记过的译名**（判定式 `resolveAgencyDisplay().i18nFrom === "alias"`），
-  未登记就不下发、前端回退真实原名（代价：卡片与详情约 99.7% 行显外文原名，这是主动取舍不是漏改）；
-  `buyer_group` 的聚合语义保留，但不得流入买家展示字段。由
-  `tests/integration/api-routes/notice-detail-agency.test.ts` 钉住（详情在表内无登记名时必须显式下发空串——
-  解锁合并是 `{...preview, ...detail}`，缺键会残留上一次下发的名字）。
+- **字段名之外还有一层「值从哪来」**（2026-10-29 升格为 [ADR-0015](docs/adr/0015-buyer-display-alias-only.md)，2026-10-31 由 [ADR-0016](docs/adr/0016-buyer-entity-ssot.md) 取代）：
+  机构（=买家=agency）身份与中文名以 **buyer 实体** 为唯一口径：历史展示链 `agencyI18n`（曾混入聚合类别名
+  「法国各机构」与模式合成头名「PHILIPPINE RECLAMATION管理局」）已整体退役，前端取值链是
+  `buyerNameCn || buyerName`，两者都是服务表 `notice_public` 的**写时快照列**。快照由唯一写入者
+  `notice-public/build.ts` 产出：原始名（agency_full > agency → organization 首段）→
+  `buyer/entity-index` 匹配 `buyer_alias ⋈ buyer`（国家维精确 → 全局唯一回退 → 歧义不猜）→
+  `buyer_id / buyer_name(=canonical_name) / buyer_name_cn(=buyer.name_zh) / buyer_group`。
+  旧 `agency_aliases` 表与读时解析已退役（门禁 `check-buyer-ssot` 防回潮）；`buyer_group` 的
+  聚合语义保留，但不得流入买家展示字段。买家改名/合并后走 `buyer/refresh` 按受影响 id 重建投影
+  （`--changed` 水位看不见买家表变更）。
 - **2026-10-28 C 组只读取证**（`runtime/probe-opaque-c-group.ts`，进程内调与路由同一条生产链）：6 条拿到真实键集合——`suppliers/stats`(6)、`industries/tree`、`learning/materials/[id]/content`(4)、`suppliers/[id]`(26)、`notices/unified-search`(143、items 已过 `toNoticeListView`) 全部无 snake→升 B；`notices/[id]/ai-summary` 的 GET 缓存分支 8 键全 camel，但同一登记 id 还覆盖 POST 生成分支，**整条不升组**。剩下的 C 全部是「跑不了」而不是「应该没事」：写路径（`leads/log`、`favorite`、`feedback`、`training/orders` 建单）、触付费 LLM（`ai-match`、`ai-summary` POST）、触外部网关（`training/orders/[orderNo]` 查单）、可能触外部翻译服务（`translation`）、库里无数据（`queue`）。
   取证过程中踩到一个**探针自身的假阳性**：直接扫 `searchUnified()` 的返回值会报 99 个 snake 键（那是服务内部字段），而路由实际写的是 `{ ...result, items: toNoticeListView(result.items), page_size }`——按路由出口复现后才是 0。**探针必须复现出口写法，不是拿服务结果乱扫**。
   还踩到一个静默降级：连不上库时 `loadIndustryChildren` 返回 `[]`，「0 个键」看着像过关——探针现在把「一个键都没扫到」判为 inconclusive，不计入已核。

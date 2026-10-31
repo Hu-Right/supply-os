@@ -76,7 +76,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     );
     // [2026-10-31 机构 i18n 链退役] agency_i18n 不再计算/下发：前端取值链已全面走
     // buyerNameCn || buyerName（写时快照列，锁定态预览与解锁合并两侧同链），读时别名
-    // 解析（resolveAgencyDisplay）与别名快照预热随之退役；别名表继续服务写侧归一。
+    // 解析（resolveAgencyDisplay）与别名快照预热随之退役；写侧归一也已切到 buyer 实体
+    // （旧 agency_aliases 表退役，见 ADR-0016）。
     // 来源平台对外的唯一形状是上面的 `platform` 对象（canonical/code/zh）。
     // 行上的 platform_name 被 mapper 改名成 platformName 后全仓无人读（引用核查 2026-10-29），
     // 留着就是同一事实的第二份口径——在进 mapper 之前从行上摘掉，与列表侧

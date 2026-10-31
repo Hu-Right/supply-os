@@ -6,7 +6,8 @@
  * standalone 部署缺失即静默跳过；后随翻转落地删除）抽入本模块——仓库内可审、生产可跑、
  * 换机不丢。门禁 check-notice-public-ssot 的 N1/N2 以本文件为唯一基准。
  *
- * 归一化口径：买家/国家/机构类型走 notice-normalize/notice-core（与宽表投影同源）；
+ * 归一化口径：买家/国家/机构类型走 notice-normalize/notice-core（买家实体匹配走
+ * buyer/entity-index，以 buyer_alias ⋈ buyer 为唯一权威；旧 agency_aliases 体系已退役）；
  * 金额/联系方式/标题/正文分级在本模块内完成，产出即对外事实。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
@@ -16,8 +17,7 @@ import { normalizeContacts } from "../notice-normalize/phone";
 import { resolveCountries } from "../country/resolve";
 import { normalizeBuyerCountry } from "../notice-normalize/notice-core";
 import { industryTreeSection } from "../notice-normalize/industry";
-import { loadAgencyAliasSnapshot, normalizeAliasKey } from "../agency/alias-store";
-import type { AgencyAliasSnapshot } from "../agency/alias-store";
+import { loadBuyerEntityIndex, resolveBuyerEntity, type BuyerEntityIndex } from "../buyer/entity-index";
 import { loadCountryAliasSnapshot } from "../country/alias-store";
 import type { CountryAliasSnapshot } from "../country/alias-store";
 import { loadAgencyTypeRules } from "../agency/type-store";
@@ -48,23 +48,23 @@ export const PUBLIC_COLS = [
 
 interface PlatformEntry { code: string; name: string }
 
-/** 构建上下文：别名/平台快照一次性装载，批间复用 */
+/** 平台别名归一键（平台表自己的口径，与买家归一键刻意分开） */
+function normalizePlatformKey(raw: unknown): string {
+  return String(raw ?? "").trim().toUpperCase();
+}
+
+/** 构建上下文：买家实体索引/平台快照一次性装载，批间复用 */
 export interface PublicBuildContext {
-  agencyAliases: Map<string, string>;
   countrySnap: CountryAliasSnapshot;
   platformByHost: Map<string, PlatformEntry>;
   platformByAlias: Map<string, PlatformEntry>;
-  /** 国家 + 买家名 → 买家实体（服务表落 buyer_id，展示用实体规范名） */
-  buyerEntities: Map<string, { buyerId: number; canonical: string; nameZh: string | null; group: string | null }>;
+  /** 买家实体索引（buyer_alias ⋈ buyer；原始写法 → 实体的唯一匹配入口） */
+  buyerIndex: BuyerEntityIndex;
 }
 
 export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildContext> {
   await loadAgencyTypeRules(pool, true);
-  const agencySnap: AgencyAliasSnapshot = await loadAgencyAliasSnapshot(pool);
   const countrySnap = await loadCountryAliasSnapshot(pool);
-  const agencyAliases: Map<string, string> = new Map(
-    Array.from(agencySnap.byAlias, ([k, e]) => [k, e.canonical] as const),
-  );
   const platformByHost = new Map<string, PlatformEntry>();
   const platformByAlias = new Map<string, PlatformEntry>();
   const [rows] = await pool.query(
@@ -77,25 +77,19 @@ export async function loadPublicBuildContext(pool: Pool): Promise<PublicBuildCon
     const host = String(r.host ?? "").toLowerCase().replace(/^www\./, "");
     if (host) platformByHost.set(host, entry);
     for (const a of [r.alias, r.normalized_alias]) {
-      const key = String(a ?? "").trim().toUpperCase();
+      const key = normalizePlatformKey(a);
       if (key) platformByAlias.set(key, entry);
     }
   }
-  const buyerEntities = new Map<string, { buyerId: number; canonical: string; nameZh: string | null; group: string | null }>();
-  const [baRows] = await pool.query(
-    `SELECT a.alias, a.country_code, b.buyer_id, b.canonical_name, b.name_zh, b.buyer_group
-       FROM buyer_alias a JOIN buyer b ON b.buyer_id = a.buyer_id`,
-  );
-  for (const r of baRows as RowDataPacket[]) {
-    const key = `${String(r.country_code ?? "")}|${normalizeAliasKey(r.alias)}`;
-    buyerEntities.set(key, {
-      buyerId: Number(r.buyer_id),
-      canonical: String(r.canonical_name ?? r.alias ?? ""),
-      nameZh: r.name_zh ? String(r.name_zh) : null,
-      group: r.buyer_group ? String(r.buyer_group) : null,
-    });
+  // [2026-10-31 机构口径收敛] 买家实体索引 = 唯一机构匹配口径；旧 agency_aliases 不再参与构建。
+  const buyerIndex = await loadBuyerEntityIndex(pool);
+  if (buyerIndex.stats.ambiguousKeys > 0) {
+    console.warn(
+      `[notice-public] buyer 实体索引存在同国同归一键冲突 ${buyerIndex.stats.ambiguousKeys} 组，` +
+      `这些写法本轮不解析（保留原始名、进候选队列），待人工合并别名后重建`,
+    );
   }
-  return { agencyAliases, countrySnap, platformByHost, platformByAlias, buyerEntities };
+  return { countrySnap, platformByHost, platformByAlias, buyerIndex };
 }
 
 function extractUrl(raw: unknown): string {
@@ -115,7 +109,7 @@ function platformOf(ctx: PublicBuildContext, url: unknown, agency: unknown, orga
     return { code: "", name: host };
   }
   for (const raw of [agency, organization]) {
-    const key = normalizeAliasKey(raw);
+    const key = normalizePlatformKey(raw);
     if (key && ctx.platformByAlias.has(key)) return ctx.platformByAlias.get(key)!;
   }
   return null;
@@ -368,18 +362,19 @@ export function buildPublicRow(
       : echo(desc, rawTitle) && len(desc) - len(rawTitle) < 20 ? "echo"
         : len(desc) >= 300 ? "substantive" : "thin";
 
-  // 买家/国家/机构类型：唯一口径 notice-normalize/notice-core
+  // 买家/国家/机构类型：唯一口径 notice-normalize/notice-core（原始名 → 不做别名 canonical 化）
   const core = normalizeBuyerCountry(
     { agency: r.agency, agencyFull: r.agency_full, organization: r.organization, country: r.country },
-    ctx.agencyAliases, ctx.countrySnap,
+    ctx.countrySnap,
   );
   const buyerName = core.buyerName?.slice(0, 500) ?? null;
   const buyerGroup = core.buyerGroup?.slice(0, 100) ?? null;
   const countryCode = core.countryCode;
   const countryCodes = core.countryCodes;
+  // 实体匹配：国家维精确 → 全局唯一回退；歧义/未命中一律不猜（保持原始名并进候选队列）
   const buyerEntity = buyerName
-    ? ctx.buyerEntities.get(`${countryCode ?? ""}|${normalizeAliasKey(buyerName)}`)
-    : undefined;
+    ? resolveBuyerEntity(ctx.buyerIndex, buyerName, countryCode)
+    : null;
   const buyerId = buyerEntity?.buyerId ?? null;
   const buyerCanonical = buyerEntity?.canonical?.slice(0, 500) ?? buyerName;
   const buyerGroupFinal = (buyerEntity?.group?.slice(0, 100) ?? buyerGroup) || null;
@@ -487,37 +482,6 @@ export function buildPublicRow(
     ) || Math.floor(Date.now() / 1000),
     Number(r.is_opportunity ?? 0) >= 1 ? 1 : 0,
   ];
-}
-
-/** 把未命中买家的原始来源名登记到 buyer_candidate（不自动创建买家实体）。 */
-export async function syncBuyerCandidates(pool: Pool): Promise<number> {
-  const [res] = await pool.query(
-    `INSERT INTO buyer_candidate
-       (candidate_key, country_code, raw_name, normalized_name, occurrence_count)
-     SELECT SHA2(CONCAT(COALESCE(x.country_code, ''), '|', x.raw_name), 256),
-            x.country_code,
-            LEFT(x.raw_name, 500),
-            LEFT(LOWER(TRIM(x.raw_name)), 500),
-            COUNT(*)
-       FROM (
-         SELECT p.country_code, TRIM(n.agency_full) AS raw_name
-           FROM notice_public p JOIN bid_notices n ON n.id = p.notice_pk
-          WHERE p.buyer_id IS NULL AND n.agency_full IS NOT NULL AND TRIM(n.agency_full) <> ''
-         UNION ALL
-         SELECT p.country_code, TRIM(n.organization) AS raw_name
-           FROM notice_public p JOIN bid_notices n ON n.id = p.notice_pk
-          WHERE p.buyer_id IS NULL AND n.organization IS NOT NULL AND TRIM(n.organization) <> ''
-       ) x
-      WHERE x.raw_name NOT REGEXP '^[a-z]{2,}_[a-z0-9_]+$'
-        AND NOT EXISTS (
-          SELECT 1 FROM buyer_alias a
-           WHERE a.alias_key = SHA2(CONCAT(COALESCE(x.country_code, ''), '|', x.raw_name), 256)
-        )
-      GROUP BY x.country_code, x.raw_name
-     ON DUPLICATE KEY UPDATE occurrence_count = occurrence_count + VALUES(occurrence_count),
-       raw_name = VALUES(raw_name)`,
-  );
-  return Number((res as { affectedRows?: number }).affectedRows ?? 0);
 }
 
 /** 批量 upsert 服务表（唯一写入路径；ODKU 全列覆盖，notice_pk 除外） */

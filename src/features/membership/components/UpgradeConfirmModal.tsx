@@ -33,8 +33,6 @@ export function UpgradeConfirmModal({
 
   if (!open) return null;
 
-  const symbol = currency === "CNY" ? "¥" : "$";
-
   return (
     <Modal
       open={open}

@@ -73,8 +73,11 @@ export default defineConfig({
         // 品目归属落点 ↔ 派生列互转（旧字典退役后的唯一换算面，纯函数）
         "src/lib/services/commodity/attribution.ts",
 
-        // ── src/lib/services/notice-search — 缓存/统计/翻译 ──
-        "src/lib/services/notice-search/agencies/translate.ts",
+        // ── src/lib/services/buyer — 机构身份归一（唯一归一键 / 实体索引，2026-10-31）──
+        "src/lib/services/buyer/normalize.ts",
+        "src/lib/services/buyer/entity-index.ts",
+
+        // ── src/lib/services/notice-search — 缓存/统计 ──
         "src/lib/services/notice-search/cache.ts",
         "src/lib/services/notice-search/stats.ts",
 

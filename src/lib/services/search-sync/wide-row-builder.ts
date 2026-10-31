@@ -19,7 +19,6 @@ import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 import { WIDE_OPP_JOIN, WIDE_SYNC_JOIN } from "./wide-sync-sql";
 import { upsertNoticeNodes } from "./notice-nodes";
 import { SUPPORTED_LANGS } from "../../utils/languages";
-import { loadAgencyAliasSnapshot } from "../agency/alias-store";
 
 export { WIDE_OPP_JOIN, WIDE_SYNC_JOIN };
 
@@ -249,18 +248,6 @@ export function buildWideRow(
     // 缺失时落空串 → 与实时指纹不等 → 下一轮对账自动重建（自愈，无需人工刷）。
     sync_src_hash: String(r.sync_src_hash || ""),
   };
-}
-
-// ── 机构别名映射：委托共享 store（缓存/归一/降级唯一在 agency/alias-store）──
-/**
- * 兼容既有调用方与测试契约：返回 alias(归一大写) → canonical。
- * 缓存与降级由 store 统一负责（10 分钟 TTL；查库失败且无缓存→空 Map）。
- */
-export async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
-  const snap = await loadAgencyAliasSnapshot(pool);
-  const m = new Map<string, string>();
-  for (const [key, entry] of snap.byAlias) m.set(key, entry.canonical);
-  return m;
 }
 
 // ── 批量写入宽表（宽表业务内容的唯一写入路径，I1）──

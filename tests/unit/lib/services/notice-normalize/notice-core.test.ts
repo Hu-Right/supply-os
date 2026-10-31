@@ -1,6 +1,9 @@
 /**
- * notice-core（买家/国家/机构类型共享归一化）纯函数分支。
+ * notice-core（买家候选名 / 国家 / 机构类型共享归一化）纯函数分支。
  * type-store 未装载 ⇒ classifyAgencyType 走代码内静态规则兜底，本文件全部走该路径。
+ *
+ * 2026-10-31 机构口径收敛后：本模块不再做别名 canonical 化（旧 agency_aliases 体系退役），
+ * 买家名只负责「取哪个原始列 + 剔除占位/噪声名」；实体 canonical/中文名由 buyer/entity-index 决定。
  */
 import { describe, it, expect } from "vitest";
 import { normalizeBuyerCountry, MULTI_REGION_COUNTRY_CODE } from "@/lib/services/notice-normalize/notice-core";
@@ -25,22 +28,21 @@ const CN = csnap([
 ]);
 
 describe("normalizeBuyerCountry · 买家", () => {
-  it("别名表命中取 canonical，未命中保留原名", () => {
-    const aliases = new Map([["ACME WORKS", "Acme Works Ltd."]]);
-    expect(normalizeBuyerCountry({ agencyFull: "acme works", country: "China" }, aliases, CN).buyerName)
-      .toBe("Acme Works Ltd.");
-    expect(normalizeBuyerCountry({ agencyFull: "Some Local Bureau", country: "China" }, aliases, CN).buyerName)
+  it("买家名原样保留（别名 canonical 化已上移到 buyer 实体层，不在本模块做）", () => {
+    expect(normalizeBuyerCountry({ agencyFull: "acme works", country: "China" }, CN).buyerName)
+      .toBe("acme works");
+    expect(normalizeBuyerCountry({ agencyFull: "Some Local Bureau", country: "China" }, CN).buyerName)
       .toBe("Some Local Bureau");
   });
 
   it("占位平台名剔除为 null（宽表与服务表同款口径）", () => {
-    const core = normalizeBuyerCountry({ agency: "SAM", country: "China" }, new Map(), CN);
+    const core = normalizeBuyerCountry({ agency: "SAM", country: "China" }, CN);
     expect(core.buyerName).toBeNull();
     expect(core.buyerGroup).toBeNull();
   });
 
   it("agency_full 优先于 agency（platform 码不是真买家）", () => {
-    const core = normalizeBuyerCountry({ agency: "PLATFORM_CODE", agencyFull: "Real Buyer Co", country: "" }, new Map());
+    const core = normalizeBuyerCountry({ agency: "PLATFORM_CODE", agencyFull: "Real Buyer Co", country: "" });
     expect(core.buyerName).toBe("Real Buyer Co");
   });
 
@@ -50,25 +52,32 @@ describe("normalizeBuyerCountry · 买家", () => {
       agencyFull: "eprocure_gov_in",
       organization: "Delhi Development Authority||CE-South Zone-DDA||EE-SWD-5-Sarita Vihar-DDA",
       country: "India",
-    }, new Map());
+    });
     expect(core.buyerName).toBe("Delhi Development Authority");
+  });
+
+  it("organization 首段本身也是占位/噪声名 → 仍剔除（不把垃圾名当买家）", () => {
+    const core = normalizeBuyerCountry(
+      { agency: "SAM", agencyFull: "SAM", organization: "Error 500 (Server Error)||x", country: "Brazil" },
+      CN,
+    );
+    expect(core.buyerName).toBeNull();
   });
 });
 
 describe("normalizeBuyerCountry · 国家", () => {
   it("表驱动归一出标准名与 ISO2 码", () => {
-    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Brasil" }, new Map(), CN);
+    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Brasil" }, CN);
     expect(core.countryName).toBe("Brazil");
     expect(core.countryCode).toBe("BR");
     expect(core.countryCodes).toEqual(["BR"]);
   });
 
   it("多国串拆段去重保序；非 ISO2 形制的引用被剔除", () => {
-    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Brasil, China" }, new Map(), CN);
+    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Brasil, China" }, CN);
     expect(core.countryCodes).toEqual(["BR", "CN"]);
     const noCode = normalizeBuyerCountry(
       { agencyFull: "X", country: "Brasil" },
-      new Map(),
       csnap([["Brasil", { canonical: "Brazil", code: null }]]),
     );
     expect(noCode.countryName).toBe("Brazil");
@@ -81,7 +90,7 @@ describe("normalizeBuyerCountry · 国家", () => {
       ["MULTIPLE DESTINATIONS", { canonical: "Multi-Country", code: null, kind: "region", zh: "多国" }],
     ]);
     const snap: CountryAliasSnapshot = { byKey, formsByCanonical: new Map() };
-    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Multiple destinations" }, new Map(), snap);
+    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Multiple destinations" }, snap);
     expect(core.countryCode).toBe(MULTI_REGION_COUNTRY_CODE);
     expect(core.countryCodes).toEqual([]);
   });
@@ -92,7 +101,7 @@ describe("normalizeBuyerCountry · 国家", () => {
       ["SOUTHWEST INDIAN OCEAN", { canonical: "Southwest Indian Ocean", code: null, kind: "region", zh: "西南印度洋" }],
     ]);
     const snap: CountryAliasSnapshot = { byKey, formsByCanonical: new Map() };
-    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Mozambique, Southwest Indian Ocean" }, new Map(), snap);
+    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Mozambique, Southwest Indian Ocean" }, snap);
     expect(core.countryCode).toBe("MZ");
     expect(core.countryName).toBe("Mozambique");
     expect(core.countryCodes).toEqual(["MZ"]);
@@ -103,13 +112,13 @@ describe("normalizeBuyerCountry · 国家", () => {
       ["MOZAMBIQUE", { canonical: "Mozambique", code: "MZ", kind: "country", zh: "莫桑比克" }],
     ]);
     const snap: CountryAliasSnapshot = { byKey, formsByCanonical: new Map() };
-    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Mozambique, garbage tail" }, new Map(), snap);
+    const core = normalizeBuyerCountry({ agencyFull: "X", country: "Mozambique, garbage tail" }, snap);
     expect(core.countryCode).toBeNull();
     expect(core.countryName).toBeNull();
   });
 
   it("无快照时国家全空，买家照常归一", () => {
-    const core = normalizeBuyerCountry({ agencyFull: "Some Bureau", country: "Brasil" }, new Map());
+    const core = normalizeBuyerCountry({ agencyFull: "Some Bureau", country: "Brasil" });
     expect(core.countryName).toBeNull();
     expect(core.countryCode).toBeNull();
     expect(core.buyerName).toBe("Some Bureau");
@@ -120,29 +129,13 @@ describe("normalizeBuyerCountry · 机构类型（静态规则兜底路径）", 
   it("买家的机构名+国家交给 classifyAgencyType，产出通用 typeKey", () => {
     const core = normalizeBuyerCountry(
       { agencyFull: "UNIVERSIDADE FEDERAL DE SANTA MARIA", country: "Brasil" },
-      new Map(), CN,
+      CN,
     );
     expect(core.buyerGroup).toBe("UNIVERSITY_BR");
   });
 
   it("有买家无国家（或反之）不分类，buyerGroup 为 null", () => {
-    expect(normalizeBuyerCountry({ agencyFull: "UNIVERSIDADE X", country: "" }, new Map()).buyerGroup).toBeNull();
-    expect(normalizeBuyerCountry({ agencyFull: "", country: "Brasil" }, new Map(), CN).buyerGroup).toBeNull();
-  });
-
-  it("占位判定作用于别名解析后的 canonical：原名像占位但别名映射到真名则放行，canonical 本身是占位则剔除", () => {
-    // 别名表把平台码映射到真实机构 = 运维有意修正，放行
-    const rescued = normalizeBuyerCountry(
-      { agencyFull: "SAM", country: "Brasil" },
-      new Map([["SAM", "Secretaria de Administracao"]]), CN,
-    );
-    expect(rescued.buyerName).toBe("Secretaria de Administracao");
-    // canonical 本身是占位平台名 → 仍剔除
-    const stillPlaceholder = normalizeBuyerCountry(
-      { agencyFull: "SAM", country: "Brasil" },
-      new Map([["SAM", "E-Procurement Portal"]]), CN,
-    );
-    expect(stillPlaceholder.buyerName).toBeNull();
-    expect(stillPlaceholder.buyerGroup).toBeNull();
+    expect(normalizeBuyerCountry({ agencyFull: "UNIVERSIDADE X", country: "" }).buyerGroup).toBeNull();
+    expect(normalizeBuyerCountry({ agencyFull: "", country: "Brasil" }, CN).buyerGroup).toBeNull();
   });
 });
