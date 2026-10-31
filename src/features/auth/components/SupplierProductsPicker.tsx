@@ -18,7 +18,7 @@ import { useLocale } from "@/core/i18n";
 import {
   fetchCommodityTreeChildren,
   type CommodityTreeOption,
-} from "@/features/procurement/api/commodityTree";
+} from "@/core/api/commodityTree";
 import {
   fetchSmartInferCommodity,
   type CommodityInferCandidate,

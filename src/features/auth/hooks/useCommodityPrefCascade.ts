@@ -16,7 +16,7 @@ import { commodityNodeChain } from "@/shared/constants/commodity-code";
 import {
   fetchCommodityTreeChildren,
   type CommodityTreeOption,
-} from "@/features/procurement/api/commodityTree";
+} from "@/core/api/commodityTree";
 
 export interface UseCommodityPrefCascadeReturn {
   /** 一级选项：32 个 L1 大类行（树接口直出，名字即树名） */

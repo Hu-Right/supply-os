@@ -13,7 +13,7 @@ import {
   submitTrainingRegister, fetchCertifications, fetchIndustryFacets, fetchIndustryChildren,
   type TrainingRegisterForm, type CertificationRefItem,
 } from "../api";
-import type { IndustryTreeOption } from "@/lib/services/industry-facets";
+import type { IndustryTreeOption } from "@/types";
 
 const EXPORT_EXPERIENCE_OPTIONS = ["3年以内", "3-5年", "5-10年", "10年以上"];
 

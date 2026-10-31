@@ -15,7 +15,7 @@ export function EvidencePanel({ data }: { data: EnterpriseCapabilityData }) {
   const { t } = useLocale();
   const {
     profile,
-    evidenceFile, setEvidenceFile, evidenceCategory, setEvidenceCategory, evidenceTitle, setEvidenceTitle,
+    setEvidenceFile, evidenceCategory, setEvidenceCategory, evidenceTitle, setEvidenceTitle,
     evidenceValidUntil, setEvidenceValidUntil, evidenceNoExpiry, setEvidenceNoExpiry, savingEvidence,
     submitEvidence, deleteEvidence, openEvidenceFile,
   } = data;

@@ -36,3 +36,5 @@ export type {
   PlanView, PlanPeriodView, TieredPlanView, SubscriptionView, QuotaView, BenefitDefView, ResolvedCellView, ServiceCatalogView, AnnualCreditView,
   MembershipStatusView, ComparisonView, UpgradePreviewView, UpgradeCreditWindowView,
 } from "./membership";
+
+export type { TreeOption, CommodityTreeOption, IndustryTreeOption } from "./tree-options";

@@ -12,7 +12,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/core/http";
-import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/features/procurement/api/commodityTree";
+import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/core/api/commodityTree";
 import type { PlazaRfq } from "../types";
 
 export type RfqSortKey = "newest" | "deadline" | "budget";

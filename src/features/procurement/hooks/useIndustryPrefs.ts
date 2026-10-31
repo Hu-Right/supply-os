@@ -20,7 +20,7 @@ import { clearApiCache } from "@/core/http";
 import { useLocale } from "@/core/i18n";
 import type { PrefsMode } from "../types";
 import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
-import { fetchCommodityPrefsPath, type CommodityTreeOption } from "../api/commodityTree";
+import { fetchCommodityPrefsPath, type CommodityTreeOption } from "@/core/api/commodityTree";
 
 export interface UseIndustryPrefsOptions {
   /** 当前登录用户 key，未登录直接回 default 全量 */

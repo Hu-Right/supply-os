@@ -6,7 +6,7 @@
  * @description 服务表 industry 列的受控词表口径（2026-10-30 用户拍板，与国家线同构）：
  *              ① canonical 全集 = 数据实况头部 34 个规范英文值（覆盖 98.7% 行）；
  *              ② 中文同义/英文变体映射到 canonical（车辆→vehicles、healthcare→medical...）；
- *              ③ 词表外（UNSPSC 残码、字母残片、未知新值）一律 NULL——宁缺勿滥，
+ *              ③ 词表外（旧字典残码、字母残片、未知新值）一律 NULL——宁缺勿滥，
  *                 新合法标签经巡检清单补词表后自然生效。
  *              消费面：notice_public.industry（无前端直读；行业筛选/画像走行业树 L1 码，
  *              与本列解耦）。巡检：runtime/industry-coverage.sql。
@@ -62,7 +62,7 @@ const ALIAS_MAP: ReadonlyMap<string, IndustryCanonical> = new Map(
 );
 
 /**
- * 行业归一：canonical 全集内原样返回；别名映射到 canonical；词表外（UNSPSC 残码、
+ * 行业归一：canonical 全集内原样返回；别名映射到 canonical；词表外（旧字典残码、
  * 字母残片、未知新值）返回 NULL。输入不区分大小写。
  */
 export function normalizeIndustry(raw: unknown): IndustryCanonical | null {

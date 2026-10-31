@@ -13,7 +13,7 @@ import { Input, Select, ChipToggleGroup, Textarea } from "@/shared/ui";
 import {
   fetchCertifications, fetchIndustryFacets, fetchIndustryChildren, type CertificationRefItem,
 } from "../api";
-import type { IndustryTreeOption } from "@/lib/services/industry-facets";
+import type { IndustryTreeOption } from "@/types";
 
 export interface CompanyInfoData {
   company_name: string;

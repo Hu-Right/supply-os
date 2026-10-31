@@ -12,7 +12,7 @@ import {
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Input, Select, Button, ChipToggleGroup, Textarea } from "@/shared/ui";
 import { useTrainingForm } from "../../hooks/useTrainingForm";
-import type { IndustryTreeOption } from "@/lib/services/industry-facets";
+import type { IndustryTreeOption } from "@/types";
 
 import { CourseModules } from "./CourseModules";
 import { Instructors } from "./Instructors";

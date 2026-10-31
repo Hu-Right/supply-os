@@ -8,7 +8,7 @@
  */
 
 import { api, apiCached } from "@/core/http";
-import type { IndustryTreeOption } from "@/lib/services/industry-facets";
+import type { IndustryTreeOption } from "@/types";
 
 // ── 落地页动态数据类型（与后端 GET /api/training/landing 对齐，红线② camelCase）──
 // 说明：落地页仅课程与期次走动态数据（支撑报名支付链路）；

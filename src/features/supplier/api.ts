@@ -9,7 +9,7 @@
 
 import type { Supplier } from "@/types";
 import { api, apiCached } from "@/core/http";
-import type { IndustryTreeOption } from "@/lib/services/industry-facets";
+import type { IndustryTreeOption } from "@/types";
 
 /** 分页查询响应结构 */
 export interface SupplierPageResult {

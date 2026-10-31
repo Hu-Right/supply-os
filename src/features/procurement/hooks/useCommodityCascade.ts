@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { commodityNodeChain } from "@/shared/constants/commodity-code";
-import { fetchCommodityTreeChildren, type CommodityTreeOption } from "../api/commodityTree";
+import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/core/api/commodityTree";
 
 export interface CommodityCascade {
   /** 五层选项：[0] = L1 大类行（树接口直出），[1..4] = 中类 / 小类 / 子类 / 品目 */

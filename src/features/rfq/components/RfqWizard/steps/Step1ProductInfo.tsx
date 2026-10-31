@@ -5,7 +5,7 @@
 import { Input, SegmentedControl, Select, Textarea } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 
-import type { CommodityTreeOption } from "@/features/procurement/api/commodityTree";
+import type { CommodityTreeOption } from "@/core/api/commodityTree";
 import type { FieldErrors, RfqFormState } from "../../../types";
 import { Field } from "../ui/Field";
 

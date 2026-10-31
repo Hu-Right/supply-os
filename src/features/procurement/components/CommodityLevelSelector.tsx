@@ -22,7 +22,7 @@
  */
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import { Select } from "@/shared/ui";
-import type { CommodityTreeOption } from "../api/commodityTree";
+import type { CommodityTreeOption } from "@/core/api/commodityTree";
 
 /** 五层的层级名（占位项文案） */
 const LEVEL_LABEL_KEYS: LocaleKey[] = [

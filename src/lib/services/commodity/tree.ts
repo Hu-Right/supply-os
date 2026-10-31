@@ -34,15 +34,9 @@ import {
 
 export { isCommodityNodeKey, commodityNodeLevel, commodityNodeChain, l1CodeOfNode };
 
-/** 一条级联选项 */
-export interface CommodityTreeOption {
-  /** 筛选键 = 骨架节点码（UGT-…，码长即层级）；与公告侧 backbone_path 同口径 */
-  key: string;
-  /** 中文名（L1~L5 实测全量非空） */
-  nameZh: string;
-  /** 英文名（L1~L3 实测全空，L4/L5 非空；空串就交展示侧兜底） */
-  nameEn: string;
-}
+/** 一条级联选项（2026-10-31 收口：定义归 @/types/tree-options，此处保留历史导出面） */
+export type { CommodityTreeOption } from "@/types";
+import type { CommodityTreeOption } from "@/types";
 
 /** 骨架节点码前缀（与 commodity_backbone.code 形制一致；定义已下沉 shared，这里保留历史导出面） */
 export const COMMODITY_NODE_PREFIX = BACKBONE_NODE_PREFIX;

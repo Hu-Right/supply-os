@@ -10,7 +10,7 @@
  *              取代旧字典版组件（读旧品类字典，随字典退役下线）。
  */
 import { useLocale } from "@/core/i18n";
-import type { CommodityTreeOption } from "@/features/procurement/api/commodityTree";
+import type { CommodityTreeOption } from "@/core/api/commodityTree";
 import { Select } from "@/shared/ui";
 
 export interface CommodityPrefSelectsProps {

@@ -18,15 +18,11 @@ import { minimalSubtreePrefixes } from "./industry-code";
 import type { IndustryNodeRow, IndustryNodeRepo } from "../repos/industry-node.repo";
 
 /**
- * 级联下拉的一条选项（与商机页品目级联同形状：key 就是可直接下筛的节点码）。
+ * 级联下拉的一条选项（2026-10-31 收口：定义归 @/types/tree-options，此处保留历史导出面）。
  * 门类一层与第 2~4 级共用此形状；不带供应商计数——完整分类树，零挂靠节点同样可选。
  */
-export interface IndustryTreeOption {
-  /** 筛选键 = 行业节点码（UGT-I-…），可直接喂 /api/suppliers?industry_code=（子树前缀筛） */
-  key: string;
-  nameZh: string;
-  nameEn: string;
-}
+export type { IndustryTreeOption } from "@/types";
+import type { IndustryTreeOption } from "@/types";
 
 /** 节点行 → 级联选项；双语名全空则丢弃（宁可不给选项，也不把 UGT-I-xxxx 透到界面） */
 function toTreeOption(row: IndustryNodeRow): IndustryTreeOption | null {

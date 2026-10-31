@@ -22,7 +22,7 @@ import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
-import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/features/procurement/api/commodityTree";
+import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/core/api/commodityTree";
 import { DEFAULT_RFQ_FORM } from "../../constants";
 import type { FieldErrors, RfqFormState } from "../../types";
 

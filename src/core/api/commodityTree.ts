@@ -2,13 +2,13 @@
  * 品目分类树 API 客户端
  * Commodity tree API client
  *
- * @module features/procurement/api/commodityTree
+ * @module core/api/commodityTree
  * @description 商机页五级下拉（大类/中类/小类/子类/品目）的取数口，读品目骨架树。
  *              2026-10-15 G 码退役：第一级（32 个 L1 大类行）也走本口（parent 为空直出），
  *              名字即树名，与后续各级同源；不再有大类常量第二口径。
  */
 import { api, apiCached } from "@/core/http";
-import type { CommodityTreeOption } from "@/lib/services/commodity/tree";
+import type { CommodityTreeOption } from "@/types";
 
 export type { CommodityTreeOption };
 
@@ -31,3 +31,9 @@ export const fetchCommodityPrefsPath = (code: string) =>
   api<CommodityPrefsPath>(
     `/api/commodity/tree/prefs?code=${encodeURIComponent(code)}`,
   );
+
+/**
+ * 2026-10-31 架构收口：自 features/procurement/api 上移 core/api——本客户端被 auth/rfq/procurement
+ * 三方消费，留在 feature 里制造了 8 条跨 feature 硬依赖；公共基础设施归 core（红线：features
+ * 互不 import，类型归 @/types）。
+ */
