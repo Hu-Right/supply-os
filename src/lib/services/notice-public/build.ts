@@ -42,6 +42,7 @@ export const PUBLIC_COLS = [
   "estimated_value", "currency_code", "currency_source",
   "contacts", "attachments", "external_links",
   "difficulty", "registration_level", "beneficiary_countries",
+  "supplier_conditions", "eligibility", "technical_hurdles",
   "updated_at", "is_opportunity",
 ] as const;
 
@@ -219,7 +220,10 @@ function dedupeDocuments(rows: Array<Record<string, unknown>>): Array<Record<str
 export interface PublicInputBatch {
   rows: RowDataPacket[];
   attachmentMap: Map<number, Array<Record<string, unknown>>>;
-  oppMap: Map<string, { title: string | null; cn: string | null; beneficiary: string | null }>;
+  oppMap: Map<string, {
+    title: string | null; cn: string | null; beneficiary: string | null;
+    sc: string | null; eh: string | null; th: string | null;
+  }>;
   /** 商机侧两组水位映射（updated_at 取输入 max 的依据，保证商机侧选行收敛） */
   oppWmByNotice: Map<string, number>;
   oppWmById: Map<number, number>;
@@ -287,14 +291,18 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
   }
   const oppRows = oppWhere.length > 0
     ? (await pool.query(
-      `SELECT id, source_notice_id, title, description_cn, beneficiary_countries, update_time
+      `SELECT id, source_notice_id, title, description_cn, beneficiary_countries,
+              supplier_conditions, eligibility, technical_hurdles, update_time
          FROM bid_opportunities
         WHERE ${oppWhere.join(" OR ")}
         ORDER BY id DESC`,
       oppParams,
     ))[0] as RowDataPacket[]
     : [];
-  const oppMap = new Map<string, { title: string | null; cn: string | null; beneficiary: string | null }>();
+  const oppMap = new Map<string, {
+    title: string | null; cn: string | null; beneficiary: string | null;
+    sc: string | null; eh: string | null; th: string | null;
+  }>();
   const oppWmById = new Map<number, number>();
   const oppWmByNotice = new Map<string, number>();
   for (const o of oppRows) {
@@ -307,6 +315,9 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
       title: String(o.title ?? "").trim() || null,
       cn: String(o.description_cn ?? "").trim() || null,
       beneficiary: String(o.beneficiary_countries ?? "").trim() || null,
+      sc: String(o.supplier_conditions ?? "").trim() || null,
+      eh: String(o.eligibility ?? "").trim() || null,
+      th: String(o.technical_hurdles ?? "").trim() || null,
     };
     // 商机既可能按 source_notice_id 关联，也可能只按 bid_notices.converted_opp_id 关联；
     // 两种键都进 map，构建行时才能取到覆盖字段。
@@ -318,6 +329,9 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
         title: prev.title || entry.title,
         cn: prev.cn || entry.cn,
         beneficiary: prev.beneficiary || entry.beneficiary,
+        sc: prev.sc || entry.sc,
+        eh: prev.eh || entry.eh,
+        th: prev.th || entry.th,
       });
     }
   }
@@ -446,6 +460,11 @@ export function buildPublicRow(
     ? [...new Set(bRes.refs.map((ref) => ref.zh || ref.canonical).filter(Boolean))].join(", ").slice(0, 500)
     : (beneficiaryRaw.slice(0, 500) || null);
   const titleCn = String(r.title_cn ?? "").trim().slice(0, 1000) || null;
+  // 供应商条件/资格要求/技术门槛：商机侧字段原样带入（读取侧「服务表优先，空则回退商机表」，
+  // 商机本就是唯一产出方——服务表落值后回退分支自然不再触发）。
+  const supplierConditions = opp?.sc ?? null;
+  const eligibility = opp?.eh ?? null;
+  const technicalHurdles = opp?.th ?? null;
 
   return [
     r.id, noticeId, extractUrl(r.url), String(r.reference ?? "").slice(0, 255) || null,
@@ -458,6 +477,7 @@ export function buildPublicRow(
     amount.amount, amount.currency, amount.currencySource,
     JSON.stringify(contacts.entries), JSON.stringify(attachments), JSON.stringify(externalLinks),
     difficulty, registration, beneficiary,
+    supplierConditions, eligibility, technicalHurdles,
     // 行水位 = 全部输入的 max（主表 + 商机 + 标题旁表），各侧选行分支才能收敛到「不再重选」
     Math.max(
       toEpoch(r.update_time) ?? 0,
