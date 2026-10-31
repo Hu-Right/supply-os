@@ -276,7 +276,7 @@ export function AdvancedSearchPanel({
       {/* ══ 高级关键词行：包含/排除/精确短语（advanced_keyword_search，1299+）══ */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-xs font-bold text-slate-500">
+          <label htmlFor="adv-keyword-rows" className="block text-xs font-bold text-slate-500">
             {t("procurement_keywordRows") || "更多关键词"}
           </label>
           <div className="flex items-center gap-3">
@@ -317,6 +317,7 @@ export function AdvancedSearchPanel({
           <input
             type="text"
             data-testid="kw-chip-input"
+            id="adv-keyword-rows"
             value={draft}
             onChange={(e) => {
               const v = e.target.value;

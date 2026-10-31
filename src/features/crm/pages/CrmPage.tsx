@@ -104,8 +104,8 @@ export default function CrmPage() {
             </p>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">{t("crmBidSelectCompany")}</label>
-                <select className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-teal-400 outline-none">
+                <label htmlFor="crm-bid-company" className="block text-xs font-bold text-slate-600 mb-1">{t("crmBidSelectCompany")}</label>
+                <select id="crm-bid-company" className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-teal-400 outline-none">
                   <option>{t("crmBidSelectCompanyPlaceholder")}</option>
                   {totalSuppliersList.map((s) => (
                     <option key={s.id} value={s.id}>{s.nameZh || s.nameEn || s.id}</option>
@@ -114,8 +114,8 @@ export default function CrmPage() {
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="block text-xs font-bold text-slate-600 mb-1">{t("crmBidSelectOpportunity")}</label>
-                  <select className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-teal-400 outline-none">
+                  <label htmlFor="crm-bid-opportunity" className="block text-xs font-bold text-slate-600 mb-1">{t("crmBidSelectOpportunity")}</label>
+                  <select id="crm-bid-opportunity" className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-teal-400 outline-none">
                     <option>{t("crmBidSelectOppPlaceholder")}</option>
                     {leads.map((l) => (
                       <option key={l.id} value={l.id}>{l.companyName || l.id}</option>

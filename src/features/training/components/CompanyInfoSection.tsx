@@ -105,9 +105,10 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
       </h3>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <label className="block">
+        <label htmlFor="company-info-company-name" className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormCompanyName")}</span>
           <Input
+            id="company-info-company-name"
             name="company_name"
             value={value.company_name}
             onChange={(e) => handleChange("company_name", e.target.value)}
@@ -115,9 +116,9 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           />
         </label>
 
-        <label className="block">
+        <label htmlFor="company-info-industry-l1" className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel1Industry")}</span>
-          <Select name="industry_code" value={value.industry_code} onChange={(e) => handleChange("industry_code", e.target.value)}>
+          <Select id="company-info-industry-l1" name="industry_code" value={value.industry_code} onChange={(e) => handleChange("industry_code", e.target.value)}>
             <option value="">{t("trainingFormSelectLevel1")}</option>
             {level1Industries.map((item) => (
               <option key={item.key} value={item.key}>{labelOf(item)}</option>
@@ -125,9 +126,9 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           </Select>
         </label>
 
-        <label className="block">
+        <label htmlFor="company-info-industry-l2" className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel2Industry")}</span>
-          <Select name="industry_level2_code" value={value.industry_level2_code} onChange={(e) => handleChange("industry_level2_code", e.target.value)} disabled={!level2Industries.length}>
+          <Select id="company-info-industry-l2" name="industry_level2_code" value={value.industry_level2_code} onChange={(e) => handleChange("industry_level2_code", e.target.value)} disabled={!level2Industries.length}>
             <option value="">{t("trainingFormSelectLevel2")}</option>
             {level2Industries.map((item) => (
               <option key={item.key} value={item.key}>{labelOf(item)}</option>
@@ -135,9 +136,9 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           </Select>
         </label>
 
-        <label className="block">
+        <label htmlFor="company-info-industry-l3" className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel3Industry")}</span>
-          <Select name="industry_level3_code" value={value.industry_level3_code} onChange={(e) => handleChange("industry_level3_code", e.target.value)} disabled={!level3Industries.length}>
+          <Select id="company-info-industry-l3" name="industry_level3_code" value={value.industry_level3_code} onChange={(e) => handleChange("industry_level3_code", e.target.value)} disabled={!level3Industries.length}>
             <option value="">{t("trainingFormSelectLevel3")}</option>
             {level3Industries.map((item) => (
               <option key={item.key} value={item.key}>{labelOf(item)}</option>
@@ -145,9 +146,10 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           </Select>
         </label>
 
-        <label className="block">
+        <label htmlFor="company-info-main-product" className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormMainProduct")}</span>
           <Input
+            id="company-info-main-product"
             name="main_product"
             value={value.main_product}
             onChange={(e) => handleChange("main_product", e.target.value)}
@@ -155,9 +157,9 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           />
         </label>
 
-        <label className="block">
+        <label htmlFor="company-info-export-exp" className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormExportExperience")}</span>
-          <Select name="export_experience" value={value.export_experience} onChange={(e) => handleChange("export_experience", e.target.value)}>
+          <Select id="company-info-export-exp" name="export_experience" value={value.export_experience} onChange={(e) => handleChange("export_experience", e.target.value)}>
             <option value="">{t("trainingFormSelectExport")}</option>
             {EXPORT_EXPERIENCE_OPTIONS.map((item) => (
               <option key={item} value={item}>{item}</option>
@@ -189,9 +191,10 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
       </section>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <label className="block">
+        <label htmlFor="company-info-contact-name" className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormContactName")}</span>
           <Input
+            id="company-info-contact-name"
             name="contact_name"
             value={value.contact_name}
             onChange={(e) => handleChange("contact_name", e.target.value)}
@@ -199,9 +202,10 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           />
         </label>
 
-        <label className="block">
+        <label htmlFor="company-info-position" className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPosition")}</span>
           <Input
+            id="company-info-position"
             name="position"
             value={value.position}
             onChange={(e) => handleChange("position", e.target.value)}
@@ -209,9 +213,10 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           />
         </label>
 
-        <label className="block">
+        <label htmlFor="company-info-phone" className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPhone")}</span>
           <Input
+            id="company-info-phone"
             name="telephone"
             value={value.telephone}
             onChange={(e) => handleChange("telephone", e.target.value)}
@@ -219,9 +224,10 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           />
         </label>
 
-        <label className="block">
+        <label htmlFor="company-info-email" className="block">
           <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormEmail")}</span>
           <Input
+            id="company-info-email"
             name="email"
             value={value.email}
             onChange={(e) => handleChange("email", e.target.value)}
@@ -230,9 +236,10 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
         </label>
       </div>
 
-      <label className="block">
+      <label htmlFor="company-info-remark" className="block">
         <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormRemark")}</span>
         <Textarea
+          id="company-info-remark"
           name="remark"
           value={value.remark}
           onChange={(e) => handleChange("remark", e.target.value)}

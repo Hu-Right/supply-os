@@ -109,38 +109,38 @@ export default function TrainingPage() {
       <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs md:p-6">
         <h3 className="text-base font-extrabold text-slate-900 mb-2">报名信息</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label className="block">
+          <label htmlFor="training-form-company-name" className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormCompanyName")}</span>
-            <Input name="company_name" value={form.company_name} onChange={handleChange} placeholder="如：浙江某医疗器械有限公司" />
+            <Input id="training-form-company-name" name="company_name" value={form.company_name} onChange={handleChange} placeholder="如：浙江某医疗器械有限公司" />
           </label>
-          <label className="block">
+          <label htmlFor="training-form-industry-l1" className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel1Industry")}</span>
-            <Select name="industry_code" value={form.industry_code} onChange={handleChange}>
+            <Select id="training-form-industry-l1" name="industry_code" value={form.industry_code} onChange={handleChange}>
               <option value="">{t("trainingFormSelectLevel1")}</option>
               {level1Industries.map((item) => (<option key={item.key} value={item.key}>{labelOf(item)}</option>))}
             </Select>
           </label>
-          <label className="block">
+          <label htmlFor="training-form-industry-l2" className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel2Industry")}</span>
-            <Select name="industry_level2_code" value={form.industry_level2_code} onChange={handleChange} disabled={!level2Industries.length}>
+            <Select id="training-form-industry-l2" name="industry_level2_code" value={form.industry_level2_code} onChange={handleChange} disabled={!level2Industries.length}>
               <option value="">{t("trainingFormSelectLevel2")}</option>
               {level2Industries.map((item) => (<option key={item.key} value={item.key}>{labelOf(item)}</option>))}
             </Select>
           </label>
-          <label className="block">
+          <label htmlFor="training-form-industry-l3" className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormLevel3Industry")}</span>
-            <Select name="industry_level3_code" value={form.industry_level3_code} onChange={handleChange} disabled={!level3Industries.length}>
+            <Select id="training-form-industry-l3" name="industry_level3_code" value={form.industry_level3_code} onChange={handleChange} disabled={!level3Industries.length}>
               <option value="">{t("trainingFormSelectLevel3")}</option>
               {level3Industries.map((item) => (<option key={item.key} value={item.key}>{labelOf(item)}</option>))}
             </Select>
           </label>
-          <label className="block">
+          <label htmlFor="training-form-main-product" className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormMainProduct")}</span>
-            <Input name="main_product" value={form.main_product} onChange={handleChange} placeholder="如：医用耗材与器械" />
+            <Input id="training-form-main-product" name="main_product" value={form.main_product} onChange={handleChange} placeholder="如：医用耗材与器械" />
           </label>
-          <label className="block">
+          <label htmlFor="training-form-export-exp" className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormExportExperience")}</span>
-            <Select name="export_experience" value={form.export_experience} onChange={handleChange}>
+            <Select id="training-form-export-exp" name="export_experience" value={form.export_experience} onChange={handleChange}>
               <option value="">{t("trainingFormSelectExport")}</option>
               {EXPORT_EXPERIENCE_OPTIONS.map((item) => (<option key={item} value={item}>{item}</option>))}
             </Select>
@@ -161,12 +161,12 @@ export default function TrainingPage() {
           <Input name="other_certification" value={form.other_certification} onChange={handleChange} placeholder={t("trainingFormOtherCertPlaceholder")} className="mt-3" />
         </section>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormContactName")}</span><Input name="contact_name" value={form.contact_name} onChange={handleChange} /></label>
-          <label className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPosition")}</span><Input name="position" value={form.position} onChange={handleChange} /></label>
-          <label className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPhone")}</span><Input name="telephone" value={form.telephone} onChange={handleChange} /></label>
-          <label className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormEmail")}</span><Input name="email" value={form.email} onChange={handleChange} /></label>
+          <label htmlFor="training-form-contact-name" className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormContactName")}</span><Input id="training-form-contact-name" name="contact_name" value={form.contact_name} onChange={handleChange} /></label>
+          <label htmlFor="training-form-position" className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPosition")}</span><Input id="training-form-position" name="position" value={form.position} onChange={handleChange} /></label>
+          <label htmlFor="training-form-phone" className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPhone")}</span><Input id="training-form-phone" name="telephone" value={form.telephone} onChange={handleChange} /></label>
+          <label htmlFor="training-form-email" className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormEmail")}</span><Input id="training-form-email" name="email" value={form.email} onChange={handleChange} /></label>
         </div>
-        <label className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormRemark")}</span><Textarea name="remark" value={form.remark} onChange={handleChange} rows={3} placeholder={t("trainingFormRemarkPlaceholder")} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none" /></label>
+        <label htmlFor="training-form-remark" className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormRemark")}</span><Textarea id="training-form-remark" name="remark" value={form.remark} onChange={handleChange} rows={3} placeholder={t("trainingFormRemarkPlaceholder")} className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none" /></label>
         <div className="flex justify-end">
           <Button type="submit" variant="accent" size="lg" loading={loading} className="rounded-xl text-sm font-black"><Send className="h-4 w-4" />{loading ? t("trainingSubmitting") : t("trainingSubmitBtn")}</Button>
         </div>

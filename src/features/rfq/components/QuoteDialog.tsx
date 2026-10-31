@@ -82,31 +82,34 @@ export function QuoteDialog({ open, rfqId, defaultCurrency, onClose, onSuccess }
         <div className="px-5 py-4 space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <label className="block text-xs text-secondary-500 mb-1">{t("rfqQuotePriceLabel")}</label>
+              <label htmlFor="quote-price" className="block text-xs text-secondary-500 mb-1">{t("rfqQuotePriceLabel")}</label>
               <input
+                id="quote-price"
                 type="number" inputMode="decimal" value={price}
                 onChange={(e) => setPrice(e.target.value)} placeholder={t("rfqQuotePricePlaceholder")} className={inputCls}
               />
             </div>
             <div>
-              <label className="block text-xs text-secondary-500 mb-1">{t("rfqQuoteCurrencyLabel")}</label>
-              <input value={currency} onChange={(e) => setCurrency(e.target.value)} maxLength={10} className={inputCls} />
+              <label htmlFor="quote-currency" className="block text-xs text-secondary-500 mb-1">{t("rfqQuoteCurrencyLabel")}</label>
+              <input id="quote-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} maxLength={10} className={inputCls} />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-secondary-500 mb-1">{t("rfqQuoteLeadTimeLabel")}</label>
+            <label htmlFor="quote-lead-time" className="block text-xs text-secondary-500 mb-1">{t("rfqQuoteLeadTimeLabel")}</label>
             <input
+              id="quote-lead-time"
               type="number" inputMode="numeric" value={leadDays}
               onChange={(e) => setLeadDays(e.target.value)} placeholder={t("rfqOptional")} className={inputCls}
             />
           </div>
           <div>
-            <label className="block text-xs text-secondary-500 mb-1">{t("rfqQuoteTermsLabel")}</label>
-            <input value={terms} onChange={(e) => setTerms(e.target.value)} maxLength={200} placeholder={t("rfqOptional")} className={inputCls} />
+            <label htmlFor="quote-terms" className="block text-xs text-secondary-500 mb-1">{t("rfqQuoteTermsLabel")}</label>
+            <input id="quote-terms" value={terms} onChange={(e) => setTerms(e.target.value)} maxLength={200} placeholder={t("rfqOptional")} className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-secondary-500 mb-1">{t("rfqQuoteNoteLabel")}</label>
+            <label htmlFor="quote-note" className="block text-xs text-secondary-500 mb-1">{t("rfqQuoteNoteLabel")}</label>
             <textarea
+              id="quote-note"
               value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} rows={3}
               placeholder={t("rfqOptional")} className={inputCls}
             />

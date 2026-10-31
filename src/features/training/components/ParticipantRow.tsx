@@ -6,6 +6,7 @@
  * @description 从 ParticipantForm 提取的单人份表单字段渲染，
  *              消除 participants.map 内的重复 JSX（D4-1 拆分）。
  */
+import { useId } from "react";
 import { useLocale } from "@/core/i18n";
 import type { ParticipantInput } from "../api";
 
@@ -17,6 +18,8 @@ interface ParticipantRowProps {
 
 export function ParticipantRow({ participant, index, onChange }: ParticipantRowProps) {
   const { t } = useLocale();
+  // 本组件在 participants.map 中多实例渲染，label 关联 id 必须用 useId 保证全局唯一
+  const idPrefix = useId();
   const inputCls = "w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent";
   const labelCls = "block text-xs font-medium text-slate-600 mb-0.5";
 
@@ -27,14 +30,14 @@ export function ParticipantRow({ participant, index, onChange }: ParticipantRowP
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-2">
         <div>
-          <label className={labelCls}>{t("tlParticipantNameLabel")} <span className="text-red-500">*</span></label>
-          <input type="text" value={participant.full_name}
+          <label htmlFor={`${idPrefix}-name`} className={labelCls}>{t("tlParticipantNameLabel")} <span className="text-red-500">*</span></label>
+          <input id={`${idPrefix}-name`} type="text" value={participant.full_name}
             onChange={(e) => onChange(index, "full_name", e.target.value)}
             className={inputCls} placeholder={t("tlParticipantNamePlaceholder")} required />
         </div>
         <div>
-          <label className={labelCls}>{t("tlParticipantGenderLabel")}</label>
-          <select value={participant.gender || ""}
+          <label htmlFor={`${idPrefix}-gender`} className={labelCls}>{t("tlParticipantGenderLabel")}</label>
+          <select id={`${idPrefix}-gender`} value={participant.gender || ""}
             onChange={(e) => onChange(index, "gender", e.target.value || null)} className={inputCls}>
             <option value="">{t("tlParticipantGenderSelect")}</option>
             <option value="male">{t("tlParticipantGenderMale")}</option>
@@ -43,20 +46,20 @@ export function ParticipantRow({ participant, index, onChange }: ParticipantRowP
           </select>
         </div>
         <div>
-          <label className={labelCls}>{t("tlParticipantPhoneLabel")} <span className="text-red-500">*</span></label>
-          <input type="tel" value={participant.phone || ""}
+          <label htmlFor={`${idPrefix}-phone`} className={labelCls}>{t("tlParticipantPhoneLabel")} <span className="text-red-500">*</span></label>
+          <input id={`${idPrefix}-phone`} type="tel" value={participant.phone || ""}
             onChange={(e) => onChange(index, "phone", e.target.value || null)}
             className={inputCls} placeholder={t("tlParticipantPhonePlaceholder")} required />
         </div>
         <div>
-          <label className={labelCls}>{t("tlParticipantCompanyLabel")}</label>
-          <input type="text" value={participant.company_name || ""}
+          <label htmlFor={`${idPrefix}-company`} className={labelCls}>{t("tlParticipantCompanyLabel")}</label>
+          <input id={`${idPrefix}-company`} type="text" value={participant.company_name || ""}
             onChange={(e) => onChange(index, "company_name", e.target.value || null)}
             className={inputCls} placeholder={t("tlParticipantCompanyPlaceholder")} />
         </div>
         <div className="md:col-span-2">
-          <label className={labelCls}>{t("tlParticipantPositionLabel")}</label>
-          <input type="text" value={participant.position || ""}
+          <label htmlFor={`${idPrefix}-position`} className={labelCls}>{t("tlParticipantPositionLabel")}</label>
+          <input id={`${idPrefix}-position`} type="text" value={participant.position || ""}
             onChange={(e) => onChange(index, "position", e.target.value || null)}
             className={inputCls} placeholder={t("tlParticipantPositionPlaceholder")} />
         </div>
@@ -64,8 +67,8 @@ export function ParticipantRow({ participant, index, onChange }: ParticipantRowP
             但 2026-10-29 之前 saveParticipants() 的 INSERT 只写 7 列——用户填的一直被
             静默丢弃。本批已补齐写入口（仓储 INSERT + 行类型 + 视图），不拿“删输入框”掩盖缺陷。 */}
         <div className="md:col-span-2">
-          <label className={labelCls}>{t("tlParticipantEmailLabel")}</label>
-          <input type="email" value={participant.email || ""}
+          <label htmlFor={`${idPrefix}-email`} className={labelCls}>{t("tlParticipantEmailLabel")}</label>
+          <input id={`${idPrefix}-email`} type="email" value={participant.email || ""}
             onChange={(e) => onChange(index, "email", e.target.value || null)}
             className={inputCls} placeholder={t("tlParticipantEmailPlaceholder")} />
         </div>
