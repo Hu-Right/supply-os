@@ -7,7 +7,7 @@
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
 import { NextRequest, NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
+import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
@@ -15,7 +15,6 @@ import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { normalizeBackboneNodeKey } from "@/lib/services/commodity/backbone-path";
 import { isCommodityNodeKey } from "@/lib/services/commodity/tree";
 import { registerRfqGuard } from "@/lib/services/rfq-guard";
-import type { ResultSetHeader } from "mysql2/promise";
 
 /** 安全截断字符串 */
 function str(val: unknown, max: number): string {
@@ -98,49 +97,36 @@ export const POST = withRoute(async (req: NextRequest) => {
     : "";
 
   // ── 写入 bid_notices（商务条款走独立列，不再拼接 description）──
-  const pool = getPool();
+  const ctx = getContext();
 
   try {
     // deadline_sec 是 bid_notices 的 STORED 生成列（迁移 009：基于 deadline_ts 自动折算），
     // 不可显式写入；改为写入基色列 deadline_ts（秒）与展示列 deadline（ISO 日期串）。
     // 时间语义：create_time = 创建时刻；published_date 不在创建时写（审核通过转
     // published 时才由 submit/后台写入），避免草稿/待审核阶段误显“发布于”。
-    const [result] = await pool.query(
-      `INSERT INTO bid_notices
-        (title, description, country, category_code,
-         notice_type, deadline, deadline_ts, create_time,
-         estimated_value, currency, rfq_status,
-         contact_email, contact_phone, user_id, entry_source,
-         contact_name, budget_confidential,
-         incoterm, delivery_time, delivery_address, payment_terms, supplier_reqs, visibility)
-       VALUES (?, ?, ?, ?, 'RFQ', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'platform',
-               ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        title,
-        description.slice(0, 10000),
-        "China",
-        categoryCode || null,
-        deadline,
-        deadlineSec,
-        Math.floor(Date.now() / 1000),
-        estimatedValue,
-        currency,
-        status,
-        contactEmail,
-        contactPhone,
-        auth.userId ?? null,
-        contactName,
-        budgetConfidential ? 1 : 0,
-        incoterm || null,
-        deliveryTime || null,
-        deliveryAddress || null,
-        paymentTerms || null,
-        supplierReqs || null,
-        visibility,
-      ],
-    );
-
-    const insertId = (result as ResultSetHeader).insertId;
+    const result = await ctx.rfqRepo.createRfq({
+      title,
+      description: description.slice(0, 10000),
+      categoryCode: categoryCode || null,
+      deadline,
+      deadlineSec,
+      createTimeSec: Math.floor(Date.now() / 1000),
+      estimatedValue,
+      currency,
+      status,
+      contactEmail,
+      contactPhone,
+      userId: auth.userId ?? null,
+      contactName,
+      budgetConfidential,
+      incoterm: incoterm || null,
+      deliveryTime: deliveryTime || null,
+      deliveryAddress: deliveryAddress || null,
+      paymentTerms: paymentTerms || null,
+      supplierReqs: supplierReqs || null,
+      visibility,
+    });
+    const insertId = result.insertId;
 
     // 公告编号：平台 RFQ 此前不写 reference/notice_id（全 NULL），导致列表/详情/宽表
     // 无编号可追溯。生成 OSRFQ-{id 12位补零}，reference 与 notice_id 同值（id 唯一→两者唯一）。
@@ -148,15 +134,12 @@ export const POST = withRoute(async (req: NextRequest) => {
     // 共命名空间存在唯一键撞号与 daily-sync ODKU 静默覆盖风险；OSRFQ- 为外部编号体系结构上
     // 不可能出现的形态（实测全库 0 条），实现数学级隔离。存量迁移见 085/086。
     const ref = `OSRFQ-${String(insertId).padStart(12, "0")}`;
-    await pool.query(
-      `UPDATE bid_notices SET reference = ?, notice_id = ? WHERE id = ?`,
-      [ref, ref, insertId],
-    );
+    await ctx.rfqRepo.backfillReference(insertId, ref);
 
     // 登记预期归属到 rfq_guard（爬虫永不触碰的哨兵表），供周期对账检出被改写/消失。
     // best-effort：登记失败不影响建单本身（后台 syncRunner 平台护栏已是主防线），仅记日志。
     try {
-      await registerRfqGuard(pool, { rfqId: insertId, reference: ref, userId: auth.userId ?? null });
+      await registerRfqGuard(ctx.dbPool, { rfqId: insertId, reference: ref, userId: auth.userId ?? null });
     } catch (e) {
       console.warn("[api/rfq/create] 守护登记失败（不影响建单，仅降低可观测性）:", (e as Error).message);
     }

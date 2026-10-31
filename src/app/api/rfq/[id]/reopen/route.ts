@@ -7,11 +7,10 @@
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
+import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_FORBIDDEN, EC_INVALID_REQUEST, EC_INTERNAL_ERROR } from "@/shared/constants/api";
-import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
 export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -22,26 +21,18 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无效的 RFQ ID");
     }
 
-    const pool = getPool();
+    const ctx = getContext();
 
     // 权限 + 状态校验：仅已撤回(closed)可重新开启
-    const [existing] = await pool.query(
-      `SELECT id, rfq_status, user_id FROM bid_notices
-       WHERE id = ? AND notice_type = 'RFQ' LIMIT 1`,
-      [rfqId],
-    );
-    const row = (existing as RowDataPacket[])[0];
+    const row = await ctx.rfqRepo.getRfqStateById(rfqId);
     if (!row) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
     if (Number(row.user_id) !== auth.userId) routeError(403, EC_FORBIDDEN, "无权操作此 RFQ");
     if (row.rfq_status !== RFQ_STATUS.CLOSED) routeError(400, EC_INVALID_REQUEST, "仅已撤回的 RFQ 可重新开启");
 
     // closed → draft（不写 published_date；发布仍需库外审核）
-    const [result] = await pool.query(
-      `UPDATE bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
-      [RFQ_STATUS.DRAFT, rfqId, auth.userId],
-    );
+    const affected = await ctx.rfqRepo.updateRfqStatus({ rfqId, userId: auth.userId, status: RFQ_STATUS.DRAFT });
 
-    if ((result as ResultSetHeader).affectedRows === 0) routeError(500, EC_INTERNAL_ERROR, "重新开启失败");
+    if (affected === 0) routeError(500, EC_INTERNAL_ERROR, "重新开启失败");
 
     return NextResponse.json({ status: RFQ_STATUS.DRAFT });
   },

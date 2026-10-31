@@ -6,50 +6,27 @@
  */
 import { RFQ_STATUS, RFQ_USER_FILTERABLE_STATUSES } from "@/shared/constants/rfq";
 import { NextRequest, NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
+import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
-import type { RowDataPacket } from "mysql2/promise";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
-  const pool = getPool();
+  const ctx = getContext();
 
   const sp = req.nextUrl.searchParams;
   const status = sp.get("status") || ""; // draft / published / closed / 空=全部
   const page = Math.max(1, Number(sp.get("page")) || 1);
   const pageSize = Math.min(Math.max(Number(sp.get("page_size")) || 12, 4), 48);
-  const offset = (page - 1) * pageSize;
 
-  const conditions: string[] = ["n.user_id = ?", "n.notice_type = 'RFQ'"];
-  const params: unknown[] = [auth.userId];
+  // 状态筛选白名单校验在路由完成；白名单外的 status 静默按「不过滤」处理（行为与搬迁前一致）
+  const statusFilter = [status].every((s) => (RFQ_USER_FILTERABLE_STATUSES as readonly string[]).includes(s))
+    ? status
+    : "";
 
-  if ([status].every((s) => (RFQ_USER_FILTERABLE_STATUSES as readonly string[]).includes(s))) {
-    conditions.push("n.rfq_status = ?");
-    params.push(status);
-  }
+  const { total, rows } = await ctx.rfqRepo.getMyRfqs({ userId: auth.userId, status: statusFilter, page, pageSize });
 
-  const whereSql = conditions.join(" AND ");
-
-  // pool.query 的 Promise 解析为 [rows, fields] 元组；Promise.all 结果是
-  // [[rows1,fields1],[rows2,fields2]]，必须取每个结果的 [0] 才是真实行数组。
-  const [countRes, dataRes] = await Promise.all([
-    pool.query(`SELECT COUNT(*) AS total FROM bid_notices n WHERE ${whereSql}`, params),
-    pool.query(
-      `SELECT n.id, n.reference, n.title, n.country, n.estimated_value, n.currency, n.deadline_sec,
-              n.rfq_status, n.published_date, n.create_time,
-              (SELECT COUNT(*) FROM rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count,
-              (SELECT COUNT(*) FROM rfq_quotes q2 WHERE q2.rfq_id = n.id AND q2.status = 'submitted') AS quote_pending
-       FROM bid_notices n WHERE ${whereSql}
-       ORDER BY n.id DESC LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset],
-    ),
-  ]);
-  const countRows = countRes[0] as RowDataPacket[];
-  const dataRows = dataRes[0] as RowDataPacket[];
-
-  const total = Number(countRows[0]?.total || 0);
-  const items = dataRows.map((row) => ({
+  const items = rows.map((row) => ({
     id: Number(row.id),
     reference: String(row.reference || ""),
     title: String(row.title || ""),

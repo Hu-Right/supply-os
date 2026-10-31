@@ -10,13 +10,13 @@
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
+import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_FORBIDDEN, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { normalizeBackboneNodeKey } from "@/lib/services/commodity/backbone-path";
 import { isCommodityNodeKey } from "@/lib/services/commodity/tree";
-import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import type { RfqPatchFields } from "@/lib/repos/rfq.repo";
 
 /** 安全截断字符串 */
 function str(val: unknown, max: number): string {
@@ -47,25 +47,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       // 未登录：仅 published
     }
 
-    const pool = getPool();
-    const [rows] = await pool.query(
-      `SELECT n.id, n.reference, n.title, n.description, n.country, n.province_name,
-              n.category_code, c1.name_zh AS category_name,
-              c0.name_zh AS category_l1_name,
-              n.budget_confidential, n.currency,
-              n.incoterm, n.delivery_time, n.delivery_address,
-              n.payment_terms, n.supplier_reqs, n.visibility,
-              n.estimated_value, n.deadline_sec, n.rfq_status,
-              n.published_date, n.user_id,
-              n.contact_name, n.contact_email, n.contact_phone
-       FROM bid_notices n
-       LEFT JOIN commodity_backbone c1 ON c1.code = n.category_code
-       LEFT JOIN commodity_backbone c0 ON c0.code = LEFT(n.category_code, 6) AND c0.level = 1
-       WHERE n.id = ? AND n.notice_type = 'RFQ' AND n.entry_source = 'platform'
-       LIMIT 1`,
-      [rfqId],
-    );
-    const row = (rows as RowDataPacket[])[0];
+    const ctx = getContext();
+    const row = await ctx.rfqRepo.getRfqDetailById(rfqId);
     if (!row) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
 
     const isOwner = userId !== null && Number(row.user_id) === userId;
@@ -123,37 +106,29 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "请求体非法 JSON");
     }
 
-    const pool = getPool();
+    const ctx = getContext();
 
     // 权限 + 状态校验
-    const [existing] = await pool.query(
-      `SELECT id, rfq_status, user_id FROM bid_notices
-       WHERE id = ? AND notice_type = 'RFQ' LIMIT 1`,
-      [rfqId],
-    );
-    const row = (existing as RowDataPacket[])[0];
+    const row = await ctx.rfqRepo.getRfqStateById(rfqId);
     if (!row) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
     if (Number(row.user_id) !== auth.userId) routeError(403, EC_FORBIDDEN, "无权操作此 RFQ");
     if (row.rfq_status !== RFQ_STATUS.DRAFT && row.rfq_status !== RFQ_STATUS.PENDING_REVIEW && row.rfq_status !== RFQ_STATUS.REJECTED) {
       routeError(400, EC_INVALID_PARAMS, "仅草稿、待审核或审核未通过状态可编辑");
     }
 
-    // ── 构建 UPDATE 字段 ──
-    const updates: string[] = [];
-    const updateParams: unknown[] = [];
+    // ── 构建 UPDATE 字段（字段级校验与取值在路由；SET 片段拼装在 repo 层）──
+    const fields: RfqPatchFields = {};
 
     if (body.title !== undefined) {
       const title = str(body.title, 50);
       if (title.length < 10) routeError(400, EC_INVALID_PARAMS, `标题至少 10 个字`);
-      updates.push("title = ?");
-      updateParams.push(title);
+      fields.title = title;
     }
 
     if (body.description !== undefined) {
       const desc = str(body.description, 5000);
       if (desc.length < 50) routeError(400, EC_INVALID_PARAMS, `描述至少 50 个字`);
-      updates.push("description = ?");
-      updateParams.push(desc);
+      fields.description = desc;
     }
 
     if (body.deadline !== undefined) {
@@ -163,29 +138,25 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
         routeError(400, EC_INVALID_PARAMS, "截止时间必须晚于当前时间");
       }
       // deadline_sec 为生成列不可写；写基线 deadline_ts + 展示 deadline
-      updates.push("deadline = ?", "deadline_ts = ?");
-      updateParams.push(deadline, deadlineSec);
+      fields.deadline = { display: deadline, ts: deadlineSec };
     }
 
     if (body.budget !== undefined || body.budget_confidential !== undefined || body.currency !== undefined) {
       const budget = Number(body.budget) || 0;
       const confidential = Boolean(body.budget_confidential);
       const estimatedValue = confidential ? 0 : budget;
-      updates.push("budget_confidential = ?", "estimated_value = ?");
-      updateParams.push(confidential ? 1 : 0, estimatedValue);
+      fields.budget = { confidential, estimatedValue };
     }
 
     if (body.currency !== undefined) {
-      updates.push("currency = ?");
-      updateParams.push(str(body.currency || "CNY", 10));
+      fields.currency = str(body.currency || "CNY", 10);
     }
 
     if (body.delivery_address !== undefined) {
       // 交付地点：手动填写完整地址（province_name 写入已退役，历史行仅读）
       const deliveryAddress = str(body.delivery_address, 500);
       if (!deliveryAddress) routeError(400, EC_INVALID_PARAMS, "交付地点不能为空");
-      updates.push("delivery_address = ?");
-      updateParams.push(deliveryAddress);
+      fields.deliveryAddress = deliveryAddress;
     }
 
     if (body.category_code !== undefined) {
@@ -194,74 +165,64 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       if (categoryCode && !isCommodityNodeKey(categoryCode)) {
         routeError(400, EC_INVALID_PARAMS, "品目分类码非法（需为 UGT 骨架节点码）");
       }
-      updates.push("category_code = ?");
-      updateParams.push(categoryCode || null);
+      fields.categoryCode = categoryCode || null;
     }
 
     if (body.contact_email !== undefined) {
-      updates.push("contact_email = ?");
-      updateParams.push(str(body.contact_email, 200));
+      fields.contactEmail = str(body.contact_email, 200);
     }
 
     if (body.contact_phone !== undefined) {
-      updates.push("contact_phone = ?");
-      updateParams.push(str(body.contact_phone, 50));
+      fields.contactPhone = str(body.contact_phone, 50);
     }
 
     if (body.contact_name !== undefined) {
       const contactName = str(body.contact_name, 100);
       if (!contactName) routeError(400, EC_INVALID_PARAMS, "联系人姓名不能为空");
-      updates.push("contact_name = ?");
-      updateParams.push(contactName);
+      fields.contactName = contactName;
     }
 
 
 
     if (body.incoterm !== undefined) {
-      updates.push("incoterm = ?");
-      updateParams.push(str(body.incoterm, 20) || null);
+      fields.incoterm = str(body.incoterm, 20) || null;
     }
 
     if (body.delivery_time !== undefined) {
-      updates.push("delivery_time = ?");
-      updateParams.push(str(body.delivery_time, 200) || null);
+      fields.deliveryTime = str(body.delivery_time, 200) || null;
     }
 
     if (body.payment_terms !== undefined) {
       const paymentTerms = Array.isArray(body.payment_terms)
         ? body.payment_terms.map((v: unknown) => str(v, 50)).filter(Boolean).join(",")
         : "";
-      updates.push("payment_terms = ?");
-      updateParams.push(paymentTerms || null);
+      fields.paymentTerms = paymentTerms || null;
     }
 
     if (body.supplier_reqs !== undefined) {
       const supplierReqs = Array.isArray(body.supplier_reqs)
         ? body.supplier_reqs.map((v: unknown) => str(v, 100)).filter(Boolean).join(",")
         : "";
-      updates.push("supplier_reqs = ?");
-      updateParams.push(supplierReqs || null);
+      fields.supplierReqs = supplierReqs || null;
     }
 
     if (body.visibility !== undefined) {
-      updates.push("visibility = ?");
-      updateParams.push(body.visibility === "targeted" ? "targeted" : "public");
+      fields.visibility = body.visibility === "targeted" ? "targeted" : "public";
     }
 
-    if (updates.length === 0) {
+    if (Object.keys(fields).length === 0) {
       routeError(400, EC_INVALID_PARAMS, "无有效更新字段");
     }
 
     // 编辑后状态回退为 draft（参数化：裸拼 draft 会被 MySQL 当作列名）
-    updates.push("rfq_status = ?");
-    updateParams.push(RFQ_STATUS.DRAFT);
+    const affected = await ctx.rfqRepo.updateRfqFields({
+      rfqId,
+      userId: auth.userId,
+      fields,
+      statusTo: RFQ_STATUS.DRAFT,
+    });
 
-    const [result] = await pool.query(
-      `UPDATE bid_notices SET ${updates.join(", ")} WHERE id = ? AND user_id = ?`,
-      [...updateParams, rfqId, auth.userId],
-    );
-
-    if ((result as ResultSetHeader).affectedRows === 0) {
+    if (affected === 0) {
       routeError(500, EC_INTERNAL_ERROR, "更新失败");
     }
 

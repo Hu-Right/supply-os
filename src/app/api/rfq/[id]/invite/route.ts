@@ -9,12 +9,11 @@
  *   public 需求只触达、不改可见性、不写 invites。
  */
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
+import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_FORBIDDEN } from "@/shared/constants/api";
 import { RFQ_STATUS } from "@/shared/constants/rfq";
-import type { RowDataPacket } from "mysql2/promise";
 import {
   outreachPublishedRfq,
   addInvites,
@@ -38,18 +37,13 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const rawLimit = Number(body.limit);
     const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.trunc(rawLimit), 1), 100) : DEFAULT_MATCH_LIMIT;
 
-    const pool = getPool();
-    const [rows] = await pool.query(
-      `SELECT user_id, rfq_status, visibility FROM bid_notices
-        WHERE id = ? AND notice_type = 'RFQ' AND entry_source = 'platform' LIMIT 1`,
-      [rfqId],
-    );
-    const rfq = (rows as RowDataPacket[])[0];
+    const ctx = getContext();
+    const rfq = await ctx.rfqRepo.getRfqInviteStateById(rfqId);
     if (!rfq) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
     if (Number(rfq.user_id) !== auth.userId) routeError(403, EC_FORBIDDEN, "仅创建者可邀约供应商");
     if (String(rfq.rfq_status) !== RFQ_STATUS.PUBLISHED) routeError(409, EC_FORBIDDEN, "需求未发布，无法邀约");
 
-    const res = await outreachPublishedRfq(pool, { rfqId, limit, dryRun: action !== "send" });
+    const res = await outreachPublishedRfq(ctx.dbPool, { rfqId, limit, dryRun: action !== "send" });
 
     if (action === "preview") {
       return NextResponse.json({
@@ -63,7 +57,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     let invited = 0;
     if (String(rfq.visibility) === "targeted") {
       const ids = (res.preview ?? []).map((p) => p.userId);
-      invited = await addInvites(pool, rfqId, auth.userId, ids);
+      invited = await addInvites(ctx.dbPool, rfqId, auth.userId, ids);
     }
 
     return NextResponse.json({
