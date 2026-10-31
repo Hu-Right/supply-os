@@ -13,12 +13,11 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { UserPrefsRepo } from "../../repos/user-prefs.repo";
 import { commodityNodeLevel, isCommodityNodeKey, l1CodeOfNode } from "../commodity/tree";
+import { TTLCache } from "@/lib/cache/ttl-cache";
 import type { UserIndustryProfile } from "./types";
 
-// ── 用户行业画像内存缓存（60s TTL，偏好变更时主动失效）──
-const _profileCache = new Map<number, { profile: UserIndustryProfile | null; expires: number }>();
-const PROFILE_CACHE_TTL = 60 * 1000;
-const PROFILE_CACHE_MAX = 500;
+// ── 用户行业画像内存缓存（60s TTL，偏好变更时主动失效；2026-10-31 收编 lib/cache/ttl-cache）──
+const _profileCache = new TTLCache<number, UserIndustryProfile | null>({ ttlMs: 60 * 1000, max: 500, name: "industry-profile" });
 
 /** 失效用户行业画像缓存（用户修改行业偏好时调用） */
 export function invalidateProfileCache(userId?: number): void {
@@ -39,15 +38,14 @@ export async function resolveUserIndustryProfile(
 ): Promise<UserIndustryProfile | null> {
   // ── 缓存命中检查 ──
   const cached = _profileCache.get(userId);
-  if (cached && cached.expires > Date.now()) return cached.profile;
+  if (cached !== undefined) return cached;
 
   // 偏好读取经 UserPrefsRepo 单一端口（与 industry-prefs 路由同口径）
   const userPrefsRepo = new UserPrefsRepo(pool);
   const row = userId ? await userPrefsRepo.getIndustryPrefs(userId) : null;
   const code = String(row?.commodity_code ?? "");
   if (!row || !code || !isCommodityNodeKey(code)) {
-    _profileCache.set(userId, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
-    if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
+    _profileCache.set(userId, null);
     return null;
   }
 
@@ -63,8 +61,7 @@ export async function resolveUserIndustryProfile(
     return null;
   }
   if (titleZh === null) {
-    _profileCache.set(userId, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
-    if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
+    _profileCache.set(userId, null);
     return null;
   }
 
@@ -76,7 +73,6 @@ export async function resolveUserIndustryProfile(
     l1Code: l1CodeOfNode(code) || null,
     industryTitleZh: titleZh,
   };
-  _profileCache.set(userId, { profile, expires: Date.now() + PROFILE_CACHE_TTL });
-  if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
+  _profileCache.set(userId, profile);
   return profile;
 }

@@ -30,12 +30,12 @@ import { normalizeNoticeType } from "../../utils/notice-type";
 // 占位平台代码（mercadopublico_cl 等）在"智能推荐"列表原样露出
 import { enrichAgencyI18n, ensureNoticePk } from "../search-common/display-helpers";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
+import { TTLCache } from "@/lib/cache/ttl-cache";
 const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
 
-// 推荐结果缓存
-const recoResultCache = new Map<string, { data: NoticeRecommendResult; expires: number }>();
-const RECO_RESULT_CACHE_TTL = CACHE_TTL_STANDARD_MS;
-const RECO_RESULT_CACHE_MAX = 200;
+// 推荐结果缓存（2026-10-31 收编 lib/cache/ttl-cache 统一原语；原「满额先扫过期再整表清空」
+// 的雪崩式 miss 策略由 TTLCache 的 LRU 淘汰至 75% 取代，容量口径不变）
+const recoResultCache = new TTLCache<string, NoticeRecommendResult>({ ttlMs: CACHE_TTL_STANDARD_MS, max: 200, name: "recommend" });
 
 export interface NoticeRecommendResult {
   items: Array<Record<string, unknown>>;
@@ -61,7 +61,7 @@ export async function recommendNotices(
   // 缓存命中检查
   const recoCacheKey = `${userId}:${page}:${pageSize}:${locale || ""}`;
   const cachedReco = recoResultCache.get(recoCacheKey);
-  if (cachedReco && cachedReco.expires > Date.now()) return cachedReco.data;
+  if (cachedReco) return cachedReco;
 
   // ── 召回：兴趣码衰减查询 ──
   // R3' B3：去掉 MAX(code_id) 投影——全仓仅此一处出现 code_id（git grep 证实），
@@ -223,13 +223,8 @@ export async function recommendNotices(
     total: Number((countRows as RowDataPacket[])[0]?.total || 0), page, pageSize, variant,
   };
 
-  // 写入缓存
-  if (recoResultCache.size >= RECO_RESULT_CACHE_MAX) {
-    const now = Date.now();
-    for (const [key, entry] of recoResultCache) { if (entry.expires <= now) recoResultCache.delete(key); }
-    if (recoResultCache.size >= RECO_RESULT_CACHE_MAX) recoResultCache.clear();
-  }
-  recoResultCache.set(recoCacheKey, { data: result, expires: Date.now() + RECO_RESULT_CACHE_TTL });
+  // 写入缓存（TTL/LRU 策略在原语内）
+  recoResultCache.set(recoCacheKey, result);
 
   return result;
 }

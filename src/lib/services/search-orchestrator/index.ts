@@ -37,38 +37,19 @@ import { noticeInCategory } from "../industry-scope";
 import { isAgencyDisplaySnapshotReady } from "../agency/resolve";
 import { ensureAgencyDisplayWarmup } from "./format";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
+import { TTLCache } from "@/lib/cache/ttl-cache";
 
-// ── 结果缓存（5 分钟 TTL，与旧模块口径一致）──
-const resultCache = new Map<string, { data: UnifiedSearchResult; expires: number }>();
-const RESULT_CACHE_TTL = CACHE_TTL_STANDARD_MS;
-const RESULT_CACHE_MAX = 500;
+// ── 结果缓存（5 分钟 TTL，与旧模块口径一致；2026-10-31 收编 lib/cache/ttl-cache 统一原语）──
+const resultCache = new TTLCache<string, UnifiedSearchResult>({ ttlMs: CACHE_TTL_STANDARD_MS, max: 500, name: "unified-search" });
 
 // 软 AND 放宽已改为「仅零结果触发」，无需阈值常量；闸口见 _searchCore 末尾的统一判定。
 
 // ── B6 优化：single-flight 飞行中请求去重（同参数并发请求共享同一 Promise）──
 const _inflight = new Map<string, Promise<UnifiedSearchResult>>();
 
-/**
- * B3 优化：缓存淘汰策略从「满额整表清空」改为 LRU（Map 按插入序淘汰最旧）。
- * 先清理过期项，仍满额则从最旧条目开始逐条淘汰至 75%，避免缓存雪崩式 miss。
- */
 function cacheSet(key: string, data: UnifiedSearchResult): void {
-  // 若已存在同键则先删，保证 Map 插入序反映最近访问
-  resultCache.delete(key);
-  // 清理过期项
-  const now = Date.now();
-  for (const [k, entry] of resultCache) {
-    if (entry.expires <= now) resultCache.delete(k);
-  }
-  // 仍满额：LRU 淘汰最旧条目至 75% 容量（Map 迭代按插入序）
-  if (resultCache.size >= RESULT_CACHE_MAX) {
-    const targetSize = Math.floor(RESULT_CACHE_MAX * 0.75);
-    const keys = Array.from(resultCache.keys());
-    for (let i = 0; i < keys.length && resultCache.size > targetSize; i++) {
-      resultCache.delete(keys[i]);
-    }
-  }
-  resultCache.set(key, { data, expires: Date.now() + RESULT_CACHE_TTL });
+  // TTL+LRU 淘汰策略（重插刷新访问序、惰性清扫、满额淘汰至 75%）收口在 TTLCache.set
+  resultCache.set(key, data);
 }
 
 /** 失效行业匹配相关缓存（用户修改行业偏好后调用） */
@@ -81,11 +62,7 @@ export function invalidateUnifiedSearchCache(userId?: number): void {
     _inflight.clear();
     return;
   }
-  for (const key of resultCache.keys()) {
-    if (key.includes(`|${userId}|`) || key.startsWith(`prefs|${userId}`)) {
-      resultCache.delete(key);
-    }
-  }
+  resultCache.deleteWhere((key) => key.includes(`|${userId}|`) || key.startsWith(`prefs|${userId}`));
   for (const key of _inflight.keys()) {
     if (key.includes(`|${userId}|`) || key.startsWith(`prefs|${userId}`)) {
       _inflight.delete(key);
@@ -113,7 +90,7 @@ export async function searchUnified(
   // ── 缓存检查 ──
   const cacheKey = searchCacheKey(p);
   const cached = resultCache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) return cached.data;
+  if (cached) return cached;
 
   // ── B6 优化：single-flight — 同参数并发请求共享同一 Promise ──
   const pending = _inflight.get(cacheKey);
