@@ -26,6 +26,8 @@ export interface ModalProps {
   children: ReactNode;
   /** 是否显示关闭按钮 */
   showClose?: boolean;
+  /** 禁用右上角关闭按钮（如提交中防误关）；遮罩/Esc 关闭由调用方在 onClose 内自行闸住 */
+  closeDisabled?: boolean;
   /** 自定义类名（作用于内容区） */
   className?: string;
   /** 遮罩层自定义类名 */
@@ -44,6 +46,7 @@ export function Modal({
   title,
   children,
   showClose = true,
+  closeDisabled = false,
   className,
   overlayClassName,
   closeOnBackdrop = true,
@@ -96,7 +99,8 @@ export function Modal({
             <button
               type="button"
               onClick={onClose}
-              className="absolute end-4 top-4 rounded-lg p-1 text-secondary-400 hover:bg-secondary-100 hover:text-secondary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-400"
+              disabled={closeDisabled}
+              className="absolute end-4 top-4 rounded-lg p-1 text-secondary-400 hover:bg-secondary-100 hover:text-secondary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-400 disabled:opacity-50 disabled:pointer-events-none"
               aria-label={t("uiClose")}
             >
               <X className="h-5 w-5" />

@@ -52,7 +52,7 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
   const guardedClose = () => { if (!submitting) onClose(); };
 
   return (
-    <Modal open onClose={guardedClose} title={t("profile_claimTitle") || "认领该企业"} className="max-w-md">
+    <Modal open onClose={guardedClose} closeDisabled={submitting} title={t("profile_claimTitle") || "认领该企业"} className="max-w-md">
         <div className="space-y-5">
         <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
           <p className="font-medium text-slate-800">{companyName}</p>
