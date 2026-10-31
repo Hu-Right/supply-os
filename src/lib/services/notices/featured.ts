@@ -8,6 +8,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { LRUCache } from "lru-cache";
 import { qualifiedOppWhere } from "../../utils/notice-qualified";
+import { CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
 
 // ── 精选池判定（T-A1，本地差异 #14：A.2）──
 // 合格机会口径已下沉至 utils/notice-qualified（repos 与 services 共用，避免反向依赖），
@@ -80,7 +81,7 @@ interface NoticeIdentity {
 
 const oppCache = new LRUCache<string, { row: RowDataPacket | null }>({
   max: 500,
-  ttl: 10 * 60 * 1000,
+  ttl: CACHE_TTL_MEDIUM_MS,
 });
 
 export async function findQualifiedOpportunityForNotice(dbPool: Pool, notice: NoticeIdentity) {

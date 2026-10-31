@@ -69,18 +69,22 @@ export function hotGroupView(
 /**
  * 热门话题数据 hook — 获取热门国家 + 热门大类（含计数）。
  * 服务端已缓存，客户端走 apiCached（TTL 缓存 + 飞行中去重），仅首次加载时发真实请求。
+ * 2026-10-31 RSC 直出：传入 initial（home-snapshot 服务端快照）时跳过拉取，
+ * 首屏直出真实内容——未传时行为与旧版完全一致。
  */
-export function useHotTopics(): UseHotTopicsReturn {
-  const [topics, setTopics] = useState<HotTopicsData | null>(null);
-  const [loading, setLoading] = useState(true);
+export function useHotTopics(options?: { initial?: HotTopicsData | null }): UseHotTopicsReturn {
+  const initial = options?.initial ?? null;
+  const [topics, setTopics] = useState<HotTopicsData | null>(initial);
+  const [loading, setLoading] = useState(!initial);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (initial) return; // RSC 快照已就绪：跳过客户端拉取（快照新鲜度由服务端 10 分钟缓存 + ISR 兜底）
     apiCached<HotTopicsData>("/api/notices/hot-topics")
       .then(setTopics)
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [initial]);
 
   return { topics, loading, error };
 }

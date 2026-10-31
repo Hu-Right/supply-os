@@ -9,12 +9,14 @@
  */
 import { memo } from "react";
 import { useLocale } from "@/core/i18n";
-import { useHotTopics, hotGroupView } from "../hooks/useHotTopics";
+import { useHotTopics, hotGroupView, type HotTopicsData } from "../hooks/useHotTopics";
 
 /** 热门品目大类 — 真实计数（展示组件，memo 隔离父层重渲染） */
-export const HotTopicsSection = memo(function HotTopicsSection() {
+export const HotTopicsSection = memo(function HotTopicsSection({ initialTopics }: { initialTopics?: HotTopicsData | null } = {}) {
   const { t } = useLocale();
-  const { topics } = useHotTopics();
+  // 2026-10-31 RSC 直出：initialTopics 来自 home-snapshot（服务端 10 分钟缓存同源），
+  // 有初值即跳过客户端拉取；未传（旧入口/快照失败）时回退客户端取数，行为不变。
+  const { topics } = useHotTopics({ initial: initialTopics ?? null });
 
   if (!topics || !topics.industries?.length) return null;
 

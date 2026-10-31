@@ -186,6 +186,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           value={value.other_certification}
           onChange={(e) => handleChange("other_certification", e.target.value)}
           placeholder={t("trainingFormOtherCertPlaceholder")}
+          aria-label={t("trainingFormOtherCertPlaceholder")}
           className="mt-3"
         />
       </section>

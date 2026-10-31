@@ -52,7 +52,8 @@ export default function PageClient({ initialHome, initialContent }: { initialHom
         <HeroSection />
         <IdentityChoiceBanner />
         <StatsWall initialHome={initialHome} />
-        <HotTopicsSection />
+        {/* RSC 快照投影：HotTopics 形状两端一致（服务端 HotTopics ≡ features HotTopicsData），直接透传 */}
+        <HotTopicsSection initialTopics={initialContent?.hotTopics ?? null} />
         <WorldMapSection initialHome={initialHome} />
         {/* RSC 快照行 → 卡片项：与 apiCached<{ items: HomeNoticeItem[] }> 泛型同一条信任口径
             （视图行即卡片契约，无运行时校验），薄壳投影一次，features 内不引 lib 类型 */}

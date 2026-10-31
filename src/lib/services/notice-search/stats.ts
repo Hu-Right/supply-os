@@ -15,6 +15,7 @@ import { RFQ_STATUS } from "@/shared/constants/rfq";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { NoticeStatsResult } from "./types";
 import { ACTIVE_NOTICE_WHERE_NO_ALIAS } from "../../utils/notice-expired";
+import { CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
 
 // ── 统计缓存 + 请求级锁 ──
 let noticeStatsCache: { data: NoticeStatsResult; expires: number } | null = null;
@@ -65,7 +66,7 @@ export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
         deadlineIn30d: Number((deadline30Rows as RowDataPacket[])[0]?.total || 0),
         withOriginalDocs: Number((docsRows as RowDataPacket[])[0]?.total || 0),
       };
-      noticeStatsCache = { data, expires: Date.now() + 10 * 60 * 1000 };
+      noticeStatsCache = { data, expires: Date.now() + CACHE_TTL_MEDIUM_MS };
       return data;
     } finally {
       statsCalcPromise = null;

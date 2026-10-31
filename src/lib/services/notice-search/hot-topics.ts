@@ -31,8 +31,9 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { getNoticeCountries } from "./countries";
+import { CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
 
-const HOT_TOPICS_TTL_MS = 10 * 60 * 1000;
+const HOT_TOPICS_TTL_MS = CACHE_TTL_MEDIUM_MS;
 const HOT_TOPICS_LIMIT = 8;
 
 /** 热门品目大类：code = 骨架 L1 节点码（前端拼筛选链接），nameZh = 树名（展示唯一事实源） */

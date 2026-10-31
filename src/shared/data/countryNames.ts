@@ -74,21 +74,9 @@ export async function initCountryNames(): Promise<void> {
 }
 
 // ── 工具函数（纯逻辑，不依赖映射数据）──
-
-/**
- * 清理国家名原始值中的常见脏数据前缀
- *
- * @description 数据库中存在 "/，Basilan" 等含非法前缀的值，
- *              此函数在归一化之前调用，剥离非国家名垃圾字符。
- */
-export function cleanCountryRaw(raw: string): string {
-  let cleaned = raw.trim();
-  // 剥离 "/"、"/，"、"/, " 等前缀（数据源格式错误）
-  cleaned = cleaned.replace(/^[/]+\s*[，,]?\s*/, "");
-  // 剥离前导标点（逗号、分号、冒号、竖线等）
-  cleaned = cleaned.replace(/^[,;:|]+\s*/, "");
-  return cleaned.trim();
-}
+// 注：cleanCountryRaw 的唯一实现在 lib/services/country/clean（强版：含 JSON 串/HTML 实体/
+// 括号/下划线归一）。本文件曾有一份只剥前缀的弱版同名函数，零消费方，2026-10-31 删除——
+// 国家清洗不在此处重复实现，写时归一统一走强版。
 
 // ── 内部辅助函数 ──
 

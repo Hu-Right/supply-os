@@ -158,7 +158,7 @@ export default function TrainingPage() {
               return { value: name, label: name };
             })}
           />
-          <Input name="other_certification" value={form.other_certification} onChange={handleChange} placeholder={t("trainingFormOtherCertPlaceholder")} className="mt-3" />
+          <Input name="other_certification" value={form.other_certification} onChange={handleChange} placeholder={t("trainingFormOtherCertPlaceholder")} aria-label={t("trainingFormOtherCertPlaceholder")} className="mt-3" />
         </section>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label htmlFor="training-form-contact-name" className="block"><span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormContactName")}</span><Input id="training-form-contact-name" name="contact_name" value={form.contact_name} onChange={handleChange} /></label>
