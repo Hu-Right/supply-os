@@ -18,24 +18,58 @@ let _zhToEn: Record<string, string> = {};
 let _initialized = false;
 
 /**
+ * localStorage 兜底键：每次拉取成功后持久化最近一份映射，
+ * 启动拉取失败（端点抖动/网络故障）时用上一次的成功数据顶上——
+ * 只要成功拉过一次的用户不再看到国家名降级成英文/码。
+ */
+const LS_KEY = "country-name-map:v1";
+
+type CountryMaps = { countries: Record<string, string>; regions: Record<string, string>; zhToEn: Record<string, string> };
+
+function readLsFallback(): CountryMaps | null {
+  try {
+    const raw = typeof window === "undefined" ? null : window.localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<CountryMaps>;
+    if (!parsed.countries || typeof parsed.countries !== "object") return null;
+    return { countries: parsed.countries, regions: parsed.regions || {}, zhToEn: parsed.zhToEn || {} };
+  } catch {
+    return null; // JSON 损坏/存储被禁：按无兜底处理
+  }
+}
+
+function writeLsFallback(data: CountryMaps): void {
+  try {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LS_KEY, JSON.stringify(data));
+  } catch {
+    // 存储满/隐私模式：放弃持久化，内存缓存照常工作
+  }
+}
+
+/**
  * 初始化国家名映射数据（应用启动时调用一次）
- * 从服务端 API 获取 COUNTRY_NAME_ZH / REGION_NAME_ZH / ZH_TO_EN 并缓存。
- * 失败时静默降级——后续函数调用返回英文原文，不影响功能可用性。
+ * 从服务端 API 获取映射并缓存；成功后持久化进 localStorage（2026-10-31 兜底）。
+ * 失败时静默降级——优先用上一次成功的 localStorage 快照，连兜底都没有才返回英文原文。
  */
 export async function initCountryNames(): Promise<void> {
   if (_initialized) return;
   try {
-    const data = await api<{
-      countries: Record<string, string>;
-      regions: Record<string, string>;
-      zhToEn: Record<string, string>;
-    }>("/api/catalog/country-name-map");
+    const data = await api<CountryMaps>("/api/catalog/country-name-map");
     _countryNameZh = data.countries || {};
     _regionNameZh = data.regions || {};
     _zhToEn = data.zhToEn || {};
+    writeLsFallback({ countries: _countryNameZh, regions: _regionNameZh, zhToEn: _zhToEn });
     _initialized = true;
   } catch {
-    // 静默降级：映射为空，函数返回英文原文
+    // 接口失败：先试 localStorage 上一次成功快照，连兜底都没有才留空（返回英文原文）
+    const fallback = readLsFallback();
+    if (fallback) {
+      _countryNameZh = fallback.countries;
+      _regionNameZh = fallback.regions;
+      _zhToEn = fallback.zhToEn;
+      _initialized = true;
+    }
   }
 }
 

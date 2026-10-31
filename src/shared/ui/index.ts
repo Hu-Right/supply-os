@@ -88,8 +88,6 @@ export type { WechatQRModalProps } from "./WechatQRModal";
 
 export { CountryFlag, lookupCountryIso2 } from "./CountryFlag";
 
-export { StatusBadge } from "./StatusBadge";
-export type { StatusBadgeProps } from "./StatusBadge";
 
 export { HotTagBar } from "./HotTagBar";
 export type { HotTagBarProps, HotTagItem } from "./HotTagBar";
