@@ -12,9 +12,10 @@
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { api, mapApiError } from "@/core/http";
 import { useLocale } from "@/core/i18n";
+import { Modal } from "@/shared/ui";
 
 interface SupplierClaimModalProps {
   supplierId: number;
@@ -46,20 +47,13 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={submitting ? undefined : onClose}>
-      <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 头部 */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-900">{t("profile_claimTitle") || "认领该企业"}</h2>
-          <button type="button" onClick={onClose} disabled={submitting} className="p-1 rounded hover:bg-slate-100">
-            <X className="w-5 h-5 text-slate-400" />
-          </button>
-        </div>
+  // 2026-10-31 组件化：手写 fixed 遮罩换 shared Modal（Radix Dialog）——
+  // 白得 Esc/遮罩关闭与焦点圈定；提交中禁止一切关闭路径（Esc/遮罩/按钮统一闸口）
+  const guardedClose = () => { if (!submitting) onClose(); };
 
+  return (
+    <Modal open onClose={guardedClose} title={t("profile_claimTitle") || "认领该企业"} className="max-w-md">
+        <div className="space-y-5">
         <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
           <p className="font-medium text-slate-800">{companyName}</p>
           <p className="text-xs text-slate-500 mt-1">{t("profile_claimBoundNote") || "确认后该企业立即临时绑定到您的账号。"}</p>
@@ -91,14 +85,14 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={guardedClose}
             disabled={submitting}
             className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-100 transition-colors"
           >
             {t("cancel") || "取消"}
           </button>
         </div>
-      </div>
-    </div>
+        </div>
+    </Modal>
   );
 }

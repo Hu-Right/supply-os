@@ -8,10 +8,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/shared/ui";
+import { Button, Modal } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 import { submitRfqQuote } from "@/core/api/rfqQuotes";
 
@@ -46,16 +45,6 @@ export function QuoteDialog({ open, rfqId, defaultCurrency, onClose, onSuccess }
     }
   }, [open, defaultCurrency]);
 
-  // Esc 关闭
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
   const onSubmit = async () => {
     const p = Number(price);
     if (!Number.isFinite(p) || p <= 0) {
@@ -85,21 +74,11 @@ export function QuoteDialog({ open, rfqId, defaultCurrency, onClose, onSuccess }
   const inputCls =
     "w-full rounded-lg border border-secondary-200 px-3 py-2 text-sm text-secondary-800 focus:outline-none focus:ring-2 focus:ring-primary-500/40";
 
+  // 2026-10-31 组件化：手写 fixed 遮罩换 shared Modal（Radix Dialog）——
+  // 白得 Esc/遮罩关闭、焦点圈定（focus trap）与移动端拖拽关闭，原手写 Esc effect 一并删除
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="relative w-full max-w-md rounded-2xl bg-white shadow-xl border border-secondary-200"
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-secondary-100">
-          <h3 className="text-base font-extrabold text-secondary-900">{t("rfqQuoteSubmit")}</h3>
-          <button onClick={onClose} aria-label={t("rfqAriaClose")} className="p-1.5 rounded-lg text-secondary-400 hover:bg-secondary-100">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
+    <Modal open={open} onClose={onClose} title={t("rfqQuoteSubmit")} className="max-w-md p-0">
+      <>
         <div className="px-5 py-4 space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
@@ -141,7 +120,7 @@ export function QuoteDialog({ open, rfqId, defaultCurrency, onClose, onSuccess }
             {submitting ? t("rfqSubmitting") : t("rfqQuoteSubmit")}
           </Button>
         </div>
-      </div>
-    </div>
+      </>
+    </Modal>
   );
 }
