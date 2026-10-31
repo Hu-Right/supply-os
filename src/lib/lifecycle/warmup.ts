@@ -8,7 +8,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import type { SupplierDirectoryRepo } from "../repos/suppliers/index";
-import { refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
+import { refreshNoticeCountries } from "../services/notice-search/index";
 import { searchUnified, type RawSearchParams } from "../services/search-orchestrator/index";
 import { loadAgencyTypeRules } from "../services/agency/type-store";
 
@@ -59,9 +59,8 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
     // PERF 优化：关键词+截止日期组合预热
     warm({ q: "road", deadlineWithinDays: 90 }),
     warm({ q: "bridge", deadlineWithinDays: 90, noticeType: "ITB" }),
-    // 国家/机构下拉 + 供应商目录
+    // 国家下拉 + 供应商目录（机构下拉链 2026-10-31 退役：端点零 fetcher，40s 全表聚合纯烧库）
     refreshNoticeCountries(dbPool),
-    refreshNoticeAgencies(dbPool),
     directoryRepo.listDirectory(),
   ]);
 

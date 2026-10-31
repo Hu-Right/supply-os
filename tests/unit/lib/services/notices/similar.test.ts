@@ -173,7 +173,7 @@ describe("findSimilarNotices（并轨：复用 fetchDetailsByIds + formatItems�
 
     // 有序 notice_pk（相似排序保留），交给服务表水合
     expect(fetchMock).toHaveBeenCalledWith(expect.anything(), [11, 12], "zh");
-    expect(formatMock).toHaveBeenCalledWith(details, "zh");
+    expect(formatMock).toHaveBeenCalledWith(details);
     expect(res).toEqual(formatted);
     // 并轨后不再吐基表历史列名
     for (const stale of ["country", "notice_type", "agency", "deadline", "id"]) {

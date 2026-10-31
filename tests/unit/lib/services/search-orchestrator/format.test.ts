@@ -32,7 +32,7 @@ describe("matchScoreToTierLabel", () => {
 
 describe("formatItems", () => {
   it("空行 → 空数组", () => {
-    expect(formatItems([], "en")).toEqual([]);
+    expect(formatItems([])).toEqual([]);
   });
 
   it("服务表原字段直出：不再抹列、不再布尔归一", () => {
@@ -40,7 +40,7 @@ describe("formatItems", () => {
       id: 1, notice_pk: 1, buyer_name: "UNDP", is_featured: 1,
       source_url: "https://www.undp.org/x", organization: "UNDP", country_codes: ["US"],
     }] as never;
-    const result = formatItems(rows, "en");
+    const result = formatItems(rows);
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(1);
     // is_featured 直出服务表/主表原值（tinyint 0|1）：前端只做真值判断，
@@ -63,7 +63,7 @@ describe("formatItems", () => {
     // 列表侧不再解析 documents/procurement_files 造计数（详情未锁定分支走
     // collectBreakdownFiles(notice)，数据源是服务表 attachments JSON）
     const rows = [{ id: 1, attachments: [{ url: "https://a" }] }] as never;
-    const result = formatItems(rows, "en");
+    const result = formatItems(rows);
     expect(result[0].breakdown_file_count).toBeUndefined();
     expect(result[0].attachments).toEqual([{ url: "https://a" }]);
   });
@@ -71,7 +71,7 @@ describe("formatItems", () => {
   it("画像节点码命中公告 backbone 链 → match_score + match_tier", () => {
     const rows = [{ id: 1, backbone_path: "UGT-43,UGT-4321,UGT-432115,UGT-43211503" }] as never;
     const profileNodes = [{ level: 4, node: "UGT-43211503" }];
-    const result = formatItems(rows, "en", profileNodes);
+    const result = formatItems(rows, profileNodes);
     expect(result[0].match_score).toBe(5);
     expect(result[0].match_tier).toBe("precise");
   });
@@ -82,28 +82,28 @@ describe("formatItems", () => {
       { level: 4, node: "UGT-43211503" },
       { level: 2, node: "UGT-4321" },
     ];
-    expect(formatItems(rows, "en", profileNodes)[0].match_score).toBe(5);
+    expect(formatItems(rows, profileNodes)[0].match_score).toBe(5);
   });
 
   it("backbone 链不含任何一档节点码 / 列为空 → 不挂徽章", () => {
     const miss = [{ id: 1, backbone_path: "UGT-30,UGT-3011" }] as never;
-    const result = formatItems(miss, "en", [{ level: 4, node: "UGT-43211503" }]);
+    const result = formatItems(miss, [{ level: 4, node: "UGT-43211503" }]);
     expect(result[0].match_score).toBeUndefined();
     expect(result[0].match_tier).toBeUndefined();
     // 降级多表 JOIN 路径的行根本没有这一列：同样不挂徽章，不能因为 undefined 就报错
     const noCol = [{ id: 2 }] as never;
-    expect(formatItems(noCol, "en", [{ level: 2, node: "UGT-43" }])[0].match_tier).toBeUndefined();
+    expect(formatItems(noCol, [{ level: 2, node: "UGT-43" }])[0].match_tier).toBeUndefined();
   });
 
   it("列里的脏 token 不参与命中：只认 UGT- 形制的码", () => {
     const rows = [{ id: 1, backbone_path: "721015,UGT-XY" }] as never;
-    const result = formatItems(rows, "en", [{ level: 2, node: "721015" }, { level: 3, node: "UGT-XY" }]);
+    const result = formatItems(rows, [{ level: 2, node: "721015" }, { level: 3, node: "UGT-XY" }]);
     expect(result[0].match_tier).toBeUndefined();
   });
 
   it("is_featured=0 → 原值直出 0（不转 boolean）", () => {
     const rows = [{ id: 1, is_featured: 0 }] as never;
-    const result = formatItems(rows, "en");
+    const result = formatItems(rows);
     expect(result[0].is_featured).toBe(0);
   });
 
@@ -112,13 +112,13 @@ describe("formatItems", () => {
     // 与推荐路径按主表 id 投影，行里没有 notice_pk ⇒ formatItems 统一补齐，
     // 否则 NoticeList 的 key={item.notice_pk} 拿到 undefined 触发 React 缺失 key 警告
     const rows = [{ id: 123, notice_id: "N123", title: "T" }] as never;
-    const result = formatItems(rows, "en");
+    const result = formatItems(rows);
     expect(result[0].notice_pk).toBe(123);
   });
 
   it("服务表直读行（已带 notice_pk）→ 不被 id 覆盖", () => {
     const rows = [{ id: 5, notice_pk: 888, title: "T" }] as never;
-    const result = formatItems(rows, "en");
+    const result = formatItems(rows);
     expect(result[0].notice_pk).toBe(888);
   });
 });

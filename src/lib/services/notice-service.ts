@@ -132,7 +132,7 @@ export async function listNoticeFavorites(params: {
     params.userId, params.limit, params.offset,
   );
   const details = await fetchDetailsByIds(pool, ids, lang);
-  const items = formatItems(details, lang);
+  const items = formatItems(details);
   return { total, items: items as Array<Record<string, unknown>> };
 }
 

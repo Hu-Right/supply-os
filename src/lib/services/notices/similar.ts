@@ -133,5 +133,5 @@ export async function findSimilarNotices(
   const ids = await findSimilarNoticeIds(pool, noticeDbId, limit); // 有序 notice_pk
   if (ids.length === 0) return [];
   const details = await fetchDetailsByIds(pool, ids, locale || "en"); // FIELD 保留相似排序
-  return formatItems(details, locale || "en") as unknown as RowDataPacket[];
+  return formatItems(details) as unknown as RowDataPacket[];
 }

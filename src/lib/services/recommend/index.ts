@@ -28,7 +28,7 @@ import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expir
 import { normalizeNoticeType } from "../../utils/notice-type";
 // 买家名与搜索主管道同口径（2026-10-12）：推荐管道此前不做机构翻译，
 // 占位平台代码（mercadopublico_cl 等）在"智能推荐"列表原样露出
-import { enrichAgencyI18n, ensureNoticePk } from "../search-common/display-helpers";
+import { ensureNoticePk } from "../search-common/display-helpers";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 import { WIDE_LIMITS } from "@/lib/utils/notice-field-limits";
 import { TTLCache } from "@/lib/cache/ttl-cache";
@@ -143,7 +143,7 @@ export async function recommendNotices(
     // 买家字段取宽表投影（服务表 buyer_name，agency_full 重锚后的真买家）；n.agency 是
     // 发布平台码（comprasestatales_uy 等），2026-10-20 换锚后下拉缓存已无此键，
     // 继续 SELECT 只会在响应体露码、卡片却显示「未知机构」——停发，与搜索路径同形状。
-    // 国家上下文用行内已有的 n.country（英文名，enrichAgencyI18n 兜底链末位读取）；
+    // 国家上下文用行内已有的 n.country（英文名）；
     // ns.country_codes 是全空死列（0/757947）不取。来源平台不下发（解锁后可见），/detail 独家。
     "n.deadline, n.deadline_ts, n.estimated_value, n.is_featured, ns.buyer_name, ns.buyer_group",
     "LEFT(MAX(opp_desc.description), 300) AS description",
@@ -217,7 +217,6 @@ export async function recommendNotices(
 
   // 列表译文仅从已有缓存读取（trJoin），不触发任何翻译请求。
   // 译文生产统一收敛到定时任务（auto.ts）与详情页按需翻译两条路径。
-  if (locale) enrichAgencyI18n(resultItems, locale);
 
   const result: NoticeRecommendResult = {
     items: resultItems,

@@ -1,41 +1,15 @@
 /**
- * 搜索/推荐共用展示助手（enrichAgencyI18n / ensureNoticePk）
+ * 搜索/推荐共用展示助手（ensureNoticePk）
  * Display helpers shared by search orchestrator & recommend pipelines
  *
  * @module lib/services/search-common/display-helpers
- * @description 2026-10-31 解环：这两只助手原先住在 search-orchestrator/format，而
- *              recommend 又被 orchestrator（recommended 模式委托）反向 import——包级
- *              双向依赖就此形成（format 一旦扩 API 立即成环）。两只助手本就无编排器
- *              状态（纯函数 + agency/resolve 依赖），下沉 search-common 共享叶层，
- *              format 保留 re-export 面，recommend 改直连，双向边消除。
+ * @description 2026-10-31 解环：助手原先住在 search-orchestrator/format，而 recommend
+ *              又被 orchestrator（recommended 模式委托）反向 import——包级双向依赖就此
+ *              形成（format 一旦扩 API 立即成环）。助手无编排器状态，下沉 search-common
+ *              共享叶层，format 保留 re-export 面，recommend 改直连，双向边消除。
+ *              同日机构 i18n 链（enrichAgencyI18n/resolveAgencyDisplay/别名快照预热）
+ *              整体退役，本文件只剩主键口径一只。
  */
-import { resolveAgencyDisplay } from "../agency/resolve";
-
-const CJK_RE = /[\u4e00-\u9fff]/;
-
-/**
- * 逐条补 agency_i18n（机构中文精名，仅别名表登记名；未命中留 undefined 不造假）。
- * 「绝对准确」口径（2026-10-29）：
- *   原名永远准确，宁缺毋假；中文精名靠 agency_aliases 批次持续补
- *   （runtime/agency-coverage.sql 月度巡检出清单）。
- * 筛选下拉（/api/notices/agencies）的聚合桶不受影响：那是过滤导航的本职语义。
- * ⚠ 下拉聚合缓存条目的键名仍是 `agency`（下拉 API 的形状），与公告行字段名无关；
- *   本函数已不再消费聚合缓存。
- */
-export function enrichAgencyI18n(
-  items: Array<Record<string, unknown>>,
-  locale: string,
-): Array<Record<string, unknown>> {
-  for (const item of items) {
-    if (!item.buyer_name) continue;
-    const disp = resolveAgencyDisplay(String(item.buyer_name));
-    const hit = disp.i18nFrom === "alias"
-      && !!disp.i18n?.zh
-      && CJK_RE.test(disp.i18n.zh);
-    item.agency_i18n = hit ? disp.i18n?.[locale] || undefined : undefined;
-  }
-  return items;
-}
 
 /**
  * 统一列表项主键口径：`notice_pk` 是前端唯一主键字段（NoticeList 的 key、NoticeCard 的收藏/曝光上报均读它）。

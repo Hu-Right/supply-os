@@ -7,7 +7,7 @@
  *              buyer_name 为归一全称），与 /detail、unified-search 同口径。
  *              本路由显式控制返回键（camelCase 有限预览）：登记集合含发布时间 publishedTs
  *              （锁定深链也应显示此公开元信息，与 /detail、列表、SEO 页同口径）与
- *              机构译名 agencyI18n（买家名与列表卡片同源，统一中文 2026-10-28）；
+ *              买家双名 buyerName/buyerNameCn（前端取值链同一份快照列，机构译名链已退役）；
  *              其余未登记宽表列（currencyCode 等）、来源平台（platform/platformName/sourceUrl，
  *              属解锁后可见信息，2026-10-28 用户口径）与正文 description（付费墙）均不对外。
  *              注：本路由故意不用行→视图 mapper（mapper 只改名不裁剪），因此这里的键名
@@ -19,17 +19,6 @@ import { NextRequest } from "next/server";
 // 新数据源：服务宽表投影
 const findPublicDetail = vi.fn();
 vi.mock("@/lib/services/notice-public/read", () => ({ findPublicDetail }));
-
-// 机构译名链路：本文件只验路由「有没有把它接上 + 有没有改名下发」，
-// 取词口径由 tests/unit/.../format.agency-i18n.test.ts 钉住，故 mock 成可控写入。
-const { enrichAgencyI18n, ensureAgencyDisplayWarmup } = vi.hoisted(() => ({
-  enrichAgencyI18n: vi.fn((items: Array<Record<string, unknown>>) => {
-    for (const item of items) item.agency_i18n = "拉脱维亚房地产局";
-    return items;
-  }),
-  ensureAgencyDisplayWarmup: vi.fn(async () => undefined),
-}));
-vi.mock("@/lib/services/search-orchestrator/format", () => ({ enrichAgencyI18n, ensureAgencyDisplayWarmup }));
 
 // 过渡期同时提供旧的 detailRepo：未迁移时当前代码仍走旧源 → 归一字段断言失败（RED 而非崩溃）
 const findDetailPublished = vi.fn();
@@ -115,35 +104,14 @@ describe("GET /api/notices/[id]/preview", () => {
       "published_ts", "currency_code", "deadline_type", "deadline_timezone",
       // 来源平台属解锁后可见信息（2026-10-28 用户口径）：锁定态预览 camel/snake 都不给
       "platform", "platformName", "platform_name", "sourceUrl", "source_url",
-      // agencyI18n 已正名纳入（与列表同源），但其 snake 列名仍不外露
-      "agency_i18n"]) {
+      // 机构译名链 2026-10-31 整体退役：读时别名解析零消费方，camel/snake 都不再下发
+      "agencyI18n", "agency_i18n"]) {
       expect(body).not.toHaveProperty(newKey);
     }
     // 基表历史列名不再外露（统一走宽表名）
     for (const stale of ["country", "notice_type", "deadline", "agency", "agency_full"]) {
       expect(body).not.toHaveProperty(stale);
     }
-  });
-
-  it("机构名与列表卡片同源：带 locale 时预热并下发 agencyI18n，snake 列名不外露", async () => {
-    findPublicDetail.mockResolvedValue(serviceRow());
-
-    const body = await callPreview("1", "zh");
-
-    expect(ensureAgencyDisplayWarmup).toHaveBeenCalledTimes(1);
-    expect(body.agencyI18n).toBe("拉脱维亚房地产局");
-    expect(body).not.toHaveProperty("agency_i18n");
-    // 买家原名照旧下发：前端回退链 agencyI18n → buyerName 依赖它
-    expect(body.buyerName).toBe("Valsts nekustamie īpašumi");
-  });
-
-  it("不带 locale（老客户端）：不预热、agencyI18n 为空串而不报错", async () => {
-    findPublicDetail.mockResolvedValue(serviceRow());
-
-    const body = await callPreview("1");
-
-    expect(ensureAgencyDisplayWarmup).not.toHaveBeenCalled();
-    expect(body.agencyI18n).toBe("");
   });
 
   it("服务表查无（未同步/不存在）→ 404", async () => {

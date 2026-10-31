@@ -8,7 +8,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import { refreshFeaturedColumn } from "../services/notices/index";
-import { refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
+import { refreshNoticeCountries } from "../services/notice-search/index";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
 import { syncWideIds } from "../services/search-sync/index";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
@@ -87,7 +87,6 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   const dailyRefreshTimer = scheduleDailyAt(5, async () => {
     try {
       await refreshNoticeCountries(dbPool);
-      await refreshNoticeAgencies(dbPool);
     } catch (e) {
       console.error("[daily-refresh] 刷新失败（静默降级）:", (e as Error).message);
     }

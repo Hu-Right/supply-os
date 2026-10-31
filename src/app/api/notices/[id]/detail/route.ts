@@ -13,8 +13,6 @@ import { findPublicDetail } from "@/lib/services/notice-public/read";
 import { toNoticeView } from "@/lib/services/notice-public/view";
 import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
 import { platformInfoWithFallback } from "@/lib/services/platform/resolve";
-import { enrichAgencyI18n, ensureAgencyDisplayWarmup } from "@/lib/services/search-orchestrator/format";
-import { pickNoticeApiLang } from "@/shared/constants/langs";
 import { pickDeadlineZoneToken } from "@/shared/utils/notice-datetime/timezone";
 import { canAccessNotice } from "@/lib/services/industry-scope";
 import { resolveNoticeAccess } from "@/lib/services/notice-access";
@@ -76,22 +74,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       platformSnap,
       notice.platform_name,
     );
-    // 机构名与列表卡片同源（统一中文 2026-10-28）：走 enrichAgencyI18n 补 agency_i18n，
-    // 再由下面的 view mapper 改名为 agencyI18n。直达深链/新页面进详情时前端没有列表项可借。
-    // [绝对准确 2026-10-29] enrich 只认别名表登记名（聚合桶/模式合成名已全面退役，
-    // 列表与详情同口径）：前端取值链是 `agencyI18n || buyerName`，任何非登记名都会盖掉
-    // 真实买家名——无登记名时显式下发空串让真名顶上，宁缺毋假。
-    const locale = pickNoticeApiLang(new URL(req.url).searchParams.get("locale"));
-    if (locale) {
-      // 只预热别名表快照：聚合缓存已无人消费，不等那一步就少一分详情超时的风险。
-      await ensureAgencyDisplayWarmup(ctx.dbPool);
-      enrichAgencyI18n([notice as unknown as Record<string, unknown>], locale);
-      // 无登记名时必须显式下发空串：前端解锁合并是 {...preview, ...detail}，
-      // 缺键会让锁定态预览里那份旧值残留下来继续盖住真名。
-      (notice as unknown as Record<string, unknown>).agency_i18n = String(
-        (notice as unknown as Record<string, unknown>).agency_i18n ?? "",
-      );
-    }
+    // [2026-10-31 机构 i18n 链退役] agency_i18n 不再计算/下发：前端取值链已全面走
+    // buyerNameCn || buyerName（写时快照列，锁定态预览与解锁合并两侧同链），读时别名
+    // 解析（resolveAgencyDisplay）与别名快照预热随之退役；别名表继续服务写侧归一。
     // 来源平台对外的唯一形状是上面的 `platform` 对象（canonical/code/zh）。
     // 行上的 platform_name 被 mapper 改名成 platformName 后全仓无人读（引用核查 2026-10-29），
     // 留着就是同一事实的第二份口径——在进 mapper 之前从行上摘掉，与列表侧

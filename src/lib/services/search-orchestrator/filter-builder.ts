@@ -11,7 +11,6 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnifiedSearchParams, FilterPlan } from "./types";
 import { loadCountryAliasSnapshot } from "../country/alias-store";
 import { countryCodeForName } from "../country/resolve";
-import { getAgencyCacheData } from "../notice-search/agencies/index";
 import { isCommodityNodeKey } from "../commodity/tree";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
@@ -103,42 +102,13 @@ function buyerNameSubquery(values: string[], useLike?: string): { mysqlClause: s
   };
 }
 
-/** 解析机构缓存扩展（FORCE_COUNTRY / sqlPattern / originalAgencies） */
+/**
+ * 解析机构筛选入参（2026-10-31 机构下拉链退役后收编）：
+ * 原实现靠聚合缓存扩展 FORCE_COUNTRY / sqlPattern / originalAgencies（下拉桶元数据），
+ * 下拉退役后缓存永久冷态、增强分支永不可达——收编为恒等展开：Meili 走 agencies 精确名、
+ * MySQL 走宽表 buyer_name 精确匹配（深链接/API 直调仍可用，传入名需与归一列一致）。
+ */
 function expandAgency(agency: string): AgencyExpansion {
-  const items = getAgencyCacheData() || [];
-  const cached = items.find((item) => item.agency === agency);
-
-  if (cached?.agencyGroup?.startsWith("FORCE_COUNTRY_")) {
-    const forceCountry = cached.agencyGroup.slice(14);
-    // 强制国家的谓词不在此拼（buildFilterPlan 会把它并入 country 条件走 country_codes 表驱动）；
-    // 这里仅回传 forceCountry 标记，避免与 country 块重复约束。
-    return { forceCountry, hasSqlPattern: false, mysqlClause: "1 = 1", mysqlParams: [] };
-  }
-  if (cached?.sqlPattern) {
-    // Meilisearch: 用 agency_group 字段（存 typeKey）过滤
-    // MySQL: 用宽表 buyer_name LIKE 子查询（主表无 LIKE 规范名）
-    return {
-      hasSqlPattern: true,
-      meiliAgencyGroup: cached.agencyGroup || agency,
-      ...buyerNameSubquery([], cached.sqlPattern),
-    };
-  }
-  if (cached?.agencyGroup && !cached.agencyGroup.startsWith("ORPHAN_")) {
-    // Meilisearch 用 agency_group 聚合字段
-    // MySQL 用宽表 buyer_name 子查询（确保匹配规范名而非主表原始名）
-    return {
-      hasSqlPattern: false,
-      meiliAgencyGroup: cached.agencyGroup,
-      ...buyerNameSubquery(cached.originalAgencies?.length ? cached.originalAgencies : [agency]),
-    };
-  }
-  if (cached?.originalAgencies && cached.originalAgencies.length > 0) {
-    return {
-      hasSqlPattern: false,
-      meiliAgencies: cached.originalAgencies,
-      ...buyerNameSubquery(cached.originalAgencies),
-    };
-  }
   return {
     hasSqlPattern: false,
     meiliAgencies: [agency],

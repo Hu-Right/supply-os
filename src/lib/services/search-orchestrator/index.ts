@@ -34,8 +34,6 @@ import { registerInvalidateCallback } from "../search-common/sync-events";
 import { recommendNotices } from "../recommend/index";
 import { invalidateProfileCache } from "../industry-profile/resolve";
 import { noticeInCategory } from "../industry-scope";
-import { isAgencyDisplaySnapshotReady } from "../agency/resolve";
-import { ensureAgencyDisplayWarmup } from "./format";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 import { TTLCache } from "@/lib/cache/ttl-cache";
 
@@ -114,19 +112,9 @@ async function _searchCore(
   cacheKey: string,
 ): Promise<UnifiedSearchResult> {
   const t0 = Date.now();
-  // ── 机构中文名预热（2026-10-30 翻页卡顿修复）──
-  //    这里原先打的是 getNoticeAgencies（机构下拉聚合）：那是一条
-  //    `GROUP BY COALESCE(NULLIF(agency_full,''),agency)` 全表聚合（实测 EXPLAIN type=ALL
-  //    rows=984571、单条 40848ms、回 81836 行），10 分钟 TTL 过期后的第一条翻页会在后台
-  //    把它跑满数十秒；连接池只有 DB_POOL_LIMIT 格，翻页因此排队到前端 30s 硬超时。
-  //    自 2026-10-29「绝对准确」口径起，formatItems/enrichAgencyI18n 已不再消费该聚合缓存
-  //    （买家名直读服务宽表归一列），故本路径彻底摘掉它；聚合缓存的维护回归启动预热与
-  //    每日定时任务（lifecycle/warmup、lifecycle/timers），不在请求路径上跑。
-  //    买家中文精名仍依赖 agency_aliases 别名快照（轻量：全表 SELECT 无 GROUP BY），
-  //    快照就绪时零查库；不阻塞本次响应，未就绪时本次仍按买家原名降级渲染。
-  if (!isAgencyDisplaySnapshotReady()) {
-    void ensureAgencyDisplayWarmup(pool);
-  }
+  // [2026-10-31 机构 i18n 链退役] 这里曾是两代机构预热（getNoticeAgencies 40s 全表聚合 →
+  // agency_aliases 别名快照轻量预热），随 enrichAgencyI18n 退役全部摘除：前端取值链已
+  // 全面走 buyerNameCn || buyerName（写时快照列），读时解析零消费方。
   // ── recommended 模式：委托既有推荐服务（模式专属管道）──
   if (p.mode === "recommended") {
     const reco = await recommendNotices(pool, p.userId!, p.page, p.pageSize, p.locale || undefined);
@@ -160,7 +148,7 @@ async function _searchCore(
     const wallOk = !refId || !p.wall || (await noticeInCategory(pool, refId, p.wall.nodes));
     if (refId && wallOk) {
       const details = await fetchDetailsByIds(pool, [refId], p.locale);
-      const items = formatItems(details, p.locale);
+      const items = formatItems(details);
       const result: UnifiedSearchResult = { items, total: 1, page: 1, pageSize: p.pageSize, fallback: "none" };
       logPerf({
         mode: p.mode, path: "ref-exact", q: p.q, filterDigest: "ref",
@@ -323,7 +311,7 @@ async function _searchCore(
 
   // ── 格式化（prefs 模式逐文档计算匹配档次：公告自身 precise 节点码与用户画像比对，
   //    [阶段0 A2] 替代旧版整页统一赋分，放宽场景下深层精确命中不再被误标为宽泛相关）──
-  const items = formatItems(details, p.locale, resolution.profileNodes ?? undefined);
+  const items = formatItems(details, resolution.profileNodes ?? undefined);
   // 覆盖兜底后仍为空：不能把 Meili/宽表的总数继续挂在 0 张卡片上。
   if (items.length === 0 && total > 0 && coverageRepairAttempted) {
     console.warn(`[search-orchestrator] total=${total} 但详情为 0，返回空结果（ids=${ids.length}）`);
