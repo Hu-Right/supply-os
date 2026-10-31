@@ -16,7 +16,7 @@ import { Button, Card, Badge, CountryFlag } from "@/shared/ui";
 import type { NoticeItem } from "../types";
 import { noticeTypeKey } from "@/shared/utils/notice-type";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
-import { formatNoticeAmount, formatNoticeDeadline, formatNoticeReference } from "../utils/noticeDisplay";
+import { formatNoticeAmount, formatNoticeDeadline, formatNoticeReference, pickNoticeTitle } from "../utils/noticeDisplay";
 // 秒/毫秒归一化 + 日历剩余天数（2026-09-12 收敛）：相对日期标签与
 // 绝对截止时间分开计算，避免"明天 + 剩余 2 天"的矛盾组合
 import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
@@ -35,8 +35,8 @@ interface NoticeCardProps {
 // P0 性能优化：React.memo 避免父组件 state 变化时列表行全部重渲染
 export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, favorited, onToggleFavorite }: NoticeCardProps) {
   const { t, locale } = useLocale();
-  // 中文标题走服务表 title_cn 缓存，其他环境一律原文
-  const displayTitle = locale === "zh" ? (item.titleCn || item.title) : item.title;
+  // 标题回退链收敛 pickNoticeTitle（2026-10-31 数据归一化）：zh 链在服务表中文列后增补译文层
+  const displayTitle = pickNoticeTitle(item, locale);
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
   const typeKey = noticeTypeKey(item.noticeTypeCode);
 

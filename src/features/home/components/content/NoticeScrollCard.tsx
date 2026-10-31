@@ -11,7 +11,10 @@
 import { CountryFlag } from "@/shared/ui";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { noticeTypeKey } from "@/shared/utils/notice-type";
-import { displayNoticeTitle, displayNoticeAgency, displayNoticeBudget, displayDeadlineLabel, type NoticeDisplayFields } from "@/shared/utils/noticeDisplay";
+// 2026-10-31 数据归一化：金额/截止/标题改走与列表卡完全同一条实现
+// （原 displayNoticeBudget 硬编码 USD+中文「预算详谈」、displayDeadlineLabel 中文相对天数
+//  且无时区口径、displayNoticeTitle 从不读中文列——三处都是英文/中文界面的可见漂移源）
+import { formatNoticeAmount, formatNoticeDeadline, pickNoticeTitle, displayNoticeAgency, type NoticeDisplayFields } from "@/shared/utils/noticeDisplay";
 
 /** 三栏公告卡共用的字段口径（与列表页 NoticeCard 一致；noticePk 为详情链接主键）
  *  数据源就是 /api/notices/unified-search，经 view mapper 后统 camelCase（红线②）。*/
@@ -53,7 +56,7 @@ export function NoticeScrollCard({
           </span>
         ) : (
           <>
-            <CountryFlag name={notice.countryCode} />
+            <CountryFlag name={notice.countryCode || ""} />
             {notice.noticeTypeCode && (
               <span className="px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-2xs font-bold text-teal-700">
                 {typeLabel}
@@ -62,11 +65,11 @@ export function NoticeScrollCard({
           </>
         )}
         <span className={`ml-auto text-xs shrink-0 ${isRfq ? "text-slate-400" : "text-amber-600"}`}>
-          {displayDeadlineLabel(notice.deadlineTs)}
+          {formatNoticeDeadline(notice.deadlineTs, notice.deadlineType, notice.deadlineTimezone, locale, t, notice.timezoneSource)}
         </span>
       </div>
       <p className={`text-[15px] font-extrabold text-slate-900 ${hover} transition-colors line-clamp-2 mt-2`}>
-        {displayNoticeTitle(notice)}
+        {pickNoticeTitle(notice, locale)}
       </p>
       <p className="text-xs text-slate-500 mt-1.5 truncate">
         {isRfq
@@ -74,8 +77,8 @@ export function NoticeScrollCard({
           : [getCountryDisplayName(notice.countryCode || "", locale), displayNoticeAgency(notice, locale)].filter(Boolean).join(" / ")}
       </p>
       <div className="flex items-center justify-between mt-2">
-        {notice.estimatedValue && notice.estimatedValue !== "0.00" ? (
-          <span className="text-sm font-semibold text-slate-800">{t("homeBudgetPrefix")}{displayNoticeBudget(notice.estimatedValue)}</span>
+        {formatNoticeAmount(notice.estimatedValue, notice.currencyCode, locale, true) ? (
+          <span className="text-sm font-semibold text-slate-800">{t("homeBudgetPrefix")}{formatNoticeAmount(notice.estimatedValue, notice.currencyCode, locale, true)}</span>
         ) : <span />}
         <span className={`shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 ${hoverBtn} transition-colors`}>
           {t("homeViewDetail")}
