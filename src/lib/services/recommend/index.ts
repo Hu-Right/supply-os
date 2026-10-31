@@ -30,6 +30,7 @@ import { normalizeNoticeType } from "../../utils/notice-type";
 // 占位平台代码（mercadopublico_cl 等）在"智能推荐"列表原样露出
 import { enrichAgencyI18n, ensureNoticePk } from "../search-common/display-helpers";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
+import { WIDE_LIMITS } from "@/lib/utils/notice-field-limits";
 import { TTLCache } from "@/lib/cache/ttl-cache";
 const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
 
@@ -146,7 +147,7 @@ export async function recommendNotices(
     // ns.country_codes 是全空死列（0/757947）不取。来源平台不下发（解锁后可见），/detail 独家。
     "n.deadline, n.deadline_ts, n.estimated_value, n.is_featured, ns.buyer_name, ns.buyer_group",
     "LEFT(MAX(opp_desc.description), 300) AS description",
-    "CASE WHEN LENGTH(MAX(opp_desc.description)) > 300 THEN 1 ELSE 0 END AS description_truncated",
+    "CASE WHEN LENGTH(MAX(opp_desc.description)) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated",
     "n.documents, n.procurement_files",
     locale && "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n",
     "tre.title_tr AS title_en, tre.description_tr AS description_en",

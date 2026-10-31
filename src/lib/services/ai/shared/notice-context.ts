@@ -6,6 +6,7 @@
  *              （历史中标注入、竞争分析）只改这一处。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
+import { WIDE_LIMITS } from "@/lib/utils/notice-field-limits";
 
 /** 公告上下文（description 截断 2000 字，供匹配粗筛做词项匹配，不直接进 LLM prompt） */
 export interface NoticeContext {
@@ -24,7 +25,7 @@ export interface NoticeContext {
 export async function fetchNoticeContext(pool: Pool, noticeId: number): Promise<NoticeContext | null> {
   const [rows] = await pool.query(
     `SELECT n.id, n.title, n.notice_type, n.country, n.deadline, n.estimated_value,
-            LEFT(n.description, 2000) AS description
+            LEFT(n.description, ${WIDE_LIMITS.description}) AS description
      FROM bid_notices n WHERE n.id = ? LIMIT 1`,
     [noticeId],
   );

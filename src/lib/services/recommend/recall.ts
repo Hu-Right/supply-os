@@ -39,6 +39,7 @@ import { columns } from "../../utils/sql-columns";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { enrichAgencyI18n, ensureNoticePk } from "../search-common/display-helpers";
+import { WIDE_LIMITS } from "@/lib/utils/notice-field-limits";
 import { getBackboneIndex } from "../commodity/backbone-cache";
 import { backboneNodeLevel, rootNodes } from "../commodity/backbone-path";
 import { NOTICE_NODES_TABLE } from "../search-sync/notice-nodes";
@@ -150,7 +151,7 @@ export async function deadlineFallback(
   const oppSubWhere = " FROM bid_opportunities opp WHERE opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1) LIMIT 1)";
   const descCnSub = `${oppSubPrefix}description_cn${oppSubWhere} AS description_cn`;
   const descSub = `LEFT(${oppSubPrefix}description${oppSubWhere}, 300) AS description`;
-  const descTruncSub = `CASE WHEN LENGTH(${oppSubPrefix}description${oppSubWhere}) > 300 THEN 1 ELSE 0 END AS description_truncated`;
+  const descTruncSub = `CASE WHEN LENGTH(${oppSubPrefix}description${oppSubWhere}) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated`;
   const bidOverviewSub = `${oppSubPrefix}bid_overview${oppSubWhere} AS bid_overview`;
   const beneficiarySub = `${oppSubPrefix}beneficiary_countries${oppSubWhere} AS beneficiary_countries`;
   // 列清单由 columns() 拼（分隔符单一出处）；条件列不启用传 falsy，不留空尾逗号的坑。

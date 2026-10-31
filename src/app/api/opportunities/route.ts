@@ -30,9 +30,8 @@ import type { OpportunityListItemRow } from "@/lib/repos/opportunities.repo";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { EC_AUTH_REQUIRED } from "@/shared/constants/api";
+import { WIDE_LIMITS, truncate } from "@/lib/utils/notice-field-limits";
 
-/** description 截断阈值（与公告搜索列表 300 字符对齐） */
-const LIST_DESC_MAX_CHARS = 300;
 
 /** 商机列表对外视图（② camelCase 实体契约） */
 interface OpportunityListItemView {
@@ -64,10 +63,10 @@ function toOpportunityListItemView(row: OpportunityListItemRow): OpportunityList
     deadline: row.deadline,
     deadlineTs: row.deadline_ts,
     estimatedValue: row.estimated_value,
-    description:
-      row.description && row.description.length > LIST_DESC_MAX_CHARS
-        ? row.description.slice(0, LIST_DESC_MAX_CHARS) + "…"
-        : row.description,
+    // 2026-10-31 归一：长度口径 WIDE_LIMITS.lockedTeaser + 码点安全 truncate（原 JS slice 会切半个 emoji）
+    description: row.description
+      ? truncate(row.description, WIDE_LIMITS.lockedTeaser) + (row.description.length > WIDE_LIMITS.lockedTeaser ? "…" : "")
+      : row.description,
     industry: row.industry,
   };
 }
