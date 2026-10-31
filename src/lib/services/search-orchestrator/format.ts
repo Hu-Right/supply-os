@@ -8,7 +8,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
-import { resolveAgencyDisplay, ensureAgencyDisplaySnapshot } from "../agency/resolve";
+import { ensureAgencyDisplaySnapshot } from "../agency/resolve";
 import { fromBackbonePathColumn } from "../commodity/backbone-path";
 
 // 助手实体下沉 search-common/display-helpers（解 orchestrator⇄recommend 双向依赖），此处保留导出面
