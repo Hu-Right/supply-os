@@ -179,6 +179,8 @@ export const EC_POOL_SUPPLIER_DUPLICATE = 40063;
 export const EC_CHAT_SESSION_MISSING = 40057;
 /** 文件代理：缺少/非法 url 参数 */
 export const EC_PROXY_URL_MISSING = 40058;
+/** 公告代理：上游响应体超过体积上限（413） */
+export const EC_PROXY_RESPONSE_TOO_LARGE = 40059;
 /** 升级预览：未指定目标套餐 */
 export const EC_UPGRADE_PLAN_REQUIRED = 40064;
 /** 商机列表：缺少 code_id/industry_id 查询参数 */

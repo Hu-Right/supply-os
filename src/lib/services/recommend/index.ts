@@ -28,7 +28,7 @@ import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expir
 import { normalizeNoticeType } from "../../utils/notice-type";
 // 买家名与搜索主管道同口径（2026-10-12）：推荐管道此前不做机构翻译，
 // 占位平台代码（mercadopublico_cl 等）在"智能推荐"列表原样露出
-import { enrichAgencyI18n, ensureNoticePk } from "../search-orchestrator/format";
+import { enrichAgencyI18n, ensureNoticePk } from "../search-common/display-helpers";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
 

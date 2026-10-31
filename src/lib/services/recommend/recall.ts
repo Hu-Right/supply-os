@@ -38,7 +38,7 @@ import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expir
 import { columns } from "../../utils/sql-columns";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
-import { enrichAgencyI18n, ensureNoticePk } from "../search-orchestrator/format";
+import { enrichAgencyI18n, ensureNoticePk } from "../search-common/display-helpers";
 import { getBackboneIndex } from "../commodity/backbone-cache";
 import { backboneNodeLevel, rootNodes } from "../commodity/backbone-path";
 import { NOTICE_NODES_TABLE } from "../search-sync/notice-nodes";

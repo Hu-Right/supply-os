@@ -11,6 +11,10 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { resolveAgencyDisplay, ensureAgencyDisplaySnapshot } from "../agency/resolve";
 import { fromBackbonePathColumn } from "../commodity/backbone-path";
 
+// 助手实体下沉 search-common/display-helpers（解 orchestrator⇄recommend 双向依赖），此处保留导出面
+export { enrichAgencyI18n, ensureNoticePk } from "../search-common/display-helpers";
+import { enrichAgencyI18n, ensureNoticePk } from "../search-common/display-helpers";
+
 /** 匹配分 → 档次标签（2 档分色；分数与 mode-resolver 绝对层级口径对齐：
  *  L4/L5 命中 → 5 → precise；L2/L3 命中 → 2 → relevant） */
 export function matchScoreToTierLabel(score: number): string {
@@ -63,37 +67,6 @@ export async function ensureAgencyDisplayWarmup(pool: Pool): Promise<void> {
  * ⚠ 下拉聚合缓存条目的键名仍是 `agency`（下拉 API 的形状），与公告行字段名无关；
  *   本函数已不再消费聚合缓存。
  */
-const CJK_RE = /[\u4e00-\u9fff]/;
-
-export function enrichAgencyI18n(
-  items: Array<Record<string, unknown>>,
-  locale: string,
-): Array<Record<string, unknown>> {
-  for (const item of items) {
-    if (!item.buyer_name) continue;
-    const disp = resolveAgencyDisplay(String(item.buyer_name));
-    const hit = disp.i18nFrom === "alias"
-      && !!disp.i18n?.zh
-      && CJK_RE.test(disp.i18n.zh);
-    item.agency_i18n = hit ? disp.i18n?.[locale] || undefined : undefined;
-  }
-  return items;
-}
-
-/**
- * 统一列表项主键口径：`notice_pk` 是前端唯一主键字段（NoticeList 的 key、NoticeCard 的收藏/曝光上报均读它）。
- * 服务表直读行天然带 `notice_pk`；而宽表未就绪的降级多表 JOIN 与推荐管道都按主表 `bid_notices.id` 投影，
- * 行里只有 `id`。三表主键同值（见 baseline.sql：notice_public.notice_pk = bid_notices.id，
- * notice_search.id = notice_pk）⇒ 缺 `notice_pk` 时由 `id` 补齐，已有值不覆盖、两者皆无则不凭空造。
- * 各产出层（formatItems / recommend / deadlineFallback）共用本助手，避免 key={undefined} 触发 React 缺失 key 警告。
- */
-export function ensureNoticePk(item: Record<string, unknown>): Record<string, unknown> {
-  if (item.notice_pk == null && item.id != null) {
-    item.notice_pk = Number(item.id);
-  }
-  return item;
-}
-
 /**
  * 格式化搜索结果 items（服务表原字段直出）。
  * 只补三件事：列表侧一律 core_locked=true（详情才由解锁记录定值）+ 机构 i18n + 来源字段裁剪。
