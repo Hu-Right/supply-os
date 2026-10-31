@@ -14,6 +14,7 @@ import { useLocale } from "@/core/i18n";
 import { downloadFile } from "@/core/http";
 import type { NoticeAttachment, NoticeDetailItem, NoticeItem } from "../../types";
 import { downloadNoticeReport } from "../../api";
+import { LockedFeatureCard } from "./LockedFeatureCard";
 import { ReportUnavailableBanner } from "../ReportUnavailableBanner";
 import { FeasibilityReportPanel } from "./FeasibilityReportPanel";
 import { ReportPreviewPanel } from "../ReportPreviewPanel";
@@ -86,33 +87,29 @@ export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock, gates 
     // 其余一律引导去来源平台，避免付费承诺与实际交付的落差
     const lockedCard =
       (fileCount ?? 0) > 0 ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <FileText className="w-4 h-4 text-amber-600" />
-            <h3 className="text-sm font-extrabold text-amber-800">
-              {t("detail_tabMaterials") || "投标材料"} — {t("detail_memberExclusive") || "会员专享"}
-            </h3>
-          </div>
-          <p className="text-xs text-amber-700 mb-3">
-            {t("detail_filesLockedIntro") || "会员可下载本公告的全部招标文件，包括："}
-          </p>
-          <ul className="space-y-1.5 mb-4">
-            <li className="flex items-center gap-2 text-xs text-amber-700">
-              <Download className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              {fileCount !== undefined
-                ? t("detail_filesFullDocWithCount", { count: fileCount })
-                : t("detail_filesFullDoc") || "完整招标文件（含附件）"}
-            </li>
-            <li className="flex items-center gap-2 text-xs text-amber-700">
-              <ExternalLink className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              {t("detail_filesExternalDesc") || "外部参考链接与采购平台直达地址"}
-            </li>
-            <li className="flex items-center gap-2 text-xs text-amber-700">
-              <FileText className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              {t("detail_filesReportDesc") || "中文版订单拆解报告（如已生成）"}
-            </li>
-          </ul>
-          {isVip ? (
+        <LockedFeatureCard
+          icon={FileText}
+          title={<>{t("detail_tabMaterials") || "投标材料"} — {t("detail_memberExclusive") || "会员专享"}</>}
+          intro={t("detail_filesLockedIntro") || "会员可下载本公告的全部招标文件，包括："}
+          bullets={
+            <>
+              <li className="flex items-center gap-2 text-xs text-amber-700">
+                <Download className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                {fileCount !== undefined
+                  ? t("detail_filesFullDocWithCount", { count: fileCount })
+                  : t("detail_filesFullDoc") || "完整招标文件（含附件）"}
+              </li>
+              <li className="flex items-center gap-2 text-xs text-amber-700">
+                <ExternalLink className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                {t("detail_filesExternalDesc") || "外部参考链接与采购平台直达地址"}
+              </li>
+              <li className="flex items-center gap-2 text-xs text-amber-700">
+                <FileText className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                {t("detail_filesReportDesc") || "中文版订单拆解报告（如已生成）"}
+              </li>
+            </>
+          }
+          footer={isVip ? (
             <p className="text-xs font-bold text-amber-800 bg-amber-100/60 rounded-lg px-3 py-2 text-center">
               {t("detail_filesVipHint") || "您已是会员，可直接下载全部文件"}
             </p>
@@ -121,7 +118,7 @@ export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock, gates 
               {t("detail_filesUnlockHint") || "升级会员即可获取全部招标文件"}
             </p>
           )}
-        </section>
+        />
       ) : (
         <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
           <FileText className="w-8 h-8 text-slate-300 mx-auto mb-3" />

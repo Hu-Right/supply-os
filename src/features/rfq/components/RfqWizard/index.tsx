@@ -27,7 +27,7 @@ import { DEFAULT_RFQ_FORM } from "../../constants";
 import type { FieldErrors, RfqFormState } from "../../types";
 
 import { STEP_META } from "./constants";
-import { tomorrowIso } from "./utils";
+import { validateRfqStep } from "./validation";
 import { StepIndicator } from "./ui/StepIndicator";
 import { Step1ProductInfo } from "./steps/Step1ProductInfo";
 import { Step2BusinessTerms } from "./steps/Step2BusinessTerms";
@@ -154,38 +154,8 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     return [l1Name, l2Name, l3Name].filter(Boolean).join(" / ");
   })();
 
-  // ── 校验 ──
-  function validateStep(s: number): FieldErrors {
-    const e: FieldErrors = {};
-    if (s === 0) {
-      const title = form.title.trim();
-      if (title.length < 10) e.title = t("rfqErrTitleMin", { count: title.length });
-      else if (title.length > 50) e.title = t("rfqErrTitleMax");
-      if (!form.categoryL3) e.categoryL3 = t("rfqErrCategoryRequired");
-      const desc = form.description.trim();
-      if (desc.length < 50) e.description = t("rfqErrDescMin", { count: desc.length });
-      else if (desc.length > 2000) e.description = t("rfqErrDescMax");
-    }
-    if (s === 1) {
-      if (!form.deadline) e.deadline = t("rfqErrDeadlineRequired");
-      else if (form.deadline < tomorrowIso()) e.deadline = t("rfqErrDeadlineTooSoon");
-      if (!form.address.trim()) e.address = t("rfqErrAddressRequired");
-      if (!form.incoterm) e.incoterm = t("rfqErrIncotermRequired");
-      if (!form.deliveryTime.trim()) e.deliveryTime = t("rfqErrDeliveryTimeRequired");
-      if (!form.budgetConfidential) {
-        const budget = form.budget.trim();
-        if (!budget) e.budget = t("rfqErrBudgetRequired");
-        else if (!Number.isFinite(Number(budget)) || Number(budget) <= 0)
-          e.budget = t("rfqErrBudgetInvalid");
-      }
-    }
-    if (s === 2) {
-      if (!form.contactName.trim()) e.contactName = t("rfqErrContactNameRequired");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail.trim())) e.contactEmail = t("rfqErrContactEmailInvalid");
-      if (!form.agreed) e.agreed = t("rfqErrAgreedRequired");
-    }
-    return e;
-  }
+  // ── 校验（纯函数在 ./validation，规则口径见彼处注释）──
+  const validateStep = (step: number): FieldErrors => validateRfqStep(step, form, t);
 
   function scrollToFirstError() {
     requestAnimationFrame(() => {
