@@ -15,10 +15,12 @@
  *              - 失效：调用方自行接失效回调（如 search-sync 的 registerInvalidateCallback）
  *                后调 delete/clear——本类不感知事件源。
  *
- *              迁移状态：unified-search 结果缓存 / recommend 结果缓存 / industry-profile
- *              已收编；其余手搓位点（stats、hot-topics、filter-builder、scoring、
- *              text-similarity、docCount、keyword-groups、crawler-sync 列缓存等）按本
- *              文件口径逐个跟进，新代码禁止再手搓 Map+expires。
+ *              迁移状态（2026-10-31 二批收口）：**全部带键缓存**已收编——unified-search /
+ *              recommend 结果缓存、industry-profile、reco-amount-pref、reco-user-keywords、
+ *              crawler-sync 列缓存（后者顺带补上缺失的 TTL，schema 漂移自愈）。
+ *              单槽 memo（stats/hot-topics/keyword-groups/docCount/wide-table-readiness/
+ *              agencies-cache/backbone-cache 等整块单值缓存）为有意保留的独立微形态，
+ *              不强行套键值原语；新代码：带键缓存一律本类，禁止手搓 Map+expires。
  */
 export interface TTLCacheOptions {
   /** 条目存活时长（毫秒） */

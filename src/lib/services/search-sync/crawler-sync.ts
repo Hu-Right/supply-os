@@ -31,6 +31,7 @@ import {
   NUMERIC_TYPES, NON_DESTRUCTIVE_COLUMNS, MONOTONE_RISE_COLUMNS, TARGET_WINS_COLUMNS, PLATFORM_IMMUNE,
   type Watermark,
 } from "./crawler-sync-sql";
+import { TTLCache } from "@/lib/cache/ttl-cache";
 
 // 纯构件与常量再导出（供调度器 / 集成测试从本模块统一取用）
 export { SYNC_TABLES, NOTICE_TABLE } from "./crawler-sync-sql";
@@ -49,7 +50,9 @@ const SOURCE_TABLE_PREFIX = process.env.SYNC_SOURCE_TABLE_PREFIX ?? "";
 const sourceTableName = (table: string): string => `${SOURCE_TABLE_PREFIX}${table}`;
 
 interface ColMeta { COLUMN_NAME: string; COLUMN_KEY: string; DATA_TYPE: string; }
-const _colCache = new Map<string, ColMeta[]>();
+// 2026-10-31 收编 lib/cache/ttl-cache：原实现无 TTL（进程存活期永不过期），表结构变更
+// （如迁移加列）后同进程一直喂旧元数据——补 30 分钟 TTL，schema 漂移最迟半个钟自愈
+const _colCache = new TTLCache<string, ColMeta[]>({ ttlMs: 30 * 60 * 1000, name: "crawler-sync-cols" });
 
 async function getTableColumns(pool: Pool, table: string, ns: string): Promise<ColMeta[]> {
   const cacheKey = `${ns}:${table}`;

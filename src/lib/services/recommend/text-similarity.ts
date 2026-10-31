@@ -10,6 +10,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
+import { TTLCache } from "@/lib/cache/ttl-cache";
 
 const TEXT_STOPWORDS = new Set([
   "the", "and", "for", "with", "from", "this", "that", "are", "was", "were", "will",
@@ -57,8 +58,8 @@ export const jaccardTokenSim = (a: Set<string>, b: Set<string>): number => {
 /** s_text 独立加分维度系数（当页内微调排序，不破 SQL 分页语义；满分加成 0.05 与 T-B7 权重档不冲突） */
 export const S_TEXT_BONUS = 0.05;
 
-const userUnlockKeywordsCache = new Map<number, { keywords: Set<string> | null; expires: number }>();
-const USER_KEYWORDS_TTL_MS = CACHE_TTL_MEDIUM_MS;
+// 2026-10-31 收编 lib/cache/ttl-cache 统一原语（原「size>2000 整表 clear」防膨胀由 LRU 淘汰取代）
+const userUnlockKeywordsCache = new TTLCache<number, Set<string> | null>({ ttlMs: CACHE_TTL_MEDIUM_MS, max: 2000, name: "reco-user-keywords" });
 
 /**
  * 获取用户解锁关键词集合（带缓存）
@@ -69,8 +70,7 @@ const USER_KEYWORDS_TTL_MS = CACHE_TTL_MEDIUM_MS;
  */
 export async function getUserUnlockKeywords(dbPool: Pick<Pool, "query">, userId: number): Promise<Set<string> | null> {
   const cached = userUnlockKeywordsCache.get(userId);
-  if (cached && cached.expires > Date.now()) return cached.keywords;
-  if (userUnlockKeywordsCache.size > 2000) userUnlockKeywordsCache.clear(); // 简易防膨胀
+  if (cached !== undefined) return cached;
   let keywords: Set<string> | null;
   try {
     const [rows] = await dbPool.query(
@@ -90,6 +90,6 @@ export async function getUserUnlockKeywords(dbPool: Pick<Pool, "query">, userId:
   } catch {
     keywords = null; // 查询异常降级为无文本信号，不阻断推荐主链
   }
-  userUnlockKeywordsCache.set(userId, { keywords, expires: Date.now() + USER_KEYWORDS_TTL_MS });
+  userUnlockKeywordsCache.set(userId, keywords);
   return keywords;
 }

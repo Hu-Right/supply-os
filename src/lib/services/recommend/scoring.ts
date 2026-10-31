@@ -8,10 +8,10 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { RecallNode } from "./recall";
 import { DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
 import { CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
+import { TTLCache } from "@/lib/cache/ttl-cache";
 
-// 金额偏好查询缓存
-const amountPrefCache = new Map<number, { centerLog: number; active: boolean; expires: number }>();
-const AMOUNT_PREF_CACHE_TTL = CACHE_TTL_MEDIUM_MS;
+// 金额偏好查询缓存（2026-10-31 收编 lib/cache/ttl-cache 统一原语）
+const amountPrefCache = new TTLCache<number, { centerLog: number; active: boolean }>({ ttlMs: CACHE_TTL_MEDIUM_MS, name: "reco-amount-pref" });
 
 export interface ScoringContext {
   matchWeightExpr: string;
@@ -104,7 +104,7 @@ export async function getAmountPreference(
   pool: Pool, userId: number,
 ): Promise<{ centerLog: number; active: boolean }> {
   const cachedAmountPref = amountPrefCache.get(userId);
-  if (cachedAmountPref && cachedAmountPref.expires > Date.now()) {
+  if (cachedAmountPref) {
     return { centerLog: cachedAmountPref.centerLog, active: cachedAmountPref.active };
   }
   const [amountPrefRows] = await pool.query(
@@ -116,7 +116,7 @@ export async function getAmountPreference(
   );
   const centerLog = Number((amountPrefRows as RowDataPacket[])[0]?.center_log || 0);
   const active = Number((amountPrefRows as RowDataPacket[])[0]?.cnt || 0) >= 2;
-  amountPrefCache.set(userId, { centerLog, active, expires: Date.now() + AMOUNT_PREF_CACHE_TTL });
+  amountPrefCache.set(userId, { centerLog, active });
   return { centerLog, active };
 }
 
