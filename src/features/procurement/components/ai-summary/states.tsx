@@ -9,6 +9,7 @@
 import { memo } from "react";
 import { Loader2, Lock, Sparkles, AlertTriangle } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Skeleton } from "@/shared/ui";
 import { resolveErrorText, type ErrorClassification } from "@/core/http";
 
 /** 分析中：旋转 + 计时 + 进度骨架 */
@@ -31,9 +32,9 @@ export const AnalyzingPanel = memo(function AnalyzingPanel({ elapsed }: { elapse
           </p>
         </div>
       </div>
-      <div className="mt-4 space-y-2 animate-pulse">
+      <div className="mt-4 space-y-2" aria-busy="true">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-3 rounded bg-teal-100/70" style={{ width: `${90 - i * 15}%` }} />
+          <Skeleton key={i} variant="text" className="h-3 bg-teal-100/70" width={`${90 - i * 15}%`} />
         ))}
       </div>
     </section>

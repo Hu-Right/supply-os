@@ -776,5 +776,6 @@
   "awardCnCaseCountBadge": "{n} кейсов",
   "aiScoreGradeHigh": "Сильный",
   "aiScoreGradeMid": "Средний",
-  "aiScoreGradeLow": "Слабый"
+  "aiScoreGradeLow": "Слабый",
+  "rfqQuotesRetry": "Повторить"
 }

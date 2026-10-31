@@ -10,7 +10,7 @@
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, FileText, Lock, Crown, Unlock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
+import { Button, Skeleton } from "@/shared/ui";
 import { useReportPreview } from "../hooks/useReportPreview";
 import type { NoticeItem } from "@/types/procurement";
 
@@ -62,15 +62,15 @@ export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLock
   // 加载态：骨架屏
   if (loading) {
     return (
-      <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 space-y-3 animate-pulse">
+      <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 space-y-3" aria-busy="true">
         <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-teal-200" />
-          <div className="h-4 w-32 rounded bg-teal-200" />
+          <Skeleton variant="rounded" className="w-5 h-5 bg-teal-200" />
+          <Skeleton variant="text" className="h-4 w-32 bg-teal-200" />
         </div>
         <div className="space-y-2">
-          <div className="h-3 w-full rounded bg-slate-200" />
-          <div className="h-3 w-4/5 rounded bg-slate-200" />
-          <div className="h-3 w-3/5 rounded bg-slate-200" />
+          <Skeleton variant="text" className="h-3 w-full bg-slate-200" />
+          <Skeleton variant="text" className="h-3 w-4/5 bg-slate-200" />
+          <Skeleton variant="text" className="h-3 w-3/5 bg-slate-200" />
         </div>
       </div>
     );

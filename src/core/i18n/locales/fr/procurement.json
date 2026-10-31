@@ -776,5 +776,6 @@
   "awardCnCaseCountBadge": "{n} cas",
   "aiScoreGradeHigh": "Fort",
   "aiScoreGradeMid": "Moyen",
-  "aiScoreGradeLow": "Faible"
+  "aiScoreGradeLow": "Faible",
+  "rfqQuotesRetry": "Réessayer"
 }

@@ -776,5 +776,6 @@
   "awardCnCaseCountBadge": "{n} حالة",
   "aiScoreGradeHigh": "قوي",
   "aiScoreGradeMid": "متوسط",
-  "aiScoreGradeLow": "ضعيف"
+  "aiScoreGradeLow": "ضعيف",
+  "rfqQuotesRetry": "إعادة المحاولة"
 }

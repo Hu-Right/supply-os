@@ -13,7 +13,7 @@ import { Crown, Lock, Clock, Infinity as InfinityIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
+import { Button, Skeleton } from "@/shared/ui";
 import { formatDateShort } from "@/shared/utils/format";
 import { unlockRemaining, isUnlimitedQuota } from "@/shared/utils/membership-view";
 import { fetchMembershipStatus } from "@/core/api/membership";
@@ -44,9 +44,9 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
 
   if (loading || !authUser) {
     return (
-      <div className="bg-secondary-50 border border-border rounded-xl p-4 animate-pulse">
-        <div className="h-3 bg-secondary-200 rounded w-1/3 mb-2" />
-        <div className="h-4 bg-secondary-200 rounded w-2/3" />
+      <div className="bg-secondary-50 border border-border rounded-xl p-4" aria-busy="true">
+        <Skeleton variant="text" className="h-3 w-1/3 mb-2" />
+        <Skeleton variant="text" className="h-4 w-2/3" />
       </div>
     );
   }

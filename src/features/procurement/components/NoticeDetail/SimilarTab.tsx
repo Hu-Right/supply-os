@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
+import { Skeleton } from "@/shared/ui";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { fetchSimilarNotices } from "../../api";
 import { formatNoticeDeadline } from "../../utils/noticeDisplay";
@@ -65,9 +66,9 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
       </h3>
 
       {loading && (
-        <div className="space-y-2">
+        <div className="space-y-2" aria-busy="true">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+            <Skeleton key={i} variant="rounded" className="h-16 bg-slate-100" />
           ))}
         </div>
       )}

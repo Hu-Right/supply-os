@@ -8,6 +8,7 @@
 import { memo } from "react";
 import { Target, RefreshCw, AlertTriangle, Sparkles, Lock, ArrowRight, Building2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Skeleton } from "@/shared/ui";
 import { resolveErrorText, type ErrorClassification } from "@/core/http";
 import { rankToTierKey } from "../../api/notice-gate";
 
@@ -20,10 +21,10 @@ export const SkeletonPanel = memo(function SkeletonPanel() {
         <Target className="w-5 h-5 text-purple-600" />
         <h3 className="text-base font-extrabold text-slate-900">{t("aiEvalTitle") || "供应商 × 公告 适配评估"}</h3>
       </div>
-      <div className="animate-pulse space-y-3">
-        <div className="h-20 rounded-xl bg-slate-100" />
-        <div className="h-20 rounded-xl bg-slate-100" />
-        <div className="h-20 rounded-xl bg-slate-100" />
+      <div className="space-y-3" aria-busy="true">
+        <Skeleton variant="rounded" className="h-20 bg-slate-100" />
+        <Skeleton variant="rounded" className="h-20 bg-slate-100" />
+        <Skeleton variant="rounded" className="h-20 bg-slate-100" />
       </div>
     </section>
   );

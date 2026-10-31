@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Eye, Trash2, Upload } from "lucide-react";
 import { api, getAuthToken } from "@/core/http";
 import { useLocale } from "@/core/i18n";
+import { DataState } from "@/shared/ui";
 
 type CapabilityType =
   | "certification"
@@ -271,9 +272,16 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
         </p>
       </div>
 
-      {loading && <p className="text-xs text-muted-foreground">{t("capLoading")}</p>}
-      {!loading && error && <p className="text-xs text-rose-600">{error}</p>}
-
+      <DataState
+        loading={loading}
+        error={error}
+        onRetry={() => void load()}
+        errorText={error ?? undefined}
+        retryText={t("capRetry")}
+        skeleton={<p className="text-xs text-muted-foreground" aria-busy="true">{t("capLoading")}</p>}
+        className="space-y-3"
+      >
+        <>
       {/* 能力列表 */}
       {profile && profile.capabilities.length > 0 && (
         <ul className="space-y-1.5">
@@ -424,6 +432,8 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
           </div>
         </div>
       </div>
+        </>
+      </DataState>
     </section>
   );
 }

@@ -776,5 +776,6 @@
   "awardCnCaseCountBadge": "{n} 例",
   "aiScoreGradeHigh": "优",
   "aiScoreGradeMid": "中",
-  "aiScoreGradeLow": "弱"
+  "aiScoreGradeLow": "弱",
+  "rfqQuotesRetry": "重试"
 }

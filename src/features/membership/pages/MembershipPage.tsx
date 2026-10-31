@@ -15,7 +15,7 @@ import { Rocket, Search, TrendingUp, Headphones } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
-import { DataState } from "@/shared/ui";
+import { DataState, Skeleton } from "@/shared/ui";
 import { PlanCard } from "../components/PlanCard";
 import { ServiceCard } from "../components/ServiceCard";
 import { ContactQrModal } from "../components/ContactQrModal";
@@ -199,9 +199,9 @@ export default function MembershipPage({ initialComparison }: MembershipPageProp
                 errorText={error ?? undefined}
                 retryText={t("membershipReload")}
                 skeleton={
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-80 rounded-2xl border border-slate-200/60 bg-secondary-200 animate-pulse" />
+                      <Skeleton key={i} variant="rounded" className="h-80 border border-slate-200/60" />
                     ))}
                   </div>
                 }

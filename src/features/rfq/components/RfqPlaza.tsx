@@ -16,7 +16,7 @@ import { useLocale } from "@/core/i18n";
 import { Clock, Gem, Search } from "lucide-react";
 
 import { cn } from "@/shared/utils";
-import { Button, CountryFlag, EmptyState, Input, SegmentedControl, Select } from "@/shared/ui";
+import { Button, CountryFlag, EmptyState, Input, SegmentedControl, Select, Skeleton } from "@/shared/ui";
 import type { PlazaRfq } from "../types";
 import { useRfqPlaza, type RfqSortKey } from "../hooks/useRfqPlaza";
 
@@ -89,13 +89,13 @@ export function RfqPlaza() {
 
       {/* 列表 */}
       {loading && items.length === 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-busy="true">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="rounded-xl border border-secondary-100 p-4 animate-pulse">
-              <div className="h-4 w-16 bg-secondary-100 rounded mb-3" />
-              <div className="h-4 w-full bg-secondary-100 rounded mb-2" />
-              <div className="h-3 w-3/4 bg-secondary-50 rounded mb-2" />
-              <div className="h-3 w-1/2 bg-secondary-50 rounded" />
+            <div key={i} className="rounded-xl border border-secondary-100 p-4">
+              <Skeleton variant="text" className="h-4 w-16 mb-3" />
+              <Skeleton variant="text" className="h-4 w-full mb-2" />
+              <Skeleton variant="text" className="h-3 w-3/4 mb-2" />
+              <Skeleton variant="text" className="h-3 w-1/2" />
             </div>
           ))}
         </div>

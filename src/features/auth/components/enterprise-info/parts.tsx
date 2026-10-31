@@ -10,7 +10,7 @@
 import { memo } from "react";
 import { Building2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { AuthLicenseImage } from "@/shared/ui";
+import { AuthLicenseImage, Skeleton } from "@/shared/ui";
 import type { Cell } from "./formatters";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
@@ -73,9 +73,9 @@ export const InfoTable = memo(function InfoTable({ cells }: { cells: Cell[] }) {
 /** 加载中骨架屏 */
 export const LoadingState = memo(function LoadingState() {
   return (
-    <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5 animate-pulse">
-      <div className="h-4 bg-secondary-200 rounded w-1/4 mb-3" />
-      <div className="h-24 bg-secondary-200 rounded" />
+    <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5" aria-busy="true">
+      <Skeleton variant="text" className="h-4 w-1/4 mb-3" />
+      <Skeleton variant="rectangular" className="h-24" />
     </div>
   );
 });

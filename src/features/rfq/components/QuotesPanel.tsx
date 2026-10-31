@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { Button, Badge, type BadgeVariant } from "@/shared/ui";
+import { Button, Badge, DataState, type BadgeVariant } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 import { currencySymbol } from "@/shared/utils/format";
 import { fetchBuyerQuotes, awardRfqQuote, unawardRfqQuote, type QuoteRow } from "@/core/api/rfqQuotes";
@@ -94,11 +94,17 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
 
   return (
     <Card2 title={t("rfqQuotesPanelTitle")} onRefresh={() => void reload()}>
-      {loading && <p className="text-sm text-secondary-400 py-6 text-center">{t("rfqQuotesLoading")}</p>}
-      {!loading && err && <p className="text-sm text-danger-500 py-4 text-center">{err}</p>}
-      {!loading && !err && rows.length === 0 && (
-        <p className="text-sm text-secondary-400 py-6 text-center">{t("rfqQuotesEmpty")}</p>
-      )}
+      <DataState
+        loading={loading}
+        error={err || null}
+        onRetry={() => void reload()}
+        errorText={err}
+        retryText={t("rfqQuotesRetry")}
+        skeleton={<p className="text-sm text-secondary-400 py-6 text-center" aria-busy="true">{t("rfqQuotesLoading")}</p>}
+        isEmpty={!loading && !err && rows.length === 0}
+        empty={<p className="text-sm text-secondary-400 py-6 text-center">{t("rfqQuotesEmpty")}</p>}
+      >
+        <>
       {!loading && !err && hasWinner && (
         <div className="mb-3 flex items-center justify-between rounded-xl bg-primary-50 px-3 py-2">
           <span className="text-xs font-semibold text-primary-700">{t("rfqAwardDone")}</span>
@@ -155,6 +161,8 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
           })}
         </div>
       )}
+        </>
+      </DataState>
     </Card2>
   );
 }

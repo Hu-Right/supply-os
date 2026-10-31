@@ -13,6 +13,7 @@ import { useEffect, type ComponentType } from "react";
 import { User, LogOut } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { Skeleton } from "@/shared/ui";
 import { useMembershipTier } from "@/shared/hooks/useMembershipTier";
 import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
@@ -111,7 +112,7 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
               <div className="flex items-baseline gap-1.5 min-w-0">
                 <span className="text-xs text-muted-foreground shrink-0">{t("authSupplierStatus") || "供应商状态"}：</span>
                 {enterprise.loading ? (
-                  <span className="inline-block w-16 h-4 rounded bg-secondary-200 animate-pulse" />
+                  <Skeleton variant="text" className="inline-block w-16 h-4" />
                 ) : !enterprise.bound ? (
                   <span className="text-sm text-muted-foreground">{t("authSupplierPending") || "未绑定"}</span>
                 ) : bindState === "pending" ? (
