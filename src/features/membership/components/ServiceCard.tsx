@@ -12,6 +12,7 @@
 
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { formatPrice } from "@/shared/utils/format";
 import { resolveServiceBranch, serviceDisplayName } from "../utils";
 import { ContactQrModal } from "./ContactQrModal";
 import type { ServiceCatalogView } from "@/types/membership";
@@ -59,7 +60,7 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
           {row.priceFrom === 1 && (
             <span className="text-xs font-semibold text-slate-500">{t("svcPriceFrom")}</span>
           )}
-          <span className="text-2xl font-black text-slate-900">¥{amount.toLocaleString()}</span>
+          <span className="text-2xl font-black text-slate-900">{formatPrice(amount, "CNY")}</span>
           {suffixKey && <span className="text-xs font-semibold text-slate-500">{t(suffixKey)}</span>}
         </div>
       ) : (

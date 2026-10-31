@@ -7,6 +7,7 @@
  */
 import { ArrowUpCircle, Clock, Loader2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { formatPrice } from "@/shared/utils/format";
 import { Button, Modal } from "@/shared/ui";
 import { formatDateShort } from "@/shared/utils/format";
 import type { UpgradePreviewView } from "@/types";
@@ -66,7 +67,7 @@ export function UpgradeConfirmModal({
                 <p className="text-sm font-semibold text-amber-700">
                   {t("upgradeCreditClosedNote", {
                     days: preview.creditDays ?? "",
-                    price: `${symbol}${Number(preview.newPurchasePrice ?? preview.targetPlan?.price ?? 0).toLocaleString()}`,
+                    price: formatPrice(preview.newPurchasePrice ?? preview.targetPlan?.price ?? 0, currency),
                   })}
                 </p>
                 <Button
@@ -127,7 +128,7 @@ export function UpgradeConfirmModal({
             <div className="flex items-center justify-between rounded-xl bg-slate-900 px-4 py-3">
               <span className="text-xs font-semibold text-slate-300">{t("upgradePriceDiff")}</span>
               <span className="text-lg font-extrabold text-amber-400">
-                {symbol}{preview.priceDifference.toLocaleString()}
+                {formatPrice(preview.priceDifference, currency)}
               </span>
             </div>
             {preview.creditDeadlineAt && (

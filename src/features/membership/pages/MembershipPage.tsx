@@ -16,6 +16,7 @@ import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
 import { DataState, Skeleton } from "@/shared/ui";
+import { formatPrice } from "@/shared/utils/format";
 import { PlanCard } from "../components/PlanCard";
 import { ServiceCard } from "../components/ServiceCard";
 import { ContactQrModal } from "../components/ContactQrModal";
@@ -233,7 +234,7 @@ export default function MembershipPage({ initialComparison }: MembershipPageProp
                   {annualCredit && Number(annualCredit.amount) > 0 && (
                     <p className="mx-auto mt-4 max-w-7xl text-xs font-semibold text-teal-700" data-testid="annual-credit-hint">
                       {t("annualCreditHint", {
-                        amount: `${annualCredit.currency === "CNY" ? "¥" : "$"}${Number(annualCredit.amount).toLocaleString()}`,
+                        amount: formatPrice(annualCredit.amount, annualCredit.currency),
                       })}
                     </p>
                   )}

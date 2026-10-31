@@ -12,6 +12,7 @@
  */
 import { ArrowRight, ArrowUpCircle, Check, Sparkles, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { formatPrice } from "@/shared/utils/format";
 import { Button } from "@/shared/ui";
 import type { ComparisonView, PlanView, TieredPlanView } from "@/types";
 import {
@@ -45,7 +46,6 @@ export function PlanCard({
 }: PlanCardProps) {
   const { t } = useLocale();
   const recommended = isRecommendedPlan(row);
-  const symbol = row.currency === "CNY" ? "¥" : "$";
   const tierName = tierDisplayName(tier);
   const priceUnit = row.billingPeriodDays == null ? null : t(periodUnitKey(row.billingPeriodDays));
   const isContact = row.priceMode === "contact";
@@ -87,7 +87,7 @@ export function PlanCard({
       return (
         <Button type="button" variant="accent" onClick={() => onUpgrade?.(row)} className="w-full justify-center rounded-lg px-3 py-2 text-xs">
           <ArrowUpCircle className="w-3 h-3" />
-          {t("upgradeBtn")} {symbol}{priceDiff.toLocaleString()}
+          {t("upgradeBtn")} {formatPrice(priceDiff, row.currency)}
         </Button>
       );
     }
@@ -140,7 +140,7 @@ export function PlanCard({
         ) : (
           <p className="flex items-end justify-center gap-1">
             <span className="text-3xl font-extrabold tracking-tight text-slate-900">
-              {symbol}{Number(row.price).toLocaleString()}
+              {formatPrice(row.price, row.currency)}
             </span>
             {priceUnit && <span className="pb-1 text-xs font-semibold text-slate-500">/{priceUnit}</span>}
           </p>

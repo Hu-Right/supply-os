@@ -101,6 +101,18 @@ export function currencySymbol(code: string): string {
 }
 
 /**
+ * 订阅/服务标价格式化：符号 + 千分位整数（¥239 / $4,800）。
+ * 2026-10-31 收编 membership 四处内联 `${symbol}${x.toLocaleString()}` 与手写 ¥/$ 三元。
+ * 千分位显式钉 en-US：裸 toLocaleString() 随运行环境变化（fr 会变窄空格分隔），
+ * SSR 与客户端环境不同会水合不一致。
+ */
+export function formatPrice(value: number | string, currency: string): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  return `${currencySymbol(currency)}${n.toLocaleString("en-US")}`;
+}
+
+/**
  * 基于字符串哈希的确定性头像色（同一名称永远同色）。
  * 首页优质供应商滚动卡的头像底色（原 ContentColumns 组件文件内联定义，
  * 按「禁止在组件文件内定义可复用工具函数」约定上收到本模块）。
