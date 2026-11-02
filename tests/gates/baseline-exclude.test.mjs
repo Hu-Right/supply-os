@@ -24,6 +24,9 @@ const MUST_EXCLUDE = [
   "crm_v_copy",
   "crm_u_retired_2026",
   "crm_outreach_supplier", // 内网爬虫镜像表
+  "outreach_batches", // 同上，无 crm_ 前缀的镜像表（2026-10-31 补）
+  "outreach_events",
+  "outreach_items",
 ];
 
 const MUST_KEEP = [

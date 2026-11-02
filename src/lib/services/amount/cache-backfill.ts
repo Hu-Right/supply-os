@@ -7,7 +7,8 @@
  *              未给定=admin 批量回填一批（≤batchLimit 行，短事务、可中断续跑——按缓存缺失/过版续扫）
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { AMOUNT_PARSE_VERSION, parseEstimatedValue } from "./parser";
+import { parseAmountUsd } from "../notice-normalize/amount";
+import { AMOUNT_PARSE_VERSION } from "./index";
 
 /**
  * 回填公告金额缓存
@@ -31,7 +32,7 @@ export async function backfillNoticeAmountCache(dbPool: Pool, noticeIds?: number
   if (!pending.length) return { processed: 0 };
   const values: (number | string | null)[] = [];
   for (const row of pending) {
-    const parsed = parseEstimatedValue(row.estimated_value, row.country);
+    const parsed = parseAmountUsd(row.estimated_value, row.country);
     values.push(
       Number(row.id),
       parsed?.amount ?? null,
