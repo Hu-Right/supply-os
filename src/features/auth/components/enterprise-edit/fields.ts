@@ -16,6 +16,7 @@ export interface FieldDef {
   fallback: string;
   full?: boolean;
   textarea?: boolean;
+  inputType?: "text" | "date";
   options?: OptionDef[];
   placeholderKey?: string;
   placeholder?: string;
@@ -39,7 +40,7 @@ export const CONTACT_FIELDS: FieldDef[] = [
 ];
 export const BUSINESS_FIELDS: FieldDef[] = [
   { key: "legal_rep", labelKey: "authEnterpriseLegalRep", fallback: "法定代表人", placeholderKey: "authEnterpriseLegalRepPh" },
-  { key: "established_at", labelKey: "authEnterpriseEstablished", fallback: "成立日期", placeholderKey: "authEnterpriseEstablishedPh" },
+  { key: "established_at", labelKey: "authEnterpriseEstablished", fallback: "成立日期", inputType: "date", placeholderKey: "authEnterpriseEstablishedPh" },
   { key: "registered_capital", labelKey: "authEnterpriseCapital", fallback: "注册资本", placeholderKey: "authEnterpriseCapitalPh" },
   { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码", placeholderKey: "authEnterpriseCreditCodePh" },
   { key: "certification", labelKey: "authEnterpriseCertifications", fallback: "资质认证", placeholderKey: "authEnterpriseCertificationsPh" },

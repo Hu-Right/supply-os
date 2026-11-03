@@ -20,6 +20,7 @@ import {
 } from "@/shared/utils/enterprise-status";
 import type { EnterpriseInfo, LicenseChangeBrief, CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
 import { sv, fmtAddtime, fmtScore, type Cell } from "./enterprise-info/formatters";
+import { formatEstablishedAtForInput } from "@/shared/utils/enterprise-fields";
 import { GroupTitle, InfoTable, LoadingState, ErrorState, NotBoundState, LicenseView } from "./enterprise-info/parts";
 
 export interface EnterpriseInfoCardProps {
@@ -87,7 +88,7 @@ export function EnterpriseInfoCard({
 
   const businessCells: Cell[] = [
     { label: t("authEnterpriseLegalRep") || "法定代表人", value: sv(row, "legalRep") },
-    { label: t("authEnterpriseEstablished") || "成立日期", value: sv(row, "establishedAt") },
+    { label: t("authEnterpriseEstablished") || "成立日期", value: formatEstablishedAtForInput(row.establishedAt) || "-" },
     { label: t("authEnterpriseCapital") || "注册资本", value: sv(row, "registeredCapital") },
     { label: t("authEnterpriseCreditCode") || "统一社会信用代码", value: sv(row, "creditCode") },
     { label: t("authEnterpriseSupplierType") || "供应商类型", value: sv(row, "businessType") },

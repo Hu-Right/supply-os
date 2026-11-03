@@ -19,6 +19,10 @@ import { SupplierProductsPicker } from "./SupplierProductsPicker";
 import type { EnterpriseInfo, CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
 import { toCamelKey } from "@/shared/utils/case-keys";
 import {
+  formatEstablishedAtForInput, isValidRegisteredCapital,
+  normalizeEstablishedAt, normalizeRegisteredCapital,
+} from "@/shared/utils/enterprise-fields";
+import {
   BASIC_FIELDS, CONTACT_FIELDS, BUSINESS_FIELDS, REQUIRED_KEYS, ALL_FIELD_GROUPS,
   btnBlue, btnPlain, inputCls,
 } from "./enterprise-edit/fields";
@@ -62,7 +66,11 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
     for (const group of ALL_FIELD_GROUPS) {
       for (const f of group) {
         const v = wire?.[toCamelKey(f.key)];
-        init[f.key] = v === null || v === undefined ? "" : String(v);
+        // 成立日期：GET 是 Date 序列化后的 ISO 串（24 字符），原样回填再保存会撞 zod max(20)，
+        // 统一按北京时间还原成 date input 需要的 YYYY-MM-DD（不切片 UTC，否则会差一天）。
+        init[f.key] = f.key === "established_at"
+          ? formatEstablishedAtForInput(v)
+          : v === null || v === undefined ? "" : String(v);
       }
     }
     // 省市名称从初始行回填
@@ -113,10 +121,26 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
       return;
     }
     setFormError(null);
+    // 两个强类型列先归一：成立日期 ISO/斜杠/中文写法 → YYYY-MM-DD；注册资本剥掉「万元/元/千分位」
+    // （服务端同样兜一层；这里是为了在提交前给出本地化提示，避免用户只看到“服务器内部错误”）。
+    const establishedAt = normalizeEstablishedAt(values.established_at);
+    if (establishedAt && !/^\d{4}-\d{2}-\d{2}$/.test(establishedAt)) {
+      setFormError(t("authEnterpriseDateInvalid") || "成立日期请填写有效日期（如 2015-06-01）");
+      return;
+    }
+    const capital = normalizeRegisteredCapital(values.registered_capital);
+    if (capital && !isValidRegisteredCapital(capital)) {
+      setFormError(t("authEnterpriseCapitalInvalid") || "注册资本请填写数字（可带“万元”，如 500万元）");
+      return;
+    }
+    values.established_at = establishedAt;
+    values.registered_capital = capital;
     // 国家/国家代码不提交（面向中国场景留空不入库）
     const payload: Record<string, string | string[]> = {};
     for (const [k, v] of Object.entries(values)) {
       if (k === "country" || k === "country_code") continue;
+      if (k === "established_at") { payload[k] = establishedAt; continue; }
+      if (k === "registered_capital") { payload[k] = capital; continue; }
       payload[k] = v;
     }
     // 执照以保存为单一入口：提交当前本地执照 URL（空串 = 移除）

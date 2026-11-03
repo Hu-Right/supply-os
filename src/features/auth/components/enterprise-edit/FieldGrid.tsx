@@ -69,6 +69,7 @@ export const FieldGrid = memo(function FieldGrid({
           ) : (
             <input
               className={inputCls}
+              type={f.inputType ?? "text"}
               value={values[f.key] || ""}
               onChange={(e) => onSet(f.key, e.target.value)}
               onBlur={f.key === "company" ? onCompanyBlur : undefined}

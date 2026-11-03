@@ -200,6 +200,8 @@
   "authEnterpriseLegalRepPh": "Legal representative name as on business license",
   "authEnterpriseEstablishedPh": "e.g. 2015-06-01. Used to assess enterprise seniority",
   "authEnterpriseCapitalPh": "e.g. 5M CNY. Used to assess enterprise scale",
+  "authEnterpriseDateInvalid": "Please enter a valid date (e.g. 2015-06-01)",
+  "authEnterpriseCapitalInvalid": "Registered capital must be a number (e.g. 500万元)",
   "authEnterpriseCreditCodePh": "18-digit Unified Social Credit Code, unique ID for enterprise certification",
   "authEnterpriseCertificationsPh": "e.g. ISO9001, CE. Certifications help improve match rate",
   "authEnterpriseIntroPh": "Brief introduction of company background, core strengths and main business direction",

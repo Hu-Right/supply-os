@@ -180,6 +180,8 @@
   "authEnterpriseLegalRepPh": "Имя законного представителя как в лицензии",
   "authEnterpriseEstablishedPh": "напр. 2015-06-01. Для оценки стажа предприятия",
   "authEnterpriseCapitalPh": "напр. 5 млн юаней. Для оценки масштаба предприятия",
+  "authEnterpriseDateInvalid": "Укажите корректную дату (например, 2015-06-01)",
+  "authEnterpriseCapitalInvalid": "Уставный капитал должен быть числом (например, 500万元)",
   "authEnterpriseCreditCodePh": "18-значный унифицированный код социального кредита, уникальный ID сертификации",
   "authEnterpriseCertificationsPh": "напр. ISO9001, CE. Сертификация повышает шанс подбора",
   "authEnterpriseIntroPh": "Краткое описание компании, ключевых преимуществ и направления деятельности",

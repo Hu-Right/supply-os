@@ -200,6 +200,8 @@
   "authEnterpriseLegalRepPh": "营业执照上的法定代表人姓名",
   "authEnterpriseEstablishedPh": "例如：2015-06-01。用于评估企业资历",
   "authEnterpriseCapitalPh": "例如：500万元。用于评估企业规模",
+  "authEnterpriseDateInvalid": "成立日期请填写有效日期（如 2015-06-01）",
+  "authEnterpriseCapitalInvalid": "注册资本请填写数字（可带“万元”，如 500万元）",
   "authEnterpriseCreditCodePh": "18位统一社会信用代码，企业认证的唯一身份标识",
   "authEnterpriseCertificationsPh": "例如：ISO9001、CE。资质认证有助于提升匹配度",
   "authEnterpriseIntroPh": "简要介绍企业背景、核心优势和主要业务方向",

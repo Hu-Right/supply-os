@@ -180,6 +180,8 @@
   "authEnterpriseLegalRepPh": "Nome do representante legal conforme a licença",
   "authEnterpriseEstablishedPh": "ex. 2015-06-01. Para avaliar a antiguidade da empresa",
   "authEnterpriseCapitalPh": "ex. 5M CNY. Para avaliar o porte da empresa",
+  "authEnterpriseDateInvalid": "Informe uma data válida (ex. 2015-06-01)",
+  "authEnterpriseCapitalInvalid": "O capital registrado deve ser um número (ex. 500万元)",
   "authEnterpriseCreditCodePh": "Código de Crédito Social Unificado de 18 dígitos, ID único de certificação",
   "authEnterpriseCertificationsPh": "ex. ISO9001, CE. Certificações melhoram a taxa de pareamento",
   "authEnterpriseIntroPh": "Breve apresentação da empresa, vantagens principais e direção comercial",

@@ -180,6 +180,8 @@
   "authEnterpriseLegalRepPh": "اسم الممثل القانوني كما في الرخصة",
   "authEnterpriseEstablishedPh": "مثل: 2015-06-01. لتقييم قدم المؤسسة",
   "authEnterpriseCapitalPh": "مثل: 5 مليون يوان. لتقييم حجم المؤسسة",
+  "authEnterpriseDateInvalid": "أدخل تاريخًا صالحًا (مثال: 2015-06-01)",
+  "authEnterpriseCapitalInvalid": "يجب أن يكون رأس المال المسجل رقمًا (مثال: 500万元)",
   "authEnterpriseCreditCodePh": "رمز الائتمان الاجتماعي الموحد المكون من 18 رقماً، معرف فريد للشهادة",
   "authEnterpriseCertificationsPh": "مثل: ISO9001، CE. الشهادات تساعد في تحسين معدل المطابقة",
   "authEnterpriseIntroPh": "نبذة مختصرة عن الشركة ونقاط القوة الرئيسية واتجاه الأعمال",

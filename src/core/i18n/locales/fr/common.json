@@ -180,6 +180,8 @@
   "authEnterpriseLegalRepPh": "Nom du représentant légal tel qu'il apparaît sur le permis",
   "authEnterpriseEstablishedPh": "ex. 2015-06-01. Utilisé pour évaluer l'ancienneté",
   "authEnterpriseCapitalPh": "ex. 5M CNY. Utilisé pour évaluer la taille de l'entreprise",
+  "authEnterpriseDateInvalid": "Saisissez une date valide (ex. 2015-06-01)",
+  "authEnterpriseCapitalInvalid": "Le capital social doit être un nombre (ex. 500万元)",
   "authEnterpriseCreditCodePh": "Code de crédit social unifié à 18 chiffres, identifiant unique de certification",
   "authEnterpriseCertificationsPh": "ex. ISO9001, CE. Les certifications améliorent le taux de matching",
   "authEnterpriseIntroPh": "Brève introduction de l'entreprise, forces principales et orientation commerciale",
