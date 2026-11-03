@@ -61,7 +61,7 @@ const enterpriseBodySchema = z.object({
       z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "成立日期请填写有效日期（如 2015-06-01）"),
     ]).optional(),
   ),
-  // 注册资本：DB DECIMAL(16,2)；表单提示允许「500万元」，服务端剥掉单位/千分位后落数字
+  // 注册资本：DB DECIMAL(16,2) 且元口径；表单允许「500万元」，服务端按单位换算成元后落库（不带单位即视作元）
   registered_capital: z.preprocess(
     (v) => (v === undefined ? undefined : normalizeRegisteredCapital(v)),
     z.union([
