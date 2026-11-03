@@ -20,6 +20,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
+import { normalizeEstablishedAt, normalizeRegisteredCapital } from "@/shared/utils/enterprise-fields";
 import { deleteFile } from "@/lib/services/file-upload";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { supplierEnterpriseViewOf } from "@/lib/services/enterprise/view";
@@ -51,8 +52,23 @@ const enterpriseBodySchema = z.object({
   registered_email: z.string().max(120).optional(),
   website: z.string().max(255).optional(),
   legal_rep: z.string().max(50).optional(),
-  established_at: z.string().max(20).optional(),
-  registered_capital: z.string().max(40).optional(),
+  // 成立日期：DB DATE；GET 回填是 ISO 串（24 字符），前端保存前会归一，服务端再兜一层
+  // （旧客户端/直接 API 调用仍可能送 ISO、斜杠或中文写法），非法值给中文提示而不是裸 zod 文案。
+  established_at: z.preprocess(
+    (v) => (v === undefined ? undefined : normalizeEstablishedAt(v)),
+    z.union([
+      z.literal(""),
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "成立日期请填写有效日期（如 2015-06-01）"),
+    ]).optional(),
+  ),
+  // 注册资本：DB DECIMAL(16,2)；表单提示允许「500万元」，服务端剥掉单位/千分位后落数字
+  registered_capital: z.preprocess(
+    (v) => (v === undefined ? undefined : normalizeRegisteredCapital(v)),
+    z.union([
+      z.literal(""),
+      z.string().regex(/^\d{1,14}(?:\.\d{1,2})?$/, "注册资本请填写数字（可带“万元”，如 500万元）"),
+    ]).optional(),
+  ),
   credit_code: z.string().max(30).optional(),
   business_type: z.string().max(50).optional(),
   certification: z.string().max(500).optional(),
@@ -171,6 +187,28 @@ async function ensurePendingClaim(
   return true;
 }
 
+/** 强类型列（DATE/DECIMAL）写入的 SQL 错误 → 400 可读提示，避免用户只看到“服务器内部错误” */
+const WRITE_FORMAT_ERRNO = new Set([
+  "ER_TRUNCATED_WRONG_VALUE",
+  "ER_TRUNCATED_WRONG_VALUE_FOR_FIELD",
+  "ER_WARN_DATA_OUT_OF_RANGE",
+  "ER_DATA_TOO_LONG",
+  "ER_BAD_NULL_ERROR",
+  "ER_WRONG_VALUE",
+]);
+
+async function guardEnterpriseWrite<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const code = String((err as { code?: unknown }).code ?? "");
+    if (WRITE_FORMAT_ERRNO.has(code)) {
+      routeError(400, EC_INVALID_PARAMS, "企业信息格式不正确：请检查成立日期、注册资本等字段后再保存");
+    }
+    throw err;
+  }
+}
+
 export const GET = withRoute(async (req) => {
   const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
@@ -226,7 +264,9 @@ export const PUT = withRoute(async (req) => {
   // 编辑闸口：已认证行不得把 company / credit_code 改成另一家公司（否则绕过审核把认证挪走）
   await assertVerifiedSubjectIdentityStable(ctx, supplierId, body as Record<string, unknown>);
 
-  await ctx.supplier.directoryRepo.updateEnterprise(supplierId, body as Record<string, unknown>);
+  await guardEnterpriseWrite(() =>
+    ctx.supplier.directoryRepo.updateEnterprise(supplierId, body as Record<string, unknown>),
+  );
   // 执照以保存为单一入口：仅当本次 body 显式携带 license_url 时协调（含移除）；
   // 已认证供应商换照 → 进入待审（先审后生效）
   let licensePendingReview = false;
@@ -318,10 +358,10 @@ export const POST = withRoute(async (req) => {
   }
 
   // ── 新建：审核中 + 自注册来源 ──
-  const newId = await repo.insertEnterprise(
+  const newId = await guardEnterpriseWrite(() => repo.insertEnterprise(
     { ...(body as Record<string, unknown>), company: companyName },
     { verify_status: "pending", source_channel: "self_register" },
-  );
+  ));
   if (!newId) {
     routeError(500, EC_INTERNAL_ERROR, "企业信息创建失败");
   }
