@@ -26,7 +26,11 @@ export const EXCLUDE_RES = [
   /_retired_/,
   // outreach 系为内网爬虫侧拥有的镜像表（列集合随爬虫源漂移，含 supplier 快照列），
   // 结构事实源在内网，不进本基线（旧字典零残留门禁对它的豁免口径见 check-legacy-dict-residue.mjs）。
+  // 2026-10-31 补：本库里还有无 crm_ 前缀的 outreach_batches / outreach_events / outreach_items
+  // （src/scripts/tests 全仓零引用，同样属内网镜像），只写 /^crm_outreach_/ 会让它们泄进基线，
+  // 导致 --check 与生成口径不一致（生成时要额外传 EXCLUDE）。
   /^crm_outreach_/,
+  /^outreach_/,
 ];
 
 /** 是否属应排除的影子/备份/镜像表；extraRes 供 EXCLUDE 环境变量追加口径（与内置取并集）。 */
