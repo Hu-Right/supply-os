@@ -62,6 +62,46 @@
     旧实体→新不猜 23（country 为 NULL 的歧义行）、旧未匹配→新可解 342。
   ⇒ 写侧切换不会误改既有实体归属；可直接安排一次全量/按买家重建投影（先 dry-run 再 --apply）。
 
+## 中文名纯度（2026-10-31 追加，用户拍板「中文名就是纯中文」）
+
+**标准**：`buyer.name_zh` 只允许汉字、数字与中文标点；**不允许任何外文字母/原文缩写**
+（「中文（Eskom）」这种混排也不行，品牌/缩写必须译成中文或音译）。
+
+落地：
+
+- 判定与兜底：`src/lib/services/buyer/normalize.ts` 新增 `isPureChineseBuyerName` /
+  `isTooGenericBuyerName`（拒绝「有限公司」这类只剩通用词的假名）/ `stripForeignSegments`（确定性剥外文）。
+- 存量清洗（一次性）：`buyer.name_zh` 混排 **12,023 条** → 规则剥离 4,052 + DeepSeek 意译 7,930 +
+  人工收尾 36 + 兜底 41（逐条校验纯度与“非通用词”）→ **0 条混排**。
+- 服务表投影：`notice_public.buyer_name_cn` 一次性回填 **62,061 行**（此前 64,162 行含外文）；
+  一次性显示字段修正走 SQL（与此前 `sync-all-buyer-zh` 同口径），此后买家变更仍只走
+  `notice-public/build.ts` / `buyer/refresh` 唯一写入者链路。
+- 顺带清掉 **56 个**“页面错误句/翻译幻觉”垃圾实体（`name_zh` 为空、canonical 是整句英文，如
+  `The "City Clean" is a common public service announcement`）：状态置 `rejected`，
+  201 行服务表买家字段清空（回到“买家未识别”诚实态）。
+- 防回潮：门禁 `check-buyer-ssot` 新增 **B5**（tracked 台账 `buyer-name-zh-seed.tsv` 的 name_zh
+  不得含拉丁字母）；`scripts/tools/verify-buyer-name-zh.ts` 巡检 buyer/服务表/台账三面；
+  `buyer-name-zh-seed.ts` 加载器拒收非纯中文行。
+- 结果：`buyer.name_zh` 87,010 条**全部纯中文**（0 外文）；服务表 `buyer_name_cn` 726,793 条
+  （占“有买家名”行 **99.85%**）0 外文；台账 0 行混排。
+- 长尾：1,062 条进入人工复核清单（规则剥离后名称偏简 / 兜底产出），不影响纯度但影响译名质量。
+
+## 未匹配买家的展示兜底（2026-10-31 追加）
+
+列表/详情仍有英文机构名的根因不是译名，而是**新爬到的公告买家没有实体/别名**（`buyer_id IS NULL`，
+前端只能回退 `buyerName` 英文原名）。实测最新 200 行里 64 行如此（比利时/坦桑尼亚等新源批次）。
+
+一次性补齐（`temp/resolve-unmatched.ts` / `temp/fix-last-unmatched.ts`，产物 `temp/unmatched-resolved.tsv`）：
+
+- 未匹配 **866 组 / 1,121 行** → 噪声 24 组清空买家字段（显示“未提供”，不再显英文垃圾名）+
+  复用已有实体 2 组 + 新建实体 **854 个**（机翻纯中文名，40 组长名称人工定名）；
+- 同步写 `buyer_alias`（清洗名 + 原串双别名，保证下次重建命中同一实体）；
+- `buyer_candidate` 对应候选置 `merged`（pending 2,998 → 1,357）；
+- 结果：服务表“有买家名”行 **727,887 行全部有实体 + 纯中文名**（unmatched_named = 0），
+  最新 200 行 0 行缺中文；`buyer` 新增 839 个实体（active 87,849）。
+- 口径说明：这是一次性存量补齐（同 10-30 批次的人工判读 + 机翻混合流程），不是“自动建实体”的
+  长期策略——新爬到的买家仍应先入候选队列、人工确认后再建档。
+
 ## 后果与遗留（必须继续推进）
 
 1. **数据迁移**（一次性）：旧表独有 208 条中文名 + 17 条中文名冲突需人工落位 `buyer.name_zh`；

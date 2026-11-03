@@ -118,7 +118,8 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
   `buyer_id / buyer_name(=canonical_name) / buyer_name_cn(=buyer.name_zh) / buyer_group`。
   旧 `agency_aliases` 表与读时解析已退役（门禁 `check-buyer-ssot` 防回潮）；`buyer_group` 的
   聚合语义保留，但不得流入买家展示字段。买家改名/合并后走 `buyer/refresh` 按受影响 id 重建投影
-  （`--changed` 水位看不见买家表变更）。
+  （`--changed` 水位看不见买家表变更）。**中文名必须纯中文**（2026-10-31 用户口径：只允许汉字/
+  数字/中文标点，不允许任何外文字母或原文缩写；门禁 B5 扫台账、`verify-buyer-name-zh` 巡检库）。
 - **2026-10-28 C 组只读取证**（`runtime/probe-opaque-c-group.ts`，进程内调与路由同一条生产链）：6 条拿到真实键集合——`suppliers/stats`(6)、`industries/tree`、`learning/materials/[id]/content`(4)、`suppliers/[id]`(26)、`notices/unified-search`(143、items 已过 `toNoticeListView`) 全部无 snake→升 B；`notices/[id]/ai-summary` 的 GET 缓存分支 8 键全 camel，但同一登记 id 还覆盖 POST 生成分支，**整条不升组**。剩下的 C 全部是「跑不了」而不是「应该没事」：写路径（`leads/log`、`favorite`、`feedback`、`training/orders` 建单）、触付费 LLM（`ai-match`、`ai-summary` POST）、触外部网关（`training/orders/[orderNo]` 查单）、可能触外部翻译服务（`translation`）、库里无数据（`queue`）。
   取证过程中踩到一个**探针自身的假阳性**：直接扫 `searchUnified()` 的返回值会报 99 个 snake 键（那是服务内部字段），而路由实际写的是 `{ ...result, items: toNoticeListView(result.items), page_size }`——按路由出口复现后才是 0。**探针必须复现出口写法，不是拿服务结果乱扫**。
   还踩到一个静默降级：连不上库时 `loadIndustryChildren` 返回 `[]`，「0 个键」看着像过关——探针现在把「一个键都没扫到」判为 inconclusive，不计入已核。
