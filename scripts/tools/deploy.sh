@@ -46,13 +46,47 @@ fi
 # 3. Next.js 构建（output: standalone → .next/standalone/）
 echo "[deploy] 构建..."
 
+# 3.0 低内存构建前置（2026-11-03 事故）：本机 8G 同时跑 MySQL(4.3G)+Meili(1.3G+)，
+#     再跑 Next 构建会把 swap 打满、构建线程卡在换页（实测 9 分钟零产物、80% IO wait）。
+#     构建前临时停掉 Meilisearch 与 PM2 应用释放约 2G；trap 保证任何失败路径都拉起，
+#     建完先恢复 Meili 再重启应用，避免应用启动期查到 meili-unhealthy。
+MEILI_WAS_RUNNING=0
+APP_WAS_STOPPED=0
+DEPLOY_STARTED_APP=0
+
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet meilisearch 2>/dev/null; then
+  echo "[deploy] 构建前暂停 Meilisearch（释放内存）..."
+  systemctl stop meilisearch || true
+  MEILI_WAS_RUNNING=1
+fi
+
+if command -v pm2 >/dev/null 2>&1 && [ -n "$(pm2 pid "${APP_NAME}" 2>/dev/null | tr -d '[:space:]')" ]; then
+  echo "[deploy] 构建前暂停 ${APP_NAME}（释放内存）..."
+  pm2 stop "${APP_NAME}" >/dev/null 2>&1 || true
+  APP_WAS_STOPPED=1
+fi
+
+restore_runtime_services() {
+  if [ "${MEILI_WAS_RUNNING}" = "1" ]; then
+    systemctl start meilisearch >/dev/null 2>&1 || true
+  fi
+  if [ "${APP_WAS_STOPPED}" = "1" ] && [ "${DEPLOY_STARTED_APP}" != "1" ]; then
+    echo "[deploy] 构建未走到重启步骤，尝试拉起旧应用..."
+    pm2 restart "${APP_NAME}" >/dev/null 2>&1 || true
+  fi
+}
+trap restore_runtime_services EXIT
+echo "[deploy] 停服后可用内存：$(free -h | awk '/^Mem:/{print $7}')"
+
 # 3.1 备份现有 .env（如果存在）
 if [ -f .next/standalone/.env ]; then
   cp .next/standalone/.env /tmp/supply-os.env.bak
   echo "[deploy] 已备份 .env"
 fi
 
-npm run build
+# 3.2 构建（限堆防止低内存机器把 swap 打满；容器/加内存的机器可用 BUILD_MAX_OLD_SPACE 覆盖）
+BUILD_MAX_OLD_SPACE="${BUILD_MAX_OLD_SPACE:-2560}"
+NODE_OPTIONS="$(printf '%s --max-old-space-size=%s' "${NODE_OPTIONS:-}" "${BUILD_MAX_OLD_SPACE}")" npm run build
 
 # 3.2 恢复 / 显式提供 .env（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
 #     生产 env 只有两个合法来源：build 前的备份，或显式指定的 APP_ENV_FILE。
@@ -101,6 +135,14 @@ if [ -d node_modules/nodejieba/submodules/cppjieba/dict ]; then
   echo "[deploy] 已复制 nodejieba 词典 → standalone"
 fi
 
+# 3.7 构建产物就绪 → 先恢复 Meilisearch，再重启应用（应用启动期会探测 Meili 健康，
+#     顺序反了会先打一串 meili-unhealthy 再自愈）。
+if [ "${MEILI_WAS_RUNNING}" = "1" ]; then
+  echo "[deploy] 恢复 Meilisearch..."
+  systemctl start meilisearch || true
+  MEILI_WAS_RUNNING=0
+fi
+
 # 4. 重启应用（pm2 托管，保持常驻）
 #    Next.js standalone 模式入口为 .next/standalone/server.js
 #    注意：必须 delete + kill 再 start，pm2 reload 会保留旧的入口文件配置（如 dist/server.mjs）
@@ -127,6 +169,7 @@ if command -v pm2 >/dev/null 2>&1; then
   # （timeout exit 124 → set -e 中止），而不是把终端无限挂住、站点无声停服。
   NODE_ENV=production PORT="${APP_PORT}" timeout 180 pm2 start .next/standalone/server.js --name "${APP_NAME}"
   pm2 save
+  DEPLOY_STARTED_APP=1
   # 起来后探活：端口有 HTTP 应答才算部署闭环（仅告警不判红，防 DB 冷启动误杀部署）
   sleep 5
   if curl -s -o /dev/null --max-time 20 "http://127.0.0.1:${APP_PORT}/"; then
