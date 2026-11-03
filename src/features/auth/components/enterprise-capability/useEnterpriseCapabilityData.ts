@@ -5,8 +5,14 @@
  * @description 能力项 CRUD + 证据上传/删除/鉴权打开的全部状态与动作：
  *              load 拉档案、submitCapability/deleteCapability 走能力接口、
  *              submitEvidence/deleteEvidence/openEvidenceFile 走证据接口。
- *              两个域共用一份 profile/loading/error 与 load()（任一变更都整档重拉，
+ *              两个域共用一份 profile/loading 与 load()（任一变更都整档重拉，
  *              与拆分前行为一致）；表单态也在此持有，视图组件只收 props 渲染。
+ *
+ *              错误态分两类（2026-10-31 修）：
+ *                - `error`      = 整档加载失败，交给 DataState 渲染「错误 + 重试」；
+ *                - `actionError` = 新增/删除/上传/打开文件时的校验或接口错误，在表单旁内联展示。
+ *              旧实现把两者塞进同一个 error，导致「能力名称没填」这种表单校验也会让
+ *              DataState 把整块表单替换成空态（用户看到「请填写能力名称 + 重试」，无法继续输入）。
  */
 import { useCallback, useEffect, useState } from "react";
 import { api, getAuthToken } from "@/core/http";
@@ -17,7 +23,10 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
   const { t } = useLocale();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  /** 整档加载失败（DataState 错误态） */
   const [error, setError] = useState<string | null>(null);
+  /** 表单/动作错误（列表与表单仍可见，内联提示） */
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [capType, setCapType] = useState<CapabilityType>("certification");
   const [capName, setCapName] = useState("");
@@ -58,7 +67,7 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
       case "certification": {
         const validUntil = str("validUntil");
         if (!f.noExpiry && !validUntil) {
-          setError(t("capCertExpiryRequired"));
+          setActionError(t("capCertExpiryRequired"));
           return null;
         }
         return { code: str("code") || capName, issuer: str("issuer") || null, noExpiry: f.noExpiry === true, validUntil: f.noExpiry ? null : validUntil };
@@ -81,9 +90,9 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
   };
 
   const submitCapability = async () => {
-    setError(null);
+    setActionError(null);
     if (!capName.trim()) {
-      setError(t("capNameRequired"));
+      setActionError(t("capNameRequired"));
       return;
     }
     const value = buildCapabilityValue();
@@ -95,30 +104,30 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
       setFields({ noExpiry: true });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("capSaveFailed"));
+      setActionError(e instanceof Error ? e.message : t("capSaveFailed"));
     } finally {
       setSavingCap(false);
     }
   };
 
   const deleteCapability = async (id: number) => {
-    setError(null);
+    setActionError(null);
     try {
       await api(`/api/user/enterprise/capabilities/${id}`, { method: "DELETE" });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("capDeleteFailed"));
+      setActionError(e instanceof Error ? e.message : t("capDeleteFailed"));
     }
   };
 
   const submitEvidence = async () => {
-    setError(null);
+    setActionError(null);
     if (!evidenceTitle.trim()) {
-      setError(t("capEvidenceTitleRequired"));
+      setActionError(t("capEvidenceTitleRequired"));
       return;
     }
     if (evidenceCategory === "cert" && !evidenceNoExpiry && !evidenceValidUntil) {
-      setError(t("capEvidenceExpiryRequired"));
+      setActionError(t("capEvidenceExpiryRequired"));
       return;
     }
     const form = new FormData();
@@ -135,25 +144,25 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
       setEvidenceValidUntil("");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("capUploadFailed"));
+      setActionError(e instanceof Error ? e.message : t("capUploadFailed"));
     } finally {
       setSavingEvidence(false);
     }
   };
 
   const deleteEvidence = async (id: number) => {
-    setError(null);
+    setActionError(null);
     try {
       await api(`/api/user/enterprise/evidence/${id}`, { method: "DELETE" });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("capDeleteFailed"));
+      setActionError(e instanceof Error ? e.message : t("capDeleteFailed"));
     }
   };
 
   /** 证据文件走鉴权路由：带 Bearer 拉 Blob 后新窗口打开（<a> 无法附加 Authorization） */
   const openEvidenceFile = async (url: string) => {
-    setError(null);
+    setActionError(null);
     try {
       const token = getAuthToken();
       const res = await fetch(url, {
@@ -166,12 +175,12 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
       window.open(objectUrl, "_blank", "noopener,noreferrer");
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("capFileOpenFailed"));
+      setActionError(e instanceof Error ? e.message : t("capFileOpenFailed"));
     }
   };
 
   return {
-    profile, loading, error, load,
+    profile, loading, error, actionError, load,
     capType, setCapType, capName, setCapName, fields, setField, resetFields, savingCap, submitCapability, deleteCapability,
     evidenceFile, setEvidenceFile, evidenceCategory, setEvidenceCategory, evidenceTitle, setEvidenceTitle,
     evidenceValidUntil, setEvidenceValidUntil, evidenceNoExpiry, setEvidenceNoExpiry, savingEvidence,

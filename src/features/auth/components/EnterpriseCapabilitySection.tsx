@@ -31,7 +31,7 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
   const { t } = useLocale();
   const data = useEnterpriseCapabilityData(enabled);
   const {
-    profile, loading, error, load,
+    profile, loading, error, actionError, load,
     capType, setCapType, capName, setCapName, fields, setField, resetFields, savingCap, submitCapability, deleteCapability,
   } = data;
 
@@ -56,6 +56,16 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
         className="space-y-3"
       >
         <>
+      {/* 表单/动作错误：内联提示，保留列表与表单（校验失败不应把整块换成空态） */}
+      {actionError && (
+        <p
+          role="alert"
+          className="rounded-md border border-danger-200 bg-danger-50 px-2.5 py-2 text-xs font-medium text-danger-600"
+        >
+          {actionError}
+        </p>
+      )}
+
       {/* 能力列表 */}
       {profile && profile.capabilities.length > 0 && (
         <ul className="space-y-1.5">
