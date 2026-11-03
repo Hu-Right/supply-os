@@ -12,7 +12,8 @@ import path from "node:path";
  *       （2026-10-27 管道翻转：唯一写入者从 gitignore 的 ops 脚本迁入 src，仓库内可审、
  *       CI 全量生效；ops 的 notice-public-v2.ts 降级为 CLI 壳，不再含写语句。）
  *   N2) db/schema/baseline.sql 里 notice_public 的列集合，必须与 build.ts 的 PUBLIC_COLS
- *       集合完全一致。手改表忘改 builder（或反之）= 漂移，此门禁当场拦截。
+ *       一致；**已停写但列保留**的历史列（RETIRED_COLS）允许只存在于 baseline。
+ *       手改表忘改 builder（或反之）= 漂移，此门禁当场拦截。
  *
  * 执行机感知：写入者与 COLS 均在 src（已跟踪），N1/N2 在 CI 干净 clone 全量生效，
  * 不再有「ops 目录缺失降级 SKIP」的形态。
@@ -25,6 +26,17 @@ const WRITER = "src/lib/services/notice-public/build.ts";
 const EXT = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
 const SKIP_DIR = new Set(["node_modules", ".next", "dist", "coverage", ".git"]);
 const violations = [];
+
+/**
+ * 服务表「已停写、列保留」的历史列白名单（2026-10-31 机构类型维度退役）。
+ * 为什么允许 baseline 比 PUBLIC_COLS 多：
+ *   - `buyer_group`：agency_type 分类链整体退役，服务表停写；列与历史值保留（不 DROP，
+ *     避免对 78 万行做破坏性 DDL 与影响回滚），build.ts 注释同口径。
+ *   - `industry_tree_code`：旧行业树快照列，读侧已无消费、服务表停写；同为历史保留。
+ * 只允许这里列出的列；新增/未知的 baseline-only 列仍按漂移拦截。若退役列重新出现在
+ * PUBLIC_COLS（回流写入），同样拦截。
+ */
+const RETIRED_COLS = new Set(["buyer_group", "industry_tree_code"]);
 
 function walk(target) {
   if (!fs.existsSync(target)) return;
@@ -83,12 +95,19 @@ if (bCols && vCols) {
   const b = new Set(bCols), v = new Set(vCols);
   const onlyBase = [...b].filter((c) => !v.has(c));
   const onlyBuild = [...v].filter((c) => !b.has(c));
-  if (onlyBase.length || onlyBuild.length) {
+  const unexpectedBase = onlyBase.filter((c) => !RETIRED_COLS.has(c));
+  const retiredInBuild = [...RETIRED_COLS].filter((c) => v.has(c));
+  const retained = onlyBase.filter((c) => RETIRED_COLS.has(c));
+  if (unexpectedBase.length || onlyBuild.length || retiredInBuild.length) {
     violations.push(
       `N2 schema 漂移：baseline(${b.size}列) vs v2 COLS(${v.size}列) 不一致` +
-        `${onlyBase.length ? `\n     仅在 baseline: ${onlyBase.join(", ")}` : ""}` +
-        `${onlyBuild.length ? `\n     仅在 v2 COLS: ${onlyBuild.join(", ")}` : ""}`,
+        `${unexpectedBase.length ? `\n     仅在 baseline（未登记退役列）: ${unexpectedBase.join(", ")}` : ""}` +
+        `${onlyBuild.length ? `\n     仅在 v2 COLS: ${onlyBuild.join(", ")}` : ""}` +
+        `${retiredInBuild.length ? `\n     退役列回流写入: ${retiredInBuild.join(", ")}` : ""}`,
     );
+  }
+  if (retained.length > 0 && violations.length === 0) {
+    console.log(`  · 服务表历史保留列（build 停写、baseline 保留）：${retained.join(", ")}`);
   }
 }
 
@@ -98,4 +117,8 @@ if (violations.length) {
   console.error(`  服务表内容由 ${WRITER} 唯一写入；改表结构须同步改 PUBLIC_COLS 与 baseline。`);
   process.exit(1);
 }
-console.log(`✓ 服务表单一写入者与 schema 一致性检查通过（${bCols?.length} 列，baseline==PUBLIC_COLS）`);
+const retainedCount = bCols && vCols
+  ? bCols.filter((c) => !new Set(vCols).has(c) && RETIRED_COLS.has(c)).length
+  : 0;
+console.log(`✓ 服务表单一写入者与 schema 一致性检查通过（${bCols?.length} 列 = PUBLIC_COLS ${vCols?.length}` +
+  `${retainedCount > 0 ? ` + 退役保留 ${retainedCount}` : ""}）`);

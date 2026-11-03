@@ -61,6 +61,37 @@ test("fixture：baseline 与 PUBLIC_COLS 列一致 → 通过", () => {
   assert.equal(r.code, 0, r.out);
 });
 
+test("fixture：baseline 多「退役保留列」（buyer_group）→ 放行", () => {
+  const root = fixture({
+    "db/schema/baseline.sql": baseline([...OKCOLS, "buyer_group"]),
+    [BUILDER]: builder(OKCOLS),
+  });
+  const r = run({ NP_SCAN_ROOT: root });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /退役保留/);
+});
+
+test("fixture：baseline 多未登记退役列 → 仍按漂移拦截", () => {
+  const root = fixture({
+    "db/schema/baseline.sql": baseline([...OKCOLS, "mystery_col"]),
+    [BUILDER]: builder(OKCOLS),
+  });
+  const r = run({ NP_SCAN_ROOT: root });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /未登记退役列/);
+  assert.match(r.out, /mystery_col/);
+});
+
+test("fixture：退役列回流写入 PUBLIC_COLS → 拦截", () => {
+  const root = fixture({
+    "db/schema/baseline.sql": baseline([...OKCOLS, "buyer_group"]),
+    [BUILDER]: builder([...OKCOLS, "buyer_group"]),
+  });
+  const r = run({ NP_SCAN_ROOT: root });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /退役列回流写入/);
+});
+
 test("fixture：缺 build.ts（写入者文件丢失）→ N2 拦截", () => {
   const root = fixture({
     "db/schema/baseline.sql": baseline(OKCOLS),

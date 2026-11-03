@@ -43,14 +43,17 @@ const GLOSSARY = [
     concept: "币种（ISO 4217 码）",
     canonical: "currency",
     aliases: ["currency_code", "currency_iso", "ccy"],
-    // 依据：全库 currency 12 列均为 varchar(10) 存 ISO 码；currency_code 仅 1 列（服务宽表）
-    // char(3) 同含义同单位，属真别名。新列一律写 currency；宽表该列随下次表重构收敛。
+    // 依据：全库 currency 12 列均为 varchar(10) 存 ISO 码；currency_code 仅 2 列
+    // （服务宽表 + 外部候选表），同含义同单位，属真别名。新列一律写 currency；
+    // 服务宽表随下次表重构收敛，外部候选表随源侧重构收敛。
   },
 ];
 
 /** BG1 存量冻结（`table.column`）：随迁移删除对应行，只减不增 */
 const FROZEN_ALIASES = new Set([
   "notice_public.currency_code", // 服务宽表投影列，改名需同步 notice-public 构建器与检索映射
+  // 外部/爬虫侧候选历史表（本仓 src 零引用），列集合随源漂移；改名不在本仓范围，随源侧收敛
+  "bid_opportunity_candidates.currency_code",
 ]);
 
 /** BG2 存量冻结（`table.column`）：`_at` 却存 Unix 秒 = 名实不符的技术债清单 */
