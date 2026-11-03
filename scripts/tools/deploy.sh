@@ -140,6 +140,7 @@ fi
 if [ "${MEILI_WAS_RUNNING}" = "1" ]; then
   echo "[deploy] 恢复 Meilisearch..."
   systemctl start meilisearch || true
+  sleep 2
   MEILI_WAS_RUNNING=0
 fi
 
