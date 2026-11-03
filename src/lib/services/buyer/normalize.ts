@@ -36,9 +36,11 @@ export function normalizeBuyerKey(raw: unknown): string {
 const HAN_RE = /[\u3400-\u4dbf\u4e00-\u9fff]/;
 /** 非中文文字：拉丁字母及其变体、西里尔、希腊、希伯来、阿拉伯、天城文、泰文、假名、谚文等 */
 const FOREIGN_SCRIPT_RE =
+  // eslint-disable-next-line no-misleading-character-class -- 刻意按 Unicode 文字区段覆盖（含组合附加符号），目标是识别“非中文文字”整体而非逐字素
   /[A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff\u0590-\u05ff\u0600-\u06ff\u0900-\u097f\u0e00-\u0e7f\u3040-\u30ff\u31f0-\u31ff\uac00-\ud7af\uf900-\ufaff]/;
 /** 同上集合的全局形态（stripForeignSegments 用） */
 const FOREIGN_SCRIPT_RE_GLOBAL =
+  // eslint-disable-next-line no-misleading-character-class -- 同上：按文字区段整体匹配
   /[A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff\u0590-\u05ff\u0600-\u06ff\u0900-\u097f\u0e00-\u0e7f\u3040-\u30ff\u31f0-\u31ff\uac00-\ud7af\uf900-\ufaff]+/g;
 /** 允许字符集：汉字 + 数字 + 中文标点（含常见全/半角括号与分隔符） */
 const ALLOWED_NAME_RE = /^[\u3400-\u4dbf\u4e00-\u9fff0-9（）()“”‘’「」『』《》〈〉·\-—－、，。；：,.:\s]+$/;
@@ -64,6 +66,7 @@ export function stripForeignSegments(raw: unknown): string {
   let s = String(raw ?? "").normalize("NFKC");
   // 1) 删除含外文字母的括号段（中英文括号，循环处理连续/嵌套）
   for (let i = 0; i < 6; i += 1) {
+    // eslint-disable-next-line no-misleading-character-class -- 同上：按文字区段整体匹配
     const next = s.replace(/[（(][^（）()]*[A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff\u0590-\u05ff\u0600-\u06ff\u0900-\u097f\u0e00-\u0e7f\u3040-\u30ff\u31f0-\u31ff\uac00-\ud7af\uf900-\ufaff][^（）()]*[）)]/g, "");
     if (next === s) break;
     s = next;
