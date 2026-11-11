@@ -47,6 +47,19 @@ export function formatNoticeCstDate(ts: number | null | undefined, hasTime = fal
 }
 
 /**
+ * 由 UTC 秒格式化「发布时间」：源有真实时刻（非 00:00）才显示 HH:mm，否则只显示日期。
+ * 发布时间按墙上时间存储（源文本按 UTC 解析），因此固定用 UTC 还原、不做时区换算。
+ * 与 SEO 页 `formatNoticeDate(raw)` 同一行为，消除「SEO 页到分、App 详情只到日」的不一致。
+ */
+export function formatNoticeTs(raw: number | string | null | undefined): string {
+  const ts = Number(raw);
+  if (!Number.isFinite(ts) || ts <= 0) return UNPUBLISHED_LABEL;
+  const d = new Date(ts * 1000);
+  const hasTime = d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0;
+  return formatNoticeUTCDate(ts, hasTime);
+}
+
+/**
  * 报告/导出场景的截止时间文本（与前端同一口径）：
  *   - 默认北京时间，带「（北京时间）」标注；
  *   - timezoneSource=assumed_utc（源只有墙上时分）→ 按 UTC 还原并标「（原文当地时间）」，

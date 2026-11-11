@@ -19,6 +19,7 @@
 import { FileText, ListChecks, Lock, User } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem } from "../types";
+import { formatNoticeTs } from "@/shared/utils/notice-datetime/format";
 
 export interface NoticeCoreContentProps {
   notice: NoticeItem;
@@ -44,7 +45,7 @@ export function NoticeCoreContent({
   // 由预览端点真实下发直接展示；核心敏感信息（联系人身份/文件清单/报告/来源链接）
   // 服务端从不下发，锁定态仅渲染数量预告锁卡。
   const secondaryMetrics = [
-    { label: t("procurement_publishedDate"), value: (notice.publishedTs ? new Date(Number(notice.publishedTs) * 1000).toISOString().slice(0, 10) : "") },
+    { label: t("procurement_publishedDate"), value: notice.publishedTs ? formatNoticeTs(notice.publishedTs) : "" },
     { label: t("procurement_bidRegBar"), value: notice.registrationLevel || "" },
   ].filter((metric) => Boolean(metric.value));
   const hasSecondaryPreview = secondaryMetrics.length > 0;

@@ -25,7 +25,7 @@ import { NoticeDetailSidebar } from "../NoticeDetailSidebar";
 import { AiSummarySection } from "../AiSummarySection";
 import { NextStepsPanel } from "../NextStepsPanel";
 import { getCountdown } from "@/shared/utils/countdown";
-import { formatNoticeDateOrNull } from "@/shared/utils/notice-datetime/format";
+import { formatNoticeTs } from "@/shared/utils/notice-datetime/format";
 import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
 import { formatNoticeAmount, formatNoticeDeadline, formatNoticeDeadlineLocal, formatNoticeReference } from "../../utils/noticeDisplay";
 
@@ -176,8 +176,8 @@ export function NoticeDetail({
     ? (notice.buyerNameCn || notice.buyerName || t("procurement_buyerUnavailable"))
     : (notice.buyerName || t("procurement_buyerUnavailable"));
 
-  // 信息表数据（发布日走统一解析+UTC 格式化，与 SEO 页同口径；不可解析回落占位）
-  const publishDate = formatNoticeDateOrNull(notice.publishedTs ? new Date(Number(notice.publishedTs) * 1000).toISOString().slice(0, 10) : "") || "-";
+  // 信息表数据（发布时间：源有真实时刻则到分，否则只到日，与 SEO 页同口径）
+  const publishDate = notice.publishedTs ? formatNoticeTs(notice.publishedTs) : "-";
   const deadlineText = formatNoticeDeadline(
     notice.deadlineTs, notice.deadlineType, notice.deadlineTimezone, locale, t, notice.timezoneSource,
   ) || t("procurement_noDeadline");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatNoticeUTCDate, formatNoticeDate, formatNoticeDateOrNull, formatNoticeCstDate, formatDeadlineForExport, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
+import { formatNoticeUTCDate, formatNoticeDate, formatNoticeDateOrNull, formatNoticeCstDate, formatNoticeTs, formatDeadlineForExport, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
 
 const utc = (y: number, mo: number, d: number, h = 0, mi = 0) =>
   Math.floor(Date.UTC(y, mo, d, h, mi) / 1000);
@@ -95,5 +95,18 @@ describe("formatDeadlineForExport（报告导出与前端同口径）", () => {
   it("空值 → 空串", () => {
     expect(formatDeadlineForExport(null)).toBe("");
     expect(formatDeadlineForExport(0)).toBe("");
+  });
+});
+
+describe("formatNoticeTs（发布时间：源有真实时刻才到分）", () => {
+  it("非零时刻 → 显示到分", () => {
+    expect(formatNoticeTs(utc(2026, 10, 19, 10, 30))).toBe("2026-11-19 10:30");
+  });
+  it("零点 → 只显示日期（不臆造 00:00）", () => {
+    expect(formatNoticeTs(utc(2026, 10, 19))).toBe("2026-11-19");
+  });
+  it("无效值 → 未公布", () => {
+    expect(formatNoticeTs(null)).toBe(UNPUBLISHED_LABEL);
+    expect(formatNoticeTs(0)).toBe(UNPUBLISHED_LABEL);
   });
 });
