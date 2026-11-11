@@ -6,13 +6,18 @@
  * @description 使用 globalThis 缓存客户端，防止 Next.js 热重载导致重复初始化。
  */
 import { Meilisearch, type Settings } from "meilisearch";
+import { isMainThread } from "node:worker_threads";
 import { SUPPORTED_LANGS } from "../../utils/languages";
 
 const INDEX_NAME = "notices";
 const MAX_TOTAL_HITS = Number(process.env.MEILI_MAX_TOTAL_HITS || "10000000");
 const REQUEST_TIMEOUT = Number(process.env.MEILI_TIMEOUT_MS || "60000");
 
-// globalThis 单例，防止热重载重复初始化
+// ── 状态唯一存储 = globalThis（2026-11-11 线上事故修复）──
+// Turbopack 生产构建会把 server 模块按 chunk 复制多份（实测本模块在产物中出现 8 份），
+// 模块级 let 在各副本间互不可见：instrumentation 引导副本 initMeilisearch 建出的
+// client，搜索路由的副本永远读不到（恒 null、healthy 恒 false）→ 全部搜索静默降级
+// MySQL。因此状态一律即时读写 globalThis，任何副本初始化/翻转对所有副本立即可见。
 const globalForMeili = globalThis as unknown as {
   _meiliClient: Meilisearch | null;
   _meiliHealthy: boolean;
@@ -20,11 +25,38 @@ const globalForMeili = globalThis as unknown as {
   _meiliFailureStreak: number;
 };
 
-// 回退到模块级变量（生产环境不使用 globalThis）
-let client: Meilisearch | null = globalForMeili._meiliClient ?? null;
-let healthy = globalForMeili._meiliHealthy ?? false;
-let lastFailureTs = globalForMeili._meiliLastFailureTs ?? 0;
-let failureStreak = globalForMeili._meiliFailureStreak ?? 0;
+function getClient(): Meilisearch | null {
+  const existing = globalForMeili._meiliClient;
+  if (existing) return existing;
+  // 懒初始化（2026-11-11 线上事故）：路由与 instrumentation 引导可能运行在隔离
+  // 上下文（各持有独立 globalThis），引导副本 initMeilisearch 建出的 client 对
+  // 路由上下文不可见 → 路由永远 client=null、静默全量降级 MySQL。任何上下文
+  // 发现 client 为空时就地自举（幂等，直接读 process.env；env 在 worker_threads
+  // 默认快照共享）。诊断行仅在有请求实际触发懒初始化时打印。
+  const client = initMeilisearch();
+  if (client) {
+    console.warn(
+      `[meilisearch] 上下文内懒初始化 client（isMainThread=${isMainThread} host=${process.env.MEILI_HOST ?? "未设置"} keySet=${process.env.MEILI_MASTER_KEY ? "yes" : "no"}）`,
+    );
+  }
+  return client;
+}
+
+function isHealthy(): boolean {
+  return globalForMeili._meiliHealthy ?? false;
+}
+
+function setHealthy(value: boolean): void {
+  globalForMeili._meiliHealthy = value;
+}
+
+function getLastFailureTs(): number {
+  return globalForMeili._meiliLastFailureTs ?? 0;
+}
+
+function getFailureStreak(): number {
+  return globalForMeili._meiliFailureStreak ?? 0;
+}
 
 const RECOVER_COOLDOWN_MS = 10_000;
 const HEALTH_PROBE_TIMEOUT_MS = 2_000;
@@ -40,36 +72,21 @@ export function initMeilisearch(): Meilisearch | null {
   const host = process.env.MEILI_HOST || "http://127.0.0.1:7700";
   const key = process.env.MEILI_MASTER_KEY || "";
   try {
-    client = new Meilisearch({ host, apiKey: key || undefined, timeout: REQUEST_TIMEOUT });
-    // 非生产环境缓存到 globalThis
-    if (process.env.NODE_ENV !== "production") {
-      globalForMeili._meiliClient = client;
-    }
+    const client = new Meilisearch({ host, apiKey: key || undefined, timeout: REQUEST_TIMEOUT });
+    globalForMeili._meiliClient = client;
     return client;
   } catch (err) {
     console.warn("[meilisearch] init failed:", (err as Error).message);
-    client = null;
-    if (process.env.NODE_ENV !== "production") {
-      globalForMeili._meiliClient = null;
-    }
+    globalForMeili._meiliClient = null;
     return null;
   }
 }
 
-export function getClient(): Meilisearch | null {
-  return client;
-}
-
-export function isHealthy(): boolean {
-  return healthy;
-}
+export { getClient, isHealthy };
 
 /** 一次成功的 Meilisearch 交互：清零失败连击（调用方在检索成功后调用） */
 export function noteMeiliSuccess(): void {
-  failureStreak = 0;
-  if (process.env.NODE_ENV !== "production") {
-    globalForMeili._meiliFailureStreak = 0;
-  }
+  globalForMeili._meiliFailureStreak = 0;
 }
 
 /**
@@ -80,26 +97,21 @@ export function noteMeiliSuccess(): void {
 export function markUnhealthy(): void {
   const now = Date.now();
   // 超出窗口期的孤立错误不计入连击
-  if (now - lastFailureTs > FAILURE_STREAK_WINDOW_MS) failureStreak = 0;
-  failureStreak += 1;
-  lastFailureTs = now;
-  if (process.env.NODE_ENV !== "production") {
-    globalForMeili._meiliFailureStreak = failureStreak;
-    globalForMeili._meiliLastFailureTs = lastFailureTs;
-  }
-  if (healthy && failureStreak < UNHEALTHY_STREAK_THRESHOLD) {
+  let streak = getFailureStreak();
+  if (now - getLastFailureTs() > FAILURE_STREAK_WINDOW_MS) streak = 0;
+  streak += 1;
+  globalForMeili._meiliFailureStreak = streak;
+  globalForMeili._meiliLastFailureTs = now;
+  if (isHealthy() && streak < UNHEALTHY_STREAK_THRESHOLD) {
     console.warn(
-      `[meilisearch] 瞬时失败 ${failureStreak}/${UNHEALTHY_STREAK_THRESHOLD}，暂不降级（连续失败才切换）`,
+      `[meilisearch] 瞬时失败 ${streak}/${UNHEALTHY_STREAK_THRESHOLD}，暂不降级（连续失败才切换）`,
     );
     return;
   }
-  if (healthy) {
+  if (isHealthy()) {
     console.warn("[meilisearch] 运行时探测失败，标记为不健康，搜索将降级到 MySQL");
   }
-  healthy = false;
-  if (process.env.NODE_ENV !== "production") {
-    globalForMeili._meiliHealthy = false;
-  }
+  setHealthy(false);
 }
 
 /**
@@ -108,10 +120,11 @@ export function markUnhealthy(): void {
  * @returns true 表示健康（可继续使用），false 表示仍不健康
  */
 export async function tryRecover(): Promise<boolean> {
-  if (healthy) return true;
+  if (isHealthy()) return true;
+  const client = getClient();
   if (!client) return false;
   // 冷却期内不探测
-  if (Date.now() - lastFailureTs < RECOVER_COOLDOWN_MS) return false;
+  if (Date.now() - getLastFailureTs() < RECOVER_COOLDOWN_MS) return false;
   try {
     // M-DEG-1 修复：健康探测增加独立短超时，避免 Meilisearch 进程崩溃时
     // TCP 连接等待 30s 才超时，阻塞搜索降级路径
@@ -120,20 +133,15 @@ export async function tryRecover(): Promise<boolean> {
       setTimeout(() => reject(new Error(`health probe timeout after ${HEALTH_PROBE_TIMEOUT_MS}ms`)), HEALTH_PROBE_TIMEOUT_MS)
     );
     const health = await Promise.race([healthPromise, timeoutPromise]);
-    healthy = health.status === "available";
-    if (healthy) {
+    const nowHealthy = health.status === "available";
+    setHealthy(nowHealthy);
+    if (nowHealthy) {
       noteMeiliSuccess();
       console.log("[meilisearch] 运行时探测恢复成功，重新启用 Meilisearch 搜索");
     }
-    if (process.env.NODE_ENV !== "production") {
-      globalForMeili._meiliHealthy = healthy;
-    }
-    return healthy;
+    return nowHealthy;
   } catch {
-    lastFailureTs = Date.now();
-    if (process.env.NODE_ENV !== "production") {
-      globalForMeili._meiliLastFailureTs = lastFailureTs;
-    }
+    globalForMeili._meiliLastFailureTs = Date.now();
     return false;
   }
 }
@@ -222,22 +230,17 @@ export function buildNoticeIndexSettings(): Settings {
 
 /** 启动时健康检查 + 索引初始化 */
 export async function ensureIndex(): Promise<boolean> {
+  const client = getClient();
   if (!client) return false;
   try {
     const health = await client.health();
-    healthy = health.status === "available";
-    if (process.env.NODE_ENV !== "production") {
-      globalForMeili._meiliHealthy = healthy;
-    }
+    setHealthy(health.status === "available");
   } catch {
-    healthy = false;
-    if (process.env.NODE_ENV !== "production") {
-      globalForMeili._meiliHealthy = false;
-    }
+    setHealthy(false);
     console.warn("[meilisearch] health check failed — search will fallback to MySQL LIKE");
     return false;
   }
-  if (!healthy) return false;
+  if (!isHealthy()) return false;
 
   try {
     // 索引不存在时先创建（已存在则 createIndex 会返回已取消的任务，不影响后续操作）
@@ -259,7 +262,8 @@ export async function ensureIndex(): Promise<boolean> {
 
 /** 获取索引中的文档总数（用于诊断） */
 export async function getIndexStats(): Promise<{ numberOfDocuments: number } | null> {
-  if (!client || !healthy) return null;
+  const client = getClient();
+  if (!client || !isHealthy()) return null;
   try {
     const stats = await client.index(INDEX_NAME).getStats();
     return { numberOfDocuments: stats.numberOfDocuments };
@@ -270,7 +274,8 @@ export async function getIndexStats(): Promise<{ numberOfDocuments: number } | n
 
 /** 获取 Meilisearch 索引中已同步的最大文档 ID */
 export async function getLastSyncedId(): Promise<number> {
-  if (!client || !healthy) return 0;
+  const client = getClient();
+  if (!client || !isHealthy()) return 0;
   try {
     const result = await client.index(INDEX_NAME).search("", {
       sort: ["id:desc"],
@@ -286,7 +291,8 @@ export async function getLastSyncedId(): Promise<number> {
 
 /** 获取 Meilisearch 索引中的文档总数 */
 export async function getDocCount(): Promise<number> {
-  if (!client || !healthy) return 0;
+  const client = getClient();
+  if (!client || !isHealthy()) return 0;
   try {
     const stats = await client.index(INDEX_NAME).getStats();
     return stats.numberOfDocuments || 0;
@@ -308,7 +314,8 @@ export async function getCachedDocCount(): Promise<number> {
 
 /** 检测索引中是否存在旧哨兵值(9999999999)的文档 */
 export async function hasOldSentinel(): Promise<boolean> {
-  if (!client || !healthy) return false;
+  const client = getClient();
+  if (!client || !isHealthy()) return false;
   try {
     const result = await client.index(INDEX_NAME).search("", {
       filter: "deadline_sec >= 9999999999",
@@ -323,7 +330,8 @@ export async function hasOldSentinel(): Promise<boolean> {
 
 /** 检测索引是否已包含 has_deadline 字段（用于判断是否需要全量重建） */
 export async function hasHasDeadlineField(): Promise<boolean> {
-  if (!client || !healthy) return false;
+  const client = getClient();
+  if (!client || !isHealthy()) return false;
   try {
     const stats = await client.index(INDEX_NAME).getStats();
     return !!(stats as { fieldDistribution?: Record<string, unknown> }).fieldDistribution?.has_deadline;
