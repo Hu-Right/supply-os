@@ -14,6 +14,7 @@
  */
 import { toUnixMs } from "@/shared/utils/unixTs";
 import { parseDeadlineZone } from "@/shared/utils/notice-datetime/timezone";
+import { formatInTimeZone, NOTICE_DISPLAY_TIME_ZONE } from "@/shared/utils/notice-datetime/format";
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
 
@@ -114,46 +115,63 @@ export function formatNoticeDeadline(
       ? "procurement_deadlineFramework"
       : "";
   const prefix = typeKey ? `${t(typeKey)}${locale === "zh" ? "：" : ": "}` : "";
-  const formatted = formatAtDeadlineZone(ms, deadlineTimezone, locale, timezoneSource);
+  const formatted = formatAtDeadlineZone(ms, deadlineTimezone, timezoneSource);
   return `${prefix}${formatted}`;
 }
 
-/** 按「发标地时区」格式化 UTC 瞬间（内部实现，列表/详情共用）。 */
+/** 全站统一的截止时间展示时区（与剩余天数的北京日历天同源） */
+const DISPLAY_TIME_ZONE = NOTICE_DISPLAY_TIME_ZONE;
+
+/**
+ * 格式化截止时间（列表/详情/首页共用，2026-11-11 统一口径）：
+ *   - 一律北京时间（UTC+8），与「剩余天数按北京日历天」同源；
+ *   - 源文本有时分但无时区令牌（timezoneSource=assumed_utc）→ ts 即墙上时间，
+ *     按 UTC 还原，不做 +8，避免把原文 10:00 显示成 18:00；
+ *   - 源只有日期（timezoneSource=date）→ 只出日期，不臆造时刻；
+ *   - 界面语言只影响标签，绝不影响数值（此前 zh 按 +08:00 / en 按 UTC 会给出两个钟点）。
+ */
 function formatAtDeadlineZone(
   ms: number,
   deadlineTimezone: string | null | undefined,
-  locale: string,
   timezoneSource: string | null | undefined,
 ): string {
-  const intlLocale = locale === "zh" ? "zh-CN" : locale;
   const source = String(timezoneSource ?? "").trim();
-  // date：源只有日期；assumed_utc：ts 就是墙上时间（按 UTC 存）——两者都无需时区换算
   const withTime = source !== "date";
-  const options: Intl.DateTimeFormatOptions = {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    ...(withTime ? { hour: "2-digit", minute: "2-digit", hour12: false } : {}),
-  };
-
   const zone = parseDeadlineZone(deadlineTimezone);
-  if (zone?.kind === "iana") {
-    return new Intl.DateTimeFormat(intlLocale, { ...options, timeZone: zone.zone }).format(ms);
+  if (!zone && source === "assumed_utc") return formatInTimeZone(ms, "UTC", withTime);
+  return formatInTimeZone(ms, DISPLAY_TIME_ZONE, withTime);
+}
+
+/**
+ * 发标地当地时间的补充标注（详情页用）：
+ *   - 有可计算时区令牌且不等于 +08:00 → `当地 05:00（GMT-04:00）`
+ *   - 源只有墙上时分（assumed_utc）→ `原文当地时间`
+ *   - 无令牌 / 只有日期 / 本来就 +08:00 → null（不追加噪音）
+ */
+export function formatNoticeDeadlineLocal(
+  deadlineTs: number | string | null | undefined,
+  deadlineTimezone: string | null | undefined,
+  timezoneSource: string | null | undefined,
+): string | null {
+  if (deadlineTs == null || deadlineTs === "") return null;
+  const ms = toUnixMs(deadlineTs);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const source = String(timezoneSource ?? "").trim();
+  if (source === "date") return null;
+  const zone = parseDeadlineZone(deadlineTimezone);
+  if (!zone) return source === "assumed_utc" ? "原文当地时间" : null;
+  if (zone.kind === "offset") {
+    if (zone.minutes === 480) return null;
+    const shifted = ms + zone.minutes * 60_000;
+    const localDate = formatInTimeZone(shifted, "UTC", false);
+    const localTime = formatInTimeZone(shifted, "UTC", true).slice(11);
+    const sameDay = localDate === formatInTimeZone(ms, DISPLAY_TIME_ZONE, false);
+    return `当地 ${sameDay ? localTime : `${localDate} ${localTime}`}（${deadlineTimezone}）`;
   }
-  if (zone?.kind === "offset") {
-    // 固定偏移：先平移时间戳，再以 UTC 口径格式化（避免依赖运行环境的 offset 时区支持）
-    return new Intl.DateTimeFormat(intlLocale, { ...options, timeZone: "UTC" }).format(
-      ms + zone.minutes * 60_000,
-    );
-  }
-  if (source === "assumed_utc") {
-    return new Intl.DateTimeFormat(intlLocale, { ...options, timeZone: "UTC" }).format(ms);
-  }
-  // 无时区信息：沿用历史口径（中文按 +08:00 还原墙上时间，其他语言 UTC）
-  return new Intl.DateTimeFormat(intlLocale, {
-    ...options,
-    timeZone: locale === "zh" ? "Asia/Shanghai" : "UTC",
-  }).format(ms);
+  const localDate = formatInTimeZone(ms, zone.zone, false);
+  const localTime = formatInTimeZone(ms, zone.zone, true).slice(11);
+  const sameDay = localDate === formatInTimeZone(ms, DISPLAY_TIME_ZONE, false);
+  return `当地 ${sameDay ? localTime : `${localDate} ${localTime}`}（${deadlineTimezone}）`;
 }
 
 /**

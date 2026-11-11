@@ -8,6 +8,7 @@
 export {
   formatNoticeAmount,
   formatNoticeDeadline,
+  formatNoticeDeadlineLocal,
   formatNoticeReference,
   pickNoticeTitle,
   displayNoticeAgency,

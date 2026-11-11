@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatNoticeUTCDate, formatNoticeDate, formatNoticeDateOrNull, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
+import { formatNoticeUTCDate, formatNoticeDate, formatNoticeDateOrNull, formatNoticeCstDate, formatDeadlineForExport, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
 
 const utc = (y: number, mo: number, d: number, h = 0, mi = 0) =>
   Math.floor(Date.UTC(y, mo, d, h, mi) / 1000);
@@ -61,5 +61,39 @@ describe("resolveNoticeDeadlineTs（语义层唯一口径）", () => {
   });
   it("无语义层行且 fallbackSec 无效 → null", () => {
     expect(resolveNoticeDeadlineTs({ state: null, effectiveTs: null, fallbackSec: 0 })).toBeNull();
+  });
+});
+
+describe("formatNoticeCstDate（全站统一展示时区：北京时间）", () => {
+  it("UTC 05:00 → 北京时间 13:00", () => {
+    expect(formatNoticeCstDate(utc(2026, 10, 19, 5, 0), true)).toBe("2026-11-19 13:00");
+  });
+  it("跨日：UTC 20:00 → 北京时间次日 04:00", () => {
+    expect(formatNoticeCstDate(utc(2026, 10, 19, 20, 0), true)).toBe("2026-11-20 04:00");
+  });
+  it("只出日期时不带时刻", () => {
+    expect(formatNoticeCstDate(utc(2026, 10, 19, 5, 0), false)).toBe("2026-11-19");
+  });
+  it("无效值 → 未公布", () => {
+    expect(formatNoticeCstDate(null)).toBe(UNPUBLISHED_LABEL);
+    expect(formatNoticeCstDate(0)).toBe(UNPUBLISHED_LABEL);
+  });
+});
+
+describe("formatDeadlineForExport（报告导出与前端同口径）", () => {
+  it("显式时区 → 北京时间并标注", () => {
+    expect(formatDeadlineForExport(utc(2026, 10, 19, 5, 0), "explicit", "GMT-04:00"))
+      .toBe("2026-11-19 13:00（北京时间）");
+  });
+  it("assumed_utc → 原文墙上时间，不折算", () => {
+    expect(formatDeadlineForExport(utc(2026, 10, 19, 5, 0), "assumed_utc", null))
+      .toBe("2026-11-19 05:00（原文当地时间）");
+  });
+  it("源只有日期 → 只出日期，不臆造时刻", () => {
+    expect(formatDeadlineForExport(utc(2026, 10, 19), "date", null)).toBe("2026-11-19");
+  });
+  it("空值 → 空串", () => {
+    expect(formatDeadlineForExport(null)).toBe("");
+    expect(formatDeadlineForExport(0)).toBe("");
   });
 });

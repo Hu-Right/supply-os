@@ -10,6 +10,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { resolveNoticeAccess } from "@/lib/services/notice-access";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
 import { findPublicDetail } from "@/lib/services/notice-public/read";
+import { formatDeadlineForExport } from "@/shared/utils/notice-datetime/format";
 import { BID_FEASIBILITY_REPORT_BENEFIT } from "@/lib/services/benefit-matrix";
 import {
   buildBidReportPreviewText,
@@ -60,9 +61,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       published_date: service.published_ts
         ? new Date(Number(service.published_ts) * 1000).toISOString().slice(0, 10)
         : "",
-      deadline: service.deadline_ts
-        ? new Date(Number(service.deadline_ts) * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC"
-        : "",
+      deadline: formatDeadlineForExport(service.deadline_ts, service.timezone_source, service.deadline_timezone),
       deadline_timezone: service.deadline_timezone,
       estimated_value: service.estimated_value == null
         ? ""

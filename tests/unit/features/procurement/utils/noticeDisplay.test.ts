@@ -9,7 +9,7 @@
  *  - 注册制/框架结束前缀。
  */
 import { describe, it, expect } from "vitest";
-import { formatNoticeDeadline } from "@/features/procurement/utils/noticeDisplay";
+import { formatNoticeDeadline, formatNoticeDeadlineLocal } from "@/features/procurement/utils/noticeDisplay";
 import { parseDeadlineZone, pickDeadlineZoneToken } from "@/shared/utils/notice-datetime/timezone";
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
@@ -51,41 +51,63 @@ describe("parseDeadlineZone / pickDeadlineZoneToken", () => {
   });
 });
 
-describe("formatNoticeDeadline（发标地当地时间）", () => {
-  it("GMT+08:00 → 当地 13:00，且不拼时区说明", () => {
-    expect(formatNoticeDeadline(TS, "bid", "GMT+08:00", "zh", t)).toBe("2026/11/19 13:00");
+describe("formatNoticeDeadline（统一北京时间口径，2026-11-11）", () => {
+  it("GMT+08:00 → 北京时间 13:00", () => {
+    expect(formatNoticeDeadline(TS, "bid", "GMT+08:00", "zh", t)).toBe("2026-11-19 13:00");
   });
 
-  it("GMT-04:00 → 按目标偏移换算", () => {
-    expect(formatNoticeDeadline(TS, "bid", "GMT-04:00", "zh", t)).toBe("2026/11/19 01:00");
+  it("GMT-04:00 → 换算到北京时间 13:00（不再显示发标地 01:00）", () => {
+    expect(formatNoticeDeadline(TS, "bid", "GMT-04:00", "zh", t)).toBe("2026-11-19 13:00");
   });
 
-  it("IANA 时区按该时区换算", () => {
-    expect(formatNoticeDeadline(TS, "bid", "Europe/Riga", "zh", t)).toBe("2026/11/19 07:00");
+  it("IANA 时区同样换算到北京时间", () => {
+    expect(formatNoticeDeadline(TS, "bid", "Europe/Riga", "zh", t)).toBe("2026-11-19 13:00");
   });
 
-  it("自由文本时区注释不进入展示；无令牌时 zh 按 +08:00 还原", () => {
+  it("自由文本时区注释不进入展示；无令牌按北京时间", () => {
     expect(
       formatNoticeDeadline(TS, "bid", "菲律宾时间（PHT，UTC+8）；北京时间（UTC+8）", "zh", t),
-    ).toBe("2026/11/19 13:00");
+    ).toBe("2026-11-19 13:00");
+  });
+
+  it("界面语言不影响数值：zh 与 en 输出同一时刻（仅前缀分隔符不同）", () => {
+    expect(formatNoticeDeadline(TS, "bid", null, "zh", t)).toBe("2026-11-19 13:00");
+    expect(formatNoticeDeadline(TS, "bid", null, "en", t)).toBe("2026-11-19 13:00");
   });
 
   it("assumed_utc：ts 即墙上时间，按 UTC 还原（不 +8 偏移）", () => {
-    expect(formatNoticeDeadline(TS, "bid", null, "zh", t, "assumed_utc")).toBe("2026/11/19 05:00");
+    expect(formatNoticeDeadline(TS, "bid", null, "zh", t, "assumed_utc")).toBe("2026-11-19 05:00");
   });
 
   it("date：源只有日期，只出日期不臆造时刻", () => {
-    expect(formatNoticeDeadline(TS, "bid", null, "zh", t, "date")).toBe("2026/11/19");
+    expect(formatNoticeDeadline(TS, "bid", null, "zh", t, "date")).toBe("2026-11-19");
   });
 
   it("注册制 / 框架结束仍带类型前缀", () => {
-    expect(formatNoticeDeadline(TS, "registration", "GMT+08:00", "zh", t)).toBe("注册制结束：2026/11/19 13:00");
-    expect(formatNoticeDeadline(TS, "framework_end", "GMT+08:00", "zh", t)).toBe("框架协议结束：2026/11/19 13:00");
+    expect(formatNoticeDeadline(TS, "registration", "GMT+08:00", "zh", t)).toBe("注册制结束：2026-11-19 13:00");
+    expect(formatNoticeDeadline(TS, "framework_end", "GMT+08:00", "zh", t)).toBe("框架协议结束：2026-11-19 13:00");
   });
 
   it("无有效时间戳返回空串（由调用方给占位文案）", () => {
     expect(formatNoticeDeadline(null, "bid", "GMT+08:00", "zh", t)).toBe("");
     expect(formatNoticeDeadline("", "bid", null, "zh", t)).toBe("");
     expect(formatNoticeDeadline(0, "bid", null, "zh", t)).toBe("");
+  });
+});
+
+describe("formatNoticeDeadlineLocal（详情页发标地补充标注）", () => {
+  it("显式偏移且不等于 +08:00 → 标注当地时刻与令牌", () => {
+    expect(formatNoticeDeadlineLocal(TS, "GMT-04:00", "explicit")).toBe("当地 01:00（GMT-04:00）");
+    expect(formatNoticeDeadlineLocal(TS, "Europe/Riga", "explicit")).toBe("当地 07:00（Europe/Riga）");
+  });
+
+  it("GMT+08:00 / 无令牌 / 只有日期 → 不追加噪音", () => {
+    expect(formatNoticeDeadlineLocal(TS, "GMT+08:00", "explicit")).toBeNull();
+    expect(formatNoticeDeadlineLocal(TS, null, null)).toBeNull();
+    expect(formatNoticeDeadlineLocal(TS, null, "date")).toBeNull();
+  });
+
+  it("assumed_utc（原文墙上时间）→ 明确标注", () => {
+    expect(formatNoticeDeadlineLocal(TS, null, "assumed_utc")).toBe("原文当地时间");
   });
 });
