@@ -1136,13 +1136,8 @@ CREATE TABLE `notice_deadline` (
   `deadline_type` varchar(20) NOT NULL DEFAULT 'bid' COMMENT 'bid/framework_end/registration/award/info',
   `effective_ts` bigint DEFAULT NULL COMMENT '对外有效截止时间（UTC 秒）；不可信时为 NULL',
   `confidence` tinyint NOT NULL DEFAULT '0' COMMENT '0-100',
-  `reason` varchar(255) DEFAULT NULL,
-  `source_rule` varchar(64) DEFAULT NULL,
-  `source_value` varchar(50) DEFAULT NULL COMMENT '原始 deadline 文本，留证',
   `deadline_timezone` varchar(64) DEFAULT NULL,
   `timezone_source` varchar(20) DEFAULT NULL,
-  `reviewed_by` varchar(64) DEFAULT NULL,
-  `reviewed_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`notice_pk`),
@@ -1245,7 +1240,6 @@ CREATE TABLE `notice_public` (
   `title_cn` varchar(1000) DEFAULT NULL,
   `buyer_name_cn` varchar(500) DEFAULT NULL,
   `buyer_id` bigint unsigned DEFAULT NULL COMMENT '买家实体 ID（buyer.buyer_id）',
-  `industry_tree_code` varchar(40) DEFAULT NULL COMMENT '自建行业树 UGT-I 节点码（当前挂 L1 门类）',
   `supplier_conditions` longtext COMMENT '供应商投标条件（服务表优先，空则回退商机表）',
   `eligibility` longtext COMMENT '资格要求（服务表优先，空则回退商机表）',
   `technical_hurdles` longtext COMMENT '技术门槛（服务表优先，空则回退商机表）',
@@ -1253,8 +1247,7 @@ CREATE TABLE `notice_public` (
   UNIQUE KEY `uq_notice_id` (`notice_id`),
   KEY `idx_deadline` (`deadline_ts`),
   KEY `idx_country_type` (`country_code`,`notice_type_code`),
-  KEY `idx_deadline_state_ts` (`deadline_state`,`deadline_ts`),
-  FULLTEXT KEY `ft_title_desc` (`title`,`description`) /*!50100 WITH PARSER `ngram` */ 
+  KEY `idx_deadline_state_ts` (`deadline_state`,`deadline_ts`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
 
 -- ── notice_requirement_items ──
