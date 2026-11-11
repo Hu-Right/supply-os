@@ -433,8 +433,10 @@ export function buildPublicRow(
     }
   }
   const dstate = String(r.deadline_state ?? (Number(r.deadline_sec) > 0 ? "known" : "unknown"));
-  const rawTs = r.effective_ts ?? r.deadline_sec;
-  const deadlineTs = dstate === "typo_suspect" || dstate === "unknown" ? null : toEpoch(rawTs);
+  // 只有 known 的截止时间对外有效：placeholder（哨兵/占位日期，如 2125-12-31、2050 年）、
+  // typo_suspect（年份笔误）、unknown 一律落 NULL。注意不能用 `effective_ts ?? deadline_sec`
+  // 兜底——分类器判定不可信时 effective_ts 就是 NULL，回退会把占位日期又写回去。
+  const deadlineTs = dstate === "known" ? toEpoch(r.effective_ts ?? r.deadline_sec) : null;
   const publishedTs = toEpoch(r.published_date);
   const difficulty = normDifficulty(r.difficulty);
   const registration = normRegistration(r.registration_level);
