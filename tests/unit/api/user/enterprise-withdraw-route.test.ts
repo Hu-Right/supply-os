@@ -19,9 +19,15 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 
-function buildCtx(boundSubjectRow: Record<string, unknown> | null) {
+function buildCtx(boundSubjectRow: Record<string, unknown> | null, pendingClaim = false) {
   return {
-    ctx: { supplier: { directoryRepo: { findBoundSubjectByUserId: vi.fn().mockResolvedValue(boundSubjectRow) } } },
+    ctx: {
+      supplier: {
+        directoryRepo: { findBoundSubjectByUserId: vi.fn().mockResolvedValue(boundSubjectRow) },
+        // readCurrentBinding 的认领处理中改为 supplier_claims 派生（claim_status 已退役）
+        claimRepo: { hasPendingClaim: vi.fn().mockResolvedValue(pendingClaim) },
+      },
+    },
   };
 }
 
@@ -42,7 +48,7 @@ describe("POST /api/user/enterprise/withdraw", () => {
 
   it("审核中绑定 → 撤回，返回旧主体供前端提示", async () => {
     vi.mocked(getContext).mockReturnValue(
-      buildCtx({ id: 100, company: "杭州原绑定企业有限公司", verify_status: "pending", claim_status: null }).ctx as never,
+      buildCtx({ id: 100, company: "杭州原绑定企业有限公司", verify_status: "pending" }).ctx as never,
     );
 
     const res = await POST(withdrawReq());
@@ -53,12 +59,24 @@ describe("POST /api/user/enterprise/withdraw", () => {
       company: "杭州原绑定企业有限公司",
       state: "pending",
     });
-    expect(poolExecute).toHaveBeenCalledTimes(3);
+    // claim_status 退役后撤回只写两张表：users 解绑 + supplier_claims 作废
+    expect(poolExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it("认领待核（存在 pending 认领、verify_status 为空）→ 归 pending，可自助撤回", async () => {
+    vi.mocked(getContext).mockReturnValue(
+      buildCtx({ id: 100, company: "某待核公司", verify_status: null }, true).ctx as never,
+    );
+
+    const res = await POST(withdrawReq());
+    expect(res.status).toBe(200);
+    expect((await res.json()).state).toBe("pending");
+    expect(poolExecute).toHaveBeenCalledTimes(2);
   });
 
   it("已认证绑定 → 400，不写任何表（换绑必须走后台/客服）", async () => {
     vi.mocked(getContext).mockReturnValue(
-      buildCtx({ id: 100, company: "已认证公司", verify_status: "done", claim_status: null }).ctx as never,
+      buildCtx({ id: 100, company: "已认证公司", verify_status: "done" }).ctx as never,
     );
 
     const res = await POST(withdrawReq());
@@ -78,14 +96,14 @@ describe("POST /api/user/enterprise/withdraw", () => {
 
   it("忽略请求体：不接受 supplierId，只作用于当前账号自己的绑定", async () => {
     vi.mocked(getContext).mockReturnValue(
-      buildCtx({ id: 100, company: "旧公司", verify_status: "pending", claim_status: null }).ctx as never,
+      buildCtx({ id: 100, company: "旧公司", verify_status: "pending" }).ctx as never,
     );
 
     const res = await POST(withdrawReq({ supplierId: 999999 }));
     expect(res.status).toBe(200);
     // 写操作的作用对象必须是自己的绑定行 100，而不是请求体里的 999999
     expect(poolExecute.mock.calls[0][1]).toEqual([42, 100]);
-    expect(poolExecute.mock.calls[2][1]).toEqual([100]);
+    expect(poolExecute.mock.calls[1][1]).toEqual([42, 100]);
   });
 
   it("限流命中 → 直接返回限流响应，不碰数据库", async () => {

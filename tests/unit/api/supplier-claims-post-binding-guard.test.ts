@@ -31,13 +31,17 @@ import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 
 const LICENSE_URL = "/api/user/enterprise/license/license_abc123.jpg";
 
-function buildCtx(boundSubjectRow: Record<string, unknown> | null, ownership: Record<string, boolean>) {
+function buildCtx(boundSubjectRow: Record<string, unknown> | null, ownership: Record<string, boolean>, pendingClaim = false) {
   const directoryRepo = {
     findById: vi.fn().mockResolvedValue({ id: 200, company: "目标认领企业有限公司" }),
     findBoundSubjectByUserId: vi.fn().mockResolvedValue(boundSubjectRow),
     getClaimOwnership: vi.fn().mockResolvedValue(ownership),
   };
-  const claimRepo = { findByUserAndSupplier: vi.fn().mockResolvedValue(null) };
+  // readCurrentBinding 的「认领处理中」改为 supplier_claims 派生（claim_status 已退役）
+  const claimRepo = {
+    findByUserAndSupplier: vi.fn().mockResolvedValue(null),
+    hasPendingClaim: vi.fn().mockResolvedValue(pendingClaim),
+  };
   const usersRepo = {
     findProfileById: vi.fn().mockResolvedValue({ id: 42, supplier_id: 100, supplier_link_status: "verified" }),
     bindSupplier: vi.fn(),
@@ -64,7 +68,7 @@ describe("POST /api/supplier-claims 账号侧排他", () => {
 
   it("旧绑定仍在审核中：认领另一家 → 先显式撤回旧绑定，再建认领（不再静默覆盖）", async () => {
     const { ctx } = buildCtx(
-      { id: 100, company: "杭州原绑定企业有限公司", verify_status: "pending", claim_status: null },
+      { id: 100, company: "杭州原绑定企业有限公司", verify_status: "pending" },
       FREE,
     );
     vi.mocked(getContext).mockReturnValue(ctx as never);
@@ -77,9 +81,23 @@ describe("POST /api/supplier-claims 账号侧排他", () => {
     expect(createClaimWithBinding).toHaveBeenCalledTimes(1);
   });
 
+  it("旧绑定是认领待核（verify_status 为空 + 存在 pending 认领）→ 同样可切换", async () => {
+    const { ctx } = buildCtx(
+      { id: 100, company: "杭州原绑定企业有限公司", verify_status: null },
+      FREE,
+      true,
+    );
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+
+    const res = await POST(claimReq(200));
+    expect(res.status).toBe(201);
+    expect(poolExecute.mock.calls[0][1]).toEqual([42, 100]);
+    expect(createClaimWithBinding).toHaveBeenCalledTimes(1);
+  });
+
   it("已认证账号认领另一家 → 400（归属一旦确定即为终态，换绑需走后台）", async () => {
     const { ctx } = buildCtx(
-      { id: 100, company: "杭州原绑定企业有限公司", verify_status: "done", claim_status: "verified" },
+      { id: 100, company: "杭州原绑定企业有限公司", verify_status: "done" },
       FREE,
     );
     vi.mocked(getContext).mockReturnValue(ctx as never);
@@ -93,7 +111,7 @@ describe("POST /api/supplier-claims 账号侧排他", () => {
 
   it("已绑定同一主体：沿用「您已绑定该企业，无需重复认领」", async () => {
     const { ctx } = buildCtx(
-      { id: 100, company: "杭州原绑定企业有限公司", verify_status: "done", claim_status: null },
+      { id: 100, company: "杭州原绑定企业有限公司", verify_status: "done" },
       { selfBound: true, boundByOther: false, claimPending: false },
     );
     vi.mocked(getContext).mockReturnValue(ctx as never);

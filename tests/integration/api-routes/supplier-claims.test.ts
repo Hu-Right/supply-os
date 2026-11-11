@@ -1,12 +1,13 @@
 /**
  * /api/supplier-claims 集成测试（供应商认证入驻）
  *
- * @description 覆盖认领编排的三表写入与排他闸口：
+ * @description 覆盖认领编排的落库与排他闸口：
  *              - 400：缺 supplier_id / 供应商不存在 / 三种归属排他
  *                （selfBound 已绑定 / boundByOther 被他人认领 / claimPending 处理中）
  *              - 200：本人已有 pending/approved 认领 → 幂等返回
- *              - 201：成功认领 → 三表写入
- *                （supplier_claims INSERT + users 绑定 + supplier.claim_status='pending'）
+ *              - 201：成功认领 → 两张表写入（supplier_claims INSERT + users 绑定）；
+ *                supplier.claim_status 已退役（ADR-0017），不再有主体状态列写入，
+ *                认领处理中由 supplier_claims 的 pending 记录派生
  *              - GET：认领状态查询
  *              Mock ctx 仓储与 DB Pool，保持路由 + createClaimWithBinding 服务为真实实现。
  */
@@ -148,8 +149,8 @@ describe("POST /api/supplier-claims — 排他与校验", () => {
   });
 });
 
-describe("POST /api/supplier-claims — 成功认领三表写入", () => {
-  it("201：claims INSERT + users 绑定 verified + supplier 置 pending", async () => {
+describe("POST /api/supplier-claims — 成功认领落库", () => {
+  it("201：claims INSERT + users 绑定 verified；不再写 supplier.claim_status（已退役）", async () => {
     const { POST } = await import("@/app/api/supplier-claims/route");
     const res = await POST(claimPost({ supplier_id: 18084 }));
     expect(res.status).toBe(201);
@@ -167,31 +168,30 @@ describe("POST /api/supplier-claims — 成功认领三表写入", () => {
     }));
     // 表 2：账号临时绑定（link_status=verified）
     expect(bindSupplier).toHaveBeenCalledWith(5, 18084, "verified");
-    // 表 3：供应商进入认领排他期
-    const supplierUpdate = poolExecute.mock.calls.find(([sql]: string[]) =>
-      String(sql).includes("UPDATE supplier SET claim_status"));
-    expect(supplierUpdate).toBeTruthy();
-    expect(supplierUpdate![1]).toEqual([18084]);
+    // supplier 行不再回写状态列：「认领处理中」由 supplier_claims 的 pending 派生
+    expect(poolExecute.mock.calls.some(([sql]: string[]) =>
+      String(sql).includes("UPDATE supplier"))).toBe(false);
   });
 
-  it("非法 license_url 被拒收：不落入 supplier.license_url", async () => {
+  it("非法 license_url 被拒收：不落入 supplier.license_url，也不写任何 supplier 行", async () => {
     const { POST } = await import("@/app/api/supplier-claims/route");
     await POST(claimPost({ supplier_id: 18084, license_url: "https://evil.example.com/x.png" }));
-    const supplierUpdate = poolExecute.mock.calls.find(([sql]: string[]) =>
-      String(sql).includes("UPDATE supplier SET claim_status"));
-    // 无执照分支：UPDATE 不带 license_url 列
-    expect(String(supplierUpdate![0])).not.toContain("license_url");
+    // 无执照分支：createClaimWithBinding 不再 UPDATE supplier（claim_status 退役）
+    expect(poolExecute.mock.calls.some(([sql]: string[]) =>
+      String(sql).includes("UPDATE supplier"))).toBe(false);
   });
 
-  it("合法 license_url 随认领落库", async () => {
+  it("合法 license_url 随认领落库（仅写 license_url，不写 claim_status）", async () => {
     const { POST } = await import("@/app/api/supplier-claims/route");
     await POST(claimPost({
       supplier_id: 18084,
       license_url: "/api/user/enterprise/license/license_abc123.png",
     }));
     const supplierUpdate = poolExecute.mock.calls.find(([sql]: string[]) =>
-      String(sql).includes("license_url"));
+      String(sql).includes("license_url") && String(sql).includes("UPDATE supplier"));
     expect(supplierUpdate).toBeTruthy();
+    expect(String(supplierUpdate![0])).not.toContain("claim_status");
+    expect(String(supplierUpdate![0])).toContain("SET license_url = ?");
   });
 
   it("insertClaim 失败 → 500 兜底（不泄露内部错误）", async () => {

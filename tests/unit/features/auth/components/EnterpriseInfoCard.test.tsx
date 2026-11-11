@@ -11,7 +11,7 @@ vi.mock("@/core/i18n", () => ({
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
 import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
-// GET /api/user/enterprise 的 enterprise 字段（响应视图，31 键全量）。
+// GET /api/user/enterprise 的 enterprise 字段（响应视图，30 列 + 派生键 hasPendingClaim）。
 // 以前这里是个任意键的 snake 字典（类型被抹平），所以缺键、多键都不报——现在按契约补齐：
 // 原来根本没给的键用空值（卡片仍渲染为 “-”，与旧行为逐格一致）。
 const mockRow: EnterpriseInfo = {
@@ -46,7 +46,8 @@ const mockRow: EnterpriseInfo = {
   checkNote: "",
   licenseUrl: "",
   verifyStatus: null,
-  claimStatus: null,
+  // 认领处理中由 supplier_claims 派生（supplier.claim_status 已退役，ADR-0017）
+  hasPendingClaim: false,
 };
 
 const noop = vi.fn();
@@ -113,19 +114,20 @@ describe("EnterpriseInfoCard", () => {
     expect(screen.getByText(/资质不全/)).toBeInTheDocument();
   });
 
-  it("认领待核优先于资质已认证：claim_status=pending 时显示审核中", () => {
+  it("认领待核优先于资质已认证：hasPendingClaim 时显示审核中", () => {
     // 与后端排他闸口同一口径（shared/utils/enterprise-status）：认领通过前，
     // 账号侧绑定仍是临时态，不能因为主体 verify_status=done 就报「已认证」。
+    // 认领处理中由 supplier_claims 派生（claim_status 已退役，ADR-0017）。
     render(
-      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: "done", claimStatus: "pending" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: "done", hasPendingClaim: true }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
     expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
   });
 
-  it("归属已确认但资质列未写（claim_status=verified、verify_status 为空）→ 不再报已认证，只报已绑定", () => {
+  it("归属已确认但资质列未写（verify_status 为空、无 pending 认领）→ 不再报已认证，只报已绑定", () => {
     render(
-      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: null, claimStatus: "verified" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: null, hasPendingClaim: false }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
     expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();
@@ -133,7 +135,7 @@ describe("EnterpriseInfoCard", () => {
 
   it("已绑定但无任何审核状态 → 中性「已绑定」标（复用他人历史档案的行）", () => {
     render(
-      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: null, claimStatus: null }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: null, hasPendingClaim: false }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
     expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();

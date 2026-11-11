@@ -6,11 +6,12 @@
  *              A. createClaimWithBinding（双时钟创建端）：执照可选、有则随认领落库，
  *                 被替换的旧执照文件 best-effort 清理；
  *              B. releaseExpiredClaims（到期释放）：
- *              1. 没有到期认领时只数不写（省掉一次跨三表的 UPDATE）；
+ *              1. 没有到期认领时只数不写（省掉一次跨表 UPDATE）；
  *              2. 计数与更新的 WHERE 完全一致——两处各写一份时，改守卫很容易只改一处，
  *                 导致日志报的条数和实际释放的行数对不上；
  *              3. 返回值区分「认领条数」与「多表 UPDATE 改动行数」；
- *              4. 三重守卫（已换绑不动用户、已有 approved 不踢人、claim_status 只在 pending 时清）。
+ *              4. 双重守卫（已换绑不动用户、已有 approved 不踢人）；主体行不再回写
+ *                 claim_status（该列已退役，ADR-0017），认领置 expired 后由派生口径自然解除排他。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -63,7 +64,7 @@ describe("releaseExpiredClaims", () => {
     expect(tailWhere(sqls[0])).toContain("c.status = 'pending' AND c.expires_at < NOW() AND ok.user_id IS NULL");
   });
 
-  it("三重守卫都在 UPDATE 里：已换绑不动用户、已有 approved 不踢人、claim_status 只清 pending", async () => {
+  it("双重守卫都在 UPDATE 里：已换绑不动用户、已有 approved 不踢人；不再写 supplier.claim_status", async () => {
     const { dbPool, sqls } = fakeDb(1, 3);
     await releaseExpiredClaims(dbPool);
     const update = sqls[1];
@@ -71,10 +72,10 @@ describe("releaseExpiredClaims", () => {
     expect(update).toContain("ON u.id = c.user_id AND u.supplier_id = c.supplier_id");
     // ② 同用户同主体已有 approved 认领的行被排除
     expect(update).toContain("FROM supplier_claims WHERE status = 'approved') ok");
-    // ③ 主体归属标记只在 pending 时重置，不抹掉后台写出的 verified
-    expect(update).toContain("s.claim_status = IF(s.claim_status = 'pending', NULL, s.claim_status)");
     // 认领记录原地留痕为 expired（客服查表即可，不依赖日志）
     expect(update).toContain("c.status = 'expired'");
+    // claim_status 已退役（ADR-0017）：主体行不再有任何状态列赋值
+    expect(update).not.toContain("claim_status");
   });
 
   it("释放动作把账号回到未绑定态：supplier_id=NULL 且 supplier_link_status='none'", async () => {
@@ -103,7 +104,7 @@ describe("createClaimWithBinding", () => {
     deleteFileMock.mockResolvedValue(undefined);
   });
 
-  it("不带执照（弹窗流程）：只标 claim_status=pending，不读旧执照也不删文件", async () => {
+  it("不带执照（弹窗流程）：不写 supplier 行（claim_status 已退役），不读旧执照也不删文件", async () => {
     const { ctx, insertClaim, bindSupplier } = makeCtx();
     poolExecute.mockResolvedValue([{ affectedRows: 1 }]);
 
@@ -111,15 +112,12 @@ describe("createClaimWithBinding", () => {
 
     expect(insertClaim).toHaveBeenCalledWith({ userId: 7, supplierId: 100, expiresAt: "2026-10-08 12:00:00" });
     expect(bindSupplier).toHaveBeenCalledWith(7, 100, "verified");
-    expect(poolExecute).toHaveBeenCalledTimes(1);
-    const [sql, params] = poolExecute.mock.calls[0] as [string, unknown[]];
-    expect(sql).toContain("SET claim_status = 'pending'");
-    expect(sql).not.toContain("license_url");
-    expect(params).toEqual([100]);
+    // 认领「处理中」由 supplier_claims 的 pending 记录派生，不再回写主体行
+    expect(poolExecute).not.toHaveBeenCalled();
     expect(deleteFileMock).not.toHaveBeenCalled();
   });
 
-  it("带执照（企业信息页新建后首存）：先读旧照、写入新照，旧照不同则清理", async () => {
+  it("带执照（企业信息页新建后首存）：先读旧照、写入新照，旧照不同则清理（不再写 claim_status）", async () => {
     const { ctx } = makeCtx();
     poolExecute
       .mockResolvedValueOnce([[{ license_url: "/api/user/enterprise/license/old.jpg" }]])
@@ -136,7 +134,8 @@ describe("createClaimWithBinding", () => {
     const [readSql] = poolExecute.mock.calls[0] as [string];
     expect(readSql).toContain("SELECT license_url FROM supplier WHERE id = ?");
     const [writeSql, writeParams] = poolExecute.mock.calls[1] as [string, unknown[]];
-    expect(writeSql).toContain("SET claim_status = 'pending', license_url = ?");
+    expect(writeSql).toContain("UPDATE supplier SET license_url = ?");
+    expect(writeSql).not.toContain("claim_status");
     expect(writeParams).toEqual(["/api/user/enterprise/license/new.jpg", 100]);
     expect(deleteFileMock).toHaveBeenCalledWith("/api/user/enterprise/license/old.jpg");
   });

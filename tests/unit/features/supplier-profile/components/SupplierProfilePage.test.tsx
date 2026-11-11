@@ -10,7 +10,7 @@ vi.mock("@/core/i18n", async (importOriginal) => {
 // 登录态可变态：未登录（undefined）/ 已登录但未绑企业 / 已绑定另一家企业
 let mockUserId: number | undefined = undefined;
 let mockAuthUser: { id: number; supplierId: number | null } | null = null;
-// 该主体是否已被认领（后端按 users.supplier_id / claim_status 判定的结果）
+// 该主体是否已被认领（后端由 users.supplier_id + supplier_claims 派生；claim_status 已退役）
 let mockClaimed = false;
 
 vi.mock("@/core/auth", () => ({

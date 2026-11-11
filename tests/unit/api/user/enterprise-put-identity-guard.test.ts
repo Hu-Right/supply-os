@@ -44,6 +44,9 @@ function buildCtx(rowOverride: Record<string, unknown> = {}) {
     findByUserAndSupplier: vi.fn().mockResolvedValue(null),
     insertClaim: vi.fn().mockResolvedValue(9001),
     extendPendingClaimExpiry: vi.fn(),
+    // 认领状态改为 supplier_claims 派生（claim_status 已退役，ADR-0017）
+    hasPendingClaim: vi.fn().mockResolvedValue(false),
+    hasApprovedClaim: vi.fn().mockResolvedValue(false),
   };
   const usersRepo = {
     findProfileById: vi.fn().mockResolvedValue({ id: 42, supplier_id: 100, supplier_link_status: "verified" }),
@@ -80,12 +83,22 @@ describe("PUT /api/user/enterprise 身份要素闸口", () => {
   });
 
   it("已认证：把公司名改成另一家 → 400", async () => {
-    const { ctx, directoryRepo } = buildCtx({ verify_status: "done", claim_status: "verified" });
+    const { ctx, directoryRepo } = buildCtx({ verify_status: "done" });
     vi.mocked(getContext).mockReturnValue(ctx as never);
 
     const res = await PUT(putReq({ company: "上海另一家公司有限公司" }));
     expect(res.status).toBe(400);
     expect(directoryRepo.updateEnterprise).not.toHaveBeenCalled();
+  });
+
+  it("已认证但存在 pending 认领 → 归「审核中」，允许补正身份字段（与分类器同口径）", async () => {
+    const { ctx, claimRepo, directoryRepo } = buildCtx({ verify_status: "done" });
+    claimRepo.hasPendingClaim.mockResolvedValue(true);
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+
+    const res = await PUT(putReq({ company: "上海另一家公司有限公司" }));
+    expect(res.status).toBe(200);
+    expect(directoryRepo.updateEnterprise).toHaveBeenCalled();
   });
 
   it("已认证：身份字段原值回传（表单全量提交）→ 放行", async () => {
@@ -155,14 +168,14 @@ describe("PUT /api/user/enterprise 身份要素闸口", () => {
     expect(directoryRepo.updateLicenseUrl).not.toHaveBeenCalled();
   });
 
-  it("认领已通过（claim verified）、认证待审的行换执照 → 同样进入待审", async () => {
+  it("认领已通过（存在 approved 认领）、认证待审的行换执照 → 同样进入待审", async () => {
     const { ctx, directoryRepo, claimRepo } = buildCtx({
       verify_status: "pending",
-      claim_status: "verified",
       license_url: "/api/user/enterprise/license/license_42_1111111111.png",
     });
-    // 模拟真实状态：该行已有一条 approved 认领（故自愈不再建单）
+    // 模拟真实状态：该行已有一条 approved 认领（故自愈不再建单，换照闸口据此判「已归属」）
     claimRepo.findByUserAndSupplier.mockResolvedValue({ id: 21, status: "approved", created_at: null, expires_at: null } as never);
+    claimRepo.hasApprovedClaim.mockResolvedValue(true);
     vi.mocked(getContext).mockReturnValue(ctx as never);
 
     const res = await PUT(putReq({ license_url: "/api/user/enterprise/license/license_42_2222222222.png" }));

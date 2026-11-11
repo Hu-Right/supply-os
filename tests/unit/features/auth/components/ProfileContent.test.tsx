@@ -132,13 +132,13 @@ describe("ProfileContent", () => {
     expect(screen.getByText("authEnterpriseVerifyRejected")).toBeInTheDocument();
   });
 
-  it("归属已确认但资质列未写（verify_status 空 + claim_status=verified）→ 只报「已绑定」，不再兼容掩盖成已认证", () => {
+  it("归属已确认但资质列未写（verify_status 空）→ 只报「已绑定」，不再兼容掩盖成已认证", () => {
     // 旧行为：这类行被视同已认证（后台历史上只回写归属列）；兼容已删，
-    // 数据侧 14 行已于 2026-10-08 补齐资质列，今后应由审核端两列一起写。
+    // 且 claim_status 本身已退役（ADR-0017）——认领归属由 supplier_claims 派生。
     mockEnterpriseBound = true;
     mockEnterpriseData = {
       verifyStatus: null,
-      claimStatus: "verified",
+      hasPendingClaim: false,
       company: "杭州中建工程技术有限公司",
     };
     render(<ProfileContent />);
@@ -148,19 +148,20 @@ describe("ProfileContent", () => {
     expect(screen.queryByText(/已绑定 #42/)).not.toBeInTheDocument();
   });
 
-  it("已绑定但状态未知（两列皆空）时显示「已绑定」文案，不再暴露主键 ID", () => {
+  it("已绑定但状态未知（verify_status 空、无 pending 认领）时显示「已绑定」文案，不再暴露主键 ID", () => {
     mockEnterpriseBound = true;
-    mockEnterpriseData = { verifyStatus: null, claimStatus: null, company: "某公司" };
+    mockEnterpriseData = { verifyStatus: null, hasPendingClaim: false, company: "某公司" };
     render(<ProfileContent />);
     expect(screen.getByText("authEnterpriseStatusLinked")).toBeInTheDocument();
     expect(screen.queryByText(/已绑定 #42/)).not.toBeInTheDocument();
   });
 
-  it("认领待核（claim_status=pending）同样报「审核中」，不提前显示为已绑定/已认证", () => {
-    // 真实场景：认领一家已认证主体后，行上 verify_status=done、claim_status=pending，
+  it("认领待核（hasPendingClaim=true）同样报「审核中」，不提前显示为已绑定/已认证", () => {
+    // 真实场景：认领一家已认证主体后，主体 verify_status=done 但仍有 pending 认领，
     // 账号侧仍是临时绑定；此处必须报审核中，与后端排他闸口同一口径。
+    // 认领处理中由 supplier_claims 派生（claim_status 已退役，ADR-0017）。
     mockEnterpriseBound = true;
-    mockEnterpriseData = { verifyStatus: "done", claimStatus: "pending", company: "某待核企业" };
+    mockEnterpriseData = { verifyStatus: "done", hasPendingClaim: true, company: "某待核企业" };
     render(<ProfileContent />);
     expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
     expect(screen.queryByText("authEnterpriseVerifyApproved")).not.toBeInTheDocument();

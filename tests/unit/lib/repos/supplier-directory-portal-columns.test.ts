@@ -33,11 +33,14 @@ describe("SupplierDirectoryRepo 门户读列白名单", () => {
     }
     // 前端 EnterpriseInfoCard / ProfileContent 实际读到的非编辑列，逐个点名（缺一个就会静默丢显示）
     for (const c of [
-      "id", "verify_status", "claim_status", "coop_status", "check_note",
+      "id", "verify_status", "coop_status", "check_note",
       "data_quality_score", "addtime", "license_url",
     ]) {
       expect(cols).toContain(c);
     }
+    // claim_status 已退役（ADR-0017）：认领状态改由 supplier_claims 派生，
+    // 企业 GET 的 hasPendingClaim 是视图派生键，不是 supplier 列。
+    expect(cols).not.toContain("claim_status");
   });
 
   it("白名单不得包含门户不读的站外列（防有人顺手加回 SELECT *）", () => {
@@ -46,6 +49,7 @@ describe("SupplierDirectoryRepo 门户读列白名单", () => {
       "merged_id", "product_keywords", "business_scope", "source_url", "tenant_id",
       "industry_id", "info_check", "webcheck_status", "enrich_suggested", "enrich_status",
       "certification_tags", "business_type_code", LEGACY_MATCH_STATUS_COL, "last_match_at",
+      "claim_status",
     ]) {
       expect(cols).not.toContain(c);
     }

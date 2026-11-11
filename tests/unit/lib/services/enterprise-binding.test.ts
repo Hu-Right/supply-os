@@ -2,8 +2,9 @@
  * 企业绑定排他换绑编排服务测试（路线三：分状态）
  * @module tests/unit/lib/services/enterprise-binding.test.ts
  * @description 钉住闸口的两条分叉：已认证 → 拒绝并引导客服；未拿下认证的旧绑定 →
- *              自动撤回（解绑账号 + 作废 pending 认领 + 清主体的认领中标记）后放行。
- *              同时钉住 SQL 顺序与守卫条件：数据保留原则下不动 supplier 行本身。
+ *              自动撤回（解绑账号 + 作废 pending 认领）后放行。
+ *              同时钉住 SQL 顺序与守卫条件：数据保留原则下不动 supplier 行本身，
+ *              且 supplier.claim_status 已退役（ADR-0017）后撤回不再有第三条 UPDATE。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -19,13 +20,19 @@ import {
   withdrawCurrentBinding,
 } from "@/lib/services/enterprise-binding";
 
-function ctxWith(boundRow: Record<string, unknown> | null, fullRow: Record<string, unknown> | null = null) {
+function ctxWith(
+  boundRow: Record<string, unknown> | null,
+  fullRow: Record<string, unknown> | null = null,
+  pendingClaim = false,
+) {
   return {
     supplier: {
       directoryRepo: {
         findBoundSubjectByUserId: vi.fn().mockResolvedValue(boundRow),
         findFullById: vi.fn().mockResolvedValue(fullRow),
       },
+      // 认领处理中改为 supplier_claims 派生（claim_status 已退役，ADR-0017）
+      claimRepo: { hasPendingClaim: vi.fn().mockResolvedValue(pendingClaim) },
     },
   } as never;
 }
@@ -37,15 +44,23 @@ describe("readCurrentBinding", () => {
 
   it("绑定行按状态归类，公司名取 company", async () => {
     const b = await readCurrentBinding(
-      ctxWith({ id: 100, company: "杭州原绑定企业有限公司", verify_status: "done", claim_status: null }),
+      ctxWith({ id: 100, company: "杭州原绑定企业有限公司", verify_status: "done" }),
       42,
     );
     expect(b).toEqual({ supplierId: 100, companyName: "杭州原绑定企业有限公司", state: "verified" });
   });
 
+  it("存在 pending 认领（关系派生）→ 即使主体 verify_status=done 也归 pending", async () => {
+    const b = await readCurrentBinding(
+      ctxWith({ id: 100, company: "杭州原绑定企业有限公司", verify_status: "done" }, null, true),
+      42,
+    );
+    expect(b).toEqual({ supplierId: 100, companyName: "杭州原绑定企业有限公司", state: "pending" });
+  });
+
   it("超长公司名截断，避免撑爆提示条", async () => {
     const b = await readCurrentBinding(
-      ctxWith({ id: 1, company: "中".repeat(40), name_confirmed: null, verify_status: "pending", claim_status: null }),
+      ctxWith({ id: 1, company: "中".repeat(40), name_confirmed: null, verify_status: "pending" }),
       42,
     );
     expect(b?.companyName).toHaveLength(25); // 24 字 + 省略号
@@ -74,18 +89,17 @@ describe("withdrawBinding", () => {
     expect(poolExecute).not.toHaveBeenCalled();
   });
 
-  it("审核中 → 先解绑账号，再作废 pending 认领，最后清主体的认领中标记", async () => {
+  it("审核中 → 先解绑账号，再作废 pending 认领；不再清主体 claim_status（已退役）", async () => {
     await withdrawBinding(42, { supplierId: 100, companyName: "审核中公司", state: "pending" });
     const sqls = poolExecute.mock.calls.map((c) => String(c[0]).replace(/\s+/g, " "));
+    expect(poolExecute).toHaveBeenCalledTimes(2);
     expect(sqls[0]).toContain("UPDATE users SET supplier_id = NULL, supplier_link_status = 'none'");
     expect(sqls[1]).toContain("UPDATE supplier_claims SET status = 'cancelled'");
     expect(sqls[1]).toContain("AND status = 'pending'");
-    expect(sqls[2]).toContain("UPDATE supplier SET claim_status = NULL");
-    expect(sqls[2]).toContain("AND claim_status = 'pending'");
-    expect(sqls[2]).toContain("NOT EXISTS");
+    // 认领置 cancelled 后，派生的 claimPending 自然消失，无需第三条 UPDATE supplier
+    expect(sqls.some((s) => s.includes("UPDATE supplier "))).toBe(false);
     expect(poolExecute.mock.calls[0][1]).toEqual([42, 100]);
     expect(poolExecute.mock.calls[1][1]).toEqual([42, 100]);
-    expect(poolExecute.mock.calls[2][1]).toEqual([100]);
   });
 
   it("解绑带 supplier_id 条件：并发换绑时不会误写别人的新绑定", async () => {
@@ -95,8 +109,9 @@ describe("withdrawBinding", () => {
 
   it("已驳回与无状态绑定同样可撤回（旧申请作废，supplier 行保留）", async () => {
     await withdrawBinding(42, { supplierId: 7, companyName: "旧公司", state: "linked" });
-    expect(poolExecute).toHaveBeenCalledTimes(3);
+    expect(poolExecute).toHaveBeenCalledTimes(2);
     expect(String(poolExecute.mock.calls[1][0])).not.toContain("DELETE");
+    expect(String(poolExecute.mock.calls[1][0])).not.toContain("UPDATE supplier ");
   });
 });
 
@@ -110,15 +125,15 @@ describe("withdrawCurrentBinding", () => {
 
   it("审核中绑定 → 撤回并返回旧绑定概况（供前端提示）", async () => {
     const got = await withdrawCurrentBinding(
-      ctxWith({ id: 100, company: "杭州原绑定企业有限公司", verify_status: "pending", claim_status: null }),
+      ctxWith({ id: 100, company: "杭州原绑定企业有限公司", verify_status: "pending" }),
       42,
     );
     expect(got).toEqual({ supplierId: 100, companyName: "杭州原绑定企业有限公司", state: "pending" });
-    expect(poolExecute).toHaveBeenCalledTimes(3);
+    expect(poolExecute).toHaveBeenCalledTimes(2);
   });
 
   it("已认证绑定 → 400，不执行任何写", async () => {
-    const ctx = ctxWith({ id: 100, company: "已认证公司", verify_status: "done", claim_status: null });
+    const ctx = ctxWith({ id: 100, company: "已认证公司", verify_status: "done" });
     await expect(withdrawCurrentBinding(ctx, 42)).rejects.toMatchObject({ status: 400 });
     expect(poolExecute).not.toHaveBeenCalled();
   });
@@ -152,7 +167,7 @@ describe("assertBindingAllowsSubject", () => {
     const b = { supplierId: 100, companyName: "审核中公司", state: "pending" } as never;
     const switched = await assertBindingAllowsSubject(ctxWith(null), 42, b, 200, "certify");
     expect(switched).toEqual({ supplierId: 100, companyName: "审核中公司", state: "pending" });
-    expect(poolExecute).toHaveBeenCalledTimes(3);
+    expect(poolExecute).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -162,7 +177,6 @@ describe("assertVerifiedSubjectIdentityStable", () => {
     name_confirmed: "杭州原绑定企业有限公司",
     credit_code: "91330100MA2XXXXXX1",
     verify_status: "done",
-    claim_status: null,
   };
 
   it("body 不含身份字段 → 不回查、不拦截", async () => {
@@ -188,6 +202,11 @@ describe("assertVerifiedSubjectIdentityStable", () => {
       status: 400,
       code: 40008,
     });
+  });
+
+  it("已认证但存在 pending 认领 → 归 pending（关系派生），允许补正身份字段", async () => {
+    const ctx = ctxWith(null, stored, true);
+    await expect(assertVerifiedSubjectIdentityStable(ctx, 100, { company: "上海另一家公司有限公司" })).resolves.toBeUndefined();
   });
 
   it("审核中（非 verified）允许补正身份字段", async () => {

@@ -29,7 +29,6 @@ const BOUND_ROW = {
   company: "杭州原绑定企业有限公司",
   credit_code: "91330100MA2XXXXXX1",
   verify_status: "pending",
-  claim_status: "pending",
   established_at: new Date("2011-07-21T16:00:00.000Z"),
   registered_capital: "500.00",
 };
@@ -44,6 +43,9 @@ function buildCtx(updateEnterprise = vi.fn().mockResolvedValue(undefined)) {
     findByUserAndSupplier: vi.fn().mockResolvedValue({ id: 9, status: "approved" }),
     insertClaim: vi.fn(),
     extendPendingClaimExpiry: vi.fn(),
+    // 认领状态改为 supplier_claims 派生（claim_status 已退役，ADR-0017）
+    hasPendingClaim: vi.fn().mockResolvedValue(false),
+    hasApprovedClaim: vi.fn().mockResolvedValue(false),
   };
   const usersRepo = {
     findProfileById: vi.fn().mockResolvedValue({ id: 42, supplier_id: 100, supplier_link_status: "verified" }),

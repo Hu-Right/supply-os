@@ -28,11 +28,10 @@ const bindSubject = (over: Record<string, unknown>) => ({
   id: 100,
   company: "杭州原绑定企业有限公司",
   verify_status: "pending",
-  claim_status: null,
   ...over,
 });
 
-function buildCtx(boundSubjectRow: Record<string, unknown> | null) {
+function buildCtx(boundSubjectRow: Record<string, unknown> | null, pendingClaim = false) {
   const directoryRepo = {
     findBoundSubjectByUserId: vi.fn().mockResolvedValue(boundSubjectRow),
     findByCreditCode: vi.fn().mockResolvedValue(null),
@@ -50,6 +49,8 @@ function buildCtx(boundSubjectRow: Record<string, unknown> | null) {
     findByUserAndSupplier: vi.fn().mockResolvedValue(null),
     insertClaim: vi.fn().mockResolvedValue(9001),
     extendPendingClaimExpiry: vi.fn(),
+    // readCurrentBinding 的认领处理中改为 supplier_claims 派生（claim_status 已退役）
+    hasPendingClaim: vi.fn().mockResolvedValue(pendingClaim),
   };
   const usersRepo = {
     findProfileById: vi.fn().mockResolvedValue({ id: 42, supplier_id: 100, supplier_link_status: "verified" }),
@@ -101,8 +102,8 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
     expect(poolExecute).not.toHaveBeenCalled();
   });
 
-  it("旧绑定是认领待核（verify_status 为空、claim_status=pending）→ 同样可切换", async () => {
-    const { ctx, claimRepo, usersRepo } = buildCtx(bindSubject({ verify_status: null, claim_status: "pending" }));
+  it("旧绑定是认领待核（verify_status 为空 + 存在 pending 认领）→ 同样可切换", async () => {
+    const { ctx, claimRepo, usersRepo } = buildCtx(bindSubject({ verify_status: null }), true);
     vi.mocked(getContext).mockReturnValue(ctx as never);
 
     const res = await POST(postReq({ company: "上海新主体有限公司" }));
