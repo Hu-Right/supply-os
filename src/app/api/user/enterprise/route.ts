@@ -168,8 +168,10 @@ function normalizeLicenseUrl(value: unknown): string | undefined {
 
 /**
  * 统一认领口径（2026-10-14）：绑定必须落在认领单上，人工审核通过才算真绑定。
- * 已有有效认领（pending/approved，重复保存）幂等跳过；行已认证（verify_status='done'）
- * 视为历史后台背书，不补单。返回是否新建了认领单；false 时调用方需自行补 bindSupplier。
+ * 已有有效认领（pending/approved，重复保存）幂等跳过。
+ * 2026-11-11 批量核验口径：done 行同样建单——行的 done 只代表平台核验可展示
+ * （批量核验/管理员建档/历史认领通过），用户认证必须持有自己的认领单，
+ * 防止冒认已核验主体。返回是否新建了认领单；false 时调用方需自行补 bindSupplier。
  */
 async function ensurePendingClaim(
   ctx: AppContext,
@@ -180,7 +182,7 @@ async function ensurePendingClaim(
   const existing = await ctx.supplier.claimRepo.findByUserAndSupplier(userId, supplierId).catch(() => null);
   if (existing) return false;
   const row = await ctx.supplier.directoryRepo.findFullById(supplierId);
-  if (!row || row.verify_status === "done") return false;
+  if (!row) return false;
   await createClaimWithBinding(ctx, {
     userId,
     supplierId,
