@@ -3,16 +3,17 @@
  * Supplier Page — Module 05 Design Mockup
  *
  * @module features/supplier/pages/SupplierPage
- * @description 按「5-全球供应商库」样图重排：页头 + 统计墙 + 多Tab搜索面板 +
+ * @description 按「5-全球供应商库」样图重排：页头 + 统计数据带 + 多Tab搜索面板 +
  *              热门搜索 + 结果头部（排序/视图切换）+ 供应商卡片网格/列表 + 加载更多。
  *              数据通过 useSupplierSearch Hook 走真实API，缺失展示字段用 mock 填充。
  */
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Building2, MapPin, Briefcase } from "lucide-react";
+import { ChevronDown, Building2, MapPin, Briefcase, ShieldCheck, Tags } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
+import { formatClockHHmm } from "@/shared/utils/format";
 import type { Supplier } from "@/types";
 import { SupplierCard } from "../../components/SupplierCard";
 import { SupplierCardSkeleton } from "../../components/SupplierCardSkeleton";
@@ -91,23 +92,28 @@ export default function SupplierPage() {
   const handleSearch = () => { setPage(1); };
   const handleReset = () => { setSearchTerm(""); setIndustryCode(""); setPage(1); };
 
-  // ── 统计墙：真实数据 + 数字动画 ─
+  // ── 统计数据带：真实数据 + 数字动画 ─
   const realStats = useSupplierStats();
   const animSearchable = useCountUp(realStats.searchable);
   const animVerified = useCountUp(realStats.verified);
   const animCommodity = useCountUp(realStats.commodityMatched);
+  /** 取数失败时 updatedAt 为 null，整段不渲染（不用假时刻冒充新鲜度） */
+  const statsUpdatedText = realStats.updatedAt
+    ? t("supplierStatUpdated", { time: formatClockHHmm(new Date(realStats.updatedAt)) })
+    : null;
 
   return (
     <div className="space-y-6">
       <LoadingOverlay visible={loading && firstLoadDoneRef.current} />
 
       <StatsWall
-        stats={[
-          { value: animSearchable, label: t("supplierStatSearchable") },
-          { value: animVerified, label: t("supplierStatVerified") },
-          { value: animCommodity, label: t("supplierStatCommodity") },
+        total={animSearchable}
+        totalLabel={t("supplierStatSearchable")}
+        subs={[
+          { value: animVerified, label: t("supplierStatVerified"), icon: ShieldCheck },
+          { value: animCommodity, label: t("supplierStatCommodity"), icon: Tags },
         ]}
-        realtimeLabel={t("supplierStatRealtime")}
+        updatedText={statsUpdatedText}
       />
 
       {/* 关键词框与行业级联都走「改了条件就回第 1 页」：词框在列表 effect 的依赖里（防抖 300ms

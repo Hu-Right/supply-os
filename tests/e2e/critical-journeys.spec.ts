@@ -53,7 +53,7 @@ test.describe("供应商目录旅程", () => {
 
     // 页面锚点：目录标题
     await expect(
-      page.getByRole("heading", { name: "中国及国际供采供应商目录" }),
+      page.getByRole("heading", { name: "中国及国际供应商目录" }),
     ).toBeVisible({ timeout: 10_000 });
 
     // 注册入口：桌面端按钮含响应式双标签（桌面"供应商资质评审"/窄屏"资质评审"），

@@ -69,6 +69,18 @@ export function formatPlainNumber(num: number): string {
 }
 
 /**
+ * 钟点展示：HH:mm（浏览器本地时区）。
+ * 用于「更新于 14:32」这类“本页什么时候拉的数”的时刻。
+ * 注意：这不是源数据时间，不适用公告侧「统一 UTC / 无真实时刻不臆造」口径
+ * （那套口径管的是 notice publish/deadline 字段），这里显示的本来就是读者自己
+ * 设备上的拉取瞬间，换算成 UTC 反而没人看得懂。无效日期返回空串，由调用方决定不渲染。
+ */
+export function formatClockHHmm(date: Date): string {
+  if (Number.isNaN(date.getTime())) return "";
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+/**
  * 截止时间（Unix 秒）→ "yyyy-MM-dd"。收编 rfq 三处逐字重复的 formatDeadline。
  * 关键：各调用点原语义不一致（本地时区 vs UTC、空值回退文案 vs 空串），
  * 因此以选项显式保留差异，避免隐式改变展示结果。
