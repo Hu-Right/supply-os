@@ -1306,7 +1306,7 @@ CREATE TABLE `notice_search` (
   `description_ar` text NOT NULL,
   `description_es` text NOT NULL,
   `title_ar` varchar(1000) NOT NULL DEFAULT '',
-  `published_date` varchar(50) DEFAULT NULL COMMENT '公告发布日期（同步自 crm_bid_notices.published_date）',
+  `published_date` date DEFAULT NULL COMMENT '公告发布日期（归一为 YYYY-MM-DD；源库混用 ISO 与 DD-Mon-YYYY，写入前由 buildWideRow 收敛）',
   `sync_src_hash` char(32) NOT NULL DEFAULT '' COMMENT '宽表内容与输入快照的一致性指纹，由 buildWideRow 同快照写入，对账只比对不修改',
   `backbone_path` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算）',
   `is_opportunity` tinyint(1) NOT NULL DEFAULT '0' COMMENT '商机集合（投影自服务表）',

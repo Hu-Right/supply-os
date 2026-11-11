@@ -19,8 +19,19 @@ import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 import { WIDE_OPP_JOIN, WIDE_SYNC_JOIN } from "./wide-sync-sql";
 import { upsertNoticeNodes } from "./notice-nodes";
 import { SUPPORTED_LANGS } from "../../utils/languages";
+import { parseNoticeDate } from "@/shared/utils/notice-datetime/parse";
 
 export { WIDE_OPP_JOIN, WIDE_SYNC_JOIN };
+
+/**
+ * 发布日期原文 → DATE 口径（YYYY-MM-DD），不可解析返回 null。
+ * 源库混用 ISO（2026-11-11 / 带时分）与 DD-Mon-YYYY（23-Oct-2026），
+ * 宽表列已是 date，写入前必须收敛，否则严格模式会报错。
+ */
+function toDateOnly(raw: unknown): string | null {
+  const parsed = parseNoticeDate(String(raw ?? ""));
+  return parsed ? new Date(parsed.ts * 1000).toISOString().slice(0, 10) : null;
+}
 
 // ── 支持的语言列表：唯一来源 utils/languages；本地 import 供本文件使用，此处再导出维持 search-sync barrel 兼容 ──
 export { SUPPORTED_LANGS };
@@ -243,7 +254,9 @@ export function buildWideRow(
       ? String(r.public_beneficiary_countries).slice(0, WIDE_LIMITS.beneficiary)
       : normalizeBeneficiaryCountries(String(r.beneficiary_countries || ""), countrySnap),
     documents_count: docs.length,
-    published_date: String(r.published_date || "").slice(0, WIDE_LIMITS.publishedDate),
+    // 发布日统一成 DATE 口径：源库三种写法（ISO / DD-Mon-YYYY / 空）收敛为 YYYY-MM-DD，
+    // 解析不了落 NULL（不臆造）。宽表列已由 varchar 改为 date。
+    published_date: toDateOnly(r.published_date),
     // 指纹：与内容同快照由 SQL 侧唯一表达式算出，此处只透传不计算（I1）。
     // 缺失时落空串 → 与实时指纹不等 → 下一轮对账自动重建（自愈，无需人工刷）。
     sync_src_hash: String(r.sync_src_hash || ""),
