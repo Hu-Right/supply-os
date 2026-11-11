@@ -13,6 +13,7 @@ import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_CLAIM_SUPPLIER_NOT_FOUND, EC_C
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { assertBindingAllowsSubject, readCurrentBinding } from "@/lib/services/enterprise-binding";
 import { LICENSE_URL_PREFIX, LICENSE_FILENAME_RE } from "@/lib/services/file-upload";
+import { beijingDatetimeAfter } from "@/lib/utils/beijing-datetime";
 
 /** POST — 提交认领申请 */
 export const POST = withRoute(async (req: NextRequest) => {
@@ -89,8 +90,8 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   // 双时钟：创建时 1 小时（限时上传执照）；执照在企业信息页保存成功后自动续期 7 天（审核窗口）
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-  const expiresAtStr = expiresAt.toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  // （到期串必须走北京墙钟：toISOString 直写 UTC 会让 1 小时时钟「出生即过期」，2026-11-11 事故）
+  const expiresAtStr = beijingDatetimeAfter(60 * 60 * 1000);
 
   try {
     const result = await createClaimWithBinding(ctx, {

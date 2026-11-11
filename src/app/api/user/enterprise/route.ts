@@ -26,6 +26,7 @@ import { deleteFile } from "@/lib/services/file-upload";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { supplierEnterpriseViewOf } from "@/lib/services/enterprise/view";
 import { upsertPendingLicenseChange, latestLicenseChangeForSupplier } from "@/lib/services/license-change";
+import { beijingDatetimeAfter } from "@/lib/utils/beijing-datetime";
 import { licenseFilenameFromUrl } from "@/lib/services/file-upload";
 import { assertBindingAllowsSubject, readCurrentBinding, assertVerifiedSubjectIdentityStable } from "@/lib/services/enterprise-binding";
 import {
@@ -139,8 +140,7 @@ async function reconcileLicense(
 
   await repo.updateLicenseUrl(supplierId, normalized);
   if (normalized) {
-    const reviewExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      .toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+    const reviewExpiresAt = beijingDatetimeAfter(7 * 24 * 60 * 60 * 1000);
     await ctx.supplier.claimRepo.extendPendingClaimExpiry(userId, supplierId, reviewExpiresAt);
   }
   if (oldUrl && oldUrl !== normalized) {
@@ -153,10 +153,10 @@ async function reconcileLicense(
   return { pendingReview: false };
 }
 
-/** 双时钟：带执照提交 → 直接 7 天审核期；无执照 → 1 小时限时上传期（与企业页执照必填互为兜底） */
+/** 双时钟：带执照提交 → 直接 7 天审核期；无执照 → 1 小时限时上传期（与企业页执照必填互为兜底）
+ *  （到期串必须走北京墙钟：toISOString 直写 UTC 会让 1 小时时钟「出生即过期」，2026-11-11 事故） */
 function claimExpiryFrom(licenseUrl: string | undefined): string {
-  const ms = licenseUrl ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
-  return new Date(Date.now() + ms).toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  return beijingDatetimeAfter(licenseUrl ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000);
 }
 
 /** body 里的执照鉴权 URL：非空字符串才视为有执照（空串=未提供，交由双时钟兜底） */
