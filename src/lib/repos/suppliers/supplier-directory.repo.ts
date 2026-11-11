@@ -50,7 +50,9 @@ export interface CompanyCandidateRow extends RowDataPacket {
   legal_rep: string | null;
   credit_code: string | null;
   verify_status: string | null;
-  claim_status: string | null;
+  /** 该主体是否有 status='pending' 的认领（**关系派生**，supplier_claims 的 EXISTS 片段；
+   *  供应商行上的 claim_status 列已退役，ADR-0017） */
+  claim_pending: number;
   /** 是否已被**其他**用户/账户绑定（users.supplier_id 命中且非当前用户）；0/1 */
   bound: number;
 }
@@ -61,16 +63,17 @@ export interface ClaimOwnership {
   selfBound: boolean;
   /** 其他账户已绑定该主体（已归属，无法再认领） */
   boundByOther: boolean;
-  /** 该主体处于认领处理中（claim_status='pending'，排他期内） */
+  /** 该主体处于认领处理中（supplier_claims 存在 status='pending'，排他期内；
+   *  claim_status 列已退役，改为关系派生，ADR-0017） */
   claimPending: boolean;
 }
 
-/** 账号绑定主体行（findBoundSubjectByUserId 的返回结构；排他判定与服务端文案共用） */
+/** 账号绑定主体行（findBoundSubjectByUserId 的返回结构；排他判定与服务端文案共用）。
+ *  只取排他判定所需列：认领待核已改为关系派生（supplier_claims），不再读 supplier.claim_status。 */
 export interface BoundSubjectRow extends RowDataPacket {
   id: number;
   company: string | null;
   verify_status: string | null;
-  claim_status: string | null;
 }
 
 /**
@@ -286,12 +289,14 @@ export class SupplierDirectoryRepo {
 
   /**
    * 门户读列白名单 = EDITABLE_COLUMNS（表单可编辑列，编辑回填必需）
-   *                 + 8 个门户另外要用的状态/展示列。
+   *                 + 7 个门户另外要用的状态/展示列（claim_status 退役后由 8 减 1）。
    *
    * 追加理由逐个可查：
-   *   id / verify_status / claim_status / coop_status / check_note / data_quality_score / addtime
+   *   id / verify_status / coop_status / check_note / data_quality_score / addtime
    *     —— EnterpriseInfoCard 的状态徽章、完整度与录入时间、以及以外的展示字段；
    *   license_url —— 企业详情展示执照 + 保存时协调旧文件；
+   * claim_status 已于 2026-11-11 退役（ADR-0017）：认领状态由 supplier_claims 派生，
+   *   不再作为 supplier 列下发（企业 GET 的 hasPendingClaim 由认领仓储单独派生）。
    * 2026-09 影子表重建时本表删 6 列（merged_id / english_name / webcheck_status /
    *   webcheck_at / last_match_at / 旧匹配时间），重复档案物理清除，
    *   历史上的 `merged_id IS NULL` 假门禁随之全部摘除；english_name 全库恒空已退役。
@@ -299,7 +304,7 @@ export class SupplierDirectoryRepo {
    */
   static readonly PORTAL_COLUMNS = [
     ...SupplierDirectoryRepo.EDITABLE_COLUMNS,
-    "id", "verify_status", "claim_status", "coop_status", "check_note",
+    "id", "verify_status", "coop_status", "check_note",
     "data_quality_score", "addtime", "license_url",
   ] as const;
 
@@ -409,6 +414,8 @@ export class SupplierDirectoryRepo {
    * findByCompanyBest 同口径），脱敏由 /api/suppliers/similar 的字段白名单 + 掩码保证。
    * `bound`：附带「是否已被其他用户/账户绑定」标记（users.supplier_id 命中且非 excludeUserId），
    * 供「检测并确认主体」弹窗提示「该公司已被绑定」，避免用户对已归属企业重复认领。
+   * `claim_pending`：是否有 status='pending' 的认领（supplier_claims 派生；claim_status 已退役，
+   * ADR-0017），供弹窗提示「已有认领申请处理中」。
    */
   async findDiagnosisCandidatesByName(
     keyword: string,
@@ -424,7 +431,12 @@ export class SupplierDirectoryRepo {
     const escaped = kw.replace(/[\\%_]/g, (c) => `\\${c}`);
     const [rows] = await this.pool.query<CompanyCandidateRow[]>(
       `SELECT id, company, business_type, province, city,
-              established_at, legal_rep, credit_code, verify_status, claim_status,
+              established_at, legal_rep, credit_code, verify_status,
+              EXISTS(
+                SELECT 1 FROM supplier_claims pc
+                 WHERE pc.supplier_id = supplier.id
+                   AND pc.status = 'pending'
+              ) AS claim_pending,
               EXISTS(
                 SELECT 1 FROM users cu
                  WHERE cu.supplier_id = supplier.id
@@ -560,15 +572,20 @@ export class SupplierDirectoryRepo {
     );
     const bound = boundRows[0] as { others: number | null; mine: number | null } | undefined;
 
+    // 认领处理中改为关系派生（claim_status 列已退役，ADR-0017）：
+    // 只要 supplier_claims 里存在该主体的 pending 申请，就算处于排他期。
     const [supRows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT claim_status FROM supplier WHERE id = ?`,
+      `SELECT EXISTS(
+         SELECT 1 FROM supplier_claims c
+          WHERE c.supplier_id = ? AND c.status = 'pending'
+       ) AS claim_pending`,
       [supplierId],
     );
 
     return {
       selfBound: Number(bound?.mine ?? 0) > 0,
       boundByOther: Number(bound?.others ?? 0) > 0,
-      claimPending: String((supRows as RowDataPacket[])[0]?.claim_status || "") === "pending",
+      claimPending: Number((supRows as RowDataPacket[])[0]?.claim_pending ?? 0) === 1,
     };
   }
 
@@ -583,7 +600,7 @@ export class SupplierDirectoryRepo {
    */
   async findBoundSubjectByUserId(userId: number): Promise<BoundSubjectRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT s.id, s.company, s.verify_status, s.claim_status
+      `SELECT s.id, s.company, s.verify_status
          FROM users u
          JOIN supplier s ON s.id = u.supplier_id
         WHERE u.id = ? AND u.supplier_id IS NOT NULL AND u.supplier_id > 0

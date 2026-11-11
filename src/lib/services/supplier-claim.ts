@@ -4,8 +4,9 @@
  *
  * @module lib/services/supplier-claim
  * @description 收口供应商认领流程的跨域编排：
- *              - 创建认领记录 + 临时绑定用户 + 标记供应商认领中
- *              - 过期认领清理（解除绑定 + 重置状态）
+ *              - 创建认领记录 + 临时绑定用户（「认领处理中」由 supplier_claims 派生，
+ *                不再回写 supplier 行上的状态列：claim_status 已退役，ADR-0017）
+ *              - 过期认领清理（解除绑定 + 认领记录置 expired）
  *              避免 API 路由层直接操作多张表。
  */
 import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
@@ -43,7 +44,9 @@ export async function createClaimWithBinding(
   // 2. 临时绑定用户到供应商
   await ctx.user.usersRepo.bindSupplier(userId, supplierId, "verified");
 
-  // 3. 标记认领中；执照有则随认领落库（旧执照文件 best-effort 清理，防堆积）
+  // 3. 执照有则随认领落库（旧执照文件 best-effort 清理，防堆积）。
+  //    ★ 不再 UPDATE supplier.claim_status：该列已于 2026-11-11 退役（ADR-0017），
+  //      「认领处理中」改由 supplier_claims 的 pending 记录派生，无需在主体行留副本。
   const pool = getPool();
   if (params.licenseUrl) {
     const [oldRows] = await pool.execute<RowDataPacket[]>(
@@ -51,17 +54,12 @@ export async function createClaimWithBinding(
     );
     const oldUrl = String((oldRows as Array<{ license_url: string | null }>)[0]?.license_url ?? "") || null;
     await pool.execute(
-      `UPDATE supplier SET claim_status = 'pending', license_url = ? WHERE id = ?`,
+      `UPDATE supplier SET license_url = ? WHERE id = ?`,
       [params.licenseUrl, supplierId],
     );
     if (oldUrl && oldUrl !== params.licenseUrl) {
       await deleteFile(oldUrl).catch(() => undefined);
     }
-  } else {
-    await pool.execute(
-      `UPDATE supplier SET claim_status = 'pending' WHERE id = ?`,
-      [supplierId],
-    );
   }
 
   return { claimId, expiresAt };
@@ -77,6 +75,8 @@ export interface ClaimExpiryRelease {
  * 到期待释放认领的 FROM/JOIN 与 WHERE 片段。
  * 计数与更新共用同一套片段：两处各写一份 SQL 的话，改守卫时很容易只改一处，
  * 导致日志报的条数与实际释放的行数对不上。
+ * ★ JOIN supplier s 保留：仅用于维持历史计数口径（主体行不存在的孤儿认领不计入），
+ *   本流程已不再写 supplier 行（claim_status 退役，ADR-0017）。
  */
 const EXPIRED_CLAIM_JOIN = `supplier_claims c
   LEFT JOIN users u
@@ -89,15 +89,16 @@ const EXPIRED_CLAIM_JOIN = `supplier_claims c
 const EXPIRED_CLAIM_WHERE = `c.status = 'pending' AND c.expires_at < NOW() AND ok.user_id IS NULL`;
 
 /**
- * 清理过期认领：解除用户绑定 + 重置供应商状态 + 认领记录置 expired
- * 一次调用同时写三张表：supplier_claims + users + supplier
+ * 清理过期认领：解除用户绑定 + 认领记录置 expired
+ * 一次调用写两张表：supplier_claims + users（supplier 行只读、不再回写状态列）
  *
- * 三重守卫，防止把已确定的归属误释放（数据史上有 pending 与 verified 并存的脏数据）：
+ * 双重守卫，防止把已确定的归属误释放（数据史上有 pending 与 approved 并存的脏数据）：
  * - u 只按「仍绑定在该主体上」关联（LEFT JOIN … AND u.supplier_id = c.supplier_id）：
  *   用户已换绑/解绑时认领记录照样置 expired，但不动用户现状；
  * - 同用户对同主体已有 approved 认领（正式归属）的过期 pending 不释放，
- *   避免把审核通过的归属人踢下线；
- * - claim_status 仅在仍为 pending 时重置，不覆盖后台审核写出的 verified。
+ *   避免把审核通过的归属人踢下线。
+ * 主体的「认领处理中」不再靠 supplier.claim_status 复位（该列已退役，ADR-0017）：
+ * 认领置 expired 后，派生的 claim_pending 自然消失；后台审核写出的归属事实不受影响。
  *
  * 释放痕迹不靠日志追溯：行会原地变成 status='expired'（含 user_id/supplier_id/expires_at），
  * 客服要查「谁被自动解绑了」直接查表即可。
@@ -116,7 +117,6 @@ export async function releaseExpiredClaims(dbPool: Pool): Promise<ClaimExpiryRel
   const [result] = await dbPool.query(
     `UPDATE ${EXPIRED_CLAIM_JOIN}
         SET u.supplier_id = NULL, u.supplier_link_status = 'none',
-            s.claim_status = IF(s.claim_status = 'pending', NULL, s.claim_status),
             c.status = 'expired'
       WHERE ${EXPIRED_CLAIM_WHERE}`,
   );

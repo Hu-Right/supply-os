@@ -40,6 +40,40 @@ export class SupplierClaimRepo {
   }
 
   /**
+   * 该主体是否有**认领处理中**的申请（supplier_claims.status='pending'）。
+   *
+   * 认领状态自 2026-11-11 起由关系事实派生（ADR-0017）：supplier.claim_status 已退役，
+   * 门户排他期判定、企业 GET 的 hasPendingClaim 一律走本查询（EXISTS 片段与后台共用口径）。
+   */
+  async hasPendingClaim(supplierId: number): Promise<boolean> {
+    const [rows] = await this.pool.execute<RowDataPacket[]>(
+      `SELECT EXISTS(
+         SELECT 1 FROM supplier_claims c
+          WHERE c.supplier_id = ? AND c.status = 'pending'
+       ) AS claim_pending`,
+      [supplierId],
+    );
+    return Number(rows[0]?.claim_pending ?? 0) === 1;
+  }
+
+  /**
+   * 该主体是否已有**认领通过**的记录（supplier_claims.status='approved'）。
+   *
+   * 派生口径同 ADR-0017：换照闸口「已认证或认领已通过」不再看 supplier.claim_status，
+   * 改由本查询供给（认领通过 + 认证待审的历史行也要进换照复审）。
+   */
+  async hasApprovedClaim(supplierId: number): Promise<boolean> {
+    const [rows] = await this.pool.execute<RowDataPacket[]>(
+      `SELECT EXISTS(
+         SELECT 1 FROM supplier_claims c
+          WHERE c.supplier_id = ? AND c.status = 'approved'
+       ) AS claim_approved`,
+      [supplierId],
+    );
+    return Number(rows[0]?.claim_approved ?? 0) === 1;
+  }
+
+  /**
    * 查询某用户对某供应商的【有效】认领记录（最新一条）。
    * 仅 pending/approved 算有效：rejected/expired 是终态，不应阻断用户重新认领。
    */

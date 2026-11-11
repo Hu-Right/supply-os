@@ -51,12 +51,15 @@ function shortName(row: BoundSubjectRow): string {
 export async function readCurrentBinding(ctx: AppContext, userId: number): Promise<CurrentBinding | null> {
   const row = await ctx.supplier.directoryRepo.findBoundSubjectByUserId(userId);
   if (!row) return null;
+  const supplierId = Number(row.id);
+  // 「认领处理中」不再读 supplier.claim_status（该列已退役，ADR-0017），
+  // 改由 supplier_claims 的关系事实派生；DB 行是列名（snake），分类器吃的是语义键：
+  // 在这一道边界换键，而不是给分类器加「两种键形都认」的入参（那就是双口径）。
+  const hasPendingClaim = await ctx.supplier.claimRepo.hasPendingClaim(supplierId);
   return {
-    supplierId: Number(row.id),
+    supplierId,
     companyName: shortName(row),
-    // DB 行是列名（snake），分类器吃的是响应口径的语义键：在这一道边界换键，
-    // 而不是给分类器加「两种键形都认」的入参（那就是双口径）。
-    state: classifyEnterpriseBindState({ verifyStatus: row.verify_status, claimStatus: row.claim_status }),
+    state: classifyEnterpriseBindState({ verifyStatus: row.verify_status, hasPendingClaim }),
   };
 }
 
@@ -114,14 +117,16 @@ export async function assertVerifiedSubjectIdentityStable(
 ): Promise<void> {
   if (!touchesIdentityKeys(body)) return;
   const current = await ctx.supplier.directoryRepo.findFullById(supplierId);
-  // 无行必须仍走 “none”（不是传一个空对象进去被当成 linked）；
-  // findFullById 返回的是 Record<string, unknown>（列名键），这里逐键 String 归一后再进分类器。
-  const bindState = current
-    ? classifyEnterpriseBindState({
-        verifyStatus: current.verify_status == null ? null : String(current.verify_status),
-        claimStatus: current.claim_status == null ? null : String(current.claim_status),
-      })
-    : null;
+  // 无行必须仍走 “none”（不是传一个空对象进去被当成 linked）；findFullById 返回的是
+  // Record<string, unknown>（列名键），这里逐键 String 归一后再进分类器。
+  // 认领处理中改为关系派生（claim_status 已退役，ADR-0017）：只有 verify done 的行才可能
+  // 被判成 verified，因此也只有 done 行才需要多查一次「是否存在 pending 认领」。
+  if (!current) return;
+  const verifyStatus = current.verify_status == null ? null : String(current.verify_status);
+  const hasPendingClaim = verifyStatus === "done"
+    ? await ctx.supplier.claimRepo.hasPendingClaim(supplierId)
+    : false;
+  const bindState = classifyEnterpriseBindState({ verifyStatus, hasPendingClaim });
   if (bindState !== "verified") return;
   if (identitySubjectChanged(current, body)) {
     routeError(
@@ -133,15 +138,16 @@ export async function assertVerifiedSubjectIdentityStable(
 }
 
 /**
- * 撤回当前绑定：解绑账号 + 作废该用户对此主体的待核认领 + 清掉主体的「认领处理中」标记。
+ * 撤回当前绑定：解绑账号 + 作废该用户对此主体的待核认领。
  *
- * 三条写语句的顺序是故意定的：
+ * 两条写语句的顺序是故意定的：
  * ① 先解绑账号——「一账号一主体」分叉立即成立，调用方紧接着绑新主体时不会
- *    出现两个绑定同时存在；即使后续两条失败，残留的 pending 认领也会被
+ *    出现两个绑定同时存在；即使后续一条失败，残留的 pending 认领也会被
  *    releaseExpiredClaims 到期扫干（它只清仍无人绑定的 pending 记录）。
  * ② 只作废 status='pending' 的认领：已过审/已驳回是终态审计记录，不能重写。
- * ③ supplier.claim_status 仅在它确实是 'pending' 且已无任何有效认领时清回 NULL，
- *    不碰别人的排他期、也不抹掉后台确认过的归属。
+ * supplier.claim_status 已于 2026-11-11 退役（ADR-0017）：不再回写主体行——
+ * ② 把 pending 认领置 cancelled 后，派生出来的 claimPending 自然消失，
+ * 无需第三条 UPDATE，也不会碰到别人的排他期或后台确认过的归属。
  * 数据保留原则：不删 supplier 行、不动诊断/资源库记录。
  */
 export async function withdrawBinding(userId: number, binding: CurrentBinding): Promise<void> {
@@ -157,15 +163,6 @@ export async function withdrawBinding(userId: number, binding: CurrentBinding): 
     `UPDATE supplier_claims SET status = 'cancelled', updated_at = NOW()
       WHERE user_id = ? AND supplier_id = ? AND status = 'pending'`,
     [userId, binding.supplierId],
-  );
-  await pool.execute(
-    `UPDATE supplier SET claim_status = NULL
-      WHERE id = ? AND claim_status = 'pending'
-        AND NOT EXISTS (
-          SELECT 1 FROM supplier_claims c
-           WHERE c.supplier_id = supplier.id AND c.status IN ('approved', 'pending')
-        )`,
-    [binding.supplierId],
   );
 }
 

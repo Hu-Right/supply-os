@@ -8,37 +8,39 @@
  *              /api/user/enterprise/withdraw）与前端状态徽章（ProfileContent /
  *              EnterpriseInfoCard / 企业信息页）共用同一分类器，避免出现「页面说已绑定、
  *              接口却允许再认证」的两套真相。
- *              输入只依赖 supplier 行的两个状态列（DB 列名 verify_status / claim_status，
- *              响应侧按红线②以 camelCase 下发：verifyStatus / claimStatus）：
- *              - verifyStatus：主体资质审核（pending 审核中 / done 已认证 / rejected 已驳回）——唯一资质口径
- *              - claimStatus：认领归属（仅 pending 参与判定：认领待核时账号侧仍为临时态）
+ *              输入只依赖两项事实：
+ *              - verifyStatus：主体资质审核（pending 审核中 / done 已认证 / rejected 已驳回）
+ *                ——唯一资质口径，来自 supplier.verify_status（响应侧按红线②以 camelCase 下发）
+ *              - hasPendingClaim：是否存在 status='pending' 的认领（认领处理中）
+ *                ——**关系派生**，来自 supplier_claims（SupplierClaimRepo.hasPendingClaim）；
+ *                供应商行上的 `claim_status` 列已于 2026-11-11 退役（ADR-0017），不再读取。
  */
-import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 /** 账号当前绑定状态：none=未绑定 / pending=审核中 / verified=已认证 / rejected=已驳回 / linked=已绑定但无审核状态 */
 export type EnterpriseBindState = "none" | "pending" | "verified" | "rejected" | "linked";
 
-/** 判定所需的最小字段集：取响应视图的两个状态键（不是列名），
- *  用 String() 归一，避开空串/null 漂移 */
-export type BindStatusSource = Pick<EnterpriseInfo, "verifyStatus" | "claimStatus">;
+/** 判定所需的最小字段集：主体资质标量 + 认领处理中派生事实。
+ *  verifyStatus 用 String() 归一，避开空串/null 漂移；hasPendingClaim 只认 true。 */
+export type BindStatusSource = {
+  verifyStatus?: string | null;
+  hasPendingClaim?: boolean;
+};
 
 /**
  * 归类绑定状态。
- * 资质结论**只看 verify_status**——不再把 claim_status='verified' 视同已认证：
- * 后台认领审核历史上只写归属列、不写资质列，造成 14 行两列长期矛盾，前端只能靠
- * 兼容判定掩盖；那批数据已于 2026-10-08 一次性对齐（见 runtime/backfill-verify-status.mjs），
- * 今后审核端两列一起写，这里不再留掩盖分支。
+ * 资质结论**只看 verify_status**——认领通过不再靠供应商行上的第二列表达；
+ * `claim_status` 已退役（ADR-0017）：后台认领通过仍会连带把 verify_status 写成 done，
+ * 归属事实改由 supplier_claims.status='approved' + users.supplier_id 派生。
  * 若遇到「归属已确认但资质列未写」的行，它们会是 linked（已绑定）且可自助换绑，
  * 这是审核端回写不完整的数据问题，应在审核侧修，不在展示层兜底。
  *
- * claim_status='pending' 仍优先于 verify_status='done'：认领一家已过资质审核的公司时，
+ * hasPendingClaim 仍优先于 verify_status='done'：认领一家已过资质审核的公司时，
  * 主体是 done 但**账号自身的绑定仍是临时态**（归属待后台确认），页面与守卫都必须报「审核中」。
  */
 export function classifyEnterpriseBindState(row: BindStatusSource | null | undefined): EnterpriseBindState {
   if (!row) return "none";
   const verify = String(row.verifyStatus ?? "").trim();
-  const claim = String(row.claimStatus ?? "").trim();
-  if (claim === "pending") return "pending";
+  if (row.hasPendingClaim === true) return "pending";
   if (verify === "done") return "verified";
   if (verify === "pending") return "pending";
   if (verify === "rejected") return "rejected";
