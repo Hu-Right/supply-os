@@ -120,8 +120,8 @@ describe("PUT /api/user/enterprise 身份要素闸口", () => {
 
     const res = await PUT(putReq({ contact: "李四", phone: "13900000000" }));
     expect(res.status).toBe(200);
-    // 2026-10-14 统一认领口径：PUT 末尾的 legacy 自愈需要读行判断是否补建认领单，
-    // 已认证行在此被跳过（不建单），但行本身会查一次
+    // 2026-11-11 批量核验口径：done 行只代表平台核验可展示，用户认证仍需持自己的认领单，
+    // 因此 PUT 末尾的 legacy 自愈会为 done 行补建认领单（防冒认已核验主体）。
     expect(directoryRepo.updateEnterprise).toHaveBeenCalled();
   });
 
@@ -148,8 +148,8 @@ describe("PUT /api/user/enterprise 身份要素闸口", () => {
     expect(claimRepo.insertClaim).not.toHaveBeenCalled();
   });
 
-  it("先审后生效：已认证行换执照 → 登记待审、不直写 license_url", async () => {
-    const { ctx, directoryRepo } = buildCtx({
+  it("先审后生效：已认证行换执照 → 登记待审、不直写 license_url；done 行同样补建认领单", async () => {
+    const { ctx, directoryRepo, claimRepo } = buildCtx({
       verify_status: "done",
       license_url: "/api/user/enterprise/license/license_42_1111111111.png",
     });
@@ -157,7 +157,12 @@ describe("PUT /api/user/enterprise 身份要素闸口", () => {
 
     const res = await PUT(putReq({ license_url: "/api/user/enterprise/license/license_42_2222222222.png" }));
     expect(res.status).toBe(200);
-    expect((await res.json())).toEqual({ claimCreated: false, licensePendingReview: true });
+    // 2026-11-11 批量核验口径：done 只代表平台核验可展示，用户认证仍需持自己的认领单（防冒认），
+    // 故本轮自愈会补建认领单；换照仍走「先审后生效」。
+    expect((await res.json())).toEqual({ claimCreated: true, licensePendingReview: true });
+    expect(claimRepo.insertClaim).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 42, supplierId: 100 }),
+    );
     expect(upsertPendingLicenseChange).toHaveBeenCalledWith({
       supplierId: 100,
       filename: "license_42_2222222222.png",
