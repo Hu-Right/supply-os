@@ -63,7 +63,8 @@ export default function EnterpriseSettingsClient() {
 
   // V2（ADR-0004）：企业信息与供应商资源库不再互斥，已建库也可进入本页绑定/编辑企业。
 
-  // 绑定状态口径与后端排他闸口同源：这里只负责把「已绑定/审核中/已认证」如实告知用户
+  // 绑定状态口径与后端排他闸口同源（入参含 GET 派生的 hasPendingClaim=认领处理中；
+  // supplier.claim_status 已退役，ADR-0017）：这里只负责把「已绑定/审核中/已认证」如实告知用户
   const bindState = classifyEnterpriseBindState(enterprise.enterprise);
   const bindText = enterpriseBindStateText(bindState);
   const boundCompany = enterprise.enterprise

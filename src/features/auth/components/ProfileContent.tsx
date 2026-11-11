@@ -74,9 +74,10 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
   // ★ 供应商认证状态：与企业信息页同一数据源（GET /api/user/enterprise），并走
   //   shared/utils/enterprise-status 的同一口径——后端排他闸口用的就是这份分类，
   //   否则会出现「页面说已绑定、接口却放行新认证」的两套真相。
-  //   资质结论只看 verify_status（claim_status 仅 pending 参与判定：认领待核时账号侧仍是临时态）。
-  //   历史上后台审核只回写归属列，曾靠「claim_status=verified 视同已认证」掩盖；
-  //   该兼容已于 2026-10-08 删除（存量 14 行已对齐，今后由审核端两列一起写）。
+  // 资质结论只看 verify_status（hasPendingClaim 仅表示认领待核：认领待核时账号侧仍是临时态）。
+  //   历史上面板曾靠「claim_status=verified 视同已认证」掩盖审核端漏写资质列；该兼容已于
+  //   2026-10-08 删除。claim_status 本身也已在 2026-11-11 退役（ADR-0017），认领状态改由
+  //   supplier_claims 派生为 hasPendingClaim（GET /api/user/enterprise 下发）。
   const bindState = classifyEnterpriseBindState(enterprise.enterprise ?? null);
   const bindText = enterpriseBindStateText(bindState);
   const checkNote = enterprise.enterprise

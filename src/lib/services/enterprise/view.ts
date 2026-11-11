@@ -7,8 +7,11 @@
  * @module services/enterprise/view
  * @description GET /api/user/enterprise 的 `enterprise` 字段。值来自
  *              `SupplierDirectoryRepo.findFullById`（`SELECT <PORTAL_COLUMNS> FROM supplier`，
- *              31 列白名单，历史上是 SELECT *）。“库里加列不自动上网”那道闸在
+ *              30 列白名单，历史上是 SELECT *）。“库里加列不自动上网”那道闸在
  *              仓储白名单上，本视图负责把列名改成 camelCase（复用 case-keys，不写第三份改名规则）。
+ *              另有一个**非列**键 hasPendingClaim：认领状态自 2026-11-11 起由关系事实
+ *              派生（ADR-0017，supplier.claim_status 已退役），由路由经
+ *              `SupplierClaimRepo.hasPendingClaim(supplierId)` 查得后随视图下发。
  *
  *              列型以云库实测为准（runtime/probe-supplier-portal-cols.mjs）：
  *                - varchar/text → string；NOT NULL 列不为 null
@@ -51,7 +54,9 @@ export interface SupplierEnterpriseView {
   intro: string | null;
   remark: string | null;
   verifyStatus: string | null;
-  claimStatus: string | null;
+  /** 是否存在 status='pending' 的认领（supplier_claims 派生，不是 supplier 列；
+   *  supplier.claim_status 已退役，ADR-0017） */
+  hasPendingClaim: boolean;
   coopStatus: number;
   checkNote: string | null;
   /** DECIMAL(5,2) NOT NULL，无 decimalNumbers ⇒ 字符串 */
@@ -62,12 +67,17 @@ export interface SupplierEnterpriseView {
 
 /**
  * 行 → 视图。
- * 行本身已由仓储白名单 `PORTAL_COLUMNS` 投影（31 列），所以这里不裁剪、只改名 +
- * 给 NOT NULL 列上类型化兜底。改名规则复用 `shared/utils/case-keys`（与 awards /
- * membership / notice-public 同一个实现），“新列必须先登记”那道闸因此在仓储白名单上：
+ * 行本身已由仓储白名单 `PORTAL_COLUMNS` 投影（30 列），所以这里不裁剪、只改名 +
+ * 给 NOT NULL 列上类型化兜底。hasPendingClaim 不是 supplier 列（认领状态由
+ * supplier_claims 派生，claim_status 已退役），由调用方查好后传入，默认 false。
+ * 改名规则复用 `shared/utils/case-keys`（与 awards / membership / notice-public 同一个实现），
+ * “新列必须先登记”那道闸因此在仓储白名单上：
  * PORTAL_COLUMNS 加一行→视图与响应多一个键；路由级用例拿同一份名单推期望集，加减列时那里先响。
  */
-export function supplierEnterpriseViewOf(row: Record<string, unknown>): SupplierEnterpriseView {
+export function supplierEnterpriseViewOf(
+  row: Record<string, unknown>,
+  hasPendingClaim = false,
+): SupplierEnterpriseView {
   const out = toCamelKeys(row);
   // NOT NULL 列不得塌成 null：前端对这些键直接 Number()/String.includes()/渲染（类型也不是 nullable）
   out.coopStatus = Number(row.coop_status ?? 0);
@@ -79,5 +89,7 @@ export function supplierEnterpriseViewOf(row: Record<string, unknown>): Supplier
   out.phone = String(row.phone ?? "");
   out.email = String(row.email ?? "");
   out.website = String(row.website ?? "");
+  // 派生键：不来自行，显式赋值（布尔，缺省 false 表示无认领处理中）
+  out.hasPendingClaim = hasPendingClaim === true;
   return out as unknown as SupplierEnterpriseView;
 }

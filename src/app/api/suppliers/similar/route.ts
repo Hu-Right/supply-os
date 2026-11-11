@@ -38,7 +38,8 @@ export const GET = withRoute(async (req: NextRequest) => {
         creditCodeMasked: maskCreditCode(r.credit_code),
         businessType: r.business_type ?? "",
         verified: String(r.verify_status ?? "") === "done",
-        claimPending: String(r.claim_status ?? "") === "pending",
+        // 认领处理中改为供应商认领表的 EXISTS 派生（supplier.claim_status 已退役，ADR-0017）
+        claimPending: Number(r.claim_pending) === 1,
         // 已被其他用户/账户绑定（已在 repo 层排除当前用户），供弹窗提示「该公司已被绑定」
         bound: Number(r.bound) === 1,
       })),

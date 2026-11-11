@@ -53,7 +53,9 @@ export interface EnterpriseInfo {
   intro: string | null;
   remark: string | null;
   verifyStatus: string | null;
-  claimStatus: string | null;
+  /** 是否存在 status='pending' 的认领（supplier_claims 派生；供应商行上的 claim_status
+   *  列已退役，ADR-0017——后端在 GET 返回前经 SupplierClaimRepo.hasPendingClaim 查得） */
+  hasPendingClaim: boolean;
   coopStatus: number;
   checkNote: string | null;
   /** DECIMAL(5,2) NOT NULL ⇒ 字符串 */

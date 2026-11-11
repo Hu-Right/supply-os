@@ -6,7 +6,8 @@
  *              1. 登录闸门在 API（规范 N4），不再靠前端跳转兜 authenticity；
  *              2. 幂等按 (user_id, supplier_id) 覆盖写（规范 N5），一家公司不会再堆多条；
  *              3. 主体先确定后写诊断（规范 N6）：命中即关联，未命中由本端点建档。
- *              本端点**不写** supplier.claim_status、**不写** users.supplier_id（规范 N7）：
+ *              本端点**不写** supplier 的认领状态（`claim_status` 已退役，认领状态由
+ *              supplier_claims 派生）、**不写** users.supplier_id（规范 N7）：
  *              现场确认只是候选，排他认领权只有上传执照 + 人工审核的 /api/supplier-claims 能给。
  *              建档与写诊断不套长事务：与 /api/user/enterprise POST 同口径——建档失败即中断，
  *              写诊断失败时留下的 pending 档案行会被下一次提交按公司名命中复用，不产生重复主体。
@@ -82,7 +83,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (!supplierId) routeError(500, EC_INTERNAL_ERROR, "企业档案创建失败，请稍后重试");
 
   // 认领提示只对「这不是你的企业」成立：当前账号已绑定该主体时他就是主人，
-  // 再提示“请走执照审核认领”是误报（真机案例：vip@qq.com 已绑 18296、claim_status=verified）。
+  // 再提示“请走执照审核认领”是误报（真机案例：vip@qq.com 已绑 18296、认领已通过）。
   if (claimRequired) {
     const me = await ctx.user.usersRepo.findProfileById(auth.userId);
     if (Number(me?.supplier_id ?? 0) === supplierId) claimRequired = false;

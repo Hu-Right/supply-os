@@ -9,8 +9,9 @@
  *   POST 未绑定：先防重（credit_code 优先、其次公司名）——命中**已认证**行不绑定，
  *        返回 claimRequired 引导走认领审核；命中未认证行与全新建档均走【认领单+临时绑定】
  *        （2026-10-14 统一认领口径：不再裸秒绑，createClaimWithBinding 立认领单、
- *        supplier.claim_status='pending'，后台人工核验执照通过才算真绑定；带执照 7 天审核期，
- *        无执照 1 小时限时上传期）。
+ *        临时绑定进入待核；后台人工核验执照通过才算真绑定；带执照 7 天审核期，
+ *        无执照 1 小时限时上传期）。「认领处理中」由 supplier_claims 的 pending 记录
+ *        派生（supplier.claim_status 已退役，ADR-0017），GET 以 hasPendingClaim 下发。
  *        账号侧换绑（分状态）：旧绑定未拿下认证时允许换绑——先显式撤回旧绑定
  *        （解绑 + 作废旧认领）再绑新主体；旧绑定已认证则 400，变更主体只能走后台/客服。
  *        填写字段与 supplier 最终表结构一致（所见即所填），与诊断/审核链路剥离。
@@ -108,9 +109,10 @@ async function persistSelfReportIfPresent(
  * 先审后生效（2026-10-14）：已认证供应商换照不直接生效——
  * 新图登记 license_changes 待审，supplier.license_url 保持旧图、旧图永不删除，
  * 后台「资质变更」人工通过后才切换；清空执照同样需要审核。
- * 「已认证」= 认证已通过（verify done）**或**认领已通过（claim verified，永久绑定）——
- * 两者的执照当初都经人工核验，换照必须复审（仅判 verify done 会漏掉
- * 「认领已通过、认证待审」的供应商，其换照曾直接生效）。返回本次是否进入待审。
+ * 「已认证」= 认证已通过（verify done）**或**认领已通过（存在 status='approved' 的认领，
+ * 永久绑定）——两者的执照当初都经人工核验，换照必须复审（仅判 verify done 会漏掉
+ * 「认领已通过、认证待审」的供应商，其换照曾直接生效）。supplier.claim_status 已退役
+ * （ADR-0017），认领通过改由 `SupplierClaimRepo.hasApprovedClaim` 派生。返回本次是否进入待审。
  */
 async function reconcileLicense(
   ctx: AppContext,
@@ -124,7 +126,8 @@ async function reconcileLicense(
   const oldUrl = row?.license_url ? String(row.license_url) : null;
   if ((oldUrl ?? null) === normalized) return { pendingReview: false };
 
-  if (row?.verify_status === "done" || row?.claim_status === "verified") {
+  const verified = row?.verify_status === "done" || await ctx.supplier.claimRepo.hasApprovedClaim(supplierId);
+  if (verified) {
     await upsertPendingLicenseChange({
       supplierId,
       filename: normalized ? licenseFilenameFromUrl(normalized) : null,
@@ -239,11 +242,16 @@ export const GET = withRoute(async (req) => {
   // 自报主营品目（编辑页回填）：读失败兜底空数组，不阻断企业页展示（与行业面装配失败退回自填文本同风格）。
   const commodityNodes = await listSupplierSelfReport(ctx.dbPool, supplierId).catch(() => []);
 
+  // 认领处理中改为关系派生（supplier.claim_status 已退役，ADR-0017）：由 supplier_claims 的
+  // pending 事实供给分类器。读失败按 false 兜底——企业页展示不应被一次派生查询拖垮。
+  const hasPendingClaim = await ctx.supplier.claimRepo.hasPendingClaim(supplierId).catch(() => false);
+
   return NextResponse.json({
     bound: true,
     linkStatus,
-    // 行是 PORTAL_COLUMNS 的 31 个列名键，必须过视图才上网（旧写法直接发列名）
-    enterprise: supplierEnterpriseViewOf(row),
+    // 行是 PORTAL_COLUMNS 的 30 个列名键，必须过视图才上网（旧写法直接发列名）；
+    // hasPendingClaim 是派生键（非 supplier 列），由视图显式赋值。
+    enterprise: supplierEnterpriseViewOf(row, hasPendingClaim),
     licenseChange,
     commodityNodes,
   });

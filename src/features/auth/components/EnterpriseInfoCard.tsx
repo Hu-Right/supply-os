@@ -60,7 +60,8 @@ export function EnterpriseInfoCard({
   const companyName = sv(row, "company");
   const isIntl = String(row.countryCode || "") !== "" && String(row.countryCode) !== "CN";
   const coop = Number(row.coopStatus || 0) === 1;
-  // 认证状态与账户设置页、后端排他闸口同一口径（verify_status=资质 / claim_status=归属）
+  // 认证状态与账户设置页、后端排他闸口同一口径（verify_status=资质 / hasPendingClaim=认领待核；
+  // 供应商行上的 claim_status 已退役，认领状态由 supplier_claims 派生）
   const bindState = classifyEnterpriseBindState(row);
   const bindText = enterpriseBindStateText(bindState);
   const checkNote = String(row.checkNote || "");
