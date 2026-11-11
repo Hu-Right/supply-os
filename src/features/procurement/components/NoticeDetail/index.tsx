@@ -27,7 +27,7 @@ import { NextStepsPanel } from "../NextStepsPanel";
 import { getCountdown } from "@/shared/utils/countdown";
 import { formatNoticeDateOrNull } from "@/shared/utils/notice-datetime/format";
 import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
-import { formatNoticeAmount, formatNoticeDeadline, formatNoticeReference } from "../../utils/noticeDisplay";
+import { formatNoticeAmount, formatNoticeDeadline, formatNoticeDeadlineLocal, formatNoticeReference } from "../../utils/noticeDisplay";
 
 import { DetailHeader } from "./DetailHeader";
 import { DetailTabs } from "./DetailTabs";
@@ -181,6 +181,9 @@ export function NoticeDetail({
   const deadlineText = formatNoticeDeadline(
     notice.deadlineTs, notice.deadlineType, notice.deadlineTimezone, locale, t, notice.timezoneSource,
   ) || t("procurement_noDeadline");
+  // 2026-11-11 口径统一：主时间一律北京时间；发标地当地时间作为补充标注（列表页不显示，避免拥挤）
+  const deadlineLocal = formatNoticeDeadlineLocal(notice.deadlineTs, notice.deadlineTimezone, notice.timezoneSource);
+  const deadlineDisplay = deadlineLocal ? `${deadlineText}（${deadlineLocal}）` : deadlineText;
   const budgetText = formatNoticeAmount(notice.estimatedValue, notice.currencyCode, locale) || t("procurement_budgetPending");
   const typeLabel = typeKey ? t(typeKey) : notice.noticeTypeCode || "-";
 
@@ -192,7 +195,7 @@ export function NoticeDetail({
           // 公告编号：来源方真实标号（reference）优先；来源没给编号时（如 JP-GP 这类
           // 门户原文只有路径、爬虫不落 reference）回退平台编号 noticeId，绝不显示 URL 路径
           noticeId={formatNoticeReference(notice.reference, notice.noticeId) || undefined} visibleAgency={visibleAgency} country={notice.countryCode || ""} sourceUrl={notice.sourceUrl || undefined} platform={notice.platform ?? null}
-          publishDate={publishDate} deadlineText={deadlineText} countdown={countdown}
+          publishDate={publishDate} deadlineText={deadlineDisplay} countdown={countdown}
           budgetText={budgetText} onBack={onBack} t={t} locale={locale}
           favorited={favorited} onToggleFavorite={onToggleFavorite}
           onShare={() => setShareOpen(true)}

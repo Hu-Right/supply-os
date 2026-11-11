@@ -100,6 +100,7 @@ export class NoticeDetailRepo {
          n.country, n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value,
          n.published_date,
          d.deadline_state, d.deadline_type, d.effective_ts,
+         d.deadline_timezone, d.timezone_source,
          LEFT(COALESCE(
            (SELECT opp.description FROM bid_opportunities opp
             WHERE opp.source_notice_id = n.notice_id

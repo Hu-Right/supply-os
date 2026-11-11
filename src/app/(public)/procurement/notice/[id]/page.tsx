@@ -22,7 +22,7 @@ import { notFound } from "next/navigation";
 import { getContext } from "@/lib/db/context";
 import { absoluteUrl } from "@/lib/services/seo/site";
 import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
-import { formatNoticeUTCDate, formatNoticeDate, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
+import { formatNoticeUTCDate, formatNoticeDate, formatNoticeCstDate, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
 
 export const revalidate = 3600;
 
@@ -41,6 +41,8 @@ interface NoticeSeoRow extends RowDataPacket {
   deadline_state: string | null;
   deadline_type: string | null;
   effective_ts: number | null;
+  deadline_timezone: string | null;
+  timezone_source: string | null;
   estimated_value: string | null;
   published_date: string | null;
   description: string | null;
@@ -58,9 +60,12 @@ function parseNoticeId(raw: string): number | null {
 }
 
 /**
- * 截止日期：统一走语义层口径（resolveNoticeDeadlineTs）。
- * 非 known（unknown/placeholder/typo_suspect/invalid）→「未公布」；未回填退化到 deadline_sec。
- * 时刻维度待语义层记录 hasTime 后再放开，此处先只显日期。
+ * 截止日期：统一走语义层口径（resolveNoticeDeadlineTs），并按全站统一时区
+ * （北京时间）展示，与列表卡片/详情组件同一数值——此前这里只取 UTC 日期，
+ * 跨日时会比卡片差一天。
+ * 例外：源文本有时分但无时区令牌（timezone_source=assumed_utc）时，ts 即原文
+ * 墙上时间，按 UTC 还原，不做 +8。
+ * 非 known（unknown/placeholder/typo_suspect/invalid）→「未公布」。
  */
 function formatDeadline(row: NoticeSeoRow): string {
   const ts = resolveNoticeDeadlineTs({
@@ -68,7 +73,9 @@ function formatDeadline(row: NoticeSeoRow): string {
     effectiveTs: row.effective_ts,
     fallbackSec: row.deadline_sec,
   });
-  return ts ? formatNoticeUTCDate(ts, false) : UNPUBLISHED_LABEL;
+  if (!ts) return UNPUBLISHED_LABEL;
+  const wallTime = String(row.timezone_source ?? "").trim() === "assumed_utc" && !row.deadline_timezone;
+  return wallTime ? formatNoticeUTCDate(ts, false) : formatNoticeCstDate(ts, false);
 }
 
 function buildSummary(row: NoticeSeoRow): string {
