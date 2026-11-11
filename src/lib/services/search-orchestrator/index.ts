@@ -40,14 +40,20 @@ import { TTLCache } from "@/lib/cache/ttl-cache";
 // ── 结果缓存（5 分钟 TTL，与旧模块口径一致；2026-10-31 收编 lib/cache/ttl-cache 统一原语）──
 const resultCache = new TTLCache<string, UnifiedSearchResult>({ ttlMs: CACHE_TTL_STANDARD_MS, max: 500, name: "unified-search" });
 
+// 降级产生的空集专用短 TTL（2026-11-11 事故）：MySQL 兜底超时被吞成空集时，
+// 5 分钟标准 TTL 会让用户在 Meili 恢复后仍持续看到空列表；短 TTL 保留
+// single-flight 之外的重复请求闸门（避免降级窗口期每次请求都打一遍 15s 慢查询），
+// 又能在引擎恢复后 15 秒内自动回正。
+const CACHE_TTL_DEGRADED_EMPTY_MS = 15_000;
+
 // 软 AND 放宽已改为「仅零结果触发」，无需阈值常量；闸口见 _searchCore 末尾的统一判定。
 
 // ── B6 优化：single-flight 飞行中请求去重（同参数并发请求共享同一 Promise）──
 const _inflight = new Map<string, Promise<UnifiedSearchResult>>();
 
-function cacheSet(key: string, data: UnifiedSearchResult): void {
+function cacheSet(key: string, data: UnifiedSearchResult, opts?: { ttlMs?: number }): void {
   // TTL+LRU 淘汰策略（重插刷新访问序、惰性清扫、满额淘汰至 75%）收口在 TTLCache.set
-  resultCache.set(key, data);
+  resultCache.set(key, data, opts);
 }
 
 /** 失效行业匹配相关缓存（用户修改行业偏好后调用） */
@@ -216,6 +222,8 @@ async function _searchCore(
   let total: number; // 初始值在 if/else 中始终被覆盖
   let path: SearchPath = "meili";
   let matchRelaxed = false;
+  // 兜底失败被吞成空集时为 true（见 mysql-fallback degraded），空结果只给短 TTL
+  let fallbackDegraded = false;
   const meiliStart = Date.now();
   const meiliResult = isFullSyncRunning() ? null : await meiliQuery(p.q, plan.meiliFilters, p.sort, p.page, p.pageSize, p.matchMode ?? "all");
   const meiliMs = Date.now() - meiliStart;
@@ -235,6 +243,7 @@ async function _searchCore(
         ids = fb.ids;
         total = fb.total;
         path = "mysql";
+        fallbackDegraded = fb.degraded === true;
       }
     }
   } else {
@@ -254,6 +263,7 @@ async function _searchCore(
     ids = fb.ids;
     total = fb.total;
     path = "mysql";
+    fallbackDegraded = fb.degraded === true;
   }
 
   // ── 统一软 AND 放宽闸口：仅当硬 AND 零结果时，才以 OR 重查一次 ──
@@ -278,7 +288,10 @@ async function _searchCore(
       items: [], total, page: p.page, pageSize: p.pageSize,
       fallback: path === "mysql" ? "mysql_degraded" : "no_match",
     };
-    cacheSet(cacheKey, empty);
+    // 2026-11-11 事故：降级兜底失败被吞成的空集只缓存 15 秒——标准 5 分钟 TTL
+    // 会让用户在 Meili 恢复后仍持续看到空列表；语义性空结果（no_match/conflict）
+    // 仍走标准 TTL。
+    cacheSet(cacheKey, empty, fallbackDegraded ? { ttlMs: CACHE_TTL_DEGRADED_EMPTY_MS } : undefined);
     logPerf({
       mode: p.mode, path, q: p.q, filterDigest: plan.digest,
       meiliMs, detailMs: 0, totalMs: Date.now() - t0,

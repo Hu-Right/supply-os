@@ -57,7 +57,7 @@ export class TTLCache<K, V> {
     return entry.value;
   }
 
-  set(key: K, value: V): void {
+  set(key: K, value: V, opts?: { ttlMs?: number }): void {
     this.map.delete(key);
     // 惰性清扫：写入时顺手清过期，避免冷缓存长尾占用
     const now = Date.now();
@@ -72,7 +72,7 @@ export class TTLCache<K, V> {
         this.map.delete(k);
       }
     }
-    this.map.set(key, { value, expires: now + this.ttlMs });
+    this.map.set(key, { value, expires: now + (opts?.ttlMs ?? this.ttlMs) });
   }
 
   delete(key: K): void {

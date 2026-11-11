@@ -130,7 +130,7 @@ export async function mysqlFallback(
   pool: Pool,
   p: UnifiedSearchParams,
   plan: FilterPlan,
-): Promise<{ ids: number[]; total: number }> {
+): Promise<{ ids: number[]; total: number; degraded?: boolean }> {
   const offset = (p.page - 1) * p.pageSize;
   // 截止时间以服务表归一后的 deadline_ts 为准，不再使用主表未修正时区的 deadline_sec
   const serviceDeadline = (sql: string) => sql
@@ -174,7 +174,9 @@ export async function mysqlFallback(
     return { ids, total };
   } catch (err) {
     console.warn(`[search-orchestrator] mysqlFallback 失败: ${(err as Error).message}`);
-    return { ids: [], total: 0 };
+    // degraded=true：失败被吞成空集（2026-11-11 事故：该空集若按正常结果缓存
+    // 5 分钟，用户会在 Meili 恢复后仍持续看到空列表），编排器据此只给短 TTL。
+    return { ids: [], total: 0, degraded: true };
   }
 }
 

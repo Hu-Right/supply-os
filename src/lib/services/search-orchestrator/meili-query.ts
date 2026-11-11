@@ -6,7 +6,7 @@
  * @description 使用 filter-builder 产出的 meiliFilters 直接执行 Meilisearch 检索，
  *              处理排序映射、超时保护、健康降级标记。返回 null 表示不可用（调用方降级 MySQL）。
  */
-import { getClient, isHealthy, getIndexName, markUnhealthy, tryRecover } from "../meilisearch/client";
+import { getClient, isHealthy, getIndexName, markUnhealthy, noteMeiliSuccess, tryRecover } from "../meilisearch/client";
 import { MEILI_ACTIVE_FILTER } from "../../utils/notice-expired";
 import type { MatchingStrategies } from "meilisearch";
 import type { UnifiedSearchParams, MeiliHitResult } from "./types";
@@ -116,6 +116,7 @@ export async function meiliQuery(
       const ids = (result.hits ?? []).map((h) => Number(h.id)).filter(Boolean);
       const preciseTotal = result.totalHits ?? null;
       const estimatedTotal = result.estimatedTotalHits ?? ids.length;
+      noteMeiliSuccess();
       return { ids, total: preciseTotal ?? estimatedTotal, totalIsPrecise: preciseTotal !== null };
     } finally {
       if (timeoutId !== undefined) clearTimeout(timeoutId);
@@ -189,6 +190,7 @@ export async function meiliMultiQuery(
     try {
       const response = (await Promise.race([searchPromise, timeoutPromise])) as MeiliMultiOutcome | null;
       if (!response?.results) return null;
+      noteMeiliSuccess();
       return response.results.map((r) => {
         const ids = r.hits?.map((h) => Number(h.id)).filter(Boolean) ?? [];
         const preciseTotal = r.totalHits ?? null;

@@ -17,15 +17,23 @@ const globalForMeili = globalThis as unknown as {
   _meiliClient: Meilisearch | null;
   _meiliHealthy: boolean;
   _meiliLastFailureTs: number;
+  _meiliFailureStreak: number;
 };
 
 // 回退到模块级变量（生产环境不使用 globalThis）
 let client: Meilisearch | null = globalForMeili._meiliClient ?? null;
 let healthy = globalForMeili._meiliHealthy ?? false;
 let lastFailureTs = globalForMeili._meiliLastFailureTs ?? 0;
+let failureStreak = globalForMeili._meiliFailureStreak ?? 0;
 
 const RECOVER_COOLDOWN_MS = 10_000;
 const HEALTH_PROBE_TIMEOUT_MS = 2_000;
+// 2026-11-11 线上事故：重启后页缓存全冷、iowait 高企，偶发连接错误单次就打翻
+// 健康位，造成「降级 MySQL ↔ 恢复 Meili」全天抖动，每个抖动窗口都在生产
+// 15s 超时的降级空集。改为：连续失败达阈值才判不健康，任一次成功即清零；
+// 距上次失败超过窗口期的孤立错误不计入连击。
+const UNHEALTHY_STREAK_THRESHOLD = 2;
+const FAILURE_STREAK_WINDOW_MS = 60_000;
 
 /** 初始化 Meilisearch 客户端（幂等） */
 export function initMeilisearch(): Meilisearch | null {
@@ -56,16 +64,41 @@ export function isHealthy(): boolean {
   return healthy;
 }
 
-/** 标记 Meilisearch 不健康（搜索超时/失败时调用） */
+/** 一次成功的 Meilisearch 交互：清零失败连击（调用方在检索成功后调用） */
+export function noteMeiliSuccess(): void {
+  failureStreak = 0;
+  if (process.env.NODE_ENV !== "production") {
+    globalForMeili._meiliFailureStreak = 0;
+  }
+}
+
+/**
+ * 标记 Meilisearch 不健康（搜索连接类失败时调用）。
+ * 单次瞬时失败只记连击、不打翻健康位（2026-11-11 事故：高 iowait 下偶发
+ * 连接错误曾造成健康位全天抖动）；连续失败达阈值才真正降级。
+ */
 export function markUnhealthy(): void {
+  const now = Date.now();
+  // 超出窗口期的孤立错误不计入连击
+  if (now - lastFailureTs > FAILURE_STREAK_WINDOW_MS) failureStreak = 0;
+  failureStreak += 1;
+  lastFailureTs = now;
+  if (process.env.NODE_ENV !== "production") {
+    globalForMeili._meiliFailureStreak = failureStreak;
+    globalForMeili._meiliLastFailureTs = lastFailureTs;
+  }
+  if (healthy && failureStreak < UNHEALTHY_STREAK_THRESHOLD) {
+    console.warn(
+      `[meilisearch] 瞬时失败 ${failureStreak}/${UNHEALTHY_STREAK_THRESHOLD}，暂不降级（连续失败才切换）`,
+    );
+    return;
+  }
   if (healthy) {
     console.warn("[meilisearch] 运行时探测失败，标记为不健康，搜索将降级到 MySQL");
   }
   healthy = false;
-  lastFailureTs = Date.now();
   if (process.env.NODE_ENV !== "production") {
     globalForMeili._meiliHealthy = false;
-    globalForMeili._meiliLastFailureTs = lastFailureTs;
   }
 }
 
@@ -89,6 +122,7 @@ export async function tryRecover(): Promise<boolean> {
     const health = await Promise.race([healthPromise, timeoutPromise]);
     healthy = health.status === "available";
     if (healthy) {
+      noteMeiliSuccess();
       console.log("[meilisearch] 运行时探测恢复成功，重新启用 Meilisearch 搜索");
     }
     if (process.env.NODE_ENV !== "production") {
