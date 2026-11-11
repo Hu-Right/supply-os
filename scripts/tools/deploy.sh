@@ -72,7 +72,11 @@ restore_runtime_services() {
   fi
   if [ "${APP_WAS_STOPPED}" = "1" ] && [ "${DEPLOY_STARTED_APP}" != "1" ]; then
     echo "[deploy] 构建未走到重启步骤，尝试拉起旧应用..."
-    pm2 restart "${APP_NAME}" >/dev/null 2>&1 || true
+    # 显式 start（而非 pm2 restart）：dump 可能是陈年快照，restart 靠 dump 兜底
+    # 会拉起一个没有应用的新 daemon（2026-11-11 事故：主路径与 trap 竞态后
+    # dump 为空，restart 只带回了 logrotate，应用缺席、站点 502 达 8 分钟）。
+    pm2 delete "${APP_NAME}" >/dev/null 2>&1 || true
+    NODE_ENV=production PORT="${APP_PORT}" pm2 start .next/standalone/server.js --name "${APP_NAME}" >/dev/null 2>&1 || true
   fi
 }
 trap restore_runtime_services EXIT
@@ -171,12 +175,43 @@ if command -v pm2 >/dev/null 2>&1; then
   NODE_ENV=production PORT="${APP_PORT}" timeout 180 pm2 start .next/standalone/server.js --name "${APP_NAME}"
   pm2 save
   DEPLOY_STARTED_APP=1
-  # 起来后探活：端口有 HTTP 应答才算部署闭环（仅告警不判红，防 DB 冷启动误杀部署）
-  sleep 5
-  if curl -s -o /dev/null --max-time 20 "http://127.0.0.1:${APP_PORT}/"; then
+  # 起来后探活：端口有 HTTP 应答才算部署闭环（仅告警不判红，防 DB 冷启动误杀部署）。
+  # 2026-11-11 事故加固：启动后自愈重试一次——本日主路径 start 成功后 app 被
+  # 异步竞态杀掉（pm2 log 可见 start 与 stop 同秒），单次探测只告警不补救，
+  # 站点 502 达 8 分钟无人拉起。轮询 30s（应用冷启动 ~20-40s），未应答则
+  # kill → 等退场 → 清残留 → 重启一次，再探 30s。
+  probe_app() {
+    local i
+    for i in $(seq 1 6); do
+      if curl -s -o /dev/null --max-time 5 "http://127.0.0.1:${APP_PORT}/"; then
+        return 0
+      fi
+      sleep 5
+    done
+    return 1
+  }
+  if probe_app; then
     echo "[deploy] 应用探活通过（端口 ${APP_PORT} HTTP 应答）"
   else
-    echo "[deploy] ⚠ 端口 ${APP_PORT} 未应答，请检查：pm2 logs ${APP_NAME}"
+    echo "[deploy] ⚠ 首次启动端口 ${APP_PORT} 未应答，自愈重试一次..."
+    pm2 delete "${APP_NAME}" >/dev/null 2>&1 || true
+    pm2 kill >/dev/null 2>&1 || true
+    for _ in $(seq 1 40); do
+      pgrep -f "PM2.*God Daemon" >/dev/null 2>&1 || break
+      sleep 0.5
+    done
+    if pgrep -f "PM2.*God Daemon" >/dev/null 2>&1; then
+      pkill -9 -f "PM2.*God Daemon" 2>/dev/null || true
+      sleep 1
+      rm -f "${HOME}/.pm2/pm2.pid" "${HOME}/.pm2/rpc.sock" "${HOME}/.pm2/pub.sock"
+    fi
+    NODE_ENV=production PORT="${APP_PORT}" timeout 180 pm2 start .next/standalone/server.js --name "${APP_NAME}"
+    pm2 save
+    if probe_app; then
+      echo "[deploy] 自愈重试后应用探活通过"
+    else
+      echo "[deploy] ✗ 自愈重试后端口 ${APP_PORT} 仍未应答，请立即人工检查：pm2 logs ${APP_NAME}"
+    fi
   fi
 else
   echo "[deploy] ⚠ 未安装 pm2，请先执行："
