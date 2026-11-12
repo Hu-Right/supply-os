@@ -11,7 +11,6 @@
  *              PaymentsRepo 负责写，PaymentHistoryRepo 负责读。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import type { PaymentOrderRow } from "./types";
 
 /**
  * 订单历史查询行（订单 LEFT JOIN 公告，供列表映射）。

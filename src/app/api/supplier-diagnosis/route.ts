@@ -68,7 +68,8 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 落库名一律取 supplier.company SSOT：payload 名只做按名检索，显式 id 提交时
   // 客户端叫什么都不入库（2026-11-12 快照防污染口径）。
   let supplierId = claimedId ?? 0;
-  let canonicalName = "";
+  // 不给初值：两个分支必赋其一，空串初值是一次永远读不到的死存储（no-useless-assignment）
+  let canonicalName: string;
   // 显式 id 路径在此顺带取 D1 评分片段（省一次往返）；按名命中路径延迟到闸口之后
   let profileBits: { dataQualityScore: number | null; infoChecked: boolean; company: string | null } | null = null;
   if (supplierId) {
