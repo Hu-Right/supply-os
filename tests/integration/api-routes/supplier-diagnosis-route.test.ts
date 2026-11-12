@@ -1,12 +1,14 @@
 /**
  * POST /api/supplier-diagnosis 集成测试 — 2026-11-11 一司一口径收口
  *
- * @description 用假目录仓储 + 假诊断仓储跑通路由，钉住四件事：
+ * @description 用假目录仓储 + 假诊断仓储跑通路由，钉住五件事：
  *              ① 建档关闭：公司名未命中且无显式 id → 400（不再 insertEnterprise，垃圾主体入口堵死）；
  *              ② 写权闸口：有主主体非归属人 → 403 EC_FORBIDDEN；
  *              ③ 归属人放行：即使主体已认证（verify done）也可提交，201；
  *              ④ 响应键集合：claimRequired 已随口径退场（有主主体在闸口就被 403，
- *                 成功响应只能是「无主」或「归属人」提交），wire 上不得再出现。
+ *                 成功响应只能是「无主」或「归属人」提交），wire 上不得再出现；
+ *              ⑤ 快照防污染（2026-11-12）：落库名取 supplier.company SSOT，
+ *                 显式 id 提交时 payload 乱名（『占位』事故）不得入库。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -75,7 +77,7 @@ function postReq(body: unknown): NextRequest {
 const UPSERTED_ROW = { id: 3, user_id: 7, supplier_id: 11, score_total: 60 };
 
 beforeEach(() => {
-  findProfileBits.mockReset().mockResolvedValue({ dataQualityScore: 80, infoChecked: false });
+  findProfileBits.mockReset().mockResolvedValue({ dataQualityScore: 80, infoChecked: false, company: "库内正名科技有限公司" });
   findByCompanyBest.mockReset().mockResolvedValue(null);
   insertEnterprise.mockReset();
   Object.assign(gateFacts, { selfBound: false, boundByOther: false, claimPending: false, claimed: false, verifyDone: false });
@@ -106,7 +108,7 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
   });
 
   it("归属人放行：已认证主体（verify done）归属人提交 → 201，subjectUnclaimed=false", async () => {
-    findByCompanyBest.mockResolvedValue({ id: 11, verify_status: "done" });
+    findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "done" });
     Object.assign(gateFacts, { selfBound: true, claimed: true, verifyDone: true });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
@@ -121,7 +123,7 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
   });
 
   it("无主主体路人诊断 → 201 且 subjectUnclaimed=true（结果页认领引导的依据）", async () => {
-    findByCompanyBest.mockResolvedValue({ id: 11, verify_status: "pending" });
+    findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "pending" });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
     expect(res.status).toBe(201);
@@ -138,7 +140,7 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
   });
 
   it("成功响应键集合：无 claimRequired / 列名上网，subjectUnclaimed 在集", async () => {
-    findByCompanyBest.mockResolvedValue({ id: 11, verify_status: "pending" });
+    findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "pending" });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
     const body = await res.json();
@@ -156,5 +158,28 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
       ].sort(),
     );
     expect(Object.keys(body)).not.toContain("claimRequired");
+  });
+
+  it("快照防污染：显式 supplierId + payload 乱名（『占位』事故回归）→ 落库名取 supplier.company SSOT", async () => {
+    findProfileBits.mockResolvedValue({
+      dataQualityScore: 80,
+      infoChecked: false,
+      company: "杭州中建工程技术有限公司",
+    });
+    const { POST } = await import("@/app/api/supplier-diagnosis/route");
+    const res = await POST(postReq({ companyName: "占位", supplierId: 11, answers: validAnswers() }));
+    expect(res.status).toBe(201);
+    expect(upsertDiagnosis).toHaveBeenCalledTimes(1);
+    expect(upsertDiagnosis.mock.calls[0][0].supplierId).toBe(11);
+    // payload 里的『占位』不得入库：company_name 快照必须是库内正名
+    expect(upsertDiagnosis.mock.calls[0][0].companyName).toBe("杭州中建工程技术有限公司");
+  });
+
+  it("快照防污染：按名命中路径同样落库正名（DB 值为准，typed 简写不入库）", async () => {
+    findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "pending" });
+    const { POST } = await import("@/app/api/supplier-diagnosis/route");
+    const res = await POST(postReq({ companyName: "库内正名", supplierId: null, answers: validAnswers() }));
+    expect(res.status).toBe(201);
+    expect(upsertDiagnosis.mock.calls[0][0].companyName).toBe("库内正名科技有限公司");
   });
 });

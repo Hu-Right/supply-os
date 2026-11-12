@@ -8,6 +8,9 @@
  *                 （2026-11-11 定稿：报告属于公司不属于个人，最后写入者 user_id 落行上）；
  *              3. 主体先确定后写诊断（规范 N6），且**不再建档**（2026-11-11 定稿：
  *                 库里没有就是没有——防止乱输公司名往主数据塞垃圾 pending 主体）。
+ *              4. 落库名走 supplier.company SSOT（2026-11-12）：payload 公司名只做按名检索，
+ *                 显式 id 提交时客户端叫什么都不入库——company_name 快照防测试/乱名污染
+ *                 （曾致『占位』覆盖正名，见诊断表 2026-11-12 影子重排）。
  *              写权闸口（2026-11-11 定稿）：归属人（绑定在该主体上的账号，临时/正式均算）放行；
  *              有主主体（他人绑定 / 认领排他期 / 已归属 / 已认证）非归属人一律 403。
  *              本端点**不写** supplier 的认领状态（`claim_status` 已退役，认领状态由
@@ -56,28 +59,35 @@ export const POST = withRoute(async (req: NextRequest) => {
         : `${parsed.fieldKey} ${REASON_TEXT[parsed.reason] ?? "非法"}`,
     );
   }
-  const { companyName, supplierId: claimedId, answers } = parsed.payload;
+  const { companyName: typedName, supplierId: claimedId, answers } = parsed.payload;
 
   const ctx = getContext();
   const directory = ctx.supplier.directoryRepo;
 
   // ── 主体确定：显式 id → 公司名命中（不再建档：库里没有就是没有，2026-11-11 定稿）──
+  // 落库名一律取 supplier.company SSOT：payload 名只做按名检索，显式 id 提交时
+  // 客户端叫什么都不入库（2026-11-12 快照防污染口径）。
   let supplierId = claimedId ?? 0;
+  let canonicalName = "";
+  // 显式 id 路径在此顺带取 D1 评分片段（省一次往返）；按名命中路径延迟到闸口之后
+  let profileBits: { dataQualityScore: number | null; infoChecked: boolean; company: string | null } | null = null;
   if (supplierId) {
-    if (!(await directory.findProfileBits(supplierId))) {
+    profileBits = await directory.findProfileBits(supplierId);
+    if (!profileBits) {
       routeError(400, EC_DIAGNOSIS_ENTITY_NOT_FOUND, "指定的企业主体不存在");
     }
+    canonicalName = profileBits.company ?? typedName;
   } else {
-    const hit = await directory.findByCompanyBest(companyName);
-    if (hit) {
-      supplierId = Number(hit.id);
-    } else {
+    const hit = await directory.findByCompanyBest(typedName);
+    if (!hit) {
       routeError(
         400,
         EC_DIAGNOSIS_ENTITY_NOT_FOUND,
         "库中未收录该公司，暂不支持新建企业档案；请确认公司名称，或联系客服收录后再诊断",
       );
     }
+    supplierId = Number(hit.id);
+    canonicalName = hit.company ?? typedName;
   }
 
   // ── 写权闸口（2026-11-11 定稿）：归属人放行；有主主体非归属人一律 403 ──
@@ -96,14 +106,21 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
   const subjectUnclaimed = !gateFacts.selfBound;
 
-  const profileBits = (await directory.findProfileBits(supplierId)) ?? { dataQualityScore: null, infoChecked: false };
-  const scoring = scoreDiagnosis({ answers, supplier: profileBits });
+  // 按名命中路径的主体可能在闸口前后被删：取不到 D1 片段就按空档案评分（与旧口径一致）
+  const bits =
+    profileBits ??
+    (await directory.findProfileBits(supplierId)) ?? {
+      dataQualityScore: null,
+      infoChecked: false,
+      company: typedName,
+    };
+  const scoring = scoreDiagnosis({ answers, supplier: bits });
 
   try {
     const stored = await diagnosisRepo.upsertDiagnosis({
       userId: auth.userId,
       supplierId,
-      companyName,
+      companyName: canonicalName, // SSOT 正名入库；payload 名仅用于检索（2026-11-12）
       answers,
       // breakdown 除维度明细外，一并快照红线闸口：报告 PDF 只读快照，
       // 不应为了重现一句提示词再反推评分规则（等级文案可由 gradeDescriptor 从 grade 推导）。

@@ -50,6 +50,7 @@ pnpm-debug.log*
 # ===== IDE 与编辑器 =====
 .qoder/
 .zcode/
+.workbuddy/
 .vscode/
 .idea/
 *.suo

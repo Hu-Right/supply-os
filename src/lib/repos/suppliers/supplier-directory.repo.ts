@@ -462,19 +462,23 @@ export class SupplierDirectoryRepo {
   }
 
   /**
-   * 取诊断评分 D1 所需的主数据片段。
+   * 取诊断评分 D1 所需的主数据片段 + 主体正名。
    * `data_quality_score` 是生成列（20 字段非空各计 5 分），`info_checked` 是人工核对标记；
+   * `company` 供诊断落库快照走 SSOT（payload 名只做检索，不入库，2026-11-12 防污染口径）；
    * 本方法不走 verify_status 过滤，因为刚建档的行依然是 D1 的正当评价对象。
    */
-  async findProfileBits(supplierId: number): Promise<{ dataQualityScore: number | null; infoChecked: boolean } | null> {
+  async findProfileBits(
+    supplierId: number,
+  ): Promise<{ dataQualityScore: number | null; infoChecked: boolean; company: string | null } | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT data_quality_score, info_checked FROM supplier WHERE id = ? LIMIT 1`,
+      `SELECT company, data_quality_score, info_checked FROM supplier WHERE id = ? LIMIT 1`,
       [supplierId],
     );
     const row = rows[0];
     if (!row) return null;
     const q = row.data_quality_score;
     return {
+      company: row.company ?? null,
       dataQualityScore: q === null || q === undefined ? null : Number(q),
       infoChecked: Number(row.info_checked ?? 0) === 1,
     };
