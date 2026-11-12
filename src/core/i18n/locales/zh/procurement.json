@@ -411,7 +411,7 @@
   "diagCompanyPh": "输入贵公司全称",
   "diagCheckCompany": "检测并确认主体",
   "diagSubjectConfirmed": "已确认企业主体",
-  "diagNoMatch": "未收录该公司，提交时将按此名称建立企业档案。",
+  "diagNoMatch": "未收录该公司。供应商诊断仅支持库内既有企业，无法新建档案；请确认公司名称或联系客服收录。",
   "diagDialogTitle": "以下是已收录的公司，请确认",
   "diagDialogConfirm": "是我的公司",
   "diagDialogNotMine": "都不是我的公司",
@@ -435,7 +435,6 @@
   "diagLoading": "加载中…",
   "diagLoadedForEdit": "已载入，可直接修改后重新提交",
   "diagNextStepTitle": "下一步",
-  "diagNextStepClaim": "该企业已通过认证并归属他人。请到企业信息页发起认领，审核通过后资料即归你维护。",
   "diagNextStepProfile": "补全企业档案能直接提升「档案就绪度」这一维度的得分。",
   "diagGoEnterprise": "去企业信息页",
   "diagReportLockedTitle": "获取完整诊断报告",
@@ -777,5 +776,8 @@
   "aiScoreGradeHigh": "优",
   "aiScoreGradeMid": "中",
   "aiScoreGradeLow": "弱",
-  "rfqQuotesRetry": "重试"
+  "rfqQuotesRetry": "重试",
+  "diagDialogLocked": "已被认领或认证，仅归属企业可诊断",
+  "diagBadgeMine": "我的企业",
+  "diagErrSubjectClaimed": "该公司已被认领或认证，仅归属企业可提交诊断；如为贵公司，请先完成企业认领"
 }

@@ -55,6 +55,8 @@ export interface CompanyCandidateRow extends RowDataPacket {
   claim_pending: number;
   /** 是否已被**其他**用户/账户绑定（users.supplier_id 命中且非当前用户）；0/1 */
   bound: number;
+  /** 是否绑定在**当前用户**名下（自己的主体，诊断写权闸口放行的那类）；0/1 */
+  mine: number;
 }
 
 /** 认领归属细查结果（getClaimOwnership 的返回结构） */
@@ -416,6 +418,7 @@ export class SupplierDirectoryRepo {
    * 供「检测并确认主体」弹窗提示「该公司已被绑定」，避免用户对已归属企业重复认领。
    * `claim_pending`：是否有 status='pending' 的认领（supplier_claims 派生；claim_status 已退役，
    * ADR-0017），供弹窗提示「已有认领申请处理中」。
+   * `mine`：是否绑定在当前用户名下（自己的主体，诊断写权闸口放行的那类，2026-11-11 一司一份）。
    */
   async findDiagnosisCandidatesByName(
     keyword: string,
@@ -441,14 +444,19 @@ export class SupplierDirectoryRepo {
                 SELECT 1 FROM users cu
                  WHERE cu.supplier_id = supplier.id
                    AND cu.id <> ?
-              ) AS bound
+              ) AS bound,
+              EXISTS(
+                SELECT 1 FROM users mu
+                 WHERE mu.supplier_id = supplier.id
+                   AND mu.id = ?
+              ) AS mine
          FROM supplier
         WHERE company LIKE ?
         ORDER BY (credit_code IS NOT NULL AND credit_code <> '') DESC,
                  data_quality_score DESC, id DESC
         LIMIT ?`,
-      // 占位符按出现顺序：EXISTS 内的 excludeUserId 先于 LIKE，再于 LIMIT
-      [uid, `${escaped}%`, safeLimit],
+      // 占位符按出现顺序：bound 的 excludeUserId → mine 的 excludeUserId → LIKE → LIMIT
+      [uid, uid, `${escaped}%`, safeLimit],
     );
     return rows as CompanyCandidateRow[];
   }

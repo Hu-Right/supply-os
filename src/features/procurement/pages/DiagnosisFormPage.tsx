@@ -72,9 +72,7 @@ function ResultView({
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <p className="text-sm font-bold text-slate-800">{t("diagNextStepTitle")}</p>
-        <p className="mt-1 text-xs leading-relaxed text-slate-500">
-          {r.claimRequired ? t("diagNextStepClaim") : t("diagNextStepProfile")}
-        </p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">{t("diagNextStepProfile")}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" variant="secondary" onClick={() => window.location.assign("/settings/enterprise")}>
             {t("diagGoEnterprise")}

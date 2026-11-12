@@ -10,6 +10,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { DIAGNOSIS_FIELDS } from "@/shared/constants/diagnosis-dimensions";
+import { EC_FORBIDDEN } from "@/shared/constants/api";
 import {
   findSimilarCompanies,
   submitDiagnosis,
@@ -22,7 +23,7 @@ import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 
 export interface DiagnosisFormState {
   company: string;
-  /** 已确认的主体；null 表示"未命中，提交时由服务端建档" */
+  /** 已确认的主体；null 表示未确认（提交时由服务端按公司名精确命中；2026-11-11 起不再建档，命中不了直接拒绝） */
   supplierId: number | null;
   answers: DiagnosisAnswers;
 }
@@ -125,7 +126,7 @@ export function useDiagnosisForm() {
     [setForm],
   );
 
-  /** "不是我的公司"：不锁主体，按新建档案走，用户可继续改公司名重填 */
+  /** "不是我的公司"：不锁主体回表单，用户改公司名重查（2026-11-11 起不再有建档兜底，库里没有就是没有） */
   const declareNotMine = useCallback(() => {
     setForm((prev) => ({ ...prev, supplierId: null }));
     setCandidates([]);
@@ -164,8 +165,14 @@ export function useDiagnosisForm() {
       return data;
     } catch (err) {
       setError({
+        // 写权闸口 403（有主主体非归属人）走本地化文案；其余服务端错误直出中文提示
+        i18nKey:
+          err instanceof ApiError && err.code === EC_FORBIDDEN
+            ? "diagErrSubjectClaimed"
+            : err instanceof ApiError && err.message
+              ? undefined
+              : "diagErrorNetwork",
         message: err instanceof ApiError && err.message ? err.message : "",
-        i18nKey: err instanceof ApiError && err.message ? undefined : "diagErrorNetwork",
       });
       return null;
     } finally {

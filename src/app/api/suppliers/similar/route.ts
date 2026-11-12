@@ -42,6 +42,8 @@ export const GET = withRoute(async (req: NextRequest) => {
         claimPending: Number(r.claim_pending) === 1,
         // 已被其他用户/账户绑定（已在 repo 层排除当前用户），供弹窗提示「该公司已被绑定」
         bound: Number(r.bound) === 1,
+        // 绑定在当前用户名下（自己的主体）：诊断写权闸口放行的那类（2026-11-11 一司一份）
+        mine: Number(r.mine) === 1,
       })),
     });
   } catch (err) {

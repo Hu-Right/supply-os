@@ -411,7 +411,7 @@
   "diagCompanyPh": "أدخل الاسم الكامل للشركة",
   "diagCheckCompany": "تحقق وأكّد الجهة",
   "diagSubjectConfirmed": "تم تأكيد الجهة",
-  "diagNoMatch": "هذه الشركة غير مسجّلة بعد؛ سيُنشأ ملف تجاري بهذا الاسم عند الإرسال.",
+  "diagNoMatch": "هذه الشركة غير مسجّلة. الخدمة متاحة للشركات المسجّلة فقط؛ تحقق من الاسم أو تواصل مع الدعم لإضافتها.",
   "diagDialogTitle": "وُجدت الشركات التالية، يرجى التأكيد",
   "diagDialogConfirm": "هذه شركتي",
   "diagDialogNotMine": "لا شيء منها ملكي",
@@ -435,7 +435,6 @@
   "diagLoading": "جارٍ التحميل…",
   "diagLoadedForEdit": "تم التحميل، عدّل وأعد الإرسال",
   "diagNextStepTitle": "الخطوة التالية",
-  "diagNextStepClaim": "هذه الشركة موثّقة وترتبط بحساب آخر؛ ابدأ مطالبة من صفحة بيانات الشركة.",
   "diagNextStepProfile": "استكمال ملف الشركة يرفع مباشرة محور جاهزية الملف.",
   "diagGoEnterprise": "اذهب إلى بيانات الشركة",
   "diagReportLockedTitle": "الحصول على التقرير الكامل",
@@ -777,5 +776,8 @@
   "aiScoreGradeHigh": "قوي",
   "aiScoreGradeMid": "متوسط",
   "aiScoreGradeLow": "ضعيف",
-  "rfqQuotesRetry": "إعادة المحاولة"
+  "rfqQuotesRetry": "إعادة المحاولة",
+  "diagDialogLocked": "تمت المطالبة بها أو توثيقها؛ لا يمكن إجراء التقييم إلا للشركة المالكة",
+  "diagBadgeMine": "شركتي",
+  "diagErrSubjectClaimed": "هذه الشركة مطالب بها أو موثّقة؛ لا يمكن إرسال التقييم إلا من الشركة المالكة. إذا كانت شركتك، أكمل المطالبة أولاً."
 }

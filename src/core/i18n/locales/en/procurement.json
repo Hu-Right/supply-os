@@ -411,7 +411,7 @@
   "diagCompanyPh": "Enter your full company name",
   "diagCheckCompany": "Match and confirm subject",
   "diagSubjectConfirmed": "Subject confirmed",
-  "diagNoMatch": "Not in our database yet — a company profile will be created under this name on submit.",
+  "diagNoMatch": "Not in our database. Diagnosis is available for existing companies only — check the name or contact support to have it added.",
   "diagDialogTitle": "We found these companies — please confirm",
   "diagDialogConfirm": "This is my company",
   "diagDialogNotMine": "None of these are mine",
@@ -435,7 +435,6 @@
   "diagLoading": "Loading…",
   "diagLoadedForEdit": "Loaded — revise and resubmit",
   "diagNextStepTitle": "Next step",
-  "diagNextStepClaim": "This company is verified and already belongs to another account. Start a claim from the Company Info page; after review you can maintain it.",
   "diagNextStepProfile": "Completing your company profile directly raises the profile-readiness dimension.",
   "diagGoEnterprise": "Go to Company Info",
   "diagReportLockedTitle": "Get the full report",
@@ -777,5 +776,8 @@
   "aiScoreGradeHigh": "Strong",
   "aiScoreGradeMid": "Moderate",
   "aiScoreGradeLow": "Weak",
-  "rfqQuotesRetry": "Retry"
+  "rfqQuotesRetry": "Retry",
+  "diagDialogLocked": "Claimed or verified — only the owning company can run a diagnosis",
+  "diagBadgeMine": "My company",
+  "diagErrSubjectClaimed": "This company is claimed or verified; only the owning company can submit a diagnosis. If this is your company, complete the claim first."
 }

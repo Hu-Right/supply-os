@@ -2,15 +2,17 @@
  * POST /api/supplier-diagnosis — 提交供应商投标能力诊断（v2）
  *
  * @module app/api/supplier-diagnosis/route
- * @description 与 v1 的三点根本差异：
+ * @description 与 v1 的根本差异：
  *              1. 登录闸门在 API（规范 N4），不再靠前端跳转兜 authenticity；
- *              2. 幂等按 (user_id, supplier_id) 覆盖写（规范 N5），一家公司不会再堆多条；
- *              3. 主体先确定后写诊断（规范 N6）：命中即关联，未命中由本端点建档。
+ *              2. 幂等覆盖写：唯一键 uk_supplier(supplier_id)，一司一份
+ *                 （2026-11-11 定稿：报告属于公司不属于个人，最后写入者 user_id 落行上）；
+ *              3. 主体先确定后写诊断（规范 N6），且**不再建档**（2026-11-11 定稿：
+ *                 库里没有就是没有——防止乱输公司名往主数据塞垃圾 pending 主体）。
+ *              写权闸口（2026-11-11 定稿）：归属人（绑定在该主体上的账号，临时/正式均算）放行；
+ *              有主主体（他人绑定 / 认领排他期 / 已归属 / 已认证）非归属人一律 403。
  *              本端点**不写** supplier 的认领状态（`claim_status` 已退役，认领状态由
  *              supplier_claims 派生）、**不写** users.supplier_id（规范 N7）：
  *              现场确认只是候选，排他认领权只有上传执照 + 人工审核的 /api/supplier-claims 能给。
- *              建档与写诊断不套长事务：与 /api/user/enterprise POST 同口径——建档失败即中断，
- *              写诊断失败时留下的 pending 档案行会被下一次提交按公司名命中复用，不产生重复主体。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
@@ -22,7 +24,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_DIAGNOSIS_ANSWERS_INCOMPLETE, EC_DIAGNOSIS_ENTITY_NOT_FOUND } from "@/shared/constants/api";
+import { EC_FORBIDDEN, EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_DIAGNOSIS_ANSWERS_INCOMPLETE, EC_DIAGNOSIS_ENTITY_NOT_FOUND } from "@/shared/constants/api";
 
 const REASON_TEXT: Record<string, string> = {
   missing: "为必答题",
@@ -59,12 +61,9 @@ export const POST = withRoute(async (req: NextRequest) => {
   const ctx = getContext();
   const directory = ctx.supplier.directoryRepo;
 
-  // ── 主体确定：显式 id → 公司名命中 → 建档 ──
+  // ── 主体确定：显式 id → 公司名命中（不再建档：库里没有就是没有，2026-11-11 定稿）──
   let supplierId = claimedId ?? 0;
-  let claimRequired = false;
   if (supplierId) {
-    // 只校验存在性。允许把诊断挂到任意已存在主体上是设计内的行为：本端点不因此获得该主体的
-    // 任何写权或归属权，真正的归属仍需走执照审核。
     if (!(await directory.findProfileBits(supplierId))) {
       routeError(400, EC_DIAGNOSIS_ENTITY_NOT_FOUND, "指定的企业主体不存在");
     }
@@ -72,28 +71,32 @@ export const POST = withRoute(async (req: NextRequest) => {
     const hit = await directory.findByCompanyBest(companyName);
     if (hit) {
       supplierId = Number(hit.id);
-      claimRequired = String(hit.verify_status ?? "") === "done";
     } else {
-      supplierId = await directory.insertEnterprise(
-        { company: companyName, name_confirmed: companyName },
-        { verify_status: "pending", source_channel: "self_register" },
+      routeError(
+        400,
+        EC_DIAGNOSIS_ENTITY_NOT_FOUND,
+        "库中未收录该公司，暂不支持新建企业档案；请确认公司名称，或联系客服收录后再诊断",
       );
     }
   }
-  if (!supplierId) routeError(500, EC_INTERNAL_ERROR, "企业档案创建失败，请稍后重试");
 
-  // 认领提示只对「这不是你的企业」成立：当前账号已绑定该主体时他就是主人，
-  // 再提示“请走执照审核认领”是误报（真机案例：vip@qq.com 已绑 18296、认领已通过）。
-  if (claimRequired) {
-    const me = await ctx.user.usersRepo.findProfileById(auth.userId);
-    if (Number(me?.supplier_id ?? 0) === supplierId) claimRequired = false;
+  // ── 写权闸口（2026-11-11 定稿）：归属人放行；有主主体非归属人一律 403 ──
+  // 诊断即写公司的唯一报告（一司一份），所以对有主主体必须收口到归属人；
+  // 判定规则在 diagnosisWriteGateDecision（纯函数、可单测），这里只做编排。
+  const diagnosisRepo = new SupplierDiagnosisRepo(getPool());
+  if (!(await diagnosisRepo.getWriteGate(supplierId, auth.userId))) {
+    routeError(
+      403,
+      EC_FORBIDDEN,
+      "该公司已被认领或认证，仅归属企业可提交诊断；如为贵公司，请先完成企业认领",
+    );
   }
 
   const profileBits = (await directory.findProfileBits(supplierId)) ?? { dataQualityScore: null, infoChecked: false };
   const scoring = scoreDiagnosis({ answers, supplier: profileBits });
 
   try {
-    const stored = await new SupplierDiagnosisRepo(getPool()).upsertDiagnosis({
+    const stored = await diagnosisRepo.upsertDiagnosis({
       userId: auth.userId,
       supplierId,
       companyName,
@@ -115,7 +118,6 @@ export const POST = withRoute(async (req: NextRequest) => {
     return NextResponse.json({
       id: Number(stored.id),
       supplierId,
-      claimRequired,
       scoreTotal: scoring.totalScore,
       scoreGrade: scoring.grade,
       gradeLabel: scoring.gradeLabel,

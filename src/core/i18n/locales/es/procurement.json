@@ -411,7 +411,7 @@
   "diagCompanyPh": "Introduzca la denominación completa",
   "diagCheckCompany": "Verificar y confirmar la entidad",
   "diagSubjectConfirmed": "Entidad confirmada",
-  "diagNoMatch": "Aún no está en la base: al enviar se creará un perfil con este nombre.",
+  "diagNoMatch": "Aún no está en la base. El diagnóstico solo está disponible para empresas ya registradas; revise el nombre o contacte con soporte para añadirla.",
   "diagDialogTitle": "Se encontraron estas empresas — confirme",
   "diagDialogConfirm": "Es mi empresa",
   "diagDialogNotMine": "Ninguna es mía",
@@ -435,7 +435,6 @@
   "diagLoading": "Cargando…",
   "diagLoadedForEdit": "Cargado: revise y reenvíe",
   "diagNextStepTitle": "Siguiente paso",
-  "diagNextStepClaim": "Esta empresa está verificada y vinculada a otra cuenta. Inicie una reclamación en Datos de la empresa.",
   "diagNextStepProfile": "Completar el perfil de empresa sube directamente la dimensión de preparación.",
   "diagGoEnterprise": "Ir a Datos de la empresa",
   "diagReportLockedTitle": "Obtén el informe completo",
@@ -777,5 +776,8 @@
   "aiScoreGradeHigh": "Fuerte",
   "aiScoreGradeMid": "Moderado",
   "aiScoreGradeLow": "Débil",
-  "rfqQuotesRetry": "Reintentar"
+  "rfqQuotesRetry": "Reintentar",
+  "diagDialogLocked": "Reclamada o verificada: solo la empresa propietaria puede diagnosticar",
+  "diagBadgeMine": "Mi empresa",
+  "diagErrSubjectClaimed": "Esta empresa está reclamada o verificada; solo la empresa propietaria puede enviar un diagnóstico. Si es suya, complete primero la reclamación."
 }

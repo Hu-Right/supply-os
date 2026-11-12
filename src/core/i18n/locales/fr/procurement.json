@@ -411,7 +411,7 @@
   "diagCompanyPh": "Saisissez la dénomination complète",
   "diagCheckCompany": "Vérifier et confirmer l'entité",
   "diagSubjectConfirmed": "Entité confirmée",
-  "diagNoMatch": "Pas encore référencée : une fiche entreprise sera créée sous ce nom à l'envoi.",
+  "diagNoMatch": "Pas encore référencée. Le diagnostic est réservé aux entreprises déjà enregistrées ; vérifiez le nom ou contactez le support pour l'ajouter.",
   "diagDialogTitle": "Les entreprises suivantes existent déjà — confirmez",
   "diagDialogConfirm": "C'est mon entreprise",
   "diagDialogNotMine": "Aucune n'est la mienne",
@@ -435,7 +435,6 @@
   "diagLoading": "Chargement…",
   "diagLoadedForEdit": "Chargé : modifiez puis renvoyez",
   "diagNextStepTitle": "Étape suivante",
-  "diagNextStepClaim": "Cette entreprise est vérifiée et rattachée à un autre compte. Lancez une revendication depuis Fiche entreprise.",
   "diagNextStepProfile": "Compléter la fiche entreprise améliore directement la dimension de préparation du profil.",
   "diagGoEnterprise": "Aller à Fiche entreprise",
   "diagReportLockedTitle": "Obtenir le rapport complet",
@@ -777,5 +776,8 @@
   "aiScoreGradeHigh": "Fort",
   "aiScoreGradeMid": "Moyen",
   "aiScoreGradeLow": "Faible",
-  "rfqQuotesRetry": "Réessayer"
+  "rfqQuotesRetry": "Réessayer",
+  "diagDialogLocked": "Revendiquée ou vérifiée : seule l'entreprise propriétaire peut lancer un diagnostic",
+  "diagBadgeMine": "Mon entreprise",
+  "diagErrSubjectClaimed": "Cette entreprise est revendiquée ou vérifiée ; seule l'entreprise propriétaire peut soumettre un diagnostic. S'il s'agit de la vôtre, terminez d'abord la revendication."
 }

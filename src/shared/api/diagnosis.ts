@@ -22,6 +22,8 @@ export interface DiagnosisCandidate {
   claimPending: boolean;
   /** 已被其他用户/账户绑定（存在 users 关联记录且非当前用户）；弹窗据此提示「该公司已被绑定」 */
   bound: boolean;
+  /** 绑定在当前用户名下（自己的主体）：即使已认证也可诊断（2026-11-11 一司一份口径） */
+  mine: boolean;
 }
 
 export interface DiagnosisDimensionResult {
@@ -39,7 +41,6 @@ export interface DiagnosisDimensionResult {
 export interface DiagnosisSubmitResult {
   id: number;
   supplierId: number;
-  claimRequired: boolean;
   scoreTotal: number;
   scoreGrade: string;
   gradeLabel: string;

@@ -3,10 +3,13 @@
  * Supplier Bid-Capability Diagnosis (v2) Repository
  *
  * @module lib/repos/supplier-diagnosis.repo
- * @description 只操作 `supplier_diagnosis`（v1 旧表已退役 DROP）。幂等口径是规范 N5——一个用户 × 一家公司只有一行，
- *              重复提交走 `INSERT ... ON DUPLICATE KEY UPDATE` 命中唯一键 `uk_user_supplier`，
+ * @description 只操作 `supplier_diagnosis`（v1 旧表已退役 DROP）。
+ *              幂等口径（2026-11-11 一司一份定稿）：唯一键 `uk_supplier(supplier_id)`——
+ *              一家公司只有一份诊断报告，报告属于公司不属于个人；重复提交走
+ *              `INSERT ... ON DUPLICATE KEY UPDATE` 命中该唯一键，
  *              不使用「先 SELECT 再写」（并发下会双插）。
  *              写库后以 affectedRows + 回读双校验为准再报成功（本仓既有教训：不校验会静默零更新）。
+ *              写权闸口：见 `diagnosisWriteGateDecision`（归属人放行，有主主体非归属人一律拒绝）。
  */
 import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { DIAGNOSIS_FIELDS } from "@/shared/constants/diagnosis-dimensions";
@@ -59,6 +62,30 @@ export interface UpsertDiagnosisParams {
   ip: string | null;
 }
 
+/** 写权闸口的主体事实（一条 SQL 取齐，见 getWriteGate） */
+export interface DiagnosisGateFacts {
+  /** 当前账号绑定在该主体上（临时或正式均算——绑定了就是「自己人」） */
+  selfBound: boolean;
+  /** 其他账号绑定在该主体上 */
+  boundByOther: boolean;
+  /** 存在 pending 认领（排他期） */
+  claimPending: boolean;
+  /** 存在 approved 认领（已归属） */
+  claimed: boolean;
+  /** 主体已认证（与门户公开目录同口径：只认显式 'done'，NULL 历史行不算） */
+  verifyDone: boolean;
+}
+
+/**
+ * 写权判定（纯函数，唯一规则实现）：
+ *   归属人（selfBound）放行——他就是这个主体的（待审/正式）归属人；
+ *   其余情况，只要主体「有主」（他人绑定 / 排他期 / 已归属 / 已认证）即拒绝。
+ *   无主主体（未绑定、无认领、未认证）对全部登录用户开放。
+ */
+export function diagnosisWriteGateDecision(f: DiagnosisGateFacts): boolean {
+  return f.selfBound || !(f.boundByOther || f.claimPending || f.claimed || f.verifyDone);
+}
+
 /** 多选列以逗号入库，读侧再切分；文本列去首尾空白 */
 function toDbValue(fieldKey: string, raw: string | string[] | undefined): string {
   const field = DIAGNOSIS_FIELDS.find((f) => f.key === fieldKey)!;
@@ -95,6 +122,41 @@ export class SupplierDiagnosisRepo {
       [userId, supplierId],
     );
     return rows[0] ?? null;
+  }
+
+  /** 一司一份口径下的主体级回读（报告属于公司，最后写入者的 user_id 落在行上） */
+  async findBySupplierId(supplierId: number): Promise<DiagnosisRow | null> {
+    const [rows] = await this.pool.execute<DiagnosisRow[]>(
+      `SELECT * FROM supplier_diagnosis WHERE supplier_id = ? LIMIT 1`,
+      [supplierId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /**
+   * 写权闸口：一条 SQL 取齐主体事实（users 绑定 + claims 派生 + 认证标），
+   * 判定规则在纯函数 `diagnosisWriteGateDecision`（可单测，不在 SQL 里藏规则）。
+   */
+  async getWriteGate(supplierId: number, userId: number): Promise<boolean> {
+    const [rows] = await this.pool.execute<RowDataPacket[]>(
+      `SELECT
+         EXISTS(SELECT 1 FROM users u WHERE u.supplier_id = s.id AND u.id = ?)  AS self_bound,
+         EXISTS(SELECT 1 FROM users u2 WHERE u2.supplier_id = s.id AND u2.id <> ?) AS bound_others,
+         EXISTS(SELECT 1 FROM supplier_claims c WHERE c.supplier_id = s.id AND c.status = 'pending')  AS claim_pending,
+         EXISTS(SELECT 1 FROM supplier_claims c2 WHERE c2.supplier_id = s.id AND c2.status = 'approved') AS claimed,
+         (s.verify_status = 'done') AS verify_done
+       FROM supplier s WHERE s.id = ? LIMIT 1`,
+      [userId, userId, supplierId, supplierId, supplierId],
+    );
+    const row = rows[0] as Record<string, unknown> | undefined;
+    if (!row) return false; // 主体不存在：调用方已先做存在性校验，这里兜底按拒绝处理
+    return diagnosisWriteGateDecision({
+      selfBound: Number(row.self_bound) === 1,
+      boundByOther: Number(row.bound_others) === 1,
+      claimPending: Number(row.claim_pending) === 1,
+      claimed: Number(row.claimed) === 1,
+      verifyDone: Number(row.verify_done) === 1,
+    });
   }
 
   /**
@@ -148,7 +210,7 @@ export class SupplierDiagnosisRepo {
       throw new Error(`Unexpected affectedRows on diagnosis upsert: ${result.affectedRows}`);
     }
 
-    const stored = await this.findByUserAndSupplier(params.userId, params.supplierId);
+    const stored = await this.findBySupplierId(params.supplierId);
     if (!stored) throw new Error("Diagnosis upsert read-back failed: row not found after write");
     if (Number(stored.score_total) !== Number(params.score.totalScore)) {
       throw new Error(

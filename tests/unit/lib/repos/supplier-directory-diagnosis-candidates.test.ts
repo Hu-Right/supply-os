@@ -1,12 +1,13 @@
 /**
  * 诊断入口「检测并确认主体」候选查询测试
  * @module tests/unit/lib/repos/supplier-directory-diagnosis-candidates.test.ts
- * @description 钉住 bound / claim_pending（重复绑定与认领排他提示）口径：
- *              1. SELECT 通过 EXISTS(users) 计算「是否已被其他用户/账户绑定」，
- *                 并用 cu.id <> ? 排除当前用户（自己的企业不该提示「已被绑定」）；
+ * @description 钉住 bound / claim_pending / mine（重复绑定、认领排他与一司一份写权提示）口径：
+ *              1. SELECT 通过 EXISTS(users) 计算「是否已被其他用户/账户绑定」（cu.id <> ?）
+ *                 与「是否绑定在当前用户名下」（mu.id = ?，2026-11-11 一司一份口径新增）；
  *              2. claim_pending 通过 EXISTS(supplier_claims status='pending') 派生
  *                 （supplier.claim_status 已退役，ADR-0017），无占位符、不改变参数顺序；
- *              3. 占位符按出现顺序排布：excludeUserId 先于 LIKE，再于 LIMIT，避免错序；
+ *              3. 占位符按出现顺序排布：bound 的 excludeUserId → mine 的 excludeUserId
+ *                 → LIKE → LIMIT，避免错序；
  *              4. excludeUserId 缺省时归一为 0（不排除任何用户，任意绑定都计为 bound）；
  *              5. 用户输入的 % 必须转义，沿用认领建议同口径；
  *              6. 不按 verify_status 过滤：pending 行（爬虫同步整库）同样是诊断候选，
@@ -26,8 +27,8 @@ describe("SupplierDirectoryRepo.findDiagnosisCandidatesByName", () => {
     mockQuery.mockResolvedValue([[]]);
   });
 
-  it("SELECT 带出 bound 与 claim_pending：EXISTS 派生，占位符顺序 uid/keyword/limit", async () => {
-    mockQuery.mockResolvedValue([[{ id: 7, company: "深圳某科技有限公司", verify_status: "done", claim_pending: 1, bound: 1 }]]);
+  it("SELECT 带出 bound / claim_pending / mine：EXISTS 派生，占位符顺序 uid×2/keyword/limit", async () => {
+    mockQuery.mockResolvedValue([[{ id: 7, company: "深圳某科技有限公司", verify_status: "done", claim_pending: 1, bound: 1, mine: 0 }]]);
     const rows = await repo.findDiagnosisCandidatesByName("深圳%某", 5, 42);
 
     const [sql, params] = mockQuery.mock.calls[0];
@@ -36,15 +37,20 @@ describe("SupplierDirectoryRepo.findDiagnosisCandidatesByName", () => {
     expect(sql).toContain("FROM users cu");
     expect(sql).toContain("cu.supplier_id = supplier.id");
     expect(sql).toContain("cu.id <> ?");
+    // mine：绑定在当前用户名下（自己的主体，写权闸口放行的那类）
+    expect(sql).toContain("AS mine");
+    expect(sql).toContain("FROM users mu");
+    expect(sql).toContain("mu.id = ?");
     // claim_pending 由 supplier_claims 派生（claim_status 已退役），无占位符
     expect(sql).toContain("AS claim_pending");
     expect(sql).toContain("FROM supplier_claims pc");
     expect(sql).toContain("pc.status = 'pending'");
     expect(sql).not.toContain("claim_status");
-    // 占位符严格按出现顺序：EXISTS 内的 excludeUserId 先于 LIKE，再于 LIMIT
+    // 占位符严格按出现顺序：bound 的 excludeUserId → mine 的 excludeUserId → LIKE → LIMIT
     expect(params[0]).toBe(42);
-    expect(params[1]).toBe("深圳\\%某%"); // 用户输入的 % 被转义为 \%
-    expect(params[2]).toBe(5);
+    expect(params[1]).toBe(42);
+    expect(params[2]).toBe("深圳\\%某%"); // 用户输入的 % 被转义为 \%
+    expect(params[3]).toBe(5);
     expect(rows[0]?.bound).toBe(1);
     expect(rows[0]?.claim_pending).toBe(1);
   });
@@ -53,7 +59,8 @@ describe("SupplierDirectoryRepo.findDiagnosisCandidatesByName", () => {
     await repo.findDiagnosisCandidatesByName("北京", 5);
     const [, params] = mockQuery.mock.calls[0];
     expect(params[0]).toBe(0);
-    expect(params[1]).toBe("北京%");
+    expect(params[1]).toBe(0);
+    expect(params[2]).toBe("北京%");
   });
 
   it("整库候选：不按 verify_status 过滤（pending 行同样是诊断对象）", async () => {
