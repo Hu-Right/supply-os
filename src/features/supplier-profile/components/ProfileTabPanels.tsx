@@ -12,9 +12,50 @@ import {
   ArrowRight, ExternalLink, Lock,
 } from "lucide-react";
 import { Button, Card, EmptyState } from "@/shared/ui";
+import type { SupplierScorecard } from "@/shared/api/supplier";
 import type { Supplier } from "@/types";
 
 // ── 工具组件 ──
+
+/** 投标能力成绩单（公开面）：只渲染归属人提交的报告结论；只有总分/等级/维度概览，无短板无作答 */
+function ScorecardCard({ scorecard, t }: { scorecard: SupplierScorecard; t: (key: string, params?: Record<string, string | number>) => string }) {
+  const tone = scorecard.grade === "A"
+    ? { text: "text-teal-600", bar: "bg-teal-500", badge: "bg-teal-50 border-teal-200 text-teal-700" }
+    : scorecard.grade === "B"
+      ? { text: "text-amber-600", bar: "bg-amber-500", badge: "bg-amber-50 border-amber-200 text-amber-700" }
+      : { text: "text-slate-500", bar: "bg-slate-400", badge: "bg-slate-50 border-slate-200 text-slate-600" };
+  return (
+    <section className="mb-5 rounded-2xl border border-teal-200 bg-white p-5 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+          <Target className="w-5 h-5 text-teal-600" />{t("supScorecardTitle")}
+        </h3>
+        <p className="text-2xs text-slate-400">
+          {t("supScorecardEvaluatedAt")} {new Date(scorecard.evaluatedAt).toLocaleDateString()}
+        </p>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <div className="flex items-baseline gap-1">
+          <span className={`text-3xl font-black ${tone.text}`}>{scorecard.totalScore}</span>
+          <span className="text-xs text-slate-400">/ 100</span>
+        </div>
+        <span className={`rounded-full border px-3 py-1 text-xs font-bold ${tone.badge}`}>{scorecard.gradeLabel}</span>
+        <span className="text-2xs text-slate-400">{t("supScorecardTotal")}</span>
+      </div>
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        {scorecard.dimensions.map((d) => (
+          <div key={d.name} className="flex items-center gap-2">
+            <span className="shrink-0 w-28 truncate text-xs text-slate-500" title={d.name}>{d.name}</span>
+            <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+              <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${Math.min(100, Math.max(0, d.score))}%` }} />
+            </div>
+            <span className="shrink-0 w-8 text-right text-xs font-bold text-slate-600">{d.score}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -29,11 +70,14 @@ interface PanelProps { t: (key: string, params?: Record<string, string | number>
 
 // ── 企业能力总览 ──
 
-export function CapabilityPanel({ supplier, products, completeness, certs, country, t }: PanelProps & {
+export function CapabilityPanel({ supplier, products, completeness, certs, country, scorecard, t }: PanelProps & {
   supplier: Supplier; products: string[]; completeness: number; certs: string[]; country: string;
+  scorecard: SupplierScorecard | null;
 }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+    <div>
+      {scorecard && <ScorecardCard scorecard={scorecard} t={t} />}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
       <section className="rounded-2xl border border-teal-200 bg-white p-5">
         <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
           <Building2 className="w-5 h-5 text-teal-600" />{t("profile_capabilityTitle")}
@@ -125,6 +169,7 @@ export function CapabilityPanel({ supplier, products, completeness, certs, count
           {t("profile_upgradePlan")} <ArrowRight className="w-3 h-3" />
         </button>
       </section>
+      </div>
     </div>
   );
 }

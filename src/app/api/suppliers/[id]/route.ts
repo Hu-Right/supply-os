@@ -11,7 +11,10 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { getPool } from "@/lib/db/pool";
 import { supplierViewOf } from "@/lib/services/suppliers";
+import { SupplierDiagnosisRepo } from "@/lib/repos/supplier-diagnosis.repo";
+import { supplierScorecardViewOf } from "@/lib/services/supplier-diagnosis/scorecard-view";
 import { loadCountryAliasSnapshot, type CountryAliasSnapshot } from "@/lib/services/country/alias-store";
 import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
 import type { SupplierIndustryInfo } from "@/lib/services/industry-labels";
@@ -72,7 +75,18 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       console.error("[suppliers/:id GET] 国家展示快照加载失败，本次退回原文:", err);
     }
 
-    return NextResponse.json({ ...supplierViewOf(row, industry, snap), claimed });
+    // 投标能力成绩单（公开面）：只认归属人提交的报告（findClaimantScorecard 取数侧保证）；
+    // 路人写的无主报告不上详情页。装配失败不阻断主流程，成绩单缺席=卡片不渲染。
+    const lang = new URL(req.url).searchParams.get("lang") ?? "zh";
+    let scorecard = null;
+    try {
+      const scoreRow = await new SupplierDiagnosisRepo(getPool()).findClaimantScorecard(numericId);
+      scorecard = scoreRow ? supplierScorecardViewOf(scoreRow, lang) : null;
+    } catch (err) {
+      console.error("[suppliers/:id GET] 成绩单装配失败，本次不渲染:", err);
+    }
+
+    return NextResponse.json({ ...supplierViewOf(row, industry, snap), claimed, scorecard });
   } catch (err) {
     // 路由自身抛出的 400/404 必须原样返回；只有未预期异常才是 500
     if (err instanceof RouteError) throw err;

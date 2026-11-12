@@ -23,6 +23,25 @@ export type SupplierContact = {
 /** 供应商联系方式弹窗状态 */
 export type SupplierContactStatus = "vipOnly" | "loading" | "success" | "error";
 
+/** 详情页公开成绩单——单维度概览条目（只有名称与得分，无原始分/证据/作答） */
+export interface SupplierScorecardDimension {
+  name: string;
+  score: number;
+}
+
+/**
+ * 投标能力成绩单（详情页公开面）
+ * 只认「归属人提交」的诊断报告（服务端取数侧保证）；维度明细/短板/作答不在此面，
+ * 归属人看全文走 /api/supplier-diagnosis/mine。
+ */
+export interface SupplierScorecard {
+  totalScore: number;
+  grade: "A" | "B" | "C";
+  gradeLabel: string;
+  evaluatedAt: string;
+  dimensions: SupplierScorecardDimension[];
+}
+
 /**
  * 查询单条供应商详情
  * Fetch single supplier by ID

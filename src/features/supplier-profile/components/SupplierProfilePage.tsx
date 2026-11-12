@@ -47,7 +47,7 @@ export function SupplierProfilePage() {
   const params = useParams();
   const id = String(params?.id ?? "");
 
-  const { supplier, loading, claimed } = useSupplierProfile(locale, id);
+  const { supplier, loading, claimed, scorecard } = useSupplierProfile(locale, id);
 
   const [activeTab, setActiveTab] = useState("capability");
   const [contactModal, setContactModal] = useState<{
@@ -194,7 +194,7 @@ export function SupplierProfilePage() {
 
         {/* ══ Tab 内容（按需渲染） ═══ */}
         {activeTab === "capability" && (
-          <CapabilityPanel supplier={supplier} products={products} completeness={completeness} certs={certs} country={country} t={t} />
+          <CapabilityPanel supplier={supplier} products={products} completeness={completeness} certs={certs} country={country} scorecard={scorecard} t={t} />
         )}
         {activeTab === "products" && (
           <ProductsPanel products={products} t={t} />

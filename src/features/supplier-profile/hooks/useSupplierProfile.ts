@@ -6,7 +6,7 @@
  *              不做 mock 降级（旧注释称「降级到 mock 数据」与实际代码不符，代码从无 mock，已纠正）。
  */
 import { useEffect, useState } from "react";
-import { fetchSupplierById } from "@/shared/api/supplier";
+import { fetchSupplierById, type SupplierScorecard } from "@/shared/api/supplier";
 import { mapApiError } from "@/core/http";
 import type { Supplier } from "@/types";
 
@@ -16,6 +16,8 @@ export interface UseSupplierProfileReturn {
   error: string | null;
   /** 该供应商是否已被用户认领 */
   claimed: boolean;
+  /** 投标能力成绩单（公开面，仅归属人提交的报告；无则 null 不渲染卡片） */
+  scorecard: SupplierScorecard | null;
 }
 
 export function useSupplierProfile(lang: string, id: string): UseSupplierProfileReturn {
@@ -23,6 +25,7 @@ export function useSupplierProfile(lang: string, id: string): UseSupplierProfile
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [claimed, setClaimed] = useState(false);
+  const [scorecard, setScorecard] = useState<SupplierScorecard | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -30,12 +33,14 @@ export function useSupplierProfile(lang: string, id: string): UseSupplierProfile
     setLoading(true);
     setError(null);
     setClaimed(false);
+    setScorecard(null);
 
     fetchSupplierById(lang, id)
       .then((data: any) => {
         if (cancelled) return;
         setSupplier(data);
         setClaimed(!!data.claimed);
+        setScorecard((data as { scorecard?: SupplierScorecard | null }).scorecard ?? null);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -49,5 +54,5 @@ export function useSupplierProfile(lang: string, id: string): UseSupplierProfile
     return () => { cancelled = true; };
   }, [lang, id]);
 
-  return { supplier, loading, error, claimed };
+  return { supplier, loading, error, claimed, scorecard };
 }

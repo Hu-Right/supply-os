@@ -781,5 +781,8 @@
   "diagBadgeMine": "Minha empresa",
   "diagErrSubjectClaimed": "Esta empresa está reivindicada ou verificada; apenas a empresa proprietária pode submeter o diagnóstico. Se for a sua, conclua primeiro a reivindicação.",
   "diagClaimHint": "Esta empresa está na base mas sem proprietário. Se for sua, inicie uma reivindicação — aprovada, poderá manter a ficha e o diagnóstico.",
-  "diagGoClaim": "Reivindicar esta empresa"
+  "diagGoClaim": "Reivindicar esta empresa",
+  "supScorecardTitle": "Avaliação da capacidade de concorrência",
+  "supScorecardTotal": "Pontuação global",
+  "supScorecardEvaluatedAt": "Avaliado em"
 }

@@ -781,5 +781,8 @@
   "diagBadgeMine": "Mi empresa",
   "diagErrSubjectClaimed": "Esta empresa está reclamada o verificada; solo la empresa propietaria puede enviar un diagnóstico. Si es suya, complete primero la reclamación.",
   "diagClaimHint": "Esta empresa está en la base pero sin propietario. Si es suya, inicie una reclamación: una vez aprobada podrá mantener su ficha y diagnóstico.",
-  "diagGoClaim": "Reclamar esta empresa"
+  "diagGoClaim": "Reclamar esta empresa",
+  "supScorecardTitle": "Evaluación de capacidad de licitación",
+  "supScorecardTotal": "Puntuación global",
+  "supScorecardEvaluatedAt": "Evaluado el"
 }

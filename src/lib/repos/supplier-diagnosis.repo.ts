@@ -86,6 +86,14 @@ export function diagnosisWriteGateDecision(f: DiagnosisGateFacts): boolean {
   return f.selfBound || !(f.boundByOther || f.claimPending || f.claimed || f.verifyDone);
 }
 
+/** 成绩单行的最小字段集（详情页公开面的取数口径） */
+export type ClaimantScorecardRow = {
+  score_total: number | null;
+  score_grade: string | null;
+  score_breakdown: unknown;
+  submitted_at: Date;
+};
+
 /** 多选列以逗号入库，读侧再切分；文本列去首尾空白 */
 function toDbValue(fieldKey: string, raw: string | string[] | undefined): string {
   const field = DIAGNOSIS_FIELDS.find((f) => f.key === fieldKey)!;
@@ -131,6 +139,24 @@ export class SupplierDiagnosisRepo {
       [supplierId],
     );
     return rows[0] ?? null;
+  }
+
+  /**
+   * 详情页公开成绩单取数：只认「归属人提交」的报告。
+   * 一司一份下 user_id = 最后写入者，JOIN users 限定「该账号仍绑定在本主体上」：
+   * 路人写的无主报告不上详情页；归属人覆盖后自然接管；归属人被解绑则报告随之退场。
+   */
+  async findClaimantScorecard(supplierId: number): Promise<ClaimantScorecardRow | null> {
+    const [rows] = await this.pool.execute<RowDataPacket[]>(
+      `SELECT d.score_total, d.score_grade, d.score_breakdown, d.submitted_at
+         FROM supplier_diagnosis d
+         JOIN users u ON u.id = d.user_id AND u.supplier_id = d.supplier_id
+        WHERE d.supplier_id = ? AND u.supplier_link_status = 'verified'
+        LIMIT 1`,
+      [supplierId],
+    );
+    const row = rows[0] as ClaimantScorecardRow | undefined;
+    return row ?? null;
   }
 
   /**
