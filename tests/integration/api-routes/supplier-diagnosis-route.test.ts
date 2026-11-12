@@ -36,19 +36,25 @@ vi.mock("@/lib/db/context", () => ({
   }),
 }));
 
-const getWriteGate = vi.fn();
+/** 闸口事实可按用例改写；路由用 diagnosisWriteGateDecision 真实判定（importActual 保留） */
+const gateFacts = { selfBound: false, boundByOther: false, claimPending: false, claimed: false, verifyDone: false };
+const getWriteGateFacts = vi.fn(async () => ({ ...gateFacts }));
 const upsertDiagnosis = vi.fn();
 
 vi.mock("@/lib/db/pool", () => ({
   getPool: vi.fn().mockReturnValue({}),
 }));
 
-vi.mock("@/lib/repos/supplier-diagnosis.repo", () => ({
-  SupplierDiagnosisRepo: class {
-    getWriteGate = getWriteGate;
-    upsertDiagnosis = upsertDiagnosis;
-  },
-}));
+vi.mock("@/lib/repos/supplier-diagnosis.repo", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/repos/supplier-diagnosis.repo")>();
+  return {
+    ...actual,
+    SupplierDiagnosisRepo: class {
+      getWriteGateFacts = getWriteGateFacts;
+      upsertDiagnosis = upsertDiagnosis;
+    },
+  };
+});
 
 /** 用 DIAGNOSIS_FIELDS 造一份合法作答：单选取首个选项、多选空、文本占位 */
 function validAnswers(): Record<string, string | string[]> {
@@ -72,7 +78,8 @@ beforeEach(() => {
   findProfileBits.mockReset().mockResolvedValue({ dataQualityScore: 80, infoChecked: false });
   findByCompanyBest.mockReset().mockResolvedValue(null);
   insertEnterprise.mockReset();
-  getWriteGate.mockReset().mockResolvedValue(true);
+  Object.assign(gateFacts, { selfBound: false, boundByOther: false, claimPending: false, claimed: false, verifyDone: false });
+  getWriteGateFacts.mockClear();
   upsertDiagnosis.mockReset().mockResolvedValue(UPSERTED_ROW);
 });
 
@@ -89,7 +96,7 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
 
   it("有主主体非归属人（闸口拒绝）→ 403 EC_FORBIDDEN", async () => {
     findByCompanyBest.mockResolvedValue({ id: 11, verify_status: "done" });
-    getWriteGate.mockResolvedValue(false);
+    Object.assign(gateFacts, { selfBound: false, boundByOther: true });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
     expect(res.status).toBe(403);
@@ -98,18 +105,28 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
     expect(upsertDiagnosis).not.toHaveBeenCalled();
   });
 
-  it("归属人放行：已认证主体（verify done）归属人提交 → 201，得分与主体正确落库", async () => {
+  it("归属人放行：已认证主体（verify done）归属人提交 → 201，subjectUnclaimed=false", async () => {
     findByCompanyBest.mockResolvedValue({ id: 11, verify_status: "done" });
-    getWriteGate.mockResolvedValue(true);
+    Object.assign(gateFacts, { selfBound: true, claimed: true, verifyDone: true });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.supplierId).toBe(11);
     expect(body.id).toBe(3);
+    expect(body.subjectUnclaimed).toBe(false);
     expect(upsertDiagnosis).toHaveBeenCalledTimes(1);
     expect(upsertDiagnosis.mock.calls[0][0].supplierId).toBe(11);
     expect(upsertDiagnosis.mock.calls[0][0].userId).toBe(7);
+  });
+
+  it("无主主体路人诊断 → 201 且 subjectUnclaimed=true（结果页认领引导的依据）", async () => {
+    findByCompanyBest.mockResolvedValue({ id: 11, verify_status: "pending" });
+    const { POST } = await import("@/app/api/supplier-diagnosis/route");
+    const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.subjectUnclaimed).toBe(true);
   });
 
   it("显式 supplierId 不存在 → 400（存在性校验先于闸口）", async () => {
@@ -117,10 +134,10 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "任意", supplierId: 999, answers: validAnswers() }));
     expect(res.status).toBe(400);
-    expect(getWriteGate).not.toHaveBeenCalled();
+    expect(getWriteGateFacts).not.toHaveBeenCalled();
   });
 
-  it("成功响应键集合：claimRequired 已退场，无 DB 列名上网", async () => {
+  it("成功响应键集合：无 claimRequired / 列名上网，subjectUnclaimed 在集", async () => {
     findByCompanyBest.mockResolvedValue({ id: 11, verify_status: "pending" });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
@@ -133,6 +150,7 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
         "overrideGate",
         "scoreGrade",
         "scoreTotal",
+        "subjectUnclaimed",
         "supplierId",
         "topGaps",
       ].sort(),

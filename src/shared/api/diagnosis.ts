@@ -41,6 +41,8 @@ export interface DiagnosisDimensionResult {
 export interface DiagnosisSubmitResult {
   id: number;
   supplierId: number;
+  /** 无主主体上的路人诊断（闸口放行且非归属人）：结果页据此提示「如为贵公司可发起认领」 */
+  subjectUnclaimed: boolean;
   scoreTotal: number;
   scoreGrade: string;
   gradeLabel: string;

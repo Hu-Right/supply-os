@@ -779,5 +779,7 @@
   "rfqQuotesRetry": "Réessayer",
   "diagDialogLocked": "Revendiquée ou vérifiée : seule l'entreprise propriétaire peut lancer un diagnostic",
   "diagBadgeMine": "Mon entreprise",
-  "diagErrSubjectClaimed": "Cette entreprise est revendiquée ou vérifiée ; seule l'entreprise propriétaire peut soumettre un diagnostic. S'il s'agit de la vôtre, terminez d'abord la revendication."
+  "diagErrSubjectClaimed": "Cette entreprise est revendiquée ou vérifiée ; seule l'entreprise propriétaire peut soumettre un diagnostic. S'il s'agit de la vôtre, terminez d'abord la revendication.",
+  "diagClaimHint": "Cette entreprise est référencée mais sans propriétaire. S'il s'agit de la vôtre, lancez une revendication : une fois approuvée, vous pourrez tenir sa fiche et son diagnostic à jour.",
+  "diagGoClaim": "Revendiquer cette entreprise"
 }

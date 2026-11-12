@@ -134,10 +134,13 @@ export class SupplierDiagnosisRepo {
   }
 
   /**
-   * 写权闸口：一条 SQL 取齐主体事实（users 绑定 + claims 派生 + 认证标），
-   * 判定规则在纯函数 `diagnosisWriteGateDecision`（可单测，不在 SQL 里藏规则）。
+   * 写权闸口的主体事实：一条 SQL 取齐（users 绑定 + claims 派生 + 认证标）。
+   * 判定规则在纯函数 `diagnosisWriteGateDecision`（可单测，不在 SQL 里藏规则）；
+   * 主体不存在返回 null（调用方已先做存在性校验，这里兜底按拒绝处理）。
+   * 路由层除判定外还消费事实本身（selfBound=false 即「无主主体上的路人诊断」，
+   * 供结果页透出认领引导 subjectUnclaimed）。
    */
-  async getWriteGate(supplierId: number, userId: number): Promise<boolean> {
+  async getWriteGateFacts(supplierId: number, userId: number): Promise<DiagnosisGateFacts | null> {
     const [rows] = await this.pool.execute<RowDataPacket[]>(
       `SELECT
          EXISTS(SELECT 1 FROM users u WHERE u.supplier_id = s.id AND u.id = ?)  AS self_bound,
@@ -149,14 +152,20 @@ export class SupplierDiagnosisRepo {
       [userId, userId, supplierId, supplierId, supplierId],
     );
     const row = rows[0] as Record<string, unknown> | undefined;
-    if (!row) return false; // 主体不存在：调用方已先做存在性校验，这里兜底按拒绝处理
-    return diagnosisWriteGateDecision({
+    if (!row) return null;
+    return {
       selfBound: Number(row.self_bound) === 1,
       boundByOther: Number(row.bound_others) === 1,
       claimPending: Number(row.claim_pending) === 1,
       claimed: Number(row.claimed) === 1,
       verifyDone: Number(row.verify_done) === 1,
-    });
+    };
+  }
+
+  /** 写权闸口布尔版（getWriteGateFacts + 纯函数判定的组合快捷方式）。 */
+  async getWriteGate(supplierId: number, userId: number): Promise<boolean> {
+    const facts = await this.getWriteGateFacts(supplierId, userId);
+    return facts ? diagnosisWriteGateDecision(facts) : false;
   }
 
   /**

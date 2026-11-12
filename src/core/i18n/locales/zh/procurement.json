@@ -779,5 +779,7 @@
   "rfqQuotesRetry": "重试",
   "diagDialogLocked": "已被认领或认证，仅归属企业可诊断",
   "diagBadgeMine": "我的企业",
-  "diagErrSubjectClaimed": "该公司已被认领或认证，仅归属企业可提交诊断；如为贵公司，请先完成企业认领"
+  "diagErrSubjectClaimed": "该公司已被认领或认证，仅归属企业可提交诊断；如为贵公司，请先完成企业认领",
+  "diagClaimHint": "该企业已收录但暂无归属。如为贵公司，可发起认领，审核通过后归属权归你，资料与诊断报告均可维护。",
+  "diagGoClaim": "去认领这家企业"
 }

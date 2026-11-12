@@ -66,8 +66,18 @@ describe("SupplierDiagnosisRepo.getWriteGate（SQL 形状与兜底）", () => {
     expect(await repo.getWriteGate(11, 7)).toBe(false);
   });
 
-  it("主体行不存在：兜底返回 false（拒绝）", async () => {
+  it("主体行不存在：getWriteGateFacts 返回 null，getWriteGate 兜底 false（拒绝）", async () => {
     mockExecute.mockResolvedValue([[]]);
+    expect(await repo.getWriteGateFacts(999, 7)).toBeNull();
     expect(await repo.getWriteGate(999, 7)).toBe(false);
+  });
+
+  it("getWriteGateFacts 原样透出五项事实（subjectUnclaimed 派生依据）", async () => {
+    mockExecute.mockResolvedValue([[{ self_bound: 0, bound_others: 0, claim_pending: 0, claimed: 0, verify_done: 0 }]]);
+    const facts = await repo.getWriteGateFacts(11, 7);
+    expect(facts).toEqual({ selfBound: false, boundByOther: false, claimPending: false, claimed: false, verifyDone: false });
+
+    mockExecute.mockResolvedValue([[{ self_bound: 1, bound_others: 0, claim_pending: 0, claimed: 1, verify_done: 1 }]]);
+    expect(await repo.getWriteGateFacts(11, 7)).toEqual({ selfBound: true, boundByOther: false, claimPending: false, claimed: true, verifyDone: true });
   });
 });

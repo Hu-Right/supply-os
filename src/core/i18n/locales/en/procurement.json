@@ -779,5 +779,7 @@
   "rfqQuotesRetry": "Retry",
   "diagDialogLocked": "Claimed or verified — only the owning company can run a diagnosis",
   "diagBadgeMine": "My company",
-  "diagErrSubjectClaimed": "This company is claimed or verified; only the owning company can submit a diagnosis. If this is your company, complete the claim first."
+  "diagErrSubjectClaimed": "This company is claimed or verified; only the owning company can submit a diagnosis. If this is your company, complete the claim first.",
+  "diagClaimHint": "This company is in our database but unclaimed. If it is yours, start a claim — once approved you own it and can maintain its profile and diagnosis.",
+  "diagGoClaim": "Claim this company"
 }

@@ -779,5 +779,7 @@
   "rfqQuotesRetry": "Tentar novamente",
   "diagDialogLocked": "Reivindicada ou verificada — apenas a empresa proprietária pode fazer o diagnóstico",
   "diagBadgeMine": "Minha empresa",
-  "diagErrSubjectClaimed": "Esta empresa está reivindicada ou verificada; apenas a empresa proprietária pode submeter o diagnóstico. Se for a sua, conclua primeiro a reivindicação."
+  "diagErrSubjectClaimed": "Esta empresa está reivindicada ou verificada; apenas a empresa proprietária pode submeter o diagnóstico. Se for a sua, conclua primeiro a reivindicação.",
+  "diagClaimHint": "Esta empresa está na base mas sem proprietário. Se for sua, inicie uma reivindicação — aprovada, poderá manter a ficha e o diagnóstico.",
+  "diagGoClaim": "Reivindicar esta empresa"
 }

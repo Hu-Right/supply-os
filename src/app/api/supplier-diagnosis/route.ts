@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getContext } from "@/lib/db/context";
-import { SupplierDiagnosisRepo } from "@/lib/repos/supplier-diagnosis.repo";
+import { SupplierDiagnosisRepo, diagnosisWriteGateDecision } from "@/lib/repos/supplier-diagnosis.repo";
 import { scoreDiagnosis } from "@/lib/services/scoring/diagnosis-v2";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
@@ -83,14 +83,18 @@ export const POST = withRoute(async (req: NextRequest) => {
   // ── 写权闸口（2026-11-11 定稿）：归属人放行；有主主体非归属人一律 403 ──
   // 诊断即写公司的唯一报告（一司一份），所以对有主主体必须收口到归属人；
   // 判定规则在 diagnosisWriteGateDecision（纯函数、可单测），这里只做编排。
+  // 闸口放行且非归属人 = 无主主体上的路人诊断：响应透出 subjectUnclaimed，
+  // 结果页据此提示「如为贵公司可发起认领」（直达 /supplier/[id] 认领弹窗）。
   const diagnosisRepo = new SupplierDiagnosisRepo(getPool());
-  if (!(await diagnosisRepo.getWriteGate(supplierId, auth.userId))) {
+  const gateFacts = await diagnosisRepo.getWriteGateFacts(supplierId, auth.userId);
+  if (!gateFacts || !diagnosisWriteGateDecision(gateFacts)) {
     routeError(
       403,
       EC_FORBIDDEN,
       "该公司已被认领或认证，仅归属企业可提交诊断；如为贵公司，请先完成企业认领",
     );
   }
+  const subjectUnclaimed = !gateFacts.selfBound;
 
   const profileBits = (await directory.findProfileBits(supplierId)) ?? { dataQualityScore: null, infoChecked: false };
   const scoring = scoreDiagnosis({ answers, supplier: profileBits });
@@ -118,6 +122,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     return NextResponse.json({
       id: Number(stored.id),
       supplierId,
+      subjectUnclaimed,
       scoreTotal: scoring.totalScore,
       scoreGrade: scoring.grade,
       gradeLabel: scoring.gradeLabel,
