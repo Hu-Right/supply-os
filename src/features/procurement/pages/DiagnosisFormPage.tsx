@@ -184,9 +184,19 @@ export default function DiagnosisFormPage() {
           </p>
         )}
         {form.noMatch && !form.form.supplierId && (
-          <p className="mt-2 rounded-lg bg-amber-50 px-2.5 py-1.5 text-2xs leading-relaxed text-amber-700">
-            {t("diagNoMatch")}
-          </p>
+          <div className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-2xs leading-relaxed text-amber-700">
+            <p>{t("diagNoMatch")}</p>
+            {/* 收录正门在设置页：提交企业信息即立认领单 + 临时绑定（selfBound），
+                按一司一份写权闸口当场解锁本页诊断，无需等审核通过 */}
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-2"
+              onClick={() => window.location.assign("/settings/enterprise")}
+            >
+              {t("diagGoEnterprise")}
+            </Button>
+          </div>
         )}
       </section>
 

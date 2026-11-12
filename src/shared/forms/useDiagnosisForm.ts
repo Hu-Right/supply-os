@@ -10,7 +10,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { DIAGNOSIS_FIELDS } from "@/shared/constants/diagnosis-dimensions";
-import { EC_FORBIDDEN } from "@/shared/constants/api";
+import { EC_FORBIDDEN, EC_DIAGNOSIS_ENTITY_NOT_FOUND } from "@/shared/constants/api";
 import {
   findSimilarCompanies,
   submitDiagnosis,
@@ -164,6 +164,10 @@ export function useDiagnosisForm() {
       clearDraft();
       return data;
     } catch (err) {
+      // 主体未收录（40060，建档已关闭）：点亮主体确认区的「去企业信息页收录」引导块
+      if (err instanceof ApiError && err.code === EC_DIAGNOSIS_ENTITY_NOT_FOUND) {
+        setNoMatch(true);
+      }
       setError({
         // 写权闸口 403（有主主体非归属人）走本地化文案；其余服务端错误直出中文提示
         i18nKey:
