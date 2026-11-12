@@ -121,54 +121,42 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   }
 
   // 6. 支付维护（payment-maintenance）：
-  //    a) 超时未支付订单每 60 分钟关闭一次（支付宝侧 timeout_express 30 分钟，DB 侧延后 2 小时兜底），
-  //       避免 pending 订单永久滞留；PAYMENT_MAINTENANCE_ENABLED=off 关闭。
-  //       2026-11-12 起四种业务同表（orders），按 product_kind 分组清扫：
-  //         · plan/material/bundle：created_at 超 2 小时 → closed（这三类没有独立过期列）
+  //    a) 超时未支付订单每 60 分钟清扫一次（支付宝侧 timeout_express 30 分钟，DB 侧兜底窗
+  //       expires_at = 下单 +2h，见 ORDER_PAY_WINDOW_MINUTES）；PAYMENT_MAINTENANCE_ENABLED=off 关闭。
+  //       009 起 expires_at 由各下单入口统一落列，清扫收敛为两条 SQL、走 idx_orders_status_expires：
+  //         · plan/material/bundle/service：expires_at 到期 → closed（与旧 created_at+2h 逐字等价）
   //         · course：expires_at 到期 → expired（与懒过期语义一致，保留迟到付款复活通道）
   //    b) 权益体系新账本到期扫描（启动后一次 + 每日）：新表组过期订阅整批置 expired 并冻结其额度池
   let paymentMaintenanceTimer: NodeJS.Timeout | null = null;
   let paymentTierSyncTimer: NodeJS.Timeout | null = null;
   if (String(process.env.PAYMENT_MAINTENANCE_ENABLED ?? "on").toLowerCase() !== "off") {
-    // 统一表 orders 的超时清理；逐组 try/catch，一组失败不影响其余组
-    const STALE_ORDER_CLEANUPS: Array<{ table: string; label: string; sql: string }> = [
+    // 统一表 orders 的超时清理（009：expires_at 统一落列，两条 SQL 走同一条索引）；
+    // 逐条 try/catch，一条失败不影响另一条
+    const STALE_ORDER_CLEANUPS: Array<{ label: string; sql: string }> = [
       {
-        table: "orders",
-        label: "会员订单",
-        sql: `UPDATE orders SET status = 'closed'
-              WHERE status = 'pending' AND product_kind = 'plan' AND created_at < NOW() - INTERVAL 2 HOUR`,
+        label: "在线支付订单",
+        sql: `UPDATE orders SET status = 'closed', updated_at = NOW()
+              WHERE status = 'pending' AND expires_at < NOW()
+                AND product_kind IN ('plan','material','bundle','service')`,
       },
       {
-        table: "orders",
-        label: "学习订单",
-        sql: `UPDATE orders SET status = 'closed'
-              WHERE status = 'pending' AND product_kind IN ('material','bundle') AND created_at < NOW() - INTERVAL 2 HOUR`,
-      },
-      {
-        table: "orders",
-        label: "增值服务订单",
-        sql: `UPDATE orders SET status = 'closed'
-              WHERE status = 'pending' AND product_kind = 'service' AND created_at < NOW() - INTERVAL 2 HOUR`,
-      },
-      {
-        table: "orders",
         label: "培训订单",
-        sql: `UPDATE orders SET status = 'expired'
-              WHERE status = 'pending' AND product_kind = 'course' AND expires_at < NOW()`,
+        sql: `UPDATE orders SET status = 'expired', updated_at = NOW()
+              WHERE status = 'pending' AND expires_at < NOW() AND product_kind = 'course'`,
       },
     ];
     const closeStalePendingOrders = async () => {
       let total = 0;
-      for (const { table, label, sql } of STALE_ORDER_CLEANUPS) {
+      for (const { label, sql } of STALE_ORDER_CLEANUPS) {
         try {
           const [ret] = await dbPool.query(sql);
           const affected = (ret as { affectedRows?: number }).affectedRows ?? 0;
           if (affected > 0) {
             total += affected;
-            console.log(`[payment-maintenance] 已关闭 ${label}（${table}）超时未支付订单 ${affected} 笔`);
+            console.log(`[payment-maintenance] 已清扫 ${label} 超时未支付订单 ${affected} 笔`);
           }
         } catch (e) {
-          console.error(`[payment-maintenance] 关闭 ${label} 超时订单失败（不影响其他表/下次扫描）:`, (e as Error).message);
+          console.error(`[payment-maintenance] 清扫 ${label} 超时订单失败（不影响另一条/下次扫描）:`, (e as Error).message);
         }
       }
       if (total > 0) console.log(`[payment-maintenance] 本次累计清理 ${total} 笔超时未支付订单`);
