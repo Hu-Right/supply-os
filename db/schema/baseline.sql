@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 127 张，导出 123 张，排除 4 张。
+--           源库共 130 张，导出 123 张，排除 7 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -1143,7 +1143,7 @@ CREATE TABLE `notice_deadline` (
   PRIMARY KEY (`notice_pk`),
   KEY `idx_state_type` (`deadline_state`,`deadline_type`),
   KEY `idx_effective` (`effective_ts`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告截止时间语义层；主表 deadline/deadline_ts 保留为源值';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告截止时间';
 
 -- ── notice_deadline_lock ──
 CREATE TABLE `notice_deadline_lock` (
@@ -1306,10 +1306,10 @@ CREATE TABLE `notice_search` (
   `description_ar` text NOT NULL,
   `description_es` text NOT NULL,
   `title_ar` varchar(1000) NOT NULL DEFAULT '',
-  `published_date` date DEFAULT NULL COMMENT '公告发布日期（归一为 YYYY-MM-DD；源库混用 ISO 与 DD-Mon-YYYY，写入前由 buildWideRow 收敛）',
   `sync_src_hash` char(32) NOT NULL DEFAULT '' COMMENT '宽表内容与输入快照的一致性指纹，由 buildWideRow 同快照写入，对账只比对不修改',
   `backbone_path` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算）',
   `is_opportunity` tinyint(1) NOT NULL DEFAULT '0' COMMENT '商机集合（投影自服务表）',
+  `published_date` date DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_ns_deadline_desc` (`deadline_sec` DESC),
   KEY `idx_ns_id_desc` (`id` DESC),
@@ -1941,6 +1941,7 @@ CREATE TABLE `supplier` (
   KEY `idx_credit_code` (`credit_code`),
   KEY `idx_company` (`company`(64)),
   KEY `idx_supplier_country` (`country`),
+  KEY `idx_supplier_company` (`company`),
   FULLTEXT KEY `ft_supplier_products` (`products`) /*!50100 WITH PARSER `ngram` */ 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商管理';
 
@@ -2043,8 +2044,7 @@ CREATE TABLE `supplier_diagnosis` (
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   `report_ai` json DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_supplier` (`user_id`,`supplier_id`),
-  KEY `idx_supplier` (`supplier_id`),
+  UNIQUE KEY `uk_supplier` (`supplier_id`),
   KEY `idx_score` (`score_total`),
   KEY `idx_submitted` (`submitted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商投标能力诊断表';

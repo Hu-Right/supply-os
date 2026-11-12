@@ -13,6 +13,7 @@ import { isExcludedTable, EXCLUDE_RES } from "../../scripts/tools/baseline-exclu
 const MUST_EXCLUDE = [
   "crm_bid_notices__new", // ADR-0003 在途影子
   "crm_bid_opportunities__new",
+  "supplier_new", // _new 单下划线变体（2026-11-11 供应商影子在途时泄进基线）
   "crm_notice_attribution_nodes__drill", // ADR-0014 对拍/回滚演练
   "appointments__gs", // 供应商退役：在途影子
   "appointments__gs_dropped", // 回滚残留
@@ -23,6 +24,8 @@ const MUST_EXCLUDE = [
   "crm_w_backup_2026",
   "crm_v_copy",
   "crm_u_retired_2026",
+  "supplier_batch_done_ids_20261111", // 回滚 id 快照（2026-11-12 补）
+  "supplier_verify_null_ids_20261111", // 同上
   "crm_outreach_supplier", // 内网爬虫镜像表
   "outreach_batches", // 同上，无 crm_ 前缀的镜像表（2026-10-31 补）
   "outreach_events",
@@ -37,6 +40,8 @@ const MUST_KEEP = [
   "users",
   "plan_benefits",
   "upload_files",
+  // _ids_\d{8}$ 的边界对照：非日期后缀的 ids 表不是回滚快照
+  "user_ids",
 ];
 
 test("影子/备份/镜像表全部命中排除清单", () => {

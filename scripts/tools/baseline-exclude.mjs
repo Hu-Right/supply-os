@@ -11,6 +11,9 @@
 // 影子/备份表（带 __bak_ 或日期后缀）是一次性切换留下的快照，不属于终态结构。
 // __new 后缀是 ADR-0003 蓝绿切换的**在途影子表**：切换前重导会把半成品结构写进基线，
 // 切换后它会原子改名成原表、自然消失，故必须排除（2026-10-12 机会表轮次踩过这个口）。
+// _new 单下划线变体同理（supplier_new，2026-11-11 供应商影子在途时泄进基线，与 __new$ 互补）。
+// _ids_<日期> 后缀是批量运维的回滚 id 快照表（如 supplier_batch_done_ids_20261111、
+// supplier_verify_null_ids_20261111），回滚窗口过后即弃，不进基线（2026-11-12 补）。
 // __drill 后缀是全量对拍/回滚演练的影子表（如 crm_notice_attribution_nodes__drill），
 // 它们按纪律保留作“落刀证明”（ADR-0014），同样不能进基线。
 export const EXCLUDE_RES = [
@@ -18,6 +21,8 @@ export const EXCLUDE_RES = [
   /_bak\d/,
   /_(?:bak|backup|old|copy)_?\d*$/,
   /__new$/,
+  /_new$/,
+  /_ids_\d{8}$/,
   /__drill$/,
   // 供应商退役批次的蓝绿影子/保留表：supplier__gs 在途影子、supplier__legacy 观察期保留、
   // supplier__gs_dropped 回滚残留——均为切换窗口内的临时物，不属于终态结构，不进基线。
