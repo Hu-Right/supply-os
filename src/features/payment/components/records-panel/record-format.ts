@@ -5,6 +5,7 @@
  * @module features/payment/components/records-panel/record-format
  */
 import { formatDateTimeZh } from "@/shared/utils/format";
+import { classifyProductCode, PRODUCT_KIND } from "@/shared/constants/product-kind";
 import type { OrderRecord, UnlockRecord } from "../../api";
 
 export type RecordRow = OrderRecord | UnlockRecord;
@@ -21,18 +22,20 @@ export const recordTime = (row: RecordRow) =>
       ("createdAt" in row ? row.createdAt : undefined),
   );
 
-/** 记录标题：公告标题优先；订单按 planCode 前缀生成可读类型名 */
+/** 记录标题：公告标题优先；订单按商品类型生成可读类型名 */
 export function recordTitle(row: RecordRow, t: (key: string) => string): string {
   // 公告标题优先
   if (row.notice?.title) return row.notice.title;
-  // 订单类型：按 planCode 生成可读标题
+  // 订单类型：按商品类型生成可读标题（判定收口 shared/constants/product-kind）
   if ("orderNo" in row) {
     const planCode = row.planCode || "";
-    if (planCode.startsWith("material_")) return t("myRecordsLearningMaterial");
-    if (planCode.startsWith("bundle_")) return t("myRecordsLearningBundle");
-    if (planCode.startsWith("training_course_")) return t("myRecordsTraining");
-    if (planCode.startsWith("svc_")) return t("myRecordsServiceOrder");
-    return t("myRecordsMembershipOrder");
+    switch (classifyProductCode(planCode)) {
+      case PRODUCT_KIND.MATERIAL: return t("myRecordsLearningMaterial");
+      case PRODUCT_KIND.BUNDLE: return t("myRecordsLearningBundle");
+      case PRODUCT_KIND.COURSE: return t("myRecordsTraining");
+      case PRODUCT_KIND.SERVICE: return t("myRecordsServiceOrder");
+      default: return t("myRecordsMembershipOrder");
+    }
   }
   if (row.noticeId) return String(row.noticeId);
   return t("myRecordsUntitled");

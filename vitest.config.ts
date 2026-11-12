@@ -180,6 +180,14 @@ export default defineConfig({
         // 分层治理下沉的纯码形层（唯一实现，lib 侧为 shim 再导出）
         "src/shared/constants/commodity-code.ts",
         "src/shared/constants/industry-code.ts",
+        // 订单商品类型判定（全库唯一判定口，下单分派/取价/展示共用）
+        "src/shared/constants/product-kind.ts",
+        // 商品取价合流（四种商品的定价归一，错误码判定留调用方）
+        "src/lib/payment/products/resolve.ts",
+        // 统一下单执行器（/api/orders 与 /api/payment/orders 共用）
+        "src/lib/payment/orders/create-order.ts",
+        // 存量订单 → 统一订单行 映射（回填与将来双写共用口径）
+        "src/lib/payment/orders/legacy-map.ts",
         "src/shared/utils/cn.ts",
         // 企业绑定状态口径（服务端闸口与前端徽章共用）
         "src/shared/utils/enterprise-status.ts",
