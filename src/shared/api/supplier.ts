@@ -23,10 +23,12 @@ export type SupplierContact = {
 /** 供应商联系方式弹窗状态 */
 export type SupplierContactStatus = "vipOnly" | "loading" | "success" | "error";
 
-/** 详情页公开成绩单——单维度概览条目（只有名称与得分，无原始分/证据/作答） */
+/** 详情页公开成绩单——单维度概览条目（只有名称/得分/该维度满分，无原始分/证据/作答） */
 export interface SupplierScorecardDimension {
   name: string;
   score: number;
+  /** 该维度满分（权重），条宽 = score/max */
+  max: number;
 }
 
 /**

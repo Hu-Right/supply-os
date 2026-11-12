@@ -34,24 +34,34 @@ function ScorecardCard({ scorecard, t }: { scorecard: SupplierScorecard; t: (key
           {t("supScorecardEvaluatedAt")} {new Date(scorecard.evaluatedAt).toLocaleDateString()}
         </p>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <div className="flex items-baseline gap-1">
-          <span className={`text-3xl font-black ${tone.text}`}>{scorecard.totalScore}</span>
-          <span className="text-xs text-slate-400">/ 100</span>
-        </div>
-        <span className={`rounded-full border px-3 py-1 text-xs font-bold ${tone.badge}`}>{scorecard.gradeLabel}</span>
-        <span className="text-2xs text-slate-400">{t("supScorecardTotal")}</span>
-      </div>
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-        {scorecard.dimensions.map((d) => (
-          <div key={d.name} className="flex items-center gap-2">
-            <span className="shrink-0 w-28 truncate text-xs text-slate-500" title={d.name}>{d.name}</span>
-            <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-              <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${Math.min(100, Math.max(0, d.score))}%` }} />
-            </div>
-            <span className="shrink-0 w-8 text-right text-xs font-bold text-slate-600">{d.score}</span>
+
+      {/* 左区：大分数 + 等级徽章；右区：维度得分条（条宽 = 得分/满分） */}
+      <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="shrink-0 flex sm:flex-col items-center sm:items-center justify-between sm:justify-center gap-2 sm:w-44 sm:pr-6 sm:border-r sm:border-slate-100">
+          <div className="flex items-baseline gap-1">
+            <span className={`text-4xl font-black leading-none ${tone.text}`}>{scorecard.totalScore}</span>
+            <span className="text-xs text-slate-400">/ 100</span>
           </div>
-        ))}
+          <span className={`rounded-full border px-3 py-1 text-xs font-bold ${tone.badge}`}>{scorecard.gradeLabel}</span>
+          <span className="text-2xs text-slate-400">{t("supScorecardTotal")}</span>
+        </div>
+
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5">
+          {scorecard.dimensions.map((d) => {
+            const pct = d.max > 0 ? Math.round((d.score / d.max) * 100) : 0;
+            return (
+              <div key={d.name} className="flex items-center gap-2.5">
+                <span className="shrink-0 w-36 text-xs text-slate-500 truncate" title={d.name}>{d.name}</span>
+                <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div className={`h-full rounded-full ${tone.bar} transition-all`} style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
+                </div>
+                <span className="shrink-0 w-12 text-right text-xs font-bold text-slate-600 tabular-nums">
+                  {d.score}/{d.max}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

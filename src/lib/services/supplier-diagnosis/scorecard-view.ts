@@ -13,10 +13,12 @@
 import { gradeDescriptor, type DiagnosisGrade } from "@/lib/services/scoring/diagnosis-v2";
 import type { ClaimantScorecardRow } from "@/lib/repos/supplier-diagnosis.repo";
 
-/** 单维度公开条目：只有名称与加权得分，原始分/证据/依据不外发 */
+/** 单维度公开条目：名称 + 加权得分 + 该维度满分（权重）；原始分/证据/依据不外发 */
 export interface ScorecardDimensionView {
   name: string;
   score: number;
+  /** 该维度满分（权重），前端条宽 = score/max，展示「8/20」 */
+  max: number;
 }
 
 export interface SupplierScorecardView {
@@ -30,7 +32,7 @@ export interface SupplierScorecardView {
 }
 
 interface BreakdownShape {
-  dimensions?: Array<{ name?: unknown; nameEn?: unknown; weightedScore?: unknown }>;
+  dimensions?: Array<{ name?: unknown; nameEn?: unknown; weightedScore?: unknown; weight?: unknown }>;
 }
 
 function toGrade(total: number, persisted: string | null): DiagnosisGrade {
@@ -67,10 +69,11 @@ export function supplierScorecardViewOf(
   const dimensions: ScorecardDimensionView[] = [];
   for (const d of dims) {
     const score = Number(d.weightedScore);
-    if (!Number.isFinite(score)) continue;
+    const max = Number(d.weight);
+    if (!Number.isFinite(score) || !Number.isFinite(max) || max <= 0) continue;
     const name = String((isZh ? d.name : d.nameEn) ?? "").trim();
     if (!name) continue;
-    dimensions.push({ name, score: Math.round(score) });
+    dimensions.push({ name, score: Math.round(score), max: Math.round(max) });
   }
   if (dimensions.length === 0) return null;
 

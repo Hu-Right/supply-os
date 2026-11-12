@@ -56,15 +56,15 @@ describe("supplierScorecardViewOf（公开面收敛）", () => {
     overrideGateReason: null,
   };
 
-  it("中文环境：中文维度名 + 中文等级文案，只出 name+score", () => {
+  it("中文环境：中文维度名 + 中文等级文案，出 name+score+max（满分）", () => {
     const v = supplierScorecardViewOf(row(breakdown), "zh");
     expect(v).not.toBeNull();
     expect(v!.totalScore).toBe(87);
     expect(v!.grade).toBe("B");
     expect(v!.gradeLabel).toContain("B");
     expect(v!.dimensions).toEqual([
-      { name: "资质完备度", score: 16 },
-      { name: "语言能力", score: 4 },
+      { name: "资质完备度", score: 16, max: 20 },
+      { name: "语言能力", score: 4, max: 10 },
     ]);
     const json = JSON.stringify(v);
     // 脱敏断言：原始分/证据/依据/触发闸口不出公开面
@@ -89,10 +89,11 @@ describe("supplierScorecardViewOf（公开面收敛）", () => {
     expect(supplierScorecardViewOf(row(breakdown, { score_total: 59, score_grade: null }), "zh")!.grade).toBe("C");
   });
 
-  it("breakdown 缺失/空维度/总分非数 → null（宁缺毋假）", () => {
+  it("breakdown 缺失/空维度/总分或权重非法 → null（宁缺毋假）", () => {
     expect(supplierScorecardViewOf(row(null), "zh")).toBeNull();
     expect(supplierScorecardViewOf(row({ dimensions: [] }), "zh")).toBeNull();
-    expect(supplierScorecardViewOf(row({ dimensions: [{ name: "x", nameEn: "y", weightedScore: "NaN?" }] }), "zh")).toBeNull();
+    // 缺 weight（满分）的维度条目被跳过：全空 → 整卡不渲染
+    expect(supplierScorecardViewOf(row({ dimensions: [{ name: "x", nameEn: "y", weightedScore: 3 }] }), "zh")).toBeNull();
     expect(supplierScorecardViewOf(row(breakdown, { score_total: null }), "zh")).toBeNull();
   });
 });
