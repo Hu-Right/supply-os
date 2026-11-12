@@ -91,10 +91,11 @@ describe("PaymentsRepo 事务方法（InTransaction 系列）", () => {
     expect(sql).toContain("UPDATE orders");
   });
 
-  it("upsertNoticeInterestInTransaction → upsert 公告兴趣", async () => {
-    const c = makeConn();
-    await repo.upsertNoticeInterestInTransaction(c, 7, 42);
-    const [sql] = lastSql(c.execute as never);
-    expect(sql).toContain("INSERT INTO notice_interests");
+  it("closePendingOrder → 渠道 TRADE_CLOSED 对未付单即时收敛（pending → closed，不进退款逆向）", async () => {
+    const hit = await repo.closePendingOrder("SO1");
+    const [sql] = lastSql(pool.execute as never);
+    expect(hit).toBe(true);
+    expect(sql).toContain("SET status = 'closed'");
+    expect(sql).toContain("status = 'pending'");
   });
 });

@@ -42,7 +42,6 @@ export interface PaymentOrderRow {
   order_type?: string;
   /** 升级订单关联的原订单号 */
   original_order_no?: string | null;
-  notice_id: number | null;
   /** 下单时选择的 L1 品目大类节点码 */
   industry_code?: string | null;
   amount: number;

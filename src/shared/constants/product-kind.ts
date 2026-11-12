@@ -39,6 +39,20 @@ export const PRODUCT_KIND = {
 export type ProductKind = (typeof PRODUCT_KIND)[keyof typeof PRODUCT_KIND];
 
 /**
+ * 商品类型 → 订单号前缀（SO=会员通道 / SV=服务 / LE=学习（资料·套餐）/ TR=培训）。
+ * 支付回调单入口按前缀路由业务分支（orchestrator.handleNotify → getOrderBusiness），
+ * 前缀与 kind 必须一一对应；生成统一走 lib/payment/order-no.ts 的 nextOrderNo，
+ * 不要在业务服务里再手拼前缀。
+ */
+export const ORDER_NO_PREFIX: Record<ProductKind, string> = {
+  [PRODUCT_KIND.PLAN]: "SO",
+  [PRODUCT_KIND.SERVICE]: "SV",
+  [PRODUCT_KIND.MATERIAL]: "LE",
+  [PRODUCT_KIND.BUNDLE]: "LE",
+  [PRODUCT_KIND.COURSE]: "TR",
+};
+
+/**
  * 前缀 → 类型。顺序即匹配顺序，长前缀在前。
  * `training_course_` 排在后面无影响（与其他前缀无包含关系），但保留显式条目，
  * 避免读路径的展示码被当成会员档。

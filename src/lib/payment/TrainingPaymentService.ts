@@ -17,10 +17,11 @@
  *              - 支付渠道策略由 Orchestrator 通过 resolver 注入
  */
 import "server-only";
-import crypto from "crypto";
 import type { TrainingRepo } from "../repos/training.repo";
 import type { PaymentProviderName } from "../types/payment";
 import type { PaymentStrategy } from "./types";
+import { nextOrderNo } from "./order-no";
+import { PRODUCT_KIND } from "@/shared/constants/product-kind";
 import { courseProductOf } from "./products";
 import { resolvePaymentProvider } from "./pipeline/provider-resolver";
 import { fulfillInTransaction } from "./pipeline/fulfill-template";
@@ -127,7 +128,7 @@ export class TrainingPaymentService {
       params.provider,
     );
 
-    const orderNo = this.makeOrderNo();
+    const orderNo = nextOrderNo(PRODUCT_KIND.COURSE);
     const expiresAt = new Date(Date.now() + TRAINING_ORDER_EXPIRES_MS);
 
     // 通过支付策略生成二维码 / 支付链接
@@ -313,7 +314,8 @@ export class TrainingPaymentService {
 
       // 标记订单 refunded
       await conn.execute(
-        "UPDATE orders SET status = 'refunded' WHERE order_no = ? AND product_kind = 'course' AND status = 'paid'",
+        "UPDATE orders SET status = 'refunded', refund_amount = amount, refunded_at = NOW(), updated_at = NOW() \
+          WHERE order_no = ? AND product_kind = 'course' AND status = 'paid'",
         [orderNo],
       );
 
@@ -342,14 +344,5 @@ export class TrainingPaymentService {
     } finally {
       conn.release();
     }
-  }
-
-  // ── 工具方法 ──────────────────────────────────────────────────────────────
-
-  /** 生成培训订单号：TR + 日期 + 随机 hex */
-  private makeOrderNo(): string {
-    const now = new Date();
-    const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-    return `TR${datePart}${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
   }
 }

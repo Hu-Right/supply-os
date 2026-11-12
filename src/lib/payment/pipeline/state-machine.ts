@@ -8,12 +8,13 @@
  *              提供显式的状态转换规则定义与校验。
  *
  *              状态流转图：
- *              pending  → paid / closed / expired / failed
+ *              pending  → paid / closed / expired
  *              paid     → refunded
  *              expired  → paid（培训允许"迟到付款"复活）
  *              closed   → (终态)
- *              failed   → (终态)
  *              refunded → (终态)
+ *              注：failed 已于 2026-11-12 退役（零写入点的死状态——网关下单失败
+ *              根本不落单，支付失败的实际路径是 pending → closed）
  */
 import { ORDER_STATUS } from "@/shared/constants/order-status";
 
@@ -23,12 +24,10 @@ const TRANSITIONS: Record<string, readonly string[]> = {
     ORDER_STATUS.PAID,
     ORDER_STATUS.CLOSED,
     ORDER_STATUS.EXPIRED,
-    ORDER_STATUS.FAILED,
   ],
   [ORDER_STATUS.PAID]: [ORDER_STATUS.REFUNDED],
   [ORDER_STATUS.CLOSED]: [],
   [ORDER_STATUS.EXPIRED]: [ORDER_STATUS.PAID],
-  [ORDER_STATUS.FAILED]: [],
   [ORDER_STATUS.REFUNDED]: [],
 };
 

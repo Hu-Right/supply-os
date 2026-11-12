@@ -39,7 +39,7 @@ export interface NormalizedOrder {
   businessType: "membership" | "learning" | "training" | "service"; // ARCH-PN：业务类型
   provider: string; // 支付渠道
   planCode: string; // 套餐代码
-  noticeId: number | null; // 解锁的资料 ID
+  noticeId: number | null; // 2026-11-12 起 orders 退役该列（死列），恒为 null，键位保留维持 wire 契约
   amount: number; // 订单金额
   currency: string; // 币种
   status: string; // 订单状态
@@ -154,10 +154,18 @@ export class PaymentOrchestrator {
     const strategy = this.getStrategy(provider);
     const verifyResult = await strategy.verifyCallback(rawBody, signature);
 
-    // 退款 / 关闭通知路由（审查 F20）
+    // 退款 / 关闭通知路由（审查 F20）。
+    // TRADE_CLOSED 有两种成因，分两路：
+    //   · 已付单 → 全额退款后关闭 → 进各业务退款逆向（回收订阅/额度，落 refunded）
+    //   · 未付单 → 用户超时未付被渠道关单 → 立即 closed（不等 sweeper；钱没进过账，
+    //     落 refunded 会虚增退款口径——2026-11-12 修正）
     if (!verifyResult.verified && verifyResult.tradeStatus === "TRADE_CLOSED") {
       if (!verifyResult.order_no) {
         return { success: false, order_no: "", message: "ORDER_NO_MISSING" };
+      }
+      const pendingClosed = await this.paymentsRepo.closePendingOrder(verifyResult.order_no);
+      if (pendingClosed) {
+        return { success: true, order_no: verifyResult.order_no, message: "PENDING_CLOSED" };
       }
       return this.refundOrder(verifyResult.order_no);
     }
@@ -401,7 +409,7 @@ export class PaymentOrchestrator {
       businessType: BUSINESS_OF_KIND[row.product_kind] ?? "membership",
       provider: row.provider,
       planCode: legacyProductCode(row.product_kind, row.product_code),
-      noticeId: row.notice_id ?? null,
+      noticeId: null, // notice_id 列已随 009 退役，键位保留（命名红线②：对外契约不减键）
       amount: Number(row.amount),
       currency: row.currency,
       status: row.status,

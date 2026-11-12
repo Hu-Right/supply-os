@@ -1,5 +1,4 @@
 import "server-only";
-import crypto from "crypto";
 import type {
   CreateOrderRequest,
   OrderInfo,
@@ -14,6 +13,7 @@ import type { BenefitFulfillDeps } from "./benefit-grant";
 import { INDUSTRY_SCOPED_BENEFIT } from "../services/benefit-matrix";
 import { activatePaidOrder } from "./activate";
 import { reverseFulfilledOrder } from "./reverse";
+import { nextOrderNo } from "./order-no";
 import { SITE_URL } from "../services/seo/site";
 import { queryOrderWithGatewayPoll } from "./pipeline/query-pipeline";
 import { classifyProductCode, PRODUCT_KIND } from "@/shared/constants/product-kind";
@@ -85,7 +85,6 @@ export class PaymentService {
     const userId = request.user_id;
     const planCode = String(request.plan_code || "").trim();
     const provider = request.provider;
-    const noticeId = request.notice_id ? Number(request.notice_id) : null;
     const industryCode = String(request.industry_code ?? "").trim();
     const orderType = request.order_type === "upgrade" ? "upgrade" : "new";
 
@@ -164,16 +163,15 @@ export class PaymentService {
     const existingOrder = orderType === "upgrade" || annualCredit
       ? null
       : await this.repo.findPendingOrder({
-          userId: userId!, planCode, provider, noticeId, industryCode,
+          userId: userId!, planCode, provider, industryCode,
         });
 
     const strategy = this.getStrategy(provider);
-    const orderNo = existingOrder?.order_no || this.makeOrderNo();
+    const orderNo = existingOrder?.order_no || nextOrderNo(PRODUCT_KIND.PLAN);
     // return_url 白名单（审查 F26）：仅接受本站地址，防止支付完成跳转任意
-    // 站点并拼接 order_no/notice_id 参数钓鱼
+    // 站点并拼接 order_no 参数钓鱼
     const returnUrl = this.appendUrlParams(sanitizeReturnUrl(request.return_url || ""), {
       order_no: orderNo,
-      notice_id: noticeId || "",
     });
     const { pay_url, qr_code_url } = await strategy.createPaymentUrl(
       orderNo,
@@ -186,7 +184,6 @@ export class PaymentService {
     // raw_request 记录服务端解析后的权威金额与套餐条目（履约以此为准）
     const rawRequestPayload = JSON.stringify({
       ...request,
-      notice_id: noticeId,
       industry_code: industryCode || null,
       amount,
       ...(upgradeSnapshot ? { upgrade_snapshot: upgradeSnapshot } : {}),
@@ -209,7 +206,6 @@ export class PaymentService {
         provider,
         planCode,
         productName: planName,
-        noticeId,
         industryCode: industryCode || null,
         amount,
         currency,
@@ -224,6 +220,8 @@ export class PaymentService {
     return {
       // 对外响应体：契约键 camelCase（红线②）；pay_url/qr_code_url 是渠道策略返回的
       // 第三方字段镜像，只在服务内部保留，不直接当对外契约。
+      // noticeId：2026-11-12 起 orders 表已退役该列（按单条售卖场景不存在），保留键位填
+      // null 维持 wire 契约形状。
       orderNo,
       provider,
       amount,
@@ -231,7 +229,7 @@ export class PaymentService {
       payUrl: pay_url,
       qrCodeUrl: qr_code_url,
       status: "pending",
-      noticeId,
+      noticeId: null,
       createdAt: new Date().toISOString(),
     };
   }
@@ -352,12 +350,6 @@ export class PaymentService {
 
     await activatePaidOrder(this.repo, verifyResult.order_no, verifyResult.provider_trade_no, this.benefitDeps);
     return { success: true, order_no: verifyResult.order_no };
-  }
-
-  private makeOrderNo(): string {
-    const now = new Date();
-    const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-    return `SO${datePart}${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
   }
 
   private appendUrlParams(url: string, params: Record<string, string | number>): string {

@@ -33,7 +33,6 @@ export interface UnifiedOrderHistoryRow {
   status: string;
   provider: string;
   provider_trade_no: string | null;
-  notice_id: number | null;
   paid_at: Date | null;
   created_at: Date;
   updated_at: Date | null;
@@ -101,7 +100,7 @@ export class PaymentHistoryRepo {
     params.push(limit, offset);
     const [rows] = await this.pool.query(
       `SELECT order_no, user_id, product_kind, product_code, amount, currency, status, provider,
-              provider_trade_no, notice_id, paid_at, created_at, updated_at, expires_at
+              provider_trade_no, paid_at, created_at, updated_at, expires_at
          FROM orders ${where}
          ORDER BY created_at DESC, id DESC
          LIMIT ? OFFSET ?`,

@@ -37,7 +37,6 @@ export async function activatePaidOrder(
     } else {
       await payments.markAsPaidInTransaction(conn, orderNo, providerTradeNo ?? null);
     }
-    if (order.notice_id) await payments.upsertNoticeInterestInTransaction(conn, order.user_id!, order.notice_id);
     await conn.commit();
     return true;
   } catch (error) {

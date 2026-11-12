@@ -36,7 +36,9 @@ export async function reverseFulfilledOrder(
       nextId = next.replaced_by_id;
     }
     const [updated] = await conn.execute<ResultSetHeader>(
-      "UPDATE orders SET status = 'refunded', updated_at = NOW() WHERE order_no = ? AND product_kind = 'plan' AND status = 'paid'", [orderNo],
+      // 009 退款口径：refund_amount = amount（全额退；部分退暂不支持，走后台 admin_note 人工）
+      "UPDATE orders SET status = 'refunded', refund_amount = amount, refunded_at = NOW(), updated_at = NOW() \
+        WHERE order_no = ? AND product_kind = 'plan' AND status = 'paid'", [orderNo],
     );
     if (updated.affectedRows !== 1) throw new Error("REFUND_ORDER_CONFLICT");
     await conn.commit();

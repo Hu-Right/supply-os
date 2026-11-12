@@ -7,12 +7,13 @@
  *              本仓储的对外方法签名与返回行形状保持不变（SQL 侧用列别名还原旧列名），
  *              上层服务无需改动。
  *
- *              原 `service_orders` 表无 provider/provider_trade_no/expires_at 列，故查询走 DB status
- *              （同培训分支），不落库渠道/交易号；在 `orders` 里 provider 统一写 `service`，
- *              它是「非在线网关支付」的标记，**不要拿去查网关**。
+ *              本 repo 只承载 **self 在线单**（走真实网关，provider 落真实渠道）；
+ *              lead/contract 线下成交不进 orders，由 service_orders 台账承载
+ *              （2026-11-12 定位收口，哨兵 provider='service' 退役）。
  *              履约仅置 paid，不做额度充值（见设计 B4）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
+import { ORDER_PAY_WINDOW_MINUTES } from "../../shared/constants/order-status";
 
 export interface CreateServiceOrderInput {
   orderNo: string;
@@ -24,6 +25,8 @@ export interface CreateServiceOrderInput {
   amountTotal: string;
   currency: string;
   saleMode: string;
+  /** 收款渠道（alipay/wechat/mock），不再写哨兵 'service' */
+  provider: string;
 }
 
 export class ServiceOrdersRepo {
@@ -31,15 +34,18 @@ export class ServiceOrdersRepo {
 
   /** 创建服务订单（pending）。返回自增 id。 */
   async createOrder(input: CreateServiceOrderInput): Promise<number> {
+    const expiresAt = new Date(Date.now() + ORDER_PAY_WINDOW_MINUTES * 60_000);
     const [result] = await this.pool.query(
       `INSERT INTO orders
         (order_no, user_id, product_kind, product_code, product_name, unit_price, quantity,
-         amount, currency, status, provider, items_snapshot)
-       VALUES (?, ?, 'service', ?, ?, ?, 1, ?, ?, 'pending', 'service', ?)`,
+         amount, currency, status, provider, items_snapshot, expires_at)
+       VALUES (?, ?, 'service', ?, ?, ?, 1, ?, ?, 'pending', ?, ?, ?)`,
       [
         input.orderNo, input.userId, input.serviceCode, input.productName ?? "",
         input.unitPrice, input.amountTotal, input.currency,
+        input.provider,
         JSON.stringify({ saleMode: input.saleMode }),
+        expiresAt,
       ],
     );
     return (result as { insertId: number }).insertId;
@@ -82,10 +88,11 @@ export class ServiceOrdersRepo {
     return (result as { affectedRows: number }).affectedRows > 0;
   }
 
-  /** 退款通知：非 refunded → refunded（无权益逆向）。 */
+  /** 退款通知：非 refunded → refunded（无权益逆向）。009：落退款金额快照与时间。 */
   async markRefunded(orderNo: string): Promise<boolean> {
     const [result] = await this.pool.query(
-      "UPDATE orders SET status = 'refunded' WHERE order_no = ? AND product_kind = 'service' AND status <> 'refunded'",
+      "UPDATE orders SET status = 'refunded', refund_amount = amount, refunded_at = NOW(), updated_at = NOW() \
+        WHERE order_no = ? AND product_kind = 'service' AND status <> 'refunded'",
       [orderNo],
     );
     return (result as { affectedRows: number }).affectedRows > 0;

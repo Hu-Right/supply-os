@@ -34,9 +34,10 @@ function makeOrchestrator(opts: {
   trainingRow?: Record<string, unknown> | null;
 }) {
   // 2026-11-12 合一表：历史行形状换成 orders 口径（product_kind + product_code）
+  // 009 起 orders 退役 notice_id 列，历史行不再携带
   const rows = opts.membershipRows ?? [{
     order_no: "SO1", user_id: 7, provider: "alipay", product_kind: "plan", product_code: "pro",
-    notice_id: 5, amount: "999.00", currency: "CNY", status: "paid",
+    amount: "999.00", currency: "CNY", status: "paid",
     provider_trade_no: "T1", paid_at: new Date("2026-09-03T08:00:00Z"),
     created_at: new Date("2026-09-03T07:00:00Z"), updated_at: null, expires_at: null,
   }];
@@ -68,7 +69,7 @@ describe("订单响应体命名红线（整块透出部分）", () => {
     // 值仍是原列值（本批改的是键名，不改时间/金额格式）
     expect(list[0]).toMatchObject({
       orderNo: "SO1", userId: 7, businessType: "membership", planCode: "pro",
-      noticeId: 5, providerTradeNo: "T1", amount: 999,
+      noticeId: null, providerTradeNo: "T1", amount: 999,
     });
     expect(list[0].createdAt).toBe(new Date("2026-09-03T07:00:00Z").toISOString());
   });

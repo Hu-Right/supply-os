@@ -13,13 +13,13 @@
  *              - 支付渠道策略（Alipay/Wechat/Mock）由外部注入，复用统一通道
  */
 import "server-only";
-import crypto from "crypto";
 import type { PaymentStrategy } from "./types";
 import type { PaymentProviderName } from "../types/payment";
 import type { LearningOrdersRepo } from "../repos/learning-orders.repo";
 import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { findLearningBundle } from "../data/learning-bundles";
 import { getPool } from "../db/pool";
+import { nextOrderNo } from "./order-no";
 import { queryOrderWithGatewayPoll } from "./pipeline/query-pipeline";
 import {
   classifyProductCode,
@@ -90,7 +90,7 @@ export class LearningPaymentService {
 
     if (amount <= 0) throw new Error("INVALID_AMOUNT");
 
-    const orderNo = this.makeOrderNo();
+    const orderNo = nextOrderNo(classifyProductCode(planCode));
     const strategy = this.getStrategy(provider);
     const returnUrl = this.appendUrlParams(params.returnUrl || "", { order_no: orderNo });
     const { pay_url, qr_code_url } = await strategy.createPaymentUrl(
@@ -292,14 +292,6 @@ export class LearningPaymentService {
     } finally {
       conn.release();
     }
-  }
-
-  // ── 工具方法 ──────────────────────────────────────────────────────────────
-
-  private makeOrderNo(): string {
-    const now = new Date();
-    const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-    return `LE${datePart}${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
   }
 
   private appendUrlParams(url: string, params: Record<string, string | number>): string {

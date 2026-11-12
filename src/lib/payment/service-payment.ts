@@ -12,11 +12,12 @@
  *              转预约顾问。此前只按「有无 standard_price」判定，使文档写「按需报价/定制报价/面议」
  *              的陪跑、KA、API 等也能被直接刷卡，既越权又把「起」价当成一口价。
  */
-import crypto from "crypto";
 import type { Pool } from "mysql2/promise";
 import type { PaymentStrategy } from "./types";
 import type { PaymentProviderName } from "../types/payment";
 import type { ServiceOrdersRepo } from "../repos/service-orders.repo";
+import { nextOrderNo } from "./order-no";
+import { PRODUCT_KIND } from "@/shared/constants/product-kind";
 import { SITE_URL } from "../services/seo/site";
 import { serviceProductOf, fetchServicePriceRow } from "./products";
 
@@ -66,7 +67,7 @@ export class ServicePaymentService {
     if (product.advisoryOnly) throw new Error("SERVICE_ADVISORY_ONLY");
 
     const amount = product.unitPrice;
-    const orderNo = this.makeOrderNo();
+    const orderNo = nextOrderNo(PRODUCT_KIND.SERVICE);
     const strategy = this.getStrategy(provider);
     // return_url 同源白名单（对齐审查 F26）+ 拼 order_no；描述用人类可读品名
     const returnUrl = this.appendUrlParams(this.sanitizeReturnUrl(params.returnUrl || ""), { order_no: orderNo });
@@ -77,6 +78,9 @@ export class ServicePaymentService {
 
     await this.ordersRepo.createOrder({
       orderNo, userId, serviceCode,
+      // 在线服务单落真实渠道（2026-11-12 哨兵 'service' 退役：线下 lead/contract 单
+      // 不再进 orders 表，由 service_orders 台账承载）
+      provider,
       productName: product.name,
       unitPrice: product.priceRaw, amountTotal: product.priceRaw,
       currency, saleMode: product.saleMode ?? "",
@@ -133,12 +137,6 @@ export class ServicePaymentService {
     if (existing.status !== "paid") return { found: true, reversed: false };
     const reversed = await this.ordersRepo.markRefunded(orderNo);
     return { found: true, reversed };
-  }
-
-  private makeOrderNo(): string {
-    const now = new Date();
-    const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-    return `SV${datePart}${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
   }
 
   /** return_url 白名单（对齐 PaymentService F26）：仅同源，外域丢弃。 */

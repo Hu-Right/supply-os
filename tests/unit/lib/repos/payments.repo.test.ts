@@ -49,33 +49,37 @@ describe("PaymentsRepo 查询方法", () => {
     expect(await new PaymentsRepo(pool).findByOrderNo("NOPE")).toBeNull();
   });
 
-  it("findPendingOrder：四元组参数按序绑定（含 notice_id <=> NULL 语义）", async () => {
+  it("findPendingOrder：三元组参数按序绑定（industry_code <=> NULL 语义；notice_id 随 009 退役）", async () => {
     const { pool, query } = makePool([[]]);
     const repo = new PaymentsRepo(pool);
-    await repo.findPendingOrder({ userId: 101, planCode: "personal_m", provider: "mock", noticeId: null });
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("notice_id <=> ?"), [101, "personal_m", "mock", null, null]);
+    await repo.findPendingOrder({ userId: 101, planCode: "personal_m", provider: "mock" });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("industry_code <=> ?"), [101, "personal_m", "mock", null]);
   });
 });
 
 describe("PaymentsRepo 订单写入", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("createOrder：15 个参数按序绑定（含商品名快照），order_type 默认 new", async () => {
+  it("createOrder：15 个参数按序绑定（含商品名快照与兜底窗 expires_at），order_type 默认 new", async () => {
     const { pool, execute } = makePool([[]]);
     const repo = new PaymentsRepo(pool);
     await repo.createOrder({
       userId: 101, orderNo: "SO1", provider: "mock", planCode: "personal_m",
-      noticeId: null, amount: 99, currency: "CNY", payUrl: "/pay", qrCodeUrl: null, rawRequest: "{}",
+      amount: 99, currency: "CNY", payUrl: "/pay", qrCodeUrl: null, rawRequest: "{}",
     });
     const [sql, params] = execute.mock.calls[0];
     expect(sql).toContain("'pending'");
-    // 合表后列序：userId, orderNo, provider, planCode, productName, orderType, originalOrderNo,
-    //            noticeId, industryCode, unitPrice, amount, currency, payUrl, qrCodeUrl, rawRequest
+    expect(sql).toContain("expires_at");
+    // 列序：userId, orderNo, provider, planCode, productName, orderType, originalOrderNo,
+    //      industryCode, unitPrice, amount, currency, payUrl, qrCodeUrl, rawRequest, expiresAt
     // 会员单 unitPrice === amount（一单一件，卖的就是套餐本身）
-    expect(params).toEqual([
+    expect(params.slice(0, 14)).toEqual([
       101, "SO1", "mock", "personal_m", "", "new", null,
-      null, null, 99, 99, "CNY", "/pay", null, "{}",
+      null, 99, 99, "CNY", "/pay", null, "{}",
     ]);
+    // 兜底窗：下单统一落 expires_at = NOW()+2h（009 定稿，防 DB 先关吞掉迟到回调）
+    expect(params[14]).toBeInstanceOf(Date);
+    expect((params[14] as Date).getTime()).toBeGreaterThan(Date.now() + 110 * 60_000);
   });
 
   it("createOrder：升级订单写入 original_order_no 与 upgrade 类型", async () => {
@@ -83,14 +87,13 @@ describe("PaymentsRepo 订单写入", () => {
     const repo = new PaymentsRepo(pool);
     await repo.createOrder({
       userId: 101, orderNo: "SO2", provider: "alipay", planCode: "annual_799",
-      noticeId: 5, amount: 700, currency: "CNY", payUrl: null, qrCodeUrl: null, rawRequest: "{}",
+      amount: 700, currency: "CNY", payUrl: null, qrCodeUrl: null, rawRequest: "{}",
       orderType: "upgrade", originalOrderNo: "SO1",
     });
     const [sql, params] = execute.mock.calls[0];
     expect(sql).toContain("order_type");
     expect(params[5]).toBe("upgrade");
     expect(params[6]).toBe("SO1");
-    expect(params[7]).toBe(5);
   });
 });
 

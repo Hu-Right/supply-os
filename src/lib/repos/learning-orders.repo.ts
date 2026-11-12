@@ -12,6 +12,7 @@
  */
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 import { classifyProductCode, stripProductPrefix } from "@/shared/constants/product-kind";
+import { ORDER_PAY_WINDOW_MINUTES } from "@/shared/constants/order-status";
 
 /** 学习订单行 */
 export interface LearningOrderRow {
@@ -113,15 +114,16 @@ export class LearningOrdersRepo {
     rawRequest: string;
   }): Promise<void> {
     const kind = classifyProductCode(data.planCode);
+    const expiresAt = new Date(Date.now() + ORDER_PAY_WINDOW_MINUTES * 60_000);
     await this.pool.execute(
       `INSERT INTO orders
         (order_no, user_id, product_kind, product_code, product_name, unit_price, quantity,
-         amount, currency, provider, status, pay_url, qr_code_url, raw_request, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
+         amount, currency, provider, status, pay_url, qr_code_url, raw_request, expires_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'pending', ?, ?, ?, ?, NOW())`,
       [
         data.orderNo, data.userId, kind, stripProductPrefix(data.planCode), data.productName ?? "",
         data.amount, data.amount, data.currency, data.provider,
-        data.payUrl, data.qrCodeUrl, data.rawRequest,
+        data.payUrl, data.qrCodeUrl, data.rawRequest, expiresAt,
       ],
     );
   }

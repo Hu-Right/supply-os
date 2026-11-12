@@ -13,14 +13,16 @@ describe("ServiceOrdersRepo", () => {
     const id = await repo.createOrder({
       orderNo: "SV20260923A1", userId: 5, serviceCode: "svc_manual_bid_match",
       unitPrice: "199.00", amountTotal: "199.00", currency: "CNY", saleMode: "self",
+      provider: "alipay",
     });
     expect(id).toBe(7);
     const [sql, params] = query.mock.calls[0] as [string, unknown[]];
-    // 2026-11-12 合一表：写 orders，业务类型由常量列 product_kind='service' 锚定
+    // 009 定位收口：本 repo 只承载 self 在线单，provider 走占位符落真实渠道（哨兵 'service' 退役）
     expect(sql).toContain("INSERT INTO orders");
-    expect(sql).toContain("'service'");
     expect(sql).toContain("'pending'");
+    expect(sql).toContain("provider");
     expect(params).toContain("SV20260923A1");
+    expect(params).toContain("alipay");
     // sale_mode 不再是独立列，进 items_snapshot 快照
     expect(params).toContain(JSON.stringify({ saleMode: "self" }));
   });

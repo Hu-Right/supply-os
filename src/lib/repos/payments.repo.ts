@@ -11,6 +11,7 @@
  */
 import type { Pool, PoolConnection, ResultSetHeader } from "mysql2/promise";
 import type { PaymentOrderRow } from "./types";
+import { ORDER_PAY_WINDOW_MINUTES } from "../../shared/constants/order-status";
 
 export class PaymentsRepo {
   constructor(private pool: Pool) {}
@@ -19,19 +20,19 @@ export class PaymentsRepo {
   async findByOrderNo(orderNo: string): Promise<PaymentOrderRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, order_no, user_id, provider, product_code AS plan_code, order_type, original_order_no,
-              amount, currency, status, notice_id, industry_code, provider_trade_no, pay_url, qr_code_url,
+              amount, currency, status, industry_code, provider_trade_no, pay_url, qr_code_url,
               paid_at, created_at, updated_at, raw_request, raw_notify
          FROM orders WHERE order_no = ? AND product_kind = 'plan' LIMIT 1`, [orderNo],
     );
     return (rows as PaymentOrderRow[])[0] ?? null;
   }
 
-  async findPendingOrder(p: { userId: number; planCode: string; provider: string; noticeId: number | null; industryCode?: string | null }): Promise<PaymentOrderRow | null> {
+  async findPendingOrder(p: { userId: number; planCode: string; provider: string; industryCode?: string | null }): Promise<PaymentOrderRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT order_no, provider, product_code AS plan_code, amount, currency, status, notice_id, industry_code, pay_url, qr_code_url
+      `SELECT order_no, provider, product_code AS plan_code, amount, currency, status, industry_code, pay_url, qr_code_url
          FROM orders WHERE user_id = ? AND product_kind = 'plan' AND product_code = ? AND provider = ?
-          AND status = 'pending' AND notice_id <=> ? AND industry_code <=> ? ORDER BY id DESC LIMIT 1`,
-      [p.userId, p.planCode, p.provider, p.noticeId, p.industryCode ?? null],
+          AND status = 'pending' AND industry_code <=> ? ORDER BY id DESC LIMIT 1`,
+      [p.userId, p.planCode, p.provider, p.industryCode ?? null],
     );
     return (rows as PaymentOrderRow[])[0] ?? null;
   }
@@ -66,21 +67,23 @@ export class PaymentsRepo {
   }
 
   async createOrder(p: {
-    userId: number; orderNo: string; provider: string; planCode: string; noticeId: number | null;
+    userId: number; orderNo: string; provider: string; planCode: string;
     industryCode?: string | null;
     /** 下单时的套餐名快照（目录改名不影响历史单）；缺省留空 */
     productName?: string;
     amount: number; currency: string; payUrl: string | null; qrCodeUrl: string | null; rawRequest: string;
     orderType?: string; originalOrderNo?: string | null;
   }): Promise<void> {
+    const expiresAt = new Date(Date.now() + ORDER_PAY_WINDOW_MINUTES * 60_000);
     await this.pool.execute(
       `INSERT INTO orders
         (user_id, order_no, provider, product_kind, product_code, product_name, order_type, original_order_no,
-         notice_id, industry_code, unit_price, quantity, amount, currency, status, pay_url, qr_code_url, raw_request, created_at)
-       VALUES (?, ?, ?, 'plan', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'pending', ?, ?, ?, NOW())`,
+         industry_code, unit_price, quantity, amount, currency, status, pay_url, qr_code_url, raw_request,
+         expires_at, created_at)
+       VALUES (?, ?, ?, 'plan', ?, ?, ?, ?, ?, ?, 1, ?, ?, 'pending', ?, ?, ?, ?, NOW())`,
       [p.userId, p.orderNo, p.provider, p.planCode, p.productName ?? "", p.orderType ?? "new",
-        p.originalOrderNo ?? null, p.noticeId, p.industryCode ?? null,
-        p.amount, p.amount, p.currency, p.payUrl, p.qrCodeUrl, p.rawRequest],
+        p.originalOrderNo ?? null, p.industryCode ?? null,
+        p.amount, p.amount, p.currency, p.payUrl, p.qrCodeUrl, p.rawRequest, expiresAt],
     );
   }
 
@@ -90,7 +93,8 @@ export class PaymentsRepo {
   }): Promise<void> {
     const [updated] = await this.pool.execute<ResultSetHeader>(
       `UPDATE orders SET amount = ?, unit_price = ?, currency = ?, pay_url = ?, qr_code_url = ?,
-              industry_code = ?, raw_request = ?, updated_at = NOW()
+              industry_code = ?, raw_request = ?, updated_at = NOW(),
+              expires_at = DATE_ADD(NOW(), INTERVAL ${ORDER_PAY_WINDOW_MINUTES} MINUTE)
         WHERE order_no = ? AND product_kind = 'plan' AND status = 'pending'`,
       [p.amount, p.amount, p.currency, p.payUrl, p.qrCodeUrl, p.industryCode ?? null, p.rawRequest, orderNo],
     );
@@ -100,10 +104,19 @@ export class PaymentsRepo {
   async findOrderForUpdate(conn: PoolConnection, orderNo: string): Promise<PaymentOrderRow | null> {
     const [rows] = await conn.query(
       `SELECT id, order_no, user_id, provider, product_code AS plan_code, order_type, original_order_no,
-              notice_id, industry_code, amount, currency, status, raw_request, paid_at
+              industry_code, amount, currency, status, raw_request, paid_at
          FROM orders WHERE order_no = ? AND product_kind = 'plan' LIMIT 1 FOR UPDATE`, [orderNo],
     );
     return (rows as PaymentOrderRow[])[0] ?? null;
+  }
+
+  /** 渠道关单通知（TRADE_CLOSED）对未付单的即时收敛：pending → closed，不进退款逆向。 */
+  async closePendingOrder(orderNo: string): Promise<boolean> {
+    const [updated] = await this.pool.execute<ResultSetHeader>(
+      `UPDATE orders SET status = 'closed', updated_at = NOW()
+        WHERE order_no = ? AND status = 'pending'`, [orderNo],
+    );
+    return updated.affectedRows > 0;
   }
 
   async markAsPaidInTransaction(conn: PoolConnection, orderNo: string, tradeNo: string | null): Promise<void> {
@@ -122,11 +135,6 @@ export class PaymentsRepo {
       [`MOCK-${orderNo}`, rawNotify, orderNo],
     );
     if (updated.affectedRows !== 1) throw new Error("ORDER_STATE_CONFLICT");
-  }
-
-  async upsertNoticeInterestInTransaction(conn: PoolConnection, userId: number, noticeId: number): Promise<void> {
-    await conn.execute(`INSERT INTO notice_interests (user_id, notice_id, interest_type, source)
-      VALUES (?, ?, 'subscribed', 'payment') ON DUPLICATE KEY UPDATE updated_at = NOW()`, [userId, noticeId]);
   }
 
   async findOrderAmount(orderNo: string): Promise<{ amount: number; status: string } | null> {
