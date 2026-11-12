@@ -32,7 +32,9 @@ export function CountryFlag({ name, className = "h-3.5 w-5" }: { name: string; c
   if (!iso) return <Globe className={`${className} text-slate-300 shrink-0`} />;
   return (
     <img
-      src={`/flags/${iso}.svg`}
+      // 文件全是小写（bd.svg），而 ISO2 映射产出大写（BD）——Windows 开发机大小写不敏感
+      // 看不出问题，Linux 生产机按原样请求必 404。统一小写后两边一致。
+      src={`/flags/${iso.toLowerCase()}.svg`}
       alt=""
       loading="lazy"
       className={`${className} shrink-0 rounded-[2px] object-cover`}
