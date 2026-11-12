@@ -9,10 +9,11 @@
  *              调用方一律直连本类（createOrder/queryOrder/fulfillOrder/reverseOrder/fulfillMockOrder）。
  *
  *              职责边界：
- *              - 订单存于 training_orders 表（物理隔离）
- *              - 履约写入 training_orders（状态）+ training_registrations（报名状态）
+ *              - 订单存于统一表 orders（product_kind='course'）
+ *              - 履约写入 orders（状态）+ training_registrations（报名状态）
  *                + training_schedules（期次人数）
- *              - 定价从 TrainingRepo（training_courses 表）读取（零硬编码）
+ *              - 定价从 TrainingRepo（training_courses 表）读取（零硬编码），
+ *                取价与归一由 lib/payment/products 统一（courseProductOf）
  *              - 支付渠道策略由 Orchestrator 通过 resolver 注入
  */
 import "server-only";
@@ -20,6 +21,7 @@ import crypto from "crypto";
 import type { TrainingRepo } from "../repos/training.repo";
 import type { PaymentProviderName } from "../types/payment";
 import type { PaymentStrategy } from "./types";
+import { courseProductOf } from "./products";
 import { resolvePaymentProvider } from "./pipeline/provider-resolver";
 import { fulfillInTransaction } from "./pipeline/fulfill-template";
 import { TRAINING_FULFILL_ALLOWED } from "./pipeline/state-machine";
@@ -92,13 +94,15 @@ export class TrainingPaymentService {
 
   /**
    * 创建培训支付订单
-   * 从 DB 读取课程单价 → 计算总金额 → 生成二维码 → 写入 training_orders
+   * 从 DB 读取课程单价 → 计算总金额 → 生成二维码 → 写入 orders（kind='course'）
    */
   async createOrder(params: CreateTrainingOrderParams): Promise<TrainingOrderResult> {
     const course = await this.trainingRepo.getActiveCourse();
     if (!course) throw new Error("COURSE_NOT_FOUND");
 
-    const unitPrice = Number(course.unit_price || 0);
+    // 取价与归一收口 lib/payment/products；错误码与人数护栏仍在本层
+    const product = courseProductOf(course);
+    const unitPrice = product.unitPrice;
     if (unitPrice <= 0) throw new Error("COURSE_PRICE_INVALID");
 
     // 单笔人数上限护栏（审查 F25）
@@ -133,7 +137,7 @@ export class TrainingPaymentService {
       gatewayResult = await strategy.createPaymentUrl(
         orderNo,
         totalAmount,
-        `${course.name_zh} ×${participantCount}`,
+        `${product.name} ×${participantCount}`,
         undefined,
         params.clientIp,
       );
@@ -155,7 +159,7 @@ export class TrainingPaymentService {
       participantCount,
       unitPrice,
       totalAmount,
-      currency: course.currency || "CNY",
+      currency: product.currency,
       provider,
       qrCode,
       payUrl,
@@ -168,7 +172,7 @@ export class TrainingPaymentService {
       orderNo,
       provider,
       amount: totalAmount,
-      currency: course.currency || "CNY",
+      currency: product.currency,
       qrCodeUrl: qrCode,
       payUrl,
       status: ORDER_STATUS.PENDING,
@@ -309,7 +313,7 @@ export class TrainingPaymentService {
 
       // 标记订单 refunded
       await conn.execute(
-        "UPDATE training_orders SET status = 'refunded' WHERE order_no = ? AND status = 'paid'",
+        "UPDATE orders SET status = 'refunded' WHERE order_no = ? AND product_kind = 'course' AND status = 'paid'",
         [orderNo],
       );
 

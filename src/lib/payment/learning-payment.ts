@@ -7,7 +7,7 @@
  *              从 PaymentService + activate.ts + mock.ts + reverse.ts 的学习分支提取为独立服务。
  *
  *              职责边界：
- *              - 订单存于 learning_orders 表（独立物理表）
+ *              - 订单存于统一表 orders（product_kind IN material/bundle）
  *              - 履约写入 learning_material_purchases（权益表，不变）
  *              - 定价从 LearningMaterialsRepo（单资料）或 learning-bundles.ts（套餐）获取
  *              - 支付渠道策略（Alipay/Wechat/Mock）由外部注入，复用统一通道
@@ -21,6 +21,12 @@ import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { findLearningBundle } from "../data/learning-bundles";
 import { getPool } from "../db/pool";
 import { queryOrderWithGatewayPoll } from "./pipeline/query-pipeline";
+import {
+  classifyProductCode,
+  stripProductPrefix,
+  PRODUCT_KIND,
+} from "@/shared/constants/product-kind";
+import { resolveLearningProduct } from "./products";
 
 export class LearningPaymentService {
   /** 策略解析器（由 Orchestrator 注入） */
@@ -67,23 +73,20 @@ export class LearningPaymentService {
     const { userId, planCode, provider } = params;
 
     // ── 服务端权威定价（审查 F2）──
-    let amount: number;
-    let planName: string;
-
-    if (planCode.startsWith("material_")) {
-      const materialId = planCode.slice("material_".length);
-      const material = await this.learningMaterialsRepo.findByMaterialId(materialId);
-      if (!material) throw new Error("MATERIAL_NOT_FOUND");
-      amount = Number(material.price);
-      planName = material.title_zh || material.title_en || planCode;
-    } else if (planCode.startsWith("bundle_")) {
-      const bundle = findLearningBundle(planCode.slice("bundle_".length));
-      if (!bundle) throw new Error("BUNDLE_NOT_FOUND");
-      amount = bundle.price;
-      planName = bundle.labelZh;
-    } else {
-      throw new Error("INVALID_LEARNING_PLAN_CODE");
+    // 取价与归一收口 lib/payment/products；错误码映射保持原样
+    const resolved = await resolveLearningProduct(
+      planCode,
+      (materialId) => this.learningMaterialsRepo.findByMaterialId(materialId),
+    );
+    if (!resolved.ok) {
+      throw new Error(
+        resolved.reason === "material_not_found" ? "MATERIAL_NOT_FOUND"
+          : resolved.reason === "bundle_not_found" ? "BUNDLE_NOT_FOUND"
+            : "INVALID_LEARNING_PLAN_CODE",
+      );
     }
+    const amount = resolved.product.unitPrice;
+    const planName = resolved.product.name;
 
     if (amount <= 0) throw new Error("INVALID_AMOUNT");
 
@@ -99,7 +102,7 @@ export class LearningPaymentService {
     });
 
     await this.learningOrdersRepo.createOrder({
-      userId, orderNo, provider, planCode, amount,
+      userId, orderNo, provider, planCode, productName: planName, amount,
       currency: "CNY", payUrl: pay_url, qrCodeUrl: qr_code_url || null, rawRequest,
     });
 
@@ -168,9 +171,12 @@ export class LearningPaymentService {
 
       await this.learningOrdersRepo.markAsPaidInTransaction(conn, orderNo, providerTradeNo || null);
 
+      // 类型判定与剥前缀收口 shared/constants/product-kind
+      const productKind = classifyProductCode(order.plan_code);
+
       // 单资料购买
-      if (order.plan_code.startsWith("material_")) {
-        const materialId = order.plan_code.replace(/^material_/, "");
+      if (productKind === PRODUCT_KIND.MATERIAL) {
+        const materialId = stripProductPrefix(order.plan_code);
         await this.learningMaterialsRepo.recordPurchaseInTransaction(
           conn, order.user_id!, materialId, orderNo, Number(order.amount),
         );
@@ -179,9 +185,8 @@ export class LearningPaymentService {
       }
 
       // 打包套餐购买：从 learning-bundles 静态配置获取条目清单
-      if (order.plan_code.startsWith("bundle_")) {
-        const bundleId = order.plan_code.replace(/^bundle_/, "");
-        const bundle = findLearningBundle(bundleId);
+      if (productKind === PRODUCT_KIND.BUNDLE) {
+        const bundle = findLearningBundle(stripProductPrefix(order.plan_code));
         if (bundle && bundle.includesIds.length > 0) {
           // 履约前按 DB 过滤，防止历史订单携带已下架条目
           const existingMaterials = await this.learningMaterialsRepo.findByMaterialIds(bundle.includesIds);
@@ -217,8 +222,10 @@ export class LearningPaymentService {
       await conn.beginTransaction();
       await this.learningOrdersRepo.markAsMockPaidInTransaction(conn, orderNo, rawNotify);
 
-      if (order.plan_code.startsWith("material_")) {
-        const materialId = order.plan_code.replace(/^material_/, "");
+      const productKind = classifyProductCode(order.plan_code);
+
+      if (productKind === PRODUCT_KIND.MATERIAL) {
+        const materialId = stripProductPrefix(order.plan_code);
         await this.learningMaterialsRepo.recordPurchaseInTransaction(
           conn, order.user_id!, materialId, orderNo, Number(order.amount),
         );
@@ -226,9 +233,8 @@ export class LearningPaymentService {
         return { found: true };
       }
 
-      if (order.plan_code.startsWith("bundle_")) {
-        const bundleId = order.plan_code.replace(/^bundle_/, "");
-        const bundle = findLearningBundle(bundleId);
+      if (productKind === PRODUCT_KIND.BUNDLE) {
+        const bundle = findLearningBundle(stripProductPrefix(order.plan_code));
         if (bundle && bundle.includesIds.length > 0) {
           const lmRepo = new LearningMaterialsRepo(getPool());
           const existingMaterials = await lmRepo.findByMaterialIds(bundle.includesIds);

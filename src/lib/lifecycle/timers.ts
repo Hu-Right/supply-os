@@ -11,6 +11,7 @@ import { refreshFeaturedColumn } from "../services/notices/index";
 import { refreshNoticeCountries } from "../services/notice-search/index";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
 import { syncWideIds } from "../services/search-sync/index";
+import { classifyMissingDeadlines } from "../services/notice-deadline/backfill";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { reconcileRfqGuard } from "../services/rfq-guard";
 import { outreachPublishedRfq, pendingOutreachRfqIds } from "../services/rfq-outreach";
@@ -122,33 +123,38 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   // 6. 支付维护（payment-maintenance）：
   //    a) 超时未支付订单每 60 分钟关闭一次（支付宝侧 timeout_express 30 分钟，DB 侧延后 2 小时兜底），
   //       避免 pending 订单永久滞留；PAYMENT_MAINTENANCE_ENABLED=off 关闭。
-  //       订单已按业务拆分为三张物理表，需逐表清扫：
-  //         · payment_orders（会员）：created_at 超 2 小时 → closed
-  //         · learning_orders（学习）  ：created_at 超 2 小时 → closed（该表无独立过期列）
-  //         · training_orders（培训）   ：expires_at 到期 → expired（与懒过期语义一致，保留迟到付款复活通道）
+  //       2026-11-12 起四种业务同表（orders），按 product_kind 分组清扫：
+  //         · plan/material/bundle：created_at 超 2 小时 → closed（这三类没有独立过期列）
+  //         · course：expires_at 到期 → expired（与懒过期语义一致，保留迟到付款复活通道）
   //    b) 权益体系新账本到期扫描（启动后一次 + 每日）：新表组过期订阅整批置 expired 并冻结其额度池
   let paymentMaintenanceTimer: NodeJS.Timeout | null = null;
   let paymentTierSyncTimer: NodeJS.Timeout | null = null;
   if (String(process.env.PAYMENT_MAINTENANCE_ENABLED ?? "on").toLowerCase() !== "off") {
-    // 三张订单表的超时清理语句；逐表 try/catch，单表失败不影响其余表
+    // 统一表 orders 的超时清理；逐组 try/catch，一组失败不影响其余组
     const STALE_ORDER_CLEANUPS: Array<{ table: string; label: string; sql: string }> = [
       {
-        table: "payment_orders",
+        table: "orders",
         label: "会员订单",
-        sql: `UPDATE payment_orders SET status = 'closed'
-              WHERE status = 'pending' AND created_at < NOW() - INTERVAL 2 HOUR`,
+        sql: `UPDATE orders SET status = 'closed'
+              WHERE status = 'pending' AND product_kind = 'plan' AND created_at < NOW() - INTERVAL 2 HOUR`,
       },
       {
-        table: "learning_orders",
+        table: "orders",
         label: "学习订单",
-        sql: `UPDATE learning_orders SET status = 'closed'
-              WHERE status = 'pending' AND created_at < NOW() - INTERVAL 2 HOUR`,
+        sql: `UPDATE orders SET status = 'closed'
+              WHERE status = 'pending' AND product_kind IN ('material','bundle') AND created_at < NOW() - INTERVAL 2 HOUR`,
       },
       {
-        table: "training_orders",
+        table: "orders",
+        label: "增值服务订单",
+        sql: `UPDATE orders SET status = 'closed'
+              WHERE status = 'pending' AND product_kind = 'service' AND created_at < NOW() - INTERVAL 2 HOUR`,
+      },
+      {
+        table: "orders",
         label: "培训订单",
-        sql: `UPDATE training_orders SET status = 'expired'
-              WHERE status = 'pending' AND expires_at < NOW()`,
+        sql: `UPDATE orders SET status = 'expired'
+              WHERE status = 'pending' AND product_kind = 'course' AND expires_at < NOW()`,
       },
     ];
     const closeStalePendingOrders = async () => {
@@ -280,6 +286,30 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     }, rfqOutreachIntervalMin * 60_000);
   }
 
+  // 8. 截止语义分类补漏（DEADLINE_CLASSIFY_ENABLED=off 关闭，默认每 10 分钟、单轮 3000 条）：
+  //    入库链路不写 notice_deadline，新公告若漏分类就会走 `deadline_sec>0?known:unknown` 老兜底，
+  //    绕过哨兵/框架 30 年/年份笔误规则。这里把缺口持续收敛到 0，只处理未分类行、幂等。
+  let deadlineClassifyTimer: NodeJS.Timeout | null = null;
+  if (String(process.env.DEADLINE_CLASSIFY_ENABLED ?? "on").toLowerCase() !== "off") {
+    const intervalMin = Math.max(1, Number(process.env.DEADLINE_CLASSIFY_INTERVAL_MIN || 10));
+    const perRun = Math.max(100, Number(process.env.DEADLINE_CLASSIFY_LIMIT || 3000));
+    const runClassify = async () => {
+      try {
+        const r = await classifyMissingDeadlines(dbPool, { limit: perRun });
+        if (r.classified > 0) {
+          console.log(`[deadline-classify] 补分类 ${r.classified} 条`, r.byState);
+        }
+      } catch (e) {
+        console.error("[deadline-classify] 补分类失败（不影响下次扫描）:", (e as Error).message);
+      }
+    };
+    // 启动延迟 20s 跑一次，与桥接表/清理任务错开
+    setTimeout(() => { void runClassify(); }, 20_000);
+    deadlineClassifyTimer = setInterval(() => {
+      void runClassify();
+    }, intervalMin * 60_000);
+  }
+
   return {
     stop() {
       clearInterval(featuredRefreshTimer);
@@ -290,6 +320,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       if (claimExpiryTimer) clearInterval(claimExpiryTimer);
       if (rfqGuardTimer) clearInterval(rfqGuardTimer);
       if (rfqOutreachTimer) clearInterval(rfqOutreachTimer);
+      if (deadlineClassifyTimer) clearInterval(deadlineClassifyTimer);
     },
   };
 }

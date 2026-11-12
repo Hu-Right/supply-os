@@ -19,7 +19,8 @@ export async function reverseFulfilledOrder(
     const subscription = await benefit.write.findSubscriptionForUpdate(conn, subscriptionId);
     if (!subscription || subscription.owner_user_id !== order.user_id) throw new Error("REFUND_SUBSCRIPTION_MISMATCH");
     const [linked] = await conn.query<RowDataPacket[]>(
-      "SELECT order_no FROM payment_orders WHERE original_order_no = ? AND status IN ('pending','paid') LIMIT 1", [orderNo],
+      // 2026-11-12 合一表：orders（product_kind='plan' 限定，避免把服务/学习单算成关联升级单）
+      "SELECT order_no FROM orders WHERE original_order_no = ? AND product_kind = 'plan' AND status IN ('pending','paid') LIMIT 1", [orderNo],
     );
     await benefit.write.refundSubscription(conn, subscriptionId);
     // 源单退款时沿替代链冻结后续权益；后续订单的资金处置留人工，不自动退差价或恢复旧池。
@@ -35,7 +36,7 @@ export async function reverseFulfilledOrder(
       nextId = next.replaced_by_id;
     }
     const [updated] = await conn.execute<ResultSetHeader>(
-      "UPDATE payment_orders SET status = 'refunded', updated_at = NOW() WHERE order_no = ? AND status = 'paid'", [orderNo],
+      "UPDATE orders SET status = 'refunded', updated_at = NOW() WHERE order_no = ? AND product_kind = 'plan' AND status = 'paid'", [orderNo],
     );
     if (updated.affectedRows !== 1) throw new Error("REFUND_ORDER_CONFLICT");
     await conn.commit();

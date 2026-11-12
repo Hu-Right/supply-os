@@ -57,6 +57,19 @@ export interface TrainingOrderRow extends RowDataPacket {
   user_id: number | null;
 }
 
+/**
+ * 列投影：统一表 `orders` → TrainingOrderRow。
+ * 课程 id 在 product_code、人数在 quantity、期次在 items_snapshot、
+ * 报名行在 granted_registration_id —— 在这里还原成旧列名，上层读取无需改动。
+ */
+const TRAINING_ORDER_COLUMNS = `id, order_no,
+  CAST(product_code AS UNSIGNED) AS course_id,
+  CAST(JSON_UNQUOTE(JSON_EXTRACT(items_snapshot, '$.scheduleId')) AS UNSIGNED) AS schedule_id,
+  granted_registration_id AS registration_id,
+  quantity AS participant_count,
+  unit_price, amount AS total_amount, currency, provider, status,
+  qr_code_url AS qr_code, pay_url, provider_trade_no, paid_at, expires_at, user_id`;
+
 export interface ParticipantRow extends RowDataPacket {
   id: number;
   order_id: number;
@@ -155,27 +168,38 @@ export class TrainingRepo {
     return (rows as ScheduleRow[])[0] ?? null;
   }
 
-  /** 创建培训支付订单，返回自增 id */
+  /**
+   * 创建培训支付订单，返回自增 id。
+   * 2026-11-12 起物理存储为统一表 `orders`（product_kind='course'）：
+   * 课程 id 落 product_code，人数落 quantity，期次与联系人落 items_snapshot
+   * （联系人两列在旧表里只写不读，从无消费方，故不必回读别名）。
+   */
   async createOrder(data: CreateTrainingOrderData): Promise<number> {
+    const snapshot: Record<string, unknown> = { courseId: data.courseId };
+    if (data.scheduleId != null) snapshot.scheduleId = data.scheduleId;
+    if (data.contactName) snapshot.contactName = data.contactName;
+    if (data.telephone) snapshot.telephone = data.telephone;
+
     const [result] = await this.pool.execute(
-      `INSERT INTO training_orders
-        (order_no, course_id, schedule_id, registration_id, participant_count, unit_price, total_amount,
-         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, user_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, NOW())`,
+      `INSERT INTO orders
+        (order_no, user_id, product_kind, product_code, product_name, unit_price, quantity, amount,
+         currency, provider, status, qr_code_url, pay_url, expires_at, granted_registration_id,
+         items_snapshot, created_at)
+       VALUES (?, ?, 'course', ?, '', ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())`,
       [
-        data.orderNo, data.courseId, data.scheduleId, data.registrationId,
-        data.participantCount, data.unitPrice, data.totalAmount, data.currency,
+        data.orderNo, data.userId ?? null, String(data.courseId),
+        data.unitPrice, data.participantCount, data.totalAmount, data.currency,
         data.provider, data.qrCode, data.payUrl, data.expiresAt,
-        data.contactName, data.telephone, data.userId ?? null,
+        data.registrationId ?? null, JSON.stringify(snapshot),
       ],
     );
     return Number((result as RowDataPacket).insertId);
   }
 
-  /** 按订单号查询培训订单 */
+  /** 按订单号查询培训订单（列别名还原 TrainingOrderRow 形状） */
   async findOrderByNo(orderNo: string): Promise<TrainingOrderRow | null> {
     const [rows] = await this.pool.execute(
-      "SELECT * FROM training_orders WHERE order_no = ? LIMIT 1",
+      `SELECT ${TRAINING_ORDER_COLUMNS} FROM orders WHERE order_no = ? AND product_kind = 'course' LIMIT 1`,
       [orderNo],
     );
     return (rows as TrainingOrderRow[])[0] || null;
@@ -185,12 +209,12 @@ export class TrainingRepo {
   async updateOrderStatus(orderNo: string, status: string, providerTradeNo?: string | null): Promise<void> {
     if (status === "paid") {
       await this.pool.execute(
-        "UPDATE training_orders SET status = 'paid', provider_trade_no = ?, paid_at = NOW() WHERE order_no = ?",
+        "UPDATE orders SET status = 'paid', provider_trade_no = ?, paid_at = NOW() WHERE order_no = ? AND product_kind = 'course'",
         [providerTradeNo || null, orderNo],
       );
     } else {
       await this.pool.execute(
-        "UPDATE training_orders SET status = ? WHERE order_no = ?",
+        "UPDATE orders SET status = ? WHERE order_no = ? AND product_kind = 'course'",
         [status, orderNo],
       );
     }
@@ -214,7 +238,7 @@ export class TrainingRepo {
   /** 悲观锁查询订单（SELECT ... FOR UPDATE） */
   async findOrderByNoForUpdate(conn: PoolConnection, orderNo: string): Promise<TrainingOrderRow | null> {
     const [rows] = await conn.execute(
-      "SELECT * FROM training_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
+      `SELECT ${TRAINING_ORDER_COLUMNS} FROM orders WHERE order_no = ? AND product_kind = 'course' LIMIT 1 FOR UPDATE`,
       [orderNo],
     );
     return (rows as TrainingOrderRow[])[0] || null;
@@ -224,12 +248,12 @@ export class TrainingRepo {
   async updateOrderStatusInTransaction(conn: PoolConnection, orderNo: string, status: string, providerTradeNo?: string | null): Promise<void> {
     if (status === "paid") {
       await conn.execute(
-        "UPDATE training_orders SET status = 'paid', provider_trade_no = ?, paid_at = NOW() WHERE order_no = ?",
+        "UPDATE orders SET status = 'paid', provider_trade_no = ?, paid_at = NOW() WHERE order_no = ? AND product_kind = 'course'",
         [providerTradeNo || null, orderNo],
       );
     } else {
       await conn.execute(
-        "UPDATE training_orders SET status = ? WHERE order_no = ?",
+        "UPDATE orders SET status = ? WHERE order_no = ? AND product_kind = 'course'",
         [status, orderNo],
       );
     }
@@ -311,16 +335,16 @@ export class TrainingRepo {
     return rows as ParticipantRow[];
   }
 
-  /** 按用户查询培训订单（可选状态过滤） */
+  /** 按用户查询培训订单（可选状态过滤）——2026-11-12 起读统一表 orders（kind='course'） */
   async findOrdersByUserId(userId: number, status: string): Promise<TrainingOrderRow[]> {
     const params: unknown[] = [userId];
-    let where = "WHERE user_id = ?";
+    let where = "WHERE user_id = ? AND product_kind = 'course'";
     if (status) {
       where += " AND status = ?";
       params.push(status);
     }
     const [rows] = await this.pool.query(
-      `SELECT * FROM training_orders ${where} ORDER BY id DESC`,
+      `SELECT ${TRAINING_ORDER_COLUMNS} FROM orders ${where} ORDER BY id DESC`,
       params,
     );
     return rows as TrainingOrderRow[];
@@ -329,13 +353,13 @@ export class TrainingRepo {
   /** 按用户统计培训订单数 */
   async countOrdersByUserId(userId: number, status: string): Promise<number> {
     const params: unknown[] = [userId];
-    let where = "WHERE user_id = ?";
+    let where = "WHERE user_id = ? AND product_kind = 'course'";
     if (status) {
       where += " AND status = ?";
       params.push(status);
     }
     const [rows] = await this.pool.query(
-      `SELECT COUNT(*) AS total FROM training_orders ${where}`,
+      `SELECT COUNT(*) AS total FROM orders ${where}`,
       params,
     );
     return Number((rows as RowDataPacket[])[0]?.total || 0);

@@ -16,10 +16,13 @@ describe("ServiceOrdersRepo", () => {
     });
     expect(id).toBe(7);
     const [sql, params] = query.mock.calls[0] as [string, unknown[]];
-    expect(sql).toContain("INSERT INTO service_orders");
+    // 2026-11-12 合一表：写 orders，业务类型由常量列 product_kind='service' 锚定
+    expect(sql).toContain("INSERT INTO orders");
+    expect(sql).toContain("'service'");
     expect(sql).toContain("'pending'");
     expect(params).toContain("SV20260923A1");
-    expect(params).toContain("self");
+    // sale_mode 不再是独立列，进 items_snapshot 快照
+    expect(params).toContain(JSON.stringify({ saleMode: "self" }));
   });
 
   it("markPaid 仅更新 pending → paid", async () => {

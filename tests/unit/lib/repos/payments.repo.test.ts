@@ -37,7 +37,11 @@ describe("PaymentsRepo 查询方法", () => {
     const { pool, query } = makePool([[row]]);
     const repo = new PaymentsRepo(pool);
     expect(await repo.findByOrderNo("SO1")).toBe(row);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("WHERE order_no = ? LIMIT 1"), ["SO1"]);
+    // 2026-11-12 合一表：查询必须带 product_kind 作用域，避免跨业务串单
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("WHERE order_no = ? AND product_kind = 'plan' LIMIT 1"),
+      ["SO1"],
+    );
   });
 
   it("findByOrderNo：空结果 → null", async () => {
@@ -56,7 +60,7 @@ describe("PaymentsRepo 查询方法", () => {
 describe("PaymentsRepo 订单写入", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("createOrder：12 个参数按序绑定，order_type 默认 new", async () => {
+  it("createOrder：15 个参数按序绑定（含商品名快照），order_type 默认 new", async () => {
     const { pool, execute } = makePool([[]]);
     const repo = new PaymentsRepo(pool);
     await repo.createOrder({
@@ -65,9 +69,12 @@ describe("PaymentsRepo 订单写入", () => {
     });
     const [sql, params] = execute.mock.calls[0];
     expect(sql).toContain("'pending'");
+    // 合表后列序：userId, orderNo, provider, planCode, productName, orderType, originalOrderNo,
+    //            noticeId, industryCode, unitPrice, amount, currency, payUrl, qrCodeUrl, rawRequest
+    // 会员单 unitPrice === amount（一单一件，卖的就是套餐本身）
     expect(params).toEqual([
-      101, "SO1", "mock", "personal_m", "new", null,
-      null, null, 99, "CNY", "/pay", null, "{}",
+      101, "SO1", "mock", "personal_m", "", "new", null,
+      null, null, 99, 99, "CNY", "/pay", null, "{}",
     ]);
   });
 
@@ -81,9 +88,9 @@ describe("PaymentsRepo 订单写入", () => {
     });
     const [sql, params] = execute.mock.calls[0];
     expect(sql).toContain("order_type");
-    expect(params[4]).toBe("upgrade");
-    expect(params[5]).toBe("SO1");
-    expect(params[6]).toBe(5);
+    expect(params[5]).toBe("upgrade");
+    expect(params[6]).toBe("SO1");
+    expect(params[7]).toBe(5);
   });
 });
 

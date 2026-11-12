@@ -60,8 +60,9 @@ describe("PaymentsRepo 非事务方法", () => {
       amount: 700, currency: "CNY", payUrl: "/pay", qrCodeUrl: "qr", rawRequest: "{}",
     });
     const [sql, params] = lastSql(pool.execute as never);
-    expect(sql).toContain("UPDATE payment_orders");
-    expect(params).toEqual([700, "CNY", "/pay", "qr", null, "{}", "SO1"]);
+    // 2026-11-12 合一表：写 orders，且单价随之同步（会员单 unitPrice === amount）
+    expect(sql).toContain("UPDATE orders");
+    expect(params).toEqual([700, 700, "CNY", "/pay", "qr", null, "{}", "SO1"]);
   });
 
   it("findOrderAmount → 命中返回金额/状态，未命中返回 null", async () => {
@@ -87,7 +88,7 @@ describe("PaymentsRepo 事务方法（InTransaction 系列）", () => {
     const c = makeConn();
     await repo.markAsMockPaidInTransaction(c, "SO1", "raw");
     const [sql] = lastSql(c.execute as never);
-    expect(sql).toContain("UPDATE payment_orders");
+    expect(sql).toContain("UPDATE orders");
   });
 
   it("upsertNoticeInterestInTransaction → upsert 公告兴趣", async () => {

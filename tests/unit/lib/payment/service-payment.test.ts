@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
+// 取价合流后 ServicePaymentService 经 lib/payment/products 间接依赖 server-only（与
+// PaymentService/learning-payment 同款标记），按本目录既有约定 mock 掉
+vi.mock("server-only", () => ({}));
 import { ServicePaymentService } from "@/lib/payment/service-payment";
 import type { PaymentStrategy } from "@/lib/payment/types";
 import type { Pool } from "mysql2/promise";

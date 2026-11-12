@@ -3,7 +3,7 @@
  *
  * @module lib/payment/service-payment
  * @description 与 LearningPaymentService 对称：订单号前缀 SV，价格服务端权威读 service_catalog，
- *              复用同一 PaymentStrategy 出码；回调/mock 命中仅把 service_orders 标为 paid，
+ *              复用同一 PaymentStrategy 出码；回调/mock 命中仅把 orders（kind='service'）标为 paid，
  *              不做额度/订阅发放（设计 B4）。表无 provider/trade_no/expiry 列 → 查询走 DB status。
  *              返回结构与 learning 下单一致，供 /api/payment/orders 路由统一后处理。
  *
@@ -13,11 +13,12 @@
  *              的陪跑、KA、API 等也能被直接刷卡，既越权又把「起」价当成一口价。
  */
 import crypto from "crypto";
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool } from "mysql2/promise";
 import type { PaymentStrategy } from "./types";
 import type { PaymentProviderName } from "../types/payment";
 import type { ServiceOrdersRepo } from "../repos/service-orders.repo";
 import { SITE_URL } from "../services/seo/site";
+import { serviceProductOf, fetchServicePriceRow } from "./products";
 
 /** 对外响应体（路由直接透出）：契约键 camelCase（红线②） */
 export interface ServiceCreateOrderResult {
@@ -29,15 +30,6 @@ export interface ServiceCreateOrderResult {
   qrCodeUrl?: string;
   status: "pending";
   createdAt: string;
-}
-
-interface ServicePriceRow {
-  standard_price: string | null;
-  currency: string;
-  sale_mode: string;
-  price_from: number;
-  is_active: number;
-  name_zh: string;
 }
 
 export class ServicePaymentService {
@@ -65,36 +57,29 @@ export class ServicePaymentService {
   }): Promise<ServiceCreateOrderResult> {
     const { userId, serviceCode, provider } = params;
 
-    const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT standard_price, currency, sale_mode, price_from, is_active, name_zh
-         FROM service_catalog WHERE service_code = ? LIMIT 1`,
-      [serviceCode],
-    );
-    const svc = rows[0] as ServicePriceRow | undefined;
-    if (!svc || svc.is_active !== 1 || svc.standard_price === null || Number(svc.standard_price) <= 0) {
-      throw new Error("SERVICE_UNAVAILABLE");
-    }
-    // 预约制商品（留资/合同成交）不得自助支付：前端已把按钮换成「预约顾问」，
-    // 这里再档一道，防绕过前端直打 /api/payment/orders。
-    // 起点价（price_from=1，文档「N 元起 / 按标的额谈价」）同样不得自助：按底价收款是错卖。
-    if (svc.sale_mode !== "self" || Number(svc.price_from) === 1) {
-      throw new Error("SERVICE_ADVISORY_ONLY");
-    }
+    // 取价与归一收口 lib/payment/products（原为内联 SQL + 本地 ServicePriceRow）
+    const priceRow = await fetchServicePriceRow(this.pool, serviceCode);
+    // 判定顺序与原实现一致：查无此服务/不可售 → 同一个错误码，之后才是「仅预约」
+    if (!priceRow) throw new Error("SERVICE_UNAVAILABLE");
+    const product = serviceProductOf(serviceCode, priceRow);
+    if (!product.sellable) throw new Error("SERVICE_UNAVAILABLE");
+    if (product.advisoryOnly) throw new Error("SERVICE_ADVISORY_ONLY");
 
-    const amount = Number(svc.standard_price);
+    const amount = product.unitPrice;
     const orderNo = this.makeOrderNo();
     const strategy = this.getStrategy(provider);
     // return_url 同源白名单（对齐审查 F26）+ 拼 order_no；描述用人类可读品名
     const returnUrl = this.appendUrlParams(this.sanitizeReturnUrl(params.returnUrl || ""), { order_no: orderNo });
     const { pay_url, qr_code_url } = await strategy.createPaymentUrl(
-      orderNo, amount, svc.name_zh || serviceCode, returnUrl, params.clientIp,
+      orderNo, amount, product.name, returnUrl, params.clientIp,
     );
-    const currency = svc.currency || "CNY";
+    const currency = product.currency;
 
     await this.ordersRepo.createOrder({
       orderNo, userId, serviceCode,
-      unitPrice: String(svc.standard_price), amountTotal: String(svc.standard_price),
-      currency, saleMode: svc.sale_mode,
+      productName: product.name,
+      unitPrice: product.priceRaw, amountTotal: product.priceRaw,
+      currency, saleMode: product.saleMode ?? "",
     });
 
     return {

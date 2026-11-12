@@ -33,11 +33,12 @@ function makeOrchestrator(opts: {
   membershipRows?: unknown[];
   trainingRow?: Record<string, unknown> | null;
 }) {
+  // 2026-11-12 合一表：历史行形状换成 orders 口径（product_kind + product_code）
   const rows = opts.membershipRows ?? [{
-    order_no: "SO1", user_id: 7, provider: "alipay", plan_code: "pro",
+    order_no: "SO1", user_id: 7, provider: "alipay", product_kind: "plan", product_code: "pro",
     notice_id: 5, amount: "999.00", currency: "CNY", status: "paid",
     provider_trade_no: "T1", paid_at: new Date("2026-09-03T08:00:00Z"),
-    created_at: new Date("2026-09-03T07:00:00Z"), updated_at: null,
+    created_at: new Date("2026-09-03T07:00:00Z"), updated_at: null, expires_at: null,
   }];
   const noop = async () => undefined;
   const orch = new PaymentOrchestrator(

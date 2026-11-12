@@ -128,8 +128,9 @@ describe("LearningOrdersRepo 集成测试", () => {
 
       const result = await repo.findByOrderNo("LE20260904TEST001");
 
+      // 2026-11-12 合一表：查询走 orders 且带 product_kind 作用域（material/bundle）
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining("SELECT * FROM learning_orders WHERE order_no = ?"),
+        expect.stringContaining("FROM orders WHERE order_no = ?"),
         ["LE20260904TEST001"]
       );
       expect(result).toEqual(mockOrder);

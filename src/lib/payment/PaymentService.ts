@@ -16,6 +16,8 @@ import { activatePaidOrder } from "./activate";
 import { reverseFulfilledOrder } from "./reverse";
 import { SITE_URL } from "../services/seo/site";
 import { queryOrderWithGatewayPoll } from "./pipeline/query-pipeline";
+import { classifyProductCode, PRODUCT_KIND } from "@/shared/constants/product-kind";
+import { planProductOf } from "./products";
 
 /**
  * return_url 白名单（审查 F26）：仅接受本站相对路径或与 SITE_URL 同源的
@@ -92,7 +94,9 @@ export class PaymentService {
     // 学习资料/打包套餐：服务端权威定价（审查 F2）
     // 金额与套餐条目一律由服务端解析（material 查 DB 定价、bundle 查静态套餐配置），
     // 请求体中的 amount / bundle_items 不参与定价，仅作展示参考
-    const isLearningOrder = planCode.startsWith("material_") || planCode.startsWith("bundle_");
+    // 类型判定收口 shared/constants/product-kind（原为本地 startsWith 判断）
+    const productKind = classifyProductCode(planCode);
+    const isLearningOrder = productKind === PRODUCT_KIND.MATERIAL || productKind === PRODUCT_KIND.BUNDLE;
     let amount: number;
     let planName: string;
     let currency: string;
@@ -101,14 +105,16 @@ export class PaymentService {
     /** 年包抵扣快照（文档「199 升级年包可全额抵扣」）；无可用抵扣单时为 null。 */
     let annualCredit: { credit_order_no: string; credit_amount: number; payable: number } | null = null;
 
-    // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单已拆分至 learning_orders 表，
-    // 由 LearningPaymentService 独立处理。此处拒绝学习类 plan_code。
+    // 学习资料 / 打包套餐由 LearningPaymentService 独立处理（同一 orders 表，kind 不同）。
+    // 此处拒绝学习类 plan_code。
     if (isLearningOrder) {
       throw new Error("LEARNING_ORDERS_DELEGATED");
     } else {
       const plan = await this.benefitDeps.catalog.getPlan(planCode);
       if (!plan) throw new Error("PLAN_NOT_FOUND");
-      if (Number(plan.is_active) !== 1 || plan.price_mode !== "fixed") throw new Error("PLAN_NOT_SELLABLE");
+      // 取价与归一收口 lib/payment/products；「不可售」判定沿用原错误码与顺序
+      const planProduct = planProductOf(planCode, plan);
+      if (!planProduct.sellable) throw new Error("PLAN_NOT_SELLABLE");
       // 行业墙：购买/续费/升级必须在支付前选定 L1 大类，订单落 industry_code 快照。
       const getCell = this.benefitDeps.catalog.getCell?.bind(this.benefitDeps.catalog);
       const scopedCell = typeof getCell === "function"
@@ -121,10 +127,10 @@ export class PaymentService {
           : true;
         if (!validIndustry) throw new Error("INVALID_INDUSTRY");
       }
-      amount = Number(plan.price);
+      amount = planProduct.unitPrice;
       if (!Number.isFinite(amount) || amount <= 0) throw new Error("AMOUNT_INVALID");
-      planName = plan.name_zh;
-      currency = plan.currency;
+      planName = planProduct.name;
+      currency = planProduct.currency;
 
       // ── 升级订单：校验升级资格并计算差价 ──
       if (orderType === "upgrade") {
@@ -138,7 +144,7 @@ export class PaymentService {
         upgradeSnapshot = {
           subscription_id: preview.subscription.subscription_id,
           target_plan_code: planCode,
-          target_price: Number(plan.price),
+          target_price: planProduct.unitPrice,
           current_plan_code: current.plan_code,
           current_price: Number(current.price),
         };
@@ -202,6 +208,7 @@ export class PaymentService {
         orderNo,
         provider,
         planCode,
+        productName: planName,
         noticeId,
         industryCode: industryCode || null,
         amount,

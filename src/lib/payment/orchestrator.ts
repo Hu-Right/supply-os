@@ -24,7 +24,7 @@ import type { LearningOrdersRepo } from "../repos/learning-orders.repo";
 import type { ServicePaymentService } from "./service-payment";
 import type { ServiceOrdersRepo } from "../repos/service-orders.repo";
 import type { TrainingRepo } from "../repos/training.repo";
-import type { PaymentHistoryRepo } from "../repos/payment-history.repo";
+import type { PaymentHistoryRepo, UnifiedOrderHistoryRow } from "../repos/payment-history.repo";
 import type { BenefitFulfillDeps } from "./benefit-grant";
 import { TrainingPaymentService } from "./TrainingPaymentService";
 
@@ -65,6 +65,27 @@ export function getOrderBusiness(orderNo: string): "membership" | "learning" | "
   if (orderNo.startsWith(ORDER_PREFIX.TRAINING)) return "training";
   if (orderNo.startsWith(ORDER_PREFIX.MEMBERSHIP)) return "membership";
   return "unknown";
+}
+
+/** product_kind → 对外业务类型（订单历史里的 businessType） */
+const BUSINESS_OF_KIND: Record<string, "membership" | "learning" | "training" | "service"> = {
+  plan: "membership",
+  material: "learning",
+  bundle: "learning",
+  service: "service",
+  course: "training",
+};
+
+/**
+ * product_kind + 目录主键 → 旧码形。
+ * 前端 `recordTitle`、`getOrderBusiness` 与既有响应契约都按码形判类型，
+ * 合一表后不能把 `material_x` 直接吐成 `x`。
+ * course 的 `training_course_N` 本就是订单列表拼出来的展示码，不是真实 SKU。
+ */
+function legacyProductCode(kind: string, code: string): string {
+  if (kind === "material" || kind === "bundle") return `${kind}_${code}`;
+  if (kind === "course") return `training_course_${code}`;
+  return code;
 }
 
 // 支付编排器
@@ -172,7 +193,7 @@ export class PaymentOrchestrator {
       case "training": {
         // ARCH-P0（2026-09-05）：培训订单回调履约通道
         // 此前 TR 前缀订单落入 default 分支，在 payments_repo 中查找恒返 ORDER_NOT_FOUND，
-        // 导致"用户付了钱但无履约"。修复：独立路由至 training_orders 表。
+        // 导致"用户付了钱但无履约"。修复：独立路由至培训履约（orders kind='course'）。
         const trainingOrder = await this.trainingRepo.findOrderByNo(verifyResult.order_no);
         if (!trainingOrder) {
           return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
@@ -351,75 +372,45 @@ export class PaymentOrchestrator {
 
   // ── 全量订单历史聚合 ────────────────────────────────────────────────────────
 
-  /** 统一订单行（聚合三表后的公共字段） */
-  private normalizeOrder(row: {
-    order_no: string; user_id?: number | null; provider: string; plan_code: string;
-    amount: number | string; currency: string; status: string;
-    provider_trade_no: string | null; paid_at: Date | string | null;
-    created_at: Date | string; updated_at: Date | string | null;
-    notice_id?: number | null; expires_at?: Date | string | null;
-  }, businessType: "membership" | "learning" | "training" | "service"): NormalizedOrder {
-    return {
-      orderNo: row.order_no,
-      userId: row.user_id ?? 0,
-      businessType,
-      provider: row.provider,
-      planCode: row.plan_code,
-      noticeId: row.notice_id ?? null,
-      amount: Number(row.amount),
-      currency: row.currency,
-      status: row.status,
-      providerTradeNo: row.provider_trade_no,
-      paidAt: row.paid_at ? new Date(row.paid_at as string).toISOString() : null,
-      createdAt: new Date(row.created_at as string).toISOString(),
-      updatedAt: row.updated_at ? new Date(row.updated_at as string).toISOString() : null,
-      expiresAt: row.expires_at ? new Date(row.expires_at as string).toISOString() : null,
-    };
-  }
-
   /**
-   * 聚合三张订单表，返回全量订单历史（按 created_at 降序）。
-   * 会员订单保留 PaymentHistoryRepo 的 LEFT JOIN 公告摘要能力。
+   * 订单历史（统一表 `orders`，一次带 LIMIT/OFFSET 的查询）。
+   *
+   * 2026-11-12 合一表后这里不再需要「四表各拉全量 → 内存排序 → slice」：
+   * 原来会员侧固定拉 9999 行，订单一多必炸；现在分页下沉到 DB，`created_at + id`
+   * 双键排序保证翻页稳定。
+   *
+   * `planCode` 仍按**旧码形**还原（material_x / bundle_x / svc_x / training_course_N），
+   * 因为前端 `recordTitle`、`getOrderBusiness` 与既有响应契约都按码形判类型。
    */
   async listAllOrders(
     userId: number, status: string, limit: number, offset: number,
   ): Promise<{ total: number; list: NormalizedOrder[] }> {
     const statusParam = status && status !== "all" ? status : "";
-
-    const [membershipOrders, learningOrders, trainingOrders, serviceOrders, membershipTotal, learningTotal, trainingTotal, serviceTotal] = await Promise.all([
-      this.paymentHistoryRepo.listOrders(userId, statusParam, 9999, 0),
-      this.learningOrdersRepo.findByUserId(userId, statusParam),
-      this.trainingRepo.findOrdersByUserId(userId, statusParam),
-      this.serviceOrdersRepo.findByUserId(userId, statusParam),
+    const [total, rows] = await Promise.all([
       this.paymentHistoryRepo.countOrders(userId, statusParam),
-      this.learningOrdersRepo.countByUserId(userId, statusParam),
-      this.trainingRepo.countOrdersByUserId(userId, statusParam),
-      this.serviceOrdersRepo.countByUserId(userId, statusParam),
+      this.paymentHistoryRepo.listOrders(userId, statusParam, limit, offset),
     ]);
-
-    const total = membershipTotal + learningTotal + trainingTotal + serviceTotal;
-
-    const all = [
-      ...membershipOrders.map((o) => this.normalizeOrder(o, "membership")),
-      ...learningOrders.map((o) => this.normalizeOrder(o, "learning")),
-      ...trainingOrders.map((o) => this.normalizeOrder({
-        order_no: o.order_no, user_id: o.user_id, provider: o.provider,
-        plan_code: `training_course_${o.course_id}`, amount: o.total_amount,
-        currency: o.currency, status: o.status, provider_trade_no: o.provider_trade_no,
-        paid_at: o.paid_at, created_at: o.created_at as unknown as Date,
-        updated_at: null, expires_at: o.expires_at ?? null,
-      }, "training")),
-      ...serviceOrders.map((o) => this.normalizeOrder({
-        order_no: o.order_no, user_id: o.user_id, provider: "service",
-        plan_code: o.service_code, amount: o.amount_total,
-        currency: o.currency, status: o.status, provider_trade_no: null,
-        paid_at: o.paid_at, created_at: o.created_at, updated_at: null,
-        notice_id: null, expires_at: null,
-      }, "service")),
-    ];
-
-    all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    const list = all.slice(offset, offset + limit);
-    return { total, list };
+    return { total, list: rows.map((row) => this.normalizeUnifiedOrder(row)) };
   }
+
+  /** 统一订单行 → 对外 NormalizedOrder（业务类型与码形都由 product_kind 派生） */
+  private normalizeUnifiedOrder(row: UnifiedOrderHistoryRow): NormalizedOrder {
+    return {
+      orderNo: row.order_no,
+      userId: row.user_id ?? 0,
+      businessType: BUSINESS_OF_KIND[row.product_kind] ?? "membership",
+      provider: row.provider,
+      planCode: legacyProductCode(row.product_kind, row.product_code),
+      noticeId: row.notice_id ?? null,
+      amount: Number(row.amount),
+      currency: row.currency,
+      status: row.status,
+      providerTradeNo: row.provider_trade_no,
+      paidAt: row.paid_at ? new Date(row.paid_at as unknown as string).toISOString() : null,
+      createdAt: new Date(row.created_at as unknown as string).toISOString(),
+      updatedAt: row.updated_at ? new Date(row.updated_at as unknown as string).toISOString() : null,
+      expiresAt: row.expires_at ? new Date(row.expires_at as unknown as string).toISOString() : null,
+    };
+  }
+
 }

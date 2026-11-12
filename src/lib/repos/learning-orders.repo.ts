@@ -3,10 +3,15 @@
  * Learning Orders Repository
  *
  * @module repos/learning-orders.repo
- * @description ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单的 CRUD + 履约事务。
- *              与 PaymentsRepo（会员订单 CRUD）职责分离，各自操作独立物理表。
+ * @description 学习资料 / 打包套餐订单的 CRUD + 履约事务。
+ *              **2026-11-12 起物理存储为统一表 `orders`（product_kind IN material/bundle）**，
+ *              对外方法签名与 `LearningOrderRow` 形状保持不变：
+ *              `plan_code` 由 `CONCAT(product_kind,'_',product_code)` 还原
+ *              （material_x → "material_x"、bundle_all → "bundle_all"，与原码形逐字一致），
+ *              上层 `learning-payment` 里的前缀判断因此无需改动。
  */
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
+import { classifyProductCode, stripProductPrefix } from "@/shared/constants/product-kind";
 
 /** 学习订单行 */
 export interface LearningOrderRow {
@@ -28,6 +33,14 @@ export interface LearningOrderRow {
   updated_at: Date | null;
 }
 
+/** 列投影：orders → LearningOrderRow（plan_code 由两列拼回原码形） */
+const ROW_COLUMNS = `id, order_no, user_id,
+  CONCAT(product_kind, '_', product_code) AS plan_code,
+  amount, currency, provider, status, provider_trade_no, pay_url, qr_code_url,
+  raw_request, raw_notify, paid_at, created_at, updated_at`;
+
+const KIND_SCOPE = "product_kind IN ('material','bundle')";
+
 export class LearningOrdersRepo {
   constructor(private pool: Pool) {}
 
@@ -39,7 +52,7 @@ export class LearningOrdersRepo {
   /** 按订单号查询 */
   async findByOrderNo(orderNo: string): Promise<LearningOrderRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT * FROM learning_orders WHERE order_no = ? LIMIT 1`,
+      `SELECT ${ROW_COLUMNS} FROM orders WHERE order_no = ? AND ${KIND_SCOPE} LIMIT 1`,
       [orderNo],
     );
     return (rows as LearningOrderRow[])[0] ?? null;
@@ -48,13 +61,13 @@ export class LearningOrdersRepo {
   /** 按用户查询订单（可选状态过滤） */
   async findByUserId(userId: number, status: string): Promise<LearningOrderRow[]> {
     const params: unknown[] = [userId];
-    let where = "WHERE user_id = ?";
+    let where = `WHERE user_id = ? AND ${KIND_SCOPE}`;
     if (status) {
       where += " AND status = ?";
       params.push(status);
     }
     const [rows] = await this.pool.query(
-      `SELECT * FROM learning_orders ${where} ORDER BY id DESC`,
+      `SELECT ${ROW_COLUMNS} FROM orders ${where} ORDER BY id DESC`,
       params,
     );
     return rows as LearningOrderRow[];
@@ -63,13 +76,13 @@ export class LearningOrdersRepo {
   /** 按用户统计订单数 */
   async countByUserId(userId: number, status: string): Promise<number> {
     const params: unknown[] = [userId];
-    let where = "WHERE user_id = ?";
+    let where = `WHERE user_id = ? AND ${KIND_SCOPE}`;
     if (status) {
       where += " AND status = ?";
       params.push(status);
     }
     const [rows] = await this.pool.query(
-      `SELECT COUNT(*) AS total FROM learning_orders ${where}`,
+      `SELECT COUNT(*) AS total FROM orders ${where}`,
       params,
     );
     return Number((rows as RowDataPacket[])[0]?.total || 0);
@@ -78,7 +91,7 @@ export class LearningOrdersRepo {
   /** 查询订单金额（回调金额校验用） */
   async findOrderAmount(orderNo: string): Promise<{ amount: number; status: string } | null> {
     const [rows] = await this.pool.query(
-      "SELECT amount, status FROM learning_orders WHERE order_no = ? LIMIT 1",
+      `SELECT amount, status FROM orders WHERE order_no = ? AND ${KIND_SCOPE} LIMIT 1`,
       [orderNo],
     );
     const row = (rows as RowDataPacket[])[0];
@@ -91,19 +104,23 @@ export class LearningOrdersRepo {
     orderNo: string;
     provider: string;
     planCode: string;
+    /** 下单时的商品名快照；缺省留空 */
+    productName?: string;
     amount: number;
     currency: string;
     payUrl: string | null;
     qrCodeUrl: string | null;
     rawRequest: string;
   }): Promise<void> {
+    const kind = classifyProductCode(data.planCode);
     await this.pool.execute(
-      `INSERT INTO learning_orders
-        (order_no, user_id, plan_code, amount, currency, provider, status, pay_url, qr_code_url, raw_request, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
+      `INSERT INTO orders
+        (order_no, user_id, product_kind, product_code, product_name, unit_price, quantity,
+         amount, currency, provider, status, pay_url, qr_code_url, raw_request, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
       [
-        data.orderNo, data.userId, data.planCode,
-        data.amount, data.currency, data.provider,
+        data.orderNo, data.userId, kind, stripProductPrefix(data.planCode), data.productName ?? "",
+        data.amount, data.amount, data.currency, data.provider,
         data.payUrl, data.qrCodeUrl, data.rawRequest,
       ],
     );
@@ -112,7 +129,7 @@ export class LearningOrdersRepo {
   /** 悲观锁查询订单（事务内使用） */
   async findOrderForUpdate(conn: PoolConnection, orderNo: string): Promise<LearningOrderRow | null> {
     const [rows] = await conn.query(
-      "SELECT * FROM learning_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
+      `SELECT ${ROW_COLUMNS} FROM orders WHERE order_no = ? AND ${KIND_SCOPE} LIMIT 1 FOR UPDATE`,
       [orderNo],
     );
     return (rows as LearningOrderRow[])[0] ?? null;
@@ -123,10 +140,10 @@ export class LearningOrdersRepo {
     conn: PoolConnection, orderNo: string, providerTradeNo: string | null,
   ): Promise<void> {
     await conn.execute(
-      `UPDATE learning_orders
+      `UPDATE orders
        SET status = 'paid', provider_trade_no = COALESCE(?, provider_trade_no),
            paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
-       WHERE order_no = ? AND status = 'pending'`,
+       WHERE order_no = ? AND ${KIND_SCOPE} AND status = 'pending'`,
       [providerTradeNo, orderNo],
     );
   }
@@ -136,19 +153,20 @@ export class LearningOrdersRepo {
     conn: PoolConnection, orderNo: string, rawNotify: string,
   ): Promise<void> {
     await conn.execute(
-      `UPDATE learning_orders
+      `UPDATE orders
        SET status = 'paid', provider_trade_no = ?, raw_notify = ?, paid_at = NOW(), updated_at = NOW()
-       WHERE order_no = ?`,
+       WHERE order_no = ? AND ${KIND_SCOPE}`,
       [`MOCK-${orderNo}`, rawNotify, orderNo],
     );
   }
 
-  /** 事务内标记订单为已退款 */
+  /** 事务内标记退款 */
   async markAsRefundedInTransaction(conn: PoolConnection, orderNo: string): Promise<number> {
-    const [result] = await conn.execute(
-      "UPDATE learning_orders SET status = 'refunded', updated_at = NOW() WHERE order_no = ? AND status = 'paid'",
+    const [res] = await conn.execute(
+      `UPDATE orders SET status = 'refunded', updated_at = NOW()
+       WHERE order_no = ? AND ${KIND_SCOPE} AND status = 'paid'`,
       [orderNo],
     );
-    return Number((result as { affectedRows?: number }).affectedRows || 0);
+    return (res as { affectedRows?: number })?.affectedRows ?? 0;
   }
 }
