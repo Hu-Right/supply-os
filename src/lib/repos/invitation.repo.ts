@@ -59,15 +59,19 @@ export class InvitationRepo {
     return (rows as Array<{ employee_id: number; name: string; department: string | null; invitation_code: string }>)[0] ?? null;
   }
 
-  /** 按渠道码查归属主体（码与主体必须同时在职，否则停用连坐失效） */
+  /**
+   * 按渠道码查归属主体。
+   * 2026-11-12 合并（CRM 仓库 channel-partner/schema.ts 自迁移）：主体与邀请码同在
+   * channel_partners 一张表，一行一个渠道商（invite_code 唯一），channel_codes 已删。
+   * 停用语义随之收敛为主体一个 is_active——码即主体，没有第二个开关。
+   */
   async findChannelByCode(
     code: string,
   ): Promise<{ code: string; partner_id: number; partner_name: string } | null> {
     const [rows] = await this.pool.query(
-      `SELECT c.code, c.partner_id, p.name AS partner_name
-       FROM channel_codes c
-       JOIN channel_partners p ON p.id = c.partner_id
-       WHERE c.code = ? AND c.is_active = 1 AND p.is_active = 1
+      `SELECT invite_code AS code, id AS partner_id, name AS partner_name
+       FROM channel_partners
+       WHERE invite_code = ? AND is_active = 1
        LIMIT 1`,
       [code],
     );
@@ -76,7 +80,8 @@ export class InvitationRepo {
 
   /**
    * 验证邀请码有效性并按前缀分流归因命名空间。
-   * EMP- 及其余存量码走原 employees 逻辑（一字不动）；CH- 只查渠道两张表。
+   * EMP- 及其余存量码走原 employees 逻辑（一字不动）；CH- 只查 channel_partners
+   * 单表（2026-11-12 合并，码即主体）。
    * 两边的失败文案分开：渠道商要靠这句话自查自己的推广链接是不是印错了。
    */
   async validateCode(code: string): Promise<{ valid: boolean; reason?: string; owner?: CodeOwner }> {

@@ -4,8 +4,8 @@
  * 钉住四类不变式：
  * 1. 命名空间隔离：CH- 只查渠道表、其余一律走原员工表逻辑，**不做双向 fallback**
  *    （一个码只可能属于一个命名空间，杜绝「两处都合法」的歧义归属）；
- * 2. 停用连坐：渠道码有效性的判定必须同时看 code.is_active 与 partner.is_active，
- *    漏掉后者会让停用的渠道商继续带量；
+ * 2. 停用连坐：渠道码有效性的判定必须看主体 is_active
+ *    （2026-11-12 码与主体合一后只有这一个开关，漏看会让停用的渠道商继续带量）；
  * 3. 文案分流：渠道码无效的原因不能复用员工码那句「邀请码不存在」，
  *    渠道商要靠这句话自查自己的推广链接；
  * 4. 台账一人一行：写入必须走 ON DUPLICATE KEY UPDATE user_id = user_id（幂等），
@@ -31,29 +31,31 @@ function makePool(rows: unknown[] = []) {
   return { pool: pool as unknown as PoolLike, calls };
 }
 
-/** 渠道码行（JOIN partners 带出的形状） */
+/** 渠道码行（channel_partners 单表别名投影） */
 const channelRow = { code: "CH-AB2345CD", partner_id: 5, partner_name: "渠道A" };
 
 describe("validateCode · 命名空间隔离", () => {
-  it("CH- 码只查渠道两张表，绝不碰 employees", async () => {
+  it("CH- 码只查 channel_partners 单表（码即主体），绝不碰 employees，也不碰已删的 channel_codes", async () => {
     const { pool, calls } = makePool([channelRow]);
     const res = await new InvitationRepo(pool).validateCode("CH-AB2345CD");
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].sql).toContain("channel_codes");
     expect(calls[0].sql).toContain("channel_partners");
+    expect(calls[0].sql).not.toContain("channel_codes");
     expect(calls[0].sql).not.toContain("employees");
     expect(res.valid).toBe(true);
     expect(res.owner).toEqual({ namespace: "channel", code: "CH-AB2345CD", partnerId: 5 });
   });
 
-  it("渠道码有效性必须同时要求码与主体都未停用（漏一个=停用连坐失效）", async () => {
+  it("渠道码有效性必须要求主体未停用（码与主体合一后只有这一个开关）", async () => {
     const { pool, calls } = makePool([channelRow]);
     await new InvitationRepo(pool).validateCode("CH-AB2345CD");
 
     const sql = calls[0].sql;
-    expect(sql).toMatch(/c\.is_active = 1/);
-    expect(sql).toMatch(/p\.is_active = 1/);
+    expect(sql).toMatch(/is_active = 1/);
+    // 单表后不再有 c./p. 双别名的双开关
+    expect(sql).not.toContain("c.is_active");
+    expect(sql).not.toContain("p.is_active");
   });
 
   it("EMP- 码走原员工表逻辑，一字不动、不查渠道表", async () => {
@@ -78,7 +80,7 @@ describe("validateCode · 命名空间隔离", () => {
     const { pool, calls } = makePool([channelRow]);
     await new InvitationRepo(pool).validateCode("ch-ab2345cd");
 
-    expect(calls[0].sql).toContain("channel_codes");
+    expect(calls[0].sql).toContain("channel_partners");
     expect(calls[0].params).toEqual(["CH-AB2345CD"]);
   });
 
