@@ -30,6 +30,8 @@ const MUST_EXCLUDE = [
   "outreach_batches", // 同上，无 crm_ 前缀的镜像表（2026-10-31 补）
   "outreach_events",
   "outreach_items",
+  "ted_notice_meta", // 2026-11-12 已 DROP 的一次性 TED 元数据缓存，防重建后泄进基线
+  "appointments", // ADR-0011 死表，2026-11-12 二次 DROP，防基线/外部同步重建后泄进基线
 ];
 
 const MUST_KEEP = [
@@ -42,6 +44,8 @@ const MUST_KEEP = [
   "upload_files",
   // _ids_\d{8}$ 的边界对照：非日期后缀的 ids 表不是回滚快照
   "user_ids",
+  // /^appointments$/ 的边界对照：真正在用的预约表不能被精确排除误伤
+  "ungm_1v1_appointments",
 ];
 
 test("影子/备份/镜像表全部命中排除清单", () => {

@@ -43,22 +43,6 @@ CREATE TABLE `api_usage` (
   KEY `idx_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='外部API获取的信息。';
 
--- ── appointments ──
-CREATE TABLE `appointments` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` int unsigned DEFAULT NULL,
-  `user_name` varchar(100) DEFAULT NULL,
-  `employee_id` int unsigned DEFAULT NULL,
-  `employee_name` varchar(100) DEFAULT NULL,
-  `appointment_time` datetime DEFAULT NULL,
-  `topic` varchar(300) DEFAULT NULL,
-  `status` varchar(20) NOT NULL DEFAULT 'pending',
-  `remark` text,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 -- ── benefit_catalog ──
 CREATE TABLE `benefit_catalog` (
   `benefit_code` varchar(64) NOT NULL COMMENT '权益稳定机器码，上线后不可改语义（如 notice_view）',

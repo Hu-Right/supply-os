@@ -36,6 +36,16 @@ export const EXCLUDE_RES = [
   // 导致 --check 与生成口径不一致（生成时要额外传 EXCLUDE）。
   /^crm_outreach_/,
   /^outreach_/,
+  // ted_notice_meta：2026-10-27 一次 TED 出版号元数据修复留下的一次性缓存表（88,939 行、
+  // 应用零引用、写入后再未更新）。2026-11-12 已 DROP 现网表，结构与全量数据备份在
+  // dumps/ted_notice_meta_20261112.rollback.sql。此处钉一条精确排除，防止将来若有人重建
+  // 同名临时表，又被全库 DDL 导出带进 E2E 基线（口径见 db/schema/README.md）。
+  /^ted_notice_meta$/,
+  // appointments：ADR-0011 判定的死表（「用户 × 员工」派单预约骨架，0 行、应用零引用）。
+  // 2026-10-12 退役后又被基线导入 / 库外结构同步重建，2026-11-12 再次 DROP；可回建 DDL 在
+  // dumps/appointments_20261112.rollback.sql。精确排除，不误伤活表 ungm_1v1_appointments
+  // 与影子表 appointments__gs*，防止重导基线时把它带回来。
+  /^appointments$/,
 ];
 
 /** 是否属应排除的影子/备份/镜像表；extraRes 供 EXCLUDE 环境变量追加口径（与内置取并集）。 */
