@@ -14,14 +14,12 @@
  *              and batch reporting, recommended mode only.
  */
 import { useCallback, useEffect, useRef } from "react";
-import type { NoticeItem, PrefsMode } from "../types";
+import type { NoticeItem } from "../types";
 import { sendNoticeFeedback } from "../api";
 
 export interface UseNoticeFeedbackOptions {
   /** 当前登录用户 ID（未登录不采集） */
   userId: number | undefined;
-  /** 自动筛选模式（仅推荐模式采集反馈） */
-  prefsMode: PrefsMode;
   /** 是否有生效搜索条件（搜索场景不采集） */
   hasSearch: boolean;
   /** 当前排序（仅默认 latest 排序采集） */
@@ -46,10 +44,10 @@ export interface UseNoticeFeedbackReturn {
 }
 
 export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeFeedbackReturn {
-  // prefsMode / hasSearch / activeSort 不在这里解构：它们唯一的用途是恢复推荐时的门控条件
-  // （feedbackEnabled 原先 = userId && prefsMode==="recommended" && !hasSearch && activeSort==="latest"），
+  // hasSearch / activeSort 不在这里解构：它们唯一的用途是恢复推荐时的门控条件
+  // （feedbackEnabled 原先 = userId && !hasSearch && activeSort==="latest"），
   // 现在写死 false 后无人读取，解构会被 no-unused-vars 判错（f9cbf94d 遗留的 lint 红）。
-  // Options 里保留这三个字段是有意的：调用方照常传，恢复推荐时只需在本行把它们接回来。
+  // Options 里保留这两个字段是有意的：调用方照常传，恢复推荐时只需在本行把它们接回来。
   const { userId, selectedNotice, variantRef } = options;
 
   // 智能推荐已下线：不再采集推荐反馈（代码保留，恢复推荐时再打开）

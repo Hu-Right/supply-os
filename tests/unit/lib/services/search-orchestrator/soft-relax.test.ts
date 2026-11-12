@@ -1,7 +1,7 @@
 /**
  * 软 AND 放宽闸口测试（口径：仅硬 AND 零结果时放宽）
  *
- * 隔离边界：mode-resolver / filter-builder / meili-query / mysql-fallback /
+ * 隔离边界：filter-builder / meili-query / mysql-fallback /
  * detail-fetch / format / meilisearch client+sync / agencies 全部 vi.mock，
  * 只保留真实 params（validateParams 归一化 matchMode）与真实编排主流程。
  * 验证：① AND 零结果 → 以 OR 重查并标 matchRelaxed；② AND 有结果（含极少）→ 绝不放宽；
@@ -12,10 +12,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Pool } from "mysql2/promise";
 
 const mocks = vi.hoisted(() => ({
-  resolveMode: vi.fn(),
   buildFilterPlan: vi.fn(),
   meiliQuery: vi.fn(),
-  meiliMultiQuery: vi.fn(),
   mysqlFallback: vi.fn(),
   fetchDetailsByIds: vi.fn(),
   formatItems: vi.fn(),
@@ -28,15 +26,10 @@ const mocks = vi.hoisted(() => ({
   requestIndexRebuild: vi.fn(),
   registerInvalidateCallback: vi.fn(),
   recommendNotices: vi.fn(),
-  invalidateProfileCache: vi.fn(),
 }));
 
-vi.mock("@/lib/services/search-orchestrator/mode-resolver", () => ({ resolveMode: mocks.resolveMode }));
 vi.mock("@/lib/services/search-orchestrator/filter-builder", () => ({ buildFilterPlan: mocks.buildFilterPlan }));
-vi.mock("@/lib/services/search-orchestrator/meili-query", () => ({
-  meiliQuery: mocks.meiliQuery,
-  meiliMultiQuery: mocks.meiliMultiQuery,
-}));
+vi.mock("@/lib/services/search-orchestrator/meili-query", () => ({ meiliQuery: mocks.meiliQuery }));
 vi.mock("@/lib/services/search-orchestrator/mysql-fallback", () => ({ mysqlFallback: mocks.mysqlFallback }));
 vi.mock("@/lib/services/search-orchestrator/detail-fetch", () => ({ fetchDetailsByIds: mocks.fetchDetailsByIds }));
 vi.mock("@/lib/services/search-orchestrator/format", () => ({
@@ -52,7 +45,6 @@ vi.mock("@/lib/services/search-common/metrics", () => ({ logPerf: mocks.logPerf,
 vi.mock("@/lib/services/search-common/rebuild-trigger", () => ({ requestIndexRebuild: mocks.requestIndexRebuild }));
 vi.mock("@/lib/services/search-common/sync-events", () => ({ registerInvalidateCallback: mocks.registerInvalidateCallback }));
 vi.mock("@/lib/services/recommend/index", () => ({ recommendNotices: mocks.recommendNotices }));
-vi.mock("@/lib/services/industry-profile/resolve", () => ({ invalidateProfileCache: mocks.invalidateProfileCache }));
 
 import { searchUnified } from "@/lib/services/search-orchestrator";
 
@@ -62,7 +54,6 @@ const idsOf = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 beforeEach(() => {
   vi.clearAllMocks();
   // 形制对齐 ModeResolution 真实契约（kind / category / profileNodes），避免 mock 与实现脱钩
-  mocks.resolveMode.mockResolvedValue({ kind: "search", category: null, profileNodes: null });
   mocks.buildFilterPlan.mockResolvedValue({
     meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: false, digest: "none",
   });

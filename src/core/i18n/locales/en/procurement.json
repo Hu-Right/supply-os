@@ -1,6 +1,5 @@
 {
   "countryFilter": "Filter Country",
-  "procurement_prefsBanner": "Precisely matched to your default commodity group ({name})",
   "procurement_poolTitle": "International Public Procurement Leads",
   "procurement_statSearchable": "Searchable opportunities",
   "procurement_statTodayNew": "Added today",
@@ -38,8 +37,6 @@
   "procurement_deadlineWindow90": "Due within 90 days",
   "procurement_noticeTypePlaceholder": "Notice type (e.g. RFQ)",
   "procurement_featuredOnly": "Featured only",
-  "procurement_restoreCommodityMatch": "Commodity match",
-  "procurement_cancelCommodityMatch": "Cancel commodity match",
   "procurement_global": "Global",
   "procurement_noDeadline": "No deadline",
   "procurement_interested": "Express interest",

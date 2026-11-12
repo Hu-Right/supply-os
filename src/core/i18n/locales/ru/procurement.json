@@ -1,6 +1,5 @@
 {
   "countryFilter": "Фильтр по стране",
-  "procurement_prefsBanner": "Точное соответствие вашей товарной группе по умолчанию ({name})",
   "procurement_poolTitle": "Лиды международных публичных закупок",
   "procurement_statSearchable": "Доступные возможности",
   "procurement_statTodayNew": "Добавлено сегодня",
@@ -38,8 +37,6 @@
   "procurement_deadlineWindow90": "Срок до 90 дней",
   "procurement_noticeTypePlaceholder": "Тип закупки (напр. RFQ)",
   "procurement_featuredOnly": "Только избранные",
-  "procurement_restoreCommodityMatch": "Совпадение по товарам",
-  "procurement_cancelCommodityMatch": "Отменить совпадение по товарам",
   "procurement_global": "Глобально",
   "procurement_noDeadline": "Без срока",
   "procurement_interested": "Выразить интерес",

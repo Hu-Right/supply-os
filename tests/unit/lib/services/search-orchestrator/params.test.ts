@@ -9,8 +9,8 @@ describe("validateParams", () => {
     expect(p.pageSize).toBe(10);
   });
 
-  it("mode=prefs → 保留", () => {
-    expect(validateParams({ mode: "prefs" }).mode).toBe("prefs");
+  it("mode=prefs → 降级 default（该模式已于 2026-11-12 随主营行业下线）", () => {
+    expect(validateParams({ mode: "prefs" }).mode).toBe("default");
   });
 
   it("mode=recommended → 保留", () => {

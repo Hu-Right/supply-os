@@ -1,13 +1,13 @@
 /**
- * GET /api/commodity/tree/prefs — 把账号行业偏好（UGT 最深节点码）换算成品目骨架节点路径
+ * GET /api/commodity/tree/prefs — UGT 节点码 → 祖先路径（各级名称 + 所属大类 L1 码）
  *
- * @description 商机页「品目匹配」模式：偏好提示条需要路径名称、第一级需要大类码（L1 树码）。
- *   偏好表直接存 `commodity_code`（最深已选 UGT 节点码），祖先链由码长纯切片得出
- *   （BB1 不变量），各级名称一条 `code IN` 点查补齐。旧版「字典行 id → 节点」的换算
- *   随旧品类字典退役整体删除，本接口只认 `?code=`。
- *   见 lib/services/commodity/tree.ts 的 resolveCommodityCodeToPath。
+ * @description 纯「码 → 公共分类信息」翻译：祖先链由码长纯切片得出（BB1 不变量），
+ *   各级名称一条 `code IN` 点查补齐。旧版「字典行 id → 节点」的换算随旧品类字典退役删除，
+ *   本接口只认 `?code=`。
  *
- *   本接口只做「码 → 公共分类信息」的翻译，不返回用户数据，故不需登录态。
+ *   路径名沿用 `/prefs` 是历史命名（原为商机页「品目匹配」模式服务，该模式已于
+ *   2026-11-12 随「主营行业」下线）。接口本身与用户数据无关、无登录态要求，
+ *   仍可作为「任意节点码 → 面包屑」的公共读取口复用；改名会破坏已分发链接，故保留。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";

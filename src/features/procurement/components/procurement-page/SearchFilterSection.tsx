@@ -6,7 +6,7 @@
  *
  * @module features/procurement/components/procurement-page/SearchFilterSection
  */
-import { ChevronDown, Crown, Search, Target } from "lucide-react";
+import { ChevronDown, Crown, Search } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { flags } from "@/core/flags";
 import { Button, ToggleButton } from "@/shared/ui";
@@ -18,25 +18,17 @@ import type { SearchState, CommodityCascadeState } from "./types";
 export function SearchFilterSection({
   search,
   commodity,
-  markManualCategoryPick,
   commodityExpanded,
   onToggleExpanded,
   advancedSearchEntitled,
   keywordLibEntitled,
-  hasIndustryPrefs,
-  prefsMode,
-  onTogglePrefs,
 }: {
   search: SearchState;
   commodity: CommodityCascadeState;
-  markManualCategoryPick: () => void;
   commodityExpanded: boolean;
   onToggleExpanded: () => void;
   advancedSearchEntitled: boolean;
   keywordLibEntitled: boolean;
-  hasIndustryPrefs: boolean;
-  prefsMode: string;
-  onTogglePrefs: () => void;
 }) {
   const { t } = useLocale();
   return (
@@ -82,8 +74,6 @@ export function SearchFilterSection({
               levels={commodity.levels}
               selectedKeys={commodity.selectedKeys}
               onChange={(level, key) => {
-                // 手动改选即作废在飞的偏好探测，并退回全量检索（匹配模式的结果不是用户选的这一层筛出来的）
-                markManualCategoryPick();
                 search.actions.setCommodityLevel(level, key);
               }}
             />
@@ -118,18 +108,6 @@ export function SearchFilterSection({
             <Crown className="w-3.5 h-3.5" />
             {t("procurement_featuredOnly")}
           </ToggleButton>
-          {/* 品目匹配按钮：账号已设置默认品目大类时始终显示，根据当前模式切换文案和行为 */}
-          {hasIndustryPrefs && prefsMode !== "loading" && (
-            <ToggleButton
-              variant="solid"
-              pressed={prefsMode === "prefs"}
-              onClick={onTogglePrefs}
-              className="py-2.5"
-            >
-              <Target className="w-3.5 h-3.5" />
-              {prefsMode === "prefs" ? t("procurement_cancelCommodityMatch") : t("procurement_restoreCommodityMatch")}
-            </ToggleButton>
-          )}
         </div>
       </div>
     </section>

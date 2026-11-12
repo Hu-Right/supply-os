@@ -38,7 +38,6 @@ function renderPage(page: number) {
     useSearchResults({
       query: QUERY,
       page,
-      prefsMode: "default",
       userId: undefined,
       variantRef: { current: undefined },
     }),

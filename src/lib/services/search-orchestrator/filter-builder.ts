@@ -11,7 +11,6 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnifiedSearchParams, FilterPlan } from "./types";
 import { loadCountryAliasSnapshot } from "../country/alias-store";
 import { countryCodeForName } from "../country/resolve";
-import { isCommodityNodeKey } from "../commodity/tree";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { toBeijingUnixTs } from "../../utils/notice-expired";
@@ -114,14 +113,11 @@ function expandAgency(agency: string): AgencyExpansion {
 
 /**
  * 构建双方言 filter 计划。
- * @param category 可选类目条件（mode-resolver 给出）：node = 品目树节点码，
- *               统一落 backbone_path（全量归属口径）。prefs 的精准候选码口径（precise）
- *               已随旧品类码 candidates 表退役删除；行业匹配语义待「行业树↔品目树」桥接重建。
+ * @param p 统一检索参数（品目条件由 `p.commodityPath` 直出谓词，见下方「品目骨架五级下拉」）
  */
 export async function buildFilterPlan(
   pool: Pool,
   p: UnifiedSearchParams,
-  category?: { node: string } | null,
 ): Promise<FilterPlan> {
   const meiliFilters: string[] = [];
   const mysqlWhere: string[] = [];
@@ -219,25 +215,6 @@ export async function buildFilterPlan(
     meiliFilters.push("is_opportunity = 1");
     mysqlWhere.push("p.is_opportunity = 1");
     digestParts.push("opportunity");
-  }
-
-  // ── 类目条件（prefs 的渐进放宽档从这里出去）──
-  // 键 = 品目树节点码，列统一 = backbone_path（precise 口径已随 candidates 表退役）。
-  // 列存「自身 + 全部祖先」，所以选到哪一层就命中哪一层，运行期不判层级也不查字典；
-  // 形状与大类 chip、五级下拉、可见性判定共用 nodeMeiliFilter / nodeMysqlWhere（一份形状）。
-  // 2026-10-11 换口径：这里原本拼的是 `level{N}_id = <旧字典行 id>` 与
-  // `FIND_IN_SET(?, ns.<旧品类列>N)` —— 两套键在同一请求里并存就是分叉温床。
-  // 脏键（非 UGT-*）：整块跳过、不报错、不 conflictEmpty（与旧实现「解析失败就忽略行业过滤」
-  // 逐字一致），但在 digest 里留下 rejected 痕迹，否则排查时看不到这一条被吞了。
-  if (category) {
-    if (isCommodityNodeKey(category.node)) {
-      meiliFilters.push(nodeMeiliFilter("backbone_node", [category.node]));
-      mysqlWhere.push(nodeMysqlWhere([category.node], "backbone_path"));
-      mysqlParams.push(category.node);
-      digestParts.push(`cat:${category.node}`);
-    } else {
-      digestParts.push(`cat:rejected:${category.node}`);
-    }
   }
 
   // ── 品目骨架五级下拉（URL commodity=UGT- 节点码）──

@@ -5,7 +5,7 @@
  * @module features/auth/components/SupplierProductsPicker
  * @description 归属人在企业信息编辑页勾选「贵司实际能生产的产品」：既可按五级级联逐级下钻，
  *              也可输主营关键词由品目树召回候选——**两条通路都必须用户显式点选才落选**，
- *              绝不自动回填（低置信推断静默锁定会污染匹配，与 IndustryPrefsForm 同一取舍）。
+ *              绝不自动回填（低置信推断静默锁定会污染匹配，与品目推断接口同一取舍）。
  *              落点下限锁 L2 中类（只报 L1 大类等于声称整个大类都能做，太粗）。
  *              受控组件：选中集合（code + 权威中文名）由父级持有，提交时只上抛节点码数组，
  *              服务端再据 supplier 绑定主体写 self_report（前端不碰 supplier_id）。
@@ -22,7 +22,7 @@ import {
 import {
   fetchSmartInferCommodity,
   type CommodityInferCandidate,
-} from "@/core/api/industry-prefs";
+} from "@/core/api/commoditySmartInfer";
 import { CommodityLevelSelector } from "@/features/procurement/components/CommodityLevelSelector";
 import { CommodityInferCandidates } from "./CommodityInferCandidates";
 import { commodityNodeChain, commodityNodeLevel } from "@/shared/constants/commodity-code";

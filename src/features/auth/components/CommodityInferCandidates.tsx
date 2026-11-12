@@ -8,7 +8,7 @@
  *              避免低置信推断把用户行业偏好锁定到错误分支。
  *              取代旧字典版组件（读旧品类字典，随字典退役下线）。
  */
-import type { CommodityInferCandidate } from "@/core/api/industry-prefs";
+import type { CommodityInferCandidate } from "@/core/api/commoditySmartInfer";
 import { useLocale } from "@/core/i18n";
 import { Badge, type BadgeVariant } from "@/shared/ui";
 

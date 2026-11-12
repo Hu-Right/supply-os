@@ -40,8 +40,6 @@ type MeiliSearchOutcome = {
   totalHits?: number | null;
   estimatedTotalHits?: number | null;
 };
-/** multiSearch 响应子集 */
-type MeiliMultiOutcome = { results?: MeiliSearchOutcome[] };
 
 /** 排序参数 → Meilisearch sort 数组
  * deadline_sec=0（长期有效/无截止日）的排序策略：
@@ -147,62 +145,3 @@ export async function meiliQuery(
   }
 }
 
-/**
- * [B1 优化] 并行多 filter 集探测：用于 prefs 模式渐进放宽。
- * 一次 HTTP 请求完成最多 4 个子查询（每个 limit:1 仅取 totalHits），
- * 替代旧版 for...of 串行探测（4 次往返 → 1 次往返）。
- * 返回 null 表示 Meilisearch 不可用（调用方走 MySQL 降级）。
- */
-export async function meiliMultiQuery(
-  q: string,
-  meiliFiltersArr: string[][],
-  sort: UnifiedSearchParams["sort"],
-): Promise<MeiliHitResult[] | null> {
-  const client = getClient();
-  if (!client) return null;
-  if (!isHealthy()) {
-    const recovered = await tryRecover();
-    if (!recovered) return null;
-  }
-  const INDEX_NAME = getIndexName();
-  const nowTs = String(Math.floor(Date.now() / 1000));
-  const sortArr = buildSortArr(sort);
-
-  try {
-    const queries = meiliFiltersArr.map((filters) => ({
-      indexUid: INDEX_NAME,
-      q: q || "",
-      filter: [MEILI_ACTIVE_FILTER.replace("{now}", nowTs), ...filters],
-      sort: sortArr,
-      limit: 1,
-      attributesToRetrieve: ["id"],
-      matchingStrategy: "all" as const,
-    }));
-
-    const searchPromise = client.multiSearch({ queries });
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const timeoutPromise = new Promise<null>((_, reject) => {
-      timeoutId = setTimeout(
-        () => reject(new Error(`Meilisearch multiSearch timeout after ${SEARCH_TIMEOUT_MS}ms`)),
-        SEARCH_TIMEOUT_MS,
-      );
-    });
-    try {
-      const response = (await Promise.race([searchPromise, timeoutPromise])) as MeiliMultiOutcome | null;
-      if (!response?.results) return null;
-      noteMeiliSuccess();
-      return response.results.map((r) => {
-        const ids = r.hits?.map((h) => Number(h.id)).filter(Boolean) ?? [];
-        const preciseTotal = r.totalHits ?? null;
-        const estimatedTotal = r.estimatedTotalHits ?? ids.length;
-        return { ids, total: preciseTotal ?? estimatedTotal, totalIsPrecise: preciseTotal !== null };
-      });
-    } finally {
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
-    }
-  } catch (err) {
-    console.warn("[search-orchestrator] meiliMultiQuery failed:", (err as Error).message);
-    if (!/timeout/i.test((err as Error).message)) markUnhealthy();
-    return null;
-  }
-}

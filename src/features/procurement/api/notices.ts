@@ -91,11 +91,12 @@ export async function downloadNoticeReport(reportUrl: string): Promise<void> {
 }
 
 /**
- * 统一搜索 API（重构方案 §4.1）：单一端点覆盖全量/行业匹配/推荐三种模式。
- * mode=default 全量搜索 / mode=prefs 行业精准匹配 / mode=recommended 行为推荐
+ * 统一搜索 API（重构方案 §4.1）：单一端点。
+ * mode=default 全量搜索 / mode=recommended 行为推荐
+ * （mode=prefs 随「主营行业」下线一并退役：行业范围由订阅大类+行业墙界定，不再由用户偏好声明）
  */
 export const fetchUnifiedSearch = (params: {
-  mode: "default" | "prefs" | "recommended";
+  mode: "default" | "recommended";
   page: number;
   pageSize: number;
   locale?: string;

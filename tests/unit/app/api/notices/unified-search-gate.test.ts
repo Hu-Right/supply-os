@@ -17,7 +17,6 @@ const mocks = vi.hoisted(() => ({
   loadCells: vi.fn(),
   searchUnified: vi.fn(),
   findActivePlan: vi.fn(),
-  resolveProfile: vi.fn(),
   resolveIndustryScope: vi.fn(),
   logSearch: vi.fn(),
 }));
@@ -47,10 +46,6 @@ vi.mock("@/lib/db/context", () => ({
 vi.mock("@/lib/services/industry-scope", () => ({
   resolveIndustryScope: mocks.resolveIndustryScope,
 }));
-vi.mock("@/lib/services/industry-profile/resolve", () => ({
-  resolveUserIndustryProfile: mocks.resolveProfile,
-  invalidateProfileCache: vi.fn(),
-}));
 // 2026-10-15 G 码退役：大类由偏好 commodity_code 前缀纯切片推导（tree 的纯函数），
 // 不再有「大类 → L1 节点码」的取数口可 mock，本文件不再需要动 commodity/tree。
 vi.mock("@/lib/services/search-orchestrator", () => ({
@@ -71,12 +66,6 @@ beforeEach(() => {
   mocks.loadCells.mockResolvedValue([]);
   mocks.resolveIndustryScope.mockResolvedValue({ scoped: false, l1Nodes: [], needsIndustry: false });
 });
-
-/** 行业墙列格子：industry_scoped=1、all_category_access 可选（演示档旁路） */
-const wallCells = (bypass = false) => [
-  { plan_code: "business", benefit_code: "industry_scoped", value_level: 1 },
-  ...(bypass ? [{ plan_code: "business", benefit_code: "all_category_access", value_level: 1 }] : []),
-];
 
 function makeReq(url = URL_WITH_EXCLUDE) {
   return new NextRequest(url);
@@ -139,7 +128,7 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(body).not.toHaveProperty("advancedDegraded");
   });
 
-  it("行业墙：被限定档位用户注入 wall.nodes，recommended 收编进 prefs 管道", async () => {
+  it("行业墙：被限定档位用户注入 wall.nodes，recommended 降级为带墙的常规检索", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
     // 行业墙已收口到 industry-scope 服务：直接控制其返回值（scoped + L1 节点码）
     mocks.resolveIndustryScope.mockResolvedValue({ scoped: true, l1Nodes: ["UGT-85"], needsIndustry: false });
@@ -149,7 +138,8 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
 
     expect(res.status).toBe(200);
     expect(mocks.searchUnified).toHaveBeenCalledTimes(1);
-    expect(mocks.searchUnified.mock.calls[0][1]).toMatchObject({ mode: "prefs", wall: { nodes: ["UGT-85"] } });
+    // prefs 模式已于 2026-11-12 下线：推荐流改为 default + wall，保证墙内出结果
+    expect(mocks.searchUnified.mock.calls[0][1]).toMatchObject({ mode: "default", wall: { nodes: ["UGT-85"] } });
     expect(body.needsIndustrySelection).toBeUndefined();
   });
 

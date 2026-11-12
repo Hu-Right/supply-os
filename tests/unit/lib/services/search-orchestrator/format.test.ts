@@ -11,24 +11,7 @@ vi.mock("@/lib/data/agency-i18n/translate", () => ({
   translateByPattern: () => null,
 }));
 
-import { matchScoreToTierLabel, formatItems, ensureNoticePk } from "@/lib/services/search-orchestrator/format";
-
-describe("matchScoreToTierLabel", () => {
-  it("score ≥ 5 → precise", () => {
-    expect(matchScoreToTierLabel(5)).toBe("precise");
-    expect(matchScoreToTierLabel(10)).toBe("precise");
-  });
-
-  it("score ≥ 2 且 < 5 → relevant", () => {
-    expect(matchScoreToTierLabel(2)).toBe("relevant");
-    expect(matchScoreToTierLabel(4)).toBe("relevant");
-  });
-
-  it("score < 2 → unmatched", () => {
-    expect(matchScoreToTierLabel(0)).toBe("unmatched");
-    expect(matchScoreToTierLabel(1)).toBe("unmatched");
-  });
-});
+import { formatItems, ensureNoticePk } from "@/lib/services/search-orchestrator/format";
 
 describe("formatItems", () => {
   it("空行 → 空数组", () => {
@@ -66,39 +49,6 @@ describe("formatItems", () => {
     const result = formatItems(rows);
     expect(result[0].breakdown_file_count).toBeUndefined();
     expect(result[0].attachments).toEqual([{ url: "https://a" }]);
-  });
-
-  it("画像节点码命中公告 backbone 链 → match_score + match_tier", () => {
-    const rows = [{ id: 1, backbone_path: "UGT-43,UGT-4321,UGT-432115,UGT-43211503" }] as never;
-    const profileNodes = [{ level: 4, node: "UGT-43211503" }];
-    const result = formatItems(rows, profileNodes);
-    expect(result[0].match_score).toBe(5);
-    expect(result[0].match_tier).toBe("precise");
-  });
-
-  it("深浅两档同时命中 → 取最深档定分（放宽到 L2 也不能把精准命中降成 relevant）", () => {
-    const rows = [{ id: 1, backbone_path: "UGT-43,UGT-4321,UGT-432115,UGT-43211503" }] as never;
-    const profileNodes = [
-      { level: 4, node: "UGT-43211503" },
-      { level: 2, node: "UGT-4321" },
-    ];
-    expect(formatItems(rows, profileNodes)[0].match_score).toBe(5);
-  });
-
-  it("backbone 链不含任何一档节点码 / 列为空 → 不挂徽章", () => {
-    const miss = [{ id: 1, backbone_path: "UGT-30,UGT-3011" }] as never;
-    const result = formatItems(miss, [{ level: 4, node: "UGT-43211503" }]);
-    expect(result[0].match_score).toBeUndefined();
-    expect(result[0].match_tier).toBeUndefined();
-    // 降级多表 JOIN 路径的行根本没有这一列：同样不挂徽章，不能因为 undefined 就报错
-    const noCol = [{ id: 2 }] as never;
-    expect(formatItems(noCol, [{ level: 2, node: "UGT-43" }])[0].match_tier).toBeUndefined();
-  });
-
-  it("列里的脏 token 不参与命中：只认 UGT- 形制的码", () => {
-    const rows = [{ id: 1, backbone_path: "721015,UGT-XY" }] as never;
-    const result = formatItems(rows, [{ level: 2, node: "721015" }, { level: 3, node: "UGT-XY" }]);
-    expect(result[0].match_tier).toBeUndefined();
   });
 
   it("is_featured=0 → 原值直出 0（不转 boolean）", () => {

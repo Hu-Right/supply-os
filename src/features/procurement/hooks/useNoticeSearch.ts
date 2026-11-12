@@ -12,7 +12,7 @@
  */
 import { useEffect, useRef } from "react";
 import { clearApiCache } from "@/core/http";
-import type { NoticeItem, PrefsMode } from "../types";
+import type { NoticeItem } from "../types";
 import type { TermRow } from "@/shared/utils/advanced-syntax";
 import { useSearchDropdowns } from "./useSearchDropdowns";
 import { useSearchFormState } from "./search/useSearchFormState";
@@ -24,8 +24,6 @@ export interface UseNoticeSearchOptions {
   userId: number | undefined;
   page: number;
   setPage: (page: number) => void;
-  prefsMode: PrefsMode;
-  setPrefsMode: (mode: PrefsMode) => void;
   setSelectedNotice: (notice: NoticeItem | null) => void;
   variantRef: { current: string | undefined };
   onClear?: () => void;
@@ -94,8 +92,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     userId,
     page,
     setPage,
-    prefsMode,
-    setPrefsMode,
     setSelectedNotice,
     variantRef,
     onClear,
@@ -108,8 +104,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const actions = useSearchActions({
     inputs: form.inputs,
     query,
-    prefsMode,
-    setPrefsMode,
     setPage,
     setSelectedNotice,
     clearForm: form.clear,
@@ -118,7 +112,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const results = useSearchResults({
     query,
     page,
-    prefsMode,
     userId,
     variantRef,
   });

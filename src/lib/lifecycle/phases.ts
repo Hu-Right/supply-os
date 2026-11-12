@@ -41,9 +41,9 @@ export const schemaPhase: Phase = {
   },
 };
 
-// 阶段 2（backfill）已于 2026-10-15 拆除：其唯一职责「清洗行业偏好 L4/L5 推断残留」
-// 随 user_industry_prefs 的 level1_id~level5_id 五列物理 DROP 失去对象——
-// 写入方此前就在 INSERT/ODKU 两侧显式置 NULL，线上 12 行全空，纯死列死清洗。
+// 阶段 2（backfill）已于 2026-10-15 拆除：其唯一职责是清洗行业偏好 L4/L5 推断残留。
+// 2026-11-12「主营行业」整体下线后，该清洗对象连同 user_industry_prefs 表一并退役，
+// 本阶段不再有恢复的可能，保留此注仅为说明阶段编号为何从 1 跳到 3。
 
 /**
  * 阶段 3: 精选列回填

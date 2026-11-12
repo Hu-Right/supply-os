@@ -21,13 +21,12 @@ import { LoadingOverlay } from "@/shared/ui";
 import { ListingStatsBar } from "../components/ListingStatsBar";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
 import { useListingStats } from "../hooks/useListingStats";
-import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
 import { useCommodityCascade } from "../hooks/useCommodityCascade";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
 import { useNoticeActions } from "../hooks/useNoticeActions";
 import { SearchFilterSection } from "../components/procurement-page/SearchFilterSection";
 import { ResultsHeader } from "../components/procurement-page/ResultsHeader";
-import { PrefsBanner, ResultsList, MatchRelaxedHint } from "../components/procurement-page/ResultsSections";
+import { ResultsList, MatchRelaxedHint } from "../components/procurement-page/ResultsSections";
 
 export default function ProcurementPage() {
   const { authUser, isVip, refreshAuth, authReady } = useAuth();
@@ -51,38 +50,13 @@ export default function ProcurementPage() {
   // ── 规模条数据（已提取至 hook） ──
   const listingStats = useListingStats();
 
-  // ── 品目匹配模式三级降级（选中态不在这里：五级下拉以 URL 为唯一事实源）──
-  const {
-    prefsMode, setPrefsMode, prefsBannerName, exitAutoMode,
-    hasIndustryPrefs, restorePrefsMode, markManualCategoryPick,
-  } = useIndustryPrefs({ userId, isVip, setPage });
-
-  // 免费用户不显示行业引导/不为行业墙做预筛选：行业墙只在付费订阅后生效。
-
   // ── 五级下拉选项：品目大类 → 段 → 族 → 类 → 品目 ──
   const commodity = useCommodityCascade();
-
-  // ── 恢复品目匹配：清除手动搜索条件并切回品目精准匹配模式（hook 名 useIndustryPrefs 不动）──
-  const handleRestoreCommodityMatch = () => {
-    setPage(1);
-    setSelectedNotice(null);
-    // 清空 URL 搜索条件（含 commodity：URL 是筛选事实源，回到无参就是无筛选）
-    router.replace("/procurement");
-    // 乐观切回 prefs 模式并重新解析偏好路径名称
-    void restorePrefsMode();
-  };
 
   // ── 搜索 + URL 参数事实源 + 列表数据 ──
   const search = useNoticeSearch({
     userId, page, setPage,
-    prefsMode, setPrefsMode, setSelectedNotice, variantRef,
-    // BUG2 修复：清除筛选彻底退出品目匹配/推荐模式，回到全量检索
-    // （旧代码仅在 recommended 模式退出，prefs 模式保持 → 偏好仍参与过滤）
-    // BUG1 对应的「同步重置旧品类码筛选态」已不需要：下拉选中态就是 URL，
-    // clearSearch 的 router.replace(pathname) 已把它一并清掉。
-    onClear: () => {
-      setPrefsMode("default");
-    },
+    setSelectedNotice, variantRef,
   });
 
   // ── 性能监控：首屏完成检测 + 渲染计时 ──
@@ -96,7 +70,7 @@ export default function ProcurementPage() {
 
   // ── 推荐反馈采集（曝光/点击/dwell/scroll_end/quick_exit/revisit）──
   const feedback = useNoticeFeedback({
-    userId, prefsMode,
+    userId,
     hasSearch: search.query.hasSearch,
     activeSort: search.query.activeSort,
     selectedNotice, variantRef,
@@ -198,14 +172,10 @@ export default function ProcurementPage() {
       <SearchFilterSection
         search={search}
         commodity={commodity}
-        markManualCategoryPick={markManualCategoryPick}
         commodityExpanded={commodityExpanded}
         onToggleExpanded={() => setCommodityExpanded(!commodityExpanded)}
         advancedSearchEntitled={actions.membership?.gates?.advanced_keyword_search === "free" || actions.membership?.gates?.advanced_keyword_search === "included"}
         keywordLibEntitled={actions.membership?.gates?.product_keyword_lib === "free" || actions.membership?.gates?.product_keyword_lib === "included"}
-        hasIndustryPrefs={hasIndustryPrefs}
-        prefsMode={prefsMode}
-        onTogglePrefs={() => { if (prefsMode === "prefs") { void exitAutoMode(); } else { handleRestoreCommodityMatch(); } }}
       />
 
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
@@ -215,8 +185,6 @@ export default function ProcurementPage() {
           onClearSearch={search.actions.clearSearch}
           onSortChange={(sort) => search.actions.applySearch(sort)}
         />
-
-        <PrefsBanner prefsMode={prefsMode} prefsBannerName={prefsBannerName} query={search.query} />
 
         {userId && actions.favoriteIds.size > 0 && (
           <FavoriteNotices favoriteIds={actions.favoriteIds} onOpenNotice={actions.openNoticeById} />

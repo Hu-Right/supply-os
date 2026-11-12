@@ -7,7 +7,6 @@
  *
  * @module features/procurement/components/procurement-page/ResultsSections
  */
-import { useLocale } from "@/core/i18n";
 import { flags } from "@/core/flags";
 import { NoticeList } from "../NoticeList";
 import { EnhancedNoticeList } from "../EnhancedNoticeList";
@@ -16,28 +15,6 @@ import { MatchRelaxedHint } from "../MatchRelaxedHint";
 import { NOTICE_PAGE_SIZE } from "../../constants";
 import type { NoticeItem } from "../../types";
 import type { SearchState } from "./types";
-
-/** 偏好/推荐模式状态告知条（纯信息展示，无操作入口） */
-export function PrefsBanner({ prefsMode, prefsBannerName, query }: {
-  prefsMode: string;
-  prefsBannerName: string;
-  query: SearchState["query"];
-}) {
-  const { t } = useLocale();
-  if (prefsMode !== "prefs") return null;
-  return (
-    /* “查看全部”按钮已全模式移除：推荐态由搜索栏“清除筛选”替代，
-       行业匹配态由工具栏“取消行业匹配”按钮替代（同一 exitAutoMode 降级链），
-       原文案与实际跳转行为不符，保留会误导用户 */
-    <div className="mb-4 flex items-center gap-3 p-3 rounded-lg bg-teal-50 border border-teal-100 text-xs font-bold text-teal-700">
-      <span>
-        {query.hasSearch
-          ? `${t("procurement_prefsBanner", { name: prefsBannerName })} + ${query.activeQ ? `“${query.activeQ}”` : ""}${query.activeCountry ? ` ${query.activeCountry}` : ""}${query.activeFeatured ? ` ${t("procurement_featuredOnly")}` : ""}`.replace(/^\s*\+\s*/, "").trim()
-          : t("procurement_prefsBanner", { name: prefsBannerName })}
-      </span>
-    </div>
-  );
-}
 
 /** 结果列表：首次加载骨架屏（数量对齐 NOTICE_PAGE_SIZE），后续搜索由 LoadingOverlay 覆盖 */
 export function ResultsList({

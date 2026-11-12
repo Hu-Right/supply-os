@@ -9,7 +9,7 @@
  */
 
 /** 搜索模式：default=全量搜索 / prefs=行业精准匹配 / recommended=行为推荐 */
-export type SearchMode = "default" | "prefs" | "recommended";
+export type SearchMode = "default" | "recommended";
 
 /** 统一搜索参数（已由 params.ts 校验归一化） */
 export interface UnifiedSearchParams {

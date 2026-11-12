@@ -9,15 +9,13 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { clearApiCache } from "@/core/http";
 import { composeQ, type TermRow } from "@/shared/utils/advanced-syntax";
 import { commodityNodeChain } from "@/shared/constants/commodity-code";
-import type { NoticeItem, PrefsMode } from "../../types";
+import type { NoticeItem } from "../../types";
 import type { SearchFormInputs } from "./useSearchFormState";
 import type { SearchQuery } from "./useSearchQuery";
 
 export interface SearchActionsOptions {
   inputs: SearchFormInputs;
   query: SearchQuery;
-  prefsMode: PrefsMode;
-  setPrefsMode: (mode: PrefsMode) => void;
   setPage: (page: number) => void;
   setSelectedNotice: (notice: NoticeItem | null) => void;
   clearForm: () => void;
@@ -61,8 +59,6 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
   const {
     inputs,
     query,
-    prefsMode,
-    setPrefsMode,
     setPage,
     setSelectedNotice,
     clearForm,
@@ -107,14 +103,11 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (matchMode === "any") next.match_mode = "any";
     const sortValue = sortOverride ?? query.activeSort;
     if (sortValue !== "latest") next.sort = sortValue;
-    if (prefsMode !== "default") {
-      setPrefsMode("default");
-    }
     setPage(1);
     setSelectedNotice(null);
     const qs = buildQs(next);
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [inputs, query, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
+  }, [inputs, query, setPage, setSelectedNotice, router, pathname]);
 
   const toggleFeatured = useCallback(() => {
     const next = new URLSearchParams(searchParams ?? undefined);

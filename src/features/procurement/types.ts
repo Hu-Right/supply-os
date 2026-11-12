@@ -8,12 +8,8 @@ export type { NoticeItem, NoticeListItem, NoticeDetailItem, NoticeDetailFields, 
 export type { PlanView, MembershipStatusView } from "@/types";
 
 /**
- * 进入公采页的初始化状态机（本地差异 #5）：
- * loading = 登录态判定中；prefs = 按账号默认行业筛选；default = 现状全量
+ * 公告标题/说明的按需 AI 译文 On-demand AI translation of a notice
  */
-export type PrefsMode = "loading" | "prefs" | "default";
-
-/** 公告标题/说明的按需 AI 译文 On-demand AI translation of a notice */
 export interface NoticeTranslation {
   lang: string;
   title: string | null;

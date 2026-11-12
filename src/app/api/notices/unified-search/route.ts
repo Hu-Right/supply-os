@@ -1,5 +1,5 @@
 /**
- * GET /api/notices/unified-search — 统一搜索（default/prefs/recommended 模式）
+ * GET /api/notices/unified-search — 统一搜索（default/recommended 模式）
  *
  * @module app/api/notices/unified-search/route
  */
@@ -69,9 +69,10 @@ export const GET = withRoute(async (req: NextRequest) => {
   if (scope.scoped) {
     // l1Nodes 可空（偏好码推导不出大类）：原样传下去，由 filter-builder 给空结果而不是不墙
     params.wall = { nodes: scope.l1Nodes };
-    // 被墙用户的推荐流收编进 prefs 管道（其行业画像必然存在——被墙前提是已绑行业），
-    // 保证强制过滤对推荐结果同样生效
-    if (params.mode === "recommended") params.mode = "prefs";
+    // 被墙用户的推荐流必须落在墙内：推荐管道不读 wall，直接降级为「带墙的常规检索」。
+    // 原实现转 prefs 管道（同属检索管道、同样不吃推荐分支），2026-11-12 prefs 下线后
+    // 两者等价，这里显式写 default，避免再把一个不存在的模式传给下游。
+    if (params.mode === "recommended") params.mode = "default";
   }
   // 前置 hasAdvancedSyntax：q 无高级语法时跳过权益查询（3 条串行查询在最热公共端点上不能白跑）；
   // 无语法 → entitled=false → resolveAdvancedQuery 原样透传，语义不变

@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocale } from "@/core/i18n";
 import { calcTotalPages } from "@/shared/constants/pagination";
-import type { NoticeItem, PrefsMode } from "../../types";
+import type { NoticeItem } from "../../types";
 import { fetchUnifiedSearch } from "../../api";
 import { NOTICE_PAGE_SIZE } from "../../constants";
 import type { SearchQuery } from "./useSearchQuery";
@@ -15,7 +15,7 @@ import type { SearchQuery } from "./useSearchQuery";
 export interface SearchResultsOptions {
   query: SearchQuery;
   page: number;
-  prefsMode: PrefsMode;
+  /** 登录态参与依赖：行业墙按订阅大类收窄，换账号/登录后必须重取 */
   userId: number | undefined;
   variantRef: { current: string | undefined };
 }
@@ -32,7 +32,7 @@ export interface SearchResults {
 }
 
 export function useSearchResults(options: SearchResultsOptions): SearchResults {
-  const { query, page, prefsMode, userId, variantRef } = options;
+  const { query, page, userId, variantRef } = options;
   const { locale, t } = useLocale();
 
   const [items, setItems] = useState<NoticeItem[]>([]);
@@ -52,31 +52,24 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
 
   const totalPages = calcTotalPages(total, serverPageSize);
 
-  const prevDataSourceForPrefsRef = useRef<string>("initial");
+  const prevUserIdForFetchRef = useRef<number | undefined>(userId);
   const prevSearchKeyForSkipRef = useRef<string>("");
   // F2 优化：跟踪上一次 searchKey，用于判断是否为纯翻页操作
   const prevSearchKeyForDebounceRef = useRef<string>("");
 
   useEffect(() => {
-    // F1 优化：模式未定时不发请求，避免登录首屏产生废弃请求
-    if (prefsMode === "loading") return;
-
-    const currentDataSource =
-      prefsMode === "prefs" && userId
-        ? "industry-matched"       // 行业匹配模式：始终走行业匹配 API（携带筛选参数）
-        : "search";                // 其他：全量搜索
-
     const searchKeyUnchanged = prevSearchKeyForSkipRef.current === query.searchKey;
-    const dataSourceUnchanged = prevDataSourceForPrefsRef.current === currentDataSource;
+    // 账号切换必须重取：行业墙按订阅大类收窄，登录前后可见集合不同
+    const userChanged = prevUserIdForFetchRef.current !== userId;
     // 不再单独跟踪最深类目 id：五级下拉已改为 URL 事实源，而 searchKey 已含
     // code_id / group / commodity 三项 ⇒ 再留一份局部状态只会出现「URL 与组件态两个真相」。
-    if (dataSourceUnchanged && searchKeyUnchanged) {
+    if (!userChanged && searchKeyUnchanged) {
       return;
     }
     // F2 优化：筛选条件未变 = 纯翻页/排序操作，跳过防抖立即发出
     const isFilterChange = prevSearchKeyForDebounceRef.current !== query.searchKey;
     const debounceMs = isFilterChange ? 150 : 0;
-    prevDataSourceForPrefsRef.current = currentDataSource;
+    prevUserIdForFetchRef.current = userId;
     prevSearchKeyForSkipRef.current = query.searchKey;
     prevSearchKeyForDebounceRef.current = query.searchKey;
 
@@ -100,11 +93,9 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
         }
       }, SEARCH_TIMEOUT_MS);
 
-      // 重构方案 §4：单一端点统一调用，数据源差异由 mode 参数表达
-      // search→default / industry-matched→prefs
-      const unifiedMode = currentDataSource === "industry-matched" ? "prefs" : "default";
+      // 重构方案 §4：单一端点统一调用；数据源扩展（推荐/行业匹配）已随行业偏好下线收敛为一种
       const request = fetchUnifiedSearch({
-        mode: unifiedMode,
+        mode: "default",
         page,
         pageSize: NOTICE_PAGE_SIZE,
         commodityPath: query.activeCommodity || undefined,
@@ -151,14 +142,12 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
       controller.abort();
-      prevDataSourceForPrefsRef.current = "initial";
       prevSearchKeyForSkipRef.current = "";
       prevSearchKeyForDebounceRef.current = "";
     };
-  }, [page, prefsMode, query, locale, userId, t, variantRef]);
+  }, [page, query, locale, userId, t, variantRef]);
 
   // 分页预取（统一端点）
-  // [F4 优化] prefs 模式同样预取：此前因最慢模式无预取导致翻页始终冷请求
   // [2026-10-30 翻页成对卡顿修复] 预取窗口从「仅 page+1」改为 page+1 / page+2 两页：
   //   只向前一页时，命中客户端缓存的那一跳不会再产出新的预取（其实会，但与
   //   主请求的 abort/去重同帧交错，实测下来晚于用户点击），于是链条每两跳断一次 ——
@@ -172,11 +161,8 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   }, [query, locale, page]);
   useEffect(() => {
     if (loading || items.length === 0 || page >= totalPages) return;
-    // 与主请求的 unifiedMode 计算保持一致
-    const dataSource = prefsMode === "prefs" && userId ? "industry-matched" : "search";
-    const prefetchMode = dataSource === "industry-matched" ? "prefs" : "default";
     const baseParams = {
-      mode: prefetchMode as "default" | "prefs",
+      mode: "default" as const,
       pageSize: NOTICE_PAGE_SIZE,
       commodityPath: query.activeCommodity || undefined,
       q: query.activeQ || undefined,
@@ -200,7 +186,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       fetchUnifiedSearch({ ...baseParams, page: nextPage })
         .catch((e) => { console.warn("[useSearchResults] prefetch failed (non-critical):", e); });
     }
-  }, [page, totalPages, items.length, loading, prefsMode, userId, query, locale]);
+  }, [page, totalPages, items.length, loading, userId, query, locale]);
 
   return {
     items,

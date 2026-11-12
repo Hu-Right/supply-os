@@ -150,8 +150,8 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
           agreementVersion: "V2.0",
           agreementAcceptedAt: new Date().toISOString(),
         });
-        // 行业偏好不在注册流程内：注册表单已不渲染级联 UI，偏好由个人中心的
-        // IndustryPrefsForm 保存（保存前两级必选，见 CommodityPrefSelects）。
+        // 类目不在注册流程内：注册表单不渲染级联 UI；「主营行业」偏好已于 2026-11-12 随
+        // 行业墙口径收敛整体下线（行业范围由订阅大类界定），类目表达只保留企业主营产品一处。
         onSuccess();
         // 注册成功，清除草稿
         clearAuthDraft();

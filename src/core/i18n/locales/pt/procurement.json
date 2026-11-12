@@ -1,6 +1,5 @@
 {
   "countryFilter": "Filtrar por país",
-  "procurement_prefsBanner": "Correspondência precisa com seu grupo de produtos padrão ({name})",
   "procurement_poolTitle": "Oportunidades de compras públicas internacionais",
   "procurement_statSearchable": "Oportunidades pesquisáveis",
   "procurement_statTodayNew": "Adicionadas hoje",
@@ -38,8 +37,6 @@
   "procurement_deadlineWindow90": "Vence em 90 dias",
   "procurement_noticeTypePlaceholder": "Tipo de anúncio (ex. RFQ)",
   "procurement_featuredOnly": "Somente destaques",
-  "procurement_restoreCommodityMatch": "Correspondência de produtos",
-  "procurement_cancelCommodityMatch": "Cancelar correspondência de produtos",
   "procurement_global": "Global",
   "procurement_noDeadline": "Sem prazo",
   "procurement_interested": "Manifestar interesse",

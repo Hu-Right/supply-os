@@ -44,8 +44,9 @@ export interface RawSearchParams {
  * 规则：长度截断、日期格式校验、枚举值钳制、无效 noticeType 丢弃。
  */
 export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
-  const mode: SearchMode =
-    raw.mode === "prefs" || raw.mode === "recommended" ? raw.mode : "default";
+  // mode=prefs 已随「主营行业」下线（2026-11-12）：老链接/老客户端传进来一律降级为 default，
+  // 与历史上「无法解析的模式按全量检索处理」一致，不报错。
+  const mode: SearchMode = raw.mode === "recommended" ? "recommended" : "default";
 
   const sort =
     raw.sort === "deadline" ? "deadline"

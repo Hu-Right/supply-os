@@ -1,6 +1,5 @@
 {
   "countryFilter": "国家联动",
-  "procurement_prefsBanner": "已按贵司默认品目（{name}）精准匹配",
   "procurement_poolTitle": "国际公共采购 采购线索池",
   "procurement_statSearchable": "可检索机会",
   "procurement_statTodayNew": "今日新增",
@@ -38,8 +37,6 @@
   "procurement_deadlineWindow90": "90 天内截止",
   "procurement_noticeTypePlaceholder": "采购类型（如 RFQ）",
   "procurement_featuredOnly": "只看精选",
-  "procurement_restoreCommodityMatch": "进行品目匹配",
-  "procurement_cancelCommodityMatch": "取消品目匹配",
   "procurement_global": "全球",
   "procurement_noDeadline": "暂无截止时间",
   "procurement_interested": "感兴趣",

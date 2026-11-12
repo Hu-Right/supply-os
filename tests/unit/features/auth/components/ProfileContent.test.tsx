@@ -48,9 +48,6 @@ vi.mock("@/features/auth/components/PhoneBinding", () => ({
 vi.mock("@/features/auth/components/EmailBinding", () => ({
   EmailBinding: () => <div data-testid="email-binding" />,
 }));
-vi.mock("@/features/auth/components/IndustryPrefsForm", () => ({
-  IndustryPrefsForm: () => <div data-testid="industry-prefs" />,
-}));
 vi.mock("@/features/auth/components/AccountBenefitsCard", () => ({
   AccountBenefitsCard: () => <div data-testid="benefits-card" />,
 }));
@@ -90,12 +87,11 @@ describe("ProfileContent", () => {
     expect(screen.getByText("基础版")).toBeInTheDocument();
   });
 
-  it("渲染全部子区块（昵称/手机/邮箱/行业偏好/我的记录）", () => {
+  it("渲染全部子区块（昵称/手机/邮箱/会员权益/我的记录）", () => {
     render(<ProfileContent MyRecordsPanel={MyRecordsStub} />);
     expect(screen.getByTestId("nickname-editor")).toBeInTheDocument();
     expect(screen.getByTestId("phone-binding")).toBeInTheDocument();
     expect(screen.getByTestId("email-binding")).toBeInTheDocument();
-    expect(screen.getByTestId("industry-prefs")).toBeInTheDocument();
     expect(screen.getByTestId("my-records")).toBeInTheDocument();
     expect(screen.getByTestId("benefits-card")).toBeInTheDocument();
   });

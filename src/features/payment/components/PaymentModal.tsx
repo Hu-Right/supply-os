@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
-import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
+import { classifyProductCode, PRODUCT_KIND } from "@/shared/constants/product-kind";
 import PaymentModalCore from "@/shared/components/PaymentModalCore";
 import { createOrder, getOrderStatus } from "../api";
 
@@ -48,24 +48,20 @@ export default function PaymentModal({
 }: PaymentModalProps) {
   const { t, locale } = useLocale();
   const currencySymbol = currency === "CNY" ? "¥" : "$";
-  // 学习资料/打包/一次性服务不走会员行业墙；只有会员套餐需要选 L1 大类。
-  const needsIndustry = !planCode.startsWith("material_")
-    && !planCode.startsWith("bundle_")
-    && !planCode.startsWith("svc_");
+  // 学习资料/打包/增值服务不走会员行业墙；只有会员套餐需要选 L1 大类。
+  // 判定收口 shared/constants/product-kind（原为本地三连 startsWith）
+  const needsIndustry = classifyProductCode(planCode) === PRODUCT_KIND.PLAN;
   const [industries, setIndustries] = useState<IndustryOption[]>([]);
   const [industryCode, setIndustryCode] = useState("");
 
   useEffect(() => {
     let alive = true;
-    Promise.all([
-      api<IndustryOption[]>("/api/commodity/tree?parent="),
-      fetchIndustryPrefs().catch(() => null),
-    ]).then(([options, prefs]) => {
-      if (!alive) return;
-      setIndustries(Array.isArray(options) ? options : []);
-      const preferred = String(prefs?.commodityCode || "").slice(0, 6);
-      if (/^UGT-[0-9]{2}$/.test(preferred)) setIndustryCode(preferred);
-    }).catch(() => undefined);
+    api<IndustryOption[]>("/api/commodity/tree?parent=")
+      .then((options) => {
+        if (!alive) return;
+        setIndustries(Array.isArray(options) ? options : []);
+      })
+      .catch(() => undefined);
     return () => { alive = false; };
   }, []);
 

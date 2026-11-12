@@ -10,17 +10,18 @@
  *              单一事实源原则：Meilisearch 是唯一检索引擎；MySQL 仅承担
  *              详情获取与应急降级（降级时自动触发索引重建标记）。
  *
- *              三种模式：
+ *              两种模式：
  *              - default:      URL 筛选参数 → filter-builder → Meilisearch
- *              - prefs:        + 用户行业画像渐进放宽（替代旧 T0-T3 两阶段架构）
  *              - recommended:  委托既有推荐服务（行为评分语义专属管道）
+ *
+ *              （第三种 prefs 模式已于 2026-11-12 随「主营行业」下线整体退役：
+ *                行业范围由订阅大类 + 行业墙界定，不再接受用户偏好声明。）
  */
 import type { Pool } from "mysql2/promise";
 import type { UnifiedSearchParams, UnifiedSearchResult, SearchPath } from "./types";
 import { validateParams, searchCacheKey, type RawSearchParams } from "./params";
 import { buildFilterPlan } from "./filter-builder";
-import { resolveMode, type CategoryFilter } from "./mode-resolver";
-import { meiliQuery, meiliMultiQuery } from "./meili-query";
+import { meiliQuery } from "./meili-query";
 import { mysqlFallback } from "./mysql-fallback";
 import { isFullSyncRunning } from "../meilisearch/sync";
 import { tryRecover, getCachedDocCount } from "../meilisearch/client";
@@ -32,7 +33,6 @@ import { logPerf, recordFallback } from "../search-common/metrics";
 import { requestIndexRebuild } from "../search-common/rebuild-trigger";
 import { registerInvalidateCallback } from "../search-common/sync-events";
 import { recommendNotices } from "../recommend/index";
-import { invalidateProfileCache } from "../industry-profile/resolve";
 import { noticeInCategory } from "../industry-scope";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 import { TTLCache } from "@/lib/cache/ttl-cache";
@@ -56,19 +56,17 @@ function cacheSet(key: string, data: UnifiedSearchResult, opts?: { ttlMs?: numbe
   resultCache.set(key, data, opts);
 }
 
-/** 失效行业匹配相关缓存（用户修改行业偏好后调用） */
+/** 失效某用户的检索结果缓存（账号切换 / 会员与行业范围变化后调用） */
 export function invalidateUnifiedSearchCache(userId?: number): void {
-  // B2 联动：偏好变更时同步失效画像缓存
-  invalidateProfileCache(userId);
-  // B6 联动：失效时也清理飞行中请求，防止偏好变更后复用旧 Promise
+  // B6 联动：失效时也清理飞行中请求，防止口径变化后复用旧 Promise
   if (!userId) {
     resultCache.clear();
     _inflight.clear();
     return;
   }
-  resultCache.deleteWhere((key) => key.includes(`|${userId}|`) || key.startsWith(`prefs|${userId}`));
+  resultCache.deleteWhere((key) => key.includes(`|${userId}|`));
   for (const key of _inflight.keys()) {
-    if (key.includes(`|${userId}|`) || key.startsWith(`prefs|${userId}`)) {
+    if (key.includes(`|${userId}|`)) {
       _inflight.delete(key);
     }
   }
@@ -109,8 +107,8 @@ export async function searchUnified(
 
 /**
  * 核心搜索执行逻辑（由 searchUnified 通过 single-flight 调用）。
- * 包含：模式解析 → 参考号快速路径 → prefs 并行探测 → Meili 主检索
- * → MySQL 降级 → 详情获取 → 格式化 → 缓存写入。
+ * 包含：参考号快速路径 → Meili 主检索 → MySQL 降级 → 详情获取 → 格式化 → 缓存写入。
+ * （原「模式解析 → prefs 并行探测」两步已于 2026-11-12 随 prefs 模式退役删除。）
  */
 async function _searchCore(
   pool: Pool,
@@ -140,12 +138,6 @@ async function _searchCore(
     };
   }
 
-  // ── 模式解析 ──
-  const resolution = await resolveMode(pool, p);
-  if (resolution.kind === "no-prefs") {
-    return { items: [], total: 0, page: p.page, pageSize: p.pageSize, fallback: "no_prefs" };
-  }
-
   // ── 参考号精确匹配快速路径 ──
   // 行业墙：被墙用户即使拿到精确参考号，大类外的公告也不走快速路径直出，
   // 落回主管道由强制大类节点码谓词自然滤掉（不能在这里 403——搜索语义应是无结果而非报错）。
@@ -166,51 +158,8 @@ async function _searchCore(
     }
   }
 
-  // ── prefs 渐进放宽：并行 multi-search 探测（B1 优化：串行 4 次 → 1 次 HTTP）──
-  let category: CategoryFilter | null = resolution.category;
-  if (resolution.profileNodes && resolution.profileNodes.length > 0) {
-    const offset = (p.page - 1) * p.pageSize;
-
-    // 1. 并行构建所有档位的 filter 计划（纯内存操作 + 可能的缓存命中 DB 查询）
-    const probePlans = await Promise.all(
-      resolution.profileNodes.map((entry) =>
-        buildFilterPlan(pool, p, { node: entry.node }),
-      ),
-    );
-
-    // 2. 冲突检测：任一层级 FORCE_COUNTRY 矛盾 → 空结果
-    for (const probePlan of probePlans) {
-      if (probePlan.conflictEmpty) {
-        const empty: UnifiedSearchResult = { items: [], total: 0, page: p.page, pageSize: p.pageSize, fallback: "no_match" };
-        cacheSet(cacheKey, empty);
-        return empty;
-      }
-    }
-
-    // 3. 单次 multi-search 并行探测所有层级（每个 limit:1 仅取 totalHits）
-    const probeResults = await meiliMultiQuery(
-      p.q,
-      probePlans.map((plan) => plan.meiliFilters),
-      p.sort,
-    );
-
-    // 4. 选择能覆盖当前页的最深档位（profileNodes 已按深→浅排序）
-    if (probeResults) {
-      let chosenIdx = probeResults.length - 1; // 默认用最浅档位
-      for (let i = 0; i < probeResults.length; i++) {
-        if (probeResults[i].total >= offset + p.pageSize) {
-          chosenIdx = i; // 找到能覆盖的最深档位
-          break;
-        }
-      }
-      const chosen = resolution.profileNodes[chosenIdx];
-      category = { node: chosen.node };
-    }
-    // probeResults === null: Meilisearch 不可用，category 保持 null，主流程走 MySQL 降级
-  }
-
   // ── 构建 filter 计划（全系统唯一筛选语义）──
-  const plan = await buildFilterPlan(pool, p, category);
+  const plan = await buildFilterPlan(pool, p);
   if (plan.conflictEmpty) {
     const empty: UnifiedSearchResult = { items: [], total: 0, page: p.page, pageSize: p.pageSize, fallback: "no_match" };
     cacheSet(cacheKey, empty);
@@ -323,9 +272,8 @@ async function _searchCore(
   }
   const detailMs = Date.now() - detailStart;
 
-  // ── 格式化（prefs 模式逐文档计算匹配档次：公告自身 precise 节点码与用户画像比对，
-  //    [阶段0 A2] 替代旧版整页统一赋分，放宽场景下深层精确命中不再被误标为宽泛相关）──
-  const items = formatItems(details, resolution.profileNodes ?? undefined);
+  // ── 格式化（服务表原字段直出；此前 prefs 模式的逐文档匹配档次随该模式一并退役）──
+  const items = formatItems(details);
   // 覆盖兜底后仍为空：不能把 Meili/宽表的总数继续挂在 0 张卡片上。
   if (items.length === 0 && total > 0 && coverageRepairAttempted) {
     console.warn(`[search-orchestrator] total=${total} 但详情为 0，返回空结果（ids=${ids.length}）`);

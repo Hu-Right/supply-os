@@ -14,12 +14,6 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const profile = vi.hoisted(() => ({ resolve: vi.fn() }));
-vi.mock("@/lib/services/industry-profile/resolve", () => ({
-  resolveUserIndustryProfile: profile.resolve,
-  invalidateProfileCache: vi.fn(),
-}));
-
 import {
   resolveIndustryScope, canAccessNotice, noticeInCategory, opportunityInCategory,
 } from "@/lib/services/industry-scope";
@@ -58,7 +52,6 @@ const pool = { query } as unknown as Pool;
 const wide = (p: string | null) => [{ p } as RowDataPacket];
 
 beforeEach(() => {
-  profile.resolve.mockReset();
   query.mockReset();
   wideRows = [];
 });
@@ -75,7 +68,6 @@ describe("resolveIndustryScope · 判定链", () => {
   });
 
   it("free 基线列=1（新矩阵，2026-10-28 free 化）：未订阅用户同样被墙", async () => {
-    profile.resolve.mockResolvedValue({ userId: 7, commodityCode: "UGT-85010101" });
     expect(await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 7)).toEqual({
       scoped: true, l1Code: "UGT-85", l1Nodes: ["UGT-85"], needsIndustry: false,
     });
@@ -93,7 +85,6 @@ describe("resolveIndustryScope · 判定链", () => {
   });
 
   it("限定档 + 已绑行业 → 墙启动，l1Code 即偏好的 L1 前缀（零查库推导）", async () => {
-    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-85010101" });
     // 关键：全程不查 commodity_backbone（大类翻译层已随 G 码退役消失）
     expect(await resolveIndustryScope(pool, makeCatalog({ scoped: true }), 42)).toEqual({
       scoped: true, l1Code: "UGT-85", l1Nodes: ["UGT-85"], needsIndustry: false,
@@ -123,7 +114,6 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
   });
 
   it("公告祖先链含墙内 L1 → 放行；不含 → 拦", async () => {
-    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-85010101" });
     const catalog = makeCatalog({ scoped: true });
     wideRows = wide("UGT-85,UGT-8501,UGT-85010101");
     expect(await canAccessNotice(pool, catalog, 42, 9001)).toBe(true);
@@ -132,13 +122,11 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
   });
 
   it("公告祖先链命中 L1 的深层节点同样放行（码即全链，等值即包含）", async () => {
-    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-220101" });
     wideRows = wide("UGT-22,UGT-2201,UGT-220101");
     expect(await canAccessNotice(pool, makeCatalog({ scoped: true, industryCode: "UGT-22" }), 42, 9003)).toBe(true);
   });
 
   it("公告本身无类目数据（宽表无行 / 列为 NULL）→ 放行，不被脏数据锁死", async () => {
-    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-85010101" });
     wideRows = [];
     expect(await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9004)).toBe(true);
     wideRows = wide(null);
@@ -153,7 +141,6 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
   });
 
   it("口径铁则：只点查宽表 ns.id，不得再碰桥表与旧字典 level1_id", async () => {
-    profile.resolve.mockResolvedValue({ userId: 42, commodityCode: "UGT-85010101" });
     wideRows = wide("UGT-85");
     await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9007);
     // 大类翻译查询已消失（L1 由码前缀推导），命中检查就是唯一一次查库
