@@ -804,7 +804,7 @@ CREATE TABLE `learning_materials` (
   KEY `idx_number` (`number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='学习资料表';
 
--- ── learning_orders ──
+-- ── learning_orders （2026-11-12 起停写：读写已全部切至 `orders`，本表仅作回滚与外部系统兼容保留，确认无读方可 DROP） ──
 CREATE TABLE `learning_orders` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL,
@@ -1461,7 +1461,44 @@ CREATE TABLE `password_resets` (
   KEY `idx_phone_lookup` (`phone`,`code_type`,`used`,`expires_at`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='验证码下发表';
 
--- ── payment_orders ──
+-- ── orders ──
+CREATE TABLE `orders` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `order_no` varchar(80) NOT NULL COMMENT '业务单号；SO/SV/LE/TR 前缀保留（支付回调与对账按前缀路由）',
+  `user_id` bigint unsigned DEFAULT NULL COMMENT '下单用户；培训单允许匿名下单，故可空',
+  `product_kind` varchar(16) NOT NULL COMMENT 'plan/service/material/bundle/course，取值见 shared/constants/product-kind',
+  `product_code` varchar(64) NOT NULL COMMENT '目录主键（service 含 svc_ 前缀；material/bundle 为剥前缀后的主键；course 为课程 id）',
+  `product_name` varchar(255) NOT NULL DEFAULT '' COMMENT '下单时的商品名快照：目录改名不影响历史单',
+  `unit_price` decimal(10,2) NOT NULL COMMENT '单价；培训/服务为 ×数量 前的单价，会员/学习为同 amount',
+  `quantity` int unsigned NOT NULL DEFAULT '1' COMMENT '数量：培训=人数，其余恒 1',
+  `amount` decimal(10,2) NOT NULL COMMENT '应付总额（已含升级差价、年包抵扣后的实付）',
+  `currency` varchar(10) NOT NULL DEFAULT 'CNY',
+  `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/paid/closed/failed/refunded/expired，取值见 shared/constants/order-status。用 varchar 而非 enum：状态集合跨四业务且会继续增（部分退款/发票态），enum 每加一次要 DDL 锁表',
+  `provider` varchar(20) NOT NULL COMMENT 'alipay/wechat/mock；增值服务原表无渠道列，回填时写 service',
+  `provider_trade_no` varchar(120) DEFAULT NULL,
+  `pay_url` text COMMENT '渠道下单返回的支付跳转地址（支付宝为 redirect 前的网关值）',
+  `qr_code_url` text COMMENT '渠道二维码原文，响应时按需转 data URL',
+  `order_type` varchar(20) NOT NULL DEFAULT 'new' COMMENT 'new/upgrade/renew',
+  `original_order_no` varchar(80) DEFAULT NULL COMMENT '升级/抵扣的来源单号（核销锚点）',
+  `industry_code` varchar(32) DEFAULT NULL COMMENT '行业墙 L1 快照（购买时选定）',
+  `notice_id` bigint unsigned DEFAULT NULL COMMENT '来源商机（可空）',
+  `granted_subscription_id` bigint unsigned DEFAULT NULL COMMENT '履约外键：本单发放的订阅（会员单 / 赠订阅的服务单）',
+  `granted_registration_id` bigint unsigned DEFAULT NULL COMMENT '履约外键：培训报名行',
+  `items_snapshot` json DEFAULT NULL COMMENT '这笔交易的构成快照：打包套餐的 includedIds、培训的 schedule_id、服务的 sale_mode 等',
+  `raw_request` json DEFAULT NULL COMMENT '渠道下单原文（排障/纠纷取证）',
+  `raw_notify` json DEFAULT NULL COMMENT '支付回调原文',
+  `paid_at` datetime DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_orders_order_no` (`order_no`),
+  KEY `idx_orders_user_created` (`user_id`,`created_at`),
+  KEY `idx_orders_status_created` (`status`,`created_at`),
+  KEY `idx_orders_kind_code` (`product_kind`,`product_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='统一订单头：钱与状态。四张旧订单表的收敛目标，明细构成见 items_snapshot';
+
+-- ── payment_orders （2026-11-12 起停写：读写已全部切至 `orders`，本表仅作回滚与外部系统兼容保留，确认无读方可 DROP） ──
 CREATE TABLE `payment_orders` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL,
@@ -1861,7 +1898,7 @@ CREATE TABLE `service_catalog` (
   CONSTRAINT `chk_price_from` CHECK (((`price_from` = 0) or (`standard_price` is not null)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='增值服务目录表：非订阅制服务（按次/按项目/按合同购买）的品名、计价形态、标准价与成交后额度充值规则';
 
--- ── service_orders ──
+-- ── service_orders （2026-11-12 起停写：读写已全部切至 `orders`，本表仅作回滚与外部系统兼容保留，确认无读方可 DROP） ──
 CREATE TABLE `service_orders` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `order_no` varchar(80) NOT NULL COMMENT '对外业务订单号，与支付域对账的唯一锚点',
@@ -2241,7 +2278,7 @@ CREATE TABLE `training_download_stats` (
   PRIMARY KEY (`material_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='资料下载次数统计';
 
--- ── training_orders ──
+-- ── training_orders （2026-11-12 起停写：读写已全部切至 `orders`，本表仅作回滚与外部系统兼容保留，确认无读方可 DROP） ──
 CREATE TABLE `training_orders` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned DEFAULT NULL,
@@ -2372,17 +2409,6 @@ CREATE TABLE `upload_files` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`filename`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文件上传表';
-
--- ── user_industry_prefs ──
-CREATE TABLE `user_industry_prefs` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint unsigned NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  `commodity_code` varchar(40) NOT NULL DEFAULT '' COMMENT '品目面码，可停在段/族/类/品目任一层；空=只订到大类',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_pref` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户行业偏好。';
 
 -- ── user_interest_codes ──
 CREATE TABLE `user_interest_codes` (

@@ -28,6 +28,7 @@ import { migration as rfqInvitesMigration } from "./migrations/004-rfq-invites";
 import { migration as rfqOutreachMigration } from "./migrations/005-rfq-outreach";
 import { migration as feasibilityReportMigration } from "./migrations/006-feasibility-report";
 import { migration as evidenceFilenameMigration } from "./migrations/007-enterprise-evidence-filename";
+import { migration as ordersUnifiedMigration } from "./migrations/008-orders-unified";
 
 /** 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。 */
 const ALL_MIGRATIONS: Migration[] = [
@@ -38,6 +39,7 @@ const ALL_MIGRATIONS: Migration[] = [
   rfqOutreachMigration,
   feasibilityReportMigration,
   evidenceFilenameMigration,
+  ordersUnifiedMigration,
 ];
 
 /**
