@@ -17,7 +17,8 @@
  *   4. 斜杠：A/B/YYYY，一方 >12 才消歧；歧义且 fallback 时交 Date.parse（仅 build）
  *   5. 时区标注：`(GMT -4.00)` / `GMT+2` / `UTC+02:00` / `UTC+1200` / 尾部 ±HH[:?]MM /
  *      `Z`——数字偏移被提取为 offsetMinutes，纯标注（如 `(GMT)`）只剥离不换算
- *   6. 兜底：以上全失败且 fallback → Date.parse
+ *   6. 兜底：以上全失败且 fallback → Date.parse，并把墙上时间按 UTC 编码
+ *      （不随宿主时区漂移：同一串在 +08 与 UTC 机器上必须同值）
  *
  * 不做：月>12 / 日>31 一律 null（不靠 Date.UTC 归一化）；空/纯空白返回 null；绝不臆造。
  *
@@ -358,8 +359,15 @@ export function parseSourceDateParts(
   if (p.fallback) {
     const parsed = Date.parse(input);
     if (Number.isFinite(parsed)) {
-      const parts = fromNumeric(Math.floor(parsed / 1000));
-      return { ...parts, via: "fallback" };
+      // Date.parse 对非 ISO 串（`03.08.2026 10:00:00`、`10/20/2026`）按**宿主本地时区**解释：
+      // 同一串在 +08 机器上是 02:00Z、在 UTC 机器上是 10:00Z（2026-11-13 CI 实测差 8 小时）。
+      // 统一把「本地墙上时间」按 UTC 编码，dev / CI / 生产同值（本模块头部的「统一 UTC」口径）。
+      const d = new Date(parsed);
+      const wall = Math.floor(Date.UTC(
+        d.getFullYear(), d.getMonth(), d.getDate(),
+        d.getHours(), d.getMinutes(), d.getSeconds(),
+      ) / 1000);
+      return { ...fromNumeric(wall), via: "fallback" };
     }
   }
   return null;

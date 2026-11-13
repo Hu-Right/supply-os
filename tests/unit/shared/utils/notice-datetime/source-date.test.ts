@@ -144,4 +144,11 @@ describe("parseSourceDateParts · 不臆造", () => {
     expect(p.via).toBe("fallback");
     expect(parseSourceDateParts("31.07.2026 8:00:00", SOURCE_DATE_PROFILES.build)).toBeNull();
   });
+
+  it("兜底结果不随宿主时区漂移：墙上时间按 UTC 编码", () => {
+    // 2026-11-13 CI（UTC）与本地（+08）差整 8 小时，金样回归当场炸出。
+    // 同一串必须给出同一个秒数，否则 published_ts 会随部署机器改值。
+    const p = parseSourceDateParts("03.08.2026 10:00:00", SOURCE_DATE_PROFILES.build)!;
+    expect(sourceDateWallSeconds(p)).toBe(Math.floor(Date.UTC(2026, 2, 8, 10, 0, 0) / 1000));
+  });
 });

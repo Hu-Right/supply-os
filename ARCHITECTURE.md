@@ -327,6 +327,8 @@ CREATE TABLE **与 ALTER TABLE ADD/CHANGE COLUMN**（新增列的真实来路）
   用 `scripts/tools/capture-notice-date-golden.mts --write` 重签基线。
 - 现存**待退役**的旧口径（D-Mon 丢时分、1 位小时只取日期、点分日期靠 Date.parse 按 MM/DD 解读）
   集中写在 profile 的 legacy 选项里；退役前不得在消费方就地绕过。
+- 兜底路径（Date.parse）结果**按 UTC 编码**，不得依赖宿主时区：2026-11-13 CI（UTC）与本地（+08）
+  曾对同一串差整 8 小时，由金样回归当场炸出。
 
 ### Hooks 命名与职责约定
 
