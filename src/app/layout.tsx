@@ -76,7 +76,7 @@ const jsonLd = {
     alternateName: "Yunjing International Procurement Platform",
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
-    description: "云境·国际采购平台 — 联合国及全球政府采购公告搜索、供应商目录、CRM 客户管理、投标服务、学习培训一站式平台。",
+    description: "云境·国际采购平台 — 联合国及全球政府采购公告搜索、供应商目录、CRM 客户管理、投标服务、学习培训一站式平台。", // i18n-allow: JSON-LD 结构化数据面向中文搜索来源，与 <html lang> 静态默认一致
     foundingDate: "2026",
     areaServed: "Worldwide",
     serviceType: ["国际采购", "政府采购", "供应商管理", "CRM", "投标服务", "培训"],
@@ -86,7 +86,7 @@ const jsonLd = {
     "@type": "WebSite",
     name: "云境·国际采购平台",
     url: SITE_URL,
-    description: "外贸员的全球采购订单雷达 — 联合国、世界银行、各国政府招标信息一站式搜索与管理",
+    description: "外贸员的全球采购订单雷达 — 联合国、世界银行、各国政府招标信息一站式搜索与管理", // i18n-allow: JSON-LD 结构化数据，同上
     inLanguage: ["zh-CN", "en", "fr", "es", "ru", "ar"],
     potentialAction: {
       "@type": "SearchAction",

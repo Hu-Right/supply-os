@@ -1,3 +1,4 @@
+// i18n-allow-file: ISR SEO 详情页（revalidate=3600），页面文案与 generateMetadata 同为中文口径；本地化需 locale 化路由架构，见 i18n 覆盖报告
 /**
  * /procurement/notice/[id] — 公告 SEO 详情页
  *

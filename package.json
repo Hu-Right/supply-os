@@ -14,7 +14,8 @@
     "lint": "npm run check:encoding && npm run check:gitignore && npm run check:no-creds:self-test && npm run check:no-creds && node scripts/gates/check-no-admin-routes.mjs && npm run check:api-shape && npm run check:api-shape:self-test && npm run check:api-error-codes && npm run check:api-error-codes:self-test && npm run check:api-field-naming && npm run check:api-field-naming:self-test && npm run check:api-401-semantics && npm run check:api-401-semantics:self-test && npm run check:wide-ssot && npm run check:notice-public-ssot && npm run check:notice-public-ssot:self-test && npm run check:buyer-ssot && npm run check:notice-classification && npm run check:sql-shapes && npm run check:opp-slim && npm run check:opp-slim:self-test && npm run check:notices-slim && npm run check:notices-slim:self-test && npm run check:notices-slim:index-plan && npm run check:ddl-collation && npm run check:ddl-collation:self-test && npm run check:db-glossary && npm run check:db-glossary:self-test && npm run check:legacy-dict:self-test && npm run check:legacy-dict && npm run check:retired-ids:self-test && npm run check:retired-ids && npm run check:legacy-order-tables:self-test && npm run check:legacy-order-tables && npm run check:baseline-exclude:self-test && eslint src/",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "check-i18n": "npx tsx scripts/gates/check-i18n.ts",
+    "check-i18n": "npx tsx scripts/gates/check-i18n.ts && node scripts/gates/check-i18n-ui.mjs",
+    "check-i18n-ui:self-test": "node --test tests/gates/check-i18n-ui.test.mjs",
     "check:encoding": "node scripts/gates/check-mojibake.mjs",
     "check:no-admin": "node scripts/gates/check-no-admin-routes.mjs",
     "check:api-shape": "node scripts/gates/check-api-success-shape.mjs",
@@ -75,7 +76,7 @@
     "test:ci": "npm run test:unit && npm run test:coverage-gate -- coverage/unit 90 85 && npm run test:integration:coverage && npm run test:coverage-gate -- coverage/integration 80",
     "perf:check": "npx tsx scripts/gates/perf-budget-check.ts",
     "migrate:licenses": "node --env-file=.env scripts/tools/migrate-licenses-to-runtime.mjs",
-    "pre-push": "npm run check:encoding && npm run check-i18n && npm run typecheck && npm run lint && npm run test && npm run test:integration && npm run test:css-compat && npm run build",
+    "pre-push": "npm run check:encoding && npm run check-i18n && npm run check-i18n-ui:self-test && npm run typecheck && npm run lint && npm run test && npm run test:integration && npm run test:css-compat && npm run build",
     "check:feasibility-eval": "npx tsx scripts/tools/feasibility-eval.ts"
   },
   "dependencies": {
