@@ -17,6 +17,8 @@ import { emitAppEvent } from "@/core/events";
 import { Button, EmptyState } from "@/shared/ui";
 import { currencySymbol } from "@/shared/utils/format";
 import { fetchMyQuotes, withdrawRfqQuote, type MyQuoteRow } from "@/core/api/rfqQuotes";
+import { statusMeta } from "@/features/rfq/model/status";
+import { formatCloseCountdown, formatYmd } from "@/features/rfq/model/format";
 
 const QUOTE_BADGE: Record<string, { labelKey: string; cls: string }> = {
   submitted: { labelKey: "rfqQuoteStatusReviewing", cls: "bg-slate-100 text-slate-600 border-slate-200" },
@@ -113,6 +115,9 @@ export default function MyQuotesClient() {
                         {badgeLabel}
                       </span>
                       <span className="text-2xs text-slate-400">{q.reference || `#${q.rfqId}`}</span>
+                      <span className={`px-2 py-0.5 rounded border text-2xs font-bold ${statusMeta(q.rfqStatus).tone}`}>
+                        需求{statusMeta(q.rfqStatus).label}
+                      </span>
                     </div>
                     <h3 className="text-sm font-bold text-slate-900 truncate">{q.title}</h3>
                     <div className="mt-2 flex items-center gap-4 text-xs text-slate-500 flex-wrap">
@@ -121,6 +126,9 @@ export default function MyQuotesClient() {
                         <span className="text-2xs font-normal text-slate-400 ml-1">{q.currency}</span>
                       </span>
                       {q.leadTimeDays != null && <span>{t("rfqLeadTime", { count: q.leadTimeDays })}</span>}
+                      {q.deadlineSec > 0 && (
+                        <span>截止 {formatYmd(q.deadlineSec)}（{formatCloseCountdown(q.deadlineSec)}）</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -135,7 +143,7 @@ export default function MyQuotesClient() {
                         {busy === q.quoteId ? t("rfqWithdrawing") : t("rfqWithdraw")}
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" className="gap-1" onClick={() => router.push(`/rfq/${q.rfqId}`)}>
+                    <Button variant="ghost" size="sm" className="gap-1" onClick={() => router.push(`/rfq/${q.demandId ?? q.rfqId}`)}>
                       <Eye className="w-3.5 h-3.5" /> {t("rfqViewRfq")}
                     </Button>
                   </div>

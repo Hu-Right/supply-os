@@ -317,5 +317,6 @@
   "authEnterpriseCommodityRemove": "Remover",
   "authEnterpriseCommodityEmpty": "Você ainda não selecionou produtos principais.",
   "settingsLogoutDesc": "Encerrar a sessão da conta atual",
-  "supplierPoolUpdateDiag": "Atualizar o formulário de diagnóstico"
+  "supplierPoolUpdateDiag": "Atualizar o formulário de diagnóstico",
+  "settingsRfqInvites": "Convites"
 }

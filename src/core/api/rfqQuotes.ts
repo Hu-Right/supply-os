@@ -37,10 +37,23 @@ export async function submitRfqQuote(rfqId: number, payload: QuotePayload): Prom
   });
 }
 
-/** 采购方查看该 RFQ 报价汇总（仅创建者；按价升序）。 */
-export async function fetchBuyerQuotes(rfqId: number): Promise<QuoteRow[]> {
-  const res = await api<{ items: QuoteRow[]; total: number }>(`/api/rfq/${rfqId}/quotes`);
-  return res.items;
+export interface BuyerQuotesResult {
+  /** 截止前为 true：只返回条数，不返回明细（密封报价） */
+  sealed: boolean;
+  count: number;
+  items: QuoteRow[];
+}
+
+/** 采购方查看该 RFQ 报价汇总（仅创建者；按价升序）。截止前返回 sealed + 条数。 */
+export async function fetchBuyerQuotes(rfqId: number): Promise<BuyerQuotesResult> {
+  const res = await api<{ sealed?: boolean; count?: number; items?: QuoteRow[] }>(
+    `/api/rfq/${rfqId}/quotes`,
+  );
+  return {
+    sealed: Boolean(res.sealed),
+    count: Number(res.count ?? res.items?.length ?? 0),
+    items: Array.isArray(res.items) ? res.items : [],
+  };
 }
 
 /** 采购方选定中标（仅创建者）。 */
@@ -61,10 +74,22 @@ export async function unawardRfqQuote(rfqId: number): Promise<void> {
   await api<{ revoked: boolean }>(`/api/rfq/${rfqId}/unaward`, { method: "POST", body: {} });
 }
 
+/** 采购方选定（v2：按需求 id，必填理由，写入审计） */
+export async function awardDemandQuote(demandId: number, quoteId: number, reason: string): Promise<void> {
+  await api(`/api/rfq/demands/${demandId}/award`, { method: "POST", body: { quoteId, reason } });
+}
+
+/** 撤销选定（v2：需求回到评审，授标行保留） */
+export async function unawardDemandQuote(demandId: number, reason?: string): Promise<void> {
+  await api(`/api/rfq/demands/${demandId}/unaward`, { method: "POST", body: { reason: reason ?? null } });
+}
+
 /** 供应商“我的报价”行（对应 /api/rfq/my-quotes）。 */
 export interface MyQuoteRow {
   quoteId: number;
   rfqId: number;
+  /** 门户需求 id（v2 路由用）；历史数据可能为 null */
+  demandId?: number | null;
   title: string;
   reference: string;
   rfqStatus: string;

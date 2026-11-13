@@ -14,10 +14,16 @@ import { toast } from "sonner";
 import { Button, Badge, DataState, type BadgeVariant } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 import { currencySymbol } from "@/shared/utils/format";
-import { fetchBuyerQuotes, awardRfqQuote, unawardRfqQuote, type QuoteRow } from "@/core/api/rfqQuotes";
+import {
+  fetchBuyerQuotes, awardRfqQuote, unawardRfqQuote,
+  awardDemandQuote, unawardDemandQuote, type QuoteRow,
+} from "@/core/api/rfqQuotes";
 
 export interface QuotesPanelProps {
+  /** 投影行 id：报价读取/资格仍按它（过渡期） */
   rfqId: number;
+  /** 需求 id：定标/撤销走 v2 接口（带授标理由与需求状态流转） */
+  demandId?: number;
 }
 
 /** 2026-10-31 徽章统一：值改 shared Badge 变体（submitted/rejected→中性，won→primary） */
@@ -27,13 +33,15 @@ const STATUS_BADGE: Record<string, { labelKey: string; variant: BadgeVariant }> 
   rejected: { labelKey: "rfqStatusRejected", variant: "soft-neutral" },
 };
 
-export function QuotesPanel({ rfqId }: QuotesPanelProps) {
+export function QuotesPanel({ rfqId, demandId }: QuotesPanelProps) {
   const { t } = useLocale();
   const [rows, setRows] = useState<QuoteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [awarding, setAwarding] = useState<number | null>(null);
+  const [sealed, setSealed] = useState(false);
+  const [sealedCount, setSealedCount] = useState(0);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [revoking, setRevoking] = useState(false);
 
@@ -41,7 +49,10 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
     setLoading(true);
     setErr("");
     try {
-      setRows(await fetchBuyerQuotes(rfqId));
+      const res = await fetchBuyerQuotes(rfqId);
+      setRows(res.items);
+      setSealed(res.sealed);
+      setSealedCount(res.count);
     } catch (e) {
       setErr((e as Error).message || t("rfqQuotesLoadFailed"));
     } finally {
@@ -61,7 +72,16 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
     }
     setAwarding(quoteId);
     try {
-      await awardRfqQuote(rfqId, quoteId);
+      if (demandId) {
+        const reason = window.prompt("请填写选定理由（不少于 5 个字，写入审计）", "");
+        if (!reason || reason.trim().length < 5) {
+          toast.error("请填写不少于 5 个字的选定理由");
+          return;
+        }
+        await awardDemandQuote(demandId, quoteId, reason.trim());
+      } else {
+        await awardRfqQuote(rfqId, quoteId);
+      }
       toast.success(t("rfqAwardToast"));
       await reload();
     } catch (e) {
@@ -79,7 +99,11 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
     }
     setRevoking(true);
     try {
-      await unawardRfqQuote(rfqId);
+      if (demandId) {
+        await unawardDemandQuote(demandId);
+      } else {
+        await unawardRfqQuote(rfqId);
+      }
       toast.success(t("rfqUnawardToast"));
       await reload();
     } catch (e) {
@@ -101,11 +125,15 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
         errorText={err}
         retryText={t("rfqQuotesRetry")}
         skeleton={<p className="text-sm text-secondary-400 py-6 text-center" aria-busy="true">{t("rfqQuotesLoading")}</p>}
-        isEmpty={!loading && !err && rows.length === 0}
+        isEmpty={!loading && !err && rows.length === 0 && !sealed}
         empty={<p className="text-sm text-secondary-400 py-6 text-center">{t("rfqQuotesEmpty")}</p>}
       >
         <>
-      {!loading && !err && hasWinner && (
+      {!loading && !err && sealed && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          报价截止后才可查看明细（已收到 {sealedCount} 条报价）
+        </div>
+      )}      {!loading && !err && hasWinner && (
         <div className="mb-3 flex items-center justify-between rounded-xl bg-primary-50 px-3 py-2">
           <span className="text-xs font-semibold text-primary-700">{t("rfqAwardDone")}</span>
           <Button
@@ -118,7 +146,7 @@ export function QuotesPanel({ rfqId }: QuotesPanelProps) {
           </Button>
         </div>
       )}
-      {!loading && !err && rows.length > 0 && (
+      {!loading && !err && !sealed && rows.length > 0 && (
         <div className="divide-y divide-secondary-100">
           {rows.map((q, idx) => {
             const badge = STATUS_BADGE[q.status];

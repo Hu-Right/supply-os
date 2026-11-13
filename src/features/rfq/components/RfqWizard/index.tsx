@@ -9,7 +9,7 @@
  *              字段级校验（步骤级拦截 + 滚动聚焦首个错误）、
  *              草稿即时上报（监听 form 统一上报，页面层负责持久化）、
  *              联系方式登录态预填。
- *              提交已接入 /api/rfq/create，附件 P2 接入 OSS 预签名直传。
+ *              提交已接入 /api/rfq/demands + /api/rfq/demands/{id}/submit，附件 P2 接入 OSS 预签名直传。
  */
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -180,7 +180,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     setStep((prev) => Math.max(prev - 1, 0));
   }
 
-  // ── 提交：POST /api/rfq/create → PATCH /api/rfq/{id}/submit ──
+  // ── 提交：POST /api/rfq/demands → POST /api/rfq/demands/{id}/submit ──
   async function handleSubmit() {
     const e = validateStep(2);
     setErrors(e);
@@ -190,33 +190,34 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     }
     setSubmitting(true);
     try {
-      // api() 内部已 JSON.stringify，body 直接传对象（切勿二次 stringify）
-      const res = await api<{ id: number }>("/api/rfq/create", {
+      // 口径（与后端一致）：金额进库为「元」，表单按「万元」录入，仅在此处 ×10000；
+      // 截止时间传 yyyy-MM-dd，由后端按 Asia/Shanghai 日终折算为 close_at，避免前后端各算一次。
+      const res = await api<{ id: number; reference: string }>("/api/rfq/demands", {
         method: "POST",
         body: {
           title: form.title.trim(),
           description: form.description.trim(),
-          budget: form.budgetConfidential ? 0 : Number(form.budget) || 0,
-          budget_confidential: form.budgetConfidential,
-          currency: form.currency || "CNY",
-          country: "China",
-          category_code: form.categoryL3 || form.categoryL2 || form.categoryL1 || undefined,
-          delivery_address: form.address.trim(),
+          budgetConfidential: form.budgetConfidential,
+          budgetAmount: form.budgetConfidential ? null : (Number(form.budget) || 0) * 10_000,
+          budgetCurrency: form.currency || "CNY",
+          categoryCode: form.categoryL3 || form.categoryL2 || form.categoryL1 || undefined,
+          deliveryAddress: form.address.trim(),
           incoterm: form.incoterm,
-          delivery_time: form.deliveryTime,
-          payment_terms: form.paymentTerms,
+          deliveryTime: form.deliveryTime,
+          paymentTerms: form.paymentTerms,
+          supplierReqs: form.supplierReqs,
+          purchaseType: form.purchaseType,
           deadline: form.deadline,
           visibility: form.visibility,
-          supplier_reqs: form.supplierReqs,
-          contact_name: form.contactName,
-          contact_email: form.contactEmail,
-          contact_phone: form.contactPhone,
-          status: "draft",
+          contactName: form.contactName,
+          contactEmail: form.contactEmail,
+          contactPhone: form.contactPhone,
+          agreed: form.agreed,
         },
       });
-      const rfqId = res?.id;
-      if (!rfqId) throw new Error(t("rfqCreateFailed"));
-      await api(`/api/rfq/${rfqId}/submit`, { method: "PATCH", body: {} });
+      const demandId = res?.id;
+      if (!demandId) throw new Error(t("rfqCreateFailed"));
+      await api(`/api/rfq/demands/${demandId}/submit`, { method: "POST", body: {} });
       setSubmitted(true);
     } catch (err) {
       const msg = (err as Error).message || "";

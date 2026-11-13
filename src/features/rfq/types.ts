@@ -53,35 +53,28 @@ export interface RfqFormState {
 /** 字段级错误信息（key → 错误文案） */
 export type FieldErrors = Record<string, string>;
 
-/** 需求广场卡片（数据来自 GET /api/rfq/list） */
+/** 需求广场卡片（数据来自 GET /api/rfq/list，v2 读模型） */
 export interface PlazaRfq {
   id: number;
-  /** 公告编号（平台生成：OSRFQ-{id}），用于追溯引用 */
+  /** 需求编号（平台生成：OSRFQ-{年}-{序号}） */
   reference?: string;
-  /** 一级行业（用于行业筛选，对齐旧品类码一级分类） */
-  industry: string;
-  /** 展示用标签文案 */
-  tag: string;
   title: string;
-  countryZh: string;
-  /** 英文名，供 CountryFlag 匹配 ISO2 */
-  countryEn: string;
-  /** 交付地点（手动填写的完整地址；旧数据为主表省份名） */
-  address?: string;
-  /** 交付省份（历史行残留，新行不再写） */
-  province?: string;
+  status?: string;
+  categoryCode?: string;
   /** 一级分类名称 */
   categoryL1?: string;
   /** 二级分类名称 */
   categoryL2?: string;
-  budgetDisplay: string;
-  /** 预算数值（万元，币种见 currency）；字段名为历史残留，用于预算区间筛选 */
-  budgetUsd: number;
-  /** 币种代码 */
+  /** 交付省份（新行为空，前端用 address 兜底） */
+  province?: string;
+  quantity?: number | null;
+  quantityUnit?: string;
+  /** 预算（元）；保密时 null */
+  budgetAmount: number | null;
+  budgetConfidential?: boolean;
   currency: string;
-  /** ISO 日期 yyyy-MM-dd */
-  deadline: string;
+  /** 报价截止（秒） */
+  closeAt: number | null;
+  createdAt?: number | null;
   responses: number;
-  /** 置顶需求 */
-  boosted?: boolean;
 }

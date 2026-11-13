@@ -48,7 +48,7 @@ const CURRENCIES = [
   { value: "HKD", label: "港币 (HKD)" },
 ];
 
-const EDITABLE_STATUSES = ["draft", "pending_review", "rejected"];
+const EDITABLE_STATUSES = ["draft", "rejected"];
 
 function secToDateInput(sec: number): string {
   if (!sec) return "";
@@ -81,7 +81,7 @@ export default function RfqEditSettingsPageClient() {
 
   useEffect(() => {
     if (!id) return;
-    api<RfqEditData>(`/api/rfq/${id}`)
+    api<RfqEditData>(`/api/rfq/demands/${id}`)
       .then((res) => {
         const d = res;
         if (!d.isOwner) {
@@ -89,7 +89,7 @@ export default function RfqEditSettingsPageClient() {
           return;
         }
         if (!EDITABLE_STATUSES.includes(d.status)) {
-          setDenied("仅草稿、待审核或审核未通过状态可编辑");
+          setDenied("仅草稿或审核未通过的需求可编辑（审核中请先撤回提交）");
           return;
         }
         setData(d);
@@ -108,7 +108,7 @@ export default function RfqEditSettingsPageClient() {
     setSaving(true);
     setError("");
     try {
-      await api(`/api/rfq/${id}`, {
+      await api(`/api/rfq/demands/${id}`, {
         method: "PATCH",
         body: {
           title: data.title,
@@ -128,7 +128,7 @@ export default function RfqEditSettingsPageClient() {
         },
       });
       if (withSubmit) {
-        await api(`/api/rfq/${id}/submit`, { method: "PATCH", body: {} });
+        await api(`/api/rfq/demands/${id}/submit`, { method: "POST", body: {} });
       }
       router.push("/settings/rfq");
     } catch (err) {
