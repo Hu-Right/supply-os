@@ -66,7 +66,14 @@ function fakePool(opts: FakeOptions = {}) {
       return [{ affectedRows: 1 }];
     }),
   };
-  const pool = { getConnection: vi.fn().mockResolvedValue(conn) };
+  const pool = {
+    query: vi.fn(async (sql: string) => {
+      // 审核结论后的通知：去重查询返回空 → 走 INSERT（这里只需不抛错）
+      if (String(sql).startsWith("SELECT 1 FROM notifications")) return [[]];
+      return [{ affectedRows: 1 }];
+    }),
+    getConnection: vi.fn().mockResolvedValue(conn),
+  };
   return { pool: pool as unknown as Pool, conn, calls };
 }
 
