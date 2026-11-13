@@ -19,6 +19,7 @@
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
 import type { Pool, RowDataPacket } from "mysql2/promise";
+import { STABLE_EXPIRED_WHERE } from "../../utils/notice-expired";
 import { deleteNoticeNodes } from "./notice-nodes";
 
 // ── 对账日志节流（同一类型 30 分钟内不重复输出，避免高频刷屏）──
@@ -69,7 +70,9 @@ export async function detectDeadlineDrift(pool: Pool, limit = 5000): Promise<num
 }
 
 /**
- * Ghost 行清理：删除宽表中主表已不存在、或平台行已不可公开可见的记录。
+ * Ghost 行清理：删除宽表中主表已不存在、平台行已不可公开可见、或已稳定过期
+ * （截止已过且超清退余量 30 天，口径 = utils/notice-expired 的 STABLE_EXPIRED_WHERE，
+ * 2026-11-13 构建时摘除：服务表先行清退，宽表在此跟退）的记录。
  * 这是宽表允许的删除出口之一（另一个是 search-visibility/purgeNoticeSearch）。
  */
 export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
@@ -82,6 +85,7 @@ export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
          LEFT JOIN bid_notices n ON n.id = ns.id
          WHERE n.id IS NULL
             OR (n.entry_source = 'platform' AND IFNULL(n.rfq_status, '') <> ${JSON.stringify(RFQ_STATUS.PUBLISHED)})
+            OR ${STABLE_EXPIRED_WHERE}
          LIMIT 5000`,
       );
       const ghosts = ghostRows as RowDataPacket[];
@@ -104,13 +108,39 @@ export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
       if (ghosts.length < 5000) break;
     }
     if (allDeletedIds.length > 0) {
-      console.log(`[wide-table] ghost 行清理: 删除 ${allDeletedIds.length} 条主表已不存在的记录`);
+      console.log(`[wide-table] ghost 行清理: 删除 ${allDeletedIds.length} 条主表已不存在/不可见/稳定过期的记录`);
     }
     return allDeletedIds;
   } catch (e) {
     console.warn(`[wide-table] ghost 行清理失败（静默降级）:`, (e as Error).message);
     return allDeletedIds;
   }
+}
+
+/**
+ * 服务表↔宽表存在性对账（只检测，修复走 syncWideIds）。
+ *
+ * 找「服务表有行、宽表缺行」的公告。主要覆盖清退后复活：
+ * 稳定过期行被 ghost 链从服务表/宽表清退后，源站延期 → 主表 update_time 变新 →
+ * 服务表 missing 分支重建（id 在宽表增量水位之下，增量永远拉不到）→ 本检测把行补回宽表，
+ * syncWideIds 再级联 Meili。顺带兜底历史上任何「服务表有、宽表漏」的同步缺口。
+ *
+ * 成本：notice_public LEFT JOIN notice_search，PK 对 PK 点查；清退落地后服务表约 1/3 体量，
+ * 与既有 reconcileGhostRows（notice_search 全扫）同级。
+ */
+export async function detectWideMissingRows(pool: Pool, limit = 500): Promise<number[]> {
+  const [rows] = await pool.query(
+    `SELECT p.notice_pk AS id
+     FROM notice_public p
+     LEFT JOIN notice_search ns ON ns.id = p.notice_pk
+     WHERE ns.id IS NULL
+     LIMIT ${limit}`,
+  );
+  const ids = (rows as RowDataPacket[]).map((r) => Number(r.id)).filter(Boolean);
+  if (ids.length > 0) {
+    reconcileLog("wide-missing", ids.length, `[wide-table] 服务表有而宽表缺行待回补 ${ids.length} 条`);
+  }
+  return ids;
 }
 
 /** 平台公告状态漂移检测结果：toSync 应公开可见但宽表缺行；toPurge 不可见但宽表残留 */

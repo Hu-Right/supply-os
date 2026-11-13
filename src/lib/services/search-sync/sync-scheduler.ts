@@ -21,7 +21,7 @@ import {
   buildWideRow, upsertWideRows,
 } from "./wide-row-builder";
 import {
-  detectDeadlineDrift, reconcileGhostRows, detectPlatformStatusDrift,
+  detectDeadlineDrift, reconcileGhostRows, detectPlatformStatusDrift, detectWideMissingRows,
 } from "./wide-row-reconcile";
 import { detectWideFingerprintDrift, isFingerprintColumn } from "./wide-fingerprint";
 import { purgeNoticeSearch } from "../search-visibility";
@@ -331,17 +331,22 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
       if (platformPurgeIds.length > 0) await purgeNoticeSearch(pool, platformPurgeIds);
       if (platformSyncIds.length > 0) await syncWideIds(pool, platformSyncIds);
 
-      // 2) Ghost 行清理（主表已删除 / 平台行转为不可见）
+      // 2) Ghost 行清理（主表已删除 / 平台行转为不可见 / 稳定过期超清退余量）
       const ghostIds = await reconcileGhostRows(pool);
+
+      // 2.5) 服务表↔宽表存在性对账：清退后复活行（源站延期，id 已在增量水位之下）
+      // 回补宽表，syncWideIds 内部级联 Meili；顺带兜底历史漏同步（2026-11-13 构建时摘除）
+      const wideMissingIds = await detectWideMissingRows(pool);
+      if (wideMissingIds.length > 0) await syncWideIds(pool, wideMissingIds);
 
       // 3) 源指纹轮转：内容落后于输入的行（取代旧的 5 段手写 UPDATE）
       const driftIds = await detectWideFingerprintDrift(pool);
       if (driftIds.length > 0) await syncWideIds(pool, driftIds);
 
-      if (ghostIds.length > 0 || platformSyncIds.length > 0 || platformPurgeIds.length > 0 || driftIds.length > 0) {
+      if (ghostIds.length > 0 || platformSyncIds.length > 0 || platformPurgeIds.length > 0 || driftIds.length > 0 || wideMissingIds.length > 0) {
         console.log(
           `[wide-table] 全量对账：ghost=${ghostIds.length} 平台补建=${platformSyncIds.length} ` +
-          `平台清除=${platformPurgeIds.length} 指纹重建=${driftIds.length}`,
+          `平台清除=${platformPurgeIds.length} 宽表缺行回补=${wideMissingIds.length} 指纹重建=${driftIds.length}`,
         );
       }
       // ghost 行已由 reconcileGhostRows 直接删除，不走 syncWideIds（主表行为不存在），
