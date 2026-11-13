@@ -15,6 +15,25 @@ import { WIDE_LIMITS, DESC_SOURCE_EXPR } from "../../utils/notice-field-limits";
 import { qualifiedOppWhere } from "../../utils/notice-qualified";
 
 /**
+ * 主表回退查询 SQL（宽表未就绪 / 服务表已清退的稳定过期行补齐）。
+ * 两处共用一份行形状口径：desc 来源与摘要长度引用 utils 层常量（I2），不再有第三份副本。
+ */
+function fallbackDetailSql(ids: number[]): string {
+  return `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
+       n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
+       n.is_featured, n.documents, n.procurement_files,
+       LEFT(${DESC_SOURCE_EXPR}, ${WIDE_LIMITS.lockedTeaser}) AS description,
+       CASE WHEN LENGTH(${DESC_SOURCE_EXPR}) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
+       opp.description_cn,
+       opp.beneficiary_countries
+     FROM bid_notices n
+     LEFT JOIN bid_opportunities opp ON opp.source_notice_id = n.notice_id
+       AND ${qualifiedOppWhere("opp")}
+     WHERE n.id IN (${ids.map(() => "?").join(",")})
+     ORDER BY FIELD(n.id, ${ids.map(() => "?").join(",")})`;
+}
+
+/**
  * 按 ID 列表获取公告详情行。
  * @param ids 公告 ID 列表（Meilisearch 返回，已按排序）
  * @param _locale 界面语言（历史参数；水合口径已统一为 title_cn/description，保留签名兼容调用方）
@@ -49,25 +68,28 @@ export async function fetchDetailsByIds(
        ORDER BY FIELD(p.notice_pk, ${ids.map(() => "?").join(",")})`,
       [...ids, ...ids],
     );
-    return rows as RowDataPacket[];
+    const wideRows = rows as RowDataPacket[];
+    // [2026-11-13 构建时摘除] 稳定过期行已被清退出服务表，直链/收藏/搜索引擎收录的
+    // 过期详情会在此 miss——逐行回退主表补齐（行形状与宽表未就绪路径一致），
+    // 详情直链保持可达；主链命中行零额外开销。
+    const gotIds = new Set(wideRows.map((r) => Number(r.notice_pk)));
+    const missed = ids.filter((id) => !gotIds.has(Number(id)));
+    if (missed.length === 0) return wideRows;
+    const [fallbackRows] = await pool.query(
+      fallbackDetailSql(missed),
+      [...missed, ...missed],
+    );
+    const merged = new Map<number, RowDataPacket>();
+    for (const r of wideRows) merged.set(Number(r.notice_pk), r);
+    for (const r of fallbackRows as RowDataPacket[]) merged.set(Number(r.id), r);
+    // 顺序仍与传入 ids 一致（缺失的行被跳过，承诺不变）
+    return ids
+      .map((id) => merged.get(Number(id)))
+      .filter((r): r is RowDataPacket => r != null);
   }
 
   // 回退路径：原始多表 JOIN（宽表未就绪）
-  const [rows] = await pool.query(
-    `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-       n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
-       n.is_featured, n.documents, n.procurement_files,
-       LEFT(${DESC_SOURCE_EXPR}, ${WIDE_LIMITS.lockedTeaser}) AS description,
-       CASE WHEN LENGTH(${DESC_SOURCE_EXPR}) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
-       opp.description_cn,
-       opp.beneficiary_countries
-     FROM bid_notices n
-     LEFT JOIN bid_opportunities opp ON opp.source_notice_id = n.notice_id
-       AND ${qualifiedOppWhere("opp")}
-     WHERE n.id IN (${ids.map(() => "?").join(",")})
-     ORDER BY FIELD(n.id, ${ids.map(() => "?").join(",")})`,
-    [...ids, ...ids],
-  );
+  const [rows] = await pool.query(fallbackDetailSql(ids), [...ids, ...ids]);
   return rows as RowDataPacket[];
 }
 
