@@ -41,21 +41,21 @@ beforeEach(() => {
 });
 
 describe("GET /api/certifications", () => {
-  it("行→视图只出 id + name；SELECT 之外的列（sort_order/created_at）与表列名一律不上网", async () => {
+  it("行→视图只出 id/code/name/category 四键；SELECT 之外的列（scope/aliases/created_at）一律不上网", async () => {
     mocks.listActiveCertifications.mockResolvedValue([
-      { id: 3, name: "ISO 9001", sort_order: 1, is_active: 1, created_at: "2026-01-02 03:04:05" },
-      // 脏值也要归一：id 可能是字符串、name 可能为 NULL
-      { id: "7", name: null, sort_order: 9, is_active: 1 },
+      { id: 3, code: "ISO9001", name: "ISO9001 质量管理体系认证", category: "management", scope: "global", aliases: ["ISO 9001"], is_active: 1, created_at: "2026-01-02 03:04:05" },
+      // 脏值也要归一：id 可能是字符串，code/name/category 可能为 NULL
+      { id: "7", code: null, name: null, category: null, scope: "EU" },
     ]);
 
     const body = await run(certificationsGET, "/api/certifications");
 
     expect(body).toEqual([
-      { id: 3, name: "ISO 9001" },
-      { id: 7, name: "" },
+      { id: 3, code: "ISO9001", name: "ISO9001 质量管理体系认证", category: "management" },
+      { id: 7, code: "", name: "", category: "" },
     ]);
     for (const item of body) {
-      expect([...Object.keys(item)].sort()).toEqual(["id", "name"]);
+      expect([...Object.keys(item)].sort()).toEqual(["category", "code", "id", "name"]);
       expect(Object.keys(item).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
     }
   });

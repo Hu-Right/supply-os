@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, getAuthToken } from "@/core/http";
 import { useLocale } from "@/core/i18n";
-import type { CapabilityType, FieldValue, ProfileResponse } from "./shared";
+import type { CapabilityType, CertOption, FieldValue, ProfileResponse } from "./shared";
 
 export function useEnterpriseCapabilityData(enabled: boolean) {
   const { t } = useLocale();
@@ -28,6 +28,8 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
   /** 表单/动作错误（列表与表单仍可见，内联提示） */
   const [actionError, setActionError] = useState<string | null>(null);
 
+  /** 认证字典选项：证书下拉的数据源；拉取失败只影响下拉，不让整档加载失败 */
+  const [certOptions, setCertOptions] = useState<CertOption[]>([]);
   const [capType, setCapType] = useState<CapabilityType>("certification");
   const [capName, setCapName] = useState("");
   const [fields, setFields] = useState<Record<string, FieldValue>>({ noExpiry: true });
@@ -44,7 +46,12 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
     setLoading(true);
     setError(null);
     try {
-      setProfile(await api<ProfileResponse>("/api/user/enterprise/capabilities"));
+      const [nextProfile, certs] = await Promise.all([
+        api<ProfileResponse>("/api/user/enterprise/capabilities"),
+        api<CertOption[]>("/api/certifications").catch(() => [] as CertOption[]),
+      ]);
+      setProfile(nextProfile);
+      setCertOptions(certs);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("capLoadFailed"));
     } finally {
@@ -70,22 +77,33 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
           setActionError(t("capCertExpiryRequired"));
           return null;
         }
-        return { code: str("code") || capName, issuer: str("issuer") || null, noExpiry: f.noExpiry === true, validUntil: f.noExpiry ? null : validUntil };
+        const code = str("code") || capName;
+        return {
+          kind: "certification",
+          code,
+          /** 名称快照：字典改名不影响历史记录 */
+          name: capName,
+          /** dictionary = 从字典选中（code 可直接匹配）；manual = 手填长尾 */
+          source: certOptions.some((o) => o.code === code) ? "dictionary" : "manual",
+          issuer: str("issuer") || null,
+          noExpiry: f.noExpiry === true,
+          validUntil: f.noExpiry ? null : validUntil,
+        };
       }
       case "experience":
-        return { count: str("count") === "" ? null : Number(str("count")), years: str("years") === "" ? null : Number(str("years")), similarScope: str("similarScope") };
+        return { kind: "experience", ...{ count: str("count") === "" ? null : Number(str("count")), years: str("years") === "" ? null : Number(str("years")), similarScope: str("similarScope") } };
       case "financial":
-        return { metric: str("metric"), value: str("value") === "" ? null : Number(str("value")), year: str("year") === "" ? null : Number(str("year")) };
+        return { kind: "financial", ...{ metric: str("metric"), value: str("value") === "" ? null : Number(str("value")), year: str("year") === "" ? null : Number(str("year")) } };
       case "personnel":
-        return { role: str("role"), count: str("count") === "" ? null : Number(str("count")) };
+        return { kind: "personnel", ...{ role: str("role"), count: str("count") === "" ? null : Number(str("count")) } };
       case "localization":
-        return { country: str("country") || null, hasLocalOffice: f.hasLocalOffice === true, hasLocalAgent: f.hasLocalAgent === true, hasLocalTaxId: f.hasLocalTaxId === true };
+        return { kind: "localization", ...{ country: str("country") || null, hasLocalOffice: f.hasLocalOffice === true, hasLocalAgent: f.hasLocalAgent === true, hasLocalTaxId: f.hasLocalTaxId === true } };
       case "registration":
-        return { platform: str("platform"), status: str("status") || "active" };
+        return { kind: "registration", ...{ platform: str("platform"), status: str("status") || "active" } };
       case "technical":
-        return { parameter: str("parameter"), value: str("value") === "" ? null : Number(str("value")), unit: str("unit") || null };
+        return { kind: "technical", ...{ parameter: str("parameter"), value: str("value") === "" ? null : Number(str("value")), unit: str("unit") || null } };
       default:
-        return { text: str("text") };
+        return { kind: "text", ...{ text: str("text") } };
     }
   };
 
@@ -181,7 +199,7 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
 
   return {
     profile, loading, error, actionError, load,
-    capType, setCapType, capName, setCapName, fields, setField, resetFields, savingCap, submitCapability, deleteCapability,
+    capType, setCapType, capName, setCapName, certOptions, fields, setField, resetFields, savingCap, submitCapability, deleteCapability,
     evidenceFile, setEvidenceFile, evidenceCategory, setEvidenceCategory, evidenceTitle, setEvidenceTitle,
     evidenceValidUntil, setEvidenceValidUntil, evidenceNoExpiry, setEvidenceNoExpiry, savingEvidence,
     submitEvidence, deleteEvidence, openEvidenceFile,

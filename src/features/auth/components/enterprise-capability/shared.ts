@@ -54,6 +54,26 @@ export const TYPE_LABEL_KEYS: Record<CapabilityType, string> = {
   text: "capTypeText",
 };
 
+/** 认证字典选项（来自 GET /api/certifications，四键契约） */
+export interface CertOption {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+}
+
+/** 认证性质 → i18n 键：证书下拉的分组标题 */
+export const CERT_CATEGORY_LABEL_KEYS: Record<string, string> = {
+  management: "capCertCatManagement",
+  industry: "capCertCatIndustry",
+  market_access: "capCertCatMarketAccess",
+  product_safety: "capCertCatProductSafety",
+  esg: "capCertCatEsg",
+};
+
+/** 分组顺序与字典 id 顺序一致（管理体系 → 行业特定 → 市场准入 → 产品安全 → 社会责任） */
+export const CERT_CATEGORY_ORDER = ["management", "industry", "market_access", "product_safety", "esg"] as const;
+
 export const EVIDENCE_LABEL_KEYS: Record<string, string> = {
   cert: "capEvidenceCert",
   experience: "capEvidenceExperience",

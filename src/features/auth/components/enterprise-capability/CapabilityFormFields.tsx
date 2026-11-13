@@ -6,28 +6,100 @@
  *              纯受控渲染：值与变更全部来自 props（fields/setField），不含提交逻辑。
  */
 import { useLocale } from "@/core/i18n";
-import { inputCls, type CapabilityType, type FieldValue } from "./shared";
+import {
+  CERT_CATEGORY_LABEL_KEYS,
+  CERT_CATEGORY_ORDER,
+  inputCls,
+  type CapabilityType,
+  type CertOption,
+  type FieldValue,
+} from "./shared";
 
 export function CapabilityFormFields({
   capType,
   fields,
   setField,
+  certOptions = [],
+  setName,
 }: {
   capType: CapabilityType;
   fields: Record<string, FieldValue>;
   setField: (key: string, value: FieldValue) => void;
+  /** 认证字典选项：为空（加载失败）时自动降级为手填输入框 */
+  certOptions?: CertOption[];
+  /** 选中字典项后回填能力项名称，避免用户手抄 */
+  setName?: (name: string) => void;
 }) {
   const { t } = useLocale();
 
   if (capType === "certification") {
-    return (
-      <div className="grid grid-cols-3 gap-2">
-        <input value={String(fields.code ?? "")} onChange={(e) => setField("code", e.target.value)} placeholder={t("capCertCodePlaceholder")} className={inputCls} />
+    const dateAndExpiry = (
+      <>
         <input type="date" value={String(fields.validUntil ?? "")} onChange={(e) => setField("validUntil", e.target.value)} className={inputCls} disabled={fields.noExpiry === true} />
         <label className="flex items-center gap-1 text-2xs text-muted-foreground">
           <input type="checkbox" checked={fields.noExpiry === true} onChange={(e) => setField("noExpiry", e.target.checked)} />
           {t("capNoExpiry")}
         </label>
+      </>
+    );
+
+    // 字典不可用：退回自由输入，保证仍能录入
+    if (certOptions.length === 0) {
+      return (
+        <div className="grid grid-cols-3 gap-2">
+          <input value={String(fields.code ?? "")} onChange={(e) => setField("code", e.target.value)} placeholder={t("capCertCodePlaceholder")} className={inputCls} />
+          {dateAndExpiry}
+        </div>
+      );
+    }
+
+    const knownCodes = new Set(certOptions.map((o) => o.code));
+    const currentCode = String(fields.code ?? "");
+    const isManual = fields.certManual === true || (currentCode !== "" && !knownCodes.has(currentCode));
+    const grouped = CERT_CATEGORY_ORDER
+      .map((cat) => ({ cat, items: certOptions.filter((o) => o.category === cat) }))
+      .filter((g) => g.items.length > 0);
+
+    return (
+      <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <select
+            value={isManual ? "__manual__" : currentCode}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "__manual__") {
+                setField("certManual", true);
+                setField("code", "");
+                return;
+              }
+              setField("certManual", false);
+              setField("code", v);
+              const opt = certOptions.find((o) => o.code === v);
+              if (opt && setName) setName(opt.name);
+            }}
+            className={inputCls}
+            aria-label={t("capCertSelectPlaceholder")}
+          >
+            <option value="">{t("capCertSelectPlaceholder")}</option>
+            {grouped.map((g) => (
+              <optgroup key={g.cat} label={t(CERT_CATEGORY_LABEL_KEYS[g.cat] ?? g.cat)}>
+                {g.items.map((o) => (
+                  <option key={o.id} value={o.code}>{o.name}</option>
+                ))}
+              </optgroup>
+            ))}
+            <option value="__manual__">{t("capCertOther")}</option>
+          </select>
+          {dateAndExpiry}
+        </div>
+        {isManual && (
+          <input
+            value={currentCode}
+            onChange={(e) => setField("code", e.target.value)}
+            placeholder={t("capCertCodePlaceholder")}
+            className={inputCls}
+          />
+        )}
       </div>
     );
   }

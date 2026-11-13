@@ -17,16 +17,20 @@ import type { Pool } from "mysql2/promise";
 
 export interface CertificationRow {
   id: number;
+  /** 认证编码（如 ISO9001 / CE / PCAB）：归一与匹配的锚点，对外契约键 */
+  code: string;
   name: string;
+  /** 性质：management / industry / market_access / product_safety / esg，供下拉分组 */
+  category: string;
 }
 
 export class CatalogRepo {
   constructor(private pool: Pool) {}
 
-  /** 查询全部激活的供应商资质证书 */
+  /** 查询全部激活的供应商资质证书（顺序即 id，字典按性质分组连续编号） */
   async listActiveCertifications(): Promise<CertificationRow[]> {
     const [rows] = await this.pool.query(
-      "SELECT id, name FROM supplier_certifications WHERE is_active = 1 ORDER BY sort_order",
+      "SELECT id, code, name, category FROM supplier_certifications WHERE is_active = 1 ORDER BY id",
     );
     return rows as CertificationRow[];
   }

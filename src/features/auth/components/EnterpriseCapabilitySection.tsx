@@ -32,7 +32,7 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
   const data = useEnterpriseCapabilityData(enabled);
   const {
     profile, loading, error, actionError, load,
-    capType, setCapType, capName, setCapName, fields, setField, resetFields, savingCap, submitCapability, deleteCapability,
+    capType, setCapType, capName, setCapName, certOptions, fields, setField, resetFields, savingCap, submitCapability, deleteCapability,
   } = data;
 
   if (!enabled) return null;
@@ -97,7 +97,7 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
           <input value={capName} onChange={(e) => setCapName(e.target.value)} placeholder={t("capNamePlaceholder")} className={inputCls} />
         </div>
 
-        <CapabilityFormFields capType={capType} fields={fields} setField={setField} />
+        <CapabilityFormFields capType={capType} fields={fields} setField={setField} certOptions={certOptions} setName={setCapName} />
 
         <button type="button" onClick={() => void submitCapability()} disabled={savingCap} className="inline-flex items-center gap-1 rounded-md bg-brand-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-700 disabled:bg-slate-300">
           <Plus className="h-3.5 w-3.5" />
