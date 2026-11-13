@@ -6,7 +6,7 @@
  *   1. 从 DB 读取课程单价 → 计算总金额
  *   2. 生成订单号（TR + 日期 + 随机 hex）
  *   3. 通过支付策略生成二维码/支付链接
- *   4. 写入 training_orders 表
+ *   4. 写入统一订单表 orders（product_kind='course'；training_orders 已退役，ADR-0019）
  *   5. 返回完整订单信息（含 qrCodeUrl / payUrl 等前端支付所需字段，键名按红线② camelCase）
  */
 import { NextRequest, NextResponse } from "next/server";
