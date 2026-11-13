@@ -277,11 +277,11 @@ test.describe("RFQ 需求旅程", () => {
   });
 
   test("我的 RFQ → 未登录 401 / 登录后 200", async ({ request }) => {
-    const anon = await request.get(`${TEST_BASE_URL}/api/rfq/my`);
+    const anon = await request.get(`${TEST_BASE_URL}/api/rfq/demands/mine`);
     expect(anon.status()).toBe(401);
 
     const token = await loginToken(request, VIP_USER);
-    const res = await request.get(`${TEST_BASE_URL}/api/rfq/my`, {
+    const res = await request.get(`${TEST_BASE_URL}/api/rfq/demands/mine`, {
       headers: authHeaders(token),
     });
     expect(res.status()).toBe(200);
@@ -290,7 +290,7 @@ test.describe("RFQ 需求旅程", () => {
   test("发布校验边界 → 标题过短 400 明确报错", async ({ request }) => {
     test.skip(!isChromium(), "校验边界用例仅在 chromium 跑一次");
     const token = await loginToken(request, VIP_USER);
-    const res = await request.post(`${TEST_BASE_URL}/api/rfq/create`, {
+    const res = await request.post(`${TEST_BASE_URL}/api/rfq/demands`, {
       headers: authHeaders(token),
       data: {
         title: "短标题",

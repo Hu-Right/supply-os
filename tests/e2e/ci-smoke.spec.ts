@@ -91,7 +91,7 @@ test.describe("鉴权与参数边界", () => {
   });
 
   test("未登录访问我的 RFQ → 401", async ({ request }) => {
-    const res = await request.get(`${BASE}/api/rfq/my`);
+    const res = await request.get(`${BASE}/api/rfq/demands/mine`);
     expect(res.status()).toBe(401);
   });
 
