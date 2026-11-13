@@ -107,30 +107,31 @@ export interface CreateTrainingOrderData {
 export class TrainingRepo {
   constructor(private pool: Pool) {}
 
-  /** 研修班报名，返回自增 id */
+  /** 研修班报名，返回自增 id。2026-11-13 起写 training_enrollments（一人一条，2800 元/人） */
   async insertRegistration(data: {
+    fullName: string;
+    gender: string | null;
+    phone: string;
+    position: string;
     companyName: string;
-    industryId: number | null;
-    industry: string;
     mainProduct: string;
     exportExperience: string;
     certification: string;
-    contactName: string;
-    position: string;
-    telephone: string;
-    email: string;
     remark: string;
+    email: string;
+    scheduleId: number | null;
+    amount: number | null;
     ip: string;
   }): Promise<number> {
     const [result] = await this.pool.execute(
-      `INSERT INTO training_registrations
-        (company_name, industry_id, industry, main_product, export_experience, certification, contact_name, position, telephone, email, remark, created_at, ip, audit_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 'pending')`,
+      `INSERT INTO training_enrollments
+        (full_name, gender, phone, position, company_name, main_product,
+         export_experience, certification, remark, email, schedule_id, amount, created_at, ip, payment_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 'unpaid')`,
       [
-        data.companyName, data.industryId, data.industry,
-        data.mainProduct, data.exportExperience, data.certification,
-        data.contactName, data.position, data.telephone,
-        data.email, data.remark, data.ip,
+        data.fullName, data.gender, data.phone, data.position,
+        data.companyName, data.mainProduct, data.exportExperience, data.certification,
+        data.remark, data.email, data.scheduleId, data.amount, data.ip,
       ],
     );
     return Number((result as RowDataPacket).insertId);
@@ -223,7 +224,7 @@ export class TrainingRepo {
   /** 更新报名记录的支付状态与关联订单 */
   async updateRegistrationPayment(registrationId: number, orderId: number, paymentStatus: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
+      "UPDATE training_enrollments SET payment_status = ?, order_id = ? WHERE id = ?",
       [paymentStatus, orderId, registrationId],
     );
   }
@@ -262,7 +263,7 @@ export class TrainingRepo {
   /** 事务内更新报名记录支付状态 */
   async updateRegistrationPaymentInTransaction(conn: PoolConnection, registrationId: number, orderId: number, paymentStatus: string): Promise<void> {
     await conn.execute(
-      "UPDATE training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
+      "UPDATE training_enrollments SET payment_status = ?, order_id = ? WHERE id = ?",
       [paymentStatus, orderId, registrationId],
     );
   }
@@ -288,7 +289,6 @@ export class TrainingRepo {
     full_name: string;
     gender?: string | null;
     phone?: string | null;
-    company_name?: string | null;
     position?: string | null;
     email?: string | null;
   }>): Promise<void> {
@@ -304,7 +304,6 @@ export class TrainingRepo {
       p.full_name,
       p.gender || null,
       p.phone || null,
-      p.company_name || null,
       p.position || null,
       // email 于 2026-10-29 补入：表单一直在采集，列一直存在，只是此前没人写它
       // （用户填的邮箱静默丢弃；证书发放口径需要这一列）。
@@ -313,14 +312,14 @@ export class TrainingRepo {
     
     // 列清单与这里的 ? 个数必须同批增减（多一个少一个都是列/参数错位）。
     const placeholders = values.map(() => 
-      "(?, ?, ?, ?, ?, ?, ?, ?)"
+      "(?, ?, ?, ?, ?, ?, ?)"
     ).join(", ");
     
     const flatValues = values.flat();
     
     await this.pool.execute(
       `INSERT INTO training_participants (
-        order_id, participant_no, full_name, gender, phone, company_name, position, email
+        order_id, participant_no, full_name, gender, phone, position, email
       ) VALUES ${placeholders}`,
       flatValues
     );

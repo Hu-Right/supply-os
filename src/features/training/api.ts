@@ -101,7 +101,6 @@ export interface ParticipantInput {
   full_name: string;
   gender?: string | null;
   phone?: string | null;
-  company_name?: string | null;
   position?: string | null;
   email?: string | null;
 }
@@ -126,16 +125,19 @@ export interface GetParticipantsResponse {
  */
 export interface TrainingRegisterForm {
   company_name: string;
-  // 行业取 UGT-I 行业面节点码（最深已选层）；未选择行业时允许 null
-  industry_code: string | null;
   main_product: string;
   export_experience: string;
   certification: string;
-  contact_name: string;
-  position: string;
-  telephone: string;
-  email: string;
   remark: string;
+  /** 邮箱：发票与通知发送（企业区收集） */
+  email: string;
+  /** 参训学员本人姓名（一人一条，不区分联系人与学员） */
+  full_name: string;
+  gender: string | null;
+  phone: string;
+  position: string;
+  /** 参训期次：报名时必选，决定排期与上课通知 */
+  schedule_id: number | null;
 }
 
 /** 认证资质参考项（GET /api/certifications）：服务端只发 id + name 两键。
@@ -144,7 +146,11 @@ export interface TrainingRegisterForm {
  *  所以它们是幻影字段；两处读取点靠它们做的回退链一并拆掉。 */
 export interface CertificationRefItem {
   id: number;
+  /** 认证编码（ISO9001 / CE / PCAB）：2026-11-13 起随字典规范化透出，供选择后存 code 快照 */
+  code: string;
   name: string;
+  /** 性质（management / industry / market_access / product_safety / esg）：下拉分组用 */
+  category: string;
 }
 
 /** 资质证书参考项（与旧品类字典无关，独立端点） */
@@ -161,6 +167,18 @@ export const fetchIndustryChildren = (parent: string) =>
  * 提交培训注册
  * Submit Training Registration
  */
+/** 报名时已提交的学员本人信息：支付弹窗用它预填第一名学员，避免重复录入 */
+export interface EnrolledStudentInfo {
+  full_name: string;
+  phone: string;
+  email?: string;
+  gender?: string;
+  position: string;
+  company_name: string;
+  /** 报名时选中的期次：支付弹窗据此预选，避免重复选择 */
+  schedule_id?: number | null;
+}
+
 export const submitTrainingRegister = (data: TrainingRegisterForm) =>
   api<{ success: boolean; id?: number }>("/api/training/register", {
     method: "POST",

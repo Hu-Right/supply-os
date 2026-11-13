@@ -10,7 +10,7 @@
  *
  *              职责边界：
  *              - 订单存于统一表 orders（product_kind='course'）
- *              - 履约写入 orders（状态）+ training_registrations（报名状态）
+ *              - 履约写入 orders（状态）+ training_enrollments（报名状态）
  *                + training_schedules（期次人数）
  *              - 定价从 TrainingRepo（training_courses 表）读取（零硬编码），
  *                取价与归一由 lib/payment/products 统一（courseProductOf）
@@ -325,7 +325,7 @@ export class TrainingPaymentService {
       // 回滚报名支付状态
       if (order.registration_id) {
         await conn.execute(
-          "UPDATE training_registrations SET payment_status = 'refunded', order_id = NULL WHERE id = ?",
+          "UPDATE training_enrollments SET payment_status = 'refunded', order_id = NULL WHERE id = ?",
           [order.registration_id],
         );
       }

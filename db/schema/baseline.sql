@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 126 张，导出 120 张，排除 6 张。
+--           源库共 122 张，导出 117 张，排除 5 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -262,7 +262,7 @@ CREATE TABLE `bid_opportunities` (
   KEY `idx_bid_opp_create_time` (`create_time`),
   KEY `idx_bid_opp_country` (`country`),
   KEY `idx_review_deadline` (`review_status`,`deadline_sec`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机表（人工拆单）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机表';
 
 -- ── bid_opportunity_candidates ──
 CREATE TABLE `bid_opportunity_candidates` (
@@ -759,30 +759,6 @@ CREATE TABLE `learning_materials` (
   KEY `idx_category` (`category_zh`),
   KEY `idx_number` (`number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='学习资料表';
-
--- ── learning_orders ──
-CREATE TABLE `learning_orders` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint unsigned NOT NULL,
-  `order_no` varchar(80) NOT NULL,
-  `plan_code` varchar(60) NOT NULL COMMENT 'material_{id} 或 bundle_{id}',
-  `amount` decimal(10,2) NOT NULL,
-  `currency` varchar(10) NOT NULL DEFAULT 'CNY',
-  `provider` varchar(20) NOT NULL,
-  `status` varchar(20) NOT NULL DEFAULT 'pending',
-  `provider_trade_no` varchar(120) DEFAULT NULL,
-  `pay_url` text,
-  `qr_code_url` text,
-  `raw_request` json DEFAULT NULL,
-  `raw_notify` json DEFAULT NULL,
-  `paid_at` datetime DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `order_no` (`order_no`),
-  KEY `idx_lo_plan_code` (`plan_code`),
-  KEY `idx_lo_user_id` (`user_id`,`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='学习资料订单表';
 
 -- ── license_changes ──
 CREATE TABLE `license_changes` (
@@ -1459,33 +1435,6 @@ CREATE TABLE `password_resets` (
   KEY `idx_phone_lookup` (`phone`,`code_type`,`used`,`expires_at`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='验证码下发表';
 
--- ── payment_orders ──
-CREATE TABLE `payment_orders` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint unsigned NOT NULL,
-  `order_no` varchar(80) NOT NULL,
-  `provider` enum('alipay','wechat','mock') NOT NULL,
-  `plan_code` varchar(60) NOT NULL,
-  `order_type` varchar(20) NOT NULL DEFAULT 'new',
-  `original_order_no` varchar(80) DEFAULT NULL,
-  `notice_id` bigint unsigned DEFAULT NULL,
-  `amount` decimal(10,2) NOT NULL,
-  `currency` varchar(10) NOT NULL DEFAULT 'CNY',
-  `status` enum('pending','paid','closed','failed','refunded') NOT NULL DEFAULT 'pending',
-  `provider_trade_no` varchar(120) DEFAULT NULL,
-  `pay_url` text,
-  `qr_code_url` text,
-  `raw_request` json DEFAULT NULL,
-  `raw_notify` json DEFAULT NULL,
-  `paid_at` datetime DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  `industry_code` varchar(32) DEFAULT NULL COMMENT 'L1 品目大类节点码（UGT-01…）',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `order_no` (`order_no`),
-  KEY `idx_user_status` (`user_id`,`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='支付订单。';
-
 -- ── payment_provider_configs ──
 CREATE TABLE `payment_provider_configs` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1982,11 +1931,15 @@ CREATE TABLE `supplier_backbone_interests` (
 -- ── supplier_certifications ──
 CREATE TABLE `supplier_certifications` (
   `id` int NOT NULL AUTO_INCREMENT,
+  `code` varchar(40) NOT NULL COMMENT '认证编码（唯一键，如 ISO9001 / CE / FCC），机器归一与匹配的锚点',
   `name` varchar(200) NOT NULL COMMENT '认证名称',
-  `sort_order` int DEFAULT '0' COMMENT '排序',
+  `category` varchar(20) NOT NULL COMMENT '性质：management 管理体系 / industry 行业特定 / market_access 市场准入 / product_safety 产品安全 / esg 社会责任',
+  `scope` varchar(100) NOT NULL COMMENT '适用范围：global 或地区/国家码（EU/UK/EAEU/GCC/AU/NZ/US/JP/KR/SA/IN/CA/BR/TH/ID/NG）',
+  `aliases` json NOT NULL COMMENT '别名数组：标准写法变体、中文简称、历史名称快照（用于归一匹配与历史数据回查）',
   `is_active` tinyint(1) DEFAULT '1' COMMENT '是否启用',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_cert_code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商认证证书字典表';
 
 -- ── supplier_claims ──
@@ -2228,35 +2181,32 @@ CREATE TABLE `training_download_stats` (
   PRIMARY KEY (`material_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='资料下载次数统计';
 
--- ── training_orders ──
-CREATE TABLE `training_orders` (
+-- ── training_enrollments ──
+CREATE TABLE `training_enrollments` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint unsigned DEFAULT NULL,
-  `order_no` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `course_id` int unsigned NOT NULL,
-  `schedule_id` int unsigned DEFAULT NULL,
-  `registration_id` bigint unsigned DEFAULT NULL,
-  `participant_count` int NOT NULL DEFAULT '1',
-  `unit_price` decimal(10,2) NOT NULL,
-  `total_amount` decimal(10,2) NOT NULL,
-  `currency` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'CNY',
-  `provider` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'pending',
-  `qr_code` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
-  `pay_url` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
-  `provider_trade_no` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
-  `paid_at` datetime DEFAULT NULL,
-  `expires_at` datetime NOT NULL,
+  `full_name` varchar(100) NOT NULL COMMENT '参训学员姓名',
+  `gender` varchar(20) DEFAULT NULL COMMENT '性别',
+  `phone` varchar(50) NOT NULL COMMENT '手机号',
+  `position` varchar(100) DEFAULT NULL COMMENT '职位',
+  `company_name` varchar(255) NOT NULL COMMENT '公司名称',
+  `main_product` varchar(255) DEFAULT NULL COMMENT '主营产品',
+  `export_experience` varchar(255) DEFAULT NULL COMMENT '出口贸易经验',
+  `certification` text COMMENT '认证资质：字典名称快照，换行分隔',
+  `remark` text COMMENT '备注',
+  `email` varchar(190) DEFAULT NULL COMMENT '邮箱：发票/通知发送',
+  `schedule_id` int unsigned DEFAULT NULL COMMENT '报名期次 training_schedules.id',
+  `order_id` bigint unsigned DEFAULT NULL COMMENT '关联订单 orders.id',
+  `payment_status` varchar(20) NOT NULL DEFAULT 'unpaid' COMMENT 'unpaid/paid/refunded',
+  `amount` decimal(10,2) DEFAULT NULL COMMENT '课程单价快照（2800 元/人）；实际应付 = 单价 × 参训人数，以 orders.amount 为准',
+  `ip` varchar(45) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `contact_name` varchar(100) DEFAULT NULL COMMENT '联系人姓名',
-  `telephone` varchar(50) DEFAULT NULL COMMENT '联系电话',
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `order_no` (`order_no`),
-  KEY `idx_training_orders_status` (`status`),
-  KEY `idx_training_orders_registration` (`registration_id`),
-  KEY `idx_to_user_id` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='研修班订单。';
+  KEY `idx_te_schedule` (`schedule_id`),
+  KEY `idx_te_order` (`order_id`),
+  KEY `idx_te_payment_status` (`payment_status`),
+  KEY `idx_te_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='研修班报名（一人一条，2800 元/人）';
 
 -- ── training_participants ──
 CREATE TABLE `training_participants` (
@@ -2266,7 +2216,6 @@ CREATE TABLE `training_participants` (
   `full_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '学员姓名',
   `gender` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '性别（male/female/other）',
   `phone` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '电话',
-  `company_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '公司名称',
   `position` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '职位',
   `email` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '邮箱',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2275,35 +2224,6 @@ CREATE TABLE `training_participants` (
   KEY `idx_participants_order` (`order_id`,`participant_no`),
   KEY `idx_participants_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='研修班报名的学员信息';
-
--- ── training_registrations ──
-CREATE TABLE `training_registrations` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `company_name` varchar(255) NOT NULL,
-  `industry_id` int DEFAULT NULL,
-  `industry` varchar(255) DEFAULT NULL,
-  `main_product` varchar(255) DEFAULT NULL,
-  `export_experience` varchar(255) DEFAULT NULL,
-  `certification` text,
-  `contact_name` varchar(100) NOT NULL,
-  `position` varchar(100) DEFAULT NULL,
-  `telephone` varchar(50) NOT NULL,
-  `email` varchar(190) DEFAULT NULL,
-  `remark` text,
-  `participants` json DEFAULT NULL COMMENT '学员名单 JSON',
-  `participant_count` int NOT NULL DEFAULT '1' COMMENT '参训人数',
-  `schedule_id` int unsigned DEFAULT NULL COMMENT '选择的期次 ID',
-  `audit_status` varchar(30) NOT NULL DEFAULT 'pending',
-  `payment_status` varchar(20) NOT NULL DEFAULT 'unpaid',
-  `order_id` bigint unsigned DEFAULT NULL,
-  `converted_supplier_id` bigint unsigned DEFAULT NULL,
-  `portal_supplier_id` bigint unsigned DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT NULL,
-  `ip` varchar(45) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_training_status` (`audit_status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='研修班报名表';
 
 -- ── training_schedules ──
 CREATE TABLE `training_schedules` (

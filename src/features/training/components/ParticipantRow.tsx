@@ -51,12 +51,6 @@ export function ParticipantRow({ participant, index, onChange }: ParticipantRowP
             onChange={(e) => onChange(index, "phone", e.target.value || null)}
             className={inputCls} placeholder={t("tlParticipantPhonePlaceholder")} required />
         </div>
-        <div>
-          <label htmlFor={`${idPrefix}-company`} className={labelCls}>{t("tlParticipantCompanyLabel")}</label>
-          <input id={`${idPrefix}-company`} type="text" value={participant.company_name || ""}
-            onChange={(e) => onChange(index, "company_name", e.target.value || null)}
-            className={inputCls} placeholder={t("tlParticipantCompanyPlaceholder")} />
-        </div>
         <div className="md:col-span-2">
           <label htmlFor={`${idPrefix}-position`} className={labelCls}>{t("tlParticipantPositionLabel")}</label>
           <input id={`${idPrefix}-position`} type="text" value={participant.position || ""}

@@ -13,31 +13,30 @@ import { CheckCircle2, Send } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Modal, Button } from "@/shared/ui";
 import CompanyInfoSection, { type CompanyInfoData } from "./CompanyInfoSection";
-import { submitTrainingRegister } from "../api";
+import { submitTrainingRegister, type EnrolledStudentInfo } from "../api";
 import { ApiError } from "@/core/http";
 import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 
 export interface TrainingRegisterFormProps {
   /** 关闭回调 */
   onClose: () => void;
-  /** 报名成功回调（携带 registrationId，供联动支付弹窗） */
-  onSubmitSuccess?: (registrationId: number | null) => void;
+  /** 报名成功回调（携带 registrationId 与学员本人信息，供支付弹窗预填） */
+  onSubmitSuccess?: (registrationId: number | null, student?: EnrolledStudentInfo | null) => void;
 }
 
 const INITIAL_COMPANY_INFO: CompanyInfoData = {
   company_name: "",
-  industry_code: "",
-  industry_level2_code: "",
-  industry_level3_code: "",
   main_product: "",
   export_experience: "",
   certification: [],
   other_certification: "",
-  contact_name: "",
-  position: "",
-  telephone: "",
-  email: "",
   remark: "",
+  email: "",
+  full_name: "",
+  gender: "",
+  phone: "",
+  position: "",
+  schedule_id: null,
 };
 
 export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: TrainingRegisterFormProps) {
@@ -50,23 +49,28 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [registrationId, setRegistrationId] = useState<number | null>(null);
+  const [enrolledStudent, setEnrolledStudent] = useState<EnrolledStudentInfo | null>(null);
 
   // 报名成功 → 回调联动支付弹窗（仅触发一次）
   const notified = useRef(false);
   useEffect(() => {
     if (submitted && !notified.current) {
       notified.current = true;
-      onSubmitSuccess?.(registrationId);
+      onSubmitSuccess?.(registrationId, enrolledStudent);
     }
     if (!submitted) notified.current = false;
-  }, [submitted, registrationId, onSubmitSuccess]);
+  }, [submitted, registrationId, enrolledStudent, onSubmitSuccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!companyInfo.company_name || !companyInfo.contact_name || !companyInfo.telephone) {
+    if (!companyInfo.company_name || !companyInfo.full_name || !companyInfo.phone) {
       setError(t("trainingRegisterValidationError"));
+      return;
+    }
+    if (companyInfo.schedule_id == null) {
+      setError(t("trainingFormScheduleRequired"));
       return;
     }
 
@@ -79,18 +83,27 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
     try {
       const data = await submitTrainingRegister({
         company_name: companyInfo.company_name,
-        industry_code: companyInfo.industry_level3_code || companyInfo.industry_level2_code || companyInfo.industry_code || null,
         main_product: companyInfo.main_product,
         export_experience: companyInfo.export_experience,
         certification: certificationStr,
-        contact_name: companyInfo.contact_name,
-        position: companyInfo.position,
-        telephone: companyInfo.telephone,
-        email: companyInfo.email,
         remark: companyInfo.remark,
+        email: companyInfo.email,
+        full_name: companyInfo.full_name,
+        gender: companyInfo.gender || null,
+        phone: companyInfo.phone,
+        position: companyInfo.position,
+        schedule_id: companyInfo.schedule_id,
       });
       // 服务端响应字段为 id（此前裸 fetch 误读 registration_id，恒为 undefined，报名后无法联动支付弹窗）
       setRegistrationId(data.id ?? null);
+      setEnrolledStudent({
+        full_name: companyInfo.full_name,
+        phone: companyInfo.phone,
+        gender: companyInfo.gender || undefined,
+        position: companyInfo.position,
+        company_name: companyInfo.company_name,
+        schedule_id: companyInfo.schedule_id,
+      });
       setSubmitted(true);
       clearDraft();
       setTimeout(() => onClose(), 2500);
@@ -121,7 +134,7 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <CompanyInfoSection value={companyInfo} onChange={setCompanyInfo} />
+          <CompanyInfoSection value={companyInfo} onChange={setCompanyInfo} showSchedule />
 
           <div className="flex justify-end">
             <Button
