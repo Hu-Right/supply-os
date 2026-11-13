@@ -193,6 +193,8 @@ export default defineConfig({
         "src/shared/utils/enterprise-status.ts",
         "src/shared/utils/unixTs.ts",
         "src/shared/utils/advanced-syntax.ts",
+        // 公告日期唯一识别器（2026-11-13 三套解析器收敛；classify/display/build 三 profile 的公共底座）
+        "src/shared/utils/notice-datetime/source-date.ts",
         "src/shared/ui/Button.tsx",
         "src/shared/ui/Badge.tsx",
         "src/shared/ui/Input.tsx",

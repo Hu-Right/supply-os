@@ -309,6 +309,25 @@ CREATE TABLE **与 ALTER TABLE ADD/CHANGE COLUMN**（新增列的真实来路）
 - **不靠改列名治 ②**：宽表改名要走影子表蓝绿切换，且改名不会自动修好契约。存量列名不动，
   只要求新增列遵守本表；② 的收口点在**各域 mapper**。
 
+### 日期文本识别（唯一实现）
+
+`deadline` / `published_date` 这类源站自由文本的识别，全仓只有一份实现：
+`src/shared/utils/notice-datetime/source-date.ts` 的 `parseSourceDateParts()`。
+三个消费方是**策略 profile**，禁止各自再写正则：
+
+| profile | 消费方 | 口径 |
+|---|---|---|
+| `classify` | `lib/services/notice-deadline/classify.ts` | 显式偏移换算进 effectiveTs，并给出 timezone/timezoneSource 溯源 |
+| `display` | `shared/utils/notice-datetime/parse.ts` | 墙上时间，偏移忽略；午夜默认视为「无真实时刻」 |
+| `build` | `lib/services/notice-public/build.ts` `toEpoch()` | 宽口：数字串直取、Date.parse 兜底、残尾忽略 |
+
+- 新增来源格式 → 扩 `source-date.ts` 的识别并集；新增消费场景 → 加 profile，不要复制正则。
+- 行为回归由 `tests/unit/shared/utils/notice-datetime/golden.test.ts` 值守：
+  2,950 条真实语料 × 3 个消费方，任何一格变化都必须显式决策后
+  用 `scripts/tools/capture-notice-date-golden.mts --write` 重签基线。
+- 现存**待退役**的旧口径（D-Mon 丢时分、1 位小时只取日期、点分日期靠 Date.parse 按 MM/DD 解读）
+  集中写在 profile 的 legacy 选项里；退役前不得在消费方就地绕过。
+
 ### Hooks 命名与职责约定
 
 - **数据获取 hook**：`use{Entity}Data` / `use{Entity}Stats`（如 `useHomeStats`、`useListingStats`、`useHotTopics`）

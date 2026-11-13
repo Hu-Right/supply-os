@@ -23,6 +23,12 @@
  * 注意：typo_suspect 的 effectiveTs 故意留 null。年份笔误的「正确值」
  * 需要回源确认，不能在这里猜；API 默认也不返回 typo_suspect。
  */
+import {
+  parseSourceDateParts,
+  sourceDateWallSeconds,
+  SOURCE_DATE_PROFILES,
+} from "@/shared/utils/notice-datetime/source-date";
+
 export type DeadlineState =
   | "known"
   | "unknown"
@@ -95,60 +101,26 @@ interface ParsedDeadlineText {
 /**
  * 解析源 deadline 文本为 UTC 秒。
  * 重点：DD-Mon-YYYY HH:mm (GMT ±x.xx) 必须按显式偏移换算，不能忽略时分/偏移。
+ *
+ * 2026-11-13 收敛：识别交给 `shared/utils/notice-datetime/source-date.ts`（全仓唯一实现），
+ * 本函数只保留 classify 口径——显式偏移换算进 ts，并给出 timezone/timezoneSource 溯源。
  */
 function parseDeadlineText(raw: string): ParsedDeadlineText | null {
-  const s = raw.trim();
-  if (!s) return null;
+  const parts = parseSourceDateParts(raw, SOURCE_DATE_PROFILES.classify);
+  if (!parts) return null;
 
-  // 两个分枝都会在用到前赋值，故不给初值（给了就是永不被读的死赋值）
-  let y: number, mo: number, d: number;
-  let hh: number | null = null, mm = 0, ss = 0;
-
-  let m = /^(\d{1,2})[-/ ]([A-Za-z]{3})[A-Za-z]*[-/ ](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(s);
-  if (m) {
-    const mon = MONTHS[m[2].toLowerCase()];
-    if (mon === undefined) return null;
-    y = Number(m[3]); mo = mon; d = Number(m[1]);
-    if (m[4] != null) { hh = Number(m[4]); mm = Number(m[5]); ss = Number(m[6] ?? 0); }
-  } else {
-    m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(s);
-    if (!m) return null;
-    y = Number(m[1]); mo = Number(m[2]) - 1; d = Number(m[3]);
-    if (m[4] != null) { hh = Number(m[4]); mm = Number(m[5]); ss = Number(m[6] ?? 0); }
+  const wall = sourceDateWallSeconds(parts);
+  if (parts.h == null) {
+    return { ts: wall, timezone: null, timezoneSource: "date" };
   }
-
-  const local = Date.UTC(y, mo, d, hh ?? 0, mm, ss);
-  if (!Number.isFinite(local)) return null;
-  if (hh == null) return { ts: Math.floor(local / 1000), timezone: null, timezoneSource: "date" };
-
-  // 显式 GMT/UTC 偏移：(GMT -4.00) / GMT+2 / UTC-03:30
-  let offsetMin: number | null = null;
-  let timezone: string | null = null;
-  const gmt = /(?:GMT|UTC)\s*([+-]?\d{1,2})(?:[.:](\d{1,2}))?/i.exec(s);
-  if (gmt) {
-    const sign = gmt[1].startsWith("-") ? -1 : 1;
-    offsetMin = sign * (Math.abs(Number(gmt[1])) * 60 + Number(gmt[2] ?? 0));
-    const abs = Math.abs(Number(gmt[1]));
-    timezone = `GMT${offsetMin < 0 ? "-" : "+"}${String(abs).padStart(2, "0")}:${String(Number(gmt[2] ?? 0)).padStart(2, "0")}`;
-  } else {
-    const trailing = /([+-])(\d{2}):?(\d{2})\s*$/.exec(s);
-    if (trailing) {
-      offsetMin = (trailing[1] === "-" ? -1 : 1) * (Number(trailing[2]) * 60 + Number(trailing[3]));
-      timezone = `GMT${trailing[1]}${trailing[2]}:${trailing[3]}`;
-    } else if (/Z\s*$/i.test(s)) {
-      offsetMin = 0;
-      timezone = "UTC";
-    }
-  }
-
-  if (offsetMin != null) {
+  if (parts.hasExplicitOffset && parts.offsetMinutes != null) {
     return {
-      ts: Math.floor(local / 1000) - offsetMin * 60,
-      timezone,
+      ts: wall - parts.offsetMinutes * 60,
+      timezone: parts.tzLabel,
       timezoneSource: "explicit",
     };
   }
-  return { ts: Math.floor(local / 1000), timezone: null, timezoneSource: "assumed_utc" };
+  return { ts: wall, timezone: null, timezoneSource: "assumed_utc" };
 }
 
 function utcParts(ts: number): { y: number; m: number; d: number } {

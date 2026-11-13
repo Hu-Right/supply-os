@@ -23,6 +23,11 @@ import type { CountryAliasSnapshot } from "../country/alias-store";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { STABLE_EXPIRED_WHERE, isStablyExpired } from "../../utils/notice-expired";
+import {
+  parseSourceDateParts,
+  sourceDateWallSeconds,
+  SOURCE_DATE_PROFILES,
+} from "@/shared/utils/notice-datetime/source-date";
 
 // ── 准入红线（2026-10-22 用户拍板，选行/构建/清理三处共用同一谓词）──────────────
 // 服务表是对外表：平台自录 RFQ 仅「发布过」（published/closed）可进——草稿/待审/驳回
@@ -118,38 +123,25 @@ function platformOf(ctx: PublicBuildContext, url: unknown, agency: unknown, orga
   return null;
 }
 
+/**
+ * 构建期宽入口径：任意源值 → UTC 秒。
+ *
+ * 2026-11-13 收敛：识别交给 `shared/utils/notice-datetime/source-date.ts`（全仓唯一实现）。
+ * build profile 保留旧 toEpoch 的三条宽口契约（金样 zero-diff）：
+ *   - 数字串 10~13 位直取，>1e11 视为毫秒
+ *   - 残尾忽略（`2026-10-19 09:00 (UTC+02:00)` 取前缀、偏移不换算）
+ *   - Date.parse 兜底
+ * 另保留两条**待退役**的旧口径（阶段 3 处理，见 source-date.ts 的 legacy 说明）：
+ *   - ISO 时刻只认 2 位小时（`2:00:00 PM` 只取日期）
+ *   - D-Mon 一律丢时分（`31-Dec-2026 23:59` → 当天 00:00）
+ */
 export function toEpoch(v: unknown): number | null {
   if (v == null || v === "") return null;
-  if (typeof v === "number" || /^\d{10,13}$/.test(String(v))) {
-    const n = Number(v);
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return n > 1e11 ? Math.floor(n / 1000) : Math.floor(n);
-  }
-  const s = String(v).trim();
-  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(s);
-  if (iso) {
-    const ms = Date.UTC(+iso[1], +iso[2] - 1, +iso[3], +(iso[4] ?? 0), +(iso[5] ?? 0), +(iso[6] ?? 0));
-    return Math.floor(ms / 1000);
-  }
-  const mon: Record<string, number> = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
-  const dmy = /^(\d{1,2})[-/ ]([A-Za-z]{3})[A-Za-z]*[-/ ](\d{4})/.exec(s);
-  if (dmy) {
-    const m = mon[dmy[2].toLowerCase()];
-    if (m != null) return Math.floor(Date.UTC(+dmy[3], m, +dmy[1]) / 1000);
-  }
-  // 20/07/2026 或 07/20/2026：只有一方 >12 时才可无歧义解析
-  const slash = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);
-  if (slash) {
-    const a = Number(slash[1]);
-    const b = Number(slash[2]);
-    if (a > 12 || b > 12) {
-      const day = a > 12 ? a : b;
-      const month = a > 12 ? b : a;
-      return Math.floor(Date.UTC(+slash[3], month - 1, day) / 1000);
-    }
-  }
-  const parsed = Date.parse(s);
-  return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : null;
+  const parts = parseSourceDateParts(
+    typeof v === "number" ? v : String(v),
+    SOURCE_DATE_PROFILES.build,
+  );
+  return parts ? sourceDateWallSeconds(parts) : null;
 }
 
 function normDifficulty(raw: unknown): string | null {
