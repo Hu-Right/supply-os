@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 130 张，导出 123 张，排除 7 张。
+--           源库共 126 张，导出 120 张，排除 6 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -357,46 +357,18 @@ CREATE TABLE `buyer_candidate` (
   KEY `idx_buyer_candidate_name` (`normalized_name`(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='买家未命中候选';
 
--- ── channel_codes ──
-CREATE TABLE `channel_codes` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `code` varchar(32) NOT NULL COMMENT '邀请码，CH- 前缀，与员工 EMP- 不撞',
-  `partner_id` int unsigned NOT NULL COMMENT '归属主体，码必须生在主体名下（无悬空码）',
-  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '0=停码，注册校验即拒',
-  `remark` varchar(255) DEFAULT NULL,
-  `created_by` int unsigned DEFAULT NULL COMMENT '发放人 cmd_accounts.id，追责用',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_channel_code` (`code`),
-  KEY `idx_channel_code_partner` (`partner_id`),
-  CONSTRAINT `fk_channel_code_partner` FOREIGN KEY (`partner_id`) REFERENCES `channel_partners` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 -- ── channel_partners ──
 CREATE TABLE `channel_partners` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL COMMENT '渠道商主体名称（唯一，防同名裂行致分佣分裂）',
-  `contact` varchar(100) DEFAULT NULL COMMENT '联系人/手机/微信，自由文本一列',
-  `remark` varchar(255) DEFAULT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '0=停用，名下一切码门户即时拒，且不可再发新码',
+  `name` varchar(100) NOT NULL COMMENT '主体名称 / 联系人姓名',
+  `phone` varchar(32) NOT NULL DEFAULT '' COMMENT '主体手机号',
+  `invite_code` varchar(32) NOT NULL COMMENT '唯一邀请码，CH- 前缀',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '0=停用，门户注册校验即拒',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_channel_partner_name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ── channel_registrations ──
-CREATE TABLE `channel_registrations` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` int unsigned NOT NULL COMMENT 'crm_users.id；一人一行=幂等锚点',
-  `code` varchar(32) NOT NULL COMMENT '注册当时填的码（冗余留痕，码停用后仍可追溯）',
-  `partner_id` int unsigned NOT NULL COMMENT '写账瞬间从码上抄下的主体快照',
-  `user_type` enum('personal','enterprise') NOT NULL DEFAULT 'personal' COMMENT '与 crm_users.user_type 同语义；认证转企业时翻转',
-  `registered_at` datetime NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_channel_reg_user` (`user_id`),
-  KEY `idx_channel_reg_partner` (`partner_id`,`registered_at`),
-  KEY `idx_channel_reg_code` (`code`,`registered_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `uk_channel_partner_name` (`name`),
+  UNIQUE KEY `uk_channel_invite_code` (`invite_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='渠道商邀请码';
 
 -- ── chat_agent_presence ──
 CREATE TABLE `chat_agent_presence` (
@@ -788,7 +760,7 @@ CREATE TABLE `learning_materials` (
   KEY `idx_number` (`number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='学习资料表';
 
--- ── learning_orders （2026-11-12 起停写：读写已全部切至 `orders`，本表仅作回滚与外部系统兼容保留，确认无读方可 DROP） ──
+-- ── learning_orders ──
 CREATE TABLE `learning_orders` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL,
@@ -1061,7 +1033,7 @@ CREATE TABLE `notice_attachment_text` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_notice_url` (`notice_pk`,`source_url`(255)),
   KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告附件旁表';
 
 -- ── notice_attribution_nodes ──
 CREATE TABLE `notice_attribution_nodes` (
@@ -1423,6 +1395,48 @@ CREATE TABLE `opportunity_unlocks` (
   KEY `idx_notice_id` (`notice_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机解锁流水。';
 
+-- ── orders ──
+CREATE TABLE `orders` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `order_no` varchar(80) NOT NULL COMMENT '业务单号；SO/SV/LE/TR 前缀保留（支付回调与对账按前缀路由）',
+  `user_id` bigint unsigned NOT NULL COMMENT '下单用户（四种业务下单入口均已强制登录）',
+  `product_kind` varchar(16) NOT NULL COMMENT 'plan/service/material/bundle/course，取值见 shared/constants/product-kind',
+  `product_code` varchar(64) NOT NULL COMMENT '目录主键（service 含 svc_ 前缀；material/bundle 为剥前缀后的主键；course 为课程 id）',
+  `product_name` varchar(255) NOT NULL DEFAULT '' COMMENT '下单时的商品名快照：目录改名不影响历史单',
+  `unit_price` decimal(10,2) NOT NULL COMMENT '单价；培训/服务为 ×数量 前的单价，会员/学习为同 amount',
+  `quantity` int unsigned NOT NULL DEFAULT '1' COMMENT '数量：培训=人数，其余恒 1',
+  `amount` decimal(10,2) NOT NULL COMMENT '应付总额（已含升级差价、年包抵扣后的实付）',
+  `currency` varchar(10) NOT NULL DEFAULT 'CNY',
+  `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/paid/closed/failed/refunded/expired，取值见 shared/constants/order-status。用 varchar 而非 enum：状态集合跨四业务且会继续增（部分退款/发票态），enum 每加一次要 DDL 锁表',
+  `provider` varchar(20) NOT NULL COMMENT 'alipay/wechat/mock；增值服务原表无渠道列，回填时写 service',
+  `provider_trade_no` varchar(120) DEFAULT NULL,
+  `pay_url` text COMMENT '渠道下单返回的支付跳转地址（支付宝为 redirect 前的网关值）',
+  `qr_code_url` text COMMENT '渠道二维码原文，响应时按需转 data URL',
+  `order_type` varchar(20) NOT NULL DEFAULT 'new' COMMENT 'new/upgrade/renew',
+  `original_order_no` varchar(80) DEFAULT NULL COMMENT '升级/抵扣的来源单号（核销锚点）',
+  `industry_code` varchar(32) DEFAULT NULL COMMENT '行业墙 L1 快照（购买时选定）',
+  `granted_subscription_id` bigint unsigned DEFAULT NULL COMMENT '履约外键：本单发放的订阅（会员单 / 赠订阅的服务单）',
+  `granted_registration_id` bigint unsigned DEFAULT NULL COMMENT '履约外键：培训报名行',
+  `items_snapshot` json DEFAULT NULL COMMENT '这笔交易的构成快照：打包套餐的 includedIds、培训的 schedule_id、服务的 sale_mode 等',
+  `raw_request` json DEFAULT NULL COMMENT '渠道下单原文（排障/纠纷取证）',
+  `raw_notify` json DEFAULT NULL COMMENT '支付回调原文',
+  `paid_at` datetime DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `refund_amount` decimal(10,2) DEFAULT NULL COMMENT '累计退款额；NULL=未退过，全额退=amount',
+  `refunded_at` datetime DEFAULT NULL COMMENT '最近一次退款时间',
+  `admin_note` varchar(255) DEFAULT NULL COMMENT '后台人工备注（核销说明/赠送/改价缘由）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_orders_order_no` (`order_no`),
+  KEY `idx_orders_user_created` (`user_id`,`created_at`),
+  KEY `idx_orders_status_created` (`status`,`created_at`),
+  KEY `idx_orders_kind_code` (`product_kind`,`product_code`),
+  KEY `idx_orders_status_expires` (`status`,`expires_at`),
+  CONSTRAINT `chk_orders_grant_mutual` CHECK (((`granted_subscription_id` is null) or (`granted_registration_id` is null))),
+  CONSTRAINT `chk_orders_provider` CHECK ((`provider` in (_utf8mb4'alipay',_utf8mb4'wechat',_utf8mb4'mock')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='统一订单头：钱与状态。四张旧订单表的收敛目标，明细构成见 items_snapshot';
+
 -- ── password_resets ──
 CREATE TABLE `password_resets` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1445,49 +1459,7 @@ CREATE TABLE `password_resets` (
   KEY `idx_phone_lookup` (`phone`,`code_type`,`used`,`expires_at`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='验证码下发表';
 
--- ── orders ──
-CREATE TABLE `orders` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `order_no` varchar(80) NOT NULL COMMENT '业务单号；SO/SV/LE/TR 前缀保留（支付回调与对账按前缀路由），生成唯一口 lib/payment/order-no.nextOrderNo',
-  `user_id` bigint unsigned NOT NULL COMMENT '下单用户（四种业务下单入口均已强制登录）',
-  `product_kind` varchar(16) NOT NULL COMMENT 'plan/service/material/bundle/course，取值见 shared/constants/product-kind；类型判断只认本列',
-  `product_code` varchar(64) NOT NULL COMMENT '目录主键原值：service 含 svc_ 前缀（SKU 码本体，剥了查不到目录行）；material/bundle 裸值；plan 原码；course 课程 id',
-  `product_name` varchar(255) NOT NULL DEFAULT '' COMMENT '下单时的商品名快照：目录改名不影响历史单',
-  `unit_price` decimal(10,2) NOT NULL COMMENT '单价；培训/服务为 ×数量 前的单价，会员/学习为同 amount',
-  `quantity` int unsigned NOT NULL DEFAULT '1' COMMENT '数量：培训=人数，其余恒 1',
-  `amount` decimal(10,2) NOT NULL COMMENT '应付总额（已含升级差价、年包抵扣后的实付）',
-  `currency` varchar(10) NOT NULL DEFAULT 'CNY',
-  `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/paid/closed/expired/refunded（failed 已退役：网关下单失败不落单）。用 varchar 而非 enum：状态集合跨四业务且会继续增，enum 每加一次要 DDL 锁表',
-  `provider` varchar(20) NOT NULL COMMENT '真实网关渠道 alipay/wechat（mock 仅测试）；哨兵 service 已退役——线下 lead/contract 成交不进本表，由 service_orders 台账承载',
-  `provider_trade_no` varchar(120) DEFAULT NULL,
-  `pay_url` text COMMENT '渠道下单返回的支付跳转地址（支付宝为 redirect 前的网关值）',
-  `qr_code_url` text COMMENT '渠道二维码原文，响应时按需转 data URL',
-  `order_type` varchar(20) NOT NULL DEFAULT 'new' COMMENT 'new/upgrade/renew',
-  `original_order_no` varchar(80) DEFAULT NULL COMMENT '升级/抵扣的来源单号（核销锚点）',
-  `industry_code` varchar(32) DEFAULT NULL COMMENT '行业墙 L1 快照（购买时选定）',
-  `granted_subscription_id` bigint unsigned DEFAULT NULL COMMENT '履约外键：本单发放的订阅（会员单 / 赠订阅的服务单）；与 granted_registration_id 互斥',
-  `granted_registration_id` bigint unsigned DEFAULT NULL COMMENT '履约外键：培训报名行',
-  `items_snapshot` json DEFAULT NULL COMMENT '这笔交易的构成快照：打包套餐的 includedIds、培训的 schedule_id、服务的 sale_mode 等',
-  `raw_request` json DEFAULT NULL COMMENT '渠道下单原文（排障/纠纷取证）',
-  `raw_notify` json DEFAULT NULL COMMENT '支付回调原文',
-  `paid_at` datetime DEFAULT NULL,
-  `expires_at` datetime DEFAULT NULL COMMENT '在线支付兜底窗（下单统一落 NOW()+2h，宽于网关 timeout_express 30 分钟，防 DB 先关吞掉迟到回调）；清扫走 idx_orders_status_expires',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  `refund_amount` decimal(10,2) DEFAULT NULL COMMENT '累计退款额；NULL=未退过，全额退=amount',
-  `refunded_at` datetime DEFAULT NULL COMMENT '最近一次退款时间',
-  `admin_note` varchar(255) DEFAULT NULL COMMENT '后台人工备注（核销说明/赠送/改价缘由）',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_orders_order_no` (`order_no`),
-  KEY `idx_orders_user_created` (`user_id`,`created_at`),
-  KEY `idx_orders_status_created` (`status`,`created_at`),
-  KEY `idx_orders_kind_code` (`product_kind`,`product_code`),
-  KEY `idx_orders_status_expires` (`status`,`expires_at`),
-  CONSTRAINT `chk_orders_provider` CHECK ((`provider` in ('alipay','wechat','mock'))),
-  CONSTRAINT `chk_orders_grant_mutual` CHECK (((`granted_subscription_id` is null) or (`granted_registration_id` is null)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='统一订单头：在线支付单（plan/学习/课程/服务 self）。线下成交由 service_orders 台账承载，明细构成见 items_snapshot';
-
--- ── payment_orders （2026-11-12 起停写：读写已全部切至 `orders`，本表仅作回滚与外部系统兼容保留，确认无读方可 DROP） ──
+-- ── payment_orders ──
 CREATE TABLE `payment_orders` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL,
@@ -1887,7 +1859,7 @@ CREATE TABLE `service_catalog` (
   CONSTRAINT `chk_price_from` CHECK (((`price_from` = 0) or (`standard_price` is not null)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='增值服务目录表：非订阅制服务（按次/按项目/按合同购买）的品名、计价形态、标准价与成交后额度充值规则';
 
--- ── service_orders （2026-11-12 起停写：读写已全部切至 `orders`，本表仅作回滚与外部系统兼容保留，确认无读方可 DROP） ──
+-- ── service_orders ──
 CREATE TABLE `service_orders` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `order_no` varchar(80) NOT NULL COMMENT '对外业务订单号，与支付域对账的唯一锚点',
@@ -2256,7 +2228,7 @@ CREATE TABLE `training_download_stats` (
   PRIMARY KEY (`material_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='资料下载次数统计';
 
--- ── training_orders （2026-11-12 起停写：读写已全部切至 `orders`，本表仅作回滚与外部系统兼容保留，确认无读方可 DROP） ──
+-- ── training_orders ──
 CREATE TABLE `training_orders` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned DEFAULT NULL,
@@ -2388,6 +2360,17 @@ CREATE TABLE `upload_files` (
   PRIMARY KEY (`filename`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文件上传表';
 
+-- ── user_industry_prefs ──
+CREATE TABLE `user_industry_prefs` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `commodity_code` varchar(40) NOT NULL DEFAULT '' COMMENT '品目面码，可停在段/族/类/品目任一层；空=只订到大类',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_pref` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户行业偏好。';
+
 -- ── user_interest_codes ──
 CREATE TABLE `user_interest_codes` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -2494,13 +2477,15 @@ CREATE TABLE `users` (
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '资料最后修改时间',
   `email_verified` tinyint(1) NOT NULL DEFAULT '0' COMMENT '邮箱是否已验证 0否/1是',
   `last_login_at` datetime DEFAULT NULL COMMENT '最近登录时间',
+  `invite_code` varchar(32) DEFAULT NULL COMMENT '渠道商邀请码（注册归因，门户注册写入）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_phone` (`phone`),
   KEY `idx_user_type` (`user_type`),
   KEY `idx_supplier_link` (`supplier_id`,`supplier_link_status`),
   KEY `idx_referral` (`referral_employee_id`,`referral_code`),
   KEY `idx_created_at` (`created_at`),
-  KEY `idx_supplier_id` (`supplier_id`)
+  KEY `idx_supplier_id` (`supplier_id`),
+  KEY `idx_users_invite_code` (`invite_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户主表';
 
 SET FOREIGN_KEY_CHECKS = 1;

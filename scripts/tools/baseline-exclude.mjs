@@ -14,11 +14,15 @@
 // _new 单下划线变体同理（supplier_new，2026-11-11 供应商影子在途时泄进基线，与 __new$ 互补）。
 // _ids_<日期> 后缀是批量运维的回滚 id 快照表（如 supplier_batch_done_ids_20261111、
 // supplier_verify_null_ids_20261111），回滚窗口过后即弃，不进基线（2026-11-12 补）。
+// _bak_<日期>[字母] 变体是 CRM 渠道商二段迁移的备份表（channel_registrations_bak_20261112b /
+// channel_partners_bak_20261112b）：单下划线前缀 + 日期后缀还带字母，__bak_ 与
+// _bak\d$ 两条规则都接不住（2026-11-12 泄进基线后补）。
 // __drill 后缀是全量对拍/回滚演练的影子表（如 crm_notice_attribution_nodes__drill），
 // 它们按纪律保留作“落刀证明”（ADR-0014），同样不能进基线。
 export const EXCLUDE_RES = [
   /__bak_/,
   /_bak\d/,
+  /_bak_\d/,
   /_(?:bak|backup|old|copy)_?\d*$/,
   /__new$/,
   /_new$/,
