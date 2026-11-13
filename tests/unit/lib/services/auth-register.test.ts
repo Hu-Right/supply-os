@@ -53,7 +53,7 @@ function makeCtx(overrides: Record<string, any> = {}) {
           owner: { namespace: "employee", employeeId: 7 },
         }),
         incrementMonthlyActual: vi.fn(),
-        recordChannelRegistration: vi.fn(),
+        setChannelInviteCode: vi.fn(),
         ...overrides.invitationRepo,
       },
       membershipRepo: {},
@@ -198,23 +198,23 @@ describe("registerUser", () => {
     expect(backfill).toHaveBeenCalledWith(1, 99);
   });
 
-  it("有效员工码 → 递增 KPI（注册 KPI「个人起步」口径：先记个人桶）且不写渠道台账", async () => {
+  it("有效员工码 → 递增 KPI（注册 KPI「个人起步」口径：先记个人桶）且不写渠道归因", async () => {
     const inc = vi.fn();
     const ledger = vi.fn();
     const ctx = makeCtx({
       invitationRepo: {
         validateCode: vi.fn().mockResolvedValue({ valid: true, owner: { namespace: "employee", employeeId: 7 } }),
         incrementMonthlyActual: inc,
-        recordChannelRegistration: ledger,
+        setChannelInviteCode: ledger,
       },
     });
     await registerUser(ctx, { ...baseParams, inviteCode: "EMP-XCAO26A1" });
     expect(inc).toHaveBeenCalledWith(7, "personal");
-    // 两个命名空间各走各的账：员工码多写一行渠道台账，等于凭空给渠道商送一个人头
+    // 两个命名空间各走各的账：员工码误写 users.invite_code 归因列，等于凭空给渠道商送一个人头
     expect(ledger).not.toHaveBeenCalled();
   });
 
-  it("渠道码注册成功 → 写台账一人一行，且不动员工 KPI、不污染 referral_employee_id", async () => {
+  it("渠道码注册成功 → 把码写进 users.invite_code 归因列，且不动员工 KPI、不污染 referral_employee_id", async () => {
     const inc = vi.fn();
     const ledger = vi.fn();
     const create = vi.fn().mockResolvedValue(99);
@@ -223,29 +223,29 @@ describe("registerUser", () => {
       invitationRepo: {
         validateCode: vi.fn().mockResolvedValue({
           valid: true,
-          owner: { namespace: "channel", code: "CH-AB2345CD", partnerId: 5 },
+          owner: { namespace: "channel", code: "CH-AB2345CD" },
         }),
         incrementMonthlyActual: inc,
-        recordChannelRegistration: ledger,
+        setChannelInviteCode: ledger,
       },
     });
     await registerUser(ctx, { ...baseParams, inviteCode: "CH-AB2345CD" });
 
-    // 台账拿的是建号回来的 insertId（不是手机号、更不是客户端传来的任何人 id）
-    expect(ledger).toHaveBeenCalledWith({ userId: 99, code: "CH-AB2345CD", partnerId: 5 });
+    // 归因拿的是建号回来的 insertId（不是手机号、更不是客户端传来的任何人 id）
+    expect(ledger).toHaveBeenCalledWith({ userId: 99, code: "CH-AB2345CD" });
     // 渠道归因不得写进员工列：否则一登员工后台就能看见不属于他的人头
     expect(create.mock.calls[0][0].referral_employee_id).toBeUndefined();
     expect(inc).not.toHaveBeenCalled();
   });
 
-  it("渠道码写账失败 → 整单失败，不静默吞掉（台账是对账凭据，丢一笔就是少给渠道商结一笔）", async () => {
+  it("渠道归因写入失败 → 整单失败，不静默吞掉（归因是对账凭据，丢一笔就是少给渠道商结一笔）", async () => {
     const ctx = makeCtx({
       invitationRepo: {
         validateCode: vi.fn().mockResolvedValue({
           valid: true,
-          owner: { namespace: "channel", code: "CH-AB2345CD", partnerId: 5 },
+          owner: { namespace: "channel", code: "CH-AB2345CD" },
         }),
-        recordChannelRegistration: vi.fn().mockRejectedValue(new Error("db down")),
+        setChannelInviteCode: vi.fn().mockRejectedValue(new Error("db down")),
       },
     });
     await expect(registerUser(ctx, { ...baseParams, inviteCode: "CH-AB2345CD" })).rejects.toThrow("db down");
@@ -258,7 +258,7 @@ describe("registerUser", () => {
       usersRepo: { create },
       invitationRepo: {
         validateCode: vi.fn().mockResolvedValue({ valid: false, reason: "渠道邀请码无效或已停用" }),
-        recordChannelRegistration: ledger,
+        setChannelInviteCode: ledger,
       },
     });
     await expect(registerUser(ctx, { ...baseParams, inviteCode: "CH-NOSUCH11" }))
@@ -276,7 +276,7 @@ describe("registerUser", () => {
     const ctx = makeCtx({
       usersRepo: { create },
       authRepo: { findLatestActiveCodeByPhone: findCode },
-      invitationRepo: { validateCode, incrementMonthlyActual: inc, recordChannelRegistration: ledger },
+      invitationRepo: { validateCode, incrementMonthlyActual: inc, setChannelInviteCode: ledger },
     });
     await expect(registerUser(ctx, { ...baseParams, inviteCode: "" }))
       .rejects.toMatchObject({ status: 400, code: 41119, message: expect.stringContaining("邀请码") });

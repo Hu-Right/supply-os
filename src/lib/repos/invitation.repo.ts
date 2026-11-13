@@ -4,7 +4,7 @@
  *
  * 职责边界：仅承担「注册归因写入」一侧——邀请码校验（员工码 EMP- / 渠道码 CH- 两个命名空间
  * 按前缀分流）、注册完成后的月度实际完成数自增（incrementMonthlyActual），
- * 以及渠道注册台账的一人一行写入（recordChannelRegistration）。
+ * 以及渠道归因写入（setChannelInviteCode：归因直接落在 users.invite_code 列上）。
  * 员工业绩/KPI 的查询与展示由独立 CRM 系统负责，本仓库不再提供任何
  * 业绩查看接口。
  *
@@ -23,11 +23,12 @@ export type PoolLike = Pick<Pool, "query" | "execute">;
 
 /**
  * 归因主体：两个命名空间互斥，不做双向 fallback（一个码只可能属于一个命名空间）。
- * employee 走 monthly_kpi 累加列；channel 走 channel_registrations 台账（一人一行）。
+ * employee 走 monthly_kpi 累加列；channel 走 users.invite_code 归因列（2026-11-12 二段：
+ * channel_registrations 台账表已删除，归因就是用户本体行上的一个列）。
  */
 export type CodeOwner =
   | { namespace: "employee"; employeeId: number }
-  | { namespace: "channel"; code: string; partnerId: number };
+  | { namespace: "channel"; code: string };
 
 /** 获取当前月份字符串 'YYYY-MM' */
 function currentMonth(): string {
@@ -60,29 +61,28 @@ export class InvitationRepo {
   }
 
   /**
-   * 按渠道码查归属主体。
+   * 按渠道码查归属主体（码即主体）。
    * 2026-11-12 合并（CRM 仓库 channel-partner/schema.ts 自迁移）：主体与邀请码同在
    * channel_partners 一张表，一行一个渠道商（invite_code 唯一），channel_codes 已删。
-   * 停用语义随之收敛为主体一个 is_active——码即主体，没有第二个开关。
+   * 2026-11-12 二段：channel_registrations 台账也已删，校验只回答「码是否有效」，
+   * 归属关系由 CRM 侧按 users.invite_code 关联，门户不再关心 partner_id。
+   * 停用语义收敛为主体一个 is_active——码即主体，没有第二个开关。
    */
-  async findChannelByCode(
-    code: string,
-  ): Promise<{ code: string; partner_id: number; partner_name: string } | null> {
+  async findChannelByCode(code: string): Promise<{ code: string } | null> {
     const [rows] = await this.pool.query(
-      `SELECT invite_code AS code, id AS partner_id, name AS partner_name
+      `SELECT invite_code AS code
        FROM channel_partners
        WHERE invite_code = ? AND is_active = 1
        LIMIT 1`,
       [code],
     );
-    return (rows as Array<{ code: string; partner_id: number; partner_name: string }>)[0] ?? null;
+    return (rows as Array<{ code: string }>)[0] ?? null;
   }
 
   /**
    * 验证邀请码有效性并按前缀分流归因命名空间。
    * EMP- 及其余存量码走原 employees 逻辑（一字不动）；CH- 只查 channel_partners
-   * 单表（2026-11-12 合并，码即主体）。
-   * 两边的失败文案分开：渠道商要靠这句话自查自己的推广链接是不是印错了。
+   * 单表（码即主体）。两边的失败文案分开：渠道商要靠这句话自查自己的推广链接是不是印错了。
    */
   async validateCode(code: string): Promise<{ valid: boolean; reason?: string; owner?: CodeOwner }> {
     const normalized = normalizeCode(code);
@@ -92,7 +92,7 @@ export class InvitationRepo {
       if (!channel) return { valid: false, reason: "渠道邀请码无效或已停用" };
       return {
         valid: true,
-        owner: { namespace: "channel", code: channel.code, partnerId: channel.partner_id },
+        owner: { namespace: "channel", code: channel.code },
       };
     }
 
@@ -102,33 +102,27 @@ export class InvitationRepo {
   }
 
   /**
-   * 渠道注册台账：一人一行。
+   * 渠道归因写入：把注册用的渠道码落在用户本体行的 invite_code 列上。
    *
-   * 幂等锚在 uk_channel_reg_user（user_id 唯一）+ ON DUPLICATE KEY UPDATE user_id = user_id：
-   * 注册流程不是单事务（建号与归因分属两条自动提交），建号后任一步失败重试都拿着同一个
-   * userId 补写；没有这道闸，重试会凭空多算一个人头。
-   * partner_id 由调用方从码行带出（写账瞬间的主体快照），不在 SQL 里反查——事后改绑不影响已入账的账。
+   * 幂等天然成立：一行一个用户，重试重复执行同一 UPDATE 写回同一值，不会多算人头
+   * （不再需要旧台账 uk_channel_reg_user + ON DUPLICATE KEY 那道闸）。
+   * 注册类型/注册时间不在此写：personal 起步与 created_at 都在 users 行上，CRM 侧直接读。
+   * channel_registrations 台账已于 2026-11-12 删除（CRM 侧迁移脚本 channel-users-merge-20261112.mjs）。
    */
-  async recordChannelRegistration(input: { userId: number; code: string; partnerId: number }): Promise<void> {
+  async setChannelInviteCode(input: { userId: number; code: string }): Promise<void> {
     const userId = Number(input.userId);
-    const partnerId = Number(input.partnerId);
     const code = normalizeCode(input.code);
-    // 准入守卫在发 SQL 之前：拿着 0/NaN 去写账，等于用一条脏行占住未来的 user_id 名额
+    // 准入守卫在发 SQL 之前：拿着 0/NaN 去写归因，等于把未来用户的行污染成渠道用户
     if (!Number.isInteger(userId) || userId <= 0) {
-      throw new Error(`recordChannelRegistration: 非法 userId=${input.userId}（建号未成功不得写账）`);
-    }
-    if (!Number.isInteger(partnerId) || partnerId <= 0) {
-      throw new Error(`recordChannelRegistration: 非法 partnerId=${input.partnerId}`);
+      throw new Error(`setChannelInviteCode: 非法 userId=${input.userId}（建号未成功不得写归因）`);
     }
     if (!isChannelCode(code)) {
-      throw new Error(`recordChannelRegistration: 非渠道码(${code})，员工码请走 incrementMonthlyActual`);
+      throw new Error(`setChannelInviteCode: 非渠道码(${code})，员工码请走 incrementMonthlyActual`);
     }
 
     await this.pool.execute(
-      `INSERT INTO channel_registrations (user_id, code, partner_id, user_type, registered_at)
-       VALUES (?, ?, ?, 'personal', NOW())
-       ON DUPLICATE KEY UPDATE user_id = user_id`,
-      [userId, code, partnerId],
+      `UPDATE users SET invite_code = ? WHERE id = ?`,
+      [code, userId],
     );
   }
 

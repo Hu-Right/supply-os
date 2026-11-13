@@ -4,7 +4,7 @@
  * @module lib/services/auth-register
  * @description 收口"手机号注册"的多仓库编排：密码策略、邀请码校验（必填；员工码 EMP- / 渠道码 CH-
  *              两个命名空间按前缀分流）、短信验证码核销、建号（自动昵称）、登录时间补记、
- *              归属记账（员工走 KPI 递增，渠道走注册台账）、
+ *              归属记账（员工走 KPI 递增，渠道把码写进 users.invite_code 归因列）、
  *              合规同意日志（失败不阻断）、载荷与 Token 签发（注册即登录）。
  *              路由层只保留：请求解析、Cookie 邀请码回退、IP/UA 提取、Cookie 清理。
  *              业务失败以 RouteError（lib 级业务错误，含 status/code 元数据）抛出。
@@ -117,15 +117,15 @@ export async function registerUser(
   await ctx.user.usersRepo.updateLastLoginById(newUserId);
 
   // 归属记账：员工码走 monthly_kpi 的「个人起步」桶（认证转企业由后台审核事件翻转）；
-  // 渠道码走 channel_registrations 台账（一人一行，库内幂等）。两者互斥、各写各的。
-  // 失败一律向上抛，不静默吞：KPI 与台账都是对账凭据，少记一笔就是少结一笔（与上方合规日志的「不阻断」刻意相反）。
+  // 渠道码把码落在 users.invite_code 归因列（channel_registrations 台账已于 2026-11-12 删除）。
+  // 两者互斥、各写各的。失败一律向上抛，不静默吞：KPI 与归因都是对账凭据，
+  // 少记一笔就是少结一笔（与上方合规日志的「不阻断」刻意相反）。
   if (owner !== null && owner.namespace === "employee") {
     await ctx.user.invitationRepo.incrementMonthlyActual(owner.employeeId, "personal");
   } else if (owner !== null && owner.namespace === "channel") {
-    await ctx.user.invitationRepo.recordChannelRegistration({
+    await ctx.user.invitationRepo.setChannelInviteCode({
       userId: newUserId,
       code: owner.code,
-      partnerId: owner.partnerId,
     });
   }
 
