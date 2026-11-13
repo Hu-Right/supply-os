@@ -70,20 +70,22 @@ describe("LearningOrdersRepo 集成测试", () => {
 
       const [sql, params] = mockExecute.mock.calls[0];
 
-      // 验证 SQL 包含所有必需字段（user_key 已退役）
+      // 验证 SQL 包含所有必需字段（user_key 已退役；2026-11-12 统一表：plan_code → product_code）
       expect(sql).toContain("order_no");
       expect(sql).toContain("user_id");
       expect(sql).not.toContain("user_key");
-      expect(sql).toContain("plan_code");
+      expect(sql).toContain("product_code");
       expect(sql).toContain("amount");
       expect(sql).toContain("currency");
       expect(sql).toContain("provider");
       expect(sql).toContain("pay_url");
       expect(sql).toContain("qr_code_url");
       expect(sql).toContain("raw_request");
+      expect(sql).toContain("expires_at");
 
-      // 验证参数数量（9 个参数：orderNo, userId, planCode, amount, currency, provider, payUrl, qrCodeUrl, rawRequest）
-      expect(params).toHaveLength(9);
+      // 验证参数数量（13 个：orderNo, userId, kind, productCode, productName,
+      // unit_price, amount, currency, provider, payUrl, qrCodeUrl, rawRequest, expiresAt）
+      expect(params).toHaveLength(13);
     });
 
     it("status 默认为 pending", async () => {
@@ -166,8 +168,9 @@ describe("LearningOrdersRepo 集成测试", () => {
 
       await repo.findByUserId(123, "pending");
 
+      // 统一表后 where 带 KIND_SCOPE（product_kind IN material/bundle）
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining("WHERE user_id = ? AND status = ?"),
+        expect.stringContaining("WHERE user_id = ? AND product_kind IN ('material','bundle') AND status = ?"),
         [123, "pending"]
       );
     });

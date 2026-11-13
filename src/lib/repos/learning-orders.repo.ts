@@ -162,10 +162,10 @@ export class LearningOrdersRepo {
     );
   }
 
-  /** 事务内标记退款 */
+  /** 事务内标记退款（全额退：refund_amount = amount） */
   async markAsRefundedInTransaction(conn: PoolConnection, orderNo: string): Promise<number> {
     const [res] = await conn.execute(
-      `UPDATE orders SET status = 'refunded', updated_at = NOW()
+      `UPDATE orders SET status = 'refunded', refund_amount = amount, refunded_at = NOW(), updated_at = NOW()
        WHERE order_no = ? AND ${KIND_SCOPE} AND status = 'paid'`,
       [orderNo],
     );
