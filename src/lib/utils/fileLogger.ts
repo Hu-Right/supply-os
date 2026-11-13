@@ -1,20 +1,18 @@
 /**
  * 轻量文件日志模块
- * 
- * 日志写入 server/logs/ 目录，按日期分文件：auto-translate-2026-08-01.log
+ *
+ * 日志目录 = LOG_DIR，未配置时落到 <cwd>/logs，按日期分文件：auto-translate-2026-08-01.log
  * 同时保留 console 输出（可通过 LOG_TO_CONSOLE=false 关闭）
+ *
+ * 【为什么不用 __dirname】2026-11-13 线上排查：生产构建会把 __dirname 常量折叠成构建机的绝对路径
+ * （当时产物里是 "/ROOT/src/lib/utils"），于是日志全写到 /ROOT/src/lib/logs —— 既不在项目目录，
+ * 也没有任何轮转，77 天堆了 2.1G。改为显式配置：生产在 .env.production 设 LOG_DIR（如
+ * /var/log/supply-os），交给 logrotate 轮转；开发不配则落 <cwd>/logs。
  */
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 
-/** 兼容 ESM (tsx dev) 和 CJS (esbuild 生产构建) 两种模块系统 */
-function getCurrentDir(): string {
-  if (typeof __dirname !== "undefined") return __dirname;          // CJS
-  return path.dirname(fileURLToPath(import.meta.url));             // ESM
-}
-
-const LOG_DIR = path.resolve(getCurrentDir(), "..", "logs");
+const LOG_DIR = path.resolve(process.env.LOG_DIR ?? path.join(process.cwd(), "logs"));
 const LOG_TO_CONSOLE = process.env.LOG_TO_CONSOLE !== "false";
 
 function ensureLogDir() {
