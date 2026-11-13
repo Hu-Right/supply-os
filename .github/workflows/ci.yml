@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   quality-gate:
@@ -45,6 +46,18 @@ jobs:
           NODE_ENV: production
           PAYMENT_MODE: live
           JWT_SECRET: ci-build-dummy-secret
+
+      # 8G 生产机跑 Turbopack 全量构建会被 OOM killer 杀（2026-11-13 事故，峰值 RSS 7GB+），
+      # 因此把构建搬到 CI（16G runner），产物 tar 后由部署端下发；服务器只跑 runtime。
+      - name: Package standalone artifact
+        run: tar -czf next-standalone.tar.gz -C .next/standalone .
+
+      - name: Upload standalone artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: next-standalone
+          path: next-standalone.tar.gz
+          retention-days: 1
 
   css-compat:
     name: CSS 降编译 · 产物静态门禁
