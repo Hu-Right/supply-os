@@ -81,4 +81,32 @@ describe("syncNoticeIds 索引残留清理", () => {
     expect(mainSql).toContain("entry_source");
     expect(mainSql).toContain("rfq_status");
   });
+
+  // ── 2026-11-13 构建时摘除：稳定过期（超清退余量 30 天）纳入删除档 ──
+  it("爬虫行已稳定过期且宽表缺行 → 删除索引文档（第四档）", async () => {
+    const stale = Math.floor(Date.now() / 1000) - 31 * 24 * 3600;
+    const { pool } = makePool([], [
+      [{ id: 10, is_featured: 0, deadline_sec: stale, entry_source: "crawl", rfq_status: null }],
+    ]);
+    expect((await syncNoticeIds(pool, [10])).deleted).toBe(1);
+    expect(deleteDocuments).toHaveBeenCalledWith([10]);
+  });
+
+  it("爬虫行过期未满清退余量 → 不删（仍在管线，查询侧过滤）", async () => {
+    const recent = Math.floor(Date.now() / 1000) - 24 * 3600;
+    const { pool } = makePool([], [
+      [{ id: 11, is_featured: 0, deadline_sec: recent, entry_source: "crawl", rfq_status: null }],
+    ]);
+    expect((await syncNoticeIds(pool, [11])).deleted).toBe(0);
+    expect(deleteDocuments).not.toHaveBeenCalled();
+  });
+
+  it("已发布平台行但已稳定过期 → 删除（过期档叠加于平台可见档）", async () => {
+    const stale = Math.floor(Date.now() / 1000) - 40 * 24 * 3600;
+    const { pool } = makePool([], [
+      [{ id: 12, is_featured: 0, deadline_sec: stale, entry_source: "platform", rfq_status: "published" }],
+    ]);
+    expect((await syncNoticeIds(pool, [12])).deleted).toBe(1);
+    expect(deleteDocuments).toHaveBeenCalledWith([12]);
+  });
 });

@@ -8,6 +8,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { TasksOrBatchesQuery } from "meilisearch";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { WIDE_LIMITS, truncate } from "../../utils/notice-field-limits";
+import { isStablyExpired } from "../../utils/notice-expired";
 import { fromBackbonePathColumn } from "../commodity/backbone-path";
 import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
 import { SUPPORTED_LANGS } from "../../utils/languages";
@@ -357,10 +358,13 @@ export async function incrementalSync(
  * 修复：is_active/is_featured 从 bid_notices 主表读取（权威数据源），
  *       不依赖宽表（宽表更新可能失败或被增量同步覆盖，导致 Meilisearch 状态不一致）
  *
- * 索引残留清理：宽表缺行的公告，按三档口径决定是否删除索引文档：
+ * 索引残留清理：宽表缺行的公告，按四档口径决定是否删除索引文档：
  *       主表也不存在 → 删（公告已真删除）；
  *       主表存在但不满足平台公告公开可见口径（entry_source='platform' 且非 published）→ 删；
- *       主表存在且可见 → 不删，属宽表同步不一致，交由对账修复，不误删索引文档。
+ *       主表存在且已稳定过期（截止已过且超清退余量 30 天，isStablyExpired）→ 删
+ *         （2026-11-13 构建时摘除：宽表 ghost 清退后，过期文档若不在此删除会永久残留
+ *          索引占体量——查询侧 MEILI_ACTIVE_FILTER 只在查询时过滤，不回收索引空间）；
+ *       主表存在且可见未过期 → 不删，属宽表同步不一致，交由对账修复，不误删索引文档。
  *       （D1 修复：旧实现要求「同时缺席宽表与主表」才删，导致已撤回/待审核的平台公告
  *        在 ghost 对账删除宽表行后，索引文档永久残留可搜。）
  */
@@ -400,14 +404,16 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
         ),
       ]);
 
-      // 构建主表状态映射；visible 与 lib/utils/notice-expired 的 PLATFORM_PUBLISHED_ONLY 同口径
+      // 构建主表状态映射；visible 与 lib/utils/notice-expired 的 PLATFORM_PUBLISHED_ONLY
+      // + 稳定过期清退（isStablyExpired）同口径（2026-11-13 构建时摘除第四档）
       const statusMap = new Map<number, { is_featured: number; deadline_sec: number; visible: boolean }>();
       for (const row of (statusRows[0] as RowDataPacket[])) {
         const entrySource = String(row.entry_source ?? "crawl");
         statusMap.set(Number(row.id), {
           is_featured: row.is_featured ? 1 : 0,
           deadline_sec: Number(row.deadline_sec) || 0,
-          visible: entrySource !== "platform" || row.rfq_status === "published",
+          visible: (entrySource !== "platform" || row.rfq_status === "published")
+            && !isStablyExpired(row.deadline_sec),
         });
       }
 
