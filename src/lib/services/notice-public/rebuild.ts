@@ -22,7 +22,7 @@ export interface RebuildResult {
 }
 
 const REBUILD_CHUNK = 500;
-/** 节流窗口：对账定时器高频触发时防止全库不等式选行刷屏；爬虫 tick 级联同样受此约束（小时级，无感） */
+/** 节流窗口：对账定时器高频触发时防止全库不等式选行刷屏；手动兜底脚本 force 调用同样受此约束（小时级，无感） */
 const MIN_INTERVAL_MS = Number(process.env.NOTICE_PUBLIC_REBUILD_MIN_INTERVAL_MS || 10 * 60 * 1000);
 
 let _running = false;
@@ -65,7 +65,7 @@ async function writeRowsByIds(pool: Pool, ctx: PublicBuildContext, ids: number[]
  * 单飞 + 节流的 --changed --apply [--prune] 等价物。任何异常向上抛，由调用方告警降级
  * （宽表投影读到旧归一值时，指纹对账会在下轮修复）。
  *
- * @param opts.force 跳过节流窗口（爬虫 tick / 手动 CLI 用）
+ * @param opts.force 跳过节流窗口（手动 CLI / 同步兜底脚本用）
  * @param opts.prune 是否清理「主表已无」的 ghost 行，默认 true。手动兜底脚本 daily-sync.cjs
  *                   普通轮次传 false（「普通轮次绝不删服务表一行」的口径）；应用内调度器不传。
  */

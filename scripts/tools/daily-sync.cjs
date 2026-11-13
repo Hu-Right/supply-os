@@ -1,8 +1,10 @@
 /**
- * ⚠️ 已停用自动运行（2026-09-22）：本脚本的「爬虫库 → 主表」增量同步逻辑已迁入应用内定时任务
- *    （src/lib/services/search-sync/crawler-sync.ts + crawler-sync-scheduler.ts，由 instrumentation 拉起）。
- *    请在部署层移除对本脚本的 cron / 定时调用，避免与应用内同步形成「两个写入者并发 ODKU 主表」。
- *    本文件仅保留作手动应急兜底（如应用内同步异常时人工补跑一轮）。
+ * ✅ 生产同步唯一入口（2026-11-13 恢复，用户拍板）：应用内 crawler-sync
+ *    （src/lib/services/search-sync/crawler-sync*.ts，2026-09-22 曾由本脚本迁入）
+ *    已整体摘除——本脚本重新成为「爬虫库 → 主表」的唯一同步写入者，
+ *    消除双写入者并发 ODKU 主表的风险。可手动执行，也可在部署层挂 cron/定时。
+ *    主表落库后的下游生效（服务表重建 → 宽表 → Meili）由应用内对账循环自动覆盖，
+ *    本脚本无需（也不应）直写 notice_public / notice_search。
  *    ⚠ 本脚本不同步任何品类/桥表（2026-10-15 起，与旧品类字典退役口径一致）：
  *    公告品目归属的唯一事实源是落点表 notice_attribution_nodes（应用内管道写），
  *    本脚本只增量 upsert bid_notices / bid_opportunities 两张主表。
@@ -10,7 +12,7 @@
  * 内网爬虫数据 → 线上生产库 定时增量同步
  *
  * 用法:
- *   node daily-sync.cjs               # 持续运行，每小时同步一次（不得挂 cron，见下方停用说明）
+ *   node daily-sync.cjs               # 持续运行，每小时同步一次
  *   node daily-sync.cjs --once        # 只跑一次（手动补跑）
  *   node daily-sync.cjs --once --dry-run # 只读体检：解析源库表名 + 报待同步行数，不写库、不推进水位、不刷服务表
  *                                        # （仍会跑只读的内容对账；只想快速看数就再加 --no-reconcile）
@@ -36,6 +38,7 @@
  *   SYNC_SOURCE_TABLE_PREFIX 源库表名前缀（默认空）。2026-10-28「去 crm_ 前缀」批次只改了
  *                          云库与仓库代码，内网源库仍是旧表名（bid_notices → crm_bid_notices）
  *                          时设 "crm_" 兼容；目标库与水位线键始终用现行表名。内网改名后清空即可。
+ *                          （原对照物 src/lib/db/source-pool.ts 已随应用内同步摘除）
  *
  *   目标库就是应用主库，所以默认整体继承 .env 的 DB_*（单一事实源），
  *   只有需要临时指向别的库时才显式设 SYNC_TARGET_*；变量命名与 .env.example /
@@ -67,17 +70,17 @@
  */
 
 // ═══════════════════════════════════════════
-// 2026-10-15 恢复手动执行：退役原因（直插旧公告桥表）已随旧品类字典退役消除——
-//    桥表/候选表已移出 SYNC_TABLES，公告归属唯一事实源是落点表
+// 2026-11-13 恢复生产同步入口：应用内 crawler-sync 已整体摘除，本脚本是唯一
+//    「爬虫库 → 主表」写入者；可手动执行，也可在部署层挂 cron/定时。
+//    桥表/候选表仍不在 SYNC_TABLES——公告归属唯一事实源是落点表
 //    notice_attribution_nodes（由应用内构建链路写，本脚本不碰）。
-//    本脚本仅作手动应急兜底（node daily-sync.cjs --once），不得挂 cron。
 // ═══════════════════════════════════════════
 
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-// 内容对账的纯 SQL/判定构件（零副作用叶子，可单测；与 crawler-sync-sql.ts 同构的分离法）
+// 内容对账的纯 SQL/判定构件（零副作用叶子，可单测；原与已摘除的 crawler-sync-sql.ts 同构）
 const ds = require('./daily-sync-sql.cjs');
 
 // ═══════════════════════════════════════════
@@ -254,8 +257,7 @@ const NUMERIC_TYPES = ds.NUMERIC_TYPES;
  *   MONOTONE_RISE_COLUMNS——单调上升合并（云端拥有的运营标记，如 is_featured）；
  *   TARGET_WINS_COLUMNS——目标优先（本脚本没有写入侧 title 清洗，靠它防回退）；
  *   PLATFORM_IMMUNE——平台行整行免疫（entry_source='platform' 一行都不改）。
- * 与应用内正式写入者 crawler-sync-sql.ts 的口径一致性由
- * tests/unit/lib/services/search-sync/crawler-sync-ownership.test.ts 钉死。
+ * （原对照物 crawler-sync-sql.ts 及其一致性测试已随应用内同步摘除。）
  */
 const NON_DESTRUCTIVE_COLUMNS = ds.NON_DESTRUCTIVE_COLUMNS;
 const MONOTONE_RISE_COLUMNS = ds.MONOTONE_RISE_COLUMNS;

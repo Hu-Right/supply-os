@@ -5,9 +5,12 @@
  * @module lib/services/commodity/taxonomy-intake
  * @description 旧品类桥表退役（2026-10-14）后，"新公告需要归类"这件事失去了
  *              旧的登记通道（daily-sync.cjs 的桥表入库校验：合法码直通桥表、
- *              野码进 intake——该通道连同码本身一起废弃）。本模块在应用内
- *              crawler-sync 每轮同步后，把**无 UGT 归属的活跃公告**登记进
- *              taxonomy_intake（status='pending'），交由 AI 归属管道
+ *              野码进 intake——该通道连同码本身一起废弃）。本模块原在应用内
+ *              crawler-sync 每轮同步后登记**无 UGT 归属的活跃公告**——
+ *              ⚠ 该触发点已随应用内 crawler-sync 于 2026-11-13 摘除（同步唯一
+ *              入口回归 scripts/tools/daily-sync.cjs），登记入口当前休眠；
+ *              如需恢复，由同步脚本完成后显式调用 enqueueUnattributedNotices。
+ *              登记进 taxonomy_intake（status='pending'），交由 AI 归属管道
  *              （scripts/tools/notice-attribution-content-ai.ts，人工放量）
  *              按正文语义归类。不带任何旧品类码——归属质量由 AI 把关，
  *              不再回头信任爬虫码。

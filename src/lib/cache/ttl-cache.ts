@@ -17,7 +17,7 @@
  *
  *              迁移状态（2026-10-31 二批收口）：**全部带键缓存**已收编——unified-search /
  *              recommend 结果缓存、industry-profile、reco-amount-pref、reco-user-keywords、
- *              crawler-sync 列缓存（后者顺带补上缺失的 TTL，schema 漂移自愈）。
+ *              crawler-sync 列缓存（该消费方已随 crawler-sync 于 2026-11-13 摘除）。
  *              单槽 memo（stats/hot-topics/keyword-groups/docCount/wide-table-readiness/
  *              agencies-cache/backbone-cache 等整块单值缓存）为有意保留的独立微形态，
  *              不强行套键值原语；新代码：带键缓存一律本类，禁止手搓 Map+expires。

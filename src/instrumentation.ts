@@ -182,10 +182,9 @@ export async function register() {
     const { startWideTableSync } = await import("./lib/services/search-sync/index");
     stops.push(startWideTableSync(dbPool, { intervalMs: 5 * 1000 }));
 
-    // 爬虫库 → 主表增量同步（应用内定时；主表写完后级联宽表 → Meili）。
-    // 源库未配置 SYNC_SOURCE_HOST 时内部自动跳过，不影响其他任务。
-    const { startCrawlerSync } = await import("./lib/services/search-sync/crawler-sync-scheduler");
-    stops.push(startCrawlerSync(dbPool));
+    // 爬虫库 → 主表增量同步：应用内 crawler-sync 已于 2026-11-13 摘除（用户拍板：
+    // 同步唯一入口 = scripts/tools/daily-sync.cjs，消除双写入者）。主表落库后的
+    // 下游生效（服务表重建/宽表/Meili）仍由上方 startWideTableSync 的对账循环自动覆盖。
 
     // 精选状态变更 → 入同步队列（宽表 → Meilisearch 级联）
     const { registerFeaturedSyncCallback } = await import("./lib/services/notices/featured");

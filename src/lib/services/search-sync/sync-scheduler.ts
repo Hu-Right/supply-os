@@ -319,7 +319,7 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
     try {
       // 0) ①归一层增量重建（2026-10-27 管道翻转：主表 → ①服务表 → ②宽表）。
       //    ①先走，下面的平台/指纹检测才能基于新归一值；单飞+节流在 runner 内部，
-      //    失败仅告警，交下轮再试（平台自录行不依赖爬虫 tick，靠这里覆盖）。
+      //    失败仅告警，交下轮再试（平台自录行不依赖同步脚本，靠这里覆盖）。
       try {
         await rebuildNoticePublicChanged(pool);
       } catch (err) {

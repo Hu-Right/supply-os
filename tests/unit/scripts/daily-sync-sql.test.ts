@@ -4,7 +4,7 @@
  * 背景：daily-sync 增量只按 `id > 水位 OR update_time > 水位` 拉取，接不住「documents 被
  * 外部管道补写、update_time 纹丝不动」的行（本库实测踩过，见 notices-shadow-phase2-cutover.mjs
  * 第 9-13 行的同款结论）。为此新增一条按**全列行指纹**逐片找差异行的对账链路，其可测的纯构件
- * 全部下沉到 scripts/tools/daily-sync-sql.cjs（与 crawler-sync-sql.ts 叶子同构）。
+ * 全部下沉到 scripts/tools/daily-sync-sql.cjs（原与已摘除的 crawler-sync-sql.ts 同构）。
  *
  * 这里静默决定：指纹能否区分 NULL 与空串（CONCAT_WS 跳过 NULL ⇒ 对账假通过）、交集列口径、
  * 「哪些行算差异」的判定、以及补写 ODKU 的覆盖语义。任一分支错误都会漏同步或误覆盖。
