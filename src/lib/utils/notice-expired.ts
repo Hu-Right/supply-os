@@ -24,6 +24,11 @@ import { RFQ_STATUS } from "@/shared/constants/rfq";
  *              - ACTIVE_OPP_WHERE     使用 o. 别名（bid_opportunities o）
  *              - ACTIVE_NOTICE_WHERE_NO_ALIAS 无别名（统计表 / 子查询）
  *              - MEILI_ACTIVE_FILTER  Meilisearch 索引侧等价 filter
+ *
+ *              管线清退口径（2026-11-13 新增）：STABLE_EXPIRED_WHERE / isStablyExpired
+ *              定义「过期超过清退余量（30 天）才退出构建管线」——查询侧严格 now、构建侧
+ *              留余量，两者刻意不同，见下方常量处注释。服务表准入/宽表 ghost/Meili 残留
+ *              清理三处共用本口径，禁止在业务代码另写过期表达式。
  */
 
 /** deadline_sec 列引用（带 n. 表别名），用于 ORDER BY / SELECT / 表达式拼接 */
@@ -110,6 +115,50 @@ export const ACTIVE_NOTICE_WHERE_NO_ALIAS =
  */
 export const MEILI_ACTIVE_FILTER =
   "(deadline_sec = 0 OR deadline_sec >= {now})";
+
+// ── 管线清退口径（2026-11-13 用户拍板：构建时摘除，物理归档退为二期备选）──────────
+//
+// 背景：服务表/宽表/Meili 索引三层全程背全部过期行（云库普查 93.5 万行中过期 61.7 万、
+// 占 66%），「过期不可搜」只在查询侧由 ACTIVE_* / MEILI_ACTIVE_FILTER 实现，构建管线
+// 从不摘除——宽表构建与全量同步因此被死数据拖慢。本组常量定义「过期到什么程度才退出
+// 构建管线」：与查询侧口径刻意不同（查询侧用严格 now，构建侧留清退余量）。
+//
+// 余量的意义：源站延期改期、爬虫抓取滞后、截止时间解析误差都在窗口内自愈——过期未满
+// 余量的行照常构建（留在服务表/宽表/索引，查询侧依旧不可见），满余量才被 ghost 链清退。
+// 行被清退后若源站延期复活：主表行从未移动，update_time 变新 → 服务表 missing 分支
+// 重选重建 → 宽表存在性对账回补 → Meili 级联。数据零丢失，主表始终不动。
+
+/** 清退余量（秒）：过期超过该时长才退出构建管线（30 天） */
+export const PIPELINE_EXPIRY_GRACE_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * 稳定过期谓词（n. 别名）—— 构建管线清退口径
+ *
+ * 语义：有真实截止时间（deadline_sec > 0）且已过期超过清退余量。
+ * deadline_sec = 0（无截止）永不算稳定过期；未来截止同理。
+ *
+ * 适用表：bid_notices（别名 n）；与 ACTIVE_NOTICE_WHERE 同字段同判据，仅边界加余量。
+ */
+export const STABLE_EXPIRED_WHERE =
+  `(n.deadline_sec > 0 AND n.deadline_sec < UNIX_TIMESTAMP(NOW()) - ${PIPELINE_EXPIRY_GRACE_SECONDS})`;
+
+/** 同上，无表别名版（子查询/无别名场景） */
+export const STABLE_EXPIRED_WHERE_NO_ALIAS =
+  `(deadline_sec > 0 AND deadline_sec < UNIX_TIMESTAMP(NOW()) - ${PIPELINE_EXPIRY_GRACE_SECONDS})`;
+
+/**
+ * JS 侧稳定过期判定（与 STABLE_EXPIRED_WHERE 同口径，构建单行镜像用）。
+ * @param deadlineSec 主表 deadline_sec（生成列；mysql2 可能回字符串，内部 Number 化）
+ * @param nowSec 当前 UTC 秒，测试可注入；默认 Date.now()
+ */
+export function isStablyExpired(
+  deadlineSec: number | string | null | undefined,
+  nowSec = Math.floor(Date.now() / 1000),
+): boolean {
+  const v = Number(deadlineSec ?? 0);
+  if (!Number.isFinite(v) || v <= 0) return false;
+  return v < nowSec - PIPELINE_EXPIRY_GRACE_SECONDS;
+}
 
 /**
  * 将日期字符串按北京时间（UTC+8）解析为 Unix 时间戳
