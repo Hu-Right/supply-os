@@ -1,9 +1,14 @@
 "use client";
 
 /**
- * /training 路由错误态
- * Route-level error boundary for training page
+ * 路由错误态：课程页面加载失败
+ * Route-level error boundary — /training
+ *
+ * @description 呈现层统一走 shared/ui/RouteErrorState（标题/说明取 i18n 键），
+ *              本文件只负责挂路由名与错误日志，不再写死中文文案。
  */
+import { RouteErrorState } from "@/shared/ui/RouteErrorState";
+
 export default function TrainingError({
   error,
   reset,
@@ -11,23 +16,12 @@ export default function TrainingError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-   
   console.error("[TrainingError]", error);
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-      <div className="h-12 w-12 rounded-full bg-rose-50 flex items-center justify-center">
-        <span className="text-xl text-rose-500">!</span>
-      </div>
-      <h2 className="text-lg font-bold text-slate-900">课程页面加载失败</h2>
-      <p className="text-sm text-slate-500 max-w-sm">
-        培训课程数据加载时出现错误，请稍后重试。
-      </p>
-      <button
-        onClick={reset}
-        className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition-colors"
-      >
-        重试
-      </button>
-    </div>
+    <RouteErrorState
+      titleKey="errTrainingTitle"
+      descKey="errTrainingDesc"
+      onReset={reset}
+    />
   );
 }

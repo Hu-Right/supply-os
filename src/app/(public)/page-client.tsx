@@ -26,19 +26,21 @@ import type { HomeStatsData } from "@/features/home";
 import type { HomeContentSnapshot } from "@/lib/services/home-snapshot";
 import type { HomeContentData } from "@/features/home/components/ContentColumns";
 import { ErrorBoundary } from "@/shared/ui";
+import { useLocale } from "@/core/i18n";
 
 /** 首页全局错误降级 UI */
 function HomeErrorFallback() {
+  const { t } = useLocale();
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="text-center space-y-4">
-        <p className="text-lg font-bold text-slate-700">页面加载异常</p>
-        <p className="text-sm text-slate-500">请刷新页面重试，如问题持续请联系客服</p>
+        <p className="text-lg font-bold text-slate-700">{t("pageErrorTitle")}</p>
+        <p className="text-sm text-slate-500">{t("pageErrorDescSupport")}</p>
         <button
           onClick={() => window.location.reload()}
           className="rounded-lg bg-teal-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-teal-700 transition-colors"
         >
-          刷新页面
+          {t("pageErrorReload")}
         </button>
       </div>
     </div>

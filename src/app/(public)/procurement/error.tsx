@@ -1,9 +1,14 @@
 "use client";
 
 /**
- * /procurement 路由错误态
- * Route-level error boundary for procurement page
+ * 路由错误态：公告加载失败
+ * Route-level error boundary — /procurement
+ *
+ * @description 呈现层统一走 shared/ui/RouteErrorState（标题/说明取 i18n 键），
+ *              本文件只负责挂路由名与错误日志，不再写死中文文案。
  */
+import { RouteErrorState } from "@/shared/ui/RouteErrorState";
+
 export default function ProcurementError({
   error,
   reset,
@@ -11,23 +16,12 @@ export default function ProcurementError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-   
   console.error("[ProcurementError]", error);
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-      <div className="h-12 w-12 rounded-full bg-rose-50 flex items-center justify-center">
-        <span className="text-xl text-rose-500">!</span>
-      </div>
-      <h2 className="text-lg font-bold text-slate-900">公告加载失败</h2>
-      <p className="text-sm text-slate-500 max-w-sm">
-        采购公告搜索服务暂时不可用，请稍后重试。
-      </p>
-      <button
-        onClick={reset}
-        className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-800 transition-colors"
-      >
-        重试
-      </button>
-    </div>
+    <RouteErrorState
+      titleKey="errProcurementTitle"
+      descKey="errProcurementDesc"
+      onReset={reset}
+    />
   );
 }
