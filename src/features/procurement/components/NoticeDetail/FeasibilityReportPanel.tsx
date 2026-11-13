@@ -245,7 +245,10 @@ export function FeasibilityReportPanel({ noticePk, enabled }: FeasibilityReportP
               {t("feasibilityScore")}：{Math.round(report.verdict.score * 100)} / 100
             </span>
             <span>
-              {t("feasibilityCompleteness")}：{report.meta.dataCompleteness.requirementItems} 项要求 / {report.meta.dataCompleteness.capabilities} 项能力
+              {t("noticeUiFeasibilityCompleteness", {
+                required: report.meta.dataCompleteness.requirementItems,
+                caps: report.meta.dataCompleteness.capabilities,
+              })}
             </span>
             {report.deterministic.rulesUnknown > 0 && (
               <span className="text-amber-600">

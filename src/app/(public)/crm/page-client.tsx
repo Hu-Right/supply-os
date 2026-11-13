@@ -12,6 +12,7 @@
 
 import dynamic from "next/dynamic";
 import { useAuth } from "@/core/auth";
+import { useLocale } from "@/core/i18n";
 import { Button, ErrorBoundary, PageErrorFallback } from "@/shared/ui";
 import { emitAppEvent } from "@/core/events";
 import { Briefcase, BarChart3, Calendar, FileText, Users } from "lucide-react";
@@ -30,26 +31,27 @@ const CrmDashboard = dynamic(
 
 /** CRM 产品介绍页 — 未登录访客可见 */
 function CrmLandingPage() {
+  const { t } = useLocale();
   const features = [
     {
       icon: BarChart3,
-      title: "AI 智能商机匹配",
-      desc: "基于企业资质与历史数据，自动评估中标概率，输出 Bid/No-Bid 建议",
+      titleKey: "crmHubFeatureAiMatchTitle",
+      descKey: "crmHubFeatureAiMatchDesc",
     },
     {
       icon: Calendar,
-      title: "截止日历与任务管理",
-      desc: "可视化投标时间节点，团队分工协作，避免错过关键截止日期",
+      titleKey: "crmHubFeatureDeadlineTitle",
+      descKey: "crmHubFeatureDeadlineDesc",
     },
     {
       icon: FileText,
-      title: "文档中心与证据库",
-      desc: "集中管理投标文件、资质证书、历史业绩，支持权限与版本管理",
+      titleKey: "crmHubFeatureDocsTitle",
+      descKey: "crmHubFeatureDocsDesc",
     },
     {
       icon: Users,
-      title: "顾问协同",
-      desc: "一对一顾问在线协作，专家建议与陪跑支持，降低投标风险",
+      titleKey: "crmHubFeatureAdvisorTitle",
+      descKey: "crmHubFeatureAdvisorDesc",
     },
   ];
 
@@ -61,11 +63,10 @@ function CrmLandingPage() {
         </div>
 
         <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-3">
-          AI 投标工作台
+          {t("crmHubLandingTitle")}
         </h2>
         <p className="text-base text-slate-600 mb-8 max-w-xl mx-auto">
-          登录后使用完整的投标管理工具：AI 商机评估、截止日历、团队协作、文档中心与顾问支持。
-          让 OS 成为您的日常投标工作台。
+          {t("crmHubLandingDesc")}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10 text-left">
@@ -75,8 +76,8 @@ function CrmLandingPage() {
               className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs"
             >
               <f.icon className="w-5 h-5 text-teal-600 mb-2" />
-              <h3 className="text-sm font-bold text-slate-800 mb-1">{f.title}</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">{f.desc}</p>
+              <h3 className="text-sm font-bold text-slate-800 mb-1">{t(f.titleKey)}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">{t(f.descKey)}</p>
             </div>
           ))}
         </div>
@@ -89,7 +90,7 @@ function CrmLandingPage() {
             onClick={() => emitAppEvent("supply-os:require-login")}
             className="font-bold"
           >
-            登录使用工作台
+            {t("crmHubLandingLoginCta")}
           </Button>
           <Button
             type="button"
@@ -98,12 +99,12 @@ function CrmLandingPage() {
             onClick={() => emitAppEvent("supply-os:require-login")}
             className="font-bold"
           >
-            免费注册账号
+            {t("crmHubLandingRegisterCta")}
           </Button>
         </div>
 
         <p className="text-xs text-slate-400 mt-6">
-          已有账号？登录后即可同步您的商机收藏、搜索提醒与企业资料。
+          {t("crmHubLandingExistingHint")}
         </p>
       </div>
     </div>

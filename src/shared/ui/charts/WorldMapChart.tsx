@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useLocale } from "@/core/i18n";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 interface CountryData {
@@ -26,6 +27,7 @@ interface WorldMapChartProps {
 }
 
 export function WorldMapChart({ countries }: WorldMapChartProps) {
+  const { t } = useLocale();
   const chartRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<any>(null);
@@ -122,7 +124,7 @@ export function WorldMapChart({ countries }: WorldMapChartProps) {
             return `
               <div style="padding: 4px 8px;">
                 <div style="font-weight: 700; margin-bottom: 4px; font-size: 14px;">${displayName}</div>
-                <div style="color: #0d9488; font-weight: 600;">${count.toLocaleString()} 条商机</div>
+                <div style="color: #0d9488; font-weight: 600;">${t("chartUiMapTooltipCount", { n: count.toLocaleString() })}</div>
               </div>
             `;
           },
@@ -132,7 +134,7 @@ export function WorldMapChart({ countries }: WorldMapChartProps) {
           max: Math.max(maxCount, 1000),
           left: "left",
           bottom: "20",
-          text: ["高", "低"],
+          text: [t("chartUiMapLegendHigh"), t("chartUiMapLegendLow")],
           calculable: true,
           inRange: {
             color: ["#e2e8f0", "#93c5fd", "#2dd4bf", "#fbbf24", "#f97316", "#ef4444"],
@@ -184,10 +186,10 @@ export function WorldMapChart({ countries }: WorldMapChartProps) {
         chart.dispose();
       };
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载地图失败");
+      setError(err instanceof Error ? err.message : t("chartUiMapLoadError"));
       setLoading(false);
     }
-  }, [countries]);
+  }, [countries, t]);
 
   // 可见时初始化图表
   useEffect(() => {
@@ -207,7 +209,7 @@ export function WorldMapChart({ countries }: WorldMapChartProps) {
   if (error) {
     return (
       <div className="flex items-center justify-center h-96 bg-slate-50 rounded-2xl border border-slate-200">
-        <p className="text-sm text-rose-600">地图加载失败：{error}</p>
+        <p className="text-sm text-rose-600">{t("chartUiMapLoadFailed", { error })}</p>
       </div>
     );
   }
@@ -216,14 +218,14 @@ export function WorldMapChart({ countries }: WorldMapChartProps) {
     <div ref={containerRef} className="relative w-full h-[400px] md:h-[500px]">
       {!visible && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
-          <p className="text-sm text-slate-400">向下滚动加载地图</p>
+          <p className="text-sm text-slate-400">{t("chartUiScrollToLoad")}</p>
         </div>
       )}
       {visible && loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
           <div className="text-center">
             <div className="h-8 w-8 mx-auto animate-spin rounded-full border-4 border-teal-200 border-t-teal-600 mb-3" />
-            <p className="text-sm text-slate-500">加载世界地图...</p>
+            <p className="text-sm text-slate-500">{t("chartUiLoadingMap")}</p>
           </div>
         </div>
       )}

@@ -35,7 +35,7 @@ export function IdentityChoiceBanner() {
           type="button"
           onClick={() => setDismissed(true)}
           className="absolute top-3 right-3 p-1 rounded-lg text-blue-400 hover:text-blue-700 hover:bg-blue-100 transition-colors"
-          aria-label="关闭"
+          aria-label={t("uiClose")}
         >
           <X className="w-4 h-4" />
         </button>

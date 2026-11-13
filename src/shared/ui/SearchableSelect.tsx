@@ -7,6 +7,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils";
 
 interface SearchableSelectOption {
@@ -27,10 +28,11 @@ export function SearchableSelect({
   options,
   value,
   onChange,
-  placeholder = "请选择",
+  placeholder,
   disabled = false,
   className,
 }: SearchableSelectProps) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -99,7 +101,7 @@ export function SearchableSelect({
             if (!open) setOpen(true);
           }}
           onFocus={handleFocus}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t("selectUiPlaceholder")}
           disabled={disabled}
           className="flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-secondary-400"
         />
@@ -117,7 +119,7 @@ export function SearchableSelect({
       {open && !disabled && (
         <div className="absolute z-50 mt-1 w-full max-h-48 rounded-lg border border-secondary-200 bg-white shadow-lg overflow-y-auto">
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-secondary-400 text-center">无匹配</div>
+            <div className="px-3 py-2 text-sm text-secondary-400 text-center">{t("selectUiNoMatch")}</div>
           ) : (
             filtered.map((opt) => (
               <button

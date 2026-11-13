@@ -43,7 +43,7 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
       <div className="flex items-center justify-between gap-3 mb-3">
         <p className="text-xs font-black text-slate-500 uppercase flex items-center gap-1.5 tracking-wide">
           <Lock className="w-3.5 h-3.5 text-teal-500" />
-          最近解锁
+          {t("noticeUiRecentUnlocks")}
         </p>
         {hasTranslation && (
           <Button

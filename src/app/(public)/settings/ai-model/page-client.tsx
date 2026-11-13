@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card } from "@/shared/ui";
 import { api } from "@/core/http";
+import { useLocale } from "@/core/i18n";
 import {
   fetchLlmConfig,
   testLlmConnection,
@@ -30,6 +31,7 @@ import { ModelSelector, CustomFields, ApiKeyField, ConsentNotice, MessageLine, t
 
 export default function AiModelSettingsClient() {
   const router = useRouter();
+  const { t } = useLocale();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -97,15 +99,24 @@ export default function AiModelSettingsClient() {
   }) => {
     setTesting(true);
     setMessageKind("pending");
-    setMessage("正在测试连接…");
+    setMessage(t("aiModelMsgTesting"));
     try {
       const res = await testLlmConnection(payload);
       const ms = res.latencyMs;
+      const modelName = res.model || t("aiModelDefaultModelName");
       setMessageKind("ok");
-      setMessage(`连接成功：${res.model || "已配置模型"}${ms != null ? `（耗时 ${(ms / 1000).toFixed(1)} 秒）` : ""}`);
+      setMessage(
+        ms != null
+          ? t("aiModelMsgTestOkLatency", { model: modelName, seconds: (ms / 1000).toFixed(1) })
+          : t("aiModelMsgTestOk", { model: modelName }),
+      );
     } catch (err) {
       setMessageKind("err");
-      setMessage(`连接失败：${err instanceof Error ? err.message : "未知错误"}`);
+      setMessage(
+        t("aiModelMsgTestFail", {
+          error: err instanceof Error ? err.message : t("aiModelMsgUnknownError"),
+        }),
+      );
     } finally {
       setTesting(false);
     }
@@ -113,15 +124,15 @@ export default function AiModelSettingsClient() {
 
   const handleSave = async () => {
     if (!form.baseUrl.trim() || !form.model.trim()) {
-      setMessage("Base URL 与模型名称不能为空");
+      setMessage(t("aiModelErrBaseUrlModelRequired"));
       return;
     }
     if (!form.apiKey.trim()) {
-      setMessage("请填写 API Key");
+      setMessage(t("aiModelErrApiKeyRequired"));
       return;
     }
     if (!outboundConsent) {
-      setMessage("请先勾选数据出站授权");
+      setMessage(t("aiModelErrConsentRequired"));
       return;
     }
     setSaving(true);
@@ -145,7 +156,7 @@ export default function AiModelSettingsClient() {
       await runConnectionTest();
     } catch (err) {
       setMessageKind("err");
-      setMessage(err instanceof Error ? err.message : "保存失败");
+      setMessage(err instanceof Error ? err.message : t("aiModelErrSaveFailed"));
     } finally {
       setSaving(false);
     }
@@ -155,12 +166,12 @@ export default function AiModelSettingsClient() {
   const handleTestForm = () => {
     if (!form.baseUrl.trim() || !form.model.trim() || !form.apiKey.trim()) {
       setMessageKind("err");
-      setMessage("测试当前填写的配置需先补齐 Base URL、模型名称与 API Key");
+      setMessage(t("aiModelErrTestIncomplete"));
       return;
     }
     if (!outboundConsent) {
       setMessageKind("err");
-      setMessage("请先勾选数据出站授权");
+      setMessage(t("aiModelErrConsentRequired"));
       return;
     }
     void runConnectionTest({
@@ -172,21 +183,25 @@ export default function AiModelSettingsClient() {
   };
 
   if (loading) {
-    return <div className="py-16 text-center text-sm text-slate-400">加载中…</div>;
+    return <div className="py-16 text-center text-sm text-slate-400">{t("uiLoadingDots")}</div>;
   }
 
   return (
     <Card className="rounded-2xl p-6 space-y-5">
       <div>
-        <h2 className="text-base font-extrabold text-slate-900">AI 模型配置</h2>
+        <h2 className="text-base font-extrabold text-slate-900">{t("settingsAiModel")}</h2>
         <p className="text-xs text-slate-500 mt-1">
-          从下方推荐模型中选择一个，粘贴自己的 API Key 即可开启 AI 拆标摘要。API Key 加密存储，不会明文回显。
+          {t("aiModelPageIntro")}
         </p>
       </div>
 
       {existing?.configured && (
         <div className="rounded-lg bg-teal-50 border border-teal-200 px-3 py-2 text-xs text-teal-700">
-          当前已配置：{existing.providerName} · {existing.model} · Key {existing.apiKeyMasked}
+          {t("aiModelConfiguredSummary", {
+            provider: existing.providerName ?? "",
+            model: existing.model ?? "",
+            masked: existing.apiKeyMasked ?? "",
+          })}
         </div>
       )}
 
@@ -203,14 +218,14 @@ export default function AiModelSettingsClient() {
 
       <div className="flex gap-3 flex-wrap">
         <Button onClick={handleSave} disabled={saving} variant="primary">
-          {saving ? "保存中…" : "保存配置"}
+          {saving ? t("aiModelSavingBtn") : t("aiModelSaveBtn")}
         </Button>
         {/* 测当前表单（含未保存的新 Key）；保存成功后会自动重测已存配置 */}
         <Button onClick={handleTestForm} disabled={testing || saving} variant="secondary">
-          {testing ? "测试中…" : "测试连接"}
+          {testing ? t("aiModelTestingBtn") : t("aiModelTestBtn")}
         </Button>
         <Button onClick={() => router.back()} variant="outline">
-          返回
+          {t("rfqBack")}
         </Button>
       </div>
     </Card>

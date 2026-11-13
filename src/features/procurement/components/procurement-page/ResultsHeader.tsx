@@ -78,10 +78,10 @@ export function ResultsHeader({
         </button>
         {/* 视图切换 */}
         <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
-          <button type="button" className="p-1.5 bg-teal-50 text-teal-700" aria-label="列表视图">
+          <button type="button" className="p-1.5 bg-teal-50 text-teal-700" aria-label={t("noticeUiListView")}>
             <LayoutList className="w-3.5 h-3.5" />
           </button>
-          <button type="button" className="p-1.5 bg-white text-slate-400 hover:text-slate-600" aria-label="网格视图">
+          <button type="button" className="p-1.5 bg-white text-slate-400 hover:text-slate-600" aria-label={t("noticeUiGridView")}>
             <LayoutGrid className="w-3.5 h-3.5" />
           </button>
         </div>

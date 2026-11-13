@@ -7,6 +7,7 @@
  * @module app/(public)/settings/ai-model/components/parts
  */
 import { memo } from "react";
+import { useLocale } from "@/core/i18n";
 import {
   PRESET_LLM_MODELS,
   CUSTOM_PRESET_ID,
@@ -23,11 +24,12 @@ export const ModelSelector = memo(function ModelSelector({
   selectedPresetId: string;
   onChange: (id: string) => void;
 }) {
+  const { t } = useLocale();
   const isCustom = selectedPresetId === CUSTOM_PRESET_ID;
   const currentPreset = PRESET_LLM_MODELS.find((p) => p.id === selectedPresetId) ?? null;
   return (
     <div>
-      <label className="block text-xs font-bold text-slate-600 mb-1">选择模型</label>
+      <label className="block text-xs font-bold text-slate-600 mb-1">{t("aiModelSelectModel")}</label>
       <select
         className={FIELD_CLS}
         value={selectedPresetId}
@@ -39,17 +41,17 @@ export const ModelSelector = memo(function ModelSelector({
           </option>
         ))}
         <option value={CUSTOM_PRESET_ID}>
-          自定义（高级用户 · 手动填写 Base URL / 模型名称）
+          {t("aiModelCustomOption")}
         </option>
       </select>
 
       {!isCustom && currentPreset && (
         <div className="mt-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-[11px] text-slate-600 space-y-1">
           <div>
-            Base URL：<span className="font-mono text-slate-800">{currentPreset.baseUrl}</span>
+            {t("aiModelPresetBaseUrlLabel")}<span className="font-mono text-slate-800">{currentPreset.baseUrl}</span>
           </div>
           <div>
-            模型名称：<span className="font-mono text-slate-800">{currentPreset.model}</span>
+            {t("aiModelPresetModelLabel")}<span className="font-mono text-slate-800">{currentPreset.model}</span>
           </div>
           {currentPreset.docsUrl && (
             <div>
@@ -59,7 +61,7 @@ export const ModelSelector = memo(function ModelSelector({
                 rel="noreferrer noopener"
                 className="text-teal-600 hover:underline"
               >
-                前往 {currentPreset.providerName} 申请 API Key →
+                {t("aiModelApplyApiKeyLink", { provider: currentPreset.providerName })}
               </a>
             </div>
           )}
@@ -84,16 +86,17 @@ export const CustomFields = memo(function CustomFields({
   form: LlmForm;
   onChange: (next: LlmForm) => void;
 }) {
+  const { t } = useLocale();
   return (
     <>
       <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1">提供商名称</label>
+        <label className="block text-xs font-bold text-slate-600 mb-1">{t("aiModelFieldProviderName")}</label>
         <input
           className={FIELD_CLS}
           value={form.providerName}
           maxLength={100}
           onChange={(e) => onChange({ ...form, providerName: e.target.value })}
-          placeholder="如 DeepSeek"
+          placeholder={t("aiModelPlaceholderProvider")}
         />
       </div>
 
@@ -108,7 +111,7 @@ export const CustomFields = memo(function CustomFields({
       </div>
 
       <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1">模型名称</label>
+        <label className="block text-xs font-bold text-slate-600 mb-1">{t("aiModelFieldModelName")}</label>
         <input
           className={FIELD_CLS}
           value={form.model}
@@ -130,6 +133,7 @@ export const ApiKeyField = memo(function ApiKeyField({
   onChange: (v: string) => void;
   configured: boolean;
 }) {
+  const { t } = useLocale();
   return (
     <div>
       <label className="block text-xs font-bold text-slate-600 mb-1">API Key</label>
@@ -138,7 +142,7 @@ export const ApiKeyField = memo(function ApiKeyField({
         type="password"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={configured ? "重新填写以更新 Key" : "sk-..."}
+        placeholder={configured ? t("aiModelPlaceholderApiKeyUpdate") : "sk-..."}
       />
     </div>
   );
@@ -152,10 +156,11 @@ export const ConsentNotice = memo(function ConsentNotice({
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const { t } = useLocale();
   return (
     <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 space-y-2">
       <p className="text-[11px] text-amber-800 leading-4">
-        使用自有 API Key 时，公告原文及企业/工厂画像数据将发送至您所配置的第三方模型服务端点（如 OpenAI、DeepSeek）。该服务由您自行选择与控制，请确认其隐私政策。
+        {t("aiModelConsentDataNotice")}
       </p>
       <label className="flex items-start gap-2 cursor-pointer">
         <input
@@ -165,7 +170,7 @@ export const ConsentNotice = memo(function ConsentNotice({
           onChange={(e) => onChange(e.target.checked)}
         />
         <span className="text-[11px] font-bold text-amber-900 leading-4">
-          我知晓并同意将上述数据发送至我配置的模型服务端点
+          {t("aiModelConsentAgree")}
         </span>
       </label>
     </div>
