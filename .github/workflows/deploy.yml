@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${DEPLOY_SSH_KEY:-}" ] || [ -z "${DEPLOY_HOST:-}" ] || [ -z "${DEPLOY_USER:-}" ]; then
-            echo "::error::缺少 DEPLOY_SSH_KEY / DEPLOY_HOST / DEPLOY_USER secrets，见 docs/运维/部署与OOM处置.md"
+            echo "::error::缺少 DEPLOY_SSH_KEY / DEPLOY_HOST / DEPLOY_USER secrets，见 scripts/tools/DEPLOY.md"
             exit 1
           fi
           APP_DIR="${DEPLOY_APP_DIR:-/root/supply-os}"
@@ -60,3 +60,4 @@ jobs:
           scp "${SSH_OPTS[@]}" next-standalone.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/next-standalone.tar.gz"
           scp "${SSH_OPTS[@]}" scripts/tools/deploy-artifact.sh "$DEPLOY_USER@$DEPLOY_HOST:/tmp/deploy-artifact.sh"
           ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "APP_DIR='$APP_DIR' bash /tmp/deploy-artifact.sh /tmp/next-standalone.tar.gz"
+
