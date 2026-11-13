@@ -67,6 +67,9 @@ const SENTENCE_HEADS: RegExp[] = [
 /** 句子形态：句首冠词 + be 动词 */
 const SENTENCE_SHAPE = /^(the|a|an)\s/i;
 const BE_VERB = /\b(is|are|was|were|has been|have been|does not|says|is located|was established|is called)\b/i;
+/** 决策/事件句式（2026-11-12 剔除口径：LLM 幻觉整句再漏网的两例形态） */
+const DECISION_RE =
+  /\b(has\s+decided|has\s+been\s+decided|in\s+order\s+to|are\s+invited\s+to|on\s+the\s+merits\s+of\s+the\s+contract|destruction\s+of\s+(?:his|her|their))\b/i;
 /** 站点导航文本（页面菜单被抓成买家名） */
 const NAV_TEXT = /(FAQS|Sitemap|Contact Support|About us|Privacy Policy|Account Access)/i;
 /** 同一片段重复 5 次以上（采集拼接残渣） */
@@ -80,6 +83,7 @@ function isSentenceNoise(name: string): boolean {
   if (s.length > 300) return true;
   if (NAV_TEXT.test(s)) return true;
   if (REPEATED.test(s)) return true;
+  if (DECISION_RE.test(s)) return true;
   for (const re of SENTENCE_HEADS) if (re.test(s)) return true;
   if (SENTENCE_SHAPE.test(s) && BE_VERB.test(s)) return true;
   if (s.length > 60 && BE_VERB.test(s)) return true;
