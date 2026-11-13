@@ -74,16 +74,21 @@ export const HeroSection = memo(function HeroSection() {
 
   return (
     <section className="relative bg-[#0c1929] py-12 w-[calc(100%+2rem)] -ml-4 sm:w-[calc(100%+3rem)] sm:-ml-6 lg:w-[calc(100%+4rem)] lg:-ml-8 overflow-hidden">
-      {/* 地球装饰背景图 */}
+      {/* 港口夜景底图（2026-11-13 换）：整幅铺底，左侧压暗托白字，主体留在右半 */}
       <img
-        src="/earth.png?v=2"
+        src="/images/home/hero-banner.webp"
+        srcSet="/images/home/hero-banner-sm.webp 1600w, /images/home/hero-banner.webp 2200w"
+        sizes="100vw"
         alt=""
         aria-hidden
-        className="pointer-events-none absolute -right-[5%] top-1/2 -translate-y-1/2 h-[160%] w-auto object-contain opacity-40 hidden lg:block brightness-150 contrast-125"
-        style={{
-          maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.2) 15%, black 40%)",
-          WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.2) 15%, black 40%)",
-        }}
+        fetchPriority="high"
+        decoding="async"
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover object-[74%_center] sm:object-[68%_center] lg:object-center"
+      />
+      {/* 左侧渐变：窄屏几乎压满（文字占满宽度），桌面收在左半 */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0c1929] via-[#0c1929]/85 to-[#0c1929]/15 sm:from-[#0c1929]/95 sm:via-[#0c1929]/70 sm:to-[#0c1929]/0"
       />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-left">
@@ -101,7 +106,9 @@ export const HeroSection = memo(function HeroSection() {
             <span className="text-white font-bold text-sm">{t("homeSearchLabel")}</span>
           </div>
           <div className="flex mb-3">
-            <div className="relative flex-1">
+            {/* min-w-0：flex 子项默认 min-width:auto，输入框会按 placeholder 文本撑开，
+                把右侧按钮挤出视口（390px 窄屏实测溢出） */}
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
