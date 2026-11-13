@@ -25,7 +25,7 @@ export const RFQ_STATUS = {
 
 export type RfqStatus = (typeof RFQ_STATUS)[keyof typeof RFQ_STATUS];
 
-/** 用户侧可筛选的状态白名单（/api/rfq/my?status= 参数校验用） */
+/** 用户侧可筛选的状态白名单（legacy 路由 /api/rfq/my 已删除，新口径见 rfq-demand.ts） */
 export const RFQ_USER_FILTERABLE_STATUSES = [
   RFQ_STATUS.DRAFT,
   RFQ_STATUS.PENDING_REVIEW,

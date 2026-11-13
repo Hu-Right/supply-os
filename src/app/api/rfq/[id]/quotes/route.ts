@@ -88,7 +88,15 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (rfq!.userId !== auth.userId) routeError(403, EC_FORBIDDEN, "仅创建者可查看报价汇总");
 
     const items = await listQuotesForBuyer(pool, rfqId);
-    return NextResponse.json({ items, total: items.length });
+
+    // 密封报价：截止前采购方只能看到"已收到多少条"，看不到报价明细与供应商身份，
+    // 避免"边看报价边改需求"。截止后（或未设截止）统一开价。
+    const nowSec = Math.floor(Date.now() / 1000);
+    const sealed = rfq!.deadlineSec !== 0 && rfq!.deadlineSec > nowSec;
+    if (sealed) {
+      return NextResponse.json({ sealed: true, count: items.length, total: items.length, items: [] });
+    }
+    return NextResponse.json({ sealed: false, count: items.length, total: items.length, items });
   },
 );
 

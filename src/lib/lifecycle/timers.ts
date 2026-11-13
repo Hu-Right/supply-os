@@ -15,6 +15,7 @@ import { classifyMissingDeadlines } from "../services/notice-deadline/backfill";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { reconcileRfqGuard } from "../services/rfq-guard";
 import { outreachPublishedRfq, pendingOutreachRfqIds } from "../services/rfq-outreach";
+import { advanceRfqLifecycle } from "../services/rfq/expiry";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { releaseExpiredClaims } from "../services/supplier-claim";
 import {
@@ -298,6 +299,27 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     }, intervalMin * 60_000);
   }
 
+  // 11. RFQ 时间驱动流转（published→evaluation→closed(expired)）。
+  //     默认开启、每 10 分钟一轮：截止后自动进入评审，评审超 14 天自动结案并撤下搜索投影。
+  let rfqLifecycleTimer: NodeJS.Timeout | null = null;
+  if (String(process.env.RFQ_LIFECYCLE_ENABLED ?? "on").toLowerCase() !== "off") {
+    const intervalMin = Math.max(1, Number(process.env.RFQ_LIFECYCLE_INTERVAL_MINUTES || 10));
+    const runLifecycle = async () => {
+      try {
+        const r = await advanceRfqLifecycle(dbPool, { batch: 100 });
+        if (r.toEvaluation > 0 || r.toClosed > 0) {
+          console.log(
+            `[rfq-lifecycle] 进入评审 ${r.toEvaluation} 条，过期结案 ${r.toClosed} 条`,
+          );
+        }
+      } catch (e) {
+        console.error("[rfq-lifecycle] 流转失败（不影响下次扫描）:", (e as Error).message);
+      }
+    };
+    setTimeout(() => { void runLifecycle(); }, 45_000);
+    rfqLifecycleTimer = setInterval(() => { void runLifecycle(); }, intervalMin * 60_000);
+  }
+
   return {
     stop() {
       clearInterval(featuredRefreshTimer);
@@ -309,6 +331,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       if (rfqGuardTimer) clearInterval(rfqGuardTimer);
       if (rfqOutreachTimer) clearInterval(rfqOutreachTimer);
       if (deadlineClassifyTimer) clearInterval(deadlineClassifyTimer);
+      if (rfqLifecycleTimer) clearInterval(rfqLifecycleTimer);
     },
   };
 }

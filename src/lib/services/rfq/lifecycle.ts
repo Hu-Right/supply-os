@@ -41,6 +41,8 @@ const ALLOWED_TRANSITIONS: Record<DemandStatus, readonly DemandStatus[]> = {
     DEMAND_STATUS.PUBLISHED,
     DEMAND_STATUS.REJECTED,
     DEMAND_STATUS.CLOSED,
+    // 采购方可在审核领取前撤回提交（回到草稿继续修改），区别于"撤回需求"（→closed）
+    DEMAND_STATUS.DRAFT,
   ],
   [DEMAND_STATUS.UNDER_REVIEW]: [
     DEMAND_STATUS.PUBLISHED,
@@ -54,7 +56,8 @@ const ALLOWED_TRANSITIONS: Record<DemandStatus, readonly DemandStatus[]> = {
   ],
   [DEMAND_STATUS.PUBLISHED]: [DEMAND_STATUS.EVALUATION, DEMAND_STATUS.CLOSED],
   [DEMAND_STATUS.EVALUATION]: [DEMAND_STATUS.CLOSED],
-  [DEMAND_STATUS.CLOSED]: [],
+  // 撤销定标：closed(awarded) → evaluation（仅采购方；route 层先校验存在未撤销的授标）
+  [DEMAND_STATUS.CLOSED]: [DEMAND_STATUS.EVALUATION],
 };
 
 /** 角色白名单：谁能做哪条转移 */
@@ -63,6 +66,10 @@ function isActorAllowed(actor: DemandActor, from: DemandStatus, to: DemandStatus
     if (from === DEMAND_STATUS.DRAFT && to === DEMAND_STATUS.SUBMITTED) return true;
     if (from === DEMAND_STATUS.REJECTED && to === DEMAND_STATUS.SUBMITTED) return true;
     if (from === DEMAND_STATUS.REJECTED && to === DEMAND_STATUS.DRAFT) return true;
+    // 撤回提交：仅当还没被审核领取时允许
+    if (from === DEMAND_STATUS.SUBMITTED && to === DEMAND_STATUS.DRAFT) return true;
+    // 撤销定标：结案回到评审（授标行保留 revoked_at 作为审计）
+    if (from === DEMAND_STATUS.CLOSED && to === DEMAND_STATUS.EVALUATION) return true;
     // 采购方只能"取消/撤回"，且只能落到 closed
     return to === DEMAND_STATUS.CLOSED && from !== DEMAND_STATUS.CLOSED;
   }

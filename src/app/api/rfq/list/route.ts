@@ -1,93 +1,133 @@
 /**
- * GET /api/rfq/list — RFQ 需求广场列表
+ * GET /api/rfq/list — 需求广场（公开）
  *
  * @module app/api/rfq/list/route
- * @description 从 bid_notices 查询 entry_source='platform' AND notice_type='RFQ' AND rfq_status='published' 的记录。
- *              筛选：关键词 + 品目大类（UGT L1 树码前缀）；交付地点为手动填写地址，仅展示不筛选。
- *              替代旧版前端 PLAZA_RFQS 静态数组。
+ * @description v2 读模型：直接读 `rfq_demand`（写模型即读模型的一部分——公开面不需要
+ *              投影的翻译/路径列；搜索/SEO/宽表仍走 `bid_notices` → 宽表链路）。
+ *              只返回**报价窗口内**的公开需求：published 且已开放（open_at 为空或已到）
+ *              且未截止（close_at 为空或未到）；定向（targeted）一律不出现。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
+import { getPool } from "@/lib/db/pool";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute } from "@/lib/middleware/route-handler";
-import { formatDeadlineDateYMD, currencySymbol } from "@/shared/utils/format";
+import { clampLimit, DEFAULT_PAGE_LIMIT } from "@/shared/constants/api";
+import { DEMAND_STATUS } from "@/shared/constants/rfq-demand";
 import { commodityNodeLevel, isCommodityNodeKey } from "@/lib/services/commodity/tree";
-
-const MYSQL_TIMEOUT_MS = 10_000;
-
-/** estimated_value + currency → 展示文案（平台预算以“万元”为单位，与设置页口径一致） */
-function formatBudget(value: number, currency: string, confidential: boolean): string {
-  if (confidential || !value || value <= 0) return "预算保密";
-  return `${currencySymbol(currency)}${Math.round(value)} 万`;
-}
+import type { RowDataPacket } from "mysql2/promise";
 
 export const GET = withRoute(async (req: NextRequest) => {
-  const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 60 }, () => `rfq-list:${extractClientIp(req)}`);
+  const rl = checkRateLimit(
+    req,
+    { windowMs: 60_000, maxAttempts: 60 },
+    () => `rfq-list:${extractClientIp(req)}`,
+  );
   if (rl) return rl;
 
   const sp = req.nextUrl.searchParams;
   const page = Math.max(1, Number(sp.get("page")) || 1);
-  const pageSize = Math.min(Math.max(Number(sp.get("page_size")) || 12, 4), 48);
+  const pageSize = clampLimit(sp.get("page_size"), DEFAULT_PAGE_LIMIT, 48);
   const q = String(sp.get("q") || "").trim().slice(0, 200);
-  // 品目大类筛选：L1 树码 UGT-xx（2026-10-15 G 码退役；旧字典行 id 参数随旧品类字典退役停用）
+  const province = String(sp.get("province") || "").trim().slice(0, 50);
   const categoryL1 = String(sp.get("category_l1") || "").trim().slice(0, 16);
   const sort = sp.get("sort") === "deadline" ? "deadline" : sp.get("sort") === "budget" ? "budget" : "newest";
 
-  const ctx = getContext();
+  const nowSec = Math.floor(Date.now() / 1000);
+  const conditions: string[] = [
+    "d.status = ?",
+    "d.visibility = 'public'",
+    "(d.open_at IS NULL OR d.open_at <= ?)",
+    "(d.close_at IS NULL OR d.close_at >= ?)",
+  ];
+  const params: unknown[] = [DEMAND_STATUS.PUBLISHED, nowSec, nowSec];
 
-  // 品目大类筛选：非法码直接当空结果处理（不 500：筛选参数可手输）；
-  // 合法的 L1 树码再交由 repo 层走 category_code 前缀谓词
-  if (categoryL1 && (!isCommodityNodeKey(categoryL1) || commodityNodeLevel(categoryL1) !== 1)) {
-    return NextResponse.json({ items: [], total: 0, page, page_size: pageSize });
+  if (q) {
+    conditions.push("(d.title LIKE ? OR LEFT(d.description, 500) LIKE ?)");
+    params.push(`%${q}%`, `%${q}%`);
+  }
+  if (province) {
+    conditions.push("d.province_name = ?");
+    params.push(province);
+  }
+  if (categoryL1) {
+    // 非法码按空条件处理（筛选参数可手输），不 500
+    if (!isCommodityNodeKey(categoryL1) || commodityNodeLevel(categoryL1) !== 1) {
+      return NextResponse.json({ items: [], total: 0, page, page_size: pageSize });
+    }
+    conditions.push("d.category_code LIKE ?");
+    params.push(`${categoryL1}%`);
   }
 
-  try {
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`RFQ list timeout ${MYSQL_TIMEOUT_MS}ms`)), MYSQL_TIMEOUT_MS));
+  const where = conditions.join(" AND ");
+  const orderBy =
+    sort === "deadline" ? "d.close_at ASC" : sort === "budget" ? "d.budget_amount DESC" : "d.id DESC";
+  const offset = (page - 1) * pageSize;
+  const pool = getPool();
 
-    const { total, rows } = await Promise.race([
-      ctx.rfqRepo.listRfqs({ q, categoryL1, sort, page, pageSize }),
-      timeout,
-    ]);
+  const [countRes, dataRes] = await Promise.all([
+    pool.query(`SELECT COUNT(*) AS total FROM rfq_demand d WHERE ${where}`, params),
+    pool.query(
+      `SELECT d.id, d.reference, d.title, d.status, d.category_code,
+              d.province_name, d.quantity, d.quantity_unit,
+              d.budget_amount, d.budget_currency, d.budget_confidential,
+              d.close_at, d.created_at,
+              c1.name_zh AS category_l2_name,
+              c0.name_zh AS category_l1_name,
+              (SELECT COUNT(*) FROM rfq_quote q
+                WHERE q.demand_id = d.id AND q.status = 'submitted' AND q.is_current = 1) AS quote_count
+         FROM rfq_demand d
+         LEFT JOIN commodity_backbone c1 ON c1.code = d.category_code
+         LEFT JOIN commodity_backbone c0 ON c0.code = LEFT(d.category_code, 6) AND c0.level = 1
+        WHERE ${where}
+        ORDER BY ${orderBy}
+        LIMIT ? OFFSET ?`,
+      [...params, pageSize, offset],
+    ),
+  ]);
 
-    const items = rows.map((row) => {
-      // 交付地点：手动填写地址优先；province_name 仅历史行残留（不再写、不再筛选）
-      const address = String(row.delivery_address || "");
-      const legacyProvince = String(row.province_name || "");
-      const location = address || legacyProvince;
-      // 一级名 = 所在大类（L1）的树名，二级名 = 存储节点自身名称；无码的老行两列皆空
-      const catL1 = String(row.category_l1_name || "");
-      const catL2 = String(row.category_name || "");
-      return {
-        id: Number(row.id),
-        reference: String(row.reference || ""),
-        industry: catL1 || catL2,
-        tag: catL1 || catL2,
-        title: String(row.title || ""),
-        countryZh: "中国",
-        countryEn: "China",
-        address: location,
-        province: legacyProvince || undefined,
-        categoryL1: catL1,
-        categoryL2: catL2,
-        budgetDisplay: formatBudget(
-          Number(row.estimated_value) || 0,
-          String(row.currency || "CNY"),
-          Number(row.budget_confidential) === 1,
-        ),
-        // 保密预算不把金额编进响应体（展示层据此显示“预算保密”）
-        budgetUsd: Number(row.budget_confidential) === 1 ? 0 : Number(row.estimated_value) || 0,
-        currency: String(row.currency || "CNY"),
-        deadline: formatDeadlineDateYMD(Number(row.deadline_sec) || 0, { utc: true, emptyText: "" }),
-        responses: Number(row.quote_count) || 0,
-        boosted: Boolean(row.is_featured),
-      };
-    });
+  const total = Number((countRes[0] as RowDataPacket[])[0]?.total || 0);
+  const rows = dataRes[0] as Array<RowDataPacket & {
+    id: number;
+    reference: string;
+    title: string;
+    status: string;
+    category_code: string | null;
+    province_name: string | null;
+    quantity: string | null;
+    quantity_unit: string | null;
+    budget_amount: string | null;
+    budget_currency: string;
+    budget_confidential: number;
+    close_at: number | null;
+    created_at: number | null;
+    category_l2_name: string | null;
+    category_l1_name: string | null;
+    quote_count: number;
+  }>;
 
-    return NextResponse.json({ items, total, page, page_size: pageSize });
-  } catch (err) {
-    console.warn("[api/rfq/list] failed:", (err as Error).message);
-    return NextResponse.json({ items: [], total: 0, page, page_size: pageSize });
-  }
+  const items = rows.map((r) => {
+    const confidential = Number(r.budget_confidential) === 1;
+    const amount = r.budget_amount == null ? null : Number(r.budget_amount);
+    return {
+      id: Number(r.id),
+      reference: String(r.reference ?? ""),
+      title: String(r.title ?? ""),
+      status: String(r.status ?? ""),
+      categoryCode: String(r.category_code ?? ""),
+      categoryL1: String(r.category_l1_name ?? ""),
+      categoryL2: String(r.category_l2_name ?? ""),
+      province: String(r.province_name ?? ""),
+      quantity: r.quantity == null ? null : Number(r.quantity),
+      quantityUnit: String(r.quantity_unit ?? ""),
+      budgetAmount: confidential ? null : amount,
+      budgetConfidential: confidential,
+      currency: String(r.budget_currency || "CNY"),
+      closeAt: r.close_at == null ? null : Number(r.close_at),
+      createdAt: r.created_at == null ? null : Number(r.created_at),
+      responses: Number(r.quote_count) || 0,
+    };
+  });
+
+  return NextResponse.json({ items, total, page, page_size: pageSize });
 });

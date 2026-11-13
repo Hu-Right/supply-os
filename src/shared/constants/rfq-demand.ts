@@ -95,5 +95,5 @@ export const QUOTE_WINDOW_RECOMMENDED_DAYS = 7;
 /** 编号前缀（与爬虫 RFQ- 命名空间隔离） */
 export const DEMAND_REFERENCE_PREFIX = "OSRFQ";
 
-/** 用户侧可筛选的状态白名单（/api/rfq/my?status= 参数校验用） */
+/** 用户侧可筛选的状态白名单（/api/rfq/demands/mine?status= 参数校验用） */
 export const DEMAND_USER_FILTERABLE_STATUSES: readonly DemandStatus[] = DEMAND_STATUS_ORDER;

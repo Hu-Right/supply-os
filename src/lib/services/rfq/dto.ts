@@ -89,6 +89,9 @@ export interface DemandDetailDTO {
   /** 旧字段名：截止时间（秒） */
   deadlineSec: number;
   closeAt: number | null;
+  openAt: number | null;
+  /** 搜索投影行 id；供应商侧报价/邀约/选定仍以它为准（过渡期桥接，P2 迁到 demand_id） */
+  noticePk: number | null;
   publishedDate: string | null;
   submittedAt: number | null;
   reviewedAt: number | null;
@@ -135,6 +138,8 @@ export function toDetailDTO(
     visibility: String(row.visibility || "public"),
     deadlineSec: Number(row.close_at ?? 0),
     closeAt: row.close_at == null ? null : Number(row.close_at),
+    openAt: row.open_at == null ? null : Number(row.open_at),
+    noticePk: row.notice_pk == null ? null : Number(row.notice_pk),
     publishedDate: row.reviewed_at == null ? null : String(row.reviewed_at),
     submittedAt: row.submitted_at == null ? null : Number(row.submitted_at),
     reviewedAt: row.reviewed_at == null ? null : Number(row.reviewed_at),

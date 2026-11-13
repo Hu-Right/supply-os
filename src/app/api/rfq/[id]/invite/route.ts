@@ -19,6 +19,7 @@ import {
   addInvites,
   DEFAULT_MATCH_LIMIT,
 } from "@/lib/services/rfq-outreach";
+import { findDemandIdByNoticePk, recordInvitations } from "@/lib/services/rfq/invitations";
 
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -58,6 +59,13 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     if (String(rfq.visibility) === "targeted") {
       const ids = (res.preview ?? []).map((p) => p.userId);
       invited = await addInvites(ctx.dbPool, rfqId, auth.userId, ids);
+      // 过渡期双写：新表按 demand_id 记录邀约（"受邀需求"页读它；报价资格仍读旧表）
+      try {
+        const demandId = await findDemandIdByNoticePk(ctx.dbPool, rfqId);
+        if (demandId) await recordInvitations(ctx.dbPool, { demandId, supplierUserIds: ids });
+      } catch (e) {
+        console.warn("[api/rfq/invite] 新表邀约登记失败（不影响报价白名单）:", (e as Error).message);
+      }
     }
 
     return NextResponse.json({

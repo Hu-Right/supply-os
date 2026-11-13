@@ -19,6 +19,7 @@ import {
 } from "@/shared/constants/rfq-demand";
 import { transitionDemandWithin, type TxLike } from "./lifecycle";
 import { upsertProjection, type ProjectionSource } from "./projection";
+import { notifyReviewResult } from "./notify";
 
 export interface ReviewDecisionInput {
   demandId: number;
@@ -53,6 +54,7 @@ export type ClaimReviewResult =
 
 interface DemandRow {
   id: number;
+  buyer_user_id: number;
   status: string;
   revision_no: number;
   reference: string;
@@ -241,6 +243,20 @@ export async function applyReviewDecision(
     );
 
     await conn.commit();
+
+    // 回执：审核结论通知采购方（同 (user,type,ref) 只推一次；失败不影响结论）
+    try {
+      await notifyReviewResult(db, {
+        demandId: input.demandId,
+        buyerUserId: Number(row.buyer_user_id),
+        title: String(row.title ?? ""),
+        approved,
+        reason: input.reason ?? null,
+      });
+    } catch (err) {
+      console.warn("[rfq-review] 审核结论通知失败（不影响结论落库）:", (err as Error).message);
+    }
+
     return { ok: true, status: target, version: input.version };
   } catch (err) {
     await conn.rollback();
