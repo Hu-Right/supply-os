@@ -33,6 +33,8 @@ import { toQrDataUrl } from "./qr";
 // ── 接口定义 ──────────────────────────────────────────────────────────────────
 
 export interface CreateTrainingOrderParams {
+  /** 下单人（orders.user_id 已收 NOT NULL：培训下单入口强制登录，匿单语义退役） */
+  userId: number;
   scheduleId?: number | null;
   registrationId?: number | null;
   participantCount?: number;
@@ -154,6 +156,7 @@ export class TrainingPaymentService {
 
     await this.trainingRepo.createOrder({
       orderNo,
+      userId: params.userId,
       courseId: course.id,
       scheduleId: params.scheduleId ?? null,
       registrationId: params.registrationId ?? null,

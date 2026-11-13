@@ -52,6 +52,7 @@ describe("POST /api/training/orders（createOrder）", () => {
     const service = wire(strategy, makeRepo());
 
     const result = await service.createOrder({
+      userId: 7,
       scheduleId: 2,
       participantCount: 2,
       provider: "alipay",
@@ -77,6 +78,7 @@ describe("POST /api/training/orders（createOrder）", () => {
     const service = wire(makeStrategy(), makeRepo({ createOrder: createOrderDb }) as never);
 
     await service.createOrder({
+      userId: 7,
       participantCount: 1,
       provider: "alipay",
       clientIp: "127.0.0.1",

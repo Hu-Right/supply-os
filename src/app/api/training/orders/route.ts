@@ -21,13 +21,14 @@ import {
 } from "@/shared/constants/api";
 
 export const POST = withRoute(async (req: NextRequest) => {
-  await requireUserKeyOrThrow(req);
+  const auth = await requireUserKeyOrThrow(req);
 
   const body = await req.json();
   const ctx = getContext();
 
   try {
     const result = await ctx.payment.trainingPaymentService.createOrder({
+      userId: auth.userId,
       scheduleId: body.schedule_id != null ? Number(body.schedule_id) : undefined,
       registrationId: body.registration_id != null ? Number(body.registration_id) : undefined,
       participantCount: body.participant_count != null ? Number(body.participant_count) : undefined,

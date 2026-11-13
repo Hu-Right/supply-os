@@ -100,8 +100,8 @@ export interface CreateTrainingOrderData {
   expiresAt: Date;
   contactName: string | null;
   telephone: string | null;
-  /** 内部用户 ID */
-  userId?: number | null;
+  /** 下单人（orders.user_id 已收 NOT NULL） */
+  userId: number;
 }
 
 export class TrainingRepo {
@@ -187,7 +187,7 @@ export class TrainingRepo {
          items_snapshot, created_at)
        VALUES (?, ?, 'course', ?, '', ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())`,
       [
-        data.orderNo, data.userId ?? null, String(data.courseId),
+        data.orderNo, data.userId, String(data.courseId),
         data.unitPrice, data.participantCount, data.totalAmount, data.currency,
         data.provider, data.qrCode, data.payUrl, data.expiresAt,
         data.registrationId ?? null, JSON.stringify(snapshot),
