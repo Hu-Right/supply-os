@@ -14,7 +14,7 @@ import { isWideTableReady } from "../search-common/wide-table-readiness";
 import { logSyncCascade } from "../search-common/metrics";
 import { requestIndexRebuild } from "../search-common/rebuild-trigger";
 import { invalidateSearchCache } from "../search-common/sync-events";
-import { PLATFORM_PUBLISHED_ONLY } from "../../utils/notice-expired";
+import { PLATFORM_PUBLISHED_ONLY, STABLE_EXPIRED_WHERE } from "../../utils/notice-expired";
 import {
   wideSyncSelect, WIDE_SYNC_JOIN,
   loadTranslationsByNoticeIds, loadBackboneMap,
@@ -45,7 +45,10 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
   try {
     while (true) {
       const [rows] = await pool.query(
-        selectSql + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC LIMIT ?",
+        // 构建时摘除闭环（2026-11-13）：回填不灌稳定过期行——过期行由 ghost 链清退，
+        // 读取侧不回头重建（build-then-prune 两段式退役）
+        selectSql + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY +
+          " AND NOT " + STABLE_EXPIRED_WHERE + " ORDER BY n.id ASC LIMIT ?",
         [lastId, BATCH],
       );
       const rawRows = rows as RowDataPacket[];
@@ -95,7 +98,9 @@ export async function incrementalWideSync(
 
   try {
     const [newRows] = await pool.query(
-      selectSql + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC LIMIT 5000",
+      // 同上：新入水位行也可能是回扫旧目录的过期公告，准入谓词一并前置
+      selectSql + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY +
+        " AND NOT " + STABLE_EXPIRED_WHERE + " ORDER BY n.id ASC LIMIT 5000",
       [watermark],
     );
 

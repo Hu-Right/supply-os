@@ -8,13 +8,21 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { TasksOrBatchesQuery } from "meilisearch";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { WIDE_LIMITS, truncate } from "../../utils/notice-field-limits";
-import { isStablyExpired } from "../../utils/notice-expired";
+import { isStablyExpired, STABLE_EXPIRED_WHERE_NO_ALIAS } from "../../utils/notice-expired";
 import { fromBackbonePathColumn } from "../commodity/backbone-path";
 import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
 import { SUPPORTED_LANGS } from "../../utils/languages";
 
 // NULL deadline 的哨兵值：0（纪元起点）
 const NULL_DEADLINE_SENTINEL = 0;
+
+/**
+ * 宽表读取准入片段（2026-11-13 构建时摘除闭环）：全量/增量同步不灌稳定过期行——
+ * 过期行由 ghost 链清退、查询侧 MEILI_ACTIVE_FILTER 只管结果过滤，读取侧若不过滤
+ * 就会「先灌 42 万死行再删」两段式空转。口径 = utils/notice-expired（30 天清退余量），
+ * 与宽表 ghost 清退同一谓词，不在此重写第二份。
+ */
+export const WIDE_TABLE_SYNC_ADMISSION = "NOT " + STABLE_EXPIRED_WHERE_NO_ALIAS;
 
 // ── 机构归一：Meili 从宽表读已归好的 buyer_name（buyer_group 维度 2026-10-31 退役）。
 //（2026-10-31 机构口径收敛：买家实体匹配唯一入口见 buyer/entity-index；旧 agency_aliases 已退役）──
@@ -158,7 +166,7 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
 
     while (true) {
       const [rows] = await pool.query(
-        WIDE_TABLE_SYNC_SQL + " WHERE id > ? ORDER BY id ASC LIMIT ?",
+        WIDE_TABLE_SYNC_SQL + " WHERE id > ? AND " + WIDE_TABLE_SYNC_ADMISSION + " ORDER BY id ASC LIMIT ?",
         [lastId, BATCH]
       );
 
@@ -265,7 +273,7 @@ export async function incrementalSync(
 
   try {
     const [newRows] = await pool.query(
-      WIDE_TABLE_SYNC_SQL + " WHERE id > ? ORDER BY id ASC LIMIT 5000",
+      WIDE_TABLE_SYNC_SQL + " WHERE id > ? AND " + WIDE_TABLE_SYNC_ADMISSION + " ORDER BY id ASC LIMIT 5000",
       [watermark]
     );
 
