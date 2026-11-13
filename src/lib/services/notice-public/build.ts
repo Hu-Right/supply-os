@@ -22,13 +22,18 @@ import { loadCountryAliasSnapshot } from "../country/alias-store";
 import type { CountryAliasSnapshot } from "../country/alias-store";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { normalizeDocumentRows } from "../../utils/normalize";
+import { STABLE_EXPIRED_WHERE, isStablyExpired } from "../../utils/notice-expired";
 
 // ── 准入红线（2026-10-22 用户拍板，选行/构建/清理三处共用同一谓词）──────────────
 // 服务表是对外表：平台自录 RFQ 仅「发布过」（published/closed）可进——草稿/待审/驳回
 // 从未公开，rfq_status 为 NULL 的平台行视为未发布一并排除；定向可见（visibility<>public）
 // 不进；爬虫/API 来源（entry_source<>'platform'）不受 rfq_status 约束（本就是公开抓取）。
+// [2026-11-13 构建时摘除] 稳定过期（截止已过且超清退余量 30 天）不再准入：过了余量的
+// 行由 selectPublicGhostIds 的 NOT(admit) 分支从服务表清退，宽表/Meili 经各自 ghost 链
+// 跟退；主表不动，源站延期复活由 missing 分支自动重建（口径见 utils/notice-expired）。
 export const PUBLIC_ADMIT_SQL = `(n.entry_source <> 'platform' OR n.rfq_status IN ('published','closed'))
-   AND IFNULL(n.visibility, 'public') = 'public'`;
+   AND IFNULL(n.visibility, 'public') = 'public'
+   AND NOT ${STABLE_EXPIRED_WHERE}`;
 
 /** 服务表列清单（= baseline.sql 的 notice_public 列集，门禁 N2 逐列比对） */
 export const PUBLIC_COLS = [
@@ -340,10 +345,12 @@ export function buildPublicRow(
 ): unknown[] | null {
   const noticeId = String(r.notice_id ?? "").trim().slice(0, 100);
   if (!noticeId) return null; // 对外查找键必须非空：无编号行不进服务表（--changed 选行已同口径排除）
-  // 准入红线（与 PUBLIC_ADMIT_SQL 同口径）：平台未发布/待审/驳回、定向可见的行不进对外表
+  // 准入红线（与 PUBLIC_ADMIT_SQL 同口径）：平台未发布/待审/驳回、定向可见的行不进对外表；
+  // 稳定过期（超清退余量）同口径排除——SQL 谓词与 JS 镜像必须同改（2026-11-13 构建时摘除）
   const admitted = (String(r.entry_source ?? "crawl") !== "platform"
     || ["published", "closed"].includes(String(r.rfq_status ?? "")))
-    && String(r.visibility ?? "public") === "public";
+    && String(r.visibility ?? "public") === "public"
+    && !isStablyExpired(r.deadline_sec);
   if (!admitted) return null;
   const opp = maps.oppMap.get(noticeId) ?? maps.oppMap.get(String(r.converted_opp_id ?? ""));
   const body = r.body_text ? String(r.body_text) : null;
