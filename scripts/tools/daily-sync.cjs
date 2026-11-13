@@ -851,6 +851,25 @@ function runServiceNormalization() {
   if (res.status !== 0) throw new Error(`notice-public-rebuild 退出码 ${res.status}`);
 }
 
+/**
+ * 品类归属候选登记（2026-11-13 接回）：唯一触发点原挂应用内 crawler-sync 每轮同步后，
+ * crawler-sync 摘除后断供——本步在同步落库后自扫描「活跃 + 无有效落点 + 未登记」候选，
+ * 经唯一生产者 taxonomy-intake 幂等登记（uk_src + cap），交 AI 归属管道消化。
+ */
+function runTaxonomyIntake() {
+  const repoRoot = path.join(__dirname, '..', '..');
+  const tsxCli = path.join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+  const script = path.join(repoRoot, 'scripts', 'tools', 'taxonomy-intake-run.ts');
+  log('  [品类归属] 自扫描待登记候选（活跃 + 无落点 + 未登记，幂等）');
+  const res = spawnSync(process.execPath, [tsxCli, script], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    env: process.env,
+  });
+  if (res.error) throw res.error;
+  if (res.status !== 0) throw new Error(`taxonomy-intake-run 退出码 ${res.status}`);
+}
+
 async function runSyncOnce() {
   const t0 = Date.now();
   const syncStartedAt = Math.floor(Date.now() / 1000);
@@ -934,6 +953,14 @@ async function runSyncOnce() {
         log(`  [服务表] 归一化完成（本轮时刻 ${new Date(syncStartedAt * 1000).toISOString()}）`);
       } catch (err) {
         log(`  [服务表] 归一化失败（下轮重试）: ${err.message}`);
+      }
+      // ── 品类归属候选登记：归一化成功后接棒（幂等，失败不影响同步主流程）──
+      if (!process.argv.includes('--no-intake')) {
+        try {
+          runTaxonomyIntake();
+        } catch (err) {
+          log(`  [品类归属] 登记失败（下轮重试）: ${err.message}`);
+        }
       }
     }
 
