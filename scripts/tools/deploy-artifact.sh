@@ -52,14 +52,21 @@ fi
 mkdir -p runtime/uploads/license
 
 # 4. 重启 + 探活
+#    注意：冷启动不只是 Next 起来——instrumentation 的 bootstrap（schema / featured / payment）
+#    在冷缓存或 Meili 索引重建时实测可达 3–5 分钟，期间端口在听但请求会被拖住。
+#    因此探活窗口放到 360s；探活期间不要误判为部署失败。
 pm2 delete "${APP_NAME}" >/dev/null 2>&1 || true
 NODE_ENV=production PORT="${APP_PORT}" pm2 start .next/standalone/server.js --name "${APP_NAME}"
 pm2 save >/dev/null 2>&1 || true
 
-for _ in $(seq 1 12); do
+echo "[artifact-deploy] 等待应用就绪（含 bootstrap，最多 360s）..."
+for i in $(seq 1 72); do
   if curl -sf -o /dev/null --max-time 5 "http://127.0.0.1:${APP_PORT}/"; then
-    echo "[artifact-deploy] ✔ 部署完成，应用 HTTP 200（端口 ${APP_PORT}）"
+    echo "[artifact-deploy] ✔ 部署完成，应用 HTTP 200（端口 ${APP_PORT}，等待 ${i}0s 内就绪）"
     exit 0
+  fi
+  if [ $((i % 12)) -eq 0 ]; then
+    echo "[artifact-deploy] 仍在等待启动（${i}0s）… 可查看 pm2 logs ${APP_NAME}"
   fi
   sleep 5
 done

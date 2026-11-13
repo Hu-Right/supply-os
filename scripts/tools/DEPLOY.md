@@ -36,6 +36,12 @@
 - 用 CI 产物恢复上线（`https://osneosmart.com` HTTP 200，pm2 重启 0）；
 - 清理临时 GitHub token、构建残留。
 
+> 冷启动提示：应用启动后 `instrumentation` 会跑 bootstrap（schema / featured / payment），
+> 冷缓存或 Meili 全量重建时实测可达 **5 分钟以上**，期间端口在听但首页会被拖住。
+> `deploy-artifact.sh` 探活窗口已放到 360s，不要按 60s 误判部署失败。
+> 本次事故中 Meilisearch 重启后触发全量重建（RSS 5.2G、高 IO），会把 8G 机器拖入 swap
+> 抖动；必要时先 `systemctl stop meilisearch` 让搜索走 MySQL 降级，错峰再让它重建索引。
+
 ## 4. 日常部署方式（二选一）
 
 ### A. 推荐：CI 构建 + 产物下发（服务器 8G 不动）
