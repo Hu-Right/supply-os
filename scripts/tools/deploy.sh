@@ -15,6 +15,18 @@ echo "[deploy] $(date '+%F %T') 开始部署: ${APP_DIR} (分支 ${BRANCH})"
 
 cd "${APP_DIR}"
 
+# 0. 低内存守卫（2026-11-13 事故）：Turbopack 全量构建峰值 RSS 7GB+，8G 机器必被 OOM
+#    杀掉并可能留下缺产物的崩溃循环。低于 12GB 默认禁止本地构建，改用 CI 产物部署：
+#      bash scripts/tools/deploy-artifact.sh /tmp/next-standalone.tar.gz
+#    确实想在本机构建（已加内存/临时大 swap）时显式 ALLOW_LOW_MEM_BUILD=1。
+TOTAL_MEM_MB="$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
+if [ "${TOTAL_MEM_MB}" -gt 0 ] && [ "${TOTAL_MEM_MB}" -lt 12000 ] && [ "${ALLOW_LOW_MEM_BUILD:-0}" != "1" ]; then
+  echo "[deploy] ✗ 本机内存 ${TOTAL_MEM_MB}MB < 12GB：Next 16 Turbopack 全量构建会被 OOM killer 杀掉。"
+  echo "[deploy]   请改用 CI 构建产物部署：bash scripts/tools/deploy-artifact.sh /tmp/next-standalone.tar.gz"
+  echo "[deploy]   （确需本机构建请设 ALLOW_LOW_MEM_BUILD=1，并确认已加内存/临时 swap）"
+  exit 1
+fi
+
 # 1. 拉取最新代码：强制对齐远端，避免服务器本地误改导致合并冲突
 #    注意：.env / bin / logs / runtime 均为 gitignore 未跟踪文件，reset 不影响它们
 echo "[deploy] 拉取最新代码..."

@@ -1,0 +1,62 @@
+name: Deploy
+
+# 低内存生产机（8G）不跑 Turbopack 全量构建：构建在 CI（16G runner）完成，
+# 产物 tar 后经 SSH 下发，服务器只执行 runtime 替换与 pm2 重启。
+# 手动触发（workflow_dispatch）。需要仓库 Secrets：
+#   DEPLOY_SSH_KEY  服务器 ssh 私钥（root 或部署用户）
+#   DEPLOY_HOST     服务器地址（如 117.72.108.14）
+#   DEPLOY_USER     ssh 用户（如 root）
+# 可选 Variables：DEPLOY_APP_DIR（默认 /root/supply-os）
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build (Turbopack) & deploy artifact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+        env:
+          NODE_ENV: production
+          PAYMENT_MODE: live
+          JWT_SECRET: ci-build-dummy-secret
+
+      - name: Package standalone
+        run: tar -czf next-standalone.tar.gz -C .next/standalone .
+
+      - name: Upload & deploy
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_APP_DIR: ${{ vars.DEPLOY_APP_DIR }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEPLOY_SSH_KEY:-}" ] || [ -z "${DEPLOY_HOST:-}" ] || [ -z "${DEPLOY_USER:-}" ]; then
+            echo "::error::缺少 DEPLOY_SSH_KEY / DEPLOY_HOST / DEPLOY_USER secrets，见 docs/运维/部署与OOM处置.md"
+            exit 1
+          fi
+          APP_DIR="${DEPLOY_APP_DIR:-/root/supply-os}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          SSH_OPTS=(-i "$HOME/.ssh/deploy_key" -o StrictHostKeyChecking=accept-new)
+          scp "${SSH_OPTS[@]}" next-standalone.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/next-standalone.tar.gz"
+          scp "${SSH_OPTS[@]}" scripts/tools/deploy-artifact.sh "$DEPLOY_USER@$DEPLOY_HOST:/tmp/deploy-artifact.sh"
+          ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "APP_DIR='$APP_DIR' bash /tmp/deploy-artifact.sh /tmp/next-standalone.tar.gz"
