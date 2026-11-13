@@ -3,8 +3,12 @@
  * Training Payment Modal (thin wrapper over the unified core)
  *
  * @module features/training/components/TrainingPaymentModal
- * @description 支付流程统一收敛至 PaymentModalCore（零跳转弹窗支付）：
- *              两阶段流程：先填写学员信息 → 再扫码支付 → 支付成功后自动保存学员信息。
+ * @description 两阶段流程：先填写企业信息 + 学员名单 → 再扫码支付。
+ *
+ *              2026-11-13 收敛：学员名单在**进入支付前**就一次性写入 training_enrollments
+ *              （一行一人），下单只把订单号绑到这批行上；支付成功后不再补写任何名单。
+ *              此前「支付成功后异步保存学员」的 fire-and-forget 会造成「钱到了、名单没了」，
+ *              现已在结构上消除。
  */
 
 import { useCallback, useState } from "react";
@@ -17,7 +21,6 @@ import { ApiError } from "@/core/http";
 import { submitTrainingRegister } from "../api";
 import CompanyInfoSection, { type CompanyInfoData } from "./CompanyInfoSection";
 import ParticipantForm from "./ParticipantForm";
-import type { EnrolledStudentInfo } from "../api";
 import { useTrainingSchedule } from "../hooks/useTrainingSchedule";
 import { useTrainingOrder } from "../hooks/useTrainingOrder";
 
@@ -26,26 +29,22 @@ export interface TrainingPaymentModalProps {
   course: LandingCourse | null;
   /** 可选期次列表；若有多期则强制用户选择后才能下单 */
   schedules: LandingSchedule[];
-  registrationId?: number | null;
   /** 外部预设期次（如从 ScheduleSection 点选进入），优先级最高 */
   defaultScheduleId?: number | null;
-  /** 报名时已提交的学员本人：预填第一名学员，避免重复录入 */
-  prefillStudent?: EnrolledStudentInfo | null;
 }
 
 export default function TrainingPaymentModal({
   onClose,
   course,
   schedules,
-  registrationId,
   defaultScheduleId,
-  prefillStudent,
 }: TrainingPaymentModalProps) {
   const { t, locale } = useLocale();
 
   // ── 两阶段流程 ──
   const [phase, setPhase] = useState<"participants" | "payment">("participants");
-  const [pendingParticipants, setPendingParticipants] = useState<ParticipantInput[] | null>(null);
+  /** 报名接口返回的行 id（顺序对应每位学员），下单时回传用于绑定订单 */
+  const [registrationIds, setRegistrationIds] = useState<number[] | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfoData>({
     company_name: "",
     main_product: "",
@@ -67,32 +66,26 @@ export default function TrainingPaymentModal({
   const {
     openSchedules, selectedScheduleId, setSelectedScheduleId,
     participantCount, setParticipantCount,
-    totalAmount, hasMultipleSchedules, scheduleSelected, selectedSchedule,
-  } = useTrainingSchedule(schedules, course, prefillStudent?.schedule_id ?? defaultScheduleId);
+    totalAmount, hasMultipleSchedules, selectedSchedule,
+  } = useTrainingSchedule(schedules, course, defaultScheduleId);
 
   // ── 订单与支付 ──
   const { handleCreateOrder, handleQueryStatus, handleMockConfirm, handlePaymentSuccess } =
-    useTrainingOrder(course, selectedScheduleId, registrationId, participantCount, pendingParticipants, onClose);
+    useTrainingOrder(course, selectedScheduleId, registrationIds, onClose);
 
-  // ── 阶段一：学员信息填写完成 → 先提交公司信息 → 再进入支付阶段 ──
+  // ── 阶段一：企业信息 + 学员名单 → 一次写全报名 → 进入支付 ──
   const handleParticipantsReady = useCallback(async (participants: ParticipantInput[]) => {
-    // 来自报名表单的流程（registrationId 有值）：报名已提交过，不能再插一条，
-    // 否则同一个用户会留下两条报名记录。直接带学员进支付阶段。
-    if (registrationId) {
-      setPendingParticipants(participants);
-      setPhase("payment");
-      return;
-    }
-
-    // 学员字段由 ParticipantForm 统一收集（每位学员一份），这里只校验企业信息；
-    // 报名人的姓名/电话取自第一位学员，避免同一份信息收两遍。
-    if (!companyInfo.company_name) {
+    if (!companyInfo.company_name.trim()) {
       setCompanyError(t("tlCompanyInfoRequired"));
       return;
     }
     const first = participants[0];
     if (!first?.full_name?.trim() || !first?.phone?.trim()) {
       setCompanyError(t("tlCompanyInfoRequired"));
+      return;
+    }
+    if (selectedScheduleId == null) {
+      setCompanyError(t("tlPaymentScheduleRequired"));
       return;
     }
 
@@ -105,28 +98,25 @@ export default function TrainingPaymentModal({
         certificationStr += "\n" + companyInfo.other_certification.trim();
       }
 
-      await submitTrainingRegister({
+      const result = await submitTrainingRegister({
         company_name: companyInfo.company_name,
         main_product: companyInfo.main_product,
         export_experience: companyInfo.export_experience,
         certification: certificationStr,
         remark: companyInfo.remark,
         email: companyInfo.email,
-        full_name: first.full_name,
-        gender: first.gender ?? null,
-        phone: first.phone ?? "",
-        position: first.position ?? "",
-        schedule_id: selectedScheduleId ?? null,
+        schedule_id: selectedScheduleId,
+        participants,
       });
 
-      setPendingParticipants(participants);
+      setRegistrationIds(result.ids);
       setPhase("payment");
     } catch (err) {
       setCompanyError(err instanceof ApiError ? err.message : t("formError"));
     } finally {
       setSubmittingCompany(false);
     }
-  }, [companyInfo, t, registrationId]);
+  }, [companyInfo, selectedScheduleId, t]);
 
   // ── 阶段一：学员信息填写 ──
   if (phase === "participants") {
@@ -137,13 +127,9 @@ export default function TrainingPaymentModal({
         orderNo=""
         participantCount={participantCount}
         onSubmit={handleParticipantsReady}
-        preFormSection={
-          // 从报名表单进来时（registrationId 有值）公司信息已提交，不再重复展示
-          registrationId ? null : <CompanyInfoSection value={companyInfo} onChange={setCompanyInfo} showStudent={false} />
-        }
+        preFormSection={<CompanyInfoSection value={companyInfo} onChange={setCompanyInfo} showStudent={false} />}
         preFormError={companyError}
         preFormSubmitting={submittingCompany}
-        initialParticipant={prefillStudent ?? null}
         scheduleSelector={
           hasMultipleSchedules ? (
             <div>
@@ -205,7 +191,7 @@ export default function TrainingPaymentModal({
             </div>
           </div>
         }
-        scheduleRequired={!scheduleSelected}
+        scheduleRequired={selectedScheduleId == null}
         scheduleRequiredText={t("tlPaymentScheduleRequired")}
       />
     );
@@ -219,7 +205,7 @@ export default function TrainingPaymentModal({
       amount={totalAmount}
       currency={course?.currency ?? "CNY"}
       accent="red"
-      canSubmit={Boolean(course) && scheduleSelected}
+      canSubmit={Boolean(course) && selectedScheduleId != null && (registrationIds?.length ?? 0) > 0}
       onCreateOrder={handleCreateOrder}
       onQueryStatus={handleQueryStatus}
       onMockConfirm={handleMockConfirm}
@@ -258,10 +244,10 @@ export default function TrainingPaymentModal({
       chooseExtra={
         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
           <p className="text-sm font-bold text-emerald-800">
-            ✓ {pendingParticipants?.length ?? 0} {t("tlPaymentParticipants")}信息已填写完成
+            ✓ {registrationIds?.length ?? 0} {t("tlPaymentParticipants")}信息已提交
           </p>
           <p className="mt-1 text-xs text-emerald-600">
-            支付成功后系统将自动提交学员信息
+            学员名单已随报名保存，支付成功即可开课
           </p>
         </div>
       }

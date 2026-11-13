@@ -21,7 +21,12 @@ function makeRepo(overrides: Record<string, unknown> = {}) {
   return {
     getActiveCourse: vi.fn(async () => ({ id: 1, name_zh: "零碳园区实务课", unit_price: 100, currency: "CNY" })),
     findScheduleById: vi.fn(async () => ({ id: 2, capacity: 10, enrolled_count: 1 })),
-    createOrder: vi.fn(async () => undefined),
+    // 2026-11-13 收敛：人数由报名行数决定，订单只做绑定
+    findEnrollmentsByIds: vi.fn(async (ids: number[]) =>
+      ids.map((id) => ({ id, schedule_id: 2, order_id: null })),
+    ),
+    bindEnrollmentsToOrder: vi.fn(async (_orderId: number, ids: number[]) => ids.length),
+    createOrder: vi.fn(async () => 1),
     findOrderByNo: vi.fn(async () => null),
     updateOrderStatus: vi.fn(async () => undefined),
     ...overrides,
@@ -54,7 +59,7 @@ describe("POST /api/training/orders（createOrder）", () => {
     const result = await service.createOrder({
       userId: 7,
       scheduleId: 2,
-      participantCount: 2,
+      registrationIds: [101, 102],
       provider: "alipay",
       contactName: "张三",
       telephone: "13800000000",
@@ -79,7 +84,7 @@ describe("POST /api/training/orders（createOrder）", () => {
 
     await service.createOrder({
       userId: 7,
-      participantCount: 1,
+      registrationIds: [101],
       provider: "alipay",
       clientIp: "127.0.0.1",
       baseUrl: "http://localhost:3000",
@@ -88,6 +93,8 @@ describe("POST /api/training/orders（createOrder）", () => {
     expect(createOrderDb).toHaveBeenCalledTimes(1);
     const input = createOrderDb.mock.calls[0][0];
     expect(Object.keys(input).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
+    // 商品名快照必须落到 orders.product_name（此前写死空串，课程改名后历史单认不出买的是什么）
+    expect(input.productName).toBe("零碳园区实务课");
   });
 });
 

@@ -46,8 +46,8 @@ export interface LandingDataResponse {
 export interface CreateTrainingOrderRequest {
   course_id: number;
   schedule_id?: number | null;
-  registration_id?: number | null;
-  participant_count?: number;
+  /** 本单覆盖的报名行 id（报名接口返回的 ids）；人数与期次由服务端按行校验，不传 count */
+  registration_ids?: number[];
   provider: "alipay" | "wechat";
   contact_name?: string;
   telephone?: string;
@@ -90,11 +90,10 @@ export interface TrainingParticipant {
 }
 
 /**
- * 学员录入/提交体（表单状态与 POST 请求体）。
- * 键仍是 training_participants 列名（请求侧允许 snake，红线②只约束响应实体字段）；
- * 与上面的响应类型刻意分成两个名字，免得“改名”把写入口径一起带走。
- * 本类型与 ParticipantForm 初始化、仓储 saveParticipants 的 INSERT 列必须同集：
- * email 曾在此缺席，导致输入框采集的邮箱不进入任何写入口径（已修）。
+ * 学员录入/提交体（表单状态与报名请求体）。
+ * 2026-11-13 收敛：一行 = 一位学员，键沿用 training_enrollments 列名
+ * （请求侧允许 snake，红线②只约束响应实体字段）；participant_no 由服务端按下标重排，
+ * 客户端传的值只用于表单内排序。
  */
 export interface ParticipantInput {
   participant_no: number;
@@ -105,13 +104,6 @@ export interface ParticipantInput {
   email?: string | null;
 }
 
-export interface SaveParticipantsResponse {
-  success: boolean;
-  message: string;
-  orderNo: string;
-  participantCount: number;
-}
-
 export interface GetParticipantsResponse {
   success: boolean;
   orderNo: string;
@@ -120,24 +112,31 @@ export interface GetParticipantsResponse {
 }
 
 /**
- * 培训注册表单数据
- * Training Registration Form Data
+ * 报名提交体（POST /api/training/register）。
+ *
+ * 2026-11-13 收敛：一次请求写全所有参训学员（一行一人），不再有「支付成功后再补名单」。
+ * 企业信息与期次是同一批报名的快照，服务端会写到每一行。
+ * 请求侧仍用列名口径（红线②只约束响应实体字段）。
  */
-export interface TrainingRegisterForm {
+export interface TrainingRegisterPayload {
   company_name: string;
   main_product: string;
   export_experience: string;
   certification: string;
   remark: string;
-  /** 邮箱：发票与通知发送（企业区收集） */
+  /** 发票/开课通知邮箱（企业区）；与 participants[].email（学员个人）分开存 */
   email: string;
-  /** 参训学员本人姓名（一人一条，不区分联系人与学员） */
-  full_name: string;
-  gender: string | null;
-  phone: string;
-  position: string;
-  /** 参训期次：报名时必选，决定排期与上课通知 */
-  schedule_id: number | null;
+  /** 参训期次：报名必选 */
+  schedule_id: number;
+  participants: ParticipantInput[];
+}
+
+/** 报名响应：ids 按提交顺序对应每位学员，下单时回传 */
+export interface TrainingRegisterResponse {
+  success: boolean;
+  id: number | null;
+  ids: number[];
+  count: number;
 }
 
 /** 认证资质参考项（GET /api/certifications）：服务端只发 id + name 两键。
@@ -164,23 +163,11 @@ export const fetchIndustryChildren = (parent: string) =>
   apiCached<IndustryTreeOption[]>(`/api/industries/tree?parent=${encodeURIComponent(parent)}`);
 
 /**
- * 提交培训注册
- * Submit Training Registration
+ * 提交培训报名（一次写全 N 位学员）
+ * Submit training registration — all participants in one request.
  */
-/** 报名时已提交的学员本人信息：支付弹窗用它预填第一名学员，避免重复录入 */
-export interface EnrolledStudentInfo {
-  full_name: string;
-  phone: string;
-  email?: string;
-  gender?: string;
-  position: string;
-  company_name: string;
-  /** 报名时选中的期次：支付弹窗据此预选，避免重复选择 */
-  schedule_id?: number | null;
-}
-
-export const submitTrainingRegister = (data: TrainingRegisterForm) =>
-  api<{ success: boolean; id?: number }>("/api/training/register", {
+export const submitTrainingRegister = (data: TrainingRegisterPayload) =>
+  api<TrainingRegisterResponse>("/api/training/register", {
     method: "POST",
     body: data as unknown as BodyInit,
   });
@@ -219,17 +206,7 @@ export const mockPayTrainingOrder = (orderNo: string) =>
   });
 
 /**
- * 保存学员信息（支付完成后）
- * Save participant information (after payment)
- */
-export const saveTrainingParticipants = (orderNo: string, participants: ParticipantInput[]) =>
-  api<SaveParticipantsResponse>(`/api/training/orders/${encodeURIComponent(orderNo)}/participants`, {
-    method: "POST",
-    body: JSON.stringify({ participants }) as unknown as BodyInit,
-  });
-
-/**
- * 查询学员信息
+ * 查询学员信息（GET 保留：订单归属人回显自己提交的名单）
  * Get participant information
  */
 export const fetchTrainingParticipants = (orderNo: string) =>

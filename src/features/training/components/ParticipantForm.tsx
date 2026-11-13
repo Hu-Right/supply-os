@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 import { Button, Modal } from "@/shared/ui";
 import { ParticipantRow } from "./ParticipantRow";
-import type { EnrolledStudentInfo, ParticipantInput } from "../api";
+import type { ParticipantInput } from "../api";
 import type { ReactNode } from "react";
 
 export interface ParticipantFormProps {
@@ -34,8 +34,6 @@ export interface ParticipantFormProps {
   preFormError?: string;
   /** 顶部区块的提交中状态 */
   preFormSubmitting?: boolean;
-  /** 报名时已提交的学员本人：预填第一名，其余仍由用户补充 */
-  initialParticipant?: EnrolledStudentInfo | null;
 }
 
 export default function ParticipantForm({
@@ -51,7 +49,6 @@ export default function ParticipantForm({
   preFormSection,
   preFormError,
   preFormSubmitting,
-  initialParticipant,
 }: ParticipantFormProps) {
   const { t } = useLocale();
   const [participants, setParticipants] = useState<ParticipantInput[]>([]);
@@ -63,22 +60,19 @@ export default function ParticipantForm({
     if (open && participantCount > 0 && participants.length === 0) {
       const initialParticipants: ParticipantInput[] = Array.from(
         { length: participantCount },
-        (_, i) => {
-          const pre = i === 0 ? initialParticipant : null;
-          return {
-            participant_no: i + 1,
-            full_name: pre?.full_name ?? "",
-            gender: pre?.gender ?? null,
-            phone: pre?.phone || null,
-            position: pre?.position || null,
-            email: pre?.email || null,
-          };
-        }
+        (_, i) => ({
+          participant_no: i + 1,
+          full_name: "",
+          gender: null,
+          phone: null,
+          position: null,
+          email: null,
+        })
       );
       setParticipants(initialParticipants);
       setError("");
     }
-  }, [open, initialParticipant]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 人数变化时平滑增减条目（保留已填数据）
   useEffect(() => {
@@ -94,7 +88,6 @@ export default function ParticipantForm({
             full_name: "",
             gender: null,
             phone: null,
-            company_name: null,
             position: null,
             email: null,
           })
@@ -121,11 +114,15 @@ export default function ParticipantForm({
       return;
     }
 
-    // 验证必填字段
+    // 验证必填字段：姓名与电话（电话是 DB NOT NULL + 开课通知的唯一联系方式）
     for (let i = 0; i < participants.length; i++) {
       const p = participants[i];
       if (!p.full_name || !p.full_name.trim()) {
         setError(t("tlParticipantNameRequired", { index: String(i + 1) }));
+        return;
+      }
+      if (!p.phone || !p.phone.trim()) {
+        setError(t("tlParticipantPhoneRequired", { index: String(i + 1) }));
         return;
       }
     }

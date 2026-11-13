@@ -35,7 +35,6 @@ export interface AppEventMap {
   "supply-os:crm-refresh": void;
   "supply-os:supplier-pool-changed": void;
   "supply-os:enterprise-changed": void;
-  "supply-os:open-training-register": void;
 }
 
 export type AppEventName = keyof AppEventMap;

@@ -1,17 +1,12 @@
 /**
- * /api/training/orders/:orderNo/participants 集成测试 — 红线②【丙】组最后一处收口
+ * /api/training/orders/:orderNo/participants 集成测试 — 学员名单只读出口
  *
- * @description GET 的 `participants` 是 `SELECT * FROM training_participants` 整行
- *              （11 列：id/order_id/participant_no/full_name/gender/phone/company_name/
- *              position/email/created_at/updated_at，其中 6 列带下划线），学员姓名与手机号原样上网。
- *              真库实测两张表 0 行（生产无数据可达），所以键集合只能从代码侧钉——
- *              这不构成不切的理由（面还在网上）。
- *              隐私口径一并确认：这是订单归属人读回自己提交的学员名单，姓名/电话/邮箱属于自填回显，
- *              不下发的是 order_id / 时间戳（前端契约里也没有）。
- *
- *              同时钉住读写分离：POST 请求体仍以列名 `full_name`/`email` 入参（红线②只约束响应实体字段）。
- *              `email` 是真列（baseline:2298）：旧注释误判为幻影字段，实际是写入链路漏写，
- *              已于本批补齐（INSERT 形状由 tests/unit/lib/repos/training-repo-participants.test.ts 钉）。
+ * @description 2026-11-13 收敛后数据源为 `training_enrollments`（一行 = 一位学员），
+ *              `training_participants` 已删除、POST 写入口已移除（报名接口在支付前一次写全）。
+ *              本测试钉两件事：
+ *                1. 对前端的 7 键 camel 契约不变（participantNo/fullName/gender/phone/
+ *                   companyName/position/email），行元数据（id/user_id/order_id/ip/时间戳）不上网；
+ *                2. 隐私口径不变：只能读自己订单的名单（路由校 user_id）。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -22,32 +17,33 @@ vi.mock("@/lib/middleware/auth", () => ({
   requireUserKeyOrThrow: vi.fn().mockResolvedValue({ userId: 7, authViaJwt: true }),
 }));
 
-const PARTICIPANT_ROWS = [
+const ENROLLMENT_ROWS = [
   {
-    id: 1, order_id: 7, participant_no: 1, full_name: "张三", gender: "男",
-    phone: "13800000000", company_name: "某公司", position: "采购经理",
-    email: "zhang@example.com",
-    created_at: new Date("2026-10-01T00:00:00Z"), updated_at: null,
+    id: 11, user_id: 7, order_id: 55, schedule_id: 2, participant_no: 1,
+    full_name: "张三", gender: "male", phone: "13800000000",
+    company_name: "某公司", position: "采购经理", email: "zhang@example.com",
+    invoice_email: "finance@example.com", main_product: null, export_experience: null,
+    certification: null, remark: null, ip: "127.0.0.1",
+    created_at: new Date("2026-11-13T00:00:00Z"), updated_at: null,
   },
   {
-    id: 2, order_id: 7, participant_no: 2, full_name: "李四", gender: null,
-    phone: null, company_name: null, position: null, email: null,
-    created_at: new Date("2026-10-01T00:00:00Z"), updated_at: null,
+    id: 12, user_id: 7, order_id: 55, schedule_id: 2, participant_no: 2,
+    full_name: "李四", gender: null, phone: "13900000000",
+    company_name: "某公司", position: null, email: null,
+    invoice_email: "finance@example.com", main_product: null, export_experience: null,
+    certification: null, remark: null, ip: "127.0.0.1",
+    created_at: new Date("2026-11-13T00:00:00Z"), updated_at: null,
   },
 ];
 
-const saveParticipants = vi.fn(async () => {});
+const listEnrollmentsByOrderId = vi.fn(async () => ENROLLMENT_ROWS);
 const findOrderByNo = vi.fn(async () => ({
-  id: 7, user_id: 7, status: "paid", participant_count: 2,
+  id: 55, user_id: 7, status: "paid", participant_count: 2,
 }));
 
 vi.mock("@/lib/db/context", () => ({
   getContext: () => ({
-    trainingRepo: {
-      findOrderByNo,
-      getParticipantsByOrderId: async () => PARTICIPANT_ROWS,
-      saveParticipants,
-    },
+    trainingRepo: { findOrderByNo, listEnrollmentsByOrderId },
   }),
 }));
 
@@ -57,12 +53,12 @@ const snakeKeys = (obj: unknown): string[] =>
 const url = "http://localhost:3000/api/training/orders/TR2026/participants";
 
 beforeEach(() => {
-  saveParticipants.mockClear();
+  listEnrollmentsByOrderId.mockClear();
   findOrderByNo.mockClear();
 });
 
 describe("GET /api/training/orders/[orderNo]/participants", () => {
-  it("学员键集合 = 前端契约的 camel 形态；order_id 与两个时间戳不上网", async () => {
+  it("键集合 = 前端契约的 camel 形态；order_id/ip/时间戳不上网", async () => {
     const { GET } = await import("@/app/api/training/orders/[orderNo]/participants/route");
     const body = await (await GET(new NextRequest(url), { params: Promise.resolve({ orderNo: "TR2026" }) })).json();
 
@@ -74,39 +70,21 @@ describe("GET /api/training/orders/[orderNo]/participants", () => {
     expect(body.participantCount).toBe(2);
   });
 
-  it("值原样回显（订单归属人读自己提交的名单，本批不改数据形态）", async () => {
+  it("值原样回显；名单按订单读 enrollments", async () => {
     const { GET } = await import("@/app/api/training/orders/[orderNo]/participants/route");
     const body = await (await GET(new NextRequest(url), { params: Promise.resolve({ orderNo: "TR2026" }) })).json();
 
     expect(body.participants[0]).toEqual({
-      participantNo: 1, fullName: "张三", gender: "男", phone: "13800000000",
+      participantNo: 1, fullName: "张三", gender: "male", phone: "13800000000",
       companyName: "某公司", position: "采购经理", email: "zhang@example.com",
     });
     expect(body.participants[1].gender).toBeNull();
     expect(body.participants[1].email).toBeNull();
+    expect(listEnrollmentsByOrderId).toHaveBeenCalledWith(55);
   });
-});
 
-describe("POST /api/training/orders/[orderNo]/participants", () => {
-  it("请求体仍吃列名 full_name/email：仓储收到原样键，不做 camel 化（读写口径分离）", async () => {
-    const { POST } = await import("@/app/api/training/orders/[orderNo]/participants/route");
-    const res = await POST(
-      new NextRequest(url, {
-        method: "POST",
-        body: JSON.stringify({
-          participants: [
-            { participant_no: 1, full_name: "张三", email: "zhang@example.com" },
-            { participant_no: 2, full_name: "李四" },
-          ],
-        }),
-      } as never),
-      { params: Promise.resolve({ orderNo: "TR2026" }) },
-    );
-
-    expect(res.status).toBe(200);
-    expect(saveParticipants).toHaveBeenCalledWith(7, [
-      { participant_no: 1, full_name: "张三", email: "zhang@example.com" },
-      { participant_no: 2, full_name: "李四" },
-    ]);
+  it("POST 写入口已移除（学员在报名时一次写全）", async () => {
+    const route = await import("@/app/api/training/orders/[orderNo]/participants/route");
+    expect("POST" in route).toBe(false);
   });
 });

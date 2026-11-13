@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 122 张，导出 117 张，排除 5 张。
+--           源库共 119 张，导出 116 张，排除 3 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -2184,46 +2184,30 @@ CREATE TABLE `training_download_stats` (
 -- ── training_enrollments ──
 CREATE TABLE `training_enrollments` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL COMMENT '报名账号 users.id（报名先于订单发生，必须独立可查）',
+  `order_id` bigint unsigned DEFAULT NULL COMMENT '关联 orders.id；NULL=尚未成单的报名线索',
+  `schedule_id` int unsigned DEFAULT NULL COMMENT '参训期次 training_schedules.id',
+  `participant_no` int unsigned NOT NULL DEFAULT '1' COMMENT '同批报名内序号（1-based，用于排序）',
   `full_name` varchar(100) NOT NULL COMMENT '参训学员姓名',
-  `gender` varchar(20) DEFAULT NULL COMMENT '性别',
-  `phone` varchar(50) NOT NULL COMMENT '手机号',
+  `gender` varchar(20) DEFAULT NULL COMMENT '性别（male/female/other）',
+  `phone` varchar(50) NOT NULL COMMENT '学员手机号',
   `position` varchar(100) DEFAULT NULL COMMENT '职位',
-  `company_name` varchar(255) NOT NULL COMMENT '公司名称',
+  `email` varchar(190) DEFAULT NULL COMMENT '学员邮箱：开课通知与证书发放',
+  `invoice_email` varchar(190) DEFAULT NULL COMMENT '发票/开课通知邮箱（企业区填写，逐行快照）',
+  `company_name` varchar(255) NOT NULL COMMENT '企业名称快照',
   `main_product` varchar(255) DEFAULT NULL COMMENT '主营产品',
   `export_experience` varchar(255) DEFAULT NULL COMMENT '出口贸易经验',
-  `certification` text COMMENT '认证资质：字典名称快照，换行分隔',
+  `certification` text COMMENT '持有资质证书：字典名称快照，换行分隔',
   `remark` text COMMENT '备注',
-  `email` varchar(190) DEFAULT NULL COMMENT '邮箱：发票/通知发送',
-  `schedule_id` int unsigned DEFAULT NULL COMMENT '报名期次 training_schedules.id',
-  `order_id` bigint unsigned DEFAULT NULL COMMENT '关联订单 orders.id',
-  `payment_status` varchar(20) NOT NULL DEFAULT 'unpaid' COMMENT 'unpaid/paid/refunded',
-  `amount` decimal(10,2) DEFAULT NULL COMMENT '课程单价快照（2800 元/人）；实际应付 = 单价 × 参训人数，以 orders.amount 为准',
   `ip` varchar(45) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  KEY `idx_te_order` (`order_id`,`participant_no`),
+  KEY `idx_te_user` (`user_id`,`created_at`),
   KEY `idx_te_schedule` (`schedule_id`),
-  KEY `idx_te_order` (`order_id`),
-  KEY `idx_te_payment_status` (`payment_status`),
-  KEY `idx_te_created_at` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='研修班报名（一人一条，2800 元/人）';
-
--- ── training_participants ──
-CREATE TABLE `training_participants` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `order_id` bigint unsigned NOT NULL COMMENT '关联 training_orders.id',
-  `participant_no` int unsigned NOT NULL COMMENT '学员序号（1-based，用于排序）',
-  `full_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '学员姓名',
-  `gender` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '性别（male/female/other）',
-  `phone` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '电话',
-  `position` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '职位',
-  `email` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '邮箱',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_participants_order` (`order_id`,`participant_no`),
-  KEY `idx_participants_phone` (`phone`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='研修班报名的学员信息';
+  KEY `idx_te_phone` (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='研修班报名（一行=一位参训学员，2800 元/人）';
 
 -- ── training_schedules ──
 CREATE TABLE `training_schedules` (

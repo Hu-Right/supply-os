@@ -11,4 +11,4 @@ export { default as TrainingLandingPage } from "./pages/TrainingLandingPage";
 export { useTrainingModals } from "./hooks/useTrainingModals";
 
 // API 类型（供外部使用）
-export type { TrainingRegisterForm } from "./api";
+export type { TrainingRegisterPayload } from "./api";

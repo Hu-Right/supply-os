@@ -1,6 +1,12 @@
 /**
- * GET  /api/training/orders/:orderNo/participants — 查询学员信息
- * POST /api/training/orders/:orderNo/participants — 保存学员信息
+ * GET /api/training/orders/:orderNo/participants — 查询订单学员名单
+ *
+ * @description 2026-11-13 收敛：数据源改为 `training_enrollments`（一行 = 一位学员），
+ *              `training_participants` 已删除。
+ *
+ *              POST 已移除：学员由报名接口（POST /api/training/register）在支付前一次写全，
+ *              不再有「支付成功后再补名单」的第二次写入，因此也没有「改名单」的写入口。
+ *              需要改名单应重新报名（未支付）或在订单外人工处理。
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -9,8 +15,6 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { trainingParticipantsViewOf } from "@/lib/services/training/view";
 import {
   EC_TRAINING_ORDER_NOT_FOUND, EC_TRAINING_ORDER_FORBIDDEN,
-  EC_TRAINING_ORDER_NOT_PAID, EC_TRAINING_PARTICIPANTS_INVALID,
-  EC_TRAINING_PARTICIPANTS_COUNT_MISMATCH,
 } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ orderNo: string }> }>(
@@ -25,55 +29,13 @@ export const GET = withRoute<{ params: Promise<{ orderNo: string }> }>(
     if (!order) routeError(404, EC_TRAINING_ORDER_NOT_FOUND, "订单不存在");
     if (order.user_id && order.user_id !== auth.userId) routeError(403, EC_TRAINING_ORDER_FORBIDDEN, "无权查看此订单");
 
-    const participants = await trainingRepo.getParticipantsByOrderId(order.id);
+    const participants = await trainingRepo.listEnrollmentsByOrderId(order.id);
     return NextResponse.json({
       success: true,
       orderNo,
-      // 行是 SELECT * 整行（含 order_id/created_at/updated_at），必须过视图才上网；
+      // 行是 SELECT * 整行（含 user_id/order_id/ip/时间戳），必须过视图才上网；
       // 下面的 participantCount 用原始长度，不受视图只发 7 键影响。
       participants: trainingParticipantsViewOf(participants),
-      participantCount: participants.length,
-    });
-  },
-);
-
-export const POST = withRoute<{ params: Promise<{ orderNo: string }> }>(
-  async (req, { params }) => {
-    const auth = await requireUserKeyOrThrow(req);
-
-    const { orderNo } = await params;
-    const ctx = getContext();
-    const trainingRepo = ctx.trainingRepo;
-
-    const order = await trainingRepo.findOrderByNo(orderNo);
-    if (!order) routeError(404, EC_TRAINING_ORDER_NOT_FOUND, "订单不存在");
-    if (order.status !== "paid") routeError(400, EC_TRAINING_ORDER_NOT_PAID, "订单尚未支付，无法保存学员信息");
-    if (order.user_id && order.user_id !== auth.userId) routeError(403, EC_TRAINING_ORDER_FORBIDDEN, "无权操作此订单");
-
-    const body = await req.json();
-    const participants = body.participants;
-    if (!Array.isArray(participants) || participants.length === 0) {
-      routeError(400, EC_TRAINING_PARTICIPANTS_INVALID, "学员信息不能为空");
-    }
-    if (participants.length !== order.participant_count) {
-      routeError(
-        400,
-        EC_TRAINING_PARTICIPANTS_COUNT_MISMATCH,
-        `学员数量不匹配：订单要求 ${order.participant_count} 人，实际提交 ${participants.length} 人`,
-      );
-    }
-    for (let i = 0; i < participants.length; i++) {
-      const p = participants[i];
-      if (!p.full_name || !p.full_name.trim()) {
-        routeError(400, EC_TRAINING_PARTICIPANTS_INVALID, `第 ${i + 1} 位学员姓名不能为空`);
-      }
-    }
-
-    await trainingRepo.saveParticipants(order.id, participants);
-    return NextResponse.json({
-      success: true,
-      message: "学员信息保存成功",
-      orderNo,
       participantCount: participants.length,
     });
   },

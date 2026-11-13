@@ -10,8 +10,10 @@
  *
  *              职责边界：
  *              - 订单存于统一表 orders（product_kind='course'）
- *              - 履约写入 orders（状态）+ training_enrollments（报名状态）
- *                + training_schedules（期次人数）
+ *              - 报名行（training_enrollments）在**下单前**已由报名接口写全，
+ *                本服务只在下单时把 order_id 绑上去；履约/退款不再回写报名行
+ *                （支付状态唯一权威是 orders.status，2026-11-13 起取消双写）
+ *              - 履约另写 training_schedules（期次人数）
  *              - 定价从 TrainingRepo（training_courses 表）读取（零硬编码），
  *                取价与归一由 lib/payment/products 统一（courseProductOf）
  *              - 支付渠道策略由 Orchestrator 通过 resolver 注入
@@ -36,8 +38,12 @@ export interface CreateTrainingOrderParams {
   /** 下单人（orders.user_id 已收 NOT NULL：培训下单入口强制登录，匿单语义退役） */
   userId: number;
   scheduleId?: number | null;
-  registrationId?: number | null;
-  participantCount?: number;
+  /**
+   * 本单覆盖的报名行 id（training_enrollments.id），必填。
+   * 2026-11-13 收敛后：报名先落库（一人一行），下单只做绑定；
+   * 人数由行数决定，不再采信客户端的 participant_count。
+   */
+  registrationIds?: number[] | null;
   provider: string;
   contactName?: string;
   telephone?: string;
@@ -108,14 +114,33 @@ export class TrainingPaymentService {
     const unitPrice = product.unitPrice;
     if (unitPrice <= 0) throw new Error("COURSE_PRICE_INVALID");
 
-    // 单笔人数上限护栏（审查 F25）
+    // 本单覆盖的报名行：人数与期次以报名行为准（不采信客户端传来的 count/schedule）
     const MAX_PARTICIPANTS_PER_ORDER = 50;
-    const participantCount = Math.max(1, Math.min(MAX_PARTICIPANTS_PER_ORDER, Number(params.participantCount || 1)));
+    const registrationIds = [
+      ...new Set((params.registrationIds ?? []).filter((id) => Number.isFinite(id))),
+    ];
+    if (registrationIds.length === 0) throw new Error("REGISTRATION_REQUIRED");
+    if (registrationIds.length > MAX_PARTICIPANTS_PER_ORDER) throw new Error("PARTICIPANT_LIMIT_EXCEEDED");
+
+    const enrollments = await this.trainingRepo.findEnrollmentsByIds(registrationIds, params.userId);
+    if (enrollments.length !== registrationIds.length) throw new Error("REGISTRATION_NOT_FOUND");
+    if (enrollments.some((row) => row.order_id != null)) throw new Error("REGISTRATION_ALREADY_BOUND");
+
+    const scheduleIds = [
+      ...new Set(enrollments.map((row) => row.schedule_id).filter((v): v is number => v != null)),
+    ];
+    if (scheduleIds.length > 1) throw new Error("REGISTRATION_SCHEDULE_MISMATCH");
+    const scheduleId = params.scheduleId != null ? Number(params.scheduleId) : scheduleIds[0] ?? null;
+    if (scheduleIds.length === 1 && scheduleId != null && scheduleIds[0] !== scheduleId) {
+      throw new Error("REGISTRATION_SCHEDULE_MISMATCH");
+    }
+
+    const participantCount = enrollments.length;
     const totalAmount = Math.round(unitPrice * participantCount * 100) / 100;
 
     // 容量校验（审查 F25）：下单即校验期次名额
-    if (params.scheduleId) {
-      const schedule = await this.trainingRepo.findScheduleById(Number(params.scheduleId));
+    if (scheduleId) {
+      const schedule = await this.trainingRepo.findScheduleById(scheduleId);
       if (!schedule) throw new Error("SCHEDULE_NOT_FOUND");
       if (schedule.capacity != null
         && Number(schedule.enrolled_count || 0) + participantCount > Number(schedule.capacity)) {
@@ -154,12 +179,13 @@ export class TrainingPaymentService {
     if (!gatewayResult.qr_code_url) throw new Error("PAYMENT_QR_CODE_MISSING");
     const qrCode = await toQrDataUrl(gatewayResult.qr_code_url);
 
-    await this.trainingRepo.createOrder({
+    const orderId = await this.trainingRepo.createOrder({
       orderNo,
       userId: params.userId,
       courseId: course.id,
-      scheduleId: params.scheduleId ?? null,
-      registrationId: params.registrationId ?? null,
+      productName: product.name,
+      scheduleId,
+      registrationId: registrationIds[0] ?? null,
       participantCount,
       unitPrice,
       totalAmount,
@@ -171,6 +197,14 @@ export class TrainingPaymentService {
       contactName: params.contactName || null,
       telephone: params.telephone || null,
     });
+
+    // 把这批报名行绑到订单上（只绑 order_id IS NULL 的行）。
+    // 校验与绑定之间仍有并发窗口：少绑一行就关单，避免出现「付了钱、名单却挂在别的单上」。
+    const bound = await this.trainingRepo.bindEnrollmentsToOrder(orderId, registrationIds, params.userId);
+    if (bound !== registrationIds.length) {
+      await this.trainingRepo.updateOrderStatus(orderNo, ORDER_STATUS.CLOSED);
+      throw new Error("REGISTRATION_BOUND_RACE");
+    }
 
     return {
       orderNo,
@@ -241,7 +275,7 @@ export class TrainingPaymentService {
 
   /**
    * 培训订单支付履约（使用统一事务管道）
-   * 标记订单已支付 + 更新报名支付状态 + 递增期次报名人数
+   * 标记订单已支付 + 递增期次报名人数；报名行不回写（状态唯一权威是 orders.status）
    */
   async fulfillOrder(orderNo: string, providerTradeNo?: string | null): Promise<void> {
     await fulfillInTransaction({
@@ -253,16 +287,10 @@ export class TrainingPaymentService {
         this.trainingRepo.updateOrderStatusInTransaction(conn, no, ORDER_STATUS.PAID, tradeNo),
       onFulfill: async (conn, order) => {
         const rawOrder = order as unknown as {
-          registration_id?: number | null;
           schedule_id?: number | null;
           participant_count?: number;
         };
 
-        if (rawOrder.registration_id) {
-          await this.trainingRepo.updateRegistrationPaymentInTransaction(
-            conn, rawOrder.registration_id, (order as unknown as { id: number }).id, ORDER_STATUS.PAID,
-          );
-        }
         if (rawOrder.schedule_id) {
           const incremented = await this.trainingRepo.incrementEnrolledCountInTransaction(
             conn, rawOrder.schedule_id, rawOrder.participant_count,
@@ -322,13 +350,8 @@ export class TrainingPaymentService {
         [orderNo],
       );
 
-      // 回滚报名支付状态
-      if (order.registration_id) {
-        await conn.execute(
-          "UPDATE training_enrollments SET payment_status = 'refunded', order_id = NULL WHERE id = ?",
-          [order.registration_id],
-        );
-      }
+      // 报名行不回写：退款后 order_id 仍指向本单，学员名单作为历史留档；
+      // 是否已退款由 orders.status='refunded' 判定（单一事实源）。
 
       // 递减期次报名人数（与履约 increment 对称）
       if (order.schedule_id) {

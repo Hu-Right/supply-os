@@ -70,25 +70,65 @@ const TRAINING_ORDER_COLUMNS = `id, order_no,
   unit_price, amount AS total_amount, currency, provider, status,
   qr_code_url AS qr_code, pay_url, provider_trade_no, paid_at, expires_at, user_id`;
 
-export interface ParticipantRow extends RowDataPacket {
+/**
+ * 报名行 = 一位参训学员（2026-11-13 收敛后口径）。
+ * 企业信息与期次是同一批报名的快照，逐行冗余：任一行都能独立还原一次完整报名，
+ * 导出/证书/CRM 不需要再 join 企业表。
+ */
+export interface EnrollmentRow extends RowDataPacket {
   id: number;
-  order_id: number;
+  user_id: number;
+  order_id: number | null;
+  schedule_id: number | null;
   participant_no: number;
   full_name: string;
   gender: string | null;
-  phone: string | null;
-  company_name: string | null;
+  phone: string;
   position: string | null;
-  /** 真实列 varchar(200)（baseline:2298）；2026-10-29 前类型漏声明它，INSERT 也没写它 */
   email: string | null;
+  invoice_email: string | null;
+  company_name: string;
+  main_product: string | null;
+  export_experience: string | null;
+  certification: string | null;
+  remark: string | null;
+  ip: string | null;
   created_at: Date;
   updated_at: Date | null;
+}
+
+/** 一位学员的录入体（请求侧仍用列名，红线②只约束响应实体字段） */
+export interface EnrollmentParticipantInput {
+  participant_no: number;
+  full_name: string;
+  gender?: string | null;
+  phone?: string | null;
+  position?: string | null;
+  email?: string | null;
+}
+
+/** 一次报名（可含 1-N 位学员）：企业信息与期次在同一批内共享 */
+export interface CreateEnrollmentsData {
+  userId: number;
+  scheduleId: number | null;
+  companyName: string;
+  mainProduct: string;
+  exportExperience: string;
+  certification: string;
+  remark: string;
+  /** 发票/开课通知邮箱（企业区填写）：与学员个人 email 是两条信息，各留一个载体 */
+  invoiceEmail: string;
+  ip: string;
+  participants: EnrollmentParticipantInput[];
 }
 
 export interface CreateTrainingOrderData {
   orderNo: string;
   courseId: number;
+  /** 课程名快照（orders.product_name）：目录改名不影响历史单的可读性 */
+  productName: string;
   scheduleId: number | null;
+  /** 主报名行（本单首位学员）；多学员明细靠 order_id 反查，不在 orders 上存数组 */
   registrationId: number | null;
   participantCount: number;
   unitPrice: number;
@@ -107,34 +147,77 @@ export interface CreateTrainingOrderData {
 export class TrainingRepo {
   constructor(private pool: Pool) {}
 
-  /** 研修班报名，返回自增 id。2026-11-13 起写 training_enrollments（一人一条，2800 元/人） */
-  async insertRegistration(data: {
-    fullName: string;
-    gender: string | null;
-    phone: string;
-    position: string;
-    companyName: string;
-    mainProduct: string;
-    exportExperience: string;
-    certification: string;
-    remark: string;
-    email: string;
-    scheduleId: number | null;
-    amount: number | null;
-    ip: string;
-  }): Promise<number> {
-    const [result] = await this.pool.execute(
-      `INSERT INTO training_enrollments
-        (full_name, gender, phone, position, company_name, main_product,
-         export_experience, certification, remark, email, schedule_id, amount, created_at, ip, payment_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 'unpaid')`,
-      [
-        data.fullName, data.gender, data.phone, data.position,
-        data.companyName, data.mainProduct, data.exportExperience, data.certification,
-        data.remark, data.email, data.scheduleId, data.amount, data.ip,
-      ],
+  /**
+   * 创建一次报名（1-N 位学员），返回逐行自增 id。
+   *
+   * 2026-11-13 收敛后：报名即学员，一行一人；企业信息与期次作为快照写到每一行。
+   * 逐条插而非多值 INSERT，是为了拿到**确定的 id 列表**——下单时要把这批行绑到订单上，
+   * 而多值 INSERT 在 innodb_autoinc_lock_mode=2 下不保证 id 连续。
+   * 人数上限由下单层护栏（MAX_PARTICIPANTS_PER_ORDER）约束，循环规模可控。
+   */
+  async createEnrollments(data: CreateEnrollmentsData): Promise<number[]> {
+    const conn = await this.pool.getConnection();
+    const ids: number[] = [];
+    try {
+      await conn.beginTransaction();
+      for (const p of data.participants) {
+        const [result] = await conn.execute(
+          `INSERT INTO training_enrollments
+            (user_id, schedule_id, participant_no, full_name, gender, phone, position, email,
+             invoice_email, company_name, main_product, export_experience, certification, remark, ip, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+          [
+            data.userId, data.scheduleId, p.participant_no,
+            p.full_name, p.gender || null, p.phone || null, p.position || null, p.email || null,
+            data.invoiceEmail || null, data.companyName, data.mainProduct, data.exportExperience,
+            data.certification, data.remark, data.ip,
+          ],
+        );
+        ids.push(Number((result as RowDataPacket).insertId));
+      }
+      await conn.commit();
+      return ids;
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  }
+
+  /** 按 id 取报名行（限本人）：下单前校验归属、期次一致性与是否已被别的订单占用 */
+  async findEnrollmentsByIds(ids: number[], userId: number): Promise<EnrollmentRow[]> {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => "?").join(", ");
+    const [rows] = await this.pool.query(
+      `SELECT * FROM training_enrollments WHERE id IN (${placeholders}) AND user_id = ?`,
+      [...ids, userId],
     );
-    return Number((result as RowDataPacket).insertId);
+    return rows as EnrollmentRow[];
+  }
+
+  /**
+   * 把这批报名行绑到订单上。只绑尚未成单的行（order_id IS NULL），
+   * 返回受影响行数——调用方须比对 ids.length，不等即说明有行已被别的订单占用，应回滚。
+   */
+  async bindEnrollmentsToOrder(orderId: number, ids: number[], userId: number): Promise<number> {
+    if (ids.length === 0) return 0;
+    const placeholders = ids.map(() => "?").join(", ");
+    const [result] = await this.pool.execute(
+      `UPDATE training_enrollments SET order_id = ?
+       WHERE id IN (${placeholders}) AND user_id = ? AND order_id IS NULL`,
+      [orderId, ...ids, userId],
+    );
+    return Number((result as { affectedRows?: number }).affectedRows ?? 0);
+  }
+
+  /** 订单下的学员名单（支付后回显、证书与名单导出共用此口径） */
+  async listEnrollmentsByOrderId(orderId: number): Promise<EnrollmentRow[]> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_enrollments WHERE order_id = ? ORDER BY participant_no ASC, id ASC",
+      [orderId],
+    );
+    return rows as EnrollmentRow[];
   }
 
   // 下载计数单一权威源：learning_materials.downloads_count（由 /api/training/downloads/track 直接递增）。
@@ -186,9 +269,9 @@ export class TrainingRepo {
         (order_no, user_id, product_kind, product_code, product_name, unit_price, quantity, amount,
          currency, provider, status, qr_code_url, pay_url, expires_at, granted_registration_id,
          items_snapshot, created_at)
-       VALUES (?, ?, 'course', ?, '', ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())`,
+       VALUES (?, ?, 'course', ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())`,
       [
-        data.orderNo, data.userId, String(data.courseId),
+        data.orderNo, data.userId, String(data.courseId), data.productName,
         data.unitPrice, data.participantCount, data.totalAmount, data.currency,
         data.provider, data.qrCode, data.payUrl, data.expiresAt,
         data.registrationId ?? null, JSON.stringify(snapshot),
@@ -221,13 +304,9 @@ export class TrainingRepo {
     }
   }
 
-  /** 更新报名记录的支付状态与关联订单 */
-  async updateRegistrationPayment(registrationId: number, orderId: number, paymentStatus: string): Promise<void> {
-    await this.pool.execute(
-      "UPDATE training_enrollments SET payment_status = ?, order_id = ? WHERE id = ?",
-      [paymentStatus, orderId, registrationId],
-    );
-  }
+  // 2026-11-13 收敛：报名支付状态不再双写。
+  // 订单状态唯一权威是 orders.status（付款/退款都只改那一处），报名行只保留 order_id。
+  // 旧 updateRegistrationPayment / updateRegistrationPaymentInTransaction 已删除。
 
   // ── 事务感知方法（供履约等需要悲观锁的场景使用） ──
 
@@ -260,14 +339,6 @@ export class TrainingRepo {
     }
   }
 
-  /** 事务内更新报名记录支付状态 */
-  async updateRegistrationPaymentInTransaction(conn: PoolConnection, registrationId: number, orderId: number, paymentStatus: string): Promise<void> {
-    await conn.execute(
-      "UPDATE training_enrollments SET payment_status = ?, order_id = ? WHERE id = ?",
-      [paymentStatus, orderId, registrationId],
-    );
-  }
-
   /**
    * 事务内递增期次报名人数（审查 F25）：
    * 带容量护栏（capacity 为 NULL 视为不限），返回受影响行数——
@@ -281,57 +352,6 @@ export class TrainingRepo {
       [delta, scheduleId, delta],
     );
     return Number((result as { affectedRows?: number }).affectedRows ?? 0);
-  }
-
-  /** 保存学员信息（批量插入/更新） */
-  async saveParticipants(orderId: number, participants: Array<{
-    participant_no: number;
-    full_name: string;
-    gender?: string | null;
-    phone?: string | null;
-    position?: string | null;
-    email?: string | null;
-  }>): Promise<void> {
-    // 先删除该订单的旧学员记录（支持重新提交）
-    await this.pool.execute("DELETE FROM training_participants WHERE order_id = ?", [orderId]);
-    
-    // 批量插入新学员记录
-    if (participants.length === 0) return;
-    
-    const values = participants.map(p => [
-      orderId,
-      p.participant_no,
-      p.full_name,
-      p.gender || null,
-      p.phone || null,
-      p.position || null,
-      // email 于 2026-10-29 补入：表单一直在采集，列一直存在，只是此前没人写它
-      // （用户填的邮箱静默丢弃；证书发放口径需要这一列）。
-      p.email || null,
-    ]);
-    
-    // 列清单与这里的 ? 个数必须同批增减（多一个少一个都是列/参数错位）。
-    const placeholders = values.map(() => 
-      "(?, ?, ?, ?, ?, ?, ?)"
-    ).join(", ");
-    
-    const flatValues = values.flat();
-    
-    await this.pool.execute(
-      `INSERT INTO training_participants (
-        order_id, participant_no, full_name, gender, phone, position, email
-      ) VALUES ${placeholders}`,
-      flatValues
-    );
-  }
-
-  /** 查询订单的学员信息 */
-  async getParticipantsByOrderId(orderId: number): Promise<ParticipantRow[]> {
-    const [rows] = await this.pool.execute(
-      "SELECT * FROM training_participants WHERE order_id = ? ORDER BY participant_no ASC",
-      [orderId]
-    );
-    return rows as ParticipantRow[];
   }
 
   /** 按用户查询培训订单（可选状态过滤）——2026-11-12 起读统一表 orders（kind='course'） */

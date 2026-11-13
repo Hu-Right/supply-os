@@ -6,7 +6,7 @@
  *
  * @description 从 Vite SPA App.tsx 迁移。
  *              包含：导航标签、模态框管理、应用事件、版本检查、
- *              AuthModal / PaymentModal / ConsultForm / TrainingRegisterForm。
+ *              AuthModal / PaymentModal / ConsultForm。
  *              所有子组件已通过 next/navigation 适配，无需 shim。
  */
 
@@ -30,9 +30,6 @@ import {
 const AuthModal = lazy(() => import("@/features/auth").then((m) => ({ default: m.AuthModal })));
 const PaymentModal = lazy(() => import("@/features/payment").then((m) => ({ default: m.PaymentModal })));
 const ConsultForm = lazy(() => import("@/shared/forms").then((m) => ({ default: m.ConsultForm })));
-const TrainingRegisterForm = lazy(() =>
-  import("@/features/training/components/TrainingRegisterForm").then((m) => ({ default: m.default })),
-);
 // 新用户引导弹窗（右下角）：已登录且未绑定企业/未建资源库时提示完善企业信息
 const EnterpriseOnboardingModal = lazy(() =>
   import("@/features/auth/components/EnterpriseOnboardingModal").then((m) => ({
@@ -65,14 +62,11 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
     setPaymentPlan,
     showConsultForm,
     setShowConsultForm,
-    showTrainingRegisterForm,
-    setShowTrainingRegisterForm,
     mobileMenuOpen,
     setMobileMenuOpen,
     onRequireLogin,
     onConsult,
     onPay,
-    onOpenTrainingRegister,
   } = useAppModals();
   const { tabs, activeTab, switchMainTab } = useNavTabs();
   const router = useRouter();
@@ -88,7 +82,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
     }
   }, [authUser, router, setShowAuthModal]);
 
-  useAppEvents({ onRequireLogin, onConsult, onPay, onOpenTrainingRegister, onOpenAccount });
+  useAppEvents({ onRequireLogin, onConsult, onPay, onOpenAccount });
   useVersionCheck();
 
   // ★ 扫码推广自动弹出注册弹窗：检测 /r/[code] 中转页写入的 qr_auto_open Cookie
@@ -156,11 +150,6 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
       {showConsultForm && (
         <Suspense fallback={<ModalSkeleton />}>
           <ConsultForm onClose={() => setShowConsultForm(false)} />
-        </Suspense>
-      )}
-      {showTrainingRegisterForm && (
-        <Suspense fallback={<ModalSkeleton />}>
-          <TrainingRegisterForm onClose={() => setShowTrainingRegisterForm(false)} />
         </Suspense>
       )}
       {showPaymentModal && paymentPlan && authUser && (

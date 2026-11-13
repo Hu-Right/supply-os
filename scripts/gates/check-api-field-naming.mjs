@@ -263,7 +263,6 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   "src/app/api/rfq/[id]/quotes/route.ts#quoteId", // submitQuote(): Promise<{ quoteId: number }>
   "src/app/api/suppliers/stats/route.ts#registered", // countApproved(): Promise<number>
   "src/app/api/system/icp/route.ts#bah", // getIcpBah(): Promise<string>，形状由 tests/unit/app/api/system-view.test.ts 钉住
-  "src/app/api/training/register/route.ts#id", // insertRegistration(): Promise<number>（自增 id）
   "src/app/api/user/enterprise/license-upload/route.ts#url", // UploadResult.url: string
   "src/app/api/user/enterprise/route.ts#claimCreated", // ensurePendingClaim(): Promise<boolean>
   "src/app/api/user/enterprise/route.ts#supplierId", // insertEnterprise(): Promise<number>
@@ -291,6 +290,8 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   // （用户填的邮箱一直静默丢弃）。本批两头补齐：写入口 + 视图下发，不拿删输入框掩盖。
   // 真库实测两表 0 行（无数据可达），所以键集合由
   // tests/integration/api-routes/training-participants.test.ts 从代码侧钉。
+  // 【2026-11-13 表收敛】training_participants 已并入 training_enrollments（一行一人），
+  // 出口改读 listEnrollmentsByOrderId 仍过同一视图，7 键契约不变；saveParticipants 已删除。
   // 【丙】组至此清零：四处已知 snake 上网已全部收口并删行（2026-10-29）。
 ]);
 

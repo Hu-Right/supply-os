@@ -1,4 +1,9 @@
 /**
+ * ⚠️ 已被取代（2026-11-13 晚）：本脚本建的 18 列表已被 `training-enrollment-consolidate.ts`
+ *   重建为 19 列（+user_id/participant_no/invoice_email，-payment_status/amount），
+ *   `training_participants` 同时并入。**不要再执行本脚本**，否则会退回旧结构（且旧脚本
+ *   依赖的 training_registrations 已不存在）。留档仅为记录当时的迁移口径。
+ *
  * 研修班报名：新建 `training_enrollments`，旧的 `training_registrations` 整表封存
  *
  * 背景（2026-11-13，用户定）：

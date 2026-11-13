@@ -1,22 +1,20 @@
 /**
- * 落地页三弹窗状态管理 Hook
+ * 落地页弹窗状态管理 Hook
  * Training Landing Page Modal State Hook
  *
  * @module features/training/hooks/useTrainingModals
- * @description 管理报名表单弹窗、动态支付弹窗（红框）、企微二维码弹窗（黄框）
- *              的开关状态与联动逻辑（报名成功 → 自动打开支付弹窗）。
+ * @description 管理动态支付弹窗（红框）与企微二维码弹窗（黄框）的开关状态。
  *              P0-6 安全修复：支付前必须登录，与会员区支付流程对齐（单一数据源）。
+ *
+ *              2026-11-13 收敛：独立「报名表单弹窗」已删除——它挂在
+ *              `supply-os:open-training-register` 事件上，而全仓没有任何 emit 方（死链），
+ *              且其字段与支付弹窗内的报名阶段完全重复。报名信息只在支付弹窗里收一次。
  */
 import { useState, useCallback } from "react";
 import { useAuth } from "@/core/auth";
-import type { EnrolledStudentInfo } from "../api";
 import { emitAppEvent } from "@/core/events";
 
 export interface UseTrainingModalsReturn {
-  /** 报名表单弹窗 */
-  showRegisterForm: boolean;
-  openRegisterForm: () => void;
-  closeRegisterForm: () => void;
   /** 动态支付弹窗（红框） */
   showPaymentModal: boolean;
   closePaymentModal: () => void;
@@ -24,42 +22,18 @@ export interface UseTrainingModalsReturn {
   showWechatQR: boolean;
   openWechatQR: () => void;
   closeWechatQR: () => void;
-  /** 报名成功后关联的 registrationId（传给支付弹窗） */
-  registrationId: number | null;
-  /** 报名成功回调：关闭表单弹窗并自动打开支付弹窗；student 用于预填第一名学员 */
-  handleRegisterSuccess: (registrationId: number | null, student?: EnrolledStudentInfo | null) => void;
-  /** 报名时已提交的学员本人信息（直接支付时为 null） */
-  enrolledStudent: EnrolledStudentInfo | null;
-  /** 直接支付（跳过报名表单） */
+  /** 直接支付（跳过报名表单，弹窗内一次填写企业与学员） */
   handleDirectPay: () => void;
 }
 
 export function useTrainingModals(): UseTrainingModalsReturn {
-  const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showWechatQR, setShowWechatQR] = useState(false);
-  const [registrationId, setRegistrationId] = useState<number | null>(null);
-  const [enrolledStudent, setEnrolledStudent] = useState<EnrolledStudentInfo | null>(null);
   const { authUser } = useAuth();
 
-  const openRegisterForm = useCallback(() => setShowRegisterForm(true), []);
-  const closeRegisterForm = useCallback(() => setShowRegisterForm(false), []);
   const closePaymentModal = useCallback(() => setShowPaymentModal(false), []);
   const openWechatQR = useCallback(() => setShowWechatQR(true), []);
   const closeWechatQR = useCallback(() => setShowWechatQR(false), []);
-
-  // 报名成功 → 关闭表单弹窗并自动打开支付弹窗
-  // P0-6 安全修复：报名成功后自动打开支付弹窗前，检查登录状态
-  const handleRegisterSuccess = useCallback((id: number | null, student?: EnrolledStudentInfo | null) => {
-    if (!authUser) {
-      emitAppEvent("supply-os:require-login");
-      return;
-    }
-    setRegistrationId(id);
-    setEnrolledStudent(student ?? null);
-    setShowRegisterForm(false);
-    setShowPaymentModal(true);
-  }, [authUser]);
 
   // 直接支付（适合已咨询过的老用户）
   // P0-6 安全修复：支付前必须登录，与会员区支付流程对齐（单一数据源）
@@ -68,15 +42,12 @@ export function useTrainingModals(): UseTrainingModalsReturn {
       emitAppEvent("supply-os:require-login");
       return;
     }
-    setRegistrationId(null);
-    setEnrolledStudent(null);
     setShowPaymentModal(true);
   }, [authUser]);
 
   return {
-    showRegisterForm, openRegisterForm, closeRegisterForm,
     showPaymentModal, closePaymentModal,
     showWechatQR, openWechatQR, closeWechatQR,
-    registrationId, enrolledStudent, handleRegisterSuccess, handleDirectPay,
+    handleDirectPay,
   };
 }

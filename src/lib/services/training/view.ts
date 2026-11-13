@@ -19,7 +19,7 @@
  *              （运行时靠 String 的 toLocaleString/arithmetic 兜住）。把这层类型谎改成
  *              诚实形态会连带改变价格显示（"3800.00" → "3,800"），属独立批次。
  */
-import type { CourseRow, ParticipantRow, ScheduleRow } from "@/lib/repos/training.repo";
+import type { CourseRow, EnrollmentRow, ScheduleRow } from "@/lib/repos/training.repo";
 
 export interface TrainingCourseView {
   id: number;
@@ -80,11 +80,12 @@ export const trainingSchedulesViewOf = (rows: readonly ScheduleRow[]): TrainingS
 /**
  * 学员视图（GET /api/training/orders/[orderNo]/participants）。
  *
- * 只下发前端契约里的 7 个字段：`id` / `order_id` / `created_at` / `updated_at` 行元数据不上网。
+ * 2026-11-13 收敛后数据源是 `training_enrollments`（一行 = 一位学员），不再是
+ * `training_participants`；对前端的 7 键契约保持不变，故本视图形状不动。
+ * 只下发前端契约里的字段：`id` / `user_id` / `order_id` / `schedule_id` / `ip`
+ * 与时间戳等行元数据不上网。
  * 隐私口径（登记行当初要求一并核的）：本接口只能读自己订单的名单（路由已校 user_id），
  * 姓名与手机号是订单归属人自己提交的回显，属于正当读回；不下发的只是行元数据。
- * 注：`email` 是真实列（旧注释“表里没这一列”于 2026-10-29 被只读探针推翻），
- * 此前写入链路不写它、视图也不发它；本批两头一并补齐。
  */
 export interface TrainingParticipantView {
   participantNo: number;
@@ -96,7 +97,7 @@ export interface TrainingParticipantView {
   email: string | null;
 }
 
-export function trainingParticipantViewOf(row: ParticipantRow): TrainingParticipantView {
+export function trainingParticipantViewOf(row: EnrollmentRow): TrainingParticipantView {
   return {
     participantNo: row.participant_no,
     fullName: row.full_name,
@@ -108,5 +109,15 @@ export function trainingParticipantViewOf(row: ParticipantRow): TrainingParticip
   };
 }
 
-export const trainingParticipantsViewOf = (rows: readonly ParticipantRow[]): TrainingParticipantView[] =>
+export const trainingParticipantsViewOf = (rows: readonly EnrollmentRow[]): TrainingParticipantView[] =>
   rows.map(trainingParticipantViewOf);
+
+/**
+ * 报名响应里的行 id 列表（POST /api/training/register 的 `ids`）。
+ *
+ * 只是一串数字，没有列名可泄露，但门禁要求「包在服务返回值里的键」也过视图——
+ * 这里显式声明线上形状，参数顺序即学员顺序（下单时按同一顺序绑定）。
+ */
+export function trainingEnrollmentIdsViewOf(ids: readonly number[]): number[] {
+  return [...ids];
+}
