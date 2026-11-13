@@ -103,8 +103,9 @@ docs/*
 !docs/adr/
 !docs/archive/
 
-# ===== 临时 / 个人过程文件（统一落 temp/，不再逐文件点名）=====
+# ===== 临时 / 个人过程文件（统一落 temp/ 或 tmp/，不再逐文件点名）=====
 /temp/
+/tmp/
 
 # ===== Playwright E2E 测试产物 =====
 playwright-report/
