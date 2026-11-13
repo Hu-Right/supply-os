@@ -20,6 +20,7 @@ import type zhSupplier from "./locales/zh/supplier.json";
 import type zhServices from "./locales/zh/services.json";
 import type zhLearning from "./locales/zh/learning.json";
 import type zhTraining from "./locales/zh/training.json";
+import type zhUi from "./locales/zh/ui.json";
 
 type Merge<T> = { [K in keyof T]: T[K] };
 
@@ -34,5 +35,6 @@ export type zh = Merge<
   typeof zhSupplier &
   typeof zhServices &
   typeof zhLearning &
-  typeof zhTraining
+  typeof zhTraining &
+  typeof zhUi
 >;

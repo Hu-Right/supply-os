@@ -23,6 +23,7 @@ import zhProcurement from "./locales/zh/procurement.json";
 import zhServices from "./locales/zh/services.json";
 import zhSupplier from "./locales/zh/supplier.json";
 import zhTraining from "./locales/zh/training.json";
+import zhUi from "./locales/zh/ui.json";
 
 const merge = (...modules: Record<string, unknown>[]): Record<string, string> => {
   const result: Record<string, string> = {};
@@ -38,5 +39,5 @@ const merge = (...modules: Record<string, unknown>[]): Record<string, string> =>
 
 /** i18next 初始 resources：仅 zh（fallbackLng 同值，任何时刻都有完整中文兜底） */
 export const INITIAL_RESOURCES: Record<string, { translation: Record<string, string> }> = {
-  zh: { translation: merge(zhAuth, zhCommon, zhCrm, zhErrors, zhLearning, zhMembership, zhPayment, zhProcurement, zhServices, zhSupplier, zhTraining) },
+  zh: { translation: merge(zhAuth, zhCommon, zhCrm, zhErrors, zhLearning, zhMembership, zhPayment, zhProcurement, zhServices, zhSupplier, zhTraining, zhUi) },
 };

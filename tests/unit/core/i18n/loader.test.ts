@@ -1,9 +1,15 @@
 /**
  * i18n 懒加载器真实链路测试（不 mock，直接动态 import 真实 JSON）
  *
- * 覆盖 2026-10 分包改造的两处风险：
+ * 覆盖两处风险：
  * - loader.ts 的文件清单必须齐全（曾缺 errors.json，靠本测试暴露）；
- * - 同一语言第二次调用走 loaded 短路，返回空对象不重复拉包。
+ * - 同一语言第二次调用必须命中缓存：不重复拉包，且返回**同一份词包**。
+ *
+ * 2026-11 语义变更（i18n 覆盖整改）：
+ *   原实现命中缓存返回 `{}`，要求调用方先查 isLanguageLoaded 才能拿到资源。
+ *   global-error 这类**没有 LocaleProvider** 的顶栏错误页只能直接调 loadLanguage，
+ *   命中缓存时拿到空对象 → 错误页裸键。现改为返回缓存的合并词包，
+ *   本测试据此断言「两次调用结果相同且非空」。
  */
 import { describe, expect, it, vi } from "vitest";
 
@@ -24,9 +30,25 @@ describe("loadLanguage（真实 JSON 动态 import）", () => {
     expect(loader.isLanguageLoaded("ar" as never)).toBe(true);
   });
 
-  it("已加载语言再次请求直接返回空对象（短路，不重复拉包）", async () => {
+  it("已加载语言再次请求返回同一份词包（命中缓存，不重复拉包）", async () => {
     const loader = await freshLoader();
-    await loader.loadLanguage("es" as never);
-    await expect(loader.loadLanguage("es" as never)).resolves.toEqual({});
+    const first = await loader.loadLanguage("es" as never);
+    const second = await loader.loadLanguage("es" as never);
+    expect(second).not.toEqual({});
+    // 同一引用即同一份缓存对象
+    expect(second).toBe(first);
+    expect(loader.getLoadedLanguage("es" as never)).toBe(first);
+  });
+
+  it("未加载语言 getLoadedLanguage 返回 undefined（不触发加载）", async () => {
+    const loader = await freshLoader();
+    expect(loader.getLoadedLanguage("ru" as never)).toBeUndefined();
+    expect(loader.isLanguageLoaded("ru" as never)).toBe(false);
+  });
+
+  it("ui.json 已并入合并词包（新增命名空间接线完整性）", async () => {
+    const loader = await freshLoader();
+    const merged = await loader.loadLanguage("en" as never);
+    expect(merged["uiRetry"]).toBeTruthy();
   });
 });
