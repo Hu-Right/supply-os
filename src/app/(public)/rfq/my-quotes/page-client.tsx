@@ -105,6 +105,7 @@ export default function MyQuotesClient() {
             const badge = QUOTE_BADGE[q.quoteStatus];
             const badgeLabel = badge ? t(badge.labelKey) : q.quoteStatus;
             const badgeCls = badge ? badge.cls : "bg-slate-100 text-slate-600 border-slate-200";
+            const demandMeta = statusMeta(q.rfqStatus);
             return (
               <div key={q.quoteId} className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs hover:shadow-sm transition-shadow">
                 <div className="flex items-start justify-between gap-4">
@@ -115,8 +116,8 @@ export default function MyQuotesClient() {
                         {badgeLabel}
                       </span>
                       <span className="text-2xs text-slate-400">{q.reference || `#${q.rfqId}`}</span>
-                      <span className={`px-2 py-0.5 rounded border text-2xs font-bold ${statusMeta(q.rfqStatus).tone}`}>
-                        需求{statusMeta(q.rfqStatus).label}
+                      <span className={`px-2 py-0.5 rounded border text-2xs font-bold ${demandMeta.tone}`}>
+                        {t("rfqMyQuotesDemandStatus", { status: t(demandMeta.labelKey) })}
                       </span>
                     </div>
                     <h3 className="text-sm font-bold text-slate-900 truncate">{q.title}</h3>
@@ -127,7 +128,7 @@ export default function MyQuotesClient() {
                       </span>
                       {q.leadTimeDays != null && <span>{t("rfqLeadTime", { count: q.leadTimeDays })}</span>}
                       {q.deadlineSec > 0 && (
-                        <span>截止 {formatYmd(q.deadlineSec)}（{formatCloseCountdown(q.deadlineSec)}）</span>
+                        <span>{t("rfqCardDeadline", { date: formatYmd(q.deadlineSec), remain: formatCloseCountdown(q.deadlineSec, undefined, t) })}</span>
                       )}
                     </div>
                   </div>

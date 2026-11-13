@@ -19,6 +19,7 @@ import {
 
 import { api } from "@/core/http";
 import { useAuth } from "@/core/auth";
+import { useLocale } from "@/core/i18n";
 import { Button, Card } from "@/shared/ui";
 import { DEMAND_STATUS } from "@/shared/constants/rfq-demand";
 import { QuoteDialog } from "@/features/rfq/components/QuoteDialog";
@@ -27,16 +28,16 @@ import { InvitePanel } from "@/features/rfq/components/InvitePanel";
 import { statusMeta } from "@/features/rfq/model/status";
 import { formatBudget, formatCloseCountdown, formatYmd, formatYmdHm } from "@/features/rfq/model/format";
 
-const EVENT_LABEL: Record<string, string> = {
-  created: "创建需求",
-  submitted: "提交审核",
-  claimed: "审核领取",
-  published: "审核通过并发布",
-  rejected: "审核退回",
-  edited: "编辑内容",
-  closed: "结案",
-  evaluation_started: "报价截止，进入评审",
-  awarded: "选定供应商",
+const EVENT_LABEL_KEY: Record<string, string> = {
+  created: "rfqDetailEventCreated",
+  submitted: "rfqDetailEventSubmitted",
+  claimed: "rfqDetailEventClaimed",
+  published: "rfqDetailEventPublished",
+  rejected: "rfqDetailEventRejected",
+  edited: "rfqDetailEventEdited",
+  closed: "rfqDetailEventClosed",
+  evaluation_started: "rfqDetailEventEvaluationStarted",
+  awarded: "rfqDetailEventAwarded",
 };
 
 interface DemandEventItem {
@@ -51,32 +52,39 @@ interface DemandEventItem {
 
 /** 时间线：直接渲染事件流（谁、何时、从什么到什么、为什么） */
 function Timeline({ demandId }: { demandId: number }) {
+  const { t } = useLocale();
   const [items, setItems] = useState<DemandEventItem[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
     api<{ items: DemandEventItem[] }>(`/api/rfq/demands/${demandId}/events`)
       .then((res) => setItems(Array.isArray(res.items) ? res.items : []))
-      .catch((e: Error) => setError(e.message || "加载失败"));
+      .catch((e: Error) => setError(e.message || t("rfqLoadFailed")));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅需求切换时拉取，语言切换不重新请求
   }, [demandId]);
 
   return (
     <Card className="rounded-2xl p-6">
-      <h2 className="text-sm font-extrabold text-secondary-900 mb-4">进展记录</h2>
+      <h2 className="text-sm font-extrabold text-secondary-900 mb-4">{t("rfqDetailTimelineTitle")}</h2>
       {error ? (
         <p className="text-xs text-rose-600">{error}</p>
       ) : items.length === 0 ? (
-        <p className="text-xs text-secondary-400">暂无记录</p>
+        <p className="text-xs text-secondary-400">{t("rfqDetailTimelineEmpty")}</p>
       ) : (
         <ol className="space-y-3">
           {items.map((e) => {
             const reason = e.payload && typeof e.payload.reason === "string" ? e.payload.reason : "";
+            const labelKey = EVENT_LABEL_KEY[e.type];
             return (
               <li key={e.id} className="flex gap-3 text-xs">
                 <span className="w-32 shrink-0 text-secondary-400">{formatYmdHm(e.at)}</span>
-                <span className="shrink-0 font-bold text-secondary-700">{EVENT_LABEL[e.type] ?? e.type}</span>
+                <span className="shrink-0 font-bold text-secondary-700">{labelKey ? t(labelKey) : e.type}</span>
                 <span className="text-secondary-500">
-                  {e.actor === "reviewer" ? "平台审核" : e.actor === "system" ? "系统" : "采购方"}
+                  {e.actor === "reviewer"
+                    ? t("rfqDetailActorReviewer")
+                    : e.actor === "system"
+                      ? t("rfqDetailActorSystem")
+                      : t("rfqDetailActorBuyer")}
                   {e.fromStatus && e.toStatus ? ` · ${e.fromStatus} → ${e.toStatus}` : ""}
                   {reason ? ` · ${reason}` : ""}
                 </span>
@@ -148,6 +156,7 @@ interface QaItem {
 
 /** 答疑：公开提问 + 统一答复；采购方可逐条答复 */
 function QaSection({ demandId, isOwner, canAsk }: { demandId: number; isOwner: boolean; canAsk: boolean }) {
+  const { t } = useLocale();
   const [items, setItems] = useState<QaItem[]>([]);
   const [question, setQuestion] = useState("");
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -157,12 +166,13 @@ function QaSection({ demandId, isOwner, canAsk }: { demandId: number; isOwner: b
   const load = () => {
     api<{ items: QaItem[] }>(`/api/rfq/demands/${demandId}/qa`)
       .then((res) => setItems(Array.isArray(res.items) ? res.items : []))
-      .catch((e: Error) => setError(e.message || "加载失败"));
+      .catch((e: Error) => setError(e.message || t("rfqLoadFailed")));
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅需求切换时重载，语言切换不重新请求
   useEffect(load, [demandId]);
 
   const submitQuestion = async () => {
-    if (question.trim().length < 10) { setError("问题至少 10 个字"); return; }
+    if (question.trim().length < 10) { setError(t("rfqDetailQaQuestionTooShort")); return; }
     setBusy(true);
     setError("");
     try {
@@ -170,7 +180,7 @@ function QaSection({ demandId, isOwner, canAsk }: { demandId: number; isOwner: b
       setQuestion("");
       load();
     } catch (e) {
-      setError((e as Error).message || "提交失败");
+      setError((e as Error).message || t("rfqDetailQaSubmitFailed"));
     } finally {
       setBusy(false);
     }
@@ -178,7 +188,7 @@ function QaSection({ demandId, isOwner, canAsk }: { demandId: number; isOwner: b
 
   const submitAnswer = async (qaId: number) => {
     const answer = (answers[qaId] ?? "").trim();
-    if (!answer) { setError("答复内容不能为空"); return; }
+    if (!answer) { setError(t("rfqDetailQaAnswerRequired")); return; }
     setBusy(true);
     setError("");
     try {
@@ -186,7 +196,7 @@ function QaSection({ demandId, isOwner, canAsk }: { demandId: number; isOwner: b
       setAnswers((prev) => ({ ...prev, [qaId]: "" }));
       load();
     } catch (e) {
-      setError((e as Error).message || "答复失败");
+      setError((e as Error).message || t("rfqDetailQaAnswerFailed"));
     } finally {
       setBusy(false);
     }
@@ -196,20 +206,20 @@ function QaSection({ demandId, isOwner, canAsk }: { demandId: number; isOwner: b
 
   return (
     <Card className="rounded-2xl p-6">
-      <h2 className="text-sm font-extrabold text-secondary-900 mb-4">答疑</h2>
+      <h2 className="text-sm font-extrabold text-secondary-900 mb-4">{t("rfqDetailQaTitle")}</h2>
       {items.length === 0 ? (
-        <p className="text-xs text-secondary-400">暂无提问</p>
+        <p className="text-xs text-secondary-400">{t("rfqDetailQaEmpty")}</p>
       ) : (
         <ul className="space-y-4">
           {items.map((q) => (
             <li key={q.id} className="rounded-xl border border-secondary-100 p-3">
               <p className="text-xs text-secondary-500">
-                {q.askedByMe ? "我" : "供应商"} · {formatYmd(q.createdAt ?? undefined)}
+                {q.askedByMe ? t("rfqDetailQaAskedByMe") : t("rfqDetailQaAskedBySupplier")} · {formatYmd(q.createdAt ?? undefined)}
               </p>
               <p className="mt-1 text-sm text-secondary-800 whitespace-pre-wrap">{q.question}</p>
               {q.answer ? (
                 <div className="mt-2 rounded-lg bg-secondary-50 p-3">
-                  <p className="text-2xs font-bold text-secondary-500">采购方答复</p>
+                  <p className="text-2xs font-bold text-secondary-500">{t("rfqDetailQaBuyerAnswer")}</p>
                   <p className="mt-1 text-sm text-secondary-700 whitespace-pre-wrap">{q.answer}</p>
                 </div>
               ) : isOwner ? (
@@ -217,14 +227,14 @@ function QaSection({ demandId, isOwner, canAsk }: { demandId: number; isOwner: b
                   <textarea
                     className="w-full rounded-lg border border-secondary-200 p-2 text-sm"
                     rows={2}
-                    placeholder="答复（答复后对所有可见方展示）"
+                    placeholder={t("rfqDetailQaAnswerPlaceholder")}
                     value={answers[q.id] ?? ""}
                     onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
                   />
-                  <Button size="sm" disabled={busy} onClick={() => void submitAnswer(q.id)}>提交答复</Button>
+                  <Button size="sm" disabled={busy} onClick={() => void submitAnswer(q.id)}>{t("rfqDetailQaSubmitAnswer")}</Button>
                 </div>
               ) : (
-                <p className="mt-2 text-2xs text-secondary-400">待采购方答复</p>
+                <p className="mt-2 text-2xs text-secondary-400">{t("rfqDetailQaPendingAnswer")}</p>
               )}
             </li>
           ))}
@@ -236,11 +246,11 @@ function QaSection({ demandId, isOwner, canAsk }: { demandId: number; isOwner: b
           <textarea
             className="w-full rounded-lg border border-secondary-200 p-2 text-sm"
             rows={2}
-            placeholder="向采购方提问（至少 10 个字，公开提问所有人可见）"
+            placeholder={t("rfqDetailQaQuestionPlaceholder")}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
           />
-          <Button size="sm" disabled={busy} onClick={() => void submitQuestion()}>提交提问</Button>
+          <Button size="sm" disabled={busy} onClick={() => void submitQuestion()}>{t("rfqDetailQaSubmitQuestion")}</Button>
         </div>
       )}
       {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
@@ -251,6 +261,7 @@ function QaSection({ demandId, isOwner, canAsk }: { demandId: number; isOwner: b
 export default function RfqDetailPageClient() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const { t } = useLocale();
   const [detail, setDetail] = useState<DemandDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -262,19 +273,20 @@ export default function RfqDetailPageClient() {
     setLoading(true);
     api<DemandDetail>(`/api/rfq/demands/${id}`)
       .then((res) => setDetail(res))
-      .catch((err: Error) => setError(err.message || "加载失败"))
+      .catch((err: Error) => setError(err.message || t("rfqLoadFailed")))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅需求切换时拉取，语言切换不重新请求
   }, [id]);
 
   if (loading) {
-    return <div className="py-16 text-center text-sm text-secondary-400">加载中…</div>;
+    return <div className="py-16 text-center text-sm text-secondary-400">{t("rfqLoading")}</div>;
   }
 
   if (error || !detail) {
     return (
       <div className="py-16 text-center space-y-4">
-        <p className="text-sm text-secondary-500">{error || "需求不存在"}</p>
-        <Button variant="outline" size="sm" onClick={() => window.history.back()}>返回</Button>
+        <p className="text-sm text-secondary-500">{error || t("rfqNotFound")}</p>
+        <Button variant="outline" size="sm" onClick={() => window.history.back()}>{t("rfqBack")}</Button>
       </div>
     );
   }
@@ -291,7 +303,7 @@ export default function RfqDetailPageClient() {
       <Card className="rounded-2xl p-6">
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <span className={`px-2.5 py-1 rounded-full border text-xs font-bold ${meta.tone}`}>
-            {meta.label}
+            {t(meta.labelKey)}
           </span>
           {detail.categoryL1 && (
             <span className="px-2.5 py-1 rounded-full bg-secondary-100 text-secondary-600 text-xs font-semibold">
@@ -300,7 +312,7 @@ export default function RfqDetailPageClient() {
           )}
           {detail.visibility === "targeted" && (
             <span className="px-2.5 py-1 rounded-full bg-secondary-100 text-secondary-600 text-xs font-semibold">
-              定向邀约
+              {t("rfqVisibilityTargeted")}
             </span>
           )}
         </div>
@@ -310,13 +322,16 @@ export default function RfqDetailPageClient() {
         <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-secondary-400">
           {detail.reference && (
             <span className="flex items-center gap-1">
-              <Hash className="w-3.5 h-3.5" /> 需求编号 {detail.reference}
+              <Hash className="w-3.5 h-3.5" /> {t("rfqDetailReference", { reference: detail.reference })}
             </span>
           )}
           {detail.closeAt && (
             <span className="flex items-center gap-1">
               <CalendarClock className="w-3.5 h-3.5" />
-              报价截止：{formatYmd(detail.closeAt)}（{formatCloseCountdown(detail.closeAt)}）
+              {t("rfqDetailDeadlineCountdown", {
+                date: formatYmd(detail.closeAt),
+                remain: formatCloseCountdown(detail.closeAt, undefined, t),
+              })}
             </span>
           )}
           {detail.province && (
@@ -328,9 +343,9 @@ export default function RfqDetailPageClient() {
       {detail.restricted ? (
         <Card className="rounded-2xl p-8 text-center">
           <ShieldCheck className="w-10 h-10 text-secondary-300 mx-auto mb-3" />
-          <p className="text-sm font-bold text-secondary-800">这是一条定向邀约需求</p>
+          <p className="text-sm font-bold text-secondary-800">{t("rfqDetailRestrictedTitle")}</p>
           <p className="mt-1 text-xs text-secondary-500">
-            仅被邀请的供应商可以查看完整需求并报价。如需参与，请联系采购方或将你加入邀约名单。
+            {t("rfqDetailRestrictedDesc")}
           </p>
         </Card>
       ) : (
@@ -338,12 +353,12 @@ export default function RfqDetailPageClient() {
           {canQuote && (
             <Card className="rounded-2xl p-5 flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-sm font-bold text-secondary-800">对此需求报价</p>
+                <p className="text-sm font-bold text-secondary-800">{t("rfqQuoteEntryTitle")}</p>
                 <p className="text-xs text-secondary-400 mt-0.5">
-                  截止前报价互相不可见；截止后统一开价
+                  {t("rfqDetailSealedHint")}
                 </p>
               </div>
-              <Button size="sm" onClick={() => setQuoteOpen(true)} className="shrink-0">立即报价</Button>
+              <Button size="sm" onClick={() => setQuoteOpen(true)} className="shrink-0">{t("rfqQuoteNow")}</Button>
             </Card>
           )}
 
@@ -356,24 +371,24 @@ export default function RfqDetailPageClient() {
           )}
 
           <Card className="rounded-2xl p-6">
-            <h2 className="text-sm font-extrabold text-secondary-900 mb-4">商务条款</h2>
+            <h2 className="text-sm font-extrabold text-secondary-900 mb-4">{t("rfqTermsSection")}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <TermItem icon={Wallet} label="采购预算" value={formatBudget(detail.budgetAmount, detail.currency, detail.budgetConfidential)} />
-              <TermItem icon={Truck} label="贸易术语" value={detail.incoterm} />
-              <TermItem icon={CalendarClock} label="交付时间" value={detail.deliveryTime} />
-              <TermItem icon={MapPin} label="交付地点" value={detail.deliveryAddress || detail.province} />
-              <TermItem icon={Landmark} label="付款方式" value={detail.paymentTerms.join("、")} />
-              <TermItem icon={Globe2} label="可见范围" value={detail.visibility === "public" ? "公开询价" : "定向邀约"} />
+              <TermItem icon={Wallet} label={t("rfqTermBudget")} value={formatBudget(detail.budgetAmount, detail.currency, detail.budgetConfidential, t)} />
+              <TermItem icon={Truck} label={t("rfqTermIncoterm")} value={detail.incoterm} />
+              <TermItem icon={CalendarClock} label={t("rfqTermDeliveryTime")} value={detail.deliveryTime} />
+              <TermItem icon={MapPin} label={t("rfqFieldAddress")} value={detail.deliveryAddress || detail.province} />
+              <TermItem icon={Landmark} label={t("rfqFieldPayment")} value={detail.paymentTerms.join(t("rfqEnumSep"))} />
+              <TermItem icon={Globe2} label={t("rfqFieldVisibility")} value={detail.visibility === "public" ? t("rfqVisibilityPublic") : t("rfqVisibilityTargeted")} />
             </div>
             {(detail.quantity != null || detail.quantityUnit) && (
               <p className="mt-3 text-xs text-secondary-500">
-                采购数量：{detail.quantity ?? "—"} {detail.quantityUnit}
+                {t("rfqDetailQuantity", { qty: detail.quantity ?? "—", unit: detail.quantityUnit })}
               </p>
             )}
             {detail.supplierReqs.length > 0 && (
               <div className="mt-4">
                 <p className="text-xs text-secondary-400 mb-2 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> 供应商要求
+                  <ShieldCheck className="w-3.5 h-3.5" /> {t("rfqSupplierReqsLabel")}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {detail.supplierReqs.map((req) => (
@@ -388,14 +403,14 @@ export default function RfqDetailPageClient() {
 
           <Card className="rounded-2xl p-6">
             <h2 className="text-sm font-extrabold text-secondary-900 mb-4 flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-primary-600" /> 需求描述
+              <Building2 className="w-4 h-4 text-primary-600" /> {t("rfqFieldDescription")}
             </h2>
             <p className="text-sm text-secondary-700 leading-7 whitespace-pre-wrap">{detail.description}</p>
           </Card>
 
           {detail.isOwner && detail.rejectReason && (
             <Card className="rounded-2xl p-5 border border-rose-100 bg-rose-50">
-              <p className="text-sm font-bold text-rose-700">审核退回意见</p>
+              <p className="text-sm font-bold text-rose-700">{t("rfqDetailRejectReason")}</p>
               <p className="mt-1 text-xs text-rose-600">{detail.rejectReason}</p>
             </Card>
           )}
@@ -415,7 +430,7 @@ export default function RfqDetailPageClient() {
 
           {closed && (
             <Card className="rounded-2xl p-5 text-center text-xs text-secondary-500">
-              该需求已结案（{meta.label}），不再接受新的报价。
+              {t("rfqDetailClosedNotice", { reason: t(meta.labelKey) })}
             </Card>
           )}
         </>

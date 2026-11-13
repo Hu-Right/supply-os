@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Inbox, Lock, MailCheck } from "lucide-react";
 import { useAuth } from "@/core/auth";
+import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
 import { Button, Card, EmptyState } from "@/shared/ui";
@@ -35,6 +36,7 @@ interface InvitedDemand {
 
 export default function RfqInvitesClient() {
   const router = useRouter();
+  const { t } = useLocale();
   const { authUser } = useAuth();
   const [items, setItems] = useState<InvitedDemand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,17 +48,17 @@ export default function RfqInvitesClient() {
     setError("");
     api<{ items: InvitedDemand[] }>("/api/rfq/invitations/mine")
       .then((res) => setItems(Array.isArray(res.items) ? res.items : []))
-      .catch((e: Error) => setError(e.message || "加载失败"))
+      .catch((e: Error) => setError(e.message || t("rfqLoadFailed")))
       .finally(() => setLoading(false));
-  }, [authUser]);
+  }, [authUser, t]);
 
   if (!authUser) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs">
         <Lock className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h3 className="text-lg font-extrabold text-slate-900 mb-2">查看受邀需求需要先登录</h3>
-        <p className="text-sm text-slate-500 mb-6">登录后可查看采购方定向邀约给你的需求</p>
-        <Button variant="primary" onClick={() => emitAppEvent("supply-os:require-login")}>立即登录</Button>
+        <h3 className="text-lg font-extrabold text-slate-900 mb-2">{t("rfqInvitesLoginRequired")}</h3>
+        <p className="text-sm text-slate-500 mb-6">{t("rfqInvitesLoginDesc")}</p>
+        <Button variant="primary" onClick={() => emitAppEvent("supply-os:require-login")}>{t("rfqLoginCta")}</Button>
       </div>
     );
   }
@@ -64,9 +66,9 @@ export default function RfqInvitesClient() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-extrabold text-slate-900">受邀需求</h2>
+        <h2 className="text-xl font-extrabold text-slate-900">{t("settingsRfqInvites")}</h2>
         <p className="text-xs text-slate-500 mt-1">
-          采购方定向邀约给你的需求，仅你与被邀约的供应商可见
+          {t("rfqInvitesSubtitle")}
         </p>
       </div>
 
@@ -81,14 +83,14 @@ export default function RfqInvitesClient() {
         </div>
       ) : error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-8 text-center">
-          <p className="text-sm font-bold text-rose-700">受邀需求加载失败</p>
+          <p className="text-sm font-bold text-rose-700">{t("rfqInvitesLoadFailed")}</p>
           <p className="mt-1 text-xs text-rose-600">{error}</p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => window.location.reload()}>重试</Button>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => window.location.reload()}>{t("rfqQuotesRetry")}</Button>
         </div>
       ) : items.length === 0 ? (
         <EmptyState
-          title="暂无受邀需求"
-          description="当采购方定向邀约你时，需求会出现在这里"
+          title={t("rfqInvitesEmptyTitle")}
+          description={t("rfqInvitesEmptyDesc")}
         />
       ) : (
         <div className="space-y-3">
@@ -101,17 +103,17 @@ export default function RfqInvitesClient() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1.5">
                       <span className={`px-2 py-0.5 rounded border text-2xs font-bold ${meta.tone}`}>
-                        {meta.label}
+                        {t(meta.labelKey)}
                       </span>
                       <span className="text-2xs text-slate-400">{item.reference || `#${item.id}`}</span>
                       {item.sentAt && (
                         <span className="inline-flex items-center gap-1 text-2xs text-slate-400">
-                          <MailCheck className="w-3 h-3" /> 邀约于 {formatYmd(item.sentAt)}
+                          <MailCheck className="w-3 h-3" /> {t("rfqInvitesSentAt", { date: formatYmd(item.sentAt) })}
                         </span>
                       )}
                       {item.quoted && (
                         <span className="rounded border border-teal-200 bg-teal-50 px-1.5 py-0.5 text-2xs font-bold text-teal-700">
-                          已报价
+                          {t("rfqInvitesQuoted")}
                         </span>
                       )}
                     </div>
@@ -119,10 +121,15 @@ export default function RfqInvitesClient() {
                     <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-slate-500">
                       <span className="inline-flex items-center gap-1">
                         <Inbox className="w-3.5 h-3.5" />
-                        {formatBudget(item.budgetAmount, item.currency, item.budgetConfidential)}
+                        {formatBudget(item.budgetAmount, item.currency, item.budgetConfidential, t)}
                       </span>
                       {item.closeAt && (
-                        <span>截止 {formatYmd(item.closeAt)}（{formatCloseCountdown(item.closeAt)}）</span>
+                        <span>
+                          {t("rfqCardDeadline", {
+                            date: formatYmd(item.closeAt),
+                            remain: formatCloseCountdown(item.closeAt, undefined, t),
+                          })}
+                        </span>
                       )}
                       {(item.categoryL1 || item.categoryL2) && (
                         <span>{[item.categoryL1, item.categoryL2].filter(Boolean).join(" / ")}</span>
@@ -136,7 +143,11 @@ export default function RfqInvitesClient() {
                       size="sm"
                       onClick={() => router.push(`/rfq/${item.id}`)}
                     >
-                      {closed ? "查看结果" : item.quoted ? "查看报价" : "查看并报价"}
+                      {closed
+                        ? t("rfqInvitesViewResult")
+                        : item.quoted
+                          ? t("rfqInvitesViewQuote")
+                          : t("rfqInvitesViewAndQuote")}
                     </Button>
                   </div>
                 </div>

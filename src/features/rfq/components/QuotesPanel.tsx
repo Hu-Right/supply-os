@@ -73,9 +73,9 @@ export function QuotesPanel({ rfqId, demandId }: QuotesPanelProps) {
     setAwarding(quoteId);
     try {
       if (demandId) {
-        const reason = window.prompt("请填写选定理由（不少于 5 个字，写入审计）", "");
+        const reason = window.prompt(t("rfqQuotesAwardReasonPrompt"), "");
         if (!reason || reason.trim().length < 5) {
-          toast.error("请填写不少于 5 个字的选定理由");
+          toast.error(t("rfqQuotesAwardReasonRequired"));
           return;
         }
         await awardDemandQuote(demandId, quoteId, reason.trim());
@@ -131,7 +131,7 @@ export function QuotesPanel({ rfqId, demandId }: QuotesPanelProps) {
         <>
       {!loading && !err && sealed && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          报价截止后才可查看明细（已收到 {sealedCount} 条报价）
+          {t("rfqQuotesSealedNotice", { count: sealedCount })}
         </div>
       )}      {!loading && !err && hasWinner && (
         <div className="mb-3 flex items-center justify-between rounded-xl bg-primary-50 px-3 py-2">

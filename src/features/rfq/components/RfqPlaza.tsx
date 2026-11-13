@@ -12,12 +12,14 @@ import { useRouter } from "next/navigation";
 import { Clock, Gem, Search } from "lucide-react";
 
 import { cn } from "@/shared/utils";
+import { useLocale } from "@/core/i18n";
 import { Button, EmptyState, Input, SegmentedControl, Select } from "@/shared/ui";
 import type { PlazaRfq } from "../types";
 import { useRfqPlaza, type RfqSortKey } from "../hooks/useRfqPlaza";
 import { formatBudget, formatCloseCountdown, formatYmd } from "../model/format";
 
 export function RfqPlaza() {
+  const { t } = useLocale();
   const {
     keyword, setKeyword,
     categoryL1, setCategoryL1,
@@ -30,30 +32,30 @@ export function RfqPlaza() {
     <section className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs" id="rfq-plaza">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-lg font-extrabold text-secondary-900">需求广场</h2>
+          <h2 className="text-lg font-extrabold text-secondary-900">{t("rfqPlazaTitle")}</h2>
           <p className="text-xs text-secondary-400 mt-1">
-            平台买家发布的真实采购需求{total > 0 && `（${total} 条）`}，登录后可报价
+            {total > 0 ? t("rfqPlazaSubtitleCount", { count: total }) : t("rfqPlazaSubtitleBase")}
             <button
               onClick={() => router.push("/settings/rfq-quotes")}
               className="ml-2 text-secondary-600 font-bold underline underline-offset-2 hover:text-secondary-800"
             >
-              我的报价
+              {t("rfqMyQuotesTitle")}
             </button>
           </p>
         </div>
         <SegmentedControl size="sm" value={sort} onChange={(v) => setSort(v as RfqSortKey)}
           items={[
-            { value: "newest", label: "最新发布" },
-            { value: "deadline", label: "截止临近" },
-            { value: "budget", label: "预算最高" },
+            { value: "newest", label: t("rfqSortNewest") },
+            { value: "deadline", label: t("rfqSortDeadline") },
+            { value: "budget", label: t("rfqSortBudget") },
           ]} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-5">
         <Input leftIcon={<Search className="w-4 h-4" />} value={keyword}
-          onChange={(e) => setKeyword(e.target.value)} placeholder="搜索需求关键词" aria-label="搜索需求关键词" />
-        <Select value={categoryL1} onChange={(e) => setCategoryL1(e.target.value)} aria-label="行业筛选">
-          <option value="">全部行业</option>
+          onChange={(e) => setKeyword(e.target.value)} placeholder={t("rfqSearchPlaceholder")} aria-label={t("rfqSearchPlaceholder")} />
+        <Select value={categoryL1} onChange={(e) => setCategoryL1(e.target.value)} aria-label={t("rfqPlazaIndustryFilter")}>
+          <option value="">{t("allIndustries")}</option>
           {l1Options.map((o) => (
             <option key={o.key} value={o.key}>{o.nameZh || o.nameEn || o.key}</option>
           ))}
@@ -74,15 +76,15 @@ export function RfqPlaza() {
         </div>
       ) : error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center">
-          <p className="text-sm font-bold text-rose-700">需求列表加载失败</p>
+          <p className="text-sm font-bold text-rose-700">{t("rfqPlazaLoadFailed")}</p>
           <p className="mt-1 text-xs text-rose-600">{error}</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={retry}>重试</Button>
+          <Button variant="outline" size="sm" className="mt-3" onClick={retry}>{t("rfqPlazaRetry")}</Button>
         </div>
       ) : items.length === 0 ? (
         <EmptyState
-          title="暂无采购需求"
-          description="平台买家正在发布需求，你也可以先发布自己的采购需求"
-          action={<Button onClick={() => document.getElementById("rfq-form")?.scrollIntoView({ behavior: "smooth" })}>发布你的需求</Button>}
+          title={t("rfqEmptyTitle")}
+          description={t("rfqPlazaEmptyDesc")}
+          action={<Button onClick={() => document.getElementById("rfq-form")?.scrollIntoView({ behavior: "smooth" })}>{t("rfqEmptyCta")}</Button>}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -94,9 +96,10 @@ export function RfqPlaza() {
 }
 
 function PlazaCard({ rfq }: { rfq: PlazaRfq }) {
+  const { t } = useLocale();
   const router = useRouter();
   const tag = rfq.categoryL2 || rfq.categoryL1 || "";
-  const remain = formatCloseCountdown(rfq.closeAt);
+  const remain = formatCloseCountdown(rfq.closeAt, undefined, t);
   const urgent = rfq.closeAt != null && rfq.closeAt > 0
     ? rfq.closeAt - Date.now() / 1000 < 72 * 3600
     : false;
@@ -122,22 +125,22 @@ function PlazaCard({ rfq }: { rfq: PlazaRfq }) {
             <Gem className="w-3 h-3" /> {rfq.province}
           </p>
         )}
-        <p>预算：{formatBudget(rfq.budgetAmount, rfq.currency, rfq.budgetConfidential)}</p>
+        <p>{t("rfqCardBudget", { value: formatBudget(rfq.budgetAmount, rfq.currency, rfq.budgetConfidential, t) })}</p>
         {rfq.quantity != null && (
-          <p>数量：{rfq.quantity} {rfq.quantityUnit}</p>
+          <p>{t("rfqPlazaQuantity", { qty: rfq.quantity, unit: rfq.quantityUnit ?? "" })}</p>
         )}
         {rfq.responses > 0 && (
-          <p className="text-secondary-600 font-semibold">已有 {rfq.responses} 家供应商报价</p>
+          <p className="text-secondary-600 font-semibold">{t("rfqCardResponses", { count: rfq.responses })}</p>
         )}
         {rfq.closeAt && (
           <p className={cn("flex items-center gap-1", urgent && "text-amber-700 font-bold")}>
-            <Clock className="w-3 h-3" /> 截止 {formatYmd(rfq.closeAt)}（{remain}）
+            <Clock className="w-3 h-3" /> {t("rfqCardDeadline", { date: formatYmd(rfq.closeAt), remain })}
           </p>
         )}
       </div>
       <Button variant="outline" size="sm" className="mt-3 w-full"
         onClick={() => router.push(`/rfq/${rfq.id}`)}>
-        查看详情
+        {t("rfqViewDetail")}
       </Button>
     </div>
   );

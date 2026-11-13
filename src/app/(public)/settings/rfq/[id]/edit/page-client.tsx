@@ -16,6 +16,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 
 import { api } from "@/core/http";
+import { useLocale } from "@/core/i18n";
 import { Button, Card } from "@/shared/ui";
 
 interface RfqEditData {
@@ -40,12 +41,12 @@ interface RfqEditData {
 
 const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"];
 const CURRENCIES = [
-  { value: "CNY", label: "人民币 (CNY)" },
-  { value: "USD", label: "美元 (USD)" },
-  { value: "EUR", label: "欧元 (EUR)" },
-  { value: "GBP", label: "英镑 (GBP)" },
-  { value: "JPY", label: "日元 (JPY)" },
-  { value: "HKD", label: "港币 (HKD)" },
+  { value: "CNY", labelKey: "rfqEditCurrencyCny" },
+  { value: "USD", labelKey: "rfqEditCurrencyUsd" },
+  { value: "EUR", labelKey: "rfqEditCurrencyEur" },
+  { value: "GBP", labelKey: "rfqEditCurrencyGbp" },
+  { value: "JPY", labelKey: "rfqEditCurrencyJpy" },
+  { value: "HKD", labelKey: "rfqEditCurrencyHkd" },
 ];
 
 const EDITABLE_STATUSES = ["draft", "rejected"];
@@ -66,6 +67,7 @@ const inputCls =
 export default function RfqEditSettingsPageClient() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useLocale();
   const id = params?.id;
 
   const [data, setData] = useState<RfqEditData | null>(null);
@@ -85,11 +87,11 @@ export default function RfqEditSettingsPageClient() {
       .then((res) => {
         const d = res;
         if (!d.isOwner) {
-          setDenied("仅创建者可编辑此需求");
+          setDenied("rfqEditDeniedOwner");
           return;
         }
         if (!EDITABLE_STATUSES.includes(d.status)) {
-          setDenied("仅草稿或审核未通过的需求可编辑（审核中请先撤回提交）");
+          setDenied("rfqEditDeniedStatus");
           return;
         }
         setData(d);
@@ -99,7 +101,7 @@ export default function RfqEditSettingsPageClient() {
         setPaymentText(d.paymentTerms.join("、"));
         setReqText(d.supplierReqs.join("、"));
       })
-      .catch((err: Error) => setDenied(err.message || "加载失败"))
+      .catch((err: Error) => setDenied(err.message || "rfqLoadFailed"))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -132,22 +134,24 @@ export default function RfqEditSettingsPageClient() {
       }
       router.push("/settings/rfq");
     } catch (err) {
-      setError((err as Error).message || "保存失败");
+      setError((err as Error).message || t("capSaveFailed"));
     } finally {
       setSaving(false);
     }
   }
 
   if (loading) {
-    return <div className="py-16 text-center text-sm text-secondary-400">加载中…</div>;
+    return <div className="py-16 text-center text-sm text-secondary-400">{t("rfqLoading")}</div>;
   }
 
   if (denied || !data) {
+    // denied 里存的是 i18n 键（无权限/状态不满足）或接口错误原文：
+    // t(键) 命中即翻译，未命中说明是后端原文，回落原样展示
     return (
       <div className="max-w-xl mx-auto py-16 text-center space-y-4">
         <Lock className="w-10 h-10 text-secondary-300 mx-auto" />
-        <p className="text-sm text-secondary-500">{denied || "需求不存在"}</p>
-        <Button variant="outline" size="sm" onClick={() => router.push("/settings/rfq")}>返回我的需求</Button>
+        <p className="text-sm text-secondary-500">{denied ? t(denied) || denied : t("rfqNotFound")}</p>
+        <Button variant="outline" size="sm" onClick={() => router.push("/settings/rfq")}>{t("rfqEditBackToMyRfqs")}</Button>
       </div>
     );
   }
@@ -155,15 +159,15 @@ export default function RfqEditSettingsPageClient() {
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       <div>
-        <h2 className="text-xl font-extrabold text-secondary-900">编辑采购需求</h2>
+        <h2 className="text-xl font-extrabold text-secondary-900">{t("rfqEditTitle")}</h2>
         <p className="text-xs text-secondary-400 mt-1">
-          #{data.id} · 保存后将回到草稿状态，可重新提交审核
+          {t("rfqEditHeaderNote", { id: data.id })}
         </p>
       </div>
 
       <Card className="rounded-2xl p-6 space-y-5">
         <div>
-          {label("需求标题（10-50 字）")}
+          {label(t("rfqEditLabelTitle"))}
           <input
             className={inputCls}
             value={data.title}
@@ -173,7 +177,7 @@ export default function RfqEditSettingsPageClient() {
         </div>
 
         <div>
-          {label("需求描述（50-2000 字）")}
+          {label(t("rfqEditLabelDesc"))}
           <textarea
             className={`${inputCls} min-h-40 resize-y`}
             value={data.description}
@@ -184,31 +188,31 @@ export default function RfqEditSettingsPageClient() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            {label("预算金额")}
+            {label(t("rfqFieldBudget"))}
             <input
               type="number" min="0" className={inputCls}
               value={budget}
               disabled={data.budgetConfidential}
               onChange={(e) => setBudget(e.target.value)}
-              placeholder="预算金额"
+              placeholder={t("rfqBudgetPlaceholder")}
             />
           </div>
           <div>
-            {label("币种")}
+            {label(t("rfqQuoteCurrencyLabel"))}
             <select
               className={inputCls}
               value={currency}
               disabled={data.budgetConfidential}
               onChange={(e) => setCurrency(e.target.value)}
             >
-              {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)}
             </select>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            {label("报价截止日期")}
+            {label(t("rfqEditLabelDeadline"))}
             <input
               type="date"
               className={inputCls}
@@ -217,18 +221,18 @@ export default function RfqEditSettingsPageClient() {
             />
           </div>
           <div>
-            {label("贸易术语")}
+            {label(t("rfqTermIncoterm"))}
             <select
               className={inputCls}
               value={data.incoterm}
               onChange={(e) => setData({ ...data, incoterm: e.target.value })}
             >
-              <option value="">未指定</option>
-              {INCOTERMS.map((t) => <option key={t} value={t}>{t}</option>)}
+              <option value="">{t("rfqEditUnspecified")}</option>
+              {INCOTERMS.map((code) => <option key={code} value={code}>{code}</option>)}
             </select>
           </div>
           <div>
-            {label("交付时间")}
+            {label(t("rfqFieldDeliveryTime"))}
             <input
               className={inputCls}
               value={data.deliveryTime}
@@ -239,7 +243,7 @@ export default function RfqEditSettingsPageClient() {
         </div>
 
         <div>
-          {label("交付地点")}
+          {label(t("rfqFieldAddress"))}
           <input
             className={inputCls}
             value={data.deliveryAddress}
@@ -250,32 +254,32 @@ export default function RfqEditSettingsPageClient() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            {label("付款方式（顿号/逗号分隔）")}
+            {label(t("rfqEditLabelPayment"))}
             <input className={inputCls} value={paymentText} onChange={(e) => setPaymentText(e.target.value)} />
           </div>
           <div>
-            {label("供应商要求（顿号/逗号分隔）")}
+            {label(t("rfqEditLabelSupplierReqs"))}
             <input className={inputCls} value={reqText} onChange={(e) => setReqText(e.target.value)} />
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            {label("联系人")}
+            {label(t("authEnterpriseContact"))}
             <input
               className={inputCls} value={data.contactName} maxLength={100}
               onChange={(e) => setData({ ...data, contactName: e.target.value })}
             />
           </div>
           <div>
-            {label("联系邮箱")}
+            {label(t("rfqFieldContactEmail"))}
             <input
               className={inputCls} value={data.contactEmail} maxLength={200}
               onChange={(e) => setData({ ...data, contactEmail: e.target.value })}
             />
           </div>
           <div>
-            {label("联系电话")}
+            {label(t("rfqFieldContactPhone"))}
             <input
               className={inputCls} value={data.contactPhone} maxLength={50}
               onChange={(e) => setData({ ...data, contactPhone: e.target.value })}
@@ -289,12 +293,12 @@ export default function RfqEditSettingsPageClient() {
 
         <div className="flex items-center gap-3 pt-2">
           <Button size="sm" disabled={saving} onClick={() => save(true)}>
-            {saving ? "保存中…" : "保存并提交审核"}
+            {saving ? t("capSaving") : t("rfqEditSaveAndSubmit")}
           </Button>
           <Button size="sm" variant="outline" disabled={saving} onClick={() => save(false)}>
-            仅保存草稿
+            {t("rfqEditSaveDraft")}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => router.push("/settings/rfq")}>取消</Button>
+          <Button size="sm" variant="ghost" onClick={() => router.push("/settings/rfq")}>{t("cancel")}</Button>
         </div>
       </Card>
     </div>
