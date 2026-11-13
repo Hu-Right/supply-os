@@ -7,11 +7,13 @@
  */
 import { memo } from "react";
 import { Modal, EmptyState } from "@/shared/ui";
+import { useLocale } from "@/core/i18n";
 
 export const AgencyModal = memo(function AgencyModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useLocale();
   return (
-    <Modal open={open} onClose={onClose} title="采购机构画像" className="max-w-lg">
-      <EmptyState title="机构画像接入中" description="买家画像需多来源中标数据积累，S1（TED）起提供。" />
+    <Modal open={open} onClose={onClose} title={t("awardBuyerProfileTitle")} className="max-w-lg">
+      <EmptyState title={t("awardUiAgencyEmptyTitle")} description={t("awardUiAgencyEmptyDesc")} />
     </Modal>
   );
 });

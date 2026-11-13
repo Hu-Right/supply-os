@@ -7,22 +7,24 @@
  */
 import { memo } from "react";
 import { Modal, EmptyState } from "@/shared/ui";
+import { useLocale } from "@/core/i18n";
 import type { Section, WinnerRow } from "@/features/procurement/awards/awardViewModel";
 
 export const WinnersModal = memo(function WinnersModal({ open, onClose, section, onViewSupplier }: {
   open: boolean; onClose: () => void; section: Section<WinnerRow[]>; onViewSupplier: (w: WinnerRow) => void;
 }) {
+  const { t } = useLocale();
   return (
-    <Modal open={open} onClose={onClose} title="中标商名单" className="max-w-xl">
+    <Modal open={open} onClose={onClose} title={t("awardUiWinnersTitle")} className="max-w-xl">
       {section.present ? (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-200">
                 <th className="text-left py-2 text-slate-400 font-bold">#</th>
-                <th className="text-left py-2 text-slate-400 font-bold">供应商</th>
-                <th className="text-left py-2 text-slate-400 font-bold">国别</th>
-                <th className="text-center py-2 text-slate-400 font-bold">中标次数</th>
+                <th className="text-left py-2 text-slate-400 font-bold">{t("awardUiWinnersColSupplier")}</th>
+                <th className="text-left py-2 text-slate-400 font-bold">{t("awardUiWinnersColCountry")}</th>
+                <th className="text-center py-2 text-slate-400 font-bold">{t("awardUiWinnersColWinCount")}</th>
               </tr>
             </thead>
             <tbody>
@@ -36,10 +38,10 @@ export const WinnersModal = memo(function WinnersModal({ open, onClose, section,
               ))}
             </tbody>
           </table>
-          <p className="text-2xs text-slate-400 mt-2">中标商数据清洗进行中，名称以来源公示原文为准</p>
+          <p className="text-2xs text-slate-400 mt-2">{t("awardWinnersCleansingNote")}</p>
         </div>
       ) : (
-        <EmptyState title="暂无中标商" description={section.reason} />
+        <EmptyState title={t("awardWinnersEmptyTitle")} description={section.reason} />
       )}
     </Modal>
   );

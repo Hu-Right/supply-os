@@ -7,21 +7,23 @@
  */
 import { memo } from "react";
 import { Modal, EmptyState } from "@/shared/ui";
+import { useLocale } from "@/core/i18n";
 import type { Section, TrendSeries } from "@/features/procurement/awards/awardViewModel";
 
 export const CalendarModal = memo(function CalendarModal({ open, onClose, trend }: { open: boolean; onClose: () => void; trend: Section<TrendSeries> }) {
+  const { t } = useLocale();
   if (!trend.present) {
     return (
-      <Modal open={open} onClose={onClose} title="采购日历与趋势" className="max-w-xl">
-        <EmptyState title="暂无趋势数据" description={trend.reason} />
+      <Modal open={open} onClose={onClose} title={t("awardUiCalendarTitle")} className="max-w-xl">
+        <EmptyState title={t("awardUiCalendarEmptyTitle")} description={trend.reason} />
       </Modal>
     );
   }
   const { months, counts } = trend.data;
   const max = Math.max(...counts, 1);
   return (
-    <Modal open={open} onClose={onClose} title="采购日历与趋势" className="max-w-xl">
-      <p className="text-xs font-bold text-slate-700 mb-2">月度中标项目数</p>
+    <Modal open={open} onClose={onClose} title={t("awardUiCalendarTitle")} className="max-w-xl">
+      <p className="text-xs font-bold text-slate-700 mb-2">{t("awardUiCalendarMonthlyTitle")}</p>
       <div className="grid grid-cols-6 gap-2">
         {months.map((m, i) => {
           const it = counts[i] / max;
@@ -37,7 +39,7 @@ export const CalendarModal = memo(function CalendarModal({ open, onClose, trend 
         })}
       </div>
       {!Array.isArray(trend.data.amountsUsd) && (
-        <p className="text-2xs text-slate-400 mt-3">中标金额未公开（来源未提供），仅统计项目数。</p>
+        <p className="text-2xs text-slate-400 mt-3">{t("awardUiCalendarAmountNote")}</p>
       )}
     </Modal>
   );

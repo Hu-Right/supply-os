@@ -9,9 +9,11 @@
  *              数据来自视图模型（真实 by_month）；金额不可用时仅画计数柱并提示。
  */
 import { useCallback, useEffect, useRef } from "react";
+import { useLocale } from "@/core/i18n";
 import type { TrendSeries } from "@/features/procurement/awards/awardViewModel";
 
 export function TrendChart({ series }: { series: TrendSeries }) {
+  const { t } = useLocale();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<any>(null);
 
@@ -32,17 +34,19 @@ export function TrendChart({ series }: { series: TrendSeries }) {
       const hasAmount = Array.isArray(series.amountsUsd);
       const maxCount = Math.max(...series.counts, 1);
       const yMaxCount = Math.ceil(maxCount / 10) * 10;
+      const countLabel = t("awardUiTrendSeriesCount");
+      const amountLabel = t("awardUiTrendSeriesAmount");
 
       const seriesArr: any[] = [
-        { name: "中标项目数", type: "bar", barWidth: "50%", itemStyle: { color: "rgba(20,184,166,0.75)", borderRadius: [2, 2, 0, 0] }, emphasis: { itemStyle: { color: "rgba(20,184,166,0.9)" } }, data: series.counts },
+        { name: countLabel, type: "bar", barWidth: "50%", itemStyle: { color: "rgba(20,184,166,0.75)", borderRadius: [2, 2, 0, 0] }, emphasis: { itemStyle: { color: "rgba(20,184,166,0.9)" } }, data: series.counts },
       ];
 
       if (hasAmount) {
         const amounts = series.amountsUsd as number[];
-        seriesArr.push({ name: "中标金额(USD)", type: "line", yAxisIndex: 1, symbol: "circle", symbolSize: 6, lineStyle: { color: "#60a5fa", width: 2 }, itemStyle: { color: "#60a5fa" }, data: amounts.map((v) => +(v / 1e9).toFixed(2)) });
+        seriesArr.push({ name: amountLabel, type: "line", yAxisIndex: 1, symbol: "circle", symbolSize: 6, lineStyle: { color: "#60a5fa", width: 2 }, itemStyle: { color: "#60a5fa" }, data: amounts.map((v) => +(v / 1e9).toFixed(2)) });
         chart.setOption({
           tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-          legend: { data: ["中标项目数", "中标金额(USD)"], bottom: 0, textStyle: { fontSize: 11, color: "#64748b" }, itemWidth: 12, itemHeight: 8 },
+          legend: { data: [countLabel, amountLabel], bottom: 0, textStyle: { fontSize: 11, color: "#64748b" }, itemWidth: 12, itemHeight: 8 },
           grid: { left: 44, right: 44, top: 8, bottom: 36 },
           xAxis: { type: "category", data: series.months, axisLine: { lineStyle: { color: "#e2e8f0" } }, axisTick: { show: false }, axisLabel: { fontSize: 10, color: "#94a3b8" } },
           yAxis: [
@@ -69,7 +73,7 @@ export function TrendChart({ series }: { series: TrendSeries }) {
         chart.dispose();
       };
     });
-  }, [series]);
+  }, [series, t]);
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
@@ -84,7 +88,7 @@ export function TrendChart({ series }: { series: TrendSeries }) {
     <div className="w-full">
       <div ref={chartRef} className="w-full" style={{ height: "200px" }} />
       {!Array.isArray(series.amountsUsd) && (
-        <p className="text-2xs text-slate-400 mt-1 text-center">金额未公开（来源未提供中标金额），仅展示中标项目数</p>
+        <p className="text-2xs text-slate-400 mt-1 text-center">{t("awardUiTrendAmountNote")}</p>
       )}
     </div>
   );
