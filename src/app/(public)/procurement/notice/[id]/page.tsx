@@ -65,6 +65,9 @@ function parseNoticeId(raw: string): number | null {
  * 跨日时会比卡片差一天。
  * 例外：源文本有时分但无时区令牌（timezone_source=assumed_utc）时，ts 即原文
  * 墙上时间，按 UTC 还原，不做 +8。
+ * 粒度：源带真实时刻（时分非零）→ 显示到分（与 SEO/导出链路同一口径）；
+ * 纯日期源只显示日期，绝不臆造 00:00（2026-11-13 前详情页硬编码到日，与
+ * format.ts 锁定规范「有真实时刻即显示 HH:mm」相悖）。
  * 非 known（unknown/placeholder/typo_suspect/invalid）→「未公布」。
  */
 function formatDeadline(row: NoticeSeoRow): string {
@@ -74,8 +77,10 @@ function formatDeadline(row: NoticeSeoRow): string {
     fallbackSec: row.deadline_sec,
   });
   if (!ts) return UNPUBLISHED_LABEL;
+  const d = new Date(ts * 1000);
+  const hasTime = d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0;
   const wallTime = String(row.timezone_source ?? "").trim() === "assumed_utc" && !row.deadline_timezone;
-  return wallTime ? formatNoticeUTCDate(ts, false) : formatNoticeCstDate(ts, false);
+  return wallTime ? formatNoticeUTCDate(ts, hasTime) : formatNoticeCstDate(ts, hasTime);
 }
 
 function buildSummary(row: NoticeSeoRow): string {
