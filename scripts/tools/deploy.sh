@@ -46,13 +46,19 @@ fi
 # 3. Next.js 构建（output: standalone → .next/standalone/）
 echo "[deploy] 构建..."
 
-# 3.0 低内存构建前置（2026-11-03 事故）：本机 8G 同时跑 MySQL(4.3G)+Meili(1.3G+)，
-#     再跑 Next 构建会把 swap 打满、构建线程卡在换页（实测 9 分钟零产物、80% IO wait）。
-#     构建前临时停掉 Meilisearch 与 PM2 应用释放约 2G；trap 保证任何失败路径都拉起，
-#     建完先恢复 Meili 再重启应用，避免应用启动期查到 meili-unhealthy。
+# 3.0 低内存构建前置（2026-11-03 / 2026-11-13 事故）：
+#     本机 8G 同时跑 MySQL(2G buffer pool)+Meili(1.8G+) 时，Next 16 Turbopack 构建峰值
+#     RSS 可达 7GB+，曾被 OOM killer 连续三次杀掉（构建进程 anon-rss ~7.5G）；
+#     构建失败后旧 .next 已被部分清空，pm2 仍指向不存在的 server.js → 崩溃循环 657 次。
+#     现在：构建前停 Meili + PM2 + MySQL 释放内存；并备份上一版 standalone 产物，
+#     任何失败路径都先回滚产物再决定是否拉起应用；缺产物时绝不启动 pm2（防崩溃循环）。
+#     Turbopack 峰值内存另由 next.config.ts 的 experimental.turbopackMemoryEviction='full'
+#     压制（默认 'auto'）。仓库若有额外 swap 文件，可传 BUILD_SWAP_FILE=/swapfile2 临时启用。
 MEILI_WAS_RUNNING=0
+MYSQL_WAS_RUNNING=0
 APP_WAS_STOPPED=0
 DEPLOY_STARTED_APP=0
+SWAP_WAS_ENABLED=0
 
 if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet meilisearch 2>/dev/null; then
   echo "[deploy] 构建前暂停 Meilisearch（释放内存）..."
@@ -66,17 +72,69 @@ if command -v pm2 >/dev/null 2>&1 && [ -n "$(pm2 pid "${APP_NAME}" 2>/dev/null |
   APP_WAS_STOPPED=1
 fi
 
+# 构建期停库释放内存（默认开启；数据库不在本机或需保持在线时显式 STOP_MYSQL_ON_BUILD=0）
+if [ "${STOP_MYSQL_ON_BUILD:-1}" != "0" ] && command -v systemctl >/dev/null 2>&1; then
+  if systemctl is-active --quiet mysql 2>/dev/null; then
+    echo "[deploy] 构建前暂停 MySQL（释放内存）..."
+    systemctl stop mysql || true
+    MYSQL_WAS_RUNNING=1
+  fi
+fi
+
+# 可选：临时启用额外 swap（如 /swapfile2），构建结束后恢复原状态
+if [ -n "${BUILD_SWAP_FILE:-}" ] && [ -f "${BUILD_SWAP_FILE}" ]; then
+  if ! swapon --show=NAME --noheadings 2>/dev/null | grep -qx "${BUILD_SWAP_FILE}"; then
+    if swapon "${BUILD_SWAP_FILE}" 2>/dev/null; then
+      SWAP_WAS_ENABLED=1
+      echo "[deploy] 已临时启用 swap：${BUILD_SWAP_FILE}"
+    fi
+  fi
+fi
+
+# 备份上一版可运行产物（放在 runtime/ 而非 .next/ 内，避免构建清理目录时被一起删掉）
+STANDALONE_BACKUP="${APP_DIR}/runtime/standalone-bak"
+HAS_STANDALONE_BACKUP=0
+if [ -f .next/standalone/server.js ]; then
+  rm -rf "${STANDALONE_BACKUP}"
+  mkdir -p "${APP_DIR}/runtime"
+  cp -a .next/standalone "${STANDALONE_BACKUP}"
+  HAS_STANDALONE_BACKUP=1
+  echo "[deploy] 已备份现有 standalone → ${STANDALONE_BACKUP}"
+fi
+
+# 确保 .next/standalone 下有可运行的 server.js，供调用方决定是否 pm2 start
+restorable_standalone() {
+  [ -f .next/standalone/server.js ] && return 0
+  if [ "${HAS_STANDALONE_BACKUP}" = "1" ] && [ -f "${STANDALONE_BACKUP}/server.js" ]; then
+    echo "[deploy] 新产物缺失，回滚到构建前产物..."
+    rm -rf .next/standalone
+    cp -a "${STANDALONE_BACKUP}" .next/standalone
+    return 0
+  fi
+  return 1
+}
+
 restore_runtime_services() {
+  if [ "${SWAP_WAS_ENABLED}" = "1" ]; then
+    swapoff "${BUILD_SWAP_FILE}" >/dev/null 2>&1 || true
+  fi
+  if [ "${MYSQL_WAS_RUNNING}" = "1" ]; then
+    systemctl start mysql >/dev/null 2>&1 || true
+  fi
   if [ "${MEILI_WAS_RUNNING}" = "1" ]; then
     systemctl start meilisearch >/dev/null 2>&1 || true
   fi
   if [ "${APP_WAS_STOPPED}" = "1" ] && [ "${DEPLOY_STARTED_APP}" != "1" ]; then
-    echo "[deploy] 构建未走到重启步骤，尝试拉起旧应用..."
-    # 显式 start（而非 pm2 restart）：dump 可能是陈年快照，restart 靠 dump 兜底
-    # 会拉起一个没有应用的新 daemon（2026-11-11 事故：主路径与 trap 竞态后
-    # dump 为空，restart 只带回了 logrotate，应用缺席、站点 502 达 8 分钟）。
-    pm2 delete "${APP_NAME}" >/dev/null 2>&1 || true
-    NODE_ENV=production PORT="${APP_PORT}" pm2 start .next/standalone/server.js --name "${APP_NAME}" >/dev/null 2>&1 || true
+    echo "[deploy] 构建未走到重启步骤，尝试拉起应用..."
+    if restorable_standalone; then
+      # 显式 start（而非 pm2 restart）：dump 可能是陈年快照，restart 靠 dump 兜底
+      # 会拉起一个没有应用的新 daemon（2026-11-11 事故：主路径与 trap 竞态后
+      # dump 为空，restart 只带回了 logrotate，应用缺席、站点 502 达 8 分钟）。
+      pm2 delete "${APP_NAME}" >/dev/null 2>&1 || true
+      NODE_ENV=production PORT="${APP_PORT}" pm2 start .next/standalone/server.js --name "${APP_NAME}" >/dev/null 2>&1 || true
+    else
+      echo "[deploy] ✗ 无可用 standalone 产物（无新产物且无备份），保持停服；请检查构建日志后人工处理。"
+    fi
   fi
 }
 trap restore_runtime_services EXIT
@@ -88,9 +146,23 @@ if [ -f .next/standalone/.env ]; then
   echo "[deploy] 已备份 .env"
 fi
 
-# 3.2 构建（限堆防止低内存机器把 swap 打满；容器/加内存的机器可用 BUILD_MAX_OLD_SPACE 覆盖）
+# 3.2 构建（限 V8 堆；Turbopack 原生内存峰值由 next.config.ts 的驱逐策略压制）
 BUILD_MAX_OLD_SPACE="${BUILD_MAX_OLD_SPACE:-2560}"
-NODE_OPTIONS="$(printf '%s --max-old-space-size=%s' "${NODE_OPTIONS:-}" "${BUILD_MAX_OLD_SPACE}")" npm run build
+BUILD_LOG="${APP_DIR}/runtime/deploy-build-$(date +%Y%m%d-%H%M%S).log"
+mkdir -p "${APP_DIR}/runtime"
+echo "[deploy] 构建日志：${BUILD_LOG}"
+NODE_OPTIONS="$(printf '%s --max-old-space-size=%s' "${NODE_OPTIONS:-}" "${BUILD_MAX_OLD_SPACE}")" npm run build 2>&1 | tee "${BUILD_LOG}"
+
+# 3.2.1 产物硬校验：退出码 0 但没有 standalone 同样算失败（pm2 指向空气 = 崩溃循环）
+if [ ! -f .next/standalone/server.js ]; then
+  echo "[deploy] ✗ 构建结束但缺少 .next/standalone/server.js，判定构建失败"
+  if [ "${HAS_STANDALONE_BACKUP}" = "1" ]; then
+    rm -rf .next/standalone
+    cp -a "${STANDALONE_BACKUP}" .next/standalone
+    echo "[deploy] 已回滚到构建前产物（上一版）"
+  fi
+  exit 1
+fi
 
 # 3.2 恢复 / 显式提供 .env（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
 #     生产 env 只有两个合法来源：build 前的备份，或显式指定的 APP_ENV_FILE。

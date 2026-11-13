@@ -59,6 +59,12 @@ const nextConfig: NextConfig = {
   // 优化大型 npm 包的 tree-shaking（减少 bundle 体积）
   experimental: {
     optimizePackageImports: ["lucide-react", "i18next", "react-i18next"],
+    // Turbopack 内存驱逐策略（Next 16 experimental，默认 'auto'）。
+    // 8G 生产机（MySQL+Meili 常驻）上 `next build` 的 Turbopack 峰值 RSS 曾冲到 7GB+
+    // 被 OOM killer 杀掉（2026-11-13 事故）；'full' = 每轮快照后驱逐全部可驱逐任务、
+    // 按需从磁盘重载，用少量构建耗时换显著更低的峰值内存。
+    // 换到大内存机器后可改回 'auto' 换取构建速度。
+    turbopackMemoryEviction: "full",
   },
   // 安全头：CSP 收紧 + 标准安全头
   async headers() {
