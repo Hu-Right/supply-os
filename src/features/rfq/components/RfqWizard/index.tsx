@@ -248,7 +248,11 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
   }
 
   return (
-    <div ref={rootRef} className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
+    <div
+      ref={rootRef}
+      id="rfq-form"
+      className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs"
+    >
       <StepIndicator step={step} />
 
       {step === 0 && (

@@ -33,7 +33,8 @@ export const GET = withRoute(async (req: NextRequest) => {
     country: String(row.country || ""),
     // 注意：平台 RFQ 的 estimated_value 为“万元”数值（币种见 currency），
     // 字段名 budgetUsd 为历史残留命名（plaza 预算区间筛选复用），勿按美元字面理解。
-    budgetUsd: Number(row.estimated_value) || 0,
+    // 保密需求对任何消费方都返回 0（展示层据此显示“预算保密”），避免把金额编码进响应体。
+    budgetUsd: Number(row.budget_confidential) === 1 ? 0 : Number(row.estimated_value) || 0,
     currency: String(row.currency || "CNY"),
     deadlineSec: Number(row.deadline_sec) || 0,
     status: String(row.rfq_status || RFQ_STATUS.DRAFT),

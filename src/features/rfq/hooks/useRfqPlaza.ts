@@ -31,6 +31,8 @@ export function useRfqPlaza() {
   const [items, setItems] = useState<PlazaRfq[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
+  /** 加载失败原因；null 表示无错误。区分"空结果"与"请求失败"，避免断网被渲染成"暂无需求" */
+  const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 品目大类选项（骨架 L1 行直出，与商机页五级下拉第一级同源同名）
@@ -56,6 +58,7 @@ export function useRfqPlaza() {
   // 防抖请求
   const fetchList = useCallback(() => {
     setLoading(true);
+    setError(null);
     api<ApiResponse>(`/api/rfq/list?${queryParams}`)
       .then((res) => {
         setItems(Array.isArray(res.items) ? res.items : []);
@@ -63,6 +66,7 @@ export function useRfqPlaza() {
       })
       .catch((e) => {
         console.warn("[useRfqPlaza] RFQ 列表加载失败:", e);
+        setError(e instanceof Error ? e.message : "网络异常，请稍后重试");
         setItems([]);
         setTotal(0);
       })
@@ -79,6 +83,6 @@ export function useRfqPlaza() {
     keyword, setKeyword,
     categoryL1, setCategoryL1,
     sort, setSort,
-    items, loading, total, l1Options,
+    items, loading, total, l1Options, error, retry: fetchList,
   };
 }

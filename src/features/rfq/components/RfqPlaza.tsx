@@ -44,7 +44,7 @@ export function RfqPlaza() {
     keyword, setKeyword,
     categoryL1, setCategoryL1,
     sort, setSort,
-    items, loading, total, l1Options,
+    items, loading, total, l1Options, error, retry,
   } = useRfqPlaza();
   const { authUser } = useAuth();
   const { t } = useLocale();
@@ -98,6 +98,12 @@ export function RfqPlaza() {
               <Skeleton variant="text" className="h-3 w-1/2" />
             </div>
           ))}
+        </div>
+      ) : error ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center">
+          <p className="text-sm font-bold text-rose-700">需求列表加载失败</p>
+          <p className="mt-1 text-xs text-rose-600">{error}</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={retry}>重试</Button>
         </div>
       ) : items.length === 0 ? (
         <EmptyState

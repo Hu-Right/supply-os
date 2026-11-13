@@ -17,8 +17,8 @@ import { commodityNodeLevel, isCommodityNodeKey } from "@/lib/services/commodity
 const MYSQL_TIMEOUT_MS = 10_000;
 
 /** estimated_value + currency → 展示文案（平台预算以“万元”为单位，与设置页口径一致） */
-function formatBudget(value: number, currency: string): string {
-  if (!value || value <= 0) return "预算保密";
+function formatBudget(value: number, currency: string, confidential: boolean): string {
+  if (confidential || !value || value <= 0) return "预算保密";
   return `${currencySymbol(currency)}${Math.round(value)} 万`;
 }
 
@@ -71,8 +71,13 @@ export const GET = withRoute(async (req: NextRequest) => {
         province: legacyProvince || undefined,
         categoryL1: catL1,
         categoryL2: catL2,
-        budgetDisplay: formatBudget(Number(row.estimated_value) || 0, String(row.currency || "CNY")),
-        budgetUsd: Number(row.estimated_value) || 0,
+        budgetDisplay: formatBudget(
+          Number(row.estimated_value) || 0,
+          String(row.currency || "CNY"),
+          Number(row.budget_confidential) === 1,
+        ),
+        // 保密预算不把金额编进响应体（展示层据此显示“预算保密”）
+        budgetUsd: Number(row.budget_confidential) === 1 ? 0 : Number(row.estimated_value) || 0,
         currency: String(row.currency || "CNY"),
         deadline: formatDeadlineDateYMD(Number(row.deadline_sec) || 0, { utc: true, emptyText: "" }),
         responses: Number(row.quote_count) || 0,

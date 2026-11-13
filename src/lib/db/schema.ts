@@ -30,6 +30,7 @@ import { migration as feasibilityReportMigration } from "./migrations/006-feasib
 import { migration as evidenceFilenameMigration } from "./migrations/007-enterprise-evidence-filename";
 import { migration as ordersUnifiedMigration } from "./migrations/008-orders-unified";
 import { migration as ordersHardeningMigration } from "./migrations/009-orders-hardening";
+import { migration as rfqCoreMigration } from "./migrations/010-rfq-core";
 
 /** 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。 */
 const ALL_MIGRATIONS: Migration[] = [
@@ -42,11 +43,12 @@ const ALL_MIGRATIONS: Migration[] = [
   evidenceFilenameMigration,
   ordersUnifiedMigration,
   ordersHardeningMigration,
+  rfqCoreMigration,
 ];
 
 /**
  * 执行所有待应用的 schema 迁移。
- * @returns 本次执行的迁移数量（当前为 0，行为等价于「不迁移」）
+ * @returns 本次实际执行的迁移数量（已应用过的版本会被 runner 跳过）
  */
 export async function ensureProcurementSchema(dbPool: Pool): Promise<number> {
   return runMigrations(dbPool, ALL_MIGRATIONS);

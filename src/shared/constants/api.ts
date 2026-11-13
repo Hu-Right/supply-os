@@ -292,6 +292,23 @@ export const EC_INVITE_CODE_INVALID = 41119;
 /** 该端点已废弃，请使用子路由 */
 export const EC_ENDPOINT_RETIRED = 41010;
 
+// ── RFQ 细分码（2026-11-13 重构）────────────────────────────────────────────────
+// 背景：此前 submit/withdraw/reopen 用裸码 40001/40003/40004/40005/50001，
+//       与全局码表语义冲突（40001=未登录、50001=支付二维码缺失），前端 error-map
+//       会把「非法 RFQ ID」翻成「请先登录」、把「撤回失败」翻成「支付二维码缺失」。
+//       此处按「状态/规则冲突逐条独立码」的既有规约补 RFQ 专属码。
+// 码段：44001+ 为 RFQ 需求域独立码段（40080 已被 EC_PAYMENT_INDUSTRY_INVALID 占用，
+//       原稿的 40080~40083 与支付域撞号，合入基线时整体让到 44xxx 空段）。
+
+/** RFQ 需求不存在（或对当前用户不可见） */
+export const EC_RFQ_NOT_FOUND = 44001;
+/** RFQ 当前状态不允许该操作（状态机冲突） */
+export const EC_RFQ_STATE_INVALID = 44002;
+/** RFQ 版本冲突：需求已被修改/已进入下一状态，需刷新后重试 */
+export const EC_RFQ_VERSION_CONFLICT = 44003;
+/** RFQ 审核退回必须填写理由 */
+export const EC_RFQ_REASON_REQUIRED = 44004;
+
 // ── 分页限制常量（Pagination Limits）───────────────────────────────────────────
 
 /** 通用 API 分页默认大小 */

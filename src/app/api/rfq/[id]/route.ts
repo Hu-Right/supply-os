@@ -56,6 +56,30 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(404, EC_NOT_FOUND, "RFQ 不存在或未公开");
     }
 
+    // 定向邀约：未受邀者只得到摘要。
+    // visibility='targeted' 的文案承诺「仅被邀请的供应商可查看并报价」，
+    // 白名单此前只挡住了报价动作，内容对任何拿到 id 的人可读。
+    const isTargeted = String(row.visibility || "public") === "targeted";
+    if (isTargeted && !isOwner) {
+      const invited = userId !== null ? await ctx.rfqRepo.isRfqInvited(rfqId, userId) : false;
+      if (!invited) {
+        return NextResponse.json({
+          id: Number(row.id),
+          reference: String(row.reference || ""),
+          title: String(row.title || ""),
+          status: String(row.rfq_status || RFQ_STATUS.PUBLISHED),
+          categoryCode: String(row.category_code || ""),
+          categoryL1: String(row.category_l1_name || ""),
+          categoryL2: String(row.category_name || ""),
+          province: String(row.province_name || ""),
+          visibility: "targeted",
+          restricted: true,
+          deadlineSec: Number(row.deadline_sec) || 0,
+          isOwner: false,
+        });
+      }
+    }
+
     const confidential = Number(row.budget_confidential) === 1;
     return NextResponse.json({
       id: Number(row.id),
@@ -141,11 +165,34 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       fields.deadline = { display: deadline, ts: deadlineSec };
     }
 
-    if (body.budget !== undefined || body.budget_confidential !== undefined || body.currency !== undefined) {
-      const budget = Number(body.budget) || 0;
-      const confidential = Boolean(body.budget_confidential);
-      const estimatedValue = confidential ? 0 : budget;
-      fields.budget = { confidential, estimatedValue };
+    // ── 预算三字段：合并语义，各自独立 ──
+    // 旧实现把 budget / budget_confidential / currency 塞进同一个 if 并统一重算，
+    // 导致 `PATCH {"currency":"USD"}` 会把 estimated_value 写成 0、budget_confidential 写成 0，
+    // 且 estimated_value 无历史列 ⇒ 不可恢复。现在：任一字段变动只影响它自己，
+    // 未提交的字段沿用库内当前值（三列由 repo.getRfqStateById 取回）。
+    if (
+      body.budget !== undefined ||
+      body.budget_confidential !== undefined ||
+      body.currency !== undefined
+    ) {
+      const curBudget = Number(row.estimated_value) || 0;
+      const curConfidential = Number(row.budget_confidential) === 1;
+
+      const confidential =
+        body.budget_confidential !== undefined ? Boolean(body.budget_confidential) : curConfidential;
+
+      let budget = curBudget;
+      if (body.budget !== undefined) {
+        budget = Number(body.budget);
+        if (!Number.isFinite(budget) || budget < 0) {
+          routeError(400, EC_INVALID_PARAMS, "预算金额必须是不小于 0 的数字");
+        }
+        if (!confidential && budget <= 0) {
+          routeError(400, EC_INVALID_PARAMS, "预算金额必须大于 0，或勾选预算保密");
+        }
+      }
+
+      fields.budget = { confidential, estimatedValue: confidential ? 0 : budget };
     }
 
     if (body.currency !== undefined) {

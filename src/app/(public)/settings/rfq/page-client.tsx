@@ -61,19 +61,28 @@ export default function MyRfqSettingsClient() {
   const [items, setItems] = useState<MyRfq[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [withdrawing, setWithdrawing] = useState<number | null>(null);
   const [reopening, setReopening] = useState<number | null>(null);
 
   const fetchList = useCallback(() => {
     setLoading(true);
+    setLoadError(null);
     const qs = statusFilter ? `?status=${statusFilter}` : "";
     api<{ items: MyRfq[]; total: number }>(`/api/rfq/my${qs}`)
       .then((res) => {
         setItems(Array.isArray(res.items) ? res.items : []);
         setTotal(Number(res.total) || 0);
       })
-      .catch((e) => { console.warn("[MyRfq] 我的 RFQ 列表加载失败:", e); setItems([]); setTotal(0); })
+      .catch((e) => {
+        // 区分"没有数据"与"请求失败"：旧实现把断网渲染成"您还没有发布采购需求"，
+        // 用户会以为数据丢了（ARCHITECTURE「异常态覆盖要求」三态之一）。
+        console.warn("[MyRfq] 我的 RFQ 列表加载失败:", e);
+        setLoadError(e instanceof Error ? e.message : "网络异常，请稍后重试");
+        setItems([]);
+        setTotal(0);
+      })
       .finally(() => setLoading(false));
   }, [statusFilter]);
 
@@ -157,6 +166,12 @@ export default function MyRfqSettingsClient() {
               <div className="h-4 w-32 bg-slate-50 rounded" />
             </div>
           ))}
+        </div>
+      ) : loadError ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-8 text-center">
+          <p className="text-sm font-bold text-rose-700">采购需求列表加载失败</p>
+          <p className="mt-1 text-xs text-rose-600">{loadError}</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={fetchList}>重试</Button>
         </div>
       ) : items.length === 0 ? (
         <EmptyState

@@ -28,6 +28,7 @@ export interface RfqListItemRow extends RowDataPacket {
   category_name: string | null;
   category_l1_name: string | null;
   estimated_value: number | string | null;
+  budget_confidential: number | null;
   currency: string | null;
   deadline_sec: number | null;
   is_featured: number | null;
@@ -42,6 +43,7 @@ export interface MyRfqRow extends RowDataPacket {
   title: string | null;
   country: string | null;
   estimated_value: number | string | null;
+  budget_confidential: number | null;
   currency: string | null;
   deadline_sec: number | null;
   rfq_status: string | null;
@@ -85,6 +87,10 @@ export interface RfqStateRow extends RowDataPacket {
   id: number;
   rfq_status: string | null;
   user_id: number | null;
+  /** 预算三列：PATCH 只改 currency 时需沿用库内预算，避免把 estimated_value 覆写为 0 */
+  estimated_value: number | string | null;
+  budget_confidential: number | null;
+  currency: string | null;
 }
 
 /** invite 前置查询行（多取 visibility 判断 targeted 白名单写入） */
@@ -266,6 +272,9 @@ export class RfqRepo {
       "n.entry_source = 'platform'",
       "n.rfq_status = ?",
       "(n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))",
+      // 定向邀约不进公开广场：visibility='targeted' 的文案承诺「仅被邀请的供应商可查看并报价」，
+      // 若不排除，标题/预算/描述对匿名用户全量可见（白名单只挡住了报价动作）。
+      "(n.visibility IS NULL OR n.visibility <> 'targeted')",
     ];
     const params: unknown[] = [RFQ_STATUS.PUBLISHED];
 
@@ -301,7 +310,8 @@ export class RfqRepo {
         `SELECT n.id, n.reference, n.title, n.country, n.province_name, n.delivery_address,
                 n.category_code, c1.name_zh AS category_name,
                 c0.name_zh AS category_l1_name,
-                n.estimated_value, n.currency, n.deadline_sec, n.is_featured, n.agency,
+                n.estimated_value, n.currency, n.budget_confidential,
+                n.deadline_sec, n.is_featured, n.agency,
                 (SELECT COUNT(*) FROM rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count
          FROM bid_notices n
          LEFT JOIN commodity_backbone c1 ON c1.code = n.category_code
@@ -337,7 +347,8 @@ export class RfqRepo {
     const [countRes, dataRes] = await Promise.all([
       this.pool.query(`SELECT COUNT(*) AS total FROM bid_notices n WHERE ${whereSql}`, params),
       this.pool.query(
-        `SELECT n.id, n.reference, n.title, n.country, n.estimated_value, n.currency, n.deadline_sec,
+        `SELECT n.id, n.reference, n.title, n.country, n.estimated_value, n.budget_confidential,
+                n.currency, n.deadline_sec,
                 n.rfq_status, n.published_date, n.create_time,
                 (SELECT COUNT(*) FROM rfq_quotes q WHERE q.rfq_id = n.id AND q.status <> 'withdrawn') AS quote_count,
                 (SELECT COUNT(*) FROM rfq_quotes q2 WHERE q2.rfq_id = n.id AND q2.status = 'submitted') AS quote_pending
@@ -381,11 +392,24 @@ export class RfqRepo {
    */
   async getRfqStateById(rfqId: number): Promise<RfqStateRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT id, rfq_status, user_id FROM bid_notices
+      `SELECT id, rfq_status, user_id, estimated_value, budget_confidential, currency
+       FROM bid_notices
        WHERE id = ? AND notice_type = 'RFQ' LIMIT 1`,
       [rfqId],
     );
     return ((rows as RowDataPacket[])[0] as RfqStateRow | undefined) ?? null;
+  }
+
+  /**
+   * 定向邀约白名单查询：该用户是否受邀查看/报价此 RFQ。
+   * 仅用于 visibility='targeted' 的详情可见性裁决（裁决在路由层）。
+   */
+  async isRfqInvited(rfqId: number, userId: number): Promise<boolean> {
+    const [rows] = await this.pool.query(
+      `SELECT 1 FROM rfq_invites WHERE rfq_id = ? AND supplier_user_id = ? LIMIT 1`,
+      [rfqId, userId],
+    );
+    return (rows as RowDataPacket[]).length > 0;
   }
 
   /** invite 前置查询：属主 + 状态 + visibility（仅 platform 来源，404/403/409 裁决在路由层） */
