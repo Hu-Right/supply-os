@@ -130,15 +130,15 @@ export function SupplierProfilePage() {
               <div>
                 <h1 className="text-xl md:text-2xl font-extrabold text-slate-900">{name}</h1>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
-                  {tier === "gold" && <Badge variant="warning">金牌会员</Badge>}
-                  {tier === "certified" && <Badge variant="success">认证会员</Badge>}
-                  {tier === "recommended" && <Badge variant="error">推荐</Badge>}
+                  {tier === "gold" && <Badge variant="warning">{t("supplierTierGold")}</Badge>}
+                  {tier === "certified" && <Badge variant="success">{t("supplierTierCertified")}</Badge>}
+                  {tier === "recommended" && <Badge variant="error">{t("supplierTierRecommended")}</Badge>}
                   <Badge variant="info" shape="pill">{t("profile_verified")}</Badge>
                 </div>
                 <p className="text-sm text-slate-500 mt-2 flex flex-wrap items-center gap-2">
                   <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{country}{city !== "—" && city !== country ? ` · ${city}` : ""}</span>
                   <span className="text-slate-300">|</span>
-                  <span>主营：{products.slice(0, 3).join(" / ")}</span>
+                  <span>{t("supplierMainProducts", { products: products.slice(0, 3).join(" / ") })}</span>
                   <span className="text-slate-300">|</span>
                   <span className="flex items-center gap-1"><Globe className="w-3.5 h-3.5" />{industryName}</span>
                 </p>

@@ -122,25 +122,26 @@ export const NotBoundState = memo(function NotBoundState({ onBind }: { onBind: (
 
 /** 营业执照展示格 */
 export const LicenseView = memo(function LicenseView({ licenseUrl }: { licenseUrl: string }) {
+  const { t } = useLocale();
   return (
     <div className="border border-border rounded-md overflow-hidden bg-white p-4">
       {licenseUrl ? (
         <div className="flex items-center gap-4">
           <div className="w-40 h-28 rounded border border-border overflow-hidden bg-secondary-50 flex items-center justify-center">
-            <AuthLicenseImage url={licenseUrl} alt="营业执照" className="w-full h-full object-contain" />
+            <AuthLicenseImage url={licenseUrl} alt={t("authEnterpriseLicense")} className="w-full h-full object-contain" />
           </div>
           <div className="flex-1">
-            <p className="text-xs text-success-600 font-medium">营业执照已上传</p>
-            <p className="text-xs text-muted-foreground mt-1">点击图片可查看大图</p>
+            <p className="text-xs text-success-600 font-medium">{t("entLicenseUploaded")}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t("entLicenseClickZoom")}</p>
           </div>
         </div>
       ) : (
         <div className="flex items-center gap-4">
           <div className="w-40 h-28 rounded border border-dashed border-border bg-secondary-50 flex items-center justify-center">
-            <span className="text-xs text-muted-foreground">暂无</span>
+            <span className="text-xs text-muted-foreground">{t("uiNone")}</span>
           </div>
           <div className="flex-1">
-            <p className="text-xs text-muted-foreground">尚未上传营业执照</p>
+            <p className="text-xs text-muted-foreground">{t("entLicenseNotUploaded")}</p>
           </div>
         </div>
       )}

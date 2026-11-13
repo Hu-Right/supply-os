@@ -244,10 +244,10 @@ export default function TrainingPaymentModal({
       chooseExtra={
         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
           <p className="text-sm font-bold text-emerald-800">
-            ✓ {registrationIds?.length ?? 0} {t("tlPaymentParticipants")}信息已提交
+            ✓ {t("trainingPaySubmittedTitle", { n: registrationIds?.length ?? 0 })}
           </p>
           <p className="mt-1 text-xs text-emerald-600">
-            学员名单已随报名保存，支付成功即可开课
+            {t("trainingPaySubmittedDesc")}
           </p>
         </div>
       }

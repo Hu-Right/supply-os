@@ -77,16 +77,16 @@ export function LicenseUploadSection({
         {value ? (
           <div className="flex items-center gap-4">
             <div className="w-32 h-24 rounded border border-border overflow-hidden bg-secondary-50 flex items-center justify-center">
-              <AuthLicenseImage url={value} alt="营业执照" className="w-full h-full object-contain" />
+              <AuthLicenseImage url={value} alt={t("authEnterpriseLicense")} className="w-full h-full object-contain" />
             </div>
             <div className="flex-1 space-y-2">
-              <p className="text-xs text-success-600 font-medium">营业执照已上传</p>
+              <p className="text-xs text-success-600 font-medium">{t("entLicenseUploaded")}</p>
               <button
                 type="button"
                 onClick={() => onChange("")}
                 className="text-xs text-danger-500 hover:text-danger-700 flex items-center gap-1"
               >
-                <X className="w-3 h-3" /> 移除执照
+                <X className="w-3 h-3" /> {t("entLicenseRemove")}
               </button>
             </div>
           </div>
@@ -96,7 +96,7 @@ export function LicenseUploadSection({
               <ImageIcon className="w-8 h-8 text-muted-foreground" />
             </div>
             <div className="flex-1 space-y-2">
-              <p className="text-xs text-muted-foreground">请上传营业执照（JPG/PNG/WebP，最大 5MB）</p>
+              <p className="text-xs text-muted-foreground">{t("entLicenseUploadHint")}</p>
               <input
                 ref={fileInputRef}
                 type="file"
