@@ -34,7 +34,6 @@ export interface UnifiedOrderRow {
   order_type: string;
   original_order_no: string | null;
   industry_code: string | null;
-  notice_id: number | null;
   granted_subscription_id: number | null;
   granted_registration_id: number | null;
   items_snapshot: Record<string, unknown> | null;
@@ -153,7 +152,6 @@ export function orderFromMembershipRow(row: MembershipOrderRow, name?: string): 
     order_type: row.order_type === "upgrade" ? "upgrade" : "new",
     original_order_no: orNull(row.original_order_no),
     industry_code: orNull(row.industry_code),
-    notice_id: orNull(row.notice_id),
     granted_subscription_id: null,
     granted_registration_id: null,
     items_snapshot: null,
@@ -206,7 +204,6 @@ export function orderFromLearningRow(
     order_type: "new",
     original_order_no: null,
     industry_code: null,
-    notice_id: null,
     granted_subscription_id: null,
     granted_registration_id: null,
     items_snapshot: itemsSnapshot,
@@ -243,7 +240,6 @@ export function orderFromServiceRow(row: ServiceOrderRow, name?: string): Unifie
     order_type: "new",
     original_order_no: null,
     industry_code: null,
-    notice_id: null,
     granted_subscription_id: orNull(row.granted_subscription_id),
     granted_registration_id: null,
     items_snapshot: row.sale_mode_snapshot
@@ -281,7 +277,6 @@ export function orderFromTrainingRow(row: TrainingOrderRow, name?: string): Unif
     order_type: "new",
     original_order_no: null,
     industry_code: null,
-    notice_id: null,
     granted_subscription_id: null,
     granted_registration_id: orNull(row.registration_id),
     items_snapshot: {
@@ -302,7 +297,7 @@ export const ORDERS_COLUMNS = [
   "order_no", "user_id", "product_kind", "product_code", "product_name",
   "unit_price", "quantity", "amount", "currency", "status",
   "provider", "provider_trade_no", "pay_url", "qr_code_url", "order_type", "original_order_no",
-  "industry_code", "notice_id", "granted_subscription_id", "granted_registration_id",
+  "industry_code", "granted_subscription_id", "granted_registration_id",
   "items_snapshot", "raw_request", "raw_notify", "paid_at", "expires_at",
   "created_at", "updated_at",
 ] as const;

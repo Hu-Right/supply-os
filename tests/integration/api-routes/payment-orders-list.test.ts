@@ -17,7 +17,9 @@ vi.mock("@/lib/middleware/auth", () => ({
 }));
 
 const ORDER_ROW = {
-  order_no: "SO20260903AAA", user_id: 7, provider: "alipay", plan_code: "pro",
+  order_no: "SO20260903AAA", user_id: 7, provider: "alipay",
+  // 2026-11-12 统一表行形状：kind/code 两列，planCode 由 legacyProductCode 还原
+  product_kind: "plan", product_code: "pro",
   notice_id: 5, amount: "999.00", currency: "CNY", status: "paid",
   provider_trade_no: "T1", paid_at: new Date("2026-09-03T08:00:00Z"),
   created_at: new Date("2026-09-03T07:00:00Z"), updated_at: null,
@@ -76,7 +78,8 @@ describe("GET /api/payment/orders — 订单历史响应键", () => {
       userId: 7,
       businessType: "membership",
       planCode: "pro",
-      noticeId: 5,
+      // notice_id 列已随 009 退役：键位保留恒 null（红线②契约不减键）
+      noticeId: null,
       providerTradeNo: "T1",
       amount: 999,
     });

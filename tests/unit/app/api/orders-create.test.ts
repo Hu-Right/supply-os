@@ -70,7 +70,7 @@ beforeEach(() => {
 });
 
 describe("POST /api/orders 商品码翻译", () => {
-  it("kind=plan：码原样下发，附带 industry_code / order_type 透传", async () => {
+  it("kind=plan：码原样下发，附带 industry_code / order_type 透传；notice_id 已退役不再透传", async () => {
     const res = await POST(post({
       product_kind: "plan", product_code: "business", provider: "mock",
       industry_code: "UGT-85", order_type: "upgrade", original_plan_code: "basic", notice_id: 5001,
@@ -80,8 +80,10 @@ describe("POST /api/orders 商品码翻译", () => {
     const arg = mocks.createMembershipOrder.mock.calls[0][0];
     expect(arg).toMatchObject({
       plan_code: "business", industry_code: "UGT-85",
-      order_type: "upgrade", original_plan_code: "basic", notice_id: 5001,
+      order_type: "upgrade", original_plan_code: "basic",
     });
+    // notice_id 列已随 009 退役：请求体携带也不下传（防静默复活）
+    expect(arg).not.toHaveProperty("notice_id");
   });
 
   it("kind=material：裸目录主键自动补命名空间前缀", async () => {

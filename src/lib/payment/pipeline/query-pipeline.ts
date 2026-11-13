@@ -24,7 +24,8 @@ export interface QueryableOrderRow {
   amount?: number | string;
   currency?: string;
   paid_at?: Date | string | null;
-  notice_id?: number | null;
+  /** notice_id 列已随 009 退役；键位仅为兼容旧调用方，恒空 */
+  notice_id?: undefined;
 }
 
 /** 查询管道输入 */
@@ -91,7 +92,7 @@ export async function queryOrderWithGatewayPoll(
       currency: dbOrder.currency || "CNY",
       providerTradeNo: dbOrder.provider_trade_no || undefined,
       paidAt: dbOrder.paid_at ? new Date(dbOrder.paid_at as string).toISOString() : undefined,
-      noticeId: dbOrder.notice_id ?? null,
+      noticeId: null, // notice_id 已随 009 退役（对外契约键位保留，红线②）
     };
   }
 
@@ -113,7 +114,7 @@ export async function queryOrderWithGatewayPoll(
           currency: dbOrder.currency || "CNY",
           providerTradeNo: result.provider_trade_no,
           paidAt: new Date().toISOString(),
-          noticeId: dbOrder.notice_id ?? null,
+          noticeId: null, // notice_id 已随 009 退役（对外契约键位保留，红线②）
         };
       }
 
@@ -127,7 +128,7 @@ export async function queryOrderWithGatewayPoll(
           amount: Number(dbOrder.amount || 0),
           currency: dbOrder.currency || "CNY",
           providerTradeNo: result.provider_trade_no,
-          noticeId: dbOrder.notice_id ?? null,
+          noticeId: null, // notice_id 已随 009 退役（对外契约键位保留，红线②）
         };
       }
     } catch {
@@ -145,6 +146,6 @@ export async function queryOrderWithGatewayPoll(
     currency: dbOrder.currency || "CNY",
     providerTradeNo: dbOrder.provider_trade_no || undefined,
     paidAt: dbOrder.paid_at ? new Date(dbOrder.paid_at as string).toISOString() : undefined,
-    noticeId: dbOrder.notice_id ?? null,
+    noticeId: null, // notice_id 已随 009 退役（对外契约键位保留，红线②）
   };
 }

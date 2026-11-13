@@ -27,7 +27,6 @@ export interface FulfillableOrderRow {
   plan_code?: string;
   amount?: number | string;
   order_type?: string;
-  notice_id?: number | null;
   [key: string]: unknown;
 }
 

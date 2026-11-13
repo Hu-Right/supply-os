@@ -120,7 +120,6 @@ export async function createOrder(
       result = await paymentService.createOrder({
         user_id: userId,
         plan_code: planCode,
-        notice_id: body.notice_id ? Number(body.notice_id) : null,
         industry_code: String(body.industry_code || ""),
         provider,
         return_url: String(body.return_url || ""),
@@ -227,7 +226,6 @@ export function translateProductRequest(input: Record<string, unknown>): Transla
       provider: input.provider,
       return_url: input.return_url,
       industry_code: input.industry_code,
-      notice_id: input.notice_id,
       order_type: input.order_type,
       original_plan_code: input.original_plan_code,
       amount: input.amount,
