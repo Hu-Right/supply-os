@@ -781,5 +781,6 @@
   "diagGoClaim": "Claim this company",
   "supScorecardTitle": "Bid Capability Scorecard",
   "supScorecardTotal": "Overall score",
-  "supScorecardEvaluatedAt": "Evaluated on"
+  "supScorecardEvaluatedAt": "Evaluated on",
+  "rfq_auth_next_step": "Sign the publication authorization"
 }

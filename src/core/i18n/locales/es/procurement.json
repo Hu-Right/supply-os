@@ -781,5 +781,6 @@
   "diagGoClaim": "Reclamar esta empresa",
   "supScorecardTitle": "Evaluación de capacidad de licitación",
   "supScorecardTotal": "Puntuación global",
-  "supScorecardEvaluatedAt": "Evaluado el"
+  "supScorecardEvaluatedAt": "Evaluado el",
+  "rfq_auth_next_step": "Firmar la autorización de publicación"
 }

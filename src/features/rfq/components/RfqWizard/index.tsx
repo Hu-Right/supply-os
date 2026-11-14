@@ -80,6 +80,8 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
   const [termsOpen, setTermsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // 提交成功的需求 id：成功态据此跳授权书签署页（七步流程第 4/5 步）
+  const [submittedDemandId, setSubmittedDemandId] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // ── 品目分类（UGT 骨架树）：一级 = 32 个 L1 行，二级 = 中类，三级 = 小类（发布定位到小类）──
@@ -218,6 +220,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
       const demandId = res?.id;
       if (!demandId) throw new Error(t("rfqCreateFailed"));
       await api(`/api/rfq/demands/${demandId}/submit`, { method: "POST", body: {} });
+      setSubmittedDemandId(demandId);
       setSubmitted(true);
     } catch (err) {
       const msg = (err as Error).message || "";
@@ -239,8 +242,11 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
         <h3 className="text-lg font-extrabold text-secondary-900 mb-2">{t("rfqSubmittedTitle")}</h3>
         <p className="text-sm text-secondary-500 mb-6">{t("rfqSubmittedDesc")}</p>
         <div className="flex items-center justify-center gap-3">
+          <Button variant="primary" onClick={() => { if (submittedDemandId) router.push(`/settings/rfq/${submittedDemandId}/authorization-letter`); }}>
+            {t("rfq_auth_next_step")}
+          </Button>
           <Button variant="outline" onClick={() => router.push("/settings/rfq")}>{t("rfqViewMyRfqs")}</Button>
-          <Button variant="primary" onClick={() => { setSubmitted(false); setForm(DEFAULT_RFQ_FORM); setStep(0); }}>
+          <Button variant="outline" onClick={() => { setSubmitted(false); setForm(DEFAULT_RFQ_FORM); setStep(0); }}>
             {t("rfqPublishNew")}
           </Button>
         </div>

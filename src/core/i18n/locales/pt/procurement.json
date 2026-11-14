@@ -781,5 +781,6 @@
   "diagGoClaim": "Reivindicar esta empresa",
   "supScorecardTitle": "Avaliação da capacidade de concorrência",
   "supScorecardTotal": "Pontuação global",
-  "supScorecardEvaluatedAt": "Avaliado em"
+  "supScorecardEvaluatedAt": "Avaliado em",
+  "rfq_auth_next_step": "Assinar a autorização de publicação"
 }

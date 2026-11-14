@@ -781,5 +781,6 @@
   "diagGoClaim": "المطالبة بهذه الشركة",
   "supScorecardTitle": "تقييم القدرة على المناقصة",
   "supScorecardTotal": "النتيجة الإجمالية",
-  "supScorecardEvaluatedAt": "تاريخ التقييم:"
+  "supScorecardEvaluatedAt": "تاريخ التقييم:",
+  "rfq_auth_next_step": "وقّع تصريح النشر"
 }

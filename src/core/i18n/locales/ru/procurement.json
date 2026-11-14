@@ -781,5 +781,6 @@
   "diagGoClaim": "Заявить права на компанию",
   "supScorecardTitle": "Оценка тендерных возможностей",
   "supScorecardTotal": "Общий балл",
-  "supScorecardEvaluatedAt": "Дата оценки:"
+  "supScorecardEvaluatedAt": "Дата оценки:",
+  "rfq_auth_next_step": "Подписать разрешение на публикацию"
 }

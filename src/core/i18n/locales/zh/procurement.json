@@ -781,5 +781,6 @@
   "diagGoClaim": "去认领这家企业",
   "supScorecardTitle": "投标能力评估",
   "supScorecardTotal": "综合评分",
-  "supScorecardEvaluatedAt": "评估于"
+  "supScorecardEvaluatedAt": "评估于",
+  "rfq_auth_next_step": "签署发布授权书"
 }

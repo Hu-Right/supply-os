@@ -781,5 +781,6 @@
   "diagGoClaim": "Revendiquer cette entreprise",
   "supScorecardTitle": "Évaluation de la capacité d'appel d'offres",
   "supScorecardTotal": "Score global",
-  "supScorecardEvaluatedAt": "Évalué le"
+  "supScorecardEvaluatedAt": "Évalué le",
+  "rfq_auth_next_step": "Signer l'autorisation de publication"
 }
