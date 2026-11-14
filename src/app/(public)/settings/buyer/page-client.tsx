@@ -29,7 +29,7 @@ export default function PageClient() {
     website: "", officialEmail: "", officialPhone: "",
     leaderName: "", leaderTitle: "", leaderPhone: "", leaderEmail: "",
     deliverCountry: "", deliverCity: "", fundSource: "own", budgetStatus: "approved", externalRules: "",
-    authContactName: "", authContactPhone: "", authContactEmail: "",
+    authContactName: "", authContactPhone: "", authContactEmail: "", procurementExperience: "",
   });
   const [licenseFile, setLicenseFile] = useState<File[]>([]);
   const [licenseError, setLicenseError] = useState("");
@@ -53,6 +53,7 @@ export default function PageClient() {
           deliverCountry: b.deliverCountry, deliverCity: b.deliverCity,
           fundSource: b.fundSource || "own", budgetStatus: b.budgetStatus || "approved", externalRules: b.externalRules,
           authContactName: b.authContactName || "", authContactPhone: b.authContactPhone || "", authContactEmail: b.authContactEmail || "",
+          procurementExperience: b.procurementExperience || "",
         }));
       }
     } finally {
@@ -246,6 +247,17 @@ export default function PageClient() {
                 <option key={v} value={v}>{t(`pc_bfund_${v}`)}</option>
               ))}
             </select>
+          </label>
+          <label className={labelCls}>{t("pc_bbudgetstatus")}
+            <select value={form.budgetStatus} onChange={(e) => f("budgetStatus", e.target.value)} className={inputCls}>
+              {["approved", "partial", "pending", "applying"].map((v) => (
+                <option key={v} value={v}>{t(`pc_budget_${v}`)}</option>
+              ))}
+            </select>
+          </label>
+          <label className={labelCls}>{t("pc_bexternalrules")}<input value={form.externalRules} onChange={(e) => f("externalRules", e.target.value)} className={inputCls} /></label>
+          <label className={`${labelCls} sm:col-span-2`}>{t("pc_bexperience")}
+            <textarea value={form.procurementExperience} onChange={(e) => f("procurementExperience", e.target.value)} rows={2} className={inputCls} />
           </label>
         </div>
 

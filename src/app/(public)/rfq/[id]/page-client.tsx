@@ -72,7 +72,10 @@ function RfqDetailContent() {
         <div className="mt-6 grid gap-3 sm:grid-cols-2 text-sm text-secondary-700">
           <div>{t2("采购性质", "Purpose")}: {detail.purpose}</div>
           <div>{t2("需求对象", "Scope")}: {detail.objectTypes.join(" / ")}</div>
+          {detail.usageEnv && <div className="sm:col-span-2">{t2("用途及使用环境", "Usage & environment")}: {detail.usageEnv}</div>}
+          {detail.standards && <div className="sm:col-span-2">{t2("强制标准/认证", "Mandatory standards")}: {detail.standards}</div>}
           <div>{t2("交付地", "Delivery")}: {detail.deliveryCountry} {detail.deliveryCity} {detail.deliveryAddress}</div>
+          {detail.batchDelivery && <div>{t2("分批采购/交付", "Batch delivery")}: {detail.batchNote || t2("是", "Yes")}</div>}
           {detail.budgetAmount != null && (
             <div>{t2("预算", "Budget")}: {detail.budgetAmount} {detail.budgetCurrency}</div>
           )}
@@ -80,7 +83,8 @@ function RfqDetailContent() {
             <div>{t2("报价截止", "Quote deadline")}: {new Date(detail.quoteDeadlineAt * 1000).toISOString().slice(0, 10)}</div>
           )}
           {detail.deadlineDate && <div>{t2("最晚交付", "Latest delivery")}: {detail.deadlineDate}</div>}
-          {detail.incoterm && <div>Incoterms: {detail.incoterm}</div>}
+          {detail.incoterm && <div>Incoterms: {detail.incoterm} {detail.incotermVersion}</div>}
+          {detail.logisticsNote && <div className="sm:col-span-2">{t2("运输/包装/清关", "Logistics")}: {detail.logisticsNote}</div>}
           {detail.paymentTerms && <div>{t2("付款条件", "Payment")}: {detail.paymentTerms}</div>}
           {detail.installNeeds.length > 0 && <div>{t2("交付服务", "Services")}: {detail.installNeeds.join(" / ")}</div>}
           {detail.guarantees.length > 0 && <div>{t2("保函要求", "Guarantees")}: {detail.guarantees.join(" / ")}</div>}

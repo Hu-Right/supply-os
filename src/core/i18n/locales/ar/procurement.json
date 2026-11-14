@@ -1001,5 +1001,20 @@
   "pc_bverify_history": "سجل التحقق",
   "pc_bvk_identity": "هوية الجهة",
   "pc_bvk_authorization": "تفويض الشراء",
-  "pc_bvk_fund": "التمويل"
+  "pc_bvk_fund": "التمويل",
+  "pc_usageEnv": "الاستخدام وبيئة التشغيل",
+  "pc_standards": "المعايير / الشهادات الإلزامية",
+  "pc_incotermVersion": "إصدار Incoterms",
+  "pc_batchDelivery": "الشراء / التسليم على دفعات",
+  "pc_batchNote": "تفاصيل الدفعات (عدد الدفعات، التكرار، الكمية لكل دفعة)",
+  "pc_logisticsNote": "متطلبات النقل / التغليف / التخليص",
+  "pc_attach_requirement": "مستند الطلب",
+  "pc_attach_tech_doc": "المواصفات الفنية",
+  "pc_attach_drawing": "مخطط",
+  "pc_attach_bom": "قائمة المواد (BOM)",
+  "pc_attach_sample": "صورة العينة",
+  "pc_attach_other": "أخرى",
+  "pc_bexperience": "خبرة الشراء (مناقصات/طلبات نُشرت على منصات أخرى)",
+  "pc_bbudgetstatus": "حالة اعتماد الميزانية",
+  "pc_bexternalrules": "قواعد الشراء الخارجية المطبقة (البنك الدولي / الأمم المتحدة / الحكومة)"
 }

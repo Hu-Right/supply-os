@@ -30,6 +30,7 @@ export interface BuyerInfo {
   authContactName: string;
   authContactPhone: string;
   authContactEmail: string;
+  procurementExperience: string;
   status: string;
   verifiedAt: number | null;
   verifyNote: string;
@@ -59,6 +60,11 @@ export interface ProjectSummary {
 export interface ProjectDetail extends ProjectSummary {
   background: string;
   internalProjectNo: string;
+  usageEnv: string;
+  standards: string;
+  incotermVersion: string;
+  batchDelivery: boolean;
+  batchNote: string;
   budgetApproved: string;
   deliveryAddress: string;
   deadlineDate: string;

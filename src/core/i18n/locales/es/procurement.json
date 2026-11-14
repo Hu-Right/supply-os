@@ -1001,5 +1001,20 @@
   "pc_bverify_history": "Historial de verificación",
   "pc_bvk_identity": "Identidad de la entidad",
   "pc_bvk_authorization": "Autorización de compra",
-  "pc_bvk_fund": "Financiación"
+  "pc_bvk_fund": "Financiación",
+  "pc_usageEnv": "Uso y entorno de utilización",
+  "pc_standards": "Normas / certificaciones obligatorias",
+  "pc_incotermVersion": "Versión de Incoterms",
+  "pc_batchDelivery": "Compra / entrega por lotes",
+  "pc_batchNote": "Detalles de lotes (lotes, frecuencia, cantidad por lote)",
+  "pc_logisticsNote": "Requisitos de transporte / embalaje / aduana",
+  "pc_attach_requirement": "Documento de necesidad",
+  "pc_attach_tech_doc": "Especificación técnica",
+  "pc_attach_drawing": "Plano",
+  "pc_attach_bom": "Lista de materiales (BOM)",
+  "pc_attach_sample": "Foto de muestra",
+  "pc_attach_other": "Otro",
+  "pc_bexperience": "Experiencia de compra (licitaciones/pedidos publicados en otras plataformas)",
+  "pc_bbudgetstatus": "Estado de aprobación del presupuesto",
+  "pc_bexternalrules": "Normas externas de compra aplicables (Banco Mundial / ONU / gobierno)"
 }

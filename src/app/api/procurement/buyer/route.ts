@@ -79,6 +79,7 @@ export const PUT = withRoute(async (req: NextRequest) => {
         ...(body.authContactName !== undefined ? { auth_contact_name: body.authContactName } : {}),
         ...(body.authContactPhone !== undefined ? { auth_contact_phone: body.authContactPhone } : {}),
         ...(body.authContactEmail !== undefined ? { auth_contact_email: body.authContactEmail } : {}),
+        ...(body.procurementExperience !== undefined ? { procurement_experience: body.procurementExperience } : {}),
       },
     });
     const row = await getBuyerByUserId(getPool(), auth.userId);

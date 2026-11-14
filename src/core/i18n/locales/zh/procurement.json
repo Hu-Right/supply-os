@@ -1001,5 +1001,20 @@
   "pc_bverify_history": "核验记录",
   "pc_bvk_identity": "主体身份",
   "pc_bvk_authorization": "采购授权",
-  "pc_bvk_fund": "资金"
+  "pc_bvk_fund": "资金",
+  "pc_usageEnv": "用途及使用环境",
+  "pc_standards": "强制标准/认证要求",
+  "pc_incotermVersion": "Incoterms 版本",
+  "pc_batchDelivery": "分批采购/交付",
+  "pc_batchNote": "分批说明（批次/频次/每批数量）",
+  "pc_logisticsNote": "运输/包装/清关要求",
+  "pc_attach_requirement": "需求文件",
+  "pc_attach_tech_doc": "技术需求书",
+  "pc_attach_drawing": "图纸",
+  "pc_attach_bom": "BOM 清单",
+  "pc_attach_sample": "样品照片",
+  "pc_attach_other": "其他",
+  "pc_bexperience": "采购经验（是否在其他平台发布过招标/采购订单）",
+  "pc_bbudgetstatus": "预算批准状态",
+  "pc_bexternalrules": "适用外部采购规则（世行/联合国/政府等）"
 }

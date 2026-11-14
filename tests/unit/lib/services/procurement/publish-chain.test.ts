@@ -57,6 +57,11 @@ describe("normalizeProjectFields — camel/snake 双入口", () => {
       objectTypes: ["goods", "service"],
       installNeeds: ["training"],
       deliveryAddress: "内罗毕",
+      usageEnv: "教室",
+      standards: "ISO 9001",
+      incotermVersion: "2020",
+      batchDelivery: 1,
+      batchNote: "两批",
       status: "published", // 状态列不可编辑，必须丢弃
       unknownKey: "x",
     });
@@ -67,6 +72,11 @@ describe("normalizeProjectFields — camel/snake 双入口", () => {
       object_types: "goods,service",
       install_needs: "training",
       delivery_address: "内罗毕",
+      usage_env: "教室",
+      standards: "ISO 9001",
+      incoterm_version: "2020",
+      batch_delivery: 1,
+      batch_note: "两批",
     });
     expect(out).not.toHaveProperty("status");
     expect(out).not.toHaveProperty("unknown_key");
@@ -199,7 +209,9 @@ describe("projectDetailViewOf — 公开详情给供应商脱敏明细", () => {
     expect(view).not.toHaveProperty("attachments");
     expect(view).not.toHaveProperty("reviews");
     expect(view.internalProjectNo).toBe("");
-    expect(view.deliveryAddress).toBe("");
+    // 交付地址/物流要求属需求信息（供应商报价必需），公开；预算/附件/核验记录仍受控
+    expect(view.deliveryAddress).toBe("某学校");
+    expect(view.logisticsNote).toBe("特殊包装");
     expect(view.budgetAmount).toBeNull();
   });
 

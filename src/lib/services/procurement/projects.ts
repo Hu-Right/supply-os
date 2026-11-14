@@ -26,6 +26,11 @@ export interface ProjectRow extends RowDataPacket {
   purpose: string;
   internal_project_no: string | null;
   object_types: string;
+  usage_env: string | null;
+  standards: string | null;
+  incoterm_version: string | null;
+  batch_delivery: number;
+  batch_note: string | null;
   budget_amount: string | number | null;
   budget_currency: string;
   budget_public: number;
@@ -67,6 +72,11 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "purpose",
   "internal_project_no",
   "object_types",
+  "usage_env",
+  "standards",
+  "incoterm_version",
+  "batch_delivery",
+  "batch_note",
   "budget_amount",
   "budget_currency",
   "budget_public",

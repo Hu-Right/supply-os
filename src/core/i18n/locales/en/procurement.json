@@ -1001,5 +1001,20 @@
   "pc_bverify_history": "Verification history",
   "pc_bvk_identity": "Entity identity",
   "pc_bvk_authorization": "Procurement authorization",
-  "pc_bvk_fund": "Funding"
+  "pc_bvk_fund": "Funding",
+  "pc_usageEnv": "Usage and operating environment",
+  "pc_standards": "Mandatory standards / certifications",
+  "pc_incotermVersion": "Incoterms version",
+  "pc_batchDelivery": "Batch procurement / delivery",
+  "pc_batchNote": "Batch details (batches, frequency, quantity per batch)",
+  "pc_logisticsNote": "Transport / packaging / customs requirements",
+  "pc_attach_requirement": "Requirement document",
+  "pc_attach_tech_doc": "Technical specification",
+  "pc_attach_drawing": "Drawing",
+  "pc_attach_bom": "BOM",
+  "pc_attach_sample": "Sample photo",
+  "pc_attach_other": "Other",
+  "pc_bexperience": "Procurement experience (tenders/orders published on other platforms)",
+  "pc_bbudgetstatus": "Budget approval status",
+  "pc_bexternalrules": "Applicable external procurement rules (World Bank / UN / government)"
 }

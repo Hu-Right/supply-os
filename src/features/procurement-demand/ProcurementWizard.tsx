@@ -33,6 +33,8 @@ interface FormState {
   purpose: string;
   internalProjectNo: string;
   objectTypes: string[];
+  usageEnv: string;
+  standards: string;
   categoryL1: string;
   categoryL2: string;
   categoryL3: string;
@@ -46,8 +48,12 @@ interface FormState {
   deadlineDate: string;
   installNeeds: string[];
   incoterm: string;
+  incotermVersion: string;
   paymentTerms: string;
   guarantees: string[];
+  batchDelivery: boolean;
+  batchNote: string;
+  logisticsNote: string;
   manufacturerOnly: boolean;
   supplierQuals: string;
   supplierCountryLimit: string;
@@ -67,6 +73,8 @@ const DEFAULT_FORM: FormState = {
   purpose: "real",
   internalProjectNo: "",
   objectTypes: ["goods"],
+  usageEnv: "",
+  standards: "",
   categoryL1: "",
   categoryL2: "",
   categoryL3: "",
@@ -80,8 +88,12 @@ const DEFAULT_FORM: FormState = {
   deadlineDate: "",
   installNeeds: [],
   incoterm: "",
+  incotermVersion: "",
   paymentTerms: "",
   guarantees: [],
+  batchDelivery: false,
+  batchNote: "",
+  logisticsNote: "",
   manufacturerOnly: false,
   supplierQuals: "",
   supplierCountryLimit: "",
@@ -101,6 +113,8 @@ const INCOTERM_OPTIONS = ["EXW", "FOB", "CIF", "DDP"];
 const INSTALL_NEEDS = ["installation", "commissioning", "training"];
 const GUARANTEES = ["bid_bond", "performance_bond", "warranty_deposit"];
 const CONTACT_DISCLOSURE = ["none", "org_only", "org_contact", "budget_all"];
+const ATTACHMENT_KINDS = ["requirement", "tech_doc", "drawing", "bom", "sample", "other"];
+const INCOTERM_VERSIONS = ["2020", "2010"];
 
 interface ItemRow {
   lotNo: string;
@@ -122,6 +136,7 @@ export function ProcurementWizard(props: { editId?: number }) {
     { lotNo: "", nameZh: "", spec: "", quantity: "", qtyUnit: "件", qtyType: "fixed", alternativesAllowed: true },
   ]);
   const [files, setFiles] = useState<File[]>([]);
+  const [attachKind, setAttachKind] = useState("requirement");
   const [l1Options, setL1Options] = useState<CommodityTreeOption[]>([]);
   const [l2Options, setL2Options] = useState<CommodityTreeOption[]>([]);
   const [l3Options, setL3Options] = useState<CommodityTreeOption[]>([]);
@@ -171,6 +186,8 @@ export function ProcurementWizard(props: { editId?: number }) {
           purpose: d.purpose || "real",
           internalProjectNo: d.internalProjectNo,
           objectTypes: d.objectTypes.length ? d.objectTypes : ["goods"],
+          usageEnv: d.usageEnv || "",
+          standards: d.standards || "",
           budgetAmount: d.budgetAmount == null ? "" : String(d.budgetAmount),
           budgetCurrency: d.budgetCurrency || "CNY",
           budgetPublic: d.budgetPublic ?? d.budgetAmount != null,
@@ -181,8 +198,12 @@ export function ProcurementWizard(props: { editId?: number }) {
           deadlineDate: d.deadlineDate,
           installNeeds: d.installNeeds,
           incoterm: d.incoterm,
+          incotermVersion: d.incotermVersion || "",
           paymentTerms: d.paymentTerms,
           guarantees: d.guarantees,
+          batchDelivery: Boolean(d.batchDelivery),
+          batchNote: d.batchNote || "",
+          logisticsNote: d.logisticsNote || "",
           manufacturerOnly: d.manufacturerOnly,
           supplierQuals: d.supplierQuals,
           supplierCountryLimit: d.supplierCountryLimit,
@@ -225,6 +246,8 @@ export function ProcurementWizard(props: { editId?: number }) {
     purpose: form.purpose,
     internalProjectNo: form.internalProjectNo.trim() || null,
     objectTypes: form.objectTypes.join(",") || "goods",
+    usageEnv: form.usageEnv.trim() || null,
+    standards: form.standards.trim() || null,
     budgetAmount: form.budgetAmount === "" ? null : Number(form.budgetAmount),
     budgetCurrency: form.budgetCurrency,
     budgetPublic: form.budgetPublic ? 1 : 0,
@@ -234,10 +257,13 @@ export function ProcurementWizard(props: { editId?: number }) {
     deliveryAddress: form.deliveryAddress.trim() || null,
     deadlineDate: form.deadlineDate || null,
     installNeeds: form.installNeeds.join(",") || null,
-    logisticsNote: null,
+    logisticsNote: form.logisticsNote.trim() || null,
     incoterm: form.incoterm || null,
+    incotermVersion: form.incotermVersion || null,
     paymentTerms: form.paymentTerms.trim() || null,
     guarantees: form.guarantees.join(",") || null,
+    batchDelivery: form.batchDelivery ? 1 : 0,
+    batchNote: form.batchNote.trim() || null,
     supplierCountryLimit: form.supplierCountryLimit.trim() || null,
     manufacturerOnly: form.manufacturerOnly ? 1 : 0,
     supplierQuals: form.supplierQuals.trim() || null,
@@ -280,7 +306,7 @@ export function ProcurementWizard(props: { editId?: number }) {
     for (const f of files) {
       const fd = new FormData();
       fd.append("file", f);
-      fd.append("kind", "requirement");
+      fd.append("kind", attachKind);
       await api(`/api/procurement/projects/${pid}/attachments`, { method: "POST", body: fd });
     }
     return pid;
@@ -388,6 +414,14 @@ export function ProcurementWizard(props: { editId?: number }) {
 
       {step === 1 && (
         <div className="grid gap-4">
+          <label className="text-sm font-semibold text-secondary-700">
+            {t("pc_usageEnv")}
+            <textarea value={form.usageEnv} onChange={(e) => field("usageEnv", e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+          </label>
+          <label className="text-sm font-semibold text-secondary-700">
+            {t("pc_standards")}
+            <textarea value={form.standards} onChange={(e) => field("standards", e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+          </label>
           <div className="text-sm font-semibold text-secondary-700">
             {t("pc_category")} *
             <div className="mt-1 grid gap-2 sm:grid-cols-3">
@@ -444,6 +478,9 @@ export function ProcurementWizard(props: { editId?: number }) {
           <div className="text-sm font-semibold text-secondary-700">
             {t("pc_attachments")}
             <div className="mt-1">
+              <select value={attachKind} onChange={(e) => setAttachKind(e.target.value)} className="mb-2 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm sm:w-64">
+                {ATTACHMENT_KINDS.map((k) => <option key={k} value={k}>{t(`pc_attach_${k}`)}</option>)}
+              </select>
               <FileDropzone
                 accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.zip"
                 maxSizeBytes={20 * 1024 * 1024}
@@ -503,12 +540,27 @@ export function ProcurementWizard(props: { editId?: number }) {
             <input value={form.deliveryAddress} onChange={(e) => field("deliveryAddress", e.target.value)} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
           </label>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-secondary-700">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={form.batchDelivery} onChange={(e) => field("batchDelivery", e.target.checked)} />
+              {t("pc_batchDelivery")}
+            </label>
+            <input value={form.batchNote} onChange={(e) => field("batchNote", e.target.value)} placeholder={t("pc_batchNote")} className="min-w-64 flex-1 rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
             <label className="text-sm font-semibold text-secondary-700">
               {t("pc_incoterm")}
               <select value={form.incoterm} onChange={(e) => field("incoterm", e.target.value)} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm">
                 <option value="">--</option>
                 {INCOTERM_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </label>
+            <label className="text-sm font-semibold text-secondary-700">
+              {t("pc_incotermVersion")}
+              <select value={form.incotermVersion} onChange={(e) => field("incotermVersion", e.target.value)} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm">
+                <option value="">--</option>
+                {INCOTERM_VERSIONS.map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
             </label>
             <label className="text-sm font-semibold text-secondary-700">
@@ -520,6 +572,11 @@ export function ProcurementWizard(props: { editId?: number }) {
           <label className="text-sm font-semibold text-secondary-700">
             {t("pc_paymentTerms")}
             <textarea value={form.paymentTerms} onChange={(e) => field("paymentTerms", e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+          </label>
+
+          <label className="text-sm font-semibold text-secondary-700">
+            {t("pc_logisticsNote")}
+            <textarea value={form.logisticsNote} onChange={(e) => field("logisticsNote", e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
           </label>
 
           <div className="grid gap-4 sm:grid-cols-2">

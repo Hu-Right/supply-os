@@ -1001,5 +1001,20 @@
   "pc_bverify_history": "История проверок",
   "pc_bvk_identity": "Идентификация организации",
   "pc_bvk_authorization": "Авторизация закупки",
-  "pc_bvk_fund": "Финансирование"
+  "pc_bvk_fund": "Финансирование",
+  "pc_usageEnv": "Назначение и условия эксплуатации",
+  "pc_standards": "Обязательные стандарты / сертификаты",
+  "pc_incotermVersion": "Версия Incoterms",
+  "pc_batchDelivery": "Закупка / поставка партиями",
+  "pc_batchNote": "Параметры партий (количество, частота, объём партии)",
+  "pc_logisticsNote": "Требования к транспорту / упаковке / таможне",
+  "pc_attach_requirement": "Документ потребности",
+  "pc_attach_tech_doc": "Техническое задание",
+  "pc_attach_drawing": "Чертёж",
+  "pc_attach_bom": "Спецификация (BOM)",
+  "pc_attach_sample": "Фото образца",
+  "pc_attach_other": "Другое",
+  "pc_bexperience": "Опыт закупок (тендеры/заказы на других платформах)",
+  "pc_bbudgetstatus": "Статус утверждения бюджета",
+  "pc_bexternalrules": "Применимые внешние правила закупок (Всемирный банк / ООН / государство)"
 }

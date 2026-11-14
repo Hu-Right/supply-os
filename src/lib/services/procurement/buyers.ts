@@ -40,6 +40,7 @@ export interface BuyerRow extends RowDataPacket {
   auth_contact_name: string | null;
   auth_contact_phone: string | null;
   auth_contact_email: string | null;
+  procurement_experience: string | null;
   status: string;
   verified_by: string | null;
   verified_at: number | null;
@@ -76,6 +77,7 @@ const EDITABLE_COLUMNS = [
   "auth_contact_name",
   "auth_contact_phone",
   "auth_contact_email",
+  "procurement_experience",
 ] as const;
 
 export async function getBuyerByUserId(db: Pool, userId: number): Promise<BuyerRow | null> {
