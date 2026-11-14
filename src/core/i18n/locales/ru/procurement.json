@@ -1064,5 +1064,8 @@
   "pc_dedup_official_phone": "Совпадает телефон",
   "pc_copy": "Копировать как новую потребность",
   "pc_copy_ok": "Скопировано в черновик",
-  "pc_risk_email_domain_mismatch": "Домен почты не совпадает с сайтом"
+  "pc_risk_email_domain_mismatch": "Домен почты не совпадает с сайтом",
+  "pc_bauthdoc_print": "Заполнить онлайн и распечатать",
+  "pc_bauthdoc_word": "Скачать шаблон Word",
+  "pc_bauthdoc_pdf": "Скачать шаблон PDF"
 }

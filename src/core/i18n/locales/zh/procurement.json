@@ -1064,5 +1064,8 @@
   "pc_dedup_official_phone": "电话相同",
   "pc_copy": "复制为新需求",
   "pc_copy_ok": "已复制为草稿",
-  "pc_risk_email_domain_mismatch": "企业邮箱域名与官网不一致"
+  "pc_risk_email_domain_mismatch": "企业邮箱域名与官网不一致",
+  "pc_bauthdoc_print": "在线填写并打印",
+  "pc_bauthdoc_word": "下载 Word 模板",
+  "pc_bauthdoc_pdf": "下载 PDF 模板"
 }

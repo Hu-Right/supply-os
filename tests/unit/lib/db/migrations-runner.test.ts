@@ -12,6 +12,8 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import type { Pool, RowDataPacket } from "mysql2/promise";
+import { readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { runMigrations, type Migration } from "@/lib/db/migrations/runner";
 import { ensureProcurementSchema } from "@/lib/db/schema";
 
@@ -104,9 +106,14 @@ describe("runMigrations", () => {
 
 describe("ensureProcurementSchema", () => {
   it("当前所有迁移版本均已应用：调用等价于只做账本检查（幂等，返回 0）", async () => {
-    // ALL_MIGRATIONS 现含 version 1..16（…/procurement_core/procurement_flow/retire_rfq_tables/procurement_publish_chain/buyer_verification_callback/procurement_f01_f02_complete）；
-    // 全部登记为已应用后，pending 为空 → 执行数 0。
-    const { pool } = makePool({ applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] });
+    // 从 migrations 目录推导版本号，避免每加一条迁移就手改测试（曾连续三次因此变红）。
+    const versions = readdirSync(resolve(process.cwd(), "src/lib/db/migrations"))
+      .map((f) => /^(\d{3})-.+\.ts$/.exec(f)?.[1])
+      .filter((v): v is string => Boolean(v))
+      .map(Number)
+      .sort((a, b) => a - b);
+    expect(versions.length).toBeGreaterThan(0);
+    const { pool } = makePool({ applied: versions });
 
     await expect(ensureProcurementSchema(pool)).resolves.toBe(0);
   });

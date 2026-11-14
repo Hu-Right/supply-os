@@ -1064,5 +1064,8 @@
   "pc_dedup_official_phone": "Mismo teléfono",
   "pc_copy": "Copiar como nuevo requerimiento",
   "pc_copy_ok": "Copiado como borrador",
-  "pc_risk_email_domain_mismatch": "El dominio del correo no coincide con el sitio web"
+  "pc_risk_email_domain_mismatch": "El dominio del correo no coincide con el sitio web",
+  "pc_bauthdoc_print": "Completar en línea e imprimir",
+  "pc_bauthdoc_word": "Descargar plantilla Word",
+  "pc_bauthdoc_pdf": "Descargar plantilla PDF"
 }

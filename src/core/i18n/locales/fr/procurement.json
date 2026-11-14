@@ -1064,5 +1064,8 @@
   "pc_dedup_official_phone": "Même téléphone",
   "pc_copy": "Copier comme nouveau besoin",
   "pc_copy_ok": "Copié en brouillon",
-  "pc_risk_email_domain_mismatch": "Le domaine de l'e-mail ne correspond pas au site web"
+  "pc_risk_email_domain_mismatch": "Le domaine de l'e-mail ne correspond pas au site web",
+  "pc_bauthdoc_print": "Remplir en ligne et imprimer",
+  "pc_bauthdoc_word": "Télécharger le modèle Word",
+  "pc_bauthdoc_pdf": "Télécharger le modèle PDF"
 }
