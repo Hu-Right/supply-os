@@ -19,6 +19,7 @@ import {
 } from "@/shared/constants/rfq-demand";
 import { transitionDemandWithin, type TxLike } from "./lifecycle";
 import { upsertProjection, type ProjectionSource } from "./projection";
+import { registerRfqGuard } from "@/lib/services/rfq-guard";
 import { notifyReviewResult } from "./notify";
 
 export interface ReviewDecisionInput {
@@ -80,6 +81,7 @@ function toProjectionSource(row: DemandRow, publishedAt: number): ProjectionSour
     categoryCode: row.category_code,
     provinceName: row.province_name,
     buyerOrgName: row.buyer_org_name,
+    buyerUserId: row.buyer_user_id == null ? null : Number(row.buyer_user_id),
     closeAt: row.close_at == null ? null : Number(row.close_at),
     publishedAt,
     budgetAmount: row.budget_amount == null ? null : Number(row.budget_amount),
@@ -225,6 +227,15 @@ export async function applyReviewDecision(
       );
       if (noticePk && noticePk !== Number(row.notice_pk ?? 0)) {
         await conn.query("UPDATE rfq_demand SET notice_pk = ? WHERE id = ?", [noticePk, input.demandId]);
+      }
+      // 守护登记与投影同事务：登记表是「平台行预期归属」的可靠真相，
+      // 缺登记则 30 分钟一轮的守护对账对 v2 平台行失效（爬虫撞号改写无告警）
+      if (noticePk) {
+        await registerRfqGuard(conn as unknown as Pool, {
+          rfqId: noticePk,
+          reference: String(row.reference ?? ""),
+          userId: row.buyer_user_id == null ? null : Number(row.buyer_user_id),
+        });
       }
     }
 

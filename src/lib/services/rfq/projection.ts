@@ -40,6 +40,8 @@ export interface ProjectionSource {
   categoryCode: string | null;
   provinceName: string | null;
   buyerOrgName: string | null;
+  /** 需求归属人（bid_notices.user_id，rfq_guard 守护对账按它比对归属） */
+  buyerUserId: number | null;
   /** 报价截止（秒） */
   closeAt: number | null;
   /** 发布时间（秒）；缺省用当前时间 */
@@ -72,6 +74,7 @@ export function buildProjectionRow(src: ProjectionSource) {
     currency: src.budgetCurrency,
     budget_confidential: src.budgetConfidential ? 1 : 0,
     organization: src.buyerOrgName ?? null,
+    user_id: src.buyerUserId,
     entry_source: "platform",
     rfq_status: DEMAND_STATUS.PUBLISHED,
   };
@@ -93,6 +96,7 @@ const COLUMNS = [
   "currency",
   "budget_confidential",
   "organization",
+  "user_id",
   "entry_source",
   "rfq_status",
 ] as const;
@@ -121,11 +125,14 @@ export async function upsertProjection(db: Pool, src: ProjectionSource): Promise
   return Number((result as { insertId?: number }).insertId ?? 0);
 }
 
-/** 关闭/撤回时撤下投影：只删本投影写入的那一行（按 id，避免误伤爬虫行） */
+/** 关闭/撤回时撤下投影：只删本投影写入的那一行（按 id，避免误伤爬虫行）。
+ *  v2 语义是**删行**（v1 withdraw 只置 closed 保留行），故必须同步销账 rfq_guard——
+ *  守护对账把「登记在册但主行不存在」视为护栏失效信号，不销账会误报。 */
 export async function removeProjection(db: Pool, noticePk: number | null): Promise<void> {
   if (!noticePk) return;
   await db.query(
     "DELETE FROM bid_notices WHERE id = ? AND entry_source = 'platform' AND notice_type = 'RFQ'",
     [noticePk],
   );
+  await db.query("DELETE FROM rfq_guard WHERE rfq_id = ?", [noticePk]);
 }

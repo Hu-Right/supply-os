@@ -22,6 +22,7 @@ function src(over: Partial<ProjectionSource> = {}): ProjectionSource {
     categoryCode: "UGT-0301",
     provinceName: "陕西省",
     buyerOrgName: "西安某新能源有限公司",
+    buyerUserId: 42,
     closeAt: 1_780_000_000,
     publishedAt: 1_777_000_000,
     budgetAmount: 1200,
@@ -63,6 +64,11 @@ describe("buildProjectionRow — 服务表口径", () => {
     const row = buildProjectionRow(src());
     expect(row.organization).toBe("西安某新能源有限公司");
     expect(Object.keys(row)).not.toContain("agency");
+  });
+
+  it("归属人写 user_id（rfq_guard 守护对账的比对键）", () => {
+    const row = buildProjectionRow(src({ buyerUserId: 77 }));
+    expect(row.user_id).toBe(77);
   });
 
   it("不产出派生列（backbone_path / sync_src_hash 归 builder）", () => {
@@ -115,6 +121,10 @@ describe("upsertProjection / removeProjection", () => {
     expect(String(sql)).toContain("DELETE FROM bid_notices");
     expect(String(sql)).toContain("entry_source = 'platform'");
     expect(params).toEqual([9001]);
+    // v2 撤投影是删行（v1 仅置 closed），必须同步销账 rfq_guard，否则守护对账误报
+    const [sql2, params2] = db.query.mock.calls[1];
+    expect(String(sql2)).toContain("DELETE FROM rfq_guard");
+    expect(params2).toEqual([9001]);
   });
 
   it("无投影时删除是 no-op", async () => {
