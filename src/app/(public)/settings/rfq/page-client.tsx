@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { copyProject, fetchMyProjects, withdrawProject, type ProjectSummary } from "@/features/procurement-demand/api";
+import { ConfirmDialog } from "@/shared/ui";
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "bg-secondary-100 text-secondary-600",
@@ -35,6 +36,10 @@ function PageClientInner() {
   const [authMap, setAuthMap] = useState<Record<number, AuthStatus | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  /** 撤回二次确认目标（统一 ConfirmDialog，不再 window.confirm） */
+  const [withdrawTarget, setWithdrawTarget] = useState<number | null>(null);
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,22 +68,27 @@ function PageClientInner() {
 
   useEffect(() => { load(); }, [load]);
 
-  const onWithdraw = async (id: number) => {
-    if (!window.confirm(t("pc_wb_withdraw_confirm"))) return;
+  const doWithdraw = async () => {
+    if (withdrawTarget == null) return;
+    setWithdrawBusy(true);
+    setNotice("");
     try {
-      await withdrawProject(id);
+      await withdrawProject(withdrawTarget);
+      setWithdrawTarget(null);
       await load();
     } catch (err) {
-      window.alert((err as Error).message);
+      setNotice((err as Error).message || t("pc_err_generic"));
+    } finally {
+      setWithdrawBusy(false);
     }
   };
 
   const onCopy = async (id: number) => {
     try {
       const r = await copyProject(id);
-      router.push(`/settings/rfq/${r.id}/edit`);
+      router.push(`/rfq/${r.id}/publish`);
     } catch (err) {
-      window.alert((err as Error).message);
+      setNotice((err as Error).message || t("pc_err_generic"));
     }
   };
 
@@ -125,6 +135,7 @@ function PageClientInner() {
         </Link>
       </div>
       {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
+      {notice && <div className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{notice}</div>}
       {loading ? (
         <div className="py-10 text-center text-sm text-secondary-400">…</div>
       ) : items.length === 0 ? (
@@ -135,7 +146,12 @@ function PageClientInner() {
             <div key={p.id} className="rounded-xl border border-secondary-200 p-4">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
-                  <Link href={`/rfq/${p.id}`} className="text-sm font-bold text-secondary-900 hover:text-teal-700">{p.titleZh}</Link>
+                  <Link
+                    href={p.status === "draft" || p.status === "need_info" ? `/rfq/${p.id}/publish` : `/rfq/${p.id}`}
+                    className="text-sm font-bold text-secondary-900 hover:text-teal-700"
+                  >
+                    {p.titleZh}
+                  </Link>
                   <div className="mt-1 text-xs text-secondary-400">{p.reference} · v{p.versionNo}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -146,22 +162,22 @@ function PageClientInner() {
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
                 {(p.status === "draft" || p.status === "need_info") && (
-                  <Link className="rounded-lg border border-secondary-300 px-3 py-1.5 font-semibold text-secondary-600" href={`/settings/rfq/${p.id}/edit`}>
+                  <Link className="rounded-lg border border-secondary-300 px-3 py-1.5 font-semibold text-secondary-600" href={`/rfq/${p.id}/publish`}>
                     {t("pc_wb_edit")}
                   </Link>
                 )}
                 {(p.status === "submitted" || p.status === "under_review" || p.status === "published") && (
-                  <Link className="rounded-lg border border-teal-500 px-3 py-1.5 font-semibold text-teal-700" href={`/settings/rfq/${p.id}/authorization-letter`}>
+                  <Link className="rounded-lg border border-teal-500 px-3 py-1.5 font-semibold text-teal-700" href={`/rfq/${p.id}/publish`}>
                     {t("pc_wb_letter")}
                   </Link>
                 )}
                 {p.status === "published" && (
-                  <Link className="rounded-lg border border-secondary-300 px-3 py-1.5 font-semibold text-secondary-600" href={`/settings/rfq/${p.id}/matches`}>
+                  <Link className="rounded-lg border border-secondary-300 px-3 py-1.5 font-semibold text-secondary-600" href={`/rfq/${p.id}/publish#matches`}>
                     {t("pc_wb_matches")}
                   </Link>
                 )}
                 {p.status !== "closed" && (
-                  <button type="button" onClick={() => onWithdraw(p.id)} className="rounded-lg border border-red-200 px-3 py-1.5 font-semibold text-red-600">
+                  <button type="button" onClick={() => setWithdrawTarget(p.id)} className="rounded-lg border border-red-200 px-3 py-1.5 font-semibold text-red-600">
                     {t("pc_wb_withdraw")}
                   </button>
                 )}
@@ -173,6 +189,17 @@ function PageClientInner() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={withdrawTarget != null}
+        onClose={() => setWithdrawTarget(null)}
+        onConfirm={() => void doWithdraw()}
+        title={t("pc_wb_withdraw")}
+        description={t("pc_wb_withdraw_confirm")}
+        confirmLabel={t("pc_wb_withdraw")}
+        variant="danger"
+        loading={withdrawBusy}
+      />
     </div>
   );
 }

@@ -1,13 +1,10 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import PageClient from "./page-client";
-
-export const metadata: Metadata = {
-  // 只写页面名：网站名由根 layout 的 title.template 拼在首位
-  title: "编辑采购需求",
-  robots: { index: false, follow: false },
-};
-
-export default function RfqEditSettingsPage() {
-  return <PageClient />;
+/**
+ * 旧地址兼容：编辑/续填统一收进发布页（`/rfq/[id]/publish`，按状态渲染可编辑表单）。
+ * 保留跳转，避免工作台旧链接与书签 404。
+ */
+export default async function LegacyEditPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  redirect(`/rfq/${id}/publish`);
 }

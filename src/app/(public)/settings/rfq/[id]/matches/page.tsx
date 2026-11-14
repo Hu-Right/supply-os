@@ -1,12 +1,10 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import PageClient from "./page-client";
-
-export const metadata: Metadata = {
-  title: "已匹配供应商",
-  description: "查看该采购需求的规则匹配候选供应商名单。",
-};
-
-export default function RfqMatchesPage() {
-  return <PageClient />;
+/**
+ * 旧地址兼容：匹配名单已内联进发布页（`/rfq/[id]/publish#matches`）。
+ * 保留跳转，避免工作台旧链接与书签 404。
+ */
+export default async function LegacyMatchesPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  redirect(`/rfq/${id}/publish#matches`);
 }

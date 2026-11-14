@@ -149,7 +149,7 @@ const PDF_FIELDS: Array<{ key: keyof ExtractedPdf; field: keyof FormState }> = [
   { key: "budgetCurrency", field: "budgetCurrency" },
 ];
 
-export function ProcurementWizard(props: { editId?: number }) {
+export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => void }) {
   const { t } = useLocale();
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -166,6 +166,13 @@ export function ProcurementWizard(props: { editId?: number }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  /** 保存状态：失败必须可见（旧实现 `catch {}` 静默吞掉，用户在"自动保存"提示下丢光整份内容） */
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState("");
+  const [notice, setNotice] = useState("");
+  /** 回填失败：禁止提交（否则空白表单提交会整包覆盖原有内容） */
+  const [loadFailed, setLoadFailed] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [importMsg, setImportMsg] = useState("");
   const [importing, setImporting] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -216,6 +223,8 @@ export function ProcurementWizard(props: { editId?: number }) {
   useEffect(() => {
     if (!props.editId) return;
     let cancelled = false;
+    setLoadFailed("");
+    setLoading(true);
     fetchProject(props.editId)
       .then((d: ProjectDetail) => {
         if (cancelled) return;
@@ -259,10 +268,17 @@ export function ProcurementWizard(props: { editId?: number }) {
           categoryL2: (d.items[0]?.ugtCode ?? d.primaryUgtCode ?? "").slice(0, 7),
           categoryL1: (d.items[0]?.ugtCode ?? d.primaryUgtCode ?? "").slice(0, 6),
         }));
+        // 标包回填：用 lots 的 id ↔ items.lotId 还原 lotNo。
+        // 旧实现写死 lotNo:""，把"编辑一次"变成"把整张标包表删空"（persist 以 lotNo 反推 lots）。
+        const lotNoById = new Map<number, string>(
+          d.lots
+            .filter((l): l is { id: number; lotNo: string; title: string; scopeNote: string } => l.id != null)
+            .map((l) => [l.id, l.lotNo]),
+        );
         setItems(
           d.items.length
             ? d.items.map((it) => ({
-                lotNo: "",
+                lotNo: it.lotId != null ? lotNoById.get(it.lotId) ?? "" : "",
                 nameZh: it.nameZh,
                 spec: it.spec,
                 quantity: it.quantity == null ? "" : String(it.quantity),
@@ -275,9 +291,15 @@ export function ProcurementWizard(props: { editId?: number }) {
         setLoading(false);
         hydratedRef.current = true;
       })
-      .catch((err) => { if (!cancelled) { setError((err as Error).message); setLoading(false); } });
+      .catch((err) => {
+        if (cancelled) return;
+        const msg = (err as Error).message || t("pc_load_failed");
+        setError(msg);
+        setLoadFailed(msg);
+        setLoading(false);
+      });
     return () => { cancelled = true; };
-  }, [props.editId]);
+  }, [props.editId, reloadKey, t]);
 
   const derivedUgt = useMemo(
     () => form.categoryL3 || form.categoryL2 || form.categoryL1 || "",
@@ -343,7 +365,18 @@ export function ProcurementWizard(props: { editId?: number }) {
     );
   }, [buildPatch, items, derivedUgt]);
 
-  // 自动保存：有内容即防抖保存；新建时首次保存顺带建单。失败静默（可手动保存）。
+  /**
+   * 把"新建草稿的 id"写进 URL（/rfq/{id}/publish），让刷新 / 换设备能续填。
+   * 用 history.replaceState 而不是 router.replace：后者会让 Next 重渲染路由、
+   * 卸载正在输入的表单（丢焦点、丢未落库的本地状态）。
+   */
+  const syncUrl = useCallback((pid: number) => {
+    if (typeof window === "undefined") return;
+    const target = `/rfq/${pid}/publish`;
+    if (window.location.pathname !== target) window.history.replaceState(null, "", target);
+  }, []);
+
+  // 自动保存：有内容即防抖保存；新建时首次保存顺带建单。失败必须可见（可手动保存重试）。
   useEffect(() => {
     if (loading || submitting) return;
     if (!hydratedRef.current) return;
@@ -354,6 +387,7 @@ export function ProcurementWizard(props: { editId?: number }) {
       void (async () => {
         if (autoBusy.current) return;
         autoBusy.current = true;
+        setSaveState("saving");
         try {
           let pid = projectIdRef.current;
           if (!pid) {
@@ -361,11 +395,17 @@ export function ProcurementWizard(props: { editId?: number }) {
             pid = created.id;
             projectIdRef.current = pid;
             setProjectId(pid);
+            // 首次建单立刻绑定 URL：刷新/换设备回来能续填，不再每次都建新空草稿
+            syncUrl(pid);
           }
           await persist(pid);
           setLastSavedAt(Date.now());
-        } catch {
-          /* 自动保存失败不打断填写 */
+          setSaveState("saved");
+          setSaveError("");
+        } catch (err) {
+          // 失败不打断输入，但必须可见——尤其"未登记采购主体时建单必然 400"这类，旧实现静默吞掉
+          setSaveState("error");
+          setSaveError((err as Error).message || t("pc_err_generic"));
         } finally {
           autoBusy.current = false;
         }
@@ -374,7 +414,7 @@ export function ProcurementWizard(props: { editId?: number }) {
     return () => {
       if (autoTimer.current) clearTimeout(autoTimer.current);
     };
-  }, [form, items, loading, submitting, persist]);
+  }, [form, items, loading, submitting, persist, syncUrl, t]);
 
   const validateStep = (index: number): string => {
     if (index === 0 && !form.titleZh.trim()) return t("pc_err_title");
@@ -407,6 +447,7 @@ export function ProcurementWizard(props: { editId?: number }) {
   };
 
   const onSubmit = async () => {
+    if (loadFailed) return; // 回填失败时禁止提交：空表单提交会整包覆盖原有需求
     for (let i = 0; i < 6; i++) {
       const msg = validateStep(i);
       if (msg) { setStep(i); setError(msg); return; }
@@ -417,7 +458,9 @@ export function ProcurementWizard(props: { editId?: number }) {
       const pid = await saveDraft();
       if (!pid) throw new Error(t("pc_err_generic"));
       await submitProject(pid);
-      router.push(`/settings/rfq/${pid}/authorization-letter`);
+      // 提交后仍停在同一发布页：由状态壳切到"授权书 + 核验进度"，不再跳设置中心
+      if (props.onSubmitted) props.onSubmitted();
+      else router.replace(`/rfq/${pid}/publish`);
     } catch (err) {
       setError((err as Error).message || t("pc_err_generic"));
       setSubmitting(false);
@@ -427,12 +470,21 @@ export function ProcurementWizard(props: { editId?: number }) {
   const onSaveDraft = async () => {
     setSubmitting(true);
     setError("");
+    setNotice("");
     try {
       const pid = await saveDraft();
-      if (pid) router.push("/settings/rfq");
-      else throw new Error(t("pc_err_generic"));
+      if (!pid) throw new Error(t("pc_err_generic"));
+      setLastSavedAt(Date.now());
+      setSaveState("saved");
+      setSaveError("");
+      setNotice(t("pc_save_draft_ok"));
+      // 首次保存后绑定 URL；**不跳走**（填到一半被带到工作台是旧行为）
+      syncUrl(pid);
     } catch (err) {
       setError((err as Error).message || t("pc_err_generic"));
+      setSaveState("error");
+      setSaveError((err as Error).message || t("pc_err_generic"));
+    } finally {
       setSubmitting(false);
     }
   };
@@ -509,6 +561,24 @@ export function ProcurementWizard(props: { editId?: number }) {
 
   if (loading) return <div className="py-10 text-center text-sm text-secondary-400">{t("pc_loading")}</div>;
 
+  // 回填失败必须是页面级错误态并禁止提交：旧实现只把错误塞在底部红字里，
+  // 用户看到的是一张空白可编辑表单，提交即整包覆盖原有需求（丢明细/预算/条款）。
+  if (loadFailed) {
+    return (
+      <div className="rounded-2xl border border-secondary-200 bg-white p-8 text-center">
+        <p className="text-sm font-semibold text-secondary-700">{t("pc_load_failed")}</p>
+        <p className="mt-1 break-all text-xs text-secondary-400">{loadFailed}</p>
+        <button
+          type="button"
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="mt-4 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        >
+          {t("pc_retry")}
+        </button>
+      </div>
+    );
+  }
+
   const STEPS = [t("pc_step1"), t("pc_step2"), t("pc_step3"), t("pc_step4"), t("pc_step5"), t("pc_step6")];
   const inputCls = "mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm";
   const labelCls = "text-sm font-semibold text-secondary-700";
@@ -519,10 +589,22 @@ export function ProcurementWizard(props: { editId?: number }) {
         <FlowStepper current={2} compact />
       </div>
 
-      {/* 顶部工具条：自动保存状态 + PDF 提取 + 草稿保存 */}
+      {/* 顶部工具条：自动保存状态（三态）+ PDF 提取 + 草稿保存 */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-secondary-500">
-        <span>{lastSavedAt ? `${t("pc_autosave_saved")} ${new Date(lastSavedAt).toLocaleTimeString()}` : t("pc_autosave_hint")}</span>
+        <span className={saveState === "error" ? "font-semibold text-red-600" : undefined}>
+          {saveState === "saving"
+            ? t("pc_autosave_saving")
+            : saveState === "error"
+              ? t("pc_autosave_error")
+              : lastSavedAt
+                ? `${t("pc_autosave_saved")} ${new Date(lastSavedAt).toLocaleTimeString()}`
+                : t("pc_autosave_hint")}
+        </span>
         <div className="flex items-center gap-2">
+          {saveState === "error" && saveError && (
+            <span className="max-w-[260px] truncate text-red-600" title={saveError}>{saveError}</span>
+          )}
+          {notice && <span className="text-teal-700">{notice}</span>}
           <label className="cursor-pointer rounded-lg border border-secondary-300 px-3 py-1.5 font-semibold text-secondary-600 hover:bg-secondary-50">
             {extracting ? "…" : t("pc_extract_pdf")}
             <input type="file" accept=".pdf" className="hidden" onChange={(e) => { void onExtractPdf(e.target.files?.[0] ?? null); e.target.value = ""; }} />
@@ -898,7 +980,7 @@ export function ProcurementWizard(props: { editId?: number }) {
               {t("pc_next")}
             </button>
           ) : (
-            <button type="button" disabled={submitting} onClick={onSubmit} className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            <button type="button" disabled={submitting || !!loadFailed} onClick={onSubmit} className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
               {submitting ? t("pc_submitting") : t("pc_submit_confirm")}
             </button>
           )}
