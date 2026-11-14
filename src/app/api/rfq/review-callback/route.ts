@@ -50,7 +50,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     nowSec,
   });
   if (!auth.ok) {
-    routeError(401, EC_FORBIDDEN, `回调签名校验失败（${auth.reason}）`);
+    routeError(403, EC_FORBIDDEN, `回调签名校验失败（${auth.reason}）`);
   }
 
   const callbackId = String(req.headers.get("x-review-request-id") || "").slice(0, 64);

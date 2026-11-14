@@ -41,7 +41,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     rawBody,
     nowSec,
   });
-  if (!auth.ok) routeError(401, EC_FORBIDDEN, `回调签名校验失败（${auth.reason}）`);
+  if (!auth.ok) routeError(403, EC_FORBIDDEN, `回调签名校验失败（${auth.reason}）`);
 
   let body: Record<string, unknown>;
   try {
