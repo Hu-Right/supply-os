@@ -52,6 +52,8 @@ export interface ProjectSummary {
   quoteDeadlineAt: number | null;
   publishedAt: number | null;
   createdAt: number | null;
+  requirementVerify?: string;
+  fundVerify?: string;
 }
 
 export interface ProjectDetail extends ProjectSummary {
@@ -68,6 +70,9 @@ export interface ProjectDetail extends ProjectSummary {
   supplierCountryLimit: string;
   manufacturerOnly: boolean;
   supplierQuals: string;
+  supplierConfirmDate: string;
+  contractDate: string;
+  contactDisclosure: string;
   compliance: Record<string, unknown> | null;
   buyerOrgName: string;
   requirementVerify: string;
@@ -130,9 +135,28 @@ export interface ItemDraft {
   alternativesAllowed?: boolean;
 }
 
+export interface BuyerVerification {
+  id: number;
+  kind: string;
+  result: string;
+  reviewer: string;
+  note: string;
+  hasEvidence: boolean;
+  createdAt: number | null;
+}
+
 export async function fetchMyBuyer(): Promise<BuyerInfo | null> {
   const r = await api<{ buyer: BuyerInfo | null }>("/api/procurement/buyer");
   return r.buyer;
+}
+
+/** 主体 + 核验留痕（F05 认证页展示） */
+export async function fetchMyBuyerWithVerifications(): Promise<{
+  buyer: BuyerInfo | null;
+  verifications: BuyerVerification[];
+}> {
+  const r = await api<{ buyer: BuyerInfo | null; verifications?: BuyerVerification[] }>("/api/procurement/buyer");
+  return { buyer: r.buyer, verifications: r.verifications ?? [] };
 }
 
 export async function saveBuyer(fields: Record<string, unknown>): Promise<{ buyerId: number; status: string }> {

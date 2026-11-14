@@ -7,7 +7,7 @@
  *              contact_disclosure 分级裁剪（F02 分级授权口径）。
  */
 import type { ProjectRow } from "./projects";
-import type { BuyerRow } from "./buyers";
+import type { BuyerRow, BuyerVerificationRow } from "./buyers";
 import type { MatchCandidate } from "./matching";
 import type { ProjectDetailBundle } from "./projects";
 
@@ -81,6 +81,8 @@ export function projectSummaryViewOf(row: ProjectRow) {
     quoteDeadlineAt: toNum(row.quote_deadline_at),
     publishedAt: toNum(row.published_at),
     createdAt: toNum(row.created_at),
+    requirementVerify: toStr(row.requirement_verify),
+    fundVerify: toStr(row.fund_verify),
   };
 }
 
@@ -118,6 +120,9 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     supplierCountryLimit: toStr(row.supplier_country_limit),
     manufacturerOnly: Number(row.manufacturer_only) === 1,
     supplierQuals: toStr(row.supplier_quals),
+    supplierConfirmDate: toStr(row.supplier_confirm_date),
+    contractDate: toStr(row.contract_date),
+    contactDisclosure: disclosure,
     quoteDeadlineAt: toNum(row.quote_deadline_at),
     compliance: toJsonValue(row.compliance),
     buyerOrgName: bundle.buyerOrgName,
@@ -199,6 +204,19 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
       note: toStr(r.note),
       createdAt: toNum(r.created_at),
     })),
+  };
+}
+
+/** 主体核验留痕（F05）：认证页只展示结论、核验人与意见，证据文件按权限另取 */
+export function buyerVerificationViewOf(row: BuyerVerificationRow) {
+  return {
+    id: Number(row.id),
+    kind: toStr(row.kind),
+    result: toStr(row.result),
+    reviewer: toStr(row.reviewer),
+    note: toStr(row.note),
+    hasEvidence: Boolean(row.evidence_file_key),
+    createdAt: toNum(row.created_at),
   };
 }
 

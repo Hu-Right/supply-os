@@ -11,13 +11,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
-import { fetchMyBuyer, saveBuyer, type BuyerInfo } from "@/features/procurement-demand/api";
+import { fetchMyBuyerWithVerifications, saveBuyer, type BuyerInfo, type BuyerVerification } from "@/features/procurement-demand/api";
 import { FlowStepper } from "@/features/procurement-demand/FlowStepper";
 import { FileDropzone } from "@/features/procurement-demand/FileDropzone";
 
 export default function PageClient() {
   const { t } = useLocale();
   const [buyer, setBuyer] = useState<BuyerInfo | null>(null);
+  const [verifications, setVerifications] = useState<BuyerVerification[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -39,7 +40,8 @@ export default function PageClient() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const b = await fetchMyBuyer();
+      const { buyer: b, verifications: vs } = await fetchMyBuyerWithVerifications();
+      setVerifications(vs);
       if (b) {
         setBuyer(b);
         setForm((p) => ({
@@ -145,6 +147,31 @@ export default function PageClient() {
 
       {/* 状态横幅 */}
       <div className={`rounded-2xl border px-5 py-4 text-sm font-semibold ${statusBanner.cls}`}>{statusBanner.text}</div>
+
+      {/* 核验记录（F05）：每次核验的维度、结论、核验人与意见 */}
+      {verifications.length > 0 && (
+        <div className="rounded-2xl border border-secondary-200 bg-white p-4 shadow-xs">
+          <div className="text-sm font-bold text-secondary-900">{t("pc_bverify_history")}</div>
+          <div className="mt-2 grid gap-2">
+            {verifications.map((v) => {
+              const cls =
+                v.result === "pass" ? "bg-teal-100 text-teal-800"
+                : v.result === "need_info" ? "bg-amber-100 text-amber-800"
+                : "bg-red-100 text-red-700";
+              return (
+                <div key={v.id} className="flex items-start justify-between gap-3 rounded-lg border border-secondary-100 px-3 py-2 text-xs">
+                  <div>
+                    <span className="font-semibold text-secondary-700">{t(`pc_bvk_${v.kind}`)}</span>
+                    {v.note && <span className="ml-2 text-secondary-500">{v.note}</span>}
+                    <span className="ml-2 text-secondary-400">{v.reviewer}</span>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 font-semibold ${cls}`}>{t(`pc_verify_${v.result}`)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
         <h1 className="mb-4 text-lg font-extrabold text-secondary-900">{t("pc_bpage_title")}</h1>

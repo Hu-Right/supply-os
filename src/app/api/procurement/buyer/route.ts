@@ -11,18 +11,23 @@ import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
-import { getBuyerByUserId, upsertBuyer, type BuyerRow } from "@/lib/services/procurement/buyers";
-import { buyerViewOf } from "@/lib/services/procurement/views";
+import { getBuyerByUserId, upsertBuyer, listBuyerVerifications, type BuyerRow } from "@/lib/services/procurement/buyers";
+import { buyerViewOf, buyerVerificationViewOf } from "@/lib/services/procurement/views";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   try {
-    const row = await getBuyerByUserId(getPool(), auth.userId);
-    if (!row) return NextResponse.json({ buyer: null });
+    const pool = getPool();
+    const row = await getBuyerByUserId(pool, auth.userId);
+    if (!row) return NextResponse.json({ buyer: null, verifications: [] });
     const buyer = (row as unknown as BuyerRow) || null;
-    /** 我的主体视图 */
-    const buyerViewOfMine = (b: BuyerRow) => buyerViewOf(b);
-    return NextResponse.json({ buyer: buyerViewOfMine(buyer) });
+    /** 我的主体视图（含核验留痕，F05 可追溯） */
+    const buyerViewOfMine = (b: BuyerRow, verifications: Awaited<ReturnType<typeof listBuyerVerifications>>) => ({
+      buyer: buyerViewOf(b),
+      verifications: verifications.map(buyerVerificationViewOf),
+    });
+    const verifications = await listBuyerVerifications(pool, Number(buyer.id));
+    return NextResponse.json(buyerViewOfMine(buyer, verifications));
   } catch (err) {
     console.warn("[api/procurement/buyer] load failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "加载采购主体失败，请稍后重试");

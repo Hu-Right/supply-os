@@ -158,3 +158,129 @@ export async function getBuyerIdByUserId(db: Pool, userId: number): Promise<numb
   const row = (rows as Array<{ id: number }>)[0];
   return row ? Number(row.id) : null;
 }
+
+// ── F05 主体核验留痕（站外后台 → 门户回调）────────────────────────────────────
+
+export const BUYER_VERIFY_KIND = {
+  IDENTITY: "identity", // 公司是否真实存在 / 发布人是否受权 / 执照
+  AUTHORIZATION: "authorization", // 代理采购授权文件
+  FUND: "fund", // 资金/预算支持
+} as const;
+
+export type BuyerVerifyKind = (typeof BUYER_VERIFY_KIND)[keyof typeof BUYER_VERIFY_KIND];
+
+export interface BuyerVerificationRow extends RowDataPacket {
+  id: number;
+  buyer_id: number;
+  kind: string;
+  result: string;
+  evidence_file_key: string | null;
+  evidence_hash: string | null;
+  reviewer: string;
+  note: string | null;
+  callback_id: string | null;
+  created_at: number;
+}
+
+/** 核验结论 → 主体状态：pass→verified；need_info→need_info；reject→restricted（限制使用） */
+export function buyerStatusForResult(result: string): string {
+  if (result === "pass") return BUYER_STATUS.VERIFIED;
+  if (result === "need_info") return BUYER_STATUS.NEED_INFO;
+  return BUYER_STATUS.RESTRICTED;
+}
+
+export interface RecordBuyerVerificationInput {
+  buyerId: number;
+  kind: BuyerVerifyKind;
+  result: "pass" | "need_info" | "reject";
+  reviewer: string;
+  note?: string | null;
+  evidenceFileKey?: string | null;
+  evidenceHash?: string | null;
+  /** 回调幂等键（站外后台 X-Review-Request-Id；重复投递不重复写留痕） */
+  callbackId?: string | null;
+  at?: number;
+}
+
+export type RecordBuyerVerificationResult =
+  | { ok: true; verificationId: number; status: string; duplicate?: boolean }
+  | { ok: false; reason: "not_found" | "bad_input" };
+
+/**
+ * 写入一条主体核验留痕并回写主体状态快照（同事务）。
+ * 幂等：同一 (buyer_id, callback_id) 重复投递只保留首条，返回 duplicate。
+ */
+export async function recordBuyerVerification(
+  db: Pool,
+  input: RecordBuyerVerificationInput,
+): Promise<RecordBuyerVerificationResult> {
+  if (!input.reviewer?.trim() || !input.result) return { ok: false, reason: "bad_input" };
+  const at = input.at ?? Math.floor(Date.now() / 1000);
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query("SELECT id FROM procurement_buyers WHERE id = ? FOR UPDATE", [input.buyerId]);
+    if ((rows as RowDataPacket[]).length === 0) {
+      await conn.rollback();
+      return { ok: false, reason: "not_found" };
+    }
+    if (input.callbackId) {
+      const [dup] = await conn.query(
+        "SELECT id FROM procurement_buyer_verifications WHERE buyer_id = ? AND callback_id = ? LIMIT 1",
+        [input.buyerId, input.callbackId],
+      );
+      if ((dup as RowDataPacket[]).length > 0) {
+        const [cur] = await conn.query("SELECT status FROM procurement_buyers WHERE id = ? LIMIT 1", [input.buyerId]);
+        await conn.rollback();
+        return {
+          ok: true,
+          verificationId: Number((dup as Array<{ id: number }>)[0].id),
+          status: String((cur as Array<{ status: string }>)[0]?.status ?? ""),
+          duplicate: true,
+        };
+      }
+    }
+
+    const [ins] = await conn.execute(
+      `INSERT INTO procurement_buyer_verifications
+         (buyer_id, kind, result, evidence_file_key, evidence_hash, reviewer, note, callback_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        input.buyerId,
+        input.kind,
+        input.result,
+        input.evidenceFileKey ?? null,
+        input.evidenceHash ?? null,
+        input.reviewer.trim().slice(0, 64),
+        input.note?.trim().slice(0, 500) || null,
+        input.callbackId?.slice(0, 64) ?? null,
+        at,
+      ],
+    );
+
+    const status = buyerStatusForResult(input.result);
+    await conn.query(
+      "UPDATE procurement_buyers SET status = ?, verified_by = ?, verified_at = ?, verify_note = ?, updated_at = ? WHERE id = ?",
+      [status, input.reviewer.trim().slice(0, 64), at, input.note?.trim().slice(0, 500) || null, at, input.buyerId],
+    );
+
+    await conn.commit();
+    return { ok: true, verificationId: Number((ins as { insertId?: number }).insertId ?? 0), status };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+/** 核验留痕（认证页展示，按时间倒序，最多 20 条） */
+export async function listBuyerVerifications(db: Pool, buyerId: number): Promise<BuyerVerificationRow[]> {
+  const [rows] = await db.query(
+    `SELECT id, buyer_id, kind, result, evidence_file_key, evidence_hash, reviewer, note, callback_id, created_at
+       FROM procurement_buyer_verifications
+      WHERE buyer_id = ? ORDER BY id DESC LIMIT 20`,
+    [buyerId],
+  );
+  return rows as BuyerVerificationRow[];
+}

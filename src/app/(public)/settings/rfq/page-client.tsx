@@ -87,6 +87,24 @@ function PageClientInner() {
     return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>;
   };
 
+  /** 需求/资金核验态（F05 三态口径：主体已核验 / 需求待核验 / 资金未核验） */
+  const verifyBadges = (p: ProjectSummary) => {
+    if (p.status === "draft") return null;
+    const rv = p.requirementVerify || "pending";
+    const fv = p.fundVerify || "unverified";
+    const rvCls =
+      rv === "pass" ? "bg-teal-100 text-teal-800"
+      : rv === "risk" || rv === "reject" ? "bg-red-100 text-red-700"
+      : "bg-amber-100 text-amber-800";
+    const fvCls = fv === "verified" ? "bg-teal-100 text-teal-800" : "bg-secondary-100 text-secondary-500";
+    return (
+      <>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${rvCls}`}>{t("pc_wb_rv")}：{t(`pc_verify_${rv}`)}</span>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${fvCls}`}>{t("pc_wb_fv")}：{t(fv === "verified" ? "pc_fv_verified" : "pc_fv_unverified")}</span>
+      </>
+    );
+  };
+
   return (
     <div className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
       <div className="mb-4 flex items-center justify-between">
@@ -109,9 +127,10 @@ function PageClientInner() {
                   <Link href={`/rfq/${p.id}`} className="text-sm font-bold text-secondary-900 hover:text-teal-700">{p.titleZh}</Link>
                   <div className="mt-1 text-xs text-secondary-400">{p.reference} · v{p.versionNo}</div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_BADGE[p.status] ?? ""}`}>{t(`pc_wb_status_${p.status}`)}</span>
                   {authBadge(p)}
+                  {verifyBadges(p)}
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-xs">

@@ -41,6 +41,18 @@ export interface AutoReviewOutcome {
   checks: AutoReviewChecks;
 }
 
+/** compliance 列可能是对象（mysql2 自动解析）或字符串；两种都归一为对象 */
+function parseCompliance(v: unknown): Record<string, unknown> {
+  if (v == null || v === "") return {};
+  if (typeof v === "object") return v as Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(String(v)) as unknown;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * 系统自动初审（MVP 规则版）：全案九项中先落 4 项可机判的硬规则（完整性/时间合理性/
  * 合规自述/重复性粗查），其余六项标记 pending 由人工核验补齐——**AI 识别 ≠ 已核验**，
@@ -82,8 +94,14 @@ export async function runAutoReview(
     notes.push("报价截止时间早于当前时间");
   }
   // 合规自述：勾选了管制/危险品等 → 转人工合规复核
-  const compliance = project.compliance ? JSON.parse(String(project.compliance)) : {};
-  if (compliance && typeof compliance === "object" && Object.entries(compliance).some(([k, v]) => k !== "note" && v)) {
+  // 注意空数组/空串不算命中（早期实现用 Boolean([]) === true，导致所有项目都被标记 risk）
+  const compliance = parseCompliance(project.compliance);
+  const hasComplianceFlag = Object.entries(compliance)
+    .filter(([k]) => k !== "note")
+    .some(([, v]) =>
+      Array.isArray(v) ? v.length > 0 : typeof v === "string" ? v.trim() !== "" : Boolean(v),
+    );
+  if (hasComplianceFlag) {
     checks.compliance = "flagged";
     notes.push("自述涉及特殊合规项，进入人工合规复核");
   }

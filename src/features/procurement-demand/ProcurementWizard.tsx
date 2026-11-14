@@ -50,6 +50,9 @@ interface FormState {
   guarantees: string[];
   manufacturerOnly: boolean;
   supplierQuals: string;
+  supplierCountryLimit: string;
+  supplierConfirmDate: string;
+  contractDate: string;
   quoteDeadlineDate: string;
   complianceFlags: string[];
   complianceNote: string;
@@ -81,6 +84,9 @@ const DEFAULT_FORM: FormState = {
   guarantees: [],
   manufacturerOnly: false,
   supplierQuals: "",
+  supplierCountryLimit: "",
+  supplierConfirmDate: "",
+  contractDate: "",
   quoteDeadlineDate: "",
   complianceFlags: [],
   complianceNote: "",
@@ -92,12 +98,18 @@ const PURPOSE_OPTIONS = ["real", "budgeting", "research", "future_plan"];
 const OBJECT_OPTIONS = ["goods", "engineering", "service", "solution"];
 const COMPLIANCE_OPTIONS = ["export_control", "dangerous", "medical", "dual_use", "other"];
 const INCOTERM_OPTIONS = ["EXW", "FOB", "CIF", "DDP"];
+const INSTALL_NEEDS = ["installation", "commissioning", "training"];
+const GUARANTEES = ["bid_bond", "performance_bond", "warranty_deposit"];
+const CONTACT_DISCLOSURE = ["none", "org_only", "org_contact", "budget_all"];
 
 interface ItemRow {
+  lotNo: string;
   nameZh: string;
   spec: string;
   quantity: string;
   qtyUnit: string;
+  qtyType: "fixed" | "estimated";
+  alternativesAllowed: boolean;
 }
 
 export function ProcurementWizard(props: { editId?: number }) {
@@ -106,7 +118,9 @@ export function ProcurementWizard(props: { editId?: number }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
-  const [items, setItems] = useState<ItemRow[]>([{ nameZh: "", spec: "", quantity: "", qtyUnit: "件" }]);
+  const [items, setItems] = useState<ItemRow[]>([
+    { lotNo: "", nameZh: "", spec: "", quantity: "", qtyUnit: "件", qtyType: "fixed", alternativesAllowed: true },
+  ]);
   const [files, setFiles] = useState<File[]>([]);
   const [l1Options, setL1Options] = useState<CommodityTreeOption[]>([]);
   const [l2Options, setL2Options] = useState<CommodityTreeOption[]>([]);
@@ -171,19 +185,30 @@ export function ProcurementWizard(props: { editId?: number }) {
           guarantees: d.guarantees,
           manufacturerOnly: d.manufacturerOnly,
           supplierQuals: d.supplierQuals,
+          supplierCountryLimit: d.supplierCountryLimit,
+          supplierConfirmDate: d.supplierConfirmDate,
+          contractDate: d.contractDate,
           quoteDeadlineDate: d.quoteDeadlineAt ? new Date(d.quoteDeadlineAt * 1000).toISOString().slice(0, 10) : "",
           complianceFlags: d.compliance && Array.isArray(d.compliance.flags) ? (d.compliance.flags as string[]) : [],
           complianceNote: d.compliance && typeof d.compliance.note === "string" ? d.compliance.note : "",
           authorizePublish: true,
-          contactDisclosure: "org_only",
+          contactDisclosure: d.contactDisclosure || "org_only",
           categoryL3: d.items[0]?.ugtCode ?? d.primaryUgtCode ?? "",
           categoryL2: (d.items[0]?.ugtCode ?? d.primaryUgtCode ?? "").slice(0, 7),
           categoryL1: (d.items[0]?.ugtCode ?? d.primaryUgtCode ?? "").slice(0, 6),
         }));
         setItems(
           d.items.length
-            ? d.items.map((it) => ({ nameZh: it.nameZh, spec: it.spec, quantity: it.quantity == null ? "" : String(it.quantity), qtyUnit: it.qtyUnit }))
-            : [{ nameZh: "", spec: "", quantity: "", qtyUnit: "件" }],
+            ? d.items.map((it) => ({
+                lotNo: "",
+                nameZh: it.nameZh,
+                spec: it.spec,
+                quantity: it.quantity == null ? "" : String(it.quantity),
+                qtyUnit: it.qtyUnit,
+                qtyType: it.qtyType === "estimated" ? "estimated" : "fixed",
+                alternativesAllowed: it.alternativesAllowed !== false,
+              }))
+            : [{ lotNo: "", nameZh: "", spec: "", quantity: "", qtyUnit: "件", qtyType: "fixed", alternativesAllowed: true }],
         );
         setLoading(false);
       })
@@ -213,12 +238,12 @@ export function ProcurementWizard(props: { editId?: number }) {
     incoterm: form.incoterm || null,
     paymentTerms: form.paymentTerms.trim() || null,
     guarantees: form.guarantees.join(",") || null,
-    supplierCountryLimit: null,
+    supplierCountryLimit: form.supplierCountryLimit.trim() || null,
     manufacturerOnly: form.manufacturerOnly ? 1 : 0,
     supplierQuals: form.supplierQuals.trim() || null,
     quoteDeadlineAt: form.quoteDeadlineDate ? Math.floor(new Date(`${form.quoteDeadlineDate}T23:59:59+08:00`).getTime() / 1000) : null,
-    supplierConfirmDate: null,
-    contractDate: null,
+    supplierConfirmDate: form.supplierConfirmDate || null,
+    contractDate: form.contractDate || null,
     compliance: JSON.stringify({
       flags: form.complianceFlags,
       note: form.complianceNote.trim() || null,
@@ -235,18 +260,22 @@ export function ProcurementWizard(props: { editId?: number }) {
       setProjectId(pid);
     }
     await patchProject(pid, buildPatch());
+    const filled = items.filter((it) => it.nameZh.trim());
+    // 明细的 lotNo 即标包号（留空=未分包）：标包清单由明细去重派生，保证一项目多标包
+    const lotNos = [...new Set(filled.map((it) => it.lotNo.trim()).filter(Boolean))];
     await replaceItems(
       pid,
-      [],
-      items
-        .filter((it) => it.nameZh.trim())
-        .map<ItemDraft>((it) => ({
-          nameZh: it.nameZh.trim(),
-          spec: it.spec.trim() || undefined,
-          quantity: it.quantity === "" ? undefined : Number(it.quantity),
-          qtyUnit: it.qtyUnit || "件",
-          ugtCode: derivedUgt || undefined,
-        })),
+      lotNos.map((no) => ({ lotNo: no, title: no })),
+      filled.map<ItemDraft>((it) => ({
+        lotNo: it.lotNo.trim() || undefined,
+        nameZh: it.nameZh.trim(),
+        spec: it.spec.trim() || undefined,
+        quantity: it.quantity === "" ? undefined : Number(it.quantity),
+        qtyUnit: it.qtyUnit || "件",
+        qtyType: it.qtyType,
+        ugtCode: derivedUgt || undefined,
+        alternativesAllowed: it.alternativesAllowed,
+      })),
     );
     for (const f of files) {
       const fd = new FormData();
@@ -382,16 +411,32 @@ export function ProcurementWizard(props: { editId?: number }) {
             {t("pc_items")} *
             <div className="mt-1 grid gap-2">
               {items.map((it, idx) => (
-                <div key={idx} className="grid gap-2 rounded-lg border border-secondary-200 p-3 sm:grid-cols-[2fr_2fr_1fr_1fr_auto]">
-                  <input placeholder={t("pc_item_name")} value={it.nameZh} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, nameZh: e.target.value } : x)))} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
-                  <input placeholder={t("pc_item_spec")} value={it.spec} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, spec: e.target.value } : x)))} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
-                  <input placeholder={t("pc_item_qty")} value={it.quantity} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, quantity: e.target.value } : x)))} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
-                  <input placeholder={t("pc_item_unit")} value={it.qtyUnit} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, qtyUnit: e.target.value } : x)))} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
-                  <button type="button" onClick={() => setItems((p) => (p.length > 1 ? p.filter((_, i) => i !== idx) : p))} className="rounded-lg border border-secondary-300 px-2 text-xs text-secondary-500">✕</button>
+                <div key={idx} className="grid gap-2 rounded-lg border border-secondary-200 p-3">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_2fr_2fr_1fr_1fr_auto]">
+                    <input placeholder={t("pc_item_lot")} value={it.lotNo} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, lotNo: e.target.value } : x)))} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+                    <input placeholder={t("pc_item_name")} value={it.nameZh} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, nameZh: e.target.value } : x)))} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+                    <input placeholder={t("pc_item_spec")} value={it.spec} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, spec: e.target.value } : x)))} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+                    <input placeholder={t("pc_item_qty")} value={it.quantity} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, quantity: e.target.value } : x)))} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+                    <input placeholder={t("pc_item_unit")} value={it.qtyUnit} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, qtyUnit: e.target.value } : x)))} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+                    <button type="button" onClick={() => setItems((p) => (p.length > 1 ? p.filter((_, i) => i !== idx) : p))} className="rounded-lg border border-secondary-300 px-2 text-xs text-secondary-500">✕</button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-secondary-600">
+                    <label className="flex items-center gap-1">
+                      {t("pc_item_qtyType")}
+                      <select value={it.qtyType} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, qtyType: e.target.value as ItemRow["qtyType"] } : x)))} className="rounded border border-secondary-300 px-2 py-1">
+                        <option value="fixed">{t("pc_qty_fixed")}</option>
+                        <option value="estimated">{t("pc_qty_estimated")}</option>
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-1">
+                      <input type="checkbox" checked={it.alternativesAllowed} onChange={(e) => setItems((p) => p.map((x, i) => (i === idx ? { ...x, alternativesAllowed: e.target.checked } : x)))} />
+                      {t("pc_item_alt")}
+                    </label>
+                  </div>
                 </div>
               ))}
             </div>
-            <button type="button" onClick={() => setItems((p) => [...p, { nameZh: "", spec: "", quantity: "", qtyUnit: "件" }])} className="mt-2 rounded-lg border border-dashed border-secondary-300 px-3 py-2 text-xs text-secondary-500">
+            <button type="button" onClick={() => setItems((p) => [...p, { lotNo: "", nameZh: "", spec: "", quantity: "", qtyUnit: "件", qtyType: "fixed", alternativesAllowed: true }])} className="mt-2 rounded-lg border border-dashed border-secondary-300 px-3 py-2 text-xs text-secondary-500">
               + {t("pc_item_add")}
             </button>
           </div>
@@ -453,6 +498,11 @@ export function ProcurementWizard(props: { editId?: number }) {
             </label>
           </div>
 
+          <label className="text-sm font-semibold text-secondary-700">
+            {t("pc_deliveryAddress")}
+            <input value={form.deliveryAddress} onChange={(e) => field("deliveryAddress", e.target.value)} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+          </label>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-semibold text-secondary-700">
               {t("pc_incoterm")}
@@ -472,6 +522,64 @@ export function ProcurementWizard(props: { editId?: number }) {
             <textarea value={form.paymentTerms} onChange={(e) => field("paymentTerms", e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
           </label>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="text-sm font-semibold text-secondary-700">
+              {t("pc_installNeeds")}
+              <div className="mt-1 flex flex-wrap gap-2">
+                {INSTALL_NEEDS.map((o) => (
+                  <button key={o} type="button" onClick={() => field("installNeeds", toggle(form.installNeeds, o))}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${form.installNeeds.includes(o) ? "border-teal-600 bg-teal-50 text-teal-700" : "border-secondary-300 text-secondary-600"}`}>
+                    {t(`pc_install_${o}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="text-sm font-semibold text-secondary-700">
+              {t("pc_guarantees")}
+              <div className="mt-1 flex flex-wrap gap-2">
+                {GUARANTEES.map((o) => (
+                  <button key={o} type="button" onClick={() => field("guarantees", toggle(form.guarantees, o))}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${form.guarantees.includes(o) ? "border-teal-600 bg-teal-50 text-teal-700" : "border-secondary-300 text-secondary-600"}`}>
+                    {t(`pc_guar_${o}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-secondary-100 pt-3 text-sm font-bold text-secondary-700">{t("pc_supplierReqs")}</div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-semibold text-secondary-700">
+              {t("pc_supplierCountryLimit")}
+              <input value={form.supplierCountryLimit} onChange={(e) => field("supplierCountryLimit", e.target.value)} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+            </label>
+            <label className="flex items-center gap-2 self-end text-sm text-secondary-700">
+              <input type="checkbox" checked={form.manufacturerOnly} onChange={(e) => field("manufacturerOnly", e.target.checked)} />
+              {t("pc_manufacturerOnly")}
+            </label>
+          </div>
+          <label className="text-sm font-semibold text-secondary-700">
+            {t("pc_supplierQuals")}
+            <textarea value={form.supplierQuals} onChange={(e) => field("supplierQuals", e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-semibold text-secondary-700">
+              {t("pc_supplierConfirmDate")}
+              <input type="date" value={form.supplierConfirmDate} onChange={(e) => field("supplierConfirmDate", e.target.value)} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+            </label>
+            <label className="text-sm font-semibold text-secondary-700">
+              {t("pc_contractDate")}
+              <input type="date" value={form.contractDate} onChange={(e) => field("contractDate", e.target.value)} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+            </label>
+          </div>
+
+          <label className="text-sm font-semibold text-secondary-700">
+            {t("pc_contactDisclosure")}
+            <select value={form.contactDisclosure} onChange={(e) => field("contactDisclosure", e.target.value)} className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm">
+              {CONTACT_DISCLOSURE.map((v) => <option key={v} value={v}>{t(`pc_disc_${v}`)}</option>)}
+            </select>
+          </label>
+
           <div className="text-sm font-semibold text-secondary-700">
             {t("pc_compliance")}
             <div className="mt-1 flex flex-wrap gap-2">
@@ -482,6 +590,7 @@ export function ProcurementWizard(props: { editId?: number }) {
                 </button>
               ))}
             </div>
+            <input value={form.complianceNote} onChange={(e) => field("complianceNote", e.target.value)} placeholder={t("pc_complianceNote")} className="mt-2 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
           </div>
 
           <label className="flex items-center gap-2 text-sm text-secondary-700">

@@ -17,6 +17,7 @@ import {
   EC_RFQ_STATE_INVALID,
 } from "@/shared/constants/api";
 import { isProjectOwnedBy, submitProject } from "@/lib/services/procurement/projects";
+import { runAutoReview } from "@/lib/services/procurement/reviews";
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -55,6 +56,13 @@ export const POST = withRoute<Ctx>(async (req: NextRequest, { params }) => {
       versionNo,
       reference,
     });
+    // 流程第 3 步后半：提交后立即跑系统自动初审（F04 九项），留痕供核验后台与采购方查看。
+    // best-effort：初审失败不阻断提交（核验后台仍可人工补审），但必须留日志。
+    try {
+      await runAutoReview(pool, projectId, result.versionNo);
+    } catch (reviewErr) {
+      console.warn("[api/procurement/projects/[id]/submit] auto review failed:", (reviewErr as Error).message);
+    }
     return NextResponse.json(projectSubmittedViewOf(result.status, result.versionNo, result.reference));
   } catch (err) {
     console.warn("[api/procurement/projects/[id]/submit] failed:", (err as Error).message);

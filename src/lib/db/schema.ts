@@ -30,6 +30,7 @@ import { migration as procurementCoreMigration } from "./migrations/011-procurem
 import { migration as procurementFlowMigration } from "./migrations/012-procurement-flow";
 import { migration as retireRfqMigration } from "./migrations/013-retire-rfq-tables";
 import { migration as procurementPublishChainMigration } from "./migrations/014-procurement-publish-chain";
+import { migration as buyerVerificationCallbackMigration } from "./migrations/015-buyer-verification-callback";
 
 /** 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。 */
 const ALL_MIGRATIONS: Migration[] = [
@@ -42,6 +43,7 @@ const ALL_MIGRATIONS: Migration[] = [
   procurementFlowMigration,
   retireRfqMigration,
   procurementPublishChainMigration,
+  buyerVerificationCallbackMigration,
 ];
 
 /**
