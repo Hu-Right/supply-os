@@ -1063,5 +1063,6 @@
   "pc_dedup_official_email": "邮箱相同",
   "pc_dedup_official_phone": "电话相同",
   "pc_copy": "复制为新需求",
-  "pc_copy_ok": "已复制为草稿"
+  "pc_copy_ok": "已复制为草稿",
+  "pc_risk_email_domain_mismatch": "企业邮箱域名与官网不一致"
 }

@@ -1063,5 +1063,6 @@
   "pc_dedup_official_email": "Même e-mail",
   "pc_dedup_official_phone": "Même téléphone",
   "pc_copy": "Copier comme nouveau besoin",
-  "pc_copy_ok": "Copié en brouillon"
+  "pc_copy_ok": "Copié en brouillon",
+  "pc_risk_email_domain_mismatch": "Le domaine de l'e-mail ne correspond pas au site web"
 }

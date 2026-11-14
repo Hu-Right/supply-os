@@ -1063,5 +1063,6 @@
   "pc_dedup_official_email": "Mesmo email",
   "pc_dedup_official_phone": "Mesmo telefone",
   "pc_copy": "Copiar como novo requisito",
-  "pc_copy_ok": "Copiado como rascunho"
+  "pc_copy_ok": "Copiado como rascunho",
+  "pc_risk_email_domain_mismatch": "O domínio do email não corresponde ao site"
 }

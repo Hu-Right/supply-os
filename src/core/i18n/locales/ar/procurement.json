@@ -1063,5 +1063,6 @@
   "pc_dedup_official_email": "نفس البريد",
   "pc_dedup_official_phone": "نفس الهاتف",
   "pc_copy": "نسخ كطلب جديد",
-  "pc_copy_ok": "تم النسخ كمسودة"
+  "pc_copy_ok": "تم النسخ كمسودة",
+  "pc_risk_email_domain_mismatch": "نطاق البريد لا يطابق الموقع"
 }

@@ -75,6 +75,7 @@ describe("buyerRiskFlags", () => {
       "missing_license",
       "missing_reg_no",
       "free_email",
+      "email_domain_mismatch",
       "agent_auth_missing",
       "external_rules",
       "auth_contact_missing",
@@ -83,6 +84,15 @@ describe("buyerRiskFlags", () => {
 
   it("没填邮箱 → missing_email", () => {
     expect(buyerRiskFlags(buyer({ official_email: null }))).toContain("missing_email");
+  });
+
+  it("邮箱域名与官网不一致 → email_domain_mismatch；一致则不报", () => {
+    expect(
+      buyerRiskFlags(buyer({ official_email: "buyer@example.org", website: "https://other-site.com" })),
+    ).toContain("email_domain_mismatch");
+    expect(
+      buyerRiskFlags(buyer({ official_email: "buyer@example.org", website: "https://www.example.org" })),
+    ).not.toContain("email_domain_mismatch");
   });
 });
 

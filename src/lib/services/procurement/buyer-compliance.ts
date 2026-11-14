@@ -79,6 +79,17 @@ export function buyerRiskFlags(buyer: BuyerRow): string[] {
   if (email) {
     const domain = email.split("@")[1] ?? "";
     if (FREE_EMAIL_DOMAINS.includes(domain)) flags.push("free_email");
+    // 企业邮箱与主体信息一致性：邮箱域名应与官网域名一致（任一方包含另一方视为一致）
+    const site = String(buyer.website ?? "").trim();
+    if (domain && site) {
+      let host: string;
+      try {
+        host = new URL(site.includes("://") ? site : `https://${site}`).hostname.toLowerCase().replace(/^www\./, "");
+      } catch {
+        host = "";
+      }
+      if (host && !domain.endsWith(host) && !host.endsWith(domain)) flags.push("email_domain_mismatch");
+    }
   } else {
     flags.push("missing_email");
   }

@@ -1063,5 +1063,6 @@
   "pc_dedup_official_email": "Совпадает email",
   "pc_dedup_official_phone": "Совпадает телефон",
   "pc_copy": "Копировать как новую потребность",
-  "pc_copy_ok": "Скопировано в черновик"
+  "pc_copy_ok": "Скопировано в черновик",
+  "pc_risk_email_domain_mismatch": "Домен почты не совпадает с сайтом"
 }
