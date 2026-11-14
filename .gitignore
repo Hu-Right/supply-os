@@ -93,6 +93,7 @@ Desktop.ini
 !public/wechat-service-qr.png
 !public/earth.png
 !public/downloads/training/**
+!public/downloads/templates/**
 !public/images/training/**
 !public/manifest.json
 !src/app/favicon.ico/

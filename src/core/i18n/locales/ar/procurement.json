@@ -1065,7 +1065,6 @@
   "pc_copy": "نسخ كطلب جديد",
   "pc_copy_ok": "تم النسخ كمسودة",
   "pc_risk_email_domain_mismatch": "نطاق البريد لا يطابق الموقع",
-  "pc_bauthdoc_print": "التعبئة عبر الإنترنت والطباعة",
   "pc_bauthdoc_word": "تنزيل قالب Word",
   "pc_bauthdoc_pdf": "تنزيل قالب PDF"
 }

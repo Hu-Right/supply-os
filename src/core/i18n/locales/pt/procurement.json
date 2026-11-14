@@ -1065,7 +1065,6 @@
   "pc_copy": "Copiar como novo requisito",
   "pc_copy_ok": "Copiado como rascunho",
   "pc_risk_email_domain_mismatch": "O domínio do email não corresponde ao site",
-  "pc_bauthdoc_print": "Preencher online e imprimir",
   "pc_bauthdoc_word": "Descarregar modelo Word",
   "pc_bauthdoc_pdf": "Descarregar modelo PDF"
 }

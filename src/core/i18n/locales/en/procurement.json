@@ -1065,7 +1065,6 @@
   "pc_copy": "Copy as new requirement",
   "pc_copy_ok": "Copied as draft",
   "pc_risk_email_domain_mismatch": "Email domain does not match the website",
-  "pc_bauthdoc_print": "Fill in online & print",
   "pc_bauthdoc_word": "Download Word template",
   "pc_bauthdoc_pdf": "Download PDF template"
 }
