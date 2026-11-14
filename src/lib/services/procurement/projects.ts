@@ -486,8 +486,80 @@ export async function replaceDraftItems(
   }
 }
 
-/** 详情组装：主表+标包+明细+附件+核验记录（时间线）+授权状态 */
-export interface ProjectDetailBundle {
+/**
+ * 复制历史采购单为新草稿（F02：复制历史采购单）。
+ * 复制主表可编辑字段 + 标包 + 明细（附件不复制，避免重复占用字节库）。
+ * 新单编号重新生成，状态 draft，版本归零；所有编辑/提交/签署/核验从零开始。
+ */
+export async function copyProjectAsDraft(
+  db: Pool,
+  input: { sourceProjectId: number; buyerId: number; at?: number },
+): Promise<{ ok: true; projectId: number; reference: string } | { ok: false; reason: "not_found" }> {
+  const at = input.at ?? Math.floor(Date.now() / 1000);
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [srcRows] = await conn.query(
+      "SELECT * FROM procurement_projects WHERE id = ? AND buyer_id = ? LIMIT 1",
+      [input.sourceProjectId, input.buyerId],
+    );
+    const src = (srcRows as ProjectRow[])[0];
+    if (!src) {
+      await conn.rollback();
+      return { ok: false, reason: "not_found" };
+    }
+
+    const [ins] = await conn.query(
+      `INSERT INTO procurement_projects (buyer_id, reference, status, title_zh, created_at, updated_at)
+       VALUES (?, 'PENDING', 'draft', '', ?, ?)`,
+      [input.buyerId, at, at],
+    );
+    const projectId = Number((ins as { insertId?: number }).insertId ?? 0);
+    const reference = formatProjectReference(projectId, at);
+
+    const copyCols = ["title_zh", ...PROJECT_EDITABLE_COLUMNS.filter((c) => c !== "title_zh")];
+    const sets = copyCols.map((c) => `\`${c}\` = ?`).join(", ");
+    // JSON 列（compliance）在驱动侧可能已是对象，绑定前必须序列化
+    const params = copyCols.map((c) => {
+      const v = src[c as keyof ProjectRow] ?? null;
+      return v !== null && typeof v === "object" ? JSON.stringify(v) : v;
+    });
+    await conn.query(
+      `UPDATE procurement_projects
+          SET ${sets}, reference = ?, status = 'draft', version_no = 0,
+              submitted_at = NULL, published_at = NULL, notice_pk = NULL,
+              requirement_verify = 'pending', fund_verify = 'unverified', updated_at = ?
+        WHERE id = ?`,
+      [...params, reference, at, projectId],
+    );
+
+    await conn.query(
+      "INSERT INTO procurement_lots (project_id, lot_no, title, scope_note, created_at) SELECT ?, lot_no, title, scope_note, ? FROM procurement_lots WHERE project_id = ?",
+      [projectId, at, input.sourceProjectId],
+    );
+    await conn.query(
+      `INSERT INTO procurement_items
+         (project_id, lot_id, line_no, name_zh, name_en, spec, quantity, qty_unit, qty_type, ugt_code, attributes, alternatives_allowed, created_at)
+       SELECT ?, nl.id, i.line_no, i.name_zh, i.name_en, i.spec, i.quantity, i.qty_unit, i.qty_type, i.ugt_code, i.attributes, i.alternatives_allowed, ?
+         FROM procurement_items i
+         LEFT JOIN procurement_lots ol ON ol.id = i.lot_id
+         LEFT JOIN procurement_lots nl ON nl.project_id = ? AND nl.lot_no = ol.lot_no
+        WHERE i.project_id = ?
+        ORDER BY i.lot_id, i.line_no`,
+      [projectId, at, projectId, input.sourceProjectId],
+    );
+
+    await conn.commit();
+    return { ok: true, projectId, reference };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+/** 详情组装：主表+标包+明细+附件+核验记录（时间线）+授权状态 */export interface ProjectDetailBundle {
   project: ProjectRow;
   buyerOrgName: string;
   lots: RowDataPacket[];

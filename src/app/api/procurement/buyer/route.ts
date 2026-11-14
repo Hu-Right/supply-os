@@ -13,6 +13,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { getBuyerByUserId, upsertBuyer, listBuyerVerifications, type BuyerRow } from "@/lib/services/procurement/buyers";
 import { buyerViewOf, buyerVerificationViewOf } from "@/lib/services/procurement/views";
+import { buyerRiskFlags, findBuyerDuplicates } from "@/lib/services/procurement/buyer-compliance";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -21,13 +22,27 @@ export const GET = withRoute(async (req: NextRequest) => {
     const row = await getBuyerByUserId(pool, auth.userId);
     if (!row) return NextResponse.json({ buyer: null, verifications: [] });
     const buyer = (row as unknown as BuyerRow) || null;
-    /** 我的主体视图（含核验留痕，F05 可追溯） */
-    const buyerViewOfMine = (b: BuyerRow, verifications: Awaited<ReturnType<typeof listBuyerVerifications>>) => ({
+    /** 我的主体视图（含核验留痕、查重结果与风险提示，F01 可追溯） */
+    const buyerViewOfMine = (
+      b: BuyerRow,
+      verifications: Awaited<ReturnType<typeof listBuyerVerifications>>,
+      duplicates: Awaited<ReturnType<typeof findBuyerDuplicates>>,
+      riskFlags: string[],
+    ) => ({
       buyer: buyerViewOf(b),
       verifications: verifications.map(buyerVerificationViewOf),
+      duplicates,
+      riskFlags,
     });
     const verifications = await listBuyerVerifications(pool, Number(buyer.id));
-    return NextResponse.json(buyerViewOfMine(buyer, verifications));
+    const duplicates = await findBuyerDuplicates(pool, {
+      buyerId: Number(buyer.id),
+      orgName: String(buyer.org_name ?? ""),
+      regNo: buyer.reg_no,
+      email: buyer.official_email,
+      phone: buyer.official_phone,
+    });
+    return NextResponse.json(buyerViewOfMine(buyer, verifications, duplicates, buyerRiskFlags(buyer)));
   } catch (err) {
     console.warn("[api/procurement/buyer] load failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "加载采购主体失败，请稍后重试");

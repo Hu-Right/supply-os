@@ -8,6 +8,7 @@
  */
 import type { ProjectRow } from "./projects";
 import type { BuyerRow, BuyerVerificationRow } from "./buyers";
+import { formatBuyerNo } from "./buyer-compliance";
 import type { MatchCandidate } from "./matching";
 import type { ProjectDetailBundle } from "./projects";
 
@@ -28,6 +29,7 @@ export function toJsonValue(v: unknown): unknown {
 export function buyerViewOf(row: BuyerRow) {
   return {
     id: Number(row.id),
+    buyerNo: formatBuyerNo(Number(row.id), Number(row.created_at) || undefined),
     orgName: toStr(row.org_name),
     orgType: toStr(row.org_type),
     buyerRole: toStr(row.buyer_role),

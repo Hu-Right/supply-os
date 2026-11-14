@@ -8,9 +8,10 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
-import { fetchMyProjects, withdrawProject, type ProjectSummary } from "@/features/procurement-demand/api";
+import { copyProject, fetchMyProjects, withdrawProject, type ProjectSummary } from "@/features/procurement-demand/api";
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "bg-secondary-100 text-secondary-600",
@@ -29,6 +30,7 @@ interface AuthStatus {
 
 function PageClientInner() {
   const { t } = useLocale();
+  const router = useRouter();
   const [items, setItems] = useState<ProjectSummary[]>([]);
   const [authMap, setAuthMap] = useState<Record<number, AuthStatus | null>>({});
   const [loading, setLoading] = useState(true);
@@ -66,6 +68,15 @@ function PageClientInner() {
     try {
       await withdrawProject(id);
       await load();
+    } catch (err) {
+      window.alert((err as Error).message);
+    }
+  };
+
+  const onCopy = async (id: number) => {
+    try {
+      const r = await copyProject(id);
+      router.push(`/settings/rfq/${r.id}/edit`);
     } catch (err) {
       window.alert((err as Error).message);
     }
@@ -154,6 +165,9 @@ function PageClientInner() {
                     {t("pc_wb_withdraw")}
                   </button>
                 )}
+                <button type="button" onClick={() => void onCopy(p.id)} className="rounded-lg border border-secondary-300 px-3 py-1.5 font-semibold text-secondary-600">
+                  {t("pc_copy")}
+                </button>
               </div>
             </div>
           ))}

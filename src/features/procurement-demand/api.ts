@@ -6,6 +6,7 @@ import { api } from "@/core/http";
 
 export interface BuyerInfo {
   id: number;
+  buyerNo: string;
   orgName: string;
   orgType: string;
   buyerRole: string;
@@ -156,13 +157,71 @@ export async function fetchMyBuyer(): Promise<BuyerInfo | null> {
   return r.buyer;
 }
 
-/** 主体 + 核验留痕（F05 认证页展示） */
+/** 主体 + 核验留痕 + 查重/风险提示（F01） */
 export async function fetchMyBuyerWithVerifications(): Promise<{
   buyer: BuyerInfo | null;
   verifications: BuyerVerification[];
+  duplicates: Array<{ buyerId: number; orgName: string; matchedField: string }>;
+  riskFlags: string[];
 }> {
-  const r = await api<{ buyer: BuyerInfo | null; verifications?: BuyerVerification[] }>("/api/procurement/buyer");
-  return { buyer: r.buyer, verifications: r.verifications ?? [] };
+  const r = await api<{
+    buyer: BuyerInfo | null;
+    verifications?: BuyerVerification[];
+    duplicates?: Array<{ buyerId: number; orgName: string; matchedField: string }>;
+    riskFlags?: string[];
+  }>("/api/procurement/buyer");
+  return {
+    buyer: r.buyer,
+    verifications: r.verifications ?? [],
+    duplicates: r.duplicates ?? [],
+    riskFlags: r.riskFlags ?? [],
+  };
+}
+
+export interface ImportedItem {
+  lotNo: string;
+  nameZh: string;
+  spec: string;
+  quantity: number | null;
+  qtyUnit: string;
+}
+
+/** 上传 Excel/CSV 产品清单 → 解析为明细（不落库） */
+export async function parseProductListFile(file: File): Promise<{ items: ImportedItem[]; skipped: number }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return api<{ items: ImportedItem[]; skipped: number }>("/api/procurement/items/parse", {
+    method: "POST",
+    body: fd,
+  });
+}
+
+export interface ExtractedPdf {
+  titleZh: string;
+  background: string;
+  usageEnv: string;
+  standards: string;
+  deliveryCountry: string;
+  deliveryCity: string;
+  deliveryAddress: string;
+  quoteDeadlineDate: string;
+  budgetAmount: string;
+  budgetCurrency: string;
+  items: Array<{ nameZh: string; spec: string; quantity: number | null; qtyUnit: string }>;
+  sources: Record<string, string>;
+  textLength: number;
+}
+
+/** 上传需求 PDF → 规则抽取字段（不落库，须逐项确认） */
+export async function extractPdfRequirement(file: File): Promise<ExtractedPdf> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return api<ExtractedPdf>("/api/procurement/extract/pdf", { method: "POST", body: fd });
+}
+
+/** 复制历史采购单为新草稿 */
+export async function copyProject(id: number): Promise<{ id: number; reference: string }> {
+  return api(`/api/procurement/projects/${id}/copy`, { method: "POST", body: {} });
 }
 
 export async function saveBuyer(fields: Record<string, unknown>): Promise<{ buyerId: number; status: string }> {

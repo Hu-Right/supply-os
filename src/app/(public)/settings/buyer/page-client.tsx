@@ -19,6 +19,8 @@ export default function PageClient() {
   const { t } = useLocale();
   const [buyer, setBuyer] = useState<BuyerInfo | null>(null);
   const [verifications, setVerifications] = useState<BuyerVerification[]>([]);
+  const [riskFlags, setRiskFlags] = useState<string[]>([]);
+  const [duplicates, setDuplicates] = useState<Array<{ buyerId: number; orgName: string; matchedField: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -40,8 +42,10 @@ export default function PageClient() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { buyer: b, verifications: vs } = await fetchMyBuyerWithVerifications();
+      const { buyer: b, verifications: vs, duplicates: dups, riskFlags: risks } = await fetchMyBuyerWithVerifications();
       setVerifications(vs);
+      setDuplicates(dups);
+      setRiskFlags(risks);
       if (b) {
         setBuyer(b);
         setForm((p) => ({
@@ -175,9 +179,37 @@ export default function PageClient() {
       )}
 
       <div className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
-        <h1 className="mb-4 text-lg font-extrabold text-secondary-900">{t("pc_bpage_title")}</h1>
+        <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
+          <h1 className="text-lg font-extrabold text-secondary-900">{t("pc_bpage_title")}</h1>
+          {buyer?.buyerNo && (
+            <span className="rounded-full bg-secondary-100 px-3 py-1 text-xs font-semibold text-secondary-600">
+              {t("pc_buyerNo")}：{buyer.buyerNo}
+            </span>
+          )}
+        </div>
         {buyer?.verifyNote && (
           <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{t("pc_bverify_note")}: {buyer.verifyNote}</div>
+        )}
+
+        {/* F01 自动查重与风险提示（自检参考，不替代云境核验） */}
+        {duplicates.length > 0 && (
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <div className="font-semibold">{t("pc_dedup_title")}</div>
+            <p className="mt-0.5">{t("pc_dedup_hint")}</p>
+            <ul className="mt-1 list-disc pl-4">
+              {duplicates.map((d) => (
+                <li key={d.buyerId}>{d.orgName}（{t(`pc_dedup_${d.matchedField}`)}）</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {riskFlags.length > 0 && (
+          <div className="mb-3 rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-xs text-secondary-700">
+            <div className="font-semibold">{t("pc_risk_title")}</div>
+            <ul className="mt-1 list-disc pl-4">
+              {riskFlags.map((code) => <li key={code}>{t(`pc_risk_${code}`)}</li>)}
+            </ul>
+          </div>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
