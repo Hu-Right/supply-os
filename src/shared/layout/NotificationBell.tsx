@@ -17,7 +17,7 @@ import Link from "next/link";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
-import { fetchNotifications, type NotificationItem } from "@/core/api/notifications";
+import { fetchNotifications, subscribeNotificationsChanged, type NotificationItem } from "@/core/api/notifications";
 import { renderNotification } from "@/shared/notifications/renderNotification";
 import { formatNotificationTime } from "@/shared/notifications/formatNotificationTime";
 
@@ -73,6 +73,13 @@ export function NotificationBell() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
+
+  // 其他地方的写操作（列表页标记已读/删除、详情页自动已读）成功后立即同步徽标与预览。
+  // 此前只有 60s 轮询 + 聚焦刷新，用户从列表页回到顶栏时徽标还是旧数字。
+  useEffect(() => {
+    if (!authUser) return;
+    return subscribeNotificationsChanged(() => void reload());
+  }, [authUser, reload]);
 
   if (!authUser) return null;
 

@@ -7,6 +7,31 @@
  */
 import { api } from "@/core/http";
 
+/**
+ * 通知变更广播事件。
+ *
+ * 背景（2026-11 用户反馈）：顶栏铃铛与 /notifications 列表各自持有一份未读数，
+ * 在列表页「标记已读 / 全部已读 / 删除」或详情页自动已读之后，铃铛徽标不会同步更新
+ * （它只有 60s 定时器 + 聚焦刷新，用户等不到）。
+ *
+ * 做法：**写操作成功后由 API 层统一广播**，所有关心未读的组件（铃铛）订阅即可；
+ * 不引入全局 store，避免为了一个计数把状态管理铺到全站。
+ */
+export const NOTIFICATIONS_CHANGED_EVENT = "notifications:changed";
+
+function emitNotificationsChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+}
+
+/** 订阅通知变更（返回取消订阅函数，供 useEffect 清理） */
+export function subscribeNotificationsChanged(handler: () => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  const wrapped = () => handler();
+  window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, wrapped);
+  return () => window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, wrapped);
+}
+
 export interface NotificationItem {
   id: number;
   type: string;
@@ -53,9 +78,10 @@ export async function fetchNotification(id: number): Promise<NotificationItem> {
   return r.item;
 }
 
-/** 标记单条已读（幂等）。 */
+/** 标记单条已读（幂等）。成功后广播，顶栏未读徽标立即同步。 */
 export async function markNotificationRead(id: number): Promise<void> {
   await api(`/api/notifications/${id}`, { method: "PATCH" });
+  emitNotificationsChanged();
 }
 
 interface BatchScope {
@@ -73,6 +99,7 @@ export async function markNotificationsRead(scope: BatchScope & { all?: boolean 
       ...(scope.types && scope.types.length ? { types: scope.types } : {}),
     },
   });
+  emitNotificationsChanged();
   return Number(r.marked ?? 0);
 }
 
@@ -86,6 +113,7 @@ export async function deleteNotifications(scope: BatchScope & { all?: boolean })
       ...(scope.types && scope.types.length ? { types: scope.types } : {}),
     },
   });
+  emitNotificationsChanged();
   return Number(r.deleted ?? 0);
 }
 
