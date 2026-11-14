@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiCached, clearApiCache, getCachedData, setCachedData } from "@/core/http/api-client";
+import { api, apiCached, clearApiCache, getCachedData, setCachedData } from "@/core/http/api-client";
 
 vi.mock("@/core/perf", () => ({ recordApiMetric: vi.fn() }));
 
@@ -28,6 +28,20 @@ beforeEach(() => {
 afterEach(() => {
   clearApiCache();
   vi.unstubAllGlobals();
+});
+
+describe("api body 序列化", () => {
+  it("对象 body 只序列化一次", async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ ok: true }));
+    await api("/api/procurement/buyer", { method: "PUT", body: { orgName: "111" } });
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe('{"orgName":"111"}');
+  });
+
+  it("调用方已序列化的字符串 body 按原文发送，不二次编码", async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ ok: true }));
+    await api("/api/procurement/buyer", { method: "PUT", body: JSON.stringify({ orgName: "111" }) });
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe('{"orgName":"111"}');
+  });
 });
 
 describe("apiCached 强制刷新与请求隔离", () => {

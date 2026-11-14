@@ -215,6 +215,11 @@ export async function api<T>(
   // FormData 特殊处理：不设置 Content-Type（浏览器自动添加 boundary），不 JSON.stringify
   const hasBody = body !== undefined;
   const isFormData = body instanceof FormData;
+  // 已是字符串的 body 视为调用方已自行序列化，按原文发送。
+  // 【血案】旧实现无条件 JSON.stringify：调用方写 `body: JSON.stringify(fields)` 时会被二次编码，
+  // 服务端 req.json() 得到的是一个字符串而非对象，所有字段读出来都是 undefined，
+  // 报错却显示成「XX 必填」——2026-11-14 采购主体保存即栽在这里（saveBuyer/patchProject/replaceItems 三处）。
+  const serializedBody = isFormData || typeof body === "string" ? body : JSON.stringify(body);
   const res = await fetch(url, {
     ...init,
     signal,
@@ -224,7 +229,7 @@ export async function api<T>(
       ...authHeaders,
       ...(init.headers as Record<string, string>),
     },
-    body: hasBody ? (isFormData ? body : JSON.stringify(body)) : undefined,
+    body: hasBody ? serializedBody : undefined,
   });
 
   const durationMs = Math.round(performance.now() - startTime);
@@ -263,7 +268,7 @@ export async function api<T>(
           Authorization: `Bearer ${newToken}`,
           ...(init.headers as Record<string, string>),
         },
-        body: hasBody ? (isFormData ? body : JSON.stringify(body)) : undefined,
+        body: hasBody ? serializedBody : undefined,
       });
       if (retryRes.ok) return retryRes.json();
       // 刷新后仍然 401：若原始响应含业务 code，透传服务端消息（如权限不足）
