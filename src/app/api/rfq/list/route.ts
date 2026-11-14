@@ -67,6 +67,8 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   const [countRes, dataRes] = await Promise.all([
     pool.query(`SELECT COUNT(*) AS total FROM rfq_demand d WHERE ${where}`, params),
+    // quote_count 读 legacy rfq_quotes（rfq_id = 投影 notice_pk）：rfq_quote 新表当前无写入者，
+    // 报价真实落点在 v1 表；P2 报价迁表时三处计数一并切回（2026-11-14 审计）
     pool.query(
       `SELECT d.id, d.reference, d.title, d.status, d.category_code,
               d.province_name, d.quantity, d.quantity_unit,
@@ -74,8 +76,8 @@ export const GET = withRoute(async (req: NextRequest) => {
               d.close_at, d.created_at,
               c1.name_zh AS category_l2_name,
               c0.name_zh AS category_l1_name,
-              (SELECT COUNT(*) FROM rfq_quote q
-                WHERE q.demand_id = d.id AND q.status = 'submitted' AND q.is_current = 1) AS quote_count
+              (SELECT COUNT(*) FROM rfq_quotes q
+                WHERE q.rfq_id = d.notice_pk AND q.status = 'submitted') AS quote_count
          FROM rfq_demand d
          LEFT JOIN commodity_backbone c1 ON c1.code = d.category_code
          LEFT JOIN commodity_backbone c0 ON c0.code = LEFT(d.category_code, 6) AND c0.level = 1

@@ -24,9 +24,9 @@ export const GET = withRoute(async (req) => {
             c1.name_zh AS category_l2_name,
             c0.name_zh AS category_l1_name,
             EXISTS(
-              SELECT 1 FROM rfq_quote q
-               WHERE q.demand_id = d.id AND q.supplier_user_id = ?
-                 AND q.is_current = 1 AND q.status <> 'withdrawn'
+              SELECT 1 FROM rfq_quotes q
+               WHERE q.rfq_id = d.notice_pk AND q.supplier_user_id = ?
+                 AND q.status <> 'withdrawn'
             ) AS quoted
        FROM rfq_invitation i
        JOIN rfq_demand d ON d.id = i.demand_id

@@ -39,10 +39,12 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   const [countRes, dataRes] = await Promise.all([
     pool.query(`SELECT COUNT(*) AS total FROM rfq_demand d WHERE ${where}`, params),
+    // quote_count/quote_pending 读 legacy rfq_quotes（rfq_id = 投影 notice_pk）：
+    // rfq_quote 新表当前无写入者，真实报价在 v1 表；P2 报价迁表时一并切回（2026-11-14 审计）
     pool.query(
       `SELECT d.*,
-              (SELECT COUNT(*) FROM rfq_quote q WHERE q.demand_id = d.id AND q.status <> 'withdrawn' AND q.is_current = 1) AS quote_count,
-              (SELECT COUNT(*) FROM rfq_quote q2 WHERE q2.demand_id = d.id AND q2.status = 'submitted' AND q2.is_current = 1) AS quote_pending
+              (SELECT COUNT(*) FROM rfq_quotes q WHERE q.rfq_id = d.notice_pk AND q.status <> 'withdrawn') AS quote_count,
+              (SELECT COUNT(*) FROM rfq_quotes q2 WHERE q2.rfq_id = d.notice_pk AND q2.status = 'submitted') AS quote_pending
          FROM rfq_demand d
         WHERE ${where}
         ORDER BY d.id DESC
