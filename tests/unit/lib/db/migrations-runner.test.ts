@@ -104,9 +104,9 @@ describe("runMigrations", () => {
 
 describe("ensureProcurementSchema", () => {
   it("当前所有迁移版本均已应用：调用等价于只做账本检查（幂等，返回 0）", async () => {
-    // ALL_MIGRATIONS 现含 version 1..13（…/orders_hardening/rfq_core/procurement_core/procurement_flow/retire_rfq_tables）；
+    // ALL_MIGRATIONS 现含 version 1..14（…/procurement_core/procurement_flow/retire_rfq_tables/procurement_publish_chain，并行会话追加 014）；
     // 全部登记为已应用后，pending 为空 → 执行数 0。
-    const { pool } = makePool({ applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] });
+    const { pool } = makePool({ applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] });
 
     await expect(ensureProcurementSchema(pool)).resolves.toBe(0);
   });
