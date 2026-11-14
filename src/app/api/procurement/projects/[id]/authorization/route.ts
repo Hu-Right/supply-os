@@ -13,7 +13,6 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_FORBIDDEN, EC_INTERNAL_ERROR, EC_INVALID_PARAMS, EC_RFQ_NOT_FOUND, EC_RFQ_STATE_INVALID, EC_RFQ_VERSION_CONFLICT } from "@/shared/constants/api";
 import { isProjectOwnedBy } from "@/lib/services/procurement/projects";
 import { getAuthorizationStatus, signAuthorization } from "@/lib/services/procurement/authorization";
-import { PROCUREMENT_SCAN_URL_PREFIX } from "@/lib/services/file-upload";
 
 interface Ctx {
   params: Promise<{ id: string }>;

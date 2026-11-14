@@ -6,7 +6,7 @@
  *              与旧 rfq_demand 域零映射（旧表由迁移 013 归档）。本迁移建六张核心表：
  *              buyers(主体认证) / buyer_verifications(核验留痕) / projects(需求主表) /
  *              lots(标包) / items(明细,UGT 码) / attachments(需求附件,按版本绑定) /
- *              revisions(版本快照,提交=确认版本)。UNSPSC 已全面退役：明细挂 UGT 树码
+ *              revisions(版本快照,提交=确认版本)。旧采购分类码已全面退役：明细挂 UGT 树码
  *              （commodity_backbone）。DDL 幂等，表级字符集/排序/引擎显式统一（同 002/010 口径）。
  */
 import type { Pool } from "mysql2/promise";
@@ -139,7 +139,7 @@ const TABLES = [
     "`quantity` DECIMAL(20,4) NOT NULL DEFAULT 0 COMMENT '采购数量', " +
     "`qty_unit` VARCHAR(30) NOT NULL DEFAULT '件' COMMENT '数量单位', " +
     "`qty_type` VARCHAR(12) NOT NULL DEFAULT 'fixed' COMMENT '确定数量/预估数量：fixed/estimated', " +
-    "`ugt_code` VARCHAR(32) NULL COMMENT '品类 UGT 树码（commodity_backbone，L1-L3；UNSPSC 已退役）', " +
+    "`ugt_code` VARCHAR(32) NULL COMMENT '品类 UGT 树码（commodity_backbone，L1-L3；旧采购分类码已退役）', " +
     "`attributes` JSON NULL COMMENT '关键属性（材料/技术/功能/用途）', " +
     "`alternatives_allowed` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否允许同等/替代产品', " +
     "`created_at` INT UNSIGNED NOT NULL COMMENT '创建时间（秒）', " +

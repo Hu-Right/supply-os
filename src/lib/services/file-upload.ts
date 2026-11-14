@@ -12,7 +12,7 @@
 import { getPool } from "../db/pool";
 
 /** 执照文件名白名单格式：license_<uid>_<ts>.<ext>（拒绝任何路径分隔符/穿越） */
-export const LICENSE_FILENAME_RE = /^license_[0-9a-zA-Z_-]{1,80}\.(jpg|jpeg|png|webp)$/;
+export const LICENSE_FILENAME_RE = /^license_[0-9a-zA-Z_-]{1,80}\.(jpg|jpeg|png|webp|pdf)$/;
 
 /** 新式鉴权 URL 前缀（存库与回图路由共用同一事实源） */
 export const LICENSE_URL_PREFIX = "/api/user/enterprise/license";
@@ -36,11 +36,12 @@ const CONTENT_TYPES: Record<string, string> = {
   ".jpeg": "image/jpeg",
   ".png": "image/png",
   ".webp": "image/webp",
+  ".pdf": "application/pdf",
 };
 
 /** 从执照文件名提取归属 userId（格式 license_<uid>_<ts>.<ext>）；非法返回 0 */
 export function parseLicenseUid(filename: string): number {
-  const m = /^license_(\d+)_[0-9]+\.(?:jpg|jpeg|png|webp)$/.exec(filename);
+  const m = /^license_(\d+)_[0-9]+\.(?:jpg|jpeg|png|webp|pdf)$/.exec(filename);
   return m ? Number(m[1]) : 0;
 }
 
@@ -97,6 +98,61 @@ export async function deleteFile(url: string): Promise<void> {
   await getPool()
     .execute(`DELETE FROM upload_files WHERE filename = ?`, [filename])
     .catch(() => undefined);
+}
+
+// ── 采购方代理授权文件（F01 第 7 项，buyerauth_<uid>_<ts>.<ext>） ──
+// 回文件走 /api/procurement/buyer/auth-doc/[filename]（仅上传者本人），
+// 评审后台直连同库 upload_files；与"执照"分通道，避免语义混用。
+
+/** 代理授权文件白名单：buyerauth_<uid>_<ts>.<ext>（图片/PDF） */
+export const BUYER_AUTH_DOC_FILENAME_RE = /^buyerauth_(\d+)_[0-9]+\.(jpg|jpeg|png|webp|pdf)$/;
+
+/** 鉴权 URL 前缀 */
+export const BUYER_AUTH_DOC_URL_PREFIX = "/api/procurement/buyer/auth-doc";
+
+export function buyerAuthDocContentType(filename: string): string {
+  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  return CONTENT_TYPES[ext] ?? "application/octet-stream";
+}
+
+/** 从文件名提取归属 userId；非法返回 0 */
+export function parseBuyerAuthDocUid(filename: string): number {
+  const m = BUYER_AUTH_DOC_FILENAME_RE.exec(filename);
+  return m ? Number(m[1]) : 0;
+}
+
+/** 上传代理授权文件字节入库（幂等：同文件名覆盖；文件名必须过白名单） */
+export async function saveBuyerAuthDoc(params: {
+  filename: string;
+  buffer: Buffer;
+  contentType: string;
+  uploadedBy: number;
+}): Promise<UploadResult> {
+  if (!BUYER_AUTH_DOC_FILENAME_RE.test(params.filename)) {
+    throw new Error("非法的授权文件名");
+  }
+  await getPool().execute(
+    `INSERT INTO upload_files (filename, content, content_type, size_bytes, uploaded_by)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE content = VALUES(content), content_type = VALUES(content_type),
+                             size_bytes = VALUES(size_bytes), uploaded_by = VALUES(uploaded_by)`,
+    [params.filename, params.buffer, params.contentType, params.buffer.length, params.uploadedBy],
+  );
+  return { url: `${BUYER_AUTH_DOC_URL_PREFIX}/${params.filename}`, filename: params.filename };
+}
+
+/** 按文件名取代理授权文件字节；不存在/文件名非法返回 null */
+export async function getBuyerAuthDoc(
+  filename: string,
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  if (!BUYER_AUTH_DOC_FILENAME_RE.test(filename)) return null;
+  const [rows] = await getPool().execute(
+    `SELECT content, content_type FROM upload_files WHERE filename = ? LIMIT 1`,
+    [filename],
+  );
+  const row = (rows as Array<{ content: Buffer; content_type: string }>)[0];
+  if (!row?.content) return null;
+  return { buffer: row.content, contentType: row.content_type || buyerAuthDocContentType(filename) };
 }
 
 // ── 授权书签署扫描件（新发布域，authscan_<projectId>_<uid>_<ts>.<ext>） ──

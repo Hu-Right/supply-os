@@ -63,6 +63,17 @@ export const PUT = withRoute(async (req: NextRequest) => {
         fund_source: body.fundSource,
         budget_status: body.budgetStatus,
         external_rules: body.externalRules,
+        ...(body.licenseFileKey !== undefined || body.license_file_key !== undefined
+          ? { license_file_key: body.licenseFileKey ?? body.license_file_key }
+          : {}),
+        ...(body.licenseFileHash !== undefined || body.license_file_hash !== undefined
+          ? { license_file_hash: body.licenseFileHash ?? body.license_file_hash }
+          : {}),
+        ...(body.agentAuthFileKey !== undefined ? { agent_auth_file_key: body.agentAuthFileKey } : {}),
+        ...(body.agentAuthFileHash !== undefined ? { agent_auth_file_hash: body.agentAuthFileHash } : {}),
+        ...(body.authContactName !== undefined ? { auth_contact_name: body.authContactName } : {}),
+        ...(body.authContactPhone !== undefined ? { auth_contact_phone: body.authContactPhone } : {}),
+        ...(body.authContactEmail !== undefined ? { auth_contact_email: body.authContactEmail } : {}),
       },
     });
     const row = await getBuyerByUserId(getPool(), auth.userId);

@@ -41,20 +41,22 @@ export async function generateMatchCandidates(db: Pool, projectId: number): Prom
 
   const [ins] = await db.query(
     `INSERT IGNORE INTO procurement_matches (project_id, supplier_id, score, reasons, status, created_at)
-     SELECT ?, s.id,
-            60 + (? <> '' AND s.province = ?) * 20,
-            CONCAT('行业L1:', ?, IF(? <> '' AND s.province = ?, ';省份', '')),
-            'recommended',
-            UNIX_TIMESTAMP()
-       FROM (
-             SELECT DISTINCT i.supplier_id
-               FROM supplier_industry_rel i
-              WHERE i.industry_code LIKE 'UGT-I-%'
-                AND LEFT(SUBSTRING_INDEX(i.industry_code, '-', -1), 2) = ?
-            ) m
-       JOIN supplier s ON s.id = m.supplier_id AND s.verify_status = 'done'
-      ORDER BY score DESC
-      LIMIT 50`,
+     SELECT * FROM (
+       SELECT ?, s.id,
+             60 + (? <> '' AND s.province = ?) * 20 AS score,
+             CONCAT('行业L1:', ?, IF(? <> '' AND s.province = ?, ';省份', '')) AS reasons,
+             'recommended' AS status,
+             UNIX_TIMESTAMP() AS created_at
+         FROM (
+               SELECT DISTINCT i.supplier_id
+                 FROM supplier_industry_rel i
+                WHERE i.industry_code LIKE 'UGT-I-%'
+                  AND LEFT(SUBSTRING_INDEX(i.industry_code, '-', -1), 2) = ?
+              ) m
+         JOIN supplier s ON s.id = m.supplier_id AND s.verify_status = 'done'
+        ORDER BY score DESC
+        LIMIT 50
+     ) ranked`,
     [projectId, province, province, segment, province, province, segment],
   );
   return Number((ins as { affectedRows?: number }).affectedRows ?? 0);

@@ -90,8 +90,6 @@ const DEFAULT_FORM: FormState = {
 
 const PURPOSE_OPTIONS = ["real", "budgeting", "research", "future_plan"];
 const OBJECT_OPTIONS = ["goods", "engineering", "service", "solution"];
-const INSTALL_OPTIONS = ["installation", "commissioning", "training"];
-const GUARANTEE_OPTIONS = ["bid_bond", "performance_bond", "warranty_deposit"];
 const COMPLIANCE_OPTIONS = ["export_control", "dangerous", "medical", "dual_use", "other"];
 const INCOTERM_OPTIONS = ["EXW", "FOB", "CIF", "DDP"];
 

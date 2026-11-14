@@ -6,13 +6,12 @@
  * @description 编辑=同向导回填；重新提交即新版本（version_no+1），旧授权自动失效须重签
  *              （流程闭环：改稿 → 重提 → 重签授权 → 重新核验）。
  */
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { ProcurementWizard } from "@/features/procurement-demand/ProcurementWizard";
 
 export default function PageClient() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const { t } = useLocale();
   const id = params?.id ? Number(params.id) : null;
   if (!id || !Number.isFinite(id)) {

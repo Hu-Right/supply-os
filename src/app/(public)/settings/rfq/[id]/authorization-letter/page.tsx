@@ -13,7 +13,7 @@
  *              版本绑定：需求改稿重提后 revision_no 变化，本页自动按新版本重新生成授权书，
  *              旧签署失效须重签（授权书第五条）。
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/core/http";
@@ -213,8 +213,8 @@ export default function AuthorizationLetterPage() {
           <p className="text-secondary-500">Authorized Party: {AUTHORIZED_PARTY_EN}</p>
           <p>采购项目名称：{projectTitle}</p>
           <p className="text-secondary-500">Project Name: {projectTitle}</p>
-          <p>采购需求编号：{detail.reference}　需求版本：v{detail.versionNo}</p>
-          <p className="text-secondary-500">Requirement ID: {detail.reference}　Requirement Version: v{detail.versionNo}</p>
+          <p>采购需求编号：{detail.reference}  需求版本：v{detail.versionNo}</p>
+          <p className="text-secondary-500">Requirement ID: {detail.reference}  Requirement Version: v{detail.versionNo}</p>
         </div>
 
         <div className="mt-6 space-y-4">

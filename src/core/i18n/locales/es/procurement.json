@@ -952,5 +952,15 @@
   "pc_auth_hint_warning": "Importante: reenviar incrementa la versión; la autorización firmada queda sin efecto.",
   "pc_bfundsource": "Fuente de financiación",
   "pc_blicense_existing": "Licencia ya subida",
-  "pc_fz_max": "tamaño máx. por archivo"
+  "pc_fz_max": "tamaño máx. por archivo",
+  "pc_bsec_auth": "Autorización de compra",
+  "pc_baddress": "Dirección registrada",
+  "pc_bleadertitle": "Cargo del responsable",
+  "pc_bleaderemail": "Correo del responsable",
+  "pc_bdelivercity": "Ciudad de entrega",
+  "pc_bauthdoc": "Documento de autorización de compra",
+  "pc_bauthdoc_hint": "Si compra en nombre de un tercero, suba una carta de autorización",
+  "pc_bauthcontact_name": "Nombre del contacto autorizado",
+  "pc_bauthcontact_phone": "Teléfono del contacto autorizado",
+  "pc_bauthcontact_email": "Correo del contacto autorizado"
 }

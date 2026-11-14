@@ -952,5 +952,15 @@
   "pc_auth_hint_warning": "重要：提交后若再改稿重提，版本号变化，已签授权书自动失效须重新签署。",
   "pc_bfundsource": "资金来源",
   "pc_blicense_existing": "已上传的执照文件",
-  "pc_fz_max": "单个文件上限"
+  "pc_fz_max": "单个文件上限",
+  "pc_bsec_auth": "采购授权",
+  "pc_baddress": "注册地址",
+  "pc_bleadertitle": "负责人职务",
+  "pc_bleaderemail": "负责人邮箱",
+  "pc_bdelivercity": "采购地区（城市）",
+  "pc_bauthdoc": "代理采购授权文件",
+  "pc_bauthdoc_hint": "如代表第三方采购，请上传授权委托书",
+  "pc_bauthcontact_name": "授权联系人姓名",
+  "pc_bauthcontact_phone": "授权联系人电话",
+  "pc_bauthcontact_email": "授权联系人邮箱"
 }

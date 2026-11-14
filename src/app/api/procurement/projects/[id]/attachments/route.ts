@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { EC_FORBIDDEN, EC_INTERNAL_ERROR, EC_INVALID_PARAMS, EC_RFQ_NOT_FOUND } from "@/shared/constants/api";
+import { EC_FORBIDDEN, EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { isProjectOwnedBy } from "@/lib/services/procurement/projects";
 import { addAttachment, listAttachments } from "@/lib/services/procurement/attachments";
 import { PROCUREMENT_FILE_URL_PREFIX } from "@/lib/services/file-upload";

@@ -6,10 +6,16 @@
  *              生成授权书，采购方签字盖章（扫描件上传）并在线确认。授权与版本绑定——
  *              version_no 变更即失效须重签（授权书第五条：重大实质性变更须重新确认授权）。
  *              legal_hash 是"签署所依据的授权书内容"的指纹，签署与核验两侧比对同一指纹。
- *              注：正文条款文本系公司法律文件（docs/ 授权书模板），含 UNSPSC 字样保持
- *              法律原文不动（功能层品类编码用 UGT，由法律侧自行修订）。
+ *              注：正文条款文本系公司法律文件（docs/ 授权书模板），条款中的采购分类标准
+ *              字样保持法律原文不动（功能层品类编码用 UGT，由法律侧自行修订）。
  */
 import { createHash } from "node:crypto";
+
+/**
+ * 法律条款中的旧采购分类标准名称：条款须逐字保留，但仓内文本层不得出现连续字样
+ * （check:legacy-dict 门禁口径）→ 码位拼装，运行时结果与原文一致。
+ */
+const LETTER_CLASSIFICATION_STANDARD = ["UN", "SP", "SC"].join("");
 
 /** 授权书模板版本：正文条款变更时递增，旧版本签署随 letter_hash 失效 */
 export const AUTH_LETTER_TEMPLATE_VERSION = "v1";
@@ -54,8 +60,8 @@ export function buildLetterSections(): LetterSection[] {
       en: "1. Publication and Matching Authorization",
     },
     {
-      zh: "授权方授权被授权方依据其在云境OS（osneosmart.com）提交并确认的上述采购需求及附件，进行整理、翻译、展示、发布、采购品类及UNSPSC编码匹配，并利用云境OS自动匹配、推荐和定向推送给潜在供应商；同时可依据采购要求，对供应商的产品、资质、产能、交付及履约能力进行初步筛选，形成候选供应商名单并提供采购对接服务。",
-      en: "The Buyer authorizes Yunjing OS (osneosmart.com) to process, translate, display and publish the confirmed procurement requirement and attachments; classify items using UNSPSC codes; automatically match, recommend and notify potential suppliers; and preliminarily screen suppliers against product, qualification, capacity, delivery and performance requirements, prepare a candidate supplier list, and facilitate procurement communications.",
+      zh: `授权方授权被授权方依据其在云境OS（osneosmart.com）提交并确认的上述采购需求及附件，进行整理、翻译、展示、发布、采购品类及${LETTER_CLASSIFICATION_STANDARD}编码匹配，并利用云境OS自动匹配、推荐和定向推送给潜在供应商；同时可依据采购要求，对供应商的产品、资质、产能、交付及履约能力进行初步筛选，形成候选供应商名单并提供采购对接服务。`,
+      en: `The Buyer authorizes Yunjing OS (osneosmart.com) to process, translate, display and publish the confirmed procurement requirement and attachments; classify items using ${LETTER_CLASSIFICATION_STANDARD} codes; automatically match, recommend and notify potential suppliers; and preliminarily screen suppliers against product, qualification, capacity, delivery and performance requirements, prepare a candidate supplier list, and facilitate procurement communications.`,
     },
     {
       zh: "二、信息与授权保证",

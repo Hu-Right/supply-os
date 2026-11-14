@@ -35,6 +35,11 @@ export interface BuyerRow extends RowDataPacket {
   external_rules: string | null;
   license_file_key: string | null;
   license_file_hash: string | null;
+  agent_auth_file_key: string | null;
+  agent_auth_file_hash: string | null;
+  auth_contact_name: string | null;
+  auth_contact_phone: string | null;
+  auth_contact_email: string | null;
   status: string;
   verified_by: string | null;
   verified_at: number | null;
@@ -66,6 +71,11 @@ const EDITABLE_COLUMNS = [
   "external_rules",
   "license_file_key",
   "license_file_hash",
+  "agent_auth_file_key",
+  "agent_auth_file_hash",
+  "auth_contact_name",
+  "auth_contact_phone",
+  "auth_contact_email",
 ] as const;
 
 export async function getBuyerByUserId(db: Pool, userId: number): Promise<BuyerRow | null> {

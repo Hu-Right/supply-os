@@ -25,12 +25,9 @@ export const GET = withRoute<Ctx>(async (req: NextRequest, { params }) => {
   }
 
   // 可选登录：未登录只能看已发布需求
-  let userId: number | null = null;
-  try {
-    userId = (await requireUserKeyOrThrow(req)).userId;
-  } catch {
-    userId = null;
-  }
+  const userId = await requireUserKeyOrThrow(req)
+    .then((a) => a.userId)
+    .catch(() => null);
 
   const pool = getPool();
   const bundle = await getProjectBundle(pool, projectId);
@@ -70,6 +67,8 @@ export const PATCH = withRoute<Ctx>(async (req: NextRequest, { params }) => {
       if (result.reason === "not_found") routeError(404, EC_RFQ_NOT_FOUND, "项目不存在");
       routeError(409, EC_RFQ_STATE_INVALID, "仅草稿或待补充状态可编辑");
     }
+    // 一个字段都没命中 → 视为客户端契约错误（防止再次出现"静默丢字段"）
+    if (result.changed === 0) routeError(400, EC_INVALID_PARAMS, "没有可更新的需求字段");
     /** 编辑结果视图 */
     const projectPatchedViewOf = (changed: number) => ({ changed });
     return NextResponse.json(projectPatchedViewOf(result.changed));

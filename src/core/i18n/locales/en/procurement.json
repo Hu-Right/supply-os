@@ -952,5 +952,15 @@
   "pc_auth_hint_warning": "Important: resubmitting after edits increments the version; signed authorizations become void and must be re-signed.",
   "pc_bfundsource": "Funding source",
   "pc_blicense_existing": "Uploaded license file",
-  "pc_fz_max": "per-file size limit"
+  "pc_fz_max": "per-file size limit",
+  "pc_bsec_auth": "Procurement authorization",
+  "pc_baddress": "Registered address",
+  "pc_bleadertitle": "Title of the person in charge",
+  "pc_bleaderemail": "Email of the person in charge",
+  "pc_bdelivercity": "Delivery city",
+  "pc_bauthdoc": "Procurement authorization document",
+  "pc_bauthdoc_hint": "Upload a letter of authorization if you procure on behalf of a third party",
+  "pc_bauthcontact_name": "Authorized contact name",
+  "pc_bauthcontact_phone": "Authorized contact phone",
+  "pc_bauthcontact_email": "Authorized contact email"
 }

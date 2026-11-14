@@ -952,5 +952,15 @@
   "pc_auth_hint_warning": "مهم: إعادة الإرسال تزيد النسخة؛ يصبح التصريح الموقّع لاغياً.",
   "pc_bfundsource": "مصدر التمويل",
   "pc_blicense_existing": "الرخصة المرفوعة",
-  "pc_fz_max": "الحد الأقصى للملف"
+  "pc_fz_max": "الحد الأقصى للملف",
+  "pc_bsec_auth": "تفويض الشراء",
+  "pc_baddress": "العنوان المسجل",
+  "pc_bleadertitle": "منصب المسؤول",
+  "pc_bleaderemail": "بريد المسؤول",
+  "pc_bdelivercity": "مدينة التسليم",
+  "pc_bauthdoc": "مستند تفويض الشراء",
+  "pc_bauthdoc_hint": "إذا كنت تشتري نيابة عن طرف ثالث، ارفع خطاب تفويض",
+  "pc_bauthcontact_name": "اسم جهة الاتصال المفوضة",
+  "pc_bauthcontact_phone": "هاتف جهة الاتصال المفوضة",
+  "pc_bauthcontact_email": "بريد جهة الاتصال المفوضة"
 }

@@ -6,7 +6,6 @@
  *              「包在服务返回值里的键」必须过视图 mapper；公开面按 budget_public/
  *              contact_disclosure 分级裁剪（F02 分级授权口径）。
  */
-import type { RowDataPacket } from "mysql2/promise";
 import type { ProjectRow } from "./projects";
 import type { BuyerRow } from "./buyers";
 import type { MatchCandidate } from "./matching";
@@ -14,6 +13,17 @@ import type { ProjectDetailBundle } from "./projects";
 
 const toNum = (v: unknown): number | null => (v == null ? null : Number(v));
 const toStr = (v: unknown): string => String(v ?? "");
+
+/** JSON 列既可能被驱动解析成对象、也可能是字符串；两种都安全转成对象 */
+export function toJsonValue(v: unknown): unknown {
+  if (v == null || v === "") return null;
+  if (typeof v === "object") return v;
+  try {
+    return JSON.parse(String(v));
+  } catch {
+    return null;
+  }
+}
 
 export function buyerViewOf(row: BuyerRow) {
   return {
@@ -38,6 +48,12 @@ export function buyerViewOf(row: BuyerRow) {
     budgetStatus: toStr(row.budget_status),
     externalRules: toStr(row.external_rules),
     licenseFileUrl: row.license_file_key ? `/api/user/enterprise/license/${toStr(row.license_file_key)}` : null,
+    agentAuthFileUrl: row.agent_auth_file_key
+      ? `/api/procurement/buyer/auth-doc/${toStr(row.agent_auth_file_key)}`
+      : null,
+    authContactName: toStr(row.auth_contact_name),
+    authContactPhone: toStr(row.auth_contact_phone),
+    authContactEmail: toStr(row.auth_contact_email),
     status: toStr(row.status),
     verifiedAt: toNum(row.verified_at),
     verifyNote: toStr(row.verify_note),
@@ -103,7 +119,7 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     manufacturerOnly: Number(row.manufacturer_only) === 1,
     supplierQuals: toStr(row.supplier_quals),
     quoteDeadlineAt: toNum(row.quote_deadline_at),
-    compliance: row.compliance ? JSON.parse(String(row.compliance)) : null,
+    compliance: toJsonValue(row.compliance),
     buyerOrgName: bundle.buyerOrgName,
     procurementMode: toStr(row.procurement_mode),
     requirementVerify: toStr(row.requirement_verify),
@@ -115,10 +131,36 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     isOwner,
   };
 
-  if (!isOwner) return base;
+  if (!isOwner) {
+    // 公开详情：供应商/游客必须能看到"买什么、多少、什么规格"才可能响应（F17 前置）；
+    // 附件/核验记录/内部编号等非公开信息不外泄。
+    return {
+      ...base,
+      lots: bundle.lots.map((l) => ({
+        lotNo: toStr(l.lot_no),
+        title: toStr(l.title),
+        scopeNote: toStr(l.scope_note),
+      })),
+      items: bundle.items.map((it) => ({
+        id: Number(it.id),
+        lotId: toNum(it.lot_id),
+        lineNo: Number(it.line_no),
+        nameZh: toStr(it.name_zh),
+        nameEn: toStr(it.name_en),
+        spec: toStr(it.spec),
+        quantity: toNum(it.quantity),
+        qtyUnit: toStr(it.qty_unit),
+        qtyType: toStr(it.qty_type),
+        ugtCode: toStr(it.ugt_code),
+        alternativesAllowed: Number(it.alternatives_allowed) === 1,
+      })),
+      itemCount: bundle.items.length,
+    };
+  }
 
   return {
     ...base,
+    budgetPublic: Number(row.budget_public) === 1,
     lots: bundle.lots.map((l) => ({
       lotNo: toStr(l.lot_no),
       title: toStr(l.title),
@@ -135,7 +177,7 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
       qtyUnit: toStr(it.qty_unit),
       qtyType: toStr(it.qty_type),
       ugtCode: toStr(it.ugt_code),
-      attributes: it.attributes ? JSON.parse(String(it.attributes)) : null,
+      attributes: toJsonValue(it.attributes),
       alternativesAllowed: Number(it.alternatives_allowed) === 1,
     })),
     attachments: bundle.attachments.map((a) => ({

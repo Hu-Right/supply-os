@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { EC_FORBIDDEN, EC_INVALID_PARAMS, EC_NOT_FOUND } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_NOT_FOUND } from "@/shared/constants/api";
 import { PROCUREMENT_FILE_FILENAME_RE, getProcurementFile } from "@/lib/services/file-upload";
 import type { RowDataPacket } from "mysql2/promise";
 

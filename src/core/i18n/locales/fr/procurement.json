@@ -952,5 +952,15 @@
   "pc_auth_hint_warning": "Important : toute resoumission incrémente la version ; l'autorisation signée devient caduque.",
   "pc_bfundsource": "Source de financement",
   "pc_blicense_existing": "Fichier de licence téléversé",
-  "pc_fz_max": "taille max par fichier"
+  "pc_fz_max": "taille max par fichier",
+  "pc_bsec_auth": "Autorisation d'achat",
+  "pc_baddress": "Adresse d'enregistrement",
+  "pc_bleadertitle": "Fonction du responsable",
+  "pc_bleaderemail": "E-mail du responsable",
+  "pc_bdelivercity": "Ville de livraison",
+  "pc_bauthdoc": "Document d'autorisation d'achat",
+  "pc_bauthdoc_hint": "Si vous achetez pour un tiers, téléversez une lettre d'autorisation",
+  "pc_bauthcontact_name": "Nom du contact autorisé",
+  "pc_bauthcontact_phone": "Téléphone du contact autorisé",
+  "pc_bauthcontact_email": "E-mail du contact autorisé"
 }

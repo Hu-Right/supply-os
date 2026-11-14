@@ -225,9 +225,9 @@ export async function applyReviewDecision(
 
       // tender 记录：正式发布编号（PENDING 占位 → OSPT-{年}-{id} 回填）
       const [tIns] = await conn.query(
-        `INSERT INTO procurement_tenders (project_id, version_no, tender_no, publish_mode, status, published_at, deadline_at, deadline_tz)
-         VALUES (?, ?, 'PENDING', ?, 'published', ?, ?, 'Asia/Shanghai')`,
-        [input.projectId, input.version, "public", at, row.quote_deadline_at],
+        `INSERT INTO procurement_tenders (project_id, version_no, tender_no, publish_mode, status, published_at, deadline_at, deadline_tz, created_at)
+         VALUES (?, ?, 'PENDING', ?, 'published', ?, ?, 'Asia/Shanghai', ?)`,
+        [input.projectId, input.version, "public", at, row.quote_deadline_at, at],
       );
       const tenderId = Number((tIns as { insertId?: number }).insertId ?? 0);
       tenderNo = formatTenderNo(tenderId, at);

@@ -91,6 +91,36 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "contact_disclosure",
 ] as const;
 
+/**
+ * 可编辑列的键索引：同时接受 snake_case（服务契约）与 camelCase（既有前端/外部调用）。
+ * 2026-11-14 缺陷：向导按 camelCase 提交，updateProject 只遍历 snake 列名 →
+ * 命中 0 列、静默返回 changed:0，标题/预算/交付/条款全部丢失。
+ */
+const PROJECT_COLUMN_BY_KEY: Map<string, string> = (() => {
+  const map = new Map<string, string>();
+  for (const col of PROJECT_EDITABLE_COLUMNS) {
+    map.set(col, col);
+    map.set(col.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase()), col);
+  }
+  return map;
+})();
+
+/** 列表型字段（F02 多选口）：数组统一 join 成逗号串 */
+const PROJECT_LIST_COLUMNS = new Set(["object_types", "install_needs", "guarantees"]);
+
+/** 把任意键名的入参规范成「列名 → 值」；无法识别的键（状态/核验列等）一律丢弃 */
+export function normalizeProjectFields(
+  fields: Record<string, unknown>,
+): Partial<Record<(typeof PROJECT_EDITABLE_COLUMNS)[number], unknown>> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(fields ?? {})) {
+    const col = PROJECT_COLUMN_BY_KEY.get(key);
+    if (!col || value === undefined) continue;
+    out[col] = PROJECT_LIST_COLUMNS.has(col) && Array.isArray(value) ? value.join(",") : value;
+  }
+  return out as Partial<Record<(typeof PROJECT_EDITABLE_COLUMNS)[number], unknown>>;
+}
+
 export async function getProjectById(db: Pool, projectId: number): Promise<ProjectRow | null> {
   const [rows] = await db.query("SELECT * FROM procurement_projects WHERE id = ? LIMIT 1", [projectId]);
   return ((rows as ProjectRow[])[0] ?? null) || null;
@@ -120,9 +150,11 @@ export async function createProject(db: Pool, input: CreateProjectInput): Promis
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
+    // title_zh 是 NOT NULL 且无默认值：严格 sql_mode 下必须显式给空串，
+    // 否则 INSERT 直接 1364（草稿标题由后续 PATCH 补齐）。
     const [ins] = await conn.query(
-      `INSERT INTO procurement_projects (buyer_id, reference, status, created_at, updated_at)
-       VALUES (?, 'PENDING', 'draft', ?, ?)`,
+      `INSERT INTO procurement_projects (buyer_id, reference, status, title_zh, purpose, created_at, updated_at)
+       VALUES (?, 'PENDING', 'draft', '', 'real', ?, ?)`,
       [input.buyerId, at, at],
     );
     const projectId = Number((ins as { insertId?: number }).insertId ?? 0);
@@ -141,7 +173,8 @@ export async function createProject(db: Pool, input: CreateProjectInput): Promis
 export interface UpdateProjectInput {
   projectId: number;
   at?: number;
-  fields: Partial<Record<(typeof PROJECT_EDITABLE_COLUMNS)[number], unknown>>;
+  /** 列名或 camelCase 键均可（内部经 normalizeProjectFields 归一） */
+  fields: Record<string, unknown>;
 }
 
 /** 深度冻结哈希：主表可编辑列 + 明细 + 附件清单的 canonical JSON */
@@ -168,11 +201,19 @@ export async function updateProject(
   const sets: string[] = [];
   const params: unknown[] = [];
   let changed = 0;
+  const fields = normalizeProjectFields(input.fields);
   for (const col of PROJECT_EDITABLE_COLUMNS) {
-    if (input.fields[col] === undefined) continue;
-    const raw = input.fields[col];
+    if (fields[col] === undefined) continue;
+    const raw = fields[col];
     sets.push(`\`${col}\` = ?`);
-    params.push(raw === "" ? null : raw);
+    // JSON 列：对象/数组先序列化（MySQL 不接受对象绑定）
+    params.push(
+      raw === ""
+        ? null
+        : col === "compliance" && raw !== null && typeof raw === "object"
+          ? JSON.stringify(raw)
+          : raw,
+    );
     changed++;
   }
   if (changed === 0) return { ok: true, changed: 0 };
