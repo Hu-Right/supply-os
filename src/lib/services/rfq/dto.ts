@@ -15,6 +15,7 @@ import { DEMAND_STATUS } from "@/shared/constants/rfq-demand";
 export interface DemandRowLike {
   id: number;
   reference: string;
+  buyer_org_name: string | null;
   status: string;
   revision_no: number;
   title: string;
@@ -100,6 +101,7 @@ export interface DemandDetailDTO {
   createdAt: number | null;
   isOwner: boolean;
   restricted: boolean;
+  buyerOrgName?: string;
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
@@ -151,6 +153,7 @@ export function toDetailView(
   };
 
   if (opts.isOwner) {
+    base.buyerOrgName = String(row.buyer_org_name ?? "");
     base.contactName = String(row.contact_name ?? "");
     base.contactEmail = String(row.contact_email ?? "");
     base.contactPhone = String(row.contact_phone ?? "");
