@@ -98,12 +98,29 @@ export function projectSummaryViewOf(row: ProjectRow) {
   };
 }
 
-/** 详情视图：owner 全量，非 owner 按 F02 分级授权裁剪 */
+/**
+ * 详情视图：owner 全量；非 owner 按 F02 分级授权（contact_disclosure）裁剪。
+ *
+ * 2026-11 整改：`contact_disclosure` 此前只被读出来原样回显（`const disclosure = …` 之后
+ * 没有任何分支用它），等于「采购方选了不公开，平台照样全给」。现落地为四个等级：
+ *   none        → 不公开采购方身份（机构名置空）+ 预算（除 budget_public=1）
+ *   org_only    → 公开机构名；预算仍只看 budget_public
+ *   org_contact → 同 org_only（联系方式不在本视图内下发，未来加联系人字段时按此级放开）
+ *   budget_all  → 机构名 + 预算
+ * 未识别的存量值按 org_only 处理（宁可显示，不静默匿名化历史数据）。
+ *
+ * 另：`authorization` 里的签署人姓名属个人信息，只给 owner；非 owner 只保留核验状态。
+ * 交付地址/物流条款属「需求信息」（供应商报价必需），任何等级都公开——该口径由
+ * `publish-chain.test.ts` 的公开详情用例钉住。
+ */
 export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner: boolean }) {
   const row = bundle.project;
   const isOwner = opts.isOwner;
-  const showBudget = isOwner || Number(row.budget_public) === 1;
-  const disclosure = toStr(row.contact_disclosure);
+  const rawLevel = toStr(row.contact_disclosure);
+  const level: "none" | "org_only" | "org_contact" | "budget_all" =
+    rawLevel === "none" || rawLevel === "org_contact" || rawLevel === "budget_all" ? rawLevel : "org_only";
+  const showBudget = isOwner || Number(row.budget_public) === 1 || level === "budget_all";
+  const showOrgName = isOwner || level !== "none";
 
   const base = {
     id: Number(row.id),
@@ -139,17 +156,20 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     supplierQuals: toStr(row.supplier_quals),
     supplierConfirmDate: toDateStr(row.supplier_confirm_date),
     contractDate: toDateStr(row.contract_date),
-    contactDisclosure: disclosure,
+    contactDisclosure: level,
     quoteDeadlineAt: toNum(row.quote_deadline_at),
     compliance: toJsonValue(row.compliance),
-    buyerOrgName: bundle.buyerOrgName,
+    buyerOrgName: showOrgName ? bundle.buyerOrgName : "",
     procurementMode: toStr(row.procurement_mode),
     requirementVerify: toStr(row.requirement_verify),
     fundVerify: toStr(row.fund_verify),
     submittedAt: toNum(row.submitted_at),
     publishedAt: toNum(row.published_at),
     createdAt: toNum(row.created_at),
-    authorization: bundle.authorization,
+    // 签署人姓名/签署时间只给 owner（个人信息不外泄）；非 owner 只保留核验状态
+    authorization: isOwner
+      ? bundle.authorization
+      : { status: bundle.authorization.status, signerName: null, signedAt: null },
     isOwner,
   };
 
@@ -159,6 +179,8 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     return {
       ...base,
       lots: bundle.lots.map((l) => ({
+        // id 供前端把 items.lotId 还原成 lotNo（编辑回填丢标包缺陷的修复基础）
+        id: l.id == null ? null : Number(l.id),
         lotNo: toStr(l.lot_no),
         title: toStr(l.title),
         scopeNote: toStr(l.scope_note),
@@ -184,6 +206,7 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     ...base,
     budgetPublic: Number(row.budget_public) === 1,
     lots: bundle.lots.map((l) => ({
+      id: l.id == null ? null : Number(l.id),
       lotNo: toStr(l.lot_no),
       title: toStr(l.title),
       scopeNote: toStr(l.scope_note),

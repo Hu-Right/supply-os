@@ -44,6 +44,8 @@ export interface ProjectSummary {
   reference: string;
   versionNo: number;
   status: string;
+  /** closed 细分原因：cancelled / withdrawn / expired（发布页关闭态展示用） */
+  closeReason?: string;
   titleZh: string;
   titleEn: string;
   purpose: string;
@@ -96,7 +98,7 @@ export interface ProjectDetail extends ProjectSummary {
   /** 仅 owner 返回：预算是否可公开（编辑回填用，避免用"有金额"反推） */
   budgetPublic?: boolean;
   itemCount?: number;
-  lots: Array<{ lotNo: string; title: string; scopeNote: string }>;
+  lots: Array<{ id: number | null; lotNo: string; title: string; scopeNote: string }>;
   items: Array<{
     id: number;
     lotId: number | null;
