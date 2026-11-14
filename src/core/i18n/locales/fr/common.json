@@ -363,5 +363,18 @@
   "notifCategoryMatched": "Mise en relation",
   "notifDeleteConfirmTitle": "Supprimer les notifications",
   "notifDeleteConfirmBody": "Supprimer les {count} notifications sélectionnées ? Elles ne seront plus affichées.",
-  "notifDeleteAllConfirmBody": "Supprimer les {count} notifications du filtre actuel ? Elles ne seront plus affichées."
+  "notifDeleteAllConfirmBody": "Supprimer les {count} notifications du filtre actuel ? Elles ne seront plus affichées.",
+  "notifTAuthorizationVerified": "Autorisation vérifiée",
+  "notifBAuthorizationVerified": "L'autorisation de la demande {reference} a passé la vérification ; la publication se poursuit.",
+  "notifTAuthorizationRejected": "Autorisation refusée",
+  "notifBAuthorizationRejected": "L'autorisation de la demande {reference} a été refusée : {reason}. Veuillez signer et soumettre à nouveau.",
+  "notifTAutoReview": "Avis de pré-contrôle",
+  "notifBAutoReview": "Le pré-contrôle de la demande {reference} a signalé {count} point(s) : {items}. Modifiez puis soumettez à nouveau.",
+  "notifAutoCheckCompleteness": "Complétude (livraison ou échéance manquante)",
+  "notifAutoCheckTiming": "Dates (échéance déjà passée)",
+  "notifAutoCheckCompliance": "Conformité déclarée (revue manuelle requise)",
+  "notifAutoCheckDuplication": "Doublon (même acheteur et titre)",
+  "notifNoReason": "aucune raison fournie",
+  "notifNoDetail": "voir l'historique",
+  "notifListSeparator": ", "
 }

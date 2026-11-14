@@ -363,5 +363,18 @@
   "notifCategoryMatched": "المطابقة",
   "notifDeleteConfirmTitle": "حذف الإشعارات",
   "notifDeleteConfirmBody": "هل تريد حذف الإشعارات المحددة ({count})؟ لن تظهر بعد ذلك.",
-  "notifDeleteAllConfirmBody": "هل تريد حذف كل الإشعارات ({count}) في التصفية الحالية؟ لن تظهر بعد ذلك."
+  "notifDeleteAllConfirmBody": "هل تريد حذف كل الإشعارات ({count}) في التصفية الحالية؟ لن تظهر بعد ذلك.",
+  "notifTAuthorizationVerified": "تم التحقق من التفويض",
+  "notifBAuthorizationVerified": "اجتاز تفويض الطلب {reference} التحقق، ويستمر النشر.",
+  "notifTAuthorizationRejected": "تم رفض التفويض",
+  "notifBAuthorizationRejected": "تم رفض تفويض الطلب {reference}: {reason}. أعد التوقيع والختم والإرسال.",
+  "notifTAutoReview": "تنبيه الفحص الآلي",
+  "notifBAutoReview": "أشار الفحص الآلي للطلب {reference} إلى {count} بنداً: {items}. عدّل ثم أعد الإرسال.",
+  "notifAutoCheckCompleteness": "الاكتمال (مكان التسليم أو الموعد ناقص)",
+  "notifAutoCheckTiming": "التوقيت (الموعد مضى)",
+  "notifAutoCheckCompliance": "بيان الامتثال (يحتاج مراجعة يدوية)",
+  "notifAutoCheckDuplication": "التكرار (نفس المشتري والعنوان)",
+  "notifNoReason": "دون ذكر سبب",
+  "notifNoDetail": "انظر سجلات التحقق",
+  "notifListSeparator": "، "
 }

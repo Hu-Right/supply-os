@@ -6,13 +6,15 @@
  *              哈希/扫描件哈希全部落 procurement_authorizations，状态 pending，由云境核验
  *              （verified/rejected）。版本绑定：versionNo 必须等于项目当前 version_no，
  *              letterHash 必须与当前版本授权书内容哈希一致——改稿重签自动失效。
- *              核验动作由站外评审后台直写库（ADR-0015 同库口径，与视图消费一致），
- *              门户不设核验端点。
+ *              核验动作原为"站外评审后台直写库"（ADR-0015 例外），因此发不出通知；
+ *              2026-11 起改为走 `applyAuthorizationVerification`（HMAC 回调），
+ *              核验结论同时进站内通知模块——后台审核类事件统一可见。
  */
 import { createHash } from "node:crypto";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { AUTH_LETTER_TEMPLATE_VERSION, computeLetterHash } from "./authorization-letter";
 import { saveProcurementScan } from "@/lib/services/file-upload";
+import { pushNotificationSafe } from "@/lib/services/notifications";
 
 const SCAN_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const SCAN_ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -188,3 +190,116 @@ export async function isAuthorizationVerified(db: Pool, projectId: number, versi
   const row = (rows as Array<{ status: string }>)[0];
   return Boolean(row) && String(row.status) === "verified";
 }
+
+export interface VerifyAuthorizationInput {
+  projectId: number;
+  versionNo: number;
+  decision: "verified" | "rejected";
+  /** 驳回必填（≥10 字）：采购方要知道哪张纸不合格 */
+  rejectReason?: string | null;
+  reviewerRef?: string | null;
+  /** 回调幂等键（X-Review-Request-Id） */
+  callbackId: string;
+  at?: number;
+}
+
+export type VerifyAuthorizationResult =
+  | { ok: true; status: string; duplicate?: boolean }
+  | { ok: false; reason: "not_found" | "reason_required" };
+
+/**
+ * 授权书核验结论落地（站外评审后台 HMAC 回调唯一入口）。
+ *
+ * 此前这个动作是"后台直写库"的 ADR 例外，门户既不知道也没法通知——采购方签完字后
+ * 只能反复刷新发布页。改为走本函数后：①状态与核验人/时间/驳回原因一次写清；
+ * ②结论写进站内通知模块（含驳回原因摘要），后台审核类事件统一可见；
+ * ③按 `callback_id` 幂等，回调重试不重复改状态、不重复发通知。
+ */
+export async function applyAuthorizationVerification(
+  db: Pool,
+  input: VerifyAuthorizationInput,
+): Promise<VerifyAuthorizationResult> {
+  const at = input.at ?? Math.floor(Date.now() / 1000);
+  const callbackId = String(input.callbackId ?? "").trim().slice(0, 64) || `auth:${input.projectId}:v${input.versionNo}:${at}`;
+  if (input.decision === "rejected" && String(input.rejectReason ?? "").trim().length < 10) {
+    return { ok: false, reason: "reason_required" };
+  }
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query(
+      `SELECT * FROM procurement_authorizations
+        WHERE project_id = ? AND version_no = ? ORDER BY id DESC LIMIT 1 FOR UPDATE`,
+      [input.projectId, input.versionNo],
+    );
+    const row = (rows as AuthorizationRow[])[0];
+    if (!row) {
+      await conn.rollback();
+      return { ok: false, reason: "not_found" };
+    }
+    // 幂等：同一回调键 / 状态已等于目标结论 → 回放，不改状态
+    const [dup] = await conn.query(
+      `SELECT id FROM procurement_authorizations
+        WHERE project_id = ? AND version_no = ? AND callback_id = ? LIMIT 1`,
+      [input.projectId, input.versionNo, callbackId],
+    );
+    if ((dup as RowDataPacket[]).length > 0 || String(row.status) === input.decision) {
+      await conn.rollback();
+      return { ok: true, status: String(row.status), duplicate: true };
+    }
+
+    await conn.query(
+      `UPDATE procurement_authorizations
+          SET status = ?, verified_by = ?, verified_at = ?, reject_reason = ?, callback_id = ?, updated_at = ?
+        WHERE id = ?`,
+      [
+        input.decision,
+        String(input.reviewerRef ?? "review-backstage").slice(0, 64),
+        at,
+        input.decision === "rejected" ? String(input.rejectReason ?? "").trim().slice(0, 255) : null,
+        callbackId,
+        at,
+        Number(row.id),
+      ],
+    );
+    await conn.commit();
+
+    // 通知（best-effort）：结论 + 驳回原因摘要，深链回发布页对应步骤
+    try {
+      const [info] = await db.query(
+        `SELECT p.reference, b.user_id
+           FROM procurement_projects p
+           LEFT JOIN procurement_buyers b ON b.id = p.buyer_id
+          WHERE p.id = ? LIMIT 1`,
+        [input.projectId],
+      );
+      const meta = (info as Array<{ reference: string; user_id: number | null }>)[0];
+      if (meta?.user_id) {
+        await pushNotificationSafe(db, {
+          userId: Number(meta.user_id),
+          type: input.decision === "verified" ? "procurement.authorization_verified" : "procurement.authorization_rejected",
+          title: "",
+          link: `/rfq/${input.projectId}/publish`,
+          refId: input.projectId,
+          payload: {
+            reference: String(meta.reference ?? ""),
+            projectId: input.projectId,
+            reason: input.decision === "rejected" ? String(input.rejectReason ?? "").trim() : null,
+          },
+          dedupeKey: `procurement.authorization.${input.decision}:${input.projectId}:v${input.versionNo}:${callbackId}`,
+        });
+      }
+    } catch (err) {
+      console.warn("[procurement] 授权核验通知写入失败:", (err as Error).message);
+    }
+
+    return { ok: true, status: input.decision };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+

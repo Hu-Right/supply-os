@@ -38,7 +38,15 @@ const CATEGORIES: Array<{ key: CategoryKey; labelKey: string; types: string[] | 
   {
     key: "procurement",
     labelKey: "notifFilterProcurement",
-    types: ["procurement.published", "procurement.need_info", "procurement.expired"],
+    types: [
+      "procurement.published",
+      "procurement.need_info",
+      "procurement.expired",
+      // 后台审核类（2026-11 统一收口进通知模块）
+      "procurement.auto_review",
+      "procurement.authorization_verified",
+      "procurement.authorization_rejected",
+    ],
   },
   { key: "matched", labelKey: "notifCategoryMatched", types: ["procurement.matched"] },
   { key: "account", labelKey: "notifFilterAccount", types: ["buyer.verified", "buyer.need_info", "buyer.restricted"] },

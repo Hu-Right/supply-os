@@ -363,5 +363,18 @@
   "notifCategoryMatched": "Matching",
   "notifDeleteConfirmTitle": "Delete notifications",
   "notifDeleteConfirmBody": "Delete the {count} selected notifications? They will no longer be shown.",
-  "notifDeleteAllConfirmBody": "Delete all {count} notifications in the current filter? They will no longer be shown."
+  "notifDeleteAllConfirmBody": "Delete all {count} notifications in the current filter? They will no longer be shown.",
+  "notifTAuthorizationVerified": "Authorization verified",
+  "notifBAuthorizationVerified": "The authorization for demand {reference} passed verification; publication continues.",
+  "notifTAuthorizationRejected": "Authorization rejected",
+  "notifBAuthorizationRejected": "The authorization for demand {reference} was rejected: {reason}. Please sign, seal and submit again.",
+  "notifTAutoReview": "Pre-check notice",
+  "notifBAutoReview": "The pre-check for demand {reference} flagged {count} item(s): {items}. Revise and resubmit to speed up manual review.",
+  "notifAutoCheckCompleteness": "Completeness (delivery or deadline missing)",
+  "notifAutoCheckTiming": "Timing (deadline already passed)",
+  "notifAutoCheckCompliance": "Compliance statement (needs manual review)",
+  "notifAutoCheckDuplication": "Duplication (same buyer and title)",
+  "notifNoReason": "no reason provided",
+  "notifNoDetail": "see verification records",
+  "notifListSeparator": ", "
 }

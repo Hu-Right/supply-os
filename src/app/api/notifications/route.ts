@@ -24,7 +24,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const page = Math.max(1, Number(sp.get("page")) || 1);
   const pageSize = Math.min(Math.max(Number(sp.get("page_size")) || 20, 1), 100);
   const unreadOnly = sp.get("unread_only") === "1" || sp.get("unread_only") === "true";
-  const typePrefix = (sp.get("type_prefix") || "").trim().slice(0, 32) || null;
+  const typePrefix = (sp.get("type_prefix") || "").trim().slice(0, 48) || null;
   const types = (sp.get("types") || "")
     .split(",")
     .map((x) => x.trim())
@@ -64,7 +64,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const scope = {
     types: Array.isArray(body.types) && body.types.length > 0 ? body.types.slice(0, 16) : null,
-    typePrefix: body.typePrefix ? String(body.typePrefix).slice(0, 32) : null,
+    typePrefix: body.typePrefix ? String(body.typePrefix).slice(0, 48) : null,
   };
 
   if (action === "mark_all_read") {

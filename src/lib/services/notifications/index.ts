@@ -74,7 +74,9 @@ export async function pushNotification(
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         input.userId,
-        String(input.type).slice(0, 32),
+        // 48 = notifications.type 列宽；`procurement.authorization_verified` 有 36 字符，
+        // 按 32 截断会得到 `…_verifi`，前端按 type 匹配文案必然失败
+        String(input.type).slice(0, 48),
         String(input.title ?? "").slice(0, 200),
         input.body != null ? String(input.body).slice(0, 500) : null,
         input.link != null ? String(input.link).slice(0, 200) : null,
@@ -121,7 +123,7 @@ export async function listNotifications(
   const offset = Math.max(opts.offset ?? 0, 0);
   const unreadOnly = Boolean(opts.unreadOnly);
   const typePrefix = opts.typePrefix ? String(opts.typePrefix) : "";
-  const types = (opts.types ?? []).filter(Boolean).map((x) => String(x).slice(0, 32));
+  const types = (opts.types ?? []).filter(Boolean).map((x) => String(x).slice(0, 48));
 
   const params: unknown[] = [userId];
   let where = "user_id = ? AND deleted_at IS NULL";

@@ -36,6 +36,7 @@ import { migration as buyerResubmitMigration } from "./migrations/017-buyer-resu
 import { migration as reviewCallbackIdMigration } from "./migrations/018-review-callback-id";
 import { migration as notificationsPayloadMigration } from "./migrations/019-notifications-payload";
 import { migration as notificationsSoftDeleteMigration } from "./migrations/020-notifications-soft-delete";
+import { migration as authorizationCallbackMigration } from "./migrations/021-authorization-callback";
 
 /**
  * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
@@ -58,6 +59,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   reviewCallbackIdMigration,
   notificationsPayloadMigration,
   notificationsSoftDeleteMigration,
+  authorizationCallbackMigration,
 ];
 
 /**

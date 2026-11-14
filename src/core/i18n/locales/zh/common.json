@@ -363,5 +363,18 @@
   "notifCategoryMatched": "匹配与提醒",
   "notifDeleteConfirmTitle": "删除通知",
   "notifDeleteConfirmBody": "确认删除选中的 {count} 条通知？删除后不再显示。",
-  "notifDeleteAllConfirmBody": "确认删除当前筛选下的全部 {count} 条通知？删除后不再显示。"
+  "notifDeleteAllConfirmBody": "确认删除当前筛选下的全部 {count} 条通知？删除后不再显示。",
+  "notifTAuthorizationVerified": "授权书已核验",
+  "notifBAuthorizationVerified": "需求 {reference} 的授权书已通过云境核验，发布流程继续推进。",
+  "notifTAuthorizationRejected": "授权书核验未通过",
+  "notifBAuthorizationRejected": "需求 {reference} 的授权书未通过核验：{reason}。请重新签字盖章后再次提交。",
+  "notifTAutoReview": "自动初审提示",
+  "notifBAutoReview": "需求 {reference} 的自动初审有 {count} 项待确认：{items}。修改后重新提交可加快人工核验。",
+  "notifAutoCheckCompleteness": "资料完整性（交付地/报价截止时间缺失）",
+  "notifAutoCheckTiming": "时间合理性（报价截止早于当前）",
+  "notifAutoCheckCompliance": "合规自述（需人工合规复核）",
+  "notifAutoCheckDuplication": "重复性（疑似同主体同标题）",
+  "notifNoReason": "未提供原因",
+  "notifNoDetail": "详见核验记录",
+  "notifListSeparator": "、"
 }

@@ -64,11 +64,54 @@ export function renderNotification(t: TFn, n: NotificationLike): Rendered {
       return { title: t("notifTBuyerNeedInfo"), body: t("notifBBuyerNeedInfo") };
     case "buyer.restricted":
       return { title: t("notifTBuyerRestricted"), body: t("notifBBuyerRestricted") };
+    // ── 后台审核类（2026-11 统一收口）────────────────────────────────────────
+    case "procurement.authorization_verified":
+      return {
+        title: t("notifTAuthorizationVerified"),
+        body: t("notifBAuthorizationVerified", { reference: p(n, "reference") }),
+      };
+    case "procurement.authorization_rejected":
+      return {
+        title: t("notifTAuthorizationRejected"),
+        body: t("notifBAuthorizationRejected", {
+          reference: p(n, "reference"),
+          reason: p(n, "reason") || t("notifNoReason"),
+        }),
+      };
+    case "procurement.auto_review": {
+      const failed = Array.isArray(n.payload?.failed) ? (n.payload?.failed as unknown[]).map(String) : [];
+      const items = failed.map((code) => autoCheckLabel(t, code)).join(t("notifListSeparator"));
+      return {
+        title: t("notifTAutoReview"),
+        body: t("notifBAutoReview", {
+          reference: p(n, "reference"),
+          count: failed.length || Number(p(n, "count") || 0),
+          items: items || t("notifNoDetail"),
+        }),
+      };
+    }
     default:
       // 未知类型：原样显示后端兜底快照，至少不让用户面对一条空白通知
       return { title: n.title || n.type, body: n.body };
   }
 }
+
+/** 自动初审失败项代码 → 多语言标签（只认机判的 4 项，其余留人工不算"待确认"） */
+function autoCheckLabel(t: TFn, code: string): string {
+  switch (code) {
+    case "completeness":
+      return t("notifAutoCheckCompleteness");
+    case "timing_sanity":
+      return t("notifAutoCheckTiming");
+    case "compliance":
+      return t("notifAutoCheckCompliance");
+    case "duplication":
+      return t("notifAutoCheckDuplication");
+    default:
+      return code;
+  }
+}
+
 
 /** 通知分类（列表页筛选）：采购需求 / 账户与认证 / 其他 */
 export type NotificationGroup = "procurement" | "account" | "other";

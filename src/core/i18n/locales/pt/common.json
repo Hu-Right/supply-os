@@ -363,5 +363,18 @@
   "notifCategoryMatched": "Emparelhamento",
   "notifDeleteConfirmTitle": "Excluir notificações",
   "notifDeleteConfirmBody": "Excluir as {count} notificações selecionadas? Elas deixarão de ser exibidas.",
-  "notifDeleteAllConfirmBody": "Excluir todas as {count} notificações do filtro atual? Elas deixarão de ser exibidas."
+  "notifDeleteAllConfirmBody": "Excluir todas as {count} notificações do filtro atual? Elas deixarão de ser exibidas.",
+  "notifTAuthorizationVerified": "Autorização verificada",
+  "notifBAuthorizationVerified": "A autorização da demanda {reference} passou na verificação; a publicação continua.",
+  "notifTAuthorizationRejected": "Autorização recusada",
+  "notifBAuthorizationRejected": "A autorização da demanda {reference} foi recusada: {reason}. Assine, carimbe e envie novamente.",
+  "notifTAutoReview": "Aviso de pré-verificação",
+  "notifBAutoReview": "A pré-verificação da demanda {reference} sinalizou {count} item(ns): {items}. Ajuste e reenvie.",
+  "notifAutoCheckCompleteness": "Completude (entrega ou prazo ausente)",
+  "notifAutoCheckTiming": "Prazos (já vencido)",
+  "notifAutoCheckCompliance": "Declaração de conformidade (revisão manual)",
+  "notifAutoCheckDuplication": "Duplicidade (mesmo comprador e título)",
+  "notifNoReason": "sem motivo informado",
+  "notifNoDetail": "ver registros",
+  "notifListSeparator": ", "
 }

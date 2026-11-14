@@ -363,5 +363,18 @@
   "notifCategoryMatched": "Подбор",
   "notifDeleteConfirmTitle": "Удалить уведомления",
   "notifDeleteConfirmBody": "Удалить выбранные уведомления ({count})? Они больше не будут отображаться.",
-  "notifDeleteAllConfirmBody": "Удалить все уведомления ({count}) в текущем фильтре? Они больше не будут отображаться."
+  "notifDeleteAllConfirmBody": "Удалить все уведомления ({count}) в текущем фильтре? Они больше не будут отображаться.",
+  "notifTAuthorizationVerified": "Авторизация проверена",
+  "notifBAuthorizationVerified": "Авторизация по заявке {reference} прошла проверку; публикация продолжается.",
+  "notifTAuthorizationRejected": "Авторизация отклонена",
+  "notifBAuthorizationRejected": "Авторизация по заявке {reference} отклонена: {reason}. Подпишите и отправьте заново.",
+  "notifTAutoReview": "Результат автопроверки",
+  "notifBAutoReview": "Автопроверка заявки {reference} выявила замечаний: {count} — {items}. Исправьте и отправьте снова.",
+  "notifAutoCheckCompleteness": "Полнота (нет места поставки или срока)",
+  "notifAutoCheckTiming": "Сроки (срок уже прошёл)",
+  "notifAutoCheckCompliance": "Заявленное соответствие (нужна ручная проверка)",
+  "notifAutoCheckDuplication": "Дублирование (тот же заказчик и заголовок)",
+  "notifNoReason": "причина не указана",
+  "notifNoDetail": "см. записи проверки",
+  "notifListSeparator": ", "
 }

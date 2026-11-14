@@ -10,6 +10,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { REVIEW_RESULT, REVIEW_STAGE, AUTO_REVIEWER } from "@/shared/constants/procurement";
+import { pushNotificationSafe } from "@/lib/services/notifications";
 
 export interface ReviewRow extends RowDataPacket {
   id: number;
@@ -144,6 +145,50 @@ export async function runAutoReview(
     "UPDATE procurement_projects SET requirement_verify = ?, updated_at = ? WHERE id = ?",
     [result === REVIEW_RESULT.PASS ? "pass" : result, at, projectId],
   );
+
+  // 自动初审否决/存疑要告诉采购方（否则提交后只有一片安静，用户不知道卡在哪）。
+  // 只发失败项代码，文案由前端 `t()` 渲染——不在后端拼中文。
+  if (result !== REVIEW_RESULT.PASS) {
+    const failed = (
+      [
+        ["completeness", checks.completeness],
+        ["timing_sanity", checks.timing_sanity],
+        ["compliance", checks.compliance],
+        ["duplication", checks.duplication],
+      ] as const
+    )
+      .filter(([, v]) => v === "fail" || v === "flagged" || v === "suspect")
+      .map(([k]) => k);
+    try {
+      const [info] = await db.query(
+        `SELECT p.reference, b.user_id
+           FROM procurement_projects p
+           LEFT JOIN procurement_buyers b ON b.id = p.buyer_id
+          WHERE p.id = ? LIMIT 1`,
+        [projectId],
+      );
+      const meta = (info as Array<{ reference: string; user_id: number | null }>)[0];
+      if (meta?.user_id) {
+        await pushNotificationSafe(db, {
+          userId: Number(meta.user_id),
+          type: "procurement.auto_review",
+          title: "",
+          link: `/rfq/${projectId}/publish`,
+          refId: projectId,
+          payload: {
+            reference: String(meta.reference ?? ""),
+            projectId,
+            result,
+            failed,
+            count: failed.length,
+          },
+          dedupeKey: `procurement.auto_review:${projectId}:v${versionNo}`,
+        });
+      }
+    } catch (err) {
+      console.warn("[procurement] 自动初审通知写入失败:", (err as Error).message);
+    }
+  }
 
   return { reviewId, result, checks };
 }
