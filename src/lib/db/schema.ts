@@ -31,6 +31,9 @@ import { migration as evidenceFilenameMigration } from "./migrations/007-enterpr
 import { migration as ordersUnifiedMigration } from "./migrations/008-orders-unified";
 import { migration as ordersHardeningMigration } from "./migrations/009-orders-hardening";
 import { migration as rfqCoreMigration } from "./migrations/010-rfq-core";
+import { migration as procurementCoreMigration } from "./migrations/011-procurement-core";
+import { migration as procurementFlowMigration } from "./migrations/012-procurement-flow";
+import { migration as retireRfqMigration } from "./migrations/013-retire-rfq-tables";
 
 /** 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。 */
 const ALL_MIGRATIONS: Migration[] = [
@@ -44,6 +47,9 @@ const ALL_MIGRATIONS: Migration[] = [
   ordersUnifiedMigration,
   ordersHardeningMigration,
   rfqCoreMigration,
+  procurementCoreMigration,
+  procurementFlowMigration,
+  retireRfqMigration,
 ];
 
 /**

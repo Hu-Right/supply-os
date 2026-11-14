@@ -148,3 +148,64 @@ export async function getAuthScanFile(
   if (!row?.content) return null;
   return { buffer: row.content, contentType: row.content_type || authScanContentType(filename) };
 }
+
+// ── 采购需求附件（attach_<projectId>_<uid>_<ts>.<ext>，字节入库同执照口径） ──
+// 门户回文件走 /api/procurement/attachment-files/[filename]（归属人鉴权），
+// 评审后台直连同库 upload_files。
+
+/** 需求附件文件名白名单：attach_<projectId>_<uid>_<ts>.<ext>（pdf/图片/office/zip） */
+export const PROCUREMENT_FILE_FILENAME_RE =
+  /^attach_[0-9]+_[0-9a-zA-Z_-]{1,80}_[0-9]+\.(jpg|jpeg|png|webp|pdf|doc|docx|xls|xlsx|zip)$/;
+
+/** 新式鉴权 URL 前缀（存库与回文件路由共用同一事实源） */
+export const PROCUREMENT_FILE_URL_PREFIX = "/api/procurement/attachment-files";
+
+export function procurementFileContentType(filename: string): string {
+  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  return {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".pdf": "application/pdf",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".zip": "application/zip",
+  }[ext] ?? "application/octet-stream";
+}
+
+/** 上传需求附件字节入库（幂等：同文件名覆盖；文件名必须过白名单） */
+export async function saveProcurementFile(params: {
+  filename: string;
+  buffer: Buffer;
+  contentType: string;
+  uploadedBy: number;
+}): Promise<{ url: string; filename: string }> {
+  if (!PROCUREMENT_FILE_FILENAME_RE.test(params.filename)) {
+    throw new Error("非法的需求附件文件名");
+  }
+  await getPool().execute(
+    `INSERT INTO upload_files (filename, content, content_type, size_bytes, uploaded_by)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE content = VALUES(content), content_type = VALUES(content_type),
+                             size_bytes = VALUES(size_bytes), uploaded_by = VALUES(uploaded_by)`,
+    [params.filename, params.buffer, params.contentType, params.buffer.length, params.uploadedBy],
+  );
+  return { url: `${PROCUREMENT_FILE_URL_PREFIX}/${params.filename}`, filename: params.filename };
+}
+
+/** 按文件名取需求附件字节；不存在/文件名非法返回 null */
+export async function getProcurementFile(
+  filename: string,
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  if (!PROCUREMENT_FILE_FILENAME_RE.test(filename)) return null;
+  const [rows] = await getPool().execute(
+    `SELECT content, content_type FROM upload_files WHERE filename = ? LIMIT 1`,
+    [filename],
+  );
+  const row = (rows as Array<{ content: Buffer; content_type: string }>)[0];
+  if (!row?.content) return null;
+  return { buffer: row.content, contentType: row.content_type || procurementFileContentType(filename) };
+}
