@@ -240,7 +240,6 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   //   rfq 报价列表：[id]/quotes 的 buyer 列表声明为显式内联类型（supplierUserId/deliveryTerms…）。
   //   my-quotes 原登记的 #items 已于 2026-11-14 收口删除：出口改过约定名视图 toMyQuoteItemView
   //   （服务行 SQL AS camel 别名 + 补 demandId），不再依赖登记。
-  "src/app/api/rfq/[id]/quotes/route.ts#items",
   // 订单历史：orchestrator.listAllOrders 返 NormalizedOrder[]，服务内逐键组装（createdAt/updatedAt/expiresAt）。
   "src/app/api/payment/orders/route.ts#list",
   // 自报品目落点：SupplierSelfReportNode = { code, nameZh }。
@@ -260,7 +259,6 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   "src/app/api/notices/[id]/ai-match/route.ts#diagPending", // countDiagnosisPending(): Promise<number>
   "src/app/api/notices/[id]/report/preview/route.ts#totalReportChars", // estimateFullReportCharCount(): number
   "src/app/api/notifications/route.ts#unread", // unreadCount(): Promise<number>
-  "src/app/api/rfq/[id]/quotes/route.ts#quoteId", // submitQuote(): Promise<{ quoteId: number }>
   "src/app/api/suppliers/stats/route.ts#registered", // countApproved(): Promise<number>
   "src/app/api/system/icp/route.ts#bah", // getIcpBah(): Promise<string>，形状由 tests/unit/app/api/system-view.test.ts 钉住
   "src/app/api/user/enterprise/license-upload/route.ts#url", // UploadResult.url: string

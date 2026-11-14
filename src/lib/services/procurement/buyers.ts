@@ -141,3 +141,10 @@ export async function upsertBuyer(
 export function isBuyerPublishable(buyer: Pick<BuyerRow, "status">): boolean {
   return String(buyer.status) === BUYER_STATUS.VERIFIED;
 }
+
+/** 按账号取主体 id（无主体返回 null）——创建项目的前置 */
+export async function getBuyerIdByUserId(db: Pool, userId: number): Promise<number | null> {
+  const [rows] = await db.query("SELECT id FROM procurement_buyers WHERE user_id = ? LIMIT 1", [userId]);
+  const row = (rows as Array<{ id: number }>)[0];
+  return row ? Number(row.id) : null;
+}

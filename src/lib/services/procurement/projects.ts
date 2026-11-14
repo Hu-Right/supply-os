@@ -287,3 +287,202 @@ export async function submitProject(
   }
 }
 
+
+// ── 列表/详情/广场/明细整包 ────────────────────────────────────────────────────
+
+export async function listMine(
+  db: Pool,
+  userId: number,
+  opts: { status?: string; page?: number; pageSize?: number } = {},
+): Promise<{ items: ProjectRow[]; total: number }> {
+  const page = Math.max(1, Number(opts.page ?? 1));
+  const pageSize = Math.min(50, Math.max(1, Number(opts.pageSize ?? 20)));
+  const conds = ["b.user_id = ?"];
+  const params: unknown[] = [userId];
+  if (opts.status) {
+    conds.push("p.status = ?");
+    params.push(opts.status);
+  }
+  const where = conds.join(" AND ");
+  const [countRes] = await db.query(
+    `SELECT COUNT(*) AS total FROM procurement_projects p JOIN procurement_buyers b ON b.id = p.buyer_id WHERE ${where}`,
+    params,
+  );
+  const total = Number((countRes as Array<{ total: number }>)[0]?.total ?? 0);
+  const [rows] = await db.query(
+    `SELECT p.* FROM procurement_projects p JOIN procurement_buyers b ON b.id = p.buyer_id
+      WHERE ${where} ORDER BY p.id DESC LIMIT ? OFFSET ?`,
+    [...params, pageSize, (page - 1) * pageSize],
+  );
+  return { items: rows as ProjectRow[], total };
+}
+
+/** 公开广场：仅 published，按发布时间倒序；UGT 一级前缀过滤可选 */
+export async function listPlaza(
+  db: Pool,
+  opts: { categoryL1?: string; keyword?: string; page?: number; pageSize?: number } = {},
+): Promise<{ items: ProjectRow[]; total: number }> {
+  const page = Math.max(1, Number(opts.page ?? 1));
+  const pageSize = Math.min(50, Math.max(1, Number(opts.pageSize ?? 20)));
+  const conds = ["p.status = 'published'"];
+  const params: unknown[] = [];
+  if (opts.categoryL1 && /^UGT-\d{2}$/.test(opts.categoryL1)) {
+    conds.push("p.primary_ugt_code LIKE ?");
+    params.push(`${opts.categoryL1}%`);
+  }
+  if (opts.keyword && String(opts.keyword).trim()) {
+    conds.push("(p.title_zh LIKE ? OR p.title_en LIKE ? OR p.background LIKE ?)");
+    const kw = `%${String(opts.keyword).trim()}%`;
+    params.push(kw, kw, kw);
+  }
+  const where = conds.join(" AND ");
+  const [countRes] = await db.query(
+    `SELECT COUNT(*) AS total FROM procurement_projects p WHERE ${where}`,
+    params,
+  );
+  const total = Number((countRes as Array<{ total: number }>)[0]?.total ?? 0);
+  const [rows] = await db.query(
+    `SELECT p.* FROM procurement_projects p WHERE ${where}
+      ORDER BY p.published_at DESC LIMIT ? OFFSET ?`,
+    [...params, pageSize, (page - 1) * pageSize],
+  );
+  return { items: rows as ProjectRow[], total };
+}
+
+export interface ItemInput {
+  lotNo?: string | null;
+  nameZh: string;
+  nameEn?: string | null;
+  spec?: string | null;
+  quantity?: number | string | null;
+  qtyUnit?: string | null;
+  qtyType?: string | null;
+  ugtCode?: string | null;
+  attributes?: unknown;
+  alternativesAllowed?: boolean;
+}
+
+export interface LotInput {
+  lotNo: string;
+  title: string;
+  scopeNote?: string | null;
+}
+
+/**
+ * 明细/标包整包替换（仅草稿/需补充态）：草稿期自由增删，提交后冻结。
+ * line_no 按传入顺序重排。
+ */
+export async function replaceDraftItems(
+  db: Pool,
+  input: { projectId: number; lots: LotInput[]; items: ItemInput[] },
+): Promise<{ ok: true; itemCount: number } | { ok: false; reason: "not_found" | "not_editable" }> {
+  const at = Math.floor(Date.now() / 1000);
+  const row = await getProjectById(db, input.projectId);
+  if (!row) return { ok: false, reason: "not_found" };
+  if (row.status !== PROJECT_STATUS.DRAFT && row.status !== PROJECT_STATUS.NEED_INFO) {
+    return { ok: false, reason: "not_editable" };
+  }
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query("DELETE FROM procurement_items WHERE project_id = ?", [input.projectId]);
+    await conn.query("DELETE FROM procurement_lots WHERE project_id = ?", [input.projectId]);
+
+    const lotIds = new Map<string, number>();
+    for (const lot of input.lots) {
+      const [ins] = await conn.query(
+        "INSERT INTO procurement_lots (project_id, lot_no, title, scope_note, created_at) VALUES (?, ?, ?, ?, ?)",
+        [input.projectId, lot.lotNo, lot.title, lot.scopeNote ?? null, at],
+      );
+      lotIds.set(lot.lotNo, Number((ins as { insertId?: number }).insertId ?? 0));
+    }
+
+    let line = 0;
+    for (const it of input.items) {
+      line++;
+      const lotId = it.lotNo ? (lotIds.get(it.lotNo) ?? null) : null;
+      await conn.query(
+        `INSERT INTO procurement_items
+           (project_id, lot_id, line_no, name_zh, name_en, spec, quantity, qty_unit, qty_type, ugt_code, attributes, alternatives_allowed, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          input.projectId,
+          lotId,
+          line,
+          it.nameZh,
+          it.nameEn ?? null,
+          it.spec ?? null,
+          it.quantity == null ? 0 : Number(it.quantity),
+          it.qtyUnit || "件",
+          it.qtyType || "fixed",
+          it.ugtCode || null,
+          it.attributes ? JSON.stringify(it.attributes) : null,
+          it.alternativesAllowed === false ? 0 : 1,
+          at,
+        ],
+      );
+    }
+
+    await conn.query("UPDATE procurement_projects SET updated_at = ? WHERE id = ?", [at, input.projectId]);
+    await conn.commit();
+    return { ok: true, itemCount: line };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+/** 详情组装：主表+标包+明细+附件+核验记录（时间线）+授权状态 */
+export interface ProjectDetailBundle {
+  project: ProjectRow;
+  buyerOrgName: string;
+  lots: RowDataPacket[];
+  items: RowDataPacket[];
+  attachments: RowDataPacket[];
+  reviews: RowDataPacket[];
+  authorization: {
+    status: "none" | "pending" | "verified" | "rejected";
+    signerName: string | null;
+    signedAt: number | null;
+  };
+}
+
+export async function getProjectBundle(db: Pool, projectId: number): Promise<ProjectDetailBundle | null> {
+  const project = await getProjectById(db, projectId);
+  if (!project) return null;
+  const [buyerRows] = await db.query(
+    "SELECT org_name FROM procurement_buyers WHERE id = ? LIMIT 1",
+    [project.buyer_id],
+  );
+  const [lots] = await db.query("SELECT * FROM procurement_lots WHERE project_id = ? ORDER BY lot_no", [projectId]);
+  const [items] = await db.query("SELECT * FROM procurement_items WHERE project_id = ? ORDER BY lot_id, line_no", [projectId]);
+  const [attachments] = await db.query(
+    "SELECT id, version_no, kind, filename, file_key, file_hash, size_bytes, uploaded_at FROM procurement_attachments WHERE project_id = ? ORDER BY id",
+    [projectId],
+  );
+  const [reviews] = await db.query(
+    "SELECT id, version_no, stage, result, reviewer, note, created_at FROM procurement_reviews WHERE project_id = ? ORDER BY id DESC LIMIT 50",
+    [projectId],
+  );
+  const [authRows] = await db.query(
+    "SELECT status, signer_name, signed_at FROM procurement_authorizations WHERE project_id = ? AND version_no = ? ORDER BY id DESC LIMIT 1",
+    [projectId, project.version_no],
+  );
+  const authRec = (authRows as RowDataPacket[])[0];
+  return {
+    project,
+    buyerOrgName: String((buyerRows as Array<{ org_name: string }>)[0]?.org_name ?? ""),
+    lots: lots as RowDataPacket[],
+    items: items as RowDataPacket[],
+    attachments: attachments as RowDataPacket[],
+    reviews: reviews as RowDataPacket[],
+    authorization: {
+      status: authRec ? (String(authRec.status) as "pending" | "verified" | "rejected") : "none",
+      signerName: authRec ? String(authRec.signer_name ?? "") : null,
+      signedAt: authRec ? Number(authRec.signed_at ?? 0) : null,
+    },
+  };
+}

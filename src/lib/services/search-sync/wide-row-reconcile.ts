@@ -17,7 +17,7 @@
  *              - deadline_sec：①deadline_ts 投影 vs ②静态拷贝，需分钟级感知（搜索活跃度过滤依赖它）；
  *              - 行存在性：ghost 行清理与平台公告可见性集合差。
  */
-import { RFQ_STATUS } from "@/shared/constants/rfq";
+import { RFQ_STATUS } from "@/shared/constants/procurement";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { STABLE_EXPIRED_WHERE } from "../../utils/notice-expired";
 import { deleteNoticeNodes } from "./notice-nodes";

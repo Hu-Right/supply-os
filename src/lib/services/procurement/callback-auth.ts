@@ -1,6 +1,6 @@
 /**
  * 评审回调签名校验
- * @module lib/services/rfq/callback-auth
+ * @module lib/services/procurement/callback-auth
  *
  * @description 评审后台与门户之间只有一条入站通道（审核结论回调），因此这条通道的鉴权必须自洽：
  *              - 共享密钥 HMAC-SHA256，签名内容为 `${timestamp}.${rawBody}`；

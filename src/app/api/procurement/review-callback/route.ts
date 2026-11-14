@@ -21,7 +21,7 @@ import {
   EC_RFQ_STATE_INVALID,
   EC_RFQ_VERSION_CONFLICT,
 } from "@/shared/constants/api";
-import { verifyCallbackRequest } from "@/lib/services/rfq/callback-auth";
+import { verifyCallbackRequest } from "@/lib/services/procurement/callback-auth";
 import { applyReviewDecision } from "@/lib/services/procurement/tender";
 
 export const POST = withRoute(async (req: NextRequest) => {

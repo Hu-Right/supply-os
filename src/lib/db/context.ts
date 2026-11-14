@@ -48,7 +48,6 @@ import { LeadsRepo } from "../repos/leads.repo";
 import { InvitationRepo } from "../repos/invitation.repo";
 import { ChatRepo } from "../repos/chat.repo";
 import { TrainingRepo, SystemRepo } from "../repos/training.repo";
-import { RfqRepo } from "../repos/rfq.repo";
 
 /** 公告域上下文 */
 export type NoticeContext = {
@@ -114,9 +113,6 @@ export type AppContext = {
   systemRepo: SystemRepo;
   /** 官方精选词组只读投影（official_keyword_groups，后台维护，本项目无写路径） */
   officialKeywordGroupsRepo: OfficialKeywordGroupsRepo;
-  /** RFQ 需求域读写在层（bid_notices 平台自建需求 + rfq_quotes 计数子查询）：
-   *  src/app/api/rfq/* 路由裸 SQL 的 repo 化落点，状态机裁决仍在路由层 */
-  rfqRepo: RfqRepo;
 };
 
 /** 开发态 HMR 兜底版本：globalThis 单例持有的是旧 repo 实例，新增 repo 方法在热更新后不生效；
@@ -170,7 +166,6 @@ export function getContext(): AppContext {
   const chatRepo = new ChatRepo(dbPool);
   const trainingRepo = new TrainingRepo(dbPool);
   const systemRepo = new SystemRepo(dbPool);
-  const rfqRepo = new RfqRepo(dbPool);
 
   const paymentService = new PaymentService(paymentsRepo, {
     catalog: benefitSystemRepo,
@@ -248,7 +243,6 @@ export function getContext(): AppContext {
     trainingRepo,
     systemRepo,
     officialKeywordGroupsRepo,
-    rfqRepo,
     __ctxVersion: CTX_VERSION,
   };
 

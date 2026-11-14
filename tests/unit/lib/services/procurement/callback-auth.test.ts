@@ -7,7 +7,7 @@ import {
   CALLBACK_TOLERANCE_SEC,
   signCallbackPayload,
   verifyCallbackRequest,
-} from "@/lib/services/rfq/callback-auth";
+} from "@/lib/services/procurement/callback-auth";
 
 const SECRET = "test-secret-please-rotate";
 const NOW = 1_777_593_600;

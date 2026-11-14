@@ -268,7 +268,7 @@ test.describe("RFQ 需求旅程", () => {
   });
 
   test("公开 RFQ 列表 API → 结构完整", async ({ request }) => {
-    const res = await request.get(`${TEST_BASE_URL}/api/rfq/list`);
+    const res = await request.get(`${TEST_BASE_URL}/api/procurement/plaza`);
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("items");
@@ -277,28 +277,22 @@ test.describe("RFQ 需求旅程", () => {
   });
 
   test("我的 RFQ → 未登录 401 / 登录后 200", async ({ request }) => {
-    const anon = await request.get(`${TEST_BASE_URL}/api/rfq/demands/mine`);
+    const anon = await request.get(`${TEST_BASE_URL}/api/procurement/projects`);
     expect(anon.status()).toBe(401);
 
     const token = await loginToken(request, VIP_USER);
-    const res = await request.get(`${TEST_BASE_URL}/api/rfq/demands/mine`, {
+    const res = await request.get(`${TEST_BASE_URL}/api/procurement/projects`, {
       headers: authHeaders(token),
     });
     expect(res.status()).toBe(200);
   });
 
-  test("发布校验边界 → 标题过短 400 明确报错", async ({ request }) => {
+  test("发布前置校验 → 无采购主体 400 明确报错", async ({ request }) => {
     test.skip(!isChromium(), "校验边界用例仅在 chromium 跑一次");
     const token = await loginToken(request, VIP_USER);
-    const res = await request.post(`${TEST_BASE_URL}/api/rfq/demands`, {
+    const res = await request.post(`${TEST_BASE_URL}/api/procurement/projects`, {
       headers: authHeaders(token),
-      data: {
-        title: "短标题",
-        description: "这是一个长度不足五十字的描述。",
-        deadline: new Date(Date.now() + 7 * 86400_000).toISOString(),
-        contact_name: "E2E 测试",
-        contact_email: "e2e@example.com",
-      },
+      data: {},
     });
     expect(res.status()).toBe(400);
     const body = await res.json();

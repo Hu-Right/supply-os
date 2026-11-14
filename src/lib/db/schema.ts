@@ -21,32 +21,22 @@
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
-import { migration as rfqGuardMigration } from "./migrations/001-rfq-guard";
-import { migration as rfqQuotesMigration } from "./migrations/002-rfq-quotes";
 import { migration as notificationsMigration } from "./migrations/003-notifications";
-import { migration as rfqInvitesMigration } from "./migrations/004-rfq-invites";
-import { migration as rfqOutreachMigration } from "./migrations/005-rfq-outreach";
 import { migration as feasibilityReportMigration } from "./migrations/006-feasibility-report";
 import { migration as evidenceFilenameMigration } from "./migrations/007-enterprise-evidence-filename";
 import { migration as ordersUnifiedMigration } from "./migrations/008-orders-unified";
 import { migration as ordersHardeningMigration } from "./migrations/009-orders-hardening";
-import { migration as rfqCoreMigration } from "./migrations/010-rfq-core";
 import { migration as procurementCoreMigration } from "./migrations/011-procurement-core";
 import { migration as procurementFlowMigration } from "./migrations/012-procurement-flow";
 import { migration as retireRfqMigration } from "./migrations/013-retire-rfq-tables";
 
 /** 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。 */
 const ALL_MIGRATIONS: Migration[] = [
-  rfqGuardMigration,
-  rfqQuotesMigration,
   notificationsMigration,
-  rfqInvitesMigration,
-  rfqOutreachMigration,
   feasibilityReportMigration,
   evidenceFilenameMigration,
   ordersUnifiedMigration,
   ordersHardeningMigration,
-  rfqCoreMigration,
   procurementCoreMigration,
   procurementFlowMigration,
   retireRfqMigration,

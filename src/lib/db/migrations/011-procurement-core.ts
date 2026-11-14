@@ -83,6 +83,7 @@ const TABLES = [
     "`budget_approved` VARCHAR(20) NULL COMMENT '预算批准：approved/partial/pending/applying', " +
     "`delivery_country` VARCHAR(80) NULL COMMENT '交付国家', " +
     "`delivery_city` VARCHAR(120) NULL COMMENT '交付城市', " +
+    "`delivery_province` VARCHAR(120) NULL COMMENT '交付省份（供应商省份匹配用）', " +
     "`delivery_address` VARCHAR(500) NULL COMMENT '交付地点', " +
     "`deadline_date` DATE NULL COMMENT '最晚交货/完成日期', " +
     "`install_needs` VARCHAR(200) NULL COMMENT '交付服务（逗号）：installation/commissioning/training', " +

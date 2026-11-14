@@ -14,8 +14,7 @@ import { syncWideIds } from "../services/search-sync/index";
 import { classifyMissingDeadlines } from "../services/notice-deadline/backfill";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { reconcileRfqGuard } from "../services/rfq-guard";
-import { outreachPublishedRfq, pendingOutreachRfqIds } from "../services/rfq-outreach";
-import { advanceRfqLifecycle } from "../services/rfq/expiry";
+import { expireDueTenders } from "../services/procurement/tender";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { releaseExpiredClaims } from "../services/supplier-claim";
 import {
@@ -250,31 +249,6 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     }, rfqGuardIntervalMin * 60_000);
   }
 
-  // 10. 平台 RFQ 发布邀约触达（RFQ_OUTREACH_ENABLED=on 才开启；默认 off，避免无监督群发）。
-  //    定时扫描“已发布且尚无触达账本”的 platform RFQ，向匹配认证供应商 Top-N 发邀约邮件（邮件+账本去重）。
-  let rfqOutreachTimer: NodeJS.Timeout | null = null;
-  if (String(process.env.RFQ_OUTREACH_ENABLED ?? "off").toLowerCase() === "on") {
-    const rfqOutreachIntervalMin = Math.max(1, Number(process.env.RFQ_OUTREACH_INTERVAL_MINUTES || 15));
-    const rfqOutreachBatch = Math.max(1, Number(process.env.RFQ_OUTREACH_BATCH || 5));
-    const rfqOutreachLimit = Math.max(1, Number(process.env.RFQ_OUTREACH_LIMIT || 20));
-    const runRfqOutreach = async () => {
-      try {
-        const ids = await pendingOutreachRfqIds(dbPool, rfqOutreachBatch);
-        for (const rfqId of ids) {
-          const r = await outreachPublishedRfq(dbPool, { rfqId, limit: rfqOutreachLimit });
-          if (r.emailed > 0) console.log(`[rfq-outreach] RFQ ${rfqId} 邀约：发 ${r.emailed}，跳 ${r.skipped}`);
-        }
-      } catch (e) {
-        console.error("[rfq-outreach] 触达任务失败（不影响下次扫描）:", (e as Error).message);
-      }
-    };
-    // 启动延迟 60s 先扫一次存量（与哨兵错开）
-    setTimeout(() => { void runRfqOutreach(); }, 60_000);
-    rfqOutreachTimer = setInterval(() => {
-      void runRfqOutreach();
-    }, rfqOutreachIntervalMin * 60_000);
-  }
-
   // 8. 截止语义分类补漏（DEADLINE_CLASSIFY_ENABLED=off 关闭，默认每 10 分钟、单轮 3000 条）：
   //    入库链路不写 notice_deadline，新公告若漏分类就会走 `deadline_sec>0?known:unknown` 老兜底，
   //    绕过哨兵/框架 30 年/年份笔误规则。这里把缺口持续收敛到 0，只处理未分类行、幂等。
@@ -300,20 +274,18 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   }
 
   // 11. RFQ 时间驱动流转（published→evaluation→closed(expired)）。
-  //     默认开启、每 10 分钟一轮：截止后自动进入评审，评审超 14 天自动结案并撤下搜索投影。
+  //     默认开启、每 10 分钟一轮：published 且截标已过 → closed/expired，撤下搜索投影。
   let rfqLifecycleTimer: NodeJS.Timeout | null = null;
   if (String(process.env.RFQ_LIFECYCLE_ENABLED ?? "on").toLowerCase() !== "off") {
     const intervalMin = Math.max(1, Number(process.env.RFQ_LIFECYCLE_INTERVAL_MINUTES || 10));
     const runLifecycle = async () => {
       try {
-        const r = await advanceRfqLifecycle(dbPool, { batch: 100 });
-        if (r.toEvaluation > 0 || r.toClosed > 0) {
-          console.log(
-            `[rfq-lifecycle] 进入评审 ${r.toEvaluation} 条，过期结案 ${r.toClosed} 条`,
-          );
+        const closed = await expireDueTenders(dbPool);
+        if (closed > 0) {
+          console.log(`[procurement-lifecycle] 截标过期结案 ${closed} 条（撤投影收敛）`);
         }
       } catch (e) {
-        console.error("[rfq-lifecycle] 流转失败（不影响下次扫描）:", (e as Error).message);
+        console.error("[procurement-lifecycle] 流转失败（不影响下次扫描）:", (e as Error).message);
       }
     };
     setTimeout(() => { void runLifecycle(); }, 45_000);
@@ -329,7 +301,6 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       if (paymentTierSyncTimer) clearTimeout(paymentTierSyncTimer);
       if (claimExpiryTimer) clearInterval(claimExpiryTimer);
       if (rfqGuardTimer) clearInterval(rfqGuardTimer);
-      if (rfqOutreachTimer) clearInterval(rfqOutreachTimer);
       if (deadlineClassifyTimer) clearInterval(deadlineClassifyTimer);
       if (rfqLifecycleTimer) clearInterval(rfqLifecycleTimer);
     },

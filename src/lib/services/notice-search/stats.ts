@@ -11,7 +11,7 @@
  *              整条管线与内存 count/featured/noticeType 缓存四件套一并删除；
  *              crm_notice_stats 表随 DDL 批次 DROP。
  */
-import { RFQ_STATUS } from "@/shared/constants/rfq";
+import { RFQ_STATUS } from "@/shared/constants/procurement";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { NoticeStatsResult } from "./types";
 import { ACTIVE_NOTICE_WHERE_NO_ALIAS } from "../../utils/notice-expired";

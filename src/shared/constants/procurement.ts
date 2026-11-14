@@ -162,3 +162,12 @@ export const PROJECT_TRANSITIONS: Record<string, readonly string[]> = {
   ],
   [PROJECT_STATUS.CLOSED]: [], // 终态
 };
+
+// ── 公告体系投影状态（bid_notices.rfq_status 列的消费口径）────────────────────
+// 注意：这是公告检索面（notice_public/宽表/Meili/首页）对平台行的可见性口径，
+// 与 procurement_projects.status 状态机是两条数据线；'published' 由投影写入。
+
+export const RFQ_STATUS = {
+  PUBLISHED: "published",
+  CLOSED: "closed",
+} as const;

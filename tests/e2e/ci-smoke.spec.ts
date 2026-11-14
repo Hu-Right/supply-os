@@ -26,8 +26,8 @@ const BASE = process.env.BASE_URL || "http://localhost:3000";
 // ══════════════════════════════════════════════════════════════════════════════
 
 test.describe("结构基线可用（空库可查询）", () => {
-  test("公开 RFQ 列表 API → 200 且结构完整（读 bid_notices）", async ({ request }) => {
-    const res = await request.get(`${BASE}/api/rfq/list`);
+  test("公开需求广场 API → 200 且结构完整（读 procurement_projects）", async ({ request }) => {
+    const res = await request.get(`${BASE}/api/procurement/plaza`);
     expect(res.status(), "空库下 RFQ 列表应返回 200 空集，而不是 500").toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("items");
@@ -90,8 +90,8 @@ test.describe("鉴权与参数边界", () => {
     expect(body.message).toContain("登录");
   });
 
-  test("未登录访问我的 RFQ → 401", async ({ request }) => {
-    const res = await request.get(`${BASE}/api/rfq/demands/mine`);
+  test("未登录访问我的采购项目 → 401", async ({ request }) => {
+    const res = await request.get(`${BASE}/api/procurement/projects`);
     expect(res.status()).toBe(401);
   });
 

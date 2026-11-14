@@ -22,7 +22,7 @@ import {
   AUTHORIZED_PARTY_ZH,
   AUTH_LETTER_NOTE,
   buildLetterSections,
-} from "@/lib/services/rfq/authorization-letter";
+} from "@/lib/services/procurement/authorization-letter";
 
 interface DemandDetail {
   id: number;
