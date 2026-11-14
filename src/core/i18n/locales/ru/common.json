@@ -376,5 +376,6 @@
   "notifAutoCheckDuplication": "Дублирование (тот же заказчик и заголовок)",
   "notifNoReason": "причина не указана",
   "notifNoDetail": "см. записи проверки",
-  "notifListSeparator": ", "
+  "notifListSeparator": ", ",
+  "notifBBuyerOpinion": "Замечание проверки: {note}"
 }

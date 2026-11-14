@@ -376,5 +376,6 @@
   "notifAutoCheckDuplication": "Doublon (même acheteur et titre)",
   "notifNoReason": "aucune raison fournie",
   "notifNoDetail": "voir l'historique",
-  "notifListSeparator": ", "
+  "notifListSeparator": ", ",
+  "notifBBuyerOpinion": "Observation : {note}"
 }

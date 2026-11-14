@@ -60,10 +60,21 @@ export function renderNotification(t: TFn, n: NotificationLike): Rendered {
       };
     case "buyer.verified":
       return { title: t("notifTBuyerVerified"), body: t("notifBBuyerVerified") };
-    case "buyer.need_info":
-      return { title: t("notifTBuyerNeedInfo"), body: t("notifBBuyerNeedInfo") };
-    case "buyer.restricted":
-      return { title: t("notifTBuyerRestricted"), body: t("notifBBuyerRestricted") };
+    case "buyer.need_info": {
+      // 认证页已不再展示核验历史：意见只能从这里看到，缺了用户就真不知道要补什么
+      const note = p(n, "note");
+      return {
+        title: t("notifTBuyerNeedInfo"),
+        body: note ? `${t("notifBBuyerNeedInfo")} ${t("notifBBuyerOpinion", { note })}` : t("notifBBuyerNeedInfo"),
+      };
+    }
+    case "buyer.restricted": {
+      const note = p(n, "note");
+      return {
+        title: t("notifTBuyerRestricted"),
+        body: note ? `${t("notifBBuyerRestricted")} ${t("notifBBuyerOpinion", { note })}` : t("notifBBuyerRestricted"),
+      };
+    }
     // ── 后台审核类（2026-11 统一收口）────────────────────────────────────────
     case "procurement.authorization_verified":
       return {

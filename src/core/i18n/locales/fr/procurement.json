@@ -998,7 +998,7 @@
   "pc_verify_reject": "Rejeté",
   "pc_fv_unverified": "Non vérifié",
   "pc_fv_verified": "Vérifié",
-  "pc_bverify_history": "Historique de vérification (visible par vous)",
+  "pc_bverify_history": "Historique de vérification",
   "pc_bvk_identity": "Identité de l'entité",
   "pc_bvk_authorization": "Autorisation d'achat",
   "pc_bvk_fund": "Financement",
@@ -1116,8 +1116,5 @@
   "pc_bhint_website": "Facultatif. Sert uniquement à recouper le domaine de l'e-mail ; laissez vide pour ignorer ce contrôle.",
   "pc_bhint_contact": "Le contact unique utilisé par les vérificateurs pour demander des pièces ou des précisions.",
   "pc_bhint_rules": "Facultatif. Si des règles Banque mondiale / ONU / marchés publics s'appliquent, cela déclenche une revue conformité.",
-  "pc_bauthdoc_na": "Vous êtes l'acheteur final : aucun mandat n'est requis — il ne l'est que pour les agents mandatés.",
-  "pc_bverify_title": "Historique de vérification (visible par vous)",
-  "pc_bverify_keep_hint": "Vous recevez aussi une notification ; effacer les notifications ne supprime pas cet historique, qui fait foi en cas de contestation.",
-  "pc_bverify_note_above": "Voir l'observation dans « Statut de vérification actuel » ci-dessus"
+  "pc_bauthdoc_na": "Vous êtes l'acheteur final : aucun mandat n'est requis — il ne l'est que pour les agents mandatés."
 }

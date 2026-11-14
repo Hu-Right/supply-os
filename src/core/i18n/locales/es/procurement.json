@@ -998,7 +998,7 @@
   "pc_verify_reject": "Rechazado",
   "pc_fv_unverified": "Sin verificar",
   "pc_fv_verified": "Verificado",
-  "pc_bverify_history": "Historial de verificación (solo visible para usted)",
+  "pc_bverify_history": "Historial de verificación",
   "pc_bvk_identity": "Identidad de la entidad",
   "pc_bvk_authorization": "Autorización de compra",
   "pc_bvk_fund": "Financiación",
@@ -1116,8 +1116,5 @@
   "pc_bhint_website": "Opcional. Solo sirve para contrastar el dominio del correo; si se deja vacío no se comprueba.",
   "pc_bhint_contact": "El único contacto que usan los revisores para pedir documentos o aclaraciones.",
   "pc_bhint_rules": "Opcional. Si aplican normas del Banco Mundial / ONU / contratación pública, pasa a revisión manual.",
-  "pc_bauthdoc_na": "Usted es el comprador final: no se requiere poder, solo para agentes autorizados.",
-  "pc_bverify_title": "Historial de verificación (solo visible para usted)",
-  "pc_bverify_keep_hint": "También recibirá un aviso; borrar los avisos no elimina este historial, que es la referencia para reclamaciones.",
-  "pc_bverify_note_above": "Véase la observación en «Estado de verificación actual» arriba"
+  "pc_bauthdoc_na": "Usted es el comprador final: no se requiere poder, solo para agentes autorizados."
 }

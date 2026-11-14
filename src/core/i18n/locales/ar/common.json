@@ -376,5 +376,6 @@
   "notifAutoCheckDuplication": "التكرار (نفس المشتري والعنوان)",
   "notifNoReason": "دون ذكر سبب",
   "notifNoDetail": "انظر سجلات التحقق",
-  "notifListSeparator": "، "
+  "notifListSeparator": "، ",
+  "notifBBuyerOpinion": "ملاحظة التحقق: {note}"
 }

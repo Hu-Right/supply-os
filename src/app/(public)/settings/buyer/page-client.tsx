@@ -7,6 +7,10 @@
  *              执照上传走既有执照字节入库通道。已核验主体改关键身份字段自动回落
  *              pending 重新核验。未认证可发布草稿/提交，不可正式发布（流程第 6 步闸）。
  *              2026-11-14 体验重构：七步流程条 + 状态横幅 + 醒目执照拖拽上传 + 分区表单。
+ *              2026-11 四次调整：**核验历史不再在本页展示**——主体核验的结论、驳回原因
+ *              统一走站内通知（铃铛 / /notifications / 详情页），认证页只保留"当前状态 +
+ *              最近一次意见 + 表单"。留痕数据仍在 procurement_buyer_verifications（回调幂等
+ *              与审计依赖它），只是不在用户端铺开。
  *              2026-11 三次重构（表单精简）：逐字段核对消费方后，24 项砍到 12 项。
  *              下线（库列保留、不再收集）：主体类型/注册地址/采购地区/资金来源/预算状态/采购经验；
  *              项目负责人 4 项合并进授权联系人（规则只读 auth_contact_name）。
@@ -21,23 +25,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
-import { fetchMyBuyerWithVerifications, saveBuyer, type BuyerInfo, type BuyerVerification } from "@/features/procurement-demand/api";
+import { fetchMyBuyerWithVerifications, saveBuyer, type BuyerInfo } from "@/features/procurement-demand/api";
 import { FlowStepper } from "@/features/procurement-demand/FlowStepper";
 import { FileDropzone } from "@/features/procurement-demand/FileDropzone";
-import { formatDateTimeZh } from "@/shared/utils/format";
 
 export default function PageClient() {
   const { t } = useLocale();
   const [buyer, setBuyer] = useState<BuyerInfo | null>(null);
-  const [verifications, setVerifications] = useState<BuyerVerification[]>([]);
   const [riskFlags, setRiskFlags] = useState<string[]>([]);
   const [duplicates, setDuplicates] = useState<Array<{ buyerId: number; orgName: string; matchedField: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [messageCls, setMessageCls] = useState("bg-secondary-50 text-secondary-700");
-  /** 核验留痕默认收起：首屏先给"我现在什么状态、该做什么"；只有被驳回/受限时才自动展开 */
-  const [historyOpen, setHistoryOpen] = useState(false);
   // 只保留"有消费方"或"核验需要"的字段；下线字段不提交 = 保持库里原值（upsertBuyer 只写提交的键）
   const [form, setForm] = useState({
     orgName: "", buyerRole: "end_buyer",
@@ -55,8 +55,8 @@ export default function PageClient() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { buyer: b, verifications: vs, duplicates: dups, riskFlags: risks } = await fetchMyBuyerWithVerifications();
-      setVerifications(vs);
+      // 核验历史不再在认证页展示（统一走站内通知）；这里只取主体、查重与风险提示
+      const { buyer: b, duplicates: dups, riskFlags: risks } = await fetchMyBuyerWithVerifications();
       setDuplicates(dups);
       setRiskFlags(risks);
       if (b) {
@@ -79,11 +79,6 @@ export default function PageClient() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  // 只在"需要用户对照意见去改"的状态下自动展开留痕；正常通过与核验中保持折叠
-  useEffect(() => {
-    if (buyer?.status === "need_info" || buyer?.status === "restricted") setHistoryOpen(true);
-  }, [buyer?.status]);
 
   const onSave = async () => {
     if (!form.orgName.trim()) {
@@ -372,76 +367,6 @@ export default function PageClient() {
           </button>
           <span className="text-xs text-secondary-400">{t("pc_bpage_hint")}</span>
         </div>
-      </div>
-
-      {/* 核验留痕：放表单之后、默认收起。新的在上（后端 ORDER BY id DESC），
-          最新一条标"当前有效"，并给时间——此前没有时间轴，两条记录读起来像互相矛盾。 */}
-      <div className="rounded-2xl border border-secondary-200 bg-white p-4 shadow-xs">
-        <button
-          type="button"
-          onClick={() => setHistoryOpen((o) => !o)}
-          className="flex w-full items-center justify-between gap-2 text-left"
-        >
-          <span className="flex flex-wrap items-center gap-2 text-sm font-bold text-secondary-900">
-            {t("pc_bverify_title")}
-            <span className="rounded-full bg-secondary-100 px-2 py-0.5 text-xs font-semibold text-secondary-500">
-              {verifications.length}
-            </span>
-          </span>
-          <span className="text-xs text-secondary-400">{historyOpen ? "▲" : "▼"}</span>
-        </button>
-
-        {/* 定位说明：留痕与通知是两件事，清空通知不影响这份记录 */}
-        <p className="mt-1 text-[11px] leading-relaxed text-secondary-400">{t("pc_bverify_keep_hint")}</p>
-
-        {historyOpen && (
-          <div className="mt-3 grid gap-2">
-            {verifications.length === 0 ? (
-              <p className="rounded-lg bg-secondary-50 px-3 py-2 text-xs text-secondary-500">
-                {t("pc_bverify_empty")}
-                {waited ? ` · ${waited}` : ""}
-              </p>
-            ) : (
-              verifications.map((v, i) => {
-                const cls =
-                  v.result === "pass" ? "bg-teal-100 text-teal-800"
-                  : v.result === "need_info" ? "bg-amber-100 text-amber-800"
-                  : "bg-red-100 text-red-700";
-                return (
-                  <div key={v.id} className="rounded-lg border border-secondary-100 px-3 py-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-secondary-700">
-                        {t(`pc_bvk_${v.kind}`) || v.kind}
-                      </span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}>
-                        {t(`pc_verify_${v.result}`) || v.result}
-                      </span>
-                      {i === 0 && (
-                        <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700">
-                          {t("pc_bverify_latest")}
-                        </span>
-                      )}
-                    </div>
-                    {v.note &&
-                      (i === 0 && buyer?.verifyNote && v.note === buyer.verifyNote ? (
-                        // 顶部状态卡已完整展示这条意见，这里只给指路，避免同一条读两遍
-                        <p className="mt-1 text-[11px] text-secondary-400">{t("pc_bverify_note_above")}</p>
-                      ) : (
-                        <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-secondary-700">{v.note}</p>
-                      ))}
-                    <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-secondary-400">
-                      {v.createdAt ? (
-                        <span>{formatDateTimeZh(new Date(v.createdAt * 1000).toISOString())}</span>
-                      ) : null}
-                      <span>{t("pc_bverify_reviewer")}</span>
-                      {v.hasEvidence && <span>{t("pc_bverify_evidence")}</span>}
-                    </p>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

@@ -376,5 +376,6 @@
   "notifAutoCheckDuplication": "Duplication (same buyer and title)",
   "notifNoReason": "no reason provided",
   "notifNoDetail": "see verification records",
-  "notifListSeparator": ", "
+  "notifListSeparator": ", ",
+  "notifBBuyerOpinion": "Reviewer note: {note}"
 }

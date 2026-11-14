@@ -376,5 +376,6 @@
   "notifAutoCheckDuplication": "重复性（疑似同主体同标题）",
   "notifNoReason": "未提供原因",
   "notifNoDetail": "详见核验记录",
-  "notifListSeparator": "、"
+  "notifListSeparator": "、",
+  "notifBBuyerOpinion": "核验意见：{note}"
 }

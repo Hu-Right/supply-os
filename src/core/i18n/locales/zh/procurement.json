@@ -998,7 +998,7 @@
   "pc_verify_reject": "未通过",
   "pc_fv_unverified": "未核验",
   "pc_fv_verified": "已核验",
-  "pc_bverify_history": "核验留痕（仅你可见）",
+  "pc_bverify_history": "核验记录",
   "pc_bvk_identity": "主体身份",
   "pc_bvk_authorization": "采购授权",
   "pc_bvk_fund": "资金",
@@ -1116,8 +1116,5 @@
   "pc_bhint_website": "选填。只用于核对邮箱域名与主体是否一致，不填就没有这条核对。",
   "pc_bhint_contact": "核验员在需要补充材料或确认细节时联系这个人的唯一入口。",
   "pc_bhint_rules": "选填。如适用世行/联合国/政府采购规则，填在升级人工合规复核。",
-  "pc_bauthdoc_na": "当前采购权限为「最终采购方」，不需要上传代理授权文件；改为「采购方授权代理」时才会要求。",
-  "pc_bverify_title": "核验留痕（仅你可见）",
-  "pc_bverify_keep_hint": "通知里也会收到同样的提醒；清理通知不会影响这份留痕，需要申诉或对证时以它为准。",
-  "pc_bverify_note_above": "意见见上方「当前认证状态」"
+  "pc_bauthdoc_na": "当前采购权限为「最终采购方」，不需要上传代理授权文件；改为「采购方授权代理」时才会要求。"
 }

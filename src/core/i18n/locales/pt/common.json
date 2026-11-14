@@ -376,5 +376,6 @@
   "notifAutoCheckDuplication": "Duplicidade (mesmo comprador e título)",
   "notifNoReason": "sem motivo informado",
   "notifNoDetail": "ver registros",
-  "notifListSeparator": ", "
+  "notifListSeparator": ", ",
+  "notifBBuyerOpinion": "Observação: {note}"
 }

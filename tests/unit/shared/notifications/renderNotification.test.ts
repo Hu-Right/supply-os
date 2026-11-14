@@ -58,6 +58,20 @@ describe("renderNotification", () => {
     expect(r.body).toContain('"count":2');
   });
 
+  it("主体核验：带意见时把意见拼进正文（认证页已不展示历史，这里是唯一出口）", () => {
+    const withNote = renderNotification(t, {
+      type: "buyer.need_info",
+      title: "",
+      body: "",
+      payload: { note: "执照扫描件不完整，请重传清晰版本", status: "need_info" },
+    });
+    expect(withNote.body).toContain("notifBBuyerOpinion");
+    expect(withNote.body).toContain("执照扫描件不完整");
+
+    const noNote = renderNotification(t, { type: "buyer.need_info", title: "", body: "", payload: {} });
+    expect(noNote.body).toBe("notifBBuyerNeedInfo");
+  });
+
   it("未知类型：回落后端兜底快照（标题/正文原样）", () => {
     const r = renderNotification(t, { type: "future.thing", title: "旧标题", body: "旧正文", payload: null });
     expect(r).toEqual({ title: "旧标题", body: "旧正文" });
