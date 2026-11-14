@@ -265,6 +265,20 @@ const TARGET_WINS_COLUMNS = ds.TARGET_WINS_COLUMNS;
 const PLATFORM_IMMUNE = ds.PLATFORM_IMMUNE;
 
 /**
+ * 源行 NULL 归一（2026-11-14）：bid_notices.deadline_sec 是 deadline_ts 派生的生成列，
+ * 对 NULL **原样传播**（不会变 0）——源行 deadline_ts=NULL 同步过去后，目标侧 SSOT 口径
+ * （deadline_sec = 0 OR >= now）会漏掉该行。两库已加触发器（trg_bid_notices_dt_zero_ins/_upd）
+ * 在库层兜底，本函数是同步脚本的同一语义层防线：任何写入路径（增量/对账补写）取到源行后
+ * 先归一再写。若触发器与归一同时失效，表现为对账每轮对同批行幂等补写（无害可见）。
+ */
+function normalizeSourceRow(table, row) {
+  if (table === 'bid_notices' && 'deadline_ts' in row && (row.deadline_ts === null || row.deadline_ts === undefined)) {
+    row.deadline_ts = 0;
+  }
+  return row;
+}
+
+/**
  * 平台行整行免疫集：取目标库里不可被源库改写的行主键。
  * 采用整行过滤而非逐列 IF(entry_source=…)：ODKU 赋值从左到右求值，列序在 entry_source
  * 之后的列读到的是已改写值，逐列护栏只能护住半截列（会产出「爬虫内容+平台附件」缝合行）。
@@ -547,6 +561,7 @@ async function syncTable(source, target, table, sourceTable, watermark, onWaterm
     // 整行免疫：平台行不进写集（分页/水位仍按源页全量推进，否则会死循环）
     const writable = immuneIds.size > 0 ? rows.filter(r => !immuneIds.has(Number(r[pkCol]))) : rows;
     immuneSkipped += rows.length - writable.length;
+    writable.forEach(r => normalizeSourceRow(table, r));
 
     // 批量构建 VALUES（源库直通覆盖，行级白名单闸已随旧字典桥表退役）
     const valueRows = writable.map(row =>
@@ -706,6 +721,7 @@ async function reconcileTable(source, target, table, sourceTable, opts) {
       const selByPkSrc = `SELECT ${insertColList} FROM \`${sourceTable}\` WHERE \`${pkCol}\` IN (${ph})`;
       const selByPkTgt = `SELECT ${insertColList} FROM \`${table}\` WHERE \`${pkCol}\` IN (${ph})`;
       const [sfull] = await source.execute(selByPkSrc, chunk);
+      sfull.forEach(r => normalizeSourceRow(table, r));
       if (dry) {
         // DRY 模式才取目标全行做差异列分解（报告用）
         const [tfull] = await target.execute(selByPkTgt, chunk);

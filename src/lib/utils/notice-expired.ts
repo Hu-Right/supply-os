@@ -1,4 +1,4 @@
-import { RFQ_STATUS } from "@/shared/constants/rfq";
+import { RFQ_STATUS } from "@/shared/constants/procurement";
 /**
  * 公告过期判定统一常量
  * Unified notice expiry constants
@@ -83,10 +83,16 @@ export const ACTIONABLE_NOTICE_WHERE =
  * [修复 030-b] 原条件 `deadline_ts IS NULL` 遗漏 deadline_ts=0 的 ~10,849 条记录，
  * 改为 `deadline_sec = 0` 与宽表/Meilisearch 口径完全对齐。
  *
+ * [修复 2026-11-14] deadline_sec 生成列对 deadline_ts=NULL **原样传播 NULL**（不会变 0），
+ * 030-b 声称"含 deadline_ts IS NULL"的语义实际未生效——NULL 行被 `= 0 OR >= now` 全部漏掉
+ * （实测曾漏 35,432 行）。补 `IS NULL` 分支：无截止/未解析截止 = 永不过期，与宽表
+ * （物化时 NULL→0）真正对齐。存量 NULL 已于同日在主表与源爬虫库双向归零，本分支为
+ * 防御层（防爬虫未来写入新 NULL 复发）。
+ *
  * 适用表：bid_notices（别名 n）
  */
 export const ACTIVE_NOTICE_WHERE =
-  "(n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW())) AND " +
+  "(n.deadline_sec IS NULL OR n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW())) AND " +
   PLATFORM_PUBLISHED_ONLY;
 
 /**
@@ -103,7 +109,7 @@ export const ACTIVE_OPP_WHERE =
  * 适用场景：crm_notice_stats 刷新、getNoticeStats 等
  */
 export const ACTIVE_NOTICE_WHERE_NO_ALIAS =
-  "(deadline_sec = 0 OR deadline_sec >= UNIX_TIMESTAMP(NOW())) AND " +
+  "(deadline_sec IS NULL OR deadline_sec = 0 OR deadline_sec >= UNIX_TIMESTAMP(NOW())) AND " +
   PLATFORM_PUBLISHED_ONLY_NO_ALIAS;
 
 /**
