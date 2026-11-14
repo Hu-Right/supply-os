@@ -318,5 +318,6 @@
   "authEnterpriseCommodityEmpty": "لم يتم اختيار منتجات رئيسية بعد.",
   "settingsLogoutDesc": "تسجيل الخروج من الحساب الحالي",
   "supplierPoolUpdateDiag": "تحديث نموذج التشخيص",
-  "settingsRfqInvites": "الدعوات"
+  "settingsRfqInvites": "الدعوات",
+  "settingsBuyer": "التحقق من المشتري"
 }

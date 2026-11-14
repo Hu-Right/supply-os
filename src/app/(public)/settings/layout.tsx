@@ -15,6 +15,7 @@ import { useUserId } from "@/core/auth/useUserId";
 
 const NAV_ITEMS = [
   { href: "/settings/profile", labelKey: "settingsProfile", icon: User },
+  { href: "/settings/buyer", labelKey: "settingsBuyer", icon: ClipboardList },
   { href: "/settings/rfq", labelKey: "settingsMyRfq", icon: ClipboardList },
   { href: "/settings/rfq-invites", labelKey: "settingsRfqInvites", icon: Mail },
   { href: "/settings/enterprise", labelKey: "settingsEnterprise", icon: Building2 },

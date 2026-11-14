@@ -29,21 +29,17 @@ interface DemandDetail {
   reference: string;
   title: string;
   status: string;
-  revision: number;
+  versionNo: number;
   buyerOrgName?: string;
 }
 
 interface AuthorizationStatus {
   letterHash: string;
-  revisionNo: number;
-  latest: {
-    id: number;
-    status: "pending" | "verified" | "rejected";
-    signerName: string;
-    signedAt: number;
-    fileUrl: string;
-    rejectReason: string | null;
-  } | null;
+  versionNo: number;
+  status: "none" | "pending" | "verified" | "rejected";
+  signerName: string | null;
+  signedAt: number | null;
+  rejectReason: string | null;
 }
 
 const STATUS_LABEL: Record<string, { zh: string; en: string; cls: string }> = {
@@ -74,14 +70,14 @@ export default function AuthorizationLetterPage() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const d = await api<DemandDetail>(`/api/rfq/demands/${id}`);
+      const d = await api<DemandDetail>(`/api/procurement/projects/${id}`);
       setDetail(d);
     } catch (err) {
       setLoadError((err as Error).message || "需求加载失败 / Failed to load demand");
       return;
     }
     try {
-      const a = await api<AuthorizationStatus>(`/api/rfq/demands/${id}/authorization`);
+      const a = await api<AuthorizationStatus>(`/api/procurement/projects/${id}/authorization`);
       setAuth(a);
     } catch {
       setAuth(null);
@@ -102,8 +98,8 @@ export default function AuthorizationLetterPage() {
       fd.append("file", file);
       fd.append("signerName", signerName.trim());
       fd.append("letterHash", auth.letterHash);
-      fd.append("revisionNo", String(detail.revision));
-      await api(`/api/rfq/demands/${id}/authorization`, { method: "POST", body: fd });
+      fd.append("revisionNo", String(detail.versionNo));
+      await api(`/api/procurement/projects/${id}/authorization`, { method: "POST", body: fd });
       setFile(null);
       if (fileRef.current) fileRef.current.value = "";
       await load();
@@ -127,7 +123,7 @@ export default function AuthorizationLetterPage() {
   }
 
   const sections = buildLetterSections();
-  const st = auth?.latest ? STATUS_LABEL[auth.latest.status] : null;
+  const st = auth?.status && auth.status !== "none" ? STATUS_LABEL[auth.status] : null;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -150,10 +146,10 @@ export default function AuthorizationLetterPage() {
             </button>
           </div>
         </div>
-        {auth?.latest?.status === "rejected" && auth.latest.rejectReason && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">核验意见：{auth.latest.rejectReason}</div>
+        {auth?.status === "rejected" && auth.rejectReason && (
+          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">核验意见：{auth.rejectReason}</div>
         )}
-        {auth?.latest?.status === "verified" ? (
+        {auth?.status === "verified" ? (
           <div className="mt-3 text-xs text-teal-700">✓ 授权已核验，等待/已完成发布。需求改稿重提后需重新签署。</div>
         ) : (
           <div className="mt-4 grid gap-3 border-t border-secondary-100 pt-4">
@@ -176,10 +172,10 @@ export default function AuthorizationLetterPage() {
                 className="mt-1 w-full text-sm"
               />
             </label>
-            {auth?.latest?.fileUrl && (
-              <a className="text-xs text-teal-600 underline" href={auth.latest.fileUrl} target="_blank" rel="noreferrer">
-                查看已上传扫描件 / View uploaded scan（{auth.latest.signerName}，{fmtDate(auth.latest.signedAt)}）
-              </a>
+            {auth != null && auth.status !== "none" && auth.signerName != null && (
+              <div className="text-xs text-teal-700">
+                已签署 / Signed（{auth.signerName}，{fmtDate(auth.signedAt)}）
+              </div>
             )}
             {formError && <div className="text-xs text-red-600">{formError}</div>}
             <button
@@ -210,8 +206,8 @@ export default function AuthorizationLetterPage() {
           <p className="text-secondary-500">Authorized Party: {AUTHORIZED_PARTY_EN}</p>
           <p>采购项目名称：{detail.title}</p>
           <p className="text-secondary-500">Project Name: {detail.title}</p>
-          <p>采购需求编号：{detail.reference}　需求版本：v{detail.revision}</p>
-          <p className="text-secondary-500">Requirement ID: {detail.reference}　Requirement Version: v{detail.revision}</p>
+          <p>采购需求编号：{detail.reference}　需求版本：v{detail.versionNo}</p>
+          <p className="text-secondary-500">Requirement ID: {detail.reference}　Requirement Version: v{detail.versionNo}</p>
         </div>
 
         <div className="mt-6 space-y-4">
@@ -248,7 +244,7 @@ export default function AuthorizationLetterPage() {
         <p className="text-xs text-secondary-400">{AUTH_LETTER_NOTE.en}</p>
         {auth && (
           <p className="mt-4 text-[10px] text-secondary-300 print:text-secondary-400">
-            授权书内容指纹 / Content hash: {auth.letterHash}（模板版本 v1 · 需求版本 v{detail.revision}）
+            授权书内容指纹 / Content hash: {auth.letterHash}（模板版本 v1 · 需求版本 v{detail.versionNo}）
           </p>
         )}
       </div>

@@ -318,5 +318,6 @@
   "authEnterpriseCommodityEmpty": "No main products selected yet.",
   "settingsLogoutDesc": "Sign out of the current account",
   "supplierPoolUpdateDiag": "Update diagnosis form",
-  "settingsRfqInvites": "Invitations"
+  "settingsRfqInvites": "Invitations",
+  "settingsBuyer": "Buyer verification"
 }

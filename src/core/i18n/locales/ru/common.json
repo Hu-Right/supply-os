@@ -318,5 +318,6 @@
   "authEnterpriseCommodityEmpty": "Основная продукция ещё не выбрана.",
   "settingsLogoutDesc": "Выйти из текущего аккаунта",
   "supplierPoolUpdateDiag": "Обновить форму диагностики",
-  "settingsRfqInvites": "Приглашения"
+  "settingsRfqInvites": "Приглашения",
+  "settingsBuyer": "Верификация покупателя"
 }

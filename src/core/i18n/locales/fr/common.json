@@ -318,5 +318,6 @@
   "authEnterpriseCommodityEmpty": "Aucun produit principal sélectionné pour le moment.",
   "settingsLogoutDesc": "Se déconnecter du compte actuel",
   "supplierPoolUpdateDiag": "Mettre à jour le formulaire de diagnostic",
-  "settingsRfqInvites": "Invitations"
+  "settingsRfqInvites": "Invitations",
+  "settingsBuyer": "Vérification acheteur"
 }
