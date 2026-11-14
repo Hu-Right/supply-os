@@ -36,7 +36,7 @@ export default function PageClient() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [messageCls, setMessageCls] = useState("bg-secondary-50 text-secondary-700");
-  /** 核验留痕默认收起：首屏先给"我现在什么状态、该做什么" */
+  /** 核验留痕默认收起：首屏先给"我现在什么状态、该做什么"；只有被驳回/受限时才自动展开 */
   const [historyOpen, setHistoryOpen] = useState(false);
   // 只保留"有消费方"或"核验需要"的字段；下线字段不提交 = 保持库里原值（upsertBuyer 只写提交的键）
   const [form, setForm] = useState({
@@ -79,6 +79,11 @@ export default function PageClient() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // 只在"需要用户对照意见去改"的状态下自动展开留痕；正常通过与核验中保持折叠
+  useEffect(() => {
+    if (buyer?.status === "need_info" || buyer?.status === "restricted") setHistoryOpen(true);
+  }, [buyer?.status]);
 
   const onSave = async () => {
     if (!form.orgName.trim()) {
@@ -377,14 +382,17 @@ export default function PageClient() {
           onClick={() => setHistoryOpen((o) => !o)}
           className="flex w-full items-center justify-between gap-2 text-left"
         >
-          <span className="flex items-center gap-2 text-sm font-bold text-secondary-900">
-            {t("pc_bverify_history")}
+          <span className="flex flex-wrap items-center gap-2 text-sm font-bold text-secondary-900">
+            {t("pc_bverify_title")}
             <span className="rounded-full bg-secondary-100 px-2 py-0.5 text-xs font-semibold text-secondary-500">
               {verifications.length}
             </span>
           </span>
           <span className="text-xs text-secondary-400">{historyOpen ? "▲" : "▼"}</span>
         </button>
+
+        {/* 定位说明：留痕与通知是两件事，清空通知不影响这份记录 */}
+        <p className="mt-1 text-[11px] leading-relaxed text-secondary-400">{t("pc_bverify_keep_hint")}</p>
 
         {historyOpen && (
           <div className="mt-3 grid gap-2">
@@ -414,9 +422,13 @@ export default function PageClient() {
                         </span>
                       )}
                     </div>
-                    {v.note && (
-                      <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-secondary-700">{v.note}</p>
-                    )}
+                    {v.note &&
+                      (i === 0 && buyer?.verifyNote && v.note === buyer.verifyNote ? (
+                        // 顶部状态卡已完整展示这条意见，这里只给指路，避免同一条读两遍
+                        <p className="mt-1 text-[11px] text-secondary-400">{t("pc_bverify_note_above")}</p>
+                      ) : (
+                        <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-secondary-700">{v.note}</p>
+                      ))}
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-secondary-400">
                       {v.createdAt ? (
                         <span>{formatDateTimeZh(new Date(v.createdAt * 1000).toISOString())}</span>

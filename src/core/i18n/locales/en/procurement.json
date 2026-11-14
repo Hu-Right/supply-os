@@ -998,7 +998,7 @@
   "pc_verify_reject": "Rejected",
   "pc_fv_unverified": "Unverified",
   "pc_fv_verified": "Verified",
-  "pc_bverify_history": "Verification history",
+  "pc_bverify_history": "Verification trail (visible to you)",
   "pc_bvk_identity": "Entity identity",
   "pc_bvk_authorization": "Procurement authorization",
   "pc_bvk_fund": "Funding",
@@ -1116,5 +1116,8 @@
   "pc_bhint_website": "Optional. Only used to cross-check your email domain; leave empty to skip that check.",
   "pc_bhint_contact": "The single contact reviewers use when they need documents or clarification.",
   "pc_bhint_rules": "Optional. If World Bank / UN / government procurement rules apply, this escalates to manual compliance review.",
-  "pc_bauthdoc_na": "You are the end buyer, so no agent-authorization document is needed — it is required only for authorized agents."
+  "pc_bauthdoc_na": "You are the end buyer, so no agent-authorization document is needed — it is required only for authorized agents.",
+  "pc_bverify_title": "Verification trail (visible to you)",
+  "pc_bverify_keep_hint": "You also receive a notification for each change; clearing notifications does not affect this trail, which is the record of reference for appeals.",
+  "pc_bverify_note_above": "See the note in “Current verification status” above"
 }
