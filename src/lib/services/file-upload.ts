@@ -209,3 +209,59 @@ export async function getProcurementFile(
   if (!row?.content) return null;
   return { buffer: row.content, contentType: row.content_type || procurementFileContentType(filename) };
 }
+
+// ── 授权书签署扫描件（新发布域，authscan_<projectId>_<uid>_<ts>.<ext>） ──
+// 回文件走 /api/procurement/authorization-files/[filename]（归属人鉴权），
+// 评审后台直连同库 upload_files。
+
+/** 授权扫描件文件名白名单：authscan_<projectId>_<uid>_<ts>.<ext>（jpg/png/webp/pdf） */
+export const PROCUREMENT_SCAN_FILENAME_RE =
+  /^authscan_[0-9]+_[0-9a-zA-Z_-]{1,80}_[0-9]+\.(jpg|jpeg|png|webp|pdf)$/;
+
+/** 新式鉴权 URL 前缀 */
+export const PROCUREMENT_SCAN_URL_PREFIX = "/api/procurement/authorization-files";
+
+export function procurementScanContentType(filename: string): string {
+  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  return {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".pdf": "application/pdf",
+  }[ext] ?? "application/octet-stream";
+}
+
+/** 上传授权扫描件字节入库（幂等：同文件名覆盖；文件名必须过白名单） */
+export async function saveProcurementScan(params: {
+  filename: string;
+  buffer: Buffer;
+  contentType: string;
+  uploadedBy: number;
+}): Promise<{ url: string; filename: string }> {
+  if (!PROCUREMENT_SCAN_FILENAME_RE.test(params.filename)) {
+    throw new Error("非法的授权扫描件文件名");
+  }
+  await getPool().execute(
+    `INSERT INTO upload_files (filename, content, content_type, size_bytes, uploaded_by)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE content = VALUES(content), content_type = VALUES(content_type),
+                             size_bytes = VALUES(size_bytes), uploaded_by = VALUES(uploaded_by)`,
+    [params.filename, params.buffer, params.contentType, params.buffer.length, params.uploadedBy],
+  );
+  return { url: `${PROCUREMENT_SCAN_URL_PREFIX}/${params.filename}`, filename: params.filename };
+}
+
+/** 按文件名取授权扫描件字节；不存在/文件名非法返回 null */
+export async function getProcurementScan(
+  filename: string,
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  if (!PROCUREMENT_SCAN_FILENAME_RE.test(filename)) return null;
+  const [rows] = await getPool().execute(
+    `SELECT content, content_type FROM upload_files WHERE filename = ? LIMIT 1`,
+    [filename],
+  );
+  const row = (rows as Array<{ content: Buffer; content_type: string }>)[0];
+  if (!row?.content) return null;
+  return { buffer: row.content, contentType: row.content_type || procurementScanContentType(filename) };
+}

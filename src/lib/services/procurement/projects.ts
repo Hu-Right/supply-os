@@ -32,6 +32,7 @@ export interface ProjectRow extends RowDataPacket {
   budget_approved: string | null;
   delivery_country: string | null;
   delivery_city: string | null;
+  delivery_province: string | null;
   delivery_address: string | null;
   deadline_date: string | null;
   install_needs: string | null;
