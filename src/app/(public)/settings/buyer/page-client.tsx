@@ -6,11 +6,14 @@
  * @description 一个账号一个采购主体：表单 PUT /api/procurement/buyer 幂等 upsert；
  *              执照上传走既有执照字节入库通道。已核验主体改关键身份字段自动回落
  *              pending 重新核验。未认证可发布草稿/提交，不可正式发布（流程第 6 步闸）。
+ *              2026-11-14 体验重构：七步流程条 + 状态横幅 + 醒目执照拖拽上传 + 分区表单。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { fetchMyBuyer, saveBuyer, type BuyerInfo } from "@/features/procurement-demand/api";
+import { FlowStepper } from "@/features/procurement-demand/FlowStepper";
+import { FileDropzone } from "@/features/procurement-demand/FileDropzone";
 
 export default function PageClient() {
   const { t } = useLocale();
@@ -18,15 +21,20 @@ export default function PageClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageCls, setMessageCls] = useState("bg-secondary-50 text-secondary-700");
   const [form, setForm] = useState({
     orgName: "", orgType: "private", buyerRole: "end_buyer",
     country: "", address: "", regNo: "", taxNo: "",
     website: "", officialEmail: "", officialPhone: "",
     leaderName: "", leaderTitle: "", leaderPhone: "", leaderEmail: "",
     deliverCountry: "", deliverCity: "", fundSource: "own", budgetStatus: "approved", externalRules: "",
+    authContactName: "", authContactPhone: "", authContactEmail: "",
   });
-  const licenseRef = useRef<HTMLInputElement>(null);
-  const [licenseFile, setLicenseFile] = useState<File | null>(null);
+  const [licenseFile, setLicenseFile] = useState<File[]>([]);
+  const [licenseError, setLicenseError] = useState("");
+  const [authDocFile, setAuthDocFile] = useState<File[]>([]);
+  const [authDocError, setAuthDocError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,6 +50,7 @@ export default function PageClient() {
           leaderName: b.leaderName, leaderTitle: b.leaderTitle, leaderPhone: b.leaderPhone, leaderEmail: b.leaderEmail,
           deliverCountry: b.deliverCountry, deliverCity: b.deliverCity,
           fundSource: b.fundSource || "own", budgetStatus: b.budgetStatus || "approved", externalRules: b.externalRules,
+          authContactName: b.authContactName || "", authContactPhone: b.authContactPhone || "", authContactEmail: b.authContactEmail || "",
         }));
       }
     } finally {
@@ -52,14 +61,19 @@ export default function PageClient() {
   useEffect(() => { load(); }, [load]);
 
   const onSave = async () => {
+    if (!form.orgName.trim()) {
+      setMessage(t("pc_borgname") + " / " + t("pc_err_required"));
+      setMessageCls("bg-red-50 text-red-700");
+      return;
+    }
     setSaving(true);
     setMessage("");
     try {
       let licenseUrl: string | null = null;
       let licenseHash: string | null = null;
-      if (licenseFile) {
+      if (licenseFile.length > 0 && licenseFile[0]) {
         const fd = new FormData();
-        fd.append("file", licenseFile);
+        fd.append("file", licenseFile[0]);
         const r = await api<{ url: string; fileHash: string }>("/api/procurement/buyer/license-upload", {
           method: "POST",
           body: fd,
@@ -67,78 +81,155 @@ export default function PageClient() {
         licenseUrl = r.url;
         licenseHash = r.fileHash;
       }
+      let agentAuthKey: string | null = null;
+      let agentAuthHash: string | null = null;
+      if (authDocFile.length > 0 && authDocFile[0]) {
+        const fd = new FormData();
+        fd.append("file", authDocFile[0]);
+        const r = await api<{ url: string; fileHash: string; filename: string }>(
+          "/api/procurement/buyer/auth-doc",
+          { method: "POST", body: fd },
+        );
+        agentAuthKey = r.filename;
+        agentAuthHash = r.fileHash;
+      }
       await saveBuyer({
         ...form,
         ...(licenseUrl ? { license_file_key: licenseUrl.replace("/api/user/enterprise/license/", "") } : {}),
         ...(licenseHash ? { license_file_hash: licenseHash } : {}),
+        ...(agentAuthKey ? { agentAuthFileKey: agentAuthKey } : {}),
+        ...(agentAuthHash ? { agentAuthFileHash: agentAuthHash } : {}),
       });
       setMessage(t("pc_bsave_ok"));
-      setLicenseFile(null);
-      if (licenseRef.current) licenseRef.current.value = "";
+      setMessageCls("bg-teal-50 text-teal-800");
+      setLicenseFile([]);
+      setAuthDocFile([]);
+      if (fileRef.current) fileRef.current.value = "";
       await load();
     } catch (err) {
       setMessage((err as Error).message || t("pc_bsave_fail"));
+      setMessageCls("bg-red-50 text-red-700");
     } finally {
       setSaving(false);
     }
   };
 
-  const inputCls = "mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm";
+  const inputCls = "mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none";
   const labelCls = "text-sm font-semibold text-secondary-700 block";
   const f = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
   const orgTypeOptions = ["government", "international_org", "ngo", "state_owned", "private", "trader", "epc", "agent"];
   const roleOptions = ["end_buyer", "authorized_agent", "general_contractor", "intermediary"];
 
+  const statusBanner = buyer
+    ? buyer.status === "verified"
+      ? { cls: "bg-teal-50 border-teal-200 text-teal-800", text: t("pc_bflow_verified_done") }
+      : buyer.status === "need_info"
+        ? { cls: "bg-amber-50 border-amber-200 text-amber-800", text: `${t("pc_bflow_need_info")}${buyer.verifyNote ? `：${buyer.verifyNote}` : ""}` }
+        : buyer.status === "restricted"
+          ? { cls: "bg-red-50 border-red-200 text-red-700", text: t("pc_bflow_restricted") }
+          : { cls: "bg-amber-50 border-amber-200 text-amber-800", text: t("pc_bflow_pending") }
+    : { cls: "bg-blue-50 border-blue-200 text-blue-800", text: t("pc_bflow_new") };
+
   if (loading) return <div className="py-10 text-center text-sm text-secondary-400">…</div>;
 
+  const sectionTitle = (s: string) => (
+    <div className="col-span-full mt-2 border-b border-secondary-100 pb-1 text-xs font-bold uppercase tracking-wide text-secondary-400">{s}</div>
+  );
+
   return (
-    <div className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-extrabold text-secondary-900">{t("pc_bpage_title")}</h1>
-        {buyer && (
-          <span className="rounded-full bg-secondary-100 px-3 py-1 text-xs font-semibold text-secondary-600">
-            {t(`pc_buyer_status_${buyer.status}`)}
-          </span>
+    <div className="space-y-4">
+      {/* 流程位置：第 1 步 */}
+      <div className="rounded-2xl border border-secondary-200 bg-white p-4 shadow-xs">
+        <FlowStepper current={1} />
+      </div>
+
+      {/* 状态横幅 */}
+      <div className={`rounded-2xl border px-5 py-4 text-sm font-semibold ${statusBanner.cls}`}>{statusBanner.text}</div>
+
+      <div className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
+        <h1 className="mb-4 text-lg font-extrabold text-secondary-900">{t("pc_bpage_title")}</h1>
+        {buyer?.verifyNote && (
+          <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{t("pc_bverify_note")}: {buyer.verifyNote}</div>
         )}
-      </div>
-      {buyer?.verifyNote && (
-        <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{t("pc_bverify_note")}: {buyer.verifyNote}</div>
-      )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className={labelCls}>{t("pc_borgname")} *<input value={form.orgName} onChange={(e) => f("orgName", e.target.value)} className={inputCls} /></label>
-        <label className={labelCls}>{t("pc_borgtype")}
-          <select value={form.orgType} onChange={(e) => f("orgType", e.target.value)} className={inputCls}>
-            {orgTypeOptions.map((v) => <option key={v} value={v}>{t(`pc_borgtype_${v}`)}</option>)}
-          </select>
-        </label>
-        <label className={labelCls}>{t("pc_brole")}
-          <select value={form.buyerRole} onChange={(e) => f("buyerRole", e.target.value)} className={inputCls}>
-            {roleOptions.map((v) => <option key={v} value={v}>{t(`pc_brole_${v}`)}</option>)}
-          </select>
-        </label>
-        <label className={labelCls}>{t("pc_bcountry")}<input value={form.country} onChange={(e) => f("country", e.target.value)} className={inputCls} /></label>
-        <label className={labelCls}>{t("pc_bregno")}<input value={form.regNo} onChange={(e) => f("regNo", e.target.value)} className={inputCls} /></label>
-        <label className={labelCls}>{t("pc_btaxno")}<input value={form.taxNo} onChange={(e) => f("taxNo", e.target.value)} className={inputCls} /></label>
-        <label className={labelCls}>{t("pc_bwebsite")}<input value={form.website} onChange={(e) => f("website", e.target.value)} className={inputCls} /></label>
-        <label className={labelCls}>{t("pc_bemail")}<input value={form.officialEmail} onChange={(e) => f("officialEmail", e.target.value)} className={inputCls} /></label>
-        <label className={labelCls}>{t("pc_bphone")}<input value={form.officialPhone} onChange={(e) => f("officialPhone", e.target.value)} className={inputCls} /></label>
-        <label className={labelCls}>{t("pc_bleader")}<input value={form.leaderName} onChange={(e) => f("leaderName", e.target.value)} className={inputCls} /></label>
-        <label className={labelCls}>{t("pc_bleaderphone")}<input value={form.leaderPhone} onChange={(e) => f("leaderPhone", e.target.value)} className={inputCls} /></label>
-        <label className={labelCls}>{t("pc_bdelivercountry")}<input value={form.deliverCountry} onChange={(e) => f("deliverCountry", e.target.value)} className={inputCls} /></label>
-        <label className={labelCls}>{t("pc_blicense")}
-          <input ref={licenseRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" onChange={(e) => setLicenseFile(e.target.files?.[0] ?? null)} className="mt-1 w-full text-sm" />
-          {buyer?.licenseFileUrl && (
-            <a className="mt-1 block text-xs text-teal-600 underline" href={buyer.licenseFileUrl} target="_blank" rel="noreferrer">{t("pc_blicense_view")}</a>
-          )}
-        </label>
-      </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {sectionTitle(t("pc_bsec_identity"))}
+          <label className={labelCls}>{t("pc_borgname")} *<input value={form.orgName} onChange={(e) => f("orgName", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_borgtype")}
+            <select value={form.orgType} onChange={(e) => f("orgType", e.target.value)} className={inputCls}>
+              {orgTypeOptions.map((v) => <option key={v} value={v}>{t(`pc_borgtype_${v}`)}</option>)}
+            </select>
+          </label>
+          <label className={labelCls}>{t("pc_brole")}
+            <select value={form.buyerRole} onChange={(e) => f("buyerRole", e.target.value)} className={inputCls}>
+              {roleOptions.map((v) => <option key={v} value={v}>{t(`pc_brole_${v}`)}</option>)}
+            </select>
+          </label>
+          <label className={labelCls}>{t("pc_bcountry")}<input value={form.country} onChange={(e) => f("country", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_baddress")}<input value={form.address} onChange={(e) => f("address", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bregno")}<input value={form.regNo} onChange={(e) => f("regNo", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_btaxno")}<input value={form.taxNo} onChange={(e) => f("taxNo", e.target.value)} className={inputCls} /></label>
 
-      {message && <div className="mt-4 rounded-lg bg-secondary-50 px-3 py-2 text-xs text-secondary-700">{message}</div>}
-      <button type="button" disabled={saving} onClick={onSave} className="mt-5 rounded-lg bg-teal-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">
-        {saving ? "…" : t("pc_bsave")}
-      </button>
-      <p className="mt-3 text-xs text-secondary-400">{t("pc_bpage_hint")}</p>
+          {sectionTitle(t("pc_bsec_license"))}
+          <div className="col-span-full">
+            <div className="mb-2 text-xs font-semibold text-secondary-600">{t("pc_blicense")} <span className="text-teal-600">({t("pc_blicense_why")})</span></div>
+            <FileDropzone
+              accept=".jpg,.jpeg,.png,.webp,.pdf"
+              maxSizeBytes={10 * 1024 * 1024}
+              files={licenseFile}
+              onFilesChange={setLicenseFile}
+              onReject={(r) => setLicenseError(r === "size" ? t("pc_fz_err_size") : t("pc_fz_err_type"))}
+              existingFiles={buyer?.licenseFileUrl && !licenseFile.length ? [{ name: t("pc_blicense_existing"), url: buyer.licenseFileUrl }] : []}
+            />
+            {licenseError && <div className="mt-2 text-xs text-red-600">{licenseError}</div>}
+          </div>
+
+          {sectionTitle(t("pc_bsec_contact"))}
+          <label className={labelCls}>{t("pc_bwebsite")}<input value={form.website} onChange={(e) => f("website", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bemail")}<input value={form.officialEmail} onChange={(e) => f("officialEmail", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bphone")}<input value={form.officialPhone} onChange={(e) => f("officialPhone", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bleader")}<input value={form.leaderName} onChange={(e) => f("leaderName", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bleadertitle")}<input value={form.leaderTitle} onChange={(e) => f("leaderTitle", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bleaderphone")}<input value={form.leaderPhone} onChange={(e) => f("leaderPhone", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bleaderemail")}<input value={form.leaderEmail} onChange={(e) => f("leaderEmail", e.target.value)} className={inputCls} /></label>
+
+          {sectionTitle(t("pc_bsec_auth"))}
+          <label className={labelCls}>{t("pc_bauthcontact_name")}<input value={form.authContactName} onChange={(e) => f("authContactName", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bauthcontact_phone")}<input value={form.authContactPhone} onChange={(e) => f("authContactPhone", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bauthcontact_email")}<input value={form.authContactEmail} onChange={(e) => f("authContactEmail", e.target.value)} className={inputCls} /></label>
+          <div className="col-span-full">
+            <div className="mb-2 text-xs font-semibold text-secondary-600">{t("pc_bauthdoc")} <span className="text-secondary-400">({t("pc_bauthdoc_hint")})</span></div>
+            <FileDropzone
+              accept=".jpg,.jpeg,.png,.webp,.pdf"
+              maxSizeBytes={10 * 1024 * 1024}
+              files={authDocFile}
+              onFilesChange={setAuthDocFile}
+              onReject={(r) => setAuthDocError(r === "size" ? t("pc_fz_err_size") : t("pc_fz_err_type"))}
+              existingFiles={buyer?.agentAuthFileUrl && !authDocFile.length ? [{ name: t("pc_blicense_existing"), url: buyer.agentAuthFileUrl }] : []}
+            />
+            {authDocError && <div className="mt-2 text-xs text-red-600">{authDocError}</div>}
+          </div>
+
+          {sectionTitle(t("pc_bsec_region"))}
+          <label className={labelCls}>{t("pc_bdelivercountry")}<input value={form.deliverCountry} onChange={(e) => f("deliverCountry", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bdelivercity")}<input value={form.deliverCity} onChange={(e) => f("deliverCity", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bfundsource")}
+            <select value={form.fundSource} onChange={(e) => f("fundSource", e.target.value)} className={inputCls}>
+              {["own", "government_budget", "loan", "donation", "project_special"].map((v) => (
+                <option key={v} value={v}>{t(`pc_bfund_${v}`)}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {message && <div className={`mt-4 rounded-lg px-3 py-2 text-xs ${messageCls}`}>{message}</div>}
+        <div className="mt-5 flex items-center gap-3">
+          <button type="button" disabled={saving} onClick={onSave} className="rounded-lg bg-teal-600 px-6 py-2.5 text-sm font-bold text-white shadow-xs hover:bg-teal-700 disabled:opacity-50">
+            {saving ? "…" : t("pc_bsave")}
+          </button>
+          <span className="text-xs text-secondary-400">{t("pc_bpage_hint")}</span>
+        </div>
+      </div>
     </div>
   );
 }

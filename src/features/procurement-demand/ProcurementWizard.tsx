@@ -14,6 +14,8 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/core/api/commodityTree";
 import { api } from "@/core/http";
+import { FlowStepper } from "./FlowStepper";
+import { FileDropzone } from "./FileDropzone";
 import {
   createProject,
   fetchProject,
@@ -159,7 +161,7 @@ export function ProcurementWizard(props: { editId?: number }) {
           objectTypes: d.objectTypes.length ? d.objectTypes : ["goods"],
           budgetAmount: d.budgetAmount == null ? "" : String(d.budgetAmount),
           budgetCurrency: d.budgetCurrency || "CNY",
-          budgetPublic: d.budgetAmount != null,
+          budgetPublic: d.budgetPublic ?? d.budgetAmount != null,
           budgetApproved: d.budgetApproved || "approved",
           deliveryCountry: d.deliveryCountry,
           deliveryCity: d.deliveryCity,
@@ -301,6 +303,9 @@ export function ProcurementWizard(props: { editId?: number }) {
 
   return (
     <div ref={rootRef} className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
+      <div className="mb-3 rounded-xl border border-secondary-100 bg-secondary-50/60 px-3 py-2">
+        <FlowStepper current={step === 2 ? 3 : 2} compact />
+      </div>
       <div className="mb-5 flex items-center gap-2">
         {STEPS.map((label, i) => (
           <button
@@ -393,11 +398,20 @@ export function ProcurementWizard(props: { editId?: number }) {
             </button>
           </div>
 
-          <label className="text-sm font-semibold text-secondary-700">
+          <div className="text-sm font-semibold text-secondary-700">
             {t("pc_attachments")}
-            <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.zip" onChange={(e) => setFiles(Array.from(e.target.files ?? []))} className="mt-1 w-full text-sm" />
-            <span className="mt-1 block text-xs text-secondary-400">{t("pc_attachments_hint")}</span>
-          </label>
+            <div className="mt-1">
+              <FileDropzone
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.zip"
+                maxSizeBytes={20 * 1024 * 1024}
+                multiple
+                files={files}
+                onFilesChange={setFiles}
+                onReject={(r) => setError(r === "size" ? t("pc_fz_err_size") : t("pc_fz_err_type"))}
+              />
+              <p className="mt-1 text-xs text-secondary-400">{t("pc_attachments_hint")}</p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -476,6 +490,13 @@ export function ProcurementWizard(props: { editId?: number }) {
             <input type="checkbox" checked={form.authorizePublish} onChange={(e) => field("authorizePublish", e.target.checked)} />
             {t("pc_authorizePublish")} *
           </label>
+
+          {/* 授权引导卡：提交后的第 4/5 步预告（盖章签署在授权书页完成） */}
+          <div className="rounded-xl border border-teal-200 bg-teal-50/60 p-4">
+            <div className="text-sm font-bold text-teal-800">{t("pc_auth_hint_title")}</div>
+            <p className="mt-1 text-xs leading-relaxed text-teal-700">{t("pc_auth_hint_body")}</p>
+            <p className="mt-1 text-xs text-teal-600">{t("pc_auth_hint_warning")}</p>
+          </div>
         </div>
       )}
 

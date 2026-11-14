@@ -26,6 +26,10 @@ export interface BuyerInfo {
   budgetStatus: string;
   externalRules: string;
   licenseFileUrl: string | null;
+  agentAuthFileUrl: string | null;
+  authContactName: string;
+  authContactPhone: string;
+  authContactEmail: string;
   status: string;
   verifiedAt: number | null;
   verifyNote: string;
@@ -75,6 +79,9 @@ export interface ProjectDetail extends ProjectSummary {
     signedAt: number | null;
   };
   isOwner: boolean;
+  /** 仅 owner 返回：预算是否可公开（编辑回填用，避免用"有金额"反推） */
+  budgetPublic?: boolean;
+  itemCount?: number;
   lots: Array<{ lotNo: string; title: string; scopeNote: string }>;
   items: Array<{
     id: number;

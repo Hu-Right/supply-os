@@ -23,11 +23,14 @@ import {
   AUTH_LETTER_NOTE,
   buildLetterSections,
 } from "@/lib/services/procurement/authorization-letter";
+import { FlowStepper } from "@/features/procurement-demand/FlowStepper";
+import { FileDropzone } from "@/features/procurement-demand/FileDropzone";
 
 interface DemandDetail {
   id: number;
   reference: string;
-  title: string;
+  titleZh: string;
+  titleEn: string;
   status: string;
   versionNo: number;
   buyerOrgName?: string;
@@ -62,10 +65,9 @@ export default function AuthorizationLetterPage() {
   const [auth, setAuth] = useState<AuthorizationStatus | null>(null);
   const [loadError, setLoadError] = useState("");
   const [signerName, setSignerName] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [scanFiles, setScanFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -90,18 +92,16 @@ export default function AuthorizationLetterPage() {
     setFormError("");
     if (!detail || !auth) return;
     if (!signerName.trim()) { setFormError("请填写授权代表姓名 / Please fill in the authorized representative name"); return; }
-    if (!file) { setFormError("请上传签字盖章的扫描件 / Please upload the signed & sealed scan"); return; }
-    if (file.size > 10 * 1024 * 1024) { setFormError("扫描件不能超过 10MB / Max 10MB"); return; }
+    if (scanFiles.length === 0) { setFormError("请上传签字盖章的扫描件 / Please upload the signed & sealed scan"); return; }
+
     setSubmitting(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", scanFiles[0]);
       fd.append("signerName", signerName.trim());
       fd.append("letterHash", auth.letterHash);
-      fd.append("revisionNo", String(detail.versionNo));
+      fd.append("versionNo", String(detail.versionNo));
       await api(`/api/procurement/projects/${id}/authorization`, { method: "POST", body: fd });
-      setFile(null);
-      if (fileRef.current) fileRef.current.value = "";
       await load();
     } catch (err) {
       setFormError((err as Error).message || "签署失败 / Failed to submit");
@@ -124,9 +124,14 @@ export default function AuthorizationLetterPage() {
 
   const sections = buildLetterSections();
   const st = auth?.status && auth.status !== "none" ? STATUS_LABEL[auth.status] : null;
+  // 接口返回 titleZh/titleEn（camelCase 实体），此前误取 detail.title → 法律文书项目名恒空
+  const projectTitle = detail.titleZh || detail.titleEn || detail.reference;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="print:hidden mb-4 rounded-2xl border border-secondary-200 bg-white p-4 shadow-xs">
+        <FlowStepper current={5} compact />
+      </div>
       {/* 操作区（打印时隐藏） */}
       <div className="print:hidden mb-6 rounded-2xl border border-secondary-200 bg-white p-5 shadow-xs">
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -162,16 +167,18 @@ export default function AuthorizationLetterPage() {
                 placeholder="与签字一致 / Same as the signature"
               />
             </label>
-            <label className="text-xs font-semibold text-secondary-600">
+            <div className="text-xs font-semibold text-secondary-600">
               签字盖章扫描件（jpg/png/webp/pdf，≤10MB） / Signed &amp; sealed scan
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".jpg,.jpeg,.png,.webp,.pdf"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="mt-1 w-full text-sm"
-              />
-            </label>
+              <div className="mt-1">
+                <FileDropzone
+                  accept=".jpg,.jpeg,.png,.webp,.pdf"
+                  maxSizeBytes={10 * 1024 * 1024}
+                  files={scanFiles}
+                  onFilesChange={setScanFiles}
+                  compact
+                />
+              </div>
+            </div>
             {auth != null && auth.status !== "none" && auth.signerName != null && (
               <div className="text-xs text-teal-700">
                 已签署 / Signed（{auth.signerName}，{fmtDate(auth.signedAt)}）
@@ -204,8 +211,8 @@ export default function AuthorizationLetterPage() {
           <p className="text-secondary-500">Authorizing Party (Buyer): {detail.buyerOrgName || "__________________________________"}</p>
           <p>被授权方：{AUTHORIZED_PARTY_ZH}</p>
           <p className="text-secondary-500">Authorized Party: {AUTHORIZED_PARTY_EN}</p>
-          <p>采购项目名称：{detail.title}</p>
-          <p className="text-secondary-500">Project Name: {detail.title}</p>
+          <p>采购项目名称：{projectTitle}</p>
+          <p className="text-secondary-500">Project Name: {projectTitle}</p>
           <p>采购需求编号：{detail.reference}　需求版本：v{detail.versionNo}</p>
           <p className="text-secondary-500">Requirement ID: {detail.reference}　Requirement Version: v{detail.versionNo}</p>
         </div>
