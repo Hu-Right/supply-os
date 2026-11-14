@@ -1097,5 +1097,13 @@
   "pc_closed_title": "تم إغلاق الطلب",
   "pc_close_reason_cancelled": "أُلغيت من المشتري",
   "pc_close_reason_withdrawn": "سُحبت من المشتري",
-  "pc_close_reason_expired": "أُغلقت تلقائياً عند انتهاء الموعد"
+  "pc_close_reason_expired": "أُغلقت تلقائياً عند انتهاء الموعد",
+  "pc_bstatus_title": "حالة التحقق الحالية",
+  "pc_bstatus_go_form": "تعديل بياناتي",
+  "pc_bstatus_wait_days": "تم الإرسال؛ في الانتظار منذ {days} يوماً",
+  "pc_bstatus_wait_hours": "تم الإرسال؛ في الانتظار منذ {hours} ساعة",
+  "pc_bverify_latest": "ساري",
+  "pc_bverify_reviewer": "التحقق من يونجينغ",
+  "pc_bverify_evidence": "المستند محفوظ",
+  "pc_bverify_empty": "لا توجد سجلات تحقق بعد"
 }

@@ -1097,5 +1097,13 @@
   "pc_closed_title": "需求已关闭",
   "pc_close_reason_cancelled": "采购方取消",
   "pc_close_reason_withdrawn": "采购方撤回",
-  "pc_close_reason_expired": "报价截止，自动关闭"
+  "pc_close_reason_expired": "报价截止，自动关闭",
+  "pc_bstatus_title": "当前认证状态",
+  "pc_bstatus_go_form": "去修改资料",
+  "pc_bstatus_wait_days": "已提交，已等待 {days} 天",
+  "pc_bstatus_wait_hours": "已提交，已等待 {hours} 小时",
+  "pc_bverify_latest": "当前有效",
+  "pc_bverify_reviewer": "云境核验",
+  "pc_bverify_evidence": "含核验依据（平台留档）",
+  "pc_bverify_empty": "尚无核验记录"
 }

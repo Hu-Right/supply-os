@@ -1097,5 +1097,13 @@
   "pc_closed_title": "Заявка закрыта",
   "pc_close_reason_cancelled": "Отменена заказчиком",
   "pc_close_reason_withdrawn": "Отозвана заказчиком",
-  "pc_close_reason_expired": "Закрыта автоматически по истечении срока"
+  "pc_close_reason_expired": "Закрыта автоматически по истечении срока",
+  "pc_bstatus_title": "Текущий статус проверки",
+  "pc_bstatus_go_form": "Изменить данные",
+  "pc_bstatus_wait_days": "Отправлено; ожидание {days} дн.",
+  "pc_bstatus_wait_hours": "Отправлено; ожидание {hours} ч",
+  "pc_bverify_latest": "Действует",
+  "pc_bverify_reviewer": "Проверка Yunjing",
+  "pc_bverify_evidence": "Обоснование в архиве",
+  "pc_bverify_empty": "Записей о проверке пока нет"
 }

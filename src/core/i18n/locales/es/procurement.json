@@ -1097,5 +1097,13 @@
   "pc_closed_title": "Demanda cerrada",
   "pc_close_reason_cancelled": "Cancelada por el comprador",
   "pc_close_reason_withdrawn": "Retirada por el comprador",
-  "pc_close_reason_expired": "Cerrada automáticamente al vencer el plazo"
+  "pc_close_reason_expired": "Cerrada automáticamente al vencer el plazo",
+  "pc_bstatus_title": "Estado de verificación actual",
+  "pc_bstatus_go_form": "Editar mi información",
+  "pc_bstatus_wait_days": "Enviado; en espera desde hace {days} días",
+  "pc_bstatus_wait_hours": "Enviado; en espera desde hace {hours} h",
+  "pc_bverify_latest": "Vigente",
+  "pc_bverify_reviewer": "Verificación de Yunjing",
+  "pc_bverify_evidence": "Justificante archivado",
+  "pc_bverify_empty": "Aún no hay registros de verificación"
 }

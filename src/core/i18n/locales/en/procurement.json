@@ -1097,5 +1097,13 @@
   "pc_closed_title": "Demand closed",
   "pc_close_reason_cancelled": "Cancelled by the buyer",
   "pc_close_reason_withdrawn": "Withdrawn by the buyer",
-  "pc_close_reason_expired": "Closed automatically at the quote deadline"
+  "pc_close_reason_expired": "Closed automatically at the quote deadline",
+  "pc_bstatus_title": "Current verification status",
+  "pc_bstatus_go_form": "Edit my information",
+  "pc_bstatus_wait_days": "Submitted; waiting {days} days",
+  "pc_bstatus_wait_hours": "Submitted; waiting {hours} h",
+  "pc_bverify_latest": "Current",
+  "pc_bverify_reviewer": "Yunjing verification",
+  "pc_bverify_evidence": "Evidence on file",
+  "pc_bverify_empty": "No verification records yet"
 }

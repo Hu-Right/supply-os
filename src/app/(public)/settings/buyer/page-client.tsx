@@ -7,8 +7,14 @@
  *              执照上传走既有执照字节入库通道。已核验主体改关键身份字段自动回落
  *              pending 重新核验。未认证可发布草稿/提交，不可正式发布（流程第 6 步闸）。
  *              2026-11-14 体验重构：七步流程条 + 状态横幅 + 醒目执照拖拽上传 + 分区表单。
+ *              2026-11 二次重构：把"当前态"与"留痕"彻底拆开——
+ *                ① 顶部状态卡为唯一权威（状态 + 下一步 CTA + 等待时长 + 最近意见）；
+ *                ② 核验留痕移到表单之后、默认收起，带时间与"当前有效"标记；
+ *                ③ 核验人不再显示内部账号名（统一"云境核验"）；
+ *                ④ 未知 kind/result 加兜底（t() 缺键返回空串，否则静默渲染空白）。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { fetchMyBuyerWithVerifications, saveBuyer, type BuyerInfo, type BuyerVerification } from "@/features/procurement-demand/api";
@@ -26,6 +32,8 @@ export default function PageClient() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [messageCls, setMessageCls] = useState("bg-secondary-50 text-secondary-700");
+  /** 核验留痕默认收起：首屏先给"我现在什么状态、该做什么" */
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [form, setForm] = useState({
     orgName: "", orgType: "private", buyerRole: "end_buyer",
     country: "", address: "", regNo: "", taxNo: "",
@@ -130,22 +138,48 @@ export default function PageClient() {
   const orgTypeOptions = ["government", "international_org", "ngo", "state_owned", "private", "trader", "epc", "agent"];
   const roleOptions = ["end_buyer", "authorized_agent", "general_contractor", "intermediary"];
 
+  /** 当前状态（唯一权威）——文案只给"处于什么状态"，意见单独成块，等待时长单独算 */
   const statusBanner = buyer
     ? buyer.status === "verified"
-      ? { cls: "bg-teal-50 border-teal-200 text-teal-800", text: t("pc_bflow_verified_done") }
+      ? { cls: "bg-teal-50 border-teal-200 text-teal-800", badge: "bg-teal-100 text-teal-800", text: t("pc_bflow_verified_done") }
       : buyer.status === "need_info"
-        ? { cls: "bg-amber-50 border-amber-200 text-amber-800", text: `${t("pc_bflow_need_info")}${buyer.verifyNote ? `：${buyer.verifyNote}` : ""}` }
+        ? { cls: "bg-amber-50 border-amber-200 text-amber-800", badge: "bg-amber-100 text-amber-800", text: t("pc_bflow_need_info") }
         : buyer.status === "restricted"
-          ? { cls: "bg-red-50 border-red-200 text-red-700", text: t("pc_bflow_restricted") }
-          : {
-              cls: "bg-amber-50 border-amber-200 text-amber-800",
-              text: `${t("pc_bflow_pending")}${
-                buyer.submittedAt
-                  ? ` · ${formatDateTimeZh(new Date(buyer.submittedAt * 1000).toISOString())}`
-                  : ""
-              }`,
-            }
-    : { cls: "bg-blue-50 border-blue-200 text-blue-800", text: t("pc_bflow_new") };
+          ? { cls: "bg-red-50 border-red-200 text-red-700", badge: "bg-red-100 text-red-700", text: t("pc_bflow_restricted") }
+          : { cls: "bg-amber-50 border-amber-200 text-amber-800", badge: "bg-amber-100 text-amber-800", text: t("pc_bflow_pending") }
+    : { cls: "bg-blue-50 border-blue-200 text-blue-800", badge: "bg-blue-100 text-blue-800", text: t("pc_bflow_new") };
+
+  /** 等待时长（仅在"已提交待核验"时有意义）：显示为天数或小时 */
+  const waited =
+    buyer?.submittedAt && buyer.status === "pending"
+      ? (() => {
+          const sec = Math.max(0, Math.floor(Date.now() / 1000) - buyer.submittedAt);
+          const days = Math.floor(sec / 86400);
+          return days >= 1
+            ? t("pc_bstatus_wait_days", { days })
+            : t("pc_bstatus_wait_hours", { hours: Math.floor(sec / 3600) });
+        })()
+      : "";
+
+  /** 下一步 CTA：跳转而不是"提示用户自己去找表单" */
+  const goForm = () => {
+    const el = typeof document === "undefined" ? null : document.getElementById("buyer-form");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const statusAction =
+    !buyer || buyer.status === "need_info" ? (
+      <button
+        type="button"
+        onClick={goForm}
+        className="mt-3 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+      >
+        {t("pc_bstatus_go_form")}
+      </button>
+    ) : buyer.status === "verified" ? (
+      <Link href="/rfq" className="mt-3 inline-block rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+        {t("pc_wb_new")}
+      </Link>
+    ) : null;
 
   if (loading) return <div className="py-10 text-center text-sm text-secondary-400">…</div>;
 
@@ -160,35 +194,27 @@ export default function PageClient() {
         <FlowStepper current={1} />
       </div>
 
-      {/* 状态横幅 */}
-      <div className={`rounded-2xl border px-5 py-4 text-sm font-semibold ${statusBanner.cls}`}>{statusBanner.text}</div>
-
-      {/* 核验记录（F05）：每次核验的维度、结论、核验人与意见 */}
-      {verifications.length > 0 && (
-        <div className="rounded-2xl border border-secondary-200 bg-white p-4 shadow-xs">
-          <div className="text-sm font-bold text-secondary-900">{t("pc_bverify_history")}</div>
-          <div className="mt-2 grid gap-2">
-            {verifications.map((v) => {
-              const cls =
-                v.result === "pass" ? "bg-teal-100 text-teal-800"
-                : v.result === "need_info" ? "bg-amber-100 text-amber-800"
-                : "bg-red-100 text-red-700";
-              return (
-                <div key={v.id} className="flex items-start justify-between gap-3 rounded-lg border border-secondary-100 px-3 py-2 text-xs">
-                  <div>
-                    <span className="font-semibold text-secondary-700">{t(`pc_bvk_${v.kind}`)}</span>
-                    {v.note && <span className="ml-2 text-secondary-500">{v.note}</span>}
-                    <span className="ml-2 text-secondary-400">{v.reviewer}</span>
-                  </div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 font-semibold ${cls}`}>{t(`pc_verify_${v.result}`)}</span>
-                </div>
-              );
-            })}
-          </div>
+      {/* 当前认证状态（唯一权威）：状态徽章 + 结论一句话 + 等待时长 + 最近意见 + 下一步 CTA */}
+      <div className="rounded-2xl border border-secondary-200 bg-white p-5 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold text-secondary-900">{t("pc_bstatus_title")}</h2>
+          {buyer && (
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBanner.badge}`}>
+              {t(`pc_buyer_status_${buyer.status}`)}
+            </span>
+          )}
         </div>
-      )}
+        <p className={`mt-3 rounded-lg border px-3 py-2 text-sm font-semibold ${statusBanner.cls}`}>{statusBanner.text}</p>
+        {waited && <p className="mt-2 text-xs text-secondary-500">{waited}</p>}
+        {buyer?.verifyNote && (
+          <p className="mt-2 whitespace-pre-wrap rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+            {t("pc_bverify_note")}：{buyer.verifyNote}
+          </p>
+        )}
+        {statusAction}
+      </div>
 
-      <div className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
+      <div id="buyer-form" className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
         <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
           <h1 className="text-lg font-extrabold text-secondary-900">{t("pc_bpage_title")}</h1>
           {buyer?.buyerNo && (
@@ -197,10 +223,6 @@ export default function PageClient() {
             </span>
           )}
         </div>
-        {buyer?.verifyNote && (
-          <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{t("pc_bverify_note")}: {buyer.verifyNote}</div>
-        )}
-
         {/* F01 自动查重与风险提示（自检参考，不替代云境核验） */}
         {duplicates.length > 0 && (
           <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -324,6 +346,69 @@ export default function PageClient() {
           </button>
           <span className="text-xs text-secondary-400">{t("pc_bpage_hint")}</span>
         </div>
+      </div>
+
+      {/* 核验留痕：放表单之后、默认收起。新的在上（后端 ORDER BY id DESC），
+          最新一条标"当前有效"，并给时间——此前没有时间轴，两条记录读起来像互相矛盾。 */}
+      <div className="rounded-2xl border border-secondary-200 bg-white p-4 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setHistoryOpen((o) => !o)}
+          className="flex w-full items-center justify-between gap-2 text-left"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold text-secondary-900">
+            {t("pc_bverify_history")}
+            <span className="rounded-full bg-secondary-100 px-2 py-0.5 text-xs font-semibold text-secondary-500">
+              {verifications.length}
+            </span>
+          </span>
+          <span className="text-xs text-secondary-400">{historyOpen ? "▲" : "▼"}</span>
+        </button>
+
+        {historyOpen && (
+          <div className="mt-3 grid gap-2">
+            {verifications.length === 0 ? (
+              <p className="rounded-lg bg-secondary-50 px-3 py-2 text-xs text-secondary-500">
+                {t("pc_bverify_empty")}
+                {waited ? ` · ${waited}` : ""}
+              </p>
+            ) : (
+              verifications.map((v, i) => {
+                const cls =
+                  v.result === "pass" ? "bg-teal-100 text-teal-800"
+                  : v.result === "need_info" ? "bg-amber-100 text-amber-800"
+                  : "bg-red-100 text-red-700";
+                return (
+                  <div key={v.id} className="rounded-lg border border-secondary-100 px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-secondary-700">
+                        {t(`pc_bvk_${v.kind}`) || v.kind}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}>
+                        {t(`pc_verify_${v.result}`) || v.result}
+                      </span>
+                      {i === 0 && (
+                        <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700">
+                          {t("pc_bverify_latest")}
+                        </span>
+                      )}
+                    </div>
+                    {v.note && (
+                      <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-secondary-700">{v.note}</p>
+                    )}
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-secondary-400">
+                      {v.createdAt ? (
+                        <span>{formatDateTimeZh(new Date(v.createdAt * 1000).toISOString())}</span>
+                      ) : null}
+                      <span>{t("pc_bverify_reviewer")}</span>
+                      {v.hasEvidence && <span>{t("pc_bverify_evidence")}</span>}
+                    </p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
