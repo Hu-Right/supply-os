@@ -62,6 +62,7 @@ import {
   // RFQ 需求 / 报价 / 问答域专属码（44xxx 独立码段）
   EC_RFQ_NOT_FOUND, EC_RFQ_STATE_INVALID, EC_RFQ_VERSION_CONFLICT, EC_RFQ_REASON_REQUIRED,
   EC_RFQ_AUTHORIZATION_REQUIRED,
+  EC_RFQ_PUBLISH_BLOCKED,
 } from "@/shared/constants/api";
 
 /** 注入式翻译函数（与 useLocale 的 t 对齐；params 预留插值） */
@@ -208,6 +209,7 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_RFQ_VERSION_CONFLICT]: { kind: "business", key: "errRfqVersionConflict" },
   [EC_RFQ_REASON_REQUIRED]: { kind: "business", key: "errRfqReasonRequired" },
   [EC_RFQ_AUTHORIZATION_REQUIRED]: { kind: "business", key: "errRfqAuthorizationRequired" },
+  [EC_RFQ_PUBLISH_BLOCKED]: { kind: "business", key: "errRfqPublishBlocked" },
 };
 
 /** HTTP 状态兜底（无稳定码命中时） */

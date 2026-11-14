@@ -102,5 +102,6 @@
   "aiErrLoginRequired": "Su sesión ha expirado; inicie sesión de nuevo para reintentar",
   "aiSupplierProfileRequired": "Complete el perfil de su empresa antes de la puntuación de ajuste con IA",
   "errProxyResponseTooLarge": "La respuesta de la página de destino es demasiado grande para mostrarla",
-  "errRfqAuthorizationRequired": "La autorización de publicación no está firmada ni verificada"
+  "errRfqAuthorizationRequired": "La autorización de publicación no está firmada ni verificada",
+  "errRfqPublishBlocked": "No se cumplen los requisitos de publicación: confirme la autorización de publicación, fije un plazo de ofertas o justifique la anulación de la revisión automática"
 }

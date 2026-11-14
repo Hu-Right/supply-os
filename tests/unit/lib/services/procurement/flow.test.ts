@@ -83,6 +83,8 @@ const PROJECT = {
   primary_ugt_code: "UGT-0301",
   notice_pk: null,
   contact_disclosure: "org_only",
+  // F02 授权确认：发布闸第三道（2026-11 补）；旧测试夹具没有它会命中 publish_blocked
+  authorize_publish: 1,
 };
 
 describe("signAuthorization — 签署闸", () => {

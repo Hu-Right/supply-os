@@ -102,5 +102,6 @@
   "aiErrLoginRequired": "Your session has expired; please sign in again to retry",
   "aiSupplierProfileRequired": "Please complete your company profile before AI fit scoring",
   "errProxyResponseTooLarge": "Target page response is too large to proxy",
-  "errRfqAuthorizationRequired": "The publication authorization is unsigned or unverified"
+  "errRfqAuthorizationRequired": "The publication authorization is unsigned or unverified",
+  "errRfqPublishBlocked": "Publish prerequisites not met: confirm publication authorization, set a quote deadline, or justify overriding the automatic pre-check"
 }

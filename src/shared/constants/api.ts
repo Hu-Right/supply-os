@@ -310,6 +310,8 @@ export const EC_RFQ_VERSION_CONFLICT = 44003;
 export const EC_RFQ_REASON_REQUIRED = 44004;
 /** RFQ 发布前置缺失：授权书未签署或未通过云境核验（按需求编号+版本绑定） */
 export const EC_RFQ_AUTHORIZATION_REQUIRED = 44005;
+/** 发布前置未满足（授权确认/报价截止/自动初审结论），blockedBy 指明具体项 */
+export const EC_RFQ_PUBLISH_BLOCKED = 44006;
 
 // ── 分页限制常量（Pagination Limits）───────────────────────────────────────────
 

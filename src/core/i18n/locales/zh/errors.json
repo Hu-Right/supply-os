@@ -102,5 +102,6 @@
   "aiErrLoginRequired": "登录已过期，请重新登录后重试",
   "aiSupplierProfileRequired": "请先完善企业信息，再进行 AI 适配评分",
   "errProxyResponseTooLarge": "目标页面响应过大，暂不支持代理查看",
-  "errRfqAuthorizationRequired": "授权书未签署或未通过核验，暂不能发布"
+  "errRfqAuthorizationRequired": "授权书未签署或未通过核验，暂不能发布",
+  "errRfqPublishBlocked": "发布前置未满足：请补齐授权确认、报价截止时间，或为自动初审的否决结论填写推翻说明"
 }
