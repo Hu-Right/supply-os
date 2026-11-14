@@ -33,6 +33,8 @@ export interface BuyerInfo {
   authContactEmail: string;
   procurementExperience: string;
   status: string;
+  /** 最后一次进入待核验队列的时间（unix 秒）；pending 重复保存不刷新 */
+  submittedAt: number | null;
   verifiedAt: number | null;
   verifyNote: string;
 }

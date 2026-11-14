@@ -42,6 +42,8 @@ export interface BuyerRow extends RowDataPacket {
   auth_contact_email: string | null;
   procurement_experience: string | null;
   status: string;
+  /** 最后一次进入待核验队列的时间（unix 秒）；pending 重复保存不刷新 */
+  submitted_at: number | null;
   verified_by: string | null;
   verified_at: number | null;
   verify_note: string | null;
@@ -90,6 +92,25 @@ export async function getBuyerById(db: Pool, buyerId: number): Promise<BuyerRow 
   return ((rows as BuyerRow[])[0] ?? null) || null;
 }
 
+/**
+ * 身份类字段：任一变更即需重新核验（F01）。
+ *
+ * 只放"证明你是谁"的字段——法定名称、注册号、对公邮箱、执照字节（key + hash）。
+ * 地址/官网/负责人联系方式属于补充信息，改了不影响"是不是这家公司"；若也纳入，
+ * 正常补资料会把主体长期钉在 pending（核验永远追不上编辑）。
+ *
+ * 2026-11-14 修复：原实现只比 org_name / reg_no，于是已核验主体把执照换成别家的图
+ * （license_file_key 直接覆盖）后仍是 verified，还能继续发布需求——核验记录里那条
+ * identity pass 仍在，但它指向的证据已经被换掉了，认证实际上可绕过。
+ */
+const IDENTITY_COLUMNS = [
+  "org_name",
+  "reg_no",
+  "official_email",
+  "license_file_key",
+  "license_file_hash",
+] as const;
+
 export interface UpsertBuyerInput {
   userId: number;
   at?: number;
@@ -98,7 +119,13 @@ export interface UpsertBuyerInput {
 
 /**
  * 创建/更新采购主体（幂等 upsert：一个账号一个主体）。
- * 已核验主体修改关键字段（org_name/reg_no）后状态回落 pending（重新核验）。
+ *
+ * 状态推进（F01 重提语义，2026-11-14）：
+ * - 首次保存 → pending，并记 submitted_at（进队列时间）；
+ * - need_info + 保存 → pending，视为"补件后重新提交"，刷新 submitted_at；
+ * - verified + 身份字段变更（名称/注册号/对公邮箱/执照字节）→ pending，重新核验；
+ * - pending 保持不变且**不刷新** submitted_at——反复保存不该把队尾刷成队首；
+ * - restricted 不自动放开：那是人工判定的"不予使用"，须走人工申诉。
  */
 export async function upsertBuyer(
   db: Pool,
@@ -119,9 +146,9 @@ export async function upsertBuyer(
   if (!existing) {
     const orgName = String(fields.org_name ?? "").trim();
     await db.query(
-      `INSERT INTO procurement_buyers (user_id, org_name, status, created_at, updated_at)
-       VALUES (?, ?, 'pending', ?, ?)`,
-      [input.userId, orgName, at, at],
+      `INSERT INTO procurement_buyers (user_id, org_name, status, submitted_at, created_at, updated_at)
+       VALUES (?, ?, 'pending', ?, ?, ?)`,
+      [input.userId, orgName, at, at, at],
     );
     const created = await getBuyerByUserId(db, input.userId);
     const buyerId = Number(created?.id ?? 0);
@@ -134,16 +161,27 @@ export async function upsertBuyer(
   }
 
   const buyerId = Number(existing.id);
-  // 关键身份字段变更 → 回落待审核（防"先核验后改名"绕过）
-  const identityChanged =
-    (fields.org_name !== undefined && String(fields.org_name) !== String(existing.org_name)) ||
-    (fields.reg_no !== undefined && String(fields.reg_no ?? "") !== String(existing.reg_no ?? ""));
-  const nextStatus =
-    existing.status === BUYER_STATUS.VERIFIED && identityChanged ? BUYER_STATUS.PENDING : existing.status;
+  // 身份字段（含执照换图）任一变 → 已核验的必须重核
+  const identityChanged = IDENTITY_COLUMNS.some(
+    (col) => fields[col] !== undefined && String(fields[col] ?? "") !== String(existing[col] ?? ""),
+  );
+  const resubmit =
+    existing.status === BUYER_STATUS.NEED_INFO ||
+    (existing.status === BUYER_STATUS.VERIFIED && identityChanged);
+  const nextStatus = resubmit ? BUYER_STATUS.PENDING : existing.status;
 
-  if (sets.length > 0 || nextStatus !== existing.status) {
+  const prevSubmittedAt = existing.submitted_at ?? null;
+  const nextSubmittedAt = resubmit ? at : prevSubmittedAt;
+  const submittedChanged = nextSubmittedAt !== prevSubmittedAt;
+
+  if (sets.length > 0 || nextStatus !== existing.status || submittedChanged) {
     const finalSets = [...sets, "status = ?", "updated_at = ?"];
-    const finalParams = [...params, nextStatus, at, buyerId];
+    const finalParams: unknown[] = [...params, nextStatus, at];
+    if (submittedChanged) {
+      finalSets.push("submitted_at = ?");
+      finalParams.push(nextSubmittedAt);
+    }
+    finalParams.push(buyerId);
     await db.query(`UPDATE procurement_buyers SET ${finalSets.join(", ")} WHERE id = ?`, finalParams);
   }
   return { ok: true, buyerId, status: nextStatus };

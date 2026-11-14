@@ -66,6 +66,7 @@ export function buyerViewOf(row: BuyerRow) {
     authContactEmail: toStr(row.auth_contact_email),
     procurementExperience: toStr(row.procurement_experience),
     status: toStr(row.status),
+    submittedAt: toNum(row.submitted_at),
     verifiedAt: toNum(row.verified_at),
     verifyNote: toStr(row.verify_note),
     createdAt: toNum(row.created_at),
