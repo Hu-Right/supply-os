@@ -7,6 +7,10 @@
  *              执照上传走既有执照字节入库通道。已核验主体改关键身份字段自动回落
  *              pending 重新核验。未认证可发布草稿/提交，不可正式发布（流程第 6 步闸）。
  *              2026-11-14 体验重构：七步流程条 + 状态横幅 + 醒目执照拖拽上传 + 分区表单。
+ *              2026-11 三次重构（表单精简）：逐字段核对消费方后，24 项砍到 12 项。
+ *              下线（库列保留、不再收集）：主体类型/注册地址/采购地区/资金来源/预算状态/采购经验；
+ *              项目负责人 4 项合并进授权联系人（规则只读 auth_contact_name）。
+ *              每个必填字段配一句"为什么需要"，避免被当成填问卷。
  *              2026-11 二次重构：把"当前态"与"留痕"彻底拆开——
  *                ① 顶部状态卡为唯一权威（状态 + 下一步 CTA + 等待时长 + 最近意见）；
  *                ② 核验留痕移到表单之后、默认收起，带时间与"当前有效"标记；
@@ -34,13 +38,13 @@ export default function PageClient() {
   const [messageCls, setMessageCls] = useState("bg-secondary-50 text-secondary-700");
   /** 核验留痕默认收起：首屏先给"我现在什么状态、该做什么" */
   const [historyOpen, setHistoryOpen] = useState(false);
+  // 只保留"有消费方"或"核验需要"的字段；下线字段不提交 = 保持库里原值（upsertBuyer 只写提交的键）
   const [form, setForm] = useState({
-    orgName: "", orgType: "private", buyerRole: "end_buyer",
-    country: "", address: "", regNo: "", taxNo: "",
+    orgName: "", buyerRole: "end_buyer",
+    country: "", regNo: "", taxNo: "",
     website: "", officialEmail: "", officialPhone: "",
-    leaderName: "", leaderTitle: "", leaderPhone: "", leaderEmail: "",
-    deliverCountry: "", deliverCity: "", fundSource: "own", budgetStatus: "approved", externalRules: "",
-    authContactName: "", authContactPhone: "", authContactEmail: "", procurementExperience: "",
+    externalRules: "",
+    authContactName: "", authContactPhone: "", authContactEmail: "",
   });
   const [licenseFile, setLicenseFile] = useState<File[]>([]);
   const [licenseError, setLicenseError] = useState("");
@@ -59,14 +63,14 @@ export default function PageClient() {
         setBuyer(b);
         setForm((p) => ({
           ...p,
-          orgName: b.orgName, orgType: b.orgType || "private", buyerRole: b.buyerRole || "end_buyer",
-          country: b.country, address: b.address, regNo: b.regNo, taxNo: b.taxNo,
+          orgName: b.orgName, buyerRole: b.buyerRole || "end_buyer",
+          country: b.country, regNo: b.regNo, taxNo: b.taxNo,
           website: b.website, officialEmail: b.officialEmail, officialPhone: b.officialPhone,
-          leaderName: b.leaderName, leaderTitle: b.leaderTitle, leaderPhone: b.leaderPhone, leaderEmail: b.leaderEmail,
-          deliverCountry: b.deliverCountry, deliverCity: b.deliverCity,
-          fundSource: b.fundSource || "own", budgetStatus: b.budgetStatus || "approved", externalRules: b.externalRules,
-          authContactName: b.authContactName || "", authContactPhone: b.authContactPhone || "", authContactEmail: b.authContactEmail || "",
-          procurementExperience: b.procurementExperience || "",
+          externalRules: b.externalRules,
+          // 联系人已合并：优先 auth_contact_*；老数据由迁移 022 从 leader_* 回填，这里再兜一次
+          authContactName: b.authContactName || b.leaderName || "",
+          authContactPhone: b.authContactPhone || b.leaderPhone || "",
+          authContactEmail: b.authContactEmail || b.leaderEmail || "",
         }));
       }
     } finally {
@@ -81,6 +85,22 @@ export default function PageClient() {
       setMessage(t("pc_borgname") + " / " + t("pc_err_required"));
       setMessageCls("bg-red-50 text-red-700");
       return;
+    }
+    // 首次提交要求"必填项齐全"；已存在主体允许逐步补齐（不阻断既有用户——很多老账号
+    // 的联系人是迁移前留空的，强制拦截会让人连改个电话都存不了）。
+    if (!buyer) {
+      const missing: string[] = [];
+      if (!form.buyerRole) missing.push(t("pc_brole"));
+      if (!form.country.trim()) missing.push(t("pc_bcountry"));
+      if (!form.regNo.trim()) missing.push(t("pc_bregno"));
+      if (!form.officialEmail.trim()) missing.push(t("pc_bemail"));
+      if (!form.authContactName.trim()) missing.push(t("pc_bauthcontact_name"));
+      if (licenseFile.length === 0) missing.push(t("pc_blicense"));
+      if (missing.length > 0) {
+        setMessage(`${t("pc_err_required")}：${missing.join("、")}`);
+        setMessageCls("bg-red-50 text-red-700");
+        return;
+      }
     }
     setSaving(true);
     setMessage("");
@@ -133,9 +153,10 @@ export default function PageClient() {
   };
 
   const inputCls = "mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none";
+  /** 字段说明：告诉用户"为什么需要"，而不是再加一条规则 */
+  const hintCls = "mt-1 block text-[11px] font-normal leading-relaxed text-secondary-400";
   const labelCls = "text-sm font-semibold text-secondary-700 block";
   const f = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
-  const orgTypeOptions = ["government", "international_org", "ngo", "state_owned", "private", "trader", "epc", "agent"];
   const roleOptions = ["end_buyer", "authorized_agent", "general_contractor", "intermediary"];
 
   /** 当前状态（唯一权威）——文案只给"处于什么状态"，意见单独成块，等待时长单独算 */
@@ -246,25 +267,31 @@ export default function PageClient() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           {sectionTitle(t("pc_bsec_identity"))}
-          <label className={labelCls}>{t("pc_borgname")} *<input value={form.orgName} onChange={(e) => f("orgName", e.target.value)} className={inputCls} /></label>
-          <label className={labelCls}>{t("pc_borgtype")}
-            <select value={form.orgType} onChange={(e) => f("orgType", e.target.value)} className={inputCls}>
-              {orgTypeOptions.map((v) => <option key={v} value={v}>{t(`pc_borgtype_${v}`)}</option>)}
-            </select>
+          <label className={labelCls}>
+            {t("pc_borgname")} *
+            <input value={form.orgName} onChange={(e) => f("orgName", e.target.value)} className={inputCls} />
+            <span className={hintCls}>{t("pc_bhint_orgname")}</span>
+            <span className="mt-1 block text-[11px] font-normal leading-relaxed text-amber-600">{t("pc_bhint_orgname_rename")}</span>
           </label>
-          <label className={labelCls}>{t("pc_brole")}
+          <label className={labelCls}>
+            {t("pc_brole")} *
             <select value={form.buyerRole} onChange={(e) => f("buyerRole", e.target.value)} className={inputCls}>
               {roleOptions.map((v) => <option key={v} value={v}>{t(`pc_brole_${v}`)}</option>)}
             </select>
+            <span className={hintCls}>{t("pc_bhint_role")}</span>
           </label>
-          <label className={labelCls}>{t("pc_bcountry")}<input value={form.country} onChange={(e) => f("country", e.target.value)} className={inputCls} /></label>
-          <label className={labelCls}>{t("pc_baddress")}<input value={form.address} onChange={(e) => f("address", e.target.value)} className={inputCls} /></label>
-          <label className={labelCls}>{t("pc_bregno")}<input value={form.regNo} onChange={(e) => f("regNo", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>{t("pc_bcountry")} *<input value={form.country} onChange={(e) => f("country", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>
+            {t("pc_bregno")} *
+            <input value={form.regNo} onChange={(e) => f("regNo", e.target.value)} className={inputCls} />
+            <span className={hintCls}>{t("pc_bhint_regno")}</span>
+          </label>
           <label className={labelCls}>{t("pc_btaxno")}<input value={form.taxNo} onChange={(e) => f("taxNo", e.target.value)} className={inputCls} /></label>
 
           {sectionTitle(t("pc_bsec_license"))}
           <div className="col-span-full">
-            <div className="mb-2 text-xs font-semibold text-secondary-600">{t("pc_blicense")} <span className="text-teal-600">({t("pc_blicense_why")})</span></div>
+            <div className="mb-1 text-xs font-semibold text-secondary-600">{t("pc_blicense")} *</div>
+            <div className="mb-2 text-[11px] text-secondary-400">{t("pc_bhint_license")}</div>
             <FileDropzone
               accept=".jpg,.jpeg,.png,.webp,.pdf"
               maxSizeBytes={10 * 1024 * 1024}
@@ -277,26 +304,33 @@ export default function PageClient() {
           </div>
 
           {sectionTitle(t("pc_bsec_contact"))}
-          <label className={labelCls}>{t("pc_bwebsite")}<input value={form.website} onChange={(e) => f("website", e.target.value)} className={inputCls} /></label>
-          <label className={labelCls}>{t("pc_bemail")}<input value={form.officialEmail} onChange={(e) => f("officialEmail", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>
+            {t("pc_bemail")} *
+            <input value={form.officialEmail} onChange={(e) => f("officialEmail", e.target.value)} className={inputCls} />
+            <span className={hintCls}>{t("pc_bhint_email")}</span>
+          </label>
           <label className={labelCls}>{t("pc_bphone")}<input value={form.officialPhone} onChange={(e) => f("officialPhone", e.target.value)} className={inputCls} /></label>
-          <label className={labelCls}>{t("pc_bleader")}<input value={form.leaderName} onChange={(e) => f("leaderName", e.target.value)} className={inputCls} /></label>
-          <label className={labelCls}>{t("pc_bleadertitle")}<input value={form.leaderTitle} onChange={(e) => f("leaderTitle", e.target.value)} className={inputCls} /></label>
-          <label className={labelCls}>{t("pc_bleaderphone")}<input value={form.leaderPhone} onChange={(e) => f("leaderPhone", e.target.value)} className={inputCls} /></label>
-          <label className={labelCls}>{t("pc_bleaderemail")}<input value={form.leaderEmail} onChange={(e) => f("leaderEmail", e.target.value)} className={inputCls} /></label>
-
-          {sectionTitle(t("pc_bsec_auth"))}
-          <label className={labelCls}>{t("pc_bauthcontact_name")}<input value={form.authContactName} onChange={(e) => f("authContactName", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>
+            {t("pc_bwebsite")}
+            <input value={form.website} onChange={(e) => f("website", e.target.value)} className={inputCls} />
+            <span className={hintCls}>{t("pc_bhint_website")}</span>
+          </label>
+          <label className={labelCls}>
+            {t("pc_bauthcontact_name")} *
+            <input value={form.authContactName} onChange={(e) => f("authContactName", e.target.value)} className={inputCls} />
+            <span className={hintCls}>{t("pc_bhint_contact")}</span>
+          </label>
           <label className={labelCls}>{t("pc_bauthcontact_phone")}<input value={form.authContactPhone} onChange={(e) => f("authContactPhone", e.target.value)} className={inputCls} /></label>
           <label className={labelCls}>{t("pc_bauthcontact_email")}<input value={form.authContactEmail} onChange={(e) => f("authContactEmail", e.target.value)} className={inputCls} /></label>
+
+          {sectionTitle(t("pc_bsec_auth"))}
           {/* 代理采购授权文件只对「采购方授权代理」有意义：它证明的是"委托方授权你采购"，
               与自己采购（最终采购方）无关。口径与 buyer-compliance.ts:96 的风险提示一致——
               界面显示什么和系统在意什么是同一件事，避免"显示了但没人看"。 */}
-          {form.buyerRole === "authorized_agent" && (
+          {form.buyerRole === "authorized_agent" ? (
             <div className="col-span-full">
-              <div className="mb-2 text-xs font-semibold text-secondary-600">{t("pc_bauthdoc")} <span className="text-secondary-400">({t("pc_bauthdoc_hint")})</span></div>
+              <div className="mb-2 text-xs font-semibold text-secondary-600">{t("pc_bauthdoc")} * <span className="text-secondary-400">({t("pc_bauthdoc_hint")})</span></div>
               <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
-
                 <a href="/downloads/templates/procurement-agent-authorization-template.docx" download className="text-teal-700 underline">
                   {t("pc_bauthdoc_word")}
                 </a>
@@ -314,28 +348,15 @@ export default function PageClient() {
               />
               {authDocError && <div className="mt-2 text-xs text-red-600">{authDocError}</div>}
             </div>
+          ) : (
+            <p className="col-span-full rounded-lg bg-secondary-50 px-3 py-2 text-xs text-secondary-500">{t("pc_bauthdoc_na")}</p>
           )}
 
-          {sectionTitle(t("pc_bsec_region"))}
-          <label className={labelCls}>{t("pc_bdelivercountry")}<input value={form.deliverCountry} onChange={(e) => f("deliverCountry", e.target.value)} className={inputCls} /></label>
-          <label className={labelCls}>{t("pc_bdelivercity")}<input value={form.deliverCity} onChange={(e) => f("deliverCity", e.target.value)} className={inputCls} /></label>
-          <label className={labelCls}>{t("pc_bfundsource")}
-            <select value={form.fundSource} onChange={(e) => f("fundSource", e.target.value)} className={inputCls}>
-              {["own", "government_budget", "loan", "donation", "project_special"].map((v) => (
-                <option key={v} value={v}>{t(`pc_bfund_${v}`)}</option>
-              ))}
-            </select>
-          </label>
-          <label className={labelCls}>{t("pc_bbudgetstatus")}
-            <select value={form.budgetStatus} onChange={(e) => f("budgetStatus", e.target.value)} className={inputCls}>
-              {["approved", "partial", "pending", "applying"].map((v) => (
-                <option key={v} value={v}>{t(`pc_budget_${v}`)}</option>
-              ))}
-            </select>
-          </label>
-          <label className={labelCls}>{t("pc_bexternalrules")}<input value={form.externalRules} onChange={(e) => f("externalRules", e.target.value)} className={inputCls} /></label>
-          <label className={`${labelCls} sm:col-span-2`}>{t("pc_bexperience")}
-            <textarea value={form.procurementExperience} onChange={(e) => f("procurementExperience", e.target.value)} rows={2} className={inputCls} />
+          {sectionTitle(t("pc_bsec_extra"))}
+          <label className={labelCls + " sm:col-span-2"}>
+            {t("pc_bexternalrules")}
+            <input value={form.externalRules} onChange={(e) => f("externalRules", e.target.value)} className={inputCls} />
+            <span className={hintCls}>{t("pc_bhint_rules")}</span>
           </label>
         </div>
 

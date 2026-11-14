@@ -1105,5 +1105,16 @@
   "pc_bverify_latest": "Actuel",
   "pc_bverify_reviewer": "Vérification Yunjing",
   "pc_bverify_evidence": "Justificatif archivé",
-  "pc_bverify_empty": "Aucun historique de vérification"
+  "pc_bverify_empty": "Aucun historique de vérification",
+  "pc_bsec_extra": "Informations complémentaires (facultatif)",
+  "pc_bhint_orgname": "Doit correspondre exactement au registre : ce nom figure dans l'autorisation et identifie votre organisation.",
+  "pc_bhint_orgname_rename": "Modifier le nom déclenche une nouvelle vérification et annule l'autorisation signée : il faudra la signer à nouveau.",
+  "pc_bhint_role": "Détermine si un mandat est requis : uniquement si vous achetez pour le compte d'un tiers.",
+  "pc_bhint_regno": "Sert à la détection de doublons et à la vérification : un même numéro ne peut être enregistré deux fois.",
+  "pc_bhint_license": "Les vérificateurs s'en servent pour confirmer l'existence de l'organisation ; remplacer le fichier relance la vérification.",
+  "pc_bhint_email": "Les notifications y sont envoyées ; un domaine différent du site web déclenche une alerte.",
+  "pc_bhint_website": "Facultatif. Sert uniquement à recouper le domaine de l'e-mail ; laissez vide pour ignorer ce contrôle.",
+  "pc_bhint_contact": "Le contact unique utilisé par les vérificateurs pour demander des pièces ou des précisions.",
+  "pc_bhint_rules": "Facultatif. Si des règles Banque mondiale / ONU / marchés publics s'appliquent, cela déclenche une revue conformité.",
+  "pc_bauthdoc_na": "Vous êtes l'acheteur final : aucun mandat n'est requis — il ne l'est que pour les agents mandatés."
 }

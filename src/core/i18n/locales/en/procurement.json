@@ -1105,5 +1105,16 @@
   "pc_bverify_latest": "Current",
   "pc_bverify_reviewer": "Yunjing verification",
   "pc_bverify_evidence": "Evidence on file",
-  "pc_bverify_empty": "No verification records yet"
+  "pc_bverify_empty": "No verification records yet",
+  "pc_bsec_extra": "Additional notes (optional)",
+  "pc_bhint_orgname": "Must match the business licence exactly — it appears in the authorization letter and identifies your organisation.",
+  "pc_bhint_orgname_rename": "Changing the name triggers re-verification and voids any signed authorization — you will need to sign again.",
+  "pc_bhint_role": "Decides whether an agent-authorization document is required: needed only if you buy on behalf of others.",
+  "pc_bhint_regno": "Used for duplicate detection and authenticity checks — one registration number cannot be registered twice.",
+  "pc_bhint_license": "Reviewers use this to confirm the organisation exists; replacing the file triggers re-verification.",
+  "pc_bhint_email": "Platform and verification notices go here; a domain mismatch with your website raises a check flag.",
+  "pc_bhint_website": "Optional. Only used to cross-check your email domain; leave empty to skip that check.",
+  "pc_bhint_contact": "The single contact reviewers use when they need documents or clarification.",
+  "pc_bhint_rules": "Optional. If World Bank / UN / government procurement rules apply, this escalates to manual compliance review.",
+  "pc_bauthdoc_na": "You are the end buyer, so no agent-authorization document is needed — it is required only for authorized agents."
 }

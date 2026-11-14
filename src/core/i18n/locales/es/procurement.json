@@ -1105,5 +1105,16 @@
   "pc_bverify_latest": "Vigente",
   "pc_bverify_reviewer": "Verificación de Yunjing",
   "pc_bverify_evidence": "Justificante archivado",
-  "pc_bverify_empty": "Aún no hay registros de verificación"
+  "pc_bverify_empty": "Aún no hay registros de verificación",
+  "pc_bsec_extra": "Notas adicionales (opcional)",
+  "pc_bhint_orgname": "Debe coincidir exactamente con el registro: aparece en la autorización e identifica a su organización.",
+  "pc_bhint_orgname_rename": "Cambiar el nombre obliga a reverificar e invalida la autorización firmada: habrá que firmarla de nuevo.",
+  "pc_bhint_role": "Determina si se requiere un poder: solo si compra en nombre de terceros.",
+  "pc_bhint_regno": "Se usa para detectar duplicados y verificar autenticidad: un número no puede registrarse dos veces.",
+  "pc_bhint_license": "Los revisores lo usan para confirmar que la organización existe; cambiar el archivo obliga a reverificar.",
+  "pc_bhint_email": "Aquí llegan los avisos de la plataforma; si el dominio no coincide con el sitio web, se marca una alerta.",
+  "pc_bhint_website": "Opcional. Solo sirve para contrastar el dominio del correo; si se deja vacío no se comprueba.",
+  "pc_bhint_contact": "El único contacto que usan los revisores para pedir documentos o aclaraciones.",
+  "pc_bhint_rules": "Opcional. Si aplican normas del Banco Mundial / ONU / contratación pública, pasa a revisión manual.",
+  "pc_bauthdoc_na": "Usted es el comprador final: no se requiere poder, solo para agentes autorizados."
 }

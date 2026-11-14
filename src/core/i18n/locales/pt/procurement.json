@@ -1105,5 +1105,16 @@
   "pc_bverify_latest": "Vigente",
   "pc_bverify_reviewer": "Verificação Yunjing",
   "pc_bverify_evidence": "Comprovante arquivado",
-  "pc_bverify_empty": "Ainda não há registros de verificação"
+  "pc_bverify_empty": "Ainda não há registros de verificação",
+  "pc_bsec_extra": "Observações adicionais (opcional)",
+  "pc_bhint_orgname": "Deve coincidir exatamente com o registro: aparece na autorização e identifica sua organização.",
+  "pc_bhint_orgname_rename": "Alterar o nome exige nova verificação e invalida a autorização assinada — será preciso assinar novamente.",
+  "pc_bhint_role": "Define se é necessário documento de procuração: apenas se comprar em nome de terceiros.",
+  "pc_bhint_regno": "Usado para detectar duplicidades e verificar autenticidade: um número não pode ser registrado duas vezes.",
+  "pc_bhint_license": "Os revisores usam para confirmar a existência da organização; trocar o arquivo exige nova verificação.",
+  "pc_bhint_email": "Avisos da plataforma chegam aqui; domínio diferente do site gera um alerta.",
+  "pc_bhint_website": "Opcional. Serve apenas para conferir o domínio do e-mail; se vazio, a checagem é ignorada.",
+  "pc_bhint_contact": "O único contato usado pelos revisores para pedir documentos ou esclarecimentos.",
+  "pc_bhint_rules": "Opcional. Se valerem regras do Banco Mundial / ONU / compras públicas, vai para revisão manual.",
+  "pc_bauthdoc_na": "Você é o comprador final: não é necessário documento de procuração, apenas para agentes autorizados."
 }

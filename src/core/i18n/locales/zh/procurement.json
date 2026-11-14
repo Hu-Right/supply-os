@@ -1105,5 +1105,16 @@
   "pc_bverify_latest": "当前有效",
   "pc_bverify_reviewer": "云境核验",
   "pc_bverify_evidence": "含核验依据（平台留档）",
-  "pc_bverify_empty": "尚无核验记录"
+  "pc_bverify_empty": "尚无核验记录",
+  "pc_bsec_extra": "补充说明（选填）",
+  "pc_bhint_orgname": "与营业执照上的名称完全一致：它会写进授权书，也是平台识别你主体的依据。",
+  "pc_bhint_orgname_rename": "修改名称将触发重新核验，且已签署的授权书会失效、需要重新签署。",
+  "pc_bhint_role": "决定你是否需要上传「委托方授权书」：代理他人采购必须上传，自采不需要。",
+  "pc_bhint_regno": "用于查重与真实性核验：同一注册号不会被两个账号重复登记。",
+  "pc_bhint_license": "核验员据此判断主体是否真实存在；换文件会触发重新核验。",
+  "pc_bhint_email": "平台与核验通知发到这里；域名与官网不一致会提示核实。",
+  "pc_bhint_website": "选填。只用于核对邮箱域名与主体是否一致，不填就没有这条核对。",
+  "pc_bhint_contact": "核验员在需要补充材料或确认细节时联系这个人的唯一入口。",
+  "pc_bhint_rules": "选填。如适用世行/联合国/政府采购规则，填在升级人工合规复核。",
+  "pc_bauthdoc_na": "当前采购权限为「最终采购方」，不需要上传代理授权文件；改为「采购方授权代理」时才会要求。"
 }
