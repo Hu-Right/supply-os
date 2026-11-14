@@ -59,6 +59,8 @@ import {
   // AI 摘要 / 邀请码专属码（service 层错误码治本）
   EC_AI_NOT_CONFIGURED, EC_AI_BAD_FORMAT, EC_SUPPLIER_PROFILE_REQUIRED, EC_AI_CALL_FAILED, EC_INVITE_CODE_INVALID,
   EC_ENDPOINT_RETIRED,
+  // RFQ 需求 / 报价 / 问答域专属码（44xxx 独立码段）
+  EC_RFQ_NOT_FOUND, EC_RFQ_STATE_INVALID, EC_RFQ_VERSION_CONFLICT, EC_RFQ_REASON_REQUIRED,
 } from "@/shared/constants/api";
 
 /** 注入式翻译函数（与 useLocale 的 t 对齐；params 预留插值） */
@@ -199,6 +201,11 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_AI_CALL_FAILED]: { kind: "ai", key: "aiErrCallFailed" },
   [EC_INVITE_CODE_INVALID]: { kind: "business", key: "errInviteCodeInvalid" },
   [EC_ENDPOINT_RETIRED]: { kind: "business", key: "errEndpointRetired" },
+  // RFQ 需求 / 报价 / 问答域专属码
+  [EC_RFQ_NOT_FOUND]: { kind: "business", key: "errRfqNotFound" },
+  [EC_RFQ_STATE_INVALID]: { kind: "business", key: "errRfqStateInvalid" },
+  [EC_RFQ_VERSION_CONFLICT]: { kind: "business", key: "errRfqVersionConflict" },
+  [EC_RFQ_REASON_REQUIRED]: { kind: "business", key: "errRfqReasonRequired" },
 };
 
 /** HTTP 状态兜底（无稳定码命中时） */

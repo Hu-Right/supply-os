@@ -20,7 +20,7 @@ import {
   EC_INTERNAL_ERROR,
 } from "@/shared/constants/api";
 import { DEMAND_STATUS } from "@/shared/constants/rfq-demand";
-import { toDetailDTO, toRestrictedDTO, type DemandRowLike } from "@/lib/services/rfq/dto";
+import { toDetailView, toRestrictedView, type DemandRowLike } from "@/lib/services/rfq/dto";
 import { normalizeUpdatePayload } from "@/lib/services/rfq/payload";
 import { updateDemand } from "@/lib/services/rfq/update";
 import type { RowDataPacket } from "mysql2/promise";
@@ -79,10 +79,10 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(async (req, { 
       );
       invited = (invites as RowDataPacket[]).length > 0;
     }
-    if (!invited) return NextResponse.json(toRestrictedDTO(row));
+    if (!invited) return NextResponse.json(toRestrictedView(row));
   }
 
-  return NextResponse.json(toDetailDTO(row, { isOwner }));
+  return NextResponse.json(toDetailView(row, { isOwner }));
 });
 
 export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(async (req, { params }) => {

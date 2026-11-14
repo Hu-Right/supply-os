@@ -13,8 +13,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
-import { listMyQuotes } from "@/lib/services/rfq-quotes";
+import { listMyQuotes, type MyQuoteRow } from "@/lib/services/rfq-quotes";
 import type { RowDataPacket } from "mysql2/promise";
+
+/** 单条报价视图：服务行已是 camel 键（SQL AS 别名），这里只补门户详情页路由所需 demandId；
+ *  找不到映射时退回投影 id（历史数据）。 */
+const toMyQuoteItemView = (i: MyQuoteRow, demandId: number | null) => ({
+  ...i,
+  demandId,
+});
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -35,11 +42,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   }
 
   return NextResponse.json({
-    items: items.map((i) => ({
-      ...i,
-      /** 门户详情页路由用；找不到映射时退回投影 id（历史数据） */
-      demandId: mapping.get(Number(i.rfqId)) ?? null,
-    })),
+    items: items.map((i) => toMyQuoteItemView(i, mapping.get(Number(i.rfqId)) ?? null)),
     total: items.length,
   });
 });

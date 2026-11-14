@@ -105,8 +105,8 @@ export interface DemandDetailDTO {
   contactPhone?: string;
 }
 
-/** 详情 DTO。restricted=true 时只输出摘要（定向需求对非受邀者） */
-export function toDetailDTO(
+/** 详情视图。restricted=true 时只输出摘要（定向需求对非受邀者） */
+export function toDetailView(
   row: DemandRowLike,
   opts: { isOwner: boolean; restricted?: boolean },
 ): DemandDetailDTO {
@@ -159,8 +159,8 @@ export function toDetailDTO(
 }
 
 /** 受限摘要：定向需求对非受邀者只回这些字段（不含描述/预算/商务条款） */
-export function toRestrictedDTO(row: DemandRowLike): DemandDetailDTO {
-  const full = toDetailDTO(row, { isOwner: false, restricted: true });
+export function toRestrictedView(row: DemandRowLike): DemandDetailDTO {
+  const full = toDetailView(row, { isOwner: false, restricted: true });
   return {
     ...full,
     description: "",
