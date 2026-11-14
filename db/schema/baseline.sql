@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 119 张，导出 116 张，排除 3 张。
+--           源库共 139 张，导出 124 张，排除 15 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -177,14 +177,14 @@ CREATE TABLE `bid_notices` (
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
   `budget_confidential` tinyint(1) DEFAULT '0' COMMENT '预算是否保密（1=前端显示"预算保密"）',
   `delivery_address` varchar(255) DEFAULT NULL COMMENT '详细交付地址',
-  `incoterm` varchar(16) DEFAULT NULL COMMENT '贸易术语: EXW/FOB/CIF/DDP 等',
-  `delivery_time` varchar(64) DEFAULT NULL COMMENT '交付时间要求',
+  `incoterm` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '贸易术语: EXW/FOB/CIF/DDP 等',
+  `delivery_time` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '交付时间要求',
   `payment_terms` varchar(255) DEFAULT NULL COMMENT '付款方式',
   `supplier_reqs` varchar(500) DEFAULT NULL COMMENT 'RFQ供应商资质要求',
   `visibility` varchar(16) DEFAULT 'public' COMMENT '可见性: public=公开, targeted=定向',
-  `contact_name` varchar(64) DEFAULT NULL COMMENT '联系人姓名',
-  `contact_email` varchar(128) DEFAULT NULL COMMENT '联系邮箱',
-  `contact_phone` varchar(32) DEFAULT NULL COMMENT '联系电话',
+  `contact_name` varchar(192) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '联系人姓名',
+  `contact_email` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '联系邮箱',
+  `contact_phone` varchar(63) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '联系电话',
   `user_id` bigint unsigned DEFAULT NULL COMMENT '创建者用户ID（平台发布）',
   `entry_source` varchar(20) NOT NULL DEFAULT 'crawl' COMMENT '数据来源: crawl, platform, api',
   `province_name` varchar(50) DEFAULT NULL COMMENT '交付省份（RFQ国内用）',
@@ -1179,7 +1179,8 @@ CREATE TABLE `notice_public` (
   UNIQUE KEY `uq_notice_id` (`notice_id`),
   KEY `idx_deadline` (`deadline_ts`),
   KEY `idx_country_type` (`country_code`,`notice_type_code`),
-  KEY `idx_deadline_state_ts` (`deadline_state`,`deadline_ts`)
+  KEY `idx_deadline_state_ts` (`deadline_state`,`deadline_ts`),
+  KEY `idx_np_active` (`deadline_state`,`deadline_ts`,`title`(64))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
 
 -- ── notice_requirement_items ──
@@ -1308,6 +1309,7 @@ CREATE TABLE `notice_translations` (
   UNIQUE KEY `uk_notice_lang` (`notice_id`,`lang`),
   KEY `idx_lang` (`lang`),
   KEY `idx_translations_notice_lang` (`notice_id`,`lang`),
+  KEY `idx_nt_cover` (`notice_id`,`lang`,`model`,`title_tr`(64)),
   FULLTEXT KEY `ft_trans_search` (`title_tr`,`description_tr`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='翻译表';
 
@@ -1322,7 +1324,10 @@ CREATE TABLE `notifications` (
   `ref_id` bigint unsigned DEFAULT NULL COMMENT '关联业务对象 id，幂等/去重用',
   `is_read` tinyint(1) NOT NULL DEFAULT '0' COMMENT '0未读 1已读',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `payload` json DEFAULT NULL COMMENT '通知参数（前端按 type 渲染 i18n 文案）',
+  `dedupe_key` varchar(96) DEFAULT NULL COMMENT '事件幂等键（如 procurement.published:123:v2）；NULL=不参与去重',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_notif_dedupe` (`dedupe_key`),
   KEY `idx_notif_user` (`user_id`,`is_read`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站内信收件箱：RFQ闭环等站内提醒；ref_id 供幂等去重';
 
@@ -1544,6 +1549,261 @@ CREATE TABLE `platform_aliases` (
   KEY `idx_host` (`host`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='来源/采购平台归一化';
 
+-- ── procurement_attachments ──
+CREATE TABLE `procurement_attachments` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `project_id` int unsigned NOT NULL COMMENT '关联 procurement_projects.id',
+  `version_no` int unsigned NOT NULL DEFAULT '0' COMMENT '绑定的确认版本（0=草稿期；确认后附件随版本冻结）',
+  `kind` varchar(20) NOT NULL DEFAULT 'requirement' COMMENT '类型：requirement/tech_doc/bom/drawing/sample/other',
+  `filename` varchar(255) NOT NULL COMMENT '原始文件名',
+  `file_key` varchar(255) NOT NULL COMMENT 'upload_files 字节入库文件名',
+  `file_hash` char(64) NOT NULL COMMENT '文件哈希（sha256，版本校验依据）',
+  `size_bytes` int unsigned NOT NULL COMMENT '文件大小',
+  `uploaded_by` int unsigned NOT NULL COMMENT '上传账号',
+  `uploaded_at` int unsigned NOT NULL COMMENT '上传时间（秒）',
+  PRIMARY KEY (`id`),
+  KEY `idx_patt_project` (`project_id`,`version_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='需求附件（图纸/技术需求书/BOM/样品照片）：字节入库+哈希，随版本冻结';
+
+-- ── procurement_authorizations ──
+CREATE TABLE `procurement_authorizations` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `project_id` int unsigned NOT NULL COMMENT '关联 procurement_projects.id',
+  `version_no` int unsigned NOT NULL COMMENT '绑定的需求版本（版本变更授权失效须重签=授权书第五条）',
+  `letter_template_version` varchar(8) NOT NULL DEFAULT 'v1' COMMENT '授权书模板版本',
+  `letter_hash` char(64) NOT NULL COMMENT '签署所依据的授权书内容哈希（sha256）',
+  `method` varchar(16) NOT NULL DEFAULT 'upload_scan' COMMENT '签署方式：upload_scan=签字盖章扫描件+在线确认',
+  `scan_file_key` varchar(255) NOT NULL COMMENT '签字盖章扫描件（upload_files）',
+  `scan_file_hash` char(64) NOT NULL COMMENT '扫描件哈希（sha256）',
+  `signer_name` varchar(128) NOT NULL COMMENT '授权代表姓名',
+  `signer_uid` int unsigned NOT NULL COMMENT '平台账号',
+  `signed_at` int unsigned NOT NULL COMMENT '在线确认时刻（秒）',
+  `confirm_ip` varchar(64) DEFAULT NULL COMMENT '在线确认 IP',
+  `status` varchar(16) NOT NULL DEFAULT 'pending' COMMENT 'pending/verified/rejected',
+  `verified_by` varchar(64) DEFAULT NULL COMMENT '核验人',
+  `verified_at` int unsigned DEFAULT NULL COMMENT '核验时间（秒）',
+  `reject_reason` varchar(255) DEFAULT NULL COMMENT '核验拒绝原因',
+  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  `updated_at` int unsigned NOT NULL COMMENT '更新时间（秒）',
+  PRIMARY KEY (`id`),
+  KEY `idx_pauth_project` (`project_id`,`version_no`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='发布授权书（流程第4/5步）：系统生成带编号授权书→签字盖章上传→在线确认→云境核验';
+
+-- ── procurement_buyer_verifications ──
+CREATE TABLE `procurement_buyer_verifications` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `buyer_id` int unsigned NOT NULL COMMENT '关联 procurement_buyers.id',
+  `kind` varchar(16) NOT NULL COMMENT '核验维度：identity/fund/authorization',
+  `result` varchar(16) NOT NULL COMMENT '结论：pass/need_info/reject',
+  `evidence_file_key` varchar(255) DEFAULT NULL COMMENT '证据文件（upload_files）',
+  `evidence_hash` char(64) DEFAULT NULL COMMENT '证据文件哈希',
+  `reviewer` varchar(64) NOT NULL COMMENT '核验人（云境审核员）',
+  `note` varchar(500) DEFAULT NULL COMMENT '核验说明',
+  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  `callback_id` varchar(64) DEFAULT NULL COMMENT '核验回调幂等键（X-Review-Request-Id）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_buyer_verify_callback` (`buyer_id`,`callback_id`),
+  KEY `idx_pbv_buyer` (`buyer_id`,`kind`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购方核验留痕：每次核验独立成行，可追溯证据与结论';
+
+-- ── procurement_buyers ──
+CREATE TABLE `procurement_buyers` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned NOT NULL COMMENT '平台账号（一个账号一个采购主体）',
+  `org_name` varchar(255) NOT NULL COMMENT '采购主体完整法定名称',
+  `org_type` varchar(32) NOT NULL DEFAULT 'private' COMMENT '主体类型：government/international_org/ngo/state_owned/private/trader/epc/agent',
+  `buyer_role` varchar(32) NOT NULL DEFAULT 'end_buyer' COMMENT '采购权限：end_buyer/authorized_agent/general_contractor/intermediary',
+  `country` varchar(80) DEFAULT NULL COMMENT '注册国家',
+  `address` varchar(500) DEFAULT NULL COMMENT '注册地址',
+  `reg_no` varchar(120) DEFAULT NULL COMMENT '注册号码',
+  `tax_no` varchar(120) DEFAULT NULL COMMENT '税务编号',
+  `website` varchar(255) DEFAULT NULL COMMENT '官方网站',
+  `official_email` varchar(200) DEFAULT NULL COMMENT '企业邮箱',
+  `official_phone` varchar(50) DEFAULT NULL COMMENT '联系电话',
+  `leader_name` varchar(120) DEFAULT NULL COMMENT '采购项目负责人姓名',
+  `leader_title` varchar(120) DEFAULT NULL COMMENT '负责人职务',
+  `leader_phone` varchar(50) DEFAULT NULL COMMENT '负责人电话',
+  `leader_email` varchar(200) DEFAULT NULL COMMENT '负责人邮箱',
+  `deliver_country` varchar(80) DEFAULT NULL COMMENT '采购地区（产品最终使用/交付国）',
+  `deliver_city` varchar(120) DEFAULT NULL COMMENT '采购城市',
+  `fund_source` varchar(32) DEFAULT NULL COMMENT '资金来源：own/government_budget/loan/donation/project_special',
+  `budget_status` varchar(32) DEFAULT NULL COMMENT '预算状态：approved/partial/pending/applying',
+  `external_rules` varchar(255) DEFAULT NULL COMMENT '须遵守的外部采购规则（世行/联合国/政府等）',
+  `license_file_key` varchar(255) DEFAULT NULL COMMENT '营业执照/注册文件（upload_files 文件名）',
+  `license_file_hash` char(64) DEFAULT NULL COMMENT '执照文件哈希（sha256）',
+  `status` varchar(16) NOT NULL DEFAULT 'pending' COMMENT '认证状态：pending/verified/need_info/restricted（未认证可存草稿不可发布）',
+  `verified_by` varchar(64) DEFAULT NULL COMMENT '核验人',
+  `verified_at` int unsigned DEFAULT NULL COMMENT '核验时间（秒）',
+  `verify_note` varchar(500) DEFAULT NULL COMMENT '核验意见/需补充说明',
+  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  `updated_at` int unsigned NOT NULL COMMENT '更新时间（秒）',
+  `agent_auth_file_key` varchar(255) DEFAULT NULL COMMENT '代理采购授权文件（upload_files 文件名，F01 第7项）',
+  `agent_auth_file_hash` char(64) DEFAULT NULL COMMENT '授权文件 sha256（版本/防篡改）',
+  `auth_contact_name` varchar(120) DEFAULT NULL COMMENT '授权联系人姓名（谁可发布/修改/确认结果，F01 第13项）',
+  `auth_contact_phone` varchar(50) DEFAULT NULL COMMENT '授权联系人电话',
+  `auth_contact_email` varchar(200) DEFAULT NULL COMMENT '授权联系人邮箱',
+  `procurement_experience` varchar(500) DEFAULT NULL COMMENT '采购经验：是否在其他平台发布过招标/采购订单（F01 第9项）',
+  `submitted_at` int unsigned DEFAULT NULL COMMENT '最后一次进入待核验队列的时间（unix 秒）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_buyer_user` (`user_id`),
+  KEY `idx_buyers_status` (`status`),
+  KEY `idx_buyers_queue` (`status`,`submitted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购方主体';
+
+-- ── procurement_items ──
+CREATE TABLE `procurement_items` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `project_id` int unsigned NOT NULL COMMENT '关联 procurement_projects.id',
+  `lot_id` int unsigned DEFAULT NULL COMMENT '标包（NULL=未分包）',
+  `line_no` int unsigned NOT NULL COMMENT '明细序号（项目内递增）',
+  `name_zh` varchar(255) NOT NULL COMMENT '产品/服务名称（中文）',
+  `name_en` varchar(255) DEFAULT NULL COMMENT '产品/服务名称（英文，AI 翻译）',
+  `spec` text COMMENT '规格/型号/尺寸/材料/功率/技术指标',
+  `quantity` decimal(20,4) NOT NULL DEFAULT '0.0000' COMMENT '采购数量',
+  `qty_unit` varchar(30) NOT NULL DEFAULT '件' COMMENT '数量单位',
+  `qty_type` varchar(12) NOT NULL DEFAULT 'fixed' COMMENT '确定数量/预估数量：fixed/estimated',
+  `ugt_code` varchar(32) DEFAULT NULL COMMENT '鍝佺被 UGT 鏍戠爜锛坈ommodity_backbone锛孡1-L3锛',
+  `attributes` json DEFAULT NULL COMMENT '关键属性（材料/技术/功能/用途）',
+  `alternatives_allowed` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否允许同等/替代产品',
+  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  PRIMARY KEY (`id`),
+  KEY `idx_pitem_project` (`project_id`,`lot_id`,`line_no`),
+  KEY `idx_pitem_ugt` (`ugt_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购明细（F03）：一项目多标包多明细，明细独立成行独立编码';
+
+-- ── procurement_lots ──
+CREATE TABLE `procurement_lots` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `project_id` int unsigned NOT NULL COMMENT '关联 procurement_projects.id',
+  `lot_no` varchar(20) NOT NULL COMMENT '标包号（项目内唯一，如 LOT-01）',
+  `title` varchar(255) NOT NULL COMMENT '标包名称',
+  `scope_note` varchar(500) DEFAULT NULL COMMENT '投标范围说明',
+  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_lot_project_no` (`project_id`,`lot_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='标包：一项目可拆多标包（家具/电子白板分别采购）';
+
+-- ── procurement_matches ──
+CREATE TABLE `procurement_matches` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `project_id` int unsigned NOT NULL COMMENT '关联 procurement_projects.id',
+  `supplier_id` int unsigned NOT NULL COMMENT '供应商 supplier.id',
+  `score` int unsigned NOT NULL DEFAULT '0' COMMENT '规则匹配得分（MVP：行业 L1 基础分+省份加分；评分模型 P3）',
+  `reasons` varchar(500) NOT NULL DEFAULT '' COMMENT '命中维度说明（行业/省份）',
+  `status` varchar(16) NOT NULL DEFAULT 'recommended' COMMENT 'recommended/invited',
+  `created_at` int unsigned NOT NULL COMMENT '生成时间（秒）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_match_project_supplier` (`project_id`,`supplier_id`),
+  KEY `idx_match_project` (`project_id`,`score`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='发布即匹配候选名单（规则版）：发布成功后生成，采购方工作台消费';
+
+-- ── procurement_projects ──
+CREATE TABLE `procurement_projects` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `reference` varchar(40) NOT NULL COMMENT '采购需求编号 OSPR-{年}-{6位id}（创建即生成）',
+  `buyer_id` int unsigned NOT NULL COMMENT '关联 procurement_buyers.id',
+  `version_no` int unsigned NOT NULL DEFAULT '0' COMMENT '已确认版本数（提交=确认版本+1；授权书/附件/核验均按版本绑定）',
+  `status` varchar(20) NOT NULL DEFAULT 'draft' COMMENT '状态机：draft/submitted/need_info/under_review/published/closed',
+  `close_reason` varchar(20) DEFAULT NULL COMMENT 'closed 细分：cancelled/withdrawn/expired',
+  `title_zh` varchar(255) NOT NULL COMMENT '项目名称（中文）',
+  `title_en` varchar(255) DEFAULT NULL COMMENT '项目名称（英文）',
+  `background` text COMMENT '采购目的/项目背景',
+  `purpose` varchar(20) NOT NULL DEFAULT 'real' COMMENT '真实采购/预算阶段/市场调研/未来计划：real/budgeting/research/future_plan',
+  `internal_project_no` varchar(120) DEFAULT NULL COMMENT '采购方内部项目编号',
+  `object_types` varchar(120) NOT NULL DEFAULT 'goods' COMMENT '需求对象（逗号分隔）：goods/engineering/service/solution',
+  `budget_amount` decimal(20,2) DEFAULT NULL COMMENT '预算金额（元）',
+  `budget_currency` varchar(10) NOT NULL DEFAULT 'CNY' COMMENT '币种',
+  `budget_public` tinyint(1) NOT NULL DEFAULT '0' COMMENT '预算是否可向供应商公开',
+  `budget_approved` varchar(20) DEFAULT NULL COMMENT '预算批准：approved/partial/pending/applying',
+  `delivery_country` varchar(80) DEFAULT NULL COMMENT '交付国家',
+  `delivery_city` varchar(120) DEFAULT NULL COMMENT '交付城市',
+  `delivery_province` varchar(120) DEFAULT NULL COMMENT '交付省份（供应商省份匹配用）',
+  `delivery_address` varchar(500) DEFAULT NULL COMMENT '交付地点',
+  `deadline_date` date DEFAULT NULL COMMENT '最晚交货/完成日期',
+  `install_needs` varchar(200) DEFAULT NULL COMMENT '交付服务（逗号）：installation/commissioning/training',
+  `logistics_note` text COMMENT '运输/包装/清关特殊要求',
+  `incoterm` varchar(20) DEFAULT NULL COMMENT '贸易术语（EXW/FOB/CIF/DDP 等）',
+  `payment_terms` varchar(500) DEFAULT NULL COMMENT '付款方式与节点',
+  `guarantees` varchar(120) DEFAULT NULL COMMENT '保函要求（逗号）：bid_bond/performance_bond/warranty_deposit',
+  `supplier_country_limit` varchar(500) DEFAULT NULL COMMENT '限定供应商国家/地区（逗号，空=不限）',
+  `manufacturer_only` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否要求制造商直接参与',
+  `supplier_quals` text COMMENT '出口资质/行业认证/业绩要求',
+  `quote_deadline_at` int unsigned DEFAULT NULL COMMENT '最晚收报价/投标文件时间（秒）',
+  `supplier_confirm_date` date DEFAULT NULL COMMENT '预计确定供应商日期',
+  `contract_date` date DEFAULT NULL COMMENT '预计签约日期',
+  `compliance` json DEFAULT NULL COMMENT '合规信息（出口管制/危险品/医疗/军民两用/其他+说明）',
+  `authorize_publish` tinyint(1) NOT NULL DEFAULT '0' COMMENT '授权确认：允许云境OS发布给符合条件供应商',
+  `contact_disclosure` varchar(20) NOT NULL DEFAULT 'none' COMMENT '分级授权：none/org_only/org_contact/budget_all',
+  `procurement_mode` varchar(16) NOT NULL DEFAULT 'rfq' COMMENT '采购方式（P2 方式判定引擎留置，MVP 恒 rfq）',
+  `primary_ugt_code` varchar(32) DEFAULT NULL COMMENT '主品类 UGT 树码（提交时取第一条明细，匹配/检索用）',
+  `requirement_verify` varchar(16) NOT NULL DEFAULT 'pending' COMMENT '需求真实性核验态（展示快照）：pending/pass/need_info/reject',
+  `fund_verify` varchar(16) NOT NULL DEFAULT 'unverified' COMMENT '资金核验态（展示快照）：unverified/verified',
+  `submitted_at` int unsigned DEFAULT NULL COMMENT '最近一次提交时间（秒）',
+  `published_at` int unsigned DEFAULT NULL COMMENT '发布时间（秒）',
+  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  `updated_at` int unsigned NOT NULL COMMENT '更新时间（秒）',
+  `notice_pk` bigint unsigned DEFAULT NULL COMMENT '搜索投影行 bid_notices.id；发布时写入，撤回/到期置 NULL',
+  `usage_env` text COMMENT '产品主要用途及使用环境（F02 需求对象）',
+  `standards` text COMMENT '强制性标准/认证要求（F02 技术要求）',
+  `incoterm_version` varchar(20) DEFAULT NULL COMMENT 'Incoterms 版本（如 2020/2010）',
+  `batch_delivery` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否分批采购/分批交付（F02 数量要求）',
+  `batch_note` varchar(500) DEFAULT NULL COMMENT '分批说明（批次/频次/每批数量）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_project_reference` (`reference`),
+  KEY `idx_proj_buyer` (`buyer_id`,`status`),
+  KEY `idx_proj_status` (`status`,`published_at`),
+  KEY `idx_proj_ugt` (`primary_ugt_code`),
+  KEY `idx_proj_notice_pk` (`notice_pk`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购需求主表（F02）：一条采购项目关联一个主体与实际采购目的';
+
+-- ── procurement_reviews ──
+CREATE TABLE `procurement_reviews` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `project_id` int unsigned NOT NULL COMMENT '关联 procurement_projects.id',
+  `version_no` int unsigned NOT NULL COMMENT '核验的需求版本',
+  `stage` varchar(20) NOT NULL COMMENT '核验环节：auto(系统自动初审)/identity(主体)/requirement(需求真实性)/feasibility(技术可招标性)/authorization(授权)/fund(资金)',
+  `result` varchar(16) NOT NULL COMMENT '结论：pass/need_info/risk/reject',
+  `reviewer` varchar(64) NOT NULL COMMENT '核验主体（system=规则引擎/审核员工号）',
+  `evidence` json DEFAULT NULL COMMENT '核验证据（自动初审九项明细/人工核验依据）',
+  `note` varchar(500) DEFAULT NULL COMMENT '说明（需补充内容/风险提示）',
+  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  `callback_id` varchar(64) DEFAULT NULL COMMENT '回调幂等键（X-Review-Request-Id 或内容指纹）；NULL=门户内部写入（自动初审）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_review_callback` (`project_id`,`version_no`,`callback_id`),
+  KEY `idx_prev_project` (`project_id`,`version_no`,`stage`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='核验记录（F04/F05/F06）：四级审核留痕，AUTO-REVIEW-ID 即本表 id';
+
+-- ── procurement_revisions ──
+CREATE TABLE `procurement_revisions` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `project_id` int unsigned NOT NULL COMMENT '关联 procurement_projects.id',
+  `version_no` int unsigned NOT NULL COMMENT '版本号（提交即确认，递增）',
+  `snapshot` json NOT NULL COMMENT '版本快照（审核依据：主表+明细+附件清单的冻结态）',
+  `content_hash` char(64) NOT NULL COMMENT '快照内容哈希（sha256）',
+  `confirmed_by` int unsigned NOT NULL COMMENT '确认账号',
+  `confirmed_at` int unsigned NOT NULL COMMENT '确认时间（秒）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_rev_project_version` (`project_id`,`version_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='版本快照：采购方确认最终版本（流程第3步），授权书/核验/发布均按版本绑定';
+
+-- ── procurement_tenders ──
+CREATE TABLE `procurement_tenders` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `project_id` int unsigned NOT NULL COMMENT '关联 procurement_projects.id',
+  `version_no` int unsigned NOT NULL COMMENT '发布的需求版本',
+  `tender_no` varchar(40) NOT NULL COMMENT '正式发布编号（OSPT-{年}-{6位id}）',
+  `publish_mode` varchar(16) NOT NULL DEFAULT 'public' COMMENT '发布方式：public/targeted/prequalified',
+  `status` varchar(16) NOT NULL DEFAULT 'published' COMMENT 'published/closed/cancelled',
+  `published_at` int unsigned NOT NULL COMMENT '发布时间（秒）',
+  `deadline_at` int unsigned DEFAULT NULL COMMENT '截标时间（秒）',
+  `deadline_tz` varchar(40) NOT NULL DEFAULT 'Asia/Shanghai' COMMENT '截标时区',
+  `document_manifest` json DEFAULT NULL COMMENT '公开文件清单（文件名+哈希+版本）',
+  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_tender_no` (`tender_no`),
+  KEY `idx_tender_project` (`project_id`,`version_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='正式发布（流程第7步）：发布即启动供应商智能匹配';
+
 -- ── product_keyword_groups ──
 CREATE TABLE `product_keyword_groups` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1719,45 +1979,6 @@ CREATE TABLE `rfq_guard` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '登记时间',
   PRIMARY KEY (`rfq_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='平台RFQ守护登记表：记录每条RFQ预期归属，对账检出被爬虫按主键改写/消失（跨系统契约哨兵）';
-
--- ── rfq_invites ──
-CREATE TABLE `rfq_invites` (
-  `rfq_id` int NOT NULL COMMENT '目标 RFQ 的 crm_bid_notices.id 落位',
-  `supplier_user_id` int unsigned NOT NULL COMMENT '被邀约供应商 user_id',
-  `invited_by` int unsigned NOT NULL COMMENT '发起邀约的采购方 user_id',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`rfq_id`,`supplier_user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='RFQ定向邀约名单：targeted RFQ 的报价资格白名单，public 不使用';
-
--- ── rfq_outreach ──
-CREATE TABLE `rfq_outreach` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `rfq_id` int NOT NULL COMMENT '平台RFQ在 crm_bid_notices.id 的落位',
-  `recipient` varchar(190) NOT NULL COMMENT '收件邮箱（匹配供应商或显式收件）',
-  `supplier_user_id` int unsigned DEFAULT NULL COMMENT '若收件对应平台供应商账号则记录其 user_id，显式外部邮箱为 NULL',
-  `contacted_at` int unsigned NOT NULL DEFAULT '0' COMMENT '首次触达时间（epoch 秒）',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rfq_recipient` (`rfq_id`,`recipient`),
-  KEY `idx_rfq` (`rfq_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='RFQ发布邀约触达账本：记录已发邀约的收件，供发布触达去重';
-
--- ── rfq_quotes ──
-CREATE TABLE `rfq_quotes` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `rfq_id` int NOT NULL COMMENT '所报 RFQ 的 crm_bid_notices.id 落位',
-  `supplier_user_id` int unsigned NOT NULL COMMENT '报价供应商 user_id（认证企业）',
-  `price` decimal(20,2) NOT NULL COMMENT '报价金额',
-  `currency` varchar(10) NOT NULL DEFAULT 'CNY' COMMENT '币种',
-  `lead_time_days` int DEFAULT NULL COMMENT '交付周期（天）',
-  `delivery_terms` varchar(200) DEFAULT NULL COMMENT '交付/商务条款',
-  `note` varchar(1000) DEFAULT NULL COMMENT '报价说明',
-  `status` varchar(16) NOT NULL DEFAULT 'submitted' COMMENT 'submitted/withdrawn/won/rejected',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_rfq_supplier` (`rfq_id`,`supplier_user_id`),
-  KEY `idx_quotes_rfq` (`rfq_id`,`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='RFQ密封报价表：认证供应商报价，选定以status表达，不动rfq_status/可搜口径';
 
 -- ── rfx_platform_map ──
 CREATE TABLE `rfx_platform_map` (
@@ -2207,7 +2428,7 @@ CREATE TABLE `training_enrollments` (
   KEY `idx_te_user` (`user_id`,`created_at`),
   KEY `idx_te_schedule` (`schedule_id`),
   KEY `idx_te_phone` (`phone`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='研修班报名（一行=一位参训学员，2800 元/人）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='研修班报名';
 
 -- ── training_schedules ──
 CREATE TABLE `training_schedules` (

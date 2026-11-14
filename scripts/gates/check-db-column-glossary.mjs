@@ -62,7 +62,32 @@ const FROZEN_SUFFIX = new Set([
   "email_accounts.last_check_at",
   "email_unsubscribe.unsubscribe_at",
   "notice_public.updated_at",
-  "rfq_outreach.contacted_at",
+  // 采购发布域（F01-F05，迁移 011~017）整体以 INT 存 epoch 秒，与 `_at` 后缀承诺不符。
+  // 这是该域的系统性命名债（23 列 / 11 表），正确修法是改名为 *_ts 并同步云端 DDL + 服务层
+  // + 视图层，属独立批次；在那之前如实冻结，不得靠删基线掩盖。建议在该域对外发布前完成改名。
+  "procurement_attachments.uploaded_at",
+  "procurement_authorizations.created_at",
+  "procurement_authorizations.signed_at",
+  "procurement_authorizations.updated_at",
+  "procurement_authorizations.verified_at",
+  "procurement_buyer_verifications.created_at",
+  "procurement_buyers.created_at",
+  "procurement_buyers.submitted_at",
+  "procurement_buyers.updated_at",
+  "procurement_buyers.verified_at",
+  "procurement_items.created_at",
+  "procurement_lots.created_at",
+  "procurement_matches.created_at",
+  "procurement_projects.created_at",
+  "procurement_projects.published_at",
+  "procurement_projects.quote_deadline_at",
+  "procurement_projects.submitted_at",
+  "procurement_projects.updated_at",
+  "procurement_reviews.created_at",
+  "procurement_revisions.confirmed_at",
+  "procurement_tenders.created_at",
+  "procurement_tenders.deadline_at",
+  "procurement_tenders.published_at",
   // 买家中文翻译字典已退役：翻译落到 buyer.name_zh。
 ]);
 
