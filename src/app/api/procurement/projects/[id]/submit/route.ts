@@ -4,6 +4,8 @@
  * @module app/api/procurement/projects/[id]/submit/route
  * @description 冻结 revision 快照（主表+明细+附件清单）→ version_no+1 → submitted。
  *              提交后本页授权书按新版本重新生成，流程进入第 4/5 步（签署）与第 6 步（核验）。
+ *              前置：采购主体须已认证（2026-11-14 资格前置，与发布闸同口径）——
+ *              未认证直接拦在提交，不再等到审核通过才打回。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
@@ -13,6 +15,7 @@ import {
   EC_FORBIDDEN,
   EC_INTERNAL_ERROR,
   EC_INVALID_PARAMS,
+  EC_RFQ_AUTHORIZATION_REQUIRED,
   EC_RFQ_NOT_FOUND,
   EC_RFQ_STATE_INVALID,
 } from "@/shared/constants/api";
@@ -45,6 +48,15 @@ export const POST = withRoute<Ctx>(async (req: NextRequest, { params }) => {
           break;
         case "empty_items":
           routeError(400, EC_INVALID_PARAMS, "至少需要一条采购明细才能提交");
+          break;
+        case "buyer_not_verified":
+          // 与发布闸同一错误码（44005）：同一失败条件在提交/发布两处口径一致，前端归类不变。
+          // 资格校验前移的意义就在这句提示——别再让用户签完授权书、等完审核才被打回。
+          routeError(
+            403,
+            EC_RFQ_AUTHORIZATION_REQUIRED,
+            "采购主体尚未通过身份认证，不能提交需求。请先在「设置 → 采购主体认证」完成认证（可先保存草稿）。",
+          );
           break;
         default:
           routeError(409, EC_RFQ_STATE_INVALID, "当前状态不可提交");

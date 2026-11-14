@@ -12,6 +12,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { PROJECT_STATUS, PROJECT_REF_PREFIX } from "@/shared/constants/procurement";
 import { formatProjectReference } from "./reference";
 import { transitionProjectWithin, type TxLike } from "./lifecycle";
+import { isBuyerPublishable } from "./buyers";
 
 export interface ProjectRow extends RowDataPacket {
   id: number;
@@ -238,13 +239,19 @@ export async function updateProject(
  * 提交 = 确认最终版本（流程第 3 步）：冻结 revision 快照（主表+明细+附件清单）、
  * version_no+1、状态 draft/need_info → submitted（经状态机，同事务）。
  * 主品类快照：取第一条明细的 UGT 码（匹配/检索/投影用）。
+ *
+ * 【资格前置 2026-11-14】提交前校验采购主体是否已认证（与发布闸同一口径
+ * `isBuyerPublishable`）。原实现只有发布闸在审核通过那一刻校验，于是未认证主体
+ * 可以把需求一路填到第 6 步、签完授权书、等审核员点"通过"才被打回——整条流程白走。
+ * 这里前移到提交动作：草稿依然随存随改，但"提交"这一步必须持证。
+ * 放在明细校验之后：内容是否完备比资格更贴手边，两者都在写入之前，均无副作用。
  */
 export async function submitProject(
   db: Pool,
   input: { projectId: number; confirmedBy: number; at?: number },
 ): Promise<
   | { ok: true; status: string; versionNo: number; reference: string }
-  | { ok: false; reason: "not_found" | "not_editable" | "empty_items" }
+  | { ok: false; reason: "not_found" | "not_editable" | "empty_items" | "buyer_not_verified" }
 > {
   const at = input.at ?? Math.floor(Date.now() / 1000);
   const conn = await db.getConnection();
@@ -269,6 +276,16 @@ export async function submitProject(
     if (itemList.length === 0) {
       await conn.rollback();
       return { ok: false, reason: "empty_items" };
+    }
+
+    // 资格前置：未认证主体不得提交（草稿不受影响，见函数头注释）
+    const [buyerRows] = await conn.query("SELECT status FROM procurement_buyers WHERE id = ? LIMIT 1", [
+      row.buyer_id,
+    ]);
+    const buyerStatus = String((buyerRows as Array<{ status: string }>)[0]?.status ?? "");
+    if (!isBuyerPublishable({ status: buyerStatus })) {
+      await conn.rollback();
+      return { ok: false, reason: "buyer_not_verified" };
     }
     const [atts] = await conn.query(
       "SELECT filename, file_key, file_hash, kind FROM procurement_attachments WHERE project_id = ? AND version_no = 0",
