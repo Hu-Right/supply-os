@@ -101,5 +101,6 @@
   "aiErrBadFormat": "L'IA a renvoyé un format inattendu ; réessayez l'analyse",
   "aiErrLoginRequired": "Votre session a expiré ; reconnectez-vous pour réessayer",
   "aiSupplierProfileRequired": "Veuillez compléter le profil de votre entreprise avant la notation d'adéquation IA",
-  "errProxyResponseTooLarge": "La réponse de la page cible est trop volumineuse pour être affichée"
+  "errProxyResponseTooLarge": "La réponse de la page cible est trop volumineuse pour être affichée",
+  "errRfqAuthorizationRequired": "L'autorisation de publication n'est pas signée ou vérifiée"
 }

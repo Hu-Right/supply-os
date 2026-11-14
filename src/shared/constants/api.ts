@@ -308,6 +308,8 @@ export const EC_RFQ_STATE_INVALID = 44002;
 export const EC_RFQ_VERSION_CONFLICT = 44003;
 /** RFQ 审核退回必须填写理由 */
 export const EC_RFQ_REASON_REQUIRED = 44004;
+/** RFQ 发布前置缺失：授权书未签署或未通过云境核验（按需求编号+版本绑定） */
+export const EC_RFQ_AUTHORIZATION_REQUIRED = 44005;
 
 // ── 分页限制常量（Pagination Limits）───────────────────────────────────────────
 

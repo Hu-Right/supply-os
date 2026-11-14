@@ -101,5 +101,6 @@
   "aiErrBadFormat": "La IA devolvió un formato inesperado; intente analizar de nuevo",
   "aiErrLoginRequired": "Su sesión ha expirado; inicie sesión de nuevo para reintentar",
   "aiSupplierProfileRequired": "Complete el perfil de su empresa antes de la puntuación de ajuste con IA",
-  "errProxyResponseTooLarge": "La respuesta de la página de destino es demasiado grande para mostrarla"
+  "errProxyResponseTooLarge": "La respuesta de la página de destino es demasiado grande para mostrarla",
+  "errRfqAuthorizationRequired": "La autorización de publicación no está firmada ni verificada"
 }

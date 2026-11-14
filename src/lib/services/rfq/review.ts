@@ -20,6 +20,7 @@ import {
 import { transitionDemandWithin, type TxLike } from "./lifecycle";
 import { upsertProjection, type ProjectionSource } from "./projection";
 import { registerRfqGuard } from "@/lib/services/rfq-guard";
+import { generateMatchCandidates } from "./matching";
 import { notifyReviewResult } from "./notify";
 
 export interface ReviewDecisionInput {
@@ -39,7 +40,13 @@ export type ReviewDecisionResult =
   | { ok: true; status: string; version: number; duplicate?: boolean }
   | {
       ok: false;
-      reason: "not_found" | "version_conflict" | "illegal_transition" | "reason_required" | "task_not_found";
+      reason:
+        | "not_found"
+        | "version_conflict"
+        | "illegal_transition"
+        | "reason_required"
+        | "task_not_found"
+        | "authorization_required";
     };
 
 export interface ClaimReviewInput {
@@ -197,6 +204,22 @@ export async function applyReviewDecision(
     const approved = input.decision === REVIEW_DECISION.APPROVED;
     const target = approved ? DEMAND_STATUS.PUBLISHED : DEMAND_STATUS.REJECTED;
 
+    // 发布闸口（流程第 6 步）：授权书按「需求编号+版本」绑定，approved 必须已 verified。
+    // 校验放在状态转移之前——工单不被消耗，采购方补签后同一工单可重走结论。
+    if (approved) {
+      const [authRows] = await conn.query(
+        `SELECT status FROM rfq_demand_authorization
+          WHERE demand_id = ? AND revision_no = ?
+          ORDER BY id DESC LIMIT 1`,
+        [input.demandId, input.version],
+      );
+      const authRow = (authRows as Array<{ status: string }>)[0];
+      if (!authRow || String(authRow.status) !== "verified") {
+        await conn.rollback();
+        return { ok: false, reason: "authorization_required" };
+      }
+    }
+
     const transition = await transitionDemandWithin(conn as unknown as TxLike, {
       demandId: input.demandId,
       to: target,
@@ -254,6 +277,15 @@ export async function applyReviewDecision(
     );
 
     await conn.commit();
+
+    // 发布即匹配（流程第 7 步）：规则版候选名单，best-effort——失败不影响发布结论，下轮可补
+    if (approved) {
+      try {
+        await generateMatchCandidates(db, input.demandId);
+      } catch (err) {
+        console.warn("[rfq-review] 匹配候选生成失败（不影响发布）:", (err as Error).message);
+      }
+    }
 
     // 回执：审核结论通知采购方（同 (user,type,ref) 只推一次；失败不影响结论）
     try {

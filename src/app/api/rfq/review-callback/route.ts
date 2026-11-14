@@ -19,6 +19,7 @@ import {
   EC_RFQ_STATE_INVALID,
   EC_RFQ_VERSION_CONFLICT,
   EC_RFQ_REASON_REQUIRED,
+  EC_RFQ_AUTHORIZATION_REQUIRED,
   EC_FORBIDDEN,
   EC_INTERNAL_ERROR,
 } from "@/shared/constants/api";
@@ -96,6 +97,9 @@ export const POST = withRoute(async (req: NextRequest) => {
         break;
       case "reason_required":
         routeError(400, EC_RFQ_REASON_REQUIRED, "退回必须填写不少于 10 字的理由");
+        break;
+      case "authorization_required":
+        routeError(403, EC_RFQ_AUTHORIZATION_REQUIRED, "授权书未签署或未通过核验，不能发布（按需求编号+版本绑定）");
         break;
       default:
         routeError(409, EC_RFQ_STATE_INVALID, "当前状态不接受该审核结论");

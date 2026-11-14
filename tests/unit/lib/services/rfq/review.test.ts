@@ -35,6 +35,8 @@ interface FakeOptions {
   dupRow?: Record<string, unknown> | null;
   tasks?: unknown[];
   lifecycle?: { status: string; revision_no: number };
+  /** 发布闸口的授权记录；undefined=默认已核验（存量用例语义），null=无记录 */
+  auth?: { status: string } | null;
 }
 
 function fakePool(opts: FakeOptions = {}) {
@@ -61,6 +63,9 @@ function fakePool(opts: FakeOptions = {}) {
       if (s.startsWith("SELECT id, status, revision_no FROM rfq_demand")) {
         const lc = opts.lifecycle ?? { status: "submitted", revision_no: 2 };
         return [[{ id: DEMAND_ID, ...lc }]];
+      }
+      if (s.startsWith("SELECT status FROM rfq_demand_authorization")) {
+        return [opts.auth === undefined ? [{ status: "verified" }] : opts.auth ? [opts.auth] : []];
       }
       if (s.startsWith("INSERT INTO bid_notices")) return [{ affectedRows: 1, insertId: 9001 }];
       return [{ affectedRows: 1 }];
@@ -153,6 +158,26 @@ describe("applyReviewDecision", () => {
     expect(taskUpdate).toBeDefined();
     expect(taskUpdate![1]).toContain(REVIEW_DECISION.APPROVED);
     expect(taskUpdate![1]).toContain("cb-6");
+  });
+
+  it("通过但授权未核验 → authorization_required（工单不消耗，可补签后重走结论）", async () => {
+    const { pool, calls, conn } = fakePool({ auth: null });
+    const res = await applyReviewDecision(pool, {
+      demandId: DEMAND_ID, version: 2, decision: REVIEW_DECISION.APPROVED, callbackId: "cb-8", at: NOW,
+    });
+
+    expect(res).toEqual({ ok: false, reason: "authorization_required" });
+    expect(conn.rollback).toHaveBeenCalledOnce();
+    expect(find(calls, "INSERT INTO bid_notices")).toBeUndefined();
+    expect(find(calls, "SET status = 'done'")).toBeUndefined();
+  });
+
+  it("通过但授权仅签署未核验 → authorization_required", async () => {
+    const { pool } = fakePool({ auth: { status: "pending" } });
+    const res = await applyReviewDecision(pool, {
+      demandId: DEMAND_ID, version: 2, decision: REVIEW_DECISION.APPROVED, callbackId: "cb-9", at: NOW,
+    });
+    expect(res).toEqual({ ok: false, reason: "authorization_required" });
   });
 
   it("退回：不写投影，工单记录理由", async () => {

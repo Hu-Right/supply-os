@@ -101,5 +101,6 @@
   "aiErrBadFormat": "AI returned an unexpected format; please try analyzing again",
   "aiErrLoginRequired": "Your session has expired; please sign in again to retry",
   "aiSupplierProfileRequired": "Please complete your company profile before AI fit scoring",
-  "errProxyResponseTooLarge": "Target page response is too large to proxy"
+  "errProxyResponseTooLarge": "Target page response is too large to proxy",
+  "errRfqAuthorizationRequired": "The publication authorization is unsigned or unverified"
 }
