@@ -8,7 +8,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { extractPdfText, extractRequirementFields } from "@/lib/services/procurement/pdf-extract";
@@ -42,6 +42,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     const pdfExtractViewOf = (data: typeof extracted, textLength: number) => ({ ...data, textLength });
     return NextResponse.json(pdfExtractViewOf(extracted, text.length));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/extract/pdf] failed:", (err as Error).message);
     routeError(400, EC_INVALID_PARAMS, "PDF 解析失败，请确认文件未加密且包含文本");
   }

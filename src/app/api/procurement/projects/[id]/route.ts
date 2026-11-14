@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { EC_FORBIDDEN, EC_INTERNAL_ERROR, EC_INVALID_PARAMS, EC_RFQ_NOT_FOUND, EC_RFQ_STATE_INVALID } from "@/shared/constants/api";
 import { getProjectBundle, isProjectOwnedBy, updateProject } from "@/lib/services/procurement/projects";
 import { projectDetailViewOf } from "@/lib/services/procurement/views";
@@ -73,6 +73,7 @@ export const PATCH = withRoute<Ctx>(async (req: NextRequest, { params }) => {
     const projectPatchedViewOf = (changed: number) => ({ changed });
     return NextResponse.json(projectPatchedViewOf(result.changed));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/projects/[id]] patch failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "保存失败，请稍后重试");
   }

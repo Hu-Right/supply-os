@@ -8,7 +8,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { listPlaza } from "@/lib/services/procurement/projects";
 import { projectSummaryViewOf } from "@/lib/services/procurement/views";
@@ -31,6 +31,7 @@ export const GET = withRoute(async (req: NextRequest) => {
     });
     return NextResponse.json(plazaListViewOf(items));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/plaza] list failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "加载需求广场失败，请稍后重试");
   }

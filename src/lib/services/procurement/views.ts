@@ -26,6 +26,14 @@ export function toJsonValue(v: unknown): unknown {
   }
 }
 
+/** DATE/DATETIME 列：驱动可能返回 Date，统一成 YYYY-MM-DD（前端 date input 口径） */
+export function toDateStr(v: unknown): string {
+  if (v == null || v === "") return "";
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  const s = String(v);
+  return s.length >= 10 ? s.slice(0, 10) : s;
+}
+
 export function buyerViewOf(row: BuyerRow) {
   return {
     id: Number(row.id),
@@ -119,7 +127,7 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     deliveryCountry: toStr(row.delivery_country),
     deliveryCity: toStr(row.delivery_city),
     deliveryAddress: toStr(row.delivery_address),
-    deadlineDate: toStr(row.deadline_date),
+    deadlineDate: toDateStr(row.deadline_date),
     installNeeds: toStr(row.install_needs).split(",").filter(Boolean),
     logisticsNote: toStr(row.logistics_note),
     incoterm: toStr(row.incoterm),
@@ -128,8 +136,8 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     supplierCountryLimit: toStr(row.supplier_country_limit),
     manufacturerOnly: Number(row.manufacturer_only) === 1,
     supplierQuals: toStr(row.supplier_quals),
-    supplierConfirmDate: toStr(row.supplier_confirm_date),
-    contractDate: toStr(row.contract_date),
+    supplierConfirmDate: toDateStr(row.supplier_confirm_date),
+    contractDate: toDateStr(row.contract_date),
     contactDisclosure: disclosure,
     quoteDeadlineAt: toNum(row.quote_deadline_at),
     compliance: toJsonValue(row.compliance),

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { EC_FORBIDDEN, EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { isProjectOwnedBy } from "@/lib/services/procurement/projects";
 import { listMatchCandidates } from "@/lib/services/procurement/matching";
@@ -34,6 +34,7 @@ export const GET = withRoute<Ctx>(async (req: NextRequest, { params }) => {
     const list = await listMatchCandidates(pool, projectId);
     return NextResponse.json(matchListViewOf(list));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/projects/[id]/matches] load failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "加载匹配名单失败，请稍后重试");
   }

@@ -47,6 +47,9 @@ const nextConfig: NextConfig = {
     "agentkeepalive",
     "bowser",
     "utility",
+    // PDF 文本提取：pdfjs 需要在运行时按自身路径解析 worker，不能打进 bundle
+    "pdf-parse",
+    "pdfjs-dist",
   ],
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import {
   EC_FORBIDDEN,
   EC_INTERNAL_ERROR,
@@ -65,6 +65,7 @@ export const POST = withRoute<Ctx>(async (req: NextRequest, { params }) => {
     }
     return NextResponse.json(projectSubmittedViewOf(result.status, result.versionNo, result.reference));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/projects/[id]/submit] failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "提交失败，请稍后重试");
   }

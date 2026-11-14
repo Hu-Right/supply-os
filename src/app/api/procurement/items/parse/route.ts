@@ -7,7 +7,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { parseProductList } from "@/lib/services/procurement/spreadsheet";
@@ -44,6 +44,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     const parsedItemsViewOf = (items: typeof parsed.items, skipped: number) => ({ items, skipped });
     return NextResponse.json(parsedItemsViewOf(parsed.items, parsed.skipped));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/items/parse] failed:", (err as Error).message);
     routeError(400, EC_INVALID_PARAMS, "清单解析失败，请检查文件格式");
   }

@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { getBuyerByUserId, upsertBuyer, listBuyerVerifications, type BuyerRow } from "@/lib/services/procurement/buyers";
 import { buyerViewOf, buyerVerificationViewOf } from "@/lib/services/procurement/views";
@@ -44,6 +44,7 @@ export const GET = withRoute(async (req: NextRequest) => {
     });
     return NextResponse.json(buyerViewOfMine(buyer, verifications, duplicates, buyerRiskFlags(buyer)));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/buyer] load failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "加载采购主体失败，请稍后重试");
   }
@@ -106,6 +107,7 @@ export const PUT = withRoute(async (req: NextRequest) => {
     });
     return NextResponse.json(buyerSavedViewOf(row));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/buyer] save failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "保存采购主体失败，请稍后重试");
   }

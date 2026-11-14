@@ -227,7 +227,7 @@ export async function copyProject(id: number): Promise<{ id: number; reference: 
 export async function saveBuyer(fields: Record<string, unknown>): Promise<{ buyerId: number; status: string }> {
   return api<{ buyerId: number; status: string }>("/api/procurement/buyer", {
     method: "PUT",
-    body: JSON.stringify(fields),
+    body: fields,
   });
 }
 
@@ -245,7 +245,7 @@ export async function fetchProject(id: number): Promise<ProjectDetail> {
 }
 
 export async function patchProject(id: number, fields: Record<string, unknown>): Promise<{ changed: number }> {
-  return api(`/api/procurement/projects/${id}`, { method: "PATCH", body: JSON.stringify(fields) });
+  return api(`/api/procurement/projects/${id}`, { method: "PATCH", body: fields });
 }
 
 export async function replaceItems(
@@ -255,7 +255,7 @@ export async function replaceItems(
 ): Promise<{ itemCount: number }> {
   return api(`/api/procurement/projects/${id}/items`, {
     method: "PUT",
-    body: JSON.stringify({ lots, items }),
+    body: { lots, items },
   });
 }
 

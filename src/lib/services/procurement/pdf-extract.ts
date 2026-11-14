@@ -9,9 +9,29 @@
  *                 才写入需求。规则抽取可离线运行，不依赖采购方是否配置 LLM。
  */
 import { PDFParse } from "pdf-parse";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 
 const MAX_CHARS = 20_000;
 const MAX_PAGES = 30;
+
+/**
+ * pdfjs 在 Node 下需要显式 worker 路径：Turbopack 打包后模块位于 .next 下，
+ * 默认按相对路径找 `pdf.worker.mjs` 会失败。这里用 require.resolve 从项目
+ * node_modules 解析 worker 并注册为 file URL（只需一次）。
+ */
+let workerReady = false;
+function ensurePdfWorker(): void {
+  if (workerReady) return;
+  workerReady = true;
+  try {
+    const req = createRequire(import.meta.url);
+    const workerPath = req.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs");
+    PDFParse.setWorker(pathToFileURL(workerPath).href);
+  } catch {
+    /* 解析失败则退回 pdfjs 默认行为（本地脚本/单测环境可用） */
+  }
+}
 
 export interface ExtractedItem {
   nameZh: string;
@@ -43,6 +63,12 @@ const ITEM_LINE = new RegExp(
   "i",
 );
 
+/** PDF 文本层常把列间多空格压成单空格 → 备用单空格模式 */
+const ITEM_LINE_SINGLE = new RegExp(
+  `^(?:\\d{1,3}[.、)]\\s*)?(.{2,60}?)\\s+(.{1,60}?)\\s+([\\d,]+(?:\\.\\d+)?)\\s*(${UNIT})$`,
+  "i",
+);
+
 function clean(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
@@ -59,6 +85,7 @@ function normalizeDate(y: string, m: string, d: string): string {
 
 /** PDF → 文本（页数/字符上限；解析失败抛错） */
 export async function extractPdfText(buffer: Buffer): Promise<string> {
+  ensurePdfWorker();
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
     const result = await parser.getText({ first: MAX_PAGES });
@@ -148,7 +175,7 @@ export function extractRequirementFields(text: string): ExtractedRequirement {
     .filter((l) => l.length > 0);
   const seen = new Set<string>();
   for (const line of rawLines) {
-    const m = line.match(ITEM_LINE);
+    const m = line.match(ITEM_LINE) ?? line.match(ITEM_LINE_SINGLE);
     if (!m) continue;
     const nameZh = clean(m[1]).replace(/[.、]$/, "");
     if (!nameZh || nameZh.length < 2) continue;

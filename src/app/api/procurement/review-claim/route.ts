@@ -7,7 +7,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import {
@@ -82,6 +82,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     const reviewClaimedViewOf = (status: string, v: number) => ({ status, version: v });
     return NextResponse.json(reviewClaimedViewOf(result.status, result.versionNo));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/review-claim] failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "领取失败，请稍后重试");
   }

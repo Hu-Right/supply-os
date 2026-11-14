@@ -9,7 +9,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import {
@@ -91,6 +91,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     });
     return NextResponse.json(buyerVerifyViewOf(r.status, r.verificationId, r.duplicate));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/buyer/verify-callback] failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "核验结论回写失败，请稍后重试");
   }

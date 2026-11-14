@@ -519,9 +519,10 @@ export async function copyProjectAsDraft(
 
     const copyCols = ["title_zh", ...PROJECT_EDITABLE_COLUMNS.filter((c) => c !== "title_zh")];
     const sets = copyCols.map((c) => `\`${c}\` = ?`).join(", ");
-    // JSON 列（compliance）在驱动侧可能已是对象，绑定前必须序列化
+    // 驱动把 DATE 列读成 Date 对象、JSON 列读成对象：分别转 YYYY-MM-DD 与 JSON 文本后绑定
     const params = copyCols.map((c) => {
       const v = src[c as keyof ProjectRow] ?? null;
+      if (v instanceof Date) return v.toISOString().slice(0, 10);
       return v !== null && typeof v === "object" ? JSON.stringify(v) : v;
     });
     await conn.query(

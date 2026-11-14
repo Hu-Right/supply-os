@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { createProject, listMine } from "@/lib/services/procurement/projects";
@@ -34,6 +34,7 @@ export const GET = withRoute(async (req: NextRequest) => {
     });
     return NextResponse.json(projectListViewOf(items));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/projects] list failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "加载项目列表失败，请稍后重试");
   }
@@ -59,6 +60,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     const projectCreatedViewOf = (id: number, ref: string) => ({ id, reference: ref });
     return NextResponse.json(projectCreatedViewOf(projectId, reference));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/projects] create failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "创建项目失败，请稍后重试");
   }

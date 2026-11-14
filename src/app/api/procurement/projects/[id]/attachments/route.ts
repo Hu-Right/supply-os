@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { EC_FORBIDDEN, EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { isProjectOwnedBy } from "@/lib/services/procurement/projects";
 import { addAttachment, listAttachments } from "@/lib/services/procurement/attachments";
@@ -86,6 +86,7 @@ export const POST = withRoute<Ctx>(async (req: NextRequest, { params }) => {
     const attachmentAddedViewOf = (aid: number, fileUrl: string) => ({ id: aid, fileUrl });
     return NextResponse.json(attachmentAddedViewOf(result.id, result.fileUrl));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/projects/[id]/attachments] upload failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "附件上传失败，请稍后重试");
   }

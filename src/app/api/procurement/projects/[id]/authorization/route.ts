@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { EC_FORBIDDEN, EC_INTERNAL_ERROR, EC_INVALID_PARAMS, EC_RFQ_NOT_FOUND, EC_RFQ_STATE_INVALID, EC_RFQ_VERSION_CONFLICT } from "@/shared/constants/api";
 import { isProjectOwnedBy } from "@/lib/services/procurement/projects";
 import { getAuthorizationStatus, signAuthorization } from "@/lib/services/procurement/authorization";
@@ -107,6 +107,7 @@ export const POST = withRoute<Ctx>(async (req: NextRequest, { params }) => {
     const authorizationSignedViewOf = (aid: number, fileUrl: string) => ({ id: aid, status: "pending", fileUrl });
     return NextResponse.json(authorizationSignedViewOf(result.id, result.fileUrl));
   } catch (err) {
+    if (err instanceof RouteError) throw err;
     console.warn("[api/procurement/projects/[id]/authorization] sign failed:", (err as Error).message);
     routeError(500, EC_INTERNAL_ERROR, "签署提交失败，请稍后重试");
   }
