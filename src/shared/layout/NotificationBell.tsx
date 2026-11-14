@@ -19,19 +19,10 @@ import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { fetchNotifications, type NotificationItem } from "@/core/api/notifications";
 import { renderNotification } from "@/shared/notifications/renderNotification";
+import { formatNotificationTime } from "@/shared/notifications/formatNotificationTime";
 
 /** 下拉预览条数 */
 const PREVIEW_SIZE = 5;
-
-/** 通知时间：后端 DATETIME 串 → 本地 yyyy-MM-dd HH:mm；无法解析则原样返回 */
-function formatNotifTime(v: string): string {
-  if (!v) return "";
-  // 后端格式为 "YYYY-MM-DD HH:mm:ss"（无时区）；替换空格为 T 让各浏览器一致解析
-  const d = new Date(v.includes("T") ? v : v.replace(" ", "T"));
-  if (Number.isNaN(d.getTime())) return v;
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
 
 export function NotificationBell() {
   const { authUser } = useAuth();
@@ -132,7 +123,7 @@ export function NotificationBell() {
                     <div className="min-w-0 flex-1">
                       <div className="text-sm text-slate-800 truncate">{rendered.title}</div>
                       {rendered.body && <div className="text-xs text-secondary-500 mt-0.5 line-clamp-2">{rendered.body}</div>}
-                      <div className="text-[10px] text-secondary-400 mt-1">{formatNotifTime(n.createdAt)}</div>
+                      <div className="text-[10px] text-secondary-400 mt-1">{formatNotificationTime(n.createdAt)}</div>
                     </div>
                   </div>
                 </Link>

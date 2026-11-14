@@ -50,6 +50,17 @@ function asPayload(v: unknown): Record<string, unknown> | null {
 }
 
 /**
+ * 时间列归一：mysql2 不开 `dateStrings` 时 DATETIME 是 `Date`，`String()` 会得到
+ * `Sat Nov 14 2026 23:03:48 GMT+0800 (...)` 这种 `Date.toString()` 形态。
+ * 对外统一 ISO，前端 `new Date()` 才能稳定解析。
+ */
+function asIsoTime(v: unknown): string {
+  if (v == null) return "";
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? "" : v.toISOString();
+  return String(v);
+}
+
+/**
  * 写入一条站内信，返回新行 id（重复投递返回 0）。
  * 调用方应在业务成功之后调用；导航式副作用（跳转链接）由 `link` 携带。
  */
@@ -143,7 +154,7 @@ export async function listNotifications(
     body: String(r.body || ""),
     link: String(r.link || ""),
     isRead: Number(r.is_read) === 1,
-    createdAt: r.created_at != null ? String(r.created_at) : "",
+    createdAt: asIsoTime(r.created_at),
     payload: asPayload(r.payload),
   }));
 
@@ -170,7 +181,7 @@ export async function getNotification(
     body: String(r.body || ""),
     link: String(r.link || ""),
     isRead: Number(r.is_read) === 1,
-    createdAt: r.created_at != null ? String(r.created_at) : "",
+    createdAt: asIsoTime(r.created_at),
     payload: asPayload(r.payload),
   };
 }

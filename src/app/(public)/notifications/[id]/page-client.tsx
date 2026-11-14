@@ -14,14 +14,7 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { fetchNotification, markNotificationRead, type NotificationItem } from "@/core/api/notifications";
 import { groupOf, renderNotification } from "@/shared/notifications/renderNotification";
-
-function fmtTime(v: string): string {
-  if (!v) return "";
-  const d = new Date(v.includes("T") ? v : v.replace(" ", "T"));
-  if (Number.isNaN(d.getTime())) return v;
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
+import { formatNotificationTime } from "@/shared/notifications/formatNotificationTime";
 
 export default function NotificationDetailPageClient({ id }: { id: number }) {
   const { t } = useLocale();
@@ -85,7 +78,7 @@ export default function NotificationDetailPageClient({ id }: { id: number }) {
           <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-secondary-400">
             <div className="flex gap-1">
               <dt>{t("notifTimeLabel")}：</dt>
-              <dd>{fmtTime(item.createdAt)}</dd>
+              <dd>{formatNotificationTime(item.createdAt)}</dd>
             </div>
             <div className="flex gap-1">
               <dt>{t("notifTypeLabel")}：</dt>

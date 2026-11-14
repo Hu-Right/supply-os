@@ -25,6 +25,7 @@ import {
 } from "@/core/api/notifications";
 import { ConfirmDialog } from "@/shared/ui";
 import { renderNotification } from "@/shared/notifications/renderNotification";
+import { formatNotificationTime } from "@/shared/notifications/formatNotificationTime";
 
 const PAGE_SIZE = 20;
 /** 搜索模式一次拉取的条数（前端过滤，覆盖绝大多数场景） */
@@ -42,14 +43,6 @@ const CATEGORIES: Array<{ key: CategoryKey; labelKey: string; types: string[] | 
   { key: "matched", labelKey: "notifCategoryMatched", types: ["procurement.matched"] },
   { key: "account", labelKey: "notifFilterAccount", types: ["buyer.verified", "buyer.need_info", "buyer.restricted"] },
 ];
-
-function fmtTime(v: string): string {
-  if (!v) return "";
-  const d = new Date(v.includes("T") ? v : v.replace(" ", "T"));
-  if (Number.isNaN(d.getTime())) return v;
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
 
 export default function NotificationsPageClient() {
   const { t } = useLocale();
@@ -299,7 +292,7 @@ export default function NotificationsPageClient() {
                         {r.body && <span className="mt-0.5 block truncate text-xs text-secondary-500">{r.body}</span>}
                       </span>
                       <span className="hidden w-[92px] shrink-0 text-right text-[11px] text-secondary-400 sm:block">
-                        {fmtTime(n.createdAt)}
+                        {formatNotificationTime(n.createdAt)}
                       </span>
                     </Link>
                   </li>

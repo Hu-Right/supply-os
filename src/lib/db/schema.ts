@@ -37,8 +37,12 @@ import { migration as reviewCallbackIdMigration } from "./migrations/018-review-
 import { migration as notificationsPayloadMigration } from "./migrations/019-notifications-payload";
 import { migration as notificationsSoftDeleteMigration } from "./migrations/020-notifications-soft-delete";
 
-/** 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。 */
-const ALL_MIGRATIONS: Migration[] = [
+/**
+ * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
+ * 导出供 `npm run db:migrate`（scripts/tools/apply-migrations.ts）离线应用——
+ * dev server 已启动时 instrumentation 的 schemaPhase 不会重跑，新迁移必须能手动补。
+ */
+export const ALL_MIGRATIONS: Migration[] = [
   notificationsMigration,
   feasibilityReportMigration,
   evidenceFilenameMigration,
