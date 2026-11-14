@@ -10,6 +10,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { BUYER_STATUS } from "@/shared/constants/procurement";
+import { pushNotificationSafe } from "@/lib/services/notifications";
 
 export interface BuyerRow extends RowDataPacket {
   id: number;
@@ -305,6 +306,27 @@ export async function recordBuyerVerification(
     );
 
     await conn.commit();
+
+    // 站内通知（best-effort）：核验结论进铃铛，用户不必反复刷新认证页。
+    // 幂等键带 callbackId（无则用时间戳）：回调重发不会产生第二条通知。
+    const [ownerRows] = await db.query("SELECT user_id FROM procurement_buyers WHERE id = ? LIMIT 1", [
+      input.buyerId,
+    ]);
+    const ownerId = Number((ownerRows as Array<{ user_id: number | null }>)[0]?.user_id ?? 0);
+    if (ownerId) {
+      const nType =
+        status === "verified" ? "buyer.verified" : status === "restricted" ? "buyer.restricted" : "buyer.need_info";
+      await pushNotificationSafe(db, {
+        userId: ownerId,
+        type: nType,
+        title: "",
+        link: "/settings/buyer",
+        refId: input.buyerId,
+        payload: { note: input.note?.trim() || null, status },
+        dedupeKey: `${nType}:${input.buyerId}:${input.callbackId ?? at}`,
+      });
+    }
+
     return { ok: true, verificationId: Number((ins as { insertId?: number }).insertId ?? 0), status };
   } catch (err) {
     await conn.rollback();

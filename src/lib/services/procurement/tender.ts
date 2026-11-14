@@ -19,6 +19,34 @@ import { isAuthorizationVerified } from "./authorization";
 import { isBuyerPublishable } from "./buyers";
 import { generateMatchCandidates } from "./matching";
 import { formatTenderNo } from "./reference";
+import { pushNotificationSafe } from "@/lib/services/notifications";
+
+/**
+ * 给采购方账号发站内通知（best-effort）：查收件人 → 写通知，任何失败只 warn。
+ * `title` 留空 —— 文案由前端按 type + payload 渲染多语言；空值也避免后端拼中文。
+ */
+async function notifyBuyer(
+  db: Pool,
+  buyerId: number,
+  n: { type: string; link: string; refId: number; payload: Record<string, unknown>; dedupeKey: string },
+): Promise<void> {
+  try {
+    const [rows] = await db.query("SELECT user_id FROM procurement_buyers WHERE id = ? LIMIT 1", [buyerId]);
+    const userId = Number((rows as Array<{ user_id: number | null }>)[0]?.user_id ?? 0);
+    if (!userId) return;
+    await pushNotificationSafe(db, {
+      userId,
+      type: n.type,
+      title: "",
+      link: n.link,
+      refId: n.refId,
+      payload: n.payload,
+      dedupeKey: n.dedupeKey,
+    });
+  } catch (err) {
+    console.warn("[procurement] 站内通知写入失败:", (err as Error).message);
+  }
+}
 
 
 export type PublishDecision = "approved" | "rejected";
@@ -309,13 +337,40 @@ export async function applyReviewDecision(
 
     await conn.commit();
 
-    // 发布即匹配（流程第 7 步）：best-effort，失败不影响发布，下轮可补
+    // 结论落库后再发站内通知（best-effort）：通知失败不影响已发布/已退回的事实
+    const refLink = `/rfq/${input.projectId}/publish`;
     if (approved) {
+      await notifyBuyer(db, Number(row.buyer_id), {
+        type: "procurement.published",
+        link: refLink,
+        refId: input.projectId,
+        payload: { reference: String(row.reference), projectId: input.projectId, tenderNo: tenderNo ?? null },
+        dedupeKey: `procurement.published:${input.projectId}:v${input.version}`,
+      });
+
+      // 发布即匹配（流程第 7 步）：best-effort，失败不影响发布，下轮可补
       try {
-        await generateMatchCandidates(db, input.projectId);
+        const count = Number(await generateMatchCandidates(db, input.projectId));
+        if (count > 0) {
+          await notifyBuyer(db, Number(row.buyer_id), {
+            type: "procurement.matched",
+            link: `${refLink}#matches`,
+            refId: input.projectId,
+            payload: { reference: String(row.reference), projectId: input.projectId, count },
+            dedupeKey: `procurement.matched:${input.projectId}:v${input.version}`,
+          });
+        }
       } catch (err) {
         console.warn("[procurement] 匹配候选生成失败（不影响发布）:", (err as Error).message);
       }
+    } else {
+      await notifyBuyer(db, Number(row.buyer_id), {
+        type: "procurement.need_info",
+        link: refLink,
+        refId: input.projectId,
+        payload: { reference: String(row.reference), projectId: input.projectId, reason: input.reason ?? null },
+        dedupeKey: `procurement.need_info:${input.projectId}:v${input.version}`,
+      });
     }
 
     return { ok: true, status: target, version: input.version, ...(tenderNo ? { tenderNo } : {}) };
@@ -442,6 +497,21 @@ export async function expireDueTenders(db: Pool, at = Math.floor(Date.now() / 10
         "UPDATE procurement_tenders SET status = 'closed' WHERE project_id = ? AND status = 'published'",
         [r.id],
       );
+      // 到期关闭也进铃铛：否则需求悄悄下架，采购方不知道报价已截止
+      const [info] = await db.query(
+        "SELECT buyer_id, reference, version_no FROM procurement_projects WHERE id = ? LIMIT 1",
+        [r.id],
+      );
+      const p = (info as Array<{ buyer_id: number; reference: string; version_no: number }>)[0];
+      if (p) {
+        await notifyBuyer(db, Number(p.buyer_id), {
+          type: "procurement.expired",
+          link: `/rfq/${Number(r.id)}/publish`,
+          refId: Number(r.id),
+          payload: { reference: String(p.reference), projectId: Number(r.id) },
+          dedupeKey: `procurement.expired:${Number(r.id)}:v${Number(p.version_no)}`,
+        });
+      }
       closed++;
     }
   }

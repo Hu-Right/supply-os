@@ -34,6 +34,8 @@ import { migration as buyerVerificationCallbackMigration } from "./migrations/01
 import { migration as procurementF01F02CompleteMigration } from "./migrations/016-procurement-f01-f02-complete";
 import { migration as buyerResubmitMigration } from "./migrations/017-buyer-resubmit";
 import { migration as reviewCallbackIdMigration } from "./migrations/018-review-callback-id";
+import { migration as notificationsPayloadMigration } from "./migrations/019-notifications-payload";
+import { migration as notificationsSoftDeleteMigration } from "./migrations/020-notifications-soft-delete";
 
 /** 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。 */
 const ALL_MIGRATIONS: Migration[] = [
@@ -50,6 +52,8 @@ const ALL_MIGRATIONS: Migration[] = [
   procurementF01F02CompleteMigration,
   buyerResubmitMigration,
   reviewCallbackIdMigration,
+  notificationsPayloadMigration,
+  notificationsSoftDeleteMigration,
 ];
 
 /**
