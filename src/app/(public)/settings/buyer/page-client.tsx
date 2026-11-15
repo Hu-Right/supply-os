@@ -28,6 +28,14 @@ import { api } from "@/core/http";
 import { fetchMyBuyerWithVerifications, saveBuyer, type BuyerInfo } from "@/features/procurement-demand/api";
 import { FlowStepper } from "@/features/procurement-demand/FlowStepper";
 import { FileDropzone } from "@/features/procurement-demand/FileDropzone";
+import { ChipToggleGroup, FieldHintTooltip } from "@/shared/ui";
+import {
+  EXTERNAL_RULE_GROUPS,
+  EXTERNAL_RULE_NOTE_MAX,
+  decodeExternalRules,
+  encodeExternalRules,
+  ruleLabelKey,
+} from "@/shared/constants/external-procurement-rules";
 
 export default function PageClient() {
   const { t } = useLocale();
@@ -154,7 +162,6 @@ export default function PageClient() {
 
   const inputCls = "mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none";
   /** 字段说明：告诉用户"为什么需要"，而不是再加一条规则 */
-  const hintCls = "mt-1 block text-[11px] font-normal leading-relaxed text-secondary-400";
   const labelCls = "text-sm font-semibold text-secondary-700 block";
   const f = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
   const roleOptions = ["end_buyer", "authorized_agent", "general_contractor", "intermediary"];
@@ -207,6 +214,9 @@ export default function PageClient() {
   const sectionTitle = (s: string) => (
     <div className="col-span-full mt-2 border-b border-secondary-100 pb-1 text-xs font-bold uppercase tracking-wide text-secondary-400">{s}</div>
   );
+
+  // 外部采购规则：单列字符串 ↔ 多选 code + 自由补充（兼容历史自由文本）
+  const decodedRules = decodeExternalRules(form.externalRules);
 
   return (
     <div className="space-y-4">
@@ -268,30 +278,38 @@ export default function PageClient() {
         <div className="grid gap-4 sm:grid-cols-2">
           {sectionTitle(t("pc_bsec_identity"))}
           <label className={labelCls}>
-            {t("pc_borgname")} *
+            <span className="flex items-center gap-1.5">
+              {t("pc_borgname")} *
+              <FieldHintTooltip label={t("pc_borgname")} content={t("pc_bhint_orgname")} />
+            </span>
             <input value={form.orgName} onChange={(e) => f("orgName", e.target.value)} className={inputCls} />
-            <span className={hintCls}>{t("pc_bhint_orgname")}</span>
             <span className="mt-1 block text-[11px] font-normal leading-relaxed text-amber-600">{t("pc_bhint_orgname_rename")}</span>
           </label>
           <label className={labelCls}>
-            {t("pc_brole")} *
+            <span className="flex items-center gap-1.5">
+              {t("pc_brole")} *
+              <FieldHintTooltip label={t("pc_brole")} content={t("pc_bhint_role")} />
+            </span>
             <select value={form.buyerRole} onChange={(e) => f("buyerRole", e.target.value)} className={inputCls}>
               {roleOptions.map((v) => <option key={v} value={v}>{t(`pc_brole_${v}`)}</option>)}
             </select>
-            <span className={hintCls}>{t("pc_bhint_role")}</span>
           </label>
           <label className={labelCls}>{t("pc_bcountry")} *<input value={form.country} onChange={(e) => f("country", e.target.value)} className={inputCls} /></label>
           <label className={labelCls}>
-            {t("pc_bregno")} *
+            <span className="flex items-center gap-1.5">
+              {t("pc_bregno")} *
+              <FieldHintTooltip label={t("pc_bregno")} content={t("pc_bhint_regno")} />
+            </span>
             <input value={form.regNo} onChange={(e) => f("regNo", e.target.value)} className={inputCls} />
-            <span className={hintCls}>{t("pc_bhint_regno")}</span>
           </label>
           <label className={labelCls}>{t("pc_btaxno")}<input value={form.taxNo} onChange={(e) => f("taxNo", e.target.value)} className={inputCls} /></label>
 
           {sectionTitle(t("pc_bsec_license"))}
           <div className="col-span-full">
-            <div className="mb-1 text-xs font-semibold text-secondary-600">{t("pc_blicense")} *</div>
-            <div className="mb-2 text-[11px] text-secondary-400">{t("pc_bhint_license")}</div>
+            <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-secondary-600">
+              {t("pc_blicense")} *
+              <FieldHintTooltip label={t("pc_blicense")} content={t("pc_bhint_license")} />
+            </div>
             <FileDropzone
               accept=".jpg,.jpeg,.png,.webp,.pdf"
               maxSizeBytes={10 * 1024 * 1024}
@@ -305,20 +323,26 @@ export default function PageClient() {
 
           {sectionTitle(t("pc_bsec_contact"))}
           <label className={labelCls}>
-            {t("pc_bemail")} *
+            <span className="flex items-center gap-1.5">
+              {t("pc_bemail")} *
+              <FieldHintTooltip label={t("pc_bemail")} content={t("pc_bhint_email")} />
+            </span>
             <input value={form.officialEmail} onChange={(e) => f("officialEmail", e.target.value)} className={inputCls} />
-            <span className={hintCls}>{t("pc_bhint_email")}</span>
           </label>
           <label className={labelCls}>{t("pc_bphone")}<input value={form.officialPhone} onChange={(e) => f("officialPhone", e.target.value)} className={inputCls} /></label>
           <label className={labelCls}>
-            {t("pc_bwebsite")}
+            <span className="flex items-center gap-1.5">
+              {t("pc_bwebsite")}
+              <FieldHintTooltip label={t("pc_bwebsite")} content={t("pc_bhint_website")} />
+            </span>
             <input value={form.website} onChange={(e) => f("website", e.target.value)} className={inputCls} />
-            <span className={hintCls}>{t("pc_bhint_website")}</span>
           </label>
           <label className={labelCls}>
-            {t("pc_bauthcontact_name")} *
+            <span className="flex items-center gap-1.5">
+              {t("pc_bauthcontact_name")} *
+              <FieldHintTooltip label={t("pc_bauthcontact_name")} content={t("pc_bhint_contact")} />
+            </span>
             <input value={form.authContactName} onChange={(e) => f("authContactName", e.target.value)} className={inputCls} />
-            <span className={hintCls}>{t("pc_bhint_contact")}</span>
           </label>
           <label className={labelCls}>{t("pc_bauthcontact_phone")}<input value={form.authContactPhone} onChange={(e) => f("authContactPhone", e.target.value)} className={inputCls} /></label>
           <label className={labelCls}>{t("pc_bauthcontact_email")}<input value={form.authContactEmail} onChange={(e) => f("authContactEmail", e.target.value)} className={inputCls} /></label>
@@ -329,7 +353,10 @@ export default function PageClient() {
               界面显示什么和系统在意什么是同一件事，避免"显示了但没人看"。 */}
           {form.buyerRole === "authorized_agent" ? (
             <div className="col-span-full">
-              <div className="mb-2 text-xs font-semibold text-secondary-600">{t("pc_bauthdoc")} * <span className="text-secondary-400">({t("pc_bauthdoc_hint")})</span></div>
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-secondary-600">
+                {t("pc_bauthdoc")} *
+                <FieldHintTooltip label={t("pc_bauthdoc")} content={t("pc_bauthdoc_hint")} />
+              </div>
               <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
                 <a href="/downloads/templates/procurement-agent-authorization-template.docx" download className="text-teal-700 underline">
                   {t("pc_bauthdoc_word")}
@@ -353,11 +380,59 @@ export default function PageClient() {
           )}
 
           {sectionTitle(t("pc_bsec_extra"))}
-          <label className={labelCls + " sm:col-span-2"}>
-            {t("pc_bexternalrules")}
-            <input value={form.externalRules} onChange={(e) => f("externalRules", e.target.value)} className={inputCls} />
-            <span className={hintCls}>{t("pc_bhint_rules")}</span>
-          </label>
+          <div className="col-span-full">
+            <div className="flex items-center gap-1.5">
+              <span className={labelCls}>{t("pc_bexternalrules")}</span>
+              <FieldHintTooltip
+                label={t("pc_bexternalrules")}
+                content={
+                  <div className="space-y-1.5">
+                    <div>{t("pc_brules_help")}</div>
+                    <div className="text-secondary-500">{t("pc_bhint_rules")}</div>
+                  </div>
+                }
+              />
+            </div>
+            {EXTERNAL_RULE_GROUPS.map((group) => (
+              <div key={group.labelKey} className="mt-3">
+                <div className="mb-1.5 text-xs text-secondary-400">{t(group.labelKey)}</div>
+                <ChipToggleGroup
+                  selected={decodedRules.codes}
+                  onToggle={(code) =>
+                    setForm((p) => {
+                      const cur = decodeExternalRules(p.externalRules);
+                      const next = cur.codes.includes(code)
+                        ? cur.codes.filter((c) => c !== code)
+                        : [...cur.codes, code];
+                      return { ...p, externalRules: encodeExternalRules(next, cur.other) };
+                    })
+                  }
+                  items={group.codes.map((code) => ({
+                    value: code,
+                    label: t(ruleLabelKey(code)),
+                  }))}
+                />
+              </div>
+            ))}
+            <label className="mt-3 block">
+              <span className="mb-1 block text-xs font-normal text-secondary-400">{t("pc_brules_other")}</span>
+              <input
+                value={decodedRules.other}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    externalRules: encodeExternalRules(
+                      decodeExternalRules(p.externalRules).codes,
+                      e.target.value,
+                    ),
+                  }))
+                }
+                maxLength={EXTERNAL_RULE_NOTE_MAX}
+                placeholder={t("pc_brules_other_ph")}
+                className={inputCls}
+              />
+            </label>
+          </div>
         </div>
 
         {message && <div className={`mt-4 rounded-lg px-3 py-2 text-xs ${messageCls}`}>{message}</div>}

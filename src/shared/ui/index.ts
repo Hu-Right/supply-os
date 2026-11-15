@@ -82,6 +82,8 @@ export type { ConfirmDialogProps } from "./ConfirmDialog";
 
 export { Tooltip } from "./Tooltip";
 export type { TooltipProps } from "./Tooltip";
+export { FieldHintTooltip } from "./FieldHintTooltip";
+export type { FieldHintTooltipProps } from "./FieldHintTooltip";
 
 export { default as WechatQRModal } from "./WechatQRModal";
 export type { WechatQRModalProps } from "./WechatQRModal";

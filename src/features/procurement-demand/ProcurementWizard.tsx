@@ -1,4 +1,5 @@
 "use client";
+import { FieldHintTooltip } from "@/shared/ui";
 
 /**
  * 采购需求发布向导（全案 F02 六页结构）
@@ -679,7 +680,10 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             <textarea value={form.standards} onChange={(e) => field("standards", e.target.value)} rows={2} className={inputCls} />
           </label>
           <div className={labelCls}>
-            {t("pc_category")} *
+            <span className="flex items-center gap-1.5">
+              {t("pc_category")} *
+              <FieldHintTooltip label={t("pc_category")} content={t("pc_category_hint")} />
+            </span>
             <div className="mt-1 grid gap-2 sm:grid-cols-3">
               <select value={form.categoryL1} onChange={(e) => { field("categoryL1", e.target.value); field("categoryL2", ""); field("categoryL3", ""); }} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm">
                 <option value="">{t("pc_category_l1")}</option>
@@ -694,7 +698,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                 {l3Options.map((o) => <option key={o.key} value={o.key}>{o.nameZh}</option>)}
               </select>
             </div>
-            <p className="mt-1 text-xs text-secondary-400">{t("pc_category_hint")}</p>
           </div>
         </div>
       )}
@@ -727,7 +730,10 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           </button>
 
           <div className={labelCls}>
-            {t("pc_attachments")}
+            <span className="flex items-center gap-1.5">
+              {t("pc_attachments")}
+              <FieldHintTooltip label={t("pc_attachments")} content={t("pc_attachments_hint")} />
+            </span>
             <div className="mt-1">
               <select value={attachKind} onChange={(e) => setAttachKind(e.target.value)} className="mb-2 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm sm:w-64">
                 {ATTACHMENT_KINDS.map((k) => <option key={k} value={k}>{t(`pc_attach_${k}`)}</option>)}
@@ -740,7 +746,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                 onFilesChange={setFiles}
                 onReject={(r) => setError(r === "size" ? t("pc_fz_err_size") : t("pc_fz_err_type"))}
               />
-              <p className="mt-1 text-xs text-secondary-400">{t("pc_attachments_hint")}</p>
             </div>
           </div>
         </div>
@@ -936,10 +941,12 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
       {pdfResult && (
         <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-sm font-bold text-blue-900">{t("pc_extract_title")}</div>
+            <div className="flex items-center gap-1.5 text-sm font-bold text-blue-900">
+              {t("pc_extract_title")}
+              <FieldHintTooltip label={t("pc_extract_title")} content={t("pc_extract_hint")} />
+            </div>
             <div className="text-xs text-blue-700">{t("pc_extract_textlen")} {pdfResult.textLength}</div>
           </div>
-          <p className="mt-1 text-xs text-blue-700">{t("pc_extract_hint")}</p>
           <div className="mt-3 grid gap-2">
             {PDF_FIELDS.filter((f) => String(pdfResult[f.key] ?? "").trim()).map((f) => (
               <label key={f.key} className="flex items-start gap-2 rounded-lg bg-white px-3 py-2 text-xs text-secondary-700">
