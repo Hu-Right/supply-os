@@ -38,6 +38,7 @@ import { migration as notificationsPayloadMigration } from "./migrations/019-not
 import { migration as notificationsSoftDeleteMigration } from "./migrations/020-notifications-soft-delete";
 import { migration as authorizationCallbackMigration } from "./migrations/021-authorization-callback";
 import { migration as buyerFormSlimMigration } from "./migrations/022-buyer-form-slim";
+import { migration as procurementInvitationsMigration } from "./migrations/023-procurement-invitations";
 
 /**
  * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
@@ -62,6 +63,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   notificationsSoftDeleteMigration,
   authorizationCallbackMigration,
   buyerFormSlimMigration,
+  procurementInvitationsMigration,
 ];
 
 /**

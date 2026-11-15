@@ -216,6 +216,43 @@ export async function sendRfqInviteEmail(
   );
 }
 
+/**
+ * 采购需求邀约（procurement_* 分发闭环）：发给匹配到但尚未注册的供应商。
+ *
+ * 与 `sendRfqInviteEmail` 的差别：这条邮件是"站外拉新入口"——收件人可能没有账号，
+ * 所以带一键退订链接（合规），且文案引导"查看需求 → 登录/认领后应标"。
+ */
+export async function sendProcurementInviteEmail(
+  email: string,
+  opts: {
+    title: string;
+    link: string;
+    deadlineText?: string;
+    budgetText?: string;
+    unsubscribeUrl: string;
+  },
+): Promise<void> {
+  const meta = [opts.budgetText ? `预算：${opts.budgetText}` : "", opts.deadlineText ? `截止：${opts.deadlineText}` : ""]
+    .filter(Boolean)
+    .join(" ｜ ");
+  await dispatchEmail(
+    email,
+    "有一条与您业务相关的采购需求",
+    emailShell("有一条与您业务相关的采购需求", `
+      <p>平台按品类与交付地为您匹配到一条采购需求，欢迎查看详情；登录或认领企业后即可应标：</p>
+      <div style="padding: 12px 16px; background: #f8fafc; border-radius: 8px; margin: 12px 0;">
+        <strong>${opts.title}</strong>
+        ${meta ? `<div style="color: #64748b; font-size: 14px; margin-top: 4px;">${meta}</div>` : ""}
+      </div>
+      <p><a href="${opts.link}" style="display:inline-block;padding:10px 18px;background:#0d9488;color:#fff;border-radius:8px;text-decoration:none;">查看需求并应标</a></p>
+      <p style="color: #94a3b8; font-size: 12px; margin-top: 16px;">
+        不想再收到此类匹配邮件？<a href="${opts.unsubscribeUrl}" style="color: #64748b;">点此退订</a>
+      </p>
+    `),
+    "采购需求邀约",
+  );
+}
+
 /** 报价到达：通知采购方收到一条新报价。 */
 export async function sendRfqQuoteReceivedEmail(
   email: string,

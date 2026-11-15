@@ -18,6 +18,7 @@ import type { ProjectRow } from "./projects";
 import { isAuthorizationVerified } from "./authorization";
 import { isBuyerPublishable } from "./buyers";
 import { generateMatchCandidates } from "./matching";
+import { dispatchInvitations } from "./invitations";
 import { formatTenderNo } from "./reference";
 import { pushNotificationSafe } from "@/lib/services/notifications";
 
@@ -106,7 +107,6 @@ interface ProjectLockRow extends RowDataPacket {
   budget_public: number;
   delivery_country: string | null;
   delivery_city: string | null;
-  delivery_province: string | null;
   delivery_address: string | null;
   quote_deadline_at: number | null;
   primary_ugt_code: string | null;
@@ -348,20 +348,36 @@ export async function applyReviewDecision(
         dedupeKey: `procurement.published:${input.projectId}:v${input.version}`,
       });
 
-      // 发布即匹配（流程第 7 步）：best-effort，失败不影响发布，下轮可补
+      // 发布即匹配 → 发布即分发（流程第 7 步）：best-effort，失败不影响发布，下轮可补
       try {
         const count = Number(await generateMatchCandidates(db, input.projectId));
+        // 候选只是"谁可能合适"，真正把需求送到供应商手里的是邀约（站内信 + 邮件）
+        const inv = count > 0
+          ? await dispatchInvitations(db, input.projectId)
+          : { invited: 0, emailed: 0, inapp: 0, skippedCooldown: 0, skippedDuplicate: 0, skippedNoChannel: 0, failed: 0 };
         if (count > 0) {
           await notifyBuyer(db, Number(row.buyer_id), {
             type: "procurement.matched",
             link: `${refLink}#matches`,
             refId: input.projectId,
-            payload: { reference: String(row.reference), projectId: input.projectId, count },
+            payload: {
+              reference: String(row.reference),
+              projectId: input.projectId,
+              count,
+              invited: inv.invited,
+              emailed: inv.emailed,
+              inapp: inv.inapp,
+            },
             dedupeKey: `procurement.matched:${input.projectId}:v${input.version}`,
           });
         }
+        if (inv.failed > 0) {
+          console.warn(
+            `[procurement] 邀约部分失败 project=${input.projectId}: failed=${inv.failed} invited=${inv.invited}`,
+          );
+        }
       } catch (err) {
-        console.warn("[procurement] 匹配候选生成失败（不影响发布）:", (err as Error).message);
+        console.warn("[procurement] 匹配候选生成或邀约分发失败（不影响发布）:", (err as Error).message);
       }
     } else {
       await notifyBuyer(db, Number(row.buyer_id), {
