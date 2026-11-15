@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev --port 3000 --hostname 0.0.0.0",
+    "meili": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev/meili.ps1",
     "build": "next build && npm run check:css-compat && node scripts/tools/copy-standalone-assets.mjs",
     "start": "next start",
     "clean": "node -e \"const fs=require('fs');['dist','server.js'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
