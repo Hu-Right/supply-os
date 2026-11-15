@@ -23,6 +23,8 @@ const globalForMeili = globalThis as unknown as {
   _meiliHealthy: boolean;
   _meiliLastFailureTs: number;
   _meiliFailureStreak: number;
+  /** 上次恢复探测时间（独立于失败时间戳，见 tryRecover 注释） */
+  _meiliLastProbeTs: number;
 };
 
 function getClient(): Meilisearch | null {
@@ -56,6 +58,10 @@ function getLastFailureTs(): number {
 
 function getFailureStreak(): number {
   return globalForMeili._meiliFailureStreak ?? 0;
+}
+
+function getLastProbeTs(): number {
+  return globalForMeili._meiliLastProbeTs ?? 0;
 }
 
 const RECOVER_COOLDOWN_MS = 10_000;
@@ -123,8 +129,14 @@ export async function tryRecover(): Promise<boolean> {
   if (isHealthy()) return true;
   const client = getClient();
   if (!client) return false;
-  // 冷却期内不探测
-  if (Date.now() - getLastFailureTs() < RECOVER_COOLDOWN_MS) return false;
+  // [2026-11-15 事故] 冷却原本复用 markUnhealthy 写的失败时间戳，于是每次失败
+  // 都把「下次可探测」往后推 10 秒：降级期间只要还有别的失败源（后台同步、
+  // 并发搜索）在刷新该时间戳，探测就永远进不来，健康位再也翻不回去——本机实测
+  // Meilisearch 晚起 4 分钟，之后 45 分钟一次都没恢复，只能重启应用。
+  // 改为独立记录「上次探测时间」：探测按固定节奏进行，不被失败事件饿死。
+  const now = Date.now();
+  if (now - getLastProbeTs() < RECOVER_COOLDOWN_MS) return false;
+  globalForMeili._meiliLastProbeTs = now;
   try {
     // M-DEG-1 修复：健康探测增加独立短超时，避免 Meilisearch 进程崩溃时
     // TCP 连接等待 30s 才超时，阻塞搜索降级路径
@@ -140,8 +152,9 @@ export async function tryRecover(): Promise<boolean> {
       console.log("[meilisearch] 运行时探测恢复成功，重新启用 Meilisearch 搜索");
     }
     return nowHealthy;
-  } catch {
-    globalForMeili._meiliLastFailureTs = Date.now();
+  } catch (err) {
+    // 打印原因：旧实现静默吞掉，事故期间无法从日志区分「服务没起」与「鉴权/网络不对」
+    console.warn(`[meilisearch] 恢复探测失败，继续降级 MySQL：${(err as Error).message}`);
     return false;
   }
 }

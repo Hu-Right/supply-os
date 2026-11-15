@@ -164,10 +164,15 @@ export async function register() {
         const { initMeilisearch, ensureIndex } = await import("./lib/services/meilisearch/index");
         const client = initMeilisearch();
         if (!client) return;
-        const ok = await ensureIndex();
-        if (!ok) {
-          console.warn("[meilisearch] 索引未就绪，搜索将降级到 MySQL FULLTEXT");
-          return;
+        // [2026-11-15 事故] 就绪检查失败不再 return 掉整条同步链路。
+        // Meilisearch 常常比应用晚起（本机实测晚 4 分钟：dev server 14:37 起、
+        // meili 14:41 起），旧实现在这里 return 后 startSearchSync 从未注册，
+        // 健康位再没人翻转 → 搜索永久降级 MySQL（实测一次搜索 32 秒且返回 0 条），
+        // 只能靠重启应用恢复。现在无论就绪与否都启动循环，由循环内每 5 秒的
+        // tryRecover() 在服务到位后自动接上。
+        const ready = await ensureIndex();
+        if (!ready) {
+          console.warn("[meilisearch] 启动时索引未就绪，搜索先降级；同步循环照常启动，服务恢复后自动接上");
         }
         const { startSearchSync } = await import("./lib/services/search-sync/index");
         const { startSyncRetryQueue } = await import("./lib/services/search-sync/sync-retry-queue");
