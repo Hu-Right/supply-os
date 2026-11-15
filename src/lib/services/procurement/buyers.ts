@@ -16,23 +16,13 @@ export interface BuyerRow extends RowDataPacket {
   id: number;
   user_id: number;
   org_name: string;
-  org_type: string;
   buyer_role: string;
   country: string | null;
-  address: string | null;
   reg_no: string | null;
   tax_no: string | null;
   website: string | null;
   official_email: string | null;
   official_phone: string | null;
-  leader_name: string | null;
-  leader_title: string | null;
-  leader_phone: string | null;
-  leader_email: string | null;
-  deliver_country: string | null;
-  deliver_city: string | null;
-  fund_source: string | null;
-  budget_status: string | null;
   external_rules: string | null;
   license_file_key: string | null;
   license_file_hash: string | null;
@@ -41,7 +31,6 @@ export interface BuyerRow extends RowDataPacket {
   auth_contact_name: string | null;
   auth_contact_phone: string | null;
   auth_contact_email: string | null;
-  procurement_experience: string | null;
   status: string;
   /** 最后一次进入待核验队列的时间（unix 秒）；pending 重复保存不刷新 */
   submitted_at: number | null;
@@ -55,23 +44,13 @@ export interface BuyerRow extends RowDataPacket {
 /** 主体资料可编辑字段（状态/核验字段不在此列，由核验通道回写） */
 const EDITABLE_COLUMNS = [
   "org_name",
-  "org_type",
   "buyer_role",
   "country",
-  "address",
   "reg_no",
   "tax_no",
   "website",
   "official_email",
   "official_phone",
-  "leader_name",
-  "leader_title",
-  "leader_phone",
-  "leader_email",
-  "deliver_country",
-  "deliver_city",
-  "fund_source",
-  "budget_status",
   "external_rules",
   "license_file_key",
   "license_file_hash",
@@ -80,7 +59,6 @@ const EDITABLE_COLUMNS = [
   "auth_contact_name",
   "auth_contact_phone",
   "auth_contact_email",
-  "procurement_experience",
 ] as const;
 
 export async function getBuyerByUserId(db: Pool, userId: number): Promise<BuyerRow | null> {

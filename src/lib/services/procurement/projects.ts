@@ -38,7 +38,6 @@ export interface ProjectRow extends RowDataPacket {
   budget_approved: string | null;
   delivery_country: string | null;
   delivery_city: string | null;
-  delivery_province: string | null;
   delivery_address: string | null;
   deadline_date: string | null;
   install_needs: string | null;
@@ -55,7 +54,6 @@ export interface ProjectRow extends RowDataPacket {
   compliance: string | null;
   authorize_publish: number;
   contact_disclosure: string;
-  procurement_mode: string;
   primary_ugt_code: string | null;
   requirement_verify: string;
   fund_verify: string;

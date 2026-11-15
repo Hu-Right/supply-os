@@ -75,10 +75,11 @@ export default function PageClient() {
           country: b.country, regNo: b.regNo, taxNo: b.taxNo,
           website: b.website, officialEmail: b.officialEmail, officialPhone: b.officialPhone,
           externalRules: b.externalRules,
-          // 联系人已合并：优先 auth_contact_*；老数据由迁移 022 从 leader_* 回填，这里再兜一次
-          authContactName: b.authContactName || b.leaderName || "",
-          authContactPhone: b.authContactPhone || b.leaderPhone || "",
-          authContactEmail: b.authContactEmail || b.leaderEmail || "",
+          // 联系人已合并到 auth_contact_*：老数据由迁移 022 从 leader_* 回填，
+          // leader_* 已随结构收敛退役，前端不再兜底
+          authContactName: b.authContactName || "",
+          authContactPhone: b.authContactPhone || "",
+          authContactEmail: b.authContactEmail || "",
         }));
       }
     } finally {

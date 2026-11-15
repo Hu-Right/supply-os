@@ -66,23 +66,13 @@ export const PUT = withRoute(async (req: NextRequest) => {
       userId: auth.userId,
       fields: {
         org_name: orgName,
-        org_type: body.orgType,
         buyer_role: body.buyerRole,
         country: body.country,
-        address: body.address,
         reg_no: body.regNo,
         tax_no: body.taxNo,
         website: body.website,
         official_email: body.officialEmail,
         official_phone: body.officialPhone,
-        leader_name: body.leaderName,
-        leader_title: body.leaderTitle,
-        leader_phone: body.leaderPhone,
-        leader_email: body.leaderEmail,
-        deliver_country: body.deliverCountry,
-        deliver_city: body.deliverCity,
-        fund_source: body.fundSource,
-        budget_status: body.budgetStatus,
         external_rules: body.externalRules,
         ...(body.licenseFileKey !== undefined || body.license_file_key !== undefined
           ? { license_file_key: body.licenseFileKey ?? body.license_file_key }
@@ -95,7 +85,6 @@ export const PUT = withRoute(async (req: NextRequest) => {
         ...(body.authContactName !== undefined ? { auth_contact_name: body.authContactName } : {}),
         ...(body.authContactPhone !== undefined ? { auth_contact_phone: body.authContactPhone } : {}),
         ...(body.authContactEmail !== undefined ? { auth_contact_email: body.authContactEmail } : {}),
-        ...(body.procurementExperience !== undefined ? { procurement_experience: body.procurementExperience } : {}),
       },
     });
     const row = await getBuyerByUserId(getPool(), auth.userId);

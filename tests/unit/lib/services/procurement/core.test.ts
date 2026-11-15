@@ -128,16 +128,16 @@ describe("buyers — 主体 upsert 与发布闸", () => {
     expect(update()?.sql).toContain("submitted_at = ?");
   });
 
-  it("已核验主体只改地址 → 保持 verified，不刷新 submitted_at", async () => {
+  it("已核验主体只改官网 → 保持 verified，不刷新 submitted_at", async () => {
     const { db, update } = capturePool(buyerRow({ status: "verified" }));
-    const r = await upsertBuyer(db, { userId: 42, at: NOW, fields: { address: "西安市高新区" } });
+    const r = await upsertBuyer(db, { userId: 42, at: NOW, fields: { website: "https://new.example.org" } });
     expect(r.status).toBe("verified");
     expect(update()?.sql).not.toContain("submitted_at = ?");
   });
 
   it("pending 重复保存 → 不刷新 submitted_at（避免把队尾刷成队首）", async () => {
     const { db, update } = capturePool(buyerRow({ status: "pending", submitted_at: 1_000 }));
-    const r = await upsertBuyer(db, { userId: 42, at: NOW, fields: { address: "西安市高新区" } });
+    const r = await upsertBuyer(db, { userId: 42, at: NOW, fields: { website: "https://new.example.org" } });
     expect(r.status).toBe("pending");
     expect(update()?.sql).not.toContain("submitted_at = ?");
   });

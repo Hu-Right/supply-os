@@ -48,7 +48,7 @@ export function buildProjectionRow(src: ProjectionSource, publishedAtSec: number
     title: row.title_zh,
     description: src.description,
     country: row.delivery_country || "China",
-    province_name: row.delivery_province ?? row.delivery_city ?? null,
+    province_name: row.delivery_city ?? null,
     category_code: row.primary_ugt_code ?? null,
     notice_type: "RFQ",
     deadline: formatShanghaiDate(row.quote_deadline_at),
