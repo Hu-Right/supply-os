@@ -1,5 +1,4 @@
 {
-  "tlRegisterModalTitle": "التسجيل في الورشة",
   "tlPaymentModalTitle": "دفع رسوم الورشة",
   "tlPaymentParticipants": "عدد المشاركين",
   "tlPaymentWaiting": "يرجى المسح للدفع",
@@ -28,7 +27,6 @@
   "mobileNavFaq": "أسئلة",
   "mobileNavEnroll": "سجّل الآن",
   "mobileNavConsult": "استشاري",
-  "tlFootBrand": "Yunjing Zhizhan · دورة المشتريات العامة الدولية",
   "tlFootBrandCourse": "دورة عملية في المشتريات العامة الدولية",
   "tlHeroSubtitle": "رؤية الطلبات · فهم القواعد · دعم العطاءات · مرافقة خفيفة",
   "tlHeroDesc": "لشركات التجارة الخارجية والمصانع وشركات التداول ومؤسسات الخدمات: تعلّم منهجي لقواعد ومسارات الحصول على الطلبات وتقديم العطاءات وأساليب العمل في مشتريات الأمم المتحدة والمشتريات العامة الدولية.",
@@ -175,8 +173,6 @@
   "tlParticipantGenderOther": "آخر",
   "tlParticipantPhoneLabel": "الهاتف",
   "tlParticipantPhonePlaceholder": "رقم الهاتف",
-  "tlParticipantCompanyLabel": "الشركة",
-  "tlParticipantCompanyPlaceholder": "اسم الشركة",
   "tlParticipantPositionLabel": "المنصب",
   "tlParticipantPositionPlaceholder": "مثال: مدير المشتريات",
   "tlParticipantEmailLabel": "البريد الإلكتروني",

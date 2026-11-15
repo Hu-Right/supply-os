@@ -1,5 +1,4 @@
 {
-  "tlRegisterModalTitle": "Inscrição na oficina",
   "tlPaymentModalTitle": "Pagamento do valor da oficina",
   "tlPaymentParticipants": "Participantes",
   "tlPaymentWaiting": "Escaneie para pagar",
@@ -28,7 +27,6 @@
   "mobileNavFaq": "FAQ",
   "mobileNavEnroll": "Participe",
   "mobileNavConsult": "Consultor",
-  "tlFootBrand": "Yunjing Zhizhan · Curso de compras públicas internacionais",
   "tlFootBrandCourse": "Curso prático de compras públicas internacionais",
   "tlHeroSubtitle": "Ver pedidos · Entender regras · Apoiar licitações · Acompanhamento leve",
   "tlHeroDesc": "Para empresas de comércio exterior, fábricas, trading companies e agências: aprender de forma sistemática as regras, rotas de pedidos, apresentação de propostas e métodos práticos das compras públicas da ONU e internacionais.",
@@ -175,8 +173,6 @@
   "tlParticipantGenderOther": "Outro",
   "tlParticipantPhoneLabel": "Telefone",
   "tlParticipantPhonePlaceholder": "Número de telefone",
-  "tlParticipantCompanyLabel": "Empresa",
-  "tlParticipantCompanyPlaceholder": "Nome da empresa",
   "tlParticipantPositionLabel": "Cargo",
   "tlParticipantPositionPlaceholder": "ex.: Gerente de compras",
   "tlParticipantEmailLabel": "E-mail",

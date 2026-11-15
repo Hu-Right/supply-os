@@ -1,5 +1,4 @@
 {
-  "tlRegisterModalTitle": "Workshop Registration",
   "tlPaymentModalTitle": "Workshop Fee Payment",
   "tlPaymentParticipants": "Participants",
   "tlPaymentWaiting": "Please scan to pay",
@@ -28,7 +27,6 @@
   "mobileNavFaq": "FAQ",
   "mobileNavEnroll": "Enroll",
   "mobileNavConsult": "Consult",
-  "tlFootBrand": "Yunjing Zhizhan · International Public Procurement Training Class",
   "tlFootBrandCourse": "International Public Procurement Practical Training Class",
   "tlHeroSubtitle": "See orders · Understand rules · Assist bidding · Light accompaniment",
   "tlHeroDesc": "For foreign-trade enterprises, factories, trading companies and overseas service agencies: systematically learn the underlying rules, sourcing paths, bid submission and practical methods of UN and international public procurement.",
@@ -175,8 +173,6 @@
   "tlParticipantGenderOther": "Other",
   "tlParticipantPhoneLabel": "Phone",
   "tlParticipantPhonePlaceholder": "Phone number",
-  "tlParticipantCompanyLabel": "Company",
-  "tlParticipantCompanyPlaceholder": "Company name",
   "tlParticipantPositionLabel": "Position",
   "tlParticipantPositionPlaceholder": "e.g. Procurement Manager",
   "tlParticipantEmailLabel": "Email",

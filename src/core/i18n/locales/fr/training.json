@@ -1,5 +1,4 @@
 {
-  "tlRegisterModalTitle": "Inscription à l'atelier",
   "tlPaymentModalTitle": "Paiement des frais de l'atelier",
   "tlPaymentParticipants": "Participants",
   "tlPaymentWaiting": "Veuillez scanner pour payer",
@@ -28,7 +27,6 @@
   "mobileNavFaq": "FAQ",
   "mobileNavEnroll": "Inscrire",
   "mobileNavConsult": "Conseil",
-  "tlFootBrand": "Yunjing Zhizhan · Formation aux achats publics internationaux",
   "tlFootBrandCourse": "Formation pratique aux achats publics internationaux",
   "tlHeroSubtitle": "Voir les commandes · Comprendre les règles · Appuyer les offres · Accompagnement léger",
   "tlHeroDesc": "Destinée aux entreprises du commerce extérieur, usines, sociétés de négoce et prestataires : apprendre systématiquement les règles, les chemins d'accès aux commandes, la soumission et les méthodes pratiques des achats publics de l'ONU et internationaux.",
@@ -175,8 +173,6 @@
   "tlParticipantGenderOther": "Autre",
   "tlParticipantPhoneLabel": "Téléphone",
   "tlParticipantPhonePlaceholder": "Numéro de téléphone",
-  "tlParticipantCompanyLabel": "Entreprise",
-  "tlParticipantCompanyPlaceholder": "Nom de l'entreprise",
   "tlParticipantPositionLabel": "Poste",
   "tlParticipantPositionPlaceholder": "ex. Responsable achats",
   "tlParticipantEmailLabel": "E-mail",

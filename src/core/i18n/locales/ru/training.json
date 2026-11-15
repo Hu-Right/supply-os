@@ -1,5 +1,4 @@
 {
-  "tlRegisterModalTitle": "Запись на практикум",
   "tlPaymentModalTitle": "Оплата стоимости практикума",
   "tlPaymentParticipants": "Число участников",
   "tlPaymentWaiting": "Отсканируйте для оплаты",
@@ -28,7 +27,6 @@
   "mobileNavFaq": "Вопросы",
   "mobileNavEnroll": "Запись",
   "mobileNavConsult": "Контакт",
-  "tlFootBrand": "Yunjing Zhizhan · Практикум по международным госзакупкам",
   "tlFootBrandCourse": "Практический курс по международным госзакупкам",
   "tlHeroSubtitle": "Видеть заказы · Понимать правила · Помогать в торгах · Лёгкое сопровождение",
   "tlHeroDesc": "Для внешнеторговых компаний, фабрик, трейдеров и сервисных агентств: системно изучаем правила, пути получения заказов, подачу заявок и практику закупок ООН и международных госзакупок.",
@@ -175,8 +173,6 @@
   "tlParticipantGenderOther": "Другой",
   "tlParticipantPhoneLabel": "Телефон",
   "tlParticipantPhonePlaceholder": "Номер телефона",
-  "tlParticipantCompanyLabel": "Компания",
-  "tlParticipantCompanyPlaceholder": "Название компании",
   "tlParticipantPositionLabel": "Должность",
   "tlParticipantPositionPlaceholder": "напр. Менеджер по закупкам",
   "tlParticipantEmailLabel": "Эл. почта",
