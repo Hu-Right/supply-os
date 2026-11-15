@@ -205,17 +205,22 @@ export { isWideTableReady } from "../search-common/wide-table-readiness";
  *
  * 三个独立定时器：
  * - 增量同步（5 秒）：拉取新行写入宽表（主键水位轻扫描，[阶段0 S3] 从 30 秒缩短至 5 秒）
- * - deadline 对账（60 秒）：检测旧行 deadline 投影陈旧并修复
- * - 全量对账（5 分钟）：①服务表增量重建 + ghost 行清理 + 平台可见性集合差 + 源指纹轮转
+ * - deadline 对账（10 分钟）：检测旧行 deadline 投影陈旧并修复
+ * - 全量对账（30 分钟）：①服务表增量重建 + ghost 行清理 + 平台可见性集合差 + 源指纹轮转
  *
  * 分离原因：
  * - deadline_sec 变更来自外部数据管道（批量导入），日常极少发生
  * - ghost 行清理和 is_featured 对账需要 JOIN 查询，降频执行避免资源浪费
+ *
+ * [2026-11-15 事故] deadline 对账周期原为 60 秒，而单轮在 96 万行 `bid_notices`
+ * × 53 万行 `notice_search` 上的无索引不等式全表 JOIN 实测 80 秒以上——单飞闸
+ * 实际退化为「一轮接一轮常驻」，把业务连接池吃干导致登录请求挂死。现降为
+ * 10/30 分钟，并由调用方传入独立的 getSyncPool()（2 连接）与业务池隔离。
  */
 export function startWideTableSync(pool: Pool, options: { intervalMs?: number; reconcileIntervalMs?: number; fullReconcileIntervalMs?: number } = {}): () => void {
   const intervalMs = options.intervalMs ?? 5 * 1000;
-  const reconcileIntervalMs = options.reconcileIntervalMs ?? 60 * 1000;
-  const fullReconcileIntervalMs = options.fullReconcileIntervalMs ?? 5 * 60 * 1000; // 5 分钟
+  const reconcileIntervalMs = options.reconcileIntervalMs ?? 10 * 60 * 1000;
+  const fullReconcileIntervalMs = options.fullReconcileIntervalMs ?? 30 * 60 * 1000;
   let stopped = false;
   let watermark = 0;
   let initDone = false;

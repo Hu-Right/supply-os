@@ -90,7 +90,7 @@ export async function register() {
     }
   }
 
-  const { getPool } = await import("./lib/db/pool");
+  const { getPool, getSyncPool } = await import("./lib/db/pool");
   const { getContext } = await import("./lib/db/context");
   const {
     schemaPhase,
@@ -103,6 +103,8 @@ export async function register() {
   const { startBackgroundTasks, registerShutdownHooks } = await import("./lib/lifecycle/background");
 
   const dbPool: Pool = getPool();
+  // 后台同步专用池（2 连接）：所有定时任务只用它，永不与 HTTP 请求争业务池连接
+  const syncPool: Pool = getSyncPool();
 
   // ── 阶段 0：等待数据库就绪 ──
   // 服务器开机时 mysqld 与 PM2 拉起的应用几乎同时启动，而 InnoDB crash recovery
@@ -169,8 +171,8 @@ export async function register() {
         }
         const { startSearchSync } = await import("./lib/services/search-sync/index");
         const { startSyncRetryQueue } = await import("./lib/services/search-sync/sync-retry-queue");
-        stops.push(startSearchSync(dbPool, { intervalMs: 5 * 1000 }));
-        stops.push(startSyncRetryQueue(dbPool));
+        stops.push(startSearchSync(syncPool, { intervalMs: 5 * 1000 }));
+        stops.push(startSyncRetryQueue(syncPool));
       } catch (e) {
         console.warn("[meilisearch] 初始化失败（静默降级）:", (e as Error).message);
       }
@@ -178,9 +180,11 @@ export async function register() {
   }
 
   if (String(process.env.SYNC_WORKER_IN_APP ?? "on").toLowerCase() !== "off") {
-    // 宽表增量同步（水位扫描，同时补偿内存同步队列的进程重启丢失）
+    // [2026-11-15 事故根治] 宽表同步改走独立小池（syncPool，2 连接）：
+    // deadline 对账是无索引全表 JOIN（96 万 × 53 万，单轮 80 秒+），与 HTTP 请求
+    // 共用业务池会把它吃满 → 登录请求无限排队挂死。现后台与业务互不侵占。
     const { startWideTableSync } = await import("./lib/services/search-sync/index");
-    stops.push(startWideTableSync(dbPool, { intervalMs: 5 * 1000 }));
+    stops.push(startWideTableSync(syncPool, { intervalMs: 5 * 1000 }));
 
     // 爬虫库 → 主表增量同步：应用内 crawler-sync 已于 2026-11-13 摘除（用户拍板：
     // 同步唯一入口 = scripts/tools/daily-sync.cjs，消除双写入者）。主表落库后的
@@ -196,8 +200,9 @@ export async function register() {
     console.log("[instrumentation] SYNC_WORKER_IN_APP=off：二档同步任务未在本进程启动（预期由独立 worker 承担）");
   }
 
-  // 启动第一档后台任务
-  const backgroundHandle = startBackgroundTasks(dbPool);
+  // 启动第一档后台任务（同样只走 syncPool：清理类任务在 96 万行表上同样是分钟级，
+  // 让它与 HTTP 请求共享业务池会把「偶尔慢」放大成「登录排队」）
+  const backgroundHandle = startBackgroundTasks(syncPool);
 
   // 预热（后台异步，不阻塞）
   void runWarmup({ dbPool, directoryRepo: ctx.supplier.directoryRepo }).catch((e) =>
