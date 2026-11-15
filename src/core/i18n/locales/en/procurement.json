@@ -1116,5 +1116,7 @@
   "pc_bhint_website": "Optional. Only used to cross-check your email domain; leave empty to skip that check.",
   "pc_bhint_contact": "The single contact reviewers use when they need documents or clarification.",
   "pc_bhint_rules": "Optional. If World Bank / UN / government procurement rules apply, this escalates to manual compliance review.",
-  "pc_bauthdoc_na": "You are the end buyer, so no agent-authorization document is needed — it is required only for authorized agents."
+  "pc_bauthdoc_na": "You are the end buyer, so no agent-authorization document is needed — it is required only for authorized agents.",
+  "pc_gone_title": "This procurement request no longer exists",
+  "pc_gone_desc": "It may have been withdrawn or deleted, or the link has expired."
 }

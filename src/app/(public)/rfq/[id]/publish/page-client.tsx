@@ -66,18 +66,28 @@ export default function PublishFlowPageClient({ projectId }: { projectId: number
   const router = useRouter();
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  /**
+   * 加载失败态。区分「目标已不存在」与「临时故障」：
+   * 404 重试一万次也还是 404（通知深链指向已撤回/删除的需求就会撞到），
+   * 这时只该给「回到我的采购项目」；网络抖动才给「重试」。
+   */
+  const [loadError, setLoadError] = useState<{ message: string; gone: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   /** 撤回二次确认（用统一 ConfirmDialog，不再 window.confirm） */
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
 
   const load = useCallback(async () => {
-    setLoadError("");
+    setLoadError(null);
     try {
       setDetail(await fetchProject(projectId));
     } catch (err) {
-      setLoadError((err as Error).message || t("pc_load_failed"));
+      setLoadError({
+        message: (err as Error).message || t("pc_load_failed"),
+        // 按 status 判而不是 instanceof：ApiError 可能来自不同模块实例
+        // （测试替身 / 多份 chunk），instanceof 会漏判成「临时故障」。
+        gone: (err as { status?: number }).status === 404,
+      });
     } finally {
       setLoading(false);
     }
@@ -116,18 +126,31 @@ export default function PublishFlowPageClient({ projectId }: { projectId: number
   }
 
   if (loadError || !detail) {
+    const gone = loadError?.gone === true;
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <p className="text-sm text-secondary-600">{loadError || t("pc_load_failed")}</p>
-        <div className="mt-4 flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+        <p className="text-sm font-semibold text-secondary-700">
+          {gone ? t("pc_gone_title") : loadError?.message || t("pc_load_failed")}
+        </p>
+        {gone && <p className="mt-1.5 text-xs text-secondary-500">{t("pc_gone_desc")}</p>}
+        <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          {!gone && (
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+            >
+              {t("pc_retry")}
+            </button>
+          )}
+          <Link
+            href="/settings/rfq"
+            className={
+              gone
+                ? "rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+                : "text-sm text-teal-700 underline"
+            }
           >
-            {t("pc_retry")}
-          </button>
-          <Link href="/settings/rfq" className="text-sm text-teal-700 underline">
             {t("pc_wb_title")}
           </Link>
         </div>

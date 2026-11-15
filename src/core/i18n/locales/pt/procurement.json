@@ -1116,5 +1116,7 @@
   "pc_bhint_website": "Opcional. Serve apenas para conferir o domínio do e-mail; se vazio, a checagem é ignorada.",
   "pc_bhint_contact": "O único contato usado pelos revisores para pedir documentos ou esclarecimentos.",
   "pc_bhint_rules": "Opcional. Se valerem regras do Banco Mundial / ONU / compras públicas, vai para revisão manual.",
-  "pc_bauthdoc_na": "Você é o comprador final: não é necessário documento de procuração, apenas para agentes autorizados."
+  "pc_bauthdoc_na": "Você é o comprador final: não é necessário documento de procuração, apenas para agentes autorizados.",
+  "pc_gone_title": "Esta demanda de compra não existe mais",
+  "pc_gone_desc": "Ela pode ter sido retirada ou excluída, ou o link expirou."
 }

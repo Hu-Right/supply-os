@@ -1116,5 +1116,7 @@
   "pc_bhint_website": "Opcional. Solo sirve para contrastar el dominio del correo; si se deja vacío no se comprueba.",
   "pc_bhint_contact": "El único contacto que usan los revisores para pedir documentos o aclaraciones.",
   "pc_bhint_rules": "Opcional. Si aplican normas del Banco Mundial / ONU / contratación pública, pasa a revisión manual.",
-  "pc_bauthdoc_na": "Usted es el comprador final: no se requiere poder, solo para agentes autorizados."
+  "pc_bauthdoc_na": "Usted es el comprador final: no se requiere poder, solo para agentes autorizados.",
+  "pc_gone_title": "Esta demanda de compra ya no existe",
+  "pc_gone_desc": "Puede haber sido retirada o eliminada, o el enlace ha caducado."
 }

@@ -1116,5 +1116,7 @@
   "pc_bhint_website": "Facultatif. Sert uniquement à recouper le domaine de l'e-mail ; laissez vide pour ignorer ce contrôle.",
   "pc_bhint_contact": "Le contact unique utilisé par les vérificateurs pour demander des pièces ou des précisions.",
   "pc_bhint_rules": "Facultatif. Si des règles Banque mondiale / ONU / marchés publics s'appliquent, cela déclenche une revue conformité.",
-  "pc_bauthdoc_na": "Vous êtes l'acheteur final : aucun mandat n'est requis — il ne l'est que pour les agents mandatés."
+  "pc_bauthdoc_na": "Vous êtes l'acheteur final : aucun mandat n'est requis — il ne l'est que pour les agents mandatés.",
+  "pc_gone_title": "Cette demande d'achat n'existe plus",
+  "pc_gone_desc": "Elle a peut-être été retirée ou supprimée, ou le lien a expiré."
 }
