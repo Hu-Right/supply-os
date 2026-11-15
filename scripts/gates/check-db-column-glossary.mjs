@@ -75,6 +75,12 @@ const FROZEN_SUFFIX = new Set([
   "procurement_buyers.submitted_at",
   "procurement_buyers.updated_at",
   "procurement_buyers.verified_at",
+  // 迁移 023 的邀约表：该表 2026-11-15 随基线重导首次进入扫描范围（此前 baseline 缺此表，
+  // 门禁一直扫不到它）。沿用同域 INT epoch 秒口径，按既有做法登记冻结而非单独改名——
+  // 改名需同步 023 DDL + invitations 服务层 + 落地页/退订链路，属同一独立批次。
+  "procurement_invitations.responded_at",
+  "procurement_invitations.sent_at",
+  "procurement_invitations.viewed_at",
   "procurement_items.created_at",
   "procurement_lots.created_at",
   "procurement_matches.created_at",

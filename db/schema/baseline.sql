@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 139 张，导出 124 张，排除 15 张。
+--           源库共 140 张，导出 125 张，排除 15 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -1180,7 +1180,8 @@ CREATE TABLE `notice_public` (
   KEY `idx_deadline` (`deadline_ts`),
   KEY `idx_country_type` (`country_code`,`notice_type_code`),
   KEY `idx_deadline_state_ts` (`deadline_state`,`deadline_ts`),
-  KEY `idx_np_active` (`deadline_state`,`deadline_ts`,`title`(64))
+  KEY `idx_np_active` (`deadline_state`,`deadline_ts`,`title`(64)),
+  KEY `idx_public_published` (`published_ts`,`notice_pk`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
 
 -- ── notice_requirement_items ──
@@ -1317,7 +1318,7 @@ CREATE TABLE `notice_translations` (
 CREATE TABLE `notifications` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int unsigned NOT NULL COMMENT '收件人 user_id',
-  `type` varchar(32) NOT NULL COMMENT '类型：rfq_new/rfq_quoted/rfq_won 等',
+  `type` varchar(48) NOT NULL COMMENT '类型：procurement.* / buyer.* / 系统广播',
   `title` varchar(200) NOT NULL COMMENT '标题',
   `body` varchar(500) DEFAULT NULL COMMENT '正文摘要',
   `link` varchar(200) DEFAULT NULL COMMENT '跳转链接，如 /rfq/{id}',
@@ -1326,6 +1327,7 @@ CREATE TABLE `notifications` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `payload` json DEFAULT NULL COMMENT '通知参数（前端按 type 渲染 i18n 文案）',
   `dedupe_key` varchar(96) DEFAULT NULL COMMENT '事件幂等键（如 procurement.published:123:v2）；NULL=不参与去重',
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删时间；非空=用户已删除（读路径统一过滤）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_notif_dedupe` (`dedupe_key`),
   KEY `idx_notif_user` (`user_id`,`is_read`,`id`)
@@ -1585,7 +1587,9 @@ CREATE TABLE `procurement_authorizations` (
   `reject_reason` varchar(255) DEFAULT NULL COMMENT '核验拒绝原因',
   `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
   `updated_at` int unsigned NOT NULL COMMENT '更新时间（秒）',
+  `callback_id` varchar(64) DEFAULT NULL COMMENT '核验回调幂等键（X-Review-Request-Id）；NULL=历史直写数据',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_pauth_callback` (`project_id`,`version_no`,`callback_id`),
   KEY `idx_pauth_project` (`project_id`,`version_no`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='发布授权书（流程第4/5步）：系统生成带编号授权书→签字盖章上传→在线确认→云境核验';
 
@@ -1602,8 +1606,7 @@ CREATE TABLE `procurement_buyer_verifications` (
   `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
   `callback_id` varchar(64) DEFAULT NULL COMMENT '核验回调幂等键（X-Review-Request-Id）',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_buyer_verify_callback` (`buyer_id`,`callback_id`),
-  KEY `idx_pbv_buyer` (`buyer_id`,`kind`)
+  UNIQUE KEY `uq_buyer_verify_callback` (`buyer_id`,`callback_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购方核验留痕：每次核验独立成行，可追溯证据与结论';
 
 -- ── procurement_buyers ──
@@ -1611,23 +1614,13 @@ CREATE TABLE `procurement_buyers` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int unsigned NOT NULL COMMENT '平台账号（一个账号一个采购主体）',
   `org_name` varchar(255) NOT NULL COMMENT '采购主体完整法定名称',
-  `org_type` varchar(32) NOT NULL DEFAULT 'private' COMMENT '主体类型：government/international_org/ngo/state_owned/private/trader/epc/agent',
   `buyer_role` varchar(32) NOT NULL DEFAULT 'end_buyer' COMMENT '采购权限：end_buyer/authorized_agent/general_contractor/intermediary',
   `country` varchar(80) DEFAULT NULL COMMENT '注册国家',
-  `address` varchar(500) DEFAULT NULL COMMENT '注册地址',
   `reg_no` varchar(120) DEFAULT NULL COMMENT '注册号码',
   `tax_no` varchar(120) DEFAULT NULL COMMENT '税务编号',
   `website` varchar(255) DEFAULT NULL COMMENT '官方网站',
   `official_email` varchar(200) DEFAULT NULL COMMENT '企业邮箱',
   `official_phone` varchar(50) DEFAULT NULL COMMENT '联系电话',
-  `leader_name` varchar(120) DEFAULT NULL COMMENT '采购项目负责人姓名',
-  `leader_title` varchar(120) DEFAULT NULL COMMENT '负责人职务',
-  `leader_phone` varchar(50) DEFAULT NULL COMMENT '负责人电话',
-  `leader_email` varchar(200) DEFAULT NULL COMMENT '负责人邮箱',
-  `deliver_country` varchar(80) DEFAULT NULL COMMENT '采购地区（产品最终使用/交付国）',
-  `deliver_city` varchar(120) DEFAULT NULL COMMENT '采购城市',
-  `fund_source` varchar(32) DEFAULT NULL COMMENT '资金来源：own/government_budget/loan/donation/project_special',
-  `budget_status` varchar(32) DEFAULT NULL COMMENT '预算状态：approved/partial/pending/applying',
   `external_rules` varchar(255) DEFAULT NULL COMMENT '须遵守的外部采购规则（世行/联合国/政府等）',
   `license_file_key` varchar(255) DEFAULT NULL COMMENT '营业执照/注册文件（upload_files 文件名）',
   `license_file_hash` char(64) DEFAULT NULL COMMENT '执照文件哈希（sha256）',
@@ -1642,13 +1635,37 @@ CREATE TABLE `procurement_buyers` (
   `auth_contact_name` varchar(120) DEFAULT NULL COMMENT '授权联系人姓名（谁可发布/修改/确认结果，F01 第13项）',
   `auth_contact_phone` varchar(50) DEFAULT NULL COMMENT '授权联系人电话',
   `auth_contact_email` varchar(200) DEFAULT NULL COMMENT '授权联系人邮箱',
-  `procurement_experience` varchar(500) DEFAULT NULL COMMENT '采购经验：是否在其他平台发布过招标/采购订单（F01 第9项）',
   `submitted_at` int unsigned DEFAULT NULL COMMENT '最后一次进入待核验队列的时间（unix 秒）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_buyer_user` (`user_id`),
   KEY `idx_buyers_status` (`status`),
   KEY `idx_buyers_queue` (`status`,`submitted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购方主体';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购方主体（F01）：身份与采购权限认证，verified 为正式发布前置。2026-11-15 迁移 024 已物理删除表单下线列：org_type/address/deliver_country/deliver_city/fund_source/budget_status/procurement_experience/leader_name/leader_title/leader_phone/leader_email（负责人已并入 auth_contact_*，历史值由 022 回填）';
+
+-- ── procurement_invitations ──
+CREATE TABLE `procurement_invitations` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `project_id` int unsigned NOT NULL COMMENT '采购需求 procurement_projects.id',
+  `supplier_id` int unsigned NOT NULL COMMENT '供应商 supplier.id',
+  `version_no` int NOT NULL COMMENT '邀约针对的需求版本号（改稿重发时区分）',
+  `score` int unsigned NOT NULL DEFAULT '0' COMMENT '生成时的匹配分快照（0-100，按可得信号归一）',
+  `reasons` varchar(500) NOT NULL DEFAULT '' COMMENT '命中维度说明，如 品类L3;省份;资料分88;已注册',
+  `channel` varchar(16) NOT NULL COMMENT '触达通道：inapp 站内信 / email 邮件',
+  `recipient_email` varchar(150) DEFAULT NULL COMMENT '邮件通道收件地址（发送时快照）',
+  `recipient_user_id` bigint unsigned DEFAULT NULL COMMENT '站内信收件人 crm_users.id（supplier_claims approved）',
+  `token` char(32) NOT NULL COMMENT '落地页与退订识别令牌（32 位 hex）',
+  `status` varchar(16) NOT NULL DEFAULT 'sent' COMMENT '回执状态：sent/viewed/responded/declined/failed/unsubscribed',
+  `decline_reason` varchar(255) DEFAULT NULL COMMENT '供应商明确不参与的原因（status=declined）',
+  `fail_reason` varchar(255) DEFAULT NULL COMMENT '发送失败原因（status=failed，供重试诊断）',
+  `sent_at` int unsigned NOT NULL COMMENT '发送时间（秒）',
+  `viewed_at` int unsigned DEFAULT NULL COMMENT '供应商打开落地页时间（秒），仅记首次',
+  `responded_at` int unsigned DEFAULT NULL COMMENT '应标/不参与时间（秒）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_inv_project_supplier_ver` (`project_id`,`supplier_id`,`version_no`),
+  UNIQUE KEY `uq_inv_token` (`token`),
+  KEY `idx_inv_supplier` (`supplier_id`,`sent_at`),
+  KEY `idx_inv_project_status` (`project_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='发布后邀约与回执：一条需求×一家供应商×一个版本一行，分发闭环的唯一事实源';
 
 -- ── procurement_items ──
 CREATE TABLE `procurement_items` (
@@ -1662,7 +1679,7 @@ CREATE TABLE `procurement_items` (
   `quantity` decimal(20,4) NOT NULL DEFAULT '0.0000' COMMENT '采购数量',
   `qty_unit` varchar(30) NOT NULL DEFAULT '件' COMMENT '数量单位',
   `qty_type` varchar(12) NOT NULL DEFAULT 'fixed' COMMENT '确定数量/预估数量：fixed/estimated',
-  `ugt_code` varchar(32) DEFAULT NULL COMMENT '鍝佺被 UGT 鏍戠爜锛坈ommodity_backbone锛孡1-L3锛',
+  `ugt_code` varchar(32) DEFAULT NULL COMMENT '品类 UGT 树码（commodity_backbone，L1-L3）',
   `attributes` json DEFAULT NULL COMMENT '关键属性（材料/技术/功能/用途）',
   `alternatives_allowed` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否允许同等/替代产品',
   `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
@@ -1717,7 +1734,6 @@ CREATE TABLE `procurement_projects` (
   `budget_approved` varchar(20) DEFAULT NULL COMMENT '预算批准：approved/partial/pending/applying',
   `delivery_country` varchar(80) DEFAULT NULL COMMENT '交付国家',
   `delivery_city` varchar(120) DEFAULT NULL COMMENT '交付城市',
-  `delivery_province` varchar(120) DEFAULT NULL COMMENT '交付省份（供应商省份匹配用）',
   `delivery_address` varchar(500) DEFAULT NULL COMMENT '交付地点',
   `deadline_date` date DEFAULT NULL COMMENT '最晚交货/完成日期',
   `install_needs` varchar(200) DEFAULT NULL COMMENT '交付服务（逗号）：installation/commissioning/training',
@@ -1734,7 +1750,6 @@ CREATE TABLE `procurement_projects` (
   `compliance` json DEFAULT NULL COMMENT '合规信息（出口管制/危险品/医疗/军民两用/其他+说明）',
   `authorize_publish` tinyint(1) NOT NULL DEFAULT '0' COMMENT '授权确认：允许云境OS发布给符合条件供应商',
   `contact_disclosure` varchar(20) NOT NULL DEFAULT 'none' COMMENT '分级授权：none/org_only/org_contact/budget_all',
-  `procurement_mode` varchar(16) NOT NULL DEFAULT 'rfq' COMMENT '采购方式（P2 方式判定引擎留置，MVP 恒 rfq）',
   `primary_ugt_code` varchar(32) DEFAULT NULL COMMENT '主品类 UGT 树码（提交时取第一条明细，匹配/检索用）',
   `requirement_verify` varchar(16) NOT NULL DEFAULT 'pending' COMMENT '需求真实性核验态（展示快照）：pending/pass/need_info/reject',
   `fund_verify` varchar(16) NOT NULL DEFAULT 'unverified' COMMENT '资金核验态（展示快照）：unverified/verified',
@@ -1754,7 +1769,7 @@ CREATE TABLE `procurement_projects` (
   KEY `idx_proj_status` (`status`,`published_at`),
   KEY `idx_proj_ugt` (`primary_ugt_code`),
   KEY `idx_proj_notice_pk` (`notice_pk`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购需求主表（F02）：一条采购项目关联一个主体与实际采购目的';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购需求主表';
 
 -- ── procurement_reviews ──
 CREATE TABLE `procurement_reviews` (
