@@ -21,6 +21,11 @@ import { fetchCommodityTreeChildren, type CommodityTreeOption } from "@/core/api
 import { api } from "@/core/http";
 import { FlowStepper } from "./FlowStepper";
 import { FileDropzone } from "./FileDropzone";
+import { CertRequirementsEditor } from "./CertRequirementsEditor";
+import {
+  parseCertRequirements,
+  type CertRequirement,
+} from "@/shared/constants/procurement-cert-requirements";
 import {
   createProject,
   extractPdfRequirement,
@@ -43,6 +48,7 @@ interface FormState {
   objectTypes: string[];
   usageEnv: string;
   standards: string;
+  certRequirements: CertRequirement[];
   categoryL1: string;
   categoryL2: string;
   categoryL3: string;
@@ -83,6 +89,7 @@ const DEFAULT_FORM: FormState = {
   objectTypes: ["goods"],
   usageEnv: "",
   standards: "",
+  certRequirements: [],
   categoryL1: "",
   categoryL2: "",
   categoryL3: "",
@@ -239,6 +246,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           objectTypes: d.objectTypes.length ? d.objectTypes : ["goods"],
           usageEnv: d.usageEnv || "",
           standards: d.standards || "",
+          certRequirements: parseCertRequirements(d.certRequirements),
           budgetAmount: d.budgetAmount == null ? "" : String(d.budgetAmount),
           budgetCurrency: d.budgetCurrency || "CNY",
           budgetPublic: d.budgetPublic ?? d.budgetAmount != null,
@@ -316,6 +324,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     objectTypes: form.objectTypes.join(",") || "goods",
     usageEnv: form.usageEnv.trim() || null,
     standards: form.standards.trim() || null,
+    certRequirements: form.certRequirements,
     budgetAmount: form.budgetAmount === "" ? null : Number(form.budgetAmount),
     budgetCurrency: form.budgetCurrency,
     budgetPublic: form.budgetPublic ? 1 : 0,
@@ -421,6 +430,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     if (index === 0 && !form.titleZh.trim()) return t("pc_err_title");
     if (index === 1 && !derivedUgt) return t("pc_err_category");
     if (index === 2 && items.filter((it) => it.nameZh.trim()).length === 0) return t("pc_err_items");
+    if (index === 2 && form.certRequirements.some((r) => !r.name.trim())) return t("pc_err_cert_custom");
     if (index === 4) {
       if (!form.deliveryCountry.trim() || !form.deliveryCity.trim()) return t("pc_err_delivery");
       if (!form.quoteDeadlineDate) return t("pc_err_deadline");
@@ -679,6 +689,12 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             {t("pc_standards")}
             <textarea value={form.standards} onChange={(e) => field("standards", e.target.value)} rows={2} className={inputCls} />
           </label>
+          <div className="rounded-xl border border-secondary-200 bg-secondary-50/40 p-3">
+            <CertRequirementsEditor
+              value={form.certRequirements}
+              onChange={(next) => field("certRequirements", next)}
+            />
+          </div>
           <div className={labelCls}>
             <span className="flex items-center gap-1.5">
               {t("pc_category")} *

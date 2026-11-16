@@ -42,6 +42,7 @@ import { migration as procurementInvitationsMigration } from "./migrations/023-p
 import { migration as buyerDropRetiredColumnsMigration } from "./migrations/024-buyer-drop-retired-columns";
 import { migration as dropRedundantPbvIndexMigration } from "./migrations/025-drop-redundant-pbv-index";
 import { migration as dropProjectDeadColumnsMigration } from "./migrations/026-drop-project-dead-columns";
+import { migration as procurementCertRequirementsMigration } from "./migrations/027-procurement-cert-requirements";
 
 /**
  * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
@@ -70,6 +71,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   buyerDropRetiredColumnsMigration,
   dropRedundantPbvIndexMigration,
   dropProjectDeadColumnsMigration,
+  procurementCertRequirementsMigration,
 ];
 
 /**

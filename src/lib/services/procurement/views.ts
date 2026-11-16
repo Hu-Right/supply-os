@@ -9,6 +9,7 @@
 import type { ProjectRow } from "./projects";
 import type { BuyerRow, BuyerVerificationRow } from "./buyers";
 import { formatBuyerNo } from "./buyer-compliance";
+import { parseCertRequirements } from "@/shared/constants/procurement-cert-requirements";
 import type { MatchCandidate } from "./matching";
 import type { ProjectDetailBundle } from "./projects";
 
@@ -125,6 +126,7 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     objectTypes: toStr(row.object_types).split(",").filter(Boolean),
     usageEnv: toStr(row.usage_env),
     standards: toStr(row.standards),
+    certRequirements: parseCertRequirements(row.cert_requirements),
     incotermVersion: toStr(row.incoterm_version),
     batchDelivery: Number(row.batch_delivery) === 1,
     batchNote: toStr(row.batch_note),

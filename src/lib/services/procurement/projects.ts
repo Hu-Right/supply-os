@@ -13,6 +13,7 @@ import { PROJECT_STATUS, PROJECT_REF_PREFIX } from "@/shared/constants/procureme
 import { formatProjectReference } from "./reference";
 import { transitionProjectWithin, type TxLike } from "./lifecycle";
 import { isBuyerPublishable } from "./buyers";
+import { serializeCertRequirements } from "@/shared/constants/procurement-cert-requirements";
 
 export interface ProjectRow extends RowDataPacket {
   id: number;
@@ -29,6 +30,7 @@ export interface ProjectRow extends RowDataPacket {
   object_types: string;
   usage_env: string | null;
   standards: string | null;
+  cert_requirements: string | null;
   incoterm_version: string | null;
   batch_delivery: number;
   batch_note: string | null;
@@ -120,6 +122,7 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "object_types",
   "usage_env",
   "standards",
+  "cert_requirements",
   "incoterm_version",
   "batch_delivery",
   "batch_note",
@@ -172,6 +175,11 @@ export function normalizeProjectFields(
   for (const [key, value] of Object.entries(fields ?? {})) {
     const col = PROJECT_COLUMN_BY_KEY.get(key);
     if (!col || value === undefined) continue;
+    if (col === "cert_requirements") {
+      // 认证要求以 JSON 存；同时做裁剪/去空，避免把半成品写进库
+      out[col] = serializeCertRequirements(value);
+      continue;
+    }
     out[col] = PROJECT_LIST_COLUMNS.has(col) && Array.isArray(value) ? value.join(",") : value;
   }
   return out as Partial<Record<(typeof PROJECT_EDITABLE_COLUMNS)[number], unknown>>;

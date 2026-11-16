@@ -3,6 +3,7 @@
  * @module features/procurement-demand/api
  */
 import { api } from "@/core/http";
+import type { CertRequirement } from "@/shared/constants/procurement-cert-requirements";
 
 export interface BuyerInfo {
   id: number;
@@ -56,6 +57,7 @@ export interface ProjectDetail extends ProjectSummary {
   internalProjectNo: string;
   usageEnv: string;
   standards: string;
+  certRequirements: CertRequirement[];
   incotermVersion: string;
   batchDelivery: boolean;
   batchNote: string;
@@ -287,4 +289,16 @@ export async function fetchPlaza(opts: { categoryL1?: string; keyword?: string; 
   if (opts.keyword) q.set("keyword", opts.keyword);
   if (opts.page) q.set("page", String(opts.page));
   return api(`/api/procurement/plaza${q.toString() ? `?${q.toString()}` : ""}`);
+}
+
+/** 认证字典项（/api/certifications，四键契约） */
+export interface CertificationOption {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+}
+
+export async function fetchCertificationOptions(): Promise<CertificationOption[]> {
+  return api<CertificationOption[]>("/api/certifications");
 }

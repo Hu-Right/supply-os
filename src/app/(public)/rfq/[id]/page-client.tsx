@@ -74,6 +74,24 @@ function RfqDetailContent() {
           <div>{t2("需求对象", "Scope")}: {detail.objectTypes.join(" / ")}</div>
           {detail.usageEnv && <div className="sm:col-span-2">{t2("用途及使用环境", "Usage & environment")}: {detail.usageEnv}</div>}
           {detail.standards && <div className="sm:col-span-2">{t2("强制标准/认证", "Mandatory standards")}: {detail.standards}</div>}
+          {detail.certRequirements.length > 0 && (
+            <div className="sm:col-span-2">
+              <span>{t2("认证要求", "Certification requirements")}:</span>
+              <ul className="mt-1 flex flex-wrap gap-1.5">
+                {detail.certRequirements.map((cert, index) => (
+                  <li
+                    key={`${cert.code || cert.name}-${index}`}
+                    className="rounded-full border border-secondary-200 bg-secondary-50 px-2 py-0.5 text-xs"
+                  >
+                    {cert.name}
+                    {cert.custom ? t2("（自填）", " (custom)") : ""} · {cert.mandatory ? t2("强制", "Required") : t2("加分", "Preferred")}
+                    {cert.requireValid ? ` · ${t2("须有效", "valid")}` : ""}
+                    {cert.note ? ` · ${cert.note}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div>{t2("交付地", "Delivery")}: {detail.deliveryCountry} {detail.deliveryCity} {detail.deliveryAddress}</div>
           {detail.batchDelivery && <div>{t2("分批采购/交付", "Batch delivery")}: {detail.batchNote || t2("是", "Yes")}</div>}
           {detail.budgetAmount != null && (
