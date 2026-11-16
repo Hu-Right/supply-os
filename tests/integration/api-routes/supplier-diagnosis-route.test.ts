@@ -77,7 +77,7 @@ function postReq(body: unknown): NextRequest {
 const UPSERTED_ROW = { id: 3, user_id: 7, supplier_id: 11, score_total: 60 };
 
 beforeEach(() => {
-  findProfileBits.mockReset().mockResolvedValue({ dataQualityScore: 80, infoChecked: false, company: "库内正名科技有限公司" });
+  findProfileBits.mockReset().mockResolvedValue({ dataQualityScore: 80, company: "库内正名科技有限公司" });
   findByCompanyBest.mockReset().mockResolvedValue(null);
   insertEnterprise.mockReset();
   Object.assign(gateFacts, { selfBound: false, boundByOther: false, claimPending: false, claimed: false, verifyDone: false });
@@ -163,7 +163,6 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
   it("快照防污染：显式 supplierId + payload 乱名（『占位』事故回归）→ 落库名取 supplier.company SSOT", async () => {
     findProfileBits.mockResolvedValue({
       dataQualityScore: 80,
-      infoChecked: false,
       company: "杭州中建工程技术有限公司",
     });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");

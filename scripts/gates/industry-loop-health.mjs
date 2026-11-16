@@ -81,9 +81,9 @@ async function main() {
   const pop = (
     await q(`SELECT COUNT(*) total,
         SUM(verify_status='done' AND company <> '测试') visible,
-        SUM(COALESCE(business_scope,'')<>'' OR COALESCE(products,'')<>'') has_evidence,
+        SUM(COALESCE(products,'')<>'') has_evidence,
         SUM(industry_code IS NOT NULL AND industry_code<>'') coded,
-        SUM((industry_code IS NULL OR industry_code='') AND (COALESCE(business_scope,'')<>'' OR COALESCE(products,'')<>'')) uncoded_with_evidence
+        SUM((industry_code IS NULL OR industry_code='') AND COALESCE(products,'')<>'') uncoded_with_evidence
       FROM supplier`)
   )[0];
 

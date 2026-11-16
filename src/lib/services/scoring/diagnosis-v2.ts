@@ -103,12 +103,12 @@ export function rankByGap<T extends { rawScore: number; weight: number }>(dimens
 /**
  * D1 派生所需的 supplier 主数据片段。
  * `dataQualityScore` 是 supplier 表的 **生成列**（20 个关键字段非空各计 5 分，与后台同口径），
- * 本引擎不另发明一套“档案完整度”算法，直接沿用该权威值；`infoChecked` 是人工核对标记。
+ * 本引擎不另发明一套“档案完整度”算法，直接沿用该权威值。
+ * 2026-11 起 supplier.info_checked 列已随影子表迁移物理删除，不再有人工核对封顶。
  */
 export interface SupplierProfileBits {
   /** supplier.data_quality_score，0-100；NULL 视为未建档 */
   dataQualityScore: number | null;
-  infoChecked: boolean;
 }
 
 /** key = DIAGNOSIS_FIELDS[*].key；单选为 string，多选为 string[]，文本为 string */
@@ -122,19 +122,12 @@ export interface DiagnosisScoreInput {
 /**
  * D1：直接用 supplier 生成列 data_quality_score（0-100）分档，与后台同源可辩护：
  * 0→0 / 1-24→1 / 25-44→2 / 45-64→3 / 65-84→4 / 85-100→5。
- * 未经人工核对（infoChecked=false）不得得满分，封顶 4——档案字段的“多”不等于“真”。
  */
 function scoreProfileDimension(supplier: SupplierProfileBits): { rawScore: number; scoringBasis: string } {
   const q = Number(supplier.dataQualityScore ?? 0);
-  let rawScore =
+  const rawScore =
     q >= 85 ? 5 : q >= 65 ? 4 : q >= 45 ? 3 : q >= 25 ? 2 : q > 0 ? 1 : 0;
-  let basis = `企业档案资料完整度 ${q}/100（supplier 生成列，与后台同口径）`;
-  if (!supplier.infoChecked && rawScore === 5) {
-    rawScore = 4;
-    basis += "，资料尚未经人工核对，封顶 4/5";
-  } else if (!supplier.infoChecked) {
-    basis += "，资料尚未经人工核对";
-  }
+  const basis = `企业档案资料完整度 ${q}/100（supplier 生成列，与后台同口径）`;
   return { rawScore, scoringBasis: basis };
 }
 

@@ -15,7 +15,7 @@ import {
 } from "@/shared/constants/diagnosis-dimensions";
 import { scoreDiagnosis, type DiagnosisAnswers, type SupplierProfileBits } from "@/lib/services/scoring/diagnosis-v2";
 
-const FULL_PROFILE: SupplierProfileBits = { dataQualityScore: 100, infoChecked: true };
+const FULL_PROFILE: SupplierProfileBits = { dataQualityScore: 100 };
 
 function answersWith(overrides: Record<string, string | string[]> = {}): DiagnosisAnswers {
   const base: DiagnosisAnswers = {};
@@ -65,7 +65,7 @@ describe("scoreDiagnosis", () => {
       else if (f.kind === "text") low[f.key] = "";
       else low[f.key] = f.options![0] ?? "";
     }
-    const r = scoreDiagnosis({ answers: answersWith(low), supplier: { dataQualityScore: 0, infoChecked: false } });
+    const r = scoreDiagnosis({ answers: answersWith(low), supplier: { dataQualityScore: 0 } });
     expect(r.totalScore).toBeLessThan(15);
     expect(r.grade).toBe("C");
   });
@@ -95,15 +95,14 @@ describe("scoreDiagnosis", () => {
 
   it("D1 derives from supplier data_quality_score, not from what the user typed", () => {
     const answered = answersWith();
-    // 生成列分档：85+ → 5；65-84 → 4
-    expect(scoreDiagnosis({ answers: answered, supplier: { dataQualityScore: 92, infoChecked: true } }).dimensions[0].rawScore).toBe(5);
-    expect(scoreDiagnosis({ answers: answered, supplier: { dataQualityScore: 70, infoChecked: true } }).dimensions[0].rawScore).toBe(4);
-    // 未经人工核对不得满分
-    const r = scoreDiagnosis({ answers: answered, supplier: { dataQualityScore: 100, infoChecked: false } });
+    // 生成列分档：85+ → 5；65-84 → 4（2026-11 起 info_checked 列已删，不再有人工核对封顶）
+    expect(scoreDiagnosis({ answers: answered, supplier: { dataQualityScore: 92 } }).dimensions[0].rawScore).toBe(5);
+    expect(scoreDiagnosis({ answers: answered, supplier: { dataQualityScore: 70 } }).dimensions[0].rawScore).toBe(4);
+    const r = scoreDiagnosis({ answers: answered, supplier: { dataQualityScore: 100 } });
     const d1 = r.dimensions.find((d) => d.no === 1)!;
-    expect(d1.rawScore).toBe(4);
+    expect(d1.rawScore).toBe(5);
     expect(d1.evidenceSource).toBe("主数据派生");
-    expect(d1.scoringBasis).toContain("未经人工核对");
+    expect(d1.scoringBasis).toContain("100/100");
   });
 
   it("is deterministic for identical input (snapshot-safe)", () => {

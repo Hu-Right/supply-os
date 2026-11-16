@@ -113,15 +113,15 @@ async function loadDocs() {
   let lastId = 0;
   for (;;) {
     const rows = await q(
-      `SELECT id, company, products, business_scope, industry_code
+      `SELECT id, company, products, industry_code
          FROM supplier
-        WHERE id > ? AND (COALESCE(business_scope,'') <> '' OR COALESCE(products,'') <> '')
+        WHERE id > ? AND COALESCE(products,'') <> ''
         ORDER BY id LIMIT ${Number(TH.fetchChunkSize)}`,
       [lastId],
     );
     if (!rows.length) break;
     for (const r of rows) {
-      const text = normalizeEvidence(`${r.products ?? ""} ${String(r.business_scope ?? "").slice(0, TH.scopeTruncateChars)}`);
+      const text = normalizeEvidence(`${r.products ?? ""}`);
       if (text.length >= TH.minEvidenceChars) docs.push({ id: Number(r.id), company: r.company, code: r.industry_code || "", text, state: null });
     }
     lastId = Number(rows[rows.length - 1].id);
@@ -198,7 +198,7 @@ function buildCandidate(c, { parent, parentTokens, usedTails, idx, secondPassDoc
       codedShare: Number(codedShare),
       codesDistinct: attachCounts.size,
       topAttached,
-      fields: "products + business_scope(前 1000 字)",
+      fields: "products",
       samples,
     },
     gapNote: parent
