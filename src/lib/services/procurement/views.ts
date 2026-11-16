@@ -10,6 +10,7 @@ import type { ProjectRow } from "./projects";
 import type { BuyerRow, BuyerVerificationRow } from "./buyers";
 import { formatBuyerNo } from "./buyer-compliance";
 import { parseCertRequirements } from "@/shared/constants/procurement-cert-requirements";
+import { parseGuarantees } from "@/shared/constants/guarantees";
 import type { MatchCandidate } from "./matching";
 import type { ProjectDetailBundle } from "./projects";
 
@@ -145,6 +146,7 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     incotermPlace: toStr(row.incoterm_place),
     paymentTerms: toStr(row.payment_terms),
     guarantees: toStr(row.guarantees).split(",").filter(Boolean),
+    guaranteeConfig: parseGuarantees(row.guarantee_config, row.guarantees),
     supplierCountryLimit: toStr(row.supplier_country_limit),
     manufacturerOnly: Number(row.manufacturer_only) === 1,
     supplierQuals: toStr(row.supplier_quals),

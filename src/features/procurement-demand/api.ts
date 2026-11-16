@@ -71,6 +71,7 @@ export interface ProjectDetail extends ProjectSummary {
   incotermPlace: string;
   paymentTerms: string;
   guarantees: string[];
+  guaranteeConfig: import("@/shared/constants/guarantees").GuaranteeRequirement[];
   supplierCountryLimit: string;
   manufacturerOnly: boolean;
   supplierQuals: string;

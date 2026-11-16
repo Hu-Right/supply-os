@@ -19,6 +19,23 @@ const VERIFY_BADGE: Record<string, string> = {
   reject: "bg-red-100 text-red-700",
 };
 
+const GUARANTEE_LABEL_ZH: Record<string, string> = {
+  bid_bond: "投标保函",
+  performance_bond: "履约保函",
+  advance_payment: "预付款保函",
+  warranty_deposit: "质保金",
+  other: "其他",
+};
+const GUARANTEE_LABEL_EN: Record<string, string> = {
+  bid_bond: "Bid bond",
+  performance_bond: "Performance bond",
+  advance_payment: "Advance payment guarantee",
+  warranty_deposit: "Warranty retention",
+  other: "Other",
+};
+const GUARANTEE_FORM_ZH: Record<string, string> = { bank: "银行保函", insurance: "保险保函", cash: "现金" };
+const GUARANTEE_FORM_EN: Record<string, string> = { bank: "bank", insurance: "insurance", cash: "cash" };
+
 const REVIEW_RESULT_LABEL: Record<string, { zh: string; en: string; cls: string }> = {
   pass: { zh: "通过", en: "Pass", cls: "bg-teal-100 text-teal-800" },
   need_info: { zh: "需补充", en: "Need info", cls: "bg-amber-100 text-amber-800" },
@@ -102,7 +119,24 @@ function RfqDetailContent() {
           {detail.logisticsNote && <div className="sm:col-span-2">{t2("运输/包装/清关", "Logistics")}: {detail.logisticsNote}</div>}
           {detail.paymentTerms && <div>{t2("付款条件", "Payment")}: {detail.paymentTerms}</div>}
           {detail.installNeeds.length > 0 && <div>{t2("交付服务", "Services")}: {detail.installNeeds.join(" / ")}</div>}
-          {detail.guarantees.length > 0 && <div>{t2("保函要求", "Guarantees")}: {detail.guarantees.join(" / ")}</div>}
+          {detail.guaranteeConfig.length > 0 && (
+            <div className="sm:col-span-2">
+              <span>{t2("保函/质保金", "Guarantees")}:</span>
+              <ul className="mt-1 flex flex-wrap gap-1.5">
+                {detail.guaranteeConfig.map((item, index) => (
+                  <li
+                    key={`${item.type}-${index}`}
+                    className="rounded-full border border-secondary-200 bg-secondary-50 px-2 py-0.5 text-xs"
+                  >
+                    {item.type === "other" && item.otherName ? item.otherName : t2(GUARANTEE_LABEL_ZH[item.type] ?? item.type, GUARANTEE_LABEL_EN[item.type] ?? item.type)}
+                    {" · "}{t2(GUARANTEE_FORM_ZH[item.form], GUARANTEE_FORM_EN[item.form])}
+                    {" · "}{item.value != null ? `${item.value}${item.basis === "percent" ? "%" : ""}` : t2("未填", "not set")}
+                    {item.note ? ` · ${item.note}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {detail.supplierCountryLimit && <div>{t2("供应商国别限制", "Supplier countries")}: {detail.supplierCountryLimit}</div>}
           {detail.manufacturerOnly && <div>{t2("要求制造商直接投标", "Manufacturer direct bidding")}</div>}
           {detail.supplierQuals && <div>{t2("资质/业绩要求", "Qualification")}: {detail.supplierQuals}</div>}

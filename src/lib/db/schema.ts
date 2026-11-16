@@ -45,6 +45,7 @@ import { migration as dropProjectDeadColumnsMigration } from "./migrations/026-d
 import { migration as procurementCertRequirementsMigration } from "./migrations/027-procurement-cert-requirements";
 import { migration as countryCodesMigration } from "./migrations/028-country-codes";
 import { migration as incotermPlaceMigration } from "./migrations/029-incoterm-place";
+import { migration as guaranteeConfigMigration } from "./migrations/030-guarantee-config";
 
 /**
  * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
@@ -76,6 +77,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   procurementCertRequirementsMigration,
   countryCodesMigration,
   incotermPlaceMigration,
+  guaranteeConfigMigration,
 ];
 
 /**

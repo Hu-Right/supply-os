@@ -49,6 +49,7 @@ export interface ProjectRow extends RowDataPacket {
   incoterm_place: string | null;
   payment_terms: string | null;
   guarantees: string | null;
+  guarantee_config: string | null;
   supplier_country_limit: string | null;
   manufacturer_only: number;
   supplier_quals: string | null;
@@ -143,6 +144,7 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "incoterm_place",
   "payment_terms",
   "guarantees",
+  "guarantee_config",
   "supplier_country_limit",
   "manufacturer_only",
   "supplier_quals",

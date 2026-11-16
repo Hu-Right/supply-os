@@ -22,6 +22,12 @@ import { api } from "@/core/http";
 import { FlowStepper } from "./FlowStepper";
 import { FileDropzone } from "./FileDropzone";
 import { CertRequirementsEditor } from "./CertRequirementsEditor";
+import { GuaranteeEditor } from "./GuaranteeEditor";
+import {
+  guaranteeTypes,
+  parseGuarantees,
+  type GuaranteeRequirement,
+} from "@/shared/constants/guarantees";
 import {
   parseCertRequirements,
   type CertRequirement,
@@ -76,7 +82,7 @@ interface FormState {
   incotermPlace: string;
   incotermVersion: string;
   paymentTerms: string;
-  guarantees: string[];
+  guarantees: GuaranteeRequirement[];
   batchDelivery: boolean;
   batchNote: string;
   logisticsNote: string;
@@ -137,7 +143,6 @@ const PURPOSE_OPTIONS = ["real", "budgeting", "research", "future_plan"];
 const OBJECT_OPTIONS = ["goods", "engineering", "service", "solution"];
 const COMPLIANCE_OPTIONS = ["export_control", "dangerous", "medical", "dual_use", "other"];
 const INSTALL_NEEDS = ["installation", "commissioning", "training"];
-const GUARANTEES = ["bid_bond", "performance_bond", "warranty_deposit"];
 const CONTACT_DISCLOSURE = ["none", "org_only", "org_contact", "budget_all"];
 const ATTACHMENT_KINDS = ["requirement", "tech_doc", "drawing", "bom", "sample", "other"];
 
@@ -262,7 +267,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           incotermPlace: d.incotermPlace || "",
           incotermVersion: d.incotermVersion || "2020",
           paymentTerms: d.paymentTerms,
-          guarantees: d.guarantees,
+          guarantees: parseGuarantees(d.guaranteeConfig, d.guarantees),
           batchDelivery: Boolean(d.batchDelivery),
           batchNote: d.batchNote || "",
           logisticsNote: d.logisticsNote || "",
@@ -346,7 +351,8 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     incotermPlace: form.incoterm ? form.incotermPlace.trim() || null : null,
     incotermVersion: form.incoterm ? form.incotermVersion || "2020" : null,
     paymentTerms: form.paymentTerms.trim() || null,
-    guarantees: form.guarantees.join(",") || null,
+    guarantees: guaranteeTypes(form.guarantees) || null,
+    guaranteeConfig: form.guarantees,
     batchDelivery: form.batchDelivery ? 1 : 0,
     batchNote: form.batchNote.trim() || null,
     supplierCountryLimit: form.supplierCountryLimit.trim() || null,
@@ -446,6 +452,13 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
       if (!form.quoteDeadlineDate) return t("pc_err_deadline");
       if (form.incoterm && !form.incotermVersion) return t("pc_err_incoterm_version");
       if (form.incoterm && !form.incotermPlace.trim()) return t("pc_err_incoterm_place");
+      for (const guarantee of form.guarantees) {
+        if (guarantee.type === "other" && !guarantee.otherName.trim()) return t("pc_err_guarantee_other");
+        if (guarantee.value != null) {
+          if (guarantee.value <= 0) return t("pc_err_guarantee_value");
+          if (guarantee.basis === "percent" && guarantee.value > 100) return t("pc_err_guarantee_value");
+        }
+      }
     }
     if (index === 5 && !form.authorizePublish) return t("pc_err_authorize");
     return "";
@@ -905,14 +918,15 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
               <p className="mt-1 text-[11px] leading-relaxed text-secondary-400">{t("pc_installNeeds_note")}</p>
             </div>
             <div className={labelCls}>
-              {t("pc_guarantees")}
-              <div className="mt-1 flex flex-wrap gap-2">
-                {GUARANTEES.map((o) => (
-                  <button key={o} type="button" onClick={() => field("guarantees", toggle(form.guarantees, o))}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${form.guarantees.includes(o) ? "border-teal-600 bg-teal-50 text-teal-700" : "border-secondary-300 text-secondary-600"}`}>
-                    {t(`pc_guar_${o}`)}
-                  </button>
-                ))}
+              <span className="flex items-center gap-1.5">
+                {t("pc_guarantees")}
+                <FieldHintTooltip label={t("pc_guarantees")} content={t("pc_guarantees_hint")} />
+              </span>
+              <div className="mt-1">
+                <GuaranteeEditor
+                  value={form.guarantees}
+                  onChange={(next) => field("guarantees", next)}
+                />
               </div>
             </div>
           </div>
