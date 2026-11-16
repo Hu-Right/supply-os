@@ -8,7 +8,7 @@
  *              能力标签 + 双按钮（查看企业主页/发询盘）。
  */
 import { useRouter } from "next/navigation";
-import { Bookmark, Share2, Factory, Store } from "lucide-react";
+import { Bookmark, Share2, Factory } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Button, Card } from "@/shared/ui";
 import type { Supplier } from "@/types";
@@ -40,8 +40,6 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
   const industryName = pickLocale(locale, supplier.industryZh, supplier.industryEn);
   const industryPath = (locale === "zh" ? supplier.industryPathZh : supplier.industryPathEn) ?? [];
   const extraIndustryTags = (supplier.industryTags ?? []).slice(1, 3);
-  // 类型徽章只认真实业务身份（business_type_code），无码不显示——不再用国内外猜测兜底
-  const companyType = supplier.companyType;
   const tier = supplier.membershipTier;
   const tierStyle = tier ? TIER_BADGE[tier] : null;
 
@@ -88,12 +86,6 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
         {/* 公司名 + 类型 */}
         <div className="flex items-start justify-between gap-2">
           <h4 className="text-sm font-extrabold text-slate-900 line-clamp-1 flex-1">{name}</h4>
-          {companyType && (
-            <span className="shrink-0 text-2xs text-slate-500 font-medium flex items-center gap-1">
-              {companyType === "factory" ? <Factory className="w-3 h-3" /> : <Store className="w-3 h-3" />}
-              {companyType === "factory" ? t("supplierFactory") : t("supplierTrader")}
-            </span>
-          )}
         </div>
 
         {/* 核心产品 */}

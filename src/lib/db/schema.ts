@@ -50,6 +50,7 @@ import { migration as supplierTypeMigration } from "./migrations/031-supplier-ty
 import { migration as contactDisclosureMigration } from "./migrations/032-contact-disclosure-three-levels";
 import { migration as dropRetiredProjectFieldsMigration } from "./migrations/033-drop-retired-project-fields";
 import { migration as dropProcurementMatchingMigration } from "./migrations/034-drop-procurement-matching";
+import { migration as dropSupplierBusinessTypeRemarkMigration } from "./migrations/036-drop-supplier-business-type-remark";
 
 /**
  * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
@@ -86,6 +87,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   contactDisclosureMigration,
   dropRetiredProjectFieldsMigration,
   dropProcurementMatchingMigration,
+  dropSupplierBusinessTypeRemarkMigration,
 ];
 
 /**

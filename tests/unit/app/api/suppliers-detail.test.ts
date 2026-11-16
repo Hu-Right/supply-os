@@ -65,7 +65,6 @@ const approvedRow = {
   products: "钢结构工程",
   certification: "",
   country_code: "CN",
-  business_type_code: null,
   data_quality_score: null,
 };
 

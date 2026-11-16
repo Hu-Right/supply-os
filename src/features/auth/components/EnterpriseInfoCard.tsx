@@ -59,7 +59,6 @@ export function EnterpriseInfoCard({
   const row = enterprise;
   const companyName = sv(row, "company");
   const isIntl = String(row.countryCode || "") !== "" && String(row.countryCode) !== "CN";
-  const coop = Number(row.coopStatus || 0) === 1;
   // 认证状态与账户设置页、后端排他闸口同一口径（verify_status=资质 / hasPendingClaim=认领待核；
   // 供应商行上的 claim_status 已退役，认领状态由 supplier_claims 派生）
   const bindState = classifyEnterpriseBindState(row);
@@ -92,7 +91,6 @@ export function EnterpriseInfoCard({
     { label: t("authEnterpriseEstablished") || "成立日期", value: formatEstablishedAtForInput(row.establishedAt) || "-" },
     { label: t("authEnterpriseCapital") || "注册资本", value: sv(row, "registeredCapital") },
     { label: t("authEnterpriseCreditCode") || "统一社会信用代码", value: sv(row, "creditCode") },
-    { label: t("authEnterpriseSupplierType") || "供应商类型", value: sv(row, "businessType") },
     { label: t("authEnterpriseCertifications") || "资质认证", value: sv(row, "certification") },
     { label: t("authEnterpriseIntro") || "企业简介", value: sv(row, "intro"), full: true },
   ];
@@ -127,11 +125,6 @@ export function EnterpriseInfoCard({
           <Badge shape="tag" variant="soft-success" className="text-2xs">
             {isIntl ? (t("authEnterpriseInternational") || "国际") : (t("authEnterpriseDomestic") || "国内")}
           </Badge>
-          {coop && (
-            <Badge shape="tag" variant="soft-success" className="text-2xs">
-              {t("authEnterpriseCoop") || "已合作"}
-            </Badge>
-          )}
         </div>
       </div>
 

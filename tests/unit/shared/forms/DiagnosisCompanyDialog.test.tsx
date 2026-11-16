@@ -29,7 +29,6 @@ function candidate(over: Partial<DiagnosisCandidate> = {}): DiagnosisCandidate {
     establishedAt: "",
     legalRep: "",
     creditCodeMasked: "9144****1234",
-    businessType: "",
     verified: false,
     claimPending: false,
     bound: false,

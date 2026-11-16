@@ -47,17 +47,14 @@ export interface SupplierEnterpriseView {
   establishedAt: Date | string | null;
   registeredCapital: string | null;
   creditCode: string | null;
-  businessType: string | null;
   /** 逗号分隔文本（varchar），不是数组 */
   certification: string | null;
   products: string | null;
   intro: string | null;
-  remark: string | null;
   verifyStatus: string | null;
   /** 是否存在 status='pending' 的认领（supplier_claims 派生，不是 supplier 列；
    *  supplier.claim_status 已退役，ADR-0017） */
   hasPendingClaim: boolean;
-  coopStatus: number;
   checkNote: string | null;
   /** DECIMAL(5,2) NOT NULL，无 decimalNumbers ⇒ 字符串 */
   dataQualityScore: string;
@@ -80,7 +77,6 @@ export function supplierEnterpriseViewOf(
 ): SupplierEnterpriseView {
   const out = toCamelKeys(row);
   // NOT NULL 列不得塌成 null：前端对这些键直接 Number()/String.includes()/渲染（类型也不是 nullable）
-  out.coopStatus = Number(row.coop_status ?? 0);
   out.addtime = Number(row.addtime ?? 0);
   out.dataQualityScore = String(row.data_quality_score ?? "");
   out.company = String(row.company ?? "");

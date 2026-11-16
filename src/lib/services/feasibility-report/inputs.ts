@@ -49,7 +49,6 @@ export interface SupplierRowLike {
   certification?: string | null;
   certification_tags?: unknown;
   registered_capital?: string | number | null;
-  business_type?: string | null;
   verify_status?: string | null;
 }
 

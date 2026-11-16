@@ -37,12 +37,9 @@ const mockRow: EnterpriseInfo = {
   certification: "-",
   products: "智算模块",
   intro: "智算模块提供商",
-  coopStatus: 1,
   // 以下 8 键旧夹具根本没给（当时不报），现在显式给空值保持卡片渲染不变
   registeredPhone: "",
   registeredEmail: "",
-  remark: "",
-  businessType: "",
   checkNote: "",
   licenseUrl: "",
   verifyStatus: null,
@@ -83,7 +80,6 @@ describe("EnterpriseInfoCard", () => {
     // 头部公司名 + 确认后公司名单元格（多处出现）
     expect(screen.getAllByText("宝通集团有限公司").length).toBeGreaterThan(0);
     expect(screen.getByText("authEnterpriseDomestic")).toBeInTheDocument();
-    expect(screen.getByText("authEnterpriseCoop")).toBeInTheDocument();
     // 三个分组标题
     expect(screen.getByText("settingsBasicInfo")).toBeInTheDocument();
     expect(screen.getByText("authEnterpriseGroupContact")).toBeInTheDocument();
@@ -162,7 +158,6 @@ describe("EnterpriseInfoCard", () => {
         enterprise={{
           ...mockRow,
           countryCode: "US",
-          coopStatus: 0,
           province: "",
           city: "",
           address: "",

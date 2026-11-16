@@ -194,7 +194,7 @@ export function SupplierProfilePage() {
 
         {/* ══ Tab 内容（按需渲染） ═══ */}
         {activeTab === "capability" && (
-          <CapabilityPanel supplier={supplier} products={products} completeness={completeness} certs={certs} country={country} scorecard={scorecard} t={t} />
+          <CapabilityPanel products={products} completeness={completeness} certs={certs} country={country} scorecard={scorecard} t={t} />
         )}
         {activeTab === "products" && (
           <ProductsPanel products={products} t={t} />

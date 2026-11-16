@@ -20,12 +20,6 @@ function readQualityScore(row: SupplierDirectoryRow): number {
   return Number.isFinite(n) ? Math.min(Math.max(n, 0), 100) : 0;
 }
 
-/** business_type_code → 卡片类型徽章：仅 manufacturer/trader 有真实标签，其余留白（宁缺毋滥，不再用国内外猜测兜底） */
-const COMPANY_TYPE_BY_CODE: Partial<Record<string, "factory" | "trader">> = {
-  manufacturer: "factory",
-  trader: "trader",
-};
-
 /**
  *  supplier 行 → 前端 Supplier DTO 映射与联系方式脱敏
  *
@@ -50,7 +44,6 @@ export function supplierViewOf(
   const productsZh = splitListField(row.products);
   const cityZh = String(row.city || "").trim() || String(row.province || "").trim() || "—";
   const companyName = String(row.company || "").trim();
-  // supplier.business_type 存经营类型（如 foreign），国内/国际改由 country_code 判定（与目录筛选一致）
   const isInternational = Boolean(row.country_code) && row.country_code !== "CN";
   const countryRaw = String(row.country || "").trim();
   const countryKey = countryRaw || "China";
@@ -77,7 +70,6 @@ export function supplierViewOf(
     mainProductsEn: productsZh,
     complianceLabelsZh: row.certification ? splitListField(row.certification) : [],
     complianceLabelsEn: row.certification ? splitListField(row.certification) : [],
-    companyType: COMPANY_TYPE_BY_CODE[row.business_type_code ?? ""],
     contactPerson: row.contact || "",
     contactEmail: maskEmail(row.email),
     contactPhone: maskPhone(row.phone),

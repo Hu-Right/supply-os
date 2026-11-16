@@ -36,7 +36,6 @@ export const GET = withRoute(async (req: NextRequest) => {
         legalRep: r.legal_rep ?? "",
         // 只给掩码：足以在"同名不同主体"之间辨认，不足以取走完整信用代码
         creditCodeMasked: maskCreditCode(r.credit_code),
-        businessType: r.business_type ?? "",
         verified: String(r.verify_status ?? "") === "done",
         // 认领处理中改为供应商认领表的 EXISTS 派生（supplier.claim_status 已退役，ADR-0017）
         claimPending: Number(r.claim_pending) === 1,

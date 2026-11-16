@@ -46,7 +46,7 @@ export class FeasibilityReportRepo {
   async findVerifiedSupplierForUser(userId: number): Promise<VerifiedSupplierRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT s.id, s.company, s.country, s.industry_code, s.certification, s.certification_tags,
-              s.business_type, s.verify_status, u.supplier_link_status
+              s.verify_status, u.supplier_link_status
          FROM users u
          JOIN supplier s ON s.id = u.supplier_id
         WHERE u.id = ? AND u.supplier_link_status = 'verified'
@@ -59,7 +59,7 @@ export class FeasibilityReportRepo {
 
   async findSupplierById(supplierId: number): Promise<SupplierRowLike | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT id, company, country, industry_code, certification, certification_tags, business_type, verify_status
+      `SELECT id, company, country, industry_code, certification, certification_tags, verify_status
          FROM supplier WHERE id = ? LIMIT 1`,
       [supplierId],
     );

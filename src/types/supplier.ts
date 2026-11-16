@@ -49,6 +49,4 @@ export interface Supplier {
   certifications?: string[];
   /** 公司图片 URL */
   imageUrl?: string;
-  /** 企业类型标签（工厂/贸易商） */
-  companyType?: "factory" | "trader";
 }

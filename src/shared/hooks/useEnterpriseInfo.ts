@@ -46,17 +46,14 @@ export interface EnterpriseInfo {
   /** DECIMAL（无 decimalNumbers）⇒ 字符串 */
   registeredCapital: string | null;
   creditCode: string | null;
-  businessType: string | null;
   /** varchar 逗号分隔文本，不是数组 */
   certification: string | null;
   products: string | null;
   intro: string | null;
-  remark: string | null;
   verifyStatus: string | null;
   /** 是否存在 status='pending' 的认领（supplier_claims 派生；供应商行上的 claim_status
    *  列已退役，ADR-0017——后端在 GET 返回前经 SupplierClaimRepo.hasPendingClaim 查得） */
   hasPendingClaim: boolean;
-  coopStatus: number;
   checkNote: string | null;
   /** DECIMAL(5,2) NOT NULL ⇒ 字符串 */
   dataQualityScore: string;

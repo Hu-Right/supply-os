@@ -28,7 +28,6 @@ function row(over: Partial<SupplierDirectoryRow> = {}): SupplierDirectoryRow {
     products: "LED 灯具,数控机床",
     industry_code: "UGT-I-032607",
     certification: "ISO9001质量管理体系认证,CE认证（欧盟）",
-    business_type_code: "manufacturer",
     ...over,
   } as SupplierDirectoryRow;
 }
@@ -61,7 +60,6 @@ const SUPPLIER_VIEW_KEYS = [
   "mainProductsEn",
   "complianceLabelsZh",
   "complianceLabelsEn",
-  "companyType",
   "contactPerson",
   "contactEmail",
   "contactPhone",

@@ -26,8 +26,6 @@ export interface SupplierDirectoryRow {
   /** 主行业码（industry_nodes.code，UGT-I- 前缀）；行业面标准口径（industry 自由文本列已退役） */
   industry_code?: string | null;
   certification: string | null;
-  /** 业务身份枚举：manufacturer=工厂 / trader=贸易商（卡片徽章与「工厂/贸易商」维度同源；其余值不展示） */
-  business_type_code?: string | null;
   /** 认证状态：done=已认证 / pending=审核中（防重分支据此区分「转认领 / 直接绑定」） */
   verify_status?: string | null;
   /** 资料完整度（DB 生成列，20 字段非空各计 5 分，与后台同口径） */
@@ -43,7 +41,6 @@ export interface SupplierDirectoryRow {
 export interface CompanyCandidateRow extends RowDataPacket {
   id: number;
   company: string | null;
-  business_type: string | null;
   province: string | null;
   city: string | null;
   established_at: string | null;
@@ -121,7 +118,6 @@ export class SupplierDirectoryRepo {
       `SELECT id, company, country, country_code,
               province, city,
               contact, phone, email, products, industry_code, certification,
-              business_type_code,
               data_quality_score
        FROM supplier
        WHERE company <> '测试'
@@ -213,7 +209,6 @@ export class SupplierDirectoryRepo {
     // 分页数据查询
     const [rows] = await this.pool.query(
       `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city, s.contact, s.phone, s.email, s.products, s.industry_code, s.certification,
-              s.business_type_code,
               s.data_quality_score
        FROM supplier s
        WHERE ${whereSql}
@@ -230,7 +225,6 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
               contact, phone, email, products, industry_code, certification,
-              business_type_code,
               data_quality_score
        FROM supplier
        WHERE id = ? AND verify_status = 'done'
@@ -249,7 +243,6 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
               contact, phone, email, products, industry_code, certification,
-              business_type_code,
               data_quality_score
        FROM supplier
        WHERE id = ?
@@ -286,19 +279,21 @@ export class SupplierDirectoryRepo {
     "address", "registered_address", "contact", "position", "phone", "email",
     "registered_phone", "registered_email", "website", "legal_rep",
     "established_at", "registered_capital", "credit_code",
-    "business_type", "certification", "products", "intro", "remark",
+    "certification", "products", "intro",
   ] as const;
 
   /**
    * 门户读列白名单 = EDITABLE_COLUMNS（表单可编辑列，编辑回填必需）
-   *                 + 7 个门户另外要用的状态/展示列（claim_status 退役后由 8 减 1）。
+   *                 + 6 个门户另外要用的状态/展示列。
    *
    * 追加理由逐个可查：
-   *   id / verify_status / coop_status / check_note / data_quality_score / addtime
-   *     —— EnterpriseInfoCard 的状态徽章、完整度与录入时间、以及以外的展示字段；
+   *   id / verify_status / check_note / data_quality_score / addtime
+   *     —— EnterpriseInfoCard 的状态徽章、完整度与录入时间；
    *   license_url —— 企业详情展示执照 + 保存时协调旧文件；
    * claim_status 已于 2026-11-11 退役（ADR-0017）：认领状态由 supplier_claims 派生，
    *   不再作为 supplier 列下发（企业 GET 的 hasPendingClaim 由认领仓储单独派生）。
+   * coop_status / info_checked / business_scope / source_url 已于 2026-11 影子表迁移
+   *   物理删除（全无写入方），本白名单同步移除，避免引用已删列。
    * 2026-09 影子表重建时本表删 6 列（merged_id / english_name / webcheck_status /
    *   webcheck_at / last_match_at / 旧匹配时间），重复档案物理清除，
    *   历史上的 `merged_id IS NULL` 假门禁随之全部摘除；english_name 全库恒空已退役。
@@ -306,7 +301,7 @@ export class SupplierDirectoryRepo {
    */
   static readonly PORTAL_COLUMNS = [
     ...SupplierDirectoryRepo.EDITABLE_COLUMNS,
-    "id", "verify_status", "coop_status", "check_note",
+    "id", "verify_status", "check_note",
     "data_quality_score", "addtime", "license_url",
   ] as const;
 
@@ -433,7 +428,7 @@ export class SupplierDirectoryRepo {
     // 与 findVerifiedByNameSimilar 同口径转义 LIKE 通配符，否则用户输入 % 会退化为全表匹配
     const escaped = kw.replace(/[\\%_]/g, (c) => `\\${c}`);
     const [rows] = await this.pool.query<CompanyCandidateRow[]>(
-      `SELECT id, company, business_type, province, city,
+      `SELECT id, company, province, city,
               established_at, legal_rep, credit_code, verify_status,
               EXISTS(
                 SELECT 1 FROM supplier_claims pc
@@ -463,15 +458,16 @@ export class SupplierDirectoryRepo {
 
   /**
    * 取诊断评分 D1 所需的主数据片段 + 主体正名。
-   * `data_quality_score` 是生成列（20 字段非空各计 5 分），`info_checked` 是人工核对标记；
+   * `data_quality_score` 是生成列（20 字段非空各计 5 分），D1 直接按它分档；
+   * 2026-11 起 `info_checked` 列已随影子表迁移物理删除，不再有人工核对封顶。
    * `company` 供诊断落库快照走 SSOT（payload 名只做检索，不入库，2026-11-12 防污染口径）；
    * 本方法不走 verify_status 过滤，因为刚建档的行依然是 D1 的正当评价对象。
    */
   async findProfileBits(
     supplierId: number,
-  ): Promise<{ dataQualityScore: number | null; infoChecked: boolean; company: string | null } | null> {
+  ): Promise<{ dataQualityScore: number | null; company: string | null } | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT company, data_quality_score, info_checked FROM supplier WHERE id = ? LIMIT 1`,
+      `SELECT company, data_quality_score FROM supplier WHERE id = ? LIMIT 1`,
       [supplierId],
     );
     const row = rows[0];
@@ -480,7 +476,6 @@ export class SupplierDirectoryRepo {
     return {
       company: row.company ?? null,
       dataQualityScore: q === null || q === undefined ? null : Number(q),
-      infoChecked: Number(row.info_checked ?? 0) === 1,
     };
   }
 
