@@ -17,6 +17,8 @@ npm run dev          # http://localhost:3000
 
 环境变量参考 `.env.example`（MySQL / Meilisearch / 支付 / 翻译通道等）。
 
+Node 版本钉在 `.nvmrc`（24.22.1，与 `package.json` 的 `engines.node` 一致）。CI 四个 job 与部署流水线都用 `actions/setup-node` 的 `node-version-file: .nvmrc` 读取它，**删掉这个文件会让所有 job 在 `npm ci` 之前就以 "The specified node version file ... does not exist" 失败**；本地 `nvm use` 走同一份版本号。
+
 ## 常用命令
 
 ```bash
