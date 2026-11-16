@@ -63,6 +63,11 @@ export function buildProjectionRow(src: ProjectionSource, publishedAtSec: number
     user_id: src.buyerUserId,
     entry_source: "platform",
     rfq_status: "published",
+    // 水位选行（notice-public/build.ts 主表分支）只认 update_time 非空的行：
+    // 平台投影行不写时间戳 → 服务表/宽表/Meili 对平台单永久零覆盖（2026-11-17 实测修复）。
+    // 口径与爬虫行一致：bigint epoch 秒。
+    create_time: publishedAtSec,
+    update_time: publishedAtSec,
   };
 }
 
@@ -85,6 +90,8 @@ const COLUMNS = [
   "user_id",
   "entry_source",
   "rfq_status",
+  "create_time",
+  "update_time",
 ] as const;
 
 /** 组装公开描述：项目背景 + 明细清单文本化 */
@@ -114,8 +121,10 @@ export async function upsertProjection(
   const values = COLUMNS.map((c) => built[c]);
 
   if (src.noticePk) {
-    const sets = COLUMNS.filter((c) => c !== "notice_id").map((c) => `${c} = ?`);
-    const params = COLUMNS.filter((c) => c !== "notice_id").map((c) => built[c]);
+    // 重发布（同行换版本）只顶 update_time，保留首次创建时间
+    const setCols = COLUMNS.filter((c) => c !== "notice_id" && c !== "create_time");
+    const sets = setCols.map((c) => `${c} = ?`);
+    const params = setCols.map((c) => built[c]);
     params.push(src.noticePk);
     await db.query(`UPDATE bid_notices SET ${sets.join(", ")} WHERE id = ?`, params);
     return src.noticePk;
