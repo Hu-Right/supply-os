@@ -461,6 +461,9 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
       }
     }
     if (index === 5 && !form.authorizePublish) return t("pc_err_authorize");
+    if (index === 5 && form.complianceFlags.includes("other") && !form.complianceNote.trim()) {
+      return t("pc_err_compliance_note");
+    }
     return "";
   };
 
@@ -967,16 +970,29 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             </select>
           </label>
           <div className={labelCls}>
-            {t("pc_compliance")}
+            <span className="flex items-center gap-1.5">
+              {t("pc_compliance")}
+              <FieldHintTooltip label={t("pc_compliance")} content={t("pc_compliance_hint")} />
+            </span>
             <div className="mt-1 flex flex-wrap gap-2">
               {COMPLIANCE_OPTIONS.map((o) => (
                 <button key={o} type="button" onClick={() => field("complianceFlags", toggle(form.complianceFlags, o))}
+                  title={t(`pc_comp_${o}_hint`)}
                   className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${form.complianceFlags.includes(o) ? "border-amber-500 bg-amber-50 text-amber-700" : "border-secondary-300 text-secondary-600"}`}>
                   {t(`pc_comp_${o}`)}
                 </button>
               ))}
             </div>
-            <input value={form.complianceNote} onChange={(e) => field("complianceNote", e.target.value)} placeholder={t("pc_complianceNote")} className="mt-2 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
+            <label className="mt-2 block text-xs font-semibold text-secondary-600">
+              {t("pc_complianceNote")}
+              {form.complianceFlags.includes("other") ? " *" : ""}
+              <input
+                value={form.complianceNote}
+                onChange={(e) => field("complianceNote", e.target.value)}
+                placeholder={t("pc_complianceNote_ph")}
+                className="mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm font-normal"
+              />
+            </label>
           </div>
           <label className="flex items-center gap-2 text-sm text-secondary-700">
             <input type="checkbox" checked={form.authorizePublish} onChange={(e) => field("authorizePublish", e.target.checked)} />
