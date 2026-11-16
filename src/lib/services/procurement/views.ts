@@ -87,6 +87,7 @@ export function projectSummaryViewOf(row: ProjectRow) {
     createdAt: toNum(row.created_at),
     requirementVerify: toStr(row.requirement_verify),
     fundVerify: toStr(row.fund_verify),
+    buyerStatus: toStr(row.buyer_status),
   };
 }
 
@@ -153,6 +154,7 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     quoteDeadlineAt: toNum(row.quote_deadline_at),
     compliance: toJsonValue(row.compliance),
     buyerOrgName: showOrgName ? bundle.buyerOrgName : "",
+    buyerStatus: toStr(bundle.buyerStatus),
     requirementVerify: toStr(row.requirement_verify),
     fundVerify: toStr(row.fund_verify),
     submittedAt: toNum(row.submitted_at),

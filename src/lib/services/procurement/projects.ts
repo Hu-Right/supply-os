@@ -60,6 +60,8 @@ export interface ProjectRow extends RowDataPacket {
   primary_ugt_code: string | null;
   requirement_verify: string;
   fund_verify: string;
+  /** listPlaza LEFT JOIN 带出的主体核验态（仅广场/列表查询填充；单查 p.* 时无此列） */
+  buyer_status?: string | null;
   submitted_at: number | null;
   published_at: number | null;
   created_at: number;
@@ -480,7 +482,9 @@ export async function listPlaza(
   );
   const total = Number((countRes as Array<{ total: number }>)[0]?.total ?? 0);
   const [rows] = await db.query(
-    `SELECT p.* FROM procurement_projects p WHERE ${where}
+    `SELECT p.*, b.status AS buyer_status FROM procurement_projects p
+      LEFT JOIN procurement_buyers b ON b.id = p.buyer_id
+      WHERE ${where}
       ORDER BY p.published_at DESC LIMIT ? OFFSET ?`,
     [...params, pageSize, (page - 1) * pageSize],
   );
@@ -648,6 +652,8 @@ export async function copyProjectAsDraft(
 /** 详情组装：主表+标包+明细+附件+核验记录（时间线）+授权状态 */export interface ProjectDetailBundle {
   project: ProjectRow;
   buyerOrgName: string;
+  /** 主体核验态（procurement_buyers.status），公开详情的「主体已核验」徽章数据源 */
+  buyerStatus: string;
   lots: RowDataPacket[];
   items: RowDataPacket[];
   attachments: RowDataPacket[];
@@ -663,7 +669,7 @@ export async function getProjectBundle(db: Pool, projectId: number): Promise<Pro
   const project = await getProjectById(db, projectId);
   if (!project) return null;
   const [buyerRows] = await db.query(
-    "SELECT org_name FROM procurement_buyers WHERE id = ? LIMIT 1",
+    "SELECT org_name, status FROM procurement_buyers WHERE id = ? LIMIT 1",
     [project.buyer_id],
   );
   const [lots] = await db.query("SELECT * FROM procurement_lots WHERE project_id = ? ORDER BY lot_no", [projectId]);
@@ -684,6 +690,7 @@ export async function getProjectBundle(db: Pool, projectId: number): Promise<Pro
   return {
     project,
     buyerOrgName: String((buyerRows as Array<{ org_name: string }>)[0]?.org_name ?? ""),
+    buyerStatus: String((buyerRows as Array<{ status?: string }>)[0]?.status ?? "pending"),
     lots: lots as RowDataPacket[],
     items: items as RowDataPacket[],
     attachments: attachments as RowDataPacket[],

@@ -19,6 +19,27 @@ const VERIFY_BADGE: Record<string, string> = {
   reject: "bg-red-100 text-red-700",
 };
 
+/** 需求核验态文案（zh/en），跟随页面 t2 内联双语模式 */
+const VERIFY_TEXT: Record<string, [string, string]> = {
+  pass: ["已核验", "Verified"],
+  pending: ["待核验", "Pending"],
+  need_info: ["需补充", "Info needed"],
+  risk: ["存在风险", "At risk"],
+  reject: ["未通过", "Rejected"],
+};
+
+/** 主体核验态文案（zh/en）；未识别值回退显示原始枚举 */
+const BUYER_VERIFY_TEXT: Record<string, [string, string]> = {
+  verified: ["主体已核验", "Buyer verified"],
+  pending: ["主体待核验", "Buyer pending"],
+  rejected: ["主体未通过", "Buyer rejected"],
+};
+const BUYER_VERIFY_BADGE: Record<string, string> = {
+  verified: "bg-teal-100 text-teal-800",
+  pending: "bg-amber-100 text-amber-800",
+  rejected: "bg-red-100 text-red-700",
+};
+
 const GUARANTEE_LABEL_ZH: Record<string, string> = {
   bid_bond: "投标保函",
   performance_bond: "履约保函",
@@ -91,7 +112,10 @@ function RfqDetailContent() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <h1 className="text-xl font-extrabold text-secondary-900">{zh ? detail.titleZh : detail.titleEn || detail.titleZh}</h1>
           <span className={`rounded-full px-3 py-1 text-xs font-semibold ${VERIFY_BADGE[detail.requirementVerify] ?? "bg-secondary-100 text-secondary-600"}`}>
-            {t2("需求核验", "Verified")}: {detail.requirementVerify}
+            {t2("需求核验", "Requirement")}: {VERIFY_TEXT[detail.requirementVerify]?.[zh ? 0 : 1] ?? detail.requirementVerify}
+          </span>
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${BUYER_VERIFY_BADGE[detail.buyerStatus] ?? "bg-secondary-100 text-secondary-600"}`}>
+            {BUYER_VERIFY_TEXT[detail.buyerStatus]?.[zh ? 0 : 1] ?? t2("主体核验", "Buyer")}
           </span>
         </div>
         <div className="mt-2 text-xs text-secondary-400">{detail.reference} · v{detail.versionNo} · {detail.buyerOrgName}</div>

@@ -55,6 +55,7 @@ describe("projectDetailViewOf — contact_disclosure 分级裁剪", () => {
         created_at: 1_776_000_000,
       } as never,
       buyerOrgName: "某教育局",
+      buyerStatus: "verified",
       lots: [],
       items: [],
       attachments: [],
@@ -69,6 +70,8 @@ describe("projectDetailViewOf — contact_disclosure 分级裁剪", () => {
     expect(v.budgetAmount).toBeNull();
     expect(v.deliveryAddress).toBe("某学校");
     expect(v.contactDisclosure).toBe("none");
+    // 主体核验态不属身份信息，匿名化档位仍下发（可信度信号）
+    expect(v.buyerStatus).toBe("verified");
   });
 
   it("org_only：公开机构名，预算仍受 budget_public 控制", () => {

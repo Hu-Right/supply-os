@@ -52,6 +52,7 @@ export interface ProjectSummary {
   createdAt: number | null;
   requirementVerify?: string;
   fundVerify?: string;
+  buyerStatus?: string;
 }
 
 export interface ProjectDetail extends ProjectSummary {
@@ -78,6 +79,7 @@ export interface ProjectDetail extends ProjectSummary {
   contactDisclosure: string;
   compliance: Record<string, unknown> | null;
   buyerOrgName: string;
+  buyerStatus: string;
   requirementVerify: string;
   fundVerify: string;
   submittedAt: number | null;

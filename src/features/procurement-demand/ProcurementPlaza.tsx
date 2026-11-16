@@ -73,6 +73,14 @@ export function ProcurementPlaza() {
                 {p.primaryUgtCode && (
                   <span className="rounded-full bg-teal-50 px-2 py-0.5 text-teal-700">{p.primaryUgtCode}</span>
                 )}
+                {p.buyerStatus === "verified" && (
+                  <span className="rounded-full bg-teal-50 px-2 py-0.5 text-teal-700">{t("pc_verify_buyer_verified")}</span>
+                )}
+                {(p.requirementVerify || "pending") !== "pending" && (
+                  <span className={`rounded-full px-2 py-0.5 ${(p.requirementVerify || "pending") === "pass" ? "bg-teal-50 text-teal-700" : "bg-secondary-100 text-secondary-600"}`}>
+                    {t(`pc_verify_${p.requirementVerify}`)}
+                  </span>
+                )}
               </div>
             </Link>
           ))}
