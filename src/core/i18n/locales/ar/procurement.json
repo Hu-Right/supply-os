@@ -739,6 +739,8 @@
   "pc_extract_apply": "تطبيق المحدد",
   "pc_cancel": "إلغاء",
   "pc_import_excel": "استيراد Excel/CSV",
+  "pc_import_template_xlsx": "تنزيل قالب Excel",
+  "pc_import_template_csv": "تنزيل قالب CSV",
   "pc_import_done": "تم الاستيراد",
   "pc_import_skipped": "تم التخطي",
   "pc_import_failed": "فشل استيراد القائمة",

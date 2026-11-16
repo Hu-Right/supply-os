@@ -739,6 +739,8 @@
   "pc_extract_apply": "Aplicar seleção",
   "pc_cancel": "Cancelar",
   "pc_import_excel": "Importar Excel/CSV",
+  "pc_import_template_xlsx": "Baixar modelo Excel",
+  "pc_import_template_csv": "Baixar modelo CSV",
   "pc_import_done": "Importado",
   "pc_import_skipped": "ignorado(s)",
   "pc_import_failed": "Falha ao importar a lista",

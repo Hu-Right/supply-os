@@ -739,6 +739,8 @@
   "pc_extract_apply": "Применить выбранное",
   "pc_cancel": "Отмена",
   "pc_import_excel": "Импорт Excel/CSV",
+  "pc_import_template_xlsx": "Скачать шаблон Excel",
+  "pc_import_template_csv": "Скачать шаблон CSV",
   "pc_import_done": "Импортировано",
   "pc_import_skipped": "пропущено",
   "pc_import_failed": "Не удалось импортировать список",

@@ -716,10 +716,26 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
         <div className="grid gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className={labelCls}>{t("pc_items")} *</div>
-            <label className="cursor-pointer rounded-lg border border-dashed border-secondary-300 px-3 py-1.5 text-xs font-semibold text-secondary-600 hover:bg-secondary-50">
-              {importing ? "…" : t("pc_import_excel")}
-              <input type="file" accept=".xlsx,.csv,.tsv,.txt" className="hidden" onChange={(e) => { void onImportExcel(e.target.files?.[0] ?? null); e.target.value = ""; }} />
-            </label>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <a
+                href="/downloads/templates/procurement-items-import-template.xlsx"
+                download
+                className="text-teal-700 underline"
+              >
+                {t("pc_import_template_xlsx")}
+              </a>
+              <a
+                href="/downloads/templates/procurement-items-import-template.csv"
+                download
+                className="text-teal-700 underline"
+              >
+                {t("pc_import_template_csv")}
+              </a>
+              <label className="cursor-pointer rounded-lg border border-dashed border-secondary-300 px-3 py-1.5 text-xs font-semibold text-secondary-600 hover:bg-secondary-50">
+                {importing ? "…" : t("pc_import_excel")}
+                <input type="file" accept=".xlsx,.csv,.tsv,.txt" className="hidden" onChange={(e) => { void onImportExcel(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+              </label>
+            </div>
           </div>
           {importMsg && <div className="rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800">{importMsg}</div>}
           <div className="grid gap-2">
