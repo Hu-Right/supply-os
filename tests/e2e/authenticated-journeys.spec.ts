@@ -204,7 +204,9 @@ test.describe("商机浏览与解锁旅程", () => {
     });
     expect(res.status()).toBe(402);
     const body = await res.json();
-    expect(body.message).toContain("免费");
+    // 免费试用已下线：402 文案是会员升级引导（历史文案含「免费」，现文案含「会员」），
+    // 断言放宽到两者之一，业务语义（被硬闸拦下 + 引导付费）不变。
+    expect(body.message).toMatch(/会员|免费/);
   });
 
   test("付费解锁 → 成功；重复解锁 → 幂等 alreadyUnlocked", async ({ request }) => {
@@ -289,7 +291,9 @@ test.describe("RFQ 需求旅程", () => {
 
   test("发布前置校验 → 无采购主体 400 明确报错", async ({ request }) => {
     test.skip(!isChromium(), "校验边界用例仅在 chromium 跑一次");
-    const token = await loginToken(request, VIP_USER);
+    // 必须用「没有采购主体」的账号：vip 已有采购主体（buyer），POST 会正常建草稿（200），
+    // 用它断言 400 会假失败，且每次跑都会往库里插一条空草稿。free 账号无 buyer。
+    const token = await loginToken(request, FREE_USER);
     const res = await request.post(`${TEST_BASE_URL}/api/procurement/projects`, {
       headers: authHeaders(token),
       data: {},
