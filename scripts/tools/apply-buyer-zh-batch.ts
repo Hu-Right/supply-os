@@ -55,8 +55,8 @@ function parseRow(line: string, lineNo: number): Row | null {
   const cols = line.split("\t").map((s) => s.trim());
   if (cols.length < 2) return null;
   let country = "";
-  let name = "";
-  let zh = "";
+  let name: string;
+  let zh: string;
   if (cols.length === 2) {
     [name, zh] = cols;
   } else if (cols.length === 3) {
