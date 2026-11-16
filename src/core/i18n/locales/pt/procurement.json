@@ -626,7 +626,6 @@
   "pc_bsave": "Salvar e enviar",
   "pc_bsave_ok": "Salvo, verificação pendente",
   "pc_bsave_fail": "Falha ao salvar",
-  "pc_bpage_hint": "Não verificados podem manter rascunhos; publicar requer verificação (F01).",
   "pc_fz_drop": "Arraste arquivos aqui ou clique",
   "pc_fz_drop_now": "Solte para enviar",
   "pc_fz_or_browse": "ou use o botão abaixo",

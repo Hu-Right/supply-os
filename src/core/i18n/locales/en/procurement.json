@@ -626,7 +626,6 @@
   "pc_bsave": "Save & submit for verification",
   "pc_bsave_ok": "Saved, awaiting verification",
   "pc_bsave_fail": "Save failed, please retry",
-  "pc_bpage_hint": "Unverified buyers may keep drafts; formal publication requires identity verification (per F01).",
   "pc_fz_drop": "Drag files here, or click to browse",
   "pc_fz_drop_now": "Drop to upload",
   "pc_fz_or_browse": "or use the button below",

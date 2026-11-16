@@ -451,7 +451,6 @@ export default function PageClient() {
           <button type="button" disabled={saving} onClick={onSave} className="rounded-lg bg-teal-600 px-6 py-2.5 text-sm font-bold text-white shadow-xs hover:bg-teal-700 disabled:opacity-50">
             {saving ? "…" : t("pc_bsave")}
           </button>
-          <span className="text-xs text-secondary-400">{t("pc_bpage_hint")}</span>
         </div>
       </div>
     </div>

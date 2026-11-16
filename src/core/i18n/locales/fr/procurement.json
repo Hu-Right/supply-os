@@ -626,7 +626,6 @@
   "pc_bsave": "Enregistrer et soumettre",
   "pc_bsave_ok": "Enregistré, vérification en attente",
   "pc_bsave_fail": "Échec, réessayez",
-  "pc_bpage_hint": "Les non-vérifiés gardent des brouillons; la publication requiert la vérification (F01).",
   "pc_fz_drop": "Glissez les fichiers ici ou cliquez",
   "pc_fz_drop_now": "Déposez pour téléverser",
   "pc_fz_or_browse": "ou utilisez le bouton ci-dessous",

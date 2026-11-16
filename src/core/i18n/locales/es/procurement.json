@@ -626,7 +626,6 @@
   "pc_bsave": "Guardar y enviar",
   "pc_bsave_ok": "Guardado, verificación pendiente",
   "pc_bsave_fail": "Error al guardar",
-  "pc_bpage_hint": "Los no verificados pueden guardar borradores; publicar requiere verificación (F01).",
   "pc_fz_drop": "Arrastre archivos aquí o haga clic",
   "pc_fz_drop_now": "Suelte para subir",
   "pc_fz_or_browse": "o use el botón de abajo",

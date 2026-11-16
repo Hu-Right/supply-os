@@ -974,8 +974,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
         </div>
       )}
 
-      <div className="mt-5 flex items-center justify-between">
-        <div className="text-xs text-secondary-400">{t("pc_bpage_hint")}</div>
+      <div className="mt-5 flex items-center justify-end">
         <div className="flex gap-2">
           {step > 0 && (
             <button type="button" onClick={() => { setError(""); setStep((s) => s - 1); }} className="rounded-lg border border-secondary-300 px-4 py-2 text-sm font-semibold text-secondary-600">
