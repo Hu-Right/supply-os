@@ -632,6 +632,8 @@
   "pc_fz_or_browse": "ou use o botão abaixo",
   "pc_fz_browse": "Escolher arquivos",
   "pc_fz_remove": "Remover",
+  "pc_fz_opening": "Abrindo…",
+  "pc_fz_open_fail": "Falha ao abrir o arquivo, tente novamente",
   "pc_fz_err_size": "Arquivo excede o limite",
   "pc_fz_err_type": "Formato não suportado",
   "pc_flow_s1": "Verificação do comprador",

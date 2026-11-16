@@ -632,6 +632,8 @@
   "pc_fz_or_browse": "or use the button below",
   "pc_fz_browse": "Browse files",
   "pc_fz_remove": "Remove",
+  "pc_fz_opening": "Opening…",
+  "pc_fz_open_fail": "Failed to open file, please retry",
   "pc_fz_err_size": "File exceeds the size limit",
   "pc_fz_err_type": "Unsupported file format",
   "pc_flow_s1": "Buyer verification",

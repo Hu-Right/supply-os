@@ -632,6 +632,8 @@
   "pc_fz_or_browse": "ou utilisez le bouton ci-dessous",
   "pc_fz_browse": "Parcourir",
   "pc_fz_remove": "Retirer",
+  "pc_fz_opening": "Ouverture…",
+  "pc_fz_open_fail": "Impossible d’ouvrir le fichier, réessayez",
   "pc_fz_err_size": "Fichier trop volumineux",
   "pc_fz_err_type": "Format non pris en charge",
   "pc_flow_s1": "Vérification acheteur",

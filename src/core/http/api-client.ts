@@ -313,6 +313,43 @@ export async function api<T>(
 }
 
 /**
+ * 取受保护文件（GET，返回 Blob）
+ *
+ * @param endpoint - 文件 URL（相对路径或完整 URL）
+ * @description 受保护文件接口要求 `Authorization: Bearer`，而 `<a href>` / `<img src>`
+ *              由浏览器直接发起请求、带不上该头（会 401「请先登录」）。
+ *              统一用本函数取回 Blob，再由调用方 `URL.createObjectURL` 展示/下载。
+ */
+export async function apiBlob(
+  endpoint: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<Blob> {
+  const url = endpoint.startsWith("http") ? endpoint : `${BASE_URL}${endpoint}`;
+  const request = (token: string | null) =>
+    fetch(url, {
+      method: "GET",
+      signal: options.signal,
+      credentials: "same-origin",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+  let res = await request(getAuthToken());
+  if (res.status === 401) {
+    const newToken = await tryRefreshToken();
+    if (newToken) res = await request(newToken);
+  }
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { code?: number; message?: string; error?: string };
+    if (res.status === 401) {
+      clearAuthTokens();
+      emitAppEvent("supply-os:unauthorized", { endpoint });
+    }
+    throw new ApiError(res.status, err.message || err.error || `Request failed: ${res.status}`, err.code, err);
+  }
+  return res.blob();
+}
+
+/**
  * 带 TTL 缓存的请求函数
  * Request function with TTL cache
  *

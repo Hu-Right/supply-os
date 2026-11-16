@@ -632,6 +632,8 @@
   "pc_fz_or_browse": "或点击右侧按钮选择文件",
   "pc_fz_browse": "选择文件",
   "pc_fz_remove": "移除",
+  "pc_fz_opening": "打开中…",
+  "pc_fz_open_fail": "文件打开失败，请重试",
   "pc_fz_err_size": "文件超过大小限制",
   "pc_fz_err_type": "不支持的文件格式",
   "pc_flow_s1": "主体认证",

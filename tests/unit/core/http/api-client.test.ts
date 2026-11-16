@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, apiCached, clearApiCache, getCachedData, setCachedData } from "@/core/http/api-client";
+import { api, apiBlob, apiCached, clearApiCache, getCachedData, setCachedData, setAuthTokens } from "@/core/http/api-client";
 
 vi.mock("@/core/perf", () => ({ recordApiMetric: vi.fn() }));
 
@@ -41,6 +41,27 @@ describe("api body 序列化", () => {
     fetchMock.mockResolvedValueOnce(Response.json({ ok: true }));
     await api("/api/procurement/buyer", { method: "PUT", body: JSON.stringify({ orgName: "111" }) });
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe('{"orgName":"111"}');
+  });
+});
+
+describe("apiBlob 受保护文件", () => {
+  it("携带 Authorization 头并返回 Blob", async () => {
+    setAuthTokens("token-abc");
+    fetchMock.mockResolvedValueOnce(new Response(new Uint8Array([97, 98, 99]), { status: 200 }));
+    const blob = await apiBlob("/api/user/enterprise/license/license_6_1.png");
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ Authorization: "Bearer token-abc" });
+    expect(blob.size).toBe(3);
+  });
+
+  it("401 且无法刷新时抛业务错误，不再静默返回空文件", async () => {
+    setAuthTokens("expired");
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ code: 40042, message: "请先登录" }, { status: 401 }),
+    );
+    await expect(apiBlob("/api/user/enterprise/license/license_6_1.png")).rejects.toMatchObject({
+      status: 401,
+      message: "请先登录",
+    });
   });
 });
 

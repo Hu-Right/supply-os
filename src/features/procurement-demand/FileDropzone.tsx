@@ -11,6 +11,7 @@
  */
 import { useCallback, useRef, useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { apiBlob } from "@/core/http";
 
 export interface ExistingFile {
   name: string;
@@ -57,6 +58,8 @@ export function FileDropzone(props: FileDropzoneProps) {
   const { t } = useLocale();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [openingUrl, setOpeningUrl] = useState<string | null>(null);
+  const [openError, setOpenError] = useState("");
   const { files, onFilesChange, existingFiles = [], accept, maxSizeBytes, multiple = false } = props;
 
   const validate = useCallback(
@@ -97,6 +100,30 @@ export function FileDropzone(props: FileDropzoneProps) {
       addFiles(e.dataTransfer.files);
     },
     [addFiles],
+  );
+
+  // 已上传文件走鉴权请求取 Blob：<a href> 由浏览器直连，带不上 Authorization，
+  // 受保护接口会返回 401「请先登录」。
+  const openExisting = useCallback(
+    async (file: ExistingFile) => {
+      setOpenError("");
+      const win = window.open("", "_blank");
+      if (win) win.opener = null;
+      setOpeningUrl(file.url);
+      try {
+        const blob = await apiBlob(file.url);
+        const objectUrl = URL.createObjectURL(blob);
+        if (win) win.location.href = objectUrl;
+        else window.location.href = objectUrl;
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      } catch (err) {
+        win?.close();
+        setOpenError((err as Error).message || t("pc_fz_open_fail"));
+      } finally {
+        setOpeningUrl(null);
+      }
+    },
+    [t],
   );
 
   return (
@@ -160,9 +187,14 @@ export function FileDropzone(props: FileDropzoneProps) {
           {existingFiles.map((f) => (
             <div key={f.name} className="flex items-center gap-3 rounded-lg border border-secondary-200 bg-white px-3 py-2">
               <span className="text-lg">{typeIcon(f.name)}</span>
-              <a href={f.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-sm text-teal-700 underline">
-                {f.name}
-              </a>
+              <button
+                type="button"
+                onClick={() => void openExisting(f)}
+                disabled={openingUrl === f.url}
+                className="min-w-0 flex-1 truncate text-left text-sm text-teal-700 underline disabled:opacity-60"
+              >
+                {openingUrl === f.url ? t("pc_fz_opening") : f.name}
+              </button>
               {f.sizeBytes != null && <span className="text-xs text-secondary-400">{fmtSize(f.sizeBytes)}</span>}
               {props.onRemoveExisting && (
                 <button
@@ -175,6 +207,7 @@ export function FileDropzone(props: FileDropzoneProps) {
               )}
             </div>
           ))}
+          {openError && <p className="text-xs text-red-600">{openError}</p>}
         </div>
       )}
     </div>
