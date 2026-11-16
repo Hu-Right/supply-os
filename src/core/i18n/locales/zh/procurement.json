@@ -561,6 +561,8 @@
   "pc_attachments": "附件（图纸/技术需求书/BOM/样品照片）",
   "pc_attachments_hint": "支持 pdf/图片/office/zip ≤20MB，随版本冻结留痕。",
   "pc_budget": "采购预算",
+  "pc_budget_hint": "按所选币种的原始金额填写，如 1000000（不是 100 万）；系统不做单位换算。",
+  "pc_err_budget": "预算金额需为数字（可带千分位逗号）",
   "pc_currency": "币种",
   "pc_budgetPublic": "预算可向供应商公开",
   "pc_deliveryCountry": "交付国家",

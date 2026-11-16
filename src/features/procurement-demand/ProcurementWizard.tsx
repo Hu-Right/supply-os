@@ -27,6 +27,10 @@ import {
   type CertRequirement,
 } from "@/shared/constants/procurement-cert-requirements";
 import {
+  PROCUREMENT_CURRENCIES,
+  parseBudgetAmount,
+} from "@/shared/constants/procurement-currencies";
+import {
   createProject,
   fetchProject,
   parseProductListFile,
@@ -302,7 +306,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     usageEnv: form.usageEnv.trim() || null,
     standards: form.standards.trim() || null,
     certRequirements: form.certRequirements,
-    budgetAmount: form.budgetAmount === "" ? null : Number(form.budgetAmount),
+    budgetAmount: parseBudgetAmount(form.budgetAmount),
     budgetCurrency: form.budgetCurrency,
     budgetPublic: form.budgetPublic ? 1 : 0,
     deliveryCountry: form.deliveryCountry.trim() || null,
@@ -407,6 +411,9 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     if (index === 1 && !derivedUgt) return t("pc_err_category");
     if (index === 2 && items.filter((it) => it.nameZh.trim()).length === 0) return t("pc_err_items");
     if (index === 2 && form.certRequirements.some((r) => !r.name.trim())) return t("pc_err_cert_custom");
+    if (index === 3 && form.budgetAmount.trim() && parseBudgetAmount(form.budgetAmount) === null) {
+      return t("pc_err_budget");
+    }
     if (index === 4) {
       if (!form.deliveryCountry.trim() || !form.deliveryCity.trim()) return t("pc_err_delivery");
       if (!form.quoteDeadlineDate) return t("pc_err_deadline");
@@ -721,12 +728,23 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           <div className="grid gap-4 sm:grid-cols-3">
             <label className={labelCls}>
               {t("pc_budget")}
-              <input value={form.budgetAmount} onChange={(e) => field("budgetAmount", e.target.value)} className={inputCls} />
+              <input
+                value={form.budgetAmount}
+                onChange={(e) => field("budgetAmount", e.target.value)}
+                inputMode="decimal"
+                placeholder="1000000"
+                className={inputCls}
+              />
+              <span className="mt-1 block text-[11px] font-normal leading-relaxed text-secondary-400">
+                {t("pc_budget_hint")}
+              </span>
             </label>
             <label className={labelCls}>
               {t("pc_currency")}
               <select value={form.budgetCurrency} onChange={(e) => field("budgetCurrency", e.target.value)} className={inputCls}>
-                {["CNY", "USD", "EUR"].map((c) => <option key={c} value={c}>{c}</option>)}
+                {[...new Set<string>([...PROCUREMENT_CURRENCIES, form.budgetCurrency].filter(Boolean))].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
               </select>
             </label>
           </div>

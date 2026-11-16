@@ -561,6 +561,8 @@
   "pc_attachments": "Anexos (desenhos/especificações/BOM/fotos)",
   "pc_attachments_hint": "pdf/imagem/office/zip ≤20MB, congelados por versão.",
   "pc_budget": "Orçamento",
+  "pc_budget_hint": "Informe o valor na unidade base da moeda selecionada, ex. 1000000 (não em milhares); não há conversão de unidade.",
+  "pc_err_budget": "O orçamento deve ser um número (separadores de milhar permitidos)",
   "pc_currency": "Moeda",
   "pc_budgetPublic": "Orçamento visível aos fornecedores",
   "pc_deliveryCountry": "País de entrega",
