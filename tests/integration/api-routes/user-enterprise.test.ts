@@ -3,16 +3,19 @@
  *
  * @description 出口写的是 `json({ …, enterprise: row, … })`，row 来自
  *              `findFullById` = `SELECT <PORTAL_COLUMNS> FROM supplier WHERE id=?`。
- *              真库探针实测 30 个列键，其中 14 个带下划线（country_code/registered_address/
+ *              真库探针实测 27 个列键，其中 12 个带下划线（country_code/registered_address/
  *              registered_phone/registered_email/legal_rep/established_at/registered_capital/
- *              credit_code/business_type/verify_status/coop_status/check_note/
- *              data_quality_score/license_url）。claim_status 已退役（ADR-0017），
- *              其位置由派生键 hasPendingClaim 取代（来自 supplier_claims，不是 supplier 列）。
+ *              credit_code/verify_status/check_note/data_quality_score/license_url）。
+ *              claim_status 已退役（ADR-0017），其位置由派生键 hasPendingClaim 取代
+ *              （来自 supplier_claims，不是 supplier 列）；coop_status / info_checked /
+ *              business_type / remark / source_channel 也已随 2026-11 影子表迁移物理删除，
+ *              白名单与响应都不得再出现这些键。
  *              前端 `EnterpriseInfo` 当时是 `Record<string, unknown>`——类型被抹平，
  *              tsc/门禁/探针三路都看不见这些键（本批顺带把它升级成具名类型当编译期闸门）。
  *
  *              期望键集合直接从 PORTAL_COLUMNS 推导，不手抄：手抄会漏，漏了就等于没钉；
- *              派生键 hasPendingClaim 单独登记。
+ *              派生键 hasPendingClaim 单独登记。PORTAL_ROW 这份 mock 也必须与白名单逐列对齐
+ *              （下面有断言把关），否则白名单删列后 mock 仍回旧列，接口契约就悄悄失真了。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -53,7 +56,6 @@ const PORTAL_ROW: Record<string, unknown> = {
   products: "阀门、泵",
   intro: "简介",
   verify_status: "done",
-  coop_status: 0,
   check_note: "",
   data_quality_score: 88,
   addtime: 1730000000,
@@ -118,9 +120,13 @@ describe("GET /api/user/enterprise", () => {
     const body = await (await GET(getReq())).json();
 
     expect(Object.keys(body.enterprise).sort()).toEqual([...EXPECTED_KEYS].sort());
-    expect(EXPECTED_KEYS).toHaveLength(31); // 白名单加/减列时这里先响，逼着同步看契约
+    expect(EXPECTED_KEYS).toHaveLength(28); // 白名单加/减列时这里先响，逼着同步看契约
     // claim_status 已退役：响应里不得再出现 claimStatus（读点清零）
     expect(body.enterprise.claimStatus).toBeUndefined();
+  });
+
+  it("mock 行与 PORTAL_COLUMNS 逐列对齐（白名单删列后 mock 不许留在旧结构）", () => {
+    expect(Object.keys(PORTAL_ROW).sort()).toEqual([...SupplierDirectoryRepo.PORTAL_COLUMNS].sort());
   });
 
   it("hasPendingClaim 由认领仓储派生（不是 supplier 列），值随查询结果下发", async () => {
