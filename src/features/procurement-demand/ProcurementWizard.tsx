@@ -141,6 +141,18 @@ const GUARANTEES = ["bid_bond", "performance_bond", "warranty_deposit"];
 const CONTACT_DISCLOSURE = ["none", "org_only", "org_contact", "budget_all"];
 const ATTACHMENT_KINDS = ["requirement", "tech_doc", "drawing", "bom", "sample", "other"];
 
+/** 付款方式快捷预设：点一下填入，仍可在文本框里改比例/账期 */
+const PAYMENT_PRESET_KEYS = [
+  "pc_pay_100",
+  "pc_pay_30_70",
+  "pc_pay_50_50",
+  "pc_pay_delivery",
+  "pc_pay_net30",
+  "pc_pay_net60",
+  "pc_pay_lc",
+  "pc_pay_milestone",
+] as const;
+
 interface ItemRow {
   lotNo: string;
   nameZh: string;
@@ -847,8 +859,29 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             </label>
           </div>
           <label className={labelCls}>
-            {t("pc_paymentTerms")}
-            <textarea value={form.paymentTerms} onChange={(e) => field("paymentTerms", e.target.value)} rows={2} className={inputCls} />
+            <span className="flex items-center gap-1.5">
+              {t("pc_paymentTerms")}
+              <FieldHintTooltip label={t("pc_paymentTerms")} content={t("pc_payment_hint")} />
+            </span>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {PAYMENT_PRESET_KEYS.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => field("paymentTerms", t(key))}
+                  className="rounded-full border border-secondary-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-secondary-600 hover:border-teal-400 hover:text-teal-700"
+                >
+                  {t(key)}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={form.paymentTerms}
+              onChange={(e) => field("paymentTerms", e.target.value)}
+              rows={2}
+              placeholder={t("pc_paymentTerms_ph")}
+              className={inputCls}
+            />
           </label>
           <label className={labelCls}>
             {t("pc_logisticsNote")}
