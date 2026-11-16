@@ -84,7 +84,7 @@ export function AppHeader({
 
   return (
     <>
-      <header suppressHydrationWarning className="sticky top-0 z-40 bg-white/95 border-b border-secondary-200/80 shadow-xs backdrop-blur-md">
+      <header suppressHydrationWarning className="print:hidden sticky top-0 z-40 bg-white/95 border-b border-secondary-200/80 shadow-xs backdrop-blur-md">
         <div className="px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
           {/* 左侧：汉堡菜单 + 品牌标识 */}
           <div className="flex items-center min-w-0 space-x-3">
@@ -134,7 +134,7 @@ export function AppHeader({
       />
 
       {/* DESKTOP NAV */}
-      <nav className="hidden md:block bg-[#0c1929] text-secondary-200 relative overflow-hidden">
+      <nav className="print:hidden hidden md:block bg-[#0c1929] text-secondary-200 relative overflow-hidden">
         {/* 地球装饰背景图 */}
         <img
           src="/earth.png?v=2"

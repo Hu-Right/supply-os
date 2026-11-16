@@ -192,10 +192,14 @@ export default function PublishFlowPageClient({ projectId }: { projectId: number
 
         {/* 第 4/5 步：已提交但授权未完成 → 内联签署；授权已核验 → 第 6 步核验进度 */}
         {(detail.status === "submitted" || detail.status === "under_review") && (
-          <div className="print:hidden space-y-5">
-            <ProjectSummary detail={detail} />
+          <div className="space-y-5">
+            <div className="print:hidden">
+              <ProjectSummary detail={detail} />
+            </div>
             {detail.authorization?.status === "verified" ? (
-              <ReviewProgress detail={detail} onStatusChange={() => void load()} />
+              <div className="print:hidden">
+                <ReviewProgress detail={detail} onStatusChange={() => void load()} />
+              </div>
             ) : (
               <AuthorizationPanel projectId={projectId} detail={detail} onSigned={() => void load()} />
             )}

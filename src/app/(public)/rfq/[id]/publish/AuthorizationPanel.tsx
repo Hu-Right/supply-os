@@ -115,7 +115,7 @@ export function AuthorizationPanel({
   ) : null;
 
   return (
-    <section className="rounded-2xl border border-secondary-200 bg-white shadow-xs">
+    <section className="rounded-2xl border border-secondary-200 bg-white shadow-xs print:rounded-none print:border-0 print:shadow-none">
       {/* 操作区（打印时隐藏） */}
       <div className="print:hidden border-b border-secondary-100 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -225,7 +225,7 @@ export function AuthorizationPanel({
           })}
         </div>
 
-        <div className="mt-8 grid gap-6 text-sm text-secondary-800 sm:grid-cols-3">
+        <div className="mt-8 grid gap-6 text-sm text-secondary-800 sm:grid-cols-3 print:break-inside-avoid">
           <div>
             <p>授权方（盖章）/ Buyer&apos;s Seal:</p>
             <p className="mt-8 border-b border-secondary-300">&nbsp;</p>

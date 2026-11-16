@@ -350,3 +350,15 @@ input[type="number"] {
     scroll-behavior: auto !important;
   }
 }
+
+/* ── 打印：授权书等法律文件使用统一页边距，避免内容贴边/被判成空白 ── */
+@media print {
+  @page {
+    margin: 16mm 14mm;
+  }
+
+  html,
+  body {
+    background: #fff;
+  }
+}
