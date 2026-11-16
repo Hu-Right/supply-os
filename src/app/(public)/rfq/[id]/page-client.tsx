@@ -73,7 +73,6 @@ function RfqDetailContent() {
           <div>{t2("采购性质", "Purpose")}: {detail.purpose}</div>
           <div>{t2("需求对象", "Scope")}: {detail.objectTypes.join(" / ")}</div>
           {detail.usageEnv && <div className="sm:col-span-2">{t2("用途及使用环境", "Usage & environment")}: {detail.usageEnv}</div>}
-          {detail.standards && <div className="sm:col-span-2">{t2("强制标准/认证", "Mandatory standards")}: {detail.standards}</div>}
           {detail.certRequirements.length > 0 && (
             <div className="sm:col-span-2">
               <span>{t2("认证要求", "Certification requirements")}:</span>

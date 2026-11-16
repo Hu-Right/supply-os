@@ -148,7 +148,6 @@ const PDF_FIELDS: Array<{ key: keyof ExtractedPdf; field: keyof FormState }> = [
   { key: "titleZh", field: "titleZh" },
   { key: "background", field: "background" },
   { key: "usageEnv", field: "usageEnv" },
-  { key: "standards", field: "standards" },
   { key: "deliveryCountry", field: "deliveryCountry" },
   { key: "deliveryCity", field: "deliveryCity" },
   { key: "deliveryAddress", field: "deliveryAddress" },
@@ -685,10 +684,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             {t("pc_usageEnv")}
             <textarea value={form.usageEnv} onChange={(e) => field("usageEnv", e.target.value)} rows={2} className={inputCls} />
           </label>
-          <label className={labelCls}>
-            {t("pc_standards")}
-            <textarea value={form.standards} onChange={(e) => field("standards", e.target.value)} rows={2} className={inputCls} />
-          </label>
+
           <CertRequirementsEditor
             value={form.certRequirements}
             onChange={(next) => field("certRequirements", next)}
