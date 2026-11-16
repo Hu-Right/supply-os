@@ -735,7 +735,6 @@
   "pc_fv_unverified": "未核验",
   "pc_fv_verified": "已核验",
   "pc_usageEnv": "用途及使用环境",
-  "pc_standards": "强制标准/认证要求",
   "pc_cert_title": "认证要求",
   "pc_cert_hint": "按认证字典选择；字典未收录的可选“其他（自输入）”。",
   "pc_cert_select": "选择认证项…",

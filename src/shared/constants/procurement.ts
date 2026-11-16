@@ -74,16 +74,6 @@ export const OBJECT_TYPES = ["goods", "engineering", "service", "solution"] as c
 
 export const INSTALL_NEEDS = ["installation", "commissioning", "training"] as const;
 
-export const GUARANTEES = ["bid_bond", "performance_bond", "warranty_deposit"] as const;
-
-/** 分级授权（F02 第10类：允许公开到什么程度） */
-export const CONTACT_DISCLOSURE = {
-  NONE: "none", // 不公开任何信息
-  ORG_ONLY: "org_only", // 仅公开采购方名称
-  ORG_CONTACT: "org_contact", // 公开名称+联系方式
-  BUDGET_ALL: "budget_all", // 公开名称+联系方式+预算
-} as const;
-
 // ── 核验（F04/F05/F06）───────────────────────────────────────────────────────
 
 export const REVIEW_STAGE = {

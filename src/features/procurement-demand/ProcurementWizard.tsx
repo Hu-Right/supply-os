@@ -65,7 +65,6 @@ interface FormState {
   internalProjectNo: string;
   objectTypes: string[];
   usageEnv: string;
-  standards: string;
   certRequirements: CertRequirement[];
   categoryL1: string;
   categoryL2: string;
@@ -105,7 +104,6 @@ const DEFAULT_FORM: FormState = {
   internalProjectNo: "",
   objectTypes: ["goods"],
   usageEnv: "",
-  standards: "",
   certRequirements: [],
   categoryL1: "",
   categoryL2: "",
@@ -251,7 +249,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           internalProjectNo: d.internalProjectNo,
           objectTypes: d.objectTypes.length ? d.objectTypes : ["goods"],
           usageEnv: d.usageEnv || "",
-          standards: d.standards || "",
           certRequirements: parseCertRequirements(d.certRequirements),
           budgetAmount: d.budgetAmount == null ? "" : String(d.budgetAmount),
           budgetCurrency: d.budgetCurrency || "CNY",
@@ -332,7 +329,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     internalProjectNo: form.internalProjectNo.trim() || null,
     objectTypes: form.objectTypes.join(",") || "goods",
     usageEnv: form.usageEnv.trim() || null,
-    standards: form.standards.trim() || null,
     certRequirements: form.certRequirements,
     budgetAmount: parseBudgetAmount(form.budgetAmount),
     budgetCurrency: form.budgetCurrency,
@@ -354,7 +350,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     batchNote: form.batchNote.trim() || null,
     supplierQuals: form.supplierQuals.trim() || null,
     supplierType: form.supplierType,
-    manufacturerOnly: form.supplierType === "manufacturer_only" ? 1 : 0,
     quoteDeadlineAt: form.quoteDeadlineDate
       ? Math.floor(new Date(`${form.quoteDeadlineDate}T23:59:59+08:00`).getTime() / 1000)
       : null,

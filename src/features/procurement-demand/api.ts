@@ -58,7 +58,6 @@ export interface ProjectDetail extends ProjectSummary {
   background: string;
   internalProjectNo: string;
   usageEnv: string;
-  standards: string;
   certRequirements: CertRequirement[];
   incotermVersion: string;
   batchDelivery: boolean;

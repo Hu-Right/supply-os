@@ -30,7 +30,6 @@ export interface ProjectRow extends RowDataPacket {
   internal_project_no: string | null;
   object_types: string;
   usage_env: string | null;
-  standards: string | null;
   cert_requirements: string | null;
   incoterm_version: string | null;
   batch_delivery: number;
@@ -38,7 +37,6 @@ export interface ProjectRow extends RowDataPacket {
   budget_amount: string | number | null;
   budget_currency: string;
   budget_public: number;
-  budget_approved: string | null;
   delivery_country: string | null;
   delivery_country_code: string | null;
   delivery_city: string | null;
@@ -51,8 +49,6 @@ export interface ProjectRow extends RowDataPacket {
   payment_terms: string | null;
   guarantees: string | null;
   guarantee_config: string | null;
-  supplier_country_limit: string | null;
-  manufacturer_only: number;
   supplier_type: string;
   supplier_quals: string | null;
   quote_deadline_at: number | null;
@@ -126,7 +122,6 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "internal_project_no",
   "object_types",
   "usage_env",
-  "standards",
   "cert_requirements",
   "incoterm_version",
   "batch_delivery",
@@ -134,7 +129,6 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "budget_amount",
   "budget_currency",
   "budget_public",
-  "budget_approved",
   "delivery_country",
   "delivery_country_code",
   "delivery_city",
@@ -147,8 +141,6 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "payment_terms",
   "guarantees",
   "guarantee_config",
-  "supplier_country_limit",
-  "manufacturer_only",
   "supplier_type",
   "supplier_quals",
   "quote_deadline_at",
@@ -502,7 +494,6 @@ export interface ItemInput {
   spec?: string | null;
   quantity?: number | string | null;
   qtyUnit?: string | null;
-  qtyType?: string | null;
   ugtCode?: string | null;
   attributes?: unknown;
   alternativesAllowed?: boolean;
@@ -550,8 +541,8 @@ export async function replaceDraftItems(
       const lotId = it.lotNo ? (lotIds.get(it.lotNo) ?? null) : null;
       await conn.query(
         `INSERT INTO procurement_items
-           (project_id, lot_id, line_no, name_zh, name_en, spec, quantity, qty_unit, qty_type, ugt_code, attributes, alternatives_allowed, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (project_id, lot_id, line_no, name_zh, name_en, spec, quantity, qty_unit, ugt_code, attributes, alternatives_allowed, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           input.projectId,
           lotId,
@@ -561,7 +552,6 @@ export async function replaceDraftItems(
           it.spec ?? null,
           it.quantity == null ? 0 : Number(it.quantity),
           it.qtyUnit || "件",
-          it.qtyType || "fixed",
           it.ugtCode || null,
           it.attributes ? JSON.stringify(it.attributes) : null,
           it.alternativesAllowed === false ? 0 : 1,
@@ -635,8 +625,8 @@ export async function copyProjectAsDraft(
     );
     await conn.query(
       `INSERT INTO procurement_items
-         (project_id, lot_id, line_no, name_zh, name_en, spec, quantity, qty_unit, qty_type, ugt_code, attributes, alternatives_allowed, created_at)
-       SELECT ?, nl.id, i.line_no, i.name_zh, i.name_en, i.spec, i.quantity, i.qty_unit, i.qty_type, i.ugt_code, i.attributes, i.alternatives_allowed, ?
+         (project_id, lot_id, line_no, name_zh, name_en, spec, quantity, qty_unit, ugt_code, attributes, alternatives_allowed, created_at)
+       SELECT ?, nl.id, i.line_no, i.name_zh, i.name_en, i.spec, i.quantity, i.qty_unit, i.ugt_code, i.attributes, i.alternatives_allowed, ?
          FROM procurement_items i
          LEFT JOIN procurement_lots ol ON ol.id = i.lot_id
          LEFT JOIN procurement_lots nl ON nl.project_id = ? AND nl.lot_no = ol.lot_no

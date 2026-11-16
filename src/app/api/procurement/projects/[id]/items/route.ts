@@ -23,7 +23,6 @@ interface ItemBody {
   spec?: string;
   quantity?: number | string;
   qtyUnit?: string;
-  qtyType?: string;
   ugtCode?: string;
   attributes?: unknown;
   alternativesAllowed?: boolean;
@@ -59,7 +58,6 @@ export const PUT = withRoute<Ctx>(async (req: NextRequest, { params }) => {
     spec: it.spec == null ? null : String(it.spec),
     quantity: it.quantity == null ? null : Number(it.quantity),
     qtyUnit: it.qtyUnit == null ? null : String(it.qtyUnit),
-    qtyType: it.qtyType == null ? null : String(it.qtyType),
     ugtCode: it.ugtCode == null ? null : String(it.ugtCode),
     attributes: it.attributes ?? null,
     alternativesAllowed: it.alternativesAllowed !== false,

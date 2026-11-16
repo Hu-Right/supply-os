@@ -735,7 +735,6 @@
   "pc_fv_unverified": "Unverified",
   "pc_fv_verified": "Verified",
   "pc_usageEnv": "Usage and operating environment",
-  "pc_standards": "Mandatory standards / certifications",
   "pc_cert_title": "Certification requirements",
   "pc_cert_hint": "Select from the certification dictionary; use \"Other\" for items not listed.",
   "pc_cert_select": "Select a certification…",
