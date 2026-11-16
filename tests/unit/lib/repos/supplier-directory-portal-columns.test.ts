@@ -51,7 +51,7 @@ describe("SupplierDirectoryRepo 门户读列白名单", () => {
     const cols = SupplierDirectoryRepo.PORTAL_COLUMNS as readonly string[];
     for (const c of [
       "merged_id", "product_keywords", "business_scope", "source_url", "tenant_id",
-      "industry_id", "info_check", "webcheck_status", "enrich_suggested", "enrich_status",
+      "industry_id", "info_check", "webcheck_status",
       "certification_tags", LEGACY_MATCH_STATUS_COL, "last_match_at",
       "claim_status",
     ]) {

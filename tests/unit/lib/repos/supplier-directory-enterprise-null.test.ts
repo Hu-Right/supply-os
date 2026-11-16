@@ -46,7 +46,7 @@ describe("SupplierDirectoryRepo 写入：留空字段绑定 ''（非 NULL），�
         website: "",
         position: "",
       },
-      { verify_status: "pending", source_channel: "self_register" },
+      { verify_status: "pending" },
     );
 
     const [sql, values] = mockQuery.mock.calls[0] as [string, unknown[]];

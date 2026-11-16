@@ -365,10 +365,10 @@ export const POST = withRoute(async (req) => {
     return NextResponse.json({ supplierId: existingId, reused: true, claimCreated, licensePendingReview });
   }
 
-  // ── 新建：审核中 + 自注册来源 ──
+  // ── 新建：审核中 ──
   const newId = await guardEnterpriseWrite(() => repo.insertEnterprise(
     { ...(body as Record<string, unknown>), company: companyName },
-    { verify_status: "pending", source_channel: "self_register" },
+    { verify_status: "pending" },
   ));
   if (!newId) {
     routeError(500, EC_INTERNAL_ERROR, "企业信息创建失败");

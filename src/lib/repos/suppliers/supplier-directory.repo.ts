@@ -327,17 +327,16 @@ export class SupplierDirectoryRepo {
   }
 
   /** 新建企业行（企业信息填写），返回自增 id；addtime 记当前 epoch 秒。
-   *  meta 可携带非用户编辑列（verify_status / source_channel）供注册审核流程使用。 */
+   *  meta 可携带非用户编辑列 verify_status 供注册审核流程使用。 */
   async insertEnterprise(
     input: Record<string, unknown>,
-    meta: { verify_status?: string; source_channel?: string } = {},
+    meta: { verify_status?: string } = {},
   ): Promise<number> {
     const data = this.pickEditable(input);
     const cols = Object.keys(data);
     const extraCols: string[] = [];
     const extraVals: unknown[] = [];
     if (meta.verify_status) { extraCols.push("verify_status"); extraVals.push(meta.verify_status); }
-    if (meta.source_channel) { extraCols.push("source_channel"); extraVals.push(meta.source_channel); }
     const allCols = [...cols, ...extraCols];
     if (allCols.length === 0) return 0;
     const placeholders = allCols.map(() => "?").join(", ");
