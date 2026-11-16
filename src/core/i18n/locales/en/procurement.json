@@ -561,7 +561,7 @@
   "pc_attachments": "Attachments (drawings/Tech spec/BOM/photos)",
   "pc_attachments_hint": "pdf/image/office/zip ≤20MB, frozen per version.",
   "pc_budget": "Budget",
-  "pc_budget_hint": "Enter the amount in the selected currency's base unit, e.g. 1000000 (not in thousands); no unit conversion is applied.",
+  "pc_budget_hint": "Unit: yuan (or the base unit of the selected currency; USD means USD), not thousands; e.g. enter 1000000 for 1 million.",
   "pc_err_budget": "Budget must be a number (thousands separators allowed)",
   "pc_currency": "Currency",
   "pc_budgetPublic": "Budget may be shown to suppliers",

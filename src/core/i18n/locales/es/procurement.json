@@ -561,7 +561,7 @@
   "pc_attachments": "Adjuntos (planos/especificaciones/BOM/fotos)",
   "pc_attachments_hint": "pdf/imagen/office/zip ≤20MB, se congelan por versión.",
   "pc_budget": "Presupuesto",
-  "pc_budget_hint": "Introduce el importe en la unidad base de la moneda elegida, p. ej. 1000000 (no en miles); no se aplica conversión.",
+  "pc_budget_hint": "Unidad: yuan (o la unidad base de la moneda elegida; USD = USD), no miles; p. ej. 1000000 para 1 millón.",
   "pc_err_budget": "El presupuesto debe ser un número (se permiten separadores de miles)",
   "pc_currency": "Moneda",
   "pc_budgetPublic": "Presupuesto visible a proveedores",

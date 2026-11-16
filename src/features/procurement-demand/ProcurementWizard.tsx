@@ -727,7 +727,10 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
 
           <div className="grid gap-4 sm:grid-cols-3">
             <label className={labelCls}>
-              {t("pc_budget")}
+              <span className="flex items-center gap-1.5">
+                {t("pc_budget")}
+                <FieldHintTooltip label={t("pc_budget")} content={t("pc_budget_hint")} />
+              </span>
               <input
                 value={form.budgetAmount}
                 onChange={(e) => field("budgetAmount", e.target.value)}
@@ -735,9 +738,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                 placeholder="1000000"
                 className={inputCls}
               />
-              <span className="mt-1 block text-[11px] font-normal leading-relaxed text-secondary-400">
-                {t("pc_budget_hint")}
-              </span>
             </label>
             <label className={labelCls}>
               {t("pc_currency")}
