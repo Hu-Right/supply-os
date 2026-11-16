@@ -18,6 +18,7 @@ import type { ProjectRow } from "./projects";
 import { isAuthorizationVerified } from "./authorization";
 import { isBuyerPublishable } from "./buyers";
 import { formatTenderNo } from "./reference";
+import { deleteNoticeDocuments } from "@/lib/services/meilisearch/client";
 import { pushNotificationSafe } from "@/lib/services/notifications";
 
 /**
@@ -447,6 +448,12 @@ export async function withdrawProject(
     );
 
     await conn.commit();
+    // 搜索索引不是事务的一部分：提交后再删，避免回滚时索引已丢
+    if (row.notice_pk != null) {
+      await deleteNoticeDocuments([Number(row.notice_pk)]).catch((err: Error) => {
+        console.warn("[procurement] 撤回后删除搜索索引失败（下轮全量同步会清）:", err.message);
+      });
+    }
     return { ok: true, status: PROJECT_STATUS.CLOSED };
   } catch (err) {
     await conn.rollback();
@@ -476,6 +483,11 @@ export async function expireDueTenders(db: Pool, at = Math.floor(Date.now() / 10
     });
     if (res.ok) {
       await removeProjection(db, r.notice_pk == null ? null : Number(r.notice_pk));
+      if (r.notice_pk != null) {
+        await deleteNoticeDocuments([Number(r.notice_pk)]).catch((err: Error) => {
+          console.warn("[procurement] 到期关闭后删除搜索索引失败:", err.message);
+        });
+      }
       await db.query(
         "UPDATE procurement_tenders SET status = 'closed' WHERE project_id = ? AND status = 'published'",
         [r.id],

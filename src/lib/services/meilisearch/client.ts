@@ -164,6 +164,18 @@ export function getIndexName(): string {
 }
 
 /**
+ * 从公告索引删除指定文档（撤回/到期下架时同步清理，避免列表仍能搜到）。
+ * 主键 = bid_notices.id = notice_public.notice_pk。
+ */
+export async function deleteNoticeDocuments(ids: number[]): Promise<void> {
+  const valid = [...new Set(ids.filter((id) => Number.isFinite(id) && id > 0))];
+  if (valid.length === 0) return;
+  const client = getClient();
+  if (!client) return;
+  await client.index(INDEX_NAME).deleteDocuments(valid);
+}
+
+/**
  * 公告索引的完整设置（searchable/filterable/sortable/ranking/pagination）
  * P2-13：抽出为共享函数，供 ensureIndex 与 fullSync 的临时索引共同使用，
  * 保证 swapIndexes 切换后新索引设置与旧索引完全一致。

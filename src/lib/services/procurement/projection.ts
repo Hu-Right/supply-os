@@ -10,6 +10,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import type { ProjectRow } from "./projects";
+import { deletePublicRows } from "@/lib/services/notice-public/build";
 
 const SHANGHAI_OFFSET_SEC = 8 * 3600;
 
@@ -135,6 +136,14 @@ export async function removeProjection(db: Pool, noticePk: number | null): Promi
     "DELETE FROM bid_notices WHERE id = ? AND entry_source = 'platform' AND notice_type = 'RFQ'",
     [noticePk],
   );
+  // 服务宽表/搜索宽表是物化投影，删主表不会级联；撤回后若不清，公告列表仍能读到旧行
+  await deletePublicRows(db, [noticePk]);
+  try {
+    await db.query("DELETE FROM notice_search WHERE id = ?", [noticePk]);
+  } catch (err) {
+    // 某些环境未启用 notice_search（历史宽表）；清理失败不应阻断撤回
+    console.warn("[procurement] 清理 notice_search 失败（继续）:", (err as Error).message);
+  }
   // 守护销账：v2 撤投影是删行，不销账守护对账会误报「主行已不存在」
   await db.query("DELETE FROM rfq_guard WHERE rfq_id = ?", [noticePk]);
 }

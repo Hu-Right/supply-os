@@ -17,6 +17,7 @@ export {
   markUnhealthy,
   tryRecover,
   getIndexName,
+  deleteNoticeDocuments,
   ensureIndex,
   getIndexStats,
   getLastSyncedId,
