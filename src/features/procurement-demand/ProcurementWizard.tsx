@@ -689,12 +689,10 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             {t("pc_standards")}
             <textarea value={form.standards} onChange={(e) => field("standards", e.target.value)} rows={2} className={inputCls} />
           </label>
-          <div className="rounded-xl border border-secondary-200 bg-secondary-50/40 p-3">
-            <CertRequirementsEditor
-              value={form.certRequirements}
-              onChange={(next) => field("certRequirements", next)}
-            />
-          </div>
+          <CertRequirementsEditor
+            value={form.certRequirements}
+            onChange={(next) => field("certRequirements", next)}
+          />
           <div className={labelCls}>
             <span className="flex items-center gap-1.5">
               {t("pc_category")} *

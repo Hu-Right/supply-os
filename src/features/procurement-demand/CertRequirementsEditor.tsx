@@ -4,7 +4,7 @@
  * 采购认证要求编辑器（F02 第 3 页）
  *
  * @description 复用 /api/certifications 字典（与能力档案同一份），分组下拉选中一项即生成
- *              一张卡片；字典未收录的走“其他（自输入）”。每条要求只标强制/加分。
+ *              一枚胶囊；字典未收录的走“其他（自输入）”。胶囊上直接切换强制/加分。
  */
 import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/core/i18n";
@@ -72,10 +72,7 @@ export function CertRequirementsEditor({
       return;
     }
     if (raw === "__manual__") {
-      onChange([
-        ...value,
-        { code: "", name: "", custom: true, mandatory: true },
-      ]);
+      onChange([...value, { code: "", name: "", custom: true, mandatory: true }]);
       return;
     }
     const option = options.find((o) => o.code === raw);
@@ -86,17 +83,12 @@ export function CertRequirementsEditor({
     }
     onChange([
       ...value,
-      {
-        code: option.code,
-        name: option.name,
-        custom: false,
-        mandatory: true,
-      },
+      { code: option.code, name: option.name, custom: false, mandatory: true },
     ]);
   };
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-2">
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs font-semibold text-secondary-600">{t("pc_cert_title")}</div>
         <span className="text-[11px] text-secondary-400">{value.length}/{CERT_REQUIREMENT_MAX}</span>
@@ -119,60 +111,55 @@ export function CertRequirementsEditor({
         ))}
         <option value="__manual__">{t("pc_cert_other")}</option>
       </select>
-      <p className="text-[11px] leading-relaxed text-secondary-400">{t("pc_cert_hint")}</p>
       {error && <p className="text-xs text-red-600">{error}</p>}
 
       {value.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-secondary-300 px-3 py-4 text-center text-xs text-secondary-400">
+        <p className="rounded-lg border border-dashed border-secondary-300 px-3 py-2 text-center text-xs text-secondary-400">
           {t("pc_cert_empty")}
         </p>
       ) : (
-        <div className="grid gap-2">
+        <div className="flex flex-wrap gap-2">
           {value.map((item, index) => (
-            <div
+            <span
               key={`${item.code || "custom"}-${index}`}
-              className="flex flex-wrap items-center gap-2 rounded-xl border border-secondary-200 bg-white px-3 py-2"
+              className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${
+                item.mandatory
+                  ? "border-teal-300 bg-teal-50 text-teal-800"
+                  : "border-secondary-300 bg-white text-secondary-600"
+              }`}
             >
               {item.custom ? (
                 <input
                   value={item.name}
                   onChange={(e) => patch(index, { name: e.target.value })}
                   placeholder={t("pc_cert_custom_ph")}
-                  className={`${inputCls} min-w-48 flex-1`}
+                  className="w-36 min-w-20 bg-transparent text-xs outline-none placeholder:text-secondary-400"
                   aria-label={t("pc_cert_custom_ph")}
                 />
               ) : (
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-secondary-900">{item.name}</div>
-                  <div className="text-[11px] text-secondary-400">{item.code}</div>
-                </div>
+                <span className="max-w-52 truncate" title={item.code}>
+                  {item.name}
+                </span>
               )}
-
-              <div className="inline-flex shrink-0 overflow-hidden rounded-lg border border-secondary-300">
-                <button
-                  type="button"
-                  onClick={() => patch(index, { mandatory: true })}
-                  className={`px-3 py-1 text-xs font-semibold ${item.mandatory ? "bg-teal-600 text-white" : "bg-white text-secondary-600"}`}
-                >
-                  {t("pc_cert_mandatory")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => patch(index, { mandatory: false })}
-                  className={`px-3 py-1 text-xs font-semibold ${!item.mandatory ? "bg-teal-600 text-white" : "bg-white text-secondary-600"}`}
-                >
-                  {t("pc_cert_preferred")}
-                </button>
-              </div>
-
+              <button
+                type="button"
+                onClick={() => patch(index, { mandatory: !item.mandatory })}
+                title={`${t("pc_cert_mandatory")} / ${t("pc_cert_preferred")}`}
+                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                  item.mandatory ? "bg-teal-600 text-white" : "bg-secondary-100 text-secondary-600"
+                }`}
+              >
+                {item.mandatory ? t("pc_cert_mandatory") : t("pc_cert_preferred")}
+              </button>
               <button
                 type="button"
                 onClick={() => onChange(value.filter((_, i) => i !== index))}
-                className="shrink-0 rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                aria-label={t("pc_cert_remove")}
+                className="shrink-0 rounded-full px-1 text-secondary-400 hover:text-red-600"
               >
-                {t("pc_cert_remove")}
+                ×
               </button>
-            </div>
+            </span>
           ))}
         </div>
       )}
