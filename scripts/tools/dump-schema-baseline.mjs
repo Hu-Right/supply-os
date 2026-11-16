@@ -2,8 +2,9 @@
  * 导出全库结构基线：MySQL 库终态 DDL → db/schema/baseline.sql
  *
  * @script scripts/tools/dump-schema-baseline.mjs
- * @background CI 的 e2e job 需要一个能建表的结构基线（见 db/schema/README.md）：应用侧不跑迁移
- *             （ALL_MIGRATIONS 已收敛为空），因此建表 DDL 只能来自 db/schema/*.sql。本脚本从
+ * @background CI 的 e2e job 需要一个能建表的结构基线（见 db/schema/README.md）：迁移链是「旧库 → 终态」
+ *             的一次性脚本，推不出全新库的建表路径（重放还会在终态结构上失败），因此建表 DDL 只能来自
+ *             db/schema/*.sql，导入后由 seed-schema-ledger 把迁移账本补成终态。本脚本从
  *             **已跟踪的工具链**里补齐这条生成路径，避免基线靠手工粘贴而失真。
  * @scope      只读：仅查 information_schema 与 SHOW CREATE TABLE，不写库、不读业务数据。
  * @deterministic 表名升序输出、剔除 AUTO_INCREMENT 计数噪声、固定 LF，结构未变则重复执行

@@ -169,6 +169,13 @@ jobs:
             echo "[e2e] 导入 $f"
             mysql -h127.0.0.1 -P3306 -uroot -proot supply_os_test < "$f"
           done
+      # 基线是现网**终态**结构，而 ALL_MIGRATIONS 是「旧库 → 终态」的一次性迁移，账本（schema_migrations）
+      # 为空时 schemaPhase 会把 29 个历史迁移全部当 pending 重放：012 引用的 buyer.org_type 在基线上
+      # 早已改名/下线，重放当场 Unknown column → abortStartup exit(1) → 端口从未监听 → 探活闸口
+      # 报「应用在 120s 内未就绪」，日志里还只剩一句与真实原因无关的「数据库服务未运行」猜测。
+      # 基线建出来的库必须先把账本补成终态，让启动回到「账本检查、不产生 DDL」的设计路径。
+      - name: 补迁移账本（基线即终态，禁止重放历史迁移）
+        run: npx tsx scripts/tools/seed-schema-ledger.ts
       - name: 生产构建
         run: npm run build
       - name: 安装 Chromium 测试内核

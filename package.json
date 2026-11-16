@@ -78,6 +78,7 @@
     "perf:check": "npx tsx scripts/gates/perf-budget-check.ts",
     "migrate:licenses": "node --env-file=.env scripts/tools/migrate-licenses-to-runtime.mjs",
     "db:migrate": "npx tsx --env-file=.env scripts/tools/apply-migrations.ts",
+    "db:seed-ledger": "npx tsx --env-file=.env scripts/tools/seed-schema-ledger.ts",
     "pre-push": "npm run check:encoding && npm run check-i18n && npm run check-i18n-ui:self-test && npm run typecheck && npm run lint && npm run test && npm run test:integration && npm run test:css-compat && npm run build",
     "check:feasibility-eval": "npx tsx scripts/tools/feasibility-eval.ts"
   },

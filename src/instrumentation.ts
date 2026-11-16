@@ -126,7 +126,7 @@ export async function register() {
   }
 
   // 阶段 1-4：与 Express 启动完全一致（种子数据已禁用，不再对数据库进行任何读写）
-  // schema 阶段已恢复：当 ALL_MIGRATIONS 为空时它只做账本检查，不产生 DDL。
+  // schema 阶段已恢复：账本已是终态时它只做账本检查，不产生 DDL（从基线建库的环境需先补账本）。
   const phases = [schemaPhase, featuredPhase, paymentPhase];
   for (const phase of phases) {
     const ok = await executePhase(phase, { dbPool });

@@ -6,7 +6,8 @@
  * @description 将启动流程拆分为独立阶段，每个阶段可独立错误处理、日志、耗时统计。
  *              迁移机制已于 2026-10-08 恢复可用，但纪律是**非必要不写**：结构以生产库当前状态
  *              为事实源（全库终态 DDL 已入库为 db/schema/baseline.sql，见 db/schema/README.md）；
- *              当前 ALL_MIGRATIONS 为空，schema 阶段只做账本检查，不产生任何 DDL。
+ *              账本已是终态的库（生产库、以及从基线建库并补过账本的环境）上，schema 阶段只做账本检查，
+ *              不产生任何 DDL；账本为空又直接重放迁移会在终态结构上失败（见 db/schema/README.md）。
  *
  *              【已落实，勿再当待办】宽表源指纹列（原迁移 087）已在生产完成：2026-10-08 实测
  *              notice_search.sync_src_hash 存在（char(32) NOT NULL DEFAULT ''），573,018 行中
