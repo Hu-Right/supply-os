@@ -6,16 +6,37 @@
  *      方案 B 后关键词行改为单框 chip 录入：新增 kw-chip-input / kw-chip-{id} /
  *      kw-chip-remove-{id} / kw-chip-count，旧 kw-row-add 与 kw-row-mode 已废弃。
  */
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+/**
+ * 录关键词 chip。
+ *
+ * 为什么要重试：Next 首屏是 SSR 骨架，React 水合完成前 fill/Enter 不会触发
+ * onChange/onKeyDown（草稿被首渲染覆盖，chip 永远不出现）。networkidle 只是
+ * 「数据请求停了」，不等于水合完成（dev 下客户端 bundle 编译慢时尤其明显），
+ * 因此按「填 → 回车 → 看 chip 数量」轮询，直到水合生效。
+ */
+async function addChips(page: Page, term: string, expectCount = 1) {
+  const input = page.getByTestId("kw-chip-input");
+  await expect(input).toBeVisible({ timeout: 30_000 });
+  await expect
+    .poll(
+      async () => {
+        await input.fill(term);
+        await input.press("Enter");
+        return page.getByTestId(/^kw-chip-\d+$/).count();
+      },
+      { timeout: 30_000, intervals: [300, 600, 1200, 2000] },
+    )
+    .toBe(expectCount);
+}
 
 test.describe("advanced search upgrade-gate modal (guest)", () => {
   test("guest cycling an include chip to exclude sees upgrade modal", async ({ page }) => {
     await page.goto("/procurement");
-    const input = page.getByTestId("kw-chip-input");
-    await input.fill("battery");
-    await input.press("Enter"); // 生成默认「包含」chip（Enter 不得触发表单提交）
+    await addChips(page, "battery");
 
-    const chip = page.getByTestId(/^kw-chip-\d+$/);
+    const chip = page.getByTestId(/^kw-chip-\d+$/).first();
     await expect(chip).toBeVisible();
     await expect(page.getByTestId("upgrade-gate-modal")).toHaveCount(0);
 
@@ -26,9 +47,7 @@ test.describe("advanced search upgrade-gate modal (guest)", () => {
 
   test("guest adding an include chip does not trigger modal", async ({ page }) => {
     await page.goto("/procurement");
-    const input = page.getByTestId("kw-chip-input");
-    await input.fill("solar panel");
-    await input.press("Enter");
+    await addChips(page, "solar panel");
 
     await expect(page.getByTestId(/^kw-chip-\d+$/)).toBeVisible();
     await expect(page.getByTestId("upgrade-gate-modal")).toHaveCount(0);
@@ -38,10 +57,6 @@ test.describe("advanced search upgrade-gate modal (guest)", () => {
 
   test("comma input splits into multiple chips", async ({ page }) => {
     await page.goto("/procurement");
-    const input = page.getByTestId("kw-chip-input");
-    await input.fill("医疗，建筑"); // 中文逗号切分
-    await input.press("Enter");
-
-    await expect(page.getByTestId(/^kw-chip-\d+$/)).toHaveCount(2);
+    await addChips(page, "医疗，建筑", 2); // 中文逗号切分
   });
 });

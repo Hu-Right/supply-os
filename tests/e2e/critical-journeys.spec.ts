@@ -91,13 +91,24 @@ test.describe("公采资质旅程", () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 test.describe("投标流程旅程", () => {
+  /**
+   * 打开采购公告页并等到高级搜索面板可用。
+   * dev 首次编译该路由可能超过 30s（冷启动 + 多 worker 并发），单次 goto 会假失败，
+   * 因此用 toPass 重试整段导航；断言本身不变（面板出现才算通过）。
+   */
+  async function openProcurement(page: import("@playwright/test").Page) {
+    const keywordInput = page.locator('input[placeholder*="输入产品、项目、机构、品类关键词"]');
+    await expect(async () => {
+      await page.goto(`${TEST_BASE_URL}/procurement`);
+      await expect(keywordInput).toBeVisible({ timeout: 15_000 });
+    }).toPass({ timeout: 90_000 });
+    return keywordInput;
+  }
+
   test("搜索公告 → 查看结果列表", async ({ page }) => {
     // Step 1: 进入采购公告搜索（高级搜索面板，ADVANCED_SEARCH 已上线）
-    await page.goto(`${TEST_BASE_URL}/procurement`);
-    const keywordInput = page.getByRole("textbox", {
-      name: /输入产品、项目、机构、品类关键词/,
-    });
-    await expect(keywordInput).toBeVisible({ timeout: 10_000 });
+    // 关键词框的可访问名是可见标签「关键词」，占位符不作为 name 匹配
+    const keywordInput = await openProcurement(page);
 
     // Step 2: 输入搜索关键词并触发搜索
     await keywordInput.fill("construction");
@@ -106,19 +117,20 @@ test.describe("投标流程旅程", () => {
     // Step 3: 结果列表有内容（卡片以 level-4 标题呈现）
     await expect(
       page.getByRole("heading", { level: 4 }).first(),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: 30_000 });
   });
 
   test("搜索结果 → 公告卡片可见", async ({ page }) => {
-    await page.goto(`${TEST_BASE_URL}/procurement`);
+    const keywordInput = await openProcurement(page);
+    await expect(keywordInput).toBeVisible();
 
     // 等待高级搜索面板与结果列表加载（公告卡片以 level-4 标题呈现）
     await expect(
-      page.getByRole("textbox", { name: /输入产品、项目、机构、品类关键词/ }),
-    ).toBeVisible({ timeout: 10_000 });
+      page.locator('input[placeholder*="输入产品、项目、机构、品类关键词"]'),
+    ).toBeVisible({ timeout: 30_000 });
     await expect(
       page.getByRole("heading", { level: 4 }).first(),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: 30_000 });
   });
 });
 
