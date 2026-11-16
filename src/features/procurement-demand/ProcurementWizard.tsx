@@ -28,13 +28,11 @@ import {
 } from "@/shared/constants/procurement-cert-requirements";
 import {
   createProject,
-  extractPdfRequirement,
   fetchProject,
   parseProductListFile,
   patchProject,
   replaceItems,
   submitProject,
-  type ExtractedPdf,
   type ItemDraft,
   type ProjectDetail,
 } from "./api";
@@ -143,19 +141,6 @@ interface ItemRow {
 
 const EMPTY_ITEM: ItemRow = { lotNo: "", nameZh: "", spec: "", quantity: "", qtyUnit: "件", qtyType: "fixed", alternativesAllowed: true };
 
-/** PDF 提取字段的勾选键与中文标签（逐项确认面板） */
-const PDF_FIELDS: Array<{ key: keyof ExtractedPdf; field: keyof FormState }> = [
-  { key: "titleZh", field: "titleZh" },
-  { key: "background", field: "background" },
-  { key: "usageEnv", field: "usageEnv" },
-  { key: "deliveryCountry", field: "deliveryCountry" },
-  { key: "deliveryCity", field: "deliveryCity" },
-  { key: "deliveryAddress", field: "deliveryAddress" },
-  { key: "quoteDeadlineDate", field: "quoteDeadlineDate" },
-  { key: "budgetAmount", field: "budgetAmount" },
-  { key: "budgetCurrency", field: "budgetCurrency" },
-];
-
 export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => void }) {
   const { t } = useLocale();
   const router = useRouter();
@@ -182,10 +167,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
   const [reloadKey, setReloadKey] = useState(0);
   const [importMsg, setImportMsg] = useState("");
   const [importing, setImporting] = useState(false);
-  const [extracting, setExtracting] = useState(false);
-  const [pdfResult, setPdfResult] = useState<ExtractedPdf | null>(null);
-  const [pdfSelected, setPdfSelected] = useState<Record<string, boolean>>({});
-  const [pdfItemsSelected, setPdfItemsSelected] = useState<boolean[]>([]);
 
   const projectIdRef = useRef<number | null>(props.editId ?? null);
   const hydratedRef = useRef(!props.editId);
@@ -524,51 +505,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     }
   };
 
-  const onExtractPdf = async (file: File | null) => {
-    if (!file) return;
-    setExtracting(true);
-    setError("");
-    try {
-      const r = await extractPdfRequirement(file);
-      setPdfResult(r);
-      const sel: Record<string, boolean> = {};
-      for (const f of PDF_FIELDS) sel[f.key] = Boolean(String(r[f.key] ?? "").trim());
-      setPdfSelected(sel);
-      setPdfItemsSelected(r.items.map(() => true));
-    } catch (err) {
-      setError((err as Error).message || t("pc_extract_failed"));
-    } finally {
-      setExtracting(false);
-    }
-  };
-
-  const applyPdf = () => {
-    if (!pdfResult) return;
-    setForm((p) => {
-      const next = { ...p };
-      for (const f of PDF_FIELDS) {
-        if (!pdfSelected[f.key]) continue;
-        const value = String(pdfResult[f.key] ?? "").trim();
-        if (value) (next[f.field] as string) = value;
-      }
-      return next;
-    });
-    const chosen = pdfResult.items.filter((_, i) => pdfItemsSelected[i]);
-    if (chosen.length) {
-      const rows: ItemRow[] = chosen.map((it) => ({
-        lotNo: "",
-        nameZh: it.nameZh,
-        spec: it.spec,
-        quantity: it.quantity == null ? "" : String(it.quantity),
-        qtyUnit: it.qtyUnit || "件",
-        qtyType: "fixed",
-        alternativesAllowed: true,
-      }));
-      setItems((prev) => [...prev.filter((it) => it.nameZh.trim()), ...rows]);
-    }
-    setPdfResult(null);
-  };
-
   if (loading) return <div className="py-10 text-center text-sm text-secondary-400">{t("pc_loading")}</div>;
 
   // 回填失败必须是页面级错误态并禁止提交：旧实现只把错误塞在底部红字里，
@@ -599,7 +535,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
         <FlowStepper current={2} compact />
       </div>
 
-      {/* 顶部工具条：自动保存状态（三态）+ PDF 提取 + 草稿保存 */}
+      {/* 顶部工具条：自动保存状态（三态）+ 草稿保存 */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-secondary-500">
         <span className={saveState === "error" ? "font-semibold text-red-600" : undefined}>
           {saveState === "saving"
@@ -615,10 +551,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             <span className="max-w-[260px] truncate text-red-600" title={saveError}>{saveError}</span>
           )}
           {notice && <span className="text-teal-700">{notice}</span>}
-          <label className="cursor-pointer rounded-lg border border-secondary-300 px-3 py-1.5 font-semibold text-secondary-600 hover:bg-secondary-50">
-            {extracting ? "…" : t("pc_extract_pdf")}
-            <input type="file" accept=".pdf" className="hidden" onChange={(e) => { void onExtractPdf(e.target.files?.[0] ?? null); e.target.value = ""; }} />
-          </label>
           <button type="button" disabled={submitting} onClick={onSaveDraft} className="rounded-lg border border-secondary-300 px-3 py-1.5 font-semibold text-secondary-600 disabled:opacity-50">
             {t("pc_save_draft")}
           </button>
@@ -955,43 +887,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
       )}
 
       {error && <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
-
-      {/* PDF 提取结果：逐项确认后才写入 */}
-      {pdfResult && (
-        <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-sm font-bold text-blue-900">
-              {t("pc_extract_title")}
-              <FieldHintTooltip label={t("pc_extract_title")} content={t("pc_extract_hint")} />
-            </div>
-            <div className="text-xs text-blue-700">{t("pc_extract_textlen")} {pdfResult.textLength}</div>
-          </div>
-          <div className="mt-3 grid gap-2">
-            {PDF_FIELDS.filter((f) => String(pdfResult[f.key] ?? "").trim()).map((f) => (
-              <label key={f.key} className="flex items-start gap-2 rounded-lg bg-white px-3 py-2 text-xs text-secondary-700">
-                <input type="checkbox" checked={Boolean(pdfSelected[f.key])} onChange={(e) => setPdfSelected((p) => ({ ...p, [f.key]: e.target.checked }))} className="mt-0.5" />
-                <span className="flex-1">
-                  <span className="font-semibold">{t(`pc_field_${f.field}`)}</span>：{String(pdfResult[f.key])}
-                  {pdfResult.sources[f.key] && <span className="mt-0.5 block text-secondary-400">{pdfResult.sources[f.key]}</span>}
-                </span>
-              </label>
-            ))}
-            {pdfResult.items.map((it, i) => (
-              <label key={i} className="flex items-start gap-2 rounded-lg bg-white px-3 py-2 text-xs text-secondary-700">
-                <input type="checkbox" checked={pdfItemsSelected[i] ?? false} onChange={(e) => setPdfItemsSelected((p) => p.map((v, idx) => (idx === i ? e.target.checked : v)))} className="mt-0.5" />
-                <span className="flex-1">
-                  <span className="font-semibold">{t("pc_extract_item")}</span>：{it.nameZh}
-                  {it.spec ? `（${it.spec}）` : ""} × {it.quantity ?? "-"} {it.qtyUnit}
-                </span>
-              </label>
-            ))}
-          </div>
-          <div className="mt-3 flex items-center gap-2">
-            <button type="button" onClick={applyPdf} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white">{t("pc_extract_apply")}</button>
-            <button type="button" onClick={() => setPdfResult(null)} className="rounded-lg border border-secondary-300 px-4 py-2 text-xs font-semibold text-secondary-600">{t("pc_cancel")}</button>
-          </div>
-        </div>
-      )}
 
       <div className="mt-5 flex items-center justify-end">
         <div className="flex gap-2">

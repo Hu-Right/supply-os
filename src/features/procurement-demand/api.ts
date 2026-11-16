@@ -191,29 +191,6 @@ export async function parseProductListFile(file: File): Promise<{ items: Importe
   });
 }
 
-export interface ExtractedPdf {
-  titleZh: string;
-  background: string;
-  usageEnv: string;
-  standards: string;
-  deliveryCountry: string;
-  deliveryCity: string;
-  deliveryAddress: string;
-  quoteDeadlineDate: string;
-  budgetAmount: string;
-  budgetCurrency: string;
-  items: Array<{ nameZh: string; spec: string; quantity: number | null; qtyUnit: string }>;
-  sources: Record<string, string>;
-  textLength: number;
-}
-
-/** 上传需求 PDF → 规则抽取字段（不落库，须逐项确认） */
-export async function extractPdfRequirement(file: File): Promise<ExtractedPdf> {
-  const fd = new FormData();
-  fd.append("file", file);
-  return api<ExtractedPdf>("/api/procurement/extract/pdf", { method: "POST", body: fd });
-}
-
 /** 复制历史采购单为新草稿 */
 export async function copyProject(id: number): Promise<{ id: number; reference: string }> {
   return api(`/api/procurement/projects/${id}/copy`, { method: "POST", body: {} });
