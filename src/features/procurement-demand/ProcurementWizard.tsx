@@ -889,15 +889,20 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className={labelCls}>
-              {t("pc_installNeeds")}
+              <span className="flex items-center gap-1.5">
+                {t("pc_installNeeds")}
+                <FieldHintTooltip label={t("pc_installNeeds")} content={t("pc_installNeeds_hint")} />
+              </span>
               <div className="mt-1 flex flex-wrap gap-2">
                 {INSTALL_NEEDS.map((o) => (
                   <button key={o} type="button" onClick={() => field("installNeeds", toggle(form.installNeeds, o))}
+                    title={t(`pc_install_${o}_hint`)}
                     className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${form.installNeeds.includes(o) ? "border-teal-600 bg-teal-50 text-teal-700" : "border-secondary-300 text-secondary-600"}`}>
                     {t(`pc_install_${o}`)}
                   </button>
                 ))}
               </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-secondary-400">{t("pc_installNeeds_note")}</p>
             </div>
             <div className={labelCls}>
               {t("pc_guarantees")}
