@@ -184,6 +184,13 @@ describe("projects — 创建与提交（确认最终版本）", () => {
       version_no: 1,
       status: "draft",
       title_zh: "采购光伏组件 10MW",
+      purpose: "real",
+      object_types: "goods",
+      primary_ugt_code: "UGT-0301",
+      delivery_country: "肯尼亚",
+      delivery_city: "内罗毕",
+      quote_deadline_at: NOW + 86_400,
+      authorize_publish: 1,
       created_at: NOW,
     };
     const { pool, calls, conn } = fakeConn([
@@ -232,7 +239,21 @@ describe("projects — 创建与提交（确认最终版本）", () => {
   });
 
   it("主体未认证不可提交（资格前置，不再等审核通过才打回）", async () => {
-    const projectRow = { id: 7, reference: "OSPR-2026-000007", buyer_id: 1, version_no: 4, status: "draft" };
+    const projectRow = {
+      id: 7,
+      reference: "OSPR-2026-000007",
+      buyer_id: 1,
+      version_no: 4,
+      status: "draft",
+      title_zh: "采购光伏组件 10MW",
+      purpose: "real",
+      object_types: "goods",
+      primary_ugt_code: "UGT-0301",
+      delivery_country: "肯尼亚",
+      delivery_city: "内罗毕",
+      quote_deadline_at: NOW + 86_400,
+      authorize_publish: 1,
+    };
     const { pool, calls, conn } = fakeConn([
       ["SELECT * FROM procurement_projects", () => [[projectRow]]],
       ["FROM procurement_items", () => [[{ id: 1, ugt_code: "UGT-0301", line_no: 1, name_zh: "组件" }]]],
@@ -247,7 +268,21 @@ describe("projects — 创建与提交（确认最终版本）", () => {
   });
 
   it("主体 restricted 同样拦在提交（与发布闸同一口径）", async () => {
-    const projectRow = { id: 7, reference: "OSPR-2026-000007", buyer_id: 1, version_no: 4, status: "need_info" };
+    const projectRow = {
+      id: 7,
+      reference: "OSPR-2026-000007",
+      buyer_id: 1,
+      version_no: 4,
+      status: "need_info",
+      title_zh: "采购光伏组件 10MW",
+      purpose: "real",
+      object_types: "goods",
+      primary_ugt_code: "UGT-0301",
+      delivery_country: "肯尼亚",
+      delivery_city: "内罗毕",
+      quote_deadline_at: NOW + 86_400,
+      authorize_publish: 1,
+    };
     const { pool } = fakeConn([
       ["SELECT * FROM procurement_projects", () => [[projectRow]]],
       ["FROM procurement_items", () => [[{ id: 1, ugt_code: "UGT-0301", line_no: 1, name_zh: "组件" }]]],
@@ -255,5 +290,35 @@ describe("projects — 创建与提交（确认最终版本）", () => {
     ]);
     const r = await submitProject(pool, { projectId: 7, confirmedBy: 42, at: NOW });
     expect(r).toEqual({ ok: false, reason: "buyer_not_verified" });
+  });
+
+  it("必填项缺失时不允许提交（与页面 * 同口径）", async () => {
+    const projectRow = {
+      id: 7,
+      reference: "OSPR-2026-000007",
+      buyer_id: 1,
+      version_no: 1,
+      status: "draft",
+      title_zh: "采购光伏组件 10MW",
+      purpose: "real",
+      object_types: "goods",
+      primary_ugt_code: null,
+      delivery_country: null,
+      delivery_city: null,
+      quote_deadline_at: null,
+      authorize_publish: 0,
+    };
+    const { pool, calls, conn } = fakeConn([
+      ["SELECT * FROM procurement_projects", () => [[projectRow]]],
+      ["FROM procurement_items", () => [[{ id: 1, ugt_code: "UGT-0301", line_no: 1, name_zh: "组件" }]]],
+    ]);
+    const r = await submitProject(pool, { projectId: 7, confirmedBy: 42, at: NOW });
+    expect(r).toEqual({
+      ok: false,
+      reason: "missing_fields",
+      fields: ["delivery_country", "delivery_city", "quote_deadline", "authorize_publish"],
+    });
+    expect(calls.some(([sql]) => sql.includes("INSERT INTO procurement_revisions"))).toBe(false);
+    expect(conn.commit).not.toHaveBeenCalled();
   });
 });

@@ -63,6 +63,53 @@ export interface ProjectRow extends RowDataPacket {
   updated_at: number;
 }
 
+export type SubmitMissingField =
+  | "title"
+  | "purpose"
+  | "object_types"
+  | "category"
+  | "delivery_country"
+  | "delivery_city"
+  | "quote_deadline"
+  | "authorize_publish"
+  | "items";
+
+/**
+ * 提交前必填校验（与 F02 页面 `*` 同口径）
+ *
+ * 页面上的必填项不能只靠前端：直接调 API 时也必须拦。
+ * 品类以主品类码或任一明细的 ugt_code 为准。
+ */
+export function missingSubmitFields(
+  row: Pick<
+    ProjectRow,
+    | "title_zh"
+    | "purpose"
+    | "object_types"
+    | "primary_ugt_code"
+    | "delivery_country"
+    | "delivery_city"
+    | "quote_deadline_at"
+    | "authorize_publish"
+  >,
+  items: Array<{ name_zh?: string | null; ugt_code?: string | null }>,
+): SubmitMissingField[] {
+  const missing: SubmitMissingField[] = [];
+  if (!String(row.title_zh ?? "").trim()) missing.push("title");
+  if (!String(row.purpose ?? "").trim()) missing.push("purpose");
+  if (!String(row.object_types ?? "").trim()) missing.push("object_types");
+  const hasCategory =
+    Boolean(String(row.primary_ugt_code ?? "").trim()) ||
+    items.some((it) => Boolean(String(it.ugt_code ?? "").trim()));
+  if (!hasCategory) missing.push("category");
+  if (!String(row.delivery_country ?? "").trim()) missing.push("delivery_country");
+  if (!String(row.delivery_city ?? "").trim()) missing.push("delivery_city");
+  if (!row.quote_deadline_at) missing.push("quote_deadline");
+  if (Number(row.authorize_publish) !== 1) missing.push("authorize_publish");
+  if (!items.some((it) => Boolean(String(it.name_zh ?? "").trim()))) missing.push("items");
+  return missing;
+}
+
 /** 主表可编辑列（创建/编辑共用；状态/核验/编号列不在此列） */
 export const PROJECT_EDITABLE_COLUMNS = [
   "title_zh",
@@ -249,7 +296,11 @@ export async function submitProject(
   input: { projectId: number; confirmedBy: number; at?: number },
 ): Promise<
   | { ok: true; status: string; versionNo: number; reference: string }
-  | { ok: false; reason: "not_found" | "not_editable" | "empty_items" | "buyer_not_verified" }
+  | {
+      ok: false;
+      reason: "not_found" | "not_editable" | "empty_items" | "buyer_not_verified" | "missing_fields";
+      fields?: SubmitMissingField[];
+    }
 > {
   const at = input.at ?? Math.floor(Date.now() / 1000);
   const conn = await db.getConnection();
@@ -274,6 +325,13 @@ export async function submitProject(
     if (itemList.length === 0) {
       await conn.rollback();
       return { ok: false, reason: "empty_items" };
+    }
+
+    // 页面 `*` 字段与 API 同口径：直接调接口也不能提交缺项需求
+    const missingFields = missingSubmitFields(row, itemList as Array<{ name_zh?: string; ugt_code?: string }>);
+    if (missingFields.length > 0) {
+      await conn.rollback();
+      return { ok: false, reason: "missing_fields", fields: missingFields };
     }
 
     // 资格前置：未认证主体不得提交（草稿不受影响，见函数头注释）

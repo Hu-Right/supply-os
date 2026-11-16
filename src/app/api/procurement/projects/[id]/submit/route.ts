@@ -26,6 +26,19 @@ interface Ctx {
   params: Promise<{ id: string }>;
 }
 
+/** 提交缺项字段 → 用户可读名称（与 F02 页面 `*` 文案一致） */
+const SUBMIT_FIELD_LABELS: Record<string, string> = {
+  title: "项目名称（中文）",
+  purpose: "采购性质",
+  object_types: "采购对象",
+  category: "采购品类",
+  delivery_country: "交付国家",
+  delivery_city: "交付城市",
+  quote_deadline: "报价截止时间",
+  authorize_publish: "发布授权",
+  items: "采购明细",
+};
+
 export const POST = withRoute<Ctx>(async (req: NextRequest, { params }) => {
   const auth = await requireUserKeyOrThrow(req);
   const { id } = await params;
@@ -56,6 +69,14 @@ export const POST = withRoute<Ctx>(async (req: NextRequest, { params }) => {
             403,
             EC_RFQ_AUTHORIZATION_REQUIRED,
             "采购主体尚未通过身份认证，不能提交需求。请先在「设置 → 采购主体认证」完成认证（可先保存草稿）。",
+          );
+          break;
+        case "missing_fields":
+          routeError(
+            400,
+            EC_INVALID_PARAMS,
+            "提交前请补全：" +
+              (result.fields ?? []).map((field) => SUBMIT_FIELD_LABELS[field] ?? field).join("、"),
           );
           break;
         default:
