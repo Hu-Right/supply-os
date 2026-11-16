@@ -71,7 +71,6 @@ export const PROJECT_PURPOSE = {
 
 export const OBJECT_TYPES = ["goods", "engineering", "service", "solution"] as const;
 
-export const BUDGET_APPROVED = ["approved", "partial", "pending", "applying"] as const;
 
 export const INSTALL_NEEDS = ["installation", "commissioning", "training"] as const;
 

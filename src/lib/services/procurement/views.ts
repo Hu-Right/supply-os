@@ -132,7 +132,6 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     batchNote: toStr(row.batch_note),
     budgetAmount: showBudget ? toNum(row.budget_amount) : null,
     budgetCurrency: showBudget ? toStr(row.budget_currency) : null,
-    budgetApproved: showBudget ? toStr(row.budget_approved) : "",
     deliveryCountry: toStr(row.delivery_country),
     deliveryCity: toStr(row.delivery_city),
     deliveryAddress: toStr(row.delivery_address),

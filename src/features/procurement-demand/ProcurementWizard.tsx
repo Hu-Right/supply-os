@@ -53,7 +53,6 @@ interface FormState {
   budgetAmount: string;
   budgetCurrency: string;
   budgetPublic: boolean;
-  budgetApproved: string;
   deliveryCountry: string;
   deliveryCity: string;
   deliveryAddress: string;
@@ -94,7 +93,6 @@ const DEFAULT_FORM: FormState = {
   budgetAmount: "",
   budgetCurrency: "CNY",
   budgetPublic: false,
-  budgetApproved: "approved",
   deliveryCountry: "",
   deliveryCity: "",
   deliveryAddress: "",
@@ -230,8 +228,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           budgetAmount: d.budgetAmount == null ? "" : String(d.budgetAmount),
           budgetCurrency: d.budgetCurrency || "CNY",
           budgetPublic: d.budgetPublic ?? d.budgetAmount != null,
-          budgetApproved: d.budgetApproved || "approved",
-          deliveryCountry: d.deliveryCountry,
+                    deliveryCountry: d.deliveryCountry,
           deliveryCity: d.deliveryCity,
           deliveryAddress: d.deliveryAddress,
           deadlineDate: d.deadlineDate,
@@ -308,7 +305,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     budgetAmount: form.budgetAmount === "" ? null : Number(form.budgetAmount),
     budgetCurrency: form.budgetCurrency,
     budgetPublic: form.budgetPublic ? 1 : 0,
-    budgetApproved: form.budgetApproved || null,
     deliveryCountry: form.deliveryCountry.trim() || null,
     deliveryCity: form.deliveryCity.trim() || null,
     deliveryAddress: form.deliveryAddress.trim() || null,
@@ -731,12 +727,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
               {t("pc_currency")}
               <select value={form.budgetCurrency} onChange={(e) => field("budgetCurrency", e.target.value)} className={inputCls}>
                 {["CNY", "USD", "EUR"].map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </label>
-            <label className={labelCls}>
-              {t("pc_budgetApproved")}
-              <select value={form.budgetApproved} onChange={(e) => field("budgetApproved", e.target.value)} className={inputCls}>
-                {["approved", "partial", "pending", "applying"].map((v) => <option key={v} value={v}>{t(`pc_budget_${v}`)}</option>)}
               </select>
             </label>
           </div>
