@@ -86,9 +86,8 @@ interface FormState {
   batchDelivery: boolean;
   batchNote: string;
   logisticsNote: string;
-  manufacturerOnly: boolean;
+  supplierType: string;
   supplierQuals: string;
-  supplierCountryLimit: string;
   supplierConfirmDate: string;
   contractDate: string;
   quoteDeadlineDate: string;
@@ -127,9 +126,8 @@ const DEFAULT_FORM: FormState = {
   batchDelivery: false,
   batchNote: "",
   logisticsNote: "",
-  manufacturerOnly: false,
+  supplierType: "any",
   supplierQuals: "",
-  supplierCountryLimit: "",
   supplierConfirmDate: "",
   contractDate: "",
   quoteDeadlineDate: "",
@@ -143,7 +141,7 @@ const PURPOSE_OPTIONS = ["real", "budgeting", "research", "future_plan"];
 const OBJECT_OPTIONS = ["goods", "engineering", "service", "solution"];
 const COMPLIANCE_OPTIONS = ["export_control", "dangerous", "medical", "dual_use", "other"];
 const INSTALL_NEEDS = ["installation", "commissioning", "training"];
-const CONTACT_DISCLOSURE = ["none", "org_only", "org_contact", "budget_all"];
+const CONTACT_DISCLOSURE = ["none", "org_only", "budget_all"];
 const ATTACHMENT_KINDS = ["requirement", "tech_doc", "drawing", "bom", "sample", "other"];
 
 /** 付款方式快捷预设：点一下填入，仍可在文本框里改比例/账期 */
@@ -271,9 +269,8 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           batchDelivery: Boolean(d.batchDelivery),
           batchNote: d.batchNote || "",
           logisticsNote: d.logisticsNote || "",
-          manufacturerOnly: d.manufacturerOnly,
+          supplierType: d.supplierType || "any",
           supplierQuals: d.supplierQuals,
-          supplierCountryLimit: d.supplierCountryLimit,
           supplierConfirmDate: d.supplierConfirmDate,
           contractDate: d.contractDate,
           quoteDeadlineDate: d.quoteDeadlineAt ? new Date(d.quoteDeadlineAt * 1000).toISOString().slice(0, 10) : "",
@@ -355,9 +352,9 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     guaranteeConfig: form.guarantees,
     batchDelivery: form.batchDelivery ? 1 : 0,
     batchNote: form.batchNote.trim() || null,
-    supplierCountryLimit: form.supplierCountryLimit.trim() || null,
-    manufacturerOnly: form.manufacturerOnly ? 1 : 0,
     supplierQuals: form.supplierQuals.trim() || null,
+    supplierType: form.supplierType,
+    manufacturerOnly: form.supplierType === "manufacturer_only" ? 1 : 0,
     quoteDeadlineAt: form.quoteDeadlineDate
       ? Math.floor(new Date(`${form.quoteDeadlineDate}T23:59:59+08:00`).getTime() / 1000)
       : null,
@@ -939,18 +936,19 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
       {step === 5 && (
         <div className="grid gap-4">
           <div className="border-b border-secondary-100 pb-1 text-sm font-bold text-secondary-700">{t("pc_supplierReqs")}</div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className={labelCls}>
-              {t("pc_supplierCountryLimit")}
-              <input value={form.supplierCountryLimit} onChange={(e) => field("supplierCountryLimit", e.target.value)} className={inputCls} />
-            </label>
-            <label className="flex items-center gap-2 self-end text-sm text-secondary-700">
-              <input type="checkbox" checked={form.manufacturerOnly} onChange={(e) => field("manufacturerOnly", e.target.checked)} />
-              {t("pc_manufacturerOnly")}
-            </label>
-          </div>
           <label className={labelCls}>
-            {t("pc_supplierQuals")}
+            {t("pc_supplierType")}
+            <select value={form.supplierType} onChange={(e) => field("supplierType", e.target.value)} className={inputCls}>
+              {["any", "manufacturer_or_agent", "manufacturer_only"].map((v) => (
+                <option key={v} value={v}>{t(`pc_supplier_type_${v}`)}</option>
+              ))}
+            </select>
+          </label>
+          <label className={labelCls}>
+            <span className="flex items-center gap-1.5">
+              {t("pc_supplierQuals")}
+              <FieldHintTooltip label={t("pc_supplierQuals")} content={t("pc_supplierQuals_hint")} />
+            </span>
             <textarea value={form.supplierQuals} onChange={(e) => field("supplierQuals", e.target.value)} rows={2} className={inputCls} />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">

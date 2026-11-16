@@ -95,11 +95,11 @@ export function projectSummaryViewOf(row: ProjectRow) {
  * 详情视图：owner 全量；非 owner 按 F02 分级授权（contact_disclosure）裁剪。
  *
  * 2026-11 整改：`contact_disclosure` 此前只被读出来原样回显（`const disclosure = …` 之后
- * 没有任何分支用它），等于「采购方选了不公开，平台照样全给」。现落地为四个等级：
+ * 没有任何分支用它），等于「采购方选了不公开，平台照样全给」。现落地为三个等级：
  *   none        → 不公开采购方身份（机构名置空）+ 预算（除 budget_public=1）
  *   org_only    → 公开机构名；预算仍只看 budget_public
- *   org_contact → 同 org_only（联系方式不在本视图内下发，未来加联系人字段时按此级放开）
  *   budget_all  → 机构名 + 预算
+ * 联系方式不在公开视图下发（公开页没有联系人字段），因此不设 org_contact 档；
  * 未识别的存量值按 org_only 处理（宁可显示，不静默匿名化历史数据）。
  *
  * 另：`authorization` 里的签署人姓名属个人信息，只给 owner；非 owner 只保留核验状态。
@@ -110,8 +110,8 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
   const row = bundle.project;
   const isOwner = opts.isOwner;
   const rawLevel = toStr(row.contact_disclosure);
-  const level: "none" | "org_only" | "org_contact" | "budget_all" =
-    rawLevel === "none" || rawLevel === "org_contact" || rawLevel === "budget_all" ? rawLevel : "org_only";
+  const level: "none" | "org_only" | "budget_all" =
+    rawLevel === "none" || rawLevel === "budget_all" ? rawLevel : "org_only";
   const showBudget = isOwner || Number(row.budget_public) === 1 || level === "budget_all";
   const showOrgName = isOwner || level !== "none";
 
@@ -147,9 +147,10 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     paymentTerms: toStr(row.payment_terms),
     guarantees: toStr(row.guarantees).split(",").filter(Boolean),
     guaranteeConfig: parseGuarantees(row.guarantee_config, row.guarantees),
-    supplierCountryLimit: toStr(row.supplier_country_limit),
-    manufacturerOnly: Number(row.manufacturer_only) === 1,
     supplierQuals: toStr(row.supplier_quals),
+    supplierType:
+      toStr(row.supplier_type) ||
+      (Number(row.manufacturer_only) === 1 ? "manufacturer_only" : "any"),
     supplierConfirmDate: toDateStr(row.supplier_confirm_date),
     contractDate: toDateStr(row.contract_date),
     contactDisclosure: level,

@@ -46,6 +46,8 @@ import { migration as procurementCertRequirementsMigration } from "./migrations/
 import { migration as countryCodesMigration } from "./migrations/028-country-codes";
 import { migration as incotermPlaceMigration } from "./migrations/029-incoterm-place";
 import { migration as guaranteeConfigMigration } from "./migrations/030-guarantee-config";
+import { migration as supplierTypeMigration } from "./migrations/031-supplier-type";
+import { migration as contactDisclosureMigration } from "./migrations/032-contact-disclosure-three-levels";
 
 /**
  * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
@@ -78,6 +80,8 @@ export const ALL_MIGRATIONS: Migration[] = [
   countryCodesMigration,
   incotermPlaceMigration,
   guaranteeConfigMigration,
+  supplierTypeMigration,
+  contactDisclosureMigration,
 ];
 
 /**

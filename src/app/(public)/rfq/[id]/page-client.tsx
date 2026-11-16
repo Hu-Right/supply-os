@@ -35,6 +35,16 @@ const GUARANTEE_LABEL_EN: Record<string, string> = {
 };
 const GUARANTEE_FORM_ZH: Record<string, string> = { bank: "银行保函", insurance: "保险保函", cash: "现金" };
 const GUARANTEE_FORM_EN: Record<string, string> = { bank: "bank", insurance: "insurance", cash: "cash" };
+const SUPPLIER_TYPE_ZH: Record<string, string> = {
+  any: "不限",
+  manufacturer_or_agent: "制造商或授权代理",
+  manufacturer_only: "仅制造商直投",
+};
+const SUPPLIER_TYPE_EN: Record<string, string> = {
+  any: "Any",
+  manufacturer_or_agent: "Manufacturer or authorized agent",
+  manufacturer_only: "Manufacturer direct only",
+};
 
 const REVIEW_RESULT_LABEL: Record<string, { zh: string; en: string; cls: string }> = {
   pass: { zh: "通过", en: "Pass", cls: "bg-teal-100 text-teal-800" },
@@ -137,8 +147,9 @@ function RfqDetailContent() {
               </ul>
             </div>
           )}
-          {detail.supplierCountryLimit && <div>{t2("供应商国别限制", "Supplier countries")}: {detail.supplierCountryLimit}</div>}
-          {detail.manufacturerOnly && <div>{t2("要求制造商直接投标", "Manufacturer direct bidding")}</div>}
+          {detail.supplierType && detail.supplierType !== "any" && (
+            <div>{t2("供应商类型要求", "Supplier type")}: {t2(SUPPLIER_TYPE_ZH[detail.supplierType] ?? detail.supplierType, SUPPLIER_TYPE_EN[detail.supplierType] ?? detail.supplierType)}</div>
+          )}
           {detail.supplierQuals && <div>{t2("资质/业绩要求", "Qualification")}: {detail.supplierQuals}</div>}
           {detail.supplierConfirmDate && <div>{t2("预计确定供应商", "Expected award")}: {detail.supplierConfirmDate}</div>}
           {detail.contractDate && <div>{t2("预计签约", "Expected contract")}: {detail.contractDate}</div>}

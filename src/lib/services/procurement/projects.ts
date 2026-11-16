@@ -52,6 +52,7 @@ export interface ProjectRow extends RowDataPacket {
   guarantee_config: string | null;
   supplier_country_limit: string | null;
   manufacturer_only: number;
+  supplier_type: string;
   supplier_quals: string | null;
   quote_deadline_at: number | null;
   supplier_confirm_date: string | null;
@@ -147,6 +148,7 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "guarantee_config",
   "supplier_country_limit",
   "manufacturer_only",
+  "supplier_type",
   "supplier_quals",
   "quote_deadline_at",
   "supplier_confirm_date",
