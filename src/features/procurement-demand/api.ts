@@ -98,7 +98,6 @@ export interface ProjectDetail extends ProjectSummary {
     spec: string;
     quantity: number | null;
     qtyUnit: string;
-    qtyType: string;
     ugtCode: string;
     attributes: unknown;
     alternativesAllowed: boolean;
@@ -131,7 +130,6 @@ export interface ItemDraft {
   spec?: string;
   quantity?: number | string;
   qtyUnit?: string;
-  qtyType?: string;
   ugtCode?: string;
   alternativesAllowed?: boolean;
 }

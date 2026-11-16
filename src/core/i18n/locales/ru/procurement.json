@@ -660,8 +660,6 @@
   "pc_bauthcontact_phone": "Телефон уполномоченного контакта",
   "pc_bauthcontact_email": "Эл. почта уполномоченного контакта",
   "pc_item_lot": "№ лота (необязательно)",
-  "pc_qty_fixed": "Точное",
-  "pc_qty_estimated": "Оценочное",
   "pc_item_alt": "Допускаются аналоги",
   "pc_deliveryAddress": "Адрес поставки",
   "pc_installNeeds": "Услуги при поставке",

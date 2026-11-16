@@ -660,8 +660,6 @@
   "pc_bauthcontact_phone": "Authorized contact phone",
   "pc_bauthcontact_email": "Authorized contact email",
   "pc_item_lot": "Lot no. (optional)",
-  "pc_qty_fixed": "Fixed",
-  "pc_qty_estimated": "Estimated",
   "pc_item_alt": "Alternatives allowed",
   "pc_deliveryAddress": "Delivery address",
   "pc_installNeeds": "Delivery services",

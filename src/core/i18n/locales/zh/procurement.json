@@ -660,8 +660,6 @@
   "pc_bauthcontact_phone": "授权联系人电话",
   "pc_bauthcontact_email": "授权联系人邮箱",
   "pc_item_lot": "标包号（可选）",
-  "pc_qty_fixed": "确定数量",
-  "pc_qty_estimated": "预估数量",
   "pc_item_alt": "允许同等/替代产品",
   "pc_deliveryAddress": "交付详细地址",
   "pc_installNeeds": "交付服务",

@@ -660,8 +660,6 @@
   "pc_bauthcontact_phone": "هاتف جهة الاتصال المفوضة",
   "pc_bauthcontact_email": "بريد جهة الاتصال المفوضة",
   "pc_item_lot": "رقم الحزمة (اختياري)",
-  "pc_qty_fixed": "ثابتة",
-  "pc_qty_estimated": "تقديرية",
   "pc_item_alt": "يُسمح بالبدائل المكافئة",
   "pc_deliveryAddress": "عنوان التسليم",
   "pc_installNeeds": "خدمات التسليم",

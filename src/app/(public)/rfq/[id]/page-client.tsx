@@ -125,7 +125,6 @@ function RfqDetailContent() {
                 <div key={it.id} className="rounded-lg border border-secondary-200 p-3 text-sm text-secondary-700">
                   {it.lineNo}. {zh ? it.nameZh : it.nameEn || it.nameZh}
                   {it.spec ? `（${it.spec}）` : ""} × {it.quantity ?? "-"} {it.qtyUnit}
-                  {it.qtyType === "estimated" && <span className="ml-2 text-xs text-amber-700">{t2("预估数量", "estimated")}</span>}
                   {it.alternativesAllowed && <span className="ml-2 text-xs text-secondary-400">{t2("允许同等/替代", "alternatives allowed")}</span>}
                 </div>
               ))}

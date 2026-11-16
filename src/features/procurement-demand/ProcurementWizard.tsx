@@ -137,11 +137,10 @@ interface ItemRow {
   spec: string;
   quantity: string;
   qtyUnit: string;
-  qtyType: "fixed" | "estimated";
   alternativesAllowed: boolean;
 }
 
-const EMPTY_ITEM: ItemRow = { lotNo: "", nameZh: "", spec: "", quantity: "", qtyUnit: "件", qtyType: "fixed", alternativesAllowed: true };
+const EMPTY_ITEM: ItemRow = { lotNo: "", nameZh: "", spec: "", quantity: "", qtyUnit: "件", alternativesAllowed: true };
 
 export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => void }) {
   const { t } = useLocale();
@@ -273,8 +272,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                 spec: it.spec,
                 quantity: it.quantity == null ? "" : String(it.quantity),
                 qtyUnit: it.qtyUnit,
-                qtyType: it.qtyType === "estimated" ? "estimated" : "fixed",
-                alternativesAllowed: it.alternativesAllowed !== false,
+                                alternativesAllowed: it.alternativesAllowed !== false,
               }))
             : [{ ...EMPTY_ITEM }],
         );
@@ -348,7 +346,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
         spec: it.spec.trim() || undefined,
         quantity: it.quantity === "" ? undefined : Number(it.quantity),
         qtyUnit: it.qtyUnit || "件",
-        qtyType: it.qtyType,
         ugtCode: derivedUgt || undefined,
         alternativesAllowed: it.alternativesAllowed,
       })),
@@ -496,7 +493,6 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
         spec: it.spec,
         quantity: it.quantity == null ? "" : String(it.quantity),
         qtyUnit: it.qtyUnit || "件",
-        qtyType: "fixed",
         alternativesAllowed: true,
       }));
       setItems((prev) => [...prev.filter((it) => it.nameZh.trim()), ...rows]);
@@ -711,15 +707,11 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             {t("pc_items")}
             <div className="mt-1 grid gap-2">
               {items.map((it, idx) => (
-                <div key={idx} className="grid gap-2 rounded-lg border border-secondary-200 p-3 sm:grid-cols-[1fr_2fr_1fr_1fr_1fr]">
+                <div key={idx} className="grid gap-2 rounded-lg border border-secondary-200 p-3 sm:grid-cols-[1fr_2fr_1fr_1fr]">
                   <input placeholder={t("pc_item_lot")} value={it.lotNo} onChange={(e) => setItem(idx, { lotNo: e.target.value })} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
                   <div className="truncate text-sm text-secondary-600">{it.nameZh || "—"}</div>
                   <input placeholder={t("pc_item_qty")} value={it.quantity} onChange={(e) => setItem(idx, { quantity: e.target.value })} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
                   <input placeholder={t("pc_item_unit")} value={it.qtyUnit} onChange={(e) => setItem(idx, { qtyUnit: e.target.value })} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
-                  <select value={it.qtyType} onChange={(e) => setItem(idx, { qtyType: e.target.value as ItemRow["qtyType"] })} className="rounded-lg border border-secondary-300 px-2 py-2 text-sm">
-                    <option value="fixed">{t("pc_qty_fixed")}</option>
-                    <option value="estimated">{t("pc_qty_estimated")}</option>
-                  </select>
                 </div>
               ))}
             </div>
