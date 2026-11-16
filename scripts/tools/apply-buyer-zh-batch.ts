@@ -77,6 +77,7 @@ function parseRow(line: string, lineNo: number): Row | null {
 }
 
 function validate(row: Row): string | null {
+  if (/^\d+$/.test(row.name)) return "原名为纯数字，疑似列错位（出现次数被当成了原名）";
   if (row.zh === row.name) return "译文与原名相同";
   if (!isPureChineseBuyerName(row.zh)) return "译文不是纯中文";
   if (row.zh.length < 2 || row.zh.length > 120) return "译文长度不在 2-120";
@@ -277,11 +278,8 @@ try {
       );
       result.merged += Number(upd.affectedRows ?? 0);
 
-      const [noticeRows] = await conn.query<RowDataPacket[]>(
-        "SELECT notice_pk FROM notice_public WHERE buyer_id IS NULL AND buyer_name = ?",
-        [row.name],
-      );
-      for (const n of noticeRows) noticeIds.add(Number(n.notice_pk));
+      noticeNames.add(row.name);
+      noticeNames.add(canonical);
       report.push({ line: row.line, country, name: row.name, zh: row.zh, buyerId, alias: row.name });
     }
   } finally {
