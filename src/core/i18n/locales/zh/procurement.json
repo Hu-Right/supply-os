@@ -705,8 +705,6 @@
   "pc_cert_custom_ph": "输入认证名称或编号",
   "pc_cert_mandatory": "强制",
   "pc_cert_preferred": "加分",
-  "pc_cert_note_ph": "适用范围/说明（可选）",
-  "pc_cert_require_valid": "须在有效期内",
   "pc_cert_remove": "移除",
   "pc_cert_empty": "尚未添加认证要求",
   "pc_cert_dup": "该认证项已添加",

@@ -705,8 +705,6 @@
   "pc_cert_custom_ph": "Saisir le nom ou le code",
   "pc_cert_mandatory": "Obligatoire",
   "pc_cert_preferred": "Bonus",
-  "pc_cert_note_ph": "Périmètre / note (facultatif)",
-  "pc_cert_require_valid": "Doit être en cours de validité",
   "pc_cert_remove": "Retirer",
   "pc_cert_empty": "Aucune exigence de certification",
   "pc_cert_dup": "Cette certification est déjà ajoutée",

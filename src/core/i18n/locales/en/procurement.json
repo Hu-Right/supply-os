@@ -705,8 +705,6 @@
   "pc_cert_custom_ph": "Enter certification name or code",
   "pc_cert_mandatory": "Required",
   "pc_cert_preferred": "Preferred",
-  "pc_cert_note_ph": "Scope / note (optional)",
-  "pc_cert_require_valid": "Must be valid",
   "pc_cert_remove": "Remove",
   "pc_cert_empty": "No certification requirements yet",
   "pc_cert_dup": "This certification is already added",

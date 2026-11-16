@@ -5,7 +5,7 @@
  * @description F02「强制标准/认证要求」原先是单段文本（standards），采购方只能手写
  *              “CE、ISO9001”等，无法与供应商能力档案里的证书做交集。
  *              本迁移新增 `cert_requirements` JSON 列，存结构化要求：
- *                [{ code, name, custom, mandatory, note, requireValid }]
+ *                [{ code, name, custom, mandatory }]
  *              `standards` 保留为“技术标准/补充说明”，历史数据不丢。
  *              认证字典仍走 `/api/certifications`（管理体系/行业/市场准入/产品安全/ESG 五类）。
  */

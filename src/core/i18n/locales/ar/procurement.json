@@ -705,8 +705,6 @@
   "pc_cert_custom_ph": "أدخل اسم الشهادة أو رمزها",
   "pc_cert_mandatory": "إلزامي",
   "pc_cert_preferred": "نقاط إضافية",
-  "pc_cert_note_ph": "النطاق / ملاحظة (اختياري)",
-  "pc_cert_require_valid": "يجب أن تكون سارية",
   "pc_cert_remove": "إزالة",
   "pc_cert_empty": "لم تُضف متطلبات شهادات بعد",
   "pc_cert_dup": "هذه الشهادة مضافة بالفعل",

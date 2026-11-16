@@ -4,8 +4,7 @@
  * 采购认证要求编辑器（F02 第 3 页）
  *
  * @description 复用 /api/certifications 字典（与能力档案同一份），分组下拉选中一项即生成
- *              一张卡片；字典未收录的走“其他（自输入）”。每条要求可设强制/加分、适用范围、
- *              是否要求供应商证书在有效期内。
+ *              一张卡片；字典未收录的走“其他（自输入）”。每条要求只标强制/加分。
  */
 import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/core/i18n";
@@ -13,7 +12,6 @@ import { fetchCertificationOptions, type CertificationOption } from "./api";
 import {
   CERT_CATEGORY_ORDER,
   CERT_REQUIREMENT_MAX,
-  CERT_REQUIREMENT_NOTE_MAX,
   type CertRequirement,
 } from "@/shared/constants/procurement-cert-requirements";
 
@@ -76,7 +74,7 @@ export function CertRequirementsEditor({
     if (raw === "__manual__") {
       onChange([
         ...value,
-        { code: "", name: "", custom: true, mandatory: true, note: "", requireValid: false },
+        { code: "", name: "", custom: true, mandatory: true },
       ]);
       return;
     }
@@ -93,8 +91,6 @@ export function CertRequirementsEditor({
         name: option.name,
         custom: false,
         mandatory: true,
-        note: "",
-        requireValid: false,
       },
     ]);
   };
@@ -133,66 +129,49 @@ export function CertRequirementsEditor({
       ) : (
         <div className="grid gap-2">
           {value.map((item, index) => (
-            <div key={`${item.code || "custom"}-${index}`} className="rounded-xl border border-secondary-200 bg-white p-3">
-              <div className="flex items-start justify-between gap-2">
-                {item.custom ? (
-                  <input
-                    value={item.name}
-                    onChange={(e) => patch(index, { name: e.target.value })}
-                    placeholder={t("pc_cert_custom_ph")}
-                    className={inputCls}
-                    aria-label={t("pc_cert_custom_ph")}
-                  />
-                ) : (
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-secondary-900">{item.name}</div>
-                    <div className="mt-0.5 text-[11px] text-secondary-400">{item.code}</div>
-                  </div>
-                )}
+            <div
+              key={`${item.code || "custom"}-${index}`}
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-secondary-200 bg-white px-3 py-2"
+            >
+              {item.custom ? (
+                <input
+                  value={item.name}
+                  onChange={(e) => patch(index, { name: e.target.value })}
+                  placeholder={t("pc_cert_custom_ph")}
+                  className={`${inputCls} min-w-48 flex-1`}
+                  aria-label={t("pc_cert_custom_ph")}
+                />
+              ) : (
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-secondary-900">{item.name}</div>
+                  <div className="text-[11px] text-secondary-400">{item.code}</div>
+                </div>
+              )}
+
+              <div className="inline-flex shrink-0 overflow-hidden rounded-lg border border-secondary-300">
                 <button
                   type="button"
-                  onClick={() => onChange(value.filter((_, i) => i !== index))}
-                  className="shrink-0 rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                  onClick={() => patch(index, { mandatory: true })}
+                  className={`px-3 py-1 text-xs font-semibold ${item.mandatory ? "bg-teal-600 text-white" : "bg-white text-secondary-600"}`}
                 >
-                  {t("pc_cert_remove")}
+                  {t("pc_cert_mandatory")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => patch(index, { mandatory: false })}
+                  className={`px-3 py-1 text-xs font-semibold ${!item.mandatory ? "bg-teal-600 text-white" : "bg-white text-secondary-600"}`}
+                >
+                  {t("pc_cert_preferred")}
                 </button>
               </div>
 
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <div className="inline-flex overflow-hidden rounded-lg border border-secondary-300">
-                  <button
-                    type="button"
-                    onClick={() => patch(index, { mandatory: true })}
-                    className={`px-3 py-1 text-xs font-semibold ${item.mandatory ? "bg-teal-600 text-white" : "bg-white text-secondary-600"}`}
-                  >
-                    {t("pc_cert_mandatory")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => patch(index, { mandatory: false })}
-                    className={`px-3 py-1 text-xs font-semibold ${!item.mandatory ? "bg-teal-600 text-white" : "bg-white text-secondary-600"}`}
-                  >
-                    {t("pc_cert_preferred")}
-                  </button>
-                </div>
-                <label className="flex items-center gap-1.5 text-xs text-secondary-600">
-                  <input
-                    type="checkbox"
-                    checked={item.requireValid}
-                    onChange={(e) => patch(index, { requireValid: e.target.checked })}
-                  />
-                  {t("pc_cert_require_valid")}
-                </label>
-              </div>
-
-              <input
-                value={item.note}
-                onChange={(e) => patch(index, { note: e.target.value.slice(0, CERT_REQUIREMENT_NOTE_MAX) })}
-                placeholder={t("pc_cert_note_ph")}
-                maxLength={CERT_REQUIREMENT_NOTE_MAX}
-                className={`${inputCls} mt-2`}
-                aria-label={t("pc_cert_note_ph")}
-              />
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((_, i) => i !== index))}
+                className="shrink-0 rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+              >
+                {t("pc_cert_remove")}
+              </button>
             </div>
           ))}
         </div>

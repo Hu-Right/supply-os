@@ -85,8 +85,6 @@ function RfqDetailContent() {
                   >
                     {cert.name}
                     {cert.custom ? t2("（自填）", " (custom)") : ""} · {cert.mandatory ? t2("强制", "Required") : t2("加分", "Preferred")}
-                    {cert.requireValid ? ` · ${t2("须有效", "valid")}` : ""}
-                    {cert.note ? ` · ${cert.note}` : ""}
                   </li>
                 ))}
               </ul>

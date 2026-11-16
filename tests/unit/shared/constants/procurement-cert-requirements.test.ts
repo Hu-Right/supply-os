@@ -6,21 +6,14 @@ import {
 } from "@/shared/constants/procurement-cert-requirements";
 
 describe("shared/constants/procurement-cert-requirements", () => {
-  it("解析字典项：默认强制、有效锚点、非自填", () => {
-    expect(
-      parseCertRequirements([
-        { code: "ISO9001", name: "ISO9001 质量管理体系认证", mandatory: false, requireValid: true, note: "现行有效" },
-      ]),
-    ).toEqual([
-      {
-        code: "ISO9001",
-        name: "ISO9001 质量管理体系认证",
-        custom: false,
-        mandatory: false,
-        note: "现行有效",
-        requireValid: true,
-      },
+  it("解析字典项：默认强制、非自填", () => {
+    expect(parseCertRequirements([{ code: "ISO9001", name: "ISO9001 质量管理体系认证" }])).toEqual([
+      { code: "ISO9001", name: "ISO9001 质量管理体系认证", custom: false, mandatory: true },
     ]);
+  });
+
+  it("加分项保留 mandatory=false", () => {
+    expect(parseCertRequirements([{ code: "ISO14001", name: "ISO14001", mandatory: false }])[0].mandatory).toBe(false);
   });
 
   it("无 code 视为自输入", () => {
@@ -35,13 +28,13 @@ describe("shared/constants/procurement-cert-requirements", () => {
     expect(parseCertRequirements(null)).toEqual([]);
   });
 
-  it("丢弃空行；note 超长截断", () => {
+  it("丢弃空行；旧数据里的 note/requireValid 被忽略", () => {
     const parsed = parseCertRequirements([
       { code: "", name: "  " },
-      { code: "CE", name: "CE", note: "x".repeat(500) },
+      { code: "CE", name: "CE", note: "旧备注", requireValid: true },
     ]);
     expect(parsed).toHaveLength(1);
-    expect(parsed[0].note.length).toBe(200);
+    expect(parsed[0]).toEqual({ code: "CE", name: "CE", custom: false, mandatory: true });
   });
 
   it("最多保留 20 条", () => {

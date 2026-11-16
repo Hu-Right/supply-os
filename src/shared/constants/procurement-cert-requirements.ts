@@ -4,7 +4,7 @@
  * @module shared/constants/procurement-cert-requirements
  * @description 采购方按认证字典提出要求，一条要求一张卡片：
  *              code（字典锚点；自输入时为空）、name、custom（是否字典未收录）、
- *              mandatory（强制/加分）、note（适用范围）、requireValid（须在有效期内）。
+ *              mandatory（强制/加分）。
  *              与供应商能力档案 `capability_type='certification'` 的 code 可直接求交集。
  */
 
@@ -17,14 +17,9 @@ export interface CertRequirement {
   custom: boolean;
   /** true=强制，false=加分 */
   mandatory: boolean;
-  /** 适用范围/说明 */
-  note: string;
-  /** 要求供应商证书在报价截止时仍在有效期内 */
-  requireValid: boolean;
 }
 
 export const CERT_REQUIREMENT_MAX = 20;
-export const CERT_REQUIREMENT_NOTE_MAX = 200;
 
 /** 认证字典分组（与 /api/certifications 的 category 一致） */
 export const CERT_CATEGORY_ORDER = [
@@ -50,14 +45,13 @@ function normalizeOne(raw: unknown): CertRequirement | null {
     name,
     custom: item.custom === true || !code,
     mandatory: item.mandatory !== false,
-    note: str(item.note).slice(0, CERT_REQUIREMENT_NOTE_MAX),
-    requireValid: item.requireValid === true,
   };
 }
 
 /**
  * 从 DB 值（JSON 字符串或已解析数组）归一化。
  * 非法 JSON / 非数组一律返回空数组，不抛错（列表页容错优先）。
+ * 旧数据里的 note / requireValid 会被忽略。
  */
 export function parseCertRequirements(value: unknown): CertRequirement[] {
   let raw: unknown = value;

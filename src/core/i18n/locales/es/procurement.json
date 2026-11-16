@@ -705,8 +705,6 @@
   "pc_cert_custom_ph": "Introduce el nombre o código",
   "pc_cert_mandatory": "Obligatorio",
   "pc_cert_preferred": "Puntuable",
-  "pc_cert_note_ph": "Alcance / nota (opcional)",
-  "pc_cert_require_valid": "Debe estar vigente",
   "pc_cert_remove": "Quitar",
   "pc_cert_empty": "Aún no hay requisitos de certificación",
   "pc_cert_dup": "Esta certificación ya está añadida",
