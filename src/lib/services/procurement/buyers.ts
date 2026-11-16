@@ -18,6 +18,7 @@ export interface BuyerRow extends RowDataPacket {
   org_name: string;
   buyer_role: string;
   country: string | null;
+  country_code: string | null;
   reg_no: string | null;
   tax_no: string | null;
   website: string | null;
@@ -46,6 +47,7 @@ const EDITABLE_COLUMNS = [
   "org_name",
   "buyer_role",
   "country",
+  "country_code",
   "reg_no",
   "tax_no",
   "website",

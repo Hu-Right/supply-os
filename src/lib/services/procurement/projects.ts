@@ -39,6 +39,7 @@ export interface ProjectRow extends RowDataPacket {
   budget_public: number;
   budget_approved: string | null;
   delivery_country: string | null;
+  delivery_country_code: string | null;
   delivery_city: string | null;
   delivery_address: string | null;
   deadline_date: string | null;
@@ -131,6 +132,7 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "budget_public",
   "budget_approved",
   "delivery_country",
+  "delivery_country_code",
   "delivery_city",
   "delivery_address",
   "deadline_date",

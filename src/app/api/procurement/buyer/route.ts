@@ -108,6 +108,7 @@ export const PUT = withRoute(async (req: NextRequest) => {
         org_name: orgName,
         buyer_role: buyerRole || undefined,
         country: country || undefined,
+        country_code: pick(["countryCode", "country_code"], existing?.country_code) || undefined,
         reg_no: regNo || undefined,
         tax_no: body.taxNo,
         website: body.website,

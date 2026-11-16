@@ -11,6 +11,7 @@ export interface BuyerInfo {
   orgName: string;
   buyerRole: string;
   country: string;
+  countryCode: string;
   regNo: string;
   taxNo: string;
   website: string;
@@ -44,6 +45,7 @@ export interface ProjectSummary {
   budgetAmount: number | null;
   budgetCurrency: string | null;
   deliveryCountry: string;
+  deliveryCountryCode: string;
   deliveryCity: string;
   quoteDeadlineAt: number | null;
   publishedAt: number | null;

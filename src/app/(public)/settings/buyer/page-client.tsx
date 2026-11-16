@@ -21,14 +21,14 @@
  *                ③ 核验人不再显示内部账号名（统一"云境核验"）；
  *                ④ 未知 kind/result 加兜底（t() 缺键返回空串，否则静默渲染空白）。
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { fetchMyBuyerWithVerifications, saveBuyer, type BuyerInfo } from "@/features/procurement-demand/api";
 import { FlowStepper } from "@/features/procurement-demand/FlowStepper";
 import { FileDropzone } from "@/features/procurement-demand/FileDropzone";
-import { ChipToggleGroup, FieldHintTooltip } from "@/shared/ui";
+import { ChipToggleGroup, FieldHintTooltip, SearchableSelect } from "@/shared/ui";
 import {
   EXTERNAL_RULE_GROUPS,
   EXTERNAL_RULE_NOTE_MAX,
@@ -37,9 +37,10 @@ import {
   ruleLabelKey,
 } from "@/shared/constants/external-procurement-rules";
 import { missingBuyerFields } from "@/shared/constants/buyer-form";
+import { countryName, countryOptions, guessCountryCode } from "@/shared/constants/countries";
 
 export default function PageClient() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [buyer, setBuyer] = useState<BuyerInfo | null>(null);
   const [riskFlags, setRiskFlags] = useState<string[]>([]);
   const [duplicates, setDuplicates] = useState<Array<{ buyerId: number; orgName: string; matchedField: string }>>([]);
@@ -60,6 +61,10 @@ export default function PageClient() {
   const [authDocFile, setAuthDocFile] = useState<File[]>([]);
   const [authDocError, setAuthDocError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const countrySelectOptions = useMemo(
+    () => countryOptions(locale).map((item) => ({ value: item.code, label: `${item.name}（${item.code}）` })),
+    [locale],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,7 +78,7 @@ export default function PageClient() {
         setForm((p) => ({
           ...p,
           orgName: b.orgName, buyerRole: b.buyerRole || "end_buyer",
-          country: b.country, regNo: b.regNo, taxNo: b.taxNo,
+          country: b.countryCode || guessCountryCode(b.country) || "", regNo: b.regNo, taxNo: b.taxNo,
           website: b.website, officialEmail: b.officialEmail, officialPhone: b.officialPhone,
           externalRules: b.externalRules,
           // 联系人已合并到 auth_contact_*：老数据由迁移 022 从 leader_* 回填，
@@ -152,6 +157,8 @@ export default function PageClient() {
       }
       await saveBuyer({
         ...form,
+        country: form.country ? countryName(form.country, locale) : "",
+        countryCode: form.country,
         ...(licenseUrl ? { license_file_key: licenseUrl.replace("/api/user/enterprise/license/", "") } : {}),
         ...(licenseHash ? { license_file_hash: licenseHash } : {}),
         ...(agentAuthKey ? { agentAuthFileKey: agentAuthKey } : {}),
@@ -305,7 +312,16 @@ export default function PageClient() {
               {roleOptions.map((v) => <option key={v} value={v}>{t(`pc_brole_${v}`)}</option>)}
             </select>
           </label>
-          <label className={labelCls}>{t("pc_bcountry")} *<input value={form.country} onChange={(e) => f("country", e.target.value)} className={inputCls} /></label>
+          <label className={labelCls}>
+            {t("pc_bcountry")} *
+            <SearchableSelect
+              options={countrySelectOptions}
+              value={form.country || null}
+              onChange={(value) => f("country", String(value ?? ""))}
+              placeholder={t("pc_country_search")}
+              className="mt-1"
+            />
+          </label>
           <label className={labelCls}>
             <span className="flex items-center gap-1.5">
               {t("pc_bregno")} *

@@ -1,5 +1,5 @@
 "use client";
-import { FieldHintTooltip } from "@/shared/ui";
+import { FieldHintTooltip, SearchableSelect } from "@/shared/ui";
 
 /**
  * 采购需求发布向导（全案 F02 六页结构）
@@ -30,6 +30,11 @@ import {
   PROCUREMENT_CURRENCIES,
   parseBudgetAmount,
 } from "@/shared/constants/procurement-currencies";
+import {
+  countryName,
+  countryOptions,
+  guessCountryCode,
+} from "@/shared/constants/countries";
 import {
   createProject,
   fetchProject,
@@ -143,7 +148,7 @@ interface ItemRow {
 const EMPTY_ITEM: ItemRow = { lotNo: "", nameZh: "", spec: "", quantity: "", qtyUnit: "件", alternativesAllowed: true };
 
 export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => void }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState(0);
@@ -231,7 +236,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           budgetAmount: d.budgetAmount == null ? "" : String(d.budgetAmount),
           budgetCurrency: d.budgetCurrency || "CNY",
           budgetPublic: d.budgetPublic ?? d.budgetAmount != null,
-                    deliveryCountry: d.deliveryCountry,
+                    deliveryCountry: d.deliveryCountryCode || guessCountryCode(d.deliveryCountry) || "",
           deliveryCity: d.deliveryCity,
           deliveryAddress: d.deliveryAddress,
           deadlineDate: d.deadlineDate,
@@ -294,6 +299,11 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     [form.categoryL1, form.categoryL2, form.categoryL3],
   );
 
+  const countrySelectOptions = useMemo(
+    () => countryOptions(locale).map((item) => ({ value: item.code, label: `${item.name}（${item.code}）` })),
+    [locale],
+  );
+
   const buildPatch = useCallback((): Record<string, unknown> => ({
     titleZh: form.titleZh.trim(),
     titleEn: form.titleEn.trim() || null,
@@ -307,7 +317,8 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     budgetAmount: parseBudgetAmount(form.budgetAmount),
     budgetCurrency: form.budgetCurrency,
     budgetPublic: form.budgetPublic ? 1 : 0,
-    deliveryCountry: form.deliveryCountry.trim() || null,
+    deliveryCountry: form.deliveryCountry ? countryName(form.deliveryCountry, locale) : null,
+    deliveryCountryCode: form.deliveryCountry || null,
     deliveryCity: form.deliveryCity.trim() || null,
     deliveryAddress: form.deliveryAddress.trim() || null,
     deadlineDate: form.deadlineDate || null,
@@ -330,7 +341,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     compliance: JSON.stringify({ flags: form.complianceFlags, note: form.complianceNote.trim() || null }),
     authorizePublish: form.authorizePublish ? 1 : 0,
     contactDisclosure: form.contactDisclosure,
-  }), [form]);
+  }), [form, locale]);
 
   /** 主表 + 明细落库（不含附件；附件只在显式保存/提交时上传） */
   const persist = useCallback(async (pid: number) => {
@@ -752,7 +763,13 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           <div className="grid gap-4 sm:grid-cols-3">
             <label className={labelCls}>
               {t("pc_deliveryCountry")} *
-              <input value={form.deliveryCountry} onChange={(e) => field("deliveryCountry", e.target.value)} className={inputCls} />
+              <SearchableSelect
+                options={countrySelectOptions}
+                value={form.deliveryCountry || null}
+                onChange={(value) => field("deliveryCountry", String(value ?? ""))}
+                placeholder={t("pc_country_search")}
+                className="mt-1"
+              />
             </label>
             <label className={labelCls}>
               {t("pc_deliveryCity")} *
