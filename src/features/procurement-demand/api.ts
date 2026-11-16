@@ -181,7 +181,7 @@ export interface ImportedItem {
   qtyUnit: string;
 }
 
-/** 上传 Excel/CSV 产品清单 → 解析为明细（不落库） */
+/** 上传 Excel 产品清单 → 解析为明细（不落库） */
 export async function parseProductListFile(file: File): Promise<{ items: ImportedItem[]; skipped: number }> {
   const fd = new FormData();
   fd.append("file", file);

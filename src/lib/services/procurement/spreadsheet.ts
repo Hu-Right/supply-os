@@ -2,7 +2,7 @@
  * 产品清单导入（F02：上传 Excel 产品清单）
  * @module lib/services/procurement/spreadsheet
  *
- * @description 支持 .xlsx（ZIP + sharedStrings/sheet1 解析，零额外运行时依赖）与 .csv/.txt。
+ * @description 只支持 .xlsx（ZIP + sharedStrings/sheet1 解析，零额外运行时依赖）。
  *              返回结构化行，由调用方映射为采购明细；解析失败一律抛错，不静默出半份清单。
  */
 import JSZip from "jszip";
@@ -33,44 +33,6 @@ function norm(s: string): string {
 
 function pickIndex(header: string[], aliases: string[]): number {
   return header.findIndex((h) => aliases.some((a) => norm(h).includes(norm(a))));
-}
-
-/** CSV/TSV 解析（支持引号包裹与转义引号） */
-export function parseDelimited(text: string): string[][] {
-  const src = text.replace(/^\uFEFF/, "");
-  const firstLine = src.split(/\r?\n/, 1)[0] ?? "";
-  const delimiter = (firstLine.match(/\t/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? "\t" : ",";
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let inQuotes = false;
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (src[i + 1] === '"') {
-          cell += '"';
-          i++;
-        } else inQuotes = false;
-      } else cell += ch;
-      continue;
-    }
-    if (ch === '"') inQuotes = true;
-    else if (ch === delimiter) {
-      row.push(cell);
-      cell = "";
-    } else if (ch === "\n") {
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = "";
-    } else if (ch !== "\r") cell += ch;
-  }
-  if (cell !== "" || row.length > 0) {
-    row.push(cell);
-    rows.push(row);
-  }
-  return rows;
 }
 
 function colIndex(ref: string): number {
@@ -174,9 +136,6 @@ export async function parseProductList(buffer: Buffer, filename: string): Promis
   const lower = filename.toLowerCase();
   if (lower.endsWith(".xlsx")) {
     return rowsToItems(await parseXlsx(buffer));
-  }
-  if (lower.endsWith(".csv") || lower.endsWith(".txt") || lower.endsWith(".tsv")) {
-    return rowsToItems(parseDelimited(buffer.toString("utf8")));
   }
   throw new Error("UNSUPPORTED_FORMAT");
 }
