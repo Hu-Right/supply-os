@@ -8,7 +8,7 @@ import type { NextConfig } from "next";
  * 本机 LAN IP 会随 DHCP 变化，因此名单不写死在代码里：
  * 只需在 .env 设置 DEV_ALLOWED_ORIGINS（逗号分隔），改完重启 dev 即生效。
  */
-const DEFAULT_DEV_ALLOWED_ORIGINS = ["172.16.2.206"];
+const DEFAULT_DEV_ALLOWED_ORIGINS = ["172.16.2.206", "127.0.0.1"];
 const allowedDevOrigins = (process.env.DEV_ALLOWED_ORIGINS ?? DEFAULT_DEV_ALLOWED_ORIGINS.join(","))
   .split(",")
   .map((s) => s.trim())
