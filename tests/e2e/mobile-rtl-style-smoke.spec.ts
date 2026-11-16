@@ -30,6 +30,12 @@ function watchResources(page: Page) {
     if (!url.pathname.startsWith("/_next/static/")) return;
     if (response.status() >= 400) failures.push(`${response.status()} ${url.pathname}`);
     if (url.pathname.endsWith(".css")) {
+      // 304 = 缓存复验（reload 时 WebKit 会带 If-None-Match 走协商缓存）：
+      // 无响应体、无 content-type，这是合法状态，不是「CSS 被当成 HTML 返回」的 MIME 故障。
+      if (response.status() === 304) {
+        css.add(response.url());
+        return;
+      }
       const mime = response.headers()["content-type"] ?? "";
       if (!/^text\/css(?:;|$)/i.test(mime)) failures.push(`CSS MIME 错误：${mime} ${url.pathname}`);
       if (response.ok() && /^text\/css(?:;|$)/i.test(mime)) css.add(response.url());
@@ -85,6 +91,10 @@ async function assertInputDirection(page: Page, direction: "ltr" | "rtl") {
 }
 
 test.describe("移动端 · RTL · 样式生效冒烟", () => {
+  // 本组用例要跑「冷加载 + reload + 多断点 + 真实菜单切换」，默认 30s 在 dev 首编译
+  // 或全量套件并发下会被导航/水合吃掉大半，放宽到 90s（断言不变，只放宽等待）。
+  test.describe.configure({ timeout: 90_000 });
+
   for (const locale of ["zh", "ar"] as const) {
     test(`${locale}：冷加载及刷新后的 CSS、布局与图标方向`, async ({ page, context, baseURL }) => {
       await context.addCookies([{ name: "supply_os_locale", value: locale, url: baseURL! }]);
@@ -111,6 +121,8 @@ test.describe("移动端 · RTL · 样式生效冒烟", () => {
     await context.addCookies([{ name: "supply_os_locale", value: "zh", url: baseURL! }]);
     const resources = watchResources(page);
     await page.goto(HOME, { waitUntil: "load" });
+    // 菜单按钮是客户端组件，水合前 click 会丢掉（点击无效 → 后续找不到语言项）
+    await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => {});
     await page.getByRole("button", { name: menuNames.zh, exact: true }).click();
     for (const locale of ["ar", "zh"] as const) {
       await page
