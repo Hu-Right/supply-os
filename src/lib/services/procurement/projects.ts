@@ -14,6 +14,7 @@ import { formatProjectReference } from "./reference";
 import { transitionProjectWithin, type TxLike } from "./lifecycle";
 import { isBuyerPublishable } from "./buyers";
 import { serializeCertRequirements } from "@/shared/constants/procurement-cert-requirements";
+import { serializeGuarantees } from "@/shared/constants/guarantees";
 
 export interface ProjectRow extends RowDataPacket {
   id: number;
@@ -186,6 +187,11 @@ export function normalizeProjectFields(
     if (col === "cert_requirements") {
       // 认证要求以 JSON 存；同时做裁剪/去空，避免把半成品写进库
       out[col] = serializeCertRequirements(value);
+      continue;
+    }
+    if (col === "guarantee_config") {
+      // 保函要求同样以 JSON 存；数组直接传参会被 mysql2 当多值/非法 JSON
+      out[col] = serializeGuarantees(value);
       continue;
     }
     out[col] = PROJECT_LIST_COLUMNS.has(col) && Array.isArray(value) ? value.join(",") : value;
