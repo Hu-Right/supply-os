@@ -14,6 +14,7 @@ import { EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { getBuyerByUserId, upsertBuyer, listBuyerVerifications, type BuyerRow } from "@/lib/services/procurement/buyers";
 import { buyerViewOf, buyerVerificationViewOf } from "@/lib/services/procurement/views";
 import { buyerRiskFlags, findBuyerDuplicates } from "@/lib/services/procurement/buyer-compliance";
+import { missingBuyerFields, BUYER_REQUIRED_FIELD_LABELS_ZH } from "@/shared/constants/buyer-form";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -58,20 +59,59 @@ export const PUT = withRoute(async (req: NextRequest) => {
   } catch {
     routeError(400, EC_INVALID_PARAMS, "请求体非法 JSON");
   }
-  const orgName = String(body.orgName ?? "").trim();
-  if (!orgName) routeError(400, EC_INVALID_PARAMS, "采购主体法定名称必填");
 
   try {
-    const result = await upsertBuyer(getPool(), {
+    const pool = getPool();
+    const existing = await getBuyerByUserId(pool, auth.userId);
+
+    /** 未提交的字段沿用库内已有值（部分更新），显式提交空值则视为缺失 */
+    const pick = (keys: string[], current: string | null | undefined): string => {
+      for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(body, key)) {
+          return String(body[key] ?? "").trim();
+        }
+      }
+      return String(current ?? "").trim();
+    };
+
+    const orgName = pick(["orgName", "org_name"], existing?.org_name);
+    const buyerRole = pick(["buyerRole", "buyer_role"], existing?.buyer_role);
+    const country = pick(["country"], existing?.country);
+    const regNo = pick(["regNo", "reg_no"], existing?.reg_no);
+    const officialEmail = pick(["officialEmail", "official_email"], existing?.official_email);
+    const authContactName = pick(["authContactName", "auth_contact_name"], existing?.auth_contact_name);
+    const licenseKey = pick(["licenseFileKey", "license_file_key"], existing?.license_file_key);
+    const agentAuthKey = pick(["agentAuthFileKey", "agent_auth_file_key"], existing?.agent_auth_file_key);
+
+    // 页面标 `*` 的字段每次保存都必须齐全；前端相同判定（shared/constants/buyer-form）
+    const missing = missingBuyerFields({
+      orgName,
+      buyerRole,
+      country,
+      regNo,
+      officialEmail,
+      authContactName,
+      hasLicense: Boolean(licenseKey),
+      hasAgentAuthDoc: Boolean(agentAuthKey),
+    });
+    if (missing.length > 0) {
+      routeError(
+        400,
+        EC_INVALID_PARAMS,
+        "请补全必填信息：" + missing.map((key) => BUYER_REQUIRED_FIELD_LABELS_ZH[key]).join("、"),
+      );
+    }
+
+    const result = await upsertBuyer(pool, {
       userId: auth.userId,
       fields: {
         org_name: orgName,
-        buyer_role: body.buyerRole,
-        country: body.country,
-        reg_no: body.regNo,
+        buyer_role: buyerRole || undefined,
+        country: country || undefined,
+        reg_no: regNo || undefined,
         tax_no: body.taxNo,
         website: body.website,
-        official_email: body.officialEmail,
+        official_email: officialEmail || undefined,
         official_phone: body.officialPhone,
         external_rules: body.externalRules,
         ...(body.licenseFileKey !== undefined || body.license_file_key !== undefined
@@ -82,12 +122,12 @@ export const PUT = withRoute(async (req: NextRequest) => {
           : {}),
         ...(body.agentAuthFileKey !== undefined ? { agent_auth_file_key: body.agentAuthFileKey } : {}),
         ...(body.agentAuthFileHash !== undefined ? { agent_auth_file_hash: body.agentAuthFileHash } : {}),
-        ...(body.authContactName !== undefined ? { auth_contact_name: body.authContactName } : {}),
+        ...(body.authContactName !== undefined ? { auth_contact_name: authContactName } : {}),
         ...(body.authContactPhone !== undefined ? { auth_contact_phone: body.authContactPhone } : {}),
         ...(body.authContactEmail !== undefined ? { auth_contact_email: body.authContactEmail } : {}),
       },
     });
-    const row = await getBuyerByUserId(getPool(), auth.userId);
+    const row = await getBuyerByUserId(pool, auth.userId);
     /** 保存结果视图 */
     const buyerSavedViewOf = (b: BuyerRow | null) => ({
       buyerId: b ? Number(b.id) : result.buyerId,

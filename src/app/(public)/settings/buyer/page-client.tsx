@@ -36,6 +36,7 @@ import {
   encodeExternalRules,
   ruleLabelKey,
 } from "@/shared/constants/external-procurement-rules";
+import { missingBuyerFields } from "@/shared/constants/buyer-form";
 
 export default function PageClient() {
   const { t } = useLocale();
@@ -90,26 +91,35 @@ export default function PageClient() {
   useEffect(() => { load(); }, [load]);
 
   const onSave = async () => {
-    if (!form.orgName.trim()) {
-      setMessage(t("pc_borgname") + " / " + t("pc_err_required"));
+    // 每一次保存都校验：页面标了 `*` 就必须齐全（首次创建与后续补件同一口径）。
+    // 2026-11 缺陷：原逻辑只在 !buyer 时校验，已存在主体把必填项清空也能保存。
+    const missing = missingBuyerFields({
+      orgName: form.orgName,
+      buyerRole: form.buyerRole,
+      country: form.country,
+      regNo: form.regNo,
+      officialEmail: form.officialEmail,
+      authContactName: form.authContactName,
+      hasLicense: Boolean(buyer?.licenseFileUrl) || licenseFile.length > 0,
+      hasAgentAuthDoc: Boolean(buyer?.agentAuthFileUrl) || authDocFile.length > 0,
+    });
+    if (missing.length > 0) {
+      const labels = missing.map((key) => {
+        switch (key) {
+          case "org_name": return t("pc_borgname");
+          case "buyer_role": return t("pc_brole");
+          case "country": return t("pc_bcountry");
+          case "reg_no": return t("pc_bregno");
+          case "official_email": return t("pc_bemail");
+          case "auth_contact_name": return t("pc_bauthcontact_name");
+          case "license": return t("pc_blicense");
+          case "agent_auth_doc": return t("pc_bauthdoc");
+        }
+        return key;
+      });
+      setMessage(`${t("pc_err_required")}：${labels.join("、")}`);
       setMessageCls("bg-red-50 text-red-700");
       return;
-    }
-    // 首次提交要求"必填项齐全"；已存在主体允许逐步补齐（不阻断既有用户——很多老账号
-    // 的联系人是迁移前留空的，强制拦截会让人连改个电话都存不了）。
-    if (!buyer) {
-      const missing: string[] = [];
-      if (!form.buyerRole) missing.push(t("pc_brole"));
-      if (!form.country.trim()) missing.push(t("pc_bcountry"));
-      if (!form.regNo.trim()) missing.push(t("pc_bregno"));
-      if (!form.officialEmail.trim()) missing.push(t("pc_bemail"));
-      if (!form.authContactName.trim()) missing.push(t("pc_bauthcontact_name"));
-      if (licenseFile.length === 0) missing.push(t("pc_blicense"));
-      if (missing.length > 0) {
-        setMessage(`${t("pc_err_required")}：${missing.join("、")}`);
-        setMessageCls("bg-red-50 text-red-700");
-        return;
-      }
     }
     setSaving(true);
     setMessage("");
