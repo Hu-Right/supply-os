@@ -46,6 +46,7 @@ export interface ProjectRow extends RowDataPacket {
   install_needs: string | null;
   logistics_note: string | null;
   incoterm: string | null;
+  incoterm_place: string | null;
   payment_terms: string | null;
   guarantees: string | null;
   supplier_country_limit: string | null;
@@ -139,6 +140,7 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "install_needs",
   "logistics_note",
   "incoterm",
+  "incoterm_place",
   "payment_terms",
   "guarantees",
   "supplier_country_limit",

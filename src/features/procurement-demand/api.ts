@@ -68,6 +68,7 @@ export interface ProjectDetail extends ProjectSummary {
   installNeeds: string[];
   logisticsNote: string;
   incoterm: string;
+  incotermPlace: string;
   paymentTerms: string;
   guarantees: string[];
   supplierCountryLimit: string;

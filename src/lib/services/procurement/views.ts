@@ -142,6 +142,7 @@ export function projectDetailViewOf(bundle: ProjectDetailBundle, opts: { isOwner
     installNeeds: toStr(row.install_needs).split(",").filter(Boolean),
     logisticsNote: toStr(row.logistics_note),
     incoterm: toStr(row.incoterm),
+    incotermPlace: toStr(row.incoterm_place),
     paymentTerms: toStr(row.payment_terms),
     guarantees: toStr(row.guarantees).split(",").filter(Boolean),
     supplierCountryLimit: toStr(row.supplier_country_limit),

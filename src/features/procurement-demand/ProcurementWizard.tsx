@@ -36,6 +36,11 @@ import {
   guessCountryCode,
 } from "@/shared/constants/countries";
 import {
+  INCOTERM_VERSIONS,
+  incotermsForVersion,
+  migrateIncoterm,
+} from "@/shared/constants/incoterms";
+import {
   createProject,
   fetchProject,
   parseProductListFile,
@@ -68,6 +73,7 @@ interface FormState {
   deadlineDate: string;
   installNeeds: string[];
   incoterm: string;
+  incotermPlace: string;
   incotermVersion: string;
   paymentTerms: string;
   guarantees: string[];
@@ -108,7 +114,8 @@ const DEFAULT_FORM: FormState = {
   deadlineDate: "",
   installNeeds: [],
   incoterm: "",
-  incotermVersion: "",
+  incotermPlace: "",
+  incotermVersion: "2020",
   paymentTerms: "",
   guarantees: [],
   batchDelivery: false,
@@ -129,12 +136,10 @@ const DEFAULT_FORM: FormState = {
 const PURPOSE_OPTIONS = ["real", "budgeting", "research", "future_plan"];
 const OBJECT_OPTIONS = ["goods", "engineering", "service", "solution"];
 const COMPLIANCE_OPTIONS = ["export_control", "dangerous", "medical", "dual_use", "other"];
-const INCOTERM_OPTIONS = ["EXW", "FOB", "CIF", "DDP"];
 const INSTALL_NEEDS = ["installation", "commissioning", "training"];
 const GUARANTEES = ["bid_bond", "performance_bond", "warranty_deposit"];
 const CONTACT_DISCLOSURE = ["none", "org_only", "org_contact", "budget_all"];
 const ATTACHMENT_KINDS = ["requirement", "tech_doc", "drawing", "bom", "sample", "other"];
-const INCOTERM_VERSIONS = ["2020", "2010"];
 
 interface ItemRow {
   lotNo: string;
@@ -236,13 +241,14 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           budgetAmount: d.budgetAmount == null ? "" : String(d.budgetAmount),
           budgetCurrency: d.budgetCurrency || "CNY",
           budgetPublic: d.budgetPublic ?? d.budgetAmount != null,
-                    deliveryCountry: d.deliveryCountryCode || guessCountryCode(d.deliveryCountry) || "",
+          deliveryCountry: d.deliveryCountryCode || guessCountryCode(d.deliveryCountry) || "",
           deliveryCity: d.deliveryCity,
           deliveryAddress: d.deliveryAddress,
           deadlineDate: d.deadlineDate,
           installNeeds: d.installNeeds,
           incoterm: d.incoterm,
-          incotermVersion: d.incotermVersion || "",
+          incotermPlace: d.incotermPlace || "",
+          incotermVersion: d.incotermVersion || "2020",
           paymentTerms: d.paymentTerms,
           guarantees: d.guarantees,
           batchDelivery: Boolean(d.batchDelivery),
@@ -325,7 +331,8 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     installNeeds: form.installNeeds.join(",") || null,
     logisticsNote: form.logisticsNote.trim() || null,
     incoterm: form.incoterm || null,
-    incotermVersion: form.incotermVersion || null,
+    incotermPlace: form.incoterm ? form.incotermPlace.trim() || null : null,
+    incotermVersion: form.incoterm ? form.incotermVersion || "2020" : null,
     paymentTerms: form.paymentTerms.trim() || null,
     guarantees: form.guarantees.join(",") || null,
     batchDelivery: form.batchDelivery ? 1 : 0,
@@ -425,6 +432,8 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     if (index === 4) {
       if (!form.deliveryCountry.trim() || !form.deliveryCity.trim()) return t("pc_err_delivery");
       if (!form.quoteDeadlineDate) return t("pc_err_deadline");
+      if (form.incoterm && !form.incotermVersion) return t("pc_err_incoterm_version");
+      if (form.incoterm && !form.incotermPlace.trim()) return t("pc_err_incoterm_place");
     }
     if (index === 5 && !form.authorizePublish) return t("pc_err_authorize");
     return "";
@@ -791,20 +800,46 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             </label>
             <input value={form.batchNote} onChange={(e) => field("batchNote", e.target.value)} placeholder={t("pc_batchNote")} className="min-w-64 flex-1 rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className={labelCls}>
-              {t("pc_incoterm")}
-              <select value={form.incoterm} onChange={(e) => field("incoterm", e.target.value)} className={inputCls}>
+              <span className="flex items-center gap-1.5">
+                {t("pc_incoterm")}
+                <FieldHintTooltip label={t("pc_incoterm")} content={t("pc_incoterm_hint")} />
+              </span>
+              <select
+                value={form.incoterm}
+                onChange={(e) => field("incoterm", e.target.value)}
+                className={inputCls}
+              >
                 <option value="">--</option>
-                {INCOTERM_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
+                {incotermsForVersion(form.incotermVersion || "2020").map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
               </select>
             </label>
             <label className={labelCls}>
               {t("pc_incotermVersion")}
-              <select value={form.incotermVersion} onChange={(e) => field("incotermVersion", e.target.value)} className={inputCls}>
-                <option value="">--</option>
+              <select
+                value={form.incotermVersion}
+                onChange={(e) => {
+                  const version = e.target.value;
+                  field("incotermVersion", version);
+                  field("incoterm", migrateIncoterm(form.incoterm, version));
+                }}
+                className={inputCls}
+              >
                 {INCOTERM_VERSIONS.map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
+            </label>
+            <label className={labelCls}>
+              {t("pc_incotermPlace")}
+              <input
+                value={form.incotermPlace}
+                onChange={(e) => field("incotermPlace", e.target.value)}
+                placeholder={t("pc_incotermPlace_ph")}
+                disabled={!form.incoterm}
+                className={`${inputCls} disabled:opacity-50`}
+              />
             </label>
             <label className={labelCls}>
               {t("pc_quoteDeadline")} *

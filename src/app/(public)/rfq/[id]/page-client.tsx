@@ -98,7 +98,7 @@ function RfqDetailContent() {
             <div>{t2("报价截止", "Quote deadline")}: {new Date(detail.quoteDeadlineAt * 1000).toISOString().slice(0, 10)}</div>
           )}
           {detail.deadlineDate && <div>{t2("最晚交付", "Latest delivery")}: {detail.deadlineDate}</div>}
-          {detail.incoterm && <div>Incoterms: {detail.incoterm} {detail.incotermVersion}</div>}
+          {detail.incoterm && <div>Incoterms: {detail.incoterm} {detail.incotermVersion}{detail.incotermPlace ? ` · ${detail.incotermPlace}` : ""}</div>}
           {detail.logisticsNote && <div className="sm:col-span-2">{t2("运输/包装/清关", "Logistics")}: {detail.logisticsNote}</div>}
           {detail.paymentTerms && <div>{t2("付款条件", "Payment")}: {detail.paymentTerms}</div>}
           {detail.installNeeds.length > 0 && <div>{t2("交付服务", "Services")}: {detail.installNeeds.join(" / ")}</div>}
