@@ -116,8 +116,13 @@ export type AppContext = {
 };
 
 /** 开发态 HMR 兜底版本：globalThis 单例持有的是旧 repo 实例，新增 repo 方法在热更新后不生效；
- *  版本号变更时强制重建（生产单次启动无影响）。修改上下文中 repo 的方法/形状时 +1。 */
-const CTX_VERSION = 4;
+ *  版本号变更时强制重建（生产单次启动无影响）。修改上下文中 repo 的方法/形状时 +1。
+ *  2026-11-16 +1：SupplierDirectoryRepo 的门户列白名单摘掉已删列（business_type /
+ *  business_type_code / source_channel 等）。旧实例仍在 globalThis 里，拼出的 SELECT
+ *  含已删列 → ERP2005「Unknown column 'business_type' in 'field list'」，
+ *  企业信息 GET 与供应商列表直接 500；不 +1 就得重启 dev 才能恢复。
+ *  同理：任何「列白名单 / 静态列集合」变更都算形状变更，必须 +1。 */
+const CTX_VERSION = 5;
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };
