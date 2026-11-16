@@ -249,13 +249,6 @@ export async function fetchAuthorization(id: number): Promise<{
   return api(`/api/procurement/projects/${id}/authorization`);
 }
 
-export async function fetchMatches(id: number): Promise<{
-  items: Array<{ supplierId: number; company: string; province: string; city: string; score: number; reasons: string }>;
-  total: number;
-}> {
-  return api(`/api/procurement/projects/${id}/matches`);
-}
-
 export async function fetchPlaza(opts: { categoryL1?: string; keyword?: string; page?: number } = {}): Promise<{
   items: ProjectSummary[];
   total: number;

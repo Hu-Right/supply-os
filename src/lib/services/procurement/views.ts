@@ -11,7 +11,6 @@ import type { BuyerRow, BuyerVerificationRow } from "./buyers";
 import { formatBuyerNo } from "./buyer-compliance";
 import { parseCertRequirements } from "@/shared/constants/procurement-cert-requirements";
 import { parseGuarantees } from "@/shared/constants/guarantees";
-import type { MatchCandidate } from "./matching";
 import type { ProjectDetailBundle } from "./projects";
 
 const toNum = (v: unknown): number | null => (v == null ? null : Number(v));
@@ -251,16 +250,3 @@ export function buyerVerificationViewOf(row: BuyerVerificationRow) {
   };
 }
 
-export function matchListViewOf(list: MatchCandidate[]) {
-  return {
-    items: list.map((m) => ({
-      supplierId: m.supplierId,
-      company: m.company,
-      province: m.province,
-      city: m.city,
-      score: m.score,
-      reasons: m.reasons,
-    })),
-    total: list.length,
-  };
-}

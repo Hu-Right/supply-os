@@ -171,11 +171,6 @@ function PageClientInner() {
                     {t("pc_wb_letter")}
                   </Link>
                 )}
-                {p.status === "published" && (
-                  <Link className="rounded-lg border border-secondary-300 px-3 py-1.5 font-semibold text-secondary-600" href={`/rfq/${p.id}/publish#matches`}>
-                    {t("pc_wb_matches")}
-                  </Link>
-                )}
                 {p.status !== "closed" && (
                   <button type="button" onClick={() => setWithdrawTarget(p.id)} className="rounded-lg border border-red-200 px-3 py-1.5 font-semibold text-red-600">
                     {t("pc_wb_withdraw")}

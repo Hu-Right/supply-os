@@ -28,7 +28,6 @@ import {
   type ProjectDetail,
 } from "@/features/procurement-demand/api";
 import { AuthorizationPanel } from "./AuthorizationPanel";
-import { MatchesPanel } from "./MatchesPanel";
 import { ProjectSummary } from "./ProjectSummary";
 import { ReviewProgress } from "./ReviewProgress";
 
@@ -235,8 +234,6 @@ export default function PublishFlowPageClient({ projectId }: { projectId: number
               </div>
             </section>
             <ProjectSummary detail={detail} />
-            {/* 第 7 步产出：匹配名单（原 /settings/rfq/[id]/matches 独立页，现内联） */}
-            <MatchesPanel projectId={projectId} />
           </div>
         )}
 

@@ -49,6 +49,7 @@ import { migration as guaranteeConfigMigration } from "./migrations/030-guarante
 import { migration as supplierTypeMigration } from "./migrations/031-supplier-type";
 import { migration as contactDisclosureMigration } from "./migrations/032-contact-disclosure-three-levels";
 import { migration as dropRetiredProjectFieldsMigration } from "./migrations/033-drop-retired-project-fields";
+import { migration as dropProcurementMatchingMigration } from "./migrations/034-drop-procurement-matching";
 
 /**
  * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
@@ -84,6 +85,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   supplierTypeMigration,
   contactDisclosureMigration,
   dropRetiredProjectFieldsMigration,
+  dropProcurementMatchingMigration,
 ];
 
 /**
