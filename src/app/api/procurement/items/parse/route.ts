@@ -2,7 +2,7 @@
  * POST /api/procurement/items/parse — 解析产品清单（F02：上传 Excel 产品清单）
  *
  * @module app/api/procurement/items/parse/route
- * @description 接收 .xlsx / .csv / .tsv / .txt（≤5MB），解析为明细行返回，不落库——
+ * @description 接收 .xlsx（≤5MB），解析为明细行返回，不落库——
  *              采购方在向导里确认后再整体保存（与"AI 提取须逐项确认"同一口径）。
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -13,7 +13,7 @@ import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { parseProductList } from "@/lib/services/procurement/spreadsheet";
 
 const MAX_SIZE = 5 * 1024 * 1024;
-const ALLOWED_EXT = [".xlsx", ".csv", ".tsv", ".txt"];
+const ALLOWED_EXT = [".xlsx"];
 
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -34,7 +34,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (file.size > MAX_SIZE) routeError(400, EC_INVALID_PARAMS, "文件不能超过 5MB");
   const lower = file.name.toLowerCase();
   if (!ALLOWED_EXT.some((ext) => lower.endsWith(ext))) {
-    routeError(400, EC_INVALID_PARAMS, "仅支持 .xlsx / .csv / .tsv / .txt");
+    routeError(400, EC_INVALID_PARAMS, "仅支持 .xlsx");
   }
 
   try {

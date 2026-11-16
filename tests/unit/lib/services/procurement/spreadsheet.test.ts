@@ -69,15 +69,10 @@ describe("XLSX 解析", () => {
     await expect(parseProductList(Buffer.from("x"), "a.pdf")).rejects.toThrow("UNSUPPORTED_FORMAT");
   });
 
-  it("下载的 Excel/CSV 模板本身可被导入解析", async () => {
-    for (const name of [
-      "procurement-items-import-template.xlsx",
-      "procurement-items-import-template.csv",
-    ]) {
-      const buffer = readFileSync(`public/downloads/templates/${name}`);
-      const r = await parseProductList(buffer, name);
-      expect(r.items.length).toBe(3);
-      expect(r.items[0]).toMatchObject({ nameZh: "学生课桌椅", quantity: 5000, qtyUnit: "套" });
-    }
+  it("下载的 Excel 模板本身可被导入解析", async () => {
+    const buffer = readFileSync("public/downloads/templates/procurement-items-import-template.xlsx");
+    const r = await parseProductList(buffer, "procurement-items-import-template.xlsx");
+    expect(r.items.length).toBe(3);
+    expect(r.items[0]).toMatchObject({ nameZh: "学生课桌椅", quantity: 5000, qtyUnit: "套" });
   });
 });

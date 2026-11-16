@@ -724,16 +724,9 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
               >
                 {t("pc_import_template_xlsx")}
               </a>
-              <a
-                href="/downloads/templates/procurement-items-import-template.csv"
-                download
-                className="text-teal-700 underline"
-              >
-                {t("pc_import_template_csv")}
-              </a>
               <label className="cursor-pointer rounded-lg border border-dashed border-secondary-300 px-3 py-1.5 text-xs font-semibold text-secondary-600 hover:bg-secondary-50">
                 {importing ? "…" : t("pc_import_excel")}
-                <input type="file" accept=".xlsx,.csv,.tsv,.txt" className="hidden" onChange={(e) => { void onImportExcel(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+                <input type="file" accept=".xlsx" className="hidden" onChange={(e) => { void onImportExcel(e.target.files?.[0] ?? null); e.target.value = ""; }} />
               </label>
             </div>
           </div>
