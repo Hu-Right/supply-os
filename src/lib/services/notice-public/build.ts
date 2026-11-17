@@ -525,7 +525,11 @@ export async function selectChangedPublicIds(pool: Pool): Promise<number[]> {
         SELECT n.id FROM bid_notices n
         LEFT JOIN notice_public p ON p.notice_pk = n.id
          WHERE (p.notice_pk IS NULL AND n.notice_id IS NOT NULL AND n.notice_id <> '' AND ${PUBLIC_ADMIT_SQL})
-            OR (n.update_time IS NOT NULL AND n.update_time > IFNULL(p.updated_at, 0))
+            -- 「已存在行的时间戳变新」分支必须带 p.notice_pk IS NOT NULL（2026-11-17 事故）：
+            -- 服务表缺行时 p.* 全为 NULL，IFNULL(p.updated_at,0)=0 ⇒ 任何 update_time>0 的行都成立，
+            -- 等于绕过 PUBLIC_ADMIT_SQL 把全库（含过期 30 天以上、本就不准入的行）都选进来。
+            -- 实测：选行 489,832，构建侧只接受 92 条，每轮空转 2.2h，新抓取永远等不到服务表。
+            OR (p.notice_pk IS NOT NULL AND n.update_time IS NOT NULL AND n.update_time > IFNULL(p.updated_at, 0))
         UNION ${oppStaleSql}
         UNION ${titleStaleSql}
       ) u ORDER BY id`);
