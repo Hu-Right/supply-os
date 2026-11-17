@@ -8,12 +8,19 @@
 # 用法：
 #   bash scripts/tools/deploy-artifact.sh /tmp/next-standalone.tar.gz
 # 环境变量：APP_DIR（默认 /root/supply-os）、APP_NAME（supply-os）、APP_PORT（3039）
+#
+# 大静态资源拆分（2026-11-17）：public/downloads（82MB 培训 PDF/报告）不再打进产物 tar。
+# 它是 incompressible 数据，每次部署都要在慢速链路上重传一遍；实测 GitHub runner →
+# 国内服务器约 160KB/s，带上这 82MB 后 124.7MB 常传不完（2026-11-17 卡死 30 分钟）。
+# 现在改为持久目录 ${APP_DIR}/runtime/public-downloads：首次部署从当前产物里播种，
+# 之后每次部署再从持久目录回填进新产物。更新资料 = 直接替换该目录内容后重启。
 set -euo pipefail
 
 ARTIFACT="${1:-/tmp/next-standalone.tar.gz}"
 APP_DIR="${APP_DIR:-/root/supply-os}"
 APP_NAME="${APP_NAME:-supply-os}"
 APP_PORT="${APP_PORT:-3039}"
+PERSIST_DOWNLOADS="${APP_DIR}/runtime/public-downloads"
 
 [ -f "${ARTIFACT}" ] || { echo "[artifact-deploy] ✗ 产物不存在：${ARTIFACT}"; exit 1; }
 cd "${APP_DIR}"
@@ -30,6 +37,13 @@ if [ -f .next/standalone/server.js ]; then
   echo "[artifact-deploy] 已备份上一版 → runtime/standalone-bak"
 fi
 
+# 1.5 大静态资源：播种持久目录（必须在 `rm -rf .next/standalone` 之前做）
+mkdir -p "${PERSIST_DOWNLOADS}"
+if [ -z "$(ls -A "${PERSIST_DOWNLOADS}" 2>/dev/null)" ] && [ -d .next/standalone/public/downloads ]; then
+  echo "[artifact-deploy] 首次播种大静态资源 → runtime/public-downloads（$(du -sh .next/standalone/public/downloads | cut -f1)）"
+  cp -a .next/standalone/public/downloads/. "${PERSIST_DOWNLOADS}/"
+fi
+
 # 2. 解包换入（先解到临时目录，校验 server.js 再替换，避免半成品上线）
 STAGE="$(mktemp -d)"
 STAGE_MOVED=0
@@ -41,6 +55,24 @@ rm -rf .next/standalone
 mkdir -p .next
 mv "${STAGE}" .next/standalone
 STAGE_MOVED=1
+
+# 2.5 大静态资源回填：产物自身带了就用它并刷新持久目录（兼容旧的全量包），
+#     没带（新产物，已 --exclude=public/downloads）就从持久目录补进新产物。
+if [ -d .next/standalone/public/downloads ] && [ -n "$(ls -A .next/standalone/public/downloads 2>/dev/null)" ]; then
+  echo "[artifact-deploy] 产物自带大静态资源，刷新持久目录"
+  rm -rf "${PERSIST_DOWNLOADS:?}"
+  mkdir -p "${PERSIST_DOWNLOADS}"
+  cp -a .next/standalone/public/downloads/. "${PERSIST_DOWNLOADS}/"
+else
+  if [ -n "$(ls -A "${PERSIST_DOWNLOADS}" 2>/dev/null)" ]; then
+    mkdir -p .next/standalone/public
+    rm -rf .next/standalone/public/downloads
+    cp -a "${PERSIST_DOWNLOADS}" .next/standalone/public/downloads
+    echo "[artifact-deploy] 已回填大静态资源（$(du -sh .next/standalone/public/downloads | cut -f1)）"
+  else
+    echo "[artifact-deploy] ⚠ runtime/public-downloads 为空：/downloads/* 将 404（见 scripts/tools/DEPLOY.md）"
+  fi
+fi
 
 # 3. 运行期文件：.env、nodejieba 词典、上传目录
 cp -f .env .next/standalone/.env

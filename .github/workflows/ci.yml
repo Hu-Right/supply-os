@@ -49,8 +49,11 @@ jobs:
 
       # 8G 生产机跑 Turbopack 全量构建会被 OOM killer 杀（2026-11-13 事故，峰值 RSS 7GB+），
       # 因此把构建搬到 CI（16G runner），产物 tar 后由部署端下发；服务器只跑 runtime。
+      # public/downloads（82MB 培训 PDF/报告）不进产物：incompressible 数据，每次部署都重传一遍，
+      # 是 2026-11-17「runner→国内服务器传输卡死 30 分钟」的主因。服务器侧由 deploy-artifact.sh
+      # 从持久目录 runtime/public-downloads 回填（见 scripts/tools/DEPLOY.md）。
       - name: Package standalone artifact
-        run: tar -czf next-standalone.tar.gz -C .next/standalone .
+        run: tar -czf next-standalone.tar.gz --exclude='./public/downloads' -C .next/standalone .
 
       - name: Upload standalone artifact
         uses: actions/upload-artifact@v6

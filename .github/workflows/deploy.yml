@@ -37,10 +37,12 @@ jobs:
           PAYMENT_MODE: live
           JWT_SECRET: ci-build-dummy-secret
 
+      # public/downloads（82MB）不进产物，服务器由持久目录回填（见 deploy-artifact.sh 头注释）
       - name: Package standalone
-        run: tar -czf next-standalone.tar.gz -C .next/standalone .
+        run: tar -czf next-standalone.tar.gz --exclude='./public/downloads' -C .next/standalone .
 
       - name: Upload & deploy
+        timeout-minutes: 30
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -56,8 +58,41 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          SSH_OPTS=(-i "$HOME/.ssh/deploy_key" -o StrictHostKeyChecking=accept-new)
-          scp "${SSH_OPTS[@]}" next-standalone.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/next-standalone.tar.gz"
+
+          # 传输加固（2026-11-17 事故）：GitHub runner 在境外，到国内服务器实测约 160KB/s，
+          # 且出现过传到一半连接静默卡死（scp 进程挂在 sftp 写盘上 30 分钟，直到手工 kill）。
+          # 这里加 keepalive/连接超时、每次上传 15 分钟硬超时、失败重试 3 次，并在每次上传后
+          # 用 sha256 校验——截断/半包会被立刻发现并重传，而不是让部署脚本去解一个坏包。
+          SSH_OPTS=(-i "$HOME/.ssh/deploy_key" -o BatchMode=yes
+            -o StrictHostKeyChecking=accept-new
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=4
+            -o TCPKeepAlive=yes -o ConnectTimeout=20)
+          SHA_LOCAL="$(sha256sum next-standalone.tar.gz | awk '{print $1}')"
+          echo "[deploy] 产物大小 $(du -h next-standalone.tar.gz | cut -f1)，sha256 ${SHA_LOCAL}"
+
+          UPLOADED=0
+          for attempt in 1 2 3; do
+            echo "[deploy] 第 ${attempt}/3 次上传…"
+            if timeout 900 scp "${SSH_OPTS[@]}" next-standalone.tar.gz \
+                 "$DEPLOY_USER@$DEPLOY_HOST:/tmp/next-standalone.tar.gz"; then
+              SHA_REMOTE="$(ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" \
+                'sha256sum /tmp/next-standalone.tar.gz | head -c 64')"
+              if [ "${SHA_REMOTE}" = "${SHA_LOCAL}" ]; then
+                echo "[deploy] ✔ 上传校验通过"
+                UPLOADED=1
+                break
+              fi
+              echo "::warning::第 ${attempt} 次上传后校验不一致（远端 ${SHA_REMOTE}），重传"
+            else
+              echo "::warning::第 ${attempt} 次上传失败或超时"
+            fi
+            sleep 10
+          done
+          if [ "${UPLOADED}" != "1" ]; then
+            echo "::error::产物三次上传均失败/校验不一致，放弃部署（线上保持上一版）"
+            exit 1
+          fi
+
           scp "${SSH_OPTS[@]}" scripts/tools/deploy-artifact.sh "$DEPLOY_USER@$DEPLOY_HOST:/tmp/deploy-artifact.sh"
           ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "APP_DIR='$APP_DIR' bash /tmp/deploy-artifact.sh /tmp/next-standalone.tar.gz"
 

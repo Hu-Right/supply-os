@@ -53,10 +53,24 @@
 2. Actions → **Deploy** → Run workflow。
 3. 流程：CI 构建 Turbopack（16G）→ tar → scp → `deploy-artifact.sh`（备份/探活/失败回滚提示）。
 
+**传输加固（2026-11-17 事故）**：GitHub runner 在境外，到国内服务器实测只有约 160KB/s，
+且出现过 scp 传到一半静默卡死 30 分钟。`deploy.yml` 现在带 keepalive、每次上传 900s 硬超时、
+失败重试 3 次，并且每次上传后做 **sha256 校验**（截断/半包会立刻发现并重传）。
+
+**大静态资源不进产物（2026-11-17）**：`public/downloads`（82MB 培训 PDF/报告）已在打包时
+`--exclude`，服务器侧由持久目录 `runtime/public-downloads` 回填，产物从 124.7MB 降到约 42MB。
+
+- 首次部署：`deploy-artifact.sh` 会自动从当时的旧产物里播种该目录（无需手工操作）；
+- 更新培训资料：把新文件放进 `/root/supply-os/runtime/public-downloads/`（替换同名文件）后
+  `pm2 restart supply-os` 即可，**不必重新部署**，也不再占用部署链路带宽；
+- 换新服务器：除 `.env` 外，还要把 `runtime/public-downloads/` 一起拷过去，否则 `/downloads/*` 会 404
+  （脚本发现目录为空会在日志里显式告警）。
+
 本地手动等价：
 
 ```bash
-# 在 CI 或大内存机器构建后
+# 在 CI 或大内存机器构建后（注意：也要排除 public/downloads，服务器靠持久目录回填）
+tar -czf next-standalone.tar.gz --exclude='./public/downloads' -C .next/standalone .
 scp next-standalone.tar.gz root@SERVER:/tmp/
 ssh root@SERVER "cd /root/supply-os && bash scripts/tools/deploy-artifact.sh /tmp/next-standalone.tar.gz"
 ```
