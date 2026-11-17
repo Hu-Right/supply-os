@@ -20,6 +20,7 @@ vi.mock("@/lib/services/auth", async (importOriginal) => {
 vi.mock("@/lib/db/pool", () => ({ getPool: vi.fn(() => ({})) }));
 
 import { registerUser } from "@/lib/services/auth-register";
+import { DEFAULT_REGISTER_INVITE_CODE } from "@/shared/constants/invite";
 import { issueTokenPair } from "@/lib/services/auth";
 
 function makeCtx(overrides: Record<string, any> = {}) {
@@ -267,31 +268,41 @@ describe("registerUser", () => {
     expect(ledger).not.toHaveBeenCalled();
   });
 
-  it("无邀请码 → 400/41119 直接拒绝，不查验证码、不建号（2026-10-30 必填口径）", async () => {
-    const create = vi.fn();
-    const validateCode = vi.fn();
-    const inc = vi.fn();
+  it("无邀请码 → 兜底默认渠道码建号（2026-11-17 口径：扫码归扫码人，其余归默认码）", async () => {
+    const create = vi.fn().mockResolvedValue(99);
+    const validateCode = vi.fn().mockResolvedValue({
+      valid: true,
+      owner: { namespace: "channel", code: DEFAULT_REGISTER_INVITE_CODE },
+    });
     const ledger = vi.fn();
-    const findCode = vi.fn();
     const ctx = makeCtx({
       usersRepo: { create },
-      authRepo: { findLatestActiveCodeByPhone: findCode },
-      invitationRepo: { validateCode, incrementMonthlyActual: inc, setChannelInviteCode: ledger },
+      invitationRepo: { validateCode, setChannelInviteCode: ledger },
     });
-    await expect(registerUser(ctx, { ...baseParams, inviteCode: "" }))
-      .rejects.toMatchObject({ status: 400, code: 41119, message: expect.stringContaining("邀请码") });
-    // 必填拦截发生在一切写操作之前：不校验码、不查验证码、不建号、不记账
-    expect(validateCode).not.toHaveBeenCalled();
-    expect(findCode).not.toHaveBeenCalled();
-    expect(create).not.toHaveBeenCalled();
-    expect(inc).not.toHaveBeenCalled();
-    expect(ledger).not.toHaveBeenCalled();
+
+    await registerUser(ctx, { ...baseParams, inviteCode: "" });
+
+    // 空码不再拒绝：按默认码（周俊波的渠道码）校验与归因
+    expect(validateCode).toHaveBeenCalledWith(DEFAULT_REGISTER_INVITE_CODE);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      referral_code: DEFAULT_REGISTER_INVITE_CODE,
+      referral_employee_id: undefined,
+    }));
+    expect(ledger).toHaveBeenCalledWith({ userId: 99, code: DEFAULT_REGISTER_INVITE_CODE });
   });
 
-  it("邀请码仅空白 → 同样 400/41119（trim 后为空）", async () => {
-    const ctx = makeCtx();
-    await expect(registerUser(ctx, { ...baseParams, inviteCode: "   " }))
-      .rejects.toMatchObject({ status: 400, code: 41119 });
+  it("邀请码仅空白 → 同样兜底默认码（trim 后为空）", async () => {
+    const validateCode = vi.fn().mockResolvedValue({
+      valid: true,
+      owner: { namespace: "channel", code: DEFAULT_REGISTER_INVITE_CODE },
+    });
+    const ctx = makeCtx({
+      usersRepo: { create: vi.fn().mockResolvedValue(99) },
+      invitationRepo: { validateCode, setChannelInviteCode: vi.fn() },
+    });
+
+    await registerUser(ctx, { ...baseParams, inviteCode: "   " });
+    expect(validateCode).toHaveBeenCalledWith(DEFAULT_REGISTER_INVITE_CODE);
   });
 
   it("合规同意日志：terms + privacy 两条，且入参不再携带已退役列", async () => {

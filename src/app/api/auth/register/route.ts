@@ -41,9 +41,9 @@ export const POST = withRoute(async (req: NextRequest) => {
     () => `register-phone:${body.phone}`);
   if (rlPhone) return rlPhone;
 
-  // ★ 邀请码优先级：手动填写 > Cookie ref_code（推荐链接自动带入）
-  //   必填校验在 registerUser 服务层做（空值时抛 41119）；这里只负责把 Cookie 回退解析出来，
-  //   保证 /r/[code] 推荐链接落地后即使表单没手动填也能带上码。
+  // ★ 邀请码优先级（2026-11-17 口径）：手动填写 > Cookie ref_code（扫码落地页带入，7 天有效、
+  //   后扫覆盖先扫）。两者都为空（广告落地页 / 自然搜索 / 直接访问）时这里不拒绝：
+  //   registerUser 会兜底到默认渠道码（周俊波），见 shared/constants/invite。
   let inviteCode = String(body.invitation_code || "").trim().toUpperCase();
   if (!inviteCode) {
     const cookieCode = req.cookies.get("ref_code")?.value;

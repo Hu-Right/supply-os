@@ -10,6 +10,7 @@ import { useLocale } from "@/core/i18n";
 import { validatePassword } from "@/shared/auth/passwordPolicy";
 import { EC_PASSWORD_RESET_REQUIRED } from "@/shared/constants/api";
 import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
+import { DEFAULT_REGISTER_INVITE_CODE } from "@/shared/constants/invite";
 
 /** 草稿过期时间：3 天，超过后自动清除 */
 export const DRAFT_TTL_MS = 3 * 24 * 60 * 60 * 1000;
@@ -23,6 +24,15 @@ function readRefCodeCookie(): string {
   if (typeof document === "undefined") return "";
   const match = document.cookie.match(/(?:^|;\s*)ref_code=([^;]*)/);
   return match ? decodeURIComponent(match[1]).trim().toUpperCase() : "";
+}
+
+/**
+ * 注册页邀请码初始值（2026-11-17 口径）：
+ * 扫过码 → 显示扫码得到的码（后扫覆盖先扫，Cookie 7 天有效）；
+ * 没扫过码（广告落地页/自然搜索/直接访问）→ 预填默认渠道码，用户可改。
+ */
+function resolveInvitePrefill(): string {
+  return readRefCodeCookie() || DEFAULT_REGISTER_INVITE_CODE;
 }
 
 export interface AuthFormState {
@@ -54,7 +64,7 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
     "draft:auth_register",
     {
       displayName: "", identifier: "", email: "", phone: "",
-      password: "", invitationCode: readRefCodeCookie(),
+      password: "", invitationCode: resolveInvitePrefill(),
     },
     { excludeKeys: ["password"] as (keyof AuthFormState)[], ttlMs: DRAFT_TTL_MS },
   );
@@ -68,7 +78,7 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
       return;
     }
     setAuthForm((prev) =>
-      prev.invitationCode.trim() ? prev : { ...prev, invitationCode: readRefCodeCookie() },
+      prev.invitationCode.trim() ? prev : { ...prev, invitationCode: resolveInvitePrefill() },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authMode]);

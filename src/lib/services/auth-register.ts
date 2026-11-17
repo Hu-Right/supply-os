@@ -22,6 +22,7 @@ import {
 } from "@/shared/constants/api";
 import { hashPassword, hashVerificationCode, issueTokenPair, generateNickname, buildUserResponse } from "./auth";
 import { validatePassword } from "../utils/passwordPolicy";
+import { DEFAULT_REGISTER_INVITE_CODE } from "@/shared/constants/invite";
 
 export interface RegisterUserParams {
   /** 已 trim 的真实姓名（必填） */
@@ -66,14 +67,13 @@ export async function registerUser(
   const pwCheck = validatePassword(pw);
   if (!pwCheck.valid) throw new RouteError(400, EC_INVALID_PARAMS, pwCheck.message);
 
-  // ── 邀请码校验（必填，2026-10-30 老板需求）──
+  // ── 邀请码归因（2026-11-17 口径：扫码归扫码人，其余兜底默认码）──
   // 两个命名空间按前缀分流（EMP- 员工 / CH- 渠道），互斥、不做双向 fallback。
-  // 必填校验放在服务层而不是只依赖表单：API 直调同样要被拦下（trim 后再判，纯空白同为空）。
-  // 空值也复用「邀请码无效」业务码（41119）：前端有专门的必填文案，直调方拿到的是同一类可展示错误。
-  const normalizedInviteCode = inviteCode.trim().toUpperCase();
-  if (!normalizedInviteCode) {
-    throw new RouteError(400, EC_INVITE_CODE_INVALID, "请填写邀请码（可通过推荐链接自动带入）");
-  }
+  // 空值不再拒绝：广告落地页/自然搜索/直接访问没有推荐来源，兜底到默认渠道码（周俊波）；
+  // 扫码与手填的码在路由层已按「手填 > Cookie」解析好，走到这里为空才用默认码。
+  // 产品口径：码不会失效，故不做失效回退——默认码校验不过仍按 41119 报错，不静默改归因。
+  const normalizedInviteCode =
+    String(inviteCode ?? "").trim().toUpperCase() || DEFAULT_REGISTER_INVITE_CODE;
   const inviteValidation = await ctx.user.invitationRepo.validateCode(normalizedInviteCode);
   if (!inviteValidation.valid) {
     throw new RouteError(400, EC_INVITE_CODE_INVALID, inviteValidation.reason || "邀请码无效");
