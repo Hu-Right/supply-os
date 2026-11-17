@@ -171,7 +171,7 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
     findScore.mockResolvedValue(null);
     const nulls = Object.fromEntries([
       "company", "industry", "products", "certification", "country", "city", "type",
-      "registered_capital", "established_at", "intro", "employee_count", "export_scale",
+      "registered_capital", "established_at", "employee_count", "export_scale",
       "service_countries", "overseas_companies", "ungm_status", "english_team",
       "payment_terms", "bid_willingness",
     ].map((k) => [k, null]));

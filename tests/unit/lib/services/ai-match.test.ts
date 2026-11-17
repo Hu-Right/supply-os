@@ -76,7 +76,7 @@ const noticePool = () => ({
 /** 有绑定企业（supplier_id=10）：notice×2 + selfId×1 + fetchSupplierProfile(users×1 + supplier×1) */
 const selfSupplierRow = {
   company: "我自己", industry: "电子", products: "P", certification: "", country: "CN", city: "", type: "",
-  registered_capital: "", established_at: "", intro: "", employee_count: "", export_scale: "", service_countries: "",
+  registered_capital: "", established_at: "", employee_count: "", export_scale: "", service_countries: "",
   overseas_companies: "", ungm_status: "", english_team: "", payment_terms: "", bid_willingness: "",
 };
 const selfPool = () => ({

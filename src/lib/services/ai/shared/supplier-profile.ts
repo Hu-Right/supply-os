@@ -28,7 +28,6 @@ export interface SupplierProfileForAi extends Record<string, string> {
   type: string;
   registered_capital: string;
   established_at: string;
-  intro: string;
   // ── v2 诊断 19 列（未做诊断时全为空串）──
   english_evidence_level: string;
   english_meeting_capability: string;
@@ -66,7 +65,7 @@ export async function fetchSupplierProfile(
 
   const [supRows] = await pool.query(
     `SELECT s.company, s.products, s.certification, s.country, s.city,
-            s.registered_capital, s.established_at, s.intro,
+            s.registered_capital, s.established_at,
             ${diagnosisColumnSelect("q")}
      FROM supplier s
      LEFT JOIN users u ON u.supplier_id = s.id
@@ -87,7 +86,6 @@ export async function fetchSupplierProfile(
     city: s(row.city),
     registered_capital: s(row.registered_capital),
     established_at: s(row.established_at),
-    intro: s(row.intro),
   };
   for (const column of DIAGNOSIS_COLUMNS) profile[column] = s(row[column]);
   return profile as SupplierProfileForAi;

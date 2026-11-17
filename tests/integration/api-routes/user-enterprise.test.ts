@@ -52,7 +52,6 @@ const PORTAL_ROW: Record<string, unknown> = {
   credit_code: "91610400MA0000000X",
   certification: "ISO9001,CE",
   products: "阀门、泵",
-  intro: "简介",
   verify_status: "done",
   info_review_status: "reviewed",
   data_quality_score: 88,

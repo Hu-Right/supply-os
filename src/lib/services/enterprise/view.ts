@@ -47,7 +47,6 @@ export interface SupplierEnterpriseView {
   /** 逗号分隔文本（varchar），不是数组 */
   certification: string | null;
   products: string | null;
-  intro: string | null;
   verifyStatus: string | null;
   /** 是否存在 status='pending' 的认领（supplier_claims 派生，不是 supplier 列；
    *  supplier.claim_status 已退役，ADR-0017） */

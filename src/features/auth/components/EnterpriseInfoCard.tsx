@@ -91,7 +91,6 @@ export function EnterpriseInfoCard({
     { label: t("authEnterpriseCapital") || "注册资本", value: sv(row, "registeredCapital") },
     { label: t("authEnterpriseCreditCode") || "统一社会信用代码", value: sv(row, "creditCode") },
     { label: t("authEnterpriseCertifications") || "资质认证", value: sv(row, "certification") },
-    { label: t("authEnterpriseIntro") || "企业简介", value: sv(row, "intro"), full: true },
   ];
 
   // 主营产品：展示属性（自由文本）与商品属性（品目树落点）并列，与编辑表单同一分组口径

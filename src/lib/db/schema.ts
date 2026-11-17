@@ -54,6 +54,8 @@ import { migration as dropSupplierBusinessTypeRemarkMigration } from "./migratio
 import { migration as dropSupplierSourceEnrichMigration } from "./migrations/037-drop-supplier-source-enrich";
 import { migration as dropSupplierDeadFieldsMigration } from "./migrations/038-drop-supplier-dead-fields";
 import { migration as dropSupplierRegistrationFieldsMigration } from "./migrations/039-drop-supplier-registration-fields";
+import { migration as dropSupplierIntroMigration } from "./migrations/040-drop-supplier-intro";
+import { migration as dropUnusedProcurementTendersColumnMigration } from "./migrations/041-drop-unused-procurement-tenders-column";
 
 /**
  * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
@@ -94,6 +96,8 @@ export const ALL_MIGRATIONS: Migration[] = [
   dropSupplierSourceEnrichMigration,
   dropSupplierDeadFieldsMigration,
   dropSupplierRegistrationFieldsMigration,
+  dropSupplierIntroMigration,
+  dropUnusedProcurementTendersColumnMigration,
 ];
 
 /**

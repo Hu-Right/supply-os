@@ -51,7 +51,7 @@ describe("buildScoreUserPrompt 画像组装", () => {
   const supplier = {
     company: "工厂A", industry: "电子", products: "LED", certification: "ISO9001",
     country: "CN", city: "深圳", type: "工厂", registered_capital: "500万",
-    established_at: "2010-01-01", intro: "简介文本",
+    established_at: "2010-01-01",
     ungm_status: "已注册一级(Level 1)", compliance_governance: "有专岗",
     english_evidence_level: "有英文检测报告或业绩证明", english_meeting_capability: "可独立参与视频澄清会",
     tender_experience: "有中标记录", tender_amount_band: "50万至200万美元", technical_response: "有专用响应模板与案例库",
@@ -82,11 +82,6 @@ describe("buildScoreUserPrompt 画像组装", () => {
     expect(p).toContain("工厂A");
     expect(p).toContain("综合分 = 加权平均");
     expect(p).toContain("25%"); // 货物类价格权重
-  });
-
-  it("画像无 intro → 不输出企业简介行", () => {
-    const p = buildScoreUserPrompt(notice, { ...supplier, intro: "" });
-    expect(p).not.toContain("企业简介");
   });
 
   it("诊断列全空 → 明确标注未填写，不拿空串当事实", () => {

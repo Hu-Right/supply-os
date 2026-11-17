@@ -121,8 +121,11 @@ export type AppContext = {
  *  business_type_code / source_channel 等）。旧实例仍在 globalThis 里，拼出的 SELECT
  *  含已删列 → ERP2005「Unknown column 'business_type' in 'field list'」，
  *  企业信息 GET 与供应商列表直接 500；不 +1 就得重启 dev 才能恢复。
- *  同理：任何「列白名单 / 静态列集合」变更都算形状变更，必须 +1。 */
-const CTX_VERSION = 7;
+ *  同理：任何「列白名单 / 静态列集合」变更都算形状变更，必须 +1。
+ *  2026-11-17 +1：迁移 040 摘除 supplier.intro，SupplierDirectoryRepo 的
+ *  EDITABLE_COLUMNS/PORTAL_COLUMNS 同步删列；不 +1 时已绑定企业的账号
+ *  GET /api/user/enterprise 仍拼 `intro` → Unknown column → 500。 */
+const CTX_VERSION = 9;
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };

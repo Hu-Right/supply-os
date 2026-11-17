@@ -282,7 +282,7 @@ export class SupplierDirectoryRepo {
     "address", "contact", "position", "phone", "email",
     "website", "legal_rep",
     "established_at", "registered_capital", "credit_code",
-    "certification", "products", "intro",
+    "certification", "products",
   ] as const;
 
   /**

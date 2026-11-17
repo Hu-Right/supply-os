@@ -35,7 +35,6 @@ const mockRow: EnterpriseInfo = {
   creditCode: "-",
   certification: "-",
   products: "智算模块",
-  intro: "智算模块提供商",
   // 以下旧夹具根本没给（当时不报），现在显式给空值保持卡片渲染不变
   checkNote: "",
   licenseUrl: "",
@@ -171,7 +170,6 @@ describe("EnterpriseInfoCard", () => {
           creditCode: "",
           certification: "",
           products: "",
-          intro: "",
           checkNote: "",
         }}
         loading={false}

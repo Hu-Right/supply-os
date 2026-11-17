@@ -234,7 +234,6 @@ export function buildScoreUserPrompt(
     parts.push(line("注册资本", supplier.registered_capital));
     parts.push(line("成立日期", supplier.established_at));
     parts.push(line("经营类型", supplier.type));
-    if (supplier.intro) parts.push(line("企业简介", String(supplier.intro).slice(0, 300)));
 
     parts.push(...buildDiagnosisLines(supplier));
 

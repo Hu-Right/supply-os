@@ -70,8 +70,6 @@ export interface SupplierPromptFields extends Record<string, string | undefined>
   country?: string;
   city?: string;
   type?: string;
-  /** 企业简介 */
-  intro?: string;
 }
 
 function line(label: string, value: unknown, fallback = "未列出"): string {
@@ -114,9 +112,6 @@ export function buildUserPrompt(
     parts.push(line("资质证书", supplier.certification, "未填写"));
     parts.push(line("所在地区", [supplier.country, supplier.city].filter(Boolean).join(" ")));
     parts.push(line("经营类型", supplier.type));
-    if (supplier.intro) {
-      parts.push(line("企业简介", truncate(supplier.intro, 500)));
-    }
 
     // 企业能力诊断（v2 结构化自述）：字段清单与评分 prompt 同一来源，不各抄一份
     const diagItems = diagnosisItemsOf(supplier as Record<string, unknown>);

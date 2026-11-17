@@ -50,7 +50,7 @@ describe("buildUserPrompt 分支覆盖", () => {
   const fullSupplier = {
     company: "华夏科技", industry: "IT", products: "笔记本", certification: "ISO9001",
     country: "CN", city: "深圳", type: "factory", employee_count: "100",
-    intro: "公司简介", export_scale: "800万", service_countries: "KE",
+    export_scale: "800万", service_countries: "KE",
     overseas_companies: "无", ungm_status: "已注册", english_team: "有", payment_terms: "接受",
   };
 
@@ -90,11 +90,6 @@ describe("buildUserPrompt 分支覆盖", () => {
   it("certification 缺失 → 兜底文案 未填写", () => {
     const p = buildUserPrompt(notice, { ...fullSupplier, certification: "" });
     expect(p).toContain("未填写");
-  });
-
-  it("无 intro → 不输出企业简介行", () => {
-    const p = buildUserPrompt(notice, { ...fullSupplier, intro: "" });
-    expect(p).not.toContain("企业简介");
   });
 
   it("无 v2 诊断取值 → 能力诊断行明确标注未填写（不把空串当事实）", () => {

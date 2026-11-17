@@ -181,7 +181,7 @@ export class UserSupplierPoolRepo {
     const [rows] = await this.pool.query(
       `SELECT p.id AS pool_id, s.id AS supplier_id,
               s.company, s.products, s.certification,
-              s.country, s.city, s.registered_capital, s.established_at, s.intro,
+              s.country, s.city, s.registered_capital, s.established_at,
               ${diagnosisColumnSelect("q")}
        FROM user_supplier_pool p
        INNER JOIN supplier s ON s.id = p.supplier_id

@@ -71,7 +71,6 @@ const enterpriseBodySchema = z.object({
   credit_code: z.string().max(30).optional(),
   certification: z.string().max(500).optional(),
   products: z.string().max(500).optional(),
-  intro: z.string().max(2000).optional(),
   /** 营业执照鉴权 URL；null/"" 表示移除。不在 EDITABLE_COLUMNS，由保存端单独协调。 */
   license_url: z.string().max(600).nullish(),
   /**
