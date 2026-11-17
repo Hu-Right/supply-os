@@ -17,10 +17,16 @@ import { qualifiedOppWhere } from "../../utils/notice-qualified";
 /**
  * 主表回退查询 SQL（宽表未就绪 / 服务表已清退的稳定过期行补齐）。
  * 两处共用一份行形状口径：desc 来源与摘要长度引用 utils 层常量（I2），不再有第三份副本。
+ *
+ * [2026-11-17] 机构列必须起别名 `buyer_name`：对外契约白名单（notice-public/view.ts 的
+ * NOTICE_CONTRACT_KEYS）只认 buyerName/buyerNameCn，直接选 `n.agency` 会在出口被裁掉，
+ * 前端卡片落到「来源未提供机构」兜底文案——服务表滞后的窗口期里整屏都是这句假报错
+ * （截图事故：11~13k 行未进服务表，买家列全部显示「未提供」）。
  */
-function fallbackDetailSql(ids: number[]): string {
+export function fallbackDetailSql(ids: number[]): string {
   return `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-       n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
+       n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value,
+       COALESCE(NULLIF(n.agency_full, ''), NULLIF(n.agency, '')) AS buyer_name,
        n.is_featured, n.documents, n.procurement_files,
        LEFT(${DESC_SOURCE_EXPR}, ${WIDE_LIMITS.lockedTeaser}) AS description,
        CASE WHEN LENGTH(${DESC_SOURCE_EXPR}) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
