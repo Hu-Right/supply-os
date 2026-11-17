@@ -3,9 +3,9 @@
  *
  * @description 出口写的是 `json({ …, enterprise: row, … })`，row 来自
  *              `findFullById` = `SELECT <PORTAL_COLUMNS> FROM supplier WHERE id=?`。
- *              真库探针实测 27 个列键，其中 12 个带下划线（country_code/registered_address/
+ *              真库探针实测 28 个列键，其中 13 个带下划线（country_code/registered_address/
  *              registered_phone/registered_email/legal_rep/established_at/registered_capital/
- *              credit_code/verify_status/check_note/data_quality_score/license_url）。
+ *              credit_code/verify_status/info_review_status/check_note/data_quality_score/license_url）。
  *              claim_status 已退役（ADR-0017），其位置由派生键 hasPendingClaim 取代
  *              （来自 supplier_claims，不是 supplier 列）；coop_status / info_checked /
  *              business_type / remark / source_channel 也已随 2026-11 影子表迁移物理删除，
@@ -56,6 +56,7 @@ const PORTAL_ROW: Record<string, unknown> = {
   products: "阀门、泵",
   intro: "简介",
   verify_status: "done",
+  info_review_status: "reviewed",
   check_note: "",
   data_quality_score: 88,
   addtime: 1730000000,
@@ -120,7 +121,7 @@ describe("GET /api/user/enterprise", () => {
     const body = await (await GET(getReq())).json();
 
     expect(Object.keys(body.enterprise).sort()).toEqual([...EXPECTED_KEYS].sort());
-    expect(EXPECTED_KEYS).toHaveLength(28); // 白名单加/减列时这里先响，逼着同步看契约
+    expect(EXPECTED_KEYS).toHaveLength(29); // 白名单加/减列时这里先响，逼着同步看契约
     // claim_status 已退役：响应里不得再出现 claimStatus（读点清零）
     expect(body.enterprise.claimStatus).toBeUndefined();
   });
