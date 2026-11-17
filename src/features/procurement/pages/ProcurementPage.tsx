@@ -165,7 +165,7 @@ export default function ProcurementPage() {
     {/* SEO metadata 由 page.tsx metadata 导出在服务端处理 */}
     {/* 搜索/筛选操作全屏蒙层：仅非首次加载时显示，阻断交互 */}
     <LoadingOverlay visible={search.result.loading && firstLoadDoneRef.current} />
-    <div className="space-y-5">
+    <div className="space-y-2 sm:space-y-5 pb-20 md:pb-0">
       {/* 模块02 深色页头：库存感 + 实时规模条（已提取为独立组件） */}
       <ListingStatsBar stats={listingStats} />
 

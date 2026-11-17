@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, ChevronDown, Lock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { useRecentUnlocks } from "../hooks/useRecentUnlocks";
@@ -28,6 +28,8 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
   const { t, locale } = useLocale();
   const { records } = useRecentUnlocks(userId, locale);
   const [showOriginal, setShowOriginal] = useState(false);
+  /** 移动端默认折叠（阶段2 首屏减法）：桌面端 `md:block` 始终展开 */
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   // 用户/语言切换时回到译文视图（展示层局部状态）
   useEffect(() => {
@@ -39,12 +41,19 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
   const hasTranslation = locale === "zh" && records.some((record) => !!record.notice?.titleCn);
 
   return (
-    <div className="mb-4 rounded-xl border border-slate-100 bg-gradient-to-r from-slate-50 to-white p-4">
+    <div className="mb-2 sm:mb-4 rounded-xl border border-slate-100 bg-gradient-to-r from-slate-50 to-white p-3 sm:p-4">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <p className="text-xs font-black text-slate-500 uppercase flex items-center gap-1.5 tracking-wide">
+        <button
+          type="button"
+          onClick={() => setMobileOpen((v) => !v)}
+          aria-expanded={mobileOpen}
+          className="md:pointer-events-none flex min-h-11 md:min-h-0 items-center gap-1.5 text-xs font-black text-slate-500 uppercase tracking-wide"
+        >
           <Lock className="w-3.5 h-3.5 text-teal-500" />
           {t("noticeUiRecentUnlocks")}
-        </p>
+          <span className="md:hidden text-2xs font-bold text-slate-400">({records.length})</span>
+          <ChevronDown className={`md:hidden w-4 h-4 text-slate-400 transition-transform ${mobileOpen ? "rotate-180" : ""}`} />
+        </button>
         {hasTranslation && (
           <Button
             onClick={() => setShowOriginal((v) => !v)}
@@ -56,6 +65,7 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
           </Button>
         )}
       </div>
+      <div className={mobileOpen ? "block" : "hidden md:block"}>
       <ul className="space-y-2">
         {records.map((record) => {
           const translatedTitle = locale === "zh" ? record.notice?.titleCn : undefined;
@@ -94,6 +104,7 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
       {hasTranslation && !showOriginal && (
         <p className="text-3xs text-slate-400 mt-2">{t("procurement_translateNote")}</p>
       )}
+      </div>
     </div>
   );
 }

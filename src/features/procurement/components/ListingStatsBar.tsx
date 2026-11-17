@@ -48,21 +48,25 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
     : "—";
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white px-5 sm:px-6 py-6 shadow-xs">
+    <section className="rounded-2xl border border-slate-200 bg-white px-4 sm:px-5 md:px-6 py-3.5 sm:py-6 shadow-xs">
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-        <div>
-          <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 flex items-center flex-wrap gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base sm:text-xl md:text-2xl font-extrabold text-slate-900 flex items-center flex-wrap gap-2 sm:gap-3">
             {t("procurement_poolTitleNew")}
             {stats.active > 0 && (
-              <span className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold">
+              <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-2xs sm:text-xs font-bold">
                 {animActive.toLocaleString()}+ {t("procurement_searchableBadge")}
               </span>
             )}
           </h2>
-          <p className="text-slate-500 text-sm mt-1.5">{t("procurement_poolDescNew")}</p>
+          <p className="hidden sm:block text-slate-500 text-sm mt-1.5">{t("procurement_poolDescNew")}</p>
+          {/* 移动端（阶段2 首屏减法）：4 张统计卡收成一行摘要，保留信息量但只占 1 行高度 */}
+          <p className="sm:hidden mt-1 text-2xs text-slate-500 truncate">
+            {animTodayNew.toLocaleString()} {t("procurement_statTodayNewDesc")}（{changeLabel}）· {animDeadline30.toLocaleString()} {t("procurement_statDeadline30Desc")} · {animWithDocs.toLocaleString()} {t("procurement_statWithDocsDesc")}
+          </p>
         </div>
-        {/* 右侧操作按钮：保存搜索 + 设置提醒 */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* 右侧操作按钮：保存搜索 + 设置提醒（当前为敬请期待占位，移动端不占首屏） */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => alert(t("procurement_comingSoon"))}
@@ -81,7 +85,7 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
           </button>
         </div>
       </div>
-      <div className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="hidden sm:grid mt-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[
             { value: animActive, label: t("procurement_statSearchableNew"), sub: t("procurement_statSearchableSub") },
             {

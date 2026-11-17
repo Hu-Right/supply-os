@@ -24,8 +24,8 @@ export function ResultsHeader({
 }) {
   const { t, locale } = useLocale();
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+    <div className="flex items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-4">
+      <div className="flex flex-wrap items-center gap-2 text-sm min-w-0">
         <span className="font-extrabold text-slate-900">
           {t("procurement_resultsCount", { count: displayTotal.toLocaleString() })}
         </span>
@@ -53,7 +53,7 @@ export function ResultsHeader({
           </>
         )}
       </div>
-      <div className="flex items-center gap-2 text-xs">
+      <div className="flex items-center gap-2 text-xs shrink-0">
         {/* 排序下拉 */}
         <select
           value={query.activeSort}
@@ -71,13 +71,13 @@ export function ResultsHeader({
         <button
           type="button"
           onClick={() => alert(t("procurement_comingSoon"))}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors"
+          className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors"
         >
           <Download className="w-3.5 h-3.5" />
           {t("procurement_exportList")}
         </button>
         {/* 视图切换 */}
-        <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
+        <div className="hidden sm:inline-flex rounded-lg border border-slate-200 overflow-hidden">
           <button type="button" className="p-1.5 bg-teal-50 text-teal-700" aria-label={t("noticeUiListView")}>
             <LayoutList className="w-3.5 h-3.5" />
           </button>

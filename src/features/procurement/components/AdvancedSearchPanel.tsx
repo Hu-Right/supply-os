@@ -37,6 +37,12 @@ export interface AdvancedSearchPanelProps extends NoticeSearchBarProps {
   advancedSearchEntitled?: boolean;
   /** 服务端 gates 派生：当前用户是否享有 product_keyword_lib（我的词组）。默认 true 保持旧渲染。 */
   keywordLibEntitled?: boolean;
+  /** 移动端筛选展开态（由父级持有，便于品目分类/吸底栏共用）；不传则由本组件自管 */
+  mobileFiltersOpen?: boolean;
+  /** 切换移动端筛选展开态 */
+  onMobileFiltersToggle?: () => void;
+  /** 已选条件数（父级计算用于吸底栏角标）；不传则本组件自算 */
+  activeFilterCount?: number;
 }
 
 /** 高级搜索面板 — 两行搜索布局（设计图 1:1 还原） */
@@ -48,6 +54,9 @@ export function AdvancedSearchPanel({
   toggleFeatured: _toggleFeatured,
   advancedSearchEntitled = true,
   keywordLibEntitled = true,
+  mobileFiltersOpen,
+  onMobileFiltersToggle,
+  activeFilterCount,
 }: AdvancedSearchPanelProps) {
   const { t } = useLocale();
 
@@ -59,10 +68,15 @@ export function AdvancedSearchPanel({
    * 桌面端不受影响（`md:` 前缀强制展开）：390 宽时展开态整块 935px，
    * 第一条结果要滑 2.4 屏才出现；折叠后首屏即可看到结果。
    */
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [localFiltersOpen, setLocalFiltersOpen] = useState(false);
+  const filtersOpen = mobileFiltersOpen ?? localFiltersOpen;
+  const toggleFilters = useCallback(() => {
+    if (onMobileFiltersToggle) onMobileFiltersToggle();
+    else setLocalFiltersOpen((v) => !v);
+  }, [onMobileFiltersToggle]);
 
   /** 已生效筛选条件数（仅用于入口角标，提示"折叠着但有条件"） */
-  const activeFilterCount = useMemo(() => {
+  const localFilterCount = useMemo(() => {
     let n = 0;
     if (form.countryInput) n += 1;
     if (form.fromInput || form.toInput) n += 1;
@@ -70,6 +84,7 @@ export function AdvancedSearchPanel({
     if (form.termRows.some((r) => r.term.trim() !== "")) n += 1;
     return n;
   }, [form.countryInput, form.fromInput, form.toInput, form.noticeTypeInput, form.termRows]);
+  const filterCount = activeFilterCount ?? localFilterCount;
 
   // 关键词行模式切换门控：非"包含"且无 advanced_keyword_search → 弹升级框并回退（不写入状态）
   const handleRowMode = useCallback(
@@ -156,8 +171,8 @@ export function AdvancedSearchPanel({
     }
     applySearch();
     // 移动端提交后收起筛选，回到结果列表（桌面端 `md:` 强制展开，不受影响）
-    setFiltersOpen(false);
-  }, [advancedSearchEntitled, form.qInput, form.termRows, applySearch]);
+    if (filtersOpen) toggleFilters();
+  }, [advancedSearchEntitled, form.qInput, form.termRows, applySearch, filtersOpen, toggleFilters]);
 
   // 词组选择：整组替换为包含模式行（走 replace_rows 规避批量 dispatch 时序问题）
   // 语义：一行=一个字面单位；含空格的词经 composeQ 规范化为整词短语，与手动 include 行同口径
@@ -190,14 +205,14 @@ export function AdvancedSearchPanel({
         <button
           type="button"
           data-testid="mobile-filter-toggle"
-          onClick={() => setFiltersOpen((v) => !v)}
+          onClick={toggleFilters}
           aria-expanded={filtersOpen}
           className="md:hidden inline-flex items-center gap-1.5 min-h-11 px-3 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 active:scale-[0.98]"
         >
           <SlidersHorizontal className="w-4 h-4 text-slate-500" />
           {t("procurement_advancedFilter") || "筛选"}
-          {activeFilterCount > 0 && (
-            <span className="rounded-full bg-teal-600 text-white text-2xs px-1.5 py-0.5 leading-none">{activeFilterCount}</span>
+          {filterCount > 0 && (
+            <span className="rounded-full bg-teal-600 text-white text-2xs px-1.5 py-0.5 leading-none">{filterCount}</span>
           )}
           <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
         </button>
