@@ -145,7 +145,7 @@ export async function recommendNotices(
     // 继续 SELECT 只会在响应体露码、卡片却显示「未知机构」——停发，与搜索路径同形状。
     // 国家上下文用行内已有的 n.country（英文名）；
     // ns.country_codes 是全空死列（0/757947）不取。来源平台不下发（解锁后可见），/detail 独家。
-    "n.deadline, n.deadline_ts, n.estimated_value, n.is_featured, ns.buyer_name, ns.buyer_group",
+    "n.deadline, n.deadline_ts, n.estimated_value, n.is_featured, ns.buyer_name",
     "LEFT(MAX(opp_desc.description), 300) AS description",
     `CASE WHEN LENGTH(MAX(opp_desc.description)) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated`,
     "n.documents, n.procurement_files",

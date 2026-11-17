@@ -28,15 +28,13 @@ const SKIP_DIR = new Set(["node_modules", ".next", "dist", "coverage", ".git"]);
 const violations = [];
 
 /**
- * 服务表「已停写、列保留」的历史列白名单（2026-10-31 机构类型维度退役）。
+ * 服务表「已停写、列保留」的历史列白名单。
  * 为什么允许 baseline 比 PUBLIC_COLS 多：
- *   - `buyer_group`：agency_type 分类链整体退役，服务表停写；列与历史值保留（不 DROP，
- *     避免对 78 万行做破坏性 DDL 与影响回滚），build.ts 注释同口径。
  *   - `industry_tree_code`：旧行业树快照列，读侧已无消费、服务表停写；同为历史保留。
  * 只允许这里列出的列；新增/未知的 baseline-only 列仍按漂移拦截。若退役列重新出现在
  * PUBLIC_COLS（回流写入），同样拦截。
  */
-const RETIRED_COLS = new Set(["buyer_group", "industry_tree_code"]);
+const RETIRED_COLS = new Set(["industry_tree_code"]);
 
 function walk(target) {
   if (!fs.existsSync(target)) return;

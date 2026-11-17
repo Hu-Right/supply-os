@@ -29,10 +29,8 @@ export interface NoticeListItem {
   platformName?: string | null;
   buyerName?: string | null;
   buyerNameCn?: string | null;
-  buyerGroup?: string | null;
   estimatedValue?: string | number | null;
   currencyCode?: string | null;
-  currencySource?: string | null;
   contacts?: NoticeContact[] | null;
   attachments?: NoticeAttachment[] | null;
   externalLinks?: NoticeAttachment[] | null;

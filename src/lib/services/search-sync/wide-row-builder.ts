@@ -61,7 +61,7 @@ export function wideSyncSelect(withFp: boolean): string {
          p.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
          opp.beneficiary_countries,
          p.beneficiary_countries AS public_beneficiary_countries,
-         p.buyer_name, p.buyer_group, n.country AS country_name,
+         p.buyer_name, n.country AS country_name,
          p.is_opportunity,
          p.country_codes AS public_country_codes,
          p.notice_type_code, p.deadline_ts,
@@ -189,7 +189,6 @@ export function buildWideRow(
   // LEFT JOIN 未命中（未准入行 / ① 尚未构建）时为空值：草稿行本就不该有对外 facet；
   // 交付顺序由调度保证（主表 → ① → ②），缺行由指纹对账（p.updated_at 段）自愈。
   const buyerName = String(r.buyer_name ?? "").slice(0, 200);
-  const buyerGroup = String(r.buyer_group ?? "").slice(0, 100);
   const countryName = String(r.country_name ?? "").slice(0, 100);
   let countryCodes = "";
   if (typeof r.public_country_codes === "string" && r.public_country_codes) {
@@ -238,7 +237,6 @@ export function buildWideRow(
     country_name: countryName,
     country_codes: countryCodes,
     buyer_name: buyerName,
-    buyer_group: buyerGroup,
     notice_type_code: noticeTypeCode,
     deadline_sec: deadlineSec,
     estimated_value: estimatedValue,
@@ -282,7 +280,7 @@ export async function upsertWideRows(
   const allColumns = [
     "id", "notice_id", "title", "reference", "description",
     ...langColumns,
-    "country_name", "country_codes", "buyer_name", "buyer_group", "notice_type_code",
+    "country_name", "country_codes", "buyer_name", "notice_type_code",
     "deadline_sec", "estimated_value", "is_featured", "is_opportunity", "entry_source",
     // B1 起不再写旧字典分类列（旧五级列~5 / precise_level1~5）：列暂留 schema、历史值不再更新也无人读，
     // DROP 与 baseline 重导在 B2 走蓝绿（见 2026-10-12-notice-classification-commodity-tree-only）。
@@ -304,7 +302,7 @@ export async function upsertWideRows(
       params.push(
         row.id, row.notice_id, row.title, row.reference, row.description,
         ...SUPPORTED_LANGS.flatMap(lang => [row[`title_${lang}`], row[`description_${lang}`]]),
-        row.country_name, row.country_codes, row.buyer_name, row.buyer_group, row.notice_type_code,
+        row.country_name, row.country_codes, row.buyer_name, row.notice_type_code,
         row.deadline_sec, row.estimated_value, row.is_featured, row.is_opportunity, row.entry_source,
         // 列清单与这里的取值必须同批增减（多一个少一个都是 Unknown column / 参数错位）
         row.backbone_path,

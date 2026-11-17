@@ -35,8 +35,8 @@ const NOTICE_CONTRACT_KEYS: ReadonlySet<string> = new Set([
   "description", "descriptionCn", "contentLevel", "industry",
   "publishedTs", "deadlineTs", "deadlineState", "deadlineType", "deadlineTimezone", "timezoneSource",
   "countryCode", "countryCodes", "noticeTypeCode", "platformName",
-  "buyerName", "buyerNameCn", "buyerGroup",
-  "estimatedValue", "currencyCode", "currencySource",
+  "buyerName", "buyerNameCn",
+  "estimatedValue", "currencyCode",
   "contacts", "attachments", "externalLinks",
   "difficulty", "registrationLevel", "beneficiaryCountries", "updatedAt", "isOpportunity",
   // ── NoticeListItem：接口计算/关联补字段 ──

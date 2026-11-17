@@ -107,7 +107,7 @@ export async function rebuildNoticePublicChanged(
  * 为什么需要：`--changed` 水位只看主表/商机/标题旁表——buyer / buyer_alias / buyer.name_zh
  * 变更不会让已有服务表行「看起来变旧」，于是改名/合并实体后投影会无限期停留在旧值。
  * 本函数由 `buyer/refresh` 在买家数据变更后调用，把受影响的公告行重新走一遍 buildPublicRow，
- * 产出新的 buyer_id / buyer_name / buyer_name_cn / buyer_group 快照。
+ * 产出新的 buyer_id / buyer_name / buyer_name_cn 快照。
  *
  * @param ids 需要重建的 notice_pk（调用方负责圈定：按 buyer_id 反查或按别名命中反查）
  * @returns 实际写入行数（不可准入/无编号行会被 buildPublicRow 丢弃，不补写）

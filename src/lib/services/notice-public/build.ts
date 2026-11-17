@@ -48,7 +48,7 @@ export const PUBLIC_COLS = [
   "country_code", "country_codes", "notice_type_code",
   "platform_name",
   "buyer_name", "buyer_id", "buyer_name_cn",
-  "estimated_value", "currency_code", "currency_source",
+  "estimated_value", "currency_code",
   "contacts", "attachments", "external_links",
   "difficulty", "registration_level", "beneficiary_countries",
   "supplier_conditions", "eligibility", "technical_hurdles",
@@ -376,15 +376,14 @@ export function buildPublicRow(
   const buyerNameCn = buyerCanonical
     ? (buyerEntity?.nameZh?.slice(0, 500) ?? null)
     : null;
-  // [2026-10-31 机构类型维度退役] buyer_group 停写：agency_type 分类链整体退役，
-  // 该维度从服务表/Meili 同步摘除（列保留在 baseline，历史数据不动）
+  // [2026-10-31 机构类型维度退役] buyer_group 停写；2026-11-17 服务表与宽表列已物理删除
   const noticeType = normalizeNoticeType(String(r.notice_type ?? "")).slice(0, 20) || null;
   const platform = platformOf(ctx, r.url, r.agency, r.organization);
   const amount = normalizeAmount(r.estimated_value, { currencyHint: r.currency, countryCode, description: desc });
   if (Number(r.budget_confidential ?? 0) === 1) {
     // 预算保密：行照进服务表，金额整体置空，防数值经归一化后被对外还原
     amount.amount = null; amount.min = null; amount.max = null;
-    amount.currency = null; amount.currencySource = "none";
+    amount.currency = null;
   }
   // DECIMAL(20,2) 上限；源值畸形/超长时整体置空，不能截断成假金额。
   // 上界写作 1e18（DECIMAL 最大 1e18-0.01，≥1e18 即存不下）：1e18 在 double 里精确可表，
@@ -396,14 +395,12 @@ export function buildPublicRow(
   // 没有金额就不保留孤立币种；金额为空时币种必须为空
   if (amount.amount == null) {
     amount.currency = null;
-    amount.currencySource = "none";
   }
   // 源库 currency=CNY 多为占位值；金额有值但币种缺失时，按平台默认币种兜底。
   if (amount.amount != null && !amount.currency) {
     const inferred = inferPlatformCurrency(platform?.name);
     if (inferred) {
       amount.currency = inferred;
-      amount.currencySource = "inferred";
     }
   }
   const contacts = normalizeContacts(r.contacts, {
@@ -467,7 +464,7 @@ export function buildPublicRow(
     countryCode, JSON.stringify(countryCodes), noticeType,
     platform?.name ?? null,
     buyerCanonical, buyerId, buyerNameCn,
-    amount.amount, amount.currency, amount.currencySource,
+    amount.amount, amount.currency,
     JSON.stringify(contacts.entries), JSON.stringify(attachments), JSON.stringify(externalLinks),
     difficulty, registration, beneficiary,
     supplierConditions, eligibility, technicalHurdles,

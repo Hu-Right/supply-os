@@ -61,9 +61,9 @@ test("fixture：baseline 与 PUBLIC_COLS 列一致 → 通过", () => {
   assert.equal(r.code, 0, r.out);
 });
 
-test("fixture：baseline 多「退役保留列」（buyer_group）→ 放行", () => {
+test("fixture：baseline 多「退役保留列」（industry_tree_code）→ 放行", () => {
   const root = fixture({
-    "db/schema/baseline.sql": baseline([...OKCOLS, "buyer_group"]),
+    "db/schema/baseline.sql": baseline([...OKCOLS, "industry_tree_code"]),
     [BUILDER]: builder(OKCOLS),
   });
   const r = run({ NP_SCAN_ROOT: root });
@@ -84,8 +84,8 @@ test("fixture：baseline 多未登记退役列 → 仍按漂移拦截", () => {
 
 test("fixture：退役列回流写入 PUBLIC_COLS → 拦截", () => {
   const root = fixture({
-    "db/schema/baseline.sql": baseline([...OKCOLS, "buyer_group"]),
-    [BUILDER]: builder([...OKCOLS, "buyer_group"]),
+    "db/schema/baseline.sql": baseline([...OKCOLS, "industry_tree_code"]),
+    [BUILDER]: builder([...OKCOLS, "industry_tree_code"]),
   });
   const r = run({ NP_SCAN_ROOT: root });
   assert.equal(r.code, 1);

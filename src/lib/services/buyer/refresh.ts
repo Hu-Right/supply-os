@@ -11,9 +11,9 @@
  *
  *              新链顺序（不可颠倒）：
  *              ① 圈定受影响的 notice_pk（按 buyer_id 反查，或运维直接给 noticeIds）；
- *              ② 唯一写入者链路重建服务表投影（buyer_id / buyer_name / buyer_name_cn /
- *                 buyer_group 快照）——`notice-public/rebuild.rebuildPublicRowsByIds`；
- *              ③ 按同一批 id 重算宽表（buyer_name/buyer_group 投影面）——`syncWideIds`；
+ *              ② 唯一写入者链路重建服务表投影（buyer_id / buyer_name / buyer_name_cn
+ *                 快照）——`notice-public/rebuild.rebuildPublicRowsByIds`；
+ *              ③ 按同一批 id 重算宽表（buyer_name 投影面）——`syncWideIds`；
  *              ④ 失效搜索结果缓存（宽表/Meili 级联由 syncWideIds 内部完成）。
  *
  *              调用方：运维改名/合并脚本收尾、`buyer-name-zh-seed --apply` 之后、
@@ -70,9 +70,9 @@ export async function refreshBuyerProjection(
     return { noticeIds: [], rewritten: 0, wideSynced: 0 };
   }
 
-  // ① 服务表投影（唯一写入者链路；buyer_id/name/name_cn/group 由 buildPublicRow 重新求值）
+  // ① 服务表投影（唯一写入者链路；buyer_id/name/name_cn 由 buildPublicRow 重新求值）
   const rewritten = await rebuildPublicRowsByIds(pool, ids);
-  // ② 宽表投影（buyer_name/buyer_group 从服务表读；内部级联 Meili 增量同步）
+  // ② 宽表投影（buyer_name 从服务表读；内部级联 Meili 增量同步）
   const { synced } = await syncWideIds(pool, ids);
   // ③ 搜索结果缓存失效（内存缓存不感知宽表写入）
   invalidateSearchCache();

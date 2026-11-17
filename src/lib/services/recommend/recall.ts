@@ -160,7 +160,7 @@ export async function deadlineFallback(
     // 买家字段取宽表投影（同推荐主查询口径）；LEFT JOIN 不收窄兜底结果集，
     // 宽表缺行时 buyer 为 NULL → 前端按「未知机构」占位，不回退露平台码的 n.agency。
     // 国家上下文用行内 n.country（英文名）；来源平台不下发（解锁后可见）。
-    "n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.is_featured, ns.buyer_name, ns.buyer_group",
+    "n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.is_featured, ns.buyer_name",
     descSub,
     descTruncSub,
     "n.documents, n.procurement_files",

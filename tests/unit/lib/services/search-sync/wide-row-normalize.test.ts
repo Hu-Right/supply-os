@@ -39,7 +39,6 @@ const base = {
 /** ①归一层带出的归一化字段（SELECT 别名形态） */
 const publicHit = {
   buyer_name: "Acme Works Ltd.",
-  buyer_group: "PUBLIC_ENTERPRISE_INTL",
   country_name: "Brazil",
   public_country_codes: '["BR","CN"]',
   notice_type_code: "RFQ",
@@ -52,7 +51,6 @@ describe("归一化字段投影（服务表 → 宽表）", () => {
   it("买家/类型分组/国家直拷自服务表别名", () => {
     const row = buildWideRow({ ...base, ...publicHit });
     expect(row.buyer_name).toBe("Acme Works Ltd.");
-    expect(row.buyer_group).toBe("PUBLIC_ENTERPRISE_INTL");
     expect(row.country_name).toBe("Brazil");
     expect(row.notice_type_code).toBe("RFQ");
   });
@@ -65,7 +63,6 @@ describe("归一化字段投影（服务表 → 宽表）", () => {
   it("①未命中（LEFT JOIN 空 / JSON 损坏）时归一化字段全空，不臆测", () => {
     const miss = buildWideRow({ ...base });
     expect(miss.buyer_name).toBe("");
-    expect(miss.buyer_group).toBe("");
     expect(miss.country_name).toBe("");
     expect(miss.country_codes).toBe("");
     expect(miss.notice_type_code).toBe("");
@@ -87,10 +84,9 @@ describe("归一化字段投影（服务表 → 宽表）", () => {
     expect(buildWideRow({ ...base, public_estimated_value: "oops" }).estimated_value).toBe(0);
   });
 
-  it("有买家无国家（或反之）在 ① 已折算：② 只搬运不补算，buyer_group 缺就是空", () => {
-    const row = buildWideRow({ ...base, ...publicHit, buyer_group: null, buyer_name: "Acme Works Ltd." });
+  it("有买家无国家（或反之）在 ① 已折算：② 只搬运不补算", () => {
+    const row = buildWideRow({ ...base, ...publicHit, buyer_name: "Acme Works Ltd." });
     expect(row.buyer_name).toBe("Acme Works Ltd.");
-    expect(row.buyer_group).toBe("");
   });
 });
 
@@ -145,6 +141,6 @@ describe("检索专有字段（②自产）", () => {
     expect(row).not.toHaveProperty("country");
     expect(row).not.toHaveProperty("estimated_value_raw");
     // 归一化语义的守卫已上移：宽表构建器不再引用 notice-core / normalizeAmount
-    expect(row.buyer_group).toBe("");
+    expect(row).not.toHaveProperty("buyer_group");
   });
 });
