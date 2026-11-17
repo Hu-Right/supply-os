@@ -115,9 +115,9 @@ test.describe("移动端 UX 基线", () => {
       };
     });
     expect(m.overflow).toBe(0);
-    // 折叠前实测 1886px / 表单 503px；阶段 2 压缩首屏后再收紧到 600
+    // 阶段2 目标：首条结果 ≤600px（390/320 实测 580/596）
     expect(m.formHeight!, "筛选面板折叠后应显著变矮").toBeLessThan(320);
-    expect(m.firstResultTop!, "首条结果应明显前移").toBeLessThan(1500);
+    expect(m.firstResultTop!, "首条结果应压进首屏（≤600px）").toBeLessThan(600);
   });
 
   test("商机页控件：字号 ≥16px、高度 ≥40px", async ({ page }) => {
@@ -160,6 +160,44 @@ test.describe("移动端 UX 基线", () => {
     await expectMobileControlBaseline(page);
   });
 
+  test("移动端统计块压缩：4 张卡隐藏，改一行摘要", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoReady(page, `${BASE}/procurement`);
+    // 卡片的副标题「实时库存」属于 4 卡栅格，移动端必须隐藏
+    await expect(page.getByText("实时库存").first()).toBeHidden();
+    // 摘要行保留可检索数与今日新增
+    const summary = await page.evaluate(() => {
+      const p = [...document.querySelectorAll("main section p")].find((el) => /今日新增/.test(el.textContent || ""));
+      return p ? { visible: p.getBoundingClientRect().height > 0, text: (p.textContent || "").slice(0, 40) } : null;
+    });
+    expect(summary?.visible, "移动端应有一行规模摘要").toBe(true);
+  });
+
+  test("移动端吸底操作条：固定底部，搜索/筛选可用", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoReady(page, `${BASE}/procurement`);
+
+    const barToggle = page.getByTestId("mobile-filter-bar-toggle");
+    await expect(barToggle).toBeVisible({ timeout: 15_000 });
+
+    const bar = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="mobile-filter-bar-toggle"]')?.parentElement;
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      return { position: cs.position, bottomGap: Math.round(window.innerHeight - r.bottom), h: Math.round(r.height) };
+    });
+    expect(bar?.position, "吸底条应为 fixed").toBe("fixed");
+    expect(bar!.bottomGap, "吸底条应贴视口底部（含安全区 0）").toBeLessThanOrEqual(2);
+    expect(bar!.h).toBeGreaterThanOrEqual(44);
+
+    // 吸底条里的「筛选」与头部开关联动：展开后国家筛选可见
+    await barToggle.click();
+    await expect(page.locator("#adv-country")).toBeVisible();
+    // 品目分类收在折叠区内，展开后可见
+    await expect(page.getByRole("button", { name: /品目分类/ })).toBeVisible();
+  });
+
   test("关键页面 320 宽无横向溢出", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     for (const p of ["/", "/procurement", "/membership"]) {
@@ -180,6 +218,10 @@ test.describe("桌面端不受移动改动影响", () => {
     await gotoReady(page, `${BASE}/procurement`);
     await expect(page.locator("#adv-country")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("mobile-filter-toggle")).toBeHidden();
+    // 阶段2 的移动端减法不得影响桌面：统计卡与品目分类仍直接可见，且没有吸底条
+    await expect(page.getByText("实时库存").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /品目分类/ })).toBeVisible();
+    await expect(page.getByTestId("mobile-filter-bar-toggle")).toBeHidden();
   });
 
   test("企业信息编辑表单在桌面端保持四列布局", async ({ page }) => {
