@@ -22,7 +22,6 @@ const mockRow: EnterpriseInfo = {
   province: "上海",
   city: "上海",
   address: "上海市徐汇区定安路55号",
-  registeredAddress: "香港九龙观塘成业街27号",
   addtime: 1780000000,
   dataQualityScore: "75.00",
   contact: "卢慧慧",
@@ -37,9 +36,7 @@ const mockRow: EnterpriseInfo = {
   certification: "-",
   products: "智算模块",
   intro: "智算模块提供商",
-  // 以下 8 键旧夹具根本没给（当时不报），现在显式给空值保持卡片渲染不变
-  registeredPhone: "",
-  registeredEmail: "",
+  // 以下旧夹具根本没给（当时不报），现在显式给空值保持卡片渲染不变
   checkNote: "",
   licenseUrl: "",
   verifyStatus: null,
@@ -161,7 +158,6 @@ describe("EnterpriseInfoCard", () => {
           province: "",
           city: "",
           address: "",
-          registeredAddress: "",
           addtime: 0,
           dataQualityScore: "0",
           contact: "",

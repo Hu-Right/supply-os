@@ -29,7 +29,6 @@ export const BASIC_FIELDS: FieldDef[] = [
   { key: "province", labelKey: "authEnterpriseProvince", fallback: "省份", placeholderKey: "authEnterpriseProvincePh" },
   { key: "city", labelKey: "authEnterpriseCity", fallback: "城市", placeholderKey: "authEnterpriseCityPh" },
   { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址", full: true, placeholderKey: "authEnterpriseBizAddressPh" },
-  { key: "registered_address", labelKey: "authEnterpriseRegAddress", fallback: "注册地址", full: true, placeholderKey: "authEnterpriseRegAddressPh" },
 ];
 export const CONTACT_FIELDS: FieldDef[] = [
   { key: "contact", labelKey: "authEnterpriseContact", fallback: "联系人", placeholderKey: "authEnterpriseContactPh" },

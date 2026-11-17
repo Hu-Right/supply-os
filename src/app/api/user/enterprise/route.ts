@@ -45,13 +45,10 @@ const enterpriseBodySchema = z.object({
   province: z.string().max(50).optional(),
   city: z.string().max(50).optional(),
   address: z.string().max(500).optional(),
-  registered_address: z.string().max(255).optional(),
   contact: z.string().max(100).optional(),
   position: z.string().max(100).optional(),
   phone: z.string().max(60).optional(),
   email: z.string().max(150).optional(),
-  registered_phone: z.string().max(40).optional(),
-  registered_email: z.string().max(120).optional(),
   website: z.string().max(255).optional(),
   legal_rep: z.string().max(50).optional(),
   // 成立日期：DB DATE；GET 回填是 ISO 串（24 字符），前端保存前会归一，服务端再兜一层

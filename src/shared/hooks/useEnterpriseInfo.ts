@@ -32,13 +32,10 @@ export interface EnterpriseInfo {
   province: string | null;
   city: string | null;
   address: string | null;
-  registeredAddress: string | null;
   contact: string;
   position: string | null;
   phone: string;
   email: string;
-  registeredPhone: string | null;
-  registeredEmail: string | null;
   website: string;
   legalRep: string | null;
   /** DATE 列：服务端是 Date，过 HTTP 后是 ISO 串 */

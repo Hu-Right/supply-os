@@ -30,14 +30,14 @@ export interface SupplierDirectoryRow {
   verify_status?: string | null;
   /** 信息完整度/真实性人工审核：unreviewed / reviewed（门户展示门槛） */
   info_review_status?: string | null;
-  /** 资料完整度（DB 生成列，20 字段非空各计 5 分，与后台同口径） */
+  /** 资料完整度（DB 生成列，17 字段非空各计 5 分，满分 85） */
   data_quality_score?: number | string | null;
 }
 
 /**
  * 诊断入口「是不是这家公司」弹窗的候选行。
  * 字段集是安全红线（规范 N9）：只允许识别性字段，**绝不能包含**
- * contact / phone / email / address / registered_* / license_url，否则一个尚未
+ * contact / phone / email / address / license_url，否则一个尚未
  * 验证身份的地推现场用户就能把别人企业的联系方式看走。
  */
 export interface CompanyCandidateRow extends RowDataPacket {
@@ -279,8 +279,8 @@ export class SupplierDirectoryRepo {
   /** 企业信息可编辑列白名单（与 supplier 最终表结构一致；type/name_confirmed 已退役） */
   static readonly EDITABLE_COLUMNS = [
     "company", "country", "country_code", "province", "city",
-    "address", "registered_address", "contact", "position", "phone", "email",
-    "registered_phone", "registered_email", "website", "legal_rep",
+    "address", "contact", "position", "phone", "email",
+    "website", "legal_rep",
     "established_at", "registered_capital", "credit_code",
     "certification", "products", "intro",
   ] as const;
@@ -290,7 +290,7 @@ export class SupplierDirectoryRepo {
    *                 + 6 个门户另外要用的状态/展示列。
    *
    * 追加理由逐个可查：
-   *   id / verify_status / info_review_status / check_note / data_quality_score / addtime
+   *   id / verify_status / info_review_status / data_quality_score / addtime
    *     —— EnterpriseInfoCard 的状态徽章、完整度与录入时间；
    *   license_url —— 企业详情展示执照 + 保存时协调旧文件；
    * claim_status 已于 2026-11-11 退役（ADR-0017）：认领状态由 supplier_claims 派生，
@@ -304,7 +304,7 @@ export class SupplierDirectoryRepo {
    */
   static readonly PORTAL_COLUMNS = [
     ...SupplierDirectoryRepo.EDITABLE_COLUMNS,
-    "id", "verify_status", "info_review_status", "check_note",
+    "id", "verify_status", "info_review_status",
     "data_quality_score", "addtime", "license_url",
   ] as const;
 

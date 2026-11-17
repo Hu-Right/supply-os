@@ -33,7 +33,7 @@ describe("SupplierDirectoryRepo 门户读列白名单", () => {
     }
     // 前端 EnterpriseInfoCard / ProfileContent 实际读到的非编辑列，逐个点名（缺一个就会静默丢显示）
     for (const c of [
-      "id", "verify_status", "check_note",
+      "id", "verify_status",
       "data_quality_score", "addtime", "license_url",
     ]) {
       expect(cols).toContain(c);

@@ -122,7 +122,7 @@ export type AppContext = {
  *  含已删列 → ERP2005「Unknown column 'business_type' in 'field list'」，
  *  企业信息 GET 与供应商列表直接 500；不 +1 就得重启 dev 才能恢复。
  *  同理：任何「列白名单 / 静态列集合」变更都算形状变更，必须 +1。 */
-const CTX_VERSION = 5;
+const CTX_VERSION = 7;
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };

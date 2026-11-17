@@ -73,7 +73,6 @@ export function EnterpriseInfoCard({
     { label: t("authEnterpriseProvince") || "省份", value: sv(row, "province") },
     { label: t("authEnterpriseCity") || "城市", value: sv(row, "city") },
     { label: t("authEnterpriseBizAddress") || "经营地址", value: sv(row, "address"), full: true },
-    { label: t("authEnterpriseRegAddress") || "注册地址", value: sv(row, "registeredAddress"), full: true },
     { label: t("authEnterpriseAddTime") || "录入时间", value: fmtAddtime(row) },
     { label: t("authEnterpriseCompleteness") || "资料完整度", value: fmtScore(row) },
   ];

@@ -3,12 +3,13 @@
  *
  * @description 出口写的是 `json({ …, enterprise: row, … })`，row 来自
  *              `findFullById` = `SELECT <PORTAL_COLUMNS> FROM supplier WHERE id=?`。
- *              真库探针实测 28 个列键，其中 13 个带下划线（country_code/registered_address/
- *              registered_phone/registered_email/legal_rep/established_at/registered_capital/
- *              credit_code/verify_status/info_review_status/check_note/data_quality_score/license_url）。
+ *              真库探针实测 24 个列键，其中 9 个带下划线（country_code/legal_rep/
+ *              established_at/registered_capital/credit_code/verify_status/
+ *              info_review_status/data_quality_score/license_url）。
  *              claim_status 已退役（ADR-0017），其位置由派生键 hasPendingClaim 取代
  *              （来自 supplier_claims，不是 supplier 列）；coop_status / info_checked /
- *              business_type / remark / source_channel 也已随 2026-11 影子表迁移物理删除，
+ *              business_type / remark / source_channel / business_type_code /
+ *              industry_code_name / check_note 也已随 2026-11 影子表迁移物理删除，
  *              白名单与响应都不得再出现这些键。
  *              前端 `EnterpriseInfo` 当时是 `Record<string, unknown>`——类型被抹平，
  *              tsc/门禁/探针三路都看不见这些键（本批顺带把它升级成具名类型当编译期闸门）。
@@ -40,13 +41,10 @@ const PORTAL_ROW: Record<string, unknown> = {
   province: "陕西",
   city: "咸阳",
   address: "某路 1 号",
-  registered_address: "某路 1 号（注册）",
   contact: "张三",
   position: "采购经理",
   phone: "13800000000",
   email: "a@b.com",
-  registered_phone: "029-00000000",
-  registered_email: "reg@b.com",
   website: "https://example.com",
   legal_rep: "李四",
   established_at: "2015-06-01",
@@ -57,7 +55,6 @@ const PORTAL_ROW: Record<string, unknown> = {
   intro: "简介",
   verify_status: "done",
   info_review_status: "reviewed",
-  check_note: "",
   data_quality_score: 88,
   addtime: 1730000000,
   license_url: "https://cdn/license.png",
@@ -121,7 +118,7 @@ describe("GET /api/user/enterprise", () => {
     const body = await (await GET(getReq())).json();
 
     expect(Object.keys(body.enterprise).sort()).toEqual([...EXPECTED_KEYS].sort());
-    expect(EXPECTED_KEYS).toHaveLength(29); // 白名单加/减列时这里先响，逼着同步看契约
+    expect(EXPECTED_KEYS).toHaveLength(25); // 白名单加/减列时这里先响，逼着同步看契约
     // claim_status 已退役：响应里不得再出现 claimStatus（读点清零）
     expect(body.enterprise.claimStatus).toBeUndefined();
   });

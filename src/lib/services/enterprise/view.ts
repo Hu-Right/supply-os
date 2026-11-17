@@ -7,7 +7,7 @@
  * @module services/enterprise/view
  * @description GET /api/user/enterprise 的 `enterprise` 字段。值来自
  *              `SupplierDirectoryRepo.findFullById`（`SELECT <PORTAL_COLUMNS> FROM supplier`，
- *              30 列白名单，历史上是 SELECT *）。“库里加列不自动上网”那道闸在
+ *              24 列白名单，历史上是 SELECT *）。“库里加列不自动上网”那道闸在
  *              仓储白名单上，本视图负责把列名改成 camelCase（复用 case-keys，不写第三份改名规则）。
  *              另有一个**非列**键 hasPendingClaim：认领状态自 2026-11-11 起由关系事实
  *              派生（ADR-0017，supplier.claim_status 已退役），由路由经
@@ -35,13 +35,10 @@ export interface SupplierEnterpriseView {
   province: string | null;
   city: string | null;
   address: string | null;
-  registeredAddress: string | null;
   contact: string;
   position: string | null;
   phone: string;
   email: string;
-  registeredPhone: string | null;
-  registeredEmail: string | null;
   website: string;
   legalRep: string | null;
   establishedAt: Date | string | null;
@@ -64,7 +61,7 @@ export interface SupplierEnterpriseView {
 
 /**
  * 行 → 视图。
- * 行本身已由仓储白名单 `PORTAL_COLUMNS` 投影（30 列），所以这里不裁剪、只改名 +
+ * 行本身已由仓储白名单 `PORTAL_COLUMNS` 投影（24 列），所以这里不裁剪、只改名 +
  * 给 NOT NULL 列上类型化兜底。hasPendingClaim 不是 supplier 列（认领状态由
  * supplier_claims 派生，claim_status 已退役），由调用方查好后传入，默认 false。
  * 改名规则复用 `shared/utils/case-keys`（与 awards / membership / notice-public 同一个实现），
