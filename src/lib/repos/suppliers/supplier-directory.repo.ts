@@ -26,8 +26,10 @@ export interface SupplierDirectoryRow {
   /** 主行业码（industry_nodes.code，UGT-I- 前缀）；行业面标准口径（industry 自由文本列已退役） */
   industry_code?: string | null;
   certification: string | null;
-  /** 认证状态：done=已认证 / pending=审核中（防重分支据此区分「转认领 / 直接绑定」） */
+  /** 认证状态：unverified=未认证 / done=已认证（2026-11 起两态；认证只由认领通过写入） */
   verify_status?: string | null;
+  /** 信息完整度/真实性人工审核：unreviewed / reviewed（门户展示门槛） */
+  info_review_status?: string | null;
   /** 资料完整度（DB 生成列，20 字段非空各计 5 分，与后台同口径） */
   data_quality_score?: number | string | null;
 }
@@ -47,6 +49,7 @@ export interface CompanyCandidateRow extends RowDataPacket {
   legal_rep: string | null;
   credit_code: string | null;
   verify_status: string | null;
+  info_review_status: string | null;
   /** 该主体是否有 status='pending' 的认领（**关系派生**，supplier_claims 的 EXISTS 片段；
    *  供应商行上的 claim_status 列已退役，ADR-0017） */
   claim_pending: number;
@@ -121,7 +124,7 @@ export class SupplierDirectoryRepo {
               data_quality_score
        FROM supplier
        WHERE company <> '测试'
-         AND verify_status = 'done'
+         AND info_review_status = 'reviewed'
        ORDER BY id DESC
        LIMIT 500`,
     );
@@ -149,11 +152,11 @@ export class SupplierDirectoryRepo {
     const { limit, offset, search, industryCode, industryCodes, sort } = params;
 
     // ── WHERE 条件构建 ──
-    // 已认证口径只认 verify_status='done'：旧逻辑额外把 NULL 视同已认证（为外部同步的空值
+    // 展示口径只认 info_review_status='reviewed'：旧逻辑额外把 NULL 视同已认证（为外部同步的空值
     // 行预留），2026-10-08 实库取证 NULL 行数=0，该兼容分支已无命中，按不保留兼容直接删除。
     const conditions: string[] = [
       "company <> '测试'",
-      "verify_status = 'done'",
+      "info_review_status = 'reviewed'",
     ];
     const values: string[] = [];
 
@@ -227,7 +230,7 @@ export class SupplierDirectoryRepo {
               contact, phone, email, products, industry_code, certification,
               data_quality_score
        FROM supplier
-       WHERE id = ? AND verify_status = 'done'
+       WHERE id = ? AND info_review_status = 'reviewed'
        LIMIT 1`,
       [id],
     );
@@ -236,7 +239,7 @@ export class SupplierDirectoryRepo {
 
   /**
    * 按 ID 查询任意审核状态的供应商（仅供「本人绑定主体」自助查看）。
-   * 门户公开面仍走 findById 的 verify_status='done' 口径；本人绑定主体可能处于
+   * 门户公开面仍走 findById 的 info_review_status='reviewed' 口径；本人绑定主体可能处于
    * pending（诊断/认领中），详情页需要能看自己的档案，否则会 404。
    */
   async findByIdAnyStatus(id: number): Promise<SupplierDirectoryRow | null> {
@@ -287,7 +290,7 @@ export class SupplierDirectoryRepo {
    *                 + 6 个门户另外要用的状态/展示列。
    *
    * 追加理由逐个可查：
-   *   id / verify_status / check_note / data_quality_score / addtime
+   *   id / verify_status / info_review_status / check_note / data_quality_score / addtime
    *     —— EnterpriseInfoCard 的状态徽章、完整度与录入时间；
    *   license_url —— 企业详情展示执照 + 保存时协调旧文件；
    * claim_status 已于 2026-11-11 退役（ADR-0017）：认领状态由 supplier_claims 派生，
@@ -301,7 +304,7 @@ export class SupplierDirectoryRepo {
    */
   static readonly PORTAL_COLUMNS = [
     ...SupplierDirectoryRepo.EDITABLE_COLUMNS,
-    "id", "verify_status", "check_note",
+    "id", "verify_status", "info_review_status", "check_note",
     "data_quality_score", "addtime", "license_url",
   ] as const;
 
@@ -330,13 +333,14 @@ export class SupplierDirectoryRepo {
    *  meta 可携带非用户编辑列 verify_status 供注册审核流程使用。 */
   async insertEnterprise(
     input: Record<string, unknown>,
-    meta: { verify_status?: string } = {},
+    meta: { verify_status?: string; info_review_status?: string } = {},
   ): Promise<number> {
     const data = this.pickEditable(input);
     const cols = Object.keys(data);
     const extraCols: string[] = [];
     const extraVals: unknown[] = [];
     if (meta.verify_status) { extraCols.push("verify_status"); extraVals.push(meta.verify_status); }
+    if (meta.info_review_status) { extraCols.push("info_review_status"); extraVals.push(meta.info_review_status); }
     const allCols = [...cols, ...extraCols];
     if (allCols.length === 0) return 0;
     const placeholders = allCols.map(() => "?").join(", ");
@@ -352,7 +356,7 @@ export class SupplierDirectoryRepo {
   async findByCreditCode(creditCode: string): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, certification, verify_status
+              contact, phone, email, products, certification, verify_status, info_review_status
        FROM supplier WHERE credit_code = ? LIMIT 1`,
       [creditCode],
     );
@@ -365,11 +369,9 @@ export class SupplierDirectoryRepo {
     const cols = Object.keys(data);
     if (cols.length === 0) return;
     const sets = cols.map((c) => `${c} = ?`).join(", ");
-    // 资料编辑不再无条件把已认证主体打回审核（旧行为会让 done 行改任一字即掉出目录、丢徽章）。
-    // 仅「被驳回」的行补正后回到 pending 重审（正当路径）；done/pending/无状态一律保持不动。
-    // 执照与身份三要素各有独立闸口（先审后生效 / 锁死），不在这里牵动 verify_status。
+    // 资料一变，信息审核结论即失效：回退 unreviewed；认证状态不在这里改写（只由认领通过写入）。
     await this.pool.query(
-      `UPDATE supplier SET ${sets}, verify_status = CASE WHEN verify_status = 'rejected' THEN 'pending' ELSE verify_status END WHERE id = ?`,
+      `UPDATE supplier SET ${sets}, info_review_status = 'unreviewed' WHERE id = ?`,
       [...cols.map((c) => data[c]), id],
     );
   }
@@ -383,7 +385,7 @@ export class SupplierDirectoryRepo {
   async findByCompanyBest(companyName: string): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, certification, verify_status
+              contact, phone, email, products, certification, verify_status, info_review_status
        FROM supplier
        WHERE company = ?
        ORDER BY (
@@ -428,7 +430,7 @@ export class SupplierDirectoryRepo {
     const escaped = kw.replace(/[\\%_]/g, (c) => `\\${c}`);
     const [rows] = await this.pool.query<CompanyCandidateRow[]>(
       `SELECT id, company, province, city,
-              established_at, legal_rep, credit_code, verify_status,
+              established_at, legal_rep, credit_code, verify_status, info_review_status,
               EXISTS(
                 SELECT 1 FROM supplier_claims pc
                  WHERE pc.supplier_id = supplier.id
@@ -490,7 +492,7 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, '' AS industry
        FROM supplier
-       WHERE verify_status = 'done'
+       WHERE info_review_status = 'reviewed'
          AND (company LIKE ? OR company LIKE ?)
        ORDER BY (company LIKE ?) DESC,
                 (
@@ -520,16 +522,16 @@ export class SupplierDirectoryRepo {
     commodityMatched: number;
   }> {
     const [allRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier",
+      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND info_review_status = 'reviewed'",
     );
     const [verifiedRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND verify_status = 'done'",
+      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND info_review_status = 'reviewed'",
     );
     const [certRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE certification IS NOT NULL AND certification <> '' AND company <> '测试' AND verify_status = 'done'",
+      "SELECT COUNT(*) as total FROM supplier WHERE certification IS NOT NULL AND certification <> '' AND company <> '测试' AND info_review_status = 'reviewed'",
     );
     const [intlRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND verify_status = 'done'",
+      "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND info_review_status = 'reviewed'",
     );
     // 已认证 且 在 backbone 兴趣表里有行的供应商数（JOIN supplier_backbone_interests）
     // ↳ 字段旧名带品类字典后缀，随字典退役一并改成 commodityMatched（前端 5 处消费方同步）。
@@ -537,7 +539,7 @@ export class SupplierDirectoryRepo {
       `SELECT COUNT(DISTINCT u.supplier_id) as total
        FROM supplier_backbone_interests u
        JOIN supplier s ON s.id = u.supplier_id
-       WHERE s.verify_status = 'done' AND s.company <> '测试'`,
+       WHERE s.info_review_status = 'reviewed' AND s.company <> '测试'`,
     );
     return {
       searchable: (allRows as RowDataPacket[])[0]?.total ?? 0,
@@ -548,10 +550,10 @@ export class SupplierDirectoryRepo {
     };
   }
 
-  /** 已通过后台审核的供应商总数（registered 统计口径：verify_status='done'，排除测试记录） */
+  /** 已通过后台审核的供应商总数（registered 统计口径：info_review_status='reviewed'，排除测试记录） */
   async countApproved(): Promise<number> {
     const [rows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE verify_status = 'done' AND company <> '测试'",
+      "SELECT COUNT(*) as total FROM supplier WHERE info_review_status = 'reviewed' AND company <> '测试'",
     );
     return Number((rows as RowDataPacket[])[0]?.total ?? 0);
   }

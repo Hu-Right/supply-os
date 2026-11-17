@@ -121,7 +121,7 @@ describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排�
     const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
     await expect(repo.findPendingByExactCompany("工厂B")).resolves.toEqual({ id: 44 });
     await expect(repo.findPendingByExactCompany("工厂B")).resolves.toBeNull();
-    expect(mockQuery.mock.calls[0][0]).toContain("verify_status = 'pending'");
+    expect(mockQuery.mock.calls[0][0]).toContain("info_review_status = 'unreviewed'");
   });
 
   it("createPendingSupplier 插入 pending 基础记录（时间用 addtime，不得写不存在的 created_at）", async () => {
@@ -184,7 +184,7 @@ describe("searchVerifiedByCompany / findVerifiedById 边界", () => {
     await expect(repo.findVerifiedById(10)).resolves.toEqual({ id: 10, company: "工厂A", industry: "" });
     await expect(repo.findVerifiedById(10)).resolves.toBeNull();
     // 已认证口径只认 done（旧的空值 NULL 视同已认证兼容已删，2026-10-08 实库 NULL 行数=0）
-    expect(mockQuery.mock.calls[0][0]).toContain("verify_status = 'done'");
+    expect(mockQuery.mock.calls[0][0]).toContain("info_review_status = 'reviewed'");
     expect(mockQuery.mock.calls[0][0]).not.toContain("IS NULL");
   });
 });

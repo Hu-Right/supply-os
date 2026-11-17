@@ -25,7 +25,7 @@ describe("SupplierDirectoryRepo 认领建议", () => {
     const rows = await repo.findVerifiedByNameSimilar("华为%", 5);
 
     const [sql, params] = mockQuery.mock.calls[0];
-    expect(sql).toContain("verify_status = 'done'");
+    expect(sql).toContain("info_review_status = 'reviewed'");
     // 用户输入的 % 必须转义，不能变成全表通配
     expect(params[0]).toBe("华为\\%%");
     expect(params[1]).toBe("%华为\\%%");

@@ -177,7 +177,7 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
   it("未绑定账号命中已认证行 → claimRequired（转认领，不变）", async () => {
     const { ctx, directoryRepo } = buildCtx(null);
     vi.mocked(getContext).mockReturnValue(ctx as never);
-    directoryRepo.findByCompanyBest.mockResolvedValue({ id: 555, verify_status: "done" } as never);
+    directoryRepo.findByCompanyBest.mockResolvedValue({ id: 555, info_review_status: "reviewed" } as never);
 
     const res = await POST(postReq({ company: "北京已认证企业有限公司" }));
     expect(res.status).toBe(200);

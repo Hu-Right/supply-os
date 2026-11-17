@@ -125,7 +125,7 @@ async function reconcileLicense(
   const oldUrl = row?.license_url ? String(row.license_url) : null;
   if ((oldUrl ?? null) === normalized) return { pendingReview: false };
 
-  const verified = row?.verify_status === "done" || await ctx.supplier.claimRepo.hasApprovedClaim(supplierId);
+  const verified = row?.info_review_status === "reviewed" || row?.verify_status === "done" || await ctx.supplier.claimRepo.hasApprovedClaim(supplierId);
   if (verified) {
     await upsertPendingLicenseChange({
       supplierId,
@@ -313,14 +313,14 @@ export const POST = withRoute(async (req) => {
     const byCredit = await repo.findByCreditCode(creditCode);
     if (byCredit) {
       existingId = Number(byCredit.id);
-      existingVerified = byCredit.verify_status === "done";
+      existingVerified = byCredit.info_review_status === "reviewed";
     }
   }
   if (!existingId) {
     const byCompany = await repo.findByCompanyBest(companyName);
     if (byCompany) {
       existingId = Number(byCompany.id);
-      existingVerified = byCompany.verify_status === "done";
+      existingVerified = byCompany.info_review_status === "reviewed";
     }
   }
 
@@ -368,7 +368,7 @@ export const POST = withRoute(async (req) => {
   // ── 新建：审核中 ──
   const newId = await guardEnterpriseWrite(() => repo.insertEnterprise(
     { ...(body as Record<string, unknown>), company: companyName },
-    { verify_status: "pending" },
+    { verify_status: "unverified", info_review_status: "unreviewed" },
   ));
   if (!newId) {
     routeError(500, EC_INTERNAL_ERROR, "企业信息创建失败");

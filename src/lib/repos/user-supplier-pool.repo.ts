@@ -79,7 +79,7 @@ export class UserSupplierPoolRepo {
    */
   async createPendingSupplier(company: string, conn?: PoolConnection): Promise<number> {
     const [result] = await this.exec(conn).execute(
-      "INSERT INTO supplier (company, verify_status, addtime) VALUES (?, 'pending', UNIX_TIMESTAMP())",
+      "INSERT INTO supplier (company, verify_status, info_review_status, addtime) VALUES (?, 'unverified', 'unreviewed', UNIX_TIMESTAMP())",
       [company],
     );
     return Number((result as ResultSetHeader).insertId ?? 0);
@@ -102,7 +102,7 @@ export class UserSupplierPoolRepo {
       SELECT s.id, s.company${userId ? ", (p.id IS NOT NULL) AS in_pool" : ", 0 AS in_pool"}
       FROM supplier s
       ${userId ? "LEFT JOIN user_supplier_pool p ON p.supplier_id = s.id AND p.user_id = ?" : ""}
-      WHERE s.company LIKE ? AND s.verify_status = 'done'
+      WHERE s.company LIKE ? AND s.info_review_status = 'reviewed'
       ORDER BY CHAR_LENGTH(s.company) ASC
       LIMIT ${Math.max(1, Math.min(20, Number(limit) || 8))}`;
     const params = userId ? [userId, `%${escaped}%`] : [`%${escaped}%`];
@@ -119,7 +119,7 @@ export class UserSupplierPoolRepo {
   async findVerifiedById(supplierId: number): Promise<{ id: number; company: string; industry: string } | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company FROM supplier
-       WHERE id = ? AND verify_status = 'done'
+       WHERE id = ? AND info_review_status = 'reviewed'
        LIMIT 1`,
       [supplierId],
     );
@@ -130,7 +130,7 @@ export class UserSupplierPoolRepo {
   /** 按公司名精确查找已有 pending 基础记录（手动添加去重复用，避免共享表堆积重复行） */
   async findPendingByExactCompany(company: string): Promise<{ id: number } | null> {
     const [rows] = await this.pool.query(
-      `SELECT id FROM supplier WHERE company = ? AND verify_status = 'pending' ORDER BY id DESC LIMIT 1`,
+      `SELECT id FROM supplier WHERE company = ? AND info_review_status = 'unreviewed' ORDER BY id DESC LIMIT 1`,
       [company],
     );
     const row = (rows as RowDataPacket[])[0];

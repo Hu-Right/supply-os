@@ -36,7 +36,7 @@ export const GET = withRoute(async (req: NextRequest) => {
         legalRep: r.legal_rep ?? "",
         // 只给掩码：足以在"同名不同主体"之间辨认，不足以取走完整信用代码
         creditCodeMasked: maskCreditCode(r.credit_code),
-        verified: String(r.verify_status ?? "") === "done",
+        verified: String(r.info_review_status ?? "") === "reviewed",
         // 认领处理中改为供应商认领表的 EXISTS 派生（supplier.claim_status 已退役，ADR-0017）
         claimPending: Number(r.claim_pending) === 1,
         // 已被其他用户/账户绑定（已在 repo 层排除当前用户），供弹窗提示「该公司已被绑定」
