@@ -52,6 +52,8 @@ import { migration as dropRetiredProjectFieldsMigration } from "./migrations/033
 import { migration as dropProcurementMatchingMigration } from "./migrations/034-drop-procurement-matching";
 import { migration as dropSupplierBusinessTypeRemarkMigration } from "./migrations/036-drop-supplier-business-type-remark";
 import { migration as dropSupplierSourceEnrichMigration } from "./migrations/037-drop-supplier-source-enrich";
+import { migration as dropSupplierDeadFieldsMigration } from "./migrations/038-drop-supplier-dead-fields";
+import { migration as dropSupplierRegistrationFieldsMigration } from "./migrations/039-drop-supplier-registration-fields";
 
 /**
  * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
@@ -90,6 +92,8 @@ export const ALL_MIGRATIONS: Migration[] = [
   dropProcurementMatchingMigration,
   dropSupplierBusinessTypeRemarkMigration,
   dropSupplierSourceEnrichMigration,
+  dropSupplierDeadFieldsMigration,
+  dropSupplierRegistrationFieldsMigration,
 ];
 
 /**
