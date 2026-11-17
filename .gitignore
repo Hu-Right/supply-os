@@ -49,6 +49,8 @@ pnpm-debug.log*
 
 # ===== IDE 与编辑器 =====
 .qoder/
+.qoder-input-files/
+.qoder-input-images/
 .zcode/
 .workbuddy/
 .vscode/
