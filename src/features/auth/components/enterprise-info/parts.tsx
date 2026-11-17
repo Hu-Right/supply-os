@@ -44,24 +44,24 @@ export const InfoTable = memo(function InfoTable({ cells }: { cells: Cell[] }) {
   return (
     <div className="border border-border rounded-md overflow-hidden bg-white">
       {rows.map((row, ri) => (
-        <div key={ri} className="grid grid-cols-4 border-b border-border last:border-b-0">
+        <div key={ri} className="grid grid-cols-1 sm:grid-cols-4 border-b border-border last:border-b-0">
           {row.map((cell, ci) => (
             <div key={ci} className={`contents`}>
               <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border">
                 {cell.label}
               </div>
               <div
-                className={`px-3 py-2 text-xs text-foreground break-words ${cell.full ? "col-span-3" : "col-span-1"} ${ci === 0 ? "" : "border-l border-border"}`}
+                className={`px-3 py-2 text-xs text-foreground break-words ${cell.full ? "sm:col-span-3" : ""} ${ci === 0 ? "" : "border-l border-border"}`}
               >
                 {cell.value}
               </div>
             </div>
           ))}
-          {/* 单 cell 行补齐空位保持 4 列对齐 */}
+          {/* 单 cell 行补齐空位保持 4 列对齐（移动端单列时不需要占位） */}
           {row.length === 1 && !row[0].full && (
             <>
-              <div className="bg-secondary-50 px-3 py-2 border-r border-border" />
-              <div className="px-3 py-2" />
+              <div className="hidden sm:block bg-secondary-50 px-3 py-2 border-r border-border" />
+              <div className="hidden sm:block px-3 py-2" />
             </>
           )}
         </div>

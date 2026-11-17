@@ -18,7 +18,15 @@ import { test, expect, type Page } from "@playwright/test";
  */
 async function addChips(page: Page, term: string, expectCount = 1) {
   const input = page.getByTestId("kw-chip-input");
-  await expect(input).toBeVisible({ timeout: 30_000 });
+  // 移动端（<md）筛选默认折叠，chip 输入框在折叠区里。水合完成前点击会丢，
+  // 因此按「点开 → 看输入框是否可见」重试，而不是点一次就断言。
+  await expect(async () => {
+    const toggle = page.getByTestId("mobile-filter-toggle");
+    if ((await toggle.count()) > 0 && (await toggle.isVisible().catch(() => false))) {
+      if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click({ timeout: 5_000 });
+    }
+    await expect(input).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 45_000 });
   await expect
     .poll(
       async () => {

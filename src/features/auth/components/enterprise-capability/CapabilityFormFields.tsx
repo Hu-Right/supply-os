@@ -36,8 +36,8 @@ export function CapabilityFormFields({
     const dateAndExpiry = (
       <>
         <input type="date" value={String(fields.validUntil ?? "")} onChange={(e) => setField("validUntil", e.target.value)} className={inputCls} disabled={fields.noExpiry === true} />
-        <label className="flex items-center gap-1 text-2xs text-muted-foreground">
-          <input type="checkbox" checked={fields.noExpiry === true} onChange={(e) => setField("noExpiry", e.target.checked)} />
+        <label className="flex items-center gap-1 min-h-11 sm:min-h-0 text-2xs text-muted-foreground">
+          <input type="checkbox" className="h-4 w-4 shrink-0" checked={fields.noExpiry === true} onChange={(e) => setField("noExpiry", e.target.checked)} />
           {t("capNoExpiry")}
         </label>
       </>
@@ -46,7 +46,7 @@ export function CapabilityFormFields({
     // 字典不可用：退回自由输入，保证仍能录入
     if (certOptions.length === 0) {
       return (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <input value={String(fields.code ?? "")} onChange={(e) => setField("code", e.target.value)} placeholder={t("capCertCodePlaceholder")} className={inputCls} />
           {dateAndExpiry}
         </div>
@@ -62,7 +62,7 @@ export function CapabilityFormFields({
 
     return (
       <div className="space-y-2">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <select
             value={isManual ? "__manual__" : currentCode}
             onChange={(e) => {
@@ -105,7 +105,7 @@ export function CapabilityFormFields({
   }
   if (capType === "experience") {
     return (
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <input value={String(fields.count ?? "")} onChange={(e) => setField("count", e.target.value)} placeholder={t("capExpCountPlaceholder")} className={inputCls} />
         <input value={String(fields.years ?? "")} onChange={(e) => setField("years", e.target.value)} placeholder={t("capExpYearsPlaceholder")} className={inputCls} />
         <input value={String(fields.similarScope ?? "")} onChange={(e) => setField("similarScope", e.target.value)} placeholder={t("capExpScopePlaceholder")} className={inputCls} />
@@ -114,7 +114,7 @@ export function CapabilityFormFields({
   }
   if (capType === "financial") {
     return (
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <input value={String(fields.metric ?? "")} onChange={(e) => setField("metric", e.target.value)} placeholder={t("capFinMetricPlaceholder")} className={inputCls} />
         <input value={String(fields.value ?? "")} onChange={(e) => setField("value", e.target.value)} placeholder={t("capFinValuePlaceholder")} className={inputCls} />
         <input value={String(fields.year ?? "")} onChange={(e) => setField("year", e.target.value)} placeholder={t("capFinYearPlaceholder")} className={inputCls} />
@@ -123,7 +123,7 @@ export function CapabilityFormFields({
   }
   if (capType === "personnel") {
     return (
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <input value={String(fields.role ?? "")} onChange={(e) => setField("role", e.target.value)} placeholder={t("capPerRolePlaceholder")} className={inputCls} />
         <input value={String(fields.count ?? "")} onChange={(e) => setField("count", e.target.value)} placeholder={t("capPerCountPlaceholder")} className={inputCls} />
       </div>
@@ -134,16 +134,16 @@ export function CapabilityFormFields({
       <div className="space-y-2">
         <input value={String(fields.country ?? "")} onChange={(e) => setField("country", e.target.value)} placeholder={t("capLocCountryPlaceholder")} className={inputCls} />
         <div className="flex gap-4 text-2xs text-muted-foreground">
-          <label className="flex items-center gap-1"><input type="checkbox" checked={fields.hasLocalOffice === true} onChange={(e) => setField("hasLocalOffice", e.target.checked)} />{t("capLocalOffice")}</label>
-          <label className="flex items-center gap-1"><input type="checkbox" checked={fields.hasLocalAgent === true} onChange={(e) => setField("hasLocalAgent", e.target.checked)} />{t("capLocalAgent")}</label>
-          <label className="flex items-center gap-1"><input type="checkbox" checked={fields.hasLocalTaxId === true} onChange={(e) => setField("hasLocalTaxId", e.target.checked)} />{t("capLocalTaxId")}</label>
+          <label className="flex items-center gap-1 min-h-11 sm:min-h-0"><input type="checkbox" className="h-4 w-4 shrink-0" checked={fields.hasLocalOffice === true} onChange={(e) => setField("hasLocalOffice", e.target.checked)} />{t("capLocalOffice")}</label>
+          <label className="flex items-center gap-1 min-h-11 sm:min-h-0"><input type="checkbox" className="h-4 w-4 shrink-0" checked={fields.hasLocalAgent === true} onChange={(e) => setField("hasLocalAgent", e.target.checked)} />{t("capLocalAgent")}</label>
+          <label className="flex items-center gap-1 min-h-11 sm:min-h-0"><input type="checkbox" className="h-4 w-4 shrink-0" checked={fields.hasLocalTaxId === true} onChange={(e) => setField("hasLocalTaxId", e.target.checked)} />{t("capLocalTaxId")}</label>
         </div>
       </div>
     );
   }
   if (capType === "registration") {
     return (
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <input value={String(fields.platform ?? "")} onChange={(e) => setField("platform", e.target.value)} placeholder={t("capRegPlatformPlaceholder")} className={inputCls} />
         <input value={String(fields.status ?? "")} onChange={(e) => setField("status", e.target.value)} placeholder={t("capRegStatusPlaceholder")} className={inputCls} />
       </div>
@@ -151,7 +151,7 @@ export function CapabilityFormFields({
   }
   if (capType === "technical") {
     return (
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <input value={String(fields.parameter ?? "")} onChange={(e) => setField("parameter", e.target.value)} placeholder={t("capTechParamPlaceholder")} className={inputCls} />
         <input value={String(fields.value ?? "")} onChange={(e) => setField("value", e.target.value)} placeholder={t("capTechValuePlaceholder")} className={inputCls} />
         <input value={String(fields.unit ?? "")} onChange={(e) => setField("unit", e.target.value)} placeholder={t("capTechUnitPlaceholder")} className={inputCls} />

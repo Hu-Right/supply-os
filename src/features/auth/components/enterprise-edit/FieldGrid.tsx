@@ -43,11 +43,12 @@ export const FieldGrid = memo(function FieldGrid({
     const isRequired = requiredKeys.has(f.key);
     return (
       <div key={f.key} className="contents">
-        <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border flex items-center">
+        {/* 移动端（<sm）纵向堆叠成单列：标签在上、控件在下，4 列在 390 宽会把输入框压到 90px */}
+        <div className="bg-secondary-50 px-3 py-1.5 sm:py-2 text-xs text-muted-foreground border-r border-border flex items-center">
           {t(f.labelKey) || f.fallback}
           {isRequired && <span className="ml-0.5 text-danger-500" aria-hidden="true">*</span>}
         </div>
-        <div className={`px-3 py-2 ${f.full ? "col-span-3" : "col-span-1"}`}>
+        <div className={`px-3 py-2 sm:col-span-1 ${f.full ? "sm:col-span-3" : ""}`}>
           {f.textarea ? (
             <textarea
               className={`${inputCls} min-h-16 resize-y`}
@@ -87,12 +88,12 @@ export const FieldGrid = memo(function FieldGrid({
     if (!cur.length) return;
     const rowFields = cur;
     rows.push(
-      <div key={`r-${rowFields[0].key}`} className="grid grid-cols-4 border-b border-border">
+      <div key={`r-${rowFields[0].key}`} className="grid grid-cols-1 sm:grid-cols-4 border-b border-border">
         {rowFields.map(renderField)}
         {rowFields.length === 1 && !rowFields[0].full && (
           <>
-            <div className="bg-secondary-50 px-3 py-2 border-r border-border" />
-            <div className="px-3 py-2" />
+            <div className="hidden sm:block bg-secondary-50 px-3 py-2 border-r border-border" />
+            <div className="hidden sm:block px-3 py-2" />
           </>
         )}
       </div>,
@@ -100,7 +101,7 @@ export const FieldGrid = memo(function FieldGrid({
     cur = [];
   };
   for (const f of fields) {
-    if (f.full) { flush(); rows.push(<div key={`f-${f.key}`} className="grid grid-cols-4 border-b border-border">{renderField(f)}</div>); }
+    if (f.full) { flush(); rows.push(<div key={`f-${f.key}`} className="grid grid-cols-1 sm:grid-cols-4 border-b border-border">{renderField(f)}</div>); }
     else { cur.push(f); if (cur.length === 2) flush(); }
   }
   flush();

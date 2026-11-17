@@ -177,13 +177,13 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
         <GroupTitle>{t("authEnterpriseGroupProducts") || "主营产品"}</GroupTitle>
         <div className="border border-border rounded-md overflow-hidden bg-white">
           {/* 展示属性：对外文案（supplier.products） */}
-          <div className="grid grid-cols-4 border-b border-border">
-            <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border flex items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-4 border-b border-border">
+            <div className="bg-secondary-50 px-3 py-1.5 sm:py-2 text-xs text-muted-foreground border-r border-border flex items-center">
               {t("authEnterpriseProductIntro") || "产品介绍"}
               <span className="ml-1 text-2xs text-slate-400">{t("authEnterpriseForDisplay") || "（展示用）"}</span>
               <span className="ml-0.5 text-danger-500" aria-hidden="true">*</span>
             </div>
-            <div className="px-3 py-2 col-span-3">
+            <div className="px-3 py-2 sm:col-span-3">
               <textarea
                 className={`${inputCls} min-h-16 resize-y`}
                 value={values.products || ""}
@@ -194,12 +194,12 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
             </div>
           </div>
           {/* 商品属性：品目树落点（supplier_backbone_interests self_report），用于公告/商机匹配 */}
-          <div className="grid grid-cols-4">
-            <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border pt-3 align-top">
+          <div className="grid grid-cols-1 sm:grid-cols-4">
+            <div className="bg-secondary-50 px-3 py-1.5 sm:py-2 text-xs text-muted-foreground border-r border-border sm:pt-3 align-top">
               {t("authEnterpriseCommodityNodes") || "主营品目"}
               <span className="ml-1 text-2xs text-slate-400">{t("authEnterpriseForMatch") || "（匹配用）"}</span>
             </div>
-            <div className="px-3 py-2 col-span-3">
+            <div className="px-3 py-2 sm:col-span-3">
               <SupplierProductsPicker value={commodityNodes} onChange={setCommodityNodes} />
             </div>
           </div>

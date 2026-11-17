@@ -20,7 +20,7 @@
  *              以让子组件 memo 真实生效（详见 ./advanced-search/KeywordChip 头注）。
  */
 import { useState, useCallback, useMemo, type FormEvent } from "react";
-import { Search } from "lucide-react";
+import { Search, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { MAX_KEYWORD_ROWS, composeQ, hasAdvancedSyntax, type TermMode, type TermRow } from "@/shared/utils/advanced-syntax";
 import { Input, Select } from "@/shared/ui";
@@ -53,6 +53,23 @@ export function AdvancedSearchPanel({
 
   // 升级门控弹窗状态：null=关；"advanced"=高级关键词行未授权；"kwlib"=词库未授权
   const [gate, setGate] = useState<null | "advanced" | "kwlib">(null);
+
+  /**
+   * 移动端筛选折叠（<md）：默认只露关键词框 + 「筛选(N)」入口。
+   * 桌面端不受影响（`md:` 前缀强制展开）：390 宽时展开态整块 935px，
+   * 第一条结果要滑 2.4 屏才出现；折叠后首屏即可看到结果。
+   */
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  /** 已生效筛选条件数（仅用于入口角标，提示"折叠着但有条件"） */
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (form.countryInput) n += 1;
+    if (form.fromInput || form.toInput) n += 1;
+    if (form.noticeTypeInput) n += 1;
+    if (form.termRows.some((r) => r.term.trim() !== "")) n += 1;
+    return n;
+  }, [form.countryInput, form.fromInput, form.toInput, form.noticeTypeInput, form.termRows]);
 
   // 关键词行模式切换门控：非"包含"且无 advanced_keyword_search → 弹升级框并回退（不写入状态）
   const handleRowMode = useCallback(
@@ -138,6 +155,8 @@ export function AdvancedSearchPanel({
       return;
     }
     applySearch();
+    // 移动端提交后收起筛选，回到结果列表（桌面端 `md:` 强制展开，不受影响）
+    setFiltersOpen(false);
   }, [advancedSearchEntitled, form.qInput, form.termRows, applySearch]);
 
   // 词组选择：整组替换为包含模式行（走 replace_rows 规避批量 dispatch 时序问题）
@@ -165,8 +184,24 @@ export function AdvancedSearchPanel({
       onSubmit={handleFormSubmit}
       className="space-y-4"
     >
-      {/* 高级搜索标题 */}
-      <h3 className="text-base font-extrabold text-slate-800">{t("procurement_advancedSearchTitle") || "高级搜索"}</h3>
+      {/* 高级搜索标题 + 移动端筛选开关（<md 默认折叠，桌面端始终展开） */}
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-base font-extrabold text-slate-800">{t("procurement_advancedSearchTitle") || "高级搜索"}</h3>
+        <button
+          type="button"
+          data-testid="mobile-filter-toggle"
+          onClick={() => setFiltersOpen((v) => !v)}
+          aria-expanded={filtersOpen}
+          className="md:hidden inline-flex items-center gap-1.5 min-h-11 px-3 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 active:scale-[0.98]"
+        >
+          <SlidersHorizontal className="w-4 h-4 text-slate-500" />
+          {t("procurement_advancedFilter") || "筛选"}
+          {activeFilterCount > 0 && (
+            <span className="rounded-full bg-teal-600 text-white text-2xs px-1.5 py-0.5 leading-none">{activeFilterCount}</span>
+          )}
+          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+        </button>
+      </div>
 
       {/* ══ 行1：关键词 / 国家 / 截止时间 ══ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
@@ -188,7 +223,7 @@ export function AdvancedSearchPanel({
         </div>
 
         {/* 国家 */}
-        <div>
+        <div className={filtersOpen ? "" : "hidden md:block"}>
           <label htmlFor="adv-country" className="block text-xs font-bold text-slate-500 mb-1.5">
             {t("procurement_country") || "国家"}
           </label>
@@ -206,7 +241,7 @@ export function AdvancedSearchPanel({
         </div>
 
         {/* 截止时间 */}
-        <div>
+        <div className={filtersOpen ? "" : "hidden md:block"}>
           <label htmlFor="adv-deadline" className="block text-xs font-bold text-slate-500 mb-1.5">
             {t("procurement_deadline") || "截止时间"}
           </label>
@@ -223,8 +258,8 @@ export function AdvancedSearchPanel({
         </div>
       </div>
 
-      {/* ══ 行2：采购机构 / 采购方式 / 预算金额 ══ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
+      {/* ══ 行2：采购机构 / 采购方式 / 预算金额（移动端随筛选折叠）══ */}
+      <div className={`${filtersOpen ? "grid" : "hidden md:grid"} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end`}>
         {/* 采购方式 */}
         <div>
           <label htmlFor="adv-method" className="block text-xs font-bold text-slate-500 mb-1.5">
@@ -273,8 +308,8 @@ export function AdvancedSearchPanel({
         </div>
       </div>
 
-      {/* ══ 高级关键词行：包含/排除/精确短语（advanced_keyword_search，1299+）══ */}
-      <div>
+      {/* ══ 高级关键词行：包含/排除/精确短语（advanced_keyword_search，1299+；移动端随筛选折叠）══ */}
+      <div className={filtersOpen ? "" : "hidden md:block"}>
         <div className="flex items-center justify-between mb-1.5">
           <label htmlFor="adv-keyword-rows" className="block text-xs font-bold text-slate-500">
             {t("procurement_keywordRows") || "更多关键词"}

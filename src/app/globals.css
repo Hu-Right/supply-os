@@ -362,3 +362,16 @@ input[type="number"] {
     background: #fff;
   }
 }
+/* ── 移动端表单控件基线（2026-11 移动端专项）──
+   1) 字号 16px：iOS Safari 在 input/select/textarea 计算字号 < 16px 时，聚焦会自动放大整页，
+      失焦不还原，用户会卡在放大态。Tailwind 的 text-sm/text-xs 会覆盖元素选择器，
+      故这里必须 !important（仅移动断点生效，桌面不受影响）。
+   2) 最小高度 44px：触摸目标下限，避免窄高控件误触。 */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+}
