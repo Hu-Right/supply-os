@@ -2,13 +2,39 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 140 张，导出 125 张，排除 15 张。
+--           源库共 141 张，导出 124 张，排除 17 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
+
+-- ── account_menu ──
+CREATE TABLE `account_menu` (
+  `account_id` int unsigned NOT NULL COMMENT 'accounts.id',
+  `menu_id` int unsigned NOT NULL COMMENT 'sys_menu.menu_id',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`account_id`,`menu_id`),
+  KEY `idx_account_menu_menu` (`menu_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ── accounts ──
+CREATE TABLE `accounts` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL COMMENT '登录名',
+  `password_hash` varchar(200) NOT NULL,
+  `display_name` varchar(100) NOT NULL COMMENT '显示姓名',
+  `employee_id` int unsigned DEFAULT NULL COMMENT '关联 crm_employees.id',
+  `is_super` tinyint(1) NOT NULL DEFAULT '0' COMMENT '超管：恒有全部权限',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `last_login_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `employee_id` (`employee_id`),
+  CONSTRAINT `fk_cmd_account_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='OS后台用户表';
 
 -- ── api_keys ──
 CREATE TABLE `api_keys` (
@@ -202,6 +228,7 @@ CREATE TABLE `bid_notices` (
   KEY `idx_bid_notices_user_id` (`user_id`),
   KEY `idx_create_time` (`create_time`),
   KEY `idx_bid_notices_converted_opp` (`converted_opp_id`),
+  KEY `idx_bid_notices_active` (`is_active`),
   FULLTEXT KEY `ft_notices_search` (`title`,`reference`,`description`) /*!50100 WITH PARSER `ngram` */ ,
   FULLTEXT KEY `ft_notices_en` (`title`,`reference`),
   FULLTEXT KEY `ft_notices_desc` (`description`)
@@ -374,7 +401,6 @@ CREATE TABLE `channel_partners` (
 CREATE TABLE `chat_agent_presence` (
   `agent_uid` int unsigned NOT NULL,
   `agent_email` varchar(190) NOT NULL DEFAULT '',
-  `dept` varchar(50) NOT NULL DEFAULT 'sales',
   `status` enum('online','busy','away','offline') NOT NULL DEFAULT 'offline',
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`agent_uid`)
@@ -443,24 +469,6 @@ CREATE TABLE `chat_sessions` (
   KEY `idx_status_assigned` (`status`,`assigned_at`),
   KEY `idx_status_agent` (`status`,`agent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ── cmd_accounts ──
-CREATE TABLE `cmd_accounts` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) NOT NULL COMMENT '登录名',
-  `password_hash` varchar(200) NOT NULL,
-  `display_name` varchar(100) NOT NULL COMMENT '显示姓名',
-  `employee_id` int unsigned DEFAULT NULL COMMENT '关联 crm_employees.id',
-  `dept_code` varchar(20) DEFAULT NULL COMMENT '管理部门（非员工账号使用；员工账号实时取 crm_employees.dept_code）',
-  `role_id` int unsigned DEFAULT NULL COMMENT '指定角色（覆盖部门默认角色）',
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
-  `last_login_at` datetime DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `employee_id` (`employee_id`),
-  CONSTRAINT `fk_cmd_account_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='OS后台用户表';
 
 -- ── commodity_backbone ──
 CREATE TABLE `commodity_backbone` (
@@ -621,7 +629,6 @@ CREATE TABLE `employees` (
   `name` varchar(100) NOT NULL COMMENT '员工姓名',
   `employee_no` varchar(50) DEFAULT NULL COMMENT '工号',
   `department` varchar(100) DEFAULT NULL COMMENT '部门',
-  `dept_code` varchar(20) DEFAULT NULL COMMENT '管理部门代码（CMD后台管理）',
   `hire_date` date DEFAULT NULL COMMENT '入职日期',
   `email` varchar(100) DEFAULT NULL COMMENT '邮箱',
   `phone` varchar(20) DEFAULT NULL COMMENT '手机号',
@@ -1632,36 +1639,12 @@ CREATE TABLE `procurement_buyers` (
   `auth_contact_phone` varchar(50) DEFAULT NULL COMMENT '授权联系人电话',
   `auth_contact_email` varchar(200) DEFAULT NULL COMMENT '授权联系人邮箱',
   `submitted_at` int unsigned DEFAULT NULL COMMENT '最后一次进入待核验队列的时间（unix 秒）',
+  `country_code` char(2) DEFAULT NULL COMMENT '注册国家 ISO 3166-1 alpha-2；country 保留名称快照',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_buyer_user` (`user_id`),
   KEY `idx_buyers_status` (`status`),
   KEY `idx_buyers_queue` (`status`,`submitted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购方主体（F01）：身份与采购权限认证，verified 为正式发布前置。2026-11-15 迁移 024 已物理删除表单下线列：org_type/address/deliver_country/deliver_city/fund_source/budget_status/procurement_experience/leader_name/leader_title/leader_phone/leader_email（负责人已并入 auth_contact_*，历史值由 022 回填）';
-
--- ── procurement_invitations ──
-CREATE TABLE `procurement_invitations` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `project_id` int unsigned NOT NULL COMMENT '采购需求 procurement_projects.id',
-  `supplier_id` int unsigned NOT NULL COMMENT '供应商 supplier.id',
-  `version_no` int NOT NULL COMMENT '邀约针对的需求版本号（改稿重发时区分）',
-  `score` int unsigned NOT NULL DEFAULT '0' COMMENT '生成时的匹配分快照（0-100，按可得信号归一）',
-  `reasons` varchar(500) NOT NULL DEFAULT '' COMMENT '命中维度说明，如 品类L3;省份;资料分88;已注册',
-  `channel` varchar(16) NOT NULL COMMENT '触达通道：inapp 站内信 / email 邮件',
-  `recipient_email` varchar(150) DEFAULT NULL COMMENT '邮件通道收件地址（发送时快照）',
-  `recipient_user_id` bigint unsigned DEFAULT NULL COMMENT '站内信收件人 crm_users.id（supplier_claims approved）',
-  `token` char(32) NOT NULL COMMENT '落地页与退订识别令牌（32 位 hex）',
-  `status` varchar(16) NOT NULL DEFAULT 'sent' COMMENT '回执状态：sent/viewed/responded/declined/failed/unsubscribed',
-  `decline_reason` varchar(255) DEFAULT NULL COMMENT '供应商明确不参与的原因（status=declined）',
-  `fail_reason` varchar(255) DEFAULT NULL COMMENT '发送失败原因（status=failed，供重试诊断）',
-  `sent_at` int unsigned NOT NULL COMMENT '发送时间（秒）',
-  `viewed_at` int unsigned DEFAULT NULL COMMENT '供应商打开落地页时间（秒），仅记首次',
-  `responded_at` int unsigned DEFAULT NULL COMMENT '应标/不参与时间（秒）',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_inv_project_supplier_ver` (`project_id`,`supplier_id`,`version_no`),
-  UNIQUE KEY `uq_inv_token` (`token`),
-  KEY `idx_inv_supplier` (`supplier_id`,`sent_at`),
-  KEY `idx_inv_project_status` (`project_id`,`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='发布后邀约与回执：一条需求×一家供应商×一个版本一行，分发闭环的唯一事实源';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购方主体（F01）：身份与采购权限认证，verified 为正式发布前置。';
 
 -- ── procurement_items ──
 CREATE TABLE `procurement_items` (
@@ -1674,7 +1657,6 @@ CREATE TABLE `procurement_items` (
   `spec` text COMMENT '规格/型号/尺寸/材料/功率/技术指标',
   `quantity` decimal(20,4) NOT NULL DEFAULT '0.0000' COMMENT '采购数量',
   `qty_unit` varchar(30) NOT NULL DEFAULT '件' COMMENT '数量单位',
-  `qty_type` varchar(12) NOT NULL DEFAULT 'fixed' COMMENT '确定数量/预估数量：fixed/estimated',
   `ugt_code` varchar(32) DEFAULT NULL COMMENT '品类 UGT 树码（commodity_backbone，L1-L3）',
   `attributes` json DEFAULT NULL COMMENT '关键属性（材料/技术/功能/用途）',
   `alternatives_allowed` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否允许同等/替代产品',
@@ -1696,20 +1678,6 @@ CREATE TABLE `procurement_lots` (
   UNIQUE KEY `uq_lot_project_no` (`project_id`,`lot_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='标包：一项目可拆多标包（家具/电子白板分别采购）';
 
--- ── procurement_matches ──
-CREATE TABLE `procurement_matches` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `project_id` int unsigned NOT NULL COMMENT '关联 procurement_projects.id',
-  `supplier_id` int unsigned NOT NULL COMMENT '供应商 supplier.id',
-  `score` int unsigned NOT NULL DEFAULT '0' COMMENT '规则匹配得分（MVP：行业 L1 基础分+省份加分；评分模型 P3）',
-  `reasons` varchar(500) NOT NULL DEFAULT '' COMMENT '命中维度说明（行业/省份）',
-  `status` varchar(16) NOT NULL DEFAULT 'recommended' COMMENT 'recommended/invited',
-  `created_at` int unsigned NOT NULL COMMENT '生成时间（秒）',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_match_project_supplier` (`project_id`,`supplier_id`),
-  KEY `idx_match_project` (`project_id`,`score`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='发布即匹配候选名单（规则版）：发布成功后生成，采购方工作台消费';
-
 -- ── procurement_projects ──
 CREATE TABLE `procurement_projects` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -1727,7 +1695,6 @@ CREATE TABLE `procurement_projects` (
   `budget_amount` decimal(20,2) DEFAULT NULL COMMENT '预算金额（元）',
   `budget_currency` varchar(10) NOT NULL DEFAULT 'CNY' COMMENT '币种',
   `budget_public` tinyint(1) NOT NULL DEFAULT '0' COMMENT '预算是否可向供应商公开',
-  `budget_approved` varchar(20) DEFAULT NULL COMMENT '预算批准：approved/partial/pending/applying',
   `delivery_country` varchar(80) DEFAULT NULL COMMENT '交付国家',
   `delivery_city` varchar(120) DEFAULT NULL COMMENT '交付城市',
   `delivery_address` varchar(500) DEFAULT NULL COMMENT '交付地点',
@@ -1737,8 +1704,6 @@ CREATE TABLE `procurement_projects` (
   `incoterm` varchar(20) DEFAULT NULL COMMENT '贸易术语（EXW/FOB/CIF/DDP 等）',
   `payment_terms` varchar(500) DEFAULT NULL COMMENT '付款方式与节点',
   `guarantees` varchar(120) DEFAULT NULL COMMENT '保函要求（逗号）：bid_bond/performance_bond/warranty_deposit',
-  `supplier_country_limit` varchar(500) DEFAULT NULL COMMENT '限定供应商国家/地区（逗号，空=不限）',
-  `manufacturer_only` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否要求制造商直接参与',
   `supplier_quals` text COMMENT '出口资质/行业认证/业绩要求',
   `quote_deadline_at` int unsigned DEFAULT NULL COMMENT '最晚收报价/投标文件时间（秒）',
   `supplier_confirm_date` date DEFAULT NULL COMMENT '预计确定供应商日期',
@@ -1755,10 +1720,14 @@ CREATE TABLE `procurement_projects` (
   `updated_at` int unsigned NOT NULL COMMENT '更新时间（秒）',
   `notice_pk` bigint unsigned DEFAULT NULL COMMENT '搜索投影行 bid_notices.id；发布时写入，撤回/到期置 NULL',
   `usage_env` text COMMENT '产品主要用途及使用环境（F02 需求对象）',
-  `standards` text COMMENT '强制性标准/认证要求（F02 技术要求）',
   `incoterm_version` varchar(20) DEFAULT NULL COMMENT 'Incoterms 版本（如 2020/2010）',
   `batch_delivery` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否分批采购/分批交付（F02 数量要求）',
   `batch_note` varchar(500) DEFAULT NULL COMMENT '分批说明（批次/频次/每批数量）',
+  `cert_requirements` json DEFAULT NULL COMMENT '认证要求（F02）：[{code,name,custom,mandatory,note,requireValid}]，未收录项 custom=true 自输入',
+  `delivery_country_code` char(2) DEFAULT NULL COMMENT '交付国家 ISO 3166-1 alpha-2；delivery_country 保留名称快照',
+  `incoterm_place` varchar(120) DEFAULT NULL COMMENT 'Incoterms 指定地点/港口（如 Shanghai / 上海港）；与 incoterm + version 配套',
+  `guarantee_config` json DEFAULT NULL COMMENT '保函/质保金要求：[{type,otherName,form,basis,value,note}]；guarantees 保留类型列表',
+  `supplier_type` varchar(24) NOT NULL DEFAULT 'any' COMMENT '供应商类型：any / manufacturer_or_agent / manufacturer_only',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_project_reference` (`reference`),
   KEY `idx_proj_buyer` (`buyer_id`,`status`),
@@ -1808,7 +1777,6 @@ CREATE TABLE `procurement_tenders` (
   `published_at` int unsigned NOT NULL COMMENT '发布时间（秒）',
   `deadline_at` int unsigned DEFAULT NULL COMMENT '截标时间（秒）',
   `deadline_tz` varchar(40) NOT NULL DEFAULT 'Asia/Shanghai' COMMENT '截标时区',
-  `document_manifest` json DEFAULT NULL COMMENT '公开文件清单（文件名+哈希+版本）',
   `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_tender_no` (`tender_no`),
@@ -1872,10 +1840,6 @@ CREATE TABLE `reco_outreach_items` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `batch_no` varchar(64) NOT NULL,
   `supplier_id` bigint NOT NULL,
-  `company_name` varchar(255) NOT NULL DEFAULT '',
-  `salutation` varchar(128) NOT NULL DEFAULT '',
-  `email` varchar(255) NOT NULL DEFAULT '',
-  `phone` varchar(128) NOT NULL DEFAULT '',
   `reco_id` bigint DEFAULT NULL,
   `reco_family` varchar(64) DEFAULT NULL,
   `reco_opp_id` bigint DEFAULT NULL,
@@ -1904,10 +1868,7 @@ CREATE TABLE `reco_supplier_opportunity` (
   `match_basis_code` varchar(32) DEFAULT NULL,
   `match_basis_level` tinyint unsigned NOT NULL DEFAULT '0',
   `match_basis_name` varchar(255) DEFAULT NULL,
-  `match_path_text` varchar(1000) DEFAULT NULL,
   `matched_codes` json DEFAULT NULL COMMENT '匹配证据=供应商码∩商单码，[{code,word,conf,src,sup_words}]',
-  `code_hit_l5` smallint unsigned NOT NULL DEFAULT '0',
-  `best_supplier_conf` decimal(4,2) DEFAULT NULL,
   `keyword_hits` varchar(500) DEFAULT NULL,
   `reasons_json` text,
   `barrier_flags` varchar(200) DEFAULT NULL,
@@ -1919,12 +1880,8 @@ CREATE TABLE `reco_supplier_opportunity` (
   `batch_no` varchar(32) NOT NULL DEFAULT '',
   `algo_version` varchar(32) NOT NULL DEFAULT 'v1',
   `evidence_snapshot` json DEFAULT NULL,
-  `opportunity_title` varchar(500) DEFAULT NULL,
-  `supplier_company` varchar(200) DEFAULT NULL,
   `is_expired` tinyint NOT NULL DEFAULT '0',
-  `tenant_id` bigint NOT NULL DEFAULT '1',
   `last_generated_at` datetime DEFAULT NULL,
-  `pushed_at` datetime DEFAULT NULL,
   `sales_feedback` varchar(20) DEFAULT NULL COMMENT 'relevant/irrelevant/wrong_contact/expired（后台看板写，导出不覆盖）',
   `feedback_at` datetime DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -2086,23 +2043,25 @@ CREATE TABLE `supplier` (
   `certification` varchar(500) DEFAULT NULL,
   `products` varchar(500) DEFAULT '' COMMENT '主营产品',
   `addtime` int NOT NULL DEFAULT '0' COMMENT '添加时间戳',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最近更新时间（任意行更新自动刷新）',
   `legal_rep` varchar(50) DEFAULT NULL,
-  `intro` text,
   `established_at` date DEFAULT NULL COMMENT '成立日期',
   `registered_capital` decimal(16,2) DEFAULT NULL COMMENT '注册资本',
   `credit_code` varchar(30) DEFAULT NULL,
-  `verify_status` varchar(20) DEFAULT NULL COMMENT 'NULL待处理/processing认领中/done完成',
+  `verify_status` varchar(20) NOT NULL DEFAULT 'unverified' COMMENT 'unverified=未认证/done=已认证（2026-11 两态；认证只由认领通过写入）',
+  `info_review_status` varchar(20) NOT NULL DEFAULT 'unreviewed' COMMENT 'unreviewed=未审核/reviewed=已审核（信息完整度/真实性人工审核；门户展示门槛）',
   `license_url` varchar(500) DEFAULT NULL COMMENT '营业执照图片URL',
   `certification_tags` json DEFAULT NULL COMMENT '认证规范标签数组：certification 文本解析派生，如 ["ISO9001","CE"]',
-  `data_quality_score` decimal(5,2) GENERATED ALWAYS AS (round((((((((((((((((((((`country` is not null) and (trim(`country`) <> _utf8mb4'')) + ((`province` is not null) and (trim(`province`) <> _utf8mb4''))) + ((`city` is not null) and (trim(`city`) <> _utf8mb4''))) + ((`address` is not null) and (trim(`address`) <> _utf8mb4''))) + ((`contact` is not null) and (trim(`contact`) <> _utf8mb4''))) + ((`position` is not null) and (trim(`position`) <> _utf8mb4''))) + ((`phone` is not null) and (trim(`phone`) <> _utf8mb4''))) + ((`email` is not null) and (trim(`email`) <> _utf8mb4''))) + ((`website` is not null) and (trim(`website`) <> _utf8mb4''))) + ((`industry_code` is not null) and (trim(`industry_code`) <> _utf8mb4''))) + ((`products` is not null) and (trim(`products`) <> _utf8mb4''))) + ((`certification` is not null) and (trim(`certification`) <> _utf8mb4''))) + ((`established_at` is not null) and (trim(`established_at`) <> _utf8mb4''))) + ((`registered_capital` is not null) and (trim(`registered_capital`) <> _utf8mb4''))) + ((`credit_code` is not null) and (trim(`credit_code`) <> _utf8mb4''))) + ((`legal_rep` is not null) and (trim(`legal_rep`) <> _utf8mb4''))) + ((`intro` is not null) and (trim(`intro`) <> _utf8mb4''))) * 5.0),2)) STORED NOT NULL COMMENT '资料完整度评分（17 项 ×5，满分 85）',
+  `data_quality_score` decimal(5,2) GENERATED ALWAYS AS (round(((((((((((((((((((`country` is not null) and (trim(`country`) <> _utf8mb4'')) + ((`province` is not null) and (trim(`province`) <> _utf8mb4''))) + ((`city` is not null) and (trim(`city`) <> _utf8mb4''))) + ((`address` is not null) and (trim(`address`) <> _utf8mb4''))) + ((`contact` is not null) and (trim(`contact`) <> _utf8mb4''))) + ((`position` is not null) and (trim(`position`) <> _utf8mb4''))) + ((`phone` is not null) and (trim(`phone`) <> _utf8mb4''))) + ((`email` is not null) and (trim(`email`) <> _utf8mb4''))) + ((`website` is not null) and (trim(`website`) <> _utf8mb4''))) + ((`industry_code` is not null) and (trim(`industry_code`) <> _utf8mb4''))) + ((`products` is not null) and (trim(`products`) <> _utf8mb4''))) + ((`certification` is not null) and (trim(`certification`) <> _utf8mb4''))) + ((`established_at` is not null) and (trim(`established_at`) <> _utf8mb4''))) + ((`registered_capital` is not null) and (trim(`registered_capital`) <> _utf8mb4''))) + ((`credit_code` is not null) and (trim(`credit_code`) <> _utf8mb4''))) + ((`legal_rep` is not null) and (trim(`legal_rep`) <> _utf8mb4''))) * 5.0),2)) STORED NOT NULL COMMENT '资料完整度评分（16 项 ×5，满分 80）',
   PRIMARY KEY (`id`),
   KEY `idx_verify_status` (`verify_status`,`id`),
   KEY `idx_credit_code` (`credit_code`),
   KEY `idx_company` (`company`(64)),
   KEY `idx_supplier_country` (`country`),
   KEY `idx_supplier_company` (`company`),
+  KEY `idx_supplier_info_review` (`info_review_status`),
   FULLTEXT KEY `ft_supplier_products` (`products`) /*!50100 WITH PARSER `ngram` */ 
-) ENGINE=InnoDB AUTO_INCREMENT=102626 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商管理';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商管理';
 
 -- ── supplier_backbone_interests ──
 CREATE TABLE `supplier_backbone_interests` (
@@ -2172,6 +2131,23 @@ CREATE TABLE `supplier_claims` (
   KEY `idx_status_expires` (`status`,`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商认领表。';
 
+-- ── supplier_code_audit ──
+CREATE TABLE `supplier_code_audit` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `supplier_id` bigint unsigned NOT NULL,
+  `code_kind` varchar(16) NOT NULL,
+  `old_code` varchar(255) DEFAULT NULL,
+  `new_code` varchar(255) DEFAULT NULL,
+  `source` varchar(32) NOT NULL,
+  `evidence_url` varchar(500) DEFAULT NULL,
+  `confidence` tinyint unsigned DEFAULT NULL,
+  `note` varchar(500) DEFAULT NULL,
+  `status` varchar(16) NOT NULL DEFAULT 'verified',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_sup` (`supplier_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商行业码/品目码修正审计';
+
 -- ── supplier_diagnosis ──
 CREATE TABLE `supplier_diagnosis` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -2212,6 +2188,14 @@ CREATE TABLE `supplier_diagnosis` (
   KEY `idx_submitted` (`submitted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商投标能力诊断表';
 
+-- ── supplier_id_map ──
+CREATE TABLE `supplier_id_map` (
+  `old_id` int unsigned NOT NULL,
+  `new_id` int unsigned NOT NULL,
+  PRIMARY KEY (`old_id`),
+  UNIQUE KEY `new_id` (`new_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- ── supplier_industry_rel ──
 CREATE TABLE `supplier_industry_rel` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -2240,7 +2224,6 @@ CREATE TABLE `sys_audit_logs` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `operator_id` bigint unsigned NOT NULL COMMENT '操作人ID',
   `operator_name` varchar(100) NOT NULL COMMENT '操作人姓名',
-  `dept_code` varchar(50) NOT NULL COMMENT '所属部门代码',
   `ip` varchar(45) NOT NULL COMMENT '客户端IP',
   `action_type` varchar(50) NOT NULL COMMENT '操作类型',
   `resource_type` varchar(50) NOT NULL COMMENT '资源类型',
@@ -2286,32 +2269,6 @@ CREATE TABLE `sys_migration` (
   `name` varchar(60) NOT NULL,
   `applied_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ── sys_role ──
-CREATE TABLE `sys_role` (
-  `role_id` int unsigned NOT NULL AUTO_INCREMENT,
-  `role_key` varchar(30) NOT NULL COMMENT '内置角色=部门代码；自定义角色自拟',
-  `role_name` varchar(60) NOT NULL,
-  `remark` varchar(200) DEFAULT NULL,
-  `built_in` tinyint(1) NOT NULL DEFAULT '0' COMMENT '内置部门角色不可删除',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `description` varchar(255) DEFAULT NULL COMMENT '描述',
-  `sort` int NOT NULL DEFAULT '0' COMMENT '排序',
-  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态',
-  `deleted` tinyint NOT NULL DEFAULT '0' COMMENT '逻辑删除',
-  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `create_by` bigint DEFAULT NULL COMMENT '创建人',
-  `update_by` bigint DEFAULT NULL COMMENT '更新人',
-  PRIMARY KEY (`role_id`),
-  UNIQUE KEY `role_key` (`role_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ── sys_role_menu ──
-CREATE TABLE `sys_role_menu` (
-  `role_id` int unsigned NOT NULL,
-  `menu_id` int unsigned NOT NULL,
-  PRIMARY KEY (`role_id`,`menu_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── system ──
