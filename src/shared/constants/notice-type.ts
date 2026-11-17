@@ -56,6 +56,11 @@ const SHORT_CODES: Record<string, string> = {
   // 法语原生采购类型（UNGM / AfDB / 北非与西非公共采购的主流形态）：
   // Appel d'offres 系列均为一场招标，归 ITB；AO 与 AOI 只差“国际”限定，同类。
   AO: "ITB", AOI: "ITB", AOD: "ITB", AOM: "ITB",
+  // 荷兰 TenderNed / 新西兰 GETS / 欧盟 eForms 的短码
+  CAN: "AWARD",
+  ROI: "EOI", ITR: "EOI", ITP: "EOI",
+  "EFORMS-18": "CONTRACT_NOTICE",
+  "EFORMS-23": "DESIGN_CONTEST",
 };
 
 // 子串规则按优先级排列（数组顺序即判定顺序：具体类型先于通用类型）。
@@ -70,8 +75,8 @@ const SHORT_CODES: Record<string, string> = {
 //  - pin 先于 solicitation/tenders（presolicitation 属事前通知）
 //  - ITB 的 solicitation 规则须在 SERVICES/SUPPLIES/WORKS 之前
 const STD_PATTERN_RULES: Array<[NoticeTypeStdCode, RegExp]> = [
-  ["EOI", /expression of interest|express of interest|意向表达|意向征集|兴趣征询|\beoi\b|manifestation\s+dinteret/i],
-  ["RFQ", /quotation|\bquote\b|price comparison|报价|询价|demande\s+de\s+cotation|demande\s+de\s+prix/i],
+  ["EOI", /expression of interest|express of interest|registration of interest|invitation to register|invitation to participate|call for implementing partners|意向表达|意向征集|兴趣征询|\beoi\b|manifestation\s+dinteret/i],
+  ["RFQ", /quotation|\bquote\b|price comparison|报价|询价|公開取得報價單|公開取得電子報價單|demande\s+de\s+cotation|demande\s+de\s+prix/i],
   ["RFP", /\brfp\b|proposal|提案|建议书|demande\s+de\s+propositions/i],
   ["PQ", /pre[\s-]?qualif|qualification|invitation to qualify|资格预审/i],
   ["IC", /consultant|merit competition|\bindividual\b|\bfirm\b|顾问/i],
@@ -81,7 +86,7 @@ const STD_PATTERN_RULES: Array<[NoticeTypeStdCode, RegExp]> = [
   ["AWARD", /contract award|award notice|授标|中标|attribution\s+du\s+marche|avis\s+dattribution/i],
   // presolicitation（招标预告）语义属事前信息通知，须在 solicitation 规则前
   ["PIN", /prior information notice|presolicitation|\bpin\b|notice of intent|\bnoi\b|advance notice|agreement intention notice|intent to bundle|voluntary ex ante transparency|special notice|事前信息通知|预先信息通知/i],
-  ["PMC", /preliminary market consultation|\bpmc\b|初步市场咨询|事前市场咨询/i],
+  ["PMC", /preliminary market consultation|preliminary market engagement|prior market survey|\bpmc\b|初步市场咨询|事前市场咨询/i],
   // 多用途清单 / 合格供应商名单（须在 competitive 之前）
   ["MULTI_USE_LIST", /multi[\s-]?use list|qualified supplier|vendor list|供应商名单|多用途清单/i],
   // 竞争性对话（EU Competitive Dialogue）— 须在 competitive 之前
@@ -90,34 +95,36 @@ const STD_PATTERN_RULES: Array<[NoticeTypeStdCode, RegExp]> = [
   ["DPS", /dynamic purchasing system|\bdps\b|动态采购系统/i],
   ["DESIGN_CONTEST", /design contest|design competition|设计竞赛|设计比赛/i],
   ["INNOVATION", /innovation partnership|innovation|创新合作伙伴|创新伙伴关系/i],
-  ["RESTRICTED", /restricted procedure|restricted|限制性程序|限制程序/i],
+  // 合格厂商名单须先于「选择性招标」；否则会被 RESTRICTED 截胡
+  ["QUAL_SYSTEM", /建立合格廠商名單|合格廠商名單/i],
+  ["RESTRICTED", /restricted procedure|restricted|closed invitation|invitation to at least three suppliers|invitacion a cuando menos tres personas|限制性程序|限制程序|限制性招標|選擇性招標/i],
   // 特别/例外程序（EU/西语特别体制：Special regime contracting / Exceptional procedure / Régimen especial）
-  ["SPECIAL_REGIME", /special regime|exceptional procedure|regimen especial|regime special|procedimiento excepcional|administrativo especial|contratacion especial/i],
+  ["SPECIAL_REGIME", /special regime|special procedure|specially permitted method|exceptional procedure|regimen especial|regime special|procedimiento excepcional|administrativo especial|contratacion especial/i],
   ["NEGOTIATED", /negotiated procedure|negotiated|谈判程序|谈判采购/i],
   ["THRESHOLD", /\bthreshold\b|threshold procedures|门槛程序|阈值程序/i],
   // 分包通知（Subcontract Notice）— 须在 contract_notice 之前
-  ["SUBCONTRACT", /subcontract|sub-contract|分包通知|分包公告/i],
-  ["CONTRACT_NOTICE", /contract notice|avis\s+de\s+marche|合同通知|合同公告/i],
+  ["SUBCONTRACT", /subcontract|sub-contract|sub\s*contract|分包通知|分包公告/i],
+  ["CONTRACT_NOTICE", /contract notice|contract performance notice|concession award procedure|concession\s*notice|avis\s+de\s+marche|合同通知|合同公告/i],
   // ── B 轮新增（现网高频、语义独立的采购/通知形态）──
   // 更正/变更通知（非采购程序、而是公告生命周期，与 AWARD/PIN 同为 notice 阶段，纳入完备性）
-  ["AMENDMENT", /announcement amendment|modification notice|corrigendum|agreement update notice|amendment notice/i],
+  ["AMENDMENT", /announcement amendment|modification notice|corrigendum|agreement update notice|amendment notice|cancellation notice|contract termination/i],
   // 竞价/拍卖（含电子反向拍卖）
   ["AUCTION", /reverse auction|\bauction\b|竞价|拍卖/i],
   // 小额/简易采购（最低价采购、最小价值采购、micro purchase）
   ["LOW_VALUE", /lowest value|minimum value|micro purchase|小额采购|最低价/i],
   // 西语公共资产类合同（patrimonio / demanial：租出、处置、公用物特许）—— 非典型采购合同，单列避免误挂
-  ["PATRIMONIAL", /patrimonial|demanial/i],
+  ["PATRIMONIAL", /patrimonial|demanial|disposal of assets/i],
   ["QUAL_SYSTEM", /qualification system|资格系统/i],
   ["SHORTLIST", /shortlist|short list|短名单/i],
   // 框架协议（Framework Agreement）— 须在 request 之前
-  ["FRAMEWORK", /framework agreement|framework|standing offer|框架协议/i],
-  ["DIRECT_CONTRACTING", /direct contract|directed contract|direct procurement|sole source|single source|直接合同|直接采购/i],
+  ["FRAMEWORK", /framework agreement|framework|standing offer|acuerdo marco|transversal contract|框架协议/i],
+  ["DIRECT_CONTRACTING", /direct contract|directed contract|direct procurement|sole source|single source|adjudicacion directa|直接合同|直接采购/i],
   // 通用采购请求（request for... 排除已匹配的 RFI）
   ["REQUEST", /request for(?! information| bid| tender| quote)|征询请求|采购请求/i],
   // Non-Competitive 显式归 OTHER（须在 competitive 规则之前）
   ["OTHER", /non[\s-]?competitive/i],
   // 竞争性公开招标（EU/国际公共采购常见类型）
-  ["COMPETITIVE", /\bcompetitive\b|open bidding|竞争性|公开招标/i],
+  ["COMPETITIVE", /\bcompetitive\b|open bidding|open competition|simplified procedure|竞争性|公开招标/i],
   // solicitation（美国 SAM 招标书）归入 ITB
   ["ITB", /solicitation/i],
   // EU 三大合同分类：西语源数据的主分类（Servicios 先于 Suministros：
@@ -127,7 +134,7 @@ const STD_PATTERN_RULES: Array<[NoticeTypeStdCode, RegExp]> = [
   ["WORKS", /\bobra|construcci|\bworks\b/i],
   // ITB 放在较后位置：tenders?|bids? 在 framework/request 之后
   // 法语「Appel d'offres / Avis d'appel」系同为招标，归同一桶
-  ["ITB", /\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|open procedure|two\s+stage\s+tender|招标|投标|appels?\s+doffres|avis\s+dappel/i],
+  ["ITB", /\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|open procedure|open invitation|two\s+stage\s+tender|licitacion publica|procurement notice|sita contract|公開招標|招标|投标|appels?\s+doffres|avis\s+dappel/i],
 ];
 
 /**

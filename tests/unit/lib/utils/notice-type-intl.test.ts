@@ -247,3 +247,44 @@ describe("特别/例外程序 → SPECIAL_REGIME（A 轮提质：把 OTHER 里�
     expect(normalizeNoticeType("Restricted procedure")).toBe("RESTRICTED");
   });
 });
+
+describe("源平台长尾采购类型补充覆盖", () => {
+  it.each([
+    ["CAN", "AWARD"],
+    ["ROI", "EOI"],
+    ["ITR", "EOI"],
+    ["ITP", "EOI"],
+    ["Open invitation", "ITB"],
+    ["公開招標", "ITB"],
+    ["LICITACIÓN PÚBLICA", "ITB"],
+    ["Invitation to at least three suppliers", "RESTRICTED"],
+    ["INVITACIÓN A CUANDO MENOS TRES PERSONAS", "RESTRICTED"],
+    ["經公開評選或公開徵求之限制性招標", "RESTRICTED"],
+    ["選擇性招標(個案)", "RESTRICTED"],
+    ["選擇性招標(建立合格廠商名單)", "QUAL_SYSTEM"],
+    ["公開取得報價單或企劃書", "RFQ"],
+    ["公開取得電子報價單", "RFQ"],
+    ["ADJUDICACIÓN DIRECTA", "DIRECT_CONTRACTING"],
+    ["Contract Performance Notice", "CONTRACT_NOTICE"],
+    ["CONTRATO ESPECÍFICO DERIVADO DE ACUERDO MARCO", "FRAMEWORK"],
+    ["Transversal contract", "FRAMEWORK"],
+    ["eforms-18", "CONTRACT_NOTICE"],
+    ["eforms-23", "DESIGN_CONTEST"],
+    ["Simplified procedure", "COMPETITIVE"],
+    ["Open competition", "COMPETITIVE"],
+    ["Prior market survey", "PMC"],
+    ["Preliminary Market Engagement Notice", "PMC"],
+    ["sub_contract_opportunity", "SUBCONTRACT"],
+    ["Cancellation Notice", "AMENDMENT"],
+    ["Contract Termination", "AMENDMENT"],
+    ["Special procedure", "SPECIAL_REGIME"],
+    ["Specially Permitted Method", "SPECIAL_REGIME"],
+    ["Closed invitation", "RESTRICTED"],
+    ["ConcessionNotice", "CONTRACT_NOTICE"],
+    ["Disposal of assets", "PATRIMONIAL"],
+    ["SITA contract", "ITB"],
+    ["Call for implementing partners", "EOI"],
+  ])("归一 %s → %s", (raw, expected) => {
+    expect(normalizeNoticeType(raw)).toBe(expected);
+  });
+});
