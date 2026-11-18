@@ -67,7 +67,7 @@ for (const [code, list] of samples) console.log(`  [${code}] 样例：${list.joi
 const changed = rows.filter((r) => String(r.curr) !== plan.get(Number(r.id)));
 console.log(`需要变更：${changed.length} 条（当前已正确的 ${rows.length - changed.length} 条）`);
 
-if (!APPLY && !SYNC_ONLY) {
+if (!APPLY && !SYNC_ONLY && !WIDE_ONLY) {
   console.log("DRY 模式：未写库。加 --apply 执行重建，或 --sync-only 只补 Meili。");
   await pool.end();
   process.exit(0);
