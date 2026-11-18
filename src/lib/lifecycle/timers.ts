@@ -13,6 +13,7 @@ import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisea
 import { syncWideIds } from "../services/search-sync/index";
 import { classifyMissingDeadlines } from "../services/notice-deadline/backfill";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
+import { cleanupOldSearchLogs } from "../services/search-analytics";
 import { reconcileRfqGuard } from "../services/rfq-guard";
 import { expireDueTenders } from "../services/procurement/tender";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
@@ -108,6 +109,12 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       try {
         await cleanupStaleNoticeData(dbPool, "translations", { includeExpired });
         await cleanupStaleNoticeData(dbPool, "wide", { includeExpired });
+        // 检索日志保留期（默认 90 天，SEARCH_LOG_RETENTION_DAYS 可配）：
+        // 匿名访客哈希 + 归一化词只用于首页热门搜索聚合，过期即删，避免无上限留存。
+        const deletedLogs = await cleanupOldSearchLogs(dbPool);
+        if (deletedLogs > 0) {
+          console.log(`[data-cleanup-timer] 已清理 ${deletedLogs} 条过期检索日志`);
+        }
       } catch (e) {
         console.error("[data-cleanup-timer] 扫描失败（不影响下次扫描）:", (e as Error).message);
       }

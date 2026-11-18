@@ -81,6 +81,9 @@ export default defineConfig({
         "src/lib/services/notice-search/cache.ts",
         "src/lib/services/notice-search/stats.ts",
 
+        // ── src/lib/services/search-analytics — 真实热门搜索纯口径（2026-11-18）──
+        "src/lib/services/search-analytics/hot-search-core.ts",
+
         // ── src/lib/services/ai-summary — AI 拆标摘要纯逻辑子模块 ──
         "src/lib/services/ai-summary/crypto.ts",
         "src/lib/services/ai-summary/llm-client.ts",

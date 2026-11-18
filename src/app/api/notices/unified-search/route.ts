@@ -15,9 +15,27 @@ import { withRoute } from "@/lib/middleware/route-handler";
 import { getContext } from "@/lib/db/context";
 import { resolveAdvancedQuery, hasAdvancedSyntax } from "@/shared/utils/advanced-syntax";
 import { resolveIndustryScope } from "@/lib/services/industry-scope";
+import {
+  excludedSearchUserIds,
+  isBotUserAgent,
+  normalizeSearchTerm,
+  visitorHash,
+} from "@/lib/services/search-analytics";
 
 /** 日期形参须长这样才入库 filters（与旧 Express 版 /api/notices/search 同规则） */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}/;
+
+/** 匿名访客哈希盐：生产应在 .env 配随机值；缺失时回退开发常量并告警一次 */
+let warnedMissingSalt = false;
+function searchLogSalt(): string {
+  const salt = String(process.env.SEARCH_LOG_HASH_SALT ?? "").trim();
+  if (salt) return salt;
+  if (!warnedMissingSalt) {
+    warnedMissingSalt = true;
+    console.warn("[search-log] 未配置 SEARCH_LOG_HASH_SALT，匿名访客哈希回退开发常量（生产应配置随机盐）");
+  }
+  return "supply-os-dev-search-salt";
+}
 
 function parseSearchParams(req: NextRequest): RawSearchParams {
   const sp = req.nextUrl.searchParams;
@@ -85,14 +103,23 @@ export const GET = withRoute(async (req: NextRequest) => {
   const pool = getPool();
   const result = await searchUnified(pool, params);
 
-  // 搜索行为日志（2026-09-30 影子新表，仅登录用户，user_id NOT NULL）：带条件的检索入库，
-  // 推荐/空载不计；记录的是实际执行的 q（高级语法剥离后）。fire-and-forget，失败静默不阻塞响应
+  // 检索行为日志（2026-11-18 起匿名也记；首页「真实热门搜索」的聚合来源）：
+  //   - 登录用户：保留原文 q，以 user_id 作为访客键；
+  //   - 匿名：不落原文（隐私最小化），只落归一化词 q_norm + 访客哈希
+  //     sha256(日盐|IP|UA)（不存原始 IP，跨日不可关联）；
+  //   - bot/脚本、排除名单用户、纯浏览（无任何条件）不落库；
+  //   - fire-and-forget，失败静默不阻塞响应。
   const hasSearch = Boolean(
     params.q || params.country || params.agency ||
     DATE_RE.test(params.deadlineFrom ?? "") || DATE_RE.test(params.deadlineTo ?? "") ||
     params.deadlineWithinDays || params.noticeType || params.featuredOnly,
   );
-  if (auth.userId && hasSearch) {
+  const logEnabled = String(process.env.SEARCH_LOG_ENABLED ?? "on").toLowerCase() !== "off";
+  const logUserId = auth.userId || null;
+  const userExcluded = logUserId !== null && excludedSearchUserIds().includes(logUserId);
+  if (logEnabled && hasSearch && !userExcluded) {
+    const userAgent = req.headers.get("user-agent") ?? "";
+    const isBot = isBotUserAgent(userAgent);
     const filters = JSON.stringify({
       mode: params.mode,
       page: params.page != null && params.page > 1 ? params.page : undefined,
@@ -114,7 +141,20 @@ export const GET = withRoute(async (req: NextRequest) => {
       variant: result.variant || undefined,
     });
     void ctx.notice.feedbackRepo
-      .logSearch(auth.userId, params.q || null, params.country || null, filters, result.total)
+      .logSearch({
+        userId: logUserId,
+        q: logUserId !== null ? (params.q || null) : null,
+        qNorm: normalizeSearchTerm(params.q),
+        country: params.country || null,
+        filters,
+        resultCnt: result.total,
+        visitorHash: logUserId === null && !isBot
+          ? visitorHash(extractClientIp(req), userAgent, searchLogSalt())
+          : null,
+        locale: params.locale || null,
+        source: "unified-search",
+        isBot,
+      })
       .catch(() => undefined);
   }
 

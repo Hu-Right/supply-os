@@ -15,6 +15,25 @@ export interface RecoFeedbackItem {
   dwellMs: number | null;
 }
 
+/** 一次检索日志（匿名/登录统一结构；首页真实热门搜索的聚合来源） */
+export interface SearchLogEntry {
+  /** 登录用户 id；匿名检索为 null（按 visitorHash 去重） */
+  userId: number | null;
+  /** 原始检索词：登录用户保留原文；匿名不落原文（隐私最小化），只落 qNorm */
+  q: string | null;
+  /** 归一化检索词（热门聚合键） */
+  qNorm: string | null;
+  country: string | null;
+  filters: string;
+  resultCnt: number;
+  /** 匿名访客哈希（sha256(日盐|IP|UA)），不存原始 IP */
+  visitorHash: string | null;
+  locale: string | null;
+  source: string | null;
+  /** 疑似爬虫/脚本：计入日志但不进热门聚合 */
+  isBot: boolean;
+}
+
 export class NoticeFeedbackRepo {
   constructor(private pool: Pool) {}
 
@@ -31,11 +50,16 @@ export class NoticeFeedbackRepo {
     return Number((insertResult as RowDataPacket)?.affectedRows || 0);
   }
 
-  /** 记录用户搜索日志（fire-and-forget，失败静默）。表 user_id 为 NOT NULL：匿名检索由调用方跳过，不落库 */
-  async logSearch(userId: number, q: string | null, country: string | null, filters: string, resultCnt: number): Promise<void> {
+  /** 记录检索日志（fire-and-forget，失败静默）。匿名检索也记录，但只落访客哈希与归一化词 */
+  async logSearch(entry: SearchLogEntry): Promise<void> {
     await this.pool.execute(
-      "INSERT INTO user_search_log (user_id, q, country, filters, result_cnt) VALUES (?, ?, ?, ?, ?)",
-      [userId, q, country, filters, resultCnt],
+      `INSERT INTO user_search_log
+         (user_id, q, q_norm, country, filters, result_cnt, visitor_hash, locale, source, is_bot)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        entry.userId, entry.q, entry.qNorm, entry.country, entry.filters, entry.resultCnt,
+        entry.visitorHash, entry.locale, entry.source, entry.isBot ? 1 : 0,
+      ],
     );
   }
 }
