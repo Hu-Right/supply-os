@@ -69,7 +69,7 @@ if (!fs.existsSync(SPEC)) {
 }
 const specText = fs.existsSync(SPEC) ? fs.readFileSync(SPEC, "utf8") : "";
 const covered = new Set();
-const caseRe = /\{\s*method:\s*"(GET|POST|PUT|PATCH|DELETE)",\s*path:\s*"[^"]*",\s*auth:\s*"(?:member|none|free)",\s*expect:\s*\[[^\]]*\],\s*src:\s*"([^"]+)"\s*\}/g;
+const caseRe = /\{\s*method:\s*"(GET|POST|PUT|PATCH|DELETE)",\s*path:\s*"[^"]*",\s*auth:\s*"(?:member|none|free)",\s*status:\s*\d+,\s*bodyType:\s*"[a-z]+",\s*src:\s*"([^"]+)"\s*\}/g;
 let caseMatch;
 while ((caseMatch = caseRe.exec(specText)) !== null) {
   covered.add(`${caseMatch[1]} ${caseMatch[2]}`);
