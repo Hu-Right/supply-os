@@ -11,11 +11,11 @@
  */
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import "./globals.css";
+import "../globals.css";
 import { getLocaleDir } from "@/core/i18n/bundles";
 import { BROWSER_TITLE, BROWSER_TITLE_TEMPLATE } from "@/lib/i18n/metadata";
 import { SITE_URL, absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
-import Providers from "./providers";
+import Providers from "../providers";
 
 export const metadata: Metadata = {
   // openGraph / twitter 里的相对路径图片靠它解析为绝对 URL；

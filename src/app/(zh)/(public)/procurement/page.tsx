@@ -37,7 +37,11 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: absoluteUrl("/procurement"),
-    languages: { "x-default": absoluteUrl("/procurement") },
+    languages: {
+      "zh-CN": absoluteUrl("/procurement"),
+      "en": absoluteUrl("/en/procurement"),
+      "x-default": absoluteUrl("/procurement"),
+    },
   },
 };
 

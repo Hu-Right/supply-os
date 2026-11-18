@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { InfoCardsGrid, BuyerProfileCard, TopWinnersCard, RecentAwardsCard } from "@/app/(public)/award-intelligence/sections/cards";
+import { InfoCardsGrid, BuyerProfileCard, TopWinnersCard, RecentAwardsCard } from "@/app/(zh)/(public)/award-intelligence/sections/cards";
 
 /** useLocale 桩：zh 字典按 {var} 插值，与站内组件测试同一模式（缺键回退键名） */
 vi.mock("@/core/i18n", () => ({

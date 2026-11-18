@@ -46,7 +46,7 @@ vi.mock("@/features/procurement-demand/api", () => ({
 vi.mock("@/features/procurement-demand/FlowStepper", () => ({ FlowStepper: () => null }));
 vi.mock("@/features/procurement-demand/ProcurementWizard", () => ({ ProcurementWizard: () => null }));
 
-import PublishFlowPageClient from "@/app/(public)/rfq/[id]/publish/page-client";
+import PublishFlowPageClient from "@/app/(zh)/(public)/rfq/[id]/publish/page-client";
 
 describe("发布页加载失败态", () => {
   // useEffect 在 StrictMode 下会执行两次，故用常驻 rejection 而不是 *Once：

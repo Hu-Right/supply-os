@@ -127,7 +127,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: row.title,
     description: summary,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      languages: {
+        "zh-CN": url,
+        "en": absoluteUrl(`/en/procurement/notice/${id}`),
+        "x-default": url,
+      },
+    },
     // 过期公告只去索引、保留链接权重（follow），不再贡献低质收录
     ...(expired ? { robots: { index: false, follow: true } } : {}),
     openGraph: {

@@ -27,7 +27,11 @@ export const metadata: Metadata = {
     "聚合全球公共与大型机构采购机会，数据实时更新。100,000+ 可检索商机，20+ 数据源，16+ 海外展厅节点。",
   alternates: {
     canonical: absoluteUrl("/"),
-    languages: { "x-default": absoluteUrl("/") },
+    languages: {
+      "zh-CN": absoluteUrl("/"),
+      "en": absoluteUrl("/en"),
+      "x-default": absoluteUrl("/"),
+    },
   },
 };
 
