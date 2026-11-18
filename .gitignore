@@ -99,6 +99,10 @@ Desktop.ini
 !public/images/training/**
 !public/manifest.json
 !src/app/favicon.ico/
+# SEO / PWA 静态资源（logo、分享卡、站点图标）：*.png|jpg 被全局忽略，按路径放行
+!public/logo.png
+!public/icons/**
+!public/images/og/**
 
 # ===== 开发过程文档：仅 docs/adr/ 与 docs/archive/ 入库，其余（周报 / 收费资料 / 数据库设计等）本地 =====
 # 必须用 docs/*（而非 docs/）才能让下方 ! 例外生效——git 不进入被整目录排除的路径

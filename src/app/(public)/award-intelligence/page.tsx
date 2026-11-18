@@ -7,7 +7,7 @@
  *              Placeholder page — to be filled with buyer profile, trend charts, winner rankings.
  */
 import type { Metadata } from "next";
-import { absoluteUrl } from "@/lib/services/seo/site";
+import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { getPool } from "@/lib/db/pool";
 import { getAwardsPageSnapshot, type AwardsPageSnapshot } from "@/lib/services/awards.service";
 import PageClient from "./page-client";
@@ -16,6 +16,13 @@ export const metadata: Metadata = {
   // 只写页面名（网站名由根 layout 模板拼在首位）；“历史数据变商业情报”等卖点归入 description
   title: "中标情报 / 买家情报",
   description: "将历史中标数据变成商业情报：追踪买家采购周期、竞争格局与价格趋势，辅助投标决策",
+  openGraph: {
+    title: "云境·国际采购平台 | 中标情报 / 买家情报",
+    description: "追踪买家采购周期、竞争格局与价格趋势，辅助投标决策。",
+    url: absoluteUrl("/award-intelligence"),
+    type: "website",
+    images: [DEFAULT_OG_IMAGE],
+  },
   alternates: {
     canonical: absoluteUrl("/award-intelligence"),
     languages: { "x-default": absoluteUrl("/award-intelligence") },

@@ -21,11 +21,27 @@ import type { RowDataPacket } from "mysql2/promise";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContext } from "@/lib/db/context";
-import { absoluteUrl } from "@/lib/services/seo/site";
+import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
 import { formatNoticeUTCDate, formatNoticeDate, formatNoticeCstDate, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
 
 export const revalidate = 3600;
+
+/**
+ * 是否已过截止时间（与 sitemap 的 ACTIVE_NOTICE_WHERE 同语义）。
+ *
+ * 过期公告仍保留 200 + 内容（外链/用户收藏不能 404），但必须 noindex：
+ * 否则截止多年的公告会长期被收录，形成大量「已失效」低质页并稀释抓取预算。
+ * 截止时间未知（state 非 known / 无值）时按未过期处理，避免误伤。
+ */
+function isExpired(row: NoticeSeoRow): boolean {
+  const ts = resolveNoticeDeadlineTs({
+    state: row.deadline_state,
+    effectiveTs: row.effective_ts,
+    fallbackSec: row.deadline_sec,
+  });
+  return ts !== null && ts <= Math.floor(Date.now() / 1000);
+}
 
 interface NoticeSeoRow extends RowDataPacket {
   id: number;
@@ -107,21 +123,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const url = absoluteUrl(`/procurement/notice/${id}`);
   const summary = buildSummary(row);
+  const expired = isExpired(row);
   return {
     title: row.title,
     description: summary,
     alternates: { canonical: url },
+    // 过期公告只去索引、保留链接权重（follow），不再贡献低质收录
+    ...(expired ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       title: row.title,
       description: summary,
       url,
       type: "article",
       siteName: "云境·国际采购平台",
+      ...(row.published_date ? { publishedTime: row.published_date } : {}),
+      images: [DEFAULT_OG_IMAGE],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: row.title,
       description: summary,
+      images: [DEFAULT_OG_IMAGE.url],
     },
   };
 }
@@ -146,6 +168,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
 
   const deadline = formatDeadline(row);
   const url = absoluteUrl(`/procurement/notice/${id}`);
+  const expired = isExpired(row);
 
   const jsonLd = [
     {
@@ -163,6 +186,8 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       name: row.title,
       url,
       description: buildSummary(row),
+      // 采购公告是强时效内容，显式给出发布日便于结果页标注时间
+      ...(row.published_date ? { datePublished: row.published_date } : {}),
       isPartOf: { "@type": "WebSite", name: "云境·国际采购平台", url: absoluteUrl("") },
     },
   ];
@@ -186,11 +211,18 @@ export default async function NoticeSeoPage({ params }: PageProps) {
 
       {/* 标题 + 类型徽标 */}
       <header className="space-y-3">
-        {noticeTypeCodeLabel(row.notice_type) && (
-          <span className="inline-block rounded-full bg-training-green/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-training-green">
-            {noticeTypeCodeLabel(row.notice_type)}
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {noticeTypeCodeLabel(row.notice_type) && (
+            <span className="inline-block rounded-full bg-training-green/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-training-green">
+              {noticeTypeCodeLabel(row.notice_type)}
+            </span>
+          )}
+          {expired && (
+            <span className="inline-block rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+              已截止
+            </span>
+          )}
+        </div>
         <h1 className="text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{row.title}</h1>
       </header>
 

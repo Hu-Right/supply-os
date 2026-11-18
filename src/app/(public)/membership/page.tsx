@@ -6,7 +6,7 @@
  * DB 不可达（含 build 期）降级为不带初值，回退客户端拉水。
  */
 import type { Metadata } from "next";
-import { absoluteUrl } from "@/lib/services/seo/site";
+import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 import { getContext } from "@/lib/db/context";
 import { tieredComparisonViewOf } from "@/lib/services/membership/view";
@@ -22,7 +22,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: BROWSER_TITLE.zh,
     description: "查看完整采购公告、供应商数据与 AI 投标工具，助力全球业务拓展。",
+    url: absoluteUrl("/membership"),
     type: "website",
+    images: [DEFAULT_OG_IMAGE],
   },
   alternates: {
     canonical: absoluteUrl("/membership"),

@@ -4,7 +4,7 @@
  * 交互 UI 由 PageClient（dynamic import）在客户端接管。
  */
 import type { Metadata } from "next";
-import { absoluteUrl } from "@/lib/services/seo/site";
+import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 import PageClient from "./page-client";
 
@@ -17,7 +17,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: BROWSER_TITLE.zh,
     description: "联合国采购实战培训，行业专家手把手教学，助力企业掌握国际投标技能。",
+    url: absoluteUrl("/training"),
     type: "website",
+    images: [DEFAULT_OG_IMAGE],
   },
   alternates: {
     canonical: absoluteUrl("/training"),

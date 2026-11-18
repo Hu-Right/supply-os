@@ -2,7 +2,7 @@
  * /supplier — ISR (revalidate: 3600)
  */
 import type { Metadata } from "next";
-import { absoluteUrl } from "@/lib/services/seo/site";
+import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 import PageClient from "./page-client";
 
@@ -15,7 +15,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: BROWSER_TITLE.zh,
     description: "全球认证供应商查询，按行业/地区/资质精准筛选。",
+    url: absoluteUrl("/supplier"),
     type: "website",
+    images: [DEFAULT_OG_IMAGE],
   },
   alternates: {
     canonical: absoluteUrl("/supplier"),

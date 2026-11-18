@@ -2,7 +2,7 @@
  * /services — ISR (revalidate: 3600)
  */
 import type { Metadata } from "next";
-import { absoluteUrl } from "@/lib/services/seo/site";
+import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 import PageClient from "./page-client";
 
@@ -15,7 +15,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: BROWSER_TITLE.zh,
     description: "投标辅助、国际物流、产品认证等供应链服务一站式对接。",
+    url: absoluteUrl("/services"),
     type: "website",
+    images: [DEFAULT_OG_IMAGE],
   },
   alternates: {
     canonical: absoluteUrl("/services"),

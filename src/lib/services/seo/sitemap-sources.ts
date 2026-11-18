@@ -25,8 +25,16 @@ export interface SitemapSupplierRow {
   addtime: Date | string | number | null;
 }
 
-/** 动态公告 URL 上限（与搜索侧索引规模匹配） */
-const NOTICE_LIMIT = 5000;
+/**
+ * 动态公告 URL 上限。
+ *
+ * sitemap 协议单文件硬上限 50000 条 URL，此处取 44000 给静态段留余量。
+ * 2026-11-18 由 5000 提升：实测有效公告（ACTIVE_NOTICE_WHERE）≥ 5 万条，
+ * 旧值让 90% 以上公告永远进不了索引。若有效公告继续增长到超过 4.4 万，
+ * 下一步是拆分 sitemap 索引（/sitemap.xml 作 index + /sitemaps/[id].xml），
+ * 不要继续上调本常量（越过 50000 会被搜索引擎整份丢弃）。
+ */
+const NOTICE_LIMIT = 44000;
 /** 动态供应商 URL 上限 */
 const SUPPLIER_LIMIT = 2000;
 

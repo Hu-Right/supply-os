@@ -22,6 +22,8 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: [
           "/crm", // 登录后工作台，无搜索价值
+          "/settings", // 账号/企业设置，登录墙后无索引价值（此前可被爬成空壳页）
+          "/notifications", // 站内通知（页面已 noindex，双保险）
           "/api/", // 数据接口
           "/r/", // 推荐短链（写 Cookie 后 302，无内容）
         ],

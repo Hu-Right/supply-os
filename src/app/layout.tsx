@@ -14,7 +14,7 @@ import Script from "next/script";
 import "./globals.css";
 import { getLocaleDir } from "@/core/i18n/bundles";
 import { BROWSER_TITLE, BROWSER_TITLE_TEMPLATE } from "@/lib/i18n/metadata";
-import { SITE_URL, absoluteUrl } from "@/lib/services/seo/site";
+import { SITE_URL, absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
@@ -36,10 +36,22 @@ export const metadata: Metadata = {
     canonical: absoluteUrl("/"),
     languages: { "x-default": absoluteUrl("/") },
   },
+  // 站点图标：项目里没有 favicon.ico / app/icon.*，此前浏览器标签页无图标；
+  // 同时补齐 PWA manifest 与 iOS 添加到主屏图标（图标由 brand-icon.svg 生成）。
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  manifest: "/manifest.json",
   openGraph: {
     title: "云境·国际采购平台",
     description: "联合国及全球政府采购公告搜索、供应商目录、CRM、投标服务、学习培训。助力中国企业连接全球采购机遇。",
-    images: [{ url: "/images/brand-icon.svg", width: 120, height: 120, alt: "云境·国际采购平台" }],
+    url: absoluteUrl("/"),
+    // 社交平台不接受 SVG/过小尺寸；统一 1200×630 JPG（微信/Twitter/Facebook 均可渲染）
+    images: [DEFAULT_OG_IMAGE],
     type: "website",
     siteName: "云境·国际采购平台",
     locale: "zh_CN",
@@ -48,6 +60,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "云境·国际采购平台",
     description: "联合国及全球政府采购公告搜索、供应商目录、CRM、投标服务一站式平台。",
+    images: [DEFAULT_OG_IMAGE.url],
   },
   verification: {
     other: {
