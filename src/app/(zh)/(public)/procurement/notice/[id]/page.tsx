@@ -230,7 +230,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
             </span>
           )}
         </div>
-        <h1 className="text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{row.title}</h1>
+        <h1 dir="auto" className="text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{row.title}</h1>
       </header>
 
       {/* 公开元信息 */}

@@ -5,9 +5,9 @@
  * @module shared/layout/MobileDrawer
  */
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Globe, X, Check, Loader2 } from "lucide-react";
-import { useLocale, SUPPORTED_LOCALES } from "@/core/i18n";
+import { useLocale, SUPPORTED_LOCALES, localeHref } from "@/core/i18n";
 import type { Locale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { NAV_TABS } from "./nav-tabs";
@@ -22,7 +22,8 @@ export interface MobileDrawerProps {
 export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
   const { t, locale, switching, setLocale } = useLocale();
   const { authUser, isVip } = useAuth();
-  const pathname = usePathname();
+  const pathname = usePathname() || "/";
+  const router = useRouter();
 
   // VIP 等级标签：按已解锁套餐显示，兜底 i18n VIP/免费标签
   const vipDisplayLabel = tierLabel || (isVip ? t("vipLabel") : t("freeLabel"));
@@ -36,7 +37,16 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
 
   const handleLocaleSelect = (code: Locale) => {
     if (switching) return;
-    setLocale(code);
+    const href = localeHref(pathname, code);
+    // en 有独立 URL：直接导航，不写 Cookie（避免中文站被切成英文）
+    if (code === "en") {
+      if (href) router.push(href);
+      return;
+    }
+    void (async () => {
+      await setLocale(code);
+      if (href && href !== pathname) router.push(href);
+    })();
   };
 
   return (
@@ -47,7 +57,7 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
         onClick={onClose}
       />
       {/* 抽屉面板 */}
-      <div className="absolute top-0 left-0 bottom-0 min-w-[260px] max-w-[85vw] sm:w-72 bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+      <div className="absolute top-0 start-0 bottom-0 min-w-[260px] max-w-[85vw] sm:w-72 bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
         {/* 抽屉头部 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">

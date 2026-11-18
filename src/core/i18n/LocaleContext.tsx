@@ -67,7 +67,8 @@ type LocaleContextValue = {
   locale: Locale;
   localeDir: "ltr" | "rtl";
   switching: boolean;
-  setLocale: (next: Locale) => void;
+  /** 切换语言；返回 Promise 便于「先写完 Cookie 再导航」的调用方（语言切换器）等待 */
+  setLocale: (next: Locale) => Promise<void>;
   t: (key: string, params?: Record<string, string | number>) => string;
 };
 
@@ -90,22 +91,45 @@ async function ensureLocaleBundle(instance: I18nInstance, lang: Locale): Promise
  * 内部组件：locale state + t 函数管理
  * zh 资源已静态注入；其余语言经 ensureLocaleBundle 懒加载后才切换 state。
  */
-function LocaleInner({ children, effectiveLocale, i18nInstance }: {
+function LocaleInner({ children, effectiveLocale, i18nInstance, autoDetect }: {
   children: ReactNode;
   effectiveLocale: Locale;
   i18nInstance: I18nInstance;
+  /** 是否按 Cookie/navigator 自动检测；URL 已经决定语言的场景（/en）为 false */
+  autoDetect: boolean;
 }) {
   const instance = i18nInstance;
   const [switching, setSwitching] = useState(false);
+  // 语言包异步就绪后需要一个 state 变化触发重渲染（t 依赖它重建）
+  const [bundleVersion, setBundleVersion] = useState(0);
   // ★ locale 提升为 React state —— 保证 setLocale 后必定触发 re-render ★
   const [locale, setLocaleState] = useState<Locale>(effectiveLocale);
 
   // ★ 客户端挂载后检测真实语言偏好（Cookie / navigator）；非 zh 时先拉对应
   // 语言包再切换，加载期间继续显示 zh（fallback），避免半翻译状态
   useEffect(() => {
+    // ★ URL 即语言（/en 等）：不读 Cookie、也不回写 Cookie ★
+    // 否则用户访问 /en 后，Cookie 被改成 en，再回中文站会被顺带切英文；
+    // 同时这里要把非 zh 的语言包加载好，否则 t() 在英文页会返回空串。
+    if (!autoDetect) {
+      if (effectiveLocale !== "zh") {
+        void ensureLocaleBundle(instance, effectiveLocale)
+          .then(() => instance.changeLanguage(effectiveLocale))
+          .then(() => setBundleVersion((v) => v + 1))
+          .catch((err) => {
+            console.error("[i18n] 初始语言包加载失败，保持默认语言:", effectiveLocale, err);
+          });
+      }
+      return;
+    }
+
     let cancelled = false;
     const detected = detectLocale();
     if (detected === locale) return;
+    // ★ 方向先落地：RTL 不必等语言包 chunk 下载完，避免长时间 LTR 布局闪烁 ★
+    if (typeof document !== "undefined" && getLocaleDir(detected) === "rtl") {
+      document.documentElement.dir = "rtl";
+    }
     void (async () => {
       try {
         await ensureLocaleBundle(instance, detected);
@@ -137,12 +161,13 @@ function LocaleInner({ children, effectiveLocale, i18nInstance }: {
 
   const localeDir = getLocaleDir(locale);
 
-  const setLocale = useCallback((next: Locale) => {
-    if (next === locale) return;
+  const setLocale = useCallback((next: Locale): Promise<void> => {
+    if (next === locale) return Promise.resolve();
     setSwitching(true);
     // ★ 懒加载目标语言包，就绪后才切 state：语言包 chunk 下载失败时
     // 保持当前语言且不写 Cookie（切换中 LanguageSwitcher 已有 spinner 反馈）
-    void (async () => {
+    // 返回 Promise：语言切换器需要「Cookie 已写、语言已生效」后再导航到对应 URL
+    return (async () => {
       try {
         await ensureLocaleBundle(instance, next);
         await instance.changeLanguage(next);
@@ -164,10 +189,11 @@ function LocaleInner({ children, effectiveLocale, i18nInstance }: {
   }, [instance, locale]);
 
   // ★ t 函数由 React state (locale) 驱动，不依赖 useSyncExternalStore 事件链 ★
-  const i18nT = useMemo(
-    () => instance.getFixedT(locale, "translation"),
-    [instance, locale],
-  );
+  const i18nT = useMemo(() => {
+    // bundleVersion 仅作重算信号：getFixedT 缓存了资源引用，语言包异步注入后必须重建 t
+    void bundleVersion;
+    return instance.getFixedT(locale, "translation");
+  }, [instance, locale, bundleVersion]);
   const t = useCallback(
     (key: string, params?: Record<string, string | number>): string =>
       i18nT(key, params as Record<string, unknown>) as string,
@@ -213,7 +239,14 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
 
   return (
     <I18nextProvider i18n={i18nInstanceRef.current}>
-      <LocaleInner effectiveLocale={safeInitialLocale} i18nInstance={i18nInstanceRef.current}>{children}</LocaleInner>
+      {/* initialLocale 由调用方显式指定 = URL 已决定语言（/en），跳过 Cookie/navigator 检测 */}
+      <LocaleInner
+        effectiveLocale={safeInitialLocale}
+        i18nInstance={i18nInstanceRef.current}
+        autoDetect={initialLocale === undefined}
+      >
+        {children}
+      </LocaleInner>
     </I18nextProvider>
   );
 }

@@ -81,7 +81,7 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
                 <p className="text-base font-black">{pickLocale(locale, course.nameZh, course.nameEn)}</p>
                 <p className="mt-3 text-4xl font-black">
                   <span className="align-top text-xl">¥</span>
-                  {course.unitPrice.toLocaleString("zh-CN")}
+                  {course.unitPrice.toLocaleString()}
                   <span className="ml-1 text-base font-bold text-slate-300">{t("tlPricePerPerson")}</span>
                 </p>
                 <p className="mt-2 text-center text-xs text-slate-300">{t("tlFeeSub")}</p>

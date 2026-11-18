@@ -1,12 +1,15 @@
-// i18n-allow-file: 英文站点，语言切换标签/中文对照按钮必须显示目标语言原文
+"use client";
+
+// i18n-allow-file: 英文站点，语言切换器显示各语言母语名（含中文「中文」）
 /**
  * 英文站点共用外壳（/en/*）
  *
  * 英文分组是独立根布局，不复用中文 (public)/layout-shell（那套导航与文案是中文且依赖登录体系）。
- * 这里只保留 SEO 必需的品牌、导航与语言互链。
+ * 这里只保留 SEO 必需的品牌、导航与语言切换。
  */
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { LanguageSwitcher } from "@/shared/layout/LanguageSwitcher";
 
 export function EnglishShell({ children }: { children: ReactNode }) {
   return (
@@ -20,9 +23,7 @@ export function EnglishShell({ children }: { children: ReactNode }) {
           <nav className="flex items-center gap-4 text-sm text-slate-600">
             <Link href="/en/procurement" className="hover:text-training-green">Notices</Link>
             <Link href="/procurement" className="hover:text-training-green">Full search</Link>
-            <Link href="/" className="rounded-full border border-slate-200 px-3 py-1 text-xs hover:border-training-green/40">
-              中文
-            </Link>
+            <LanguageSwitcher />
           </nav>
         </div>
       </header>

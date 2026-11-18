@@ -18,7 +18,6 @@ import {
   formatNoticeCstDate,
   formatNoticeDate,
   resolveNoticeDeadlineTs,
-  UNPUBLISHED_LABEL,
 } from "@/shared/utils/notice-datetime/format";
 
 export const revalidate = 3600;
@@ -71,7 +70,7 @@ function deadlineLabel(row: NoticeSeoRow): string {
     effectiveTs: row.effective_ts,
     fallbackSec: row.deadline_sec,
   });
-  if (!ts) return UNPUBLISHED_LABEL;
+  if (!ts) return "Not published";
   const d = new Date(ts * 1000);
   return formatNoticeCstDate(ts, d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0);
 }
@@ -190,7 +189,7 @@ export default async function EnglishNoticePage({ params }: PageProps) {
               </span>
             )}
           </div>
-          <h1 className="text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{row.title}</h1>
+          <h1 dir="auto" className="text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{row.title}</h1>
         </header>
 
         <dl className="grid grid-cols-2 gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:grid-cols-3">

@@ -3,21 +3,26 @@
  * Language Switcher Dropdown
  *
  * @module shared/layout/LanguageSwitcher
- * @description 页头语言选择。点击展开下拉，列出联合国 6 种官方语言，点击切换。
- *              下拉面板始终向左展开（物理 right:0 定位），不受文档方向影响。
+ * @description 页头语言选择。下拉列出 7 种语言（联合国 6 种官方语言 + 葡语）。
+ *              选中后：zh / en 有独立 URL，直接导航到对应地址；fr / ru / es / ar / pt
+ *              暂无独立 URL，写 Cookie 后停留在当前 URL 由客户端切换。
+ *              下拉定位用逻辑方向（end-0），RTL 下自动镜像。
  *              切换期间显示旋转指示器 + 禁用交互，防止重复点击。
- *              Header language selector: click to open a dropdown listing the 6
- *              UN official languages; selecting one switches the locale.
+ *              Header language selector: 7 languages; zh/en navigate to their own URL,
+ *              other locales persist the choice in a cookie on the current URL.
  *              A spinner + disabled state is shown while the switch is in progress.
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Globe, ChevronDown, Check, Loader2 } from "lucide-react";
-import { useLocale, SUPPORTED_LOCALES } from "@/core/i18n";
+import { useLocale, SUPPORTED_LOCALES, localeHref } from "@/core/i18n";
 import type { Locale } from "@/core/i18n";
 
 export function LanguageSwitcher() {
   const { locale, switching, setLocale, t } = useLocale();
+  const router = useRouter();
+  const pathname = usePathname() || "/";
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -46,10 +51,22 @@ export function LanguageSwitcher() {
   const handleSelect = useCallback(
     (code: Locale) => {
       if (switching) return; // 切换进行中忽略重复点击
-      setLocale(code);
       setOpen(false);
+      const href = localeHref(pathname, code);
+
+      // en 走独立 URL：不写 Cookie，避免中文站被顺带切成英文
+      if (code === "en") {
+        if (href) router.push(href);
+        return;
+      }
+
+      // zh / 其他语言：先切语言（写 Cookie、加载语言包），再导航（可能是从 /en 回中文站）
+      void (async () => {
+        await setLocale(code);
+        if (href && href !== pathname) router.push(href);
+      })();
     },
-    [setLocale, switching],
+    [pathname, router, setLocale, switching],
   );
 
   return (
@@ -82,7 +99,7 @@ export function LanguageSwitcher() {
         <ul
           role="listbox"
           aria-label={t("uiLanguageOptions")}
-          className="absolute mt-1.5 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg z-50 right-0 max-w-[calc(100vw-1rem)]"
+          className="absolute mt-1.5 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg z-50 end-0 max-w-[calc(100vw-1rem)]"
         >
           {SUPPORTED_LOCALES.map((l) => {
             const selected = l.code === locale;

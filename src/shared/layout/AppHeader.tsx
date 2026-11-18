@@ -166,7 +166,7 @@ export function AppHeader({
             {/* 右侧：会员套餐按钮 */}
             <Link
               href="/membership"
-              className="shrink-0 flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold border-2 border-amber-500 bg-slate-900/80 text-amber-400 hover:bg-slate-800 transition-colors ml-3 backdrop-blur-sm"
+              className="shrink-0 flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold border-2 border-amber-500 bg-slate-900/80 text-amber-400 hover:bg-slate-800 transition-colors ms-3 backdrop-blur-sm"
             >
               <Crown className="w-4 h-4" />
               {t("navMembership")}
