@@ -84,8 +84,8 @@ describe("EnterpriseInfoCard", () => {
     expect(screen.getByText("卢慧慧")).toBeInTheDocument();
     expect(screen.getByText("3000万元")).toBeInTheDocument();
     expect(screen.getByText("智算模块")).toBeInTheDocument();
-    // 资料完整度百分比
-    expect(screen.getByText("75.00%")).toBeInTheDocument();
+    // 资料完整度百分比（100 分制加权分，展示保留一位小数）
+    expect(screen.getByText("75.0%")).toBeInTheDocument();
   });
 
   it("认证标三态：审核中/已认证/已驳回", () => {
