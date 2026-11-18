@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 141 张，导出 124 张，排除 17 张。
+--           源库共 141 张，导出 126 张，排除 15 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -261,6 +261,7 @@ CREATE TABLE `bid_opportunities` (
   `technical_hurdles` text,
   `training_link` text,
   `industry` varchar(100) DEFAULT NULL,
+  `industry_code` varchar(40) DEFAULT NULL,
   `contacts` json DEFAULT NULL,
   `documents` json DEFAULT NULL,
   `external_links` json DEFAULT NULL,
@@ -288,7 +289,9 @@ CREATE TABLE `bid_opportunities` (
   KEY `idx_bid_opp_deadline_ts` (`deadline_ts`),
   KEY `idx_bid_opp_create_time` (`create_time`),
   KEY `idx_bid_opp_country` (`country`),
-  KEY `idx_review_deadline` (`review_status`,`deadline_sec`)
+  KEY `idx_review_deadline` (`review_status`,`deadline_sec`),
+  KEY `idx_industry_code` (`industry_code`),
+  KEY `idx_industry` (`industry`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机表';
 
 -- ── bid_opportunity_candidates ──
@@ -710,6 +713,21 @@ CREATE TABLE `follow_up_logs` (
   KEY `idx_item` (`item_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触达跟进台账（id≥100000 为后台写入段，导出不触碰）';
 
+-- ── industry_alias_map ──
+CREATE TABLE `industry_alias_map` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `source_table` varchar(64) NOT NULL,
+  `source_value` varchar(100) NOT NULL,
+  `ugt_i_code` varchar(40) DEFAULT NULL,
+  `alternative_code` varchar(40) DEFAULT NULL,
+  `confidence` decimal(3,2) NOT NULL DEFAULT '0.50',
+  `note` varchar(255) DEFAULT NULL,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_source` (`source_table`,`source_value`),
+  KEY `idx_code` (`ugt_i_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- ── industry_nodes ──
 CREATE TABLE `industry_nodes` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -726,6 +744,31 @@ CREATE TABLE `industry_nodes` (
   KEY `idx_level` (`level`),
   KEY `idx_parent` (`parent_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='行业树';
+
+-- ── invitation ──
+CREATE TABLE `invitation` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `candidate_id` bigint unsigned NOT NULL,
+  `batch_id` bigint unsigned NOT NULL,
+  `supplier_id` bigint NOT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `reco_family` varchar(64) DEFAULT NULL,
+  `top_notice_pks` json DEFAULT NULL,
+  `send_status` varchar(20) NOT NULL DEFAULT 'pending',
+  `message_id` varchar(255) DEFAULT NULL,
+  `tracking_token` varchar(64) DEFAULT NULL,
+  `account_id` int DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `error` varchar(500) DEFAULT NULL,
+  `legacy_item_id` bigint DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_candidate` (`candidate_id`),
+  UNIQUE KEY `uk_legacy_item` (`legacy_item_id`),
+  KEY `idx_send_status` (`send_status`),
+  KEY `idx_batch` (`batch_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── learning_material_purchases ──
 CREATE TABLE `learning_material_purchases` (
@@ -858,17 +901,39 @@ CREATE TABLE `mass_send_tasks` (
   KEY `idx_status` (`status`,`channel`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- ── match_verdict ──
-CREATE TABLE `match_verdict` (
-  `supplier_id` int NOT NULL COMMENT '内网爬虫库 supplier.id',
-  `opportunity_id` int NOT NULL,
-  `verdict` varchar(8) DEFAULT NULL COMMENT '相关/擦边/无关',
-  `why` varchar(500) DEFAULT NULL COMMENT 'LLM 判定理由原文',
-  `prof` float DEFAULT NULL,
-  `family` varchar(200) DEFAULT NULL,
-  `judged_at` datetime DEFAULT NULL,
-  PRIMARY KEY (`supplier_id`,`opportunity_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='LLM 供需匹配终审';
+-- ── match_candidate ──
+CREATE TABLE `match_candidate` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `batch_id` bigint unsigned NOT NULL,
+  `supplier_id` bigint NOT NULL,
+  `notice_pk` int NOT NULL,
+  `notice_item_id` bigint unsigned DEFAULT NULL,
+  `code_score` decimal(6,2) DEFAULT NULL,
+  `match_level` tinyint DEFAULT NULL,
+  `basis_code` varchar(32) DEFAULT NULL,
+  `matched_codes` json DEFAULT NULL,
+  `industry_relation` varchar(20) DEFAULT NULL,
+  `ai_verdict` varchar(16) DEFAULT NULL,
+  `ai_confidence` decimal(3,2) DEFAULT NULL,
+  `ai_reason` varchar(500) DEFAULT NULL,
+  `ai_model` varchar(64) DEFAULT NULL,
+  `ai_prompt_version` varchar(32) DEFAULT NULL,
+  `ai_checked_at` datetime DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'candidate',
+  `legacy_item_id` bigint DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `sales_feedback` varchar(20) DEFAULT NULL,
+  `feedback_at` datetime DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `reviewed_by` varchar(64) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_batch_supplier_notice` (`batch_id`,`supplier_id`,`notice_pk`),
+  UNIQUE KEY `uk_legacy_item` (`legacy_item_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_supplier` (`supplier_id`),
+  KEY `idx_notice` (`notice_pk`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ── message_tracking ──
 CREATE TABLE `message_tracking` (
@@ -1142,6 +1207,30 @@ CREATE TABLE `notice_interests` (
   KEY `idx_notice_type` (`notice_id`,`interest_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告意向表。（感兴趣/订阅）';
 
+-- ── notice_items ──
+CREATE TABLE `notice_items` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `notice_pk` int NOT NULL,
+  `lot_no` varchar(20) DEFAULT NULL,
+  `line_no` int DEFAULT NULL,
+  `name_zh` varchar(255) NOT NULL,
+  `name_en` varchar(255) DEFAULT NULL,
+  `quantity` decimal(20,4) DEFAULT NULL,
+  `unit` varchar(30) DEFAULT NULL,
+  `ugt_code` varchar(32) DEFAULT NULL,
+  `alternatives` json DEFAULT NULL,
+  `confidence` decimal(3,2) DEFAULT NULL,
+  `source` varchar(20) NOT NULL DEFAULT 'manual',
+  `evidence` json DEFAULT NULL,
+  `prompt_version` varchar(64) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_notice_lot_line` (`notice_pk`,`lot_no`,`line_no`),
+  KEY `idx_notice` (`notice_pk`),
+  KEY `idx_code` (`ugt_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- ── notice_public ──
 CREATE TABLE `notice_public` (
   `notice_pk` int NOT NULL COMMENT '公告主键，=crm_bid_notices.id，服务表 1:1 幂等锚点',
@@ -1185,7 +1274,8 @@ CREATE TABLE `notice_public` (
   KEY `idx_country_type` (`country_code`,`notice_type_code`),
   KEY `idx_deadline_state_ts` (`deadline_state`,`deadline_ts`),
   KEY `idx_np_active` (`deadline_state`,`deadline_ts`,`title`(64)),
-  KEY `idx_public_published` (`published_ts`,`notice_pk`)
+  KEY `idx_public_published` (`published_ts`,`notice_pk`),
+  KEY `idx_np_opportunity` (`is_opportunity`,`deadline_ts`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
 
 -- ── notice_requirement_items ──
@@ -1819,6 +1909,17 @@ CREATE TABLE `qualification_requirements` (
   KEY `idx_opportunity` (`opportunity_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- ── reco_batch ──
+CREATE TABLE `reco_batch` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `batch_no` varchar(64) NOT NULL,
+  `stage` varchar(20) NOT NULL DEFAULT 'created',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_batch_no` (`batch_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- ── reco_follow_up_logs ──
 CREATE TABLE `reco_follow_up_logs` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -1833,63 +1934,6 @@ CREATE TABLE `reco_follow_up_logs` (
   PRIMARY KEY (`id`),
   KEY `idx_reco_item` (`reco_item_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ── reco_outreach_items ──
-CREATE TABLE `reco_outreach_items` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `batch_no` varchar(64) NOT NULL,
-  `supplier_id` bigint NOT NULL,
-  `reco_id` bigint DEFAULT NULL,
-  `reco_family` varchar(64) DEFAULT NULL,
-  `reco_opp_id` bigint DEFAULT NULL,
-  `reco_top3` varchar(255) DEFAULT NULL,
-  `ab_variant` varchar(32) NOT NULL DEFAULT 'new',
-  `send_status` varchar(32) NOT NULL DEFAULT 'pending',
-  `message_id` varchar(255) DEFAULT NULL,
-  `tracking_token` varchar(64) DEFAULT NULL,
-  `account_id` int DEFAULT NULL,
-  `sent_at` datetime DEFAULT NULL,
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_batch_company` (`batch_no`,`supplier_id`),
-  KEY `idx_message` (`message_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- ── reco_supplier_opportunity ──
-CREATE TABLE `reco_supplier_opportunity` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `supplier_table` varchar(32) NOT NULL DEFAULT 'supplier',
-  `supplier_id` bigint unsigned NOT NULL DEFAULT '0',
-  `opportunity_id` bigint unsigned NOT NULL DEFAULT '0',
-  `match_score` decimal(5,2) NOT NULL DEFAULT '0.00',
-  `match_level` varchar(20) NOT NULL DEFAULT 'low',
-  `match_basis_code` varchar(32) DEFAULT NULL,
-  `match_basis_level` tinyint unsigned NOT NULL DEFAULT '0',
-  `match_basis_name` varchar(255) DEFAULT NULL,
-  `matched_codes` json DEFAULT NULL COMMENT '匹配证据=供应商码∩商单码，[{code,word,conf,src,sup_words}]',
-  `keyword_hits` varchar(500) DEFAULT NULL,
-  `reasons_json` text,
-  `barrier_flags` varchar(200) DEFAULT NULL,
-  `service_procurement` tinyint NOT NULL DEFAULT '0',
-  `supplier_has_contact` tinyint(1) NOT NULL DEFAULT '0',
-  `opportunity_deadline_days` int DEFAULT NULL,
-  `contact_priority` tinyint NOT NULL DEFAULT '3',
-  `status` varchar(20) NOT NULL DEFAULT 'new',
-  `batch_no` varchar(32) NOT NULL DEFAULT '',
-  `algo_version` varchar(32) NOT NULL DEFAULT 'v1',
-  `evidence_snapshot` json DEFAULT NULL,
-  `is_expired` tinyint NOT NULL DEFAULT '0',
-  `last_generated_at` datetime DEFAULT NULL,
-  `sales_feedback` varchar(20) DEFAULT NULL COMMENT 'relevant/irrelevant/wrong_contact/expired（后台看板写，导出不覆盖）',
-  `feedback_at` datetime DEFAULT NULL,
-  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_supplier_opp` (`supplier_table`,`supplier_id`,`opportunity_id`),
-  KEY `idx_batch` (`batch_no`),
-  KEY `idx_opp_score` (`opportunity_id`,`match_score`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机×供应商推荐明细';
 
 -- ── reco_weight_profile ──
 CREATE TABLE `reco_weight_profile` (
@@ -2051,7 +2095,7 @@ CREATE TABLE `supplier` (
   `info_review_status` varchar(20) NOT NULL DEFAULT 'unreviewed' COMMENT 'unreviewed=未审核/reviewed=已审核（信息完整度/真实性人工审核；门户展示门槛）',
   `license_url` varchar(500) DEFAULT NULL COMMENT '营业执照图片URL',
   `certification_tags` json DEFAULT NULL COMMENT '认证规范标签数组：certification 文本解析派生，如 ["ISO9001","CE"]',
-  `data_quality_score` decimal(5,2) GENERATED ALWAYS AS (round(((((((((((((((((((`country` is not null) and (trim(`country`) <> _utf8mb4'')) + ((`province` is not null) and (trim(`province`) <> _utf8mb4''))) + ((`city` is not null) and (trim(`city`) <> _utf8mb4''))) + ((`address` is not null) and (trim(`address`) <> _utf8mb4''))) + ((`contact` is not null) and (trim(`contact`) <> _utf8mb4''))) + ((`position` is not null) and (trim(`position`) <> _utf8mb4''))) + ((`phone` is not null) and (trim(`phone`) <> _utf8mb4''))) + ((`email` is not null) and (trim(`email`) <> _utf8mb4''))) + ((`website` is not null) and (trim(`website`) <> _utf8mb4''))) + ((`industry_code` is not null) and (trim(`industry_code`) <> _utf8mb4''))) + ((`products` is not null) and (trim(`products`) <> _utf8mb4''))) + ((`certification` is not null) and (trim(`certification`) <> _utf8mb4''))) + ((`established_at` is not null) and (trim(`established_at`) <> _utf8mb4''))) + ((`registered_capital` is not null) and (trim(`registered_capital`) <> _utf8mb4''))) + ((`credit_code` is not null) and (trim(`credit_code`) <> _utf8mb4''))) + ((`legal_rep` is not null) and (trim(`legal_rep`) <> _utf8mb4''))) * 5.0),2)) STORED NOT NULL COMMENT '资料完整度评分（16 项 ×5，满分 80）',
+  `data_quality_score` decimal(5,2) NOT NULL DEFAULT '0.00' COMMENT '资料完整度评分（100 分制加权，服务层计算落库；见 supplier/quality.ts）',
   PRIMARY KEY (`id`),
   KEY `idx_verify_status` (`verify_status`,`id`),
   KEY `idx_credit_code` (`credit_code`),
@@ -2505,16 +2549,23 @@ CREATE TABLE `user_reco_feedback` (
 -- ── user_search_log ──
 CREATE TABLE `user_search_log` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint unsigned NOT NULL COMMENT '发起搜索的登录用户，锚 crm_users.id；匿名检索不记录',
+  `user_id` bigint unsigned DEFAULT NULL COMMENT '发起搜索的登录用户；NULL=匿名检索（按 visitor_hash 去重）',
   `q` varchar(200) DEFAULT NULL COMMENT '搜索关键词；NULL=未输入关键词(仅筛选检索)',
   `country` varchar(100) DEFAULT NULL COMMENT '国家筛选项',
   `filters` json DEFAULT NULL COMMENT '结构化筛选组合：code_id/deadline_from/deadline_to/deadline_within_days/notice_type/featured/sort/forced_level1_id',
   `result_cnt` int NOT NULL DEFAULT '0' COMMENT '本次检索返回结果总数',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '检索发生时间',
+  `visitor_hash` char(64) DEFAULT NULL COMMENT '匿名访客哈希 sha256(日盐|IP|UA)；不存原始 IP',
+  `q_norm` varchar(120) DEFAULT NULL COMMENT '归一化检索词（小写/全半角/压缩空白/去高级语法），热门聚合键',
+  `locale` varchar(10) DEFAULT NULL COMMENT '检索时界面语言',
+  `source` varchar(20) DEFAULT NULL COMMENT '检索来源入口（unified-search 等）',
+  `is_bot` tinyint(1) NOT NULL DEFAULT '0' COMMENT '疑似爬虫/脚本检索：1=计入日志但不进热门聚合',
   PRIMARY KEY (`id`),
   KEY `idx_user_time` (`user_id`,`created_at`),
-  KEY `idx_zero_result` (`result_cnt`,`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告搜索行为日志。(仅登录用户)';
+  KEY `idx_zero_result` (`result_cnt`,`created_at`),
+  KEY `idx_created` (`created_at`),
+  KEY `idx_norm_time` (`q_norm`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告搜索行为日志。(登录+匿名去标识化；首页热门搜索聚合源)';
 
 -- ── user_supplier_pool ──
 CREATE TABLE `user_supplier_pool` (

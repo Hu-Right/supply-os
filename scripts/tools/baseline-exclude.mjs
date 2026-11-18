@@ -51,7 +51,7 @@ export const EXCLUDE_RES = [
   // 与影子表 appointments__gs*，防止重导基线时把它带回来。
   /^appointments$/,
   // zz_bak_*：2026-11-17 字段下线的运维备份表（claimed_suppliers / procurement_tenders
-  // unused / reco_supplier_opportunity unused）。名字里的 `_bak_` 后面跟的是词而不是日期，
+  // unused）。名字里的 `_bak_` 后面跟的是词而不是日期，
   // 上面 `_bak_\d` 与 `_(bak|backup|old|copy)_?\d*$` 都接不住，会整表泄进基线（同一教训
   // 已在 2026-10-12 / 2026-11-12 各踩过一次），故按前缀整体排除。
   /^zz_bak_/,
