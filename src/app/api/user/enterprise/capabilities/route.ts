@@ -34,8 +34,6 @@ export const GET = withRoute(async (req: NextRequest) => {
       validFrom: e.validFrom,
       validUntil: e.validUntil,
       noExpiry: e.noExpiry,
-      hasFile: e.hasFile,
-      downloadUrl: e.downloadUrl,
     })),
   });
 });

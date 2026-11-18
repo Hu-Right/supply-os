@@ -3,7 +3,6 @@ import {
   addCapability,
   addEvidence,
   getEnterpriseProfile,
-  getEvidenceFile,
   removeCapability,
   removeEvidence,
   type EnterpriseProfileRepoLike,
@@ -11,6 +10,9 @@ import {
 import type { CapabilityRow, EvidenceRow, VerifiedEnterpriseRow } from "@/lib/repos/enterprise-profile.repo";
 import { EC_ACCESS_FORBIDDEN, EC_INVALID_PARAMS, EC_NOT_FOUND } from "@/shared/constants/api";
 
+/**
+ * 能力档案 / 证据服务（2026-11-18 起证据为纯登记，不再有文件上传与下载地址）
+ */
 function makeRepo(overrides: { enterprise?: VerifiedEnterpriseRow | null } = {}) {
   const state = {
     enterprise: overrides.enterprise === undefined
@@ -18,8 +20,6 @@ function makeRepo(overrides: { enterprise?: VerifiedEnterpriseRow | null } = {})
       : overrides.enterprise,
     capabilities: [] as CapabilityRow[],
     evidence: [] as EvidenceRow[],
-    files: new Map<string, { content: Buffer; contentType: string }>(),
-    uploads: [] as Array<{ filename: string; contentType: string; size: number }>,
     seq: 0,
     evidenceSeq: 0,
   };
@@ -51,18 +51,11 @@ function makeRepo(overrides: { enterprise?: VerifiedEnterpriseRow | null } = {})
     async listEvidence() {
       return state.evidence;
     },
-    async insertUploadFile(params) {
-      state.uploads.push({ filename: params.filename, contentType: params.contentType, size: params.buffer.length });
-      state.files.set(params.filename, { content: params.buffer, contentType: params.contentType });
-      return params.filename;
-    },
     async insertEvidence(params) {
       state.evidenceSeq += 1;
       state.evidence.push({
         id: state.evidenceSeq,
         enterprise_id: params.enterpriseId,
-        upload_file_id: null,
-        upload_filename: params.uploadFilename,
         category: params.category,
         title: params.title,
         valid_from: params.validFrom,
@@ -74,16 +67,9 @@ function makeRepo(overrides: { enterprise?: VerifiedEnterpriseRow | null } = {})
       return state.evidenceSeq;
     },
     async deleteEvidence(_e, id) {
-      const target = state.evidence.find((e) => e.id === id);
-      if (!target) return { deleted: false, uploadFilename: null };
+      const before = state.evidence.length;
       state.evidence = state.evidence.filter((e) => e.id !== id);
-      return { deleted: true, uploadFilename: target.upload_filename };
-    },
-    async findEvidenceFile(_e, id) {
-      const row = state.evidence.find((e) => e.id === id);
-      if (!row || !row.upload_filename) return null;
-      const file = state.files.get(row.upload_filename);
-      return file ? { filename: row.upload_filename, content: file.content, content_type: file.contentType } : null;
+      return state.evidence.length < before;
     },
   };
   return { repo, state };
@@ -95,7 +81,7 @@ describe("enterprise-profile 能力档案/证据服务", () => {
     await expect(getEnterpriseProfile(repo, 1)).rejects.toMatchObject({ status: 403, code: EC_ACCESS_FORBIDDEN });
   });
 
-  it("读取档案：capabilities/evidence 视图为 camelCase，证据带下载地址", async () => {
+  it("读取档案：capabilities/evidence 视图为 camelCase，证据只有登记字段", async () => {
     const { repo, state } = makeRepo();
     state.capabilities.push({
       id: 1, enterprise_id: 1001, capability_type: "certification", name: "ISO 9001",
@@ -103,17 +89,20 @@ describe("enterprise-profile 能力档案/证据服务", () => {
       evidence_refs_json: [], confirmation_json: {},
     });
     state.evidence.push({
-      id: 2, enterprise_id: 1001, upload_file_id: null, upload_filename: "evidence_1_1.pdf",
+      id: 2, enterprise_id: 1001,
       category: "cert", title: "ISO9001 证书", valid_from: "2025-01-01", valid_until: "2028-01-01",
       no_expiry: 0, confirmed: 1, created_at: "",
     });
     const data = await getEnterpriseProfile(repo, 1);
     expect(data).toMatchObject({ enterpriseId: 1001, company: "宁波照明" });
     expect(data.capabilities[0]).toMatchObject({ id: 1, type: "certification", name: "ISO 9001" });
-    expect(data.evidence[0]).toMatchObject({
-      id: 2, category: "cert", hasFile: true, validUntil: "2028-01-01",
-      downloadUrl: "/api/user/enterprise/evidence/2/file",
+    expect(data.evidence[0]).toEqual({
+      id: 2, category: "cert", title: "ISO9001 证书",
+      validFrom: "2025-01-01", validUntil: "2028-01-01", noExpiry: false,
     });
+    // 文件相关字段已摘除：视图不得再出现 hasFile / downloadUrl
+    expect(data.evidence[0]).not.toHaveProperty("hasFile");
+    expect(data.evidence[0]).not.toHaveProperty("downloadUrl");
   });
 
   it("新增证书：有效期必填（或长期有效），保存成功返回视图", async () => {
@@ -146,45 +135,39 @@ describe("enterprise-profile 能力档案/证据服务", () => {
     await expect(removeCapability(repo, 1, 999)).rejects.toMatchObject({ status: 404, code: EC_NOT_FOUND });
   });
 
-  it("上传证据：证书类需有效期；文件类型白名单；成功入库 upload_files", async () => {
+  it("登记证据：证书类需有效期；成功入库且不写文件", async () => {
     const { repo, state } = makeRepo();
     await expect(
-      addEvidence(repo, 1, { category: "cert", title: "ISO 证书", noExpiry: false, file: null }),
+      addEvidence(repo, 1, { category: "cert", title: "ISO 证书", noExpiry: false }),
     ).rejects.toMatchObject({ status: 400 });
     await expect(
-      addEvidence(repo, 1, {
-        category: "cert", title: "ISO 证书", validUntil: "2028-01-01",
-        file: { buffer: Buffer.from("x"), contentType: "application/x-msdownload", size: 1 },
-      }),
+      addEvidence(repo, 1, { category: "unknown", title: "x", noExpiry: true }),
     ).rejects.toMatchObject({ status: 400 });
 
     const created = await addEvidence(repo, 1, {
-      category: "cert", title: "ISO 证书", validUntil: "2028-01-01",
-      file: { buffer: Buffer.from("pdf-bytes"), contentType: "application/pdf", size: 9 },
+      category: "cert", title: "ISO 证书", validUntil: "2028-01-01", noExpiry: false,
     });
-    expect(created).toMatchObject({ category: "cert", title: "ISO 证书", noExpiry: false, hasFile: true });
-    expect(created.downloadUrl).toMatch(/^\/api\/user\/enterprise\/evidence\/\d+\/file$/);
-    expect(state.uploads[0].filename).toMatch(/^evidence_1_\d+\.pdf$/);
+    expect(created).toEqual({
+      id: 1, category: "cert", title: "ISO 证书",
+      validFrom: null, validUntil: "2028-01-01", noExpiry: false,
+    });
     expect(state.evidence).toHaveLength(1);
+    expect(state.evidence[0]).toMatchObject({ category: "cert", title: "ISO 证书", no_expiry: 0 });
   });
 
-  it("证据文件读取：归属校验 + 字节/类型返回；无文件 → 404", async () => {
-    const { repo } = makeRepo();
-    await addEvidence(repo, 1, {
-      category: "experience", title: "合同扫描件", file: { buffer: Buffer.from("pdf"), contentType: "application/pdf", size: 3 },
-    });
-    const file = await getEvidenceFile(repo, 1, 1);
-    expect(file.contentType).toBe("application/pdf");
-    expect(file.content.toString()).toBe("pdf");
-    expect(file.filename).toMatch(/^evidence_1_\d+\.pdf$/);
-
-    await expect(getEvidenceFile(repo, 1, 999)).rejects.toMatchObject({ status: 404 });
+  it("长期有效的证据：validUntil 落 null", async () => {
+    const { repo, state } = makeRepo();
+    const created = await addEvidence(repo, 1, { category: "experience", title: "合同", noExpiry: true });
+    expect(created.noExpiry).toBe(true);
+    expect(created.validUntil).toBeNull();
+    expect(state.evidence[0].no_expiry).toBe(1);
+    expect(state.evidence[0].valid_until).toBeNull();
   });
 
-  it("删除不存在的证据 → 404；删除已有证据返回 deleted", async () => {
+  it("删除不存在的证据 → 404；删除已有证据成功", async () => {
     const { repo } = makeRepo();
     await expect(removeEvidence(repo, 1, 1)).rejects.toMatchObject({ status: 404 });
-    await addEvidence(repo, 1, { category: "experience", title: "合同", file: null });
+    await addEvidence(repo, 1, { category: "experience", title: "合同", noExpiry: true });
     await expect(removeEvidence(repo, 1, 1)).resolves.toBeUndefined();
   });
 });

@@ -5,7 +5,7 @@
  * @module features/auth/components/EnterpriseCapabilitySection
  * @description 投标可行性报告的数据来源：企业自己维护「证书/业绩/财务/人员/本地化/注册/技术」
  *              能力项，并上传证据文件（PDF/图片/Office/zip，≤10MB）。
- *              能力项写入 enterprise_capability_items；证据 = upload_files 字节 + enterprise_evidence 元数据。
+ *              能力项写入 enterprise_capability_items；证据 = enterprise_evidence 元数据（纯登记，不含文件）。
  *
  *              2026-10-31 组件化拆分（原 427 行四合一 → 编排层）：
  *                - enterprise-capability/shared.ts           类型/字典/摘要

@@ -1,5 +1,5 @@
 /**
- * DELETE /api/user/enterprise/evidence/:id — 删除企业证据（元数据行；文件字节保留在 upload_files 供审计）
+ * DELETE /api/user/enterprise/evidence/:id — 删除一条证据登记（纯元数据，不涉及文件）
  *
  * @module app/api/user/enterprise/evidence/[id]/route
  */

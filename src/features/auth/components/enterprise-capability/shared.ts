@@ -32,8 +32,6 @@ export interface EvidenceView {
   validFrom: string | null;
   validUntil: string | null;
   noExpiry: boolean;
-  hasFile: boolean;
-  downloadUrl: string | null;
 }
 
 export interface ProfileResponse {

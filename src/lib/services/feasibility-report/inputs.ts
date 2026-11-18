@@ -76,7 +76,6 @@ export interface CapabilityRowLike {
 export interface EvidenceRowLike {
   id: number | string;
   enterprise_id: number | string;
-  upload_file_id?: number | string | null;
   category: string;
   title: string;
   valid_from?: string | null;

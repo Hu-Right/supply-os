@@ -1,8 +1,11 @@
 /**
  * GET  /api/user/enterprise/evidence — 企业证据资料列表
- * POST /api/user/enterprise/evidence — 上传证据（multipart：file + category/title/validFrom/validUntil/noExpiry）
+ * POST /api/user/enterprise/evidence — 登记一条证据（JSON：category/title/validFrom/validUntil/noExpiry）
  *
  * @module app/api/user/enterprise/evidence/route
+ * @description 2026-11-18 起证据资料只做「登记」（类目 + 名称 + 有效期），不再接收文件上传：
+ *              可行性报告只引用这些元数据，托管企业文件反而带来病毒/版权/“平台已核验”的误读，
+ *              故整体摘除上传能力（文件字节存储与下载路由一并删除）。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -25,8 +28,6 @@ export const GET = withRoute(async (req: NextRequest) => {
       validFrom: e.validFrom,
       validUntil: e.validUntil,
       noExpiry: e.noExpiry,
-      hasFile: e.hasFile,
-      downloadUrl: e.downloadUrl,
     })),
   });
 });
@@ -34,24 +35,22 @@ export const GET = withRoute(async (req: NextRequest) => {
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   const contentType = req.headers.get("content-type") || "";
-  if (!contentType.includes("multipart/form-data")) {
-    routeError(400, EC_INVALID_PARAMS, "请使用 multipart/form-data 上传证据");
+  if (!contentType.includes("application/json")) {
+    routeError(400, EC_INVALID_PARAMS, "请使用 application/json 登记证据（无需上传文件）");
   }
-  const form = await req.formData();
-  const file = form.get("file");
-  const uploadFile = file instanceof File
-    ? { buffer: Buffer.from(await file.arrayBuffer()), contentType: file.type, size: file.size }
-    : null;
+  const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body || typeof body !== "object") {
+    routeError(400, EC_INVALID_PARAMS, "请求体非法 JSON");
+  }
 
   const ctx = getContext();
   const repo = createEnterpriseProfileRepo(new EnterpriseProfileRepo(ctx.dbPool));
   const created = await addEvidence(repo, auth.userId, {
-    category: form.get("category"),
-    title: form.get("title"),
-    validFrom: form.get("validFrom"),
-    validUntil: form.get("validUntil"),
-    noExpiry: form.get("noExpiry") === "1" || form.get("noExpiry") === "true",
-    file: uploadFile,
+    category: body.category,
+    title: body.title,
+    validFrom: body.validFrom,
+    validUntil: body.validUntil,
+    noExpiry: body.noExpiry === true || body.noExpiry === "1" || body.noExpiry === "true",
   });
   return NextResponse.json(
     {
@@ -61,8 +60,6 @@ export const POST = withRoute(async (req: NextRequest) => {
       validFrom: created.validFrom,
       validUntil: created.validUntil,
       noExpiry: created.noExpiry,
-      hasFile: created.hasFile,
-      downloadUrl: created.downloadUrl,
     },
     { status: 201 },
   );

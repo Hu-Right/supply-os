@@ -2,9 +2,9 @@
  * 企业能力档案 — 数据域 Hook（自 EnterpriseCapabilitySection.tsx 拆出）
  *
  * @module features/auth/components/enterprise-capability/useEnterpriseCapabilityData
- * @description 能力项 CRUD + 证据上传/删除/鉴权打开的全部状态与动作：
+ * @description 能力项 CRUD + 证据登记/删除的全部状态与动作：
  *              load 拉档案、submitCapability/deleteCapability 走能力接口、
- *              submitEvidence/deleteEvidence/openEvidenceFile 走证据接口。
+ *              submitEvidence/deleteEvidence 走证据接口（证据只登记元数据，不再上传文件）。
  *              两个域共用一份 profile/loading 与 load()（任一变更都整档重拉，
  *              与拆分前行为一致）；表单态也在此持有，视图组件只收 props 渲染。
  *
@@ -15,7 +15,7 @@
  *              DataState 把整块表单替换成空态（用户看到「请填写能力名称 + 重试」，无法继续输入）。
  */
 import { useCallback, useEffect, useState } from "react";
-import { api, getAuthToken } from "@/core/http";
+import { api } from "@/core/http";
 import { useLocale } from "@/core/i18n";
 import type { CapabilityType, CertOption, FieldValue, ProfileResponse } from "./shared";
 
@@ -35,7 +35,6 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
   const [fields, setFields] = useState<Record<string, FieldValue>>({ noExpiry: true });
   const [savingCap, setSavingCap] = useState(false);
 
-  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [evidenceCategory, setEvidenceCategory] = useState("cert");
   const [evidenceTitle, setEvidenceTitle] = useState("");
   const [evidenceValidUntil, setEvidenceValidUntil] = useState("");
@@ -148,21 +147,22 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
       setActionError(t("capEvidenceExpiryRequired"));
       return;
     }
-    const form = new FormData();
-    form.append("category", evidenceCategory);
-    form.append("title", evidenceTitle.trim());
-    if (evidenceValidUntil) form.append("validUntil", evidenceValidUntil);
-    form.append("noExpiry", evidenceNoExpiry ? "1" : "0");
-    if (evidenceFile) form.append("file", evidenceFile);
     setSavingEvidence(true);
     try {
-      await api("/api/user/enterprise/evidence", { method: "POST", body: form });
+      await api("/api/user/enterprise/evidence", {
+        method: "POST",
+        body: {
+          category: evidenceCategory,
+          title: evidenceTitle.trim(),
+          validUntil: evidenceValidUntil || undefined,
+          noExpiry: evidenceNoExpiry,
+        },
+      });
       setEvidenceTitle("");
-      setEvidenceFile(null);
       setEvidenceValidUntil("");
       await load();
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : t("capUploadFailed"));
+      setActionError(e instanceof Error ? e.message : t("capSaveFailed"));
     } finally {
       setSavingEvidence(false);
     }
@@ -178,31 +178,12 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
     }
   };
 
-  /** 证据文件走鉴权路由：带 Bearer 拉 Blob 后新窗口打开（<a> 无法附加 Authorization） */
-  const openEvidenceFile = async (url: string) => {
-    setActionError(null);
-    try {
-      const token = getAuthToken();
-      const res = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        credentials: "same-origin",
-      });
-      if (!res.ok) throw new Error(t("capFileOpenFailedStatus", { status: res.status }));
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      window.open(objectUrl, "_blank", "noopener,noreferrer");
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : t("capFileOpenFailed"));
-    }
-  };
-
   return {
     profile, loading, error, actionError, load,
     capType, setCapType, capName, setCapName, certOptions, fields, setField, resetFields, savingCap, submitCapability, deleteCapability,
-    evidenceFile, setEvidenceFile, evidenceCategory, setEvidenceCategory, evidenceTitle, setEvidenceTitle,
+    evidenceCategory, setEvidenceCategory, evidenceTitle, setEvidenceTitle,
     evidenceValidUntil, setEvidenceValidUntil, evidenceNoExpiry, setEvidenceNoExpiry, savingEvidence,
-    submitEvidence, deleteEvidence, openEvidenceFile,
+    submitEvidence, deleteEvidence,
   };
 }
 

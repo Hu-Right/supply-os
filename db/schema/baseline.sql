@@ -662,8 +662,6 @@ CREATE TABLE `enterprise_capability_items` (
 CREATE TABLE `enterprise_evidence` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `enterprise_id` bigint unsigned NOT NULL COMMENT '企业主体（v0.1 = 已认证 supplier.id）',
-  `upload_file_id` bigint unsigned DEFAULT NULL COMMENT '关联 upload_files 主键（无文件时为 NULL）',
-  `upload_filename` varchar(255) DEFAULT NULL COMMENT '关联 upload_files.filename（主键即文件名）',
   `category` varchar(32) NOT NULL DEFAULT 'other' COMMENT 'cert/experience/financial/personnel/other',
   `title` varchar(255) NOT NULL COMMENT '业务名称（如 ISO 14001 证书）',
   `valid_from` date DEFAULT NULL COMMENT '证据有效期起',
