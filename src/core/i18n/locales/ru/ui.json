@@ -119,7 +119,7 @@
   "noticeUiFeasibilityCompleteness": "Полнота данных: {required} требований / {caps} компетенций",
   "noticeUiGridView": "Сетка",
   "noticeUiListView": "Список",
-  "noticeUiRecentUnlocks": "Недавно открытые",
+  "noticeUiRecentUnlocks": "Недавно просмотренные",
   "pageErrorDesc": "Обновите страницу и попробуйте снова",
   "pageErrorDescSupport": "Обновите страницу и попробуйте снова. Если проблема сохраняется, обратитесь в поддержку",
   "pageErrorReload": "Обновить страницу",

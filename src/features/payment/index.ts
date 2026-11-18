@@ -21,8 +21,6 @@ export type { PurchaseTab, UseOrderHistoryReturn } from "./hooks/useOrderHistory
 export { usePaymentPolling } from "@/shared/hooks/usePaymentPolling";
 export type { UsePaymentPollingCallbacks, UsePaymentPollingOptions, UsePaymentPollingReturn } from "@/shared/hooks/usePaymentPolling";
 export { MyRecordsPanel } from "./components/MyRecordsPanel";
-export { RecentUnlocks } from "./components/RecentUnlocks";
-export type { RecentUnlocksProps } from "./components/RecentUnlocks";
 export { fetchOrders, fetchUnlocks, getOrderStatus, createOrder, mockPaid } from "./api";
 export type {
   OrderInfo,

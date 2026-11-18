@@ -1,5 +1,5 @@
 /**
- * 最近解锁记录取数 Hook
+ * 最近查看记录取数 Hook
  * Recent unlocks data hook
  *
  * @module features/procurement/hooks/useRecentUnlocks
@@ -39,7 +39,7 @@ async function fetchUnlocks(params: {
   return apiCached<{ total: number; list: UnlockRecord[] }>(`/api/payment/unlocks?${qs}`, 5 * 60 * 1000);
 }
 
-/** 拉取最近解锁记录；userId/locale 变化时刷新 */
+/** 拉取最近查看记录；userId/locale 变化时刷新 */
 export function useRecentUnlocks(userId: number, locale: string, limit = 3): { records: UnlockRecord[] } {
   const [records, setRecords] = useState<UnlockRecord[]>([]);
 

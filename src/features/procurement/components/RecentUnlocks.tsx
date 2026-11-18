@@ -1,5 +1,5 @@
 /**
- * 采购页"最近解锁"快捷区
+ * 采购页"最近查看"快捷区
  * Recent unlocks quick strip on the procurement page
  *
  * @module features/procurement/components/RecentUnlocks

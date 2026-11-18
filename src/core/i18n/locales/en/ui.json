@@ -119,7 +119,7 @@
   "noticeUiFeasibilityCompleteness": "Data completeness: {required} requirements / {caps} capabilities",
   "noticeUiGridView": "Grid view",
   "noticeUiListView": "List view",
-  "noticeUiRecentUnlocks": "Recently unlocked",
+  "noticeUiRecentUnlocks": "Recently viewed",
   "pageErrorDesc": "Please refresh the page to try again",
   "pageErrorDescSupport": "Please refresh the page to try again. Contact support if the problem persists",
   "pageErrorReload": "Refresh page",
