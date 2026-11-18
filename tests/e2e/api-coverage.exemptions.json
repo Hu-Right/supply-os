@@ -1,0 +1,9 @@
+{
+  "exemptions": [
+    {
+      "method": "GET",
+      "path": "/api/crm/chat/stream",
+      "reason": "SSE 长连接（无 ticket 时保持推送帧），API 冒烟无法自然结束；由 crm-chat 专项/手工覆盖"
+    }
+  ]
+}

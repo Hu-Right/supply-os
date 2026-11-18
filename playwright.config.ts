@@ -40,21 +40,24 @@ export default defineConfig({
     {
       name: "firefox",
       use: { ...devices["Desktop Firefox"] },
-      testIgnore: /mobile-rtl-style-smoke/,
+      testIgnore: /mobile-rtl-style-smoke|api-coverage/,
     },
     {
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
-      testIgnore: /mobile-rtl-style-smoke/,
+      testIgnore: /mobile-rtl-style-smoke|api-coverage/,
     },
     // 移动端回归
     {
       name: "mobile-chrome",
       use: { ...devices["Pixel 5"] },
+      // API 覆盖只在 chromium 跑一次（与浏览器无关，避免 5 个 project 重复打接口）
+      testIgnore: /api-coverage/,
     },
     {
       name: "mobile-safari",
       use: { ...devices["iPhone 14"] },
+      testIgnore: /api-coverage/,
     },
   ],
 
