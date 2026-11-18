@@ -9,6 +9,8 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { assertNoticeContentAccess } from "@/lib/services/notice-access";
+import { BID_FEASIBILITY_REPORT_BENEFIT } from "@/lib/services/benefit-matrix";
 import {
   createFeasibilityDeps,
   generateFeasibilityReport,
@@ -27,10 +29,22 @@ function parseNoticePk(raw: string): number {
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(async (req, { params }) => {
   const auth = await requireUserKeyOrThrow(req);
   const { id } = await params;
+  const noticePk = parseNoticePk(id);
   const ctx = getContext();
+    // 内容访问闸口（2026-11-18）：报告/导出/历史都包含公告正文内容，必须与 /detail 同口径：
+    // 行业墙 → 解锁/套餐 → 企业版报告权益，任一不满足即 403。
+    await assertNoticeContentAccess({
+      dbPool: ctx.dbPool,
+      benefitRepo: ctx.benefitSystemRepo,
+      unlockRepo: ctx.notice.unlockRepo,
+      userId: auth.userId,
+      noticeId: noticePk,
+      benefit: BID_FEASIBILITY_REPORT_BENEFIT,
+      benefitMessage: "投标可行性报告为企业版权益",
+    });
   const data = await getFeasibilityReportForNotice(createFeasibilityDeps(ctx), {
     userId: auth.userId,
-    noticePk: parseNoticePk(id),
+    noticePk,
   });
   return NextResponse.json({
     report: feasibilityReportViewOf(data.report),
@@ -44,10 +58,22 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(async (req: N
   const { id } = await params;
   const body = (await req.json().catch(() => ({}))) as { regenerate?: unknown };
   const regenerate = body?.regenerate === true;
+  const noticePk = parseNoticePk(id);
   const ctx = getContext();
+    // 内容访问闸口（2026-11-18）：报告/导出/历史都包含公告正文内容，必须与 /detail 同口径：
+    // 行业墙 → 解锁/套餐 → 企业版报告权益，任一不满足即 403。
+    await assertNoticeContentAccess({
+      dbPool: ctx.dbPool,
+      benefitRepo: ctx.benefitSystemRepo,
+      unlockRepo: ctx.notice.unlockRepo,
+      userId: auth.userId,
+      noticeId: noticePk,
+      benefit: BID_FEASIBILITY_REPORT_BENEFIT,
+      benefitMessage: "投标可行性报告为企业版权益",
+    });
   const result = await generateFeasibilityReport(createFeasibilityDeps(ctx), {
     userId: auth.userId,
-    noticePk: parseNoticePk(id),
+    noticePk,
     regenerate,
   });
   return NextResponse.json(
