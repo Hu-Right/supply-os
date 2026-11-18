@@ -1268,6 +1268,7 @@ CREATE TABLE `notice_public` (
   `supplier_conditions` longtext COMMENT '供应商投标条件（服务表优先，空则回退商机表）',
   `eligibility` longtext COMMENT '资格要求（服务表优先，空则回退商机表）',
   `technical_hurdles` longtext COMMENT '技术门槛（服务表优先，空则回退商机表）',
+  `has_attachments` tinyint(1) GENERATED ALWAYS AS ((coalesce(json_length(`attachments`),0) > 0)) VIRTUAL COMMENT '是否有可下载附件（虚拟生成列，由 attachments 自动计算；规模条/检索过滤用）',
   PRIMARY KEY (`notice_pk`),
   UNIQUE KEY `uq_notice_id` (`notice_id`),
   KEY `idx_deadline` (`deadline_ts`),
@@ -1275,7 +1276,10 @@ CREATE TABLE `notice_public` (
   KEY `idx_deadline_state_ts` (`deadline_state`,`deadline_ts`),
   KEY `idx_np_active` (`deadline_state`,`deadline_ts`,`title`(64)),
   KEY `idx_public_published` (`published_ts`,`notice_pk`),
-  KEY `idx_np_opportunity` (`is_opportunity`,`deadline_ts`)
+  KEY `idx_np_opportunity` (`is_opportunity`,`deadline_ts`),
+  KEY `idx_np_country_deadline` (`country_code`,`deadline_ts`),
+  KEY `idx_np_type_pk` (`notice_type_code`,`notice_pk`,`deadline_ts`),
+  KEY `idx_np_has_att` (`has_attachments`,`deadline_ts`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
 
 -- ── notice_requirement_items ──
@@ -1708,7 +1712,9 @@ CREATE TABLE `procurement_buyers` (
   `org_name` varchar(255) NOT NULL COMMENT '采购主体完整法定名称',
   `buyer_role` varchar(32) NOT NULL DEFAULT 'end_buyer' COMMENT '采购权限：end_buyer/authorized_agent/general_contractor/intermediary',
   `country` varchar(80) DEFAULT NULL COMMENT '注册国家',
-  `reg_no` varchar(120) DEFAULT NULL COMMENT '注册号码',
+  `reg_no` varchar(120) DEFAULT NULL COMMENT '注册标识号码（原文，按类型释义）',
+  `reg_no_type` varchar(24) NOT NULL DEFAULT 'uscc' COMMENT '注册标识类型（uscc/hk_br/hk_cr/overseas_reg/tax_id/other）',
+  `reg_no_norm` varchar(64) DEFAULT NULL COMMENT '注册标识归一号码（去分隔符转大写，仅查重用）',
   `tax_no` varchar(120) DEFAULT NULL COMMENT '税务编号',
   `website` varchar(255) DEFAULT NULL COMMENT '官方网站',
   `official_email` varchar(200) DEFAULT NULL COMMENT '企业邮箱',
@@ -1732,7 +1738,8 @@ CREATE TABLE `procurement_buyers` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_buyer_user` (`user_id`),
   KEY `idx_buyers_status` (`status`),
-  KEY `idx_buyers_queue` (`status`,`submitted_at`)
+  KEY `idx_buyers_queue` (`status`,`submitted_at`),
+  KEY `idx_buyers_reg_norm` (`reg_no_type`,`reg_no_norm`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购方主体（F01）：身份与采购权限认证，verified 为正式发布前置。';
 
 -- ── procurement_items ──
@@ -2090,7 +2097,9 @@ CREATE TABLE `supplier` (
   `legal_rep` varchar(50) DEFAULT NULL,
   `established_at` date DEFAULT NULL COMMENT '成立日期',
   `registered_capital` decimal(16,2) DEFAULT NULL COMMENT '注册资本',
-  `credit_code` varchar(30) DEFAULT NULL,
+  `credit_code` varchar(64) DEFAULT NULL,
+  `credit_code_type` varchar(24) NOT NULL DEFAULT 'uscc' COMMENT '注册标识类型（uscc/hk_br/hk_cr/overseas_reg/tax_id/other）',
+  `credit_code_norm` varchar(64) DEFAULT NULL COMMENT '注册标识归一号码（去分隔符转大写，仅查重用）',
   `verify_status` varchar(20) NOT NULL DEFAULT 'unverified' COMMENT 'unverified=未认证/done=已认证（2026-11 两态；认证只由认领通过写入）',
   `info_review_status` varchar(20) NOT NULL DEFAULT 'unreviewed' COMMENT 'unreviewed=未审核/reviewed=已审核（信息完整度/真实性人工审核；门户展示门槛）',
   `license_url` varchar(500) DEFAULT NULL COMMENT '营业执照图片URL',
@@ -2099,6 +2108,7 @@ CREATE TABLE `supplier` (
   PRIMARY KEY (`id`),
   KEY `idx_verify_status` (`verify_status`,`id`),
   KEY `idx_credit_code` (`credit_code`),
+  KEY `idx_supplier_credit_norm` (`credit_code_type`,`credit_code_norm`),
   KEY `idx_company` (`company`(64)),
   KEY `idx_supplier_country` (`country`),
   KEY `idx_supplier_company` (`company`),
