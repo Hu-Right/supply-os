@@ -16,11 +16,29 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const ds = require("../../../scripts/tools/daily-sync-sql.cjs") as {
   NUMERIC_TYPES: Set<string>;
-  buildOdkuUpdateClause: (updateCols: string[], colTypes: Record<string, string>, keepCols: Set<string>, pkCol: string) => string;
-  buildSliceFingerprintExpr: (cols: string[]) => string;
-  buildRowFingerprintExpr: (cols: string[]) => string;
+  NULL_AS_ZERO_COLUMNS: Record<string, string[]>;
+  TARGET_WINS_COLUMNS: Record<string, string[]>;
+  buildOdkuUpdateClause: (
+    updateCols: string[],
+    colTypes: Record<string, string>,
+    keepCols: Set<string>,
+    pkCol: string,
+    opts?: { monotoneCols?: Set<string>; targetWins?: Set<string> },
+  ) => string;
+  buildSliceFingerprintExpr: (cols: string[], opts?: { nullAsZero?: Set<string> }) => string;
+  buildRowFingerprintExpr: (cols: string[], opts?: { nullAsZero?: Set<string> }) => string;
   computeEffectiveColumns: (sourceCols: { COLUMN_NAME: string }[], targetCols: { COLUMN_NAME: string }[]) => string[];
   selectDriftIds: (sourceRows: { id: number; fp: number | string }[], targetRows: { id: number; fp: number | string }[]) => number[];
+  selectUniqueKeyConflicts: (
+    rows: Array<Record<string, unknown>>,
+    existingKeyToPk: Map<string, number | string>,
+    keyCol: string,
+    pkCol: string,
+  ) => { writable: Array<Record<string, unknown>>; conflicts: Array<{ pk: number; key: string; existingPk: number }> };
+  findOverlongValues: (
+    row: Record<string, unknown>,
+    columns: Array<{ COLUMN_NAME: string; CHAR_MAX?: number | string | null }>,
+  ) => Array<{ column: string; length: number; max: number }>;
 };
 
 // 与影子表 rowFingerprintExpr 同一 NULL 可区分口径：每列前挂标记字节（NULL→CHAR(1)，非空→CHAR(2)+值）
@@ -88,6 +106,98 @@ describe("selectDriftIds", () => {
   });
 });
 
+describe("指纹的 NULL→0 归一（deadline_ts）", () => {
+  it("nullAsZero 列：NULL 与 0 同码，正常值仍带标记参与比较", () => {
+    const expr = ds.buildRowFingerprintExpr(["deadline_ts"], { nullAsZero: new Set(["deadline_ts"]) });
+    expect(expr).toBe(
+      "CRC32(CONCAT(CONCAT(CHAR(2 USING utf8mb4), CAST(IFNULL(`deadline_ts`, 0) AS CHAR))))",
+    );
+    // 与默认口径不同：默认仍区分 NULL 与 ''（CHAR(1) 标记）
+    expect(ds.buildRowFingerprintExpr(["deadline_ts"])).toContain("CHAR(1 USING utf8mb4)");
+  });
+
+  it("未登记的列不受 nullAsZero 影响，片级指纹与逐行同口径", () => {
+    const opts = { nullAsZero: new Set(["deadline_ts"]) };
+    expect(ds.buildSliceFingerprintExpr(["title", "deadline_ts"], opts)).toBe(
+      `SUM(${ds.buildRowFingerprintExpr(["title", "deadline_ts"], opts)})`,
+    );
+    expect(ds.buildRowFingerprintExpr(["title"], opts)).toBe(`CRC32(CONCAT(${term("title")}))`);
+  });
+
+  it("归一登记与归一函数同一事实源：bid_notices.deadline_ts 已登记", () => {
+    expect(ds.NULL_AS_ZERO_COLUMNS.bid_notices).toContain("deadline_ts");
+  });
+});
+
+describe("selectUniqueKeyConflicts（ODKU 唯一键撞行预检）", () => {
+  it("key 在云端已存在且主键不同 → 跳过，不改写别人的行", () => {
+    const rows = [{ id: 10, notice_id: "N-1" }, { id: 11, notice_id: "N-2" }];
+    const existing = new Map([["N-1", 99]]);
+    const { writable, conflicts } = ds.selectUniqueKeyConflicts(rows, existing, "notice_id", "id");
+    expect(writable.map((r) => r.id)).toEqual([11]);
+    expect(conflicts).toEqual([{ pk: 10, key: "N-1", existingPk: 99 }]);
+  });
+
+  it("key 相同且主键相同（正常更新）→ 放行", () => {
+    const { writable, conflicts } = ds.selectUniqueKeyConflicts(
+      [{ id: 10, notice_id: "N-1" }],
+      new Map([["N-1", 10]]),
+      "notice_id",
+      "id",
+    );
+    expect(writable.map((r) => r.id)).toEqual([10]);
+    expect(conflicts).toEqual([]);
+  });
+
+  it("同一批内 key 重复且主键不同 → 后者跳过（先写入者占住唯一键）", () => {
+    const { writable, conflicts } = ds.selectUniqueKeyConflicts(
+      [{ id: 10, notice_id: "N-1" }, { id: 11, notice_id: "N-1" }],
+      new Map(),
+      "notice_id",
+      "id",
+    );
+    expect(writable.map((r) => r.id)).toEqual([10]);
+    expect(conflicts).toEqual([{ pk: 11, key: "N-1", existingPk: 10 }]);
+  });
+
+  it("NULL key 不受唯一键约束 → 全部放行", () => {
+    const { writable, conflicts } = ds.selectUniqueKeyConflicts(
+      [{ id: 10, notice_id: null }, { id: 11, notice_id: undefined }],
+      new Map(),
+      "notice_id",
+      "id",
+    );
+    expect(writable.length).toBe(2);
+    expect(conflicts).toEqual([]);
+  });
+});
+
+describe("findOverlongValues（超列宽预检，防 strict 模式整批失败）", () => {
+  const cols = [
+    { COLUMN_NAME: "contact_phone", CHAR_MAX: 63 },
+    { COLUMN_NAME: "delivery_address", CHAR_MAX: 255 },
+    { COLUMN_NAME: "description", CHAR_MAX: null },
+  ];
+
+  it("未超宽 → 空清单", () => {
+    expect(ds.findOverlongValues({ contact_phone: "021-12345678", description: "x".repeat(100) }, cols)).toEqual([]);
+  });
+
+  it("超宽 → 报列名/实际长度/上限（longtext 无上限不参与）", () => {
+    const row = { delivery_address: "x".repeat(256), description: "x".repeat(100000) };
+    expect(ds.findOverlongValues(row, cols)).toEqual([{ column: "delivery_address", length: 256, max: 255 }]);
+  });
+
+  it("非字符串值（数字/NULL/JSON 对象）不参与列宽判定", () => {
+    expect(ds.findOverlongValues({ contact_phone: null, delivery_address: 123 }, cols)).toEqual([]);
+  });
+
+  it("emoji 按码点复核：UTF-16 长度超、字符数不超 → 不误杀", () => {
+    // 63 个 emoji = UTF-16 长度 126 > 63，但 MySQL 字符数 63 → 不应判超宽
+    expect(ds.findOverlongValues({ contact_phone: "😀".repeat(63) }, cols)).toEqual([]);
+  });
+});
+
 describe("buildOdkuUpdateClause", () => {
   const colTypes = { id: "int", title: "varchar", funding_agency: "varchar", prequal: "tinyint" };
 
@@ -122,6 +232,21 @@ describe("buildOdkuUpdateClause", () => {
 
   it("无更新列 → 退化为主键自等（幂等空更新）", () => {
     expect(ds.buildOdkuUpdateClause([], colTypes, new Set(), "id")).toBe("`id` = VALUES(`id`)");
+  });
+
+  it("目标优先列：字符串按 NULL/空串算「空」，数值列只把 NULL 算「空」", () => {
+    expect(
+      ds.buildOdkuUpdateClause(["title"], colTypes, new Set(), "id", { targetWins: new Set(["title"]) }),
+    ).toBe("`title` = IF(`title` IS NULL OR `title` = '', VALUES(`title`), `title`)");
+    expect(
+      ds.buildOdkuUpdateClause(["converted_opp_id"], { converted_opp_id: "bigint" }, new Set(), "id", {
+        targetWins: new Set(["converted_opp_id"]),
+      }),
+    ).toBe("`converted_opp_id` = IF(`converted_opp_id` IS NULL, VALUES(`converted_opp_id`), `converted_opp_id`)");
+  });
+
+  it("converted_opp_id 已登记为目标优先（云端转商机关系不被源库旧值打回）", () => {
+    expect(ds.TARGET_WINS_COLUMNS.bid_notices).toContain("converted_opp_id");
   });
 });
 

@@ -12,15 +12,33 @@
  * 内网爬虫数据 → 线上生产库 定时增量同步
  *
  * 用法:
- *   node daily-sync.cjs               # 持续运行，每小时同步一次
- *   node daily-sync.cjs --once        # 只跑一次（手动补跑）
+ *   node daily-sync.cjs               # 持续运行，每小时同步一次（对账差异默认写回）
+ *   node daily-sync.cjs --once        # 只跑一次（手动补跑）：增量 upsert + 内容对账（默认写入）
  *   node daily-sync.cjs --once --dry-run # 只读体检：解析源库表名 + 报待同步行数，不写库、不推进水位、不刷服务表
  *                                        # （仍会跑只读的内容对账；只想快速看数就再加 --no-reconcile）
  *   node daily-sync.cjs --print-config # 只打印解析后的连接配置（密码掩码）与取值来源，不连库
- *   node daily-sync.cjs --once --apply        # 单轮：增量 upsert + 内容对账，并把差异行真正写回目标
+ *   node daily-sync.cjs --once --reconcile-dry # 单轮：增量写入，但内容对账只预览不写（旧默认行为）
  *   node daily-sync.cjs --once --no-reconcile # 单轮：只做旧「水位线增量」，完全不做内容对账
  *   node daily-sync.cjs --once --prune-source-deleted          # 加一步「源撤回下传」体检（无 --apply 只报数）
- *   node daily-sync.cjs --once --prune-source-deleted --apply # 真删源库已撤回的云端主表行（四道护栏，备份后执行）
+ *   node daily-sync.cjs --once --prune-source-deleted --apply # 真删源库已撤回的云端主表行（五道护栏 + 备份后执行）
+ *
+ * 2026-11-18 更新（对账收敛 + 安全护栏）:
+ *   · 内容对账差异**默认真正写回**（原先默认 DRY、只有 --apply 才写，导致每轮扫 10 分钟报 10 万行
+ *     差异却永不收敛；实测差异里 is_expired/agency/contacts 等源值确实是云端落后的旧值）。
+ *     `--reconcile-dry` 回到「只预览」；`--dry-run` / `--no-reconcile` 语义不变。
+ *   · deadline_ts 的 NULL→0 归一与对账指纹统一（NULL_AS_ZERO_COLUMNS），否则每轮都判差异空转。
+ *   · 新增**唯一键撞行预检**：云端 bid_notices 的唯一键是单列 uq_notice_source(notice_id)，
+ *     与源库 composite 键不同口径——源行主键在云端不存在、notice_id 却已属于别的行时，
+ *     ODKU 会改写别人那一行且本行永久丢失；现在这类行跳过并告警。
+ *   · 新增**超列宽预检**：目标列比源列窄时（如 delivery_address 500→255）strict 模式会抛 1406
+ *     让整批 INSERT 失败、整轮中断；现在把会撑爆的行摘出来跳过并告警，保住同批其余行。
+ *   · converted_opp_id 登记为「目标优先」：云端转商机关系不被源库历史旧值打回。
+ *   · 对账补写后按显式 id 重算服务表（notice-public-rebuild.ts 新增 --ids-file，兼容 JSONL）：
+ *     --changed 只看 update_time 水位，接不住「内容变了但 update_time 没变」的补写行
+ *     （agency/contacts 类漂移的主来源）。补写 id 边写边落 runtime/tmp/sync-applied-ids-*.jsonl，
+ *     进程中途崩溃也不丢；失败时保留该文件，可手动 `--apply --no-prune --ids-file=<路径>` 重跑。
+ *   · 目标库缺源库旧列的告警压缩成一行（每个进程每表只报一次），不再每轮刷 19/21 个列名。
+ *   · 源撤回下传补 G5 护栏：待删行若在源库仍能按 notice_id 找到（只是主键变了）→ 不删。
  *
  * 环境变量（三级取值：进程环境 → 仓库根 .env → 下列默认值；空串一律视为「未提供」）:
  *   SYNC_INTERVAL_MS       同步间隔（默认 3600000 = 1 小时）
@@ -55,8 +73,8 @@
  *   external_links 等常被外部/爬虫管道补写，而 update_time 纹丝不动（本库实测踩过，见
  *   notices-shadow-phase2-cutover.mjs 第 9-13 行同款结论）。故水位线之外再跑一遍
  *   「按全列行指纹」内容对账：逐片聚合比对，只在指纹不等的片上下钻到行、分块补 upsert。
- *   对账默认 DRY（只报待补行数 + 差异列分解，不写库），带 --apply 才真正写入；
- *   --no-reconcile 整体跳过。判据与影子表 findDirtyRows 同口径（NULL 与空串必须可区分）。
+ *   对账默认**写回**（2026-11-18 起；原默认 DRY 导致差异永不收敛），`--reconcile-dry` 只预览；
+ *   `--no-reconcile` 整体跳过。判据与影子表 findDirtyRows 同口径（NULL 与空串必须可区分）。
  *
  * 列所有权与平台行护栏（2026-10-21 实测后补，登记均在叶子 daily-sync-sql.cjs）：
  *   · 平台行（entry_source='platform'）整行免疫：本仓旧版本无护栏，而云端 AUTO_INCREMENT
@@ -67,6 +85,8 @@
  *   · title 目标优先：后台正式写入者入库前用 normalizeTitle 清洗（实测 1,106/1,106 可复现），
  *     本脚本没有那一步 ⇒ 若源值直通覆盖会把已清洗标题打回原形，且因两侧 update_time 相等而永不对齐。
  *     代价：本脚本不跟进源库的标题修改（靠后台正式写入者或 scripts/tools/notice-public-rebuild.ts 重算）。
+ *   · converted_opp_id 目标优先（2026-11-18）：转化关系是云端后台写的，源库同名列是历史旧值；
+ *     实测源 13639 / 云端 13801 且 update_time 相等 ⇒ 直通覆盖会把转化指回旧商机。
  */
 
 // ═══════════════════════════════════════════
@@ -265,15 +285,17 @@ const TARGET_WINS_COLUMNS = ds.TARGET_WINS_COLUMNS;
 const PLATFORM_IMMUNE = ds.PLATFORM_IMMUNE;
 
 /**
- * 源行 NULL 归一（2026-11-14）：bid_notices.deadline_sec 是 deadline_ts 派生的生成列，
- * 对 NULL **原样传播**（不会变 0）——源行 deadline_ts=NULL 同步过去后，目标侧 SSOT 口径
- * （deadline_sec = 0 OR >= now）会漏掉该行。两库已加触发器（trg_bid_notices_dt_zero_ins/_upd）
- * 在库层兜底，本函数是同步脚本的同一语义层防线：任何写入路径（增量/对账补写）取到源行后
- * 先归一再写。若触发器与归一同时失效，表现为对账每轮对同批行幂等补写（无害可见）。
+ * 源行 NULL 归一（2026-11-14 起，2026-11-18 归一口径上移到叶子 NULL_AS_ZERO_COLUMNS）：
+ * bid_notices.deadline_ts 是 deadline_sec 派生的生成列，对 NULL **原样传播**（不会变 0）——
+ * 源行 deadline_ts=NULL 同步过去后，目标侧 SSOT 口径（deadline_sec = 0 OR >= now）会漏掉该行。
+ * 两库已加触发器（trg_bid_notices_dt_zero_ins/_upd）在库层兜底，本函数是同步脚本的同一语义层防线：
+ * 任何写入路径（增量/对账补写）取到源行后先归一再写。
+ * 归一列登记在叶子 NULL_AS_ZERO_COLUMNS，对账指纹用同一集合取码 ⇒ 「源 NULL / 云端 0」不再
+ * 每轮被判差异（否则对账每轮对同批行幂等补写，永远不收敛）。
  */
 function normalizeSourceRow(table, row) {
-  if (table === 'bid_notices' && 'deadline_ts' in row && (row.deadline_ts === null || row.deadline_ts === undefined)) {
-    row.deadline_ts = 0;
+  for (const col of ds.NULL_AS_ZERO_COLUMNS[table] || []) {
+    if (col in row && (row[col] === null || row[col] === undefined)) row[col] = 0;
   }
   return row;
 }
@@ -300,8 +322,12 @@ const ONCE_MODE = process.argv.includes('--once');
 const PRINT_CONFIG_MODE = process.argv.includes('--print-config');
 // 只读体检：解析源库表名 + 报待同步行数，不写库、不推进水位、不刷服务表（连库但零写入）
 const DRY_RUN = process.argv.includes('--dry-run');
-const APPLY_RECONCILE = process.argv.includes('--apply'); // 对账真正写入（否则仅 DRY 预览）
+// 2026-11-18：对账差异默认写回（原默认 DRY 导致 10 万行差异永不收敛）；
+// --reconcile-dry 回到只预览，--apply 仅保留给「源撤回下传」的真实删除（历史用法兼容）。
+const RECONCILE_DRY = process.argv.includes('--reconcile-dry');
+const APPLY_RECONCILE = process.argv.includes('--apply'); // --apply = prune 真实删除（对账已默认写）
 const NO_RECONCILE = process.argv.includes('--no-reconcile'); // 整体跳过内容对账
+const DRY_RECONCILE = DRY_RUN || RECONCILE_DRY;
 
 // 源撤回下传（删除）：默认完全关，必须显式 --prune-source-deleted 才进入该步骤，且不
 // 带 --apply 只 DRY 报数。范围只公告主表：商机行可由平台侧自建，「源库没有」对商机表
@@ -325,6 +351,8 @@ if (PRINT_CONFIG_MODE) {
   show('SOURCE', SOURCE);
   show('TARGET', TARGET);
   console.log(`SYNC_INTERVAL_MS = ${SYNC_INTERVAL}  来源: ${ENV_PROVENANCE['SYNC_INTERVAL_MS']}`);
+  console.log(`内容对账 = ${NO_RECONCILE ? '跳过（--no-reconcile）' : DRY_RECONCILE ? 'DRY 预览' : '写入差异行（默认）'}`);
+  console.log(`源撤回下传 = ${PRUNE_SOURCE_DELETED ? (APPLY_RECONCILE ? '开启（--apply 真删）' : '开启（DRY 只报数）') : '关闭（需 --prune-source-deleted）'}`);
   console.log(`SYNC_SOURCE_TABLE_PREFIX = ${SOURCE_TABLE_PREFIX || '(空)'}  来源: ${ENV_PROVENANCE['SOURCE.tablePrefix']}`);
   if (SOURCE_TABLE_PREFIX) {
     console.log(`  源库表名映射: ${SYNC_TABLES.map((t) => `${t} → ${sourceTableName(t)}`).join(' | ')}`);
@@ -415,7 +443,7 @@ async function getTableColumns(pool, table, cacheNs, database) {
   const cacheKey = `${cacheNs}:${table}`;
   if (_colCache.has(cacheKey)) return _colCache.get(cacheKey);
   const [columns] = await pool.execute(
-    `SELECT COLUMN_NAME, COLUMN_KEY, EXTRA, DATA_TYPE
+    `SELECT COLUMN_NAME, COLUMN_KEY, EXTRA, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH AS CHAR_MAX
      FROM information_schema.columns
      WHERE table_schema = ? AND table_name = ? AND EXTRA NOT LIKE '%GENERATED%'
      ORDER BY ordinal_position`,
@@ -424,6 +452,92 @@ async function getTableColumns(pool, table, cacheNs, database) {
   _colCache.set(cacheKey, columns);
   return columns;
 }
+
+// 目标库唯一键（除主键外）缓存：ODKU 撞任意唯一键都会改写那一行，写前必须预检。
+const _uniqueKeyCache = new Map();
+
+/**
+ * 取目标表除 PRIMARY 外的唯一键（单列/复合都返回，调用方按能力处理）。
+ * 2026-11-18 加：云端 bid_notices 的唯一键是单列 uq_notice_source(notice_id)，
+ * 与源库 (notice_id, tenant_id)/(notice_id, source_channel) 组合键不是同一口径。
+ * @returns {Promise<Array<{name: string, columns: string[]}>>}
+ */
+async function getTargetUniqueKeys(pool, table, database) {
+  const cacheKey = `${table}`;
+  if (_uniqueKeyCache.has(cacheKey)) return _uniqueKeyCache.get(cacheKey);
+  const [rows] = await pool.execute(
+    `SELECT INDEX_NAME AS name, COLUMN_NAME AS col
+     FROM information_schema.statistics
+     WHERE table_schema = ? AND table_name = ? AND NON_UNIQUE = 0 AND INDEX_NAME <> 'PRIMARY'
+     ORDER BY INDEX_NAME, SEQ_IN_INDEX`,
+    [database, table]
+  );
+  const byName = new Map();
+  for (const r of rows) {
+    if (!byName.has(r.name)) byName.set(r.name, []);
+    byName.get(r.name).push(r.col);
+  }
+  const keys = [...byName.entries()].map(([name, columns]) => ({ name, columns }));
+  _uniqueKeyCache.set(cacheKey, keys);
+  return keys;
+}
+
+/**
+ * 唯一键撞行预检：把「主键不同但唯一键值已属于云端别的行」的源行摘出来跳过。
+ * 只预检**单列**唯一键（当前两表实际只有这一种；复合唯一键按主键 ODKU 的撞键组合更多，
+ * 这里显式告警不静默处理，将来真出现再扩展）。
+ * @returns {Promise<{writable: Array<object>, conflicts: Array<{pk: number, column: string, key: string, existingPk: number}>}>}
+ */
+async function filterUniqueKeyConflicts(target, table, database, pkCol, effectiveColumns, rows) {
+  const effectiveSet = new Set(effectiveColumns.map(c => c.COLUMN_NAME));
+  const uniqueKeys = await getTargetUniqueKeys(target, table, database);
+  const singleColKeys = uniqueKeys.filter(k => k.columns.length === 1);
+  const composite = uniqueKeys.filter(k => k.columns.length > 1);
+  if (composite.length > 0 && !WARNED_ONCE.has(`uk-composite:${table}`)) {
+    WARNED_ONCE.add(`uk-composite:${table}`);
+    log(`  ⚠ ${table}: 目标库存在复合唯一键 [${composite.map(k => `${k.name}(${k.columns.join(',')})`).join('、')}]，本次未做撞键预检`);
+  }
+  let writable = rows;
+  const conflicts = [];
+  for (const key of singleColKeys) {
+    const keyCol = key.columns[0];
+    if (!effectiveSet.has(keyCol) || writable.length === 0) continue;
+    const values = [...new Set(writable.map(r => r[keyCol]).filter(v => v !== null && v !== undefined).map(String))];
+    if (values.length === 0) continue;
+    const existingKeyToPk = new Map();
+    for (let i = 0; i < values.length; i += RECONCILE_IN_BATCH) {
+      const chunk = values.slice(i, i + RECONCILE_IN_BATCH);
+      const ph = chunk.map(() => '?').join(',');
+      const [found] = await target.execute(
+        `SELECT \`${pkCol}\` AS pk, \`${keyCol}\` AS v FROM \`${table}\` WHERE \`${keyCol}\` IN (${ph})`,
+        chunk,
+      );
+      for (const r of found) existingKeyToPk.set(String(r.v), r.pk);
+    }
+    const result = ds.selectUniqueKeyConflicts(writable, existingKeyToPk, keyCol, pkCol);
+    writable = result.writable;
+    for (const c of result.conflicts) conflicts.push({ ...c, column: keyCol });
+  }
+  return { writable, conflicts };
+}
+
+/**
+ * 超列宽预检：目标列空间比源值短时（strict 模式 1406）会把整批 INSERT 打回去、整轮同步中断；
+ * 这里逐行预检把超宽行摘出跳过（告警可见，不静默截断），保住同批其余行。
+ */
+function filterOverlongRows(effectiveTargetColumns, rows) {
+  const writable = [];
+  const overlong = [];
+  for (const row of rows) {
+    const bad = ds.findOverlongValues(row, effectiveTargetColumns);
+    if (bad.length === 0) { writable.push(row); continue; }
+    overlong.push({ id: Number(row.id), columns: bad });
+  }
+  return { writable, overlong };
+}
+
+/** 每进程只打印一次的告警（缺列/复合唯一键这类「结构性、每轮都一样」的噪声） */
+const WARNED_ONCE = new Set();
 
 // ═══════════════════════════════════════════
 // 值转义（JSON 列特殊处理）
@@ -470,12 +584,18 @@ async function syncTable(source, target, table, sourceTable, watermark, onWaterm
     return { synced: 0, newWatermark: watermark };
   }
   const targetColSet = new Set(targetColumns.map(c => c.COLUMN_NAME));
-  // 源/目标 schema 可能漂移（爬虫新增列）：只同步交集列，缺失列告警跳过，避免 Unknown column 中断整轮同步
+  // 源/目标 schema 可能漂移（爬虫新增列/云端退役旧列）：只同步交集列，缺失列告警跳过，
+  // 避免 Unknown column 中断整轮同步。每个进程每表只报一次（2026-11-18：原先每轮刷 19/21 个列名）。
   const missingCols = columns.map(c => c.COLUMN_NAME).filter(n => !targetColSet.has(n));
-  if (missingCols.length > 0) {
-    log(`  ⚠ ${table}: 目标库缺少列 [${missingCols.join(', ')}]，本次跳过这些列（需同步该列数据时请先在目标库补列）`);
+  if (missingCols.length > 0 && !WARNED_ONCE.has(`missing-cols:${table}`)) {
+    WARNED_ONCE.add(`missing-cols:${table}`);
+    const head = missingCols.slice(0, 8).join(', ');
+    log(`  ⚠ ${table}: 目标库缺 ${missingCols.length} 个源库列（${head}${missingCols.length > 8 ? ' …' : ''}）——按交集同步，这些列跳过`);
   }
   const effectiveColumns = columns.filter(c => targetColSet.has(c.COLUMN_NAME));
+  const targetColByName = new Map(targetColumns.map(c => [c.COLUMN_NAME, c]));
+  // 列宽/上限必须取目标列的（源列宽放宽或收窄都可能与目标不一致）
+  const effectiveTargetColumns = effectiveColumns.map(c => targetColByName.get(c.COLUMN_NAME));
   const colNames = effectiveColumns.map(c => c.COLUMN_NAME);
   const colTypes = {};
   effectiveColumns.forEach(c => { colTypes[c.COLUMN_NAME] = c.DATA_TYPE; });
@@ -541,6 +661,10 @@ async function syncTable(source, target, table, sourceTable, watermark, onWaterm
 
   let synced = 0;
   let immuneSkipped = 0;
+  let ukConflictSkipped = 0;
+  let overlongSkipped = 0;
+  const ukConflictSamples = [];
+  const overlongSamples = [];
   let maxId = idWm;
   // maxUpdateTime 跟随列原生类型：数值列存 Unix 秒（0 表示未见），时间列存 "YYYY-MM-DD HH:MM:SS"
   let maxUpdateTime = utIsNumeric
@@ -559,9 +683,22 @@ async function syncTable(source, target, table, sourceTable, watermark, onWaterm
     const lastId = Number(rows[rows.length - 1][pkCol]);
 
     // 整行免疫：平台行不进写集（分页/水位仍按源页全量推进，否则会死循环）
-    const writable = immuneIds.size > 0 ? rows.filter(r => !immuneIds.has(Number(r[pkCol]))) : rows;
+    let writable = immuneIds.size > 0 ? rows.filter(r => !immuneIds.has(Number(r[pkCol]))) : rows;
     immuneSkipped += rows.length - writable.length;
     writable.forEach(r => normalizeSourceRow(table, r));
+
+    // 写前护栏（2026-11-18）：① ODKU 撞目标唯一键会改写别人的行 → 跳过并告警；
+    // ② 超目标列宽会整批 1406 → 摘出并告警。两者都不入写集，但分页/水位照常推进。
+    if (writable.length > 0) {
+      const uk = await filterUniqueKeyConflicts(target, table, TARGET.database, pkCol, effectiveColumns, writable);
+      writable = uk.writable;
+      ukConflictSkipped += uk.conflicts.length;
+      for (const c of uk.conflicts) if (ukConflictSamples.length < 5) ukConflictSamples.push(c);
+      const ow = filterOverlongRows(effectiveTargetColumns, writable);
+      writable = ow.writable;
+      overlongSkipped += ow.overlong.length;
+      for (const o of ow.overlong) if (overlongSamples.length < 5) overlongSamples.push(o);
+    }
 
     // 批量构建 VALUES（源库直通覆盖，行级白名单闸已随旧字典桥表退役）
     const valueRows = writable.map(row =>
@@ -605,6 +742,14 @@ async function syncTable(source, target, table, sourceTable, watermark, onWaterm
   const elapsed = Date.now() - t0;
   const newWatermark = buildWatermark(hasUpdateTime, maxId, maxUpdateTime);
   if (immuneSkipped > 0) log(`  ⚠ ${table}: 平台行整行免疫拦下 ${immuneSkipped} 条源库行（撞号，未入库，需人工核对）`);
+  if (ukConflictSkipped > 0) {
+    const sample = ukConflictSamples.map(c => `id=${c.pk} 与云端 id=${c.existingPk} 撞 ${c.column}=${String(c.key).slice(0, 40)}`).join('；');
+    log(`  ⚠ ${table}: 唯一键撞行跳过 ${ukConflictSkipped} 条（${sample}）——已避免 ODKU 改写别人的行，需人工核对`);
+  }
+  if (overlongSkipped > 0) {
+    const sample = overlongSamples.map(o => `id=${o.id} ${o.columns.map(c => `${c.column} 长${c.length}>上限${c.max}`).join('/')}`).join('；');
+    log(`  ⚠ ${table}: 超目标列宽跳过 ${overlongSkipped} 条（${sample}）——这些行本次未同步，需扩列或清洗源数据`);
+  }
   return { synced, newWatermark, elapsed };
 }
 
@@ -634,16 +779,19 @@ function normForCompare(v) {
  *   - 指纹比对覆盖「ODKU 会写入的内容列」（交集列去主键、去非破坏 keepCols）：
  *     keepCols 本就要保留目标值，其差异不应触发补同步（否则空转）；
  *   - 补写沿用与增量完全一致的 updateClause（源直覆 / keepCols 保留），只增不删。
- * @param {boolean} opts.dry 默认 true：只统计待补行数与差异列分解，不写库；false 才 upsert。
+ * @param {boolean} opts.dry 由调用方决定（2026-11-18 起默认写回，--reconcile-dry/--dry-run 才预览）；
+ *   true 只统计待补行数与差异列分解、不写库；false 才 upsert。
  * @param {string} sourceTable 源库实际表名（现行名 + SYNC_SOURCE_TABLE_PREFIX）；目标库始终写现行名
  */
 async function reconcileTable(source, target, table, sourceTable, opts) {
-  const dry = opts.dry !== false; // 默认 DRY
+  const dry = opts.dry !== false; // 兜底 DRY；正常调用由 runSyncOnce 显式传 dryReconcile
   const slice = opts.sliceSize || RECONCILE_SLICE;
 
   const columns = await getTableColumns(source, sourceTable, 'source', SOURCE.database);
   const targetColumns = await getTableColumns(target, table, 'target', TARGET.database);
-  const result = { scanned: 0, drift: 0, colCounts: {}, applied: 0, immuneSkipped: 0 };
+  const result = { scanned: 0, drift: 0, colCounts: {}, applied: 0, appliedIds: [], immuneSkipped: 0, ukConflictSkipped: 0, overlongSkipped: 0 };
+  const ukConflictSamples = [];
+  const overlongSamples = [];
   if (columns.length === 0 || targetColumns.length === 0) {
     const missing = columns.length === 0
       ? `源库 ${SOURCE.database}.${sourceTable}（检查 SYNC_SOURCE_TABLE_PREFIX）`
@@ -676,9 +824,13 @@ async function reconcileTable(source, target, table, sourceTable, opts) {
   const updateClause = ds.buildOdkuUpdateClause(updateCols, colTypes, keepCols, pkCol, {
     monotoneCols, targetWins: targetWinsCols,
   });
-  const sliceFp = ds.buildSliceFingerprintExpr(fpCols);
-  const rowFp = ds.buildRowFingerprintExpr(fpCols);
+  // 指纹与写入归一同口径（NULL_AS_ZERO_COLUMNS）：否则「源 NULL / 云端 0」每轮都判差异、永远不收敛
+  const nullAsZero = new Set(ds.NULL_AS_ZERO_COLUMNS[table] || []);
+  const fpOpts = nullAsZero.size > 0 ? { nullAsZero } : undefined;
+  const sliceFp = ds.buildSliceFingerprintExpr(fpCols, fpOpts);
+  const rowFp = ds.buildRowFingerprintExpr(fpCols, fpOpts);
   const insertColList = effCols.map(c => `\`${c}\``).join(', ');
+  const effTargetColumns = effCols.map(name => targetColumns.find(c => c.COLUMN_NAME === name)).filter(Boolean);
 
   let lastHi = 0;
   for (;;) {
@@ -734,12 +886,31 @@ async function reconcileTable(source, target, table, sourceTable, opts) {
         }
       }
       if (!dry) {
-        const valueRows = sfull.map(row => `(${effCols.map(c => escapeVal(row[c], colTypes[c])).join(', ')})`);
+        // 写前护栏（与增量同一口径）：撞目标唯一键的行跳过（否则 ODKU 改写别人的行）、
+        // 超列宽的行跳过（否则整批 1406 让轮次中断）。两者均计入 skip 计数并在表尾告警。
+        let writable = sfull;
+        if (writable.length > 0) {
+          const uk = await filterUniqueKeyConflicts(target, table, TARGET.database, pkCol, columns, writable);
+          writable = uk.writable;
+          result.ukConflictSkipped += uk.conflicts.length;
+          for (const c of uk.conflicts) if (ukConflictSamples.length < 5) ukConflictSamples.push(c);
+          const ow = filterOverlongRows(effTargetColumns, writable);
+          writable = ow.writable;
+          result.overlongSkipped += ow.overlong.length;
+          for (const o of ow.overlong) if (overlongSamples.length < 5) overlongSamples.push(o);
+        }
+        const valueRows = writable.map(row => `(${effCols.map(c => escapeVal(row[c], colTypes[c])).join(', ')})`);
         if (valueRows.length > 0) {
           await target.execute(
             `INSERT INTO \`${table}\` (${insertColList}) VALUES ${valueRows.join(',')} ON DUPLICATE KEY UPDATE ${updateClause}`
           );
           result.applied += valueRows.length;
+          // 记下补写过的行：下游服务表 --changed 只看 update_time 水位，内容变了但水位没变的
+          // 行选不出来，调用方需要按显式 id 再重算一遍（见 runServiceNormalization）。
+          const appliedIds = writable.map(row => Number(row[pkCol]));
+          for (const id of appliedIds) result.appliedIds.push(id);
+          // 落盘（JSONL 追加）：万一后续步骤崩溃/被杀，补写过的 id 不丢，可离线重建服务表
+          if (opts.onAppliedIds) opts.onAppliedIds(appliedIds);
         }
       }
       batchDone++;
@@ -749,6 +920,14 @@ async function reconcileTable(source, target, table, sourceTable, opts) {
   }
   if (result.scanned > 0) console.log();
   if (result.immuneSkipped > 0) log(`        ⚠ 其中 ${result.immuneSkipped} 行为平台行，整行免疫不补写`);
+  if (result.ukConflictSkipped > 0) {
+    const sample = ukConflictSamples.map(c => `id=${c.pk} 与云端 id=${c.existingPk} 撞 ${c.column}=${String(c.key).slice(0, 40)}`).join('；');
+    log(`        ⚠ 唯一键撞行跳过 ${result.ukConflictSkipped} 条（${sample}）——已避免 ODKU 改写别人的行，需人工核对`);
+  }
+  if (result.overlongSkipped > 0) {
+    const sample = overlongSamples.map(o => `id=${o.id} ${o.columns.map(c => `${c.column} 长${c.length}>上限${c.max}`).join('/')}`).join('；');
+    log(`        ⚠ 超目标列宽跳过 ${result.overlongSkipped} 条（${sample}）——这些行本次未补写，需扩列或清洗源数据`);
+  }
   return result;
 }
 
@@ -779,11 +958,12 @@ function saveServiceWatermark(lastSuccess) {
 /**
  * 源撤回下传：删除「云端主表有、源库已无」的行，并让下游两层跟着收敛。
  *
- * 护栏四道，任一不过即抛错中止（不做半截删除）：
+ * 护栏五道，任一不过即抛错中止（不做半截删除）：
  *   G1 源库 id 集为空 ⇒ 视为连接/权限故障，绝不等于「源库全空」；
  *   G2 源库行数 < 云端行数 90% ⇒ 疑似连错库/取数被截断（差异集会是几十万而非几千）；
  *   G3 单次删除超 PRUNE_MAX ⇒ 量级不对；
- *   G4 删除集含已付费解锁记录（opportunity_unlocks.notice_id）⇒ 权益处置交人工。
+ *   G4 删除集含已付费解锁记录（opportunity_unlocks.notice_id）⇒ 权益处置交人工；
+ *   G5 待删行在源库仍能按 notice_id 找到 ⇒ 只是主键变了（重排/重建 id），不删（2026-11-18 补）。
  * 此外永远排除平台行（PLATFORM_IMMUNE）：那些行本仓自建、源库永远没有。
  * 真删前先把 id 清单落 runtime/backups/，按单行主键可重灌。
  */
@@ -796,17 +976,32 @@ async function pruneSourceDeleted(source, target, sourceTable) {
   if (srcIds.size === 0) throw new Error('G1 源库 id 集为空：视为连接故障，中止');
 
   const [cloudRows] = await target.query(
-    `SELECT id, \`${PLATFORM_IMMUNE.column}\` AS entry_source FROM \`${table}\``);
+    `SELECT id, notice_id, \`${PLATFORM_IMMUNE.column}\` AS entry_source FROM \`${table}\``);
   if (srcIds.size < cloudRows.length * 0.9) {
     throw new Error(`G2 源库 ${srcIds.size} 行 < 云端 ${cloudRows.length} 行的 90%：疑似连错库或取数被截断，中止`);
   }
 
   const immuneSet = new Set(
     cloudRows.filter(r => String(r.entry_source) === PLATFORM_IMMUNE.value).map(r => Number(r.id)));
-  const absent = cloudRows.filter(r => !srcIds.has(Number(r.id)));
-  const doomed = absent.filter(r => !immuneSet.has(Number(r.id))).map(r => Number(r.id));
-  const immuneSkipped = absent.length - doomed.length;
-  log(`        源库 ${srcIds.size} 行 · 云端 ${cloudRows.length} 行 · 源库已无 ${absent.length} 行（其中平台行受免疫保护 ${immuneSkipped} 行）· 待删 ${doomed.length} 行`);
+  const absent = cloudRows.filter(r => !srcIds.has(Number(r.id)) && !immuneSet.has(Number(r.id)));
+
+  // G5：absent 里可能有「id 变了但 notice_id 还在源库」的行（源库重建/重排 id）。按 notice_id
+  // 回查源库，能对上的不删——否则会把云端唯一副本删掉（这种行本该由增量按新 id 补进来）。
+  const absentNoticeIds = [...new Set(absent.map(r => r.notice_id).filter(v => v !== null && v !== undefined).map(String))];
+  const survivedNoticeIds = new Set();
+  for (let i = 0; i < absentNoticeIds.length; i += 500) {
+    const chunk = absentNoticeIds.slice(i, i + 500);
+    const ph = chunk.map(() => '?').join(',');
+    const [hit] = await source.query(`SELECT DISTINCT notice_id FROM \`${sourceTable}\` WHERE notice_id IN (${ph})`, chunk);
+    for (const r of hit) survivedNoticeIds.add(String(r.notice_id));
+  }
+  const reIdChanged = absent.filter(r => r.notice_id !== null && r.notice_id !== undefined && survivedNoticeIds.has(String(r.notice_id)));
+  const doomed = absent
+    .filter(r => !(r.notice_id !== null && r.notice_id !== undefined && survivedNoticeIds.has(String(r.notice_id))))
+    .map(r => Number(r.id));
+  const immuneSkipped = cloudRows.filter(r => !srcIds.has(Number(r.id)) && immuneSet.has(Number(r.id))).length;
+  log(`        源库 ${srcIds.size} 行 · 云端 ${cloudRows.length} 行 · 源库已无 ${absent.length + immuneSkipped} 行`);
+  log(`        其中：平台行受免疫保护 ${immuneSkipped} 行 · id 变了但 notice_id 仍在源库 ${reIdChanged.length} 行（G5 拒删）· 待删 ${doomed.length} 行`);
   if (doomed.length === 0) return;
   if (doomed.length > PRUNE_MAX) throw new Error(`G3 待删 ${doomed.length} 行超上限 ${PRUNE_MAX}：量级不对，中止`);
 
@@ -849,8 +1044,16 @@ async function pruneSourceDeleted(source, target, sourceTable) {
  *   · update_time 很老但内容确实变了的行（内容对账补写、管道静默改写）；
  *   · update_time IS NULL 的行（永远落在任何窗口之外）。
  * 服务表水位文件仅留作观测（上一轮成功时刻），不再参与选行。
+ *
+ * 2026-11-18 补 ids 重算：--changed 的判据仍是「输入 update_time > 服务表 updated_at」，
+ * 对账补写的行里有一批是**内容变了但源库 update_time 没变**（agency/contacts 类，实测
+ * 83k 行中的主要来源），它们选不出来 ⇒ 主表改了、站点仍显示旧值。故对账补写时边写边把公告 id
+ * 追加到 JSONL 落盘（崩溃也可恢复），这里再按 id 显式重算一遍
+ * （rebuildPublicRowsByIds，唯一写入者链路不变）。成功后删掉 id 文件；失败保留并在日志给出路径，
+ * 可手动 `npx tsx scripts/tools/notice-public-rebuild.ts --apply --no-prune --ids-file=<路径>` 重跑。
+ * @param {string} appliedIdsFile 本轮补写 id 的 JSONL 路径（无补写时文件不存在或为空）
  */
-function runServiceNormalization() {
+function runServiceNormalization(appliedIdsFile) {
   const repoRoot = path.join(__dirname, '..', '..');
   const tsxCli = path.join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
   const script = path.join(repoRoot, 'scripts', 'tools', 'notice-public-rebuild.ts');
@@ -865,6 +1068,40 @@ function runServiceNormalization() {
   });
   if (res.error) throw res.error;
   if (res.status !== 0) throw new Error(`notice-public-rebuild 退出码 ${res.status}`);
+
+  const ids = readAppliedIdsFile(appliedIdsFile);
+  if (ids.length === 0) {
+    fs.rmSync(appliedIdsFile, { force: true });
+    return;
+  }
+  // 按 id 重算：不清理 ghost（--no-prune），ghost 归上一棒 --changed（仅开源撤回时才清）
+  log(`  [服务表] 按 id 重算对账补写行 ${ids.length} 条（--changed 只看水位，接不住「内容变但 update_time 不变」）`);
+  const res2 = spawnSync(process.execPath, [tsxCli, script, '--apply', '--no-prune', `--ids-file=${appliedIdsFile}`], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    env: process.env,
+  });
+  if (res2.error) throw res2.error;
+  if (res2.status !== 0) {
+    throw new Error(`notice-public-rebuild --ids-file 退出码 ${res2.status}（补写 id 保留在 ${appliedIdsFile}，可手动重跑）`);
+  }
+  fs.rmSync(appliedIdsFile, { force: true });
+}
+
+/** 读补写 id 文件：JSONL（每行一个 id）为主，兼容 JSON 数组；文件缺失/损坏返回空数组并告警 */
+function readAppliedIdsFile(file) {
+  try {
+    if (!fs.existsSync(file)) return [];
+    const text = fs.readFileSync(file, 'utf8').trim();
+    if (!text) return [];
+    if (text.startsWith('[')) {
+      return [...new Set(JSON.parse(text).map(Number).filter(n => Number.isFinite(n) && n > 0))];
+    }
+    return [...new Set(text.split(/\r?\n/).map(s => Number(s.trim())).filter(n => Number.isFinite(n) && n > 0))];
+  } catch (err) {
+    log(`  ⚠ 补写 id 文件读取失败（${file}）：${err.message}`);
+    return [];
+  }
 }
 
 /**
@@ -933,13 +1170,26 @@ async function runSyncOnce() {
       }
     }
 
-    // ── 内容对账：接住「documents 等被补写但不推 update_time」的漏同步行（默认 DRY，--apply 才写）──
+    // ── 内容对账：接住「documents 等被补写但不推 update_time」的漏同步行 ──
+    // 2026-11-18 起默认写回差异（--reconcile-dry 只预览）；原先默认 DRY ⇒ 每轮报 10 万行却永不收敛。
+    // 补写 id 边写边落盘（JSONL）：进程中途崩溃/被杀也不丢，可事后按 --ids-file 重建服务表
+    // （2026-11-18 实测踩过：185k 行补写完成后在汇总处爆栈，内存里的 id 全丢、服务表没法按 id 重算）。
+    const appliedIdsFile = path.join(__dirname, '..', '..', 'runtime', 'tmp', `sync-applied-ids-${Date.now()}.jsonl`);
+    fs.mkdirSync(path.dirname(appliedIdsFile), { recursive: true });
+    const appendAppliedIds = (ids) => {
+      if (ids.length === 0) return;
+      fs.appendFileSync(appliedIdsFile, `${ids.join('\n')}\n`);
+    };
     if (!NO_RECONCILE) {
-      const dryReconcile = DRY_RUN || !APPLY_RECONCILE;
-      log(`  ── 内容对账（按全列行指纹）${dryReconcile ? '· DRY 预览' : '· 将写入'} ──`);
+      const dryReconcile = DRY_RECONCILE;
+      log(`  ── 内容对账（按全列行指纹）${dryReconcile ? '· DRY 预览' : '· 写入差异'} ──`);
       for (const table of SYNC_TABLES) {
         const t2 = Date.now();
-        const r = await reconcileTable(source, target, table, sourceTableName(table), { dry: dryReconcile, sliceSize: RECONCILE_SLICE });
+        const r = await reconcileTable(source, target, table, sourceTableName(table), {
+          dry: dryReconcile,
+          sliceSize: RECONCILE_SLICE,
+          onAppliedIds: table === 'bid_notices' && !dryReconcile ? appendAppliedIds : undefined,
+        });
         const entries = Object.entries(r.colCounts).sort((a, b) => b[1] - a[1]);
         log(`  [对账] ${table}: 扫描 ${r.scanned} 行 · 差异 ${r.drift} 行 · ${dryReconcile ? '未写入' : `已补同步 ${r.applied} 行`} | 耗时 ${fmtDuration(Date.now() - t2)}`);
         if (entries.length) log(`        差异列分解：${entries.map(([k, v]) => `${k}×${v}`).join(', ')}`);
@@ -964,7 +1214,7 @@ async function runSyncOnce() {
       log('  [服务表] DRY：跳过归一化（--dry-run 不写服务表）');
     } else if (!process.argv.includes('--no-service')) {
       try {
-        runServiceNormalization();
+        runServiceNormalization(appliedIdsFile);
         saveServiceWatermark(syncStartedAt);
         log(`  [服务表] 归一化完成（本轮时刻 ${new Date(syncStartedAt * 1000).toISOString()}）`);
       } catch (err) {
@@ -1016,3 +1266,5 @@ main().catch(err => {
   if (err.stack) log(err.stack);
   process.exit(1);
 });
+
+

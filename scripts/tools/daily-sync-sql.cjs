@@ -37,6 +37,19 @@ const NON_DESTRUCTIVE_COLUMNS = {
 };
 
 /**
+ * 源行 NULL 语义归一列（2026-11-18 从 daily-sync.cjs 的 normalizeSourceRow 上移到叶子，
+ * 让「写入前归一」与「对账指纹取码」共用同一份登记——此前只归一了写入、指纹没跟上，
+ * 「源 NULL / 云端 0」每轮都被判差异，对账永远不收敛）：
+ *   bid_notices.deadline_ts 为 NULL 时，云端必须落 0（deadline_sec 生成列对 NULL 原样传播，
+ *   SSOT 口径 `deadline_sec = 0 OR >= now` 会漏行；两库触发器 trg_bid_notices_dt_zero_ins/_upd
+ *   是库层兜底，本归一为同步侧同一语义）。
+ * 写入前归一 + 指纹两侧按同一归一取码，才能让这类行收敛（不再每轮幂等补写）。
+ */
+const NULL_AS_ZERO_COLUMNS = {
+  bid_notices: ["deadline_ts"],
+};
+
+/**
  * 单调上升列（云端拥有的布尔型运营标记）：任一侧为 1 即保留 1，只允许 0→1、禁止 1→0。
  * 实测依据：5 行 is_featured 云端=1 / 源库=0 且两侧 update_time 相等
  * ⇒ 精选是云端后写的运营动作，不能被源库的非空值 0 抹掉（那种情况 keepCols「源空才保留」不生效）。
@@ -67,9 +80,14 @@ const PLATFORM_IMMUNE = { table: "bid_notices", column: "entry_source", value: "
  * 代价（必须知道）：源库真改了标题时，这一路不跟进；标题更新依赖后台正式写入者或
  * 人工：对指定 id 重算服务表（2026-10-27 管道翻转后由 src 侧构建器 src/lib/services/notice-public/build.ts 承担，
  * 原先的 ops 一次性 CLI 壳已删除）。
+ *
+ * converted_opp_id（2026-11-18 补登）：公告→商机的转化关系是云端后台点「转商机」时写的，
+ * 源库同名列是历史 CRM 的旧值。实测存在源 13639 / 云端 13801 且两侧 update_time 相等的行
+ * （云端后写），若直通覆盖会把转化关系指回旧商机；对账侧也因该列不可比而每轮空转。
+ * 目标优先语义：云端已有值就不动，云端为空才接源值（新行/未转化行照常带源值入库）。
  */
 const TARGET_WINS_COLUMNS = {
-  bid_notices: ["title"],
+  bid_notices: ["title", "converted_opp_id"],
 };
 
 /**
@@ -77,8 +95,16 @@ const TARGET_WINS_COLUMNS = {
  * 每列前置一个标记字节 —— NULL 走 CHAR(1)、非空走 CHAR(2)+值本体。
  * 若省掉标记直接用 CONCAT_WS，MySQL 会跳过 NULL 参数 ⇒ NULL 与 '' 同码 ⇒ 对账假通过
  * （影子表阶段一实测口径，此处逐字对齐 notices-slim-common.mjs rowFingerprintExpr 的 term()）。
+ *
+ * opts.nullAsZero（Set<列名>）：列在集合内时，NULL 与 0 归一为同一码（两侧同式）。
+ * 用于 NULL_AS_ZERO_COLUMNS 这类「写入前已归一为 0」的列 —— 不归一就永远比不等，
+ * 每轮对账都判差异、补写后下一轮还判差异，收敛不了。
  */
-function fingerprintTerm(col) {
+function fingerprintTerm(col, opts) {
+  const nullAsZero = Boolean(opts && opts.nullAsZero && opts.nullAsZero.has(col));
+  if (nullAsZero) {
+    return "CONCAT(CHAR(2 USING utf8mb4), CAST(IFNULL(`" + col + "`, 0) AS CHAR))";
+  }
   return (
     "IF(`" + col + "` IS NULL, CHAR(1 USING utf8mb4), " +
     "CONCAT(CHAR(2 USING utf8mb4), IFNULL(CAST(`" + col + "` AS CHAR), '')))"
@@ -86,8 +112,8 @@ function fingerprintTerm(col) {
 }
 
 /** 逐行指纹：CRC32(CONCAT(带标记的列…))。下钻定位「哪一行内容变了」时用。 */
-function buildRowFingerprintExpr(cols) {
-  return "CRC32(CONCAT(" + cols.map(fingerprintTerm).join(", ") + "))";
+function buildRowFingerprintExpr(cols, opts) {
+  return "CRC32(CONCAT(" + cols.map((c) => fingerprintTerm(c, opts)).join(", ") + "))";
 }
 
 /**
@@ -95,8 +121,8 @@ function buildRowFingerprintExpr(cols) {
  * 只在指纹/行数不等的片上下钻到行 —— 与影子表 reconcile/findDirtyRows 同一省法。
  * SUM 与行序无关（可交换），故跨库两侧只要「行集合 × 行指纹」相同即相等。
  */
-function buildSliceFingerprintExpr(cols) {
-  return "SUM(" + buildRowFingerprintExpr(cols) + ")";
+function buildSliceFingerprintExpr(cols, opts) {
+  return "SUM(" + buildRowFingerprintExpr(cols, opts) + ")";
 }
 
 /**
@@ -129,6 +155,72 @@ function selectDriftIds(sourceRows, targetRows) {
 }
 
 /**
+ * 唯一键撞行预检（2026-11-18 新增，配合云端 `uq_notice_source(notice_id)`）：
+ * 写集按主键 INSERT ... ON DUPLICATE KEY UPDATE 时，只要**任一唯一键**撞到云端已有行，
+ * ODKU 就会改写那一行而不是插入本行 —— 主键不同、整行被张冠李戴，且水位线照常推进，
+ * 本行永久丢失。云端 `bid_notices` 的唯一键是 `notice_id` 单列，源库却是
+ * `(notice_id, tenant_id)` / `(notice_id, source_channel)` 组合键，两侧并非同一口径。
+ *
+ * 判定：key 在云端已存在且主键不是本行 ⇒ 冲突跳过（不改写别人的行）；同一批内 key 重复
+ * 且主键不同 ⇒ 后出现者同样算冲突（先写入的那行会占住唯一键）。NULL key 不受唯一键约束，
+ * 一律放行（MySQL 唯一索引允许多个 NULL）。
+ * @param {Array<Record<string, unknown>>} rows 待写入的源行（至少含 pkCol / keyCol）
+ * @param {Map<string, number|string>} existingKeyToPk 云端「key 值 → 主键」
+ * @returns {{writable: Array<Record<string, unknown>>, conflicts: Array<{pk: number, key: string, existingPk: number}>}}
+ */
+function selectUniqueKeyConflicts(rows, existingKeyToPk, keyCol, pkCol) {
+  const writable = [];
+  const conflicts = [];
+  const seen = new Map();
+  for (const row of rows) {
+    const raw = row[keyCol];
+    if (raw === null || raw === undefined) {
+      writable.push(row);
+      continue;
+    }
+    const key = String(raw);
+    const pk = Number(row[pkCol]);
+    const existing = existingKeyToPk.get(key);
+    if (existing !== undefined && Number(existing) !== pk) {
+      conflicts.push({ pk, key, existingPk: Number(existing) });
+      continue;
+    }
+    const batchPk = seen.get(key);
+    if (batchPk !== undefined && Number(batchPk) !== pk) {
+      conflicts.push({ pk, key, existingPk: Number(batchPk) });
+      continue;
+    }
+    seen.set(key, pk);
+    writable.push(row);
+  }
+  return { writable, conflicts };
+}
+
+/**
+ * 超列宽预检（2026-11-18 新增）：源列比目标列宽时（实测 contact_phone 50→63 是宽了没事，
+ * 但 delivery_address 源 500 / 目标 255 是窄了），MySQL strict 模式会抛 1406
+ * Data too long，**整批 INSERT 一起失败 ⇒ 整轮同步中断**。这里逐行预检，把会撑爆的行单独
+ * 摘出来跳过（可见告警，不静默截断内容），保住同批其余行。
+ * @param {Record<string, unknown>} row
+ * @param {Array<{COLUMN_NAME: string, CHAR_MAX?: number|string|null}>} columns 目标列（含 CHARACTER_MAXIMUM_LENGTH）
+ * @returns {Array<{column: string, length: number, max: number}>} 超宽列清单（空=可写）
+ */
+function findOverlongValues(row, columns) {
+  const overlong = [];
+  for (const c of columns) {
+    const max = Number(c.CHAR_MAX);
+    if (!Number.isFinite(max) || max <= 0) continue; // longtext/json 等无字符上限
+    const v = row[c.COLUMN_NAME];
+    if (typeof v !== "string") continue;
+    if (v.length <= max) continue; // UTF-16 长度不会小于字符数，先快速放行
+    // 含代理对（emoji）时 UTF-16 长度 > 实际字符数，按码点复核，避免误杀
+    const length = Array.from(v).length;
+    if (length > max) overlong.push({ column: c.COLUMN_NAME, length, max });
+  }
+  return overlong;
+}
+
+/**
  * ODKU 的 UPDATE 子句：与 daily-sync 增量同步**完全同一覆盖语义**，务必共享而非各写一份
  * （「看着一样其实不一样」是最坏的漂移 —— 见 notices-slim-common.mjs 头部红线）。
  *   - 单调上升列：GREATEST 合并（任一侧 1 即 1，NULL 安全）；
@@ -148,7 +240,7 @@ function buildOdkuUpdateClause(updateCols, colTypes, keepCols, pkCol, opts) {
       // 单调上升优先于 keepCols：合并语义比「源空保留」更强，且两者不该同时命中
       if (monotone.has(c)) return monotoneRiseExpr(c);
       // 目标优先：本侧无等价清洗时的防回退档（见 TARGET_WINS_COLUMNS 注）
-      if (targetWins.has(c)) return targetWinsExpr(c);
+      if (targetWins.has(c)) return targetWinsExpr(c, colTypes[c]);
       if (!keepCols.has(c)) return "`" + c + "` = VALUES(`" + c + "`)";
       const emptyTest = NUMERIC_TYPES.has(colTypes[c])
         ? "VALUES(`" + c + "`) IS NULL"
@@ -165,8 +257,15 @@ function monotoneRiseExpr(c) {
   return "`" + c + "` = GREATEST(IFNULL(`" + c + "`, 0), IFNULL(VALUES(`" + c + "`), 0))";
 }
 
-/** 目标优先式：目标已有非空值就不动，空了才接源值 */
-function targetWinsExpr(c) {
+/**
+ * 目标优先式：目标已有非空值就不动，空了才接源值。
+ * 数值列（如 converted_opp_id bigint）只把 NULL 当「空」：0 是合法值，但 `= ''` 的隐式
+ * 转换在 bigint 上不直观（''→0），故按列类型分开写，避免语义漂移。
+ */
+function targetWinsExpr(c, dataType) {
+  if (NUMERIC_TYPES.has(dataType)) {
+    return "`" + c + "` = IF(`" + c + "` IS NULL, VALUES(`" + c + "`), `" + c + "`)";
+  }
   return "`" + c + "` = IF(`" + c + "` IS NULL OR `" + c + "` = '', VALUES(`" + c + "`), `" + c + "`)";
 }
 
@@ -175,12 +274,15 @@ module.exports = {
   NON_DESTRUCTIVE_COLUMNS,
   MONOTONE_RISE_COLUMNS,
   TARGET_WINS_COLUMNS,
+  NULL_AS_ZERO_COLUMNS,
   PLATFORM_IMMUNE,
   fingerprintTerm,
   buildRowFingerprintExpr,
   buildSliceFingerprintExpr,
   computeEffectiveColumns,
   selectDriftIds,
+  selectUniqueKeyConflicts,
+  findOverlongValues,
   monotoneRiseExpr,
   targetWinsExpr,
   buildOdkuUpdateClause,

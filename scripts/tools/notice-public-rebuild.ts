@@ -12,10 +12,13 @@
  *   npx tsx scripts/tools/notice-public-rebuild.ts --apply      # 真正写服务表（--changed 口径）
  *   npx tsx scripts/tools/notice-public-rebuild.ts --apply --no-prune
  *     # 不清理「主表已无」的 ghost 行：daily-sync 普通轮次的口径（只有开了源撤回下传才允许删）
+ *   npx tsx scripts/tools/notice-public-rebuild.ts --apply --no-prune --ids-file=/tmp/ids.json
+ *     # 按显式 notice_pk 列表重建（2026-11-18 补给 daily-sync 内容对账用）：--changed 只看
+ *     # update_time 水位，内容改了但源库 update_time 没变的行选不出来，只能由调用方给 id。
  */
 import { readFileSync } from "node:fs";
 import mysql from "mysql2/promise";
-import { rebuildNoticePublicChanged } from "../../src/lib/services/notice-public/rebuild";
+import { rebuildNoticePublicChanged, rebuildPublicRowsByIds } from "../../src/lib/services/notice-public/rebuild";
 import { selectChangedPublicIds } from "../../src/lib/services/notice-public/build";
 
 for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
@@ -25,6 +28,7 @@ for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
 
 const APPLY = process.argv.includes("--apply");
 const PRUNE = !process.argv.includes("--no-prune");
+const IDS_FILE = process.argv.find((a) => a.startsWith("--ids-file="))?.slice("--ids-file=".length) || null;
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST ?? "127.0.0.1",
@@ -41,6 +45,16 @@ try {
     // 只读模式：只跑选行（不等式判据），不构建、不写库
     const ids = await selectChangedPublicIds(pool);
     console.log(`[notice-public] DRY：待重建 ${ids.length} 行（加 --apply 才写库）`);
+  } else if (IDS_FILE) {
+    // 显式 id 重建：不跑 --changed 选行、不清理 ghost（ghost 由上一棒 --changed 轮次负责）。
+    // 文件兼容 JSON 数组与 JSONL（daily-sync 边补写边追加，崩溃后可直接拿残留文件重跑）。
+    const text = readFileSync(IDS_FILE, "utf8").trim();
+    const raw = text.startsWith("[")
+      ? (JSON.parse(text) as unknown[])
+      : text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    const noticeIds = [...new Set(raw.map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0))];
+    const written = await rebuildPublicRowsByIds(pool, noticeIds);
+    console.log(`[notice-public] 按 id 重建完成：选中 ${noticeIds.length} · 写入 ${written}`);
   } else {
     const r = await rebuildNoticePublicChanged(pool, { force: true, prune: PRUNE });
     console.log(
