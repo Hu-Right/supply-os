@@ -62,7 +62,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
     >
       <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-4">
         {/* ── 状态标签列：公告类型 + 附件 ── */}
-        <div className="flex lg:flex-col flex-wrap lg:flex-nowrap items-start gap-1 lg:w-28 shrink-0">
+        <div className="flex lg:flex-col flex-wrap lg:flex-nowrap items-start gap-1 lg:w-36 shrink-0">
           <Badge shape="tag" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-3xs font-bold w-fit whitespace-nowrap">
             {typeKey ? t(typeKey) : item.noticeTypeCode || "-"}
           </Badge>
@@ -129,7 +129,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
         </div>
 
         {/* ─ 截止列（md+）：日期 + 剩余天数 ── */}
-        <div className="hidden md:block w-36 shrink-0">
+        <div className="hidden md:block w-48 shrink-0">
           <p className="text-xs text-slate-600 font-mono text-end whitespace-nowrap" dir="ltr">{deadlineText}</p>
           {daysLeft !== null && daysLeft >= 0 && (
             <p className="text-3xs text-rose-600 font-bold text-end">
