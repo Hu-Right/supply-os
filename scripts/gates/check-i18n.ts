@@ -92,6 +92,25 @@ if (undefinedRefs.length) {
   }
 }
 
+// 非中文语言包不得残留中文：外语界面出现「500万元」「请稍候」这类中文，
+// 多半是示例值/漏翻。2026-11-18 实测 6 处（authEnterpriseCapitalInvalid 的示例金额）。
+const CJK_RE = /[\u4e00-\u9fff]/;
+const cjkLeaks: string[] = [];
+for (const lang of LANGS.filter((l) => l !== "zh")) {
+  const dir = resolve(localesDir, lang);
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json")).sort()) {
+    const values = JSON.parse(readFileSync(resolve(dir, file), "utf8")) as Record<string, unknown>;
+    for (const [key, value] of Object.entries(values)) {
+      if (typeof value === "string" && CJK_RE.test(value)) cjkLeaks.push(`${lang}/${file} ${key}`);
+    }
+  }
+}
+if (cjkLeaks.length) {
+  hasError = true;
+  console.error(`❌ 非中文语言包残留中文 ${cjkLeaks.length} 处（示例值/漏翻）：`);
+  for (const item of cjkLeaks.slice(0, 20)) console.error(`   - ${item}`);
+}
+
 if (!hasError) {
   // 语言数写在文案里（原写死「六语言」）会在加语言时变成假信息，改成数据驱动。
   console.log("\u2705", LANGS.length, "语言键一致、无重复键（zh 基准），且代码 t() 引用均有定义，共", baseKeys.length, "个键 \u00d7", LANGS.length, "语言");
