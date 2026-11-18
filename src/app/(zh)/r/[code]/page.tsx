@@ -2,7 +2,8 @@
  * /r/[code] — 推广扫码落地页（客户端）
  *
  * 用户扫码后在浏览器中设置 ref_code + qr_auto_open Cookie，
- * 然后跳转到首页。采用客户端实现确保 Cookie 100% 写入成功。
+ * 然后跳转到首页；支持 ?next=站内相对路径（如 /procurement/diagnosis）直达目标页。
+ * 采用客户端实现确保 Cookie 100% 写入成功。
  *
  * 支持两种码命名空间（与注册侧 invitation.repo 的前缀分流一致）：
  *   EMP-员工推广码 / CH-渠道商注册码。2026-10-30 注册邀请码改为必填后，
@@ -15,6 +16,19 @@ import { useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 
 const CODE_PATTERN = /^(?:EMP|CH)-[A-Z0-9]{4,12}$/i;
+
+/** 只允许站内相对路径，防止 ?next= 变成开放重定向 */
+function safeNextPath(raw: string | null): string {
+  const v = String(raw || "").trim();
+  if (!v || !v.startsWith("/") || v.startsWith("//")) return "/";
+  try {
+    const u = new URL(v, window.location.origin);
+    if (u.origin !== window.location.origin) return "/";
+    return `${u.pathname}${u.search}${u.hash}`;
+  } catch {
+    return "/";
+  }
+}
 
 export default function ReferralPage() {
   const router = useRouter();
@@ -36,9 +50,16 @@ export default function ReferralPage() {
 
     // 在浏览器中直接写入 Cookie，100% 可靠
     document.cookie = `ref_code=${encodeURIComponent(normalized)}; path=/; expires=${expires.toUTCString()}; SameSite=lax`;
-    document.cookie = `qr_auto_open=1; path=/; SameSite=lax`;
 
-    // 立即跳转到首页
+    // 带 next 的场景（如诊断链接）直接去目标页，不弹首页注册框；
+    // 目标页未登录时会自己触发布局层的登录/注册弹窗，且 ref_code 已就绪。
+    const rawNext = new URLSearchParams(window.location.search).get("next");
+    if (rawNext) {
+      router.replace(safeNextPath(rawNext));
+      return;
+    }
+
+    document.cookie = `qr_auto_open=1; path=/; SameSite=lax`;
     router.replace("/");
   }, [params.code, router]);
 
