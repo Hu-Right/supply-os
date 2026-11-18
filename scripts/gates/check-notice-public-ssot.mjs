@@ -36,6 +36,16 @@ const violations = [];
  */
 const RETIRED_COLS = new Set(["industry_tree_code"]);
 
+/**
+ * 服务表「生成列」自动豁免：baseline 里带 `GENERATED ALWAYS AS (...)` 的列由 MySQL
+ * 自动计算、构建器不可写入（写值会直接报错），因此允许只存在于 baseline。
+ * 2026-11-18 起：has_attachments（JSON_LENGTH(attachments) 的虚拟生成列 + 索引）。
+ * 反向同样受管：生成列若出现在 PUBLIC_COLS（回流写入）按违规拦截。
+ */
+function isGeneratedColumnLine(l) {
+  return /GENERATED\s+ALWAYS\s+AS/i.test(l);
+}
+
 function walk(target) {
   if (!fs.existsSync(target)) return;
   const st = fs.statSync(target);
@@ -58,7 +68,11 @@ function walk(target) {
   });
 }
 
-/** 从 baseline.sql 抽 notice_public 的列名集合 */
+/**
+ * 从 baseline.sql 抽 notice_public 的列名集合，并识别其中的生成列
+ * （GENERATED ALWAYS AS）。生成列由 MySQL 自动计算、构建器不可写入，
+ * 因此允许只存在于 baseline（见下方 isGeneratedColumnLine 注释）。
+ */
 function baselineColumns() {
   const f = path.join(ROOT, "db", "schema", "baseline.sql");
   if (!fs.existsSync(f)) { violations.push("N2 找不到 db/schema/baseline.sql"); return null; }
@@ -66,13 +80,17 @@ function baselineColumns() {
   const start = lines.findIndex((l) => new RegExp(`CREATE TABLE .*\\\`${TABLE}\\\``, "i").test(l));
   if (start === -1) { violations.push(`N2 baseline.sql 未定义 ${TABLE}`); return null; }
   const cols = [];
+  const generated = new Set();
   for (let i = start + 1; i < lines.length; i++) {
     const l = lines[i];
     if (/^\s*\)\s*ENGINE/i.test(l)) break;
     const m = /^\s*`([a-z0-9_]+)`\s+[a-z]/i.exec(l); // 反引号列名 + 空格 + 类型首字母
-    if (m && !/^\s*(PRIMARY|UNIQUE|KEY|FULLTEXT|CONSTRAINT)\b/i.test(l)) cols.push(m[1]);
+    if (m && !/^\s*(PRIMARY|UNIQUE|KEY|FULLTEXT|CONSTRAINT)\b/i.test(l)) {
+      cols.push(m[1]);
+      if (isGeneratedColumnLine(l)) generated.add(m[1]);
+    }
   }
-  return cols;
+  return { cols, generated };
 }
 
 /** 从 build.ts 抽 PUBLIC_COLS 数组的列名集合 */
@@ -87,25 +105,33 @@ function builderColumns() {
 
 for (const dir of [path.join(ROOT, "src"), path.join(ROOT, "scripts")]) walk(dir);
 
-const bCols = baselineColumns();
+const bInfo = baselineColumns();
 const vCols = builderColumns();
+const bCols = bInfo ? bInfo.cols : null;
+const genCols = bInfo ? bInfo.generated : new Set();
 if (bCols && vCols) {
   const b = new Set(bCols), v = new Set(vCols);
   const onlyBase = [...b].filter((c) => !v.has(c));
   const onlyBuild = [...v].filter((c) => !b.has(c));
-  const unexpectedBase = onlyBase.filter((c) => !RETIRED_COLS.has(c));
+  const unexpectedBase = onlyBase.filter((c) => !RETIRED_COLS.has(c) && !genCols.has(c));
   const retiredInBuild = [...RETIRED_COLS].filter((c) => v.has(c));
-  const retained = onlyBase.filter((c) => RETIRED_COLS.has(c));
-  if (unexpectedBase.length || onlyBuild.length || retiredInBuild.length) {
+  const retained = onlyBase.filter((c) => RETIRED_COLS.has(c) && !genCols.has(c));
+  const generatedRetained = onlyBase.filter((c) => genCols.has(c));
+  const generatedInBuild = [...genCols].filter((c) => v.has(c));
+  if (unexpectedBase.length || onlyBuild.length || retiredInBuild.length || generatedInBuild.length) {
     violations.push(
       `N2 schema 漂移：baseline(${b.size}列) vs v2 COLS(${v.size}列) 不一致` +
         `${unexpectedBase.length ? `\n     仅在 baseline（未登记退役列）: ${unexpectedBase.join(", ")}` : ""}` +
         `${onlyBuild.length ? `\n     仅在 v2 COLS: ${onlyBuild.join(", ")}` : ""}` +
-        `${retiredInBuild.length ? `\n     退役列回流写入: ${retiredInBuild.join(", ")}` : ""}`,
+        `${retiredInBuild.length ? `\n     退役列回流写入: ${retiredInBuild.join(", ")}` : ""}` +
+        `${generatedInBuild.length ? `\n     生成列不得写入 PUBLIC_COLS（MySQL 自动计算）: ${generatedInBuild.join(", ")}` : ""}`,
     );
   }
   if (retained.length > 0 && violations.length === 0) {
     console.log(`  · 服务表历史保留列（build 停写、baseline 保留）：${retained.join(", ")}`);
+  }
+  if (generatedRetained.length > 0 && violations.length === 0) {
+    console.log(`  · 服务表生成列（MySQL 自动计算、build 不写）：${generatedRetained.join(", ")}`);
   }
 }
 
@@ -116,7 +142,9 @@ if (violations.length) {
   process.exit(1);
 }
 const retainedCount = bCols && vCols
-  ? bCols.filter((c) => !new Set(vCols).has(c) && RETIRED_COLS.has(c)).length
+  ? bCols.filter((c) => !new Set(vCols).has(c) && RETIRED_COLS.has(c) && !genCols.has(c)).length
   : 0;
+const generatedCount = bCols && vCols ? [...genCols].filter((c) => !new Set(vCols).has(c)).length : 0;
 console.log(`✓ 服务表单一写入者与 schema 一致性检查通过（${bCols?.length} 列 = PUBLIC_COLS ${vCols?.length}` +
-  `${retainedCount > 0 ? ` + 退役保留 ${retainedCount}` : ""}）`);
+  `${retainedCount > 0 ? ` + 退役保留 ${retainedCount}` : ""}` +
+  `${generatedCount > 0 ? ` + 生成列 ${generatedCount}` : ""}）`);

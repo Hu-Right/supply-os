@@ -1,14 +1,19 @@
 /**
  * /en — 英文站点首页（SEO 落地页）
  *
- * 英文版本期只做「可索引的英文入口」：说明平台能力、给出内部链接与最新公告，
+ * 英文版本期只做「可索引的英文入口」：说明平台能力与内部链接，
  * 不做中文首页的整站翻译（中文业务页仍由 (zh) 分组提供）。
+ *
+ * [2026-11-18 移除] “Latest procurement notices” 动态列表区块：其数据源
+ * （seo/latest-notices）按主表 `update_time DESC` 取数，但该列混入
+ * `YYYYMMDDHHMMSS` 形态脏值（如 20261030012753，仅 BOAMP 83 行），
+ * 倒序会把法国动态采购系统/框架协议（截止 2031~2037）顶到最前；
+ * 该区块与 /en/procurement 列表同坑，一并清理，英文站只保留静态入口。
  */
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EnglishShell } from "../shell";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
-import { fetchLatestActiveNotices, type LatestNoticeRow } from "@/lib/services/seo/latest-notices";
 
 export const revalidate = 3600;
 
@@ -32,19 +37,7 @@ export const metadata: Metadata = {
   },
 };
 
-async function loadLatest(): Promise<LatestNoticeRow[]> {
-  if (process.env.NEXT_PHASE === "phase-production-build") return [];
-  try {
-    return await fetchLatestActiveNotices(undefined, 10);
-  } catch (err) {
-    console.error("[en] latest notices failed:", (err as Error).message);
-    return [];
-  }
-}
-
-export default async function EnglishHomePage() {
-  const notices = await loadLatest();
-
+export default function EnglishHomePage() {
   return (
     <EnglishShell>
       <section className="space-y-4 py-6">
@@ -58,43 +51,18 @@ export default async function EnglishHomePage() {
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
-            href="/en/procurement"
+            href="/procurement"
             className="rounded-lg bg-training-green px-5 py-2.5 text-sm font-bold text-white hover:bg-training-green-hover"
           >
             Browse live notices
           </Link>
           <Link
-            href="/procurement"
+            href="/supplier"
             className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:border-training-green/40 hover:text-training-green"
           >
-            Full search &amp; filters
+            Supplier directory
           </Link>
         </div>
-      </section>
-
-      <section aria-labelledby="latest" className="space-y-3 py-4">
-        <h2 id="latest" className="text-xl font-bold text-slate-900">Latest procurement notices</h2>
-        {notices.length === 0 ? (
-          <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
-            No live notices available right now.
-          </p>
-        ) : (
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            {notices.map((n) => (
-              <li key={n.id} className="px-5 py-4">
-                <Link
-                  href={`/en/procurement/notice/${n.id}`}
-                  className="block text-sm font-semibold leading-snug text-slate-800 hover:text-training-green"
-                >
-                  {n.title}
-                </Link>
-                <p className="mt-1 text-xs text-slate-500">
-                  {[n.agency, n.country].filter(Boolean).join(" · ")}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
 
       <section className="grid gap-3 py-4 sm:grid-cols-3">

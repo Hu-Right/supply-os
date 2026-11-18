@@ -7,6 +7,7 @@
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { emitAppEvent } from "@/core/events";
 
 export function AboutCta() {
   const router = useRouter();
@@ -30,7 +31,8 @@ export function AboutCta() {
             <ArrowRight className="w-4 h-4" />
           </button>
           <button
-            onClick={() => router.push("/suppliers/register")}
+            // 注册是全局弹窗（AuthModal），没有独立路由；派发事件由 layout-shell 打开注册 Tab
+            onClick={() => emitAppEvent("supply-os:require-register")}
             className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-8 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors"
           >
             {t("homeRegisterFree")}

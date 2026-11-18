@@ -46,6 +46,9 @@ describe("loadCountryAliasSnapshot", () => {
     expect(snap.byKey.get("ASIA")).toEqual({ canonical: "Asia", code: null, kind: "region", zh: "亚洲" });
     // 反向：canonical → 其所有归一键（去重音大写），供别名展开
     expect(new Set(snap.formsByCanonical.get("Turkey"))).toEqual(new Set(["TURKIYE", "TURKEY"]));
+    // 2026-11-18：ISO2 码 → canonical（服务表读侧零归一化的展示名映射）
+    expect(snap.byCode?.get("TR")).toEqual({ canonical: "Turkey", zh: "土耳其" });
+    expect(snap.byCode?.has("ASIA")).toBe(false); // region 不参与码映射
   });
 
   it("第二次调用命中缓存，不再查库", async () => {

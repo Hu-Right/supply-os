@@ -26,6 +26,9 @@ export interface CountryAliasSnapshot {
   byKey: Map<string, CountryAliasEntry>;
   /** 标准名 canonical → 该 canonical 的所有归一键（供反向别名展开；含大写形式） */
   formsByCanonical: Map<string, string[]>;
+  /** ISO2 国家码 → { canonical, zh }（服务表存的是码，展示层要回 canonical 名；2026-11-18 加）
+   *  可选：仅测试里手写的旧快照可省略（线上 loader 恒返回） */
+  byCode?: Map<string, { canonical: string; zh: string }>;
 }
 
 /**
@@ -63,6 +66,7 @@ export async function loadCountryAliasSnapshot(pool: Pool): Promise<CountryAlias
 
   const byKey = new Map<string, CountryAliasEntry>();
   const formsByCanonical = new Map<string, string[]>();
+  const byCode = new Map<string, { canonical: string; zh: string }>();
   try {
     const [rows] = await pool.query(
       "SELECT canonical, country_code, alias, kind, name_i18n FROM country_aliases WHERE is_active = 1"
@@ -87,8 +91,11 @@ export async function loadCountryAliasSnapshot(pool: Pool): Promise<CountryAlias
       const forms = formsByCanonical.get(canonical) ?? [];
       forms.push(key);
       formsByCanonical.set(canonical, forms);
+      // ISO2 → canonical（同一码只取首条，kind 必须是 country；region/invalid 不参与）
+      const code = row.country_code ? String(row.country_code).trim().toUpperCase() : "";
+      if (kind === "country" && code && !byCode.has(code)) byCode.set(code, { canonical, zh });
     }
-    _cache = { byKey, formsByCanonical };
+    _cache = { byKey, formsByCanonical, byCode };
     _expires = Date.now() + SNAPSHOT_TTL;
     return _cache;
   } catch (err) {
@@ -97,7 +104,7 @@ export async function loadCountryAliasSnapshot(pool: Pool): Promise<CountryAlias
       `[country-alias] country_aliases 查询失败（降级：${_cache ? "沿用旧缓存" : "返回空快照"}，将在下次调用重试）: ${(err as Error).message}`,
     );
     if (_cache) return _cache;
-    return { byKey, formsByCanonical };
+    return { byKey, formsByCanonical, byCode };
   }
 }
 

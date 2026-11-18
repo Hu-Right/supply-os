@@ -44,6 +44,12 @@ const baseline = (cols) =>
   cols.map((c) => `  \`${c}\` varchar(20) DEFAULT NULL,`).join("\n") +
   "\n  PRIMARY KEY (`notice_pk`)\n) ENGINE=InnoDB;\n";
 const builder = (cols) => `const PUBLIC_COLS = [\n  ${cols.map((c) => `"${c}"`).join(", ")},\n] as const;\n`;
+/** baseline + 一个生成列（GENERATED ALWAYS AS：MySQL 自动计算、构建器不可写） */
+const baselineWithGenerated = (cols, gen) =>
+  "CREATE TABLE `notice_public` (\n" +
+  cols.map((c) => `  \`${c}\` varchar(20) DEFAULT NULL,`).join("\n") +
+  `\n  \`${gen}\` tinyint(1) GENERATED ALWAYS AS ((json_length(\`payload\`) > 0)) VIRTUAL,` +
+  "\n  PRIMARY KEY (`notice_pk`)\n) ENGINE=InnoDB;\n";
 const OKCOLS = ["notice_pk", "industry"];
 
 test("真实仓应通过（baseline==PUBLIC_COLS 且仅 build.ts 写服务表）", () => {
@@ -69,6 +75,26 @@ test("fixture：baseline 多「退役保留列」（industry_tree_code）→ 放
   const r = run({ NP_SCAN_ROOT: root });
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /退役保留/);
+});
+
+test("fixture：baseline 多生成列（GENERATED ALWAYS AS）→ 放行", () => {
+  const root = fixture({
+    "db/schema/baseline.sql": baselineWithGenerated(OKCOLS, "has_attachments"),
+    [BUILDER]: builder(OKCOLS),
+  });
+  const r = run({ NP_SCAN_ROOT: root });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /生成列/);
+});
+
+test("fixture：生成列出现在 PUBLIC_COLS（回流写入）→ 拦截", () => {
+  const root = fixture({
+    "db/schema/baseline.sql": baselineWithGenerated(OKCOLS, "has_attachments"),
+    [BUILDER]: builder([...OKCOLS, "has_attachments"]),
+  });
+  const r = run({ NP_SCAN_ROOT: root });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /生成列不得写入/);
 });
 
 test("fixture：baseline 多未登记退役列 → 仍按漂移拦截", () => {

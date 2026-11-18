@@ -43,6 +43,8 @@ export interface NoticeStatsResult {
   bridgeGap: number;
   /** 未来 30 天内截止的有效机会数（notice_public.deadline_ts 范围，2026-11-18 起） */
   deadlineIn30d: number;
-  /** 含原始文件（宽表 documents_count>0）的有效公告数 */
+  /** 含可下载附件的有效机会数：服务表虚拟生成列 has_attachments=1（由 attachments JSON 自动计算） */
   withOriginalDocs: number;
+  /** 覆盖国家/地区数（首页「数据源/API」）：notice_public.country_code 去重（主国家 ISO2 口径，读侧零归一化） */
+  countryCount: number;
 }

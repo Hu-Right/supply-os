@@ -24,7 +24,12 @@
  *                「1=is_featured 或关联合格/在架/过审商机」，与首页热门商机 featured=1 的
  *                检索口径同源）；为此补了复合索引 idx_np_opportunity(is_opportunity, deadline_ts)
  *                （迁移 045），实测毫秒级（加索引前该 COUNT 15.6s 全表扫）；
- *              · withOriginalDocs 保持宽表口径，改为 `documents_count > 0` 先行；
+ *              · withOriginalDocs 读服务表虚拟生成列 has_attachments（迁移 048）：
+ *                attachments JSON 判空无法走索引（15.3s），生成列 + idx_np_has_att 后毫秒级；
+ *              · 覆盖国家/地区数（首页「数据源/API」）读服务表 COUNT(DISTINCT country_code)：
+ *                构建时已按 country_aliases 归一，读侧零归一化；主国家口径（当前 189，非旧 195
+ *                多国展开口径），迁移 046 补 (country_code, deadline_ts) 索引，实测 ~300ms；
+ *                注意：别名表变更后服务表历史行不会自动重算，需重建服务表才生效；
  *              · raw（主表总行数）与「今日新增」（create_time 北京时间自然日）保持主表口径：
  *                每日新增走 idx_create_time 仅 34ms，且服务表没有 create_time，换源会改变语义。
  */
@@ -64,6 +69,7 @@ export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
         featuredResult,
         deadline30Result,
         docsResult,
+        countryCountResult,
       ] = await Promise.all([
         // 1) 主表总行数（raw 指标，语义不变；COUNT(*) 走最小索引，实测 ~190ms）
         pool.query("SELECT COUNT(*) AS total FROM bid_notices"),
@@ -88,11 +94,19 @@ export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
             WHERE p.deadline_ts > UNIX_TIMESTAMP(NOW())
               AND p.deadline_ts <= UNIX_TIMESTAMP(NOW()) + 30 * 86400`,
         ),
-        // 6) 含原始文件：宽表口径，documents_count 先行（实测 ~330ms）
+        // 6) 含原始文件：服务表虚拟生成列 has_attachments（迁移 048，idx_np_has_att 索引扫，
+        //    实测毫秒级；口径=用户实际可下载附件，较宽表 documents_count 少约 3%）
         pool.query(
-          `SELECT COUNT(*) AS total FROM notice_search ns
-            WHERE ns.documents_count > 0
-              AND (ns.deadline_sec = 0 OR ns.deadline_sec >= UNIX_TIMESTAMP(NOW()))`,
+          `SELECT COUNT(*) AS total FROM notice_public p
+            WHERE p.has_attachments = 1
+              AND ${PUBLIC_ACTIVE}`,
+        ),
+        // 7) 覆盖国家/地区数（首页「数据源/API」）：服务表 country_code 已在构建时归一，
+        //    读侧零归一化；口径为主国家 ISO2（当前 189），idx_np_country_deadline 索引扫描（实测 ~300ms）
+        pool.query(
+          `SELECT COUNT(DISTINCT p.country_code) AS total FROM notice_public p
+            WHERE p.country_code IS NOT NULL AND p.country_code <> ''
+              AND ${PUBLIC_ACTIVE}`,
         ),
       ]);
 
@@ -106,6 +120,7 @@ export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
         bridgeGap: active - bridged,
         deadlineIn30d: countOf(deadline30Result),
         withOriginalDocs: countOf(docsResult),
+        countryCount: countOf(countryCountResult),
       };
       noticeStatsCache = { data, expires: Date.now() + CACHE_TTL_MEDIUM_MS };
       return data;

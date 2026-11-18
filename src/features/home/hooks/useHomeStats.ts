@@ -19,7 +19,7 @@ export interface HomeStatsData {
   noticeActive: number;
   /** 今日新增机会 */
   noticeTodayNew: number;
-  /** 覆盖国家/地区数 */
+  /** 覆盖国家/地区数（服务表 country_code 主国家口径，来自 /api/notices/stats） */
   countryCount: number;
   /** 认证供应商数量 */
   certifiedSupplierCount: number;
@@ -56,7 +56,7 @@ export function useHomeStats(initial?: Partial<HomeStatsData>): HomeStatsData & 
     const fetchStats = async () => {
       try {
         const [noticeData, countries, suppliers] = await Promise.all([
-          apiCached<{ active: number; todayNew: number }>("/api/notices/stats"),
+          apiCached<{ active: number; todayNew: number; countryCount?: number }>("/api/notices/stats"),
           apiCached<Array<{ country: string; count: number }>>("/api/notices/countries"),
           apiCached<{ total: number }>("/api/suppliers?page=1&pageSize=1&status=approved"),
         ]);
@@ -66,7 +66,7 @@ export function useHomeStats(initial?: Partial<HomeStatsData>): HomeStatsData & 
         setStats({
           noticeActive: noticeData.active,
           noticeTodayNew: noticeData.todayNew ?? 0,
-          countryCount: countries.length,
+          countryCount: noticeData.countryCount ?? countries.length,
           certifiedSupplierCount: suppliers.total ?? 0,
           countries,
         });

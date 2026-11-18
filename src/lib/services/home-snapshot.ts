@@ -15,11 +15,11 @@ import "server-only";
 import type { Pool } from "mysql2/promise";
 import { getContext } from "@/lib/db/context";
 import { getNoticeStats, getNoticeDailyNew, getNoticeCountries } from "./notice-search";
-import { searchUnified } from "./search-orchestrator";
-import { toNoticeListView } from "./notice-public/view";
 import { listSupplierDirectoryPage } from "./suppliers-directory";
 import { getHotTopics } from "./notice-search";
 import { getHotSearches, hotSearchHref } from "./search-analytics";
+import { getHomeNoticeColumn } from "./notice-public/home-columns";
+import { toNoticeListView } from "./notice-public/view";
 import type { Supplier } from "../types/supplier";
 import type { NoticeDetailItem } from "../../types/procurement";
 import type { HotTopics } from "./notice-search/hot-topics";
@@ -35,9 +35,10 @@ export interface HomeSnapshot {
 
 /**
  * 组装首页快照。
- * - noticeActive：六路 COUNT 的 active（10 分钟服务端缓存）
- * - noticeTodayNew：北京时间自然日切窗（stats.ts 唯一口径）
- * - countries/countryCount：与 /api/notices/countries 同 service
+ * - noticeActive：六路 COUNT 的 active（10 分钟服务端缓存；读服务表 notice_public）
+ * - noticeTodayNew：北京时间自然日切窗（stats.ts 唯一口径，读主表 create_time）
+ * - countryCount：覆盖国家/地区数（2026-11-18 起读服务表 COUNT(DISTINCT country_code)，
+ *   主国家 ISO2 口径、读侧零归一化；countries 列表仍供世界地图用，两者口径不同属有意）
  * - certifiedSupplierCount：与 /api/suppliers 分页分支同一 total 口径
  *   （历史注意：该端点不识别 status 查询参数，初值必须镜像其真实行为，
  *   否则 hydration 前后数字会跳变）
@@ -55,7 +56,7 @@ export async function getHomeSnapshot(pool: Pool): Promise<HomeSnapshot> {
   return {
     noticeActive: stats.active,
     noticeTodayNew: daily.todayNew,
-    countryCount: countries.length,
+    countryCount: stats.countryCount,
     certifiedSupplierCount: supplierTotal,
     countries,
   };
@@ -75,9 +76,9 @@ export interface HomeContentSnapshot {
   hotTopics: HotTopics | null;
   /** 真实热门搜索（数据不足/失败为 null → Hero 回退到数据覆盖榜） */
   hotSearches: HotSearchesSnapshot | null;
-  /** 热门商机（is_featured=1，最新 20 条）——/api/notices/unified-search?featured=1 同口径 */
+  /** 热门商机（服务表 is_opportunity=1，最新入库 20 条）——/api/notices/home-columns?type=opportunity 同口径 */
   hotNotices: NoticeDetailItem[];
-  /** 最新 RFQ 询价公告（notice_type=RFQ，最新 20 条）——unified-search?notice_type=RFQ 同口径 */
+  /** 最新 RFQ 询价公告（服务表 notice_type_code=RFQ，最新入库 20 条）——/api/notices/home-columns?type=rfq 同口径 */
   rfqNotices: NoticeDetailItem[];
   /** 优质供应商（最新 20 条）——/api/suppliers?pageSize=20&sort=latest 同口径 */
   suppliers: Supplier[];
@@ -89,12 +90,11 @@ export interface HomeContentSnapshot {
  * （数字墙快照的「整体抛出」语义在这里不适用——内容列缺一列不该全站降级）。
  */
 export async function getHomeContentSnapshot(pool: Pool): Promise<HomeContentSnapshot> {
-  // 与客户端取数同一天文窗：北京时间自然日（deadline_from=今天，只推未过期商机）
-  const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
-
   const [hot, rfq, suppliers, hotTopicsR, hotSearchesR] = await Promise.allSettled([
-    searchUnified(pool, { page: 1, pageSize: 20, featuredOnly: true, sort: "newest", deadlineFrom: today }),
-    searchUnified(pool, { page: 1, pageSize: 20, noticeType: "RFQ", sort: "newest", deadlineFrom: today }),
+    // 2026-11-18 起：热门商机 / 最新 RFQ 直接读服务表（不再经 unified-search/Meili；
+    // 首页曝光也不再写 user_search_log 污染热门搜索统计）
+    getHomeNoticeColumn(pool, "opportunity", 20),
+    getHomeNoticeColumn(pool, "rfq", 20),
     listSupplierDirectoryPage({ page: 1, pageSize: 20, sort: "latest" }),
     getHotTopics(pool),
     getHotSearches(pool, { limit: 8 }),
@@ -113,9 +113,9 @@ export async function getHomeContentSnapshot(pool: Pool): Promise<HomeContentSna
   const hotSearchesResult = settled(hotSearchesR, "hotSearches", null);
 
   return {
-    // 行→视图：与 unified-search 路由出口同一条 toNoticeListView（红线②，列名不得直出）
-    hotNotices: hotResult ? toNoticeListView(hotResult.items) : [],
-    rfqNotices: rfqResult ? toNoticeListView(rfqResult.items) : [],
+    // 服务表列在出口统一走 toNoticeListView（红线②，列名不得直出）
+    hotNotices: hotResult ? toNoticeListView(hotResult) : [],
+    rfqNotices: rfqResult ? toNoticeListView(rfqResult) : [],
     suppliers: supplierResult ? supplierResult.items : [],
     hotTopics: hotTopicsResult,
     hotSearches: hotSearchesResult

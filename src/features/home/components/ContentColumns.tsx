@@ -36,7 +36,6 @@ export const ContentColumns = memo(function ContentColumns({ initialContent }: {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
     let completed = 0;
     let failed = 0;
     const total = 3;
@@ -55,14 +54,15 @@ export const ContentColumns = memo(function ContentColumns({ initialContent }: {
       .catch((e) => { failed++; console.warn("[ContentColumns] suppliers fetch failed:", e); })
       .finally(onSettle);
 
-    // 热门商机：仅取运营精选（is_featured=1），20 条用于滚动
-    apiCached<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=20&featured=1&sort=newest&deadline_from=${today}`)
+    // 热门商机：2026-11-18 起直接读服务表（is_opportunity=1 最新入库 20 条），
+    // 不再经 unified-search/Meili（也不再产生“假检索”日志污染热门搜索）
+    apiCached<{ items: HomeNoticeItem[] }>("/api/notices/home-columns?type=opportunity&limit=20")
       .then((data) => setHotNotices(data.items ?? []))
       .catch((e) => { failed++; console.warn("[ContentColumns] hot notices fetch failed:", e); })
       .finally(onSettle);
 
-    // 最新 RFQ 询价类公告，20 条用于滚动
-    apiCached<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=20&notice_type=RFQ&sort=newest&deadline_from=${today}`)
+    // 最新 RFQ 询价类公告：同样读服务表（notice_type_code='RFQ' 最新入库 20 条）
+    apiCached<{ items: HomeNoticeItem[] }>("/api/notices/home-columns?type=rfq&limit=20")
       .then((data) => setRfqNotices(data.items ?? []))
       .catch((e) => { failed++; console.warn("[ContentColumns] RFQ notices fetch failed:", e); })
       .finally(onSettle);

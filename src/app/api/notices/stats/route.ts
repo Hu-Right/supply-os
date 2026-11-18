@@ -6,7 +6,8 @@
  *              SQL 口径全部在 lib/services/notice-search（与首页 ISR 服务端
  *              直出共用同一份，2026-10 从本路由下沉，禁止在路由内写业务 SQL）。
  *              2026-11-18 起 active/bridged/deadlineIn30d 改读 notice_public（可检索机会池，
- *              索引扫描 ~150ms / 原主表全表扫 ~29s），todayNew 仍走主表 idx_create_time。
+ *              索引扫描 ~150ms / 原主表全表扫 ~29s），todayNew 仍走主表 idx_create_time；
+ *              countryCount（首页「数据源/API」）读服务表 DISTINCT country_code（主国家口径）。
  *              公开聚合数据：HTTP 层缓存 10 分钟（与服务端统计缓存同口径）。
  */
 import { NextResponse } from "next/server";
