@@ -60,11 +60,18 @@ const BUYER_READERS = new Set([
 ]);
 const BUYER_CANDIDATE_WRITERS = new Set(["src/lib/services/buyer/candidates.ts"]);
 const READ_RE = /\b(FROM|JOIN)\s+`?(buyer|buyer_alias)`?\b/i;
+/**
+ * 一次性 DDL 迁移（影子表重建）里的 `INSERT ... SELECT ... FROM buyer` 属于结构变更，
+ * 不是运行时读路径，B2 不该拦它。只放行 migrations/ 下 NNN-*.ts 命名的迁移文件，
+ * 其余目录（含 services/、app/api/）仍按原规则约束，避免豁免面被放大。
+ */
+const MIGRATION_FILE_RE = /^src\/lib\/db\/migrations\/\d{3}-[a-z0-9-]+\.ts$/;
 const CANDIDATE_WRITE_RE = /\b(INSERT\s+INTO|REPLACE\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE(?:\s+TABLE)?)\s+`?buyer_candidate`?/i;
 for (const f of files) {
   const r = rel(f);
   const text = readFileSync(f, "utf8");
-  if (READ_RE.test(text) && !BUYER_READERS.has(r)) {
+  const isMigration = MIGRATION_FILE_RE.test(r);
+  if (READ_RE.test(text) && !isMigration && !BUYER_READERS.has(r)) {
     fails.push(`B2 buyer/buyer_alias 只允许经 buyer/entity-index 读取: ${r}`);
   }
   if (CANDIDATE_WRITE_RE.test(text) && !BUYER_CANDIDATE_WRITERS.has(r)) {

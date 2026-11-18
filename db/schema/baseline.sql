@@ -345,7 +345,6 @@ CREATE TABLE `buyer` (
   `country_code` char(2) DEFAULT NULL,
   `buyer_group` varchar(100) DEFAULT NULL,
   `name_zh` varchar(500) DEFAULT NULL,
-  `parent_buyer_id` bigint unsigned DEFAULT NULL,
   `status` varchar(20) NOT NULL DEFAULT 'active',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
