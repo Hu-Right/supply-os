@@ -24,7 +24,7 @@ export const revalidate = 3600;
 
 function isoOrNull(v: Date | string | number | null): string | undefined {
   if (v === null || v === undefined || v === "") return undefined;
-  // bid_notices.update_time / supplier.addtime 实际为 Unix 秒时间戳（数字）
+  // bid_notices.create_time / supplier.addtime 实际为 Unix 秒时间戳（数字）
   const d = typeof v === "number" ? new Date(v * 1000) : new Date(v);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 }
@@ -35,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // ── 静态页面 ──
   // 不带 lastModified：每次 ISR 再生成都会刷新的"构建时刻"是不诚实的新鲜度
   // 信号，搜索引擎会学会忽略本站全部 lastmod（连带动态段的真数据一起失信）。
-  // 动态段保留真实 update_time。
+  // 动态段保留真实 create_time（2026-11-18 由 update_time 改：该列有 YYYYMMDDHHMMSS 脏值）。
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${BASE_URL}/`, changeFrequency: "daily", priority: 1.0 },
     { url: `${BASE_URL}/procurement`, changeFrequency: "daily", priority: 0.9 },
@@ -52,7 +52,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE_URL}/refund-policy`, changeFrequency: "yearly", priority: 0.2 },
     { url: `${BASE_URL}/account-cancellation`, changeFrequency: "yearly", priority: 0.2 },
-    // 英文站点（app/(en)/en）本期只开放首页与公告列表；公告详情靠列表内链 + hreflang 发现
+    // 英文站点（app/(en)/en）只保留首页与公告入口页（2026-11-18 移除动态公告列表后，英文详情页不再有列表内链）
     { url: `${BASE_URL}/en`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE_URL}/en/procurement`, changeFrequency: "daily", priority: 0.7 },
   ];
@@ -71,7 +71,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const rows = await fetchSitemapNotices();
     noticePages = rows.map((row) => ({
       url: `${BASE_URL}/procurement/notice/${row.id}`,
-      lastModified: isoOrNull(row.update_time) ?? now,
+      lastModified: isoOrNull(row.create_time) ?? now,
       changeFrequency: "weekly" as const,
       priority: 0.6,
     }));

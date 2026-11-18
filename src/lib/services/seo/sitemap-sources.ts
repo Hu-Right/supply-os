@@ -18,7 +18,8 @@ import { listCountryLandings } from "./landing";
 
 export interface SitemapNoticeRow {
   id: number;
-  update_time: Date | string | number;
+  /** 入库时间（Unix 秒）。2026-11-18 起替代 update_time 作为 sitemap lastmod 来源 */
+  create_time: Date | string | number;
 }
 
 export interface SitemapSupplierRow {
@@ -41,15 +42,20 @@ const SUPPLIER_LIMIT = 2000;
 
 /**
  * 有效公告（与搜索侧同口径：未截止 + deadline_sec=0 视为长期有效）。
- * 按 update_time 倒序取最新 NOTICE_LIMIT 条。
+ * 按 create_time（入库时间）倒序取最新 NOTICE_LIMIT 条。
+ *
+ * [2026-11-18 口径修正] 原排序/ lastmod 用 update_time，但该列混入
+ * `YYYYMMDDHHMMSS` 形态脏值（如 20261030012753，集中在 BOAMP 83 行）：
+ * 倒序会把这批行永久顶到最前，且 `new Date(值*1000)` 越界 → lastmod 退化成 now。
+ * create_time 实测为干净 Unix 秒（2026-05 ~ 现在，无 NULL/0），改为唯一时间口径。
  */
 export async function fetchSitemapNotices(pool?: Pool): Promise<SitemapNoticeRow[]> {
   const db = pool ?? getPool();
   const [rows] = await db.query(
-    `SELECT n.id, n.update_time
+    `SELECT n.id, n.create_time
      FROM bid_notices n
      WHERE ${ACTIVE_NOTICE_WHERE}
-     ORDER BY n.update_time DESC
+     ORDER BY n.create_time DESC
      LIMIT ${NOTICE_LIMIT}`,
   );
   return rows as SitemapNoticeRow[];
