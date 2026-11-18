@@ -33,6 +33,7 @@ import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
 import { AiEvaluationPanel } from "../AiEvaluationPanel";
 import { useAiMatch } from "../../hooks/useAiMatch";
+import { useIndustryLabel } from "../../hooks/useIndustryLabel";
 
 /** 区块锚点导航（id, i18n key） */
 const SECTION_NAV: ReadonlyArray<readonly [string, string]> = [
@@ -204,6 +205,8 @@ export function NoticeDetail({
   const deadlineDisplay = deadlineLocal ? `${deadlineText}（${deadlineLocal}）` : deadlineText;
   const budgetText = formatNoticeAmount(notice.estimatedValue, notice.currencyCode, locale);
   const typeLabel = typeKey ? t(typeKey) : notice.noticeTypeCode || "-";
+  // 行业码 → 可读行业名（UGT-I-xx / 历史 slug 都翻译成文字；解析失败返回 null 不展示编码）
+  const industryLabel = useIndustryLabel(notice.industry, locale);
   // 字段存在性（数据自适应）：缺失字段整行/整块不渲染，不留空值占位
   const hasBudget = !!budgetText;
   const hasIndustry = !!notice.industry;
@@ -305,11 +308,6 @@ export function NoticeDetail({
             ) : null}
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-dashed border-slate-200 pt-2.5 text-xs text-slate-500">
-            <span>{t("detail_reference")}：<b className="text-slate-700">{refText}</b></span>
-            <span>{t("detail_publishDate")}：<b className="text-slate-700">{publishDate}</b></span>
-            <span>{t("detail_deadline")}：<b className="text-rose-600">{deadlineDisplay}</b></span>
-          </div>
         </div>
       </section>
 
@@ -353,7 +351,7 @@ export function NoticeDetail({
                 <th scope="row" className="border-r border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
                   {t("supplierTabIndustry")}
                 </th>
-                <td className="px-3 py-2 text-slate-700">{hasIndustry ? notice.industry : "-"}</td>
+                <td className="px-3 py-2 text-slate-700">{hasIndustry ? (industryLabel ?? "—") : "—"}</td>
                 <th scope="row" className="border-r border-l border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
                   {t("detail_budgetAmount")}
                 </th>
