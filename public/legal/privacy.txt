@@ -1,8 +1,8 @@
 OS NEO SMART 隐私政策
 OS NEO SMART Privacy Policy
 
-版本：V2.0
-发布及生效日期：2026年9月2日
+版本：V2.1
+发布及生效日期：2026年11月18日
 运营主体：杭州云境智展科技有限公司
 网站：osneosmart.com
 
@@ -87,6 +87,12 @@ The information we collect depends on the functions you use. The descriptions be
 信息类型：手机号、邮箱、企业与行业偏好、活动报名信息
 目的：发送采购机会、课程、活动或优惠通知
 处理基础：基于您单独的可撤回选择；不与基本注册强制捆绑
+
+3.1.1 匿名检索统计
+
+为改进检索质量与首页内容展示，即使用户未登录，我们也会记录检索行为的去标识化统计信息：不存储原始 IP 地址，仅保存由 IP 与浏览器信息生成的不可逆哈希（按自然日轮换）、归一化后的检索词以及检索结果数量。该信息不用于识别个人身份，也不与账号身份合并，仅用于搜索效果统计与热门内容展示；默认保留 90 天，到期自动删除。
+
+For search quality and homepage content, we also record de-identified search statistics for anonymous visits: no raw IP address is stored; only a non-reversible, daily-rotating hash derived from IP and browser information, the normalised search term and result counts. This data is not used to identify individuals and is not linked to an account. It is retained for 90 days by default and then automatically deleted.
 
 3.2 敏感个人信息
 
