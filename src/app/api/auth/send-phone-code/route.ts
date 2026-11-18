@@ -11,7 +11,7 @@ import { EC_INVALID_REQUEST, EC_SMS_NOT_CONFIGURED, EC_NOT_FOUND, EC_PHONE_ISSUE
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
-import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
+import { sendSmsVerificationCode, isSmsConfigured } from "@/lib/services/sms";
 import { VERIFICATION_CODE_EXPIRES_MS, ONE_MINUTE_MS } from "@/shared/constants/time";
 import { normalizePhone } from "@/lib/utils/phone";
 
@@ -52,8 +52,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   let smsSent = false;
   try {
-    const tplCode = scene === "reset" ? getSmsResetTemplateCode() : undefined;
-    await sendSmsVerificationCode(targetPhone, tplCode, code);
+    await sendSmsVerificationCode(targetPhone, scene === "reset" ? "reset" : "verify", code);
     smsSent = true;
     await ctx.user.authRepo.markSmsSent(resetId, true);
   } catch (err) {

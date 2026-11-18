@@ -22,10 +22,24 @@ const SMS_TEMPLATE_CODE_RESET = process.env.SMS_TEMPLATE_CODE_RESET; // 找回�
 /** 国际/港澳台短信（阿里云需单独报备签名与模板；未配置时非 +86 号码直接报错） */
 const SMS_INTL_SIGN_NAME = process.env.SMS_INTL_SIGN_NAME;
 const SMS_INTL_TEMPLATE_CODE = process.env.SMS_INTL_TEMPLATE_CODE;
+/** 国际号码找回密码模板；未配置时回落国际默认模板 */
+const SMS_INTL_TEMPLATE_CODE_RESET = process.env.SMS_INTL_TEMPLATE_CODE_RESET;
 
-/** 获取找回密码专用模板 CODE */
-export function getSmsResetTemplateCode(): string | undefined {
-  return SMS_TEMPLATE_CODE_RESET;
+/**
+ * 短信场景：verify = 注册/绑定/换绑/解绑，reset = 找回密码。
+ * 国内与国际模板在阿里云是分别报备的，不能互相顶用，所以模板只能在这里按
+ * 「到岸地区 + 场景」解析，不能由调用方传具体模板 CODE。
+ */
+export type SmsScene = "verify" | "reset";
+
+/** 按号码归属与场景选模板（+86 走国内模板，其余走国际模板） */
+function resolveTemplateCode(scene: SmsScene, isMainland: boolean): string | undefined {
+  if (isMainland) {
+    return scene === "reset" ? SMS_TEMPLATE_CODE_RESET || SMS_TEMPLATE_CODE : SMS_TEMPLATE_CODE;
+  }
+  return scene === "reset"
+    ? SMS_INTL_TEMPLATE_CODE_RESET || SMS_INTL_TEMPLATE_CODE
+    : SMS_INTL_TEMPLATE_CODE;
 }
 
 /** 阿里云 SMS 客户端最小结构（仅消费 sendSms，规避 SDK 类型面） */
@@ -70,14 +84,14 @@ async function getAliyunClient(): Promise<AliyunSmsClient> {
  *   1. 调用方预生成 code 并传入 → 直接使用该 code 发送（调用方负责存库）
  *   2. 不传 code → 本函数内部生成（仅 mock 模式或旧调用路径兼容）
  *
- * @param phone - 目标手机号（中国大陆 11 位）
- * @param templateCode - 可选模板 CODE，未传则使用默认模板
+ * @param phone - 目标手机号（E.164）
+ * @param scene - 短信场景（verify / reset），模板按到岸地区自动选择
  * @param preGeneratedCode - 调用方预生成的验证码（推荐传入，确保发送与存储一致）
  * @returns 验证码明文（调用方需存入数据库）
  */
 export async function sendSmsVerificationCode(
   phone: string,
-  templateCode?: string,
+  scene: SmsScene = "verify",
   preGeneratedCode?: string,
 ): Promise<string> {
   // 优先使用调用方预生成的验证码，确保发送内容与数据库存储一致
@@ -100,7 +114,7 @@ export async function sendSmsVerificationCode(
   // 按号码归属选择通道：+86 走国内签名/模板，其余走国际短信（需单独报备）
   const isMainland = isMainlandE164(phone);
   const signName = isMainland ? SMS_SIGN_NAME : SMS_INTL_SIGN_NAME;
-  const tplCode = isMainland ? (templateCode || SMS_TEMPLATE_CODE) : (templateCode || SMS_INTL_TEMPLATE_CODE);
+  const tplCode = resolveTemplateCode(scene, isMainland);
   if (!signName || !tplCode) {
     throw new Error("SMS_REGION_NOT_CONFIGURED: 该地区国际短信通道未开通");
   }

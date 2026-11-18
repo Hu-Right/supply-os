@@ -65,7 +65,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 发送短信
   let smsSent = false;
   try {
-    await sendSmsVerificationCode(targetPhone, undefined, code);
+    await sendSmsVerificationCode(targetPhone, "verify", code);
     smsSent = true;
     await ctx.user.authRepo.markSmsSent(resetId, true);
   } catch (err) {

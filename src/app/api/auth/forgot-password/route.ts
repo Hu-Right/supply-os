@@ -9,7 +9,7 @@ import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler
 import { EC_INVALID_REQUEST, EC_PHONE_ISSUE, EC_SMS_NOT_CONFIGURED, EC_EMAIL_ISSUE, EC_EMAIL_NOT_CONFIGURED } from "@/shared/constants/api";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendPasswordResetEmail, isEmailConfigured } from "@/lib/services/email";
-import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
+import { sendSmsVerificationCode, isSmsConfigured } from "@/lib/services/sms";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { createLogger } from "@/lib/utils/fileLogger";
@@ -73,7 +73,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
     let smsSent = false;
     try {
-      await sendSmsVerificationCode(user.phone, getSmsResetTemplateCode(), code);
+      await sendSmsVerificationCode(user.phone, "reset", code);
       smsSent = true;
       await ctx.user.authRepo.markSmsSent(resetId, true);
     } catch (err) {
