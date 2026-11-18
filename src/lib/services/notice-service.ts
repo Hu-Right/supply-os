@@ -163,13 +163,14 @@ export async function unlockNotice(params: {
 // ── 翻译获取（包装 getNoticeTranslation） ──
 
 /** 获取公告翻译（含付费墙前置校验由路由负责）；返回类型即 wire 契约，全 camelCase */
-export async function fetchNoticeTranslation(noticeId: number, lang: string): Promise<NoticeTranslationPayload> {
+export async function fetchNoticeTranslation(noticeId: number, lang: string, userId: number): Promise<NoticeTranslationPayload> {
   const pool = getPool();
   const translationRepo = new NoticeTranslationRepo(pool);
   const result = await getNoticeTranslation(
     { pool, detailRepo: new NoticeDetailRepo(pool), translationRepo },
     noticeId,
     lang,
+    userId,
   );
   // 详情很可能命中旧译文缓存（不经过 upsert）；列表只读服务表，必须在这里回写一次。
   if (lang === "zh" && result.title) {

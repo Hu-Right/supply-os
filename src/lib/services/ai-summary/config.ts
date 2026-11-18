@@ -40,8 +40,8 @@ export const CUSTOM_PRESET_ID = "__custom__";
  *   - 智谱:       docs.bigmodel.cn/cn/guide/start/model-overview
  *   - Moonshot:   platform.kimi.com/docs/models
  *   - OpenAI:     platform.openai.com/docs/models
- * 其中 `deepseek-flash`（V4.1 Flash）与项目翻译链 chain.ts 使用的 API 标识符一致，
- * 是唯一有代码级证据的锚点。厂商会持续发新版并下线旧模型（如 moonshot-v1-*、
+ * 其中 `deepseek-flash`（V4.1 Flash）是翻译链历史上的默认模型，作为预置项保留
+ * （2026-11-18 起翻译改走用户 BYOK，实际 model 以用户配置为准）。厂商会持续发新版并下线旧模型（如 moonshot-v1-*、
  * kimi-k2-turbo-preview 均已于 2026 年下线），发现失效直接改本文件即可，
  * 前端页面通过 PRESET_LLM_MODELS 自动跟随，无需改其他地方。
  */

@@ -100,7 +100,7 @@ describe("notices/[id]/translation 的 wire 契约", () => {
   it("返回类型是具名载荷（不是 unknown），且键全 camel", async () => {
     // 这个「具名类型」标注就是编译期闸门：fetchNoticeTranslation 一旦退回 Promise<unknown>，
     // unknown 不可赋给 NoticeTranslationPayload，tsc --noEmit（tsconfig 含 tests/）当场报错。
-    const payload: NoticeTranslationPayload = await fetchNoticeTranslation(1, "zh");
+    const payload: NoticeTranslationPayload = await fetchNoticeTranslation(1, "zh", 7);
     expect(payload).toEqual({
       lang: "zh",
       title: "光伏电站施工招标",
@@ -118,8 +118,8 @@ describe("notices/[id]/translation 的 wire 契约", () => {
       detailRepo: new NoticeDetailRepo(poolStub as never),
       translationRepo: new NoticeTranslationRepo(poolStub as never),
     };
-    const direct: NoticeTranslationPayload = await getNoticeTranslation(deps, 1, "zh");
-    expect(Object.keys(direct).sort()).toEqual(Object.keys(await fetchNoticeTranslation(1, "zh")).sort());
+    const direct: NoticeTranslationPayload = await getNoticeTranslation(deps, 1, "zh", 7);
+    expect(Object.keys(direct).sort()).toEqual(Object.keys(await fetchNoticeTranslation(1, "zh", 7)).sort());
   });
 });
 

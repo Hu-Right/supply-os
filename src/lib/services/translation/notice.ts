@@ -12,6 +12,9 @@ import { findQualifiedOpportunityForNotice } from "../notices";
 import { syncWideIds } from "../search-sync/index";
 import { syncNoticeTitleCn } from "../notice-public/build";
 import { TRANSLATION_MODEL } from "../../utils/notice-field-limits";
+import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
+import type { Pool } from "mysql2/promise";
+import type { TranslationCredentials } from "./chain";
 
 export const NOTICE_TRANSLATION_LANGS: Record<string, string> = {
   zh: "Simplified Chinese",
@@ -100,14 +103,15 @@ export function translateNoticeViaChain(
   title: string,
   description: string,
   lang: string,
-  sourceLang?: ChainSourceLang
+  sourceLang: ChainSourceLang | undefined,
+  creds: TranslationCredentials,
 ): Promise<ChainResult> {
   const detected = sourceLang ?? detectSourceLang(title, description) ?? "en";
   const alreadyTargetLang = detected === lang;
   if (alreadyTargetLang) {
     return Promise.resolve({ translations: [title, description], provider: TRANSLATION_MODEL.SAME_LANG });
   }
-  return translateViaChain([title, description], detected, lang);
+  return translateViaChain([title, description], detected, lang, creds);
 }
 
 // ── 翻译响应组装（从 detail.routes.ts 下沉）──
@@ -134,14 +138,18 @@ export async function getTranslatedNoticeDetail(
   noticeId: number,
   lang: string,
   repos: NoticeTranslationRepos,
-  dbPool: import("mysql2/promise").Pool,
+  dbPool: Pool,
+  userId: number,
 ): Promise<NoticeTranslationResult> {
+  // BYOK：翻译调用使用用户自己的大模型凭据（未配置时 resolveLlmCredentials 抛
+  // EC_AI_NOT_CONFIGURED）。惰性解析：纯缓存命中 / 中文 description_cn 直出等零调用路径不需要 Key。
+  const getCreds = () => resolveLlmCredentials(dbPool, userId);
   // #7：拆解聚合 Facade，按需注入子 Repo
   const { detailRepo, translationRepo } = repos;
   // ── 分支 1：缓存命中 + 描述完整 ──
   const cachedRow = await translationRepo.findTranslationCache(noticeId, lang);
   if (cachedRow && cachedRow.title_tr && cachedRow.description_tr) {
-    return handleFullCacheHit(noticeId, lang, cachedRow, repos, dbPool);
+    return handleFullCacheHit(noticeId, lang, cachedRow, repos, dbPool, getCreds);
   }
 
   // ── 分支 1.5：标题缓存 + description_cn 可覆盖描述（zh 专属快速返回）──
@@ -158,22 +166,22 @@ export async function getTranslatedNoticeDetail(
       return { lang, title: cachedRow.title_tr, description: descCnFast, cached: true, source: "description_cn" };
     }
     // description_cn 不可用：回退分支 2 原有补翻逻辑
-    return handleTitleOnlyCache(noticeId, lang, cachedRow, repos, dbPool);
+    return handleTitleOnlyCache(noticeId, lang, cachedRow, repos, dbPool, getCreds);
   }
 
   // ── 分支 2：缓存命中 + 仅标题（描述缺失补翻）──
   if (cachedRow && cachedRow.title_tr && !cachedRow.description_tr) {
-    return handleTitleOnlyCache(noticeId, lang, cachedRow, repos, dbPool);
+    return handleTitleOnlyCache(noticeId, lang, cachedRow, repos, dbPool, getCreds);
   }
 
   // ── 分支 3：全新翻译 ──
-  return handleFullTranslation(noticeId, lang, repos, dbPool);
+  return handleFullTranslation(noticeId, lang, repos, dbPool, getCreds);
 }
 
 /** 分支 1：缓存完整——检查机会表覆盖 + 中文直出 + 重译 */
 async function handleFullCacheHit(
   noticeId: number, lang: string, cachedRow: RowDataPacket,
-  repos: NoticeTranslationRepos, dbPool: import("mysql2/promise").Pool,
+  repos: NoticeTranslationRepos, dbPool: Pool, getCreds: () => Promise<TranslationCredentials>,
 ): Promise<NoticeTranslationResult> {
   const { detailRepo, translationRepo } = repos;
   const nForCache = await detailRepo.findDescMeta(noticeId);
@@ -200,7 +208,7 @@ async function handleFullCacheHit(
     let pendingStale = pendingNoticeTranslations.get(pendingKeyStale);
     if (!pendingStale) {
       const staleSourceLang = detectSourceLang("", cacheDescSource) ?? undefined;
-      pendingStale = translateNoticeViaChain("", cacheDescSource, lang, staleSourceLang);
+      pendingStale = translateNoticeViaChain("", cacheDescSource, lang, staleSourceLang, await getCreds());
       pendingNoticeTranslations.set(pendingKeyStale, pendingStale);
       pendingStale.finally(() => pendingNoticeTranslations.delete(pendingKeyStale)).catch(() => undefined);
     }
@@ -216,7 +224,7 @@ async function handleFullCacheHit(
 /** 分支 2：仅标题缓存——描述补翻 */
 async function handleTitleOnlyCache(
   noticeId: number, lang: string, cachedRow: RowDataPacket,
-  repos: NoticeTranslationRepos, dbPool: import("mysql2/promise").Pool,
+  repos: NoticeTranslationRepos, dbPool: Pool, getCreds: () => Promise<TranslationCredentials>,
 ): Promise<NoticeTranslationResult> {
   const { detailRepo, translationRepo } = repos;
   const n = await detailRepo.findDescMeta(noticeId);
@@ -231,7 +239,7 @@ async function handleTitleOnlyCache(
     void (async () => {
       try {
         const descSourceLang = detectSourceLang("", String(descSource)) ?? undefined;
-        const descOnlyResult = await translateNoticeViaChain("", String(descSource), lang, descSourceLang);
+        const descOnlyResult = await translateNoticeViaChain("", String(descSource), lang, descSourceLang, await getCreds());
         if (descOnlyResult.provider !== TRANSLATION_MODEL.SAME_LANG && descOnlyResult.translations[1]) {
           await translationRepo.updateTranslationDescription(noticeId, lang, descOnlyResult.translations[1], descOnlyResult.provider);
         }
@@ -246,7 +254,7 @@ async function handleTitleOnlyCache(
   let pendingDesc = pendingNoticeTranslations.get(pendingKeyDesc);
   if (!pendingDesc) {
     const descSourceLang = detectSourceLang("", String(descSource)) ?? undefined;
-    pendingDesc = translateNoticeViaChain("", String(descSource), lang, descSourceLang);
+    pendingDesc = translateNoticeViaChain("", String(descSource), lang, descSourceLang, await getCreds());
     pendingNoticeTranslations.set(pendingKeyDesc, pendingDesc);
     pendingDesc.finally(() => pendingNoticeTranslations.delete(pendingKeyDesc)).catch(() => undefined);
   }
@@ -262,7 +270,7 @@ async function handleTitleOnlyCache(
 /** 分支 3：全新翻译——源语言检测 + 翻译链 + 缓存 + 英文中枢兗底 */
 async function handleFullTranslation(
   noticeId: number, lang: string,
-  repos: NoticeTranslationRepos, dbPool: import("mysql2/promise").Pool,
+  repos: NoticeTranslationRepos, dbPool: Pool, getCreds: () => Promise<TranslationCredentials>,
 ): Promise<NoticeTranslationResult> {
   const { detailRepo, translationRepo } = repos;
   const notice = await detailRepo.findForTranslation(noticeId);
@@ -293,7 +301,8 @@ async function handleFullTranslation(
   if (zhDescCn && detectedSourceLang && detectedSourceLang !== "zh") {
     void (async () => {
       try {
-        const titleResult = await translateNoticeViaChain(String(notice.title || ""), "", lang, detectedSourceLang);
+        const creds = await getCreds();
+        const titleResult = await translateNoticeViaChain(String(notice.title || ""), "", lang, detectedSourceLang, creds);
         if (titleResult.provider !== TRANSLATION_MODEL.SAME_LANG && titleResult.translations[0]) {
           await translationRepo.upsertTranslation(noticeId, lang, titleResult.translations[0], null, titleResult.provider);
           // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
@@ -308,7 +317,7 @@ async function handleFullTranslation(
   let pending = pendingNoticeTranslations.get(pendingKey);
   if (!pending) {
     const descForChain = zhDescCn ? "" : mergedDescription;
-    pending = translateNoticeViaChain(String(notice.title || ""), descForChain, lang, detectedSourceLang);
+    pending = translateNoticeViaChain(String(notice.title || ""), descForChain, lang, detectedSourceLang, await getCreds());
     pendingNoticeTranslations.set(pendingKey, pending);
     pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
   }
@@ -343,7 +352,8 @@ async function handleFullTranslation(
         if (await translationRepo.hasTranslation(noticeId, "en")) return;
         const enPendingKey = `notice:${noticeId}:en`;
         if (pendingNoticeTranslations.has(enPendingKey)) return;
-        const enPromise = translateNoticeViaChain(String(notice.title || ""), mergedDescription, "en", detectedSourceLang);
+        const enCreds = await getCreds();
+        const enPromise = translateNoticeViaChain(String(notice.title || ""), mergedDescription, "en", detectedSourceLang, enCreds);
         pendingNoticeTranslations.set(enPendingKey, enPromise);
         enPromise.finally(() => pendingNoticeTranslations.delete(enPendingKey)).catch(() => undefined);
         const enResult = await enPromise;

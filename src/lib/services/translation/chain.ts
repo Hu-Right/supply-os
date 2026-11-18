@@ -1,13 +1,30 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * 公告翻译通道（BYOK：用户自己的大模型 API Key）
+ *
+ * 2026-11-18 口径调整：在线翻译不再使用平台 DEEPSEEK_API_KEY，改为调用**用户
+ * 在「设置 → AI 模型」绑定的 BYOK 配置**（user_llm_config：baseUrl / apiKey / model）。
+ * 与 AI 摘要/评分/匹配共用 resolveLlmCredentials；未配置 Key 时由上层报
+ * EC_AI_NOT_CONFIGURED（请先配置 LLM API Key），不再有平台 Key 兜底。
+ *
+ * 通道本身仍是 OpenAI 兼容 /chat/completions（单通道，不做多 provider 级联）：
+ *  - 认证走用户 Key；base_url 必须是 HTTPS 公网（SSRF 防护在 fetchWithTimeout 与这里各一层）；
+ *  - 合并请求：标题+描述等多段以 JSON 数组一次进出；
+ *  - 术语保护：URL/邮箱/参考号/常见缩写先替换 ⟦Tn⟧ 占位符，译后回填，丢失判失败；
+ *  - 超时 10s；429/5xx/超时/空响应/坏 JSON/坏形状/占位符丢失按指数退避重试（最多 3 次）；
+ *  - 熔断器按「端点+模型」维度隔离：一个用户 Key 持续失败不会熔断其他用户的翻译；
+ *  - 失败抛 TRANSLATION_UNAVAILABLE，由上层既有降级路径处理（详情 503 / 补翻静默）。
  */
-import { channelConfigured } from "../../config/env";
 import { fetchWithTimeout } from "./fetchWithTimeout";
 
-// ── 翻译通道（DeepSeek Flash (V4.1) 单通道）──
-// DeepSeek 未配置或失败时抛 TRANSLATION_UNAVAILABLE，复用既有降级路径
-// （详情 503 / 补翻静默）。缓存表 model 列写入真实提供方（deepseek-flash）。
+/** 翻译所需的最小凭据形状（resolveLlmCredentials 的返回值可直接传入） */
+export interface TranslationCredentials {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
 
 export type ChainResult = {
   translations: string[];
@@ -55,7 +72,6 @@ const CHAIN_LANG_NAMES: Record<string, string> = {
   uk: "Ukrainian",
 };
 
-
 // MT 通道的术语保护：URL/邮箱/参考号/常见缩写抽出为占位符，译后回填；
 // 任一占位符在译文中丢失即判本通道失败落下一层
 const PROTECT_PATTERNS: RegExp[] = [
@@ -90,91 +106,99 @@ function restoreTerms(text: string, tokens: string[]): string {
   return restored;
 }
 
-const DEEPSEEK_TIMEOUT_MS = 10_000; // flash 模型正常 <1s 返回；10s 足以覆盖慢响应+CDN 挂死
-const DEEPSEEK_MAX_RETRIES = 3;       // 429/5xx 最多重试 3 次（共 4 次尝试）
-const DEEPSEEK_RETRY_BASE_MS = 1_500; // 重试基础间隔 1.5s，指数退避：1.5s → 3s → 6s
+const DEEPSEEK_TIMEOUT_MS = 10_000; // 用户配置的模型通常 <2s 返回；10s 覆盖慢响应+CDN 挂死
+const TRANSLATE_MAX_RETRIES = 3;       // 429/5xx 最多重试 3 次（共 4 次尝试）
+const TRANSLATE_RETRY_BASE_MS = 1_500; // 重试基础间隔 1.5s，指数退避：1.5s → 3s → 6s
 
-// ── 熔断器：连续 N 次 503/超时后暂停 DeepSeek 通道，避免服务过载时无意义请求 ──
-const DEEPSEEK_CIRCUIT_THRESHOLD = 3;  // 连续 3 次失败触发熔断
-const DEEPSEEK_CIRCUIT_COOLDOWN_MS = 60_000; // 熔断冷却 60 秒
-let circuitBreakerTripped = false;
-let circuitBreakerTrippedAt = 0;
-let consecutiveFailures = 0;
+// ── 熔断器：按「端点 + 模型」隔离 ──
+// BYOK 下每个用户 Key 独立计费/限流，一个用户的 Key 失效不能熔断全站翻译；
+// 连续 N 次 503/超时/确定性错误后暂停该凭据通道，避免持续浪费请求。
+const CIRCUIT_THRESHOLD = 3;       // 连续 3 次失败触发熔断
+const CIRCUIT_COOLDOWN_MS = 60_000; // 熔断冷却 60 秒
 
-function circuitBreakerAllow(): boolean {
-  if (!circuitBreakerTripped) return true;
-  if (Date.now() - circuitBreakerTrippedAt >= DEEPSEEK_CIRCUIT_COOLDOWN_MS) {
+interface CircuitState {
+  consecutiveFailures: number;
+  trippedAt: number;
+}
+
+const circuits = new Map<string, CircuitState>();
+
+/** 熔断维度：同一端点+模型的用户共享一个熔断状态（同 Key 失败会一起冷却，符合预期） */
+function circuitKey(creds: TranslationCredentials): string {
+  const baseUrl = creds.baseUrl.replace(/\/+$/, "");
+  return `${baseUrl}|${creds.model}`;
+}
+
+function circuitBreakerAllow(key: string): boolean {
+  const state = circuits.get(key);
+  if (!state || state.trippedAt === 0) return true;
+  if (Date.now() - state.trippedAt >= CIRCUIT_COOLDOWN_MS) {
     // 冷却期结束，重置熔断器（半开状态允许一次请求试探恢复）
-    circuitBreakerTripped = false;
-    consecutiveFailures = 0;
-    console.warn("[translate] deepseek circuit breaker: cooldown elapsed, retrying");
+    circuits.delete(key);
+    console.warn("[translate] byok circuit breaker: cooldown elapsed, retrying");
     return true;
   }
   return false;
 }
 
-/** 查询熔断器是否处于打开状态（供 auto.ts 等调用方提前退出 worker 循环） */
-export function isDeepSeekCircuitBreakerOpen(): boolean {
-  return circuitBreakerTripped;
+function circuitBreakerRecordSuccess(key: string) {
+  circuits.delete(key);
 }
 
-function circuitBreakerRecordSuccess() {
-  consecutiveFailures = 0;
-  circuitBreakerTripped = false;
-}
-
-function circuitBreakerRecordFailure() {
-  consecutiveFailures++;
-  if (consecutiveFailures >= DEEPSEEK_CIRCUIT_THRESHOLD && !circuitBreakerTripped) {
-    circuitBreakerTripped = true;
-    circuitBreakerTrippedAt = Date.now();
-    console.warn(`[translate] deepseek circuit breaker: TRIIPPED after ${consecutiveFailures} consecutive failures, cooldown ${DEEPSEEK_CIRCUIT_COOLDOWN_MS / 1000}s`);
+function circuitBreakerRecordFailure(key: string) {
+  const state = circuits.get(key) ?? { consecutiveFailures: 0, trippedAt: 0 };
+  state.consecutiveFailures += 1;
+  if (state.consecutiveFailures >= CIRCUIT_THRESHOLD && state.trippedAt === 0) {
+    state.trippedAt = Date.now();
+    console.warn(
+      `[translate] byok circuit breaker: TRIPPED after ${state.consecutiveFailures} consecutive failures, cooldown ${CIRCUIT_COOLDOWN_MS / 1000}s`,
+    );
   }
+  circuits.set(key, state);
 }
 
-// 判断 DeepSeek 错误是否可重试（429 限流 / 5xx 服务端错误 / 超时 / 空响应 / 占位符丢失 / 格式异常）
-// DEEPSEEK_EMPTY：模型偶发返回空内容，通常为瞬时异常，重试成功率高
-// DEEPSEEK_BAD_SHAPE / DEEPSEEK_BAD_JSON：模型偶发返回非预期数组结构或非法 JSON，
-//   通常为瞬时格式抖动，单独重试可恢复（批量失败时 auto.ts 已逐条 fallback）
+/** 供上层（如批量补翻）查询某凭据是否处于熔断打开状态 */
+export function isDeepSeekCircuitBreakerOpen(creds?: TranslationCredentials): boolean {
+  if (!creds) return false;
+  const state = circuits.get(circuitKey(creds));
+  return !!state && state.trippedAt !== 0 && Date.now() - state.trippedAt < CIRCUIT_COOLDOWN_MS;
+}
+
+// 判断翻译通道错误是否可重试（429 限流 / 5xx 服务端错误 / 超时 / 空响应 / 占位符丢失 / 格式异常）
+// TRANSLATE_EMPTY：模型偶发返回空内容，通常为瞬时异常，重试成功率高
+// TRANSLATE_BAD_SHAPE / TRANSLATE_BAD_JSON：模型偶发返回非预期数组结构或非法 JSON
 // MT_PLACEHOLDER_LOST：模型偶发破坏占位符，重试通常可恢复
-function isDeepSeekRetryable(errMsg: string): boolean {
-  return /DEEPSEEK_HTTP_(429|500|502|503|504)/.test(errMsg) ||
+function isRetryable(errMsg: string): boolean {
+  return /TRANSLATE_HTTP_(429|500|502|503|504)/.test(errMsg) ||
     errMsg === "CHANNEL_TIMEOUT" ||
-    errMsg === "DEEPSEEK_EMPTY" ||
-    errMsg === "DEEPSEEK_BAD_SHAPE" ||
-    errMsg === "DEEPSEEK_BAD_JSON" ||
+    errMsg === "TRANSLATE_EMPTY" ||
+    errMsg === "TRANSLATE_BAD_SHAPE" ||
+    errMsg === "TRANSLATE_BAD_JSON" ||
     errMsg === "MT_PLACEHOLDER_LOST";
 }
 
-// 通道1：DeepSeek Flash（OpenAI 兼容 /chat/completions，V4.1 Flash 模型，API 模型名 deepseek-flash）
-// 认证需配置 DEEPSEEK_API_KEY；未配置即跳过本通道。作为 LLM 中间层：
-// DeepSeek Flash 对长描述/上下文语义更准，担任翻译链第一层。
-// flash 模型不支持 thinking/reasoning_effort 参数，译文直接取 content。
-// 占位符沿用链上统一的 ⟦Tn⟧，由 prompt 明确要求原样保留，返回后经 restoreTerms 回填。
-// 合并请求模式：标题+正文等多段以 JSON 数组一次进出——一次思考翻完全部字段，
-// 段间共享上下文、术语一致，且省去多次深度思考的延迟与 token 开销；
-// 返回数组长度/形状不符即判失败。不设单次长度与每日软额度限制，
-// 超长/超量由 API 自身报错（HTTP 400/402/429 等）后抛 TRANSLATION_UNAVAILABLE。
-
-// DeepSeek 单次翻译（无重试）：被 translateViaDeepSeek 包装调用
-async function translateViaDeepSeekOnce(
+// BYOK 单次翻译（无重试）：被 translateViaCreds 包装调用
+async function translateOnce(
   texts: string[],
   sourceLang: string,
-  targetLang: string
+  targetLang: string,
+  creds: TranslationCredentials,
 ): Promise<string[]> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = String(creds.apiKey ?? "").trim();
+  const baseUrl = String(creds.baseUrl ?? "").replace(/\/+$/, "");
+  const model = String(creds.model ?? "").trim();
   // 源语言映射缺失不再跳过：LLM 通道无需显式源语言（模型自行识别）
   const targetName = CHAIN_LANG_NAMES[targetLang];
-  if (!channelConfigured(apiKey) || !targetName) throw new Error("CHANNEL_SKIPPED");
-  const baseUrl = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "");
-  // env 派生出站地址 fail-fast 校验：仅允许 https 公网主机（拒绝环回/私有/保留段）
+  if (!apiKey || !baseUrl || !model || !targetName) throw new Error("CHANNEL_SKIPPED");
+  // env/用户配置的出站地址 fail-fast 校验：仅允许 https 公网主机（拒绝环回/私有/保留段）
   if (
-    !/^https:\/\/(?!localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.)[a-zA-Z0-9.-]+(:\d+)?$/.test(
+    !/^https:\/\/(?!localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.)[a-zA-Z0-9.-]+(:\d+)?/.test(
       baseUrl,
     )
   ) {
     throw new Error("CHANNEL_URL_BLOCKED");
   }
+  void sourceLang; // 保留入参以便将来在 prompt 中显式声明；当前由模型自识别
   const prompt = `You are a procurement text translator. Translate each text below into ${targetName}.
 Rules:
 - Preserve ⟦Tn⟧ placeholders exactly as-is
@@ -189,19 +213,21 @@ Output (JSON array[${texts.length}]):`;
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${String(apiKey)}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "deepseek-flash",
+      model,
       messages: [{ role: "user", content: prompt }],
       stream: false,
-      thinking: { type: "disabled" },
+      // 用户配置的模型未必支持 thinking 字段；只在明确是 DeepSeek 模型时关闭思考，
+      // 其它 OpenAI 兼容端点（gpt/glm/qwen 等）不认识该字段，带上可能直接 400。
+      ...(/deepseek/i.test(model) ? { thinking: { type: "disabled" } } : {}),
     }),
   }, DEEPSEEK_TIMEOUT_MS);
-  if (!res.ok) throw new Error(`DEEPSEEK_HTTP_${res.status}`);
+  if (!res.ok) throw new Error(`TRANSLATE_HTTP_${res.status}`);
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const content = String(data?.choices?.[0]?.message?.content ?? "").trim();
-  if (!content) throw new Error("DEEPSEEK_EMPTY");
+  if (!content) throw new Error("TRANSLATE_EMPTY");
   // 容错提取 JSON 数组：先剥 markdown 围栏，再尝试从混合文本中定位 [...]
   const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   let parsed: unknown;
@@ -214,10 +240,10 @@ Output (JSON array[${texts.length}]):`;
       try {
         parsed = JSON.parse(arrMatch[0]);
       } catch {
-        throw new Error("DEEPSEEK_BAD_JSON");
+        throw new Error("TRANSLATE_BAD_JSON");
       }
     } else {
-      throw new Error("DEEPSEEK_BAD_JSON");
+      throw new Error("TRANSLATE_BAD_JSON");
     }
   }
   if (
@@ -225,52 +251,48 @@ Output (JSON array[${texts.length}]):`;
     parsed.length !== texts.length ||
     !parsed.every((item) => typeof item === "string" && item.trim() !== "")
   ) {
-    throw new Error("DEEPSEEK_BAD_SHAPE");
+    throw new Error("TRANSLATE_BAD_SHAPE");
   }
   return (parsed as string[]).map((item) => item.trim());
 }
 
-// DeepSeek 带重试 + 熔断的包装：429/5xx/超时自动指数退避重试，其余错误立即抛出
-// 熔断器：连续 N 次失败（含不可重试的 401 等）后暂停通道，冷却期后自动恢复
-// 注意：熔断记录不再区分是否可重试——401（Key 失效）等确定性错误同样会持续浪费请求，
-// 必须计入熔断才能在批量扫描场景中避免「每条记录一次无效请求」的刷屏问题。
-async function translateViaDeepSeek(
+// 带重试 + 熔断的包装：429/5xx/超时自动指数退避重试，其余错误立即抛出
+async function translateViaCreds(
   texts: string[],
   sourceLang: string,
-  targetLang: string
+  targetLang: string,
+  creds: TranslationCredentials,
 ): Promise<string[]> {
+  const key = circuitKey(creds);
   // 熔断器激活时直接跳过，不浪费请求
-  if (!circuitBreakerAllow()) {
-    throw new Error("DEEPSEEK_CIRCUIT_BREAKER_OPEN");
+  if (!circuitBreakerAllow(key)) {
+    throw new Error("TRANSLATE_CIRCUIT_BREAKER_OPEN");
   }
   let lastErr: unknown;
-  for (let attempt = 0; attempt <= DEEPSEEK_MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= TRANSLATE_MAX_RETRIES; attempt++) {
     try {
-      const result = await translateViaDeepSeekOnce(texts, sourceLang, targetLang);
-      circuitBreakerRecordSuccess();
+      const result = await translateOnce(texts, sourceLang, targetLang, creds);
+      circuitBreakerRecordSuccess(key);
       return result;
     } catch (err: unknown) {
       lastErr = err;
       const errMsg = err instanceof Error ? err.message : String(err);
-      if (attempt < DEEPSEEK_MAX_RETRIES && isDeepSeekRetryable(errMsg)) {
-        const delayMs = DEEPSEEK_RETRY_BASE_MS * Math.pow(2, attempt);
-        console.warn(`[translate] deepseek retry ${attempt + 1}/${DEEPSEEK_MAX_RETRIES} after ${delayMs}ms: ${errMsg}`);
+      if (attempt < TRANSLATE_MAX_RETRIES && isRetryable(errMsg)) {
+        const delayMs = TRANSLATE_RETRY_BASE_MS * Math.pow(2, attempt);
+        console.warn(`[translate] byok retry ${attempt + 1}/${TRANSLATE_MAX_RETRIES} after ${delayMs}ms: ${errMsg}`);
         await new Promise((r) => setTimeout(r, delayMs));
         continue;
       }
       // 不可重试或重试耗尽：记录熔断器（所有错误均计入，含 401 等确定性失败）
-      circuitBreakerRecordFailure();
+      circuitBreakerRecordFailure(key);
       throw err;
     }
   }
   throw lastErr;
 }
 
-
-
 // 通道入口：空文本原样透传（供应商空字段等）；目标含六语言（zh/en/fr/ru/es/ar）
-// 仅使用 DeepSeek V4.1-Flash 单通道。DeepSeek 对未知源语言省略语言名（LLM 自行识别）。
-// DeepSeek 失败/未配置时抛 TRANSLATION_UNAVAILABLE，由各调用方既有降级路径处理。
+// 使用用户 BYOK 凭据（单通道）。凭据缺失时由上层（resolveLlmCredentials）先报未配置。
 export type ChainSourceLang =
   | "en" | "zh" | "ru" | "ar" | "fr" | "es" | "pt" | "de" | "it"
   | "nl" | "pl" | "ro" | "sv" | "da" | "fi" | "no" | "hu" | "tr" | "et"
@@ -280,7 +302,8 @@ export type ChainSourceLang =
 export async function translateViaChain(
   texts: string[],
   sourceLang: ChainSourceLang,
-  targetLang: string
+  targetLang: string,
+  creds: TranslationCredentials,
 ): Promise<ChainResult> {
   const jobs = texts
     .map((text, index) => ({ text, index }))
@@ -290,27 +313,29 @@ export async function translateViaChain(
   const assemble = (translated: Map<number, string>): string[] =>
     texts.map((text, index) => translated.get(index) ?? text);
 
-  // ── DeepSeek Flash (V4.1) 单通道 ──
+  // ── 用户 BYOK 单通道 ──
   try {
-    // 合并请求：所有段一次过 DeepSeek（各段独立 protectTerms，占位符互不干扰）
+    // 合并请求：所有段一次过模型（各段独立 protectTerms，占位符互不干扰）
     const masks = jobs.map((job) => protectTerms(job.text));
-    const outputs = await translateViaDeepSeek(
+    const outputs = await translateViaCreds(
       masks.map((m) => m.masked),
       sourceLang,
-      targetLang
+      targetLang,
+      creds,
     );
     const translated = new Map<number, string>();
     jobs.forEach((job, i) => {
       translated.set(job.index, restoreTerms(outputs[i], masks[i].tokens));
     });
+    const provider = String(creds.model || "").trim() || "byok";
     return {
       translations: assemble(translated),
-      provider: "deepseek-flash",
+      provider,
     };
   } catch (err: unknown) {
-    // DeepSeek 失败：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
+    // 用户凭据失败：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.warn(`[translate] deepseek unavailable: ${errMsg}`);
-    throw new TranslationError("TRANSLATION_UNAVAILABLE", [`deepseek-flash:${errMsg}`]);
+    console.warn(`[translate] byok unavailable: ${errMsg}`);
+    throw new TranslationError("TRANSLATION_UNAVAILABLE", [`${creds.model || "byok"}:${errMsg}`]);
   }
 }

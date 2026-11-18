@@ -12,6 +12,7 @@ import {
   translateNoticeViaChain,
 } from "@/lib/services/translation/notice";
 import { EC_INVALID_PARAMS, EC_OPPORTUNITY_NOT_FOUND, EC_CONTENT_LOCKED } from "@/shared/constants/api";
+import { resolveLlmCredentials } from "@/lib/services/ai/shared/llm-credentials";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -45,10 +46,12 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const opp = await oppsRepo.findTextById(opportunityId);
     if (!opp) routeError(404, EC_OPPORTUNITY_NOT_FOUND, "机会不存在");
 
+    // BYOK：商机翻译同样使用用户自己的大模型凭据（未配置时 400 EC_AI_NOT_CONFIGURED）
+    const creds = await resolveLlmCredentials(ctx.dbPool, auth.userId);
     const pendingKey = `opp:${opportunityId}:${lang}`;
     let pending = pendingNoticeTranslations.get(pendingKey);
     if (!pending) {
-      pending = translateNoticeViaChain(String(opp.title || ""), String(opp.description || ""), lang);
+      pending = translateNoticeViaChain(String(opp.title || ""), String(opp.description || ""), lang, undefined, creds);
       pendingNoticeTranslations.set(pendingKey, pending);
       pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
     }

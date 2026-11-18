@@ -20,6 +20,7 @@ import { findQualifiedOpportunityForNotice } from "../notices/index";
 import { syncWideIds } from "../search-sync/index";
 import { syncNoticeTitleCn } from "../notice-public/build";
 import { TRANSLATION_MODEL } from "../../utils/notice-field-limits";
+import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
 
 /** 通用路径返回的翻译载荷 */
 type TranslationPayload = Awaited<ReturnType<typeof getTranslatedNoticeDetail>>;
@@ -57,6 +58,7 @@ export async function getNoticeTranslation(
   deps: NoticeTranslationDeps,
   noticeId: number,
   lang: string,
+  userId: number,
 ): Promise<NoticeTranslationPayload> {
   const { pool, detailRepo, translationRepo } = deps;
 
@@ -92,7 +94,8 @@ export async function getNoticeTranslation(
             // 原文非中文：立即返回原文标题，标题翻译异步执行（下次访问命中缓存）
             void (async () => {
               try {
-                const result = await translateNoticeViaChain(title, "", "zh", srcLang);
+                const creds = await resolveLlmCredentials(pool, userId);
+                const result = await translateNoticeViaChain(title, "", "zh", srcLang, creds);
                 if (result.provider !== TRANSLATION_MODEL.SAME_LANG && result.translations[0]) {
                   await translationRepo.upsertTranslation(noticeId, "zh", result.translations[0], null, result.provider);
                   await syncNoticeTitleCn(pool, noticeId, result.translations[0]).catch(() => undefined);
@@ -117,7 +120,7 @@ export async function getNoticeTranslation(
 
   // ── 通用路径 ──
   try {
-    const result = await getTranslatedNoticeDetail(noticeId, lang, { detailRepo, translationRepo }, pool);
+    const result = await getTranslatedNoticeDetail(noticeId, lang, { detailRepo, translationRepo }, pool, userId);
 
     // 通过统一路径同步宽表
     if (result.title && !result.cached) {

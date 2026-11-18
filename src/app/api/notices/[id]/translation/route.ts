@@ -49,7 +49,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       benefitMessage: "当前套餐不包含译文，仅可查看原文",
     });
 
-    const result = await fetchNoticeTranslation(noticeId, lang);
+    const result = await fetchNoticeTranslation(noticeId, lang, auth.userId);
     return NextResponse.json(result);
   },
 );
