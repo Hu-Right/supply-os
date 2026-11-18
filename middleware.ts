@@ -14,6 +14,15 @@ import { NextRequest, NextResponse } from "next/server";
 const SUPPORTED_LOCALES = ["zh", "en", "fr", "ru", "es", "ar", "pt"];
 
 export function middleware(request: NextRequest) {
+  // 英文站点是独立根布局（app/(en)/en），URL 前缀即语言，不读 Cookie：
+  // 否则中文用户打开 /en 会被 Cookie 改回中文，hreflang 与 canonical 全部失真。
+  const { pathname } = request.nextUrl;
+  if (pathname === "/en" || pathname.startsWith("/en/")) {
+    const enHeaders = new Headers(request.headers);
+    enHeaders.set("x-locale", "en");
+    return NextResponse.next({ request: { headers: enHeaders } });
+  }
+
   let locale = request.cookies.get("supply_os_locale")?.value;
 
   if (!locale || !SUPPORTED_LOCALES.includes(locale)) {
