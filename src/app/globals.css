@@ -1,4 +1,15 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+
+/*
+ * 显式限定 Tailwind 的内容扫描范围（关闭自动源检测）。
+ *
+ * 自动检测会把仓库里非源码文件一起扫描：bin/data.ms（Meilisearch 数据库）、
+ * public/world-map.json（3MB）、图片等二进制内容会被当成候选类名，
+ * 生成 `margin: <控制字符>…` 这类非法声明，导致构建在 Tailwind 解析阶段
+ * 报 “Missed semicolon”（错误列号随二进制内容变化而漂移，2026-11-18 实测）。
+ * 组件类名只在 src 下的 .ts/.tsx 里，按此范围扫描即可。
+ */
+@source "../**/*.{ts,tsx}";
 
 /* 渐变参数存于变量时不会自动降编译：先给传统方向，再按能力增强插值空间。 */
 @utility bg-gradient-to-r {
