@@ -13,7 +13,7 @@
  *
  *              归属：纯工具、零依赖，落 `@/shared`（红线 3：features 不得 import `@/lib`）。
  *
- * @see docs/notice-deadline-timezone.md（时区写法与展示口径规范）
+ * @see docs/adr/0020-notice-deadline-timezone-spec.md（时区写法与展示口径规范）
  */
 
 export type DeadlineZone =
