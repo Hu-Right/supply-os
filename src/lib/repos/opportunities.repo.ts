@@ -32,7 +32,7 @@ export interface OpportunityListItemRow {
 }
 
 /** 商机解锁流水行 */
-export interface OpportunityUnlockRow {
+export interface OpportunityAccessRow {
   opportunity_id: number;
   grant_type: string;
   granted_at: Date;
@@ -69,12 +69,12 @@ export class OpportunitiesRepo {
    * `{opportunity_id: null}`（类型声明写的是 number，等于在谎报），
    * 下游“已解锁集合”根本无法使用。口径与 NoticeAccessGrantRepo.listNoticeGrants 对称。
    */
-  async listAccessRecords(userId: number): Promise<OpportunityUnlockRow[]> {
+  async listAccessRecords(userId: number): Promise<OpportunityAccessRow[]> {
     const [rows] = await this.pool.query(
       "SELECT opportunity_id, grant_type, granted_at FROM notice_access_grants WHERE user_id = ? AND opportunity_id IS NOT NULL ORDER BY granted_at DESC",
       [userId],
     );
-    return rows as OpportunityUnlockRow[];
+    return rows as OpportunityAccessRow[];
   }
 
   /** 商机译文缓存（无缓存返回 null） */

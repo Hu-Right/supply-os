@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { fetchMembershipPlans, fetchMembershipStatus, fetchAnnualPlanCredit } from "@/core/api/membership";
-import { unlockRemaining } from "@/shared/utils/membership-view";
+import { accessRemaining } from "@/shared/utils/membership-view";
 import type {
   AnnualCreditView, ComparisonView, MembershipStatusView, TieredPlanView, UpgradeCreditWindowView,
 } from "@/types";
@@ -112,7 +112,7 @@ export function useMembershipData(options?: UseMembershipDataOptions): UseMember
     membership,
     loading,
     error,
-    totalRemaining: unlockRemaining(membership?.quotas),
+    totalRemaining: accessRemaining(membership?.quotas),
     currentPlanCode,
     currentPlanPrice,
     currentPlanName: membership?.plan?.nameZh ?? null,

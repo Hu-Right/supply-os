@@ -16,12 +16,12 @@ import { recordTime, recordTitle, recordSubtitle, type RecordRow } from "./recor
 /** 概览态：订单蓝卡 + 解锁 teal 卡 */
 export const OverviewCards = memo(function OverviewCards({
   ordersTotal,
-  unlocksTotal,
+  accessTotal,
   onOpen,
 }: {
   ordersTotal: number;
-  unlocksTotal: number;
-  onOpen: (tab: "orders" | "unlocks") => void;
+  accessTotal: number;
+  onOpen: (tab: "orders" | "access") => void;
 }) {
   const { t } = useLocale();
   return (
@@ -45,13 +45,13 @@ export const OverviewCards = memo(function OverviewCards({
       <Button
         type="button"
         variant="outline"
-        onClick={() => onOpen("unlocks")}
+        onClick={() => onOpen("access")}
         className="text-start justify-start rounded-xl border-teal-100 bg-teal-50 p-4 hover:border-teal-300 hover:bg-teal-50"
       >
         <div className="flex items-center justify-between">
           <p className="text-sm font-extrabold text-teal-950">{t("myRecordsViewsTitle")}</p>
           <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-teal-700">
-            {unlocksTotal}
+            {accessTotal}
           </span>
         </div>
         <p className="text-3xs text-teal-700 mt-1">{t("myRecordsViewsDesc")}</p>
@@ -64,11 +64,11 @@ export const OverviewCards = memo(function OverviewCards({
 /** 单条记录行卡（订单/解锁两态共用；解锁行附截止日期与过期标记） */
 export const RecordRowCard = memo(function RecordRowCard({
   row,
-  isUnlocksView,
+  isAccessView,
   onOpenNotice,
 }: {
   row: RecordRow;
-  isUnlocksView: boolean;
+  isAccessView: boolean;
   onOpenNotice: (noticeId: number) => void;
 }) {
   const { t } = useLocale();
@@ -76,7 +76,7 @@ export const RecordRowCard = memo(function RecordRowCard({
   // 两个端的契约现在都叫 noticeId（订单行 NormalizedOrder / 解锁行 AccessRecord）
   const noticeId = row.noticeId;
   const canOpen = Boolean(
-    noticeId && (isUnlocksView || (isOrder && row.status === ORDER_STATUS.PAID)),
+    noticeId && (isAccessView || (isOrder && row.status === ORDER_STATUS.PAID)),
   );
   return (
     <article

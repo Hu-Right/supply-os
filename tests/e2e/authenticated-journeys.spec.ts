@@ -190,12 +190,12 @@ test.describe("商机浏览与解锁旅程", () => {
     const unlocks = await (await request.get(
       `${TEST_BASE_URL}/api/opportunities/access-ids`, { headers },
     )).json();
-    const unlockedIds = new Set(
+    const accessibleIds = new Set(
       (Array.isArray(unlocks) ? unlocks : unlocks.items ?? [])
         .map((u: { opportunityId: number }) => u.opportunityId),
     );
     const target = (Array.isArray(list) ? list : []).find(
-      (i: { id: number }) => !unlockedIds.has(i.id),
+      (i: { id: number }) => !accessibleIds.has(i.id),
     );
     test.skip(!target, "当前类目下没有未解锁靶点，硬闸语义由集成测试覆盖");
     const res = await request.post(`${TEST_BASE_URL}/api/opportunities/${target.id}/access`, {

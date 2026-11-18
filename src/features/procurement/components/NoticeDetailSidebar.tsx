@@ -45,7 +45,7 @@ export function NoticeDetailSidebar({
         className="flex-1 min-w-0 gap-1.5 px-2 text-xs py-2.5 font-semibold"
       >
         <Crown className="w-4 h-4 shrink-0" />
-        <span className="truncate">{t("procurement_upgradeToUnlock")}</span>
+        <span className="truncate">{t("procurement_upgradeToAccess")}</span>
       </Button>
     </div>
   );

@@ -2,11 +2,11 @@
  * 公告解锁集合与详情加载 Hook
  * Notice Unlock Set & Detail Loading Hook
  *
- * @module features/procurement/hooks/useNoticeUnlock
+ * @module features/procurement/hooks/useNoticeAccess
  * @description 已解锁公告 id 集合与拓展详情拉取合并；
  *              登录后预取已解锁集合，供详情首帧决定是否按已解锁口径渲染。
  *              Unlocked id set and extended detail fetch/merge;
- *              prefetches unlocked ids after login.
+ *              prefetches accessible ids after login.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
@@ -23,13 +23,13 @@ export interface UseNoticeUnlockOptions {
   setSelectedNotice: Dispatch<SetStateAction<NoticeItem | null>>;
 }
 
-export interface UseNoticeUnlockReturn {
+export interface UseNoticeAccessReturn {
   /** 详情已落地（成功或失败）的公告 pk；null=当前选中的详情还没回来。
    *  用途：列表描述是 LEFT(300) 截断版，付费/已解锁用户要等全文落地后再渲染描述区，
    *  避免"截断 → 完整"的跳变；免费用户不看这个（其详情必 403，截断版就是终态）。 */
   detailSettledPk: number | null;
-  isUnlocked: (id: number) => boolean;
-  markUnlocked: (id: number) => void;
+  isAccessible: (id: number) => boolean;
+  markAccessible: (id: number) => void;
   /** 拉取已解锁公告的拓展详情并合并进当前选中项 */
   loadNoticeDetail: (notice: NoticeItem) => Promise<void>;
   /** 拉取锁定态有限预览（机构名/分类标签；VIP 另含机构全称与发布日期）并合并进当前选中项 */
@@ -38,13 +38,13 @@ export interface UseNoticeUnlockReturn {
   openNoticeById: (id: number) => Promise<void>;
 }
 
-export function useNoticeUnlock({
+export function useNoticeAccess({
   userId,
   items,
   setSelectedNotice,
-}: UseNoticeUnlockOptions): UseNoticeUnlockReturn {
+}: UseNoticeUnlockOptions): UseNoticeAccessReturn {
   // 已解锁公告 id 集合
-  const [unlockedIds, setUnlockedIds] = useState<Set<number>>(new Set());
+  const [accessibleIds, setAccessibleIds] = useState<Set<number>>(new Set());
   // 详情落地标记（成功/失败都算落地）：只做"描述是否已是终态"的判据，不再驱动任何加载态 UI
   const [detailSettledPk, setDetailSettledPk] = useState<number | null>(null);
 
@@ -56,8 +56,8 @@ export function useNoticeUnlock({
   localeRef.current = locale;
 
   // P2-2：全部导出函数 useCallback 稳定化，作为下游 openNotice memo 依赖链的稳定源头
-  const markUnlocked = useCallback((id: number) =>
-    setUnlockedIds((prev) => {
+  const markAccessible = useCallback((id: number) =>
+    setAccessibleIds((prev) => {
       const next = new Set(prev);
       next.add(id);
       return next;
@@ -66,12 +66,12 @@ export function useNoticeUnlock({
   // 登录后预取已解锁集合：详情首帧据此决定骨架屏还是锁定面板
   useEffect(() => {
     if (!userId) {
-      setUnlockedIds(new Set());
+      setAccessibleIds(new Set());
       return;
     }
     let cancelled = false;
     fetchAccessibleNoticeIds().then((ids) => {
-      if (!cancelled) setUnlockedIds(new Set(ids));
+      if (!cancelled) setAccessibleIds(new Set(ids));
     });
     return () => {
       cancelled = true;
@@ -98,14 +98,14 @@ export function useNoticeUnlock({
           descriptionTruncated: false,
         };
       });
-      markUnlocked(notice.noticePk);
+      markAccessible(notice.noticePk);
     } catch {
       // 未解锁或加载失败：保留列表数据，不阻断详情页
     } finally {
       // 成功或失败都算"落地"：失败时（如行业墙/锁定 403）回退展示列表截断版，避免描述区永久空白
       setDetailSettledPk(notice.noticePk);
     }
-  }, [userId, setSelectedNotice, markUnlocked]);
+  }, [userId, setSelectedNotice, markAccessible]);
 
   // 锁定态有限预览：机构名/分类标签（VIP 另含机构全称与发布日期），
   // 仅增强展示不含敏感字段，失败静默不阻断详情页
@@ -134,16 +134,16 @@ export function useNoticeUnlock({
     const base = items.find((it) => it.noticePk === id) || ({ noticePk: id } as NoticeItem);
     setSelectedNotice(base);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    if (!unlockedIds.has(id)) void loadNoticePreview(base);
+    if (!accessibleIds.has(id)) void loadNoticePreview(base);
     await loadNoticeDetail(base);
-  }, [items, unlockedIds, setSelectedNotice, loadNoticePreview, loadNoticeDetail]);
+  }, [items, accessibleIds, setSelectedNotice, loadNoticePreview, loadNoticeDetail]);
 
-  const isUnlocked = useCallback((id: number) => unlockedIds.has(id), [unlockedIds]);
+  const isAccessible = useCallback((id: number) => accessibleIds.has(id), [accessibleIds]);
 
   return {
     detailSettledPk,
-    isUnlocked,
-    markUnlocked,
+    isAccessible,
+    markAccessible,
     loadNoticeDetail,
     loadNoticePreview,
     openNoticeById,

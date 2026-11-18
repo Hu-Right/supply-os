@@ -4,7 +4,7 @@
  *
  * @module features/auth/components/AccountBenefitsCard
  * @description 账号弹窗中的权益展示：显示总可用解锁次数与分层明细。
- *              Compact benefits display in auth modal: shows total unlocks and breakdown.
+ *              Compact benefits display in auth modal: shows total access and breakdown.
  */
 
 import { useEffect, useState } from "react";
@@ -15,7 +15,7 @@ import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button, Skeleton } from "@/shared/ui";
 import { formatDateShort } from "@/shared/utils/format";
-import { unlockRemaining, isUnlimitedQuota } from "@/shared/utils/membership-view";
+import { accessRemaining, isUnlimitedQuota } from "@/shared/utils/membership-view";
 import { fetchMembershipStatus } from "@/core/api/membership";
 import type { MembershipStatusView } from "@/types";
 
@@ -75,7 +75,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
   const plan = membership.plan;
   const hasSubscription = Boolean(subscription);
   // 总可用解锁：读额度账本 notice_view 池（“不限”归一为 UNLIMITED_QUOTA=-1）
-  const totalRemaining = unlockRemaining(membership.quotas);
+  const totalRemaining = accessRemaining(membership.quotas);
 
   const handleViewPlans = () => {
     if (onViewPlans) {

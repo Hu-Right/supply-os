@@ -118,7 +118,7 @@ export function DetailHeader({
             className="gap-1.5 px-3 py-2 text-xs"
           >
             <Crown className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{t("procurement_upgradeToUnlock") || "升级会员查看"}</span>
+            <span className="truncate">{t("procurement_upgradeToAccess") || "升级会员查看"}</span>
           </Button>
         )}
       </div>

@@ -1,9 +1,9 @@
 /**
- * 公告解锁数据访问层
- * Notice Unlock Repository
+ * 公告访问授权数据访问层
+ * Notice Access Grant Repository
  *
  * @module server/repos/notices/notice-access-grant.repo
- * @description 只操作 notice_access_grants 表（解锁流水：访问授权与审计明细）。
+ * @description 只操作 notice_access_grants 表（访问授权流水：会员打开自动留痕，含历史付费凭证）。
  *              额度记账已迁移至 benefit_quotas（唯一扣减口径见 lib/services/access-quota.ts），
  *              本 repo 不再读写旧表 crm_user_entitlements。
  */

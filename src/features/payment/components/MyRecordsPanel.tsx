@@ -7,7 +7,7 @@
  *              解锁 teal 卡，下钻态为管理列表（返回/刷新 + article 行 + 分页条）。
  *              Self-contained purchase records panel embedded in the account
  *              modal, aligned with the original UI: overview shows the blue
- *              orders card and teal unlocks card; drill-down shows a management
+ *              orders card and teal access card; drill-down shows a management
  *              list (back/refresh header + article rows + pager).
  *
  *              2026-10 组件化拆分（288→约 120 行）：概览卡/行卡/分页条见 ./records-panel/parts，
@@ -55,14 +55,14 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
     return (
       <OverviewCards
         ordersTotal={summary.ordersTotal}
-        unlocksTotal={summary.unlocksTotal}
+        accessTotal={summary.accessTotal}
         onOpen={openView}
       />
     );
   }
 
   const rows: RecordRow[] =
-    view === "orders" ? history.orders?.list || [] : history.unlocks?.list || [];
+    view === "orders" ? history.orders?.list || [] : history.accessRecords?.list || [];
   const rowKey = (row: RecordRow) =>
     "orderNo" in row ? row.orderNo : `${row.noticeId}-${row.grantedAt ?? ""}`;
 
@@ -130,7 +130,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
           <RecordRowCard
             key={rowKey(row)}
             row={row}
-            isUnlocksView={view === "unlocks"}
+            isAccessView={view === "access"}
             onOpenNotice={onOpenNotice}
           />
         ))}

@@ -93,7 +93,7 @@ export interface ComparisonTable {
  *   free 免费可看 / included 当前套餐已含 / unlock 需解锁本条公告 /
  *   upgrade 需升级至在售档 / contact 需联系销售。
  */
-export type GateState = "free" | "included" | "unlock" | "upgrade" | "contact";
+export type GateState = "free" | "included" | "upgrade" | "contact";
 
 export interface MembershipStatus {
   plan: PlanCatalogRow;

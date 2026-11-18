@@ -1,6 +1,6 @@
 /**
  * 采购记录（订单 / 解锁）历史 Hook
- * Purchase history (orders / unlocks) Hook
+ * Purchase history (orders / access) Hook
  *
  * @module features/payment/hooks/useOrderHistory
  * @description 管理"我的采购记录"面板的 tab 切换、分页与数据加载
@@ -19,7 +19,7 @@ import {
 } from "../api";
 
 /** 面板 tab：支付订单 / 解锁记录 */
-export type PurchaseTab = "orders" | "unlocks";
+export type PurchaseTab = "orders" | "access";
 
 /** 每页条数 */
 const PAGE_LIMIT = 10;
@@ -38,7 +38,7 @@ export type UseOrderHistoryReturn = {
   /** 订单分页数据 */
   orders: PagedResult<OrderRecord> | null;
   /** 解锁分页数据 */
-  unlocks: PagedResult<AccessRecord> | null;
+  accessRecords: PagedResult<AccessRecord> | null;
   /** 是否加载中 */
   loading: boolean;
   /** 错误消息 */
@@ -59,7 +59,7 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
   const [tab, setTabState] = useState<PurchaseTab>("orders");
   const [page, setPage] = useState(1);
   const [orders, setOrders] = useState<PagedResult<OrderRecord> | null>(null);
-  const [unlocks, setUnlocks] = useState<PagedResult<AccessRecord> | null>(null);
+  const [accessRecords, setAccessRecords] = useState<PagedResult<AccessRecord> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const requestSeq = useRef(0);
@@ -72,7 +72,7 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
   const load = useCallback(() => {
     if (!userId) {
       setOrders(null);
-      setUnlocks(null);
+      setAccessRecords(null);
       return;
     }
     const seq = requestSeq.current + 1;
@@ -86,7 +86,7 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
             if (seq === requestSeq.current) setOrders(data);
           })
         : fetchAccessRecords({ page, limit: PAGE_LIMIT }).then((data) => {
-            if (seq === requestSeq.current) setUnlocks(data);
+            if (seq === requestSeq.current) setAccessRecords(data);
           });
 
     request
@@ -102,7 +102,7 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
     load();
   }, [load]);
 
-  const current = tab === "orders" ? orders : unlocks;
+  const current = tab === "orders" ? orders : accessRecords;
   const total = Number(current?.total || 0);
   const totalPages = calcTotalPages(total, PAGE_LIMIT);
 
@@ -113,7 +113,7 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
     setPage,
     limit: PAGE_LIMIT,
     orders,
-    unlocks,
+    accessRecords,
     loading,
     error,
     total,

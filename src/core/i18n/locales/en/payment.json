@@ -33,7 +33,7 @@
   "myPurchasesPrev": "Previous",
   "myPurchasesNext": "Next",
   "myRecordsOrdersTitle": "My Payment Orders",
-  "myRecordsOrdersDesc": "View all orders, payment status and unlock entries",
+  "myRecordsOrdersDesc": "View all orders, payment status and access entries",
   "myRecordsOrdersHint": "Click to open the order management list",
   "myRecordsOrdersManage": "Payment Order Management",
   "myRecordsOrdersManageDesc": "All payment orders in reverse order of creation time",

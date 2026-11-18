@@ -5,7 +5,7 @@
  * @module features/procurement/hooks/useNoticeHandlers
  * @description 打开详情/免费门槛拦截、付费买断、免费与会员解锁、意向/订阅
  *              等动作处理器；状态来自会员配额、解锁集合与付费面板 hook。
- *              Open/paywall-gate, paid buyout, free/member unlock and
+ *              Open/paywall-gate, paid buyout, free/member access and
  *              interest/subscribe handlers built on the state hooks.
  */
 import { useCallback } from "react";
@@ -15,7 +15,7 @@ import { ApiError, clearApiCache } from "@/core/http";
 import type { NoticeItem } from "../types";
 import { viewNotice, grantNoticeAccess, expressInterest } from "../api";
 import type { UseNoticeMembershipReturn } from "./useNoticeMembership";
-import type { UseNoticeUnlockReturn } from "./useNoticeUnlock";
+import type { UseNoticeAccessReturn } from "./useNoticeAccess";
 
 export interface UseNoticeHandlersOptions {
   /** 当前登录用户 key */
@@ -30,8 +30,8 @@ export interface UseNoticeHandlersOptions {
   trackDetailOpen: (noticeId: number) => void;
   /** 会员配额状态（useNoticeMembership） */
   membership: UseNoticeMembershipReturn;
-  /** 解锁集合与详情加载（useNoticeUnlock） */
-  unlock: UseNoticeUnlockReturn;
+  /** 解锁集合与详情加载（useNoticeAccess） */
+  access: UseNoticeAccessReturn;
   /** 未登录时的回调（弹出登录） */
   onRequireLogin: () => void;
   setActionMessage: (message: string) => void;
@@ -39,7 +39,7 @@ export interface UseNoticeHandlersOptions {
 
 export interface UseNoticeHandlersReturn {
   openNotice: (notice: NoticeItem) => Promise<void>;
-  handleUnlockNotice: (notice: NoticeItem, grantType?: "free" | "subscription") => Promise<boolean>;
+  handleGrantAccess: (notice: NoticeItem, grantType?: "free" | "subscription") => Promise<boolean>;
   handleExpressInterest: (notice: NoticeItem, interestType: "interested" | "subscribed") => Promise<void>;
 }
 
@@ -49,13 +49,13 @@ export function useNoticeHandlers({
   trackClick,
   trackDetailOpen,
   membership,
-  unlock,
+  access,
   onRequireLogin,
   setActionMessage,
 }: UseNoticeHandlersOptions): UseNoticeHandlersReturn {
   const { t } = useLocale();
   const { canUsePaidQuota, refreshMembership } = membership;
-  const { isUnlocked, markUnlocked, loadNoticeDetail, loadNoticePreview } = unlock;
+  const { isAccessible, markAccessible, loadNoticeDetail, loadNoticePreview } = access;
 
   const openNotice = useCallback(async (notice: NoticeItem) => {
     if (!userId) {
@@ -66,7 +66,7 @@ export function useNoticeHandlers({
     // T-B9 点击埋点：仅推荐模式上报（正反馈联动兴趣码权重，D.7）
     trackClick(notice.noticePk);
 
-    const alreadyGranted = isUnlocked(notice.noticePk);
+    const alreadyGranted = isAccessible(notice.noticePk);
     // 免费试用已移除（2026-08-30）：未解锁用户打开详情由服务端 403 core_locked
     // 付费墙接管（本地 localStorage 计数门槛已删除），此处不再前置拦截
 
@@ -93,38 +93,38 @@ export function useNoticeHandlers({
   }, [
     userId,
     onRequireLogin, trackClick, trackDetailOpen,
-    isUnlocked, setSelectedNotice, setActionMessage,
+    isAccessible, setSelectedNotice, setActionMessage,
     refreshMembership, loadNoticeDetail, loadNoticePreview,
   ]);
 
-  const handleUnlockNotice = async (notice: NoticeItem, grantType?: "free" | "subscription") => {
+  const handleGrantAccess = async (notice: NoticeItem, grantType?: "free" | "subscription") => {
     if (!userId) {
       onRequireLogin();
       return false;
     }
 
-    // 免费试用已移除：无显式类型时一律走订阅配额，配额不足由服务端 402 拦截
+    // 免费试用已移除：无显式类型时一律走订阅配额（自动记录查看/授权），配额不足由服务端 402 拦截
     if (!grantType && !canUsePaidQuota) {
       setActionMessage(t("procurement_paidQuotaRequired"));
       return false;
     }
 
-    const nextUnlockType = grantType || "subscription";
+    const nextGrantType = grantType || "subscription";
     try {
       // P2-10：价格由服务端按套餐定价，前端固定传 0
-      await grantNoticeAccess(notice.noticePk, nextUnlockType, 0);
+      await grantNoticeAccess(notice.noticePk, nextGrantType, 0);
     } catch (err) {
       if (err instanceof ApiError && err.status === 402) {
         setActionMessage(t("procurement_paidQuotaRequired"));
       } else {
-        setActionMessage(t("procurement_unlockFail"));
+        setActionMessage(t("procurement_accessFail"));
       }
       await refreshMembership();
       return false;
     }
 
     await refreshMembership();
-    markUnlocked(notice.noticePk);
+    markAccessible(notice.noticePk);
     // P2-5 安全修复：查看成功后清除查看历史缓存，确保 RecentViews 立即刷新
     clearApiCache("/api/payment/access-records");
     // 2026-10-29：会员打开公告即自动解锁，解锁不再是用户动作 ⇒ 不再弹「已解锁该商机」成功提示
@@ -150,6 +150,6 @@ export function useNoticeHandlers({
     await refreshMembership();
   };
 
-  return { openNotice, handleUnlockNotice, handleExpressInterest };
+  return { openNotice, handleGrantAccess, handleExpressInterest };
 }
 

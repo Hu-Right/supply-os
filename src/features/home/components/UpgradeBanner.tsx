@@ -8,7 +8,7 @@
  */
 import { memo } from "react";
 import {
-  Crown, Search, Unlock, Filter, ArrowRight,
+  Crown, Search, LockOpen, Filter, ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
@@ -80,7 +80,7 @@ export const UpgradeBanner = memo(function UpgradeBanner() {
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               {[
                 { icon: Search, label: t("homeUpBenefit1"), sub: t("homeUpBenefit1Sub") },
-                { icon: Unlock, label: t("homeUpBenefit2"), sub: t("homeUpBenefit2Sub") },
+                { icon: LockOpen, label: t("homeUpBenefit2"), sub: t("homeUpBenefit2Sub") },
                 { icon: Filter, label: t("homeUpBenefit3"), sub: t("homeUpBenefit3Sub") },
                 { icon: Crown, label: t("homeUpBenefit4"), sub: t("homeUpBenefit4Sub") },
               ].map((item) => {

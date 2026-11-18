@@ -294,7 +294,7 @@ export function OpportunitiesPanel({ t, onUpgrade }: PanelProps & { onUpgrade: (
       <div className="mt-4 flex items-center justify-between rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 p-4 text-white shadow">
         <div>
           <p className="text-sm font-extrabold">{t("profile_supplierMember")}</p>
-          <p className="text-xs text-amber-100">{t("profileTabUnlockBenefits")}</p>
+          <p className="text-xs text-amber-100">{t("profileTabViewBenefits")}</p>
         </div>
         <Button onClick={onUpgrade} variant="outline" size="sm" className="bg-white text-amber-700 border-white font-extrabold gap-1.5 hover:bg-amber-50">
           {t("profile_upgradePlan")}<ArrowRight className="w-3.5 h-3.5" />

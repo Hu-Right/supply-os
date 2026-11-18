@@ -5,7 +5,7 @@
  * @module features/payment/hooks/useRecordsSummary
  * @description 为"我的采购记录"概览态并行拉取订单/解锁的总数与首条记录，
  *              用于概览卡的数量徽标与首条预览，避免污染分页 hook。
- *              Fetches order/unlock totals and the first record in parallel for
+ *              Fetches order/access totals and the first record in parallel for
  *              the overview cards' count badge and first-record preview, keeping
  *              the pagination hook clean.
  */
@@ -17,11 +17,11 @@ export type UseRecordsSummaryReturn = {
   /** 订单总数 */
   ordersTotal: number;
   /** 解锁总数 */
-  unlocksTotal: number;
+  accessTotal: number;
   /** 首条订单记录（无则 null） */
   ordersFirst: OrderRecord | null;
   /** 首条解锁记录（无则 null） */
-  unlocksFirst: AccessRecord | null;
+  accessFirst: AccessRecord | null;
   /** 是否加载中 */
   loading: boolean;
   /** 错误信息（null = 成功） */
@@ -36,9 +36,9 @@ export type UseRecordsSummaryReturn = {
  */
 export function useRecordsSummary(userId: number | undefined): UseRecordsSummaryReturn {
   const [ordersTotal, setOrdersTotal] = useState(0);
-  const [unlocksTotal, setUnlocksTotal] = useState(0);
+  const [accessTotal, setAccessTotal] = useState(0);
   const [ordersFirst, setOrdersFirst] = useState<OrderRecord | null>(null);
-  const [unlocksFirst, setUnlocksFirst] = useState<AccessRecord | null>(null);
+  const [accessFirst, setAccessFirst] = useState<AccessRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestSeq = useRef(0);
@@ -46,9 +46,9 @@ export function useRecordsSummary(userId: number | undefined): UseRecordsSummary
   const load = useCallback(() => {
     if (!userId) {
       setOrdersTotal(0);
-      setUnlocksTotal(0);
+      setAccessTotal(0);
       setOrdersFirst(null);
-      setUnlocksFirst(null);
+      setAccessFirst(null);
       return;
     }
     const seq = requestSeq.current + 1;
@@ -60,7 +60,7 @@ export function useRecordsSummary(userId: number | undefined): UseRecordsSummary
       fetchOrders({ page: 1, limit: 1 }),
       fetchAccessRecords({ page: 1, limit: 1 }),
     ])
-      .then(([ordersResult, unlocksResult]) => {
+      .then(([ordersResult, accessResult]) => {
         if (seq !== requestSeq.current) return;
         const errors: string[] = [];
         if (ordersResult.status === "fulfilled") {
@@ -69,11 +69,11 @@ export function useRecordsSummary(userId: number | undefined): UseRecordsSummary
         } else {
           errors.push("orders");
         }
-        if (unlocksResult.status === "fulfilled") {
-          setUnlocksTotal(Number(unlocksResult.value.total || 0));
-          setUnlocksFirst(unlocksResult.value.list?.[0] ?? null);
+        if (accessResult.status === "fulfilled") {
+          setAccessTotal(Number(accessResult.value.total || 0));
+          setAccessFirst(accessResult.value.list?.[0] ?? null);
         } else {
-          errors.push("unlocks");
+          errors.push("accessRecords");
         }
         if (errors.length > 0) {
           setError(`${errors.join(", ")} 加载失败`);
@@ -90,9 +90,9 @@ export function useRecordsSummary(userId: number | undefined): UseRecordsSummary
 
   return {
     ordersTotal,
-    unlocksTotal,
+    accessTotal,
     ordersFirst,
-    unlocksFirst,
+    accessFirst,
     loading,
     error,
     refresh: load,

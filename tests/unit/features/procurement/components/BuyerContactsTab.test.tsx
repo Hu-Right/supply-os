@@ -24,14 +24,14 @@ const baseNotice = {
 
 describe("BuyerContactsTab（联系人 Tab）", () => {
   it("未解锁：展示会员专属引导，不泄露联系人", () => {
-    render(<BuyerContactsTab notice={baseNotice} coreUnlocked={false} />);
+    render(<BuyerContactsTab notice={baseNotice} coreAccessible={false} />);
     expect(screen.getByText(/detail_tabBuyer/)).toBeInTheDocument();
     expect(screen.getByText("detail_buyerLockedIntro")).toBeInTheDocument();
     expect(screen.queryByText("sach-edp@eaudeparis.fr")).toBeNull();
   });
 
   it("已解锁：联系人列表（邮箱兜底、去重），不再重复采购方信息", () => {
-    render(<BuyerContactsTab notice={baseNotice} coreUnlocked />);
+    render(<BuyerContactsTab notice={baseNotice} coreAccessible />);
     // 采购方信息已由头部信息表/公开详情页承担，本 Tab 不再重复
     expect(screen.queryByText("EAU DE PARIS")).toBeNull();
     expect(screen.queryByText("procurement_agencyFullName")).toBeNull();
@@ -45,7 +45,7 @@ describe("BuyerContactsTab（联系人 Tab）", () => {
 
   it("没有联系人时展示兜底文案", () => {
     const notice = { ...baseNotice, contacts: [] } as unknown as NoticeItem;
-    render(<BuyerContactsTab notice={notice} coreUnlocked />);
+    render(<BuyerContactsTab notice={notice} coreAccessible />);
     expect(screen.getByText("procurement_noContacts")).toBeInTheDocument();
   });
 });

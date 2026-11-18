@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { MembershipStatusView, PlanView } from "../types";
 import { fetchMembershipPlans, fetchMembershipStatus } from "../api";
-import { unlockRemaining, hasUnlockQuota } from "@/shared/utils/membership-view";
+import { accessRemaining, hasAccessQuota } from "@/shared/utils/membership-view";
 
 export interface UseNoticeMembershipOptions {
   /** 当前登录用户 id */
@@ -41,8 +41,8 @@ export function useNoticeMembership({
   const [membershipReady, setMembershipReady] = useState(false);
   const [paidPlans, setPaidPlans] = useState<PlanView[]>([]);
 
-  const paidRemaining = unlockRemaining(membership?.quotas);
-  const canUsePaidQuota = isVip || hasUnlockQuota(paidRemaining);
+  const paidRemaining = accessRemaining(membership?.quotas);
+  const canUsePaidQuota = isVip || hasAccessQuota(paidRemaining);
 
   // 总可用解锁次数 = 额度账本剩余（已与后端门控同源）
   const totalRemaining = paidRemaining;

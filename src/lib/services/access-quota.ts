@@ -3,7 +3,7 @@
  *
  * @module lib/services/access-quota
  * @description 公告解锁（notice-actions.executeGrant）与商机解锁
- *              （opportunity-unlock.executeOpportunityAccess）共享的 notice_view
+ *              （opportunity-access.executeOpportunityAccess）共享的 notice_view
  *              配额判定/消耗逻辑，以及 AI 摘要/匹配路由复用的通用计量入口。
  *              两条解锁路径共享同一份配额池——历史上商机路径
  *              "有订阅即无限放行、从不扣减"曾构成资损风险，收敛为一份逻辑防分叉。

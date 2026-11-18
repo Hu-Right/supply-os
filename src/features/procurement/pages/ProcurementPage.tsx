@@ -149,7 +149,7 @@ export default function ProcurementPage() {
           setSelectedNotice(null);
         }}
         onExpressInterest={actions.handleExpressInterest}
-        onUnlock={(n: NoticeItem) => actions.handleUnlockNotice(n)}
+        onAccess={(n: NoticeItem) => actions.handleGrantAccess(n)}
         onOpenNotice={actions.openNotice}
         favorited={actions.isFavorite(selectedNotice.noticePk)}
         onToggleFavorite={() => void actions.toggleFavorite(selectedNotice.noticePk)}

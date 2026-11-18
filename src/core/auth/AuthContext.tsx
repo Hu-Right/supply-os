@@ -109,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.token) {
         setAuthTokens(data.token, data.refreshToken);
       }
-      // 跨账号隔离：apiCached 的 TTL 缓存按端点为键（membership/status、unlocks、词组等
+      // 跨账号隔离：apiCached 的 TTL 缓存按端点为键（membership/status、access-records、词组等
       // 用户态数据），登录/换号时必须清空，否则下一账号在 TTL 窗口内读到上一账号的缓存
       clearApiCache();
       persistAuthUser(data.user);

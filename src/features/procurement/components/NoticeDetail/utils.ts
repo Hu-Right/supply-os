@@ -75,13 +75,12 @@ export function collectBreakdownFiles(notice: NoticeItem): RawAttachment[] {
 
 /**
  * 门控状态 → Badge 变体（2026-10-31 徽章统一：裸色类收编进 shared Badge 的 soft 族，
- * 视觉近似映射 free→primary / included→success / unlock→accent / upgrade→紫 / contact→中性）。
+ * 视觉近似映射 free→primary / included→success / upgrade→紫 / contact→中性）。
  * 消费方以 <Badge shape="tag" variant={GATE_BADGE_STYLE[state]}> 渲染。
  */
 export const GATE_BADGE_STYLE: Record<GateState, BadgeVariant> = {
   free: "soft-info",
   included: "soft-success",
-  unlock: "soft-warning",
   upgrade: "soft-special",
   contact: "soft-neutral",
 };
@@ -90,7 +89,6 @@ export const GATE_BADGE_STYLE: Record<GateState, BadgeVariant> = {
 export const GATE_LABEL_KEY: Record<GateState, string> = {
   free: "detail_free",
   included: "detail_gateIncluded",
-  unlock: "detail_gateUnlock",
   upgrade: "detail_gateUpgrade",
   contact: "detail_gateContact",
 };

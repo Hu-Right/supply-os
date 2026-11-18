@@ -22,13 +22,13 @@ import { ReportPreviewPanel } from "../ReportPreviewPanel";
 interface FilesTabProps {
   notice: NoticeDetailItem;
   /** 是否已解锁核心信息 */
-  coreUnlocked: boolean;
+  coreAccessible: boolean;
   /** 是否 VIP */
   isVip?: boolean;
   /** 当前登录用户（报告预览/下载需要） */
   userId?: number | null;
   /** 解锁回调（报告预览面板用） */
-  onUnlock?: (notice: NoticeItem) => void;
+  onAccess?: (notice: NoticeItem) => void;
   /** 服务端下发的权益门控（报告 = bid_feasibility_report，企业/人工档才可看） */
   gates?: Record<string, GateState> | undefined;
 }
@@ -55,7 +55,7 @@ function getFileIcon(name: string) {
   return { icon: File, color: "text-slate-400" };
 }
 
-export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock, gates }: FilesTabProps) {
+export function FilesTab({ notice, coreAccessible, isVip, userId, onAccess, gates }: FilesTabProps) {
   const { t } = useLocale();
   const authContext = useOptionalAuth();
   const authUser = authContext?.authUser ?? null;
@@ -65,9 +65,9 @@ export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock, gates 
   const hasFiles = documents.length > 0 || externalLinks.length > 0;
 
   // ─ 报告可用性（与摘要页拆解指示器同口径）──
-  const hasReport = coreUnlocked ? notice.reportAvailable === true : Number(notice.isOpportunity) === 1;
+  const hasReport = coreAccessible ? notice.reportAvailable === true : Number(notice.isOpportunity) === 1;
   const reportKnown =
-    coreUnlocked || typeof notice.reportAvailable === "boolean" || typeof notice.isOpportunity === "boolean";
+    coreAccessible || typeof notice.reportAvailable === "boolean" || typeof notice.isOpportunity === "boolean";
   const canDownloadReport = Boolean(notice.reportAvailable && notice.reportUrl && authUser);
   // 中文拆解报告属企业级工具：个人档/免费档不渲染报告内容，改为升级企业版引导
   const reportEntitled =
@@ -81,7 +81,7 @@ export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock, gates 
   };
 
   // ─ 未解锁：会员专属引导（含报告预览 teaser）──
-  if (!coreUnlocked) {
+  if (!coreAccessible) {
     const fileCount = typeof notice.breakdownFileCount === "number" ? notice.breakdownFileCount : undefined;
     // 库内 99.9% 公告未收录文件链接（仅 UNGM 部分行有）：确认有文件才保留"会员可下载"承诺，
     // 其余一律引导去来源平台，避免付费承诺与实际交付的落差
@@ -115,7 +115,7 @@ export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock, gates 
             </p>
           ) : (
             <p className="text-xs text-amber-600 bg-amber-100/40 rounded-lg px-3 py-2 text-center">
-              {t("detail_filesUnlockHint") || "升级会员即可获取全部招标文件"}
+              {t("detail_filesUpgradeHint") || "升级会员即可获取全部招标文件"}
             </p>
           )}
         />
@@ -149,7 +149,7 @@ export function FilesTab({ notice, coreUnlocked, isVip, userId, onUnlock, gates 
             noticeId={notice.noticePk}
             userId={userId}
             isVip={!!isVip}
-            onUnlock={onUnlock ?? (() => {})}
+            onAccess={onAccess ?? (() => {})}
             coreLocked
           />
         )}

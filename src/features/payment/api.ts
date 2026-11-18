@@ -26,7 +26,7 @@ import { pickNoticeApiLang } from "@/shared/constants/langs";
 
 /**
  * 关联公告摘要（解锁记录内嵌）
- * Related notice brief embedded in unlock records
+ * Related notice brief embedded in access records
  *
  * 镜像 lib/services/payment-history-view 的 AccessNoticeBriefView（红线② camelCase）。
  */
@@ -76,7 +76,7 @@ export type OrderRecord = {
 
 /**
  * 查看记录——GET /api/payment/access-records 的 list 元素（传输层保留历史命名，展示层叫「查看」）。
- * Unlock record（镜像服务端 AccessRecordView，红线② camelCase）
+ * Access record（镜像服务端 AccessRecordView，红线② camelCase）
  *
  * 历史：这一族曾经把 repo 平铺行直接 json 出去，而本类型声明的是嵌套 notice，
  * 所以解锁行的标题/国家/编号/截止日/过期标记在运行时全为空；
@@ -123,7 +123,7 @@ export async function fetchOrders(params: {
 
 /**
  * 查询用户解锁记录（分页）
- * Fetch user's unlock records (paged)
+ * Fetch user's access records (paged)
  *
  * @remarks 传入 locale（zh/en/fr/ru/es/ar）且命中白名单时后端附带公告标题译文 title_i18n，
  *          与公告详情翻译共用缓存（lang 白名单见 shared/constants/langs）。

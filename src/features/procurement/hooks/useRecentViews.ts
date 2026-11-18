@@ -1,6 +1,6 @@
 /**
  * 最近查看记录取数 Hook
- * Recent unlocks data hook
+ * Recent views data hook
  *
  * @module features/procurement/hooks/useRecentViews
  * @description 组件仅负责展示，取数下沉本 hook（约定：数据获取统一在 hooks 层）。

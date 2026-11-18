@@ -25,11 +25,11 @@ describe("AiSummarySection", () => {
   });
 
   it("锁定态显示引导解锁面板而非开始分析按钮", () => {
-    const onRequestUnlock = vi.fn();
-    render(<AiSummarySection data={null} llmConfigured locked onRequestUnlock={onRequestUnlock} />);
+    const onRequestAccess = vi.fn();
+    render(<AiSummarySection data={null} llmConfigured locked onRequestAccess={onRequestAccess} />);
     expect(screen.getByText("detail_aiSummaryTitle")).toBeInTheDocument();
     expect(screen.getByText("detail_aiSummaryErrorLocked")).toBeInTheDocument();
-    expect(screen.getByText("procurement_unlockToViewFull")).toBeInTheDocument();
+    expect(screen.getByText("procurement_accessToViewFull")).toBeInTheDocument();
     // 锁定态不得出现"开始分析"按钮（点击必 403 core_locked）
     expect(screen.queryByText("detail_aiSummaryStart")).not.toBeInTheDocument();
   });

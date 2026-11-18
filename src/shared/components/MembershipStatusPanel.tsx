@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { formatDateShort } from "@/shared/utils/format";
-import { isUnlimitedQuota, hasUnlockQuota } from "@/shared/utils/membership-view";
+import { isUnlimitedQuota, hasAccessQuota } from "@/shared/utils/membership-view";
 import type { MembershipStatusView } from "@/types";
 
 export interface MembershipStatusPanelProps {
@@ -68,7 +68,7 @@ export function MembershipStatusPanel({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
-            <span className={`text-2xl font-extrabold ${hasUnlockQuota(totalRemaining) ? "text-slate-900" : "text-red-600"}`}>
+            <span className={`text-2xl font-extrabold ${hasAccessQuota(totalRemaining) ? "text-slate-900" : "text-red-600"}`}>
               {isUnlimitedQuota(totalRemaining) ? t("membershipUnlimited") : totalRemaining}
             </span>
             <span className="text-xs text-slate-500">{t("statusPanelTotalViews")}</span>

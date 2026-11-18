@@ -51,7 +51,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
     item.deadlineTs, item.deadlineType, item.deadlineTimezone, locale, t, item.timezoneSource,
   ) || t("procurement_noDeadline");
   const valueText = formatNoticeAmount(item.estimatedValue, item.currencyCode, locale, true);
-  const isUnlocked = item.coreLocked === false;
+  const isAccessible = item.coreLocked === false;
 
   return (
     <Card
@@ -143,7 +143,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
 
         {/* ── 解锁动作 + 收藏：锁定态金色「会员解锁」，解锁态「查看详情」 ─ */}
         <div className="shrink-0 self-start lg:self-center flex items-center gap-2">
-          {isUnlocked ? (
+          {isAccessible ? (
             <Button
               onClick={() => onClick(item)}
               variant="secondary"

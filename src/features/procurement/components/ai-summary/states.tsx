@@ -84,7 +84,7 @@ export const UpgradeGatePanel = memo(function UpgradeGatePanel({ onUpgrade }: { 
 });
 
 /** 锁定态（未解锁）：不开放"开始分析"，改为引导解锁，避免"点了才报错" */
-export const LockedPanel = memo(function LockedPanel({ onRequestUnlock }: { onRequestUnlock?: () => void }) {
+export const LockedPanel = memo(function LockedPanel({ onRequestAccess }: { onRequestAccess?: () => void }) {
   const { t } = useLocale();
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -99,11 +99,11 @@ export const LockedPanel = memo(function LockedPanel({ onRequestUnlock }: { onRe
       </p>
       <button
         type="button"
-        onClick={onRequestUnlock}
+        onClick={onRequestAccess}
         className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 text-sm font-bold transition-colors"
       >
         <Lock className="w-4 h-4" />
-        {t("procurement_unlockToViewFull") || "解锁查看完整信息"}
+        {t("procurement_accessToViewFull") || "解锁查看完整信息"}
       </button>
     </section>
   );

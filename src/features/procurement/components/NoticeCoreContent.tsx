@@ -6,7 +6,7 @@
  * @description 主内容区核心块：已解锁时展示来源链接与
  *              拓展详情；锁定时按敏感度分级渐进展示
  *              （次要信息真实预览 → 核心敏感信息数量预告锁卡）。
- *              Core content block: unlocked view (tags, source link and
+ *              Core content block: accessible view (tags, source link and
  *              extended details), locked progressive preview by sensitivity
  *              (secondary info → count-teaser lock cards).
  *
@@ -24,21 +24,21 @@ import { formatNoticeTs } from "@/shared/utils/notice-datetime/format";
 export interface NoticeCoreContentProps {
   notice: NoticeItem;
   /** 核心信息已解锁 */
-  coreUnlocked: boolean;
+  coreAccessible: boolean;
   /** 锁定态拆解文件计数预览（决定占位文件行数，缺失时取默认值） */
   breakdownFileCount?: number;
 }
 
 export function NoticeCoreContent({
   notice,
-  coreUnlocked,
+  coreAccessible,
   breakdownFileCount,
 }: NoticeCoreContentProps) {
   const { t } = useLocale();
 
   // 2026-10-29 信息架构拆分：解锁态内容已分别归入「采购方与联系人」「投标材料」Tab，
   // 采购摘要 Tab 不再承载机构/联系人/文件/报告块。
-  if (coreUnlocked) return null;
+  if (coreAccessible) return null;
 
   // ── 锁定态：按敏感度分级的渐进式展示 ──
   // 次要信息（真实数据，商业敏感度低）：发布日期/投标难度/注册门槛/行业分类，
@@ -100,7 +100,7 @@ export function NoticeCoreContent({
         )}
         <p className="pt-1 text-xs font-bold text-slate-500 flex items-center gap-1.5">
           <Lock className="w-3.5 h-3.5 shrink-0" />
-          {t("procurement_unlockToViewFull")}
+          {t("procurement_accessToViewFull")}
         </p>
       </div>
     </div>

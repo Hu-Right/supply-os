@@ -59,7 +59,7 @@ interface NoticeDetailProps {
   isLoggedIn: boolean;
   onBack: () => void;
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
-  onUnlock: (notice: NoticeItem) => void;
+  onAccess: (notice: NoticeItem) => void;
   /** 打开另一条公告（相似机会 Tab 点击跳转） */
   onOpenNotice: (notice: NoticeItem) => void;
   /** 当前公告是否已收藏 */
@@ -74,7 +74,7 @@ interface NoticeDetailProps {
 
 export function NoticeDetail({
   notice, actionMessage, membership, canUsePaidQuota, isVip,
-  totalRemaining, isLoggedIn, onBack, onUnlock, onOpenNotice,
+  totalRemaining, isLoggedIn, onBack, onAccess, onOpenNotice,
   favorited, onToggleFavorite, detailSettled = false, membershipReady = true,
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
@@ -82,23 +82,23 @@ export function NoticeDetail({
   const router = useRouter();
   const noticeId = notice.noticePk;
   // 档位门控（服务端按矩阵下发 gates）：notice_translation 控译文、ai_summary 控 AI 摘要。
-  // free/included 才算当前用户享有；其余（upgrade/contact/unlock）一律回落原文。
+  // free/included 才算当前用户享有；其余（upgrade/contact/access）一律回落原文。
   const gates = membership?.gates;
   // 锁定态：core_locked === false 为已解锁；notice_view 权益已包含的付费会员
   // 不再依赖单条解锁记录（服务端同样按权益放行），避免出现“权益已包含却仍显示解锁”。
   const accessIncluded = gates?.notice_view === "free" || gates?.notice_view === "included";
-  const coreUnlocked = notice.coreLocked === false || accessIncluded;
+  const coreAccessible = notice.coreLocked === false || accessIncluded;
   const canSeeChinese = gates?.notice_translation === "free" || gates?.notice_translation === "included";
   const aiSummaryEnabled = gates?.ai_summary === "free" || gates?.ai_summary === "included";
   const aiMatchEnabled = gates?.ai_match === "free" || gates?.ai_match === "included";
-  const accessPending = accessIncluded && !coreUnlocked && !actionMessage;
+  const accessPending = accessIncluded && !coreAccessible && !actionMessage;
   // ── 描述区付费口径（2026-10-30）──
   // 列表项的 description 是 SQL LEFT(description,300) 截断版，全文只由 /detail 下发。
   //   · 免费/锁定用户：拿不到全文（/detail 必 403），截断版就是终态 ⇒ 立即展示；
   //   · 付费会员/已解锁用户：最终一定拿到全文 ⇒ 全文落地前不渲染描述区，
   //     避免"先截断、后完整"的跳变；会员态还没查回来时按"可能有权限"处理
   //     （宁可晚一点出现，也不闪一次截断版；查询失败会置 ready，自然回退截断版）。
-  const mayGetFullText = coreUnlocked || (!membershipReady && isLoggedIn);
+  const mayGetFullText = coreAccessible || (!membershipReady && isLoggedIn);
   const awaitingFullText = mayGetFullText && !detailSettled && !!notice.descriptionTruncated;
   // 匹配层级按会员等级差异化（数据来自 plan_catalog.commercial_tier，不硬编码档位常量）：
   // L1 个人=基础评估 / L3 企业=企业级评估 / L4+ 人工=可定制评估
@@ -109,20 +109,20 @@ export function NoticeDetail({
       : planTier === "L3"
         ? "detail_aiMatchLevelEnterprise"
         : "detail_aiMatchLevelBasic";
-  const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreUnlocked, aiSummaryEnabled);
+  const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreAccessible, aiSummaryEnabled);
   const aiMatch = useAiMatch(noticeId, aiMatchEnabled);
   // 会员「标讯权益」不限次（notice_view=-1）：打开详情即自动解锁，避免"套餐已含却提示解锁"的割裂
   // （2026-10-29 权益大一统：详情页 Tab 与定价页共用同一份矩阵；解锁只是内容获取动作，会员免点）。
   // 每个 notice 只尝试一次，失败不重试，用户仍可手动点解锁。
-  const autoUnlockTried = useRef<Set<number>>(new Set());
+  const autoAccessTried = useRef<Set<number>>(new Set());
   useEffect(() => {
-    if (!isLoggedIn || coreUnlocked) return;
+    if (!isLoggedIn || coreAccessible) return;
     const unlimitedAccess = gates?.notice_view === "included" || gates?.notice_view === "free";
     if (!unlimitedAccess) return;
-    if (autoUnlockTried.current.has(noticeId)) return;
-    autoUnlockTried.current.add(noticeId);
-    onUnlock(notice);
-  }, [coreUnlocked, gates, isLoggedIn, notice, noticeId, onUnlock]);
+    if (autoAccessTried.current.has(noticeId)) return;
+    autoAccessTried.current.add(noticeId);
+    onAccess(notice);
+  }, [coreAccessible, gates, isLoggedIn, notice, noticeId, onAccess]);
   const [activeTab, setActiveTab] = useState("summary");
   const bidDeadline = !notice.deadlineType || notice.deadlineType === "bid";
   const [countdown, setCountdown] = useState(bidDeadline ? getDisplayCountdown(notice.deadlineTs) : null);
@@ -148,7 +148,7 @@ export function NoticeDetail({
   // 锁定态发起必 403 core_locked；锁定面板标题来自列表 i18n 字段，无需译文。
   // 解锁后 core_locked 翻转为 false，钩子自动补发。
   const { translation, displayTitle: hookDisplayTitle, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
-    coreUnlocked && canSeeChinese ? notice.noticePk : undefined, locale,
+    coreAccessible && canSeeChinese ? notice.noticePk : undefined, locale,
     `${notice.title || ""}\n${notice.description || ""}`,
     canSeeChinese && locale === "zh" ? (notice.titleI18n || undefined) : undefined,
   );
@@ -167,7 +167,7 @@ export function NoticeDetail({
   const hasTranslation = canSeeChinese && (!!translation || descResolved);
 
   // 锁定态展示项（2026-10-30：详情加载中不再出骨架屏，直接用列表/预览已有数据渲染）
-  const breakdownFileCount = coreUnlocked
+  const breakdownFileCount = coreAccessible
     ? collectBreakdownFiles(notice).length
     : typeof notice.breakdownFileCount === "number" ? notice.breakdownFileCount : undefined;
 
@@ -230,14 +230,14 @@ export function NoticeDetail({
                   streaming={aiSummary.streaming}
                   error={aiSummary.error}
                   llmConfigured={aiSummary.llmConfigured}
-                  locked={!coreUnlocked}
-                  upgradeLocked={coreUnlocked && !aiSummaryEnabled}
+                  locked={!coreAccessible}
+                  upgradeLocked={coreAccessible && !aiSummaryEnabled}
                   accessPending={accessPending}
                   masked={aiSummary.masked}
                   onUpgrade={() => router.push("/membership")}
                   onStart={() => aiSummary.triggerAnalysis(false)}
                   onConfigure={() => router.push("/settings/ai-model")}
-                  onRequestUnlock={() => onUnlock(notice)}
+                  onRequestAccess={() => onAccess(notice)}
                   onRegenerate={() => aiSummary.triggerAnalysis(true)}
                 />
 
@@ -255,22 +255,22 @@ export function NoticeDetail({
                 {/* 解锁态：采购方/联系人 → 「采购方与联系人」Tab；报告/文件 → 「投标材料」Tab。
                     这里只保留锁定态的渐进预览（无敏感内容）。 */}
                 <NoticeCoreContent
-                  notice={notice} coreUnlocked={coreUnlocked}
+                  notice={notice} coreAccessible={coreAccessible}
                   breakdownFileCount={breakdownFileCount}
                 />
               </>
             )}
 
             {activeTab === "qualification" && (
-              <QualificationTab notice={notice} coreUnlocked={coreUnlocked} isVip={isVip} />
+              <QualificationTab notice={notice} coreAccessible={coreAccessible} isVip={isVip} />
             )}
 
             {activeTab === "buyer" && (
-              <BuyerContactsTab notice={notice} coreUnlocked={coreUnlocked} />
+              <BuyerContactsTab notice={notice} coreAccessible={coreAccessible} />
             )}
 
             {activeTab === "files" && (
-              <FilesTab notice={notice} coreUnlocked={coreUnlocked} isVip={isVip} userId={userId} onUnlock={onUnlock} gates={membership?.gates} />
+              <FilesTab notice={notice} coreAccessible={coreAccessible} isVip={isVip} userId={userId} onAccess={onAccess} gates={membership?.gates} />
             )}
 
             {activeTab === "ai-score" && (
@@ -309,8 +309,8 @@ export function NoticeDetail({
             <NextStepsPanel
               notice={notice} isLoggedIn={isLoggedIn}
               gates={membership?.gates}
-              coreUnlocked={coreUnlocked}
-              onUnlock={() => onUnlock(notice)}
+              coreAccessible={coreAccessible}
+              onAccess={() => onAccess(notice)}
               onViewFiles={() => setActiveTab("files")}
             />
           </div>

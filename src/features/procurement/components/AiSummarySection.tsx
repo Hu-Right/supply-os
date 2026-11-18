@@ -37,7 +37,7 @@ export interface AiSummarySectionProps {
   /** 公告处于锁定态（未解锁）：不开放"开始分析"，改为引导解锁 */
   locked?: boolean;
   /** 点击"解锁查看"的回调 */
-  onRequestUnlock?: () => void;
+  onRequestAccess?: () => void;
   /** 已解锁但当前档位不含 AI 摘要权益（低档只看原文）：引导升级 */
   upgradeLocked?: boolean;
   /** 会员已含 notice_view，但公告记录尚未落解锁/详情：先加载，不显示升级或锁定文案 */
@@ -58,7 +58,7 @@ export function AiSummarySection({
   onStart,
   onRegenerate,
   locked = false,
-  onRequestUnlock,
+  onRequestAccess,
   upgradeLocked = false,
   accessPending = false,
   masked = false,
@@ -87,7 +87,7 @@ export function AiSummarySection({
 
   // 锁定态：AI 摘要端点强制"登录+解锁"，锁定必 403 core_locked。
   // 与翻译一致（ARCH-P0）：锁定态不开放"开始分析"，改为引导解锁，避免"点了才报错"。
-  if (locked && !hasData) return <LockedPanel onRequestUnlock={onRequestUnlock} />;
+  if (locked && !hasData) return <LockedPanel onRequestAccess={onRequestAccess} />;
 
   // 未配置 LLM 且无数据
   if (!llmConfigured && !hasData) return <NeedConfigPanel onConfigure={onConfigure} />;

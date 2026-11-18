@@ -8,7 +8,7 @@
  *              已在「投标材料」Tab 中提供，本组件直接返回 null。
  */
 import { useState, useMemo } from "react";
-import { ChevronDown, ChevronUp, FileText, Lock, Crown, Unlock } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Lock, Crown, LockOpen } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button, Skeleton } from "@/shared/ui";
 import { useReportPreview } from "../hooks/useReportPreview";
@@ -18,12 +18,12 @@ interface ReportPreviewPanelProps {
   noticeId: number;
   userId: number;
   isVip: boolean;
-  onUnlock: (notice: NoticeItem) => void;
+  onAccess: (notice: NoticeItem) => void;
   /** 公告锁定状态，解锁后变化触发预览数据重新请求 */
   coreLocked?: boolean;
 }
 
-export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLocked }: ReportPreviewPanelProps) {
+export function ReportPreviewPanel({ noticeId, userId, isVip, onAccess, coreLocked }: ReportPreviewPanelProps) {
   const { t, locale } = useLocale();
   const { preview, loading, error } = useReportPreview(noticeId, userId, locale, coreLocked);
   const [collapsed, setCollapsed] = useState(false);
@@ -123,19 +123,19 @@ export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLock
           <div className="flex flex-col items-center justify-center bg-gradient-to-t from-teal-50/95 via-teal-50/80 to-teal-50/40 rounded-lg pt-6 pb-4 px-4">
             <Lock className="w-5 h-5 text-slate-400 mb-1" />
             <p className="text-3xs text-slate-500 mb-2 text-center">
-              {t("procurement_previewUnlockHint")}
+              {t("procurement_previewUpgradeHint")}
               {/* P1-15/P2-15 安全修复：预览百分比抽成 i18n key，避免硬编码中文 */}
               {totalReportChars > 0 && " " + t("procurement_previewPercent", { percent: ((shownCharCount / totalReportChars) * 100).toFixed(1) })}
             </p>
             {isVip ? (
               /* P1-14 安全修复：假对象补全 title，避免空标题 */
               <Button
-                onClick={() => onUnlock({ noticePk: noticeId, noticeId: String(noticeId), title: `#${noticeId}` } as NoticeItem)}
+                onClick={() => onAccess({ noticePk: noticeId, noticeId: String(noticeId), title: `#${noticeId}` } as NoticeItem)}
                 variant="primary"
                 className="sm:px-5 py-2 text-xs sm:text-sm font-black shadow-sm whitespace-nowrap min-w-0 max-w-full"
               >
-                <Unlock className="w-4 h-4 shrink-0" />
-                <span className="truncate">{t("procurement_previewUnlockNow")}</span>
+                <LockOpen className="w-4 h-4 shrink-0" />
+                <span className="truncate">{t("procurement_previewUpgradeNow")}</span>
               </Button>
             ) : (
               <a

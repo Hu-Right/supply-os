@@ -14,7 +14,7 @@ import type { NoticeDetailItem } from "../../types";
 interface QualificationTabProps {
   notice: NoticeDetailItem;
   /** 是否已解锁核心信息 */
-  coreUnlocked: boolean;
+  coreAccessible: boolean;
   /** 是否 VIP（影响锁定提示文案） */
   isVip?: boolean;
 }
@@ -102,7 +102,7 @@ function ConditionBlock({
   );
 }
 
-export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationTabProps) {
+export function QualificationTab({ notice, coreAccessible, isVip }: QualificationTabProps) {
   const { t } = useLocale();
 
   const supplierConditions = notice.supplierConditions || "";
@@ -112,7 +112,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
   const levelConfig = getLevelConfig(notice.registrationLevel ?? undefined);
 
   // ── 未解锁：展示具体锁定提示 ──
-  if (!coreUnlocked) {
+  if (!coreAccessible) {
     const lockedItems = [
       hasContent || notice.registrationLevel ? t("detail_qualLockedLevel") || "注册等级要求与详细说明" : null,
       supplierConditions ? t("detail_qualLockedConditions") || "供应商投标条件全文" : null,
@@ -147,7 +147,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
           </p>
         ) : (
           <p className="text-xs text-amber-600 bg-amber-100/40 rounded-lg px-3 py-2 text-center">
-            {t("detail_qualUnlockHint") || "购买会员并解锁本公告即可查看完整资格条件"}
+            {t("detail_qualUpgradeHint") || "购买会员并解锁本公告即可查看完整资格条件"}
           </p>
         )}
       </section>

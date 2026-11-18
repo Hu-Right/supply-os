@@ -3,7 +3,7 @@
  * @module features/procurement/hooks/useAiAnalysis
  * @description 流式拉取 AI 摘要（SSE 逐 token）。noticeId 变化自动触发。
  *              缓存命中时一次性填充；未命中时逐字流式渲染。
- *              锁定态（isUnlocked=false）不发任何请求：AI 摘要端点强制"登录+解锁"，
+ *              锁定态（isAccessible=false）不发任何请求：AI 摘要端点强制"登录+解锁"，
  *              锁定必 403 core_locked（与 useNoticeTranslation 的 ARCH-P0 处理一致）。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -46,7 +46,7 @@ export function useAiAnalysis(
   noticeId: number | undefined,
   isLoggedIn: boolean,
   /** 公告是否已解锁：未解锁时不加载缓存、不开放分析（后端必 403 core_locked） */
-  isUnlocked = true,
+  isAccessible = true,
   /** 当前档位是否含 AI 摘要权益（矩阵 ai_summary）：false 时不请求、不生成（低档只看原文） */
   entitled = true,
 ): UseAiAnalysisReturn {
@@ -138,7 +138,7 @@ export function useAiAnalysis(
   // 锁定态直接复位并早退：不发 llm-config/缓存请求，避免必败的 403 core_locked
   useEffect(() => {
     abortRef.current = false;
-    if (!noticeId || !isLoggedIn || !isUnlocked || !entitled) {
+    if (!noticeId || !isLoggedIn || !isAccessible || !entitled) {
       setData(null); setLlmConfigured(false); setLoading(false); setStreaming(false);
       setMasked(false); setCached(false); setError(null);
       return;
@@ -169,13 +169,13 @@ export function useAiAnalysis(
       }
     })();
     return () => { cancelled = true; abortRef.current = true; };
-  }, [noticeId, isLoggedIn, isUnlocked, entitled]);
+  }, [noticeId, isLoggedIn, isAccessible, entitled]);
 
   const triggerAnalysis = useCallback((force = false) => {
-    if (!noticeId || !isUnlocked || !entitled) return;
+    if (!noticeId || !isAccessible || !entitled) return;
     abortRef.current = false;
     void run(noticeId, force);
-  }, [noticeId, isUnlocked, entitled, run]);
+  }, [noticeId, isAccessible, entitled, run]);
 
   return { data, loading, streaming, error, cached, masked, llmConfigured, triggerAnalysis };
 }

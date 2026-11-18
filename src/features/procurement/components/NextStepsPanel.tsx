@@ -39,11 +39,11 @@ export interface NextStepsPanelProps {
   /** 服务端按权益矩阵下发的门控状态（/api/membership/status） */
   gates?: Record<string, GateState> | undefined;
   /** 当前公告是否已解锁（会员打开即自动解锁）：决定「查看原始文件」是切 Tab 还是发起解锁 */
-  coreUnlocked?: boolean;
+  coreAccessible?: boolean;
   /** 点击"完善企业资料"的回调 */
   onUploadMaterials?: () => void;
   /** 点击"查看原始文件"且尚未解锁时的回调 */
-  onUnlock?: () => void;
+  onAccess?: () => void;
   /** 点击"查看原始文件"且已解锁的回调（切到原始文件 Tab） */
   onViewFiles?: () => void;
   /** 点击"预约顾问"的回调 */
@@ -57,9 +57,9 @@ export function NextStepsPanel({
   notice,
   isLoggedIn,
   gates,
-  coreUnlocked,
+  coreAccessible,
   onUploadMaterials,
-  onUnlock,
+  onAccess,
   onViewFiles,
   onBookConsultant,
   onJoinCrm,
@@ -90,7 +90,7 @@ export function NextStepsPanel({
     },
     {
       icon: FileText,
-      titleKey: "detail_stepUnlock",
+      titleKey: "detail_stepAccess",
       titleDefault: "查看 / 下载原始文件",
       benefitCode: "original_file_access",
       onClick: () => {
@@ -105,12 +105,12 @@ export function NextStepsPanel({
           return;
         }
         // 会员打开详情会自动解锁，解锁后本动作改为「切到原始文件 Tab」而不是重复解锁
-        if (coreUnlocked) {
+        if (coreAccessible) {
           onViewFiles?.();
           return;
         }
-        if (onUnlock) {
-          onUnlock();
+        if (onAccess) {
+          onAccess();
           return;
         }
         goMembership();

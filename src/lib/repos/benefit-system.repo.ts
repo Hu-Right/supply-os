@@ -352,8 +352,9 @@ export class BenefitSystemRepo {
   /**
    * 详情页等展示用的权益门控状态：对每个 active 权益给出——
    *   free（免费档即含）/ included（当前套餐已含）/ upgrade（升到某在售固定档可得）/
-   *   contact（仅联系销售档可得）。'unlock'（需解锁本条公告）由消费方结合是否已解锁自行判定，
-   *   此处只给“当前套餐能否解锁”（notice_view → included/upgrade）。全部由矩阵驱动，
+   *   contact（仅联系销售档可得）。（历史值 'unlock' 已随 2026-11-18 命名清理移除；
+   *   本条公告是否可访问由 resolveNoticeAccess 判定。）此处只给“当前套餐能否查看”
+   *   （notice_view → included/upgrade），全部由矩阵驱动，
    *   避免前端再维护一套与矩阵可能漂移的硬编码档位。
    */
   async resolveGates(userId: number | null): Promise<Record<string, GateState>> {

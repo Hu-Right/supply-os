@@ -15,7 +15,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { emitAppEvent } from "@/core/events";
 import type { NoticeItem } from "../types";
 import { useNoticeMembership, type UseNoticeMembershipReturn } from "./useNoticeMembership";
-import { useNoticeUnlock, type UseNoticeUnlockReturn } from "./useNoticeUnlock";
+import { useNoticeAccess, type UseNoticeAccessReturn } from "./useNoticeAccess";
 import { useNoticeHandlers, type UseNoticeHandlersReturn } from "./useNoticeHandlers";
 import { useNoticeFavorite, type UseNoticeFavoriteReturn } from "./useNoticeFavorite";
 import { usePaymentReturnReconciliation } from "./usePaymentReturnReconciliation";
@@ -33,7 +33,7 @@ export interface UseNoticeActionsOptions {
 
 export interface UseNoticeActionsReturn
   extends UseNoticeMembershipReturn,
-    UseNoticeUnlockReturn,
+    UseNoticeAccessReturn,
     UseNoticeHandlersReturn,
     UseNoticeFavoriteReturn {
   actionMessage: string;
@@ -47,7 +47,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
   const onRequireLogin = useCallback(() => emitAppEvent("supply-os:require-login"), []);
 
   const membership = useNoticeMembership({ userId, isVip });
-  const unlock = useNoticeUnlock({ userId, items, setSelectedNotice });
+  const access = useNoticeAccess({ userId, items, setSelectedNotice });
   const favorite = useNoticeFavorite({ userId, onRequireLogin });
 
   const handlers = useNoticeHandlers({
@@ -57,7 +57,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
     trackClick,
     trackDetailOpen,
     membership,
-    unlock,
+    access,
     onRequireLogin,
     setActionMessage,
   });
@@ -65,7 +65,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
   // 按 id 打开公告详情：打开前清空上一轮动作提示
   const openNoticeById = async (id: number) => {
     setActionMessage("");
-    await unlock.openNoticeById(id);
+    await access.openNoticeById(id);
   };
 
   // 支付整页跳回后的对账：?order_no=&trade_no=&notice_id= 或仅 ?notice_id=
@@ -73,7 +73,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
 
   return {
     ...membership,
-    ...unlock,
+    ...access,
     ...handlers,
     ...favorite,
     actionMessage,

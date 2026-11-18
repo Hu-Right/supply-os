@@ -34,7 +34,7 @@ describe("NextStepsPanel（动作区由权益矩阵驱动）", () => {
     render(<NextStepsPanel notice={mockNotice} isLoggedIn gates={gatesOf()} />);
     expect(screen.getByText("detail_nextStepsTitle")).toBeInTheDocument();
     expect(screen.getByText("detail_stepUpload")).toBeInTheDocument();
-    expect(screen.getByText("detail_stepUnlock")).toBeInTheDocument();
+    expect(screen.getByText("detail_stepAccess")).toBeInTheDocument();
     expect(screen.getByText("detail_stepConsultant")).toBeInTheDocument();
     expect(screen.getByText("detail_stepCrm")).toBeInTheDocument();
   });
@@ -56,42 +56,42 @@ describe("NextStepsPanel（动作区由权益矩阵驱动）", () => {
   });
 
   it("「查看原始文件」：套餐已含且已解锁 → 切到原始文件 Tab；未解锁 → 发起解锁", () => {
-    const onUnlock = vi.fn();
+    const onAccess = vi.fn();
     const onViewFiles = vi.fn();
     const { rerender } = render(
       <NextStepsPanel
         notice={mockNotice} isLoggedIn
         gates={gatesOf({ original_file_access: "included" })}
-        coreUnlocked={false} onUnlock={onUnlock} onViewFiles={onViewFiles}
+        coreAccessible={false} onAccess={onAccess} onViewFiles={onViewFiles}
       />,
     );
-    fireEvent.click(screen.getByText("detail_stepUnlock"));
-    expect(onUnlock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText("detail_stepAccess"));
+    expect(onAccess).toHaveBeenCalledTimes(1);
     expect(onViewFiles).not.toHaveBeenCalled();
 
     rerender(
       <NextStepsPanel
         notice={mockNotice} isLoggedIn
         gates={gatesOf({ original_file_access: "included" })}
-        coreUnlocked onUnlock={onUnlock} onViewFiles={onViewFiles}
+        coreAccessible onAccess={onAccess} onViewFiles={onViewFiles}
       />,
     );
-    fireEvent.click(screen.getByText("detail_stepUnlock"));
+    fireEvent.click(screen.getByText("detail_stepAccess"));
     expect(onViewFiles).toHaveBeenCalledTimes(1);
   });
 
   it("「查看原始文件」套餐未含 → 引导升级（不调用解锁）", () => {
-    const onUnlock = vi.fn();
+    const onAccess = vi.fn();
     render(
       <NextStepsPanel
         notice={mockNotice} isLoggedIn
         gates={gatesOf({ original_file_access: "upgrade" })}
-        coreUnlocked={false} onUnlock={onUnlock}
+        coreAccessible={false} onAccess={onAccess}
       />,
     );
-    fireEvent.click(screen.getByText("detail_stepUnlock"));
+    fireEvent.click(screen.getByText("detail_stepAccess"));
     expect(pushMock).toHaveBeenCalledWith("/membership?notice_id=1");
-    expect(onUnlock).not.toHaveBeenCalled();
+    expect(onAccess).not.toHaveBeenCalled();
   });
 
   it("「履约台账」动作触发加入跟进回调，缺失时跳转 /crm", () => {

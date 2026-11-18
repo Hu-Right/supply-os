@@ -25,9 +25,9 @@ export const GET = withRoute(async (req: NextRequest) => {
   const page = Math.max(1, Number(url.searchParams.get("page") || 1));
   const offset = (page - 1) * limit;
 
-  const [total, unlocks] = await Promise.all([
+  const [total, records] = await Promise.all([
     paymentHistoryRepo.countAccessRecords(auth.userId),
     paymentHistoryRepo.listAccessRecords(auth.userId, limit, offset, lang ? { lang } : null),
   ]);
-  return NextResponse.json({ total, page, limit, list: toAccessRecordViews(unlocks) });
+  return NextResponse.json({ total, page, limit, list: toAccessRecordViews(records) });
 });

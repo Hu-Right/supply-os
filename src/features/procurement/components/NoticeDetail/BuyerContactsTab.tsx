@@ -31,10 +31,10 @@ function contactFields(item: RawContact) {
 export interface BuyerContactsTabProps {
   notice: NoticeItem;
   /** 联系人信息是否已解锁（会员打开即自动解锁） */
-  coreUnlocked: boolean;
+  coreAccessible: boolean;
 }
 
-export function BuyerContactsTab({ notice, coreUnlocked }: BuyerContactsTabProps) {
+export function BuyerContactsTab({ notice, coreAccessible }: BuyerContactsTabProps) {
   const { t } = useLocale();
 
   const rawContacts = (notice.contacts as RawContact[] | undefined) || [];
@@ -49,7 +49,7 @@ export function BuyerContactsTab({ notice, coreUnlocked }: BuyerContactsTabProps
     });
 
   // ── 未解锁：联系人属会员权益，展示升级引导 ──
-  if (!coreUnlocked) {
+  if (!coreAccessible) {
     return (
       <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
         <h3 className="text-sm font-extrabold text-amber-800 flex items-center gap-2 mb-3">

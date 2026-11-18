@@ -33,7 +33,7 @@
   "myPurchasesPrev": "上一页",
   "myPurchasesNext": "下一页",
   "myRecordsOrdersTitle": "我的支付订单",
-  "myRecordsOrdersDesc": "查看全部订单、支付状态和解锁入口",
+  "myRecordsOrdersDesc": "查看全部订单、支付状态和查看记录",
   "myRecordsOrdersHint": "点击进入订单管理列表",
   "myRecordsOrdersManage": "支付订单管理",
   "myRecordsOrdersManageDesc": "按创建时间倒序展示全部支付订单",
