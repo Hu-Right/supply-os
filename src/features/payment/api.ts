@@ -91,6 +91,31 @@ export type AccessRecord = {
 };
 
 /**
+ * 收藏记录——GET /api/notices/favorites 的 list 元素（与公告列表同一视图口径的裁剪子集）。
+ *
+ * 「我的记录」面板的第二个 tab 已从「可查看采购（解锁记录）」切换为「我的收藏」：
+ * 收藏是用户私有书签，走 notice_favorites；列表项与公采列表同形制，字段取卡片展示所需的最小集。
+ */
+export type FavoriteRecord = {
+  /** 前端唯一主键（收藏/打开详情的 id） */
+  noticePk?: number;
+  /** 外部公告编号 */
+  noticeId?: string;
+  title?: string | null;
+  /** 服务表中文标题缓存（中文界面优先） */
+  titleCn?: string | null;
+  /** 当前界面语言标题译文（命中 lang 白名单时返回） */
+  titleI18n?: string | null;
+  reference?: string | null;
+  countryCode?: string | null;
+  buyerName?: string | null;
+  buyerNameCn?: string | null;
+  noticeTypeCode?: string | null;
+  /** 截止时间（epoch 秒；无截止为 null/0） */
+  deadlineTs?: number | null;
+};
+
+/**
  * 分页结果包裹
  * Paged result wrapper
  */
@@ -141,4 +166,26 @@ export async function fetchAccessRecords(params: {
   // P0 性能优化：使用 apiCached 去重并发请求（StrictMode 下 effect 双重执行）
   // 回滚：将 apiCached 替换回 api，删除第二个参数
   return apiCached<PagedResult<AccessRecord>>(`/api/payment/access-records?${qs}`, 5 * 60 * 1000);
+}
+
+/**
+ * 查询用户收藏公告（分页，按收藏时间倒序）
+ * Fetch user's favorite notices (paged, newest favorite first)
+ *
+ * @remarks 收藏列表走 /api/notices/favorites：服务端 INNER JOIN notice_public，
+ *          已下架/清退的公告不会出现在列表里（与“可查看”语义一致）；
+ *          传 locale 时后端附带当前语言标题译文。
+ */
+export async function fetchFavoriteRecords(params: {
+  page?: number;
+  limit?: number;
+  locale?: string;
+}): Promise<PagedResult<FavoriteRecord>> {
+  const qs = buildQuery({
+    page: params.page,
+    limit: params.limit,
+    lang: pickNoticeApiLang(params.locale),
+  });
+  // 收藏是用户可写数据（随时取消收藏），不用 apiCached，避免取消后列表回显旧数据
+  return api<PagedResult<FavoriteRecord>>(`/api/notices/favorites?${qs}`);
 }

@@ -1,27 +1,33 @@
 "use client";
 
 /**
- * 我的采购记录面板 — 展示件（自 MyRecordsPanel.tsx 拆出，JSX 逐字不变）。
- * 全部 React.memo：概览卡、记录行卡、分页条；数据与分页状态由容器（useOrderHistory）驱动。
+ * 我的记录面板 — 展示件（订单 / 收藏两态）。
+ *
+ * 2026-11-18 产品调整：原「可查看采购（解锁记录）」卡与列表退役，第二张概览卡改为
+ * 「我的收藏」，下钻列表展示用户收藏的公告（按收藏时间倒序，已下架公告不出现）。
+ * 概览卡、记录行卡、分页条全部 React.memo；数据与分页状态由容器（useOrderHistory）驱动。
  *
  * @module features/payment/components/records-panel/parts
  */
 import { memo } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { ORDER_STATUS } from "@/shared/constants/order-status";
+import { formatNoticeCstDate } from "@/shared/utils/notice-datetime/format";
+import { getCountryDisplayName } from "@/shared/data/countryNames";
+import type { FavoriteRecord } from "../../api";
 import { recordTime, recordTitle, recordSubtitle, type RecordRow } from "./record-format";
 
-/** 概览态：订单蓝卡 + 解锁 teal 卡 */
+/** 概览态：订单蓝卡 + 收藏 teal 卡 */
 export const OverviewCards = memo(function OverviewCards({
   ordersTotal,
-  accessTotal,
+  favoritesTotal,
   onOpen,
 }: {
   ordersTotal: number;
-  accessTotal: number;
-  onOpen: (tab: "orders" | "access") => void;
+  favoritesTotal: number;
+  onOpen: (tab: "orders" | "favorites") => void;
 }) {
   const { t } = useLocale();
   return (
@@ -45,13 +51,13 @@ export const OverviewCards = memo(function OverviewCards({
       <Button
         type="button"
         variant="outline"
-        onClick={() => onOpen("access")}
+        onClick={() => onOpen("favorites")}
         className="text-start justify-start rounded-xl border-teal-100 bg-teal-50 p-4 hover:border-teal-300 hover:bg-teal-50"
       >
         <div className="flex items-center justify-between">
           <p className="text-sm font-extrabold text-teal-950">{t("myRecordsViewsTitle")}</p>
           <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-teal-700">
-            {accessTotal}
+            {favoritesTotal}
           </span>
         </div>
         <p className="text-3xs text-teal-700 mt-1">{t("myRecordsViewsDesc")}</p>
@@ -61,49 +67,34 @@ export const OverviewCards = memo(function OverviewCards({
   );
 });
 
-/** 单条记录行卡（订单/解锁两态共用；解锁行附截止日期与过期标记） */
+/** 支付订单记录行卡 */
 export const RecordRowCard = memo(function RecordRowCard({
   row,
-  isAccessView,
   onOpenNotice,
 }: {
   row: RecordRow;
-  isAccessView: boolean;
   onOpenNotice: (noticeId: number) => void;
 }) {
   const { t } = useLocale();
-  const isOrder = "orderNo" in row;
-  // 两个端的契约现在都叫 noticeId（订单行 NormalizedOrder / 解锁行 AccessRecord）
+  if (!("orderNo" in row)) return null;
   const noticeId = row.noticeId;
-  const canOpen = Boolean(
-    noticeId && (isAccessView || (isOrder && row.status === ORDER_STATUS.PAID)),
-  );
+  const canOpen = Boolean(noticeId && row.status === ORDER_STATUS.PAID);
   return (
-    <article
-      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
-    >
+    <article className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
         <div className="min-w-0 pe-2">
           <p className="font-black text-slate-800 truncate">{recordTitle(row, t)}</p>
-          <p className="mt-1 text-slate-500 truncate">
-            {recordSubtitle(row, t)}
-          </p>
+          <p className="mt-1 text-slate-500 truncate">{recordSubtitle(row, t)}</p>
         </div>
-        {isOrder ? (
-          <span
-            className={`shrink-0 font-black ${row.status === ORDER_STATUS.PAID ? "text-teal-700" : row.status === ORDER_STATUS.CLOSED ? "text-slate-400" : "text-amber-700"}`}
-          >
-            {row.status === ORDER_STATUS.PAID ? t("myPurchasesStatus_paid") : row.status || "-"}
-          </span>
-        ) : (
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-teal-600" />
-        )}
+        <span
+          className={`shrink-0 font-black ${row.status === ORDER_STATUS.PAID ? "text-teal-700" : row.status === ORDER_STATUS.CLOSED ? "text-slate-400" : "text-amber-700"}`}
+        >
+          {row.status === ORDER_STATUS.PAID ? t("myPurchasesStatus_paid") : row.status || "-"}
+        </span>
       </div>
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-slate-500">
         <span className="truncate">
-          {isOrder
-            ? `${row.currency || "CNY"} ${Number(row.amount || 0).toFixed(2)} · ${recordTime(row)}`
-            : row.notice?.country || row.notice?.reference || "-"}
+          {`${row.currency || "CNY"} ${Number(row.amount || 0).toFixed(2)} · ${recordTime(row)}`}
         </span>
         {canOpen && (
           <Button
@@ -117,20 +108,57 @@ export const RecordRowCard = memo(function RecordRowCard({
           </Button>
         )}
       </div>
-      {/* 公采搜索功能（本地差异 #6 配套：需求 2 客诉止血）——
-          解锁行补公告截止日期，已过期（服务端按 deadline_ts 判定）加醒目标记 */}
-      {!isOrder && row.notice?.deadline && (
-        <div className="mt-1.5 flex items-center gap-2 text-slate-500">
-          <span className="truncate">
-            {t("myRecordsDeadline")}: {row.notice.deadline}
-          </span>
-          {row.notice.deadlineExpired === true && (
-            <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 font-black text-rose-700">
+    </article>
+  );
+});
+
+/** 收藏记录行卡：标题 + 国家/编号 + 截止时间（过期标红），点击打开公告详情 */
+export const FavoriteRowCard = memo(function FavoriteRowCard({
+  item,
+  locale,
+  onOpenNotice,
+}: {
+  item: FavoriteRecord;
+  locale: string;
+  onOpenNotice: (noticeId: number) => void;
+}) {
+  const { t } = useLocale();
+  const noticePk = Number(item.noticePk || 0);
+  const title = item.titleI18n || (locale === "zh" ? item.titleCn : "") || item.title || item.noticeId || "-";
+  const country = item.countryCode ? getCountryDisplayName(item.countryCode, locale) : "";
+  const meta = [country, item.buyerName || item.buyerNameCn, item.reference].filter(Boolean).join(" · ");
+  const deadlineTs = Number(item.deadlineTs || 0);
+  const expired = deadlineTs > 0 && deadlineTs * 1000 < Date.now();
+  return (
+    <article className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
+        <div className="min-w-0 pe-2">
+          <p className="font-black text-slate-800 line-clamp-2">{title}</p>
+          <p className="mt-1 text-slate-500 truncate">{meta || "-"}</p>
+        </div>
+        <Bookmark className="w-4 h-4 shrink-0 fill-amber-500 text-amber-500" />
+      </div>
+      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-slate-500">
+        <span className="truncate">
+          {deadlineTs > 0 ? `${t("myRecordsDeadline")}: ${formatNoticeCstDate(deadlineTs)}` : "-"}
+          {expired && (
+            <span className="ms-2 rounded-full bg-rose-50 px-2 py-0.5 font-black text-rose-700">
               {t("myRecordsExpired")}
             </span>
           )}
-        </div>
-      )}
+        </span>
+        {noticePk > 0 && (
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            onClick={() => onOpenNotice(noticePk)}
+            className="shrink-0 px-0 font-black"
+          >
+            {t("myPurchasesOpenDetail")}
+          </Button>
+        )}
+      </div>
     </article>
   );
 });

@@ -1,25 +1,28 @@
 /**
- * 采购记录（订单 / 解锁）历史 Hook
- * Purchase history (orders / access) Hook
+ * 我的记录（订单 / 收藏）历史 Hook
+ * My records (orders / favorites) history Hook
  *
  * @module features/payment/hooks/useOrderHistory
- * @description 管理"我的采购记录"面板的 tab 切换、分页与数据加载
- *              Manages tab switching, pagination and data loading for the
- *              "My Purchases" panel.
+ * @description 管理「我的记录」面板的 tab 切换、分页与数据加载。
+ *
+ *              2026-11-18 产品调整：第二个 tab 从「可查看采购（解锁记录）」改为
+ *              「我的收藏」，数据源 /api/notices/favorites（按收藏时间倒序；
+ *              服务端 INNER JOIN notice_public，已下架公告不返回）。
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocale } from "@/core/i18n";
 import { calcTotalPages } from "@/shared/constants/pagination";
 import {
   fetchOrders,
-  fetchAccessRecords,
+  fetchFavoriteRecords,
   type OrderRecord,
-  type AccessRecord,
+  type FavoriteRecord,
   type PagedResult,
 } from "../api";
 
-/** 面板 tab：支付订单 / 解锁记录 */
-export type PurchaseTab = "orders" | "access";
+/** 面板 tab：支付订单 / 我的收藏 */
+export type PurchaseTab = "orders" | "favorites";
 
 /** 每页条数 */
 const PAGE_LIMIT = 10;
@@ -37,8 +40,8 @@ export type UseOrderHistoryReturn = {
   limit: number;
   /** 订单分页数据 */
   orders: PagedResult<OrderRecord> | null;
-  /** 解锁分页数据 */
-  accessRecords: PagedResult<AccessRecord> | null;
+  /** 收藏分页数据 */
+  favorites: PagedResult<FavoriteRecord> | null;
   /** 是否加载中 */
   loading: boolean;
   /** 错误消息 */
@@ -51,15 +54,13 @@ export type UseOrderHistoryReturn = {
   refresh: () => void;
 };
 
-/**
- * 采购记录历史 Hook
- * Purchase history Hook
- */
+/** 我的记录历史 Hook */
 export function useOrderHistory(userId: number | undefined): UseOrderHistoryReturn {
+  const { locale } = useLocale();
   const [tab, setTabState] = useState<PurchaseTab>("orders");
   const [page, setPage] = useState(1);
   const [orders, setOrders] = useState<PagedResult<OrderRecord> | null>(null);
-  const [accessRecords, setAccessRecords] = useState<PagedResult<AccessRecord> | null>(null);
+  const [favorites, setFavorites] = useState<PagedResult<FavoriteRecord> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const requestSeq = useRef(0);
@@ -72,7 +73,7 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
   const load = useCallback(() => {
     if (!userId) {
       setOrders(null);
-      setAccessRecords(null);
+      setFavorites(null);
       return;
     }
     const seq = requestSeq.current + 1;
@@ -85,8 +86,8 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
         ? fetchOrders({ page, limit: PAGE_LIMIT }).then((data) => {
             if (seq === requestSeq.current) setOrders(data);
           })
-        : fetchAccessRecords({ page, limit: PAGE_LIMIT }).then((data) => {
-            if (seq === requestSeq.current) setAccessRecords(data);
+        : fetchFavoriteRecords({ page, limit: PAGE_LIMIT, locale }).then((data) => {
+            if (seq === requestSeq.current) setFavorites(data);
           });
 
     request
@@ -96,13 +97,13 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
       .finally(() => {
         if (seq === requestSeq.current) setLoading(false);
       });
-  }, [userId, tab, page]);
+  }, [userId, tab, page, locale]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const current = tab === "orders" ? orders : accessRecords;
+  const current = tab === "orders" ? orders : favorites;
   const total = Number(current?.total || 0);
   const totalPages = calcTotalPages(total, PAGE_LIMIT);
 
@@ -113,7 +114,7 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
     setPage,
     limit: PAGE_LIMIT,
     orders,
-    accessRecords,
+    favorites,
     loading,
     error,
     total,
