@@ -97,7 +97,7 @@
   "procurement_paymentReturnPaid": "Pagamento concluído: os benefícios da membership estão ativos.",
   "procurement_paymentReturnPending": "Pagamento em processamento, verifique Minhas compras mais tarde",
   "procurement_paymentReturnFailed": "Erro ao consultar o status do pagamento, tente mais tarde",
-  "procurement_recentUnlocksTitle": "Vistos recentemente",
+  "procurement_recentViewsTitle": "Vistos recentemente",
   "procurement_reportUnavailable": "Não há relatório de decomposição em chinês disponível para este anúncio",
   "procurement_reportGuideVip": "Como membro, você pode agendar um consultor para priorizar a decomposição deste anúncio (serviço humano).",
   "procurement_reportGuideUser": "Contate o atendimento via WeChat para solicitar o processamento manual deste anúncio.",

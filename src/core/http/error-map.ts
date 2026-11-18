@@ -188,7 +188,7 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_NICKNAME_INVALID]: { kind: "business", key: "errNicknameInvalid" },
   [EC_ACCOUNT_DISABLED]: { kind: "forbidden", key: "errAccountDisabled" },
   // 内容锁定 / 客服会话 / 限流（全域治本）
-  [EC_CONTENT_LOCKED]: { kind: "forbidden", key: "errUnlockRequired" },
+  [EC_CONTENT_LOCKED]: { kind: "forbidden", key: "errViewRequired" },
   [EC_CHAT_SESSION_CLOSED]: { kind: "business", key: "errChatSessionClosed" },
   [EC_CHAT_RATE_INVALID]: { kind: "business", key: "errChatNotRatable" },
   [EC_RATE_LIMITED]: { kind: "system", key: "errRateLimited" },
@@ -235,7 +235,7 @@ const TOKEN_RULES: Array<{ tokens: string[]; kind: ErrorKind; key: string }> = [
   { tokens: ["LLM_HTTP_5", "LLM_HTTP_4", "LLM 调用失败", "timeout", "network", "offline"], kind: "ai", key: "aiErrCallFailed" },
   { tokens: ["NOTICE_NOT_FOUND"], kind: "business", key: "errNoticeNotFound" },
   // 锁定 / 未解锁（core_locked detail 之外的令牌兜底）
-  { tokens: ["core_locked", "请先解锁", "公告已锁定"], kind: "forbidden", key: "errUnlockRequired" },
+  { tokens: ["core_locked", "请先解锁", "公告已锁定"], kind: "forbidden", key: "errViewRequired" },
   // 登录态（精确 HTTP 401，不做裸 "401" 子串）
   { tokens: ["HTTP 401", "请先登录", "Unauthorized"], kind: "auth", key: "aiErrLoginRequired" },
   { tokens: ["rate limit", "too many requests"], kind: "ai", key: "aiErrRateLimited" },
@@ -268,7 +268,7 @@ export function classifyApiError(err: unknown): ErrorClassification {
   // 0) 未解锁闸门优先：部分路由复用 40013（与 EC_ACCOUNT_ISSUE 同值）携 core_locked detail，
   //    必须在按码映射前拦截，否则锁定态会被误判成“账号异常”。
   if (status === 403 && detail && (detail.coreLocked === true || detail.locked === true)) {
-    return { kind: "forbidden", key: "errUnlockRequired", code, status, message };
+    return { kind: "forbidden", key: "errViewRequired", code, status, message };
   }
 
   // 1) 已知稳定码

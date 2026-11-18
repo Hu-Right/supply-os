@@ -119,7 +119,7 @@
   "noticeUiFeasibilityCompleteness": "Completitud de datos: {required} requisitos / {caps} capacidades",
   "noticeUiGridView": "Vista de cuadrícula",
   "noticeUiListView": "Vista de lista",
-  "noticeUiRecentUnlocks": "Vistos recientemente",
+  "noticeUiRecentViews": "Vistos recientemente",
   "pageErrorDesc": "Actualice la página para volver a intentarlo",
   "pageErrorDescSupport": "Actualice la página para volver a intentarlo. Si el problema persiste, contacte con soporte",
   "pageErrorReload": "Actualizar página",

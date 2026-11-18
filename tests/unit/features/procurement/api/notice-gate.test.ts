@@ -25,14 +25,14 @@ describe("classifyApiError 权益门控（统一层）", () => {
     const err = new ApiError(403, "公告已锁定，请先解锁", EC_CONTENT_LOCKED, { coreLocked: true });
     const c = classifyApiError(err);
     expect(c.kind).not.toBe("vipGate");
-    expect(c.key).toBe("errUnlockRequired");
+    expect(c.key).toBe("errViewRequired");
   });
 
   it("锁定 detail 优先于撞码（旧 40013=EC_ACCOUNT_ISSUE + coreLocked）→ 仍解锁键（step0 兜底）", () => {
     const err = new ApiError(403, "公告已锁定，请先解锁", 40013, { coreLocked: true });
     const c = classifyApiError(err);
     expect(c.kind).toBe("forbidden");
-    expect(c.key).toBe("errUnlockRequired");
+    expect(c.key).toBe("errViewRequired");
   });
 
   it("rankToTierKey：1..4 映射六语 tier 键，未知归 tierHigher", () => {

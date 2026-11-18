@@ -97,7 +97,7 @@
   "procurement_paymentReturnPaid": "Оплата прошла — преимущества подписки активны.",
   "procurement_paymentReturnPending": "Платёж обрабатывается, проверьте «Мои покупки» позже",
   "procurement_paymentReturnFailed": "Не удалось проверить статус платежа, повторите позже",
-  "procurement_recentUnlocksTitle": "Недавно просмотренные",
+  "procurement_recentViewsTitle": "Недавно просмотренные",
   "procurement_reportUnavailable": "Для этого объявления нет отчёта-разбора на китайском языке",
   "procurement_reportGuideVip": "Как участник, вы можете запросить консультанта для приоритетной обработки разбора этого уведомления (пакет услуг специалиста).",
   "procurement_reportGuideUser": "Свяжитесь со службой поддержки WeChat, чтобы запросить ручную обработку этого объявления.",

@@ -49,13 +49,13 @@ export const OverviewCards = memo(function OverviewCards({
         className="text-start justify-start rounded-xl border-teal-100 bg-teal-50 p-4 hover:border-teal-300 hover:bg-teal-50"
       >
         <div className="flex items-center justify-between">
-          <p className="text-sm font-extrabold text-teal-950">{t("myRecordsUnlocksTitle")}</p>
+          <p className="text-sm font-extrabold text-teal-950">{t("myRecordsViewsTitle")}</p>
           <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-teal-700">
             {unlocksTotal}
           </span>
         </div>
-        <p className="text-3xs text-teal-700 mt-1">{t("myRecordsUnlocksDesc")}</p>
-        <p className="text-3xs text-teal-800 mt-2 font-bold">{t("myRecordsUnlocksHint")} →</p>
+        <p className="text-3xs text-teal-700 mt-1">{t("myRecordsViewsDesc")}</p>
+        <p className="text-3xs text-teal-800 mt-2 font-bold">{t("myRecordsViewsHint")} →</p>
       </Button>
     </div>
   );

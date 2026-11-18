@@ -75,7 +75,7 @@ export type OrderRecord = {
 };
 
 /**
- * 解锁记录——GET /api/payment/unlocks 的 list 元素。
+ * 查看记录——GET /api/payment/unlocks 的 list 元素（传输层保留历史命名，展示层叫「查看」）。
  * Unlock record（镜像服务端 UnlockRecordView，红线② camelCase）
  *
  * 历史：这一族曾经把 repo 平铺行直接 json 出去，而本类型声明的是嵌套 notice，

@@ -12,7 +12,7 @@ import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
 import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
-import { RecentUnlocks } from "../components/RecentUnlocks";
+import { RecentViews } from "../components/RecentViews";
 import { FavoriteNotices } from "../components/FavoriteNotices";
 import type { NoticeItem } from "../types";
 import { applyNoticeIdParam } from "../lib/deepLink";
@@ -118,7 +118,7 @@ export default function ProcurementPage() {
       } catch {
         // 解锁可能已在服务端完成，忽略失败
       }
-      // P2-5：解锁成功后清除解锁历史缓存，RecentUnlocks 立即刷新
+      // P2-5：查看成功后清除查看历史缓存，RecentViews 立即刷新
       clearApiCache("/api/payment/unlocks");
       // SSOT 修复：同时失效会员状态缓存，useMembershipTier 的 60s 缓存标签不再过期展示旧等级
       clearApiCache("/api/membership/status");
@@ -189,7 +189,7 @@ export default function ProcurementPage() {
         {userId && actions.favoriteIds.size > 0 && (
           <FavoriteNotices favoriteIds={actions.favoriteIds} onOpenNotice={actions.openNoticeById} />
         )}
-        {userId && <RecentUnlocks userId={userId} onOpenNotice={actions.openNoticeById} />}
+        {userId && <RecentViews userId={userId} onOpenNotice={actions.openNoticeById} />}
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
 

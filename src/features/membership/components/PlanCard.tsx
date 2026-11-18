@@ -64,7 +64,7 @@ export function PlanCard({
   const quotaText =
     quotaDisplay == null ? null
       : quotaDisplay === "不限" ? t("membershipUnlimited")
-        : `${quotaDisplay} ${t("membershipUnlocks")}`;
+        : `${quotaDisplay} ${t("membershipViews")}`;
 
   /** 成交控件：联系咨询 / 升级补差 / 窗口已过按原价 / 已是会员 / 立即购买 */
   function actionButton() {

@@ -97,7 +97,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
           const Icon = themeIcon;
           return <Icon className={`w-3.5 h-3.5 ${themeColor}`} />;
         })()}
-        <p className="font-medium text-xs text-muted-foreground">{t("statusPanelTotalUnlocks")}</p>
+        <p className="font-medium text-xs text-muted-foreground">{t("statusPanelTotalViews")}</p>
       </div>
       <div className="flex items-baseline gap-1 mb-2">
         {isUnlimitedQuota(totalRemaining) ? (

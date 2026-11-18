@@ -1,8 +1,8 @@
 /**
- * 采购页"最近查看"快捷区
- * Recent unlocks quick strip on the procurement page
+ * 采购页「最近查看」快捷区
+ * Recent views quick strip on the procurement page
  *
- * @module features/procurement/components/RecentUnlocks
+ * @module features/procurement/components/RecentViews
  * @description ARCH-P2-解耦（2026-09-05）：从 features/payment/components/ 迁移至
  *              features/procurement/components/，消除 procurement→payment 跨 feature 硬依赖。
  *              API 调用改为 core/http 直连（原 features/payment/api 的 fetchUnlocks 仅
@@ -17,16 +17,16 @@ import { useEffect, useState } from "react";
 import { ArrowRight, ChevronDown, Lock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import { useRecentUnlocks } from "../hooks/useRecentUnlocks";
+import { useRecentViews } from "../hooks/useRecentViews";
 
-export interface RecentUnlocksProps {
+export interface RecentViewsProps {
   userId: number;
   onOpenNotice: (noticeId: number) => void;
 }
 
-export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
+export function RecentViews({ userId, onOpenNotice }: RecentViewsProps) {
   const { t, locale } = useLocale();
-  const { records } = useRecentUnlocks(userId, locale);
+  const { records } = useRecentViews(userId, locale);
   const [showOriginal, setShowOriginal] = useState(false);
   /** 移动端默认折叠（阶段2 首屏减法）：桌面端 `md:block` 始终展开 */
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,7 +50,7 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
           className="md:pointer-events-none flex min-h-11 md:min-h-0 items-center gap-1.5 text-xs font-black text-slate-500 uppercase tracking-wide"
         >
           <Lock className="w-3.5 h-3.5 text-teal-500" />
-          {t("noticeUiRecentUnlocks")}
+          {t("noticeUiRecentViews")}
           <span className="md:hidden text-2xs font-bold text-slate-400">({records.length})</span>
           <ChevronDown className={`md:hidden w-4 h-4 text-slate-400 transition-transform ${mobileOpen ? "rotate-180" : ""}`} />
         </button>
@@ -109,5 +109,5 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
   );
 }
 
-RecentUnlocks.displayName = "RecentUnlocks";
+RecentViews.displayName = "RecentViews";
 

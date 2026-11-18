@@ -9,7 +9,7 @@
   "errPasswordResetRequired": "Esta conta deve ser redefinida por meio de \"Esqueci minha senha\" antes de entrar",
   "errRateLimited": "Solicitações demais, tente novamente mais tarde",
   "errNotFound": "O recurso solicitado não existe",
-  "errUnlockRequired": "É necessário ter membership para ver este conteúdo",
+  "errViewRequired": "É necessário ter membership para ver este conteúdo",
   "errInvalidCode": "O código de verificação é inválido ou expirou; solicite um novo",
   "errDuplicate": "Esta ação já existe; não a envie novamente",
   "errAccountIssue": "Problema na conta ou senha incorreta; verifique e tente novamente",

@@ -97,7 +97,7 @@
   "procurement_paymentReturnPaid": "Payment successful — membership benefits are active.",
   "procurement_paymentReturnPending": "Payment is processing, please check My Purchases later",
   "procurement_paymentReturnFailed": "Failed to query payment status, please try again later",
-  "procurement_recentUnlocksTitle": "Recently viewed",
+  "procurement_recentViewsTitle": "Recently viewed",
   "procurement_reportUnavailable": "No Chinese breakdown report available for this notice",
   "procurement_reportGuideVip": "As a member, you can book a consultant to prioritize the breakdown of this notice (human service pack).",
   "procurement_reportGuideUser": "Contact WeChat customer service to request manual processing of this notice.",

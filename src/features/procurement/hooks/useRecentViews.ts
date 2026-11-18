@@ -2,17 +2,17 @@
  * 最近查看记录取数 Hook
  * Recent unlocks data hook
  *
- * @module features/procurement/hooks/useRecentUnlocks
+ * @module features/procurement/hooks/useRecentViews
  * @description 组件仅负责展示，取数下沉本 hook（约定：数据获取统一在 hooks 层）。
  *              拉取当前用户最近 N 条公告解锁记录；失败静默返回空数组，不阻断采购列表。
- *              原为 RecentUnlocks 组件内联的 useEffect + apiCached 逻辑，行为一致。
+ *              原为组件内联的 useEffect + apiCached 逻辑，行为一致。
  */
 import { useEffect, useState } from "react";
 import { apiCached, buildQuery } from "@/core/http";
 import { pickNoticeApiLang } from "@/shared/constants/langs";
 
-/** 解锁记录（与 payment/api UnlockRecord 对齐：都是 /api/payment/unlocks 的 camel 契约） */
-export interface UnlockRecord {
+/** 最近查看记录。传输层仍沿用历史命名（/api/payment/unlocks 的 UnlockRecord 契约），展示层统一叫「查看」。 */
+export interface RecentViewRecord {
   noticeId: number;
   unlockType: string;
   price: number;
@@ -25,32 +25,32 @@ export interface UnlockRecord {
   } | null;
 }
 
-/** 查询用户解锁记录 */
-async function fetchUnlocks(params: {
+/** 查询用户最近查看记录（传输端点保留历史命名 /api/payment/unlocks） */
+async function fetchViewHistory(params: {
   page?: number;
   limit?: number;
   locale?: string;
-}): Promise<{ total: number; list: UnlockRecord[] }> {
+}): Promise<{ total: number; list: RecentViewRecord[] }> {
   const qs = buildQuery({
     page: params.page,
     limit: params.limit,
     lang: pickNoticeApiLang(params.locale),
   });
-  return apiCached<{ total: number; list: UnlockRecord[] }>(`/api/payment/unlocks?${qs}`, 5 * 60 * 1000);
+  return apiCached<{ total: number; list: RecentViewRecord[] }>(`/api/payment/unlocks?${qs}`, 5 * 60 * 1000);
 }
 
 /** 拉取最近查看记录；userId/locale 变化时刷新 */
-export function useRecentUnlocks(userId: number, locale: string, limit = 3): { records: UnlockRecord[] } {
-  const [records, setRecords] = useState<UnlockRecord[]>([]);
+export function useRecentViews(userId: number, locale: string, limit = 3): { records: RecentViewRecord[] } {
+  const [records, setRecords] = useState<RecentViewRecord[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    fetchUnlocks({ limit, locale })
+    fetchViewHistory({ limit, locale })
       .then((res) => {
         if (!cancelled) setRecords(res.list || []);
       })
       .catch((e) => {
-        console.warn("[useRecentUnlocks] 解锁记录加载失败:", e);
+        console.warn("[useRecentViews] 最近查看记录加载失败:", e);
         if (!cancelled) setRecords([]);
       });
     return () => {

@@ -97,7 +97,7 @@
   "procurement_paymentReturnPaid": "Pago exitoso: los beneficios de la membresía están activos.",
   "procurement_paymentReturnPending": "Pago en proceso, revise Mis compras más tarde",
   "procurement_paymentReturnFailed": "Error al consultar el estado del pago, inténtelo más tarde",
-  "procurement_recentUnlocksTitle": "Vistos recientemente",
+  "procurement_recentViewsTitle": "Vistos recientemente",
   "procurement_reportUnavailable": "No hay informe de desglose en chino disponible para este anuncio",
   "procurement_reportGuideVip": "Como miembro, puede reservar un consultor para priorizar el desglose de este anuncio (servicio humano).",
   "procurement_reportGuideUser": "Contacte al servicio de atención WeChat para solicitar el procesamiento manual de este anuncio.",

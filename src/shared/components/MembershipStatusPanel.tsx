@@ -71,7 +71,7 @@ export function MembershipStatusPanel({
             <span className={`text-2xl font-extrabold ${hasUnlockQuota(totalRemaining) ? "text-slate-900" : "text-red-600"}`}>
               {isUnlimitedQuota(totalRemaining) ? t("membershipUnlimited") : totalRemaining}
             </span>
-            <span className="text-xs text-slate-500">{t("statusPanelTotalUnlocks")}</span>
+            <span className="text-xs text-slate-500">{t("statusPanelTotalViews")}</span>
           </div>
           {!compact && totalRemaining === 0 && (
             <Button

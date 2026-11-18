@@ -97,7 +97,7 @@
   "procurement_paymentReturnPaid": "تم الدفع بنجاح — مزايا العضوية مفعّلة.",
   "procurement_paymentReturnPending": "جارٍ معالجة الدفع، يرجى التحقق من مشترياتي لاحقًا",
   "procurement_paymentReturnFailed": "فشل الاستعلام عن حالة الدفع، يرجى المحاولة لاحقًا",
-  "procurement_recentUnlocksTitle": "شوهدت مؤخرًا",
+  "procurement_recentViewsTitle": "شوهدت مؤخرًا",
   "procurement_reportUnavailable": "لا يتوفر تقرير تحليل بالصينية لهذا الإعلان",
   "procurement_reportGuideVip": "بصفتك عضوًا، يمكنك حجز مستشار لمعالجة تحليل هذا الإعلان بشكل تفضيلي (حزمة الخدمة البشرية).",
   "procurement_reportGuideUser": "تواصل مع خدمة عملاء WeChat لطلب المعالجة اليدوية لهذا الإعلان.",

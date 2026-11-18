@@ -81,10 +81,10 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
           </Button>
           <div>
             <p className="text-sm font-extrabold text-slate-900">
-              {view === "orders" ? t("myRecordsOrdersManage") : t("myRecordsUnlocksManage")}
+              {view === "orders" ? t("myRecordsOrdersManage") : t("myRecordsViewsManage")}
             </p>
             <p className="text-3xs text-slate-500 mt-0.5">
-              {view === "orders" ? t("myRecordsOrdersManageDesc") : t("myRecordsUnlocksManageDesc")}
+              {view === "orders" ? t("myRecordsOrdersManageDesc") : t("myRecordsViewsManageDesc")}
             </p>
           </div>
         </div>
@@ -123,7 +123,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
                 ? t("myRecordsLoadFailed")
                 : view === "orders"
                   ? t("myPurchasesEmptyOrders")
-                  : t("myPurchasesEmptyUnlocks")}
+                  : t("myPurchasesEmptyViews")}
           </div>
         )}
         {rows.map((row) => (
