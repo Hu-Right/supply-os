@@ -904,6 +904,5 @@
   "pc_gone_title": "طلب الشراء هذا لم يعد موجوداً",
   "pc_gone_desc": "ربما تم سحبه أو حذفه، أو انتهت صلاحية الرابط.",
   "detail_expand": "عرض النص كاملاً",
-  "detail_collapse": "عرض أقل",
-  "detail_toc": "محتويات الصفحة"
+  "detail_collapse": "عرض أقل"
 }

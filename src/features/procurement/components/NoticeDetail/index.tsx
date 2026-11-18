@@ -147,8 +147,6 @@ export function NoticeDetail({
   const [shareOpen, setShareOpen] = useState(false);
   // 长正文折叠（>800 字默认收起，展开后可读全文）
   const [descExpanded, setDescExpanded] = useState(false);
-  // 右栏目录当前高亮区块
-  const [activeSection, setActiveSection] = useState("section-summary");
 
   // 倒计时每秒刷新；注册制/框架结束日不是投标截止，不显示倒计时
   useEffect(() => {
@@ -403,9 +401,8 @@ export function NoticeDetail({
         ))}
       </nav>
 
-      {/* 双栏：内容 + 右栏动作 */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <main className="min-w-0 space-y-4">
+      {/* 单栏全宽内容（长页面用顶部 sticky 锚点导航定位） */}
+      <main className="min-w-0 space-y-4">
           {/* 采购摘要（AI 摘要 + 锁态提示由子组件处理） */}
           <section id="section-summary">
             <AiSummarySection
@@ -496,47 +493,6 @@ export function NoticeDetail({
           </section>
         </main>
 
-        {/* 右栏：本页目录（长页面导航）；免费/锁态用户上方加会员升级卡 */}
-        <aside className="space-y-4 lg:sticky lg:top-16">
-          {!coreAccessible && (
-            <div className="border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-extrabold text-amber-800">{t("procurement_lockedCoreTitle")}</p>
-              <p className="mt-1 text-xs leading-relaxed text-amber-700">{t("procurement_accessToViewFull")}</p>
-              <button
-                type="button"
-                onClick={upgradeMembership}
-                className="mt-3 w-full rounded bg-amber-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-600"
-              >
-                {t("procurement_previewUpgradeNow")}
-              </button>
-            </div>
-          )}
-          <nav className="border border-slate-200 bg-white">
-            <SectionHeader title={t("detail_toc")} />
-            <div className="p-3">
-              <div className="grid gap-1">
-                {SECTION_NAV.map(([id, key]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => {
-                      setActiveSection(id);
-                      scrollToSection(id);
-                    }}
-                    className={`rounded px-2 py-1.5 text-left text-xs font-bold transition-colors ${
-                      activeSection === id
-                        ? "bg-teal-50 text-teal-700"
-                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-                    }`}
-                  >
-                    {t(key)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </nav>
-        </aside>
-      </div>
 
       {/* 移动端底栏操作（保持现有组件） */}
       <NoticeDetailSidebar

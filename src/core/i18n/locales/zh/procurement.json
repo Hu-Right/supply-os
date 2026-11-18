@@ -904,6 +904,5 @@
   "pc_gone_title": "该采购需求不存在",
   "pc_gone_desc": "可能已被撤回或删除，也可能链接已过期。",
   "detail_expand": "展开全文",
-  "detail_collapse": "收起全文",
-  "detail_toc": "本页目录"
+  "detail_collapse": "收起全文"
 }

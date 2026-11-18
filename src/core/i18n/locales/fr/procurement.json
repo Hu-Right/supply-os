@@ -904,6 +904,5 @@
   "pc_gone_title": "Cette demande d'achat n'existe plus",
   "pc_gone_desc": "Elle a peut-être été retirée ou supprimée, ou le lien a expiré.",
   "detail_expand": "Afficher tout",
-  "detail_collapse": "Réduire",
-  "detail_toc": "Sommaire"
+  "detail_collapse": "Réduire"
 }
