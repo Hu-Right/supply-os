@@ -116,8 +116,19 @@ export const migration: Migration = {
       console.log(`[migration 052] ${TABLE}.${COLUMN} 已存在，跳过加列（继续补回填）`);
     }
 
+    // 先探测是否还有待回填行：无待处理（已回填过/无来源数据）直接跳过，避免每次重跑都全表扫
+    const pending = await countRows(
+      dbPool,
+      `SELECT COUNT(*) AS n
+         FROM \`${TABLE}\` p
+         JOIN notice_deadline d ON d.notice_pk = p.notice_pk
+        WHERE p.\`${COLUMN}\` IS NULL AND d.timezone_source IS NOT NULL`,
+    );
     const t0 = Date.now();
-    const updated = await backfill(dbPool);
+    const updated = pending === 0 ? 0 : await backfill(dbPool);
+    if (pending === 0) {
+      console.log(`[migration 052] 无待回填行，跳过回填（已回填或无来源数据）`);
+    }
     console.log(
       `[migration 052] 回填完成：本次写入 ${updated} 行，耗时 ${((Date.now() - t0) / 1000).toFixed(1)}s`,
     );
