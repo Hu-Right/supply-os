@@ -1,105 +1,197 @@
-# 部署与 OOM 处置（2026-11-13 事故复盘）
+# 部署与产物下发（Turbopack 口径 · 2026-11-18 更新）
 
-## 1. 现象
+> 本文档是仓库内**唯一**的部署流程说明。每次部署按本文执行，不要临时改路径、换构建工具或手改服务器产物。
 
-- `bash scripts/tools/deploy.sh` 反复失败，站点 502；
-- 服务器 8G 内存被吃满，`dmesg` 连续出现 `Out of memory: Killed process ... next-build`；
-- `pm2 list` 显示 `supply-os` 重启次数 194→657 且 uptime 0s（崩溃循环）；
-- 错误日志：`Cannot find module '/root/supply-os/.next/standalone/server.js'`。
+## 0. 铁律（先看这里）
 
-## 2. 根因
+1. **构建工具只用 Turbopack**（Next.js 16 默认）。**禁止 webpack 构建**，仓库内不保留任何 webpack 配置。
+2. **8G 生产机不做本地构建**：Turbopack 全量构建峰值 RSS 7GB+，会触发 OOM killer（事故见 §2）。
+3. **构建必须在 CI（16G runner）完成**，服务器只接收产物。
+4. **本机 `.env` 的 `127.0.0.1:3307` 是到生产库的 Docker 隧道**（容器 `intelligence-daily-tunnel`），不是本地测试库。任何迁移 / 数据清洗都会直接作用于生产——操作前先确认：
+   ```bash
+   docker ps | grep tunnel   # 看到 127.0.0.1:3307->3307 即为生产库隧道
+   ```
+5. **产物安装必须走 `scripts/tools/deploy-artifact.sh`**，禁止手工替换 `.next/standalone`。
+6. 任何一次部署都必须校验：产物 sha256、含 `server.js`、部署后 HTTP 200、`BUILD_ID` 变化、pm2 重启次数为 0。
 
-1. **Turbopack 构建峰值内存超出机器**：Next 16.3.4 + Turbopack 全量构建实测 `next-build` RSS 6.9–7.5GB（VM 41GB）。`NODE_OPTIONS=--max-old-space-size=2560` 只能限制 V8 堆，**限制不了 Turbopack 原生内存**。8G 机器上同时还有 MySQL（buffer pool 2G）+ Meilisearch（1.8G），构建必然触发 OOM killer。
-2. **失败后崩溃循环**：旧 `deploy.sh` 的 trap 在构建失败后仍执行 `pm2 start .next/standalone/server.js`；但 `.next` 已被构建部分清空、`server.js` 不存在，pm2 无限重启（每次 `MODULE_NOT_FOUND`）。
-3. 构建失败后未保留上一版可运行产物，无法回滚。
+## 1. 组件职责
 
-## 3. 已落地的修复
+| 组件 | 作用 | 现状 |
+|---|---|---|
+| `.github/workflows/build-artifact.yml` | CI（16G runner）Turbopack 构建 + 上传 `next-standalone` 产物 | ✅ **当前唯一稳定构建入口** |
+| `.github/workflows/deploy.yml` | CI 构建 + runner 直传服务器 | ⚠️ 跨境链路不可靠（见 §5），暂不作为主路径 |
+| `scripts/tools/deploy-artifact.sh` | 服务器侧安装产物：备份旧版 → 校验 `server.js` → 替换 → 重启 → 360s 探活 | ✅ 产物安装唯一入口 |
+| `scripts/tools/deploy.sh` | 服务器本地构建（8G 会 OOM） | ⚠️ 仅 16G+ 内存机器可用 |
+| `.github/workflows/ci.yml` | push 触发 CI；构建成功后上传产物（保留 1 天） | 参考 |
 
-### 3.1 代码/脚本（仓库内）
+## 2. 事故复盘（背景，2026-11-13）
 
-- `next.config.ts`：`experimental.turbopackMemoryEviction = "full"`（Turbopack 内存驱逐策略，默认 `auto`；`full` 更省内存、构建更慢，仍是 Turbopack）。
-- `scripts/tools/deploy.sh`：
-  - **< 12GB 内存默认拒绝本地构建**（`ALLOW_LOW_MEM_BUILD=1` 可强制），直接提示改用产物部署；
-  - 构建前停 Meili + PM2 + **MySQL**（`STOP_MYSQL_ON_BUILD=0` 可关）；
-  - 构建前把 `.next/standalone` 备份到 `runtime/standalone-bak`；
-  - 构建后**硬校验** `standalone/server.js`，缺失则回滚备份并退出；
-  - trap 只在有可用产物时拉起 pm2，缺产物保持停服（不再崩溃循环）；
-  - 构建日志落到 `runtime/deploy-build-*.log`。
-- `scripts/tools/deploy-artifact.sh`：**低内存机器推荐路径**——安装 CI 构建好的 standalone 产物、备份旧版、校验、探活、失败给回滚命令。
-- `.github/workflows/deploy.yml`：`workflow_dispatch` 手动触发，CI（16G runner）Turbopack 构建 → 打包 → SSH 下发 → 调 `deploy-artifact.sh`。
-- `.github/workflows/ci.yml`：构建成功后上传 `next-standalone` 产物（保留 1 天）。
+- 8G 服务器跑 `deploy.sh` 本地 Turbopack 构建 → OOM killer 杀 `next-build`，`.next/standalone` 被清空；
+- 旧脚本失败后仍 `pm2 start` → 崩溃循环 657 次；
+- 处置：构建移至 CI（16G），服务器只安装产物；`deploy-artifact.sh` 增加备份/校验/探活/失败回滚提示；
+- 服务器保留 12G swap 作为兜底，但**这不代表可以在服务器本地构建**。
 
-### 3.2 服务器侧（本次事故处置）
+## 3. 标准部署流程（当前唯一稳定路径）
 
-- 停掉崩溃循环（`pm2 delete supply-os`）；
-- 启用 `/swapfile2` 8G + 临时 `/swapfile3` 16G（应急，后已移除 swapfile3，保留 12G swap）；
-- 用 CI 产物恢复上线（`https://osneosmart.com` HTTP 200，pm2 重启 0）；
-- 清理临时 GitHub token、构建残留。
+> 适用范围：本机 Windows（PowerShell）+ GitHub CI + 腾讯云服务器 `117.72.108.14`（`/root/supply-os`，pm2 `supply-os`，端口 3039）。
+> 背景：GitHub runner → 国内服务器上传只有约 160KB/s 且经常超时/半包；本机 → 服务器实测约 1.5MB/s。因此采用「CI 构建 → 本机中转 → 服务器安装」。
 
-> 冷启动提示：应用启动后 `instrumentation` 会跑 bootstrap（schema / featured / payment），
-> 冷缓存或 Meili 全量重建时实测可达 **5 分钟以上**，期间端口在听但首页会被拖住。
-> `deploy-artifact.sh` 探活窗口已放到 360s，不要按 60s 误判部署失败。
-> 本次事故中 Meilisearch 重启后触发全量重建（RSS 5.2G、高 IO），会把 8G 机器拖入 swap
-> 抖动；必要时先 `systemctl stop meilisearch` 让搜索走 MySQL 降级，错峰再让它重建索引。
+### 3.1 前置检查
 
-## 4. 日常部署方式（二选一）
+1. 代码已提交并推送到 `origin/main`：
+   ```bash
+   git status --porcelain   # 必须干净（除明确不发布的 WIP）
+   git push origin main
+   ```
+2. 本机 SSH 可用：
+   ```bash
+   ssh -i ~/.ssh/id_ed25519 root@117.72.108.14 "echo ok"
+   ```
+3. GitHub token 可用（下面命令从 git 凭据读取，不落盘）：
+   ```powershell
+   $cred = "protocol=https`nhost=github.com`n`n" | git credential fill
+   $token = ($cred -split "`n" | Where-Object { $_ -like "password=*" } | Select-Object -First 1).Substring(9)
+   ```
 
-### A. 推荐：CI 构建 + 产物下发（服务器 8G 不动）
+### 3.2 Step 1 — 触发 CI 构建（Turbopack）
 
-1. GitHub 仓库 Settings → Secrets 添加：
-   - `DEPLOY_SSH_KEY`：服务器私钥（对应 `~/.ssh/authorized_keys`）
-   - `DEPLOY_HOST`：`117.72.108.14`
-   - `DEPLOY_USER`：`root`
-2. Actions → **Deploy** → Run workflow。
-3. 流程：CI 构建 Turbopack（16G）→ tar → scp → `deploy-artifact.sh`（备份/探活/失败回滚提示）。
+GitHub UI：Actions → **Build Artifact** → Run workflow（branch = main）。
 
-**传输加固（2026-11-17 事故）**：GitHub runner 在境外，到国内服务器实测只有约 160KB/s，
-且出现过 scp 传到一半静默卡死 30 分钟。`deploy.yml` 现在带 keepalive、每次上传 900s 硬超时、
-失败重试 3 次，并且每次上传后做 **sha256 校验**（截断/半包会立刻发现并重传）。
+或本地 API 触发（PowerShell）：
 
-**大静态资源不进产物（2026-11-17）**：`public/downloads`（82MB 培训 PDF/报告）已在打包时
-`--exclude`，服务器侧由持久目录 `runtime/public-downloads` 回填，产物从 124.7MB 降到约 42MB。
-
-- 首次部署：`deploy-artifact.sh` 会自动从当时的旧产物里播种该目录（无需手工操作）；
-- 更新培训资料：把新文件放进 `/root/supply-os/runtime/public-downloads/`（替换同名文件）后
-  `pm2 restart supply-os` 即可，**不必重新部署**，也不再占用部署链路带宽；
-- 换新服务器：除 `.env` 外，还要把 `runtime/public-downloads/` 一起拷过去，否则 `/downloads/*` 会 404
-  （脚本发现目录为空会在日志里显式告警）。
-
-本地手动等价：
-
-```bash
-# 在 CI 或大内存机器构建后（注意：也要排除 public/downloads，服务器靠持久目录回填）
-tar -czf next-standalone.tar.gz --exclude='./public/downloads' -C .next/standalone .
-scp next-standalone.tar.gz root@SERVER:/tmp/
-ssh root@SERVER "cd /root/supply-os && bash scripts/tools/deploy-artifact.sh /tmp/next-standalone.tar.gz"
+```powershell
+curl.exe -sS --ssl-no-revoke -X POST `
+  -H "Authorization: Bearer $token" -H "Accept: application/vnd.github+json" `
+  -H "Content-Type: application/json" `
+  --data-binary '{"ref":"main"}' `
+  https://api.github.com/repos/Hu-Right/supply-os/actions/workflows/build-artifact.yml/dispatches
 ```
 
-### B. 升内存后仍用服务器本地构建
+构建约 2–5 分钟。确认状态：
 
-把生产机内存升到 **16GB**（建议），然后：
-
-```bash
-cd /root/supply-os && ALLOW_LOW_MEM_BUILD=1 bash scripts/tools/deploy.sh
+```powershell
+curl.exe -sS --ssl-no-revoke -H "Authorization: Bearer $token" `
+  "https://api.github.com/repos/Hu-Right/supply-os/actions/workflows/build-artifact.yml/runs?per_page=1"
 ```
 
-构建前脚本会自动停 Meili/PM2/MySQL；构建完成恢复。8G 机器**不要**尝试本地全量构建。
+> 记录本次 `run_id` 与 artifact `id`，写进 §9 部署记录。
 
-## 5. 应急排查清单
+### 3.3 Step 2 — 下载产物（必须分片并行/断点续传）
+
+GitHub → 本机单连接约 30KB/s，51MB 单线程会超时（实测 900s 只到 29.6MB）。必须用 **8 分片 Range 并行**下载：
+
+```powershell
+# 8 分片并行下载（总大小以 API 返回为准，本例 53,360,713 字节）
+# 每片：curl -L -r start-end -H "Authorization: Bearer $token" <artifact zip URL>
+# 全部完成后按 part0..part7 顺序拼接为 tmp/next-standalone.zip
+```
+
+artifact zip URL：
+
+```
+https://api.github.com/repos/Hu-Right/supply-os/actions/artifacts/<artifact_id>/zip
+```
+
+分片下载后校验并解压：
+
+```powershell
+Expand-Archive -Path tmp\next-standalone.zip -DestinationPath tmp\artifact -Force
+# 找到 next-standalone.tar.gz，复制到 tmp\next-standalone.tar.gz
+```
+
+### 3.4 Step 3 — 本地校验（不过不传）
+
+```powershell
+(Get-Item tmp\next-standalone.tar.gz).Length          # 与 API size 接近
+tar -tzf tmp\next-standalone.tar.gz | Select-String '^\./server\.js$'
+(Get-FileHash tmp\next-standalone.tar.gz -Algorithm SHA256).Hash.ToLower()
+```
+
+必须同时满足：`server.js` 存在、sha256 已记录、tar 可正常列出（Windows 无 gzip 命令时用 `tar -tzf` 代替校验）。
+
+### 3.5 Step 4 — 上传服务器并二次校验
+
+```powershell
+scp -i ~/.ssh/id_ed25519 tmp\next-standalone.tar.gz root@117.72.108.14:/tmp/next-standalone.tar.gz
+ssh -i ~/.ssh/id_ed25519 root@117.72.108.14 "sha256sum /tmp/next-standalone.tar.gz"
+```
+
+**远程 sha256 必须与本地一致**，否则删除重传；不要用半包部署。
+
+### 3.6 Step 5 — 服务器安装产物
+
+```powershell
+scp -i ~/.ssh/id_ed25519 scripts\tools\deploy-artifact.sh root@117.72.108.14:/tmp/deploy-artifact.sh
+ssh -i ~/.ssh/id_ed25519 root@117.72.108.14 "cd /root/supply-os && APP_DIR=/root/supply-os bash /tmp/deploy-artifact.sh /tmp/next-standalone.tar.gz"
+```
+
+脚本行为：备份旧版到 `runtime/standalone-bak` → 解包到临时目录 → 校验 `server.js` → 原子替换 → 回填 `runtime/public-downloads` → `pm2` 重启 → **最长 360s 探活**（bootstrap 冷启动可能 5 分钟，不要提前判失败）。
+
+### 3.7 Step 6 — 部署后验证（必须全绿）
+
+```bash
+# 1) 站点
+curl -s -o /dev/null -w "%{http_code}\n" https://osneosmart.com/
+
+# 2) 运行态
+ssh root@117.72.108.14 "cat /root/supply-os/.next/standalone/.next/BUILD_ID; \
+  pm2 list | grep supply-os; \
+  tail -50 /root/.pm2/logs/supply-os-out.log | grep -E 'bootstrap|Ready'"
+
+# 3) 迁移账本（末位版本应为当前最新）
+ssh root@117.72.108.14 "mysql -D crm -N -e 'SELECT MAX(version) FROM schema_migrations'"
+```
+
+验证标准：HTTP 200、`BUILD_ID` 为新构建、pm2 uptime 重新计时且重启次数 0、bootstrap 三项（schema/featured/payment）完成、ledger 版本符合预期。
+
+### 3.8 Step 7 — 清理与记录
+
+```powershell
+ssh -i ~/.ssh/id_ed25519 root@117.72.108.14 "rm -f /tmp/next-standalone.tar.gz /tmp/deploy-artifact.sh"
+Remove-Item tmp\next-standalone.zip,tmp\artifact -Recurse -Force
+```
+
+按 §9 填写本次部署记录。
+
+## 4. 大静态资源（public/downloads）
+
+`public/downloads`（约 82MB 培训 PDF/报告）**不打进产物**：打包时 `--exclude='./public/downloads'`，服务器由持久目录 `/root/supply-os/runtime/public-downloads` 回填。
+
+- 首次部署：`deploy-artifact.sh` 会从旧产物播种；
+- 更新资料：直接替换持久目录文件后 `pm2 restart supply-os`，无需重新部署；
+- 换服务器：除 `.env` 外必须拷贝 `runtime/public-downloads/`，否则 `/downloads/*` 404。
+
+## 5. 禁用 / 不推荐路径
+
+| 路径 | 结论 | 原因 |
+|---|---|---|
+| `deploy.yml`（CI 构建 + runner 直传） | ⚠️ 网络好时才可用 | 2026-11-18 实测：51MB 上传 15 分钟超时（约 60KB/s），重试 3 次仍失败；`Upload & deploy` 步骤 30 分钟超时 |
+| 服务器本地构建（`deploy.sh`） | ❌ 8G 禁用 | Turbopack 峰值 7GB+，必 OOM（§2） |
+| webpack 构建 | ❌ 禁止 | 项目只用 Turbopack；任何 `next build --webpack` 都不允许 |
+| 手动替换 `.next/standalone` / 半包安装 | ❌ 禁止 | 绕过备份与校验，易造成 502 / 崩溃循环 |
+| 在 `127.0.0.1:3307` 上直接跑迁移/清洗脚本 | ❌ 禁止未确认 | 那是生产库隧道（§0.4） |
+
+## 6. 故障排查清单
 
 ```bash
 free -h; swapon --show
 dmesg -T | grep -iE "out of memory|killed process" | tail
 pm2 list; pm2 logs supply-os --lines 100 --nostream
-journalctl -b -1 -k | grep -iE "oom|killed process" | tail
 ```
 
-- `Cannot find module .next/standalone/server.js` → 产物缺失，用 §4A 重新下发；
-- OOM 反复 → 确认构建是否在 8G 本地跑；停止后按 §4A；
-- pm2 重启次数暴涨 → 先 `pm2 delete supply-os` 止血，再定位产物/启动错误。
+- `Cannot find module .next/standalone/server.js` → 产物缺失，按 §3 重新下发；
+- OOM → 确认构建是否在服务器本地跑；立即停止并改走 §3；
+- pm2 重启次数暴涨 → 先 `pm2 delete supply-os` 止血，再排查产物/启动错误；
+- 探活超时但端口在听 → 冷启动 bootstrap（Meili 全量重建）可能 5 分钟以上，查看 bootstrap 日志后再判断。
 
-## 6. 回滚
+## 7. 回滚
 
-- 产物回滚：`deploy-artifact.sh` 部署前备份在 `runtime/standalone-bak/`，失败时按脚本提示恢复；
-- 代码回滚：服务器 `git reset --hard <上一提交>` 后按 §4 重新下发/构建；
-- 数据库/结构回滚见各 ADR（与部署无关）。
+- 产物回滚：`deploy-artifact.sh` 部署前已备份到 `runtime/standalone-bak/`，按脚本输出提示恢复；
+- 代码回滚：服务器 `git reset --hard <上一提交>` 后按 §3 重新下发；
+- 数据库/结构回滚见各 ADR（与部署独立）。
+
+## 8. 部署记录（每次部署后填写）
+
+| 日期时间 | 提交 | BUILD_ID | 产物 sha256（前 16 位） | 产物大小 | 操作人 | 验证结果 | 回滚点 |
+|---|---|---|---|---|---|---|---|
+| 2026-11-19 00:05 | cb5916fb | h8IuYoqDhSlJDACAtVetK | 2ce71c47d3270970 | 53.5 MB | 苏御凡(AI) | HTTP 200 / BUILD_ID 更新 / pm2 重启 0 / ledger 55 / bootstrap ✓ | runtime/standalone-bak |
