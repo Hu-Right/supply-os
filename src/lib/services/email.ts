@@ -3,11 +3,18 @@
  * Email Service
  *
  * @module server/services/email
- * @description 基于 nodemailer + 阿里云 SMTP 发送系统邮件（验证码等）。
+ * @description 基于 nodemailer + SMTP 发送系统邮件（验证码、RFQ 通知等）。
  *              环境变量缺失时优雅降级，抛出明确错误供上层处理。
+ *
+ *              送达率相关的三件事都在这里收口：
+ *              - From / Reply-To 由 email-config 统一解析；
+ *              - 可选应用侧 DKIM 签名（SMTP_DKIM_*，服务商已签名时留空）；
+ *              - 邀约类邮件下发 List-Unsubscribe（退订链接已在正文，这里补协议头）。
+ *              域名侧 SPF/DKIM/DMARC 用 `npm run check:email-dns` 自检。
  */
 import nodemailer from "nodemailer";
 import { createLogger } from "@/lib/utils/fileLogger";
+import { resolveDkimConfig, resolveMailIdentity, unsubscribeHeaders } from "./email-config";
 
 const log = createLogger("email");
 
@@ -21,7 +28,6 @@ function getSmtpConfig() {
     port: Number(process.env.SMTP_PORT || 465),
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
-    from: process.env.SMTP_FROM || '"国际采购供应链平台" <noreply@supply-os.com>',
   };
 }
 
@@ -41,15 +47,25 @@ function getTransporter() {
     throw new Error("SMTP_NOT_CONFIGURED");
   }
   if (_transporter) return _transporter;
-  _transporter = nodemailer.createTransport({
-    host: cfg.host,
-    port: cfg.port,
-    secure: cfg.port === 465,
-    auth: {
-      user: cfg.user,
-      pass: cfg.pass,
+  const identity = resolveMailIdentity();
+  const dkim = resolveDkimConfig();
+  _transporter = nodemailer.createTransport(
+    {
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.port === 465,
+      auth: {
+        user: cfg.user,
+        pass: cfg.pass,
+      },
+      ...(dkim ? { dkim } : {}),
     },
-  });
+    {
+      // 默认发件人 / 回复地址：各调用点不再各写一份
+      from: identity.from,
+      ...(identity.replyTo ? { replyTo: identity.replyTo } : {}),
+    },
+  );
   return _transporter;
 }
 
@@ -64,10 +80,8 @@ function resetTransporter() {
  */
 export async function sendPasswordResetEmail(email: string, code: string): Promise<void> {
   const transporter = getTransporter();
-  const cfg = getSmtpConfig();
   try {
     await transporter.sendMail({
-      from: cfg.from,
       to: email,
     subject: "找回密码 - 验证码",
     html: `
@@ -100,10 +114,8 @@ export async function sendPasswordResetEmail(email: string, code: string): Promi
  */
 export async function sendRegistrationVerifyEmail(email: string, code: string): Promise<void> {
   const transporter = getTransporter();
-  const cfg = getSmtpConfig();
   try {
     await transporter.sendMail({
-      from: cfg.from,
       to: email,
     subject: "注册验证 - 验证码",
     html: `
@@ -136,10 +148,8 @@ export async function sendRegistrationVerifyEmail(email: string, code: string): 
  */
 export async function sendEmailBindingCode(email: string, code: string): Promise<void> {
   const transporter = getTransporter();
-  const cfg = getSmtpConfig();
   try {
     await transporter.sendMail({
-      from: cfg.from,
       to: email,
     subject: "邮箱绑定 - 验证码",
     html: `
@@ -169,11 +179,21 @@ export async function sendEmailBindingCode(email: string, code: string): Promise
 // ── RFQ 采购闭环邮件触达（⑦报价通知 / ⑩中标通知 / 发布邀约） ──
 
 /** 通用系统邮件发送：复用 transporter 单例，失败清单例并上抛（调用方 best-effort 捕获）。 */
-async function dispatchEmail(email: string, subject: string, html: string, tag: string): Promise<void> {
+async function dispatchEmail(
+  email: string,
+  subject: string,
+  html: string,
+  tag: string,
+  headers?: Record<string, string>,
+): Promise<void> {
   const transporter = getTransporter();
-  const cfg = getSmtpConfig();
   try {
-    await transporter.sendMail({ from: cfg.from, to: email, subject, html });
+    await transporter.sendMail({
+      to: email,
+      subject,
+      html,
+      ...(headers && Object.keys(headers).length > 0 ? { headers } : {}),
+    });
     log.info(`${tag} 邮件发送成功 to=${email}`);
   } catch (err) {
     log.error(`${tag} 邮件发送失败 to=${email}: ${(err as Error).message || "未知错误"}`);
@@ -250,6 +270,7 @@ export async function sendProcurementInviteEmail(
       </p>
     `),
     "采购需求邀约",
+    unsubscribeHeaders(opts.unsubscribeUrl),
   );
 }
 

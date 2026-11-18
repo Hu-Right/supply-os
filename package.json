@@ -42,6 +42,7 @@
     "check:db-glossary": "node scripts/gates/check-db-column-glossary.mjs",
     "check:db-glossary:self-test": "node --test tests/gates/check-db-column-glossary.test.mjs",
     "check:gitignore": "node scripts/gates/check-gitignore-consistency.mjs",
+    "check:email-dns": "node scripts/gates/check-email-dns.mjs",
     "check:no-creds": "node scripts/gates/check-no-hardcoded-creds.mjs",
     "check:no-creds:self-test": "node --test tests/gates/check-no-hardcoded-creds.test.mjs",
     "check:taxonomy": "npx tsx scripts/gates/check-taxonomy-invariants.ts",
@@ -85,6 +86,7 @@
   "dependencies": {
     "@alicloud/dypnsapi20170525": "^2.0.0",
     "@alicloud/dysmsapi20170525": "^4.6.0",
+    "@alicloud/dysmsapi20180501": "^1.0.10",
     "@alicloud/openapi-client": "^0.4.15",
     "@google/genai": "^2.4.0",
     "@node-rs/jieba": "^2.0.2",

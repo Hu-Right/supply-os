@@ -30,6 +30,7 @@ const nextConfig: NextConfig = {
     "formstream",
     "@alicloud/dypnsapi20170525",
     "@alicloud/dysmsapi20170525",
+    "@alicloud/dysmsapi20180501",
     "@alicloud/openapi-client",
     "@google/genai",
     "meilisearch",
