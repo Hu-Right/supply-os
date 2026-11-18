@@ -20,10 +20,12 @@ import { rebuildPublicRowsByIds } from "../../src/lib/services/notice-public/reb
 import { buildPublicColumnRollbackSql } from "../../src/lib/services/notice-public/build";
 import { syncNoticeIds } from "../../src/lib/services/meilisearch/sync";
 import { tryRecover } from "../../src/lib/services/meilisearch/client";
+import { syncWideIds } from "../../src/lib/services/search-sync";
 
 const APPLY = process.argv.includes("--apply");
 const SYNC = process.argv.includes("--sync");
 const SYNC_ONLY = process.argv.includes("--sync-only");
+const WIDE_ONLY = process.argv.includes("--wide-only");
 const CHUNK = 500;
 
 for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
@@ -71,10 +73,11 @@ if (!APPLY && !SYNC_ONLY) {
   process.exit(0);
 }
 
-if (SYNC_ONLY) {
+if (SYNC_ONLY || WIDE_ONLY) {
   const healthy = await tryRecover();
+  const wide = await syncWideIds(pool, [...plan.keys()]);
   const res = await syncNoticeIds(pool, [...plan.keys()]);
-  console.log("Meili 同步：", JSON.stringify(res), healthy ? "" : "（Meili 不可达）");
+  console.log("宽表重建：", JSON.stringify(wide), "Meili 同步：", JSON.stringify(res), healthy ? "" : "（Meili 不可达）");
   await pool.end();
   process.exit(0);
 }
@@ -109,8 +112,9 @@ console.log("重建后分布：", JSON.stringify(after));
 
 if (SYNC) {
   await tryRecover();
+  const wide = await syncWideIds(pool, ids);
   const res = await syncNoticeIds(pool, ids);
-  console.log("Meili 同步：", JSON.stringify(res), res.synced === 0 ? "（Meili 未启用/不可达，本次未同步）" : "");
+  console.log("宽表重建：", JSON.stringify(wide), "Meili 同步：", JSON.stringify(res), res.synced === 0 ? "（Meili 未启用/不可达，本次未同步）" : "");
 }
 
 await pool.end();
