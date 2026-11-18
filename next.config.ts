@@ -16,8 +16,7 @@ const allowedDevOrigins = (process.env.DEV_ALLOWED_ORIGINS ?? DEFAULT_DEV_ALLOWE
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // 使用 Turbopack 作为打包工具（Next.js 16 默认，性能更优）
-  // Turbopack 原生支持 Node.js builtins，无需 webpack 的 fallback/alias 配置
+  // 打包工具：Turbopack（Next.js 16 默认），原生支持 Node.js builtins
   turbopack: {},
   // 局域网调试来源白名单：由 .env 的 DEV_ALLOWED_ORIGINS 驱动（见文件顶部注释）
   allowedDevOrigins,
