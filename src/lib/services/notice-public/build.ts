@@ -541,6 +541,28 @@ export function buildPublicRow(
   ];
 }
 
+/**
+ * 生成服务表列的「回滚 SQL」文本（仅供运维脚本导出，不在此执行）。
+ *
+ * N1 门禁要求 `notice_public` 的 INSERT/UPDATE/DELETE/TRUNCATE 只能出现在本模块；
+ * 运维脚本的回滚 SQL 文本也属于写语句口径，因此统一在这里产出，脚本只负责落盘。
+ *
+ * @param column 仅允许合法列标识符（白名单校验，防注入）
+ * @param byValue 旧值 → 该值对应的 notice_pk 列表
+ */
+export function buildPublicColumnRollbackSql(
+  column: string,
+  byValue: Map<string, number[]>,
+): string {
+  if (!/^[a-z][a-z0-9_]*$/.test(column)) throw new Error(`invalid column: ${column}`);
+  return [...byValue.entries()]
+    .map(
+      ([value, ids]) =>
+        `-- ${ids.length} 行\nUPDATE notice_public SET ${column}='${value.replace(/'/g, "''")}'\n  WHERE notice_pk IN (${ids.join(",")});\n`,
+    )
+    .join("\n");
+}
+
 /** 批量 upsert 服务表（唯一写入路径；ODKU 全列覆盖，notice_pk 除外） */
 export async function upsertPublicRows(pool: Pool, params: unknown[][]): Promise<number> {
   if (params.length === 0) return 0;

@@ -17,6 +17,7 @@ import path from "node:path";
 import mysql, { type RowDataPacket } from "mysql2/promise";
 import { classifyBareContractNotice } from "../../src/shared/constants/notice-type";
 import { rebuildPublicRowsByIds } from "../../src/lib/services/notice-public/rebuild";
+import { buildPublicColumnRollbackSql } from "../../src/lib/services/notice-public/build";
 import { syncNoticeIds } from "../../src/lib/services/meilisearch/sync";
 import { tryRecover } from "../../src/lib/services/meilisearch/client";
 
@@ -86,9 +87,7 @@ for (const r of changed) {
   arr.push(Number(r.id));
   byOld.set(old, arr);
 }
-const rollback = [...byOld.entries()].map(([old, ids]) =>
-  `-- ${ids.length} 行\nUPDATE notice_public SET notice_type_code='${old.replace(/'/g, "''")}'\n  WHERE notice_pk IN (${ids.join(",")});\n`,
-).join("\n");
+const rollback = buildPublicColumnRollbackSql("notice_type_code", byOld);
 const rollbackFile = path.join(
   process.env.TEMP || "C:\\Users\\苏御凡\\AppData\\Local\\Temp",
   "qwenwork",
