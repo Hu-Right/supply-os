@@ -20,6 +20,10 @@ export interface BuyerRow extends RowDataPacket {
   country: string | null;
   country_code: string | null;
   reg_no: string | null;
+  /** 注册标识类型：uscc / hk_br / hk_cr / overseas_reg / tax_id / other（DB 默认 uscc） */
+  reg_no_type?: string | null;
+  /** 注册标识归一号码（去分隔符转大写，仅查重索引使用） */
+  reg_no_norm?: string | null;
   tax_no: string | null;
   website: string | null;
   official_email: string | null;
@@ -49,6 +53,8 @@ const EDITABLE_COLUMNS = [
   "country",
   "country_code",
   "reg_no",
+  "reg_no_type",
+  "reg_no_norm",
   "tax_no",
   "website",
   "official_email",
@@ -87,6 +93,7 @@ export async function getBuyerById(db: Pool, buyerId: number): Promise<BuyerRow 
 const IDENTITY_COLUMNS = [
   "org_name",
   "reg_no",
+  "reg_no_type",
   "official_email",
   "license_file_key",
   "license_file_hash",

@@ -43,6 +43,8 @@ export interface EnterpriseInfo {
   /** DECIMAL（无 decimalNumbers）⇒ 字符串 */
   registeredCapital: string | null;
   creditCode: string | null;
+  /** 注册标识类型（缺省按 uscc 处理，见 shared/constants/registration-id） */
+  creditCodeType: string | null;
   /** varchar 逗号分隔文本，不是数组 */
   certification: string | null;
   products: string | null;

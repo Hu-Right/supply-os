@@ -26,6 +26,12 @@ export interface SupplierDirectoryRow {
   /** 主行业码（industry_nodes.code，UGT-I- 前缀）；行业面标准口径（industry 自由文本列已退役） */
   industry_code?: string | null;
   certification: string | null;
+  /** 注册标识原文（按 credit_code_type 释义：uscc / hk_br / hk_cr / overseas_reg / tax_id / other） */
+  credit_code?: string | null;
+  /** 注册标识类型（默认 uscc） */
+  credit_code_type?: string | null;
+  /** 注册标识归一号码（去分隔符转大写，仅查重索引使用，不对外下发） */
+  credit_code_norm?: string | null;
   /** 认证状态：unverified=未认证 / done=已认证（2026-11 起两态；认证只由认领通过写入） */
   verify_status?: string | null;
   /** 信息完整度/真实性人工审核：unreviewed / reviewed（门户展示门槛） */
@@ -281,9 +287,12 @@ export class SupplierDirectoryRepo {
     "company", "country", "country_code", "province", "city",
     "address", "contact", "position", "phone", "email",
     "website", "legal_rep",
-    "established_at", "registered_capital", "credit_code",
+    "established_at", "registered_capital", "credit_code", "credit_code_type",
     "certification", "products",
   ] as const;
+
+  /** 仅服务端派生写入、不对外下发（PORTAL_COLUMNS 不含）：注册标识归一号码 */
+  static readonly INTERNAL_WRITE_COLUMNS = ["credit_code_norm"] as const;
 
   /**
    * 门户读列白名单 = EDITABLE_COLUMNS（表单可编辑列，编辑回填必需）
@@ -314,7 +323,7 @@ export class SupplierDirectoryRepo {
    *    data_quality_score 由后台按「非空且 TRIM(col) <> ''」重新计算落库，'' 与 null 同样计为空，保留 '' 不影响评分。 */
   private pickEditable(input: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
-    for (const col of SupplierDirectoryRepo.EDITABLE_COLUMNS) {
+    for (const col of [...SupplierDirectoryRepo.EDITABLE_COLUMNS, ...SupplierDirectoryRepo.INTERNAL_WRITE_COLUMNS]) {
       if (!(col in input)) continue;
       const v = input[col];
       if (v === undefined || v === null) {
@@ -352,13 +361,18 @@ export class SupplierDirectoryRepo {
     return Number((result as RowDataPacket).insertId);
   }
 
-  /** 按统一社会信用代码查企业（注册防重优先键）；verify_status 供防重分支区分「已认证→转认领 / 未认证→直接绑定」 */
-  async findByCreditCode(creditCode: string): Promise<SupplierDirectoryRow | null> {
+  /**
+   * 按注册标识查企业（注册防重优先键）。2026-11-18 起改为「类型 + 归一号码」组合键：
+   * 香港 8 位数字与别国 8 位数字不再互相撞号；原文里的分隔符/大小写差异也不再漏判。
+   * verify_status 供防重分支区分「已认证→转认领 / 未认证→直接绑定」。
+   */
+  async findByCreditCode(normalizedCode: string, type: string): Promise<SupplierDirectoryRow | null> {
+    if (!normalizedCode) return null;
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
               contact, phone, email, products, certification, verify_status, info_review_status
-       FROM supplier WHERE credit_code = ? LIMIT 1`,
-      [creditCode],
+       FROM supplier WHERE credit_code_type = ? AND credit_code_norm = ? LIMIT 1`,
+      [type, normalizedCode],
     );
     return ((rows as SupplierDirectoryRow[])[0]) ?? null;
   }

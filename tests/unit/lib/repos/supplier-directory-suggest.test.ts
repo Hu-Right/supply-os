@@ -42,7 +42,7 @@ describe("SupplierDirectoryRepo 认领建议", () => {
 
   it("findByCreditCode / findByCompanyBest 的 SELECT 带出 verify_status", async () => {
     mockQuery.mockResolvedValue([[{ id: 1, verify_status: "done" }]]);
-    await repo.findByCreditCode("91330000XXX");
+    await repo.findByCreditCode("91330000XXX", "uscc");
     expect(mockQuery.mock.calls[0][0] as string).toContain("verify_status");
 
     mockQuery.mockResolvedValue([[{ id: 2, verify_status: "pending" }]]);

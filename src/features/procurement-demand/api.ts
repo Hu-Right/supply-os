@@ -13,6 +13,8 @@ export interface BuyerInfo {
   country: string;
   countryCode: string;
   regNo: string;
+  /** 注册标识类型：uscc / hk_br / hk_cr / overseas_reg / tax_id / other */
+  regNoType: string;
   taxNo: string;
   website: string;
   officialEmail: string;

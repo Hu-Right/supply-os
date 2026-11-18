@@ -44,6 +44,8 @@ export function buyerViewOf(row: BuyerRow) {
     country: toStr(row.country),
     countryCode: toStr(row.country_code),
     regNo: toStr(row.reg_no),
+    /** 注册标识类型（默认 uscc；香港/海外主体据此解释 regNo） */
+    regNoType: toStr(row.reg_no_type) || "uscc",
     taxNo: toStr(row.tax_no),
     website: toStr(row.website),
     officialEmail: toStr(row.official_email),

@@ -15,6 +15,13 @@ import { getBuyerByUserId, upsertBuyer, listBuyerVerifications, type BuyerRow } 
 import { buyerViewOf, buyerVerificationViewOf } from "@/lib/services/procurement/views";
 import { buyerRiskFlags, findBuyerDuplicates } from "@/lib/services/procurement/buyer-compliance";
 import { missingBuyerFields, BUYER_REQUIRED_FIELD_LABELS_ZH } from "@/shared/constants/buyer-form";
+import {
+  DEFAULT_REGISTRATION_ID_TYPE,
+  REGISTRATION_ID_ERROR_ZH,
+  isRegistrationIdType,
+  normalizeRegistrationId,
+  validateRegistrationId,
+} from "@/shared/constants/registration-id";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -40,6 +47,7 @@ export const GET = withRoute(async (req: NextRequest) => {
       buyerId: Number(buyer.id),
       orgName: String(buyer.org_name ?? ""),
       regNo: buyer.reg_no,
+      regNoType: buyer.reg_no_type,
       email: buyer.official_email,
       phone: buyer.official_phone,
     });
@@ -78,6 +86,10 @@ export const PUT = withRoute(async (req: NextRequest) => {
     const buyerRole = pick(["buyerRole", "buyer_role"], existing?.buyer_role);
     const country = pick(["country"], existing?.country);
     const regNo = pick(["regNo", "reg_no"], existing?.reg_no);
+    // 注册标识类型化（2026-11-18）：缺省 uscc（旧客户端不带类型时保持原语义），
+    // 香港/海外主体按所选类型放宽校验；归一号码仅服务端计算，用于查重索引。
+    const regNoTypeRaw = pick(["regNoType", "reg_no_type"], existing?.reg_no_type);
+    const regNoType = isRegistrationIdType(regNoTypeRaw) ? regNoTypeRaw : DEFAULT_REGISTRATION_ID_TYPE;
     const officialEmail = pick(["officialEmail", "official_email"], existing?.official_email);
     const authContactName = pick(["authContactName", "auth_contact_name"], existing?.auth_contact_name);
     const licenseKey = pick(["licenseFileKey", "license_file_key"], existing?.license_file_key);
@@ -102,6 +114,16 @@ export const PUT = withRoute(async (req: NextRequest) => {
       );
     }
 
+    // 号码格式按类型分级校验：USCC 严格 18 位，香港 BR/CR 与海外注册号/税号宽松；
+    // 真伪仍由云境人工核验，这里只挡明显填错（如把公司名填进号码栏）。
+    if (regNo) {
+      const verdict = validateRegistrationId(regNoType, regNo);
+      if (!verdict.ok) {
+        routeError(400, EC_INVALID_PARAMS, REGISTRATION_ID_ERROR_ZH[verdict.code]);
+      }
+    }
+    const regNoNorm = regNo ? normalizeRegistrationId(regNo) : null;
+
     const result = await upsertBuyer(pool, {
       userId: auth.userId,
       fields: {
@@ -110,6 +132,8 @@ export const PUT = withRoute(async (req: NextRequest) => {
         country: country || undefined,
         country_code: pick(["countryCode", "country_code"], existing?.country_code) || undefined,
         reg_no: regNo || undefined,
+        reg_no_type: regNoType,
+        reg_no_norm: regNoNorm,
         tax_no: body.taxNo,
         website: body.website,
         official_email: officialEmail || undefined,

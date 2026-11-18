@@ -104,6 +104,33 @@ describe("findBuyerDuplicates", () => {
     expect(r).toEqual([{ buyerId: 9, orgName: "另一主体", matchedField: "official_email" }]);
   });
 
+  it("注册号按 (类型, 归一号码) 匹配：分隔符/大小写差异不再漏判", async () => {
+    const db = {
+      query: vi.fn(async () => [
+        [
+          {
+            id: 9,
+            org_name: "另一主体",
+            reg_no: "REG-002",
+            reg_no_type: "uscc",
+            reg_no_norm: "REG002",
+            official_email: "other@example.org",
+            official_phone: "+254700000001",
+          },
+        ],
+      ]),
+    } as unknown as Pool;
+    const r = await findBuyerDuplicates(db, {
+      buyerId: 7,
+      orgName: "",
+      regNo: "reg 002",
+      regNoType: "uscc",
+      email: null,
+      phone: null,
+    });
+    expect(r).toEqual([{ buyerId: 9, orgName: "另一主体", matchedField: "reg_no" }]);
+  });
+
   it("无任何字段 → 不查库", async () => {
     const db = { query: vi.fn() } as unknown as Pool;
     const r = await findBuyerDuplicates(db, { buyerId: 7, orgName: "", regNo: null, email: null, phone: null });

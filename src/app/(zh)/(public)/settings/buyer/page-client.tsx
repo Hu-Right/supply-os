@@ -37,6 +37,15 @@ import {
   ruleLabelKey,
 } from "@/shared/constants/external-procurement-rules";
 import { missingBuyerFields } from "@/shared/constants/buyer-form";
+import {
+  DEFAULT_REGISTRATION_ID_TYPE,
+  REGISTRATION_ID_ERROR_ZH,
+  REGISTRATION_ID_FIELD_LABELS,
+  isRegistrationIdType,
+  defaultRegistrationIdTypeForCountry,
+  validateRegistrationId,
+  type RegistrationIdType,
+} from "@/shared/constants/registration-id";
 import { countryName, countryOptions, guessCountryCode } from "@/shared/constants/countries";
 
 export default function PageClient() {
@@ -51,7 +60,7 @@ export default function PageClient() {
   // 只保留"有消费方"或"核验需要"的字段；下线字段不提交 = 保持库里原值（upsertBuyer 只写提交的键）
   const [form, setForm] = useState({
     orgName: "", buyerRole: "end_buyer",
-    country: "", regNo: "", taxNo: "",
+    country: "", regNoType: "uscc", regNo: "", taxNo: "",
     website: "", officialEmail: "", officialPhone: "",
     externalRules: "",
     authContactName: "", authContactPhone: "", authContactEmail: "",
@@ -78,7 +87,9 @@ export default function PageClient() {
         setForm((p) => ({
           ...p,
           orgName: b.orgName, buyerRole: b.buyerRole || "end_buyer",
-          country: b.countryCode || guessCountryCode(b.country) || "", regNo: b.regNo, taxNo: b.taxNo,
+          country: b.countryCode || guessCountryCode(b.country) || "",
+          regNoType: isRegistrationIdType(b.regNoType) ? b.regNoType : DEFAULT_REGISTRATION_ID_TYPE,
+          regNo: b.regNo, taxNo: b.taxNo,
           website: b.website, officialEmail: b.officialEmail, officialPhone: b.officialPhone,
           externalRules: b.externalRules,
           // 联系人已合并到 auth_contact_*：老数据由迁移 022 从 leader_* 回填，
@@ -123,6 +134,14 @@ export default function PageClient() {
         return key;
       });
       setMessage(`${t("pc_err_required")}：${labels.join("、")}`);
+      setMessageCls("bg-red-50 text-red-700");
+      return;
+    }
+    // 注册标识分级校验（与 POST/PUT 服务端同口径）：USCC 严格 18 位，香港/海外宽松
+    const regVerdict = validateRegistrationId(form.regNoType as RegistrationIdType, form.regNo);
+    if (!regVerdict.ok) {
+      const fallback = REGISTRATION_ID_ERROR_ZH[regVerdict.code];
+      setMessage(t(`pc_bregid_err_${regVerdict.code}`) || fallback);
       setMessageCls("bg-red-50 text-red-700");
       return;
     }
@@ -182,6 +201,14 @@ export default function PageClient() {
   /** 字段说明：告诉用户"为什么需要"，而不是再加一条规则 */
   const labelCls = "text-sm font-semibold text-secondary-700 block";
   const f = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+  // 注册标识类型：号码字段的标签/占位随所选类型切换（默认按注册国家推导，用户可改）
+  const regIdType: RegistrationIdType = isRegistrationIdType(form.regNoType)
+    ? form.regNoType
+    : DEFAULT_REGISTRATION_ID_TYPE;
+  const regIdField = REGISTRATION_ID_FIELD_LABELS[regIdType];
+  /** 采购主体 namespace 的文案键（pc_bregid_*），缺失时回退共享中文兜底 */
+  const regIdLabel = t(`pc_bregid_${regIdType}`) || regIdField.fallback;
+  const regIdPlaceholder = t(`pc_bregid_ph_${regIdType}`) || "";
   const roleOptions = ["end_buyer", "authorized_agent", "general_contractor", "intermediary"];
 
   /** 当前状态（唯一权威）——文案只给"处于什么状态"，意见单独成块，等待时长单独算 */
@@ -317,17 +344,43 @@ export default function PageClient() {
             <SearchableSelect
               options={countrySelectOptions}
               value={form.country || null}
-              onChange={(value) => f("country", String(value ?? ""))}
+              onChange={(value) => {
+                const code = String(value ?? "");
+                setForm((prev) => ({ ...prev, country: code, regNoType: defaultRegistrationIdTypeForCountry(code) }));
+              }}
               placeholder={t("pc_country_search")}
               className="mt-1"
             />
           </label>
           <label className={labelCls}>
             <span className="flex items-center gap-1.5">
-              {t("pc_bregno")} *
-              <FieldHintTooltip label={t("pc_bregno")} content={t("pc_bhint_regno")} />
+              {t("pc_bregnotype")} *
+              <FieldHintTooltip label={t("pc_bregnotype")} content={t("pc_bhint_regnotype")} />
             </span>
-            <input value={form.regNo} onChange={(e) => f("regNo", e.target.value)} className={inputCls} />
+            <select
+              value={form.regNoType}
+              onChange={(e) => f("regNoType", e.target.value)}
+              className={inputCls}
+            >
+              {(["uscc", "hk_br", "hk_cr", "overseas_reg", "tax_id", "other"] as const).map((value) => (
+                <option key={value} value={value}>{t(`pc_bregidtype_${value}`)}</option>
+              ))}
+            </select>
+          </label>
+          <label className={labelCls}>
+            <span className="flex items-center gap-1.5">
+              {regIdLabel} *
+              <FieldHintTooltip label={regIdLabel} content={t("pc_bhint_regno")} />
+            </span>
+            <input
+              value={form.regNo}
+              onChange={(e) => f("regNo", e.target.value)}
+              placeholder={regIdPlaceholder}
+              className={inputCls}
+            />
+            <span className="mt-1 block text-[11px] font-normal leading-relaxed text-secondary-500">
+              {t(`pc_bregid_hint_${regIdType}`)}
+            </span>
           </label>
           <label className={labelCls}>{t("pc_btaxno")}<input value={form.taxNo} onChange={(e) => f("taxNo", e.target.value)} className={inputCls} /></label>
 

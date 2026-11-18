@@ -12,7 +12,7 @@
  *              2026-10 组件化拆分（455→约 190 行）：字段定义/表格布局/执照上传段/认领引导条
  *              见 ./enterprise-edit/*，JSX 与行为逐字不变；本文件保留表单状态与提交编排。
  */
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { SupplierProductsPicker } from "./SupplierProductsPicker";
@@ -26,6 +26,15 @@ import {
   BASIC_FIELDS, CONTACT_FIELDS, BUSINESS_FIELDS, REQUIRED_KEYS, ALL_FIELD_GROUPS,
   btnBlue, btnPlain, inputCls,
 } from "./enterprise-edit/fields";
+import {
+  DEFAULT_REGISTRATION_ID_TYPE,
+  REGISTRATION_ID_ERROR_ZH,
+  REGISTRATION_ID_FIELD_LABELS,
+  isRegistrationIdType,
+  validateRegistrationId,
+  type RegistrationIdType,
+  type RegistrationIdErrorCode,
+} from "@/shared/constants/registration-id";
 import { FieldGrid, GroupTitle } from "./enterprise-edit/FieldGrid";
 import { LicenseUploadSection } from "./enterprise-edit/LicenseUploadSection";
 import { ClaimSuggestBar, type ClaimSuggestion } from "./enterprise-edit/ClaimSuggestBar";
@@ -78,10 +87,30 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
     init.city = initial?.city ? String(initial.city) : "";
     // products（产品介绍）已从 BUSINESS_FIELDS 移入独立的「主营产品」板块，不再由循环初始化，这里显式回填
     init.products = initial?.products ? String(initial.products) : "";
+    // 注册标识类型：存量行没有类型时按 uscc（中国码）兜底，香港/海外主体由用户在下拉里改
+    if (!init.credit_code_type || !isRegistrationIdType(init.credit_code_type)) {
+      init.credit_code_type = DEFAULT_REGISTRATION_ID_TYPE;
+    }
     return init;
   });
 
   const set = useCallback((key: string, v: string) => setValues((s) => ({ ...s, [key]: v })), []);
+
+  // 注册标识：按当前类型切换号码字段的标签/占位（字段定义仍是唯一事实源，这里只改展示口径）
+  const creditType: RegistrationIdType = isRegistrationIdType(values.credit_code_type)
+    ? values.credit_code_type
+    : DEFAULT_REGISTRATION_ID_TYPE;
+  const creditField = REGISTRATION_ID_FIELD_LABELS[creditType];
+  const businessFields = useMemo(
+    () => BUSINESS_FIELDS.map((f) => (f.key === "credit_code"
+      ? { ...f, labelKey: creditField.labelKey, placeholderKey: creditField.placeholderKey, fallback: creditField.fallback }
+      : f)),
+    [creditField],
+  );
+  const regIdErrorText = useCallback((code: RegistrationIdErrorCode) => {
+    const fallback = REGISTRATION_ID_ERROR_ZH[code];
+    return t(`authRegIdErr_${code}`) || fallback;
+  }, [t]);
 
   // 认领引导：仅未绑定新建时，公司名失焦查库内已认证同名/近似企业（查询失败静默，不阻断填写）
   const checkCompanySuggest = async (raw: string) => {
@@ -118,6 +147,12 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
     }
     if (missing.length) {
       setFormError(`${t("authEnterpriseRequiredMissing") || "请填写必填项"}：${missing.join("、")}`);
+      return;
+    }
+    // 注册标识分级校验：中国 USCC 严格 18 位，香港/海外按各自证件宽松校验（真伪仍由人工核验）
+    const regVerdict = validateRegistrationId(creditType, values.credit_code);
+    if (!regVerdict.ok) {
+      setFormError(regIdErrorText(regVerdict.code));
       return;
     }
     setFormError(null);
@@ -169,7 +204,7 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
       </section>
       <section>
         <GroupTitle>{t("authEnterpriseGroupBusiness") || "工商与业务信息"}</GroupTitle>
-        <FieldGrid fields={BUSINESS_FIELDS} values={values} onSet={set} />
+        <FieldGrid fields={businessFields} values={values} onSet={set} />
       </section>
 
       {/* 主营产品：展示属性（自由文本）与商品属性（品目树落点）并列展示，同属一个概念的两个侧面 */}

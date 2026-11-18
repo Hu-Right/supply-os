@@ -44,6 +44,8 @@ export interface SupplierEnterpriseView {
   establishedAt: Date | string | null;
   registeredCapital: string | null;
   creditCode: string | null;
+  /** 注册标识类型（uscc / hk_br / hk_cr / overseas_reg / tax_id / other），决定 creditCode 的释义 */
+  creditCodeType: string | null;
   /** 逗号分隔文本（varchar），不是数组 */
   certification: string | null;
   products: string | null;

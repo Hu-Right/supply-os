@@ -124,8 +124,10 @@ export type AppContext = {
  *  同理：任何「列白名单 / 静态列集合」变更都算形状变更，必须 +1。
  *  2026-11-17 +1：迁移 040 摘除 supplier.intro，SupplierDirectoryRepo 的
  *  EDITABLE_COLUMNS/PORTAL_COLUMNS 同步删列；不 +1 时已绑定企业的账号
- *  GET /api/user/enterprise 仍拼 `intro` → Unknown column → 500。 */
-const CTX_VERSION = 9;
+ *  GET /api/user/enterprise 仍拼 `intro` → Unknown column → 500。
+ *  2026-11-18 +1：迁移 050 给 supplier 加 credit_code_type/credit_code_norm，
+ *  白名单（PORTAL/EDITABLE）随之加列；不 +1 时 dev 热重载仍按旧列集合拼 SQL。 */
+const CTX_VERSION = 10;
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };

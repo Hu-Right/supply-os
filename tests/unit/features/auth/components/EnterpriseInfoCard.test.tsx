@@ -33,6 +33,7 @@ const mockRow: EnterpriseInfo = {
   establishedAt: "2003-09-19",
   registeredCapital: "3000万元",
   creditCode: "-",
+  creditCodeType: "uscc",
   certification: "-",
   products: "智算模块",
   // 以下旧夹具根本没给（当时不报），现在显式给空值保持卡片渲染不变
@@ -141,7 +142,7 @@ describe("EnterpriseInfoCard", () => {
       expect(screen.getByText("ID")).toBeInTheDocument();
       expect(screen.getByText("确认后公司名")).toBeInTheDocument();
       expect(screen.getByText("经营地址")).toBeInTheDocument();
-      expect(screen.getByText("统一社会信用代码")).toBeInTheDocument();
+      expect(screen.getByText(/统一社会信用代码/)).toBeInTheDocument();
       expect(screen.getByText("资料完整度")).toBeInTheDocument();
     } finally {
       tState.impl = (key: string) => key;

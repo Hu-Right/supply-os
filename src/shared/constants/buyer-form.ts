@@ -38,7 +38,7 @@ export const BUYER_REQUIRED_FIELD_LABELS_ZH: Record<BuyerRequiredFieldKey, strin
   org_name: "采购主体完整法定名称",
   buyer_role: "采购权限",
   country: "注册国家",
-  reg_no: "注册号码",
+  reg_no: "注册标识号码",
   official_email: "企业邮箱",
   auth_contact_name: "授权联系人姓名",
   license: "营业执照/注册文件",

@@ -56,10 +56,15 @@ import { migration as dropSupplierDeadFieldsMigration } from "./migrations/038-d
 import { migration as dropSupplierRegistrationFieldsMigration } from "./migrations/039-drop-supplier-registration-fields";
 import { migration as dropSupplierIntroMigration } from "./migrations/040-drop-supplier-intro";
 import { migration as dropUnusedProcurementTendersColumnMigration } from "./migrations/041-drop-unused-procurement-tenders-column";
+import { migration as registrationIdTypeMigration } from "./migrations/050-registration-id-type";
 import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
 import { migration as dropBuyerParentMigration } from "./migrations/043-buyer-drop-parent";
 import { migration as searchLogAnonymousMigration } from "./migrations/044-search-log-anonymous";
 import { migration as noticePublicOpportunityIndexMigration } from "./migrations/045-notice-public-opportunity-index";
+import { migration as noticePublicCountryIndexMigration } from "./migrations/046-notice-public-country-index";
+import { migration as noticePublicTypePkIndexMigration } from "./migrations/047-notice-public-type-pk-index";
+import { migration as noticePublicHasAttachmentsMigration } from "./migrations/048-notice-public-has-attachments";
+import { migration as phoneE164Migration } from "./migrations/049-phone-e164";
 
 /**
  * 迁移清单：非必要不写。新增迁移 = 放进 migrations/ 并 push 到本数组。
@@ -106,6 +111,11 @@ export const ALL_MIGRATIONS: Migration[] = [
   dropBuyerParentMigration,
   searchLogAnonymousMigration,
   noticePublicOpportunityIndexMigration,
+  noticePublicCountryIndexMigration,
+  noticePublicTypePkIndexMigration,
+  noticePublicHasAttachmentsMigration,
+  phoneE164Migration,
+  registrationIdTypeMigration,
 ];
 
 /**

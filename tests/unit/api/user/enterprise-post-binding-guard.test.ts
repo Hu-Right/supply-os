@@ -90,6 +90,35 @@ describe("POST /api/user/enterprise 账号侧排他", () => {
     );
   });
 
+  it("注册标识类型化：香港 BR 不再卡 18 位，归一后按 (类型, 号码) 查重", async () => {
+    const { ctx, directoryRepo } = buildCtx(null);
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+
+    const res = await POST(postReq({ company: "香港测试有限公司", credit_code: "1234-5678", credit_code_type: "hk_br" }));
+    expect(res.status).toBe(200);
+    // 查重键 = 归一号码 + 类型（避免香港 8 位数字与别国号码撞号）
+    expect(directoryRepo.findByCreditCode).toHaveBeenCalledWith("12345678", "hk_br");
+    expect(directoryRepo.insertEnterprise).toHaveBeenCalledWith(
+      expect.objectContaining({
+        credit_code: "1234-5678",
+        credit_code_type: "hk_br",
+        credit_code_norm: "12345678",
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("注册标识格式不符类型 → 400，不查重不建号", async () => {
+    const { ctx, directoryRepo } = buildCtx(null);
+    vi.mocked(getContext).mockReturnValue(ctx as never);
+
+    const res = await POST(postReq({ company: "北京某公司", credit_code: "12345" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).message).toContain("18 位");
+    expect(directoryRepo.findByCreditCode).not.toHaveBeenCalled();
+    expect(directoryRepo.insertEnterprise).not.toHaveBeenCalled();
+  });
+
   it("已绑定且已认证：POST 另一家企业 → 400，一行数据都不写", async () => {
     const { ctx, directoryRepo, usersRepo } = buildCtx(bindSubject({ verify_status: "done" }));
     vi.mocked(getContext).mockReturnValue(ctx as never);

@@ -41,7 +41,22 @@ export const BUSINESS_FIELDS: FieldDef[] = [
   { key: "legal_rep", labelKey: "authEnterpriseLegalRep", fallback: "法定代表人", placeholderKey: "authEnterpriseLegalRepPh" },
   { key: "established_at", labelKey: "authEnterpriseEstablished", fallback: "成立日期", inputType: "date", placeholderKey: "authEnterpriseEstablishedPh" },
   { key: "registered_capital", labelKey: "authEnterpriseCapital", fallback: "注册资本", placeholderKey: "authEnterpriseCapitalPh" },
-  { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码", placeholderKey: "authEnterpriseCreditCodePh" },
+  // 证件类型：默认 uscc；香港/海外主体选择 BR/CR/海外注册号/税号，号码字段的标签与校验随之切换
+  {
+    key: "credit_code_type",
+    labelKey: "authEnterpriseCreditCodeType",
+    fallback: "证件类型",
+    options: [
+      { value: "uscc", labelKey: "authRegIdType_uscc", fallback: "统一社会信用代码（中国大陆）" },
+      { value: "hk_br", labelKey: "authRegIdType_hk_br", fallback: "商业登记号 BR（香港）" },
+      { value: "hk_cr", labelKey: "authRegIdType_hk_cr", fallback: "公司注册编号 CR（香港）" },
+      { value: "overseas_reg", labelKey: "authRegIdType_overseas_reg", fallback: "公司注册号（海外）" },
+      { value: "tax_id", labelKey: "authRegIdType_tax_id", fallback: "税号 / VAT / EIN" },
+      { value: "other", labelKey: "authRegIdType_other", fallback: "其他注册标识" },
+    ],
+  },
+  // 号码字段的 label/placeholder 由表单按当前类型动态覆盖（labelKey/placeholderKey 只是 uscc 兜底）
+  { key: "credit_code", labelKey: "authRegIdField_uscc", fallback: "统一社会信用代码（18 位）", placeholderKey: "authRegIdPh_uscc" },
   { key: "certification", labelKey: "authEnterpriseCertifications", fallback: "资质认证", placeholderKey: "authEnterpriseCertificationsPh" },
 ];
 

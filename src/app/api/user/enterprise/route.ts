@@ -22,6 +22,15 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { normalizeEstablishedAt, normalizeRegisteredCapital } from "@/shared/utils/enterprise-fields";
+import {
+  DEFAULT_REGISTRATION_ID_TYPE,
+  REGISTRATION_ID_ERROR_ZH,
+  REGISTRATION_ID_TYPES,
+  isRegistrationIdType,
+  normalizeRegistrationId,
+  validateRegistrationId,
+  type RegistrationIdType,
+} from "@/shared/constants/registration-id";
 import { deleteFile } from "@/lib/services/file-upload";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { supplierEnterpriseViewOf } from "@/lib/services/enterprise/view";
@@ -68,7 +77,10 @@ const enterpriseBodySchema = z.object({
       z.string().regex(/^\d{1,14}(?:\.\d{1,2})?$/, "注册资本请填写数字（可带“万元”，如 500万元）"),
     ]).optional(),
   ),
-  credit_code: z.string().max(30).optional(),
+  // 注册标识原文：按 credit_code_type 释义（uscc / 香港 BR·CR / 海外注册号 / 税号 / 其他）
+  credit_code: z.string().max(64).optional(),
+  /** 注册标识类型；缺省 uscc（旧客户端/直接 API 不带该键时保持原语义） */
+  credit_code_type: z.enum(REGISTRATION_ID_TYPES).optional(),
   certification: z.string().max(500).optional(),
   products: z.string().max(500).optional(),
   /** 营业执照鉴权 URL；null/"" 表示移除。不在 EDITABLE_COLUMNS，由保存端单独协调。 */
@@ -79,6 +91,33 @@ const enterpriseBodySchema = z.object({
    */
   commodity_nodes: z.array(z.string().max(24)).max(60).optional(),
 });
+
+/** 注册标识写入补丁：类型缺省 uscc；原文按类型分级校验，归一号列仅服务端计算 */
+interface RegistrationPatch {
+  credit_code?: string;
+  credit_code_type: RegistrationIdType;
+  credit_code_norm: string | null;
+}
+
+function registrationPatch(
+  body: z.infer<typeof enterpriseBodySchema>,
+): RegistrationPatch | null {
+  const hasCode = body.credit_code !== undefined;
+  const hasType = body.credit_code_type !== undefined;
+  if (!hasCode && !hasType) return null; // 未触及注册标识 → 不动既有列
+
+  const type: RegistrationIdType = hasType && isRegistrationIdType(body.credit_code_type)
+    ? body.credit_code_type
+    : DEFAULT_REGISTRATION_ID_TYPE;
+  const raw = String(body.credit_code ?? "").trim();
+  if (raw) {
+    const verdict = validateRegistrationId(type, raw);
+    if (!verdict.ok) routeError(400, EC_INVALID_PARAMS, REGISTRATION_ID_ERROR_ZH[verdict.code]);
+    return { credit_code: raw, credit_code_type: type, credit_code_norm: normalizeRegistrationId(raw) };
+  }
+  // 显式清空：允许（前端必填，但直接 API 可清），归一列同步置空
+  return { credit_code: "", credit_code_type: type, credit_code_norm: null };
+}
 
 /**
  * 自报落点写入闸口：只有 body 显式携带 commodity_nodes 才动 self_report 行（缺键保持原状，
@@ -268,8 +307,13 @@ export const PUT = withRoute(async (req) => {
   // 编辑闸口：已认证行不得把 company / credit_code 改成另一家公司（否则绕过审核把认证挪走）
   await assertVerifiedSubjectIdentityStable(ctx, supplierId, body as Record<string, unknown>);
 
+  // 注册标识类型化（2026-11-18）：类型缺省 uscc，原文分级校验，归一号码由服务端算
+  const putRegistration = registrationPatch(body);
   await guardEnterpriseWrite(() =>
-    ctx.supplier.directoryRepo.updateEnterprise(supplierId, body as Record<string, unknown>),
+    ctx.supplier.directoryRepo.updateEnterprise(supplierId, {
+      ...(body as Record<string, unknown>),
+      ...(putRegistration ?? {}),
+    }),
   );
   // 执照以保存为单一入口：仅当本次 body 显式携带 license_url 时协调（含移除）；
   // 已认证供应商换照 → 进入待审（先审后生效）
@@ -304,9 +348,11 @@ export const POST = withRoute(async (req) => {
   // ── 防重：已存在则绑定已有行，不新建 ──
   let existingId = 0;
   let existingVerified = false;
-  const creditCode = String(body.credit_code || "").trim();
-  if (creditCode) {
-    const byCredit = await repo.findByCreditCode(creditCode);
+  // 注册标识类型化（2026-11-18）：防重键 = (类型, 归一号码)；旧客户端不带类型时按 uscc 处理
+  const postRegistration = registrationPatch(body);
+  const creditNorm = postRegistration?.credit_code_norm ?? "";
+  if (creditNorm) {
+    const byCredit = await repo.findByCreditCode(creditNorm, postRegistration!.credit_code_type);
     if (byCredit) {
       existingId = Number(byCredit.id);
       existingVerified = byCredit.info_review_status === "reviewed";
@@ -363,7 +409,7 @@ export const POST = withRoute(async (req) => {
 
   // ── 新建：审核中 ──
   const newId = await guardEnterpriseWrite(() => repo.insertEnterprise(
-    { ...(body as Record<string, unknown>), company: companyName },
+    { ...(body as Record<string, unknown>), ...(postRegistration ?? {}), company: companyName },
     { verify_status: "unverified", info_review_status: "unreviewed" },
   ));
   if (!newId) {

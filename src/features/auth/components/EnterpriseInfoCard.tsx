@@ -21,6 +21,11 @@ import {
 import type { EnterpriseInfo, LicenseChangeBrief, CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
 import { sv, fmtAddtime, fmtScore, type Cell } from "./enterprise-info/formatters";
 import { formatEstablishedAtForInput } from "@/shared/utils/enterprise-fields";
+import {
+  DEFAULT_REGISTRATION_ID_TYPE,
+  REGISTRATION_ID_FIELD_LABELS,
+  isRegistrationIdType,
+} from "@/shared/constants/registration-id";
 import { GroupTitle, InfoTable, LoadingState, ErrorState, NotBoundState, LicenseView } from "./enterprise-info/parts";
 
 export interface EnterpriseInfoCardProps {
@@ -57,6 +62,9 @@ export function EnterpriseInfoCard({
 
   // ── 已绑定：分组表格 ──
   const row = enterprise;
+  const creditField = REGISTRATION_ID_FIELD_LABELS[
+    isRegistrationIdType(row.creditCodeType) ? row.creditCodeType : DEFAULT_REGISTRATION_ID_TYPE
+  ];
   const companyName = sv(row, "company");
   const isIntl = String(row.countryCode || "") !== "" && String(row.countryCode) !== "CN";
   // 认证状态与账户设置页、后端排他闸口同一口径（verify_status=资质 / hasPendingClaim=认领待核；
@@ -89,7 +97,8 @@ export function EnterpriseInfoCard({
     { label: t("authEnterpriseLegalRep") || "法定代表人", value: sv(row, "legalRep") },
     { label: t("authEnterpriseEstablished") || "成立日期", value: formatEstablishedAtForInput(row.establishedAt) || "-" },
     { label: t("authEnterpriseCapital") || "注册资本", value: sv(row, "registeredCapital") },
-    { label: t("authEnterpriseCreditCode") || "统一社会信用代码", value: sv(row, "creditCode") },
+    // 注册标识：标签随证件类型变化（中国 USCC / 香港 BR·CR / 海外注册号 / 税号 / 其他）
+    { label: t(creditField.labelKey) || creditField.fallback, value: sv(row, "creditCode") },
     { label: t("authEnterpriseCertifications") || "资质认证", value: sv(row, "certification") },
   ];
 

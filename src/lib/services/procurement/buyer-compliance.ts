@@ -10,6 +10,11 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { BuyerRow } from "./buyers";
+import {
+  DEFAULT_REGISTRATION_ID_TYPE,
+  isRegistrationIdType,
+  normalizeRegistrationId,
+} from "@/shared/constants/registration-id";
 
 const FREE_EMAIL_DOMAINS = [
   "gmail.com",
@@ -37,21 +42,33 @@ export interface BuyerDuplicate {
 /** 自动查重：四字段任一相同即命中（排除自身） */
 export async function findBuyerDuplicates(
   db: Pool,
-  input: { buyerId: number; orgName: string; regNo: string | null; email: string | null; phone: string | null },
+  input: {
+    buyerId: number;
+    orgName: string;
+    regNo: string | null;
+    /** 注册标识类型（默认 uscc）；与归一号码组成组合键，避免不同国家号码互相撞号 */
+    regNoType?: string | null;
+    email: string | null;
+    phone: string | null;
+  },
 ): Promise<BuyerDuplicate[]> {
   const orgName = input.orgName.trim();
-  if (!orgName && !input.regNo && !input.email && !input.phone) return [];
+  const regNoNorm = normalizeRegistrationId(input.regNo);
+  const regNoType = isRegistrationIdType(input.regNoType) ? input.regNoType : DEFAULT_REGISTRATION_ID_TYPE;
+  if (!orgName && !regNoNorm && !input.email && !input.phone) return [];
   const [rows] = await db.query(
-    `SELECT id, org_name, reg_no, official_email, official_phone
+    `SELECT id, org_name, reg_no, reg_no_type, reg_no_norm, official_email, official_phone
        FROM procurement_buyers
       WHERE id <> ?
-        AND (org_name = ? OR (? <> '' AND reg_no = ?) OR (? <> '' AND official_email = ?) OR (? <> '' AND official_phone = ?))
+        AND (org_name = ? OR (? <> '' AND reg_no_type = ? AND reg_no_norm = ?)
+             OR (? <> '' AND official_email = ?) OR (? <> '' AND official_phone = ?))
       LIMIT 5`,
     [
       input.buyerId,
       orgName,
-      input.regNo ?? "",
-      input.regNo ?? "",
+      regNoNorm,
+      regNoType,
+      regNoNorm,
       input.email ?? "",
       input.email ?? "",
       input.phone ?? "",
@@ -60,8 +77,9 @@ export async function findBuyerDuplicates(
   );
   return (rows as RowDataPacket[]).map((r) => {
     let matchedField: BuyerDuplicate["matchedField"] = "org_name";
-    if (input.regNo && String(r.reg_no ?? "") === input.regNo) matchedField = "reg_no";
-    else if (input.email && String(r.official_email ?? "") === input.email) matchedField = "official_email";
+    if (regNoNorm && String(r.reg_no_norm ?? "") === regNoNorm && String(r.reg_no_type ?? "uscc") === regNoType) {
+      matchedField = "reg_no";
+    } else if (input.email && String(r.official_email ?? "") === input.email) matchedField = "official_email";
     else if (input.phone && String(r.official_phone ?? "") === input.phone) matchedField = "official_phone";
     return { buyerId: Number(r.id), orgName: String(r.org_name ?? ""), matchedField };
   });
