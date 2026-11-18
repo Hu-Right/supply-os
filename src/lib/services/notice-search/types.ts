@@ -30,12 +30,18 @@ export interface NoticeSearchResult {
 }
 
 export interface NoticeStatsResult {
+  /** 主表总行数（bid_notices，含已过期/未准入；仅作数据量参考） */
   raw: number;
+  /** 有效机会总量：读 notice_public（用户可检索/可打开的机会池，2026-11-18 起） */
   active: number;
+  /** 有效机会中已挂骨架节点（notice_backbone_nodes）的数量，与 active 同一服务表口径 */
   bridged: number;
+  /** 有效机会中精选数：读服务表 notice_public.is_opportunity（= is_featured 或关联合格/在架/过审商机，
+   *  与首页热门商机 featured=1 的检索口径同源；迁移 045 补了 (is_opportunity, deadline_ts) 索引） */
   featured: number;
+  /** active - bridged */
   bridgeGap: number;
-  /** 未来 30 天内截止的有效公告数（模块02 规模条口径） */
+  /** 未来 30 天内截止的有效机会数（notice_public.deadline_ts 范围，2026-11-18 起） */
   deadlineIn30d: number;
   /** 含原始文件（宽表 documents_count>0）的有效公告数 */
   withOriginalDocs: number;
