@@ -25,7 +25,7 @@ const pool = {
   },
 } as unknown as Pool;
 const existsOn = (col: string) =>
-  `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.${col}))`;
+  `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND FIND_IN_SET(?, ns.${col}))`;
 
 describe("buildFilterPlan 品目条件（骨架节点码口径）", () => {
   it("节点码：backbone_node ↔ backbone_path，与下拉/墙同一对形状", async () => {

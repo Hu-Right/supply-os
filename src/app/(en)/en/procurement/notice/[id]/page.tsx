@@ -2,7 +2,8 @@
 /**
  * /en/procurement/notice/[id] — 英文公告详情（SEO 详情页，ISR 3600）
  *
- * 与中文详情页同一数据源与同一公开字段集（findSeoDetail：仅 preview 口径 + 300 字 teaser），
+ * 与中文详情页同一数据源与同一公开字段集（主路径读服务表 notice_public 单表零 JOIN，
+ * 未命中再回退主表；仅公开字段 + 300 字 teaser），
  * 独立 canonical + 与中文页双向 hreflang；过期公告 noindex。
  */
 import type { Metadata } from "next";
@@ -14,6 +15,7 @@ import { getContext } from "@/lib/db/context";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { jsonLdScript } from "@/lib/services/seo/json-ld";
 import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
+import { countryName } from "@/shared/constants/countries";
 import {
   formatNoticeCstDate,
   formatNoticeDate,
@@ -30,7 +32,8 @@ interface NoticeSeoRow extends RowDataPacket {
   notice_type: string | null;
   agency: string | null;
   agency_full: string | null;
-  country: string | null;
+  /** 服务表只有 ISO2 国别码，展示名在页面侧用 Intl 推导 */
+  country_code: string | null;
   deadline: string | null;
   deadline_ts: number | null;
   deadline_sec: number | null;
@@ -45,8 +48,16 @@ interface NoticeSeoRow extends RowDataPacket {
 
 type PageProps = { params: Promise<{ id: string }> };
 
+/**
+ * 只读服务表 notice_public（单表零 JOIN，无回退）：与列表卡片、预览/详情接口同源。
+ */
 async function fetchNotice(id: number): Promise<NoticeSeoRow | null> {
-  return (await getContext().notice.detailRepo.findSeoDetail(id)) as NoticeSeoRow | null;
+  return (await getContext().notice.detailRepo.findSeoDetailFromPublic(id)) as NoticeSeoRow | null;
+}
+
+/** 国别展示：服务表只有 ISO2 码，按英文名渲染 */
+function countryLabel(row: NoticeSeoRow): string | null {
+  return row.country_code ? countryName(row.country_code, "en") || null : null;
 }
 
 function parseNoticeId(raw: string): number | null {
@@ -76,7 +87,7 @@ function deadlineLabel(row: NoticeSeoRow): string {
 }
 
 function summaryOf(row: NoticeSeoRow): string {
-  const head = [row.agency || row.agency_full, row.country, noticeTypeCodeLabel(row.notice_type)]
+  const head = [row.agency || row.agency_full, countryLabel(row), noticeTypeCodeLabel(row.notice_type)]
     .filter(Boolean)
     .join(" · ");
   const teaser = (row.description || "").replace(/\s+/g, " ").trim().slice(0, 160);
@@ -194,8 +205,8 @@ export default async function EnglishNoticePage({ params }: PageProps) {
 
         <dl className="grid grid-cols-2 gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:grid-cols-3">
           <MetaItem label="Buyer" value={row.agency || row.agency_full} />
-          <MetaItem label="Buyer (full)" value={row.agency_full && row.agency_full !== row.agency ? row.agency_full : null} />
-          <MetaItem label="Country" value={row.country} />
+          <MetaItem label="Buyer (full)" value={row.agency && row.agency_full && row.agency_full !== row.agency ? row.agency_full : null} />
+          <MetaItem label="Country" value={countryLabel(row)} />
           <MetaItem label="Deadline" value={deadlineLabel(row)} />
           <MetaItem label="Published" value={formatNoticeDate(row.published_date)} />
           <MetaItem label="Notice reference" value={row.reference} />

@@ -7,7 +7,7 @@
  *              从根源上杜绝双轨语义漂移（历史 BUG：deadlineWithinDays / countryVariants
  *              在两条路径实现不一致）。对应重构方案 §3.4。
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool } from "mysql2/promise";
 import type { UnifiedSearchParams, FilterPlan } from "./types";
 import { loadCountryAliasSnapshot } from "../country/alias-store";
 import { countryCodeForName } from "../country/resolve";
@@ -20,23 +20,8 @@ function escapeFilter(value: string): string {
   return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
-// ── 采购类型全集缓存（MySQL 方言归一化匹配用）──
-let _noticeTypesCache: { types: string[]; expires: number } | null = null;
-const NOTICE_TYPES_TTL = 10 * 60 * 1000;
-
-async function getAllNoticeTypes(pool: Pool): Promise<string[]> {
-  if (_noticeTypesCache && _noticeTypesCache.expires > Date.now()) return _noticeTypesCache.types;
-  try {
-    const [rows] = await pool.query(
-      "SELECT DISTINCT notice_type FROM bid_notices WHERE notice_type IS NOT NULL AND notice_type != '' LIMIT 500",
-    );
-    const types = (rows as RowDataPacket[]).map((r) => String(r.notice_type));
-    _noticeTypesCache = { types, expires: Date.now() + NOTICE_TYPES_TTL };
-    return types;
-  } catch {
-    return [];
-  }
-}
+// ── 采购类型全集缓存已删除（2026-11-18）：MySQL 方言改读服务表归一列 notice_type_code，
+//    不再需要枚举主表 306 种原始写法（旧实现 COUNT 约 1.3s，等值命中约 148ms）──
 
 // ── 品目大类 → 所辖 L1 节点码：取数与缓存均在 commodity/tree 的 loadGroupL1NodeMap（一份）──
 // 2026-10-11 backbone 化：旧的「大类 → 旧字典 level=2 段行 id」翻译链整条删掉（不再读旧品类字典表）。
@@ -46,8 +31,8 @@ async function getAllNoticeTypes(pool: Pool): Promise<string[]> {
 
 /**
  * L1/各级节点码 → 两种方言的类目谓词（大类 / 五级下拉 / 可见性判定共用这一份形状）。
- * 单值不加括号，多值必须整体括号：EXISTS 子查询里写成 `ns.id = n.id AND A OR B` 会被解析为
- * `(ns.id = n.id AND A) OR B`，B 不再与外层行相关 ⇒ EXISTS 对全表恒真，筛选静默失效
+ * 单值不加括号，多值必须整体括号：EXISTS 子查询里写成 `ns.id = p.notice_pk AND A OR B` 会被解析为
+ * `(ns.id = p.notice_pk AND A) OR B`，B 不再与外层行相关 ⇒ EXISTS 对全表恒真，筛选静默失效
  * （2026-10-11 端到端实测：双段大类 UGT-G-14 降级路径返回 190,041 条未筛结果、
  * 首页 10 条全部不属于该类；当时单段大类无 OR 所以未暴露）。
  */
@@ -59,7 +44,7 @@ function nodeMeiliFilter(attr: string, nodes: string[]): string {
 function nodeMysqlWhere(nodes: string[], col = "backbone_path"): string {
   const one = `FIND_IN_SET(?, ns.${col})`;
   const inner = nodes.length === 1 ? one : `(${nodes.map(() => one).join(" OR ")})`;
-  return `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND ${inner})`;
+  return `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND ${inner})`;
 }
 
 /** 机构扩展解析结果（两种方言共用） */
@@ -82,18 +67,18 @@ interface AgencyExpansion {
 function buyerNameSubquery(values: string[], useLike?: string): { mysqlClause: string; mysqlParams: unknown[] } {
   if (useLike) {
     return {
-      mysqlClause: "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND ns.buyer_name LIKE ?)",
+      mysqlClause: "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND ns.buyer_name LIKE ?)",
       mysqlParams: [useLike],
     };
   }
   if (values.length === 1) {
     return {
-      mysqlClause: "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND ns.buyer_name = ?)",
+      mysqlClause: "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND ns.buyer_name = ?)",
       mysqlParams: [values[0]],
     };
   }
   return {
-    mysqlClause: `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND ns.buyer_name IN (${values.map(() => "?").join(",")}))`,
+    mysqlClause: `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND ns.buyer_name IN (${values.map(() => "?").join(",")}))`,
     mysqlParams: [...values],
   };
 }
@@ -143,15 +128,24 @@ export async function buildFilterPlan(
     }
   }
 
-  // ── 国家：命中表内国家码 → 走多国列 country_codes（各国都算命中）──
+  // ── 国家：服务表主国家等值（country_code）──
+  // [2026-11-18] 原实现查 notice_search.country_codes（EXISTS + FIND_IN_SET）：
+  //  ① 该列几乎没写值（SE 仅 630 行，服务表 2,956 行）→ 实测 Sweden 只命中 401 条，漏 84%；
+  //  ② 改走 notice_public.country_codes(json) 虽完整，但 JSON_CONTAINS 无索引，
+  //     任何国家码都要全表扫 57.8 万行（实测 955–971ms，与是否多国无关）；
+  //  ③ 主国家 country_code 走 idx_country_type，实测 35–178ms，且与下拉/数字墙口径一致
+  //     （下拉就是 GROUP BY country_code，多国公告按主国家计）。多国公告仅约 570 行（0.1%）。
   if (effectiveCountry) {
     const code = countryCodeForName(effectiveCountry, snap);
     if (!code) {
       // 表里没有该国家 → 不可筛（不兜底），返回空集
       return { meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true, digest: `country:no-code:${effectiveCountry}` };
     }
-    meiliFilters.push(`country_codes = "${escapeFilter(code)}"`);
-    mysqlWhere.push("EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.country_codes))");
+    // Meili 侧：索引里的 `country_codes` 数组取自 notice_search.country_codes（该列近乎空置，
+    // SE 仅 630 行），用它筛会漏 84%；`country`（canonical 国名）完整（SE 2,952 行），改用它。
+    const canonicalName = snap.byCode?.get(code)?.canonical ?? code;
+    meiliFilters.push(`country = "${escapeFilter(canonicalName)}"`);
+    mysqlWhere.push("p.country_code = ?");
     mysqlParams.push(code);
     digestParts.push(`country:${code}`);
   }
@@ -173,14 +167,14 @@ export async function buildFilterPlan(
   if (p.deadlineFrom) {
     const ts = toBeijingUnixTs(p.deadlineFrom, "00:00:00");
     meiliFilters.push(`deadline_sec >= ${ts}`);
-    mysqlWhere.push("n.deadline_sec >= ?");
+    mysqlWhere.push("p.deadline_ts >= ?");
     mysqlParams.push(ts);
     digestParts.push(`from:${p.deadlineFrom}`);
   }
   if (p.deadlineTo) {
     const ts = toBeijingUnixTs(p.deadlineTo, "23:59:59");
     meiliFilters.push(`deadline_sec <= ${ts}`);
-    mysqlWhere.push("n.deadline_sec <= ?");
+    mysqlWhere.push("p.deadline_ts <= ?");
     mysqlParams.push(ts);
     digestParts.push(`to:${p.deadlineTo}`);
   }
@@ -188,7 +182,7 @@ export async function buildFilterPlan(
   if (p.deadlineWithinDays > 0) {
     const futureTs = Math.floor(Date.now() / 1000) + p.deadlineWithinDays * 86400;
     meiliFilters.push(`deadline_sec > 0 AND deadline_sec <= ${futureTs}`);
-    mysqlWhere.push("n.deadline_sec > 0 AND n.deadline_sec <= ?");
+    mysqlWhere.push("p.deadline_ts > 0 AND p.deadline_ts <= ?");
     mysqlParams.push(futureTs);
     digestParts.push(`within:${p.deadlineWithinDays}d`);
   }
@@ -197,15 +191,13 @@ export async function buildFilterPlan(
   if (p.noticeType) {
     const normalized = normalizeNoticeType(p.noticeType);
     meiliFilters.push(`notice_type_normalized = "${escapeFilter(normalized)}"`);
-    // MySQL 方言：归一化等价集合匹配（与旧 search-pipeline 行为一致）
-    const allTypes = await getAllNoticeTypes(pool);
-    const matching = allTypes.filter((t) => normalizeNoticeType(t) === normalized);
-    if (matching.length > 0) {
-      mysqlWhere.push(`n.notice_type IN (${matching.map(() => "?").join(",")})`);
-      mysqlParams.push(...matching);
-    } else {
-      mysqlWhere.push("1 = 0");
-    }
+    // MySQL 方言：服务表 notice_type_code 就是构建期 normalizeNoticeType 的产物，
+    // 等值命中即可（走覆盖索引 idx_np_type_pk）。旧实现枚举主表原始写法再 IN：
+    // 主表 306 种写法 / 28 个标准码（单 RFQ 就 10 种），退化成大范围 range 扫描 + 回表，
+    // 实测 COUNT 1.31s、取 20 条 305ms，改名后 148ms / 166ms。
+    // normalizeNoticeType 仍保留：入参可能来自旧链接的原始文案，幂等归一后才等值。
+    mysqlWhere.push("p.notice_type_code = ?");
+    mysqlParams.push(normalized);
     digestParts.push(`type:${normalized}`);
   }
 

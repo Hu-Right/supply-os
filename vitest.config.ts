@@ -142,7 +142,7 @@ export default defineConfig({
         "src/lib/payment/MockProvider.ts",
         "src/lib/payment/PaymentService.ts",
         "src/lib/payment/fulfillment.ts",
-        "src/lib/services/opportunity-unlock.ts",
+        "src/lib/services/opportunity-access.ts",
         "src/lib/repos/payments.repo.ts",
 
         // ── src/core — 纯逻辑模块（有测试）──

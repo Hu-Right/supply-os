@@ -11,6 +11,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { PLATFORM_PUBLISHED_ONLY_NO_ALIAS } from "@/lib/utils/notice-expired";
 import { WIDE_LIMITS } from "@/lib/utils/notice-field-limits";
+import { formatNoticeUTCDate } from "@/shared/utils/notice-datetime/format";
 
 export class NoticeDetailRepo {
   constructor(private pool: Pool) {}
@@ -84,39 +85,47 @@ export class NoticeDetailRepo {
   }
 
   /**
-   * SEO 详情页公开字段（/procurement/notice/[id] SSR 用）。
-   * 字段集 = findPreview 口径 + deadline/estimated_value/country/notice_type，
+   * SEO 详情页公开字段（/procurement/notice/[id] SSR 用）——服务表口径，单表零 JOIN，无回退。
+   *
+   * [2026-11-18 收口] 详情页只读 notice_public（与列表卡片、/api/notices/:id/preview、
+   * /detail 同源 SSOT）：主表归一前的原始列（country 文本、agency/agency_full 双列、
+   * published_date 文本、deadline 原文）在服务表里都有等价归一列，页面侧直接推导，
+   * 不再回查主表，避免同一公告在列表与 SEO 页出现两套国别/类型/机构名。
+   *
    * 描述与搜索列表同口径截断 WIDE_LIMITS.lockedTeaser —— 全文/联系人/文档仍是解锁后内容，
    * 严禁在此查询中放宽（会被 SSR 进 HTML 泄露给未付费用户与爬虫）。
    *
-   * 描述来源与宽表构建的 DESC_SOURCE_EXPR 同语义（机会表优先、主表兜底），
-   * 但不 JOIN 机会表而是用相关子查询取一行：改成 JOIN 会改变查询形状与性能特征。
-   * 合格机会谓词与长度常量均为共享出口（I2），两者不会各写一份。
+   * effective_ts 直接取 deadline_ts：服务表的 deadline_ts 只在 deadline_state=known 时有值，
+   * 语义与 notice_deadline.effective_ts 一致，故不必再 JOIN 语义层表。
+   * 机构：buyer_name_cn 作主展示名（agency），buyer_name 作原名（agency_full）。
    */
-  async findSeoDetail(noticeId: number): Promise<RowDataPacket | null> {
+  async findSeoDetailFromPublic(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.agency, n.agency_full,
-         n.country, n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value,
-         n.published_date,
-         d.deadline_state, d.deadline_type, d.effective_ts,
-         d.deadline_timezone, d.timezone_source,
-         LEFT(COALESCE(
-           (SELECT p.description FROM notice_public p WHERE p.notice_pk = n.id LIMIT 1),
-           n.description
-         ), ${WIDE_LIMITS.lockedTeaser}) AS description,
-         CASE WHEN LENGTH(COALESCE(
-           (SELECT p.description FROM notice_public p WHERE p.notice_pk = n.id LIMIT 1),
-           n.description
-         )) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated
-       FROM bid_notices n
-       LEFT JOIN notice_deadline d ON d.notice_pk = n.id
-       WHERE n.id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
+      `SELECT p.notice_pk AS id, p.notice_id, p.reference, p.title,
+         p.notice_type_code AS notice_type,
+         p.buyer_name_cn AS agency, p.buyer_name AS agency_full,
+         p.country_code,
+         p.deadline_ts, p.deadline_ts AS effective_ts,
+         p.deadline_state, p.deadline_type, p.deadline_timezone, p.timezone_source,
+         p.estimated_value,
+         p.published_ts,
+         LEFT(p.description, ${WIDE_LIMITS.lockedTeaser}) AS description,
+         CASE WHEN LENGTH(p.description) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated
+       FROM notice_public p
+       WHERE p.notice_pk = ? LIMIT 1`,
       [noticeId],
     );
-    return (rows as RowDataPacket[])[0] ?? null;
+    const row = (rows as RowDataPacket[])[0] ?? null;
+    // 发布时间按墙上时间（UTC）还原，与 formatNoticeTs / 主表 published_date 同口径；
+    // 不在 SQL 里用 FROM_UNIXTIME 拼接，避免依赖连接会话时区。
+    if (row) {
+      row.published_date = row.published_ts ? formatNoticeUTCDate(Number(row.published_ts)) : null;
+    }
+    return row;
   }
 
-  /** 翻译决策所需元信息（描述源与机会转换标记） */
+  /**
+   * 翻译决策所需元信息（描述源与机会转换标记） */
   async findDescMeta(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
       `SELECT n.description AS notice_desc, n.converted_opp_id, n.notice_id, n.reference

@@ -9,8 +9,9 @@
  *              /procurement 的重复页）。
  *
  *              付费边界（SSR HTML 对爬虫与未登录用户可见，必须守住）：
- *              仅渲染 findSeoDetail 字段集 —— preview 口径公开字段 +
- *              与搜索列表同口径的 LEFT(description, 300) teaser。
+ *              仅渲染公开字段集 —— 主路径读服务表 notice_public（单表零 JOIN），
+ *              描述与搜索列表同口径截断 LEFT(description, 300) teaser；
+ *              服务表未命中（已清退的过期行/未投影的新行）才回退主表。
  *              全文描述/联系人/文档档位内容只存在于解锁后的 API 路径。
  *
  *              无 generateStaticParams：12.7 万条按需生成（dynamicParams
@@ -23,6 +24,7 @@ import { notFound } from "next/navigation";
 import { getContext } from "@/lib/db/context";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
+import { countryName } from "@/shared/constants/countries";
 import { formatNoticeUTCDate, formatNoticeDate, formatNoticeCstDate, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
 
 export const revalidate = 3600;
@@ -51,7 +53,8 @@ interface NoticeSeoRow extends RowDataPacket {
   notice_type: string | null;
   agency: string | null;
   agency_full: string | null;
-  country: string | null;
+  /** 服务表只有 ISO2 国别码，展示名在页面侧用 Intl 推导 */
+  country_code: string | null;
   deadline: string | null;
   deadline_ts: number | null;
   deadline_sec: number | null;
@@ -65,9 +68,17 @@ interface NoticeSeoRow extends RowDataPacket {
   description: string | null;
 }
 
+/**
+ * 只读服务表 notice_public（单表零 JOIN，无回退）：与列表卡片、预览/详情接口同源，
+ * 主表归一前的原始列在服务表都有等价列，页面侧推导即可。
+ */
 async function fetchNotice(id: number): Promise<NoticeSeoRow | null> {
-  const ctx = getContext();
-  return (await ctx.notice.detailRepo.findSeoDetail(id)) as NoticeSeoRow | null;
+  return (await getContext().notice.detailRepo.findSeoDetailFromPublic(id)) as NoticeSeoRow | null;
+}
+
+/** 国别展示：服务表只有 ISO2 码，按中文名渲染 */
+function countryLabel(row: NoticeSeoRow): string | null {
+  return row.country_code ? countryName(row.country_code, "zh") || null : null;
 }
 
 function parseNoticeId(raw: string): number | null {
@@ -104,7 +115,7 @@ function buildSummary(row: NoticeSeoRow): string {
   const nt = noticeTypeCodeLabel(row.notice_type);
   const parts = [
     row.agency || row.agency_full,
-    row.country,
+    countryLabel(row),
     nt ? `${nt} 采购公告` : "国际采购公告",
   ].filter(Boolean);
   const head = parts.join(" · ");
@@ -236,8 +247,8 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       {/* 公开元信息 */}
       <dl className="grid grid-cols-2 gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:grid-cols-3">
         <MetaItem label="采购方" value={row.agency || row.agency_full} />
-        <MetaItem label="机构全称" value={row.agency_full && row.agency_full !== row.agency ? row.agency_full : null} />
-        <MetaItem label="国家/地区" value={row.country} />
+        <MetaItem label="机构全称" value={row.agency && row.agency_full && row.agency_full !== row.agency ? row.agency_full : null} />
+        <MetaItem label="国家/地区" value={countryLabel(row)} />
         <MetaItem label="截止时间" value={deadline} />
         <MetaItem label="发布时间" value={formatNoticeDate(row.published_date)} />
         <MetaItem label="公告编号" value={row.reference} />

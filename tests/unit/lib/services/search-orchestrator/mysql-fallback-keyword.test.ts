@@ -1,88 +1,61 @@
-import { describe, it, expect } from "vitest";
-import { buildKeywordUnion } from "@/lib/services/search-orchestrator/mysql-fallback";
-
-describe("buildKeywordUnion", () => {
-  it("普通英文词：SQL 形状与现网一致（三路 FULLTEXT UNION）", () => {
-    const { sql, params } = buildKeywordUnion("solar");
-    expect(sql).toContain("MATCH(n2.title, n2.reference) AGAINST(? IN BOOLEAN MODE)");
-    expect(sql).toContain("MATCH(sn.description) AGAINST(? IN BOOLEAN MODE)");
-    expect(params).toEqual(["solar", "solar", "solar"]);
-  });
-  it("带排除词：BOOLEAN 分支吃 +/- 语法，译文分支补 NOT LIKE", () => {
-    const { sql, params } = buildKeywordUnion("solar -battery");
-    expect(sql).toContain("AGAINST(? IN BOOLEAN MODE)");
-    expect(sql).toContain("NOT LIKE");
-    // boolean 串 + 每个正/负 token 两次（title/description）
-    expect(params[0]).toBe("+solar -battery");
-    expect(params.filter((p) => p === "%battery%")).toHaveLength(2);
-  });
-  it("中文 + 排除词：译文分支按排除词 NOT LIKE", () => {
-    const { params } = buildKeywordUnion("光伏 -电池");
-    expect(params[0]).toBe("+光伏 -电池");
-    expect(params).toContain("%电池%");
-  });
-  it("纯排除词：无正向 LIKE 分支", () => {
-    const { sql, params } = buildKeywordUnion("-battery");
-    expect(params[0]).toBe("-battery");
-    expect(sql).not.toContain("LIKE");
-    expect(params).toEqual(["-battery"]);
-  });
-});
-
 /**
- * 降级路径与 Meili 主路径的 AND/OR 同源性（缺陷回归）。
- * 背景：修复前包含词之间在译文分支恒用 OR，且普通中文查询用整串 LIKE（实测恒 0 命中）、
- * FULLTEXT 不带操作符时 MySQL 布尔模式按“词可选”求值（OR）——导致
- * 「医疗 建筑」实测 52（实为 OR 结果，真 AND 只有 2），而加 -学校 后反涨到 670。
+ * 降级关键词谓词（服务表白名单列 LIKE）
+ *
+ * 2026-11-18 收口：降级不再读主表 bid_notices / notice_translations（无 FULLTEXT 可用），
+ * 改为对 notice_search 的 title/reference/description/title_zh/description_zh 做 LIKE 子串匹配。
+ * 钉住的不变量：
+ * 1. 每个词命中 5 列任一（OR）；词之间按 matchMode 组合（all=AND，any=OR）；
+ * 2. 排除词对 5 列全部 NOT LIKE（AND），否则会把含排除词的文档放进来；
+ * 3. 纯排除查询不产出正向分支；空查询产出空 sql（调用方直接返回空集）。
  */
-describe("buildKeywordUnion 匹配模式同源性（matchMode）", () => {
-  const POS_AND = "(title_tr LIKE ? OR description_tr LIKE ?) AND (title_tr LIKE ? OR description_tr LIKE ?)";
-  const POS_OR = "(title_tr LIKE ? OR description_tr LIKE ?) OR (title_tr LIKE ? OR description_tr LIKE ?)";
+import { describe, it, expect } from "vitest";
+import { buildKeywordWhere } from "@/lib/services/search-orchestrator/mysql-fallback";
 
-  it("默认 all：不传第二参与显式 all 一致", () => {
-    expect(buildKeywordUnion("医疗 建筑")).toEqual(buildKeywordUnion("医疗 建筑", "all"));
+const COLS = ["title", "reference", "description", "title_zh", "description_zh"];
+const POS = `(${COLS.map((c) => `s.${c} LIKE ?`).join(" OR ")})`;
+const NEG = `(${COLS.map((c) => `s.${c} NOT LIKE ?`).join(" AND ")})`;
+
+describe("buildKeywordWhere", () => {
+  it("单词：命中 5 列任一，参数为 5 个 %词%", () => {
+    const { sql, params } = buildKeywordWhere("solar");
+    expect(sql).toBe(POS);
+    expect(params).toEqual(Array(5).fill("%solar%"));
   });
 
-  it("普通中文多词 all：FULLTEXT 加 + 前缀成硬 AND，译文逐词 AND（不再整串 LIKE）", () => {
-    const { sql, params } = buildKeywordUnion("医疗 建筑");
-    expect(params[0]).toBe("+医疗 +建筑");
-    // 旧实现的整串兜底必须消失（它对多词中文恒 0 命中）
-    expect(params).not.toContain("%医疗 建筑%");
-    expect(sql).toContain("(qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?) AND (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)");
-    expect(params).toEqual(["+医疗 +建筑", "%医疗%", "%医疗%", "%建筑%", "%建筑%"]);
+  it("多词 all：逐词 AND（与 Meili matchingStrategy=all 同源）", () => {
+    const { sql, params } = buildKeywordWhere("solar pump");
+    expect(sql).toBe(`${POS} AND ${POS}`);
+    expect(params).toEqual([...Array(5).fill("%solar%"), ...Array(5).fill("%pump%")]);
   });
 
-  it("普通中文多词 any：不加 +（保持可选=OR），译文用 OR 连接", () => {
-    const { sql, params } = buildKeywordUnion("医疗 建筑", "any");
-    expect(params[0]).toBe("医疗 建筑");
-    expect(sql).toContain("(qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?) OR (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)");
+  it("多词 any：逐词 OR", () => {
+    const { sql } = buildKeywordWhere("solar pump", "any");
+    expect(sql).toBe(`${POS} OR ${POS}`);
   });
 
-  it("普通中文单词 all：与多词同构且语义等价（单词无需 + 也等价）", () => {
-    const { sql, params } = buildKeywordUnion("医疗");
-    expect(params).toEqual(["+医疗", "%医疗%", "%医疗%"]);
-    expect(sql).not.toContain(") AND (qzh.");
+  it("不传第二参等价于 all", () => {
+    expect(buildKeywordWhere("医疗 建筑")).toEqual(buildKeywordWhere("医疗 建筑", "all"));
   });
 
-  it("高级语法 all：包含词之间用 AND（修复前恒 OR，是把降级结果放大一个量级的主因）", () => {
-    const { sql, params } = buildKeywordUnion("医疗 建筑 -学校");
-    expect(params[0]).toBe("+医疗 +建筑 -学校");
-    expect(sql).toContain(POS_AND);
-    expect(sql).toContain("(title_tr NOT LIKE ? AND description_tr NOT LIKE ?)");
-    expect(params).toEqual(["+医疗 +建筑 -学校", "%医疗%", "%医疗%", "%建筑%", "%建筑%", "%学校%", "%学校%"]);
+  it("排除词：5 列全部 NOT LIKE，并与包含词 AND", () => {
+    const { sql, params } = buildKeywordWhere("solar -battery");
+    expect(sql).toBe(`(${POS}) AND (${NEG})`);
+    expect(params).toEqual([...Array(5).fill("%solar%"), ...Array(5).fill("%battery%")]);
   });
 
-  it("高级语法 any：包含词不加 +，排除与短语仍保留", () => {
-    const { params } = buildKeywordUnion("医疗 建筑 -学校", "any");
-    expect(params[0]).toBe("医疗 建筑 -学校");
+  it("纯排除词：只有负向分支", () => {
+    const { sql, params } = buildKeywordWhere("-battery");
+    expect(sql).toBe(`(${NEG})`);
+    expect(sql).not.toContain("LIKE ? OR");
+    expect(params).toEqual(Array(5).fill("%battery%"));
   });
 
-  it("高级语法 any：译文包含词之间用 OR", () => {
-    const { sql } = buildKeywordUnion("医疗 建筑 -学校", "any");
-    expect(sql).toContain(POS_OR);
+  it("空查询：返回空 sql（调用方直接给空集，不拼出恒真谓词）", () => {
+    expect(buildKeywordWhere("   ")).toEqual({ sql: "", params: [] });
   });
 
-  it("英文普通查询不受 matchMode 影响（形状逐字节保持）", () => {
-    expect(buildKeywordUnion("solar pump", "any")).toEqual(buildKeywordUnion("solar pump", "all"));
+  it("LIKE 通配符被转义，% 与 _ 不当通配使用", () => {
+    const { params } = buildKeywordWhere("50%_off", "all");
+    expect(params[0]).toBe("%50\\%\\_off%");
   });
 });

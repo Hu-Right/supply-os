@@ -20,7 +20,7 @@ describe("buildOrderBy 搜索词转义", () => {
   it("普通关键词：包含 refBoost 且单引号被成对转义", () => {
     const sql = buildOrderBy(makeParams("RFQ-2026'X"));
     expect(sql).toContain("'RFQ-2026''X'");
-    expect(sql.startsWith("(UPPER(REPLACE(COALESCE(n.reference,''),' ','')) = '")).toBe(true);
+    expect(sql.startsWith("(UPPER(REPLACE(COALESCE(p.reference,''),' ','')) = '")).toBe(true);
     expect(sql).toContain(") DESC,");
   });
 
@@ -47,12 +47,12 @@ describe("buildOrderBy 搜索词转义", () => {
   it("sort=latest：无 q 时无 refBoost，无截止日公告沉底（385adbd2，与 Meili 主路径同口径）", () => {
     const sql = buildOrderBy(makeParams("", "latest"));
     expect(sql).not.toContain(") DESC,"); // 无 refBoost
-    expect(sql).toBe("(n.deadline_sec = 0) ASC, n.id DESC");
+    expect(sql).toBe("(p.deadline_ts IS NULL OR p.deadline_ts = 0) ASC, p.notice_pk DESC");
   });
 
-  it("sort=deadline：保留 deadline_sec 升序语义", () => {
+  it("sort=deadline：保留截止时间升序语义（服务表 deadline_ts）", () => {
     const sql = buildOrderBy(makeParams("abc", "deadline"));
-    expect(sql).toContain("(n.deadline_sec = 0) ASC");
-    expect(sql).toContain("n.deadline_sec ASC");
+    expect(sql).toContain("(p.deadline_ts IS NULL OR p.deadline_ts = 0) ASC");
+    expect(sql).toContain("p.deadline_ts ASC");
   });
 });
