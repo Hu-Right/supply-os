@@ -11,7 +11,7 @@ import { primaryCountryOf } from "./country/resolve";
 import type { CountryAliasSnapshot } from "./country/alias-store";
 
 // ── 资料完整度 ─
-// 统一口径：直接取 supplier.data_quality_score（DB 生成列，20 字段非空各计 5 分），
+// 统一口径：直接取 supplier.data_quality_score（0-100 加权分，2026-11-18 改版，后台服务层计算），
 // 与后台管理端展示完全一致；此前应用层 12 字段加权算法已废弃删除。
 
 /** DB decimal 列读出可能是字符串，统一转 0-100 数值 */

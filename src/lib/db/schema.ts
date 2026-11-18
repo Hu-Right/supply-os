@@ -56,6 +56,7 @@ import { migration as dropSupplierDeadFieldsMigration } from "./migrations/038-d
 import { migration as dropSupplierRegistrationFieldsMigration } from "./migrations/039-drop-supplier-registration-fields";
 import { migration as dropSupplierIntroMigration } from "./migrations/040-drop-supplier-intro";
 import { migration as dropUnusedProcurementTendersColumnMigration } from "./migrations/041-drop-unused-procurement-tenders-column";
+import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
 import { migration as dropBuyerParentMigration } from "./migrations/043-buyer-drop-parent";
 
 /**
@@ -99,6 +100,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   dropSupplierRegistrationFieldsMigration,
   dropSupplierIntroMigration,
   dropUnusedProcurementTendersColumnMigration,
+  supplierQualityScore100Migration,
   dropBuyerParentMigration,
 ];
 

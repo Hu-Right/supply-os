@@ -29,9 +29,10 @@ export function fmtAddtime(row: EnterpriseInfo): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** 资料完整度 → 百分比 */
+/** 资料完整度 → 百分比（0-100 加权分，2026-11-18 改版） */
 export function fmtScore(row: EnterpriseInfo): string {
   const s = row.dataQualityScore;
   if (s === null || s === undefined || s === "") return "-";
-  return `${s}%`;
+  const n = Number(s);
+  return Number.isFinite(n) ? `${n.toFixed(1)}%` : "-";
 }

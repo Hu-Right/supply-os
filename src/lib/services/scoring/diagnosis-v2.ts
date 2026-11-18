@@ -102,7 +102,7 @@ export function rankByGap<T extends { rawScore: number; weight: number }>(dimens
 
 /**
  * D1 派生所需的 supplier 主数据片段。
- * `dataQualityScore` 是 supplier 表的 **生成列**（20 个关键字段非空各计 5 分，与后台同口径），
+ * `dataQualityScore` 是 supplier 表的 **0-100 加权分**（2026-11-18 改版：可搜索 45 + 可触达 25 + 可信 20 + 地域 10，与后台同口径），
  * 本引擎不另发明一套“档案完整度”算法，直接沿用该权威值。
  * 2026-11 起 supplier.info_checked 列已随影子表迁移物理删除，不再有人工核对封顶。
  */
@@ -120,14 +120,14 @@ export interface DiagnosisScoreInput {
 }
 
 /**
- * D1：直接用 supplier 生成列 data_quality_score（0-100）分档，与后台同源可辩护：
+ * D1：直接用 supplier 的 0-100 加权完整度 data_quality_score 分档，与后台同源可辩护：
  * 0→0 / 1-24→1 / 25-44→2 / 45-64→3 / 65-84→4 / 85-100→5。
  */
 function scoreProfileDimension(supplier: SupplierProfileBits): { rawScore: number; scoringBasis: string } {
   const q = Number(supplier.dataQualityScore ?? 0);
   const rawScore =
     q >= 85 ? 5 : q >= 65 ? 4 : q >= 45 ? 3 : q >= 25 ? 2 : q > 0 ? 1 : 0;
-  const basis = `企业档案资料完整度 ${q}/100（supplier 生成列，与后台同口径）`;
+  const basis = `企业档案资料完整度 ${q}/100（100 分制加权分，与后台同口径）`;
   return { rawScore, scoringBasis: basis };
 }
 

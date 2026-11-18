@@ -30,7 +30,7 @@ export interface SupplierDirectoryRow {
   verify_status?: string | null;
   /** 信息完整度/真实性人工审核：unreviewed / reviewed（门户展示门槛） */
   info_review_status?: string | null;
-  /** 资料完整度（DB 生成列，17 字段非空各计 5 分，满分 85） */
+  /** 资料完整度（0-100 加权分：可搜索 45 + 可触达 25 + 可信 20 + 地域 10，后台服务层计算落库） */
   data_quality_score?: number | string | null;
 }
 
@@ -311,7 +311,7 @@ export class SupplierDirectoryRepo {
   /** 过滤输入到白名单列（忽略未知键；未提供/显式 null→null，空串保留 ''）。
    *  ★ 空串不得塌成 null：supplier.email / website 是 NOT NULL DEFAULT ''，而表单里是选填；
    *    STRICT_TRANS_TABLES 下向 NOT NULL 列绑定 NULL 会直接 1048（企业信息新建/编辑失败）。
-   *    data_quality_score 用 `TRIM(col) <> ''` 判定完整性，'' 与 null 同样计为空，保留 '' 不影响评分。 */
+   *    data_quality_score 由后台按「非空且 TRIM(col) <> ''」重新计算落库，'' 与 null 同样计为空，保留 '' 不影响评分。 */
   private pickEditable(input: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const col of SupplierDirectoryRepo.EDITABLE_COLUMNS) {
@@ -459,7 +459,7 @@ export class SupplierDirectoryRepo {
 
   /**
    * 取诊断评分 D1 所需的主数据片段 + 主体正名。
-   * `data_quality_score` 是生成列（20 字段非空各计 5 分），D1 直接按它分档；
+   * `data_quality_score` 是 0-100 加权分（2026-11-18 改版，后台服务层计算），D1 直接按它分档；
    * 2026-11 起 `info_checked` 列已随影子表迁移物理删除，不再有人工核对封顶。
    * `company` 供诊断落库快照走 SSOT（payload 名只做检索，不入库，2026-11-12 防污染口径）；
    * 本方法不走 verify_status 过滤，因为刚建档的行依然是 D1 的正当评价对象。
