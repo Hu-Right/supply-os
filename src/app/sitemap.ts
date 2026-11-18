@@ -8,7 +8,7 @@
  *              报警，不再静默吞掉全部动态 URL（2026-08-28 根治性修复）。
  */
 import type { MetadataRoute } from "next";
-import { fetchSitemapNotices } from "@/lib/services/seo/sitemap-sources";
+import { fetchSitemapNotices, fetchSitemapCountries } from "@/lib/services/seo/sitemap-sources";
 import { SITE_URL } from "@/lib/services/seo/site";
 
 const BASE_URL = SITE_URL;
@@ -39,6 +39,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${BASE_URL}/`, changeFrequency: "daily", priority: 1.0 },
     { url: `${BASE_URL}/procurement`, changeFrequency: "daily", priority: 0.9 },
+    { url: `${BASE_URL}/procurement/countries`, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/procurement/industries`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE_URL}/supplier`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${BASE_URL}/award-intelligence`, changeFrequency: "daily", priority: 0.8 },
     { url: `${BASE_URL}/training`, changeFrequency: "weekly", priority: 0.7 },
@@ -50,6 +52,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE_URL}/refund-policy`, changeFrequency: "yearly", priority: 0.2 },
     { url: `${BASE_URL}/account-cancellation`, changeFrequency: "yearly", priority: 0.2 },
+    // 英文站点（app/(en)/en）本期只开放首页与公告列表；公告详情靠列表内链 + hreflang 发现
+    { url: `${BASE_URL}/en`, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/en/procurement`, changeFrequency: "daily", priority: 0.7 },
   ];
 
   // ── 构建阶段跳过动态查询（CI 环境无数据库访问）──
@@ -74,6 +79,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] 公告段生成失败，动态公告 URL 已降级为空:", (err as Error).message);
   }
 
+  // ── 国别聚合落地页（独立容错：失败只降级本段）──
+  // 只提交有效公告数达到阈值的国家，薄页留页面但不进 sitemap。
+  let countryPages: MetadataRoute.Sitemap = [];
+  try {
+    const countries = await fetchSitemapCountries();
+    countryPages = countries.map((c) => ({
+      url: `${BASE_URL}/procurement/country/${c.slug}`,
+      changeFrequency: "weekly" as const,
+      priority: 0.5,
+    }));
+  } catch (err) {
+    console.error("[sitemap] 国别段生成失败，国别落地页 URL 已降级为空:", (err as Error).message);
+  }
+
   // ── 供应商段已移除（2026-08-29）──
   // /supplier?supplier_id=X 与公告段同理共享 /supplier canonical（重复页）。
   // 待 /supplier/[id] 详情路由建成后再恢复（fetchSitemapSuppliers 保留在
@@ -84,5 +103,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] 警告：动态公告段为空 —— 请检查 sitemap-sources 查询与数据库可用性");
   }
 
-  return [...staticPages, ...noticePages];
+  return [...staticPages, ...countryPages, ...noticePages];
 }

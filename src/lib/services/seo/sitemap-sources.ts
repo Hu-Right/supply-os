@@ -14,6 +14,7 @@
 import type { Pool } from "mysql2/promise";
 import { getPool } from "@/lib/db/pool";
 import { ACTIVE_NOTICE_WHERE } from "@/lib/utils/notice-expired";
+import { listCountryLandings } from "./landing";
 
 export interface SitemapNoticeRow {
   id: number;
@@ -68,4 +69,21 @@ export async function fetchSitemapSuppliers(pool?: Pool): Promise<SitemapSupplie
      LIMIT ${SUPPLIER_LIMIT}`,
   );
   return rows as SitemapSupplierRow[];
+}
+
+/** 国别落地页进 sitemap 的最低有效公告数（薄页只保留页面、不提交收录） */
+const COUNTRY_SITEMAP_MIN = 20;
+/** 国别落地页 URL 上限（预留公告段的余量，总量控制在协议 5 万以内） */
+const COUNTRY_SITEMAP_LIMIT = 200;
+
+/**
+ * 国别聚合落地页（/procurement/country/[slug]）。
+ * 复用 landing 的规范化清单：slug 与页面路由同源，避免 sitemap 提交到 404。
+ */
+export async function fetchSitemapCountries(pool?: Pool): Promise<Array<{ slug: string }>> {
+  const list = await listCountryLandings(pool);
+  return list
+    .filter((c) => c.count >= COUNTRY_SITEMAP_MIN)
+    .slice(0, COUNTRY_SITEMAP_LIMIT)
+    .map((c) => ({ slug: c.slug }));
 }

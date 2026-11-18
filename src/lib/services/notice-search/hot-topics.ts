@@ -69,7 +69,14 @@ interface CountRow extends RowDataPacket {
  * 3.3s 落在两层 10 分钟缓存（本模块内存缓存 + 路由 HTTP 缓存）之后，每个进程每 10 分钟
  * 最多付一次，换的是「标称 = 兑现」这一条，不是一次首页请求里跑 32 条 SQL。
  */
-export const HOT_TOP_GROUPS_SQL = `
+/**
+ * 热门品目大类聚合 SQL（limit 可调；口径与常量 HOT_TOP_GROUPS_SQL 完全一致）。
+ * 单独导出函数是为了让 SEO 品目落地页能一次取全 32 个大类，
+ * 而不必把同一段「包含口径」SQL 在别处再抄一份。
+ */
+export function hotTopGroupsSql(limit: number): string {
+  const n = Math.min(Math.max(Math.floor(limit) || 1, 1), 64);
+  return `
   SELECT b.code AS code, b.name_zh, COUNT(*) AS cnt
   FROM commodity_backbone b
   JOIN notice_search ns ON ns.backbone_path <> '' AND FIND_IN_SET(b.code, ns.backbone_path)
@@ -77,15 +84,23 @@ export const HOT_TOP_GROUPS_SQL = `
     AND (ns.deadline_sec = 0 OR ns.deadline_sec >= UNIX_TIMESTAMP(NOW()))
   GROUP BY b.code, b.name_zh
   ORDER BY cnt DESC
-  LIMIT 8`;
+  LIMIT ${n}`;
+}
 
-async function countTopGroups(pool: Pool): Promise<HotGroupItem[]> {
-  const [rows] = await pool.query(HOT_TOP_GROUPS_SQL);
+export const HOT_TOP_GROUPS_SQL = hotTopGroupsSql(HOT_TOPICS_LIMIT);
+
+/** 按有效公告数取品目大类 TOP N（包含口径，标称数 = 点进去的兑现数） */
+export async function listTopGroups(pool: Pool, limit = HOT_TOPICS_LIMIT): Promise<HotGroupItem[]> {
+  const [rows] = await pool.query(hotTopGroupsSql(limit));
   return (rows as CountRow[]).map((r) => ({
     code: String(r.code || ""),
     nameZh: String(r.name_zh || ""),
     count: Number(r.cnt) || 0,
   }));
+}
+
+async function countTopGroups(pool: Pool): Promise<HotGroupItem[]> {
+  return listTopGroups(pool, HOT_TOPICS_LIMIT);
 }
 
 /** 读取热门话题聚合（10 分钟 TTL，过期惰性重建；国家计数复用国家缓存） */
