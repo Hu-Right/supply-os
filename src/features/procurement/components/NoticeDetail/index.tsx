@@ -22,7 +22,6 @@ import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { NoticeDescriptionSection } from "../NoticeDescriptionSection";
 import { NoticeDetailSidebar } from "../NoticeDetailSidebar";
 import { AiSummarySection } from "../AiSummarySection";
-import { NextStepsPanel } from "../NextStepsPanel";
 import { getCountdown } from "@/shared/utils/countdown";
 import { formatNoticeTs } from "@/shared/utils/notice-datetime/format";
 import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
@@ -148,6 +147,8 @@ export function NoticeDetail({
   const [shareOpen, setShareOpen] = useState(false);
   // 长正文折叠（>800 字默认收起，展开后可读全文）
   const [descExpanded, setDescExpanded] = useState(false);
+  // 右栏目录当前高亮区块
+  const [activeSection, setActiveSection] = useState("section-summary");
 
   // 倒计时每秒刷新；注册制/框架结束日不是投标截止，不显示倒计时
   useEffect(() => {
@@ -495,16 +496,45 @@ export function NoticeDetail({
           </section>
         </main>
 
-        {/* 右栏：下一步动作（保持现有行为；查看文件改为锚点滚动） */}
+        {/* 右栏：本页目录（长页面导航）；免费/锁态用户上方加会员升级卡 */}
         <aside className="space-y-4 lg:sticky lg:top-16">
-          <NextStepsPanel
-            notice={notice}
-            isLoggedIn={isLoggedIn}
-            gates={membership?.gates}
-            coreAccessible={coreAccessible}
-            onAccess={() => onAccess(notice)}
-            onViewFiles={() => scrollToSection("section-files")}
-          />
+          {!coreAccessible && (
+            <div className="border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-extrabold text-amber-800">{t("procurement_lockedCoreTitle")}</p>
+              <p className="mt-1 text-xs leading-relaxed text-amber-700">{t("procurement_accessToViewFull")}</p>
+              <button
+                type="button"
+                onClick={upgradeMembership}
+                className="mt-3 w-full rounded bg-amber-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-600"
+              >
+                {t("procurement_previewUpgradeNow")}
+              </button>
+            </div>
+          )}
+          <nav className="border border-slate-200 bg-white">
+            <SectionHeader title={t("detail_toc")} />
+            <div className="p-3">
+              <div className="grid gap-1">
+                {SECTION_NAV.map(([id, key]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setActiveSection(id);
+                      scrollToSection(id);
+                    }}
+                    className={`rounded px-2 py-1.5 text-left text-xs font-bold transition-colors ${
+                      activeSection === id
+                        ? "bg-teal-50 text-teal-700"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                    }`}
+                  >
+                    {t(key)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </nav>
         </aside>
       </div>
 

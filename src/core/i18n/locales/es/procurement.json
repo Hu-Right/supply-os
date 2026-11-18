@@ -904,5 +904,6 @@
   "pc_gone_title": "Esta demanda de compra ya no existe",
   "pc_gone_desc": "Puede haber sido retirada o eliminada, o el enlace ha caducado.",
   "detail_expand": "Mostrar todo",
-  "detail_collapse": "Mostrar menos"
+  "detail_collapse": "Mostrar menos",
+  "detail_toc": "En esta página"
 }
