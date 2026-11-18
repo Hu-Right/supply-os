@@ -44,7 +44,7 @@ export const PUBLIC_ADMIT_SQL = `(n.entry_source <> 'platform' OR n.rfq_status I
 export const PUBLIC_COLS = [
   "notice_pk", "notice_id", "source_url", "reference",
   "title", "title_cn", "description", "description_cn", "content_level", "industry",
-  "published_ts", "deadline_ts", "deadline_state", "deadline_type", "deadline_timezone",
+  "published_ts", "deadline_ts", "deadline_state", "deadline_type", "deadline_timezone", "timezone_source",
   "country_code", "country_codes", "notice_type_code",
   "platform_name",
   "buyer_name", "buyer_id", "buyer_name_cn",
@@ -237,7 +237,7 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
             n.update_time,
             t.title_clean, t.title_quality, t.updated_at AS title_updated_at,
             b.body_text, b.body_chars, b.content_level,
-            d.deadline_state, d.deadline_type, d.deadline_timezone, d.effective_ts, d.confidence,
+            d.deadline_state, d.deadline_type, d.deadline_timezone, d.timezone_source, d.effective_ts, d.confidence,
             tr.title_tr AS title_cn, tr.description_tr AS description_cn_tr
        FROM bid_notices n
        LEFT JOIN notice_title t ON t.notice_pk=n.id
@@ -461,6 +461,7 @@ export function buildPublicRow(
     title.slice(0, 500), titleCn, desc, contentZh, contentLevel,
     industryTreeSection(r.industry),
     publishedTs, deadlineTs, dstate, r.deadline_type ?? null, r.deadline_timezone ?? null,
+    String(r.timezone_source ?? "").trim().slice(0, 20) || null,
     countryCode, JSON.stringify(countryCodes), noticeType,
     platform?.name ?? null,
     buyerCanonical, buyerId, buyerNameCn,

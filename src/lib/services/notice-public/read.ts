@@ -12,9 +12,8 @@ export async function findPublicDetail(pool: Pool, noticePk: number): Promise<Ro
             p.buyer_name, p.buyer_name_cn, p.estimated_value, p.currency_code,
             p.contacts, p.attachments, p.external_links, p.difficulty, p.registration_level,
             p.beneficiary_countries, p.supplier_conditions, p.eligibility, p.technical_hurdles,
-            p.updated_at, p.is_opportunity, d.timezone_source
+            p.updated_at, p.is_opportunity, p.timezone_source
        FROM notice_public p
-       LEFT JOIN notice_deadline d ON d.notice_pk = p.notice_pk
       WHERE p.notice_pk = ? LIMIT 1`,
     [noticePk],
   );

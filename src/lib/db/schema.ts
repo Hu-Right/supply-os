@@ -58,6 +58,7 @@ import { migration as dropSupplierIntroMigration } from "./migrations/040-drop-s
 import { migration as dropUnusedProcurementTendersColumnMigration } from "./migrations/041-drop-unused-procurement-tenders-column";
 import { migration as registrationIdTypeMigration } from "./migrations/050-registration-id-type";
 import { migration as dropEvidenceFileColumnsMigration } from "./migrations/051-drop-evidence-file-columns";
+import { migration as noticePublicTimezoneSourceMigration } from "./migrations/052-notice-public-timezone-source";
 import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
 import { migration as dropBuyerParentMigration } from "./migrations/043-buyer-drop-parent";
 import { migration as searchLogAnonymousMigration } from "./migrations/044-search-log-anonymous";
@@ -118,6 +119,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   phoneE164Migration,
   registrationIdTypeMigration,
   dropEvidenceFileColumnsMigration,
+  noticePublicTimezoneSourceMigration,
 ];
 
 /**

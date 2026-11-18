@@ -1260,6 +1260,7 @@ CREATE TABLE `notice_public` (
   `is_opportunity` tinyint NOT NULL DEFAULT '0' COMMENT '是否已成商机：1=is_featured 或关联合格/在架/过审商机；0 否',
   `deadline_type` varchar(20) DEFAULT NULL,
   `deadline_timezone` varchar(64) DEFAULT NULL,
+  `timezone_source` varchar(20) DEFAULT NULL COMMENT '截止时间时区来源（notice_deadline.timezone_source 的冗余副本，省列表/详情 JOIN）',
   `title_cn` varchar(1000) DEFAULT NULL,
   `buyer_name_cn` varchar(500) DEFAULT NULL,
   `buyer_id` bigint unsigned DEFAULT NULL COMMENT '买家实体 ID（buyer.buyer_id）',

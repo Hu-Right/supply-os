@@ -78,6 +78,14 @@ describe("buildPublicRow 准入镜像（构建时摘除）", () => {
     expect(buildPublicRow(makeRow({ deadline_sec: FUTURE_SEC }), ctx, maps)).not.toBeNull();
   });
 
+  it("时区来源随行写入服务表（assumed_utc/date 等展示口径标记，2026-11-18 冗余列）", () => {
+    const row = buildPublicRow(makeRow({ timezone_source: "assumed_utc" }), ctx, maps);
+    expect(row![PUBLIC_COLS.indexOf("timezone_source")]).toBe("assumed_utc");
+    // 无来源标记（notice_deadline 缺行/为空）→ 落 NULL，展示侧按默认北京时间口径
+    const empty = buildPublicRow(makeRow({ timezone_source: null }), ctx, maps);
+    expect(empty![PUBLIC_COLS.indexOf("timezone_source")]).toBeNull();
+  });
+
   it("平台草稿行仍被既有准入拒绝（摘除不改可见性语义）", () => {
     expect(buildPublicRow(makeRow({ entry_source: "platform", rfq_status: "draft" }), ctx, maps)).toBeNull();
   });

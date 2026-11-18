@@ -30,9 +30,10 @@ export function fallbackDetailSql(ids: number[]): string {
        LEFT(${DESC_SOURCE_EXPR}, ${WIDE_LIMITS.lockedTeaser}) AS description,
        CASE WHEN LENGTH(${DESC_SOURCE_EXPR}) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
        p.description_cn,
-       p.beneficiary_countries
+       p.beneficiary_countries, d.timezone_source
      FROM bid_notices n
      LEFT JOIN notice_public p ON p.notice_pk = n.id
+     LEFT JOIN notice_deadline d ON d.notice_pk = n.id
      WHERE n.id IN (${ids.map(() => "?").join(",")})
      ORDER BY FIELD(n.id, ${ids.map(() => "?").join(",")})`;
 }
@@ -58,7 +59,7 @@ export async function fetchDetailsByIds(
          CASE WHEN LENGTH(p.description) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
          p.description_cn, p.notice_type_code, p.country_code,
          p.buyer_name, p.buyer_name_cn, p.deadline_ts, p.deadline_state, p.deadline_type, p.deadline_timezone,
-         p.published_ts, d.timezone_source,
+         p.published_ts, p.timezone_source,
          p.estimated_value, p.currency_code, p.platform_name,
          p.attachments, p.contacts, p.is_opportunity, p.content_level,
          p.industry, p.registration_level, p.beneficiary_countries,
@@ -67,7 +68,6 @@ export async function fetchDetailsByIds(
          s.backbone_path, s.entry_source
        FROM notice_public p
        LEFT JOIN notice_search s ON s.id = p.notice_pk
-       LEFT JOIN notice_deadline d ON d.notice_pk = p.notice_pk
        WHERE p.notice_pk IN (${ids.map(() => "?").join(",")})
        ORDER BY FIELD(p.notice_pk, ${ids.map(() => "?").join(",")})`,
       [...ids, ...ids],
