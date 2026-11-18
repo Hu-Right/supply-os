@@ -59,6 +59,7 @@ import { migration as dropUnusedProcurementTendersColumnMigration } from "./migr
 import { migration as registrationIdTypeMigration } from "./migrations/050-registration-id-type";
 import { migration as dropEvidenceFileColumnsMigration } from "./migrations/051-drop-evidence-file-columns";
 import { migration as noticePublicTimezoneSourceMigration } from "./migrations/052-notice-public-timezone-source";
+import { migration as noticeTimezoneColumnCommentsMigration } from "./migrations/053-notice-timezone-column-comments";
 import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
 import { migration as dropBuyerParentMigration } from "./migrations/043-buyer-drop-parent";
 import { migration as searchLogAnonymousMigration } from "./migrations/044-search-log-anonymous";
@@ -120,6 +121,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   registrationIdTypeMigration,
   dropEvidenceFileColumnsMigration,
   noticePublicTimezoneSourceMigration,
+  noticeTimezoneColumnCommentsMigration,
 ];
 
 /**

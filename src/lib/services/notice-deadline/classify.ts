@@ -22,6 +22,8 @@
  *
  * 注意：typo_suspect 的 effectiveTs 故意留 null。年份笔误的「正确值」
  * 需要回源确认，不能在这里猜；API 默认也不返回 typo_suspect。
+ *
+ * @see docs/notice-deadline-timezone.md（时区写法与展示口径规范）
  */
 import {
   parseSourceDateParts,

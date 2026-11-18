@@ -12,6 +12,8 @@
  *              想展示发标地时间，只认本模块解析得出的令牌，其余一律丢弃。
  *
  *              归属：纯工具、零依赖，落 `@/shared`（红线 3：features 不得 import `@/lib`）。
+ *
+ * @see docs/notice-deadline-timezone.md（时区写法与展示口径规范）
  */
 
 export type DeadlineZone =
