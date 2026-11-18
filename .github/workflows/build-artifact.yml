@@ -1,0 +1,46 @@
+name: Build Artifact
+
+# 临时构建产物工作流（2026-11-18）：
+# GitHub runner 直传国内服务器链路不稳定（51MB 多次超时/半包），
+# 本工作流只负责在 16G runner 上用 Turbopack 构建并上传 next-standalone 产物，
+# 由本机下载后直传服务器（本机→服务器实测 1.5MB/s）。
+# 部署仍由 scripts/tools/deploy-artifact.sh 完成。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build standalone artifact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+        env:
+          NODE_ENV: production
+          PAYMENT_MODE: live
+          JWT_SECRET: ci-build-dummy-secret
+
+      - name: Package standalone
+        run: tar -czf next-standalone.tar.gz --exclude='./public/downloads' -C .next/standalone .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-standalone
+          path: next-standalone.tar.gz
+          retention-days: 1
