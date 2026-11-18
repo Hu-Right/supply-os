@@ -51,7 +51,7 @@ export default function PageClient({ initialHome, initialContent }: { initialHom
   return (
     <ErrorBoundary fallback={<HomeErrorFallback />}>
       <div className="min-h-screen bg-white">
-        <HeroSection />
+        <HeroSection initialHotSearches={initialContent?.hotSearches ?? null} />
         <IdentityChoiceBanner />
         <StatsWall initialHome={initialHome} />
         {/* RSC 快照投影：HotTopics 形状两端一致（服务端 HotTopics ≡ features HotTopicsData），直接透传 */}

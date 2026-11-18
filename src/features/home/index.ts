@@ -15,3 +15,5 @@ export { IdentityChoiceBanner } from "./components/IdentityChoiceBanner";
 export { useHomeStats } from "./hooks/useHomeStats";
 export type { HomeStatsData } from "./hooks/useHomeStats";
 export { useHotTopics } from "./hooks/useHotTopics";
+export { useHotSearches } from "./hooks/useHotSearches";
+export type { HotSearchesData, HotSearchKeyword, HotSearchMode } from "./hooks/useHotSearches";

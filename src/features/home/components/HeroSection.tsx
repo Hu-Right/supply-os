@@ -1,68 +1,35 @@
 /**
- * Hero 区 — 单搜索入口
- * Hero Section — Single Search Entry
+ * Hero 区 — 搜索入口 + 热门搜索
+ * Hero Section — Search entry + real search hot terms
  *
  * @module features/home/components/HeroSection
  * @description 深蓝科技风 Hero，采购机会搜索入口。
- *              背景与导航栏连为一体，地球装饰在右侧。
- *              热门标签数据由 useHotTopics hook 统一提供。
- *
- *              2026-10-22 路由口径修复（为什么必须改）：旧代码把国家与品类大类标签
- *              一律塞进 ?q=<文本> 做全文关键词检索 —— 大类标签明明携带着 L1 树码
- *              （hot-topics 聚合注释写死「code = 前端拼筛选链接」），点进去却变成
- *              「标题含这几个字的公告」，与标签标称的大类结果数（同一包含关系聚合）
- *              对不上。现在按数据类型分流：
- *              - 品类大类 → hotGroupView 的 ?commodity=<L1 码>（与首页热门品目行同一份口径，
- *                检索侧落在 backbone_path 包含谓词，标称数 = 兑现数）；
- *              - 国家 → ?country=<canonical>（country_aliases 表驱动 ISO2 谓词；
- *                canonical 名白名单内自指 alias 行实测全命中，无码即空集的纪律不会误伤）；
- *              - 数据未返回的兜底国家 → 无 canonical 可筛，诚实保持 ?q= 关键词。
- *              URL 携带筛选值、展示走本地化名（两者分离）；点击不再回填搜索框，
- *              筛选态与关键词态不互相污染。
+ *              2026-11-18 口径切换（用户拍板）：**热门搜索只展示真实检索热度**
+ *              （/api/notices/hot-searches：去重访客加权、单访客次数封顶、结果命中率门槛、
+ *              参考码/编号类词过滤）。原来混排的「热门国家 / 热门品目」数据覆盖榜已剥离，
+ *              不再冒充「热门搜索」；真实数据不足时整行隐藏（宁可空着，不展示数据量榜）。
+ *              搜索框提交仍走统一搜索页 /procurement?q=…
  */
 import { memo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
-import { getCountryDisplayName } from "@/shared/data/countryNames";
-import { useHotTopics, hotGroupView } from "../hooks/useHotTopics";
+import { useHotSearches, type HotSearchesData } from "../hooks/useHotSearches";
 import { Search } from "lucide-react";
 
-/** 单个热标签：展示名与跳转链接分离（href 携带的是筛选谓词参数，不是展示文案） */
-interface HotTagItem {
-  key: string;
-  label: string;
-  href: string;
-}
-
-/** Hero 区 — 采购机会搜索 + 热门标签（纯展示，页面其它区块 state 变化不重渲染） */
-export const HeroSection = memo(function HeroSection() {
+/** Hero 区 — 采购机会搜索 + 真实热门搜索标签（纯展示，页面其它区块 state 变化不重渲染） */
+export const HeroSection = memo(function HeroSection({
+  initialHotSearches,
+}: {
+  initialHotSearches?: HotSearchesData | null;
+} = {}) {
   const router = useRouter();
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const [query, setQuery] = useState("");
-  const { topics: hotTags } = useHotTopics();
+  const { data: hotSearches } = useHotSearches(initialHotSearches);
 
-  // 兜底（聚合未返回）：没有 canonical 也没有 L1 码，只能诚实走关键词
-  const fallbackCountries = ["肯尼亚", "美国", "联合国", "菲律宾"];
-  // 热门标签分流（口径定义见文件头）：大类链接复用 hotGroupView 的 href，
-  // 不在本组件重新拼第二份 ?commodity= 字符串
-  const hotTags_list: HotTagItem[] = hotTags
-    ? [
-        ...hotTags.countries.slice(0, 4).map((c) => ({
-          key: `country:${c.country}`,
-          label: getCountryDisplayName(c.country, locale),
-          href: `/procurement?country=${encodeURIComponent(c.country)}`,
-        })),
-        ...hotGroupView(hotTags.industries.slice(0, 4)).map((g) => ({
-          key: `commodity:${g.key}`,
-          label: g.label,
-          href: g.href,
-        })),
-      ]
-    : fallbackCountries.map((name) => ({
-        key: `fallback:${name}`,
-        label: name,
-        href: `/procurement?q=${encodeURIComponent(name)}`,
-      }));
+  // 只展示真实热词；fallback（数据不足）或空列表 → 整行隐藏
+  const hotKeywords = hotSearches?.mode === "hot" ? hotSearches.keywords : [];
+  const hasHotKeywords = hotKeywords.length > 0;
 
   const handleSearch = () => {
     if (query.trim()) {
@@ -105,7 +72,7 @@ export const HeroSection = memo(function HeroSection() {
           <div className="mb-3">
             <span className="text-white font-bold text-sm">{t("homeSearchLabel")}</span>
           </div>
-          <div className="flex mb-3">
+          <div className="flex">
             {/* min-w-0：flex 子项默认 min-width:auto，输入框会按 placeholder 文本撑开，
                 把右侧按钮挤出视口（390px 窄屏实测溢出） */}
             <div className="relative flex-1 min-w-0">
@@ -126,22 +93,25 @@ export const HeroSection = memo(function HeroSection() {
               {t("homeSearchBtn")}
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="text-slate-500 text-xs">{t("homeHotSearchLabel")}</span>
-            {hotTags_list.map((tag, idx) => (
-              <span key={tag.key} className="inline-flex items-center gap-1">
-                {idx > 0 && <span className="text-slate-600 text-xs">/</span>}
-                <button
-                  onClick={() => {
-                    router.push(tag.href);
-                  }}
-                  className="text-xs text-slate-300 hover:text-teal-300 transition-colors"
-                >
-                  {tag.label}
-                </button>
-              </span>
-            ))}
-          </div>
+          {/* 热门搜索：只来自真实检索热度；无数据整行不渲染 */}
+          {hasHotKeywords && (
+            <div className="mt-3 flex flex-wrap items-center gap-1">
+              <span className="text-slate-500 text-xs">{t("homeHotSearchLabel")}</span>
+              {hotKeywords.map((tag, idx) => (
+                <span key={`hot:${tag.term}`} className="inline-flex items-center gap-1">
+                  {idx > 0 && <span className="text-slate-600 text-xs">/</span>}
+                  <button
+                    onClick={() => {
+                      router.push(tag.href);
+                    }}
+                    className="text-xs text-slate-300 hover:text-teal-300 transition-colors"
+                  >
+                    <span className="inline-block max-w-[200px] truncate align-bottom">{tag.label}</span>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>

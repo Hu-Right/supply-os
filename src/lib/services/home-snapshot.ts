@@ -19,6 +19,7 @@ import { searchUnified } from "./search-orchestrator";
 import { toNoticeListView } from "./notice-public/view";
 import { listSupplierDirectoryPage } from "./suppliers-directory";
 import { getHotTopics } from "./notice-search";
+import { getHotSearches, hotSearchHref } from "./search-analytics";
 import type { Supplier } from "../types/supplier";
 import type { NoticeDetailItem } from "../../types/procurement";
 import type { HotTopics } from "./notice-search/hot-topics";
@@ -62,10 +63,18 @@ export async function getHomeSnapshot(pool: Pool): Promise<HomeSnapshot> {
 
 // ── 首页三栏内容快照 ──
 
+/** 真实热门搜索快照（与 /api/notices/hot-searches 同 shape；fallback 时 keywords 为空） */
+export interface HotSearchesSnapshot {
+  mode: "hot" | "fallback";
+  keywords: Array<{ term: string; label: string; href: string }>;
+}
+
 /** 三栏内容快照（列表项形状与对应端点响应的 items 一致，可序列化进 client props） */
 export interface HomeContentSnapshot {
   /** 热门品目大类（服务端 10 分钟缓存同源；null=该路失败回退客户端取数） */
   hotTopics: HotTopics | null;
+  /** 真实热门搜索（数据不足/失败为 null → Hero 回退到数据覆盖榜） */
+  hotSearches: HotSearchesSnapshot | null;
   /** 热门商机（is_featured=1，最新 20 条）——/api/notices/unified-search?featured=1 同口径 */
   hotNotices: NoticeDetailItem[];
   /** 最新 RFQ 询价公告（notice_type=RFQ，最新 20 条）——unified-search?notice_type=RFQ 同口径 */
@@ -83,11 +92,12 @@ export async function getHomeContentSnapshot(pool: Pool): Promise<HomeContentSna
   // 与客户端取数同一天文窗：北京时间自然日（deadline_from=今天，只推未过期商机）
   const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 
-  const [hot, rfq, suppliers, hotTopicsR] = await Promise.allSettled([
+  const [hot, rfq, suppliers, hotTopicsR, hotSearchesR] = await Promise.allSettled([
     searchUnified(pool, { page: 1, pageSize: 20, featuredOnly: true, sort: "newest", deadlineFrom: today }),
     searchUnified(pool, { page: 1, pageSize: 20, noticeType: "RFQ", sort: "newest", deadlineFrom: today }),
     listSupplierDirectoryPage({ page: 1, pageSize: 20, sort: "latest" }),
     getHotTopics(pool),
+    getHotSearches(pool, { limit: 8 }),
   ]);
 
   const settled = <T,>(r: PromiseSettledResult<T>, label: string, fallback: T): T => {
@@ -100,6 +110,7 @@ export async function getHomeContentSnapshot(pool: Pool): Promise<HomeContentSna
   const rfqResult = settled(rfq, "rfqNotices", null);
   const supplierResult = settled(suppliers, "suppliers", null);
   const hotTopicsResult = settled(hotTopicsR, "hotTopics", null);
+  const hotSearchesResult = settled(hotSearchesR, "hotSearches", null);
 
   return {
     // 行→视图：与 unified-search 路由出口同一条 toNoticeListView（红线②，列名不得直出）
@@ -107,5 +118,15 @@ export async function getHomeContentSnapshot(pool: Pool): Promise<HomeContentSna
     rfqNotices: rfqResult ? toNoticeListView(rfqResult.items) : [],
     suppliers: supplierResult ? supplierResult.items : [],
     hotTopics: hotTopicsResult,
+    hotSearches: hotSearchesResult
+      ? {
+          mode: hotSearchesResult.mode,
+          keywords: hotSearchesResult.terms.map((t) => ({
+            term: t.term,
+            label: t.label,
+            href: hotSearchHref(t.term),
+          })),
+        }
+      : null,
   };
 }
