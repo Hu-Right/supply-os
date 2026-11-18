@@ -1,44 +1,50 @@
 /**
- * 招标详情页（模块03 设计图还原）— 拆分后主入口
- * Notice Detail Page — Module 03 Design Mockup
+ * 招标详情页 — 国内招投标信息站风格（2026-11 重设计）
  *
  * @module features/procurement/components/NoticeDetail
- * @description 按「3-招标详情页」样图重排：面包屑 + 标题标签区 + 9列信息速览表 +
- *              Tab 导航 + 双栏布局（左：AI摘要/概况速览，右：下一步动作面板）。
- *              免费用户可判断价值，付费用户获取完整执行信息。
+ * @description 只重做详情页 UI，不改动全局框架与权限判定：
+ *              - 顶部面包屑 + 标题标签区 + 操作条；
+ *              - 基本信息表格（字段存在性驱动：预算/行业/来源平台等缺失时整行不渲染）；
+ *              - 锚点式区块导航（采购摘要/采购说明/资格条件/联系人/投标材料/AI 匹配/相似机会）；
+ *              - 长正文按长度折叠（>800 字显示前 800 字 + 展开全文）；
+ *              - 锁态/会员态沿用现有 coreAccessible + gates 判定，子组件各自处理锁定面板。
  */
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, Bookmark, Crown, Lock, Share2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useUserId } from "@/core/auth";
 import type { NoticeItem, NoticeDetailItem, MembershipStatusView } from "../../types";
 import { useNoticeTranslation } from "../../hooks/useNoticeTranslation";
 import { useAiAnalysis } from "../../hooks/useAiAnalysis";
 import { noticeTypeKey } from "@/shared/utils/notice-type";
-import { collectBreakdownFiles } from "./utils";
-
+import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { NoticeDescriptionSection } from "../NoticeDescriptionSection";
-
-import { NoticeCoreContent } from "../NoticeCoreContent";
 import { NoticeDetailSidebar } from "../NoticeDetailSidebar";
-
 import { AiSummarySection } from "../AiSummarySection";
 import { NextStepsPanel } from "../NextStepsPanel";
 import { getCountdown } from "@/shared/utils/countdown";
 import { formatNoticeTs } from "@/shared/utils/notice-datetime/format";
 import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
 import { formatNoticeAmount, formatNoticeDeadline, formatNoticeDeadlineLocal, formatNoticeReference } from "../../utils/noticeDisplay";
-
-import { DetailHeader } from "./DetailHeader";
-import { DetailTabs } from "./DetailTabs";
 import { ShareModal } from "./ShareModal";
-import { tabPanelId, tabTriggerId } from "./utils";
 import { QualificationTab } from "./QualificationTab";
 import { BuyerContactsTab } from "./BuyerContactsTab";
 import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
 import { AiEvaluationPanel } from "../AiEvaluationPanel";
 import { useAiMatch } from "../../hooks/useAiMatch";
+
+/** 区块锚点导航（id, i18n key） */
+const SECTION_NAV: ReadonlyArray<readonly [string, string]> = [
+  ["section-summary", "detail_tabSummary"],
+  ["section-desc", "procurement_description"],
+  ["section-qual", "detail_tabQualification"],
+  ["section-buyer", "detail_tabBuyer"],
+  ["section-files", "detail_tabMaterials"],
+  ["section-ai", "detail_tabAiScore"],
+  ["section-similar", "detail_tabSimilar"],
+];
 
 /** 倒计时的小时/分/秒用精确差值；「剩余 N 天」统一按日历天数，与列表一致。 */
 function getDisplayCountdown(deadlineTs: number | string | null | undefined) {
@@ -48,6 +54,9 @@ function getDisplayCountdown(deadlineTs: number | string | null | undefined) {
   if (days == null || days < 0) return null;
   return { ...countdown, days };
 }
+
+/** 长正文折叠阈值（字符数）：超过则默认折叠，展开后可读全文 */
+const DESC_COLLAPSE_THRESHOLD = 800;
 
 interface NoticeDetailProps {
   notice: NoticeDetailItem;
@@ -60,7 +69,7 @@ interface NoticeDetailProps {
   onBack: () => void;
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
   onAccess: (notice: NoticeItem) => void;
-  /** 打开另一条公告（相似机会 Tab 点击跳转） */
+  /** 打开另一条公告（相似机会点击跳转） */
   onOpenNotice: (notice: NoticeItem) => void;
   /** 当前公告是否已收藏 */
   favorited: boolean;
@@ -70,6 +79,17 @@ interface NoticeDetailProps {
   detailSettled?: boolean;
   /** 会员状态是否已就绪（未就绪时无法判断用户能否看全文） */
   membershipReady?: boolean;
+}
+
+/** 区块标题条（国内信息站风格：左侧色条 + 灰底） */
+function SectionHeader({ title, note }: { title: string; note?: string }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2">
+      <span className="h-3.5 w-1 rounded-sm bg-teal-600" />
+      <h2 className="text-sm font-extrabold text-slate-800">{title}</h2>
+      {note ? <span className="ml-auto text-[11px] font-normal text-slate-400">{note}</span> : null}
+    </div>
+  );
 }
 
 export function NoticeDetail({
@@ -112,8 +132,7 @@ export function NoticeDetail({
   const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreAccessible, aiSummaryEnabled);
   const aiMatch = useAiMatch(noticeId, aiMatchEnabled);
   // 会员「标讯权益」不限次（notice_view=-1）：打开详情即自动解锁，避免"套餐已含却提示解锁"的割裂
-  // （2026-10-29 权益大一统：详情页 Tab 与定价页共用同一份矩阵；解锁只是内容获取动作，会员免点）。
-  // 每个 notice 只尝试一次，失败不重试，用户仍可手动点解锁。
+  // （2026-10-29 权益大一统：详情页与定价页共用同一份矩阵；解锁只是内容获取动作，会员免点）。
   const autoAccessTried = useRef<Set<number>>(new Set());
   useEffect(() => {
     if (!isLoggedIn || coreAccessible) return;
@@ -123,11 +142,12 @@ export function NoticeDetail({
     autoAccessTried.current.add(noticeId);
     onAccess(notice);
   }, [coreAccessible, gates, isLoggedIn, notice, noticeId, onAccess]);
-  const [activeTab, setActiveTab] = useState("summary");
   const bidDeadline = !notice.deadlineType || notice.deadlineType === "bid";
   const [countdown, setCountdown] = useState(bidDeadline ? getDisplayCountdown(notice.deadlineTs) : null);
   // 分享面板开关（链接由公告数值 id 拼成规范公开详情页）
   const [shareOpen, setShareOpen] = useState(false);
+  // 长正文折叠（>800 字默认收起，展开后可读全文）
+  const [descExpanded, setDescExpanded] = useState(false);
 
   // 倒计时每秒刷新；注册制/框架结束日不是投标截止，不显示倒计时
   useEffect(() => {
@@ -139,9 +159,9 @@ export function NoticeDetail({
     return () => clearInterval(id);
   }, [notice.deadlineTs, bidDeadline]);
 
-  // 切换到另一条公告（如相似机会跳转）时回到概况 Tab
+  // 切换公告时复位长文展开态
   useEffect(() => {
-    setActiveTab("summary");
+    setDescExpanded(false);
   }, [notice.noticePk]);
 
   // 翻译：锁定态不发起请求——/translation 同属付费墙闸口（ARCH-P0 2026-09-05），
@@ -165,11 +185,10 @@ export function NoticeDetail({
   const showTranslating = canSeeChinese && translating && !descResolved;
   // 切换按钮可见性：需有中文能力且有译文（API 译文 或 description_cn 直出）
   const hasTranslation = canSeeChinese && (!!translation || descResolved);
-
-  // 锁定态展示项（2026-10-30：详情加载中不再出骨架屏，直接用列表/预览已有数据渲染）
-  const breakdownFileCount = coreAccessible
-    ? collectBreakdownFiles(notice).length
-    : typeof notice.breakdownFileCount === "number" ? notice.breakdownFileCount : undefined;
+  // 长正文折叠：只在有正文且超阈值时出现「展开全文」
+  const descRaw = displayDescription || "";
+  const descIsLong = descRaw.length > DESC_COLLAPSE_THRESHOLD;
+  const descShown = descIsLong && !descExpanded ? descRaw.slice(0, DESC_COLLAPSE_THRESHOLD) : descRaw;
 
   const typeKey = noticeTypeKey(notice.noticeTypeCode);
   const visibleAgency = locale === "zh"
@@ -184,144 +203,319 @@ export function NoticeDetail({
   // 2026-11-11 口径统一：主时间一律北京时间；发标地当地时间作为补充标注（列表页不显示，避免拥挤）
   const deadlineLocal = formatNoticeDeadlineLocal(notice.deadlineTs, notice.deadlineTimezone, notice.timezoneSource);
   const deadlineDisplay = deadlineLocal ? `${deadlineText}（${deadlineLocal}）` : deadlineText;
-  const budgetText = formatNoticeAmount(notice.estimatedValue, notice.currencyCode, locale) || t("procurement_budgetPending");
+  const budgetText = formatNoticeAmount(notice.estimatedValue, notice.currencyCode, locale);
   const typeLabel = typeKey ? t(typeKey) : notice.noticeTypeCode || "-";
+  // 字段存在性（数据自适应）：缺失字段整行/整块不渲染，不留空值占位
+  const hasBudget = !!budgetText;
+  const hasIndustry = !!notice.industry;
+  const countryLabel = getCountryDisplayName(notice.countryCode || "", locale);
+  const platformText = notice.platform
+    ? (locale !== "zh" ? notice.platform.canonical : (notice.platform.zh || notice.platform.canonical))
+    : "";
+  const refText = formatNoticeReference(notice.reference, notice.noticeId) || String(noticeId);
+  const refNode = notice.sourceUrl
+    ? (
+      <a
+        href={notice.sourceUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-all font-bold text-teal-700 underline-offset-2 hover:underline"
+        title={refText}
+      >
+        {refText}
+      </a>
+    )
+    : <span className="break-all font-bold text-slate-800">{refText}</span>;
+
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const upgradeMembership = () => router.push(`/membership?notice_id=${notice.noticePk}`);
 
   return (
-    <div className="space-y-5">
-      <article className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
-        <DetailHeader
-          displayTitle={displayTitle} typeLabel={typeLabel}
-          // 公告编号：来源方真实标号（reference）优先；来源没给编号时（如 JP-GP 这类
-          // 门户原文只有路径、爬虫不落 reference）回退平台编号 noticeId，绝不显示 URL 路径
-          noticeId={formatNoticeReference(notice.reference, notice.noticeId) || undefined} visibleAgency={visibleAgency} country={notice.countryCode || ""} sourceUrl={notice.sourceUrl || undefined} platform={notice.platform ?? null}
-          publishDate={publishDate} deadlineText={deadlineDisplay} countdown={countdown}
-          budgetText={budgetText} onBack={onBack} t={t} locale={locale}
-          favorited={favorited} onToggleFavorite={onToggleFavorite}
-          onShare={() => setShareOpen(true)}
-          canUsePaidQuota={canUsePaidQuota}
-          onUpgradeMembership={() => router.push(`/membership?notice_id=${notice.noticePk}`)}
-        />
+    <div className="mx-auto max-w-[1200px] space-y-4 pb-24 md:pb-2">
+      {/* 面包屑 */}
+      <nav className="flex items-center gap-2 text-xs text-slate-500">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1 transition-colors hover:text-teal-700"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {t("detail_breadcrumb")}
+        </button>
+        <span className="text-slate-300">/</span>
+        <span className="font-medium text-slate-700">{t("detail_breadcrumbDetail")}</span>
+      </nav>
 
-        <DetailTabs activeTab={activeTab} setActiveTab={setActiveTab} t={t} gates={membership?.gates} />
-
-        {/* ═══ 操作消息 ═══ */}
-        {actionMessage && (
-          <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800 mb-5">
-            {actionMessage}
+      {/* 标题 + 标签 + 操作 */}
+      <section className="border border-slate-200 bg-white">
+        <div className="px-4 py-4 sm:px-5">
+          <div className="flex items-start gap-4">
+            <h1 dir="auto" className="min-w-0 flex-1 text-xl font-extrabold leading-snug text-slate-900 sm:text-2xl">
+              {displayTitle}
+            </h1>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onToggleFavorite}
+                className={`inline-flex h-8 items-center gap-1.5 rounded border px-2.5 text-xs font-bold transition-colors ${
+                  favorited
+                    ? "border-amber-300 bg-amber-50 text-amber-600"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-teal-400 hover:text-teal-700"
+                }`}
+              >
+                <Bookmark className={`h-3.5 w-3.5 ${favorited ? "fill-amber-500 text-amber-500" : ""}`} />
+                {favorited ? t("detail_collected") : t("detail_collect")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShareOpen(true)}
+                className="inline-flex h-8 items-center gap-1.5 rounded border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 transition-colors hover:border-teal-400 hover:text-teal-700"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                {t("detail_share")}
+              </button>
+              {!canUsePaidQuota && (
+                <button
+                  type="button"
+                  onClick={upgradeMembership}
+                  className="inline-flex h-8 items-center gap-1.5 rounded bg-amber-500 px-3 text-xs font-bold text-white transition-colors hover:bg-amber-600"
+                >
+                  <Crown className="h-3.5 w-3.5" />
+                  {t("procurement_previewUpgradeNow")}
+                </button>
+              )}
+            </div>
           </div>
-        )}
 
-        {/* ═══ 双栏布局：左（Tab 内容）+ 右（下一步动作） ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-          {/* ── 左栏：根据 activeTab 切换内容（ARIA tabpanel 与 DetailTabs 联动）── */}
-          <main
-            role="tabpanel"
-            id={tabPanelId(activeTab)}
-            aria-labelledby={tabTriggerId(activeTab)}
-            tabIndex={0}
-            className="min-w-0 space-y-6 pb-24 md:pb-0"
-          >
-            {activeTab === "summary" && (
-              <>
-                <AiSummarySection
-                  data={aiSummary.data}
-                  loading={aiSummary.loading}
-                  streaming={aiSummary.streaming}
-                  error={aiSummary.error}
-                  llmConfigured={aiSummary.llmConfigured}
-                  locked={!coreAccessible}
-                  upgradeLocked={coreAccessible && !aiSummaryEnabled}
-                  accessPending={accessPending}
-                  masked={aiSummary.masked}
-                  onUpgrade={() => router.push("/membership")}
-                  onStart={() => aiSummary.triggerAnalysis(false)}
-                  onConfigure={() => router.push("/settings/ai-model")}
-                  onRequestAccess={() => onAccess(notice)}
-                  onRegenerate={() => aiSummary.triggerAnalysis(true)}
-                />
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="border border-teal-200 bg-teal-50 px-2 py-0.5 font-bold text-teal-700">{typeLabel}</span>
+            {countryLabel ? (
+              <span className="border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">{countryLabel}</span>
+            ) : null}
+            {countdown ? (
+              <span className="border border-rose-200 bg-rose-50 px-2 py-0.5 font-bold text-rose-600">
+                {t("detail_countdownDays", { days: countdown.days })} {countdown.time}
+              </span>
+            ) : null}
+            {platformText ? (
+              <span className="border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">
+                {t("detail_sourcePlatform")}：{platformText}
+              </span>
+            ) : null}
+          </div>
 
-                {!awaitingFullText && (
-                  <NoticeDescriptionSection
-                    translating={showTranslating} failed={failed}
-                    hasTranslation={hasTranslation} showOriginal={showOriginal}
-                    showTranslated={!showOriginal && hasTranslation}
-                    toggleOriginal={toggleOriginal}
-                    displayDescription={displayDescription || ""}
-                    descriptionTruncated={!!notice.descriptionTruncated}
-                  />
-                )}
-
-                {/* 解锁态：采购方/联系人 → 「采购方与联系人」Tab；报告/文件 → 「投标材料」Tab。
-                    这里只保留锁定态的渐进预览（无敏感内容）。 */}
-                <NoticeCoreContent
-                  notice={notice} coreAccessible={coreAccessible}
-                  breakdownFileCount={breakdownFileCount}
-                />
-              </>
-            )}
-
-            {activeTab === "qualification" && (
-              <QualificationTab notice={notice} coreAccessible={coreAccessible} isVip={isVip} />
-            )}
-
-            {activeTab === "buyer" && (
-              <BuyerContactsTab notice={notice} coreAccessible={coreAccessible} />
-            )}
-
-            {activeTab === "files" && (
-              <FilesTab notice={notice} coreAccessible={coreAccessible} isVip={isVip} userId={userId} onAccess={onAccess} gates={membership?.gates} />
-            )}
-
-            {activeTab === "ai-score" && (
-              <>
-                {/* 按会员等级展示匹配层级（矩阵 ai_match：个人=基础 / 企业=企业级 / 人工=可定制） */}
-                {aiMatchEnabled && (
-                  <p className="text-xs font-bold text-slate-500" data-testid="ai-match-level">
-                    {t(aiMatchLevelKey)}
-                  </p>
-                )}
-                <AiEvaluationPanel
-                  data={aiMatch.data}
-                  loading={aiMatch.loading}
-                  cacheLoading={aiMatch.cacheLoading}
-                  error={aiMatch.error}
-                  upgradeLocked={!aiMatchEnabled}
-                  onStart={() => aiMatch.triggerMatch(false)}
-                  onRegenerate={() => aiMatch.triggerMatch(true)}
-                  onGoToPool={() => router.push("/settings/supplier-pool")}
-                  onGoToEnterprise={() => router.push("/settings/enterprise")}
-                  onEditDiag={() => router.push("/settings/supplier-pool")}
-                />
-              </>
-            )}
-
-            {activeTab === "similar" && (
-              <SimilarTab notice={notice} onOpen={onOpenNotice} />
-            )}
-          </main>
-
-          {/* ── 右栏：下一步动作面板（首屏可见） ── */}
-          {/* 2026-10-29 操作条大一统：感兴趣/订阅/升级会员上移至详情头操作条（DetailHeader）；
-              onJoinCrm 不接订阅动作：四步引导的"加入CRM跟进"保持字面行为（跳转 /crm），
-              订阅商机按钮是 interest_type=subscribed 的唯一入口（操作条），避免同一请求两个入口 */}
-          <div className="space-y-4 lg:sticky lg:top-24">
-            <NextStepsPanel
-              notice={notice} isLoggedIn={isLoggedIn}
-              gates={membership?.gates}
-              coreAccessible={coreAccessible}
-              onAccess={() => onAccess(notice)}
-              onViewFiles={() => setActiveTab("files")}
-            />
+          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-dashed border-slate-200 pt-2.5 text-xs text-slate-500">
+            <span>{t("detail_reference")}：<b className="text-slate-700">{refText}</b></span>
+            <span>{t("detail_publishDate")}：<b className="text-slate-700">{publishDate}</b></span>
+            <span>{t("detail_deadline")}：<b className="text-rose-600">{deadlineDisplay}</b></span>
           </div>
         </div>
-      </article>
+      </section>
 
-      {/* 原有侧边栏（移动端底栏操作按钮） */}
+      {/* 基本信息（字段存在性驱动） */}
+      <section className="border border-slate-200 bg-white">
+        <SectionHeader title={t("settingsBasicInfo")} />
+        <table className="w-full border-collapse text-[13px]">
+          <tbody>
+            <tr className="border-b border-slate-100">
+              <th scope="row" className="w-[92px] border-r border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500 sm:w-[110px]">
+                {t("detail_reference")}
+              </th>
+              <td className="px-3 py-2">{refNode}</td>
+              <th scope="row" className="w-[92px] border-r border-l border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500 sm:w-[110px]">
+                {t("detail_buyer")}
+              </th>
+              <td className="px-3 py-2 font-bold text-slate-800">{visibleAgency}</td>
+            </tr>
+            <tr className="border-b border-slate-100">
+              <th scope="row" className="border-r border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
+                {t("detail_countryRegion")}
+              </th>
+              <td className="px-3 py-2 text-slate-700">{countryLabel || "-"}</td>
+              <th scope="row" className="border-r border-l border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
+                {t("detail_procurementType")}
+              </th>
+              <td className="px-3 py-2 text-slate-700">{typeLabel}</td>
+            </tr>
+            <tr className="border-b border-slate-100">
+              <th scope="row" className="border-r border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
+                {t("detail_publishDate")}
+              </th>
+              <td className="px-3 py-2 text-slate-700">{publishDate}</td>
+              <th scope="row" className="border-r border-l border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
+                {t("detail_deadline")}
+              </th>
+              <td className="px-3 py-2 font-bold text-rose-600">{deadlineDisplay}</td>
+            </tr>
+            {(hasIndustry || hasBudget) && (
+              <tr>
+                <th scope="row" className="border-r border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
+                  {t("supplierTabIndustry")}
+                </th>
+                <td className="px-3 py-2 text-slate-700">{hasIndustry ? notice.industry : "-"}</td>
+                <th scope="row" className="border-r border-l border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
+                  {t("detail_budgetAmount")}
+                </th>
+                <td className="px-3 py-2 font-bold text-teal-700">{hasBudget ? budgetText : t("procurement_budgetPending")}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
+
+      {/* 锁定态提示（免费注册用户）：会员态不渲染 */}
+      {!coreAccessible && (
+        <div className="flex flex-wrap items-center gap-2 border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-800">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>{t("procurement_lockedCoreTitle")}</span>
+          <span className="font-normal text-amber-700">{t("procurement_accessToViewFull")}</span>
+          <button
+            type="button"
+            onClick={upgradeMembership}
+            className="ml-auto rounded bg-amber-500 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-amber-600"
+          >
+            {t("procurement_previewUpgradeNow")}
+          </button>
+        </div>
+      )}
+
+      {/* 操作消息 */}
+      {actionMessage ? (
+        <div className="border border-blue-100 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-800">
+          {actionMessage}
+        </div>
+      ) : null}
+
+      {/* 区块锚点导航 */}
+      <nav className="sticky top-2 z-20 flex gap-1 overflow-x-auto border border-slate-200 bg-white/95 px-2 py-1.5 backdrop-blur">
+        {SECTION_NAV.map(([id, key]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => scrollToSection(id)}
+            className="shrink-0 rounded px-2.5 py-1 text-xs font-bold text-slate-500 transition-colors hover:bg-teal-50 hover:text-teal-700"
+          >
+            {t(key)}
+          </button>
+        ))}
+      </nav>
+
+      {/* 双栏：内容 + 右栏动作 */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <main className="min-w-0 space-y-4">
+          {/* 采购摘要（AI 摘要 + 锁态提示由子组件处理） */}
+          <section id="section-summary">
+            <AiSummarySection
+              data={aiSummary.data}
+              loading={aiSummary.loading}
+              streaming={aiSummary.streaming}
+              error={aiSummary.error}
+              llmConfigured={aiSummary.llmConfigured}
+              locked={!coreAccessible}
+              upgradeLocked={coreAccessible && !aiSummaryEnabled}
+              accessPending={accessPending}
+              masked={aiSummary.masked}
+              onUpgrade={() => router.push("/membership")}
+              onStart={() => aiSummary.triggerAnalysis(false)}
+              onConfigure={() => router.push("/settings/ai-model")}
+              onRequestAccess={() => onAccess(notice)}
+              onRegenerate={() => aiSummary.triggerAnalysis(true)}
+            />
+          </section>
+
+          {/* 采购说明（长文折叠 + 译文切换） */}
+          {!awaitingFullText && (
+            <section id="section-desc" className="border border-slate-200 bg-white">
+              <SectionHeader title={t("procurement_description")} />
+              <div className="px-4 py-3 sm:px-5">
+                <NoticeDescriptionSection
+                  translating={showTranslating}
+                  failed={failed}
+                  hasTranslation={hasTranslation}
+                  showOriginal={showOriginal}
+                  showTranslated={!showOriginal && hasTranslation}
+                  toggleOriginal={toggleOriginal}
+                  displayDescription={descShown}
+                  descriptionTruncated={descIsLong && !descExpanded ? true : !!notice.descriptionTruncated}
+                />
+                {descIsLong && (
+                  <button
+                    type="button"
+                    onClick={() => setDescExpanded((v) => !v)}
+                    className="mt-3 inline-flex items-center gap-1 border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700 transition-colors hover:bg-teal-100"
+                  >
+                    {descExpanded ? t("detail_collapse") : t("detail_expand")}
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* 资格条件（会员态结构化 / 锁态锁定面板由子组件处理） */}
+          <section id="section-qual">
+            <QualificationTab notice={notice} coreAccessible={coreAccessible} isVip={isVip} />
+          </section>
+
+          {/* 联系人 */}
+          <section id="section-buyer">
+            <BuyerContactsTab notice={notice} coreAccessible={coreAccessible} />
+          </section>
+
+          {/* 投标材料 */}
+          <section id="section-files">
+            <FilesTab notice={notice} coreAccessible={coreAccessible} isVip={isVip} userId={userId} onAccess={onAccess} gates={membership?.gates} />
+          </section>
+
+          {/* AI 智能匹配 */}
+          <section id="section-ai" className="space-y-2">
+            {aiMatchEnabled && (
+              <p className="text-xs font-bold text-slate-500" data-testid="ai-match-level">
+                {t(aiMatchLevelKey)}
+              </p>
+            )}
+            <AiEvaluationPanel
+              data={aiMatch.data}
+              loading={aiMatch.loading}
+              cacheLoading={aiMatch.cacheLoading}
+              error={aiMatch.error}
+              upgradeLocked={!aiMatchEnabled}
+              onStart={() => aiMatch.triggerMatch(false)}
+              onRegenerate={() => aiMatch.triggerMatch(true)}
+              onGoToPool={() => router.push("/settings/supplier-pool")}
+              onGoToEnterprise={() => router.push("/settings/enterprise")}
+              onEditDiag={() => router.push("/settings/supplier-pool")}
+            />
+          </section>
+
+          {/* 相似机会 */}
+          <section id="section-similar">
+            <SimilarTab notice={notice} onOpen={onOpenNotice} />
+          </section>
+        </main>
+
+        {/* 右栏：下一步动作（保持现有行为；查看文件改为锚点滚动） */}
+        <aside className="space-y-4 lg:sticky lg:top-16">
+          <NextStepsPanel
+            notice={notice}
+            isLoggedIn={isLoggedIn}
+            gates={membership?.gates}
+            coreAccessible={coreAccessible}
+            onAccess={() => onAccess(notice)}
+            onViewFiles={() => scrollToSection("section-files")}
+          />
+        </aside>
+      </div>
+
+      {/* 移动端底栏操作（保持现有组件） */}
       <NoticeDetailSidebar
-        notice={notice} membership={membership}
-        canUsePaidQuota={canUsePaidQuota} isVip={isVip}
-        totalRemaining={totalRemaining} isLoggedIn={isLoggedIn}
+        notice={notice}
+        membership={membership}
+        canUsePaidQuota={canUsePaidQuota}
+        isVip={isVip}
+        totalRemaining={totalRemaining}
+        isLoggedIn={isLoggedIn}
       />
 
       {/* 分享面板：链接直达规范公开详情页 /procurement/notice/{id} */}
@@ -334,12 +528,3 @@ export function NoticeDetail({
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

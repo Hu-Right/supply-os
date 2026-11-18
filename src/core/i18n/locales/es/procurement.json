@@ -902,5 +902,7 @@
   "pc_bhint_rules": "Opcional. Seleccionar o indicar una regla deriva el registro a revisión manual de cumplimiento, sin bloquear el envío.",
   "pc_bauthdoc_na": "Usted es el comprador final: no se requiere poder, solo para agentes autorizados.",
   "pc_gone_title": "Esta demanda de compra ya no existe",
-  "pc_gone_desc": "Puede haber sido retirada o eliminada, o el enlace ha caducado."
+  "pc_gone_desc": "Puede haber sido retirada o eliminada, o el enlace ha caducado.",
+  "detail_expand": "Mostrar todo",
+  "detail_collapse": "Mostrar menos"
 }

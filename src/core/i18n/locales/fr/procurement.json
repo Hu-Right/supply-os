@@ -902,5 +902,7 @@
   "pc_bhint_rules": "Facultatif. Toute règle sélectionnée déclenche une revue de conformité manuelle, sans bloquer l'envoi.",
   "pc_bauthdoc_na": "Vous êtes l'acheteur final : aucun mandat n'est requis — il ne l'est que pour les agents mandatés.",
   "pc_gone_title": "Cette demande d'achat n'existe plus",
-  "pc_gone_desc": "Elle a peut-être été retirée ou supprimée, ou le lien a expiré."
+  "pc_gone_desc": "Elle a peut-être été retirée ou supprimée, ou le lien a expiré.",
+  "detail_expand": "Afficher tout",
+  "detail_collapse": "Réduire"
 }

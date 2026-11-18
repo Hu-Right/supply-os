@@ -902,5 +902,7 @@
   "pc_bhint_rules": "Optional. Selecting or entering a rule sends this buyer to manual compliance review. Submission is not blocked.",
   "pc_bauthdoc_na": "You are the end buyer, so no agent-authorization document is needed — it is required only for authorized agents.",
   "pc_gone_title": "This procurement request no longer exists",
-  "pc_gone_desc": "It may have been withdrawn or deleted, or the link has expired."
+  "pc_gone_desc": "It may have been withdrawn or deleted, or the link has expired.",
+  "detail_expand": "Show full text",
+  "detail_collapse": "Show less"
 }
