@@ -13,14 +13,17 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendSmsVerificationCode, isSmsConfigured } from "@/lib/services/sms";
+import { normalizePhone } from "@/lib/utils/phone";
 import { VERIFICATION_CODE_EXPIRES_MS } from "@/shared/constants/time";
 
 const registerSmsSchema = z.object({
-  phone: z.string({ error: "请输入有效的手机号" }).trim().regex(/^1[3-9]\d{9}$/, "请输入有效的手机号"),
+  phone: z.string({ error: "请输入有效的手机号" }).trim().min(6, "请输入有效的手机号").max(24, "请输入有效的手机号"),
 });
 
 export const POST = withRoute(async (req: NextRequest) => {
-  const { phone: targetPhone } = await parseJson(req, registerSmsSchema, { phone: EC_PHONE_ISSUE });
+  const { phone: rawPhone } = await parseJson(req, registerSmsSchema, { phone: EC_PHONE_ISSUE });
+  const targetPhone = normalizePhone(rawPhone);
+  if (!targetPhone) routeError(400, EC_PHONE_ISSUE, "请输入有效的手机号");
 
   if (!isSmsConfigured()) {
     routeError(503, EC_SMS_NOT_CONFIGURED, "短信服务暂未配置，请稍后重试");

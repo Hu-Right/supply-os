@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { validatePassword } from "@/shared/auth/passwordPolicy";
+import { isE164 } from "@/shared/utils/phone";
 import { EC_PASSWORD_RESET_REQUIRED } from "@/shared/constants/api";
 import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 import { DEFAULT_REGISTER_INVITE_CODE } from "@/shared/constants/invite";
@@ -105,7 +106,7 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
         return;
       }
       // 手机号必填
-      if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+      if (!phone || !isE164(phone)) {
         setAuthError(t("authErrPhoneInvalid"));
         return;
       }

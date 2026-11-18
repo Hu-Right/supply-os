@@ -29,8 +29,9 @@ export function AuthModal({ onClose, onSuccess, initialMode, closeOnBackdrop }: 
   const { t } = useLocale();
   const { authUser } = useAuth();
 
-  // 守卫：已登录用户不再通过弹窗管理账户（应跳转 /settings/profile）
-  if (authUser) return null;
+  // 守卫：已登录用户不再通过弹窗管理账户（应跳转 /settings/profile）；
+  // 但显式要求注册 Tab 的入口（首页「免费注册」CTA、扫码推广落地）仍展示注册表单
+  if (authUser && initialMode !== "register") return null;
 
   return (
     <FormModal

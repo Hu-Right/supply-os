@@ -10,6 +10,7 @@
 
 import crypto from "crypto";
 import { maskPhone } from "../utils/mask";
+import { isMainlandE164, smsTargetOf } from "../utils/phone";
 
 const SMS_PROVIDER = process.env.SMS_PROVIDER || "mock"; // "mock" | "aliyun"
 const SMS_ACCESS_KEY_ID = process.env.SMS_ACCESS_KEY_ID;
@@ -17,6 +18,10 @@ const SMS_ACCESS_KEY_SECRET = process.env.SMS_ACCESS_KEY_SECRET;
 const SMS_SIGN_NAME = process.env.SMS_SIGN_NAME || "恒创联众";
 const SMS_TEMPLATE_CODE = process.env.SMS_TEMPLATE_CODE || "100001"; // 默认模板（绑定/解绑/换绑）
 const SMS_TEMPLATE_CODE_RESET = process.env.SMS_TEMPLATE_CODE_RESET; // 找回密码专用模板
+
+/** 国际/港澳台短信（阿里云需单独报备签名与模板；未配置时非 +86 号码直接报错） */
+const SMS_INTL_SIGN_NAME = process.env.SMS_INTL_SIGN_NAME;
+const SMS_INTL_TEMPLATE_CODE = process.env.SMS_INTL_TEMPLATE_CODE;
 
 /** 获取找回密码专用模板 CODE */
 export function getSmsResetTemplateCode(): string | undefined {
@@ -92,16 +97,21 @@ export async function sendSmsVerificationCode(
   // 如未传入预生成码，自行生成（兼容旧调用路径，但调用方应确保与存库一致）
   const finalCode = code || String(crypto.randomInt(100000, 1000000));
 
-  // 优先使用传入的模板 CODE，否则使用默认模板
-  const tplCode = templateCode || SMS_TEMPLATE_CODE;
+  // 按号码归属选择通道：+86 走国内签名/模板，其余走国际短信（需单独报备）
+  const isMainland = isMainlandE164(phone);
+  const signName = isMainland ? SMS_SIGN_NAME : SMS_INTL_SIGN_NAME;
+  const tplCode = isMainland ? (templateCode || SMS_TEMPLATE_CODE) : (templateCode || SMS_INTL_TEMPLATE_CODE);
+  if (!signName || !tplCode) {
+    throw new Error("SMS_REGION_NOT_CONFIGURED: 该地区国际短信通道未开通");
+  }
 
   // 阿里云 SMS 发送（dysmsapi — 短信服务）
   const client = await getAliyunClient();
   const Dysmsapi = await import("@alicloud/dysmsapi20170525");
 
   const request = new Dysmsapi.SendSmsRequest({
-    phoneNumbers: phone,
-    signName: SMS_SIGN_NAME,
+    phoneNumbers: smsTargetOf(phone),
+    signName,
     templateCode: tplCode,
     templateParam: JSON.stringify({ code: finalCode }),
   });

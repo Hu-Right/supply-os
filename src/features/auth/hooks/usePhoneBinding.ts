@@ -9,7 +9,7 @@ import { useLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
 import { api, ApiError } from "@/core/http";
 import { useCountdown } from "@/shared/hooks/useCountdown";
-import { isMainlandPhone } from "@/shared/utils/validators";
+import { isE164 } from "@/shared/utils/phone";
 
 export type PhoneView = "idle" | "binding" | "rebinding" | "unbinding";
 
@@ -71,7 +71,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
 
   const handleSendCode = async (scene: "bind" | "rebind" | "unbind") => {
     if (!userId) return;
-    if (scene !== "unbind" && !isMainlandPhone(phone)) {
+    if (scene !== "unbind" && !isE164(phone)) {
       setMessage(t("authPhoneInvalid"));
       setIsError(true);
       return;

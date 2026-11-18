@@ -17,6 +17,7 @@
  */
 import type { Pool, ResultSetHeader } from "mysql2/promise";
 import type { UserRow } from "./types";
+import { phoneLookupCandidates } from "@/shared/utils/phone";
 
 export class UsersRepo {
   constructor(private pool: Pool) {}
@@ -181,11 +182,33 @@ export class UsersRepo {
     return (rows as UserRow[])[0] ?? null;
   }
 
+  /**
+   * 按 E.164 候选集查用户（登录/找回）：用户可能输入大陆 11 位、港澳 8 位、
+   * 台湾 9 位等本地格式，由 phoneLookupCandidates 展开后一次 IN 查询命中。
+   */
+  private async findByPhoneCandidates(phones: string[]): Promise<UserRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT * FROM users WHERE phone IN (${phones.map(() => "?").join(", ")}) LIMIT 1`,
+      phones,
+    );
+    return (rows as UserRow[])[0] ?? null;
+  }
+
+  private async findAuthByPhoneCandidates(phones: string[]): Promise<UserRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
+              account_status, supplier_id, supplier_link_status
+       FROM users WHERE phone IN (${phones.map(() => "?").join(", ")}) LIMIT 1`,
+      phones,
+    );
+    return (rows as UserRow[])[0] ?? null;
+  }
+
   /** 按手机号或邮箱查找用户（登录/找回密码统一入口） */
   async findByIdentifier(identifier: string): Promise<UserRow | null> {
-    const isPhone = /^1[3-9]\d{9}$/.test(identifier);
-    if (isPhone) {
-      return this.findByPhone(identifier);
+    const candidates = phoneLookupCandidates(identifier);
+    if (candidates.length) {
+      return this.findByPhoneCandidates(candidates);
     }
     const [rows] = await this.pool.query(
       "SELECT * FROM users WHERE email = ? LIMIT 1",
@@ -198,9 +221,9 @@ export class UsersRepo {
    *  登录凭证为双轨：手机号，或已绑定邮箱（含注册后在个人中心补绑的邮箱，
    *  产品决策 2026-09：邮箱对所有绑定用户开放登录，非仅历史用户兼容） */
   async findAuthByIdentifier(identifier: string): Promise<UserRow | null> {
-    const isPhone = /^1[3-9]\d{9}$/.test(identifier);
-    if (isPhone) {
-      return this.findAuthByPhone(identifier);
+    const candidates = phoneLookupCandidates(identifier);
+    if (candidates.length) {
+      return this.findAuthByPhoneCandidates(candidates);
     }
     // 历史邮箱用户兼容：按 email 查找
     const [rows] = await this.pool.query(

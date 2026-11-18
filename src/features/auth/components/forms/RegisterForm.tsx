@@ -7,6 +7,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Input, Button } from "@/shared/ui";
+import { PhoneInput } from "../PhoneInput";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
 import type { AuthFormState } from "../../hooks/useAuthForm";
@@ -55,13 +56,10 @@ export function RegisterForm({
 
       {/* 手机号 */}
       <div className="space-y-1">
-        <Input
-          type="tel"
-          inputMode="tel"
+        <PhoneInput
           value={authForm.phone}
-          onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value.replace(/\D/g, "").slice(0, 11) })}
+          onChange={(e164) => setAuthForm({ ...authForm, phone: e164 })}
           placeholder={t("authPhonePlaceholder") || "请输入手机号"}
-          autoComplete="tel"
         />
       </div>
       <div className="space-y-1">

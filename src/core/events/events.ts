@@ -25,6 +25,7 @@ export interface PayEventDetail {
 /** 事件名 → 载荷类型映射；void 表示无载荷 */
 export interface AppEventMap {
   "supply-os:require-login": void;
+  "supply-os:require-register": void;
   "supply-os:unauthorized": { endpoint: string };
   "supply-os:require-vip": void;
   "supply-os:open-account": void;

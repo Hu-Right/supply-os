@@ -82,15 +82,22 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
     }
   }, [authUser, router, setShowAuthModal]);
 
-  useAppEvents({ onRequireLogin, onConsult, onPay, onOpenAccount });
+  // 注册意图弹窗模式：「免费注册」CTA / 扫码推广（qr_auto_open Cookie）均直落注册 Tab
+  const [registerMode, setRegisterMode] = useState(false);
+  const onRequireRegisterIntent = useCallback(() => {
+    // 只开注册弹窗（注册 Tab），不做任何页面跳转
+    setRegisterMode(true);
+    setShowAuthModal(true);
+  }, [setShowAuthModal]);
+
+  useAppEvents({ onRequireLogin, onRequireRegister: onRequireRegisterIntent, onConsult, onPay, onOpenAccount });
   useVersionCheck();
 
   // ★ 扫码推广自动弹出注册弹窗：检测 /r/[code] 中转页写入的 qr_auto_open Cookie
   //   （由浏览器 JS 写入，不依赖服务端跨重定向 Set-Cookie）。
-  const [qrRegisterMode, setQrRegisterMode] = useState(false);
   useEffect(() => {
     if (!/(?:^|;\s*)qr_auto_open=/.test(document.cookie)) return;
-    setQrRegisterMode(true);
+    setRegisterMode(true);
     setShowAuthModal(true);
     // 清除信号，防止刷新重复弹出
     document.cookie = "qr_auto_open=; path=/; max-age=0";
@@ -129,15 +136,15 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
       {showAuthModal && (
         <Suspense fallback={<ModalSkeleton />}>
           <AuthModal
-            initialMode={qrRegisterMode ? "register" : "login"}
+            initialMode={registerMode ? "register" : "login"}
             closeOnBackdrop={false}
             onClose={() => {
               setShowAuthModal(false);
-              setQrRegisterMode(false);
+              setRegisterMode(false);
             }}
             onSuccess={() => {
               setShowAuthModal(false);
-              setQrRegisterMode(false);
+              setRegisterMode(false);
               // 仅当从账户入口（头像/open-account）触发登录时才重定向到设置页
               if (authRedirectOnSuccess) {
                 setAuthRedirectOnSuccess(false);

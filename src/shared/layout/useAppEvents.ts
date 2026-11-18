@@ -11,6 +11,8 @@ import type { PayEventDetail } from "@/core/events";
 
 export interface AppEventHandlers {
   onRequireLogin: () => void;
+  /** 注册意图：打开登录弹窗并直接落在注册 Tab */
+  onRequireRegister: () => void;
   onConsult: () => void;
   onPay: (detail: PayEventDetail) => void;
   /** 账户入口：已登录跳设置页 / 未登录开登录弹窗（登录后重定向设置页） */
@@ -26,6 +28,7 @@ export function useAppEvents(handlers: AppEventHandlers) {
     // （require-login / open-account / require-vip）触发。
     const unsubs = [
       onAppEvent("supply-os:require-login", () => handlers.onRequireLogin()),
+      onAppEvent("supply-os:require-register", () => handlers.onRequireRegister()),
       onAppEvent("supply-os:require-vip", () => handlers.onRequireLogin()),
       onAppEvent("supply-os:open-account", () => handlers.onOpenAccount()),
       onAppEvent("supply-os:consult", () => handlers.onConsult()),

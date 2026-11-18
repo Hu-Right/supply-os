@@ -8,6 +8,7 @@
  */
 import { Smartphone, ShieldCheck } from "lucide-react";
 import { Input } from "@/shared/ui";
+import { PhoneInput } from "./PhoneInput";
 import { usePhoneBinding } from "../hooks/usePhoneBinding";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0 disabled:opacity-50";
@@ -68,8 +69,8 @@ export function PhoneBinding() {
 
       {view === "binding" && (
         <div className="mt-3 sm:pl-14 space-y-2 animate-fade-in max-w-md">
-          <Input type="tel" value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+<PhoneInput value={phone}
+            onChange={(e164) => setPhone(e164)}
             placeholder={t("authPhoneBindPlaceholder")} className="bg-white" />
           <div className="flex gap-2">
             <Input type="text" value={code}
@@ -94,8 +95,8 @@ export function PhoneBinding() {
 
       {view === "rebinding" && (
         <div className="mt-3 sm:pl-14 space-y-2 animate-fade-in max-w-md">
-          <Input type="tel" value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+<PhoneInput value={phone}
+            onChange={(e164) => setPhone(e164)}
             placeholder={t("authPhoneNewPlaceholder")} className="bg-white" />
           <div className="flex gap-2">
             <Input type="text" value={code}

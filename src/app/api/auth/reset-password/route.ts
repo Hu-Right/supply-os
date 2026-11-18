@@ -10,10 +10,11 @@ import { hashPassword, hashVerificationCode, buildUserResponse, issueTokenPair }
 import { validatePassword } from "@/lib/utils/passwordPolicy";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 import { createLogger } from "@/lib/utils/fileLogger";
+import { normalizePhone } from "@/lib/utils/phone";
+import { looksLikePhone } from "@/shared/utils/phone";
 
 const log = createLogger("auth");
 
-const PHONE_RE = /^1[3-9]\d{9}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const resetSchema = z.object({
@@ -25,7 +26,7 @@ const resetSchema = z.object({
 
 /** 智能识别：手机号 → sms，邮箱 → email，默认 sms */
 function detectChannel(identifier: string): "sms" | "email" {
-  if (PHONE_RE.test(identifier)) return "sms";
+  if (looksLikePhone(identifier)) return "sms";
   if (EMAIL_RE.test(identifier)) return "email";
   return "sms";
 }
@@ -48,8 +49,9 @@ export const POST = withRoute(async (req: NextRequest) => {
   let user: Awaited<ReturnType<typeof ctx.user.usersRepo.findByPhone>>;
 
   // 按 identifier 查找用户（手机走 findByPhone，邮箱走 findByEmail）
-  if (channel === "sms" && PHONE_RE.test(identifier)) {
-    user = await ctx.user.usersRepo.findByPhone(identifier);
+  const e164 = channel === "sms" ? normalizePhone(identifier) : null;
+  if (channel === "sms" && e164) {
+    user = await ctx.user.usersRepo.findByPhone(e164);
     if (!user) routeError(400, EC_INVALID_CODE, "验证码无效，请重新获取");
     resolvedUserId = user.id!;
   } else {

@@ -13,8 +13,7 @@ import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
 import { VERIFICATION_CODE_EXPIRES_MS, ONE_MINUTE_MS } from "@/shared/constants/time";
-
-const PHONE_RE = /^1[3-9]\d{9}$/;
+import { normalizePhone } from "@/lib/utils/phone";
 
 const sendPhoneSchema = z.object({
   phone: z.string().optional(),
@@ -32,8 +31,9 @@ export const POST = withRoute(async (req: NextRequest) => {
   const user = await ctx.user.usersRepo.findById(auth.userId!);
   if (!user) routeError(404, EC_NOT_FOUND, "用户不存在");
 
-  const targetPhone = (scene === "unbind" || scene === "reset") ? (user.phone || "") : String(phone || "").trim();
-  if (!targetPhone || !PHONE_RE.test(targetPhone)) {
+  // user.phone 已是 E.164；bind/rebind 传进来的可能是本地格式，统一归一化
+  const targetPhone = normalizePhone((scene === "unbind" || scene === "reset") ? (user.phone || "") : String(phone || "").trim());
+  if (!targetPhone) {
     routeError(400, scene === "unbind" || scene === "reset" ? EC_PHONE_NOT_BOUND : EC_PHONE_ISSUE,
       scene === "unbind" || scene === "reset" ? "尚未绑定手机号" : "请输入有效的手机号");
   }

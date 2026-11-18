@@ -7,17 +7,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getContext } from "@/lib/db/context";
-import { withRoute, parseJson } from "@/lib/middleware/route-handler";
+import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
 import { registerUser } from "@/lib/services/auth-register";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { EC_INVALID_PARAMS, EC_PHONE_ISSUE } from "@/shared/constants/api";
+import { normalizePhone } from "@/lib/utils/phone";
 
 // 字段顺序即校验优先级（zod issues[0] 与原实现的报错顺序一致）
 const registerSchema = z.object({
   display_name: z.string({ error: "请填写姓名" }).trim().min(1, "请填写姓名"),
-  phone: z.string({ error: "请输入有效的手机号" }).trim().regex(/^1[3-9]\d{9}$/, "请输入有效的手机号"),
+  phone: z.string({ error: "请输入有效的手机号" }).trim().min(6, "请输入有效的手机号").max(24, "请输入有效的手机号"),
   password: z.string({ error: "密码不能为空" }).min(1, "密码不能为空"),
   verify_code: z.string({ error: "请输入短信验证码" }).min(1, "请输入短信验证码"),
   invitation_code: z.string().optional(),
@@ -34,11 +35,14 @@ export const POST = withRoute(async (req: NextRequest) => {
   });
 
   // 限流：IP + 手机号双维度，防批量注册攻击/短信通道消耗
+  const targetPhone = normalizePhone(body.phone);
+  if (!targetPhone) routeError(400, EC_PHONE_ISSUE, "请输入有效的手机号");
+
   const rlIp = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 5 },
     (r) => `register-ip:${extractClientIp(r)}`);
   if (rlIp) return rlIp;
   const rlPhone = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 3 },
-    () => `register-phone:${body.phone}`);
+    () => `register-phone:${targetPhone}`);
   if (rlPhone) return rlPhone;
 
   // ★ 邀请码优先级（2026-11-17 口径）：手动填写 > Cookie ref_code（扫码落地页带入，7 天有效、
@@ -58,7 +62,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const { payload, accessToken, refreshToken } = await registerUser(getContext(), {
     displayName: body.display_name,
-    targetPhone: body.phone,
+    targetPhone,
     password: body.password,
     code: body.verify_code,
     inviteCode,

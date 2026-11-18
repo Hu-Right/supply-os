@@ -6,6 +6,7 @@
  */
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { isE164 } from "@/shared/utils/phone";
 import { api } from "@/core/http";
 import { useCountdown } from "@/shared/hooks/useCountdown";
 
@@ -19,7 +20,7 @@ export function useRegisterCode() {
   const { countdown: registerCodeCountdown, start: startCountdown, reset: resetCountdown } = useCountdown();
 
   const handleSendSmsCode = async (phone: string): Promise<void> => {
-    if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+    if (!phone || !isE164(phone)) {
       setRegisterCodeError(t("authPhoneInvalid") || "请输入有效的手机号");
       return;
     }

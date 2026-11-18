@@ -13,11 +13,12 @@ import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } fro
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { createLogger } from "@/lib/utils/fileLogger";
+import { normalizePhone } from "@/lib/utils/phone";
+import { looksLikePhone } from "@/shared/utils/phone";
 import { PASSWORD_RESET_EXPIRES_MS, CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
 
 const log = createLogger("email");
 
-const PHONE_RE = /^1[3-9]\d{9}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const forgotSchema = z.object({
@@ -27,7 +28,7 @@ const forgotSchema = z.object({
 
 /** 智能识别输入类型：手机号 → sms，邮箱 → email */
 function detectChannel(identifier: string): "sms" | "email" {
-  if (PHONE_RE.test(identifier)) return "sms";
+  if (looksLikePhone(identifier)) return "sms";
   if (EMAIL_RE.test(identifier)) return "email";
   return "sms"; // 默认短信渠道
 }
@@ -50,10 +51,11 @@ export const POST = withRoute(async (req: NextRequest) => {
     if (EMAIL_RE.test(identifier)) {
       return NextResponse.json({ success: true, message: "验证码发送请求已提交", smsSent: false, supportHint: "该格式为邮箱，请使用邮箱验证方式" });
     }
-    if (!PHONE_RE.test(identifier)) {
+    const e164 = normalizePhone(identifier);
+    if (!e164) {
       routeError(400, EC_PHONE_ISSUE, "请输入有效的手机号");
     }
-    const user = await ctx.user.usersRepo.findByIdentifier(identifier);
+    const user = await ctx.user.usersRepo.findByPhone(e164);
     if (!user || !user.phone || !user.phone_verified) {
       return NextResponse.json({ success: true, message: "验证码发送请求已提交", smsSent: false, supportHint: null });
     }

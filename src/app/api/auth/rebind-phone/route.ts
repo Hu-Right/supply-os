@@ -7,15 +7,18 @@ import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler
 import { EC_NOT_FOUND, EC_PHONE_NOT_BOUND, EC_PHONE_ISSUE, EC_INVALID_CODE, EC_TOO_MANY_ATTEMPTS, EC_CONTACT_TAKEN_BY_OTHER } from "@/shared/constants/api";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { maskPhone } from "@/lib/utils/mask";
+import { normalizePhone } from "@/lib/utils/phone";
 
 const rebindPhoneSchema = z.object({
-  new_phone: z.string({ error: "请输入有效的手机号" }).regex(/^1[3-9]\d{9}$/, "请输入有效的手机号"),
+  new_phone: z.string({ error: "请输入有效的手机号" }).trim().min(6, "请输入有效的手机号").max(24, "请输入有效的手机号"),
   code: z.string({ error: "请输入验证码" }).min(1, "请输入验证码"),
 });
 
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
-  const { new_phone, code } = await parseJson(req, rebindPhoneSchema, { new_phone: EC_PHONE_ISSUE, code: EC_INVALID_CODE });
+  const { new_phone: rawPhone, code } = await parseJson(req, rebindPhoneSchema, { new_phone: EC_PHONE_ISSUE, code: EC_INVALID_CODE });
+  const new_phone = normalizePhone(rawPhone);
+  if (!new_phone) routeError(400, EC_PHONE_ISSUE, "请输入有效的手机号");
 
   const ctx = getContext();
   const user = await ctx.user.usersRepo.findById(auth.userId!);

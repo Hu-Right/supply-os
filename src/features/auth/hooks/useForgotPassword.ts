@@ -6,6 +6,7 @@
  */
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { looksLikePhone } from "@/shared/utils/phone";
 import { api } from "@/core/http";
 import { validatePassword } from "@/shared/auth/passwordPolicy";
 
@@ -30,7 +31,7 @@ export function maskPhone(phone: string): string {
 /** 根据输入格式智能识别验证渠道：手机号 → sms，邮箱 → email，默认 sms */
 export function detectChannel(identifier: string): "sms" | "email" {
   const trimmed = identifier.trim();
-  if (/^1[3-9]\d{9}$/.test(trimmed)) return "sms";
+  if (looksLikePhone(trimmed)) return "sms";
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return "email";
   return "sms"; // 默认短信渠道
 }
@@ -72,7 +73,7 @@ export function useForgotPassword(onSuccess: () => void) {
     const channel = detectChannel(identifier);
 
     if (channel === "sms") {
-      if (!/^1[3-9]\d{9}$/.test(identifier)) {
+      if (!looksLikePhone(identifier)) {
         setForgotError(t("authPhoneInvalid") || "请输入有效的手机号");
         return;
       }
