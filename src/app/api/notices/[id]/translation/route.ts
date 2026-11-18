@@ -11,12 +11,12 @@ import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { EC_INVALID_PARAMS, EC_CONTENT_LOCKED, EC_VIP_ONLY } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { NOTICE_TRANSLATION_LANGS } from "@/lib/services/translation/notice";
 import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
 import { fetchNoticeTranslation } from "@/lib/services/notice-service";
-import { resolveNoticeAccess } from "@/lib/services/notice-access";
+import { assertNoticeContentAccess } from "@/lib/services/notice-access";
 
 // ── GET /api/notices/[id]/translation — 公告翻译 ──
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -35,22 +35,19 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无效的公告 ID 或语言参数");
     }
 
-    // ARCH-P0（2026-09-05）：付费墙闸口 — 译文属解锁后内容，必须先校验解锁态
+    // 访问闸口（2026-11-18 收口）：行业墙 + 解锁/套餐 + 译文权益。
+    // 原先只做了解锁/套餐判定，漏了行业墙——行业限定档用户可用订阅行业外的
+    // 公告 ID 直接调本接口拿译文（等于旁路 /detail 的行业墙），故统一走公共闸口。
     const ctx = getContext();
-    const access = await resolveNoticeAccess({
+    await assertNoticeContentAccess({
+      dbPool: ctx.dbPool,
+      benefitRepo: ctx.benefitSystemRepo,
+      unlockRepo: ctx.notice.unlockRepo,
       userId: auth.userId,
       noticeId,
-      unlockRepo: ctx.notice.unlockRepo,
-      benefitRepo: ctx.benefitSystemRepo,
+      benefit: NOTICE_TRANSLATION_BENEFIT,
+      benefitMessage: "当前套餐不包含译文，仅可查看原文",
     });
-    if (!access.unlock && !access.accessibleByPlan) {
-      routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { core_locked: true });
-    }
-
-    // 档位门控（2026-09-24）：译文按矩阵 notice_translation 判定，129/999 等低档只给原文，不产出译文
-    if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, NOTICE_TRANSLATION_BENEFIT))) {
-      routeError(403, EC_VIP_ONLY, "当前套餐不包含译文，仅可查看原文", { feature: NOTICE_TRANSLATION_BENEFIT });
-    }
 
     const result = await fetchNoticeTranslation(noticeId, lang);
     return NextResponse.json(result);

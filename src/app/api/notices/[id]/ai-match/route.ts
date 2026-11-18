@@ -11,8 +11,9 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { EC_INVALID_PARAMS, EC_VIP_ONLY, EC_CONTENT_LOCKED, EC_PAID_QUOTA_REQUIRED } from "@/shared/constants/api";
-import { resolveNoticeAccess } from "@/lib/services/notice-access";
+import { EC_INVALID_PARAMS, EC_VIP_ONLY, EC_PAID_QUOTA_REQUIRED } from "@/shared/constants/api";
+import { assertNoticeContentAccess, resolveNoticeAccess } from "@/lib/services/notice-access";
+import { canAccessNotice } from "@/lib/services/industry-scope";
 import { getOrGenerateAiMatch, parseFreshMatchCache } from "@/lib/services/ai-match";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
@@ -36,6 +37,20 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
     }
     const ctx = getContext();
+    // 访问闸口（2026-11-18）：行业墙 + 解锁/套餐。GET 只读缓存但缓存内容同样属付费内容，
+    // 不满足时按「无缓存」返回（与低档行为一致），避免行业/锁定用户旁路读历史 AI 匹配结果。
+    const wallOk = await canAccessNotice(ctx.dbPool, ctx.benefitSystemRepo, auth.userId, noticeId);
+    const accessForGet = wallOk
+      ? await resolveNoticeAccess({
+        userId: auth.userId,
+        noticeId,
+        unlockRepo: ctx.notice.unlockRepo,
+        benefitRepo: ctx.benefitSystemRepo,
+      })
+      : null;
+    if (!wallOk || !accessForGet || (!accessForGet.unlock && !accessForGet.accessibleByPlan)) {
+      return NextResponse.json({ cached: false, locked: true });
+    }
     // 走法②：无 ai_match 权益（低档）即使有历史缓存也不回读，防直接打接口绕过（与 POST 门控对称）
     if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, "ai_match"))) {
       return NextResponse.json({ cached: false, locked: true });
@@ -77,16 +92,14 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     // 企业账号也可建立供应商资源库并使用智能匹配。
     const ctx = getContext();
 
-    // 解锁校验：无限次会员凭 notice_view 权益直接访问，不强制单条解锁记录
-    const access = await resolveNoticeAccess({
+    // 访问闸口（2026-11-18 收口）：行业墙 + 解锁/套餐（无限次会员凭 notice_view 直接访问）
+    await assertNoticeContentAccess({
+      dbPool: ctx.dbPool,
+      benefitRepo: ctx.benefitSystemRepo,
+      unlockRepo: ctx.notice.unlockRepo,
       userId: auth.userId,
       noticeId,
-      unlockRepo: ctx.notice.unlockRepo,
-      benefitRepo: ctx.benefitSystemRepo,
     });
-    if (!access.unlock && !access.accessibleByPlan) {
-      routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { core_locked: true });
-    }
 
     // 权益闸门：AI 智能匹配按矩阵 ai_match 行判定（价格文档为唯一事实源，不再比档位）
     if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, "ai_match"))) {

@@ -9,7 +9,8 @@ import { promises as fs } from "fs";
 import nodePath from "path";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { withRoute,
+  routeError } from "@/lib/middleware/route-handler";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
 import { findPublicDetail } from "@/lib/services/notice-public/read";
 import { formatDeadlineForExport } from "@/shared/utils/notice-datetime/format";
@@ -17,18 +18,23 @@ import { BID_FEASIBILITY_REPORT_BENEFIT } from "@/lib/services/benefit-matrix";
 import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
 import { platformInfo } from "@/lib/services/platform/resolve";
 import { resolveNoticeAccess } from "@/lib/services/notice-access";
+import { canAccessNotice } from "@/lib/services/industry-scope";
 import {
   buildBidReportDocx,
   mergeBidReportRow,
   bidReportFileName,
-} from "@/lib/services/bid-report";
+  } from "@/lib/services/bid-report";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-const reportCacheDir = () => nodePath.join(process.cwd(), "runtime", "bid_reports");
+const reportCacheDir = () => nodePath.join(process.cwd(),
+  "runtime",
+  "bid_reports");
 
 import {
-  EC_NOTICE_NOT_FOUND_404, EC_ACCESS_FORBIDDEN, EC_REPORT_NOT_AVAILABLE,
-} from "@/shared/constants/api";
+  EC_NOTICE_NOT_FOUND_404,
+  EC_ACCESS_FORBIDDEN,
+  EC_REPORT_NOT_AVAILABLE,
+  EC_OUT_OF_CATEGORY } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -45,6 +51,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const ctx = getContext();
     const { unlockRepo } = ctx.notice;
     const opportunitiesRepo = ctx.opportunitiesRepo;
+
+    // 行业墙（2026-11-18）：报告含公告正文内容，必须与 /detail 同口径先过行业限定档
+    if (!(await canAccessNotice(ctx.dbPool, ctx.benefitSystemRepo, userId, noticeId))) {
+      routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { outOfCategory: true });
+    }
 
     const access = await resolveNoticeAccess({
       userId,
