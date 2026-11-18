@@ -9,6 +9,8 @@
 export {
   INDUSTRY_CANONICALS,
   normalizeIndustry,
-  industryTreeSection,
+  industryDisplayName,
+  INDUSTRY_LABELS_ZH,
+  INDUSTRY_LABELS_EN,
   type IndustryCanonical,
 } from "@/shared/utils/industry-section";

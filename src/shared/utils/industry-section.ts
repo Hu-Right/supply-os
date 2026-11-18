@@ -77,46 +77,98 @@ export function normalizeIndustry(raw: unknown): IndustryCanonical | null {
 }
 
 /**
- * 公告行业值 → 自建行业树 UGT-I 门类码（L1）。
- * 只做能确定的门类挂靠；不按关键词猜细分，避免假精度。
+ * ── 展示标签（2026-11-18 决策：剔除「采购主题 slug → GB/T 行业门类」桥接）──
+ *
+ * 背景：`bid_notices.industry` 的 34 个 canonical 值是**采购主题/品类**语义
+ * （工程/技术、医疗/卫生、电气/电子…），与 industry_nodes 的 GB/T 行业门类
+ * 不是同一套体系；此前 build 用固定表把 slug 硬映射到 UGT-I-xx 门类，
+ * 造成「工程咨询→制造业」「医疗设备→卫生和社会工作」等系统性错标，
+ * 现彻底移除该桥接：服务表 industry 只存 canonical slug（或 NULL），
+ * 展示层按下面的采购类别标签渲染。
  */
-const INDUSTRY_TREE_SECTION: Record<IndustryCanonical, string | null> = {
-  agriculture: "UGT-I-01",
-  mining: "UGT-I-02",
-  manufacturing: "UGT-I-03",
-  engineering: "UGT-I-03",
-  electrical: "UGT-I-03",
-  machinery: "UGT-I-03",
-  furniture: "UGT-I-03",
-  printing: "UGT-I-03",
-  textile: "UGT-I-03",
-  chemicals: "UGT-I-03",
-  food: "UGT-I-03",
-  energy: "UGT-I-04",
-  building: "UGT-I-05",
-  shelter: "UGT-I-05",
-  vehicles: "UGT-I-06",
-  supplies: "UGT-I-06",
-  logistics: "UGT-I-07",
-  travel: "UGT-I-08",
-  it: "UGT-I-09",
-  telecom: "UGT-I-09",
-  finance: "UGT-I-10",
-  consulting: "UGT-I-13",
-  laboratory: "UGT-I-13",
-  water: "UGT-I-14",
-  environmental: "UGT-I-14",
-  services: "UGT-I-15",
-  education: "UGT-I-16",
-  medical: "UGT-I-17",
-  sports: "UGT-I-18",
-  safety: "UGT-I-19",
-  government: "UGT-I-19",
-  general: null,
-  other: null,
+export const INDUSTRY_LABELS_ZH: Record<IndustryCanonical, string> = {
+  agriculture: "农业/粮食",
+  building: "建筑/基础设施",
+  chemicals: "化工/材料",
+  education: "教育/培训",
+  electrical: "电气/电子",
+  engineering: "工程/技术",
+  food: "食品/营养",
+  furniture: "家具/办公",
+  it: "信息技术",
+  laboratory: "实验室/检测",
+  logistics: "物流/仓储",
+  medical: "医疗/卫生",
+  printing: "印刷/出版",
+  safety: "安全/防护",
+  shelter: "庇护所/住房",
+  textile: "纺织/服装",
+  vehicles: "车辆/运输",
+  water: "水务/环境",
+  other: "其他",
+  energy: "能源",
+  general: "通用",
+  machinery: "机械/设备",
+  mining: "采矿/冶金",
+  environmental: "环保",
+  finance: "金融",
+  government: "政府/公共",
+  manufacturing: "制造/加工",
+  services: "服务",
+  supplies: "供应/物资",
+  travel: "旅游",
+  sports: "体育",
+  telecom: "电信",
+  consulting: "咨询",
 };
 
-export function industryTreeSection(raw: unknown): string | null {
+export const INDUSTRY_LABELS_EN: Record<IndustryCanonical, string> = {
+  agriculture: "Agriculture / Food",
+  building: "Building / Infrastructure",
+  chemicals: "Chemicals / Materials",
+  education: "Education / Training",
+  electrical: "Electrical / Electronics",
+  engineering: "Engineering / Technical services",
+  food: "Food / Nutrition",
+  furniture: "Furniture / Office",
+  it: "Information technology",
+  laboratory: "Laboratory / Testing",
+  logistics: "Logistics / Warehousing",
+  medical: "Medical / Health",
+  printing: "Printing / Publishing",
+  safety: "Safety / Protection",
+  shelter: "Shelter / Housing",
+  textile: "Textile / Apparel",
+  vehicles: "Vehicles / Transport",
+  water: "Water / Environment",
+  other: "Other",
+  energy: "Energy",
+  general: "General",
+  machinery: "Machinery / Equipment",
+  mining: "Mining / Metallurgy",
+  environmental: "Environmental",
+  finance: "Finance",
+  government: "Government / Public",
+  manufacturing: "Manufacturing",
+  services: "Services",
+  supplies: "Supplies / Materials",
+  travel: "Travel",
+  sports: "Sports",
+  telecom: "Telecom",
+  consulting: "Consulting",
+};
+
+/**
+ * 行业值 → 展示标签（locale 感知）。
+ *
+ * - 输入是 canonical slug（服务表新口径）→ 中/英标签；
+ * - 历史值（中文同义、英文变体）先 normalize 再取标签；
+ * - 词表外/空值 → null（调用方隐藏该行，绝不回退原始编码/乱值）。
+ */
+export function industryDisplayName(raw: unknown, locale: string): string | null {
   const canonical = normalizeIndustry(raw);
-  return canonical ? INDUSTRY_TREE_SECTION[canonical] : null;
+  if (!canonical) return null;
+  return locale.toLowerCase().startsWith("zh")
+    ? INDUSTRY_LABELS_ZH[canonical]
+    : INDUSTRY_LABELS_EN[canonical];
 }

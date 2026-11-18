@@ -10,4 +10,8 @@
  *              filter-builder / params / similar / open-api）保留原引用路径的 re-export 门面，
  *              新增服务端引用亦应指向此处，勿再复制一份规则表。
  */
-export { normalizeNoticeType, isKnownNoticeType } from "@/shared/constants/notice-type";
+export {
+  normalizeNoticeType,
+  isKnownNoticeType,
+  classifyBareContractNotice,
+} from "@/shared/constants/notice-type";

@@ -38,6 +38,9 @@ const SHORT_CODES: Record<string, string> = {
   EOI: "EOI", PQ: "PQ", PRE: "PQ",
   IC: "IC", RFI: "RFI", GPN: "GPN",
   AWARD: "AWARD",
+  // Mercell 等聚合源把「招标/框架协议/资格系统/动态采购系统」统一标成裸 Contract；
+  // 母类按 EU 术语归 CONTRACT_NOTICE，子类由 classifyBareContractNotice 依标题/正文细分。
+  CONTRACT: "CONTRACT_NOTICE",
   // 扩展类型短代码；同样承担幂等职责
   PIN: "PIN", PMC: "PMC",
   // EU 三大合同分类（西语源数据 Suministros/Servicios/Obras 的归一化出口）
@@ -162,6 +165,42 @@ export function normalizeNoticeType(raw: string | null | undefined): string {
     if (pattern.test(spaced)) return code;
   }
   return "OTHER";
+}
+
+/**
+ * 裸 `Contract` 的内容级细分（Mercell 等聚合源只给这一个笼统类型）。
+ *
+ * 这类公告全部是「在招」的合同通知，但机制不同：动态采购系统、资格系统、
+ * 框架协议或普通招标。源数据没有更细的 type 字段，只能从标题/正文识别。
+ * 仅在原始类型恰为 `Contract` 时调用，避免影响其他源的 CONTRACT_NOTICE。
+ *
+ * 判定顺序：DPS → 资格系统 → 框架协议 → 普通合同通知（DPS/资格系统是更具体的机制）。
+ */
+export function classifyBareContractNotice(
+  title?: string | null,
+  description?: string | null,
+): "DPS" | "PQ" | "QUAL_SYSTEM" | "FRAMEWORK" | "CONTRACT_NOTICE" {
+  const titleText = String(title ?? "");
+  const text = `${titleText}\n${String(description ?? "")}`;
+
+  // 瑞典语 dynamiskt/dynamisk inköpssystem/inköpsavtal；缩写 DIS；英文 dynamic purchasing system
+  if (
+    /dynamiskt?\s+ink[oö]ps(system|avtal)/i.test(text)
+    || /\(DIS\)|\bDIS\b/.test(titleText)
+    || /dynamic purchasing system|\(DPS\)|\bDPS\b/.test(text)
+  ) {
+    return "DPS";
+  }
+  // 资格预审（prequalification / prekvalificering）是 PQ，必须先于「资格系统」判断，
+  // 否则 prequalification 会被 qualification system 的子串规则误吞。
+  if (/prekvalificering|prequalification/i.test(text)) return "PQ";
+  // 资格系统（瑞典 kvalificeringssystem / 英文 qualification system）
+  if (/(?<!pre)kvalificeringssystem|(?<!pre)qualification system/i.test(text)) return "QUAL_SYSTEM";
+  // 框架协议（ramavtal / framework agreement / 北欧与荷兰语变体）
+  if (/ramavtal|rammeavtale|puitej[äa]rjestely|raamovereenkomst|framework agreement|\bframework\b/i.test(text)) {
+    return "FRAMEWORK";
+  }
+  return "CONTRACT_NOTICE";
 }
 
 /**

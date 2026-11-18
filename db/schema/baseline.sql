@@ -1239,7 +1239,7 @@ CREATE TABLE `notice_public` (
   `description` longtext COMMENT '正文，优先取旁表 body_text，回退主表 description',
   `description_cn` longtext COMMENT '中文译文，仅当关联到已译商机时非空（稀疏，非全量译文库）',
   `content_level` varchar(20) DEFAULT NULL COMMENT '正文质量分级：empty/echo/thin/substantive',
-  `industry` varchar(100) DEFAULT NULL COMMENT '行业 slug（约 239 类，主表直取，已归一）',
+  `industry` varchar(100) DEFAULT NULL COMMENT '采购主题 canonical slug（34 值：engineering/medical/building…；2026-11-18 起不再映射行业树码，展示层用采购类别标签）',
   `published_ts` bigint DEFAULT NULL COMMENT '发布时间 epoch 秒（UTC）',
   `deadline_ts` bigint DEFAULT NULL COMMENT '截止时间 epoch 秒，仅 deadline_state=known 时有值',
   `deadline_state` varchar(20) DEFAULT NULL COMMENT '截止语义状态：known/unknown/placeholder/typo_suspect 等',

@@ -16,11 +16,11 @@ import { normalizeAmount } from "../notice-normalize/amount";
 import { normalizeContacts } from "../notice-normalize/phone";
 import { resolveCountries } from "../country/resolve";
 import { normalizeBuyerCountry } from "../notice-normalize/notice-core";
-import { industryTreeSection } from "../notice-normalize/industry";
+import { normalizeIndustry } from "../notice-normalize/industry";
 import { loadBuyerEntityIndex, resolveBuyerEntity, type BuyerEntityIndex } from "../buyer/entity-index";
 import { loadCountryAliasSnapshot } from "../country/alias-store";
 import type { CountryAliasSnapshot } from "../country/alias-store";
-import { normalizeNoticeType } from "../../utils/notice-type";
+import { classifyBareContractNotice, normalizeNoticeType } from "../../utils/notice-type";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { STABLE_EXPIRED_WHERE, isStablyExpired } from "../../utils/notice-expired";
 import {
@@ -28,6 +28,61 @@ import {
   sourceDateWallSeconds,
   SOURCE_DATE_PROFILES,
 } from "@/shared/utils/notice-datetime/source-date";
+
+/**
+ * 一次性数据治理：把服务表 industry 的旧值归一为 canonical slug（唯一写入者纪律）。
+ *
+ * 2026-11-18 决策：剔除「采购主题 slug → GB/T 行业门类」桥接后，历史行里残留的
+ * UGT-I 行业树码 / 中文别名需要回写为 canonical slug（或 NULL）。
+ * N1 门禁要求 notice_public 只能由本模块写入，因此治理逻辑放这里，CLI 脚本只调用本函数。
+ *
+ * @param apply false 时只统计待更新行数（DRY）
+ */
+export async function normalizePublicIndustryColumn(
+  pool: Pool,
+  opts: { apply?: boolean; chunkSize?: number } = {},
+): Promise<{ scanned: number; updated: number }> {
+  const apply = opts.apply === true;
+  const chunk = Math.max(100, Math.min(opts.chunkSize ?? 1000, 5000));
+  let lastPk = 0;
+  let scanned = 0;
+  let updated = 0;
+  for (;;) {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT p.notice_pk, p.industry AS current_industry, n.industry AS raw_industry
+         FROM notice_public p
+         JOIN bid_notices n ON n.id = p.notice_pk
+        WHERE p.notice_pk > ?
+        ORDER BY p.notice_pk
+        LIMIT ?`,
+      [lastPk, chunk],
+    );
+    if (rows.length === 0) break;
+    const pending: Array<[number, string | null]> = [];
+    for (const row of rows) {
+      const expected = normalizeIndustry(row.raw_industry);
+      const current = row.current_industry == null ? null : String(row.current_industry);
+      if ((current ?? null) !== (expected ?? null)) pending.push([Number(row.notice_pk), expected]);
+    }
+    scanned += rows.length;
+    updated += pending.length;
+    if (scanned % 100_000 < chunk) {
+      console.log(`[normalize-industry] 进度：扫描 ${scanned} 行，待/已更新 ${updated} 行`);
+    }
+    lastPk = Number(rows[rows.length - 1].notice_pk);
+    if (!apply || pending.length === 0) continue;
+    const when = pending.map(() => "WHEN ? THEN ?").join(" ");
+    const params: unknown[] = [];
+    for (const [pk, value] of pending) params.push(pk, value);
+    const inMarks = pending.map(() => "?").join(",");
+    params.push(...pending.map(([pk]) => pk));
+    await pool.query(
+      `UPDATE notice_public SET industry = CASE notice_pk ${when} END WHERE notice_pk IN (${inMarks})`,
+      params,
+    );
+  }
+  return { scanned, updated };
+}
 
 // ── 准入红线（2026-10-22 用户拍板，选行/构建/清理三处共用同一谓词）──────────────
 // 服务表是对外表：平台自录 RFQ 仅「发布过」（published/closed）可进——草稿/待审/驳回
@@ -377,7 +432,13 @@ export function buildPublicRow(
     ? (buyerEntity?.nameZh?.slice(0, 500) ?? null)
     : null;
   // [2026-10-31 机构类型维度退役] buyer_group 停写；2026-11-17 服务表与宽表列已物理删除
-  const noticeType = normalizeNoticeType(String(r.notice_type ?? "")).slice(0, 20) || null;
+  // 裸 "Contract"（Mercell 等聚合源）只给一个母类型，按标题/正文细分 DPS/资格系统/框架协议；
+  // 其余源沿用唯一归一逻辑，避免把 CONTRACT_NOTICE 的通用值误判。
+  const rawNoticeType = String(r.notice_type ?? "").trim();
+  const noticeType = (rawNoticeType.toLowerCase() === "contract"
+    ? classifyBareContractNotice(rawTitle, desc)
+    : normalizeNoticeType(rawNoticeType)
+  ).slice(0, 20) || null;
   const platform = platformOf(ctx, r.url, r.agency, r.organization);
   const amount = normalizeAmount(r.estimated_value, { currencyHint: r.currency, countryCode, description: desc });
   if (Number(r.budget_confidential ?? 0) === 1) {
@@ -459,7 +520,7 @@ export function buildPublicRow(
   return [
     r.id, noticeId, extractUrl(r.url), String(r.reference ?? "").slice(0, 255) || null,
     title.slice(0, 500), titleCn, desc, contentZh, contentLevel,
-    industryTreeSection(r.industry),
+    normalizeIndustry(r.industry),
     publishedTs, deadlineTs, dstate, r.deadline_type ?? null, r.deadline_timezone ?? null,
     String(r.timezone_source ?? "").trim().slice(0, 20) || null,
     countryCode, JSON.stringify(countryCodes), noticeType,
