@@ -34,14 +34,14 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const ctx = getContext();
-    const { unlockRepo } = ctx.notice;
+    const { accessGrantRepo } = ctx.notice;
     const opportunitiesRepo = ctx.opportunitiesRepo;
 
     const [access, service] = await Promise.all([
       resolveNoticeAccess({
         userId,
         noticeId,
-        unlockRepo,
+        accessGrantRepo,
         benefitRepo: ctx.benefitSystemRepo,
       }),
       findPublicDetail(ctx.dbPool, noticeId),
@@ -101,8 +101,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     // 未解锁（会员打开即自动解锁，此处仅覆盖竞态）：服务端截断 sections 内容
     const MAX_CHARS_PER_SECTION = 500;
-    const isUnlocked = !!access.unlock || access.accessibleByPlan;
-    const safeSections = isUnlocked
+    const isAccessible = !!access.grant || access.accessibleByPlan;
+    const safeSections = isAccessible
       ? sections
       : sections.map((s: { heading: string; body: string }) => ({
           ...s,
@@ -111,7 +111,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     return NextResponse.json({
       sections: safeSections,
-      isUnlocked,
+      isAccessible,
       hasFullReport: true,
       totalReportChars,
     });

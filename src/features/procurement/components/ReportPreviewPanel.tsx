@@ -28,13 +28,13 @@ export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLock
   const { preview, loading, error } = useReportPreview(noticeId, userId, locale, coreLocked);
   const [collapsed, setCollapsed] = useState(false);
 
-  const isUnlocked = preview?.isUnlocked ?? false;
+  const isAccessible = preview?.isAccessible ?? false;
   const sections = useMemo(() => preview?.sections ?? [], [preview]);
   const totalReportChars = preview?.totalReportChars ?? 0;
 
   // 预览截断逻辑：每章节最多展示 500 字符，百分比基于完整报告总字符数
   const { visibleSections, shownCharCount } = useMemo(() => {
-    if (isUnlocked || sections.length === 0) {
+    if (isAccessible || sections.length === 0) {
       // 已解锁：完整展示所有章节
       let total = 0;
       for (const s of sections) total += s.heading.length + s.body.length;
@@ -57,7 +57,7 @@ export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLock
       }
     }
     return { visibleSections: visible, shownCharCount: shown };
-  }, [sections, isUnlocked]);
+  }, [sections, isAccessible]);
 
   // 加载态：骨架屏
   if (loading) {
@@ -80,7 +80,7 @@ export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLock
   if (error || !preview || sections.length === 0) return null;
 
   // 已解锁：下载链接已在「投标材料」Tab 中提供，无需预览卡片
-  if (isUnlocked) return null;
+  if (isAccessible) return null;
 
   // 未解锁：预览模式（10% 内容 + 模糊锁定 + 升级引导）
   return (

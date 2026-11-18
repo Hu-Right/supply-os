@@ -2,7 +2,7 @@
  * 商机域路由 — 列表查询
  *
  * @module app/api/opportunities/route
- * @description 子路径端点（unlocks/translation/view/unlock）已拆分到各自独立的 route.ts。
+ * @description 子路径端点（access-ids/translation/view/access）已拆分到各自独立的 route.ts。
  *              GET 返回未过期商机列表（有界，最多 80 条）。
  *
  *              R3' B2（2026-10-13）：本端点原以旧品类字典的行 id（`code_id`/`industry_id`）为
@@ -22,7 +22,7 @@
  *              P1 越权修复：本端点曾无认证返回完整 description + source_url，
  *              可绕过统一搜索的付费脱敏口径（core_locked 截断）。现已要求登录，
  *              且 description 截断至 300 字、source_url 置空，与列表口径对齐。
- *              未解锁详情仍需走 /api/opportunities/[id]/unlock 链路。
+ *              未解锁详情仍需走 /api/opportunities/[id]/access 链路。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";

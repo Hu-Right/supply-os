@@ -6,18 +6,18 @@
  */
 import { formatDateTimeZh } from "@/shared/utils/format";
 import { classifyProductCode, PRODUCT_KIND } from "@/shared/constants/product-kind";
-import type { OrderRecord, UnlockRecord } from "../../api";
+import type { OrderRecord, AccessRecord } from "../../api";
 
-export type RecordRow = OrderRecord | UnlockRecord;
+export type RecordRow = OrderRecord | AccessRecord;
 
 /**
  * 记录时间：解锁时间 → 支付时间 → 创建时间 逐级回落。
- * 两个端点（/api/payment/orders 与 /api/payment/unlocks）都是 camel 契约，
+ * 两个端点（/api/payment/orders 与 /api/payment/access-records）都是 camel 契约，
  * 但属于不同响应体，字段并不共有，故逐支用 `in` 窄化后读自己那个键。
  */
 export const recordTime = (row: RecordRow) =>
   formatDateTimeZh(
-    ("unlockedAt" in row ? row.unlockedAt : undefined) ||
+    ("grantedAt" in row ? row.grantedAt : undefined) ||
       ("paidAt" in row ? row.paidAt : undefined) ||
       ("createdAt" in row ? row.createdAt : undefined),
   );
@@ -48,5 +48,5 @@ export function recordSubtitle(row: RecordRow, t: (key: string) => string): stri
     const amt = `${row.currency || "CNY"} ${Number(row.amount || 0).toFixed(2)}`;
     return `${amt} · ${recordTime(row)}`;
   }
-  return `${row.unlockType || "unlock"} · ${recordTime(row)}`;
+  return `${row.grantType || "access"} · ${recordTime(row)}`;
 }

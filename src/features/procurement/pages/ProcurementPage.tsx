@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, useUserId } from "@/core/auth";
 import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
-import { unlockNotice } from "../api";
+import { grantNoticeAccess } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentViews } from "../components/RecentViews";
 import { FavoriteNotices } from "../components/FavoriteNotices";
@@ -114,12 +114,12 @@ export default function ProcurementPage() {
     if (!userId) return;
     return onAppEvent("supply-os:notice-paid", async ({ noticeId }) => {
       try {
-        await unlockNotice(noticeId, "subscription", 0);
+        await grantNoticeAccess(noticeId, "subscription", 0);
       } catch {
         // 解锁可能已在服务端完成，忽略失败
       }
       // P2-5：查看成功后清除查看历史缓存，RecentViews 立即刷新
-      clearApiCache("/api/payment/unlocks");
+      clearApiCache("/api/payment/access-records");
       // SSOT 修复：同时失效会员状态缓存，useMembershipTier 的 60s 缓存标签不再过期展示旧等级
       clearApiCache("/api/membership/status");
       await actions.refreshMembership();

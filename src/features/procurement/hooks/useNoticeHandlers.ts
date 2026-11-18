@@ -13,7 +13,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
 import { ApiError, clearApiCache } from "@/core/http";
 import type { NoticeItem } from "../types";
-import { viewNotice, unlockNotice, expressInterest } from "../api";
+import { viewNotice, grantNoticeAccess, expressInterest } from "../api";
 import type { UseNoticeMembershipReturn } from "./useNoticeMembership";
 import type { UseNoticeUnlockReturn } from "./useNoticeUnlock";
 
@@ -39,7 +39,7 @@ export interface UseNoticeHandlersOptions {
 
 export interface UseNoticeHandlersReturn {
   openNotice: (notice: NoticeItem) => Promise<void>;
-  handleUnlockNotice: (notice: NoticeItem, unlockType?: "free" | "subscription") => Promise<boolean>;
+  handleUnlockNotice: (notice: NoticeItem, grantType?: "free" | "subscription") => Promise<boolean>;
   handleExpressInterest: (notice: NoticeItem, interestType: "interested" | "subscribed") => Promise<void>;
 }
 
@@ -66,7 +66,7 @@ export function useNoticeHandlers({
     // T-B9 点击埋点：仅推荐模式上报（正反馈联动兴趣码权重，D.7）
     trackClick(notice.noticePk);
 
-    const alreadyUnlocked = isUnlocked(notice.noticePk);
+    const alreadyGranted = isUnlocked(notice.noticePk);
     // 免费试用已移除（2026-08-30）：未解锁用户打开详情由服务端 403 core_locked
     // 付费墙接管（本地 localStorage 计数门槛已删除），此处不再前置拦截
 
@@ -86,7 +86,7 @@ export function useNoticeHandlers({
     void loadNoticeDetail(notice);
     // 锁定态渐进式预览：列表项本身已带全部预览字段（标题/编号/买家/截止/金额/发布日期），
     // 只有深链打开时 base 是 { noticePk } 空壳，才需要 /preview 补字段。
-    if (!alreadyUnlocked && !notice.title) void loadNoticePreview(notice);
+    if (!alreadyGranted && !notice.title) void loadNoticePreview(notice);
     // 全文不再单独拉：/detail 返回的 description / title / descriptionCn 与 /content 同源
     // （都读 notice_public 整行，只有列表 SQL 才截断 300 字符），详情打开后再打一枪 /content
     // 属纯重复请求——隧道抖动时它还要占一次 5-6 次库的往返。
@@ -97,22 +97,22 @@ export function useNoticeHandlers({
     refreshMembership, loadNoticeDetail, loadNoticePreview,
   ]);
 
-  const handleUnlockNotice = async (notice: NoticeItem, unlockType?: "free" | "subscription") => {
+  const handleUnlockNotice = async (notice: NoticeItem, grantType?: "free" | "subscription") => {
     if (!userId) {
       onRequireLogin();
       return false;
     }
 
     // 免费试用已移除：无显式类型时一律走订阅配额，配额不足由服务端 402 拦截
-    if (!unlockType && !canUsePaidQuota) {
+    if (!grantType && !canUsePaidQuota) {
       setActionMessage(t("procurement_paidQuotaRequired"));
       return false;
     }
 
-    const nextUnlockType = unlockType || "subscription";
+    const nextUnlockType = grantType || "subscription";
     try {
       // P2-10：价格由服务端按套餐定价，前端固定传 0
-      await unlockNotice(notice.noticePk, nextUnlockType, 0);
+      await grantNoticeAccess(notice.noticePk, nextUnlockType, 0);
     } catch (err) {
       if (err instanceof ApiError && err.status === 402) {
         setActionMessage(t("procurement_paidQuotaRequired"));
@@ -126,7 +126,7 @@ export function useNoticeHandlers({
     await refreshMembership();
     markUnlocked(notice.noticePk);
     // P2-5 安全修复：查看成功后清除查看历史缓存，确保 RecentViews 立即刷新
-    clearApiCache("/api/payment/unlocks");
+    clearApiCache("/api/payment/access-records");
     // 2026-10-29：会员打开公告即自动解锁，解锁不再是用户动作 ⇒ 不再弹「已解锁该商机」成功提示
     // 解锁成功后拉取拓展详情，实时补全联系人/文件等信息
     await loadNoticeDetail(notice);

@@ -4,7 +4,7 @@
  *
  * @module repos/payment-history.repo
  * @description ARCH-P4b（2026-09-01）：从 payments.repo.ts 拆出的查询视图聚合。
- *              订单侧读统一表 orders；解锁侧 opportunity_unlocks LEFT JOIN 公告摘要，
+ *              订单侧读统一表 orders；解锁侧 notice_access_grants LEFT JOIN 公告摘要，
  *              供「我的记录」面板（订单历史 + 解锁历史）使用。
  *
  *              与 PaymentsRepo（订单 CRUD + 履约事务）职责分离：
@@ -40,12 +40,12 @@ export interface UnifiedOrderHistoryRow {
 }
 
 /** 解锁历史查询行（解锁 LEFT JOIN 公告 [+ 译文]，供列表映射与后台补翻） */
-export interface UnlockHistoryRow {
+export interface AccessHistoryRow {
   user_id: number;
   notice_id: number | null;
-  unlock_type: string;
+  grant_type: string;
   price: number;
-  unlocked_at: Date;
+  granted_at: Date;
   external_notice_id: string | null;
   reference: string | null;
   title: string | null;
@@ -110,10 +110,10 @@ export class PaymentHistoryRepo {
   }
 
   /** 解锁历史总数（仅公告解锁） */
-  async countUnlocks(userId: number): Promise<number> {
+  async countAccessRecords(userId: number): Promise<number> {
     const [rows] = await this.pool.query(
       `SELECT COUNT(*) AS total
-       FROM opportunity_unlocks u
+       FROM notice_access_grants u
        WHERE u.user_id = ? AND u.notice_id IS NOT NULL`,
       [userId],
     );
@@ -124,20 +124,20 @@ export class PaymentHistoryRepo {
    * 解锁历史分页（解锁 LEFT JOIN 公告 [+ 译文]）。
    * withTranslation 为 true 时多取 n.description（仅供后台补翻用，不返回）与缓存译文标题。
    */
-  async listUnlocks(
+  async listAccessRecords(
     userId: number,
     limit: number,
     offset: number,
     withTranslation: { lang: string } | null,
-  ): Promise<UnlockHistoryRow[]> {
+  ): Promise<AccessHistoryRow[]> {
     const [rows] = await this.pool.query(
       withTranslation
         ? `SELECT
-             u.user_id, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
+             u.user_id, u.notice_id, u.grant_type, u.price, u.granted_at,
              n.notice_id AS external_notice_id, n.reference, n.title,
              n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry,
              n.description, tr.title_tr AS title_i18n, np.title_cn
-           FROM opportunity_unlocks u
+           FROM notice_access_grants u
            LEFT JOIN bid_notices n ON n.id = u.notice_id
            LEFT JOIN notice_public np ON np.notice_pk = u.notice_id
            LEFT JOIN notice_translations tr ON tr.notice_id = u.notice_id AND tr.lang = ?
@@ -145,11 +145,11 @@ export class PaymentHistoryRepo {
            ORDER BY u.id DESC
            LIMIT ? OFFSET ?`
         : `SELECT
-             u.user_id, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
+             u.user_id, u.notice_id, u.grant_type, u.price, u.granted_at,
              n.notice_id AS external_notice_id, n.reference, n.title,
              n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry,
              np.title_cn
-           FROM opportunity_unlocks u
+           FROM notice_access_grants u
            LEFT JOIN bid_notices n ON n.id = u.notice_id
            LEFT JOIN notice_public np ON np.notice_pk = u.notice_id
            WHERE u.user_id = ? AND u.notice_id IS NOT NULL
@@ -157,7 +157,7 @@ export class PaymentHistoryRepo {
            LIMIT ? OFFSET ?`,
       withTranslation ? [withTranslation.lang, userId, limit, offset] : [userId, limit, offset],
     );
-    return rows as UnlockHistoryRow[];
+    return rows as AccessHistoryRow[];
   }
 
   /** 公告译文缓存 upsert（后台补翻落库） */

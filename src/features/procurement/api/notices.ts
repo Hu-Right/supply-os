@@ -17,14 +17,14 @@ export const viewNotice = (noticeId: number) =>
     body: {},
   }).catch((e) => console.warn("[Notices] 浏览记录上报失败:", e));
 
-export const unlockNotice = (
+export const grantNoticeAccess = (
   noticeId: number,
-  unlockType: "free" | "subscription",
+  grantType: "free" | "subscription",
   price: number
 ) =>
-  api(`/api/notices/${noticeId}/unlock`, {
+  api(`/api/notices/${noticeId}/access`, {
     method: "POST",
-    body: { unlock_type: unlockType, price },
+    body: { grant_type: grantType, price },
   });
 
 export const expressInterest = (
@@ -62,9 +62,9 @@ export const fetchNoticeContent = (noticeId: number): Promise<NoticeContentResul
   return apiCached<NoticeContentResult>(url, 10 * 60 * 1000);
 };
 
-export const fetchUnlockedNoticeIds = async (): Promise<number[]> => {
+export const fetchAccessibleNoticeIds = async (): Promise<number[]> => {
   try {
-    const rows = await apiCached<unknown[]>("/api/notices/unlocks", 5 * 60 * 1000);
+    const rows = await apiCached<unknown[]>("/api/notices/access-ids", 5 * 60 * 1000);
     return Array.isArray(rows)
       ? rows.map((row) => Number((row as Record<string, unknown>)?.noticeId)).filter((id) => Number.isFinite(id) && id > 0)
       : [];

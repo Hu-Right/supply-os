@@ -5,7 +5,7 @@
  * @module features/procurement/components/RecentViews
  * @description ARCH-P2-解耦（2026-09-05）：从 features/payment/components/ 迁移至
  *              features/procurement/components/，消除 procurement→payment 跨 feature 硬依赖。
- *              API 调用改为 core/http 直连（原 features/payment/api 的 fetchUnlocks 仅
+ *              API 调用改为 core/http 直连（原 features/payment/api 的 fetchAccessRecords 仅
  *              是 apiCached 薄包装，内联后行为完全一致）。
  *
  *              拉取当前用户最近 3 条公告解锁记录，提供站内"打开"跳转；
@@ -75,7 +75,7 @@ export function RecentViews({ userId, onOpenNotice }: RecentViewsProps) {
             `#${record.noticeId}`;
           return (
             <li
-              key={`${record.noticeId}-${record.unlockedAt || ""}`}
+              key={`${record.noticeId}-${record.grantedAt || ""}`}
               className="group flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-100 px-3.5 py-2.5 shadow-sm hover:border-teal-200 hover:shadow-md transition-all duration-200"
             >
               <span dir="auto" className="text-sm font-semibold text-slate-700 truncate min-w-0 flex-1">

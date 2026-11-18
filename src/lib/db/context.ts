@@ -28,7 +28,7 @@ import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import {
   NoticeDetailRepo,
-  NoticeUnlockRepo,
+  NoticeAccessGrantRepo,
   NoticeTranslationRepo,
   NoticeInteractionRepo,
   NoticeFeedbackRepo,
@@ -53,7 +53,7 @@ import { TrainingRepo, SystemRepo } from "../repos/training.repo";
 export type NoticeContext = {
   dbPool: Pool;
   detailRepo: NoticeDetailRepo;
-  unlockRepo: NoticeUnlockRepo;
+  accessGrantRepo: NoticeAccessGrantRepo;
   translationRepo: NoticeTranslationRepo;
   interactionRepo: NoticeInteractionRepo;
   feedbackRepo: NoticeFeedbackRepo;
@@ -154,7 +154,7 @@ export function getContext(): AppContext {
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
 
   const detailRepo = new NoticeDetailRepo(dbPool);
-  const unlockRepo = new NoticeUnlockRepo(dbPool);
+  const accessGrantRepo = new NoticeAccessGrantRepo(dbPool);
   const translationRepo = new NoticeTranslationRepo(dbPool);
   const interactionRepo = new NoticeInteractionRepo(dbPool);
   const feedbackRepo = new NoticeFeedbackRepo(dbPool);
@@ -235,7 +235,7 @@ export function getContext(): AppContext {
 
   const ctx: AppContext & { __ctxVersion: number } = {
     dbPool,
-    notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo, favoriteRepo },
+    notice: { dbPool, detailRepo, accessGrantRepo, translationRepo, interactionRepo, feedbackRepo, favoriteRepo },
     payment: {
       dbPool, paymentService, learningPaymentService, trainingPaymentService, servicePaymentService, orchestrator, paymentMode,
       paymentsRepo, learningOrdersRepo, serviceOrdersRepo, paymentHistoryRepo,

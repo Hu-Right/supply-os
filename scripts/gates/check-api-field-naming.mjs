@@ -92,8 +92,8 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   "src/app/api/awards/stats/route.ts#stats",
   "src/app/api/awards/top/route.ts#result",
   "src/app/api/notices/stats/route.ts#stats",
-  "src/app/api/notices/unlocks/route.ts#rows",
-  "src/app/api/opportunities/unlocks/route.ts#unlocks",
+  "src/app/api/notices/access-ids/route.ts#rows",
+  "src/app/api/opportunities/access-ids/route.ts#records",
   "src/app/api/payment/orders/[orderNo]/route.ts#result",
   // 开放 API engineering stats：2026-10-28 实测发现 4 个 snake 键（total_count 等）后，
   // 整族收进 lib/services/open-api/view.ts（item 27 键 + stats 4 键，值原样透传），

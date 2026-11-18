@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem } from "../types";
-import { fetchNoticeDetail, fetchNoticePreview, fetchUnlockedNoticeIds } from "../api";
+import { fetchNoticeDetail, fetchNoticePreview, fetchAccessibleNoticeIds } from "../api";
 
 export interface UseNoticeUnlockOptions {
   /** 当前登录用户 key */
@@ -70,7 +70,7 @@ export function useNoticeUnlock({
       return;
     }
     let cancelled = false;
-    fetchUnlockedNoticeIds().then((ids) => {
+    fetchAccessibleNoticeIds().then((ids) => {
       if (!cancelled) setUnlockedIds(new Set(ids));
     });
     return () => {

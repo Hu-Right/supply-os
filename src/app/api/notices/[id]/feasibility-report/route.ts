@@ -36,7 +36,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(async (req, { 
     await assertNoticeContentAccess({
       dbPool: ctx.dbPool,
       benefitRepo: ctx.benefitSystemRepo,
-      unlockRepo: ctx.notice.unlockRepo,
+      accessGrantRepo: ctx.notice.accessGrantRepo,
       userId: auth.userId,
       noticeId: noticePk,
       benefit: BID_FEASIBILITY_REPORT_BENEFIT,
@@ -65,7 +65,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(async (req: N
     await assertNoticeContentAccess({
       dbPool: ctx.dbPool,
       benefitRepo: ctx.benefitSystemRepo,
-      unlockRepo: ctx.notice.unlockRepo,
+      accessGrantRepo: ctx.notice.accessGrantRepo,
       userId: auth.userId,
       noticeId: noticePk,
       benefit: BID_FEASIBILITY_REPORT_BENEFIT,

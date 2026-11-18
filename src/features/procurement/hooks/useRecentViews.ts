@@ -11,12 +11,12 @@ import { useEffect, useState } from "react";
 import { apiCached, buildQuery } from "@/core/http";
 import { pickNoticeApiLang } from "@/shared/constants/langs";
 
-/** 最近查看记录。传输层仍沿用历史命名（/api/payment/unlocks 的 UnlockRecord 契约），展示层统一叫「查看」。 */
+/** 最近查看记录。传输层仍沿用历史命名（/api/payment/access-records 的 AccessRecord 契约），展示层统一叫「查看」。 */
 export interface RecentViewRecord {
   noticeId: number;
-  unlockType: string;
+  grantType: string;
   price: number;
-  unlockedAt?: string | null;
+  grantedAt?: string | null;
   notice?: {
     title?: string | null;
     titleI18n?: string | null;
@@ -25,7 +25,7 @@ export interface RecentViewRecord {
   } | null;
 }
 
-/** 查询用户最近查看记录（传输端点保留历史命名 /api/payment/unlocks） */
+/** 查询用户最近查看记录（传输端点保留历史命名 /api/payment/access-records） */
 async function fetchViewHistory(params: {
   page?: number;
   limit?: number;
@@ -36,7 +36,7 @@ async function fetchViewHistory(params: {
     limit: params.limit,
     lang: pickNoticeApiLang(params.locale),
   });
-  return apiCached<{ total: number; list: RecentViewRecord[] }>(`/api/payment/unlocks?${qs}`, 5 * 60 * 1000);
+  return apiCached<{ total: number; list: RecentViewRecord[] }>(`/api/payment/access-records?${qs}`, 5 * 60 * 1000);
 }
 
 /** 拉取最近查看记录；userId/locale 变化时刷新 */

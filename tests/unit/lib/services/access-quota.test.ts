@@ -1,5 +1,5 @@
 /**
- * 解锁配额共享口径固化测试（unlock-quota · 权益体系新账本）
+ * 解锁配额共享口径固化测试（access-quota · 权益体系新账本）
  *
  * 该模块是公告解锁与商机解锁的唯一记账口径，记账源 = benefit_quotas 的
  * notice_view 池行。固化以下语义，任何修改必须同步两条解锁链路与本测试：
@@ -16,7 +16,7 @@ import type { PoolConnection } from "mysql2/promise";
 import type { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
 import type { ActivePlanRow } from "@/types/membership";
 import type { BenefitWriteRepo, LockedPoolRow } from "@/lib/repos/benefit-write.repo";
-import { ensureConsumableQuota, consumeQuota, UnlockQuotaError } from "@/lib/services/unlock-quota";
+import { ensureConsumableQuota, consumeQuota, AccessQuotaError } from "@/lib/services/access-quota";
 
 const conn = {} as PoolConnection;
 
@@ -93,7 +93,7 @@ describe("ensureConsumableQuota · 额度只从矩阵取", () => {
 describe("ensureConsumableQuota · 无额度必须拒绝", () => {
   it("未订阅按 free 档：free.notice_view=0（migration 058 裁决的零额度）→ 拒绝且不开池", async () => {
     const { deps, write } = makeDeps({ active: null, matrixCells: [{ benefit_code: "notice_view", value_num: 0 }] });
-    await expect(ensureConsumableQuota(conn, deps, { userId: 101 })).rejects.toThrow(UnlockQuotaError);
+    await expect(ensureConsumableQuota(conn, deps, { userId: 101 })).rejects.toThrow(AccessQuotaError);
     expect(write.openQuotaPool).not.toHaveBeenCalled();
     expect(write.findAndLockCurrentPool).not.toHaveBeenCalled();
     // 未订阅读的确实是 free 那一列

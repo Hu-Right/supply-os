@@ -1,70 +1,8 @@
 /**
- * POST /api/opportunities/:id/unlock — 商机解锁（限流 + 事务化配额消耗）
+ * 兼容别名（2026-11-18 更名）：本路由已更名为 /api/opportunities/[id]/access
  *
- * 解锁编排收敛到 executeOpportunityUnlock（审查报告 F10）：配额消耗与
- * 解锁记录同事务，FOR UPDATE 防并发超卖，免费额度事务内复核。
+ * @deprecated 旧客户端/已打开页面可能仍调用本路径；保留一个释放周期，
+ *             下个版本删除。新代码请直接用 `/api/opportunities/[id]/access`。
+ * @module src/app/api/opportunities/[id]/unlock
  */
-import { NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { executeOpportunityUnlock, OpportunityUnlockError } from "@/lib/services/opportunity-unlock";
-import {
-  EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_OPPORTUNITY_NOT_FOUND, EC_OUT_OF_CATEGORY,
-} from "@/shared/constants/api";
-import { resolveIndustryScope, opportunityInCategory } from "@/lib/services/industry-scope";
-
-export const POST = withRoute<{ params: Promise<{ id: string }> }>(
-  async (req, { params }) => {
-    const auth = await requireUserKeyOrThrow(req);
-
-    const rateLimitResponse = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 30 }, () => `opp_unlock:${auth.userId}`);
-    if (rateLimitResponse) return rateLimitResponse;
-
-    const { id } = await params;
-    const opportunityId = Number(id);
-    const ctx = getContext();
-    const { opportunitiesRepo: oppsRepo, dbPool, benefitSystemRepo, benefitWriteRepo } = ctx;
-
-    const body = await req.json();
-    const unlockType = body.unlock_type === "subscription" ? "subscription" : "free";
-
-    // 解锁流水 price 恒 0：额度消耗记账走 benefit_quotas 池，不再以单价计量
-    const price = 0;
-
-    const opp = await oppsRepo.findById(opportunityId);
-    if (!opp) routeError(404, EC_OPPORTUNITY_NOT_FOUND, "机会不存在");
-    // 行业墙：被行业限定档位的用户只能解锁其绑定品目大类内的商机（8,800元/行业口径）
-    // 商机侧没有 backbone_path，判定输入是大类码（L1 树码，见 industry-scope）
-    {
-      const scope = await resolveIndustryScope(dbPool, benefitSystemRepo, auth.userId);
-      if (scope.scoped && !(await opportunityInCategory(dbPool, opportunityId, scope.l1Code))) {
-        routeError(403, EC_OUT_OF_CATEGORY, "该商机不在您订阅的行业范围内", { outOfCategory: true });
-      }
-    }
-    try {
-      const result = await executeOpportunityUnlock(
-        { dbPool, opportunitiesRepo: oppsRepo, quotaDeps: { catalog: benefitSystemRepo, write: benefitWriteRepo } },
-        {
-          userId: auth.userId,
-          opportunityId,
-          unlockType,
-          price,
-        },
-      );
-      if (result.alreadyUnlocked) {
-        return NextResponse.json({ success: true, alreadyUnlocked: true });
-      }
-      return NextResponse.json({ success: true, unlockType }, { status: 201 });
-    } catch (err) {
-      if (err instanceof OpportunityUnlockError) {
-        if (err.code === "FREE_LIMIT_REACHED") {
-          routeError(402, EC_FREE_LIMIT_REACHED, "该内容为会员专属，升级会员后可查看完整信息。");
-        }
-        routeError(402, EC_PAID_QUOTA_REQUIRED, "该内容为会员专属，升级会员后可查看完整信息。");
-      }
-      throw err;
-    }
-  },
-);
+export { POST } from "../access/route";

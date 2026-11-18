@@ -2,7 +2,7 @@
  * 商机解锁编排全分支测试（架构评估 P0-T1 + 配额口径对齐 2026-09-19）
  * 已适配 userId 契约（identity 重构 2026-09-03）
  *
- * 与公告解锁 executeUnlock 共享 unlock-quota 唯一记账口径（权益体系新账本）：
+ * 与公告解锁 executeGrant 共享 access-quota 唯一记账口径（权益体系新账本）：
  * - 快速路径/事务内复查幂等（唯一键 + ER_DUP_ENTRY）
  * - 免费试用移除后的服务端硬闸（free 一律 FREE_LIMIT_REACHED）
  * - FOR UPDATE 锁住 notice_view 池行 + 条件 UPDATE 扣减 + affectedRows 复核（防超卖）
@@ -15,7 +15,7 @@ import type { OpportunitiesRepo } from "@/lib/repos/opportunities.repo";
 import type { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
 import type { ActivePlanRow } from "@/types/membership";
 import type { BenefitWriteRepo, LockedPoolRow } from "@/lib/repos/benefit-write.repo";
-import type { OpportunityUnlockDeps } from "@/lib/services/opportunity-unlock";
+import type { OpportunityAccessDeps } from "@/lib/services/opportunity-access";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/services/commodity/interest", () => ({
@@ -24,7 +24,7 @@ vi.mock("@/lib/services/commodity/interest", () => ({
 }));
 
 import { persistInterestNodeCodes } from "@/lib/services/commodity/interest";
-import { executeOpportunityUnlock, OpportunityUnlockError } from "@/lib/services/opportunity-unlock";
+import { executeOpportunityAccess, OpportunityAccessError } from "@/lib/services/opportunity-access";
 
 type QueryFn = ReturnType<typeof vi.fn>;
 
@@ -46,10 +46,10 @@ function makeEnv(opts: {
     rollback: vi.fn(async () => {}),
     release: vi.fn(async () => {}),
     query: vi.fn(async (sql: string) => {
-      if (sql.includes("FROM opportunity_unlocks WHERE")) {
+      if (sql.includes("FROM notice_access_grants WHERE")) {
         return [opts.inTxnAlreadyUnlocked ? [{ id: 1 }] : []];
       }
-      if (sql.includes("INSERT INTO opportunity_unlocks")) {
+      if (sql.includes("INSERT INTO notice_access_grants")) {
         if (opts.insertError) throw opts.insertError;
         return [{}];
       }
@@ -70,7 +70,7 @@ function makeEnv(opts: {
     }),
   } as unknown as Pool;
   const opportunitiesRepo = {
-    findExistingUnlock: vi.fn().mockResolvedValue(opts.fastPathHit ?? false),
+    findExistingGrant: vi.fn().mockResolvedValue(opts.fastPathHit ?? false),
   } as unknown as OpportunitiesRepo;
   const quotaDeps = {
     catalog: {
@@ -83,13 +83,13 @@ function makeEnv(opts: {
       consumeLockedPool: vi.fn(async () => opts.consume ?? "consumed"),
     } as unknown as BenefitWriteRepo,
   };
-  const deps: OpportunityUnlockDeps = {
+  const deps: OpportunityAccessDeps = {
     dbPool, opportunitiesRepo, quotaDeps,
   };
   const params = {
     userId: 101,
     opportunityId: 42,
-    unlockType: "subscription" as "free" | "subscription",
+    grantType: "subscription" as "free" | "subscription",
     price: 99,
   };
   return { deps, params, conn, opportunitiesRepo, quotaDeps };
@@ -100,53 +100,53 @@ const POOL = {
   id: 900, subscription_id: 55, user_id: 101, benefit_code: "notice_view",
   quota_total: 10, quota_used: 0, status: "active",
 } as unknown as LockedPoolRow;
-const params0 = () => ({ userId: 101, opportunityId: 42, unlockType: "subscription" as const, price: 99 });
+const params0 = () => ({ userId: 101, opportunityId: 42, grantType: "subscription" as const, price: 99 });
 
 beforeEach(() => vi.clearAllMocks());
 
-describe("executeOpportunityUnlock 幂等", () => {
-  it("快速路径命中：alreadyUnlocked=true，不开事务", async () => {
+describe("executeOpportunityAccess 幂等", () => {
+  it("快速路径命中：alreadyGranted=true，不开事务", async () => {
     const { deps, params, conn } = makeEnv({ fastPathHit: true });
-    const result = await executeOpportunityUnlock(deps, params);
-    expect(result).toEqual({ alreadyUnlocked: true, unlockType: "subscription" });
+    const result = await executeOpportunityAccess(deps, params);
+    expect(result).toEqual({ alreadyGranted: true, grantType: "subscription" });
     expect(conn.beginTransaction).not.toHaveBeenCalled();
   });
 
-  it("事务内复查命中：提交并返回 alreadyUnlocked（并发已解锁）", async () => {
+  it("事务内复查命中：提交并返回 alreadyGranted（并发已解锁）", async () => {
     const { deps, params, conn } = makeEnv({ inTxnAlreadyUnlocked: true });
-    const result = await executeOpportunityUnlock(deps, params);
-    expect(result.alreadyUnlocked).toBe(true);
+    const result = await executeOpportunityAccess(deps, params);
+    expect(result.alreadyGranted).toBe(true);
     expect(conn.commit).toHaveBeenCalled();
     expect(conn.rollback).not.toHaveBeenCalled();
   });
 
-  it("插入撞唯一键 ER_DUP_ENTRY → 幂等返回 alreadyUnlocked", async () => {
+  it("插入撞唯一键 ER_DUP_ENTRY → 幂等返回 alreadyGranted", async () => {
     const { deps, params, conn } = makeEnv({ pool: POOL, insertError: { code: "ER_DUP_ENTRY" } });
-    const result = await executeOpportunityUnlock(deps, params);
-    expect(result.alreadyUnlocked).toBe(true);
+    const result = await executeOpportunityAccess(deps, params);
+    expect(result.alreadyGranted).toBe(true);
     expect(conn.rollback).toHaveBeenCalled();
   });
 });
 
-describe("executeOpportunityUnlock 免费硬闸（2026-08-30 产品决策）", () => {
+describe("executeOpportunityAccess 免费硬闸（2026-08-30 产品决策）", () => {
   it("free 解锁一律 FREE_LIMIT_REACHED，不写解锁记录", async () => {
     const { deps, conn } = makeEnv({});
-    const result = executeOpportunityUnlock(deps, {
-      userId: 101, opportunityId: 42, unlockType: "free", price: 0,
+    const result = executeOpportunityAccess(deps, {
+      userId: 101, opportunityId: 42, grantType: "free", price: 0,
     });
-    await expect(result).rejects.toThrow(OpportunityUnlockError);
+    await expect(result).rejects.toThrow(OpportunityAccessError);
     await expect(result).rejects.toThrow("FREE_LIMIT_REACHED");
     expect(conn.rollback).toHaveBeenCalled();
     expect(persistInterestNodeCodes).not.toHaveBeenCalled();
   });
 });
 
-describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口径）", () => {
+describe("executeOpportunityAccess 付费解锁配额（共享 access-quota 口径）", () => {
   it("已订阅且有池：插入解锁 + 扣池一次 + 计数 +1 同事务提交", async () => {
     const { deps, params, conn, quotaDeps } = makeEnv({ active: ACTIVE, pool: POOL });
-    const result = await executeOpportunityUnlock(deps, params);
-    expect(result).toEqual({ alreadyUnlocked: false, unlockType: "subscription" });
-    const insertCall = conn.query.mock.calls.find(([sql]: string[]) => sql.includes("INSERT INTO opportunity_unlocks"));
+    const result = await executeOpportunityAccess(deps, params);
+    expect(result).toEqual({ alreadyGranted: false, grantType: "subscription" });
+    const insertCall = conn.query.mock.calls.find(([sql]: string[]) => sql.includes("INSERT INTO notice_access_grants"));
     expect(insertCall).toBeTruthy();
     // userId 直存（identity 重构后无子查询反查）；快照列已退役，只写五列
     expect(insertCall![1]).toEqual([101, 42, "subscription", 99]);
@@ -162,11 +162,11 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
       active: null,
       matrixCells: [{ benefit_code: "notice_view", value_num: 0 }],
     });
-    const result = executeOpportunityUnlock(deps, {
-      userId: 101, opportunityId: 42, unlockType: "subscription", price: 0,
+    const result = executeOpportunityAccess(deps, {
+      userId: 101, opportunityId: 42, grantType: "subscription", price: 0,
     });
     await expect(result).rejects.toThrow("PAID_QUOTA_REQUIRED");
-    expect(conn.query.mock.calls.some(([sql]: string[]) => String(sql).includes("INSERT INTO opportunity_unlocks"))).toBe(false);
+    expect(conn.query.mock.calls.some(([sql]: string[]) => String(sql).includes("INSERT INTO notice_access_grants"))).toBe(false);
     expect(quotaDeps.write.consumeLockedPool).not.toHaveBeenCalled();
     expect(conn.rollback).toHaveBeenCalled();
     expect(conn.commit).not.toHaveBeenCalled();
@@ -174,8 +174,8 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
 
   it("池被并发扣尽（consume 返回 denied）→ 回滚抛 PAID_QUOTA_REQUIRED，计不进入", async () => {
     const { deps, conn, quotaDeps } = makeEnv({ active: ACTIVE, pool: POOL, consume: "denied" });
-    const result = executeOpportunityUnlock(deps, {
-      userId: 101, opportunityId: 42, unlockType: "subscription", price: 99,
+    const result = executeOpportunityAccess(deps, {
+      userId: 101, opportunityId: 42, grantType: "subscription", price: 99,
     });
     await expect(result).rejects.toThrow("PAID_QUOTA_REQUIRED");
     expect(quotaDeps.write.consumeLockedPool).toHaveBeenCalled();
@@ -191,14 +191,14 @@ describe("executeOpportunityUnlock 付费解锁配额（共享 unlock-quota 口�
       pool: { ...POOL, quota_total: -1 },
       consume: "unlimited",
     });
-    await expect(executeOpportunityUnlock(deps, params0())).resolves.toEqual({ alreadyUnlocked: false, unlockType: "subscription" });
+    await expect(executeOpportunityAccess(deps, params0())).resolves.toEqual({ alreadyGranted: false, grantType: "subscription" });
     expect(conn.commit).toHaveBeenCalled();
   });
 
   it("userId=0（未认证）不写兴趣节点", async () => {
     const { deps } = makeEnv({ active: ACTIVE, pool: POOL });
-    await executeOpportunityUnlock(deps, {
-      userId: 0, opportunityId: 42, unlockType: "subscription", price: 99,
+    await executeOpportunityAccess(deps, {
+      userId: 0, opportunityId: 42, grantType: "subscription", price: 99,
     });
     expect(persistInterestNodeCodes).not.toHaveBeenCalled();
   });

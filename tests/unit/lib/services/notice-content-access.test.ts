@@ -24,7 +24,7 @@ interface DepsOptions {
 function makeDeps(options: DepsOptions = {}) {
   const { wall = true, unlock = null, planCode = "enterprise", noticeViewEntitled = true, benefitEntitled = true } = options;
   canAccessNoticeMock.mockResolvedValue(wall);
-  const unlockRepo = { findUnlock: vi.fn().mockResolvedValue(unlock) };
+  const accessGrantRepo = { findGrant: vi.fn().mockResolvedValue(unlock) };
   const benefitRepo = {
     findActivePlanForUser: vi.fn().mockResolvedValue({ plan_code: planCode }),
     isEntitled: vi.fn().mockImplementation(async (_userId: number, code: string) => {
@@ -35,11 +35,11 @@ function makeDeps(options: DepsOptions = {}) {
   return {
     dbPool: {} as never,
     benefitRepo: benefitRepo as never,
-    unlockRepo: unlockRepo as never,
+    accessGrantRepo: accessGrantRepo as never,
     userId: 7,
     noticeId: 42,
     // 便于断言
-    raw: { unlockRepo, benefitRepo },
+    raw: { accessGrantRepo, benefitRepo },
   };
 }
 
@@ -56,7 +56,7 @@ describe("assertNoticeContentAccess", () => {
       extra: { outOfCategory: true },
     });
     expect(canAccessNoticeMock).toHaveBeenCalledWith(deps.dbPool, deps.benefitRepo, 7, 42);
-    expect(deps.raw.unlockRepo.findUnlock).not.toHaveBeenCalled();
+    expect(deps.raw.accessGrantRepo.findGrant).not.toHaveBeenCalled();
   });
 
   it("墙内、免费档且无单条解锁 → 403 coreLocked", async () => {

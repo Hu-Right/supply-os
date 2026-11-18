@@ -122,8 +122,8 @@ test.describe("鉴权与参数边界", () => {
   });
 
   test("未登录访问解锁端点 → 401（写路径同样先过鉴权）", async ({ request }) => {
-    const res = await request.post(`${BASE}/api/opportunities/1/unlock`, {
-      data: { unlock_type: "subscription" },
+    const res = await request.post(`${BASE}/api/opportunities/1/access`, {
+      data: { grant_type: "subscription" },
     });
     expect(res.status()).toBe(401);
   });

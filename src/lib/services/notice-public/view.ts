@@ -42,7 +42,7 @@ const NOTICE_CONTRACT_KEYS: ReadonlySet<string> = new Set([
   // ── NoticeListItem：接口计算/关联补字段 ──
   "agencyI18n", "titleI18n", "descriptionI18n", "titleEn", "descriptionEn",
   "backbonePath", "entrySource", "coreLocked", "breakdownFileCount", "contactCount",
-  "unlockType", "unlockedAt", "matchScore", "matchTier", "recoReasons",
+  "grantType", "grantedAt", "matchScore", "matchTier", "recoReasons",
   "descriptionTruncated", "reportAvailable", "reportUrl",
   // ── NoticeDetailFields：解锁详情级补充 ──
   "platform", "supplierConditions", "eligibility", "technicalHurdles",

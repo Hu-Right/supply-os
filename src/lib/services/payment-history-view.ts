@@ -1,5 +1,5 @@
 /**
- * 解锁历史的对外视图（GET /api/payment/unlocks 的响应体）
+ * 解锁历史的对外视图（GET /api/payment/access-records 的响应体）
  *
  * @module lib/services/payment-history-view
  * @description 命名红线②：响应实体字段用 camelCase，DB 列名留在 repo 行里。
@@ -14,10 +14,10 @@
  *              本 mapper 按客户端声明的形状出嵌套 camel，并就地算 deadlineExpired，
  *              同时不携带 description——三处谎报一次纠正，不留桥接。
  */
-import type { UnlockHistoryRow } from "../repos/payment-history.repo";
+import type { AccessHistoryRow } from "../repos/payment-history.repo";
 
 /** 解锁行内嵌的公告摘要（只给列表要展示的字段） */
-export interface UnlockNoticeBriefView {
+export interface AccessNoticeBriefView {
   reference: string | null;
   title: string | null;
   /** 当前界面语言的标题译文（仅传 lang 时有值；缺译为 null） */
@@ -36,12 +36,12 @@ export interface UnlockNoticeBriefView {
 }
 
 /** 解锁记录（对外契约） */
-export interface UnlockRecordView {
+export interface AccessRecordView {
   noticeId: number;
-  unlockType: string;
+  grantType: string;
   price: number;
-  unlockedAt: string | null;
-  notice: UnlockNoticeBriefView | null;
+  grantedAt: string | null;
+  notice: AccessNoticeBriefView | null;
 }
 
 /** deadline_ts（Unix 秒）→ 过期标志；无时间戳不判定 */
@@ -58,16 +58,16 @@ function expiredFromDeadlineTs(ts: number | null | undefined, nowMs: number): bo
  * @param row payment-history.repo 的解锁行（LEFT JOIN 公告 [+ 译文]）
  * @param nowMs 判定过期用的当前时间戳（默认 Date.now，测试可注入）
  */
-export function toUnlockRecordView(
-  row: UnlockHistoryRow,
+export function toAccessRecordView(
+  row: AccessHistoryRow,
   nowMs: number = Date.now(),
-): UnlockRecordView {
+): AccessRecordView {
   const hasNotice = row.notice_id !== null && row.notice_id !== undefined;
   return {
     noticeId: Number(row.notice_id),
-    unlockType: String(row.unlock_type ?? ""),
+    grantType: String(row.grant_type ?? ""),
     price: Number(row.price ?? 0),
-    unlockedAt: row.unlocked_at ? new Date(row.unlocked_at).toISOString() : null,
+    grantedAt: row.granted_at ? new Date(row.granted_at).toISOString() : null,
     notice: hasNotice
       ? {
           reference: row.reference ?? null,
@@ -87,9 +87,9 @@ export function toUnlockRecordView(
   };
 }
 
-export function toUnlockRecordViews(
-  rows: readonly UnlockHistoryRow[],
+export function toAccessRecordViews(
+  rows: readonly AccessHistoryRow[],
   nowMs: number = Date.now(),
-): UnlockRecordView[] {
-  return rows.map((row) => toUnlockRecordView(row, nowMs));
+): AccessRecordView[] {
+  return rows.map((row) => toAccessRecordView(row, nowMs));
 }

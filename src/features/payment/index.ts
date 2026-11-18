@@ -21,12 +21,12 @@ export type { PurchaseTab, UseOrderHistoryReturn } from "./hooks/useOrderHistory
 export { usePaymentPolling } from "@/shared/hooks/usePaymentPolling";
 export type { UsePaymentPollingCallbacks, UsePaymentPollingOptions, UsePaymentPollingReturn } from "@/shared/hooks/usePaymentPolling";
 export { MyRecordsPanel } from "./components/MyRecordsPanel";
-export { fetchOrders, fetchUnlocks, getOrderStatus, createOrder, mockPaid } from "./api";
+export { fetchOrders, fetchAccessRecords, getOrderStatus, createOrder, mockPaid } from "./api";
 export type {
   OrderInfo,
   CreateOrderParams,
   OrderRecord,
-  UnlockRecord,
+  AccessRecord,
   OrderNoticeBrief,
   PagedResult,
 } from "./api";

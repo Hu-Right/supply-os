@@ -7,7 +7,7 @@
  *              已提升至 core/payment/api.ts，本文件改为 re-export 保持存量导入兼容。
  *              新增代码应从 @/core/payment/api 导入。
  *
- *              本文件保留 fetchOrders/fetchUnlocks 等 feature 级查询 API。
+ *              本文件保留 fetchOrders/fetchAccessRecords 等 feature 级查询 API。
  */
 
 // ── 核心支付操作（权威实现在 core/payment/api）──
@@ -28,14 +28,14 @@ import { pickNoticeApiLang } from "@/shared/constants/langs";
  * 关联公告摘要（解锁记录内嵌）
  * Related notice brief embedded in unlock records
  *
- * 镜像 lib/services/payment-history-view 的 UnlockNoticeBriefView（红线② camelCase）。
+ * 镜像 lib/services/payment-history-view 的 AccessNoticeBriefView（红线② camelCase）。
  */
 export type OrderNoticeBrief = {
   reference?: string | null;
   title?: string | null;
   /** 服务表中文标题缓存（中文界面优先） */
   titleCn?: string | null;
-  /** 当前界面语言的标题译文（仅 fetchUnlocks 传 lang 时返回；缺译为 null） */
+  /** 当前界面语言的标题译文（仅 fetchAccessRecords 传 lang 时返回；缺译为 null） */
   titleI18n?: string | null;
   noticeType?: string | null;
   agency?: string | null;
@@ -54,7 +54,7 @@ export type OrderNoticeBrief = {
  *
  * @remarks notice 字段对订单不返回：在线路径（orchestrator.normalizeOrder）
  *          不拼公告摘要，拼摘要的旧 paymentHistory 服务已删除。
- *          解锁行（UnlockRecord）才带公告摘要。
+ *          解锁行（AccessRecord）才带公告摘要。
  */
 export type OrderRecord = {
   orderNo: string;
@@ -75,18 +75,18 @@ export type OrderRecord = {
 };
 
 /**
- * 查看记录——GET /api/payment/unlocks 的 list 元素（传输层保留历史命名，展示层叫「查看」）。
- * Unlock record（镜像服务端 UnlockRecordView，红线② camelCase）
+ * 查看记录——GET /api/payment/access-records 的 list 元素（传输层保留历史命名，展示层叫「查看」）。
+ * Unlock record（镜像服务端 AccessRecordView，红线② camelCase）
  *
  * 历史：这一族曾经把 repo 平铺行直接 json 出去，而本类型声明的是嵌套 notice，
  * 所以解锁行的标题/国家/编号/截止日/过期标记在运行时全为空；
  * 现在 wire 按本形状出，user_id 与 description 不再外发。
  */
-export type UnlockRecord = {
+export type AccessRecord = {
   noticeId: number;
-  unlockType: string;
+  grantType: string;
   price: number;
-  unlockedAt?: string | null;
+  grantedAt?: string | null;
   notice?: OrderNoticeBrief | null;
 };
 
@@ -128,11 +128,11 @@ export async function fetchOrders(params: {
  * @remarks 传入 locale（zh/en/fr/ru/es/ar）且命中白名单时后端附带公告标题译文 title_i18n，
  *          与公告详情翻译共用缓存（lang 白名单见 shared/constants/langs）。
  */
-export async function fetchUnlocks(params: {
+export async function fetchAccessRecords(params: {
   page?: number;
   limit?: number;
   locale?: string;
-}): Promise<PagedResult<UnlockRecord>> {
+}): Promise<PagedResult<AccessRecord>> {
   const qs = buildQuery({
     page: params.page,
     limit: params.limit,
@@ -140,5 +140,5 @@ export async function fetchUnlocks(params: {
   });
   // P0 性能优化：使用 apiCached 去重并发请求（StrictMode 下 effect 双重执行）
   // 回滚：将 apiCached 替换回 api，删除第二个参数
-  return apiCached<PagedResult<UnlockRecord>>(`/api/payment/unlocks?${qs}`, 5 * 60 * 1000);
+  return apiCached<PagedResult<AccessRecord>>(`/api/payment/access-records?${qs}`, 5 * 60 * 1000);
 }

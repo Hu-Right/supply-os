@@ -144,9 +144,9 @@ test.describe("鉴权与异常边界", () => {
 
   test("不存在的商机解锁 → 404 明确错误码", async ({ request }) => {
     const token = await loginToken(request, VIP_USER);
-    const res = await request.post(`${TEST_BASE_URL}/api/opportunities/999999999/unlock`, {
+    const res = await request.post(`${TEST_BASE_URL}/api/opportunities/999999999/access`, {
       headers: authHeaders(token),
-      data: { unlock_type: "subscription" },
+      data: { grant_type: "subscription" },
     });
     expect(res.status()).toBe(404);
     const body = await res.json();
@@ -188,7 +188,7 @@ test.describe("商机浏览与解锁旅程", () => {
       `${TEST_BASE_URL}/api/opportunities`, { headers },
     )).json();
     const unlocks = await (await request.get(
-      `${TEST_BASE_URL}/api/opportunities/unlocks`, { headers },
+      `${TEST_BASE_URL}/api/opportunities/access-ids`, { headers },
     )).json();
     const unlockedIds = new Set(
       (Array.isArray(unlocks) ? unlocks : unlocks.items ?? [])
@@ -198,9 +198,9 @@ test.describe("商机浏览与解锁旅程", () => {
       (i: { id: number }) => !unlockedIds.has(i.id),
     );
     test.skip(!target, "当前类目下没有未解锁靶点，硬闸语义由集成测试覆盖");
-    const res = await request.post(`${TEST_BASE_URL}/api/opportunities/${target.id}/unlock`, {
+    const res = await request.post(`${TEST_BASE_URL}/api/opportunities/${target.id}/access`, {
       headers,
-      data: { unlock_type: "free" },
+      data: { grant_type: "free" },
     });
     expect(res.status()).toBe(402);
     const body = await res.json();
@@ -209,30 +209,30 @@ test.describe("商机浏览与解锁旅程", () => {
     expect(body.message).toMatch(/会员|免费/);
   });
 
-  test("付费解锁 → 成功；重复解锁 → 幂等 alreadyUnlocked", async ({ request }) => {
+  test("付费解锁 → 成功；重复解锁 → 幂等 alreadyGranted", async ({ request }) => {
     test.skip(!isChromium(), "解锁写入用例仅在 chromium 跑一次，重复运行靠幂等不叠加消耗");
     const token = await loginToken(request, VIP_USER);
     const headers = authHeaders(token);
 
-    const first = await request.post(`${TEST_BASE_URL}/api/opportunities/${OPP_ID}/unlock`, {
+    const first = await request.post(`${TEST_BASE_URL}/api/opportunities/${OPP_ID}/access`, {
       headers,
-      data: { unlock_type: "subscription" },
+      data: { grant_type: "subscription" },
     });
     expect([200, 201]).toContain(first.status());
     const firstBody = await first.json();
     expect(firstBody.success).toBe(true);
 
-    // 幂等：重复解锁返回 alreadyUnlocked，且不产生第二次计费/流水
-    const second = await request.post(`${TEST_BASE_URL}/api/opportunities/${OPP_ID}/unlock`, {
+    // 幂等：重复解锁返回 alreadyGranted，且不产生第二次计费/流水
+    const second = await request.post(`${TEST_BASE_URL}/api/opportunities/${OPP_ID}/access`, {
       headers,
-      data: { unlock_type: "subscription" },
+      data: { grant_type: "subscription" },
     });
     expect(second.status()).toBe(200);
     const secondBody = await second.json();
-    expect(secondBody.alreadyUnlocked).toBe(true);
+    expect(secondBody.alreadyGranted).toBe(true);
 
     // 解锁记录可查询
-    const unlocks = await request.get(`${TEST_BASE_URL}/api/opportunities/unlocks`, { headers });
+    const unlocks = await request.get(`${TEST_BASE_URL}/api/opportunities/access-ids`, { headers });
     expect(unlocks.status()).toBe(200);
     const unlockList = await unlocks.json();
     const arr = Array.isArray(unlockList) ? unlockList : unlockList.items ?? [];
@@ -245,9 +245,9 @@ test.describe("商机浏览与解锁旅程", () => {
     test.skip(!isChromium(), "边界用例仅在 chromium 跑一次");
     const token = await loginToken(request, FREE_USER);
     // 用一个未解锁的商机靶点（若已解锁则幂等成功也视为通过）
-    const res = await request.post(`${TEST_BASE_URL}/api/opportunities/${OPP_ID}/unlock`, {
+    const res = await request.post(`${TEST_BASE_URL}/api/opportunities/${OPP_ID}/access`, {
       headers: authHeaders(token),
-      data: { unlock_type: "subscription" },
+      data: { grant_type: "subscription" },
     });
     // free 账号无订阅无池：402 引导开通；若账号后来开过订阅则可能 200/201，均属合法状态
     if (res.status() === 402) {

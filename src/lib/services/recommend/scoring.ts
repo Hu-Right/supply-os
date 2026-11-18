@@ -109,7 +109,7 @@ export async function getAmountPreference(
   }
   const [amountPrefRows] = await pool.query(
     `SELECT AVG(LOG10(c.amount_usd + 1)) AS center_log, COUNT(*) AS cnt
-     FROM opportunity_unlocks u
+     FROM notice_access_grants u
      INNER JOIN notice_amount_cache c ON c.notice_id = u.notice_id
      WHERE u.user_id = ? AND u.notice_id IS NOT NULL AND c.amount_usd IS NOT NULL AND c.amount_usd > 0`,
     [userId],

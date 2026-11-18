@@ -1,33 +1,8 @@
 /**
- * GET /api/payment/unlocks — 解锁历史（分页）
+ * 兼容别名（2026-11-18 更名）：本路由已更名为 /api/payment/access-records
  *
- * 响应体走 lib/services/payment-history-view（平铺行→嵌套 camel），
- * 本路由不再把 repo 行整行透出。
- *
- * @module app/api/payment/unlocks/route
+ * @deprecated 旧客户端/已打开页面可能仍调用本路径；保留一个释放周期，
+ *             下个版本删除。新代码请直接用 `/api/payment/access-records`。
+ * @module src/app/api/payment/unlocks
  */
-import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute } from "@/lib/middleware/route-handler";
-import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, clampLimit } from "@/shared/constants/api";
-import { toUnlockRecordViews } from "@/lib/services/payment-history-view";
-
-export const GET = withRoute(async (req: NextRequest) => {
-  const auth = await requireUserKeyOrThrow(req);
-
-  const url = req.nextUrl;
-  const ctx = getContext();
-  const { paymentHistoryRepo } = ctx.payment;
-
-  const lang = url.searchParams.get("lang") || "";
-  const limit = clampLimit(url.searchParams.get("limit"), DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT);
-  const page = Math.max(1, Number(url.searchParams.get("page") || 1));
-  const offset = (page - 1) * limit;
-
-  const [total, unlocks] = await Promise.all([
-    paymentHistoryRepo.countUnlocks(auth.userId),
-    paymentHistoryRepo.listUnlocks(auth.userId, limit, offset, lang ? { lang } : null),
-  ]);
-  return NextResponse.json({ total, page, limit, list: toUnlockRecordViews(unlocks) });
-});
+export { GET } from "../access-records/route";

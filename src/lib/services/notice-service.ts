@@ -4,13 +4,13 @@
  *
  * @module lib/services/notice-service
  * @description 封装公告浏览/意向/解锁列表等高频操作，供 API 路由薄壳调用。
- *              消除路由层直接 import NoticeInteractionRepo / NoticeUnlockRepo 的架构违规。
- *              同时为已有 service 函数（submitInterest/executeUnlock/processFeedback/
+ *              消除路由层直接 import NoticeInteractionRepo / NoticeAccessGrantRepo 的架构违规。
+ *              同时为已有 service 函数（submitInterest/executeGrant/processFeedback/
  *              getNoticeTranslation）提供免 DI 的便捷包装。
  */
 import { getPool } from "@/lib/db/pool";
 import { NoticeInteractionRepo } from "@/lib/repos/notices/notice-interaction.repo";
-import { NoticeUnlockRepo } from "@/lib/repos/notices/notice-unlock.repo";
+import { NoticeAccessGrantRepo } from "@/lib/repos/notices/notice-access-grant.repo";
 import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeTranslationRepo } from "@/lib/repos/notices/notice-translation.repo";
 import { syncNoticeTitleCn } from "./notice-public/build";
@@ -22,7 +22,7 @@ import { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
 import { BenefitWriteRepo } from "@/lib/repos/benefit-write.repo";
 import {
   submitInterest,
-  executeUnlock,
+  executeGrant,
   processFeedback,
   NoticeNotFoundError,
   QuotaExceededError,
@@ -44,28 +44,28 @@ export async function recordNoticeView(params: { userId: number; noticeId: numbe
 // ── 解锁列表 ──
 
 /**
- * 解锁列表的对外视图（GET /api/notices/unlocks 的响应体）。
+ * 解锁列表的对外视图（GET /api/notices/access-ids 的响应体）。
  *
  * 为什么在 service 层显式列键而不是 `...row` 透出：本端点的行只有三列，
  * 但返回类型历史上是 `unknown[]`，键名完全由 DB 列名决定——客户端
- * `fetchUnlockedNoticeIds` 一直在读 `noticeId`，而 wire 上的是 `notice_id`，
+ * `fetchAccessibleNoticeIds` 一直在读 `noticeId`，而 wire 上的是 `notice_id`，
  * `Number(undefined)` 变 NaN 被过滤掉，**已解锁集合永远为空**（预取退化成
  * 每帧骨架屏）。行形状留在 repo，视图形状留在这里，两边不得混用。
  */
-export interface NoticeUnlockView {
+export interface NoticeAccessView {
   noticeId: number;
-  unlockType: string;
-  unlockedAt: string | null;
+  grantType: string;
+  grantedAt: string | null;
 }
 
 /** 查询用户解锁的公告列表（service 层出 camelCase 视图，路由只拼装） */
-export async function listUserUnlocks(userId: number): Promise<NoticeUnlockView[]> {
-  const repo = new NoticeUnlockRepo(getPool());
-  const rows = await repo.listNoticeUnlocks(userId);
+export async function listUserAccessRecords(userId: number): Promise<NoticeAccessView[]> {
+  const repo = new NoticeAccessGrantRepo(getPool());
+  const rows = await repo.listNoticeGrants(userId);
   return rows.map((row) => ({
     noticeId: Number(row.notice_id),
-    unlockType: String(row.unlock_type ?? ""),
-    unlockedAt: row.unlocked_at ? new Date(row.unlocked_at).toISOString() : null,
+    grantType: String(row.grant_type ?? ""),
+    grantedAt: row.granted_at ? new Date(row.granted_at).toISOString() : null,
   }));
 }
 
@@ -136,27 +136,27 @@ export async function listNoticeFavorites(params: {
   return { total, items: items as Array<Record<string, unknown>> };
 }
 
-// ── 解锁公告（包装 executeUnlock，消除路由侧 DI 构造） ──
+// ── 解锁公告（包装 executeGrant，消除路由侧 DI 构造） ──
 
 export { NoticeNotFoundError, QuotaExceededError };
 
 /** 解锁公告（含定价查询） */
-export async function unlockNotice(params: {
-  userId: number; noticeId: number; unlockType: "free" | "subscription";
-}): Promise<{ alreadyUnlocked: boolean; unlockType: string }> {
+export async function grantNoticeAccess(params: {
+  userId: number; noticeId: number; grantType: "free" | "subscription";
+}): Promise<{ alreadyGranted: boolean; grantType: string }> {
   const pool = getPool();
 
   // 解锁流水 price 恒 0：额度消耗记账走 benefit_quotas 池，不再以单价计量
   const price = 0;
 
-  return executeUnlock(
+  return executeGrant(
     {
       detailRepo: new NoticeDetailRepo(pool),
-      unlockRepo: new NoticeUnlockRepo(pool),
+      accessGrantRepo: new NoticeAccessGrantRepo(pool),
       dbPool: pool,
       quotaDeps: { catalog: new BenefitSystemRepo(pool), write: new BenefitWriteRepo() },
     },
-    { userId: params.userId, noticeId: params.noticeId, unlockType: params.unlockType, price },
+    { userId: params.userId, noticeId: params.noticeId, grantType: params.grantType, price },
   );
 }
 

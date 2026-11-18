@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchOrders, fetchUnlocks, type OrderRecord, type UnlockRecord } from "../api";
+import { fetchOrders, fetchAccessRecords, type OrderRecord, type AccessRecord } from "../api";
 
 export type UseRecordsSummaryReturn = {
   /** 订单总数 */
@@ -21,7 +21,7 @@ export type UseRecordsSummaryReturn = {
   /** 首条订单记录（无则 null） */
   ordersFirst: OrderRecord | null;
   /** 首条解锁记录（无则 null） */
-  unlocksFirst: UnlockRecord | null;
+  unlocksFirst: AccessRecord | null;
   /** 是否加载中 */
   loading: boolean;
   /** 错误信息（null = 成功） */
@@ -38,7 +38,7 @@ export function useRecordsSummary(userId: number | undefined): UseRecordsSummary
   const [ordersTotal, setOrdersTotal] = useState(0);
   const [unlocksTotal, setUnlocksTotal] = useState(0);
   const [ordersFirst, setOrdersFirst] = useState<OrderRecord | null>(null);
-  const [unlocksFirst, setUnlocksFirst] = useState<UnlockRecord | null>(null);
+  const [unlocksFirst, setUnlocksFirst] = useState<AccessRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestSeq = useRef(0);
@@ -58,7 +58,7 @@ export function useRecordsSummary(userId: number | undefined): UseRecordsSummary
 
     Promise.allSettled([
       fetchOrders({ page: 1, limit: 1 }),
-      fetchUnlocks({ page: 1, limit: 1 }),
+      fetchAccessRecords({ page: 1, limit: 1 }),
     ])
       .then(([ordersResult, unlocksResult]) => {
         if (seq !== requestSeq.current) return;

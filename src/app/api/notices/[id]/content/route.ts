@@ -6,7 +6,7 @@
  *              同时返回 description_cn（来自机会表），确保中文环境直接显示中文描述。
  *
  *              ⚠️ 付费墙闸口：全文属解锁后内容，必须先通过与 /detail 相同的
- *              解锁校验（findUnlock），未解锁一律 403 core_locked。
+ *              解锁校验（findGrant），未解锁一律 403 core_locked。
  *              该端点曾是付费墙旁门（审查报告 F1）。
  */
 import { NextResponse } from "next/server";
@@ -32,19 +32,19 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   if (!(await canAccessNotice(ctx.dbPool, ctx.benefitSystemRepo, auth.userId, noticeId))) {
     routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { outOfCategory: true });
   }
-    const { unlockRepo } = ctx.notice;
+    const { accessGrantRepo } = ctx.notice;
 
     const [access, notice] = await Promise.all([
       resolveNoticeAccess({
         userId: auth.userId,
         noticeId,
-        unlockRepo,
+        accessGrantRepo,
         benefitRepo: ctx.benefitSystemRepo,
       }),
       findPublicDetail(ctx.dbPool, noticeId),
     ]);
-    if (!access.unlock && !access.accessibleByPlan) {
-      routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { coreLocked: true });
+    if (!access.grant && !access.accessibleByPlan) {
+      routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先开通会员", { coreLocked: true });
     }
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
 

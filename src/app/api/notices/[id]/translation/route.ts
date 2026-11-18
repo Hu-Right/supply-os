@@ -42,7 +42,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     await assertNoticeContentAccess({
       dbPool: ctx.dbPool,
       benefitRepo: ctx.benefitSystemRepo,
-      unlockRepo: ctx.notice.unlockRepo,
+      accessGrantRepo: ctx.notice.accessGrantRepo,
       userId: auth.userId,
       noticeId,
       benefit: NOTICE_TRANSLATION_BENEFIT,

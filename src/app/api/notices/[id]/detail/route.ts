@@ -27,7 +27,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (!noticeId) routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
 
     const ctx = getContext();
-    const { unlockRepo } = ctx.notice;
+    const { accessGrantRepo } = ctx.notice;
 
     // [2026-10-30 首屏往返压缩] 三件事互不依赖，并发发出：
     //   - 行业墙判定（canAccessNotice）
@@ -42,7 +42,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       resolveNoticeAccess({
         userId: auth.userId,
         noticeId,
-        unlockRepo,
+        accessGrantRepo,
         benefitRepo: ctx.benefitSystemRepo,
       }),
       findPublicDetail(ctx.dbPool, noticeId),
@@ -50,8 +50,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (!allowedByIndustry) {
       routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { outOfCategory: true });
     }
-    if (!access.unlock && !access.accessibleByPlan) {
-      routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先解锁", { coreLocked: true });
+    if (!access.grant && !access.accessibleByPlan) {
+      routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先开通会员", { coreLocked: true });
     }
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
 
@@ -90,8 +90,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       // 下面这些补充键直接写 camel——extras 是服务端内部形状，仍为列名。
       ...toNoticeView(notice)!,
       coreLocked: false,
-      unlockType: access.unlock?.unlock_type ?? "subscription",
-      unlockedAt: access.unlock?.unlocked_at ?? null,
+      grantType: access.grant?.grant_type ?? "subscription",
+      grantedAt: access.grant?.granted_at ?? null,
       platform,
       reportAvailable,
       reportUrl: reportAvailable ? `/api/notices/${notice.notice_pk}/report` : "",

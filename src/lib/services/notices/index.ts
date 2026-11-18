@@ -75,8 +75,8 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
       priority: opportunity.priority || "",
     } : null,
     core_locked: false,
-    unlock_type: unlock?.unlock_type,
-    unlocked_at: unlock?.unlocked_at,
+    grant_type: unlock?.grant_type,
+    granted_at: unlock?.granted_at,
     report_available: !!opportunity,
     report_url: opportunity ? `/api/notices/${notice.id}/report` : "",
   };

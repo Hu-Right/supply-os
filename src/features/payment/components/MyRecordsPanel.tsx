@@ -64,7 +64,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
   const rows: RecordRow[] =
     view === "orders" ? history.orders?.list || [] : history.unlocks?.list || [];
   const rowKey = (row: RecordRow) =>
-    "orderNo" in row ? row.orderNo : `${row.noticeId}-${row.unlockedAt ?? ""}`;
+    "orderNo" in row ? row.orderNo : `${row.noticeId}-${row.grantedAt ?? ""}`;
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4">

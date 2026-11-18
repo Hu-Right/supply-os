@@ -5,7 +5,7 @@
  * 1. 矩阵缺行/缺格/NULL → 拒绝（数据缺陷必须浮出来，绝不静默当无限量）；
  * 2. -1 → 明确不限；0 → 该档明确零额度，拒绝且不碰池；
  * 3. 有限额度 → 独立短事务内 ensure+consume，提交后放行；
- * 4. 池耗尽/冻结（UnlockQuotaError）→ 翻译为 AiQuotaExceededError 并回滚事务。
+ * 4. 池耗尽/冻结（AccessQuotaError）→ 翻译为 AiQuotaExceededError 并回滚事务。
  */
 import { describe, it, expect, vi } from "vitest";
 import type { Pool, PoolConnection } from "mysql2/promise";
@@ -89,7 +89,7 @@ describe("consumeAiActionQuota · 计量判定", () => {
     expect(calls.released).toBe(1);
   });
 
-  it("池耗尽/冻结（UnlockQuotaError）→ AiQuotaExceededError + 回滚", async () => {
+  it("池耗尽/冻结（AccessQuotaError）→ AiQuotaExceededError + 回滚", async () => {
     const { conn, ops, calls } = makeConn();
     const { deps } = makeDeps({ consume: "denied" });
     await expect(consumeAiActionQuota(makePool(conn), deps, params)).rejects.toThrow(AiQuotaExceededError);

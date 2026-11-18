@@ -12,9 +12,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { calcTotalPages } from "@/shared/constants/pagination";
 import {
   fetchOrders,
-  fetchUnlocks,
+  fetchAccessRecords,
   type OrderRecord,
-  type UnlockRecord,
+  type AccessRecord,
   type PagedResult,
 } from "../api";
 
@@ -38,7 +38,7 @@ export type UseOrderHistoryReturn = {
   /** 订单分页数据 */
   orders: PagedResult<OrderRecord> | null;
   /** 解锁分页数据 */
-  unlocks: PagedResult<UnlockRecord> | null;
+  unlocks: PagedResult<AccessRecord> | null;
   /** 是否加载中 */
   loading: boolean;
   /** 错误消息 */
@@ -59,7 +59,7 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
   const [tab, setTabState] = useState<PurchaseTab>("orders");
   const [page, setPage] = useState(1);
   const [orders, setOrders] = useState<PagedResult<OrderRecord> | null>(null);
-  const [unlocks, setUnlocks] = useState<PagedResult<UnlockRecord> | null>(null);
+  const [unlocks, setUnlocks] = useState<PagedResult<AccessRecord> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const requestSeq = useRef(0);
@@ -85,7 +85,7 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
         ? fetchOrders({ page, limit: PAGE_LIMIT }).then((data) => {
             if (seq === requestSeq.current) setOrders(data);
           })
-        : fetchUnlocks({ page, limit: PAGE_LIMIT }).then((data) => {
+        : fetchAccessRecords({ page, limit: PAGE_LIMIT }).then((data) => {
             if (seq === requestSeq.current) setUnlocks(data);
           });
 

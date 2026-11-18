@@ -1,15 +1,8 @@
 /**
- * GET /api/notices/unlocks — 用户解锁的公告列表
+ * 兼容别名（2026-11-18 更名）：本路由已更名为 /api/notices/access-ids
  *
- * @module app/api/notices/unlocks/route
+ * @deprecated 旧客户端/已打开页面可能仍调用本路径；保留一个释放周期，
+ *             下个版本删除。新代码请直接用 `/api/notices/access-ids`。
+ * @module src/app/api/notices/unlocks
  */
-import { NextRequest, NextResponse } from "next/server";
-import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute } from "@/lib/middleware/route-handler";
-import { listUserUnlocks } from "@/lib/services/notice-service";
-
-export const GET = withRoute(async (req: NextRequest) => {
-  const auth = await requireUserKeyOrThrow(req);
-  const rows = await listUserUnlocks(auth.userId);
-  return NextResponse.json(rows);
-});
+export { GET } from "../access-ids/route";

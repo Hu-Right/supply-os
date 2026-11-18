@@ -962,7 +962,7 @@ function saveServiceWatermark(lastSuccess) {
  *   G1 源库 id 集为空 ⇒ 视为连接/权限故障，绝不等于「源库全空」；
  *   G2 源库行数 < 云端行数 90% ⇒ 疑似连错库/取数被截断（差异集会是几十万而非几千）；
  *   G3 单次删除超 PRUNE_MAX ⇒ 量级不对；
- *   G4 删除集含已付费解锁记录（opportunity_unlocks.notice_id）⇒ 权益处置交人工；
+ *   G4 删除集含已付费解锁记录（notice_access_grants.notice_id）⇒ 权益处置交人工；
  *   G5 待删行在源库仍能按 notice_id 找到 ⇒ 只是主键变了（重排/重建 id），不删（2026-11-18 补）。
  * 此外永远排除平台行（PLATFORM_IMMUNE）：那些行本仓自建、源库永远没有。
  * 真删前先把 id 清单落 runtime/backups/，按单行主键可重灌。
@@ -1006,7 +1006,7 @@ async function pruneSourceDeleted(source, target, sourceTable) {
   if (doomed.length > PRUNE_MAX) throw new Error(`G3 待删 ${doomed.length} 行超上限 ${PRUNE_MAX}：量级不对，中止`);
 
   const [paid] = await target.query(
-    `SELECT COUNT(*) AS n, COUNT(DISTINCT notice_id) AS notices FROM opportunity_unlocks WHERE notice_id IN (?)`,
+    `SELECT COUNT(*) AS n, COUNT(DISTINCT notice_id) AS notices FROM notice_access_grants WHERE notice_id IN (?)`,
     [doomed],
   );
   if (Number(paid[0].n) > 0) {

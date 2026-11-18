@@ -49,7 +49,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const ctx = getContext();
-    const { unlockRepo } = ctx.notice;
+    const { accessGrantRepo } = ctx.notice;
     const opportunitiesRepo = ctx.opportunitiesRepo;
 
     // 行业墙（2026-11-18）：报告含公告正文内容，必须与 /detail 同口径先过行业限定档
@@ -60,11 +60,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const access = await resolveNoticeAccess({
       userId,
       noticeId,
-      unlockRepo,
+      accessGrantRepo,
       benefitRepo: ctx.benefitSystemRepo,
     });
-    if (!access.unlock && !access.accessibleByPlan) {
-      routeError(403, EC_ACCESS_FORBIDDEN, "公告已锁定，请先解锁", { core_locked: true });
+    if (!access.grant && !access.accessibleByPlan) {
+      routeError(403, EC_ACCESS_FORBIDDEN, "公告已锁定，请先开通会员", { core_locked: true });
     }
 
     // 投标可行性报告属企业级工具（2026-10-29）：企业/人工档可下载；个人档引导升级企业版

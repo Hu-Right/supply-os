@@ -24,8 +24,8 @@ export interface ReportPreviewSection {
 /** 报告预览数据结构（对应 GET /api/notices/:id/report/preview 响应） */
 export interface ReportPreviewData {
   sections: ReportPreviewSection[];
-  /** 当前用户是否已解锁该公告 */
-  isUnlocked: boolean;
+  /** 当前用户是否可访问该公告（单条授权或套餐含查看权益） */
+  isAccessible: boolean;
   hasFullReport: boolean;
   /** 完整 Word 报告总字符数（用于预览百分比计算） */
   totalReportChars: number;

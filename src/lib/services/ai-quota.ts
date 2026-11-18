@@ -5,14 +5,14 @@
  * @description 摘要/AI 匹配路由在"完整档"生成前扣一次月度额度（矩阵口径：个人档原 30/月，
  *              2026-10-29 产品改口改为 -1 不限；企业/人工/内部 -1 不限，free 0——但 free 只到脱敏档，
  *              到不了本入口）。
- *              记账复用 unlock-quota 的开池/换代/扣减原语，额度唯一事实源 = 矩阵格 value_num。
+ *              记账复用 access-quota 的开池/换代/扣减原语，额度唯一事实源 = 矩阵格 value_num。
  *
  *              额度唯一事实源 = 矩阵格 value_num，一切以新矩阵为准，无迁移过渡分支：
  *              - 矩阵缺行/缺格、value_num 为 NULL → 拒绝（数据缺陷必须浮出来，
  *                同 isEntitled「缺格不猜默认值」纪律，绝不静默当无限量放行）；
  *              - value_num = -1 → 明确不限（唯一不计量出口）；
  *              - value_num = 0 → 该档明确零额度，拒绝（矩阵显式账，不静默放行）；
- *              - 正数 → 月度池扣 1（日历月换代见 unlock-quota）。
+ *              - 正数 → 月度池扣 1（日历月换代见 access-quota）。
  *
  *              事务形态与解锁不同：LLM 生成 20-60s，不能持行锁跨整个动作，
  *              故在独立短事务内完成"锁池→扣减→提交"，生成动作本身在事务外。
@@ -21,7 +21,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import { FREE_PLAN_CODE, type BenefitSystemRepo } from "../repos/benefit-system.repo";
-import { ensureConsumableQuota, consumeQuota, UnlockQuotaError, type QuotaDeps } from "./unlock-quota";
+import { ensureConsumableQuota, consumeQuota, AccessQuotaError, type QuotaDeps } from "./access-quota";
 
 export type AiQuotaDeps = QuotaDeps;
 
@@ -79,7 +79,7 @@ export async function consumeAiActionQuota(
       } catch {
         /* 忽略 */
       }
-      if (err instanceof UnlockQuotaError) throw new AiQuotaExceededError(params.benefitCode);
+      if (err instanceof AccessQuotaError) throw new AiQuotaExceededError(params.benefitCode);
       throw err;
     }
   } finally {

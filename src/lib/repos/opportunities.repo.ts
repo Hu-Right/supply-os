@@ -34,8 +34,8 @@ export interface OpportunityListItemRow {
 /** 商机解锁流水行 */
 export interface OpportunityUnlockRow {
   opportunity_id: number;
-  unlock_type: string;
-  unlocked_at: Date;
+  grant_type: string;
+  granted_at: Date;
 }
 
 export class OpportunitiesRepo {
@@ -64,14 +64,14 @@ export class OpportunitiesRepo {
   /**
    * 用户商机解锁流水（按解锁时间倒序）。
    *
-   * opportunity_unlocks 是公告解锁与商机解锁共用的流水表：
+   * notice_access_grants 是公告解锁与商机解锁共用的流水表：
    * 公告行 opportunity_id 为 NULL。不过滤的话本端点会返一大片
    * `{opportunity_id: null}`（类型声明写的是 number，等于在谎报），
-   * 下游“已解锁集合”根本无法使用。口径与 NoticeUnlockRepo.listNoticeUnlocks 对称。
+   * 下游“已解锁集合”根本无法使用。口径与 NoticeAccessGrantRepo.listNoticeGrants 对称。
    */
-  async listUnlocks(userId: number): Promise<OpportunityUnlockRow[]> {
+  async listAccessRecords(userId: number): Promise<OpportunityUnlockRow[]> {
     const [rows] = await this.pool.query(
-      "SELECT opportunity_id, unlock_type, unlocked_at FROM opportunity_unlocks WHERE user_id = ? AND opportunity_id IS NOT NULL ORDER BY unlocked_at DESC",
+      "SELECT opportunity_id, grant_type, granted_at FROM notice_access_grants WHERE user_id = ? AND opportunity_id IS NOT NULL ORDER BY granted_at DESC",
       [userId],
     );
     return rows as OpportunityUnlockRow[];
@@ -117,12 +117,12 @@ export class OpportunitiesRepo {
   }
 
   /** 已有解锁记录（幂等判定，无记录返回 null） */
-  async findExistingUnlock(
+  async findExistingGrant(
     userId: number,
     opportunityId: number,
   ): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT id, unlock_type FROM opportunity_unlocks WHERE user_id = ? AND opportunity_id = ? LIMIT 1",
+      "SELECT id, grant_type FROM notice_access_grants WHERE user_id = ? AND opportunity_id = ? LIMIT 1",
       [userId, opportunityId],
     );
     return (rows as RowDataPacket[])[0] ?? null;

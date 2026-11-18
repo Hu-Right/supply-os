@@ -9,13 +9,13 @@
  */
 import type { Pool } from "mysql2/promise";
 import type { NoticeDetailRepo } from "../repos/notices/notice-detail.repo";
-import type { NoticeUnlockRepo } from "../repos/notices/notice-unlock.repo";
+import type { NoticeAccessGrantRepo } from "../repos/notices/notice-access-grant.repo";
 import type { NoticeInteractionRepo } from "../repos/notices/notice-interaction.repo";
 import type { NoticeFeedbackRepo, RecoFeedbackItem } from "../repos/notices/notice-feedback.repo";
 import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
 import type { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { loadNoticeNodeCodes, persistInterestNodeCodes, decayInterestNodeCodes } from "./commodity/interest";
-import { ensureConsumableQuota, consumeQuota, UnlockQuotaError } from "./unlock-quota";
+import { ensureConsumableQuota, consumeQuota, AccessQuotaError } from "./access-quota";
 import type { LockedPoolRow } from "../repos/benefit-write.repo";
 
 // ── 解锁 ──────────────────────────────────────────────────────────────────────
@@ -24,34 +24,34 @@ export interface UnlockParams {
   /** 内部用户 ID */
   userId: number;
   noticeId: number;
-  unlockType: "free" | "subscription";
+  grantType: "free" | "subscription";
   price: number;
 }
 
 export interface UnlockResult {
-  alreadyUnlocked: boolean;
-  unlockType: string;
+  alreadyGranted: boolean;
+  grantType: string;
 }
 
 /**
  * 解锁公告（事务封装：快速路径 → 悲观锁 → 配额检查 → 插入 → 消耗 → 兴趣码）
  * 从 routes/notices/actions.routes.ts 下沉，路由层不再管理事务。
  */
-export async function executeUnlock(
+export async function executeGrant(
   ctx: {
     detailRepo: NoticeDetailRepo;
-    unlockRepo: NoticeUnlockRepo;
+    accessGrantRepo: NoticeAccessGrantRepo;
     dbPool: Pool;
     quotaDeps: { catalog: BenefitSystemRepo; write: BenefitWriteRepo };
   },
   params: UnlockParams,
 ): Promise<UnlockResult> {
-  const { detailRepo, unlockRepo, dbPool, quotaDeps } = ctx;
-  const { userId, noticeId, unlockType, price } = params;
+  const { detailRepo, accessGrantRepo, dbPool, quotaDeps } = ctx;
+  const { userId, noticeId, grantType, price } = params;
 
   // 快速路径：先检查是否已解锁（无锁，减少事务冲突）
-  if (await unlockRepo.findExistingUnlock(userId, noticeId)) {
-    return { alreadyUnlocked: true, unlockType };
+  if (await accessGrantRepo.findExistingGrant(userId, noticeId)) {
+    return { alreadyGranted: true, grantType };
   }
 
   // 获取公告信息（事务外，只读）
@@ -65,13 +65,13 @@ export async function executeUnlock(
     await conn.beginTransaction();
 
     // 事务内再次检查（可能并发请求已通过快速路径）
-    if (await unlockRepo.findExistingUnlockInTransaction(conn, userId, noticeId)) {
+    if (await accessGrantRepo.findExistingGrantInTransaction(conn, userId, noticeId)) {
       await conn.commit();
-      return { alreadyUnlocked: true, unlockType };
+      return { alreadyGranted: true, grantType };
     }
 
     // 配额检查（事务内）
-    if (unlockType === "free") {
+    if (grantType === "free") {
       // 免费试用已移除（2026-08-30 产品决策）：free 配置归零是数据层手段，
       // 此处为服务端硬闸——无论配置如何，free 解锁一律 402，杜绝配置回滚
       // 或手工改库重新放出免费额度。历史 free 解锁记录保留可审计。
@@ -79,13 +79,13 @@ export async function executeUnlock(
       throw new QuotaExceededError("FREE_LIMIT_REACHED");
     }
 
-    if (unlockType === "subscription") {
-      // 共享配额记账口径（unlock-quota）：FOR UPDATE 锁住 notice_view 池行，
+    if (grantType === "subscription") {
+      // 共享配额记账口径（access-quota）：FOR UPDATE 锁住 notice_view 池行，
       // 额度取自矩阵格 value_num，不在代码里写数字
       try {
         consumedPool = await ensureConsumableQuota(conn, quotaDeps, { userId });
       } catch (quotaErr) {
-        if (quotaErr instanceof UnlockQuotaError) {
+        if (quotaErr instanceof AccessQuotaError) {
           await conn.rollback();
           throw new QuotaExceededError(quotaErr.code);
         }
@@ -94,8 +94,8 @@ export async function executeUnlock(
     }
 
     // 插入解锁记录（唯一约束 uk_user_notice 保证原子性）
-    await unlockRepo.insertUnlockInTransaction(conn, {
-      userId, noticeId, unlockType, price,
+    await accessGrantRepo.insertGrantInTransaction(conn, {
+      userId, noticeId, grantType, price,
     });
 
     // 消耗配额（行锁 + 条件 UPDATE 复核，并发耗尽或池被冻结则回滚）
@@ -103,7 +103,7 @@ export async function executeUnlock(
       try {
         await consumeQuota(conn, quotaDeps, consumedPool);
       } catch (consumeErr) {
-        if (consumeErr instanceof UnlockQuotaError) {
+        if (consumeErr instanceof AccessQuotaError) {
           await conn.rollback();
           throw new QuotaExceededError(consumeErr.code);
         }
@@ -119,12 +119,12 @@ export async function executeUnlock(
       const nodes = (await loadNoticeNodeCodes(dbPool, [noticeId]).catch(() => new Map())).get(noticeId) ?? [];
       await persistInterestNodeCodes(dbPool, userId, nodes, "unlock_order", 2.50).catch((e) => console.warn("[notice-actions] persistInterestNodeCodes failed (non-critical):", e));
     }
-    return { alreadyUnlocked: false, unlockType };
+    return { alreadyGranted: false, grantType };
   } catch (err: unknown) {
     await conn.rollback();
     // 唯一约束冲突 = 并发请求已解锁
     if (err instanceof Error && "code" in err && (err as { code: string }).code === "ER_DUP_ENTRY") {
-      return { alreadyUnlocked: true, unlockType };
+      return { alreadyGranted: true, grantType };
     }
     throw err;
   } finally {

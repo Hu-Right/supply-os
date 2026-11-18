@@ -1457,21 +1457,21 @@ CREATE TABLE `opportunity_translations` (
   KEY `idx_opp_tr_lang` (`lang`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='机会公告翻译表';
 
--- ── opportunity_unlocks ──
-CREATE TABLE `opportunity_unlocks` (
+-- ── notice_access_grants ──
+CREATE TABLE `notice_access_grants` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL,
   `opportunity_id` bigint unsigned DEFAULT NULL,
   `notice_id` bigint unsigned DEFAULT NULL,
-  `unlock_type` enum('free','single','subscription') NOT NULL DEFAULT 'free',
+  `grant_type` enum('free','single','subscription') NOT NULL DEFAULT 'free',
   `price` decimal(10,2) NOT NULL DEFAULT '0.00',
-  `unlocked_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `granted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_opportunity` (`user_id`,`opportunity_id`),
   UNIQUE KEY `uk_user_notice` (`user_id`,`notice_id`),
   KEY `idx_opportunity_id` (`opportunity_id`),
   KEY `idx_notice_id` (`notice_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='商机解锁流水。';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告/商机访问授权流水（原 opportunity_unlocks：会员打开即自动留痕；grant_type/price 为历史付费凭证）';
 
 -- ── orders ──
 CREATE TABLE `orders` (

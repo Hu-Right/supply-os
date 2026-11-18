@@ -7,7 +7,7 @@
 
 项目同时存在内网库（192.168.1.14/crm）与云生产库（117.72.108.14/crm，本机经 3307 SSH 隧道访问）。两库 `crm_bid_notices` 出现列漂移：内网多出 `source_channel`（varchar(50) NOT NULL DEFAULT 'UNGM'）与 `urgency`（varchar(50) NULL）两列且已全量回填，云库没有；`db/schema/baseline.sql` 与云库一致（同样没有这两列）。
 
-`PaymentHistoryRepo`（订单/解锁历史）的查询引用了 `n.source_channel`、`n.urgency`，在本机对云库调试时稳定触发 `ER_UNKNOWN_COLUMN` → GET /api/payment/orders 与 GET /api/payment/unlocks 双双 500（线上同库同代码，同样命中）。
+`PaymentHistoryRepo`（订单/解锁历史）的查询引用了 `n.source_channel`、`n.urgency`，在本机对云库调试时稳定触发 `ER_UNKNOWN_COLUMN` → GET /api/payment/orders 与 GET /api/payment/access-records 双双 500（线上同库同代码，同样命中）。
 
 ## 决策
 
@@ -19,6 +19,6 @@
 
 ## 后果
 
-- `PaymentHistoryRepo` 三条查询与 `OrderHistoryRow`/`UnlockHistoryRow`/`OrderNoticeBrief` 摘除上述两列（UI 层本就未渲染，无用户可见损失）。
+- `PaymentHistoryRepo` 三条查询与 `OrderHistoryRow`/`AccessHistoryRow`/`OrderNoticeBrief` 摘除上述两列（UI 层本就未渲染，无用户可见损失）。
 - 跨库排障时「内网有、云库没有」的列一律视为内网私有，不再作为「云库漏迁移」反推补列。
 - 新查询上线前的验证口径：`information_schema.columns` 查云库，而非内网或 baseline 单独其一。

@@ -44,11 +44,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       ? await resolveNoticeAccess({
         userId: auth.userId,
         noticeId,
-        unlockRepo: ctx.notice.unlockRepo,
+        accessGrantRepo: ctx.notice.accessGrantRepo,
         benefitRepo: ctx.benefitSystemRepo,
       })
       : null;
-    if (!wallOk || !accessForGet || (!accessForGet.unlock && !accessForGet.accessibleByPlan)) {
+    if (!wallOk || !accessForGet || (!accessForGet.grant && !accessForGet.accessibleByPlan)) {
       return NextResponse.json({ cached: false, locked: true });
     }
     // 走法②：无 ai_match 权益（低档）即使有历史缓存也不回读，防直接打接口绕过（与 POST 门控对称）
@@ -96,7 +96,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     await assertNoticeContentAccess({
       dbPool: ctx.dbPool,
       benefitRepo: ctx.benefitSystemRepo,
-      unlockRepo: ctx.notice.unlockRepo,
+      accessGrantRepo: ctx.notice.accessGrantRepo,
       userId: auth.userId,
       noticeId,
     });
