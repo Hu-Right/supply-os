@@ -8,8 +8,8 @@ import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { findQualifiedOpportunityForNotice } from "@/lib/services/notices";
 import { findPublicDetail } from "@/lib/services/notice-public/read";
+import { findNoticeOpportunityExtras } from "@/lib/services/notice-public/opportunity-extras";
 import { toNoticeView } from "@/lib/services/notice-public/view";
 import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
 import { platformInfoWithFallback } from "@/lib/services/platform/resolve";
@@ -55,22 +55,21 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
 
-    // 合格商机只用于资格 Tab / 报告；详情主内容字段全部来自服务表原字段。
-    const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
+    // 读取口径（2026-11-18 收口）：详情主内容与资格条件全部来自服务表；
+    // 只有服务表/宽表都没有的商机产物（拆标概览取宽表，AI 产物取商机窄列）走 extras。
+    const extras = await findNoticeOpportunityExtras(ctx.dbPool, Number(notice.notice_pk));
     // [2026-10-30] 截止时区只留可计算的机器令牌（GMT±HH:MM / UTC / IANA）：
-    // 商机表 deadline_timezone 是抓取页面的原文注释（如「菲律宾时间（PHT，UTC+8）；北京时间（UTC+8）」），
-    // 直接下发给前端会被拼在截止时间后面，变成一长串时区说明。
-    // 优先宽表语义列（notice_public.deadline_timezone），其次商机行；自由文本一律丢弃。
+    // 服务表 deadline_timezone 已是归一列（来自 notice_deadline）；商机表那列是抓取页面的原文注释
+    // （如「菲律宾时间（PHT，UTC+8）；北京时间（UTC+8）」），不再参与下发。
     // 在进 view mapper 之前就地改行上的列值，对外仍由 toNoticeView 统一改名（不新增响应键）。
     (notice as unknown as Record<string, unknown>).deadline_timezone = pickDeadlineZoneToken(
       (notice as unknown as Record<string, unknown>).deadline_timezone,
-      opportunity?.deadline_timezone,
     ) || null;
     const platformSnap = await loadPlatformAliasSnapshot(ctx.dbPool);
     // 来源平台只在解锁后的详情下发（2026-10-28 用户口径：列表/预览一律不下发）；
     // 未命中别名表则回落服务表 platform_name（build 侧域名兜底），两者皆空→ null，前端隐藏该信息位
     const platform = platformInfoWithFallback(
-      String(notice.source_url || opportunity?.source_url || ""),
+      String(notice.source_url || ""),
       platformSnap,
       notice.platform_name,
     );
@@ -83,28 +82,26 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // 留着就是同一事实的第二份口径——在进 mapper 之前从行上摘掉，与列表侧
     // `delete item.platform_name` 同规格（sourceUrl 不同，解锁后的原文外链有真实消费方）。
     delete (notice as unknown as Record<string, unknown>).platform_name;
-    // 资格条件：服务表优先，空则回退商机表（逐步替换期，两边口径可对比）
-    const pickText = (serviceValue: unknown, opportunityValue: unknown): string => {
-      const s = typeof serviceValue === "string" ? serviceValue.trim() : "";
-      return s || (typeof opportunityValue === "string" ? opportunityValue : "");
-    };
+    // 资格条件：服务表已是构建器从商机投影的归一结果，不再回退商机表（避免双源不一致）
+    const text = (v: unknown): string => (typeof v === "string" ? v : "");
+    const reportAvailable = !!extras?.opportunityId;
     return NextResponse.json({
       // 服务表行先过 view mapper（红线② 唯一收口点），不再把列名当对外契约直接透传；
-      // 下面这些补充键直接写 camel——它们读的是商机行（服务端内部形状，仍为列名）。
+      // 下面这些补充键直接写 camel——extras 是服务端内部形状，仍为列名。
       ...toNoticeView(notice)!,
       coreLocked: false,
       unlockType: access.unlock?.unlock_type ?? "subscription",
       unlockedAt: access.unlock?.unlocked_at ?? null,
       platform,
-      reportAvailable: !!opportunity,
-      reportUrl: opportunity ? `/api/notices/${notice.notice_pk}/report` : "",
-      eligibility: pickText((notice as Record<string, unknown>).eligibility, opportunity?.eligibility),
-      technicalHurdles: pickText((notice as Record<string, unknown>).technical_hurdles, opportunity?.technical_hurdles),
-      supplierConditions: pickText((notice as Record<string, unknown>).supplier_conditions, opportunity?.supplier_conditions),
-      bidOverview: opportunity?.bid_overview ?? "",
-      descriptionOther: opportunity?.description_other ?? "",
-      aiProducts: opportunity?.ai_products ?? null,
-      aiAnalysis: opportunity?.ai_analysis ?? null,
+      reportAvailable,
+      reportUrl: reportAvailable ? `/api/notices/${notice.notice_pk}/report` : "",
+      eligibility: text((notice as Record<string, unknown>).eligibility),
+      technicalHurdles: text((notice as Record<string, unknown>).technical_hurdles),
+      supplierConditions: text((notice as Record<string, unknown>).supplier_conditions),
+      bidOverview: extras?.bidOverview ?? "",
+      descriptionOther: extras?.descriptionOther ?? "",
+      aiProducts: extras?.aiProducts ?? null,
+      aiAnalysis: extras?.aiAnalysis ?? null,
     });
   },
 );
