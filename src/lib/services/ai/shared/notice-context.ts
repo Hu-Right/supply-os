@@ -32,20 +32,20 @@ export async function fetchNoticeContext(pool: Pool, noticeId: number): Promise<
   const base = (rows as RowDataPacket[])[0];
   if (!base) return null;
 
-  // 机会表补充资格条件
-  const [oppRows] = await pool.query(
-    `SELECT o.eligibility, o.technical_hurdles, o.supplier_conditions
-     FROM bid_opportunities o
-     WHERE o.source_notice_id = (SELECT notice_id FROM bid_notices WHERE id = ? LIMIT 1)
-       AND (o.is_qualified = 1 OR o.status = 1 OR o.audit_status = 1)
+  // 资格条件：构建器已把商机的拆解文本投影进服务表（notice-public/build.ts），
+  // 展示侧只读 notice_public，不再回查商机表（商机是上游，public 才是门户读源）。
+  const [pubRows] = await pool.query(
+    `SELECT p.eligibility, p.technical_hurdles, p.supplier_conditions
+     FROM notice_public p
+     WHERE p.notice_pk = ?
      LIMIT 1`,
     [noticeId],
   );
-  const opp = (oppRows as RowDataPacket[])[0];
+  const pub = (pubRows as RowDataPacket[])[0];
   return {
     ...(base as Record<string, unknown>),
-    eligibility: String(opp?.eligibility || ""),
-    technical_hurdles: String(opp?.technical_hurdles || ""),
-    supplier_conditions: String(opp?.supplier_conditions || ""),
+    eligibility: String(pub?.eligibility || ""),
+    technical_hurdles: String(pub?.technical_hurdles || ""),
+    supplier_conditions: String(pub?.supplier_conditions || ""),
   } as NoticeContext;
 }

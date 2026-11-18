@@ -41,27 +41,25 @@ async function fetchNoticeForPrompt(pool: Pool, noticeId: number): Promise<RowDa
   return (rows as RowDataPacket[])[0] ?? null;
 }
 
-/** 机会表补充字段 + documents */
-async function enrichFromOpportunity(pool: Pool, noticeId: number, notice: RowDataPacket) {
+/** 服务表补充字段：资格/拆解文本与中文正文由构建器从商机投影，展示侧只读 notice_public */
+async function enrichFromNoticePublic(pool: Pool, noticeId: number, notice: RowDataPacket) {
   const [rows] = await pool.query(
-    `SELECT o.eligibility, o.technical_hurdles, o.supplier_conditions,
-            o.description_cn, o.agency_full, o.documents
-     FROM bid_opportunities o
-     WHERE o.source_notice_id = (SELECT notice_id FROM bid_notices WHERE id = ? LIMIT 1)
-       AND (o.is_qualified = 1 OR o.status = 1 OR o.audit_status = 1)
+    `SELECT p.eligibility, p.technical_hurdles, p.supplier_conditions,
+            p.description_cn, p.buyer_name AS agency_full
+     FROM notice_public p
+     WHERE p.notice_pk = ?
      LIMIT 1`,
     [noticeId],
   );
-  const opp = (rows as RowDataPacket[])[0];
-  if (!opp) return notice;
+  const pub = (rows as RowDataPacket[])[0];
+  if (!pub) return notice;
   return {
     ...notice,
-    eligibility: opp.eligibility || "",
-    technical_hurdles: opp.technical_hurdles || "",
-    supplier_conditions: opp.supplier_conditions || "",
-    description_cn: opp.description_cn || "",
-    agency_full: opp.agency_full || notice.agency_full || "",
-    documents: opp.documents || notice.documents,
+    eligibility: pub.eligibility || "",
+    technical_hurdles: pub.technical_hurdles || "",
+    supplier_conditions: pub.supplier_conditions || "",
+    description_cn: pub.description_cn || "",
+    agency_full: pub.agency_full || notice.agency_full || "",
   };
 }
 
@@ -98,7 +96,7 @@ export async function getOrGenerateAiSummary(
 
   const noticeBase = await fetchNoticeForPrompt(pool, noticeId);
   if (!noticeBase) errNoticeNotFound();
-  const notice = await enrichFromOpportunity(pool, noticeId, noticeBase);
+  const notice = await enrichFromNoticePublic(pool, noticeId, noticeBase);
 
   // 附件文本提取（静默降级）
   const attachmentsText = await extractAttachmentsText(notice.documents).catch(() => "");
@@ -169,7 +167,7 @@ export async function* streamAiSummary(
 
   const noticeBase = await fetchNoticeForPrompt(pool, noticeId);
   if (!noticeBase) { yield JSON.stringify({ error: "NOTICE_NOT_FOUND" }); return; }
-  const notice = await enrichFromOpportunity(pool, noticeId, noticeBase);
+  const notice = await enrichFromNoticePublic(pool, noticeId, noticeBase);
 
   const attachmentsText = await extractAttachmentsText(notice.documents).catch(() => "");
   const supplier = await fetchSupplierProfile(pool, userId);

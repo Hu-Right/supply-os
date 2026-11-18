@@ -12,7 +12,6 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 // A2 解环：直接从无依赖叶子模块导入，不经过 search-sync barrel（避免循环回环）
 import { isWideTableReady } from "../search-common/wide-table-readiness";
 import { WIDE_LIMITS, DESC_SOURCE_EXPR } from "../../utils/notice-field-limits";
-import { qualifiedOppWhere } from "../../utils/notice-qualified";
 
 /**
  * 主表回退查询 SQL（宽表未就绪 / 服务表已清退的稳定过期行补齐）。
@@ -30,11 +29,10 @@ export function fallbackDetailSql(ids: number[]): string {
        n.is_featured, n.documents, n.procurement_files,
        LEFT(${DESC_SOURCE_EXPR}, ${WIDE_LIMITS.lockedTeaser}) AS description,
        CASE WHEN LENGTH(${DESC_SOURCE_EXPR}) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
-       opp.description_cn,
-       opp.beneficiary_countries
+       p.description_cn,
+       p.beneficiary_countries
      FROM bid_notices n
-     LEFT JOIN bid_opportunities opp ON opp.source_notice_id = n.notice_id
-       AND ${qualifiedOppWhere("opp")}
+     LEFT JOIN notice_public p ON p.notice_pk = n.id
      WHERE n.id IN (${ids.map(() => "?").join(",")})
      ORDER BY FIELD(n.id, ${ids.map(() => "?").join(",")})`;
 }

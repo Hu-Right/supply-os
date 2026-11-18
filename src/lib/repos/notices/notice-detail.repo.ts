@@ -11,7 +11,6 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { PLATFORM_PUBLISHED_ONLY_NO_ALIAS } from "@/lib/utils/notice-expired";
 import { WIDE_LIMITS } from "@/lib/utils/notice-field-limits";
-import { qualifiedOppWhere } from "@/lib/utils/notice-qualified";
 
 export class NoticeDetailRepo {
   constructor(private pool: Pool) {}
@@ -102,17 +101,11 @@ export class NoticeDetailRepo {
          d.deadline_state, d.deadline_type, d.effective_ts,
          d.deadline_timezone, d.timezone_source,
          LEFT(COALESCE(
-           (SELECT opp.description FROM bid_opportunities opp
-            WHERE opp.source_notice_id = n.notice_id
-              AND ${qualifiedOppWhere("opp")}
-            LIMIT 1),
+           (SELECT p.description FROM notice_public p WHERE p.notice_pk = n.id LIMIT 1),
            n.description
          ), ${WIDE_LIMITS.lockedTeaser}) AS description,
          CASE WHEN LENGTH(COALESCE(
-           (SELECT opp.description FROM bid_opportunities opp
-            WHERE opp.source_notice_id = n.notice_id
-              AND ${qualifiedOppWhere("opp")}
-            LIMIT 1),
+           (SELECT p.description FROM notice_public p WHERE p.notice_pk = n.id LIMIT 1),
            n.description
          )) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated
        FROM bid_notices n
