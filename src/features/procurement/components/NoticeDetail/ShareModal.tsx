@@ -17,13 +17,7 @@
  *   深链/二维码/复制状态编排。
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Check,
-  Copy,
-  Link2,
-  Send,
-  QrCode,
-} from "lucide-react";
+import { Check, Copy, Link2, QrCode } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
@@ -31,6 +25,8 @@ import { Modal } from "@/shared/ui";
 import { copyToClipboard } from "@/shared/utils/clipboard";
 import { buildShareChannels } from "./share/channels";
 import { ChannelGrid } from "./share/ChannelGrid";
+import { useWechatShare } from "./share/useWechatShare";
+import { WechatGuide } from "./share/WechatGuide";
 
 export interface ShareModalProps {
   open: boolean;
@@ -39,12 +35,15 @@ export interface ShareModalProps {
   noticeId: number | undefined;
   /** 分享标题（公告标题，已按语言解析） */
   title: string;
+  /** 微信卡片摘要（公告正文 teaser；缺省用标题） */
+  description?: string;
 }
 
-export function ShareModal({ open, onClose, noticeId, title }: ShareModalProps) {
+export function ShareModal({ open, onClose, noticeId, title, description }: ShareModalProps) {
   const { t } = useLocale();
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   // 链接输入框（弹窗内可选中/手动复制，兼作 execCommand 兜底的选中目标）
   const linkRef = useRef<HTMLInputElement>(null);
 
@@ -56,6 +55,19 @@ export function ShareModal({ open, onClose, noticeId, title }: ShareModalProps) 
   }, [noticeId]);
 
   const shareText = useMemo(() => `${title} — 云境·国际采购平台`, [title]);
+  // 微信卡片缩略图：暂用品牌默认图（方图裁切由微信完成）；公告专属方图后续再补
+  const imgUrl = useMemo(
+    () => (typeof window === "undefined" ? "" : `${window.location.origin}/images/og/og-default.jpg`),
+    [],
+  );
+
+  const wechat = useWechatShare({
+    active: open,
+    title: shareText,
+    desc: description,
+    link: shareUrl,
+    imgUrl,
+  });
 
   // 打开时生成二维码（qrcode 库浏览器可用）
   useEffect(() => {
@@ -77,7 +89,10 @@ export function ShareModal({ open, onClose, noticeId, title }: ShareModalProps) 
   }, [open, shareUrl]);
 
   useEffect(() => {
-    if (!open) setCopied(false);
+    if (!open) {
+      setCopied(false);
+      setGuideOpen(false);
+    }
   }, [open]);
 
   const handleCopy = async () => {
@@ -98,15 +113,20 @@ export function ShareModal({ open, onClose, noticeId, title }: ShareModalProps) 
       shareText,
       shareUrl,
       onCopyWechat: () => {
+        // 微信内：只能引导点右上角（微信不开放调起好友列表）；微信外：复制链接 + 提示
+        if (wechat.isWechat) {
+          setGuideOpen(true);
+          return;
+        }
         void handleCopy();
         toast.info(t("detail_shareWechatHint") || "链接已复制，可粘贴到微信；或让对方扫右侧二维码");
       },
     }),
     // handleCopy 仅消费 shareUrl/linkRef/toast，shareText/shareUrl 变化时重建即可
-    [t, shareText, shareUrl], // eslint-disable-line react-hooks/exhaustive-deps
+    [t, shareText, shareUrl, wechat.isWechat], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+
 
   return (
     <Modal open={open} onClose={onClose} title={t("detail_share") || "分享"} className="max-w-md">
@@ -135,24 +155,6 @@ export function ShareModal({ open, onClose, noticeId, title }: ShareModalProps) 
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               {copied ? (t("detail_copied") || "已复制") : (t("detail_copyLink") || "复制链接")}
             </button>
-            {canNativeShare && (
-              <button
-                type="button"
-                onClick={() => {
-                  navigator
-                    .share({ title: shareText, url: shareUrl })
-                    .catch((err) => {
-                      if (err && err.name !== "AbortError") {
-                        toast.error(t("detail_shareFailed") || "分享未完成");
-                      }
-                    });
-                }}
-                className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 px-4 py-2 text-sm font-bold transition-colors"
-              >
-                <Send className="w-4 h-4" />
-                {t("detail_systemShare") || "系统分享"}
-              </button>
-            )}
           </div>
           <div className="flex shrink-0 flex-col items-center justify-center gap-1">
             {qrDataUrl ? (
@@ -170,6 +172,14 @@ export function ShareModal({ open, onClose, noticeId, title }: ShareModalProps) 
         {/* ── 分享方式 ── */}
         <ChannelGrid channels={channels} />
       </div>
+
+      {/* 微信内引导层：微信不开放「直接调起好友列表」，只能引导点右上角 */}
+      <WechatGuide
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        customized={wechat.configured}
+        platform={wechat.platform}
+      />
     </Modal>
   );
 }

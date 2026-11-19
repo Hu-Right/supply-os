@@ -508,6 +508,7 @@ export function NoticeDetail({
         onClose={() => setShareOpen(false)}
         noticeId={noticeId}
         title={displayTitle}
+        description={String(notice.description ?? "").replace(/\s+/g, " ").trim().slice(0, 80)}
       />
     </div>
   );
