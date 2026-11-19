@@ -129,7 +129,7 @@ test.describe("鉴权与异常边界", () => {
     expect(JSON.stringify(body)).not.toContain("at ");
   });
 
-  test("错误密码登录 → 403 账号或密码错误", async ({ request }) => {
+  test("错误密码登录 → 401 账号或密码错误（ADR-0021）", async ({ request }) => {
     // 用不存在的随机账号：不占用真实账号的限流桶（账号维度 15min/10），
     // 恒时语义对不存在账号与错误密码一致
     const ghost = `e2e-wrong-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.com`;
@@ -138,9 +138,10 @@ test.describe("鉴权与异常边界", () => {
     });
     // 401 语义红线（③）：凭据被拒 = 会话已死 → 403 + EC_ACCOUNT_ISSUE(40013)，
     // 不得再用 401（否则登录失败会被 api-client 当成「token 过期」去刷新/登出）
-    expect(res.status()).toBe(403);
+    expect(res.status()).toBe(401);
     const body = await res.json();
     expect(body.code).toBe(EC_ACCOUNT_ISSUE);
+    expect(body.error?.type).toBe("account_issue");
   });
 
   test("不存在的商机解锁 → 404 明确错误码", async ({ request }) => {

@@ -111,13 +111,13 @@ test.describe("鉴权与参数边界", () => {
     expect(JSON.stringify(body)).not.toContain("at ");
   });
 
-  test("不存在的账号登录 → 403 凭据被拒（恒时语义不变，空 users 也不得 500）", async ({ request }) => {
+  test("不存在的账号登录 → 401 凭据被拒（ADR-0021；恒时语义不变，空 users 也不得 500）", async ({ request }) => {
     const ghost = `ci-smoke-${Date.now()}-${Math.floor(Math.random() * 1e6)}@test.com`;
     const res = await request.post(`${BASE}/api/auth/login`, {
       data: { identifier: ghost, password: "definitely-wrong-password" },
     });
-    // 401 语义红线（③）：凭据被拒 = 会话已死 → 403 + EC_ACCOUNT_ISSUE(40013)，不再误触发客户端刷新链路
-    expect(res.status()).toBe(403);
+    // ADR-0021：凭据被拒 = 认证失败归 401（登录端点在 api-client 豁免清单内不触发刷新）
+    expect(res.status()).toBe(401);
     const body = await res.json();
     expect(body.code).toBe(EC_ACCOUNT_ISSUE);
   });
