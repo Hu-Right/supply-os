@@ -27,7 +27,7 @@ export interface CleanupTarget {
 
 /** 清理选项 */
 export interface CleanupOptions {
-  /** 是否同时清理已过期公告（is_expired=1）的附属数据，默认 false */
+  /** 是否同时清理已过期公告（deadline_sec 早于当前时间）的附属数据，默认 false */
   includeExpired?: boolean;
   /** 删除批次大小，默认 5000 */
   batchSize?: number;
@@ -43,7 +43,7 @@ export interface CleanupStats {
   tableTotal: number;
   /** 主表不存在的死数据行数 */
   orphanRows: number;
-  /** 主表存在但已过期（is_expired=1）的行数 */
+  /** 主表存在但已过期（deadline_sec 早于当前时间）的行数 */
   expiredRows: number;
   /** 本次实际待删除行数 */
   toDelete: number;
@@ -55,9 +55,19 @@ export interface CleanupStats {
   durationMs: number;
 }
 
+/**
+ * 主表已过期判定（n. 别名）
+ *
+ * 2026-11-19 起 bid_notices 已删除 is_expired 列，过期口径统一收敛到
+ * deadline_sec 实时判断（与 src/lib/utils/notice-expired.ts 同源）：
+ * deadline_sec > 0 且早于当前时间视为已过期；0 / NULL 表示无截止日、永不过期。
+ */
+const EXPIRED_NOTICE_PREDICATE =
+  "(n.deadline_sec IS NOT NULL AND n.deadline_sec > 0 AND n.deadline_sec < UNIX_TIMESTAMP(NOW()))";
+
 /** 构造删除/备份 WHERE 条件：LEFT JOIN 主表后筛选目标行 */
 function buildStaleWhere(includeExpired: boolean): string {
-  return includeExpired ? "(n.id IS NULL OR n.is_expired = 1)" : "n.id IS NULL";
+  return includeExpired ? `(n.id IS NULL OR ${EXPIRED_NOTICE_PREDICATE})` : "n.id IS NULL";
 }
 
 /** 生成当日备份表名：{backupPrefix}_YYYYMMDD */
@@ -88,7 +98,7 @@ export async function countStaleData(
   const [staleRows] = await pool.query(
     `SELECT
        SUM(n.id IS NULL) AS orphan_rows,
-       SUM(n.id IS NOT NULL AND n.is_expired = 1) AS expired_rows
+       SUM(n.id IS NOT NULL AND ${EXPIRED_NOTICE_PREDICATE}) AS expired_rows
      FROM ${target.table} t
      LEFT JOIN bid_notices n ON n.${target.mainJoinColumn} = t.${target.joinColumn}`,
   );
@@ -129,7 +139,7 @@ export async function runStaleDataCleanup(
   const [staleRows] = await pool.query(
     `SELECT t.${target.idColumn} AS target_id,
             SUM(n.id IS NULL) OVER() AS orphan_rows,
-            SUM(n.id IS NOT NULL AND n.is_expired = 1) OVER() AS expired_rows
+            SUM(n.id IS NOT NULL AND ${EXPIRED_NOTICE_PREDICATE}) OVER() AS expired_rows
      FROM ${target.table} t
      LEFT JOIN bid_notices n ON n.${target.mainJoinColumn} = t.${target.joinColumn}
      WHERE ${where}`,

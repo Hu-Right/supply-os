@@ -34,7 +34,6 @@ export interface NoticeListItem {
   contacts?: NoticeContact[] | null;
   attachments?: NoticeAttachment[] | null;
   externalLinks?: NoticeAttachment[] | null;
-  difficulty?: string | null;
   registrationLevel?: string | null;
   beneficiaryCountries?: string | null;
   updatedAt?: number | null;

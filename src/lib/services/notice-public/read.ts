@@ -10,7 +10,7 @@ export async function findPublicDetail(pool: Pool, noticePk: number): Promise<Ro
             p.deadline_type, p.deadline_timezone,
             p.country_code, p.country_codes, p.notice_type_code, p.platform_name,
             p.buyer_name, p.buyer_name_cn, p.estimated_value, p.currency_code,
-            p.contacts, p.attachments, p.external_links, p.difficulty, p.registration_level,
+            p.contacts, p.attachments, p.external_links, p.registration_level,
             p.beneficiary_countries, p.supplier_conditions, p.eligibility, p.technical_hurdles,
             p.updated_at, p.is_opportunity, p.timezone_source
        FROM notice_public p

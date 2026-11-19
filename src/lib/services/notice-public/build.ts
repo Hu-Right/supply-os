@@ -169,7 +169,7 @@ export const PUBLIC_COLS = [
   "buyer_name", "buyer_id", "buyer_name_cn",
   "estimated_value", "currency_code",
   "contacts", "attachments", "external_links",
-  "difficulty", "registration_level", "beneficiary_countries",
+  "registration_level", "beneficiary_countries",
   "supplier_conditions", "eligibility", "technical_hurdles",
   "updated_at", "is_opportunity",
 ] as const;
@@ -263,14 +263,6 @@ export function toEpoch(v: unknown): number | null {
   return parts ? sourceDateWallSeconds(parts) : null;
 }
 
-function normDifficulty(raw: unknown): string | null {
-  const s = String(raw ?? "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().toLowerCase();
-  if (!s) return null;
-  if (/低|low/.test(s)) return "low";
-  if (/中等|medium/.test(s)) return "medium";
-  if (/较高|较髙|高|high/.test(s)) return "high";
-  return "unknown";
-}
 
 function normRegistration(raw: unknown): string | null {
   const s = String(raw ?? "").toLowerCase().replace(/\s+/g, "");
@@ -342,7 +334,7 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
     `SELECT n.id, n.notice_id, n.reference, n.url, n.title, n.description, n.published_date,
             n.deadline_sec, n.country, n.notice_type, n.agency, n.agency_full, n.organization,
             n.contacts, n.contact_phone, n.contact_email, n.currency, n.estimated_value,
-            n.documents, n.procurement_files, n.external_links, n.difficulty, n.registration_level,
+            n.documents, n.procurement_files, n.external_links, n.registration_level,
             n.entry_source, n.industry, n.beneficiary_countries, n.is_featured, n.converted_opp_id,
             n.rfq_status, n.visibility, n.budget_confidential,
             CASE
@@ -562,7 +554,6 @@ export function buildPublicRow(
   // 兜底——分类器判定不可信时 effective_ts 就是 NULL，回退会把占位日期又写回去。
   const deadlineTs = dstate === "known" ? toEpoch(r.effective_ts ?? r.deadline_sec) : null;
   const publishedTs = toEpoch(r.published_date);
-  const difficulty = normDifficulty(r.difficulty);
   const registration = normRegistration(r.registration_level);
   // 中文正文取值链（2026-10-30 接入翻译旁表）：商机运营中文（最高优先）→
   // 翻译旁表 description_tr（机翻存量，lang='zh'，构建 SELECT 已带出）→ NULL。
@@ -595,7 +586,7 @@ export function buildPublicRow(
     buyerCanonical, buyerId, buyerNameCn,
     amount.amount, amount.currency,
     JSON.stringify(contacts.entries), JSON.stringify(attachments), JSON.stringify(externalLinks),
-    difficulty, registration, beneficiary,
+    registration, beneficiary,
     supplierConditions, eligibility, technicalHurdles,
     // 行水位 = 全部输入的 max（主表 + 商机 + 标题旁表），各侧选行分支才能收敛到「不再重选」
     Math.max(

@@ -38,7 +38,7 @@ const NOTICE_CONTRACT_KEYS: ReadonlySet<string> = new Set([
   "buyerName", "buyerNameCn",
   "estimatedValue", "currencyCode",
   "contacts", "attachments", "externalLinks",
-  "difficulty", "registrationLevel", "beneficiaryCountries", "updatedAt", "isOpportunity",
+  "registrationLevel", "beneficiaryCountries", "updatedAt", "isOpportunity",
   // ── NoticeListItem：接口计算/关联补字段 ──
   "agencyI18n", "titleI18n", "descriptionI18n", "titleEn", "descriptionEn",
   "backbonePath", "entrySource", "coreLocked", "breakdownFileCount", "contactCount",

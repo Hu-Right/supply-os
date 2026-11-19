@@ -13,7 +13,8 @@
  *              - notice_translations.notice_id（BIGINT）→ bid_notices.id
  *              - notice_search.notice_id（VARCHAR）→ bid_notices.notice_id（外部编号）
  *
- *              过期口径与桥接表一致：主表 is_expired = 1 视为已失效；
+ *              过期口径与桥接表一致：主表 deadline_sec 早于当前时间视为已失效
+ *              （2026-11-19 起 bid_notices 已删除 is_expired 列，改按 deadline_sec 实时判定）；
  *              默认仅清理"主表完全不存在"的硬死数据，过期数据通过
  *              includeExpired 显式开启（公告未来若被同步任务回填时仍可恢复，
  *              保守默认不删）。

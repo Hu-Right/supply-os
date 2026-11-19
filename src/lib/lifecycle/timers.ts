@@ -99,7 +99,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
 
   // 5. 附属数据（翻译表 + 宽表）定时清理（DATA_CLEANUP_INTERVAL_HOURS 控制间隔，默认 24 小时；
   //    DATA_CLEANUP_ENABLED=off 关闭；单次失败仅记日志，不影响下一次扫描；
-  //    DATA_CLEANUP_INCLUDE_EXPIRED=on 时同时清理过期公告（is_expired=1）的附属数据，
+  //    DATA_CLEANUP_INCLUDE_EXPIRED=on 时同时清理过期公告（deadline_sec 早于当前时间）的附属数据，
   //    默认关闭仅清"主表不存在"的死数据，与桥接表清理口径一致）
   let dataCleanupTimer: NodeJS.Timeout | null = null;
   if (String(process.env.DATA_CLEANUP_ENABLED ?? "on").toLowerCase() !== "off") {
