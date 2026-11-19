@@ -2217,6 +2217,23 @@ CREATE TABLE `supplier_diagnosis` (
   KEY `idx_submitted` (`submitted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商投标能力诊断表';
 
+-- ── supplier_diagnosis_submit_log ──
+CREATE TABLE `supplier_diagnosis_submit_log` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` int NOT NULL COMMENT '提交用户（users.id）',
+  `supplier_id` int DEFAULT NULL COMMENT '命中的供应商主键（未确定时为空）',
+  `company_name` varchar(255) DEFAULT NULL COMMENT '用户填写的公司名（仅用于定位，不存答案）',
+  `result` varchar(20) NOT NULL COMMENT '提交结果：success/rejected/error',
+  `error_code` varchar(20) DEFAULT NULL COMMENT '失败错误码（如 40001/40060/403）',
+  `reason` varchar(100) DEFAULT NULL COMMENT '失败原因：bad_json/entity_not_found/write_gate/...',
+  `score_total` decimal(5,1) DEFAULT NULL COMMENT '成功时的总分（0-100）',
+  `client_ip` varchar(64) DEFAULT NULL COMMENT '提交 IP（反滥用审计，可空）',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_diag_submit_created` (`created_at`),
+  KEY `idx_diag_submit_result` (`result`,`error_code`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商诊断提交结果埋点';
+
 -- ── supplier_id_map ──
 CREATE TABLE `supplier_id_map` (
   `old_id` int unsigned NOT NULL,

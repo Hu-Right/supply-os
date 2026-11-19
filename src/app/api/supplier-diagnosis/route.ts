@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getContext } from "@/lib/db/context";
 import { SupplierDiagnosisRepo, diagnosisWriteGateDecision } from "@/lib/repos/supplier-diagnosis.repo";
+import { SupplierDiagnosisSubmitLogRepo } from "@/lib/repos/supplier-diagnosis-submit-log.repo";
 import { scoreDiagnosis } from "@/lib/services/scoring/diagnosis-v2";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
@@ -40,17 +41,59 @@ export const POST = withRoute(async (req: NextRequest) => {
   const rl = checkRateLimit(req, { windowMs: 10 * 60_000, maxAttempts: 10 }, () => `diag:${auth.userId}`);
   if (rl) return rl;
 
+  // 提交结果埋点（best-effort：写失败只告警，不阻断提交；不记录答案内容）
+  const submitLogRepo = new SupplierDiagnosisSubmitLogRepo(getPool());
+  const clientIp = extractClientIp(req);
+  const recordSubmit = async (input: {
+    supplierId?: number | null;
+    companyName?: string | null;
+    result: "success" | "rejected" | "error";
+    errorCode?: number | string | null;
+    reason?: string | null;
+    scoreTotal?: number | null;
+  }): Promise<void> => {
+    try {
+      await submitLogRepo.record({
+        userId: auth.userId,
+        supplierId: input.supplierId ?? null,
+        companyName: input.companyName ?? null,
+        result: input.result,
+        errorCode: input.errorCode == null ? null : String(input.errorCode),
+        reason: input.reason ?? null,
+        scoreTotal: input.scoreTotal ?? null,
+        clientIp,
+      });
+      if (input.result !== "success") {
+        console.warn(
+          `[supplier-diagnosis] 提交被拒 user=${auth.userId} supplier=${input.supplierId ?? "-"} ` +
+            `code=${input.errorCode ?? "-"} reason=${input.reason ?? "-"}`,
+        );
+      }
+    } catch (err) {
+      console.warn("[supplier-diagnosis] 埋点写入失败（不影响提交）:", (err as Error).message);
+    }
+  };
+
   let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
+    await recordSubmit({ result: "rejected", errorCode: EC_INVALID_PARAMS, reason: "bad_json" });
     routeError(400, EC_INVALID_PARAMS, "请求数据格式错误");
   }
+
+  const typedCompanyRaw = String(body.companyName ?? body.company_name ?? "").trim().slice(0, 255);
 
   const parsed = parseDiagnosisPayload(body as Record<string, unknown>);
   if (!parsed.ok) {
     // fieldKey=answers 是「请求体形状不对」而不是「某道题没答」：两者必须分报。
     // 之前的坑就是：形状不匹配却报「english_evidence_level 为必答题」，把排查方向带偏。
+    await recordSubmit({
+      companyName: typedCompanyRaw,
+      result: "rejected",
+      errorCode: parsed.fieldKey === "answers" ? EC_DIAGNOSIS_ANSWERS_INCOMPLETE : EC_INVALID_PARAMS,
+      reason: parsed.fieldKey === "answers" ? "answers_missing" : `invalid:${parsed.fieldKey}`,
+    });
     routeError(
       400,
       parsed.fieldKey === "answers" ? EC_DIAGNOSIS_ANSWERS_INCOMPLETE : EC_INVALID_PARAMS,
@@ -75,12 +118,25 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (supplierId) {
     profileBits = await directory.findProfileBits(supplierId);
     if (!profileBits) {
+      await recordSubmit({
+        supplierId,
+        companyName: typedCompanyRaw,
+        result: "rejected",
+        errorCode: EC_DIAGNOSIS_ENTITY_NOT_FOUND,
+        reason: "entity_not_found",
+      });
       routeError(400, EC_DIAGNOSIS_ENTITY_NOT_FOUND, "指定的企业主体不存在");
     }
     canonicalName = profileBits.company ?? typedName;
   } else {
     const hit = await directory.findByCompanyBest(typedName);
     if (!hit) {
+      await recordSubmit({
+        companyName: typedName,
+        result: "rejected",
+        errorCode: EC_DIAGNOSIS_ENTITY_NOT_FOUND,
+        reason: "name_not_found",
+      });
       routeError(
         400,
         EC_DIAGNOSIS_ENTITY_NOT_FOUND,
@@ -99,6 +155,13 @@ export const POST = withRoute(async (req: NextRequest) => {
   const diagnosisRepo = new SupplierDiagnosisRepo(getPool());
   const gateFacts = await diagnosisRepo.getWriteGateFacts(supplierId, auth.userId);
   if (!gateFacts || !diagnosisWriteGateDecision(gateFacts)) {
+    await recordSubmit({
+      supplierId,
+      companyName: canonicalName,
+      result: "rejected",
+      errorCode: EC_FORBIDDEN,
+      reason: "write_gate",
+    });
     routeError(
       403,
       EC_FORBIDDEN,
@@ -136,6 +199,13 @@ export const POST = withRoute(async (req: NextRequest) => {
       ip: extractClientIp(req),
     });
 
+    await recordSubmit({
+      supplierId,
+      companyName: canonicalName,
+      result: "success",
+      scoreTotal: scoring.totalScore,
+    });
+
     return NextResponse.json({
       id: Number(stored.id),
       supplierId,
@@ -149,6 +219,13 @@ export const POST = withRoute(async (req: NextRequest) => {
     }, { status: 201 });
   } catch (err) {
     console.error("[supplier-diagnosis POST]", err);
+    await recordSubmit({
+      supplierId,
+      companyName: canonicalName,
+      result: "error",
+      errorCode: EC_INTERNAL_ERROR,
+      reason: "internal",
+    });
     routeError(500, EC_INTERNAL_ERROR, "诊断提交失败");
   }
 });

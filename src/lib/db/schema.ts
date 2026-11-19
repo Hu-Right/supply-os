@@ -66,6 +66,7 @@ import { migration as dropEnterpriseEvidenceMigration } from "./migrations/056-d
 import { migration as certificationToCapabilityItemsMigration } from "./migrations/057-certification-to-capability-items";
 import { migration as dropNoticePublicDifficultyMigration } from "./migrations/058-drop-notice-public-difficulty";
 import { migration as supplierInquiryMigration } from "./migrations/059-supplier-inquiry";
+import { migration as supplierDiagnosisSubmitLogMigration } from "./migrations/060-supplier-diagnosis-submit-log";
 import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
 import { migration as dropBuyerParentMigration } from "./migrations/043-buyer-drop-parent";
 import { migration as searchLogAnonymousMigration } from "./migrations/044-search-log-anonymous";
@@ -134,6 +135,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   certificationToCapabilityItemsMigration,
   dropNoticePublicDifficultyMigration,
   supplierInquiryMigration,
+  supplierDiagnosisSubmitLogMigration,
 ];
 
 /**
