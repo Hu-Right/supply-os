@@ -7,7 +7,10 @@
  *              数据构建细节由 wide-row-builder.ts 提供，本文件仅关心同步时机和流程编排。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../meilisearch";
+import {
+  syncNoticeIds, isHealthy as isMeiliHealthy,
+  getIndexStats, pruneOrphanIndexDocs, getWideTableCount,
+} from "../meilisearch";
 import { tryRecover } from "../meilisearch/client";
 import { enqueueRetry } from "./sync-retry-queue";
 import { isWideTableReady } from "../search-common/wide-table-readiness";
@@ -362,6 +365,18 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
       // ghost 行已由 reconcileGhostRows 直接删除，不走 syncWideIds（主表行为不存在），
       // 因此需单独级联以删除索引文档；平台补建与指纹重建已由 syncWideIds 级联。
       cascadeToMeili(ghostIds, "ghost-cleanup");
+
+      // 4) 索引孤儿清理：级联删除依赖进程内重试队列（重启即丢），Meili 不健康时整批跳过，
+      //    长期会留下「宽表已删、索引仍可搜」的文档。条数差超阈值才枚举（约 1 分钟），
+      //    避免每轮都对 55 万条做全量扫描。
+      const [idxStats, wideCount] = await Promise.all([getIndexStats(), getWideTableCount(pool)]);
+      if (idxStats && wideCount > 0 && idxStats.numberOfDocuments > wideCount + 100) {
+        const pruned = await pruneOrphanIndexDocs(pool);
+        console.log(
+          `[meilisearch] 索引孤儿清理：枚举 ${pruned.scanned} 条、删除 ${pruned.deleted} 条` +
+          `（索引 ${idxStats.numberOfDocuments} / 宽表 ${wideCount}）`,
+        );
+      }
     } catch (err) {
       console.warn("[wide-table] 全量对账异常:", (err as Error).message);
     } finally {

@@ -30,7 +30,9 @@ export {
   fullSync,
   incrementalSync,
   syncNoticeIds,
+  pruneOrphanIndexDocs,
   getMysqlActiveCount,
+  getWideTableCount,
 } from "./sync";
 
 // utils/notice-type.ts（#8：归一化函数上移至领域工具层，保留 barrel 导出兼容既有导入）

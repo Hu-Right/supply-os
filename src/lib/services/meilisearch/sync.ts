@@ -463,6 +463,63 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
   }
 }
 
+/**
+ * 索引孤儿清理：删掉「宽表已不存在、索引仍留着」的文档。
+ *
+ * 为什么必须有：删除类变更（ghost 清退、平台撤下）靠 syncNoticeIds 级联删索引，
+ * 而级联的重试队列是进程内 Map（重启即丢），Meili 不健康时也会整批跳过、
+ * 只留一个 requestIndexRebuild 标记。于是「宽表删了、索引还能搜到」会缓慢累积——
+ * 2026-11 实测索引 560,972 条 vs 宽表 550,733 条，多出 10,239 条。
+ *
+ * 成本：N/1000 次索引分页 + N 个 id 的宽表点查，55 万条约 1 分钟，
+ * 故只在「索引条数明显多于宽表」时由全量对账触发（见 sync-scheduler），不做常驻。
+ */
+export async function pruneOrphanIndexDocs(
+  pool: Pool,
+  opts: { batchSize?: number; maxDeletes?: number } = {},
+): Promise<{ scanned: number; deleted: number; orphans: number }> {
+  const client = getClient();
+  if (!client || !isHealthy()) return { scanned: 0, deleted: 0, orphans: 0 };
+
+  const batchSize = opts.batchSize ?? 1000;
+  const maxDeletes = opts.maxDeletes ?? 200_000;
+  const index = client.index(getIndexName());
+
+  const orphans: number[] = [];
+  let scanned = 0;
+
+  // 先全量枚举再统一删：边翻页边删会让 offset 前移，后半段被整段跳过。
+  while (true) {
+    const page = await index.getDocuments<{ id: number }>({
+      limit: batchSize,
+      offset: scanned,
+      fields: ["id"],
+    });
+    const rows = (page.results ?? []) as Array<{ id: number }>;
+    if (rows.length === 0) break;
+    scanned += rows.length;
+
+    const ids = rows.map((r) => Number(r.id)).filter((id) => Number.isFinite(id) && id > 0);
+    if (ids.length > 0) {
+      const ph = ids.map(() => "?").join(",");
+      const [existing] = await pool.query(`SELECT id FROM notice_search WHERE id IN (${ph})`, ids);
+      const live = new Set((existing as RowDataPacket[]).map((r) => Number(r.id)));
+      for (const id of ids) if (!live.has(id)) orphans.push(id);
+    }
+
+    if (rows.length < batchSize) break;
+  }
+
+  let deleted = 0;
+  for (let i = 0; i < orphans.length && deleted < maxDeletes; i += batchSize) {
+    const batch = orphans.slice(i, i + batchSize);
+    await index.deleteDocuments(batch);
+    deleted += batch.length;
+  }
+
+  return { scanned, deleted, orphans: orphans.length };
+}
+
 /** 获取 MySQL 中公告总数 */
 export async function getMysqlActiveCount(pool: Pool): Promise<number> {
   try {

@@ -10,7 +10,10 @@ import { isMainThread } from "node:worker_threads";
 import { SUPPORTED_LANGS } from "../../utils/languages";
 
 const INDEX_NAME = "notices";
-const MAX_TOTAL_HITS = Number(process.env.MEILI_MAX_TOTAL_HITS || "10000000");
+// 深分页上限：Meilisearch 的 offset 是顺序跳过 N 条，实测（56 万条）
+// offset 1 万 686ms / 2 万 1.2s / 5 万 3.0s / 10 万 6.0s，线性增长。
+// 原值 1000 万等于允许翻到 50 万页，单请求即可拖垮实例；压到 1 万 = 最多 500 页。
+const MAX_TOTAL_HITS = Number(process.env.MEILI_MAX_TOTAL_HITS || "10000");
 const REQUEST_TIMEOUT = Number(process.env.MEILI_TIMEOUT_MS || "60000");
 
 // ── 状态唯一存储 = globalThis（2026-11-11 线上事故修复）──
