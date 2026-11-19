@@ -44,6 +44,9 @@ export function usePaymentReturnReconciliation({
   // 到达机会一次性消费：每次页面加载（分享/刷新/直达/支付回跳都属整页加载，ref 重置）只在首次
   // 可判定时按 URL 打开一次；之后点开写进 URL 的 notice_id 不再被回跳重复打开，关闭也不会被重开。
   const arrivalResolvedRef = useRef(false);
+  // 未登录时只提示一次登录：登录是 SPA 内的状态更新（不整页刷新），
+  // 成功后 userId 变化会重跑本 effect 接手打开详情，所以这里不能用 arrivalResolvedRef 拦。
+  const loginPromptedRef = useRef(false);
 
   useEffect(() => {
     const orderNo = searchParams.get("order_no");
@@ -91,17 +94,21 @@ export function usePaymentReturnReconciliation({
         }
       } else if (noticeIdParam) {
         // 到达型深链（分享/刷新/直达，均属整页加载，arrivalResolvedRef 已重置）：本次加载只消费一次。
-        // auth 未就绪→不空开也不误弹，等 userId/authReady 变化后重跑；确认未登录→弹登录并保留 notice_id，
-        // 登录后整页刷新重放。置位后，点开写进 URL 的 notice_id 不再被回跳重复打开，关闭也不会被重开。
+        // auth 未就绪→不空开也不误弹，等 userId/authReady 变化后重跑。
+        // 确认未登录→弹登录，但【不消费】到达机会：登录/注册成功后 userId 变化会重跑本 effect，
+        // 届时再打开。此前在未登录分支就置位 arrivalResolvedRef，导致「分享链接 → 登录/注册 →
+        // 详情丢失」，用户停在列表页。
         if (arrivalResolvedRef.current) return;
-        if (!userId && !authReady) return;
-        arrivalResolvedRef.current = true;
-        if (userId) {
-          await openNoticeById(Number(noticeIdParam));
-        } else {
-          onRequireLogin();
+        if (!userId) {
+          if (!authReady) return;
+          if (!loginPromptedRef.current) {
+            loginPromptedRef.current = true;
+            onRequireLogin();
+          }
           return;
         }
+        arrivalResolvedRef.current = true;
+        await openNoticeById(Number(noticeIdParam));
       }
       // 回跳参数清理：仅剔除支付对账参数（order_no/trade_no）；notice_id 交由页面选中态同步统一管理
       // （保留在 URL 里，详情页才可分享/刷新）。只有确实带了支付参数时才改写 URL，避免无谓 replace 触发重渲染。
