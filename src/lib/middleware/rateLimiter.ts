@@ -5,6 +5,7 @@
  * @description 从 server/middleware/rateLimiter.ts 移植，适配 Next.js 运行时。
  *              生产环境持久化路径 /app/logs/rate-limit/。
  */
+import { errorEnvelope } from "@/lib/middleware/route-handler";
 import fs from "fs";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
@@ -182,7 +183,7 @@ export function checkRateLimit(
   const rl = limiter.check(key);
   if (rl.blocked) {
     return NextResponse.json(
-      { code: EC_RATE_LIMITED, message: "请求过于频繁", error: "请求过于频繁", retry_after_seconds: rl.retryAfterSec },
+      { ...errorEnvelope(429, EC_RATE_LIMITED, "请求过于频繁", { retryAfterSec: rl.retryAfterSec }) },
       { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
     );
   }

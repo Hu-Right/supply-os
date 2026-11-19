@@ -8,6 +8,7 @@
  *              2) 不带 apiKey（或无 body）→ 复用已存配置的 Key/Base URL 重测。
  *              模式 1 属于新数据出站，须显式勾选授权（与 PUT 的 fail-closed 合规口径一致）。
  */
+import { errorEnvelope } from "@/lib/middleware/route-handler";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getContext } from "@/lib/db/context";
@@ -65,7 +66,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const result = await testLlmConnection(target);
   if (!result.ok) {
-    return NextResponse.json({ code: EC_INVALID_PARAMS, message: result.error }, { status: 400 });
+    return NextResponse.json(errorEnvelope(400, EC_INVALID_PARAMS, result.error ?? "连接测试失败"), { status: 400 });
   }
   return NextResponse.json({
     ok: true, model: result.model, latencyMs: result.latencyMs,

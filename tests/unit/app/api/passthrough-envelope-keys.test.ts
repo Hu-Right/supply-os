@@ -110,7 +110,10 @@ describe("GET /api/learning/materials/[materialId]/content", () => {
     const body = await res.json();
 
     expect(res.status).toBe(403);
-    expect(body).toEqual({ code: 40301, message: "请先购买后查看" });
+    expect(body.code).toBe(40301);
+    expect(body.message).toBe("请先购买后查看");
+    expect(body.error).toMatchObject({ type: "access_forbidden", status: 403 });
+    expect(body.detail).toEqual({});
   });
 
   it("materialId 为空 → 400（参数校验在取数之前，不触服务）", async () => {

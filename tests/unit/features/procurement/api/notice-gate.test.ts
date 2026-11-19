@@ -28,11 +28,19 @@ describe("classifyApiError 权益门控（统一层）", () => {
     expect(c.key).toBe("errViewRequired");
   });
 
-  it("锁定 detail 优先于撞码（旧 40013=EC_ACCOUNT_ISSUE + coreLocked）→ 仍解锁键（step0 兜底）", () => {
-    const err = new ApiError(403, "公告已锁定，请先解锁", 40013, { coreLocked: true });
+  it("content_locked 稳定 type → 解锁键（ADR-0021：hot-patch 已删，40013 回归凭据语义）", () => {
+    const err = new ApiError(403, "公告已锁定，请先解锁", EC_CONTENT_LOCKED, { coreLocked: true });
+    err.type = "content_locked";
     const c = classifyApiError(err);
     expect(c.kind).toBe("forbidden");
     expect(c.key).toBe("errViewRequired");
+    expect(c.type).toBe("content_locked");
+  });
+
+  it("旧 40013 + coreLocked → hot-patch 已删，按凭据语义回落（errAccountIssue）", () => {
+    const err = new ApiError(403, "公告已锁定，请先解锁", 40013, { coreLocked: true });
+    const c = classifyApiError(err);
+    expect(c.key).toBe("errAccountIssue");
   });
 
   it("rankToTierKey：1..4 映射六语 tier 键，未知归 tierHigher", () => {

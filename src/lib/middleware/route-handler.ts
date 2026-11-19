@@ -1,23 +1,28 @@
 /**
- * Route Handler 统一包装器（架构评估 E1/TY2）
+ * Route Handler 统一包装器（架构评估 E1/TY2；ADR-0021 envelope 升级）
  *
  * @module lib/middleware/route-handler
  * @description 统一承载：错误捕获 → 标准 envelope、zod 校验失败 → 400、
  *              未预期异常 → 500 + 服务端日志。业务代码用 routeError()
  *              抛业务错误，不再手写 try/catch 与错误响应样板。
  *
- * 响应契约（与存量 126 处 {code,message} 及 api-client 读取逻辑一致）：
+ * 响应契约（ADR-0021 §2.2，RFC 9457 兼容超集）：
  * - 2xx：裸载荷（不包 envelope）
- * - 4xx/5xx：{ code: number, message: string }
+ * - 4xx/5xx：{ code, message, error: { type, code, status, kind }, detail }
+ *   - error.type 为稳定字符串错误标识主键（由 catalog 按 code 反查）；
+ *   - detail 收纳全部结构化附加数据（原 extra 顶层展开废弃，camelCase 统一）；
+ *   - 顶层 code/message 保留为兼容层。
+ * - 手写错误响应（SSE 前置检查等无法走 withRoute 的场景）统一用 errorEnvelope()。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
 import { EC_INTERNAL_ERROR, EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { lookupErrorDef } from "@/shared/errors/catalog";
 import { runWithRequestCache } from "./request-cache";
 
 /** 业务错误：withRoute 捕获后按 status/code/message 输出标准 envelope */
 export class RouteError extends Error {
-  /** 附加到响应 envelope 的额外字段（如 { max: 50 }、{ core_locked: true }） */
+  /** 附加到响应 envelope 的结构化数据（进 detail 容器；camelCase 统一） */
   public extra?: Record<string, unknown>;
   constructor(
     public status: number,
@@ -34,6 +39,30 @@ export class RouteError extends Error {
 /** 抛出业务错误（在 withRoute 包裹的 handler 内使用） */
 export function routeError(status: number, code: number, message: string, extra?: Record<string, unknown>): never {
   throw new RouteError(status, code, message, extra);
+}
+
+/**
+ * 按 ADR-0021 契约构建错误 envelope（供 withRoute 与少量无法走 withRoute 的场景复用）。
+ * type/kind 由 catalog 按 code 反查；未登记码回落 internal_error（门禁会拦截未登记新码）。
+ */
+export function errorEnvelope(
+  status: number,
+  code: number,
+  message: string,
+  extra?: Record<string, unknown>,
+): Record<string, unknown> {
+  const def = lookupErrorDef(code);
+  return {
+    code,
+    message,
+    error: {
+      type: def?.type ?? "internal_error",
+      code,
+      status,
+      kind: def?.kind ?? "system",
+    },
+    detail: extra ?? {},
+  };
 }
 
 /**
@@ -76,16 +105,17 @@ export function withRoute<C>(handler: RouteHandler<C>): (req: NextRequest, ctx?:
       return await runWithRequestCache(() => handler(req, ctx as C));
     } catch (err) {
       if (err instanceof RouteError) {
-        return NextResponse.json({ code: err.code, message: err.message, ...err.extra }, { status: err.status });
+        return NextResponse.json(errorEnvelope(err.status, err.code, err.message, err.extra), { status: err.status });
       }
       if (err instanceof ZodError) {
+        const issue = err.issues[0];
         return NextResponse.json(
-          { code: EC_INVALID_PARAMS, message: err.issues[0]?.message ?? "请求参数不合法" },
+          errorEnvelope(400, EC_INVALID_PARAMS, issue?.message ?? "请求参数不合法"),
           { status: 400 },
         );
       }
       console.error(`[route] ${req.method} ${new URL(req.url).pathname}`, err);
-      return NextResponse.json({ code: EC_INTERNAL_ERROR, message: "服务器内部错误" }, { status: 500 });
+      return NextResponse.json(errorEnvelope(500, EC_INTERNAL_ERROR, "服务器内部错误"), { status: 500 });
     }
   };
 }

@@ -34,10 +34,10 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     payload = verifyRefreshToken(refreshToken);
   } catch {
-    routeError(403, EC_REFRESH_TOKEN_INVALID, "刷新令牌无效");
+    routeError(401, EC_REFRESH_TOKEN_INVALID, "刷新令牌无效");
   }
   if (!payload.uid) {
-    routeError(403, EC_REFRESH_TOKEN_EXPIRED, "刷新令牌已过期，请重新登录");
+    routeError(401, EC_REFRESH_TOKEN_EXPIRED, "刷新令牌已过期，请重新登录");
   }
 
   const authRepo = getContext().user.authRepo;
@@ -45,7 +45,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 非严格轮换：只查询不删除。旧 token 保留至自然过期，避免多标签页互踢。
   const stored = await authRepo.findRefreshTokenByHash(hashRefreshToken(refreshToken));
   if (!stored) {
-    routeError(403, EC_REFRESH_TOKEN_REVOKED, "刷新令牌已失效");
+    routeError(401, EC_REFRESH_TOKEN_REVOKED, "刷新令牌已失效");
   }
 
   const usersRepo = getContext().user.usersRepo;

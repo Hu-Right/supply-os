@@ -6,6 +6,7 @@
  * @description ARCH-B+（2026-09-01）：通过 Orchestrator 统一入口，
  *              根据订单号前缀自动路由至对应业务服务。
  */
+import { errorEnvelope } from "@/lib/middleware/route-handler";
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { EC_NOT_FOUND } from "@/shared/constants/api";
@@ -63,5 +64,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ code: EC_NOT_FOUND, message: "通知路由不存在" }, { status: 404 });
+  return NextResponse.json(errorEnvelope(404, EC_NOT_FOUND, "通知路由不存在"), { status: 404 });
 }

@@ -34,7 +34,8 @@ import {
   EC_NOTICE_NOT_FOUND,
   EC_ACCESS_FORBIDDEN,
   EC_REPORT_NOT_AVAILABLE,
-  EC_OUT_OF_CATEGORY } from "@/shared/constants/api";
+  EC_OUT_OF_CATEGORY,
+  EC_CONTENT_LOCKED } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -64,7 +65,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       benefitRepo: ctx.benefitSystemRepo,
     });
     if (!access.grant && !access.accessibleByPlan) {
-      routeError(403, EC_ACCESS_FORBIDDEN, "公告已锁定，请先开通会员", { core_locked: true });
+      routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先开通会员", { coreLocked: true });
     }
 
     // 投标可行性报告属企业级工具（2026-10-29）：企业/人工档可下载；个人档引导升级企业版

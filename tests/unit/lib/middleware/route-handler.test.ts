@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { withRoute, routeError, parseJson, RouteError } from "@/lib/middleware/route-handler";
+import { EC_PHONE_ALREADY_BOUND, EC_CONTENT_LOCKED } from "@/shared/constants/api";
 import { memoizeRequest } from "@/lib/middleware/request-cache";
 
 vi.mock("server-only", () => ({}));
@@ -24,11 +25,26 @@ describe("withRoute 错误映射", () => {
     expect(res.status).toBe(200);
   });
 
-  it("RouteError → 标准 { code, message } envelope", async () => {
-    const handler = withRoute(async () => routeError(409, 40031, "已绑定手机号"));
+  it("RouteError → ADR-0021 envelope（error 容器 + detail 容器）", async () => {
+    const handler = withRoute(async () => routeError(409, EC_PHONE_ALREADY_BOUND, "已绑定手机号"));
     const res = await handler(makeReq(), {} as never);
     expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ code: 40031, message: "已绑定手机号" });
+    const body = await res.json();
+    expect(body.code).toBe(EC_PHONE_ALREADY_BOUND);
+    expect(body.message).toBe("已绑定手机号");
+    expect(body.error).toEqual({ type: "phone_already_bound", code: EC_PHONE_ALREADY_BOUND, status: 409, kind: "business" });
+    expect(body.detail).toEqual({});
+  });
+
+  it("RouteError extra → detail 容器；未登记码回落 internal_error type", async () => {
+    const handler = withRoute(async () => routeError(403, EC_CONTENT_LOCKED, "公告已锁定", { coreLocked: true }));
+    const res = await handler(makeReq(), {} as never);
+    const body = await res.json();
+    expect(body.detail).toEqual({ coreLocked: true });
+    expect(body.error.type).toBe("content_locked");
+    const unregistered = withRoute(async () => routeError(400, 49999, "未登记码"));
+    const uBody = await unregistered(makeReq(), {} as never).then((r) => r.json());
+    expect(uBody.error.type).toBe("internal_error");
   });
 
   it("ZodError → 400/40000，message 取首个 issue", async () => {
@@ -50,7 +66,10 @@ describe("withRoute 错误映射", () => {
     });
     const res = await handler(makeReq("http://localhost/api/boom", { method: "POST" }), {} as never);
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ code: 50000, message: "服务器内部错误" });
+    const body = await res.json();
+    expect(body.code).toBe(50000);
+    expect(body.message).toBe("服务器内部错误");
+    expect(body.error.type).toBe("internal_error");
     expect(errSpy).toHaveBeenCalledWith("[route] POST /api/boom", expect.any(Error));
   });
 

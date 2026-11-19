@@ -145,9 +145,16 @@ describe("令牌桥接（AI / 遗留）", () => {
 });
 
 describe("状态兜底与锁定 detail", () => {
-  it("403 + coreLocked detail → 引导解锁", () => {
+  it("content_locked 稳定 type → 引导解锁（ADR-0021 后 hot-patch 已删）", () => {
+    const e = new ApiError(403, "公告已锁定，请先解锁", EC_CONTENT_LOCKED, { coreLocked: true });
+    e.type = "content_locked";
+    const c = classifyApiError(e);
+    expect(c).toMatchObject({ kind: "forbidden", key: "errViewRequired", type: "content_locked" });
+  });
+
+  it("无码 403 + coreLocked → hot-patch 已删，回落 errForbidden", () => {
     const c = classifyApiError(new ApiError(403, "Forbidden", undefined, { coreLocked: true }));
-    expect(c).toMatchObject({ kind: "forbidden", key: "errViewRequired" });
+    expect(c).toMatchObject({ kind: "forbidden", key: "errForbidden" });
   });
 
   it("无稳定码时按 HTTP 状态兜底（避开令牌桥接的精确串）", () => {

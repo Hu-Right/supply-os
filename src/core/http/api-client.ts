@@ -75,6 +75,10 @@ if (typeof window !== "undefined") {
  * 供上层区分“档位不足 vs 未解锁”等同类 HTTP 403 的不同语义（V2 权益门控）。
  */
 export class ApiError extends Error {
+  /** 稳定字符串错误标识（ADR-0021 error.type；snake_case 主键） */
+  public type?: string;
+  /** 错误语义分类（error.kind，11 枚举） */
+  public kind?: string;
   constructor(
     public status: number,
     message: string,
@@ -84,6 +88,25 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+/** 认证端点豁免清单（ADR-0021 §2.1）：这些端点的 401 是「凭据错误」业务语义，
+ *  不触发 Token 刷新/全局登出（否则登录失败会被误当成会话过期清空凭据）。 */
+const AUTH_NO_REFRESH_RE = /\/api\/auth\/(?:login|register|reset-password|forgot-password)(?:\?|\/|$)/;
+
+/** 服务端错误 envelope（ADR-0021）→ ApiError：detail 取容器，type/kind 从 error 容器提取 */
+function toApiError(status: number, body: Record<string, unknown> | undefined, fallbackMsg?: string): ApiError {
+  const b = body ?? {};
+  const errContainer = b.error as { type?: string; kind?: string } | undefined;
+  const e = new ApiError(
+    status,
+    (b.message as string) || fallbackMsg || `Request failed: ${status}`,
+    b.code as number | undefined,
+    (b.detail as Record<string, unknown>) ?? {},
+  );
+  if (errContainer?.type) e.type = errContainer.type;
+  if (errContainer?.kind) e.kind = errContainer.kind;
+  return e;
 }
 
 const DEFAULT_TTL = CACHE_TTL_STANDARD_MS;
@@ -244,12 +267,18 @@ export async function api<T>(
     timestamp: Date.now(),
   });
 
-  // 401 未授权：统一尝试 Token 刷新重试，区分业务错误（如登录凭证错误）与 Token 过期
+  // 401 未授权：区分「认证端点的凭据错误」与「会话过期」——前者直接抛出，
+  // 后者走 Token 刷新重试（ADR-0021 §2.1：401 语义恢复的前置）。
   if (res.status === 401) {
-    const errBody = await res.json().catch(() => ({}));
+    const errBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     const businessMessage = errBody.code
-      ? (errBody.message || errBody.error || "Unauthorized")
+      ? ((errBody.message as string) || (errBody.error as string) || "Unauthorized")
       : null;
+
+    // 认证端点豁免：登录/注册/重置的 401 = 凭据错误（如 40013），不是会话过期
+    if (AUTH_NO_REFRESH_RE.test(endpoint)) {
+      throw toApiError(401, errBody, businessMessage ?? "Unauthorized");
+    }
 
     // 尝试刷新 Token 并重试（无论是否含 code 字段均尝试——requireUserKey 返回的
     // 401 也携带 code: 40042，但本质是 JWT 过期，需要走刷新路径）
@@ -280,8 +309,8 @@ export async function api<T>(
         emitAppEvent("supply-os:unauthorized", { endpoint });
         throw new ApiError(401, "Unauthorized");
       }
-      const err = await retryRes.json().catch(() => ({}));
-      throw new ApiError(retryRes.status, err.message || err.error || `Request failed: ${retryRes.status}`, err.code, err);
+      const err = (await retryRes.json().catch(() => ({}))) as Record<string, unknown>;
+      throw toApiError(retryRes.status, err, `Request failed: ${retryRes.status}`);
     }
 
     // 刷新失败：Access Token 过期且 Refresh Token 双通道均不可用，
@@ -297,16 +326,16 @@ export async function api<T>(
 
   // 其他错误
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    // 后端统一契约：{ code, message }；err.message 优先于 err.error
-    const friendlyMsg = err.message || err.error || `Request failed: ${res.status}`;
+    const err = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    // 后端统一契约（ADR-0021）：{ code, message, error, detail }；err.message 优先于 err.error
+    const friendlyMsg = (err.message as string) || (err.error as string) || `Request failed: ${res.status}`;
     // 全局错误日志：便于追踪未覆盖的错误码（审查 F50）
     if (err.code) {
-      console.warn(`[api-client] ${method} ${endpoint} → ${res.status} code=${err.code} message=${friendlyMsg}`);
+      console.warn(`[api-client] ${method} ${endpoint} → ${res.status} code=${err.code} type=${(err.error as Record<string, unknown>)?.type ?? "-"} message=${friendlyMsg}`);
     } else {
       console.warn(`[api-client] ${method} ${endpoint} → ${res.status} 无错误码 message=${friendlyMsg}`);
     }
-    throw new ApiError(res.status, friendlyMsg, err.code, err);
+    throw toApiError(res.status, err, friendlyMsg);
   }
 
   return res.json();

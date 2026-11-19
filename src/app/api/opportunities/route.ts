@@ -28,7 +28,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import type { OpportunityListItemRow } from "@/lib/repos/opportunities.repo";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute } from "@/lib/middleware/route-handler";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_AUTH_REQUIRED } from "@/shared/constants/api";
 import { WIDE_LIMITS, truncate } from "@/lib/utils/notice-field-limits";
 
@@ -76,7 +76,7 @@ export const GET = withRoute(
   async (req: NextRequest) => {
     const auth = await requireUserKeyOrThrow(req);
     if (!auth.userId) {
-      return NextResponse.json({ code: EC_AUTH_REQUIRED, message: "请先登录" }, { status: 401 });
+      routeError(401, EC_AUTH_REQUIRED, "请先登录");
     }
 
     const ctx = getContext();

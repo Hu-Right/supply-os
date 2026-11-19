@@ -12,6 +12,7 @@
  *              无 React 依赖（可在无 t 的极窄场景直接取 message 兜底）。
  */
 import { ApiError } from "./api-client";
+import { activeErrorDefs, lookupErrorDef, type ErrorKind as CatalogErrorKind } from "@/shared/errors/catalog";
 import {
   // 认证 / 权限
   EC_USER_REQUIRED, EC_AUTH_REQUIRED, EC_PASSWORD_RESET_REQUIRED,
@@ -68,16 +69,16 @@ import {
 /** 注入式翻译函数（与 useLocale 的 t 对齐；params 预留插值） */
 export type Translator = (key: string, params?: Record<string, string | number>) => string;
 
-/** 错误大类，供组件按语义分支渲染（如 VIP/行业墙升级引导卡） */
-export type ErrorKind =
-  | "system" | "network" | "auth" | "forbidden" | "vipGate" | "industryWall"
-  | "quota" | "payment" | "business" | "ai" | "unknown";
+/** 错误大类，供组件按语义分支渲染（如 VIP/行业墙升级引导卡）；与 catalog 的 ErrorKind 同一集合 */
+export type ErrorKind = CatalogErrorKind;
 
 /** 结构化分类结果 */
 export interface ErrorClassification {
   kind: ErrorKind;
   /** i18n 键；null 表示未登记（回落 message / 通用兜底） */
   key: string | null;
+  /** 稳定字符串错误标识（error.type；令牌桥接/状态兜底路径可能无值） */
+  type?: string;
   code?: number;
   status?: number;
   /** VIP 档位闸门所需等级（kind==='vipGate' 时有值） */
@@ -212,6 +213,11 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_RFQ_PUBLISH_BLOCKED]: { kind: "business", key: "errRfqPublishBlocked" },
 };
 
+/** 稳定 type → 分类 + i18n 键（ADR-0021 主判据，由 catalog 派生；deprecated 码不进表） */
+const TYPE_MAP: Record<string, CodeRule> = Object.fromEntries(
+  activeErrorDefs().map((d) => [d.type, { kind: d.kind, key: d.i18nKey } as CodeRule]),
+);
+
 /** HTTP 状态兜底（无稳定码命中时） */
 const STATUS_MAP: Record<number, CodeRule> = {
   401: { kind: "auth", key: "errLoginRequired" },
@@ -261,43 +267,50 @@ function matchToken(message: string): { kind: ErrorKind; key: string } | null {
 export function classifyApiError(err: unknown): ErrorClassification {
   const message = err instanceof Error ? err.message : typeof err === "string" ? err : String(err ?? "");
   const isApi = err instanceof ApiError;
+  const type = isApi ? err.type : undefined;
   const code = isApi ? err.code : undefined;
   const status = isApi ? err.status : undefined;
   const detail = isApi ? (err.detail as Record<string, unknown> | undefined) : undefined;
 
-  // 0) 未解锁闸门优先：部分路由复用 40013（与 EC_ACCOUNT_ISSUE 同值）携 core_locked detail，
-  //    必须在按码映射前拦截，否则锁定态会被误判成“账号异常”。
-  if (status === 403 && detail && (detail.coreLocked === true || detail.locked === true)) {
-    return { kind: "forbidden", key: "errViewRequired", code, status, message };
+  // 0) 稳定 type 主判据（ADR-0021）：ApiError 从 envelope error 容器提取
+  if (typeof type === "string" && TYPE_MAP[type]) {
+    const rule = TYPE_MAP[type];
+    let requiredRank: number | undefined;
+    if (rule.kind === "vipGate") {
+      const rr = Number(detail?.required_rank ?? detail?.rank ?? 0);
+      requiredRank = Number.isFinite(rr) && rr > 0 ? rr : undefined;
+    }
+    return { kind: rule.kind, key: rule.key, type, code, status, requiredRank, message };
   }
 
-  // 1) 已知稳定码
+  // 1) 数字码 fallback（兼容层：服务端旧版响应 / deprecated 码回放）
   if (typeof code === "number" && CODE_MAP[code]) {
     const rule = CODE_MAP[code];
     let requiredRank: number | undefined;
     if (rule.kind === "vipGate") {
-      const rr = Number((detail as Record<string, unknown> | undefined)?.required_rank ?? (detail as Record<string, unknown> | undefined)?.rank ?? 0);
+      const rr = Number(detail?.required_rank ?? detail?.rank ?? 0);
       requiredRank = Number.isFinite(rr) && rr > 0 ? rr : undefined;
     }
-    return { kind: rule.kind, key: rule.key, code, status, requiredRank, message };
+    const def = lookupErrorDef(code);
+    return { kind: rule.kind, key: rule.key, type: def?.type, code, status, requiredRank, message };
   }
 
   // 2) 稳定令牌桥接（AI/遗留；无码或非 ApiError 也可命中）
   const token = matchToken(message);
   if (token) return { kind: token.kind, key: token.key, code, status, message };
 
-  // 4) HTTP 状态兜底
+  // 3) HTTP 状态兜底
   if (typeof status === "number" && STATUS_MAP[status]) {
     const rule = STATUS_MAP[status];
     return { kind: rule.kind, key: rule.key, code, status, message };
   }
 
-  // 5) 网络层失败（fetch 抛出的 TypeError，非 ApiError）
+  // 4) 网络层失败（fetch 抛出的 TypeError，非 ApiError）
   if (!isApi && (err instanceof TypeError || /failed to fetch|networkerror|network request failed|econnrefused|econnreset|timeout/i.test(message))) {
     return { kind: "network", key: "errNetworkOffline", code, status, message };
   }
 
-  // 6) 未知（交回落逻辑处理）
+  // 5) 未知（交回落逻辑处理）
   return { kind: "unknown", key: null, code, status, message };
 }
 
