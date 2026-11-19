@@ -33,7 +33,7 @@ import {
 } from "@/shared/constants/registration-id";
 import { deleteFile } from "@/lib/services/file-upload";
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
-import { supplierEnterpriseViewOf } from "@/lib/services/enterprise/view";
+import { certificationNamesViewOf, supplierEnterpriseViewOf } from "@/lib/services/enterprise/view";
 import { upsertPendingLicenseChange, latestLicenseChangeForSupplier } from "@/lib/services/license-change";
 import { beijingDatetimeAfter } from "@/lib/utils/beijing-datetime";
 import { licenseFilenameFromUrl } from "@/lib/services/file-upload";
@@ -284,7 +284,9 @@ export const GET = withRoute(async (req) => {
   const hasPendingClaim = await ctx.supplier.claimRepo.hasPendingClaim(supplierId).catch(() => false);
 
   // 证书（认证资质）已改为只读聚合：单一事实源是能力档案，读失败兜底空数组（不拖垮整页）
-  const certificationNames = await listCertificationNames(ctx.dbPool, supplierId).catch(() => []);
+  const certificationNames = certificationNamesViewOf(
+    await listCertificationNames(ctx.dbPool, supplierId).catch(() => []),
+  );
 
   return NextResponse.json({
     bound: true,

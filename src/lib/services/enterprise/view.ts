@@ -66,6 +66,23 @@ export interface SupplierEnterpriseView {
  * “新列必须先登记”那道闸因此在仓储白名单上：
  * PORTAL_COLUMNS 加一行→视图与响应多一个键；路由级用例拿同一份名单推期望集，加减列时那里先响。
  */
+/**
+ * 证书展示名 → 对外视图。
+ *
+ * GET /api/user/enterprise 的 `certificationNames` 值来自能力档案聚合
+ * （`listCertificationNames`，单一事实源=enterprise_capability_items）。
+ * 虽然当前是 `string[]` 没有嵌套字段可泄漏，仍按「响应值必须过本域视图 mapper」
+ * 的契约在视图层收口：将来证书要带有效期/编号时在此扩展，路由不直接透出仓储返回值。
+ */
+export function certificationNamesViewOf(names: readonly unknown[]): string[] {
+  const out: string[] = [];
+  for (const raw of names) {
+    const name = String(raw ?? "").trim();
+    if (name && !out.includes(name)) out.push(name);
+  }
+  return out;
+}
+
 export function supplierEnterpriseViewOf(
   row: Record<string, unknown>,
   hasPendingClaim = false,

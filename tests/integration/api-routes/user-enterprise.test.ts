@@ -51,7 +51,6 @@ const PORTAL_ROW: Record<string, unknown> = {
   registered_capital: "1000万元人民币",
   credit_code: "91610400MA0000000X",
   credit_code_type: "uscc",
-  certification: "ISO9001,CE",
   products: "阀门、泵",
   verify_status: "done",
   info_review_status: "reviewed",
@@ -90,6 +89,11 @@ vi.mock("@/lib/services/license-change", () => ({
   licenseFilenameFromUrl: vi.fn(() => ""),
 }));
 
+vi.mock("@/lib/repos/certification-text", () => ({
+  // 单一事实源=能力档案：这里用重复项与前后空白验证 certificationNamesViewOf 的收敛
+  listCertificationNames: vi.fn(async () => ["ISO9001", " CE ", "ISO9001"]),
+}));
+
 vi.mock("@/lib/services/commodity/supplier-self-report", () => ({
   listSupplierSelfReport: vi.fn(async () => []),
   replaceSupplierSelfReport: vi.fn(async () => {}),
@@ -118,7 +122,7 @@ describe("GET /api/user/enterprise", () => {
     const body = await (await GET(getReq())).json();
 
     expect(Object.keys(body.enterprise).sort()).toEqual([...EXPECTED_KEYS].sort());
-    expect(EXPECTED_KEYS).toHaveLength(25); // 白名单加/减列时这里先响，逼着同步看契约
+    expect(EXPECTED_KEYS).toHaveLength(24); // 白名单加/减列时这里先响，逼着同步看契约
     // claim_status 已退役：响应里不得再出现 claimStatus（读点清零）
     expect(body.enterprise.claimStatus).toBeUndefined();
   });
@@ -166,7 +170,9 @@ describe("GET /api/user/enterprise", () => {
     expect(body.enterprise.creditCode).toBe("91610400MA0000000X");
     expect(body.enterprise.verifyStatus).toBe("done");
     expect(body.enterprise.licenseUrl).toBe("https://cdn/license.png");
-    expect(body.enterprise.certification).toBe("ISO9001,CE"); // varchar 不是 JSON，不得改成数组
+    // certification 已停写（单一事实源=能力档案）：企业行不再带该键，改由顶层的只读聚合下发
+    expect(body.enterprise.certification).toBeUndefined();
+    expect(body.certificationNames).toEqual(["ISO9001", "CE"]); // trim + 去重
   });
 
   it("未绑定：enterprise 恒为 null，顶层仍无 snake 键", async () => {
