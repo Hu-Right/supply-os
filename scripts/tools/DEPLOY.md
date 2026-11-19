@@ -195,3 +195,4 @@ pm2 list; pm2 logs supply-os --lines 100 --nostream
 | 日期时间 | 提交 | BUILD_ID | 产物 sha256（前 16 位） | 产物大小 | 操作人 | 验证结果 | 回滚点 |
 |---|---|---|---|---|---|---|---|
 | 2026-11-19 00:05 | cb5916fb | h8IuYoqDhSlJDACAtVetK | 2ce71c47d3270970 | 53.5 MB | 苏御凡(AI) | HTTP 200 / BUILD_ID 更新 / pm2 重启 0 / ledger 55 / bootstrap ✓ | runtime/standalone-bak |
+| 2026-11-19 12:31 | 33ed0c58 | 5r-UiVBI39-xgkUUoQGtJ | 652f3a7615e1fad7 | 53.2 MB | 苏御凡(AI) | HTTP 200 / BUILD_ID 更新 / pm2 重启 0 / ledger 57 / bootstrap ✓ | runtime/standalone-bak |
