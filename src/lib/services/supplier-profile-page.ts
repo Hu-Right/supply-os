@@ -58,7 +58,15 @@ export const loadSupplierProfile = cache(async (dbId: number) => {
     console.error("[supplier/[id]] 品目兴趣装配失败，本次不渲染平台归类:", err);
   }
 
-  return { profile: supplierProfileViewOf(row, industry, snap, interests), claimed };
+  // 联系方式：绑定账号优先、供应商档案兜底；账户侧查询失败不影响页面
+  let accountContact = null;
+  try {
+    accountContact = await ctx.supplier.directoryRepo.findBoundAccountContact(dbId);
+  } catch (err) {
+    console.error("[supplier/[id]] 绑定账号联系方式读取失败，回退档案联系方式:", err);
+  }
+
+  return { profile: supplierProfileViewOf(row, industry, snap, interests, accountContact), claimed };
 });
 
 /** 投标能力成绩单（公开面：只认归属人提交的报告） */

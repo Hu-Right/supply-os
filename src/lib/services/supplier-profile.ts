@@ -18,6 +18,7 @@ import { maskCreditCode } from "@/lib/repos/suppliers/supplier-directory.repo";
 import { maskEmail, maskPhone, splitListField } from "@/lib/utils/mask";
 import type { CountryAliasSnapshot } from "./country/alias-store";
 import { primaryCountryOf } from "./country/resolve";
+import { mergeSupplierContact, type BoundAccountContact } from "./supplier-contact";
 import type { SupplierIndustryInfo } from "./industry-labels";
 import { supplierViewOf } from "./suppliers";
 
@@ -174,7 +175,10 @@ export function supplierProfileViewOf(
   industry?: SupplierIndustryInfo | null,
   snap?: CountryAliasSnapshot,
   interests: SupplierBackboneInterestRow[] = [],
+  accountContact?: BoundAccountContact | null,
 ): SupplierProfileView {
+  // 联系方式口径：绑定账号优先，供应商档案兜底（字段级合并）
+  const mergedContact = mergeSupplierContact(row, accountContact ?? null);
   const supplier = supplierViewOf(row, industry, snap);
   const company = String(row.company ?? "").trim();
   const countryKey = String(row.country ?? "").trim() || "China";
@@ -225,10 +229,10 @@ export function supplierProfileViewOf(
     dataCompleteness: supplier.dataCompleteness ?? 0,
     hasLicense: Boolean(String(row.license_url ?? "").trim()),
     contact: {
-      person: maskPersonName(row.contact),
-      position: String(row.position ?? "").trim(),
-      email: row.email ? maskEmail(String(row.email)) : "",
-      phone: row.phone ? maskPhone(String(row.phone)) : "",
+      person: maskPersonName(mergedContact.person),
+      position: mergedContact.position,
+      email: mergedContact.email ? maskEmail(mergedContact.email) : "",
+      phone: mergedContact.phone ? maskPhone(mergedContact.phone) : "",
     },
   };
 }

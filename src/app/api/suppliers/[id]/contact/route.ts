@@ -7,6 +7,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS, EC_VIP_ONLY, EC_NOT_FOUND } from "@/shared/constants/api";
 import { resolveMembershipState } from "@/lib/services/membership-status";
+import { mergeSupplierContact } from "@/lib/services/supplier-contact";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -30,11 +31,23 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const contact = await directoryRepo.findContact(supplierId);
     if (!contact) routeError(404, EC_NOT_FOUND, "供应商不存在");
 
+    // 联系方式口径：绑定账号优先，供应商档案兜底（字段级合并，见 services/supplier-contact）
+    const account = await directoryRepo.findBoundAccountContact(supplierId).catch(() => null);
+    const merged = mergeSupplierContact(
+      {
+        contact: contact.contact as string | null,
+        position: contact.position as string | null,
+        phone: contact.phone as string | null,
+        email: contact.email as string | null,
+      },
+      account,
+    );
+
     // 字段名映射：DB 列名 → 前端期望字段
     return NextResponse.json({
-      contactPerson: contact.contact || "",
-      contactPhone: contact.phone || "",
-      contactEmail: contact.email || "",
+      contactPerson: merged.person,
+      contactPhone: merged.phone,
+      contactEmail: merged.email,
     });
   },
 );

@@ -697,10 +697,34 @@ export class SupplierDirectoryRepo {
   /** 供应商明文联系方式（VIP 端点） */
   async findContact(supplierId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT contact, phone, email FROM supplier WHERE id = ? LIMIT 1",
+      "SELECT contact, position, phone, email FROM supplier WHERE id = ? LIMIT 1",
       [supplierId],
     );
     return (rows as RowDataPacket[])[0] ?? null;
+  }
+
+  /**
+   * 该企业绑定账号（users.supplier_id）的联系人信息，供「账号优先、档案兜底」合并。
+   * 只认 verified 绑定；同一企业多个账号时取最早绑定的一个（无可依据的“主账号”标记）。
+   */
+  async findBoundAccountContact(
+    supplierId: number,
+  ): Promise<{ displayName: string | null; phone: string | null; email: string | null } | null> {
+    const [rows] = await this.pool.query(
+      `SELECT display_name, phone, email
+         FROM users
+        WHERE supplier_id = ? AND supplier_link_status = 'verified'
+        ORDER BY id ASC
+        LIMIT 1`,
+      [supplierId],
+    );
+    const row = (rows as RowDataPacket[])[0];
+    if (!row) return null;
+    return {
+      displayName: String(row.display_name ?? "").trim() || null,
+      phone: row.phone ? String(row.phone) : null,
+      email: row.email ? String(row.email) : null,
+    };
   }
 
   /** 供应商统计（用于统计墙） */
