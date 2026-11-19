@@ -54,8 +54,8 @@ export const EC_OUT_OF_CATEGORY = 40045;
 /** 翻译服务不可用（Translation service unavailable） */
 export const EC_TRANSLATION_UNAVAILABLE = 50002;
 
-/** 公告不存在（Notice not found — 翻译/内容/预览场景） */
-export const EC_NOTICE_NOT_FOUND = 40006;
+/** @deprecated 同义合并（ADR-0021 §2.4）：公告不存在统一使用 EC_NOTICE_NOT_FOUND(40404)。 */
+export const EC_NOTICE_NOT_FOUND_LEGACY = 40006;
 
 /** 认证失败 / 未登录（路由层通用，替代各路由散落的 USER_REQUIRED: 40001） */
 export const EC_USER_REQUIRED = 40001;
@@ -102,8 +102,8 @@ export const EC_TRAINING_SCHEDULE_NOT_FOUND = 40033;
 /** 期次名额已满 */
 export const EC_TRAINING_SCHEDULE_CAPACITY_EXCEEDED = 40035;
 
-/** 公告不存在（404 语义版本，与 EC_NOTICE_NOT_FOUND 40006 共存供不同场景选用） */
-export const EC_NOTICE_NOT_FOUND_404 = 40404;
+/** 公告不存在（ADR-0021 后唯一公告缺失码；40006 已 deprecated） */
+export const EC_NOTICE_NOT_FOUND = 40404;
 
 /** 报告不可用 */
 export const EC_REPORT_NOT_AVAILABLE = 40405;

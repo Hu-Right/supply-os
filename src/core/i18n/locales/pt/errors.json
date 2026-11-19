@@ -103,5 +103,9 @@
   "aiSupplierProfileRequired": "Complete o perfil da sua empresa antes da pontuação de aderência com IA",
   "errProxyResponseTooLarge": "A resposta da página de destino é grande demais para exibir",
   "errRfqAuthorizationRequired": "A autorização de publicação não está assinada nem verificada",
-  "errRfqPublishBlocked": "Pré-requisitos de publicação não atendidos: confirme a autorização de publicação, defina um prazo de propostas ou justifique a anulação da verificação automática"
+  "errRfqPublishBlocked": "Pré-requisitos de publicação não atendidos: confirme a autorização de publicação, defina um prazo de propostas ou justifique a anulação da verificação automática",
+  "errInvalidParams": "Parâmetros de solicitação inválidos",
+  "errClaimAlreadyApproved": "Já verificado, não é necessário reenviar",
+  "errPaymentIndustryRequired": "É necessário selecionar uma indústria para comprar a assinatura",
+  "errPaymentIndustryInvalid": "Indústria inválida ou desativada"
 }

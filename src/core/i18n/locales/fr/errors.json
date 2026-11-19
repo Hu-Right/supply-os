@@ -103,5 +103,9 @@
   "aiSupplierProfileRequired": "Veuillez compléter le profil de votre entreprise avant la notation d'adéquation IA",
   "errProxyResponseTooLarge": "La réponse de la page cible est trop volumineuse pour être affichée",
   "errRfqAuthorizationRequired": "L'autorisation de publication n'est pas signée ou vérifiée",
-  "errRfqPublishBlocked": "Conditions de publication non remplies : confirmez l'autorisation de publication, fixez une date limite d'offre, ou justifiez le rejet du pré-contrôle automatique"
+  "errRfqPublishBlocked": "Conditions de publication non remplies : confirmez l'autorisation de publication, fixez une date limite d'offre, ou justifiez le rejet du pré-contrôle automatique",
+  "errInvalidParams": "Paramètres de requête invalides",
+  "errClaimAlreadyApproved": "Déjà vérifié, inutile de soumettre à nouveau",
+  "errPaymentIndustryRequired": "Une catégorie sectorielle est requise pour l'achat d'adhésion",
+  "errPaymentIndustryInvalid": "Catégorie sectorielle invalide ou désactivée"
 }

@@ -22,7 +22,7 @@ import {
   // 额度
   EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_API_QUOTA_EXCEEDED,
   // 资源不存在
-  EC_NOT_FOUND, EC_NOTICE_NOT_FOUND, EC_NOTICE_NOT_FOUND_404, EC_OPPORTUNITY_NOT_FOUND, EC_REPORT_NOT_AVAILABLE,
+  EC_NOT_FOUND, EC_NOTICE_NOT_FOUND_LEGACY, EC_NOTICE_NOT_FOUND, EC_OPPORTUNITY_NOT_FOUND, EC_REPORT_NOT_AVAILABLE,
   // 系统
   EC_INTERNAL_ERROR, EC_TRANSLATION_UNAVAILABLE,
   // 培训 / 报名
@@ -110,8 +110,8 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_API_QUOTA_EXCEEDED]: { kind: "quota", key: "errApiQuotaExceeded" },
   // 资源不存在
   [EC_NOT_FOUND]: { kind: "business", key: "errNotFound" },
+  [EC_NOTICE_NOT_FOUND_LEGACY]: { kind: "business", key: "errNoticeNotFound" },
   [EC_NOTICE_NOT_FOUND]: { kind: "business", key: "errNoticeNotFound" },
-  [EC_NOTICE_NOT_FOUND_404]: { kind: "business", key: "errNoticeNotFound" },
   [EC_OPPORTUNITY_NOT_FOUND]: { kind: "business", key: "errOpportunityNotFound" },
   [EC_REPORT_NOT_AVAILABLE]: { kind: "business", key: "errReportNotAvailable" },
   // 系统

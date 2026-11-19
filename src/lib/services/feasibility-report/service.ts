@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import type { LlmCredentials } from "../ai-score/llm-client";
 import type { AppContext } from "@/lib/db/context";
 import { routeError } from "@/lib/middleware/route-handler";
-import { EC_ACCESS_FORBIDDEN, EC_INVALID_PARAMS, EC_NOTICE_NOT_FOUND_404, EC_VIP_ONLY } from "@/shared/constants/api";
+import { EC_ACCESS_FORBIDDEN, EC_INVALID_PARAMS, EC_NOTICE_NOT_FOUND, EC_VIP_ONLY } from "@/shared/constants/api";
 import { BID_FEASIBILITY_REPORT_BENEFIT } from "../benefit-matrix";
 import { FeasibilityReportRepo, type FeasibilityReportRow } from "@/lib/repos/feasibility-report.repo";
 import {
@@ -200,7 +200,7 @@ export async function generateFeasibilityReport(
   const enterprise = { id: enterpriseId, name: String(supplier.company ?? "") };
 
   const notice = await deps.repo.getNotice(params.noticePk);
-  if (!notice) routeError(404, EC_NOTICE_NOT_FOUND_404, "公告不存在");
+  if (!notice) routeError(404, EC_NOTICE_NOT_FOUND, "公告不存在");
 
   const opportunity = await deps.repo.getOpportunityByNoticeId(
     (notice as PublicNoticeRowLike & { notice_id?: string | number }).notice_id ?? "",

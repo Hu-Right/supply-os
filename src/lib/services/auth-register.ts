@@ -63,7 +63,7 @@ export async function registerUser(
 ): Promise<RegisterUserResult> {
   const { displayName, targetPhone, password: pw, code, inviteCode } = params;
 
-  // 密码策略（通用参数码，后端 message 直出；旧 40006 撞 EC_NOTICE_NOT_FOUND会弹「公告不存在」）
+  // 密码策略（通用参数码，后端 message 直出；旧 40006 撞 EC_NOTICE_NOT_FOUND_LEGACY会弹「公告不存在」）
   const pwCheck = validatePassword(pw);
   if (!pwCheck.valid) throw new RouteError(400, EC_INVALID_PARAMS, pwCheck.message);
 

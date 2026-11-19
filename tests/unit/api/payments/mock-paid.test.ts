@@ -2,7 +2,7 @@
  * mock-paid 路由测试 —— auth/payment 错误码治本回归
  * @module tests/unit/api/payments/mock-paid.test.ts
  * @description 证明「订单不存在」走 EC_PAYMENT_ORDER_NOT_FOUND(40402→payErrOrderNotFound)，
- *              不再误用 40404（= EC_NOTICE_NOT_FOUND_404 → errNoticeNotFound「公告不存在」）。
+ *              不再误用 40404（= EC_NOTICE_NOT_FOUND → errNoticeNotFound「公告不存在」）。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";

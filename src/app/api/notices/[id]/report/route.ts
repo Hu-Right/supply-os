@@ -31,7 +31,7 @@ const reportCacheDir = () => nodePath.join(process.cwd(),
   "bid_reports");
 
 import {
-  EC_NOTICE_NOT_FOUND_404,
+  EC_NOTICE_NOT_FOUND,
   EC_ACCESS_FORBIDDEN,
   EC_REPORT_NOT_AVAILABLE,
   EC_OUT_OF_CATEGORY } from "@/shared/constants/api";
@@ -45,7 +45,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const userId = auth.userId;
 
     if (!noticeId) {
-      routeError(400, EC_NOTICE_NOT_FOUND_404, "请先登录并指定公告");
+      routeError(400, EC_NOTICE_NOT_FOUND, "请先登录并指定公告");
     }
 
     const ctx = getContext();
@@ -73,7 +73,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const service = await findPublicDetail(ctx.dbPool, noticeId);
-    if (!service) routeError(404, EC_NOTICE_NOT_FOUND_404, "公告不存在");
+    if (!service) routeError(404, EC_NOTICE_NOT_FOUND, "公告不存在");
     // 报告公共字段一律取服务表；商机只补标题/中文正文/拆单内容。
     const notice = {
       id: service.notice_pk,

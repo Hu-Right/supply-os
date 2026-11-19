@@ -4,7 +4,7 @@
  */
 import { RouteError } from "../../middleware/route-handler";
 import {
-  EC_AI_NOT_CONFIGURED, EC_NOTICE_NOT_FOUND, EC_AI_CALL_FAILED,
+  EC_AI_NOT_CONFIGURED, EC_NOTICE_NOT_FOUND_LEGACY, EC_AI_CALL_FAILED,
   EC_AI_BAD_FORMAT, EC_SUPPLIER_PROFILE_REQUIRED,
 } from "@/shared/constants/api";
 
@@ -15,7 +15,7 @@ export function errLlmNotConfigured(): never {
 
 /** 公告不存在（404） */
 export function errNoticeNotFound(): never {
-  throw new RouteError(404, EC_NOTICE_NOT_FOUND, "公告不存在");
+  throw new RouteError(404, EC_NOTICE_NOT_FOUND_LEGACY, "公告不存在");
 }
 
 /** LLM 调用失败（502） */

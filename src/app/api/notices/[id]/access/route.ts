@@ -9,7 +9,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { grantNoticeAccess, NoticeNotFoundError, QuotaExceededError } from "@/lib/services/notice-service";
 import {
-  EC_NOTICE_NOT_FOUND, EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_OUT_OF_CATEGORY,
+  EC_NOTICE_NOT_FOUND_LEGACY, EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_OUT_OF_CATEGORY,
 } from "@/shared/constants/api";
 import { canAccessNotice } from "@/lib/services/industry-scope";
 import { getContext } from "@/lib/db/context";
@@ -50,7 +50,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       return NextResponse.json({ success: true, grantType: result.grantType }, { status: 201 });
     } catch (err) {
       if (err instanceof NoticeNotFoundError) {
-        routeError(404, EC_NOTICE_NOT_FOUND, "公告不存在");
+        routeError(404, EC_NOTICE_NOT_FOUND_LEGACY, "公告不存在");
       }
       if (err instanceof QuotaExceededError) {
         const code = err.code === "FREE_LIMIT_REACHED" ? EC_FREE_LIMIT_REACHED : EC_PAID_QUOTA_REQUIRED;
