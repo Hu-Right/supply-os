@@ -132,8 +132,11 @@ export type AppContext = {
  *  2026-11-19 +1（供应商企业主页改版）：SupplierDirectoryRepo 新增 findSimilarReviewed，
  *  且 findById 列集合扩展；旧实例无新方法会让相似供应商整段静默缺席。
  *  2026-11-19 +1（画像品目）：SupplierDirectoryRepo 新增 findBackboneInterests；
- *  旧单例缺该方法会让「平台归类」静默不渲染。 */
-const CTX_VERSION = 13;
+ *  旧单例缺该方法会让「平台归类」静默不渲染。
+ *  2026-11-19 +1（相似供应商 v2）：SupplierDirectoryRepo 新增
+ *  findReviewedByBackboneCodes / findReviewedByIndustryPrefix / findBackboneInterestsBySupplierIds；
+ *  旧单例缺方法会让相似推荐整段退化为空。 */
+const CTX_VERSION = 14;
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };

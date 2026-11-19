@@ -41,10 +41,14 @@ export interface SupplierProfileCopy {
   contactTitle: string;
   contactEmpty: string;
   contactMaskedNote: string;
+  contactUnlockedNote: string;
   ownerTitle: string;
   ownerDesc: string;
   similarTitle: string;
   similarMore: string;
+  similarByCommodity: string;
+  similarByIndustry: string;
+  similarByRegion: string;
   /** 注册标识类型 → 展示名（按 locale 覆盖） */
   creditCodeLabels: Record<string, string>;
 }
@@ -81,10 +85,14 @@ const ZH: SupplierProfileCopy = {
   contactTitle: "联系方式",
   contactEmpty: "该企业暂未公开联系人信息，可通过平台发起询盘。",
   contactMaskedNote: "联系方式已脱敏；VIP 会员可查看完整联系人、邮箱与电话。",
+  contactUnlockedNote: "VIP 会员，已显示完整联系方式。",
   ownerTitle: "你是该企业负责人？",
   ownerDesc: "认领企业主页后可维护企业档案、补充资质与联系方式，并查看访客与询盘数据。",
   similarTitle: "相似供应商",
   similarMore: "查看同行业供应商",
+  similarByCommodity: "同品目",
+  similarByIndustry: "同行业",
+  similarByRegion: "同地区参考",
   creditCodeLabels: {
     uscc: "统一社会信用代码",
     hk_br: "香港商业登记号",
@@ -128,11 +136,15 @@ const EN: SupplierProfileCopy = {
   contactTitle: "Contact",
   contactEmpty: "No public contact has been provided; send an enquiry through the platform.",
   contactMaskedNote: "Contact details are masked. VIP members can view the full contact person, email and phone.",
+  contactUnlockedNote: "VIP member — full contact details shown.",
   ownerTitle: "Are you the owner of this company?",
   ownerDesc:
     "Claim this profile to maintain company information, add certifications and contacts, and view visitor and enquiry data.",
   similarTitle: "Similar suppliers",
   similarMore: "Browse suppliers in the same industry",
+  similarByCommodity: "Same commodity",
+  similarByIndustry: "Same industry",
+  similarByRegion: "Same region (reference)",
   creditCodeLabels: {
     uscc: "Unified social credit code",
     hk_br: "HK business registration no.",

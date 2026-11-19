@@ -13,7 +13,13 @@ import { supplierScorecardViewOf } from "@/lib/services/supplier-diagnosis/score
 import { loadCountryAliasSnapshot } from "@/lib/services/country/alias-store";
 import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
 import { supplierProfileViewOf, type SupplierProfileView } from "@/lib/services/supplier-profile";
-import type { SupplierBackboneInterestRow } from "@/lib/repos/suppliers";
+import {
+  computeSupplierSimilarity,
+  industryCodeSimilarity,
+  resolveMatchKind,
+  type SimilarMatchKind,
+} from "@/lib/services/supplier-similarity";
+import type { SupplierBackboneInterestRow, SupplierDirectoryRow } from "@/lib/repos/suppliers";
 import { splitListField } from "@/lib/utils/mask";
 
 /** 同一请求内 generateMetadata 与页面共用一次取数 */
@@ -77,11 +83,18 @@ export interface SimilarSupplierItem {
   industryZh: string | null;
   industryEn: string | null;
   quality: number;
+  /** 相似原因：同品目 / 同行业 / 同地区参考（前端按 locale 出文案） */
+  matchKind: SimilarMatchKind;
+  /** 同品目原因里展示的品目名（取目标企业品目名的前两个） */
+  sharedNames: Array<{ zh: string; en: string }>;
 }
 
 /**
- * 相似供应商：同行业子树优先，不足按同国家补齐；卡片只取展示所需字段。
- * 相似推荐永远不阻断主页面（异常返回空数组，整段隐藏）。
+ * 相似供应商：品目重叠（倒排召回）∪ 行业 L2 子树召回 → 多维打分 → top N。
+ *
+ * 不再用「主行业码全前缀 → 同国家兜底」：全码前缀在主码层级较深时必然 0 命中，
+ * 会退化成“同国家按完整度排序”，那不是相似。地域只在打分里占 0.03 做 tie-breaker，
+ * 且只有企业完全没有任何品目/行业信号时才走同国家参考。
  */
 export async function loadSimilarSuppliers(
   profile: SupplierProfileView,
@@ -90,44 +103,118 @@ export async function loadSimilarSuppliers(
   try {
     const ctx = getContext();
     const repo = ctx.supplier.directoryRepo;
-    const rows = await repo.findSimilarReviewed({
-      excludeId: profile.dbId,
-      industryCode: profile.industry.primary?.code ?? null,
-      limit,
-    });
-    const seen = new Set(rows.map((r) => Number(r.id)));
-    if (rows.length < limit) {
+
+    const targetCodes = profile.commodityInterests.slice(0, 20).map((c) => ({
+      code: c.code,
+      confidence: c.confidence,
+    }));
+    const targetIndustry = profile.industry.primary?.code ?? null;
+    const industryDigits = String(targetIndustry ?? "").replace(/^UGT-I-/i, "");
+    const industryPrefix =
+      industryDigits.length >= 4
+        ? `UGT-I-${industryDigits.slice(0, 4)}`
+        : targetIndustry;
+
+    const [byCodes, byIndustry] = await Promise.all([
+      targetCodes.length > 0
+        ? repo.findReviewedByBackboneCodes(targetCodes.map((c) => c.code), profile.dbId, 60)
+        : Promise.resolve([]),
+      industryPrefix ? repo.findReviewedByIndustryPrefix(industryPrefix, profile.dbId, 60) : Promise.resolve([]),
+    ]);
+
+    const candidates = new Map<number, SupplierDirectoryRow>();
+    for (const row of [...byCodes, ...byIndustry]) {
+      const id = Number(row.id);
+      if (id > 0 && id !== profile.dbId) candidates.set(id, row);
+    }
+
+    // 完全无品目/行业信号时才允许同国家参考（不把“同国家”当主兜底）
+    if (candidates.size === 0 && targetCodes.length === 0 && !targetIndustry && profile.countryCode) {
       const more = await repo.findSimilarReviewed({
         excludeId: profile.dbId,
-        countryCode: profile.countryCode || null,
-        limit: limit - rows.length,
+        countryCode: profile.countryCode,
+        limit: 60,
       });
-      for (const r of more) {
-        if (!seen.has(Number(r.id))) {
-          rows.push(r);
-          seen.add(Number(r.id));
-        }
-      }
+      for (const row of more) candidates.set(Number(row.id), row);
     }
-    if (rows.length === 0) return [];
+    if (candidates.size === 0) return [];
+
+    const ids = [...candidates.keys()];
+    let codesBySupplier = new Map<number, Array<{ code: string; confidence: number | null }>>();
+    try {
+      const interestRows = await repo.findBackboneInterestsBySupplierIds(ids);
+      for (const row of interestRows) {
+        const sid = Number(row.supplier_id);
+        const list = codesBySupplier.get(sid) ?? [];
+        const conf = row.confidence == null ? null : Number(row.confidence);
+        list.push({ code: String(row.code ?? ""), confidence: Number.isFinite(conf) ? conf : null });
+        codesBySupplier.set(sid, list);
+      }
+    } catch (err) {
+      console.error("[supplier/[id]] 候选品目批量装配失败，本次仅用行业/产品打分:", err);
+      codesBySupplier = new Map();
+    }
+
+    const targetInput = {
+      commodityCodes: targetCodes,
+      industryCode: targetIndustry,
+      products: profile.products,
+      countryCode: profile.countryCode,
+      province: profile.province,
+      city: profile.city,
+      quality: profile.dataCompleteness,
+    };
+
+    const scored = [...candidates.values()]
+      .map((row) => {
+        const id = Number(row.id);
+        const candidateInput = {
+          commodityCodes: codesBySupplier.get(id) ?? [],
+          industryCode: String(row.industry_code ?? "").trim() || null,
+          products: splitListField(row.products),
+          countryCode: String(row.country_code ?? "").trim(),
+          province: String(row.province ?? "").trim(),
+          city: String(row.city ?? "").trim(),
+          quality: Number(row.data_quality_score ?? 0) || 0,
+        };
+        const result = computeSupplierSimilarity(targetInput, candidateInput);
+        return {
+          row,
+          result,
+          industryScore: industryCodeSimilarity(targetInput.industryCode, candidateInput.industryCode),
+        };
+      })
+      .filter((s) => s.result.score > 0)
+      .sort((a, b) => b.result.score - a.result.score || Number(b.row.data_quality_score ?? 0) - Number(a.row.data_quality_score ?? 0))
+      .slice(0, Math.max(1, Math.min(limit, 12)));
+
+    if (scored.length === 0) return [];
 
     const info = await loadSupplierIndustryInfo(
       ctx.supplier.industryRepo,
-      rows as Array<typeof rows[number]>,
+      scored.map((s) => s.row),
     );
-    return rows.map((r) => {
-      const tag = info.get(Number(r.id))?.primary ?? null;
+    const targetNameByCode = new Map(profile.commodityInterests.map((c) => [c.code, c]));
+
+    return scored.map(({ row, result, industryScore }) => {
+      const tag = info.get(Number(row.id))?.primary ?? null;
+      const sharedNames = result.sharedCodes.slice(0, 2).map((code) => {
+        const hit = targetNameByCode.get(code);
+        return { zh: hit?.nameZh ?? code, en: hit?.nameEn ?? code };
+      });
       return {
-        id: Number(r.id),
-        company: String(r.company ?? "").trim(),
-        country: String(r.country ?? "").trim(),
-        countryCode: String(r.country_code ?? "").trim(),
-        province: String(r.province ?? "").trim(),
-        city: String(r.city ?? "").trim(),
-        products: splitListField(r.products).slice(0, 3),
+        id: Number(row.id),
+        company: String(row.company ?? "").trim(),
+        country: String(row.country ?? "").trim(),
+        countryCode: String(row.country_code ?? "").trim(),
+        province: String(row.province ?? "").trim(),
+        city: String(row.city ?? "").trim(),
+        products: splitListField(row.products).slice(0, 3),
         industryZh: tag?.nameZh ?? null,
         industryEn: tag?.nameEn ?? null,
-        quality: Number(r.data_quality_score ?? 0) || 0,
+        quality: Number(row.data_quality_score ?? 0) || 0,
+        matchKind: resolveMatchKind(result, industryScore),
+        sharedNames,
       };
     });
   } catch (err) {

@@ -45,6 +45,17 @@ export function SupplierSimilarSection({ items, copy, locale }: SupplierSimilarS
             .filter(Boolean)
             .join(" · ");
           const industry = locale === "en" ? item.industryEn : item.industryZh;
+          const sharedText = item.sharedNames
+            .map((n) => (locale === "en" ? n.en : n.zh))
+            .join(locale === "en" ? ", " : "、");
+          const reason =
+            item.matchKind === "commodity"
+              ? sharedText
+                ? `${copy.similarByCommodity} · ${sharedText}`
+                : copy.similarByCommodity
+              : item.matchKind === "industry"
+                ? copy.similarByIndustry
+                : copy.similarByRegion;
           return (
             <Link
               key={item.id}
@@ -54,6 +65,7 @@ export function SupplierSimilarSection({ items, copy, locale }: SupplierSimilarS
               <p className="line-clamp-2 text-sm font-extrabold text-slate-900 group-hover:text-teal-800">
                 {item.company}
               </p>
+              <p className="text-2xs font-bold text-teal-700">{reason}</p>
               <p className="flex items-center gap-1 text-xs text-slate-500">
                 <MapPin className="h-3 w-3" />
                 {location || "-"}

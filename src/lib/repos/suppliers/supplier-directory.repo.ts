@@ -237,6 +237,69 @@ export class SupplierDirectoryRepo {
     return rows as SupplierBackboneInterestRow[];
   }
 
+  /**
+   * 相似供应商召回 A：共享品目码的企业（倒排命中数降序，质量分次之）。
+   * 只返回候选，不在这里算最终相似度（打分在 services/supplier-similarity）。
+   */
+  async findReviewedByBackboneCodes(
+    codes: readonly string[],
+    excludeId: number,
+    limit = 60,
+  ): Promise<SupplierDirectoryRow[]> {
+    if (codes.length === 0) return [];
+    const safeLimit = Math.max(1, Math.min(Math.floor(limit), 200));
+    const [rows] = await this.pool.query(
+      `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city,
+              s.products, s.industry_code, s.data_quality_score, s.certification
+         FROM supplier s
+         JOIN supplier_backbone_interests bi ON bi.supplier_id = s.id AND bi.supplier_table = 'supplier'
+        WHERE bi.code IN (?) AND s.info_review_status = 'reviewed'
+          AND s.company <> '测试' AND s.id <> ?
+        GROUP BY s.id
+        ORDER BY COUNT(DISTINCT bi.code) DESC, s.data_quality_score DESC, s.id DESC
+        LIMIT ?`,
+      [[...codes], excludeId, safeLimit],
+    );
+    return rows as SupplierDirectoryRow[];
+  }
+
+  /** 相似供应商召回 B：同行业 L2 前缀子树（全码前缀会因主码层级过深而 0 命中） */
+  async findReviewedByIndustryPrefix(
+    prefix: string,
+    excludeId: number,
+    limit = 60,
+  ): Promise<SupplierDirectoryRow[]> {
+    const p = String(prefix ?? "").trim();
+    if (!p) return [];
+    const safeLimit = Math.max(1, Math.min(Math.floor(limit), 200));
+    const [rows] = await this.pool.query(
+      `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city,
+              s.products, s.industry_code, s.data_quality_score, s.certification
+         FROM supplier s
+        WHERE s.info_review_status = 'reviewed' AND s.company <> '测试' AND s.id <> ?
+          AND s.industry_code LIKE ?
+        ORDER BY s.data_quality_score DESC, s.id DESC
+        LIMIT ?`,
+      [excludeId, `${p}%`, safeLimit],
+    );
+    return rows as SupplierDirectoryRow[];
+  }
+
+  /** 批量取候选企业的品目码（相似度打分用；避免逐家查） */
+  async findBackboneInterestsBySupplierIds(
+    supplierIds: readonly number[],
+  ): Promise<Array<{ supplier_id: number; code: string; confidence: number | string | null; is_primary: number }>> {
+    const ids = [...new Set(supplierIds.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+    if (ids.length === 0) return [];
+    const [rows] = await this.pool.query(
+      `SELECT supplier_id, code, confidence, is_primary
+         FROM supplier_backbone_interests
+        WHERE supplier_table = 'supplier' AND supplier_id IN (?)`,
+      [ids],
+    );
+    return rows as Array<{ supplier_id: number; code: string; confidence: number | string | null; is_primary: number }>;
+  }
+
   /** 供应商目录分页查询（行业为轴 + 产品/公司关键词；排序走白名单） */
   async listDirectoryPaginated(params: {
     limit: number;
