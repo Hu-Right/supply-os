@@ -58,6 +58,29 @@ export interface SupplierDirectoryRow {
 }
 
 /**
+ * 供应商品目兴趣（supplier_backbone_interests）展示行
+ *
+ * 与 supplier.products 自由文本互补：这里给的是带 UGT 码的「平台归类」，
+ * 用于画像页辅助展示、筛选与撮合，不替代供应商原文产品明细。
+ */
+export interface SupplierBackboneInterestRow {
+  code: string;
+  /** 品目名（原文 `中文 (English)` 形态） */
+  name: string;
+  level: number;
+  level2_id: number | null;
+  /** L2 大类（用于画像页分组；节点缺失时为空） */
+  l2_code: string | null;
+  l2_name_zh: string | null;
+  l2_name_en: string | null;
+  /** 完整路径原文（`A > B > C`，每段 `中文 (English)`） */
+  path_text: string | null;
+  confidence: number | string | null;
+  weight: number | string | null;
+  is_primary: number;
+}
+
+/**
  * 诊断入口「是不是这家公司」弹窗的候选行。
  * 字段集是安全红线（规范 N9）：只允许识别性字段，**绝不能包含**
  * contact / phone / email / address / license_url，否则一个尚未
@@ -194,6 +217,24 @@ export class SupplierDirectoryRepo {
       return rows as SupplierDirectoryRow[];
     }
     return [];
+  }
+
+  /**
+   * 供应商品目兴趣（平台归类）：只读 supplier_backbone_interests，
+   * 主品目优先、weight/confidence 次之；L2 大类随行返回用于前端分组。
+   */
+  async findBackboneInterests(supplierId: number, limit = 20): Promise<SupplierBackboneInterestRow[]> {
+    const [rows] = await this.pool.query(
+      `SELECT bi.code, bi.name, bi.level, bi.level2_id, bi.path_text, bi.confidence, bi.weight, bi.is_primary,
+              cb.code AS l2_code, cb.name_zh AS l2_name_zh, cb.name_en AS l2_name_en
+         FROM supplier_backbone_interests bi
+         LEFT JOIN commodity_backbone cb ON cb.id = bi.level2_id
+        WHERE bi.supplier_id = ? AND bi.supplier_table = 'supplier'
+        ORDER BY bi.is_primary DESC, bi.weight DESC, bi.confidence DESC, bi.id
+        LIMIT ?`,
+      [supplierId, Math.max(1, Math.min(Math.floor(limit), 50))],
+    );
+    return rows as SupplierBackboneInterestRow[];
   }
 
   /** 供应商目录分页查询（行业为轴 + 产品/公司关键词；排序走白名单） */

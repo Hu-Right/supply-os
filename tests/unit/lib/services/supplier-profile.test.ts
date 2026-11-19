@@ -105,5 +105,49 @@ describe("supplierProfileViewOf", () => {
     expect(view.reviewed).toBe(false);
     expect(view.industry.primary).toBeNull();
     expect(view.dataCompleteness).toBe(41);
+    expect(view.commodityInterests).toEqual([]);
+  });
+
+  it("平台归类：品目双语名与 L2 分组解析，主品目标记保留", () => {
+    const view = supplierProfileViewOf(row(), null, undefined, [
+      {
+        code: "UGT-1103010205",
+        name: "激光切割机 (Laser cutting machine)",
+        level: 5,
+        level2_id: 10726,
+        l2_code: "UGT-1103",
+        l2_name_zh: "金属加工机械",
+        l2_name_en: "Metalworking Machinery",
+        path_text: null,
+        confidence: "95.00",
+        weight: "2.80",
+        is_primary: 1,
+      },
+      {
+        code: "UGT-11030201",
+        name: "金属折弯机 (Metal bending machines)",
+        level: 4,
+        level2_id: 10726,
+        l2_code: "UGT-1103",
+        l2_name_zh: "金属加工机械",
+        l2_name_en: "Metalworking Machinery",
+        path_text: null,
+        confidence: "90.00",
+        weight: "2.20",
+        is_primary: 0,
+      },
+    ]);
+    expect(view.commodityInterests).toHaveLength(2);
+    expect(view.commodityInterests[0]).toMatchObject({
+      code: "UGT-1103010205",
+      nameZh: "激光切割机",
+      nameEn: "Laser cutting machine",
+      level: 5,
+      confidence: 95,
+      isPrimary: true,
+      categoryZh: "金属加工机械",
+      categoryEn: "Metalworking Machinery",
+    });
+    expect(view.commodityInterests[1].isPrimary).toBe(false);
   });
 });

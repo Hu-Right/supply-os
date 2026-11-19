@@ -31,6 +31,8 @@ export interface SupplierProfileCopy {
   website: string;
   address: string;
   productsTitle: string;
+  platformCategory: string;
+  platformCategoryHint: string;
   industryTitle: string;
   certificationsTitle: string;
   certificationNote: string;
@@ -70,6 +72,8 @@ const ZH: SupplierProfileCopy = {
   website: "企业官网",
   address: "注册/办公地址",
   productsTitle: "主营产品",
+  platformCategory: "平台归类",
+  platformCategoryHint: "按产品与行业自动归类，点击品目可查看相关采购公告；未命中的产品保留原文。",
   industryTitle: "行业定位",
   certificationsTitle: "资质与认证",
   certificationNote: "认证信息由企业提供；平台认证企业已完成执照与主体一致性审核。",
@@ -115,6 +119,8 @@ const EN: SupplierProfileCopy = {
   website: "Website",
   address: "Registered / office address",
   productsTitle: "Products",
+  platformCategory: "Platform categories",
+  platformCategoryHint: "Classified from products and industry; click a category to browse related procurement notices. Unmatched products keep their original text.",
   industryTitle: "Industry",
   certificationsTitle: "Certifications",
   certificationNote:

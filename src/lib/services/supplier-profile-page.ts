@@ -13,6 +13,7 @@ import { supplierScorecardViewOf } from "@/lib/services/supplier-diagnosis/score
 import { loadCountryAliasSnapshot } from "@/lib/services/country/alias-store";
 import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
 import { supplierProfileViewOf, type SupplierProfileView } from "@/lib/services/supplier-profile";
+import type { SupplierBackboneInterestRow } from "@/lib/repos/suppliers";
 import { splitListField } from "@/lib/utils/mask";
 
 /** 同一请求内 generateMetadata 与页面共用一次取数 */
@@ -42,7 +43,16 @@ export const loadSupplierProfile = cache(async (dbId: number) => {
   } catch {
     // 认领状态查询失败不影响主内容
   }
-  return { profile: supplierProfileViewOf(row, industry, snap), claimed };
+
+  // 平台归类（品目兴趣）：只作为辅助展示/匹配；失败不影响页面主内容
+  let interests: SupplierBackboneInterestRow[] = [];
+  try {
+    interests = await ctx.supplier.directoryRepo.findBackboneInterests(dbId);
+  } catch (err) {
+    console.error("[supplier/[id]] 品目兴趣装配失败，本次不渲染平台归类:", err);
+  }
+
+  return { profile: supplierProfileViewOf(row, industry, snap, interests), claimed };
 });
 
 /** 投标能力成绩单（公开面：只认归属人提交的报告） */

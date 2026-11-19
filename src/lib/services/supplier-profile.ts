@@ -13,7 +13,7 @@
  *              数据诚实：字段为空就返回 null/空数组，由页面整段隐藏，禁止渲染占位推导值。
  */
 import type { Supplier } from "@/types";
-import type { SupplierDirectoryRow } from "@/lib/repos/suppliers";
+import type { SupplierDirectoryRow, SupplierBackboneInterestRow } from "@/lib/repos/suppliers";
 import { maskCreditCode } from "@/lib/repos/suppliers/supplier-directory.repo";
 import { maskEmail, maskPhone, splitListField } from "@/lib/utils/mask";
 import type { CountryAliasSnapshot } from "./country/alias-store";
@@ -40,6 +40,45 @@ const CURRENCY_LABEL: Record<string, string> = {
   JPY: "日元",
 };
 
+export interface SupplierCommodityInterest {
+  code: string;
+  nameZh: string;
+  nameEn: string;
+  level: number;
+  confidence: number | null;
+  isPrimary: boolean;
+  /** L2 大类名（前端按它分组；节点缺失时回退品目名） */
+  categoryZh: string;
+  categoryEn: string;
+}
+
+/** `激光切割机 (Laser cutting machine)` → { zh, en }；无括号时两侧同原文 */
+function splitBilingual(raw: string): { zh: string; en: string } {
+  const text = String(raw ?? "").trim();
+  const m = text.match(/^(.*?)\s*\(([^()]*)\)\s*$/);
+  if (!m) return { zh: text, en: text };
+  return { zh: m[1].trim() || text, en: m[2].trim() || text };
+}
+
+function toCommodityInterest(row: SupplierBackboneInterestRow): SupplierCommodityInterest | null {
+  const code = String(row.code ?? "").trim();
+  if (!code) return null;
+  const name = splitBilingual(row.name);
+  const categoryZh = String(row.l2_name_zh ?? "").trim() || name.zh;
+  const categoryEn = String(row.l2_name_en ?? "").trim() || name.en;
+  const confidence = row.confidence == null ? null : Number(row.confidence);
+  return {
+    code,
+    nameZh: name.zh,
+    nameEn: name.en,
+    level: Number(row.level) || 0,
+    confidence: Number.isFinite(confidence) ? confidence : null,
+    isPrimary: Number(row.is_primary) === 1,
+    categoryZh,
+    categoryEn,
+  };
+}
+
 export interface SupplierProfileView {
   /** 给客户端交互（联系弹窗/认领）复用的既有 DTO（联系方式已脱敏） */
   supplier: Supplier;
@@ -58,6 +97,8 @@ export interface SupplierProfileView {
     tags: Array<{ code: string; nameZh: string; nameEn: string }>;
   };
   products: string[];
+  /** 平台归类（supplier_backbone_interests）：与自由文本产品互补，用于筛选/撮合，不替代原文 */
+  commodityInterests: SupplierCommodityInterest[];
   certifications: string[];
   website: string | null;
   creditCodeMasked: string;
@@ -131,6 +172,7 @@ export function supplierProfileViewOf(
   row: SupplierDirectoryRow,
   industry?: SupplierIndustryInfo | null,
   snap?: CountryAliasSnapshot,
+  interests: SupplierBackboneInterestRow[] = [],
 ): SupplierProfileView {
   const supplier = supplierViewOf(row, industry, snap);
   const company = String(row.company ?? "").trim();
@@ -164,6 +206,9 @@ export function supplierProfileViewOf(
       tags: (industry?.tags ?? []).map((t) => ({ code: t.code, nameZh: t.nameZh, nameEn: t.nameEn })),
     },
     products: splitListField(row.products),
+    commodityInterests: interests
+      .map(toCommodityInterest)
+      .filter((v): v is SupplierCommodityInterest => v !== null),
     certifications: splitListField(row.certification),
     website: safeWebsite(row.website),
     creditCodeMasked: maskCreditCode(row.credit_code),

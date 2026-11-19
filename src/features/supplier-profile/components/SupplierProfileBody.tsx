@@ -11,6 +11,7 @@
  *              作为只读信息段并入主栏，动作入口统一留在页头。
  */
 import { Award, Building2, FileCheck2, Globe2, Mail, Phone, Target, UserRound } from "lucide-react";
+import Link from "next/link";
 import type { SupplierScorecard } from "@/shared/api/supplier";
 import type { SupplierProfileView } from "@/lib/services/supplier-profile";
 import type { SupplierProfileCopy, SupplierProfileLocale } from "../copy";
@@ -122,6 +123,23 @@ export function SupplierProfileBody({ profile, scorecard, copy, locale }: Suppli
   const registrationLabel =
     copy.creditCodeLabels[profile.creditCodeType] ?? copy.creditCodeLabels.other ?? copy.registrationNo;
 
+  // 平台归类：按 L2 大类分组；来源已按 is_primary/weight/confidence 排序，主品目组自然在前
+  const productBase = locale === "en" ? "/en/procurement" : "/procurement";
+  const categoryGroups = (() => {
+    const map = new Map<string, {
+      categoryZh: string;
+      categoryEn: string;
+      items: typeof profile.commodityInterests;
+    }>();
+    for (const item of profile.commodityInterests) {
+      const key = `${item.categoryZh}|${item.categoryEn}`;
+      const group = map.get(key);
+      if (group) group.items.push(item);
+      else map.set(key, { categoryZh: item.categoryZh, categoryEn: item.categoryEn, items: [item] });
+    }
+    return [...map.values()];
+  })();
+
   return (
     <div className="space-y-5">
       {/* 关键工商事实：空值不渲染，不再出现 "—" */}
@@ -196,18 +214,57 @@ export function SupplierProfileBody({ profile, scorecard, copy, locale }: Suppli
         </SectionCard>
       )}
 
-      {profile.products.length > 0 && (
+      {(profile.products.length > 0 || profile.commodityInterests.length > 0) && (
         <SectionCard title={copy.productsTitle} icon={<Building2 className="h-5 w-5 text-teal-600" />}>
-          <div className="flex flex-wrap gap-2">
-            {profile.products.map((p) => (
-              <span
-                key={p}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700"
-              >
-                {p}
-              </span>
-            ))}
-          </div>
+          {profile.products.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {profile.products.map((p) => (
+                <span
+                  key={p}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700"
+                >
+                  {p}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* 平台归类：自由文本为主，品目作为可折叠的辅助结构（点击进采购筛选） */}
+          {categoryGroups.length > 0 && (
+            <details className="group mt-4 border-t border-slate-100 pt-3">
+              <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-teal-700">
+                <span className="inline-block transition-transform group-open:rotate-90">▸</span>
+                {copy.platformCategory}
+                <span className="font-normal text-slate-400">({profile.commodityInterests.length})</span>
+              </summary>
+              <div className="mt-3 space-y-3">
+                {categoryGroups.map((group) => (
+                  <div key={`${group.categoryZh}|${group.categoryEn}`}>
+                    <p className="text-2xs font-bold uppercase tracking-wide text-slate-400">
+                      {locale === "en" ? group.categoryEn : group.categoryZh}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {group.items.map((item) => (
+                        <Link
+                          key={item.code}
+                          href={`${productBase}?commodity=${encodeURIComponent(item.code)}`}
+                          title={item.code}
+                          className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                            item.isPrimary
+                              ? "border-teal-300 bg-teal-50 text-teal-800 hover:bg-teal-100"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-teal-200 hover:bg-teal-50/50"
+                          }`}
+                        >
+                          {locale === "en" ? item.nameEn : item.nameZh}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-2xs text-slate-400">{copy.platformCategoryHint}</p>
+            </details>
+          )}
         </SectionCard>
       )}
 
