@@ -7,14 +7,15 @@
  *              三列网格）+ 安全设置行卡（实心圆图标 + 标题/灰描述 + 右侧实心按钮）
  *              + 会员权益/我的记录。
  *              表现层独立于旧共享组件样式，直接用 Tailwind 原生类实现。
- *              2026-11-19 移除页尾「退出登录」行（退出入口只保留在顶部账户菜单）。
+ *              2026-11-19 恢复页尾「退出登录」入口：此前误以为顶部账户菜单承载退出，
+ *              实际 Header 只在账户按钮跳设置页、没有下拉菜单，导致退出入口消失。
  */
 import { useRouter } from "next/navigation";
 import { useEffect, type ComponentType } from "react";
-import { User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
-import { Skeleton } from "@/shared/ui";
+import { Button, Skeleton } from "@/shared/ui";
 import { useMembershipTier } from "@/shared/hooks/useMembershipTier";
 import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
 import { PhoneBinding } from "./PhoneBinding";
@@ -54,7 +55,7 @@ export interface ProfileContentProps {
 
 export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
   const { t } = useLocale();
-  const { authUser, isVip, refreshAuth } = useAuth();
+  const { authUser, isVip, refreshAuth, logout } = useAuth();
   const { tierLabel } = useMembershipTier();
   const router = useRouter();
   const enterprise = useEnterpriseInfo();
@@ -70,6 +71,10 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
 
   const tierBadgeText = isVip ? tierLabel || t("authVipMember") : t("authFreeMember");
   const openNotice = (noticeId: number) => router.push(`/procurement?notice_id=${noticeId}`);
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
 
   // ★ 供应商认证状态：与企业信息页同一数据源（GET /api/user/enterprise），并走
   //   shared/utils/enterprise-status 的同一口径——后端排他闸口用的就是这份分类，
@@ -166,6 +171,28 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
         <SectionTitle>{t("settingsMyRecords") || "我的记录"}</SectionTitle>
         <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5">
           {MyRecordsPanel ? <MyRecordsPanel onOpenNotice={openNotice} /> : null}
+        </div>
+      </section>
+
+      {/* ── 账号操作：退出登录（2026-11-19 恢复；顶部账户按钮只跳设置页，没有菜单） ── */}
+      <section>
+        <SectionTitle>{t("settingsAccountActions") || "账号操作"}</SectionTitle>
+        <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{t("authLogout")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("authLogoutDesc") || "退出当前账号，清除本机登录状态。"}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleLogout}
+            className="shrink-0 gap-2 border-danger-200 text-danger-600 hover:bg-danger-50"
+          >
+            <LogOut className="h-4 w-4" />
+            {t("authLogout")}
+          </Button>
         </div>
       </section>
     </div>
