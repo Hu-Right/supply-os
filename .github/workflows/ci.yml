@@ -86,7 +86,10 @@ jobs:
   browser-compat:
     name: CSS 回退 · 移动端生产产物冒烟
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # 该 job 要跑「npm ci + 生产构建 + playwright 浏览器安装 + 样式冒烟」，
+    # 实测单次约 19 分钟（e90aeaf5 成功那轮 19m23s），贴着 20 分钟阈值时会被取消；
+    # 提到 30 分钟，避免把「太慢」误判成失败。
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
