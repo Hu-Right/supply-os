@@ -13,7 +13,6 @@ import { clearApiCache } from "@/core/http";
 import { grantNoticeAccess } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentViews } from "../components/RecentViews";
-import { FavoriteNotices } from "../components/FavoriteNotices";
 import type { NoticeItem } from "../types";
 import { applyNoticeIdParam } from "../lib/deepLink";
 import { NoticeDetail } from "../components/NoticeDetail";
@@ -186,9 +185,7 @@ export default function ProcurementPage() {
           onSortChange={(sort) => search.actions.applySearch(sort)}
         />
 
-        {userId && actions.favoriteIds.size > 0 && (
-          <FavoriteNotices favoriteIds={actions.favoriteIds} onOpenNotice={actions.openNoticeById} />
-        )}
+        {/* 商机列表页只保留「最近查看」；「我的收藏」快捷区已下线（收藏仍在卡片/详情页与「我的记录」中可用） */}
         {userId && <RecentViews userId={userId} onOpenNotice={actions.openNoticeById} />}
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
