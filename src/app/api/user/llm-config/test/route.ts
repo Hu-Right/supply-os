@@ -44,15 +44,15 @@ export const POST = withRoute(async (req: NextRequest) => {
     // 测试未保存的新配置：明文 Key 仅在本次请求内存中使用，不落库
     if (body.outboundConsent !== true) {
       return NextResponse.json(
-        { code: EC_INVALID_PARAMS, message: "请先勾选数据出站授权" },
-        { status: 400 },
-      );
+      errorEnvelope(400, EC_INVALID_PARAMS, "请先勾选数据出站授权"),
+      { status: 400 },
+    );
     }
     if (!body.baseUrl || !body.model) {
       return NextResponse.json(
-        { code: EC_INVALID_PARAMS, message: "测试新配置需同时填写 Base URL 与模型名称" },
-        { status: 400 },
-      );
+      errorEnvelope(400, EC_INVALID_PARAMS, "测试新配置需同时填写 Base URL 与模型名称"),
+      { status: 400 },
+    );
     }
     target = { baseUrl: body.baseUrl, apiKey: body.apiKey, model: body.model };
   } else {

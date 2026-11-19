@@ -84,6 +84,14 @@ const ALLOWLIST = new Set([
  *   （mapper 痕迹是名字约定不是保证；目的不是猜准，是让新增的整块透出必须被看见。）
  */
 const DEFAULT_OPAQUE_ALLOWLIST = new Set([
+  // 【ADR-0021 错误 envelope】errorEnvelope 输出键固定为 code/message/error/detail
+  //（详见 docs/adr/0021-api-error-code-standard.md §2.2；catalog 单测 + check:error-codes 驻守），
+  // 非 snake 业务载荷，各路由错误出口整块透出合法。
+  "src/app/api/training/route.ts#errorEnvelope",
+  "src/app/api/user/llm-config/test/route.ts#errorEnvelope",
+  "src/app/api/payment/notify/route.ts#errorEnvelope",
+  "src/app/api/crm/chat/stream/route.ts#errorEnvelope",
+  "src/app/api/wechat/jssdk/route.ts#data",
   // 【A 已收视图·真库探针实测 snake 键 0】路由直接透传服务结果，类型层已是 *View。
   // awards 三端点走 lib/services/awards/view.ts；解锁记录走各自视图；notices/stats 走
   // noticeStats 视图（`...stats` 是共享缓存对象，路由只补两个 camel 日新增键）；
