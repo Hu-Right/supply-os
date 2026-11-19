@@ -20,7 +20,6 @@ export interface SupplierProfileCopy {
   licenseBadge: string;
   mainProductsPrefix: string;
   sendInquiry: string;
-  viewContact: string;
   claimAction: string;
   fileTitle: string;
   established: string;
@@ -40,8 +39,6 @@ export interface SupplierProfileCopy {
   scorecardEvaluated: string;
   contactTitle: string;
   contactEmpty: string;
-  contactMaskedNote: string;
-  contactUnlockedNote: string;
   ownerTitle: string;
   ownerDesc: string;
   similarTitle: string;
@@ -64,7 +61,6 @@ const ZH: SupplierProfileCopy = {
   licenseBadge: "营业执照已上传",
   mainProductsPrefix: "主营：",
   sendInquiry: "发送询盘",
-  viewContact: "查看联系方式",
   claimAction: "认领该企业",
   fileTitle: "企业档案",
   established: "成立时间",
@@ -84,8 +80,6 @@ const ZH: SupplierProfileCopy = {
   scorecardEvaluated: "评测于",
   contactTitle: "联系方式",
   contactEmpty: "该企业暂未公开联系人信息，可通过平台发起询盘。",
-  contactMaskedNote: "联系方式已脱敏；VIP 会员可查看完整联系人、邮箱与电话。",
-  contactUnlockedNote: "VIP 会员，已显示完整联系方式。",
   ownerTitle: "你是该企业负责人？",
   ownerDesc: "认领企业主页后可维护企业档案、补充资质与联系方式，并查看访客与询盘数据。",
   similarTitle: "相似供应商",
@@ -114,7 +108,6 @@ const EN: SupplierProfileCopy = {
   licenseBadge: "Business license on file",
   mainProductsPrefix: "Main products: ",
   sendInquiry: "Send enquiry",
-  viewContact: "View contact details",
   claimAction: "Claim this company",
   fileTitle: "Company facts",
   established: "Established",
@@ -135,8 +128,6 @@ const EN: SupplierProfileCopy = {
   scorecardEvaluated: "Evaluated",
   contactTitle: "Contact",
   contactEmpty: "No public contact has been provided; send an enquiry through the platform.",
-  contactMaskedNote: "Contact details are masked. VIP members can view the full contact person, email and phone.",
-  contactUnlockedNote: "VIP member — full contact details shown.",
   ownerTitle: "Are you the owner of this company?",
   ownerDesc:
     "Claim this profile to maintain company information, add certifications and contacts, and view visitor and enquiry data.",

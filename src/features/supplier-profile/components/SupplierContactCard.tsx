@@ -23,16 +23,9 @@ export interface SupplierContactMasked {
 export interface SupplierContactCardProps {
   supplierId: string;
   contact: SupplierContactMasked;
-  maskedNote: string;
-  unlockedNote: string;
 }
 
-export function SupplierContactCard({
-  supplierId,
-  contact,
-  maskedNote,
-  unlockedNote,
-}: SupplierContactCardProps) {
+export function SupplierContactCard({ supplierId, contact }: SupplierContactCardProps) {
   const auth = useOptionalAuth();
   const authReady = auth?.authReady ?? true;
   const isVip = auth?.isVip ?? false;
@@ -76,17 +69,32 @@ export function SupplierContactCard({
         {phone && (
           <div className="flex items-center gap-2 text-sm text-slate-700">
             <Phone className="h-4 w-4 shrink-0 text-slate-400" />
-            <span dir="ltr" className="font-semibold text-slate-900">{phone}</span>
+            {unlocked ? (
+              <a href={`tel:${phone}`} dir="ltr" className="font-semibold text-teal-700 hover:underline">
+                {phone}
+              </a>
+            ) : (
+              <span className="font-semibold">{phone}</span>
+            )}
           </div>
         )}
         {email && (
           <div className="flex items-center gap-2 text-sm text-slate-700">
             <Mail className="h-4 w-4 shrink-0 text-slate-400" />
-            <span dir="ltr" className="font-semibold text-slate-900">{email}</span>
+            {unlocked ? (
+              <a
+                href={`mailto:${email}`}
+                dir="ltr"
+                className="font-semibold text-teal-700 hover:underline"
+              >
+                {email}
+              </a>
+            ) : (
+              <span className="font-semibold">{email}</span>
+            )}
           </div>
         )}
       </dl>
-      <p className="mt-3 text-2xs text-slate-400">{unlocked ? unlockedNote : maskedNote}</p>
     </>
   );
 }

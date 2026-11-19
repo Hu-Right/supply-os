@@ -6,14 +6,15 @@
  *              资质认证 / 投标能力成绩单。
  *              原则：有数据才渲染；空字段整段隐藏，不再输出 "—" 或按完整度推导的合规结论。
  *
- *              2026-11-19 改版：移除右侧独立「联系方式」栏及其重复动作按钮——页头已有
- *              「发送询盘 / 查看联系方式」，侧栏只放大号重复按钮属于信息冗余。现在联系方式
- *              作为只读信息段并入主栏，动作入口统一留在页头。
+ *              2026-11-19 改版：移除右侧独立「联系方式」栏及其重复动作按钮——联系方式
+ *              作为只读信息段并入主栏；卡片自身按会员状态展示脱敏/明文
+ *              （SupplierContactCard），页头不再保留「查看联系方式」按钮。
  */
-import { Award, Building2, FileCheck2, Globe2, Mail, Phone, Target, UserRound } from "lucide-react";
+import { Award, Building2, FileCheck2, Globe2, Target, UserRound } from "lucide-react";
 import type { SupplierScorecard } from "@/shared/api/supplier";
 import type { SupplierProfileView } from "@/lib/services/supplier-profile";
 import type { SupplierProfileCopy, SupplierProfileLocale } from "../copy";
+import { SupplierContactCard } from "./SupplierContactCard";
 
 export interface SupplierProfileBodyProps {
   profile: SupplierProfileView;
@@ -185,28 +186,10 @@ export function SupplierProfileBody({ profile, scorecard, copy, locale }: Suppli
       {/* 联系方式：只读信息段（动作统一留在页头，避免重复按钮） */}
       {hasAnyContact && (
         <SectionCard title={copy.contactTitle} icon={<UserRound className="h-5 w-5 text-slate-500" />}>
-          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {contact.person && (
-              <div className="flex items-center gap-2 text-sm text-slate-700">
-                <UserRound className="h-4 w-4 shrink-0 text-slate-400" />
-                <span className="font-semibold">{contact.person}</span>
-                {contact.position && <span className="text-xs text-slate-400">{contact.position}</span>}
-              </div>
-            )}
-            {contact.phone && (
-              <div className="flex items-center gap-2 text-sm text-slate-700">
-                <Phone className="h-4 w-4 shrink-0 text-slate-400" />
-                <span className="font-semibold">{contact.phone}</span>
-              </div>
-            )}
-            {contact.email && (
-              <div className="flex items-center gap-2 text-sm text-slate-700">
-                <Mail className="h-4 w-4 shrink-0 text-slate-400" />
-                <span className="font-semibold">{contact.email}</span>
-              </div>
-            )}
-          </dl>
-          <p className="mt-3 text-2xs text-slate-400">{copy.contactMaskedNote}</p>
+          <SupplierContactCard
+            supplierId={profile.supplier.id}
+            contact={contact}
+          />
         </SectionCard>
       )}
 
