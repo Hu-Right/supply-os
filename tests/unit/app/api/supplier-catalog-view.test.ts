@@ -69,13 +69,15 @@ describe("GET /api/certifications", () => {
 });
 
 describe("GET /api/suppliers/stats", () => {
-  it("成功分支显式列举六个计数键；仓储返回值里的内部字段不随 spread 上网", async () => {
+  it("成功分支显式列举七个计数键；仓储返回值里的内部字段不随 spread 上网", async () => {
     mocks.getStats.mockResolvedValue({
+      total: 102624,
       searchable: 100,
       verified: 60,
       withCertification: 20,
       international: 35,
       commodityMatched: 42,
+      registered: 11,
       // getStats 哪天加内部诊断字段（COUNT 别名、耗时）都不该变成对外契约
       total_raw: 100,
       queryMs: 7,
@@ -85,6 +87,7 @@ describe("GET /api/suppliers/stats", () => {
     const body = await run(statsGET, "/api/suppliers/stats");
 
     expect(body).toEqual({
+      total: 102624,
       searchable: 100,
       verified: 60,
       withCertification: 20,
@@ -93,6 +96,8 @@ describe("GET /api/suppliers/stats", () => {
       registered: 11,
     });
     expect(Object.keys(body).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
+    // 性能回归钉：registered 随 getStats 一并返回，路由不得再发第二条 COUNT
+    expect(mocks.countApproved).not.toHaveBeenCalled();
   });
 
   it("查库异常 → 降级分支的键集合与成功分支完全一致（只是全 0）", async () => {
@@ -102,9 +107,9 @@ describe("GET /api/suppliers/stats", () => {
     const body = await run(statsGET, "/api/suppliers/stats");
 
     expect([...Object.keys(body)].sort()).toEqual([
-      "commodityMatched", "international", "registered", "searchable", "verified", "withCertification",
+      "commodityMatched", "international", "registered", "searchable", "total", "verified", "withCertification",
     ]);
-    expect(Object.values(body)).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(Object.values(body)).toEqual([0, 0, 0, 0, 0, 0, 0]);
     err.mockRestore();
   });
 });

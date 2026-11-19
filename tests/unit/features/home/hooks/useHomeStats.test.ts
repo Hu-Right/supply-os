@@ -19,7 +19,7 @@ describe("useHomeStats", () => {
     mockApi
       .mockResolvedValueOnce({ active: 12500, todayNew: 42 })         // /api/notices/stats
       .mockResolvedValueOnce([{ country: "CN" }, { country: "US" }]) // /api/notices/countries
-      .mockResolvedValueOnce({ total: 380 });                         // /api/suppliers
+      .mockResolvedValueOnce({ total: 102624, searchable: 380 });      // /api/suppliers/stats
   }
 
   it("初始状态 loading=true，所有数值为 0", () => {
@@ -42,10 +42,11 @@ describe("useHomeStats", () => {
     expect(result.current.noticeTodayNew).toBe(42);
     expect(result.current.countryCount).toBe(2);
     expect(result.current.certifiedSupplierCount).toBe(380);
+    expect(result.current.supplierTotal).toBe(102624);
     // 回归钉：三个端点都经 apiCached（命中模块级 TTL/去重）而非裸 api
     expect(mockApi).toHaveBeenCalledWith("/api/notices/stats");
     expect(mockApi).toHaveBeenCalledWith("/api/notices/countries");
-    expect(mockApi).toHaveBeenCalledWith("/api/suppliers?page=1&pageSize=1&status=approved");
+    expect(mockApi).toHaveBeenCalledWith("/api/suppliers/stats");
   });
 
   it("API 全部失败时保持零值并结束 loading", async () => {
@@ -61,13 +62,14 @@ describe("useHomeStats", () => {
     expect(result.current.noticeTodayNew).toBe(0);
     expect(result.current.countryCount).toBe(0);
     expect(result.current.certifiedSupplierCount).toBe(0);
+    expect(result.current.supplierTotal).toBe(0);
   });
 
   it("todayNew 缺失时回退为 0", async () => {
     mockApi
       .mockResolvedValueOnce({ active: 100 }) // 无 todayNew 字段
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce({ total: 0 });
+      .mockResolvedValueOnce({ total: 0, searchable: 0 });
 
     const { result } = renderHook(() => useHomeStats());
 
@@ -81,7 +83,7 @@ describe("useHomeStats", () => {
   it("传入服务端直出初值：首帧即真实数字且 loading=false，后台刷新照常接管", async () => {
     mockSuccess();
     const { result } = renderHook(() =>
-      useHomeStats({ noticeActive: 999, noticeTodayNew: 11, countryCount: 3, certifiedSupplierCount: 77, countries: [] }),
+      useHomeStats({ noticeActive: 999, noticeTodayNew: 11, countryCount: 3, certifiedSupplierCount: 77, supplierTotal: 500, countries: [] }),
     );
 
     // 首帧（effect 未结算前）就拿到初值，不经过 0/加载态

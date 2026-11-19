@@ -33,13 +33,13 @@ function StatCard({ label, value, sub, icon: Icon, color }: {
 /** 实时数字墙 — 消费 useHomeStats，展示组件（initialHome 为服务端直出初值；memo 隔离父层重渲染） */
 export const StatsWall = memo(function StatsWall({ initialHome }: { initialHome?: Partial<HomeStatsData> } = {}) {
   const { t } = useLocale();
-  const { noticeActive, noticeTodayNew, countryCount, certifiedSupplierCount } = useHomeStats(initialHome);
+  const { noticeActive, noticeTodayNew, countryCount, supplierTotal } = useHomeStats(initialHome);
 
   const stats = [
     { label: t("homeStatTotal"), value: noticeActive, sub: t("homeStatTotalSub"), icon: Globe, color: "text-teal-600" },
     { label: t("homeStatDaily"), value: noticeTodayNew, sub: t("homeStatDailySub"), icon: TrendingUp, color: "text-blue-600" },
     { label: t("homeStatSources"), value: countryCount, sub: t("homeStatSourcesSub"), icon: Search, color: "text-purple-600" },
-    { label: t("homeStatSuppliers"), value: certifiedSupplierCount, sub: t("homeStatSuppliersSub"), icon: ShieldCheck, color: "text-emerald-600" },
+    { label: t("homeStatSuppliers"), value: supplierTotal, sub: t("homeStatSuppliersSub"), icon: ShieldCheck, color: "text-emerald-600" },
   ];
 
   return (

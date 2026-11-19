@@ -4,7 +4,7 @@
  *
  * @module features/home/hooks/useHomeStats
  * @description StatsWall 与 AboutSection 原先各自独立调用相同的 3 个 API
- *              （/api/notices/stats、/api/notices/countries、/api/suppliers），
+ *              （/api/notices/stats、/api/notices/countries、/api/suppliers/stats），
  *              导致首屏 6 个冗余请求。提取为统一 hook 后：
  *              - 走 apiCached()：模块级 TTL 缓存 + 飞行中去重，
  *                多个组件实例同帧挂载时同一端点只发 1 次真实请求
@@ -23,6 +23,8 @@ export interface HomeStatsData {
   countryCount: number;
   /** 认证供应商数量 */
   certifiedSupplierCount: number;
+  /** 库内供应商总数（全部审核状态，首页数字墙口径） */
+  supplierTotal: number;
   /** 国家商机明细（供 WorldMapChart 使用，避免重复请求） */
   countries: Array<{ country: string; count: number }>;
 }
@@ -32,6 +34,7 @@ const INITIAL_STATS: HomeStatsData = {
   noticeTodayNew: 0,
   countryCount: 0,
   certifiedSupplierCount: 0,
+  supplierTotal: 0,
   countries: [],
 };
 
@@ -55,10 +58,12 @@ export function useHomeStats(initial?: Partial<HomeStatsData>): HomeStatsData & 
 
     const fetchStats = async () => {
       try {
-        const [noticeData, countries, suppliers] = await Promise.all([
+        const [noticeData, countries, supplierStats] = await Promise.all([
           apiCached<{ active: number; todayNew: number; countryCount?: number }>("/api/notices/stats"),
           apiCached<Array<{ country: string; count: number }>>("/api/notices/countries"),
-          apiCached<{ total: number }>("/api/suppliers?page=1&pageSize=1&status=approved"),
+          // 数字墙要「供应商总数」，AboutSection 要「认证供应商」，两者同端点一次取回：
+          // total=全表口径，searchable=已审通过的目录口径（原 list 分支的 total）
+          apiCached<{ total: number; searchable: number }>("/api/suppliers/stats"),
         ]);
 
         if (!mountedRef.current) return;
@@ -67,7 +72,8 @@ export function useHomeStats(initial?: Partial<HomeStatsData>): HomeStatsData & 
           noticeActive: noticeData.active,
           noticeTodayNew: noticeData.todayNew ?? 0,
           countryCount: noticeData.countryCount ?? countries.length,
-          certifiedSupplierCount: suppliers.total ?? 0,
+          certifiedSupplierCount: supplierStats.searchable ?? 0,
+          supplierTotal: supplierStats.total ?? 0,
           countries,
         });
       } catch {

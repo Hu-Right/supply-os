@@ -30,6 +30,8 @@ export interface HomeSnapshot {
   noticeTodayNew: number;
   countryCount: number;
   certifiedSupplierCount: number;
+  /** 库内供应商总数（全部审核状态，数字墙第四张卡） */
+  supplierTotal: number;
   countries: Array<{ country: string; count: number }>;
 }
 
@@ -39,9 +41,9 @@ export interface HomeSnapshot {
  * - noticeTodayNew：北京时间自然日切窗（stats.ts 唯一口径，读主表 create_time）
  * - countryCount：覆盖国家/地区数（2026-11-18 起读服务表 COUNT(DISTINCT country_code)，
  *   主国家 ISO2 口径、读侧零归一化；countries 列表仍供世界地图用，两者口径不同属有意）
- * - certifiedSupplierCount：与 /api/suppliers 分页分支同一 total 口径
- *   （历史注意：该端点不识别 status 查询参数，初值必须镜像其真实行为，
- *   否则 hydration 前后数字会跳变）
+ * - certifiedSupplierCount：已审通过的目录口径（countApproved，AboutSection「认证供应商」）
+ * - supplierTotal：supplier 全表口径（countAll，数字墙「供应商总数」）
+ *   两者与 /api/suppliers/stats 的 searchable / total 同源，避免首帧与刷新后跳变
  */
 export async function getHomeSnapshot(pool: Pool): Promise<HomeSnapshot> {
   const [stats, countries, daily] = await Promise.all([
@@ -49,15 +51,17 @@ export async function getHomeSnapshot(pool: Pool): Promise<HomeSnapshot> {
     getNoticeCountries(pool),
     getNoticeDailyNew(pool),
   ]);
-  const { total: supplierTotal } = await getContext().supplier.directoryRepo.listDirectoryPaginated({
-    limit: 1,
-    offset: 0,
-  });
+  const repo = getContext().supplier.directoryRepo;
+  const [supplierTotal, certifiedSupplierCount] = await Promise.all([
+    repo.countAll(),
+    repo.countApproved(),
+  ]);
   return {
     noticeActive: stats.active,
     noticeTodayNew: daily.todayNew,
     countryCount: stats.countryCount,
-    certifiedSupplierCount: supplierTotal,
+    certifiedSupplierCount,
+    supplierTotal,
     countries,
   };
 }

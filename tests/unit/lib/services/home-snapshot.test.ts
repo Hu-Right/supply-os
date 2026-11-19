@@ -12,7 +12,8 @@ const mocks = vi.hoisted(() => ({
   getNoticeStats: vi.fn(),
   getNoticeCountries: vi.fn(),
   getNoticeDailyNew: vi.fn(),
-  listDirectoryPaginated: vi.fn(),
+  countAll: vi.fn(),
+  countApproved: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -22,7 +23,7 @@ vi.mock("@/lib/services/notice-search", () => ({
   getNoticeDailyNew: mocks.getNoticeDailyNew,
 }));
 vi.mock("@/lib/db/context", () => ({
-  getContext: () => ({ supplier: { directoryRepo: { listDirectoryPaginated: mocks.listDirectoryPaginated } } }),
+  getContext: () => ({ supplier: { directoryRepo: { countAll: mocks.countAll, countApproved: mocks.countApproved } } }),
 }));
 
 import { getHomeSnapshot } from "@/lib/services/home-snapshot";
@@ -34,7 +35,8 @@ beforeEach(() => {
   mocks.getNoticeStats.mockResolvedValue({ active: 10233, raw: 20000, countryCount: 189 });
   mocks.getNoticeCountries.mockResolvedValue([{ country: "CN", count: 5 }, { country: "US", count: 2 }]);
   mocks.getNoticeDailyNew.mockResolvedValue({ todayNew: 42, yesterdayNew: 30 });
-  mocks.listDirectoryPaginated.mockResolvedValue({ items: [], total: 380 });
+  mocks.countAll.mockResolvedValue(102624);
+  mocks.countApproved.mockResolvedValue(380);
 });
 
 describe("getHomeSnapshot", () => {
@@ -44,10 +46,12 @@ describe("getHomeSnapshot", () => {
       noticeTodayNew: 42,
       countryCount: 189,
       certifiedSupplierCount: 380,
+      supplierTotal: 102624,
       countries: [{ country: "CN", count: 5 }, { country: "US", count: 2 }],
     });
-    // 供应商总数必须走与 /api/suppliers 分页分支同一的 repo 调用（limit:1 拿 total）
-    expect(mocks.listDirectoryPaginated).toHaveBeenCalledWith({ limit: 1, offset: 0 });
+    // 数字墙供应商总数 = 全表口径 countAll；认证供应商 = countApproved，与 /api/suppliers/stats 同源
+    expect(mocks.countAll).toHaveBeenCalledTimes(1);
+    expect(mocks.countApproved).toHaveBeenCalledTimes(1);
   });
 
   it("任一路失败整体抛错，留给页面调用方降级", async () => {
