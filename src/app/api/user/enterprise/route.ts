@@ -43,6 +43,7 @@ import {
   listSupplierSelfReport,
 } from "@/lib/services/commodity/supplier-self-report";
 import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
+import { listCertificationNames } from "@/lib/repos/certification-text";
 import type { AppContext } from "@/lib/db/context";
 import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_ENTERPRISE_NOT_BOUND, EC_ENTERPRISE_CLAIMED_BY_OTHER } from "@/shared/constants/api";
 
@@ -81,7 +82,8 @@ const enterpriseBodySchema = z.object({
   credit_code: z.string().max(64).optional(),
   /** 注册标识类型；缺省 uscc（旧客户端/直接 API 不带该键时保持原语义） */
   credit_code_type: z.enum(REGISTRATION_ID_TYPES).optional(),
-  certification: z.string().max(500).optional(),
+  // certification（资质认证）已于 2026-11-19 停写：证书唯一事实源是能力档案，
+  // 存量文本由迁移 057 转入 enterprise_capability_items；前端表单也不再提交该键。
   products: z.string().max(500).optional(),
   /** 营业执照鉴权 URL；null/"" 表示移除。不在 EDITABLE_COLUMNS，由保存端单独协调。 */
   license_url: z.string().max(600).nullish(),
@@ -281,6 +283,9 @@ export const GET = withRoute(async (req) => {
   // pending 事实供给分类器。读失败按 false 兜底——企业页展示不应被一次派生查询拖垮。
   const hasPendingClaim = await ctx.supplier.claimRepo.hasPendingClaim(supplierId).catch(() => false);
 
+  // 证书（认证资质）已改为只读聚合：单一事实源是能力档案，读失败兜底空数组（不拖垮整页）
+  const certificationNames = await listCertificationNames(ctx.dbPool, supplierId).catch(() => []);
+
   return NextResponse.json({
     bound: true,
     linkStatus,
@@ -289,6 +294,7 @@ export const GET = withRoute(async (req) => {
     enterprise: supplierEnterpriseViewOf(row, hasPendingClaim),
     licenseChange,
     commodityNodes,
+    certificationNames,
   });
 });
 

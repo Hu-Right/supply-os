@@ -1,14 +1,17 @@
 /**
- * 企业能力档案 / 证据资料库 —— 编排服务（v0.2）
+ * 企业能力档案 —— 编排服务（v0.3）
  *
  * @module lib/services/enterprise-profile
- * @description 企业设置页「能力档案」与「证据资料」的读写编排：
+ * @description 企业设置页「能力档案」的读写编排：
  *              - 企业主体 = 账号绑定的已认证 supplier（未认证直接 403 引导）；
- *              - 能力项按类型做最小结构化校验（kind + 允许字段），拒绝乱塞 JSON；
- *              - 证据 = upload_files 字节 + enterprise_evidence 元数据（分类/有效期）。
+ *              - 能力项按类型做最小结构化校验（kind + 允许字段），拒绝乱塞 JSON。
  *              产出为 camelCase 视图，供 API 与前端直接消费。
+ *
+ *              2026-11-19 摘除「证据资料」：字段是能力项的真子集（只有标题+有效期），
+ *              有效期从未被可行性报告读取（报告只读能力项的 value.validUntil），
+ *              且证据引用会被标成 kind=upload_file 指向不存在的文件 —— 与能力档案完全重复。
  */
-import type { CapabilityRow, EvidenceRow, EnterpriseProfileRepo, VerifiedEnterpriseRow } from "@/lib/repos/enterprise-profile.repo";
+import type { CapabilityRow, EnterpriseProfileRepo, VerifiedEnterpriseRow } from "@/lib/repos/enterprise-profile.repo";
 import { routeError } from "@/lib/middleware/route-handler";
 import { EC_ACCESS_FORBIDDEN, EC_INVALID_PARAMS, EC_NOT_FOUND } from "@/shared/constants/api";
 
@@ -24,8 +27,6 @@ export const CAPABILITY_TYPES = [
 ] as const;
 export type ProfileCapabilityType = (typeof CAPABILITY_TYPES)[number];
 
-export const EVIDENCE_CATEGORIES = ["cert", "experience", "financial", "personnel", "other"] as const;
-
 export interface CapabilityView {
   id: number;
   type: ProfileCapabilityType;
@@ -33,20 +34,10 @@ export interface CapabilityView {
   value: Record<string, unknown>;
 }
 
-export interface EvidenceView {
-  id: number;
-  category: string;
-  title: string;
-  validFrom: string | null;
-  validUntil: string | null;
-  noExpiry: boolean;
-}
-
 export interface EnterpriseProfileView {
   enterpriseId: number;
   company: string;
   capabilities: CapabilityView[];
-  evidence: EvidenceView[];
 }
 
 /** 仓储接口（测试注入内存实现） */
@@ -62,17 +53,6 @@ export interface EnterpriseProfileRepoLike {
     confirmation: unknown;
   }): Promise<number>;
   deleteCapability(enterpriseId: number, id: number): Promise<boolean>;
-  listEvidence(enterpriseId: number): Promise<EvidenceRow[]>;
-  insertEvidence(params: {
-    enterpriseId: number;
-    category: string;
-    title: string;
-    validFrom: string | null;
-    validUntil: string | null;
-    noExpiry: boolean;
-    confirmed: boolean;
-  }): Promise<number>;
-  deleteEvidence(enterpriseId: number, id: number): Promise<boolean>;
 }
 
 export function createEnterpriseProfileRepo(repo: EnterpriseProfileRepo): EnterpriseProfileRepoLike {
@@ -167,17 +147,6 @@ function capabilityViewOf(row: CapabilityRow): CapabilityView {
   };
 }
 
-function evidenceViewOf(row: EvidenceRow): EvidenceView {
-  return {
-    id: Number(row.id),
-    category: String(row.category ?? "other"),
-    title: String(row.title ?? ""),
-    validFrom: row.valid_from ? String(row.valid_from).slice(0, 10) : null,
-    validUntil: row.valid_until ? String(row.valid_until).slice(0, 10) : null,
-    noExpiry: Number(row.no_expiry) === 1,
-  };
-}
-
 async function requireEnterprise(
   repo: EnterpriseProfileRepoLike,
   userId: number,
@@ -195,15 +164,11 @@ export async function getEnterpriseProfile(
 ): Promise<EnterpriseProfileView> {
   const enterprise = await requireEnterprise(repo, userId);
   const enterpriseId = Number(enterprise.id);
-  const [capabilities, evidence] = await Promise.all([
-    repo.listCapabilities(enterpriseId),
-    repo.listEvidence(enterpriseId),
-  ]);
+  const capabilities = await repo.listCapabilities(enterpriseId);
   return {
     enterpriseId,
     company: String(enterprise.company ?? ""),
     capabilities: capabilities.map(capabilityViewOf),
-    evidence: evidence.map(evidenceViewOf),
   };
 }
 
@@ -243,58 +208,3 @@ export async function removeCapability(
   const deleted = await repo.deleteCapability(Number(enterprise.id), capabilityId);
   if (!deleted) routeError(404, EC_NOT_FOUND, "能力项不存在");
 }
-
-export async function addEvidence(
-  repo: EnterpriseProfileRepoLike,
-  userId: number,
-  input: {
-    category?: unknown;
-    title?: unknown;
-    validFrom?: unknown;
-    validUntil?: unknown;
-    noExpiry?: unknown;
-  },
-): Promise<EvidenceView> {
-  const enterprise = await requireEnterprise(repo, userId);
-  const category = String(input.category ?? "other");
-  if (!(EVIDENCE_CATEGORIES as readonly string[]).includes(category)) {
-    routeError(400, EC_INVALID_PARAMS, "未知的证据分类");
-  }
-  const title = str(input.title).slice(0, 160);
-  if (!title) routeError(400, EC_INVALID_PARAMS, "证据名称不能为空");
-  const noExpiry = input.noExpiry === true;
-  const validFrom = isoDate(input.validFrom);
-  const validUntil = isoDate(input.validUntil);
-  if (!noExpiry && !validUntil && category === "cert") {
-    routeError(400, EC_INVALID_PARAMS, "证书类证据需填写有效期，或选择长期有效");
-  }
-
-  const id = await repo.insertEvidence({
-    enterpriseId: Number(enterprise.id),
-    category,
-    title,
-    validFrom,
-    validUntil: noExpiry ? null : validUntil,
-    noExpiry,
-    confirmed: true,
-  });
-  return {
-    id,
-    category,
-    title,
-    validFrom,
-    validUntil: noExpiry ? null : validUntil,
-    noExpiry,
-  };
-}
-
-export async function removeEvidence(
-  repo: EnterpriseProfileRepoLike,
-  userId: number,
-  evidenceId: number,
-): Promise<void> {
-  const enterprise = await requireEnterprise(repo, userId);
-  const deleted = await repo.deleteEvidence(Number(enterprise.id), evidenceId);
-  if (!deleted) routeError(404, EC_NOT_FOUND, "证据不存在");
-}
-

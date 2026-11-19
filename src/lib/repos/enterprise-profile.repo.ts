@@ -1,10 +1,10 @@
 /**
- * 企业能力档案 / 证据资料库 —— 数据访问层（v0.2）
+ * 企业能力档案 —— 数据访问层（v0.3）
  *
  * @module lib/repos/enterprise-profile.repo
- * @description 企业侧 `enterprise_capability_items` / `enterprise_evidence` / `upload_files`
- *              的读写；企业主体解析 = 账号绑定的已认证 supplier。
- *              注意：upload_files 主键是 filename（无自增 id），证据按 upload_filename 关联。
+ * @description 企业侧 `enterprise_capability_items` 的读写；
+ *              企业主体解析 = 账号绑定的已认证 supplier。
+ *              2026-11-19 摘除 enterprise_evidence（证据资料与能力档案重复，见迁移 056）。
  */
 import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
@@ -26,24 +26,12 @@ export interface CapabilityRow {
   confirmation_json: unknown;
 }
 
-export interface EvidenceRow {
-  id: number;
-  enterprise_id: number;
-  category: string;
-  title: string;
-  valid_from: string | null;
-  valid_until: string | null;
-  no_expiry: number;
-  confirmed: number;
-  created_at: string;
-}
-
 export class EnterpriseProfileRepo {
   constructor(private pool: Pool) {}
 
   async findVerifiedEnterprise(userId: number): Promise<VerifiedEnterpriseRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT s.id, s.company, s.certification, s.certification_tags, s.country
+      `SELECT s.id, s.company, s.country
          FROM users u JOIN supplier s ON s.id = u.supplier_id
         WHERE u.id = ? AND u.supplier_link_status = 'verified' LIMIT 1`,
       [userId],
@@ -87,49 +75,6 @@ export class EnterpriseProfileRepo {
   async deleteCapability(enterpriseId: number, id: number): Promise<boolean> {
     const [res] = await this.pool.execute<ResultSetHeader>(
       "DELETE FROM enterprise_capability_items WHERE id = ? AND enterprise_id = ?",
-      [id, enterpriseId],
-    );
-    return res.affectedRows > 0;
-  }
-
-  async listEvidence(enterpriseId: number): Promise<EvidenceRow[]> {
-    const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT id, enterprise_id, category, title, valid_from, valid_until, no_expiry, confirmed, created_at
-         FROM enterprise_evidence WHERE enterprise_id = ? ORDER BY id DESC`,
-      [enterpriseId],
-    );
-    return rows as unknown as EvidenceRow[];
-  }
-
-  async insertEvidence(params: {
-    enterpriseId: number;
-    category: string;
-    title: string;
-    validFrom: string | null;
-    validUntil: string | null;
-    noExpiry: boolean;
-    confirmed: boolean;
-  }): Promise<number> {
-    const [res] = await this.pool.execute<ResultSetHeader>(
-      `INSERT INTO enterprise_evidence
-         (enterprise_id, category, title, valid_from, valid_until, no_expiry, confirmed)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        params.enterpriseId,
-        params.category,
-        params.title,
-        params.validFrom,
-        params.validUntil,
-        params.noExpiry ? 1 : 0,
-        params.confirmed ? 1 : 0,
-      ],
-    );
-    return Number(res.insertId);
-  }
-
-  async deleteEvidence(enterpriseId: number, id: number): Promise<boolean> {
-    const [res] = await this.pool.execute<ResultSetHeader>(
-      "DELETE FROM enterprise_evidence WHERE id = ? AND enterprise_id = ?",
       [id, enterpriseId],
     );
     return res.affectedRows > 0;

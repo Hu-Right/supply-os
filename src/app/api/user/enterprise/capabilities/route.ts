@@ -27,14 +27,6 @@ export const GET = withRoute(async (req: NextRequest) => {
     enterpriseId: data.enterpriseId,
     company: data.company,
     capabilities: data.capabilities.map((c) => ({ id: c.id, type: c.type, name: c.name, value: c.value })),
-    evidence: data.evidence.map((e) => ({
-      id: e.id,
-      category: e.category,
-      title: e.title,
-      validFrom: e.validFrom,
-      validUntil: e.validUntil,
-      noExpiry: e.noExpiry,
-    })),
   });
 });
 

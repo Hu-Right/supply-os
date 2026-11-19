@@ -20,7 +20,6 @@
  *                  这里保持字符串，不改数值形态（改了会连带影响前端展示与比较）
  *                - `established_at` 是 DATE ⇒ 驱动返回 Date，序列化后是 ISO 串；
  *                  服务端类型如实写 Date | string，前端契约写序列化后的 string
- *                - `certification` 是 **varchar(500)**（不是 JSON 列），逗号分隔文本
  *
  *              ⚠️ 请求侧不受本视图约束：PUT/POST body 的键仍是 supplier 列名
  *              （前端表单字段 key 就是列名，见 features/auth/components/enterprise-edit/fields.ts）。
@@ -46,8 +45,6 @@ export interface SupplierEnterpriseView {
   creditCode: string | null;
   /** 注册标识类型（uscc / hk_br / hk_cr / overseas_reg / tax_id / other），决定 creditCode 的释义 */
   creditCodeType: string | null;
-  /** 逗号分隔文本（varchar），不是数组 */
-  certification: string | null;
   products: string | null;
   verifyStatus: string | null;
   /** 是否存在 status='pending' 的认领（supplier_claims 派生，不是 supplier 列；

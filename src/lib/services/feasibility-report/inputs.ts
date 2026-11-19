@@ -73,17 +73,6 @@ export interface CapabilityRowLike {
   confirmation_json?: unknown;
 }
 
-export interface EvidenceRowLike {
-  id: number | string;
-  enterprise_id: number | string;
-  category: string;
-  title: string;
-  valid_from?: string | null;
-  valid_until?: string | null;
-  no_expiry?: number | boolean | null;
-  confirmed?: number | boolean | null;
-}
-
 // ── 公告 → 抽取输入 ──────────────────────────────────────────────────
 
 /** 从 notice_public 行取附件名（服务端已归一为 [{name,url}] 或字符串数组） */
@@ -227,9 +216,12 @@ export function normalizeRegistrationStatus(raw: string | null | undefined): "ac
 
 /**
  * 从企业档案派生能力项：
- * - supplier.certification / certification_tags → certification（无有效期 → 规则判 unknown，保守）
  * - supplier_diagnosis.ungm_status → registration（仅明确状态）
  * - 手动/确认过的能力行（enterprise_capability_items）→ 原样映射
+ *
+ * 证书不再从 supplier.certification / certification_tags 派生（2026-11-19 单一事实源改造）：
+ * 证书的唯一事实源是 enterprise_capability_items，存量文本已由迁移 057 转入能力项；
+ * 继续读文本会与新口径打架（文本无有效期、且可能与能力项重复）。
  * 其余字段（营收、人员数等）现有档案没有结构化数据，不猜测。
  */
 export function deriveCapabilities(input: {
@@ -237,38 +229,10 @@ export function deriveCapabilities(input: {
   supplier?: SupplierRowLike | null;
   diagnosis?: DiagnosisRowLike | null;
   capabilityRows?: CapabilityRowLike[];
-  evidenceRows?: EvidenceRowLike[];
 }): CapabilityItem[] {
   const capabilities: CapabilityItem[] = [];
-  const { enterpriseId, supplier, diagnosis, capabilityRows, evidenceRows } = input;
-
-  if (supplier) {
-    const tags = [
-      ...splitCertificationTokens(supplier.certification),
-      ...(Array.isArray(supplier.certification_tags) ? supplier.certification_tags.map((t) => String(t)) : []),
-    ];
-    const seen = new Set<string>();
-    for (const token of tags) {
-      const code = normalizeCertCode(token);
-      if (!code || seen.has(code)) continue;
-      seen.add(code);
-      capabilities.push({
-        id: `cap-cert-${code}`,
-        enterpriseId,
-        type: "certification",
-        name: token,
-        value: {
-          kind: "certification",
-          code,
-          // 目录里没有证书有效期：先置空，规则判 unknown（不编造有效期）
-          validUntil: null,
-        },
-        evidenceRefs: [supplierFieldEvidence("certification", `供应商证书登记：${token}`)],
-        confirmation: { source: "supplier_sync", confirmedBy: null, confirmedAt: null },
-      });
-    }
-
-  }
+  const { enterpriseId, supplier, diagnosis, capabilityRows } = input;
+  void supplier; // 供应商行已不提供证书；保留入参供调用方共用同一签名
 
   if (diagnosis) {
     const regStatus = normalizeRegistrationStatus(diagnosis.ungm_status);
@@ -322,28 +286,6 @@ export function deriveCapabilities(input: {
     const index = capabilities.findIndex((c) => c.id === mapped.id);
     if (index >= 0) capabilities[index] = mapped;
     else capabilities.push(mapped);
-  }
-
-  // 证据行（enterprise_evidence）挂到对应能力上（category 对齐 type）
-  for (const evidence of evidenceRows ?? []) {
-    const ref = {
-      id: `enterprise_evidence:${evidence.id}`,
-      kind: "upload_file" as const,
-      ref: `enterprise_evidence:${evidence.id}`,
-      displayName: evidence.title,
-      capturedAt: null,
-    };
-    const targetType = evidence.category === "cert" ? "certification" : evidence.category;
-    // 优先按证据标题匹配同名能力（如「ISO14001 证书」→ code ISO14001），否则挂到同类第一条
-    const titleNorm = String(evidence.title ?? "").toLowerCase();
-    const sameType = capabilities.filter((c) => c.type === targetType);
-    const target =
-      sameType.find((c) => {
-        const code = String((c.value as Record<string, unknown>)?.code ?? "").toLowerCase();
-        return titleNorm.includes(String(c.name).toLowerCase()) || (!!code && titleNorm.includes(code));
-      }) ?? sameType[0];
-    if (!target) continue;
-    target.evidenceRefs = [...(target.evidenceRefs ?? []), ref];
   }
 
   return capabilities;

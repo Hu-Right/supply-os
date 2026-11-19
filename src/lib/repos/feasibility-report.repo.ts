@@ -9,7 +9,6 @@ import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import type {
   CapabilityRowLike,
   DiagnosisRowLike,
-  EvidenceRowLike,
   OpportunityRowLike,
   PublicNoticeRowLike,
   RequirementRowLike,
@@ -45,7 +44,7 @@ export class FeasibilityReportRepo {
   /** 账号绑定的已认证企业（未绑定/未认证返回 null） */
   async findVerifiedSupplierForUser(userId: number): Promise<VerifiedSupplierRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT s.id, s.company, s.country, s.industry_code, s.certification, s.certification_tags,
+      `SELECT s.id, s.company, s.country, s.industry_code,
               s.verify_status, u.supplier_link_status
          FROM users u
          JOIN supplier s ON s.id = u.supplier_id
@@ -59,7 +58,7 @@ export class FeasibilityReportRepo {
 
   async findSupplierById(supplierId: number): Promise<SupplierRowLike | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT id, company, country, industry_code, certification, certification_tags, verify_status
+      `SELECT id, company, country, industry_code, verify_status
          FROM supplier WHERE id = ? LIMIT 1`,
       [supplierId],
     );
@@ -102,15 +101,6 @@ export class FeasibilityReportRepo {
       [enterpriseId],
     );
     return rows as unknown as CapabilityRowLike[];
-  }
-
-  async listEvidenceRows(enterpriseId: number): Promise<EvidenceRowLike[]> {
-    const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT id, enterprise_id, upload_file_id, category, title, valid_from, valid_until, no_expiry, confirmed
-         FROM enterprise_evidence WHERE enterprise_id = ? ORDER BY id DESC LIMIT 200`,
-      [enterpriseId],
-    );
-    return rows as unknown as EvidenceRowLike[];
   }
 
   /** 最新一版要求项（无记录返回空数组） */

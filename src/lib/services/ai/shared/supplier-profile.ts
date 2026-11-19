@@ -15,6 +15,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { DIAGNOSIS_COLUMNS, diagnosisColumnSelect } from "@/shared/constants/diagnosis-dimensions";
+import { attachCertificationText } from "@/lib/repos/certification-text";
 
 /** 全字段均为字符串（NULL 归一为空串），故继承 Record<string, string>：
  *  prompt 模板与 ai-match 均按扁平字典接形，无需在调用点做双重强转。 */
@@ -64,7 +65,7 @@ export async function fetchSupplierProfile(
   if (!supplierId) return null;
 
   const [supRows] = await pool.query(
-    `SELECT s.company, s.products, s.certification, s.country, s.city,
+    `SELECT s.company, s.products, s.country, s.city,
             s.registered_capital, s.established_at,
             ${diagnosisColumnSelect("q")}
      FROM supplier s
@@ -76,6 +77,8 @@ export async function fetchSupplierProfile(
   );
   const row = (supRows as RowDataPacket[])[0];
   if (!row) return null;
+  // 证书文本由能力档案装配（supplier.certification 已于 2026-11-19 停写）
+  await attachCertificationText(pool, [row]);
 
   const profile: Record<string, string> = {
     company: s(row.company),

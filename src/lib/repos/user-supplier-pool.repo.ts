@@ -4,6 +4,7 @@
  * @description user_supplier_pool 表 CRUD + JOIN 查询。
  */
 import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import { attachCertificationText } from "./certification-text";
 import { diagnosisColumnSelect } from "@/shared/constants/diagnosis-dimensions";
 
 /** 事务执行器：池或同一连接（事务内必须传连接，保证读写同会话） */
@@ -180,7 +181,7 @@ export class UserSupplierPoolRepo {
   async fetchSupplierProfiles(userId: number): Promise<Record<string, unknown>[]> {
     const [rows] = await this.pool.query(
       `SELECT p.id AS pool_id, s.id AS supplier_id,
-              s.company, s.products, s.certification,
+              s.company, s.products,
               s.country, s.city, s.registered_capital, s.established_at,
               ${diagnosisColumnSelect("q")}
        FROM user_supplier_pool p
@@ -189,6 +190,8 @@ export class UserSupplierPoolRepo {
        WHERE p.user_id = ? AND p.supplier_id IS NOT NULL`,
       [userId],
     );
+    // 证书文本由能力档案批量装配（supplier.certification 已停写），供 AI 粗筛词项使用
+    await attachCertificationText(this.pool, rows as Record<string, unknown>[], "supplier_id");
     return rows as Record<string, unknown>[];
   }
 }

@@ -126,8 +126,10 @@ export type AppContext = {
  *  EDITABLE_COLUMNS/PORTAL_COLUMNS 同步删列；不 +1 时已绑定企业的账号
  *  GET /api/user/enterprise 仍拼 `intro` → Unknown column → 500。
  *  2026-11-18 +1：迁移 050 给 supplier 加 credit_code_type/credit_code_norm，
- *  白名单（PORTAL/EDITABLE）随之加列；不 +1 时 dev 热重载仍按旧列集合拼 SQL。 */
-const CTX_VERSION = 10;
+ *  白名单（PORTAL/EDITABLE）随之加列；不 +1 时 dev 热重载仍按旧列集合拼 SQL。
+ *  2026-11-19 +1：证书改单一事实源（能力档案），certification 移出 EDITABLE_COLUMNS
+ *  停止写入；旧上下文仍带该列，保存时会继续写历史列，必须让缓存失效。 */
+const CTX_VERSION = 11;
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };

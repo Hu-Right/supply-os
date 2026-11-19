@@ -8,6 +8,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { escapeLikeWildcard } from "../../utils/normalize";
 import { industrySubtreeLike, isIndustryCode, sanitizeIndustryCode } from "../../services/industry-code";
+import { attachCertificationText } from "../certification-text";
 
 /** 供应商目录行（supplier 表） */
 export interface SupplierDirectoryRow {
@@ -217,7 +218,7 @@ export class SupplierDirectoryRepo {
 
     // 分页数据查询
     const [rows] = await this.pool.query(
-      `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city, s.contact, s.phone, s.email, s.products, s.industry_code, s.certification,
+      `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city, s.contact, s.phone, s.email, s.products, s.industry_code,
               s.data_quality_score
        FROM supplier s
        WHERE ${whereSql}
@@ -226,6 +227,8 @@ export class SupplierDirectoryRepo {
       [...values, limit, offset],
     );
 
+    // 证书文本由能力档案批量装配（旧列 supplier.certification 已停写，不参与读取）
+    await attachCertificationText(this.pool, rows as SupplierDirectoryRow[]);
     return { items: rows as SupplierDirectoryRow[], total };
   }
 
@@ -233,14 +236,16 @@ export class SupplierDirectoryRepo {
   async findById(id: number): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry_code, certification,
+              contact, phone, email, products, industry_code,
               data_quality_score
        FROM supplier
        WHERE id = ? AND info_review_status = 'reviewed'
        LIMIT 1`,
       [id],
     );
-    return ((rows as SupplierDirectoryRow[])[0]) ?? null;
+    const row = (rows as SupplierDirectoryRow[])[0] ?? null;
+    if (row) await attachCertificationText(this.pool, [row]);
+    return row;
   }
 
   /**
@@ -251,14 +256,16 @@ export class SupplierDirectoryRepo {
   async findByIdAnyStatus(id: number): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry_code, certification,
+              contact, phone, email, products, industry_code,
               data_quality_score
        FROM supplier
        WHERE id = ?
        LIMIT 1`,
       [id],
     );
-    return ((rows as SupplierDirectoryRow[])[0]) ?? null;
+    const row = (rows as SupplierDirectoryRow[])[0] ?? null;
+    if (row) await attachCertificationText(this.pool, [row]);
+    return row;
   }
 
   /**
@@ -282,13 +289,14 @@ export class SupplierDirectoryRepo {
   /** 强类型可空列：空串必须转 NULL 写入，避免 STRICT 模式 ''→DATE/DECIMAL 报错（列型变更见影子表迁移） */
   static readonly TYPED_NULLABLE_COLS = new Set<string>(["established_at", "registered_capital"]);
 
-  /** 企业信息可编辑列白名单（与 supplier 最终表结构一致；type/name_confirmed 已退役） */
+  /** 企业信息可编辑列白名单（与 supplier 最终表结构一致；type/name_confirmed 已退役）
+   *  certification 已于 2026-11-19 移出：证书唯一事实源是能力档案，本列停写。 */
   static readonly EDITABLE_COLUMNS = [
     "company", "country", "country_code", "province", "city",
     "address", "contact", "position", "phone", "email",
     "website", "legal_rep",
     "established_at", "registered_capital", "credit_code", "credit_code_type",
-    "certification", "products",
+    "products",
   ] as const;
 
   /** 仅服务端派生写入、不对外下发（PORTAL_COLUMNS 不含）：注册标识归一号码 */

@@ -19,7 +19,6 @@ import {
   requirementItemFromRow,
   type CapabilityRowLike,
   type DiagnosisRowLike,
-  type EvidenceRowLike,
   type OpportunityRowLike,
   type PublicNoticeRowLike,
   type SupplierRowLike,
@@ -39,7 +38,6 @@ export interface FeasibilityReportRepoLike {
   getNotice(noticePk: number): Promise<PublicNoticeRowLike | null>;
   getOpportunityByNoticeId(noticeId: string | number): Promise<OpportunityRowLike | null>;
   listCapabilityRows(enterpriseId: number): Promise<CapabilityRowLike[]>;
-  listEvidenceRows(enterpriseId: number): Promise<EvidenceRowLike[]>;
   getLatestRequirements(noticePk: number): Promise<{ version: number; rows: unknown[] }>;
   saveRequirements(noticePk: number, items: RequirementItem[], promptVersion: string): Promise<number>;
   getLatestReport(noticePk: number, enterpriseId: number): Promise<FeasibilityReportRow | null>;
@@ -148,12 +146,11 @@ export async function getFeasibilityReportForNotice(
   const latest = await deps.repo.getLatestRequirements(params.noticePk);
   if (latest.rows.length > 0) {
     const requirements = latest.rows.map((item) => requirementItemFromRow(item as never));
-    const [diagnosis, capabilityRows, evidenceRows] = await Promise.all([
+    const [diagnosis, capabilityRows] = await Promise.all([
       deps.repo.findDiagnosis(params.userId, enterpriseId),
       deps.repo.listCapabilityRows(enterpriseId),
-      deps.repo.listEvidenceRows(enterpriseId),
     ]);
-    const capabilities = deriveCapabilities({ enterpriseId, supplier, diagnosis, capabilityRows, evidenceRows });
+    const capabilities = deriveCapabilities({ enterpriseId, supplier, diagnosis, capabilityRows });
     const currentHash = inputHashOf({
       noticePk: params.noticePk,
       enterpriseId,
@@ -235,17 +232,15 @@ export async function generateFeasibilityReport(
   }
 
   // 2) 企业能力快照（自动带出 + 手工确认行）
-  const [diagnosis, capabilityRows, evidenceRows] = await Promise.all([
+  const [diagnosis, capabilityRows] = await Promise.all([
     deps.repo.findDiagnosis(params.userId, enterpriseId),
     deps.repo.listCapabilityRows(enterpriseId),
-    deps.repo.listEvidenceRows(enterpriseId),
   ]);
   const capabilities = deriveCapabilities({
     enterpriseId,
     supplier,
     diagnosis,
     capabilityRows,
-    evidenceRows,
   });
   if (capabilities.length === 0) {
     routeError(400, EC_INVALID_PARAMS, "企业档案缺少可判定的能力项（证书/业绩/注册等），请先完善企业资料");

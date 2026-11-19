@@ -46,7 +46,6 @@ export interface EnterpriseInfo {
   /** 注册标识类型（缺省按 uscc 处理，见 shared/constants/registration-id） */
   creditCodeType: string | null;
   /** varchar 逗号分隔文本，不是数组 */
-  certification: string | null;
   products: string | null;
   verifyStatus: string | null;
   /** 是否存在 status='pending' 的认领（supplier_claims 派生；供应商行上的 claim_status
@@ -81,6 +80,8 @@ interface EnterpriseResponse {
   licenseChange?: LicenseChangeBrief | null;
   /** 当前绑定主体已自报的品目节点（无绑定/读失败为空数组） */
   commodityNodes?: CommodityNodeBrief[];
+  /** 证书展示名（来源=能力档案 capability_type='certification'；无绑定/读失败为空数组） */
+  certificationNames?: string[];
 }
 
 export interface UseEnterpriseInfoReturn {
@@ -91,6 +92,8 @@ export interface UseEnterpriseInfoReturn {
   licenseChange: LicenseChangeBrief | null;
   /** 当前绑定主体已自报的品目节点（编辑页回填用） */
   commodityNodes: CommodityNodeBrief[];
+  /** 证书展示名（单一事实源=能力档案，企业信息页只读聚合用） */
+  certificationNames: string[];
   loading: boolean;
   error: string | null;
   retry: () => void;
@@ -103,6 +106,7 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
   const [enterprise, setEnterprise] = useState<EnterpriseInfo | null>(null);
   const [licenseChange, setLicenseChange] = useState<LicenseChangeBrief | null>(null);
   const [commodityNodes, setCommodityNodes] = useState<CommodityNodeBrief[]>([]);
+  const [certificationNames, setCertificationNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -120,6 +124,7 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
       setEnterprise(null);
       setLicenseChange(null);
       setCommodityNodes([]);
+      setCertificationNames([]);
     }
     // 未登录不取数（对齐 useHasSupplierPool 语义）：接口必然 401，徒增报错噪声
     if (userId === undefined) {
@@ -140,6 +145,7 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
         setEnterprise(d?.enterprise ?? null);
         setLicenseChange(d?.licenseChange ?? null);
         setCommodityNodes(Array.isArray(d?.commodityNodes) ? d.commodityNodes : []);
+        setCertificationNames(Array.isArray(d?.certificationNames) ? d.certificationNames : []);
       })
       .catch((e) => {
         if (!cancelled) {
@@ -147,6 +153,7 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
           setEnterprise(null);
           setLicenseChange(null);
           setCommodityNodes([]);
+          setCertificationNames([]);
           setError(e instanceof Error ? e.message : "load-failed");
         }
       })
@@ -172,5 +179,5 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
     };
   }, []);
 
-  return { bound, linkStatus, enterprise, licenseChange, commodityNodes, loading, error, retry };
+  return { bound, linkStatus, enterprise, licenseChange, commodityNodes, certificationNames, loading, error, retry };
 }
