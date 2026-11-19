@@ -180,9 +180,6 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
         <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5 flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">{t("authLogout")}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {t("authLogoutDesc") || "退出当前账号，清除本机登录状态。"}
-            </p>
           </div>
           <Button
             type="button"
