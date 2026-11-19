@@ -142,7 +142,6 @@ export default async function SupplierProfilePage({
         <SupplierProfileHeader profile={profile} claimed={claimed} copy={COPY} locale="zh" />
         <SupplierProfileBody
           profile={profile}
-          claimed={claimed}
           scorecard={scorecard}
           copy={COPY}
           locale="zh"
