@@ -11,7 +11,6 @@
  *              作为只读信息段并入主栏，动作入口统一留在页头。
  */
 import { Award, Building2, FileCheck2, Globe2, Mail, Phone, Target, UserRound } from "lucide-react";
-import Link from "next/link";
 import type { SupplierScorecard } from "@/shared/api/supplier";
 import type { SupplierProfileView } from "@/lib/services/supplier-profile";
 import type { SupplierProfileCopy, SupplierProfileLocale } from "../copy";
@@ -124,7 +123,6 @@ export function SupplierProfileBody({ profile, scorecard, copy, locale }: Suppli
     copy.creditCodeLabels[profile.creditCodeType] ?? copy.creditCodeLabels.other ?? copy.registrationNo;
 
   // 平台归类：按 L2 大类分组；来源已按 is_primary/weight/confidence 排序，主品目组自然在前
-  const productBase = locale === "en" ? "/en/procurement" : "/procurement";
   const categoryGroups = (() => {
     const map = new Map<string, {
       categoryZh: string;
@@ -245,24 +243,22 @@ export function SupplierProfileBody({ profile, scorecard, copy, locale }: Suppli
                     </p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {group.items.map((item) => (
-                        <Link
+                        <span
                           key={item.code}
-                          href={`${productBase}?commodity=${encodeURIComponent(item.code)}`}
                           title={item.code}
-                          className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                          className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
                             item.isPrimary
-                              ? "border-teal-300 bg-teal-50 text-teal-800 hover:bg-teal-100"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-teal-200 hover:bg-teal-50/50"
+                              ? "border-teal-300 bg-teal-50 text-teal-800"
+                              : "border-slate-200 bg-white text-slate-600"
                           }`}
                         >
                           {locale === "en" ? item.nameEn : item.nameZh}
-                        </Link>
+                        </span>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-2xs text-slate-400">{copy.platformCategoryHint}</p>
             </details>
           )}
         </SectionCard>
