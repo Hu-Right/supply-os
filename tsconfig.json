@@ -57,6 +57,7 @@
     "node_modules",
     "coverage",
     "runtime",
+    "tmp",
     "temp",
     "test-results",
     "playwright-report"
