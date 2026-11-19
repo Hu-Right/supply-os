@@ -28,6 +28,7 @@ import {
   sourceDateWallSeconds,
   SOURCE_DATE_PROFILES,
 } from "@/shared/utils/notice-datetime/source-date";
+import { buildShareSummary } from "./share-summary";
 
 /**
  * 一次性数据治理：把服务表 industry 的旧值归一为 canonical slug（唯一写入者纪律）。
@@ -79,6 +80,75 @@ export async function normalizePublicIndustryColumn(
     await pool.query(
       `UPDATE notice_public SET industry = CASE notice_pk ${when} END WHERE notice_pk IN (${inMarks})`,
       params,
+    );
+  }
+  return { scanned, updated };
+}
+
+/**
+ * 回填分享卡摘要（历史行）——只补 `share_summary IS NULL` 的行。
+ *
+ * 构建器只覆盖「被重新选中构建」的行，存量 53 万行不会因为加列自动有值；
+ * 本函数按 notice_pk 游标分批读正文、用 buildShareSummary 生成并写回。
+ * 抽不出可用文本的行保持 NULL（读侧回退标题），下次运行会再次扫描。
+ *
+ * @param apply false 时只统计待回填行数（DRY）
+ * @param limit 只处理前 N 行（本地抽样验证用）
+ */
+export async function backfillShareSummaries(
+  pool: Pool,
+  opts: { apply?: boolean; chunkSize?: number; limit?: number } = {},
+): Promise<{ scanned: number; updated: number }> {
+  const apply = opts.apply !== false;
+  const chunk = Math.max(100, Math.min(opts.chunkSize ?? 500, 2000));
+  const limit = opts.limit && opts.limit > 0 ? opts.limit : Number.POSITIVE_INFINITY;
+  let lastPk = 0;
+  let scanned = 0;
+  let updated = 0;
+  while (scanned < limit) {
+    const take = Math.min(chunk, limit - scanned);
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT notice_pk, title, title_cn, description, description_cn
+         FROM notice_public
+        WHERE notice_pk > ? AND (share_summary IS NULL OR share_summary_en IS NULL)
+        ORDER BY notice_pk
+        LIMIT ?`,
+      [lastPk, take],
+    );
+    if (rows.length === 0) break;
+    const pending: Array<[number, string | null, string | null]> = [];
+    for (const row of rows) {
+      const summary = buildShareSummary({
+        title: row.title == null ? null : String(row.title),
+        titleCn: row.title_cn == null ? null : String(row.title_cn),
+        description: row.description == null ? null : String(row.description),
+        descriptionCn: row.description_cn == null ? null : String(row.description_cn),
+      });
+      if (summary.zh || summary.en) pending.push([Number(row.notice_pk), summary.zh, summary.en]);
+    }
+    scanned += rows.length;
+    updated += pending.length;
+    lastPk = Number(rows[rows.length - 1].notice_pk);
+    if (scanned % 50_000 < chunk) {
+      console.log(`[share-summary] 进度：扫描 ${scanned} 行，已回填 ${updated} 行`);
+    }
+    if (!apply || pending.length === 0) continue;
+    const when = pending.map(() => "WHEN ? THEN ?").join(" ");
+    const inMarks = pending.map(() => "?").join(",");
+    const pks = pending.map(([pk]) => pk);
+    const zhParams: unknown[] = [];
+    for (const [pk, zh] of pending) zhParams.push(pk, zh);
+    zhParams.push(...pks);
+    await pool.query(
+      `UPDATE notice_public SET share_summary = CASE notice_pk ${when} END WHERE notice_pk IN (${inMarks})`,
+      zhParams,
+    );
+    const enParams: unknown[] = [];
+    for (const [pk, , en] of pending) enParams.push(pk, en);
+    enParams.push(...pks);
+    await pool.query(
+      `UPDATE notice_public SET share_summary_en = CASE notice_pk ${when} END WHERE notice_pk IN (${inMarks})`,
+      enParams,
     );
   }
   return { scanned, updated };
@@ -172,6 +242,7 @@ export const PUBLIC_COLS = [
   "registration_level", "beneficiary_countries",
   "supplier_conditions", "eligibility", "technical_hurdles",
   "updated_at", "is_opportunity",
+  "share_summary", "share_summary_en",
 ] as const;
 
 interface PlatformEntry { code: string; name: string }
@@ -574,6 +645,9 @@ export function buildPublicRow(
   const supplierConditions = opp?.sc ?? null;
   const eligibility = opp?.eh ?? null;
   const technicalHurdles = opp?.th ?? null;
+  // 分享卡摘要（中/英）：构建期生成，供 OG 卡片、分享文案、列表 teaser 共用；
+  // 抽不出可用文本时落 NULL，读侧回退标题（share-summary.ts 同一函数）。
+  const shareSummary = buildShareSummary({ description: desc, descriptionCn: contentZh });
 
   return [
     r.id, noticeId, extractUrl(r.url), String(r.reference ?? "").slice(0, 255) || null,
@@ -596,6 +670,8 @@ export function buildPublicRow(
       toEpoch(r.title_updated_at) ?? 0,
     ) || Math.floor(Date.now() / 1000),
     Number(r.is_opportunity ?? 0) >= 1 ? 1 : 0,
+    shareSummary.zh,
+    shareSummary.en,
   ];
 }
 

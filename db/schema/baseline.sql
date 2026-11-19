@@ -1260,6 +1260,8 @@ CREATE TABLE `notice_public` (
   `supplier_conditions` longtext COMMENT '供应商投标条件（服务表优先，空则回退商机表）',
   `eligibility` longtext COMMENT '资格要求（服务表优先，空则回退商机表）',
   `technical_hurdles` longtext COMMENT '技术门槛（服务表优先，空则回退商机表）',
+  `share_summary` varchar(300) DEFAULT NULL COMMENT '分享卡摘要（中文，≤90 字，构建期生成；空则读侧回退标题）',
+  `share_summary_en` varchar(300) DEFAULT NULL COMMENT '分享卡摘要（英文，≤180 字符，构建期生成；空则读侧回退标题）',
   `has_attachments` tinyint(1) GENERATED ALWAYS AS ((coalesce(json_length(`attachments`),0) > 0)) VIRTUAL COMMENT '是否有可下载附件（虚拟生成列，由 attachments 自动计算；规模条/检索过滤用）',
   PRIMARY KEY (`notice_pk`),
   UNIQUE KEY `uq_notice_id` (`notice_id`),
