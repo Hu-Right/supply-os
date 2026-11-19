@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 141 张，导出 126 张，排除 15 张。
+--           源库共 140 张，导出 126 张，排除 14 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -14,10 +14,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 CREATE TABLE `account_menu` (
   `account_id` int unsigned NOT NULL COMMENT 'accounts.id',
   `menu_id` int unsigned NOT NULL COMMENT 'sys_menu.menu_id',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`account_id`,`menu_id`),
   KEY `idx_account_menu_menu` (`menu_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='后台角色权限表';
 
 -- ── accounts ──
 CREATE TABLE `accounts` (
@@ -28,8 +27,8 @@ CREATE TABLE `accounts` (
   `employee_id` int unsigned DEFAULT NULL COMMENT '关联 crm_employees.id',
   `is_super` tinyint(1) NOT NULL DEFAULT '0' COMMENT '超管：恒有全部权限',
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `session_version` int unsigned NOT NULL DEFAULT '0' COMMENT '登录会话版本：登录/强制下线 +1，旧 JWT 立即失效',
   `last_login_at` datetime DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
   UNIQUE KEY `employee_id` (`employee_id`),
@@ -40,7 +39,7 @@ CREATE TABLE `accounts` (
 CREATE TABLE `api_keys` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `key_hash` char(64) NOT NULL COMMENT 'API Key SHA-256 哈希（不存明文）',
-  `key_prefix` varchar(16) NOT NULL COMMENT 'Key 前缀，供调用方识别',
+  `key_prefix` char(16) NOT NULL COMMENT 'Key 前缀，固定 16 位：supplyos_sk_ + 4 位 hex，仅用于列表辨认',
   `name` varchar(100) NOT NULL COMMENT '应用名称',
   `tier` enum('basic','pro') NOT NULL DEFAULT 'basic' COMMENT '套餐档位',
   `rate_limit_per_min` int NOT NULL DEFAULT '60' COMMENT '每分钟请求上限',
@@ -50,9 +49,7 @@ CREATE TABLE `api_keys` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `last_used_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_key_hash` (`key_hash`),
-  KEY `idx_status` (`status`),
-  KEY `idx_prefix` (`key_prefix`)
+  UNIQUE KEY `uk_key_hash` (`key_hash`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='外部API KEY';
 
 -- ── api_usage ──
@@ -65,8 +62,7 @@ CREATE TABLE `api_usage` (
   `ip_address` varchar(45) DEFAULT NULL COMMENT '调用方 IP',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_key_date` (`api_key_id`,`created_at`),
-  KEY `idx_created` (`created_at`)
+  KEY `idx_key_date` (`api_key_id`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='外部API获取的信息。';
 
 -- ── benefit_catalog ──
@@ -658,24 +654,6 @@ CREATE TABLE `enterprise_capability_items` (
   KEY `idx_cap_enterprise_type` (`enterprise_id`,`capability_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：企业能力项（结构化档案+证据）';
 
--- ── enterprise_evidence ──
-CREATE TABLE `enterprise_evidence` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `enterprise_id` bigint unsigned NOT NULL COMMENT '企业主体（v0.1 = 已认证 supplier.id）',
-  `category` varchar(32) NOT NULL DEFAULT 'other' COMMENT 'cert/experience/financial/personnel/other',
-  `title` varchar(255) NOT NULL COMMENT '业务名称（如 ISO 14001 证书）',
-  `valid_from` date DEFAULT NULL COMMENT '证据有效期起',
-  `valid_until` date DEFAULT NULL COMMENT '证据有效期止（NULL=长期有效，需 no_expiry=1）',
-  `no_expiry` tinyint(1) NOT NULL DEFAULT '0' COMMENT '1=长期有效，与 valid_until 互斥',
-  `tags_json` json DEFAULT NULL COMMENT '标签（行业/品类/地区等）',
-  `confirmed` tinyint(1) NOT NULL DEFAULT '0' COMMENT '用户是否确认过该证据',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_evidence_enterprise` (`enterprise_id`,`category`),
-  KEY `idx_evidence_valid_until` (`valid_until`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：企业证据/资料库最小版';
-
 -- ── feasibility_reports ──
 CREATE TABLE `feasibility_reports` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1009,6 +987,22 @@ CREATE TABLE `monthly_kpi` (
   UNIQUE KEY `uk_employee_month` (`employee_id`,`kpi_month`),
   CONSTRAINT `fk_monthly_kpi_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='员工月度KPI完成情况';
+
+-- ── notice_access_grants ──
+CREATE TABLE `notice_access_grants` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL,
+  `opportunity_id` bigint unsigned DEFAULT NULL,
+  `notice_id` bigint unsigned DEFAULT NULL,
+  `grant_type` enum('free','single','subscription') NOT NULL DEFAULT 'free',
+  `price` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `granted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_opportunity` (`user_id`,`opportunity_id`),
+  UNIQUE KEY `uk_user_notice` (`user_id`,`notice_id`),
+  KEY `idx_opportunity_id` (`opportunity_id`),
+  KEY `idx_notice_id` (`notice_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告/商机访问授权流水（原 opportunity_unlocks：会员打开即自动留痕；grant_type/price 为历史付费凭证）';
 
 -- ── notice_ai_summaries ──
 CREATE TABLE `notice_ai_summaries` (
@@ -1457,22 +1451,6 @@ CREATE TABLE `opportunity_translations` (
   KEY `idx_opp_tr_lang` (`lang`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='机会公告翻译表';
 
--- ── notice_access_grants ──
-CREATE TABLE `notice_access_grants` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint unsigned NOT NULL,
-  `opportunity_id` bigint unsigned DEFAULT NULL,
-  `notice_id` bigint unsigned DEFAULT NULL,
-  `grant_type` enum('free','single','subscription') NOT NULL DEFAULT 'free',
-  `price` decimal(10,2) NOT NULL DEFAULT '0.00',
-  `granted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_opportunity` (`user_id`,`opportunity_id`),
-  UNIQUE KEY `uk_user_notice` (`user_id`,`notice_id`),
-  KEY `idx_opportunity_id` (`opportunity_id`),
-  KEY `idx_notice_id` (`notice_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告/商机访问授权流水（原 opportunity_unlocks：会员打开即自动留痕；grant_type/price 为历史付费凭证）';
-
 -- ── orders ──
 CREATE TABLE `orders` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1711,7 +1689,7 @@ CREATE TABLE `procurement_buyers` (
   `org_name` varchar(255) NOT NULL COMMENT '采购主体完整法定名称',
   `buyer_role` varchar(32) NOT NULL DEFAULT 'end_buyer' COMMENT '采购权限：end_buyer/authorized_agent/general_contractor/intermediary',
   `country` varchar(80) DEFAULT NULL COMMENT '注册国家',
-  `reg_no` varchar(120) DEFAULT NULL COMMENT '注册标识号码（原文，按类型释义）',
+  `reg_no` varchar(120) DEFAULT NULL COMMENT '注册号码',
   `reg_no_type` varchar(24) NOT NULL DEFAULT 'uscc' COMMENT '注册标识类型（uscc/hk_br/hk_cr/overseas_reg/tax_id/other）',
   `reg_no_norm` varchar(64) DEFAULT NULL COMMENT '注册标识归一号码（去分隔符转大写，仅查重用）',
   `tax_no` varchar(120) DEFAULT NULL COMMENT '税务编号',
@@ -2107,11 +2085,11 @@ CREATE TABLE `supplier` (
   PRIMARY KEY (`id`),
   KEY `idx_verify_status` (`verify_status`,`id`),
   KEY `idx_credit_code` (`credit_code`),
-  KEY `idx_supplier_credit_norm` (`credit_code_type`,`credit_code_norm`),
   KEY `idx_company` (`company`(64)),
   KEY `idx_supplier_country` (`country`),
   KEY `idx_supplier_company` (`company`),
   KEY `idx_supplier_info_review` (`info_review_status`),
+  KEY `idx_supplier_credit_norm` (`credit_code_type`,`credit_code_norm`),
   FULLTEXT KEY `ft_supplier_products` (`products`) /*!50100 WITH PARSER `ngram` */ 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商管理';
 
@@ -2271,10 +2249,26 @@ CREATE TABLE `sync_watermark` (
   PRIMARY KEY (`table_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- ── sys_audit_items ──
+CREATE TABLE `sys_audit_items` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `audit_id` bigint unsigned NOT NULL COMMENT 'sys_audit_logs.id',
+  `table_name` varchar(64) NOT NULL,
+  `row_id` varchar(100) NOT NULL,
+  `op` varchar(16) NOT NULL COMMENT 'INSERT/UPDATE/DELETE',
+  `before_row` json DEFAULT NULL,
+  `after_row` json DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_audit` (`audit_id`),
+  KEY `idx_row` (`table_name`,`row_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='审计行级明细';
+
 -- ── sys_audit_logs ──
 CREATE TABLE `sys_audit_logs` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `operator_id` bigint unsigned NOT NULL COMMENT '操作人ID',
+  `operator_kind` varchar(16) NOT NULL DEFAULT 'USER' COMMENT '操作主体类型 USER/SYSTEM/ANON',
   `operator_name` varchar(100) NOT NULL COMMENT '操作人姓名',
   `ip` varchar(45) NOT NULL COMMENT '客户端IP',
   `action_type` varchar(50) NOT NULL COMMENT '操作类型',
