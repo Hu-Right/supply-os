@@ -19,6 +19,9 @@ export interface SupplierProfileCopy {
   claimedBadge: string;
   licenseBadge: string;
   mainProductsPrefix: string;
+  sendInquiry: string;
+  viewContact: string;
+  claimAction: string;
   fileTitle: string;
   established: string;
   registeredCapital: string;
@@ -55,6 +58,9 @@ const ZH: SupplierProfileCopy = {
   claimedBadge: "已认领",
   licenseBadge: "营业执照已上传",
   mainProductsPrefix: "主营：",
+  sendInquiry: "发送询盘",
+  viewContact: "查看联系方式",
+  claimAction: "认领该企业",
   fileTitle: "企业档案",
   established: "成立时间",
   registeredCapital: "注册资本",
@@ -97,6 +103,9 @@ const EN: SupplierProfileCopy = {
   claimedBadge: "Claimed",
   licenseBadge: "Business license on file",
   mainProductsPrefix: "Main products: ",
+  sendInquiry: "Send enquiry",
+  viewContact: "View contact details",
+  claimAction: "Claim this company",
   fileTitle: "Company facts",
   established: "Established",
   registeredCapital: "Registered capital",

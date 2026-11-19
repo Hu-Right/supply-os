@@ -99,6 +99,7 @@ export function SupplierProfileHeader({ profile, claimed, copy, locale }: Suppli
             supplier={profile.supplier}
             dbId={profile.dbId}
             claimed={claimed}
+            copy={copy}
             variant="header"
           />
         </div>

@@ -1247,7 +1247,6 @@ CREATE TABLE `notice_public` (
   `contacts` json DEFAULT NULL COMMENT '联系方式数组（归一，正则抽取，需按可信度使用）',
   `attachments` json DEFAULT NULL COMMENT '附件列表（旁表 attachment_text 优先，回退 documents/procurement_files）',
   `external_links` json DEFAULT NULL COMMENT '外部链接（已排除与附件重复项）',
-  `difficulty` varchar(20) DEFAULT NULL COMMENT '采购难度：low/medium/high/unknown',
   `registration_level` varchar(20) DEFAULT NULL COMMENT '注册层级：basic/level1..3/medium/high/standard/unknown',
   `beneficiary_countries` varchar(500) DEFAULT NULL COMMENT '受援国/受益国（原文列表）',
   `updated_at` bigint DEFAULT NULL COMMENT '行刷新水位 epoch 秒（增量 reconcile 依据）',
@@ -2239,6 +2238,28 @@ CREATE TABLE `supplier_industry_rel` (
   KEY `idx_code` (`industry_code`),
   KEY `idx_sup` (`supplier_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商×行业面标签关系';
+
+-- ── supplier_inquiry ──
+CREATE TABLE `supplier_inquiry` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `supplier_id` int NOT NULL COMMENT '供应商主键（supplier.id）',
+  `user_id` int NOT NULL COMMENT '提交用户（users.id）',
+  `contact_name` varchar(100) DEFAULT NULL COMMENT '联系人姓名（用户填写，可空）',
+  `contact_phone` varchar(50) DEFAULT NULL COMMENT '联系电话（用户填写，可空）',
+  `contact_email` varchar(200) DEFAULT NULL COMMENT '联系邮箱（用户填写，可空）',
+  `demand` text NOT NULL COMMENT '采购需求描述',
+  `quantity` varchar(100) DEFAULT NULL COMMENT '预计数量/规模（自由文本，可空）',
+  `locale` varchar(10) NOT NULL DEFAULT 'zh' COMMENT '提交语言（zh/en/...）',
+  `status` varchar(20) NOT NULL DEFAULT 'new' COMMENT '处理状态：new/contacted/closed/spam',
+  `source` varchar(30) NOT NULL DEFAULT 'supplier_profile' COMMENT '来源页面标识',
+  `client_ip` varchar(64) DEFAULT NULL COMMENT '提交 IP（反滥用审计，可空）',
+  `user_agent` varchar(500) DEFAULT NULL COMMENT 'User-Agent（反滥用审计，可空）',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_inquiry_supplier` (`supplier_id`,`created_at`),
+  KEY `idx_inquiry_user` (`user_id`,`created_at`),
+  KEY `idx_inquiry_status` (`status`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商询盘线索';
 
 -- ── sync_watermark ──
 CREATE TABLE `sync_watermark` (

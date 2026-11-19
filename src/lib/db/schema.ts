@@ -64,6 +64,8 @@ import { migration as noticeAccessGrantsRenameMigration } from "./migrations/054
 import { migration as noticePublicIndustryCommentMigration } from "./migrations/055-notice-public-industry-comment";
 import { migration as dropEnterpriseEvidenceMigration } from "./migrations/056-drop-enterprise-evidence";
 import { migration as certificationToCapabilityItemsMigration } from "./migrations/057-certification-to-capability-items";
+import { migration as dropNoticePublicDifficultyMigration } from "./migrations/058-drop-notice-public-difficulty";
+import { migration as supplierInquiryMigration } from "./migrations/059-supplier-inquiry";
 import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
 import { migration as dropBuyerParentMigration } from "./migrations/043-buyer-drop-parent";
 import { migration as searchLogAnonymousMigration } from "./migrations/044-search-log-anonymous";
@@ -130,6 +132,8 @@ export const ALL_MIGRATIONS: Migration[] = [
   noticePublicIndustryCommentMigration,
   dropEnterpriseEvidenceMigration,
   certificationToCapabilityItemsMigration,
+  dropNoticePublicDifficultyMigration,
+  supplierInquiryMigration,
 ];
 
 /**

@@ -1,28 +1,33 @@
 "use client";
 
 /**
- * 供应商企业主页 — 交互动作（联系 / 认领）
+ * 供应商企业主页 — 交互动作（询盘 / 查看联系方式 / 认领）
  *
  * @module features/supplier-profile/components/SupplierProfileActions
- * @description 从旧版 SupplierProfilePage 中抽出的最小客户端边界：页面主体是服务端渲染，
- *              只有「发询盘 / 查看联系方式」「认领企业」两个动作需要客户端状态与弹窗。
- *              联系方式仍走 VIP 门槛（403 → 升级事件），认领仍走 supplier-claims API。
+ * @description 页面主体是服务端渲染，只有三个动作需要客户端状态：
+ *              1) 发询盘——登录用户填写需求（非 VIP 也可用），提交到 supplier_inquiry；
+ *              2) 查看联系方式——保持 VIP 门槛（403 → 升级事件）；
+ *              3) 认领企业——走 supplier-claims。
+ *              按钮文案由服务端按 locale 传入 copy（避免 SSR 首屏回落到中文）。
  */
 import { useState } from "react";
-import { Send, ShieldCheck } from "lucide-react";
-import { useLocale } from "@/core/i18n";
+import { Mail, Send, ShieldCheck } from "lucide-react";
 import { useAuth, useUserId } from "@/core/auth";
 import { Button } from "@/shared/ui";
+import { emitAppEvent } from "@/core/events";
 import { fetchSupplierContact, type SupplierContact, type SupplierContactStatus } from "@/shared/api/supplier";
 import { SupplierContactModal } from "@/shared/components/SupplierContactModal";
 import { SupplierClaimModal } from "./SupplierClaimModal";
+import { SupplierInquiryModal } from "./SupplierInquiryModal";
+import type { SupplierProfileCopy } from "../copy";
 import type { Supplier } from "@/types";
 
 export interface SupplierProfileActionsProps {
   supplier: Supplier;
   dbId: number;
   claimed: boolean;
-  /** contact：只渲染联系按钮（详情正文的联系卡复用）；header：联系 + 认领 */
+  copy: SupplierProfileCopy;
+  /** contact：联系方式卡（联系按钮在前）；header：页头（询盘 + 联系方式 + 认领） */
   variant?: "header" | "contact";
 }
 
@@ -30,17 +35,26 @@ export function SupplierProfileActions({
   supplier,
   dbId,
   claimed,
+  copy,
   variant = "header",
 }: SupplierProfileActionsProps) {
-  const { t } = useLocale();
   const { isVip } = useAuth();
   const userId = useUserId();
   const [contactModal, setContactModal] = useState<{
     status: SupplierContactStatus;
     contact: SupplierContact | null;
   } | null>(null);
+  const [showInquiry, setShowInquiry] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [claimDone, setClaimDone] = useState(false);
+
+  const openInquiry = () => {
+    if (!userId) {
+      emitAppEvent("supply-os:require-login");
+      return;
+    }
+    setShowInquiry(true);
+  };
 
   const handleContact = async () => {
     if (!userId || !isVip) {
@@ -56,6 +70,30 @@ export function SupplierProfileActions({
     }
   };
 
+  const inquiryButton = (primary: boolean) => (
+    <Button
+      type="button"
+      onClick={openInquiry}
+      variant={primary ? "primary" : "outline"}
+      className={primary ? "gap-2 px-5 py-2.5 text-sm font-bold" : "gap-2 px-4 py-2.5 text-sm font-bold"}
+    >
+      <Send className="h-4 w-4" />
+      {copy.sendInquiry}
+    </Button>
+  );
+
+  const contactButton = (primary: boolean) => (
+    <Button
+      type="button"
+      onClick={handleContact}
+      variant={primary ? "primary" : "outline"}
+      className={primary ? "gap-2 px-5 py-2.5 text-sm font-bold" : "gap-2 px-4 py-2.5 text-sm font-bold"}
+    >
+      <Mail className="h-4 w-4" />
+      {copy.viewContact}
+    </Button>
+  );
+
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -67,18 +105,20 @@ export function SupplierProfileActions({
             className="gap-2 border-teal-200 px-4 py-2.5 text-sm font-bold text-teal-700 hover:bg-teal-50"
           >
             <ShieldCheck className="h-4 w-4" />
-            {t("profile_claimTitle")}
+            {copy.claimAction}
           </Button>
         )}
-        <Button
-          type="button"
-          onClick={handleContact}
-          variant="primary"
-          className="gap-2 px-5 py-2.5 text-sm font-bold"
-        >
-          <Send className="h-4 w-4" />
-          {t("profile_sendInquiry")}
-        </Button>
+        {variant === "header" ? (
+          <>
+            {inquiryButton(true)}
+            {contactButton(false)}
+          </>
+        ) : (
+          <>
+            {contactButton(true)}
+            {inquiryButton(false)}
+          </>
+        )}
       </div>
 
       {contactModal && (
@@ -87,6 +127,14 @@ export function SupplierProfileActions({
           status={contactModal.status}
           contact={contactModal.contact}
           onClose={() => setContactModal(null)}
+        />
+      )}
+
+      {showInquiry && (
+        <SupplierInquiryModal
+          supplierId={supplier.id}
+          supplierName={supplier.nameZh}
+          onClose={() => setShowInquiry(false)}
         />
       )}
 

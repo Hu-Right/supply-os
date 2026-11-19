@@ -173,6 +173,7 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/suppliers", auth: "member", status: 200, bodyType: "array", src: "/api/suppliers" },
   { method: "GET", path: "/api/suppliers/:id", auth: "member", status: 200, bodyType: "object", src: "/api/suppliers/:id" },
   { method: "GET", path: "/api/suppliers/:id/contact", auth: "member", status: 200, bodyType: "object", src: "/api/suppliers/:id/contact" },
+  { method: "POST", path: "/api/suppliers/:id/inquiry", auth: "none", status: 401, bodyType: "object", src: "/api/suppliers/:id/inquiry" },
   { method: "GET", path: "/api/suppliers/similar", auth: "member", status: 400, bodyType: "object", src: "/api/suppliers/similar" },
   { method: "GET", path: "/api/suppliers/stats", auth: "member", status: 200, bodyType: "object", src: "/api/suppliers/stats" },
   { method: "GET", path: "/api/system/icp", auth: "none", status: 200, bodyType: "object", src: "/api/system/icp" },

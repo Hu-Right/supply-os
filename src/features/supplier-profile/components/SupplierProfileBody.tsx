@@ -261,6 +261,7 @@ export function SupplierProfileBody({ profile, claimed, scorecard, copy, locale 
               supplier={profile.supplier}
               dbId={profile.dbId}
               claimed={claimed}
+              copy={copy}
               variant="contact"
             />
           </div>
@@ -275,6 +276,7 @@ export function SupplierProfileBody({ profile, claimed, scorecard, copy, locale 
                 supplier={profile.supplier}
                 dbId={profile.dbId}
                 claimed={claimed}
+                copy={copy}
                 variant="header"
               />
             </div>
