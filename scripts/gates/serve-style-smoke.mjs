@@ -22,6 +22,9 @@ const fixtures = {
   // 新首页（/）首屏数据接口只读样例：形状与各消费 hook 的解析口径对齐，
   // 空数据即可满足样式冒烟（不校验业务内容，只确保不触发 5xx 与前端 pageerror）。
   "/api/notices/hot-topics": { countries: [], industries: [] },
+  // 首页 Hero 热词 + 三栏公告列（2026-11 新增）：空集即可，样式冒烟只关心首屏不因 5xx 断渲染
+  "/api/notices/hot-searches": { mode: "fallback", windowDays: 7, updatedAt: 0, keywords: [] },
+  "/api/notices/home-columns": { items: [] },
   "/api/notices/stats": { active: 0, todayNew: 0, yesterdayNew: 0 },
   "/api/notices/countries": [],
   "/api/suppliers": { items: [], total: 0, page: 1, pageSize: 20 },
