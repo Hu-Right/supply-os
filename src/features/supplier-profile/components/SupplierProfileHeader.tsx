@@ -1,5 +1,3 @@
-// i18n-allow-file: 供应商企业主页首版为 zh 路由服务端渲染（英文站点尚无供应商详情路由），
-// 页面文案统一中文口径；接入 /en/supplier/[id] 时再按 locale 拆键，勿在本文件新增英文硬编码。
 /**
  * 供应商企业主页 — 页头
  *
@@ -10,17 +8,25 @@
  */
 import { BadgeCheck, Building2, Globe2, MapPin, ShieldCheck } from "lucide-react";
 import type { SupplierProfileView } from "@/lib/services/supplier-profile";
+import type { SupplierProfileCopy, SupplierProfileLocale } from "../copy";
 import { SupplierProfileActions } from "./SupplierProfileActions";
 
 export interface SupplierProfileHeaderProps {
   profile: SupplierProfileView;
   claimed: boolean;
+  copy: SupplierProfileCopy;
+  locale: SupplierProfileLocale;
 }
 
-export function SupplierProfileHeader({ profile, claimed }: SupplierProfileHeaderProps) {
-  const location = [profile.country, profile.province, profile.city].filter(Boolean).join(" · ");
-  const industryLabel = profile.industry.primary?.nameZh ?? profile.products[0] ?? "";
-  const initials = profile.company.replace(/\s+/g, "").slice(0, 2) || "企";
+export function SupplierProfileHeader({ profile, claimed, copy, locale }: SupplierProfileHeaderProps) {
+  const country = locale === "en" ? profile.supplier.countryEn : profile.country;
+  const location = [country, profile.province, profile.city].filter(Boolean).join(" · ");
+  const industryName = profile.industry.primary
+    ? locale === "en"
+      ? profile.industry.primary.nameEn
+      : profile.industry.primary.nameZh
+    : profile.products[0] ?? "";
+  const initials = profile.company.replace(/\s+/g, "").slice(0, 2) || "CO";
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6">
@@ -40,27 +46,27 @@ export function SupplierProfileHeader({ profile, claimed }: SupplierProfileHeade
               {profile.verifyStatus === "done" ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-2xs font-bold text-teal-700">
                   <BadgeCheck className="h-3.5 w-3.5" />
-                  平台认证企业
+                  {copy.verifiedBadge}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-2xs font-bold text-slate-600">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  信息已审核
+                  {copy.reviewedBadge}
                 </span>
               )}
               <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-2xs font-bold text-slate-600">
                 <Globe2 className="h-3.5 w-3.5" />
-                {profile.type === "domestic" ? "国内供应商" : "国际供应商"}
+                {profile.type === "domestic" ? copy.domestic : copy.international}
               </span>
               {claimed && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-2xs font-bold text-blue-700">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  已认领
+                  {copy.claimedBadge}
                 </span>
               )}
               {profile.hasLicense && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-2xs font-bold text-amber-700">
-                  营业执照已上传
+                  {copy.licenseBadge}
                 </span>
               )}
             </div>
@@ -72,16 +78,17 @@ export function SupplierProfileHeader({ profile, claimed }: SupplierProfileHeade
                   {location}
                 </span>
               )}
-              {industryLabel && (
+              {industryName && (
                 <span className="inline-flex items-center gap-1">
                   <Building2 className="h-3.5 w-3.5" />
-                  {industryLabel}
+                  {industryName}
                 </span>
               )}
             </div>
             {profile.products.length > 0 && (
               <p className="mt-2 line-clamp-2 text-sm text-slate-600">
-                主营：{profile.products.slice(0, 5).join(" / ")}
+                {copy.mainProductsPrefix}
+                {profile.products.slice(0, 5).join(" / ")}
               </p>
             )}
           </div>

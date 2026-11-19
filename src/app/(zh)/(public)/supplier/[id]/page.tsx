@@ -1,73 +1,32 @@
-// i18n-allow-file: 供应商企业主页首版为 zh 路由服务端渲染（英文站点尚无供应商详情路由），
-// 页面与 generateMetadata 统一中文口径；接入 /en/supplier/[id] 时再按 locale 拆键。
+// i18n-allow-file: 供应商企业主页 zh 路由；静态文案由 features/supplier-profile/copy.ts 提供，英文路由见 (en)/en/supplier/[id]
 /**
- * /supplier/[id] — 供应商企业主页（SSR 首版）
+ * /supplier/[id] — 供应商企业主页（SSR，zh）
  *
  * @module app/(zh)/(public)/supplier/[id]
  * @description 服务端直出企业档案：真实工商信息、主营产品、行业定位、资质、成绩单与脱敏联系方式；
  *              空字段整段隐藏（不再渲染 "—" 或按完整度推导的合规结论）。
  *              SEO：真实公司名/行业/地区 title + description + Organization/BreadcrumbList JSON-LD。
- *              交互边界只有「发询盘 / 认领」两个客户端动作（SupplierProfileActions）。
+ *              交互边界只有「发询盘 / 认领」两个客户端动作。
  */
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { cache } from "react";
 import { ChevronRight } from "lucide-react";
-import { getContext } from "@/lib/db/context";
-import { getPool } from "@/lib/db/pool";
-import { SupplierDiagnosisRepo } from "@/lib/repos/supplier-diagnosis.repo";
-import { supplierScorecardViewOf } from "@/lib/services/supplier-diagnosis/scorecard-view";
-import { loadCountryAliasSnapshot } from "@/lib/services/country/alias-store";
-import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
-import { supplierProfileViewOf } from "@/lib/services/supplier-profile";
+import {
+  loadSupplierProfile,
+  loadSupplierScorecard,
+  loadSimilarSuppliers,
+} from "@/lib/services/supplier-profile-page";
+import { SUPPLIER_PROFILE_COPY } from "@/features/supplier-profile/copy";
 import { SupplierProfileHeader } from "@/features/supplier-profile/components/SupplierProfileHeader";
 import { SupplierProfileBody } from "@/features/supplier-profile/components/SupplierProfileBody";
+import { SupplierSimilarSection } from "@/features/supplier-profile/components/SupplierSimilarSection";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { jsonLdScript } from "@/lib/services/seo/json-ld";
 import { parseSupplierId } from "@/lib/utils/supplier-id";
 
 export const revalidate = 3600;
-
-/** 同一请求内 generateMetadata 与页面共用一次取数 */
-const loadSupplierProfile = cache(async (dbId: number) => {
-  const ctx = getContext();
-  // 公开面只认 info_review_status='reviewed'（与列表口径一致）；本人绑定主体查看待审档案走 /api 路径
-  const row = await ctx.supplier.directoryRepo.findByIdWithFallback(dbId);
-  if (!row) return null;
-
-  let industry = null;
-  try {
-    const info = await loadSupplierIndustryInfo(ctx.supplier.industryRepo, [row]);
-    industry = info.get(dbId) ?? null;
-  } catch (err) {
-    console.error("[supplier/[id]] 行业标签装配失败，本次退回产品首项:", err);
-  }
-  let snap;
-  try {
-    snap = await loadCountryAliasSnapshot(ctx.dbPool);
-  } catch (err) {
-    console.error("[supplier/[id]] 国家别名快照加载失败，本次退回原文:", err);
-  }
-
-  let claimed = false;
-  try {
-    claimed = await ctx.supplier.directoryRepo.isClaimed(dbId);
-  } catch {
-    // 认领状态查询失败不影响主内容
-  }
-  return { profile: supplierProfileViewOf(row, industry, snap), claimed };
-});
-
-async function loadScorecard(dbId: number) {
-  try {
-    const row = await new SupplierDiagnosisRepo(getPool()).findClaimantScorecard(dbId);
-    return row ? supplierScorecardViewOf(row, "zh") : null;
-  } catch (err) {
-    console.error("[supplier/[id]] 成绩单装配失败，本次不渲染:", err);
-    return null;
-  }
-}
+const COPY = SUPPLIER_PROFILE_COPY.zh;
 
 export async function generateMetadata({
   params,
@@ -96,7 +55,14 @@ export async function generateMetadata({
   return {
     title,
     description,
-    alternates: { canonical: absoluteUrl(`/supplier/${dbId}`) },
+    alternates: {
+      canonical: absoluteUrl(`/supplier/${dbId}`),
+      languages: {
+        zh: absoluteUrl(`/supplier/${dbId}`),
+        en: absoluteUrl(`/en/supplier/${dbId}`),
+        "x-default": absoluteUrl(`/supplier/${dbId}`),
+      },
+    },
     openGraph: {
       title: `${profile.company} | 供应商企业主页`,
       description,
@@ -125,7 +91,10 @@ export default async function SupplierProfilePage({
   const data = await loadSupplierProfile(dbId);
   if (!data) notFound();
   const { profile, claimed } = data;
-  const scorecard = await loadScorecard(dbId);
+  const [scorecard, similar] = await Promise.all([
+    loadSupplierScorecard(dbId),
+    loadSimilarSuppliers(profile),
+  ]);
 
   const organizationJsonLd = {
     "@context": "https://schema.org",
@@ -150,8 +119,8 @@ export default async function SupplierProfilePage({
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "首页", item: absoluteUrl("/") },
-      { "@type": "ListItem", position: 2, name: "供应商目录", item: absoluteUrl("/supplier") },
+      { "@type": "ListItem", position: 1, name: COPY.breadcrumbHome, item: absoluteUrl("/") },
+      { "@type": "ListItem", position: 2, name: COPY.breadcrumbDirectory, item: absoluteUrl("/supplier") },
       { "@type": "ListItem", position: 3, name: profile.company, item: absoluteUrl(`/supplier/${dbId}`) },
     ],
   };
@@ -162,16 +131,23 @@ export default async function SupplierProfilePage({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }} />
 
       <nav aria-label="面包屑" className="mb-4 flex flex-wrap items-center gap-1 text-xs text-slate-500">
-        <Link href="/" className="hover:text-teal-700">首页</Link>
+        <Link href="/" className="hover:text-teal-700">{COPY.breadcrumbHome}</Link>
         <ChevronRight className="h-3 w-3 text-slate-300" />
-        <Link href="/supplier" className="hover:text-teal-700">供应商目录</Link>
+        <Link href="/supplier" className="hover:text-teal-700">{COPY.breadcrumbDirectory}</Link>
         <ChevronRight className="h-3 w-3 text-slate-300" />
         <span className="truncate font-semibold text-slate-700" aria-current="page">{profile.company}</span>
       </nav>
 
       <div className="space-y-5">
-        <SupplierProfileHeader profile={profile} claimed={claimed} />
-        <SupplierProfileBody profile={profile} claimed={claimed} scorecard={scorecard} />
+        <SupplierProfileHeader profile={profile} claimed={claimed} copy={COPY} locale="zh" />
+        <SupplierProfileBody
+          profile={profile}
+          claimed={claimed}
+          scorecard={scorecard}
+          copy={COPY}
+          locale="zh"
+        />
+        <SupplierSimilarSection items={similar} copy={COPY} locale="zh" />
       </div>
     </div>
   );

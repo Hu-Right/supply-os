@@ -62,15 +62,17 @@ export async function fetchSitemapNotices(pool?: Pool): Promise<SitemapNoticeRow
 }
 
 /**
- * 供应商目录（排除测试数据）。
+ * 供应商详情页（/supplier/[id] 已上线）。
  * supplier 表为外部只读表，无 updated_at —— 以 addtime 作为 lastModified。
+ * 只提交公开口径（info_review_status='reviewed'）且排除测试数据，避免 sitemap 指向 404。
  */
 export async function fetchSitemapSuppliers(pool?: Pool): Promise<SitemapSupplierRow[]> {
   const db = pool ?? getPool();
   const [rows] = await db.query(
     `SELECT id, addtime
      FROM supplier
-     WHERE company <> '测试'
+     WHERE info_review_status = 'reviewed'
+       AND company <> '测试'
      ORDER BY id DESC
      LIMIT ${SUPPLIER_LIMIT}`,
   );

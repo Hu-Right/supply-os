@@ -46,6 +46,8 @@ export interface SupplierProfileView {
   dbId: number;
   company: string;
   type: "domestic" | "international";
+  /** ISO2 国别码（相似供应商/结构化数据用；空串表示未提供） */
+  countryCode: string;
   country: string;
   province: string;
   city: string;
@@ -59,6 +61,8 @@ export interface SupplierProfileView {
   certifications: string[];
   website: string | null;
   creditCodeMasked: string;
+  /** 注册标识原始类型键（uscc/hk_br/...，供 en 文案映射） */
+  creditCodeType: string;
   creditCodeTypeLabel: string;
   registeredCapital: string | null;
   establishedAt: string | null;
@@ -147,6 +151,7 @@ export function supplierProfileViewOf(
     dbId: Number(row.id),
     company,
     type,
+    countryCode: String(row.country_code ?? ""),
     country,
     province,
     city,
@@ -162,6 +167,7 @@ export function supplierProfileViewOf(
     certifications: splitListField(row.certification),
     website: safeWebsite(row.website),
     creditCodeMasked: maskCreditCode(row.credit_code),
+    creditCodeType: String(row.credit_code_type ?? "uscc"),
     creditCodeTypeLabel:
       CREDIT_CODE_TYPE_LABEL[String(row.credit_code_type ?? "uscc")] ?? CREDIT_CODE_TYPE_LABEL.other,
     registeredCapital: formatRegisteredCapital(row.registered_capital, row.currency),

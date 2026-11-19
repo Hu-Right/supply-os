@@ -8,7 +8,7 @@
  *              报警，不再静默吞掉全部动态 URL（2026-08-28 根治性修复）。
  */
 import type { MetadataRoute } from "next";
-import { fetchSitemapNotices, fetchSitemapCountries } from "@/lib/services/seo/sitemap-sources";
+import { fetchSitemapNotices, fetchSitemapCountries, fetchSitemapSuppliers } from "@/lib/services/seo/sitemap-sources";
 import { SITE_URL } from "@/lib/services/seo/site";
 
 const BASE_URL = SITE_URL;
@@ -93,15 +93,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] 国别段生成失败，国别落地页 URL 已降级为空:", (err as Error).message);
   }
 
-  // ── 供应商段已移除（2026-08-29）──
-  // /supplier?supplier_id=X 与公告段同理共享 /supplier canonical（重复页）。
-  // 待 /supplier/[id] 详情路由建成后再恢复（fetchSitemapSuppliers 保留在
-  // sitemap-sources 作为数据源）。
+  // ── 供应商详情段（/supplier/[id] 与 /en/supplier/[id] 已上线）──
+  let supplierPages: MetadataRoute.Sitemap = [];
+  try {
+    const rows = await fetchSitemapSuppliers();
+    supplierPages = rows.map((row) => ({
+      url: `${BASE_URL}/supplier/${row.id}`,
+      lastModified: isoOrNull(row.addtime) ?? now,
+      changeFrequency: "monthly" as const,
+      priority: 0.5,
+      alternates: {
+        languages: {
+          zh: `${BASE_URL}/supplier/${row.id}`,
+          en: `${BASE_URL}/en/supplier/${row.id}`,
+        },
+      },
+    }));
+  } catch (err) {
+    console.error("[sitemap] 供应商段生成失败，供应商详情 URL 已降级为空:", (err as Error).message);
+  }
 
   // ── 静默失效防线：DB 可达但公告段为空视为异常（表结构变更/权限问题的早期信号）──
   if (noticePages.length === 0) {
     console.error("[sitemap] 警告：动态公告段为空 —— 请检查 sitemap-sources 查询与数据库可用性");
   }
 
-  return [...staticPages, ...countryPages, ...noticePages];
+  return [...staticPages, ...countryPages, ...supplierPages, ...noticePages];
 }

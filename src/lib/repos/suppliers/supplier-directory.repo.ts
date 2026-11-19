@@ -154,6 +154,48 @@ export class SupplierDirectoryRepo {
     return rows as SupplierDirectoryRow[];
   }
 
+  /**
+   * 相似供应商（企业主页底部推荐）：同行业子树优先，不足再按同国家补齐。
+   *
+   * 只查公开口径（info_review_status='reviewed'）且排除自身；行业码来自树内白名单，
+   * 这里按前缀做子树匹配（I4 不变量），不做 LIKE 元字符转义（码集只含 [A-Z0-9-]）。
+   */
+  async findSimilarReviewed(params: {
+    excludeId: number;
+    industryCode?: string | null;
+    countryCode?: string | null;
+    limit: number;
+  }): Promise<SupplierDirectoryRow[]> {
+    const { excludeId, industryCode, countryCode } = params;
+    const limit = Math.max(1, Math.min(Math.floor(params.limit), 12));
+    const baseCols = `s.id, s.company, s.country, s.country_code, s.province, s.city,
+              s.products, s.industry_code, s.data_quality_score, s.certification`;
+    const baseWhere = `s.info_review_status = 'reviewed' AND s.company <> '测试' AND s.id <> ?`;
+    if (industryCode) {
+      const [rows] = await this.pool.query(
+        `SELECT ${baseCols}
+           FROM supplier s
+          WHERE ${baseWhere} AND s.industry_code LIKE ?
+          ORDER BY s.data_quality_score DESC, s.id DESC
+          LIMIT ?`,
+        [excludeId, `${industryCode}%`, limit],
+      );
+      return rows as SupplierDirectoryRow[];
+    }
+    if (countryCode) {
+      const [rows] = await this.pool.query(
+        `SELECT ${baseCols}
+           FROM supplier s
+          WHERE ${baseWhere} AND s.country_code = ?
+          ORDER BY s.data_quality_score DESC, s.id DESC
+          LIMIT ?`,
+        [excludeId, countryCode, limit],
+      );
+      return rows as SupplierDirectoryRow[];
+    }
+    return [];
+  }
+
   /** 供应商目录分页查询（行业为轴 + 产品/公司关键词；排序走白名单） */
   async listDirectoryPaginated(params: {
     limit: number;

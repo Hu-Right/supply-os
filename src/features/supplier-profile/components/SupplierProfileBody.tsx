@@ -1,5 +1,3 @@
-// i18n-allow-file: 供应商企业主页首版为 zh 路由服务端渲染（英文站点尚无供应商详情路由），
-// 页面文案统一中文口径；接入 /en/supplier/[id] 时再按 locale 拆键。
 /**
  * 供应商企业主页 — 正文信息区
  *
@@ -10,12 +8,15 @@
 import { Award, Building2, FileCheck2, Globe2, Mail, Phone, Target, UserRound } from "lucide-react";
 import type { SupplierScorecard } from "@/shared/api/supplier";
 import type { SupplierProfileView } from "@/lib/services/supplier-profile";
+import type { SupplierProfileCopy, SupplierProfileLocale } from "../copy";
 import { SupplierProfileActions } from "./SupplierProfileActions";
 
 export interface SupplierProfileBodyProps {
   profile: SupplierProfileView;
   claimed: boolean;
   scorecard: SupplierScorecard | null;
+  copy: SupplierProfileCopy;
+  locale: SupplierProfileLocale;
 }
 
 function FactItem({ label, children }: { label: string; children: React.ReactNode }) {
@@ -47,7 +48,15 @@ function SectionCard({
   );
 }
 
-function ScorecardSection({ scorecard }: { scorecard: SupplierScorecard }) {
+function ScorecardSection({
+  scorecard,
+  copy,
+  locale,
+}: {
+  scorecard: SupplierScorecard;
+  copy: SupplierProfileCopy;
+  locale: SupplierProfileLocale;
+}) {
   const tone =
     scorecard.grade === "A"
       ? { text: "text-teal-600", bar: "bg-teal-500", badge: "bg-teal-50 border-teal-200 text-teal-700" }
@@ -55,7 +64,7 @@ function ScorecardSection({ scorecard }: { scorecard: SupplierScorecard }) {
         ? { text: "text-amber-600", bar: "bg-amber-500", badge: "bg-amber-50 border-amber-200 text-amber-700" }
         : { text: "text-slate-500", bar: "bg-slate-400", badge: "bg-slate-50 border-slate-200 text-slate-600" };
   return (
-    <SectionCard title="投标能力成绩单" icon={<Target className="h-5 w-5 text-teal-600" />}>
+    <SectionCard title={copy.scorecardTitle} icon={<Target className="h-5 w-5 text-teal-600" />}>
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
         <div className="flex shrink-0 items-baseline gap-2 sm:w-44 sm:flex-col sm:items-center sm:border-r sm:border-slate-100 sm:pr-6">
           <div className="flex items-baseline gap-1">
@@ -66,7 +75,8 @@ function ScorecardSection({ scorecard }: { scorecard: SupplierScorecard }) {
             {scorecard.gradeLabel}
           </span>
           <span className="text-2xs text-slate-400">
-            评测于 {new Date(scorecard.evaluatedAt).toLocaleDateString("zh-CN")}
+            {copy.scorecardEvaluated}{" "}
+            {new Date(scorecard.evaluatedAt).toLocaleDateString(locale === "en" ? "en-US" : "zh-CN")}
           </span>
         </div>
         <div className="grid flex-1 grid-cols-1 gap-x-8 gap-y-2.5 md:grid-cols-2">
@@ -95,7 +105,7 @@ function ScorecardSection({ scorecard }: { scorecard: SupplierScorecard }) {
   );
 }
 
-export function SupplierProfileBody({ profile, claimed, scorecard }: SupplierProfileBodyProps) {
+export function SupplierProfileBody({ profile, claimed, scorecard, copy, locale }: SupplierProfileBodyProps) {
   const { contact } = profile;
   const hasAnyContact = Boolean(contact.person || contact.position || contact.email || contact.phone);
   const hasIndustry = Boolean(profile.industry.primary || profile.industry.tags.length > 0);
@@ -104,24 +114,28 @@ export function SupplierProfileBody({ profile, claimed, scorecard }: SupplierPro
     : profile.industry.primary
       ? [{ code: profile.industry.primary.code, nameZh: profile.industry.primary.nameZh, nameEn: profile.industry.primary.nameEn }]
       : [];
+  const industryName = (t: { nameZh: string; nameEn: string }) =>
+    locale === "en" ? t.nameEn : t.nameZh;
+  const registrationLabel =
+    copy.creditCodeLabels[profile.creditCodeType] ?? copy.creditCodeLabels.other ?? copy.registrationNo;
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="space-y-5">
         {/* 关键工商事实：空值不渲染，不再出现 "—" */}
-        <SectionCard title="企业档案" icon={<FileCheck2 className="h-5 w-5 text-slate-500" />}>
+        <SectionCard title={copy.fileTitle} icon={<FileCheck2 className="h-5 w-5 text-slate-500" />}>
           <dl className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3">
-            {profile.establishedAt && <FactItem label="成立时间">{profile.establishedAt}</FactItem>}
+            {profile.establishedAt && <FactItem label={copy.established}>{profile.establishedAt}</FactItem>}
             {profile.registeredCapital && (
-              <FactItem label="注册资本">{profile.registeredCapital}</FactItem>
+              <FactItem label={copy.registeredCapital}>{profile.registeredCapital}</FactItem>
             )}
             {profile.creditCodeMasked && (
-              <FactItem label={profile.creditCodeTypeLabel}>{profile.creditCodeMasked}</FactItem>
+              <FactItem label={registrationLabel}>{profile.creditCodeMasked}</FactItem>
             )}
-            <FactItem label="企业类型">
-              {profile.type === "domestic" ? "国内供应商" : "国际供应商"}
+            <FactItem label={copy.companyType}>
+              {profile.type === "domestic" ? copy.domestic : copy.international}
             </FactItem>
-            <FactItem label="资料完整度">
+            <FactItem label={copy.completeness}>
               <span className="inline-flex items-center gap-2">
                 <span className="tabular-nums text-teal-700">{profile.dataCompleteness}%</span>
                 <span className="inline-block h-1.5 w-20 overflow-hidden rounded-full bg-slate-100 align-middle">
@@ -133,7 +147,7 @@ export function SupplierProfileBody({ profile, claimed, scorecard }: SupplierPro
               </span>
             </FactItem>
             {profile.website && (
-              <FactItem label="企业官网">
+              <FactItem label={copy.website}>
                 <a
                   href={profile.website}
                   target="_blank"
@@ -146,12 +160,14 @@ export function SupplierProfileBody({ profile, claimed, scorecard }: SupplierPro
             )}
           </dl>
           {profile.address && (
-            <p className="mt-4 border-t border-slate-100 pt-3 text-sm text-slate-500">{profile.address}</p>
+            <p className="mt-4 border-t border-slate-100 pt-3 text-sm text-slate-500">
+              {copy.address}：{profile.address}
+            </p>
           )}
         </SectionCard>
 
         {profile.products.length > 0 && (
-          <SectionCard title="主营产品" icon={<Building2 className="h-5 w-5 text-teal-600" />}>
+          <SectionCard title={copy.productsTitle} icon={<Building2 className="h-5 w-5 text-teal-600" />}>
             <div className="flex flex-wrap gap-2">
               {profile.products.map((p) => (
                 <span
@@ -166,12 +182,12 @@ export function SupplierProfileBody({ profile, claimed, scorecard }: SupplierPro
         )}
 
         {hasIndustry && (
-          <SectionCard title="行业定位" icon={<Globe2 className="h-5 w-5 text-blue-600" />}>
+          <SectionCard title={copy.industryTitle} icon={<Globe2 className="h-5 w-5 text-blue-600" />}>
             {profile.industry.path.length > 0 && (
               <p className="text-sm text-slate-600">
                 {profile.industry.path.join(" / ")}
                 {profile.industry.primary && (
-                  <span className="ml-1 font-bold text-slate-800">{profile.industry.primary.nameZh}</span>
+                  <span className="ml-1 font-bold text-slate-800">{industryName(profile.industry.primary)}</span>
                 )}
               </p>
             )}
@@ -182,7 +198,7 @@ export function SupplierProfileBody({ profile, claimed, scorecard }: SupplierPro
                     key={t.code}
                     className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700"
                   >
-                    {t.nameZh}
+                    {industryName(t)}
                   </span>
                 ))}
               </div>
@@ -191,7 +207,7 @@ export function SupplierProfileBody({ profile, claimed, scorecard }: SupplierPro
         )}
 
         {profile.certifications.length > 0 && (
-          <SectionCard title="资质与认证" icon={<Award className="h-5 w-5 text-teal-600" />}>
+          <SectionCard title={copy.certificationsTitle} icon={<Award className="h-5 w-5 text-teal-600" />}>
             <div className="flex flex-wrap gap-2">
               {profile.certifications.map((c) => (
                 <span
@@ -203,19 +219,17 @@ export function SupplierProfileBody({ profile, claimed, scorecard }: SupplierPro
                 </span>
               ))}
             </div>
-            <p className="mt-3 text-2xs text-slate-400">
-              认证信息由企业提供；平台认证企业已完成执照与主体一致性审核。
-            </p>
+            <p className="mt-3 text-2xs text-slate-400">{copy.certificationNote}</p>
           </SectionCard>
         )}
 
-        {scorecard && <ScorecardSection scorecard={scorecard} />}
+        {scorecard && <ScorecardSection scorecard={scorecard} copy={copy} locale={locale} />}
       </div>
 
       {/* 侧栏：联系方式 + 认领引导 */}
       <aside className="space-y-4 lg:sticky lg:top-24">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-          <h2 className="text-base font-extrabold text-slate-900">联系方式</h2>
+          <h2 className="text-base font-extrabold text-slate-900">{copy.contactTitle}</h2>
           {hasAnyContact ? (
             <dl className="mt-3 space-y-2.5 text-sm">
               {contact.person && (
@@ -239,11 +253,9 @@ export function SupplierProfileBody({ profile, claimed, scorecard }: SupplierPro
               )}
             </dl>
           ) : (
-            <p className="mt-3 text-sm text-slate-500">该企业暂未公开联系人信息，可通过平台发起询盘。</p>
+            <p className="mt-3 text-sm text-slate-500">{copy.contactEmpty}</p>
           )}
-          <p className="mt-3 text-2xs text-slate-400">
-            联系方式已脱敏；VIP 会员可查看完整联系人、邮箱与电话。
-          </p>
+          <p className="mt-3 text-2xs text-slate-400">{copy.contactMaskedNote}</p>
           <div className="mt-4">
             <SupplierProfileActions
               supplier={profile.supplier}
@@ -256,10 +268,8 @@ export function SupplierProfileBody({ profile, claimed, scorecard }: SupplierPro
 
         {!claimed && (
           <section className="rounded-2xl border border-teal-200 bg-teal-50/60 p-5">
-            <h2 className="text-sm font-extrabold text-teal-900">你是该企业负责人？</h2>
-            <p className="mt-1.5 text-xs leading-relaxed text-teal-800">
-              认领企业主页后可维护企业档案、补充资质与联系方式，并查看访客与询盘数据。
-            </p>
+            <h2 className="text-sm font-extrabold text-teal-900">{copy.ownerTitle}</h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-teal-800">{copy.ownerDesc}</p>
             <div className="mt-3">
               <SupplierProfileActions
                 supplier={profile.supplier}
