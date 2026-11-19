@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { withRoute, routeError, parseJson, RouteError } from "@/lib/middleware/route-handler";
-import { EC_PHONE_ALREADY_BOUND, EC_CONTENT_LOCKED } from "@/shared/constants/api";
+import { EC_PHONE_ALREADY_BOUND, EC_CONTENT_LOCKED, EC_INVALID_PARAMS, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { memoizeRequest } from "@/lib/middleware/request-cache";
 
 vi.mock("server-only", () => ({}));
@@ -55,7 +55,7 @@ describe("withRoute 错误映射", () => {
     const res = await handler(makeReq(), {} as never);
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.code).toBe(40000);
+    expect(body.code).toBe(EC_INVALID_PARAMS);
     expect(body.message).toBe("请输入有效的手机号");
   });
 
@@ -67,7 +67,7 @@ describe("withRoute 错误映射", () => {
     const res = await handler(makeReq("http://localhost/api/boom", { method: "POST" }), {} as never);
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.code).toBe(50000);
+    expect(body.code).toBe(EC_INTERNAL_ERROR);
     expect(body.message).toBe("服务器内部错误");
     expect(body.error.type).toBe("internal_error");
     expect(errSpy).toHaveBeenCalledWith("[route] POST /api/boom", expect.any(Error));

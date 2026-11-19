@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
-import { EC_ACCOUNT_ISSUE } from "@/shared/constants/api";
+import { EC_ACCOUNT_ISSUE, EC_RATE_LIMITED } from "@/shared/constants/api";
 
 const { poolQuery, poolExecute } = vi.hoisted(() => ({
   poolQuery: vi.fn(),
@@ -173,7 +173,7 @@ describe("POST /api/auth/login", () => {
     const res = await callLogin({ identifier: "user-1@test.com", password: "pw" });
     expect(res.status).toBe(429);
     const body = await res.json();
-    expect(body.code).toBe(42001);
+    expect(body.code).toBe(EC_RATE_LIMITED);
     expect(Number(res.headers.get("Retry-After"))).toBeGreaterThan(0);
   });
 
@@ -184,6 +184,6 @@ describe("POST /api/auth/login", () => {
 
     const res = await callLogin({ identifier: "someone@test.com", password: "pw" });
     expect(res.status).toBe(429);
-    expect((await res.json()).code).toBe(42001);
+    expect((await res.json()).code).toBe(EC_RATE_LIMITED);
   });
 });

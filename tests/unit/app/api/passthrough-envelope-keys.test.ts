@@ -1,3 +1,4 @@
+import { EC_ACCESS_FORBIDDEN } from "@/shared/constants/api";
 /**
  * 三个「服务给具名类型、路由整块透出」端点的信封键集合钉（命名红线② B 组收敛·第六批）。
  *
@@ -110,7 +111,7 @@ describe("GET /api/learning/materials/[materialId]/content", () => {
     const body = await res.json();
 
     expect(res.status).toBe(403);
-    expect(body.code).toBe(40301);
+    expect(body.code).toBe(EC_ACCESS_FORBIDDEN);
     expect(body.message).toBe("请先购买后查看");
     expect(body.error).toMatchObject({ type: "access_forbidden", status: 403 });
     expect(body.detail).toEqual({});

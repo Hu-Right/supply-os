@@ -1,3 +1,4 @@
+import { EC_ACCOUNT_ISSUE, EC_AUTH_REQUIRED } from "@/shared/constants/api";
 /**
  * E2E · CI 无数据冒烟套件
  * Data-free CI smoke suite
@@ -86,7 +87,7 @@ test.describe("鉴权与参数边界", () => {
     const res = await request.get(`${BASE}/api/opportunities`);
     expect(res.status()).toBe(401);
     const body = await res.json();
-    expect(body.code).toBe(40042);
+    expect(body.code).toBe(EC_AUTH_REQUIRED);
     expect(body.message).toContain("登录");
   });
 
@@ -118,7 +119,7 @@ test.describe("鉴权与参数边界", () => {
     // 401 语义红线（③）：凭据被拒 = 会话已死 → 403 + EC_ACCOUNT_ISSUE(40013)，不再误触发客户端刷新链路
     expect(res.status()).toBe(403);
     const body = await res.json();
-    expect(body.code).toBe(40013);
+    expect(body.code).toBe(EC_ACCOUNT_ISSUE);
   });
 
   test("未登录访问解锁端点 → 401（写路径同样先过鉴权）", async ({ request }) => {

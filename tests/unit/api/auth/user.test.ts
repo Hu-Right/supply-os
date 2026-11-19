@@ -1,3 +1,4 @@
+import { EC_FORBIDDEN, EC_NOT_FOUND } from "@/shared/constants/api";
 /**
  * 获取当前用户路由测试
  * @module tests/unit/api/auth/user.test.ts
@@ -33,7 +34,7 @@ describe("GET /api/auth/user", () => {
     const req = new NextRequest("http://localhost/api/auth/user");
     const res = await GET(req);
     expect(res.status).toBe(403);
-    expect((await res.json()).code).toBe(40003);
+    expect((await res.json()).code).toBe(EC_FORBIDDEN);
   });
 
   it("用户不存在 → 404/40044", async () => {
@@ -45,7 +46,7 @@ describe("GET /api/auth/user", () => {
     const req = new NextRequest("http://localhost/api/auth/user");
     const res = await GET(req);
     expect(res.status).toBe(404);
-    expect((await res.json()).code).toBe(40044);
+    expect((await res.json()).code).toBe(EC_NOT_FOUND);
   });
 
   it("正常 → 200 + user payload", async () => {

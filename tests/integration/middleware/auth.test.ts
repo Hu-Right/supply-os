@@ -1,3 +1,4 @@
+import { EC_AUTH_REQUIRED } from "@/shared/constants/api";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { extractUserKey, requireUserKey } from "@/lib/middleware/auth";
@@ -65,7 +66,7 @@ describe("requireUserKey", () => {
     const response = result as Response;
     expect(response.status).toBe(401);
     const body = await response.json();
-    expect(body.code).toBe(40042);
+    expect(body.code).toBe(EC_AUTH_REQUIRED);
   });
 
   it("已认证 → 返回 AuthResult", async () => {

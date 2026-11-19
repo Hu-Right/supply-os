@@ -12,7 +12,7 @@ vi.mock("@/lib/middleware/auth", () => ({ requireUserKeyOrThrow: vi.fn() }));
 
 import { POST } from "@/app/api/payments/[orderNo]/mock-paid/route";
 import { getContext } from "@/lib/db/context";
-import { EC_PAYMENT_ORDER_NOT_FOUND } from "@/shared/constants/api";
+import { EC_PAYMENT_ORDER_NOT_FOUND, EC_NOTICE_NOT_FOUND } from "@/shared/constants/api";
 
 function makeReq() {
   return new NextRequest("http://localhost/api/payments/x/mock-paid", { method: "POST" });
@@ -33,6 +33,6 @@ describe("POST /api/payments/[orderNo]/mock-paid", () => {
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.code).toBe(EC_PAYMENT_ORDER_NOT_FOUND);
-    expect(body.code).not.toBe(40404);
+    expect(body.code).not.toBe(EC_NOTICE_NOT_FOUND);
   });
 });

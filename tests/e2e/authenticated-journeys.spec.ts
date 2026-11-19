@@ -1,3 +1,4 @@
+import { EC_ACCOUNT_ISSUE, EC_AUTH_REQUIRED } from "@/shared/constants/api";
 /**
  * E2E 测试框架：认证态核心用户旅程
  * E2E Test Framework: Authenticated Critical Journeys
@@ -114,7 +115,7 @@ test.describe("鉴权与异常边界", () => {
     const res = await request.get(`${TEST_BASE_URL}/api/opportunities`);
     expect(res.status()).toBe(401);
     const body = await res.json();
-    expect(body.code).toBe(40042);
+    expect(body.code).toBe(EC_AUTH_REQUIRED);
     expect(body.message).toContain("登录");
   });
 
@@ -139,7 +140,7 @@ test.describe("鉴权与异常边界", () => {
     // 不得再用 401（否则登录失败会被 api-client 当成「token 过期」去刷新/登出）
     expect(res.status()).toBe(403);
     const body = await res.json();
-    expect(body.code).toBe(40013);
+    expect(body.code).toBe(EC_ACCOUNT_ISSUE);
   });
 
   test("不存在的商机解锁 → 404 明确错误码", async ({ request }) => {

@@ -1,3 +1,4 @@
+import { EC_FORBIDDEN } from "@/shared/constants/api";
 /**
  * POST /api/supplier-diagnosis 集成测试 — 2026-11-11 一司一口径收口
  *
@@ -103,7 +104,7 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
     expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.code).toBe(40003); // EC_FORBIDDEN
+    expect(body.code).toBe(EC_FORBIDDEN); // EC_FORBIDDEN
     expect(upsertDiagnosis).not.toHaveBeenCalled();
   });
 

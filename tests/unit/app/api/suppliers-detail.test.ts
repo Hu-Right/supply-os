@@ -1,3 +1,4 @@
+import { EC_NOT_FOUND } from "@/shared/constants/api";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -114,7 +115,7 @@ describe("GET /api/suppliers/[id]", () => {
     const res = await GET(req(), params("39479"));
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.code).toBe(40044);
+    expect(body.code).toBe(EC_NOT_FOUND);
   });
 
   it("pending 主体：本人绑定账号可查看自己的档案 200", async () => {

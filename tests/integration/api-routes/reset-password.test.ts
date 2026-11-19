@@ -1,3 +1,4 @@
+import { EC_INVALID_CODE, EC_ACCOUNT_DISABLED } from "@/shared/constants/api";
 /**
  * POST /api/auth/reset-password 集成测试
  *
@@ -117,7 +118,7 @@ describe("POST /api/auth/reset-password", () => {
 
     const res = await callReset({ identifier: PHONE, code: "123456", new_password: NEW_PASSWORD });
     expect(res.status).toBe(400);
-    expect((await res.json()).code).toBe(40007);
+    expect((await res.json()).code).toBe(EC_INVALID_CODE);
     expect(lastLoginWrites()).toHaveLength(0);
     expect(issueTokenPair).not.toHaveBeenCalled();
   });
@@ -134,7 +135,7 @@ describe("POST /api/auth/reset-password", () => {
     poolQuery.mockResolvedValue([[]]);
     const res = await callReset({ identifier: PHONE, code: "123456", new_password: NEW_PASSWORD });
     expect(res.status).toBe(400);
-    expect((await res.json()).code).toBe(40007);
+    expect((await res.json()).code).toBe(EC_INVALID_CODE);
     expect(lastLoginWrites()).toHaveLength(0);
   });
 
@@ -149,7 +150,7 @@ describe("POST /api/auth/reset-password", () => {
 
     const res = await callReset({ identifier: PHONE, code: "123456", new_password: NEW_PASSWORD });
     expect(res.status).toBe(403);
-    expect((await res.json()).code).toBe(41118); // EC_ACCOUNT_DISABLED
+    expect((await res.json()).code).toBe(EC_ACCOUNT_DISABLED); // EC_ACCOUNT_DISABLED
     expect(lastLoginWrites()).toHaveLength(0);
     expect(
       poolExecute.mock.calls.some(([sql]) => /UPDATE users SET password_hash/i.test(String(sql))),

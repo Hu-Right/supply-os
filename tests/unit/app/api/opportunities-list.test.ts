@@ -1,3 +1,4 @@
+import { EC_AUTH_REQUIRED } from "@/shared/constants/api";
 /**
  * R3' B2：商机列表端点断掉旧品类字典依赖
  *
@@ -103,7 +104,7 @@ describe("GET /api/opportunities — 不再以旧字典 code_id 为必要条件"
     const res = await GET(req());
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.code).toBe(40042);
+    expect(body.code).toBe(EC_AUTH_REQUIRED);
     expect(body.message).toContain("登录");
     expect(mocks.listOpportunities).not.toHaveBeenCalled();
   });
