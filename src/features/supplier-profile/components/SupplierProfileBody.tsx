@@ -112,11 +112,9 @@ export function SupplierProfileBody({ profile, scorecard, copy, locale }: Suppli
   const { contact } = profile;
   const hasAnyContact = Boolean(contact.person || contact.position || contact.email || contact.phone);
   const hasIndustry = Boolean(profile.industry.primary || profile.industry.tags.length > 0);
-  const industryTags = profile.industry.tags.length > 0
-    ? profile.industry.tags
-    : profile.industry.primary
-      ? [{ code: profile.industry.primary.code, nameZh: profile.industry.primary.nameZh, nameEn: profile.industry.primary.nameEn }]
-      : [];
+  const primaryCode = profile.industry.primary?.code ?? null;
+  // 多行业标签只取非主码的挂靠标签：主行业在路径末尾单独展示，不重复成 chip
+  const industryTags = profile.industry.tags.filter((t) => t.code !== primaryCode);
   const industryName = (t: { nameZh: string; nameEn: string }) =>
     locale === "en" ? t.nameEn : t.nameZh;
   const registrationLabel =
@@ -266,26 +264,39 @@ export function SupplierProfileBody({ profile, scorecard, copy, locale }: Suppli
 
       {hasIndustry && (
         <SectionCard title={copy.industryTitle} icon={<Globe2 className="h-5 w-5 text-blue-600" />}>
-          {profile.industry.path.length > 0 && (
-            <p className="text-sm text-slate-600">
-              {profile.industry.path.join(" / ")}
-              {profile.industry.primary && (
-                <span className="ml-1 font-bold text-slate-800">{industryName(profile.industry.primary)}</span>
-              )}
-            </p>
-          )}
-          {industryTags.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {industryTags.map((t) => (
-                <span
-                  key={t.code}
-                  className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700"
-                >
-                  {industryName(t)}
-                </span>
-              ))}
-            </div>
-          )}
+          {(() => {
+            const industryPath = locale === "en" ? profile.industry.pathEn : profile.industry.path;
+            const primaryName = profile.industry.primary ? industryName(profile.industry.primary) : "";
+            // 路径本身已包含主码节点：去掉末尾同名节点，避免「… > 主行业 主行业」重复
+            const prefixPath =
+              primaryName && industryPath[industryPath.length - 1] === primaryName
+                ? industryPath.slice(0, -1)
+                : industryPath;
+            return (
+              <>
+                {(prefixPath.length > 0 || primaryName) && (
+                  <p className="text-sm text-slate-600">
+                    {prefixPath.length > 0 && `${prefixPath.join(" / ")} / `}
+                    {primaryName && (
+                      <span className="font-bold text-slate-800">{primaryName}</span>
+                    )}
+                  </p>
+                )}
+                {industryTags.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {industryTags.map((t) => (
+                      <span
+                        key={t.code}
+                        className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700"
+                      >
+                        {industryName(t)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </SectionCard>
       )}
 

@@ -94,6 +94,7 @@ export interface SupplierProfileView {
   industry: {
     primary: { code: string; nameZh: string; nameEn: string } | null;
     path: string[];
+    pathEn: string[];
     tags: Array<{ code: string; nameZh: string; nameEn: string }>;
   };
   products: string[];
@@ -203,6 +204,7 @@ export function supplierProfileViewOf(
         ? { code: industry.primary.code, nameZh: industry.primary.nameZh, nameEn: industry.primary.nameEn }
         : null,
       path: industry?.pathZh ?? [],
+      pathEn: industry?.pathEn ?? [],
       tags: (industry?.tags ?? []).map((t) => ({ code: t.code, nameZh: t.nameZh, nameEn: t.nameEn })),
     },
     products: splitListField(row.products),
