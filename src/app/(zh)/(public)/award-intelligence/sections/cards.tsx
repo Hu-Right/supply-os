@@ -118,7 +118,7 @@ export const RecentAwardsCard = memo(function RecentAwardsCard({ rows }: { rows:
           <tbody>
             {rows.slice(0, 8).map((r) => (
               <tr key={r.id} className="border-b border-slate-50">
-                <td className="py-2 pr-2 text-slate-700 max-w-[280px] truncate" title={r.title}>{r.titleCn || r.title}</td>
+                <td className="py-2 pr-2 text-slate-700 max-w-[280px] truncate" title={r.title}>{r.title}</td>
                 <td className="py-2 text-slate-500 whitespace-nowrap">{r.agency ?? "—"}</td>
                 <td className="py-2 text-slate-500 whitespace-nowrap">{r.awardDate ? String(r.awardDate).slice(0, 10) : "—"}</td>
               </tr>

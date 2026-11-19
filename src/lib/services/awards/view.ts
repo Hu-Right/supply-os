@@ -21,9 +21,7 @@ import { toCamelKeys, type RowLike } from "@/shared/utils/case-keys";
 export interface AwardView {
   id: number;
   title: string;
-  titleCn: string | null;
   reference: string | null;
-  contractNo: string | null;
   agency: string | null;
   agencyFull: string | null;
   country: string | null;
@@ -32,9 +30,6 @@ export interface AwardView {
   contractValueUsd: number | null;
   currency: string;
   description: string | null;
-  descriptionCn: string | null;
-  category: string | null;
-  industry: string | null;
   sourcePlatform: string;
 }
 
@@ -43,9 +38,7 @@ export function awardViewOf(row: AwardRow): AwardView {
   return {
     id: row.id,
     title: row.title,
-    titleCn: row.title_cn,
     reference: row.reference,
-    contractNo: row.contract_no,
     agency: row.agency,
     agencyFull: row.agency_full,
     country: row.country,
@@ -54,9 +47,6 @@ export function awardViewOf(row: AwardRow): AwardView {
     contractValueUsd: row.contract_value_usd,
     currency: row.currency,
     description: row.description,
-    descriptionCn: row.description_cn,
-    category: row.category,
-    industry: row.industry,
     sourcePlatform: row.source_platform,
   };
 }

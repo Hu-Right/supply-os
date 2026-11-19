@@ -32,7 +32,7 @@ export interface ProfileRow { label: string; value: string }
 export interface WinnerRow { rank: number; name: string; country: string | null; count: number; totalUsd: number }
 export interface CategoryRow { name: string; count: number }
 export interface TrendSeries { months: string[]; counts: number[]; amountsUsd: number[] | null }
-export interface RecentRow { id: number; title: string; titleCn: string | null; agency: string | null; country: string | null; awardDate: string | null; contractValueUsd: number | null; currency: string }
+export interface RecentRow { id: number; title: string; agency: string | null; country: string | null; awardDate: string | null; contractValueUsd: number | null; currency: string }
 
 export type Section<T> = { present: true; data: T } | { present: false; reason: string };
 
@@ -118,10 +118,8 @@ export function buildAwardViewModel(data: AwardsData, t: AwardTranslateFn): Awar
   // S0：买家画像无可靠真实来源 → 诚实空态（S1 起接归一后的 agency 画像）
   const buyerProfile: Section<ProfileRow[]> = { present: false, reason: t("awardReasonBuyerProfile") };
 
-  // 品类：有 category 原值才聚合，否则诚实空态
-  const categories: Section<CategoryRow[]> = data.recentAwards.some((r) => r.category)
-    ? { present: true, data: aggregateCategories(data.recentAwards) }
-    : { present: false, reason: t("awardReasonNoCategories") };
+  // 品类：bid_awards.category 已于 2026-11-19 退役（全表 0 填充），恒为空态
+  const categories: Section<CategoryRow[]> = { present: false, reason: t("awardReasonNoCategories") };
 
   // 注：上游 /api/awards/top 现按金额(totalUsd)排序采样，金额缺失时为近期样本、
   //      非全量按次数权威排名（S1 数据层改为按 count 排序 + 全量聚合后再上调用）。
@@ -139,7 +137,6 @@ export function buildAwardViewModel(data: AwardsData, t: AwardTranslateFn): Awar
   const recentAwards: RecentRow[] = data.recentAwards.map((r) => ({
     id: r.id,
     title: r.title,
-    titleCn: r.titleCn,
     agency: r.agency,
     country: r.country,
     awardDate: r.awardDate,
@@ -157,8 +154,3 @@ export function buildAwardViewModel(data: AwardsData, t: AwardTranslateFn): Awar
   return { coverage, statsCards, infoCards, trend, buyerProfile, topWinners, categories, recentAwards, copy, loading: data.loading, error: data.error };
 }
 
-function aggregateCategories(rows: AwardsData["recentAwards"]): CategoryRow[] {
-  const m = new Map<string, number>();
-  for (const r of rows) if (r.category) m.set(r.category, (m.get(r.category) ?? 0) + 1);
-  return [...m.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
-}

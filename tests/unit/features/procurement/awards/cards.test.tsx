@@ -71,7 +71,7 @@ describe("cards 诚实化", () => {
   it("recentAwards 空时诚实空态；有记录时渲染真实标题", () => {
     const { rerender } = render(<RecentAwardsCard rows={[]} />);
     expect(screen.getByText("暂无最新中标记录")).toBeTruthy();
-    rerender(<RecentAwardsCard rows={[{ id: 1, title: "某项目中标公告", titleCn: "某项目中标公告", agency: "中国政府采购网", country: "中国", awardDate: "2026-10-09", contractValueUsd: null, currency: "CNY" }]} />);
+    rerender(<RecentAwardsCard rows={[{ id: 1, title: "某项目中标公告", agency: "中国政府采购网", country: "中国", awardDate: "2026-10-09", contractValueUsd: null, currency: "CNY" }]} />);
     expect(screen.getByText("某项目中标公告")).toBeTruthy();
   });
 });

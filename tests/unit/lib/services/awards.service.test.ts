@@ -80,7 +80,6 @@ describe("listAwards", () => {
     const res = await listAwards(POOL, { page: 1, pageSize: 20 });
 
     expectNoSnake(res.items[0]);
-    expect(res.items[0].titleCn).toBe("某项目中文");
     expect(res.items[0].contractValueUsd).toBe(100);
     expect(res.items[0].sourcePlatform).toBe("ccgp");
     for (const leaked of ["sourceUrl", "source_url", "externalId", "sourceNoticeId", "rawData", "crawlTime"]) {

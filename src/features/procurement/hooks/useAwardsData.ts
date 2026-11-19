@@ -35,9 +35,7 @@ export interface AwardStatsData {
 export interface AwardListItem {
   id: number;
   title: string;
-  titleCn: string | null;
   reference: string | null;
-  contractNo: string | null;
   agency: string | null;
   agencyFull: string | null;
   country: string | null;
@@ -46,9 +44,6 @@ export interface AwardListItem {
   contractValueUsd: number | null;
   currency: string;
   description: string | null;
-  descriptionCn: string | null;
-  category: string | null;
-  industry: string | null;
   sourcePlatform: string;
 }
 

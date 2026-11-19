@@ -18,9 +18,7 @@ export interface AwardRow {
   source_url: string | null;
   external_id: string | null;
   title: string;
-  title_cn: string | null;
   reference: string | null;
-  contract_no: string | null;
   agency: string | null;
   agency_full: string | null;
   country: string | null;
@@ -29,9 +27,6 @@ export interface AwardRow {
   contract_value_usd: number | null;
   currency: string;
   description: string | null;
-  description_cn: string | null;
-  category: string | null;
-  industry: string | null;
   source_notice_id: string | null;
   raw_data: unknown;
   crawl_time: string;
@@ -41,13 +36,8 @@ export interface AwardWinnerRow {
   id: number;
   award_id: number;
   winner_name: string;
-  winner_name_cn: string | null;
   winner_country: string | null;
   winner_type: string | null;
-  registration_level: string | null;
-  certifications: unknown;
-  share_amount: number | null;
-  share_currency: string | null;
 }
 
 export interface AwardWithWinners extends AwardRow {
@@ -60,9 +50,7 @@ export interface AwardInsert {
   source_url?: string | null;
   external_id?: string | null;
   title: string;
-  title_cn?: string | null;
   reference?: string | null;
-  contract_no?: string | null;
   agency?: string | null;
   agency_full?: string | null;
   country?: string | null;
@@ -71,25 +59,14 @@ export interface AwardInsert {
   contract_value_usd?: number | null;
   currency?: string;
   description?: string | null;
-  description_cn?: string | null;
-  category?: string | null;
-  industry?: string | null;
   source_notice_id?: string | null;
   raw_data?: unknown;
 }
 
 export interface WinnerInsert {
   winner_name: string;
-  winner_name_cn?: string | null;
   winner_country?: string | null;
   winner_type?: string | null;
-  registration_level?: string | null;
-  certifications?: unknown;
-  share_amount?: number | null;
-  share_currency?: string | null;
-  contact_email?: string | null;
-  contact_phone?: string | null;
-  website?: string | null;
 }
 
 /** 中标统计摘要 */
@@ -136,9 +113,9 @@ export class AwardsRepo {
     if (agency) { conditions.push("agency = ?"); values.push(agency); }
     if (country) { conditions.push("country = ?"); values.push(country); }
     if (keyword) {
-      conditions.push("(title LIKE ? OR title_cn LIKE ? OR reference LIKE ? OR contract_no LIKE ?)");
+      conditions.push("(title LIKE ? OR reference LIKE ?)");
       const like = `%${keyword}%`;
-      values.push(like, like, like, like);
+      values.push(like, like);
     }
     if (dateFrom) { conditions.push("award_date >= ?"); values.push(dateFrom); }
     if (dateTo) { conditions.push("award_date <= ?"); values.push(dateTo); }
@@ -156,11 +133,10 @@ export class AwardsRepo {
     const total = Number((countRows as RowDataPacket[])[0]?.total || 0);
 
     const [rows] = await this.pool.query(
-      `SELECT id, source_platform, source_url, external_id, title, title_cn,
-              reference, contract_no, agency, agency_full, country,
+      `SELECT id, source_platform, source_url, external_id, title,
+              reference, agency, agency_full, country,
               award_date, contract_value, contract_value_usd, currency,
-              description, description_cn, category, industry,
-              source_notice_id, crawl_time
+              description, source_notice_id, crawl_time
        FROM bid_awards
        WHERE ${where}
        ORDER BY ${order}
@@ -249,8 +225,8 @@ export class AwardsRepo {
   /** 按机构查中标记录 */
   async listByAgency(agency: string, limit = 50): Promise<AwardRow[]> {
     const [rows] = await this.pool.query(
-      `SELECT id, title, title_cn, reference, agency, country, award_date,
-              contract_value_usd, currency, category
+      `SELECT id, title, reference, agency, country, award_date,
+              contract_value_usd, currency
        FROM bid_awards WHERE agency = ?
        ORDER BY award_date DESC LIMIT ?`,
       [agency, limit],
@@ -285,22 +261,20 @@ export class AwardsRepo {
    */
   async upsertAward(award: AwardInsert, winners: WinnerInsert[] = []): Promise<number> {
     const cols = [
-      "source_platform", "source_url", "external_id", "title", "title_cn",
-      "reference", "contract_no", "agency", "agency_full", "country",
+      "source_platform", "source_url", "external_id", "title",
+      "reference", "agency", "agency_full", "country",
       "award_date", "contract_value", "contract_value_usd", "currency",
-      "description", "description_cn", "category", "industry",
-      "source_notice_id", "raw_data", "create_time", "update_time",
+      "description", "source_notice_id", "raw_data", "create_time", "update_time",
     ];
     const now = Math.floor(Date.now() / 1000);
     const vals = [
       award.source_platform, award.source_url ?? null, award.external_id ?? null,
-      award.title, award.title_cn ?? null,
-      award.reference ?? null, award.contract_no ?? null,
+      award.title,
+      award.reference ?? null,
       award.agency ?? null, award.agency_full ?? null, award.country ?? null,
       award.award_date ?? null, award.contract_value ?? null, award.contract_value_usd ?? null,
       award.currency ?? "USD",
-      award.description ?? null, award.description_cn ?? null,
-      award.category ?? null, award.industry ?? null,
+      award.description ?? null,
       award.source_notice_id ?? null,
       award.raw_data ? JSON.stringify(award.raw_data) : null,
       now, now,
@@ -336,17 +310,11 @@ export class AwardsRepo {
       for (const w of winners) {
         await this.pool.execute(
           `INSERT INTO bid_award_winners
-             (award_id, winner_name, winner_name_cn, winner_country, winner_type,
-              registration_level, certifications, share_amount, share_currency,
-              contact_email, contact_phone, website)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (award_id, winner_name, winner_country, winner_type)
+           VALUES (?, ?, ?, ?)`,
           [
-            awardId, w.winner_name, w.winner_name_cn ?? null,
+            awardId, w.winner_name,
             w.winner_country ?? null, w.winner_type ?? null,
-            w.registration_level ?? null,
-            w.certifications ? JSON.stringify(w.certifications) : null,
-            w.share_amount ?? null, w.share_currency ?? null,
-            w.contact_email ?? null, w.contact_phone ?? null, w.website ?? null,
           ],
         );
       }
