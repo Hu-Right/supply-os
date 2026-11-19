@@ -36,12 +36,13 @@ export const metadata: Metadata = {
     canonical: absoluteUrl("/"),
     languages: { "x-default": absoluteUrl("/") },
   },
-  // 站点图标：项目里没有 favicon.ico / app/icon.*，此前浏览器标签页无图标；
-  // 同时补齐 PWA manifest 与 iOS 添加到主屏图标（图标由 brand-icon.svg 生成）。
+  // 站点图标：标签页用透明底 favicon（深色浏览器主题下不出现白框），
+  // PWA/主屏图标（manifest 里的 white 版）与 iOS 图标保留白底（系统合成需要不透明底）。
   icons: {
     icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-48.png", sizes: "48x48", type: "image/png" },
     ],
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
