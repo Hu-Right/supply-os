@@ -137,37 +137,35 @@ describe("feasibility-report 输入装配（DB 行 → 领域对象）", () => {
     expect(item.extraction?.confidence).toBe(0.9);
   });
 
-  it("企业档案派生能力项：证书 token + UNGM 状态（只做保守推断）", () => {
+  it("企业档案派生能力项：证书来自能力档案，supplier.certification 文本不再派生", () => {
     expect(splitCertificationTokens("ISO 9001, CE、UL;其他非证书")).toEqual(["ISO 9001", "CE", "UL"]);
     expect(normalizeRegistrationStatus("已注册")).toBe("active");
     expect(normalizeRegistrationStatus("未注册")).toBe("inactive");
     expect(normalizeRegistrationStatus("审核中")).toBeNull();
 
-    const caps = deriveCapabilities({
+    // 单一事实源改造（2026-11-19）：文本列即便有值也不参与判定
+    const supplierOnly = deriveCapabilities({
       enterpriseId: 1001,
       supplier: { id: 1001, company: "A", certification: "ISO 9001, CE" },
       diagnosis: { ungm_status: "已注册", tender_experience: "5 年" },
     });
-    const certs = caps.filter((c) => c.type === "certification");
-    expect(certs).toHaveLength(2);
-    expect(certs[0].evidenceRefs?.[0]).toMatchObject({ kind: "supplier_field", ref: "supplier.certification" });
-    // 目录无有效期 → 不编造，置 null（规则会判 unknown）
-    expect((certs[0].value as Record<string, unknown>).validUntil).toBeNull();
-    expect(caps.find((c) => c.type === "registration")?.value).toMatchObject({ platform: "UNGM", status: "active" });
-  });
+    expect(supplierOnly.filter((c) => c.type === "certification")).toHaveLength(0);
 
-  it("证据按标题匹配到对应证书（而不是永远挂到第一条）", () => {
     const caps = deriveCapabilities({
       enterpriseId: 1001,
-      supplier: { id: 1001, certification: "ISO 9001, ISO 14001" },
-      evidenceRows: [
-        { id: 1, enterprise_id: 1001, category: "cert", title: "ISO14001 证书扫描件", no_expiry: 0, confirmed: 1, upload_file_id: null, upload_filename: "evidence_1_1.pdf" },
-      ] as never,
+      supplier: { id: 1001, company: "A" },
+      diagnosis: { ungm_status: "已注册", tender_experience: "5 年" },
+      capabilityRows: [
+        {
+          id: 1, enterprise_id: 1001, capability_type: "certification", name: "ISO 9001",
+          value_json: { kind: "certification", code: "ISO9001", validUntil: "2030-12-31" },
+        },
+      ],
     });
-    const iso9001 = caps.find((c) => c.type === "certification" && (c.value as Record<string, unknown>).code === "ISO9001");
-    const iso14001 = caps.find((c) => c.type === "certification" && (c.value as Record<string, unknown>).code === "ISO14001");
-    expect(iso14001?.evidenceRefs?.some((e) => e.id === "enterprise_evidence:1")).toBe(true);
-    expect(iso9001?.evidenceRefs?.some((e) => e.id === "enterprise_evidence:1")).toBe(false);
+    const certs = caps.filter((c) => c.type === "certification");
+    expect(certs).toHaveLength(1);
+    expect((certs[0].value as Record<string, unknown>).validUntil).toBe("2030-12-31");
+    expect(caps.find((c) => c.type === "registration")?.value).toMatchObject({ platform: "UNGM", status: "active" });
   });
 
   it("enterprise_capability_items 行优先覆盖派生能力（同证书 code 去重）", () => {

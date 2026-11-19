@@ -34,7 +34,6 @@ const mockRow: EnterpriseInfo = {
   registeredCapital: "3000万元",
   creditCode: "-",
   creditCodeType: "uscc",
-  certification: "-",
   products: "智算模块",
   // 以下旧夹具根本没给（当时不报），现在显式给空值保持卡片渲染不变
   checkNote: "",
@@ -89,6 +88,31 @@ describe("EnterpriseInfoCard", () => {
     expect(screen.getByText("75.0%")).toBeInTheDocument();
   });
 
+  it("基本情况不再暴露内部主键与「确认后公司名」，省市合并为所在地区", () => {
+    render(
+      <EnterpriseInfoCard enterprise={mockRow} loading={false} error={null} onRetry={noop} onBind={noop} />,
+    );
+    expect(screen.queryByText("authEnterpriseId")).not.toBeInTheDocument();
+    expect(screen.queryByText("authEnterpriseNameConfirmed")).not.toBeInTheDocument();
+    // 省份/城市两格合并为一格「上海 · 上海」
+    expect(screen.getByText("上海 · 上海")).toBeInTheDocument();
+    expect(screen.getByText("authEnterpriseRegion")).toBeInTheDocument();
+  });
+
+  it("关键字段缺失时给出「待补资料」清单（数据来自本行空值，不重算完整度）", () => {
+    render(
+      <EnterpriseInfoCard
+        enterprise={{ ...mockRow, legalRep: "", registeredCapital: "" }}
+        loading={false}
+        error={null}
+        onRetry={noop}
+        onBind={noop}
+      />,
+    );
+    expect(screen.getByText("authEnterpriseMissingLabel")).toBeInTheDocument();
+    expect(screen.getByText("authEnterpriseMissingItems")).toBeInTheDocument();
+  });
+
   it("认证标三态：审核中/已认证/已驳回", () => {
     const { rerender } = render(
       <EnterpriseInfoCard enterprise={{ ...mockRow, verifyStatus: "pending" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
@@ -139,11 +163,11 @@ describe("EnterpriseInfoCard", () => {
     try {
       render(<EnterpriseInfoCard enterprise={mockRow} loading={false} error={null} onRetry={noop} onBind={noop} />);
       // 只要真实渲染一次，那些 `t(key) || 中文` 的兜底路径全部走到；断言取代表性几个
-      expect(screen.getByText("ID")).toBeInTheDocument();
-      expect(screen.getByText("确认后公司名")).toBeInTheDocument();
+      expect(screen.getByText("所在地区")).toBeInTheDocument();
       expect(screen.getByText("经营地址")).toBeInTheDocument();
-      expect(screen.getByText(/统一社会信用代码/)).toBeInTheDocument();
+      expect(screen.getAllByText(/统一社会信用代码/).length).toBeGreaterThan(0);
       expect(screen.getByText("资料完整度")).toBeInTheDocument();
+      expect(screen.getAllByText(/待补资料|还缺/).length).toBeGreaterThan(0);
     } finally {
       tState.impl = (key: string) => key;
     }
@@ -169,7 +193,6 @@ describe("EnterpriseInfoCard", () => {
           establishedAt: "",
           registeredCapital: "",
           creditCode: "",
-          certification: "",
           products: "",
           checkNote: "",
         }}

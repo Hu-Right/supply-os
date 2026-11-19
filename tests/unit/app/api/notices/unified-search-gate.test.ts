@@ -184,25 +184,39 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar&country=CN&budget_min=5000&match_mode=any&page=2"));
 
     expect(mocks.logSearch).toHaveBeenCalledTimes(1);
-    const [uid, q, country, filters, total] = mocks.logSearch.mock.calls[0];
-    expect(uid).toBe(7);
-    expect(q).toBe("solar");
-    expect(country).toBe("CN");
-    expect(JSON.parse(filters)).toMatchObject({
+    const entry = mocks.logSearch.mock.calls[0][0] as {
+      userId: number | null; q: string | null; country: string | null;
+      filters: string; resultCnt: number;
+    };
+    expect(entry.userId).toBe(7);
+    expect(entry.q).toBe("solar");
+    expect(entry.country).toBe("CN");
+    expect(JSON.parse(entry.filters)).toMatchObject({
       mode: "default",
       page: 2,
       budget_min: 5000,
       match_mode: "any",
       sort: "latest",
     });
-    expect(total).toBe(42);
+    expect(entry.resultCnt).toBe(42);
   });
 
-  it("搜索日志：匿名检索与推荐模式空载均不落库", async () => {
+  it("搜索日志：匿名检索落库但 q 置空（仅访客哈希），推荐模式不落库", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 0, authViaJwt: false });
-    await GET(makeReq());
-    expect(mocks.logSearch).not.toHaveBeenCalled();
+    // 空 UA 会被 isBotUserAgent 判为 bot（匿名也不落库），这里给真实浏览器 UA
+    await GET(new NextRequest("http://localhost:3000/api/notices/unified-search?q=solar&page=1", {
+      headers: { "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36" },
+    }));
+    expect(mocks.logSearch).toHaveBeenCalledTimes(1);
+    const entry = mocks.logSearch.mock.calls[0][0] as {
+      userId: number | null; q: string | null; visitorHash: string | null;
+    };
+    // 匿名：原始检索词不落库，只留 q_norm + 访客哈希
+    expect(entry.userId).toBeNull();
+    expect(entry.q).toBeNull();
+    expect(entry.visitorHash).toBeTruthy();
 
+    mocks.logSearch.mockClear();
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
     await GET(makeReq("http://localhost:3000/api/notices/unified-search?mode=recommended&page=1"));
     expect(mocks.logSearch).not.toHaveBeenCalled();

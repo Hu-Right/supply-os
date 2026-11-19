@@ -101,10 +101,10 @@ describe("ProfileContent", () => {
     expect(screen.queryByTestId("my-records")).not.toBeInTheDocument();
   });
 
-  it("渲染供应商认证状态与退出登录按钮", () => {
+  it("渲染供应商认证状态；退出登录行已下线（2026-11-19）", () => {
     render(<ProfileContent />);
-    // 退出行标题 + 按钮均含 authLogout，允许多个匹配
-    expect(screen.getAllByText("authLogout").length).toBeGreaterThan(0);
+    // 退出入口只保留在顶部账户菜单，页尾不再出现退出行/按钮
+    expect(screen.queryByText("authLogout")).not.toBeInTheDocument();
     // 未绑定企业 → 显示“未绑定”
     expect(screen.getByText("authSupplierPending")).toBeInTheDocument();
   });

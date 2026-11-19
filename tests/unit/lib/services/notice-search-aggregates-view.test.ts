@@ -22,8 +22,9 @@ const ALIAS_ROWS = [
   { canonical: "CHINA", country_code: "CN", alias: "中国", kind: "country", name_i18n: JSON.stringify({ zh: "中国" }) },
 ];
 const COUNTRY_ROWS = [
-  { country: "China", cnt: 5 },
-  { country: "中国", cnt: 2 },
+  // 2026-11-18 起服务表按 ISO2 分组（p.country_code AS code），展示层再映射 canonical
+  { code: "CN", cnt: 5 },
+  { code: "CN", cnt: 2 },
 ];
 const BACKBONE_ROWS = [
   { code: "UGT-A01", name_zh: "机械", cnt: 12 },

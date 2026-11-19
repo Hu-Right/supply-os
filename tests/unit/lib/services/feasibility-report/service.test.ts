@@ -41,9 +41,6 @@ function makeRepo(state: FakeState): FeasibilityReportRepoLike {
     async listCapabilityRows() {
       return state.capabilityRows;
     },
-    async listEvidenceRows() {
-      return [];
-    },
     async getLatestRequirements() {
       return { version: state.requirementRows.length > 0 ? 1 : 0, rows: state.requirementRows };
     },
@@ -121,7 +118,7 @@ function makeDeps(repo: FeasibilityReportRepoLike, state: FakeState, overrides: 
 
 function baseState(): FakeState {
   return {
-    supplier: { id: 1001, company: "宁波照明", certification: "ISO 9001" },
+    supplier: { id: 1001, company: "宁波照明" },
     notice: {
       notice_pk: 7,
       notice_id: "N7",
@@ -132,7 +129,16 @@ function baseState(): FakeState {
       attachments: [],
     },
     requirementRows: [],
-    capabilityRows: [],
+    // 证书单一事实源=能力档案（2026-11-19）：判定依据来自能力项，不再读 supplier.certification 文本
+    capabilityRows: [{
+      id: 1,
+      enterprise_id: 1001,
+      capability_type: "certification",
+      name: "ISO 9001",
+      value_json: { kind: "certification", code: "ISO9001", validUntil: null },
+      evidence_refs_json: null,
+      confirmation_json: null,
+    }],
     reports: [],
     savedRequirements: 0,
     savedReports: 0,
@@ -194,6 +200,7 @@ describe("feasibility-report 编排服务", () => {
   it("企业档案没有可判定能力项 → 400 并提示先完善资料", async () => {
     const state = baseState();
     state.supplier = { id: 1001, company: "空档案企业" };
+    state.capabilityRows = [];
     const deps = makeDeps(makeRepo(state), state);
     await expect(generateFeasibilityReport(deps, { userId: 1, noticePk: 7 })).rejects.toMatchObject({
       status: 400,

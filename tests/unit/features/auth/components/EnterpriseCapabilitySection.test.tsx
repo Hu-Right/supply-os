@@ -19,9 +19,7 @@ vi.mock("@/features/auth/components/enterprise-capability/useEnterpriseCapabilit
 vi.mock("@/features/auth/components/enterprise-capability/CapabilityFormFields", () => ({
   CapabilityFormFields: () => null,
 }));
-vi.mock("@/features/auth/components/enterprise-capability/EvidencePanel", () => ({
-  EvidencePanel: () => null,
-}));
+
 
 import { EnterpriseCapabilitySection } from "@/features/auth/components/EnterpriseCapabilitySection";
 
@@ -67,5 +65,12 @@ describe("EnterpriseCapabilitySection 错误态分流", () => {
   it("未使能（未绑定企业）→ 整块不渲染", () => {
     render(<EnterpriseCapabilitySection enabled={false} />);
     expect(screen.queryByTestId("enterprise-capability-section")).toBeNull();
+  });
+
+  it("证据资料已下线：区块内不再出现证据面板（2026-11-19 与能力档案合并）", () => {
+    render(<EnterpriseCapabilitySection enabled />);
+    expect(screen.getByTestId("enterprise-capability-section")).toBeInTheDocument();
+    expect(screen.queryByText("capEvidenceSectionTitle")).toBeNull();
+    expect(screen.queryByText("capSaveEvidence")).toBeNull();
   });
 });
