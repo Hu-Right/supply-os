@@ -185,7 +185,8 @@ async function _searchCore(
     // 避免向用户返回假空结果。docCount 带 60s 缓存，正常无匹配搜索零额外开销。
     if (total === 0) {
       const docCount = await getCachedDocCount();
-      if (docCount < 1000) {
+      // null = 读不到文档数，不能据此判定索引为空（否则会误触发重建）
+      if (docCount !== null && docCount < 1000) {
         recordFallback("index-empty");
         requestIndexRebuild("index-empty");
         const fb = await mysqlFallback(pool, p, plan);

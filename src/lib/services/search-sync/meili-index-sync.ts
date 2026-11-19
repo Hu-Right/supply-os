@@ -45,12 +45,27 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
    * 现改由定时循环重试初始化，Meilisearch 恢复后自动接管。
    */
   async function init(): Promise<void> {
+    // 健康位在新进程里恒为 false（isHealthy 初值 false，noteMeiliSuccess 不翻位），
+    // 而 getDocCount/getLastSyncedId 不可用时返回 null。原实现把它们当 0，
+    // 于是「读不到计数」被当成「索引为空」，每次冷启动都触发一次全量重建
+    // （2026-11-19 实测：dev 重启后重建 55 万文档、约 19 分钟，把 MySQL 隧道打满）。
+    // 现改为：先探测健康，拿不到水位/文档数就跳过本轮，下个周期重试。
+    if (!isHealthy()) {
+      const recovered = await tryRecover();
+      if (!recovered || stopped) return;
+    }
     const { watermark: wm, docCount } = await initWatermark();
     if (stopped) return;
+    if (wm === null || docCount === null) {
+      console.warn(
+        "[meilisearch] 同步初始化：读取索引水位/文档数失败，跳过本轮（下周期重试），不触发全量重建",
+      );
+      return;
+    }
     watermark = wm;
 
     if (docCount === 0) {
-      // Meilisearch 为空：执行全量同步
+      // Meilisearch 确实为空：执行全量同步
       const result = await fullSync(pool);
       if (!stopped) watermark = result.lastId;
     } else {
@@ -99,7 +114,7 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
     if (initialized && syncCount % 20 === 0 && isHealthy()) {
       try {
         const [meiliCount, wideCount] = await Promise.all([getDocCount(), getWideTableCount(pool)]);
-        if (wideCount > 0 && meiliCount < wideCount * 0.95) {
+        if (meiliCount !== null && wideCount > 0 && meiliCount < wideCount * 0.95) {
           const pct = (meiliCount / wideCount * 100).toFixed(1);
           console.warn(`[meilisearch] 索引覆盖率不足: Meilisearch=${meiliCount} / 宽表=${wideCount} (${pct}%)，触发全量重建`);
           requestIndexRebuild("coverage-gap");
@@ -111,10 +126,10 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
     // 重建触发器：仅当 Meilisearch 健康且有待处理重建时执行
     try {
       await tryRunPendingRebuild(pool);
-      if (!stopped) {
-        // 重建后刷新 watermark，避免重建后的增量重复
+if (!stopped) {
+        // 重建后刷新 watermark，避免重建期数据回放
         const { watermark: freshWatermark } = await initWatermark();
-        if (freshWatermark > watermark) watermark = freshWatermark;
+        if (freshWatermark !== null && freshWatermark > watermark) watermark = freshWatermark;
       }
     } catch (err) {
       console.warn("[meilisearch] 重建检查异常（静默降级）:", (err as Error).message);
@@ -131,9 +146,10 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
 }
 
 /**
- * 从 Meilisearch 恢复 watermark（已同步的最大 ID）
+ * 从 Meilisearch 恢复 watermark（若同步的最大 ID）
+ * @returns 任一字段为 null 表示「读不到」，调用方须跳过本轮而不是当作空索引
  */
-async function initWatermark(): Promise<{ watermark: number; docCount: number }> {
+async function initWatermark(): Promise<{ watermark: number | null; docCount: number | null }> {
   const [lastId, docCount] = await Promise.all([getLastSyncedId(), getDocCount()]);
   return { watermark: lastId, docCount };
 }
@@ -149,13 +165,14 @@ async function detectIndexIssues(pool: Pool): Promise<string[]> {
 
   // 检测 has_deadline 字段缺失（排序修复后新增的字段，旧索引需要全量重建）
   const hasDeadlineField = await hasHasDeadlineField();
-  if (!hasDeadlineField) issues.push("缺少 has_deadline 字段");
+  if (hasDeadlineField === false) issues.push("缺少 has_deadline 字段");
 
   // 检测 ghost IDs：索引文档数应等于宽表行数（索引同步的事实源）。
   // 注：不能用 bid_notices 总行数作基线——该表在外部迁移时会被临时清空，
   // 误触发全量重建（回归演练期间实测多次重建）
   const [meiliCount, wideCount] = await Promise.all([getDocCount(), getWideTableCount(pool)]);
-  if (meiliCount > wideCount * 1.01) {
+  // 读不到索引条数（null）时跳过 ghost 判定，不能当成空索引误触发全量重建
+  if (meiliCount !== null && meiliCount > wideCount * 1.01) {
     // 允许 1% 的误差（增量同步延迟等）
     issues.push(`ghost IDs (Meilisearch=${meiliCount} > 宽表=${wideCount})`);
   }

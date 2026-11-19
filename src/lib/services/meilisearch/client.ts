@@ -300,10 +300,14 @@ export async function getIndexStats(): Promise<{ numberOfDocuments: number } | n
   }
 }
 
-/** 获取 Meilisearch 索引中已同步的最大文档 ID */
-export async function getLastSyncedId(): Promise<number> {
+/**
+ * 获取 Meilisearch 索引中已同步的最大文档 ID
+ * @returns null 表示「读不到」（未初始化/不健康/请求异常），调用方严禁当作 0 处理：
+ *          0 只表示索引确实为空（查询成功且无命中）
+ */
+export async function getLastSyncedId(): Promise<number | null> {
   const client = getClient();
-  if (!client || !isHealthy()) return 0;
+  if (!client || !isHealthy()) return null;
   try {
     const result = await client.index(INDEX_NAME).search("", {
       sort: ["id:desc"],
@@ -313,19 +317,23 @@ export async function getLastSyncedId(): Promise<number> {
     if (result.hits.length > 0) return Number(result.hits[0].id) || 0;
     return 0;
   } catch {
-    return 0;
+    return null;
   }
 }
 
-/** 获取 Meilisearch 索引中的文档总数 */
-export async function getDocCount(): Promise<number> {
+/**
+ * 获取 Meilisearch 索引中的文档总数
+ * @returns null 表示「读不到」（未初始化/不健康/请求异常），调用方严禁当作 0 处理：
+ *          0 只表示索引确实为空（stats 查询成功）
+ */
+export async function getDocCount(): Promise<number | null> {
   const client = getClient();
-  if (!client || !isHealthy()) return 0;
+  if (!client || !isHealthy()) return null;
   try {
     const stats = await client.index(INDEX_NAME).getStats();
     return stats.numberOfDocuments || 0;
   } catch {
-    return 0;
+    return null;
   }
 }
 
@@ -333,9 +341,11 @@ export async function getDocCount(): Promise<number> {
 let _docCountCache: { value: number; expires: number } | null = null;
 const DOC_COUNT_CACHE_TTL = 60 * 1000;
 
-export async function getCachedDocCount(): Promise<number> {
+/** @returns null 表示读不到（不缓存，避免把失败结果固化 60 秒） */
+export async function getCachedDocCount(): Promise<number | null> {
   if (_docCountCache && _docCountCache.expires > Date.now()) return _docCountCache.value;
   const value = await getDocCount();
+  if (value === null) return null;
   _docCountCache = { value, expires: Date.now() + DOC_COUNT_CACHE_TTL };
   return value;
 }
@@ -356,14 +366,18 @@ export async function hasOldSentinel(): Promise<boolean> {
   }
 }
 
-/** 检测索引是否已包含 has_deadline 字段（用于判断是否需要全量重建） */
-export async function hasHasDeadlineField(): Promise<boolean> {
+/**
+ * 检测索引是否已包含 has_deadline 字段（用于判断是否需要全量重建）
+ * @returns null 表示读不到 stats（不健康/异常），此时不可判定为「缺字段」，
+ *          否则一次瞬时超时就会被当成缺字段，触发整表重建
+ */
+export async function hasHasDeadlineField(): Promise<boolean | null> {
   const client = getClient();
-  if (!client || !isHealthy()) return false;
+  if (!client || !isHealthy()) return null;
   try {
     const stats = await client.index(INDEX_NAME).getStats();
     return !!(stats as { fieldDistribution?: Record<string, unknown> }).fieldDistribution?.has_deadline;
   } catch {
-    return false;
+    return null;
   }
 }
