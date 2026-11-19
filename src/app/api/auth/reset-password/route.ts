@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
-import { EC_INVALID_REQUEST, EC_INVALID_CODE, EC_TOO_MANY_ATTEMPTS, EC_ACCOUNT_DISABLED } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_INVALID_CODE, EC_TOO_MANY_ATTEMPTS, EC_ACCOUNT_DISABLED } from "@/shared/constants/api";
 import { hashPassword, hashVerificationCode, buildUserResponse, issueTokenPair } from "@/lib/services/auth";
 import { validatePassword } from "@/lib/utils/passwordPolicy";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
@@ -33,7 +33,7 @@ function detectChannel(identifier: string): "sms" | "email" {
 
 export const POST = withRoute(async (req: NextRequest) => {
   const body = await parseJson(req, resetSchema, {
-    identifier: EC_INVALID_REQUEST, code: EC_INVALID_CODE, new_password: EC_INVALID_REQUEST,
+    identifier: EC_INVALID_PARAMS, code: EC_INVALID_CODE, new_password: EC_INVALID_PARAMS,
   });
   const identifier = body.identifier;
   const verifyCode = body.code;
@@ -42,7 +42,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const channel: "sms" | "email" = body.channel || detectChannel(identifier);
 
   const pwCheck = validatePassword(newPassword);
-  if (!pwCheck.valid) routeError(400, EC_INVALID_REQUEST, pwCheck.message);
+  if (!pwCheck.valid) routeError(400, EC_INVALID_PARAMS, pwCheck.message);
 
   const ctx = getContext();
   let resolvedUserId: number;

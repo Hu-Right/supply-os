@@ -13,7 +13,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { chatRatingSchema } from "@/lib/validators/chat";
 import { sessionOwnedBy } from "@/lib/services/chat-service";
-import { EC_INVALID_REQUEST, EC_CHAT_SESSION_MISSING, EC_FORBIDDEN, EC_CHAT_RATE_INVALID } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_CHAT_SESSION_MISSING, EC_FORBIDDEN, EC_CHAT_RATE_INVALID } from "@/shared/constants/api";
 import path from "path";
 
 const rateLimiterConfig = {
@@ -32,12 +32,12 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     body = await req.json();
   } catch {
-    routeError(400, EC_INVALID_REQUEST, "无效的请求体");
+    routeError(400, EC_INVALID_PARAMS, "无效的请求体");
   }
 
   const parsed = chatRatingSchema.safeParse(body);
   if (!parsed.success) {
-    routeError(400, EC_INVALID_REQUEST, parsed.error.issues[0]?.message ?? "参数校验失败");
+    routeError(400, EC_INVALID_PARAMS, parsed.error.issues[0]?.message ?? "参数校验失败");
   }
 
   const { sessionId, satisfaction, tag, comment } = parsed.data!;

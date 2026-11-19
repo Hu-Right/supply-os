@@ -16,7 +16,7 @@ import { chatMessageSendSchema, sanitizeMetadata } from "@/lib/validators/chat";
 import { sessionOwnedBy, messageViewOf, messagesViewOf } from "@/lib/services/chat-service";
 import path from "path";
 import { ONE_MINUTE_MS } from "@/shared/constants/time";
-import { EC_INVALID_REQUEST, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING, EC_CHAT_SESSION_CLOSED } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING, EC_CHAT_SESSION_CLOSED } from "@/shared/constants/api";
 import { CHAT_MESSAGES_DEFAULT_LIMIT, CHAT_MESSAGES_MAX_LIMIT, clampLimit } from "@/shared/constants/api";
 
 /** 消息发送限流：同一用户每分钟最多 30 条 */
@@ -44,7 +44,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   if (limited) return limited;
 
   const sessionId = Number(req.nextUrl.searchParams.get("sessionId"));
-  if (!sessionId) routeError(400, EC_INVALID_REQUEST, "缺少 sessionId");
+  if (!sessionId) routeError(400, EC_INVALID_PARAMS, "缺少 sessionId");
 
   const chatRepo = getContext().chatRepo;
 
@@ -74,12 +74,12 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     body = await req.json();
   } catch {
-    routeError(400, EC_INVALID_REQUEST, "无效的请求体");
+    routeError(400, EC_INVALID_PARAMS, "无效的请求体");
   }
 
   const parsed = chatMessageSendSchema.safeParse(body);
   if (!parsed.success) {
-    routeError(400, EC_INVALID_REQUEST, parsed.error.issues[0]?.message ?? "参数校验失败");
+    routeError(400, EC_INVALID_PARAMS, parsed.error.issues[0]?.message ?? "参数校验失败");
   }
 
   const { sessionId, content } = parsed.data!;

@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
-import { EC_INVALID_REQUEST, EC_PHONE_ISSUE, EC_SMS_NOT_CONFIGURED, EC_EMAIL_ISSUE, EC_EMAIL_NOT_CONFIGURED } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_PHONE_ISSUE, EC_SMS_NOT_CONFIGURED, EC_EMAIL_ISSUE, EC_EMAIL_NOT_CONFIGURED } from "@/shared/constants/api";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendPasswordResetEmail, isEmailConfigured } from "@/lib/services/email";
 import { sendSmsVerificationCode, isSmsConfigured } from "@/lib/services/sms";
@@ -34,7 +34,7 @@ function detectChannel(identifier: string): "sms" | "email" {
 }
 
 export const POST = withRoute(async (req: NextRequest) => {
-  const body = await parseJson(req, forgotSchema, { channel: EC_INVALID_REQUEST });
+  const body = await parseJson(req, forgotSchema, { channel: EC_INVALID_PARAMS });
   const identifier = String(body.identifier || "").trim();
   // 前端可显式指定 channel，未指定时自动识别
   const channel: "sms" | "email" = body.channel || detectChannel(identifier);

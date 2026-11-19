@@ -14,7 +14,7 @@
  */
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { EC_INVALID_REQUEST, EC_INTERNAL_ERROR, EC_PROXY_URL_MISSING, EC_PROXY_RESPONSE_TOO_LARGE } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_PROXY_URL_MISSING, EC_PROXY_RESPONSE_TOO_LARGE } from "@/shared/constants/api";
 
 /** 允许代理的外部域名白名单（按需扩展；当前为宽松模式，仅记录不拦截） */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 保留供严格模式启用
@@ -80,23 +80,23 @@ export const GET = withRoute(
     try {
       parsed = new URL(targetUrl);
     } catch {
-      routeError(400, EC_INVALID_REQUEST, "无效的 URL");
+      routeError(400, EC_INVALID_PARAMS, "无效的 URL");
     }
 
     // 协议白名单
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      routeError(400, EC_INVALID_REQUEST, "仅允许 http/https 协议");
+      routeError(400, EC_INVALID_PARAMS, "仅允许 http/https 协议");
     }
 
     // SSRF 防护
     if (isPrivateHost(parsed.hostname)) {
-      routeError(400, EC_INVALID_REQUEST, "不允许访问内网地址");
+      routeError(400, EC_INVALID_PARAMS, "不允许访问内网地址");
     }
 
     // 域名白名单（宽松模式：白名单外的域名也允许，但日志记录）
     // 如需严格模式可取消下方注释：
     // if (!ALLOWED_HOSTS.has(parsed.hostname)) {
-    //   routeError(400, EC_INVALID_REQUEST, `不在允许的域名白名单内: ${parsed.hostname}`);
+    //   routeError(400, EC_INVALID_PARAMS, `不在允许的域名白名单内: ${parsed.hostname}`);
     // }
 
     // 服务端代为拉取外部资源

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
-import { EC_INVALID_REQUEST, EC_SMS_NOT_CONFIGURED, EC_NOT_FOUND, EC_PHONE_ISSUE, EC_PHONE_NOT_BOUND, EC_PHONE_ALREADY_BOUND, EC_SMS_SEND_FAILED } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_SMS_NOT_CONFIGURED, EC_NOT_FOUND, EC_PHONE_ISSUE, EC_PHONE_NOT_BOUND, EC_PHONE_ALREADY_BOUND, EC_SMS_SEND_FAILED } from "@/shared/constants/api";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
@@ -22,7 +22,7 @@ const sendPhoneSchema = z.object({
 
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
-  const { phone, scene } = await parseJson(req, sendPhoneSchema, { scene: EC_INVALID_REQUEST });
+  const { phone, scene } = await parseJson(req, sendPhoneSchema, { scene: EC_INVALID_PARAMS });
   if (!isSmsConfigured()) {
     routeError(503, EC_SMS_NOT_CONFIGURED, "短信服务暂未配置，请稍后重试");
   }

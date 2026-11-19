@@ -29,7 +29,7 @@ const registerSchema = z.object({
 
 export const POST = withRoute(async (req: NextRequest) => {
   // 字段级校验失败统一走通用参数码（EC_INVALID_PARAMS 不登记，后端 message 直出）；
-  // phone 例外给专属码。旧值 password:40001 会被 error-map 误判为「请先登录」（撞 EC_USER_REQUIRED）。
+  // phone 例外给专属码。旧值 password:40001 会被 error-map 误判为「请先登录」（撞 EC_AUTH_REQUIRED）。
   const body = await parseJson(req, registerSchema, {
     display_name: EC_INVALID_PARAMS, phone: EC_PHONE_ISSUE, password: EC_INVALID_PARAMS, verify_code: EC_INVALID_PARAMS,
   });

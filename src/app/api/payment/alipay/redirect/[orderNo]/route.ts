@@ -8,7 +8,7 @@
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { EC_PAYMENT_ORDER_NOT_FOUND, EC_ACCESS_FORBIDDEN, EC_INVALID_REQUEST } from "@/shared/constants/api";
+import { EC_PAYMENT_ORDER_NOT_FOUND, EC_ACCESS_FORBIDDEN, EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ orderNo: string }> }>(
   async (req, { params }) => {
@@ -21,8 +21,8 @@ export const GET = withRoute<{ params: Promise<{ orderNo: string }> }>(
     const order = await ctx.payment.paymentsRepo.findByOrderNo(decodedOrderNo);
     if (!order) routeError(404, EC_PAYMENT_ORDER_NOT_FOUND, "Order not found");
     if (order.user_id !== auth.userId) routeError(403, EC_ACCESS_FORBIDDEN, "Forbidden");
-    if (order.provider !== "alipay") routeError(400, EC_INVALID_REQUEST, "Not an Alipay order");
-    if (order.status !== "pending") routeError(400, EC_INVALID_REQUEST, "Order is not pending");
+    if (order.provider !== "alipay") routeError(400, EC_INVALID_PARAMS, "Not an Alipay order");
+    if (order.status !== "pending") routeError(400, EC_INVALID_PARAMS, "Order is not pending");
 
     return new Response(order.pay_url!, {
       status: 200,

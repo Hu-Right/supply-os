@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey, requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { EC_VIP_ONLY, EC_INVALID_REQUEST } from "@/shared/constants/api";
+import { EC_VIP_ONLY, EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { resolveMembershipState } from "@/lib/services/membership-status";
@@ -52,7 +52,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   } = body;
 
   if (!companyName || !contactPerson || !contactMethod) {
-    routeError(400, EC_INVALID_REQUEST, "请填写必填字段");
+    routeError(400, EC_INVALID_PARAMS, "请填写必填字段");
   }
 
   const newLead: Lead = {

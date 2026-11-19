@@ -356,6 +356,6 @@ describe("错误与缓存损坏分支", () => {
     findMatch.mockResolvedValue(null);
     fetchSupplierProfiles.mockResolvedValue([supplierRow]);
     const emptyPool = { query: vi.fn().mockResolvedValue([[]]) } as any;
-    await expect(getOrGenerateAiMatch(emptyPool, 1, 2, false)).rejects.toMatchObject({ status: 404, code: 40006 });
+    await expect(getOrGenerateAiMatch(emptyPool, 1, 2, false)).rejects.toMatchObject({ status: 404, code: 40404 });
   });
 });

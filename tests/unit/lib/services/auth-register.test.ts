@@ -349,12 +349,12 @@ describe("registerUser", () => {
     expect(result.refreshToken).toBeNull();
   });
 
-  it("create() 返回 0 → 400/40022 EC_INVALID_REQUEST 注册失败", async () => {
+  it("create() 返回 0 → 400/40000 EC_INVALID_PARAMS 注册失败", async () => {
     const ctx = makeCtx({
       usersRepo: { create: vi.fn().mockResolvedValue(0) },
     });
     await expect(registerUser(ctx, baseParams))
-      .rejects.toMatchObject({ status: 400, code: 40022 });
+      .rejects.toMatchObject({ status: 400, code: 40000 });
   });
 
   it("markPhoneVerifiedById 按新用户 id 调用（非 user_key）", async () => {

@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { EC_INVALID_REQUEST } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { buildJsapiSignature, isWechatMpConfigured } from "@/lib/services/wechat/jssdk";
 
 /** 允许签名的站点 host：请求自身 host + 部署配置的站点域名 + 主站兜底 */
@@ -37,19 +37,19 @@ function allowedHosts(req: NextRequest): Set<string> {
 
 export const GET = withRoute(async (req: NextRequest) => {
   const raw = String(req.nextUrl.searchParams.get("url") || "").trim();
-  if (!raw) routeError(400, EC_INVALID_REQUEST, "缺少 url 参数");
+  if (!raw) routeError(400, EC_INVALID_PARAMS, "缺少 url 参数");
 
   let target: URL;
   try {
     target = new URL(raw);
   } catch {
-    routeError(400, EC_INVALID_REQUEST, "url 参数不合法");
+    routeError(400, EC_INVALID_PARAMS, "url 参数不合法");
   }
   if (target.protocol !== "https:" && target.protocol !== "http:") {
-    routeError(400, EC_INVALID_REQUEST, "url 参数不合法");
+    routeError(400, EC_INVALID_PARAMS, "url 参数不合法");
   }
   if (!allowedHosts(req).has(target.host.toLowerCase())) {
-    routeError(400, EC_INVALID_REQUEST, "只允许签名本站页面");
+    routeError(400, EC_INVALID_PARAMS, "只允许签名本站页面");
   }
 
   // 同一页面会反复打开分享面板：每个 IP 每分钟 120 次足够，超了前端走降级引导

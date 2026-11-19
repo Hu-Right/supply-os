@@ -10,7 +10,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { validateGroupInput } from "@/lib/services/keyword-groups";
-import { EC_INVALID_PARAMS, EC_INVALID_REQUEST, EC_VIP_ONLY, EC_KEYWORD_GROUP_NAME_RESERVED } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_VIP_ONLY, EC_KEYWORD_GROUP_NAME_RESERVED } from "@/shared/constants/api";
 
 const patchBodySchema = z.object({
   name: z.string().optional(),
@@ -53,13 +53,13 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_KEYWORD_GROUP_NAME_RESERVED, "该名称为官方词组名称，请换一个");
     }
     // KeywordGroupsRepo.update 不捕获 ER_DUP_ENTRY（改名撞同名词组时直接抛错）：
-    // 路由层兜底转 400/EC_INVALID_REQUEST，其余错误原样上抛交 withRoute 统一处理。
+    // 路由层兜底转 400/EC_INVALID_PARAMS，其余错误原样上抛交 withRoute 统一处理。
     let updated: boolean;
     try {
       updated = await repo.update(userId, id, patch);
     } catch (err) {
       if ((err as { code?: string })?.code === "ER_DUP_ENTRY") {
-        routeError(400, EC_INVALID_REQUEST, "已存在同名词组");
+        routeError(400, EC_INVALID_PARAMS, "已存在同名词组");
       }
       throw err;
     }

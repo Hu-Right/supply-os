@@ -9,7 +9,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
-import { EC_INVALID_REQUEST, EC_EMAIL_NOT_CONFIGURED, EC_NOT_FOUND, EC_EMAIL_ISSUE, EC_EMAIL_ALREADY_BOUND, EC_EMAIL_NOT_BOUND, EC_CONTACT_TAKEN_BY_OTHER, EC_EMAIL_SEND_FAILED } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_EMAIL_NOT_CONFIGURED, EC_NOT_FOUND, EC_EMAIL_ISSUE, EC_EMAIL_ALREADY_BOUND, EC_EMAIL_NOT_BOUND, EC_CONTACT_TAKEN_BY_OTHER, EC_EMAIL_SEND_FAILED } from "@/shared/constants/api";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
@@ -25,7 +25,7 @@ const sendEmailSchema = z.object({
 
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
-  const { email, scene } = await parseJson(req, sendEmailSchema, { scene: EC_INVALID_REQUEST });
+  const { email, scene } = await parseJson(req, sendEmailSchema, { scene: EC_INVALID_PARAMS });
   if (!isEmailConfigured()) {
     routeError(503, EC_EMAIL_NOT_CONFIGURED, "邮件服务暂未配置，请稍后重试");
   }

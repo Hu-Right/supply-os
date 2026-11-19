@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { toggleNoticeFavorite, NoticeNotFoundError } from "@/lib/services/notice-service";
-import { EC_NOTICE_NOT_FOUND_LEGACY } from "@/shared/constants/api";
+import { EC_NOTICE_NOT_FOUND } from "@/shared/constants/api";
 
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -19,7 +19,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       return NextResponse.json(result);
     } catch (err) {
       if (err instanceof NoticeNotFoundError) {
-        routeError(404, EC_NOTICE_NOT_FOUND_LEGACY, "公告不存在");
+        routeError(404, EC_NOTICE_NOT_FOUND, "公告不存在");
       }
       throw err;
     }

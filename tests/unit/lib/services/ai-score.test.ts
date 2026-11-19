@@ -126,7 +126,7 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
   it("公告不存在 → 404 errNoticeNotFound", async () => {
     findScore.mockResolvedValue(null);
     const pool = { query: vi.fn().mockResolvedValue([[]]) } as any;
-    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 404, code: 40006 });
+    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 404, code: 40404 });
   });
 
   it("LLM 调用失败 → 502 errLlmCallFailed", async () => {

@@ -8,14 +8,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { EC_INVALID_REQUEST, EC_CHAT_SESSION_MISSING, EC_FORBIDDEN } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_CHAT_SESSION_MISSING, EC_FORBIDDEN } from "@/shared/constants/api";
 import { sessionOwnedBy } from "@/lib/services/chat-service";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
 
   const sessionId = Number(req.nextUrl.searchParams.get("sessionId"));
-  if (!sessionId) routeError(400, EC_INVALID_REQUEST, "缺少 sessionId");
+  if (!sessionId) routeError(400, EC_INVALID_PARAMS, "缺少 sessionId");
 
   const chatRepo = getContext().chatRepo;
   const session = await chatRepo.findSessionById(sessionId);

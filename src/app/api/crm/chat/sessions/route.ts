@@ -16,7 +16,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { chatSessionCreateSchema } from "@/lib/validators/chat";
 import { sessionOwnedBy, sessionViewOf, sessionsViewOf } from "@/lib/services/chat-service";
-import { EC_INVALID_REQUEST, EC_CHAT_SESSION_MISSING, EC_FORBIDDEN } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_CHAT_SESSION_MISSING, EC_FORBIDDEN } from "@/shared/constants/api";
 import path from "path";
 
 /** 转人工创建会话：同一用户 10 分钟内最多 5 次（正常场景一次即复用） */
@@ -66,12 +66,12 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     body = await req.json();
   } catch {
-    routeError(400, EC_INVALID_REQUEST, "无效的请求体");
+    routeError(400, EC_INVALID_PARAMS, "无效的请求体");
   }
 
   const parsed = chatSessionCreateSchema.safeParse(body);
   if (!parsed.success) {
-    routeError(400, EC_INVALID_REQUEST, parsed.error.issues[0]?.message ?? "参数校验失败");
+    routeError(400, EC_INVALID_PARAMS, parsed.error.issues[0]?.message ?? "参数校验失败");
   }
 
   const chatRepo = getContext().chatRepo;
@@ -104,7 +104,7 @@ export const DELETE = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
 
   const sessionId = Number(req.nextUrl.searchParams.get("sessionId"));
-  if (!sessionId) routeError(400, EC_INVALID_REQUEST, "缺少 sessionId");
+  if (!sessionId) routeError(400, EC_INVALID_PARAMS, "缺少 sessionId");
 
   const chatRepo = getContext().chatRepo;
   const session = await chatRepo.findSessionById(sessionId);

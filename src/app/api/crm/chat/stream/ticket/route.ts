@@ -18,7 +18,7 @@ import { sessionOwnedBy } from "@/lib/services/chat-service";
 import path from "path";
 import { z } from "zod";
 import { CHAT_TICKET_TTL_MS, ONE_MINUTE_MS } from "@/shared/constants/time";
-import { EC_INVALID_REQUEST, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_FORBIDDEN, EC_CHAT_SESSION_MISSING } from "@/shared/constants/api";
 
 const TICKET_TTL_SECONDS = CHAT_TICKET_TTL_MS / 1000;
 
@@ -40,12 +40,12 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     body = await req.json();
   } catch {
-    routeError(400, EC_INVALID_REQUEST, "无效的请求体");
+    routeError(400, EC_INVALID_PARAMS, "无效的请求体");
   }
 
   const parsed = ticketSchema.safeParse(body);
   if (!parsed.success) {
-    routeError(400, EC_INVALID_REQUEST, "缺少有效的 sessionId");
+    routeError(400, EC_INVALID_PARAMS, "缺少有效的 sessionId");
   }
 
   const { sessionId } = parsed.data!;

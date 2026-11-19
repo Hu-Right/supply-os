@@ -16,10 +16,7 @@
 import type { AppContext } from "../db/context";
 import type { CodeOwner } from "../repos/invitation.repo";
 import { RouteError } from "../middleware/route-handler";
-import {
-  EC_INVALID_PARAMS, EC_INVITE_CODE_INVALID, EC_INVALID_CODE, EC_TOO_MANY_ATTEMPTS,
-  EC_DUPLICATE, EC_INVALID_REQUEST, EC_INTERNAL_ERROR,
-} from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_INVITE_CODE_INVALID, EC_INVALID_CODE, EC_TOO_MANY_ATTEMPTS, EC_DUPLICATE, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import { hashPassword, hashVerificationCode, issueTokenPair, generateNickname, buildUserResponse } from "./auth";
 import { validatePassword } from "../utils/passwordPolicy";
 import { DEFAULT_REGISTER_INVITE_CODE } from "@/shared/constants/invite";
@@ -63,7 +60,7 @@ export async function registerUser(
 ): Promise<RegisterUserResult> {
   const { displayName, targetPhone, password: pw, code, inviteCode } = params;
 
-  // 密码策略（通用参数码，后端 message 直出；旧 40006 撞 EC_NOTICE_NOT_FOUND_LEGACY会弹「公告不存在」）
+  // 密码策略（通用参数码，后端 message 直出；旧 40006 撞 EC_NOTICE_NOT_FOUND会弹「公告不存在」）
   const pwCheck = validatePassword(pw);
   if (!pwCheck.valid) throw new RouteError(400, EC_INVALID_PARAMS, pwCheck.message);
 
@@ -104,7 +101,7 @@ export async function registerUser(
     // 渠道码不得写进员工列：那是 employees 的归属语义，串了会在员工后台看见不属于他的人头
     referral_employee_id: owner !== null && owner.namespace === "employee" ? owner.employeeId : undefined,
   });
-  if (!newUserId) throw new RouteError(400, EC_INVALID_REQUEST, "注册失败，请稍后重试");
+  if (!newUserId) throw new RouteError(400, EC_INVALID_PARAMS, "注册失败，请稍后重试");
 
   await ctx.user.authRepo.markCodeUsed(codeRecord.id);
   // 注册成功 → 回填该验证码行的 user_id，建立「码 ↔ 账号」审计关联（未注册则不回填，保持 NULL）
