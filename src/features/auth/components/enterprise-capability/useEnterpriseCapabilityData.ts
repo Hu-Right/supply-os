@@ -2,17 +2,16 @@
  * 企业能力档案 — 数据域 Hook（自 EnterpriseCapabilitySection.tsx 拆出）
  *
  * @module features/auth/components/enterprise-capability/useEnterpriseCapabilityData
- * @description 能力项 CRUD + 证据登记/删除的全部状态与动作：
- *              load 拉档案、submitCapability/deleteCapability 走能力接口、
- *              submitEvidence/deleteEvidence 走证据接口（证据只登记元数据，不再上传文件）。
- *              两个域共用一份 profile/loading 与 load()（任一变更都整档重拉，
- *              与拆分前行为一致）；表单态也在此持有，视图组件只收 props 渲染。
+ * @description 能力项 CRUD 的全部状态与动作：load 拉档案、submitCapability/deleteCapability
+ *              走能力接口；表单态也在此持有，视图组件只收 props 渲染。
  *
  *              错误态分两类（2026-10-31 修）：
  *                - `error`      = 整档加载失败，交给 DataState 渲染「错误 + 重试」；
- *                - `actionError` = 新增/删除/上传/打开文件时的校验或接口错误，在表单旁内联展示。
+ *                - `actionError` = 新增/删除/打开文件时的校验或接口错误，在表单旁内联展示。
  *              旧实现把两者塞进同一个 error，导致「能力名称没填」这种表单校验也会让
  *              DataState 把整块表单替换成空态（用户看到「请填写能力名称 + 重试」，无法继续输入）。
+ *
+ *              2026-11-19 摘除「证据资料」数据域（证据与能力项重复，见迁移 056）。
  */
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/core/http";
@@ -34,12 +33,6 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
   const [capName, setCapName] = useState("");
   const [fields, setFields] = useState<Record<string, FieldValue>>({ noExpiry: true });
   const [savingCap, setSavingCap] = useState(false);
-
-  const [evidenceCategory, setEvidenceCategory] = useState("cert");
-  const [evidenceTitle, setEvidenceTitle] = useState("");
-  const [evidenceValidUntil, setEvidenceValidUntil] = useState("");
-  const [evidenceNoExpiry, setEvidenceNoExpiry] = useState(true);
-  const [savingEvidence, setSavingEvidence] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,53 +130,9 @@ export function useEnterpriseCapabilityData(enabled: boolean) {
     }
   };
 
-  const submitEvidence = async () => {
-    setActionError(null);
-    if (!evidenceTitle.trim()) {
-      setActionError(t("capEvidenceTitleRequired"));
-      return;
-    }
-    if (evidenceCategory === "cert" && !evidenceNoExpiry && !evidenceValidUntil) {
-      setActionError(t("capEvidenceExpiryRequired"));
-      return;
-    }
-    setSavingEvidence(true);
-    try {
-      await api("/api/user/enterprise/evidence", {
-        method: "POST",
-        body: {
-          category: evidenceCategory,
-          title: evidenceTitle.trim(),
-          validUntil: evidenceValidUntil || undefined,
-          noExpiry: evidenceNoExpiry,
-        },
-      });
-      setEvidenceTitle("");
-      setEvidenceValidUntil("");
-      await load();
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : t("capSaveFailed"));
-    } finally {
-      setSavingEvidence(false);
-    }
-  };
-
-  const deleteEvidence = async (id: number) => {
-    setActionError(null);
-    try {
-      await api(`/api/user/enterprise/evidence/${id}`, { method: "DELETE" });
-      await load();
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : t("capDeleteFailed"));
-    }
-  };
-
   return {
     profile, loading, error, actionError, load,
     capType, setCapType, capName, setCapName, certOptions, fields, setField, resetFields, savingCap, submitCapability, deleteCapability,
-    evidenceCategory, setEvidenceCategory, evidenceTitle, setEvidenceTitle,
-    evidenceValidUntil, setEvidenceValidUntil, evidenceNoExpiry, setEvidenceNoExpiry, savingEvidence,
-    submitEvidence, deleteEvidence,
   };
 }
 

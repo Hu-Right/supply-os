@@ -3,13 +3,13 @@
  * Account Benefits Card
  *
  * @module features/auth/components/AccountBenefitsCard
- * @description 账号弹窗中的权益展示：显示总可用解锁次数与分层明细。
- *              Compact benefits display in auth modal: shows total access and breakdown.
+ * @description 账号页的权益展示：可查看范围 + 当前有效订阅。
+ *              2026-11-19：查看次数限制已取消（各在售档 notice_view 均为不限），
+ *              原「总可用查看 / 无限次」改为描述可查看的行业与公告范围。
  */
 
 import { useEffect, useState } from "react";
-// Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
-import { Crown, Lock, Clock, Infinity as InfinityIcon } from "lucide-react";
+import { Crown, Lock, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
@@ -74,8 +74,9 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
   const subscription = membership.subscription;
   const plan = membership.plan;
   const hasSubscription = Boolean(subscription);
-  // 总可用解锁：读额度账本 notice_view 池（“不限”归一为 UNLIMITED_QUOTA=-1）
+  // 可查看范围：notice_view 池为不限（quota_total=-1）即全行业全量公告
   const totalRemaining = accessRemaining(membership.quotas);
+  const unlimited = isUnlimitedQuota(totalRemaining);
 
   const handleViewPlans = () => {
     if (onViewPlans) {
@@ -90,48 +91,39 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
   const themeColor = hasSubscription ? "text-accent-600" : "text-muted-foreground";
 
   return (
-    <div className="bg-secondary-50 border border-border rounded-xl p-4">
-      {/* 顶部：总可用次数 */}
-      <div className="flex items-center gap-1.5 mb-2">
+    <div className="bg-secondary-50 border border-border rounded-xl px-5 py-4">
+      {/* 顶部：档位可查看能力（2026-11-19 取消次数限制；同日去掉解释副文案与 ∞ 标识） */}
+      <div className="flex items-center gap-1.5 mb-1.5">
         {(() => {
           const Icon = themeIcon;
           return <Icon className={`w-3.5 h-3.5 ${themeColor}`} />;
         })()}
-        <p className="font-medium text-xs text-muted-foreground">{t("statusPanelTotalViews")}</p>
+        <p className="text-xs font-medium text-muted-foreground">{t("statusPanelScope")}</p>
       </div>
-      <div className="flex items-baseline gap-1 mb-2">
-        {isUnlimitedQuota(totalRemaining) ? (
-          <span className="text-xl font-semibold text-foreground">{t("membershipUnlimited")}</span>
-        ) : (
-          <>
-            <span className={`text-xl font-semibold ${totalRemaining > 0 ? "text-foreground" : "text-danger-600"}`}>
-              {totalRemaining}
-            </span>
-            <span className="text-xs text-muted-foreground">{t("statusPanelTimes")}</span>
-          </>
-        )}
-      </div>
+      <p className="text-lg font-semibold leading-7 text-foreground">
+        {unlimited
+          ? t("statusPanelScopeAll")
+          : totalRemaining > 0
+            ? `${totalRemaining} ${t("statusPanelTimes")}`
+            : t("statusPanelScopeFree")}
+      </p>
 
       {/* 分层明细：当前有效订阅（普通用户无订阅则不展示） */}
-      <div className="space-y-1 pt-2 border-t border-border">
-        {hasSubscription && subscription && (
-          <div className="flex items-center gap-1.5 text-3xs">
-            <Crown className="w-3 h-3 text-accent-500 flex-shrink-0" />
-            <span className="font-medium text-foreground">{t("statusPanelSubscriptionTitle")}</span>
-            <span className="text-muted-foreground truncate">{plan.nameZh}</span>
-            {subscription.expiresAt ? (
-              <span className="flex items-center gap-0.5 text-muted-foreground ml-auto">
-                <Clock className="w-2.5 h-2.5" />
-                {formatDateShort(subscription.expiresAt)}
-              </span>
-            ) : (
-              <span className="flex items-center gap-0.5 text-success-600 ml-auto">
-                <InfinityIcon className="w-2.5 h-2.5" />
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+      {hasSubscription && subscription && (
+        <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs">
+          <Crown className="w-3.5 h-3.5 shrink-0 text-accent-500" />
+          <span className="font-medium text-foreground">{t("statusPanelSubscriptionTitle")}</span>
+          <span className="min-w-0 truncate text-muted-foreground">{plan.nameZh}</span>
+          {subscription.expiresAt ? (
+            <span className="ml-auto flex shrink-0 items-center gap-1 text-muted-foreground">
+              <Clock className="w-3 h-3" />
+              {formatDateShort(subscription.expiresAt)}
+            </span>
+          ) : (
+            <span className="ml-auto shrink-0 text-muted-foreground">{t("statusPanelPermanent")}</span>
+          )}
+        </div>
+      )}
 
       {/* 升级引导 */}
       {totalRemaining === 0 && (
@@ -139,7 +131,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
           onClick={handleViewPlans}
           variant="link"
           size="sm"
-          className="w-full mt-2 px-0 text-primary-600 hover:text-primary-700 text-center"
+          className="w-full mt-3 justify-start px-0 text-primary-600 hover:text-primary-700"
         >
           {t("statusPanelUpgradeBtn")} →
         </Button>

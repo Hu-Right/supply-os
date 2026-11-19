@@ -57,7 +57,8 @@ export const BUSINESS_FIELDS: FieldDef[] = [
   },
   // 号码字段的 label/placeholder 由表单按当前类型动态覆盖（labelKey/placeholderKey 只是 uscc 兜底）
   { key: "credit_code", labelKey: "authRegIdField_uscc", fallback: "统一社会信用代码（18 位）", placeholderKey: "authRegIdPh_uscc" },
-  { key: "certification", labelKey: "authEnterpriseCertifications", fallback: "资质认证", placeholderKey: "authEnterpriseCertificationsPh" },
+  // 「资质认证」输入框已于 2026-11-19 撤下：证书唯一事实源改为能力档案（enterprise_capability_items），
+  // 存量 28 行文本由迁移 057 转入能力项，本表单不再写 supplier.certification。
 ];
 
 /** 必填字段（预提交阻断校验点名用） */

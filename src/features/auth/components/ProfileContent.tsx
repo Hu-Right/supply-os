@@ -5,12 +5,13 @@
  * @module features/auth/components/ProfileContent
  * @description 参考 bigmodel.cn 用户中心重做：基本信息卡（头像 + 内联「标签：值」
  *              三列网格）+ 安全设置行卡（实心圆图标 + 标题/灰描述 + 右侧实心按钮）
- *              + 会员权益/我的记录 + 注销式退出行。
+ *              + 会员权益/我的记录。
  *              表现层独立于旧共享组件样式，直接用 Tailwind 原生类实现。
+ *              2026-11-19 移除页尾「退出登录」行（退出入口只保留在顶部账户菜单）。
  */
 import { useRouter } from "next/navigation";
 import { useEffect, type ComponentType } from "react";
-import { User, LogOut } from "lucide-react";
+import { User } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Skeleton } from "@/shared/ui";
@@ -53,7 +54,7 @@ export interface ProfileContentProps {
 
 export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
   const { t } = useLocale();
-  const { authUser, isVip, logout, refreshAuth } = useAuth();
+  const { authUser, isVip, refreshAuth } = useAuth();
   const { tierLabel } = useMembershipTier();
   const router = useRouter();
   const enterprise = useEnterpriseInfo();
@@ -167,26 +168,6 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
           {MyRecordsPanel ? <MyRecordsPanel onOpenNotice={openNotice} /> : null}
         </div>
       </section>
-
-      {/* ── 退出登录（注销式行） ── */}
-      <div className="bg-secondary-50 border border-border rounded-lg px-6 py-4 flex items-center gap-4">
-        <span className="w-10 h-10 rounded-full bg-secondary-200 text-secondary-500 flex items-center justify-center shrink-0">
-          <LogOut className="w-4 h-4" />
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground">{t("authLogout") || "退出登录"}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {t("settingsLogoutDesc") || "退出当前账号的登录状态"}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={logout}
-          className="px-4 py-1.5 rounded-md bg-danger-600 text-white text-xs font-medium hover:bg-danger-700 transition-colors shrink-0"
-        >
-          {t("authLogout") || "退出"}
-        </button>
-      </div>
     </div>
   );
 }

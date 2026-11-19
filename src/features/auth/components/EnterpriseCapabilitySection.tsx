@@ -1,17 +1,18 @@
 "use client";
 /**
- * 企业能力档案 + 证据资料库（企业设置页，v0.2）
+ * 企业能力档案（企业设置页，v0.3）
  *
  * @module features/auth/components/EnterpriseCapabilitySection
  * @description 投标可行性报告的数据来源：企业自己维护「证书/业绩/财务/人员/本地化/注册/技术」
- *              能力项，并上传证据文件（PDF/图片/Office/zip，≤10MB）。
- *              能力项写入 enterprise_capability_items；证据 = enterprise_evidence 元数据（纯登记，不含文件）。
+ *              能力项。能力项写入 enterprise_capability_items。
+ *
+ *              2026-11-19 摘除「证据资料」面板：其字段（标题 + 有效期）是能力项的真子集，
+ *              报告也从不读取证据行的有效期（只读能力项 value.validUntil），属重复采集。
  *
  *              2026-10-31 组件化拆分（原 427 行四合一 → 编排层）：
  *                - enterprise-capability/shared.ts           类型/字典/摘要
  *                - enterprise-capability/useEnterpriseCapabilityData.ts  数据域 Hook
  *                - enterprise-capability/CapabilityFormFields.tsx        按类型字段渲染
- *                - enterprise-capability/EvidencePanel.tsx               证据列表+上传表单
  *              本文件只留：Hook 装配 + 能力列表 + 新增能力容器 + 三态出口。
  */
 import { Plus, Trash2 } from "lucide-react";
@@ -19,7 +20,6 @@ import { useLocale } from "@/core/i18n";
 import { DataState } from "@/shared/ui";
 import { useEnterpriseCapabilityData } from "./enterprise-capability/useEnterpriseCapabilityData";
 import { CapabilityFormFields } from "./enterprise-capability/CapabilityFormFields";
-import { EvidencePanel } from "./enterprise-capability/EvidencePanel";
 import { TYPE_LABEL_KEYS, capabilitySummary, inputCls, type CapabilityType } from "./enterprise-capability/shared";
 
 export interface EnterpriseCapabilitySectionProps {
@@ -104,9 +104,6 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
           {savingCap ? t("capSaving") : t("capAddItem")}
         </button>
       </div>
-
-      {/* 证据资料 */}
-      <EvidencePanel data={data} />
         </>
       </DataState>
     </section>

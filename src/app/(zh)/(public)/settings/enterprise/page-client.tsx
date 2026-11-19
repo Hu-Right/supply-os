@@ -22,7 +22,6 @@ import { SupplierClaimModal } from "@/features/supplier-profile/components/Suppl
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 import {
   classifyEnterpriseBindState,
-  enterpriseBindStateText,
 } from "@/shared/utils/enterprise-status";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 
@@ -66,7 +65,6 @@ export default function EnterpriseSettingsClient() {
   // 绑定状态口径与后端排他闸口同源（入参含 GET 派生的 hasPendingClaim=认领处理中；
   // supplier.claim_status 已退役，ADR-0017）：这里只负责把「已绑定/审核中/已认证」如实告知用户
   const bindState = classifyEnterpriseBindState(enterprise.enterprise);
-  const bindText = enterpriseBindStateText(bindState);
   const boundCompany = enterprise.enterprise
     ? String(enterprise.enterprise.company || "")
     : "";
@@ -187,29 +185,16 @@ export default function EnterpriseSettingsClient() {
         </p>
       )}
 
-      {/* 已绑定时的状态与换绑出口：避免用户以为还能再提交一次认证，也不让人被旧绑定锁死 */}
-      {enterprise.bound && !enterprise.loading && (
-        <div className="space-y-2 rounded-lg border border-border bg-secondary-50 p-3">
-          <p className="text-xs text-muted-foreground">
-            {bindState === "verified"
-              ? (t("authEnterpriseVerifiedLocked") ||
-                  "企业已通过认证，不能自助换绑；如需变更主体请联系客服，由后台重新审核。")
-              : (t("authEnterpriseBoundLockHint") ||
-                  "一个账号只能认证一家企业；如需修改资料请使用「编辑」保存。")}
-            {boundCompany
-              ? `（当前：${boundCompany} · ${t(bindText.key) || bindText.fallback}）`
-              : ""}
-          </p>
-          {canWithdraw && (
-            <button
-              type="button"
-              className="text-xs font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800"
-              onClick={() => setWithdrawConfirm(true)}
-            >
-              {t("authEnterpriseWithdrawAction") || "撤回当前绑定，换绑其他企业"}
-            </button>
-          )}
-        </div>
+      {/* 已绑定但未认证：保留自助撤回出口（2026-11-19 按需求去掉灰色说明条；
+          已认证的绑定服务端不允许自助拆，按钮不出现） */}
+      {canWithdraw && (
+        <button
+          type="button"
+          className="self-start text-xs font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800"
+          onClick={() => setWithdrawConfirm(true)}
+        >
+          {t("authEnterpriseWithdrawAction") || "撤回当前绑定，换绑其他企业"}
+        </button>
       )}
 
       {/* 认领待完善倒计时横幅（与账户设置页同一组件与文案；本页无需跳转按钮） */}
@@ -229,6 +214,7 @@ export default function EnterpriseSettingsClient() {
         <EnterpriseInfoCard
           enterprise={enterprise.enterprise}
           commodityNodes={enterprise.commodityNodes}
+          certificationNames={enterprise.certificationNames}
           linkStatus={enterprise.linkStatus}
           licenseChange={enterprise.licenseChange}
           loading={enterprise.loading}

@@ -25,20 +25,10 @@ export interface CapabilityView {
   value: Record<string, unknown>;
 }
 
-export interface EvidenceView {
-  id: number;
-  category: string;
-  title: string;
-  validFrom: string | null;
-  validUntil: string | null;
-  noExpiry: boolean;
-}
-
 export interface ProfileResponse {
   enterpriseId: number;
   company: string;
   capabilities: CapabilityView[];
-  evidence: EvidenceView[];
 }
 
 export const TYPE_LABEL_KEYS: Record<CapabilityType, string> = {
@@ -72,14 +62,6 @@ export const CERT_CATEGORY_LABEL_KEYS: Record<string, string> = {
 /** 分组顺序与字典 id 顺序一致（管理体系 → 行业特定 → 市场准入 → 产品安全 → 社会责任） */
 export const CERT_CATEGORY_ORDER = ["management", "industry", "market_access", "product_safety", "esg"] as const;
 
-export const EVIDENCE_LABEL_KEYS: Record<string, string> = {
-  cert: "capEvidenceCert",
-  experience: "capEvidenceExperience",
-  financial: "capEvidenceFinancial",
-  personnel: "capEvidencePersonnel",
-  other: "capEvidenceOther",
-};
-
 export const inputCls =
   "w-full rounded-md border border-border bg-white px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-brand-500";
 
@@ -89,8 +71,16 @@ export function capabilitySummary(capability: CapabilityView, t: CapTranslateFn)
   const v = capability.value ?? {};
   const s = (key: string) => (v[key] == null || v[key] === "" ? "" : String(v[key]));
   switch (capability.type) {
-    case "certification":
-      return [s("code"), s("validUntil") ? t("capValidUntil", { date: s("validUntil") }) : t("capNoExpiry")].filter(Boolean).join(" · ");
+    case "certification": {
+      // 三种有效期状态必须分清：长期有效 / 有到期日 / 未填（迁移进来的历史证书是「未知」，
+      // 不能显示成长期有效，否则判定口径与展示口径打架）
+      const expiry = v.noExpiry === true
+        ? t("capNoExpiry")
+        : s("validUntil")
+          ? t("capValidUntil", { date: s("validUntil") })
+          : t("capExpiryUnknown");
+      return [s("code"), expiry].filter(Boolean).join(" · ");
+    }
     case "experience":
       return [s("count") && t("capSummaryCountItems", { count: s("count") }), s("years") && t("capSummaryYears", { years: s("years") }), s("similarScope")].filter(Boolean).join(" · ");
     case "financial":

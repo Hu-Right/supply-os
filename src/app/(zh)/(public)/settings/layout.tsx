@@ -6,19 +6,26 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cpu, User, Building2, Package, AlertTriangle, ClipboardList, KeyRound } from "lucide-react";
+import { Cpu, User, Building2, Package, AlertTriangle, ClipboardList, KeyRound, BadgeCheck } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils/cn";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 import { useHasSupplierPool } from "@/shared/hooks/useHasSupplierPool";
 import { useUserId } from "@/core/auth/useUserId";
 
+/**
+ * 导航顺序：账号 → 身份资质 → 业务 → 工具偏好
+ * - 个人信息：账号级资料
+ * - 企业信息 / 供应商资源库：横幅「企业用户 / 外贸员」两个身份分支，顺序与横幅卡片一致
+ * - 采购主体认证 → 我的采购需求：采购侧先认证后发布，保持业务先后
+ * - 产品关键词库 / AI 模型配置：搜索与模型偏好
+ */
 const NAV_ITEMS = [
   { href: "/settings/profile", labelKey: "settingsProfile", icon: User },
-  { href: "/settings/buyer", labelKey: "settingsBuyer", icon: ClipboardList },
-  { href: "/settings/rfq", labelKey: "settingsMyRfq", icon: ClipboardList },
   { href: "/settings/enterprise", labelKey: "settingsEnterprise", icon: Building2 },
   { href: "/settings/supplier-pool", labelKey: "settingsSupplierPool", icon: Package },
+  { href: "/settings/buyer", labelKey: "settingsBuyer", icon: BadgeCheck },
+  { href: "/settings/rfq", labelKey: "settingsMyRfq", icon: ClipboardList },
   { href: "/settings/keyword-library", labelKey: "settingsKeywordLibrary", icon: KeyRound },
   { href: "/settings/ai-model", labelKey: "settingsAiModel", icon: Cpu },
 ];
