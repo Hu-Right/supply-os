@@ -17,7 +17,7 @@ export const ChannelGrid = memo(function ChannelGrid({ channels }: { channels: S
       <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-slate-400">
         {t("detail_shareVia") || "分享到"}
       </p>
-      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-5">
+      <div className="grid grid-cols-3 gap-2.5">
         {channels.map((c) => {
           const Icon = c.icon;
           return (

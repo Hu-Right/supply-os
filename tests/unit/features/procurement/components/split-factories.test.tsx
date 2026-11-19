@@ -34,11 +34,9 @@ describe("buildSummaryItems", () => {
 });
 
 describe("buildShareChannels", () => {
-  it("渠道清单 9 项、key 顺序稳定（e2e/用户肌肉记忆依赖）", () => {
+  it("渠道收敛为 微信 / WhatsApp / Gmail，key 顺序稳定", () => {
     const channels = buildShareChannels({ translate: t, shareText: "s", shareUrl: "u", onCopyWechat: () => {} });
-    expect(channels.map((c) => c.key)).toEqual([
-      "wechat", "whatsapp", "facebook", "twitter", "linkedin", "telegram", "email", "gmail", "outlook",
-    ]);
+    expect(channels.map((c) => c.key)).toEqual(["wechat", "whatsapp", "gmail"]);
   });
 
   it("微信渠道走复制回调，不打开分享窗口", () => {
@@ -61,8 +59,11 @@ describe("buildShareChannels", () => {
       "_blank", "noopener,noreferrer,width=680,height=560",
     );
     openSpy.mockClear();
-    byKey.twitter.onClick();
-    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining("twitter.com/intent/tweet?text="), "_blank", expect.any(String));
+    byKey.gmail.onClick();
+    expect(openSpy).toHaveBeenCalledWith(
+      expect.stringContaining("mail.google.com/mail/?view=cm&fs=1&su="),
+      "_blank", expect.any(String),
+    );
     openSpy.mockRestore();
   });
 });
