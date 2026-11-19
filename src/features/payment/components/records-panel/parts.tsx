@@ -38,14 +38,16 @@ export const OverviewCards = memo(function OverviewCards({
         onClick={() => onOpen("orders")}
         className="text-start justify-start rounded-xl bg-white p-4 hover:border-blue-200 hover:bg-blue-50/40"
       >
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-extrabold text-slate-900">{t("myRecordsOrdersTitle")}</p>
-          <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">
-            {ordersTotal}
-          </span>
+        {/* 左标题+计数、右入口：flex 两端对齐，中间不再放描述行 */}
+        <div className="flex w-full items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="text-sm font-extrabold text-slate-900 truncate">{t("myRecordsOrdersTitle")}</p>
+            <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">
+              {ordersTotal}
+            </span>
+          </div>
+          <span className="shrink-0 text-3xs font-bold text-blue-600">{t("myRecordsOrdersHint")} →</span>
         </div>
-        <p className="text-3xs text-slate-500 mt-1">{t("myRecordsOrdersDesc")}</p>
-        <p className="text-3xs text-blue-600 mt-2 font-bold">{t("myRecordsOrdersHint")} →</p>
       </Button>
 
       <Button
@@ -54,14 +56,15 @@ export const OverviewCards = memo(function OverviewCards({
         onClick={() => onOpen("favorites")}
         className="text-start justify-start rounded-xl border-teal-100 bg-teal-50 p-4 hover:border-teal-300 hover:bg-teal-50"
       >
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-extrabold text-teal-950">{t("myRecordsViewsTitle")}</p>
-          <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-teal-700">
-            {favoritesTotal}
-          </span>
+        <div className="flex w-full items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="text-sm font-extrabold text-teal-950 truncate">{t("myRecordsViewsTitle")}</p>
+            <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-teal-700">
+              {favoritesTotal}
+            </span>
+          </div>
+          <span className="shrink-0 text-3xs font-bold text-teal-800">{t("myRecordsViewsHint")} →</span>
         </div>
-        <p className="text-3xs text-teal-700 mt-1">{t("myRecordsViewsDesc")}</p>
-        <p className="text-3xs text-teal-800 mt-2 font-bold">{t("myRecordsViewsHint")} →</p>
       </Button>
     </div>
   );
