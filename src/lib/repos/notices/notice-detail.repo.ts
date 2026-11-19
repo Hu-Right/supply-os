@@ -125,6 +125,28 @@ export class NoticeDetailRepo {
   }
 
   /**
+   * 分享卡（OG 图）取数：只读 notice_public 的公开字段 + 摘要列。
+   *
+   * 与 SEO 页同一公开口径（不含联系人/附件/全文），正文只取前 4000 字符用于
+   * 「摘要列为空时现场回退」；卡片不展示付费内容。
+   */
+  async findShareCardFromPublic(noticePk: number): Promise<RowDataPacket | null> {
+    const [rows] = await this.pool.query(
+      `SELECT p.notice_pk AS id, p.notice_id, p.title, p.title_cn,
+         p.buyer_name, p.buyer_name_cn, p.country_code,
+         p.notice_type_code AS notice_type,
+         p.deadline_ts, p.deadline_state, p.deadline_timezone, p.timezone_source,
+         p.share_summary, p.share_summary_en,
+         LEFT(p.description, 4000) AS description,
+         LEFT(p.description_cn, 4000) AS description_cn
+       FROM notice_public p
+       WHERE p.notice_pk = ? LIMIT 1`,
+      [noticePk],
+    );
+    return (rows as RowDataPacket[])[0] ?? null;
+  }
+
+  /**
    * 翻译决策所需元信息（描述源与机会转换标记） */
   async findDescMeta(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(

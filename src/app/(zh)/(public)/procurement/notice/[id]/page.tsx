@@ -22,7 +22,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContext } from "@/lib/db/context";
-import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
+import { absoluteUrl } from "@/lib/services/seo/site";
 import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
 import { countryName } from "@/shared/constants/countries";
 import { formatNoticeUTCDate, formatNoticeDate, formatNoticeCstDate, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
@@ -155,13 +155,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: "article",
       siteName: "云境·国际采购平台",
       ...(row.published_date ? { publishedTime: row.published_date } : {}),
-      images: [DEFAULT_OG_IMAGE],
+      // 分享卡（og:image）由同目录 opengraph-image.tsx 文件约定生成：1200×630 动态卡，
+      // 文件式 metadata 优先级高于这里，故不再写死默认图。
     },
     twitter: {
       card: "summary_large_image",
       title: row.title,
       description: summary,
-      images: [DEFAULT_OG_IMAGE.url],
     },
   };
 }

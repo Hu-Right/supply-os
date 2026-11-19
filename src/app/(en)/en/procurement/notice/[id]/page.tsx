@@ -12,7 +12,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EnglishShell } from "../../../../shell";
 import { getContext } from "@/lib/db/context";
-import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
+import { absoluteUrl } from "@/lib/services/seo/site";
 import { jsonLdScript } from "@/lib/services/seo/json-ld";
 import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
 import { countryName } from "@/shared/constants/countries";
@@ -122,9 +122,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: "article",
       siteName: "Yunjing International Procurement Platform",
       ...(row.published_date ? { publishedTime: row.published_date } : {}),
-      images: [DEFAULT_OG_IMAGE],
+      // og:image 由同目录 opengraph-image.tsx 文件约定生成（1200×630 动态卡）
     },
-    twitter: { card: "summary_large_image", title: row.title, description: summary, images: [DEFAULT_OG_IMAGE.url] },
+    twitter: { card: "summary_large_image", title: row.title, description: summary },
   };
 }
 

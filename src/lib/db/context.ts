@@ -135,8 +135,10 @@ export type AppContext = {
  *  旧单例缺该方法会让「平台归类」静默不渲染。
  *  2026-11-19 +1（相似供应商 v2）：SupplierDirectoryRepo 新增
  *  findReviewedByBackboneCodes / findReviewedByIndustryPrefix / findBackboneInterestsBySupplierIds；
- *  旧单例缺方法会让相似推荐整段退化为空。 */
-const CTX_VERSION = 14;
+ *  旧单例缺方法会让相似推荐整段退化为空。
+ *  2026-11-19 +1（分享卡）：NoticeDetailRepo 新增 findShareCardFromPublic；
+ *  旧单例缺方法会让 OG 图数据读取抛 not a function、只能退回通用卡。 */
+const CTX_VERSION = 15;
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };
