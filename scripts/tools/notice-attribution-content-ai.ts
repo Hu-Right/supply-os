@@ -64,10 +64,29 @@ const APPLY = process.argv.includes("--apply");
 const YES = process.argv.includes("--yes");
 const RESUME = process.argv.includes("--resume");
 const SCOPE = process.argv.includes("--scope");
-const TARGET = (() => { const eq = process.argv.find((x) => x.startsWith("--target=")); if (eq) return eq.slice("--target=".length); const i = process.argv.indexOf("--target"); return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : "pending"; })(); // pending | coarse | classified | all
+const TARGET = (() => { const eq = process.argv.find((x) => x.startsWith("--target=")); if (eq) return eq.slice("--target=".length); const i = process.argv.indexOf("--target"); return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : "pending"; })(); // pending | coarse | classified | all | opportunity
 const REPLACE_LEGACY = process.argv.includes("--replace-legacy");
 const argNum = (flag: string, d: number) => { const i = process.argv.indexOf(flag); return i > 0 && process.argv[i + 1] ? Number(process.argv[i + 1]) : d; };
 const LIMIT_BATCHES = argNum("--limit-batches", Infinity);
+/**
+ * --ids=1,2,3 / --ids-file=path：只对显式 ID 集合跑（试跑/返工用）。
+ * 仍会叠加 target 的人群闸（活跃/正文/已归属判定），不会绕过任何安全条件。
+ */
+const IDS: number[] = (() => {
+  const eq = process.argv.find((x) => x.startsWith("--ids="));
+  const fileEq = process.argv.find((x) => x.startsWith("--ids-file="));
+  const inline = eq ? eq.slice("--ids=".length) : process.argv.includes("--ids") ? process.argv[process.argv.indexOf("--ids") + 1] : "";
+  let text = String(inline ?? "");
+  if (!text && fileEq) {
+    try { text = readFileSync(fileEq.slice("--ids-file=".length), "utf8"); } catch { text = ""; }
+  }
+  const ids = text.split(/[\s,]+/).map((x) => Number(x.trim())).filter((n) => Number.isInteger(n) && n > 0);
+  if (ids.length > 5000) { console.error("✗ --ids 集合过大（>5000），请用 --target 人群或分批"); process.exit(1); }
+  return [...new Set(ids)];
+})();
+function withIdsWhere(where: string): string {
+  return IDS.length ? `${where} AND n.id IN (${IDS.join(",")})` : where;
+}
 const MIN_CONF = Number(process.env.MIN_CONF || 0.7);
 const MIN_LEVEL = Number(process.env.MIN_LEVEL || 2);
 const BATCH = Number(process.env.BATCH || 40);
@@ -96,8 +115,8 @@ const STATE = "runtime/notice-attribution-content-ai-state.json";
 const STAMP = new Date().toISOString().replace(/[:.]/g, "-");
 
 if (APPLY && !YES) { console.error("✗ --apply 必须显式带 --yes（人工闸口）；先跑 --dry 出报表，审完再上"); process.exit(1); }
-if (!["pending", "coarse", "classified", "all"].includes(TARGET)) { console.error(`✗ 未知 --target=${TARGET}（可选 pending|coarse|classified|all）`); process.exit(1); }
-if (APPLY && (TARGET === "classified" || TARGET === "all") && !REPLACE_LEGACY) { console.error("✗ --target=classified/all 必须带 --replace-legacy：成功按内容锚定后删除该公告 legacy_tag（含有效深码），否则父子冗余破 BB15b"); process.exit(1); }
+if (!["pending", "coarse", "classified", "all", "opportunity"].includes(TARGET)) { console.error(`✗ 未知 --target=${TARGET}（可选 pending|coarse|classified|all|opportunity）`); process.exit(1); }
+if (APPLY && (TARGET === "classified" || TARGET === "all" || TARGET === "opportunity") && !REPLACE_LEGACY) { console.error("✗ --target=classified/all 必须带 --replace-legacy：成功按内容锚定后删除该公告 legacy_tag（含有效深码），否则父子冗余破 BB15b"); process.exit(1); }
 if (TARGET === "coarse" && REPLACE_LEGACY) { console.error("✗ --target=coarse 不接受 --replace-legacy：本人群的定义就是「只有粗落点」，写入时同事务只删自己的 legacy_tag 粗码行；把开关拉回全量替换就绕过了“只删粗行”这条约束"); process.exit(1); }
 for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) { const m = line.match(/^([A-Z0-9_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^['"]|['"]$/g, ""); }
 const baseUrl = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "");
@@ -127,7 +146,10 @@ function targetCond(): string {
   const noAiLanding = `NOT EXISTS (SELECT 1 FROM ${TABLE} a WHERE a.notice_pk = n.id AND a.source = '${SRC}')`;
   if (TARGET === "coarse") return `${active} AND ${content} AND ${hasAnyLanding} AND ${noValidLanding}`;
   if (TARGET === "classified") return `${active} AND ${content} AND ${hasLegacy} AND ${noAiLanding}`;
-  if (TARGET === "all") return `${active} AND n.title IS NOT NULL AND n.title <> '' AND ${content} AND ${noAiLanding}`;
+  if (TARGET === "all") return `${active} AND n.title IS NOT NULL AND n.title <> \x27\x27 AND ${content} AND ${noAiLanding}`;
+  // 服务表商机（notice_public.is_opportunity=1）：首页热门商机/商机撮合的精准人群。
+  // 已有 legacy 落点的也要按内容重推（必须 --replace-legacy），只跳过已有 ai_content 的公告。
+  if (TARGET === "opportunity") return `${active} AND ${content} AND EXISTS (SELECT 1 FROM notice_public p WHERE p.notice_pk = n.id AND p.is_opportunity = 1) AND ${noAiLanding}`;
   return `${active} AND ${content} AND EXISTS (SELECT 1 FROM taxonomy_intake i WHERE i.notice_id = n.notice_id AND i.status = 'pending') AND ${noValidLanding}`;
 }
 
@@ -137,6 +159,7 @@ const TARGET_LABEL: Record<string, string> = {
   coarse: "只有 L1 粗落点、等于没归属（活跃且正文够）",
   classified: "已 legacy_tag 归类、待按内容重推替换 legacy",
   all: "全量有正文、无 ai_content 落点",
+  opportunity: "服务表商机（is_opportunity=1，活跃且正文够）",
 };
 
 // ── 目标库自证 ──
@@ -148,7 +171,7 @@ if (!APPLY) console.log("  （dry：会真调 LLM 与召回，但【不写任何
 if (SCOPE) {
   const c = await q<{ n: number }>(
     `SELECT COUNT(*) n FROM bid_notices n
-      WHERE ${targetCond()}`,
+      WHERE ${withIdsWhere(targetCond())}`,
   );
   const todo = Number(c[0].n);
   console.log(`\n【--scope 体量预估·不调用任何 API】target=${TARGET}`);
@@ -326,7 +349,7 @@ for (;;) {
     `SELECT n.id pk, n.notice_id, n.title, n.description,
        (SELECT COUNT(*) FROM ${TABLE} a WHERE a.notice_pk = n.id AND LENGTH(a.node_code) < ${ATTR_VALID_MIN_CODE_LEN}) coarse_rows
       FROM bid_notices n
-      WHERE n.id > ? AND ${targetCond()}
+      WHERE n.id > ? AND ${withIdsWhere(targetCond())}
       ORDER BY n.id LIMIT ${BATCH}`, [st.lastId],
   );
   if (rows.length === 0) break;

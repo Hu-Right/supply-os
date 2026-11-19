@@ -84,6 +84,70 @@ export async function normalizePublicIndustryColumn(
   return { scanned, updated };
 }
 
+/**
+ * 可重复治理：商机行的服务表 `industry` 以 `bid_opportunities.industry` 为准。
+ *
+ * 背景：商机行业由运营/商机侧维护（canonical 采购主题），比公告主表行业更可信；
+ * 构建器 `buildPublicRow` 已对可重建行优先取商机行业，本函数兜底处理构建器
+ * 不再准入的存量服务行（按 id 重建会跳过、旧值回不去），保证两表口径一致。
+ *
+ * @param apply false 时只统计待更新行数（DRY）
+ */
+export async function syncPublicIndustryFromOpportunity(
+  pool: Pool,
+  opts: { apply?: boolean; chunkSize?: number } = {},
+): Promise<{ scanned: number; pending: number; updated: number }> {
+  const apply = opts.apply === true;
+  const chunk = Math.max(100, Math.min(opts.chunkSize ?? 1000, 5000));
+  let lastPk = 0;
+  let scanned = 0;
+  let pending = 0;
+  let updated = 0;
+  for (;;) {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT p.notice_pk, p.industry AS current_industry,
+              (SELECT o.industry
+                 FROM bid_opportunities o
+                WHERE (o.id = n.converted_opp_id OR o.source_notice_id = n.notice_id)
+                  AND o.industry IS NOT NULL AND o.industry <> ''
+                ORDER BY (o.id = n.converted_opp_id) DESC, o.id DESC
+                LIMIT 1) AS target_industry
+         FROM notice_public p
+         JOIN bid_notices n ON n.id = p.notice_pk
+        WHERE p.is_opportunity = 1
+          AND p.notice_pk > ?
+        ORDER BY p.notice_pk
+        LIMIT ?`,
+      [lastPk, chunk],
+    );
+    if (rows.length === 0) break;
+    const updates: Array<[number, string]> = [];
+    for (const row of rows) {
+      const expected = normalizeIndustry(row.target_industry);
+      const current = row.current_industry == null ? null : String(row.current_industry);
+      if (expected !== null && current !== expected) updates.push([Number(row.notice_pk), expected]);
+    }
+    scanned += rows.length;
+    pending += updates.length;
+    if (scanned % 100_000 < chunk) {
+      console.log(`[sync-opportunity-industry] 扫描 ${scanned} 行，待更新 ${pending} 行`);
+    }
+    lastPk = Number(rows[rows.length - 1].notice_pk);
+    if (!apply || updates.length === 0) continue;
+    const when = updates.map(() => "WHEN ? THEN ?").join(" ");
+    const params: unknown[] = [];
+    for (const [pk, value] of updates) params.push(pk, value);
+    const inMarks = updates.map(() => "?").join(",");
+    params.push(...updates.map(([pk]) => pk));
+    await pool.query(
+      `UPDATE notice_public SET industry = CASE notice_pk ${when} END WHERE notice_pk IN (${inMarks})`,
+      params,
+    );
+    updated += updates.length;
+  }
+  return { scanned, pending, updated };
+}
+
 // ── 准入红线（2026-10-22 用户拍板，选行/构建/清理三处共用同一谓词）──────────────
 // 服务表是对外表：平台自录 RFQ 仅「发布过」（published/closed）可进——草稿/待审/驳回
 // 从未公开，rfq_status 为 NULL 的平台行视为未发布一并排除；定向可见（visibility<>public）
@@ -265,7 +329,7 @@ export interface PublicInputBatch {
   rows: RowDataPacket[];
   attachmentMap: Map<number, Array<Record<string, unknown>>>;
   oppMap: Map<string, {
-    title: string | null; cn: string | null; beneficiary: string | null;
+    title: string | null; cn: string | null; industry: string | null; beneficiary: string | null;
     sc: string | null; eh: string | null; th: string | null;
   }>;
   /** 商机侧两组水位映射（updated_at 取输入 max 的依据，保证商机侧选行收敛） */
@@ -335,7 +399,7 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
   }
   const oppRows = oppWhere.length > 0
     ? (await pool.query(
-      `SELECT id, source_notice_id, title, description_cn, beneficiary_countries,
+      `SELECT id, source_notice_id, title, description_cn, industry, beneficiary_countries,
               supplier_conditions, eligibility, technical_hurdles, update_time
          FROM bid_opportunities
         WHERE ${oppWhere.join(" OR ")}
@@ -344,7 +408,7 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
     ))[0] as RowDataPacket[]
     : [];
   const oppMap = new Map<string, {
-    title: string | null; cn: string | null; beneficiary: string | null;
+    title: string | null; cn: string | null; industry: string | null; beneficiary: string | null;
     sc: string | null; eh: string | null; th: string | null;
   }>();
   const oppWmById = new Map<number, number>();
@@ -358,6 +422,8 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
     const entry = {
       title: String(o.title ?? "").trim() || null,
       cn: String(o.description_cn ?? "").trim() || null,
+      // 商机表 industry 是运营/商机侧维护的 canonical 采购主题，比公告主表更可信（受影响 200+ 行）
+      industry: normalizeIndustry(o.industry),
       beneficiary: String(o.beneficiary_countries ?? "").trim() || null,
       sc: String(o.supplier_conditions ?? "").trim() || null,
       eh: String(o.eligibility ?? "").trim() || null,
@@ -372,6 +438,7 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
       else oppMap.set(k, {
         title: prev.title || entry.title,
         cn: prev.cn || entry.cn,
+        industry: prev.industry || entry.industry,
         beneficiary: prev.beneficiary || entry.beneficiary,
         sc: prev.sc || entry.sc,
         eh: prev.eh || entry.eh,
@@ -520,7 +587,7 @@ export function buildPublicRow(
   return [
     r.id, noticeId, extractUrl(r.url), String(r.reference ?? "").slice(0, 255) || null,
     title.slice(0, 500), titleCn, desc, contentZh, contentLevel,
-    normalizeIndustry(r.industry),
+    normalizeIndustry(opp?.industry) ?? normalizeIndustry(r.industry),
     publishedTs, deadlineTs, dstate, r.deadline_type ?? null, r.deadline_timezone ?? null,
     String(r.timezone_source ?? "").trim().slice(0, 20) || null,
     countryCode, JSON.stringify(countryCodes), noticeType,
