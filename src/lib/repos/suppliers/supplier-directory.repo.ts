@@ -19,8 +19,14 @@ export interface SupplierDirectoryRow {
   province: string | null;
   city: string | null;
   contact: string | null;
+  /** 联系人职务（企业主页展示，公开面已脱敏） */
+  position?: string | null;
   phone: string | null;
   email: string | null;
+  /** 注册/办公地址（企业主页展示） */
+  address?: string | null;
+  /** 企业官网（企业主页外链，http(s) 原样展示） */
+  website?: string | null;
   products: string | null;
   /** 遗留展示字段（supplier.industry 列已于 2026-10-15 退役）：仅供认领建议占位为 ''，目录/详情不再读 */
   industry?: string | null;
@@ -33,6 +39,16 @@ export interface SupplierDirectoryRow {
   credit_code_type?: string | null;
   /** 注册标识归一号码（去分隔符转大写，仅查重索引使用，不对外下发） */
   credit_code_norm?: string | null;
+  /** 法定代表人（企业主页展示，公开面按需脱敏） */
+  legal_rep?: string | null;
+  /** 成立时间（DATE，可能为字符串） */
+  established_at?: string | Date | null;
+  /** 注册资本（DECIMAL 字符串） */
+  registered_capital?: number | string | null;
+  /** 注册资本币种 */
+  currency?: string | null;
+  /** 营业执照图片地址（仅用于「已上传」标志，不对公开面下发原 URL） */
+  license_url?: string | null;
   /** 认证状态：unverified=未认证 / done=已认证（2026-11 起两态；认证只由认领通过写入） */
   verify_status?: string | null;
   /** 信息完整度/真实性人工审核：unreviewed / reviewed（门户展示门槛） */
@@ -209,23 +225,25 @@ export class SupplierDirectoryRepo {
     // ★ 两处 FROM 必须带别名 s：多个检索分支的条件引用了 s.products / s.id（FULLTEXT 与
     //   EXISTS 相关子查询），无别名时 MySQL 直接报 ER_BAD_FIELD_ERROR，而路由的 try/catch
     //   会把它吐成空列表——产品与旧品类码两个入口曾因此长期「搜什么都无结果」而不报错。
-    // 总数查询
-    const [countRows] = await this.pool.query(
-      `SELECT COUNT(*) as total FROM supplier s WHERE ${whereSql}`,
-      values,
-    );
-    const total = (countRows as RowDataPacket[])[0]?.total ?? 0;
-
-    // 分页数据查询
-    const [rows] = await this.pool.query(
-      `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city, s.contact, s.phone, s.email, s.products, s.industry_code,
-              s.data_quality_score
-       FROM supplier s
-       WHERE ${whereSql}
-       ORDER BY ${orderSql}
-       LIMIT ? OFFSET ?`,
-      [...values, limit, offset],
-    );
+    // 总数与分页数据并行：两条语句的入参完全独立，串行只会把云库 RTT 叠加两次
+    // （实测每条 34ms，其中计算仅 1–2ms，其余全是往返）。
+    const [countResult, pageResult] = await Promise.all([
+      this.pool.query(
+        `SELECT COUNT(*) as total FROM supplier s WHERE ${whereSql}`,
+        values,
+      ),
+      this.pool.query(
+        `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city, s.contact, s.phone, s.email, s.products, s.industry_code,
+                s.data_quality_score
+         FROM supplier s
+         WHERE ${whereSql}
+         ORDER BY ${orderSql}
+         LIMIT ? OFFSET ?`,
+        [...values, limit, offset],
+      ),
+    ]);
+    const total = (countResult[0] as RowDataPacket[])[0]?.total ?? 0;
+    const rows = pageResult[0] as RowDataPacket[];
 
     // 证书文本由能力档案批量装配（旧列 supplier.certification 已停写，不参与读取）
     await attachCertificationText(this.pool, rows as SupplierDirectoryRow[]);
@@ -236,7 +254,9 @@ export class SupplierDirectoryRepo {
   async findById(id: number): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry_code,
+              contact, position, phone, email, address, website, products,
+              industry_code, legal_rep, established_at, registered_capital, currency,
+              credit_code, credit_code_type, verify_status, info_review_status, license_url,
               data_quality_score
        FROM supplier
        WHERE id = ? AND info_review_status = 'reviewed'
@@ -256,7 +276,9 @@ export class SupplierDirectoryRepo {
   async findByIdAnyStatus(id: number): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry_code,
+              contact, position, phone, email, address, website, products,
+              industry_code, legal_rep, established_at, registered_capital, currency,
+              credit_code, credit_code_type, verify_status, info_review_status, license_url,
               data_quality_score
        FROM supplier
        WHERE id = ?
@@ -537,39 +559,59 @@ export class SupplierDirectoryRepo {
 
   /** 供应商统计（用于统计墙） */
   async getStats(): Promise<{
+    /** 库内供应商总数（全部审核状态，排除测试记录） */
+    total: number;
     searchable: number;
     verified: number;
     withCertification: number;
     international: number;
     commodityMatched: number;
+    /** 已审通过总数（原 countApproved，随本查询一并返回，避免路由再发一次 COUNT） */
+    registered: number;
   }> {
-    const [allRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND info_review_status = 'reviewed'",
+    // 6 个计数合并为 1 条条件聚合：每个 SUM(cond) 相当于原来的一个 COUNT(*)…WHERE cond。
+    // commodityMatched 是跨表 DISTINCT，写成**非相关**标量子查询（只求值一次），
+    // 这样仍然只占一次往返；不能再 JOIN 进主查询——会按挂靠行数放大主表计数。
+    // 注：SUM(bool) 在 MySQL 里是 DECIMAL，mysql2 返回字符串，必须 Number()。
+    const [rows] = await this.pool.query(
+      `SELECT
+         COUNT(*) AS total,
+         SUM(s.info_review_status = 'reviewed') AS searchable,
+         SUM(s.info_review_status = 'reviewed') AS verified,
+         SUM(s.info_review_status = 'reviewed'
+             AND s.certification IS NOT NULL AND s.certification <> '') AS withCertification,
+         SUM(s.info_review_status = 'reviewed'
+             AND s.country_code IS NOT NULL AND s.country_code <> ''
+             AND s.country_code <> 'CN') AS international,
+         (SELECT COUNT(DISTINCT u.supplier_id)
+            FROM supplier_backbone_interests u
+            JOIN supplier s2 ON s2.id = u.supplier_id
+           WHERE s2.info_review_status = 'reviewed' AND s2.company <> '测试') AS commodityMatched
+       FROM supplier s
+       WHERE s.company <> '测试'`,
     );
-    const [verifiedRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND info_review_status = 'reviewed'",
-    );
-    const [certRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE certification IS NOT NULL AND certification <> '' AND company <> '测试' AND info_review_status = 'reviewed'",
-    );
-    const [intlRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND info_review_status = 'reviewed'",
-    );
-    // 已认证 且 在 backbone 兴趣表里有行的供应商数（JOIN supplier_backbone_interests）
-    // ↳ 字段旧名带品类字典后缀，随字典退役一并改成 commodityMatched（前端 5 处消费方同步）。
-    const [commodityRows] = await this.pool.query(
-      `SELECT COUNT(DISTINCT u.supplier_id) as total
-       FROM supplier_backbone_interests u
-       JOIN supplier s ON s.id = u.supplier_id
-       WHERE s.info_review_status = 'reviewed' AND s.company <> '测试'`,
-    );
-    return {
-      searchable: (allRows as RowDataPacket[])[0]?.total ?? 0,
-      verified: (verifiedRows as RowDataPacket[])[0]?.total ?? 0,
-      withCertification: (certRows as RowDataPacket[])[0]?.total ?? 0,
-      international: (intlRows as RowDataPacket[])[0]?.total ?? 0,
-      commodityMatched: (commodityRows as RowDataPacket[])[0]?.total ?? 0,
+    const r = (rows as RowDataPacket[])[0] ?? {};
+    const n = (v: unknown): number => {
+      const parsed = Number(v ?? 0);
+      return Number.isFinite(parsed) ? parsed : 0;
     };
+    return {
+      total: n(r.total),
+      searchable: n(r.searchable),
+      verified: n(r.verified),
+      withCertification: n(r.withCertification),
+      international: n(r.international),
+      commodityMatched: n(r.commodityMatched),
+      registered: n(r.searchable),
+    };
+  }
+
+  /** 库内供应商总数（全部审核状态，排除测试记录）：首页数字墙「供应商总数」口径 */
+  async countAll(): Promise<number> {
+    const [rows] = await this.pool.query(
+      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试'",
+    );
+    return Number((rows as RowDataPacket[])[0]?.total ?? 0);
   }
 
   /** 已通过后台审核的供应商总数（registered 统计口径：info_review_status='reviewed'，排除测试记录） */

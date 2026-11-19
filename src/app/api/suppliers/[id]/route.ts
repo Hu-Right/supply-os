@@ -4,6 +4,8 @@
  * @module app/api/suppliers/[id]/route
  * @description 按 ID 查询单条供应商，返回 Supplier DTO（含联系方式脱敏）。
  *              找不到返回 404，参数无效返回 400。
+ *              公开面口径 = `info_review_status='reviewed'`（与列表一致；旧注释误写
+ *              verify_status='done'，认证只代表执照认领通过，不是门户可见门槛）。
  *              防重兜底：当查到的记录关键字段（products/industry）为空时，
  *              自动按公司名查找数据更完整的同公司记录（应对外部同步产生空字段重复记录）。
  *              本人绑定主体（users.supplier_id）即使 verify_status=pending 也允许查看自己的档案：
