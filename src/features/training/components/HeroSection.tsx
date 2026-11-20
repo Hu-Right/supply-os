@@ -8,6 +8,7 @@
  */
 import { CalendarDays, MapPin, FileText, Target, Users } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { LandingCourse } from "../api";
 
 export interface HeroSectionProps {
@@ -66,20 +67,23 @@ export function HeroSection({ course, onEnroll, onConsult }: HeroSectionProps) {
         </div>
 
         <div className="mt-8 flex flex-wrap gap-4">
-          <button
+          <Button
             type="button"
+            size="lg"
             onClick={onEnroll}
-            className="rounded-md bg-[#0CAF8C] px-8 py-3 text-base font-black text-white hover:bg-[#0A9B7C] cursor-pointer"
+            className="bg-training-green hover:bg-training-green-hover"
           >
             {t("tlHeroBtnEnroll")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size="lg"
+            variant="outline"
             onClick={onConsult}
-            className="rounded-md border border-slate-400/70 px-8 py-3 text-base font-black text-slate-100 hover:bg-white/10 cursor-pointer"
+            className="border-slate-400/70 text-slate-100 hover:bg-white/10 hover:text-white"
           >
             {t("tlHeroBtnConsult")}
-          </button>
+          </Button>
         </div>
 
         <p className="mt-8 flex flex-wrap items-center gap-2 text-xs md:text-sm text-slate-300">

@@ -386,3 +386,18 @@ input[type="number"] {
     min-height: 44px;
   }
 }
+/* ── 全局键盘焦点与阅读细节 ── */
+html {
+  /* sticky 品牌头 + 导航的高度，锚点跳转不被遮挡 */
+  scroll-padding-top: 7rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary-600);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-primary-100);
+  color: var(--color-primary-900);
+}

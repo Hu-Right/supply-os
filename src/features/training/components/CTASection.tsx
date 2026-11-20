@@ -5,6 +5,7 @@
  * @module features/training/components/CTASection
  */
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 
 export interface CTASectionProps {
   onEnroll: () => void;
@@ -28,20 +29,21 @@ export function CTASection({ onEnroll, onConsult }: CTASectionProps) {
 
           {/* 右侧按钮 */}
           <div className="flex flex-wrap justify-center gap-3 shrink-0">
-            <button
+            <Button
               type="button"
               onClick={onEnroll}
-              className="rounded-lg bg-training-green px-7 py-2.5 text-sm font-black text-white hover:bg-training-green-hover transition-colors cursor-pointer"
+              className="bg-training-green px-7 hover:bg-training-green-hover"
             >
               {t("tlCtaBtn1")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               onClick={onConsult}
-              className="rounded-lg border border-[#287986]/40 px-7 py-2.5 text-sm font-black text-[#0B7F82] hover:bg-[#018B8B]/5 transition-colors cursor-pointer"
+              className="border-[#287986]/40 px-7 text-[#0B7F82] hover:bg-[#018B8B]/5"
             >
               {t("tlCtaBtn2")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

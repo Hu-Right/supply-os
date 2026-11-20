@@ -7,6 +7,7 @@
  */
 import { Check } from "lucide-react";
 import { useLocale, pickLocale, type LocaleKey } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { formatScheduleDate } from "@/shared/utils/format";
 import type { LandingCourse, LandingSchedule } from "../api";
 
@@ -96,13 +97,13 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
                     </li>
                   ))}
                 </ul>
-                <button
+                <Button
                   type="button"
                   onClick={onReserve}
-                  className="mt-6 w-full rounded-md bg-training-green py-3 text-sm font-black text-white hover:bg-training-green-hover cursor-pointer"
+                  className="mt-6 w-full bg-training-green hover:bg-training-green-hover"
                 >
                   {t("tlFeeBtn")}
-                </button>
+                </Button>
               </div>
             </div>
           )}
