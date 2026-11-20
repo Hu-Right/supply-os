@@ -19,6 +19,7 @@ import {
   type EnterpriseBindState,
 } from "@/shared/utils/enterprise-status";
 import type { EnterpriseInfo, LicenseChangeBrief, CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
+import type { IndustryBrief } from "@/core/api/industryInfer";
 import { sv, fmtAddtime, fmtScore, type Cell } from "./enterprise-info/formatters";
 import { formatEstablishedAtForInput } from "@/shared/utils/enterprise-fields";
 import {
@@ -33,6 +34,8 @@ export interface EnterpriseInfoCardProps {
   linkStatus?: string;
   /** 已自报的主营品目（匹配用，与“产品介绍”展示文本并列） */
   commodityNodes?: CommodityNodeBrief[];
+  /** 所属行业（UGT-I 行业树；与品目无关） */
+  industry?: IndustryBrief | null;
   /** 证书展示名（单一事实源=能力档案）；企业信息页的「认证资质」只读聚合 */
   certificationNames?: string[];
   /** 该企业最近一条换照变更（闭环状态源）：pending/rejected 在执照区上方挂进展横幅 */
@@ -54,7 +57,7 @@ const BADGE_TONE: Record<EnterpriseBindState, BadgeVariant> = {
 };
 
 export function EnterpriseInfoCard({
-  enterprise, commodityNodes, certificationNames, licenseChange, loading, error, onRetry, onBind,
+  enterprise, commodityNodes, industry, certificationNames, licenseChange, loading, error, onRetry, onBind,
 }: EnterpriseInfoCardProps) {
   const { t } = useLocale();
 
@@ -136,6 +139,12 @@ export function EnterpriseInfoCard({
     { label: t(creditField.labelKey) || creditField.fallback, value: sv(row, "creditCode") },
     // 认证资质：只读聚合，来源=能力档案（supplier.certification 已于 2026-11-19 停写）
     { label: t("authEnterpriseCertifications") || "资质认证", value: (certificationNames ?? []).join("、") || "-" },
+    // 所属行业：UGT-I 行业树（与主营品目的 UGT 骨架树无推导关系），展示路径便于判断归类层级
+    {
+      label: t("authEnterpriseIndustry") || "所属行业",
+      value: industry ? industry.path?.join(" / ") || industry.nameZh || industry.code : "-",
+      full: true,
+    },
   ];
 
   // 主营产品：展示属性（自由文本）与商品属性（品目树落点）并列，与编辑表单同一分组口径

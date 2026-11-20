@@ -204,6 +204,7 @@ export default function EnterpriseSettingsClient() {
         <EnterpriseEditForm
           initial={enterprise.enterprise}
           initialCommodityNodes={enterprise.commodityNodes}
+          initialIndustry={enterprise.industry}
           saving={saving}
           onSubmit={handleSubmit}
           onCancel={() => setEditing(false)}
@@ -214,6 +215,7 @@ export default function EnterpriseSettingsClient() {
         <EnterpriseInfoCard
           enterprise={enterprise.enterprise}
           commodityNodes={enterprise.commodityNodes}
+          industry={enterprise.industry}
           certificationNames={enterprise.certificationNames}
           linkStatus={enterprise.linkStatus}
           licenseChange={enterprise.licenseChange}

@@ -16,6 +16,8 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { SupplierProductsPicker } from "./SupplierProductsPicker";
+import { IndustryPicker } from "./IndustryPicker";
+import type { IndustryBrief } from "@/core/api/industryInfer";
 import type { EnterpriseInfo, CommodityNodeBrief } from "@/shared/hooks/useEnterpriseInfo";
 import { toCamelKey } from "@/shared/utils/case-keys";
 import {
@@ -46,6 +48,8 @@ export interface EnterpriseEditFormProps {
   initial: EnterpriseInfo | null;
   /** 已自报的主营品目（回填）；未绑定/新建传空数组 */
   initialCommodityNodes?: CommodityNodeBrief[];
+  /** 已选行业（UGT-I 行业树，回填）；未绑定/新建传 null */
+  initialIndustry?: IndustryBrief | null;
   saving: boolean;
   /** 提交值：supplier 列名为字符串键值；commodity_nodes 为自报品目节点码数组 */
   onSubmit: (values: Record<string, string | string[]>) => void;
@@ -58,13 +62,15 @@ export interface EnterpriseEditFormProps {
   onClaimRequest?: (supplier: { id: number; company: string }) => void;
 }
 
-export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onSubmit, onCancel, licenseUrl, onLicenseUploaded, onClaimRequest }: EnterpriseEditFormProps) {
+export function EnterpriseEditForm({ initial, initialCommodityNodes, initialIndustry, saving, onSubmit, onCancel, licenseUrl, onLicenseUploaded, onClaimRequest }: EnterpriseEditFormProps) {
   const { t } = useLocale();
   const [formError, setFormError] = useState<string | null>(null);
   const [localLicenseUrl, setLocalLicenseUrl] = useState(licenseUrl || "");
   const [suggestions, setSuggestions] = useState<ClaimSuggestion[]>([]);
   const [suggestDismissed, setSuggestDismissed] = useState(false);
   const suggestCheckedRef = useRef("");
+  // 所属行业（UGT-I 行业树，单值；与主营品目的 UGT 骨架树无推导关系）
+  const [industry, setIndustry] = useState<IndustryBrief | null>(initialIndustry ?? null);
   // 主营品目自报选中集（受控于本表单，提交时只上抛节点码数组；initialCommodityNodes 为回填初值）
   const [commodityNodes, setCommodityNodes] = useState<CommodityNodeBrief[]>(initialCommodityNodes ?? []);
   const [values, setValues] = useState<Record<string, string>>(() => {
@@ -182,6 +188,8 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
     payload.license_url = localLicenseUrl;
     // 主营品目自报：始终携带当前选中集的节点码（空数组即清空全部自报），服务端按绑定主体写 self_report
     payload.commodity_nodes = commodityNodes.map((n) => n.code);
+    // 所属行业自报：单值；空串 = 清空自报（服务端只删 self_report 挂靠，不动管线来源）
+    payload.industry_code = industry?.code ?? "";
     onSubmit(payload);
   };
 
@@ -205,6 +213,21 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, saving, onS
       <section>
         <GroupTitle>{t("authEnterpriseGroupBusiness") || "工商与业务信息"}</GroupTitle>
         <FieldGrid fields={businessFields} values={values} onSet={set} />
+      </section>
+
+      {/* 所属行业：UGT-I 行业树（与主营品目的 UGT 骨架树是两套独立分类，不做互相推导） */}
+      <section>
+        <GroupTitle>{t("authEnterpriseIndustry") || "所属行业"}</GroupTitle>
+        <div className="border border-border rounded-md overflow-hidden bg-white">
+          <div className="grid grid-cols-1 sm:grid-cols-4">
+            <div className="bg-secondary-50 px-3 py-1.5 sm:py-2 text-xs text-muted-foreground border-r border-border sm:pt-3 align-top">
+              {t("authEnterpriseIndustryLabel") || "行业"}
+            </div>
+            <div className="px-3 py-2 sm:col-span-3">
+              <IndustryPicker value={industry} onChange={setIndustry} />
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* 主营产品：展示属性（自由文本）与商品属性（品目树落点）并列展示，同属一个概念的两个侧面 */}
