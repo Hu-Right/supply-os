@@ -38,6 +38,7 @@ export default defineConfig({
         "src/lib/utils/ip.ts",
         "src/lib/utils/fileSniff.ts",
         "src/lib/utils/auth-cookies-next.ts",
+        "src/lib/utils/beijing-datetime.ts",
 
         // ── src/lib/services/search-sync — 宽表构建/对账/指纹（红线 #6 单一写入者）──
         "src/lib/services/search-sync/wide-row-builder.ts",

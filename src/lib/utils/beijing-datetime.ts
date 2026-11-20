@@ -32,3 +32,20 @@ export function formatBeijingDatetime(date: Date): string {
 export function beijingDatetimeAfter(ms: number): string {
   return formatBeijingDatetime(new Date(Date.now() + ms));
 }
+
+/**
+ * 北京墙钟 "YYYY-MM-DD HH:MM:SS" → Unix 毫秒（formatBeijingDatetime 的逆运算）。
+ * 显式按 UTC-8 折算回 epoch，不走 Date.parse——它按浏览器/进程本地时区解释，
+ * 出海用户或 UTC 容器里会把同一串读出 8 小时差。
+ * 非法/空输入返回 NaN，由调用方按「无到期时间」处理（与列 NULL 同路）。
+ *
+ * 2026-11-20 事故：GET /api/supplier-claims 曾把墙钟串原样透传给前端，
+ * 前端倒计时只认 Unix ts，Number(墙钟串)=NaN 被直接判「认领已过期」全程误报。
+ */
+export function beijingDatetimeToMs(s: string | null | undefined): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/.exec(String(s ?? "").trim());
+  if (!m) return NaN;
+  // m[0] 是整匹配串：slice(1) 取捕获组后直接按位解构，不能再留前导空洞（会再跳一位）
+  const [y, mo, d, h, mi, sec] = m.slice(1).map(Number);
+  return Date.UTC(y, mo - 1, d, h, mi, sec) - CST_OFFSET_MS;
+}

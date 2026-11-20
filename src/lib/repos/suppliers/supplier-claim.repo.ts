@@ -76,12 +76,20 @@ export class SupplierClaimRepo {
   /**
    * 查询某用户对某供应商的【有效】认领记录（最新一条）。
    * 仅 pending/approved 算有效：rejected/expired 是终态，不应阻断用户重新认领。
+   *
+   * 时间列在 SQL 层 DATE_FORMAT 成北京墙钟串返回：mysql2 默认会把 DATETIME
+   * 按进程本地时区折算成 JS Date（驱动 timezone 未显式配置，dateStrings 未启用，
+   * 见 pool.ts），String(Date) 得到的是 locale 串——下游按 UTC+8 解析就漂移。
+   * 在这里钉死字符串，上方声明的 string|null 返回类型才在运行时成立。
    */
   async findByUserAndSupplier(userId: number, supplierId: number): Promise<{
     id: number; status: string; created_at: string | null; expires_at: string | null;
   } | null> {
     const [rows] = await this.pool.execute<RowDataPacket[]>(
-      `SELECT id, status, created_at, expires_at FROM supplier_claims
+      `SELECT id, status,
+              DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
+              DATE_FORMAT(expires_at, '%Y-%m-%d %H:%i:%s') AS expires_at
+       FROM supplier_claims
        WHERE user_id = ? AND supplier_id = ? AND status IN ('pending', 'approved')
        ORDER BY id DESC LIMIT 1`,
       [userId, supplierId],

@@ -13,8 +13,8 @@ import { api } from "@/core/http";
 import { getCountdown, type CountdownResult } from "@/shared/utils/countdown";
 
 export interface UseClaimExpiryReturn {
-  /** 过期时间字符串（ISO），无认领记录时为 null */
-  claimExpiry: string | null;
+  /** 过期时间（Unix 毫秒，GET /api/supplier-claims 出口由北京墙钟串换算），无认领记录时为 null */
+  claimExpiry: number | null;
   /** 剩余时长；无到期时间或已过期时为 null */
   remaining: CountdownResult | null;
   /** 认领是否已到期（到期即绑定已被后台自动解除）；到期时间不可解析时同样按已到期处理 */
@@ -28,7 +28,7 @@ export function useClaimExpiry(
   supplierId: number | undefined,
   isBound: boolean,
 ): UseClaimExpiryReturn {
-  const [claimExpiry, setClaimExpiry] = useState<string | null>(null);
+  const [claimExpiry, setClaimExpiry] = useState<number | null>(null);
   const [remaining, setRemaining] = useState<CountdownResult | null>(null);
   const [expired, setExpired] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,8 +44,10 @@ export function useClaimExpiry(
     setLoading(true);
     (async () => {
       try {
-        // GET /api/supplier-claims 直接出裸载荷（无认领记录为 null），字段 camelCase
-        const res = await api<{ id: number; status: string; createdAt?: string; expiresAt?: string } | null>(
+        // GET /api/supplier-claims 直接出裸载荷（无认领记录为 null），字段 camelCase；
+        // expiresAt 是 Unix 毫秒（服务端由北京墙钟串换算）——2026-11-20 事故前这里
+        // 收过墙钟字符串，getCountdown 的 Number() 解析成 NaN 被误判「已过期」
+        const res = await api<{ id: number; status: string; createdAt?: string; expiresAt?: number | null } | null>(
           `/api/supplier-claims?supplier_id=${supplierId}`,
         );
         if (res?.expiresAt) {

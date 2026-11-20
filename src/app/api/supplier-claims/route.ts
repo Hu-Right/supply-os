@@ -13,7 +13,7 @@ import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_CLAIM_SUPPLIER_NOT_FOUND, EC_C
 import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 import { assertBindingAllowsSubject, readCurrentBinding } from "@/lib/services/enterprise-binding";
 import { LICENSE_URL_PREFIX, LICENSE_FILENAME_RE } from "@/lib/services/file-upload";
-import { beijingDatetimeAfter } from "@/lib/utils/beijing-datetime";
+import { beijingDatetimeAfter, beijingDatetimeToMs } from "@/lib/utils/beijing-datetime";
 
 /** POST — 提交认领申请 */
 export const POST = withRoute(async (req: NextRequest) => {
@@ -103,7 +103,8 @@ export const POST = withRoute(async (req: NextRequest) => {
 
     return NextResponse.json({
       success: true, id: result.claimId, status: "pending",
-      expiresAt: result.expiresAt,
+      // expiresAt 与 GET 同形：Unix 毫秒（前端倒计时只认数字 ts，见 GET 内注释）
+      expiresAt: beijingDatetimeToMs(result.expiresAt),
       message: "认领成功，请在 1 小时内前往企业信息页上传营业执照并保存，逾期将自动解绑",
     }, { status: 201 });
   } catch (err) {
@@ -127,9 +128,17 @@ export const GET = withRoute(async (req: NextRequest) => {
     const claim = await ctx.supplier.claimRepo.findByUserAndSupplier(auth.userId, supplierId);
     // 2xx 裸载荷：无认领记录即返回 null。这里曾手搭过一层 success/data 包装——
     // 它既不命中成功信封门禁，又与同资源 POST 的裸载荷不同形，属于第三种形状。
+    // expiresAt 出口换算成 Unix 毫秒：2026-11-20 事故——墙钟串原样透传，前端
+    // useClaimExpiry → getCountdown 只认数字 ts，Number(串)=NaN 被直接判
+    // 「认领已过期」误报红横幅（库里 approved/verified 完好，纯属展示层说谎）。
     return NextResponse.json(
       claim
-        ? { id: claim.id, status: claim.status, createdAt: claim.created_at, expiresAt: claim.expires_at }
+        ? {
+            id: claim.id,
+            status: claim.status,
+            createdAt: claim.created_at,
+            expiresAt: claim.expires_at ? beijingDatetimeToMs(claim.expires_at) : null,
+          }
         : null,
     );
   } catch (err) {
