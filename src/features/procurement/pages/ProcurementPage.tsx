@@ -166,7 +166,7 @@ export default function ProcurementPage() {
     <LoadingOverlay visible={search.result.loading && firstLoadDoneRef.current} />
     <div className="space-y-2 sm:space-y-5 pb-20 md:pb-0">
       {/* 模块02 深色页头：库存感 + 实时规模条（已提取为独立组件） */}
-      <ListingStatsBar stats={listingStats} />
+      <ListingStatsBar stats={listingStats} loading={listingStats.loading} />
 
       <SearchFilterSection
         search={search}

@@ -26,7 +26,7 @@ describe("useListingStats", () => {
   it("初始状态返回零值占位对象（常驻卡片防布局跳动）", () => {
     mockApi.mockReturnValue(new Promise(() => {})); // never resolves
     const { result } = renderHook(() => useListingStats());
-    expect(result.current).toEqual(ZERO_STATS);
+    expect(result.current).toEqual({ ...ZERO_STATS, loading: true });
   });
 
   it("成功加载后返回统计数据", async () => {
@@ -41,6 +41,7 @@ describe("useListingStats", () => {
       expect(result.current.active).toBe(5000);
     });
 
+    expect(result.current.loading).toBe(false);
     expect(result.current.todayNew).toBe(12);
     expect(result.current.deadlineIn30d).toBe(200);
     expect(result.current.withOriginalDocs).toBe(800);
@@ -53,10 +54,10 @@ describe("useListingStats", () => {
     const { result } = renderHook(() => useListingStats());
 
     await waitFor(() => {
-      expect(mockApi).toHaveBeenCalled();
+      expect(result.current.loading).toBe(false);
     });
 
-    expect(result.current).toEqual(ZERO_STATS);
+    expect(result.current).toEqual({ ...ZERO_STATS, loading: false });
     warnSpy.mockRestore();
   });
 

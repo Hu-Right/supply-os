@@ -10,12 +10,15 @@
  */
 import { Star, Bell, TrendingUp } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button, Skeleton } from "@/shared/ui";
 import { GREEN } from "@/shared/constants/colors";
 import { useCountUp } from "@/shared/hooks/useCountUp";
 import type { ListingStats } from "../hooks/useListingStats";
 
 interface ListingStatsBarProps {
   stats: ListingStats;
+  /** 首次统计取数中：用骨架替代 0，避免“空库”错觉 */
+  loading?: boolean;
 }
 
 /** 计算环比百分比，yesterdayNew 为 0 时返回 null */
@@ -32,7 +35,7 @@ const CARD_THEMES = [
   { bg: "bg-amber-50", border: "border-amber-100", accent: "text-amber-700", icon: "text-amber-500" },
 ];
 
-export function ListingStatsBar({ stats }: ListingStatsBarProps) {
+export function ListingStatsBar({ stats, loading = false }: ListingStatsBarProps) {
   const { t } = useLocale();
 
   // 数字从 0 缓动到真实值（与首页 StatsWall 一致）
@@ -53,7 +56,7 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
         <div className="min-w-0">
           <h2 className="text-base sm:text-xl md:text-2xl font-extrabold text-slate-900 flex items-center flex-wrap gap-2 sm:gap-3">
             {t("procurement_poolTitleNew")}
-            {stats.active > 0 && (
+            {!loading && stats.active > 0 && (
               <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-2xs sm:text-xs font-bold">
                 {animActive.toLocaleString()}+ {t("procurement_searchableBadge")}
               </span>
@@ -61,31 +64,44 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
           </h2>
           <p className="hidden sm:block text-slate-500 text-sm mt-1.5">{t("procurement_poolDescNew")}</p>
           {/* 移动端（阶段2 首屏减法）：4 张统计卡收成一行摘要，保留信息量但只占 1 行高度 */}
-          <p className="sm:hidden mt-1 text-2xs text-slate-500 truncate">
-            {animTodayNew.toLocaleString()} {t("procurement_statTodayNewDesc")}（{changeLabel}）· {animDeadline30.toLocaleString()} {t("procurement_statDeadline30Desc")} · {animWithDocs.toLocaleString()} {t("procurement_statWithDocsDesc")}
-          </p>
+          {loading ? (
+            <Skeleton className="mt-1.5 sm:hidden" width={220} height={12} />
+          ) : (
+            <p className="sm:hidden mt-1 text-2xs text-slate-500 truncate">
+              {animTodayNew.toLocaleString()} {t("procurement_statTodayNewDesc")}（{changeLabel}）· {animDeadline30.toLocaleString()} {t("procurement_statDeadline30Desc")} · {animWithDocs.toLocaleString()} {t("procurement_statWithDocsDesc")}
+            </p>
+          )}
         </div>
         {/* 右侧操作按钮：保存搜索 + 设置提醒（当前为敬请期待占位，移动端不占首屏） */}
         <div className="hidden sm:flex items-center gap-2 shrink-0">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => alert(t("procurement_comingSoon"))}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:border-teal-300 hover:text-teal-700 transition-colors"
           >
-            <Star className="w-3.5 h-3.5 text-amber-500" />
+            <Star className="w-3.5 h-3.5 text-accent-500" />
             {t("procurement_saveSearch")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => alert(t("procurement_comingSoon"))}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:border-teal-300 hover:text-teal-700 transition-colors"
           >
             <Bell className="w-3.5 h-3.5" style={{ color: GREEN }} />
             {t("procurement_setReminder")}
-          </button>
+          </Button>
         </div>
       </div>
-      <div className="hidden sm:grid mt-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {loading ? (
+        <div className="hidden sm:grid mt-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} variant="rounded" height={88} />
+          ))}
+        </div>
+      ) : (
+        <div className="hidden sm:grid mt-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[
             { value: animActive, label: t("procurement_statSearchableNew"), sub: t("procurement_statSearchableSub") },
             {
@@ -115,6 +131,7 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
             );
           })}
         </div>
+      )}
     </section>
   );
 }

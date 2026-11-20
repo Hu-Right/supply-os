@@ -25,8 +25,9 @@ const EMPTY_STATS: ListingStats = {
   withOriginalDocs: 0,
 };
 
-export function useListingStats(): ListingStats {
+export function useListingStats(): ListingStats & { loading: boolean } {
   const [stats, setStats] = useState<ListingStats>(EMPTY_STATS);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api<{
@@ -40,8 +41,9 @@ export function useListingStats(): ListingStats {
         deadlineIn30d: d.deadlineIn30d ?? 0,
         withOriginalDocs: d.withOriginalDocs ?? 0,
       }))
-      .catch((err) => console.warn("[useListingStats] 统计接口加载失败:", err));
+      .catch((err) => console.warn("[useListingStats] 统计接口加载失败:", err))
+      .finally(() => setLoading(false));
   }, []);
 
-  return stats;
+  return { ...stats, loading };
 }
