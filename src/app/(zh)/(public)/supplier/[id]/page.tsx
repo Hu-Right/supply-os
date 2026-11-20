@@ -42,10 +42,11 @@ export async function generateMetadata({
   const { profile } = data;
   const industry = profile.industry.primary?.nameZh ?? profile.products[0] ?? "供应商";
   const location = [profile.country, profile.province, profile.city].filter(Boolean).join(" · ");
+  const productsSummary = profile.productsText.replace(/\s+/g, " ").trim().slice(0, 80);
   const title = `${profile.company} — ${industry}`;
   const description = [
     location && `${location}${industry ? ` · ${industry}` : ""}`,
-    profile.products.length > 0 && `主营：${profile.products.slice(0, 4).join("、")}`,
+    productsSummary && `主营：${productsSummary}`,
     profile.certifications.length > 0 && `认证：${profile.certifications.join("、")}`,
     "供应商企业档案：工商信息、主营产品、资质认证与联系方式。",
   ]
@@ -95,6 +96,7 @@ export default async function SupplierProfilePage({
   ]);
   if (!data) notFound();
   const { profile, claimed } = data;
+  const productsSummary = profile.productsText.replace(/\s+/g, " ").trim().slice(0, 80);
   const similar = await loadSimilarSuppliers(profile);
 
   const organizationJsonLd = {
@@ -102,7 +104,7 @@ export default async function SupplierProfilePage({
     "@type": "Organization",
     name: profile.company,
     url: absoluteUrl(`/supplier/${dbId}`),
-    description: profile.products.length > 0 ? `主营：${profile.products.slice(0, 8).join("、")}` : undefined,
+    description: productsSummary ? `主营：${productsSummary}` : undefined,
     address:
       profile.country || profile.province || profile.city
         ? {

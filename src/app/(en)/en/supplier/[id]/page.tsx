@@ -40,10 +40,11 @@ export async function generateMetadata({
   const { profile } = data;
   const industry = profile.industry.primary?.nameEn ?? profile.products[0] ?? "supplier";
   const location = [profile.supplier.countryEn, profile.province, profile.city].filter(Boolean).join(" · ");
+  const productsSummary = profile.productsText.replace(/\s+/g, " ").trim().slice(0, 80);
   const title = `${profile.company} — ${industry}`;
   const description = [
     location && `${location}${industry ? ` · ${industry}` : ""}`,
-    profile.products.length > 0 && `Main products: ${profile.products.slice(0, 4).join(", ")}`,
+    productsSummary && `Main products: ${productsSummary}`,
     profile.certifications.length > 0 && `Certifications: ${profile.certifications.join(", ")}`,
     "Supplier profile with company facts, products, certifications and contact options.",
   ]
@@ -93,6 +94,7 @@ export default async function SupplierProfilePageEn({
   ]);
   if (!data) notFound();
   const { profile, claimed } = data;
+  const productsSummary = profile.productsText.replace(/\s+/g, " ").trim().slice(0, 80);
   const similar = await loadSimilarSuppliers(profile);
 
   const countryForSchema = profile.supplier.countryEn || profile.country;
@@ -101,7 +103,7 @@ export default async function SupplierProfilePageEn({
     "@type": "Organization",
     name: profile.company,
     url: absoluteUrl(`/en/supplier/${dbId}`),
-    description: profile.products.length > 0 ? `Main products: ${profile.products.slice(0, 8).join(", ")}` : undefined,
+    description: productsSummary ? `Main products: ${productsSummary}` : undefined,
     address:
       countryForSchema || profile.province || profile.city
         ? {

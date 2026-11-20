@@ -51,6 +51,7 @@ describe("supplierProfileViewOf", () => {
     expect(view.establishedAt).toBe("2015-03");
     expect(view.registeredCapital).toBe("10,000,000 人民币");
     expect(view.products).toEqual(["数控机床", "激光设备", "自动化设备"]);
+    expect(view.productsText).toBe("数控机床, 激光设备、自动化设备");
     expect(view.certifications).toEqual(["ISO9001", "CE"]);
     expect(view.website).toBe("https://example.com/");
     expect(view.creditCodeMasked).toBe("9133****789X");
@@ -95,6 +96,7 @@ describe("supplierProfileViewOf", () => {
     expect(view.type).toBe("international");
     expect(view.website).toBeNull();
     expect(view.products).toEqual([]);
+    expect(view.productsText).toBe("");
     expect(view.certifications).toEqual([]);
     expect(view.creditCodeMasked).toBe("");
     expect(view.registeredCapital).toBeNull();

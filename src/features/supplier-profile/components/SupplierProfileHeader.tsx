@@ -85,10 +85,10 @@ export function SupplierProfileHeader({ profile, claimed, copy, locale }: Suppli
                 </span>
               )}
             </div>
-            {profile.products.length > 0 && (
-              <p className="mt-2 line-clamp-2 text-sm text-slate-600">
+            {profile.productsText && (
+              <p className="mt-2 line-clamp-2 whitespace-pre-line text-sm text-slate-600">
                 {copy.mainProductsPrefix}
-                {profile.products.slice(0, 5).join(" / ")}
+                {profile.productsText}
               </p>
             )}
           </div>

@@ -102,7 +102,8 @@ export interface SimilarSupplierItem {
   countryCode: string;
   province: string;
   city: string;
-  products: string[];
+  /** 主营产品原文（按用户输入展示，截断交给组件 line-clamp） */
+  productsText: string;
   industryZh: string | null;
   industryEn: string | null;
   quality: number;
@@ -245,7 +246,7 @@ export async function loadSimilarSuppliers(
         countryCode: String(row.country_code ?? "").trim(),
         province: String(row.province ?? "").trim(),
         city: String(row.city ?? "").trim(),
-        products: splitListField(row.products).slice(0, 3),
+        productsText: String(row.products ?? "").trim(),
         industryZh: tag?.nameZh ?? null,
         industryEn: tag?.nameEn ?? null,
         quality: Number(row.data_quality_score ?? 0) || 0,

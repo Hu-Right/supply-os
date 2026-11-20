@@ -99,6 +99,8 @@ export interface SupplierProfileView {
     tags: Array<{ code: string; nameZh: string; nameEn: string }>;
   };
   products: string[];
+  /** 主营产品原文（用户输入什么就展示什么；保留换行/标点，不拆 chip） */
+  productsText: string;
   /** 平台归类（supplier_backbone_interests）：与自由文本产品互补，用于筛选/撮合，不替代原文 */
   commodityInterests: SupplierCommodityInterest[];
   certifications: string[];
@@ -212,6 +214,7 @@ export function supplierProfileViewOf(
       tags: (industry?.tags ?? []).map((t) => ({ code: t.code, nameZh: t.nameZh, nameEn: t.nameEn })),
     },
     products: splitListField(row.products),
+    productsText: String(row.products ?? "").trim(),
     commodityInterests: interests
       .map(toCommodityInterest)
       .filter((v): v is SupplierCommodityInterest => v !== null),

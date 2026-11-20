@@ -71,8 +71,8 @@ export function SupplierSimilarSection({ items, copy, locale }: SupplierSimilarS
                 {location || "-"}
               </p>
               {industry && <p className="text-xs font-semibold text-blue-700">{industry}</p>}
-              {item.products.length > 0 && (
-                <p className="line-clamp-2 text-xs text-slate-500">{item.products.join(" / ")}</p>
+              {item.productsText && (
+                <p className="line-clamp-2 whitespace-pre-line text-xs text-slate-500">{item.productsText}</p>
               )}
             </Link>
           );

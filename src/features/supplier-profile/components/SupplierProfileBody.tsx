@@ -193,19 +193,12 @@ export function SupplierProfileBody({ profile, scorecard, copy, locale }: Suppli
         </SectionCard>
       )}
 
-      {(profile.products.length > 0 || profile.commodityInterests.length > 0) && (
+      {(profile.productsText || profile.commodityInterests.length > 0) && (
         <SectionCard title={copy.productsTitle} icon={<Building2 className="h-5 w-5 text-teal-600" />}>
-          {profile.products.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {profile.products.map((p) => (
-                <span
-                  key={p}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700"
-                >
-                  {p}
-                </span>
-              ))}
-            </div>
+          {profile.productsText && (
+            <p className="whitespace-pre-line break-words text-sm leading-relaxed text-slate-700">
+              {profile.productsText}
+            </p>
           )}
 
           {/* 平台归类：自由文本为主，品目作为可折叠的辅助结构（点击进采购筛选） */}
