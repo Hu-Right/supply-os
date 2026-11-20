@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { X, Sparkles, ClipboardCheck } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { useUserId } from "@/core/auth/useUserId";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 import { useHasDiagnosis } from "@/shared/hooks/useHasDiagnosis";
@@ -114,7 +115,7 @@ export function DiagnosisGuideCard() {
             type="button"
             onClick={() => closeCard("dismiss")}
             aria-label={t("diagGuideLater") || "稍后再说"}
-            className="absolute top-3 right-3 p-1 rounded-lg text-muted-foreground hover:bg-secondary-100 transition-colors"
+            className="absolute right-3 top-3 rounded-full p-1.5 text-secondary-400 transition-colors hover:bg-secondary-100 hover:text-secondary-700"
           >
             <X className="w-4 h-4" />
           </button>
@@ -135,21 +136,23 @@ export function DiagnosisGuideCard() {
 
         {/* 操作区 */}
         <div className="px-5 py-4 space-y-2 border-t border-border">
-          <button
+          <Button
             type="button"
             onClick={goDiagnosis}
-            className="w-full flex items-center gap-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 text-sm font-bold transition-colors"
+            className="w-full justify-center"
           >
             <ClipboardCheck className="w-4 h-4 shrink-0" />
             {t("diagGuideCta") || "去做资质诊断"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => closeCard("dismiss")}
-            className="w-full text-center text-xs text-muted-foreground hover:text-foreground py-1 transition-colors"
+            className="w-full"
           >
             {t("diagGuideLater") || "稍后再说"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

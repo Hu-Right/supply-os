@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Package, X, Sparkles } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { useUserId } from "@/core/auth/useUserId";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 import { useHasSupplierPool } from "@/shared/hooks/useHasSupplierPool";
@@ -76,21 +77,21 @@ export function EnterpriseOnboardingModal() {
     <div
       role="dialog"
       aria-label={t("onboardingEnterpriseTitle") || "完善企业信息，解锁全部权益"}
-      className="fixed bottom-4 right-4 z-40 w-[calc(100vw-2rem)] max-w-sm"
+      className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-40 w-[calc(100vw-2rem)] max-w-sm"
     >
-      <div className="rounded-2xl border border-border bg-white shadow-2xl overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-secondary-200 bg-white shadow-2xl shadow-secondary-950/15">
         {/* 顶部渐变条 + 关闭 */}
-        <div className="relative bg-gradient-to-br from-brand-50 to-white px-5 pt-5 pb-4">
+        <div className="relative bg-gradient-to-br from-primary-50 to-white px-5 pt-5 pb-4">
           <button
             type="button"
             onClick={handleClose}
             aria-label={t("onboardingSkip") || "稍后再说"}
-            className="absolute top-3 right-3 p-1 rounded-lg text-muted-foreground hover:bg-secondary-100 transition-colors"
+            className="absolute right-3 top-3 rounded-full p-1.5 text-secondary-400 transition-colors hover:bg-secondary-100 hover:text-secondary-700"
           >
             <X className="w-4 h-4" />
           </button>
           <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand-100 text-brand-700 px-2 py-0.5 text-2xs font-bold">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-100 text-primary-700 px-2 py-0.5 text-2xs font-bold">
               <Sparkles className="w-3 h-3" />
               {t("onboardingBadge") || "新用户"}
             </span>
@@ -105,30 +106,33 @@ export function EnterpriseOnboardingModal() {
         </div>
 
         {/* 操作区 */}
-        <div className="px-5 py-4 space-y-2 border-t border-border">
-          <button
+        <div className="px-5 py-4 space-y-2 border-t border-secondary-200">
+          <Button
             type="button"
             onClick={() => go("/settings/enterprise")}
-            className="w-full flex items-center gap-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 text-sm font-bold transition-colors"
+            className="w-full justify-start gap-2.5"
           >
             <Building2 className="w-4 h-4 shrink-0" />
             {t("onboardingCtaEnterprise") || "完善企业信息"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={() => go("/settings/supplier-pool")}
-            className="w-full flex items-center gap-2.5 rounded-lg border border-border bg-white hover:bg-secondary-50 text-foreground px-4 py-2.5 text-sm font-medium transition-colors"
+            className="w-full justify-start gap-2.5"
           >
             <Package className="w-4 h-4 shrink-0" />
             {t("onboardingCtaSupplier") || "添加合作工厂"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={handleClose}
-            className="w-full text-center text-xs text-muted-foreground hover:text-foreground py-1 transition-colors"
+            className="w-full"
           >
             {t("onboardingSkip") || "稍后再说"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

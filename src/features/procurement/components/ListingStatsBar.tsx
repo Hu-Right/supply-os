@@ -97,7 +97,11 @@ export function ListingStatsBar({ stats, loading = false }: ListingStatsBarProps
       {loading ? (
         <div className="hidden sm:grid mt-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} variant="rounded" height={88} />
+            <div key={i} className="space-y-2.5 rounded-xl border border-secondary-200 bg-white px-4 py-3">
+              <Skeleton width={64} height={20} />
+              <Skeleton width={96} height={12} />
+              <Skeleton width={120} height={10} />
+            </div>
           ))}
         </div>
       ) : (
