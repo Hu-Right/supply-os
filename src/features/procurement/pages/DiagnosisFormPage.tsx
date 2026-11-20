@@ -20,6 +20,7 @@ import { fetchMyDiagnoses, type DiagnosisCandidate, type MyDiagnosis } from "@/s
 import { useDiagnosisForm } from "@/shared/forms/useDiagnosisForm";
 import { DiagnosisFormFields } from "@/shared/forms/DiagnosisFormFields";
 import { DiagnosisCompanyDialog } from "@/shared/forms/DiagnosisCompanyDialog";
+import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 function Gate({ t, onLogin }: { t: (k: string) => string; onLogin: () => void }) {
   return (
@@ -101,8 +102,23 @@ export default function DiagnosisFormPage() {
   const { t } = useLocale();
   const { authUser, authReady, isAuthLoading } = useAuth();
   const form = useDiagnosisForm();
+  const { bound, enterprise, loading: entLoading } = useEnterpriseInfo();
   const [mine, setMine] = useState<MyDiagnosis[]>([]);
   const [loadingMine, setLoadingMine] = useState(false);
+  const [prefilled, setPrefilled] = useState(false);
+
+  // 绑定主体预填：诊断写权闸口本来就只放行归属人，绑定用户直接带入自己的主体，
+  // 免掉「手输公司名 → 搜候选 → 确认」三步。只在空表单时带入——草稿恢复
+  // （draft:supplier_diagnosis 同步水合）与「改现有记录」（loadForEdit）一律不覆盖；
+  // 预填不锁定：用户改公司名即重置主体，可重新搜索换一家未认领主体诊断。
+  useEffect(() => {
+    if (prefilled || entLoading || !bound || !enterprise?.id || form.result) return;
+    if (form.form.company.trim() !== "" || form.form.supplierId != null) return;
+    form.prefillSubject({ company: enterprise.company, supplierId: enterprise.id });
+    setPrefilled(true);
+    // prefillSubject 稳定（useCallback）；依赖只取所需字段避免整 form 对象每渲染重跑
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefilled, entLoading, bound, enterprise?.id, form.form.company, form.form.supplierId, form.result, form.prefillSubject]);
 
   const goLogin = useCallback(() => {
     // 本项目没有登录路由（全站登录是 (public)/layout-shell 里的全局 AuthModal 弹窗），

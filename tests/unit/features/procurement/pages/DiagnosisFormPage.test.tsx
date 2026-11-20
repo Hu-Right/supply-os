@@ -20,6 +20,18 @@ vi.mock("@/core/auth", () => ({
   useAuth: () => ({ authUser: null, authReady: true, isAuthLoading: false }),
 }));
 
+// 绑定主体预填依赖 useEnterpriseInfo（内部走 @/core/auth/useUserId 子路径，不命中上面的桶 mock）；
+// 未登录场景固定 !bound，预填 effect 不取数不改状态
+vi.mock("@/shared/hooks/useEnterpriseInfo", () => ({
+  useEnterpriseInfo: () => ({
+    bound: false,
+    enterprise: null,
+    loading: false,
+    error: null,
+    retry: vi.fn(),
+  }),
+}));
+
 vi.mock("@/shared/api/diagnosis", () => ({
   fetchMyDiagnoses: vi.fn(() => Promise.resolve([])),
   downloadDiagnosisReport: vi.fn(() => Promise.resolve(undefined)),

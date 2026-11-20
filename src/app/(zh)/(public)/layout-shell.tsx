@@ -36,6 +36,12 @@ const EnterpriseOnboardingModal = lazy(() =>
     default: m.EnterpriseOnboardingModal,
   })),
 );
+// 资质诊断引导卡（右下角）：已绑定企业但该主体未做诊断时提示去做 /procurement/diagnosis
+const DiagnosisGuideCard = lazy(() =>
+  import("@/features/auth/components/DiagnosisGuideCard").then((m) => ({
+    default: m.DiagnosisGuideCard,
+  })),
+);
 
 /** 模态框加载骨架屏 - 移动端弱网环境下提供视觉反馈 */
 function ModalSkeleton() {
@@ -180,6 +186,13 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
       {authUser && (
         <Suspense fallback={null}>
           <EnterpriseOnboardingModal />
+        </Suspense>
+      )}
+
+      {/* 资质诊断引导卡：与上面一张天然互斥（那边 !bound，这边 bound），绑定成功即交接 */}
+      {authUser && (
+        <Suspense fallback={null}>
+          <DiagnosisGuideCard />
         </Suspense>
       )}
 

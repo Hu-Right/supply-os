@@ -19,6 +19,7 @@ import {
   type DiagnosisSubmitResult,
 } from "@/shared/api/diagnosis";
 import { ApiError } from "@/core/http";
+import { emitAppEvent } from "@/core/events";
 import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 
 export interface DiagnosisFormState {
@@ -126,6 +127,15 @@ export function useDiagnosisForm() {
     [setForm],
   );
 
+  /** 绑定主体预填（诊断页自动带入）：与 confirmCandidate 同一写入口，只带主体两件套 */
+  const prefillSubject = useCallback(
+    (subject: { company: string; supplierId: number }) => {
+      setForm((prev) => ({ ...prev, company: subject.company, supplierId: subject.supplierId }));
+      setNoMatch(false);
+    },
+    [setForm],
+  );
+
   /** "不是我的公司"：不锁主体回表单，用户改公司名重查（2026-11-11 起不再有建档兜底，库里没有就是没有） */
   const declareNotMine = useCallback(() => {
     setForm((prev) => ({ ...prev, supplierId: null }));
@@ -162,6 +172,14 @@ export function useDiagnosisForm() {
       });
       setResult(data);
       clearDraft();
+      // 通知全局订阅者（如右下角 DiagnosisGuideCard）即时重取，卡片当场退场不用等刷新；
+      // localStorage 标记供其他标签页通过 storage 事件同步（同页事件不会跨标签）。
+      emitAppEvent("supply-os:diagnosis-changed");
+      try {
+        localStorage.setItem("supply-os:diagnosis-updated", String(Date.now()));
+      } catch {
+        /* 隐私模式/配额异常时静默：至少同页事件已派发 */
+      }
       return data;
     } catch (err) {
       // 主体未收录（40060，建档已关闭）：点亮主体确认区的「去企业信息页收录」引导块
@@ -211,6 +229,7 @@ export function useDiagnosisForm() {
     missingRequired,
     checkCompany,
     confirmCandidate,
+    prefillSubject,
     declareNotMine,
     closeDialog: () => setDialogOpen(false),
     submit,

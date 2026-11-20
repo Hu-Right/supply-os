@@ -36,6 +36,8 @@ export interface AppEventMap {
   "supply-os:crm-refresh": void;
   "supply-os:supplier-pool-changed": void;
   "supply-os:enterprise-changed": void;
+  /** 诊断提交成功（useDiagnosisForm 唯一提交器派发）：全局引导卡/统计即时退场 */
+  "supply-os:diagnosis-changed": void;
 }
 
 export type AppEventName = keyof AppEventMap;
