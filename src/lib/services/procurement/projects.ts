@@ -29,6 +29,8 @@ export interface ProjectRow extends RowDataPacket {
   purpose: string;
   internal_project_no: string | null;
   object_types: string;
+  /** 采购方式（迁移 063 重新引入，P0 仅 rfq） */
+  method: string;
   usage_env: string | null;
   cert_requirements: string | null;
   incoterm_version: string | null;

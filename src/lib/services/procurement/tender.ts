@@ -12,7 +12,7 @@
 import { createHash } from "node:crypto";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { PROJECT_STATUS, PROJECT_CLOSE_REASON } from "@/shared/constants/procurement";
-import { transitionProject, transitionProjectWithin, type TxLike } from "./lifecycle";
+import { transitionProjectWithin, type TxLike } from "./lifecycle";
 import { buildPublicDescription, removeProjection, upsertProjection } from "./projection";
 import type { ProjectRow } from "./projects";
 import { isAuthorizationVerified } from "./authorization";
@@ -316,9 +316,21 @@ export async function applyReviewDecision(
 
       // tender 记录：正式发布编号（PENDING 占位 → OSPT-{年}-{id} 回填）
       const [tIns] = await conn.query(
-        `INSERT INTO procurement_tenders (project_id, version_no, tender_no, publish_mode, status, published_at, deadline_at, deadline_tz, created_at)
-         VALUES (?, ?, 'PENDING', ?, 'published', ?, ?, 'Asia/Shanghai', ?)`,
-        [input.projectId, input.version, "public", at, row.quote_deadline_at, at],
+        `INSERT INTO procurement_tenders
+           (project_id, version_no, tender_no, publish_mode, sealed, award_method, status,
+            published_at, deadline_at, deadline_tz, created_at)
+         VALUES (?, ?, 'PENDING', ?, ?, ?, 'published', ?, ?, 'Asia/Shanghai', ?)`,
+        [
+          input.projectId,
+          input.version,
+          "public",
+          // P0 只有 RFQ：固定密封 + 合格最低价；ITB/RFP 在 P1 由方式决定
+          1,
+          "lowest_price",
+          at,
+          row.quote_deadline_at,
+          at,
+        ],
       );
       const tenderId = Number((tIns as { insertId?: number }).insertId ?? 0);
       tenderNo = formatTenderNo(tenderId, at);
@@ -379,7 +391,7 @@ function checkPublishGates(
   // ③ 采购方已勾选「授权云境OS发布给供应商」（F02 授权确认）
   if (Number(row.authorize_publish) !== 1) return "authorize_publish";
 
-  // ④ 报价截止时间非空：为空则过期器（expireDueTenders）扫不到，需求会长期滞留 published
+  // ④ 报价截止时间非空：为空则收标开标器（openDueTenders）扫不到，需求会长期滞留 published
   if (row.quote_deadline_at == null || Number(row.quote_deadline_at) <= 0) return "deadline";
 
   // ⑤ 自动初审否决必须显式推翻（否则人工一点通过就把机器结论静默改写为 pass）
@@ -461,54 +473,4 @@ export async function withdrawProject(
   } finally {
     conn.release();
   }
-}
-
-/** 到期流转（定时器调用）：published 且截标已过 → closed/expired，撤投影 */
-export async function expireDueTenders(db: Pool, at = Math.floor(Date.now() / 1000)): Promise<number> {
-  const [rows] = await db.query(
-    `SELECT p.id, p.notice_pk FROM procurement_projects p
-      WHERE p.status = 'published' AND p.quote_deadline_at IS NOT NULL AND p.quote_deadline_at < ?
-      LIMIT 200`,
-    [at],
-  );
-  let closed = 0;
-  for (const r of rows as Array<{ id: number; notice_pk: number | null }>) {
-    const res = await transitionProject(db, {
-      projectId: Number(r.id),
-      to: PROJECT_STATUS.CLOSED,
-      actor: "system",
-      actorId: null,
-      closeReason: PROJECT_CLOSE_REASON.EXPIRED,
-      at,
-    });
-    if (res.ok) {
-      await removeProjection(db, r.notice_pk == null ? null : Number(r.notice_pk));
-      if (r.notice_pk != null) {
-        await deleteNoticeDocuments([Number(r.notice_pk)]).catch((err: Error) => {
-          console.warn("[procurement] 到期关闭后删除搜索索引失败:", err.message);
-        });
-      }
-      await db.query(
-        "UPDATE procurement_tenders SET status = 'closed' WHERE project_id = ? AND status = 'published'",
-        [r.id],
-      );
-      // 到期关闭也进铃铛：否则需求悄悄下架，采购方不知道报价已截止
-      const [info] = await db.query(
-        "SELECT buyer_id, reference, version_no FROM procurement_projects WHERE id = ? LIMIT 1",
-        [r.id],
-      );
-      const p = (info as Array<{ buyer_id: number; reference: string; version_no: number }>)[0];
-      if (p) {
-        await notifyBuyer(db, Number(p.buyer_id), {
-          type: "procurement.expired",
-          link: `/rfq/${Number(r.id)}/publish`,
-          refId: Number(r.id),
-          payload: { reference: String(p.reference), projectId: Number(r.id) },
-          dedupeKey: `procurement.expired:${Number(r.id)}:v${Number(p.version_no)}`,
-        });
-      }
-      closed++;
-    }
-  }
-  return closed;
 }

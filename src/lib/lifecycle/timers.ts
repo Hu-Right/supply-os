@@ -15,7 +15,7 @@ import { classifyMissingDeadlines } from "../services/notice-deadline/backfill";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { cleanupOldSearchLogs } from "../services/search-analytics";
 import { reconcileRfqGuard } from "../services/rfq-guard";
-import { expireDueTenders } from "../services/procurement/tender";
+import { openDueTenders, expireUnawardedTenders } from "../services/procurement/opening";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { releaseExpiredClaims } from "../services/supplier-claim";
 import {
@@ -287,9 +287,15 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     const intervalMin = Math.max(1, Number(process.env.RFQ_LIFECYCLE_INTERVAL_MINUTES || 10));
     const runLifecycle = async () => {
       try {
-        const closed = await expireDueTenders(dbPool);
-        if (closed > 0) {
-          console.log(`[procurement-lifecycle] 截标过期结案 ${closed} 条（撤投影收敛）`);
+        // 截止 → 收标开标（项目保持 published，等采购方比价定标）
+        const opened = await openDueTenders(dbPool);
+        if (opened > 0) {
+          console.log(`[procurement-lifecycle] 截止收标开标 ${opened} 条（投影置 closed，保留定标窗口）`);
+        }
+        // 开标后 30 天仍未定标 → 结案并撤投影
+        const expired = await expireUnawardedTenders(dbPool);
+        if (expired > 0) {
+          console.log(`[procurement-lifecycle] 超期未定标结案 ${expired} 条（撤投影收敛）`);
         }
       } catch (e) {
         console.error("[procurement-lifecycle] 流转失败（不影响下次扫描）:", (e as Error).message);

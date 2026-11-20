@@ -312,6 +312,16 @@ export const EC_RFQ_REASON_REQUIRED = 44004;
 export const EC_RFQ_AUTHORIZATION_REQUIRED = 44005;
 /** 发布前置未满足（授权确认/报价截止/自动初审结论），blockedBy 指明具体项 */
 export const EC_RFQ_PUBLISH_BLOCKED = 44006;
+/** 响应不存在，或不属于当前供应商账号 */
+export const EC_RFQ_RESPONSE_NOT_FOUND = 44007;
+/** 已过报价截止，不能提交/修改响应 */
+export const EC_RFQ_RESPONSE_CLOSED = 44008;
+/** 密封期：不返回他人报价（响应尚未开标） */
+export const EC_RFQ_SEALED = 44009;
+/** 尚未开标，不能比价/定标 */
+export const EC_RFQ_NOT_OPENED = 44010;
+/** 已定标，不能重复定标 */
+export const EC_RFQ_AWARD_EXISTS = 44011;
 
 // ── 分页限制常量（Pagination Limits）───────────────────────────────────────────
 

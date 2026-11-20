@@ -39,6 +39,19 @@ export interface ProjectionRowLike {
   [column: string]: unknown;
 }
 
+/** 采购方式 → 公告类型码（与 notice-type 的归一码一致；LTA 不投影为标讯） */
+const NOTICE_TYPE_BY_METHOD: Record<string, string> = {
+  rfq: "RFQ",
+  itb: "ITB",
+  rfp: "RFP",
+  eoi: "EOI",
+};
+
+export function noticeTypeForMethod(method: string | null | undefined): string {
+  const key = String(method ?? "").trim().toLowerCase();
+  return NOTICE_TYPE_BY_METHOD[key] ?? "RFQ";
+}
+
 /** 投影行（纯函数，便于单测；字段即"服务表口径的入表规则"） */
 export function buildProjectionRow(src: ProjectionSource, publishedAtSec: number): ProjectionRowLike {
   const row = src.row;
@@ -51,7 +64,7 @@ export function buildProjectionRow(src: ProjectionSource, publishedAtSec: number
     country: row.delivery_country || "China",
     province_name: row.delivery_city ?? null,
     category_code: row.primary_ugt_code ?? null,
-    notice_type: "RFQ",
+    notice_type: noticeTypeForMethod(row.method),
     deadline: formatShanghaiDate(row.quote_deadline_at),
     // deadline_sec 是 STORED 生成列（deadline_ts → 秒），写毫秒走生成列分支；无截止 → NULL
     deadline_ts: row.quote_deadline_at ? row.quote_deadline_at * 1000 : null,
@@ -138,13 +151,18 @@ export async function upsertProjection(
   return Number((result as { insertId?: number }).insertId ?? 0);
 }
 
-/** 关闭/撤回时撤下投影：只删本域写入的那一行（按 id + platform + RFQ 三条件防误伤爬虫行） */
+/** 截止收标：把投影行标记为已关闭（保留公告页，检索面按 deadline 自然下架） */
+export async function markProjectionClosed(db: Pool, noticePk: number, at: number): Promise<void> {
+  await db.query(
+    "UPDATE bid_notices SET rfq_status = 'closed', update_time = ? WHERE id = ? AND entry_source = 'platform'",
+    [at, noticePk],
+  );
+}
+
+/** 关闭/撤回时撤下投影：只删本域写入的那一行（按 id + platform 防误伤爬虫行） */
 export async function removeProjection(db: Pool, noticePk: number | null): Promise<void> {
   if (!noticePk) return;
-  await db.query(
-    "DELETE FROM bid_notices WHERE id = ? AND entry_source = 'platform' AND notice_type = 'RFQ'",
-    [noticePk],
-  );
+  await db.query("DELETE FROM bid_notices WHERE id = ? AND entry_source = 'platform'", [noticePk]);
   // 服务宽表/搜索宽表是物化投影，删主表不会级联；撤回后若不清，公告列表仍能读到旧行
   await deletePublicRows(db, [noticePk]);
   try {
