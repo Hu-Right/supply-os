@@ -19,7 +19,7 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = {
   description:
-    "Search UN, World Bank and government procurement notices worldwide. Browse live tender opportunities, buyer agencies and deadlines, and manage your bids in one place.",
+    "Focused on UNGM, UN and government procurement: opportunity analysis, market-access compliance and bid enablement — connecting China's best suppliers with global buyers.",
   alternates: {
     canonical: absoluteUrl("/en"),
     languages: {
@@ -29,8 +29,9 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Yunjing · International Procurement Platform",
-    description: "Global government and UN procurement notices, suppliers and tender opportunities.",
+    title: "Yunjing · Chinese Supply Chain Going Global",
+    description:
+      "Global public procurement opportunities, market-access compliance and bid enablement for Chinese suppliers.",
     url: absoluteUrl("/en"),
     type: "website",
     images: [DEFAULT_OG_IMAGE],

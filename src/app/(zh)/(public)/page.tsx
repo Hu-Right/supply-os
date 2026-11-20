@@ -22,9 +22,9 @@ import type { HomeStatsData } from "@/features/home";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "全球公共采购与跨境供应链机会平台",
+  title: "中国供应链出海 · 全球公共采购商机与投标服务",
   description:
-    "聚合全球公共与大型机构采购机会，数据实时更新。100,000+ 可检索商机，20+ 数据源，16+ 海外展厅节点。",
+    "聚焦 UNGM、联合国及各国政府采购：商机拆解、准入合规、投标赋能，连接中国优质供应链与全球采购方。",
   alternates: {
     canonical: absoluteUrl("/"),
     languages: {
