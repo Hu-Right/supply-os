@@ -22,3 +22,6 @@ export type MembershipTier = (typeof MEMBERSHIP_TIER)[keyof typeof MEMBERSHIP_TI
  */
 export const QUALIFICATION_ACCESS_BENEFIT = "qualification_access";
 
+/** 权益矩阵里的原始文件下载权益码 */
+export const ORIGINAL_FILE_ACCESS_BENEFIT = "original_file_access";
+

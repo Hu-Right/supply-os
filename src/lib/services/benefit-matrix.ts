@@ -54,6 +54,9 @@ export const NOTICE_VIEW_BENEFIT = "notice_view";
 /** 资格条件查看权益码（shared 常量 re-export，保持服务端/前端同一字符串） */
 export { QUALIFICATION_ACCESS_BENEFIT } from "@/shared/constants/membership";
 
+/** 原始文件下载权益码（shared 常量 re-export） */
+export { ORIGINAL_FILE_ACCESS_BENEFIT } from "@/shared/constants/membership";
+
 /**
  * 投标可行性报告权益码（bool，2026-10-29）：中文版订单拆解报告/可行性报告的下载与预览门控。
  * 矩阵取值：企业档/人工档=1，个人档=0（与定价页「投标可行性报告 个人 ✗」一致）；

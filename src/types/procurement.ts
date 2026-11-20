@@ -68,6 +68,8 @@ export interface NoticeDetailFields {
   technicalHurdles?: string;
   /** 仅资格条件权益放行时下发：coreLocked 仍为 true，只含资格字段 */
   qualificationAccess?: boolean;
+  /** 仅原始文件权益放行时下发：coreLocked 仍为 true，只含附件/外链字段 */
+  fileAccess?: boolean;
   aiProducts?: unknown;
   aiAnalysis?: Record<string, unknown>;
   deadlineTimezone?: string | null;

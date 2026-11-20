@@ -23,6 +23,8 @@ interface FilesTabProps {
   notice: NoticeDetailItem;
   /** 是否已解锁核心信息 */
   coreAccessible: boolean;
+  /** 原始文件独立权益（original_file_access）放行；缺省回退 coreAccessible */
+  filesAccessible?: boolean;
   /** 是否 VIP */
   isVip?: boolean;
   /** 当前登录用户（报告预览/下载需要） */
@@ -55,10 +57,11 @@ function getFileIcon(name: string) {
   return { icon: File, color: "text-slate-400" };
 }
 
-export function FilesTab({ notice, coreAccessible, isVip, userId, onAccess, gates }: FilesTabProps) {
+export function FilesTab({ notice, coreAccessible, filesAccessible, isVip, userId, onAccess, gates }: FilesTabProps) {
   const { t } = useLocale();
   const authContext = useOptionalAuth();
   const authUser = authContext?.authUser ?? null;
+  const filesUnlocked = filesAccessible ?? coreAccessible;
 
   const documents = ((notice.attachments as RawAttachment[] | undefined) || []);
   const externalLinks = ((notice.externalLinks as RawAttachment[] | undefined) || []);
@@ -81,7 +84,7 @@ export function FilesTab({ notice, coreAccessible, isVip, userId, onAccess, gate
   };
 
   // ─ 未解锁：会员专属引导（含报告预览 teaser）──
-  if (!coreAccessible) {
+  if (!filesUnlocked) {
     const fileCount = typeof notice.breakdownFileCount === "number" ? notice.breakdownFileCount : undefined;
     // 库内 99.9% 公告未收录文件链接（仅 UNGM 部分行有）：确认有文件才保留"会员可下载"承诺，
     // 其余一律引导去来源平台，避免付费承诺与实际交付的落差

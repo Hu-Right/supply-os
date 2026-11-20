@@ -16,7 +16,7 @@ import { platformInfoWithFallback } from "@/lib/services/platform/resolve";
 import { pickDeadlineZoneToken } from "@/shared/utils/notice-datetime/timezone";
 import { canAccessNotice } from "@/lib/services/industry-scope";
 import { resolveNoticeAccess } from "@/lib/services/notice-access";
-import { QUALIFICATION_ACCESS_BENEFIT } from "@/lib/services/benefit-matrix";
+import { QUALIFICATION_ACCESS_BENEFIT, ORIGINAL_FILE_ACCESS_BENEFIT } from "@/lib/services/benefit-matrix";
 import { EC_OUT_OF_CATEGORY, EC_INVALID_PARAMS, EC_CONTENT_LOCKED, EC_NOT_FOUND } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -52,27 +52,37 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { outOfCategory: true });
     }
     if (!access.grant && !access.accessibleByPlan) {
-      // 资格条件查看是独立权益：matrix 给 free 打开后，只下发资格条件字段，
-      // 不泄露正文/联系人/附件；其余字段仍按 notice_view 锁定。
-      const qualificationEntitled = await ctx.benefitSystemRepo.isEntitled(
-        auth.userId,
-        QUALIFICATION_ACCESS_BENEFIT,
-      );
-      if (!qualificationEntitled) {
+      // 资格条件/原始文件是独立权益：matrix 给 free 打开后，只下发对应字段，
+      // 不泄露正文/联系人/附件等未授予内容；其余字段仍按 notice_view 锁定。
+      const [qualificationEntitled, filesEntitled] = await Promise.all([
+        ctx.benefitSystemRepo.isEntitled(auth.userId, QUALIFICATION_ACCESS_BENEFIT),
+        ctx.benefitSystemRepo.isEntitled(auth.userId, ORIGINAL_FILE_ACCESS_BENEFIT),
+      ]);
+      if (!qualificationEntitled && !filesEntitled) {
         routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先开通会员", { coreLocked: true });
       }
       if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
       const view = toNoticeView(notice)!;
       const text = (v: unknown): string => (typeof v === "string" ? v : "");
-      return NextResponse.json({
+      const payload: Record<string, unknown> = {
         noticePk: view.noticePk,
         coreLocked: true,
-        qualificationAccess: true,
-        registrationLevel: view.registrationLevel ?? null,
-        eligibility: text((notice as Record<string, unknown>).eligibility),
-        technicalHurdles: text((notice as Record<string, unknown>).technical_hurdles),
-        supplierConditions: text((notice as Record<string, unknown>).supplier_conditions),
-      });
+      };
+      if (qualificationEntitled) {
+        payload.qualificationAccess = true;
+        payload.registrationLevel = view.registrationLevel ?? null;
+        payload.eligibility = text((notice as Record<string, unknown>).eligibility);
+        payload.technicalHurdles = text((notice as Record<string, unknown>).technical_hurdles);
+        payload.supplierConditions = text((notice as Record<string, unknown>).supplier_conditions);
+      }
+      if (filesEntitled) {
+        payload.fileAccess = true;
+        payload.sourceUrl = view.sourceUrl ?? null;
+        payload.attachments = view.attachments ?? [];
+        payload.externalLinks = view.externalLinks ?? [];
+        payload.breakdownFileCount = view.breakdownFileCount ?? null;
+      }
+      return NextResponse.json(payload);
     }
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
 
