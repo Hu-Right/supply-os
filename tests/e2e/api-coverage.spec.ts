@@ -71,6 +71,7 @@ const CASES: ApiCase[] = [
   { method: "POST", path: "/api/crm/chat/stream/ticket", auth: "none", status: 401, bodyType: "object", src: "/api/crm/chat/stream/ticket" },
   { method: "POST", path: "/api/crm/chat/upload", auth: "none", status: 401, bodyType: "object", src: "/api/crm/chat/upload" },
   { method: "GET", path: "/api/industries/facets", auth: "none", status: 200, bodyType: "array", src: "/api/industries/facets" },
+  { method: "GET", path: "/api/industries/infer", auth: "none", status: 400, bodyType: "object", src: "/api/industries/infer" },
   { method: "GET", path: "/api/industries/tree", auth: "none", status: 400, bodyType: "object", src: "/api/industries/tree" },
   { method: "GET", path: "/api/keyword-groups/official", auth: "member", status: 200, bodyType: "object", src: "/api/keyword-groups/official" },
   { method: "GET", path: "/api/leads", auth: "member", status: 200, bodyType: "array", src: "/api/leads" },

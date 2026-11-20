@@ -496,6 +496,12 @@ export class SupplierDirectoryRepo {
     ...SupplierDirectoryRepo.EDITABLE_COLUMNS,
     "id", "verify_status", "info_review_status",
     "data_quality_score", "addtime", "license_url",
+    /**
+     * 行业主码（UGT-I 行业树）：仅供设置页回填/展示与详情页读取。
+     * 不进 EDITABLE_COLUMNS——写入走 saveSupplierIndustrySelfReport（同步行业挂靠、
+     * 且不把已审核主体打回 unreviewed），不经通用 updateEnterprise。
+     */
+    "industry_code",
   ] as const;
 
   /** 过滤输入到白名单列（忽略未知键；未提供/显式 null→null，空串保留 ''）。

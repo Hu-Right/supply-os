@@ -144,8 +144,10 @@ export type AppContext = {
  *  2026-11-20 +1（第三方服务生态）：AppContext 新增 ecoPartnerRepo（迁移 062 建 eco_partner）；
  *  旧单例缺该方法会让 /api/eco-partners 抛 not a function。
  *  2026-11-20 +1（采购 P0）：procurement_projects 新增 method 列并进入项目视图列集合（迁移 063），
- *  旧单例的静态列集合会漏列。 */
-const CTX_VERSION = 17;
+ *  旧单例的静态列集合会漏列。
+ *  2026-11-20 +1（企业行业自报）：SupplierDirectoryRepo.PORTAL_COLUMNS 增加 industry_code，
+ *  旧单例的列白名单不会返回该键（设置页行业无法回填）。 */
+const CTX_VERSION = 18;
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };

@@ -45,6 +45,9 @@ import {
 import type { SupplierDirectoryRepo } from "@/lib/repos/suppliers";
 import { listCertificationNames } from "@/lib/repos/certification-text";
 import type { AppContext } from "@/lib/db/context";
+import { loadIndustryTag } from "@/lib/services/industry/infer";
+import { saveSupplierIndustrySelfReport } from "@/lib/services/industry/supplier-industry";
+import { isIndustryCode } from "@/shared/constants/industry-code";
 import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR, EC_ENTERPRISE_NOT_BOUND, EC_ENTERPRISE_CLAIMED_BY_OTHER } from "@/shared/constants/api";
 
 /** 企业信息填写/编辑 body：全部可选字符串，键为 supplier 列名 */
@@ -92,6 +95,15 @@ const enterpriseBodySchema = z.object({
    * 空数组即清空全部自报。服务端只认当前绑定 supplierId，绝不接受前端透传主体。
    */
   commodity_nodes: z.array(z.string().max(24)).max(60).optional(),
+  /**
+   * 所属行业（UGT-I 行业树，与品目的 UGT 骨架树是两套分类）：
+   * 空串=清空自报；未携带=不改。写入走 saveSupplierIndustrySelfReport（同步行业挂靠）。
+   */
+  industry_code: z
+    .string()
+    .max(40)
+    .refine((v) => v === "" || isIndustryCode(v), "行业码格式不正确（应为 UGT-I-*）")
+    .optional(),
 });
 
 /** 注册标识写入补丁：类型缺省 uscc；原文按类型分级校验，归一号列仅服务端计算 */
@@ -122,8 +134,28 @@ function registrationPatch(
 }
 
 /**
- * 自报落点写入闸口：只有 body 显式携带 commodity_nodes 才动 self_report 行（缺键保持原状，
- * 与 license_url 同一「显式才协调」口径）。存在性校验与丢弃都在服务内做，这里只点名 dropped。
+ * 所属行业自报：只在 body 显式携带 industry_code 时落库（空串=清空自报）。
+ * 与品目自报同一「键在才写」的协议口径，避免未改行业的保存把管线结果冲掉。
+ */
+async function persistIndustryIfPresent(
+  ctx: AppContext,
+  supplierId: number,
+  body: z.infer<typeof enterpriseBodySchema>,
+): Promise<void> {
+  if (!("industry_code" in body)) return;
+  const code = String(body.industry_code ?? "").trim();
+  const result = await saveSupplierIndustrySelfReport(ctx.dbPool, { supplierId, code: code || null });
+  if (!result.ok) {
+    if (result.reason === "invalid_code") {
+      routeError(400, EC_INVALID_PARAMS, "行业码无效，请从候选行业里选择");
+    }
+    routeError(404, EC_INVALID_PARAMS, "企业不存在，无法保存行业");
+  }
+}
+
+/**
+ * 统一写入闸口：只有 body 显式携带 commodity_nodes 才对 self_report 落库，缺键保持原状
+ * （与 license_url 同一「显式协议」口径；键在但值为空也照常落库，用于清空在服务端做兜底，只回 dropped）
  */
 async function persistSelfReportIfPresent(
   ctx: AppContext,
@@ -279,6 +311,10 @@ export const GET = withRoute(async (req) => {
   // 自报主营品目（编辑页回填）：读失败兜底空数组，不阻断企业页展示（与行业面装配失败退回自填文本同风格）。
   const commodityNodes = await listSupplierSelfReport(ctx.dbPool, supplierId).catch(() => []);
 
+  // 所属行业（UGT-I）：编辑页回填与卡片展示都要名称/路径，不只回码
+  const industryCode = String(row.industry_code ?? "").trim();
+  const industry = industryCode ? await loadIndustryTag(ctx.dbPool, industryCode).catch(() => null) : null;
+
   // 认领处理中改为关系派生（supplier.claim_status 已退役，ADR-0017）：由 supplier_claims 的
   // pending 事实供给分类器。读失败按 false 兜底——企业页展示不应被一次派生查询拖垮。
   const hasPendingClaim = await ctx.supplier.claimRepo.hasPendingClaim(supplierId).catch(() => false);
@@ -296,6 +332,7 @@ export const GET = withRoute(async (req) => {
     enterprise: supplierEnterpriseViewOf(row, hasPendingClaim),
     licenseChange,
     commodityNodes,
+    industry,
     certificationNames,
   });
 });
@@ -335,6 +372,8 @@ export const PUT = withRoute(async (req) => {
   const claimCreated = await ensurePendingClaim(ctx, auth.userId, supplierId, undefined);
   // 主营品目自报：仅在 body 显式携带 commodity_nodes 时替换 self_report 落点（服务端解析的 supplierId）。
   await persistSelfReportIfPresent(ctx, supplierId, body);
+  // 所属行业自报（与品目独立：UGT-I 行业树）
+  await persistIndustryIfPresent(ctx, supplierId, body);
   return NextResponse.json({ claimCreated, licensePendingReview });
 });
 
@@ -412,6 +451,7 @@ export const POST = withRoute(async (req) => {
     }
     // 自有行重复保存：同 PUT 口径协调自报品目（仅 body 携键时）。
     await persistSelfReportIfPresent(ctx, existingId, body);
+    await persistIndustryIfPresent(ctx, existingId, body);
     return NextResponse.json({ supplierId: existingId, reused: true, claimCreated, licensePendingReview });
   }
 
@@ -435,5 +475,6 @@ export const POST = withRoute(async (req) => {
   });
   // 新建建档：本次勾选的自报品目随新行落库（仅 body 携键时）。
   await persistSelfReportIfPresent(ctx, newId, body);
+  await persistIndustryIfPresent(ctx, newId, body);
   return NextResponse.json({ supplierId: newId, reused: false, claimCreated: true });
 });
