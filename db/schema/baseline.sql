@@ -2345,6 +2345,19 @@ CREATE TABLE `supplier_diagnosis_submit_log` (
   KEY `idx_diag_submit_result` (`result`,`error_code`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商诊断提交结果埋点';
 
+-- ── supplier_diagnosis_guide_event ──
+CREATE TABLE `supplier_diagnosis_guide_event` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` int NOT NULL COMMENT '用户（users.id）',
+  `supplier_id` int DEFAULT NULL COMMENT '绑定主体（supplier.id，可空）',
+  `event` varchar(20) NOT NULL COMMENT '事件：impression/click/dismiss',
+  `path` varchar(200) DEFAULT NULL COMMENT '触发页面路径（不含查询串）',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '事件时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_guide_event_created` (`created_at`),
+  KEY `idx_guide_event_type` (`event`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='诊断引导卡事件埋点';
+
 -- ── supplier_id_map ──
 CREATE TABLE `supplier_id_map` (
   `old_id` int unsigned NOT NULL,

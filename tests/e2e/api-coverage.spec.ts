@@ -184,6 +184,7 @@ const CASES: ApiCase[] = [
   { method: "POST", path: "/api/supplier-claims", auth: "none", status: 401, bodyType: "object", src: "/api/supplier-claims" },
   { method: "POST", path: "/api/supplier-diagnosis", auth: "none", status: 401, bodyType: "object", src: "/api/supplier-diagnosis" },
   { method: "GET", path: "/api/supplier-diagnosis/mine", auth: "member", status: 200, bodyType: "object", src: "/api/supplier-diagnosis/mine" },
+  { method: "POST", path: "/api/supplier-diagnosis/guide-event", auth: "none", status: 401, bodyType: "object", src: "/api/supplier-diagnosis/guide-event" },
   { method: "GET", path: "/api/suppliers", auth: "member", status: 200, bodyType: "array", src: "/api/suppliers" },
   { method: "GET", path: "/api/suppliers/:id", auth: "member", status: 200, bodyType: "object", src: "/api/suppliers/:id" },
   { method: "GET", path: "/api/suppliers/:id/contact", auth: "member", status: 200, bodyType: "object", src: "/api/suppliers/:id/contact" },

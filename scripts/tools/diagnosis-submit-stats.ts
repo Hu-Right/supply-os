@@ -51,6 +51,25 @@ try {
     for (const r of rows) totals.set(r.result, (totals.get(r.result) ?? 0) + Number(r.n));
     console.log("合计:", Object.fromEntries(totals));
   }
+
+  // 引导卡曝光/点击/关闭：判断卡片有没有被看到、点击率
+  const [guideRows] = await pool.query<RowDataPacket[]>(
+    `SELECT DATE(created_at) AS d, event, COUNT(*) AS n
+       FROM supplier_diagnosis_guide_event
+      WHERE created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+      GROUP BY d, event
+      ORDER BY d DESC, n DESC`,
+    [DAYS],
+  );
+  console.log(`\n诊断引导卡事件（最近 ${DAYS} 天）`);
+  if (guideRows.length === 0) {
+    console.log("（暂无记录）");
+  } else {
+    for (const r of guideRows) console.log(`${r.d}  ${String(r.event).padEnd(10)} ×${r.n}`);
+    const totalsByEvent = new Map<string, number>();
+    for (const r of guideRows) totalsByEvent.set(r.event, (totalsByEvent.get(r.event) ?? 0) + Number(r.n));
+    console.log("合计:", Object.fromEntries(totalsByEvent));
+  }
 } finally {
   await pool.end();
 }
