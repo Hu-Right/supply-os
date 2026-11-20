@@ -66,6 +66,8 @@ export interface NoticeDetailFields {
   supplierConditions?: string;
   eligibility?: string;
   technicalHurdles?: string;
+  /** 仅资格条件权益放行时下发：coreLocked 仍为 true，只含资格字段 */
+  qualificationAccess?: boolean;
   aiProducts?: unknown;
   aiAnalysis?: Record<string, unknown>;
   deadlineTimezone?: string | null;

@@ -34,6 +34,7 @@ import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
 import { AiEvaluationPanel } from "../AiEvaluationPanel";
 import { useAiMatch } from "../../hooks/useAiMatch";
+import { QUALIFICATION_ACCESS_BENEFIT } from "@/shared/constants/membership";
 
 /** 区块锚点导航（id, i18n key） */
 const SECTION_NAV: ReadonlyArray<readonly [string, string]> = [
@@ -108,6 +109,13 @@ export function NoticeDetail({
   // 不再依赖单条解锁记录（服务端同样按权益放行），避免出现“权益已包含却仍显示解锁”。
   const accessIncluded = gates?.notice_view === "free" || gates?.notice_view === "included";
   const coreAccessible = notice.coreLocked === false || accessIncluded;
+  // 资格条件走独立权益格（qualification_access）：matrix 给 free 打开时，
+  // 即使正文仍锁定，也应直接展示资格条件（detail 只回资格字段，coreLocked=true）。
+  const qualificationAccessible =
+    coreAccessible ||
+    notice.qualificationAccess === true ||
+    gates?.[QUALIFICATION_ACCESS_BENEFIT] === "free" ||
+    gates?.[QUALIFICATION_ACCESS_BENEFIT] === "included";
   const canSeeChinese = gates?.notice_translation === "free" || gates?.notice_translation === "included";
   const aiSummaryEnabled = gates?.ai_summary === "free" || gates?.ai_summary === "included";
   const aiMatchEnabled = gates?.ai_match === "free" || gates?.ai_match === "included";
@@ -451,7 +459,12 @@ export function NoticeDetail({
 
           {/* 资格条件（会员态结构化 / 锁态锁定面板由子组件处理） */}
           <section id="section-qual">
-            <QualificationTab notice={notice} coreAccessible={coreAccessible} isVip={isVip} />
+            <QualificationTab
+              notice={notice}
+              coreAccessible={coreAccessible}
+              qualificationAccessible={qualificationAccessible}
+              isVip={isVip}
+            />
           </section>
 
           {/* 联系人 */}

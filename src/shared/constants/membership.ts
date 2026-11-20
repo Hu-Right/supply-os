@@ -16,3 +16,9 @@ export const MEMBERSHIP_TIER = {
 
 export type MembershipTier = (typeof MEMBERSHIP_TIER)[keyof typeof MEMBERSHIP_TIER];
 
+/**
+ * 权益矩阵里的资格条件查看权益码（shared 层 SSOT）。
+ * 前端只读 gates 的键，不自行发明门控；服务端 benefit-matrix 也从这里引用。
+ */
+export const QUALIFICATION_ACCESS_BENEFIT = "qualification_access";
+

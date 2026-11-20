@@ -15,6 +15,8 @@ interface QualificationTabProps {
   notice: NoticeDetailItem;
   /** 是否已解锁核心信息 */
   coreAccessible: boolean;
+  /** 资格条件独立权益（qualification_access）是否放行；缺省回退 coreAccessible */
+  qualificationAccessible?: boolean;
   /** 是否 VIP（影响锁定提示文案） */
   isVip?: boolean;
 }
@@ -102,8 +104,9 @@ function ConditionBlock({
   );
 }
 
-export function QualificationTab({ notice, coreAccessible, isVip }: QualificationTabProps) {
+export function QualificationTab({ notice, coreAccessible, qualificationAccessible, isVip }: QualificationTabProps) {
   const { t } = useLocale();
+  const accessible = qualificationAccessible ?? coreAccessible;
 
   const supplierConditions = notice.supplierConditions || "";
   const eligibility = notice.eligibility || "";
@@ -112,7 +115,7 @@ export function QualificationTab({ notice, coreAccessible, isVip }: Qualificatio
   const levelConfig = getLevelConfig(notice.registrationLevel ?? undefined);
 
   // ── 未解锁：展示具体锁定提示 ──
-  if (!coreAccessible) {
+  if (!accessible) {
     const lockedItems = [
       hasContent || notice.registrationLevel ? t("detail_qualLockedLevel") || "注册等级要求与详细说明" : null,
       supplierConditions ? t("detail_qualLockedConditions") || "供应商投标条件全文" : null,

@@ -98,7 +98,8 @@ export function useNoticeAccess({
           descriptionTruncated: false,
         };
       });
-      markAccessible(notice.noticePk);
+      // 资格条件权益可能只放行资格字段（coreLocked=true）：不能把这条公告标记为全文已解锁
+      if (detail.coreLocked !== true) markAccessible(notice.noticePk);
     } catch {
       // 未解锁或加载失败：保留列表数据，不阻断详情页
     } finally {
