@@ -34,7 +34,7 @@ import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
 import { AiEvaluationPanel } from "../AiEvaluationPanel";
 import { useAiMatch } from "../../hooks/useAiMatch";
-import { QUALIFICATION_ACCESS_BENEFIT, ORIGINAL_FILE_ACCESS_BENEFIT } from "@/shared/constants/membership";
+import { QUALIFICATION_ACCESS_BENEFIT, ORIGINAL_FILE_ACCESS_BENEFIT, SIMILAR_OPPORTUNITY_BENEFIT } from "@/shared/constants/membership";
 
 /** 区块锚点导航（id, i18n key） */
 const SECTION_NAV: ReadonlyArray<readonly [string, string]> = [
@@ -121,6 +121,10 @@ export function NoticeDetail({
     notice.fileAccess === true ||
     gates?.[ORIGINAL_FILE_ACCESS_BENEFIT] === "free" ||
     gates?.[ORIGINAL_FILE_ACCESS_BENEFIT] === "included";
+  const similarAccessible =
+    coreAccessible ||
+    gates?.[SIMILAR_OPPORTUNITY_BENEFIT] === "free" ||
+    gates?.[SIMILAR_OPPORTUNITY_BENEFIT] === "included";
   const canSeeChinese = gates?.notice_translation === "free" || gates?.notice_translation === "included";
   const aiSummaryEnabled = gates?.ai_summary === "free" || gates?.ai_summary === "included";
   const aiMatchEnabled = gates?.ai_match === "free" || gates?.ai_match === "included";
@@ -512,9 +516,11 @@ export function NoticeDetail({
           </section>
 
           {/* 相似机会 */}
-          <section id="section-similar">
-            <SimilarTab notice={notice} onOpen={onOpenNotice} />
-          </section>
+          {similarAccessible && (
+            <section id="section-similar">
+              <SimilarTab notice={notice} onOpen={onOpenNotice} />
+            </section>
+          )}
         </main>
 
 

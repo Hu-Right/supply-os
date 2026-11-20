@@ -25,3 +25,6 @@ export const QUALIFICATION_ACCESS_BENEFIT = "qualification_access";
 /** 权益矩阵里的原始文件下载权益码 */
 export const ORIGINAL_FILE_ACCESS_BENEFIT = "original_file_access";
 
+/** 权益矩阵里的相似机会权益码 */
+export const SIMILAR_OPPORTUNITY_BENEFIT = "similar_opportunity";
+
