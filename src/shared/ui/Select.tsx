@@ -19,7 +19,7 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ error = false, className, children, ...props }, ref) => {
     const baseClasses =
-      "w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2.5 text-sm text-secondary-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:bg-secondary-100 disabled:text-secondary-500";
+      "h-10 w-full cursor-pointer rounded-lg border border-secondary-200 bg-white px-3 text-sm text-secondary-900 shadow-xs transition-[border-color,box-shadow,background-color] hover:border-secondary-300 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/15 disabled:cursor-not-allowed disabled:bg-secondary-100 disabled:text-secondary-500";
 
     const errorClasses = error ? "border-danger-500 focus:border-danger-500 focus:ring-danger-500/20" : "";
 

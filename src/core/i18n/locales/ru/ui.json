@@ -133,5 +133,6 @@
   "trainingPaySubmittedDesc": "Список слушателей сохранён вместе с заявкой. Курс начнётся после успешной оплаты.",
   "trainingPaySubmittedTitle": "Слушателей добавлено: {n}",
   "uiNone": "Нет",
-  "uiRetry": "Повторить"
+  "uiRetry": "Повторить",
+  "selectUiClear": "Очистить выбор"
 }

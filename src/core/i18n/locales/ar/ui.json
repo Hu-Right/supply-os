@@ -133,5 +133,6 @@
   "trainingPaySubmittedDesc": "تم حفظ قائمة المشاركين مع تسجيلك. تبدأ الدورة بعد نجاح الدفع.",
   "trainingPaySubmittedTitle": "تم تسجيل {n} مشاركاً",
   "uiNone": "لا يوجد",
-  "uiRetry": "إعادة المحاولة"
+  "uiRetry": "إعادة المحاولة",
+  "selectUiClear": "مسح التحديد"
 }

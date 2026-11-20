@@ -133,5 +133,6 @@
   "trainingPaySubmittedDesc": "La liste des participants est enregistrée avec votre inscription. La formation démarre dès le paiement.",
   "trainingPaySubmittedTitle": "{n} participants enregistrés",
   "uiNone": "Aucun",
-  "uiRetry": "Réessayer"
+  "uiRetry": "Réessayer",
+  "selectUiClear": "Effacer la sélection"
 }

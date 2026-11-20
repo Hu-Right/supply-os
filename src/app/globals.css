@@ -401,3 +401,64 @@ html {
   background: var(--color-primary-100);
   color: var(--color-primary-900);
 }
+/* ── 弹窗动效与移动端底部卡片 ── */
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes modal-content-in {
+  from { opacity: 0; scale: 0.97; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes modal-content-out {
+  from { opacity: 1; scale: 1; }
+  to { opacity: 0; scale: 0.97; }
+}
+
+.modal-overlay[data-state="open"] {
+  animation: modal-overlay-in 160ms ease-out;
+}
+
+.modal-overlay[data-state="closed"] {
+  animation: modal-overlay-out 120ms ease-in;
+}
+
+.modal-content {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  max-width: 32rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  transform: translate(-50%, calc(-50% + var(--modal-drag, 0px)));
+}
+
+.modal-content[data-state="open"] {
+  animation: modal-content-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-content[data-state="closed"] {
+  animation: modal-content-out 120ms ease-in;
+}
+
+@media (max-width: 639px) {
+  .modal-content {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    max-width: none;
+    max-height: 92dvh;
+    transform: translateY(var(--modal-drag, 0px));
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+}

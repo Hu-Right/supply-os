@@ -133,5 +133,6 @@
   "trainingPaySubmittedDesc": "La lista de participantes se guarda con su inscripción. El curso comienza cuando se completa el pago.",
   "trainingPaySubmittedTitle": "{n} participantes registrados",
   "uiNone": "Ninguno",
-  "uiRetry": "Reintentar"
+  "uiRetry": "Reintentar",
+  "selectUiClear": "Borrar selección"
 }

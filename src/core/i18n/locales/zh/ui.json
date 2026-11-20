@@ -133,5 +133,6 @@
   "trainingPaySubmittedDesc": "学员名单已随报名保存，支付成功即可开课",
   "trainingPaySubmittedTitle": "{n} 位学员信息已提交",
   "uiNone": "暂无",
-  "uiRetry": "重试"
+  "uiRetry": "重试",
+  "selectUiClear": "清除选择"
 }

@@ -133,5 +133,6 @@
   "trainingPaySubmittedDesc": "The participant list is saved with your registration. The course starts once payment succeeds.",
   "trainingPaySubmittedTitle": "{n} participants submitted",
   "uiNone": "None",
-  "uiRetry": "Retry"
+  "uiRetry": "Retry",
+  "selectUiClear": "Clear selection"
 }

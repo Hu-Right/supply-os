@@ -9,7 +9,7 @@
  *              ModalProps 接口与旧版完全兼容，消费方零改动。
  */
 
-import { type ReactNode, useRef, useState, useCallback } from "react";
+import { type CSSProperties, type ReactNode, useRef, useState, useCallback } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
@@ -78,7 +78,7 @@ export function Modal({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className={cn("fixed inset-0 z-50 bg-secondary-900/60 backdrop-blur-xs", overlayClassName)} />
+        <DialogPrimitive.Overlay className={cn("modal-overlay fixed inset-0 z-50 bg-secondary-950/50 backdrop-blur-sm", overlayClassName)} />
         <DialogPrimitive.Content
           onEscapeKeyDown={closeOnEsc ? undefined : (e) => e.preventDefault()}
           onInteractOutside={closeOnBackdrop ? undefined : (e) => e.preventDefault()}
@@ -86,28 +86,26 @@ export function Modal({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6 rounded-2xl border border-secondary-200 bg-white shadow-xl transition-transform focus:outline-none",
+            "modal-content z-50 rounded-2xl border border-secondary-200 bg-white p-4 shadow-2xl shadow-secondary-950/20 focus:outline-none md:p-6",
             className,
           )}
-          style={{
-            transform: dragOffset > 0
-              ? `translate(-50%, calc(-50% + ${dragOffset}px))`
-              : "translate(-50%, -50%)",
-          }}
+          style={{ "--modal-drag": `${dragOffset}px` } as CSSProperties}
         >
+          {/* 移动端拖拽提示条 */}
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-secondary-200 sm:hidden" aria-hidden="true" />
           {showClose && (
             <button
               type="button"
               onClick={onClose}
               disabled={closeDisabled}
-              className="absolute end-4 top-4 rounded-lg p-1 text-secondary-400 hover:bg-secondary-100 hover:text-secondary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-400 disabled:opacity-50 disabled:pointer-events-none"
+              className="absolute end-4 top-4 rounded-full p-1.5 text-secondary-400 transition-colors hover:bg-secondary-100 hover:text-secondary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50"
               aria-label={t("uiClose")}
             >
               <X className="h-5 w-5" />
             </button>
           )}
           <DialogPrimitive.Title
-            className={cn(title ? "mb-4 text-lg font-bold text-secondary-900" : "sr-only")}
+            className={cn(title ? "mb-4 pe-10 text-lg font-bold text-secondary-900" : "sr-only")}
           >
             {title ?? "dialog"}
           </DialogPrimitive.Title>
