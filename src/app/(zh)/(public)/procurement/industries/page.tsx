@@ -14,6 +14,7 @@ import Link from "next/link";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { jsonLdScript, SITE_ENTITY } from "@/lib/services/seo/json-ld";
 import { listIndustryLandings } from "@/lib/services/seo/landing";
+import { getServerLocale } from "@/lib/i18n/server";
 import type { HotGroupItem } from "@/lib/services/notice-search/hot-topics";
 
 export const revalidate = 3600;
@@ -45,13 +46,16 @@ async function loadGroups(): Promise<HotGroupItem[]> {
 }
 
 export default async function IndustriesHubPage() {
+  const locale = await getServerLocale();
+  const isZh = locale === "zh";
+  const num = (n: number) => n.toLocaleString(isZh ? "zh-CN" : "en-US");
   const groups = await loadGroups();
   const total = groups.reduce((sum, g) => sum + g.count, 0);
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: "按品目分类浏览全球采购公告",
+    name: isZh ? "按品目分类浏览全球采购公告" : "Browse global procurement notices by commodity category",
     url: absoluteUrl(HUB_PATH),
     isPartOf: { "@type": "WebSite", name: SITE_ENTITY.name, url: SITE_ENTITY.url },
     mainEntity: {
@@ -70,28 +74,30 @@ export default async function IndustriesHubPage() {
     <div className="mx-auto max-w-5xl space-y-6 py-4">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} />
 
-      <nav aria-label="面包屑" className="text-sm text-slate-500">
+      <nav aria-label={isZh ? "面包屑" : "Breadcrumb"} className="text-sm text-slate-500">
         <ol className="flex flex-wrap items-center gap-2">
-          <li><Link href="/" className="hover:text-training-green">首页</Link></li>
+          <li><Link href="/" className="hover:text-training-green">{isZh ? "首页" : "Home"}</Link></li>
           <li aria-hidden>/</li>
-          <li><Link href="/procurement" className="hover:text-training-green">全球商机</Link></li>
+          <li><Link href="/procurement" className="hover:text-training-green">{isZh ? "全球商机" : "Global opportunities"}</Link></li>
           <li aria-hidden>/</li>
-          <li className="text-slate-700">按品目分类浏览</li>
+          <li className="text-slate-700">{isZh ? "按品目分类浏览" : "By commodity"}</li>
         </ol>
       </nav>
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">按品目分类浏览全球采购公告</h1>
+        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+          {isZh ? "按品目分类浏览全球采购公告" : "Browse global procurement notices by commodity category"}
+        </h1>
         <p className="text-sm leading-relaxed text-slate-600">
-          共 {groups.length} 个品目大类、{total.toLocaleString("zh-CN")} 条在挂公告。
-          数量按「包含」口径统计：一条公告挂在多个大类下时，每个大类都会计入，
-          点进任一大类看到的就是该数字对应的公告。
+          {isZh
+            ? `共 ${num(groups.length)} 个品目大类、${num(total)} 条在挂公告。数量按「包含」口径统计：一条公告挂在多个大类下时，每个大类都会计入，点进任一大类看到的就是该数字对应的公告。`
+            : `${num(groups.length)} commodity groups, ${num(total)} active notices. Counts use the "contains" basis: a notice attached to multiple groups counts in each, and clicking a group shows exactly those notices.`}
         </p>
       </header>
 
       {groups.length === 0 ? (
         <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
-          暂无品目聚合数据，请稍后刷新。
+          {isZh ? "暂无品目聚合数据，请稍后刷新。" : "No commodity data is available yet. Please refresh later."}
         </p>
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2">
@@ -102,7 +108,9 @@ export default async function IndustriesHubPage() {
                 className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-800 hover:text-training-green"
               >
                 <span>{g.nameZh}</span>
-                <span className="shrink-0 text-xs font-normal text-slate-500">{g.count.toLocaleString("zh-CN")} 条</span>
+                <span className="shrink-0 text-xs font-normal text-slate-500">
+                  {num(g.count)} {isZh ? "条" : "notices"}
+                </span>
               </Link>
               <p className="mt-0.5 text-xs text-slate-400">{g.code}</p>
             </li>
@@ -111,7 +119,9 @@ export default async function IndustriesHubPage() {
       )}
 
       <p className="text-xs text-slate-400">
-        品目分类采用平台骨架编码（UGT-），与公告搜索的品目级联筛选同源。
+        {isZh
+          ? "品目分类采用平台骨架编码（UGT-），与公告搜索的品目级联筛选同源。"
+          : "Commodity categories use the platform backbone codes (UGT-), the same source as the notice search commodity filter."}
       </p>
     </div>
   );

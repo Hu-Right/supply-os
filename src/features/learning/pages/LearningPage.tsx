@@ -20,9 +20,15 @@ import type { LearningMaterial } from "@/types";
 import { emitAppEvent, type PayEventDetail } from "@/core/events";
 
 export default function LearningPage() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { authUser } = useAuth();
   const { materials, bundles, purchasedIds, loading, bumpDownloadCount } = useLearningMaterials();
+
+  /** 静态资料/打包文案带中英双字段：非中文界面取英文，其余暂无翻译回落英文 */
+  const localizedTitle = (material: LearningMaterial) =>
+    locale === "zh" ? material.titleZh : material.titleEn;
+  const localizedBundleLabel = (bundle: ApiBundle) =>
+    locale === "zh" ? bundle.labelZh : bundle.labelEn;
 
   // premium 资料的 fileUrl 不随列表下发（审查 F4）：为空时按需向
   // /content 端点获取（服务端校验登录 + 购买记录）
@@ -68,7 +74,7 @@ export default function LearningPage() {
     }
     emitAppEvent("supply-os:pay", {
       code: `material_${material.id}`,
-      name: material.titleZh,
+      name: localizedTitle(material),
       price: material.price ?? 0,
       currency: "CNY",
     });
@@ -81,7 +87,7 @@ export default function LearningPage() {
     }
     emitAppEvent("supply-os:pay", {
       code: `bundle_${bundle.id}`,
-      name: bundle.labelZh,
+      name: localizedBundleLabel(bundle),
       price: bundle.price,
       currency: "CNY",
     } as PayEventDetail);
@@ -130,7 +136,7 @@ export default function LearningPage() {
                     variant="outline"
                     className="w-full justify-between rounded-lg border-teal-200 bg-white px-4 py-3 text-sm font-normal hover:border-teal-400 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
                   >
-                    <span className="font-bold text-slate-800">{bundle.labelZh}</span>
+                    <span className="font-bold text-slate-800">{localizedBundleLabel(bundle)}</span>
                     <span className="shrink-0 ml-3 rounded-full bg-teal-600 px-3 py-1 text-xs font-black text-white">
                       ¥{bundle.price.toFixed(1)}
                     </span>

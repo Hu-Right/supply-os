@@ -72,5 +72,9 @@
   "svcApplySubmit": "Submit Application",
   "svcApplyDoneTitle": "Application Submitted!",
   "svcApplyDoneDesc": "We have received your application and will contact you soon to discuss cooperation details.",
-  "svcApplyTag": "Ecosystem Partner Application"
+  "svcApplyTag": "Ecosystem Partner Application",
+  "svcEcoCategoryCompliance": "Compliance access",
+  "svcEcoCategoryFulfillment": "Fulfilment & delivery",
+  "svcEcoCategoryAfterSales": "After-sales support",
+  "svcEcoCategoryLocalization": "Localisation"
 }

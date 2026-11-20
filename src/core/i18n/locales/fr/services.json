@@ -72,5 +72,9 @@
   "svcApplySubmit": "Envoyer la candidature",
   "svcApplyDoneTitle": "Candidature envoyée !",
   "svcApplyDoneDesc": "Nous avons bien reçu votre candidature et vous contacterons bientôt pour discuter des détails de la coopération.",
-  "svcApplyTag": "Candidature de partenaire de l'écosystème"
+  "svcApplyTag": "Candidature de partenaire de l'écosystème",
+  "svcEcoCategoryCompliance": "Accès conformité",
+  "svcEcoCategoryFulfillment": "Exécution et livraison",
+  "svcEcoCategoryAfterSales": "Service après-vente",
+  "svcEcoCategoryLocalization": "Localisation"
 }

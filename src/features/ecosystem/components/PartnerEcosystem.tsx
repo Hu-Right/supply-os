@@ -26,9 +26,13 @@ const STATUS_STYLE: Record<EcoPartnerStatus, { labelKey: string; variant: BadgeV
   onboarding: { labelKey: "svcPartnerStatusOnboarding", variant: "soft-success" },
 };
 
-const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(
-  ECO_PARTNER_CATEGORIES.map((c) => [c.key, c.label]),
-);
+/** 类目展示名走 i18n；数据层 key 不变，只翻译展示标签 */
+const CATEGORY_LABEL_KEY: Record<string, string> = {
+  compliance: "svcEcoCategoryCompliance",
+  fulfillment: "svcEcoCategoryFulfillment",
+  "after-sales": "svcEcoCategoryAfterSales",
+  localization: "svcEcoCategoryLocalization",
+};
 
 /** PartnerCard / FeaturedPartnerCard 共用的询盘弹窗唤起 */
 interface CardProps {
@@ -72,7 +76,7 @@ function FeaturedPartnerCard({ partner, onInquiry }: CardProps) {
               {t(status.labelKey)}
             </Badge>
             <span className="px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 text-xs font-bold">
-              {CATEGORY_LABEL[partner.category]}
+              {t(CATEGORY_LABEL_KEY[partner.category] ?? "")}
             </span>
           </div>
           {partner.nameEn && <p className="mt-0.5 text-xs text-slate-400">{partner.nameEn}</p>}
@@ -130,7 +134,7 @@ function PartnerCard({ partner, onInquiry }: CardProps) {
 
       {/* 服务类别 */}
       <span className="self-start px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 text-xs font-bold mb-2">
-        {CATEGORY_LABEL[partner.category]}
+        {t(CATEGORY_LABEL_KEY[partner.category] ?? "")}
       </span>
 
       {/* 服务能力 */}
@@ -190,7 +194,7 @@ export function PartnerEcosystem() {
               key={c.key}
               className="px-2.5 py-1 rounded-full border border-slate-200 bg-white text-xs text-slate-500"
             >
-              {c.label}
+              {t(CATEGORY_LABEL_KEY[c.key] ?? "")}
             </span>
           ))}
         </div>

@@ -11,6 +11,7 @@ import Link from "next/link";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { jsonLdScript, SITE_ENTITY } from "@/lib/services/seo/json-ld";
 import { listCountryLandings, type CountryLanding } from "@/lib/services/seo/landing";
+import { getServerLocale } from "@/lib/i18n/server";
 
 export const revalidate = 3600;
 
@@ -40,18 +41,22 @@ async function loadCountries(): Promise<CountryLanding[]> {
   }
 }
 
-function countryLabel(c: CountryLanding): string {
+function countryLabel(c: CountryLanding, isZh: boolean): string {
+  if (!isZh) return c.name;
   return c.nameZh ? `${c.nameZh}（${c.name}）` : c.name;
 }
 
 export default async function CountriesHubPage() {
+  const locale = await getServerLocale();
+  const isZh = locale === "zh";
+  const num = (n: number) => n.toLocaleString(isZh ? "zh-CN" : "en-US");
   const countries = await loadCountries();
   const total = countries.reduce((sum, c) => sum + c.count, 0);
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: "按国家浏览全球采购公告",
+    name: isZh ? "按国家浏览全球采购公告" : "Browse global procurement notices by country",
     url: absoluteUrl(HUB_PATH),
     isPartOf: { "@type": "WebSite", name: SITE_ENTITY.name, url: SITE_ENTITY.url },
     mainEntity: {
@@ -60,7 +65,7 @@ export default async function CountriesHubPage() {
       itemListElement: countries.slice(0, 20).map((c, i) => ({
         "@type": "ListItem",
         position: i + 1,
-        name: countryLabel(c),
+        name: countryLabel(c, isZh),
         url: absoluteUrl(`/procurement/country/${c.slug}`),
       })),
     },
@@ -70,29 +75,34 @@ export default async function CountriesHubPage() {
     <div className="mx-auto max-w-6xl space-y-6 py-4">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} />
 
-      <nav aria-label="面包屑" className="text-sm text-slate-500">
+      <nav aria-label={isZh ? "面包屑" : "Breadcrumb"} className="text-sm text-slate-500">
         <ol className="flex flex-wrap items-center gap-2">
-          <li><Link href="/" className="hover:text-training-green">首页</Link></li>
+          <li><Link href="/" className="hover:text-training-green">{isZh ? "首页" : "Home"}</Link></li>
           <li aria-hidden>/</li>
-          <li><Link href="/procurement" className="hover:text-training-green">全球商机</Link></li>
+          <li><Link href="/procurement" className="hover:text-training-green">{isZh ? "全球商机" : "Global opportunities"}</Link></li>
           <li aria-hidden>/</li>
-          <li className="text-slate-700">按国家浏览</li>
+          <li className="text-slate-700">{isZh ? "按国家浏览" : "By country"}</li>
         </ol>
       </nav>
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">按国家浏览全球采购公告</h1>
+        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+          {isZh ? "按国家浏览全球采购公告" : "Browse global procurement notices by country"}
+        </h1>
         <p className="text-sm leading-relaxed text-slate-600">
-          共 {countries.length} 个国家/地区、{total.toLocaleString("zh-CN")} 条有效公告（按截止时间实时过滤）。
-          点击国家可查看该国最新公告，也可回到
-          <Link href="/procurement" className="mx-1 text-training-green hover:underline">公告搜索</Link>
-          按品目、机构、截止时间组合筛选。
+          {isZh
+            ? `共 ${num(countries.length)} 个国家/地区、${num(total)} 条有效公告（按截止时间实时过滤）。点击国家可查看该国最新公告，也可回到`
+            : `${num(countries.length)} countries/regions, ${num(total)} active notices (filtered by deadline in real time). Click a country to view its latest notices, or go back to`}
+          <Link href="/procurement" className="mx-1 text-training-green hover:underline">
+            {isZh ? "公告搜索" : "notice search"}
+          </Link>
+          {isZh ? "按品目、机构、截止时间组合筛选。" : "to filter by commodity, agency and deadline."}
         </p>
       </header>
 
       {countries.length === 0 ? (
         <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
-          暂无可展示的国别数据，请稍后刷新。
+          {isZh ? "暂无可展示的国别数据，请稍后刷新。" : "No country data is available yet. Please refresh later."}
         </p>
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -102,8 +112,10 @@ export default async function CountriesHubPage() {
                 href={`/procurement/country/${c.slug}`}
                 className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-800 hover:text-training-green"
               >
-                <span>{countryLabel(c)}</span>
-                <span className="shrink-0 text-xs font-normal text-slate-500">{c.count.toLocaleString("zh-CN")} 条</span>
+                <span>{countryLabel(c, isZh)}</span>
+                <span className="shrink-0 text-xs font-normal text-slate-500">
+                  {num(c.count)} {isZh ? "条" : "notices"}
+                </span>
               </Link>
             </li>
           ))}
@@ -111,7 +123,9 @@ export default async function CountriesHubPage() {
       )}
 
       <p className="text-xs text-slate-400">
-        统计口径：截止时间未过（或无截止日）的已审核公告；同一国家存在多种写法时按国别别名表归一后合并计数。
+        {isZh
+          ? "统计口径：截止时间未过（或无截止日）的已审核公告；同一国家存在多种写法时按国别别名表归一后合并计数。"
+          : "Counting basis: reviewed notices whose deadline has not passed (or has no deadline); multiple spellings of the same country are merged through the country alias table."}
       </p>
     </div>
   );

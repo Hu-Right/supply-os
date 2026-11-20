@@ -26,6 +26,14 @@ import {
 import { api } from "@/core/http";
 import { ECO_PARTNER_CATEGORIES } from "@/data/ecosystem";
 
+/** 类目展示名走 i18n；数据层 key 不变 */
+const CATEGORY_LABEL_KEY: Record<string, string> = {
+  compliance: "svcEcoCategoryCompliance",
+  fulfillment: "svcEcoCategoryFulfillment",
+  "after-sales": "svcEcoCategoryAfterSales",
+  localization: "svcEcoCategoryLocalization",
+};
+
 export interface PartnerApplyModalProps {
   onClose: () => void;
 }
@@ -49,8 +57,7 @@ export function PartnerApplyModal({ onClose }: PartnerApplyModalProps) {
 
   const onSubmit = handleSubmit(async (data) => {
     try {
-      const categoryLabel =
-        ECO_PARTNER_CATEGORIES.find((c) => c.key === data.category)?.label ?? data.category;
+      const categoryLabel = t(CATEGORY_LABEL_KEY[data.category] ?? "") || data.category;
       await api<{ success: boolean }>("/api/leads", {
         method: "POST",
         body: {
@@ -142,7 +149,7 @@ export function PartnerApplyModal({ onClose }: PartnerApplyModalProps) {
                   <select className={inputCls} {...field}>
                     <option value="" disabled>——</option>
                     {ECO_PARTNER_CATEGORIES.map((c) => (
-                      <option key={c.key} value={c.key}>{c.label}</option>
+                      <option key={c.key} value={c.key}>{t(CATEGORY_LABEL_KEY[c.key] ?? "")}</option>
                     ))}
                   </select>
                 </FormControl>

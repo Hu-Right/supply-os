@@ -72,5 +72,9 @@
   "svcApplySubmit": "Отправить заявку",
   "svcApplyDoneTitle": "Заявка отправлена!",
   "svcApplyDoneDesc": "Мы получили вашу заявку и скоро свяжемся с вами для обсуждения деталей сотрудничества.",
-  "svcApplyTag": "Заявка партнёра экосистемы"
+  "svcApplyTag": "Заявка партнёра экосистемы",
+  "svcEcoCategoryCompliance": "Соответствие требованиям",
+  "svcEcoCategoryFulfillment": "Исполнение и поставка",
+  "svcEcoCategoryAfterSales": "Послепродажное обслуживание",
+  "svcEcoCategoryLocalization": "Локализация"
 }

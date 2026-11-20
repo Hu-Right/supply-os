@@ -72,5 +72,9 @@
   "svcApplySubmit": "إرسال الطلب",
   "svcApplyDoneTitle": "تم إرسال الطلب!",
   "svcApplyDoneDesc": "استلمنا طلبكم وسنتواصل معكم قريباً لمناقشة تفاصيل التعاون.",
-  "svcApplyTag": "طلب انضمام شريك المنظومة"
+  "svcApplyTag": "طلب انضمام شريك المنظومة",
+  "svcEcoCategoryCompliance": "الامتثال التنظيمي",
+  "svcEcoCategoryFulfillment": "التنفيذ والتسليم",
+  "svcEcoCategoryAfterSales": "خدمة ما بعد البيع",
+  "svcEcoCategoryLocalization": "التوطين"
 }

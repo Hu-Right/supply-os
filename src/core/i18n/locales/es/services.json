@@ -72,5 +72,9 @@
   "svcApplySubmit": "Enviar solicitud",
   "svcApplyDoneTitle": "¡Solicitud enviada!",
   "svcApplyDoneDesc": "Hemos recibido su solicitud y le contactaremos pronto para hablar de los detalles de cooperación.",
-  "svcApplyTag": "Solicitud de incorporación de socio"
+  "svcApplyTag": "Solicitud de incorporación de socio",
+  "svcEcoCategoryCompliance": "Acceso normativo",
+  "svcEcoCategoryFulfillment": "Cumplimiento y entrega",
+  "svcEcoCategoryAfterSales": "Posventa",
+  "svcEcoCategoryLocalization": "Localización"
 }

@@ -72,5 +72,9 @@
   "svcApplySubmit": "提交申请",
   "svcApplyDoneTitle": "申请已提交！",
   "svcApplyDoneDesc": "已收到贵司入驻申请，平台将尽快与您联系沟通合作细节。",
-  "svcApplyTag": "生态伙伴入驻申请"
+  "svcApplyTag": "生态伙伴入驻申请",
+  "svcEcoCategoryCompliance": "合规准入",
+  "svcEcoCategoryFulfillment": "履约交付",
+  "svcEcoCategoryAfterSales": "售后服务",
+  "svcEcoCategoryLocalization": "本地化运营"
 }

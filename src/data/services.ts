@@ -31,6 +31,11 @@ export interface ServiceItem {
   phase?: ServicePhase;
   /** 价格标签 */
   priceLabel?: string;
+  /** 英文文案（非中文界面使用；缺省回落中文） */
+  titleEn?: string;
+  descEn?: string;
+  specsEn?: string[];
+  priceLabelEn?: string;
 }
 
 /** 成功案例 */
@@ -54,6 +59,10 @@ export const SERVICES: ServiceItem[] = [
     active: true,
     phase: "pre-bid",
     priceLabel: "¥199 起",
+    titleEn: "International public procurement capability diagnosis",
+    descEn: "First-time exporters / enterprises with limited capability",
+    specsEn: ["Rapid assessment of international public procurement readiness"],
+    priceLabelEn: "From ¥199",
   },
   {
     title: "UNGM/平台注册托管",
@@ -63,6 +72,10 @@ export const SERVICES: ServiceItem[] = [
     active: true,
     phase: "pre-bid",
     priceLabel: "项目报价",
+    titleEn: "UNGM / platform registration management",
+    descEn: "New registrations / enterprises that struggle to maintain profiles",
+    specsEn: ["Account registration and document compliance management"],
+    priceLabelEn: "Project quote",
   },
   // ── 投标准备 ──
   {
@@ -73,6 +86,10 @@ export const SERVICES: ServiceItem[] = [
     active: true,
     phase: "prep",
     priceLabel: "项目报价",
+    titleEn: "Tender document breakdown and drafting",
+    descEn: "No in-house experience / tight deadlines",
+    specsEn: ["Key requirements breakdown and professional tender drafting"],
+    priceLabelEn: "Project quote",
   },
   {
     title: "国际商务谈判支持",
@@ -82,6 +99,10 @@ export const SERVICES: ServiceItem[] = [
     active: true,
     phase: "prep",
     priceLabel: "按次/项目",
+    titleEn: "International business negotiation support",
+    descEn: "Enterprises facing negotiation or pricing pressure",
+    specsEn: ["Strategy support to improve the win rate"],
+    priceLabelEn: "Per session / project",
   },
   // ── 投标提交 ──
   {
@@ -92,6 +113,10 @@ export const SERVICES: ServiceItem[] = [
     active: true,
     phase: "submit",
     priceLabel: "项目报价",
+    titleEn: "Certification / notarization / translation",
+    descEn: "Enterprises needing certified document translation",
+    specsEn: ["One-stop multilingual certification and translation support"],
+    priceLabelEn: "Project quote",
   },
   // ── 中标后 ──
   {
@@ -102,6 +127,10 @@ export const SERVICES: ServiceItem[] = [
     active: true,
     phase: "post-award",
     priceLabel: "年费 / 项目",
+    titleEn: "Overseas fulfilment and showroom",
+    descEn: "Post-award / enterprises that need delivery support",
+    specsEn: ["Warehousing, logistics and showroom landing support"],
+    priceLabelEn: "Annual fee / project",
   },
 ];
 
