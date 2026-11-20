@@ -4,13 +4,13 @@
  *
  * @module shared/layout/LanguageSwitcher
  * @description 页头语言选择。下拉列出 7 种语言（联合国 6 种官方语言 + 葡语）。
- *              选中后：zh / en 有独立 URL，直接导航到对应地址；fr / ru / es / ar / pt
- *              暂无独立 URL，写 Cookie 后停留在当前 URL 由客户端切换。
+ *              选中后统一写 Cookie 并原地加载语言包；只有从 /en 回中文等
+ *              “URL 前缀归属不同”的场景才做导航。英文 SEO 站（/en）保留给
+ *              搜索引擎/外链，不再由语言切换器跳入。
  *              下拉定位用逻辑方向（end-0），RTL 下自动镜像。
  *              切换期间显示旋转指示器 + 禁用交互，防止重复点击。
- *              Header language selector: 7 languages; zh/en navigate to their own URL,
- *              other locales persist the choice in a cookie on the current URL.
- *              A spinner + disabled state is shown while the switch is in progress.
+ *              Header language selector: 7 languages; all locales switch in place via
+ *              cookie. Only navigate when leaving the separate /en SEO root.
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -54,13 +54,8 @@ export function LanguageSwitcher() {
       setOpen(false);
       const href = localeHref(pathname, code);
 
-      // en 走独立 URL：不写 Cookie，避免中文站被顺带切成英文
-      if (code === "en") {
-        if (href) router.push(href);
-        return;
-      }
-
-      // zh / 其他语言：先切语言（写 Cookie、加载语言包），再导航（可能是从 /en 回中文站）
+      // 所有语言统一：先切语言（写 Cookie、加载语言包），再按需导航。
+      // /en 的英文 SEO 站不再由切换器进入；只有从 /en 回中文/其他语言时才导航。
       void (async () => {
         await setLocale(code);
         if (href && href !== pathname) router.push(href);

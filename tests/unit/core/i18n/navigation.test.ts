@@ -51,11 +51,11 @@ describe("englishPathFor", () => {
 });
 
 describe("localeHref", () => {
-  it("中文页切英文 → 英文对应 URL", () => {
-    expect(localeHref("/", "en")).toBe("/en");
-    expect(localeHref("/procurement", "en")).toBe("/en/procurement");
-    expect(localeHref("/procurement/notice/7", "en")).toBe("/en/procurement/notice/7");
-    expect(localeHref("/membership", "en")).toBe("/en");
+  it("中文页切英文 → 原地翻译（Cookie），不跳 /en", () => {
+    expect(localeHref("/", "en")).toBeNull();
+    expect(localeHref("/procurement", "en")).toBeNull();
+    expect(localeHref("/procurement/notice/7", "en")).toBeNull();
+    expect(localeHref("/membership", "en")).toBeNull();
   });
 
   it("英文页切英文 → 停留", () => {

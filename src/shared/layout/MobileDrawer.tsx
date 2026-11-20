@@ -38,11 +38,8 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
   const handleLocaleSelect = (code: Locale) => {
     if (switching) return;
     const href = localeHref(pathname, code);
-    // en 有独立 URL：直接导航，不写 Cookie（避免中文站被切成英文）
-    if (code === "en") {
-      if (href) router.push(href);
-      return;
-    }
+    // 与桌面语言切换器同策略：所有语言原地写 Cookie 翻译；
+    // 只有从 /en（独立 SEO 站）回中文/其他语言时才导航。
     void (async () => {
       await setLocale(code);
       if (href && href !== pathname) router.push(href);
