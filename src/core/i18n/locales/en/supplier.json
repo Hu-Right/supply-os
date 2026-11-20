@@ -121,5 +121,7 @@
   "inquiryLoginRequired": "Please sign in to send an enquiry.",
   "inquiryViewContact": "View contact details",
   "inquirySend": "Send enquiry",
-  "inquiryClose": "Close"
+  "inquiryClose": "Close",
+  "supplierEmptyTitle": "No suppliers match your filters",
+  "supplierEmptyDesc": "Try a different keyword or industry filter, or reset to browse all suppliers."
 }

@@ -27,7 +27,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-xl border border-secondary-200 bg-white p-4 shadow-sm",
+          "rounded-2xl border border-secondary-200 bg-white p-4 shadow-xs",
           (interactive || onClick) && "cursor-pointer transition-all hover:border-primary-300 hover:shadow-md",
           className,
         )}

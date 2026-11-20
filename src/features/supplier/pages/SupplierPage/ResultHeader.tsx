@@ -3,6 +3,7 @@
  * @module features/supplier/pages/SupplierPage/ResultHeader
  */
 import { LayoutGrid, List } from "lucide-react";
+import { Skeleton } from "@/shared/ui";
 import { SORT_OPTIONS } from "./constants";
 
 interface ResultHeaderProps {
@@ -11,16 +12,22 @@ interface ResultHeaderProps {
   setSortBy: (v: string) => void;
   viewMode: "card" | "list";
   setViewMode: (v: "card" | "list") => void;
+  /** 列表首次取数中：统计文案用骨架，避免显示「找到 0 家」 */
+  loading?: boolean;
   /** i18n 翻译函数 */
   t: (key: string, params?: Record<string, string>) => string;
 }
 
-export function ResultHeader({ total, sortBy, setSortBy, viewMode, setViewMode, t }: ResultHeaderProps) {
+export function ResultHeader({ total, sortBy, setSortBy, viewMode, setViewMode, loading = false, t }: ResultHeaderProps) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <p className="text-sm font-bold text-slate-700">
-        {t("supplierFound", { count: total.toLocaleString() })}
-      </p>
+      {loading ? (
+        <Skeleton width={180} height={16} />
+      ) : (
+        <p className="text-sm font-bold text-slate-700">
+          {t("supplierFound", { count: total.toLocaleString() })}
+        </p>
+      )}
       <div className="flex items-center gap-3">
         {/* 排序 */}
         <select

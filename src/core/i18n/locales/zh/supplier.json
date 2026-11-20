@@ -121,5 +121,7 @@
   "inquiryLoginRequired": "登录后可发送询盘",
   "inquiryViewContact": "查看联系方式",
   "inquirySend": "发送询盘",
-  "inquiryClose": "关闭"
+  "inquiryClose": "关闭",
+  "supplierEmptyTitle": "没有找到匹配的供应商",
+  "supplierEmptyDesc": "试试调整关键词、行业筛选，或重置条件重新浏览。"
 }

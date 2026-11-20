@@ -11,45 +11,30 @@ export function SupplierCardSkeleton() {
   return (
     <div
       data-testid="supplier-skeleton"
-      className="flex animate-pulse flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5"
+      className="flex animate-pulse flex-col overflow-hidden rounded-2xl border border-secondary-200 bg-white"
     >
-      <div>
-        {/* 类型标签 + 认证状态占位 */}
-        <div className="mb-3 flex items-start justify-between">
-          <div className="h-4 w-16 rounded-full bg-slate-100" />
-          <div className="h-4 w-14 rounded bg-slate-100" />
+      {/* 顶部图片区 */}
+      <div className="h-36 bg-secondary-100" />
+
+      {/* 内容区 */}
+      <div className="flex-1 space-y-3 p-4">
+        <div className="h-4 w-3/4 rounded bg-secondary-200" />
+        <div className="h-3 w-1/2 rounded bg-secondary-100" />
+        <div className="space-y-2 border-t border-secondary-100 pt-3">
+          <div className="h-3 w-20 rounded bg-secondary-100" />
+          <div className="h-3 w-40 rounded bg-secondary-100" />
+          <div className="h-3 w-32 rounded bg-secondary-100" />
         </div>
-
-        {/* 公司名占位 */}
-        <div className="h-5 w-3/4 rounded bg-slate-200" />
-
-        {/* 所在地占位 */}
-        <div className="mt-3 h-3.5 w-1/2 rounded bg-slate-100" />
-
-        {/* 主营产品 / 资质认证徽章占位 */}
-        <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
-          <div>
-            <div className="h-3 w-20 rounded bg-slate-100" />
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              <div className="h-5 w-14 rounded bg-slate-100" />
-              <div className="h-5 w-16 rounded bg-slate-100" />
-              <div className="h-5 w-12 rounded bg-slate-100" />
-            </div>
-          </div>
-          <div>
-            <div className="h-3 w-20 rounded bg-slate-100" />
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              <div className="h-5 w-16 rounded border border-emerald-100 bg-emerald-50" />
-              <div className="h-5 w-12 rounded border border-emerald-100 bg-emerald-50" />
-            </div>
-          </div>
+        <div className="space-y-1.5 pt-1">
+          <div className="h-2.5 w-24 rounded bg-secondary-100" />
+          <div className="h-1.5 w-full rounded-full bg-secondary-100" />
         </div>
       </div>
 
       {/* 底部操作按钮占位 */}
-      <div className="mt-5 flex gap-2 border-t border-slate-100 pt-3">
-        <div className="h-7 flex-1 rounded bg-slate-100" />
-        <div className="h-7 w-16 rounded bg-slate-100" />
+      <div className="flex gap-2 p-4 pt-0">
+        <div className="h-8 flex-1 rounded-lg bg-secondary-100" />
+        <div className="h-8 flex-1 rounded-lg bg-secondary-100" />
       </div>
     </div>
   );

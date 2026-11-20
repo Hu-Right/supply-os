@@ -31,6 +31,7 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
   const router = useRouter();
 
   const name = pickLocale(locale, supplier.nameZh, supplier.nameEn);
+  const initial = name.trim().charAt(0).toUpperCase();
   const products = pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn) ?? [];
   const certs = supplier.certifications ?? supplier.complianceLabelsZh ?? [];
   const tags = supplier.capabilityTags ?? [];
@@ -50,8 +51,12 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
         {supplier.imageUrl ? (
           <img src={supplier.imageUrl} alt={name} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-300">
-            <Factory className="w-12 h-12" />
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-secondary-100 via-secondary-50 to-primary-50">
+            {initial ? (
+              <span className="text-3xl font-black text-secondary-400" aria-hidden="true">{initial}</span>
+            ) : (
+              <Factory className="w-12 h-12 text-secondary-300" aria-hidden="true" />
+            )}
           </div>
         )}
         {/* 会员标签（左上角） */}

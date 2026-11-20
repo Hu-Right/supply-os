@@ -121,5 +121,7 @@
   "inquiryLoginRequired": "يرجى تسجيل الدخول لإرسال استفسار.",
   "inquiryViewContact": "عرض بيانات الاتصال",
   "inquirySend": "إرسال استفسار",
-  "inquiryClose": "إغلاق"
+  "inquiryClose": "إغلاق",
+  "supplierEmptyTitle": "لا يوجد موردون مطابقون لعوامل التصفية",
+  "supplierEmptyDesc": "جرّب كلمة مفتاحية أو تصفية قطاع مختلفة، أو أعد التعيين لاستعراض جميع الموردين."
 }

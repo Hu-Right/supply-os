@@ -18,7 +18,7 @@ import type { Supplier } from "@/types";
 import { SupplierCard } from "../../components/SupplierCard";
 import { SupplierCardSkeleton } from "../../components/SupplierCardSkeleton";
 import { SupplierContactModal } from "@/shared/components/SupplierContactModal";
-import { LoadingOverlay } from "@/shared/ui";
+import { EmptyState, LoadingOverlay } from "@/shared/ui";
 import { Button } from "@/shared/ui";
 import { fetchSupplierContact, type SupplierContact, type SupplierContactStatus } from "@/shared/api/supplier";
 import { useSupplierSearch } from "../../hooks/useSupplierSearch";
@@ -114,6 +114,7 @@ export default function SupplierPage() {
           { value: animCommodity, label: t("supplierStatCommodity"), icon: Tags },
         ]}
         updatedText={statsUpdatedText}
+        loading={realStats.loading}
       />
 
       {/* 关键词框与行业级联都走「改了条件就回第 1 页」：词框在列表 effect 的依赖里（防抖 300ms
@@ -128,6 +129,7 @@ export default function SupplierPage() {
       <ResultHeader
         total={total} sortBy={sortBy} setSortBy={setSortBy}
         viewMode={viewMode} setViewMode={setViewMode} t={t}
+        loading={loading && suppliers.length === 0}
       />
 
       {/* ═══ 供应商展示区 ═══ */}
@@ -135,6 +137,16 @@ export default function SupplierPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }, (_, i) => <SupplierCardSkeleton key={i} />)}
         </div>
+      ) : suppliers.length === 0 ? (
+        <EmptyState
+          title={t("supplierEmptyTitle")}
+          description={t("supplierEmptyDesc")}
+          action={
+            <Button variant="outline" onClick={handleReset}>
+              {t("supplierResetBtn")}
+            </Button>
+          }
+        />
       ) : viewMode === "card" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {suppliers.map((sup) => (

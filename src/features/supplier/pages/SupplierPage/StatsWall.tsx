@@ -19,6 +19,7 @@
  */
 import { Fragment } from "react";
 import { ShieldCheck } from "lucide-react";
+import { Skeleton } from "@/shared/ui";
 import { formatPlainNumber } from "@/shared/utils/format";
 
 interface SubStat {
@@ -38,9 +39,33 @@ interface StatsWallProps {
   subs: SubStat[];
   /** 「更新于 14:32」整串文案；取数失败时为 null，此时整段不渲染 */
   updatedText: string | null;
+  /** 首次取数中：用骨架替代 0，避免“这库没人”的错觉 */
+  loading?: boolean;
 }
 
-export function StatsWall({ total, totalLabel, subs, updatedText }: StatsWallProps) {
+export function StatsWall({ total, totalLabel, subs, updatedText, loading = false }: StatsWallProps) {
+  if (loading) {
+    return (
+      <section
+        aria-busy="true"
+        className="flex flex-wrap items-center gap-x-6 gap-y-2.5 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-xs"
+      >
+        <div className="flex items-baseline gap-2">
+          <Skeleton width={96} height={30} />
+          <Skeleton width={84} height={12} />
+        </div>
+        {subs.map((s) => (
+          <div key={s.label} className="flex items-center gap-2">
+            <Skeleton variant="circular" width={14} height={14} />
+            <Skeleton width={44} height={20} />
+            <Skeleton width={72} height={12} />
+          </div>
+        ))}
+        <Skeleton className="ms-auto" width={96} height={10} />
+      </section>
+    );
+  }
+
   return (
     <section className="flex flex-wrap items-center gap-x-6 gap-y-2.5 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-xs">
       {/* 主指标：全条唯一的大字号焦点 */}

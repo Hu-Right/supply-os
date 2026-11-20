@@ -121,5 +121,7 @@
   "inquiryLoginRequired": "Inicie sessão para enviar uma consulta.",
   "inquiryViewContact": "Ver dados de contacto",
   "inquirySend": "Enviar consulta",
-  "inquiryClose": "Fechar"
+  "inquiryClose": "Fechar",
+  "supplierEmptyTitle": "Nenhum fornecedor corresponde aos seus filtros",
+  "supplierEmptyDesc": "Tente outra palavra-chave ou filtro de setor, ou redefina para ver todos os fornecedores."
 }

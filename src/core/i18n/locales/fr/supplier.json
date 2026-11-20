@@ -121,5 +121,7 @@
   "inquiryLoginRequired": "Connectez-vous pour envoyer une demande.",
   "inquiryViewContact": "Voir les coordonnées",
   "inquirySend": "Envoyer une demande",
-  "inquiryClose": "Fermer"
+  "inquiryClose": "Fermer",
+  "supplierEmptyTitle": "Aucun fournisseur ne correspond à vos filtres",
+  "supplierEmptyDesc": "Essayez un autre mot-clé ou filtre sectoriel, ou réinitialisez pour parcourir tous les fournisseurs."
 }

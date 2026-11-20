@@ -121,5 +121,7 @@
   "inquiryLoginRequired": "Войдите, чтобы отправить запрос.",
   "inquiryViewContact": "Показать контакты",
   "inquirySend": "Отправить запрос",
-  "inquiryClose": "Закрыть"
+  "inquiryClose": "Закрыть",
+  "supplierEmptyTitle": "Нет поставщиков, соответствующих фильтрам",
+  "supplierEmptyDesc": "Попробуйте другое ключевое слово или отраслевой фильтр либо сбросьте условия."
 }
