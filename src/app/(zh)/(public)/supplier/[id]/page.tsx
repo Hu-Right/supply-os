@@ -1,10 +1,12 @@
-// i18n-allow-file: 供应商企业主页 zh 路由；静态文案由 features/supplier-profile/copy.ts 提供，英文路由见 (en)/en/supplier/[id]
+// i18n-allow-file: 供应商企业主页 zh 路由；静态文案由 features/supplier-profile/copy.ts 提供，服务端按 x-locale 选择 zh/en 文案
 /**
- * /supplier/[id] — 供应商企业主页（SSR，zh）
+ * /supplier/[id] — 供应商企业主页（SSR，按请求语言出 zh/en 文案）
  *
  * @module app/(zh)/(public)/supplier/[id]
  * @description 服务端直出企业档案：真实工商信息、主营产品、行业定位、资质、成绩单与脱敏联系方式；
  *              空字段整段隐藏（不再渲染 "—" 或按完整度推导的合规结论）。
+ *              语言：读取 middleware 写入的 x-locale（Cookie），zh 出中文、其他语言回落英文文案，
+ *              语言切换时 URL 不变、内容原地切换。
  *              SEO：真实公司名/行业/地区 title + description + Organization/BreadcrumbList JSON-LD。
  *              交互边界只有「发询盘 / 认领」两个客户端动作。
  */
@@ -23,10 +25,13 @@ import { SupplierProfileBody } from "@/features/supplier-profile/components/Supp
 import { SupplierSimilarSection } from "@/features/supplier-profile/components/SupplierSimilarSection";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { jsonLdScript } from "@/lib/services/seo/json-ld";
+import { getServerLocale } from "@/lib/i18n/server";
 import { parseSupplierId } from "@/lib/utils/supplier-id";
 
 export const revalidate = 3600;
-const COPY = SUPPLIER_PROFILE_COPY.zh;
+
+/** 供应商画像只维护 zh/en 两套文案；其他语言回落英文（不回落中文，避免国际用户看到中文正文） */
+const copyLocaleOf = (locale: string): "zh" | "en" => (locale === "zh" ? "zh" : "en");
 
 export async function generateMetadata({
   params,
@@ -35,23 +40,30 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const dbId = parseSupplierId(id);
-  if (!dbId) return { title: "供应商企业主页", robots: { index: false } };
+  const locale = await getServerLocale();
+  const isZh = copyLocaleOf(locale) === "zh";
+  if (!dbId) return { title: isZh ? "供应商企业主页" : "Supplier Profile", robots: { index: false } };
   const data = await loadSupplierProfile(dbId);
-  if (!data) return { title: "供应商企业主页", robots: { index: false } };
+  if (!data) return { title: isZh ? "供应商企业主页" : "Supplier Profile", robots: { index: false } };
 
   const { profile } = data;
-  const industry = profile.industry.primary?.nameZh ?? profile.products[0] ?? "供应商";
-  const location = [profile.country, profile.province, profile.city].filter(Boolean).join(" · ");
+  const industry = (isZh ? profile.industry.primary?.nameZh : profile.industry.primary?.nameEn) ?? (isZh ? "供应商" : "supplier");
+  const location = [isZh ? profile.country : profile.supplier.countryEn, profile.province, profile.city]
+    .filter(Boolean)
+    .join(" · ");
   const productsSummary = profile.productsText.replace(/\s+/g, " ").trim().slice(0, 80);
   const title = `${profile.company} — ${industry}`;
   const description = [
     location && `${location}${industry ? ` · ${industry}` : ""}`,
-    productsSummary && `主营：${productsSummary}`,
-    profile.certifications.length > 0 && `认证：${profile.certifications.join("、")}`,
-    "供应商企业档案：工商信息、主营产品、资质认证与联系方式。",
+    productsSummary && (isZh ? `主营：${productsSummary}` : `Main products: ${productsSummary}`),
+    profile.certifications.length > 0 &&
+      (isZh ? `认证：${profile.certifications.join("、")}` : `Certifications: ${profile.certifications.join(", ")}`),
+    isZh
+      ? "供应商企业档案：工商信息、主营产品、资质认证与联系方式。"
+      : "Supplier profile with company facts, products, certifications and contact options.",
   ]
     .filter(Boolean)
-    .join("；");
+    .join(isZh ? "；" : "; ");
 
   return {
     title,
@@ -65,7 +77,7 @@ export async function generateMetadata({
       },
     },
     openGraph: {
-      title: `${profile.company} | 供应商企业主页`,
+      title: `${profile.company} | ${isZh ? "供应商企业主页" : "Supplier Profile"}`,
       description,
       url: absoluteUrl(`/supplier/${dbId}`),
       type: "website",
@@ -89,6 +101,10 @@ export default async function SupplierProfilePage({
   const dbId = parseSupplierId(id);
   if (!dbId) notFound();
 
+  const locale = await getServerLocale();
+  const copyLocale = copyLocaleOf(locale);
+  const COPY = SUPPLIER_PROFILE_COPY[copyLocale];
+
   // 成绩单只依赖 dbId，与档案取数并行；相似供应商依赖 profile，必须等档案就绪
   const [data, scorecard] = await Promise.all([
     loadSupplierProfile(dbId),
@@ -104,7 +120,9 @@ export default async function SupplierProfilePage({
     "@type": "Organization",
     name: profile.company,
     url: absoluteUrl(`/supplier/${dbId}`),
-    description: productsSummary ? `主营：${productsSummary}` : undefined,
+    description: productsSummary
+      ? `${copyLocale === "zh" ? "主营：" : "Main products: "}${productsSummary}`
+      : undefined,
     address:
       profile.country || profile.province || profile.city
         ? {
@@ -133,7 +151,7 @@ export default async function SupplierProfilePage({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(organizationJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }} />
 
-      <nav aria-label="面包屑" className="mb-4 flex flex-wrap items-center gap-1 text-xs text-slate-500">
+      <nav aria-label={copyLocale === "zh" ? "面包屑" : "Breadcrumb"} className="mb-4 flex flex-wrap items-center gap-1 text-xs text-slate-500">
         <Link href="/" className="hover:text-teal-700">{COPY.breadcrumbHome}</Link>
         <ChevronRight className="h-3 w-3 text-slate-300" />
         <Link href="/supplier" className="hover:text-teal-700">{COPY.breadcrumbDirectory}</Link>
@@ -142,14 +160,14 @@ export default async function SupplierProfilePage({
       </nav>
 
       <div className="space-y-5">
-        <SupplierProfileHeader profile={profile} claimed={claimed} copy={COPY} locale="zh" />
+        <SupplierProfileHeader profile={profile} claimed={claimed} copy={COPY} locale={copyLocale} />
         <SupplierProfileBody
           profile={profile}
           scorecard={scorecard}
           copy={COPY}
-          locale="zh"
+          locale={copyLocale}
         />
-        <SupplierSimilarSection items={similar} copy={COPY} locale="zh" />
+        <SupplierSimilarSection items={similar} copy={COPY} locale={copyLocale} />
       </div>
     </div>
   );

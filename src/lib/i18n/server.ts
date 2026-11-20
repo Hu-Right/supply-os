@@ -12,7 +12,7 @@
  *                 不要在 root layout 中调用此函数（会拖垮整站 ISR/SSG）。
  *                 仅在需要服务端翻译的独立页面/组件中按需调用。
  */
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { SERVER_BUNDLES, SUPPORTED_LOCALE_CODES, type Locale } from "@/core/i18n/bundles";
 import * as i18nextModule from "i18next";
 
@@ -24,20 +24,30 @@ type I18nInstance = {
 export type { Locale };
 
 /**
- * 从当前请求获取服务端翻译函数和语言信息。
- * 需在 Server Component 中调用（需 await）。
+ * 从当前请求解析语言（不创建 i18next 实例）。
  *
- * ⚠️ 此函数调用 headers()，会使所在组件变为动态渲染。
- *    不要在 root layout 中调用。
+ * ⚠️ 调用 headers() 会使所在 Server Component 变为动态渲染。
+ *    需要服务端文案/本地化内容时使用；不要在 root layout 中调用。
  */
-export async function getServerI18n(): Promise<{ t: I18nInstance["t"]; locale: Locale }> {
-  const headersList = await headers();
+export async function getServerLocale(): Promise<Locale> {
+  // 语言偏好的权威来源是 Cookie（与客户端 LocaleProvider 同源）；
+  // 直接读 Cookie 而不只依赖 x-locale，避免 middleware/proxy 文件约定差异导致服务端拿不到偏好。
+  const cookieStore = await cookies();
+  const cookieLocale = cookieStore.get("supply_os_locale")?.value;
+  let locale: Locale | undefined =
+    cookieLocale && SUPPORTED_LOCALE_CODES.includes(cookieLocale as Locale)
+      ? (cookieLocale as Locale)
+      : undefined;
 
-  // ★ 优先读 x-locale 请求头（proxy.ts 中间件基于 Cookie 设置）★
-  let locale = headersList.get("x-locale") as Locale | undefined;
+  const headersList = await headers();
+  if (!locale) {
+    // 次选：中间件写入的 x-locale（Cookie 缺失时）
+    const headerLocale = headersList.get("x-locale") as Locale | undefined;
+    if (headerLocale && SUPPORTED_LOCALE_CODES.includes(headerLocale)) locale = headerLocale;
+  }
 
   // fallback: Accept-Language
-  if (!locale || !SUPPORTED_LOCALE_CODES.includes(locale)) {
+  if (!locale) {
     const acceptLang = headersList.get("accept-language");
     if (acceptLang) {
       const primary = acceptLang.split(",")[0]?.trim().split("-")[0]?.toLowerCase();
@@ -51,6 +61,19 @@ export async function getServerI18n(): Promise<{ t: I18nInstance["t"]; locale: L
   if (!locale || !SUPPORTED_LOCALE_CODES.includes(locale)) {
     locale = "zh";
   }
+
+  return locale;
+}
+
+/**
+ * 从当前请求获取服务端翻译函数和语言信息。
+ * 需在 Server Component 中调用（需 await）。
+ *
+ * ⚠️ 此函数调用 headers()，会使所在组件变为动态渲染。
+ *    不要在 root layout 中调用。
+ */
+export async function getServerI18n(): Promise<{ t: I18nInstance["t"]; locale: Locale }> {
+  const locale = await getServerLocale();
 
   const i18next = i18nextModule as unknown as { createInstance: () => I18nInstance };
   const instance = i18next.createInstance();
