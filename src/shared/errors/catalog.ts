@@ -45,6 +45,8 @@ import {
   EC_AI_NOT_CONFIGURED, EC_AI_BAD_FORMAT, EC_AI_CALL_FAILED, EC_SUPPLIER_PROFILE_REQUIRED,
   EC_RFQ_NOT_FOUND, EC_RFQ_STATE_INVALID, EC_RFQ_VERSION_CONFLICT, EC_RFQ_REASON_REQUIRED,
   EC_RFQ_AUTHORIZATION_REQUIRED, EC_RFQ_PUBLISH_BLOCKED,
+  EC_RFQ_RESPONSE_NOT_FOUND, EC_RFQ_RESPONSE_CLOSED, EC_RFQ_SEALED,
+  EC_RFQ_NOT_OPENED, EC_RFQ_AWARD_EXISTS,
 } from "../constants/api";
 
 /** 错误语义分类（11 枚举；unknown 仅供前端兜底，catalog 不使用） */
@@ -204,6 +206,11 @@ export const ERROR_CATALOG: Readonly<Record<number, ErrorDef>> = {
   [EC_RFQ_REASON_REQUIRED]: { code: EC_RFQ_REASON_REQUIRED, type: "rfq_reason_required", status: 400, kind: "business", i18nKey: "errRfqReasonRequired" },
   [EC_RFQ_AUTHORIZATION_REQUIRED]: { code: EC_RFQ_AUTHORIZATION_REQUIRED, type: "rfq_authorization_required", status: 403, kind: "business", i18nKey: "errRfqAuthorizationRequired" },
   [EC_RFQ_PUBLISH_BLOCKED]: { code: EC_RFQ_PUBLISH_BLOCKED, type: "rfq_publish_blocked", status: 409, kind: "business", i18nKey: "errRfqPublishBlocked" },
+  [EC_RFQ_RESPONSE_NOT_FOUND]: { code: EC_RFQ_RESPONSE_NOT_FOUND, type: "rfq_response_not_found", status: 404, kind: "business", i18nKey: "errRfqResponseNotFound" },
+  [EC_RFQ_RESPONSE_CLOSED]: { code: EC_RFQ_RESPONSE_CLOSED, type: "rfq_response_closed", status: 409, kind: "business", i18nKey: "errRfqResponseClosed" },
+  [EC_RFQ_SEALED]: { code: EC_RFQ_SEALED, type: "rfq_sealed", status: 403, kind: "business", i18nKey: "errRfqSealed" },
+  [EC_RFQ_NOT_OPENED]: { code: EC_RFQ_NOT_OPENED, type: "rfq_not_opened", status: 409, kind: "business", i18nKey: "errRfqNotOpened" },
+  [EC_RFQ_AWARD_EXISTS]: { code: EC_RFQ_AWARD_EXISTS, type: "rfq_award_exists", status: 409, kind: "business", i18nKey: "errRfqAwardExists" },
 };
 
 /** 生效错误定义（排除 deprecated 同义码） */
