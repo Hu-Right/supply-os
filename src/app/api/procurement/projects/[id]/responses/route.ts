@@ -49,8 +49,8 @@ function responseView(d: ResponseDetail) {
       receiptNo: d.response.receipt_no,
       receiptHash: d.response.receipt_hash,
       sealedUntil: Number(d.response.sealed_until),
-      submittedAt: d.response.submitted_at,
-      withdrawnAt: d.response.withdrawn_at,
+      submittedAt: d.response.submitted_ts,
+      withdrawnAt: d.response.withdrawn_ts,
     },
     items: d.items.map((it) => ({
       id: Number(it.id),

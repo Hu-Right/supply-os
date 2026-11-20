@@ -82,7 +82,7 @@ export async function openDueTenders(db: Pool, at = Math.floor(Date.now() / 1000
   let opened = 0;
   for (const row of rows as DueTenderRow[]) {
     const [upd] = await db.query(
-      "UPDATE procurement_tenders SET status = ?, opened_at = ? WHERE id = ? AND status = ?",
+      "UPDATE procurement_tenders SET status = ?, opened_ts = ? WHERE id = ? AND status = ?",
       [TENDER_STATUS.CLOSED, at, row.tender_id, TENDER_STATUS.PUBLISHED],
     );
     if (Number((upd as { affectedRows?: number }).affectedRows ?? 0) === 0) continue;
@@ -101,7 +101,7 @@ export async function openDueTenders(db: Pool, at = Math.floor(Date.now() / 1000
 
     await db.query(
       `INSERT INTO procurement_events
-         (project_id, version_no, tender_id, actor_type, kind, payload, created_at)
+         (project_id, version_no, tender_id, actor_type, kind, payload, created_ts)
        VALUES (?, ?, ?, 'system', 'opened', ?, ?)`,
       [row.project_id, row.version_no, row.tender_id, JSON.stringify({ responseCount }), at],
     );
@@ -127,19 +127,19 @@ export async function expireUnawardedTenders(
 ): Promise<number> {
   const cutoff = at - Math.max(1, graceDays) * 86_400;
   const [rows] = await db.query(
-    `SELECT p.id AS project_id, p.notice_pk, t.id AS tender_id, t.version_no, t.opened_at
+    `SELECT p.id AS project_id, p.notice_pk, t.id AS tender_id, t.version_no, t.opened_ts
        FROM procurement_projects p
        JOIN procurement_tenders t ON t.id = (
          SELECT MAX(t2.id) FROM procurement_tenders t2 WHERE t2.project_id = p.id
        )
       WHERE p.status = 'published'
         AND t.status = ?
-        AND t.opened_at IS NOT NULL
-        AND t.opened_at <= ?
+        AND t.opened_ts IS NOT NULL
+        AND t.opened_ts <= ?
         AND NOT EXISTS (
           SELECT 1 FROM procurement_awards a WHERE a.project_id = p.id AND a.kind = 'award'
         )
-      ORDER BY t.opened_at
+      ORDER BY t.opened_ts
       LIMIT 200`,
     [TENDER_STATUS.CLOSED, cutoff],
   );
@@ -166,7 +166,7 @@ export async function expireUnawardedTenders(
     await db.query("UPDATE procurement_tenders SET status = ? WHERE id = ?", [TENDER_STATUS.CANCELLED, row.tender_id]);
     await db.query(
       `INSERT INTO procurement_events
-         (project_id, version_no, tender_id, actor_type, kind, payload, created_at)
+         (project_id, version_no, tender_id, actor_type, kind, payload, created_ts)
        VALUES (?, ?, ?, 'system', 'closed', ?, ?)`,
       [row.project_id, row.version_no, row.tender_id, JSON.stringify({ reason: PROJECT_CLOSE_REASON.EXPIRED, graceDays }), at],
     );

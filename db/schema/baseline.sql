@@ -1681,11 +1681,11 @@ CREATE TABLE `procurement_awards` (
   `reason` varchar(500) NOT NULL COMMENT '定标理由（对外摘要）',
   `decided_by` bigint unsigned NOT NULL COMMENT '采购方账号 users.id',
   `approved_by` varchar(64) DEFAULT NULL COMMENT 'P1 审批人留痕',
-  `approved_at` int unsigned DEFAULT NULL COMMENT 'P1 审批时间',
-  `created_at` int unsigned NOT NULL COMMENT '定标时间（秒）',
+  `approved_ts` int unsigned DEFAULT NULL COMMENT 'P1 审批时间',
+  `created_ts` int unsigned NOT NULL COMMENT '定标时间（秒）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_award_project_version_kind_supplier` (`project_id`,`version_no`,`kind`,`supplier_id`),
-  KEY `idx_award_supplier` (`supplier_id`,`created_at`)
+  KEY `idx_award_supplier` (`supplier_id`,`created_ts`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定标结果（P0 单家中标，服务层保证 award 唯一）';
 -- ── procurement_buyer_verifications ──
 CREATE TABLE `procurement_buyer_verifications` (
@@ -1751,10 +1751,10 @@ CREATE TABLE `procurement_events` (
   `actor_id` bigint unsigned DEFAULT NULL COMMENT '操作者账号 id',
   `kind` varchar(32) NOT NULL COMMENT 'published/opened/response_submitted/response_withdrawn/awarded/closed',
   `payload` json DEFAULT NULL COMMENT '事件快照',
-  `created_at` int unsigned NOT NULL COMMENT '发生时间（秒）',
+  `created_ts` int unsigned NOT NULL COMMENT '发生时间（秒）',
   PRIMARY KEY (`id`),
-  KEY `idx_event_project` (`project_id`,`created_at`),
-  KEY `idx_event_kind` (`kind`,`created_at`)
+  KEY `idx_event_project` (`project_id`,`created_ts`),
+  KEY `idx_event_kind` (`kind`,`created_ts`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购域审计事件（补 audit_logs 缺口）';
 -- ── procurement_items ──
 CREATE TABLE `procurement_items` (
@@ -1858,7 +1858,7 @@ CREATE TABLE `procurement_response_files` (
   `file_name` varchar(255) NOT NULL COMMENT '原始文件名',
   `file_hash` char(64) NOT NULL COMMENT 'sha256',
   `file_size` int unsigned NOT NULL DEFAULT '0' COMMENT '字节数',
-  `created_at` int unsigned NOT NULL COMMENT '上传时间（秒）',
+  `created_ts` int unsigned NOT NULL COMMENT '上传时间（秒）',
   PRIMARY KEY (`id`),
   KEY `idx_respfile_response` (`response_id`,`envelope`),
   KEY `idx_respfile_key` (`file_key`)
@@ -1878,8 +1878,8 @@ CREATE TABLE `procurement_response_items` (
   `brand_model` varchar(200) DEFAULT NULL COMMENT '品牌/型号',
   `compliance` json DEFAULT NULL COMMENT '强制标准符合性与偏差说明',
   `remark` varchar(500) DEFAULT NULL COMMENT '行备注',
-  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
-  `updated_at` int unsigned NOT NULL COMMENT '更新时间（秒）',
+  `created_ts` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  `updated_ts` int unsigned NOT NULL COMMENT '更新时间（秒）',
   PRIMARY KEY (`id`),
   KEY `idx_respitem_response` (`response_id`,`seq`),
   KEY `idx_respitem_item` (`item_id`)
@@ -1904,17 +1904,17 @@ CREATE TABLE `procurement_responses` (
   `receipt_no` varchar(32) DEFAULT NULL COMMENT '回执编号 OSRP-{年}-{6位id}',
   `receipt_hash` char(64) DEFAULT NULL COMMENT '回执哈希 sha256',
   `sealed_until` int unsigned NOT NULL COMMENT '密封截止=标讯 deadline_at',
-  `submitted_at` int unsigned DEFAULT NULL COMMENT '提交时间（秒）',
-  `withdrawn_at` int unsigned DEFAULT NULL COMMENT '撤回时间（秒）',
+  `submitted_ts` int unsigned DEFAULT NULL COMMENT '提交时间（秒）',
+  `withdrawn_ts` int unsigned DEFAULT NULL COMMENT '撤回时间（秒）',
   `client_ip` varchar(64) DEFAULT NULL COMMENT '提交 IP',
   `user_agent` varchar(500) DEFAULT NULL COMMENT 'User-Agent',
-  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
-  `updated_at` int unsigned NOT NULL COMMENT '更新时间（秒）',
+  `created_ts` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  `updated_ts` int unsigned NOT NULL COMMENT '更新时间（秒）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_resp_project_supplier_ver` (`project_id`,`version_no`,`supplier_id`),
   UNIQUE KEY `uq_resp_receipt_no` (`receipt_no`),
   KEY `idx_resp_project` (`project_id`,`version_no`,`status`),
-  KEY `idx_resp_supplier` (`supplier_id`,`created_at`)
+  KEY `idx_resp_supplier` (`supplier_id`,`created_ts`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='RFQ 响应（一家一版一条；撤回后可重新提交同一行）';
 -- ── procurement_reviews ──
 CREATE TABLE `procurement_reviews` (
@@ -1959,7 +1959,7 @@ CREATE TABLE `procurement_tenders` (
   `published_at` int unsigned NOT NULL COMMENT '发布时间（秒）',
   `deadline_at` int unsigned DEFAULT NULL COMMENT '截标时间（秒）',
   `deadline_tz` varchar(40) NOT NULL DEFAULT 'Asia/Shanghai' COMMENT '截标时区',
-  `opened_at` int unsigned DEFAULT NULL COMMENT '开标时间（秒）；到期由定时器写入',
+  `opened_ts` int unsigned DEFAULT NULL COMMENT '开标时间（秒）；到期由定时器写入',
   `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_tender_no` (`tender_no`),

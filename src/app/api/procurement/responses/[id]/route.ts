@@ -76,7 +76,7 @@ export const GET = withRoute<Ctx>(async (req: NextRequest, { params }) => {
       receiptNo: result.response.receipt_no,
       receiptHash: result.response.receipt_hash,
       sealedUntil: Number(result.response.sealed_until),
-      submittedAt: result.response.submitted_at,
+      submittedAt: result.response.submitted_ts,
     },
     items: result.items,
     files: result.files.map((f) => ({

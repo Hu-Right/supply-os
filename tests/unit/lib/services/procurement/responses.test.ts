@@ -54,10 +54,10 @@ const RESPONSE = {
   receipt_no: null,
   receipt_hash: null,
   sealed_until: NOW + 3600,
-  submitted_at: null,
-  withdrawn_at: null,
-  created_at: NOW - 60,
-  updated_at: NOW - 60,
+  submitted_ts: null,
+  withdrawn_ts: null,
+  created_ts: NOW - 60,
+  updated_ts: NOW - 60,
 };
 
 const TENDER = {
@@ -71,7 +71,7 @@ const TENDER = {
   status: "published",
   published_at: NOW - 600,
   deadline_at: NOW + 3600,
-  opened_at: null,
+  opened_ts: null,
 };
 
 describe("回执哈希与编号", () => {
@@ -157,10 +157,10 @@ describe("采购方视角的密封", () => {
   it("开标后回明细摘要", async () => {
     const { pool } = fakeDb({
       "FROM procurement_projects p": ownership,
-      "FROM procurement_tenders": () => [[{ ...TENDER, status: "closed", opened_at: NOW }]],
+      "FROM procurement_tenders": () => [[{ ...TENDER, status: "closed", opened_ts: NOW }]],
       "JOIN supplier s ON s.id = r.supplier_id": () => [
         [
-          { id: 11, supplier_id: 9, status: "submitted", currency: "CNY", submitted_at: NOW - 30, company: "示例供应商", total: 125 },
+          { id: 11, supplier_id: 9, status: "submitted", currency: "CNY", submitted_ts: NOW - 30, company: "示例供应商", total: 125 },
         ],
       ],
     });

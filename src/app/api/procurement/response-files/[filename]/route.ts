@@ -28,7 +28,7 @@ export const GET = withRoute<Ctx>(async (req: NextRequest, { params }) => {
   const pool = getPool();
   const [rows] = await pool.query(
     `SELECT f.id, r.user_id AS response_user_id, r.supplier_id, r.project_id,
-            t.status AS tender_status, t.opened_at
+            t.status AS tender_status, t.opened_ts
        FROM procurement_response_files f
        JOIN procurement_responses r ON r.id = f.response_id
        JOIN procurement_tenders t ON t.id = r.tender_id
@@ -42,7 +42,7 @@ export const GET = withRoute<Ctx>(async (req: NextRequest, { params }) => {
         supplier_id: number;
         project_id: number;
         tender_status: string;
-        opened_at: number | null;
+        opened_ts: number | null;
       }
     | undefined;
   if (!row) routeError(404, EC_NOT_FOUND, "文件不存在");
@@ -60,7 +60,7 @@ export const GET = withRoute<Ctx>(async (req: NextRequest, { params }) => {
       [row.project_id, auth.userId],
     );
     const isBuyer = (buyerRows as RowDataPacket[]).length > 0;
-    const opened = String(row.tender_status) !== "published" || row.opened_at != null;
+    const opened = String(row.tender_status) !== "published" || row.opened_ts != null;
     allowed = isBuyer && opened;
   }
   if (!allowed) routeError(404, EC_NOT_FOUND, "文件不存在");

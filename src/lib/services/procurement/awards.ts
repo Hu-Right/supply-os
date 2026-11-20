@@ -33,7 +33,7 @@ export interface AwardRow extends RowDataPacket {
   currency: string | null;
   reason: string;
   decided_by: number;
-  created_at: number;
+  created_ts: number;
 }
 
 export type AwardResult =
@@ -152,7 +152,7 @@ export async function awardResponse(
     const [ins] = await conn.query<ResultSetHeader>(
       `INSERT INTO procurement_awards
          (project_id, version_no, tender_id, kind, response_id, supplier_id,
-          amount, currency, reason, decided_by, created_at)
+          amount, currency, reason, decided_by, created_ts)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         input.projectId,
@@ -170,7 +170,7 @@ export async function awardResponse(
     );
     const awardId = Number(ins.insertId);
 
-    await conn.query("UPDATE procurement_responses SET status = 'evaluated', updated_at = ? WHERE id = ?", [
+    await conn.query("UPDATE procurement_responses SET status = 'evaluated', updated_ts = ? WHERE id = ?", [
       at,
       input.responseId,
     ]);
@@ -201,7 +201,7 @@ export async function awardResponse(
 
     await conn.query(
       `INSERT INTO procurement_events
-         (project_id, version_no, tender_id, response_id, actor_type, actor_id, kind, payload, created_at)
+         (project_id, version_no, tender_id, response_id, actor_type, actor_id, kind, payload, created_ts)
        VALUES (?, ?, ?, ?, 'buyer', ?, 'awarded', ?, ?)`,
       [
         input.projectId,
@@ -266,7 +266,7 @@ export interface AwardView {
 /** 定标结果（采购方/参与供应商可见） */
 export async function getAward(db: Pool, projectId: number): Promise<AwardView | null> {
   const [rows] = await db.query(
-    `SELECT a.project_id, a.supplier_id, a.amount, a.currency, a.reason, a.created_at,
+    `SELECT a.project_id, a.supplier_id, a.amount, a.currency, a.reason, a.created_ts,
             s.company, p.reference
        FROM procurement_awards a
        JOIN supplier s ON s.id = a.supplier_id
@@ -284,7 +284,7 @@ export async function getAward(db: Pool, projectId: number): Promise<AwardView |
     amount: row.amount == null ? null : String(row.amount),
     currency: row.currency == null ? null : String(row.currency),
     reason: String(row.reason ?? ""),
-    decidedAt: Number(row.created_at),
+    decidedAt: Number(row.created_ts),
     reference: String(row.reference ?? ""),
   };
 }

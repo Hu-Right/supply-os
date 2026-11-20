@@ -31,7 +31,7 @@ export interface SupplierTenderRow extends RowDataPacket {
   status: string;
   published_at: number;
   deadline_at: number | null;
-  opened_at: number | null;
+  opened_ts: number | null;
 }
 
 export interface ResponseRow extends RowDataPacket {
@@ -53,10 +53,10 @@ export interface ResponseRow extends RowDataPacket {
   receipt_no: string | null;
   receipt_hash: string | null;
   sealed_until: number;
-  submitted_at: number | null;
-  withdrawn_at: number | null;
-  created_at: number;
-  updated_at: number;
+  submitted_ts: number | null;
+  withdrawn_ts: number | null;
+  created_ts: number;
+  updated_ts: number;
 }
 
 export interface ResponseItemRow extends RowDataPacket {
@@ -84,7 +84,7 @@ export interface ResponseFileRow extends RowDataPacket {
   file_name: string;
   file_hash: string;
   file_size: number;
-  created_at: number;
+  created_ts: number;
 }
 
 export interface ResponseItemInput {
@@ -129,7 +129,7 @@ export async function resolveSupplierIdForUser(db: Pool, userId: number): Promis
 export async function loadLatestTender(db: Pool, projectId: number): Promise<SupplierTenderRow | null> {
   const [rows] = await db.query(
     `SELECT id, project_id, version_no, tender_no, publish_mode, sealed, award_method,
-            status, published_at, deadline_at, opened_at
+            status, published_at, deadline_at, opened_ts
        FROM procurement_tenders
       WHERE project_id = ?
       ORDER BY id DESC
@@ -203,7 +203,7 @@ async function loadItems(db: Pool, responseId: number): Promise<ResponseItemRow[
 
 async function loadFiles(db: Pool, responseId: number): Promise<ResponseFileRow[]> {
   const [rows] = await db.query(
-    `SELECT id, response_id, envelope, doc_kind, file_key, file_name, file_hash, file_size, created_at
+    `SELECT id, response_id, envelope, doc_kind, file_key, file_name, file_hash, file_size, created_ts
        FROM procurement_response_files
       WHERE response_id = ?
       ORDER BY id`,
@@ -274,7 +274,7 @@ export async function createOrGetDraft(
     const [ins] = await db.query<ResultSetHeader>(
       `INSERT INTO procurement_responses
          (project_id, version_no, tender_id, supplier_id, user_id, method, status,
-          currency, sealed_until, created_at, updated_at)
+          currency, sealed_until, created_ts, updated_ts)
        VALUES (?, ?, ?, ?, ?, ?, 'draft', 'CNY', ?, ?, ?)`,
       [input.projectId, project.version_no, tender.id, supplierId, input.userId, PROCUREMENT_METHOD.RFQ, tender.deadline_at ?? 0, at, at],
     );
@@ -352,7 +352,7 @@ export async function updateDraft(
               lead_time_days = ?,
               tax_included = COALESCE(?, tax_included),
               remark = ?,
-              updated_at = ?
+              updated_ts = ?
         WHERE id = ?`,
       [
         p.currency ?? null,
@@ -375,7 +375,7 @@ export async function updateDraft(
         await conn.query(
           `INSERT INTO procurement_response_items
              (response_id, item_id, lot_id, seq, unit_price, quantity, uom, lead_time_days,
-              moq, brand_model, compliance, remark, created_at, updated_at)
+              moq, brand_model, compliance, remark, created_ts, updated_ts)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             row.id,
@@ -449,7 +449,7 @@ export async function submitResponse(
         status: row.status,
         receiptNo: row.receipt_no,
         receiptHash: row.receipt_hash,
-        submittedAt: Number(row.submitted_at ?? at),
+        submittedAt: Number(row.submitted_ts ?? at),
         duplicate: true,
       };
     }
@@ -483,14 +483,14 @@ export async function submitResponse(
     const receiptNo = row.receipt_no ?? formatReceiptNo(Number(row.id), at);
     await conn.query(
       `UPDATE procurement_responses
-          SET status = 'submitted', submitted_at = ?, receipt_no = ?, receipt_hash = ?,
-              sealed_until = COALESCE(?, sealed_until), client_ip = ?, user_agent = ?, updated_at = ?
+          SET status = 'submitted', submitted_ts = ?, receipt_no = ?, receipt_hash = ?,
+              sealed_until = COALESCE(?, sealed_until), client_ip = ?, user_agent = ?, updated_ts = ?
         WHERE id = ?`,
       [at, receiptNo, receiptHash, tender.deadline_at, input.clientIp ?? null, input.userAgent ?? null, at, row.id],
     );
     await conn.query(
       `INSERT INTO procurement_events
-         (project_id, version_no, tender_id, response_id, actor_type, actor_id, kind, payload, created_at)
+         (project_id, version_no, tender_id, response_id, actor_type, actor_id, kind, payload, created_ts)
        VALUES (?, ?, ?, ?, 'supplier', ?, 'response_submitted', ?, ?)`,
       [
         row.project_id,
@@ -575,12 +575,12 @@ export async function withdrawResponse(
       return { ok: false, reason: "closed" };
     }
     await conn.query(
-      "UPDATE procurement_responses SET status = 'withdrawn', withdrawn_at = ?, updated_at = ? WHERE id = ?",
+      "UPDATE procurement_responses SET status = 'withdrawn', withdrawn_ts = ?, updated_ts = ? WHERE id = ?",
       [at, at, row.id],
     );
     await conn.query(
       `INSERT INTO procurement_events
-         (project_id, version_no, tender_id, response_id, actor_type, actor_id, kind, payload, created_at)
+         (project_id, version_no, tender_id, response_id, actor_type, actor_id, kind, payload, created_ts)
        VALUES (?, ?, ?, ?, 'supplier', ?, 'response_withdrawn', ?, ?)`,
       [row.project_id, row.version_no, row.tender_id, row.id, input.userId, JSON.stringify({ reason: input.reason ?? null }), at],
     );
@@ -628,7 +628,7 @@ export async function listResponsesForBuyer(
   const tender = await loadLatestTender(db, input.projectId);
   if (!tender) return { ok: false, reason: "not_found" };
 
-  const opened = tender.status !== TENDER_STATUS.PUBLISHED || tender.opened_at != null;
+  const opened = tender.status !== TENDER_STATUS.PUBLISHED || tender.opened_ts != null;
   if (!opened) {
     const [cntRows] = await db.query(
       "SELECT COUNT(*) AS c FROM procurement_responses WHERE project_id = ? AND version_no = ? AND status = 'submitted'",
@@ -638,13 +638,13 @@ export async function listResponsesForBuyer(
   }
 
   const [rows] = await db.query(
-    `SELECT r.id, r.supplier_id, r.status, r.currency, r.submitted_at, s.company,
+    `SELECT r.id, r.supplier_id, r.status, r.currency, r.submitted_ts, s.company,
             (SELECT COALESCE(SUM(ri.unit_price * ri.quantity), 0)
                FROM procurement_response_items ri WHERE ri.response_id = r.id) AS total
        FROM procurement_responses r
        JOIN supplier s ON s.id = r.supplier_id
       WHERE r.project_id = ? AND r.version_no = ? AND r.status IN ('submitted','evaluated','disqualified')
-      ORDER BY r.submitted_at, r.id`,
+      ORDER BY r.submitted_ts, r.id`,
     [input.projectId, project.version_no],
   );
   return {
@@ -658,7 +658,7 @@ export async function listResponsesForBuyer(
       status: String(r.status),
       total: r.total == null ? null : Number(r.total).toFixed(2),
       currency: r.currency == null ? null : String(r.currency),
-      submittedAt: r.submitted_at == null ? null : Number(r.submitted_at),
+      submittedAt: r.submitted_ts == null ? null : Number(r.submitted_ts),
     })),
   };
 }
@@ -747,7 +747,7 @@ export async function compareResponses(
     tender: {
       id: Number(tender.id),
       deadlineAt: tender.deadline_at == null ? null : Number(tender.deadline_at),
-      openedAt: tender.opened_at == null ? null : Number(tender.opened_at),
+      openedAt: tender.opened_ts == null ? null : Number(tender.opened_ts),
       awardMethod: String(tender.award_method),
       sealed: Number(tender.sealed) === 1,
     },
@@ -805,7 +805,7 @@ export async function addResponseFile(
   const hash = createHash("sha256").update(input.buffer).digest("hex");
   const [ins] = await db.query<ResultSetHeader>(
     `INSERT INTO procurement_response_files
-       (response_id, envelope, doc_kind, file_key, file_name, file_hash, file_size, created_at)
+       (response_id, envelope, doc_kind, file_key, file_name, file_hash, file_size, created_ts)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
@@ -819,7 +819,7 @@ export async function addResponseFile(
     ],
   );
   const [rows] = await db.query(
-    `SELECT id, response_id, envelope, doc_kind, file_key, file_name, file_hash, file_size, created_at
+    `SELECT id, response_id, envelope, doc_kind, file_key, file_name, file_hash, file_size, created_ts
        FROM procurement_response_files WHERE id = ? LIMIT 1`,
     [Number(ins.insertId)],
   );
@@ -859,7 +859,7 @@ const EXT_BY_CONTENT_TYPE: Record<string, string> = {
 /** 项目对某个登录用户是否已开标（前端决定是否展示比价入口） */
 export async function isTenderOpened(db: Pool, projectId: number): Promise<boolean> {
   const tender = await loadLatestTender(db, projectId);
-  return !!tender && (tender.status !== TENDER_STATUS.PUBLISHED || tender.opened_at != null);
+  return !!tender && (tender.status !== TENDER_STATUS.PUBLISHED || tender.opened_ts != null);
 }
 
 /** 供定标/到期任务复用：项目行（含 method） */
