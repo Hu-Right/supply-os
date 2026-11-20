@@ -396,8 +396,13 @@ export class SupplierDirectoryRepo {
     return { items: rows as SupplierDirectoryRow[], total };
   }
 
-  /** 按 ID 查询单条供应商（仅审批通过或历史无审核状态的数据） */
-  async findById(id: number): Promise<SupplierDirectoryRow | null> {
+  /**
+   * 按 ID 查询单条供应商（仅审批通过或历史无审核状态的数据）。
+   *
+   * `withCertification=false` 时不在这里装配证书文本，由调用方并发拉取
+   * （详情页把它和其他独立查询并行，省掉一次串行往返）。
+   */
+  async findById(id: number, options?: { withCertification?: boolean }): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
               contact, position, phone, email, address, website, products,
@@ -410,7 +415,7 @@ export class SupplierDirectoryRepo {
       [id],
     );
     const row = (rows as SupplierDirectoryRow[])[0] ?? null;
-    if (row) await attachCertificationText(this.pool, [row]);
+    if (row && options?.withCertification !== false) await attachCertificationText(this.pool, [row]);
     return row;
   }
 
@@ -807,22 +812,23 @@ export class SupplierDirectoryRepo {
    * userId 传 0 表示不区分自己/他人（mine 恒为 0，任意绑定都计入 boundByOther）。
    */
   async getClaimOwnership(supplierId: number, userId: number): Promise<ClaimOwnership> {
-    const [boundRows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT SUM(id <> ?) AS others, SUM(id = ?) AS mine
-         FROM users WHERE supplier_id = ?`,
-      [userId, userId, supplierId],
-    );
+    const [[boundRows], [supRows]] = await Promise.all([
+      this.pool.query<RowDataPacket[]>(
+        `SELECT SUM(id <> ?) AS others, SUM(id = ?) AS mine
+           FROM users WHERE supplier_id = ?`,
+        [userId, userId, supplierId],
+      ),
+      // 认领处理中改为关系派生（claim_status 列已退役，ADR-0017）：
+      // 只要 supplier_claims 里存在该主体的 pending 申请，就算处于排他期。
+      this.pool.query<RowDataPacket[]>(
+        `SELECT EXISTS(
+           SELECT 1 FROM supplier_claims c
+            WHERE c.supplier_id = ? AND c.status = 'pending'
+         ) AS claim_pending`,
+        [supplierId],
+      ),
+    ]);
     const bound = boundRows[0] as { others: number | null; mine: number | null } | undefined;
-
-    // 认领处理中改为关系派生（claim_status 列已退役，ADR-0017）：
-    // 只要 supplier_claims 里存在该主体的 pending 申请，就算处于排他期。
-    const [supRows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT EXISTS(
-         SELECT 1 FROM supplier_claims c
-          WHERE c.supplier_id = ? AND c.status = 'pending'
-       ) AS claim_pending`,
-      [supplierId],
-    );
 
     return {
       selfBound: Number(bound?.mine ?? 0) > 0,
@@ -866,8 +872,11 @@ export class SupplierDirectoryRepo {
    * 按 ID 查询供应商，若记录关键字段为空则自动回退到同公司更完整记录
    * （应对外部同步产生空字段重复记录）
    */
-  async findByIdWithFallback(supplierId: number): Promise<SupplierDirectoryRow | null> {
-    let row = await this.findById(supplierId);
+  async findByIdWithFallback(
+    supplierId: number,
+    options?: { withCertification?: boolean },
+  ): Promise<SupplierDirectoryRow | null> {
+    let row = await this.findById(supplierId, options);
     if (row) {
       const products = String(row.products ?? "").trim();
       const industryCode = String(row.industry_code ?? "").trim();
@@ -876,7 +885,7 @@ export class SupplierDirectoryRepo {
         if (companyName) {
           const betterRow = await this.findByCompanyBest(companyName);
           if (betterRow && betterRow.id !== row.id) {
-            row = await this.findById(Number(betterRow.id));
+            row = await this.findById(Number(betterRow.id), options);
           }
         }
       }

@@ -9,6 +9,7 @@ import { cache } from "react";
 import { getContext } from "@/lib/db/context";
 import { getPool } from "@/lib/db/pool";
 import { SupplierDiagnosisRepo } from "@/lib/repos/supplier-diagnosis.repo";
+import { attachCertificationText } from "@/lib/repos/certification-text";
 import { supplierScorecardViewOf } from "@/lib/services/supplier-diagnosis/scorecard-view";
 import { loadCountryAliasSnapshot } from "@/lib/services/country/alias-store";
 import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
@@ -26,45 +27,59 @@ import { splitListField } from "@/lib/utils/mask";
 export const loadSupplierProfile = cache(async (dbId: number) => {
   const ctx = getContext();
   // 公开面只认 info_review_status='reviewed'（与列表口径一致）；本人待审档案走 /api 路径
-  const row = await ctx.supplier.directoryRepo.findByIdWithFallback(dbId);
+  const row = await ctx.supplier.directoryRepo.findByIdWithFallback(dbId, { withCertification: false });
   if (!row) return null;
 
-  let industry = null;
-  try {
-    const info = await loadSupplierIndustryInfo(ctx.supplier.industryRepo, [row]);
-    industry = info.get(dbId) ?? null;
-  } catch (err) {
-    console.error("[supplier/[id]] 行业标签装配失败，本次退回产品首项:", err);
-  }
-  let snap;
-  try {
-    snap = await loadCountryAliasSnapshot(ctx.dbPool);
-  } catch (err) {
-    console.error("[supplier/[id]] 国家别名快照加载失败，本次退回原文:", err);
-  }
+  // 以下六段都只依赖 row/dbId，彼此无依赖：串行会把云库 RTT 叠加 6 次（实测单次约 30–60ms），
+  // 故并行发起；每段保留原有降级语义，单段失败不影响页面主内容。
+  // 证书文本原本在 findById 内部串行装配，这里改成并发拉取（withCertification:false）。
+  const certificationPromise = attachCertificationText(getPool(), [row]).catch((err) => {
+    console.error("[supplier/[id]] 证书文本装配失败，本次不显示认证标签:", err);
+    return [row];
+  });
+  const industryPromise = (async () => {
+    try {
+      const info = await loadSupplierIndustryInfo(ctx.supplier.industryRepo, [row]);
+      return info.get(dbId) ?? null;
+    } catch (err) {
+      console.error("[supplier/[id]] 行业标签装配失败，本次退回产品首项:", err);
+      return null;
+    }
+  })();
 
-  let claimed = false;
-  try {
-    claimed = await ctx.supplier.directoryRepo.isClaimed(dbId);
-  } catch {
-    // 认领状态查询失败不影响主内容
-  }
+  const countrySnapshotPromise = (async () => {
+    try {
+      return await loadCountryAliasSnapshot(ctx.dbPool);
+    } catch (err) {
+      console.error("[supplier/[id]] 国家别名快照加载失败，本次退回原文:", err);
+      return undefined;
+    }
+  })();
+
+  // 认领状态查询失败不影响主内容
+  const claimedPromise = ctx.supplier.directoryRepo.isClaimed(dbId).catch(() => false);
 
   // 平台归类（品目兴趣）：只作为辅助展示/匹配；失败不影响页面主内容
-  let interests: SupplierBackboneInterestRow[] = [];
-  try {
-    interests = await ctx.supplier.directoryRepo.findBackboneInterests(dbId);
-  } catch (err) {
+  const interestsPromise = ctx.supplier.directoryRepo.findBackboneInterests(dbId).catch((err) => {
     console.error("[supplier/[id]] 品目兴趣装配失败，本次不渲染平台归类:", err);
-  }
+    return [] as SupplierBackboneInterestRow[];
+  });
 
   // 联系方式：绑定账号优先、供应商档案兜底；账户侧查询失败不影响页面
-  let accountContact = null;
-  try {
-    accountContact = await ctx.supplier.directoryRepo.findBoundAccountContact(dbId);
-  } catch (err) {
+  const accountContactPromise = ctx.supplier.directoryRepo.findBoundAccountContact(dbId).catch((err) => {
     console.error("[supplier/[id]] 绑定账号联系方式读取失败，回退档案联系方式:", err);
-  }
+    return null;
+  });
+
+  const [industry, snap, claimed, interests, accountContact] = await Promise.all([
+    industryPromise,
+    countrySnapshotPromise,
+    claimedPromise,
+    interestsPromise,
+    accountContactPromise,
+    // 证书文本写入 row.certification，结果本身不需要单独取值，放最后等它一起完成
+    certificationPromise,
+  ]);
 
   return { profile: supplierProfileViewOf(row, industry, snap, interests, accountContact), claimed };
 });
@@ -148,19 +163,17 @@ export async function loadSimilarSuppliers(
     if (candidates.size === 0) return [];
 
     const ids = [...candidates.keys()];
-    let codesBySupplier = new Map<number, Array<{ code: string; confidence: number | null }>>();
-    try {
-      const interestRows = await repo.findBackboneInterestsBySupplierIds(ids);
-      for (const row of interestRows) {
-        const sid = Number(row.supplier_id);
-        const list = codesBySupplier.get(sid) ?? [];
-        const conf = row.confidence == null ? null : Number(row.confidence);
-        list.push({ code: String(row.code ?? ""), confidence: Number.isFinite(conf) ? conf : null });
-        codesBySupplier.set(sid, list);
-      }
-    } catch (err) {
+    const codesBySupplier = new Map<number, Array<{ code: string; confidence: number | null }>>();
+    const interestRows = await repo.findBackboneInterestsBySupplierIds(ids).catch((err) => {
       console.error("[supplier/[id]] 候选品目批量装配失败，本次仅用行业/产品打分:", err);
-      codesBySupplier = new Map();
+      return [] as Array<{ supplier_id: number; code: string; confidence: number | string | null; is_primary: number }>;
+    });
+    for (const row of interestRows) {
+      const sid = Number(row.supplier_id);
+      const list = codesBySupplier.get(sid) ?? [];
+      const conf = row.confidence == null ? null : Number(row.confidence);
+      list.push({ code: String(row.code ?? ""), confidence: Number.isFinite(conf) ? conf : null });
+      codesBySupplier.set(sid, list);
     }
 
     const targetInput = {
@@ -198,14 +211,29 @@ export async function loadSimilarSuppliers(
 
     if (scored.length === 0) return [];
 
-    const info = await loadSupplierIndustryInfo(
-      ctx.supplier.industryRepo,
-      scored.map((s) => s.row),
-    );
+    // 相似卡片只需要主行业名：按 top N 的主码直查 industry_nodes（1 次查询），
+    // 不必为整批候选装配「挂靠 + 祖先」两跳（loadSupplierIndustryInfo 是 2 次查询）。
+    const primaryCodes = [
+      ...new Set(scored.map(({ row }) => String(row.industry_code ?? "").trim()).filter(Boolean)),
+    ];
+    const tagByCode = new Map<string, { nameZh: string; nameEn: string }>();
+    if (primaryCodes.length > 0) {
+      try {
+        const nodes = await ctx.supplier.industryRepo.findNodesByCodes(primaryCodes);
+        for (const node of nodes) {
+          const zh = String(node.name_zh ?? "").trim();
+          const en = String(node.name_en ?? "").trim();
+          if (zh || en) tagByCode.set(node.code, { nameZh: zh || en, nameEn: en || zh });
+        }
+      } catch (err) {
+        console.error("[supplier/[id]] 相似供应商行业名装配失败，本次不显示行业:", err);
+      }
+    }
+
     const targetNameByCode = new Map(profile.commodityInterests.map((c) => [c.code, c]));
 
     return scored.map(({ row, result, industryScore }) => {
-      const tag = info.get(Number(row.id))?.primary ?? null;
+      const tag = tagByCode.get(String(row.industry_code ?? "").trim()) ?? null;
       const sharedNames = result.sharedCodes.slice(0, 2).map((code) => {
         const hit = targetNameByCode.get(code);
         return { zh: hit?.nameZh ?? code, en: hit?.nameEn ?? code };

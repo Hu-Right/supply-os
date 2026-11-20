@@ -86,13 +86,14 @@ export default async function SupplierProfilePageEn({
   const dbId = parseSupplierId(id);
   if (!dbId) notFound();
 
-  const data = await loadSupplierProfile(dbId);
+  // 成绩单只依赖 dbId，与档案取数并行；相似供应商依赖 profile，必须等档案就绪
+  const [data, scorecard] = await Promise.all([
+    loadSupplierProfile(dbId),
+    loadSupplierScorecard(dbId),
+  ]);
   if (!data) notFound();
   const { profile, claimed } = data;
-  const [scorecard, similar] = await Promise.all([
-    loadSupplierScorecard(dbId),
-    loadSimilarSuppliers(profile),
-  ]);
+  const similar = await loadSimilarSuppliers(profile);
 
   const countryForSchema = profile.supplier.countryEn || profile.country;
   const organizationJsonLd = {
