@@ -217,6 +217,32 @@ export const DIAGNOSIS_SCORED_FIELDS: readonly DiagnosisFieldDef[] = DIAGNOSIS_F
   (f) => f.dimensionNo !== 0,
 );
 
+/**
+ * 表单完成进度：只统计**必答题**（single）的已答数。
+ * 多选/文本是选填（空数组合法、语义是"一项都拿不出"），不计入分母，
+ * 否则用户会看到永远到不了 100% 的进度条。
+ */
+export interface DiagnosisProgress {
+  answeredRequired: number;
+  totalRequired: number;
+  percent: number;
+}
+
+export function diagnosisProgress(answers: Record<string, string | string[]>): DiagnosisProgress {
+  const required = DIAGNOSIS_FIELDS.filter((f) => f.kind === "single");
+  let answeredRequired = 0;
+  for (const field of required) {
+    const value = answers[field.key];
+    if (typeof value === "string" && value.trim()) answeredRequired += 1;
+  }
+  const totalRequired = required.length;
+  return {
+    answeredRequired,
+    totalRequired,
+    percent: totalRequired === 0 ? 100 : Math.round((answeredRequired / totalRequired) * 100),
+  };
+}
+
 /** 最低档答案常量：D3 硬门槛判定用（spec §8.4） */
 export const TENDER_EXPERIENCE_NONE = DIAGNOSIS_FIELD_MAP["tender_experience"].options![0];
 

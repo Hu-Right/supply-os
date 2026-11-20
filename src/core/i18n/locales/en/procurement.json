@@ -917,5 +917,7 @@
   "pc_gone_title": "This procurement request no longer exists",
   "pc_gone_desc": "It may have been withdrawn or deleted, or the link has expired.",
   "detail_expand": "Show full text",
-  "detail_collapse": "Show less"
+  "detail_collapse": "Show less",
+  "diagProgressLabel": "Progress",
+  "diagProgressRequired": "required"
 }

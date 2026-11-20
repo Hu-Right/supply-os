@@ -917,5 +917,7 @@
   "pc_gone_title": "Такой закупки больше нет",
   "pc_gone_desc": "Возможно, она отозвана или удалена, либо ссылка устарела.",
   "detail_expand": "Показать полностью",
-  "detail_collapse": "Свернуть"
+  "detail_collapse": "Свернуть",
+  "diagProgressLabel": "Прогресс",
+  "diagProgressRequired": "обязательных"
 }

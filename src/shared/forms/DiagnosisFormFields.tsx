@@ -65,7 +65,7 @@ function FieldBlock({ field, answers, missing, t, onSingle, onToggleMulti }: Pro
     <div>
       <label className="mb-2 block text-sm font-bold text-slate-700" htmlFor={`diag-${field.key}`}>
         {t(field.labelKey)}
-        <span className="ml-0.5 text-rose-500">*</span>
+        {field.kind === "single" && <span className="ml-0.5 text-rose-500">*</span>}
       </label>
 
       {field.kind === "text" ? (

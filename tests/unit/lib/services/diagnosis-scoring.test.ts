@@ -12,6 +12,7 @@ import {
   assertDiagnosisDimensionsIntact,
   scoreDiagnosisField,
   DIAGNOSIS_FIELD_MAP,
+  diagnosisProgress,
 } from "@/shared/constants/diagnosis-dimensions";
 import { scoreDiagnosis, type DiagnosisAnswers, type SupplierProfileBits } from "@/lib/services/scoring/diagnosis-v2";
 
@@ -36,8 +37,28 @@ describe("diagnosis constants structural integrity", () => {
     expect(DIAGNOSIS_DIMENSIONS.reduce((s, d) => s + d.weight, 0)).toBe(100);
   });
 
-  it("rejects a field claimed by two dimensions (N3)", () => {
-    const dup = DIAGNOSIS_DIMENSIONS.map((d) => ({ no: d.no, fields: [...d.fields] }));
+  it("completion progress only counts required single-choice answers", () => {
+    const requiredFields = DIAGNOSIS_FIELDS.filter((f) => f.kind === "single");
+    expect(requiredFields.length).toBe(15);
+    expect(diagnosisProgress({})).toEqual({ answeredRequired: 0, totalRequired: 15, percent: 0 });
+
+    const one = { [requiredFields[0].key]: requiredFields[0].options![0] };
+    expect(diagnosisProgress(one)).toEqual({ answeredRequired: 1, totalRequired: 15, percent: 7 });
+
+    // 多选/文本是选填：填了也不进入分子
+    const optional = {
+      procurement_frameworks: [DIAGNOSIS_FIELDS.find((f) => f.key === "procurement_frameworks")!.options![0]],
+      service_countries: "中国, 德国",
+    };
+    expect(diagnosisProgress(optional).answeredRequired).toBe(0);
+
+    const all = Object.fromEntries(
+      requiredFields.map((f) => [f.key, f.options![f.options!.length - 1]]),
+    );
+    expect(diagnosisProgress(all)).toEqual({ answeredRequired: 15, totalRequired: 15, percent: 100 });
+  });
+
+  it("rejects a field claimed by two dimensions (N3)", () => {    const dup = DIAGNOSIS_DIMENSIONS.map((d) => ({ no: d.no, fields: [...d.fields] }));
     dup[1]!.fields.push("technical_response");
     const claimed = new Set<string>();
     let violation = false;

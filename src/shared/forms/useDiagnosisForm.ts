@@ -9,7 +9,7 @@
  *              客户端校验只是体验（少一次往返），**权威校验在服务端 validators/diagnosis.ts**。
  */
 import { useCallback, useMemo, useState } from "react";
-import { DIAGNOSIS_FIELDS } from "@/shared/constants/diagnosis-dimensions";
+import { DIAGNOSIS_FIELDS, diagnosisProgress } from "@/shared/constants/diagnosis-dimensions";
 import { EC_FORBIDDEN, EC_DIAGNOSIS_ENTITY_NOT_FOUND } from "@/shared/constants/api";
 import {
   findSimilarCompanies,
@@ -153,6 +153,9 @@ export function useDiagnosisForm() {
     [form.answers],
   );
 
+  /** 必答题完成进度（多选/文本选填，不计入分母） */
+  const progress = useMemo(() => diagnosisProgress(form.answers), [form.answers]);
+
   const submit = useCallback(async () => {
     if (form.company.trim().length < 2) {
       setError({ i18nKey: "diagErrCompanyTooShort" });
@@ -227,6 +230,7 @@ export function useDiagnosisForm() {
     error,
     result,
     missingRequired,
+    progress,
     checkCompany,
     confirmCandidate,
     prefillSubject,

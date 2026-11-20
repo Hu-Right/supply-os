@@ -37,6 +37,9 @@ export interface SupplierProfileCopy {
   scorecardTitle: string;
   scorecardTotal: string;
   scorecardEvaluated: string;
+  /** 成绩单来源标识：企业归属人自评，未经平台独立核验 */
+  scorecardSelfDeclared: string;
+  scorecardSelfDeclaredHint: string;
   contactTitle: string;
   contactEmpty: string;
   ownerTitle: string;
@@ -78,6 +81,8 @@ const ZH: SupplierProfileCopy = {
   scorecardTitle: "投标能力成绩单",
   scorecardTotal: "总分",
   scorecardEvaluated: "评测于",
+  scorecardSelfDeclared: "企业自评",
+  scorecardSelfDeclaredHint: "由企业归属人填报，未经平台独立核验",
   contactTitle: "联系方式",
   contactEmpty: "该企业暂未公开联系人信息，可通过平台发起询盘。",
   ownerTitle: "你是该企业负责人？",
@@ -126,6 +131,8 @@ const EN: SupplierProfileCopy = {
   scorecardTitle: "Bid capability scorecard",
   scorecardTotal: "Overall",
   scorecardEvaluated: "Evaluated",
+  scorecardSelfDeclared: "Self-reported",
+  scorecardSelfDeclaredHint: "Submitted by the company owner; not independently verified by the platform.",
   contactTitle: "Contact",
   contactEmpty: "No public contact has been provided; send an enquiry through the platform.",
   ownerTitle: "Are you the owner of this company?",

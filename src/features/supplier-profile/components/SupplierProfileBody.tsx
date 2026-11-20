@@ -35,10 +35,12 @@ function FactItem({ label, children }: { label: string; children: React.ReactNod
 function SectionCard({
   title,
   icon,
+  badge,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
+  badge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -46,6 +48,7 @@ function SectionCard({
       <h2 className="flex items-center gap-2 text-base font-extrabold text-slate-900">
         {icon}
         {title}
+        {badge}
       </h2>
       <div className="mt-4">{children}</div>
     </section>
@@ -68,7 +71,18 @@ function ScorecardSection({
         ? { text: "text-amber-600", bar: "bg-amber-500", badge: "bg-amber-50 border-amber-200 text-amber-700" }
         : { text: "text-slate-500", bar: "bg-slate-400", badge: "bg-slate-50 border-slate-200 text-slate-600" };
   return (
-    <SectionCard title={copy.scorecardTitle} icon={<Target className="h-5 w-5 text-teal-600" />}>
+    <SectionCard
+      title={copy.scorecardTitle}
+      icon={<Target className="h-5 w-5 text-teal-600" />}
+      badge={
+        <span
+          className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-2xs font-semibold text-slate-500"
+          title={copy.scorecardSelfDeclaredHint}
+        >
+          {copy.scorecardSelfDeclared}
+        </span>
+      }
+    >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
         <div className="flex shrink-0 items-baseline gap-2 sm:w-44 sm:flex-col sm:items-center sm:border-r sm:border-slate-100 sm:pr-6">
           <div className="flex items-baseline gap-1">
