@@ -8,6 +8,7 @@
 import type { ServiceItem } from "@/data/services";
 import { emitAppEvent } from "@/core/events";
 import { useLocale } from "@/core/i18n";
+import { Button, Card } from "@/shared/ui";
 
 export interface ServiceCardGridProps {
   services: ServiceItem[];
@@ -29,7 +30,7 @@ function ServiceCardItem({ service }: { service: ServiceItem }) {
   const iconBg = bgMap[Icon.displayName || ""] || "bg-slate-50 text-slate-600";
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+    <Card className="flex flex-col justify-between p-5 shadow-sm transition-shadow hover:shadow-md">
       <div>
         {/* 图标 */}
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${iconBg}`}>
@@ -66,14 +67,15 @@ function ServiceCardItem({ service }: { service: ServiceItem }) {
       )}
 
       {/* CTA 按钮 */}
-      <button
+      <Button
         type="button"
+        variant="primary"
         onClick={() => emitAppEvent("supply-os:consult")}
-        className="w-full py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors"
+        className="w-full"
       >
         {t("svcCardCta")}
-      </button>
-    </div>
+      </Button>
+    </Card>
   );
 }
 

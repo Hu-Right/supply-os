@@ -12,8 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Globe, Plus } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Badge, type BadgeVariant } from "@/shared/ui";
-import { Spinner } from "@/shared/ui";
+import { Badge, Button, Card, Spinner, type BadgeVariant } from "@/shared/ui";
 import { fetchEcoPartners, type EcoPartner, type EcoPartnerStatus } from "../api";
 import { ECO_PARTNER_CATEGORIES } from "@/data/ecosystem";
 import { PartnerInquiryModal } from "./PartnerInquiryModal";
@@ -66,7 +65,7 @@ function FeaturedPartnerCard({ partner, onInquiry }: CardProps) {
   const regions = pickLocale(locale, partner.regions, partner.regionsEn);
 
   return (
-    <div className="rounded-2xl border-2 border-teal-600/30 bg-gradient-to-br from-teal-50/60 to-white p-6 shadow-sm flex flex-col gap-4 md:flex-row md:items-start">
+    <Card className="flex flex-col gap-4 border-2 border-primary-600/30 bg-gradient-to-br from-primary-50/60 to-white p-6 shadow-sm md:flex-row md:items-start">
       <div className="flex items-start gap-4 min-w-0 md:w-2/3">
         <PartnerLogo partner={partner} large />
         <div className="min-w-0 flex-1">
@@ -96,16 +95,17 @@ function FeaturedPartnerCard({ partner, onInquiry }: CardProps) {
             <span>{regions}</span>
           </div>
         )}
-        <button
+        <Button
           type="button"
+          variant="primary"
           onClick={() => onInquiry(partner)}
           disabled={partner.status !== "live"}
-          className="w-full py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-bold transition-colors"
+          className="w-full"
         >
           {partner.status === "live" ? t("svcPartnerCta") : t("svcPartnerCtaPending")}
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -117,7 +117,7 @@ function PartnerCard({ partner, onInquiry }: CardProps) {
   const regions = pickLocale(locale, partner.regions, partner.regionsEn);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col shadow-sm hover:shadow-md transition-shadow">
+    <Card className="flex flex-col p-5 shadow-sm transition-shadow hover:shadow-md">
       {/* 品牌行：logo/首字母 + 名称 + 状态 */}
       <div className="flex items-start gap-3 mb-3">
         <PartnerLogo partner={partner} />
@@ -147,15 +147,16 @@ function PartnerCard({ partner, onInquiry }: CardProps) {
       </div>
 
       {/* CTA：live 才可询盘；洽谈中/筹备中禁用（宁缺毋假，不接虚询盘） */}
-      <button
+      <Button
         type="button"
+        variant="primary"
         onClick={() => onInquiry(partner)}
         disabled={partner.status !== "live"}
-        className="w-full py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-bold transition-colors"
+        className="w-full"
       >
         {partner.status === "live" ? t("svcPartnerCta") : t("svcPartnerCtaPending")}
-      </button>
-    </div>
+      </Button>
+    </Card>
   );
 }
 

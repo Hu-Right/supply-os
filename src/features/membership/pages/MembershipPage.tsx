@@ -15,7 +15,7 @@ import { Rocket, Search, TrendingUp, Headphones } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
-import { DataState, Skeleton } from "@/shared/ui";
+import { DataState, Button, Skeleton } from "@/shared/ui";
 import { formatPrice } from "@/shared/utils/format";
 import { PlanCard } from "../components/PlanCard";
 import { ServiceCard } from "../components/ServiceCard";
@@ -110,42 +110,42 @@ export default function MembershipPage({ initialComparison }: MembershipPageProp
   };
 
   const hasPlans = plans.length > 0;
-  const tabBtn = (active: boolean) =>
-    `px-5 py-2 rounded-lg text-sm font-bold transition-colors cursor-pointer ${
-      active ? "bg-teal-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-teal-300"
-    }`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
       {/* ══ Tab 导航：月付 / 季付 / 年付 / 增值服务 ══ */}
-      <div className="flex flex-wrap items-center gap-3 mb-6" role="tablist">
+      <div className="mb-6 flex flex-wrap items-center gap-3" role="tablist">
         {periodTabs.map((pt) => (
-          <button
+          <Button
             key={pt.days}
             type="button"
             role="tab"
+            size="sm"
+            variant={!showServices && activeDays === pt.days ? "primary" : "outline"}
             aria-selected={!showServices && activeDays === pt.days}
             onClick={() => {
               setSelectedDays(pt.days);
               setShowServices(false);
             }}
-            className={tabBtn(!showServices && activeDays === pt.days)}
+            className="px-5 py-2"
             data-testid="period-tab"
             data-billing-days={pt.days}
           >
             {t(pt.labelKey)}
-          </button>
+          </Button>
         ))}
-        <button
+        <Button
           type="button"
           role="tab"
+          size="sm"
+          variant={showServices ? "primary" : "outline"}
           aria-selected={showServices}
           onClick={() => setShowServices(true)}
-          className={tabBtn(showServices)}
+          className="px-5 py-2"
           data-testid="services-tab"
         >
           {t("tabServices")}
-        </button>
+        </Button>
       </div>
 
       {showServices ? (
@@ -161,9 +161,9 @@ export default function MembershipPage({ initialComparison }: MembershipPageProp
             {servicesError && !servicesLoading && (
               <div className="py-16 text-center">
                 <p className="text-sm text-slate-500">{t("servicesError")}</p>
-                <button type="button" onClick={reloadServices} className="mt-2 cursor-pointer text-xs font-bold text-teal-600 hover:underline">
+                <Button type="button" variant="link" size="sm" onClick={reloadServices} className="mt-2">
                   {t("servicesRetry")}
-                </button>
+                </Button>
               </div>
             )}
             {!servicesLoading && !servicesError && Object.keys(groupedServices).length === 0 && (

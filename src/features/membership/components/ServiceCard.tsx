@@ -13,6 +13,7 @@
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { formatPrice } from "@/shared/utils/format";
+import { Button, Card } from "@/shared/ui";
 import { resolveServiceBranch, serviceDisplayName } from "../utils";
 import { ContactQrModal } from "./ContactQrModal";
 import type { ServiceCatalogView } from "@/types/membership";
@@ -52,7 +53,7 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
   const showPrice = amount > 0 ? branch === "pay" || row.priceFrom === 1 : row.priceMode === "free";
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+    <Card className="flex flex-col p-5 shadow-sm transition-shadow hover:shadow-md">
       {/* 标题行：只放标题，价格不再挤同一行（修 KA 竖排） */}
       <h3 className="text-base font-extrabold leading-tight text-slate-900">{name}</h3>
 
@@ -87,22 +88,19 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
       {/* CTA：主次分明（可自助支付实心 / 需顾问接洽描边） */}
       <div className="mt-auto pt-4">
         {branch === "pay" ? (
-          <button
-            type="button"
-            onClick={() => onPay(row)}
-            className="w-full cursor-pointer rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-teal-700"
-          >
+          <Button type="button" onClick={() => onPay(row)} className="w-full">
             {t("svcCtaPay")}
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => setConsultOpen((v) => !v)}
             aria-expanded={consultOpen}
-            className="w-full cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+            className="w-full"
           >
             {t("svcCtaConsult")}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -111,7 +109,7 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
         onClose={() => setConsultOpen(false)}
         hint={t("contactQrHintService", { name })}
       />
-    </div>
+    </Card>
   );
 }
 
