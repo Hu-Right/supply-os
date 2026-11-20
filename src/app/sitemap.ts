@@ -47,6 +47,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // /learning（知识中心）暂时下架，不再对搜索引擎公开收录（页面文件仍保留、直接网址可达）。
     { url: `${BASE_URL}/membership`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${BASE_URL}/services`, changeFrequency: "monthly", priority: 0.7 },
+    // 第三方服务生态（2026-11-20 独立一级模块：研修培训 + 邀约入驻伙伴墙）
+    { url: `${BASE_URL}/ecosystem`, changeFrequency: "weekly", priority: 0.7 },
     // /procurement/diagnosis 页面自带 robots noindex，不列入 sitemap（否则搜索台报「已提交但被 noindex 排除」）
     { url: `${BASE_URL}/terms`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },

@@ -105,16 +105,7 @@ export const SERVICES: ServiceItem[] = [
   },
 ];
 
-/** 生态伙伴服务类别 */
-export type EcoPartnerCategory = "compliance" | "fulfillment" | "after-sales" | "localization";
-
-/** 生态伙伴类目标签（分区类目条展示用；伙伴本体数据已迁库 eco_partner，见迁移 062） */
-export const ECO_PARTNER_CATEGORIES: { key: EcoPartnerCategory; label: string }[] = [
-  { key: "compliance", label: "合规准入" },
-  { key: "fulfillment", label: "履约交付" },
-  { key: "after-sales", label: "售后服务" },
-  { key: "localization", label: "本地化运营" },
-];
+/** 生态伙伴类目已迁 data/ecosystem.ts（版块独立为 /ecosystem 后随之搬家） */
 
 /**
  * 成功案例列表

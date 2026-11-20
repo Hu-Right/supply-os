@@ -15,7 +15,7 @@ import { useLocale, pickLocale } from "@/core/i18n";
 import { Badge, type BadgeVariant } from "@/shared/ui";
 import { Spinner } from "@/shared/ui";
 import { fetchEcoPartners, type EcoPartner, type EcoPartnerStatus } from "../api";
-import { ECO_PARTNER_CATEGORIES } from "@/data/services";
+import { ECO_PARTNER_CATEGORIES } from "@/data/ecosystem";
 import { PartnerInquiryModal } from "./PartnerInquiryModal";
 import { PartnerApplyModal } from "./PartnerApplyModal";
 

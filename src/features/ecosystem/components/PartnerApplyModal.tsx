@@ -24,7 +24,7 @@ import {
   FormMessage,
 } from "@/shared/ui/Form";
 import { api } from "@/core/http";
-import { ECO_PARTNER_CATEGORIES } from "@/data/services";
+import { ECO_PARTNER_CATEGORIES } from "@/data/ecosystem";
 
 export interface PartnerApplyModalProps {
   onClose: () => void;
