@@ -86,25 +86,25 @@ describe("POST /api/auth/login", () => {
     expect(verifyPassword).not.toHaveBeenCalled();
   });
 
-  // 401 语义红线（③）：凭据被拒 = 会话已死，不再占用「可刷新的未登录」语义 → 403 + EC_ACCOUNT_ISSUE
-  it("用户不存在 → 恒时密码验证后返回 403（防时序攻击）", async () => {
+  // 401 语义红线（③）：凭据被拒 = 认证失败 → 401 + EC_ACCOUNT_ISSUE（ADR-0021）
+  it("用户不存在 → 恒时密码验证后返回 401（防时序攻击）", async () => {
     const { verifyPassword } = await import("@/lib/services/auth");
     vi.mocked(verifyPassword).mockResolvedValue(true);
 
     const res = await callLogin({ identifier: "ghost@test.com", password: "pw" });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
     expect(await res.json()).toMatchObject({ code: EC_ACCOUNT_ISSUE });
     // 恒时验证：使用固定 dummy hash + bcrypt（密码为用户实际输入）
     expect(verifyPassword).toHaveBeenCalledWith("pw", expect.stringContaining("$2b$12$"));
   });
 
-  it("密码错误 → 403 + EC_ACCOUNT_ISSUE", async () => {
+  it("密码错误 → 401 + EC_ACCOUNT_ISSUE", async () => {
     const { verifyPassword } = await import("@/lib/services/auth");
     vi.mocked(verifyPassword).mockResolvedValue(false);
     poolQuery.mockResolvedValue([[AUTH_USER_ROW]]);
 
     const res = await callLogin({ identifier: "user-1@test.com", password: "wrong" });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
     expect(await res.json()).toMatchObject({ code: EC_ACCOUNT_ISSUE });
   });
 

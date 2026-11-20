@@ -57,6 +57,7 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/awards/top", auth: "none", status: 200, bodyType: "object", src: "/api/awards/top" },
   { method: "GET", path: "/api/catalog/country-name-map", auth: "none", status: 200, bodyType: "object", src: "/api/catalog/country-name-map" },
   { method: "GET", path: "/api/certifications", auth: "none", status: 200, bodyType: "array", src: "/api/certifications" },
+  { method: "GET", path: "/api/eco-partners", auth: "none", status: 200, bodyType: "array", src: "/api/eco-partners" },
   { method: "GET", path: "/api/commodity/smart-infer", auth: "none", status: 400, bodyType: "object", src: "/api/commodity/smart-infer" },
   { method: "GET", path: "/api/commodity/tree?parent=", auth: "none", status: 200, bodyType: "array", src: "/api/commodity/tree" },
   { method: "GET", path: "/api/commodity/tree/prefs", auth: "none", status: 200, bodyType: "object", src: "/api/commodity/tree/prefs" },
@@ -226,6 +227,7 @@ const CASES: ApiCase[] = [
   { method: "DELETE", path: "/api/user/supplier-pool/:id", auth: "none", status: 401, bodyType: "object", src: "/api/user/supplier-pool/:id" },
   { method: "PATCH", path: "/api/user/supplier-pool/:id", auth: "none", status: 401, bodyType: "object", src: "/api/user/supplier-pool/:id" },
   { method: "GET", path: "/api/user/supplier-pool/search", auth: "member", status: 400, bodyType: "object", src: "/api/user/supplier-pool/search" },
+  { method: "GET", path: "/api/wechat/jssdk", auth: "none", status: 400, bodyType: "object", src: "/api/wechat/jssdk" },
 ];
 
 function resolvePath(template: string): string {

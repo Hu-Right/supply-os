@@ -57,6 +57,7 @@ const PORTAL_ROW: Record<string, unknown> = {
   data_quality_score: 88,
   addtime: 1730000000,
   license_url: "https://cdn/license.png",
+  industry_code: "UGT-25",
 };
 
 vi.mock("@/lib/db/context", () => ({
@@ -122,7 +123,7 @@ describe("GET /api/user/enterprise", () => {
     const body = await (await GET(getReq())).json();
 
     expect(Object.keys(body.enterprise).sort()).toEqual([...EXPECTED_KEYS].sort());
-    expect(EXPECTED_KEYS).toHaveLength(24); // 白名单加/减列时这里先响，逼着同步看契约
+    expect(EXPECTED_KEYS).toHaveLength(25); // 白名单加/减列时这里先响，逼着同步看契约
     // claim_status 已退役：响应里不得再出现 claimStatus（读点清零）
     expect(body.enterprise.claimStatus).toBeUndefined();
   });

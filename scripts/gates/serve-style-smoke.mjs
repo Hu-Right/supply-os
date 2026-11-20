@@ -28,6 +28,8 @@ const fixtures = {
   "/api/notices/stats": { active: 0, todayNew: 0, yesterdayNew: 0 },
   "/api/notices/countries": [],
   "/api/suppliers": { items: [], total: 0, page: 1, pageSize: 20 },
+  // 首页规模条（供应商侧计数）：形状与 /api/suppliers/stats 的七键契约一致
+  "/api/suppliers/stats": { total: 0, searchable: 0, verified: 0, withCertification: 0, international: 0, commodityMatched: 0, registered: 0 },
   // unified-search 的样例跟着真实信封走：分页元数据只有 page_size（服务端已不双发 pageSize）。
   "/api/notices/unified-search": { items: [], total: 0, page: 1, page_size: 20 },
   "/api/user/enterprise": { code: 0, data: { bound: false, linkStatus: "none", enterprise: null } },

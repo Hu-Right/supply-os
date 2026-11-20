@@ -40,7 +40,6 @@ function PartnerLogo({ partner, large }: { partner: EcoPartner; large?: boolean 
   const size = large ? "w-14 h-14 text-2xl" : "w-11 h-11 text-lg";
   if (partner.logoUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- 运营侧外链 logo，非静态资源
       <img
         src={partner.logoUrl}
         alt={partner.name}
