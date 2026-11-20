@@ -5,9 +5,9 @@
  * @module features/services/constants
  */
 export {
-  SERVICES, SUCCESS_STORIES, ECO_PARTNERS, ECO_PARTNER_CATEGORIES,
+  SERVICES, SUCCESS_STORIES, ECO_PARTNER_CATEGORIES,
 } from "@/data/services";
 export type {
-  ServiceItem, SuccessStoryItem, ServicePhase,
-  EcoPartnerItem, EcoPartnerCategory, EcoPartnerStatus,
+  ServiceItem, SuccessStoryItem, ServicePhase, EcoPartnerCategory,
 } from "@/data/services";
+export type { EcoPartner, EcoPartnerStatus } from "./api";
