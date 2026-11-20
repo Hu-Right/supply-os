@@ -31,12 +31,13 @@ export const NAV_TABS: NavTab[] = [
   { path: "/award-intelligence", labelKey: "navAwardIntelligence", shortLabelKey: "navShortAwardIntelligence", icon: Trophy },
   { path: "/supplier", labelKey: "navSupplierLibrary", shortLabelKey: "navShortSuppliers", icon: Users },
   { path: "/services", labelKey: "navBiddingServices", icon: LayoutGrid },
-  // 第三方服务生态（2026-11-20 独立一级模块：研修培训 + 邀约入驻伙伴墙）
+  { path: "/rfq", labelKey: "navRFQ", shortLabelKey: "navShortRFQ", icon: FileText },
+  // 第三方服务生态（2026-11-20 独立一级模块：研修培训 + 邀约入驻伙伴墙；
+  // 同日用户拍板：置于导航末位——采购需求右侧）
   { path: "/ecosystem", labelKey: "navEcosystem", shortLabelKey: "navShortEcosystem", icon: Puzzle },
   // ── 暂时下架：研修班 /training（2026-11-20 老板决策：研修班入口并入 /ecosystem 第三方服务模块）──
   // 落地页路由与直达网址保留，仅导航不挂载；恢复方式：取消下行注释并补回 GraduationCap 导入。
   // { path: "/training", labelKey: "navTraining", shortLabelKey: "navShortTraining", icon: GraduationCap },
-  { path: "/rfq", labelKey: "navRFQ", shortLabelKey: "navShortRFQ", icon: FileText },
   // ── 暂时下架：知识中心 /learning、工作台 /crm ──
   // 按需求不在页面导航挂载（工作台尚未完善）；页面文件与直接网址均保留，未删除。
   // 恢复方式：取消以下两行注释，并把 BookOpen / Briefcase 补回上方 lucide-react 导入。
