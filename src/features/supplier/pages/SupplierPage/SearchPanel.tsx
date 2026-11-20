@@ -41,7 +41,6 @@ export function SearchPanel({
             <Layers3 className="h-4 w-4" />
           </span>
           <span className="text-sm font-bold text-slate-800">{t("supplierTabIndustry")}</span>
-          <span className="hidden md:inline text-xs text-slate-400">{t("supplierIndustryAxisHint")}</span>
         </div>
         <IndustryLevelSelector
           levels={industry.levels}
