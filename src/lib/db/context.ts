@@ -46,6 +46,7 @@ import { KeywordGroupsRepo } from "../repos/keyword-groups.repo";
 import { OfficialKeywordGroupsRepo } from "../repos/official-keyword-groups.repo";
 import { LeadsRepo } from "../repos/leads.repo";
 import { InvitationRepo } from "../repos/invitation.repo";
+import { EcoPartnerRepo } from "../repos/eco-partner.repo";
 import { ChatRepo } from "../repos/chat.repo";
 import { TrainingRepo, SystemRepo } from "../repos/training.repo";
 
@@ -108,6 +109,8 @@ export type AppContext = {
   openApiRepo: OpenApiRepo;
   awardsRepo: AwardsRepo;
   leadsRepo: LeadsRepo;
+  /** 第三方服务生态伙伴只读层（eco_partner，迁移 062；写路径归运营侧，门户只读） */
+  ecoPartnerRepo: EcoPartnerRepo;
   chatRepo: ChatRepo;
   trainingRepo: TrainingRepo;
   systemRepo: SystemRepo;
@@ -137,8 +140,12 @@ export type AppContext = {
  *  findReviewedByBackboneCodes / findReviewedByIndustryPrefix / findBackboneInterestsBySupplierIds；
  *  旧单例缺方法会让相似推荐整段退化为空。
  *  2026-11-19 +1（分享卡）：NoticeDetailRepo 新增 findShareCardFromPublic；
- *  旧单例缺方法会让 OG 图数据读取抛 not a function、只能退回通用卡。 */
-const CTX_VERSION = 15;
+ *  旧单例缺方法会让 OG 图数据读取抛 not a function、只能退回通用卡。
+ *  2026-11-20 +1（第三方服务生态）：AppContext 新增 ecoPartnerRepo（迁移 062 建 eco_partner）；
+ *  旧单例缺该方法会让 /api/eco-partners 抛 not a function。
+ *  2026-11-20 +1（采购 P0）：procurement_projects 新增 method 列并进入项目视图列集合（迁移 063），
+ *  旧单例的静态列集合会漏列。 */
+const CTX_VERSION = 17;
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };
@@ -184,6 +191,7 @@ export function getContext(): AppContext {
   const officialKeywordGroupsRepo = new OfficialKeywordGroupsRepo(dbPool);
   const invitationRepo = new InvitationRepo(dbPool);
   const leadsRepo = new LeadsRepo(dbPool);
+  const ecoPartnerRepo = new EcoPartnerRepo(dbPool);
   const chatRepo = new ChatRepo(dbPool);
   const trainingRepo = new TrainingRepo(dbPool);
   const systemRepo = new SystemRepo(dbPool);
@@ -260,6 +268,7 @@ export function getContext(): AppContext {
     openApiRepo,
     awardsRepo,
     leadsRepo,
+    ecoPartnerRepo,
     chatRepo,
     trainingRepo,
     systemRepo,

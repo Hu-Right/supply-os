@@ -40,8 +40,9 @@ export const POST = withRoute(async (req: NextRequest) => {
   const body = await req.json();
   const leadType = body?.type;
 
-  // 展厅注册（exhibition_register）允许未登录用户提交
-  if (leadType !== "exhibition_register") {
+  // 免登录白名单：展厅注册（游客）+ 生态伙伴入驻申请（企业方多半无平台账号）
+  // （eco_partner_inquiry 是登录用户的询盘，走正常登录态）
+  if (leadType !== "exhibition_register" && leadType !== "partner_application") {
     const auth = await requireUserKey(req);
     if (auth instanceof Response) return auth;
   }
@@ -90,7 +91,13 @@ export const POST = withRoute(async (req: NextRequest) => {
     consultationNeeds: newLead.notes,
     status: newLead.status,
     followUpLogs: JSON.stringify(newLead.followUpLogs || []),
-    extra: JSON.stringify({ source: "portal", lead_type: type || "custom" }),
+    extra: JSON.stringify({
+      source: "portal",
+      lead_type: type || "custom",
+      // 生态伙伴维度（/services 伙伴墙）：询盘带目标伙伴，运营在 CRM 侧按此分派转介
+      ...(body?.partnerId ? { partner_id: String(body.partnerId) } : {}),
+      ...(body?.partnerCategory ? { partner_category: String(body.partnerCategory) } : {}),
+    }),
     rawPayload: JSON.stringify(body),
     ip: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "",
     createdAt: new Date(newLead.createdAt),
