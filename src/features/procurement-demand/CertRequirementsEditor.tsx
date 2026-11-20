@@ -8,6 +8,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { Select } from "@/shared/ui";
 import { fetchCertificationOptions, type CertificationOption } from "./api";
 import {
   CERT_CATEGORY_ORDER,
@@ -93,7 +94,7 @@ export function CertRequirementsEditor({
         <div className="text-xs font-semibold text-secondary-600">{t("pc_cert_title")}</div>
         <span className="text-[11px] text-secondary-400">{value.length}/{CERT_REQUIREMENT_MAX}</span>
       </div>
-      <select
+      <Select
         value=""
         onChange={(e) => add(e.target.value)}
         className={inputCls}
@@ -110,7 +111,7 @@ export function CertRequirementsEditor({
           </optgroup>
         ))}
         <option value="__manual__">{t("pc_cert_other")}</option>
-      </select>
+      </Select>
       {error && <p className="text-xs text-red-600">{error}</p>}
 
       {value.length === 0 ? (

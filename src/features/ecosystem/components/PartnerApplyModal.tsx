@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { CheckCircle2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useLocale } from "@/core/i18n";
-import { FormModal, Button, Textarea } from "@/shared/ui";
+import { FormModal, Button, Select, Textarea } from "@/shared/ui";
 import {
   Form,
   FormField,
@@ -146,12 +146,12 @@ export function PartnerApplyModal({ onClose }: PartnerApplyModalProps) {
               <FormItem>
                 <FormLabel>{t("svcApplyCategory")}</FormLabel>
                 <FormControl>
-                  <select className={inputCls} {...field}>
+                  <Select className={inputCls} {...field}>
                     <option value="" disabled>——</option>
                     {ECO_PARTNER_CATEGORIES.map((c) => (
                       <option key={c.key} value={c.key}>{t(CATEGORY_LABEL_KEY[c.key] ?? "")}</option>
                     ))}
-                  </select>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>

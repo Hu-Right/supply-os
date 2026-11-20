@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { Supplier } from "@/types";
 import { useLocale } from "@/core/i18n";
+import { Button, Select } from "@/shared/ui";
 import { useCrmData } from "../hooks/useCrmData";
 import { DigitalAssistant } from "../components/DigitalAssistant/DigitalAssistant";
 import { CrmSidebar } from "../components/CrmSidebar";
@@ -105,30 +106,30 @@ export default function CrmPage() {
             <div className="space-y-3">
               <div>
                 <label htmlFor="crm-bid-company" className="block text-xs font-bold text-slate-600 mb-1">{t("crmBidSelectCompany")}</label>
-                <select id="crm-bid-company" className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-teal-400 outline-none">
+                <Select id="crm-bid-company" className="w-full">
                   <option>{t("crmBidSelectCompanyPlaceholder")}</option>
                   {totalSuppliersList.map((s) => (
                     <option key={s.id} value={s.id}>{s.nameZh || s.nameEn || s.id}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label htmlFor="crm-bid-opportunity" className="block text-xs font-bold text-slate-600 mb-1">{t("crmBidSelectOpportunity")}</label>
-                  <select id="crm-bid-opportunity" className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-teal-400 outline-none">
+                  <Select id="crm-bid-opportunity" className="w-full">
                     <option>{t("crmBidSelectOppPlaceholder")}</option>
                     {leads.map((l) => (
                       <option key={l.id} value={l.id}>{l.companyName || l.id}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
-                <button
+                <Button
                   onClick={() => triggerAiMatchmaking()}
-                  disabled={isAiMatching}
-                  className="self-end bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors whitespace-nowrap"
+                  loading={isAiMatching}
+                  className="self-end whitespace-nowrap"
                 >
                   {isAiMatching ? t("crmBidEvaluating") : t("crmBidEvaluateNow")}
-                </button>
+                </Button>
               </div>
               <div className="flex flex-wrap gap-2 pt-2">
                 <span className="text-xs text-slate-500">{t("crmBidOutputLabel")}</span>

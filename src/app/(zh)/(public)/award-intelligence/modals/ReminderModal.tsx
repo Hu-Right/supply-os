@@ -7,7 +7,7 @@
  */
 import { useState, memo } from "react";
 import { Bell } from "lucide-react";
-import { Modal } from "@/shared/ui";
+import { Modal, Select } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 
 /* ── 设置提醒弹窗 ── */
@@ -41,12 +41,12 @@ export const ReminderModal = memo(function ReminderModal({ open, onClose }: { op
           </div>
           <div>
             <label className="text-xs font-bold text-slate-700 mb-1 block">{t("awardUiReminderFrequency")}</label>
-            <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+            <Select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="w-full">
               <option value="realtime">{t("awardUiReminderRealtime")}</option>
               <option value="daily">{t("awardUiReminderDaily")}</option>
               <option value="weekly">{t("awardUiReminderWeekly")}</option>
               <option value="monthly">{t("awardUiReminderMonthly")}</option>
-            </select>
+            </Select>
           </div>
         </div>
       </div>

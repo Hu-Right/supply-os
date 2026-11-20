@@ -7,6 +7,7 @@
  */
 import { Download, LayoutList, LayoutGrid } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button, Select } from "@/shared/ui";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import type { SearchState } from "./types";
 
@@ -55,27 +56,29 @@ export function ResultsHeader({
       </div>
       <div className="flex items-center gap-2 text-xs shrink-0">
         {/* 排序下拉 */}
-        <select
+        <Select
           value={query.activeSort}
           onChange={(e) => {
             const v = e.target.value;
             onSortChange(v === "latest" ? "latest" : v === "deadline" ? "deadline" : "deadline_farthest");
           }}
-          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 focus:border-teal-400 outline-none cursor-pointer"
+          className="h-8 w-auto pe-8 text-xs"
         >
           <option value="latest">{t("procurement_sortByLatest")}</option>
           <option value="deadline">{t("procurement_sortByDeadline")}</option>
           <option value="deadline_farthest">{t("procurement_sortByDeadlineFarthest")}</option>
-        </select>
+        </Select>
         {/* 导出列表 */}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => alert(t("procurement_comingSoon"))}
-          className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors"
+          className="hidden sm:inline-flex"
         >
           <Download className="w-3.5 h-3.5" />
           {t("procurement_exportList")}
-        </button>
+        </Button>
         {/* 视图切换 */}
         <div className="hidden sm:inline-flex rounded-lg border border-slate-200 overflow-hidden">
           <button type="button" className="p-1.5 bg-teal-50 text-teal-700" aria-label={t("noticeUiListView")}>

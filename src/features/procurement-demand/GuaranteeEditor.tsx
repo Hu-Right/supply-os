@@ -6,6 +6,7 @@
  * @description 类型用 chip 选择；选中后逐项填写形式、比例或金额、有效期/退还节点。
  */
 import { useLocale } from "@/core/i18n";
+import { Select } from "@/shared/ui";
 import {
   GUARANTEE_BASES,
   GUARANTEE_FORMS,
@@ -80,7 +81,7 @@ export function GuaranteeEditor({
             <span className="truncate text-xs font-semibold text-secondary-700">{t(`pc_guar_${item.type}`)}</span>
           )}
 
-          <select
+          <Select
             value={item.form}
             onChange={(e) => patch(index, { form: e.target.value as GuaranteeRequirement["form"] })}
             className={inputCls}
@@ -89,10 +90,10 @@ export function GuaranteeEditor({
             {GUARANTEE_FORMS.map((form) => (
               <option key={form} value={form}>{t(`pc_gform_${form}`)}</option>
             ))}
-          </select>
+          </Select>
 
           <div className="flex items-center gap-1">
-            <select
+            <Select
               value={item.basis}
               onChange={(e) => patch(index, { basis: e.target.value as GuaranteeRequirement["basis"] })}
               className={`${inputCls} w-24 shrink-0`}
@@ -101,7 +102,7 @@ export function GuaranteeEditor({
               {GUARANTEE_BASES.map((basis) => (
                 <option key={basis} value={basis}>{t(`pc_gbasis_${basis}`)}</option>
               ))}
-            </select>
+            </Select>
             <input
               type="number"
               min={0}

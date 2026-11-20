@@ -15,7 +15,7 @@ import {
   parsePhoneNumberFromString,
   type CountryCode,
 } from "libphonenumber-js/min";
-import { Input } from "@/shared/ui";
+import { Input, Select } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 
 /** 国家/地区列表（ISO2，按字母序；200+ 项用原生 select，无需搜索组件） */
@@ -54,19 +54,19 @@ export function PhoneInput({ value, onChange, placeholder, disabled, className }
 
   return (
     <div className="flex gap-2">
-      <select
+      <Select
         aria-label={t("authPhoneCountryLabel") || "国家/地区"}
         value={country}
         disabled={disabled}
         onChange={(e) => commit("", e.target.value as CountryCode)}
-        className="w-[8.5rem] shrink-0 rounded-lg border border-secondary-200 bg-white px-2 py-2 text-sm text-secondary-800 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/20 disabled:opacity-60"
+        className="w-[8.5rem] shrink-0"
       >
         {COUNTRY_CODES.map((c) => (
           <option key={c} value={c}>
             {displayNames?.of(c) ?? c} +{getCountryCallingCode(c)}
           </option>
         ))}
-      </select>
+      </Select>
       <Input
         type="tel"
         inputMode="tel"

@@ -8,6 +8,7 @@
  */
 import { memo } from "react";
 import { useLocale } from "@/core/i18n";
+import { Select } from "@/shared/ui";
 import {
   PRESET_LLM_MODELS,
   CUSTOM_PRESET_ID,
@@ -30,7 +31,7 @@ export const ModelSelector = memo(function ModelSelector({
   return (
     <div>
       <label className="block text-xs font-bold text-slate-600 mb-1">{t("aiModelSelectModel")}</label>
-      <select
+      <Select
         className={FIELD_CLS}
         value={selectedPresetId}
         onChange={(e) => onChange(e.target.value)}
@@ -43,7 +44,7 @@ export const ModelSelector = memo(function ModelSelector({
         <option value={CUSTOM_PRESET_ID}>
           {t("aiModelCustomOption")}
         </option>
-      </select>
+      </Select>
 
       {!isCustom && currentPreset && (
         <div className="mt-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-[11px] text-slate-600 space-y-1">

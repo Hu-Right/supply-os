@@ -1,5 +1,5 @@
 "use client";
-import { FieldHintTooltip, SearchableSelect } from "@/shared/ui";
+import { FieldHintTooltip, SearchableSelect, Select } from "@/shared/ui";
 
 /**
  * 采购需求发布向导（全案 F02 六页结构）
@@ -626,9 +626,9 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className={labelCls}>
               {t("pc_purpose")} *
-              <select value={form.purpose} onChange={(e) => field("purpose", e.target.value)} className={inputCls}>
+              <Select value={form.purpose} onChange={(e) => field("purpose", e.target.value)} className={inputCls}>
                 {PURPOSE_OPTIONS.map((p) => <option key={p} value={p}>{t(`pc_purpose_${p}`)}</option>)}
-              </select>
+              </Select>
             </label>
             <label className={labelCls}>
               {t("pc_internalNo")}
@@ -666,18 +666,18 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
               <FieldHintTooltip label={t("pc_category")} content={t("pc_category_hint")} />
             </span>
             <div className="mt-1 grid gap-2 sm:grid-cols-3">
-              <select value={form.categoryL1} onChange={(e) => { field("categoryL1", e.target.value); field("categoryL2", ""); field("categoryL3", ""); }} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm">
+              <Select value={form.categoryL1} onChange={(e) => { field("categoryL1", e.target.value); field("categoryL2", ""); field("categoryL3", ""); }} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm">
                 <option value="">{t("pc_category_l1")}</option>
                 {l1Options.map((o) => <option key={o.key} value={o.key}>{o.nameZh}</option>)}
-              </select>
-              <select value={form.categoryL2} onChange={(e) => { field("categoryL2", e.target.value); field("categoryL3", ""); }} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" disabled={!form.categoryL1}>
+              </Select>
+              <Select value={form.categoryL2} onChange={(e) => { field("categoryL2", e.target.value); field("categoryL3", ""); }} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" disabled={!form.categoryL1}>
                 <option value="">{t("pc_category_l2")}</option>
                 {l2Options.map((o) => <option key={o.key} value={o.key}>{o.nameZh}</option>)}
-              </select>
-              <select value={form.categoryL3} onChange={(e) => field("categoryL3", e.target.value)} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" disabled={!form.categoryL2}>
+              </Select>
+              <Select value={form.categoryL3} onChange={(e) => field("categoryL3", e.target.value)} className="rounded-lg border border-secondary-300 px-3 py-2 text-sm" disabled={!form.categoryL2}>
                 <option value="">{t("pc_category_l3")}</option>
                 {l3Options.map((o) => <option key={o.key} value={o.key}>{o.nameZh}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
         </div>
@@ -725,9 +725,9 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
               <FieldHintTooltip label={t("pc_attachments")} content={t("pc_attachments_hint")} />
             </span>
             <div className="mt-1">
-              <select value={attachKind} onChange={(e) => setAttachKind(e.target.value)} className="mb-2 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm sm:w-64">
+              <Select value={attachKind} onChange={(e) => setAttachKind(e.target.value)} className="mb-2 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm sm:w-64">
                 {ATTACHMENT_KINDS.map((k) => <option key={k} value={k}>{t(`pc_attach_${k}`)}</option>)}
-              </select>
+              </Select>
               <FileDropzone
                 accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.zip"
                 maxSizeBytes={20 * 1024 * 1024}
@@ -773,11 +773,11 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             </label>
             <label className={labelCls}>
               {t("pc_currency")}
-              <select value={form.budgetCurrency} onChange={(e) => field("budgetCurrency", e.target.value)} className={inputCls}>
+              <Select value={form.budgetCurrency} onChange={(e) => field("budgetCurrency", e.target.value)} className={inputCls}>
                 {[...new Set<string>([...PROCUREMENT_CURRENCIES, form.budgetCurrency].filter(Boolean))].map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
           <label className="flex items-center gap-2 text-sm text-secondary-700">
@@ -826,7 +826,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                 {t("pc_incoterm")}
                 <FieldHintTooltip label={t("pc_incoterm")} content={t("pc_incoterm_hint")} />
               </span>
-              <select
+              <Select
                 value={form.incoterm}
                 onChange={(e) => field("incoterm", e.target.value)}
                 className={inputCls}
@@ -835,11 +835,11 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                 {incotermsForVersion(form.incotermVersion || "2020").map((v) => (
                   <option key={v} value={v}>{v}</option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className={labelCls}>
               {t("pc_incotermVersion")}
-              <select
+              <Select
                 value={form.incotermVersion}
                 onChange={(e) => {
                   const version = e.target.value;
@@ -849,7 +849,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                 className={inputCls}
               >
                 {INCOTERM_VERSIONS.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
+              </Select>
             </label>
             <label className={labelCls}>
               {t("pc_incotermPlace")}
@@ -933,11 +933,11 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           <div className="border-b border-secondary-100 pb-1 text-sm font-bold text-secondary-700">{t("pc_supplierReqs")}</div>
           <label className={labelCls}>
             {t("pc_supplierType")}
-            <select value={form.supplierType} onChange={(e) => field("supplierType", e.target.value)} className={inputCls}>
+            <Select value={form.supplierType} onChange={(e) => field("supplierType", e.target.value)} className={inputCls}>
               {["any", "manufacturer_or_agent", "manufacturer_only"].map((v) => (
                 <option key={v} value={v}>{t(`pc_supplier_type_${v}`)}</option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className={labelCls}>
             <span className="flex items-center gap-1.5">
@@ -958,9 +958,9 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           </div>
           <label className={labelCls}>
             {t("pc_contactDisclosure")}
-            <select value={form.contactDisclosure} onChange={(e) => field("contactDisclosure", e.target.value)} className={inputCls}>
+            <Select value={form.contactDisclosure} onChange={(e) => field("contactDisclosure", e.target.value)} className={inputCls}>
               {CONTACT_DISCLOSURE.map((v) => <option key={v} value={v}>{t(`pc_disc_${v}`)}</option>)}
-            </select>
+            </Select>
           </label>
           <div className={labelCls}>
             <span className="flex items-center gap-1.5">

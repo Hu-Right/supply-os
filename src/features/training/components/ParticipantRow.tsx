@@ -8,6 +8,7 @@
  */
 import { useId } from "react";
 import { useLocale } from "@/core/i18n";
+import { Select } from "@/shared/ui";
 import type { ParticipantInput } from "../api";
 
 interface ParticipantRowProps {
@@ -37,13 +38,13 @@ export function ParticipantRow({ participant, index, onChange }: ParticipantRowP
         </div>
         <div>
           <label htmlFor={`${idPrefix}-gender`} className={labelCls}>{t("tlParticipantGenderLabel")}</label>
-          <select id={`${idPrefix}-gender`} value={participant.gender || ""}
+          <Select id={`${idPrefix}-gender`} value={participant.gender || ""}
             onChange={(e) => onChange(index, "gender", e.target.value || null)} className={inputCls}>
             <option value="">{t("tlParticipantGenderSelect")}</option>
             <option value="male">{t("tlParticipantGenderMale")}</option>
             <option value="female">{t("tlParticipantGenderFemale")}</option>
             <option value="other">{t("tlParticipantGenderOther")}</option>
-          </select>
+          </Select>
         </div>
         <div>
           <label htmlFor={`${idPrefix}-phone`} className={labelCls}>{t("tlParticipantPhoneLabel")} <span className="text-red-500">*</span></label>

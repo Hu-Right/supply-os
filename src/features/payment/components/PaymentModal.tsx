@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { Select } from "@/shared/ui";
 import { api } from "@/core/http";
 import { classifyProductCode, PRODUCT_KIND } from "@/shared/constants/product-kind";
 import PaymentModalCore from "@/shared/components/PaymentModalCore";
@@ -101,16 +102,16 @@ export default function PaymentModal({
           <span className="mb-1.5 block text-xs font-bold text-slate-600">
             {t("paymentIndustryLabel") || "行业大类"}
           </span>
-          <select
+          <Select
             value={industryCode}
             onChange={(e) => setIndustryCode(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+            className="w-full"
           >
             <option value="">{t("paymentIndustryPlaceholder") || "请选择行业大类"}</option>
             {industries.map((o) => (
               <option key={o.key} value={o.key}>{industryLabel(o)}</option>
             ))}
-          </select>
+          </Select>
         </label>
       ) : undefined}
       summaryNode={

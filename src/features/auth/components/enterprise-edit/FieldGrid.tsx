@@ -10,6 +10,7 @@
  */
 import { memo } from "react";
 import { useLocale } from "@/core/i18n";
+import { Select } from "@/shared/ui";
 import { inputCls, REQUIRED_KEYS, type FieldDef } from "./fields";
 
 /** 分组标题：左侧色条 + 文本 */
@@ -57,7 +58,7 @@ export const FieldGrid = memo(function FieldGrid({
               placeholder={ph}
             />
           ) : f.options ? (
-            <select
+            <Select
               className={inputCls}
               value={values[f.key] || ""}
               onChange={(e) => onSet(f.key, e.target.value)}
@@ -66,7 +67,7 @@ export const FieldGrid = memo(function FieldGrid({
               {f.options.map((o) => (
                 <option key={o.value} value={o.value}>{t(o.labelKey) || o.fallback}</option>
               ))}
-            </select>
+            </Select>
           ) : (
             <input
               className={inputCls}

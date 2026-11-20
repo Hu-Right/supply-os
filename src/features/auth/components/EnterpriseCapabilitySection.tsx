@@ -17,7 +17,7 @@
  */
 import { Plus, Trash2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { DataState } from "@/shared/ui";
+import { DataState, Select } from "@/shared/ui";
 import { useEnterpriseCapabilityData } from "./enterprise-capability/useEnterpriseCapabilityData";
 import { CapabilityFormFields } from "./enterprise-capability/CapabilityFormFields";
 import { TYPE_LABEL_KEYS, capabilitySummary, inputCls, type CapabilityType } from "./enterprise-capability/shared";
@@ -89,11 +89,11 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
       {/* 新增能力 */}
       <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <select value={capType} onChange={(e) => { setCapType(e.target.value as CapabilityType); resetFields(); }} className={inputCls}>
+          <Select value={capType} onChange={(e) => { setCapType(e.target.value as CapabilityType); resetFields(); }} className={inputCls}>
             {(Object.keys(TYPE_LABEL_KEYS) as CapabilityType[]).map((type) => (
               <option key={type} value={type}>{t(TYPE_LABEL_KEYS[type])}</option>
             ))}
-          </select>
+          </Select>
           <input value={capName} onChange={(e) => setCapName(e.target.value)} placeholder={t("capNamePlaceholder")} className={inputCls} />
         </div>
 

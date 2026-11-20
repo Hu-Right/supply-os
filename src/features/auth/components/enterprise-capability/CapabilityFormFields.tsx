@@ -6,6 +6,7 @@
  *              纯受控渲染：值与变更全部来自 props（fields/setField），不含提交逻辑。
  */
 import { useLocale } from "@/core/i18n";
+import { Select } from "@/shared/ui";
 import {
   CERT_CATEGORY_LABEL_KEYS,
   CERT_CATEGORY_ORDER,
@@ -63,7 +64,7 @@ export function CapabilityFormFields({
     return (
       <div className="space-y-2">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <select
+          <Select
             value={isManual ? "__manual__" : currentCode}
             onChange={(e) => {
               const v = e.target.value;
@@ -89,7 +90,7 @@ export function CapabilityFormFields({
               </optgroup>
             ))}
             <option value="__manual__">{t("capCertOther")}</option>
-          </select>
+          </Select>
           {dateAndExpiry}
         </div>
         {isManual && (

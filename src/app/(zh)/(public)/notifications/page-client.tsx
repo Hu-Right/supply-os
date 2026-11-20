@@ -23,7 +23,7 @@ import {
   markNotificationsRead,
   type NotificationItem,
 } from "@/core/api/notifications";
-import { ConfirmDialog } from "@/shared/ui";
+import { ConfirmDialog, Select } from "@/shared/ui";
 import { renderNotification } from "@/shared/notifications/renderNotification";
 import { formatNotificationTime } from "@/shared/notifications/formatNotificationTime";
 
@@ -168,20 +168,20 @@ export default function NotificationsPageClient() {
           {/* 工具条：左筛选 + 搜索，右批量动作 */}
           <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
             <div className="flex flex-wrap items-center gap-2">
-              <select
+              <Select
                 value={unreadOnly ? "unread" : "all"}
                 onChange={(e) => {
                   setUnreadOnly(e.target.value === "unread");
                   setPage(1);
                 }}
-                className="rounded-lg border border-secondary-300 px-3 py-1.5 text-xs text-secondary-700"
+                className="h-8 w-auto pe-8 text-xs"
               >
                 <option value="all">{t("notifFilterAll")}</option>
                 <option value="unread">
                   {t("notifFilterUnread")}
                   {unread > 0 ? ` (${unread})` : ""}
                 </option>
-              </select>
+              </Select>
               <input
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}

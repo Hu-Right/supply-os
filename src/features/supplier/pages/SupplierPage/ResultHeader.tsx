@@ -3,7 +3,7 @@
  * @module features/supplier/pages/SupplierPage/ResultHeader
  */
 import { LayoutGrid, List } from "lucide-react";
-import { Skeleton } from "@/shared/ui";
+import { Select, Skeleton } from "@/shared/ui";
 import { SORT_OPTIONS } from "./constants";
 
 interface ResultHeaderProps {
@@ -30,15 +30,15 @@ export function ResultHeader({ total, sortBy, setSortBy, viewMode, setViewMode, 
       )}
       <div className="flex items-center gap-3">
         {/* 排序 */}
-        <select
+        <Select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 focus:border-teal-400 outline-none"
+          className="h-8 w-auto pe-8 text-xs"
         >
           {SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
           ))}
-        </select>
+        </Select>
         {/* 视图切换 */}
         <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
           <button

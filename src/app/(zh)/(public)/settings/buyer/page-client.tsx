@@ -28,7 +28,7 @@ import { api } from "@/core/http";
 import { fetchMyBuyerWithVerifications, saveBuyer, type BuyerInfo } from "@/features/procurement-demand/api";
 import { FlowStepper } from "@/features/procurement-demand/FlowStepper";
 import { FileDropzone } from "@/features/procurement-demand/FileDropzone";
-import { ChipToggleGroup, FieldHintTooltip, SearchableSelect } from "@/shared/ui";
+import { ChipToggleGroup, FieldHintTooltip, SearchableSelect, Select } from "@/shared/ui";
 import {
   EXTERNAL_RULE_GROUPS,
   EXTERNAL_RULE_NOTE_MAX,
@@ -335,9 +335,9 @@ export default function PageClient() {
               {t("pc_brole")} *
               <FieldHintTooltip label={t("pc_brole")} content={t("pc_bhint_role")} />
             </span>
-            <select value={form.buyerRole} onChange={(e) => f("buyerRole", e.target.value)} className={inputCls}>
+            <Select value={form.buyerRole} onChange={(e) => f("buyerRole", e.target.value)} className={inputCls}>
               {roleOptions.map((v) => <option key={v} value={v}>{t(`pc_brole_${v}`)}</option>)}
-            </select>
+            </Select>
           </label>
           <label className={labelCls}>
             {t("pc_bcountry")} *
@@ -357,7 +357,7 @@ export default function PageClient() {
               {t("pc_bregnotype")} *
               <FieldHintTooltip label={t("pc_bregnotype")} content={t("pc_bhint_regnotype")} />
             </span>
-            <select
+            <Select
               value={form.regNoType}
               onChange={(e) => f("regNoType", e.target.value)}
               className={inputCls}
@@ -365,7 +365,7 @@ export default function PageClient() {
               {(["uscc", "hk_br", "hk_cr", "overseas_reg", "tax_id", "other"] as const).map((value) => (
                 <option key={value} value={value}>{t(`pc_bregidtype_${value}`)}</option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className={labelCls}>
             <span className="flex items-center gap-1.5">
