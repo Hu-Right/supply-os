@@ -15,12 +15,13 @@ export interface FAQPanelProps {
   title?: string;
 }
 
-export function FAQPanel({ faqs, title = "常见问题 FAQ" }: FAQPanelProps) {
-  const { locale } = useLocale();
+export function FAQPanel({ faqs, title }: FAQPanelProps) {
+  const { locale, t } = useLocale();
+  const heading = title ?? t("learnFaqTitle");
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-      <h4 className="mb-3 text-sm font-bold text-slate-800">{title}</h4>
+      <h4 className="mb-3 text-sm font-bold text-slate-800">{heading}</h4>
       <div className="space-y-4">
         {faqs.map((faq) => (
           <div key={faq.id} className="space-y-1.5 border-b border-slate-100 pb-3 last:border-b-0">

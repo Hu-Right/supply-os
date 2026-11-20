@@ -26,5 +26,6 @@
   "learningContentLocked": "Compre para desbloquear o conteúdo completo e o download",
   "learningContentLoadedFailed": "Falha ao carregar o conteúdo, atualize e tente novamente",
   "learnGetDownloadUrlFailed": "Falha ao obter o link de download; tente novamente mais tarde ou contate o suporte",
-  "learnNoDownloadFile": "Este material ainda não possui arquivo para download; tente novamente mais tarde ou contate o suporte"
+  "learnNoDownloadFile": "Este material ainda não possui arquivo para download; tente novamente mais tarde ou contate o suporte",
+  "learnFaqTitle": "Perguntas frequentes"
 }
