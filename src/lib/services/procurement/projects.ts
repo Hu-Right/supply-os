@@ -16,6 +16,7 @@ import { isBuyerPublishable } from "./buyers";
 import { serializeCertRequirements } from "@/shared/constants/procurement-cert-requirements";
 import { serializeGuarantees } from "@/shared/constants/guarantees";
 import { carryMethodDecisionToVersion } from "./method-decision";
+import { carryTenderConfigToVersion } from "./tender-config";
 
 export interface ProjectRow extends RowDataPacket {
   id: number;
@@ -414,6 +415,8 @@ export async function submitProject(
       input.confirmedBy ?? null,
       at,
     );
+    // 采购规则配置随版本前滚（§4.5）：无记录则不合成（发布时按方式缺省派生）
+    await carryTenderConfigToVersion(conn, input.projectId, versionNo, input.confirmedBy ?? null, at);
 
     // 主品类快照：第一条明细的 UGT 码
     const firstUgt = String((itemList[0] as { ugt_code?: string | null })?.ugt_code ?? "") || null;

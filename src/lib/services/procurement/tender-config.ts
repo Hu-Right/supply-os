@@ -236,3 +236,32 @@ export async function consumeConfigForPublish(
 }
 
 type PublishSource = Pick<TenderConfigRow, "publish_mode" | "award_method" | "envelope_policy">;
+
+/**
+ * 提交时把配置随版本前滚（与 method_decisions 同口径）：draft 期配置挂在旧版本上，
+ * 提交产生新版本号后复制一条绑定新版本；无任何记录则不合成（发布时按方式缺省派生）。
+ * 在 submitProject 事务内调用。
+ */
+export async function carryTenderConfigToVersion(
+  conn: { query: Pool["query"] },
+  projectId: number,
+  newVersionNo: number,
+  submitConfirmedBy: number | null,
+  at: number,
+): Promise<void> {
+  const [rows] = await conn.query(
+    "SELECT id, version_no FROM procurement_tender_configs WHERE project_id = ? ORDER BY version_no DESC, id DESC LIMIT 1",
+    [projectId],
+  );
+  const last = (rows as Array<{ id: number; version_no: number }>)[0];
+  if (!last || Number(last.version_no) === newVersionNo) return;
+  await conn.query(
+    `INSERT INTO procurement_tender_configs
+       (project_id, version_no, publish_mode, award_method, qa_deadline_at, envelope_policy,
+        eval_template, lta_base_method, confirmed_by, confirmed_at, created_at, updated_at)
+     SELECT project_id, ?, publish_mode, award_method, qa_deadline_at, envelope_policy,
+        eval_template, lta_base_method, ?, ?, created_at, updated_at
+       FROM procurement_tender_configs WHERE id = ?`,
+    [newVersionNo, submitConfirmedBy, at, last.id],
+  );
+}

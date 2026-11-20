@@ -200,6 +200,8 @@ export async function awardResponse(
     await removeProjection(conn as unknown as Pool, noticePk);
     if (noticePk) {
       await conn.query("UPDATE procurement_projects SET notice_pk = NULL WHERE id = ?", [input.projectId]);
+      // 守护销账：结案后主行按设计删除，登记在册会变成对账误报
+      await conn.query("DELETE FROM platform_notice_guard WHERE notice_id = ?", [noticePk]);
       await deleteNoticeDocuments([noticePk]).catch((err: Error) => {
         console.warn("[procurement] 定标后删除搜索索引失败:", err.message);
       });
@@ -439,6 +441,8 @@ export async function finalizeShortlist(
     await removeProjection(conn as unknown as Pool, noticePk);
     if (noticePk) {
       await conn.query("UPDATE procurement_projects SET notice_pk = NULL WHERE id = ?", [input.projectId]);
+      // 守护销账：结案后主行按设计删除，登记在册会变成对账误报
+      await conn.query("DELETE FROM platform_notice_guard WHERE notice_id = ?", [noticePk]);
       await deleteNoticeDocuments([noticePk]).catch((err: Error) => {
         console.warn("[procurement] 短名单结案后删除搜索索引失败:", err.message);
       });

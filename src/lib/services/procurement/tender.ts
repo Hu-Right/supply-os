@@ -511,6 +511,8 @@ export async function withdrawProject(
     await removeProjection(conn as unknown as Pool, row.notice_pk == null ? null : Number(row.notice_pk));
     if (row.notice_pk != null) {
       await conn.query("UPDATE procurement_projects SET notice_pk = NULL WHERE id = ?", [input.projectId]);
+      // 守护销账：撤回后主行已删除，登记在册会变成对账误报
+      await conn.query("DELETE FROM platform_notice_guard WHERE notice_id = ?", [Number(row.notice_pk)]);
     }
     await conn.query(
       "UPDATE procurement_tenders SET status = 'cancelled' WHERE project_id = ? AND status = 'published'",

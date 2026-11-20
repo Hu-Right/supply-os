@@ -184,6 +184,13 @@ export async function saveMethodDecision(
       at,
     ],
   );
+  // 判定确认即同步方式列：procurement_projects.method 与 method_decisions.buyer_method
+  // 永不分叉（向导 PATCH 快路径与服务层判定写点收敛到同一事实）
+  await db.query("UPDATE procurement_projects SET method = ?, updated_at = ? WHERE id = ?", [
+    buyerMethod,
+    at,
+    input.projectId,
+  ]);
 
   const row = await loadRow(db, input.projectId);
   return { ok: true, decision: row ? viewOf(row) : ({} as MethodDecisionView) };
