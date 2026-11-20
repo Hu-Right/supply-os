@@ -64,6 +64,7 @@ import {
   EC_RFQ_NOT_FOUND, EC_RFQ_STATE_INVALID, EC_RFQ_VERSION_CONFLICT, EC_RFQ_REASON_REQUIRED,
   EC_RFQ_AUTHORIZATION_REQUIRED,
   EC_RFQ_PUBLISH_BLOCKED,
+  EC_RFQ_RESPONSE_NOT_FOUND, EC_RFQ_RESPONSE_CLOSED, EC_RFQ_SEALED, EC_RFQ_NOT_OPENED, EC_RFQ_AWARD_EXISTS,
 } from "@/shared/constants/api";
 
 /** 注入式翻译函数（与 useLocale 的 t 对齐；params 预留插值） */
@@ -211,6 +212,12 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_RFQ_REASON_REQUIRED]: { kind: "business", key: "errRfqReasonRequired" },
   [EC_RFQ_AUTHORIZATION_REQUIRED]: { kind: "business", key: "errRfqAuthorizationRequired" },
   [EC_RFQ_PUBLISH_BLOCKED]: { kind: "business", key: "errRfqPublishBlocked" },
+  // RFQ 闭环（P0）：响应 / 密封 / 定标
+  [EC_RFQ_RESPONSE_NOT_FOUND]: { kind: "business", key: "errRfqResponseNotFound" },
+  [EC_RFQ_RESPONSE_CLOSED]: { kind: "business", key: "errRfqResponseClosed" },
+  [EC_RFQ_SEALED]: { kind: "business", key: "errRfqSealed" },
+  [EC_RFQ_NOT_OPENED]: { kind: "business", key: "errRfqNotOpened" },
+  [EC_RFQ_AWARD_EXISTS]: { kind: "business", key: "errRfqAwardExists" },
 };
 
 /** 稳定 type → 分类 + i18n 键（ADR-0021 主判据，由 catalog 派生；deprecated 码不进表） */
