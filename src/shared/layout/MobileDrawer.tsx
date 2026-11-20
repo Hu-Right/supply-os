@@ -6,9 +6,10 @@
  */
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Globe, X, Check, Loader2 } from "lucide-react";
+import { X, Check, Loader2 } from "lucide-react";
 import { useLocale, SUPPORTED_LOCALES, localeHref } from "@/core/i18n";
 import type { Locale } from "@/core/i18n";
+import { Brand } from "./Brand";
 import { useAuth } from "@/core/auth";
 import { NAV_TABS } from "./nav-tabs";
 
@@ -56,13 +57,8 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
       {/* 抽屉面板 */}
       <div className="absolute top-0 start-0 bottom-0 min-w-[260px] max-w-[85vw] sm:w-72 bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
         {/* 抽屉头部 */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-teal-600 to-indigo-600 flex items-center justify-center text-white">
-              <Globe className="w-4 h-4" />
-            </div>
-            <span className="text-sm font-bold text-slate-800">{t("brandName")}</span>
-          </div>
+        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-slate-100">
+          <Brand name={t("brandName")} size="sm" className="min-w-0 flex-1" />
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"

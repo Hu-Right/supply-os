@@ -20,6 +20,7 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { NotificationBell } from "./NotificationBell";
 import { NAV_TABS } from "./nav-tabs";
 import { MobileDrawer } from "./MobileDrawer";
+import { Brand } from "./Brand";
 
 /** 格式化本地时间为 YYYY-MM-DD HH:MM:SS */
 const fmtLocalTime = (d: Date) =>
@@ -96,17 +97,11 @@ export function AppHeader({
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-            <img
-              src="/images/brand-icon.svg"
-              alt={t("brandName")}
-              className="w-10 h-10 shrink-0 object-contain"
+            <Brand
+              name={t("brandName")}
+              subtitle={localTime ? `SYS: ACTIVE | ${localTime}` : null}
+              subtitleClassName="hidden md:block"
             />
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-full text-brand-900">{t("brandName")}</h1>
-              <div className="text-xs text-secondary-400 font-mono hidden md:block" suppressHydrationWarning>
-                SYS: ACTIVE | {localTime}
-              </div>
-            </div>
           </div>
           {/* 右侧：用户操作区 */}
           <div className="flex items-center space-x-3 shrink-0">

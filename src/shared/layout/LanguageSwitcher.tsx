@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * 语言选择下拉框
  * Language Switcher Dropdown
