@@ -1667,6 +1667,26 @@ CREATE TABLE `procurement_authorizations` (
   KEY `idx_pauth_project` (`project_id`,`version_no`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='发布授权书（流程第4/5步）：系统生成带编号授权书→签字盖章上传→在线确认→云境核验';
 
+-- ── procurement_awards ──
+CREATE TABLE `procurement_awards` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `project_id` int unsigned NOT NULL COMMENT 'procurement_projects.id',
+  `version_no` int unsigned NOT NULL COMMENT '定标对应需求版本',
+  `tender_id` int unsigned NOT NULL COMMENT 'procurement_tenders.id',
+  `kind` varchar(16) NOT NULL DEFAULT 'award' COMMENT 'award/shortlist/lta_holder（P0 仅 award）',
+  `response_id` bigint unsigned DEFAULT NULL COMMENT 'procurement_responses.id',
+  `supplier_id` int unsigned NOT NULL COMMENT 'supplier.id',
+  `amount` decimal(20,2) DEFAULT NULL COMMENT '定标金额（响应汇总）',
+  `currency` varchar(10) DEFAULT NULL COMMENT '币种',
+  `reason` varchar(500) NOT NULL COMMENT '定标理由（对外摘要）',
+  `decided_by` bigint unsigned NOT NULL COMMENT '采购方账号 users.id',
+  `approved_by` varchar(64) DEFAULT NULL COMMENT 'P1 审批人留痕',
+  `approved_at` int unsigned DEFAULT NULL COMMENT 'P1 审批时间',
+  `created_at` int unsigned NOT NULL COMMENT '定标时间（秒）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_award_project_version_kind_supplier` (`project_id`,`version_no`,`kind`,`supplier_id`),
+  KEY `idx_award_supplier` (`supplier_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定标结果（P0 单家中标，服务层保证 award 唯一）';
 -- ── procurement_buyer_verifications ──
 CREATE TABLE `procurement_buyer_verifications` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1720,6 +1740,22 @@ CREATE TABLE `procurement_buyers` (
   KEY `idx_buyers_reg_norm` (`reg_no_type`,`reg_no_norm`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购方主体（F01）：身份与采购权限认证，verified 为正式发布前置。';
 
+-- ── procurement_events ──
+CREATE TABLE `procurement_events` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `project_id` int unsigned NOT NULL COMMENT 'procurement_projects.id',
+  `version_no` int unsigned DEFAULT NULL COMMENT '需求版本',
+  `tender_id` int unsigned DEFAULT NULL COMMENT 'procurement_tenders.id',
+  `response_id` bigint unsigned DEFAULT NULL COMMENT 'procurement_responses.id',
+  `actor_type` varchar(16) NOT NULL COMMENT 'buyer/supplier/system/ops',
+  `actor_id` bigint unsigned DEFAULT NULL COMMENT '操作者账号 id',
+  `kind` varchar(32) NOT NULL COMMENT 'published/opened/response_submitted/response_withdrawn/awarded/closed',
+  `payload` json DEFAULT NULL COMMENT '事件快照',
+  `created_at` int unsigned NOT NULL COMMENT '发生时间（秒）',
+  PRIMARY KEY (`id`),
+  KEY `idx_event_project` (`project_id`,`created_at`),
+  KEY `idx_event_kind` (`kind`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购域审计事件（补 audit_logs 缺口）';
 -- ── procurement_items ──
 CREATE TABLE `procurement_items` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1766,6 +1802,7 @@ CREATE TABLE `procurement_projects` (
   `purpose` varchar(20) NOT NULL DEFAULT 'real' COMMENT '真实采购/预算阶段/市场调研/未来计划：real/budgeting/research/future_plan',
   `internal_project_no` varchar(120) DEFAULT NULL COMMENT '采购方内部项目编号',
   `object_types` varchar(120) NOT NULL DEFAULT 'goods' COMMENT '需求对象（逗号分隔）：goods/engineering/service/solution',
+  `method` varchar(16) NOT NULL DEFAULT 'rfq' COMMENT '采购方式：rfq/itb/rfp/eoi/lta（P0 仅 rfq 生效）',
   `budget_amount` decimal(20,2) DEFAULT NULL COMMENT '预算金额（元）',
   `budget_currency` varchar(10) NOT NULL DEFAULT 'CNY' COMMENT '币种',
   `budget_public` tinyint(1) NOT NULL DEFAULT '0' COMMENT '预算是否可向供应商公开',
@@ -1807,9 +1844,78 @@ CREATE TABLE `procurement_projects` (
   KEY `idx_proj_buyer` (`buyer_id`,`status`),
   KEY `idx_proj_status` (`status`,`published_at`),
   KEY `idx_proj_ugt` (`primary_ugt_code`),
-  KEY `idx_proj_notice_pk` (`notice_pk`)
+  KEY `idx_proj_notice_pk` (`notice_pk`),
+  KEY `idx_proj_method_status` (`method`,`status`,`published_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='采购需求主表';
 
+-- ── procurement_response_files ──
+CREATE TABLE `procurement_response_files` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `response_id` bigint unsigned NOT NULL COMMENT 'procurement_responses.id',
+  `envelope` varchar(16) NOT NULL DEFAULT 'technical' COMMENT 'technical/financial/commercial',
+  `doc_kind` varchar(32) NOT NULL DEFAULT 'attachment' COMMENT '文件类别',
+  `file_key` varchar(255) NOT NULL COMMENT 'upload_files 文件名',
+  `file_name` varchar(255) NOT NULL COMMENT '原始文件名',
+  `file_hash` char(64) NOT NULL COMMENT 'sha256',
+  `file_size` int unsigned NOT NULL DEFAULT '0' COMMENT '字节数',
+  `created_at` int unsigned NOT NULL COMMENT '上传时间（秒）',
+  PRIMARY KEY (`id`),
+  KEY `idx_respfile_response` (`response_id`,`envelope`),
+  KEY `idx_respfile_key` (`file_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='响应附件（技术/商务分信封，为 P1 密封评审预留）';
+-- ── procurement_response_items ──
+CREATE TABLE `procurement_response_items` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `response_id` bigint unsigned NOT NULL COMMENT 'procurement_responses.id',
+  `item_id` int unsigned DEFAULT NULL COMMENT 'procurement_items.id；标包级报价为空',
+  `lot_id` int unsigned DEFAULT NULL COMMENT 'procurement_lots.id',
+  `seq` smallint unsigned NOT NULL DEFAULT '0' COMMENT '行序',
+  `unit_price` decimal(20,4) DEFAULT NULL COMMENT '单价',
+  `quantity` decimal(20,4) DEFAULT NULL COMMENT '报价数量',
+  `uom` varchar(20) DEFAULT NULL COMMENT '单位',
+  `lead_time_days` smallint unsigned DEFAULT NULL COMMENT '本行交期（天）',
+  `moq` decimal(20,4) DEFAULT NULL COMMENT '最小起订量',
+  `brand_model` varchar(200) DEFAULT NULL COMMENT '品牌/型号',
+  `compliance` json DEFAULT NULL COMMENT '强制标准符合性与偏差说明',
+  `remark` varchar(500) DEFAULT NULL COMMENT '行备注',
+  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  `updated_at` int unsigned NOT NULL COMMENT '更新时间（秒）',
+  PRIMARY KEY (`id`),
+  KEY `idx_respitem_response` (`response_id`,`seq`),
+  KEY `idx_respitem_item` (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='RFQ 逐项报价（总价由服务端聚合，不落库避免漂移）';
+-- ── procurement_responses ──
+CREATE TABLE `procurement_responses` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `project_id` int unsigned NOT NULL COMMENT '采购需求 procurement_projects.id',
+  `version_no` int unsigned NOT NULL COMMENT '绑定的需求版本',
+  `tender_id` int unsigned NOT NULL COMMENT '标讯 procurement_tenders.id',
+  `supplier_id` int unsigned NOT NULL COMMENT '供应商 supplier.id',
+  `user_id` bigint unsigned NOT NULL COMMENT '提交账号 users.id',
+  `method` varchar(16) NOT NULL DEFAULT 'rfq' COMMENT '方式快照',
+  `status` varchar(16) NOT NULL DEFAULT 'draft' COMMENT 'draft/submitted/withdrawn/disqualified/evaluated',
+  `currency` varchar(10) NOT NULL DEFAULT 'CNY' COMMENT '报价币种（整单一种）',
+  `incoterm` varchar(20) DEFAULT NULL COMMENT '贸易术语（覆盖项目级）',
+  `incoterm_place` varchar(120) DEFAULT NULL COMMENT '贸易术语地点',
+  `validity_days` smallint unsigned DEFAULT NULL COMMENT '报价有效期（天）',
+  `lead_time_days` smallint unsigned DEFAULT NULL COMMENT '整单交期（天）',
+  `tax_included` tinyint(1) NOT NULL DEFAULT '0' COMMENT '报价是否含税',
+  `remark` varchar(1000) DEFAULT NULL COMMENT '供应商备注/偏差说明',
+  `receipt_no` varchar(32) DEFAULT NULL COMMENT '回执编号 OSRP-{年}-{6位id}',
+  `receipt_hash` char(64) DEFAULT NULL COMMENT '回执哈希 sha256',
+  `sealed_until` int unsigned NOT NULL COMMENT '密封截止=标讯 deadline_at',
+  `submitted_at` int unsigned DEFAULT NULL COMMENT '提交时间（秒）',
+  `withdrawn_at` int unsigned DEFAULT NULL COMMENT '撤回时间（秒）',
+  `client_ip` varchar(64) DEFAULT NULL COMMENT '提交 IP',
+  `user_agent` varchar(500) DEFAULT NULL COMMENT 'User-Agent',
+  `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
+  `updated_at` int unsigned NOT NULL COMMENT '更新时间（秒）',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_resp_project_supplier_ver` (`project_id`,`version_no`,`supplier_id`),
+  UNIQUE KEY `uq_resp_receipt_no` (`receipt_no`),
+  KEY `idx_resp_project` (`project_id`,`version_no`,`status`),
+  KEY `idx_resp_supplier` (`supplier_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='RFQ 响应（一家一版一条；撤回后可重新提交同一行）';
 -- ── procurement_reviews ──
 CREATE TABLE `procurement_reviews` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -1847,10 +1953,13 @@ CREATE TABLE `procurement_tenders` (
   `version_no` int unsigned NOT NULL COMMENT '发布的需求版本',
   `tender_no` varchar(40) NOT NULL COMMENT '正式发布编号（OSPT-{年}-{6位id}）',
   `publish_mode` varchar(16) NOT NULL DEFAULT 'public' COMMENT '发布方式：public/targeted/prequalified',
+  `sealed` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否密封：开标前仅提交人可见',
+  `award_method` varchar(24) NOT NULL DEFAULT 'lowest_price' COMMENT '评审法（P0 仅 lowest_price）',
   `status` varchar(16) NOT NULL DEFAULT 'published' COMMENT 'published/closed/cancelled',
   `published_at` int unsigned NOT NULL COMMENT '发布时间（秒）',
   `deadline_at` int unsigned DEFAULT NULL COMMENT '截标时间（秒）',
   `deadline_tz` varchar(40) NOT NULL DEFAULT 'Asia/Shanghai' COMMENT '截标时区',
+  `opened_at` int unsigned DEFAULT NULL COMMENT '开标时间（秒）；到期由定时器写入',
   `created_at` int unsigned NOT NULL COMMENT '创建时间（秒）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_tender_no` (`tender_no`),

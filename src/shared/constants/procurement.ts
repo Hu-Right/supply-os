@@ -25,6 +25,7 @@ export const PROJECT_CLOSE_REASON = {
   CANCELLED: "cancelled", // 采购方取消
   WITHDRAWN: "withdrawn", // 采购方撤回（授权书第五条：书面要求停止发布）
   EXPIRED: "expired", // 截标/交期过期
+  AWARDED: "awarded", // 已定标结案（P0 新增）
 } as const;
 
 /** 可发布状态：核验与授权闸口的判定基准 */
@@ -116,6 +117,64 @@ export const MATCH_STATUS = {
 
 /** 采购方式（P2 方式判定引擎留置；MVP 恒 RFQ） */
 export const PROCUREMENT_MODE = { RFQ: "rfq" } as const;
+
+// ── RFQ 闭环（P0）：方式 / 标讯 / 响应 / 定标 ─────────────────────────────────
+
+/** 采购方式。P0 仅 RFQ 生效；其余取值已落列，等 P1+ 逐步开放 */
+export const PROCUREMENT_METHOD = {
+  RFQ: "rfq", // 询价（合格最低价）
+  ITB: "itb", // 正式招标
+  RFP: "rfp", // 方案征集
+  EOI: "eoi", // 供应商征集（产出短名单）
+  LTA: "lta", // 长期协议
+} as const;
+
+export type ProcurementMethod = (typeof PROCUREMENT_METHOD)[keyof typeof PROCUREMENT_METHOD];
+
+/** 标讯状态。列宽 16，禁止超长取值 */
+export const TENDER_STATUS = {
+  PUBLISHED: "published", // 已发布，接收响应
+  CLOSED: "closed", // 已截止收标并开标
+  AWARDED: "awarded", // 已定标
+  CANCELLED: "cancelled", // 取消
+} as const;
+
+/** 供应商响应状态。列宽 16 */
+export const RESPONSE_STATUS = {
+  DRAFT: "draft", // 草稿（可改）
+  SUBMITTED: "submitted", // 已提交（密封）
+  WITHDRAWN: "withdrawn", // 截止前撤回
+  DISQUALIFIED: "disqualified", // 资格不符
+  EVALUATED: "evaluated", // 已评审（中标或已参与评审）
+} as const;
+
+/** 定标结果类型：P0 仅 award；shortlist/lta_holder 留给 EOI/LTA */
+export const AWARD_KIND = {
+  AWARD: "award",
+} as const;
+
+/** 标讯状态转移表（服务层唯一写点校验） */
+export const TENDER_TRANSITIONS: Record<string, readonly string[]> = {
+  [TENDER_STATUS.PUBLISHED]: [TENDER_STATUS.CLOSED, TENDER_STATUS.CANCELLED],
+  [TENDER_STATUS.CLOSED]: [TENDER_STATUS.AWARDED, TENDER_STATUS.CANCELLED],
+  [TENDER_STATUS.AWARDED]: [],
+  [TENDER_STATUS.CANCELLED]: [],
+};
+
+/** 响应状态转移表 */
+export const RESPONSE_TRANSITIONS: Record<string, readonly string[]> = {
+  [RESPONSE_STATUS.DRAFT]: [RESPONSE_STATUS.SUBMITTED, RESPONSE_STATUS.WITHDRAWN],
+  [RESPONSE_STATUS.SUBMITTED]: [RESPONSE_STATUS.WITHDRAWN, RESPONSE_STATUS.DISQUALIFIED, RESPONSE_STATUS.EVALUATED],
+  [RESPONSE_STATUS.WITHDRAWN]: [RESPONSE_STATUS.SUBMITTED],
+  [RESPONSE_STATUS.DISQUALIFIED]: [],
+  [RESPONSE_STATUS.EVALUATED]: [],
+};
+
+/** 截止后未定标的宽限天数：到期仍未定标 → 项目 closed/expired 并撤投影 */
+export const AWARD_GRACE_DAYS = 30;
+
+/** 回执编号前缀：OSRP-{年}-{6位id} */
+export const RESPONSE_RECEIPT_PREFIX = "OSRP";
 
 // ── 编号规则 ─────────────────────────────────────────────────────────────────
 
