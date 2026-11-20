@@ -66,6 +66,9 @@ export const POST = withRoute<Ctx>(async (req: NextRequest, { params }) => {
       case "response_invalid":
         routeError(409, EC_RFQ_RESPONSE_NOT_FOUND, "响应状态不允许定标");
         break;
+      case "use_shortlist":
+        routeError(409, EC_RFQ_STATE_INVALID, "意向征集（EOI）不授标：请改用短名单接口形成入围名单");
+        break;
       default:
         routeError(409, EC_RFQ_STATE_INVALID, "当前状态不允许定标");
     }

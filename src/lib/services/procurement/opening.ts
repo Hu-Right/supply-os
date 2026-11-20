@@ -25,6 +25,7 @@ import { pushNotificationSafe } from "@/lib/services/notifications";
 
 interface DueTenderRow extends RowDataPacket {
   project_id: number;
+  method: string;
   notice_pk: number | null;
   tender_id: number;
   version_no: number;
@@ -65,7 +66,7 @@ async function notifyBuyer(
  */
 export async function openDueTenders(db: Pool, at = Math.floor(Date.now() / 1000)): Promise<number> {
   const [rows] = await db.query(
-    `SELECT p.id AS project_id, p.notice_pk, t.id AS tender_id, t.version_no, t.deadline_at
+    `SELECT p.id AS project_id, p.method, p.notice_pk, t.id AS tender_id, t.version_no, t.deadline_at
        FROM procurement_projects p
        JOIN procurement_tenders t ON t.id = (
          SELECT MAX(t2.id) FROM procurement_tenders t2 WHERE t2.project_id = p.id
@@ -81,9 +82,12 @@ export async function openDueTenders(db: Pool, at = Math.floor(Date.now() / 1000
   );
   let opened = 0;
   for (const row of rows as DueTenderRow[]) {
+    // EOI 意向征集无「开标」语义：到期即收口（opened_ts 保持 NULL，表示无开封动作）；
+    // RFQ/ITB/RFP 密封方式到期 = 收标 + 开封（设计稿 §7.3 时序）
+    const isEoi = String(row.method ?? "") === "eoi";
     const [upd] = await db.query(
       "UPDATE procurement_tenders SET status = ?, opened_ts = ? WHERE id = ? AND status = ?",
-      [TENDER_STATUS.CLOSED, at, row.tender_id, TENDER_STATUS.PUBLISHED],
+      [TENDER_STATUS.CLOSED, isEoi ? null : at, row.tender_id, TENDER_STATUS.PUBLISHED],
     );
     if (Number((upd as { affectedRows?: number }).affectedRows ?? 0) === 0) continue;
 
@@ -102,14 +106,25 @@ export async function openDueTenders(db: Pool, at = Math.floor(Date.now() / 1000
     await db.query(
       `INSERT INTO procurement_events
          (project_id, version_no, tender_id, actor_type, kind, payload, created_ts)
-       VALUES (?, ?, ?, 'system', 'opened', ?, ?)`,
-      [row.project_id, row.version_no, row.tender_id, JSON.stringify({ responseCount }), at],
+       VALUES (?, ?, ?, 'system', ?, ?, ?)`,
+      [
+        row.project_id,
+        row.version_no,
+        row.tender_id,
+        isEoi ? "eoi_closed" : "opened",
+        JSON.stringify({ responseCount }),
+        at,
+      ],
     );
 
     await notifyBuyer(db, Number(row.project_id), {
-      type: "procurement.opened",
-      payload: { tenderId: Number(row.tender_id), responseCount },
-      dedupeKey: `procurement.opened:${row.project_id}:v${row.version_no}`,
+      type: isEoi ? "procurement.eoi_closed" : "procurement.opened",
+      payload: {
+        tenderId: Number(row.tender_id),
+        responseCount,
+        ...(isEoi ? { nextAction: "shortlist" } : {}),
+      },
+      dedupeKey: `${isEoi ? "procurement.eoi_closed" : "procurement.opened"}:${row.project_id}:v${row.version_no}`,
     });
     opened++;
   }
@@ -117,7 +132,8 @@ export async function openDueTenders(db: Pool, at = Math.floor(Date.now() / 1000
 }
 
 /**
- * 开标后超期未定标 → 项目结案（默认 30 天）。
+ * 出结果超期未定标 → 项目结案（默认 30 天）。
+ * 时钟口径：密封方式用 opened_ts（开标时刻）；EOI 无开封动作，回退 deadline_at（收口时刻）。
  * @returns 本轮结案的项目数
  */
 export async function expireUnawardedTenders(
@@ -127,19 +143,21 @@ export async function expireUnawardedTenders(
 ): Promise<number> {
   const cutoff = at - Math.max(1, graceDays) * 86_400;
   const [rows] = await db.query(
-    `SELECT p.id AS project_id, p.notice_pk, t.id AS tender_id, t.version_no, t.opened_ts
+    `SELECT p.id AS project_id, p.method, p.notice_pk, t.id AS tender_id, t.version_no,
+            COALESCE(t.opened_ts, t.deadline_at) AS deadline_at
        FROM procurement_projects p
        JOIN procurement_tenders t ON t.id = (
          SELECT MAX(t2.id) FROM procurement_tenders t2 WHERE t2.project_id = p.id
        )
       WHERE p.status = 'published'
         AND t.status = ?
-        AND t.opened_ts IS NOT NULL
-        AND t.opened_ts <= ?
+        AND COALESCE(t.opened_ts, t.deadline_at) IS NOT NULL
+        AND COALESCE(t.opened_ts, t.deadline_at) > 0
+        AND COALESCE(t.opened_ts, t.deadline_at) <= ?
         AND NOT EXISTS (
-          SELECT 1 FROM procurement_awards a WHERE a.project_id = p.id AND a.kind = 'award'
+          SELECT 1 FROM procurement_awards a WHERE a.project_id = p.id AND a.kind IN ('award', 'shortlist')
         )
-      ORDER BY t.opened_ts
+      ORDER BY deadline_at
       LIMIT 200`,
     [TENDER_STATUS.CLOSED, cutoff],
   );

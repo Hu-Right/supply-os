@@ -11,13 +11,20 @@
  */
 import { createHash } from "node:crypto";
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { PROJECT_STATUS, PROJECT_CLOSE_REASON } from "@/shared/constants/procurement";
+import {
+  PROJECT_STATUS,
+  PROJECT_CLOSE_REASON,
+  PROCUREMENT_METHOD_AVAILABLE,
+} from "@/shared/constants/procurement";
 import { transitionProjectWithin, type TxLike } from "./lifecycle";
 import { buildPublicDescription, removeProjection, upsertProjection } from "./projection";
 import type { ProjectRow } from "./projects";
 import { isAuthorizationVerified } from "./authorization";
 import { isBuyerPublishable } from "./buyers";
 import { formatTenderNo } from "./reference";
+import { applyMethodCorrection } from "./method-decision";
+import { consumeConfigForPublish } from "./tender-config";
+import { noticeTypeForMethod } from "./projection";
 import { deleteNoticeDocuments } from "@/lib/services/meilisearch/client";
 import { pushNotificationSafe } from "@/lib/services/notifications";
 
@@ -58,7 +65,8 @@ export type PublishBlocker =
   | "authorize_publish"
   | "deadline"
   | "auto_review"
-  | "override_reason";
+  | "override_reason"
+  | "method_not_available";
 
 export interface ReviewDecisionInput {
   projectId: number;
@@ -72,6 +80,15 @@ export interface ReviewDecisionInput {
   /** 推翻自动初审否决结论（need_info/risk）时置 true，并给出 ≥10 字说明 */
   overrideAutoReview?: boolean;
   overrideReason?: string | null;
+  /**
+   * 方式复核（F06 feasibility 阶段，设计稿 §4.4）：核验员可在发布前修正采购方式。
+   * correctedMethod 与项目当前方式不同且 ∈ 开放集时，同事务改写 method 并落判定留痕。
+   */
+  feasibility?: {
+    result?: string | null;
+    correctedMethod?: string | null;
+    reviewer?: string | null;
+  };
   at?: number;
 }
 
@@ -98,6 +115,7 @@ interface ProjectLockRow extends RowDataPacket {
   buyer_id: number;
   version_no: number;
   status: string;
+  method: string;
   title_zh: string;
   title_en: string | null;
   background: string | null;
@@ -190,6 +208,26 @@ export async function applyReviewDecision(
     }
 
     const approved = input.decision === "approved";
+
+    // 方式复核（F06 feasibility，设计稿 §4.4）：发布前修正采购方式，同事务改写 + 判定留痕。
+    // 修正值非法（不在开放集）时按无效载荷忽略，方式闸（checkPublishGates ⑥）兜底拦截。
+    let method = String(row.method ?? "rfq");
+    const correctedMethod = String(input.feasibility?.correctedMethod ?? "").trim().toLowerCase();
+    if (approved && correctedMethod && correctedMethod !== method) {
+      const applied = await applyMethodCorrection(
+        conn,
+        input.projectId,
+        input.version,
+        correctedMethod,
+        String(input.feasibility?.reviewer ?? input.reviewerRef ?? "review-backstage"),
+        at,
+      );
+      if (applied) {
+        method = correctedMethod;
+        row.method = correctedMethod;
+      }
+    }
+
     const target = approved ? PROJECT_STATUS.PUBLISHED : PROJECT_STATUS.NEED_INFO;
 
     // 退回必须给足理由（采购方要知道补什么）
@@ -307,11 +345,30 @@ export async function applyReviewDecision(
       if (noticePk && noticePk !== Number(row.notice_pk ?? 0)) {
         await conn.execute("UPDATE procurement_projects SET notice_pk = ? WHERE id = ?", [noticePk, input.projectId]);
       }
-      // 守护登记（与投影同事务）：登记表是「平台行预期归属」的可靠真相
+      // 守护登记（与投影同事务）：登记表是「平台行预期归属 + 预期类型码」的可靠真相
+      // （platform_notice_guard 平替 rfq_guard：类型码按方式映射，对账不再硬编码 RFQ）
       await conn.query(
-        `INSERT INTO rfq_guard (rfq_id, reference, user_id) VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE reference = VALUES(reference), user_id = VALUES(user_id)`,
-        [noticePk, String(row.reference), buyer?.user_id ?? null],
+        `INSERT INTO platform_notice_guard (notice_id, reference, user_id, expected_notice_type)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE reference = VALUES(reference), user_id = VALUES(user_id),
+           expected_notice_type = VALUES(expected_notice_type)`,
+        [noticePk, String(row.reference), buyer?.user_id ?? null, noticeTypeForMethod(method)],
+      );
+
+      // 提交确认人（全案 F15 采购方内容审批 v1 = 提交即确认，发布时落留痕）
+      const [revRows] = await conn.query(
+        "SELECT confirmed_by FROM procurement_revisions WHERE project_id = ? AND version_no = ? LIMIT 1",
+        [input.projectId, input.version],
+      );
+      const confirmedBy = (revRows as Array<{ confirmed_by: number | null }>)[0]?.confirmed_by ?? null;
+      // 采购规则消费（§4.5）：按方式派生生效配置 —— rfq 无覆盖时逐字段等于 P0 硬编码值（行为零变化）
+      const publishConfig = await consumeConfigForPublish(
+        conn as unknown as Pool,
+        input.projectId,
+        input.version,
+        method,
+        confirmedBy == null ? null : Number(confirmedBy),
+        at,
       );
 
       // tender 记录：正式发布编号（PENDING 占位 → OSPT-{年}-{id} 回填）
@@ -323,10 +380,9 @@ export async function applyReviewDecision(
         [
           input.projectId,
           input.version,
-          "public",
-          // P0 只有 RFQ：固定密封 + 合格最低价；ITB/RFP 在 P1 由方式决定
-          1,
-          "lowest_price",
+          publishConfig.publishMode,
+          publishConfig.sealed ? 1 : 0,
+          publishConfig.awardMethod,
           at,
           row.quote_deadline_at,
           at,
@@ -399,6 +455,8 @@ function checkPublishGates(
     if (!input.overrideAutoReview) return "auto_review";
     if (String(input.overrideReason ?? "").trim().length < 10) return "override_reason";
   }
+  // ⑥ 方式闸：待发布方式必须在当前开放集内（未开放方式不可发布，投影层同样设防）
+  if (!PROCUREMENT_METHOD_AVAILABLE.includes(String(row.method ?? ""))) return "method_not_available";
   return null;
 }
 

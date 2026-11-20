@@ -109,6 +109,8 @@
   "errRfqSealed": "تبقى العروض مغلقة حتى الجلسة",
   "errRfqNotOpened": "لم يتم الفتح بعد",
   "errRfqAwardExists": "تمت الترسية على هذا المشروع بالفعل",
+  "errRfqTenderConfigInvalid": "إعدادات المناقصة غير مكتملة أو غير صالحة، يُرجى المراجعة والمحاولة مجدداً",
+  "errRfqShortlistFinalized": "تم إعداد القائمة المختصرة لهذه الدعوة بالفعل",
   "errInvalidParams": "معلمات الطلب غير صالحة",
   "errClaimAlreadyApproved": "تم التحقق بالفعل، لا حاجة لإعادة الإرسال",
   "errPaymentIndustryRequired": "يتطلب شراء العضوية اختيار فئة الصناعة",

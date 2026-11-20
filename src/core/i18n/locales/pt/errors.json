@@ -109,6 +109,8 @@
   "errRfqSealed": "As propostas ficam seladas até a abertura",
   "errRfqNotOpened": "Ainda não foi aberto",
   "errRfqAwardExists": "Este projeto já foi adjudicado",
+  "errRfqTenderConfigInvalid": "A configuração da concorrência está incompleta ou inválida; revise e tente novamente",
+  "errRfqShortlistFinalized": "Uma lista curta já foi fechada para esta consulta",
   "errInvalidParams": "Parâmetros de solicitação inválidos",
   "errClaimAlreadyApproved": "Já verificado, não é necessário reenviar",
   "errPaymentIndustryRequired": "É necessário selecionar uma indústria para comprar a assinatura",

@@ -81,6 +81,7 @@ const PROJECT = {
   notice_pk: null,
   contact_disclosure: "org_only",
   authorize_publish: 1,
+  method: "rfq",
 };
 
 function handlers(over: {
@@ -106,7 +107,7 @@ function handlers(over: {
     "SELECT org_name, user_id FROM procurement_buyers": () => [[{ org_name: "西安某新能源有限公司", user_id: 42 }]],
     "FROM procurement_items WHERE project_id": () => [[{ name_zh: "组件", spec: "540W", quantity: "1000", qty_unit: "块" }]],
     "INSERT INTO bid_notices": () => [{ insertId: 9001 }],
-    "INSERT INTO rfq_guard": () => [{ affectedRows: 1 }],
+    "INSERT INTO platform_notice_guard": () => [{ affectedRows: 1 }],
     "INSERT INTO procurement_tenders": () => [{ insertId: 3 }],
     "UPDATE procurement_tenders SET tender_no": () => [{ affectedRows: 1 }],
     "AND callback_id = ?": () => [over.dup ?? []],

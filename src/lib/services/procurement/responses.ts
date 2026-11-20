@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import {
   PROCUREMENT_METHOD,
+  PROCUREMENT_METHOD_AVAILABLE,
   RESPONSE_STATUS,
   RESPONSE_TRANSITIONS,
   TENDER_STATUS,
@@ -112,7 +113,8 @@ export type ResponseResult<T> =
         | "tender_not_open"
         | "closed"
         | "state_invalid"
-        | "no_items";
+        | "no_items"
+        | "eoi_content_required";
     };
 
 /** users.supplier_id + supplier_link_status='verified' → supplier.id */
@@ -255,7 +257,9 @@ export async function createOrGetDraft(
   const project = (pRows as Array<{ id: number; status: string; method: string; version_no: number }>)[0];
   if (!project) return { ok: false, reason: "not_found" };
   if (project.status !== "published") return { ok: false, reason: "project_not_published" };
-  if (String(project.method) !== PROCUREMENT_METHOD.RFQ) return { ok: false, reason: "state_invalid" };
+  // 方式开放闸：仅当前开放方式可响应（P1a = rfq/eoi）；EOI 意向征集无报价行（§7.1 管线矩阵）
+  const method = String(project.method ?? "");
+  if (!PROCUREMENT_METHOD_AVAILABLE.includes(method)) return { ok: false, reason: "state_invalid" };
 
   const supplierId = await resolveSupplierIdForUser(db, input.userId);
   if (!supplierId) return { ok: false, reason: "forbidden" };
@@ -276,7 +280,7 @@ export async function createOrGetDraft(
          (project_id, version_no, tender_id, supplier_id, user_id, method, status,
           currency, sealed_until, created_ts, updated_ts)
        VALUES (?, ?, ?, ?, ?, ?, 'draft', 'CNY', ?, ?, ?)`,
-      [input.projectId, project.version_no, tender.id, supplierId, input.userId, PROCUREMENT_METHOD.RFQ, tender.deadline_at ?? 0, at, at],
+      [input.projectId, project.version_no, tender.id, supplierId, input.userId, method, tender.deadline_at ?? 0, at, at],
     );
     const created = await loadResponseRow(db, Number(ins.insertId));
     if (!created) return { ok: false, reason: "not_found" };
@@ -367,9 +371,11 @@ export async function updateDraft(
       ],
     );
 
-    if (p.items) {
+    if (p.items || String(row.method) === PROCUREMENT_METHOD.EOI) {
+      // EOI 意向响应不携带报价行：无论传不传 items 一律清空（§7.1 管线矩阵）
       await conn.query("DELETE FROM procurement_response_items WHERE response_id = ?", [row.id]);
-      const items = p.items.slice(0, 200);
+      // EOI 意向响应无报价行：items 恒为空（传了也丢弃）
+      const items = String(row.method) === PROCUREMENT_METHOD.EOI ? [] : (p.items?.slice(0, 200) ?? []);
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
         await conn.query(
@@ -466,7 +472,14 @@ export async function submitResponse(
     }
 
     const items = await loadItems(db, row.id);
-    if (items.length === 0 || !items.some((it) => it.unit_price != null && Number(it.unit_price) > 0)) {
+    if (String(row.method) === PROCUREMENT_METHOD.EOI) {
+      // EOI 意向征集：不携带报价行；意向说明或资质文件至少其一（§7.1 管线矩阵）
+      const files = await loadFiles(db, row.id);
+      if (!String(row.remark ?? "").trim() && files.length === 0) {
+        await conn.rollback();
+        return { ok: false, reason: "eoi_content_required" };
+      }
+    } else if (items.length === 0 || !items.some((it) => it.unit_price != null && Number(it.unit_price) > 0)) {
       await conn.rollback();
       return { ok: false, reason: "no_items" };
     }

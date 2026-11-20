@@ -14,7 +14,7 @@ import { syncWideIds } from "../services/search-sync/index";
 import { classifyMissingDeadlines } from "../services/notice-deadline/backfill";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { cleanupOldSearchLogs } from "../services/search-analytics";
-import { reconcileRfqGuard } from "../services/rfq-guard";
+import { reconcilePlatformNoticeGuard } from "../services/rfq-guard";
 import { openDueTenders, expireUnawardedTenders } from "../services/procurement/opening";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { releaseExpiredClaims } from "../services/supplier-claim";
@@ -236,14 +236,14 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     const rfqGuardIntervalMin = Math.max(1, Number(process.env.RFQ_GUARD_INTERVAL_MINUTES || 30));
     const runRfqGuard = async () => {
       try {
-        const { checked, violations } = await reconcileRfqGuard(dbPool);
+        const { checked, violations } = await reconcilePlatformNoticeGuard(dbPool);
         if (violations.length > 0) {
           console.error(
-            `[rfq-guard] ⚠ 检出 ${violations.length}/${checked} 条平台RFQ登记与主表不符（疑似被外部爬虫按主键改写/消失，请核查后台 syncRunner 平台行护栏是否失效）:`,
-            violations.slice(0, 20).map((v) => ({ rfqId: v.rfqId, ref: v.reference, curSource: v.curSource, curType: v.curType })),
+            `[rfq-guard] ⚠ 检出 ${violations.length}/${checked} 条平台公告登记与主表不符（疑似被外部爬虫按主键改写/消失/类型漂移，请核查后台 syncRunner 平台行护栏是否失效）:`,
+            violations.slice(0, 20).map((v) => ({ noticeId: v.noticeId, ref: v.reference, expectType: v.expectedNoticeType, curSource: v.curSource, curType: v.curType })),
           );
         } else if (checked > 0) {
-          console.log(`[rfq-guard] 对账通过：${checked} 条平台RFQ登记均为主表 platform/RFQ`);
+          console.log(`[rfq-guard] 对账通过：${checked} 条平台公告登记均与主表一致`);
         }
       } catch (e) {
         console.error("[rfq-guard] 对账失败（不影响下次扫描）:", (e as Error).message);

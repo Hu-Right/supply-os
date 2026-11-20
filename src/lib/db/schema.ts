@@ -71,6 +71,7 @@ import { migration as noticePublicShareSummaryMigration } from "./migrations/061
 import { migration as ecoPartnerMigration } from "./migrations/062-eco-partner";
 import { migration as procurementRfqLoopMigration } from "./migrations/063-procurement-rfq-loop";
 import { migration as procurementRfqTimestampSuffixMigration } from "./migrations/065-procurement-rfq-timestamp-suffix";
+import { migration as procurementMethodSpineMigration } from "./migrations/066-procurement-method-spine";
 import { migration as supplierDiagnosisGuideEventMigration } from "./migrations/064-supplier-diagnosis-guide-event";
 import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
 import { migration as dropBuyerParentMigration } from "./migrations/043-buyer-drop-parent";
@@ -146,6 +147,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   procurementRfqLoopMigration,
   procurementRfqTimestampSuffixMigration,
   supplierDiagnosisGuideEventMigration,
+  procurementMethodSpineMigration,
 ];
 
 /**

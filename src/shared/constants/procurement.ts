@@ -26,6 +26,7 @@ export const PROJECT_CLOSE_REASON = {
   WITHDRAWN: "withdrawn", // 采购方撤回（授权书第五条：书面要求停止发布）
   EXPIRED: "expired", // 截标/交期过期
   AWARDED: "awarded", // 已定标结案（P0 新增）
+  SHORTLISTED: "shortlisted", // EOI 已形成短名单结案（P1a 新增；后续按 prequalified 另起正式采购）
 } as const;
 
 /** 可发布状态：核验与授权闸口的判定基准 */
@@ -133,10 +134,40 @@ export type ProcurementMethod = (typeof PROCUREMENT_METHOD)[keyof typeof PROCURE
 
 /**
  * 当前开放可用的采购方式（发布向导选择器 + 服务端写入校验的唯一口径）。
- * P0 仅 RFQ；P1 逐步放开时只改本集合（ITB 需配套投标文件包 F14 与评审打分表，
- * RFP 需综合评分 award_method，EOI/LTA 需各自的响应/授标形态）。
+ * P1a 起放开 EOI（意向征集：无报价、出短名单）；ITB/RFP 随 P1b/P1c 拨动
+ * （ITB 需配套投标文件包 F14 与评审打分表，RFP 需综合评分 award_method）；
+ * LTA 为合同模式，P2 随 F19 立项。
  */
-export const PROCUREMENT_METHOD_AVAILABLE: readonly string[] = [PROCUREMENT_METHOD.RFQ];
+export const PROCUREMENT_METHOD_AVAILABLE: readonly string[] = [
+  PROCUREMENT_METHOD.RFQ,
+  PROCUREMENT_METHOD.EOI,
+];
+
+// ── 评标法 / 信封 / 密封（发布配置化：按方式生成，rfq 缺省 = P0 硬编码值）───────
+
+/** 评标法（procurement_tenders.award_method 值域；P0 仅 lowest_price，P1a 增 eligibility_filter） */
+export const AWARD_METHOD = {
+  LOWEST_PRICE: "lowest_price", // 合格最低价（RFQ）
+  LOWEST_EVALUATED: "lowest_evaluated", // 最低评审价（ITB，含价格修正，P1c）
+  COMPREHENSIVE: "comprehensive", // 综合评分（RFP，70/30 模板，P1b）
+  ELIGIBILITY_FILTER: "eligibility_filter", // 资格与能力筛选（EOI，不比价）
+} as const;
+
+/** 方式 → 缺省评标法（发布配置推导的唯一口径；LTA 取底层方式的映射） */
+export const AWARD_METHOD_BY_METHOD: Record<string, string> = {
+  [PROCUREMENT_METHOD.RFQ]: AWARD_METHOD.LOWEST_PRICE,
+  [PROCUREMENT_METHOD.ITB]: AWARD_METHOD.LOWEST_EVALUATED,
+  [PROCUREMENT_METHOD.RFP]: AWARD_METHOD.COMPREHENSIVE,
+  [PROCUREMENT_METHOD.EOI]: AWARD_METHOD.ELIGIBILITY_FILTER,
+};
+
+/** 方式 → 是否密封报价（EOI 意向征集不密封：提交即采购方可见份数与内容） */
+export const SEALED_BY_METHOD: Record<string, boolean> = {
+  [PROCUREMENT_METHOD.RFQ]: true,
+  [PROCUREMENT_METHOD.ITB]: true,
+  [PROCUREMENT_METHOD.RFP]: true,
+  [PROCUREMENT_METHOD.EOI]: false,
+};
 
 /** 标讯状态。列宽 16，禁止超长取值 */
 export const TENDER_STATUS = {
@@ -155,9 +186,10 @@ export const RESPONSE_STATUS = {
   EVALUATED: "evaluated", // 已评审（中标或已参与评审）
 } as const;
 
-/** 定标结果类型：P0 仅 award；shortlist/lta_holder 留给 EOI/LTA */
+/** 定标结果类型：P0/P1a 放开 award + shortlist；lta_holder 留给 P2 LTA */
 export const AWARD_KIND = {
   AWARD: "award",
+  SHORTLIST: "shortlist", // EOI 短名单（多行，一行一响应）
 } as const;
 
 /** 标讯状态转移表（服务层唯一写点校验） */

@@ -15,6 +15,7 @@ import { transitionProjectWithin, type TxLike } from "./lifecycle";
 import { isBuyerPublishable } from "./buyers";
 import { serializeCertRequirements } from "@/shared/constants/procurement-cert-requirements";
 import { serializeGuarantees } from "@/shared/constants/guarantees";
+import { carryMethodDecisionToVersion } from "./method-decision";
 
 export interface ProjectRow extends RowDataPacket {
   id: number;
@@ -402,6 +403,16 @@ export async function submitProject(
     await conn.query(
       "UPDATE procurement_attachments SET version_no = ? WHERE project_id = ? AND version_no = 0",
       [versionNo, input.projectId],
+    );
+
+    // 方式判定随版本前滚（F08）：draft 期的判定/推荐复制到新版本；无记录合成 passthrough
+    await carryMethodDecisionToVersion(
+      conn,
+      input.projectId,
+      versionNo,
+      String(row.method ?? "rfq"),
+      input.confirmedBy ?? null,
+      at,
     );
 
     // 主品类快照：第一条明细的 UGT 码

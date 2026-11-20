@@ -30,8 +30,8 @@ describe("normalizeProjectFields 采购方式（method）", () => {
     expect(PROCUREMENT_METHOD_AVAILABLE).toContain(normalizeProjectFields({ method: "rfq" }).method);
   });
 
-  it("P0 可用集仅含 rfq（方式选择器与服务端校验的唯一口径）", () => {
-    expect(PROCUREMENT_METHOD_AVAILABLE).toEqual([PROCUREMENT_METHOD.RFQ]);
+  it("P1a 可用集 = rfq + eoi（方式选择器与服务端校验的唯一口径）", () => {
+    expect(PROCUREMENT_METHOD_AVAILABLE).toEqual([PROCUREMENT_METHOD.RFQ, PROCUREMENT_METHOD.EOI]);
   });
 });
 

@@ -51,6 +51,9 @@ export const POST = withRoute<Ctx>(async (req: NextRequest, { params }) => {
       case "no_items":
         routeError(400, EC_INVALID_PARAMS, "至少需要一条含单价的报价明细");
         break;
+      case "eoi_content_required":
+        routeError(400, EC_INVALID_PARAMS, "意向征集响应需至少填写意向说明或上传一份资质文件");
+        break;
       default:
         routeError(409, EC_RFQ_STATE_INVALID, "当前状态不允许提交");
     }

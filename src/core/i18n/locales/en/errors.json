@@ -109,6 +109,8 @@
   "errRfqSealed": "Bids stay sealed until the opening",
   "errRfqNotOpened": "Not opened yet; comparison and award are unavailable",
   "errRfqAwardExists": "This project has already been awarded",
+  "errRfqTenderConfigInvalid": "Tender configuration is incomplete or invalid; please review and retry",
+  "errRfqShortlistFinalized": "A shortlist has already been finalized for this solicitation",
   "errInvalidParams": "Invalid request parameters",
   "errClaimAlreadyApproved": "Already verified; no need to resubmit",
   "errPaymentIndustryRequired": "An industry category is required for membership purchase",

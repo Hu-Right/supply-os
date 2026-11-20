@@ -46,11 +46,16 @@ import {
   incotermsForVersion,
   migrateIncoterm,
 } from "@/shared/constants/incoterms";
-import { PROCUREMENT_METHOD_AVAILABLE } from "@/shared/constants/procurement";
 import {
-  recommendProcurementMethod,
+  AWARD_METHOD_BY_METHOD,
+  PROCUREMENT_METHOD_AVAILABLE,
+  SEALED_BY_METHOD,
+} from "@/shared/constants/procurement";
+import {
+  recommendMethodV2,
   type MethodAdvisorCycle,
   type MethodAdvisorEvalMode,
+  type MethodSpecClarity,
 } from "@/shared/utils/procurement-method";
 import {
   createProject,
@@ -202,9 +207,18 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
   const [reloadKey, setReloadKey] = useState(0);
   const [importMsg, setImportMsg] = useState("");
   const [importing, setImporting] = useState(false);
-  /** 三问引导（Q2 评定标口径 / Q3 供货周期）——仅用于前端推荐，不落库；Q1 复用 objectTypes */
+  /** 三问引导（Q2 评定标口径 / Q3 供货周期）——随自动保存落 method_decisions；Q1 复用 objectTypes */
   const [advisorEval, setAdvisorEval] = useState<MethodAdvisorEvalMode>("lowest");
   const [advisorCycle, setAdvisorCycle] = useState<MethodAdvisorCycle>("once");
+  /** 七维高级判定（可折叠；P1a 暴露规格明确性/先征集/强制程序三维，其余由派生与预算字段承载） */
+  const [advisorAdvanced, setAdvisorAdvanced] = useState(false);
+  const [advisorSpec, setAdvisorSpec] = useState<MethodSpecClarity>("clear");
+  const [advisorPre, setAdvisorPre] = useState(false);
+  const [advisorRule, setAdvisorRule] = useState("");
+  /** 偏离系统推荐方式时的理由（method_decisions.buyer_note） */
+  const [decisionNote, setDecisionNote] = useState("");
+  /** 采购规则：发布模式（prequalified 属短名单后续项目，向导不直选） */
+  const [publishMode, setPublishMode] = useState("public");
 
   const projectIdRef = useRef<number | null>(props.editId ?? null);
   const hydratedRef = useRef(!props.editId);
@@ -331,10 +345,33 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     [form.categoryL1, form.categoryL2, form.categoryL3],
   );
 
-  /** 三问 → 推荐方式（用户可改；推荐未开放方式时仅提示，不自动采用） */
-  const recommendedMethod = useMemo(
-    () => recommendProcurementMethod(form.objectTypes, advisorEval, advisorCycle),
-    [form.objectTypes, advisorEval, advisorCycle],
+  /** 七维判定 → 推荐（随填报动态重算；用户可改，偏离须留理由） */
+  const recommendation = useMemo(
+    () =>
+      recommendMethodV2({
+        objectTypes: form.objectTypes,
+        specClarity: advisorSpec,
+        solutionComparison: advisorEval === "scored",
+        recurring: advisorCycle === "recurring",
+        preSourcing: advisorEval === "intent" || advisorPre,
+        budgetKnown: form.budgetAmount.trim() !== "",
+        mandatoryRuleMethod: advisorRule.trim() || null,
+      }),
+    [form.objectTypes, form.budgetAmount, advisorSpec, advisorEval, advisorCycle, advisorPre, advisorRule],
+  );
+  const recommendedMethod = recommendation.method;
+  /** 判定输入快照（自动保存时随存随落 method_decisions） */
+  const advisorInputs = useMemo(
+    () => ({
+      objectTypes: form.objectTypes,
+      specClarity: advisorSpec,
+      solutionComparison: advisorEval === "scored",
+      recurring: advisorCycle === "recurring",
+      preSourcing: advisorEval === "intent" || advisorPre,
+      budgetKnown: form.budgetAmount.trim() !== "",
+      mandatoryRuleMethod: advisorRule.trim() || null,
+    }),
+    [form.objectTypes, form.budgetAmount, advisorSpec, advisorEval, advisorCycle, advisorPre, advisorRule],
   );
 
   const countrySelectOptions = useMemo(
@@ -385,6 +422,20 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
   /** 主表 + 明细落库（不含附件；附件只在显式保存/提交时上传） */
   const persist = useCallback(async (pid: number) => {
     await patchProject(pid, buildPatch());
+    // 方式判定与采购规则随存随落（fire-and-forget：失败不阻断草稿保存，
+    // 提交时会合成 passthrough 判定兜底；偏离推荐未填理由时判定暂缓、UI 有提示）
+    void api(`/api/procurement/projects/${pid}/method-decision`, {
+      method: "POST",
+      body: {
+        buyerMethod: form.method,
+        buyerNote: form.method !== recommendedMethod ? decisionNote.trim() || null : null,
+        inputs: advisorInputs,
+      },
+    }).catch(() => undefined);
+    void api(`/api/procurement/projects/${pid}/tender-config`, {
+      method: "PUT",
+      body: { publishMode },
+    }).catch(() => undefined);
     const filled = items.filter((it) => it.nameZh.trim());
     const lotNos = [...new Set(filled.map((it) => it.lotNo.trim()).filter(Boolean))];
     await replaceItems(
@@ -400,7 +451,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
         alternativesAllowed: it.alternativesAllowed,
       })),
     );
-  }, [buildPatch, items, derivedUgt]);
+  }, [buildPatch, items, derivedUgt, form.method, recommendedMethod, decisionNote, advisorInputs, publishMode]);
 
   /**
    * 把"新建草稿的 id"写进 URL（/rfq/{id}/publish），让刷新 / 换设备能续填。
@@ -668,8 +719,8 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
               ))}
             </div>
           </div>
-          {/* 采购方式：三问引导（Q1 标的形态复用上方「采购标的」）+ 方式选择器。
-              区分口径不要求采购方背术语——按「买什么/怎么评/什么阶段」推荐，用户可改。 */}
+          {/* 采购方式：判定引导（Q1 标的形态复用上方「采购标的」）+ 方式选择器 + 采购规则。
+              区分口径不要求采购方背术语——按七维判定推荐（F08），用户可改、偏离须留理由。 */}
           <div className={labelCls}>
             <span className="flex items-center gap-1.5">
               {t("pc_method")}
@@ -691,11 +742,44 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                     {t(`pc_advisor_cycle_${c}`)}
                   </button>
                 ))}
+                <button type="button" onClick={() => setAdvisorAdvanced(!advisorAdvanced)}
+                  className="ml-auto rounded-lg px-2 py-1 text-xs font-semibold text-secondary-500 underline decoration-dotted">
+                  {t("pc_advisor_toggle")}
+                </button>
               </div>
+              {advisorAdvanced && (
+                <div className="grid gap-2 rounded-lg border border-secondary-200 bg-white p-2.5 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-secondary-600">{t("pc_advisor_spec")}</span>
+                    {(["clear", "partial", "unclear"] as const).map((s) => (
+                      <button key={s} type="button" onClick={() => setAdvisorSpec(s)}
+                        className={`rounded-lg border px-2.5 py-1 font-semibold ${advisorSpec === s ? "border-teal-600 bg-teal-50 text-teal-700" : "border-secondary-300 text-secondary-600"}`}>
+                        {t(`pc_advisor_spec_${s}`)}
+                      </button>
+                    ))}
+                    <span className="ml-2 font-semibold text-secondary-600">{t("pc_advisor_pre")}</span>
+                    {(["no", "yes"] as const).map((v) => (
+                      <button key={v} type="button" onClick={() => setAdvisorPre(v === "yes")}
+                        className={`rounded-lg border px-2.5 py-1 font-semibold ${advisorPre === (v === "yes") ? "border-teal-600 bg-teal-50 text-teal-700" : "border-secondary-300 text-secondary-600"}`}>
+                        {v === "yes" ? t("pc_yes") : t("pc_no")}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-secondary-600">{t("pc_advisor_rule")}</span>
+                    <input value={advisorRule} onChange={(e) => setAdvisorRule(e.target.value)}
+                      placeholder={t("pc_advisor_rule_ph")}
+                      className="min-w-[200px] flex-1 rounded-lg border border-secondary-300 px-2.5 py-1" />
+                  </label>
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full bg-teal-50 px-2.5 py-1 font-semibold text-teal-700">
                   {t("pc_method_recommended")}：{t(`pc_method_${recommendedMethod}`)}
                 </span>
+                {recommendation.reasonKeys.slice(0, 2).map((k) => (
+                  <span key={k} className="text-secondary-500">{t(k)}</span>
+                ))}
                 {recommendedMethod !== form.method && (
                   PROCUREMENT_METHOD_AVAILABLE.includes(recommendedMethod) ? (
                     <button type="button" onClick={() => field("method", recommendedMethod)}
@@ -707,6 +791,20 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                   )
                 )}
               </div>
+              {recommendation.missingKeys.length > 0 && (
+                <div className="text-xs text-amber-700">
+                  {t("pc_method_missing_prefix")}
+                  {recommendation.missingKeys.map((k) => t(k)).join("；")}
+                </div>
+              )}
+              {PROCUREMENT_METHOD_AVAILABLE.includes(form.method) && form.method !== recommendedMethod && (
+                <label className="grid gap-1 text-xs">
+                  <span className="font-semibold text-secondary-600">{t("pc_advisor_note")}</span>
+                  <input value={decisionNote} onChange={(e) => setDecisionNote(e.target.value)}
+                    placeholder={t("pc_advisor_note_ph")}
+                    className="rounded-lg border border-secondary-300 px-2.5 py-1.5" />
+                </label>
+              )}
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {METHOD_OPTIONS.map((m) => {
@@ -719,6 +817,27 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                   </button>
                 );
               })}
+            </div>
+            {/* 采购规则确认区（§4.5）：发布模式可选；密封/评标法按方式派生只读展示。
+                发布时消费该配置并冻结，rfq 无覆盖 = P0 行为。 */}
+            <div className="mt-2 grid gap-2 rounded-xl border border-secondary-200 bg-secondary-50/60 p-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-secondary-600">{t("pc_rules")}</span>
+                <FieldHintTooltip label={t("pc_rules")} content={t("pc_rules_hint")} />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-secondary-600">{t("pc_rule_publish_mode")}</span>
+                {(["public", "targeted"] as const).map((p) => (
+                  <button key={p} type="button" onClick={() => setPublishMode(p)}
+                    className={`rounded-lg border px-2.5 py-1 font-semibold ${publishMode === p ? "border-teal-600 bg-teal-50 text-teal-700" : "border-secondary-300 text-secondary-600"}`}>
+                    {t(`pc_publish_${p}`)}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-secondary-500">
+                <span>{t("pc_rule_sealed")}：{SEALED_BY_METHOD[form.method] === false ? t("pc_no") : t("pc_yes")}</span>
+                <span>{t("pc_rule_award")}：{t(`pc_award_${AWARD_METHOD_BY_METHOD[form.method] ?? "lowest_price"}`)}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -937,7 +1056,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
               />
             </label>
             <label className={labelCls}>
-              {t("pc_quoteDeadline")} *
+              {form.method === "eoi" ? t("pc_deadline_eoi") : t("pc_quoteDeadline")} *
               <input type="date" value={form.quoteDeadlineDate} onChange={(e) => field("quoteDeadlineDate", e.target.value)} className={inputCls} />
             </label>
           </div>

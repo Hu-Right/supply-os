@@ -109,6 +109,8 @@
   "errRfqSealed": "Las ofertas permanecen selladas hasta la apertura",
   "errRfqNotOpened": "Aún no se ha abierto",
   "errRfqAwardExists": "Este proyecto ya fue adjudicado",
+  "errRfqTenderConfigInvalid": "La configuración de licitación está incompleta o no es válida; revísela e inténtelo de nuevo",
+  "errRfqShortlistFinalized": "Ya se ha finalizado la lista corta de esta convocatoria",
   "errInvalidParams": "Parámetros de solicitud no válidos",
   "errClaimAlreadyApproved": "Ya verificado, no es necesario volver a enviar",
   "errPaymentIndustryRequired": "Se requiere una categoría de industria para comprar la membresía",

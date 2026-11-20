@@ -109,6 +109,8 @@
   "errRfqSealed": "Заявки запечатаны до вскрытия",
   "errRfqNotOpened": "Вскрытие ещё не проведено",
   "errRfqAwardExists": "По этому проекту уже определён победитель",
+  "errRfqTenderConfigInvalid": "Конфигурация тендера неполна или недопустима; проверьте и повторите",
+  "errRfqShortlistFinalized": "Шорт-лист по этому приглашению уже сформирован",
   "errInvalidParams": "Недопустимые параметры запроса",
   "errClaimAlreadyApproved": "Уже проверено, повторная отправка не требуется",
   "errPaymentIndustryRequired": "Для покупки членства требуется выбор отрасли",

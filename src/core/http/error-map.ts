@@ -65,6 +65,7 @@ import {
   EC_RFQ_AUTHORIZATION_REQUIRED,
   EC_RFQ_PUBLISH_BLOCKED,
   EC_RFQ_RESPONSE_NOT_FOUND, EC_RFQ_RESPONSE_CLOSED, EC_RFQ_SEALED, EC_RFQ_NOT_OPENED, EC_RFQ_AWARD_EXISTS,
+  EC_RFQ_TENDER_CONFIG_INVALID, EC_RFQ_SHORTLIST_FINALIZED,
 } from "@/shared/constants/api";
 
 /** 注入式翻译函数（与 useLocale 的 t 对齐；params 预留插值） */
@@ -218,6 +219,8 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_RFQ_SEALED]: { kind: "business", key: "errRfqSealed" },
   [EC_RFQ_NOT_OPENED]: { kind: "business", key: "errRfqNotOpened" },
   [EC_RFQ_AWARD_EXISTS]: { kind: "business", key: "errRfqAwardExists" },
+  [EC_RFQ_TENDER_CONFIG_INVALID]: { kind: "business", key: "errRfqTenderConfigInvalid" },
+  [EC_RFQ_SHORTLIST_FINALIZED]: { kind: "business", key: "errRfqShortlistFinalized" },
 };
 
 /** 稳定 type → 分类 + i18n 键（ADR-0021 主判据，由 catalog 派生；deprecated 码不进表） */

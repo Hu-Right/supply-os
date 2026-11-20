@@ -109,6 +109,8 @@
   "errRfqSealed": "报价尚未开标，密封期内不可查看",
   "errRfqNotOpened": "尚未开标，暂不能比价或定标",
   "errRfqAwardExists": "该项目已定标，不能重复定标",
+  "errRfqTenderConfigInvalid": "采购规则配置不完整或不合法，请检查后重试",
+  "errRfqShortlistFinalized": "该意向征集已形成短名单，不能重复操作",
   "errInvalidParams": "请求参数不合法",
   "errClaimAlreadyApproved": "该主体已认证通过，无需重复提交",
   "errPaymentIndustryRequired": "会员购买必须选择行业大类",

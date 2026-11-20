@@ -49,7 +49,11 @@ const NOTICE_TYPE_BY_METHOD: Record<string, string> = {
 
 export function noticeTypeForMethod(method: string | null | undefined): string {
   const key = String(method ?? "").trim().toLowerCase();
-  return NOTICE_TYPE_BY_METHOD[key] ?? "RFQ";
+  const code = NOTICE_TYPE_BY_METHOD[key];
+  // 方式 → 类型码必须显式命中：lta 不投影为标讯（既定口径），未知方式一律拒绝而非回退 RFQ
+  //（P0 旧实现缺省回退 "RFQ"，会把 lta/脏值静默投影成询价公告 —— 守护与检索面双重失真）
+  if (!code) throw new Error(`PROCUREMENT_METHOD_NOT_PROJECTABLE: ${String(method)}`);
+  return code;
 }
 
 /** 投影行（纯函数，便于单测；字段即"服务表口径的入表规则"） */

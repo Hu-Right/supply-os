@@ -10,6 +10,8 @@ import type { Pool } from "mysql2/promise";
 import type { SupplierDirectoryRepo } from "../repos/suppliers/index";
 import { refreshNoticeCountries } from "../services/notice-search/index";
 import { searchUnified, type RawSearchParams } from "../services/search-orchestrator/index";
+import { PROCUREMENT_METHOD_AVAILABLE } from "@/shared/constants/procurement";
+import { noticeTypeForMethod } from "../services/procurement/projection";
 
 export interface WarmupDeps {
   dbPool: Pool;
@@ -46,11 +48,8 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
     warm({ q: "construction", country: "Canada" }),
     warm({ q: "construction", agency: "United Nations" }),
     warm({ q: "construction", agency: "United Nations", country: "France" }),
-    // PERF 优化：关键词+采购类型组合预热
-    warm({ noticeType: "RFQ" }),
-    warm({ noticeType: "ITB" }),
-    warm({ noticeType: "RFP" }),
-    warm({ noticeType: "EOI" }),
+    // PERF 优化：关键词+采购类型组合预热（类型清单随 PROCUREMENT_METHOD_AVAILABLE 动态派生）
+    ...PROCUREMENT_METHOD_AVAILABLE.map((m) => warm({ noticeType: noticeTypeForMethod(m) })),
     warm({ noticeType: "RFQ", country: "Brazil" }),
     warm({ q: "construction", noticeType: "ITB" }),
     warm({ q: "supply", noticeType: "RFQ" }),

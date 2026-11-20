@@ -85,6 +85,7 @@ const PROJECT = {
   contact_disclosure: "org_only",
   // F02 授权确认：发布闸第三道（2026-11 补）；旧测试夹具没有它会命中 publish_blocked
   authorize_publish: 1,
+  method: "rfq",
 };
 
 describe("signAuthorization — 签署闸", () => {
@@ -140,7 +141,7 @@ describe("applyReviewDecision — 发布闸", () => {
       "SELECT org_name, user_id FROM procurement_buyers": () => [[{ org_name: "西安某新能源有限公司", user_id: 42 }]],
       "FROM procurement_items WHERE project_id": () => [[{ name_zh: "组件", spec: "540W", quantity: "1000", qty_unit: "块" }]],
       "INSERT INTO bid_notices": () => [{ insertId: 9001 }],
-      "INSERT INTO rfq_guard": () => [{ affectedRows: 1 }],
+      "INSERT INTO platform_notice_guard": () => [{ affectedRows: 1 }],
       "INSERT INTO procurement_tenders": () => [{ insertId: 3 }],
       "UPDATE procurement_tenders SET tender_no": () => [{ affectedRows: 1 }],
       "SELECT id FROM procurement_reviews WHERE project_id": () => [[]],
@@ -174,7 +175,7 @@ describe("applyReviewDecision — 发布闸", () => {
     expect(r.status).toBe("published");
     expect(r.tenderNo).toBe("OSPT-2026-000003");
     expect(calls.find(([sql]) => sql.includes("INSERT INTO bid_notices"))).toBeDefined();
-    expect(calls.find(([sql]) => sql.includes("INSERT INTO rfq_guard"))).toBeDefined();
+    expect(calls.find(([sql]) => sql.includes("INSERT INTO platform_notice_guard"))).toBeDefined();
     expect(conn.commit).toHaveBeenCalledOnce();
   });
 

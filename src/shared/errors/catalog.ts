@@ -47,6 +47,7 @@ import {
   EC_RFQ_AUTHORIZATION_REQUIRED, EC_RFQ_PUBLISH_BLOCKED,
   EC_RFQ_RESPONSE_NOT_FOUND, EC_RFQ_RESPONSE_CLOSED, EC_RFQ_SEALED,
   EC_RFQ_NOT_OPENED, EC_RFQ_AWARD_EXISTS,
+  EC_RFQ_TENDER_CONFIG_INVALID, EC_RFQ_SHORTLIST_FINALIZED,
 } from "../constants/api";
 
 /** 错误语义分类（11 枚举；unknown 仅供前端兜底，catalog 不使用） */
@@ -211,6 +212,8 @@ export const ERROR_CATALOG: Readonly<Record<number, ErrorDef>> = {
   [EC_RFQ_SEALED]: { code: EC_RFQ_SEALED, type: "rfq_sealed", status: 403, kind: "business", i18nKey: "errRfqSealed" },
   [EC_RFQ_NOT_OPENED]: { code: EC_RFQ_NOT_OPENED, type: "rfq_not_opened", status: 409, kind: "business", i18nKey: "errRfqNotOpened" },
   [EC_RFQ_AWARD_EXISTS]: { code: EC_RFQ_AWARD_EXISTS, type: "rfq_award_exists", status: 409, kind: "business", i18nKey: "errRfqAwardExists" },
+  [EC_RFQ_TENDER_CONFIG_INVALID]: { code: EC_RFQ_TENDER_CONFIG_INVALID, type: "rfq_tender_config_invalid", status: 400, kind: "business", i18nKey: "errRfqTenderConfigInvalid" },
+  [EC_RFQ_SHORTLIST_FINALIZED]: { code: EC_RFQ_SHORTLIST_FINALIZED, type: "rfq_shortlist_finalized", status: 409, kind: "business", i18nKey: "errRfqShortlistFinalized" },
 };
 
 /** 生效错误定义（排除 deprecated 同义码） */

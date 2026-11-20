@@ -36,6 +36,7 @@ const BLOCKED_MESSAGE: Record<PublishBlocker, string> = {
   deadline: "缺少报价截止时间，不能发布；请退回补充截止时间（否则需求发布后无法自动过期）",
   auto_review: "自动初审结论为「需补充/风险」，不能直接发布；如需推翻须提交 overrideReason（≥10 字）",
   override_reason: "推翻自动初审结论须填写不少于 10 字的说明",
+  method_not_available: "采购方式不在当前开放集内，不能发布；请先修正方式（feasibility 复核）",
 };
 
 
@@ -80,6 +81,16 @@ export const POST = withRoute(async (req: NextRequest) => {
   const reviewerRef = body.reviewerRef == null ? null : String(body.reviewerRef);
   const overrideAutoReview = body.overrideAutoReview === true;
   const overrideReason = body.overrideReason == null ? null : String(body.overrideReason);
+  // 方式复核（F06 feasibility，设计稿 §4.4）：correctedMethod 非法值在服务层按无效载荷忽略
+  const feasibilityRaw = (body.feasibility ?? null) as Record<string, unknown> | null;
+  const feasibility =
+    feasibilityRaw && typeof feasibilityRaw === "object"
+      ? {
+          result: feasibilityRaw.result == null ? null : String(feasibilityRaw.result),
+          correctedMethod: feasibilityRaw.correctedMethod == null ? null : String(feasibilityRaw.correctedMethod),
+          reviewer: feasibilityRaw.reviewer == null ? null : String(feasibilityRaw.reviewer),
+        }
+      : undefined;
   const callbackId = String(req.headers.get("x-review-request-id") || "").slice(0, 64);
   if (!Number.isFinite(projectId) || projectId <= 0) routeError(400, EC_INVALID_PARAMS, "缺少 projectId");
   if (!Number.isFinite(version) || version <= 0) routeError(400, EC_INVALID_PARAMS, "缺少 version");
@@ -95,6 +106,7 @@ export const POST = withRoute(async (req: NextRequest) => {
       callbackId,
       overrideAutoReview,
       overrideReason,
+      feasibility,
       at: nowSec,
     });
     if (!result.ok) {
