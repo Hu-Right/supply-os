@@ -131,6 +131,13 @@ export const PROCUREMENT_METHOD = {
 
 export type ProcurementMethod = (typeof PROCUREMENT_METHOD)[keyof typeof PROCUREMENT_METHOD];
 
+/**
+ * 当前开放可用的采购方式（发布向导选择器 + 服务端写入校验的唯一口径）。
+ * P0 仅 RFQ；P1 逐步放开时只改本集合（ITB 需配套投标文件包 F14 与评审打分表，
+ * RFP 需综合评分 award_method，EOI/LTA 需各自的响应/授标形态）。
+ */
+export const PROCUREMENT_METHOD_AVAILABLE: readonly string[] = [PROCUREMENT_METHOD.RFQ];
+
 /** 标讯状态。列宽 16，禁止超长取值 */
 export const TENDER_STATUS = {
   PUBLISHED: "published", // 已发布，接收响应

@@ -43,6 +43,8 @@ export interface ProjectSummary {
   titleEn: string;
   purpose: string;
   objectTypes: string[];
+  /** 采购方式：rfq/itb/rfp/eoi/lta（P0 仅 rfq 开放） */
+  method: string;
   primaryUgtCode: string;
   budgetAmount: number | null;
   budgetCurrency: string | null;

@@ -9,7 +9,7 @@
  */
 import { createHash } from "node:crypto";
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { PROJECT_STATUS, PROJECT_REF_PREFIX } from "@/shared/constants/procurement";
+import { PROJECT_STATUS, PROJECT_REF_PREFIX, PROCUREMENT_METHOD_AVAILABLE } from "@/shared/constants/procurement";
 import { formatProjectReference } from "./reference";
 import { transitionProjectWithin, type TxLike } from "./lifecycle";
 import { isBuyerPublishable } from "./buyers";
@@ -125,6 +125,7 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "purpose",
   "internal_project_no",
   "object_types",
+  "method",
   "usage_env",
   "cert_requirements",
   "incoterm_version",
@@ -259,13 +260,23 @@ function snapshotHash(payload: unknown): string {
 /**
  * 编辑需求（仅 draft / need_info；rejected 概念并入 need_info——云境要求补充后重提）。
  * PATCH 语义：只更新传入字段；空串一律转 NULL（防"只改一个字段把其他清空"以外的脏写）。
+ * 采购方式（method）仅放行当前开放方式（PROCUREMENT_METHOD_AVAILABLE），
+ * 传未开放/非法值返回 invalid_method 而非静默丢弃。
  * 返回 changed 字段数。
  */
 export async function updateProject(
   db: Pool,
   input: UpdateProjectInput,
-): Promise<{ ok: true; changed: number } | { ok: false; reason: "not_found" | "not_editable" }> {
+): Promise<{
+  ok: true;
+  changed: number;
+} | { ok: false; reason: "not_found" | "not_editable" | "invalid_method" }> {
   const at = input.at ?? Math.floor(Date.now() / 1000);
+  const fields = normalizeProjectFields(input.fields);
+  // 采购方式显式校验：未开放/非法值直接拒绝而非静默丢弃（防止「静默丢字段」回归）
+  if (fields.method !== undefined && !PROCUREMENT_METHOD_AVAILABLE.includes(String(fields.method))) {
+    return { ok: false, reason: "invalid_method" };
+  }
   const row = await getProjectById(db, input.projectId);
   if (!row) return { ok: false, reason: "not_found" };
   if (row.status !== PROJECT_STATUS.DRAFT && row.status !== PROJECT_STATUS.NEED_INFO) {
@@ -275,7 +286,6 @@ export async function updateProject(
   const sets: string[] = [];
   const params: unknown[] = [];
   let changed = 0;
-  const fields = normalizeProjectFields(input.fields);
   for (const col of PROJECT_EDITABLE_COLUMNS) {
     if (fields[col] === undefined) continue;
     const raw = fields[col];

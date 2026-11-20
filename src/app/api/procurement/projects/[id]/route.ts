@@ -65,6 +65,7 @@ export const PATCH = withRoute<Ctx>(async (req: NextRequest, { params }) => {
     const result = await updateProject(pool, { projectId, fields: body });
     if (!result.ok) {
       if (result.reason === "not_found") routeError(404, EC_RFQ_NOT_FOUND, "项目不存在");
+      if (result.reason === "invalid_method") routeError(400, EC_INVALID_PARAMS, "采购方式暂仅支持询价（RFQ）");
       routeError(409, EC_RFQ_STATE_INVALID, "仅草稿或待补充状态可编辑");
     }
     // 一个字段都没命中 → 视为客户端契约错误（防止再次出现"静默丢字段"）

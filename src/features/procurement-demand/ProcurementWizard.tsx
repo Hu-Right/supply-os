@@ -46,6 +46,12 @@ import {
   incotermsForVersion,
   migrateIncoterm,
 } from "@/shared/constants/incoterms";
+import { PROCUREMENT_METHOD_AVAILABLE } from "@/shared/constants/procurement";
+import {
+  recommendProcurementMethod,
+  type MethodAdvisorCycle,
+  type MethodAdvisorEvalMode,
+} from "@/shared/utils/procurement-method";
 import {
   createProject,
   fetchProject,
@@ -64,6 +70,8 @@ interface FormState {
   purpose: string;
   internalProjectNo: string;
   objectTypes: string[];
+  /** 采购方式（P0 仅 rfq 开放；服务端按 PROCUREMENT_METHOD_AVAILABLE 校验） */
+  method: string;
   usageEnv: string;
   certRequirements: CertRequirement[];
   categoryL1: string;
@@ -103,6 +111,7 @@ const DEFAULT_FORM: FormState = {
   purpose: "real",
   internalProjectNo: "",
   objectTypes: ["goods"],
+  method: "rfq",
   usageEnv: "",
   certRequirements: [],
   categoryL1: "",
@@ -137,6 +146,8 @@ const DEFAULT_FORM: FormState = {
 
 const PURPOSE_OPTIONS = ["real", "budgeting", "research", "future_plan"];
 const OBJECT_OPTIONS = ["goods", "engineering", "service", "solution"];
+/** 采购方式选项（P0 仅 rfq 可选，其余禁用展示；可用集 = PROCUREMENT_METHOD_AVAILABLE） */
+const METHOD_OPTIONS = ["rfq", "itb", "rfp", "eoi", "lta"] as const;
 const COMPLIANCE_OPTIONS = ["export_control", "dangerous", "medical", "dual_use", "other"];
 const INSTALL_NEEDS = ["installation", "commissioning", "training"];
 const CONTACT_DISCLOSURE = ["none", "org_only", "budget_all"];
@@ -191,6 +202,9 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
   const [reloadKey, setReloadKey] = useState(0);
   const [importMsg, setImportMsg] = useState("");
   const [importing, setImporting] = useState(false);
+  /** 三问引导（Q2 评定标口径 / Q3 供货周期）——仅用于前端推荐，不落库；Q1 复用 objectTypes */
+  const [advisorEval, setAdvisorEval] = useState<MethodAdvisorEvalMode>("lowest");
+  const [advisorCycle, setAdvisorCycle] = useState<MethodAdvisorCycle>("once");
 
   const projectIdRef = useRef<number | null>(props.editId ?? null);
   const hydratedRef = useRef(!props.editId);
@@ -248,6 +262,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           purpose: d.purpose || "real",
           internalProjectNo: d.internalProjectNo,
           objectTypes: d.objectTypes.length ? d.objectTypes : ["goods"],
+          method: d.method || "rfq",
           usageEnv: d.usageEnv || "",
           certRequirements: parseCertRequirements(d.certRequirements),
           budgetAmount: d.budgetAmount == null ? "" : String(d.budgetAmount),
@@ -316,6 +331,12 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     [form.categoryL1, form.categoryL2, form.categoryL3],
   );
 
+  /** 三问 → 推荐方式（用户可改；推荐未开放方式时仅提示，不自动采用） */
+  const recommendedMethod = useMemo(
+    () => recommendProcurementMethod(form.objectTypes, advisorEval, advisorCycle),
+    [form.objectTypes, advisorEval, advisorCycle],
+  );
+
   const countrySelectOptions = useMemo(
     () => countryOptions(locale).map((item) => ({ value: item.code, label: `${item.name}（${item.code}）` })),
     [locale],
@@ -328,6 +349,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     purpose: form.purpose,
     internalProjectNo: form.internalProjectNo.trim() || null,
     objectTypes: form.objectTypes.join(",") || "goods",
+    method: form.method,
     usageEnv: form.usageEnv.trim() || null,
     certRequirements: form.certRequirements,
     budgetAmount: parseBudgetAmount(form.budgetAmount),
@@ -644,6 +666,59 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                   {t(`pc_obj_${o}`)}
                 </button>
               ))}
+            </div>
+          </div>
+          {/* 采购方式：三问引导（Q1 标的形态复用上方「采购标的」）+ 方式选择器。
+              区分口径不要求采购方背术语——按「买什么/怎么评/什么阶段」推荐，用户可改。 */}
+          <div className={labelCls}>
+            <span className="flex items-center gap-1.5">
+              {t("pc_method")}
+              <FieldHintTooltip label={t("pc_method")} content={t("pc_method_hint")} />
+            </span>
+            <div className="mt-1 grid gap-2 rounded-xl border border-secondary-200 bg-secondary-50/60 p-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-semibold text-secondary-600">{t("pc_advisor_eval")}</span>
+                {(["lowest", "scored", "intent"] as const).map((m) => (
+                  <button key={m} type="button" onClick={() => setAdvisorEval(m)}
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${advisorEval === m ? "border-teal-600 bg-teal-50 text-teal-700" : "border-secondary-300 text-secondary-600"}`}>
+                    {t(`pc_advisor_eval_${m}`)}
+                  </button>
+                ))}
+                <span className="ml-2 font-semibold text-secondary-600">{t("pc_advisor_cycle")}</span>
+                {(["once", "recurring"] as const).map((c) => (
+                  <button key={c} type="button" onClick={() => setAdvisorCycle(c)}
+                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${advisorCycle === c ? "border-teal-600 bg-teal-50 text-teal-700" : "border-secondary-300 text-secondary-600"}`}>
+                    {t(`pc_advisor_cycle_${c}`)}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full bg-teal-50 px-2.5 py-1 font-semibold text-teal-700">
+                  {t("pc_method_recommended")}：{t(`pc_method_${recommendedMethod}`)}
+                </span>
+                {recommendedMethod !== form.method && (
+                  PROCUREMENT_METHOD_AVAILABLE.includes(recommendedMethod) ? (
+                    <button type="button" onClick={() => field("method", recommendedMethod)}
+                      className="rounded-lg border border-teal-600 px-2.5 py-1 font-semibold text-teal-700">
+                      {t("pc_method_adopt")}
+                    </button>
+                  ) : (
+                    <span className="text-secondary-500">{t("pc_method_unavailable")}</span>
+                  )
+                )}
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {METHOD_OPTIONS.map((m) => {
+                const available = PROCUREMENT_METHOD_AVAILABLE.includes(m);
+                return (
+                  <button key={m} type="button" disabled={!available} onClick={() => field("method", m)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${form.method === m ? "border-teal-600 bg-teal-50 text-teal-700" : available ? "border-secondary-300 text-secondary-600" : "cursor-not-allowed border-secondary-200 text-secondary-400 opacity-60"}`}>
+                    {t(`pc_method_${m}`)}
+                    {!available && <span className="ml-1 text-[10px] font-normal">{t("pc_method_coming_soon")}</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

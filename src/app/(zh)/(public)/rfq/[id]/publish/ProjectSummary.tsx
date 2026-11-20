@@ -9,7 +9,11 @@
  */
 import { useLocale } from "@/core/i18n";
 import { formatDateShort } from "@/shared/utils/format";
+import { PROCUREMENT_METHOD } from "@/shared/constants/procurement";
 import type { ProjectDetail } from "@/features/procurement-demand/api";
+
+/** 方式码值域（防脏值把 i18n 键打穿；落库默认恒为 rfq） */
+const METHOD_KEYS = new Set<string>(Object.values(PROCUREMENT_METHOD));
 
 /** unix 秒 → 本地 yyyy-MM-dd（秒为空回空串） */
 function ymd(sec: number | null | undefined): string {
@@ -39,6 +43,10 @@ export function ProjectSummary({ detail }: { detail: ProjectDetail }) {
       <dl className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Row label={t("pc_titleZh")} value={detail.titleZh || detail.titleEn} />
         <Row label={t("pc_purpose")} value={t(`pc_purpose_${detail.purpose}`)} />
+        <Row
+          label={t("pc_method")}
+          value={t(`pc_method_${METHOD_KEYS.has(detail.method) ? detail.method : "rfq"}`)}
+        />
         <Row label={t("pc_category")} value={detail.primaryUgtCode} />
         <Row label={t("pc_budget")} value={budget} />
         <Row label={t("pc_deliveryCountry")} value={detail.deliveryCountry} />
