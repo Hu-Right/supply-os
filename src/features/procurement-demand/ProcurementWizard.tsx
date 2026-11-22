@@ -48,6 +48,7 @@ import {
 } from "@/shared/constants/incoterms";
 import {
   AWARD_METHOD_BY_METHOD,
+  EVAL_TEMPLATE_PRESET_70_30,
   PROCUREMENT_METHOD_AVAILABLE,
   SEALED_BY_METHOD,
 } from "@/shared/constants/procurement";
@@ -434,7 +435,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     }).catch(() => undefined);
     void api(`/api/procurement/projects/${pid}/tender-config`, {
       method: "PUT",
-      body: { publishMode },
+      body: form.method === "rfp" ? { publishMode, evalTemplate: EVAL_TEMPLATE_PRESET_70_30 } : { publishMode },
     }).catch(() => undefined);
     const filled = items.filter((it) => it.nameZh.trim());
     const lotNos = [...new Set(filled.map((it) => it.lotNo.trim()).filter(Boolean))];
@@ -837,6 +838,8 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
               <div className="flex flex-wrap items-center gap-3 text-secondary-500">
                 <span>{t("pc_rule_sealed")}：{SEALED_BY_METHOD[form.method] === false ? t("pc_no") : t("pc_yes")}</span>
                 <span>{t("pc_rule_award")}：{t(`pc_award_${AWARD_METHOD_BY_METHOD[form.method] ?? "lowest_price"}`)}</span>
+                {form.method === "rfp" && <span>{t("pc_rule_eval_preset")}</span>}
+                {form.method === "rfp" && <span>{t("pc_rule_envelope_split")}</span>}
               </div>
             </div>
           </div>

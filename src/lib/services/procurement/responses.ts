@@ -13,6 +13,7 @@ import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import {
   PROCUREMENT_METHOD,
   PROCUREMENT_METHOD_AVAILABLE,
+  RESPONSE_ENVELOPE,
   RESPONSE_STATUS,
   RESPONSE_TRANSITIONS,
   TENDER_STATUS,
@@ -114,7 +115,8 @@ export type ResponseResult<T> =
         | "closed"
         | "state_invalid"
         | "no_items"
-        | "eoi_content_required";
+        | "eoi_content_required"
+        | "rfp_envelope_required";
     };
 
 /** users.supplier_id + supplier_link_status='verified' → supplier.id */
@@ -472,18 +474,30 @@ export async function submitResponse(
     }
 
     const items = await loadItems(db, row.id);
+    const files = await loadFiles(db, row.id);
     if (String(row.method) === PROCUREMENT_METHOD.EOI) {
       // EOI 意向征集：不携带报价行；意向说明或资质文件至少其一（§7.1 管线矩阵）
-      const files = await loadFiles(db, row.id);
       if (!String(row.remark ?? "").trim() && files.length === 0) {
         await conn.rollback();
         return { ok: false, reason: "eoi_content_required" };
+      }
+    } else if (String(row.method) === PROCUREMENT_METHOD.RFP) {
+      // RFP 双信封（§7.1/§7.3）：结构化报价行 + 技术标与商务标文件各 ≥1；
+      // 商务文件密封进 financial 信封，技术达标前采购方不可见价格
+      if (items.length === 0 || !items.some((it) => it.unit_price != null && Number(it.unit_price) > 0)) {
+        await conn.rollback();
+        return { ok: false, reason: "no_items" };
+      }
+      const hasTech = files.some((f) => f.envelope === RESPONSE_ENVELOPE.TECHNICAL);
+      const hasFin = files.some((f) => f.envelope === RESPONSE_ENVELOPE.FINANCIAL);
+      if (!hasTech || !hasFin) {
+        await conn.rollback();
+        return { ok: false, reason: "rfp_envelope_required" };
       }
     } else if (items.length === 0 || !items.some((it) => it.unit_price != null && Number(it.unit_price) > 0)) {
       await conn.rollback();
       return { ok: false, reason: "no_items" };
     }
-    const files = await loadFiles(db, row.id);
     const receiptHash = computeReceiptHash({
       projectId: Number(row.project_id),
       versionNo: Number(row.version_no),
@@ -660,19 +674,33 @@ export async function listResponsesForBuyer(
       ORDER BY r.submitted_ts, r.id`,
     [input.projectId, project.version_no],
   );
+  // RFP（综合评分）双信封：商务封未开封的响应不得露出价格（§7.3 防「先看价再打技术分」）
+  const comprehensive = String(tender.award_method) === "comprehensive";
+  const finOpenedIds = new Set<number>();
+  if (comprehensive) {
+    const [finRows] = await db.query(
+      "SELECT response_id FROM procurement_envelope_openings WHERE project_id = ? AND envelope = 'financial'",
+      [input.projectId],
+    );
+    for (const r of finRows as Array<{ response_id: number }>) finOpenedIds.add(Number(r.response_id));
+  }
   return {
     ok: true,
     opened: true,
     count: (rows as RowDataPacket[]).length,
-    items: (rows as Array<Record<string, unknown>>).map((r) => ({
-      responseId: Number(r.id),
-      supplierId: Number(r.supplier_id),
-      company: String(r.company ?? ""),
-      status: String(r.status),
-      total: r.total == null ? null : Number(r.total).toFixed(2),
-      currency: r.currency == null ? null : String(r.currency),
-      submittedAt: r.submitted_ts == null ? null : Number(r.submitted_ts),
-    })),
+    items: (rows as Array<Record<string, unknown>>).map((r) => {
+      const responseId = Number(r.id);
+      const priceVisible = !comprehensive || finOpenedIds.has(responseId);
+      return {
+        responseId,
+        supplierId: Number(r.supplier_id),
+        company: String(r.company ?? ""),
+        status: String(r.status),
+        total: priceVisible && r.total != null ? Number(r.total).toFixed(2) : null,
+        currency: r.currency == null ? null : String(r.currency),
+        submittedAt: r.submitted_ts == null ? null : Number(r.submitted_ts),
+      };
+    }),
   };
 }
 
@@ -728,6 +756,16 @@ export async function compareResponses(
   }>;
 
   const responseIds = list.items.map((r) => r.responseId);
+  // RFP 双信封：商务封未开封的响应在矩阵中隐藏单价（行交期/品牌可看，价格不可看）
+  const comprehensive = String(tender.award_method) === "comprehensive";
+  const finOpenedIds = new Set<number>();
+  if (comprehensive && responseIds.length > 0) {
+    const [finRows] = await db.query(
+      "SELECT response_id FROM procurement_envelope_openings WHERE project_id = ? AND envelope = 'financial'",
+      [input.projectId],
+    );
+    for (const r of finRows as Array<{ response_id: number }>) finOpenedIds.add(Number(r.response_id));
+  }
   const offersByItem = new Map<string, CompareItemOffer[]>();
   if (responseIds.length > 0) {
     const [offerRows] = await db.query(
@@ -743,10 +781,11 @@ export async function compareResponses(
     for (const row of offerRows as Array<Record<string, unknown>>) {
       const key = `${row.item_id == null ? "" : Number(row.item_id)}|${row.lot_id == null ? "" : Number(row.lot_id)}`;
       const listForItem = offersByItem.get(key) ?? [];
+      const priceVisible = !comprehensive || finOpenedIds.has(Number(row.response_id));
       listForItem.push({
         supplierId: Number(row.supplier_id),
         company: String(row.company ?? ""),
-        unitPrice: row.unit_price == null ? null : String(row.unit_price),
+        unitPrice: priceVisible && row.unit_price != null ? String(row.unit_price) : null,
         leadTimeDays: row.lead_time_days == null ? null : Number(row.lead_time_days),
         brandModel: row.brand_model == null ? null : String(row.brand_model),
         remark: row.remark == null ? null : String(row.remark),

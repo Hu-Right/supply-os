@@ -15,6 +15,7 @@ import {
   PROJECT_STATUS,
   PROJECT_CLOSE_REASON,
   PROCUREMENT_METHOD_AVAILABLE,
+  isValidEvalTemplate,
 } from "@/shared/constants/procurement";
 import { transitionProjectWithin, type TxLike } from "./lifecycle";
 import { buildPublicDescription, removeProjection, upsertProjection } from "./projection";
@@ -66,7 +67,8 @@ export type PublishBlocker =
   | "deadline"
   | "auto_review"
   | "override_reason"
-  | "method_not_available";
+  | "method_not_available"
+  | "tender_config_invalid";
 
 export interface ReviewDecisionInput {
   projectId: number;
@@ -370,6 +372,11 @@ export async function applyReviewDecision(
         confirmedBy == null ? null : Number(confirmedBy),
         at,
       );
+      // 方式专属配置闸：RFP 发布前必须已冻结合法评分模板（权重闭合 technicalMax、门槛线半开区间）
+      if (method === "rfp" && !isValidEvalTemplate(publishConfig.evalTemplate)) {
+        await conn.rollback();
+        return { ok: false, reason: "publish_blocked", blockedBy: "tender_config_invalid" };
+      }
 
       // tender 记录：正式发布编号（PENDING 占位 → OSPT-{年}-{id} 回填）
       const [tIns] = await conn.query(

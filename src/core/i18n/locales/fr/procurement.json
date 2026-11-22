@@ -613,6 +613,8 @@
   "pc_award_lowest_evaluated": "Prix évalué le plus bas",
   "pc_award_comprehensive": "Notation globale",
   "pc_award_eligibility_filter": "Présélection d'éligibilité",
+  "pc_rule_eval_preset": "Modèle d'évaluation : préréglage 70/30 (technique 70 en six dimensions + financier 30 par formule du prix le plus bas)",
+  "pc_rule_envelope_split": "Double enveloppe : technique d'abord ; la financière ne s'ouvre que pour les admis",
   "pc_deadline_eoi": "Date limite de manifestation d'intérêt",
   "pc_category": "Catégorie (code UGT)",
   "pc_category_l1": "Niveau 1",

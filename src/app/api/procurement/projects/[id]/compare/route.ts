@@ -15,6 +15,7 @@ import {
   EC_RFQ_NOT_OPENED,
 } from "@/shared/constants/api";
 import { compareResponses } from "@/lib/services/procurement/responses";
+import { computeComprehensiveRanking } from "@/lib/services/procurement/evaluations";
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -35,9 +36,21 @@ export const GET = withRoute<Ctx>(async (req: NextRequest, { params }) => {
     routeError(404, EC_RFQ_NOT_FOUND, "采购需求不存在");
   }
 
-  return NextResponse.json({
-    tender: result.tender,
-    items: result.items,
-    totals: result.totals,
+  // RFP（综合评分）：附带 70/30 排名（技术分+商务开封后的财务分；未开封/未达标者不出总分）
+  const ranking =
+    result.tender.awardMethod === "comprehensive"
+      ? await computeComprehensiveRanking(getPool(), projectId)
+      : undefined;
+
+  /** 比价响应视图 */
+  const compareResponseViewOf = (
+    r: Extract<typeof result, { ok: true }>,
+    rank: Awaited<ReturnType<typeof computeComprehensiveRanking>> | undefined,
+  ) => ({
+    tender: r.tender,
+    items: r.items,
+    totals: r.totals,
+    ...(rank ? { ranking: rank } : {}),
   });
+  return NextResponse.json(compareResponseViewOf(result, ranking));
 });

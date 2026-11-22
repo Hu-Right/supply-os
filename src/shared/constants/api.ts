@@ -322,10 +322,18 @@ export const EC_RFQ_SEALED = 44009;
 export const EC_RFQ_NOT_OPENED = 44010;
 /** 已定标，不能重复定标 */
 export const EC_RFQ_AWARD_EXISTS = 44011;
-// 44012~44013 预留：方式未确认 / 方式已冻结（P1b 方式确认闸收口时取号）
-/** 采购规则配置不完整或不合法（ITB 缺文件包、答疑期倒挂、EOI 覆盖评标法等） */
+// 44012~44013 预留：方式未确认 / 方式已冻结（方式确认闸收口时取号）
+/** 采购规则配置不完整或不合法（RFP 缺评分模板/权重不闭合、ITB 缺文件包、答疑期倒挂等） */
 export const EC_RFQ_TENDER_CONFIG_INVALID = 44014;
-// 44015~44019 预留：信封/评审阶段语义码（P1b RFP 双信封、P1c ITB 四阶段落地时取号）
+/** 双信封方式响应缺技术标或商务标（RFP 提交闸） */
+export const EC_RFQ_ENVELOPE_REQUIRED = 44015;
+/** 信封未到开封时点（RFP 商务标在技术达标前不可比价/打分） */
+export const EC_RFQ_ENVELOPE_SEALED = 44016;
+// 44017 预留：答疑已截止（P1c ITB 落地时取号）
+/** 未冻结评分模板不可发布/评审（RFP/ITB） */
+export const EC_RFQ_EVAL_TEMPLATE_REQUIRED = 44018;
+/** 未到该评审阶段（技术评毕并达标前不可打商务分） */
+export const EC_RFQ_EVAL_STAGE_NOT_PERMITTED = 44019;
 /** 该意向征集已形成短名单，不能重复操作（EOI 结案唯一性） */
 export const EC_RFQ_SHORTLIST_FINALIZED = 44020;
 

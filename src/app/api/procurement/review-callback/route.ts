@@ -37,6 +37,7 @@ const BLOCKED_MESSAGE: Record<PublishBlocker, string> = {
   auto_review: "自动初审结论为「需补充/风险」，不能直接发布；如需推翻须提交 overrideReason（≥10 字）",
   override_reason: "推翻自动初审结论须填写不少于 10 字的说明",
   method_not_available: "采购方式不在当前开放集内，不能发布；请先修正方式（feasibility 复核）",
+  tender_config_invalid: "采购规则配置不完整：方案征集（RFP）发布前必须冻结合法的评分模板（维度权重闭合、门槛线合法）",
 };
 
 

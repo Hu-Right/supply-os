@@ -134,14 +134,61 @@ export type ProcurementMethod = (typeof PROCUREMENT_METHOD)[keyof typeof PROCURE
 
 /**
  * 当前开放可用的采购方式（发布向导选择器 + 服务端写入校验的唯一口径）。
- * P1a 起放开 EOI（意向征集：无报价、出短名单）；ITB/RFP 随 P1b/P1c 拨动
- * （ITB 需配套投标文件包 F14 与评审打分表，RFP 需综合评分 award_method）；
+ * P1b 放开 RFP（双信封 + 综合评分）；ITB 随 P1c（需配套投标文件包 F14 与答疑期）；
  * LTA 为合同模式，P2 随 F19 立项。
  */
 export const PROCUREMENT_METHOD_AVAILABLE: readonly string[] = [
   PROCUREMENT_METHOD.RFQ,
   PROCUREMENT_METHOD.EOI,
+  PROCUREMENT_METHOD.RFP,
 ];
+
+/** 响应文件信封取值（procurement_response_files.envelope 值域口径） */
+export const RESPONSE_ENVELOPE = {
+  TECHNICAL: "technical", // 技术标（RFP 方案文档 / ITB 投标文件）
+  FINANCIAL: "financial", // 商务标（报价文件）
+  COMMERCIAL: "commercial", // 商务条款（预留）
+} as const;
+
+/** 评分模板（eval_template JSON 快照）形状：维度×权重×技术门槛线，发布时冻结 */
+export interface EvalTemplate {
+  /** 评分维度：键/名称/权重；权重合计须等于 technicalMax（70/30 口径即 70） */
+  dimensions: Array<{ key: string; label: string; weight: number }>;
+  /** 技术部分满分（70/30 口径=70；总分=technicalMax+30） */
+  technicalMax?: number;
+  /** 技术最低门槛分（0~technicalMax；未达标不进商务评分、商务标不开封） */
+  technicalThreshold: number;
+}
+
+/** 70/30 预设模板（《全案》F11：技术 70 分 + 财务 30 分公式 P_i=30×P_min/P_i） */
+export const EVAL_TEMPLATE_PRESET_70_30: EvalTemplate = {
+  dimensions: [
+    { key: "corp_qualification", label: "企业资质信誉及组织能力", weight: 10 },
+    { key: "track_record", label: "类似项目业绩和专业经验", weight: 15 },
+    { key: "solution_fitness", label: "技术方案适用性与完整度", weight: 25 },
+    { key: "plan_team", label: "实施计划和团队配置", weight: 10 },
+    { key: "quality_risk", label: "质量控制及风险管理", weight: 5 },
+    { key: "sustainability", label: "可持续发展承诺", weight: 5 },
+  ],
+  technicalMax: 70,
+  technicalThreshold: 42,
+};
+
+/** 校验评分模板结构（发布闸用）：维度≥1、权重合计=technicalMax（缺省 70）、门槛线在其半开区间内 */
+export function isValidEvalTemplate(t: unknown): t is EvalTemplate {
+  if (t == null || typeof t !== "object") return false;
+  const tpl = t as Partial<EvalTemplate>;
+  if (!Array.isArray(tpl.dimensions) || tpl.dimensions.length === 0) return false;
+  const technicalMax = Number(tpl.technicalMax ?? 70);
+  if (!Number.isFinite(technicalMax) || technicalMax <= 0) return false;
+  const weightSum = tpl.dimensions.reduce((acc, d) => acc + Number(d?.weight ?? 0), 0);
+  if (Math.abs(weightSum - technicalMax) > 0.01) return false;
+  const th = Number(tpl.technicalThreshold);
+  return Number.isFinite(th) && th >= 0 && th < technicalMax;
+}
+
+/** 财务分满分（70/30 口径：技术 70 + 财务 30 = 100） */
+export const FINANCIAL_SCORE_MAX = 30;
 
 // ── 评标法 / 信封 / 密封（发布配置化：按方式生成，rfq 缺省 = P0 硬编码值）───────
 

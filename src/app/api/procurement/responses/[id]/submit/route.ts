@@ -11,6 +11,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import {
   EC_FORBIDDEN,
   EC_INVALID_PARAMS,
+  EC_RFQ_ENVELOPE_REQUIRED,
   EC_RFQ_RESPONSE_CLOSED,
   EC_RFQ_RESPONSE_NOT_FOUND,
   EC_RFQ_STATE_INVALID,
@@ -53,6 +54,9 @@ export const POST = withRoute<Ctx>(async (req: NextRequest, { params }) => {
         break;
       case "eoi_content_required":
         routeError(400, EC_INVALID_PARAMS, "意向征集响应需至少填写意向说明或上传一份资质文件");
+        break;
+      case "rfp_envelope_required":
+        routeError(400, EC_RFQ_ENVELOPE_REQUIRED, "方案征集响应需同时提交技术标与商务标文件");
         break;
       default:
         routeError(409, EC_RFQ_STATE_INVALID, "当前状态不允许提交");

@@ -613,6 +613,8 @@
   "pc_award_lowest_evaluated": "Menor preço avaliado",
   "pc_award_comprehensive": "Pontuação abrangente",
   "pc_award_eligibility_filter": "Filtro de elegibilidade",
+  "pc_rule_eval_preset": "Modelo de avaliação: predefinição 70/30 (técnico 70 em seis dimensões + financeiro 30 pela fórmula do menor preço)",
+  "pc_rule_envelope_split": "Dois envelopes: técnico primeiro; o financeiro abre apenas para os aprovados",
   "pc_deadline_eoi": "Prazo de manifestação de interesse",
   "pc_category": "Categoria (código UGT)",
   "pc_category_l1": "Nível 1",

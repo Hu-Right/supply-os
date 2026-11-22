@@ -20,6 +20,7 @@ import {
 } from "@/shared/constants/procurement";
 import { transitionProject } from "./lifecycle";
 import { markProjectionClosed, removeProjection } from "./projection";
+import { openTechnicalEnvelopesForTender } from "./evaluations";
 import { deleteNoticeDocuments } from "@/lib/services/meilisearch/client";
 import { pushNotificationSafe } from "@/lib/services/notifications";
 
@@ -90,6 +91,11 @@ export async function openDueTenders(db: Pool, at = Math.floor(Date.now() / 1000
       [TENDER_STATUS.CLOSED, isEoi ? null : at, row.tender_id, TENDER_STATUS.PUBLISHED],
     );
     if (Number((upd as { affectedRows?: number }).affectedRows ?? 0) === 0) continue;
+
+    // RFP 双信封时序（§7.3）：截标即批量开封技术封（商务封须技术达标后由采购方逐家开封）
+    if (String(row.method ?? "") === "rfp") {
+      await openTechnicalEnvelopesForTender(db, Number(row.project_id), Number(row.tender_id), at);
+    }
 
     const [cntRows] = await db.query(
       "SELECT COUNT(*) AS c FROM procurement_responses WHERE project_id = ? AND version_no = ? AND status = 'submitted'",

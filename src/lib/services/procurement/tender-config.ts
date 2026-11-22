@@ -18,6 +18,7 @@ import {
   PROJECT_STATUS,
   SEALED_BY_METHOD,
   TENDER_PUBLISH_MODE,
+  isValidEvalTemplate,
 } from "@/shared/constants/procurement";
 
 export interface TenderConfigRow extends RowDataPacket {
@@ -49,12 +50,14 @@ export interface TenderConfigView {
   confirmedAt: number | null;
 }
 
-/** 发布时的生效配置（derivePublishConfig 输出） */
+/** 发布时的生效配置（derivePublishConfig 输出；evalTemplate 仅发布消费时填充） */
 export interface PublishConfig {
   publishMode: string;
   sealed: boolean;
   awardMethod: string;
   envelopePolicy: string;
+  /** 冻结的评分模板（RFP/ITB 必填；derivePublishConfig 纯函数路径恒 null） */
+  evalTemplate?: unknown;
 }
 
 /** 按方式+覆盖配置推导发布配置（纯函数；rfq 无覆盖 = P0 硬编码值，行为零变化） */
@@ -66,7 +69,9 @@ export function derivePublishConfig(
   const fallbackAward = AWARD_METHOD_BY_METHOD[method] ?? AWARD_METHOD.LOWEST_PRICE;
   const publishMode = String(config?.publish_mode ?? TENDER_PUBLISH_MODE.PUBLIC);
   const awardMethod = String(config?.award_method ?? fallbackAward);
-  const envelopePolicy = String(config?.envelope_policy ?? "none");
+  // RFP 双信封为方式固定语义（§4.5 引擎默认），不随配置退化；
+  // rfq/eoi/itb 维持 none（ITB 文件包单信封，P1c 再扩）
+  const envelopePolicy = method === "rfp" ? "tech_fin_split" : String(config?.envelope_policy ?? "none");
   return { publishMode, sealed, awardMethod, envelopePolicy };
 }
 
@@ -128,7 +133,16 @@ export async function saveTenderConfig(
   },
 ): Promise<
   | { ok: true; config: TenderConfigView }
-  | { ok: false; reason: "not_found" | "not_editable" | "invalid_publish_mode" | "invalid_award_method" | "invalid_envelope" }
+  | {
+      ok: false;
+      reason:
+        | "not_found"
+        | "not_editable"
+        | "invalid_publish_mode"
+        | "invalid_award_method"
+        | "invalid_envelope"
+        | "invalid_eval_template";
+    }
 > {
   const at = input.at ?? Math.floor(Date.now() / 1000);
   const [projRows] = await db.query(
@@ -168,6 +182,10 @@ export async function saveTenderConfig(
   const envelopePolicy = c.envelopePolicy == null ? "none" : String(c.envelopePolicy);
   if (!["none", "tech_fin_split"].includes(envelopePolicy)) {
     return { ok: false, reason: "invalid_envelope" };
+  }
+  // 评分模板结构校验（维度权重闭合 technicalMax、门槛线半开区间）；rfp 方式下发布闸还会强制非空
+  if (c.evalTemplate != null && !isValidEvalTemplate(c.evalTemplate)) {
+    return { ok: false, reason: "invalid_eval_template" };
   }
 
   await db.query(
@@ -219,6 +237,16 @@ export async function consumeConfigForPublish(
   );
   const row = (rows as TenderConfigRow[])[0] ?? null;
   const config = derivePublishConfig(method, row as PublishSource | null);
+  // 发布消费路径带出冻结模板（RFP/ITB 发布闸校验 + 评审阶段闸共用）
+  let evalTemplate: unknown = null;
+  if (row?.eval_template) {
+    try {
+      evalTemplate = JSON.parse(row.eval_template);
+    } catch {
+      evalTemplate = null;
+    }
+  }
+  const result: PublishConfig = { ...config, evalTemplate };
   if (row) {
     await conn.query(
       "UPDATE procurement_tender_configs SET confirmed_by = COALESCE(confirmed_by, ?), confirmed_at = COALESCE(confirmed_at, ?), updated_at = ? WHERE id = ?",
@@ -228,11 +256,11 @@ export async function consumeConfigForPublish(
     await conn.query(
       `INSERT INTO procurement_tender_configs
          (project_id, version_no, publish_mode, envelope_policy, confirmed_by, confirmed_at, created_at, updated_at)
-       VALUES (?, ?, ?, 'none', ?, ?, ?, ?)`,
-      [projectId, versionNo, config.publishMode, submitConfirmedBy, at, at, at],
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [projectId, versionNo, config.publishMode, config.envelopePolicy, submitConfirmedBy, at, at, at],
     );
   }
-  return config;
+  return result;
 }
 
 type PublishSource = Pick<TenderConfigRow, "publish_mode" | "award_method" | "envelope_policy">;

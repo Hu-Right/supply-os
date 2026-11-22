@@ -613,6 +613,8 @@
   "pc_award_lowest_evaluated": "أقل سعر مُقيَّم",
   "pc_award_comprehensive": "تقييم شامل",
   "pc_award_eligibility_filter": "فرز الأهلية",
+  "pc_rule_eval_preset": "قالب التقييم: إعداد 70/30 (فني 70 في ستة محاور + مالي 30 بصيغة أقل سعر)",
+  "pc_rule_envelope_split": "مغلفتان: الفني أولاً؛ المالي يفتح لمن يجتاز فقط",
   "pc_deadline_eoi": "موعد إبداء الاهتمام",
   "pc_category": "الفئة (رمز UGT)",
   "pc_category_l1": "المستوى 1",
