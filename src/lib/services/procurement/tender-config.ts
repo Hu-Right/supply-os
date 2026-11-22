@@ -29,7 +29,7 @@ export interface TenderConfigRow extends RowDataPacket {
   award_method: string | null;
   qa_deadline_at: number | null;
   envelope_policy: string;
-  eval_template: string | null;
+  eval_template: string | Record<string, unknown> | null;
   lta_base_method: string | null;
   confirmed_by: number | null;
   confirmed_at: number | null;
@@ -77,12 +77,12 @@ export function derivePublishConfig(
 
 function viewOf(row: TenderConfigRow): TenderConfigView {
   let evalTemplate: unknown = null;
-  if (row.eval_template) {
-    try {
-      evalTemplate = JSON.parse(row.eval_template);
-    } catch {
-      evalTemplate = null;
-    }
+  if (row.eval_template != null) {
+    // mysql2 对 JSON 列可能返回字符串或已解析对象，双兼容（对象直用，字符串再 parse）
+    evalTemplate =
+      typeof row.eval_template === "object"
+        ? row.eval_template
+        : safeParse(row.eval_template);
   }
   return {
     projectId: Number(row.project_id),
@@ -237,15 +237,9 @@ export async function consumeConfigForPublish(
   );
   const row = (rows as TenderConfigRow[])[0] ?? null;
   const config = derivePublishConfig(method, row as PublishSource | null);
-  // 发布消费路径带出冻结模板（RFP/ITB 发布闸校验 + 评审阶段闸共用）
-  let evalTemplate: unknown = null;
-  if (row?.eval_template) {
-    try {
-      evalTemplate = JSON.parse(row.eval_template);
-    } catch {
-      evalTemplate = null;
-    }
-  }
+  // 发布消费路径带出冻结模板（RFP/ITB 发布闸校验 + 评审阶段闸共用）；JSON 列双兼容
+  const evalTemplate =
+    row?.eval_template == null ? null : typeof row.eval_template === "object" ? row.eval_template : safeParse(row.eval_template);
   const result: PublishConfig = { ...config, evalTemplate };
   if (row) {
     await conn.query(
@@ -264,6 +258,15 @@ export async function consumeConfigForPublish(
 }
 
 type PublishSource = Pick<TenderConfigRow, "publish_mode" | "award_method" | "envelope_policy">;
+
+/** JSON 列容错解析：非法 JSON 返回 null（mysql2 可能回传字符串或对象，调用方双兼容） */
+function safeParse(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 提交时把配置随版本前滚（与 method_decisions 同口径）：draft 期配置挂在旧版本上，

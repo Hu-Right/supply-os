@@ -23,10 +23,10 @@ export interface MethodDecisionRow extends RowDataPacket {
   id: number;
   project_id: number;
   version_no: number;
-  inputs: string | null;
+  inputs: unknown;
   recommended_method: string;
-  reason_keys: string | null;
-  missing_keys: string | null;
+  reason_keys: unknown;
+  missing_keys: unknown;
   buyer_method: string;
   buyer_note: string | null;
   decided_by: number | null;
@@ -69,10 +69,12 @@ export type MethodDecisionResult =
     };
 
 function viewOf(row: MethodDecisionRow): MethodDecisionView {
-  const parse = (v: string | null): unknown => {
-    if (!v) return null;
+  const parse = (v: unknown): unknown => {
+    if (v == null) return null;
+    // mysql2 对 JSON 列可能返回字符串或已解析对象，双兼容
+    if (typeof v === "object") return v;
     try {
-      return JSON.parse(v);
+      return JSON.parse(String(v));
     } catch {
       return null;
     }

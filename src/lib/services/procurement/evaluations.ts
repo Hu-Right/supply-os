@@ -85,10 +85,12 @@ export async function getEvalTemplate(db: Pool, projectId: number): Promise<Eval
     "SELECT eval_template FROM procurement_tender_configs WHERE project_id = ? ORDER BY version_no DESC, id DESC LIMIT 1",
     [projectId],
   );
-  const raw = (rows as Array<{ eval_template: string | null }>)[0]?.eval_template;
-  if (!raw) return null;
+  const raw = (rows as Array<{ eval_template: unknown }>)[0]?.eval_template;
+  if (raw == null) return null;
+  // mysql2 对 JSON 列可能返回字符串或已解析对象，双兼容
+  if (typeof raw === "object") return raw as EvalTemplate;
   try {
-    return JSON.parse(raw) as EvalTemplate;
+    return JSON.parse(String(raw)) as EvalTemplate;
   } catch {
     return null;
   }
@@ -319,8 +321,8 @@ export async function openFinancialEnvelope(
     );
     const supplierId = Number((supRows as Array<{ supplier_id: number }>)[0]?.supplier_id ?? 0);
     if (supplierId) {
-      const userRows = await db.query("SELECT user_id FROM users WHERE supplier_id = ? LIMIT 1", [supplierId]);
-      const userId = Number((userRows[0] as Array<{ user_id: number }>)[0]?.user_id ?? 0);
+      const userRows = await db.query("SELECT id FROM users WHERE supplier_id = ? LIMIT 1", [supplierId]);
+      const userId = Number((userRows[0] as Array<{ id: number }>)[0]?.id ?? 0);
       if (userId) {
         await pushNotificationSafe(db, {
           userId,
