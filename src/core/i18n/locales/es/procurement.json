@@ -615,6 +615,8 @@
   "pc_award_eligibility_filter": "Filtro de elegibilidad",
   "pc_rule_eval_preset": "Plantilla de evaluación: preajuste 70/30 (técnico 70 en seis dimensiones + financiero 30 por fórmula de menor precio)",
   "pc_rule_envelope_split": "Dos sobres: técnico primero; el financiero se abre solo para quienes aprueban",
+  "pc_rule_qa_deadline": "Fecha límite de preguntas",
+  "pc_rule_doc_package": "Se requieren los 9 documentos básicos antes de publicar (subir en adjuntos)",
   "pc_deadline_eoi": "Fecha límite de manifestación de interés",
   "pc_category": "Categoría (código UGT)",
   "pc_category_l1": "Nivel 1",

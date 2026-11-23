@@ -115,6 +115,7 @@
   "errRfqEnvelopeSealed": "O envelope financeiro ainda não foi aberto: ver preços ou pontuar apenas após aprovar a avaliação técnica e abrir",
   "errRfqEvalTemplateRequired": "Modelo de avaliação não congelado; não é possível publicar nem avaliar",
   "errRfqEvalStageNotPermitted": "Etapa de avaliação não alcançada: pontuação financeira abre apenas após aprovação técnica",
+  "errRfqQaClosed": "O período de perguntas e respostas foi encerrado; não são aceitas novas perguntas nem aditivos",
   "errInvalidParams": "Parâmetros de solicitação inválidos",
   "errClaimAlreadyApproved": "Já verificado, não é necessário reenviar",
   "errPaymentIndustryRequired": "É necessário selecionar uma indústria para comprar a assinatura",

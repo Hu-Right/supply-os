@@ -329,7 +329,8 @@ export const EC_RFQ_TENDER_CONFIG_INVALID = 44014;
 export const EC_RFQ_ENVELOPE_REQUIRED = 44015;
 /** 信封未到开封时点（RFP 商务标在技术达标前不可比价/打分） */
 export const EC_RFQ_ENVELOPE_SEALED = 44016;
-// 44017 预留：答疑已截止（P1c ITB 落地时取号）
+/** 答疑已截止，不接受新增补遗/提问（ITB 答疑期闸） */
+export const EC_RFQ_QA_CLOSED = 44017;
 /** 未冻结评分模板不可发布/评审（RFP/ITB） */
 export const EC_RFQ_EVAL_TEMPLATE_REQUIRED = 44018;
 /** 未到该评审阶段（技术评毕并达标前不可打商务分） */

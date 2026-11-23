@@ -10,6 +10,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      // server-only 在 jsdom 测试环境会抛错（它靠 react-server 条件导出放行）；
+      // 服务层单测经服务模块间接引入时统一走桩（真实防线在生产构建的 RSC 边界）。
+      "server-only": path.resolve(__dirname, "src/__tests__/server-only-stub.ts"),
     },
   },
   test: {

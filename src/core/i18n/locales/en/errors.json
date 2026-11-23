@@ -115,6 +115,7 @@
   "errRfqEnvelopeSealed": "Financial envelope not opened yet: view pricing or score financials only after passing technical evaluation and opening",
   "errRfqEvalTemplateRequired": "No frozen evaluation template; publishing or evaluating is unavailable",
   "errRfqEvalStageNotPermitted": "Evaluation stage not reached yet: financial scoring opens only after technical review passes",
+  "errRfqQaClosed": "The Q&A period has closed; no further questions or addenda are accepted",
   "errInvalidParams": "Invalid request parameters",
   "errClaimAlreadyApproved": "Already verified; no need to resubmit",
   "errPaymentIndustryRequired": "An industry category is required for membership purchase",

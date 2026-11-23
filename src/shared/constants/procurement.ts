@@ -134,13 +134,46 @@ export type ProcurementMethod = (typeof PROCUREMENT_METHOD)[keyof typeof PROCURE
 
 /**
  * 当前开放可用的采购方式（发布向导选择器 + 服务端写入校验的唯一口径）。
- * P1b 放开 RFP（双信封 + 综合评分）；ITB 随 P1c（需配套投标文件包 F14 与答疑期）；
+ * P1c 放开 ITB（正式招标：文件包 F14 + 答疑期 + 四阶段评审 + 最低评审价）；
  * LTA 为合同模式，P2 随 F19 立项。
  */
 export const PROCUREMENT_METHOD_AVAILABLE: readonly string[] = [
   PROCUREMENT_METHOD.RFQ,
   PROCUREMENT_METHOD.EOI,
   PROCUREMENT_METHOD.RFP,
+  PROCUREMENT_METHOD.ITB,
+];
+
+// ── ITB 招标文件包（F10/F14：9 件套 + 答疑补遗；doc_kind 白名单 = tender_documents 值域）──
+
+/** 招标文件类型白名单（procurement_tender_documents.doc_kind 值域） */
+export const TENDER_DOC_KINDS = [
+  "itb_notice", // ITB-01 招标公告
+  "itb_instructions", // ITB-02 投标人须知
+  "tech_spec", // ITB-03 技术规格书
+  "commercial_terms", // ITB-04 商务条款
+  "price_sheet", // ITB-05 投标报价表
+  "eligibility_form", // ITB-06 资格证明表
+  "tech_response_matrix", // ITB-07 技术响应矩阵
+  "eval_criteria", // ITB-08 评标标准
+  "draft_contract", // ITB-09 合同草案
+  "boq", // 工程量清单（工程类附加）
+  "drawing", // 图纸（工程类附加）
+  "qa_addendum", // 答疑澄清补遗（发布后答疑期内追加，公开）
+  "other", // 其他附件
+] as const;
+
+/** ITB 发布前置的 9 件套核心件（《全案》F10：缺一不可发布；boq/drawing/qa_addendum/other 为附加件） */
+export const ITB_CORE_DOC_KINDS: readonly string[] = [
+  "itb_notice",
+  "itb_instructions",
+  "tech_spec",
+  "commercial_terms",
+  "price_sheet",
+  "eligibility_form",
+  "tech_response_matrix",
+  "eval_criteria",
+  "draft_contract",
 ];
 
 /** 响应文件信封取值（procurement_response_files.envelope 值域口径） */

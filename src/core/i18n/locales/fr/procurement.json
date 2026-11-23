@@ -615,6 +615,8 @@
   "pc_award_eligibility_filter": "Présélection d'éligibilité",
   "pc_rule_eval_preset": "Modèle d'évaluation : préréglage 70/30 (technique 70 en six dimensions + financier 30 par formule du prix le plus bas)",
   "pc_rule_envelope_split": "Double enveloppe : technique d'abord ; la financière ne s'ouvre que pour les admis",
+  "pc_rule_qa_deadline": "Date limite de questions-réponses",
+  "pc_rule_doc_package": "Les 9 documents fondamentaux sont requis avant publication (à téléverser en pièces jointes)",
   "pc_deadline_eoi": "Date limite de manifestation d'intérêt",
   "pc_category": "Catégorie (code UGT)",
   "pc_category_l1": "Niveau 1",

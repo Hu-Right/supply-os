@@ -25,6 +25,7 @@ import { isBuyerPublishable } from "./buyers";
 import { formatTenderNo } from "./reference";
 import { applyMethodCorrection } from "./method-decision";
 import { consumeConfigForPublish } from "./tender-config";
+import { findMissingCoreDocuments, freezeTenderDocuments } from "./tender-documents";
 import { noticeTypeForMethod } from "./projection";
 import { deleteNoticeDocuments } from "@/lib/services/meilisearch/client";
 import { pushNotificationSafe } from "@/lib/services/notifications";
@@ -377,6 +378,20 @@ export async function applyReviewDecision(
         await conn.rollback();
         return { ok: false, reason: "publish_blocked", blockedBy: "tender_config_invalid" };
       }
+      // 方式专属配置闸：ITB 发布前 9 件套核心件必须齐备（F10/F14），答疑截止须早于截标
+      if (method === "itb") {
+        const missing = await findMissingCoreDocuments(conn as unknown as Pool, input.projectId);
+        if (missing.length > 0) {
+          console.warn(`[procurement] ITB 发布拦截：缺核心件 ${missing.join(",")}`);
+          await conn.rollback();
+          return { ok: false, reason: "publish_blocked", blockedBy: "tender_config_invalid" };
+        }
+        const qaDeadline = Number((publishConfig as { qaDeadlineAt?: number | null }).qaDeadlineAt ?? 0);
+        if (qaDeadline > 0 && row.quote_deadline_at != null && qaDeadline >= Number(row.quote_deadline_at)) {
+          await conn.rollback();
+          return { ok: false, reason: "publish_blocked", blockedBy: "tender_config_invalid" };
+        }
+      }
 
       // tender 记录：正式发布编号（PENDING 占位 → OSPT-{年}-{id} 回填）
       const [tIns] = await conn.query(
@@ -398,6 +413,10 @@ export async function applyReviewDecision(
       const tenderId = Number((tIns as { insertId?: number }).insertId ?? 0);
       tenderNo = formatTenderNo(tenderId, at);
       await conn.query("UPDATE procurement_tenders SET tender_no = ? WHERE id = ?", [tenderNo, tenderId]);
+      // ITB 文件包发布冻结（F14）：草稿件挂确认版本并置 published=1（同事务，投影失败整体回滚）
+      if (method === "itb") {
+        await freezeTenderDocuments(conn, input.projectId, input.version, at);
+      }
       await conn.query(
         "UPDATE procurement_projects SET requirement_verify = 'pass', updated_at = ? WHERE id = ?",
         [at, input.projectId],

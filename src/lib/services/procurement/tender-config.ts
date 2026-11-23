@@ -50,7 +50,7 @@ export interface TenderConfigView {
   confirmedAt: number | null;
 }
 
-/** 发布时的生效配置（derivePublishConfig 输出；evalTemplate 仅发布消费时填充） */
+/** 发布时的生效配置（derivePublishConfig 输出；evalTemplate/qaDeadlineAt 仅发布消费时填充） */
 export interface PublishConfig {
   publishMode: string;
   sealed: boolean;
@@ -58,6 +58,8 @@ export interface PublishConfig {
   envelopePolicy: string;
   /** 冻结的评分模板（RFP/ITB 必填；derivePublishConfig 纯函数路径恒 null） */
   evalTemplate?: unknown;
+  /** 答疑截止（ITB；null=未配置；发布闸校验须早于截标） */
+  qaDeadlineAt?: number | null;
 }
 
 /** 按方式+覆盖配置推导发布配置（纯函数；rfq 无覆盖 = P0 硬编码值，行为零变化） */
@@ -240,7 +242,11 @@ export async function consumeConfigForPublish(
   // 发布消费路径带出冻结模板（RFP/ITB 发布闸校验 + 评审阶段闸共用）；JSON 列双兼容
   const evalTemplate =
     row?.eval_template == null ? null : typeof row.eval_template === "object" ? row.eval_template : safeParse(row.eval_template);
-  const result: PublishConfig = { ...config, evalTemplate };
+  const result: PublishConfig = {
+    ...config,
+    evalTemplate,
+    qaDeadlineAt: row?.qa_deadline_at == null ? null : Number(row.qa_deadline_at),
+  };
   if (row) {
     await conn.query(
       "UPDATE procurement_tender_configs SET confirmed_by = COALESCE(confirmed_by, ?), confirmed_at = COALESCE(confirmed_at, ?), updated_at = ? WHERE id = ?",

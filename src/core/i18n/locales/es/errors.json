@@ -115,6 +115,7 @@
   "errRfqEnvelopeSealed": "El sobre financiero aún no se abre: ver precios o puntuar solo tras aprobar la evaluación técnica y abrir",
   "errRfqEvalTemplateRequired": "Plantilla de evaluación no congelada; no se puede publicar ni evaluar",
   "errRfqEvalStageNotPermitted": "Etapa de evaluación no alcanzada: la puntuación financiera abre solo tras aprobar la revisión técnica",
+  "errRfqQaClosed": "El período de preguntas y respuestas ha cerrado; no se aceptan más preguntas ni adendas",
   "errInvalidParams": "Parámetros de solicitud no válidos",
   "errClaimAlreadyApproved": "Ya verificado, no es necesario volver a enviar",
   "errPaymentIndustryRequired": "Se requiere una categoría de industria para comprar la membresía",

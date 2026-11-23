@@ -220,6 +220,8 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
   const [decisionNote, setDecisionNote] = useState("");
   /** 采购规则：发布模式（prequalified 属短名单后续项目，向导不直选） */
   const [publishMode, setPublishMode] = useState("public");
+  /** 采购规则：ITB 答疑截止（日期，存东八区 23:59:59；须早于截标） */
+  const [qaDeadlineDate, setQaDeadlineDate] = useState("");
 
   const projectIdRef = useRef<number | null>(props.editId ?? null);
   const hydratedRef = useRef(!props.editId);
@@ -435,7 +437,13 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     }).catch(() => undefined);
     void api(`/api/procurement/projects/${pid}/tender-config`, {
       method: "PUT",
-      body: form.method === "rfp" ? { publishMode, evalTemplate: EVAL_TEMPLATE_PRESET_70_30 } : { publishMode },
+      body: {
+        publishMode,
+        ...(form.method === "rfp" ? { evalTemplate: EVAL_TEMPLATE_PRESET_70_30 } : {}),
+        ...(form.method === "itb" && qaDeadlineDate
+          ? { qaDeadlineAt: Math.floor(new Date(`${qaDeadlineDate}T23:59:59+08:00`).getTime() / 1000) }
+          : {}),
+      },
     }).catch(() => undefined);
     const filled = items.filter((it) => it.nameZh.trim());
     const lotNos = [...new Set(filled.map((it) => it.lotNo.trim()).filter(Boolean))];
@@ -452,7 +460,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
         alternativesAllowed: it.alternativesAllowed,
       })),
     );
-  }, [buildPatch, items, derivedUgt, form.method, recommendedMethod, decisionNote, advisorInputs, publishMode]);
+  }, [buildPatch, items, derivedUgt, form.method, recommendedMethod, decisionNote, advisorInputs, publishMode, qaDeadlineDate]);
 
   /**
    * 把"新建草稿的 id"写进 URL（/rfq/{id}/publish），让刷新 / 换设备能续填。
@@ -834,12 +842,20 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                     {t(`pc_publish_${p}`)}
                   </button>
                 ))}
+                {form.method === "itb" && (
+                  <label className="flex flex-wrap items-center gap-2">
+                    <span className="text-secondary-600">{t("pc_rule_qa_deadline")}</span>
+                    <input type="date" value={qaDeadlineDate} onChange={(e) => setQaDeadlineDate(e.target.value)}
+                      className="rounded-lg border border-secondary-300 px-2 py-1" />
+                  </label>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-3 text-secondary-500">
                 <span>{t("pc_rule_sealed")}：{SEALED_BY_METHOD[form.method] === false ? t("pc_no") : t("pc_yes")}</span>
                 <span>{t("pc_rule_award")}：{t(`pc_award_${AWARD_METHOD_BY_METHOD[form.method] ?? "lowest_price"}`)}</span>
                 {form.method === "rfp" && <span>{t("pc_rule_eval_preset")}</span>}
                 {form.method === "rfp" && <span>{t("pc_rule_envelope_split")}</span>}
+                {form.method === "itb" && <span>{t("pc_rule_doc_package")}</span>}
               </div>
             </div>
           </div>

@@ -147,7 +147,7 @@ export type AppContext = {
  *  旧单例的静态列集合会漏列。
  *  2026-11-20 +1（企业行业自报）：SupplierDirectoryRepo.PORTAL_COLUMNS 增加 industry_code，
  *  旧单例的列白名单不会返回该键（设置页行业无法回填）。 */
-const CTX_VERSION = 20; // 067 新增 procurement_evaluations / procurement_envelope_openings
+const CTX_VERSION = 21; // 068 新增 procurement_tender_documents
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };

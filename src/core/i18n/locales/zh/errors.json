@@ -115,6 +115,7 @@
   "errRfqEnvelopeSealed": "商务标尚未开封：技术评审达标并开封前不能查看报价或打商务分",
   "errRfqEvalTemplateRequired": "尚未冻结评分模板，不能发布或评审",
   "errRfqEvalStageNotPermitted": "未到该评审阶段：技术评审完成并达标后才能进行商务评分",
+  "errRfqQaClosed": "答疑期已截止，不再接受新增答疑或补遗",
   "errInvalidParams": "请求参数不合法",
   "errClaimAlreadyApproved": "该主体已认证通过，无需重复提交",
   "errPaymentIndustryRequired": "会员购买必须选择行业大类",

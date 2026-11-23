@@ -49,6 +49,7 @@ import {
   EC_RFQ_NOT_OPENED, EC_RFQ_AWARD_EXISTS,
   EC_RFQ_TENDER_CONFIG_INVALID, EC_RFQ_SHORTLIST_FINALIZED,
   EC_RFQ_ENVELOPE_REQUIRED, EC_RFQ_ENVELOPE_SEALED, EC_RFQ_EVAL_TEMPLATE_REQUIRED, EC_RFQ_EVAL_STAGE_NOT_PERMITTED,
+  EC_RFQ_QA_CLOSED,
 } from "../constants/api";
 
 /** 错误语义分类（11 枚举；unknown 仅供前端兜底，catalog 不使用） */
@@ -219,6 +220,7 @@ export const ERROR_CATALOG: Readonly<Record<number, ErrorDef>> = {
   [EC_RFQ_ENVELOPE_SEALED]: { code: EC_RFQ_ENVELOPE_SEALED, type: "rfq_envelope_sealed", status: 409, kind: "business", i18nKey: "errRfqEnvelopeSealed" },
   [EC_RFQ_EVAL_TEMPLATE_REQUIRED]: { code: EC_RFQ_EVAL_TEMPLATE_REQUIRED, type: "rfq_eval_template_required", status: 400, kind: "business", i18nKey: "errRfqEvalTemplateRequired" },
   [EC_RFQ_EVAL_STAGE_NOT_PERMITTED]: { code: EC_RFQ_EVAL_STAGE_NOT_PERMITTED, type: "rfq_eval_stage_not_permitted", status: 409, kind: "business", i18nKey: "errRfqEvalStageNotPermitted" },
+  [EC_RFQ_QA_CLOSED]: { code: EC_RFQ_QA_CLOSED, type: "rfq_qa_closed", status: 409, kind: "business", i18nKey: "errRfqQaClosed" },
 };
 
 /** 生效错误定义（排除 deprecated 同义码） */

@@ -615,6 +615,8 @@
   "pc_award_eligibility_filter": "资格筛选",
   "pc_rule_eval_preset": "评分模板：70/30 预设（技术 70 分六维 + 商务 30 分最低价得满分公式）",
   "pc_rule_envelope_split": "双信封：技术标先评，达标才开封商务标",
+  "pc_rule_qa_deadline": "答疑截止",
+  "pc_rule_doc_package": "9 件套核心件齐备方可发布（附件区上传）",
   "pc_deadline_eoi": "意向征集截止",
   "pc_category": "采购品类（UGT 树码）",
   "pc_category_l1": "一级品类",

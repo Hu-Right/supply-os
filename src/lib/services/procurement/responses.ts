@@ -494,6 +494,17 @@ export async function submitResponse(
         await conn.rollback();
         return { ok: false, reason: "rfp_envelope_required" };
       }
+    } else if (String(row.method) === PROCUREMENT_METHOD.ITB) {
+      // ITB 正式招标（§7.1）：投标文件（technical 信封 ≥1，对 9 件套逐项响应）+ 报价表（报价行）；
+      // 全密封截标开封，无商务分信封（评标=资格/技术合格后最低评审价）
+      if (items.length === 0 || !items.some((it) => it.unit_price != null && Number(it.unit_price) > 0)) {
+        await conn.rollback();
+        return { ok: false, reason: "no_items" };
+      }
+      if (!files.some((f) => f.envelope === RESPONSE_ENVELOPE.TECHNICAL)) {
+        await conn.rollback();
+        return { ok: false, reason: "rfp_envelope_required" };
+      }
     } else if (items.length === 0 || !items.some((it) => it.unit_price != null && Number(it.unit_price) > 0)) {
       await conn.rollback();
       return { ok: false, reason: "no_items" };

@@ -615,6 +615,8 @@
   "pc_award_eligibility_filter": "Eligibility screening",
   "pc_rule_eval_preset": "Evaluation template: 70/30 preset (technical 70 in six dimensions + financial 30 by lowest-price formula)",
   "pc_rule_envelope_split": "Two envelopes: technical reviewed first; financial opens only for those passing",
+  "pc_rule_qa_deadline": "Q&A deadline",
+  "pc_rule_doc_package": "All 9 core bidding documents required before publication (upload in attachments)",
   "pc_deadline_eoi": "EOI deadline",
   "pc_category": "Category (UGT code)",
   "pc_category_l1": "Level 1",
