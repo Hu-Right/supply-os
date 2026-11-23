@@ -19,6 +19,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import mysql, { type Pool, type RowDataPacket } from "mysql2/promise";
 import { normalizeBuyerKey } from "../../src/lib/services/buyer/normalize";
+import { reassignPublicBuyer } from "../../src/lib/services/notice-public/build";
 
 const APPLY = process.argv.includes("--apply");
 const BACKUP_SUFFIX = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -62,13 +63,17 @@ async function main(): Promise<void> {
 
   // ── ① 重复实体合并 ──────────────────────────────────────────────
   const [buyers] = await pool.query<RowDataPacket[]>(
-    "SELECT buyer_id, canonical_name, country_code FROM buyer WHERE status = 'active'",
+    "SELECT buyer_id, canonical_name, name_zh, country_code FROM buyer WHERE status = 'active'",
   );
-  const groups = new Map<string, Array<{ id: number; canonical: string }>>();
+  const groups = new Map<string, Array<{ id: number; canonical: string; nameZh: string | null }>>();
   for (const b of buyers) {
     const key = `${cc(b.country_code)}|${normalizeBuyerKey(b.canonical_name)}`;
     const arr = groups.get(key) ?? [];
-    arr.push({ id: Number(b.buyer_id), canonical: String(b.canonical_name) });
+    arr.push({
+      id: Number(b.buyer_id),
+      canonical: String(b.canonical_name),
+      nameZh: b.name_zh == null ? null : String(b.name_zh),
+    });
     groups.set(key, arr);
   }
   const dupGroups = [...groups.entries()].filter(([, arr]) => arr.length > 1);
@@ -89,7 +94,14 @@ async function main(): Promise<void> {
       const conn = await pool.getConnection();
       try {
         await conn.beginTransaction();
-        await conn.query("UPDATE notice_public SET buyer_id = ? WHERE buyer_id = ?", [keeper.id, dup.id]);
+        // 服务表改挂走唯一写入者（src/lib/services/notice-public/build.ts），
+        // 本脚本不得直接写 notice_public（check-notice-public-ssot N1 红线）。
+        await reassignPublicBuyer(conn, {
+          fromBuyerId: dup.id,
+          toBuyerId: keeper.id,
+          canonicalName: keeper.canonical,
+          nameZh: keeper.nameZh,
+        });
         await conn.query("UPDATE buyer_alias SET buyer_id = ? WHERE buyer_id = ?", [keeper.id, dup.id]);
         await conn.query("UPDATE buyer SET status = 'inactive' WHERE buyer_id = ?", [dup.id]);
         await conn.commit();

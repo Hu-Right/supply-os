@@ -92,11 +92,18 @@ describe("SupplierClaimModal", () => {
     apiMock.mockImplementation(() => new Promise<void>((resolve) => { release = resolve; }));
     render(<SupplierClaimModal {...props} />);
 
-    const overlay = screen.getByText("profile_claimTitle").closest("div.fixed")!;
+    // Radix Dialog（2026-11-20 b9b6fa5c 起定位/遮罩全部由 CSS 类承载）：
+    // 遮罩是 Portal 内与内容并列的 .modal-overlay，不再是包含内容的 fixed 层。
+    const overlay = document.querySelector(".modal-overlay") as HTMLElement;
+    expect(overlay).not.toBeNull();
     fireEvent.click(screen.getByText("profile_claimConfirmCta"));
+    // Radix 的「点遮罩关闭」由 pointerdown（onInteractOutside）判定，click 本身不触发关闭
+    fireEvent.pointerDown(overlay);
     fireEvent.click(overlay);
     expect(props.onClose).not.toHaveBeenCalled();
-    expect(overlay.querySelector("button")).toBeDisabled();
+    // 提交中：右上角关闭钮与取消钮都必须禁用（唯一关闭闸口 guardedClose 兜住 Esc/遮罩）
+    expect(screen.getByRole("button", { name: "uiClose" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "cancel" })).toBeDisabled();
 
     release!();
     await waitFor(() => expect(pushMock).toHaveBeenCalled());

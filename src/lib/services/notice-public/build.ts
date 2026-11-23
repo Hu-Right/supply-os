@@ -10,7 +10,7 @@
  * buyer/entity-index，以 buyer_alias ⋈ buyer 为唯一权威；旧 agency_aliases 体系已退役）；
  * 金额/联系方式/标题/正文分级在本模块内完成，产出即对外事实。
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { normalizeTitle, cleanContentText } from "../notice-content/title";
 import { normalizeAmount } from "../notice-normalize/amount";
 import { normalizeContacts } from "../notice-normalize/phone";
@@ -216,6 +216,49 @@ export async function syncPublicIndustryFromOpportunity(
     updated += updates.length;
   }
   return { scanned, pending, updated };
+}
+
+/**
+ * 一次性数据治理：买家实体合并后，把服务表里指向被合并实体的行改挂到留存实体。
+ *
+ * 背景（2026-11-23 买家实体归一）：历史批次给同一「同国 + 同归一名」机构重复建档，
+ * 合并时 buyer_alias 迁到留存实体、重复实体置 inactive，但服务表的 buyer_id 仍指向
+ * 已停用的重复实体——详情/筛选会显示一个不在实体索引里的机构。N1 门禁要求
+ * notice_public 只能由本模块写入，因此改挂逻辑放这里，CLI
+ * （scripts/tools/buyer-normalize-repair.ts）只调用本函数。
+ *
+ * buyer_name 一并按留存实体的 canonical 重写：它是构建期 resolveBuyerEntity 的产出，
+ * 只改 buyer_id 不改名字会与「下次重建」的口径分叉。留存实体没有中文名时保留行上已有
+ * 的音译/译名（不拿 NULL 清空有效数据），与构建器 `buyerEntity.nameZh ?? null` 的取舍
+ * 差异只在「合并时留存实体缺译名」这一种情况，属于宁可保留旧译名的修复口径。
+ *
+ * B2 门禁要求 buyer/buyer_alias 只能经 buyer/entity-index 读取，因此本函数**不读 buyer 表**：
+ * 留存实体的 canonical / name_zh 由调用方（CLI 已在同一事务里读过 buyer 行）传入。
+ *
+ * @param q 连接或连接池；需要与 buyer_alias/buyer 的迁移同事务时传 PoolConnection
+ * @returns 受影响的服务表行数
+ */
+export async function reassignPublicBuyer(
+  q: Pick<Pool, "query">,
+  opts: { fromBuyerId: number; toBuyerId: number; canonicalName: string; nameZh?: string | null },
+): Promise<number> {
+  const from = Number(opts.fromBuyerId);
+  const to = Number(opts.toBuyerId);
+  if (!Number.isInteger(from) || !Number.isInteger(to) || from <= 0 || to <= 0 || from === to) {
+    throw new Error(`reassignPublicBuyer: 非法实体 id from=${opts.fromBuyerId} to=${opts.toBuyerId}`);
+  }
+  const canonical = String(opts.canonicalName ?? "").trim();
+  if (!canonical) throw new Error(`reassignPublicBuyer: 留存实体 ${to} 缺少 canonical 名`);
+  const nameZh = String(opts.nameZh ?? "").trim();
+  const [res] = await q.query(
+    `UPDATE notice_public
+        SET buyer_id = ?,
+            buyer_name = ?,
+            buyer_name_cn = COALESCE(NULLIF(?, ''), buyer_name_cn)
+      WHERE buyer_id = ?`,
+    [to, canonical.slice(0, 500), nameZh.slice(0, 500), from],
+  );
+  return (res as ResultSetHeader).affectedRows;
 }
 
 // ── 准入红线（2026-10-22 用户拍板，选行/构建/清理三处共用同一谓词）──────────────

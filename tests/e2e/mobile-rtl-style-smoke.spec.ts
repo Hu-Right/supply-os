@@ -10,10 +10,25 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 const HOME = "/";
 const menuNames = { zh: "打开菜单", ar: "فتح القائمة" };
 
+/**
+ * WebKit 导航时序产物：刷新/离场时把文档里 in-flight 的 RSC 预取取消掉，
+ * 内核会以 `...?_rsc=<hash> ... due to access control checks.` 的形式把它报成
+ * pageerror（来源 javascript，且不产生 requestfailed 事件）。Chromium 不这样报。
+ * 这不是页面 JS 故障，而是「刷新把预取打断」的时序：本用例本来就要 reload，
+ * 预取是否恰好还在飞取决于机器快慢，故按已知内核行为过滤；真正的 RSC 故障
+ * （404/500/MIME）仍由 response 监听覆盖，口径不变。
+ */
+function isCancelledRscPrefetch(message: string): boolean {
+  return message.includes("_rsc=") && /due to access control checks/i.test(message);
+}
+
 function watchResources(page: Page) {
   const css = new Set<string>();
   const failures: string[] = [];
-  page.on("pageerror", (error) => failures.push(`JavaScript: ${error.message}`));
+  page.on("pageerror", (error) => {
+    if (isCancelledRscPrefetch(error.message)) return;
+    failures.push(`JavaScript: ${error.message}`);
+  });
   page.on("requestfailed", (request) => {
     if (!request.url().includes("/_next/static/")) return;
     const errorText = request.failure()?.errorText ?? "";
