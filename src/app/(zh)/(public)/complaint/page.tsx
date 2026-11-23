@@ -7,7 +7,7 @@ import { LegalPageContent } from "../legal-page";
 
 export const metadata: Metadata = {
   title: "投诉、争议与联系方式",
-  description: "OS NEO SMART 投诉受理范围、提交渠道、处理时限与争议解决方式",
+  description: "OS NEO SMART 投诉受理范围、提交渠道与争议解决方式",
 };
 
 export default function ComplaintPage() {

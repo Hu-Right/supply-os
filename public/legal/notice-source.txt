@@ -2,7 +2,7 @@ OS NEO SMART
 标讯来源与使用说明
 
 1. 信息来源
-本平台展示的采购公告、招标信息与中标结果，来自各国家/地区政府、国际组织公开的采购门户及公开渠道。实际接入的来源包括 PNCP、System for Award Management（SAM）、TED、GeM、g2b.go.kr、Contratación del Estado、Mercado Público、SECOP II、Prozorro、web.pcc.gov.tw、muasamcong.mof.gov.vn、PhilGEPS、eTenders、BOAMP、eprocure.gov.bd、CanadaBuys、GETS、AusTender 等，具体以每条公告标注的来源平台为准。
+本平台展示的采购公告、招标信息与中标结果，来自各国家/地区政府、国际组织公开的采购门户及公开渠道。实际接入的来源包括 PNCP、System for Award Management（SAM）、TED、GeM、g2b.go.kr、Contratación del Estado、Mercado Público、SECOP II、Prozorro、web.pcc.gov.tw、muasamcong.mof.gov.vn、PhilGEPS、eTenders、BOAMP、eprocure.gov.bd、CanadaBuys、GETS、AusTender、UNGM、World Bank 等，具体以每条公告标注的来源平台为准。
 
 本平台为信息聚合与增值服务提供者，不是任何官方采购平台的替代、代理或授权发布渠道；除另有书面授权外，与上述机构不存在代理、背书或合作关系。
 
@@ -16,4 +16,4 @@ OS NEO SMART
 供应商注册、报名、下载正式招标文件、提交投标文件、缴纳保证金等，应按来源地法律规定及官方公告要求，在官方电子采购系统或官方指定系统完成。用户在本平台的操作（检索、收藏、解锁、下载、AI 分析）不构成报名、投标或任何法律意义上的意思表示。
 
 5. 纠错
-如发现信息错误、过期、重复或涉嫌侵权，可通过页脚“投诉与争议”入口提交具体链接与说明，本平台将核验后处理。
+如发现信息错误、过期、重复或涉嫌侵权，可通过页脚“投诉与争议”页面所列渠道反馈具体链接与说明，我们会根据核查结果处理。
