@@ -79,9 +79,9 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
         {/* 咨询顾问 */}
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           onClick={onConsult}
-          className="gap-2 rounded-xl border-white/20 px-2.5 py-2 text-slate-200 hover:bg-white/10 cursor-pointer"
+          className="gap-2 rounded-xl border border-white/20 bg-transparent px-2.5 py-2 !text-slate-200 hover:!bg-white/10 hover:!text-white cursor-pointer"
           title={t("tlNavConsult")}
         >
           <Headphones className="w-4 h-4 shrink-0" />
@@ -124,10 +124,10 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
           {/* 咨询顾问 */}
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             onClick={onConsult}
             aria-label={t("tlNavConsult")}
-            className="flex-col items-center gap-0.5 rounded-lg border-white/20 px-1 py-1 text-slate-300 hover:bg-transparent active:bg-white/10 cursor-pointer min-w-0"
+            className="flex-col items-center gap-0.5 rounded-lg border border-white/20 bg-transparent px-1 py-1 !text-slate-300 hover:!bg-white/10 hover:!text-white active:bg-white/10 cursor-pointer min-w-0"
           >
             <Headphones className="w-4 h-4 shrink-0" />
             <span className="text-2xs font-bold truncate max-w-full">{t("mobileNavConsult")}</span>
