@@ -10,9 +10,10 @@
  *              2026-11-19 恢复页尾「退出登录」入口：此前误以为顶部账户菜单承载退出，
  *              实际 Header 只在账户按钮跳设置页、没有下拉菜单，导致退出入口消失。
  */
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, type ComponentType } from "react";
-import { LogOut, User } from "lucide-react";
+import { ArrowRight, LogOut, User } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button, Skeleton } from "@/shared/ui";
@@ -180,6 +181,15 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
       <section>
         <SectionTitle>{t("settingsAccountActions") || "账号操作"}</SectionTitle>
         <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5 flex flex-wrap items-center justify-between gap-4">
+          <Link
+            href="/account-cancellation"
+            className="flex w-full items-center justify-between gap-3 border-b border-border pb-4 mb-4"
+          >
+            <span className="text-sm font-medium text-foreground">{t("footerAccountCancellation")}</span>
+            <span className="flex items-center gap-1 text-xs text-slate-400">
+              <ArrowRight className="h-4 w-4" />
+            </span>
+          </Link>
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">{t("authLogout")}</p>
           </div>

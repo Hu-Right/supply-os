@@ -74,7 +74,7 @@ const LEGAL_LINKS = [
   { href: "/refund-policy", key: "footerPaidRights", fallback: "付费权益与退款" },
   { href: "/notice-source", key: "footerNoticeSource", fallback: "标讯来源声明" },
   { href: "/copyright", key: "footerCopyrightNotice", fallback: "版权与转载" },
-  { href: "/account-cancellation", key: "footerAccountCancellation", fallback: "账号注销" },
+  { href: "/account-cancellation", key: "footerAccountCancellation", fallback: "个人信息与账号" },
 ] as const;
 
 export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }: AppFooterProps) {

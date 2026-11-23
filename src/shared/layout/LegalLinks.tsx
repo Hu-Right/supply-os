@@ -24,7 +24,7 @@ export const LEGAL_LINKS: LegalLinkItem[] = [
   { href: "/notice-source", labelKey: "footerNoticeSource", fallback: "标讯来源声明" },
   { href: "/copyright", labelKey: "footerCopyrightNotice", fallback: "版权与转载" },
   { href: "/complaint", labelKey: "footerComplaint", fallback: "投诉与争议" },
-  { href: "/account-cancellation", labelKey: "footerAccountCancellation", fallback: "账号注销" },
+  { href: "/account-cancellation", labelKey: "footerAccountCancellation", fallback: "个人信息与账号" },
   { href: "/about", labelKey: "footerAbout", fallback: "关于我们" },
 ];
 
