@@ -76,7 +76,10 @@ V3 不引入匿名诊断。诊断报告属于**公司**（一司一份，`uk_sup
 ## 4. 后果
 
 - 结构基线（`db/schema/baseline.sql`）需在换表执行后重导一次，否则 `check:baseline` 会报漂移；
-- 运营/报告侧若要出「资质缺口清单」，读 `qual_breakdown`（逐市场 `required[].held`）即可，不必重算；
+- **报告侧在后台（`intelligence-daily`，同库直读、两边接口互不调用）**：`generateReportPdf` 把
+  `schema_version` / `qual_grade` / `qual_breakdown` 一并交给 `generateReadinessPdf`，报告新增
+  「四、资质分级与准入缺口」（档位 + 逐市场应备/缺失表），附录 A 由「19 题」改为「18 题 + 目标市场」。
+  后台**只读快照、不重算分级**；未分级时渲染「未分级」，不伪造 C 级；
 - 历史 V2 报告没有 `qual_grade`（NULL），成绩单公开面不受影响（只读 `score_*`）；
 - `diagWillingnessNotScored` 等旧文案键暂留（无引用），下次 i18n 清理批次一并删除。
 
