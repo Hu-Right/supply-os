@@ -8,7 +8,7 @@ import { LegalPageContent } from "../legal-page";
 export const metadata: Metadata = {
   // 只写文档名：网站名由根 layout 的 title.template 拼在首位
   title: "付费会员及退款规则",
-  description: "OS NEO SMART 付费会员及退款规则，版本 V1.0，2026年8月29日生效",
+  description: "OS NEO SMART 付费会员及退款规则，版本 V1.2，2026年11月23日生效",
 };
 
 export default function RefundPolicyPage() {
@@ -17,7 +17,7 @@ export default function RefundPolicyPage() {
       <header className="mb-8 border-b border-slate-200 pb-6">
         <h1 className="text-2xl font-bold text-slate-900">OS NEO SMART 付费会员及退款规则</h1>
         <p className="mt-1 text-xs text-slate-500">
-          版本：V1.0 &nbsp;|&nbsp; 生效日期：2026年8月29日 &nbsp;|&nbsp; 运营主体：杭州云境智展科技有限公司
+          版本：V1.2 &nbsp;|&nbsp; 生效日期：2026年11月23日 &nbsp;|&nbsp; 运营主体：杭州云境智展科技有限公司
         </p>
       </header>
       <LegalPageContent filename="refund-policy.txt" />
