@@ -12,6 +12,7 @@ import type { Locale } from "@/core/i18n";
 import { Brand } from "./Brand";
 import { useAuth } from "@/core/auth";
 import { NAV_TABS } from "./nav-tabs";
+import { LegalLinks } from "./LegalLinks";
 
 export interface MobileDrawerProps {
   open: boolean;
@@ -134,6 +135,18 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
               );
             })}
           </div>
+        </div>
+
+        {/* 法律与关于：移动端没有页脚，这里是唯一常驻入口（合规 P0） */}
+        <div className="border-t border-slate-100 px-3 py-2">
+          <p className="px-2 py-1 text-2xs font-semibold uppercase tracking-wider text-slate-400">
+            {t("footerLegalNav") || "法律与关于"}
+          </p>
+          <LegalLinks
+            className="flex flex-wrap gap-x-3 gap-y-2 px-2 pb-1"
+            itemClassName="text-xs text-slate-500"
+            onNavigate={onClose}
+          />
         </div>
 
         {/* 抽屉底部：用户信息 */}
