@@ -32,12 +32,10 @@ export default function Providers({
           <AppInit />
           <AuthProvider>
             {children}
-            {/* 轻提示统一走「白底 + 细边 + 深色字」：默认 richColors 的整块品牌绿在浅色页面上
-                刺眼、图标与文案挤在一起（2026-11-23 反馈「弹窗丑」）。图标由 sonner 按状态给色，
-                这里只统一容器与字号，避免每处调用各写一套 className。 */}
+            {/* 轻提示：纯定时消失（4s），不带关闭按钮——它只是"操作已收到"的一次性反馈；
+                样式统一为白底 + 细边 + 深色字，状态只由图标着色（默认 richColors 的整块品牌绿太扎眼）。 */}
             <Toaster
               position="top-center"
-              closeButton
               duration={4000}
               toastOptions={{
                 classNames: {
@@ -45,7 +43,6 @@ export default function Providers({
                   title: "!text-sm !font-semibold !text-slate-800",
                   description: "!text-xs !text-slate-500",
                   icon: "!me-2",
-                  closeButton: "!border-slate-200 !bg-white !text-slate-400 hover:!text-slate-600",
                 },
               }}
             />
