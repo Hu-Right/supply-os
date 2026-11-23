@@ -13,6 +13,7 @@
  */
 import type { CatalogRepo } from "@/lib/repos/catalog.repo";
 import type { EnterpriseProfileRepo } from "@/lib/repos/enterprise-profile.repo";
+import { inferProductScopes } from "@/shared/constants/product-scopes";
 import type { DiagnosisAnswers } from "@/lib/services/scoring/diagnosis-v2";
 import {
   evaluateQualification,
@@ -21,10 +22,10 @@ import {
   type QualificationResult,
 } from "@/lib/services/scoring/diagnosis-qualification";
 
-/** 只依赖两个方法，便于单测用假仓储（不连真库） */
+/** 只依赖三个方法，便于单测用假仓储（不连真库） */
 export interface QualificationDeps {
   catalog: Pick<CatalogRepo, "listActiveCertificationsWithScope">;
-  enterprise: Pick<EnterpriseProfileRepo, "listCertificationCodes">;
+  enterprise: Pick<EnterpriseProfileRepo, "listCertificationCodes" | "getScopeSignals">;
 }
 
 /** 从作答里取目标市场（多选：正常是数组；容错逗号串，与仓储写库同语义） */
@@ -46,6 +47,10 @@ export function degradedQualification(targetMarkets: readonly string[]): Qualifi
     missingCount: 0,
     noRequirementMarkets: [],
     unscoredReason: "dict_unavailable",
+    supplierScopes: [],
+    scopeUnidentified: true,
+    skippedOutOfScopeCodes: [],
+    unclassifiedCodes: [],
   };
   return { grade: null, breakdown };
 }
@@ -57,12 +62,27 @@ export async function evaluateQualificationFor(
 ): Promise<QualificationResult> {
   const targetMarkets = targetMarketsOf(answers);
   try {
-    const [dict, heldCodes] = await Promise.all([
+    const [dict, heldCodes, signals] = await Promise.all([
       deps.catalog.listActiveCertificationsWithScope(),
       // enterprise_id 与 supplier.id 同值（企业主体 = 已认证 supplier，见 ADR-0016）
       deps.enterprise.listCertificationCodes(supplierId),
+      // 主营范围信号读失败不应拖垮整次分级：降级为「未识别」，只比对跨行业通用项
+      deps.enterprise.getScopeSignals(supplierId).catch(() => null),
     ]);
-    return evaluateQualification({ targetMarkets, dict, heldCodes });
+    const inferred = signals
+      ? inferProductScopes({
+          company: signals.company,
+          products: signals.products,
+          industryCode: signals.industryCode,
+          capabilityLabels: signals.capabilityLabels,
+        })
+      : { scopes: [], matchedText: "" };
+    return evaluateQualification({
+      targetMarkets,
+      dict,
+      heldCodes,
+      supplierScopes: inferred.scopes,
+    });
   } catch (err) {
     console.warn("[supplier-diagnosis] 资质分级取数失败，降级为未分级:", (err as Error).message);
     return degradedQualification(targetMarkets);

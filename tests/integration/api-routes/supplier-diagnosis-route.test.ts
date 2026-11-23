@@ -33,8 +33,10 @@ const findProfileBits = vi.fn();
 const findByCompanyBest = vi.fn();
 const insertEnterprise = vi.fn();
 /** V3 资质分级取数：默认空字典 + 零已持（≙ 用户没勾目标市场时不该产生缺口） */
-const listActiveCertificationsWithScope = vi.fn(async (): Promise<{ code: string; name: string; category: string; scope: string }[]> => []);
+const listActiveCertificationsWithScope = vi.fn(async (): Promise<{ code: string; name: string; category: string; scope: string; productScopes?: string[] }[]> => []);
 const listCertificationCodes = vi.fn(async (): Promise<string[]> => []);
+/** V3 产品范围信号：默认给「建筑工程」，让带 CE 的用例仍按通用项出分级 */
+const getScopeSignals = vi.fn(async () => ({ company: "测试企业", products: "钢结构工程", industryCode: "UGT-I-0502", capabilityLabels: [] as string[] }));
 
 vi.mock("@/lib/db/context", () => ({
   getContext: () => ({
@@ -46,6 +48,7 @@ vi.mock("@/lib/db/context", () => ({
 vi.mock("@/lib/repos/enterprise-profile.repo", () => ({
   EnterpriseProfileRepo: class {
     listCertificationCodes = listCertificationCodes;
+    getScopeSignals = getScopeSignals;
   },
 }));
 
@@ -184,8 +187,8 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
   it("V3 资质分级：填了目标市场 → 按字典与已持证书出 A/B/C，并随响应、随落库一起走", async () => {
     findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "pending" });
     listActiveCertificationsWithScope.mockResolvedValueOnce([
-      { code: "CE", name: "CE 认证", category: "market_access", scope: "EU" },
-      { code: "UKCA", name: "UKCA 认证", category: "market_access", scope: "UK" },
+      { code: "CE", name: "CE 认证", category: "market_access", scope: "EU", productScopes: ["all"] },
+      { code: "UKCA", name: "UKCA 认证", category: "market_access", scope: "UK", productScopes: ["all"] },
     ]);
     listCertificationCodes.mockResolvedValueOnce(["CE"]);
     const { POST } = await import("@/app/api/supplier-diagnosis/route");

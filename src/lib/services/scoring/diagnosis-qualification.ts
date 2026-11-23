@@ -44,6 +44,11 @@ export interface QualificationCertRef {
   name: string;
   category: string;
   scope: string;
+  /**
+   * V3：适用产品/行业桶（见 shared/constants/product-scopes）。
+   * `["all"]` = 跨行业通用；空/未定义 = 字典未分类，判定时不参与比对（报告会写明）。
+   */
+  productScopes?: readonly string[] | null;
 }
 
 export interface QualificationGapItem {
@@ -78,6 +83,14 @@ export interface QualificationBreakdown {
   noRequirementMarkets: string[];
   /** 未分级原因（grade 为 null 时给出机器可读原因，便于报告解释） */
   unscoredReason: "no_target_markets" | "dict_unavailable" | null;
+  /** V3：参与比对的供应商主营范围桶 */
+  supplierScopes: string[];
+  /** V3：是否没能从档案识别出主营范围（true 时只比对通用项） */
+  scopeUnidentified: boolean;
+  /** V3：同市场但因产品范围不匹配被排除的证书（报告用来解释"为什么只列这几张"） */
+  skippedOutOfScopeCodes: string[];
+  /** V3：同市场但字典未标注适用范围、未参与比对的证书 */
+  unclassifiedCodes: string[];
 }
 
 export interface QualificationResult {
@@ -114,6 +127,23 @@ export interface EvaluateQualificationInput {
   dict: readonly QualificationCertRef[];
   /** 能力档案里已持的认证 code（= enterprise_capability_items.value_json.code） */
   heldCodes: readonly string[];
+  /**
+   * V3：供应商主营范围桶（企业档案推导）。空数组 = 未识别，此时只比对挂 `all` 的通用项，
+   * 并在明细里标 `scopeUnidentified`，报告据此说明"未识别主营范围，未做品类裁剪"。
+   */
+  supplierScopes?: readonly string[];
+}
+
+/** 认证是否适用于该供应商：未分类 → 不参与比对；挂 all → 通用；否则要求桶有交集 */
+function matchesProductScope(
+  certScopes: readonly string[] | null | undefined,
+  supplierScopes: readonly string[],
+): boolean {
+  const list = (certScopes ?? []).map((s) => String(s ?? "").trim().toLowerCase()).filter(Boolean);
+  if (list.length === 0) return false;
+  if (list.includes("all")) return true;
+  if (supplierScopes.length === 0) return false;
+  return list.some((s) => supplierScopes.includes(s));
 }
 
 /**
@@ -123,18 +153,32 @@ export interface EvaluateQualificationInput {
 export function evaluateQualification(input: EvaluateQualificationInput): QualificationResult {
   const targetMarkets = normalizeTargetMarkets(input.targetMarkets);
   const held = new Set(input.heldCodes.map(normalizeCertCode).filter(Boolean));
+  const supplierScopes = (input.supplierScopes ?? []).map((s) => String(s ?? "").trim().toLowerCase()).filter(Boolean);
 
   const markets: QualificationMarketGap[] = [];
   const requiredSet = new Set<string>();
   const missingSet = new Set<string>();
+  const skippedSet = new Set<string>();
+  const unclassifiedSet = new Set<string>();
   const noRequirementMarkets: string[] = [];
 
   for (const market of targetMarkets) {
-    const requiredRows = input.dict.filter(
+    const marketRows = input.dict.filter(
       (row) =>
         (QUAL_MARKET_REQUIRED_CATEGORIES as readonly string[]).includes(String(row.category ?? "").trim()) &&
         certScopesOf(row.scope).includes(market),
     );
+    // V3 产品裁剪：字典没标适用范围的（未分类）不进比对；标了但与主营范围无交集的排除
+    const requiredRows = marketRows.filter((row) => {
+      const scopes = row.productScopes ?? [];
+      if (scopes.length === 0) {
+        unclassifiedSet.add(normalizeCertCode(row.code));
+        return false;
+      }
+      if (matchesProductScope(scopes, supplierScopes)) return true;
+      skippedSet.add(normalizeCertCode(row.code));
+      return false;
+    });
 
     if (requiredRows.length === 0) {
       noRequirementMarkets.push(market);
@@ -162,6 +206,10 @@ export function evaluateQualification(input: EvaluateQualificationInput): Qualif
     missingCount: missingSet.size,
     noRequirementMarkets,
     unscoredReason: targetMarkets.length === 0 ? "no_target_markets" : null,
+    supplierScopes,
+    scopeUnidentified: supplierScopes.length === 0,
+    skippedOutOfScopeCodes: [...skippedSet],
+    unclassifiedCodes: [...unclassifiedSet],
   };
 
   return {

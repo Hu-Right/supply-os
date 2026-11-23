@@ -90,6 +90,39 @@ export class EnterpriseProfileRepo {
     return [...codes];
   }
 
+  /**
+   * V3 资质裁剪用：主营范围信号（迁移 071 起认证字典有「适用产品」维，需要把企业归到同一套桶）。
+   *
+   * @description 只读三处：供应商主档（公司名 / 主营产品文本 / 行业码）、能力档案里的品目名称。
+   *              不猜：一个都取不到时返回空串，由调用方标记「未识别主营范围」。
+   */
+  async getScopeSignals(enterpriseId: number): Promise<{
+    company: string;
+    products: string;
+    industryCode: string;
+    capabilityLabels: string[];
+  }> {
+    const [supRows] = await this.pool.query<RowDataPacket[]>(
+      "SELECT company, products, industry_code FROM supplier WHERE id = ? LIMIT 1",
+      [enterpriseId],
+    );
+    const sup = (supRows[0] ?? {}) as { company?: unknown; products?: unknown; industry_code?: unknown };
+
+    const [itemRows] = await this.pool.query<RowDataPacket[]>(
+      "SELECT name FROM enterprise_capability_items WHERE enterprise_id = ? ORDER BY id DESC LIMIT 40",
+      [enterpriseId],
+    );
+
+    return {
+      company: String(sup.company ?? "").trim(),
+      products: String(sup.products ?? "").trim(),
+      industryCode: String(sup.industry_code ?? "").trim(),
+      capabilityLabels: itemRows
+        .map((r) => String((r as { name?: unknown }).name ?? "").trim())
+        .filter(Boolean),
+    };
+  }
+
   async insertCapability(params: {
     enterpriseId: number;
     capabilityType: string;

@@ -18,13 +18,14 @@ import {
 } from "@/lib/services/scoring/diagnosis-qualification";
 
 const dict: QualificationCertRef[] = [
-  { code: "CE", name: "CE 认证", category: "market_access", scope: "EU" },
-  { code: "UKCA", name: "UKCA 认证", category: "market_access", scope: "UK" },
-  { code: "FCC", name: "FCC 认证", category: "market_access", scope: "US" },
-  { code: "FDA", name: "FDA 注册", category: "product_safety", scope: "US" },
-  { code: "SABER", name: "SABER", category: "market_access", scope: "SA" },
-  { code: "ISO9001", name: "ISO9001", category: "management", scope: "global" },
-  { code: "WRAP", name: "WRAP", category: "esg", scope: "global" },
+  // V3 迁移 071：字典每条要标适用产品桶；这里用 all（跨行业通用）保持既有断言语义
+  { code: "CE", name: "CE 认证", category: "market_access", scope: "EU", productScopes: ["all"] },
+  { code: "UKCA", name: "UKCA 认证", category: "market_access", scope: "UK", productScopes: ["all"] },
+  { code: "FCC", name: "FCC 认证", category: "market_access", scope: "US", productScopes: ["all"] },
+  { code: "FDA", name: "FDA 注册", category: "product_safety", scope: "US", productScopes: ["all"] },
+  { code: "SABER", name: "SABER", category: "market_access", scope: "SA", productScopes: ["all"] },
+  { code: "ISO9001", name: "ISO9001", category: "management", scope: "global", productScopes: ["all"] },
+  { code: "WRAP", name: "WRAP", category: "esg", scope: "global", productScopes: ["all"] },
 ];
 
 describe("资质分级：档位规则", () => {
@@ -86,7 +87,7 @@ describe("资质分级：应备清单口径", () => {
     expect(certScopesOf("EU, CH")).toEqual(["EU", "CH"]);
     expect(certScopesOf("global")).toEqual([]);
     const multi: QualificationCertRef[] = [
-      { code: "CE", name: "CE", category: "market_access", scope: "EU,CH" },
+      { code: "CE", name: "CE", category: "market_access", scope: "EU,CH", productScopes: ["all"] },
     ];
     expect(evaluateQualification({ targetMarkets: ["EU"], dict: multi, heldCodes: [] }).grade).toBe("B");
   });
@@ -95,7 +96,7 @@ describe("资质分级：应备清单口径", () => {
 describe("资质分级：去重与归一", () => {
   it("多个市场缺同一张证书只算一个缺口", () => {
     const shared: QualificationCertRef[] = [
-      { code: "CE", name: "CE", category: "market_access", scope: "EU,UK" },
+      { code: "CE", name: "CE", category: "market_access", scope: "EU,UK", productScopes: ["all"] },
     ];
     const r = evaluateQualification({ targetMarkets: ["EU", "UK"], dict: shared, heldCodes: [] });
     expect(r.breakdown.missingCount).toBe(1);
@@ -129,5 +130,47 @@ describe("资质分级：去重与归一", () => {
     const r = evaluateQualification({ targetMarkets: ["EU"], dict: [], heldCodes: [] });
     expect(r.grade).toBe("A");
     expect(r.breakdown.noRequirementMarkets).toEqual(["EU"]);
+  });
+});
+
+describe("V3 产品范围裁剪（迁移 071）", () => {
+  const scopedDict: QualificationCertRef[] = [
+    { code: "CE", name: "CE", category: "market_access", scope: "EU", productScopes: ["all"] },
+    { code: "MDR", name: "MDR", category: "market_access", scope: "EU", productScopes: ["medical"] },
+    { code: "EN1176", name: "EN1176", category: "product_safety", scope: "EU", productScopes: ["toys"] },
+    { code: "UNKNOWN", name: "未分类证书", category: "market_access", scope: "EU", productScopes: null },
+  ];
+
+  it("主营是建筑工程时，只留跨行业通用项，医疗/游乐设备的证书不进应备", () => {
+    const r = evaluateQualification({
+      targetMarkets: ["EU"],
+      dict: scopedDict,
+      heldCodes: [],
+      supplierScopes: ["construction"],
+    });
+    expect(r.breakdown.requiredCodes).toEqual(["CE"]);
+    expect(r.breakdown.skippedOutOfScopeCodes).toEqual(expect.arrayContaining(["MDR", "EN1176"]));
+    expect(r.breakdown.unclassifiedCodes).toEqual(["UNKNOWN"]);
+    expect(r.breakdown.scopeUnidentified).toBe(false);
+    expect(r.breakdown.supplierScopes).toEqual(["construction"]);
+  });
+
+  it("主营识别不出来时只比对跨行业通用项，并标记 scopeUnidentified", () => {
+    const r = evaluateQualification({ targetMarkets: ["EU"], dict: scopedDict, heldCodes: [] });
+    expect(r.breakdown.requiredCodes).toEqual(["CE"]);
+    expect(r.breakdown.scopeUnidentified).toBe(true);
+    // 未识别不等于「没有缺口」：通用项照样算
+    expect(r.breakdown.missingCount).toBe(1);
+  });
+
+  it("不相关证书被排除后，缺口数按裁剪后的清单重算（21 → 1）", () => {
+    const r = evaluateQualification({
+      targetMarkets: ["EU"],
+      dict: scopedDict,
+      heldCodes: [],
+      supplierScopes: ["construction"],
+    });
+    expect(r.breakdown.missingCount).toBe(1);
+    expect(r.grade).toBe("B"); // 缺 1 项 = B，而不是把 3 项不相关的也算进 C
   });
 });

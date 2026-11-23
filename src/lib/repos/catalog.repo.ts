@@ -31,6 +31,11 @@ export interface CertificationScopeRow {
   category: string;
   /** 适用范围：global 或地区/国家码（EU/UK/US/…），可能是逗号分隔多值 */
   scope: string;
+  /**
+   * V3：适用产品/行业桶（迁移 071）。NULL/空 = 未分类，判定时不参与比对；
+   * 数组里含 `all` = 跨行业通用，所有企业都进应备清单。
+   */
+  productScopes?: string[] | null;
 }
 
 export class CatalogRepo {
@@ -51,8 +56,21 @@ export class CatalogRepo {
    */
   async listActiveCertificationsWithScope(): Promise<CertificationScopeRow[]> {
     const [rows] = await this.pool.query(
-      "SELECT code, name, category, scope FROM supplier_certifications WHERE is_active = 1 ORDER BY id",
+      "SELECT code, name, category, scope, product_scopes AS productScopes FROM supplier_certifications WHERE is_active = 1 ORDER BY id",
     );
-    return rows as CertificationScopeRow[];
+    // mysql2 对 JSON 列可能返回字符串，统一成数组（非法值按「未分类」处理）
+    return (rows as CertificationScopeRow[]).map((r) => {
+      const raw = r.productScopes as unknown;
+      if (Array.isArray(raw)) return { ...r, productScopes: raw.map(String) };
+      if (typeof raw === "string" && raw.trim()) {
+        try {
+          const parsed = JSON.parse(raw);
+          return { ...r, productScopes: Array.isArray(parsed) ? parsed.map(String) : null };
+        } catch {
+          return { ...r, productScopes: null };
+        }
+      }
+      return { ...r, productScopes: null };
+    });
   }
 }
