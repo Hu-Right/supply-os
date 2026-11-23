@@ -21,8 +21,6 @@ type T = (key: string) => string;
 
 interface Props {
   answers: DiagnosisAnswers;
-  /** 未作答的单选题 key 集合，用于把"必答题"标红 */
-  missing: string[];
   t: T;
   onSingle: (key: string, value: string) => void;
   onToggleMulti: (key: string, value: string) => void;
@@ -64,13 +62,13 @@ function OptionChips({
   );
 }
 
-function FieldBlock({ field, answers, missing, t, onSingle, onToggleMulti }: Props & { field: DiagnosisFieldDef }) {
+function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { field: DiagnosisFieldDef }) {
   const value = answers[field.key];
-  const showMissing = missing.includes(field.key);
 
   return (
-    // 未答标红用整块 ring（文案冗余已删：星号即必答标记，红框即"这题挡住了提交"）
-    <div className={showMissing ? "rounded-xl ring-1 ring-rose-300" : undefined}>
+    // 每道题一个锚点：提交被拦时滚动定位到第一道未答题（不再有红框，锚点必须落在整块上，
+    // 单选/多选没有原生 input，过去按 `diag-<key>` 找元素是找不到的）
+    <div id={`diag-field-${field.key}`}>
       <label className="mb-2 block text-sm font-bold text-slate-700" htmlFor={`diag-${field.key}`}>
         {t(field.labelKey)}
         {field.kind === "single" && <span className="ml-0.5 text-rose-500">*</span>}
@@ -99,7 +97,7 @@ function FieldBlock({ field, answers, missing, t, onSingle, onToggleMulti }: Pro
 }
 
 export function DiagnosisFormFields(props: Props) {
-  const { answers, missing, t } = props;
+  const { answers, t } = props;
 
   return (
     <div className="space-y-6">
@@ -121,7 +119,7 @@ export function DiagnosisFormFields(props: Props) {
           </h3>
           <div className="space-y-5">
             {DIAGNOSIS_FIELDS.filter((f) => f.dimensionNo === dim.no).map((field) => (
-              <FieldBlock key={field.key} {...props} field={field} answers={answers} missing={missing} t={t} />
+              <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
             ))}
           </div>
         </section>
@@ -133,7 +131,7 @@ export function DiagnosisFormFields(props: Props) {
         <p className="mt-1 text-xs leading-relaxed text-slate-500">{t("diagTargetMarketsHint")}</p>
         <div className="mt-4 space-y-5">
           {DIAGNOSIS_QUAL_FIELDS.map((field) => (
-            <FieldBlock key={field.key} {...props} field={field} answers={answers} missing={missing} t={t} />
+            <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
           ))}
         </div>
       </section>

@@ -8,7 +8,7 @@
  *              的去设置页钩子（规范 N2：企业资料不在本页编辑）。
  *              未登录时本页只出示登录引导——真正的写入闸门在 API（规范 N4），这里只是体验。
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { emitAppEvent } from "@/core/events";
 import { CheckCircle2, Loader2, Pencil, Send } from "lucide-react";
@@ -147,8 +147,6 @@ export default function DiagnosisFormPage() {
     return () => { cancelled = true; };
   }, [authReady, authUser]);
 
-  const missingSet = useMemo(() => new Set(form.missingRequired), [form.missingRequired]);
-
   const startEdit = (item: MyDiagnosis) => {
     form.loadForEdit({ company: item.companyName, supplierId: item.supplierId, answers: item.answers });
     toast.success(t("diagLoadedForEdit"));
@@ -244,7 +242,6 @@ export default function DiagnosisFormPage() {
       <div className="mt-5">
         <DiagnosisFormFields
           answers={form.form.answers}
-          missing={form.missingRequired}
           t={t}
           onSingle={form.setAnswer}
           onToggleMulti={form.toggleMulti}
@@ -256,9 +253,6 @@ export default function DiagnosisFormPage() {
           {form.error.i18nKey ? t(form.error.i18nKey) : form.error.message}
           {form.error.missing?.length ? `（${form.error.missing.length}）` : ""}
         </p>
-      )}
-      {missingSet.size > 0 && form.error?.missing && (
-        <p className="mt-2 text-2xs text-slate-500">{t("diagMissingCount")} {form.error.missing.length}</p>
       )}
 
       <div className="sticky bottom-0 mt-6 border-t border-slate-200 bg-white/95 py-4 backdrop-blur">

@@ -167,10 +167,12 @@ export function useDiagnosisForm() {
     }
     if (missingRequired.length > 0) {
       setError({ i18nKey: "diagErrMissingAnswers", missing: missingRequired });
-      // 迷路兜底（顶部进度条已移除）：滚动定位到第一个未答题，红框在 FieldBlock 上
+      // 迷路兜底（顶部进度条已移除）：滚动定位到第一道未答题。
+      // 锚点用 `diag-field-*`（FieldBlock 整块）：单选/多选没有原生 input，
+      // 过去找 `diag-<key>` 只有文本框才有，等于对大多数题静默不滚。
       setTimeout(() => {
         document
-          .getElementById(`diag-${missingRequired[0]}`)
+          .getElementById(`diag-field-${missingRequired[0]}`)
           ?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 60);
       return;
