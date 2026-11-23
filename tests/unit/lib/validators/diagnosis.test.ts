@@ -45,14 +45,14 @@ describe("parseDiagnosisPayload", () => {
   });
 
   it("allows an empty multi-select (means: cannot provide any of them)", () => {
-    const r = parseDiagnosisPayload(validBody({ mandatory_docs: [] }));
+    const r = parseDiagnosisPayload(validBody({ procurement_frameworks: [] }));
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.payload.answers.mandatory_docs).toEqual([]);
+    if (r.ok) expect(r.payload.answers.procurement_frameworks).toEqual([]);
   });
 
   it("rejects unknown items inside a multi-select", () => {
-    const r = parseDiagnosisPayload(validBody({ mandatory_docs: ["ISO体系证书", "皇家万能证书"] }));
-    expect(r).toMatchObject({ ok: false, fieldKey: "mandatory_docs", reason: "invalid" });
+    const r = parseDiagnosisPayload(validBody({ procurement_frameworks: ["欧盟 TED", "皇家万能体系"] }));
+    expect(r).toMatchObject({ ok: false, fieldKey: "procurement_frameworks", reason: "invalid" });
   });
 
   it("enforces length limit on free-text answers", () => {

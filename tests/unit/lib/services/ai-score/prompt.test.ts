@@ -101,7 +101,7 @@ describe("buildScoreUserPrompt 画像组装", () => {
   it("逐维度打印判据，维度名与字段可对应", () => {
     const p = buildScoreUserPrompt(notice, supplier);
     expect(p).toContain("资质与合规（qualification）依据：UNGM注册=已注册一级(Level 1)");
-    expect(p).toContain("强制文件覆盖（certification）依据：可即时提供的强制文件=ISO体系证书,原产地证");
+    expect(p).toContain("资质与文件管理（certification）依据：");
     expect(p).toContain("背景（不计分）：参与公采投标意愿=是");
   });
 });
@@ -113,7 +113,7 @@ describe("v2 诊断列与 7 维度判据的结构闭合", () => {
 
     expect(new Set(used).size).toBe(used.length); // 同一列不得驱动两个维度
     expect([...expected].sort()).toEqual([...used].sort()); // 加题后漏挂 prompt 会在此报错
-    expect(expected).toHaveLength(18);
+    expect(expected).toHaveLength(21);
   });
 
   it("判据列名必须是真实诊断列（防手打错列名后静默失联）", () => {

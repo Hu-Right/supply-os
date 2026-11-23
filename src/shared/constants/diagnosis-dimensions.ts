@@ -60,10 +60,10 @@ export interface DiagnosisDimensionDef {
 // ── 10 个评估维度（权重合计 100，沿用官方就绪度评分表维度名） ──
 
 export const DIAGNOSIS_DIMENSIONS: readonly DiagnosisDimensionDef[] = [
-  { no: 1, name: "国际供应商档案就绪度", nameEn: "International vendor profile readiness", weight: 10, fields: [] },
+  { no: 1, name: "国际供应商档案就绪度", nameEn: "International vendor profile readiness", weight: 10, fields: ["export_entity"] },
   { no: 2, name: "英文证据库可调用性", nameEn: "English evidence library usability", weight: 10, fields: ["english_evidence_level", "english_meeting_capability"] },
   { no: 3, name: "标书拆解与投标决策能力", nameEn: "Tender decoding and bid-decision capability", weight: 10, fields: ["tender_experience", "tender_amount_band", "procurement_frameworks"] },
-  { no: 4, name: "强制文件控制能力", nameEn: "Mandatory-document control", weight: 10, fields: ["mandatory_docs"] },
+  { no: 4, name: "资质与文件管理能力", nameEn: "Qualification and document management", weight: 10, fields: ["cert_ledger", "cert_delivery"] },
   { no: 5, name: "合规治理与风险升级机制", nameEn: "Compliance governance and escalation", weight: 10, fields: ["ungm_status", "compliance_governance"] },
   { no: 6, name: "技术响应与方案证明能力", nameEn: "Technical response and evidence capability", weight: 15, fields: ["technical_response"] },
   { no: 7, name: "完整成本与报价决策能力", nameEn: "Full-cost pricing and bid-decision capability", weight: 15, fields: ["cost_pricing", "incoterms_capability", "payment_terms", "export_scale"] },
@@ -77,6 +77,14 @@ export const DIAGNOSIS_DIMENSIONS: readonly DiagnosisDimensionDef[] = [
 // 新增的「目标市场」在下方 DIAGNOSIS_QUAL_FIELDS 里，不进本数组 → V2 列清单与评分口径不变。
 
 export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
+  // D1 主体资格（V3 新增；D1 的档案分仍由 supplier.data_quality_score 派生，本项与档案分取平均）
+  {
+    key: "export_entity", column: "export_entity", dimensionNo: 1, kind: "single",
+    labelKey: "diagQExportEntity",
+    labelZh: "是否具备出口主体资质（经营权 / 海关备案 / 外汇账户 / 退税）？",
+    options: ["都没有", "有进出口经营权", "经营权 + 海关备案", "上述齐备且实际出口过"],
+    scoreMap: [0, 2, 4, 5],
+  },
   // D2 英文证据库
   {
     key: "english_evidence_level", column: "english_evidence_level", dimensionNo: 2, kind: "single",
@@ -114,13 +122,31 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     options: ["UNGM 联合国采购门户", "世界银行 GPF", "欧盟 TED", "联合国机构直接采购", "其他政府援建项目"],
     bands: [{ min: 0, score: 0 }, { min: 1, score: 2 }, { min: 2, score: 3 }, { min: 3, score: 4 }, { min: 4, score: 5 }],
   },
-  // D4 强制文件控制
+  // D4 资质与文件管理能力（V3 2026-11-23：原「强制文件控制能力」换题）
+  // 原 mandatory_docs 问的是「持有」（营业执照/ISO/检测报告/原产地证…），已撤下表单：
+  // 持有信息改由能力档案的证书 code + 市场要求目录逐条判定（见 qual_breakdown），
+  // 列保留给 AI 画像契约（askInForm:false，值落空串，不影响旧报告）。
+  {
+    key: "cert_ledger", column: "cert_ledger", dimensionNo: 4, kind: "single",
+    labelKey: "diagQCertLedger",
+    labelZh: "资质台账与有效期管理到什么程度？",
+    options: ["无台账，证书散落在个人手里", "有台账但靠人记，没有到期提醒", "有台账且有到期提醒", "有台账、到期提醒、明确责任人，且每年复核一次"],
+    scoreMap: [0, 2, 4, 5],
+  },
+  {
+    key: "cert_delivery", column: "cert_delivery", dimensionNo: 4, kind: "single",
+    labelKey: "diagQCertDelivery",
+    labelZh: "被要求时，多久能交出一张证书（含英文版 / 扫描件）？",
+    options: ["一周以上才能凑齐", "2–3 天", "当天可交", "2 小时内可交，且有英文版 / 扫描件模板"],
+    scoreMap: [0, 2, 4, 5],
+  },
   {
     key: "mandatory_docs", column: "mandatory_docs", dimensionNo: 4, kind: "multi",
     labelKey: "diagQMandatoryDocs",
-    labelZh: "以下强制文件你能即时提供哪些？（可多选）",
+    labelZh: "以下强制文件你能即时提供哪些？（V3 起不再询问）",
     options: ["营业执照英文版", "ISO体系证书", "第三方检测报告", "原产地证", "已交付业绩证明", "无商业犯罪声明", "银行资信证明", "童工与环保声明"],
     bands: [{ min: 0, score: 0 }, { min: 1, score: 2 }, { min: 3, score: 3 }, { min: 5, score: 4 }, { min: 7, score: 5 }],
+    askInForm: false,
   },
   // D5 合规治理与风险升级
   {
@@ -133,9 +159,9 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
   {
     key: "compliance_governance", column: "compliance_governance", dimensionNo: 5, kind: "single",
     labelKey: "diagQComplianceGovernance",
-    labelZh: "是否有合规专岗与整改机制？",
-    options: ["无", "有制度无专岗", "有专岗", "有专岗且年度审计"],
-    scoreMap: [0, 2, 4, 5],
+    labelZh: "合规制度覆盖了哪些内容（制裁筛查 / 反腐败 / 培训 / 尽调）？",
+    options: ["无合规制度", "仅反腐败制度", "仅制裁与出口管制筛查", "两者都有并年度培训", "两者都有 + 培训 + 第三方尽调"],
+    scoreMap: [0, 2, 3, 4, 5],
   },
   // D6 技术响应与方案证明
   {
@@ -149,9 +175,9 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
   {
     key: "cost_pricing", column: "cost_pricing", dimensionNo: 7, kind: "single",
     labelKey: "diagQCostPricing",
-    labelZh: "报价时成本如何核算？",
-    options: ["凭经验估算", "有内部成本表", "含汇率物流与账期资金成本", "有专职报价岗并复核"],
-    scoreMap: [0, 2, 4, 5],
+    labelZh: "报价时成本如何核算（是否含关税 / VAT）？",
+    options: ["凭经验估算", "有内部成本表", "含汇率、物流与账期资金成本", "含汇率物流账期与关税 / VAT", "有专职报价岗并复核"],
+    scoreMap: [0, 2, 3, 4, 5],
   },
   {
     key: "incoterms_capability", column: "incoterms_capability", dimensionNo: 7, kind: "single",
@@ -206,8 +232,8 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
   {
     key: "team_discipline", column: "team_discipline", dimensionNo: 10, kind: "single",
     labelKey: "diagQTeamDiscipline",
-    labelZh: "投标团队人数与台账情况？",
-    options: ["无专人", "1人且无台账", "1至2人有台账", "3人以上有台账"],
+    labelZh: "投标团队规模与留痕（投标台账 + CRM 客户跟进）？",
+    options: ["无专人", "1 人且无台账", "1-2 人有投标台账", "3 人以上有投标台账且客户跟进在 CRM 留痕"],
     scoreMap: [0, 2, 4, 5],
   },
   // 意向标记：dimensionNo 0，不参与任何维度计分（spec A9）
@@ -335,6 +361,8 @@ export function diagnosisProgress(answers: Record<string, string | string[]>): D
 
 /** 最低档答案常量：D3 硬门槛判定用（spec §8.4） */
 export const TENDER_EXPERIENCE_NONE = DIAGNOSIS_FIELD_MAP["tender_experience"].options![0];
+/** 最低档答案常量：D1 出口主体资质硬门槛判定用（V3） */
+export const EXPORT_ENTITY_NONE = DIAGNOSIS_FIELD_MAP["export_entity"].options![0];
 
 /** 逗号/顿号/分号/空白分隔计数，与 v1 countCommaItems 同语义 */
 export function countDiagnosisItems(value: string): number {
@@ -385,15 +413,16 @@ export function diagnosisColumnSelect(alias: string): string {
 export const DIAGNOSIS_COLUMNS: readonly string[] = DIAGNOSIS_FIELDS.map((f) => f.column);
 
 /**
- * 结构闭合自检：钉住绝对值（权重 100、V2 字段 19、V3 字段 1）+ 内部一致性，
+ * 结构闭合自检：钉住绝对值（权重 100、字段 22、V3 目标市场 1）+ 内部一致性，
  * 防「只做自比基线」的假门禁。由单元测试调用；生产代码不重复执行。
  */
 export function assertDiagnosisDimensionsIntact(): void {
   const weightSum = DIAGNOSIS_DIMENSIONS.reduce((s, d) => s + d.weight, 0);
   if (weightSum !== 100) throw new Error(`DIAGNOSIS weight sum ${weightSum} !== 100`);
-  if (DIAGNOSIS_FIELDS.length !== 19) throw new Error(`DIAGNOSIS_FIELDS count ${DIAGNOSIS_FIELDS.length} !== 19`);
+  // 22 = V2 的 19（含已下线的 bid_willingness / mandatory_docs）+ 出口主体资质 + D4 两题
+  if (DIAGNOSIS_FIELDS.length !== 22) throw new Error(`DIAGNOSIS_FIELDS count ${DIAGNOSIS_FIELDS.length} !== 22`);
   if (DIAGNOSIS_QUAL_FIELDS.length !== 1) throw new Error(`DIAGNOSIS_QUAL_FIELDS count ${DIAGNOSIS_QUAL_FIELDS.length} !== 1`);
-  if (DIAGNOSIS_ALL_FIELDS.length !== 20) throw new Error(`DIAGNOSIS_ALL_FIELDS count ${DIAGNOSIS_ALL_FIELDS.length} !== 20`);
+  if (DIAGNOSIS_ALL_FIELDS.length !== 23) throw new Error(`DIAGNOSIS_ALL_FIELDS count ${DIAGNOSIS_ALL_FIELDS.length} !== 23`);
 
   const claimed = new Set<string>();
   for (const dim of DIAGNOSIS_DIMENSIONS) {
@@ -437,6 +466,12 @@ export function assertDiagnosisDimensionsIntact(): void {
     if (!QUAL_MARKET_CODES.includes(code)) throw new Error(`V3: unknown market code in options: ${code}`);
   }
   if (QUAL_MARKET_CODES.includes("global")) throw new Error("V3: 'global' must not be a target market (it would never produce a gap)");
+  // V3-2（2026-11-23）：D4 换题后，mandatory_docs 与 bid_willingness 一样只留列不再提问
+  if (DIAGNOSIS_FIELD_MAP["mandatory_docs"].askInForm !== false) throw new Error("V3: mandatory_docs must be hidden from the form");
+  if (DIAGNOSIS_FORM_FIELDS.some((f) => f.key === "mandatory_docs")) throw new Error("V3: form still asks mandatory_docs");
+  if (DIAGNOSIS_FIELD_MAP["export_entity"].dimensionNo !== 1) throw new Error("V3: export_entity must belong to D1");
+  const d4 = DIAGNOSIS_DIMENSIONS.find((d) => d.no === 4)!;
+  if (d4.fields.join(",") !== "cert_ledger,cert_delivery") throw new Error(`V3: D4 fields must be the two management questions, got ${d4.fields.join(",")}`);
   const formSingles = DIAGNOSIS_FORM_FIELDS.filter((f) => f.kind === "single").length;
-  if (formSingles !== 14) throw new Error(`V3: form must ask 14 single-choice questions, got ${formSingles}`);
+  if (formSingles !== 17) throw new Error(`V3: form must ask 17 single-choice questions, got ${formSingles}`);
 }

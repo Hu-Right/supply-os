@@ -35,18 +35,19 @@ const MIN_SINGLE = (key: string) => DIAGNOSIS_FIELD_MAP[key].options![0] ?? "";
 describe("diagnosis constants structural integrity", () => {
   it("passes the structural self-check and pins absolute totals", () => {
     expect(() => assertDiagnosisDimensionsIntact()).not.toThrow();
-    expect(DIAGNOSIS_FIELDS.length).toBe(19);
+    // 22 = V2 的 19（含 2 个已下线但保留列的题）+ 出口主体资质 + D4 两题
+    expect(DIAGNOSIS_FIELDS.length).toBe(22);
     expect(DIAGNOSIS_DIMENSIONS.reduce((s, d) => s + d.weight, 0)).toBe(100);
   });
 
   it("completion progress only counts required single-choice answers", () => {
     // V3：表单不再问 bid_willingness，故必答单选从 15 降到 14（目标市场是多选、不属于必答）
     const requiredFields = DIAGNOSIS_FORM_FIELDS.filter((f) => f.kind === "single");
-    expect(requiredFields.length).toBe(14);
-    expect(diagnosisProgress({})).toEqual({ answeredRequired: 0, totalRequired: 14, percent: 0 });
+    expect(requiredFields.length).toBe(17);
+    expect(diagnosisProgress({})).toEqual({ answeredRequired: 0, totalRequired: 17, percent: 0 });
 
     const one = { [requiredFields[0].key]: requiredFields[0].options![0] };
-    expect(diagnosisProgress(one)).toEqual({ answeredRequired: 1, totalRequired: 14, percent: 7 });
+    expect(diagnosisProgress(one)).toEqual({ answeredRequired: 1, totalRequired: 17, percent: 6 });
 
     // 多选/文本是选填：填了也不进入分子
     const optional = {
@@ -59,7 +60,7 @@ describe("diagnosis constants structural integrity", () => {
     const all = Object.fromEntries(
       requiredFields.map((f) => [f.key, f.options![f.options!.length - 1]]),
     );
-    expect(diagnosisProgress(all)).toEqual({ answeredRequired: 14, totalRequired: 14, percent: 100 });
+    expect(diagnosisProgress(all)).toEqual({ answeredRequired: 17, totalRequired: 17, percent: 100 });
   });
 
   it("V3: target_markets 只出现在表单字段里，不参与 V2 评分", () => {
@@ -117,27 +118,30 @@ describe("scoreDiagnosis", () => {
     expect(r.overrideGateTriggered).toBe(true);
   });
 
-  it("mandatory_docs bands score 0/2/3/4/5 by item count", () => {
-    const field = DIAGNOSIS_FIELD_MAP["mandatory_docs"];
-    const opts = field.options!;
-    const expectBand = [
-      [0, 0], [1, 2], [2, 2], [3, 3], [4, 3], [5, 4], [6, 4], [7, 5], [8, 5],
-    ] as const;
-    for (const [count, score] of expectBand) {
-      expect(scoreDiagnosisField(field, opts.slice(0, count) as unknown as string[])).toBe(score);
-    }
+  it("D4 两题（台账 / 取证时效）按 scoreMap 计分，并有「零分」档兜底", () => {
+    const ledger = DIAGNOSIS_FIELD_MAP["cert_ledger"];
+    const delivery = DIAGNOSIS_FIELD_MAP["cert_delivery"];
+    expect(ledger.options).toHaveLength(4);
+    expect(delivery.options).toHaveLength(4);
+    // 选项序即分数序：0/2/4/5，空值落最低档
+    expect(ledger.scoreMap).toEqual([0, 2, 4, 5]);
+    expect(delivery.scoreMap).toEqual([0, 2, 4, 5]);
+    expect(scoreDiagnosisField(ledger, "")).toBe(0);
+    expect(scoreDiagnosisField(delivery, delivery.options![3])).toBe(5);
   });
 
-  it("D1 derives from supplier data_quality_score, not from what the user typed", () => {
-    const answered = answersWith();
-    // 生成列分档：85+ → 5；65-84 → 4（2026-11 起 info_checked 列已删，不再有人工核对封顶）
-    expect(scoreDiagnosis({ answers: answered, supplier: { dataQualityScore: 92 } }).dimensions[0].rawScore).toBe(5);
-    expect(scoreDiagnosis({ answers: answered, supplier: { dataQualityScore: 70 } }).dimensions[0].rawScore).toBe(4);
-    const r = scoreDiagnosis({ answers: answered, supplier: { dataQualityScore: 100 } });
-    const d1 = r.dimensions.find((d) => d.no === 1)!;
-    expect(d1.rawScore).toBe(5);
-    expect(d1.evidenceSource).toBe("主数据派生");
+  it("D1 = 档案完整度与出口主体资质各半；没有经营权时档案再全也拿不到 5", () => {
+    // 档案 100（5/5）+ 出口资质满档（5/5）→ 5
+    expect(
+      scoreDiagnosis({ answers: answersWith(), supplier: { dataQualityScore: 100 } }).dimensions[0].rawScore,
+    ).toBe(5);
+    // 档案 100（5/5）+ 无经营权（0/5）→ 四舍五入 3：门口过不去，D1 不允许满分
+    const noEntity = answersWith({ export_entity: MIN_SINGLE("export_entity") });
+    const d1 = scoreDiagnosis({ answers: noEntity, supplier: { dataQualityScore: 100 } }).dimensions[0];
+    expect(d1.rawScore).toBe(3);
+    expect(d1.evidenceSource).toBe("主数据 + 表单");
     expect(d1.scoringBasis).toContain("100/100");
+    expect(d1.scoringBasis).toContain("出口主体资质");
   });
 
   it("is deterministic for identical input (snapshot-safe)", () => {

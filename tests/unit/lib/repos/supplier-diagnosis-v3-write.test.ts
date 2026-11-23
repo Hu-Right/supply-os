@@ -50,7 +50,10 @@ const answers = {
   deliver_to_site: "可直接发货至项目国",
   service_countries: "德国",
   overseas_companies: "",
-  team_discipline: "1至2人有台账",
+  team_discipline: "1-2 人有投标台账",
+  cert_ledger: "有台账且有到期提醒",
+  cert_delivery: "当天可交",
+  export_entity: "经营权 + 海关备案",
   target_markets: ["EU", "US"],
 };
 
@@ -88,6 +91,11 @@ describe("SupplierDiagnosisRepo V3 写入口径", () => {
     expect(insert.sql).toContain("qual_breakdown");
     expect(insert.sql).toContain("schema_version");
     expect(insert.sql).not.toContain("bid_willingness");
+    // V3 第二版：出口主体资质 + D4 两题要写，已下线的强制文件清单不写（列有 DEFAULT 兜底）
+    expect(insert.sql).toContain("export_entity");
+    expect(insert.sql).toContain("cert_ledger");
+    expect(insert.sql).toContain("cert_delivery");
+    expect(insert.sql).not.toContain("mandatory_docs");
 
     // 2) 关键写值
     expect(insert.params).toContain(DIAGNOSIS_SCHEMA_VERSION);

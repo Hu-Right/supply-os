@@ -6,7 +6,7 @@
  *
  *              v3 的关键变化：每个维度的**判据字段**明确钉到 `supplier_diagnosis` 的具体列，
  *              模型不再靠"企业简介"猜能力；`DIMENSION_V2_SOURCES` 是这份映射的唯一出处，
- *              并由单元测试钉住「19 列不重不漏」，防止加题后某一题从未进过 prompt。
+ *              并由单元测试钉住「22 列不重不漏」，防止加题后某一题从未进过 prompt。
  *
  *              维度 key（qualification/experience/...）**刻意不改名**：它们同时是
  *              `crm_ai_summary.score_*` 列名、缓存 JSON 的键、LLM 输出契约与前端进度条 key，
@@ -65,7 +65,7 @@ export type ScoreDimension = (typeof SCORE_DIMENSIONS)[number];
 const DIMENSION_LABELS: Record<ScoreDimension, string> = {
   qualification: "资质与合规",
   experience: "投标履历",
-  certification: "强制文件覆盖",
+  certification: "资质与文件管理",
   region: "交付地域可达",
   scale: "规模与团队",
   delivery: "交付与提交受控",
@@ -77,9 +77,9 @@ const DIMENSION_LABELS: Record<ScoreDimension, string> = {
  * 除 bid_willingness（纯意向、不计分）外，19 列必须在此被引用且互不复用。
  */
 export const DIMENSION_V2_SOURCES: Record<ScoreDimension, readonly string[]> = {
-  qualification: ["ungm_status", "compliance_governance", "english_evidence_level"],
+  qualification: ["ungm_status", "compliance_governance", "english_evidence_level", "export_entity"],
   experience: ["tender_experience", "tender_amount_band", "technical_response"],
-  certification: ["mandatory_docs"],
+  certification: ["mandatory_docs", "cert_ledger", "cert_delivery"],
   region: ["deliver_to_site", "service_countries", "overseas_companies"],
   scale: ["export_scale", "team_discipline", "procurement_frameworks"],
   delivery: ["submission_control", "english_meeting_capability"],

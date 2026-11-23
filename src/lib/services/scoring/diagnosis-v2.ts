@@ -17,6 +17,7 @@ import {
   DIAGNOSIS_DIMENSIONS,
   DIAGNOSIS_FIELD_MAP,
   TENDER_EXPERIENCE_NONE,
+  EXPORT_ENTITY_NONE,
   scoreDiagnosisField,
   type DiagnosisFieldDef,
 } from "@/shared/constants/diagnosis-dimensions";
@@ -120,14 +121,23 @@ export interface DiagnosisScoreInput {
 }
 
 /**
- * D1：直接用 supplier 的 0-100 加权完整度 data_quality_score 分档，与后台同源可辩护：
- * 0→0 / 1-24→1 / 25-44→2 / 45-64→3 / 65-84→4 / 85-100→5。
+ * D1：主体资格（V3 新增，出口经营权/海关备案）与档案完整度各占一半。
+ * 档案分仍用 supplier 的 0-100 加权完整度（0→0 / 1-24→1 / 25-44→2 / 45-64→3 / 65-84→4 / 85-100→5），
+ * 与后台同源；出口资质是硬门槛，没有它时 D1 不应因档案齐全就满分（这正是 V2 的漏洞）。
  */
-function scoreProfileDimension(supplier: SupplierProfileBits): { rawScore: number; scoringBasis: string } {
+function scoreProfileDimension(
+  supplier: SupplierProfileBits,
+  answers: DiagnosisAnswers,
+): { rawScore: number; scoringBasis: string } {
   const q = Number(supplier.dataQualityScore ?? 0);
-  const rawScore =
+  const profileScore =
     q >= 85 ? 5 : q >= 65 ? 4 : q >= 45 ? 3 : q >= 25 ? 2 : q > 0 ? 1 : 0;
-  const basis = `企业档案资料完整度 ${q}/100（100 分制加权分，与后台同口径）`;
+  const entityField = DIAGNOSIS_FIELD_MAP["export_entity"] as DiagnosisFieldDef;
+  const entityScore = scoreDiagnosisField(entityField, answers.export_entity ?? "");
+  const rawScore = Math.max(0, Math.min(5, Math.round((profileScore + entityScore) / 2)));
+  const basis =
+    `企业档案资料完整度 ${q}/100（${profileScore}/5）` +
+    `；出口主体资质：${String(answers.export_entity ?? "").trim() || "(空)"}（${entityScore}/5）`;
   return { rawScore, scoringBasis: basis };
 }
 
@@ -153,7 +163,7 @@ export function scoreDiagnosis(input: DiagnosisScoreInput): ScoringResult {
   const dimensions: DimensionScore[] = DIAGNOSIS_DIMENSIONS.map((dim) => {
     const base =
       dim.no === 1
-        ? scoreProfileDimension(supplier)
+        ? scoreProfileDimension(supplier, answers)
         : aggregateDimension(dim.fields, answers);
 
     // D3 硬门槛：从未参与国际公采投标 → 整维压到 ≤1，防止靠"熟悉文件体系"刷分
@@ -171,7 +181,7 @@ export function scoreDiagnosis(input: DiagnosisScoreInput): ScoringResult {
       weight: dim.weight,
       rawScore,
       weightedScore: Math.round((rawScore / 5) * dim.weight * 10) / 10,
-      evidenceSource: dim.no === 1 ? "主数据派生" : "表单",
+      evidenceSource: dim.no === 1 ? "主数据 + 表单" : "表单",
       scoringBasis,
       needsManualReview: rawScore === 0,
     };
@@ -186,11 +196,15 @@ export function scoreDiagnosis(input: DiagnosisScoreInput): ScoringResult {
 
   // 覆盖闸口（沿用 v1 语义 + 新增投标履历红线）：命中红线不得评 A
   const complianceRedFlag = dimensions[4].rawScore <= 1; // No.5 合规治理
-  const mandatoryDocFail = dimensions[3].rawScore === 0; // No.4 强制文件
+  // No.4 由「强制文件」换成「资质与文件管理」：0 分 = 既无台账也无交付能力
+  const qualManagementFail = dimensions[3].rawScore === 0;
   const noTenderRecord = answers.tender_experience === TENDER_EXPERIENCE_NONE; // No.3 从未投标
-  const overrideGateTriggered = (complianceRedFlag || mandatoryDocFail || noTenderRecord) && grade === "A";
+  // V3：没有出口主体资质（连经营权都没有）不得评 A——否则档案齐全的公司会拿到与实际不符的等级
+  const noExportEntity = String(answers.export_entity ?? "").trim() === EXPORT_ENTITY_NONE;
+  const overrideGateTriggered =
+    (complianceRedFlag || qualManagementFail || noTenderRecord || noExportEntity) && grade === "A";
   const overrideGateReason = overrideGateTriggered
-    ? "存在未关闭的合规红线、关键强制项缺失或无国际投标履历，不得评为A级"
+    ? "存在未关闭的合规红线、资质管理缺位、无国际投标履历或无出口主体资质，不得评为A级"
     : "";
 
   // Top 5 能力缺口（排序与分档规则见 rankByGap / gapPriority）
