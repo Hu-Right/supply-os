@@ -462,3 +462,27 @@ html {
     border-bottom-right-radius: 0;
   }
 }
+
+/* 图库大图预览：脱离 .modal-content 默认 32rem 宽度与移动端底部抽屉 */
+.modal-gallery {
+  max-width: 95vw;
+  width: 95vw;
+  height: 90vh;
+  max-height: 90vh;
+  border-radius: 1rem;
+}
+
+@media (max-width: 639px) {
+  .modal-gallery {
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    transform: none;
+    border-radius: 0;
+  }
+}

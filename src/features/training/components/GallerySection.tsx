@@ -104,7 +104,7 @@ function GalleryCard({ nameKey, descKey, images }: {
         closeOnBackdrop={true}
         closeOnEsc={true}
         closeOnDrag={false}
-        className="max-w-none w-full sm:w-[95vw] h-[90vh] p-3"
+        className="modal-gallery p-2 sm:p-3"
       >
         {previewIdx !== null && images[previewIdx] && (
           <div className="flex h-full flex-col">
