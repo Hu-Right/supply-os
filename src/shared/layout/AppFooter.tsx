@@ -69,7 +69,6 @@ function productLinks(t: TFn) {
 
 function resourceLinks(t: TFn) {
   return [
-    { href: "/training", label: t("navTraining") || "研修班" },
     { href: "/ecosystem", label: t("navEcosystem") || "第三方服务" },
   ];
 }
