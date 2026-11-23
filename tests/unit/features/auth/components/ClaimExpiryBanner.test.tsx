@@ -19,6 +19,8 @@ const { dict } = vi.hoisted(() => ({
     authClaimBannerTitle: "企业认领待完善",
     authClaimBannerDesc: "请在 {time} 内前往企业信息页上传营业执照并保存，逾期将自动解除绑定",
     authClaimBannerCta: "前往完善",
+    authClaimReviewingTitle: "企业认领审核中",
+    authClaimReviewingDesc: "营业执照已提交，正在人工审核；审核通过前绑定保持有效，{time} 内未完成审核将自动解除绑定。",
     authClaimExpiredBanner: "认领已过期，绑定已自动解除。如需绑定请重新认领。",
     authClaimCountdown: "{d}天 {h}小时 {m}分钟",
   } as Record<string, string>,
@@ -73,6 +75,24 @@ describe("ClaimExpiryBanner", () => {
       screen.getByText("认领已过期，绑定已自动解除。如需绑定请重新认领。"),
     ).toBeInTheDocument();
     expect(screen.queryByText("企业认领待完善")).not.toBeInTheDocument();
+  });
+
+  it("执照已上传 → 显示「审核中」文案，不再提示上传", () => {
+    render(<ClaimExpiryBanner remaining={remaining(6, 23, 53)} expired={false} status="pending" hasLicense withCta onCta={vi.fn()} />);
+    expect(screen.getByText("企业认领审核中")).toBeInTheDocument();
+    expect(
+      screen.getByText("营业执照已提交，正在人工审核；审核通过前绑定保持有效，6天 23小时 53分钟 内未完成审核将自动解除绑定。"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("企业认领待完善")).not.toBeInTheDocument();
+    // 审核中不需要「前往完善」按钮
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("已通过（approved）→ 即使 expires_at 未清也不渲染", () => {
+    const { container } = render(
+      <ClaimExpiryBanner remaining={remaining(6, 0, 0)} expired={false} status="approved" hasLicense />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("i18n 键缺失时回落到组件内中文兜底文案", () => {

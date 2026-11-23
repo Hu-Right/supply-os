@@ -198,7 +198,12 @@ export default function EnterpriseSettingsClient() {
       )}
 
       {/* 认领待完善倒计时横幅（与账户设置页同一组件与文案；本页无需跳转按钮） */}
-      <ClaimExpiryBanner remaining={claim.remaining} expired={claim.expired} />
+      <ClaimExpiryBanner
+        remaining={claim.remaining}
+        expired={claim.expired}
+        status={claim.status}
+        hasLicense={Boolean(enterprise.enterprise?.licenseUrl)}
+      />
 
       {editing ? (
         <EnterpriseEditForm

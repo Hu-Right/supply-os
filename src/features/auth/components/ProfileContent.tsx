@@ -100,6 +100,8 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
       <ClaimExpiryBanner
         remaining={claim.remaining}
         expired={claim.expired}
+        status={claim.status}
+        hasLicense={Boolean(enterprise.enterprise?.licenseUrl)}
         withCta
         onCta={() => router.push("/settings/enterprise")}
       />
