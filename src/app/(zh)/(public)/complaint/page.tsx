@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 import { LegalPageContent } from "../legal-page";
 
 export const metadata: Metadata = {
-  title: "投诉与争议",
+  title: "投诉、争议与联系方式",
   description: "OS NEO SMART 投诉受理范围、提交渠道、处理时限与争议解决方式",
 };
 
@@ -16,7 +16,7 @@ export default function ComplaintPage() {
       <header className="mb-8 border-b border-slate-200 pb-6">
         <h1 className="text-2xl font-bold text-slate-900">投诉与争议解决</h1>
         <p className="mt-1 text-xs text-slate-500">
-          版本：V1.1 &nbsp;|&nbsp; 生效日期：2026年11月23日 &nbsp;|&nbsp; 运营主体：杭州云境智展科技有限公司
+          内容来源：摘自《用户服务协议》V2.0 第18、19、21条与《隐私政策》V2.1 第12、16条｜原文照录 &nbsp;|&nbsp; 运营主体：杭州云境智展科技有限公司
         </p>
       </header>
       <LegalPageContent filename="complaint.txt" />
