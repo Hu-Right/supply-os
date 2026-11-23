@@ -116,7 +116,7 @@ function GalleryCard({ nameKey, descKey, images }: {
                 fill
                 sizes="95vw"
                 quality={85}
-                className="object-contain"
+                className="object-cover"
               />
 
               {/* 左右切换按钮 */}
