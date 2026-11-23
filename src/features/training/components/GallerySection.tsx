@@ -1,13 +1,13 @@
 /**
  * 往期课堂现场（设计图 1:1 四卡片；多图分类保留 3 秒定时轮播）
- * Gallery section v4
+ * Gallery section v5
  *
  * @module features/training/components/GallerySection
  * @description 分类文案走 i18n（六语言 training.json 的 tlGalCat* key），
  *              图片路径为前端静态配置（src/data/training-content.ts，文件在
  *              public/images/training/gallery/ 下），不再查库；无图片时显示占位视觉。
- *              交互增强：鼠标悬停暂停轮播，点击图片打开 95vw × 90vh 大图预览，
- *              图片 contain 铺满内容区，支持左右切换与缩略图直达。
+ *              交互增强：鼠标悬停暂停轮播，点击图片打开大图预览；
+ *              预览框宽度跟随图片（.modal-gallery fit-content），图片完整显示、不裁切、无黑边。
  */
 import { useEffect, useState, useCallback } from "react";
 import { Presentation, ChevronLeft, ChevronRight } from "lucide-react";
@@ -96,7 +96,7 @@ function GalleryCard({ nameKey, descKey, images }: {
         </div>
       </div>
 
-      {/* 大图预览：95vw × 90vh，图片 contain 铺满内容区 */}
+      {/* 大图预览：弹窗宽度跟随图片，完整显示、不裁切、无黑边 */}
       <Modal
         open={previewIdx !== null}
         onClose={handleClosePreview}
@@ -107,16 +107,16 @@ function GalleryCard({ nameKey, descKey, images }: {
         className="modal-gallery p-2 sm:p-3"
       >
         {previewIdx !== null && images[previewIdx] && (
-          <div className="flex h-full flex-col">
-            {/* 图片区域 */}
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg bg-slate-900">
+          <div className="flex flex-col">
+            <div className="relative">
               <Image
                 src={images[previewIdx]}
                 alt={name}
-                fill
-                sizes="95vw"
+                width={1600}
+                height={1200}
                 quality={85}
-                className="object-cover"
+                sizes="92vw"
+                className="block h-auto max-h-[82vh] w-auto max-w-[92vw] rounded-lg object-contain"
               />
 
               {/* 左右切换按钮 */}
@@ -145,36 +145,14 @@ function GalleryCard({ nameKey, descKey, images }: {
             </div>
 
             {/* 底部信息 */}
-            <div className="mt-2 flex items-center justify-between px-2">
-              <p className="text-base font-bold text-training-navy">{name}</p>
+            <div className="mt-2 flex items-center justify-between px-1">
+              <p className="text-sm font-bold text-training-navy">{name}</p>
               {images.length > 1 && (
-                <span className="rounded-full bg-slate-100 px-4 py-1.5 text-sm font-bold text-slate-600">
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
                   {previewIdx + 1} / {images.length}
                 </span>
               )}
             </div>
-
-            {/* 缩略图条：一次看到全部照片，点击直接跳转 */}
-            {images.length > 1 && (
-              <div className="mt-2 flex gap-2 overflow-x-auto px-2 pb-1">
-                {images.map((src, i) => (
-                  <button
-                    key={`${src}-${i}`}
-                    type="button"
-                    onClick={() => setPreviewIdx(i)}
-                    aria-label={`${name} ${i + 1}`}
-                    aria-current={i === previewIdx ? "true" : undefined}
-                    className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-md border-2 transition-opacity ${
-                      i === previewIdx
-                        ? "border-training-green opacity-100"
-                        : "border-transparent opacity-60 hover:opacity-100"
-                    }`}
-                  >
-                    <Image src={src} alt="" fill sizes="80px" className="object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </Modal>

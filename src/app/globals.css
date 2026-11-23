@@ -463,12 +463,12 @@ html {
   }
 }
 
-/* 图库大图预览：脱离 .modal-content 默认 32rem 宽度与移动端底部抽屉 */
+/* 图库大图预览：宽度由图片决定，完整显示、不裁切、不留黑边 */
 .modal-gallery {
+  width: fit-content;
   max-width: 95vw;
-  width: 95vw;
-  height: 90vh;
-  max-height: 90vh;
+  height: auto;
+  max-height: 92vh;
   border-radius: 1rem;
 }
 
@@ -480,7 +480,7 @@ html {
     bottom: 0;
     width: 100vw;
     max-width: 100vw;
-    height: 100dvh;
+    height: auto;
     max-height: 100dvh;
     transform: none;
     border-radius: 0;
