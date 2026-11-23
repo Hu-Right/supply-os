@@ -1,18 +1,17 @@
 /**
  * 应用底部（全站 Footer，桌面 + 移动端）
- * App Footer — site-wide (desktop + mobile)
+ * App Footer — site-wide
  *
  * @module shared/layout/AppFooter
- * @description 合规布点 P0：页脚是「随时找得到」的常驻入口。
- *              - 版权 + ICP 备案（点跳工信部查询）；
- *              - 法律与关于链接组（集中配置在 shared/layout/LegalLinks）；
- *              - 运营主体信息行（统一社会信用代码/地址/客服联系方式，按 env 展示，未配置不臆造）。
- *              2026-11-23：此前 `hidden md:block` 只在桌面显示，移动端无任何法律入口；现改为全端可见。
+ * @description 参考 Stripe / Linear / 阿里云 的多列页脚：左侧品牌 + 一句定位，右侧四列
+ *              （产品 / 资源 / 法律 / 公司），底部一条版权与主体信息。
+ *              合规要求：法律入口全端常驻；主体信息按 env 展示，未配置不臆造。
  */
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useLocale } from "@/core/i18n";
 import { apiCached } from "@/core/http/api-client";
-import { LegalLinks } from "./LegalLinks";
+import { Brand } from "./Brand";
 
 /** crm.link 表返回的链接数据结构 */
 interface FooterLink {
@@ -28,16 +27,66 @@ export interface AppFooterProps {
   onOpenConsult: () => void;
 }
 
-/** 主体信息：优先 env 配置，未配置则不展示该字段（避免公示错误信息） */
 const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME || "杭州云境智展科技有限公司";
 const COMPANY_CREDIT_CODE = process.env.NEXT_PUBLIC_COMPANY_CREDIT_CODE || "";
 const COMPANY_ADDRESS = process.env.NEXT_PUBLIC_COMPANY_ADDRESS || "";
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "";
 const SUPPORT_PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE || "";
+/** ICP 兜底：接口未返回/JS 未水合时也必须可见（合规 P0），可用 NEXT_PUBLIC_ICP 覆盖 */
+const ICP_FALLBACK = process.env.NEXT_PUBLIC_ICP || "浙ICP备2026027779号-3";
+
+type TFn = (key: string) => string;
+
+/** 单列：标题 + 链接列表 */
+function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h2 className="text-xs font-bold tracking-wider text-slate-900">{title}</h2>
+      <ul className="mt-3 space-y-2">{children}</ul>
+    </div>
+  );
+}
+
+function FooterLinkItem({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <li>
+      <Link href={href} className="text-xs text-slate-500 transition-colors hover:text-teal-700 hover:underline">
+        {children}
+      </Link>
+    </li>
+  );
+}
+
+function productLinks(t: TFn) {
+  return [
+    { href: "/procurement", label: t("navGlobalOpportunities") || "全球商机" },
+    { href: "/rfq", label: t("navRFQ") || "采购需求" },
+    { href: "/supplier", label: t("navSupplierLibrary") || "供应商库" },
+    { href: "/award-intelligence", label: t("navAwardIntelligence") || "中标情报" },
+    { href: "/membership", label: t("navMembership") || "会员套餐" },
+  ];
+}
+
+function resourceLinks(t: TFn) {
+  return [
+    { href: "/learning", label: t("navKnowledgeCenter") || "知识中心" },
+    { href: "/training", label: t("navTraining") || "研修班" },
+    { href: "/services", label: t("navEcosystem") || "第三方服务" },
+  ];
+}
+
+const LEGAL_LINKS = [
+  { href: "/terms", key: "footerTerms", fallback: "服务协议" },
+  { href: "/privacy", key: "footerPrivacy", fallback: "隐私政策" },
+  { href: "/refund-policy", key: "footerPaidRights", fallback: "付费权益与退款" },
+  { href: "/notice-source", key: "footerNoticeSource", fallback: "标讯来源声明" },
+  { href: "/copyright", key: "footerCopyrightNotice", fallback: "版权与转载" },
+  { href: "/account-cancellation", key: "footerAccountCancellation", fallback: "账号注销" },
+] as const;
 
 export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }: AppFooterProps) {
   const { t } = useLocale();
-  const [icp, setIcp] = useState("");
+  const [icp, setIcp] = useState(ICP_FALLBACK);
   const [links, setLinks] = useState<FooterLink[]>([]);
 
   useEffect(() => {
@@ -49,18 +98,76 @@ export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }:
       .catch((e) => console.warn("[AppFooter] 页脚链接加载失败:", e));
   }, []);
 
-  const entityBits = [
-    COMPANY_CREDIT_CODE ? `${t("footerCreditCode") || "统一社会信用代码"} ${COMPANY_CREDIT_CODE}` : "",
-    COMPANY_ADDRESS,
-    SUPPORT_EMAIL ? `${t("footerSupportEmail") || "客服邮箱"} ${SUPPORT_EMAIL}` : "",
-    SUPPORT_PHONE ? `${t("footerSupportPhone") || "客服电话"} ${SUPPORT_PHONE}` : "",
-  ].filter(Boolean);
-
   return (
-    <footer className="print:hidden bg-slate-100 border-t border-slate-200 pt-5 pb-6 text-xs text-slate-400">
-      <div className="mx-auto max-w-7xl px-4 flex flex-col gap-3">
-        {/* 版权 + 备案 + 社交 */}
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <footer className="print:hidden border-t border-slate-200 bg-slate-50">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-6">
+          {/* 品牌区 */}
+          <div className="col-span-2">
+            <Brand name={t("brandName") || "云境·国际采购平台"} size="sm" />
+            <p className="mt-3 max-w-xs text-xs leading-relaxed text-slate-500">
+              {t("footerTagline") || "中国供应链出海 · 全球公共采购商机与投标服务"}
+            </p>
+            {links.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                {links.map((link) => (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-slate-400 transition-colors hover:text-teal-600"
+                    aria-label={link.name}
+                  >
+                    <i className={`iconfont icon-${link.icon} text-base`} />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 产品 */}
+          <FooterColumn title={t("footerProduct") || "产品"}>
+            {productLinks(t).map((item) => (
+              <FooterLinkItem key={item.href} href={item.href}>{item.label}</FooterLinkItem>
+            ))}
+          </FooterColumn>
+
+          {/* 资源 */}
+          <FooterColumn title={t("footerResources") || "资源"}>
+            {resourceLinks(t).map((item) => (
+              <FooterLinkItem key={item.href} href={item.href}>{item.label}</FooterLinkItem>
+            ))}
+          </FooterColumn>
+
+          {/* 法律 */}
+          <FooterColumn title={t("footerLegalNav") || "法律与关于"}>
+            {LEGAL_LINKS.map((item) => (
+              <FooterLinkItem key={item.href} href={item.href}>
+                {t(item.key) || item.fallback}
+              </FooterLinkItem>
+            ))}
+          </FooterColumn>
+
+          {/* 公司 */}
+          <FooterColumn title={t("footerCompany") || "公司"}>
+            <FooterLinkItem href="/about">{t("footerAbout") || "关于我们"}</FooterLinkItem>
+            <FooterLinkItem href="/complaint">{t("footerComplaint") || "投诉与争议"}</FooterLinkItem>
+            {SUPPORT_EMAIL && (
+              <li>
+                <a
+                  href={`mailto:${SUPPORT_EMAIL}`}
+                  className="text-xs text-slate-500 transition-colors hover:text-teal-700 hover:underline"
+                >
+                  {t("footerContactUs") || "联系我们"}
+                </a>
+              </li>
+            )}
+          </FooterColumn>
+        </div>
+
+        {/* 底部：版权 + 备案 + 主体信息 */}
+        <div className="mt-10 flex flex-col gap-2 border-t border-slate-200 pt-5 text-[11px] text-slate-400 md:flex-row md:items-center md:justify-between">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{t("footerCopyright")}</span>
             {icp && (
@@ -70,45 +177,25 @@ export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }:
                   href="https://beian.miit.gov.cn/"
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:underline hover:text-slate-600 transition-colors"
+                  className="transition-colors hover:text-slate-600 hover:underline"
                 >
                   {icp}
                 </a>
               </>
             )}
+            {COMPANY_CREDIT_CODE && (
+              <>
+                <span className="text-slate-300">|</span>
+                <span>{t("footerCreditCode") || "统一社会信用代码"} {COMPANY_CREDIT_CODE}</span>
+              </>
+            )}
           </p>
-
-          {links.length > 0 && (
-            <div className="flex items-center gap-4">
-              {links.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-slate-400 hover:text-teal-600 transition-colors"
-                  aria-label={link.name}
-                >
-                  <i className={`iconfont icon-${link.icon} text-lg`} />
-                </a>
-              ))}
-            </div>
-          )}
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {COMPANY_ADDRESS && <span>{COMPANY_ADDRESS}</span>}
+            {SUPPORT_PHONE && <span>{SUPPORT_PHONE}</span>}
+            {!COMPANY_ADDRESS && !SUPPORT_PHONE && <span>{COMPANY_NAME} · osneosmart.com</span>}
+          </p>
         </div>
-
-        {/* 法律与关于：全端可见（合规 P0） */}
-        <LegalLinks className="flex flex-wrap gap-x-4 gap-y-1.5" />
-
-        {/* 运营主体信息 */}
-        <p className="text-[11px] leading-relaxed text-slate-400">
-          {COMPANY_NAME}
-          {entityBits.length > 0 && (
-            <>
-              <span className="mx-1 text-slate-300">·</span>
-              {entityBits.join(" · ")}
-            </>
-          )}
-        </p>
       </div>
     </footer>
   );
