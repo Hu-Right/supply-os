@@ -438,7 +438,6 @@
   "diagDim1Hint": "Cette dimension provient de la complétude et de la vérification de votre fiche entreprise. Améliorez-la dans Paramètres (site web, code SIREN/crédit, date de création).",
   "diagErrCompanyTooShort": "Saisissez au moins 2 caractères",
   "diagErrMissingAnswers": "Des questions obligatoires sont sans réponse",
-  "diagMissingCount": "Sans réponse",
   "diagErrorNetwork": "Échec de l'envoi, vérifiez la connexion et réessayez",
   "diagSubmit": "Soumettre et évaluer",
   "diagSubmitHint": "Modifiable à tout moment ; une seule évaluation à jour par entreprise.",

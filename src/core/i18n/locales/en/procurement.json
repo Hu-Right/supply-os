@@ -438,7 +438,6 @@
   "diagDim1Hint": "This dimension comes from your company profile's completeness and verification status — no question here. Improve it in Settings by adding website, credit code, founding date, etc.",
   "diagErrCompanyTooShort": "Enter a company name of at least 2 characters",
   "diagErrMissingAnswers": "Some required questions are unanswered",
-  "diagMissingCount": "Unanswered",
   "diagErrorNetwork": "Submission failed, check your connection and retry",
   "diagSubmit": "Submit and score",
   "diagSubmitHint": "You can revise anytime; only the latest diagnosis is kept per company.",

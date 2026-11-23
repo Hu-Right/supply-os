@@ -438,7 +438,6 @@
   "diagDim1Hint": "这一项来自企业档案的完整度与人工核对状态，不占用答题。想提高它，请到设置页补全官网、统一社会信用代码、成立日期等资料。",
   "diagErrCompanyTooShort": "请输入至少 2 个字符的公司名称",
   "diagErrMissingAnswers": "还有必答题未完成",
-  "diagMissingCount": "未答题数",
   "diagErrorNetwork": "提交失败，请检查网络后重试",
   "diagSubmit": "提交并开始评分",
   "diagSubmitHint": "提交后可随时回来修改，同一家公司只会保留一条最新诊断。",

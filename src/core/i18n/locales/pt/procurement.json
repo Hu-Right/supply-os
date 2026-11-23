@@ -438,7 +438,6 @@
   "diagDim1Hint": "Esta dimensão depende da completude e verificação do perfil da empresa; melhore-a em Configurações (site, código de crédito, data).",
   "diagErrCompanyTooShort": "Digite pelo menos 2 caracteres",
   "diagErrMissingAnswers": "Faltam perguntas obrigatórias",
-  "diagMissingCount": "Sem resposta",
   "diagErrorNetwork": "Falha no envio; verifique a conexão e tente novamente",
   "diagSubmit": "Enviar e avaliar",
   "diagSubmitHint": "Você pode revisar a qualquer momento; mantém-se um único relatório vigente por empresa.",
