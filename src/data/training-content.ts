@@ -136,7 +136,14 @@ export const TRAINING_GALLERY_CATEGORIES: TrainingGalleryCategory[] = [
     id: 2,
     nameKey: "tlGalCat2Name",
     descKey: "tlGalCat2Desc",
-    images: [],
+    images: [
+      "/images/training/gallery/课堂讲解/DSC01344-opq4765060492.jpg",
+      "/images/training/gallery/课堂讲解/DSC01345-opq4765041869.jpg",
+      "/images/training/gallery/课堂讲解/DSC01399-opq4765006364.jpg",
+      "/images/training/gallery/课堂讲解/DSC01477-opq4765027011.jpg",
+      "/images/training/gallery/课堂讲解/DSC01482-opq4765064540.jpg",
+      "/images/training/gallery/课堂讲解/DSC01559-opq4765234753.jpg",
+    ],
   },
   {
     id: 3,

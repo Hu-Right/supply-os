@@ -14,7 +14,6 @@ import type { LandingCourse } from "../api";
 export interface HeroSectionProps {
   course: LandingCourse | null;
   onEnroll: () => void;
-  onConsult: () => void;
 }
 
 /** 地球装饰（earth.png 透明底，右侧融入藏青背景） Earth decoration */
@@ -34,7 +33,7 @@ function GlobeDots() {
   );
 }
 
-export function HeroSection({ course, onEnroll, onConsult }: HeroSectionProps) {
+export function HeroSection({ course, onEnroll }: HeroSectionProps) {
   const { t, locale } = useLocale();
   const chips = [
     { icon: CalendarDays, key: "tlHeroChip1" },
@@ -74,15 +73,6 @@ export function HeroSection({ course, onEnroll, onConsult }: HeroSectionProps) {
             className="bg-training-green hover:bg-training-green-hover"
           >
             {t("tlHeroBtnEnroll")}
-          </Button>
-          <Button
-            type="button"
-            size="lg"
-            variant="outline"
-            onClick={onConsult}
-            className="border-slate-400/70 text-slate-100 hover:bg-white/10 hover:text-white"
-          >
-            {t("tlHeroBtnConsult")}
           </Button>
         </div>
 

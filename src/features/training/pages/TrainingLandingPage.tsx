@@ -84,7 +84,7 @@ export default function TrainingLandingPage() {
       {/* 浮动导航：桌面端右侧垂直侧边栏 / 移动端底部水平导航栏 */}
       <FloatingNav onEnroll={handleDirectPay} onConsult={openWechatQR} />
 
-      <HeroSection course={course} onEnroll={handleDirectPay} onConsult={openWechatQR} />
+      <HeroSection course={course} onEnroll={handleDirectPay} />
 
       <div className="max-w-7xl mx-auto">
         <StatsSection />
