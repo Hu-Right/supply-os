@@ -98,7 +98,7 @@ export function Modal({
               type="button"
               onClick={onClose}
               disabled={closeDisabled}
-              className="absolute end-4 top-4 rounded-full p-1.5 text-secondary-400 transition-colors hover:bg-secondary-100 hover:text-secondary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50"
+              className="absolute end-4 top-4 z-20 rounded-full bg-white/90 p-1.5 text-secondary-500 shadow-sm transition-colors hover:bg-secondary-100 hover:text-secondary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50"
               aria-label={t("uiClose")}
             >
               <X className="h-5 w-5" />

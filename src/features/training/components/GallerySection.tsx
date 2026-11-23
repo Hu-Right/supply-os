@@ -152,6 +152,28 @@ function GalleryCard({ nameKey, descKey, images }: {
                 </span>
               )}
             </div>
+
+            {/* 缩略图条：一次看到全部照片，点击直接跳转（此前只能左右翻，感觉“图很少”） */}
+            {images.length > 1 && (
+              <div className="mt-2 flex gap-2 overflow-x-auto px-2 pb-1">
+                {images.map((src, i) => (
+                  <button
+                    key={`${src}-${i}`}
+                    type="button"
+                    onClick={() => setPreviewIdx(i)}
+                    aria-label={`${name} ${i + 1}`}
+                    aria-current={i === previewIdx}
+                    className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-md border-2 transition-opacity ${
+                      i === previewIdx
+                        ? "border-training-green opacity-100"
+                        : "border-transparent opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <Image src={src} alt="" fill sizes="80px" className="object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </Modal>
