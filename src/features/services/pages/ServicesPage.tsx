@@ -3,16 +3,15 @@
  * Services Page — Module 08 Design Restore
  *
  * @module features/services/pages/ServicesPage
- * @description 深色Hero + 4步生命周期步骤条 + 6张自营服务卡片 + 生态引流横幅 + 信任条。
+ * @description 深色Hero + 4步生命周期步骤条 + 6张自营服务卡片 + 信任条。
  *              第三方服务生态已于 2026-11-20 独立为 /ecosystem 一级模块（老板决策），
- *              本页保留自营服务市场定位，尾部横幅引流生态模块。
+ *              本页只保留自营服务市场定位；2026-11-23 移除页尾「第三方服务」引流横幅。
  */
 
 import { SERVICES } from "@/data/services";
 import { useLocale } from "@/core/i18n";
 import { ServicesHero } from "../components/ServicesHero";
 import { ServiceCardGrid } from "../components/ServiceCardGrid";
-import { EcosystemBanner } from "../components/EcosystemBanner";
 import { TrustBar } from "../components/TrustBar";
 
 export default function ServicesPage() {
@@ -35,9 +34,6 @@ export default function ServicesPage() {
 
       {/* 6张自营服务卡片（3×2网格） */}
       <ServiceCardGrid services={services} />
-
-      {/* 第三方服务生态引流横幅（独立模块 /ecosystem） */}
-      <EcosystemBanner />
 
       {/* 信任条 */}
       <TrustBar />
