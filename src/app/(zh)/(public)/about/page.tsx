@@ -18,22 +18,24 @@ const COMPANY_CREDIT_CODE = process.env.NEXT_PUBLIC_COMPANY_CREDIT_CODE || "";
 const COMPANY_ADDRESS = process.env.NEXT_PUBLIC_COMPANY_ADDRESS || "";
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "";
 const SUPPORT_PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE || "";
-const ICP = "浙ICP备2026027779号-3";
+const ICP = process.env.NEXT_PUBLIC_ICP || "浙ICP备2026027779号-3";
+const ICP_LICENSE = process.env.NEXT_PUBLIC_ICP_LICENSE || "";
 
 export default function AboutPage() {
   const rows: Array<[string, React.ReactNode]> = [
     ["运营主体", COMPANY_NAME],
-    ...(COMPANY_CREDIT_CODE ? [["统一社会信用代码", COMPANY_CREDIT_CODE] as [string, React.ReactNode]] : []),
-    ...(COMPANY_ADDRESS ? [["注册地址", COMPANY_ADDRESS] as [string, React.ReactNode]] : []),
+    ["统一社会信用代码", COMPANY_CREDIT_CODE || "待补充"],
+    ["注册地址", COMPANY_ADDRESS || "待补充"],
     ["ICP 备案", (
       <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="text-teal-700 hover:underline">
         {ICP}
       </a>
     )],
-    ...(SUPPORT_EMAIL ? [["客服邮箱", (
+    ["增值电信业务经营许可证", ICP_LICENSE || "如适用，待补充"],
+    ["客服邮箱", SUPPORT_EMAIL ? (
       <a href={`mailto:${SUPPORT_EMAIL}`} className="text-teal-700 hover:underline">{SUPPORT_EMAIL}</a>
-    )] as [string, React.ReactNode]] : []),
-    ...(SUPPORT_PHONE ? [["客服电话", SUPPORT_PHONE] as [string, React.ReactNode]] : []),
+    ) : "待补充"],
+    ["客服电话", SUPPORT_PHONE || "待补充"],
     ["网站", "osneosmart.com"],
   ];
 
@@ -73,7 +75,7 @@ export default function AboutPage() {
           ))}
         </dl>
         <p className="mt-3 text-xs text-slate-400">
-          如需核验营业执照等主体资料，可通过客服邮箱提出，我们将在核验后提供。
+          带“待补充”的字段由运营主体在正式上线前补齐；营业执照、行政许可等主体资料可应要求核验。
         </p>
       </section>
 
