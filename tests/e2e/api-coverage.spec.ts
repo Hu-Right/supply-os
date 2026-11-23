@@ -228,6 +228,20 @@ const CASES: ApiCase[] = [
   { method: "PATCH", path: "/api/user/supplier-pool/:id", auth: "none", status: 401, bodyType: "object", src: "/api/user/supplier-pool/:id" },
   { method: "GET", path: "/api/user/supplier-pool/search", auth: "member", status: 400, bodyType: "object", src: "/api/user/supplier-pool/search" },
   { method: "GET", path: "/api/wechat/jssdk", auth: "none", status: 400, bodyType: "object", src: "/api/wechat/jssdk" },
+  // 采购 P1a/P1b/P1c 新增端点：均先 requireUserKeyOrThrow，匿名一律 401
+  { method: "GET", path: "/api/procurement/projects/:id/documents", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/documents" },
+  { method: "POST", path: "/api/procurement/projects/:id/documents", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/documents" },
+  { method: "DELETE", path: "/api/procurement/projects/:id/documents", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/documents" },
+  { method: "GET", path: "/api/procurement/projects/:id/evaluations/:responseId", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/evaluations/:responseId" },
+  { method: "PUT", path: "/api/procurement/projects/:id/evaluations/:responseId", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/evaluations/:responseId" },
+  { method: "GET", path: "/api/procurement/projects/:id/method-decision", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/method-decision" },
+  { method: "POST", path: "/api/procurement/projects/:id/method-decision", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/method-decision" },
+  { method: "GET", path: "/api/procurement/projects/:id/shortlist", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/shortlist" },
+  { method: "POST", path: "/api/procurement/projects/:id/shortlist", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/shortlist" },
+  { method: "GET", path: "/api/procurement/projects/:id/tender-config", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/tender-config" },
+  { method: "PUT", path: "/api/procurement/projects/:id/tender-config", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/tender-config" },
+  { method: "POST", path: "/api/procurement/projects/:id/responses/:responseId/open-financial", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/responses/:responseId/open-financial" },
+  { method: "GET", path: "/api/procurement/tender-doc-files/:filename", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/tender-doc-files/:filename" },
 ];
 
 function resolvePath(template: string): string {

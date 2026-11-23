@@ -63,7 +63,6 @@ export function recommendMethodV2(input: MethodAdvisorInput = {}): MethodRecomme
   const types = new Set(
     (input.objectTypes ?? []).filter((t): t is string => typeof t === "string" && OBJECT_TYPES_VALID.has(t)),
   );
-  const reasonKeys: string[] = [];
   const missingKeys: string[] = [];
 
   if (input.budgetKnown === false) missingKeys.push("method_missing_budget");

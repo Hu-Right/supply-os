@@ -18,7 +18,7 @@ import {
   TENDER_STATUS,
   type EvalTemplate,
 } from "@/shared/constants/procurement";
-import { loadLatestTender, loadProjectRow } from "./responses";
+import { loadLatestTender } from "./responses";
 import { pushNotificationSafe } from "@/lib/services/notifications";
 
 export interface EvaluationRow extends RowDataPacket {
@@ -173,7 +173,6 @@ export async function saveEvaluations(
 
   const template = await getEvalTemplate(db, input.projectId);
   if (!template) return { ok: false, reason: "template_missing" };
-  const technicalMax = Number(template.technicalMax ?? 70);
   const dimWeight = new Map(template.dimensions.map((d) => [String(d.key), Number(d.weight)]));
 
   const [respRows] = await db.query(
