@@ -64,11 +64,6 @@ function productLinks(t: TFn) {
     { href: "/supplier", label: t("navSupplierLibrary") || "供应商库" },
     { href: "/award-intelligence", label: t("navAwardIntelligence") || "中标情报" },
     { href: "/membership", label: t("navMembership") || "会员套餐" },
-  ];
-}
-
-function resourceLinks(t: TFn) {
-  return [
     { href: "/ecosystem", label: t("navEcosystem") || "第三方服务" },
   ];
 }
@@ -99,7 +94,7 @@ export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }:
   return (
     <footer className="print:hidden border-t border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-5">
           {/* 品牌区 */}
           <div className="col-span-2">
             <Brand name={t("brandName") || "云境·国际采购平台"} size="sm" />
@@ -127,13 +122,6 @@ export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }:
           {/* 产品 */}
           <FooterColumn title={t("footerProduct") || "产品"}>
             {productLinks(t).map((item) => (
-              <FooterLinkItem key={item.href} href={item.href}>{item.label}</FooterLinkItem>
-            ))}
-          </FooterColumn>
-
-          {/* 资源 */}
-          <FooterColumn title={t("footerResources") || "资源"}>
-            {resourceLinks(t).map((item) => (
               <FooterLinkItem key={item.href} href={item.href}>{item.label}</FooterLinkItem>
             ))}
           </FooterColumn>
