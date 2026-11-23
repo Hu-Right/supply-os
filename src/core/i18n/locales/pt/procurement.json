@@ -436,8 +436,6 @@
   "diagBadgeBound": "Já vinculada",
   "diagAutoScored": "Avaliada automaticamente",
   "diagDim1Hint": "Esta dimensão depende da completude e verificação do perfil da empresa; melhore-a em Configurações (site, código de crédito, data).",
-  "diagWillingnessNotScored": "Registrado apenas como intenção; não pontua.",
-  "diagErrFieldRequired": "Pergunta obrigatória",
   "diagErrCompanyTooShort": "Digite pelo menos 2 caracteres",
   "diagErrMissingAnswers": "Faltam perguntas obrigatórias",
   "diagMissingCount": "Sem resposta",
@@ -997,7 +995,5 @@
   "pc_gone_title": "Esta demanda de compra não existe mais",
   "pc_gone_desc": "Ela pode ter sido retirada ou excluída, ou o link expirou.",
   "detail_expand": "Mostrar tudo",
-  "detail_collapse": "Mostrar menos",
-  "diagProgressLabel": "Progresso",
-  "diagProgressRequired": "obrigatórias"
+  "detail_collapse": "Mostrar menos"
 }

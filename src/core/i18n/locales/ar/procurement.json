@@ -436,8 +436,6 @@
   "diagBadgeBound": "مرتبطة بالفعل",
   "diagAutoScored": "يُقيَّم تلقائيًا",
   "diagDim1Hint": "هذا المحور يأتي من اكتمال ملف الشركة وتوثيقه، فلا سؤال هنا؛ حسّنه من الإعدادات بإضافة الموقع ورمز الاعتماد وتاريخ التأسيس.",
-  "diagWillingnessNotScored": "تُسجَّل كنية فقط ولا تدخل في الدرجة.",
-  "diagErrFieldRequired": "هذا السؤال إلزامي",
   "diagErrCompanyTooShort": "أدخل اسمًا من حرفين على الأقل",
   "diagErrMissingAnswers": "هناك أسئلة إلزامية بلا إجابة",
   "diagMissingCount": "غير مجاب",
@@ -997,7 +995,5 @@
   "pc_gone_title": "طلب الشراء هذا لم يعد موجوداً",
   "pc_gone_desc": "ربما تم سحبه أو حذفه، أو انتهت صلاحية الرابط.",
   "detail_expand": "عرض النص كاملاً",
-  "detail_collapse": "عرض أقل",
-  "diagProgressLabel": "التقدم",
-  "diagProgressRequired": "إلزامي"
+  "detail_collapse": "عرض أقل"
 }

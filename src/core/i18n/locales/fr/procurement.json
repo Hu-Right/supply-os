@@ -436,8 +436,6 @@
   "diagBadgeBound": "Déjà liée",
   "diagAutoScored": "Évalué automatiquement",
   "diagDim1Hint": "Cette dimension provient de la complétude et de la vérification de votre fiche entreprise. Améliorez-la dans Paramètres (site web, code SIREN/crédit, date de création).",
-  "diagWillingnessNotScored": "Enregistrée comme intention uniquement ; hors score.",
-  "diagErrFieldRequired": "Réponse requise",
   "diagErrCompanyTooShort": "Saisissez au moins 2 caractères",
   "diagErrMissingAnswers": "Des questions obligatoires sont sans réponse",
   "diagMissingCount": "Sans réponse",
@@ -997,7 +995,5 @@
   "pc_gone_title": "Cette demande d'achat n'existe plus",
   "pc_gone_desc": "Elle a peut-être été retirée ou supprimée, ou le lien a expiré.",
   "detail_expand": "Afficher tout",
-  "detail_collapse": "Réduire",
-  "diagProgressLabel": "Progression",
-  "diagProgressRequired": "obligatoires"
+  "detail_collapse": "Réduire"
 }

@@ -436,8 +436,6 @@
   "diagBadgeBound": "Already linked",
   "diagAutoScored": "Auto-scored",
   "diagDim1Hint": "This dimension comes from your company profile's completeness and verification status — no question here. Improve it in Settings by adding website, credit code, founding date, etc.",
-  "diagWillingnessNotScored": "Recorded as intent only; not part of the score.",
-  "diagErrFieldRequired": "Required",
   "diagErrCompanyTooShort": "Enter a company name of at least 2 characters",
   "diagErrMissingAnswers": "Some required questions are unanswered",
   "diagMissingCount": "Unanswered",
@@ -997,7 +995,5 @@
   "pc_gone_title": "This procurement request no longer exists",
   "pc_gone_desc": "It may have been withdrawn or deleted, or the link has expired.",
   "detail_expand": "Show full text",
-  "detail_collapse": "Show less",
-  "diagProgressLabel": "Progress",
-  "diagProgressRequired": "required"
+  "detail_collapse": "Show less"
 }

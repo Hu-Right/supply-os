@@ -436,8 +436,6 @@
   "diagBadgeBound": "Уже привязана",
   "diagAutoScored": "Оценивается автоматически",
   "diagDim1Hint": "Этот показатель берётся из полноты и проверки карточки компании — отвечать не нужно. Улучшите его в «Настройках»: сайт, кредит-код, дата основания.",
-  "diagWillingnessNotScored": "Учитывается как намерение и не входит в оценку.",
-  "diagErrFieldRequired": "Обязательный вопрос",
   "diagErrCompanyTooShort": "Введите название не короче 2 символов",
   "diagErrMissingAnswers": "Есть незаполненные обязательные вопросы",
   "diagMissingCount": "Без ответа",
@@ -997,7 +995,5 @@
   "pc_gone_title": "Такой закупки больше нет",
   "pc_gone_desc": "Возможно, она отозвана или удалена, либо ссылка устарела.",
   "detail_expand": "Показать полностью",
-  "detail_collapse": "Свернуть",
-  "diagProgressLabel": "Прогресс",
-  "diagProgressRequired": "обязательных"
+  "detail_collapse": "Свернуть"
 }
