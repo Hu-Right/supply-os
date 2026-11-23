@@ -30,7 +30,26 @@ export default function Providers({
       <LocaleProvider initialLocale={initialLocale}>
         <ErrorBoundaryWithI18n>
           <AppInit />
-          <AuthProvider>{children}<Toaster richColors position="top-center" closeButton duration={5000} toastOptions={{ className: "max-w-[90vw] md:max-w-md" }} /></AuthProvider>
+          <AuthProvider>
+            {children}
+            {/* 轻提示统一走「白底 + 细边 + 深色字」：默认 richColors 的整块品牌绿在浅色页面上
+                刺眼、图标与文案挤在一起（2026-11-23 反馈「弹窗丑」）。图标由 sonner 按状态给色，
+                这里只统一容器与字号，避免每处调用各写一套 className。 */}
+            <Toaster
+              position="top-center"
+              closeButton
+              duration={4000}
+              toastOptions={{
+                classNames: {
+                  toast: "!rounded-xl !border !border-slate-200 !bg-white !text-slate-800 !shadow-lg !shadow-slate-900/5 !px-4 !py-3",
+                  title: "!text-sm !font-semibold !text-slate-800",
+                  description: "!text-xs !text-slate-500",
+                  icon: "!me-2",
+                  closeButton: "!border-slate-200 !bg-white !text-slate-400 hover:!text-slate-600",
+                },
+              }}
+            />
+          </AuthProvider>
         </ErrorBoundaryWithI18n>
       </LocaleProvider>
     </Suspense>

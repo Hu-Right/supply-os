@@ -444,6 +444,7 @@
   "diagEdit": "Editar",
   "diagLoading": "Carregando…",
   "diagLoadedForEdit": "Carregado: revise e reenvie",
+  "diagLegacyEditNotice": "Registro V2 carregado (19 perguntas): é preciso responder às novas perguntas «habilitação de exportador» e D4 «registro de certificados / prazo de entrega». A antiga lista de «documentos obrigatórios» fica no histórico, mas não é mais exibida.",
   "diagNextStepTitle": "Próximo passo",
   "diagNextStepProfile": "Completar o perfil da empresa eleva diretamente a dimensão de preparação.",
   "diagGoEnterprise": "Ir para Dados da Empresa",

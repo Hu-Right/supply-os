@@ -444,6 +444,7 @@
   "diagEdit": "修改",
   "diagLoading": "加载中…",
   "diagLoadedForEdit": "已载入，可直接修改后重新提交",
+  "diagLegacyEditNotice": "已载入 V2 记录（19 题）：V3 新增的「出口主体资质」与 D4 的「资质台账 / 取证时效」需要补答；旧版「强制文件清单」的答案仍保留在历史中，不再展示。",
   "diagNextStepTitle": "下一步",
   "diagNextStepProfile": "补全企业档案能直接提升「档案就绪度」这一维度的得分。",
   "diagGoEnterprise": "去企业信息页",

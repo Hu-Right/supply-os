@@ -444,6 +444,7 @@
   "diagEdit": "Edit",
   "diagLoading": "Loading…",
   "diagLoadedForEdit": "Loaded — revise and resubmit",
+  "diagLegacyEditNotice": "Loaded a V2 record (19 questions): the new “export entity qualification” and the D4 “certificate ledger / delivery speed” questions need answers. The retired “mandatory documents” list is kept in history but no longer displayed.",
   "diagNextStepTitle": "Next step",
   "diagNextStepProfile": "Completing your company profile directly raises the profile-readiness dimension.",
   "diagGoEnterprise": "Go to Company Info",
