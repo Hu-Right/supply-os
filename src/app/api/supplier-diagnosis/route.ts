@@ -22,7 +22,9 @@ import { getPool } from "@/lib/db/pool";
 import { getContext } from "@/lib/db/context";
 import { SupplierDiagnosisRepo, diagnosisWriteGateDecision } from "@/lib/repos/supplier-diagnosis.repo";
 import { SupplierDiagnosisSubmitLogRepo } from "@/lib/repos/supplier-diagnosis-submit-log.repo";
+import { EnterpriseProfileRepo } from "@/lib/repos/enterprise-profile.repo";
 import { scoreDiagnosis } from "@/lib/services/scoring/diagnosis-v2";
+import { evaluateQualificationFor } from "@/lib/services/supplier-diagnosis/qualification";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
@@ -179,6 +181,14 @@ export const POST = withRoute(async (req: NextRequest) => {
     };
   const scoring = scoreDiagnosis({ answers, supplier: bits });
 
+  // ── V3 资质分级（2026-11-23 用户拍板）──
+  // 目标市场 → 当地准入资质应备清单 → 与能力档案已持证书求差集 → A/B/C。
+  // 与 100 分（投标能力线）**分开**：换目标市场不改投标能力分，历史 V2 报告仍可比。
+  const qualification = await evaluateQualificationFor(supplierId, answers, {
+    catalog: ctx.catalogRepo,
+    enterprise: new EnterpriseProfileRepo(getPool()),
+  });
+
   try {
     const stored = await diagnosisRepo.upsertDiagnosis({
       userId: auth.userId,
@@ -196,6 +206,7 @@ export const POST = withRoute(async (req: NextRequest) => {
           overrideGateReason: scoring.overrideGateReason,
         },
       },
+      qualification: { grade: qualification.grade, breakdown: qualification.breakdown },
       ip: extractClientIp(req),
     });
 
@@ -216,6 +227,10 @@ export const POST = withRoute(async (req: NextRequest) => {
       dimensions: scoring.dimensions,
       topGaps: scoring.topGaps,
       overrideGate: { triggered: scoring.overrideGateTriggered, reason: scoring.overrideGateReason },
+      // V3：资质分级（null = 未填目标市场 / 字典不可用，见 qualBreakdown.unscoredReason）
+      schemaVersion: 3,
+      qualGrade: qualification.grade,
+      qualBreakdown: qualification.breakdown,
     }, { status: 201 });
   } catch (err) {
     console.error("[supplier-diagnosis POST]", err);

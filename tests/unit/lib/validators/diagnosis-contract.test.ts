@@ -10,7 +10,7 @@
  *              任何一侧单独改形状都会在这里失败。
  */
 import { describe, it, expect, vi } from "vitest";
-import { DIAGNOSIS_FIELDS } from "@/shared/constants/diagnosis-dimensions";
+import { DIAGNOSIS_FORM_FIELDS } from "@/shared/constants/diagnosis-dimensions";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
 
 /** 捕获 submitDiagnosis 交给 http 层的 body 原值（不经过真实网络） */
@@ -28,10 +28,10 @@ vi.mock("@/core/http", () => ({
 // 必须在 vi.mock 之后再引入被测模块
 import { submitDiagnosis, type DiagnosisAnswers } from "@/shared/api/diagnosis";
 
-/** 按常量生成一份「每题都答在允许档位内」的完整答案 */
+/** 按常量生成一份「每道表单题都答在允许档位内」的完整答案（V3：只覆盖表单会问的题） */
 function completeAnswers(): DiagnosisAnswers {
   const answers: DiagnosisAnswers = {};
-  for (const f of DIAGNOSIS_FIELDS) {
+  for (const f of DIAGNOSIS_FORM_FIELDS) {
     if (f.kind === "multi") answers[f.key] = [...(f.options ?? [])].slice(0, 2);
     else if (f.kind === "text") answers[f.key] = "德国, 法国";
     else answers[f.key] = f.options![1];
@@ -58,9 +58,28 @@ describe("诊断提交请求体契约", () => {
     if (parsed.ok) {
       expect(parsed.payload.companyName).toBe("杭州中建工程技术有限公司");
       expect(parsed.payload.supplierId).toBe(18296);
-      // 19 题一题不丢地过校验（少一题就会在这里被 missing/invalid 挡下）
-      expect(Object.keys(parsed.payload.answers)).toHaveLength(DIAGNOSIS_FIELDS.length);
+      // 表单题一题不丢地过校验（少一题就会在这里被 missing/invalid 挡下）
+      expect(Object.keys(parsed.payload.answers)).toHaveLength(DIAGNOSIS_FORM_FIELDS.length);
+      // V3：目标市场随表单提交并回读到 answers
+      expect(parsed.payload.answers.target_markets).toEqual(["EU", "UK"]);
+      // V3：投标意愿已不在表单里，提交体也不再带它
+      expect(Object.keys(parsed.payload.answers)).not.toContain("bid_willingness");
     }
+  });
+
+  it("V3: 不提交 target_markets 也合法（= 未分级，而不是必答被挡）", async () => {
+    const answers = completeAnswers();
+    delete answers.target_markets;
+    const parsed = parseDiagnosisPayload({ companyName: "杭州中建工程技术有限公司", answers });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.payload.answers.target_markets).toEqual([]);
+  });
+
+  it("V3: 目标市场取值必须在字典 scope 码内，乱码直接拒绝", () => {
+    const answers = completeAnswers();
+    answers.target_markets = ["EU", "MOON"];
+    const parsed = parseDiagnosisPayload({ companyName: "杭州中建工程技术有限公司", answers });
+    expect(parsed).toMatchObject({ ok: false, fieldKey: "target_markets", reason: "invalid" });
   });
 
   it("服务端把形状错误报成契约问题，而不是伪装成某道必答题未答", async () => {

@@ -9,7 +9,11 @@
  *              客户端校验只是体验（少一次往返），**权威校验在服务端 validators/diagnosis.ts**。
  */
 import { useCallback, useMemo, useState } from "react";
-import { DIAGNOSIS_FIELDS, diagnosisProgress } from "@/shared/constants/diagnosis-dimensions";
+import {
+  DIAGNOSIS_ALL_FIELDS,
+  DIAGNOSIS_FORM_FIELDS,
+  diagnosisProgress,
+} from "@/shared/constants/diagnosis-dimensions";
 import { EC_FORBIDDEN, EC_DIAGNOSIS_ENTITY_NOT_FOUND } from "@/shared/constants/api";
 import {
   findSimilarCompanies,
@@ -31,7 +35,7 @@ export interface DiagnosisFormState {
 
 function emptyAnswers(): DiagnosisAnswers {
   const answers: DiagnosisAnswers = {};
-  for (const field of DIAGNOSIS_FIELDS) {
+  for (const field of DIAGNOSIS_ALL_FIELDS) {
     answers[field.key] = field.kind === "multi" ? [] : "";
   }
   return answers;
@@ -144,10 +148,10 @@ export function useDiagnosisForm() {
     setDialogOpen(false);
   }, [setForm]);
 
-  /** 客户端预检：只查单选题（多选题空选合法，语义是"一份都拿不出"） */
+  /** 客户端预检：只查表单真的会问的单选题（多选题空选合法，语义是"一份都拿不出"） */
   const missingRequired = useMemo(
     () =>
-      DIAGNOSIS_FIELDS.filter(
+      DIAGNOSIS_FORM_FIELDS.filter(
         (f) => f.kind === "single" && !String(form.answers[f.key] ?? "").trim(),
       ).map((f) => f.key),
     [form.answers],
@@ -163,6 +167,12 @@ export function useDiagnosisForm() {
     }
     if (missingRequired.length > 0) {
       setError({ i18nKey: "diagErrMissingAnswers", missing: missingRequired });
+      // 迷路兜底（顶部进度条已移除）：滚动定位到第一个未答题，红框在 FieldBlock 上
+      setTimeout(() => {
+        document
+          .getElementById(`diag-${missingRequired[0]}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 60);
       return;
     }
     setSubmitting(true);

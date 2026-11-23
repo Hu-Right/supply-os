@@ -26,6 +26,26 @@ export interface CapabilityRow {
   confirmation_json: unknown;
 }
 
+/**
+ * `value_json` 兼容两种驱动形态：JSON 列返对象，或老数据/文本列返字符串。
+ * 解析失败一律返回 null（调用方按「没有该字段」处理），不抛错——
+ * 资质分级不该因为一条脏能力项把整个诊断提交打崩。
+ */
+function parseValueJson(raw: unknown): Record<string, unknown> | null {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export class EnterpriseProfileRepo {
   constructor(private pool: Pool) {}
 
@@ -46,6 +66,28 @@ export class EnterpriseProfileRepo {
       [enterpriseId],
     );
     return rows as unknown as CapabilityRow[];
+  }
+
+  /**
+   * 该企业已持有的认证 code 清单（V3 资质分级求差集用）。
+   * 只取 `capability_type='certification'`；`value_json.code` 是字典快照锚点（迁移 031 起不存外键），
+   * 手工录入的证书 code 可能为空——空值直接丢掉，否则「缺 0 项」会被空串占位算成「已持」。
+   * 返回去重后的原值（不做大小写归一，归一是评分侧 normalizeCertCode 的职责，避免两处各归一次）。
+   */
+  async listCertificationCodes(enterpriseId: number): Promise<string[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT value_json FROM enterprise_capability_items
+        WHERE enterprise_id = ? AND capability_type = 'certification'`,
+      [enterpriseId],
+    );
+    const codes = new Set<string>();
+    for (const row of rows) {
+      const raw = (row as { value_json?: unknown }).value_json;
+      const parsed = parseValueJson(raw);
+      const code = String(parsed?.code ?? "").trim();
+      if (code) codes.add(code);
+    }
+    return [...codes];
   }
 
   async insertCapability(params: {

@@ -12,6 +12,7 @@ import { ChipToggleGroup, Textarea } from "@/shared/ui";
 import {
   DIAGNOSIS_DIMENSIONS,
   DIAGNOSIS_FIELDS,
+  DIAGNOSIS_QUAL_FIELDS,
   type DiagnosisFieldDef,
 } from "@/shared/constants/diagnosis-dimensions";
 import type { DiagnosisAnswers } from "@/shared/api/diagnosis";
@@ -28,14 +29,20 @@ interface Props {
 }
 
 function OptionChips({
-  field, selected, onPick, onToggle,
+  field, selected, onPick, onToggle, t,
 }: {
   field: DiagnosisFieldDef;
   selected: string | string[];
   onPick: (value: string) => void;
   onToggle: (value: string) => void;
+  t: T;
 }) {
-  const items = (field.options ?? []).map((opt) => ({ value: opt, label: opt }));
+  // 入库值仍是选项原文；只有显式声明了 optionLabelKeys 的字段（目标市场这类码值）
+  // 才把显示名换成本地化文案——「显示值 == 存储值」的不变式对 V2 全部题目继续成立。
+  const items = (field.options ?? []).map((opt, i) => ({
+    value: opt,
+    label: field.optionLabelKeys?.[i] ? t(field.optionLabelKeys[i]) : opt,
+  }));
   // 单选与多选共用同一个项目内正解控件（ADR-0005），不再手搭 chip
   if (field.kind === "multi") {
     return (
@@ -62,7 +69,8 @@ function FieldBlock({ field, answers, missing, t, onSingle, onToggleMulti }: Pro
   const showMissing = missing.includes(field.key);
 
   return (
-    <div>
+    // 未答标红用整块 ring（文案冗余已删：星号即必答标记，红框即"这题挡住了提交"）
+    <div className={showMissing ? "rounded-xl ring-1 ring-rose-300" : undefined}>
       <label className="mb-2 block text-sm font-bold text-slate-700" htmlFor={`diag-${field.key}`}>
         {t(field.labelKey)}
         {field.kind === "single" && <span className="ml-0.5 text-rose-500">*</span>}
@@ -83,10 +91,9 @@ function FieldBlock({ field, answers, missing, t, onSingle, onToggleMulti }: Pro
           selected={(value as string | string[]) ?? (field.kind === "multi" ? [] : "")}
           onPick={(opt) => onSingle(field.key, opt)}
           onToggle={(opt) => onToggleMulti(field.key, opt)}
+          t={t}
         />
       )}
-
-      {showMissing && <p className="mt-1 text-2xs text-rose-500">{t("diagErrFieldRequired")}</p>}
     </div>
   );
 }
@@ -120,14 +127,15 @@ export function DiagnosisFormFields(props: Props) {
         </section>
       ))}
 
-      {/* 意向标记：不计分，放在最后 */}
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="space-y-5">
-          {DIAGNOSIS_FIELDS.filter((f) => f.dimensionNo === 0).map((field) => (
+      {/* V3 资质完善：目标市场（不计入投标能力分，只决定资质分级 A/B/C；缺口明细在报告里看） */}
+      <section className="rounded-xl border border-teal-200 bg-teal-50/40 p-4">
+        <h3 className="text-sm font-bold text-slate-800">{t("diagSectionQualification")}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">{t("diagTargetMarketsHint")}</p>
+        <div className="mt-4 space-y-5">
+          {DIAGNOSIS_QUAL_FIELDS.map((field) => (
             <FieldBlock key={field.key} {...props} field={field} answers={answers} missing={missing} t={t} />
           ))}
         </div>
-        <p className="mt-2 text-2xs text-slate-400">{t("diagWillingnessNotScored")}</p>
       </section>
     </div>
   );

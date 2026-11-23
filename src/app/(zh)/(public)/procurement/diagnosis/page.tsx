@@ -1,7 +1,7 @@
 /**
  * /procurement/diagnosis — 供应商投标能力诊断 v2（ISR revalidate: 3600）
  *
- * @description 表单本体是纯客户端组件（登录守卫 + 19 题 + 结果报告），
+ * @description 表单本体是纯客户端组件（登录守卫 + 18 题 + 目标市场（V3）+ 结果报告），
  *              服务端只出静态外壳与 SEO 元信息。
  */
 import type { Metadata } from "next";

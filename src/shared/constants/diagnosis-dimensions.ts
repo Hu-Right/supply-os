@@ -23,7 +23,7 @@ export interface DiagnosisFieldDef {
   /** 前端表单字段名 = 数据库列名（snake_case，一一对应） */
   key: string;
   column: string;
-  /** 归属维度号；0 = 不参与评分的意向标记 */
+  /** 归属维度号；0 = 不参与评分的意向标记 / 资质完善输入 */
   dimensionNo: number;
   kind: DiagnosisFieldKind;
   /** i18n 题面键前缀，见 locales 各语 procurement.json 的 diagQ 系列键 */
@@ -32,10 +32,20 @@ export interface DiagnosisFieldDef {
   labelZh: string;
   /** single / multi 必填：由低到高有序 */
   options?: readonly string[];
+  /**
+   * V3：选项的 i18n 标签键（与 options 等长）。不填则「显示值 == 存储值」（V2 既有不变式）；
+   * 填了意味着入库仍是 code、界面显示本地化名（目标市场这类「码值对人不可读」的题必须走这条）。
+   */
+  optionLabelKeys?: readonly string[];
   /** single 必填：与 options 等长，值域 0-5 */
   scoreMap?: readonly number[];
   /** multi / text 必填：按计入项数分档 */
   bands?: readonly DiagnosisBand[];
+  /**
+   * V3：是否在表单中提问。`false` = 列与契约保留、表单不再询问
+   * （`bid_willingness` 即此形态：列仍被 AI 画像契约读取，提交即视为意愿，不排除用户选择）。
+   */
+  askInForm?: boolean;
 }
 
 export interface DiagnosisDimensionDef {
@@ -62,7 +72,9 @@ export const DIAGNOSIS_DIMENSIONS: readonly DiagnosisDimensionDef[] = [
   { no: 10, name: "投标团队、语言与CRM执行纪律", nameEn: "Bid team, language and CRM execution discipline", weight: 5, fields: ["team_discipline"] },
 ];
 
-// ── 19 题答案字段（14 单选 + 2 多选 + 2 文本 + 1 意向标记） ──
+// ── V2 的 19 题答案字段（14 单选 + 2 多选 + 2 文本 + 1 意向标记）──
+// V3 起：「投标意愿」不再提问（askInForm: false，列保留给 AI 画像契约），
+// 新增的「目标市场」在下方 DIAGNOSIS_QUAL_FIELDS 里，不进本数组 → V2 列清单与评分口径不变。
 
 export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
   // D2 英文证据库
@@ -199,20 +211,98 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     scoreMap: [0, 2, 4, 5],
   },
   // 意向标记：dimensionNo 0，不参与任何维度计分（spec A9）
+  // V3（2026-11-23 用户拍板）：「投标意愿」题下线——提交即视为愿意，列保留 NOT NULL 并带
+  // DEFAULT '是'（AI 画像契约 supplier-profile.ts 仍读该列，零契约改动），故 askInForm=false。
   {
     key: "bid_willingness", column: "bid_willingness", dimensionNo: 0, kind: "single",
     labelKey: "diagQBidWillingness",
     labelZh: "是否愿意参与联合国及政府采购投标？",
     options: ["否", "是"],
     scoreMap: [0, 0],
+    askInForm: false,
   },
 ];
 
-export const DIAGNOSIS_FIELD_MAP: Readonly<Record<string, DiagnosisFieldDef>> = Object.fromEntries(
-  DIAGNOSIS_FIELDS.map((f) => [f.key, f]),
+// ── V3 资质完善：目标市场码（与 supplier_certifications.scope 同码） ──
+
+/**
+ * 目标市场 = 认证字典的 `scope` 码。取字典里真实出现过的地区/国家码（`global` 除外：
+ * 全球通用证书不构成「某市场准入缺口」，混进来会让每个市场都白送一条应备项）。
+ */
+export interface QualMarketScope {
+  /** 入库值（= supplier_certifications.scope） */
+  code: string;
+  labelZh: string;
+  labelEn: string;
+  /** i18n 标签键（locales/*\/procurement.json） */
+  labelKey: string;
+}
+
+export const QUAL_MARKET_SCOPES: readonly QualMarketScope[] = [
+  { code: "EU", labelZh: "欧盟", labelEn: "European Union", labelKey: "diagMarketEU" },
+  { code: "UK", labelZh: "英国", labelEn: "United Kingdom", labelKey: "diagMarketUK" },
+  { code: "US", labelZh: "美国", labelEn: "United States", labelKey: "diagMarketUS" },
+  { code: "CA", labelZh: "加拿大", labelEn: "Canada", labelKey: "diagMarketCA" },
+  { code: "EAEU", labelZh: "欧亚经济联盟", labelEn: "EAEU", labelKey: "diagMarketEAEU" },
+  { code: "GCC", labelZh: "海湾国家", labelEn: "GCC", labelKey: "diagMarketGCC" },
+  { code: "SA", labelZh: "沙特", labelEn: "Saudi Arabia", labelKey: "diagMarketSA" },
+  { code: "AU", labelZh: "澳大利亚", labelEn: "Australia", labelKey: "diagMarketAU" },
+  { code: "NZ", labelZh: "新西兰", labelEn: "New Zealand", labelKey: "diagMarketNZ" },
+  { code: "JP", labelZh: "日本", labelEn: "Japan", labelKey: "diagMarketJP" },
+  { code: "KR", labelZh: "韩国", labelEn: "South Korea", labelKey: "diagMarketKR" },
+  { code: "IN", labelZh: "印度", labelEn: "India", labelKey: "diagMarketIN" },
+  { code: "BR", labelZh: "巴西", labelEn: "Brazil", labelKey: "diagMarketBR" },
+  { code: "TH", labelZh: "泰国", labelEn: "Thailand", labelKey: "diagMarketTH" },
+  { code: "ID", labelZh: "印度尼西亚", labelEn: "Indonesia", labelKey: "diagMarketID" },
+  { code: "NG", labelZh: "尼日利亚", labelEn: "Nigeria", labelKey: "diagMarketNG" },
+];
+
+/** 目标市场码清单（入库值，校验白名单直接用这个） */
+export const QUAL_MARKET_CODES: readonly string[] = QUAL_MARKET_SCOPES.map((m) => m.code);
+
+export const QUAL_MARKET_MAP: Readonly<Record<string, QualMarketScope>> = Object.fromEntries(
+  QUAL_MARKET_SCOPES.map((m) => [m.code, m]),
 );
 
-/** 评分用字段（排除 dimensionNo=0 的意向标记） */
+// ── V3 资质完善字段（不进 V2 十维评分、不进 AI 画像列清单） ──
+
+/**
+ * V3 只新增这一个问题（2026-11-23 用户拍板）：缺口明细在报告里呈现，不在表单展开。
+ * `dimensionNo = 0`：它不改变投标能力分（V2 的 100 分口径不因诊断代次漂移，
+ * 历史 V2 报告与 V3 报告的分值因此仍可比），只喂资质分级 `qual_grade`。
+ */
+export const DIAGNOSIS_QUAL_FIELDS: readonly DiagnosisFieldDef[] = [
+  {
+    key: "target_markets", column: "target_markets", dimensionNo: 0, kind: "multi",
+    labelKey: "diagQTargetMarkets",
+    labelZh: "计划投标的目标市场（可多选；用于比对当地准入资质缺口）",
+    options: QUAL_MARKET_CODES,
+    optionLabelKeys: QUAL_MARKET_SCOPES.map((m) => m.labelKey),
+  },
+];
+
+/** V2 + V3 全量字段（读回显、写库、校验都用这一份；顺序即写入顺序） */
+export const DIAGNOSIS_ALL_FIELDS: readonly DiagnosisFieldDef[] = [
+  ...DIAGNOSIS_FIELDS,
+  ...DIAGNOSIS_QUAL_FIELDS,
+];
+
+/** 表单实际提问的字段：V2 里 askInForm=false 的（投标意愿）+ V3 新增 = 14 单选 + 3 多选/文本 */
+export const DIAGNOSIS_FORM_FIELDS: readonly DiagnosisFieldDef[] = DIAGNOSIS_ALL_FIELDS.filter(
+  (f) => f.askInForm !== false,
+);
+
+/**
+ * 写库列：表单已提问的字段全写；`askInForm=false` 的列**不出现在 INSERT/UPDATE 里**，
+ * 这样新行吃表上的 DEFAULT（'是'），老行的历史值也不会被提交动作覆盖。
+ */
+export const DIAGNOSIS_WRITABLE_FIELDS: readonly DiagnosisFieldDef[] = DIAGNOSIS_FORM_FIELDS;
+
+export const DIAGNOSIS_FIELD_MAP: Readonly<Record<string, DiagnosisFieldDef>> = Object.fromEntries(
+  DIAGNOSIS_ALL_FIELDS.map((f) => [f.key, f]),
+);
+
+/** 评分用字段（排除 dimensionNo=0 的意向标记 / 资质输入） */
 export const DIAGNOSIS_SCORED_FIELDS: readonly DiagnosisFieldDef[] = DIAGNOSIS_FIELDS.filter(
   (f) => f.dimensionNo !== 0,
 );
@@ -229,7 +319,7 @@ export interface DiagnosisProgress {
 }
 
 export function diagnosisProgress(answers: Record<string, string | string[]>): DiagnosisProgress {
-  const required = DIAGNOSIS_FIELDS.filter((f) => f.kind === "single");
+  const required = DIAGNOSIS_FORM_FIELDS.filter((f) => f.kind === "single");
   let answeredRequired = 0;
   for (const field of required) {
     const value = answers[field.key];
@@ -295,13 +385,15 @@ export function diagnosisColumnSelect(alias: string): string {
 export const DIAGNOSIS_COLUMNS: readonly string[] = DIAGNOSIS_FIELDS.map((f) => f.column);
 
 /**
- * 结构闭合自检：钉住绝对值（权重 100、字段 19）+ 内部一致性，防「只做自比基线」的假门禁。
- * 由单元测试调用；生产代码不重复执行。
+ * 结构闭合自检：钉住绝对值（权重 100、V2 字段 19、V3 字段 1）+ 内部一致性，
+ * 防「只做自比基线」的假门禁。由单元测试调用；生产代码不重复执行。
  */
 export function assertDiagnosisDimensionsIntact(): void {
   const weightSum = DIAGNOSIS_DIMENSIONS.reduce((s, d) => s + d.weight, 0);
   if (weightSum !== 100) throw new Error(`DIAGNOSIS weight sum ${weightSum} !== 100`);
   if (DIAGNOSIS_FIELDS.length !== 19) throw new Error(`DIAGNOSIS_FIELDS count ${DIAGNOSIS_FIELDS.length} !== 19`);
+  if (DIAGNOSIS_QUAL_FIELDS.length !== 1) throw new Error(`DIAGNOSIS_QUAL_FIELDS count ${DIAGNOSIS_QUAL_FIELDS.length} !== 1`);
+  if (DIAGNOSIS_ALL_FIELDS.length !== 20) throw new Error(`DIAGNOSIS_ALL_FIELDS count ${DIAGNOSIS_ALL_FIELDS.length} !== 20`);
 
   const claimed = new Set<string>();
   for (const dim of DIAGNOSIS_DIMENSIONS) {
@@ -315,17 +407,36 @@ export function assertDiagnosisDimensionsIntact(): void {
     if (dim.no !== 1 && dim.fields.length === 0) throw new Error(`Dimension ${dim.no} has no direct field`);
   }
 
-  for (const field of DIAGNOSIS_FIELDS) {
+  for (const field of DIAGNOSIS_ALL_FIELDS) {
     if (field.kind === "single") {
       if (!field.options?.length || !field.scoreMap?.length) throw new Error(`${field.key}: single needs options + scoreMap`);
       if (field.options.length !== field.scoreMap.length) throw new Error(`${field.key}: options/scoreMap length mismatch`);
       if (field.dimensionNo !== 0 && field.scoreMap.some((s) => s < 0 || s > 5)) throw new Error(`${field.key}: score out of 0-5`);
-    } else if (!field.bands?.length) {
+    } else if (field.dimensionNo !== 0 && !field.bands?.length) {
+      // 计分用的多选/文本必须有分档；dimensionNo=0 的输入项（如目标市场）不参与计分，无需分档
       throw new Error(`${field.key}: ${field.kind} needs bands`);
     }
     if (field.column !== field.key) throw new Error(`${field.key}: column must equal key`);
+    if (field.optionLabelKeys && field.optionLabelKeys.length !== (field.options ?? []).length) {
+      throw new Error(`${field.key}: optionLabelKeys must align with options`);
+    }
   }
 
   if (DIAGNOSIS_FIELD_MAP["bid_willingness"].dimensionNo !== 0) throw new Error("bid_willingness must not be scored");
   if (claimed.has("bid_willingness")) throw new Error("bid_willingness must not belong to any dimension");
+
+  // V3 三条口径的机器可验证部分
+  if (DIAGNOSIS_FIELD_MAP["bid_willingness"].askInForm !== false) throw new Error("V3: bid_willingness must be hidden from the form");
+  if (DIAGNOSIS_FORM_FIELDS.some((f) => f.key === "bid_willingness")) throw new Error("V3: form still asks bid_willingness");
+  const targetMarkets = DIAGNOSIS_FIELD_MAP["target_markets"];
+  if (!targetMarkets) throw new Error("V3: target_markets field is missing");
+  if (targetMarkets.dimensionNo !== 0) throw new Error("V3: target_markets must not affect the V2 score");
+  if (claimed.has("target_markets")) throw new Error("V3: target_markets must not belong to a dimension");
+  if (targetMarkets.options?.length !== QUAL_MARKET_SCOPES.length) throw new Error("V3: target_markets options must come from QUAL_MARKET_SCOPES");
+  for (const code of targetMarkets.options ?? []) {
+    if (!QUAL_MARKET_CODES.includes(code)) throw new Error(`V3: unknown market code in options: ${code}`);
+  }
+  if (QUAL_MARKET_CODES.includes("global")) throw new Error("V3: 'global' must not be a target market (it would never produce a gap)");
+  const formSingles = DIAGNOSIS_FORM_FIELDS.filter((f) => f.kind === "single").length;
+  if (formSingles !== 14) throw new Error(`V3: form must ask 14 single-choice questions, got ${formSingles}`);
 }

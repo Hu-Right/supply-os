@@ -32,11 +32,21 @@ vi.mock("@/lib/utils/ip", () => ({
 const findProfileBits = vi.fn();
 const findByCompanyBest = vi.fn();
 const insertEnterprise = vi.fn();
+/** V3 资质分级取数：默认空字典 + 零已持（≙ 用户没勾目标市场时不该产生缺口） */
+const listActiveCertificationsWithScope = vi.fn(async (): Promise<{ code: string; name: string; category: string; scope: string }[]> => []);
+const listCertificationCodes = vi.fn(async (): Promise<string[]> => []);
 
 vi.mock("@/lib/db/context", () => ({
   getContext: () => ({
     supplier: { directoryRepo: { findProfileBits, findByCompanyBest, insertEnterprise } },
+    catalogRepo: { listActiveCertificationsWithScope },
   }),
+}));
+
+vi.mock("@/lib/repos/enterprise-profile.repo", () => ({
+  EnterpriseProfileRepo: class {
+    listCertificationCodes = listCertificationCodes;
+  },
 }));
 
 /** 闸口事实可按用例改写；路由用 diagnosisWriteGateDecision 真实判定（importActual 保留） */
@@ -151,6 +161,10 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
         "gradeLabel",
         "id",
         "overrideGate",
+        // V3 新增三键：口径代次 + 资质分级 + 缺口明细（明细只给报告，不给表单展开）
+        "schemaVersion",
+        "qualGrade",
+        "qualBreakdown",
         "scoreGrade",
         "scoreTotal",
         "subjectUnclaimed",
@@ -159,6 +173,48 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
       ].sort(),
     );
     expect(Object.keys(body)).not.toContain("claimRequired");
+    // V3：资质分级独立于 100 分（投标能力线），且未填目标市场时不伪造档位
+    expect(body.schemaVersion).toBe(3);
+    expect(body.qualGrade).toBeNull();
+    expect(body.qualBreakdown.unscoredReason).toBe("no_target_markets");
+  });
+
+  it("V3 资质分级：填了目标市场 → 按字典与已持证书出 A/B/C，并随响应、随落库一起走", async () => {
+    findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "pending" });
+    listActiveCertificationsWithScope.mockResolvedValueOnce([
+      { code: "CE", name: "CE 认证", category: "market_access", scope: "EU" },
+      { code: "UKCA", name: "UKCA 认证", category: "market_access", scope: "UK" },
+    ]);
+    listCertificationCodes.mockResolvedValueOnce(["CE"]);
+    const { POST } = await import("@/app/api/supplier-diagnosis/route");
+    const res = await POST(postReq({
+      companyName: "深圳某科技有限公司",
+      supplierId: null,
+      answers: { ...validAnswers(), target_markets: ["EU", "UK"] },
+    }));
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    // 缺 UKCA 一项 → B（A=0 项、B=1~2 项、C>=3 项）
+    expect(body.qualGrade).toBe("B");
+    expect(body.qualBreakdown.missingCodes).toEqual(["UKCA"]);
+    expect(body.qualBreakdown.markets.map((m: { market: string }) => m.market)).toEqual(["EU", "UK"]);
+    // 落库参数里带同一份快照（接口与报告读同一处，不各自算一遍）
+    expect(upsertDiagnosis.mock.calls.at(-1)?.[0].qualification).toMatchObject({ grade: "B" });
+  });
+
+  it("V3 资质分级：字典读失败不影响提交（降级为未分级，并标明原因）", async () => {
+    findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "pending" });
+    listActiveCertificationsWithScope.mockRejectedValueOnce(new Error("db down"));
+    const { POST } = await import("@/app/api/supplier-diagnosis/route");
+    const res = await POST(postReq({
+      companyName: "深圳某科技有限公司",
+      supplierId: null,
+      answers: { ...validAnswers(), target_markets: ["EU"] },
+    }));
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.qualGrade).toBeNull();
+    expect(body.qualBreakdown.unscoredReason).toBe("dict_unavailable");
   });
 
   it("快照防污染：显式 supplierId + payload 乱名（『占位』事故回归）→ 落库名取 supplier.company SSOT", async () => {

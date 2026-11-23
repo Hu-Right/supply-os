@@ -24,6 +24,15 @@ export interface CertificationRow {
   category: string;
 }
 
+/** 带适用范围的字典行（V3 资质分级内部用；`scope` 刻意不进 /api/certifications 的对外契约） */
+export interface CertificationScopeRow {
+  code: string;
+  name: string;
+  category: string;
+  /** 适用范围：global 或地区/国家码（EU/UK/US/…），可能是逗号分隔多值 */
+  scope: string;
+}
+
 export class CatalogRepo {
   constructor(private pool: Pool) {}
 
@@ -33,5 +42,17 @@ export class CatalogRepo {
       "SELECT id, code, name, category FROM supplier_certifications WHERE is_active = 1 ORDER BY id",
     );
     return rows as CertificationRow[];
+  }
+
+  /**
+   * 带 `scope` 的激活字典（V3 资质分级取数）。
+   * 与 `listActiveCertifications` 分开两个方法而不是给原方法加列：
+   * 那个方法的返回值直接进公开接口，多一列就多一次「不小心上网」的机会（命名红线②）。
+   */
+  async listActiveCertificationsWithScope(): Promise<CertificationScopeRow[]> {
+    const [rows] = await this.pool.query(
+      "SELECT code, name, category, scope FROM supplier_certifications WHERE is_active = 1 ORDER BY id",
+    );
+    return rows as CertificationScopeRow[];
   }
 }

@@ -49,6 +49,14 @@ function ResultView({
         <p className="mt-1 text-sm font-bold text-teal-700">
           {r.scoreTotal} / 100 · {r.gradeLabel}
         </p>
+        {/* V3：资质分级独立于 100 分（投标能力线）；缺项明细进报告，不在页面上铺开 */}
+        {r.qualGrade ? (
+          <p className="mt-1 text-sm font-bold text-teal-700">
+            {t("diagQualTitle")}：{t(`diagQual${r.qualGrade}`)}
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-slate-500">{t("diagQualNotGraded")}</p>
+        )}
         {r.overrideGate.triggered && (
           <p className="mt-2 text-xs text-amber-700">{r.overrideGate.reason}</p>
         )}
@@ -168,32 +176,8 @@ export default function DiagnosisFormPage() {
       <h1 className="text-xl font-black text-slate-900">{t("diagTitle")}</h1>
       <p className="mt-1.5 text-sm leading-relaxed text-slate-500">{t("diagDesc")}</p>
 
-      {/* 必答题完成进度：多选/文本选填，不计入分母 */}
-      <section
-        className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3"
-        aria-label={t("diagProgressLabel")}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-bold text-slate-700">{t("diagProgressLabel")}</span>
-          <span className="text-xs font-semibold tabular-nums text-slate-500">
-            {t("diagProgressRequired")} {form.progress.answeredRequired}/{form.progress.totalRequired} ·{" "}
-            {form.progress.percent}%
-          </span>
-        </div>
-        <div
-          className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={form.progress.percent}
-          aria-valuetext={`${form.progress.answeredRequired}/${form.progress.totalRequired}`}
-        >
-          <div
-            className="h-full rounded-full bg-teal-600 transition-[width] duration-300"
-            style={{ width: `${form.progress.percent}%` }}
-          />
-        </div>
-      </section>
+      {/* 顶部完成进度条已移除（滚动即离开视口，价值有限）：未答项的迷路兜底改为
+          提交时滚动定位到第一个未答题（useDiagnosisForm.submit 失败分支）。 */}
 
       {/* 已有诊断：优先引导"改现有的"，这正是止住同主体重复堆积的地方 */}
       {mine.length > 0 && (

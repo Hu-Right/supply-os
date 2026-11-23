@@ -9,6 +9,8 @@ import { describe, it, expect } from "vitest";
 import {
   DIAGNOSIS_FIELDS,
   DIAGNOSIS_DIMENSIONS,
+  DIAGNOSIS_FORM_FIELDS,
+  DIAGNOSIS_QUAL_FIELDS,
   assertDiagnosisDimensionsIntact,
   scoreDiagnosisField,
   DIAGNOSIS_FIELD_MAP,
@@ -38,24 +40,36 @@ describe("diagnosis constants structural integrity", () => {
   });
 
   it("completion progress only counts required single-choice answers", () => {
-    const requiredFields = DIAGNOSIS_FIELDS.filter((f) => f.kind === "single");
-    expect(requiredFields.length).toBe(15);
-    expect(diagnosisProgress({})).toEqual({ answeredRequired: 0, totalRequired: 15, percent: 0 });
+    // V3：表单不再问 bid_willingness，故必答单选从 15 降到 14（目标市场是多选、不属于必答）
+    const requiredFields = DIAGNOSIS_FORM_FIELDS.filter((f) => f.kind === "single");
+    expect(requiredFields.length).toBe(14);
+    expect(diagnosisProgress({})).toEqual({ answeredRequired: 0, totalRequired: 14, percent: 0 });
 
     const one = { [requiredFields[0].key]: requiredFields[0].options![0] };
-    expect(diagnosisProgress(one)).toEqual({ answeredRequired: 1, totalRequired: 15, percent: 7 });
+    expect(diagnosisProgress(one)).toEqual({ answeredRequired: 1, totalRequired: 14, percent: 7 });
 
     // 多选/文本是选填：填了也不进入分子
     const optional = {
       procurement_frameworks: [DIAGNOSIS_FIELDS.find((f) => f.key === "procurement_frameworks")!.options![0]],
       service_countries: "中国, 德国",
+      target_markets: ["EU", "US"],
     };
     expect(diagnosisProgress(optional).answeredRequired).toBe(0);
 
     const all = Object.fromEntries(
       requiredFields.map((f) => [f.key, f.options![f.options!.length - 1]]),
     );
-    expect(diagnosisProgress(all)).toEqual({ answeredRequired: 15, totalRequired: 15, percent: 100 });
+    expect(diagnosisProgress(all)).toEqual({ answeredRequired: 14, totalRequired: 14, percent: 100 });
+  });
+
+  it("V3: target_markets 只出现在表单字段里，不参与 V2 评分", () => {
+    expect(DIAGNOSIS_FORM_FIELDS.map((f) => f.key)).toContain("target_markets");
+    expect(DIAGNOSIS_FORM_FIELDS.map((f) => f.key)).not.toContain("bid_willingness");
+    // V2 评分字段清单不变（AI 画像契约 diagnosisColumnSelect 依赖它）
+    expect(DIAGNOSIS_FIELDS.map((f) => f.key)).toContain("bid_willingness");
+    expect(DIAGNOSIS_FIELDS.map((f) => f.key)).not.toContain("target_markets");
+    expect(DIAGNOSIS_QUAL_FIELDS).toHaveLength(1);
+    expect(DIAGNOSIS_FIELD_MAP["target_markets"].dimensionNo).toBe(0);
   });
 
   it("rejects a field claimed by two dimensions (N3)", () => {    const dup = DIAGNOSIS_DIMENSIONS.map((d) => ({ no: d.no, fields: [...d.fields] }));

@@ -48,6 +48,29 @@ export interface DiagnosisSubmitResult {
   dimensions: DiagnosisDimensionResult[];
   topGaps: { dimension: string; dimensionEn: string; priority: string }[];
   overrideGate: { triggered: boolean; reason: string };
+  /** V3 口径代次（2=投标能力诊断，3=资质完善诊断；历史代次不互比） */
+  schemaVersion: number;
+  /** V3 资质分级：null = 未分级（未填目标市场 / 字典不可用，原因见 qualBreakdown.unscoredReason） */
+  qualGrade: string | null;
+  qualBreakdown: DiagnosisQualBreakdown | null;
+}
+
+/** V3 资质缺口明细（逐市场应备清单 + 已持/缺失；报告侧消费，表单不展开） */
+export interface DiagnosisQualMarketGap {
+  market: string;
+  required: { code: string; name: string; held: boolean }[];
+  missing: string[];
+}
+
+export interface DiagnosisQualBreakdown {
+  targetMarkets: string[];
+  markets: DiagnosisQualMarketGap[];
+  requiredCodes: string[];
+  heldCodes: string[];
+  missingCodes: string[];
+  missingCount: number;
+  noRequirementMarkets: string[];
+  unscoredReason: "no_target_markets" | "dict_unavailable" | null;
 }
 
 export interface MyDiagnosis {
@@ -57,6 +80,9 @@ export interface MyDiagnosis {
   schemaVersion: number;
   scoreTotal: number | null;
   scoreGrade: string | null;
+  /** V3 资质分级（历史 V2 行为 null） */
+  qualGrade?: string | null;
+  qualBreakdown?: DiagnosisQualBreakdown | null;
   submittedAt: string;
   answers: Record<string, string | string[]>;
 }

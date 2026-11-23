@@ -25,6 +25,9 @@ export const GET = withRoute(async (req: NextRequest) => {
         schemaVersion: Number(r.schema_version),
         scoreTotal: r.score_total === null ? null : Number(r.score_total),
         scoreGrade: r.score_grade,
+        // V3：资质分级随行返回（回显时结果页/报告可直接展示，不必再查一次）
+        qualGrade: r.qual_grade ?? null,
+        qualBreakdown: r.qual_breakdown ?? null,
         submittedAt: r.submitted_at,
         answers: diagnosisAnswersOf(r),
       })),

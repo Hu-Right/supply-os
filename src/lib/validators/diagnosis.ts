@@ -3,12 +3,14 @@
  * Diagnosis (v2) payload validation
  *
  * @module lib/validators/diagnosis
- * @description 校验规则**从 DIAGNOSIS_FIELDS 派生**：v1 在路由里手写了一份 `required` 清单，
+ * @description 校验规则**从 DIAGNOSIS_FORM_FIELDS 派生**：v1 在路由里手写了一份 `required` 清单，
  *              三个入口各抄一遍且已经漂移，这里加题/删题只改常量，校验自动跟上。
+ *              V3（2026-11-23）：只校验**表单真的会问的题**——`bid_willingness` 已下线，
+ *              再把它当必答会让所有新版前端提交都被判 400；它的列由表 DEFAULT 兜底。
  *              失败原因用判别联合（reason 枚举）返回，不靠"中文提示串里有没有某个词"判错——
  *              那种写法会把合法答案误判成错误。
  */
-import { DIAGNOSIS_FIELDS, type DiagnosisFieldDef } from "@/shared/constants/diagnosis-dimensions";
+import { DIAGNOSIS_FORM_FIELDS, type DiagnosisFieldDef } from "@/shared/constants/diagnosis-dimensions";
 import type { DiagnosisAnswers } from "@/lib/services/scoring/diagnosis-v2";
 
 export const COMPANY_NAME_MAX = 255;
@@ -70,7 +72,7 @@ export function parseDiagnosisPayload(body: Record<string, unknown>): ParseResul
     return { ok: false, fieldKey: "answers", reason: "missing" };
   }
   const bag = rawAnswers as Record<string, unknown>;
-  for (const field of DIAGNOSIS_FIELDS) {
+  for (const field of DIAGNOSIS_FORM_FIELDS) {
     const result = validateField(field, bag[field.key]);
     if (!result.ok) return { ok: false, fieldKey: field.key, reason: result.reason };
     answers[field.key] = result.value;

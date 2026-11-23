@@ -12,11 +12,22 @@
  *              写权闸口：见 `diagnosisWriteGateDecision`（归属人放行，有主主体非归属人一律拒绝）。
  */
 import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import { DIAGNOSIS_FIELDS } from "@/shared/constants/diagnosis-dimensions";
+import {
+  DIAGNOSIS_ALL_FIELDS,
+  DIAGNOSIS_WRITABLE_FIELDS,
+} from "@/shared/constants/diagnosis-dimensions";
 import type { DiagnosisAnswers } from "@/lib/services/scoring/diagnosis-v2";
+import type { QualGrade } from "@/lib/services/scoring/diagnosis-qualification";
 
-/** 答案列（顺序即写入顺序），来自常量 SSOT，避免手写列名漂移 */
-const ANSWER_COLUMNS = DIAGNOSIS_FIELDS.map((f) => f.column);
+/**
+ * 写入列（顺序即写入顺序）：V2 表单题 + V3 目标市场。
+ * `bid_willingness` 刻意不在其中——V3 起表单不再问，新行吃表 DEFAULT('是')，
+ * 老行的历史值也不会被一次提交动作覆盖。
+ */
+const ANSWER_COLUMNS = DIAGNOSIS_WRITABLE_FIELDS.map((f) => f.column);
+
+/** 当前诊断口径代次：V3 落库后，历史行仍带 2，两类快照不互比不重算 */
+export const DIAGNOSIS_SCHEMA_VERSION = 3;
 
 export interface DiagnosisRow extends RowDataPacket {
   id: number;
@@ -24,6 +35,13 @@ export interface DiagnosisRow extends RowDataPacket {
   supplier_id: number;
   company_name: string;
   schema_version: number;
+  /** V3 目标市场（逗号分隔 scope 码） */
+  target_markets: string | null;
+  /** V3 资质分级 A/B/C；NULL = 未分级（未填目标市场） */
+  qual_grade: string | null;
+  /** V3 缺口明细（JSON：逐市场应备/已持/缺失） */
+  qual_breakdown: unknown;
+  qual_scored_at: Date | null;
   score_total: number | null;
   score_grade: string | null;
   score_breakdown: unknown;
@@ -36,10 +54,13 @@ export interface DiagnosisRow extends RowDataPacket {
 /**
  * 行→作答集（回显与 PDF 报告共用）：多选列按逗号切回数组，其余列原样返回。
  * 放在仓储层是因为它依赖“哪一列是什么类型”的表结构知识，路由不应各自抄一份。
+ * V3：包含 target_markets（回显要能带出已选市场），但**不含** bid_willingness——
+ * 表单已不问它，带出来只会让前端以为还有一道题没答。
  */
 export function diagnosisAnswersOf(row: DiagnosisRow): DiagnosisAnswers {
   const answers: DiagnosisAnswers = {};
-  for (const field of DIAGNOSIS_FIELDS) {
+  for (const field of DIAGNOSIS_ALL_FIELDS) {
+    if (field.askInForm === false) continue;
     const raw = String((row as unknown as Record<string, unknown>)[field.column] ?? "");
     answers[field.key] =
       field.kind === "multi" ? raw.split(",").map((s) => s.trim()).filter(Boolean) : raw;
@@ -53,12 +74,20 @@ export interface DiagnosisScoreSnapshot {
   breakdown: unknown;
 }
 
+/** V3 资质分级快照：grade 为 null 时表示未分级（未填目标市场），明细仍落库供报告解释 */
+export interface DiagnosisQualSnapshot {
+  grade: QualGrade | null;
+  breakdown: unknown;
+}
+
 export interface UpsertDiagnosisParams {
   userId: number;
   supplierId: number;
   companyName: string;
   answers: DiagnosisAnswers;
   score: DiagnosisScoreSnapshot;
+  /** V3：资质分级快照（可选，兼容未接 V3 的调用方 → 保持 NULL） */
+  qualification?: DiagnosisQualSnapshot | null;
   ip: string | null;
 }
 
@@ -96,7 +125,7 @@ export type ClaimantScorecardRow = {
 
 /** 多选列以逗号入库，读侧再切分；文本列去首尾空白 */
 function toDbValue(fieldKey: string, raw: string | string[] | undefined): string {
-  const field = DIAGNOSIS_FIELDS.find((f) => f.key === fieldKey)!;
+  const field = DIAGNOSIS_ALL_FIELDS.find((f) => f.key === fieldKey)!;
   if (field.kind === "multi") {
     const list = Array.isArray(raw) ? raw : String(raw ?? "").split(/[,，]/).map((s) => s.trim()).filter(Boolean);
     return list.join(",");
@@ -195,19 +224,29 @@ export class SupplierDiagnosisRepo {
   }
 
   /**
-   * 幂等写入一行诊断 + 评分快照。
+   * 幂等写入一行诊断 + 评分快照 + 资质分级快照。
+   * V3：`schema_version` 显式写 3（覆盖表 DEFAULT 之外的重入场景），
+   * `qual_scored_at` 只在有分级时落 NOW()，未分级保持 NULL——「没填目标市场」与
+   * 「分级于某时刻」在数据上必须可区分，否则报告会显示一个不存在的时间。
    * @returns 落库后的行（回读，含 id 与已存分值），调用方据此直接返回前端
    */
   async upsertDiagnosis(params: UpsertDiagnosisParams): Promise<DiagnosisRow> {
+    const qualGrade = params.qualification?.grade ?? null;
+    const qualBreakdown = params.qualification ? JSON.stringify(params.qualification.breakdown) : null;
+
     const values: unknown[] = [
       params.userId,
       params.supplierId,
       params.companyName.trim(),
-      ...DIAGNOSIS_FIELDS.map((f) => toDbValue(f.key, params.answers[f.key])),
+      ...DIAGNOSIS_WRITABLE_FIELDS.map((f) => toDbValue(f.key, params.answers[f.key])),
       params.ip,
       params.score.totalScore,
       params.score.grade,
       JSON.stringify(params.score.breakdown),
+      DIAGNOSIS_SCHEMA_VERSION,
+      qualGrade,
+      qualBreakdown,
+      qualGrade, // 供 IF(? IS NULL, NULL, NOW()) 判定
     ];
 
     const insertCols = [
@@ -219,9 +258,12 @@ export class SupplierDiagnosisRepo {
       "score_total",
       "score_grade",
       "score_breakdown",
+      "schema_version",
+      "qual_grade",
+      "qual_breakdown",
     ];
     const placeholders = insertCols.map(() => "?").join(", ");
-    // submitted_at / scored_at 由服务端时钟统一写入，不接受客户端时间
+    // submitted_at / scored_at / qual_scored_at 由服务端时钟统一写入，不接受客户端时间
     const updateSets = [
       "company_name = VALUES(company_name)",
       ...ANSWER_COLUMNS.map((c) => `${c} = VALUES(${c})`),
@@ -229,13 +271,17 @@ export class SupplierDiagnosisRepo {
       "score_total = VALUES(score_total)",
       "score_grade = VALUES(score_grade)",
       "score_breakdown = VALUES(score_breakdown)",
+      "schema_version = VALUES(schema_version)",
+      "qual_grade = VALUES(qual_grade)",
+      "qual_breakdown = VALUES(qual_breakdown)",
+      "qual_scored_at = IF(VALUES(qual_grade) IS NULL, NULL, NOW())",
       "scored_at = NOW()",
       "submitted_at = NOW()",
     ].join(", ");
 
     const [result] = await this.pool.query<ResultSetHeader>(
-      `INSERT INTO supplier_diagnosis (${insertCols.join(", ")}, scored_at, submitted_at)
-       VALUES (${placeholders}, NOW(), NOW())
+      `INSERT INTO supplier_diagnosis (${insertCols.join(", ")}, qual_scored_at, scored_at, submitted_at)
+       VALUES (${placeholders}, IF(? IS NULL, NULL, NOW()), NOW(), NOW())
        ON DUPLICATE KEY UPDATE ${updateSets}`,
       values,
     );
@@ -250,6 +296,16 @@ export class SupplierDiagnosisRepo {
     if (Number(stored.score_total) !== Number(params.score.totalScore)) {
       throw new Error(
         `Diagnosis score snapshot mismatch after write: stored=${String(stored.score_total)} expected=${String(params.score.totalScore)}`,
+      );
+    }
+    if (Number(stored.schema_version) !== DIAGNOSIS_SCHEMA_VERSION) {
+      throw new Error(
+        `Diagnosis schema_version mismatch after write: stored=${String(stored.schema_version)} expected=${DIAGNOSIS_SCHEMA_VERSION}`,
+      );
+    }
+    if ((stored.qual_grade ?? null) !== qualGrade) {
+      throw new Error(
+        `Diagnosis qual_grade mismatch after write: stored=${String(stored.qual_grade)} expected=${String(qualGrade)}`,
       );
     }
     return stored;
