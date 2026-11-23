@@ -22,6 +22,15 @@ import { NAV_TABS } from "./nav-tabs";
 import { MobileDrawer } from "./MobileDrawer";
 import { Brand } from "./Brand";
 
+/**
+ * 路由 → 一级 Tab 的显式归属覆盖：只用于「URL 归属与信息架构不一致」的个别页面。
+ * 能力诊断属于投标服务，但路由沿用 /procurement/diagnosis（商机池卡片入口仍是这里），
+ * 仅靠前缀匹配会把导航高亮打到「全球商机」上。
+ */
+const TAB_OVERRIDES: Record<string, string> = {
+  "/procurement/diagnosis": "/services",
+};
+
 /** 格式化本地时间为 YYYY-MM-DD HH:MM:SS */
 const fmtLocalTime = (d: Date) =>
   d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
@@ -194,6 +203,8 @@ export function useNavTabs() {
   // 当前路由匹配对应 Tab（支持子路由前缀匹配，如 /procurement/notice/xxx）
   const activeTab = (() => {
     const p = pathname;
+    const overridden = TAB_OVERRIDES[p];
+    if (overridden) return overridden;
     const hit = NAV_TABS.find((tab) => p === tab.path || p.startsWith(`${tab.path}/`));
     return hit ? hit.path : "";
   })();

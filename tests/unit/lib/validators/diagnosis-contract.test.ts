@@ -67,12 +67,11 @@ describe("诊断提交请求体契约", () => {
     }
   });
 
-  it("V3: 不提交 target_markets 也合法（= 未分级，而不是必答被挡）", async () => {
+  it("V3: target_markets 是必答项——不提交直接按 missing 拒绝（不选市场无法比对准入）", async () => {
     const answers = completeAnswers();
     delete answers.target_markets;
     const parsed = parseDiagnosisPayload({ companyName: "杭州中建工程技术有限公司", answers });
-    expect(parsed.ok).toBe(true);
-    if (parsed.ok) expect(parsed.payload.answers.target_markets).toEqual([]);
+    expect(parsed).toMatchObject({ ok: false, fieldKey: "target_markets", reason: "missing" });
   });
 
   it("V3: 目标市场取值必须在字典 scope 码内，乱码直接拒绝", () => {

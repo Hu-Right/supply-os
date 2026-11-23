@@ -24,6 +24,8 @@ function validBody(overrides: Record<string, unknown> = {}) {
     if (TOP_LEVEL.has(k)) top[k] = v;
     else answers[k] = v;
   }
+  // 目标市场是 V3 必答项（不选就无法比对准入要求），不在 DIAGNOSIS_FIELDS 里，单独带上
+  answers.target_markets = ["EU"];
   return { companyName: "浙江某某科技有限公司", ...top, answers };
 }
 

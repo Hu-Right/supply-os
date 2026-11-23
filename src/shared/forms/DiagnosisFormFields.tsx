@@ -72,6 +72,7 @@ function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { fi
       <label className="mb-2 block text-sm font-bold text-slate-700" htmlFor={`diag-${field.key}`}>
         {t(field.labelKey)}
         {field.kind === "single" && <span className="ml-0.5 text-rose-500">*</span>}
+        {field.kind !== "single" && field.required && <span className="ml-0.5 text-rose-500">*</span>}
       </label>
 
       {field.kind === "text" ? (
@@ -101,13 +102,9 @@ export function DiagnosisFormFields(props: Props) {
 
   return (
     <div className="space-y-6">
-      {/* 投标范围 = 第 1 块：编号按表单顺序 1..11（1 范围 + 10 个能力维度），
-          与评分模型的"维度 1-10"是两套编号——前者给填写的人看，后者只出现在报告里 */}
+      {/* 投标范围不算维度：不参与评分，也不编维度号——全表单只有一套编号（报告里的维度 1-10） */}
       <section className="rounded-xl border border-teal-200 bg-teal-50/40 p-4">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-800">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
-            1
-          </span>
+        <h3 className="mb-1 text-sm font-bold text-slate-800">
           {t("diagSectionQualification")}
         </h3>
         <p className="text-xs leading-relaxed text-slate-500">{t("diagTargetMarketsHint")}</p>
@@ -118,11 +115,11 @@ export function DiagnosisFormFields(props: Props) {
         </div>
       </section>
 
-      {/* 档案就绪度（模型里的维度 1）固定排第 2 块 */}
+      {/* 维度 1（档案就绪度）：完整度由系统派生，另加一题出口主体资质 */}
       <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
         <h3 className="flex items-center gap-2 text-sm font-bold text-slate-700">
           <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
-            2
+            1
           </span>
           {t("diagDim1")}
           <span className="text-xs font-normal text-slate-500">{t("diagAutoScored")}</span>
@@ -139,7 +136,7 @@ export function DiagnosisFormFields(props: Props) {
         <section key={dim.no} className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="mb-4 text-sm font-bold text-slate-800">
             <span className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
-              {dim.no + 1}
+              {dim.no}
             </span>
             {t(`diagDim${dim.no}`)}
           </h3>

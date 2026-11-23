@@ -75,6 +75,8 @@ function validAnswers(): Record<string, string | string[]> {
   for (const f of DIAGNOSIS_FIELDS) {
     answers[f.key] = f.kind === "single" ? String(f.options?.[0] ?? "") : f.kind === "multi" ? [] : "略";
   }
+  // V3：目标市场必答（不在 DIAGNOSIS_FIELDS 里，单独补一个合法市场码）
+  answers.target_markets = ["EU"];
   return answers;
 }
 
@@ -175,8 +177,8 @@ describe("POST /api/supplier-diagnosis（一司一份口径）", () => {
     expect(Object.keys(body)).not.toContain("claimRequired");
     // V3：资质分级独立于 100 分（投标能力线），且未填目标市场时不伪造档位
     expect(body.schemaVersion).toBe(3);
-    expect(body.qualGrade).toBeNull();
-    expect(body.qualBreakdown.unscoredReason).toBe("no_target_markets");
+    // 目标市场必答后，正常提交一定会进分级（A/B/C）；未分级只剩历史记录或字典不可用两种场景
+    expect(["A", "B", "C"]).toContain(body.qualGrade);
   });
 
   it("V3 资质分级：填了目标市场 → 按字典与已持证书出 A/B/C，并随响应、随落库一起走", async () => {

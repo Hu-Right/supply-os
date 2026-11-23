@@ -46,6 +46,12 @@ export interface DiagnosisFieldDef {
    * （`bid_willingness` 即此形态：列仍被 AI 画像契约读取，提交即视为意愿，不排除用户选择）。
    */
   askInForm?: boolean;
+  /**
+   * 多选/文本题的必填标记。单选题天然必答（不走这个字段）；
+   * 多选默认允许空选（语义是"一项都没有"），只有显式 `required: true` 才要求至少选一项
+   * ——`target_markets` 就是这样：不选市场，报告无法比对准入要求。
+   */
+  required?: boolean;
 }
 
 export interface DiagnosisDimensionDef {
@@ -304,6 +310,7 @@ export const DIAGNOSIS_QUAL_FIELDS: readonly DiagnosisFieldDef[] = [
     labelZh: "计划投标的目标市场（可多选；用于比对当地准入资质缺口）",
     options: QUAL_MARKET_CODES,
     optionLabelKeys: QUAL_MARKET_SCOPES.map((m) => m.labelKey),
+    required: true,
   },
 ];
 

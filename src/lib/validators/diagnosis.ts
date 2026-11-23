@@ -39,8 +39,9 @@ function validateField(field: DiagnosisFieldDef, raw: unknown): FieldResult {
     const list = Array.isArray(raw)
       ? raw.map((x) => String(x).trim()).filter(Boolean)
       : String(raw ?? "").split(/[,，]/).map((s) => s.trim()).filter(Boolean);
-    // 空数组合法：语义是"一份都拿不出来"，评分自然落 0 档
     if (list.some((x) => !field.options!.includes(x))) return { ok: false, reason: "invalid" };
+    // 空数组合法（语义是"一份都拿不出来"），除非字段显式 required（目标市场：不选就无法比对准入）
+    if (field.required && list.length === 0) return { ok: false, reason: "missing" };
     return { ok: true, value: list };
   }
 

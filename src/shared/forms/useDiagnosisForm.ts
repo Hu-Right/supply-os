@@ -148,12 +148,15 @@ export function useDiagnosisForm() {
     setDialogOpen(false);
   }, [setForm]);
 
-  /** 客户端预检：只查表单真的会问的单选题（多选题空选合法，语义是"一份都拿不出"） */
+  /** 客户端预检：单选题必答；多选只有显式 required 的（目标市场）才要求至少选一项 */
   const missingRequired = useMemo(
     () =>
-      DIAGNOSIS_FORM_FIELDS.filter(
-        (f) => f.kind === "single" && !String(form.answers[f.key] ?? "").trim(),
-      ).map((f) => f.key),
+      DIAGNOSIS_FORM_FIELDS.filter((f) => {
+        const value = form.answers[f.key];
+        if (f.kind === "single") return !String(value ?? "").trim();
+        if (f.required) return !Array.isArray(value) || value.length === 0;
+        return false;
+      }).map((f) => f.key),
     [form.answers],
   );
 
