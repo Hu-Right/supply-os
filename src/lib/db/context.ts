@@ -40,6 +40,7 @@ import {
 } from "../repos/suppliers/index";
 import { IndustryNodeRepo } from "../repos/industry-node.repo";
 import { CatalogRepo } from "../repos/catalog.repo";
+import { MarketRequirementRepo } from "../repos/market-requirement.repo";
 import { OpenApiRepo } from "../repos/open-api.repo";
 import { AwardsRepo } from "../repos/awards.repo";
 import { KeywordGroupsRepo } from "../repos/keyword-groups.repo";
@@ -106,6 +107,8 @@ export type AppContext = {
   benefitWriteRepo: BenefitWriteRepo;
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;
+  /** 市场要求条目（迁移 072：法定门槛 + 绿色低碳/加分项） */
+  marketRequirementRepo: MarketRequirementRepo;
   openApiRepo: OpenApiRepo;
   awardsRepo: AwardsRepo;
   leadsRepo: LeadsRepo;
@@ -147,7 +150,7 @@ export type AppContext = {
  *  旧单例的静态列集合会漏列。
  *  2026-11-20 +1（企业行业自报）：SupplierDirectoryRepo.PORTAL_COLUMNS 增加 industry_code，
  *  旧单例的列白名单不会返回该键（设置页行业无法回填）。 */
-const CTX_VERSION = 21; // 068 新增 procurement_tender_documents
+const CTX_VERSION = 22; // 072 新增 market_requirement（市场要求条目）
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };
@@ -185,6 +188,7 @@ export function getContext(): AppContext {
   const industryRepo = new IndustryNodeRepo(dbPool);
 
   const catalogRepo = new CatalogRepo(dbPool);
+  const marketRequirementRepo = new MarketRequirementRepo(dbPool);
   const benefitSystemRepo = new BenefitSystemRepo(dbPool);
   const benefitWriteRepo = new BenefitWriteRepo();
   const openApiRepo = new OpenApiRepo(dbPool);
@@ -267,6 +271,7 @@ export function getContext(): AppContext {
     benefitWriteRepo,
     opportunitiesRepo,
     catalogRepo,
+    marketRequirementRepo,
     openApiRepo,
     awardsRepo,
     leadsRepo,

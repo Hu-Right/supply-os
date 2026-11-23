@@ -91,6 +91,30 @@ export interface QualificationBreakdown {
   skippedOutOfScopeCodes: string[];
   /** V3：同市场但字典未标注适用范围、未参与比对的证书 */
   unclassifiedCodes: string[];
+  /**
+   * V3-2（迁移 072）：要求条目口径的两栏结果。
+   * 存在时**等级以 legal 缺口为准**，旧口径字段仅作历史与小市场回退。
+   */
+  requirements?: {
+    legal: QualificationRequirementHit[];
+    green: QualificationRequirementHit[];
+    legalMissingCount: number;
+  };
+  /** 供应商主营范围的可读标签（报告解释裁剪口径用） */
+  scopeLabels?: string[];
+}
+
+/** 要求条目的命中结果（法定 / 评分 / 自愿共用形状） */
+export interface QualificationRequirementHit {
+  market: string;
+  kind: "legal" | "scoring" | "voluntary";
+  standard: string;
+  name: string;
+  held: boolean;
+  evidence: string;
+  remediation: string;
+  leadTimeDays: number | null;
+  source: string;
 }
 
 export interface QualificationResult {

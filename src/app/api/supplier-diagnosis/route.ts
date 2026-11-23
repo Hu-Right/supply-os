@@ -187,6 +187,8 @@ export const POST = withRoute(async (req: NextRequest) => {
   const qualification = await evaluateQualificationFor(supplierId, answers, {
     catalog: ctx.catalogRepo,
     enterprise: new EnterpriseProfileRepo(getPool()),
+    // 迁移 072：法定门槛 + 绿色低碳/加分项两栏的要求条目
+    requirements: ctx.marketRequirementRepo,
   });
 
   try {
