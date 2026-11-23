@@ -1,52 +1,22 @@
 OS NEO SMART
 标讯来源与使用说明
-以下内容摘自《用户服务协议》（V2.0，2026年9月2日生效）第5条、第12条、第16条、第17条，原文照录，未作改写。
-如协议后续更新，以《用户服务协议》最新版本为准。
 
-5. 采购信息来源与时效性
+1. 信息来源
+本平台展示的采购公告、招标信息、中标结果及相关文件，来自各国家/地区政府、国际组织公开的采购门户及其公开渠道（包括但不限于 TED、SAM.gov、UNGM、CanadaBuys、AusTender、GETS、PNCP）。本平台为信息聚合与增值服务提供者，不是任何官方采购平台的替代、代理或授权发布渠道；除另有书面授权外，与上述机构不存在代理、背书或合作关系。
 
-平台展示的采购信息可能来源于联合国及其机构、世界银行及其他多边开发机构、各国政府及公共采购平台、采购机构官方网站、依法公开的招投标平台、企业与机构官方网站、公开API与数据接口以及其他合法公开来源或经授权的数据源。
+2. 来源标注
+每条标讯详情页底部固定展示以下字段：
+（1）来源门户；
+（2）官方公告号；
+（3）原始 URL（可点击跳转）；
+（4）抓取时间；
+（5）“本平台为聚合展示，投标以官方电子系统为准”。
 
-国际采购项目可能随时发生澄清、补遗、延期、取消、预算变化、资格变化、文件替换或平台迁移。平台会尽合理努力保持信息准确，但无法保证第三方源数据实时、完整、无误。
+3. 时效与准确性
+国际采购项目可能随时发生澄清、补遗、延期、取消、预算变化、资格变化或文件替换。本平台会尽合理努力保持信息准确，但无法保证第三方源数据实时、完整、无误；公告的法定内容以官方采购门户发布的原文为准。
 
-用户拟参与任何真实采购项目时，应始终以采购方与采购机构官方网站、原始招标文件及其最新澄清补遗为最终依据，并自行完成资格核验和投标决策。
+4. 投标与报名
+供应商注册、报名、下载正式招标文件、提交投标文件、缴纳保证金等，应按来源地法律规定及官方公告要求，在官方电子采购系统或官方指定系统完成。用户在本平台的操作（检索、收藏、解锁、下载、AI 分析）不构成报名、投标或任何法律意义上的意思表示。
 
-Procurement information displayed on the Platform may originate from the United Nations and its agencies, the World Bank and other multilateral development institutions, government and public-procurement portals, procuring-entity websites, lawfully public tender platforms, company and institutional websites, public APIs and data feeds, other lawful public sources or authorised sources.
-
-International procurement opportunities may be clarified, amended, extended, cancelled or otherwise changed at any time. We use reasonable efforts to maintain accuracy but cannot guarantee that third-party source data is real-time, complete or error-free.
-
-Before participating in any procurement, users must rely on the procuring entity's official website, original solicitation documents and latest amendments or clarifications, and must independently verify eligibility and make their own bidding decision.
-
-12. 第三方平台与外部链接
-
-平台可能提供UNGM、世界银行、各国政府采购平台、采购机构网站、支付服务商、地图、云服务、客服工具或其他第三方链接与接口。第三方服务由相应主体独立运营并适用其自身条款和隐私规则。
-
-用户访问第三方网站、注册第三方账号或向第三方提交投标文件前，应独立核验网址、主体、规则和安全性。平台不对第三方平台的可用性、内容变更、账户审核或采购决策承担控制责任。
-
-The Platform may link to or integrate UNGM, World Bank systems, government procurement portals, procuring-entity websites, payment processors, maps, cloud services, customer-support tools or other third-party services. Those services are independently operated and governed by their own terms and privacy rules.
-
-Before visiting a third-party site, registering a third-party account or submitting a bid to a third party, users should independently verify the URL, operator, rules and security. We do not control third-party availability, content changes, account approvals or procurement decisions.
-
-16. 采购与投标责任边界
-
-是否参与项目、是否具备投标资格、报价策略、联合体安排、资质获取、投标文件提交、税务、制裁、出口管制、当地注册、履约安排及最终商业决策均由用户自行负责，除非双方另行签署专项服务合同明确由我们承担某项具体工作。
-
-平台提供"适合度""可投性""资质缺口"等判断时，该判断基于当时可获得的信息，不能替代采购机构的资格预审、评审委员会判断、法律意见或监管许可。
-
-任何"推荐""匹配分""高匹配"等描述均不构成中标概率承诺。
-
-The user remains responsible for decisions concerning participation, eligibility, pricing, consortium structure, qualifications, submission, tax, sanctions, export controls, local registration, performance and other commercial matters unless a separate service contract expressly assigns a specific task to us.
-
-Any assessment of "fit", "bidability" or "qualification gap" is based on information available at the time and does not replace procuring-entity prequalification, evaluation committee determinations, legal advice or regulatory approvals.
-
-Any "recommended", "match score", "high match" or similar label is not a representation or guarantee of award probability.
-
-17. 责任限制
-
-在法律允许范围内，对于第三方采购信息更新不及时、第三方网站故障、用户未核验原始文件、用户自身资质或提交行为、不可抗力等非因平台故意或重大过失直接造成的损失，平台不承担超出法律规定和双方明确约定范围的责任。
-
-对于依法不得排除或限制的责任，本协议不作排除或限制。任何责任限制条款不得减损消费者依法享有的强制性权利。
-
-To the extent permitted by law, we are not liable beyond mandatory law or express contractual commitments for losses arising from delayed third-party updates, third-party outages, a user's failure to verify source documents, the user's own qualifications or submissions, force majeure or other circumstances not directly caused by our intentional misconduct or gross negligence.
-
-Nothing in these Terms excludes or limits liability that cannot lawfully be excluded or limited, and no limitation of liability reduces mandatory consumer rights.
+5. 纠错与下架
+如发现信息错误、过期、重复或涉嫌侵权，可通过“投诉与争议”入口提交具体链接与说明；本平台将核验并在合理期限内更正、补充或下架。

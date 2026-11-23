@@ -16,7 +16,7 @@ export default function NoticeSourcePage() {
       <header className="mb-8 border-b border-slate-200 pb-6">
         <h1 className="text-2xl font-bold text-slate-900">标讯来源与使用说明</h1>
         <p className="mt-1 text-xs text-slate-500">
-          内容来源：摘自《用户服务协议》V2.0 第5、12、16、17条（2026年9月2日生效）｜原文照录 &nbsp;|&nbsp; 运营主体：杭州云境智展科技有限公司
+          更新日期：2026年11月23日 &nbsp;|&nbsp; 运营主体：杭州云境智展科技有限公司
         </p>
       </header>
       <LegalPageContent filename="notice-source.txt" />

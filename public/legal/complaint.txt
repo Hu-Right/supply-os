@@ -1,103 +1,20 @@
 OS NEO SMART
-投诉、争议与联系方式
-以下内容摘自《用户服务协议》（V2.0，2026年9月2日生效）第18条、第19条、第21条，以及《隐私政策》（V2.1，2026年11月18日生效）第12条、第16条，原文照录，未作改写。
-如相关协议后续更新，以最新版本为准。
+投诉与争议解决说明
 
-18. 通知与送达
+1. 受理范围
+本入口受理与平台服务相关的投诉与争议，包括但不限于：会员权益未到账、扣费与退款争议、标讯信息错误或侵权、账号与个人信息权利请求、AI 输出纠错、供应商内容举报。涉及采购项目本身的质疑、投诉与举报，应按来源地采购法律向采购机构或其监管机构提出。
 
-我们可通过网站公告、站内信、用户绑定邮箱或手机号、订单页面或其他用户已提供的有效联系方式发送与服务有关的通知。用户应保持联系方式有效。
+2. 提交渠道
+（1）在线工单：网站“联系我们 / 投诉与建议”页面提交；
+（2）在线客服；
+（3）个人信息保护专用邮箱：privacy@osneosmart.com；
+（4）客服电话：以页脚公示为准。
 
-涉及重大权益变化、协议重大修改或依法应显著提示的事项，我们将采取与事项重要性相适应的显著方式通知。
+3. 处理流程与时限
+本平台将在收到投诉后确认受理并告知工单编号，在合理期限内答复处理结果；需核验订单、支付渠道或第三方数据的复杂事项，将同步告知进展。具体处理时限以受理回执载明为准。
 
-Service notices may be delivered by website notice, in-product message, the user's registered email or phone, order page or other valid contact channel provided by the user. Users should keep contact details current.
+4. 监管渠道
+用户可拨打 12315（市场监管）或 12377（网络违法与不良信息）等法定渠道投诉举报。
 
-Material rights changes, material amendments or matters requiring prominent notice by law will be communicated using a method proportionate to their importance.
-
-19. 适用法律与争议解决
-
-本协议的订立、生效、履行、解释及争议解决适用中华人民共和国大陆地区法律。
-
-发生争议时，双方应先通过友好协商解决；协商不成的，依法由有管辖权的人民法院处理。若用户属于消费者，法律对消费者争议管辖有强制性规定的，从其规定。
-
-These Terms are governed by the laws of Mainland China.
-
-The parties should first attempt to resolve disputes amicably. If no settlement is reached, disputes shall be submitted to a court with jurisdiction under applicable law. Mandatory consumer-jurisdiction rules prevail where applicable.
-
-21. 联系我们
-
-运营主体：杭州云境智展科技有限公司
-网站：osneosmart.com
-
-如您对本协议、账号、订单、投诉或争议处理有疑问，可通过以下方式联系我们：
-网站"联系我们"或"投诉与建议"页面提交工单
-在线客服渠道
-
-为满足个人信息保护要求，隐私相关事务请通过《隐私政策》中公示的专用渠道联系。
-
-Operator: 杭州云境智展科技有限公司
-Website: osneosmart.com
-
-For questions about these Terms, accounts, orders, complaints or disputes, please contact us via:
-Submit a ticket via the Website's Contact Us or Complaints and Feedback page
-Online customer-support channel
-
-For privacy-related matters, please use the dedicated channel published in the Privacy Policy.
-
-12. 您的个人信息权利
-
-在适用法律规定范围内，您有权查阅、复制、更正、补充、删除、限制处理、撤回同意、注销账号，并在符合法定条件时请求转移个人信息。
-
-平台在个人中心提供便捷入口，或通过"隐私权利申请"与"联系我们"渠道受理。我们可能为保护账号安全核验申请人身份，但不得设置与请求无关的不合理条件。
-
-撤回同意不影响撤回前基于同意开展的处理活动的效力。对于提供服务所必需且具有其他合法处理基础的信息，即使撤回可选授权，我们仍可能在必要范围内继续处理。
-
-Subject to applicable law, you may access, copy, correct, supplement, delete, restrict processing, withdraw consent, close your account and, where statutory conditions are met, request transfer of your personal information.
-
-The Platform provides an accessible account-centre entry or processes requests through a Privacy Rights or Contact Us channel. We may verify identity for security but will not impose unreasonable conditions unrelated to the request.
-
-Withdrawal of consent does not affect processing lawfully conducted before withdrawal. If certain information remains necessary for a service and another lawful basis applies, limited processing may continue as permitted by law.
-
-16. 如何联系我们
-
-个人信息处理者：杭州云境智展科技有限公司
-网站：osneosmart.com
-
-个人信息保护相关问题、权利申请、投诉或举报，请通过以下方式联系我们：
-个人信息保护专用邮箱：privacy@osneosmart.com
-网站"隐私权利申请"或"联系我们"页面提交工单
-
-我们将在核验身份后依法及时处理。复杂请求需要更多时间时，我们会说明原因和预计处理安排，以法律要求为准。
-
-Personal-information processor: 杭州云境智展科技有限公司
-Website: osneosmart.com
-
-For privacy questions, rights requests, complaints or reports, please contact us via:
-Dedicated privacy email: privacy@osneosmart.com
-Submit a ticket via the Website's Privacy Rights or Contact Us page
-
-We will process valid requests promptly after identity verification in accordance with applicable law. For complex requests requiring additional time, we will explain the reason and handling arrangement as required by law.
-
-附录：第三方信息共享清单
-
-以下为本平台实际接入的第三方信息服务清单。我们将根据实际接入情况持续更新。
-
-第三方名称：阿里云（Aliyun）
-服务用途：云计算基础设施、内容分发网络
-涉及个人信息：IP地址、请求日志、设备标识
-处理方式：服务端传输与存储
-是否跨境：否
-
-第三方名称：支付宝 / 微信支付
-服务用途：在线支付处理
-涉及个人信息：订单号、支付金额、支付状态
-处理方式：SDK/API调用
-隐私政策链接：以各支付机构官方公布为准
-是否跨境：否
-
-第三方名称：短信与邮件服务商
-服务用途：验证码发送、服务通知
-涉及个人信息：手机号、邮箱地址
-处理方式：API调用
-是否跨境：否
-
-如本清单发生变动，我们将及时更新并告知用户。
+5. 争议解决
+双方应优先协商解决；协商不成的，依《用户服务协议》的约定，由有管辖权的人民法院处理；如双方另有有效仲裁协议，从其约定。本说明不排除消费者依法享有的投诉、举报、诉讼等法定权利。

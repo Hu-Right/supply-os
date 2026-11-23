@@ -1,18 +1,17 @@
 OS NEO SMART
-版权与数据库使用说明
-以下内容摘自《用户服务协议》（V2.0，2026年9月2日生效）第10条，原文照录，未作改写。
-如协议后续更新，以《用户服务协议》最新版本为准。
+版权与转载许可说明
 
-10. 知识产权与数据库使用
+1. 原文版权
+标讯公告、招标文件、中标结果等原文的版权归发布机构或原始权利人所有。本平台对原文进行结构化、索引、翻译、摘要或匹配，不改变原文的权利归属；原文的具体权利状态，以来源地法律及来源门户的条款为准。
 
-平台自有的软件、页面设计、数据结构、分类体系、报告模板、原创分析、品牌标识及依法享有权利的内容受知识产权及相关法律保护。
+2. 平台内容
+本平台自有的页面设计、数据结构、分类体系、报告模板、原创分析与品牌标识，受知识产权及相关法律保护。第三方内容的权利仍归其权利人所有。
 
-第三方采购公告、法规、官方文件及其他第三方内容的权利归其权利人所有。平台对其进行结构化、索引、翻译、摘要或匹配，不改变第三方原始权利归属。
+3. 转载与再分发
+转载、批量引用或商业再分发标讯原文的，应取得发布机构或原始权利人的许可（参照 UNGM 关于原文再利用的条款）；合理引用应注明来源门户与本平台链接，不得删改公告的法定要素（采购人、项目编号、截止时间、资格条件等）。
 
-未经书面许可，用户不得利用爬虫、机器人、脚本、批量导出、镜像、数据库复制等方式大规模获取、复制、转售或建立与平台实质竞争的数据产品；正常人工查询和经套餐授权的下载与导出不受本条限制。
+4. 下载与存档
+会员在订阅期内下载原文，仅可用于自身投标参考与内部存档，不得转售、公开传播或向第三方提供。下载件带来源与平台标识水印，不得移除或篡改。
 
-Platform software, interface design, data structures, taxonomies, report templates, original analysis, branding and other content in which we hold rights are protected by applicable intellectual-property laws.
-
-Rights in third-party procurement notices, laws, official documents and other third-party materials remain with their respective owners. Structuring, indexing, translation, summarisation or matching by the Platform does not change ownership of the original materials.
-
-Without written permission, users may not use crawlers, bots, scripts, bulk export, mirroring, database copying or similar methods to acquire, copy, resell or build a substantially competing data product at scale. Normal manual searches and downloads or exports authorised by a paid plan are not prohibited.
+5. 侵权处理
+权利人认为平台内容侵犯其合法权益的，可通过“投诉与争议”入口提交权属证明、侵权链接与必要说明；本平台将核验并依法处理（更正、下架或恢复）。

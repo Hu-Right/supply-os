@@ -20,18 +20,22 @@ const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "";
 const SUPPORT_PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE || "";
 const ICP = process.env.NEXT_PUBLIC_ICP || "浙ICP备2026027779号-3";
 const ICP_LICENSE = process.env.NEXT_PUBLIC_ICP_LICENSE || "";
+const LEGAL_REP = process.env.NEXT_PUBLIC_COMPANY_LEGAL_REP || "";
+const EU_REP = process.env.NEXT_PUBLIC_EU_REPRESENTATIVE || "";
 
 export default function AboutPage() {
   const rows: Array<[string, React.ReactNode]> = [
     ["运营主体", COMPANY_NAME],
     ["统一社会信用代码", COMPANY_CREDIT_CODE || "待补充"],
     ["注册地址", COMPANY_ADDRESS || "待补充"],
+    ["法定代表人", LEGAL_REP || "待补充"],
     ["ICP 备案", (
       <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="text-teal-700 hover:underline">
         {ICP}
       </a>
     )],
     ["增值电信业务经营许可证", ICP_LICENSE || "如适用，待补充"],
+    ["欧盟代表（如适用）", EU_REP || "如适用，待补充"],
     ["客服邮箱", SUPPORT_EMAIL ? (
       <a href={`mailto:${SUPPORT_EMAIL}`} className="text-teal-700 hover:underline">{SUPPORT_EMAIL}</a>
     ) : "待补充"],
