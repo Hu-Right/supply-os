@@ -8,15 +8,15 @@
  *              的去设置页钩子（规范 N2：企业资料不在本页编辑）。
  *              未登录时本页只出示登录引导——真正的写入闸门在 API（规范 N4），这里只是体验。
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { emitAppEvent } from "@/core/events";
-import { CheckCircle2, Loader2, Pencil, Send } from "lucide-react";
+import { CheckCircle2, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { Button, Input } from "@/shared/ui";
-import { fetchMyDiagnoses, type DiagnosisCandidate, type MyDiagnosis } from "@/shared/api/diagnosis";
+import { fetchMyDiagnoses, type DiagnosisCandidate } from "@/shared/api/diagnosis";
 import { useDiagnosisForm } from "@/shared/forms/useDiagnosisForm";
 import { DiagnosisFormFields } from "@/shared/forms/DiagnosisFormFields";
 import { DiagnosisCompanyDialog } from "@/shared/forms/DiagnosisCompanyDialog";
@@ -98,9 +98,9 @@ export default function DiagnosisFormPage() {
   const { authUser, authReady, isAuthLoading } = useAuth();
   const form = useDiagnosisForm();
   const { bound, enterprise, loading: entLoading } = useEnterpriseInfo();
-  const [mine, setMine] = useState<MyDiagnosis[]>([]);
-  const [loadingMine, setLoadingMine] = useState(false);
   const [prefilled, setPrefilled] = useState(false);
+  /** 历史记录只自动载入一次；带草稿进来时不覆盖未保存的作答 */
+  const autoLoadedRef = useRef(false);
 
   // 绑定主体预填：诊断写权闸口本来就只放行归属人，绑定用户直接带入自己的主体，
   // 免掉「手输公司名 → 搜候选 → 确认」三步。只在空表单时带入——草稿恢复
@@ -126,18 +126,25 @@ export default function DiagnosisFormPage() {
   useEffect(() => {
     if (!authReady || !authUser) return;
     let cancelled = false;
-    setLoadingMine(true);
     fetchMyDiagnoses()
-      .then((list) => { if (!cancelled) setMine(list); })
-      .catch(() => { /* 列表拉取失败不阻断新填报 */ })
-      .finally(() => { if (!cancelled) setLoadingMine(false); });
+      .then((list) => {
+        if (cancelled) return;
+        // 诊断与账号绑定、一司一份：进来就把最近一次提交回填到表单，不再让用户先点「修改」。
+        // 有未提交草稿（answers 非空）时让草稿优先，不静默覆盖。
+        const latest = list[0];
+        if (!latest || autoLoadedRef.current) return;
+        const hasDraft = Object.values(form.form.answers).some((v) =>
+          Array.isArray(v) ? v.length > 0 : String(v ?? "").trim() !== "",
+        );
+        if (hasDraft) return;
+        autoLoadedRef.current = true;
+        form.loadForEdit({ company: latest.companyName, supplierId: latest.supplierId, answers: latest.answers });
+      })
+      .catch(() => { /* 列表拉取失败不阻断新填报 */ });
     return () => { cancelled = true; };
+    // 只在登录态变化时拉一次；form 的方法稳定，避免每渲染重复请求
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, authUser]);
-
-  const startEdit = (item: MyDiagnosis) => {
-    form.loadForEdit({ company: item.companyName, supplierId: item.supplierId, answers: item.answers });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
 
   const handleSubmit = async () => {
     const data = await form.submit();
@@ -162,29 +169,6 @@ export default function DiagnosisFormPage() {
 
       {/* 顶部完成进度条已移除（滚动即离开视口，价值有限）：未答项的迷路兜底改为
           提交时滚动定位到第一个未答题（useDiagnosisForm.submit 失败分支）。 */}
-
-      {/* 已有诊断：优先引导"改现有的"，这正是止住同主体重复堆积的地方 */}
-      {mine.length > 0 && (
-        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm font-bold text-slate-800">{t("diagMineTitle")}</p>
-          <ul className="mt-2.5 space-y-2">
-            {mine.map((item) => (
-              <li key={item.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3.5 py-2.5">
-                <div className="min-w-0">
-                  <p dir="ltr" className="truncate text-sm font-semibold text-slate-700">{item.companyName}</p>
-                  <p className="text-2xs text-slate-500">
-                    {new Date(item.submittedAt).toLocaleDateString()}
-                  </p>
-                </div>
-                <Button size="sm" variant="outline" className="shrink-0" onClick={() => startEdit(item)}>
-                  <Pencil className="h-3.5 w-3.5" /> {t("diagEdit")}
-                </Button>
-              </li>
-            ))}
-          </ul>
-          {loadingMine && <p className="mt-2 text-2xs text-slate-400">{t("diagLoading")}</p>}
-        </section>
-      )}
 
       {/* 主体确认区 */}
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">

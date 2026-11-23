@@ -101,12 +101,12 @@ export function DiagnosisFormFields(props: Props) {
 
   return (
     <div className="space-y-6">
-      {/* 第 0 步 · 投标范围：目标市场决定报告比对哪套市场准入要求，必须排在所有能力题之前
-          （旧版把它挂在 D10 之后，读起来像"附加题"，因果也反了：先答 18 题才问投哪儿） */}
+      {/* 投标范围 = 第 1 块：编号按表单顺序 1..11（1 范围 + 10 个能力维度），
+          与评分模型的"维度 1-10"是两套编号——前者给填写的人看，后者只出现在报告里 */}
       <section className="rounded-xl border border-teal-200 bg-teal-50/40 p-4">
         <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-800">
           <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
-            0
+            1
           </span>
           {t("diagSectionQualification")}
         </h3>
@@ -118,10 +118,14 @@ export function DiagnosisFormFields(props: Props) {
         </div>
       </section>
 
-      {/* D1：档案完整度由系统派生，另加一题出口主体资质 */}
+      {/* 档案就绪度（模型里的维度 1）固定排第 2 块 */}
       <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <h3 className="text-sm font-bold text-slate-700">
-          {t("diagDim1")} · <span className="text-slate-500">{t("diagAutoScored")}</span>
+        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-700">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
+            2
+          </span>
+          {t("diagDim1")}
+          <span className="text-xs font-normal text-slate-500">{t("diagAutoScored")}</span>
         </h3>
         <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagDim1Hint")}</p>
         <div className="mt-4 space-y-5">
@@ -135,7 +139,7 @@ export function DiagnosisFormFields(props: Props) {
         <section key={dim.no} className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="mb-4 text-sm font-bold text-slate-800">
             <span className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
-              {dim.no}
+              {dim.no + 1}
             </span>
             {t(`diagDim${dim.no}`)}
           </h3>
