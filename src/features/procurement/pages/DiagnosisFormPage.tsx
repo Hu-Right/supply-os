@@ -101,8 +101,6 @@ export default function DiagnosisFormPage() {
   const [mine, setMine] = useState<MyDiagnosis[]>([]);
   const [loadingMine, setLoadingMine] = useState(false);
   const [prefilled, setPrefilled] = useState(false);
-  /** 载入历史记录后的提示（V2 记录要说明哪几题是 V3 新增、需要补答） */
-  const [editNotice, setEditNotice] = useState<{ schemaVersion: number } | null>(null);
 
   // 绑定主体预填：诊断写权闸口本来就只放行归属人，绑定用户直接带入自己的主体，
   // 免掉「手输公司名 → 搜候选 → 确认」三步。只在空表单时带入——草稿恢复
@@ -138,8 +136,6 @@ export default function DiagnosisFormPage() {
 
   const startEdit = (item: MyDiagnosis) => {
     form.loadForEdit({ company: item.companyName, supplierId: item.supplierId, answers: item.answers });
-    // 不用 toast：这条要一直留在表单上方，提醒哪几题是 V3 新增、必须补答
-    setEditNotice({ schemaVersion: item.schemaVersion });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -166,13 +162,6 @@ export default function DiagnosisFormPage() {
 
       {/* 顶部完成进度条已移除（滚动即离开视口，价值有限）：未答项的迷路兜底改为
           提交时滚动定位到第一个未答题（useDiagnosisForm.submit 失败分支）。 */}
-
-      {/* 载入历史记录后的常驻提示：V2 记录里 V3 新增的三题必然为空，必须说清楚否则用户以为丢数据 */}
-      {editNotice && (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-800">
-          {editNotice.schemaVersion < 3 ? t("diagLegacyEditNotice") : t("diagLoadedForEdit")}
-        </div>
-      )}
 
       {/* 已有诊断：优先引导"改现有的"，这正是止住同主体重复堆积的地方 */}
       {mine.length > 0 && (

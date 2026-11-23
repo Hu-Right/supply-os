@@ -443,8 +443,6 @@
   "diagMineTitle": "Vos diagnostics existants",
   "diagEdit": "Modifier",
   "diagLoading": "Chargement…",
-  "diagLoadedForEdit": "Chargé : modifiez puis renvoyez",
-  "diagLegacyEditNotice": "Enregistrement V2 chargé (19 questions) : les nouvelles questions « qualification d'exportateur » et D4 « registre des certificats / délai de fourniture » doivent être renseignées. L'ancienne liste « documents obligatoires » reste dans l'historique mais n'est plus affichée.",
   "diagNextStepTitle": "Étape suivante",
   "diagNextStepProfile": "Compléter la fiche entreprise améliore directement la dimension de préparation du profil.",
   "diagGoEnterprise": "Aller à Fiche entreprise",
