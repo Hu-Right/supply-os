@@ -101,15 +101,37 @@ export function DiagnosisFormFields(props: Props) {
 
   return (
     <div className="space-y-6">
-      {/* D1 无题：由主数据派生，向用户解释"为什么这里没有题"以及怎么提高它 */}
+      {/* 第 0 步 · 投标范围：目标市场决定报告比对哪套市场准入要求，必须排在所有能力题之前
+          （旧版把它挂在 D10 之后，读起来像"附加题"，因果也反了：先答 18 题才问投哪儿） */}
+      <section className="rounded-xl border border-teal-200 bg-teal-50/40 p-4">
+        <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-slate-800">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
+            0
+          </span>
+          {t("diagSectionQualification")}
+        </h3>
+        <p className="text-xs leading-relaxed text-slate-500">{t("diagTargetMarketsHint")}</p>
+        <div className="mt-4 space-y-5">
+          {DIAGNOSIS_QUAL_FIELDS.map((field) => (
+            <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
+          ))}
+        </div>
+      </section>
+
+      {/* D1：档案完整度由系统派生，另加一题出口主体资质 */}
       <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
         <h3 className="text-sm font-bold text-slate-700">
           {t("diagDim1")} · <span className="text-slate-500">{t("diagAutoScored")}</span>
         </h3>
         <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagDim1Hint")}</p>
+        <div className="mt-4 space-y-5">
+          {DIAGNOSIS_FIELDS.filter((f) => f.dimensionNo === 1 && f.askInForm !== false).map((field) => (
+            <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
+          ))}
+        </div>
       </section>
 
-      {DIAGNOSIS_DIMENSIONS.filter((d) => d.fields.length > 0).map((dim) => (
+      {DIAGNOSIS_DIMENSIONS.filter((d) => d.no !== 1 && d.fields.length > 0).map((dim) => (
         <section key={dim.no} className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="mb-4 text-sm font-bold text-slate-800">
             <span className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
@@ -118,23 +140,12 @@ export function DiagnosisFormFields(props: Props) {
             {t(`diagDim${dim.no}`)}
           </h3>
           <div className="space-y-5">
-            {DIAGNOSIS_FIELDS.filter((f) => f.dimensionNo === dim.no).map((field) => (
+            {DIAGNOSIS_FIELDS.filter((f) => f.dimensionNo === dim.no && f.askInForm !== false).map((field) => (
               <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
             ))}
           </div>
         </section>
       ))}
-
-      {/* V3 资质完善：目标市场（不计入投标能力分，只决定资质分级 A/B/C；缺口明细在报告里看） */}
-      <section className="rounded-xl border border-teal-200 bg-teal-50/40 p-4">
-        <h3 className="text-sm font-bold text-slate-800">{t("diagSectionQualification")}</h3>
-        <p className="mt-1 text-xs leading-relaxed text-slate-500">{t("diagTargetMarketsHint")}</p>
-        <div className="mt-4 space-y-5">
-          {DIAGNOSIS_QUAL_FIELDS.map((field) => (
-            <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

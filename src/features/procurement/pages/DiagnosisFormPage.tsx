@@ -42,24 +42,11 @@ function ResultView({
   if (!r) return null;
   return (
     <div className="space-y-4">
-      {/* 仅展示综合总分与等级：分维度明细报告改由客服人工触达后发送 */}
+      {/* 门户不展示结果：评分、资质分级与缺口明细一律由后台 PDF 报告出具（2026-11-23 用户拍板） */}
       <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-5 text-center">
         <CheckCircle2 className="mx-auto h-9 w-9 text-teal-600" />
         <p className="mt-2 text-base font-black text-slate-900">{t("diagSuccessTitle")}</p>
-        <p className="mt-1 text-sm font-bold text-teal-700">
-          {r.scoreTotal} / 100 · {r.gradeLabel}
-        </p>
-        {/* V3：资质分级独立于 100 分（投标能力线）；缺项明细进报告，不在页面上铺开 */}
-        {r.qualGrade ? (
-          <p className="mt-1 text-sm font-bold text-teal-700">
-            {t("diagQualTitle")}：{t(`diagQual${r.qualGrade}`)}
-          </p>
-        ) : (
-          <p className="mt-1 text-xs text-slate-500">{t("diagQualNotGraded")}</p>
-        )}
-        {r.overrideGate.triggered && (
-          <p className="mt-2 text-xs text-amber-700">{r.overrideGate.reason}</p>
-        )}
+        <p className="mt-1 text-sm text-slate-600">{t("diagSubmittedHint")}</p>
       </div>
 
       {/* 完整诊断报告需联系客服获取：展示客服二维码，由客服人工发送报告文件 */}
@@ -187,7 +174,7 @@ export default function DiagnosisFormPage() {
                 <div className="min-w-0">
                   <p dir="ltr" className="truncate text-sm font-semibold text-slate-700">{item.companyName}</p>
                   <p className="text-2xs text-slate-500">
-                    {item.scoreTotal ?? "-"} / 100 · {new Date(item.submittedAt).toLocaleDateString()}
+                    {new Date(item.submittedAt).toLocaleDateString()}
                   </p>
                 </div>
                 <Button size="sm" variant="outline" className="shrink-0" onClick={() => startEdit(item)}>
