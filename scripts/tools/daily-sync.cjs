@@ -1053,6 +1053,51 @@ async function pruneSourceDeleted(source, target, sourceTable) {
  * 可手动 `npx tsx scripts/tools/notice-public-rebuild.ts --apply --no-prune --ids-file=<路径>` 重跑。
  * @param {string} appliedIdsFile 本轮补写 id 的 JSONL 路径（无补写时文件不存在或为空）
  */
+
+/** tracked 子进程（归一化/品类归属 CLI）全量输出落盘文件：stdio:inherit 只喷终端，
+ *  崩溃堆栈滚出视口就无从查证（2026-11-23 退出码 134 事故只能靠手动重放定位） */
+const CHILD_LAST_LOG = path.join(__dirname, 'daily-sync-child.last.log');
+/** 原地重试间隔：瞬时性崩溃（如上轮百万行对账后的内存挤压窗口）重放即过，不值得白等下一轮 1 小时 */
+const CHILD_RETRY_DELAY_MS = 30_000;
+
+/**
+ * 运行 tracked CLI 子进程并捕获输出（归一化/品类归属共用）：
+ *   · stdout+stderr 全量覆盖写 CHILD_LAST_LOG（只留最近一次；gitignore 的 *.log 兜住）；
+ *   · 成功时把子进程尾部输出（重建汇总行）接进 daily-sync.log；
+ *   · 失败时把输出尾部（FATAL ERROR 那行）带进异常，由调用方按「失败只告警」口径记入日志；
+ *   · retries>0：非 0 退出原地等 CHILD_RETRY_DELAY_MS 再试一次（确定性失败也只是多花一次选行成本）。
+ */
+function spawnTrackedCli(args, label, retries = 0) {
+  const repoRoot = path.join(__dirname, '..', '..');
+  for (let attempt = 0; ; attempt++) {
+    const res = spawnSync(process.execPath, args, {
+      cwd: repoRoot,
+      // pipe + 64MB maxBuffer：接住崩溃堆栈；兜住坏数据轮次可能的大批逐行隔离告警
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024,
+      env: process.env,
+    });
+    if (res.error) throw res.error;
+    const output = `${res.stdout?.toString() ?? ''}${res.stderr?.toString() ?? ''}`.trim();
+    fs.writeFileSync(CHILD_LAST_LOG, output ? `${output}\n` : '');
+    const lines = output ? output.split(/\r?\n/) : [];
+    if (res.status === 0) {
+      if (lines.length) log(`        ${lines.slice(-3).join('\n        ')}`);
+      return;
+    }
+    const tail = lines.length ? lines.slice(-20).join('\n        ') : '（子进程零输出）';
+    if (attempt < retries) {
+      log(`        ${label} 退出码 ${res.status}（${CHILD_RETRY_DELAY_MS / 1000}s 后原地重试）输出尾部:\n        ${tail}`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, CHILD_RETRY_DELAY_MS);
+      continue;
+    }
+    throw new Error(
+      `${label} 退出码 ${res.status ?? res.signal?.description ?? '未知'}，输出尾部:\n        ${tail}` +
+      `\n        （全量输出: ${path.basename(CHILD_LAST_LOG)}）`,
+    );
+  }
+}
+
 function runServiceNormalization(appliedIdsFile) {
   const repoRoot = path.join(__dirname, '..', '..');
   const tsxCli = path.join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
@@ -1061,13 +1106,8 @@ function runServiceNormalization(appliedIdsFile) {
   const builderArgs = [tsxCli, script, '--apply'];
   // 只有开了源撤回下传，才附带 ghost 清理：普通轮次绝不删服务表一行
   if (!PRUNE_SOURCE_DELETED) builderArgs.push('--no-prune');
-  const res = spawnSync(process.execPath, builderArgs, {
-    cwd: repoRoot,
-    stdio: 'inherit',
-    env: process.env,
-  });
-  if (res.error) throw res.error;
-  if (res.status !== 0) throw new Error(`notice-public-rebuild 退出码 ${res.status}`);
+  // 2026-11-23 退出码 134 事故：瞬时崩溃（重放即过），故 --changed 棒原地重试一次
+  spawnTrackedCli(builderArgs, 'notice-public-rebuild', 1);
 
   const ids = readAppliedIdsFile(appliedIdsFile);
   if (ids.length === 0) {
@@ -1076,15 +1116,11 @@ function runServiceNormalization(appliedIdsFile) {
   }
   // 按 id 重算：不清理 ghost（--no-prune），ghost 归上一棒 --changed（仅开源撤回时才清）
   log(`  [服务表] 按 id 重算对账补写行 ${ids.length} 条（--changed 只看水位，接不住「内容变但 update_time 不变」）`);
-  const res2 = spawnSync(process.execPath, [tsxCli, script, '--apply', '--no-prune', `--ids-file=${appliedIdsFile}`], {
-    cwd: repoRoot,
-    stdio: 'inherit',
-    env: process.env,
-  });
-  if (res2.error) throw res2.error;
-  if (res2.status !== 0) {
-    throw new Error(`notice-public-rebuild --ids-file 退出码 ${res2.status}（补写 id 保留在 ${appliedIdsFile}，可手动重跑）`);
-  }
+  // ids 棒不原地重试：失败时补写 id 保留在文件里，可手动按 documented 姿势重跑
+  spawnTrackedCli(
+    [tsxCli, script, '--apply', '--no-prune', `--ids-file=${appliedIdsFile}`],
+    `notice-public-rebuild --ids-file（补写 id 保留在 ${appliedIdsFile}，可手动重跑）`,
+  );
   fs.rmSync(appliedIdsFile, { force: true });
 }
 
@@ -1114,13 +1150,7 @@ function runTaxonomyIntake() {
   const tsxCli = path.join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
   const script = path.join(repoRoot, 'scripts', 'tools', 'taxonomy-intake-run.ts');
   log('  [品类归属] 自扫描待登记候选（活跃 + 无落点 + 未登记，幂等）');
-  const res = spawnSync(process.execPath, [tsxCli, script], {
-    cwd: repoRoot,
-    stdio: 'inherit',
-    env: process.env,
-  });
-  if (res.error) throw res.error;
-  if (res.status !== 0) throw new Error(`taxonomy-intake-run 退出码 ${res.status}`);
+  spawnTrackedCli([tsxCli, script], 'taxonomy-intake-run');
 }
 
 async function runSyncOnce() {
