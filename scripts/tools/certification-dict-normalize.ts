@@ -62,6 +62,8 @@ interface CertSeed {
   /** global 或地区/国家码（EU / UK / EAEU / GCC / AU/NZ / US / JP / …） */
   scope: string;
   aliases: string[];
+  /** 预埋行：入典但不下发（is_active=0），运营/谈判确认后一条 UPDATE 转正 */
+  inactive?: boolean;
 }
 
 /**
@@ -70,6 +72,14 @@ interface CertSeed {
  * ISO17025 26 / REACH 21 / ISO50001 17 / ISO3834·EN1090 5 / AS9100 2）
  * + 培训报名手填实测（BSCI 6 / Sedex 3 / GRS 2 / SLCP / SAA·TUV / ETL / NSF / OEKO-TEX）。
  * WHO-PQ 属场景推断（UN 医药标硬门槛），非频次实测。
+ *
+ * 2026-11-23 扩容 79→150（inactive 标记的 61 条为预埋 is_active=0，不下发）：
+ * 公告全文语料三轮挖掘（notice_body 10,540 + 附件 47,884，覆盖率实测见
+ * tmp/qual-mine-v4.mjs）。T1 激活 10 条均有原文实证（ANVISA×10 / NADCAP×4 /
+ * E-MARK·DOT×2 / ATEX·ENERGY STAR·ISO20000·KOSHER·DVGW·VdS×1）；
+ * T2 预埋 61 条 = 华测能力对齐 + 公告长尾预案（碳链/食农/纺织/绿标/电子IT/
+ * 准入补盲/EU指令族/专业体系/供应链安全/医疗注册/水暖/中国侧）。
+ * 消费方全部走 /api/certifications（is_active=1 动态下发，零硬编码），预埋零影响。
  */
 const CERTS: CertSeed[] = [
   // ── 管理体系 1-7 ──
@@ -87,6 +97,14 @@ const CERTS: CertSeed[] = [
     aliases: ["ISO 50001", "ISO50001:2018", "EnMS", "能源管理体系"] },
   { code: "ISO22301", name: "ISO22301 业务连续性管理体系认证", category: "management", scope: "global",
     aliases: ["ISO 22301", "ISO22301:2019", "BCMS", "业务连续性管理体系"] },
+  { code: "ISO20000", name: "ISO20000 IT 服务管理体系认证", category: "management", scope: "global",
+    aliases: ["ISO/IEC 20000", "ISO 20000", "IT 服务管理体系", "ITSM 认证"] },
+  { code: "SOC2", name: "SOC 2 服务组织控制审计报告", category: "management", scope: "global",
+    aliases: ["SOC 2", "SOC 2 Type II", "SOC2 Type II", "服务组织控制报告"], inactive: true },
+  { code: "TISAX", name: "TISAX 汽车行业信息安全评估", category: "management", scope: "EU",
+    aliases: ["TISAX 认证", "汽车信息安全评估标签"], inactive: true },
+  { code: "PCI-DSS", name: "PCI-DSS 支付卡行业数据安全标准认证", category: "management", scope: "global",
+    aliases: ["PCI DSS", "支付卡数据安全标准", "PCI-DSS 认证"], inactive: true },
 
   // ── 行业特定 8-25 ──
   { code: "ISO13485", name: "ISO13485 医疗器械质量体系认证", category: "industry", scope: "global",
@@ -125,6 +143,66 @@ const CERTS: CertSeed[] = [
     aliases: ["EN 10204", "EN10204 3.1", "3.1 certificate", "材料检验证书"] },
   { code: "GS1", name: "GS1 全球统一编码认证", category: "industry", scope: "global",
     aliases: ["GS1 编码", "全球统一编码", "商品条码"] },
+
+  // ── 2026-11-23 扩容：行业特定（T1 激活 4 + T2 预埋 25）──
+  { code: "KOSHER", name: "KOSHER 洁食认证", category: "industry", scope: "global",
+    aliases: ["Kosher 认证", "犹太洁食认证", "洁净认证"] },
+  { code: "NADCAP", name: "NADCAP 航空特种工艺认证", category: "industry", scope: "global",
+    aliases: ["Nadcap 认证", "NADCAP accredited", "航空特种工艺认可"] },
+  { code: "DVGW", name: "DVGW 德国水气工程认证", category: "industry", scope: "DE",
+    aliases: ["DVGW 认证", "DVGW Arbeitsblatt", "德国水气协会"] },
+  { code: "VDS", name: "VdS 德国消防安保认证", category: "industry", scope: "DE",
+    aliases: ["VdS 认证", "VdS Klasse", "德国消防安保认证"] },
+  { code: "HALAL", name: "HALAL 清真认证", category: "industry", scope: "global",
+    aliases: ["Halal 认证", "清真认证"], inactive: true },
+  { code: "GLOBALGAP", name: "GLOBALG.A.P. 良好农业规范认证", category: "industry", scope: "global",
+    aliases: ["GlobalGAP", "GLOBALGAP", "GAP 认证", "良好农业规范"], inactive: true },
+  { code: "FSSC22000", name: "FSSC22000 食品安全体系认证", category: "industry", scope: "global",
+    aliases: ["FSSC 22000", "FSSC 认证"], inactive: true },
+  { code: "ORGANIC-CN", name: "中国有机产品认证", category: "industry", scope: "CN",
+    aliases: ["有机产品认证", "GB/T 19630", "中国有机", "有机认证"], inactive: true },
+  { code: "RSPO", name: "RSPO 可持续棕榈油认证", category: "industry", scope: "global",
+    aliases: ["RSPO 认证", "可持续棕榈油"], inactive: true },
+  { code: "MSC", name: "MSC 可持续渔业认证", category: "industry", scope: "global",
+    aliases: ["MSC 认证", "海洋管理理事会"], inactive: true },
+  { code: "ASC", name: "ASC 负责任水产养殖认证", category: "industry", scope: "global",
+    aliases: ["ASC 认证", "水产养殖管理委员会"], inactive: true },
+  { code: "RAINFOREST", name: "Rainforest Alliance 雨林联盟认证", category: "industry", scope: "global",
+    aliases: ["雨林联盟", "RA 认证", "Rainforest Alliance 认证"], inactive: true },
+  { code: "UTZ", name: "UTZ 可持续农业认证", category: "industry", scope: "global",
+    aliases: ["UTZ 认证", "UTZ certified"], inactive: true },
+  { code: "FAIRTRADE", name: "Fairtrade 公平贸易认证", category: "industry", scope: "global",
+    aliases: ["公平贸易认证", "Fair Trade 认证"], inactive: true },
+  { code: "GOTS", name: "GOTS 全球有机纺织品标准认证", category: "industry", scope: "global",
+    aliases: ["GOTS 认证", "全球有机纺织品标准"], inactive: true },
+  { code: "OCS", name: "OCS 有机含量标准认证", category: "industry", scope: "global",
+    aliases: ["OCS 认证", "Organic Content Standard", "有机含量标准"], inactive: true },
+  { code: "BIFMA", name: "BIFMA 美国办公家具标准认证", category: "industry", scope: "US",
+    aliases: ["ANSI/BIFMA", "BIFMA 认证", "办公家具标准"], inactive: true },
+  { code: "JIS", name: "JIS 日本工业标准认证", category: "industry", scope: "JP",
+    aliases: ["JIS 标志", "JIS mark", "日本工业标准"], inactive: true },
+  { code: "ISO22163", name: "ISO/TS 22163 轨道交通行业管理体系认证", category: "industry", scope: "global",
+    aliases: ["IRIS 认证", "IRIS", "轨道交通质量管理体系"], inactive: true },
+  { code: "AS9120", name: "AS9120 航空航材分销质量体系认证", category: "industry", scope: "global",
+    aliases: ["AS 9120", "航材分销商质量体系"], inactive: true },
+  { code: "ISO9712", name: "ISO9712 无损检测人员资格认证", category: "industry", scope: "global",
+    aliases: ["ISO 9712", "NDT 人员认证", "无损检测人员资格"], inactive: true },
+  { code: "VDA6.3", name: "VDA 6.3 汽车过程审核", category: "industry", scope: "global",
+    aliases: ["VDA 6.3", "德国汽车工业过程审核"], inactive: true },
+  { code: "MDSAP", name: "MDSAP 医疗器械单一审核程序", category: "industry", scope: "global",
+    aliases: ["Medical Device Single Audit Program", "医疗器械单一审核"], inactive: true },
+  { code: "EN15085", name: "EN15085 轨道车辆焊接认证", category: "industry", scope: "EU",
+    aliases: ["EN 15085", "轨道焊接认证", "轨道车辆焊接"], inactive: true },
+  { code: "WRAS", name: "WRAS 英国水道认证", category: "industry", scope: "UK",
+    aliases: ["WRAS 认证", "Water Regulations Advisory Scheme", "英国水法规认证"], inactive: true },
+  { code: "ACS", name: "ACS 法国饮用水接触材料认证", category: "industry", scope: "FR",
+    aliases: ["ACS 认证", "Attestation de Conformité Sanitaire", "法国卫生合格证明"], inactive: true },
+  { code: "GJB9001", name: "GJB9001 国军标质量管理体系认证", category: "industry", scope: "CN",
+    aliases: ["GJB 9001", "国军标认证", "军标质量体系", "GJB9001C"], inactive: true },
+  { code: "C-TPAT", name: "C-TPAT 美国海关商贸反恐联盟认证", category: "industry", scope: "US",
+    aliases: ["C-TPAT 认证", "海关商贸反恐联盟"], inactive: true },
+  { code: "AEO", name: "AEO 经认证的经营者认证", category: "industry", scope: "global",
+    aliases: ["AEO 认证", "Authorized Economic Operator", "经认证的经营者", "OEA"], inactive: true },
 
   // ── 市场准入 26-51 ──
   { code: "CE", name: "CE 认证（欧盟市场准入）", category: "market_access", scope: "EU",
@@ -182,6 +260,58 @@ const CERTS: CertSeed[] = [
   { code: "CCC", name: "CCC 中国强制性产品认证", category: "market_access", scope: "CN",
     aliases: ["CCC 认证", "3C 认证", "中国强制性产品认证", "China Compulsory Certificate"] },
 
+  // ── 2026-11-23 扩容：市场准入（T1 激活 4 + T2 预埋 21）──
+  { code: "ANVISA", name: "ANVISA 巴西卫生监管注册", category: "market_access", scope: "BR",
+    aliases: ["ANVISA 注册", "ANVISA registration", "巴西卫生注册"] },
+  { code: "ENERGYSTAR", name: "ENERGY STAR 美国能源之星认证", category: "market_access", scope: "US",
+    aliases: ["Energy Star", "能源之星", "ENERGY STAR 认证"] },
+  { code: "E-MARK", name: "E-Mark 欧盟车辆型式认证", category: "market_access", scope: "EU",
+    aliases: ["E mark", "ECE 认证", "ECE R10", "E-mark 认证", "车辆型式认证"] },
+  { code: "DOT", name: "DOT 美国交通部合规", category: "market_access", scope: "US",
+    aliases: ["DOT approved", "美国交通部", "FMVSS", "DOT 认证"] },
+  { code: "CBAM", name: "CBAM 欧盟碳边境调节机制申报", category: "market_access", scope: "EU",
+    aliases: ["碳边境调节机制", "Carbon Border Adjustment", "CBAM 申报"], inactive: true },
+  { code: "CARB", name: "CARB 美国加州甲醛法规合规", category: "market_access", scope: "US",
+    aliases: ["CARB Phase 2", "加州甲醛", "CARB compliance"], inactive: true },
+  { code: "TSCA", name: "TSCA 美国有毒物质控制法 Title VI", category: "market_access", scope: "US",
+    aliases: ["TSCA Title VI", "甲醛 Title VI", "美国有毒物质控制"], inactive: true },
+  { code: "WEEE", name: "WEEE 欧盟废弃电子电气设备合规", category: "market_access", scope: "EU",
+    aliases: ["WEEE 注册", "废弃电子电气", "WEEE directive"], inactive: true },
+  { code: "NOM", name: "NOM 墨西哥官方标准认证", category: "market_access", scope: "MX",
+    aliases: ["NOM mark", "Norma Oficial Mexicana", "NOM 认证"], inactive: true },
+  { code: "ECAS", name: "ECAS 阿联酋合格性认证", category: "market_access", scope: "AE",
+    aliases: ["ECAS 认证", "ESMA 认证", "阿联酋合格评定", "MOIAT"], inactive: true },
+  { code: "SIRIM", name: "SIRIM 马来西亚标准认证", category: "market_access", scope: "MY",
+    aliases: ["SIRIM 认证", "马来西亚 SIRIM"], inactive: true },
+  { code: "QCVN", name: "QCVN 越南国家技术法规认证", category: "market_access", scope: "VN",
+    aliases: ["QCVN 认证", "越南 CR 认证"], inactive: true },
+  { code: "ANATEL", name: "ANATEL 巴西电信设备认证", category: "market_access", scope: "BR",
+    aliases: ["Anatel 认证", "巴西电信认证", "Anatel homologação"], inactive: true },
+  { code: "MTCTE", name: "MTCTE 印度电信设备认证", category: "market_access", scope: "IN",
+    aliases: ["MTCTE 认证", "WPC 许可", "印度电信设备"], inactive: true },
+  { code: "PED", name: "PED 欧盟承压设备指令", category: "market_access", scope: "EU",
+    aliases: ["PED 2014/68/EU", "承压设备指令", "Pressure Equipment Directive"], inactive: true },
+  { code: "PPE", name: "PPE 欧盟个体防护装备法规", category: "market_access", scope: "EU",
+    aliases: ["PPE Regulation 2016/425", "个体防护装备", "PPE 认证"], inactive: true },
+  { code: "RED", name: "RED 欧盟无线电设备指令", category: "market_access", scope: "EU",
+    aliases: ["RED 2014/53/EU", "Radio Equipment Directive", "无线电设备指令"], inactive: true },
+  { code: "TPED", name: "TPED 欧盟移动承压设备指令", category: "market_access", scope: "EU",
+    aliases: ["TPED 2010/35/EU", "移动承压设备", "Transportable Pressure Equipment"], inactive: true },
+  { code: "HEALTHCANADA", name: "Health Canada 加拿大卫生部注册", category: "market_access", scope: "CA",
+    aliases: ["加拿大卫生部", "MDALL", "Health Canada 注册"], inactive: true },
+  { code: "MFDS", name: "MFDS 韩国食品药品安全部注册", category: "market_access", scope: "KR",
+    aliases: ["韩国食品药品安全部", "KFDA", "MFDS 注册"], inactive: true },
+  { code: "TGA", name: "TGA 澳大利亚治疗商品管理局注册", category: "market_access", scope: "AU",
+    aliases: ["TGA 注册", "ARTG", "澳大利亚治疗商品"], inactive: true },
+  { code: "PMDA", name: "PMDA 日本医药品医疗器械综合机构注册", category: "market_access", scope: "JP",
+    aliases: ["PMDA 注册", "日本药械审批"], inactive: true },
+  { code: "NMPA", name: "NMPA 中国国家药监局注册", category: "market_access", scope: "CN",
+    aliases: ["国家药监局", "CFDA 注册", "中国医疗器械注册"], inactive: true },
+  { code: "CDSCO", name: "CDSCO 印度中央药品标准控制局注册", category: "market_access", scope: "IN",
+    aliases: ["印度药品注册", "CDSCO import license"], inactive: true },
+  { code: "WATERMARK", name: "WaterMark 澳大利亚水管认证", category: "market_access", scope: "AU",
+    aliases: ["WaterMark 认证", "澳洲水管认证"], inactive: true },
+
   // ── 产品安全 52-66 ──
   { code: "UL", name: "UL 认证（美国）", category: "product_safety", scope: "US",
     aliases: ["UL认证（美国）", "UL Listed", "UL认证"] },
@@ -218,6 +348,18 @@ const CERTS: CertSeed[] = [
   { code: "IEC61850", name: "IEC61850 变电站通信网络标准", category: "product_safety", scope: "global",
     aliases: ["IEC 61850", "变电站通信"] },
 
+  // ── 2026-11-23 扩容：产品安全（T1 激活 1 + T2 预埋 4）──
+  { code: "ATEX", name: "ATEX 欧盟防爆指令认证", category: "product_safety", scope: "EU",
+    aliases: ["ATEX 2014/34/EU", "防爆认证", "防爆指令"] },
+  { code: "IECEX", name: "IECEx 国际防爆电气认证", category: "product_safety", scope: "global",
+    aliases: ["IECEx 认证", "国际防爆认证"], inactive: true },
+  { code: "GS-MARK", name: "GS 德国安全标志认证", category: "product_safety", scope: "DE",
+    aliases: ["GS mark", "GS-geprüft", "GS 认证", "德国安全标志"], inactive: true },
+  { code: "ETL", name: "ETL 北美安全认证", category: "product_safety", scope: "US",
+    aliases: ["ETL listed", "ETL 认证", "Intertek ETL"], inactive: true },
+  { code: "CQC", name: "CQC 中国质量认证中心自愿性认证", category: "product_safety", scope: "CN",
+    aliases: ["CQC 标志", "中国质量认证中心", "CQC 认证"], inactive: true },
+
   // ── 社会责任 67-74 ──
   { code: "SA8000", name: "SA8000 社会责任管理体系认证", category: "esg", scope: "global",
     aliases: ["SA 8000", "SA8000:2014", "社会责任标准", "SA8000认证"] },
@@ -238,7 +380,25 @@ const CERTS: CertSeed[] = [
   { code: "PEFC", name: "PEFC 森林认证", category: "esg", scope: "global",
     aliases: ["PEFC 认证", "森林认证体系认可计划"] },
   { code: "LEED", name: "LEED 绿色建筑认证", category: "esg", scope: "global",
-    aliases: ["LEED Certification", "LEED 认证", "绿色建筑认证"] }
+    aliases: ["LEED Certification", "LEED 认证", "绿色建筑认证"] },
+
+  // ── 2026-11-23 扩容：社会责任/ESG（T2 预埋 8）──
+  { code: "ISO14067", name: "ISO14067 产品碳足迹核查", category: "esg", scope: "global",
+    aliases: ["ISO 14067", "产品碳足迹", "carbon footprint 核查"], inactive: true },
+  { code: "ISO14068", name: "ISO14068 碳中和认证", category: "esg", scope: "global",
+    aliases: ["ISO 14068-1", "碳中和认证", "carbon neutrality"], inactive: true },
+  { code: "WRAP", name: "WRAP 全球负责任服装生产认证", category: "esg", scope: "global",
+    aliases: ["WRAP 认证", "负责任服装生产", "Worldwide Responsible Accredited Production"], inactive: true },
+  { code: "EU-ECOLABEL", name: "EU Ecolabel 欧盟生态标签", category: "esg", scope: "EU",
+    aliases: ["欧盟之花", "欧盟生态标签", "EU Ecolabel 认证"], inactive: true },
+  { code: "BLUE-ANGEL", name: "Blue Angel 德国蓝色天使环境标志", category: "esg", scope: "DE",
+    aliases: ["蓝色天使", "Blauer Engel", "德国环境标志"], inactive: true },
+  { code: "EPEAT", name: "EPEAT 全球电子产品环境评价认证", category: "esg", scope: "global",
+    aliases: ["EPEAT 注册", "电子产品环境评估"], inactive: true },
+  { code: "BREEAM", name: "BREEAM 英国绿色建筑评估认证", category: "esg", scope: "global",
+    aliases: ["BREEAM 认证", "英国绿建评估"], inactive: true },
+  { code: "RBA", name: "RBA 责任商业联盟审核", category: "esg", scope: "global",
+    aliases: ["责任商业联盟", "Responsible Business Alliance", "EICC", "RBA VAP"], inactive: true }
 ];
 
 const CATEGORIES: Category[] = ["management", "industry", "market_access", "product_safety", "esg"];
@@ -339,7 +499,7 @@ const idMismatch = rows.filter((r) => targetId(r.code) !== r.id).length;
 console.log("=== supplier_certifications 收敛到最小形态 ===");
 console.log(`现状：${rows.length} 行 / ${existingCols.size} 列`);
 console.log(`目标：${CERTS.length} 行 / 8 列（id, code, name, category, scope, aliases, is_active, created_at）`);
-console.log(`分布：${CATEGORIES.map((cat) => `${cat} ${CERTS.filter((c) => c.category === cat).length}`).join(" / ")}`);
+console.log(`分布：${CATEGORIES.map((cat) => `${cat} ${CERTS.filter((c) => c.category === cat).length}`).join(" / ")} ｜ 预埋(inactive) ${CERTS.filter((c) => c.inactive).length} 条`);
 
 if (PREFLIGHT) {
   console.log("\n-- 加列 --");
@@ -402,20 +562,20 @@ for (const [idx, c] of CERTS.entries()) {
   if (codeReady) {
     await conn.execute(
       `INSERT INTO supplier_certifications (code, name, category, scope, aliases, is_active)
-       VALUES (?, ?, ?, ?, CAST(? AS JSON), 1)
+       VALUES (?, ?, ?, ?, CAST(? AS JSON), ?)
        ON DUPLICATE KEY UPDATE
          name = VALUES(name), category = VALUES(category),
-         scope = VALUES(scope), aliases = VALUES(aliases), is_active = 1`,
-      [c.code, c.name, c.category, c.scope, JSON.stringify(c.aliases)],
+         scope = VALUES(scope), aliases = VALUES(aliases), is_active = VALUES(is_active)`,
+      [c.code, c.name, c.category, c.scope, JSON.stringify(c.aliases), c.inactive ? 0 : 1],
     );
   } else {
     await conn.execute(
       `INSERT INTO supplier_certifications (id, code, name, category, scope, aliases, is_active)
-       VALUES (?, ?, ?, ?, ?, CAST(? AS JSON), 1)
+       VALUES (?, ?, ?, ?, ?, CAST(? AS JSON), ?)
        ON DUPLICATE KEY UPDATE
          code = VALUES(code), name = VALUES(name), category = VALUES(category),
-         scope = VALUES(scope), aliases = VALUES(aliases), is_active = 1`,
-      [idx + 1, c.code, c.name, c.category, c.scope, JSON.stringify(c.aliases)],
+         scope = VALUES(scope), aliases = VALUES(aliases), is_active = VALUES(is_active)`,
+      [idx + 1, c.code, c.name, c.category, c.scope, JSON.stringify(c.aliases), c.inactive ? 0 : 1],
     );
   }
   if (existed) updated++;
