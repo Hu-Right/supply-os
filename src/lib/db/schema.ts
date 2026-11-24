@@ -21,6 +21,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
+import { ensureDiagnosisExtensionTables } from "./tables-diagnosis";
 import { migration as notificationsMigration } from "./migrations/003-notifications";
 import { migration as feasibilityReportMigration } from "./migrations/006-feasibility-report";
 import { migration as evidenceFilenameMigration } from "./migrations/007-enterprise-evidence-filename";
@@ -76,8 +77,6 @@ import { migration as procurementRfpEvaluationMigration } from "./migrations/067
 import { migration as procurementItbDocumentsMigration } from "./migrations/068-procurement-itb-documents";
 import { migration as supplierDiagnosisV3ShadowMigration } from "./migrations/069-supplier-diagnosis-v3-shadow";
 import { migration as certificationProductScopesMigration } from "./migrations/071-certification-product-scopes";
-import { migration as marketRequirementMigration } from "./migrations/072-market-requirement";
-import { migration as supplierEvidenceMigration } from "./migrations/075-supplier-evidence";
 import { migration as supplierDiagnosisShadowFinalMigration } from "./migrations/076-supplier-diagnosis-shadow-final";
 import { migration as supplierDiagnosisGuideEventMigration } from "./migrations/064-supplier-diagnosis-guide-event";
 import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
@@ -159,8 +158,6 @@ export const ALL_MIGRATIONS: Migration[] = [
   procurementItbDocumentsMigration,
   supplierDiagnosisV3ShadowMigration,
   certificationProductScopesMigration,
-  marketRequirementMigration,
-  supplierEvidenceMigration,
   supplierDiagnosisShadowFinalMigration,
 ];
 
@@ -169,5 +166,8 @@ export const ALL_MIGRATIONS: Migration[] = [
  * @returns 本次实际执行的迁移数量（已应用过的版本会被 runner 跳过）
  */
 export async function ensureProcurementSchema(dbPool: Pool): Promise<number> {
-  return runMigrations(dbPool, ALL_MIGRATIONS);
+  const applied = await runMigrations(dbPool, ALL_MIGRATIONS);
+  // 新表直接建（幂等）：market_requirement / supplier_evidence
+  await ensureDiagnosisExtensionTables(dbPool);
+  return applied;
 }
