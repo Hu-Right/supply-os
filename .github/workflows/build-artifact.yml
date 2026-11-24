@@ -34,6 +34,16 @@ jobs:
           NODE_ENV: production
           PAYMENT_MODE: live
           JWT_SECRET: ci-build-dummy-secret
+          # 运营主体公开信息：NEXT_PUBLIC_* 在构建期内联，CI 不注入则 about/contact/
+          # 页脚/Organization 在产物里拿不到值（2026-11-24 部署前补）。
+          NEXT_PUBLIC_COMPANY_NAME: "杭州云境智展科技有限公司"
+          NEXT_PUBLIC_COMPANY_CREDIT_CODE: "91330110MAEQC7N58T"
+          NEXT_PUBLIC_COMPANY_ADDRESS: "浙江省杭州市余杭区中泰街道铜山溪路2号9号楼101-102"
+          NEXT_PUBLIC_COMPANY_LEGAL_REP: "李翔"
+          NEXT_PUBLIC_SUPPORT_PHONE: "13857143215"
+          NEXT_PUBLIC_SUPPORT_EMAIL: "632236300@qq.com"
+          NEXT_PUBLIC_ORG_SAMEAS: "https://www.tianyancha.com/company/7657586399"
+          NEXT_PUBLIC_ICP: "浙ICP备2026027779号-3"
 
       - name: Package standalone
         run: tar -czf next-standalone.tar.gz --exclude='./public/downloads' -C .next/standalone .
