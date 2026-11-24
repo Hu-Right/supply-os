@@ -130,15 +130,14 @@ function scoreProfileDimension(
   answers: DiagnosisAnswers,
 ): { rawScore: number; scoringBasis: string } {
   const q = Number(supplier.dataQualityScore ?? 0);
-  const profileScore =
-    q >= 85 ? 5 : q >= 65 ? 4 : q >= 45 ? 3 : q >= 25 ? 2 : q > 0 ? 1 : 0;
+  const profileScore = q >= 85 ? 5 : q >= 65 ? 4 : q >= 45 ? 3 : q >= 25 ? 2 : q > 0 ? 1 : 0;
   const entityField = DIAGNOSIS_FIELD_MAP["export_entity"] as DiagnosisFieldDef;
   const entityScore = scoreDiagnosisField(entityField, answers.export_entity ?? "");
   const rawScore = Math.max(0, Math.min(5, Math.round((profileScore + entityScore) / 2)));
-  const basis =
-    `企业档案资料完整度 ${q}/100（${profileScore}/5）` +
-    `；出口主体资质：${String(answers.export_entity ?? "").trim() || "(空)"}（${entityScore}/5）`;
-  return { rawScore, scoringBasis: basis };
+  return {
+    rawScore,
+    scoringBasis: `企业档案资料完整度 ${q}/100（${profileScore}/5）；出口主体资质：${String(answers.export_entity ?? "").trim() || "(空)"}（${entityScore}/5）`,
+  };
 }
 
 /** 维度内多字段：各字段 0-5 原始分取算术平均后四舍五入到整数档（spec §8.4） */

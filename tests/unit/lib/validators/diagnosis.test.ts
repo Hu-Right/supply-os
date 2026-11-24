@@ -39,7 +39,7 @@ describe("parseDiagnosisPayload", () => {
   it("accepts a complete payload and returns answers keyed by field", () => {
     const r = parseDiagnosisPayload(validBody());
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.payload.answers.export_scale).toBeTruthy();
+    if (r.ok) expect(r.payload.answers.cost_pricing).toBeTruthy();
   });
 
   it("rejects a missing required single-choice answer", () => {
@@ -73,10 +73,6 @@ describe("parseDiagnosisPayload", () => {
     expect(r).toMatchObject({ ok: false, fieldKey: "procurement_frameworks", reason: "invalid" });
   });
 
-  it("enforces length limit on free-text answers", () => {
-    const r = parseDiagnosisPayload(validBody({ service_countries: "国".repeat(600) }));
-    expect(r).toMatchObject({ ok: false, fieldKey: "service_countries", reason: "too_long" });
-  });
 
   it("requires a company name before anything else", () => {
     const r = parseDiagnosisPayload(validBody({ companyName: "   " }));

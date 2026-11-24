@@ -73,13 +73,13 @@ export interface DiagnosisDimensionDef {
 export const DIAGNOSIS_DIMENSIONS: readonly DiagnosisDimensionDef[] = [
   { no: 1, name: "国际供应商档案就绪度", nameEn: "International vendor profile readiness", weight: 10, fields: ["export_entity"] },
   { no: 2, name: "英文证据库可调用性", nameEn: "English evidence library usability", weight: 10, fields: ["english_evidence_level", "english_meeting_capability"] },
-  { no: 3, name: "标书拆解与投标决策能力", nameEn: "Tender decoding and bid-decision capability", weight: 10, fields: ["tender_experience", "tender_amount_band", "procurement_frameworks"] },
+  { no: 3, name: "标书拆解与投标决策能力", nameEn: "Tender decoding and bid-decision capability", weight: 10, fields: ["tender_experience", "procurement_frameworks"] },
   { no: 4, name: "资质与文件管理能力", nameEn: "Qualification and document management", weight: 10, fields: ["cert_ledger", "cert_delivery"] },
   { no: 5, name: "合规治理与风险升级机制", nameEn: "Compliance governance and escalation", weight: 10, fields: ["ungm_status", "compliance_governance"] },
   { no: 6, name: "技术响应与方案证明能力", nameEn: "Technical response and evidence capability", weight: 15, fields: ["technical_response"] },
-  { no: 7, name: "完整成本与报价决策能力", nameEn: "Full-cost pricing and bid-decision capability", weight: 15, fields: ["cost_pricing", "incoterms_capability", "payment_terms", "export_scale"] },
+  { no: 7, name: "完整成本与报价决策能力", nameEn: "Full-cost pricing and bid-decision capability", weight: 15, fields: ["cost_pricing", "incoterms_capability", "payment_terms"] },
   { no: 8, name: "最终审核与提交控制能力", nameEn: "Final review and submission control", weight: 10, fields: ["submission_control"] },
-  { no: 9, name: "履约组织与服务保障能力", nameEn: "Delivery organization and service assurance", weight: 5, fields: ["deliver_to_site", "service_countries", "overseas_companies"] },
+  { no: 9, name: "履约组织与服务保障能力", nameEn: "Delivery organization and service assurance", weight: 5, fields: ["deliver_to_site"] },
   { no: 10, name: "投标团队、语言与CRM执行纪律", nameEn: "Bid team, language and CRM execution discipline", weight: 5, fields: ["team_discipline"] },
 ];
 
@@ -125,6 +125,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     labelZh: "最近一次投标的金额量级？",
     options: ["未参与", "10万美元以下", "10万至50万美元", "50万至200万美元", "200万美元以上"],
     scoreMap: [0, 2, 3, 4, 5],
+    askInForm: false,
   },
   {
     key: "procurement_frameworks", column: "procurement_frameworks", dimensionNo: 3, kind: "multi",
@@ -210,6 +211,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     labelZh: "近 2 年出口 / 国际业务规模？",
     options: ["尚未出口", "500万美元以下", "500-2000万美元", "2000万美元以上"],
     scoreMap: [1, 2, 4, 5],
+    askInForm: false,
   },
   // D8 最终审核与提交控制
   {
@@ -232,12 +234,14 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     labelKey: "diagQServiceCountries",
     labelZh: "有售后点 / 服务站 / 维修点的国家（逗号分隔）",
     bands: [{ min: 0, score: 0 }, { min: 1, score: 1 }, { min: 3, score: 3 }, { min: 5, score: 5 }],
+    askInForm: false,
   },
   {
     key: "overseas_companies", column: "overseas_companies", dimensionNo: 9, kind: "text",
     labelKey: "diagQOverseasCompanies",
     labelZh: "有海外分公司 / 投资公司的国家（逗号分隔）",
     bands: [{ min: 0, score: 0 }, { min: 1, score: 2 }, { min: 2, score: 4 }, { min: 3, score: 5 }],
+    askInForm: false,
   },
   // D10 投标团队与执行纪律
   {
@@ -555,5 +559,5 @@ export function assertDiagnosisDimensionsIntact(): void {
   const d4 = DIAGNOSIS_DIMENSIONS.find((d) => d.no === 4)!;
   if (d4.fields.join(",") !== "cert_ledger,cert_delivery") throw new Error(`V3: D4 fields must be the two management questions, got ${d4.fields.join(",")}`);
   const formSingles = DIAGNOSIS_FORM_FIELDS.filter((f) => f.kind === "single").length;
-  if (formSingles !== 23) throw new Error(`V3: form must ask 23 single-choice questions（资格 7 + 能力 16）, got ${formSingles}`);
+  if (formSingles !== 21) throw new Error(`V3: form must ask 21 single-choice questions（资格 6 + 能力 15）, got ${formSingles}`);
 }
