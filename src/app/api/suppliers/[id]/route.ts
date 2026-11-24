@@ -17,9 +17,8 @@ import { getPool } from "@/lib/db/pool";
 import { supplierViewOf } from "@/lib/services/suppliers";
 import { SupplierDiagnosisRepo } from "@/lib/repos/supplier-diagnosis.repo";
 import { supplierScorecardViewOf } from "@/lib/services/supplier-diagnosis/scorecard-view";
-import { loadCountryAliasSnapshot, type CountryAliasSnapshot } from "@/lib/services/country/alias-store";
+import { loadCountryAliasSnapshot } from "@/lib/services/country/alias-store";
 import { loadSupplierIndustryInfo } from "@/lib/services/industry-labels";
-import type { SupplierIndustryInfo } from "@/lib/services/industry-labels";
 import { withRoute, routeError, RouteError } from "@/lib/middleware/route-handler";
 import { extractUserKey } from "@/lib/middleware/auth";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_INTERNAL_ERROR } from "@/shared/constants/api";
@@ -53,40 +52,34 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(404, EC_NOT_FOUND, `供应商不存在: ${numericId}`);
     }
 
-    // 检查该供应商是否已被认领（永久绑定或临时绑定中）
-    let claimed = false;
-    try {
-      claimed = await ctx.supplier.directoryRepo.isClaimed(numericId);
-    } catch {
-      // 查询失败不影响主流程
-    }
-
-    // 行业面标签：装配失败只退回自填文本（与列表口径一致），不把详情页打成 500
-    let industry: SupplierIndustryInfo | null = null;
-    try {
-      const info = await loadSupplierIndustryInfo(ctx.supplier.industryRepo, [row]);
-      industry = info.get(Number(row.id)) ?? null;
-    } catch (err) {
-      console.error("[suppliers/:id GET] 行业面标签装配失败，本次退回自填文本:", err);
-    }
-
-    let snap: CountryAliasSnapshot | undefined;
-    try {
-      snap = await loadCountryAliasSnapshot(ctx.dbPool);
-    } catch (err) {
-      console.error("[suppliers/:id GET] 国家展示快照加载失败，本次退回原文:", err);
-    }
-
-    // 投标能力成绩单（公开面）：只认归属人提交的报告（findClaimantScorecard 取数侧保证）；
-    // 路人写的无主报告不上详情页。装配失败不阻断主流程，成绩单缺席=卡片不渲染。
+    // 2026-11-24 并行化：认领状态 / 行业标签 / 国家快照 / 成绩单四件事互不依赖，
+    // 一次 Promise.all 发完。此前串行 await，高延迟链路上白等 4 个完整往返。
+    // 每个分支独立降级：查认领失败按未认领、标签/快照/成绩单失败按缺席处理，不阻断主流程。
     const lang = new URL(req.url).searchParams.get("lang") ?? "zh";
-    let scorecard = null;
-    try {
-      const scoreRow = await new SupplierDiagnosisRepo(getPool()).findClaimantScorecard(numericId);
-      scorecard = scoreRow ? supplierScorecardViewOf(scoreRow, lang) : null;
-    } catch (err) {
-      console.error("[suppliers/:id GET] 成绩单装配失败，本次不渲染:", err);
-    }
+    const [claimed, industryInfo, snap, scorecard] = await Promise.all([
+      ctx.supplier.directoryRepo.isClaimed(numericId).catch((err) => {
+        console.error("[suppliers/:id GET] 认领状态查询失败:", err);
+        return false;
+      }),
+      loadSupplierIndustryInfo(ctx.supplier.industryRepo, [row]).catch((err) => {
+        console.error("[suppliers/:id GET] 行业面标签装配失败，本次退回自填文本:", err);
+        return null;
+      }),
+      loadCountryAliasSnapshot(ctx.dbPool).catch((err) => {
+        console.error("[suppliers/:id GET] 国家展示快照加载失败，本次退回原文:", err);
+        return undefined;
+      }),
+      (async () => {
+        try {
+          const scoreRow = await new SupplierDiagnosisRepo(getPool()).findClaimantScorecard(numericId);
+          return scoreRow ? supplierScorecardViewOf(scoreRow, lang) : null;
+        } catch (err) {
+          console.error("[suppliers/:id GET] 成绩单装配失败，本次不渲染:", err);
+          return null;
+        }
+      })(),
+    ]);
+    const industry = industryInfo?.get(Number(row.id)) ?? null;
 
     return NextResponse.json({ ...supplierViewOf(row, industry, snap), claimed, scorecard });
   } catch (err) {
