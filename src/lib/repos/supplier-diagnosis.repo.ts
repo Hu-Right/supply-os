@@ -69,8 +69,8 @@ export function diagnosisAnswersOf(row: DiagnosisRow): DiagnosisAnswers {
 }
 
 export interface DiagnosisScoreSnapshot {
-  totalScore: number;
-  grade: string;
+  totalScore: number | null;
+  grade: string | null;
   breakdown: unknown;
 }
 
@@ -85,6 +85,7 @@ export interface UpsertDiagnosisParams {
   supplierId: number;
   companyName: string;
   answers: DiagnosisAnswers;
+  /** 能力画像快照；未答全时 totalScore/grade 为 null（报告标「未评估」，不按 0 分算） */
   score: DiagnosisScoreSnapshot;
   /** V3：资质分级快照（可选，兼容未接 V3 的调用方 → 保持 NULL） */
   qualification?: DiagnosisQualSnapshot | null;

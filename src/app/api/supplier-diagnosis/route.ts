@@ -26,6 +26,7 @@ import { EnterpriseProfileRepo } from "@/lib/repos/enterprise-profile.repo";
 import { scoreDiagnosis } from "@/lib/services/scoring/diagnosis-v2";
 import { evaluateQualificationFor } from "@/lib/services/supplier-diagnosis/qualification";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
+import { DIAGNOSIS_FORM_FIELDS } from "@/shared/constants/diagnosis-dimensions";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
@@ -179,7 +180,28 @@ export const POST = withRoute(async (req: NextRequest) => {
       dataQualityScore: null,
       company: typedName,
     };
-  const scoring = scoreDiagnosis({ answers, supplier: bits });
+  // V3：能力画像是选答。没答全时**不计算** 100 分能力等级（存 NULL，报告标「未评估」），
+  // 否则空答案会被按最低档算成 C 级，等于用"没填"惩罚用户。
+  const capabilityAnswered = DIAGNOSIS_FORM_FIELDS
+    .filter((f) => f.dimensionNo >= 1 && f.askInForm !== false)
+    .every((f) => {
+      const v = answers[f.key];
+      return Array.isArray(v) ? v.length > 0 : String(v ?? "").trim() !== "";
+    });
+  const scoring = capabilityAnswered
+    ? scoreDiagnosis({ answers, supplier: bits })
+    : {
+        totalScore: null,
+        grade: null,
+        gradeLabel: "",
+        gradeLabelEn: "",
+        path: "",
+        pathEn: "",
+        dimensions: [],
+        overrideGateTriggered: false,
+        overrideGateReason: "",
+        topGaps: [],
+      };
 
   // ── V3 资质分级（2026-11-23 用户拍板）──
   // 目标市场 → 当地准入资质应备清单 → 与能力档案已持证书求差集 → A/B/C。
@@ -216,15 +238,17 @@ export const POST = withRoute(async (req: NextRequest) => {
       supplierId,
       companyName: canonicalName,
       result: "success",
-      scoreTotal: scoring.totalScore,
+      // 能力画像未答全时为 null（报告标「未评估」），不是 0 分
+      scoreTotal: scoring.totalScore as unknown as number,
     });
 
     return NextResponse.json({
       id: Number(stored.id),
       supplierId,
       subjectUnclaimed,
-      scoreTotal: scoring.totalScore,
-      scoreGrade: scoring.grade,
+      // 能力画像未答全时为 null（报告标「未评估」），不是 0 分
+      scoreTotal: scoring.totalScore as unknown as number,
+      scoreGrade: scoring.grade as unknown as string,
       gradeLabel: scoring.gradeLabel,
       dimensions: scoring.dimensions,
       topGaps: scoring.topGaps,

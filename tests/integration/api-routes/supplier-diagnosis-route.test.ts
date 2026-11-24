@@ -80,6 +80,12 @@ function validAnswers(): Record<string, string | string[]> {
   }
   // V3：目标市场必答（不在 DIAGNOSIS_FIELDS 里，单独补一个合法市场码）
   answers.target_markets = ["EU"];
+  answers.local_presence = "部分市场有代理";
+  answers.similar_projects_band = "1-2 份";
+  answers.largest_contract_band = "50-200 万美元";
+  answers.annual_revenue_band = "100-500 万美元";
+  answers.audit_report = "仅银行资信证明";
+  answers.local_service_terms = "视标而定";
   return answers;
 }
 
