@@ -424,5 +424,7 @@
   "notifNoReason": "未提供原因",
   "notifNoDetail": "详见核验记录",
   "notifListSeparator": "、",
-  "notifBBuyerOpinion": "核验意见：{note}"
+  "notifBBuyerOpinion": "核验意见：{note}",
+  "billingCenterTitle": "费用中心"
 }
+

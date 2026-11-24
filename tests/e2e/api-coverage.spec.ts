@@ -52,6 +52,8 @@ const CASES: ApiCase[] = [
   { method: "POST", path: "/api/auth/unbind-email", auth: "none", status: 401, bodyType: "object", src: "/api/auth/unbind-email" },
   { method: "POST", path: "/api/auth/unbind-phone", auth: "none", status: 401, bodyType: "object", src: "/api/auth/unbind-phone" },
   { method: "GET", path: "/api/auth/user", auth: "member", status: 200, bodyType: "object", src: "/api/auth/user" },
+  { method: "GET", path: "/api/billing/invoices", auth: "none", status: 401, bodyType: "object", src: "/api/billing/invoices" },
+  { method: "POST", path: "/api/billing/invoices", auth: "none", status: 401, bodyType: "object", src: "/api/billing/invoices" },
   { method: "GET", path: "/api/awards", auth: "none", status: 200, bodyType: "object", src: "/api/awards" },
   { method: "GET", path: "/api/awards/stats", auth: "none", status: 200, bodyType: "object", src: "/api/awards/stats" },
   { method: "GET", path: "/api/awards/top", auth: "none", status: 200, bodyType: "object", src: "/api/awards/top" },

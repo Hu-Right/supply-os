@@ -424,5 +424,7 @@
   "notifNoReason": "причина не указана",
   "notifNoDetail": "см. записи проверки",
   "notifListSeparator": ", ",
-  "notifBBuyerOpinion": "Замечание проверки: {note}"
+  "notifBBuyerOpinion": "Замечание проверки: {note}",
+  "billingCenterTitle": "Центр оплаты"
 }
+

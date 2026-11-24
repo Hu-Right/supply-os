@@ -182,6 +182,15 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
         <SectionTitle>{t("settingsAccountActions") || "账号操作"}</SectionTitle>
         <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5 flex flex-wrap items-center justify-between gap-4">
           <Link
+            href="/billing"
+            className="flex w-full items-center justify-between gap-3 border-b border-border pb-4 mb-4"
+          >
+            <span className="text-sm font-medium text-foreground">{t("billingCenterTitle")}</span>
+            <span className="flex items-center gap-1 text-xs text-slate-400">
+              <ArrowRight className="h-4 w-4" />
+            </span>
+          </Link>
+          <Link
             href="/account-cancellation"
             className="flex w-full items-center justify-between gap-3 border-b border-border pb-4 mb-4"
           >

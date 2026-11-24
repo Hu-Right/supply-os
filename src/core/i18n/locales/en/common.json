@@ -424,5 +424,7 @@
   "notifNoReason": "no reason provided",
   "notifNoDetail": "see verification records",
   "notifListSeparator": ", ",
-  "notifBBuyerOpinion": "Reviewer note: {note}"
+  "notifBBuyerOpinion": "Reviewer note: {note}",
+  "billingCenterTitle": "Billing Center"
 }
+

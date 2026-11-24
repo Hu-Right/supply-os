@@ -424,5 +424,7 @@
   "notifNoReason": "sin motivo indicado",
   "notifNoDetail": "ver registros",
   "notifListSeparator": ", ",
-  "notifBBuyerOpinion": "Observación: {note}"
+  "notifBBuyerOpinion": "Observación: {note}",
+  "billingCenterTitle": "Centro de facturación"
 }
+

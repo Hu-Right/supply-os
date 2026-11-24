@@ -424,5 +424,7 @@
   "notifNoReason": "دون ذكر سبب",
   "notifNoDetail": "انظر سجلات التحقق",
   "notifListSeparator": "، ",
-  "notifBBuyerOpinion": "ملاحظة التحقق: {note}"
+  "notifBBuyerOpinion": "ملاحظة التحقق: {note}",
+  "billingCenterTitle": "مركز الفواتير"
 }
+

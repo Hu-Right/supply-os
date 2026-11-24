@@ -424,5 +424,7 @@
   "notifNoReason": "aucune raison fournie",
   "notifNoDetail": "voir l'historique",
   "notifListSeparator": ", ",
-  "notifBBuyerOpinion": "Observation : {note}"
+  "notifBBuyerOpinion": "Observation : {note}",
+  "billingCenterTitle": "Centre de facturation"
 }
+

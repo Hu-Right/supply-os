@@ -6,7 +6,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cpu, User, Building2, Package, AlertTriangle, ClipboardList, KeyRound, BadgeCheck } from "lucide-react";
+import { Cpu, User, Building2, Package, AlertTriangle, ClipboardList, KeyRound, BadgeCheck, ReceiptText } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils/cn";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { href: "/settings/rfq", labelKey: "settingsMyRfq", icon: ClipboardList },
   { href: "/settings/keyword-library", labelKey: "settingsKeywordLibrary", icon: KeyRound },
   { href: "/settings/ai-model", labelKey: "settingsAiModel", icon: Cpu },
+  { href: "/billing", labelKey: "billingCenterTitle", icon: ReceiptText },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -97,3 +98,4 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     </div>
   );
 }
+
