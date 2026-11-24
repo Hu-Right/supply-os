@@ -1,21 +1,20 @@
 /**
- * 诊断 v2 表单渲染器（10 维度分节，题目全部来自常量）
- * Diagnosis (v2) form renderer — sections driven entirely by DIAGNOSIS_* constants
+ * 诊断 V5 表单渲染器（A 资质 / B 能力 / C 档案就绪度 三部分）
+ * Diagnosis V5 form renderer — sections driven entirely by V5 constants
  *
  * @module shared/forms/DiagnosisFormFields
- * @description 加题/删题/改选项只动 `shared/constants/diagnosis-dimensions.ts`，本文件不需要改。
- *              选项文本**刻意不做翻译**：选项值就是入库值（与后台统计、报表同口径），
- *              翻译后会破坏"显示值 == 存储值"的不变式；而这些术语（FOB/CIF、UNGM Level、
- *              ISO 体系证书）在国际公采语境本就是固定表述。题面与维度名走 i18n。
+ * @description 加题/删题/改选项只动 `shared/constants/diagnosis-v5.ts`，本文件不需要改。
+ *              证书/资质不在表单收集：A1 只问目标市场，证书覆盖率与档案完整度由供应商表派生。
  */
-import { ChipToggleGroup, Textarea } from "@/shared/ui";
+
+import { ChipToggleGroup } from "@/shared/ui";
 import {
-  DIAGNOSIS_DIMENSIONS,
-  DIAGNOSIS_FIELDS,
-  DIAGNOSIS_QUAL_FIELDS,
-  isDiagnosisFieldRequired,
-  type DiagnosisFieldDef,
-} from "@/shared/constants/diagnosis-dimensions";
+  DIAGNOSIS_V5_DIMENSIONS,
+  DIAGNOSIS_V5_FORM_FIELDS,
+  DIAGNOSIS_V5_PARTS,
+  isDiagnosisV5Required,
+  type DiagnosisV5FieldDef,
+} from "@/shared/constants/diagnosis-v5";
 import type { DiagnosisAnswers } from "@/shared/api/diagnosis";
 
 type T = (key: string) => string;
@@ -30,19 +29,16 @@ interface Props {
 function OptionChips({
   field, selected, onPick, onToggle, t,
 }: {
-  field: DiagnosisFieldDef;
+  field: DiagnosisV5FieldDef;
   selected: string | string[];
   onPick: (value: string) => void;
   onToggle: (value: string) => void;
   t: T;
 }) {
-  // 入库值仍是选项原文；只有显式声明了 optionLabelKeys 的字段（目标市场这类码值）
-  // 才把显示名换成本地化文案——「显示值 == 存储值」的不变式对 V2 全部题目继续成立。
   const items = (field.options ?? []).map((opt, i) => ({
     value: opt,
     label: field.optionLabelKeys?.[i] ? t(field.optionLabelKeys[i]) : opt,
   }));
-  // 单选与多选共用同一个项目内正解控件（ADR-0005），不再手搭 chip
   if (field.kind === "multi") {
     return (
       <ChipToggleGroup
@@ -63,36 +59,23 @@ function OptionChips({
   );
 }
 
-function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { field: DiagnosisFieldDef }) {
+function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { field: DiagnosisV5FieldDef }) {
   const value = answers[field.key];
 
   return (
-    // 每道题一个锚点：提交被拦时滚动定位到第一道未答题（不再有红框，锚点必须落在整块上，
-    // 单选/多选没有原生 input，过去按 `diag-<key>` 找元素是找不到的）
     <div id={`diag-field-${field.key}`}>
       <label className="mb-2 block text-sm font-bold text-slate-700" htmlFor={`diag-${field.key}`}>
         {t(field.labelKey)}
-        {isDiagnosisFieldRequired(field) && <span className="ml-0.5 text-rose-500">*</span>}
+        {isDiagnosisV5Required(field) && <span className="ml-0.5 text-rose-500">*</span>}
       </label>
 
-      {field.kind === "text" ? (
-        <Textarea
-          id={`diag-${field.key}`}
-          rows={2}
-          value={String(value ?? "")}
-          placeholder={t(field.labelKey + "Ph")}
-          onChange={(e) => onSingle(field.key, e.target.value)}
-          className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
-        />
-      ) : (
-        <OptionChips
-          field={field}
-          selected={(value as string | string[]) ?? (field.kind === "multi" ? [] : "")}
-          onPick={(opt) => onSingle(field.key, opt)}
-          onToggle={(opt) => onToggleMulti(field.key, opt)}
-          t={t}
-        />
-      )}
+      <OptionChips
+        field={field}
+        selected={(value as string | string[]) ?? (field.kind === "multi" ? [] : "")}
+        onPick={(opt) => onSingle(field.key, opt)}
+        onToggle={(opt) => onToggleMulti(field.key, opt)}
+        t={t}
+      />
     </div>
   );
 }
@@ -102,61 +85,49 @@ export function DiagnosisFormFields(props: Props) {
 
   return (
     <div className="space-y-6">
-      {/* 投标范围不算维度：不参与评分，也不编维度号——全表单只有一套编号（报告里的维度 1-10） */}
-      <section className="rounded-xl border border-teal-200 bg-teal-50/40 p-4">
-        <h3 className="mb-1 text-sm font-bold text-slate-800">
-          {t("diagSectionQualFacts")}
-        </h3>
-        <p className="text-xs leading-relaxed text-slate-500">{t("diagTargetMarketsHint")}</p>
-        <div className="mt-4 space-y-5">
-          {DIAGNOSIS_QUAL_FIELDS.map((field) => (
-            <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
-          ))}
-        </div>
-      </section>
+      {DIAGNOSIS_V5_PARTS.map((part) => {
+        const dims = DIAGNOSIS_V5_DIMENSIONS.filter((d) => d.part === part.code);
+        return (
+          <section key={part.code} className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">
+                {part.code}
+              </span>
+              <h3 className="text-sm font-bold text-slate-800">{t(`diagV5Part${part.code}`)}</h3>
+              <span className="text-xs text-slate-400">{part.weight} 分</span>
+            </div>
+            {part.code === "A" && (
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV5PartAHint")}</p>
+            )}
 
-      {/* 维度 1（档案就绪度）：完整度由系统派生，另加一题出口主体资质 */}
-      <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-700">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
-            1
-          </span>
-          {t("diagDim1")}
-          <span className="text-xs font-normal text-slate-500">{t("diagAutoScored")}</span>
-        </h3>
-        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagDim1Hint")}</p>
-        <div className="mt-4 space-y-5">
-          {DIAGNOSIS_FIELDS.filter((f) => (f.dimensionNo === 1 || f.key === "export_entity") && f.askInForm !== false).map((field) => (
-            <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
-          ))}
-        </div>
-      </section>
-
-      {/* V3：能力画像（D2–D10）为选答——不答也能提交，报告标「能力维度未评估」。
-          折叠起来是为了让"资质报告"这件事在 3 分钟内能完成；要能力分再展开。 */}
-      <details className="rounded-xl border border-slate-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-bold text-slate-800">
-          {t("diagCapabilityOptional")}
-          <span className="ml-2 text-xs font-normal text-slate-500">{t("diagCapabilityHint")}</span>
-        </summary>
-        <div className="mt-4 space-y-6">
-          {DIAGNOSIS_DIMENSIONS.filter((d) => d.no !== 1 && d.fields.length > 0).map((dim) => (
-            <section key={dim.no} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-              <h3 className="mb-4 text-sm font-bold text-slate-800">
-                <span className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
-                  {dim.no}
-                </span>
-                {t(`diagDim${dim.no}`)}
-              </h3>
-              <div className="space-y-5">
-                {DIAGNOSIS_FIELDS.filter((f) => f.dimensionNo === dim.no && f.askInForm !== false).map((field) => (
-                  <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      </details>
+            <div className="mt-4 space-y-5">
+              {dims.map((dim) => {
+                const fields = DIAGNOSIS_V5_FORM_FIELDS.filter((f) => f.dimensionNo === dim.no);
+                return (
+                  <section key={dim.no} className="rounded-lg border border-slate-100 bg-slate-50/60 p-4">
+                    <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-2xs font-bold text-white">
+                        {dim.no}
+                      </span>
+                      {t(`diagV5Dim${dim.no}`)}
+                      <span className="text-xs font-normal text-slate-400">{dim.weight} 分</span>
+                    </h4>
+                    {fields.length === 0 ? (
+                      <p className="text-xs leading-relaxed text-slate-500">{t("diagV5AutoRead")}</p>
+                    ) : (
+                      <div className="space-y-5">
+                        {fields.map((field) => (
+                          <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

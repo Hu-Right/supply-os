@@ -1,8 +1,13 @@
 /**
- * POST /api/supplier-diagnosis — 提交供应商投标能力诊断（v2）
+ * POST /api/supplier-diagnosis — 提交供应商投标能力诊断（v3）
  *
  * @module app/api/supplier-diagnosis/route
- * @description 与 v1 的根本差异：
+ * @description 2026-11-24 职责收口：本路由是**前台 BFF**，只做登录鉴权、主体确认、写权闸口、
+ *              提交埋点与结果转发；能力评分、资质分级、缺口快照与落库统一由后台
+ *              （intelligence-daily `POST /api/v1/internal/diagnosis/submit`）完成。
+ *              前台不再加载评分/分级引擎，也不做后台失败后的本地兜底。
+ *
+ *              与 v1 的根本差异：
  *              1. 登录闸门在 API（规范 N4），不再靠前端跳转兜 authenticity；
  *              2. 幂等覆盖写：唯一键 uk_supplier(supplier_id)，一司一份
  *                 （2026-11-11 定稿：报告属于公司不属于个人，最后写入者 user_id 落行上）；
@@ -22,11 +27,8 @@ import { getPool } from "@/lib/db/pool";
 import { getContext } from "@/lib/db/context";
 import { SupplierDiagnosisRepo, diagnosisWriteGateDecision } from "@/lib/repos/supplier-diagnosis.repo";
 import { SupplierDiagnosisSubmitLogRepo } from "@/lib/repos/supplier-diagnosis-submit-log.repo";
-import { EnterpriseProfileRepo } from "@/lib/repos/enterprise-profile.repo";
-import { scoreDiagnosis } from "@/lib/services/scoring/diagnosis-v2";
-import { evaluateQualificationFor } from "@/lib/services/supplier-diagnosis/qualification";
+import { submitDiagnosisToBackend } from "@/lib/services/supplier-diagnosis/backend-client";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
-import { DIAGNOSIS_FORM_FIELDS } from "@/shared/constants/diagnosis-dimensions";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
@@ -173,65 +175,16 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
   const subjectUnclaimed = !gateFacts.selfBound;
 
-  // 按名命中路径的主体可能在闸口前后被删：取不到 D1 片段就按空档案评分（与旧口径一致）
-  const bits =
-    profileBits ??
-    (await directory.findProfileBits(supplierId)) ?? {
-      dataQualityScore: null,
-      company: typedName,
-    };
-  // V3：能力画像是选答。没答全时**不计算** 100 分能力等级（存 NULL，报告标「未评估」），
-  // 否则空答案会被按最低档算成 C 级，等于用"没填"惩罚用户。
-  const capabilityAnswered = DIAGNOSIS_FORM_FIELDS
-    .filter((f) => f.dimensionNo >= 1 && f.askInForm !== false)
-    .every((f) => {
-      const v = answers[f.key];
-      return Array.isArray(v) ? v.length > 0 : String(v ?? "").trim() !== "";
-    });
-  const scoring = capabilityAnswered
-    ? scoreDiagnosis({ answers, supplier: bits })
-    : {
-        totalScore: null,
-        grade: null,
-        gradeLabel: "",
-        gradeLabelEn: "",
-        path: "",
-        pathEn: "",
-        dimensions: [],
-        overrideGateTriggered: false,
-        overrideGateReason: "",
-        topGaps: [],
-      };
-
-  // ── V3 资质分级（2026-11-23 用户拍板）──
-  // 目标市场 → 当地准入资质应备清单 → 与能力档案已持证书求差集 → A/B/C。
-  // 与 100 分（投标能力线）**分开**：换目标市场不改投标能力分，历史 V2 报告仍可比。
-  const qualification = await evaluateQualificationFor(supplierId, answers, {
-    catalog: ctx.catalogRepo,
-    enterprise: new EnterpriseProfileRepo(getPool()),
-    // 迁移 072：法定门槛 + 绿色低碳/加分项两栏的要求条目
-    requirements: ctx.marketRequirementRepo,
-  });
-
+  // 2026-11-24 职责收口：能力评分、资质分级与快照落库统一由后台（intelligence-daily）完成。
+  // 门户只保留登录、主体确认、写权闸口与提交埋点；本地不再加载评分引擎，也不做“后台失败就本地算”的兜底，
+  // 否则会重新出现前台/后台两套口径。
   try {
-    const stored = await diagnosisRepo.upsertDiagnosis({
+    const result = await submitDiagnosisToBackend({
       userId: auth.userId,
       supplierId,
-      companyName: canonicalName, // SSOT 正名入库；payload 名仅用于检索（2026-11-12）
+      companyName: canonicalName, // SSOT 正名；payload 名仅用于检索（2026-11-12）
       answers,
-      // breakdown 除维度明细外，一并快照红线闸口：报告 PDF 只读快照，
-      // 不应为了重现一句提示词再反推评分规则（等级文案可由 gradeDescriptor 从 grade 推导）。
-      score: {
-        totalScore: scoring.totalScore,
-        grade: scoring.grade,
-        breakdown: {
-          dimensions: scoring.dimensions,
-          overrideGateTriggered: scoring.overrideGateTriggered,
-          overrideGateReason: scoring.overrideGateReason,
-        },
-      },
-      qualification: { grade: qualification.grade, breakdown: qualification.breakdown },
-      ip: extractClientIp(req),
+      ip: clientIp,
     });
 
     await recordSubmit({
@@ -239,34 +192,23 @@ export const POST = withRoute(async (req: NextRequest) => {
       companyName: canonicalName,
       result: "success",
       // 能力画像未答全时为 null（报告标「未评估」），不是 0 分
-      scoreTotal: scoring.totalScore as unknown as number,
+      scoreTotal: result.scoreTotal ?? null,
     });
 
     return NextResponse.json({
-      id: Number(stored.id),
+      ...result,
       supplierId,
       subjectUnclaimed,
-      // 能力画像未答全时为 null（报告标「未评估」），不是 0 分
-      scoreTotal: scoring.totalScore as unknown as number,
-      scoreGrade: scoring.grade as unknown as string,
-      gradeLabel: scoring.gradeLabel,
-      dimensions: scoring.dimensions,
-      topGaps: scoring.topGaps,
-      overrideGate: { triggered: scoring.overrideGateTriggered, reason: scoring.overrideGateReason },
-      // V3：资质分级（null = 未填目标市场 / 字典不可用，见 qualBreakdown.unscoredReason）
-      schemaVersion: 3,
-      qualGrade: qualification.grade,
-      qualBreakdown: qualification.breakdown,
     }, { status: 201 });
   } catch (err) {
-    console.error("[supplier-diagnosis POST]", err);
+    console.error("[supplier-diagnosis POST] 后台计算失败", err);
     await recordSubmit({
       supplierId,
       companyName: canonicalName,
       result: "error",
       errorCode: EC_INTERNAL_ERROR,
-      reason: "internal",
+      reason: "backend_unavailable",
     });
-    routeError(500, EC_INTERNAL_ERROR, "诊断提交失败");
+    routeError(500, EC_INTERNAL_ERROR, "诊断计算服务暂不可用，请稍后重试");
   }
 });

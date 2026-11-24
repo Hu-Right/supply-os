@@ -10,11 +10,11 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import {
-  DIAGNOSIS_ALL_FIELDS,
-  DIAGNOSIS_FORM_FIELDS,
-  diagnosisProgress,
-  isDiagnosisFieldRequired,
-} from "@/shared/constants/diagnosis-dimensions";
+  DIAGNOSIS_V5_FIELDS,
+  DIAGNOSIS_V5_FORM_FIELDS,
+  diagnosisV5Progress,
+  isDiagnosisV5Required,
+} from "@/shared/constants/diagnosis-v5";
 import { EC_FORBIDDEN, EC_DIAGNOSIS_ENTITY_NOT_FOUND } from "@/shared/constants/api";
 import {
   findSimilarCompanies,
@@ -36,7 +36,8 @@ export interface DiagnosisFormState {
 
 function emptyAnswers(): DiagnosisAnswers {
   const answers: DiagnosisAnswers = {};
-  for (const field of DIAGNOSIS_ALL_FIELDS) {
+  for (const field of DIAGNOSIS_V5_FIELDS) {
+    if (field.source === "derived") continue;
     answers[field.key] = field.kind === "multi" ? [] : "";
   }
   return answers;
@@ -152,18 +153,17 @@ export function useDiagnosisForm() {
   /** 客户端预检：单选题必答；多选只有显式 required 的（目标市场）才要求至少选一项 */
   const missingRequired = useMemo(
     () =>
-      DIAGNOSIS_FORM_FIELDS.filter((f) => {
+      DIAGNOSIS_V5_FORM_FIELDS.filter((f) => {
         const value = form.answers[f.key];
-        // V3：能力画像选答，只有资格项（目标市场 / 出口资质 / 6 项资格事实）必答
-        if (!isDiagnosisFieldRequired(f)) return false;
+        if (!isDiagnosisV5Required(f)) return false;
         if (f.kind === "single") return !String(value ?? "").trim();
         return !Array.isArray(value) || value.length === 0;
       }).map((f) => f.key),
     [form.answers],
   );
 
-  /** 必答题完成进度（多选/文本选填，不计入分母） */
-  const progress = useMemo(() => diagnosisProgress(form.answers), [form.answers]);
+  /** 必答题完成进度（能力题选答，不计入分母） */
+  const progress = useMemo(() => diagnosisV5Progress(form.answers), [form.answers]);
 
   const submit = useCallback(async () => {
     if (form.company.trim().length < 2) {

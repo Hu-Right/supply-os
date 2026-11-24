@@ -2,6 +2,8 @@
  * 市场要求判定（迁移 072 起的主口径）
  *
  * @module lib/services/scoring/diagnosis-market-requirements
+ * @deprecated 2026-11-24 起市场要求判定已迁至 intelligence-daily `qualification/v3`；
+ *             本文件仅保留历史回滚参考与旧单测，不得在 API 请求路径调用。
  * @description 把「目标市场 + 供应商主营范围 + 已持证书」套到 `market_requirement` 条目上，
  *              产出两栏：
  *              - **法定门槛**（kind=legal）：缺 0 项 = A，缺 1-2 项 = B，缺 3+ 项 = C；

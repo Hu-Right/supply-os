@@ -23,8 +23,8 @@ export interface ScorecardDimensionView {
 
 export interface SupplierScorecardView {
   totalScore: number;
-  grade: DiagnosisGrade;
-  /** 已按 lang 本地化的等级文案（A/B/C → gradeDescriptor 的中/英文案） */
+  grade: "A" | "B" | "C" | "D";
+  /** 已按 lang 本地化的等级文案（A/B/C/D） */
   gradeLabel: string;
   /** ISO 时间串，前端负责本地化格式 */
   evaluatedAt: string;
@@ -35,9 +35,12 @@ interface BreakdownShape {
   dimensions?: Array<{ name?: unknown; nameEn?: unknown; weightedScore?: unknown; weight?: unknown }>;
 }
 
-function toGrade(total: number, persisted: string | null): DiagnosisGrade {
-  if (persisted === "A" || persisted === "B" || persisted === "C") return persisted;
-  return total >= 80 ? "A" : total >= 60 ? "B" : "C";
+function toGrade(total: number, persisted: string | null): "A" | "B" | "C" | "D" {
+  if (persisted === "A" || persisted === "B" || persisted === "C" || persisted === "D") return persisted;
+  if (total >= 85) return "A";
+  if (total >= 70) return "B";
+  if (total >= 55) return "C";
+  return "D";
 }
 
 /**
@@ -64,7 +67,9 @@ export function supplierScorecardViewOf(
 
   const isZh = String(lang ?? "").toLowerCase().startsWith("zh");
   const grade = toGrade(totalScore, row.score_grade == null ? null : String(row.score_grade));
-  const descriptor = gradeDescriptor(grade);
+  const descriptor = grade === "D"
+    ? { label: "D — 暂不具备", labelEn: "D — Not ready" }
+    : gradeDescriptor(grade as DiagnosisGrade);
 
   const dimensions: ScorecardDimensionView[] = [];
   for (const d of dims) {

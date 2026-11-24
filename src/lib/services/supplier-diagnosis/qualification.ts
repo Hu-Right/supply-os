@@ -3,6 +3,9 @@
  * Diagnosis V3 — qualification evaluation orchestration
  *
  * @module lib/services/supplier-diagnosis/qualification
+ * @deprecated 2026-11-24 起诊断计算已迁至 intelligence-daily；
+ *             门户提交路径改走 `backend-client.ts`，本文件仅保留历史回滚参考，
+ *             不得在 API 请求路径调用。
  * @description 把「表单给的目标市场 + 认证字典 + 企业已持证书」三块数据合起来交给纯函数
  *              `evaluateQualification`。路由只调这一层，不自己拼 SQL，也不自己判级。
  *

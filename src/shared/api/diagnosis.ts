@@ -27,6 +27,8 @@ export interface DiagnosisCandidate {
 
 export interface DiagnosisDimensionResult {
   no: number;
+  /** V5：所属部分 A 资质 / B 能力 / C 档案 */
+  part?: "A" | "B" | "C";
   name: string;
   nameEn: string;
   weight: number;
@@ -37,15 +39,34 @@ export interface DiagnosisDimensionResult {
   needsManualReview: boolean;
 }
 
+export interface DiagnosisPartScore {
+  code: "A" | "B" | "C";
+  name: string;
+  score: number;
+  max: number;
+}
+
+export interface DiagnosisGradeCap {
+  reason: string;
+  cap: string;
+}
+
 export interface DiagnosisSubmitResult {
   id: number;
   supplierId: number;
   /** 无主主体上的路人诊断（闸口放行且非归属人）：结果页据此提示「如为贵公司可发起认领」 */
   subjectUnclaimed: boolean;
-  scoreTotal: number;
-  scoreGrade: string;
+  /** V5 统一评分：未答按 0 分，仍出总分（报告标「未提供」） */
+  scoreTotal: number | null;
+  scoreGrade: string | null;
+  /** 红线封顶前的等级（V5） */
+  gradeBeforeCaps?: string;
   gradeLabel: string;
   dimensions: DiagnosisDimensionResult[];
+  /** V5 三部分得分：A 资质 / B 能力 / C 档案 */
+  partScores?: DiagnosisPartScore[];
+  /** V5 红线封顶原因 */
+  caps?: DiagnosisGradeCap[];
   topGaps: { dimension: string; dimensionEn: string; priority: string }[];
   overrideGate: { triggered: boolean; reason: string };
   /** V3 口径代次（2=投标能力诊断，3=资质完善诊断；历史代次不互比） */

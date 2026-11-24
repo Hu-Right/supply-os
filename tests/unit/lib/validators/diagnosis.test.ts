@@ -8,30 +8,22 @@
 import { describe, it, expect } from "vitest";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
 import { maskCreditCode } from "@/lib/repos/suppliers/supplier-directory.repo";
-import { DIAGNOSIS_FIELDS } from "@/shared/constants/diagnosis-dimensions";
+import { DIAGNOSIS_V5_FORM_FIELDS } from "@/shared/constants/diagnosis-v5";
 
 /** 请求体根层只认这几个信封字段，其余 overrides 均视为答案字段（归入 answers） */
 const TOP_LEVEL = new Set(["companyName", "company_name", "supplierId", "supplier_id"]);
 
 function validBody(overrides: Record<string, unknown> = {}) {
   const answers: Record<string, unknown> = {};
-  for (const f of DIAGNOSIS_FIELDS) {
-    answers[f.key] =
-      f.kind === "multi" ? [...(f.options ?? [])].slice(0, 2) : f.kind === "text" ? "德国, 法国" : f.options![1];
+  for (const f of DIAGNOSIS_V5_FORM_FIELDS) {
+    answers[f.key] = f.kind === "multi" ? [...(f.options ?? [])].slice(0, 2) : f.options![1];
   }
+  answers.target_markets = ["EU"];
   const top: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(overrides)) {
     if (TOP_LEVEL.has(k)) top[k] = v;
     else answers[k] = v;
   }
-  // V3 必答：目标市场 + 6 项资格事实（都不在 DIAGNOSIS_FIELDS 里，单独带上）
-  answers.target_markets = ["EU"];
-  answers.local_presence = "部分市场有代理";
-  answers.similar_projects_band = "1-2 份";
-  answers.largest_contract_band = "50-200 万美元";
-  answers.annual_revenue_band = "100-500 万美元";
-  answers.audit_report = "仅银行资信证明";
-  answers.local_service_terms = "视标而定";
   return { companyName: "浙江某某科技有限公司", ...top, answers };
 }
 
@@ -42,12 +34,11 @@ describe("parseDiagnosisPayload", () => {
     if (r.ok) expect(r.payload.answers.cost_pricing).toBeTruthy();
   });
 
-  it("rejects a missing required single-choice answer", () => {
-    // V3：能力画像选答，这里用资格事实项验证"必答"仍然生效
+  it("rejects a missing required target market", () => {
     const body = validBody();
-    body.answers.audit_report = "";
+    body.answers.target_markets = [];
     const r = parseDiagnosisPayload(body);
-    expect(r).toMatchObject({ ok: false, fieldKey: "audit_report", reason: "missing" });
+    expect(r).toMatchObject({ ok: false, fieldKey: "target_markets", reason: "missing" });
   });
 
   it("allows an unanswered capability question (选答)", () => {
@@ -63,14 +54,14 @@ describe("parseDiagnosisPayload", () => {
   });
 
   it("allows an empty multi-select (means: cannot provide any of them)", () => {
-    const r = parseDiagnosisPayload(validBody({ procurement_frameworks: [] }));
+    const r = parseDiagnosisPayload(validBody({ supply_assurance: [] }));
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.payload.answers.procurement_frameworks).toEqual([]);
+    if (r.ok) expect(r.payload.answers.supply_assurance).toEqual([]);
   });
 
   it("rejects unknown items inside a multi-select", () => {
-    const r = parseDiagnosisPayload(validBody({ procurement_frameworks: ["欧盟 TED", "皇家万能体系"] }));
-    expect(r).toMatchObject({ ok: false, fieldKey: "procurement_frameworks", reason: "invalid" });
+    const r = parseDiagnosisPayload(validBody({ target_channels: ["欧盟 TED / ESPD", "皇家万能体系"] }));
+    expect(r).toMatchObject({ ok: false, fieldKey: "target_channels", reason: "invalid" });
   });
 
 
@@ -79,13 +70,10 @@ describe("parseDiagnosisPayload", () => {
     expect(r).toMatchObject({ ok: false, fieldKey: "company_name", reason: "missing" });
   });
 
-  // 真实缺陷回归钉：校验器曾从请求体**根层**取 19 个答案，而前端发的是嵌套 `answers`，
-  // 导致答齐了仍回 400「english_evidence_level 为必答题」。扁平与嵌套不得同时合法，
-  // 否则这类漂移只会由下一轮真机提交暴露。
   it("rejects a FLAT body instead of silently accepting a second wire shape", () => {
     const flat: Record<string, unknown> = { companyName: "浙江某某科技有限公司" };
-    for (const f of DIAGNOSIS_FIELDS) {
-      flat[f.key] = f.kind === "multi" ? [] : f.kind === "text" ? "德国" : f.options![1];
+    for (const f of DIAGNOSIS_V5_FORM_FIELDS) {
+      flat[f.key] = f.kind === "multi" ? [] : f.options![1];
     }
     const r = parseDiagnosisPayload(flat);
     expect(r).toMatchObject({ ok: false, fieldKey: "answers", reason: "missing" });

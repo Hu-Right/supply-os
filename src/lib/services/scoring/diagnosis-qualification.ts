@@ -3,6 +3,8 @@
  * Supplier diagnosis V3 — qualification grading (A/B/C) and gap breakdown
  *
  * @module lib/services/scoring/diagnosis-qualification
+ * @deprecated 2026-11-24 起资质分级已迁至 intelligence-daily `qualification/v3`；
+ *             本文件仅保留历史回滚参考与旧单测，不得在 API 请求路径调用。
  * @description V3 只做一件事：把「目标市场」翻译成「当地准入资质应备清单」，与供应商
  *              能力档案里已持有的证书求差集，得到缺口并按个数分级。
  *

@@ -1,9 +1,9 @@
 /**
- * 诊断表单版式回归：投标范围必须在所有能力题之前
+ * 诊断 V5 表单版式回归：目标市场必须在资质部分，证书不得在表单收集
  *
  * @module tests/unit/shared/forms/DiagnosisFormFields.order
- * @description 旧版把「目标市场」挂在 D10 之后，看起来像附加题，因果也是反的
- *              （先答 18 题才问投哪儿）。这条测试只看 DOM 顺序，防止以后又被挪回尾部。
+ * @description 目标市场是证书比对的入口，必须排在能力题之前；证书/资质从供应商表读取，
+ *              表单只出现目标市场，不出现任何证书题。
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
@@ -22,33 +22,51 @@ function renderFields() {
   );
 }
 
-describe("DiagnosisFormFields 版式", () => {
-  it("第 0 步「投标范围」排在 D1 与 D10 之前（不再挂在尾部）", () => {
+describe("DiagnosisFormFields V5 版式", () => {
+  it("目标市场在 A 部分，排在 B/C 之前", () => {
     const { container } = renderFields();
     const html = container.innerHTML;
 
-    const scopeAt = html.indexOf("diagSectionQualFacts");
-    const dim1At = html.indexOf("diagDim1");
-    const dim7At = html.indexOf("diagDim7");
+    const targetAt = html.indexOf("diagV5TargetMarkets");
+    const partBAt = html.indexOf("diagV5PartB");
+    const partCAt = html.indexOf("diagV5PartC");
 
-    expect(scopeAt).toBeGreaterThanOrEqual(0);
-    expect(dim1At).toBeGreaterThan(scopeAt);
-    expect(dim7At).toBeGreaterThan(scopeAt);
-    // 目标市场是范围区块里唯一的题，必须一起排在前面
-    expect(html.indexOf("diagQTargetMarkets")).toBeLessThan(dim1At);
+    expect(targetAt).toBeGreaterThanOrEqual(0);
+    expect(partBAt).toBeGreaterThan(targetAt);
+    expect(partCAt).toBeGreaterThan(partBAt);
   });
 
-  it("D4 渲染两题管理能力，不再渲染强制文件清单；D1 渲染出口主体资质", () => {
+  it("证书不在表单收集：不渲染证书覆盖率、台账、取证时效", () => {
     const { container } = renderFields();
     const html = container.innerHTML;
 
-    expect(html).toContain("diagQCertLedger");
-    expect(html).toContain("diagQCertDelivery");
-    expect(html).not.toContain("diagQMandatoryDocs");
-    expect(html).toContain("diagQExportEntity");
-    // V3：6 项资格事实必须在必答区出现
-    for (const k of ["diagQLocalPresence", "diagQSimilarProjects", "diagQAnnualRevenue", "diagQAuditReport"]) {
-      expect(html).toContain(k);
+    expect(html).not.toContain("diagV5CertCoverage");
+    expect(html).not.toContain("diagQCertLedger");
+    expect(html).not.toContain("diagQCertDelivery");
+    expect(html).not.toContain("diagQExportEntity");
+  });
+
+  it("A/B/C 三部分与 12 个维度都渲染", () => {
+    const { container } = renderFields();
+    const html = container.innerHTML;
+
+    for (const part of ["A", "B", "C"]) expect(html).toContain(`diagV5Part${part}`);
+    for (let i = 1; i <= 12; i += 1) expect(html).toContain(`diagV5Dim${i}`);
+  });
+
+  it("V5 能力题出现在表单里", () => {
+    const { container } = renderFields();
+    const html = container.innerHTML;
+
+    for (const key of [
+      "diagV5ExportEntity",
+      "diagV5FinanceCredit",
+      "diagV5TechnicalResponse",
+      "diagV5QualitySystem",
+      "diagV5ServiceSla",
+      "diagV5TenderExperience",
+    ]) {
+      expect(html).toContain(key);
     }
   });
 });
