@@ -81,7 +81,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   const [authRedirectOnSuccess, setAuthRedirectOnSuccess] = useState(false);
   const onOpenAccount = useCallback(() => {
     if (authUser) {
-      router.push("/settings/profile");
+      router.push("/settings");
     } else {
       setAuthRedirectOnSuccess(true);
       setShowAuthModal(true);
@@ -154,7 +154,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
               // 仅当从账户入口（头像/open-account）触发登录时才重定向到设置页
               if (authRedirectOnSuccess) {
                 setAuthRedirectOnSuccess(false);
-                router.push("/settings/profile");
+                router.push("/settings");
               }
             }}
           />
@@ -204,3 +204,4 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
     </div>
   );
 }
+

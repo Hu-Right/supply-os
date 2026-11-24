@@ -1,34 +1,72 @@
 /**
- * 设置中心共享布局
+ * 账号中心共享布局（对标阿里云 / 腾讯云账号中心）
  * @module app/(public)/settings/layout
- * @description 左侧导航菜单 + 右侧内容区。移动端导航折叠为顶部横向 Tab。
+ * @description 左侧分组导航 + 右侧内容区；移动端折叠为横向 Tab。
+ *              分组：账号信息 / 账号安全 / 认证与主体 / 业务工具 / 费用与发票 / 通知与偏好。
  */
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cpu, User, Building2, Package, AlertTriangle, ClipboardList, KeyRound, BadgeCheck, ReceiptText } from "lucide-react";
+import {
+  Cpu, User, Building2, Package, AlertTriangle, ClipboardList, KeyRound, BadgeCheck,
+  ReceiptText, LayoutDashboard, ShieldCheck, Bell,
+} from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils/cn";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 import { useHasSupplierPool } from "@/shared/hooks/useHasSupplierPool";
 import { useUserId } from "@/core/auth/useUserId";
 
-/**
- * 导航顺序：账号 → 身份资质 → 业务 → 工具偏好
- * - 个人信息：账号级资料
- * - 企业信息 / 供应商资源库：横幅「企业用户 / 外贸员」两个身份分支，顺序与横幅卡片一致
- * - 采购主体认证 → 我的采购需求：采购侧先认证后发布，保持业务先后
- * - 产品关键词库 / AI 模型配置：搜索与模型偏好
- */
-const NAV_ITEMS = [
-  { href: "/settings/profile", labelKey: "settingsProfile", icon: User },
-  { href: "/settings/enterprise", labelKey: "settingsEnterprise", icon: Building2 },
-  { href: "/settings/supplier-pool", labelKey: "settingsSupplierPool", icon: Package },
-  { href: "/settings/buyer", labelKey: "settingsBuyer", icon: BadgeCheck },
-  { href: "/settings/rfq", labelKey: "settingsMyRfq", icon: ClipboardList },
-  { href: "/settings/keyword-library", labelKey: "settingsKeywordLibrary", icon: KeyRound },
-  { href: "/settings/ai-model", labelKey: "settingsAiModel", icon: Cpu },
-  { href: "/billing", labelKey: "billingCenterTitle", icon: ReceiptText },
+type NavItem = {
+  href: string;
+  labelKey: string;
+  icon: typeof User;
+  /** true 表示站外/独立布局页（/billing 等），激活态用精确路径判断 */
+  standalone?: boolean;
+};
+
+/** 分组导航：账号 → 安全 → 认证 → 业务 → 费用 → 偏好 */
+const NAV_GROUPS: Array<{ titleKey: string; items: NavItem[] }> = [
+  {
+    titleKey: "settingsGroupAccount",
+    items: [
+      { href: "/settings", labelKey: "settingsOverview", icon: LayoutDashboard },
+      { href: "/settings/profile", labelKey: "settingsProfile", icon: User },
+    ],
+  },
+  {
+    titleKey: "settingsGroupSecurity",
+    items: [{ href: "/settings/security", labelKey: "settingsSecurity", icon: ShieldCheck }],
+  },
+  {
+    titleKey: "settingsGroupIdentity",
+    items: [
+      { href: "/settings/enterprise", labelKey: "settingsEnterprise", icon: Building2 },
+      { href: "/settings/supplier-pool", labelKey: "settingsSupplierPool", icon: Package },
+      { href: "/settings/buyer", labelKey: "settingsBuyer", icon: BadgeCheck },
+    ],
+  },
+  {
+    titleKey: "settingsGroupBusiness",
+    items: [
+      { href: "/settings/rfq", labelKey: "settingsMyRfq", icon: ClipboardList },
+      { href: "/settings/keyword-library", labelKey: "settingsKeywordLibrary", icon: KeyRound },
+    ],
+  },
+  {
+    titleKey: "settingsGroupBilling",
+    items: [
+      { href: "/billing", labelKey: "billingCenterTitle", icon: ReceiptText, standalone: true },
+      { href: "/billing?tab=invoices", labelKey: "settingsInvoiceCenter", icon: ReceiptText, standalone: true },
+    ],
+  },
+  {
+    titleKey: "settingsGroupPreferences",
+    items: [
+      { href: "/settings/notifications", labelKey: "settingsNotifications", icon: Bell },
+      { href: "/settings/ai-model", labelKey: "settingsAiModel", icon: Cpu },
+    ],
+  },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -44,9 +82,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const isUncommitted = !identityUncertain && !bound && !hasPool && !!userId;
 
   return (
-    // 居左布局：侧栏固定左侧，内容区向右铺满（参考智谱用户中心），不居中不限宽
+    // 居左布局：侧栏固定左侧，内容区向右铺满（参考智谱用户中心）
     <div className="w-full px-6 lg:px-10 py-8">
-      <h1 className="text-lg font-semibold text-foreground mb-6">{t("settingsTitle") || "账户设置"}</h1>
+      <h1 className="text-lg font-semibold text-foreground mb-6">{t("settingsTitle") || "账号中心"}</h1>
 
       {/* 身份选择引导横幅 */}
       {isUncommitted && (
@@ -68,29 +106,37 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           </div>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-8">
-        {/* 左侧导航（移动端横向 Tab） */}
-        <nav className="flex md:flex-col gap-1 overflow-x-auto">
-          <p className="hidden md:block text-2xs text-muted-foreground px-3 mb-2">{t("settingsNavGroup") || "设置"}</p>
-          {NAV_ITEMS.map((item) => {
-            const active = pathname.startsWith(item.href);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors",
-                  active
-                    ? "bg-secondary-100 text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-secondary-50 hover:text-foreground",
-                )}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                {t(item.labelKey)}
-              </Link>
-            );
-          })}
+      <div className="grid grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)] gap-8">
+        {/* 左侧分组导航（移动端横向 Tab） */}
+        <nav className="flex md:flex-col gap-4 overflow-x-auto md:overflow-visible">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.titleKey} className="flex shrink-0 flex-col gap-1 md:block">
+              <p className="hidden md:block text-2xs text-muted-foreground px-3 mb-1.5 mt-2 first:mt-0">
+                {t(group.titleKey)}
+              </p>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = item.standalone
+                  ? pathname === item.href.split("?")[0]
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors",
+                      active
+                        ? "bg-secondary-100 text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-secondary-50 hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {t(item.labelKey)}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         {/* 右侧内容区 */}
         <div className="min-w-0">{children}</div>
@@ -98,4 +144,3 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     </div>
   );
 }
-

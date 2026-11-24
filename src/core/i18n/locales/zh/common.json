@@ -425,6 +425,21 @@
   "notifNoDetail": "详见核验记录",
   "notifListSeparator": "、",
   "notifBBuyerOpinion": "核验意见：{note}",
-  "billingCenterTitle": "费用中心"
+  "billingCenterTitle": "费用中心",
+  "settingsGroupAccount": "账号信息",
+  "settingsGroupSecurity": "账号安全",
+  "settingsGroupIdentity": "认证与主体",
+  "settingsGroupBusiness": "业务工具",
+  "settingsGroupBilling": "费用与发票",
+  "settingsGroupPreferences": "通知与偏好",
+  "settingsOverview": "账号概览",
+  "settingsSecurity": "安全设置",
+  "settingsInvoiceCenter": "发票管理",
+  "settingsNotifications": "通知设置",
+  "settingsTitle": "账号中心",
+  "settingsGoMembership": "去会员套餐",
+  "settingsContactBinding": "手机号与邮箱绑定",
+  "settingsContactBindingCta": "去账号安全设置",
+  "settingsMembershipMoved": "会员权益已迁移至「会员套餐」页，可查看/升级/续费"
 }
 

@@ -425,6 +425,21 @@
   "notifNoDetail": "ver registros",
   "notifListSeparator": ", ",
   "notifBBuyerOpinion": "Observação: {note}",
-  "billingCenterTitle": "Centro de cobrança"
+  "billingCenterTitle": "Centro de cobrança",
+  "settingsGroupAccount": "Conta",
+  "settingsGroupSecurity": "Segurança",
+  "settingsGroupIdentity": "Identidade e verificação",
+  "settingsGroupBusiness": "Ferramentas",
+  "settingsGroupBilling": "Faturamento",
+  "settingsGroupPreferences": "Notificações",
+  "settingsOverview": "Visão geral",
+  "settingsSecurity": "Segurança",
+  "settingsInvoiceCenter": "Faturas",
+  "settingsNotifications": "Notificações",
+  "settingsTitle": "Central da conta",
+  "settingsGoMembership": "Ver planos",
+  "settingsContactBinding": "Telefone e e-mail",
+  "settingsContactBindingCta": "Ir para segurança",
+  "settingsMembershipMoved": "Os benefícios foram movidos para a página de planos."
 }
 

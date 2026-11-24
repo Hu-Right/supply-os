@@ -425,6 +425,21 @@
   "notifNoDetail": "см. записи проверки",
   "notifListSeparator": ", ",
   "notifBBuyerOpinion": "Замечание проверки: {note}",
-  "billingCenterTitle": "Центр оплаты"
+  "billingCenterTitle": "Центр оплаты",
+  "settingsGroupAccount": "Аккаунт",
+  "settingsGroupSecurity": "Безопасность",
+  "settingsGroupIdentity": "Идентификация",
+  "settingsGroupBusiness": "Инструменты",
+  "settingsGroupBilling": "Счета и оплата",
+  "settingsGroupPreferences": "Уведомления",
+  "settingsOverview": "Обзор",
+  "settingsSecurity": "Безопасность",
+  "settingsInvoiceCenter": "Счета",
+  "settingsNotifications": "Уведомления",
+  "settingsTitle": "Центр аккаунта",
+  "settingsGoMembership": "К тарифам",
+  "settingsContactBinding": "Телефон и почта",
+  "settingsContactBindingCta": "Перейти к безопасности",
+  "settingsMembershipMoved": "Преимущества перенесены на страницу тарифов."
 }
 

@@ -425,6 +425,21 @@
   "notifNoDetail": "انظر سجلات التحقق",
   "notifListSeparator": "، ",
   "notifBBuyerOpinion": "ملاحظة التحقق: {note}",
-  "billingCenterTitle": "مركز الفواتير"
+  "billingCenterTitle": "مركز الفواتير",
+  "settingsGroupAccount": "الحساب",
+  "settingsGroupSecurity": "الأمان",
+  "settingsGroupIdentity": "الهوية والتحقق",
+  "settingsGroupBusiness": "الأدوات",
+  "settingsGroupBilling": "الفواتير",
+  "settingsGroupPreferences": "الإشعارات",
+  "settingsOverview": "نظرة عامة",
+  "settingsSecurity": "الأمان",
+  "settingsInvoiceCenter": "الفواتير",
+  "settingsNotifications": "الإشعارات",
+  "settingsTitle": "مركز الحساب",
+  "settingsGoMembership": "إلى الخطط",
+  "settingsContactBinding": "الهاتف والبريد",
+  "settingsContactBindingCta": "إلى الأمان",
+  "settingsMembershipMoved": "تم نقل المزايا إلى صفحة الخطط."
 }
 

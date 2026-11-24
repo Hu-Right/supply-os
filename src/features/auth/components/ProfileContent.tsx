@@ -19,10 +19,7 @@ import { useLocale } from "@/core/i18n";
 import { Button, Skeleton } from "@/shared/ui";
 import { useMembershipTier } from "@/shared/hooks/useMembershipTier";
 import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
-import { PhoneBinding } from "./PhoneBinding";
-import { EmailBinding } from "./EmailBinding";
 import { NicknameEditor } from "./NicknameEditor";
-import { AccountBenefitsCard } from "./AccountBenefitsCard";
 import { ClaimExpiryBanner } from "./ClaimExpiryBanner";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 import {
@@ -153,20 +150,25 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
         </div>
       </section>
 
-      {/* ── 安全设置（行卡） ── */}
+      {/* ── 账号资料（行卡） ── */}
       <section>
-        <SectionTitle>{t("settingsAccountSecurity") || "安全设置"}</SectionTitle>
+        <SectionTitle>{t("settingsAccountSecurity") || "账号资料"}</SectionTitle>
         <div className="bg-secondary-50 border border-border rounded-lg divide-y divide-border/70">
           <NicknameEditor />
-          <PhoneBinding />
-          <EmailBinding />
+          <Link href="/settings/security" className="flex items-center justify-between px-6 py-4 text-sm text-foreground hover:bg-secondary-50 rounded-b-lg">
+            <span>{t("settingsContactBinding")}</span>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">{t("settingsContactBindingCta")}<ArrowRight className="h-4 w-4" /></span>
+          </Link>
         </div>
       </section>
 
-      {/* ── 会员权益 ── */}
+      {/* ── 会员权益（移出设置页，回会员套餐页） ── */}
       <section>
         <SectionTitle>{t("settingsMembership") || "会员权益"}</SectionTitle>
-        <AccountBenefitsCard />
+        <Link href="/membership" className="flex items-center justify-between rounded-lg border border-border bg-secondary-50 px-6 py-4 text-sm text-foreground hover:bg-secondary-100">
+          <span>{t("settingsMembershipMoved")}</span>
+          <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-brand-600">{t("settingsGoMembership")}<ArrowRight className="h-4 w-4" /></span>
+        </Link>
       </section>
 
       {/* ── 我的记录 ── */}
@@ -181,15 +183,6 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
       <section>
         <SectionTitle>{t("settingsAccountActions") || "账号操作"}</SectionTitle>
         <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5 flex flex-wrap items-center justify-between gap-4">
-          <Link
-            href="/billing"
-            className="flex w-full items-center justify-between gap-3 border-b border-border pb-4 mb-4"
-          >
-            <span className="text-sm font-medium text-foreground">{t("billingCenterTitle")}</span>
-            <span className="flex items-center gap-1 text-xs text-slate-400">
-              <ArrowRight className="h-4 w-4" />
-            </span>
-          </Link>
           <Link
             href="/account-cancellation"
             className="flex w-full items-center justify-between gap-3 border-b border-border pb-4 mb-4"
@@ -218,3 +211,5 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
 }
 
 ProfileContent.displayName = "ProfileContent";
+
+

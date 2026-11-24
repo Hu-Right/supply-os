@@ -425,6 +425,21 @@
   "notifNoDetail": "see verification records",
   "notifListSeparator": ", ",
   "notifBBuyerOpinion": "Reviewer note: {note}",
-  "billingCenterTitle": "Billing Center"
+  "billingCenterTitle": "Billing Center",
+  "settingsGroupAccount": "Account",
+  "settingsGroupSecurity": "Security",
+  "settingsGroupIdentity": "Identity & Verification",
+  "settingsGroupBusiness": "Business Tools",
+  "settingsGroupBilling": "Billing & Invoices",
+  "settingsGroupPreferences": "Notifications & Preferences",
+  "settingsOverview": "Overview",
+  "settingsSecurity": "Security",
+  "settingsInvoiceCenter": "Invoices",
+  "settingsNotifications": "Notifications",
+  "settingsTitle": "Account Center",
+  "settingsGoMembership": "Go to plans",
+  "settingsContactBinding": "Phone & email binding",
+  "settingsContactBindingCta": "Manage in security",
+  "settingsMembershipMoved": "Membership benefits have moved to the Membership plans page."
 }
 

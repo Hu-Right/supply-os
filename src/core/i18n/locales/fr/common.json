@@ -425,6 +425,21 @@
   "notifNoDetail": "voir l'historique",
   "notifListSeparator": ", ",
   "notifBBuyerOpinion": "Observation : {note}",
-  "billingCenterTitle": "Centre de facturation"
+  "billingCenterTitle": "Centre de facturation",
+  "settingsGroupAccount": "Compte",
+  "settingsGroupSecurity": "Sécurité",
+  "settingsGroupIdentity": "Identité et vérification",
+  "settingsGroupBusiness": "Outils",
+  "settingsGroupBilling": "Facturation",
+  "settingsGroupPreferences": "Notifications",
+  "settingsOverview": "Aperçu",
+  "settingsSecurity": "Sécurité",
+  "settingsInvoiceCenter": "Factures",
+  "settingsNotifications": "Notifications",
+  "settingsTitle": "Centre de compte",
+  "settingsGoMembership": "Voir les forfaits",
+  "settingsContactBinding": "Téléphone et e-mail",
+  "settingsContactBindingCta": "Gérer la sécurité",
+  "settingsMembershipMoved": "Les avantages sont déplacés vers la page des forfaits."
 }
 
