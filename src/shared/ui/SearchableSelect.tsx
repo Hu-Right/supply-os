@@ -88,7 +88,7 @@ export function SearchableSelect({
         aria-haspopup="listbox"
         className={cn(
           "flex min-h-10 items-center gap-2 rounded-lg border border-secondary-200 bg-white px-3 shadow-xs transition-[border-color,box-shadow]",
-          "hover:border-secondary-300 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/15",
+          "hover:border-secondary-300 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/40",
           disabled && "cursor-not-allowed opacity-50",
         )}
         onClick={() => !disabled && handleFocus()}
@@ -113,7 +113,7 @@ export function SearchableSelect({
           placeholder={placeholder ?? t("selectUiPlaceholder")}
           disabled={disabled}
           aria-autocomplete="list"
-          className="min-w-0 flex-1 bg-transparent text-sm text-secondary-900 outline-none placeholder:text-secondary-400"
+          className="min-w-0 flex-1 bg-transparent text-sm text-secondary-900 no-focus-outline placeholder:text-secondary-400"
         />
         {selected && !open ? (
           <button

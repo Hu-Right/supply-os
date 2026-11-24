@@ -57,7 +57,7 @@ export function Combobox({
           disabled={disabled}
           className={cn(
             "flex h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-secondary-200 bg-white px-3.5 text-sm text-secondary-900 shadow-xs",
-            "transition-[border-color,box-shadow] hover:border-secondary-300 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/15",
+            "transition-[border-color,box-shadow] hover:border-secondary-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/15",
             "disabled:cursor-not-allowed disabled:bg-secondary-100 disabled:text-secondary-500 text-start",
           )}
         >

@@ -86,7 +86,7 @@ export function Modal({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           className={cn(
-            "modal-content z-50 rounded-2xl border border-secondary-200 bg-white p-4 shadow-2xl shadow-secondary-950/20 focus:outline-none md:p-6",
+            "modal-content z-50 rounded-2xl border border-secondary-200 bg-white p-4 shadow-2xl shadow-secondary-950/20 md:p-6",
             className,
           )}
           style={{ "--modal-drag": `${dragOffset}px` } as CSSProperties}
@@ -98,7 +98,7 @@ export function Modal({
               type="button"
               onClick={onClose}
               disabled={closeDisabled}
-              className="absolute end-4 top-4 z-20 rounded-full bg-white/90 p-1.5 text-secondary-500 shadow-sm transition-colors hover:bg-secondary-100 hover:text-secondary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50"
+              className="absolute end-4 top-4 z-20 rounded-full bg-white/90 p-1.5 text-secondary-500 shadow-sm transition-colors hover:bg-secondary-100 hover:text-secondary-700 focus-visible:ring-2 focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50"
               aria-label={t("uiClose")}
             >
               <X className="h-5 w-5" />

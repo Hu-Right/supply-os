@@ -34,7 +34,7 @@ export function FieldHintTooltip({ content, label, className }: FieldHintTooltip
         aria-label={label}
         className={cn(
           "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-secondary-300 text-[11px] leading-none text-secondary-400",
-          "hover:border-teal-500 hover:text-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-500",
+          "hover:border-teal-500 hover:text-teal-600 focus:ring-1 focus:ring-teal-500",
           className,
         )}
       >

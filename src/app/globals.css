@@ -397,6 +397,31 @@ html {
   outline-offset: 2px;
 }
 
+/* ── 自带 focus ring 的控件不再叠加全局 outline（2026-11-23）──
+   Button（focus-visible:ring-*）和输入框（focus:ring-*）自己就画了焦点环，上面的全局
+   :focus-visible 会和它同时生效：首页 Hero 搜索框就是「2px ring + 2px 缝隙 + 2px outline」，
+   视觉上约 6px 的双层粗框；Button 的 ring、outline 偏移和宽度相同，表现为变体配色被全局
+   primary-600 盖掉。
+   不能靠组件里的 focus:outline-none 关掉：构建管线里 postcss-preset-env 为兼容旧内核展平
+   @layer，并按层位补 :not(#\#) 抬特异性（utilities 4 个、未分层的全局 CSS 5 个，2026-11-23
+   用同一管线实测），所以 .focus\:outline-none 永远压不过这条全局规则。
+   这里用同一层（未分层）+ 多一个属性选择器权重的规则显式放行；没有自带 ring 的控件仍走全局
+   兜底。新增带 focus:ring-* / focus-visible:ring-* 的控件无需再写任何 opt-out。 */
+:focus-visible[class*="focus:ring-"],
+:focus-visible[class*="focus-visible:ring-"] {
+  outline: none;
+}
+
+/* ── 焦点由外层容器表达时，内部控件免画 outline（2026-11-23）──
+   SearchableSelect、采购高级搜索的关键词 chip 框这类复合控件：外层 div 用 focus-within:ring-*
+   表示「整块被聚焦」，里面的 input 只负责输入，不该再画一条自己的 outline（否则框里套框）。
+   同样不能用 Tailwind 的 outline-none：utilities 4 层特异性压不过未分层的全局 :focus-visible。
+   这类 input 挂 no-focus-outline，焦点提示交给外层 ring；容器没有 ring 的嵌套输入框不要用，
+   否则会失去唯一的键盘焦点指示。 */
+.no-focus-outline:focus-visible {
+  outline: none;
+}
+
 ::selection {
   background: var(--color-primary-100);
   color: var(--color-primary-900);

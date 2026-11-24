@@ -59,7 +59,7 @@ export function CountryFilter({
           dir="auto"
           aria-haspopup="listbox"
           aria-expanded={showDropdown}
-          className="w-full ps-9 pe-8 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+          className="w-full ps-9 pe-8 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500 transition-colors"
         />
         {(value || inputValue) && (
           <button

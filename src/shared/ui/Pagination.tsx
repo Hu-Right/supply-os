@@ -76,7 +76,7 @@ export function Pagination({
         onChange={(e) => setJumpInput(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") handleJump(); }}
         placeholder={`${page}`}
-        className="w-20 px-3 py-2.5 rounded-xl border border-secondary-300 bg-white text-sm text-center font-bold text-secondary-700 shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all min-h-[40px]"
+        className="w-20 px-3 py-2.5 rounded-xl border border-secondary-300 bg-white text-sm text-center font-bold text-secondary-700 shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all min-h-[40px]"
         aria-label={t("uiPaginationJumpTo")}
       />
 

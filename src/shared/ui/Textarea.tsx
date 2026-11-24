@@ -18,7 +18,7 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ error = false, className, ...props }, ref) => {
     const baseClasses =
-      "w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2.5 text-sm text-secondary-900 placeholder:text-secondary-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:bg-secondary-100 disabled:text-secondary-500";
+      "w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2.5 text-sm text-secondary-900 placeholder:text-secondary-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-secondary-100 disabled:text-secondary-500";
 
     const errorClasses = error ? "border-danger-500 focus:border-danger-500 focus:ring-danger-500/20" : "";
 
