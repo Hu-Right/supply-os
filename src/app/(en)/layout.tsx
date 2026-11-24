@@ -9,7 +9,7 @@ import type { Metadata, Viewport } from "next";
 import "../globals.css";
 import { SITE_URL, absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import Providers from "../providers";
-import { jsonLdScript } from "@/lib/services/seo/json-ld";
+import { jsonLdScript, organizationJsonLd } from "@/lib/services/seo/json-ld";
 
 const EN_TITLE = "Yunjing · International Procurement Platform";
 const EN_TITLE_TEMPLATE = "%s | Yunjing · International Procurement Platform";
@@ -69,17 +69,12 @@ export const viewport: Viewport = {
 };
 
 const jsonLd = {
-  organization: {
-    "@context": "https://schema.org",
-    "@type": "Organization",
+  organization: organizationJsonLd({
     name: "Yunjing International Procurement Platform",
     alternateName: "云境·国际采购平台",
-    url: SITE_URL,
-    logo: `${SITE_URL}/logo.png`,
     description:
       "Yunjing is a procurement intelligence platform for UN, World Bank and government tender notices, supplier discovery and bid management.",
-    areaServed: "Worldwide",
-  },
+  }),
   website: {
     "@context": "https://schema.org",
     "@type": "WebSite",

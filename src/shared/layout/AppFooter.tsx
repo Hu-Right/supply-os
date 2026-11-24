@@ -30,7 +30,6 @@ export interface AppFooterProps {
 const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME || "杭州云境智展科技有限公司";
 const COMPANY_CREDIT_CODE = process.env.NEXT_PUBLIC_COMPANY_CREDIT_CODE || "";
 const COMPANY_ADDRESS = process.env.NEXT_PUBLIC_COMPANY_ADDRESS || "";
-const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "";
 const SUPPORT_PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE || "";
 /** ICP 兜底：接口未返回/JS 未水合时也必须可见（合规 P0），可用 NEXT_PUBLIC_ICP 覆盖 */
 const ICP_FALLBACK = process.env.NEXT_PUBLIC_ICP || "浙ICP备2026027779号-3";
@@ -138,17 +137,9 @@ export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }:
           {/* 公司 */}
           <FooterColumn title={t("footerCompany") || "公司"}>
             <FooterLinkItem href="/about">{t("footerAbout") || "关于我们"}</FooterLinkItem>
+            <FooterLinkItem href="/faq">{t("footerFaq") || "常见问题"}</FooterLinkItem>
+            <FooterLinkItem href="/contact">{t("footerContactUs") || "联系我们"}</FooterLinkItem>
             <FooterLinkItem href="/complaint">{t("footerComplaint") || "投诉与争议"}</FooterLinkItem>
-            {SUPPORT_EMAIL && (
-              <li>
-                <a
-                  href={`mailto:${SUPPORT_EMAIL}`}
-                  className="text-xs text-slate-500 transition-colors hover:text-teal-700 hover:underline"
-                >
-                  {t("footerContactUs") || "联系我们"}
-                </a>
-              </li>
-            )}
           </FooterColumn>
         </div>
 

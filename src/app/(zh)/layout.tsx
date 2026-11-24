@@ -15,6 +15,7 @@ import "../globals.css";
 import { getLocaleDir } from "@/core/i18n/bundles";
 import { BROWSER_TITLE, BROWSER_TITLE_TEMPLATE } from "@/lib/i18n/metadata";
 import { SITE_URL, absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
+import { organizationJsonLd } from "@/lib/services/seo/json-ld";
 import Providers from "../providers";
 
 export const metadata: Metadata = {
@@ -83,18 +84,7 @@ const DEFAULT_DIR = getLocaleDir(DEFAULT_LOCALE);
 
 // JSON-LD 结构化数据（Organization + WebSite），搜索引擎爬虫可直接读取
 const jsonLd = {
-  organization: {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: "云境·国际采购平台",
-    alternateName: "Yunjing International Procurement Platform",
-    url: SITE_URL,
-    logo: `${SITE_URL}/logo.png`,
-    description: "云境·国际采购平台 — 联合国及全球政府采购公告搜索、供应商目录、CRM 客户管理、投标服务、学习培训一站式平台。", // i18n-allow: JSON-LD 结构化数据面向中文搜索来源，与 <html lang> 静态默认一致
-    foundingDate: "2026",
-    areaServed: "Worldwide",
-    serviceType: ["国际采购", "政府采购", "供应商管理", "CRM", "投标服务", "培训"],
-  },
+  organization: organizationJsonLd(),
   website: {
     "@context": "https://schema.org",
     "@type": "WebSite",

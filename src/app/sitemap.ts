@@ -54,6 +54,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE_URL}/refund-policy`, changeFrequency: "yearly", priority: 0.2 },
     { url: `${BASE_URL}/account-cancellation`, changeFrequency: "yearly", priority: 0.2 },
+    // 主体/知识层页面（GEO）：AI 判断「这是不是真公司、能不能联系、常见问题有没有答案」
+    { url: `${BASE_URL}/about`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE_URL}/contact`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE_URL}/faq`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${BASE_URL}/notice-source`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${BASE_URL}/complaint`, changeFrequency: "yearly", priority: 0.2 },
     // 英文站点（app/(en)/en）只保留首页与公告入口页（2026-11-18 移除动态公告列表后，英文详情页不再有列表内链）
     { url: `${BASE_URL}/en`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE_URL}/en/procurement`, changeFrequency: "daily", priority: 0.7 },
