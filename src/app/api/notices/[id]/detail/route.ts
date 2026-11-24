@@ -31,6 +31,12 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const ctx = getContext();
     const { accessGrantRepo } = ctx.notice;
 
+    // 2026-11-24 单波并行：把「权限判定」与「内容装配」拆成两组互不依赖的查询，
+    // 全部在进入条件分支前同时发出——高延迟链路上少等一个完整往返。
+    const extrasPromise = findNoticeOpportunityExtras(ctx.dbPool, noticeId);
+    const platformSnapPromise = loadPlatformAliasSnapshot(ctx.dbPool);
+    const translationPromise = canReadNoticeTranslation(ctx.benefitSystemRepo, auth.userId);
+
     // [2026-10-30 首屏往返压缩] 三件事互不依赖，并发发出：
     //   - 行业墙判定（canAccessNotice）
     //   - 单条解锁/套餐判定（resolveNoticeAccess）
@@ -83,13 +89,22 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         payload.externalLinks = view.externalLinks ?? [];
         payload.breakdownFileCount = view.breakdownFileCount ?? null;
       }
+      // 锁定分支用不到预取的三个 Promise：挂 catch 避免未处理 rejection（结果直接丢弃）
+      void extrasPromise.catch(() => {});
+      void platformSnapPromise.catch(() => {});
+      void translationPromise.catch(() => {});
       return NextResponse.json(payload);
     }
     if (!notice) routeError(404, EC_NOT_FOUND, "公告不存在");
 
     // 读取口径（2026-11-18 收口）：详情主内容与资格条件全部来自服务表；
     // 只有服务表/宽表都没有的商机产物（拆标概览取宽表，AI 产物取商机窄列）走 extras。
-    const extras = await findNoticeOpportunityExtras(ctx.dbPool, Number(notice.notice_pk));
+    // 2026-11-24 并行化：extras / 平台别名快照 / 译文权益互不依赖，一次 Promise.all 发完。
+    const [extras, platformSnap, canReadTranslation] = await Promise.all([
+      extrasPromise,
+      platformSnapPromise,
+      translationPromise,
+    ]);
     // [2026-10-30] 截止时区只留可计算的机器令牌（GMT±HH:MM / UTC / IANA）：
     // 服务表 deadline_timezone 已是归一列（来自 notice_deadline）；商机表那列是抓取页面的原文注释
     // （如「菲律宾时间（PHT，UTC+8）；北京时间（UTC+8）」），不再参与下发。
@@ -97,7 +112,6 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     (notice as unknown as Record<string, unknown>).deadline_timezone = pickDeadlineZoneToken(
       (notice as unknown as Record<string, unknown>).deadline_timezone,
     ) || null;
-    const platformSnap = await loadPlatformAliasSnapshot(ctx.dbPool);
     // 来源平台只在解锁后的详情下发（2026-10-28 用户口径：列表/预览一律不下发）；
     // 未命中别名表则回落服务表 platform_name（build 侧域名兜底），两者皆空→ null，前端隐藏该信息位
     const platform = platformInfoWithFallback(
@@ -120,7 +134,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // 译文按权益下发（2026-11-24 口径 A+3）：没有 notice_translation 的账号拿到的是原文标题/正文，
     // 与列表同口径；有权益的账号保留 title_cn/description_cn，缺失时前端按需机翻补齐。
     const view = toNoticeView(notice)!;
-    if (!(await canReadNoticeTranslation(ctx.benefitSystemRepo, auth.userId))) {
+    if (!canReadTranslation) {
       maskTranslationFields(view as unknown as Record<string, unknown>);
     }
     return NextResponse.json({
