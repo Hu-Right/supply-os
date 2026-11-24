@@ -43,7 +43,10 @@ export const AI_SUMMARY_MIN_VIEW_LEVEL = 1;
 
 /**
  * 公告译文权益码（bool）：/translation、/content 的 description_cn、前端「查看译文」切换的档位门控来源。
- * 矩阵取值（2026-10-28 新矩阵）：全档=1 人人可见；"可配置"=后台改矩阵格子，不做独立开关。
+ * 矩阵取值（2026-11-24 查库确认）：**免费/个人档=0、企业基础及以上=1** —— 译文是付费权益，
+ * 没有权益的账号读到的必须是原文（读侧统一由 notice-public/translation-access 裁剪，
+ * 见该模块注释）。旧注释写的「全档=1 人人可见」是 2026-10-28 版口径，2026-10-30 按报价表
+ * 收紧后没同步，列表侧曾据此绕过门控（列表给中文标题、详情回原文），已随 A+3 口径修正。
  * 与 ai_summary / ai_match 同属「中文/AI 加工能力」。
  */
 export const NOTICE_TRANSLATION_BENEFIT = "notice_translation";

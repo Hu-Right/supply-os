@@ -20,6 +20,7 @@ import { getHotTopics } from "./notice-search";
 import { getHotSearches, hotSearchHref } from "./search-analytics";
 import { getHomeNoticeColumn } from "./notice-public/home-columns";
 import { toNoticeListView } from "./notice-public/view";
+import { maskTranslationFieldList } from "./notice-public/translation-access";
 import type { Supplier } from "../types/supplier";
 import type { NoticeDetailItem } from "../../types/procurement";
 import type { HotTopics } from "./notice-search/hot-topics";
@@ -117,9 +118,11 @@ export async function getHomeContentSnapshot(pool: Pool): Promise<HomeContentSna
   const hotSearchesResult = settled(hotSearchesR, "hotSearches", null);
 
   return {
-    // 服务表列在出口统一走 toNoticeListView（红线②，列名不得直出）
-    hotNotices: hotResult ? toNoticeListView(hotResult) : [],
-    rfqNotices: rfqResult ? toNoticeListView(rfqResult) : [],
+    // 服务表列在出口统一走 toNoticeListView（红线②，列名不得直出）。
+    // 首页快照是公开面（RSC 直出 + ISR 缓存，无法按账号个性化）：译文一律裁掉只给原文
+    // （2026-11-24 口径 A+3 的公开面例外，与 /api/notices/home-columns 同口径）。
+    hotNotices: hotResult ? maskTranslationFieldList(toNoticeListView(hotResult)) : [],
+    rfqNotices: rfqResult ? maskTranslationFieldList(toNoticeListView(rfqResult)) : [],
     suppliers: supplierResult ? supplierResult.items : [],
     hotTopics: hotTopicsResult,
     hotSearches: hotSearchesResult
