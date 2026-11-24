@@ -426,6 +426,8 @@
   "diagTitle": "供应商投标能力诊断",
   "diagDesc": "10 个维度、20 道题：先选目标市场，再评估能力；评分与市场合规意见由平台出具报告。企业资料不在此填写，可在设置页维护。",
   "diagSubmittedHint": "已提交。报告出具后可在「我的诊断」查看，或联系顾问获取 PDF。",
+  "diagNextStepsHint": "完整清单（含证据材料与截止日）在诊断报告里，可打印逐条销项。",
+  "diagNextStepsTitle": "下一步（按办理周期排序）",
   "diagGateTitle": "登录后开始诊断",
   "diagGateDesc": "诊断结果与报告会保存到您的账号，之后可回来修改重填，因此需要先登录。",
   "diagGateCta": "去登录",

@@ -426,6 +426,8 @@
   "diagTitle": "Diagnóstico de capacidade de licitação",
   "diagDesc": "10 dimensões e 20 perguntas: escolha primeiro os mercados-alvo e depois avalie capacidades. A pontuação e a análise de conformidade são entregues no relatório. O perfil da empresa é mantido em Configurações.",
   "diagSubmittedHint": "Enviado. Assim que o relatório estiver pronto, veja em “Meus diagnósticos” ou solicite o PDF ao consultor.",
+  "diagNextStepsHint": "A lista completa está no relatório e pode ser impressa.",
+  "diagNextStepsTitle": "Próximos passos (maior prazo primeiro)",
   "diagGateTitle": "Entre para começar o diagnóstico",
   "diagGateDesc": "O relatório é salvo na sua conta e pode ser revisado depois: entre primeiro.",
   "diagGateCta": "Entrar",

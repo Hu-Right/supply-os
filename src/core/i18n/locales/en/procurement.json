@@ -426,6 +426,8 @@
   "diagTitle": "Supplier bid-capability diagnosis",
   "diagDesc": "10 dimensions, 20 questions: choose your target markets first, then assess capabilities. Scores and market-compliance findings are delivered in the platform report. Company profile is maintained in Settings.",
   "diagSubmittedHint": "Submitted. Once the report is ready, view it under “My diagnoses”, or contact our advisor for the PDF.",
+  "diagNextStepsHint": "The full checklist (evidence and due dates) is in the report and can be printed.",
+  "diagNextStepsTitle": "Next steps (longest lead time first)",
   "diagGateTitle": "Sign in to start the diagnosis",
   "diagGateDesc": "Results and the report are saved to your account and can be revised later, so please sign in first.",
   "diagGateCta": "Sign in",

@@ -40,6 +40,11 @@ function ResultView({
 }) {
   const r = form.result;
   if (!r) return null;
+  // V3：门户不给分数，但给"下一步做什么"——法定门槛里还没具备的前 3 条，按周期长的优先
+  const nextSteps = (r.qualBreakdown?.requirements?.legal ?? [])
+    .filter((x) => (x.status ?? (x.held ? "met" : "missing")) !== "met")
+    .sort((a, b) => (b.leadTimeDays ?? 0) - (a.leadTimeDays ?? 0))
+    .slice(0, 3);
   return (
     <div className="space-y-4">
       {/* 门户不展示结果：评分、资质分级与缺口明细一律由后台 PDF 报告出具（2026-11-23 用户拍板） */}
@@ -48,6 +53,25 @@ function ResultView({
         <p className="mt-2 text-base font-black text-slate-900">{t("diagSuccessTitle")}</p>
         <p className="mt-1 text-sm text-slate-600">{t("diagSubmittedHint")}</p>
       </div>
+
+      {nextSteps.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-sm font-bold text-slate-800">{t("diagNextStepsTitle")}</p>
+          <ol className="mt-2 space-y-2">
+            {nextSteps.map((s, i) => (
+              <li key={s.standard} className="text-xs leading-relaxed text-slate-600">
+                <span className="mr-1 font-semibold text-slate-800">{i + 1}.</span>
+                <span className="font-semibold text-slate-800">{s.name}</span>
+                {s.leadTimeDays != null && (
+                  <span className="ml-1 text-slate-400">约 {s.leadTimeDays} 天</span>
+                )}
+                <span className="block text-slate-500">{s.remediation}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-2 text-2xs text-slate-400">{t("diagNextStepsHint")}</p>
+        </div>
+      )}
 
       {/* 完整诊断报告需联系客服获取：展示客服二维码，由客服人工发送报告文件 */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center">

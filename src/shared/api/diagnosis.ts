@@ -71,6 +71,28 @@ export interface DiagnosisQualBreakdown {
   missingCount: number;
   noRequirementMarkets: string[];
   unscoredReason: "no_target_markets" | "dict_unavailable" | null;
+  /** V3：要求条目两栏（存在时等级以 legal 缺口为准） */
+  requirements?: {
+    legal: DiagnosisQualRequirementHit[];
+    green: DiagnosisQualRequirementHit[];
+    legalMissingCount: number;
+  };
+  /** 供应商主营范围可读标签 */
+  scopeLabels?: string[];
+}
+
+/** V3：要求条目的命中结果（法定 / 评分 / 自愿） */
+export interface DiagnosisQualRequirementHit {
+  market: string;
+  kind: "legal" | "scoring" | "voluntary";
+  standard: string;
+  name: string;
+  held: boolean;
+  status?: "met" | "missing" | "unknown";
+  evidence: string;
+  remediation: string;
+  leadTimeDays: number | null;
+  source: string;
 }
 
 export interface MyDiagnosis {

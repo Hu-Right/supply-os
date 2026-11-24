@@ -426,6 +426,8 @@
   "diagTitle": "Diagnostic de capacité de soumission",
   "diagDesc": "10 dimensions, 20 questions : choisissez d'abord vos marchés cibles, puis évaluez vos capacités. Les notes et l'analyse de conformité figurent dans le rapport. Le profil d'entreprise se gère dans Paramètres.",
   "diagSubmittedHint": "Envoyé. Une fois le rapport prêt, consultez « Mes diagnostics » ou contactez notre conseiller pour le PDF.",
+  "diagNextStepsHint": "La liste complète figure dans le rapport et peut être imprimée.",
+  "diagNextStepsTitle": "Prochaines étapes (délais les plus longs d'abord)",
   "diagGateTitle": "Connectez-vous pour lancer le diagnostic",
   "diagGateDesc": "Les résultats et le rapport sont enregistrés sur votre compte et restent modifiables : veuillez d'abord vous connecter.",
   "diagGateCta": "Se connecter",
