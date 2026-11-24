@@ -11,6 +11,7 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { findPublicDetail } from "@/lib/services/notice-public/read";
 import { findNoticeOpportunityExtras } from "@/lib/services/notice-public/opportunity-extras";
 import { toNoticeView } from "@/lib/services/notice-public/view";
+import { canReadNoticeTranslation, maskTranslationFields } from "@/lib/services/notice-public/translation-access";
 import { loadPlatformAliasSnapshot } from "@/lib/services/platform/alias-store";
 import { platformInfoWithFallback } from "@/lib/services/platform/resolve";
 import { pickDeadlineZoneToken } from "@/shared/utils/notice-datetime/timezone";
@@ -116,10 +117,16 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // 资格条件：服务表已是构建器从商机投影的归一结果，不再回退商机表（避免双源不一致）
     const text = (v: unknown): string => (typeof v === "string" ? v : "");
     const reportAvailable = !!extras?.opportunityId;
+    // 译文按权益下发（2026-11-24 口径 A+3）：没有 notice_translation 的账号拿到的是原文标题/正文，
+    // 与列表同口径；有权益的账号保留 title_cn/description_cn，缺失时前端按需机翻补齐。
+    const view = toNoticeView(notice)!;
+    if (!(await canReadNoticeTranslation(ctx.benefitSystemRepo, auth.userId))) {
+      maskTranslationFields(view as unknown as Record<string, unknown>);
+    }
     return NextResponse.json({
       // 服务表行先过 view mapper（红线② 唯一收口点），不再把列名当对外契约直接透传；
       // 下面这些补充键直接写 camel——extras 是服务端内部形状，仍为列名。
-      ...toNoticeView(notice)!,
+      ...view,
       coreLocked: false,
       grantType: access.grant?.grant_type ?? "subscription",
       grantedAt: access.grant?.granted_at ?? null,

@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getHomeNoticeColumn, type HomeNoticeColumnKind } from "@/lib/services/notice-public/home-columns";
 import { toNoticeListView } from "@/lib/services/notice-public/view";
+import { maskTranslationFieldList } from "@/lib/services/notice-public/translation-access";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
@@ -30,5 +31,8 @@ export const GET = withRoute(async (req: NextRequest) => {
   }
   const limit = Number(sp.get("limit")) || 20;
   const rows = await getHomeNoticeColumn(getPool(), type as HomeNoticeColumnKind, limit);
-  return NextResponse.json({ items: toNoticeListView(rows) }, { headers: { "Cache-Control": "public, max-age=300" } });
+  // 公开面（`Cache-Control: public` 且按 URL 共享缓存，无法按账号个性化）：
+  // 一律只给原文，不参与译文权益判定（2026-11-24 口径 A+3 的公开面例外）。
+  const items = maskTranslationFieldList(toNoticeListView(rows));
+  return NextResponse.json({ items }, { headers: { "Cache-Control": "public, max-age=300" } });
 });

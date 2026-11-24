@@ -12,6 +12,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, clampLimit } from "@/shared/constants/api";
 import { toAccessRecordViews } from "@/lib/services/payment-history-view";
+import { canReadNoticeTranslation, maskTranslationFields } from "@/lib/services/notice-public/translation-access";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -29,5 +30,13 @@ export const GET = withRoute(async (req: NextRequest) => {
     paymentHistoryRepo.countAccessRecords(auth.userId),
     paymentHistoryRepo.listAccessRecords(auth.userId, limit, offset, lang ? { lang } : null),
   ]);
-  return NextResponse.json({ total, page, limit, list: toAccessRecordViews(records) });
+  const list = toAccessRecordViews(records);
+  // 解锁记录里的公告标题同样按译文权益下发（2026-11-24 口径 A+3）：
+  // 无 notice_translation 的账号只拿原文标题，与列表/详情一致。
+  if (!(await canReadNoticeTranslation(ctx.benefitSystemRepo, auth.userId))) {
+    for (const record of list) {
+      if (record.notice) maskTranslationFields(record.notice as unknown as Record<string, unknown>);
+    }
+  }
+  return NextResponse.json({ total, page, limit, list });
 });

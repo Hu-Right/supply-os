@@ -9,6 +9,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { searchUnified } from "@/lib/services/search-orchestrator";
 import { toNoticeListView } from "@/lib/services/notice-public/view";
+import { canReadNoticeTranslation, maskTranslationFieldList } from "@/lib/services/notice-public/translation-access";
 import type { RawSearchParams } from "@/lib/services/search-orchestrator/params";
 import { getPool } from "@/lib/db/pool";
 import { withRoute } from "@/lib/middleware/route-handler";
@@ -163,9 +164,15 @@ export const GET = withRoute(async (req: NextRequest) => {
   // 列举之后，新增对外键必须回到这里显式同意一次——这才是想要的摩擦方向。
   // 顺带撤掉 spread 漏出来的 pageSize：对外分页元数据按口径只发 page_size（与请求参数同名），
   // 同值双发等于自己造一条 camel↔snake 桥（已明令禁止）。
+  // 译文按权益下发（2026-11-24 口径 A+3）：没有 notice_translation 的账号只拿原文，
+  // 避免「列表给中文标题、详情回原文」的半翻译状态（列表与详情必须同口径）。
+  const translationReadable = await canReadNoticeTranslation(ctx.benefitSystemRepo, auth.userId);
+  const items = toNoticeListView(result.items);
+  if (!translationReadable) maskTranslationFieldList(items);
+
   return NextResponse.json({
     // 行→视图：列表项不再以 notice_public 列名对外（红线②）。
-    items: toNoticeListView(result.items),
+    items,
     // total/page/page_size 是必填的分页元数据，直发不做条件展开：
     // 前端读不到 page_size 时不报错，只静默退回默认页宽——这种退让不该由本层制造。
     total: result.total,
