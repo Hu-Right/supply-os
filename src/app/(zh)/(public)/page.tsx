@@ -7,7 +7,7 @@
  *              双搜索 Hero + 实时数字墙 + 三栏内容 + 会员升级横幅。
  *              Global public procurement & supply chain opportunity platform homepage.
  *              Dual-search Hero + real-time stats wall + 3-column content + membership banner.
- *              服务端壳按其它公开页同一口径 ISR（revalidate=3600），渲染期直出
+ *              服务端壳按其它公开页同一口径 ISR（revalidate=60），渲染期直出
  *              首页快照（lib/services/home-snapshot）：数字墙/地图初值进静态 HTML，
  *              客户端 hook 接管后续刷新；DB 不可达时降级为「不带初值」。
  */
@@ -19,7 +19,7 @@ import PageClient from "./page-client";
 import type { HomeStatsData } from "@/features/home";
 
 /** 与其它 (public) 页一致：公开页 1 小时 ISR，数字新鲜度由客户端 10 分钟轮询兼顾 */
-export const revalidate = 3600;
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "中国供应链出海 · 全球公共采购商机与投标服务",
