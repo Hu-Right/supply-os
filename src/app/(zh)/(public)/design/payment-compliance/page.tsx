@@ -3,7 +3,7 @@
  * 会员套餐页 · 支付与售后改造预览（真实骨架）
  *
  * 说明：产品里支付本就长在 /membership（会员套餐页）里，所以本预览 = 会员套餐页本身：
- *      真实 PlanCard（档位卡/权益矩阵）+ 真实 Modal/Button/SelectableCard 收银台 + 页内「我的订单与发票」。
+ *      真实 PlanCard（档位卡/权益矩阵）+ 真实 Modal/Button/SelectableCard 收银台 + 页内「我的订单」；发票统一去费用中心补开。
  *      预览入口之所以是 /design/…，只是因为本地没有数据库、/membership 的服务端取数跑不起来；
  *      确认后改动直接落到 MembershipPage / PlanCard / PaymentModal，不新增独立收银台页面。
  *
@@ -43,9 +43,7 @@ export default function MembershipPaymentPreviewPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [target, setTarget] = useState<PlanView | null>(null);
   const [agreed, setAgreed] = useState(false);
-  const [invoiceType, setInvoiceType] = useState("special");
   const [payMethod, setPayMethod] = useState<"alipay" | "wechat" | "transfer">("alipay");
-  const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
 
   const cards = useMemo(() => {
@@ -143,7 +141,7 @@ export default function MembershipPaymentPreviewPage() {
         {/* 页内补充：交易与合规信息（会员页新增，不再另开页面） */}
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           {[
-            { icon: <ReceiptText className="h-4 w-4" />, title: "发票与开票", lines: ["支付后在下方「我的订单与发票」申请开票", "支持电子普通发票 / 增值税专用发票，1 个工作日开具", "退款时未开具作废、已开具红冲"] },
+            { icon: <ReceiptText className="h-4 w-4" />, title: "发票与开票", lines: ["发票在「费用中心 → 发票管理」统一申请", "支持电子普通发票 / 增值税专用发票，1 个工作日开具", "退款时未开具作废、已开具红冲"] },
             { icon: <Landmark className="h-4 w-4" />, title: "企业采购", lines: ["支持对公转账与合同付款（联系客户经理）", "企业认证主体作为合同与发票主体", "到账后 1 个工作日内开通，订单可追溯"] },
             { icon: <CircleHelp className="h-4 w-4" />, title: "付费与退款", lines: ["7 日内且未下载资料可申请全额退款", "到期不自动续费，到期前站内信/短信提醒", "价格调整提前 7 日公示，已支付订单不受影响"] },
           ].map((c) => (
@@ -164,9 +162,9 @@ export default function MembershipPaymentPreviewPage() {
         {/* 页内「我的订单与发票」—— 售后入口不再散落在设置页 */}
         <section className="mt-8 rounded-2xl border border-secondary-200 bg-white">
           <div className="flex flex-wrap items-center gap-3 border-b border-secondary-100 px-5 py-3">
-            <h2 className="text-sm font-extrabold text-secondary-900">我的订单与发票</h2>
+            <h2 className="text-sm font-extrabold text-secondary-900">我的订单</h2>
             <Badge variant="soft-neutral" shape="tag">近 12 个月</Badge>
-            <span className="ml-auto text-xs text-secondary-400">订单、发票、退款进度都在这里查看</span>
+            <span className="ml-auto text-xs text-secondary-400">发票请到「费用中心 → 发票管理」申请；退款进度在这里查看</span>
           </div>
           <div className="divide-y divide-secondary-100">
             {[
@@ -180,7 +178,7 @@ export default function MembershipPaymentPreviewPage() {
                 <span className="text-secondary-400">{o.time}</span>
                 <Badge variant={o.status === "已支付" ? "soft-success" : o.status === "已退款" ? "soft-neutral" : "soft-warning"} shape="tag">{o.status}</Badge>
                 <span className="ml-auto flex flex-wrap gap-2">
-                  {o.status === "已支付" && <Button size="sm" variant="outline" onClick={() => setInvoiceOpen(true)}>申请开票</Button>}
+                  <Link href="/design/billing-preview" className="inline-flex items-center gap-1 rounded-lg border border-secondary-200 bg-white px-3 py-1.5 text-xs font-bold text-secondary-700 hover:border-primary-400 hover:text-primary-700">去费用中心开票</Link>
                   {o.refund && <Button size="sm" variant="outline" onClick={() => setRefundOpen(true)}>申请退款</Button>}
                   <Button size="sm" variant="ghost">订单详情</Button>
                 </span>
@@ -217,23 +215,9 @@ export default function MembershipPaymentPreviewPage() {
               ))}
             </div>
 
-            {/* 发票信息（付款前可确认/修改） */}
-            <div className="rounded-xl border border-secondary-200 px-3 py-2.5">
-              <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-secondary-800"><ReceiptText className="h-3.5 w-3.5 text-primary-600" />发票信息</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="text-xs">
-                  <span className="mb-1 block font-semibold text-secondary-500">发票类型</span>
-                  <Select value={invoiceType} onChange={(e) => setInvoiceType(e.target.value)}>
-                    <option value="special">增值税专用发票</option>
-                    <option value="normal">电子普通发票</option>
-                  </Select>
-                </label>
-                <label className="text-xs">
-                  <span className="mb-1 block font-semibold text-secondary-500">抬头 / 税号</span>
-                  <Input readOnly value="杭州某某进出口有限公司" />
-                </label>
-              </div>
-              <p className="mt-1.5 text-[11px] text-secondary-400">抬头与税号取自企业认证信息，可在费用信息中修改；开票在支付完成后提交。</p>
+            <div className="rounded-xl border border-secondary-200 px-3 py-2.5 text-xs leading-relaxed text-secondary-500">
+              <span className="flex items-center gap-1.5 font-bold text-secondary-800"><ReceiptText className="h-3.5 w-3.5 text-primary-600" />发票</span>
+              本单支付环节不采集发票信息。支付成功后可在「费用中心 → 发票管理」按实际支付金额申请开票（电子普票 / 增值税专票，1 个工作日内开具）；退款时未开具作废、已开具红冲。
             </div>
 
             <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-3 text-xs leading-relaxed text-secondary-700">
@@ -308,7 +292,7 @@ export default function MembershipPaymentPreviewPage() {
             </div>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { icon: <ReceiptText className="h-4 w-4" />, label: "申请开票", onClick: () => { setPayOpen(false); setInvoiceOpen(true); } },
+                { icon: <ReceiptText className="h-4 w-4" />, label: "去费用中心开票", onClick: () => { setPayOpen(false); window.location.assign("/design/billing-preview"); } },
                 { icon: <FileText className="h-4 w-4" />, label: "查看订单", onClick: () => setPayOpen(false) },
                 { icon: <ChevronRight className="h-4 w-4" />, label: "去使用权益", onClick: () => setPayOpen(false) },
               ].map((a) => (
@@ -320,26 +304,6 @@ export default function MembershipPaymentPreviewPage() {
             <Button variant="primary" className="w-full" onClick={() => setPayOpen(false)}>完成</Button>
           </div>
         )}
-      </Modal>
-
-      {/* 开票弹窗（页内） */}
-      <Modal open={invoiceOpen} onClose={() => setInvoiceOpen(false)} title="申请开票" className="max-w-lg">
-        <div className="space-y-3">
-          <div className="rounded-xl bg-secondary-50 px-3 py-2 text-xs text-secondary-500">可开票金额 <b className="text-secondary-900">¥4,800.00</b>（按已支付订单金额开具）</div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">发票类型</span>
-              <Select><option>增值税专用发票</option><option>电子普通发票</option></Select>
-            </label>
-            <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">接收邮箱</span><Input defaultValue="finance@example.com" /></label>
-            <label className="text-xs sm:col-span-2"><span className="mb-1 block font-semibold text-secondary-600">发票抬头</span><Input defaultValue="杭州某某进出口有限公司" /></label>
-            <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">税号</span><Input defaultValue="91330110MAEQC7N58T" /></label>
-            <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">注册地址与电话</span><Input placeholder="专票必填" /></label>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="primary" className="flex-1" onClick={() => setInvoiceOpen(false)}>提交开票申请</Button>
-            <Button variant="outline" className="flex-1" onClick={() => setInvoiceOpen(false)}>取消</Button>
-          </div>
-        </div>
       </Modal>
 
       {/* 退款弹窗（页内） */}
@@ -364,3 +328,5 @@ export default function MembershipPaymentPreviewPage() {
     </div>
   );
 }
+
+
