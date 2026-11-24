@@ -176,7 +176,7 @@ export default function CompanyInfoSection({ value, onChange, showSchedule = fal
           onChange={(e) => handleChange("remark", e.target.value)}
           rows={2}
           placeholder={t("trainingFormRemarkPlaceholder")}
-          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
+          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500"
         />
       </label>
 

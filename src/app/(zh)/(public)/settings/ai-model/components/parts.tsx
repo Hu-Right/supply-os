@@ -15,7 +15,7 @@ import {
 } from "@/lib/services/ai-summary/config";
 
 export const FIELD_CLS =
-  "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-400 focus:outline-none";
+  "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-400";
 
 /** 模型选择器：预置项 + 自定义；非自定义时展示预置说明卡（Base URL/模型名/申请文档链接） */
 export const ModelSelector = memo(function ModelSelector({

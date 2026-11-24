@@ -78,7 +78,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               href={attachment.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block max-w-full max-h-60 rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="block max-w-full max-h-60 rounded-lg overflow-hidden focus:ring-2 focus:ring-teal-500"
             >
               <img
                 src={attachment.url}

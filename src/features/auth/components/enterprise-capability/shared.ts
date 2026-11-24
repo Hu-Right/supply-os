@@ -63,7 +63,7 @@ export const CERT_CATEGORY_LABEL_KEYS: Record<string, string> = {
 export const CERT_CATEGORY_ORDER = ["management", "industry", "market_access", "product_safety", "esg"] as const;
 
 export const inputCls =
-  "w-full rounded-md border border-border bg-white px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-brand-500";
+  "w-full rounded-md border border-border bg-white px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-brand-500";
 
 export type CapTranslateFn = (key: string, params?: Record<string, string | number>) => string;
 

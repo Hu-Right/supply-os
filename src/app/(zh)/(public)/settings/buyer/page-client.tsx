@@ -197,7 +197,7 @@ export default function PageClient() {
     }
   };
 
-  const inputCls = "mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none";
+  const inputCls = "mt-1 w-full rounded-lg border border-secondary-300 px-3 py-2 text-sm focus:border-teal-500";
   /** 字段说明：告诉用户"为什么需要"，而不是再加一条规则 */
   const labelCls = "text-sm font-semibold text-secondary-700 block";
   const f = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));

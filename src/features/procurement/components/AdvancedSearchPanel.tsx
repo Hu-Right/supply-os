@@ -387,7 +387,7 @@ export function AdvancedSearchPanel({
             onBlur={flushDraft}
             placeholder={t("procurement_kwChipPlaceholder")}
             aria-label={t("procurement_kwChipPlaceholder")}
-            className="flex-1 min-w-[9rem] bg-transparent py-1 text-sm outline-none placeholder:text-slate-400"
+            className="flex-1 min-w-[9rem] bg-transparent py-1 text-sm no-focus-outline placeholder:text-slate-400"
           />
           {/* 上限可见：达上限时转琥珀色提示已满，不额外占用高度 */}
           <span

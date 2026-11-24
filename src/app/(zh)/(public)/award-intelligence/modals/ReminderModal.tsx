@@ -28,16 +28,16 @@ export const ReminderModal = memo(function ReminderModal({ open, onClose }: { op
       <div className="space-y-3">
         <div>
           <label className="text-xs font-bold text-slate-700 mb-1 block">{t("awardUiReminderAgencies")}</label>
-          <input value={agencies} onChange={(e) => setAgencies(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder={t("awardUiReminderAgenciesPlaceholder")} />
+          <input value={agencies} onChange={(e) => setAgencies(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-teal-500" placeholder={t("awardUiReminderAgenciesPlaceholder")} />
         </div>
         <div>
           <label className="text-xs font-bold text-slate-700 mb-1 block">{t("awardUiReminderCategories")}</label>
-          <input value={categories} onChange={(e) => setCategories(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder={t("awardUiReminderCategoriesPlaceholder")} />
+          <input value={categories} onChange={(e) => setCategories(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-teal-500" placeholder={t("awardUiReminderCategoriesPlaceholder")} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-bold text-slate-700 mb-1 block">{t("awardUiReminderRegions")}</label>
-            <input value={regions} onChange={(e) => setRegions(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder={t("awardUiReminderRegionsPlaceholder")} />
+            <input value={regions} onChange={(e) => setRegions(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-teal-500" placeholder={t("awardUiReminderRegionsPlaceholder")} />
           </div>
           <div>
             <label className="text-xs font-bold text-slate-700 mb-1 block">{t("awardUiReminderFrequency")}</label>

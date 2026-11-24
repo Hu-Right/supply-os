@@ -152,7 +152,7 @@ export function ChatInput({ onSend, isThinking, mode, hidden }: ChatInputProps) 
           rows={1}
           className="flex-1 resize-none border border-slate-200 rounded-xl px-4 py-2.5 text-sm
             text-slate-700 placeholder:text-slate-400
-            focus:ring-2 focus:ring-teal-500 focus:border-teal-500 focus:outline-none
+            focus:ring-2 focus:ring-teal-500 focus:border-teal-500
             disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed
             transition-colors"
           style={{ maxHeight: "120px" }}

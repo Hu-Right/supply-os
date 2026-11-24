@@ -49,7 +49,7 @@ export const CnCaseSection = memo(function CnCaseSection({ note, onOpenDetail }:
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input type="text" value={cnSearch} onChange={(e) => { setCnSearch(e.target.value); setCnShowAll(false); }}
             placeholder={t("awardCnCaseSearchPlaceholder")}
-            className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+            className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 text-xs focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
         </div>
 
         {/* 案例卡片 */}

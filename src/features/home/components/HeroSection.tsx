@@ -83,7 +83,7 @@ export const HeroSection = memo(function HeroSection({
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder={t("homeSearchPlaceholder")}
-                className="w-full bg-white border border-e-0 border-slate-200 rounded-s-lg ps-9 pe-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full bg-white border border-e-0 border-slate-200 rounded-s-lg ps-9 pe-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
             <button
