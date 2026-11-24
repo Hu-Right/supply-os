@@ -38,7 +38,7 @@ export interface SupplierScorecardDimension {
  */
 export interface SupplierScorecard {
   totalScore: number;
-  grade: "A" | "B" | "C";
+  grade: "A" | "B" | "C" | "D";
   gradeLabel: string;
   evaluatedAt: string;
   dimensions: SupplierScorecardDimension[];
