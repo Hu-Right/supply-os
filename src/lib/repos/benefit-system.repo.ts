@@ -23,6 +23,30 @@ import { INTERNAL_MATRIX_BENEFITS } from "@/lib/services/benefit-matrix";
 import { memoizeRequest } from "@/lib/middleware/request-cache";
 
 /**
+ * 权益矩阵进程级缓存（2026-11-24 性能收口）
+ *
+ * 背景：详情/正文接口每次请求都会重复读 `plan_benefits`（253 行）与
+ * `benefit_catalog`（23 行）——本地隧道链路上每条 200–300ms，一次详情要读 3–4 次。
+ * 这两张表是运营配置数据，变更频率极低；按 5 分钟 TTL 缓存，写侧可调
+ * `invalidateBenefitMatrixCache()` 立即失效。
+ */
+const BENEFIT_CACHE_TTL_MS = 5 * 60 * 1000;
+
+interface TtlEntry<T> {
+  value: T;
+  expires: number;
+}
+
+const benefitDefCache = new Map<string, TtlEntry<BenefitDefRow | null>>();
+const cellsCache = new Map<string, TtlEntry<MatrixCellRow[]>>();
+
+/** 运营改了权益矩阵/权益定义后调用；不调也会在 5 分钟内自然过期 */
+export function invalidateBenefitMatrixCache(): void {
+  benefitDefCache.clear();
+  cellsCache.clear();
+}
+
+/**
  * 未订阅基线档位码：`free` 列是价格文档「普通用户」列的逐字录入，
  * 未订阅用户能享到什么，唯一事实源就是这一列（见 isEntitled）。
  */
@@ -172,7 +196,11 @@ export class BenefitSystemRepo {
    *              （行业墙 + 解锁判定 + 权益门控各一次），高延迟链路上每次都是一次全往返。 */
   async loadCells(planCodes?: string[]): Promise<MatrixCellRow[]> {
     const key = planCodes && planCodes.length > 0 ? [...planCodes].sort().join(",") : "*";
-    return memoizeRequest(`${this.memoTag}:cells:${key}`, () => this.queryCells(planCodes));
+    const hit = cellsCache.get(key);
+    if (hit && hit.expires > Date.now()) return hit.value;
+    const value = await this.queryCells(planCodes);
+    cellsCache.set(key, { value, expires: Date.now() + BENEFIT_CACHE_TTL_MS });
+    return value;
   }
 
   private async queryCells(planCodes?: string[]): Promise<MatrixCellRow[]> {
@@ -267,7 +295,11 @@ export class BenefitSystemRepo {
   }
 
   async getBenefit(benefitCode: string): Promise<BenefitDefRow | null> {
-    return memoizeRequest(`${this.memoTag}:def:${benefitCode}`, () => this.queryBenefit(benefitCode));
+    const hit = benefitDefCache.get(benefitCode);
+    if (hit && hit.expires > Date.now()) return hit.value;
+    const value = await this.queryBenefit(benefitCode);
+    benefitDefCache.set(benefitCode, { value, expires: Date.now() + BENEFIT_CACHE_TTL_MS });
+    return value;
   }
 
   private async queryBenefit(benefitCode: string): Promise<BenefitDefRow | null> {
