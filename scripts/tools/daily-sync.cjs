@@ -1124,6 +1124,28 @@ function runServiceNormalization(appliedIdsFile) {
   fs.rmSync(appliedIdsFile, { force: true });
 }
 
+/**
+ * 商机中文搬运（2026-11-24 接入）：商机表人工中文 → notice_translations → 回填服务表两列。
+ *
+ * 为什么单独一棒：商机的中文是运营人工写在 bid_opportunities（description_cn / 标题中文段），
+ * 不走翻译链路；而服务表的 title_cn 只从 notice_translations 读 —— 不搬这一趟，
+ * 商机行的中文标题就永远缺（接入前实测 27.9%）。流向单向：商机表只读，译文只写翻译表，
+ * 再回填 notice_public 的 title_cn/description_cn（原文列不碰）。
+ *
+ * 职责边界：这一棒**只搬数据，不做翻译**。机翻是独立任务
+ * （scripts/tools/opportunity-zh-translate.ts），翻译结果落翻译表后由本棒在下一轮搬进服务表。
+ *
+ * 必须在 runServiceNormalization 之前跑：归一化重建 title_cn 读的就是翻译表。
+ * 失败只告警，下轮重试；--no-zh-sync 可跳过。
+ */
+function runOpportunityZhSync() {
+  const repoRoot = path.join(__dirname, '..', '..');
+  const tsxCli = path.join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+  const script = path.join(repoRoot, 'scripts', 'tools', 'opportunity-zh-sync.ts');
+  log('  [商机中文] 商机表人工中文 → 翻译表 → 服务表两列');
+  spawnTrackedCli([tsxCli, script, '--apply'], 'opportunity-zh-sync');
+}
+
 /** 读补写 id 文件：JSONL（每行一个 id）为主，兼容 JSON 数组；文件缺失/损坏返回空数组并告警 */
 function readAppliedIdsFile(file) {
   try {
@@ -1236,6 +1258,17 @@ async function runSyncOnce() {
         } catch (err) {
           log(`  [源撤回] 中止: ${err.message}`);
         }
+      }
+    }
+
+    // ── 商机中文：商机表人工中文 → 翻译表 → 服务表两列（2026-11-24 接入）──
+    // 必须排在服务表归一化之前：归一化重建 title_cn 时读的就是 notice_translations，
+    // 先搬后建才能同一轮生效。--no-zh-sync 可跳过；机翻预算见 OPPORTUNITY_ZH_MT_LIMIT。
+    if (!DRY_RUN && !process.argv.includes('--no-zh-sync')) {
+      try {
+        runOpportunityZhSync();
+      } catch (err) {
+        log(`  [商机中文] 同步失败（下轮重试）: ${err.message}`);
       }
     }
 
