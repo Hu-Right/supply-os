@@ -80,6 +80,7 @@ import { migration as certificationProductScopesMigration } from "./migrations/0
 import { migration as marketRequirementMigration } from "./migrations/072-market-requirement";
 import { migration as supplierDiagnosisV3QualificationFactsMigration } from "./migrations/073-supplier-diagnosis-v3-qualification-facts";
 import { migration as supplierDiagnosisChecklistStateMigration } from "./migrations/074-supplier-diagnosis-checklist-state";
+import { migration as supplierEvidenceMigration } from "./migrations/075-supplier-evidence";
 import { migration as supplierDiagnosisGuideEventMigration } from "./migrations/064-supplier-diagnosis-guide-event";
 import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
 import { migration as dropBuyerParentMigration } from "./migrations/043-buyer-drop-parent";
@@ -164,6 +165,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   marketRequirementMigration,
   supplierDiagnosisV3QualificationFactsMigration,
   supplierDiagnosisChecklistStateMigration,
+  supplierEvidenceMigration,
 ];
 
 /**
