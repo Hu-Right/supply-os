@@ -32,10 +32,14 @@ import { MaterialsSection } from "../components/MaterialsSection";
 import TrainingPaymentModal from "../components/TrainingPaymentModal";
 import { WechatQRModal } from "@/shared/ui";
 
-export default function TrainingLandingPage() {
+export default function TrainingLandingPage({ initialData }: { initialData?: LandingDataResponse | null } = {}) {
   const { t } = useLocale();
-  const [data, setData] = useState<LandingDataResponse | null>(null);
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+  // 服务端直出初值：有初值时首帧就是完整页面（AI 爬虫/无 JS 用户可见课程与期次），
+  // 后台仍刷新一次拿最新余位；刷新失败保留初值，不把已渲染的页面降级成错误态。
+  const [data, setData] = useState<LandingDataResponse | null>(initialData ?? null);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
+    initialData ? "ready" : "loading",
+  );
 
   const {
     showPaymentModal, closePaymentModal,
@@ -47,7 +51,9 @@ export default function TrainingLandingPage() {
     let cancelled = false;
     fetchLandingData()
       .then((res) => { if (!cancelled) { setData(res); setLoadState("ready"); } })
-      .catch(() => { if (!cancelled) setLoadState("error"); });
+      .catch(() => {
+        if (!cancelled) setLoadState((prev) => (prev === "ready" ? "ready" : "error"));
+      });
     return () => { cancelled = true; };
   }, []);
 
