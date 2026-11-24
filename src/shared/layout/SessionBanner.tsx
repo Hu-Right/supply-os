@@ -46,7 +46,7 @@ export function SessionBanner() {
   return (
     <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-teal-50/20 via-white to-slate-50">
       <div>
-        <h2 className="text-xl md:text-2xl font-extrabold text-slate-800">{t(config.titleKey)}</h2>
+        <h1 className="text-xl md:text-2xl font-extrabold text-slate-800">{t(config.titleKey)}</h1>
         {config.descKey && (
           <p className="text-sm text-slate-500 mt-1 max-w-3xl">{t(config.descKey)}</p>
         )}

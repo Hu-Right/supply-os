@@ -54,14 +54,14 @@ export function ListingStatsBar({ stats, loading = false }: ListingStatsBarProps
     <section className="rounded-2xl border border-slate-200 bg-white px-4 sm:px-5 md:px-6 py-3.5 sm:py-6 shadow-xs">
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-base sm:text-xl md:text-2xl font-extrabold text-slate-900 flex items-center flex-wrap gap-2 sm:gap-3">
+          <h1 className="text-base sm:text-xl md:text-2xl font-extrabold text-slate-900 flex items-center flex-wrap gap-2 sm:gap-3">
             {t("procurement_poolTitleNew")}
             {!loading && stats.active > 0 && (
               <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-2xs sm:text-xs font-bold">
                 {animActive.toLocaleString()}+ {t("procurement_searchableBadge")}
               </span>
             )}
-          </h2>
+          </h1>
           <p className="hidden sm:block text-slate-500 text-sm mt-1.5">{t("procurement_poolDescNew")}</p>
           {/* 移动端（阶段2 首屏减法）：4 张统计卡收成一行摘要，保留信息量但只占 1 行高度 */}
           {loading ? (

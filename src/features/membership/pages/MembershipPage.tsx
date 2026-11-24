@@ -189,7 +189,7 @@ export default function MembershipPage({ initialComparison }: MembershipPageProp
           <section className="bg-gradient-to-b from-slate-50/80 to-white py-12 pb-16">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="text-center mb-8">
-                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">{t("membershipTitle")}</h2>
+                <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">{t("membershipTitle")}</h1>
                 <p className="text-base text-slate-600 max-w-xl mx-auto">{t("tabMembershipDesc")}</p>
               </div>
 
