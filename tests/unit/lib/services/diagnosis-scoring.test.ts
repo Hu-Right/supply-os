@@ -15,6 +15,7 @@ import {
   scoreDiagnosisField,
   DIAGNOSIS_FIELD_MAP,
   diagnosisProgress,
+  isDiagnosisFieldRequired,
 } from "@/shared/constants/diagnosis-dimensions";
 import { scoreDiagnosis, type DiagnosisAnswers, type SupplierProfileBits } from "@/lib/services/scoring/diagnosis-v2";
 
@@ -42,25 +43,27 @@ describe("diagnosis constants structural integrity", () => {
 
   it("completion progress only counts required single-choice answers", () => {
     // V3：表单不再问 bid_willingness，故必答单选从 15 降到 14（目标市场是多选、不属于必答）
-    const requiredFields = DIAGNOSIS_FORM_FIELDS.filter((f) => f.kind === "single");
-    expect(requiredFields.length).toBe(17);
-    expect(diagnosisProgress({})).toEqual({ answeredRequired: 0, totalRequired: 17, percent: 0 });
+    // V3：能力画像选答，必答单选只剩资格项（出口主体资质 + 6 项资格事实）
+    const requiredFields = DIAGNOSIS_FORM_FIELDS.filter((f) => isDiagnosisFieldRequired(f) && f.kind === "single");
+    expect(requiredFields.length).toBe(7);
+    expect(diagnosisProgress({})).toEqual({ answeredRequired: 0, totalRequired: 8, percent: 0 });
 
     const one = { [requiredFields[0].key]: requiredFields[0].options![0] };
-    expect(diagnosisProgress(one)).toEqual({ answeredRequired: 1, totalRequired: 17, percent: 6 });
+    expect(diagnosisProgress(one)).toEqual({ answeredRequired: 1, totalRequired: 8, percent: 13 });
 
-    // 多选/文本是选填：填了也不进入分子
+    // 能力画像（多选/文本）是选填：填了也不进入分子；目标市场是必答多选，填了要计入
     const optional = {
       procurement_frameworks: [DIAGNOSIS_FIELDS.find((f) => f.key === "procurement_frameworks")!.options![0]],
       service_countries: "中国, 德国",
-      target_markets: ["EU", "US"],
     };
     expect(diagnosisProgress(optional).answeredRequired).toBe(0);
+    expect(diagnosisProgress({ target_markets: ["EU"] }).answeredRequired).toBe(1);
 
-    const all = Object.fromEntries(
-      requiredFields.map((f) => [f.key, f.options![f.options!.length - 1]]),
-    );
-    expect(diagnosisProgress(all)).toEqual({ answeredRequired: 17, totalRequired: 17, percent: 100 });
+    const all = Object.fromEntries([
+      ...requiredFields.map((f) => [f.key, f.options![f.options!.length - 1]] as const),
+      ["target_markets", ["EU"]],
+    ]);
+    expect(diagnosisProgress(all)).toEqual({ answeredRequired: 8, totalRequired: 8, percent: 100 });
   });
 
   it("V3: target_markets 只出现在表单字段里，不参与 V2 评分", () => {
@@ -69,7 +72,7 @@ describe("diagnosis constants structural integrity", () => {
     // V2 评分字段清单不变（AI 画像契约 diagnosisColumnSelect 依赖它）
     expect(DIAGNOSIS_FIELDS.map((f) => f.key)).toContain("bid_willingness");
     expect(DIAGNOSIS_FIELDS.map((f) => f.key)).not.toContain("target_markets");
-    expect(DIAGNOSIS_QUAL_FIELDS).toHaveLength(1);
+    expect(DIAGNOSIS_QUAL_FIELDS).toHaveLength(7);
     expect(DIAGNOSIS_FIELD_MAP["target_markets"].dimensionNo).toBe(0);
   });
 

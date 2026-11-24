@@ -13,6 +13,7 @@ import {
   DIAGNOSIS_DIMENSIONS,
   DIAGNOSIS_FIELDS,
   DIAGNOSIS_QUAL_FIELDS,
+  isDiagnosisFieldRequired,
   type DiagnosisFieldDef,
 } from "@/shared/constants/diagnosis-dimensions";
 import type { DiagnosisAnswers } from "@/shared/api/diagnosis";
@@ -71,8 +72,7 @@ function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { fi
     <div id={`diag-field-${field.key}`}>
       <label className="mb-2 block text-sm font-bold text-slate-700" htmlFor={`diag-${field.key}`}>
         {t(field.labelKey)}
-        {field.kind === "single" && <span className="ml-0.5 text-rose-500">*</span>}
-        {field.kind !== "single" && field.required && <span className="ml-0.5 text-rose-500">*</span>}
+        {isDiagnosisFieldRequired(field) && <span className="ml-0.5 text-rose-500">*</span>}
       </label>
 
       {field.kind === "text" ? (
@@ -82,7 +82,7 @@ function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { fi
           value={String(value ?? "")}
           placeholder={t(field.labelKey + "Ph")}
           onChange={(e) => onSingle(field.key, e.target.value)}
-          className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/20"
+          className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
         />
       ) : (
         <OptionChips
@@ -105,7 +105,7 @@ export function DiagnosisFormFields(props: Props) {
       {/* 投标范围不算维度：不参与评分，也不编维度号——全表单只有一套编号（报告里的维度 1-10） */}
       <section className="rounded-xl border border-teal-200 bg-teal-50/40 p-4">
         <h3 className="mb-1 text-sm font-bold text-slate-800">
-          {t("diagSectionQualification")}
+          {t("diagSectionQualFacts")}
         </h3>
         <p className="text-xs leading-relaxed text-slate-500">{t("diagTargetMarketsHint")}</p>
         <div className="mt-4 space-y-5">
@@ -132,27 +132,31 @@ export function DiagnosisFormFields(props: Props) {
         </div>
       </section>
 
-      {DIAGNOSIS_DIMENSIONS.filter((d) => d.no !== 1 && d.fields.length > 0).map((dim) => (
-        <section key={dim.no} className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-4 text-sm font-bold text-slate-800">
-            <span className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
-              {dim.no}
-            </span>
-            {t(`diagDim${dim.no}`)}
-          </h3>
-          <div className="space-y-5">
-            {DIAGNOSIS_FIELDS.filter((f) => f.dimensionNo === dim.no && f.askInForm !== false).map((field) => (
-              <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
-            ))}
-          </div>
-        </section>
-      ))}
+      {/* V3：能力画像（D2–D10）为选答——不答也能提交，报告标「能力维度未评估」。
+          折叠起来是为了让"资质报告"这件事在 3 分钟内能完成；要能力分再展开。 */}
+      <details className="rounded-xl border border-slate-200 bg-white p-4">
+        <summary className="cursor-pointer text-sm font-bold text-slate-800">
+          {t("diagCapabilityOptional")}
+          <span className="ml-2 text-xs font-normal text-slate-500">{t("diagCapabilityHint")}</span>
+        </summary>
+        <div className="mt-4 space-y-6">
+          {DIAGNOSIS_DIMENSIONS.filter((d) => d.no !== 1 && d.fields.length > 0).map((dim) => (
+            <section key={dim.no} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+              <h3 className="mb-4 text-sm font-bold text-slate-800">
+                <span className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-2xs font-bold text-white">
+                  {dim.no}
+                </span>
+                {t(`diagDim${dim.no}`)}
+              </h3>
+              <div className="space-y-5">
+                {DIAGNOSIS_FIELDS.filter((f) => f.dimensionNo === dim.no && f.askInForm !== false).map((field) => (
+                  <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </details>
     </div>
   );
-}
-
-/** 供结果页复用：从常量取标签，避免前端重复维护一份维度名映射 */
-export function DimensionName({ no, t }: { no: number; t: T }) {
-  const dim = DIAGNOSIS_DIMENSIONS.find((d) => d.no === no);
-  return <>{dim ? t(`diagDim${dim.no}`) : ""}</>;
 }

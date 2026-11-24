@@ -27,7 +27,7 @@ describe("DiagnosisFormFields 版式", () => {
     const { container } = renderFields();
     const html = container.innerHTML;
 
-    const scopeAt = html.indexOf("diagSectionQualification");
+    const scopeAt = html.indexOf("diagSectionQualFacts");
     const dim1At = html.indexOf("diagDim1");
     const dim10At = html.indexOf("diagDim10");
 
@@ -46,5 +46,9 @@ describe("DiagnosisFormFields 版式", () => {
     expect(html).toContain("diagQCertDelivery");
     expect(html).not.toContain("diagQMandatoryDocs");
     expect(html).toContain("diagQExportEntity");
+    // V3：6 项资格事实必须在必答区出现
+    for (const k of ["diagQLocalPresence", "diagQSimilarProjects", "diagQAnnualRevenue", "diagQAuditReport"]) {
+      expect(html).toContain(k);
+    }
   });
 });

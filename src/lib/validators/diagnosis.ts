@@ -10,7 +10,7 @@
  *              失败原因用判别联合（reason 枚举）返回，不靠"中文提示串里有没有某个词"判错——
  *              那种写法会把合法答案误判成错误。
  */
-import { DIAGNOSIS_FORM_FIELDS, type DiagnosisFieldDef } from "@/shared/constants/diagnosis-dimensions";
+import { DIAGNOSIS_FORM_FIELDS, isDiagnosisFieldRequired, type DiagnosisFieldDef } from "@/shared/constants/diagnosis-dimensions";
 import type { DiagnosisAnswers } from "@/lib/services/scoring/diagnosis-v2";
 
 export const COMPANY_NAME_MAX = 255;
@@ -52,7 +52,8 @@ function validateField(field: DiagnosisFieldDef, raw: unknown): FieldResult {
     return { ok: true, value: v };
   }
 
-  if (!v) return { ok: false, reason: "missing" };
+  // V3：能力画像选答——不答即空串入库，报告标「未评估」；资格项仍强制
+  if (!v) return isDiagnosisFieldRequired(field) ? { ok: false, reason: "missing" } : { ok: true, value: "" };
   if (!field.options!.includes(v)) return { ok: false, reason: "invalid" };
   return { ok: true, value: v };
 }

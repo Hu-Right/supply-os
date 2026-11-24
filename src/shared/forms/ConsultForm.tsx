@@ -73,7 +73,7 @@ export function ConsultForm({ onClose }: ConsultFormProps) {
   });
 
   const inputCls =
-    "w-full px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500";
+    "w-full px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:ring-1 focus:ring-teal-500";
 
   return (
     <FormModal

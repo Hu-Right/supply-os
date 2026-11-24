@@ -116,14 +116,15 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(body.advancedDegraded).toBe(true);
   });
 
-  it("普通多词（无高级语法）：登录用户也不发权益查询，原样透传无标志", async () => {
+  it("普通多词（无高级语法）：不发高级语法权益查询，原样透传无标志", async () => {
     mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
 
     const res = await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar%20panel&page=1"));
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(mocks.isEntitled).not.toHaveBeenCalled();
+    // 2026-11-24 起出口多了一道译文权益判定（notice_translation），但高级语法那一枪仍然不发
+    expect(mocks.isEntitled).not.toHaveBeenCalledWith(expect.anything(), "advanced_keyword_search");
     expectUnifiedCalledOnceWithQ("solar panel");
     expect(body).not.toHaveProperty("advancedDegraded");
   });
@@ -263,7 +264,7 @@ describe("unified-search 响应信封（红线②：整块透出已收口）", (
     expect([...Object.keys(body)].sort()).toEqual(["items", "page", "page_size", "total"]);
   });
 
-  it("items 仍走行→视图：宽表列名在信封里已换成 camel 键（值原样）", async () => {
+  it("items 仍走行→视图：宽表列名在信封里已换成 camel 键（匿名按无译文权益裁掉 titleCn）", async () => {
     mocks.searchUnified.mockResolvedValue({
       items: [{ notice_pk: 12345, notice_id: "UN-12345", title_cn: "标题", country_code: "CN", deadline_ts: 1700000000 }],
       total: 1, page: 1, pageSize: 10, fallback: "none",
@@ -271,10 +272,26 @@ describe("unified-search 响应信封（红线②：整块透出已收口）", (
 
     const body = await (await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar"))).json();
 
+    // 匿名没有 notice_translation（矩阵 free=0）→ 只给原文，译文列不得出现在信封里
     expect([...Object.keys(body.items[0])].sort()).toEqual([
-      "countryCode", "deadlineTs", "noticeId", "noticePk", "titleCn",
+      "countryCode", "deadlineTs", "noticeId", "noticePk",
     ]);
     expect(body.items[0].noticePk).toBe(12345);
     expect(Object.keys(body.items[0]).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
+  });
+
+  it("有译文权益（企业档）：items 保留 title_cn 的中文标题", async () => {
+    mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
+    mocks.isEntitled.mockImplementation(async (_userId, code) => code === "notice_translation");
+    mocks.searchUnified.mockResolvedValue({
+      items: [{ notice_pk: 12345, notice_id: "UN-12345", title_cn: "标题", title: "Title", country_code: "CN" }],
+      total: 1, page: 1, pageSize: 10, fallback: "none",
+    });
+
+    const body = await (await GET(makeReq("http://localhost:3000/api/notices/unified-search?q=solar"))).json();
+
+    expect(body.items[0].titleCn).toBe("标题");
+    expect(body.items[0].title).toBe("Title");
+    expect(body.items[0]).not.toHaveProperty("title_cn");
   });
 });

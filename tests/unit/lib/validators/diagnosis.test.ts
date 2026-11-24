@@ -24,8 +24,14 @@ function validBody(overrides: Record<string, unknown> = {}) {
     if (TOP_LEVEL.has(k)) top[k] = v;
     else answers[k] = v;
   }
-  // 目标市场是 V3 必答项（不选就无法比对准入要求），不在 DIAGNOSIS_FIELDS 里，单独带上
+  // V3 必答：目标市场 + 6 项资格事实（都不在 DIAGNOSIS_FIELDS 里，单独带上）
   answers.target_markets = ["EU"];
+  answers.local_presence = "部分市场有代理";
+  answers.similar_projects_band = "1-2 份";
+  answers.largest_contract_band = "50-200 万美元";
+  answers.annual_revenue_band = "100-500 万美元";
+  answers.audit_report = "仅银行资信证明";
+  answers.local_service_terms = "视标而定";
   return { companyName: "浙江某某科技有限公司", ...top, answers };
 }
 
@@ -37,8 +43,18 @@ describe("parseDiagnosisPayload", () => {
   });
 
   it("rejects a missing required single-choice answer", () => {
-    const r = parseDiagnosisPayload(validBody({ technical_response: "" }));
-    expect(r).toMatchObject({ ok: false, fieldKey: "technical_response", reason: "missing" });
+    // V3：能力画像选答，这里用资格事实项验证"必答"仍然生效
+    const body = validBody();
+    body.answers.audit_report = "";
+    const r = parseDiagnosisPayload(body);
+    expect(r).toMatchObject({ ok: false, fieldKey: "audit_report", reason: "missing" });
+  });
+
+  it("allows an unanswered capability question (选答)", () => {
+    const capBody = validBody();
+    capBody.answers.technical_response = "";
+    const r = parseDiagnosisPayload(capBody);
+    expect(r.ok).toBe(true);
   });
 
   it("rejects an out-of-range option instead of silently scoring it", () => {

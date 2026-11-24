@@ -13,6 +13,7 @@ import {
   DIAGNOSIS_ALL_FIELDS,
   DIAGNOSIS_FORM_FIELDS,
   diagnosisProgress,
+  isDiagnosisFieldRequired,
 } from "@/shared/constants/diagnosis-dimensions";
 import { EC_FORBIDDEN, EC_DIAGNOSIS_ENTITY_NOT_FOUND } from "@/shared/constants/api";
 import {
@@ -153,9 +154,10 @@ export function useDiagnosisForm() {
     () =>
       DIAGNOSIS_FORM_FIELDS.filter((f) => {
         const value = form.answers[f.key];
+        // V3：能力画像选答，只有资格项（目标市场 / 出口资质 / 6 项资格事实）必答
+        if (!isDiagnosisFieldRequired(f)) return false;
         if (f.kind === "single") return !String(value ?? "").trim();
-        if (f.required) return !Array.isArray(value) || value.length === 0;
-        return false;
+        return !Array.isArray(value) || value.length === 0;
       }).map((f) => f.key),
     [form.answers],
   );

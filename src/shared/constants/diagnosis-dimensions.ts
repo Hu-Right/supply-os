@@ -47,6 +47,11 @@ export interface DiagnosisFieldDef {
    */
   askInForm?: boolean;
   /**
+   * V3：是否选答。资格必答项（dimensionNo=0 与 export_entity）恒必答；
+   * 能力画像（维度 2–10）全部选答——不答则 100 分能力等级标"未评估"，不阻塞提交。
+   */
+  optional?: boolean;
+  /**
    * 多选/文本题的必填标记。单选题天然必答（不走这个字段）；
    * 多选默认允许空选（语义是"一项都没有"），只有显式 `required: true` 才要求至少选一项
    * ——`target_markets` 就是这样：不选市场，报告无法比对准入要求。
@@ -312,7 +317,76 @@ export const DIAGNOSIS_QUAL_FIELDS: readonly DiagnosisFieldDef[] = [
     optionLabelKeys: QUAL_MARKET_SCOPES.map((m) => m.labelKey),
     required: true,
   },
+  // ── V3 资格事实（决定准入判断，全部必答；报告第四章直接引用）──
+  {
+    key: "local_presence", column: "local_presence", dimensionNo: 0, kind: "single",
+    labelKey: "diagQLocalPresence",
+    labelZh: "目标市场是否已有本地实体 / 代理 / 服务点？",
+    options: ["都没有", "部分市场有代理", "主要市场有代理 + 服务点", "多个市场有法人实体"],
+    scoreMap: [0, 0, 0, 0],
+    required: true,
+  },
+  {
+    key: "similar_projects_band", column: "similar_projects_band", dimensionNo: 0, kind: "single",
+    labelKey: "diagQSimilarProjects",
+    labelZh: "近三年类似项目（可举证合同）有几份？",
+    options: ["没有", "1-2 份", "3-5 份", "6 份以上"],
+    scoreMap: [0, 0, 0, 0],
+    required: true,
+  },
+  {
+    key: "largest_contract_band", column: "largest_contract_band", dimensionNo: 0, kind: "single",
+    labelKey: "diagQLargestContract",
+    labelZh: "已履行过的最大单份合同金额？",
+    options: ["50 万美元以下", "50-200 万美元", "200-1000 万美元", "1000 万美元以上"],
+    scoreMap: [0, 0, 0, 0],
+    required: true,
+  },
+  {
+    key: "annual_revenue_band", column: "annual_revenue_band", dimensionNo: 0, kind: "single",
+    labelKey: "diagQAnnualRevenue",
+    labelZh: "上一年度营业额？",
+    options: ["100 万美元以下", "100-500 万美元", "500-2000 万美元", "2000 万美元以上"],
+    scoreMap: [0, 0, 0, 0],
+    required: true,
+  },
+  {
+    key: "audit_report", column: "audit_report", dimensionNo: 0, kind: "single",
+    labelKey: "diagQAuditReport",
+    labelZh: "审计报告与银行资信情况？",
+    options: ["都没有", "仅银行资信证明", "近三年审计报告", "审计报告 + 银行资信"],
+    scoreMap: [0, 0, 0, 0],
+    required: true,
+  },
+  {
+    key: "local_service_terms", column: "local_service_terms", dimensionNo: 0, kind: "single",
+    labelKey: "diagQLocalServiceTerms",
+    labelZh: "能否接受本地服务与质保条款（现场响应 / 质保期）？",
+    options: ["不接受", "视标而定", "接受"],
+    scoreMap: [0, 0, 0],
+    required: true,
+  },
 ];
+
+/** V3：资格必答项（决定准入判断；其余能力维度均为选答） */
+export const DIAGNOSIS_QUALIFICATION_REQUIRED_KEYS: readonly string[] = [
+  "target_markets",
+  "export_entity",
+  "local_presence",
+  "similar_projects_band",
+  "largest_contract_band",
+  "annual_revenue_band",
+  "audit_report",
+  "local_service_terms",
+];
+
+/** 字段是否必答：资格项恒必答；能力项默认选答（显式 required 才必答） */
+export function isDiagnosisFieldRequired(field: DiagnosisFieldDef): boolean {
+  if (field.kind === "single") {
+    return field.dimensionNo === 0 || field.key === "export_entity" || field.required === true;
+  }
+  return field.required === true;
+}
 
 /** V2 + V3 全量字段（读回显、写库、校验都用这一份；顺序即写入顺序） */
 export const DIAGNOSIS_ALL_FIELDS: readonly DiagnosisFieldDef[] = [
@@ -352,11 +426,12 @@ export interface DiagnosisProgress {
 }
 
 export function diagnosisProgress(answers: Record<string, string | string[]>): DiagnosisProgress {
-  const required = DIAGNOSIS_FORM_FIELDS.filter((f) => f.kind === "single");
+  // V3：进度只统计必答项（资格 6 项 + 出口主体资质 + 目标市场），能力画像选答不计入分母
+  const required = DIAGNOSIS_FORM_FIELDS.filter((f) => isDiagnosisFieldRequired(f));
   let answeredRequired = 0;
   for (const field of required) {
     const value = answers[field.key];
-    if (typeof value === "string" && value.trim()) answeredRequired += 1;
+    if (Array.isArray(value) ? value.length > 0 : String(value ?? "").trim() !== "") answeredRequired += 1;
   }
   const totalRequired = required.length;
   return {
@@ -428,8 +503,8 @@ export function assertDiagnosisDimensionsIntact(): void {
   if (weightSum !== 100) throw new Error(`DIAGNOSIS weight sum ${weightSum} !== 100`);
   // 22 = V2 的 19（含已下线的 bid_willingness / mandatory_docs）+ 出口主体资质 + D4 两题
   if (DIAGNOSIS_FIELDS.length !== 22) throw new Error(`DIAGNOSIS_FIELDS count ${DIAGNOSIS_FIELDS.length} !== 22`);
-  if (DIAGNOSIS_QUAL_FIELDS.length !== 1) throw new Error(`DIAGNOSIS_QUAL_FIELDS count ${DIAGNOSIS_QUAL_FIELDS.length} !== 1`);
-  if (DIAGNOSIS_ALL_FIELDS.length !== 23) throw new Error(`DIAGNOSIS_ALL_FIELDS count ${DIAGNOSIS_ALL_FIELDS.length} !== 23`);
+  if (DIAGNOSIS_QUAL_FIELDS.length !== 7) throw new Error(`DIAGNOSIS_QUAL_FIELDS count ${DIAGNOSIS_QUAL_FIELDS.length} !== 1`);
+  if (DIAGNOSIS_ALL_FIELDS.length !== 29) throw new Error(`DIAGNOSIS_ALL_FIELDS count ${DIAGNOSIS_ALL_FIELDS.length} !== 23`);
 
   const claimed = new Set<string>();
   for (const dim of DIAGNOSIS_DIMENSIONS) {
@@ -480,5 +555,5 @@ export function assertDiagnosisDimensionsIntact(): void {
   const d4 = DIAGNOSIS_DIMENSIONS.find((d) => d.no === 4)!;
   if (d4.fields.join(",") !== "cert_ledger,cert_delivery") throw new Error(`V3: D4 fields must be the two management questions, got ${d4.fields.join(",")}`);
   const formSingles = DIAGNOSIS_FORM_FIELDS.filter((f) => f.kind === "single").length;
-  if (formSingles !== 17) throw new Error(`V3: form must ask 17 single-choice questions, got ${formSingles}`);
+  if (formSingles !== 23) throw new Error(`V3: form must ask 23 single-choice questions（资格 7 + 能力 16）, got ${formSingles}`);
 }
