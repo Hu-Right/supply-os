@@ -435,7 +435,7 @@ export interface PublicInputBatch {
   rows: RowDataPacket[];
   attachmentMap: Map<number, Array<Record<string, unknown>>>;
   oppMap: Map<string, {
-    title: string | null; cn: string | null; industry: string | null; beneficiary: string | null;
+    title: string | null; industry: string | null; beneficiary: string | null;
     sc: string | null; eh: string | null; th: string | null;
   }>;
   /** 商机侧两组水位映射（updated_at 取输入 max 的依据，保证商机侧选行收敛） */
@@ -514,7 +514,7 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
     ))[0] as RowDataPacket[]
     : [];
   const oppMap = new Map<string, {
-    title: string | null; cn: string | null; industry: string | null; beneficiary: string | null;
+    title: string | null; industry: string | null; beneficiary: string | null;
     sc: string | null; eh: string | null; th: string | null;
   }>();
   const oppWmById = new Map<number, number>();
@@ -527,7 +527,6 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
     if (key) oppWmByNotice.set(key, Math.max(oppWmByNotice.get(key) ?? 0, wm));
     const entry = {
       title: String(o.title ?? "").trim() || null,
-      cn: String(o.description_cn ?? "").trim() || null,
       // 商机表 industry 是运营/商机侧维护的 canonical 采购主题，比公告主表更可信（受影响 200+ 行）
       industry: normalizeIndustry(o.industry),
       beneficiary: String(o.beneficiary_countries ?? "").trim() || null,
@@ -543,7 +542,6 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
       if (!prev) oppMap.set(k, entry);
       else oppMap.set(k, {
         title: prev.title || entry.title,
-        cn: prev.cn || entry.cn,
         industry: prev.industry || entry.industry,
         beneficiary: prev.beneficiary || entry.beneficiary,
         sc: prev.sc || entry.sc,
@@ -669,11 +667,11 @@ export function buildPublicRow(
   const deadlineTs = dstate === "known" ? toEpoch(r.effective_ts ?? r.deadline_sec) : null;
   const publishedTs = toEpoch(r.published_date);
   const registration = normRegistration(r.registration_level);
-  // 中文正文取值链（2026-10-30 接入翻译旁表）：商机运营中文（最高优先）→
-  // 翻译旁表 description_tr（机翻存量，lang='zh'，构建 SELECT 已带出）→ NULL。
-  const contentZh = opp?.cn
-    ? cleanContentText(opp.cn)
-    : String(r.description_cn_tr ?? "").trim() || null;
+  // 中文正文唯一来源：翻译旁表 description_tr（lang='zh'，构建 SELECT 已带出）。
+  // 商机表的人工中文由 scripts/tools/opportunity-zh-sync.ts 搬进翻译表，
+  // 构建不再回头读商机表 —— 两处读同一份数据只会造出第二个来源（2026-11-24 口径：
+  // 翻译表是中文的唯一存放处，服务表的中文两列都从它来）。
+  const contentZh = String(r.description_cn_tr ?? "").trim() || null;
   // 受援国按服务表原文归一：统一成标准国家名，去重，避免自由文本直接透出。
   // refs 含国家+区域（"国家, 区域" 合法形态两段都映射，如「莫桑比克, 西南印度洋」）；
   // 仅区域命中 → 区域名（与国家码 ZZ 口径一致）；两者皆无 → 原文回退（真缺表，巡检待补）。

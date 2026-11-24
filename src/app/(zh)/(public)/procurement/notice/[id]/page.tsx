@@ -128,9 +128,12 @@ type PageProps = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id: raw } = await params;
   const id = parseNoticeId(raw);
-  if (!id) return {};
+  // 软 404 修复（2026-11-24）：存在性判断必须发生在 metadata 阶段。
+  // 页面正文是流式输出的，等 page 组件里 await 完再 notFound()，200 状态码
+  // 已经随 shell 发出去了，搜索引擎/AI 只能看到一个「存在但空」的 200 页。
+  if (!id) notFound();
   const row = await fetchNotice(id);
-  if (!row) return {};
+  if (!row) notFound();
 
   const url = absoluteUrl(`/procurement/notice/${id}`);
   const summary = buildSummary(row);
@@ -187,6 +190,17 @@ export default async function NoticeSeoPage({ params }: PageProps) {
   const deadline = formatDeadline(row);
   const url = absoluteUrl(`/procurement/notice/${id}`);
   const expired = isExpired(row);
+  const country = countryLabel(row);
+  const summary = buildSummary(row);
+  // 同国家相关公告：详情页是 4 万条公告的入口，必须给出「下一步」，不能只进不出。
+  const related = row.country_code
+    ? await getContext()
+        .notice.detailRepo.findRelatedByCountry(id, row.country_code, 6)
+        .catch((err) => {
+          console.error("[notice] 相关公告装载失败:", (err as Error).message);
+          return [];
+        })
+    : [];
 
   const jsonLd = [
     {
@@ -223,6 +237,19 @@ export default async function NoticeSeoPage({ params }: PageProps) {
           <li aria-hidden>/</li>
           <li><Link href="/procurement" className="hover:text-training-green">全球商机</Link></li>
           <li aria-hidden>/</li>
+          {country && (
+            <>
+              <li>
+                <Link
+                  href={`/procurement?country=${encodeURIComponent(country)}`}
+                  className="hover:text-training-green"
+                >
+                  {country}
+                </Link>
+              </li>
+              <li aria-hidden>/</li>
+            </>
+          )}
           <li className="max-w-[16rem] truncate text-slate-700" title={row.title}>公告 #{row.id}</li>
         </ol>
       </nav>
@@ -243,6 +270,21 @@ export default async function NoticeSeoPage({ params }: PageProps) {
         </div>
         <h1 dir="auto" className="text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{row.title}</h1>
       </header>
+
+      {/* 要点（AI 可直接摘录的结构化事实）：采购方 / 国家 / 类型 / 截止 / 预算 / 编号 */}
+      <section aria-labelledby="notice-key-points" className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <h2 id="notice-key-points" className="text-base font-bold text-slate-900">要点</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-700">{summary}</p>
+        <p className="mt-2 text-xs leading-relaxed text-slate-500">
+          {row.agency ? `采购方为 ${row.agency}` : "采购方未公开"}
+          {country ? `，位于 ${country}` : ""}
+          {noticeTypeCodeLabel(row.notice_type) ? `，公告类型为 ${noticeTypeCodeLabel(row.notice_type)}` : ""}
+          ，截止时间 ${deadline}
+          {row.estimated_value ? `，预算/金额 ${row.estimated_value}` : ""}
+          {row.reference ? `，公告编号 ${row.reference}` : ""}
+          ，来源编号 {row.notice_id}。完整描述、采购方联系方式与采购文件需登录后查看；公告原文以官方采购系统为准。
+        </p>
+      </section>
 
       {/* 公开元信息 */}
       <dl className="grid grid-cols-2 gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:grid-cols-3">
@@ -285,6 +327,39 @@ export default async function NoticeSeoPage({ params }: PageProps) {
           </Link>
         </div>
       </section>
+
+      {/* 相关公告：把单条公告接回同国别关系网，给 AI 与用户「下一步」 */}
+      {related.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-bold text-slate-900">同国家/地区的其他公告</h2>
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            {related.map((item) => {
+              const ts = Number(item.deadline_ts) || 0;
+              return (
+                <li key={String(item.id)} className="px-5 py-3">
+                  <Link
+                    href={`/procurement/notice/${item.id}`}
+                    className="block text-sm font-semibold leading-snug text-slate-800 hover:text-training-green"
+                  >
+                    {String(item.title)}
+                  </Link>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {ts > 0 ? `截止 ${formatNoticeCstDate(ts)}` : "长期有效"}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+          {country && (
+            <Link
+              href={`/procurement?country=${encodeURIComponent(country)}`}
+              className="inline-block text-sm font-semibold text-training-green hover:underline"
+            >
+              查看 {country} 全部公告 →
+            </Link>
+          )}
+        </section>
+      )}
     </article>
   );
 }

@@ -20,8 +20,6 @@
  */
 import "server-only";
 import type { Pool } from "mysql2/promise";
-import { fetchDetailsByIds } from "../search-orchestrator/detail-fetch";
-import { formatItems } from "../search-orchestrator/format";
 
 /** 首页三栏的两种公告列 */
 export type HomeNoticeColumnKind = "opportunity" | "rfq";
@@ -39,8 +37,12 @@ const COLUMN_WHERE: Record<HomeNoticeColumnKind, string> = {
 
 /**
  * 读取首页某一栏的公告原始行（默认 20 条）。
- * 返回 formatItems 输出（snake_case 行 + core_locked），由调用方出口统一走
- * toNoticeListView 转视图（红线②：mapper 只在端点/快照出口调用）。
+ *
+ * 2026-11-24 性能收口：首页卡片只消费「标题 / 采购方 / 国家 / 截止 / 预算 / 类型」，
+ * 不再走 fetchDetailsByIds 的宽查询（那条 SELECT 会带出 supplier_conditions、
+ * eligibility、technical_hurdles、attachments 等长文本/JSON，20 条实测 221 KB、
+ * p50 ~800ms）。这里改为只取卡片字段的窄查询，响应体降到约 10 KB。
+ * 返回 snake_case 行，由调用方出口统一走 toNoticeListView 转视图（红线②）。
  * @param kind opportunity=热门商机 / rfq=最新 RFQ 询价
  * @param limit 条数（1..20）
  */
@@ -60,6 +62,18 @@ export async function getHomeNoticeColumn(
   );
   const ids = (rows as Array<{ notice_pk: number }>).map((r) => Number(r.notice_pk)).filter((n) => Number.isFinite(n));
   if (ids.length === 0) return [];
-  const detailRows = await fetchDetailsByIds(pool, ids, "zh");
-  return formatItems(detailRows);
+
+  const placeholders = ids.map(() => "?").join(",");
+  const [cards] = await pool.query(
+    `SELECT p.notice_pk, p.notice_id, p.title, p.title_cn,
+            p.notice_type_code, p.country_code,
+            p.buyer_name, p.buyer_name_cn,
+            p.deadline_ts, p.deadline_type, p.deadline_timezone, p.timezone_source,
+            p.estimated_value, p.currency_code
+     FROM notice_public p
+     WHERE p.notice_pk IN (${placeholders})
+     ORDER BY FIELD(p.notice_pk, ${placeholders})`,
+    [...ids, ...ids],
+  );
+  return cards as Array<Record<string, unknown>>;
 }

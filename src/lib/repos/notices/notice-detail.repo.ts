@@ -125,6 +125,32 @@ export class NoticeDetailRepo {
   }
 
   /**
+   * 同国家相关公告（SEO 详情页内链）。
+   *
+   * @description 只读公开服务表，取该国未截止的最近公告；用于把 4 万条公告
+   *              连成「同国别」关系网，避免详情页成为只进不出的孤儿页。
+   *              截止时间未知（NULL/0）视为长期有效，排在有时限的公告之后。
+   */
+  async findRelatedByCountry(
+    noticePk: number,
+    countryCode: string,
+    limit = 6,
+  ): Promise<RowDataPacket[]> {
+    const safeLimit = Math.min(Math.max(Number(limit) || 6, 1), 12);
+    const [rows] = await this.pool.query(
+      `SELECT p.notice_pk AS id, p.title, p.deadline_ts
+       FROM notice_public p
+       WHERE p.country_code = ?
+         AND p.notice_pk <> ?
+         AND (p.deadline_ts IS NULL OR p.deadline_ts = 0 OR p.deadline_ts >= UNIX_TIMESTAMP(NOW()))
+       ORDER BY (p.deadline_ts IS NULL OR p.deadline_ts = 0) ASC, p.deadline_ts ASC
+       LIMIT ${safeLimit}`,
+      [countryCode, noticePk],
+    );
+    return rows as RowDataPacket[];
+  }
+
+  /**
    * 分享卡（OG 图）取数：只读 notice_public 的公开字段 + 摘要列。
    *
    * 与 SEO 页同一公开口径（不含联系人/附件/全文），正文只取前 4000 字符用于
