@@ -58,8 +58,8 @@ describe("parseDiagnosisPayload", () => {
   });
 
   it("rejects an out-of-range option instead of silently scoring it", () => {
-    const r = parseDiagnosisPayload(validBody({ ungm_status: "已注册十级" }));
-    expect(r).toMatchObject({ ok: false, fieldKey: "ungm_status", reason: "invalid" });
+    const r = parseDiagnosisPayload(validBody({ cost_pricing: "报价算到分" }));
+    expect(r).toMatchObject({ ok: false, fieldKey: "cost_pricing", reason: "invalid" });
   });
 
   it("allows an empty multi-select (means: cannot provide any of them)", () => {

@@ -71,16 +71,13 @@ export interface DiagnosisDimensionDef {
 // ── 10 个评估维度（权重合计 100，沿用官方就绪度评分表维度名） ──
 
 export const DIAGNOSIS_DIMENSIONS: readonly DiagnosisDimensionDef[] = [
-  { no: 1, name: "国际供应商档案就绪度", nameEn: "International vendor profile readiness", weight: 10, fields: ["export_entity"] },
-  { no: 2, name: "英文证据库可调用性", nameEn: "English evidence library usability", weight: 10, fields: ["english_evidence_level", "english_meeting_capability"] },
-  { no: 3, name: "标书拆解与投标决策能力", nameEn: "Tender decoding and bid-decision capability", weight: 10, fields: ["tender_experience", "procurement_frameworks"] },
-  { no: 4, name: "资质与文件管理能力", nameEn: "Qualification and document management", weight: 10, fields: ["cert_ledger", "cert_delivery"] },
-  { no: 5, name: "合规治理与风险升级机制", nameEn: "Compliance governance and escalation", weight: 10, fields: ["ungm_status", "compliance_governance"] },
-  { no: 6, name: "技术响应与方案证明能力", nameEn: "Technical response and evidence capability", weight: 15, fields: ["technical_response"] },
-  { no: 7, name: "完整成本与报价决策能力", nameEn: "Full-cost pricing and bid-decision capability", weight: 15, fields: ["cost_pricing", "incoterms_capability", "payment_terms"] },
-  { no: 8, name: "最终审核与提交控制能力", nameEn: "Final review and submission control", weight: 10, fields: ["submission_control"] },
-  { no: 9, name: "履约组织与服务保障能力", nameEn: "Delivery organization and service assurance", weight: 5, fields: ["deliver_to_site"] },
-  { no: 10, name: "投标团队、语言与CRM执行纪律", nameEn: "Bid team, language and CRM execution discipline", weight: 5, fields: ["team_discipline"] },
+  { no: 1, name: "技术响应与方案证明", nameEn: "Technical response & proof", weight: 20, fields: ["technical_response", "technical_differentiation"] },
+  { no: 2, name: "交付与履约组织", nameEn: "Delivery & execution organization", weight: 20, fields: ["delivery_model", "service_response", "project_control"] },
+  { no: 3, name: "报价与成本竞争力", nameEn: "Pricing & cost competitiveness", weight: 15, fields: ["cost_pricing"] },
+  { no: 4, name: "资质与合规流程", nameEn: "Qualification & compliance process", weight: 15, fields: ["cert_ledger", "cert_delivery", "compliance_governance"] },
+  { no: 5, name: "标书解读与提交控制", nameEn: "Tender reading & submission control", weight: 10, fields: ["procurement_frameworks", "submission_control"] },
+  { no: 6, name: "语言与沟通", nameEn: "Language & communication", weight: 10, fields: ["english_evidence_level", "english_meeting_capability"] },
+  { no: 7, name: "客户与市场经验", nameEn: "Customer & market experience", weight: 10, fields: ["tender_experience", "market_experience"] },
 ];
 
 // ── V2 的 19 题答案字段（14 单选 + 2 多选 + 2 文本 + 1 意向标记）──
@@ -90,22 +87,58 @@ export const DIAGNOSIS_DIMENSIONS: readonly DiagnosisDimensionDef[] = [
 export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
   // D1 主体资格（V3 新增；D1 的档案分仍由 supplier.data_quality_score 派生，本项与档案分取平均）
   {
-    key: "export_entity", column: "export_entity", dimensionNo: 1, kind: "single",
+    key: "export_entity", column: "export_entity", dimensionNo: 0, kind: "single",
     labelKey: "diagQExportEntity",
     labelZh: "是否具备出口主体资质（经营权 / 海关备案 / 外汇账户 / 退税）？",
     options: ["都没有", "有进出口经营权", "经营权 + 海关备案", "上述齐备且实际出口过"],
     scoreMap: [0, 2, 4, 5],
   },
+  // 能力画像 V2（2026-11-24）
+  {
+    key: "technical_differentiation", column: "technical_differentiation", dimensionNo: 1, kind: "single",
+    labelKey: "diagQTechDiff",
+    labelZh: "是否有可举证的差异化（专利 / 专有工艺 / 同类案例）？",
+    options: ["没有", "有专利或专有工艺", "有同类案例可举证", "专利 + 案例均可举证"],
+    scoreMap: [0, 2, 4, 5],
+  },
+  {
+    key: "delivery_model", column: "delivery_model", dimensionNo: 2, kind: "single",
+    labelKey: "diagQDeliveryModel",
+    labelZh: "主要交付模式？",
+    options: ["分包为主", "本地代理交付", "合资 / 联合体", "自营团队交付"],
+    scoreMap: [1, 2, 4, 5],
+  },
+  {
+    key: "service_response", column: "service_response", dimensionNo: 2, kind: "single",
+    labelKey: "diagQServiceResponse",
+    labelZh: "售后响应能力？",
+    options: ["无固定售后", "仅邮件支持", "承诺 SLA", "本地备件 + 现场到场"],
+    scoreMap: [0, 2, 4, 5],
+  },
+  {
+    key: "project_control", column: "project_control", dimensionNo: 2, kind: "single",
+    labelKey: "diagQProjectControl",
+    labelZh: "项目进度 / 质量 / 风险如何管控？",
+    options: ["无固定流程", "项目经理个人盯", "有流程与模板", "有系统化管控与复盘"],
+    scoreMap: [0, 2, 4, 5],
+  },
+  {
+    key: "market_experience", column: "market_experience", dimensionNo: 7, kind: "single",
+    labelKey: "diagQMarketExp",
+    labelZh: "在目标市场是否有同类客户 / 同类项目经验？",
+    options: ["没有", "有接触未成交", "有 1-2 个交付", "多个同类客户在服务"],
+    scoreMap: [0, 2, 4, 5],
+  },
   // D2 英文证据库
   {
-    key: "english_evidence_level", column: "english_evidence_level", dimensionNo: 2, kind: "single",
+    key: "english_evidence_level", column: "english_evidence_level", dimensionNo: 6, kind: "single",
     labelKey: "diagQEnglishEvidenceLevel",
     labelZh: "目前能即时提供的英文投标资料到什么程度？",
     options: ["无英文资料", "仅英文产品页与目录", "有英文检测报告或业绩证明", "上述齐全且有英文标书素材", "全套齐备且有可引用案例库"],
     scoreMap: [0, 1, 3, 4, 5],
   },
   {
-    key: "english_meeting_capability", column: "english_meeting_capability", dimensionNo: 2, kind: "single",
+    key: "english_meeting_capability", column: "english_meeting_capability", dimensionNo: 6, kind: "single",
     labelKey: "diagQEnglishMeetingCapability",
     labelZh: "能否用英文独立参加供应商答疑会 / 视频澄清会？",
     options: ["需全程翻译陪同", "仅书面往来", "可邮件与表单独立答疑", "可独立参与视频澄清会"],
@@ -113,7 +146,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
   },
   // D3 标书拆解与投标决策
   {
-    key: "tender_experience", column: "tender_experience", dimensionNo: 3, kind: "single",
+    key: "tender_experience", column: "tender_experience", dimensionNo: 7, kind: "single",
     labelKey: "diagQTenderExperience",
     labelZh: "近 24 个月参与国际公共采购投标的实际情况？",
     options: ["从未参与国际公采投标", "参与过但未通过资格预审", "通过资审但未入围", "入围但未中标", "有中标记录"],
@@ -128,7 +161,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     askInForm: false,
   },
   {
-    key: "procurement_frameworks", column: "procurement_frameworks", dimensionNo: 3, kind: "multi",
+    key: "procurement_frameworks", column: "procurement_frameworks", dimensionNo: 5, kind: "multi",
     labelKey: "diagQProcurementFrameworks",
     labelZh: "熟悉哪套采购文件体系？（可多选）",
     options: ["UNGM 联合国采购门户", "世界银行 GPF", "欧盟 TED", "联合国机构直接采购", "其他政府援建项目"],
@@ -167,9 +200,10 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     labelZh: "UNGM（联合国全球采购门户）注册状态？",
     options: ["未注册", "已注册基础级(Basic)", "已注册一级(Level 1)", "已注册二级(Level 2)"],
     scoreMap: [0, 2, 4, 5],
+    askInForm: false,
   },
   {
-    key: "compliance_governance", column: "compliance_governance", dimensionNo: 5, kind: "single",
+    key: "compliance_governance", column: "compliance_governance", dimensionNo: 4, kind: "single",
     labelKey: "diagQComplianceGovernance",
     labelZh: "合规制度覆盖了哪些内容（制裁筛查 / 反腐败 / 培训 / 尽调）？",
     options: ["无合规制度", "仅反腐败制度", "仅制裁与出口管制筛查", "两者都有并年度培训", "两者都有 + 培训 + 第三方尽调"],
@@ -177,7 +211,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
   },
   // D6 技术响应与方案证明
   {
-    key: "technical_response", column: "technical_response", dimensionNo: 6, kind: "single",
+    key: "technical_response", column: "technical_response", dimensionNo: 1, kind: "single",
     labelKey: "diagQTechnicalResponse",
     labelZh: "能否按标书逐条出技术响应表并附证明？",
     options: ["不能逐条应答", "仅销售口头应答", "有技术团队可逐条应答", "有专用响应模板与案例库", "有3个以上政府或国际组织已交付案例"],
@@ -185,7 +219,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
   },
   // D7 完整成本与报价决策
   {
-    key: "cost_pricing", column: "cost_pricing", dimensionNo: 7, kind: "single",
+    key: "cost_pricing", column: "cost_pricing", dimensionNo: 3, kind: "single",
     labelKey: "diagQCostPricing",
     labelZh: "报价时成本如何核算（是否含关税 / VAT）？",
     options: ["凭经验估算", "有内部成本表", "含汇率、物流与账期资金成本", "含汇率物流账期与关税 / VAT", "有专职报价岗并复核"],
@@ -197,6 +231,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     labelZh: "多贸易条款（FOB/CIF/DDP）报价能力？",
     options: ["只会FOB", "会FOB与CIF", "三种贸易条款都会", "三种都会且能报目的国清关与内陆运输"],
     scoreMap: [0, 2, 4, 5],
+    askInForm: false,
   },
   {
     key: "payment_terms", column: "payment_terms", dimensionNo: 7, kind: "single",
@@ -204,6 +239,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     labelZh: "是否接受 30 天以上国际账期？",
     options: ["不可以", "可以"],
     scoreMap: [1, 5],
+    askInForm: false,
   },
   {
     key: "export_scale", column: "export_scale", dimensionNo: 7, kind: "single",
@@ -215,7 +251,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
   },
   // D8 最终审核与提交控制
   {
-    key: "submission_control", column: "submission_control", dimensionNo: 8, kind: "single",
+    key: "submission_control", column: "submission_control", dimensionNo: 5, kind: "single",
     labelKey: "diagQSubmissionControl",
     labelZh: "标书提交前的复核流程？",
     options: ["无人复核", "编制人自审", "双人复核", "授权签字且用提交检查单"],
@@ -228,6 +264,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     labelZh: "能否交付至项目现场国？",
     options: ["不可", "经第三国", "可直接发货至项目国", "可发货且有本地代理"],
     scoreMap: [0, 2, 4, 5],
+    askInForm: false,
   },
   {
     key: "service_countries", column: "service_countries", dimensionNo: 9, kind: "text",
@@ -250,6 +287,7 @@ export const DIAGNOSIS_FIELDS: readonly DiagnosisFieldDef[] = [
     labelZh: "投标团队规模与留痕（投标台账 + CRM 客户跟进）？",
     options: ["无专人", "1 人且无台账", "1-2 人有投标台账", "3 人以上有投标台账且客户跟进在 CRM 留痕"],
     scoreMap: [0, 2, 4, 5],
+    askInForm: false,
   },
   // 意向标记：dimensionNo 0，不参与任何维度计分（spec A9）
   // V3（2026-11-23 用户拍板）：「投标意愿」题下线——提交即视为愿意，列保留 NOT NULL 并带
@@ -506,9 +544,9 @@ export function assertDiagnosisDimensionsIntact(): void {
   const weightSum = DIAGNOSIS_DIMENSIONS.reduce((s, d) => s + d.weight, 0);
   if (weightSum !== 100) throw new Error(`DIAGNOSIS weight sum ${weightSum} !== 100`);
   // 22 = V2 的 19（含已下线的 bid_willingness / mandatory_docs）+ 出口主体资质 + D4 两题
-  if (DIAGNOSIS_FIELDS.length !== 22) throw new Error(`DIAGNOSIS_FIELDS count ${DIAGNOSIS_FIELDS.length} !== 22`);
+  if (DIAGNOSIS_FIELDS.length !== 27) throw new Error(`DIAGNOSIS_FIELDS count ${DIAGNOSIS_FIELDS.length} !== 27`);
   if (DIAGNOSIS_QUAL_FIELDS.length !== 7) throw new Error(`DIAGNOSIS_QUAL_FIELDS count ${DIAGNOSIS_QUAL_FIELDS.length} !== 1`);
-  if (DIAGNOSIS_ALL_FIELDS.length !== 29) throw new Error(`DIAGNOSIS_ALL_FIELDS count ${DIAGNOSIS_ALL_FIELDS.length} !== 23`);
+  if (DIAGNOSIS_ALL_FIELDS.length !== 34) throw new Error(`DIAGNOSIS_ALL_FIELDS count ${DIAGNOSIS_ALL_FIELDS.length} !== 23`);
 
   const claimed = new Set<string>();
   for (const dim of DIAGNOSIS_DIMENSIONS) {
@@ -555,9 +593,9 @@ export function assertDiagnosisDimensionsIntact(): void {
   // V3-2（2026-11-23）：D4 换题后，mandatory_docs 与 bid_willingness 一样只留列不再提问
   if (DIAGNOSIS_FIELD_MAP["mandatory_docs"].askInForm !== false) throw new Error("V3: mandatory_docs must be hidden from the form");
   if (DIAGNOSIS_FORM_FIELDS.some((f) => f.key === "mandatory_docs")) throw new Error("V3: form still asks mandatory_docs");
-  if (DIAGNOSIS_FIELD_MAP["export_entity"].dimensionNo !== 1) throw new Error("V3: export_entity must belong to D1");
+  if (DIAGNOSIS_FIELD_MAP["export_entity"].dimensionNo !== 0) throw new Error("export_entity is a qualification fact");
   const d4 = DIAGNOSIS_DIMENSIONS.find((d) => d.no === 4)!;
-  if (d4.fields.join(",") !== "cert_ledger,cert_delivery") throw new Error(`V3: D4 fields must be the two management questions, got ${d4.fields.join(",")}`);
+  if (d4.fields.join(",") !== "cert_ledger,cert_delivery,compliance_governance") throw new Error(`V3: D4 fields must be the two management questions, got ${d4.fields.join(",")}`);
   const formSingles = DIAGNOSIS_FORM_FIELDS.filter((f) => f.kind === "single").length;
-  if (formSingles !== 21) throw new Error(`V3: form must ask 21 single-choice questions（资格 6 + 能力 15）, got ${formSingles}`);
+  if (formSingles !== 21) throw new Error(`能力画像 V2：表单单选 22 道, got ${formSingles}`);
 }

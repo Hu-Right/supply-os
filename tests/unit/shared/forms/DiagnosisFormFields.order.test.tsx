@@ -29,11 +29,11 @@ describe("DiagnosisFormFields 版式", () => {
 
     const scopeAt = html.indexOf("diagSectionQualFacts");
     const dim1At = html.indexOf("diagDim1");
-    const dim10At = html.indexOf("diagDim10");
+    const dim7At = html.indexOf("diagDim7");
 
     expect(scopeAt).toBeGreaterThanOrEqual(0);
     expect(dim1At).toBeGreaterThan(scopeAt);
-    expect(dim10At).toBeGreaterThan(scopeAt);
+    expect(dim7At).toBeGreaterThan(scopeAt);
     // 目标市场是范围区块里唯一的题，必须一起排在前面
     expect(html.indexOf("diagQTargetMarkets")).toBeLessThan(dim1At);
   });

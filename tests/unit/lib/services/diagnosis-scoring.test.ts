@@ -37,7 +37,7 @@ describe("diagnosis constants structural integrity", () => {
   it("passes the structural self-check and pins absolute totals", () => {
     expect(() => assertDiagnosisDimensionsIntact()).not.toThrow();
     // 22 = V2 的 19（含 2 个已下线但保留列的题）+ 出口主体资质 + D4 两题
-    expect(DIAGNOSIS_FIELDS.length).toBe(22);
+    expect(DIAGNOSIS_FIELDS.length).toBe(27);
     expect(DIAGNOSIS_DIMENSIONS.reduce((s, d) => s + d.weight, 0)).toBe(100);
   });
 
@@ -154,7 +154,7 @@ describe("scoreDiagnosis", () => {
   });
 
   it("rejects out-of-range option values instead of silently scoring them", () => {
-    expect(() => scoreDiagnosis({ answers: answersWith({ ungm_status: "已注册十级" }), supplier: FULL_PROFILE })).toThrow(
+    expect(() => scoreDiagnosis({ answers: answersWith({ cost_pricing: "报价算到分" }), supplier: FULL_PROFILE })).toThrow(
       /out of range/,
     );
   });

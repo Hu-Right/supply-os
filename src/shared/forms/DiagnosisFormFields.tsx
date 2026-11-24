@@ -126,7 +126,7 @@ export function DiagnosisFormFields(props: Props) {
         </h3>
         <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagDim1Hint")}</p>
         <div className="mt-4 space-y-5">
-          {DIAGNOSIS_FIELDS.filter((f) => f.dimensionNo === 1 && f.askInForm !== false).map((field) => (
+          {DIAGNOSIS_FIELDS.filter((f) => (f.dimensionNo === 1 || f.key === "export_entity") && f.askInForm !== false).map((field) => (
             <FieldBlock key={field.key} {...props} field={field} answers={answers} t={t} />
           ))}
         </div>
