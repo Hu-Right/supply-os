@@ -1,9 +1,12 @@
 /**
  * GET /api/suppliers/stats — 供应商统计（公开）
  *
- * 两个出口都显式列举七个计数键（命名红线②）：以前成功分支写的是 `json({ ...stats, registered })`，
- * 仓储改一条 COUNT 或加一个内部诊断字段就会直接变成对外契约；而降级分支早就硬编了六键，
- * 两路形状仅靠人肉眼对齐。现在键集合由 `tests/unit/app/api/supplier-catalog-view.test.ts` 钉住。
+ * 出口只列举实际有消费方的四个计数键（命名红线②）：
+ *   - total / searchable：首页数字墙（总供应商数、可检索数）
+ *   - verified / commodityMatched：供应商目录页统计带
+ * 2026-11-24 裁剪：withCertification / international / registered 全站无消费方，
+ * 已从 SQL 与响应中移除（少两次 SUM 扫描）；成功/降级两路键集合保持一致。
+ * 键集合由 tests/unit/app/api/supplier-catalog-view.test.ts 钉住。
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -12,18 +15,13 @@ import { withRoute } from "@/lib/middleware/route-handler";
 export const GET = withRoute(async () => {
   try {
     const ctx = getContext();
-    // 7 个计数来自同一条条件聚合（repo.getStats，含 registered），不再二次 COUNT
     const stats = await ctx.supplier.directoryRepo.getStats();
-    const registered = stats.registered;
 
     return NextResponse.json({
       total: stats.total,
       searchable: stats.searchable,
       verified: stats.verified,
-      withCertification: stats.withCertification,
-      international: stats.international,
       commodityMatched: stats.commodityMatched,
-      registered,
     });
   } catch (err) {
     console.error("[suppliers/stats GET]", err);
@@ -31,9 +29,6 @@ export const GET = withRoute(async () => {
       total: 0,
       searchable: 0,
       verified: 0,
-      withCertification: 0,
-      international: 0,
-      registered: 0,
       commodityMatched: 0,
     });
   }

@@ -744,13 +744,10 @@ export class SupplierDirectoryRepo {
     total: number;
     searchable: number;
     verified: number;
-    withCertification: number;
-    international: number;
     commodityMatched: number;
-    /** 已审通过总数（原 countApproved，随本查询一并返回，避免路由再发一次 COUNT） */
-    registered: number;
   }> {
-    // 6 个计数合并为 1 条条件聚合：每个 SUM(cond) 相当于原来的一个 COUNT(*)…WHERE cond。
+    // 四个计数合并为 1 条条件聚合（2026-11-24 裁剪：withCertification / international /
+    // registered 三个字段全站无消费方，随 SQL 一并删除，省掉两次 SUM 扫描）。
     // commodityMatched 是跨表 DISTINCT，写成**非相关**标量子查询（只求值一次），
     // 这样仍然只占一次往返；不能再 JOIN 进主查询——会按挂靠行数放大主表计数。
     // 注：SUM(bool) 在 MySQL 里是 DECIMAL，mysql2 返回字符串，必须 Number()。
@@ -759,11 +756,6 @@ export class SupplierDirectoryRepo {
          COUNT(*) AS total,
          SUM(s.info_review_status = 'reviewed') AS searchable,
          SUM(s.info_review_status = 'reviewed') AS verified,
-         SUM(s.info_review_status = 'reviewed'
-             AND s.certification IS NOT NULL AND s.certification <> '') AS withCertification,
-         SUM(s.info_review_status = 'reviewed'
-             AND s.country_code IS NOT NULL AND s.country_code <> ''
-             AND s.country_code <> 'CN') AS international,
          (SELECT COUNT(DISTINCT u.supplier_id)
             FROM supplier_backbone_interests u
             JOIN supplier s2 ON s2.id = u.supplier_id
@@ -780,10 +772,7 @@ export class SupplierDirectoryRepo {
       total: n(r.total),
       searchable: n(r.searchable),
       verified: n(r.verified),
-      withCertification: n(r.withCertification),
-      international: n(r.international),
       commodityMatched: n(r.commodityMatched),
-      registered: n(r.searchable),
     };
   }
 

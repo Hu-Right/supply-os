@@ -6,8 +6,9 @@
  *     `certificationViewOf`，静态面能认出已收视图 → 登记删除。
  *     这一条还顺手拆了前端的幻影字段：`CertificationRefItem` 里挂着 `title_zh`/`title_en`，
  *     而 `supplier_certifications` 表根本没这两列（端点只 SELECT id, name）。
- *   - /api/suppliers/stats 成功分支是 `json({ ...stats, registered })`。现改为显式列举六个计数键，
- *     与降级分支硬编的那六个对齐（以前两路形状只靠肉眼对齐）。
+ *   - /api/suppliers/stats 成功分支是 `json({ ...stats, registered })`。现改为显式列举
+ *     四个有消费方的计数键（2026-11-24 再裁掉 withCertification / international / registered），
+ *     与降级分支硬编的四个对齐（以前两路形状只靠肉眼对齐）。
  * 全程假仓储，不连库。
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
@@ -69,15 +70,12 @@ describe("GET /api/certifications", () => {
 });
 
 describe("GET /api/suppliers/stats", () => {
-  it("成功分支显式列举七个计数键；仓储返回值里的内部字段不随 spread 上网", async () => {
+  it("成功分支只列举四个有消费方的计数键；仓储返回值里的内部字段不随 spread 上网", async () => {
     mocks.getStats.mockResolvedValue({
       total: 102624,
       searchable: 100,
       verified: 60,
-      withCertification: 20,
-      international: 35,
       commodityMatched: 42,
-      registered: 11,
       // getStats 哪天加内部诊断字段（COUNT 别名、耗时）都不该变成对外契约
       total_raw: 100,
       queryMs: 7,
@@ -90,13 +88,10 @@ describe("GET /api/suppliers/stats", () => {
       total: 102624,
       searchable: 100,
       verified: 60,
-      withCertification: 20,
-      international: 35,
       commodityMatched: 42,
-      registered: 11,
     });
     expect(Object.keys(body).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
-    // 性能回归钉：registered 随 getStats 一并返回，路由不得再发第二条 COUNT
+    // 性能回归钉：统计只走 getStats 一条聚合，路由不得再发额外 COUNT
     expect(mocks.countApproved).not.toHaveBeenCalled();
   });
 
@@ -107,9 +102,9 @@ describe("GET /api/suppliers/stats", () => {
     const body = await run(statsGET, "/api/suppliers/stats");
 
     expect([...Object.keys(body)].sort()).toEqual([
-      "commodityMatched", "international", "registered", "searchable", "total", "verified", "withCertification",
+      "commodityMatched", "searchable", "total", "verified",
     ]);
-    expect(Object.values(body)).toEqual([0, 0, 0, 0, 0, 0, 0]);
+    expect(Object.values(body)).toEqual([0, 0, 0, 0]);
     err.mockRestore();
   });
 });

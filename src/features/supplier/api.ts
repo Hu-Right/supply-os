@@ -83,13 +83,11 @@ export async function fetchCertifications(): Promise<CertificationItem[]> {
   return api<CertificationItem[]>("/api/certifications");
 }
 
-/** 供应商统计数据 */
+/** 供应商统计数据（2026-11-24 裁剪：无消费方的 withCertification / international / registered 已移除） */
 export interface SupplierStats {
+  total: number;
   searchable: number;
   verified: number;
-  withCertification: number;
-  international: number;
-  registered: number;
   commodityMatched: number;
 }
 

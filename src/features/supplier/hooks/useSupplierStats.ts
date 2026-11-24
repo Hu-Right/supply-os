@@ -12,11 +12,9 @@ import { useState, useEffect, useRef } from "react";
 import { fetchSupplierStats, type SupplierStats } from "../api";
 
 const INITIAL_STATS: SupplierStats = {
+  total: 0,
   searchable: 0,
   verified: 0,
-  withCertification: 0,
-  international: 0,
-  registered: 0,
   commodityMatched: 0,
 };
 
