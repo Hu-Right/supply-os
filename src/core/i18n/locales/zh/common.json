@@ -79,7 +79,6 @@
   "uiPaginationJumpTo": "跳转至页",
   "uiMenuOpen": "打开菜单",
   "uiMenuClose": "关闭菜单",
-  "settingsTitle": "账户设置",
   "settingsIdentityChoice": "请选择您的身份",
   "onboardingBadge": "新用户",
   "onboardingEnterpriseTitle": "完善企业信息，畅享全部权益",
@@ -106,7 +105,7 @@
   "settingsProfileGoLogin": "立即登录",
   "settingsNavGroup": "设置",
   "settingsBasicInfo": "基本信息",
-  "settingsAccountSecurity": "账号与安全",
+  "settingsAccountSecurity": "账号资料",
   "settingsMembership": "会员权益",
   "settingsMyRecords": "我的记录",
   "authAccountType": "账户属性",
@@ -124,7 +123,7 @@
   "authEnterpriseWithdrawDone": "已撤回企业绑定，请点击「填写企业信息」为新企业提交认证",
   "authEnterpriseWithdrawFailed": "撤回失败，请稍后重试",
   "authEnterpriseCertifications": "认证资质",
-  "settingsEnterprise": "企业信息",
+  "settingsEnterprise": "供应商主体",
   "settingsSupplierPool": "供应商资源库",
   "settingsKeywordLibrary": "产品关键词库",
   "settingsKwCreateTitle": "新建词组",
@@ -428,7 +427,7 @@
   "billingCenterTitle": "费用中心",
   "settingsGroupAccount": "账号信息",
   "settingsGroupSecurity": "账号安全",
-  "settingsGroupIdentity": "认证与主体",
+  "settingsGroupIdentity": "身份与主体",
   "settingsGroupBusiness": "业务工具",
   "settingsGroupBilling": "费用与发票",
   "settingsGroupPreferences": "通知与偏好",
@@ -442,4 +441,3 @@
   "settingsContactBindingCta": "去账号安全设置",
   "settingsMembershipMoved": "会员权益已迁移至「会员套餐」页，可查看/升级/续费"
 }
-

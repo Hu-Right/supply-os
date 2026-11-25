@@ -19,9 +19,8 @@ import { getCountryDisplayName } from "@/shared/data/countryNames";
 import type { FavoriteRecord } from "../../api";
 import { recordTime, recordTitle, recordSubtitle, type RecordRow } from "./record-format";
 
-/** 概览态：订单蓝卡 + 收藏 teal 卡 */
+/** 概览态：订单入口（跳费用中心）+ 收藏 teal 卡 */
 export const OverviewCards = memo(function OverviewCards({
-  ordersTotal,
   favoritesTotal,
   onOpen,
 }: {
@@ -32,23 +31,16 @@ export const OverviewCards = memo(function OverviewCards({
   const { t } = useLocale();
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => onOpen("orders")}
-        className="text-start justify-start rounded-xl bg-white p-4 hover:border-blue-200 hover:bg-blue-50/40"
+      {/* 订单已收敛到费用中心（唯一订单/发票/续费入口），这里只保留跳转 */}
+      <a
+        href="/billing"
+        className="flex min-h-[64px] items-center justify-between gap-3 rounded-xl border border-blue-100 bg-white p-4 text-start hover:border-blue-200 hover:bg-blue-50/40"
       >
-        {/* 左标题+计数、右入口：flex 两端对齐，中间不再放描述行 */}
-        <div className="flex w-full items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <p className="text-sm font-extrabold text-slate-900 truncate">{t("myRecordsOrdersTitle")}</p>
-            <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">
-              {ordersTotal}
-            </span>
-          </div>
-          <span className="shrink-0 text-3xs font-bold text-blue-600">{t("myRecordsOrdersHint")} →</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="text-sm font-extrabold text-slate-900 truncate">{t("myRecordsOrdersTitle")}</p>
         </div>
-      </Button>
+        <span className="shrink-0 text-3xs font-bold text-blue-600">{t("billingCenterTitle")} →</span>
+      </a>
 
       <Button
         type="button"

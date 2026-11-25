@@ -77,14 +77,13 @@
   "uiPaginationJumpTo": "Ir a la página",
   "uiMenuOpen": "Abrir menú",
   "uiMenuClose": "Cerrar menú",
-  "settingsTitle": "Configuración de cuenta",
   "settingsProfile": "Perfil",
   "settingsAiModel": "Modelo IA",
   "settingsProfileNeedLogin": "Inicie sesión para ver y editar su perfil.",
   "settingsProfileGoLogin": "Iniciar sesión",
   "settingsNavGroup": "Configuración",
   "settingsBasicInfo": "Información básica",
-  "settingsAccountSecurity": "Cuenta y seguridad",
+  "settingsAccountSecurity": "Perfil de cuenta",
   "settingsMembership": "Membresía",
   "settingsMyRecords": "Mis registros",
   "authAccountType": "Tipo de cuenta",
@@ -102,7 +101,7 @@
   "authEnterpriseWithdrawDone": "Vínculo retirado. Usa «Rellenar datos de la empresa» para certificar una nueva.",
   "authEnterpriseWithdrawFailed": "No se pudo desvincular; inténtalo de nuevo más tarde",
   "authEnterpriseCertifications": "Certificaciones",
-  "settingsEnterprise": "Empresa",
+  "settingsEnterprise": "Entidad proveedora",
   "settingsSupplierPool": "Pool de proveedores",
   "settingsKeywordLibrary": "Biblioteca de palabras clave",
   "settingsKwCreateTitle": "Crear grupo de palabras clave",
@@ -428,7 +427,7 @@
   "billingCenterTitle": "Centro de facturación",
   "settingsGroupAccount": "Cuenta",
   "settingsGroupSecurity": "Seguridad",
-  "settingsGroupIdentity": "Identidad y verificación",
+  "settingsGroupIdentity": "Identidad y entidades",
   "settingsGroupBusiness": "Herramientas",
   "settingsGroupBilling": "Facturación",
   "settingsGroupPreferences": "Notificaciones",
@@ -442,4 +441,3 @@
   "settingsContactBindingCta": "Ir a seguridad",
   "settingsMembershipMoved": "Los beneficios se han movido a la página de planes."
 }
-

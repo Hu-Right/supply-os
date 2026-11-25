@@ -162,16 +162,7 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
         </div>
       </section>
 
-      {/* ── 会员权益（移出设置页，回会员套餐页） ── */}
-      <section>
-        <SectionTitle>{t("settingsMembership") || "会员权益"}</SectionTitle>
-        <Link href="/membership" className="flex items-center justify-between rounded-lg border border-border bg-secondary-50 px-6 py-4 text-sm text-foreground hover:bg-secondary-100">
-          <span>{t("settingsMembershipMoved")}</span>
-          <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-brand-600">{t("settingsGoMembership")}<ArrowRight className="h-4 w-4" /></span>
-        </Link>
-      </section>
-
-      {/* ── 我的记录 ── */}
+      {/* ── 我的记录（订单已收敛到费用中心，这里只保留收藏/解锁） ── */}
       <section>
         <SectionTitle>{t("settingsMyRecords") || "我的记录"}</SectionTitle>
         <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5">
@@ -183,15 +174,6 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
       <section>
         <SectionTitle>{t("settingsAccountActions") || "账号操作"}</SectionTitle>
         <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5 flex flex-wrap items-center justify-between gap-4">
-          <Link
-            href="/account-cancellation"
-            className="flex w-full items-center justify-between gap-3 border-b border-border pb-4 mb-4"
-          >
-            <span className="text-sm font-medium text-foreground">{t("footerAccountCancellation")}</span>
-            <span className="flex items-center gap-1 text-xs text-slate-400">
-              <ArrowRight className="h-4 w-4" />
-            </span>
-          </Link>
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">{t("authLogout")}</p>
           </div>

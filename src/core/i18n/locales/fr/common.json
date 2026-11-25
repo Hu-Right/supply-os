@@ -77,14 +77,13 @@
   "uiPaginationJumpTo": "Aller à la page",
   "uiMenuOpen": "Ouvrir le menu",
   "uiMenuClose": "Fermer le menu",
-  "settingsTitle": "Paramètres du compte",
   "settingsProfile": "Profil",
   "settingsAiModel": "Modèle IA",
   "settingsProfileNeedLogin": "Veuillez vous connecter pour voir et modifier votre profil.",
   "settingsProfileGoLogin": "Se connecter",
   "settingsNavGroup": "Paramètres",
   "settingsBasicInfo": "Informations de base",
-  "settingsAccountSecurity": "Compte et sécurité",
+  "settingsAccountSecurity": "Profil du compte",
   "settingsMembership": "Abonnement",
   "settingsMyRecords": "Mes records",
   "authAccountType": "Type de compte",
@@ -102,7 +101,7 @@
   "authEnterpriseWithdrawDone": "Liaison supprimée. Cliquez sur « Renseigner les informations de l'entreprise » pour en certifier une nouvelle.",
   "authEnterpriseWithdrawFailed": "Échec de la déliaison, veuillez réessayer plus tard",
   "authEnterpriseCertifications": "Certifications",
-  "settingsEnterprise": "Entreprise",
+  "settingsEnterprise": "Entité fournisseur",
   "settingsSupplierPool": "Pool fournisseurs",
   "settingsKeywordLibrary": "Bibliothèque de mots-clés",
   "settingsKwCreateTitle": "Créer un groupe de mots-clés",
@@ -428,7 +427,7 @@
   "billingCenterTitle": "Centre de facturation",
   "settingsGroupAccount": "Compte",
   "settingsGroupSecurity": "Sécurité",
-  "settingsGroupIdentity": "Identité et vérification",
+  "settingsGroupIdentity": "Identité et entités",
   "settingsGroupBusiness": "Outils",
   "settingsGroupBilling": "Facturation",
   "settingsGroupPreferences": "Notifications",
@@ -442,4 +441,3 @@
   "settingsContactBindingCta": "Gérer la sécurité",
   "settingsMembershipMoved": "Les avantages sont déplacés vers la page des forfaits."
 }
-

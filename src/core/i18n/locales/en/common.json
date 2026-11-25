@@ -79,7 +79,6 @@
   "uiPaginationJumpTo": "Go to page",
   "uiMenuOpen": "Open menu",
   "uiMenuClose": "Close menu",
-  "settingsTitle": "Account Settings",
   "settingsIdentityChoice": "Choose Your Identity",
   "onboardingBadge": "New",
   "onboardingEnterpriseTitle": "Complete your company profile to access everything",
@@ -106,7 +105,7 @@
   "settingsProfileGoLogin": "Log In",
   "settingsNavGroup": "Settings",
   "settingsBasicInfo": "Basic Info",
-  "settingsAccountSecurity": "Account & Security",
+  "settingsAccountSecurity": "Account profile",
   "settingsMembership": "Membership",
   "settingsMyRecords": "My Records",
   "authAccountType": "Account Type",
@@ -124,7 +123,7 @@
   "authEnterpriseWithdrawDone": "Company unbound. Use “Fill in company info” to certify a new company.",
   "authEnterpriseWithdrawFailed": "Unbind failed, please try again later",
   "authEnterpriseCertifications": "Certifications",
-  "settingsEnterprise": "Enterprise",
+  "settingsEnterprise": "Supplier entity",
   "settingsSupplierPool": "Supplier Pool",
   "settingsKeywordLibrary": "Product Keyword Library",
   "settingsKwCreateTitle": "Create Keyword Group",
@@ -428,7 +427,7 @@
   "billingCenterTitle": "Billing Center",
   "settingsGroupAccount": "Account",
   "settingsGroupSecurity": "Security",
-  "settingsGroupIdentity": "Identity & Verification",
+  "settingsGroupIdentity": "Identity & entities",
   "settingsGroupBusiness": "Business Tools",
   "settingsGroupBilling": "Billing & Invoices",
   "settingsGroupPreferences": "Notifications & Preferences",
@@ -442,4 +441,3 @@
   "settingsContactBindingCta": "Manage in security",
   "settingsMembershipMoved": "Membership benefits have moved to the Membership plans page."
 }
-

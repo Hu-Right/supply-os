@@ -42,13 +42,13 @@ const NAV_GROUPS: Array<{ titleKey: string; items: NavItem[] }> = [
     titleKey: "settingsGroupIdentity",
     items: [
       { href: "/settings/enterprise", labelKey: "settingsEnterprise", icon: Building2 },
-      { href: "/settings/supplier-pool", labelKey: "settingsSupplierPool", icon: Package },
       { href: "/settings/buyer", labelKey: "settingsBuyer", icon: BadgeCheck },
     ],
   },
   {
     titleKey: "settingsGroupBusiness",
     items: [
+      { href: "/settings/supplier-pool", labelKey: "settingsSupplierPool", icon: Package },
       { href: "/settings/rfq", labelKey: "settingsMyRfq", icon: ClipboardList },
       { href: "/settings/keyword-library", labelKey: "settingsKeywordLibrary", icon: KeyRound },
     ],

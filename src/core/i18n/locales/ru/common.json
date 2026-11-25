@@ -77,14 +77,13 @@
   "uiPaginationJumpTo": "Перейти на страницу",
   "uiMenuOpen": "Открыть меню",
   "uiMenuClose": "Закрыть меню",
-  "settingsTitle": "Настройки аккаунта",
   "settingsProfile": "Профиль",
   "settingsAiModel": "ИИ-модель",
   "settingsProfileNeedLogin": "Войдите, чтобы просматривать и изменять профиль.",
   "settingsProfileGoLogin": "Войти",
   "settingsNavGroup": "Настройки",
   "settingsBasicInfo": "Основная информация",
-  "settingsAccountSecurity": "Аккаунт и безопасность",
+  "settingsAccountSecurity": "Профиль аккаунта",
   "settingsMembership": "Членство",
   "settingsMyRecords": "Мои записи",
   "authAccountType": "Тип аккаунта",
@@ -102,7 +101,7 @@
   "authEnterpriseWithdrawDone": "Связь отвязана. Нажмите «Заполнить данные о компании», чтобы верифицировать новую.",
   "authEnterpriseWithdrawFailed": "Не удалось отвязать, повторите попытку позже",
   "authEnterpriseCertifications": "Сертификаты",
-  "settingsEnterprise": "Компания",
+  "settingsEnterprise": "Поставщик",
   "settingsSupplierPool": "Пул поставщиков",
   "settingsKeywordLibrary": "Библиотека ключевых слов",
   "settingsKwCreateTitle": "Создать группу ключевых слов",
@@ -428,7 +427,7 @@
   "billingCenterTitle": "Центр оплаты",
   "settingsGroupAccount": "Аккаунт",
   "settingsGroupSecurity": "Безопасность",
-  "settingsGroupIdentity": "Идентификация",
+  "settingsGroupIdentity": "Идентификация и субъекты",
   "settingsGroupBusiness": "Инструменты",
   "settingsGroupBilling": "Счета и оплата",
   "settingsGroupPreferences": "Уведомления",
@@ -442,4 +441,3 @@
   "settingsContactBindingCta": "Перейти к безопасности",
   "settingsMembershipMoved": "Преимущества перенесены на страницу тарифов."
 }
-

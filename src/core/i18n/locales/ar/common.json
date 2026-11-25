@@ -77,14 +77,13 @@
   "uiPaginationJumpTo": "الانتقال إلى الصفحة",
   "uiMenuOpen": "فتح القائمة",
   "uiMenuClose": "إغلاق القائمة",
-  "settingsTitle": "إعدادات الحساب",
   "settingsProfile": "الملف الشخصي",
   "settingsAiModel": "نموذج الذكاء الاصطناعي",
   "settingsProfileNeedLogin": "يرجى تسجيل الدخول لعرض وتعديل ملفك الشخصي.",
   "settingsProfileGoLogin": "تسجيل الدخول",
   "settingsNavGroup": "الإعدادات",
   "settingsBasicInfo": "المعلومات الأساسية",
-  "settingsAccountSecurity": "الحساب والأمان",
+  "settingsAccountSecurity": "ملف الحساب",
   "settingsMembership": "العضوية",
   "settingsMyRecords": "سجلاتي",
   "authAccountType": "نوع الحساب",
@@ -102,7 +101,7 @@
   "authEnterpriseWithdrawDone": "تم إلغاء الربط. اضغط على «إدخال بيانات الشركة» لتقديم شركة جديدة للتحقق.",
   "authEnterpriseWithdrawFailed": "تعذّر إلغاء الربط، يرجى المحاولة لاحقاً",
   "authEnterpriseCertifications": "الشهادات",
-  "settingsEnterprise": "المؤسسة",
+  "settingsEnterprise": "كيان المورد",
   "settingsSupplierPool": "مجمع الموردين",
   "settingsKeywordLibrary": "مكتبة الكلمات المفتاحية",
   "settingsKwCreateTitle": "إنشاء مجموعة كلمات مفتاحية",
@@ -428,7 +427,7 @@
   "billingCenterTitle": "مركز الفواتير",
   "settingsGroupAccount": "الحساب",
   "settingsGroupSecurity": "الأمان",
-  "settingsGroupIdentity": "الهوية والتحقق",
+  "settingsGroupIdentity": "الهوية والكيانات",
   "settingsGroupBusiness": "الأدوات",
   "settingsGroupBilling": "الفواتير",
   "settingsGroupPreferences": "الإشعارات",
@@ -442,4 +441,3 @@
   "settingsContactBindingCta": "إلى الأمان",
   "settingsMembershipMoved": "تم نقل المزايا إلى صفحة الخطط."
 }
-
