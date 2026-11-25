@@ -49,6 +49,11 @@ export interface HomeSnapshot {
 /** 首页快照进程缓存：ISR 每 60s 触发一次，但数字墙不应每次都等 5s 的 COUNT。 */
 let homeSnapshotCache: { data: HomeSnapshot; expires: number } | null = null;
 
+/** 测试/部署后强制刷新用 */
+export function clearHomeSnapshotCache(): void {
+  homeSnapshotCache = null;
+}
+
 export async function getHomeSnapshot(pool: Pool): Promise<HomeSnapshot> {
   if (homeSnapshotCache && homeSnapshotCache.expires > Date.now()) {
     return homeSnapshotCache.data;

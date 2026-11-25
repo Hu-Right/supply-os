@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getNoticeStats: vi.fn(),
+  getHomeNoticeStats: vi.fn(),
   getNoticeCountries: vi.fn(),
   getNoticeDailyNew: vi.fn(),
   countAll: vi.fn(),
@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/services/notice-search", () => ({
-  getNoticeStats: mocks.getNoticeStats,
+  getHomeNoticeStats: mocks.getHomeNoticeStats,
   getNoticeCountries: mocks.getNoticeCountries,
   getNoticeDailyNew: mocks.getNoticeDailyNew,
 }));
@@ -26,13 +26,14 @@ vi.mock("@/lib/db/context", () => ({
   getContext: () => ({ supplier: { directoryRepo: { countAll: mocks.countAll, countApproved: mocks.countApproved } } }),
 }));
 
-import { getHomeSnapshot } from "@/lib/services/home-snapshot";
+import { getHomeSnapshot, clearHomeSnapshotCache } from "@/lib/services/home-snapshot";
 
 const pool = {} as never;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.getNoticeStats.mockResolvedValue({ active: 10233, raw: 20000, countryCount: 189 });
+  clearHomeSnapshotCache();
+  mocks.getHomeNoticeStats.mockResolvedValue({ active: 10233, countryCount: 189 });
   mocks.getNoticeCountries.mockResolvedValue([{ country: "CN", count: 5 }, { country: "US", count: 2 }]);
   mocks.getNoticeDailyNew.mockResolvedValue({ todayNew: 42, yesterdayNew: 30 });
   mocks.countAll.mockResolvedValue(102624);
