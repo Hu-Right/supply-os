@@ -56,6 +56,7 @@ const CASES: ApiCase[] = [
   { method: "POST", path: "/api/billing/invoices", auth: "none", status: 401, bodyType: "object", src: "/api/billing/invoices" },
   { method: "GET", path: "/api/billing/invoices/invoice_1_abc.pdf", auth: "none", status: 401, bodyType: "object", src: "/api/billing/invoices/:filename" },
   { method: "GET", path: "/api/billing/company-search?keyword=x", auth: "none", status: 401, bodyType: "object", src: "/api/billing/company-search" },
+  { method: "POST", path: "/api/internal/notifications/invoice", auth: "none", status: 403, bodyType: "object", src: "/api/internal/notifications/invoice" },
   { method: "GET", path: "/api/auth/mfa/status", auth: "none", status: 401, bodyType: "object", src: "/api/auth/mfa/status" },
   { method: "POST", path: "/api/auth/mfa/setup", auth: "none", status: 401, bodyType: "object", src: "/api/auth/mfa/setup" },
   { method: "POST", path: "/api/auth/mfa/enable", auth: "none", status: 401, bodyType: "object", src: "/api/auth/mfa/enable" },
@@ -467,5 +468,6 @@ test.describe("核心业务断言（访问控制 / 数据契约）", () => {
     expectErrorEnvelope(await res.json(), "翻译缺 lang");
   });
 });
+
 
 

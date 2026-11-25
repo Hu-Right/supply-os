@@ -62,7 +62,6 @@ const NAV_GROUPS: Array<{ titleKey: string; items: NavItem[] }> = [
   {
     titleKey: "settingsGroupPreferences",
     items: [
-      { href: "/settings/notifications", labelKey: "settingsNotifications", icon: Bell },
       { href: "/settings/ai-model", labelKey: "settingsAiModel", icon: Cpu },
     ],
   },
@@ -148,4 +147,5 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     </div>
   );
 }
+
 

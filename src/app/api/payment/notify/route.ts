@@ -10,6 +10,7 @@ import { errorEnvelope } from "@/lib/middleware/route-handler";
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { EC_NOT_FOUND } from "@/shared/constants/api";
+import { notifyPaymentSucceeded } from "@/lib/services/notifications/dispatch";
 
 // ── POST /api/payment/notify/alipay — 支付宝异步通知 ──
 export async function POST(req: NextRequest) {
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
 
       const signature = params.sign || "";
       const result = await orchestrator.handleNotify("alipay", params, signature);
+      if (result.success) void notifyPaymentSucceeded(ctx.dbPool, result.order_no).catch((err) => console.warn("[payment] 通知分发失败:", (err as Error).message));
 
       // 支付宝期望返回纯文本 "success" 或 "fail"
       return new Response(result.success ? "success" : "fail", {
@@ -53,6 +55,7 @@ export async function POST(req: NextRequest) {
       const body = await req.json();
       const signature = req.headers.get("wechatpay-signature") || "";
       const result = await orchestrator.handleNotify("wechat", body, signature);
+      if (result.success) void notifyPaymentSucceeded(ctx.dbPool, result.order_no).catch((err) => console.warn("[payment] 通知分发失败:", (err as Error).message));
 
       return NextResponse.json({
         code: result.success ? "SUCCESS" : "FAIL",
@@ -66,3 +69,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(errorEnvelope(404, EC_NOT_FOUND, "通知路由不存在"), { status: 404 });
 }
+

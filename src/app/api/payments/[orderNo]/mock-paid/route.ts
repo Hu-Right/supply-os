@@ -8,6 +8,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_PAYMENT_ORDER_NOT_FOUND, EC_ACCESS_FORBIDDEN } from "@/shared/constants/api";
+import { notifyPaymentSucceeded } from "@/lib/services/notifications/dispatch";
 
 export const POST = withRoute<{ params: Promise<{ orderNo: string }> }>(
   async (req, { params }) => {
@@ -35,6 +36,8 @@ export const POST = withRoute<{ params: Promise<{ orderNo: string }> }>(
     );
     if (!found) routeError(404, EC_PAYMENT_ORDER_NOT_FOUND, "订单不存在");
 
+    void notifyPaymentSucceeded(ctx.dbPool, orderNo).catch((err) => console.warn("[payment] 通知分发失败:", (err as Error).message));
     return NextResponse.json({ success: true, orderNo, status: "paid" });
   },
 );
+

@@ -15,6 +15,7 @@ import { withRoute, parseJson } from "@/lib/middleware/route-handler";
 import { listInvoiceRequests } from "@/lib/repos/invoice-requests";
 import { createInvoiceForUser } from "@/lib/services/billing/invoices";
 import { invoiceRequestViewOf, invoiceRequestsViewOf } from "@/lib/services/billing/view";
+import { notifyInvoiceSubmitted } from "@/lib/services/notifications/dispatch";
 
 const createInvoiceSchema = z.object({
   orderNos: z.array(z.string().trim().min(1).max(80)).min(1).max(20),
@@ -52,8 +53,15 @@ export const POST = withRoute(async (req: NextRequest) => {
     bankName: body.bankName ?? null,
     bankAccount: body.bankAccount ?? null,
   });
+  void notifyInvoiceSubmitted(getContext().dbPool, {
+    requestId: item.id,
+    userId: auth.userId,
+    amount: item.amount,
+    invoiceType: item.invoiceType,
+  }).catch((err) => console.warn("[invoice] 通知分发失败:", (err as Error).message));
   return NextResponse.json(invoiceRequestViewOf(item), { status: 201 });
 });
+
 
 
 

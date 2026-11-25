@@ -339,3 +339,43 @@ export async function sendRfqAwardRevokedEmail(
     "RFQ中标作废",
   );
 }
+
+/**
+ * 发送业务通知邮件（交易/服务类，统一模板）
+ *
+ * @param to 收件邮箱
+ * @param opts 标题、正文行、可选的行动链接
+ * @description 与验证码邮件共用 SMTP transporter；调用方负责判断 isEmailConfigured，
+ *              并自行 try/catch（通知失败不得阻断主流程）。
+ */
+export async function sendNotificationEmail(
+  to: string,
+  opts: { subject: string; heading: string; lines: string[]; link?: { href: string; text: string } },
+): Promise<void> {
+  const transporter = getTransporter();
+  const escapeHtml = (s: string) =>
+    s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] as string));
+  const rows = opts.lines.map((line) => `<p style="margin:6px 0;color:#334155;">${escapeHtml(line)}</p>`).join("");
+  const link = opts.link
+    ? `<p style="margin:18px 0 6px;"><a href="${escapeHtml(opts.link.href)}" style="display:inline-block;padding:10px 18px;background:#0f766e;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;">${escapeHtml(opts.link.text)}</a></p>`
+    : "";
+  try {
+    await transporter.sendMail({
+      to,
+      subject: `云境·国际采购平台 | ${opts.subject}`,
+      html: `
+        <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:520px;margin:0 auto;padding:8px 0;">
+          <h2 style="font-size:18px;color:#0f172a;margin:0 0 12px;">${escapeHtml(opts.heading)}</h2>
+          ${rows}
+          ${link}
+          <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0 10px;" />
+          <p style="font-size:12px;color:#94a3b8;">此邮件由云境·国际采购平台系统发送，请勿直接回复。</p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    resetTransporter();
+    throw err;
+  }
+}
+

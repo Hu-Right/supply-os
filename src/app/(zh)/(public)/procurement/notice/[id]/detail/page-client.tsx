@@ -26,8 +26,7 @@ function Centered({ text }: { text: string }) {
   );
 }
 
-function LoginPrompt({ onPublic }: { onPublic: () => void }) {
-  return (
+function LoginPrompt({ onPublic }: { onPublic: () => void }) {  return (
     <div className="mx-auto max-w-md px-4 py-20 text-center">
       <h1 className="text-lg font-extrabold text-slate-900">登录后查看完整公告详情</h1>
       <p className="mt-2 text-sm text-slate-500">
@@ -53,6 +52,44 @@ function LoginPrompt({ onPublic }: { onPublic: () => void }) {
   );
 }
 
+function NoticeUnavailable({ onRetry, onPublic, onBack }: {
+  onRetry: () => void;
+  onPublic: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="mx-auto max-w-md px-4 py-20 text-center">
+      <h1 className="text-lg font-extrabold text-slate-900">公告不存在或已下线</h1>
+      <p className="mt-2 text-sm text-slate-500">
+        这条公告可能已被删除、合并或同步源已下线。你可以返回商机库，或查看公开摘要。
+      </p>
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-teal-700"
+        >
+          重试
+        </button>
+        <button
+          type="button"
+          onClick={onPublic}
+          className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:border-teal-400 hover:text-teal-700"
+        >
+          查看公开摘要
+        </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:border-teal-400 hover:text-teal-700"
+        >
+          返回全球商机
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function PageClient() {
   const params = useParams<{ id: string }>();
   const id = Number(params?.id);
@@ -60,6 +97,7 @@ export default function PageClient() {
   const { authUser, authReady, isVip } = useAuth();
   const userId = useUserId();
   const [notice, setNotice] = useState<NoticeItem | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const startedRef = useRef(false);
   const promptedRef = useRef(false);
 
@@ -93,8 +131,32 @@ export default function PageClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, authUser, id, router]);
 
+  const settled = actions.detailSettledPk === id;
+
+  // 切换公告时复位失败态
+  useEffect(() => {
+    setLoadFailed(false);
+  }, [id]);
+
+  // 兜底：详情已落地但没拿到标题，或长时间没有响应，判为不存在/加载失败
+  // （避免 404 被 useNoticeAccess 吞掉后页面一直转圈）
+  useEffect(() => {
+    if (!authUser || notice?.title || loadFailed) return;
+    const timer = setTimeout(() => setLoadFailed(true), settled ? 2000 : 10000);
+    return () => clearTimeout(timer);
+  }, [authUser, notice?.title, settled, loadFailed]);
+
   if (!authReady) return <Centered text="加载中…" />;
   if (!authUser) return <LoginPrompt onPublic={() => router.push(`/procurement/notice/${id || ""}`)} />;
+  if (loadFailed) {
+    return (
+      <NoticeUnavailable
+        onRetry={() => window.location.reload()}
+        onPublic={() => router.push(`/procurement/notice/${id || ""}`)}
+        onBack={() => router.push("/procurement")}
+      />
+    );
+  }
   if (!notice?.title) return <Centered text="正在加载公告详情…" />;
 
   return (
