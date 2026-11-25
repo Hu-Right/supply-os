@@ -38,7 +38,7 @@ export const metadata: Metadata = {
 /** 快照装载超时（毫秒）：静态生成的页面预算 60s，DB 链路挂起时下游降级链
  *  （meili 探活 → mysql fallback 15s ×重试）会把预算撑爆——异常有 catch，「挂起」没有，
  *  必须竞速兜底（2026-10-31 build 实测：库不可达时首页静态生成 3 次尝试全超时）。 */
-const SNAPSHOT_TIMEOUT_MS = 8_000;
+const SNAPSHOT_TIMEOUT_MS = 15_000;
 
 function withSnapshotTimeout<T>(p: Promise<T>, label: string): Promise<T | undefined> {
   return Promise.race([

@@ -132,6 +132,27 @@ export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
   return statsCalcPromise;
 }
 
+/** 首页首屏只需要 active + countryCount：跳过 raw/bridged/featured/docs 等重查询。 */
+export interface HomeNoticeStats {
+  active: number;
+  countryCount: number;
+}
+
+export async function getHomeNoticeStats(pool: Pool): Promise<HomeNoticeStats> {
+  if (noticeStatsCache && noticeStatsCache.expires > Date.now()) {
+    return { active: noticeStatsCache.data.active, countryCount: noticeStatsCache.data.countryCount };
+  }
+  const [activeResult, countryCountResult] = await Promise.all([
+    pool.query(`SELECT COUNT(*) AS total FROM notice_public p WHERE ${PUBLIC_ACTIVE}`),
+    pool.query(
+      `SELECT COUNT(DISTINCT p.country_code) AS total FROM notice_public p
+        WHERE p.country_code IS NOT NULL AND p.country_code <> ''
+          AND ${PUBLIC_ACTIVE}`,
+    ),
+  ]);
+  return { active: countOf(activeResult), countryCount: countOf(countryCountResult) };
+}
+
 /** 清除统计缓存（测试辅助） */
 export function clearStatsCache(): void {
   noticeStatsCache = null;

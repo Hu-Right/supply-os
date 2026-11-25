@@ -14,7 +14,7 @@
 import "server-only";
 import type { Pool } from "mysql2/promise";
 import { getContext } from "@/lib/db/context";
-import { getNoticeStats, getNoticeDailyNew, getNoticeCountries } from "./notice-search";
+import { getHomeNoticeStats, getNoticeDailyNew, getNoticeCountries } from "./notice-search";
 import { listSupplierDirectoryPage } from "./suppliers-directory";
 import { getHotTopics } from "./notice-search";
 import { getHotSearches, hotSearchHref } from "./search-analytics";
@@ -46,10 +46,17 @@ export interface HomeSnapshot {
  * - supplierTotal：supplier 全表口径（countAll，数字墙「供应商总数」）
  *   两者与 /api/suppliers/stats 的 searchable / total 同源，避免首帧与刷新后跳变
  */
+/** 首页快照进程缓存：ISR 每 60s 触发一次，但数字墙不应每次都等 5s 的 COUNT。 */
+let homeSnapshotCache: { data: HomeSnapshot; expires: number } | null = null;
+
 export async function getHomeSnapshot(pool: Pool): Promise<HomeSnapshot> {
-  const [stats, countries, daily] = await Promise.all([
-    getNoticeStats(pool),
-    getNoticeCountries(pool),
+  if (homeSnapshotCache && homeSnapshotCache.expires > Date.now()) {
+    return homeSnapshotCache.data;
+  }
+  // 国家列表只服务世界地图；不参与数字墙，单独兜底，慢查询不能拖垮整块快照。
+  const countriesPromise = getNoticeCountries(pool).catch(() => [] as Array<{ country: string; count: number }>);
+  const [stats, daily] = await Promise.all([
+    getHomeNoticeStats(pool),
     getNoticeDailyNew(pool),
   ]);
   const repo = getContext().supplier.directoryRepo;
@@ -57,7 +64,13 @@ export async function getHomeSnapshot(pool: Pool): Promise<HomeSnapshot> {
     repo.countAll(),
     repo.countApproved(),
   ]);
-  return {
+  const countries = await Promise.race([
+    countriesPromise,
+    new Promise<Array<{ country: string; count: number }>>((resolve) =>
+      setTimeout(() => resolve([]), 2_000),
+    ),
+  ]);
+  const snapshot: HomeSnapshot = {
     noticeActive: stats.active,
     noticeTodayNew: daily.todayNew,
     countryCount: stats.countryCount,
@@ -65,6 +78,8 @@ export async function getHomeSnapshot(pool: Pool): Promise<HomeSnapshot> {
     supplierTotal,
     countries,
   };
+  homeSnapshotCache = { data: snapshot, expires: Date.now() + 5 * 60_000 };
+  return snapshot;
 }
 
 // ── 首页三栏内容快照 ──

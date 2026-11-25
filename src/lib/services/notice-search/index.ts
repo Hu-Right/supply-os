@@ -14,7 +14,7 @@
 
 // ── 子模块 re-export（保持对外 API 不变）──
 export type { NoticeSearchParams, NoticeSearchResult, NoticeStatsResult } from "./types";
-export { getNoticeStats, getNoticeDailyNew } from "./stats";
+export { getNoticeStats, getHomeNoticeStats, getNoticeDailyNew } from "./stats";
 export { refreshNoticeCountries, getNoticeCountries, expandCountryAliases, expandCountryAllForms } from "./countries";
 export { getHotTopics, clearHotTopicsCache } from "./hot-topics";
 export type { HotTopics, HotGroupItem } from "./hot-topics";
