@@ -24,7 +24,6 @@ import mockPlans from "./mock-plans.json";
 
 const DATA = mockPlans as unknown as ComparisonView;
 const PERIOD_LABEL: Record<number, string> = { 30: "月付", 90: "季付", 365: "年付" };
-const PERIOD_UNIT: Record<number, string> = { 30: "月", 90: "季", 365: "年" };
 const fmt = (n: number | string) => "¥" + Number(n).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const LEGAL = [
@@ -62,7 +61,6 @@ export default function MembershipPaymentPreviewPage() {
   }
 
   const price = target ? Number(target.price) : 0;
-  const unit = target?.billingPeriodDays != null ? `/${PERIOD_UNIT[target.billingPeriodDays] ?? "期"}` : "";
   const periodName = target?.billingPeriodDays != null ? PERIOD_LABEL[target.billingPeriodDays] ?? `${target.billingPeriodDays} 天` : "";
 
   const Steps = () => (

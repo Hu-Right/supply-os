@@ -9,7 +9,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Cpu, User, Building2, Package, AlertTriangle, ClipboardList, KeyRound, BadgeCheck,
-  ReceiptText, LayoutDashboard, ShieldCheck, Bell,
+  ReceiptText, LayoutDashboard, ShieldCheck,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils/cn";

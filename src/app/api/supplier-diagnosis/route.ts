@@ -119,9 +119,8 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 不给初值：两个分支必赋其一，空串初值是一次永远读不到的死存储（no-useless-assignment）
   let canonicalName: string;
   // 显式 id 路径在此顺带取 D1 评分片段（省一次往返）；按名命中路径延迟到闸口之后
-  let profileBits: { dataQualityScore: number | null; company: string | null } | null = null;
   if (supplierId) {
-    profileBits = await directory.findProfileBits(supplierId);
+    const profileBits = await directory.findProfileBits(supplierId);
     if (!profileBits) {
       await recordSubmit({
         supplierId,
