@@ -9,7 +9,6 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { clearApiCache } from "@/core/http";
 import { composeQ, type TermRow } from "@/shared/utils/advanced-syntax";
 import { commodityNodeChain } from "@/shared/constants/commodity-code";
-import type { NoticeItem } from "../../types";
 import type { SearchFormInputs } from "./useSearchFormState";
 import type { SearchQuery } from "./useSearchQuery";
 
@@ -17,7 +16,6 @@ export interface SearchActionsOptions {
   inputs: SearchFormInputs;
   query: SearchQuery;
   setPage: (page: number) => void;
-  setSelectedNotice: (notice: NoticeItem | null) => void;
   clearForm: () => void;
   onClear?: () => void;
 }
@@ -60,7 +58,6 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     inputs,
     query,
     setPage,
-    setSelectedNotice,
     clearForm,
     onClear,
   } = options;
@@ -104,20 +101,18 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     const sortValue = sortOverride ?? query.activeSort;
     if (sortValue !== "latest") next.sort = sortValue;
     setPage(1);
-    setSelectedNotice(null);
     const qs = buildQs(next);
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [inputs, query, setPage, setSelectedNotice, router, pathname]);
+  }, [inputs, query, setPage, router, pathname]);
 
   const toggleFeatured = useCallback(() => {
     const next = new URLSearchParams(searchParams ?? undefined);
     if (query.activeFeatured) next.delete("featured");
     else next.set("featured", "1");
     setPage(1);
-    setSelectedNotice(null);
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, query.activeFeatured, setPage, setSelectedNotice, router, pathname]);
+  }, [searchParams, query.activeFeatured, setPage, router, pathname]);
 
   /**
    * 五级下拉的任一层选中入 URL（URL 是唯一事实源，0~4 = 大类/中类/小类/子类/品目）。
@@ -133,10 +128,9 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (effective) next.set("commodity", effective);
     else next.delete("commodity");
     setPage(1);
-    setSelectedNotice(null);
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, query.activeCommodity, setPage, setSelectedNotice, router, pathname]);
+  }, [searchParams, query.activeCommodity, setPage, router, pathname]);
 
   const clearSearch = useCallback(() => {
     clearForm();

@@ -5,8 +5,8 @@
  *              结果列表分支移入 ../components/procurement-page/*，JSX 与行为逐字不变；
  *              本文件保留 hooks 编排、支付事件监听与首屏计时。
  */
-import { useRef, useState, useEffect, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth, useUserId } from "@/core/auth";
 import { onAppEvent, emitAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
@@ -14,8 +14,7 @@ import { grantNoticeAccess } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentViews } from "../components/RecentViews";
 import type { NoticeItem } from "../types";
-import { applyNoticeIdParam, readNoticeIdParam } from "../lib/deepLink";
-import { NoticeDetail } from "../components/NoticeDetail";
+import { readNoticeIdParam } from "../lib/deepLink";
 import { LoadingOverlay } from "@/shared/ui";
 import { ListingStatsBar } from "../components/ListingStatsBar";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
@@ -30,8 +29,13 @@ import { ResultsList, MatchRelaxedHint } from "../components/procurement-page/Re
 export default function ProcurementPage() {
   const { authUser, isVip, refreshAuth, authReady } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const userId = useUserId();
+
+  /** 按 id 打开详情：统一走独立详情路由（未登录仍先弹登录，保持原门槛） */
+  const openNoticeByIdRoute = useCallback((noticeId: number) => {
+    const from = `/procurement${window.location.search}`;
+    router.push(`/procurement/notice/${noticeId}/detail?from=${encodeURIComponent(from)}`);
+  }, [router]);
 
   /** 打开详情：统一走独立详情路由（未登录仍先弹登录，保持原门槛） */
   const openNoticeRoute = useCallback((notice: NoticeItem) => {
@@ -39,9 +43,8 @@ export default function ProcurementPage() {
       emitAppEvent("supply-os:require-login");
       return;
     }
-    const from = `/procurement${window.location.search}`;
-    router.push(`/procurement/notice/${notice.noticePk}/detail?from=${encodeURIComponent(from)}`);
-  }, [authUser, router]);
+    openNoticeByIdRoute(notice.noticePk);
+  }, [authUser, openNoticeByIdRoute]);
 
   // 老链接 ?notice_id= 收敛到独立详情页；支付回跳（带 order_no/trade_no）连同参数一起转过去，
   // 由详情页的 usePaymentReturnReconciliation 完成对账，不再在列表页内打开详情。
@@ -71,7 +74,8 @@ export default function ProcurementPage() {
   // T-B10：推荐响应回传的 A/B 桶标记，跨 hook 共享
   const variantRef = useRef<string | undefined>(undefined);
   const [page, setPage] = useState(1);
-  const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
+  // 列表页不再承载内嵌详情；保留 setter 形状给搜索/动作 hooks，实际不写选中态
+  const noopSetSelectedNotice = useCallback(() => {}, []);
   // chip 行下线后五级下拉是唯一大类入口，因此默认展开（收起只是用户自己选择精简界面）
   const [commodityExpanded, setCommodityExpanded] = useState(true);
 
@@ -83,8 +87,7 @@ export default function ProcurementPage() {
 
   // ── 搜索 + URL 参数事实源 + 列表数据 ──
   const search = useNoticeSearch({
-    userId, page, setPage,
-    setSelectedNotice, variantRef,
+    userId, page, setPage, variantRef,
   });
 
   // ── 性能监控：首屏完成检测 + 渲染计时 ──
@@ -101,14 +104,15 @@ export default function ProcurementPage() {
     userId,
     hasSearch: search.query.hasSearch,
     activeSort: search.query.activeSort,
-    selectedNotice, variantRef,
+    selectedNotice: null, variantRef,
   });
 
   // ── 详情与支付动作 ──
   const actions = useNoticeActions({
     userId, isVip, authReady,
     items: search.result.items,
-    setSelectedNotice,
+    setSelectedNotice: noopSetSelectedNotice,
+    onOpenNotice: openNoticeByIdRoute,
     trackClick: feedback.trackClick,
     trackDetailOpen: feedback.trackDetailOpen,
   });
@@ -121,21 +125,8 @@ export default function ProcurementPage() {
     [toggleFavorite],
   );
 
-  // ── 详情深链同步：选中公告 ↔ URL ?notice_id（可分享/可刷新）──
-  // 仅在选中态「真实变化」时改 URL：点开(prev null→pk)写入、关闭(prev pk→null)清除；
-  // 初始 prev 与 pk 均 null 时不动，避免误清「到达型深链」里回跳尚未打开完的 ?notice_id。
-  // 其余筛选/分页参数由 applyNoticeIdParam 原样保留；与当前串一致则 no-op（防 replace 循环）。
-  const prevDeepLinkPkRef = useRef<number | null>(null);
-  useEffect(() => {
-    const pk = selectedNotice?.noticePk ?? null;
-    const prev = prevDeepLinkPkRef.current;
-    if (pk === prev) return;
-    prevDeepLinkPkRef.current = pk;
-    const curStr = searchParams?.toString() ?? "";
-    const qs = applyNoticeIdParam(curStr, pk);
-    if (qs === curStr) return;
-    router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
-  }, [selectedNotice?.noticePk, searchParams, router]);
+  // ── 详情深链：旧链接/支付回跳已统一重定向到独立详情路由，列表页不再维护 ?notice_id 选中态 ──
+
 
   // ── P0-8 安全修复：监听支付成功事件，自动解锁公告 ──
   useEffect(() => {
@@ -152,40 +143,9 @@ export default function ProcurementPage() {
       clearApiCache("/api/membership/status");
       await actions.refreshMembership();
       refreshAuth();
-      await actions.openNoticeById(noticeId);
+      router.push(`/procurement/notice/${noticeId}/detail`);
     });
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 详情页
-  if (selectedNotice) {
-    return (
-      <>
-        {/* SEO: 详情页 noIndex 由 page.tsx metadata 的 robots 控制 */}
-        <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin h-8 w-8 rounded-full border-[3px] border-slate-200 border-t-teal-500" /></div>}>
-        <NoticeDetail
-        notice={selectedNotice}
-        actionMessage={actions.actionMessage}
-        membership={actions.membership}
-        membershipReady={actions.membershipReady}
-        detailSettled={actions.detailSettledPk === selectedNotice.noticePk}
-        canUsePaidQuota={actions.canUsePaidQuota}
-        isVip={isVip}
-        totalRemaining={actions.totalRemaining}
-        isLoggedIn={!!authUser}
-        onBack={() => {
-          feedback.reportDetailExit();
-          setSelectedNotice(null);
-        }}
-        onExpressInterest={actions.handleExpressInterest}
-        onAccess={(n: NoticeItem) => actions.handleGrantAccess(n)}
-        onOpenNotice={openNoticeRoute}
-        favorited={actions.isFavorite(selectedNotice.noticePk)}
-        onToggleFavorite={() => void actions.toggleFavorite(selectedNotice.noticePk)}
-      />
-      </Suspense>
-      </>
-    );
-  }
 
   // 列表页
   return (

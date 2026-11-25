@@ -29,6 +29,8 @@ export interface UseNoticeActionsOptions {
   setSelectedNotice: Dispatch<SetStateAction<NoticeItem | null>>; // Page 持有的选中详情设置器
   trackClick: (noticeId: number) => void; // T-B9 点击埋点（useNoticeFeedback）
   trackDetailOpen: (noticeId: number) => void; // T-C7 详情打开埋点（useNoticeFeedback）
+  /** 支付回跳对账完成后打开公告：列表页传路由跳转，详情页默认写选中态 */
+  onOpenNotice?: (noticeId: number) => void | Promise<void>;
 }
 
 export interface UseNoticeActionsReturn
@@ -40,7 +42,7 @@ export interface UseNoticeActionsReturn
 }
 
 export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeActionsReturn {
-  const { userId, isVip, authReady, items, setSelectedNotice, trackClick, trackDetailOpen } = options;
+  const { userId, isVip, authReady, items, setSelectedNotice, trackClick, trackDetailOpen, onOpenNotice } = options;
   const [actionMessage, setActionMessage] = useState("");
 
   // P2-2：useCallback 稳定引用，作为 openNotice memo 依赖链的一环
@@ -69,7 +71,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
   };
 
   // 支付整页跳回后的对账：?order_no=&trade_no=&notice_id= 或仅 ?notice_id=
-  usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById, setActionMessage, onRequireLogin, userId, authReady });
+  usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById: onOpenNotice ? async (id: number) => { await onOpenNotice(id); } : openNoticeById, setActionMessage, userId, authReady });
 
   return {
     ...membership,

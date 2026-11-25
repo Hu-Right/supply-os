@@ -24,7 +24,6 @@ export interface UseNoticeSearchOptions {
   userId: number | undefined;
   page: number;
   setPage: (page: number) => void;
-  setSelectedNotice: (notice: NoticeItem | null) => void;
   variantRef: { current: string | undefined };
   onClear?: () => void;
 }
@@ -92,7 +91,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     userId,
     page,
     setPage,
-    setSelectedNotice,
     variantRef,
     onClear,
   } = options;
@@ -105,7 +103,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     inputs: form.inputs,
     query,
     setPage,
-    setSelectedNotice,
     clearForm: form.clear,
     onClear,
   });
