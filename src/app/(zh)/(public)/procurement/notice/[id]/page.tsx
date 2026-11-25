@@ -314,7 +314,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
-            href={`/procurement/notice/${row.id}/detail`}
+            href={`/procurement/notice/${row.id}/detail?from=${encodeURIComponent(`/procurement/notice/${row.id}`)}`}
             className="rounded-lg bg-training-green px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-training-green-hover"
           >
             打开公告详情

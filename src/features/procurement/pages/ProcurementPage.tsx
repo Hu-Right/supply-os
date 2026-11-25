@@ -39,15 +39,26 @@ export default function ProcurementPage() {
       emitAppEvent("supply-os:require-login");
       return;
     }
-    router.push(`/procurement/notice/${notice.noticePk}/detail`);
+    const from = `/procurement${window.location.search}`;
+    router.push(`/procurement/notice/${notice.noticePk}/detail?from=${encodeURIComponent(from)}`);
   }, [authUser, router]);
 
-  // 老链接 ?notice_id= 收敛到独立详情页；支付回跳（带 order_no/trade_no）仍留在本页对账
+  // 老链接 ?notice_id= 收敛到独立详情页；支付回跳（带 order_no/trade_no）连同参数一起转过去，
+  // 由详情页的 usePaymentReturnReconciliation 完成对账，不再在列表页内打开详情。
   useEffect(() => {
     const noticeId = readNoticeIdParam(window.location.search);
     if (!noticeId) return;
     const sp = new URLSearchParams(window.location.search);
-    if (sp.get("order_no") || sp.get("trade_no")) return;
+    const orderNo = sp.get("order_no");
+    const tradeNo = sp.get("trade_no");
+    if (orderNo || tradeNo) {
+      const q = new URLSearchParams();
+      if (orderNo) q.set("order_no", orderNo);
+      if (tradeNo) q.set("trade_no", tradeNo);
+      // 硬跳转：避免列表页的支付对账 cleanup 与本跳转竞争，把 URL 改回 ?notice_id=
+      window.location.replace(`/procurement/notice/${noticeId}/detail?${q.toString()}`);
+      return;
+    }
     router.replace(`/procurement/notice/${noticeId}/detail`);
   }, [router]);
 
@@ -206,7 +217,8 @@ export default function ProcurementPage() {
         {/* 商机列表页只保留「最近查看」；「我的收藏」快捷区已下线（收藏仍在卡片/详情页与「我的记录」中可用） */}
         {userId && <RecentViews userId={userId} onOpenNotice={(noticeId) => {
           if (!authUser) { emitAppEvent("supply-os:require-login"); return; }
-          router.push(`/procurement/notice/${noticeId}/detail`);
+          const from = `/procurement${window.location.search}`;
+          router.push(`/procurement/notice/${noticeId}/detail?from=${encodeURIComponent(from)}`);
         }} />}
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}

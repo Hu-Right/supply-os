@@ -98,6 +98,13 @@ export default function PageClient() {
   const userId = useUserId();
   const [notice, setNotice] = useState<NoticeItem | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  // 来源页（列表筛选/首页/SEO 页）由入口带过来；只接受站内路径，防开放重定向
+  const [safeFrom] = useState(() => {
+    if (typeof window === "undefined") return "/procurement";
+    const raw = new URLSearchParams(window.location.search).get("from") ?? "";
+    return raw.startsWith("/") && !raw.startsWith("//") ? raw : "/procurement";
+  });
+  const goBack = () => router.push(safeFrom);
   const startedRef = useRef(false);
   const promptedRef = useRef(false);
 
@@ -153,7 +160,7 @@ export default function PageClient() {
       <NoticeUnavailable
         onRetry={() => window.location.reload()}
         onPublic={() => router.push(`/procurement/notice/${id || ""}`)}
-        onBack={() => router.push("/procurement")}
+        onBack={goBack}
       />
     );
   }
@@ -170,10 +177,10 @@ export default function PageClient() {
       isVip={isVip}
       totalRemaining={actions.totalRemaining}
       isLoggedIn
-      onBack={() => router.push("/procurement")}
+      onBack={goBack}
       onExpressInterest={actions.handleExpressInterest}
       onAccess={(n) => void actions.handleGrantAccess(n)}
-      onOpenNotice={(n) => router.push(`/procurement/notice/${n.noticePk}/detail`)}
+      onOpenNotice={(n) => router.push(`/procurement/notice/${n.noticePk}/detail?from=${encodeURIComponent(safeFrom)}`)}
       favorited={actions.isFavorite(notice.noticePk)}
       onToggleFavorite={() => void actions.toggleFavorite(notice.noticePk)}
     />

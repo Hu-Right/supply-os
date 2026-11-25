@@ -10,7 +10,7 @@
  *              cleans them up afterwards.
  */
 import { useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { clearApiCache } from "@/core/http";
 import { getOrderStatus } from "@/core/payment/payment-facade";
@@ -37,7 +37,6 @@ export function usePaymentReturnReconciliation({
   authReady,
 }: UsePaymentReturnReconciliationOptions) {
   const { t } = useLocale();
-  const searchParams = useSearchParams();
   const router = useRouter();
   // 订单对账幂等：同一 order_no 只跑一次业务（加入 userId 依赖后登录态变化会重跑本 effect）
   const reconciledOrderRef = useRef<string | null>(null);
@@ -49,16 +48,32 @@ export function usePaymentReturnReconciliation({
   const loginPromptedRef = useRef(false);
 
   useEffect(() => {
+    // 从 window 读取，避免 useSearchParams 对象每次渲染换引用导致 effect 反复取消、
+    // 对账跑到一半被 cleanup 打断（详情页有多次状态更新）。
+    const searchParams = new URLSearchParams(window.location.search);
     const orderNo = searchParams.get("order_no");
     const noticeIdParam = searchParams.get("notice_id");
     const tradeNo = searchParams.get("trade_no") || undefined;
+
+    const cleanReturnParams = () => {
+      const params = new URLSearchParams(window.location.search);
+      params.delete("order_no");
+      params.delete("trade_no");
+      const qs = params.toString();
+      router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    };
+
     if (!orderNo && !noticeIdParam) {
       // 无到达参数：一旦 auth 可判定即消费“到达机会”，此后点开写进 URL 的 notice_id 不会被回跳重复打开
       if (!arrivalResolvedRef.current && (userId || authReady)) arrivalResolvedRef.current = true;
       return;
     }
-    // 已对账过的订单直接跳过（避免 userId 从 undefined→set 触发重复对账）
-    if (orderNo && reconciledOrderRef.current === orderNo) return;
+    // 已对账过的订单直接跳过（避免 userId 从 undefined→set 触发重复对账）；
+    // 但参数仍需清理，否则刷新/分享会一直带着 order_no。
+    if (orderNo && reconciledOrderRef.current === orderNo) {
+      cleanReturnParams();
+      return;
+    }
     let cancelled = false;
     (async () => {
       if (orderNo) {
@@ -112,17 +127,11 @@ export function usePaymentReturnReconciliation({
       }
       // 回跳参数清理：仅剔除支付对账参数（order_no/trade_no）；notice_id 交由页面选中态同步统一管理
       // （保留在 URL 里，详情页才可分享/刷新）。只有确实带了支付参数时才改写 URL，避免无谓 replace 触发重渲染。
-      if (!cancelled && (orderNo || tradeNo)) {
-        const params = new URLSearchParams(window.location.search);
-        params.delete("order_no");
-        params.delete("trade_no");
-        const qs = params.toString();
-        router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
-      }
+      if (!cancelled && (orderNo || tradeNo)) cleanReturnParams();
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, userId, authReady]);
+  }, [userId, authReady, router]);
 }

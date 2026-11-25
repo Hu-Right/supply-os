@@ -65,7 +65,7 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
   const buildReturnUrl = useCallback(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     return noticeId
-      ? `${origin}/procurement?notice_id=${noticeId}`
+      ? `${origin}/procurement/notice/${noticeId}/detail`
       : `${origin}/membership`;
   }, [noticeId]);
 
