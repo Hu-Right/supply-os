@@ -38,7 +38,14 @@ export function SecuritySettings() {
     setDevice(`${os} · ${browser}`);
   }, []);
 
-  if (!authUser) return null;
+  if (!authUser) {
+    return (
+      <div className="rounded-xl border border-border bg-white px-6 py-12 text-center">
+        <p className="text-sm font-bold text-foreground">请先登录后管理账号安全</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">登录后可修改密码、绑定手机/邮箱、查看登录设备。</p>
+      </div>
+    );
+  }
 
   const identifier = authUser.phone || authUser.email || "";
   const channel = authUser.phone ? "sms" : "email";
@@ -200,3 +207,4 @@ export function SecuritySettings() {
     </div>
   );
 }
+

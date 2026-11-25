@@ -57,7 +57,6 @@ const NAV_GROUPS: Array<{ titleKey: string; items: NavItem[] }> = [
     titleKey: "settingsGroupBilling",
     items: [
       { href: "/billing", labelKey: "billingCenterTitle", icon: ReceiptText, standalone: true },
-      { href: "/billing?tab=invoices", labelKey: "settingsInvoiceCenter", icon: ReceiptText, standalone: true },
     ],
   },
   {
@@ -116,9 +115,12 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               </p>
               {group.items.map((item) => {
                 const Icon = item.icon;
+                const isOverview = item.href === "/settings";
                 const active = item.standalone
                   ? pathname === item.href.split("?")[0]
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  : isOverview
+                    ? pathname === "/settings"
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <Link
                     key={item.href}

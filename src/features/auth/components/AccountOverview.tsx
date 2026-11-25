@@ -28,7 +28,14 @@ export function AccountOverview() {
   const { tierLabel } = useMembershipTier();
   const enterprise = useEnterpriseInfo();
 
-  if (!authUser) return null;
+  if (!authUser) {
+    return (
+      <div className="rounded-xl border border-border bg-white px-6 py-12 text-center">
+        <p className="text-sm font-bold text-foreground">请先登录后查看账号概览</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">登录后可管理个人信息、账号安全、企业认证与费用发票。</p>
+      </div>
+    );
+  }
 
   const bindState = classifyEnterpriseBindState(enterprise.enterprise ?? null);
   const bindText = enterpriseBindStateText(bindState);
@@ -150,3 +157,4 @@ export function AccountOverview() {
     </div>
   );
 }
+
