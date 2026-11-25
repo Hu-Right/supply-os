@@ -28,37 +28,47 @@ export interface SitemapSupplierRow {
 }
 
 /**
- * 动态公告 URL 上限。
+ * 公告 sitemap 分片大小。
  *
- * sitemap 协议单文件硬上限 50000 条 URL，此处取 44000 给静态段留余量。
- * 2026-11-18 由 5000 提升：实测有效公告（ACTIVE_NOTICE_WHERE）≥ 5 万条，
- * 旧值让 90% 以上公告永远进不了索引。若有效公告继续增长到超过 4.4 万，
- * 下一步是拆分 sitemap 索引（/sitemap.xml 作 index + /sitemaps/[id].xml），
- * 不要继续上调本常量（越过 50000 会被搜索引擎整份丢弃）。
+ * 协议单文件硬上限 50000 条 URL；按 50000 一片拆成多个 sitemap，
+ * 由 app/sitemap.ts 的 generateSitemaps 生成 /sitemap/{id}.xml。
+ * 当前有效公告 37 万+，固定 8 片（0~7）覆盖 40 万；超过再增加分片。
  */
-const NOTICE_LIMIT = 44000;
+export const SITEMAP_NOTICE_PAGE_SIZE = 50000;
+/** 公告分片数量（0~7 为公告，第 8 片为静态/国别/供应商） */
+export const SITEMAP_NOTICE_SHARDS = 8;
+/** 静态/国别/供应商所在分片 id */
+export const SITEMAP_STATIC_SHARD = SITEMAP_NOTICE_SHARDS;
 /** 动态供应商 URL 上限 */
 const SUPPLIER_LIMIT = 2000;
 
 /**
- * 有效公告（与搜索侧同口径：未截止 + deadline_sec=0 视为长期有效）。
- * 按 create_time（入库时间）倒序取最新 NOTICE_LIMIT 条。
- *
- * [2026-11-18 口径修正] 原排序/ lastmod 用 update_time，但该列混入
- * `YYYYMMDDHHMMSS` 形态脏值（如 20261030012753，集中在 BOAMP 83 行）：
- * 倒序会把这批行永久顶到最前，且 `new Date(值*1000)` 越界 → lastmod 退化成 now。
- * create_time 实测为干净 Unix 秒（2026-05 ~ 现在，无 NULL/0），改为唯一时间口径。
+ * 按 offset 取一片有效公告（与搜索侧同口径：未截止 + deadline_sec=0 视为长期有效）。
+ * 按 create_time（入库时间）倒序，保证分片稳定、不重不漏。
  */
-export async function fetchSitemapNotices(pool?: Pool): Promise<SitemapNoticeRow[]> {
+export async function fetchSitemapNoticesPage(
+  offset: number,
+  limit: number,
+  pool?: Pool,
+): Promise<SitemapNoticeRow[]> {
   const db = pool ?? getPool();
   const [rows] = await db.query(
     `SELECT n.id, n.create_time
      FROM bid_notices n
      WHERE ${ACTIVE_NOTICE_WHERE}
      ORDER BY n.create_time DESC
-     LIMIT ${NOTICE_LIMIT}`,
+     LIMIT ? OFFSET ?`,
+    [limit, offset],
   );
   return rows as SitemapNoticeRow[];
+}
+
+/**
+ * 兼容旧调用：取第一片（最新 5 万条）。
+ * @deprecated 新代码用 fetchSitemapNoticesPage 分片取数。
+ */
+export async function fetchSitemapNotices(pool?: Pool): Promise<SitemapNoticeRow[]> {
+  return fetchSitemapNoticesPage(0, SITEMAP_NOTICE_PAGE_SIZE, pool);
 }
 
 /**
