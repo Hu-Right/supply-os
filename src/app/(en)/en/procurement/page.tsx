@@ -1,19 +1,21 @@
 /**
- * /en/procurement — 英文公告入口（SEO 落地页，ISR 3600）
+ * /en/procurement — English notice search (server-rendered)
  *
- * [2026-11-18 移除] 原页面的动态公告列表（“Live government and UN procurement
- * notices”，按主表 `update_time DESC` 取 30 条）：`bid_notices.update_time` 混入
- * `YYYYMMDDHHMMSS` 形态脏值（仅 BOAMP 83 行），倒序会把法国动态采购系统/框架协议
- * （截止 2031~2037 年）永久顶在最前，展示成“最新公告全是 2033 年截标”。
- * 与中文 /procurement 的「最新国际采购公告」区块一并删除；英文页只保留入口，
- * 真实检索引导到中文主站的搜索页（筛选能力完整）。
+ * @description 英文用户可用的公告列表：服务端按 q/country/page 查询，
+ *              输出真实公告标题、采购方、国家、截止时间与详情页链接；
+ *              不依赖客户端 JS，AI/爬虫可直接读取。
  */
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EnglishShell } from "../../shell";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
+import { getPool } from "@/lib/db/pool";
+import { searchUnified } from "@/lib/services/search-orchestrator";
+import { toNoticeListView } from "@/lib/services/notice-public/view";
+import { countryName } from "@/shared/constants/countries";
+import { formatNoticeCstDate } from "@/shared/utils/notice-datetime/format";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Live government and UN procurement notices",
@@ -22,7 +24,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: absoluteUrl("/en/procurement"),
     languages: {
-      "en": absoluteUrl("/en/procurement"),
+      en: absoluteUrl("/en/procurement"),
       "zh-CN": absoluteUrl("/procurement"),
       "x-default": absoluteUrl("/procurement"),
     },
@@ -36,37 +38,138 @@ export const metadata: Metadata = {
   },
 };
 
-export default function EnglishProcurementPage() {
+const PAGE_SIZE = 20;
+
+function first(value: string | string[] | undefined): string {
+  return (Array.isArray(value) ? value[0] : value) ?? "";
+}
+
+export default async function EnglishProcurementPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const q = first(sp.q).slice(0, 120).trim();
+  const country = first(sp.country).slice(0, 40).trim();
+  const page = Math.max(1, Number(first(sp.page)) || 1);
+
+  let items: Awaited<ReturnType<typeof toNoticeListView>> = [];
+  let total = 0;
+  try {
+    const result = await searchUnified(getPool(), {
+      mode: "default",
+      page,
+      pageSize: PAGE_SIZE,
+      sort: "latest",
+      locale: "en",
+      q: q || undefined,
+      country: country || undefined,
+    });
+    items = toNoticeListView(result.items);
+    total = result.total;
+  } catch (err) {
+    console.error("[en/procurement] 列表查询失败:", (err as Error).message);
+  }
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const linkFor = (nextPage: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (country) params.set("country", country);
+    if (nextPage > 1) params.set("page", String(nextPage));
+    const qs = params.toString();
+    return `/en/procurement${qs ? `?${qs}` : ""}`;
+  };
+
   return (
     <EnglishShell>
-      <header className="space-y-2 py-4">
-        <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Live government and UN procurement notices</h1>
-        <p className="max-w-3xl text-sm leading-relaxed text-slate-600">
+      <header className="space-y-3 py-6">
+        <h1 className="text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">
+          Live government and UN procurement notices
+        </h1>
+        <p className="max-w-3xl text-base leading-relaxed text-slate-600">
           Search live tenders from UN agencies, multilateral banks, national governments and international
-          organisations. Filter by country, buyer agency, commodity category, notice type and deadline.
+          organisations. Open any notice for buyer, deadline and document details.
         </p>
       </header>
 
-      <div className="flex flex-wrap gap-3 py-4">
-        <Link
-          href="/procurement"
+      <form action="/en/procurement" method="get" className="flex flex-wrap gap-2 py-4">
+        <input
+          type="search"
+          name="q"
+          defaultValue={q}
+          placeholder="Keyword, buyer or reference"
+          className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-training-green"
+        />
+        <input
+          type="text"
+          name="country"
+          defaultValue={country}
+          placeholder="Country code (e.g. KE)"
+          className="w-40 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-training-green"
+        />
+        <button
+          type="submit"
           className="rounded-lg bg-training-green px-5 py-2.5 text-sm font-bold text-white hover:bg-training-green-hover"
         >
-          Open the full notice search
-        </Link>
-        <Link
-          href="/procurement/countries"
-          className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:border-training-green/40 hover:text-training-green"
-        >
-          Browse by country
-        </Link>
-        <Link
-          href="/procurement/industries"
-          className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:border-training-green/40 hover:text-training-green"
-        >
-          Browse by category
-        </Link>
-      </div>
+          Search
+        </button>
+      </form>
+
+      <p className="border-b border-slate-200 pb-3 text-sm text-slate-500">
+        {total.toLocaleString("en-US")} active notices{q ? ` for “${q}”` : ""}
+      </p>
+
+      {items.length === 0 ? (
+        <p className="py-10 text-sm text-slate-500">
+          No notices found. Try a broader keyword or remove the country filter.
+        </p>
+      ) : (
+        <ul className="divide-y divide-slate-200">
+          {items.map((n) => {
+            const title = n.titleEn || n.title;
+            const buyer = n.buyerName || "";
+            const countryText = n.countryCode ? countryName(n.countryCode, "en") : "";
+            const deadline = n.deadlineTs
+              ? formatNoticeCstDate(Number(n.deadlineTs), true)
+              : "No fixed deadline";
+            const summary = (n.descriptionEn || n.description || "").replace(/\s+/g, " ").trim().slice(0, 180);
+            return (
+              <li key={n.noticePk} className="py-4">
+                <Link
+                  href={`/en/procurement/notice/${n.noticePk}`}
+                  className="text-base font-bold leading-snug text-slate-900 hover:text-training-green"
+                >
+                  {title}
+                </Link>
+                <p className="mt-1 text-xs text-slate-500">
+                  {[buyer, countryText, `Deadline: ${deadline}`].filter(Boolean).join(" · ")}
+                </p>
+                {summary ? <p className="mt-2 text-sm leading-relaxed text-slate-600">{summary}…</p> : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {totalPages > 1 ? (
+        <nav className="flex items-center justify-between py-6 text-sm">
+          {page > 1 ? (
+            <Link href={linkFor(page - 1)} className="font-bold text-training-green hover:underline">
+              ← Previous
+            </Link>
+          ) : <span />}
+          <span className="text-slate-500">
+            Page {page} of {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link href={linkFor(page + 1)} className="font-bold text-training-green hover:underline">
+              Next →
+            </Link>
+          ) : <span />}
+        </nav>
+      ) : null}
     </EnglishShell>
   );
 }
