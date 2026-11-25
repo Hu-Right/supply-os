@@ -28,11 +28,12 @@ export function MyRecordsPanel({ onOpenNotice }: MyFavoritesPanelProps) {
   const { t, locale } = useLocale();
   const userId = useUserId();
   const history = useOrderHistory(userId);
+  const { tab, setTab } = history;
 
   // 该面板只有收藏：首次挂载/切换用户后切到 favorites tab（订单已收敛到费用中心）
   useEffect(() => {
-    if (userId && history.tab !== "favorites") history.setTab("favorites");
-  }, [userId, history.tab, history.setTab]);
+    if (userId && tab !== "favorites") setTab("favorites");
+  }, [userId, tab, setTab]);
 
   if (!userId) {
     return (
@@ -47,22 +48,6 @@ export function MyRecordsPanel({ onOpenNotice }: MyFavoritesPanelProps) {
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div>
-          <p className="text-sm font-extrabold text-slate-900">{t("myRecordsViewsManage")}</p>
-          <p className="text-3xs text-slate-500 mt-0.5">{t("myRecordsViewsManageDesc")}</p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={history.refresh}
-          className="font-black text-teal-700 hover:bg-teal-50"
-        >
-          {history.loading ? t("myRecordsRefreshing") : t("myRecordsRefresh")}
-        </Button>
-      </div>
-
       <div className="space-y-2">
         {history.error && !history.loading && (
           <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-center text-xs text-rose-700">
@@ -109,4 +94,5 @@ export function MyRecordsPanel({ onOpenNotice }: MyFavoritesPanelProps) {
 }
 
 MyRecordsPanel.displayName = "MyRecordsPanel";
+
 

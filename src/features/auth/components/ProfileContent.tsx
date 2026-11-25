@@ -162,12 +162,9 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
         </div>
       </section>
 
-      {/* ── 我的收藏（订单/发票已收敛到费用中心） ── */}
+      {/* ── 我的收藏（订单/发票已收敛到费用中心，仅展示收藏信息） ── */}
       <section>
-        <SectionTitle>{t("settingsMyFavorites") || "我的收藏"}</SectionTitle>
-        <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5">
-          {MyRecordsPanel ? <MyRecordsPanel onOpenNotice={openNotice} /> : null}
-        </div>
+        {MyRecordsPanel ? <MyRecordsPanel onOpenNotice={openNotice} /> : null}
       </section>
 
       {/* ── 账号操作：退出登录（2026-11-19 恢复；顶部账户按钮只跳设置页，没有菜单） ── */}

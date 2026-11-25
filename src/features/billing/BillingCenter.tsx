@@ -131,9 +131,9 @@ export function BillingCenter() {
   );
   const pendingInvoices = invoices.filter((i) => i.status === "pending" || i.status === "issuing").length;
   const subscription = status?.subscription ?? null;
-  const subPlanLabel = subscription?.planCode
-    ? PLAN_LABEL[subscription.planCode] ?? subscription.planCode
-    : "";
+  const subPlanLabel = status?.plan?.nameZh
+    || (subscription?.planCode ? PLAN_LABEL[subscription.planCode] ?? subscription.planCode : "");
+  const hasActivePlan = Boolean(status?.plan);
   const expiresAt = dateOnly(subscription?.expiresAt ?? null);
 
   // 账单流水：支付为正、退款为负（按订单状态近似，真实退款金额以退款单为准）
@@ -235,7 +235,6 @@ export function BillingCenter() {
             {enterprise.enterprise.creditCode ? ` · ${enterprise.enterprise.creditCode}` : ""}
           </span>
         )}
-        <span className="ml-auto text-xs text-secondary-400">发票不在支付环节采集，统一在此按实付金额申请</span>
       </div>
 
       {/* 页内 Tab（不再用独立控制台左侧导航） */}
@@ -256,9 +255,6 @@ export function BillingCenter() {
             )}
           </button>
         ))}
-        <span className="ml-auto hidden items-center text-[11px] text-secondary-400 sm:flex">
-          仅按已支付订单开票；退款已开票红冲；专票抬头须与实名主体一致
-        </span>
       </div>
 
       <main className="space-y-4">
@@ -278,7 +274,7 @@ export function BillingCenter() {
                     {
                       label: "当前订阅", icon: <Wallet className="h-4 w-4" />,
                       value: subPlanLabel || "暂无生效订阅",
-                      sub: expiresAt !== "-" ? `有效期至 ${expiresAt}` : "可在会员套餐页购买",
+                      sub: expiresAt !== "-" ? `有效期至 ${expiresAt}` : hasActivePlan ? "长期有效（无到期时间）" : "可在会员套餐页购买",
                       action: "查看续费", onClick: () => setView("renewals"), accent: false,
                     },
                     {
@@ -314,9 +310,15 @@ export function BillingCenter() {
                     )}
                     <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-xs">
                       <span className="text-secondary-700">
-                        {expiresAt !== "-" ? `会员将于 ${expiresAt} 到期，到期前 7 天将提醒续费；当前未开启自动续费` : "当前没有生效中的会员订阅"}
+                        {expiresAt !== "-"
+                          ? `会员将于 ${expiresAt} 到期，到期前 7 天将提醒续费；当前未开启自动续费`
+                          : hasActivePlan
+                            ? `当前订阅「${subPlanLabel}」长期有效，无到期时间`
+                            : "当前没有生效中的会员订阅"}
                       </span>
-                      <Link href="/membership" className="ml-auto font-bold text-primary-700">去续费</Link>
+                      <Link href="/membership" className="ml-auto font-bold text-primary-700">
+                        {expiresAt !== "-" ? "去续费" : hasActivePlan ? "查看会员套餐" : "去开通"}
+                      </Link>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-xs">
                       <span className="text-secondary-700">退款/售后可在「订单管理」查看，或联系客服提交退款申请；已开票订单退款时同步红冲。</span>
@@ -486,7 +488,7 @@ export function BillingCenter() {
                   </div>
                   <div className="mt-3 space-y-2 text-xs">
                     <p className="flex justify-between"><span className="text-secondary-500">套餐</span><span className="font-bold text-secondary-900">{subPlanLabel || "—"}</span></p>
-                    <p className="flex justify-between"><span className="text-secondary-500">到期时间</span><span className="font-bold text-secondary-900">{expiresAt}</span></p>
+                    <p className="flex justify-between"><span className="text-secondary-500">到期时间</span><span className="font-bold text-secondary-900">{expiresAt !== "-" ? expiresAt : "长期有效"}</span></p>
                     <p className="flex justify-between"><span className="text-secondary-500">自动续费</span><span className="font-bold text-secondary-900">未开启（暂不支持自助开启）</span></p>
                   </div>
                   <div className="mt-4 flex gap-2">
@@ -562,4 +564,6 @@ function statusLabel(status: string): string {
   if (status === "closed") return "已关闭";
   return status;
 }
+
+
 
