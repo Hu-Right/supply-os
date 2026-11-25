@@ -164,6 +164,7 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
 
       {/* ── 我的收藏（订单/发票已收敛到费用中心，仅展示收藏信息） ── */}
       <section>
+        <SectionTitle>{t("settingsMyFavorites") || "我的收藏"}</SectionTitle>
         {MyRecordsPanel ? <MyRecordsPanel onOpenNotice={openNotice} /> : null}
       </section>
 

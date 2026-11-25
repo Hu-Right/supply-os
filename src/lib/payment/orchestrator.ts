@@ -39,6 +39,7 @@ export interface NormalizedOrder {
   businessType: "membership" | "learning" | "training" | "service"; // ARCH-PN：业务类型
   provider: string; // 支付渠道
   planCode: string; // 套餐代码
+  productName: string; // 商品名称（orders.product_name，历史单可能是英文码）
   noticeId: number | null; // 2026-11-12 起 orders 退役该列（死列），恒为 null，键位保留维持 wire 契约
   amount: number; // 订单金额
   currency: string; // 币种
@@ -409,6 +410,7 @@ export class PaymentOrchestrator {
       businessType: BUSINESS_OF_KIND[row.product_kind] ?? "membership",
       provider: row.provider,
       planCode: legacyProductCode(row.product_kind, row.product_code),
+      productName: row.product_name || "",
       noticeId: null, // notice_id 列已随 009 退役，键位保留（命名红线②：对外契约不减键）
       amount: Number(row.amount),
       currency: row.currency,
@@ -422,3 +424,4 @@ export class PaymentOrchestrator {
   }
 
 }
+

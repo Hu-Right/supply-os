@@ -48,6 +48,27 @@ const PLAN_LABEL: Record<string, string> = {
   concierge_y: "人工对接 · 年付",
 };
 
+/** 历史订单的旧套餐码（orders.product_name 存的是英文码，目录里已下架，仅展示映射用） */
+const LEGACY_PLAN_LABEL: Record<string, string> = {
+  free: "免费会员",
+  starter: "商机体验",
+  pro: "个人标准版（已下架）",
+  personal_pro_1299: "个人会员 · 年",
+  single_89: "单次体验",
+  unlimited: "个人商机会员",
+  business: "企业商机版",
+  advisor: "企业咨询顾问",
+  strategic: "战略客户版",
+};
+
+/** 订单商品展示名：优先用 order.productName（中文），否则按套餐码映射，最后兜底 */
+function orderProductLabel(order: OrderRecord): string {
+  const productName = String(order.productName || "").trim();
+  if (productName && /[\u4e00-\u9fa5]/.test(productName)) return productName;
+  return PLAN_LABEL[order.planCode] ?? LEGACY_PLAN_LABEL[order.planCode]
+    ?? (order.planCode ? `会员订单（${order.planCode}）` : "会员订单");
+}
+
 interface EnterpriseResult {
   bound: boolean;
   enterprise: { company: string; creditCode: string | null } | null;
@@ -82,6 +103,7 @@ export function BillingCenter() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [detailOrder, setDetailOrder] = useState<OrderRecord | null>(null);
 
   const load = useCallback(async () => {
     if (!authUser) return;
@@ -143,7 +165,7 @@ export function BillingCenter() {
         .map((o) => ({
           time: dateOnly(o.paidAt ?? o.createdAt),
           type: o.status === "refunded" ? "退款" : "订单支付",
-          desc: `${PLAN_LABEL[o.planCode] ?? o.planCode}（${o.orderNo}）`,
+          desc: `${orderProductLabel(o)}（${o.orderNo}）`,
           amount: o.status === "refunded" ? -Number(o.amount || 0) : Number(o.amount || 0),
           status: o.status,
         }))
@@ -337,7 +359,7 @@ export function BillingCenter() {
                       {orders.slice(0, 3).map((o) => (
                         <div key={o.orderNo} className="flex items-center gap-2 px-4 py-2.5 text-xs">
                           <span className="font-mono text-secondary-600">{o.orderNo}</span>
-                          <span className="truncate text-secondary-800">{PLAN_LABEL[o.planCode] ?? o.planCode}</span>
+                          <span className="truncate text-secondary-800">{orderProductLabel(o)}</span>
                           <span className="ml-auto font-semibold text-secondary-900">{fmt(Number(o.amount || 0))}</span>
                           <Badge variant={o.status === "paid" ? "soft-success" : o.status === "refunded" ? "soft-neutral" : "soft-warning"} shape="tag">{statusLabel(o.status)}</Badge>
                         </div>
@@ -381,16 +403,25 @@ export function BillingCenter() {
                       {orders.map((o) => (
                         <tr key={o.orderNo} className="border-b border-secondary-100 last:border-0">
                           <td className="px-4 py-3 font-mono text-secondary-800">{o.orderNo}</td>
-                          <td className="px-4 py-3 text-secondary-800">{PLAN_LABEL[o.planCode] ?? o.planCode}</td>
+                          <td className="px-4 py-3 text-secondary-800">{orderProductLabel(o)}</td>
                           <td className="px-4 py-3 font-semibold text-secondary-900">{fmt(Number(o.amount || 0))}</td>
                           <td className="px-4 py-3"><Badge variant={o.status === "paid" ? "soft-success" : o.status === "refunded" ? "soft-neutral" : "soft-warning"} shape="tag">{statusLabel(o.status)}</Badge></td>
                           <td className="px-4 py-3 text-secondary-500">{dateOnly(o.paidAt ?? o.createdAt)}</td>
                           <td className="px-4 py-3">
-                            <span className="flex flex-wrap gap-1.5">
+                            <span className="flex flex-wrap items-center gap-2 text-xs">
+                              <button type="button" onClick={() => setDetailOrder(o)} className="font-semibold text-primary-700 hover:underline">详情</button>
                               {o.status === "paid" && !invoicedOrderNos.has(o.orderNo) && (
-                                <Button size="sm" variant="outline" onClick={openInvoice}>去开票</Button>
+                                <>
+                                  <span className="text-secondary-300">|</span>
+                                  <button type="button" onClick={openInvoice} className="font-semibold text-primary-700 hover:underline">申请开票</button>
+                                </>
                               )}
-                              <Link href="/complaint"><Button size="sm" variant="outline">售后/退款</Button></Link>
+                              {o.status === "paid" && (
+                                <>
+                                  <span className="text-secondary-300">|</span>
+                                  <Link href="/complaint" className="font-semibold text-secondary-500 hover:text-primary-700 hover:underline">售后</Link>
+                                </>
+                              )}
                             </span>
                           </td>
                         </tr>
@@ -510,6 +541,35 @@ export function BillingCenter() {
             )}
           </main>
 
+      {/* 订单详情 */}
+      <Modal open={Boolean(detailOrder)} onClose={() => setDetailOrder(null)} title="订单详情" className="max-w-md">
+        {detailOrder && (
+          <div className="space-y-3">
+            <div className="divide-y divide-secondary-100 rounded-xl border border-secondary-200 text-xs">
+              {[
+                ["订单号", detailOrder.orderNo],
+                ["商品", orderProductLabel(detailOrder)],
+                ["金额", fmt(Number(detailOrder.amount || 0))],
+                ["状态", statusLabel(detailOrder.status)],
+                ["支付时间", dateOnly(detailOrder.paidAt ?? detailOrder.createdAt)],
+                ["业务类型", detailOrder.businessType === "membership" ? "会员订阅" : detailOrder.businessType === "training" ? "培训课程" : detailOrder.businessType === "service" ? "专业服务" : "学习资料"],
+              ].map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-secondary-400">{k}</span>
+                  <span className="font-semibold text-secondary-800">{v}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              {detailOrder.status === "paid" && !invoicedOrderNos.has(detailOrder.orderNo) && (
+                <Button variant="primary" className="flex-1" onClick={() => { setDetailOrder(null); openInvoice(); }}>申请开票</Button>
+              )}
+              <Button variant="outline" className="flex-1" onClick={() => setDetailOrder(null)}>关闭</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* 申请开票 */}
       <Modal open={invoiceOpen} onClose={() => setInvoiceOpen(false)} title="申请开票" className="max-w-lg">
         <div className="space-y-3">
@@ -528,7 +588,7 @@ export function BillingCenter() {
                   className="h-4 w-4 accent-primary-600"
                 />
                 <span className="font-mono text-secondary-600">{o.orderNo}</span>
-                <span className="truncate text-secondary-700">{PLAN_LABEL[o.planCode] ?? o.planCode}</span>
+                <span className="truncate text-secondary-700">{orderProductLabel(o)}</span>
                 <span className="ml-auto font-semibold text-secondary-900">{fmt(Number(o.amount || 0))}</span>
               </label>
             ))}
@@ -564,6 +624,7 @@ function statusLabel(status: string): string {
   if (status === "closed") return "已关闭";
   return status;
 }
+
 
 
 

@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { Bell, Mail, MessageSquare, Smartphone } from "lucide-react";
-import { Badge, Button } from "@/shared/ui";
+
 
 type Pref = { key: string; title: string; desc: string; channels: { sms: boolean; email: boolean; inapp: boolean } };
 
@@ -22,10 +22,8 @@ const INITIAL: Pref[] = [
 
 export function NotificationSettings() {
   const [prefs, setPrefs] = useState(INITIAL);
-  const [saved, setSaved] = useState(false);
 
   const toggle = (key: string, channel: "sms" | "email" | "inapp") => {
-    setSaved(false);
     setPrefs((prev) => prev.map((p) => (p.key === key ? { ...p, channels: { ...p.channels, [channel]: !p.channels[channel] } } : p)));
   };
 
@@ -34,7 +32,7 @@ export function NotificationSettings() {
       <section className="rounded-xl border border-border bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-3">
           <p className="flex items-center gap-2 text-sm font-bold text-foreground"><Bell className="h-4 w-4 text-brand-600" />通知偏好</p>
-          <Badge variant="soft-neutral" shape="tag">一期仅展示</Badge>
+
           <p className="ml-auto text-xs text-muted-foreground">安全类通知不可关闭；其他通知按渠道分别订阅</p>
         </div>
         <div className="divide-y divide-border/70">
@@ -66,22 +64,9 @@ export function NotificationSettings() {
             </div>
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-3">
-          <p className="text-xs text-muted-foreground">偏好持久化、退订中心与邮件偏好管理将在二期上线；当前演示仅前端状态。</p>
-          <Button variant="outline" size="sm" className="ml-auto" onClick={() => setSaved(true)}>保存偏好</Button>
-          {saved && <span className="text-xs font-semibold text-success-700">已保存（演示，刷新后恢复默认）</span>}
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-border bg-white p-5 text-xs leading-relaxed text-muted-foreground">
-        <p className="text-sm font-bold text-foreground">通知渠道说明</p>
-        <ul className="mt-2 space-y-1.5">
-          <li>站内信：站内消息中心（二期上线消息中心页）。</li>
-          <li>邮件：发送至绑定邮箱；发票开具结果默认走邮件。</li>
-          <li>短信：发送至绑定手机，仅用于安全、到期与支付类通知。</li>
-          <li>退订：营销类邮件与短信可随时关闭；安全类通知不提供关闭。</li>
-        </ul>
       </section>
     </div>
   );
 }
+
+

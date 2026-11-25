@@ -28,6 +28,7 @@ export interface UnifiedOrderHistoryRow {
   user_id: number;
   product_kind: string;
   product_code: string;
+  product_name: string;
   amount: string;
   currency: string;
   status: string;
@@ -99,7 +100,7 @@ export class PaymentHistoryRepo {
     }
     params.push(limit, offset);
     const [rows] = await this.pool.query(
-      `SELECT order_no, user_id, product_kind, product_code, amount, currency, status, provider,
+      `SELECT order_no, user_id, product_kind, product_code, product_name, amount, currency, status, provider,
               provider_trade_no, paid_at, created_at, updated_at, expires_at
          FROM orders ${where}
          ORDER BY created_at DESC, id DESC
@@ -170,3 +171,4 @@ export class PaymentHistoryRepo {
     );
   }
 }
+

@@ -62,6 +62,8 @@ export type OrderRecord = {
   businessType?: "membership" | "learning" | "training" | "service";
   provider: "alipay" | "wechat" | "mock";
   planCode: string;
+  /** 商品名称（orders.product_name；历史订单可能是英文码） */
+  productName?: string | null;
   noticeId?: number | null;
   amount: number;
   currency: string;
@@ -189,3 +191,4 @@ export async function fetchFavoriteRecords(params: {
   // 收藏是用户可写数据（随时取消收藏），不用 apiCached，避免取消后列表回显旧数据
   return api<PagedResult<FavoriteRecord>>(`/api/notices/favorites?${qs}`);
 }
+
