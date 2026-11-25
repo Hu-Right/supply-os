@@ -6,18 +6,27 @@
  * @description 公告 sitemap 不再「每请求深 OFFSET 扫库」（实测单片 20–55 s，
  *              爬虫超时即丢片），改为：
  *
- *                定时任务（1 小时）→ 生成 XML 快照写入 runtime/seo/sitemap/
+ *                定时任务（默认 4 小时）→ 生成 XML 快照写入 runtime/seo/sitemap/
  *                路由（/sitemap/{id}.xml）→ 只读文件，秒回
  *
  *              生成用 **keyset 分页**（`n.id < cursor` + 主键倒序），不用 OFFSET；
  *              内容门槛引用 `indexable.ts` 的单一事实源；
- *              用 digest（条数 + 最大 id + 最大更新时间）短路，数据没变就不重写。
+ *              用 digest（有效条数 + 最大 id + 最大更新时间）短路，数据没变就不重写。
+ *
+ *              [2026-11-25] 曾尝试把候选集物化成 seo_indexable_notice 以避开 longtext
+ *              长度计算，但本机经 SSH 隧道重建时连接被服务端反复掐断（PROTOCOL_CONNECTION_LOST），
+ *              且单查询 LIMIT 50000 的形态本身可用，故回退为直查 + keyset。
  */
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { NOTICE_LASTMOD_EXPR, SITEMAP_MAX_SHARDS, SITEMAP_NOTICE_WHERE, SITEMAP_SHARD_SIZE } from "./indexable";
+import {
+  NOTICE_LASTMOD_EXPR,
+  SITEMAP_MAX_SHARDS,
+  SITEMAP_NOTICE_WHERE,
+  SITEMAP_SHARD_SIZE,
+} from "./indexable";
 import { renderUrlset, type SitemapEntry } from "./sitemap-xml";
 import { SITE_URL } from "./site";
 
@@ -79,7 +88,7 @@ async function writeAtomic(file: string, content: string): Promise<void> {
   await rename(tmp, file);
 }
 
-/** 当前可索引集合的指纹：条数 + 最大 id + 最大更新时间 */
+/** 可索引集合指纹：有效条数 + 最大 id + 最大更新时间 */
 async function currentDigest(pool: Pool): Promise<{ digest: string; maxId: number; total: number }> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total,
@@ -118,7 +127,7 @@ export async function buildSitemapSnapshots(
   }
 
   const counts: number[] = [];
-  let cursor = maxId + 1; // `id < cursor` 从最大 id 开始
+  let cursor = maxId + 1;
   const startedAt = Date.now();
 
   for (let shard = 0; shard < SITEMAP_MAX_SHARDS; shard += 1) {
@@ -162,7 +171,7 @@ export async function buildSitemapSnapshots(
 
 /**
  * 冷启动兜底：快照缺失时实时渲染一片（允许 OFFSET，仅用于首次部署/文件丢失）。
- * 返回 null 表示 DB 不可用（调用方返回空 urlset，避免 500）。
+ * 返回 null 表示查询失败（调用方返回 503，让爬虫稍后重试）。
  */
 export async function renderLiveNoticeShard(pool: Pool, shard: number): Promise<string | null> {
   try {
@@ -188,10 +197,10 @@ export async function renderLiveNoticeShard(pool: Pool, shard: number): Promise<
 }
 
 /**
- * 定时重建：启动 30 s 后预热一次，之后每 intervalMs（默认 1 小时）重建。
+ * 定时重建：启动 30 s 后预热一次，之后每 intervalMs 重建。
  * 返回停止函数（测试/关闭用）。定时器 unref，不阻塞进程退出。
  */
-export function startSitemapSnapshotScheduler(pool: Pool, intervalMs = 60 * 60 * 1000): () => void {
+export function startSitemapSnapshotScheduler(pool: Pool, intervalMs = 4 * 60 * 60 * 1000): () => void {
   let stopped = false;
   const run = async () => {
     if (stopped) return;

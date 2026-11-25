@@ -35,7 +35,8 @@ export const SITEMAP_MAX_SHARDS = 12;
  *   - `content_level='echo'` 且正文 ≥200 字的 55,652 条，抽样都是真实采购描述
  *     （西班牙 ELISA 试剂、巴西电力服务等），不是模板噪声；
  *   - `content_level='empty'` 且 ≥200 字的只有 2 条，且是 5120 个空格（core_len=0）。
- * 因此改为：**排除 empty（空白正文）+ 用去空白后的长度判定**，不再依赖会过期的分级标签。
+ * 因此改为：**排除 empty（空白正文）+ 保留长度门槛**，不再要求必须是 substantive/thin。
+ * 不引入 TRIM/REPLACE 之类的 longtext 逐行函数——那会让 38 万行的统计/生成查询被服务端掐断。
  *
  * 注意：`title_cn` / `description_cn` 是稀疏译文列，COALESCE 后取中文优先参与长度判定。
  */
@@ -45,9 +46,7 @@ export const INDEXABLE_NOTICE_WHERE = `(
   AND p.notice_type_code IS NOT NULL
   AND p.content_level <> 'empty'
   AND CHAR_LENGTH(COALESCE(NULLIF(p.title_cn, ''), NULLIF(p.title, ''))) >= 8
-  AND CHAR_LENGTH(TRIM(REPLACE(REPLACE(
-        COALESCE(NULLIF(p.description_cn, ''), NULLIF(p.description, '')),
-        '\\r', ''), '\\n', ''))) >= 200
+  AND CHAR_LENGTH(COALESCE(NULLIF(p.description_cn, ''), NULLIF(p.description, ''))) >= 200
 )`;
 
 /**
