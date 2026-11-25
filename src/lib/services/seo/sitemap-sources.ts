@@ -89,6 +89,28 @@ export async function fetchSitemapSuppliers(pool?: Pool): Promise<SitemapSupplie
   return rows as SitemapSupplierRow[];
 }
 
+/** 机构聚合页进 sitemap 的上限（Top N 活跃采购机构） */
+const AGENCY_SITEMAP_LIMIT = 50;
+
+/**
+ * Top N 活跃采购机构（按有效公告数倒序）。
+ * 只用于 sitemap 的机构聚合页 URL；页面本身按 agency 精确查询。
+ */
+export async function fetchSitemapAgencies(pool?: Pool): Promise<Array<{ agency: string }>> {
+  const db = pool ?? getPool();
+  const [rows] = await db.query(
+    `SELECT buyer_name AS agency, COUNT(*) AS count
+       FROM notice_public
+      WHERE ${ACTIVE_NOTICE_WHERE}
+        AND buyer_name IS NOT NULL AND buyer_name <> ''
+      GROUP BY buyer_name
+      ORDER BY count DESC, buyer_name
+      LIMIT ?`,
+    [AGENCY_SITEMAP_LIMIT],
+  );
+  return (rows as Array<{ agency: string }>).map((r) => ({ agency: r.agency }));
+}
+
 /** 国别落地页进 sitemap 的最低有效公告数（薄页只保留页面、不提交收录） */
 const COUNTRY_SITEMAP_MIN = 20;
 /** 国别落地页 URL 上限（预留公告段的余量，总量控制在协议 5 万以内） */

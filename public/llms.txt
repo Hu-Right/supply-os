@@ -12,6 +12,7 @@
 - 按品目浏览：https://osneosmart.com/procurement/industries
 - 供应商目录：https://osneosmart.com/supplier
 - 中标情报：https://osneosmart.com/award-intelligence
+- 中标案例（30 个独立页，示例）：https://osneosmart.com/award-intelligence/case/1
 - 投标服务：https://osneosmart.com/services
 - 第三方服务生态：https://osneosmart.com/ecosystem
 - 采购需求（RFQ）：https://osneosmart.com/rfq

@@ -13,10 +13,12 @@ import {
   SITEMAP_NOTICE_SHARDS,
   SITEMAP_STATIC_SHARD,
   fetchSitemapCountries,
+  fetchSitemapAgencies,
   fetchSitemapNoticesPage,
   fetchSitemapSuppliers,
 } from "@/lib/services/seo/sitemap-sources";
 import { SITE_URL } from "@/lib/services/seo/site";
+import { CN_AWARD_CASES } from "@/data/cn-award-cases";
 
 const BASE_URL = SITE_URL;
 
@@ -62,6 +64,12 @@ function staticPages(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/en/faq`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE_URL}/en/contact`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${BASE_URL}/en/supplier`, changeFrequency: "weekly", priority: 0.6 },
+    ...CN_AWARD_CASES.map((c) => ({
+      url: `${BASE_URL}/award-intelligence/case/${c.id}`,
+      lastModified: new Date(c.date).toISOString(),
+      changeFrequency: "yearly" as const,
+      priority: 0.4,
+    })),
   ];
 }
 
@@ -108,7 +116,19 @@ export default async function sitemap({ id }: { id: Promise<string> }): Promise<
       console.error("[sitemap] 供应商段生成失败，已降级为空:", (err as Error).message);
     }
 
-    return [...pages, ...countryPages, ...supplierPages];
+    let agencyPages: MetadataRoute.Sitemap = [];
+    try {
+      const rows = await fetchSitemapAgencies();
+      agencyPages = rows.map((row) => ({
+        url: `${BASE_URL}/procurement/agency/${encodeURIComponent(row.agency)}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.5,
+      }));
+    } catch (err) {
+      console.error("[sitemap] 机构段生成失败，已降级为空:", (err as Error).message);
+    }
+
+    return [...pages, ...countryPages, ...supplierPages, ...agencyPages];
   }
 
   // 公告分片
