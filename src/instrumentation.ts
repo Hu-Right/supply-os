@@ -201,6 +201,12 @@ export async function register() {
     registerFeaturedSyncCallback((ids: number[]) => {
       enqueue(dbPool, ids);
     });
+
+    // sitemap 快照：默认每 4 小时重建（单次约 3 分钟，digest 未变直接跳过），用 syncPool 避免与 HTTP 抢连接。
+    // 生成后 /sitemap/{id}.xml 只读文件，替代旧的逐请求深 OFFSET 扫库（单片 20–55 s）。
+    const { startSitemapSnapshotScheduler } = await import("./lib/services/seo/sitemap-snapshot");
+    const seoSnapshotIntervalMs = Number(process.env.SEO_SITEMAP_INTERVAL_MS ?? 4 * 60 * 60 * 1000);
+    stops.push(startSitemapSnapshotScheduler(syncPool, seoSnapshotIntervalMs));
   } else {
     console.log("[instrumentation] SYNC_WORKER_IN_APP=off：二档同步任务未在本进程启动（预期由独立 worker 承担）");
   }

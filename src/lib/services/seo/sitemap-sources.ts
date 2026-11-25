@@ -1,68 +1,27 @@
 /**
- * Sitemap 数据源 — 单一事实源
- * Sitemap data sources (single source of truth)
+ * Sitemap 数据源 — 静态片/供应商
  *
  * @module lib/services/seo/sitemap-sources
- * @description 为 app/sitemap.ts 提供类型化的动态 URL 数据。
- *              表名/列名以真实 schema 为准（bid_notices / supplier），
- *              「有效公告」判定复用 utils/notice-expired 的 ACTIVE_NOTICE_WHERE
- *              权威过滤器 —— 搜索侧与 sitemap 侧永不脱节。
+ * @description 为 /sitemap/static.xml 提供国别入口与供应商 URL。
+ *              公告分片改由 sitemap-snapshot 的预生成快照提供（2026-11-25），
+ *              不再在这里做逐请求分页查询。
+ *
  *              历史缺陷背景（2026-08-28 修复）：sitemap 曾查询不存在的
  *              notices/suppliers 表并被统一 try/catch 静默吞掉，
  *              数千动态 URL 长期未被搜索引擎收录。
  */
 import type { Pool } from "mysql2/promise";
 import { getPool } from "@/lib/db/pool";
-import { ACTIVE_NOTICE_WHERE } from "@/lib/utils/notice-expired";
 import { listCountryLandings } from "./landing";
 import { countryParamOfName } from "./country-slug";
-
-export interface SitemapNoticeRow {
-  id: number;
-  /** 入库时间（Unix 秒）。2026-11-18 起替代 update_time 作为 sitemap lastmod 来源 */
-  create_time: Date | string | number;
-}
 
 export interface SitemapSupplierRow {
   id: number;
   addtime: Date | string | number | null;
 }
 
-/**
- * 公告 sitemap 分片大小。
- *
- * 协议单文件硬上限 50000 条 URL；按 50000 一片拆成多个 sitemap，
- * 由 app/sitemap.ts 的 generateSitemaps 生成 /sitemap/{id}.xml。
- * 当前有效公告 37 万+，固定 8 片（0~7）覆盖 40 万；超过再增加分片。
- */
-export const SITEMAP_NOTICE_PAGE_SIZE = 50000;
-/** 公告分片数量（0~7 为公告，第 8 片为静态/国别/供应商） */
-export const SITEMAP_NOTICE_SHARDS = 8;
-/** 静态/国别/供应商所在分片 id */
-export const SITEMAP_STATIC_SHARD = SITEMAP_NOTICE_SHARDS;
 /** 动态供应商 URL 上限 */
 const SUPPLIER_LIMIT = 2000;
-
-/**
- * 按 offset 取一片有效公告（与搜索侧同口径：未截止 + deadline_sec=0 视为长期有效）。
- * 按 create_time（入库时间）倒序，保证分片稳定、不重不漏。
- */
-export async function fetchSitemapNoticesPage(
-  offset: number,
-  limit: number,
-  pool?: Pool,
-): Promise<SitemapNoticeRow[]> {
-  const db = pool ?? getPool();
-  const [rows] = await db.query(
-    `SELECT n.id, n.create_time
-     FROM bid_notices n
-     WHERE ${ACTIVE_NOTICE_WHERE}
-     ORDER BY n.create_time DESC
-     LIMIT ? OFFSET ?`,
-    [limit, offset],
-  );
-  return rows as SitemapNoticeRow[];
-}
 
 /**
  * 供应商详情页（/supplier/[id] 已上线）。

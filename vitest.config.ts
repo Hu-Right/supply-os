@@ -43,6 +43,11 @@ export default defineConfig({
         "src/lib/utils/auth-cookies-next.ts",
         "src/lib/utils/beijing-datetime.ts",
 
+        // ── src/lib/services/seo — sitemap XML 渲染（纯函数）──
+        "src/lib/services/seo/sitemap-xml.ts",
+        // ── src/lib/services/notice-public — 公开展示取值（中文优先规则）──
+        "src/lib/services/notice-public/display.ts",
+
         // ── src/lib/services/search-sync — 宽表构建/对账/指纹（红线 #6 单一写入者）──
         "src/lib/services/search-sync/wide-row-builder.ts",
         "src/lib/services/search-sync/wide-row-reconcile.ts",
