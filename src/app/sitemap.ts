@@ -17,7 +17,6 @@ import {
   fetchSitemapSuppliers,
 } from "@/lib/services/seo/sitemap-sources";
 import { SITE_URL } from "@/lib/services/seo/site";
-import { CN_AWARD_CASES } from "@/data/cn-award-cases";
 
 const BASE_URL = SITE_URL;
 
@@ -56,19 +55,7 @@ function staticPages(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/faq`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE_URL}/notice-source`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE_URL}/complaint`, changeFrequency: "yearly", priority: 0.2 },
-    { url: `${BASE_URL}/en`, changeFrequency: "weekly", priority: 0.7 },
-    { url: `${BASE_URL}/en/procurement`, changeFrequency: "daily", priority: 0.7 },
-    { url: `${BASE_URL}/en/about`, changeFrequency: "monthly", priority: 0.5 },
-    { url: `${BASE_URL}/en/services`, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${BASE_URL}/en/faq`, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${BASE_URL}/en/contact`, changeFrequency: "monthly", priority: 0.5 },
-    { url: `${BASE_URL}/en/supplier`, changeFrequency: "weekly", priority: 0.6 },
-    ...CN_AWARD_CASES.map((c) => ({
-      url: `${BASE_URL}/award-intelligence/case/${c.id}`,
-      lastModified: new Date(c.date).toISOString(),
-      changeFrequency: "yearly" as const,
-      priority: 0.4,
-    })),
+    // 英文站 /en 已下线（ADR-0024）：不再提交任何 /en URL
   ];
 }
 
@@ -106,19 +93,14 @@ export default async function sitemap({ id }: { id: Promise<string> }): Promise<
         lastModified: isoOrNull(row.addtime) ?? now,
         changeFrequency: "monthly" as const,
         priority: 0.5,
-        alternates: {
-          languages: {
-            zh: `${BASE_URL}/supplier/${row.id}`,
-            en: `${BASE_URL}/en/supplier/${row.id}`,
-          },
-        },
       }));
     } catch (err) {
       console.error("[sitemap] 供应商段生成失败，已降级为空:", (err as Error).message);
     }
 
-    // 机构 sitemap 暂缓：buyer_name 无索引，一次 GROUP BY 会拖垮分片（504）。
-    // 机构页本身可访问，待做静态 Top 机构清单后再进 sitemap。
+    // 机构聚合页（/procurement/agency/[slug]）已按 ADR-0023 下线：它没有用户入口，
+    // 只是为 AI 引用而建的可索引资产，且 slug 无边界（等于无限 URL 空间）。
+    // 机构维度的用户入口保留在搜索页的机构筛选项。
     return [...pages, ...countryPages, ...supplierPages];
   }
 
