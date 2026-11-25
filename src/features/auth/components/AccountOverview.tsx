@@ -100,7 +100,7 @@ export function AccountOverview() {
           <div className="ml-auto flex flex-wrap gap-2">
             <Link href="/settings/profile" className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary-50">编辑个人信息</Link>
             <Link href="/settings/security" className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary-50">账号安全</Link>
-            <Link href="/billing" className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700">费用中心</Link>
+            <Link href="/settings/billing" className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700">费用中心</Link>
           </div>
         </div>
       </section>
@@ -183,3 +183,4 @@ export function AccountOverview() {
     </div>
   );
 }
+

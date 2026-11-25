@@ -33,7 +33,7 @@ export const OverviewCards = memo(function OverviewCards({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {/* 订单已收敛到费用中心（唯一订单/发票/续费入口），这里只保留跳转 */}
       <a
-        href="/billing"
+        href="/settings/billing"
         className="flex min-h-[64px] items-center justify-between gap-3 rounded-xl border border-blue-100 bg-white p-4 text-start hover:border-blue-200 hover:bg-blue-50/40"
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -203,3 +203,4 @@ export const PagerBar = memo(function PagerBar({
     </div>
   );
 });
+

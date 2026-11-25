@@ -216,50 +216,52 @@ export function BillingCenter() {
   }
 
   return (
-    <div className="min-h-screen bg-secondary-50 pb-20">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-extrabold tracking-tight text-secondary-900">费用中心</h1>
-          {enterprise?.bound && (
-            <Badge variant="soft-success" shape="tag"><BadgeCheck className="h-3 w-3" />企业已认证</Badge>
-          )}
-          {enterprise?.enterprise && (
-            <span className="flex items-center gap-1 text-xs text-secondary-500">
-              <Building2 className="h-3.5 w-3.5" />{enterprise.enterprise.company}
-              {enterprise.enterprise.creditCode ? ` · ${enterprise.enterprise.creditCode}` : ""}
-            </span>
-          )}
-          <span className="ml-auto text-xs text-secondary-400">发票不在支付环节采集，统一在此按实付金额申请</span>
-        </div>
+    <div className="space-y-4">
+      {/* 面包屑：账号中心 / 费用中心（并入账号中心布局，不再是独立控制台） */}
+      <div className="flex items-center gap-1 text-xs text-secondary-400">
+        <Link href="/settings" className="hover:text-secondary-600">账号中心</Link>
+        <ChevronRight className="h-3 w-3" />
+        <span className="font-semibold text-secondary-600">费用中心</span>
+      </div>
 
-        <div className="mt-4 grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-20 lg:self-start">
-            <div className="flex gap-1 overflow-x-auto rounded-xl border border-secondary-200 bg-white p-1.5 lg:flex-col">
-              {NAV.map((n) => (
-                <button
-                  key={n.key}
-                  type="button"
-                  onClick={() => setView(n.key)}
-                  className={cn(
-                    "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
-                    view === n.key ? "bg-primary-50 text-primary-700" : "text-secondary-600 hover:bg-secondary-50",
-                  )}
-                >
-                  {n.icon}{n.label}
-                  {n.key === "invoices" && pendingInvoices > 0 && (
-                    <Badge variant="soft-warning" shape="pill" className="ml-auto">{pendingInvoices}</Badge>
-                  )}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 hidden rounded-xl border border-secondary-200 bg-white p-4 text-xs leading-relaxed text-secondary-500 lg:block">
-              <p className="font-bold text-secondary-800">开票口径</p>
-              <p className="mt-1">仅按已支付订单金额开票；未支付/退款订单不可开；退款时未开具作废、已开具红冲；专票抬头须与企业实名一致。</p>
-              <Button size="sm" variant="outline" className="mt-3 w-full justify-center" onClick={openInvoice} disabled={eligibleOrders.length === 0}>申请开票</Button>
-            </div>
-          </aside>
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-xl font-extrabold tracking-tight text-secondary-900">费用中心</h1>
+        {enterprise?.bound && (
+          <Badge variant="soft-success" shape="tag"><BadgeCheck className="h-3 w-3" />企业已认证</Badge>
+        )}
+        {enterprise?.enterprise && (
+          <span className="flex items-center gap-1 text-xs text-secondary-500">
+            <Building2 className="h-3.5 w-3.5" />{enterprise.enterprise.company}
+            {enterprise.enterprise.creditCode ? ` · ${enterprise.enterprise.creditCode}` : ""}
+          </span>
+        )}
+        <span className="ml-auto text-xs text-secondary-400">发票不在支付环节采集，统一在此按实付金额申请</span>
+      </div>
 
-          <main className="space-y-4">
+      {/* 页内 Tab（不再用独立控制台左侧导航） */}
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-secondary-200 bg-white p-1.5">
+        {NAV.map((n) => (
+          <button
+            key={n.key}
+            type="button"
+            onClick={() => setView(n.key)}
+            className={cn(
+              "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+              view === n.key ? "bg-primary-50 text-primary-700" : "text-secondary-600 hover:bg-secondary-50",
+            )}
+          >
+            {n.icon}{n.label}
+            {n.key === "invoices" && pendingInvoices > 0 && (
+              <Badge variant="soft-warning" shape="pill" className="ml-auto">{pendingInvoices}</Badge>
+            )}
+          </button>
+        ))}
+        <span className="ml-auto hidden items-center text-[11px] text-secondary-400 sm:flex">
+          仅按已支付订单开票；退款已开票红冲；专票抬头须与实名主体一致
+        </span>
+      </div>
+
+      <main className="space-y-4">
             {loading && (
               <div className="flex items-center gap-2 rounded-2xl border border-secondary-200 bg-white px-4 py-10 text-sm text-secondary-500">
                 <Loader2 className="h-4 w-4 animate-spin" />正在加载费用数据…
@@ -505,8 +507,6 @@ export function BillingCenter() {
               </div>
             )}
           </main>
-        </div>
-      </div>
 
       {/* 申请开票 */}
       <Modal open={invoiceOpen} onClose={() => setInvoiceOpen(false)} title="申请开票" className="max-w-lg">

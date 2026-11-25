@@ -56,7 +56,7 @@ const NAV_GROUPS: Array<{ titleKey: string; items: NavItem[] }> = [
   {
     titleKey: "settingsGroupBilling",
     items: [
-      { href: "/billing", labelKey: "billingCenterTitle", icon: ReceiptText, standalone: true },
+      { href: "/settings/billing", labelKey: "billingCenterTitle", icon: ReceiptText },
     ],
   },
   {
@@ -83,7 +83,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     // 居左布局：侧栏固定左侧，内容区向右铺满（参考智谱用户中心）
     <div className="w-full px-6 lg:px-10 py-8">
-      <h1 className="text-lg font-semibold text-foreground mb-6">{t("settingsTitle") || "账号中心"}</h1>
+      {!pathname.startsWith("/settings/billing") && (
+        <h1 className="text-lg font-semibold text-foreground mb-6">{t("settingsTitle") || "账号中心"}</h1>
+      )}
 
       {/* 身份选择引导横幅 */}
       {isUncommitted && (
@@ -146,3 +148,4 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     </div>
   );
 }
+
