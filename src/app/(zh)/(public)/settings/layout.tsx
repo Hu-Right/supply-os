@@ -6,17 +6,16 @@
  */
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Cpu, User, Building2, Package, AlertTriangle, ClipboardList, KeyRound, BadgeCheck,
-  ReceiptText, LayoutDashboard, ShieldCheck, Bell, LogOut,
+  ReceiptText, LayoutDashboard, ShieldCheck, Bell,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils/cn";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 import { useHasSupplierPool } from "@/shared/hooks/useHasSupplierPool";
 import { useUserId } from "@/core/auth/useUserId";
-import { useAuth } from "@/core/auth";
 
 type NavItem = {
   href: string;
@@ -71,9 +70,7 @@ const NAV_GROUPS: Array<{ titleKey: string; items: NavItem[] }> = [
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { t } = useLocale();
-  const { authUser, logout } = useAuth();
   const userId = useUserId();
   const { bound, loading: entLoading, error: entError } = useEnterpriseInfo();
   const { hasPool, loading: poolLoading, error: poolError } = useHasSupplierPool(userId);
@@ -144,16 +141,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               })}
             </div>
           ))}
-          {authUser && (
-            <button
-              type="button"
-              onClick={async () => { await logout(); router.push("/"); }}
-              className="mt-2 flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-danger-600 transition-colors hover:bg-danger-50 md:mt-auto md:border-t md:border-border md:pt-3"
-            >
-              <LogOut className="h-4 w-4 shrink-0" />
-              {t("authLogout") || "退出登录"}
-            </button>
-          )}
         </nav>
         {/* 右侧内容区 */}
         <div className="min-w-0">{children}</div>
@@ -161,5 +148,4 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     </div>
   );
 }
-
 
