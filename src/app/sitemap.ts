@@ -13,7 +13,6 @@ import {
   SITEMAP_NOTICE_SHARDS,
   SITEMAP_STATIC_SHARD,
   fetchSitemapCountries,
-  fetchSitemapAgencies,
   fetchSitemapNoticesPage,
   fetchSitemapSuppliers,
 } from "@/lib/services/seo/sitemap-sources";
@@ -116,19 +115,9 @@ export default async function sitemap({ id }: { id: Promise<string> }): Promise<
       console.error("[sitemap] 供应商段生成失败，已降级为空:", (err as Error).message);
     }
 
-    let agencyPages: MetadataRoute.Sitemap = [];
-    try {
-      const rows = await fetchSitemapAgencies();
-      agencyPages = rows.map((row) => ({
-        url: `${BASE_URL}/procurement/agency/${encodeURIComponent(row.agency)}`,
-        changeFrequency: "weekly" as const,
-        priority: 0.5,
-      }));
-    } catch (err) {
-      console.error("[sitemap] 机构段生成失败，已降级为空:", (err as Error).message);
-    }
-
-    return [...pages, ...countryPages, ...supplierPages, ...agencyPages];
+    // 机构 sitemap 暂缓：buyer_name 无索引，一次 GROUP BY 会拖垮分片（504）。
+    // 机构页本身可访问，待做静态 Top 机构清单后再进 sitemap。
+    return [...pages, ...countryPages, ...supplierPages];
   }
 
   // 公告分片
