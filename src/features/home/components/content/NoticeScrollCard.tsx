@@ -48,7 +48,7 @@ export function NoticeScrollCard({
   const typeLabel = typeKey ? t(typeKey) : "";
 
   return (
-    <a key={notice.noticePk} href={`/procurement/notice/${notice.noticePk}/detail?from=${encodeURIComponent("/")}`} className="block group py-4">
+    <a key={notice.noticePk} href={`/procurement/notice/${notice.noticePk}`} className="block group py-4">
       <div className="flex items-center gap-2">
         {isRfq ? (
           <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-2xs font-bold text-blue-700">

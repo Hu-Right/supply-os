@@ -90,8 +90,8 @@ export default async function IndustriesHubPage() {
         </h1>
         <p className="text-sm leading-relaxed text-slate-600">
           {isZh
-            ? `共 ${num(groups.length)} 个品目大类、${num(total)} 条在挂公告。数量按「包含」口径统计：一条公告挂在多个大类下时，每个大类都会计入，点进任一大类看到的就是该数字对应的公告。`
-            : `${num(groups.length)} commodity groups, ${num(total)} active notices. Counts use the "contains" basis: a notice attached to multiple groups counts in each, and clicking a group shows exactly those notices.`}
+            ? `共 ${num(groups.length)} 个品目大类，品目计数合计 ${num(total)} 条（包含口径：一条公告挂在多个大类下时，每个大类都会计入；点进任一大类看到的就是该数字对应的公告）。`
+            : `${num(groups.length)} commodity groups, ${num(total)} group-level counts ("contains" basis: a notice attached to multiple groups counts in each; clicking a group shows exactly those notices).`}
         </p>
       </header>
 

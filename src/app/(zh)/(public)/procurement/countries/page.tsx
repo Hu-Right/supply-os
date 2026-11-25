@@ -91,8 +91,8 @@ export default async function CountriesHubPage() {
         </h1>
         <p className="text-sm leading-relaxed text-slate-600">
           {isZh
-            ? `共 ${num(countries.length)} 个国家/地区、${num(total)} 条有效公告（按截止时间实时过滤）。点击国家可查看该国最新公告，也可回到`
-            : `${num(countries.length)} countries/regions, ${num(total)} active notices (filtered by deadline in real time). Click a country to view its latest notices, or go back to`}
+            ? `共 ${num(countries.length)} 个国家/地区，国别计数合计 ${num(total)} 条（同一公告涉及多国时按国别重复计入）。点击国家可查看该国最新公告，也可回到`
+            : `${num(countries.length)} countries/regions, ${num(total)} country-level counts (a notice spanning multiple countries is counted in each). Click a country to view its latest notices, or go back to`}
           <Link href="/procurement" className="mx-1 text-training-green hover:underline">
             {isZh ? "公告搜索" : "notice search"}
           </Link>
