@@ -1,9 +1,9 @@
 /**
- * /membership — ISR (revalidate: 3600)
+ * /membership — 动态渲染（force-dynamic，禁止构建期预渲染）
  *
  * RSC 直出：套餐对比矩阵是公开数据（/api/membership/plans 同源，与登录态无关），
- * 渲染期服务端直取进静态 HTML，客户端 hook 只补登录态的订阅状态/年包抵扣单；
- * DB 不可达（含 build 期）降级为不带初值，回退客户端拉水。
+ * 每次请求服务端直取后随首屏 HTML 下发，客户端 hook 只补登录态的订阅状态/年包抵扣单；
+ * DB 不可达（含 build 期）降级为不带初值，回退客户端拉取。
  */
 import type { Metadata } from "next";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
@@ -13,7 +13,15 @@ import { tieredComparisonViewOf } from "@/lib/services/membership/view";
 import type { ComparisonView } from "@/types";
 import PageClient from "./page-client";
 
-export const revalidate = 3600;
+/**
+ * 动态渲染，禁止构建期预渲染。
+ *
+ * 正文依赖 DB（权益矩阵），而 CI 构建机无库：预渲染出来是一张空壳
+ * （2026-11-25 线上实测 364 字符、无 H1、无价格），且 ISR 回源在冷连接下要
+ * 20–30s，常被 nginx 超时打断，缓存因此永远换不掉——连续 24h 返回同一份空壳。
+ * 与首页 6dab2c0b 同一处置：宁可每请求查库，也不让构建期空数据被缓存。
+ */
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   // 只写页面名：网站名由根 layout 的 title.template 拼在首位

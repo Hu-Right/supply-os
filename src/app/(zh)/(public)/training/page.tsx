@@ -1,7 +1,8 @@
 /**
- * /training — ISR (revalidate: 3600)
+ * /training — 动态渲染（force-dynamic，禁止构建期预渲染）
  *
- * 交互 UI 由 PageClient（dynamic import）在客户端接管。
+ * 交互 UI 由 PageClient（dynamic import）在客户端接管；
+ * 课程/期次由服务端直出（AI 爬虫不执行 JS）。
  */
 import type { Metadata } from "next";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
@@ -10,7 +11,14 @@ import { jsonLdScript, SITE_ENTITY } from "@/lib/services/seo/json-ld";
 import { loadTrainingLanding } from "@/lib/services/training/landing";
 import PageClient from "./page-client";
 
-export const revalidate = 3600;
+/**
+ * 动态渲染，禁止构建期预渲染。
+ *
+ * 与 /membership 同一故障：课程/期次依赖 DB，构建机无库 → 预渲染出空壳
+ * （2026-11-25 线上实测 368 字符、无 H1，只剩一个「加载中」），
+ * ISR 回源又常被冷连接拖到超时，缓存换不掉。改成每请求渲染，失败可自愈。
+ */
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   // 只写页面名：网站名由根 layout 的 title.template 拼在首位
