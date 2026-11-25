@@ -101,8 +101,8 @@ export async function fetchSitemapAgencies(pool?: Pool): Promise<Array<{ agency:
   const [rows] = await db.query(
     `SELECT buyer_name AS agency, COUNT(*) AS count
        FROM notice_public
-      WHERE ${ACTIVE_NOTICE_WHERE}
-        AND buyer_name IS NOT NULL AND buyer_name <> ''
+      WHERE buyer_name IS NOT NULL AND buyer_name <> ''
+        AND (deadline_ts IS NULL OR deadline_ts = 0 OR deadline_ts >= UNIX_TIMESTAMP())
       GROUP BY buyer_name
       ORDER BY count DESC, buyer_name
       LIMIT ?`,
