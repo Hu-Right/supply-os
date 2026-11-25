@@ -1,6 +1,6 @@
 // i18n-allow-file: 财务发票处理页（内部运营页，仅白名单账号可见）
 /**
- * 财务发票处理（/settings/billing/ops）
+ * 财务发票处理（运营后台 /ops/invoices）
  *
  * 一期人工开具：接单 → 录入发票号 + 上传 PDF/OFD/XML → 用户可下载；作废/红冲在此推进。
  * 页面本身不做权限判断，接口用 BILLING_OPS_USER_IDS 白名单返回 403。
@@ -95,7 +95,7 @@ export function InvoiceOpsPanel() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-1 text-xs text-secondary-400">
-        <Link href="/settings/billing" className="flex items-center gap-0.5 hover:text-secondary-600"><ChevronLeft className="h-3.5 w-3.5" />费用中心</Link>
+        <Link href="/ops" className="flex items-center gap-0.5 hover:text-secondary-600"><ChevronLeft className="h-3.5 w-3.5" />运营后台</Link>
         <span>/</span><span className="font-semibold text-secondary-600">发票处理</span>
       </div>
 
@@ -190,4 +190,5 @@ export function InvoiceOpsPanel() {
     </div>
   );
 }
+
 
