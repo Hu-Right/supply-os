@@ -14,7 +14,7 @@ import { useRegisterCode } from "../hooks/useRegisterCode";
 import { LoginForm } from "./forms/LoginForm";
 import { ForgotPasswordForm } from "./forms/ForgotPasswordForm";
 import { useLocale } from "@/core/i18n";
-import { SegmentedControl } from "@/shared/ui";
+import { Button, Input, SegmentedControl } from "@/shared/ui";
 
 /** 注册表单按需加载：仅切换到注册模式时才拉取，避免登录模式下无用加载 */
 const RegisterForm = dynamic(() => import("./forms/RegisterForm").then((m) => m.RegisterForm), {
@@ -48,6 +48,10 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (auth.mfaChallenge) {
+      await auth.submitMfa();
+      return;
+    }
     if (forgotView) {
       if (forgot.forgotStep === 1) {
         await forgot.handleSendResetCode(e);
@@ -65,7 +69,7 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Login / Register toggle */}
-      {!forgotView && (
+      {!forgotView && !auth.mfaChallenge && (
         <SegmentedControl
           fullWidth
           value={auth.authMode}
@@ -75,6 +79,39 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
             { value: "register", label: t("authRegisterTab") },
           ]}
         />
+      )}
+
+      {/* 两步验证第二步（密码已通过） */}
+      {!forgotView && auth.mfaChallenge && (
+        <div className="space-y-3">
+          <p className="text-sm font-black text-slate-900">{t("authMfaTitle")}</p>
+          <p className="text-xs leading-relaxed text-slate-500">{t("authMfaHint")}</p>
+          <Input
+            value={auth.mfaCode}
+            onChange={(e) => auth.setMfaCode(e.target.value)}
+            placeholder={t("authMfaCodePlaceholder")}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            autoFocus
+          />
+          {auth.authError && (
+            <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
+              {auth.authError}
+            </p>
+          )}
+          <Button type="submit" variant="dark" className="w-full py-3 rounded-xl text-sm font-black">
+            {t("authMfaVerify")}
+          </Button>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            onClick={auth.cancelMfa}
+            className="px-0 text-slate-500 hover:text-slate-700 underline"
+          >
+            {t("authMfaBack")}
+          </Button>
+        </div>
       )}
 
       {/* 找回密码视图 */}
@@ -119,3 +156,6 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
     </form>
   );
 }
+
+
+

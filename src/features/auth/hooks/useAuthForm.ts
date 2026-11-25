@@ -47,11 +47,14 @@ export interface AuthFormState {
 
 export function useAuthForm(onSuccess: () => void, initialMode: "login" | "register" = "login") {
   const { t } = useLocale();
-  const { login, register } = useAuth();
+  const { login, register, verifyMfa } = useAuth();
 
   // 初始模式由调用方注入（扫码推广场景 layout-shell 传 "register"）
   const [authMode, setAuthMode] = useState<"login" | "register">(initialMode);
   const [authError, setAuthError] = useState("");
+  /** 登录第二步：已开启两步验证时的挑战 token 与输入码 */
+  const [mfaChallenge, setMfaChallenge] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
   /** 存量弱哈希账号命中重置闸门（403/40043）：由容器自动切换到找回密码视图 */
   const [needPasswordReset, setNeedPasswordReset] = useState(false);
   /** 用户是否主动勾选同意协议（默认 false，不得预先勾选） */
@@ -147,7 +150,12 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
           setAuthError(t("authErrPhoneInvalid"));
           return;
         }
-        await login(loginIdentifier, loginForm.password);
+        const result = await login(loginIdentifier, loginForm.password);
+        if (result.mfaRequired && result.challengeToken) {
+          setMfaChallenge(result.challengeToken);
+          setMfaCode("");
+          return;
+        }
         setLoginForm({ identifier: "", password: "" });
       } else {
         // 注册：手机号必填，邮箱选填
@@ -178,6 +186,25 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
     }
   };
 
+  /** 两步验证第二步提交 */
+  const submitMfa = async (): Promise<void> => {
+    setAuthError("");
+    if (!mfaChallenge) return;
+    if (!/^\d{6}$/.test(mfaCode.trim()) && mfaCode.replace(/[^A-Za-z0-9]/g, "").length < 8) {
+      setAuthError(t("authMfaCodeInvalid"));
+      return;
+    }
+    try {
+      await verifyMfa(mfaChallenge, mfaCode.trim());
+      setLoginForm({ identifier: "", password: "" });
+      setMfaChallenge(null);
+      setMfaCode("");
+      onSuccess();
+    } catch (err: any) {
+      setAuthError(err?.message || t("authMfaFailed"));
+    }
+  };
+
   return {
     t,
     authMode,
@@ -191,7 +218,13 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
     loginForm,
     setLoginForm,
     submitAuth,
+    mfaChallenge,
+    mfaCode,
+    setMfaCode,
+    submitMfa,
+    cancelMfa: () => { setMfaChallenge(null); setMfaCode(""); setAuthError(""); },
     agreedToTerms,
     setAgreedToTerms,
   };
 }
+

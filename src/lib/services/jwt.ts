@@ -38,6 +38,12 @@ export interface AccessTokenPayload {
   type: "access";
 }
 
+export interface MfaChallengePayload {
+  /** 内部用户 ID（两步验证挑战） */
+  uid: number;
+  type: "mfa";
+}
+
 export interface RefreshTokenPayload {
   /** 内部用户 ID（身份主锚点） */
   uid: number;
@@ -105,4 +111,20 @@ export function extractBearerToken(authHeader: string | undefined): string | nul
 /** 获取 Refresh Token 过期时间（Date 对象，供入库用） */
 export function getRefreshTokenExpiresAt(): Date {
   return new Date(Date.now() + JWT_REFRESH_EXPIRES_DAYS * 24 * 60 * 60 * 1000);
+}
+
+// ── MFA Challenge Token ──
+
+/** 签发两步验证挑战 token（5 分钟；密码校验通过但 TOTP 未完成时下发） */
+export function signMfaChallenge(uid: number): string {
+  if (!JWT_SECRET) throw new Error("JWT_SECRET_NOT_CONFIGURED");
+  return jwt.sign({ uid, type: "mfa" } as MfaChallengePayload, JWT_SECRET, { expiresIn: "5m" });
+}
+
+/** 验证两步验证挑战 token */
+export function verifyMfaChallenge(token: string): MfaChallengePayload {
+  if (!JWT_SECRET) throw new Error("JWT_SECRET_NOT_CONFIGURED");
+  const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] }) as MfaChallengePayload;
+  if (decoded.type !== "mfa") throw new Error("INVALID_TOKEN_TYPE");
+  return decoded;
 }

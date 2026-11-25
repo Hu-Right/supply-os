@@ -2795,4 +2795,17 @@ CREATE TABLE `invoice_requests` (
   KEY `idx_invoice_requests_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='发票申请单（费用中心按实付金额申请，财务人工开具）';
 
+CREATE TABLE `user_mfa` (
+  `user_id` bigint unsigned NOT NULL COMMENT '用户 ID（users.id）',
+  `secret` varchar(512) DEFAULT NULL COMMENT '启用后的 TOTP 密钥（AES-256-GCM 加密）',
+  `pending_secret` varchar(512) DEFAULT NULL COMMENT '绑定中的临时密钥（加密，未验证前不启用）',
+  `enabled` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否启用两步验证',
+  `recovery_hashes` text COMMENT '一次性恢复码 SHA-256 哈希 JSON 数组',
+  `last_time_step` bigint DEFAULT NULL COMMENT '最近成功使用的时间步（防重放）',
+  `fail_count` int NOT NULL DEFAULT '0' COMMENT '连续失败次数（审计/限流）',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户两步验证（TOTP，账号级）';
+
 SET FOREIGN_KEY_CHECKS = 1;

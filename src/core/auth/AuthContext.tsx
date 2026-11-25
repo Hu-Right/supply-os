@@ -24,6 +24,9 @@ interface AuthResponse {
   token?: string;
   refreshToken?: string;
   user: AuthUser;
+  /** 已开启两步验证：只下发挑战 token，不下发正式 token */
+  mfaRequired?: boolean;
+  challengeToken?: string;
   [key: string]: unknown;
 }
 
@@ -105,12 +108,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: { identifier, password },
       });
+      // 已开启两步验证：不持久化登录态，返回挑战 token 交给第二步校验
+      if (data.mfaRequired && data.challengeToken) {
+        return { mfaRequired: true, challengeToken: data.challengeToken };
+      }
       // 存储 Access Token + Refresh Token（Refresh Token 同时经 HttpOnly Cookie + localStorage 降级存储）
       if (data.token) {
         setAuthTokens(data.token, data.refreshToken);
       }
       // 跨账号隔离：apiCached 的 TTL 缓存按端点为键（membership/status、access-records、词组等
       // 用户态数据），登录/换号时必须清空，否则下一账号在 TTL 窗口内读到上一账号的缓存
+      clearApiCache();
+      persistAuthUser(data.user);
+      return { mfaRequired: false };
+    } finally {
+      setIsAuthLoading(false);
+    }
+  }, [persistAuthUser]);
+
+  /** 两步验证第二步：挑战 token + 动态码/恢复码 → 正式 token */
+  const verifyMfa = useCallback(async (challengeToken: string, code: string) => {
+    setIsAuthLoading(true);
+    try {
+      const data = await api<AuthResponse>("/api/auth/mfa/verify", {
+        method: "POST",
+        body: { challengeToken, code },
+      });
+      if (data.token) setAuthTokens(data.token, data.refreshToken);
       clearApiCache();
       persistAuthUser(data.user);
     } finally {
@@ -263,12 +287,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authReady,
     isAuthLoading,
     login,
+    verifyMfa,
     register,
     logout,
     refreshAuth,
     sendResetCode,
     resetPassword,
-  }), [authUser, isVip, authReady, isAuthLoading, login, register, logout, refreshAuth, sendResetCode, resetPassword]);
+  }), [authUser, isVip, authReady, isAuthLoading, login, verifyMfa, register, logout, refreshAuth, sendResetCode, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -292,3 +317,4 @@ export function useAuth(): AuthContextValue {
 export function useOptionalAuth(): AuthContextValue | null {
   return useContext(AuthContext);
 }
+

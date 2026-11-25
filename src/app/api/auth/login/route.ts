@@ -13,6 +13,8 @@ import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { EC_PHONE_ISSUE } from "@/shared/constants/api";
+import { isMfaEnabled } from "@/lib/services/mfa";
+import { signMfaChallenge } from "@/lib/services/jwt";
 
 const loginSchema = z.object({
   identifier: z.string({ error: "请输入手机号或邮箱" }).trim().min(1, "请输入手机号或邮箱"),
@@ -30,7 +32,13 @@ export const POST = withRoute(async (req: NextRequest) => {
     () => `login-acct:${identifier.toLowerCase()}`);
   if (rlAccount) return rlAccount;
 
-  const { payload, accessToken, refreshToken } = await loginWithPassword(getContext(), { identifier, password });
+  const ctx = getContext();
+  const { payload, accessToken, refreshToken } = await loginWithPassword(ctx, { identifier, password });
+
+  // 已开启两步验证：先发短期挑战 token，动态码通过后才签发正式 token
+  if (payload.id && await isMfaEnabled(ctx.dbPool, payload.id)) {
+    return NextResponse.json({ success: true, mfaRequired: true, challengeToken: signMfaChallenge(payload.id) });
+  }
 
   // 契约保真：无 token 时键省略（undefined），而非显式 null
   // refreshToken 同时写入响应体（客户端 localStorage 降级存储）+ HttpOnly Cookie
@@ -44,3 +52,4 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (refreshToken) setRefreshCookieOnResponse(response, refreshToken);
   return response;
 });
+

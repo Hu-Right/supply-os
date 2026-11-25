@@ -45,7 +45,10 @@ export interface AuthContextValue {
   /** 认证操作加载中（登录/注册/刷新） */
   isAuthLoading: boolean;
   /** 登录（手机号或已绑定邮箱） */
-  login: (identifier: string, password: string) => Promise<void>;
+  /** 登录：已开启两步验证时返回挑战 token（需再调 verifyMfa） */
+  login: (identifier: string, password: string) => Promise<{ mfaRequired: boolean; challengeToken?: string }>;
+  /** 两步验证第二步：动态码/恢复码通过后签发正式 token */
+  verifyMfa: (challengeToken: string, code: string) => Promise<void>;
   /** 注册（options 对象模式，消除位置参数顺序依赖） */
   register: (options: RegisterOptions) => Promise<void>;
   /** 登出 */
@@ -57,3 +60,4 @@ export interface AuthContextValue {
   /** 重置密码（验证码+新密码），成功后自动登录 */
   resetPassword: (identifier: string, code: string, newPassword: string) => Promise<void>;
 }
+

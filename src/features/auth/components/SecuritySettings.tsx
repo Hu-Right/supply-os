@@ -10,12 +10,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, KeyRound, Laptop, Lock, ShieldCheck, Smartphone } from "lucide-react";
+import { ArrowRight, Laptop, Lock, ShieldCheck, Smartphone } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { Badge, Button, Input, Modal } from "@/shared/ui";
 import { PhoneBinding } from "./PhoneBinding";
 import { EmailBinding } from "./EmailBinding";
+import { MfaSettings } from "./MfaSettings";
 
 export function SecuritySettings() {
   const { authUser, logout } = useAuth();
@@ -114,7 +115,7 @@ export function SecuritySettings() {
       <section className="rounded-xl border border-border bg-white">
         <div className="border-b border-border px-5 py-3">
           <p className="text-sm font-bold text-foreground">登录与安全</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">管理登录密码、绑定方式与登录设备；敏感操作建议开启两步验证（二期）。</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">管理登录密码、绑定方式与登录设备；敏感操作建议开启两步验证。</p>
         </div>
         <div className="divide-y divide-border/70">
           {/* 登录密码 */}
@@ -130,15 +131,8 @@ export function SecuritySettings() {
           <PhoneBinding />
           {/* 邮箱 */}
           <EmailBinding />
-          {/* 两步验证（二期） */}
-          <div className="flex flex-wrap items-center gap-3 px-5 py-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600"><KeyRound className="h-4 w-4" /></span>
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">两步验证 <Badge variant="soft-neutral" shape="tag">即将上线</Badge></p>
-              <p className="mt-0.5 text-xs text-muted-foreground">登录与敏感操作增加动态验证码，降低账号被盗风险（二期支持）。</p>
-            </div>
-            <Button variant="outline" size="sm" className="ml-auto shrink-0" disabled>未开启</Button>
-          </div>
+          {/* 两步验证（TOTP 验证器） */}
+          <MfaSettings />
         </div>
       </section>
 
@@ -207,4 +201,5 @@ export function SecuritySettings() {
     </div>
   );
 }
+
 
