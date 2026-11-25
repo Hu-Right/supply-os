@@ -18,7 +18,7 @@ import { loadProcurementInitial } from "./initial-data";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   // 只写页面名：网站名由根 layout 的 title.template 拼在首位

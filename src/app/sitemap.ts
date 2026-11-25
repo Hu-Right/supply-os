@@ -20,7 +20,7 @@ import { SITE_URL } from "@/lib/services/seo/site";
 
 const BASE_URL = SITE_URL;
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 /** 固定 9 片：0~7 公告，8 静态/国别/供应商；DB 不可用时也能在构建期生成索引 */
 export async function generateSitemaps() {

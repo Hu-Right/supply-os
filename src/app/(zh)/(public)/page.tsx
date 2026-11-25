@@ -19,7 +19,7 @@ import PageClient from "./page-client";
 import type { HomeStatsData } from "@/features/home";
 
 /** 与其它 (public) 页一致：公开页 1 小时 ISR，数字新鲜度由客户端 10 分钟轮询兼顾 */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "中国供应链出海 · 全球公共采购商机与投标服务",
