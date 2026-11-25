@@ -66,7 +66,7 @@ export const metadata: Metadata = {
   },
   verification: {
     other: {
-      "baidu-site-verification": "codeva-6P7uvzhCRZ",
+      "baidu-site-verification": "codeva-HYzdZMEKJb",
     },
   },
 };
@@ -133,3 +133,4 @@ export default function RootLayout({
     </html>
   );
 }
+
