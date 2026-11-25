@@ -26,10 +26,10 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   // 只写页面名：网站名由根 layout 的 title.template 拼在首位
   title: "会员套餐与权益",
-  description: "云境·国际采购平台会员套餐：查看完整采购公告、供应商数据与 AI 投标工具，助力企业高效拓展全球采购业务。",
+  description: "云境·国际采购平台会员套餐：解锁完整采购公告与标讯详情、供应商数据与 AI 投标工具，助力企业高效拓展全球采购业务。",
   openGraph: {
     title: BROWSER_TITLE.zh,
-    description: "查看完整采购公告、供应商数据与 AI 投标工具，助力全球业务拓展。",
+    description: "解锁完整标讯与供应商数据、AI 投标工具，助力全球业务拓展。",
     url: absoluteUrl("/membership"),
     type: "website",
     images: [DEFAULT_OG_IMAGE],

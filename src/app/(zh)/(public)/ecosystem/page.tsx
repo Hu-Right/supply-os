@@ -11,7 +11,7 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = {
   // 只写页面名：网站名由根 layout 的 title.template 拼在首位
-  title: "第三方服务生态",
+  title: "第三方服务生态 · 服务商入驻合作",
   description: "云境·国际采购平台第三方服务生态：研修培训、合规准入、履约交付、售后服务、本地化运营等第三方专业服务，邀约入驻，一站对接。",
   openGraph: {
     title: BROWSER_TITLE.zh,

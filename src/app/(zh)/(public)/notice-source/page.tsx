@@ -7,7 +7,7 @@ import { LegalPageContent } from "../legal-page";
 
 export const metadata: Metadata = {
   title: "标讯来源与使用说明",
-  description: "OS NEO SMART 标讯来源、更新时效、准确性与官方投标渠道说明",
+  description: "云境·国际采购平台标讯来源、更新时效、准确性与官方投标渠道说明",
 };
 
 export default function NoticeSourcePage() {

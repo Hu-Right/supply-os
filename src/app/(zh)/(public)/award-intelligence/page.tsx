@@ -14,10 +14,10 @@ import PageClient from "./page-client";
 
 export const metadata: Metadata = {
   // 只写页面名（网站名由根 layout 模板拼在首位）；“历史数据变商业情报”等卖点归入 description
-  title: "中标情报 / 买家情报",
+  title: "中标情报查询 · 买家分析",
   description: "将历史中标数据变成商业情报：追踪买家采购周期、竞争格局与价格趋势，辅助投标决策",
   openGraph: {
-    title: "云境·国际采购平台 | 中标情报 / 买家情报",
+    title: "中标情报查询 · 买家分析",
     description: "追踪买家采购周期、竞争格局与价格趋势，辅助投标决策。",
     url: absoluteUrl("/award-intelligence"),
     type: "website",

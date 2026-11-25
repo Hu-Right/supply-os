@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   // 只写页面名：网站名由根 layout 的 title.template 拼在首位
-  title: "全球供应商目录",
-  description: "云境·国际采购平台供应商目录：查询全球认证供应商信息，按行业、地区、资质筛选，助力精准匹配采购合作伙伴。",
+  title: "全球供应商名录查询",
+  description: "云境·国际采购平台供应商名录：查询全球认证供应商，按行业、地区、资质筛选，助力精准匹配采购合作伙伴。",
   openGraph: {
     title: BROWSER_TITLE.zh,
     description: "全球认证供应商查询，按行业/地区/资质精准筛选。",
