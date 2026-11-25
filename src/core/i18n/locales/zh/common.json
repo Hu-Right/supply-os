@@ -439,5 +439,7 @@
   "settingsGoMembership": "去会员套餐",
   "settingsContactBinding": "手机号与邮箱绑定",
   "settingsContactBindingCta": "去账号安全设置",
-  "settingsMembershipMoved": "会员权益已迁移至「会员套餐」页，可查看/升级/续费"
+  "settingsMembershipMoved": "会员权益已迁移至「会员套餐」页，可查看/升级/续费",
+  "settingsMyFavorites": "我的收藏"
 }
+

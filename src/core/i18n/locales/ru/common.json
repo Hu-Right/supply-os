@@ -439,5 +439,7 @@
   "settingsGoMembership": "К тарифам",
   "settingsContactBinding": "Телефон и почта",
   "settingsContactBindingCta": "Перейти к безопасности",
-  "settingsMembershipMoved": "Преимущества перенесены на страницу тарифов."
+  "settingsMembershipMoved": "Преимущества перенесены на страницу тарифов.",
+  "settingsMyFavorites": "Мои избранные"
 }
+

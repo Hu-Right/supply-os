@@ -439,5 +439,7 @@
   "settingsGoMembership": "Voir les forfaits",
   "settingsContactBinding": "Téléphone et e-mail",
   "settingsContactBindingCta": "Gérer la sécurité",
-  "settingsMembershipMoved": "Les avantages sont déplacés vers la page des forfaits."
+  "settingsMembershipMoved": "Les avantages sont déplacés vers la page des forfaits.",
+  "settingsMyFavorites": "Mes favoris"
 }
+

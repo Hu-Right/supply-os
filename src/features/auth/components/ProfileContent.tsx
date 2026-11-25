@@ -162,9 +162,9 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
         </div>
       </section>
 
-      {/* ── 我的记录（订单已收敛到费用中心，这里只保留收藏/解锁） ── */}
+      {/* ── 我的收藏（订单/发票已收敛到费用中心） ── */}
       <section>
-        <SectionTitle>{t("settingsMyRecords") || "我的记录"}</SectionTitle>
+        <SectionTitle>{t("settingsMyFavorites") || "我的收藏"}</SectionTitle>
         <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5">
           {MyRecordsPanel ? <MyRecordsPanel onOpenNotice={openNotice} /> : null}
         </div>
@@ -193,5 +193,6 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
 }
 
 ProfileContent.displayName = "ProfileContent";
+
 
 

@@ -439,5 +439,7 @@
   "settingsGoMembership": "إلى الخطط",
   "settingsContactBinding": "الهاتف والبريد",
   "settingsContactBindingCta": "إلى الأمان",
-  "settingsMembershipMoved": "تم نقل المزايا إلى صفحة الخطط."
+  "settingsMembershipMoved": "تم نقل المزايا إلى صفحة الخطط.",
+  "settingsMyFavorites": "المفضلة"
 }
+

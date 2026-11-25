@@ -1,45 +1,38 @@
 /**
- * 我的记录面板 — 容器
- * My Records Panel
+ * 我的收藏面板 — 容器（设置页「我的收藏」）
+ * My Favorites Panel
  *
  * @module features/payment/components/MyRecordsPanel
- * @description 账户内嵌的「我的记录」面板：概览态为「支付订单」蓝卡 + 「我的收藏」teal 卡，
- *              下钻态为管理列表（返回/刷新 + 行卡 + 分页条）。
+ * @description 2026-11-25 收敛：设置页不再承载订单/账单/发票（统一去费用中心），
+ *              「我的记录」改为「我的收藏」，只展示用户收藏的公告（按收藏时间倒序，
+ *              已下架公告不返回）。
  *
- *              2026-11-18 产品调整：原「我的可查看采购（解锁记录）」卡与列表退役，
- *              第二张卡改为「我的收藏」，数据走 /api/notices/favorites
- *              （收藏为私有书签；服务端 INNER JOIN notice_public，已下架公告不返回）。
+ *              历史：曾为「支付订单 + 我的收藏」双卡面板；订单卡已移除，
+ *              订单、发票、续费入口统一由费用中心（/billing）承接。
  */
 
-import { useState, useCallback } from "react";
-import { ArrowLeft } from "lucide-react";
+import { useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 import { useUserId } from "@/core/auth";
 import { Button } from "@/shared/ui";
-import { useOrderHistory, type PurchaseTab } from "../hooks/useOrderHistory";
-import { useRecordsSummary } from "../hooks/useRecordsSummary";
-import { OverviewCards, RecordRowCard, FavoriteRowCard, PagerBar } from "./records-panel/parts";
-import type { RecordRow } from "./records-panel/record-format";
+import { useOrderHistory } from "../hooks/useOrderHistory";
+import { FavoriteRowCard, PagerBar } from "./records-panel/parts";
 import type { FavoriteRecord } from "../api";
 
-type MyRecordsPanelProps = {
+type MyFavoritesPanelProps = {
   /** 打开关联公告（由外层负责关闭弹窗并跳转） */
   onOpenNotice: (noticeId: number) => void;
 };
 
-type PanelView = "overview" | PurchaseTab;
-
-export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
+export function MyRecordsPanel({ onOpenNotice }: MyFavoritesPanelProps) {
   const { t, locale } = useLocale();
   const userId = useUserId();
-  const [view, setView] = useState<PanelView>("overview");
   const history = useOrderHistory(userId);
-  const summary = useRecordsSummary(userId);
 
-  const openView = useCallback((next: PurchaseTab) => {
-    history.setTab(next);
-    setView(next);
-  }, [history]);
+  // 该面板只有收藏：首次挂载/切换用户后切到 favorites tab（订单已收敛到费用中心）
+  useEffect(() => {
+    if (userId && history.tab !== "favorites") history.setTab("favorites");
+  }, [userId, history.tab, history.setTab]);
 
   if (!userId) {
     return (
@@ -49,41 +42,15 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
     );
   }
 
-  if (view === "overview") {
-    return (
-      <OverviewCards
-        ordersTotal={summary.ordersTotal}
-        favoritesTotal={summary.favoritesTotal}
-        onOpen={openView}
-      />
-    );
-  }
-
-  const orderRows: RecordRow[] = view === "orders" ? history.orders?.list || [] : [];
-  const favoriteRows: FavoriteRecord[] = view === "favorites" ? history.favorites?.list || [] : [];
-  const isEmpty = view === "orders" ? orderRows.length === 0 : favoriteRows.length === 0;
+  const favoriteRows: FavoriteRecord[] = history.favorites?.list || [];
+  const isEmpty = favoriteRows.length === 0;
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="iconSm"
-            onClick={() => setView("overview")}
-            title={t("myRecordsBackTitle")}
-          >
-            <ArrowLeft className="w-4 h-4 rtl:-scale-x-100" />
-          </Button>
-          <div>
-            <p className="text-sm font-extrabold text-slate-900">
-              {view === "orders" ? t("myRecordsOrdersManage") : t("myRecordsViewsManage")}
-            </p>
-            <p className="text-3xs text-slate-500 mt-0.5">
-              {view === "orders" ? t("myRecordsOrdersManageDesc") : t("myRecordsViewsManageDesc")}
-            </p>
-          </div>
+        <div>
+          <p className="text-sm font-extrabold text-slate-900">{t("myRecordsViewsManage")}</p>
+          <p className="text-3xs text-slate-500 mt-0.5">{t("myRecordsViewsManageDesc")}</p>
         </div>
         <Button
           type="button"
@@ -97,7 +64,6 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
       </div>
 
       <div className="space-y-2">
-        {/* 加载失败不再静默为空态，展示错误提示 + 重试按钮 */}
         {history.error && !history.loading && (
           <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-center text-xs text-rose-700">
             <p className="font-black">{t("myRecordsLoadFailed")}</p>
@@ -118,28 +84,17 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
               ? t("myRecordsLoading")
               : history.error
                 ? t("myRecordsLoadFailed")
-                : view === "orders"
-                  ? t("myPurchasesEmptyOrders")
-                  : t("myPurchasesEmptyViews")}
+                : t("myPurchasesEmptyViews")}
           </div>
         )}
-        {view === "orders" &&
-          orderRows.map((row) => (
-            <RecordRowCard
-              key={"orderNo" in row ? row.orderNo : String(row.noticeId)}
-              row={row}
-              onOpenNotice={onOpenNotice}
-            />
-          ))}
-        {view === "favorites" &&
-          favoriteRows.map((item) => (
-            <FavoriteRowCard
-              key={String(item.noticePk || item.noticeId)}
-              item={item}
-              locale={locale}
-              onOpenNotice={onOpenNotice}
-            />
-          ))}
+        {favoriteRows.map((item) => (
+          <FavoriteRowCard
+            key={String(item.noticePk || item.noticeId)}
+            item={item}
+            locale={locale}
+            onOpenNotice={onOpenNotice}
+          />
+        ))}
       </div>
 
       <PagerBar
@@ -154,3 +109,4 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
 }
 
 MyRecordsPanel.displayName = "MyRecordsPanel";
+

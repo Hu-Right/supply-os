@@ -439,5 +439,7 @@
   "settingsGoMembership": "Go to plans",
   "settingsContactBinding": "Phone & email binding",
   "settingsContactBindingCta": "Manage in security",
-  "settingsMembershipMoved": "Membership benefits have moved to the Membership plans page."
+  "settingsMembershipMoved": "Membership benefits have moved to the Membership plans page.",
+  "settingsMyFavorites": "My favorites"
 }
+

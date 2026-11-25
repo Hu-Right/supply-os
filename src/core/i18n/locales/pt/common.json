@@ -439,5 +439,7 @@
   "settingsGoMembership": "Ver planos",
   "settingsContactBinding": "Telefone e e-mail",
   "settingsContactBindingCta": "Ir para segurança",
-  "settingsMembershipMoved": "Os benefícios foram movidos para a página de planos."
+  "settingsMembershipMoved": "Os benefícios foram movidos para a página de planos.",
+  "settingsMyFavorites": "Meus favoritos"
 }
+
