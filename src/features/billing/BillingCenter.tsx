@@ -23,7 +23,7 @@ import type { OrderRecord } from "@/features/payment/api";
 import { fetchMembershipStatus } from "@/core/api/membership";
 import type { MembershipStatusView } from "@/types/membership";
 import type { InvoiceRequestView, CreateInvoiceRequestInput } from "@/types/billing";
-import { fetchInvoiceRequests, createInvoiceRequest } from "./api";
+import { fetchInvoiceRequests, createInvoiceRequest, downloadInvoiceFile } from "./api";
 
 type View = "overview" | "orders" | "bills" | "invoices" | "renewals";
 
@@ -487,7 +487,7 @@ export function BillingCenter() {
                   <div className="overflow-x-auto rounded-2xl border border-secondary-200 bg-white">
                     <table className="w-full min-w-[680px] border-collapse text-sm">
                       <thead><tr className="bg-secondary-50 text-left text-xs text-secondary-500">
-                        {["申请单", "关联订单", "类型", "金额", "状态", "申请时间"].map((h) => <th key={h} className="border-b border-secondary-200 px-4 py-2.5 font-bold">{h}</th>)}
+                        {["申请单", "关联订单", "类型", "金额", "发票号", "状态", "申请时间", "操作"].map((h) => <th key={h} className="border-b border-secondary-200 px-4 py-2.5 font-bold">{h}</th>)}
                       </tr></thead>
                       <tbody className="text-xs">
                         {invoices.map((r) => (
@@ -496,12 +496,26 @@ export function BillingCenter() {
                             <td className="px-4 py-3 font-mono text-secondary-500">{r.orderNos.join("、")}</td>
                             <td className="px-4 py-3 text-secondary-700">{r.invoiceType === "special" ? "增值税专用发票" : "电子普通发票"}</td>
                             <td className="px-4 py-3 font-semibold text-secondary-900">{fmt(r.amount)}</td>
+                            <td className="px-4 py-3 font-mono text-secondary-700">{r.invoiceNo || "-"}</td>
                             <td className="px-4 py-3"><Badge variant={r.status === "issued" ? "soft-success" : r.status === "void" || r.status === "red_flushed" ? "soft-neutral" : "soft-warning"} shape="tag">{INVOICE_STATUS_LABEL[r.status] ?? r.status}</Badge></td>
                             <td className="px-4 py-3 text-secondary-500">{dateOnly(r.createdAt)}</td>
+                            <td className="px-4 py-3">
+                              {r.status === "issued" && r.invoiceFileUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void downloadInvoiceFile(r.invoiceFileUrl!, `invoice_${r.invoiceNo || r.id}.${r.fileType || "pdf"}`)}
+                                  className="font-semibold text-primary-700 hover:underline"
+                                >
+                                  下载发票
+                                </button>
+                              ) : (
+                                <span className="text-secondary-300">—</span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                         {invoices.length === 0 && (
-                          <tr><td colSpan={6} className="px-4 py-10 text-center text-xs text-secondary-400">暂无开票记录，可点击左侧「申请开票」</td></tr>
+                          <tr><td colSpan={8} className="px-4 py-10 text-center text-xs text-secondary-400">暂无开票记录，可点击左侧「申请开票」</td></tr>
                         )}
                       </tbody>
                     </table>

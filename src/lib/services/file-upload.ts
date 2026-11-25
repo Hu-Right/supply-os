@@ -271,3 +271,55 @@ export async function getProcurementFile(
   if (!row?.content) return null;
   return { buffer: row.content, contentType: row.content_type || procurementFileContentType(filename) };
 }
+
+// ── 发票文件（费用中心，invoice_<requestId>_<ts>.<ext>） ──
+// 回文件走 /api/billing/invoices/[filename]（申请单归属人鉴权 / 财务经办人）。
+
+/** 发票文件名白名单：invoice_<requestId>_<ts>.<pdf|ofd|xml> */
+export const INVOICE_FILENAME_RE = /^invoice_(\d+)_[0-9a-z]+\.(pdf|ofd|xml)$/;
+export const INVOICE_URL_PREFIX = "/api/billing/invoices";
+
+export function invoiceFileContentType(filename: string): string {
+  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  const map: Record<string, string> = {
+    ".pdf": "application/pdf",
+    ".ofd": "application/ofd",
+    ".xml": "application/xml",
+  };
+  return map[ext] ?? "application/octet-stream";
+}
+
+export function parseInvoiceRequestId(filename: string): number {
+  const m = INVOICE_FILENAME_RE.exec(filename);
+  return m ? Number(m[1]) : 0;
+}
+
+/** 发票文件字节入库（同文件名覆盖） */
+export async function saveInvoiceFile(params: {
+  filename: string;
+  buffer: Buffer;
+  contentType: string;
+  uploadedBy: number;
+}): Promise<UploadResult> {
+  if (!INVOICE_FILENAME_RE.test(params.filename)) throw new Error("非法的发票文件名");
+  await getPool().execute(
+    `INSERT INTO upload_files (filename, content, content_type, size_bytes, uploaded_by)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE content = VALUES(content), content_type = VALUES(content_type),
+                             size_bytes = VALUES(size_bytes), uploaded_by = VALUES(uploaded_by)`,
+    [params.filename, params.buffer, params.contentType, params.buffer.length, params.uploadedBy],
+  );
+  return { url: `${INVOICE_URL_PREFIX}/${params.filename}`, filename: params.filename };
+}
+
+/** 按文件名取发票文件字节；不存在/非法返回 null */
+export async function getInvoiceFile(filename: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+  if (!INVOICE_FILENAME_RE.test(filename)) return null;
+  const [rows] = await getPool().execute(
+    "SELECT content, content_type FROM upload_files WHERE filename = ? LIMIT 1",
+    [filename],
+  );
+  const row = (rows as Array<{ content: Buffer; content_type: string }>)[0];
+  if (!row?.content) return null;
+  return { buffer: row.content, contentType: row.content_type || invoiceFileContentType(filename) };
+}

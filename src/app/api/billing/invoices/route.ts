@@ -12,7 +12,8 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, parseJson } from "@/lib/middleware/route-handler";
-import { listInvoiceRequests, createInvoiceRequest } from "@/lib/repos/invoice-requests";
+import { listInvoiceRequests } from "@/lib/repos/invoice-requests";
+import { createInvoiceForUser } from "@/lib/services/billing/invoices";
 import { invoiceRequestViewOf, invoiceRequestsViewOf } from "@/lib/services/billing/view";
 
 const createInvoiceSchema = z.object({
@@ -34,7 +35,7 @@ export const GET = withRoute(async (req: NextRequest) => {
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   const body = await parseJson(req, createInvoiceSchema);
-  const item = await createInvoiceRequest(getContext().dbPool, auth.userId, {
+  const item = await createInvoiceForUser(getContext().dbPool, auth.userId, {
     orderNos: body.orderNos,
     amount: body.amount,
     invoiceType: body.invoiceType,
@@ -45,5 +46,6 @@ export const POST = withRoute(async (req: NextRequest) => {
   });
   return NextResponse.json(invoiceRequestViewOf(item), { status: 201 });
 });
+
 
 
