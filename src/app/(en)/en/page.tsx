@@ -52,16 +52,28 @@ export default function EnglishHomePage() {
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
-            href="/procurement"
+            href="/en/procurement"
             className="rounded-lg bg-training-green px-5 py-2.5 text-sm font-bold text-white hover:bg-training-green-hover"
           >
             Browse live notices
           </Link>
           <Link
-            href="/supplier"
+            href="/en/supplier"
             className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:border-training-green/40 hover:text-training-green"
           >
             Supplier directory
+          </Link>
+          <Link
+            href="/en/services"
+            className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:border-training-green/40 hover:text-training-green"
+          >
+            Services
+          </Link>
+          <Link
+            href="/en/about"
+            className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:border-training-green/40 hover:text-training-green"
+          >
+            About
           </Link>
         </div>
       </section>

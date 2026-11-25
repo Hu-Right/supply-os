@@ -13,8 +13,10 @@ import { cn } from "@/shared/utils";
 
 const EN_NAV = [
   { href: "/en/procurement", label: "Notices" },
-  { href: "/supplier", label: "Supplier directory" },
-  { href: "/procurement", label: "Full search" },
+  { href: "/en/supplier", label: "Suppliers" },
+  { href: "/en/services", label: "Services" },
+  { href: "/en/about", label: "About" },
+  { href: "/en/contact", label: "Contact" },
 ];
 
 export function EnglishShell({ children }: { children: ReactNode }) {

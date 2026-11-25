@@ -57,6 +57,11 @@ function staticPages(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/complaint`, changeFrequency: "yearly", priority: 0.2 },
     { url: `${BASE_URL}/en`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE_URL}/en/procurement`, changeFrequency: "daily", priority: 0.7 },
+    { url: `${BASE_URL}/en/about`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE_URL}/en/services`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${BASE_URL}/en/faq`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${BASE_URL}/en/contact`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE_URL}/en/supplier`, changeFrequency: "weekly", priority: 0.6 },
   ];
 }
 
