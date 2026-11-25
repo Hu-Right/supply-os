@@ -13,7 +13,7 @@
  *              关键词框防抖 300ms：它在列表 effect 的依赖里「输入即窄化」，不等一拍就是每按一个字符
  *              一次列表请求。chip / 页签 / 排序 / 级联是离散动作，按一下才一个状态，不防抖。
  */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import type { Supplier } from "@/types";
 import { fetchSuppliersPaginated } from "../api";
 
@@ -28,6 +28,8 @@ export interface SupplierSearchFilters {
   sortBy?: string;
   /** 每页条数 */
   pageSize?: number;
+  /** 服务端直出首屏（默认筛选）；有值时跳过首次客户端请求 */
+  initial?: { suppliers: Supplier[]; total: number };
 }
 
 export interface UseSupplierSearchReturn {
@@ -61,20 +63,26 @@ export function useSupplierSearch({
   supplierIndustryCode,
   sortBy,
   pageSize = 8,
+  initial,
 }: SupplierSearchFilters): UseSupplierSearchReturn {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(initial?.suppliers ?? []);
+  const [total, setTotal] = useState(initial?.total ?? 0);
+  const [loading, setLoading] = useState(!initial);
   const [page, setPageState] = useState(1);
   const [reloadKey, setReloadKey] = useState(0);
   // 追加模式标记：true 时在现有数据后追加，false 时替换
   const [appendMode, setAppendMode] = useState(false);
+  const skipInitialFetchRef = useRef(Boolean(initial));
 
   // 防抖后的关键词才是取数条件（下面的依赖列表用的就是这个 settled 值）
   const searchTermSettled = useDebouncedValue(searchTerm, KEYWORD_DEBOUNCE_MS);
 
   // ── 服务端分页加载 ──
   useEffect(() => {
+    if (skipInitialFetchRef.current) {
+      skipInitialFetchRef.current = false;
+      return;
+    }
     let cancelled = false;
     setLoading(true);
 

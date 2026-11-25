@@ -5,8 +5,9 @@ import type { Metadata } from "next";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 import PageClient from "./page-client";
+import { loadSupplierInitial } from "./initial-data";
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   // 只写页面名：网站名由根 layout 的 title.template 拼在首位
@@ -25,6 +26,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function SupplierPage() {
-  return <PageClient />;
+export default async function SupplierPage() {
+  const initial = await loadSupplierInitial();
+  return <PageClient initial={initial} />;
 }

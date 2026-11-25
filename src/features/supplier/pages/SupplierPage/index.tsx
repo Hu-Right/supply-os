@@ -30,7 +30,7 @@ import { StatsWall } from "./StatsWall";
 import { SearchPanel } from "./SearchPanel";
 import { ResultHeader } from "./ResultHeader";
 
-export default function SupplierPage() {
+export default function SupplierPage({ initial }: { initial?: { suppliers: Supplier[]; total: number } } = {}) {
   const { t, locale } = useLocale();
   const { isVip } = useAuth();
   const userId = useUserId();
@@ -50,6 +50,7 @@ export default function SupplierPage() {
     supplierIndustryCode: industryCode,
     sortBy,
     pageSize: 8,
+    initial,
   });
 
   // ── 行业级联下拉：门类→大类→中类→小类，最深选中码回灌 industryCode 即筛 ──

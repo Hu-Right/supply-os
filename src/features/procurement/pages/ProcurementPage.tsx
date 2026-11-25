@@ -18,6 +18,7 @@ import { readNoticeIdParam } from "../lib/deepLink";
 import { LoadingOverlay } from "@/shared/ui";
 import { ListingStatsBar } from "../components/ListingStatsBar";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
+import type { SearchResultsInitial } from "../hooks/search/useSearchResults";
 import { useListingStats } from "../hooks/useListingStats";
 import { useCommodityCascade } from "../hooks/useCommodityCascade";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
@@ -26,7 +27,7 @@ import { SearchFilterSection } from "../components/procurement-page/SearchFilter
 import { ResultsHeader } from "../components/procurement-page/ResultsHeader";
 import { ResultsList, MatchRelaxedHint } from "../components/procurement-page/ResultsSections";
 
-export default function ProcurementPage() {
+export default function ProcurementPage({ initialResults }: { initialResults?: SearchResultsInitial } = {}) {
   const { authUser, isVip, refreshAuth, authReady } = useAuth();
   const router = useRouter();
   const userId = useUserId();
@@ -87,7 +88,7 @@ export default function ProcurementPage() {
 
   // ── 搜索 + URL 参数事实源 + 列表数据 ──
   const search = useNoticeSearch({
-    userId, page, setPage, variantRef,
+    userId, page, setPage, variantRef, initialResults,
   });
 
   // ── 性能监控：首屏完成检测 + 渲染计时 ──

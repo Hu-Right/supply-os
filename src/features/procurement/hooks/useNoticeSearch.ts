@@ -18,7 +18,7 @@ import { useSearchDropdowns } from "./useSearchDropdowns";
 import { useSearchFormState } from "./search/useSearchFormState";
 import { useSearchQuery } from "./search/useSearchQuery";
 import { useSearchActions, type SearchActions } from "./search/useSearchActions";
-import { useSearchResults } from "./search/useSearchResults";
+import { useSearchResults, type SearchResultsInitial } from "./search/useSearchResults";
 
 export interface UseNoticeSearchOptions {
   userId: number | undefined;
@@ -26,6 +26,7 @@ export interface UseNoticeSearchOptions {
   setPage: (page: number) => void;
   variantRef: { current: string | undefined };
   onClear?: () => void;
+  initialResults?: SearchResultsInitial;
 }
 
 export interface UseNoticeSearchReturn {
@@ -93,6 +94,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setPage,
     variantRef,
     onClear,
+    initialResults,
   } = options;
   const { countries } = useSearchDropdowns();
 
@@ -111,6 +113,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     page,
     userId,
     variantRef,
+    initial: initialResults,
   });
 
   // URL 外部变化时同步表单草稿（syncFromUrl 已由 useSearchFormState 稳定化）

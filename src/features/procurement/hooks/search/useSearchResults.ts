@@ -12,12 +12,20 @@ import { fetchUnifiedSearch } from "../../api";
 import { NOTICE_PAGE_SIZE } from "../../constants";
 import type { SearchQuery } from "./useSearchQuery";
 
+export interface SearchResultsInitial {
+  items: NoticeItem[];
+  total: number;
+  pageSize: number;
+}
+
 export interface SearchResultsOptions {
   query: SearchQuery;
   page: number;
   /** 登录态参与依赖：行业墙按订阅大类收窄，换账号/登录后必须重取 */
   userId: number | undefined;
   variantRef: { current: string | undefined };
+  /** 服务端直出首屏（默认查询）；有值时跳过首次客户端请求，登录态变化仍会重取 */
+  initial?: SearchResultsInitial;
 }
 
 export interface SearchResults {
@@ -32,15 +40,16 @@ export interface SearchResults {
 }
 
 export function useSearchResults(options: SearchResultsOptions): SearchResults {
-  const { query, page, userId, variantRef } = options;
+  const { query, page, userId, variantRef, initial } = options;
   const { locale, t } = useLocale();
 
-  const [items, setItems] = useState<NoticeItem[]>([]);
-  const [total, setTotal] = useState(0);
+  const [items, setItems] = useState<NoticeItem[]>(initial?.items ?? []);
+  const [total, setTotal] = useState(initial?.total ?? 0);
   const [matchRelaxed, setMatchRelaxed] = useState(false);
-  const [serverPageSize, setServerPageSize] = useState(NOTICE_PAGE_SIZE);
+  const [serverPageSize, setServerPageSize] = useState(initial?.pageSize ?? NOTICE_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const skipInitialFetchRef = useRef(Boolean(initial));
 
   const noticesRequestSeq = useRef(0);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -58,6 +67,13 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   const prevSearchKeyForDebounceRef = useRef<string>("");
 
   useEffect(() => {
+    if (skipInitialFetchRef.current) {
+      skipInitialFetchRef.current = false;
+      prevUserIdForFetchRef.current = userId;
+      prevSearchKeyForSkipRef.current = query.searchKey;
+      prevSearchKeyForDebounceRef.current = query.searchKey;
+      return;
+    }
     const searchKeyUnchanged = prevSearchKeyForSkipRef.current === query.searchKey;
     // 账号切换必须重取：行业墙按订阅大类收窄，登录前后可见集合不同
     const userChanged = prevUserIdForFetchRef.current !== userId;
