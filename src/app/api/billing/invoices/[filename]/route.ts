@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { isBillingOpsUser } from "@/lib/middleware/billing-ops";
 import { getInvoiceRequestForViewer } from "@/lib/services/billing/invoices";
 import { getInvoiceFile, INVOICE_FILENAME_RE, parseInvoiceRequestId } from "@/lib/services/file-upload";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND } from "@/shared/constants/api";
@@ -22,10 +21,7 @@ export const GET = withRoute<Ctx>(async (req: NextRequest, { params }) => {
   if (!INVOICE_FILENAME_RE.test(filename)) routeError(400, EC_INVALID_PARAMS, "非法的文件名");
 
   const requestId = parseInvoiceRequestId(filename);
-  const row = await getInvoiceRequestForViewer(getContext().dbPool, requestId, {
-    userId: auth.userId,
-    isOps: isBillingOpsUser(auth.userId),
-  });
+  const row = await getInvoiceRequestForViewer(getContext().dbPool, requestId, auth.userId);
   if (!row.invoiceFileUrl || !row.invoiceFileUrl.endsWith(filename)) {
     routeError(404, EC_NOT_FOUND, "发票文件不存在");
   }
@@ -41,3 +37,4 @@ export const GET = withRoute<Ctx>(async (req: NextRequest, { params }) => {
     },
   });
 });
+

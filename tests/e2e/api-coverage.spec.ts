@@ -55,9 +55,6 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/billing/invoices", auth: "none", status: 401, bodyType: "object", src: "/api/billing/invoices" },
   { method: "POST", path: "/api/billing/invoices", auth: "none", status: 401, bodyType: "object", src: "/api/billing/invoices" },
   { method: "GET", path: "/api/billing/invoices/invoice_1_abc.pdf", auth: "none", status: 401, bodyType: "object", src: "/api/billing/invoices/:filename" },
-  { method: "GET", path: "/api/billing/ops/invoices", auth: "none", status: 401, bodyType: "object", src: "/api/billing/ops/invoices" },
-  { method: "POST", path: "/api/billing/ops/invoices/1/issue", auth: "none", status: 401, bodyType: "object", src: "/api/billing/ops/invoices/:id/issue" },
-  { method: "POST", path: "/api/billing/ops/invoices/1/status", auth: "none", status: 401, bodyType: "object", src: "/api/billing/ops/invoices/:id/status" },
   { method: "GET", path: "/api/auth/mfa/status", auth: "none", status: 401, bodyType: "object", src: "/api/auth/mfa/status" },
   { method: "POST", path: "/api/auth/mfa/setup", auth: "none", status: 401, bodyType: "object", src: "/api/auth/mfa/setup" },
   { method: "POST", path: "/api/auth/mfa/enable", auth: "none", status: 401, bodyType: "object", src: "/api/auth/mfa/enable" },
@@ -469,3 +466,4 @@ test.describe("核心业务断言（访问控制 / 数据契约）", () => {
     expectErrorEnvelope(await res.json(), "翻译缺 lang");
   });
 });
+

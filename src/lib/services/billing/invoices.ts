@@ -50,13 +50,14 @@ export async function createInvoiceForUser(
 export async function getInvoiceRequestForViewer(
   pool: Pool,
   requestId: number,
-  viewer: { userId: number; isOps: boolean },
+  viewerUserId: number,
 ): Promise<InvoiceRequestView> {
   const row = await findInvoiceRequestById(pool, requestId);
   if (!row) throw new RouteError(404, EC_NOT_FOUND, "发票申请单不存在");
-  if (!viewer.isOps && row.userId !== viewer.userId) {
+  if (row.userId !== viewerUserId) {
     throw new RouteError(403, EC_FORBIDDEN, "无权查看该发票");
   }
   return row;
 }
+
 
