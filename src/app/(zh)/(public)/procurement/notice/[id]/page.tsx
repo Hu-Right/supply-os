@@ -23,6 +23,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContext } from "@/lib/db/context";
 import { absoluteUrl } from "@/lib/services/seo/site";
+import { countryParam } from "@/lib/services/seo/country-slug";
 import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
 import { countryName } from "@/shared/constants/countries";
 import { formatNoticeUTCDate, formatNoticeDate, formatNoticeCstDate, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
@@ -191,6 +192,11 @@ export default async function NoticeSeoPage({ params }: PageProps) {
   const url = absoluteUrl(`/procurement/notice/${id}`);
   const expired = isExpired(row);
   const country = countryLabel(row);
+  // 国别链接统一用国家码：与 /procurement?country= 的 canonical 逐字一致，
+  // 避免同一国别出现「链接写中文名、canonical 写码」的两个 URL
+  const countryHref = row.country_code
+    ? `/procurement?country=${encodeURIComponent(countryParam(row.country_code))}`
+    : null;
   const summary = buildSummary(row);
   // 同国家相关公告：详情页是 4 万条公告的入口，必须给出「下一步」，不能只进不出。
   const related = row.country_code
@@ -245,11 +251,11 @@ export default async function NoticeSeoPage({ params }: PageProps) {
           <li aria-hidden>/</li>
           <li><Link href="/procurement" className="hover:text-training-green">全球商机</Link></li>
           <li aria-hidden>/</li>
-          {country && (
+          {country && countryHref && (
             <>
               <li>
                 <Link
-                  href={`/procurement?country=${encodeURIComponent(country)}`}
+                  href={countryHref}
                   className="hover:text-training-green"
                 >
                   {country}
@@ -358,9 +364,9 @@ export default async function NoticeSeoPage({ params }: PageProps) {
               );
             })}
           </ul>
-          {country && (
+          {country && countryHref && (
             <Link
-              href={`/procurement?country=${encodeURIComponent(country)}`}
+              href={countryHref}
               className="inline-block text-sm font-semibold text-training-green hover:underline"
             >
               查看 {country} 全部公告 →

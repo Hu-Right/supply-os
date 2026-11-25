@@ -95,6 +95,18 @@ const ALIASES: Record<string, string> = {
   "hong kong": "HK",
   台湾: "TW",
   taiwan: "TW",
+  // ── 2026-11-25 补齐：country_aliases 的标准名里，这 7 个在本表查不到码，
+  //    导致「国别页按码收敛」「sitemap 只收能归一的国家」会把它们漏掉。
+  //    键取 country_aliases 的 canonical 原文（大小写不敏感、保留重音）；
+  //    其中 PS / CD 的检索侧别名仍未登记，见 seo/country-slug.ts 的例外表。
+  "bosnia and herzegovina": "BA",
+  "congo, democratic republic of the": "CD",
+  "côte d'ivoire": "CI",
+  "cote d'ivoire": "CI",
+  palestine: "PS",
+  "trinidad and tobago": "TT",
+  congo: "CG",
+  "saint lucia": "LC",
 };
 
 const formatterCache = new Map<string, Intl.DisplayNames | null>();

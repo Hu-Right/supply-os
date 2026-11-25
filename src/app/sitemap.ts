@@ -88,7 +88,9 @@ export default async function sitemap({ id }: { id: Promise<string> }): Promise<
     try {
       const countries = await fetchSitemapCountries();
       countryPages = countries.map((c) => ({
-        url: `${BASE_URL}/procurement/country/${c.slug}`,
+        // 国别入口 = 搜索页 + 国家码（与 /procurement 的 canonical 同源）；旧的
+        // /procurement/country/{slug} 已改为 308 → 这里，不再提交，避免双入口
+        url: `${BASE_URL}/procurement?country=${encodeURIComponent(c.param)}`,
         changeFrequency: "weekly" as const,
         priority: 0.5,
       }));

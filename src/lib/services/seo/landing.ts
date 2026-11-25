@@ -24,6 +24,7 @@ import {
 } from "@/lib/services/notice-search/countries";
 import { ensureCountryDisplaySnapshot, countryZhOf } from "@/lib/services/country/display";
 import { listTopGroups, type HotGroupItem } from "@/lib/services/notice-search/hot-topics";
+import { landingSlug } from "./country-slug";
 
 /** 一条国别落地页（slug 由标准名派生，保证 URL 稳定可读） */
 export interface CountryLanding {
@@ -35,20 +36,6 @@ export interface CountryLanding {
   nameZh: string | null;
   /** 有效公告数（与搜索侧同口径的缓存值） */
   count: number;
-}
-
-/**
- * 名称 → URL slug。
- * 去重音、小写、非字母数字折成连字符；纯非拉丁名称（无可用 slug）由调用方跳过，
- * 不生成 encodeURIComponent 级别的脏 URL。
- */
-export function landingSlug(name: string): string {
-  return name
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 /** 国别落地页清单（按有效公告数降序；slug 冲突时保留计数更高的那个） */

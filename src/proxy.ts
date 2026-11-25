@@ -15,9 +15,24 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
+import { countrySlugParamMap } from "@/lib/services/seo/country-slug";
 
 const SUPPORTED_LOCALES = ["zh", "en", "fr", "ru", "es", "ar", "pt"];
 const NOTICE_PATH = /^(?:\/en)?\/procurement\/notice\/([^/]+)\/?$/;
+/** 已下线的国别落地页：/procurement/country/{slug} → 308 到国别搜索页 */
+const COUNTRY_LANDING_PATH = /^\/procurement\/country\/([a-z0-9-]+)\/?$/;
+
+/**
+ * 国别 slug → `?country=` 取值（国家码；PS/CD 例外给标准名，见 country-slug.ts）。
+ *
+ * 只认静态表，不查库：这张表由 COUNTRY_CODES 全量派生 + 4 条历史 slug 别名，
+ * 实测覆盖全部 109 个线上国别页。表里没有的一律当垃圾 URL 交给硬 404——
+ * 之所以不查库兜底，是因为 proxy 里查库会撞冷连接超时（实测公告存在性判定同样退化），
+ * 超时后就得放行，反而回到软 404。国别落地页本身已下线，不存在「新增国别」的诉求。
+ */
+function countryParamOfSlug(slug: string): string | null {
+  return countrySlugParamMap().get(slug) ?? null;
+}
 
 /** 存在性缓存：公告一旦存在/不存在，10 分钟内不重复查库 */
 const EXISTS_TTL_MS = 10 * 60 * 1000;
@@ -70,6 +85,17 @@ export async function proxy(request: NextRequest) {
     }
     const exists = await noticeExists(id);
     if (exists === false) return notFoundResponse(request);
+  }
+
+  // ── 已下线的国别落地页：真 308 → 国别搜索页（必须在渲染前，见 COUNTRY_LANDING_PATH 注释）──
+  const countryMatch = pathname.match(COUNTRY_LANDING_PATH);
+  if (countryMatch) {
+    const param = countryParamOfSlug(countryMatch[1]);
+    if (!param) return notFoundResponse(request);
+    return NextResponse.redirect(
+      new URL(`/procurement?country=${encodeURIComponent(param)}`, request.url),
+      308,
+    );
   }
 
   // ── 英文站点是独立根布局（app/(en)/en），URL 前缀即语言，不读 Cookie：
