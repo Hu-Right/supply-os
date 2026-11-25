@@ -95,7 +95,7 @@ async function currentDigest(pool: Pool): Promise<{ digest: string; maxId: numbe
             COALESCE(MAX(n.id), 0) AS max_id,
             COALESCE(MAX(p.updated_at), 0) AS max_updated
        FROM bid_notices n
-       JOIN notice_public p ON p.notice_pk = n.id
+       STRAIGHT_JOIN notice_public p ON p.notice_pk = n.id
       WHERE ${SITEMAP_NOTICE_WHERE}`,
   );
   const row = rows[0] ?? {};
@@ -134,7 +134,7 @@ export async function buildSitemapSnapshots(
     const [rows] = await pool.query<NoticeRow[]>(
       `SELECT n.id AS id, ${NOTICE_LASTMOD_EXPR} AS lastmod
          FROM bid_notices n
-         JOIN notice_public p ON p.notice_pk = n.id
+         STRAIGHT_JOIN notice_public p ON p.notice_pk = n.id
         WHERE ${SITEMAP_NOTICE_WHERE}
           AND n.id < ?
         ORDER BY n.id DESC
@@ -178,7 +178,7 @@ export async function renderLiveNoticeShard(pool: Pool, shard: number): Promise<
     const [rows] = await pool.query<NoticeRow[]>(
       `SELECT n.id AS id, ${NOTICE_LASTMOD_EXPR} AS lastmod
          FROM bid_notices n
-         JOIN notice_public p ON p.notice_pk = n.id
+         STRAIGHT_JOIN notice_public p ON p.notice_pk = n.id
         WHERE ${SITEMAP_NOTICE_WHERE}
         ORDER BY n.id DESC
         LIMIT ? OFFSET ?`,

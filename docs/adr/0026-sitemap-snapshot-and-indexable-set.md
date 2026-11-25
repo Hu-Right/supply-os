@@ -35,12 +35,21 @@ AI 爬虫（GPTBot / PerplexityBot / ClaudeBot / Bytespider）超时短、主要
 截止未过 / 无截止
 AND country_code IS NOT NULL
 AND notice_type_code IS NOT NULL
-AND content_level ∈ (substantive, thin)
+AND content_level <> 'empty'（只排除空白正文；echo 只要正文够长就算合格）
 AND 标题长度 ≥ 8（title_cn 优先，缺失用原文）
 AND 正文长度 ≥ 200（description_cn 优先，缺失用原文）
 ```
 
-实测：有效公告 383,593 → 可索引 **96,999（25.3%）**，sitemap 收敛为 2 片。
+实测（2026-11-25 放宽后）：可索引 **151,802**，sitemap 为 **4 片**（50k×3 + 1,802）。
+
+为什么放宽 `content_level`：该字段把 55,652 条「正文 ≥200 字、但标成 echo」的真实公告挡在 sitemap 外
+（抽样为西班牙 ELISA 试剂、巴西电力服务等真实采购描述）；而 `empty` 里 ≥200 字的只有 2 条，
+且是 5,120 个空格。因此改为只排除 `empty`，不再要求必须是 `substantive/thin`。
+
+生成查询必须写 `STRAIGHT_JOIN notice_public`：否则优化器会先扫 110 万行 `notice_public`
+再逐行算 `LEFT/CHAR_LENGTH(longtext)`，查询被数据库服务端直接掐断（`PROTOCOL_CONNECTION_LOST`）。
+强制以 `bid_notices` 为驱动表按主键范围扫描后，4 片全量生成 78 秒。
+曾尝试物化 `seo_indexable_notice` 规避长文本计算，但在本机 SSH 隧道下重建连接被反复掐断，已回退。
 sitemap 生成、翻译队列、周报共用同一口径，禁止业务代码另写 WHERE。
 
 ### 2.3 sitemap 条目只保留 loc + lastmod
