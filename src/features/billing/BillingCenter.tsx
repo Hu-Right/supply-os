@@ -99,6 +99,10 @@ export function BillingCenter() {
   const [taxNo, setTaxNo] = useState("");
   const [email, setEmail] = useState("");
   const [addressPhone, setAddressPhone] = useState("");
+  const [buyerType, setBuyerType] = useState<"enterprise" | "personal">("enterprise");
+  const [phone, setPhone] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -197,21 +201,26 @@ export function BillingCenter() {
       return;
     }
     if (!invoiceTitle.trim() || !email.trim()) {
-      setSubmitError("请填写发票抬头与接收邮箱");
+      setSubmitError(buyerType === "personal" ? "请填写个人姓名与接收邮箱" : "请填写发票抬头与接收邮箱");
       return;
     }
-    if (invoiceType === "special" && (!taxNo.trim() || !addressPhone.trim())) {
-      setSubmitError("增值税专用发票需填写税号与注册地址电话");
+    if (buyerType === "enterprise" && invoiceType === "special"
+      && (!taxNo.trim() || !addressPhone.trim() || !phone.trim() || !bankName.trim() || !bankAccount.trim())) {
+      setSubmitError("增值税专用发票需填写税号、注册地址、电话、开户行与银行账号");
       return;
     }
     const input: CreateInvoiceRequestInput = {
       orderNos: selectedOrders,
       amount: Number(selectedAmount.toFixed(2)),
-      invoiceType,
+      invoiceType: buyerType === "personal" ? "normal" : invoiceType,
       title: invoiceTitle.trim(),
-      taxNo: taxNo.trim() || null,
+      taxNo: buyerType === "personal" ? null : taxNo.trim() || null,
       email: email.trim(),
-      addressPhone: addressPhone.trim() || null,
+      addressPhone: buyerType === "personal" ? null : addressPhone.trim() || null,
+      buyerType,
+      phone: phone.trim() || null,
+      bankName: buyerType === "personal" ? null : bankName.trim() || null,
+      bankAccount: buyerType === "personal" ? null : bankAccount.trim() || null,
     };
     setSubmitting(true);
     try {
@@ -609,16 +618,34 @@ export function BillingCenter() {
             {eligibleOrders.length === 0 && <p className="px-2 py-4 text-center text-xs text-secondary-400">暂无可开票订单</p>}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">购买方类型</span>
+              <Select value={buyerType} onChange={(e) => {
+                const next = e.target.value as "enterprise" | "personal";
+                setBuyerType(next);
+                if (next === "personal") setInvoiceType("normal");
+              }}>
+                <option value="enterprise">企业（单位）</option>
+                <option value="personal">个人</option>
+              </Select>
+            </label>
             <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">发票类型</span>
-              <Select value={invoiceType} onChange={(e) => setInvoiceType(e.target.value as "normal" | "special")}>
+              <Select value={invoiceType} onChange={(e) => setInvoiceType(e.target.value as "normal" | "special")} disabled={buyerType === "personal"}>
                 <option value="special">增值税专用发票</option>
                 <option value="normal">电子普通发票</option>
               </Select>
             </label>
+            <label className="text-xs sm:col-span-2"><span className="mb-1 block font-semibold text-secondary-600">{buyerType === "personal" ? "个人姓名" : "发票抬头（企业实名主体）"}</span><Input value={invoiceTitle} onChange={(e) => setInvoiceTitle(e.target.value)} placeholder={buyerType === "personal" ? "个人姓名" : "企业名称"} /></label>
             <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">接收邮箱</span><Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="finance@example.com" /></label>
-            <label className="text-xs sm:col-span-2"><span className="mb-1 block font-semibold text-secondary-600">发票抬头（企业实名主体）</span><Input value={invoiceTitle} onChange={(e) => setInvoiceTitle(e.target.value)} placeholder="企业名称" /></label>
-            <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">税号</span><Input value={taxNo} onChange={(e) => setTaxNo(e.target.value)} placeholder="统一社会信用代码" /></label>
-            <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">注册地址与电话（专票必填）</span><Input value={addressPhone} onChange={(e) => setAddressPhone(e.target.value)} /></label>
+            <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">联系电话</span><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="手机号或座机" /></label>
+            {buyerType === "enterprise" && (
+              <>
+                <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">税号</span><Input value={taxNo} onChange={(e) => setTaxNo(e.target.value)} placeholder="统一社会信用代码" /></label>
+                <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">注册地址（专票必填）</span><Input value={addressPhone} onChange={(e) => setAddressPhone(e.target.value)} placeholder="注册地址" /></label>
+                <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">开户行（专票必填）</span><Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="如：中国建设银行杭州余杭支行" /></label>
+                <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">银行账号（专票必填）</span><Input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="对公账户" /></label>
+              </>
+            )}
+            {buyerType === "personal" && <p className="self-end text-[11px] text-secondary-400 sm:col-span-2">个人抬头仅支持电子普通发票。</p>}
           </div>
           {submitError && <p className="rounded-lg bg-danger-50 px-2 py-1.5 text-[11px] font-semibold text-danger-700">{submitError}</p>}
           <Button variant="primary" className="w-full" disabled={submitting} onClick={() => void submitInvoice()}>

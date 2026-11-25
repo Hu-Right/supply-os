@@ -24,6 +24,10 @@ const createInvoiceSchema = z.object({
   taxNo: z.string().trim().max(40).nullish(),
   email: z.string().trim().email().max(160),
   addressPhone: z.string().trim().max(300).nullish(),
+  buyerType: z.enum(["enterprise", "personal"]).optional(),
+  phone: z.string().trim().max(40).nullish(),
+  bankName: z.string().trim().max(200).nullish(),
+  bankAccount: z.string().trim().max(100).nullish(),
 });
 
 export const GET = withRoute(async (req: NextRequest) => {
@@ -43,6 +47,10 @@ export const POST = withRoute(async (req: NextRequest) => {
     taxNo: body.taxNo ?? null,
     email: body.email,
     addressPhone: body.addressPhone ?? null,
+    buyerType: body.buyerType,
+    phone: body.phone ?? null,
+    bankName: body.bankName ?? null,
+    bankAccount: body.bankAccount ?? null,
   });
   return NextResponse.json(invoiceRequestViewOf(item), { status: 201 });
 });

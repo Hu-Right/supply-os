@@ -43,7 +43,30 @@ export async function createInvoiceForUser(
     throw new RouteError(400, EC_INVALID_PARAMS, "可开票金额必须大于 0");
   }
 
-  return createInvoiceRequest(pool, userId, { ...input, orderNos, amount });
+  const buyerType = input.buyerType === "personal" ? "personal" : "enterprise";
+  if (buyerType === "personal" && input.invoiceType === "special") {
+    throw new RouteError(400, EC_INVALID_PARAMS, "个人抬头仅支持电子普通发票");
+  }
+  if (buyerType === "enterprise" && input.invoiceType === "special") {
+    const missing = [
+      !input.taxNo?.trim() && "税号",
+      !input.addressPhone?.trim() && "注册地址",
+      !input.phone?.trim() && "联系电话",
+      !input.bankName?.trim() && "开户行",
+      !input.bankAccount?.trim() && "银行账号",
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      throw new RouteError(400, EC_INVALID_PARAMS, `增值税专用发票缺少：${missing.join("、")}`);
+    }
+  }
+
+  return createInvoiceRequest(pool, userId, {
+    ...input,
+    orderNos,
+    amount,
+    buyerType,
+    invoiceType: buyerType === "personal" ? "normal" : input.invoiceType,
+  });
 }
 
 /** 取发票申请单并做归属/权限校验 */
@@ -59,5 +82,7 @@ export async function getInvoiceRequestForViewer(
   }
   return row;
 }
+
+
 
 

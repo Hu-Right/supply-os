@@ -18,6 +18,10 @@ type Row = RowDataPacket & {
   tax_no: string | null;
   email: string;
   address_phone: string | null;
+  buyer_type: string;
+  phone: string | null;
+  bank_name: string | null;
+  bank_account: string | null;
   status: string;
   issue_channel: string;
   provider: string | null;
@@ -50,6 +54,10 @@ function mapRow(r: Row): InvoiceRequestView {
     taxNo: r.tax_no,
     email: r.email,
     addressPhone: r.address_phone,
+    buyerType: r.buyer_type === "personal" ? "personal" : "enterprise",
+    phone: r.phone,
+    bankName: r.bank_name,
+    bankAccount: r.bank_account,
     status,
     issueChannel: r.issue_channel === "api" ? "api" : "manual",
     provider: r.provider,
@@ -68,6 +76,7 @@ function mapRow(r: Row): InvoiceRequestView {
 }
 
 const SELECT_COLUMNS = `id, user_id, order_nos, amount, invoice_type, title, tax_no, email, address_phone,
+  buyer_type, phone, bank_name, bank_account,
   status, issue_channel, provider, provider_request_id, invoice_no, invoice_file_url, file_type,
   issued_at, operator_id, red_flush_of, reject_reason, remark, created_at, updated_at`;
 
@@ -112,10 +121,12 @@ export async function createInvoiceRequest(
   const orderNos = [...new Set(input.orderNos.map((s) => s.trim()).filter(Boolean))];
   const [res] = await pool.query<ResultSetHeader>(
     `INSERT INTO invoice_requests
-       (user_id, order_nos, amount, invoice_type, title, tax_no, email, address_phone)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (user_id, order_nos, amount, invoice_type, title, tax_no, email, address_phone,
+        buyer_type, phone, bank_name, bank_account)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [userId, orderNos.join(","), input.amount.toFixed(2), input.invoiceType, input.title,
-      input.taxNo ?? null, input.email, input.addressPhone ?? null],
+      input.taxNo ?? null, input.email, input.addressPhone ?? null,
+      input.buyerType ?? "enterprise", input.phone ?? null, input.bankName ?? null, input.bankAccount ?? null],
   );
   const row = await findInvoiceRequestById(pool, Number(res.insertId));
   if (!row) throw new Error("发票申请创建后读取失败");
@@ -189,3 +200,4 @@ export async function listPaidOrdersByNos(
   );
   return rows.map((r) => ({ orderNo: String(r.order_no), amount: Number(r.amount) }));
 }
+

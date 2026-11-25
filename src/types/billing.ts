@@ -20,6 +20,11 @@ export interface InvoiceRequestView {
   taxNo: string | null;
   email: string;
   addressPhone: string | null;
+  /** enterprise 企业 / personal 个人 */
+  buyerType: "enterprise" | "personal";
+  phone: string | null;
+  bankName: string | null;
+  bankAccount: string | null;
   status: InvoiceRequestStatus;
   issueChannel: InvoiceIssueChannel;
   provider: string | null;
@@ -45,4 +50,9 @@ export interface CreateInvoiceRequestInput {
   taxNo?: string | null;
   email: string;
   addressPhone?: string | null;
+  buyerType?: "enterprise" | "personal";
+  phone?: string | null;
+  bankName?: string | null;
+  bankAccount?: string | null;
 }
+

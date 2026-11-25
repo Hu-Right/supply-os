@@ -2786,6 +2786,10 @@ CREATE TABLE `invoice_requests` (
   `tax_no` varchar(40) DEFAULT NULL COMMENT '统一社会信用代码/税号',
   `email` varchar(160) NOT NULL COMMENT '接收邮箱',
   `address_phone` varchar(300) DEFAULT NULL COMMENT '注册地址与电话（专票必填）',
+  `buyer_type` varchar(16) NOT NULL DEFAULT 'enterprise' COMMENT '购买方类型：enterprise 企业 / personal 个人',
+  `phone` varchar(40) DEFAULT NULL COMMENT '购买方联系电话',
+  `bank_name` varchar(200) DEFAULT NULL COMMENT '开户行（专票）',
+  `bank_account` varchar(100) DEFAULT NULL COMMENT '银行账号（专票）',
   `status` varchar(16) NOT NULL DEFAULT 'pending' COMMENT 'pending 待开票 / issuing 开票中 / issued 已开具 / void 作废 / red_flushed 已红冲',
   `issue_channel` varchar(16) NOT NULL DEFAULT 'manual' COMMENT '开具渠道：manual 人工 / api 第三方平台',
   `provider` varchar(32) DEFAULT NULL COMMENT '第三方开票平台标识（api 渠道）',
@@ -2819,3 +2823,4 @@ CREATE TABLE `user_mfa` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户两步验证（TOTP，账号级）';
 
 SET FOREIGN_KEY_CHECKS = 1;
+
