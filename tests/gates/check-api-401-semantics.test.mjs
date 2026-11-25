@@ -93,7 +93,7 @@ test("允许集内的认证语义 401 → 通过（三种写法都不误伤）",
       '  return NextResponse.json({ code: EC_API_KEY_INVALID, message: "bad key" }, { status: 401 });',
       "};",
     ].join("\n"),
-    "src/lib/services/bar.ts": 'export function g(u) { if (!u) throw { status: 401, code: EC_USER_REQUIRED, message: "请先登录" }; }',
+    "src/lib/services/bar.ts": 'export function g(u) { if (!u) throw { status: 401, code: EC_AUTH_REQUIRED, message: "请先登录" }; }',
   }, (root) => {
     const r = runAgainst(root, GATE);
     assert.equal(r.code, 0, r.out);

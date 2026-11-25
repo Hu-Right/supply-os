@@ -7,15 +7,15 @@
  *              - `type`（snake_case 稳定字符串）是错误标识主键，前端/测试/文档以它为准；
  *              - `status` 按 ADR-0021 §2.1 判据表定死，routeError 调用点的 HTTP 状态必须与此一致；
  *              - `i18nKey` 为 errors.json（7 语）的键名；
- *              - `deprecatedAliasOf` 标记同义合并：本码已废弃，新代码必须用指向码；
+ *              - 同义码只保留唯一生效码，不再设 deprecated 别名（2026-11-25 移除）；
  *              - 新增错误必须先在此登记才允许抛出（scripts/gates/check-error-codes.mjs 驻守）。
  *              error-map（core/http）与 errors.json 均以本目录为准，禁止脱离登记手写映射。
  */
 import {
-  EC_INVALID_PARAMS, EC_INVALID_REQUEST, EC_NOT_FOUND, EC_INTERNAL_ERROR, EC_RATE_LIMITED,
+  EC_INVALID_PARAMS, EC_NOT_FOUND, EC_INTERNAL_ERROR, EC_RATE_LIMITED,
   EC_ENDPOINT_RETIRED, EC_TOO_MANY_ACTIONS, EC_NO_VALID_ACTIONS, EC_PROXY_URL_MISSING,
   EC_PROXY_RESPONSE_TOO_LARGE, EC_TRANSLATION_UNAVAILABLE, EC_INVALID_CODE, EC_DUPLICATE,
-  EC_AUTH_REQUIRED, EC_USER_REQUIRED, EC_SESSION_REQUIRED, EC_ACCOUNT_ISSUE,
+  EC_AUTH_REQUIRED, EC_SESSION_REQUIRED, EC_ACCOUNT_ISSUE,
   EC_PASSWORD_RESET_REQUIRED, EC_ACCOUNT_DISABLED, EC_NICKNAME_INVALID, EC_INVITE_CODE_INVALID,
   EC_TOO_MANY_ATTEMPTS, EC_API_KEY_INVALID, EC_API_KEY_EXPIRED, EC_API_KEY_SUSPENDED,
   EC_REFRESH_TOKEN_MISSING, EC_REFRESH_TOKEN_INVALID, EC_REFRESH_TOKEN_EXPIRED,
@@ -33,7 +33,7 @@ import {
   EC_TRAINING_ORDER_FORBIDDEN, EC_TRAINING_ORDER_NOT_PAID, EC_TRAINING_PARTICIPANTS_INVALID,
   EC_TRAINING_PARTICIPANTS_COUNT_MISMATCH, EC_TRAINING_COURSE_NOT_FOUND,
   EC_TRAINING_COURSE_PRICE_INVALID, EC_TRAINING_PAYMENT_UNAVAILABLE, EC_TRAINING_SCHEDULE_NOT_FOUND,
-  EC_TRAINING_SCHEDULE_CAPACITY_EXCEEDED, EC_NOTICE_NOT_FOUND_LEGACY, EC_NOTICE_NOT_FOUND,
+  EC_TRAINING_SCHEDULE_CAPACITY_EXCEEDED, EC_NOTICE_NOT_FOUND,
   EC_OPPORTUNITY_NOT_FOUND, EC_REPORT_NOT_AVAILABLE, EC_OPPORTUNITY_CODE_REQUIRED,
   EC_CLAIM_SUPPLIER_NOT_FOUND, EC_CLAIM_ALREADY_APPROVED, EC_CLAIM_SELF_BOUND,
   EC_CLAIM_BOUND_BY_OTHER, EC_CLAIM_PENDING, EC_ENTERPRISE_NOT_BOUND,
@@ -69,15 +69,12 @@ export interface ErrorDef {
   readonly kind: ErrorKind;
   /** errors.json（7 语）的文案键 */
   readonly i18nKey: string;
-  /** 本码已废弃：指向生效码（新代码禁止使用本码） */
-  readonly deprecatedAliasOf?: number;
 }
 
-/** 全量错误目录（111 码 = 108 个生效 type + 3 个 deprecated 同义码） */
+/** 全量错误目录（108 个生效码；2026-11-25 起不再保留 deprecated 同义码） */
 export const ERROR_CATALOG: Readonly<Record<number, ErrorDef>> = {
   // ── 通用 / 系统 ────────────────────────────────────────────────────────────
   [EC_INVALID_PARAMS]: { code: EC_INVALID_PARAMS, type: "invalid_params", status: 400, kind: "business", i18nKey: "errInvalidParams" },
-  [EC_INVALID_REQUEST]: { code: EC_INVALID_REQUEST, type: "invalid_request_legacy", status: 400, kind: "business", i18nKey: "errInvalidParams", deprecatedAliasOf: EC_INVALID_PARAMS },
   [EC_NOT_FOUND]: { code: EC_NOT_FOUND, type: "not_found", status: 404, kind: "business", i18nKey: "errNotFound" },
   [EC_INTERNAL_ERROR]: { code: EC_INTERNAL_ERROR, type: "internal_error", status: 500, kind: "system", i18nKey: "errSystemBusy" },
   [EC_RATE_LIMITED]: { code: EC_RATE_LIMITED, type: "rate_limited", status: 429, kind: "system", i18nKey: "errRateLimited" },
@@ -91,7 +88,6 @@ export const ERROR_CATALOG: Readonly<Record<number, ErrorDef>> = {
 
   // ── 认证与会话 ──────────────────────────────────────────────────────────────
   [EC_AUTH_REQUIRED]: { code: EC_AUTH_REQUIRED, type: "auth_required", status: 401, kind: "auth", i18nKey: "errLoginRequired" },
-  [EC_USER_REQUIRED]: { code: EC_USER_REQUIRED, type: "user_required_legacy", status: 401, kind: "auth", i18nKey: "errLoginRequired", deprecatedAliasOf: EC_AUTH_REQUIRED },
   [EC_SESSION_REQUIRED]: { code: EC_SESSION_REQUIRED, type: "session_required", status: 404, kind: "business", i18nKey: "errSessionRequired" },
   [EC_ACCOUNT_ISSUE]: { code: EC_ACCOUNT_ISSUE, type: "account_issue", status: 401, kind: "auth", i18nKey: "errAccountIssue" },
   [EC_PASSWORD_RESET_REQUIRED]: { code: EC_PASSWORD_RESET_REQUIRED, type: "password_reset_required", status: 403, kind: "auth", i18nKey: "errPasswordResetRequired" },
@@ -164,7 +160,6 @@ export const ERROR_CATALOG: Readonly<Record<number, ErrorDef>> = {
 
   // ── 公告 / 商机 / 报告 ──────────────────────────────────────────────────────
   [EC_NOTICE_NOT_FOUND]: { code: EC_NOTICE_NOT_FOUND, type: "notice_not_found", status: 404, kind: "business", i18nKey: "errNoticeNotFound" },
-  [EC_NOTICE_NOT_FOUND_LEGACY]: { code: EC_NOTICE_NOT_FOUND_LEGACY, type: "notice_not_found_legacy", status: 404, kind: "business", i18nKey: "errNoticeNotFound", deprecatedAliasOf: EC_NOTICE_NOT_FOUND },
   [EC_OPPORTUNITY_NOT_FOUND]: { code: EC_OPPORTUNITY_NOT_FOUND, type: "opportunity_not_found", status: 404, kind: "business", i18nKey: "errOpportunityNotFound" },
   [EC_REPORT_NOT_AVAILABLE]: { code: EC_REPORT_NOT_AVAILABLE, type: "report_not_available", status: 404, kind: "business", i18nKey: "errReportNotAvailable" },
   [EC_OPPORTUNITY_CODE_REQUIRED]: { code: EC_OPPORTUNITY_CODE_REQUIRED, type: "opportunity_code_required", status: 400, kind: "business", i18nKey: "errOpportunityCodeRequired" },
@@ -223,9 +218,9 @@ export const ERROR_CATALOG: Readonly<Record<number, ErrorDef>> = {
   [EC_RFQ_QA_CLOSED]: { code: EC_RFQ_QA_CLOSED, type: "rfq_qa_closed", status: 409, kind: "business", i18nKey: "errRfqQaClosed" },
 };
 
-/** 生效错误定义（排除 deprecated 同义码） */
+/** 生效错误定义（目录内不再有 deprecated 同义码，直接返回全量） */
 export function activeErrorDefs(): ErrorDef[] {
-  return Object.values(ERROR_CATALOG).filter((d) => !d.deprecatedAliasOf);
+  return Object.values(ERROR_CATALOG);
 }
 
 /** 按数字码查目录（含 deprecated） */

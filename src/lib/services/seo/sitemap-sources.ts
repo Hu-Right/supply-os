@@ -65,14 +65,6 @@ export async function fetchSitemapNoticesPage(
 }
 
 /**
- * 兼容旧调用：取第一片（最新 5 万条）。
- * @deprecated 新代码用 fetchSitemapNoticesPage 分片取数。
- */
-export async function fetchSitemapNotices(pool?: Pool): Promise<SitemapNoticeRow[]> {
-  return fetchSitemapNoticesPage(0, SITEMAP_NOTICE_PAGE_SIZE, pool);
-}
-
-/**
  * 供应商详情页（/supplier/[id] 已上线）。
  * supplier 表为外部只读表，无 updated_at —— 以 addtime 作为 lastModified。
  * 只提交公开口径（info_review_status='reviewed'）且排除测试数据，避免 sitemap 指向 404。

@@ -5,7 +5,7 @@
  * @module features/procurement/hooks/usePaymentReturnReconciliation
  * @description 支付整页跳回后的对账：?order_no=&trade_no=（公告 id 由独立详情路由自带）。
  *              订单已支付则刷新权益并打开对应公告，未决/失败给出提示；对账完成后清理 URL 参数。
- *              旧版 `?notice_id=` 深链已由列表页统一重定向到独立详情路由，这里不再处理。
+ *              [2026-11-25] 旧版 `?notice_id=` 深链与列表页统一重定向一并移除，不再做兼容。
  */
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";

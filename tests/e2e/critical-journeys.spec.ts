@@ -74,10 +74,9 @@ test.describe("供应商目录旅程", () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 test.describe("公采资质旅程", () => {
-  test("旧版资质页 301 → v2 诊断页锚点可见", async ({ page }) => {
-    // /procurement/qualification 已退役：保留地址并重定向到 v2 诊断页
-    await page.goto(`${TEST_BASE_URL}/procurement/qualification`);
-    await expect(page).toHaveURL(/\/procurement\/diagnosis/, { timeout: 15_000 });
+  test("v2 诊断页锚点可见（旧版 /procurement/qualification 已按 ADR-0025 删除）", async ({ page }) => {
+    // 旧入口不做兼容跳转，直接访问现行 v2 诊断页
+    await page.goto(`${TEST_BASE_URL}/procurement/diagnosis`);
 
     // 页面锚点：v2 诊断标题（登录用户看到诊断表单标题，游客看到登录闸口标题）
     await expect(

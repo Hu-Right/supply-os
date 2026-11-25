@@ -7,7 +7,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import * as api from "@/shared/constants/api";
 import { ERROR_CATALOG, activeErrorDefs, lookupErrorDef, expectedTypeFromConstantName, type ErrorKind } from "@/shared/errors/catalog";
 
 const VALID_STATUSES = [400, 401, 402, 403, 404, 409, 410, 413, 429, 500, 502, 503] as const;
@@ -64,16 +63,9 @@ describe("ERROR_CATALOG — type 派生规则", () => {
     }
   });
 
-  it("deprecated 码 type = 语义名派生 + _legacy（剥改名 _LEGACY 尾），且 aliasOf 指向存在且生效的码", () => {
-    for (const d of Object.values(ERROR_CATALOG)) {
-      if (!d.deprecatedAliasOf) continue;
-      const exported = EC_EXPORTED_NAMES.find((e) => e.code === d.code);
-      const semanticName = exported!.name.replace(/_LEGACY$/, "");
-      expect(d.type).toBe(`${expectedTypeFromConstantName(semanticName)}_legacy`);
-      const target = lookupErrorDef(d.deprecatedAliasOf);
-      expect(target, `${d.type} aliasOf ${d.deprecatedAliasOf} 不存在`).toBeTruthy();
-      expect(target!.deprecatedAliasOf, "aliasOf 不得指向另一个 deprecated 码").toBeUndefined();
-    }
+  it("目录内不再有 deprecated 同义码（每个 code 都是唯一语义）", () => {
+    const codes = Object.values(ERROR_CATALOG).map((d) => d.code);
+    expect(new Set(codes).size).toBe(codes.length);
   });
 });
 

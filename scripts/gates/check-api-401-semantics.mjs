@@ -38,7 +38,6 @@ import {
 // 401 允许承载的业务码（EC_ 常量名；ADR-0021 判据：认证缺失或失败，含凭据错误）。
 const ALLOW_401 = new Set([
   "EC_AUTH_REQUIRED", // 未登录、SSE 票券无效（可刷新）
-  "EC_USER_REQUIRED", // service 层「需要登录才能取该资源」
   "EC_API_KEY_INVALID", // 开放 API：缺少/无效 X-API-Key
   "EC_API_KEY_EXPIRED", // 开放 API：X-API-Key 已过期
   "EC_ACCOUNT_ISSUE", // 登录凭据错误（ADR-0021：403→401 修正）

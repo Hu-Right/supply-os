@@ -167,7 +167,7 @@ export function AccountOverview() {
             { label: "安全设置", href: "/settings/security", icon: <Lock className="h-4 w-4" /> },
             { label: "供应商主体", href: "/settings/enterprise", icon: <BadgeCheck className="h-4 w-4" /> },
             { label: "采购主体认证", href: "/settings/buyer", icon: <ShoppingCart className="h-4 w-4" /> },
-            { label: "费用中心", href: "/billing", icon: <ReceiptText className="h-4 w-4" /> },
+            { label: "费用中心", href: "/settings/billing", icon: <ReceiptText className="h-4 w-4" /> },
             { label: "联系客服", href: "/contact", icon: <ShieldCheck className="h-4 w-4" /> },
           ].map((item) => (
             <Link key={item.href} href={item.href} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-foreground hover:border-brand-300 hover:bg-secondary-50">

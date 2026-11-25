@@ -24,12 +24,9 @@ import {
 } from "@/lib/services/notice-search/countries";
 import { ensureCountryDisplaySnapshot, countryZhOf } from "@/lib/services/country/display";
 import { listTopGroups, type HotGroupItem } from "@/lib/services/notice-search/hot-topics";
-import { landingSlug } from "./country-slug";
 
-/** 一条国别落地页（slug 由标准名派生，保证 URL 稳定可读） */
+/** 一条国别聚合数据（2026-11-25 起不再有独立落地页 URL，slug 随路由一并移除） */
 export interface CountryLanding {
-  /** URL 片段，如 brazil / united-states */
-  slug: string;
   /** country_aliases 标准名（英文），也是筛选时的归一键 */
   name: string;
   /** 中文译名（快照未命中为 null，页面回退英文） */
@@ -38,7 +35,7 @@ export interface CountryLanding {
   count: number;
 }
 
-/** 国别落地页清单（按有效公告数降序；slug 冲突时保留计数更高的那个） */
+/** 国别聚合清单（按有效公告数降序；同名去重保留计数更高的那个） */
 export async function listCountryLandings(pool?: Pool): Promise<CountryLanding[]> {
   const db = pool ?? getPool();
   const [rows] = await Promise.all([
@@ -50,22 +47,14 @@ export async function listCountryLandings(pool?: Pool): Promise<CountryLanding[]
   const out: CountryLanding[] = [];
   for (const row of rows) {
     const name = String(row.country ?? "").trim();
-    if (!name) continue;
-    const slug = landingSlug(name);
-    if (!slug || seen.has(slug)) continue;
-    seen.add(slug);
-    out.push({ slug, name, nameZh: countryZhOf(name), count: Number(row.count) || 0 });
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push({ name, nameZh: countryZhOf(name), count: Number(row.count) || 0 });
   }
   return out;
 }
 
-/** 按 slug 取单条国别落地页（未知 slug 返回 null → notFound） */
-export async function findCountryLanding(slug: string, pool?: Pool): Promise<CountryLanding | null> {
-  const list = await listCountryLandings(pool);
-  return list.find((c) => c.slug === slug) ?? null;
-}
-
-/** 国别落地页列出的公告行（只取卡片/标题需要的公开列） */
+/** 国别聚合列出的公告行（只取卡片/标题需要的公开列） */
 export interface CountryNoticeRow extends RowDataPacket {
   id: number;
   title: string;

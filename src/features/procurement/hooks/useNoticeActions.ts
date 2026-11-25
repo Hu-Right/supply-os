@@ -23,7 +23,7 @@ import { usePaymentReturnReconciliation } from "./usePaymentReturnReconciliation
 export interface UseNoticeActionsOptions {
   userId: number | undefined; // 当前登录用户 ID
   isVip: boolean; // 是否 VIP（决定免费配额门槛与解锁类型）
-  /** 认证初始化是否完成（未就绪时 ?notice_id 深链不得判定为未登录） */
+  /** 认证初始化是否完成（未就绪时不得判定为未登录） */
   authReady?: boolean;
   items: NoticeItem[]; // 当前列表数据（openNoticeById 复用列表内已有项）
   setSelectedNotice: Dispatch<SetStateAction<NoticeItem | null>>; // Page 持有的选中详情设置器
@@ -70,7 +70,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
     await access.openNoticeById(id);
   };
 
-  // 支付整页跳回后的对账：?order_no=&trade_no=&notice_id= 或仅 ?notice_id=
+  // 支付整页跳回后的对账：只认 ?order_no=&trade_no=（公告 id 由详情路由自带）
   usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById: onOpenNotice ? async (id: number) => { await onOpenNotice(id); } : openNoticeById, setActionMessage, userId, authReady });
 
   return {

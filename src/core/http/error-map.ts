@@ -15,7 +15,7 @@ import { ApiError } from "./api-client";
 import { activeErrorDefs, lookupErrorDef, type ErrorKind as CatalogErrorKind } from "@/shared/errors/catalog";
 import {
   // 认证 / 权限
-  EC_USER_REQUIRED, EC_AUTH_REQUIRED, EC_PASSWORD_RESET_REQUIRED,
+  EC_AUTH_REQUIRED, EC_PASSWORD_RESET_REQUIRED,
   EC_FORBIDDEN, EC_ACCESS_FORBIDDEN,
   EC_INVALID_CODE, EC_ACCOUNT_ISSUE, EC_PHONE_ISSUE, EC_EMAIL_ISSUE, EC_DUPLICATE,
   // 权益门控
@@ -23,7 +23,7 @@ import {
   // 额度
   EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_API_QUOTA_EXCEEDED,
   // 资源不存在
-  EC_NOT_FOUND, EC_NOTICE_NOT_FOUND_LEGACY, EC_NOTICE_NOT_FOUND, EC_OPPORTUNITY_NOT_FOUND, EC_REPORT_NOT_AVAILABLE,
+  EC_NOT_FOUND, EC_NOTICE_NOT_FOUND, EC_OPPORTUNITY_NOT_FOUND, EC_REPORT_NOT_AVAILABLE,
   // 系统
   EC_INTERNAL_ERROR, EC_TRANSLATION_UNAVAILABLE,
   // 培训 / 报名
@@ -96,7 +96,6 @@ interface CodeRule { kind: ErrorKind; key: string; }
 /** 稳定码 → 分类 + i18n 键（覆盖全站已登记业务/权限/支付语义） */
 const CODE_MAP: Record<number, CodeRule> = {
   // 认证 / 权限
-  [EC_USER_REQUIRED]: { kind: "auth", key: "errLoginRequired" },
   [EC_AUTH_REQUIRED]: { kind: "auth", key: "errLoginRequired" },
   [EC_PASSWORD_RESET_REQUIRED]: { kind: "auth", key: "errPasswordResetRequired" },
   [EC_FORBIDDEN]: { kind: "forbidden", key: "errForbidden" },
@@ -115,7 +114,6 @@ const CODE_MAP: Record<number, CodeRule> = {
   [EC_API_QUOTA_EXCEEDED]: { kind: "quota", key: "errApiQuotaExceeded" },
   // 资源不存在
   [EC_NOT_FOUND]: { kind: "business", key: "errNotFound" },
-  [EC_NOTICE_NOT_FOUND_LEGACY]: { kind: "business", key: "errNoticeNotFound" },
   [EC_NOTICE_NOT_FOUND]: { kind: "business", key: "errNoticeNotFound" },
   [EC_OPPORTUNITY_NOT_FOUND]: { kind: "business", key: "errOpportunityNotFound" },
   [EC_REPORT_NOT_AVAILABLE]: { kind: "business", key: "errReportNotAvailable" },

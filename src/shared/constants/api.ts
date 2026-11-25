@@ -12,9 +12,6 @@
 // 编码规则：4xxxx = 客户端错误，5xxxx = 服务端错误
 // 400xx = 参数/校验类，401xx = 认证类，403xx = 授权类，404xx = 资源不存在类
 
-/** 通用参数校验失败（Invalid request body / params） */
-export const EC_INVALID_REQUEST = 40022;
-
 /** 认证失败 / 未登录（Authentication required） */
 export const EC_AUTH_REQUIRED = 40042;
 
@@ -53,12 +50,6 @@ export const EC_OUT_OF_CATEGORY = 40045;
 
 /** 翻译服务不可用（Translation service unavailable） */
 export const EC_TRANSLATION_UNAVAILABLE = 50002;
-
-/** @deprecated 同义合并（ADR-0021 §2.4）：公告不存在统一使用 EC_NOTICE_NOT_FOUND(40404)。 */
-export const EC_NOTICE_NOT_FOUND_LEGACY = 40006;
-
-/** 认证失败 / 未登录（路由层通用，替代各路由散落的 USER_REQUIRED: 40001） */
-export const EC_USER_REQUIRED = 40001;
 
 /** 支付渠道不可用 */
 export const EC_PAYMENT_PROVIDER_UNAVAILABLE = 40010;
@@ -142,8 +133,8 @@ export const EC_API_KEY_SUSPENDED = 40302;
 export const EC_API_QUOTA_EXCEEDED = 42901;
 
 // ── 业务规则细分码（统一用户友好提示层 Phase A，2026-10-12）─────────────────────
-// 规约：把此前塌缩到通用 EC_INVALID_PARAMS(40000)/EC_INVALID_REQUEST(40022) 的「状态/规则冲突」
-//       逐条拆成独立稳定码，前端据 code→i18n 键精确翻译；纯字段级/格式级校验仍复用 EC_INVALID_REQUEST。
+// 规约：把此前塌缩到通用 EC_INVALID_PARAMS(40000) 的「状态/规则冲突」
+//       逐条拆成独立稳定码，前端据 code→i18n 键精确翻译；纯字段级/格式级校验仍复用 EC_INVALID_PARAMS。
 
 /** 认领：目标供应商不存在 */
 export const EC_CLAIM_SUPPLIER_NOT_FOUND = 40046;

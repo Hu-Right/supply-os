@@ -14,7 +14,6 @@ import { grantNoticeAccess } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentViews } from "../components/RecentViews";
 import type { NoticeItem } from "../types";
-import { readNoticeIdParam } from "../lib/deepLink";
 import { LoadingOverlay } from "@/shared/ui";
 import { ListingStatsBar } from "../components/ListingStatsBar";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
@@ -47,24 +46,8 @@ export default function ProcurementPage({ initialResults }: { initialResults?: S
     openNoticeByIdRoute(notice.noticePk);
   }, [authUser, openNoticeByIdRoute]);
 
-  // 老链接 ?notice_id= 收敛到独立详情页；支付回跳（带 order_no/trade_no）连同参数一起转过去，
-  // 由详情页的 usePaymentReturnReconciliation 完成对账，不再在列表页内打开详情。
-  useEffect(() => {
-    const noticeId = readNoticeIdParam(window.location.search);
-    if (!noticeId) return;
-    const sp = new URLSearchParams(window.location.search);
-    const orderNo = sp.get("order_no");
-    const tradeNo = sp.get("trade_no");
-    if (orderNo || tradeNo) {
-      const q = new URLSearchParams();
-      if (orderNo) q.set("order_no", orderNo);
-      if (tradeNo) q.set("trade_no", tradeNo);
-      // 硬跳转：避免列表页的支付对账 cleanup 与本跳转竞争，把 URL 改回 ?notice_id=
-      window.location.replace(`/procurement/notice/${noticeId}/detail?${q.toString()}`);
-      return;
-    }
-    router.replace(`/procurement/notice/${noticeId}/detail`);
-  }, [router]);
+  // 老链接 ?notice_id= 的兼容跳转已移除（2026-11-25，不再向后兼容）：
+  // 详情入口统一为 /procurement/notice/{id}/detail，列表页不再解析旧查询参数。
 
   // ── 性能监控：首屏计时 ──
   const firstLoadDoneRef = useRef(false);

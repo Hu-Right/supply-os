@@ -20,7 +20,7 @@ import {
  *   Rule B 禁裸数字（全局）：route.ts 里 routeError(<status>, <字面数字>) 及
  *            parseJson 的 codeByPath 里等于已知 EC 值的字面数字，一律视为违规。
  *   Rule C 登记全覆盖（全域）：所有路由 routeError/codeByPath 引用的 EC_ 常量必须已登记进
- *            error-map CODE_MAP（通用参数码 EC_INVALID_PARAMS/EC_INVALID_REQUEST 例外——
+ *            error-map CODE_MAP（通用参数码 EC_INVALID_PARAMS 例外——
  *            刻意不登记，让后端 message 直出）。
  *
  * 扫描/报告口径走共享骨架 `lib/api-contract.mjs`（四条 API 契约门禁同一口径）。
@@ -29,7 +29,7 @@ import {
  */
 
 // 刻意不登记进 CODE_MAP 的通用参数码（保留后端 message 直出的具体细节）。
-const GENERIC_UNREGISTERED = new Set(["EC_INVALID_PARAMS", "EC_INVALID_REQUEST"]);
+const GENERIC_UNREGISTERED = new Set(["EC_INVALID_PARAMS"]);
 
 const repoRoot = scanRoot();
 const constantsFile = path.join(repoRoot, "src", "shared", "constants", "api.ts");

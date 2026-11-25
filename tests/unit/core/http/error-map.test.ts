@@ -22,7 +22,7 @@ import {
   EC_PHONE_NOT_BOUND, EC_ACCOUNT_DISABLED, EC_TOO_MANY_ATTEMPTS, EC_REFRESH_TOKEN_INVALID,
   EC_CONTENT_LOCKED, EC_CHAT_SESSION_CLOSED, EC_CHAT_RATE_INVALID,
   EC_SESSION_REQUIRED, EC_TOO_MANY_ACTIONS, EC_NO_VALID_ACTIONS,
-  EC_INVALID_PARAMS, EC_USER_REQUIRED,
+  EC_INVALID_PARAMS,
   EC_AI_NOT_CONFIGURED, EC_AI_BAD_FORMAT, EC_AI_CALL_FAILED, EC_SUPPLIER_PROFILE_REQUIRED,
   EC_INVITE_CODE_INVALID, EC_TRANSLATION_UNAVAILABLE,
   EC_KEYWORD_GROUP_NAME_RESERVED,
@@ -84,12 +84,10 @@ describe("稳定码 → i18n 键", () => {
     expect(mapApiError(new ApiError(400, "无有效操作", EC_NO_VALID_ACTIONS), t)).toBe("K:errNoValidActions");
   });
 
-  it("回归：注册字段校验不再借 40001 弹「请先登录」（旧 codeByPath password:40001 撞 EC_USER_REQUIRED）", () => {
+  it("回归：注册字段校验不再借 40001 弹「请先登录」（旧 codeByPath password:40001 撞 EC_USER_REQUIRED，该别名码已删除）", () => {
     // 治本后 register codeByPath 用 EC_INVALID_PARAMS（刻意不登记）→ 后端 message 直出，绝不落到 errLoginRequired。
     expect(classifyApiError(new ApiError(400, "密码不能为空", EC_INVALID_PARAMS)).key).not.toBe("errLoginRequired");
     expect(mapApiError(new ApiError(400, "密码不能为空", EC_INVALID_PARAMS), () => "")).toBe("密码不能为空");
-    // 对照：真正的 EC_USER_REQUIRED 才应翻成登录提示
-    expect(classifyApiError(new ApiError(401, "请先登录", EC_USER_REQUIRED)).key).toBe("errLoginRequired");
   });
 
   it("回归：service 层 AI/翻译/邀请码不再撞他域码（旧 40001/40010/50002/50001/40031 错弹）", () => {
