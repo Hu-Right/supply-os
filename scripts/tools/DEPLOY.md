@@ -40,12 +40,15 @@
 
 1. 代码已提交并推送到 `origin/main`：
    ```bash
-   git status --porcelain   # 必须干净（除明确不发布的 WIP）
-   git push origin main
+   git status --porcelain   # 必须干净（除明确不发布的 WIP；next-env.d.ts 的 dev 再生成噪音先还原）
+   # 本机 .gitconfig 配了 http.proxy 127.0.0.1:7897（Clash 系）——代理没在跑时 push 会
+   # "Could not connect to server"，绕过即可（github.com 直连可达）：
+   git -c http.proxy= -c https.proxy= push origin main
    ```
-2. 本机 SSH 可用：
+2. 本机 SSH 可用（密钥是 `id_ed25519_prod`，走 `prod` 别名——config 内含 3307 隧道转发；
+   隧道已被 Docker 容器占用时加 `-o ExitOnForwardFailure=no`，只执行命令不需要转发）：
    ```bash
-   ssh -i ~/.ssh/id_ed25519 root@117.72.108.14 "echo ok"
+   ssh -o BatchMode=yes -o ExitOnForwardFailure=no prod "echo ok"
    ```
 3. GitHub token 可用（下面命令从 git 凭据读取，不落盘）：
    ```powershell
@@ -204,3 +207,4 @@ pm2 list; pm2 logs supply-os --lines 100 --nostream
 | 2026-11-24 16:40 | 42301dfc | 3KwDcbHP7hM5zonYXXdMW | b5f72952eed7acb8 | 55.4 MB | 苏御凡(AI) | HTTP 200 / BUILD_ID 更新（gmiB3HLU→3KwDcbH）/ pm2 重启 0 / bootstrap schema·featured·payment ✓ / ledger 78 / about·contact·faq·llms 200 / 软 404 返回真 404 / 公告详情要点与相关公告上线 | runtime/standalone-bak |
 | 2026-11-24 16:55 | 584d6f7c | h-fzqwdc1c69ZCgvtvumc | aa2d852d990638c5 | 55.4 MB | 苏御凡(AI) | HTTP 200 / BUILD_ID 更新（3KwDcbH→h-fzqwd）/ pm2 重启 0 / bootstrap schema·featured·payment ✓ / ledger 78 / 首页 ISR 60s，二次命中后统计 375,468·8,437·189·146,632 / 软 404 仍 404 | runtime/standalone-bak |
 | 2026-11-25 16:18 | e1614a31 | ahOwheSjoYxg6Q6wAY6iQ | 863a5a0b6d30e5ec | 56.5 MB | 苏御凡(AI) | HTTP 200 / BUILD_ID 更新（q1ecwpH→ahOwheS）/ pm2 重启 0 / ledger 81 / 商机首屏 10 条 SSR / 供应商首屏 8 家 SSR / sitemap 分片 50,000 URL / free+vip 双账号登录与详情通过 / 英文 about·services·faq·contact·supplier·procurement 200 / 软 404 仍 404 | runtime/standalone-bak |
+| 2026-11-25 23:04 | d42d65d1 | Jupf-pUfnQWs9u07a3bEA82 | 33af91ad1c56b3b5 | 55.97 MB | 苏御凡(AI) | HTTP 200 / BUILD_ID 更新（rjXmwEf→Jupf-pUfn，含 16:18 后一次未记录部署）/ pm2 重启 0 / ledger 81（迁移 082 物化表方案已撤销：生产孤儿表 DROP + 账本行 82 删除）/ sitemap 快照架构上线：首次重建 4 片 151,737 条 216s，热路径读文件 / /en·/llms.txt·/billing·国别 slug 全部 404 / 静态片 22 页（补 rfq·learning·copyright）/ 首页与 10 公开页新关键词标题上线 / 公告详情 title_cn 中文优先（无译文回退原文）/ 英文站与 AI 专享页退役（ADR-0023/0024/0025/0026） | runtime/standalone-bak |
