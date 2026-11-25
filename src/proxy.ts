@@ -53,6 +53,12 @@ function notFoundResponse(request: NextRequest): NextResponse {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // ── AI 爬虫日志：只记 UA + 路径，落 pm2 日志，供后续分析引用页 ──
+  const ua = request.headers.get("user-agent") ?? "";
+  if (/GPTBot|OAI-SearchBot|ChatGPT-User|ClaudeBot|Claude-Web|PerplexityBot|Google-Extended|CCBot|Bytespider/i.test(ua)) {
+    console.log(`[ai-crawler] ${new Date().toISOString()} ${pathname} ${ua.slice(0, 120)}`);
+  }
+
   // ── 公告详情：格式/存在性判定（必须在流式响应开始前）──
   const noticeMatch = pathname.match(NOTICE_PATH);
   if (noticeMatch) {
