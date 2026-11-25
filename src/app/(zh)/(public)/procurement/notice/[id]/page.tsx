@@ -214,12 +214,20 @@ export default async function NoticeSeoPage({ params }: PageProps) {
     },
     {
       "@context": "https://schema.org",
-      "@type": "WebPage",
+      "@type": "Article",
+      headline: row.title,
       name: row.title,
       url,
       description: buildSummary(row),
-      // 采购公告是强时效内容，显式给出发布日便于结果页标注时间
-      ...(row.published_date ? { datePublished: row.published_date } : {}),
+      // 采购公告是强时效内容，显式给出发布/更新时间便于结果页与 AI 判断时效
+      ...(row.published_date ? { datePublished: row.published_date, dateModified: row.published_date } : {}),
+      publisher: {
+        "@type": "Organization",
+        name: "云境·国际采购平台",
+        url: absoluteUrl(""),
+        logo: absoluteUrl("/logo.png"),
+      },
+      mainEntityOfPage: url,
       isPartOf: { "@type": "WebSite", name: "云境·国际采购平台", url: absoluteUrl("") },
     },
   ];

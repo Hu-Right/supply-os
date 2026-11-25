@@ -162,12 +162,20 @@ export default async function EnglishNoticePage({ params }: PageProps) {
     },
     {
       "@context": "https://schema.org",
-      "@type": "WebPage",
+      "@type": "Article",
+      headline: row.title,
       name: row.title,
       url,
       description: summaryOf(row),
       inLanguage: "en",
-      ...(row.published_date ? { datePublished: row.published_date } : {}),
+      ...(row.published_date ? { datePublished: row.published_date, dateModified: row.published_date } : {}),
+      publisher: {
+        "@type": "Organization",
+        name: "Yunjing International Procurement Platform",
+        url: absoluteUrl("/en"),
+        logo: absoluteUrl("/logo.png"),
+      },
+      mainEntityOfPage: url,
       isPartOf: { "@type": "WebSite", name: "Yunjing International Procurement Platform", url: absoluteUrl("/en") },
     },
   ];
