@@ -96,7 +96,39 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-locale", locale);
 
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+
+  // 组合筛选页（?q=、品目、时间窗、预算、分页…）只保留 follow、不参与索引：
+  // 这些 URL 数量无边界，交给搜索引擎只会稀释抓取预算；canonical 已在页面侧归一到 /procurement。
+  // 仅 `?country=XX` 单参数是国别入口，仍然可索引（页面有独立 title/description/canonical）。
+  if (isFacetedSearch(request.nextUrl)) {
+    response.headers.set("X-Robots-Tag", "noindex, follow");
+  }
+
+  return response;
+}
+
+/** 是否「组合筛选」URL：除单独 country 外的任一筛选参数 */
+function isFacetedSearch(url: URL): boolean {
+  if (url.pathname !== "/procurement") return false;
+  const params = url.searchParams;
+  const FACET_KEYS = [
+    "q",
+    "commodity",
+    "notice_type",
+    "featured",
+    "deadline_from",
+    "deadline_to",
+    "deadline_within_days",
+    "budget_min",
+    "budget_max",
+    "sort",
+    "match_mode",
+    "page",
+  ];
+  if (FACET_KEYS.some((key) => params.has(key))) return true;
+  // 多个 country 值（数组）同样是组合筛选
+  return params.getAll("country").length > 1;
 }
 
 export const config = {
