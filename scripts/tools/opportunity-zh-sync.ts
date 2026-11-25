@@ -21,6 +21,7 @@
  */
 import { readFileSync } from "node:fs";
 import mysql from "mysql2/promise";
+import { backfillPublicChineseFromTranslations } from "../../src/lib/services/notice-public/build";
 
 const APPLY = process.argv.includes("--apply");
 const HAN = /[\u4e00-\u9fff]/;
@@ -190,17 +191,8 @@ if (APPLY) {
 
 // ── 5. 回填服务表两列中文（原文列不碰）──
 if (APPLY) {
-  const [res] = await pool.query(`
-    UPDATE notice_public p
-      JOIN notice_translations t ON t.notice_id = p.notice_pk AND t.lang = 'zh'
-       SET p.title_cn = IF(t.title_tr IS NULL OR t.title_tr = '', p.title_cn, LEFT(t.title_tr, 1000)),
-           p.description_cn = IF(t.description_tr IS NULL OR t.description_tr = '', p.description_cn, t.description_tr)
-     WHERE p.notice_pk IN (?)
-       AND ((t.title_tr IS NOT NULL AND t.title_tr <> ''
-             AND (p.title_cn IS NULL OR p.title_cn <> LEFT(t.title_tr, 1000)))
-         OR (t.description_tr IS NOT NULL AND t.description_tr <> ''
-             AND (p.description_cn IS NULL OR p.description_cn <> t.description_tr)))`, [pks]);
-  console.log(`  服务表回填 ${(res as { affectedRows: number }).affectedRows} 行`);
+  const affected = await backfillPublicChineseFromTranslations(pool, pks);
+  console.log(`  服务表回填 ${affected} 行`);
 }
 
 // ── 6. 汇总（只统计对外可见的商机行）──

@@ -108,8 +108,15 @@ const DEFAULT_OPAQUE_ALLOWLIST = new Set([
   // 证据是路由级单测 tests/unit/lib/services/open-api/view.test.ts（不依赖库）；
   // 运行期 HTTP 取证本轮未做（隧道断开），所以进 A 的依据是 mapper + 单测，不是探针。
   "src/app/api/open/v1/engineering/route.ts#stats",
-  // 公告详情侧三出口（收藏 toggle / 按需译文 / 推荐反馈）：本批不是靠探针，而是先把
-  // 「看不见」变成「可查」——上一版 fetchNoticeTranslation 把返回类型抹成 Promise<unknown>、
+  // 公告详情：view 已过 toNoticeView（NoticeItem 契约白名单）+ 按权益 mask 译文，
+  // 路由侧再补 coreLocked/platform 等显式 camel 键；键集合由 NoticeItem 契约钉住。
+  "src/app/api/notices/[id]/detail/route.ts#view",
+  // 供应商诊断：result 由 submitDiagnosis 出口显式映射为 camel，路由只补 supplierId/subjectUnclaimed。
+  "src/app/api/supplier-diagnosis/route.ts#result",
+  // 培训着陆页：loadTrainingLanding 在服务内显式映射为 camel 视图，路由直接透传。
+  "src/app/api/training/landing/route.ts#await loadTrainingLanding()",
+  // 公告详情侧三出口（收藏 toggle / 按需译文 / 推荐反馈）：本批不是靠探针，
+  // 而是先把「看不见」变成「可查」——上一版 fetchNoticeTranslation 把返回类型抹成 Promise<unknown>、
   // submitNoticeFeedback 抹成 Record<string, unknown>（还带一次 as unknown as 双断言），
   // 于是类型层这道唯一兜底被自己拆掉。现恢复具名契约
   // （NoticeTranslationPayload / FeedbackResult / { favorited: boolean } ），
@@ -242,7 +249,6 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   "src/app/api/commodity/smart-infer/route.ts#candidates",
   "src/app/api/keyword-groups/official/route.ts#groups",
   "src/app/api/learning/materials/route.ts#materials",
-  "src/app/api/notices/[id]/detail/route.ts#platform",
   "src/app/api/notifications/route.ts#items",
   "src/app/api/user/enterprise/route.ts#licenseChange",
   //   rfq 报价列表：[id]/quotes 的 buyer 列表声明为显式内联类型（supplierUserId/deliveryTerms…）。
@@ -267,7 +273,6 @@ const DEFAULT_WRAPPED_ALLOWLIST = new Set([
   "src/app/api/notices/[id]/ai-match/route.ts#diagPending", // countDiagnosisPending(): Promise<number>
   "src/app/api/notices/[id]/report/preview/route.ts#totalReportChars", // estimateFullReportCharCount(): number
   "src/app/api/notifications/route.ts#unread", // unreadCount(): Promise<number>
-  "src/app/api/suppliers/stats/route.ts#registered", // countApproved(): Promise<number>
   "src/app/api/system/icp/route.ts#bah", // getIcpBah(): Promise<string>，形状由 tests/unit/app/api/system-view.test.ts 钉住
   "src/app/api/user/enterprise/license-upload/route.ts#url", // UploadResult.url: string
   "src/app/api/user/enterprise/route.ts#claimCreated", // ensurePendingClaim(): Promise<boolean>

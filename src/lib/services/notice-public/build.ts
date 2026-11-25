@@ -827,3 +827,24 @@ export async function syncNoticeTitleCn(pool: Pool, noticePk: number, titleCn: s
   if (!value) return;
   await pool.execute("UPDATE notice_public SET title_cn = LEFT(?, 1000) WHERE notice_pk = ?", [value, noticePk]);
 }
+
+/**
+ * 中文搬运脚本回填：翻译表 → 服务表 title_cn / description_cn。
+ * 服务表唯一写入者仍是本模块（N1）；脚本只负责数据搬运与调用。
+ */
+export async function backfillPublicChineseFromTranslations(pool: Pool, noticePks: number[]): Promise<number> {
+  if (noticePks.length === 0) return 0;
+  const [res] = await pool.query(
+    `UPDATE notice_public p
+       JOIN notice_translations t ON t.notice_id = p.notice_pk AND t.lang = 'zh'
+        SET p.title_cn = IF(t.title_tr IS NULL OR t.title_tr = '', p.title_cn, LEFT(t.title_tr, 1000)),
+            p.description_cn = IF(t.description_tr IS NULL OR t.description_tr = '', p.description_cn, t.description_tr)
+      WHERE p.notice_pk IN (?)
+        AND ((t.title_tr IS NOT NULL AND t.title_tr <> ''
+              AND (p.title_cn IS NULL OR p.title_cn <> LEFT(t.title_tr, 1000)))
+          OR (t.description_tr IS NOT NULL AND t.description_tr <> ''
+              AND (p.description_cn IS NULL OR p.description_cn <> t.description_tr)))`,
+    [noticePks],
+  );
+  return (res as ResultSetHeader).affectedRows;
+}

@@ -40,6 +40,15 @@ interface TtlEntry<T> {
 const benefitDefCache = new Map<string, TtlEntry<BenefitDefRow | null>>();
 const cellsCache = new Map<string, TtlEntry<MatrixCellRow[]>>();
 
+/** 缓存按池实例隔离：不同连接（尤其测试/事务）不能复用对方的数据。 */
+const poolIds = new WeakMap<object, number>();
+let poolSeq = 0;
+function cacheKey(pool: object, key: string): string {
+  let id = poolIds.get(pool);
+  if (!id) { id = ++poolSeq; poolIds.set(pool, id); }
+  return `${id}:${key}`;
+}
+
 /** 运营改了权益矩阵/权益定义后调用；不调也会在 5 分钟内自然过期 */
 export function invalidateBenefitMatrixCache(): void {
   benefitDefCache.clear();
@@ -195,7 +204,7 @@ export class BenefitSystemRepo {
    *  @description 请求内复用：详情/正文端点同请求会对同一套餐反复取矩阵格
    *              （行业墙 + 解锁判定 + 权益门控各一次），高延迟链路上每次都是一次全往返。 */
   async loadCells(planCodes?: string[]): Promise<MatrixCellRow[]> {
-    const key = planCodes && planCodes.length > 0 ? [...planCodes].sort().join(",") : "*";
+    const key = cacheKey(this.pool, planCodes && planCodes.length > 0 ? [...planCodes].sort().join(",") : "*");
     const hit = cellsCache.get(key);
     if (hit && hit.expires > Date.now()) return hit.value;
     const value = await this.queryCells(planCodes);
@@ -295,10 +304,11 @@ export class BenefitSystemRepo {
   }
 
   async getBenefit(benefitCode: string): Promise<BenefitDefRow | null> {
-    const hit = benefitDefCache.get(benefitCode);
+    const key = cacheKey(this.pool, benefitCode);
+    const hit = benefitDefCache.get(key);
     if (hit && hit.expires > Date.now()) return hit.value;
     const value = await this.queryBenefit(benefitCode);
-    benefitDefCache.set(benefitCode, { value, expires: Date.now() + BENEFIT_CACHE_TTL_MS });
+    benefitDefCache.set(key, { value, expires: Date.now() + BENEFIT_CACHE_TTL_MS });
     return value;
   }
 
