@@ -205,8 +205,8 @@ export function BillingCenter() {
       return;
     }
     if (buyerType === "enterprise" && invoiceType === "special"
-      && (!taxNo.trim() || !addressPhone.trim() || !phone.trim() || !bankName.trim() || !bankAccount.trim())) {
-      setSubmitError("增值税专用发票需填写税号、注册地址、电话、开户行与银行账号");
+      && (!taxNo.trim() || !addressPhone.trim() || !phone.trim())) {
+      setSubmitError("增值税专用发票需填写税号、注册地址与联系电话");
       return;
     }
     const input: CreateInvoiceRequestInput = {
@@ -641,8 +641,8 @@ export function BillingCenter() {
               <>
                 <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">税号</span><Input value={taxNo} onChange={(e) => setTaxNo(e.target.value)} placeholder="统一社会信用代码" /></label>
                 <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">注册地址（专票必填）</span><Input value={addressPhone} onChange={(e) => setAddressPhone(e.target.value)} placeholder="注册地址" /></label>
-                <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">开户行（专票必填）</span><Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="如：中国建设银行杭州余杭支行" /></label>
-                <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">银行账号（专票必填）</span><Input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="对公账户" /></label>
+                <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">开户行（选填）</span><Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="如：中国建设银行杭州余杭支行" /></label>
+                <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">银行账号（选填）</span><Input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} placeholder="对公账户；客户财务要求完整票面时填写" /></label>
               </>
             )}
             {buyerType === "personal" && <p className="self-end text-[11px] text-secondary-400 sm:col-span-2">个人抬头仅支持电子普通发票。</p>}

@@ -48,12 +48,12 @@ export async function createInvoiceForUser(
     throw new RouteError(400, EC_INVALID_PARAMS, "个人抬头仅支持电子普通发票");
   }
   if (buyerType === "enterprise" && input.invoiceType === "special") {
+    // 数电票购买方必填仅名称/税号；地址、电话按常规收集，开户行与账号为选填
+    // （部分客户财务要求专票票面完整时才需要，不强制拦截）
     const missing = [
       !input.taxNo?.trim() && "税号",
       !input.addressPhone?.trim() && "注册地址",
       !input.phone?.trim() && "联系电话",
-      !input.bankName?.trim() && "开户行",
-      !input.bankAccount?.trim() && "银行账号",
     ].filter(Boolean);
     if (missing.length > 0) {
       throw new RouteError(400, EC_INVALID_PARAMS, `增值税专用发票缺少：${missing.join("、")}`);
