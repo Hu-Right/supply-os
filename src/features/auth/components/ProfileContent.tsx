@@ -68,7 +68,7 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
   }, [refreshAuth]);
 
   const tierBadgeText = isVip ? tierLabel || t("authVipMember") : t("authFreeMember");
-  const openNotice = (noticeId: number) => router.push(`/procurement?notice_id=${noticeId}`);
+  const openNotice = (noticeId: number) => router.push(`/procurement/notice/${noticeId}/detail`);
 
   // ★ 供应商认证状态：与企业信息页同一数据源（GET /api/user/enterprise），并走
   //   shared/utils/enterprise-status 的同一口径——后端排他闸口用的就是这份分类，
