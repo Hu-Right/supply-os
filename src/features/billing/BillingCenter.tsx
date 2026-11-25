@@ -23,7 +23,8 @@ import type { OrderRecord } from "@/features/payment/api";
 import { fetchMembershipStatus } from "@/core/api/membership";
 import type { MembershipStatusView } from "@/types/membership";
 import type { InvoiceRequestView, CreateInvoiceRequestInput } from "@/types/billing";
-import { fetchInvoiceRequests, createInvoiceRequest, downloadInvoiceFile } from "./api";
+import { fetchInvoiceRequests, createInvoiceRequest, downloadInvoiceFile, searchCompanyTitles } from "./api";
+import type { CompanyLookupItem } from "./api";
 
 type View = "overview" | "orders" | "bills" | "invoices" | "renewals";
 
@@ -94,7 +95,7 @@ export function BillingCenter() {
 
   // 开票弹窗
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [invoiceType, setInvoiceType] = useState<"normal" | "special">("special");
+  const [invoiceType, setInvoiceType] = useState<"normal" | "special">("normal");
   const [invoiceTitle, setInvoiceTitle] = useState("");
   const [taxNo, setTaxNo] = useState("");
   const [email, setEmail] = useState("");
@@ -103,6 +104,9 @@ export function BillingCenter() {
   const [phone, setPhone] = useState("");
   const [bankName, setBankName] = useState("");
   const [bankAccount, setBankAccount] = useState("");
+  const [companyOptions, setCompanyOptions] = useState<CompanyLookupItem[]>([]);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [showCompanyOptions, setShowCompanyOptions] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -179,7 +183,7 @@ export function BillingCenter() {
   const netAmount = bills.filter((b) => b.status === "paid").reduce((s, b) => s + b.amount, 0);
 
   const openInvoice = () => {
-    setInvoiceType("special");
+    setInvoiceType("normal");
     setSelectedOrders(eligibleOrders.map((o) => o.orderNo));
     setSubmitError("");
     setSubmitted(false);
@@ -193,6 +197,52 @@ export function BillingCenter() {
         .reduce((sum, o) => sum + Number(o.amount || 0), 0),
     [eligibleOrders, selectedOrders],
   );
+
+  const handleTitleChange = (value: string) => {
+    setInvoiceTitle(value);
+    // 手工改名后旧税号可能不匹配，清空重新检索/填写
+    setTaxNo("");
+    setShowCompanyOptions(value.trim().length >= 2);
+  };
+
+  const selectCompany = (item: CompanyLookupItem) => {
+    setInvoiceTitle(item.title);
+    setTaxNo(item.taxNo);
+    setShowCompanyOptions(false);
+  };
+
+  // 企业抬头检索（防抖 300ms；失败静默，不阻塞手工填写）
+  useEffect(() => {
+    if (!invoiceOpen || buyerType !== "enterprise") {
+      setCompanyOptions([]);
+      setShowCompanyOptions(false);
+      return;
+    }
+    const keyword = invoiceTitle.trim();
+    if (keyword.length < 2) {
+      setCompanyOptions([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setCompanyLoading(true);
+      try {
+        const items = await searchCompanyTitles(keyword);
+        if (!cancelled) {
+          setCompanyOptions(items);
+          setShowCompanyOptions(items.length > 0);
+        }
+      } catch {
+        if (!cancelled) setCompanyOptions([]);
+      } finally {
+        if (!cancelled) setCompanyLoading(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [invoiceTitle, invoiceOpen, buyerType]);
 
   const submitInvoice = async () => {
     setSubmitError("");
@@ -634,7 +684,42 @@ export function BillingCenter() {
                 <option value="normal">电子普通发票</option>
               </Select>
             </label>
-            <label className="text-xs sm:col-span-2"><span className="mb-1 block font-semibold text-secondary-600">{buyerType === "personal" ? "个人姓名" : "发票抬头（企业实名主体）"}</span><Input value={invoiceTitle} onChange={(e) => setInvoiceTitle(e.target.value)} placeholder={buyerType === "personal" ? "个人姓名" : "企业名称"} /></label>
+            <div className="relative text-xs sm:col-span-2">
+              <span className="mb-1 block font-semibold text-secondary-600">{buyerType === "personal" ? "个人姓名" : "发票抬头（企业名称）"}</span>
+              {buyerType === "personal" ? (
+                <Input value={invoiceTitle} onChange={(e) => handleTitleChange(e.target.value)} placeholder="个人姓名" />
+              ) : (
+                <>
+                  <Input
+                    value={invoiceTitle}
+                    onChange={(e) => handleTitleChange(e.target.value)}
+                    onFocus={() => { if (invoiceTitle.trim().length >= 2 && companyOptions.length > 0) setShowCompanyOptions(true); }}
+                    onBlur={() => { window.setTimeout(() => setShowCompanyOptions(false), 150); }}
+                    placeholder="输入公司名称检索，选中后自动带出税号"
+                  />
+                  {showCompanyOptions && (companyLoading || companyOptions.length > 0) && (
+                    <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-auto rounded-xl border border-secondary-200 bg-white py-1 shadow-xl">
+                      {companyLoading && companyOptions.length === 0 && (
+                        <p className="flex items-center gap-2 px-3 py-2 text-[11px] text-secondary-400"><Loader2 className="h-3.5 w-3.5 animate-spin" />检索中…</p>
+                      )}
+                      {companyOptions.map((item) => (
+                        <button
+                          key={item.taxNo}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => selectCompany(item)}
+                          className="flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-secondary-50"
+                        >
+                          <span className="text-xs font-semibold text-secondary-900">{item.title}</span>
+                          <span className="font-mono text-[11px] text-secondary-400">{item.taxNo}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <span className="mt-1 block text-[11px] text-secondary-400">输入 2 个字以上自动检索；选中公司后自动填写税号，也可手工填写。</span>
+                </>
+              )}
+            </div>
             <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">接收邮箱</span><Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="finance@example.com" /></label>
             <label className="text-xs"><span className="mb-1 block font-semibold text-secondary-600">联系电话</span><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="手机号或座机" /></label>
             {buyerType === "enterprise" && (
@@ -665,6 +750,8 @@ function statusLabel(status: string): string {
   if (status === "closed") return "已关闭";
   return status;
 }
+
+
 
 
 

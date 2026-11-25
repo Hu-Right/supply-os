@@ -44,3 +44,4 @@ export function invoiceRequestViewOf(row: InvoiceRequestView): InvoiceRequestVie
 export function invoiceRequestsViewOf(rows: InvoiceRequestView[]): InvoiceRequestView[] {
   return rows.map(invoiceRequestViewOf);
 }
+
