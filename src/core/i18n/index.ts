@@ -10,7 +10,6 @@
 
 export { LocaleProvider, useLocale } from "./LocaleContext";
 export { pickLocale } from "./pickLocale";
-export { isEnglishPath, stripEnglishPrefix, englishPathFor, localeHref } from "./navigation";
 export { detectDominantScript, needsContentTranslation } from "./detectScript";
 export type { ContentScript } from "./detectScript";
 export { SUPPORTED_LOCALES, SUPPORTED_LOCALE_CODES, getLocaleDir } from "./locales";

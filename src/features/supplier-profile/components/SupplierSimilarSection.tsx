@@ -17,9 +17,9 @@ export interface SupplierSimilarSectionProps {
 
 export function SupplierSimilarSection({ items, copy, locale }: SupplierSimilarSectionProps) {
   if (items.length === 0) return null;
-  const base = locale === "en" ? "/en/supplier" : "/supplier";
-  // 英文供应商目录页尚未上线：不放出 404 链接（接入 /en/supplier 列表后再恢复）
-  const directory = locale === "en" ? null : "/supplier";
+  // 单语站（ADR-0024）：供应商目录只有 /supplier 一个入口，不再有 /en 分支
+  const base = "/supplier";
+  const directory = "/supplier";
 
   return (
     <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6">

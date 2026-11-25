@@ -144,9 +144,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description: summary,
     alternates: {
       canonical: url,
+      // 全站单语（ADR-0024）：不再声明 en，避免悬空 hreflang
       languages: {
         "zh-CN": url,
-        "en": absoluteUrl(`/en/procurement/notice/${id}`),
         "x-default": url,
       },
     },

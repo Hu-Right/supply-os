@@ -14,7 +14,6 @@ import Link from "next/link";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { jsonLdScript, SITE_ENTITY } from "@/lib/services/seo/json-ld";
 import { listIndustryLandings } from "@/lib/services/seo/landing";
-import { getServerLocale } from "@/lib/i18n/server";
 import type { HotGroupItem } from "@/lib/services/notice-search/hot-topics";
 
 export const revalidate = 3600;
@@ -46,8 +45,8 @@ async function loadGroups(): Promise<HotGroupItem[]> {
 }
 
 export default async function IndustriesHubPage() {
-  const locale = await getServerLocale();
-  const isZh = locale === "zh";
+  // 单语站（ADR-0024）：不再按 Cookie 选语言——那会让本页失去 ISR 缓存
+  const isZh = true;
   const num = (n: number) => n.toLocaleString(isZh ? "zh-CN" : "en-US");
   const groups = await loadGroups();
   const total = groups.reduce((sum, g) => sum + g.count, 0);

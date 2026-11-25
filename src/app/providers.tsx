@@ -7,27 +7,20 @@ import { Toaster } from "sonner";
 import { ErrorBoundaryWithI18n } from "@/shared/ui/ErrorBoundary";
 import { initCountryNames } from "@/shared/data/countryNames";
 import { initPerfMonitor } from "@/core/perf";
-import type { Locale } from "@/core/i18n/bundles";
 
 /**
  * Client-side Providers wrapper.
- * initialLocale 可选：root layout 不再传递（保持静态 ISR），
- * LocaleProvider 内部通过 detectLocale() 从 Cookie 读取语言偏好。
+ * 全站单语（zh）SSR：LocaleProvider 通过 detectLocale() 从 Cookie 读取语言偏好，
+ * 不接收 initialLocale（英文独立站已按 ADR-0024 下线）。
  *
  * <ErrorBoundary> 全局兜底：捕获 React 渲染错误，ChunkLoadError 时提供重试。
  * <Suspense> 作为安全边界：即使 i18next 内部触发 Suspense，
  * 也不会导致整棵组件树崩溃。
  */
-export default function Providers({
-  children,
-  initialLocale,
-}: {
-  children: React.ReactNode;
-  initialLocale?: Locale;
-}) {
+export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={<ProvidersSkeleton />}>
-      <LocaleProvider initialLocale={initialLocale}>
+      <LocaleProvider>
         <ErrorBoundaryWithI18n>
           <AppInit />
           <AuthProvider>

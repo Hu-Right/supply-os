@@ -6,25 +6,20 @@
  *
  * @module shared/layout/LanguageSwitcher
  * @description 页头语言选择。下拉列出 7 种语言（联合国 6 种官方语言 + 葡语）。
- *              选中后统一写 Cookie 并原地加载语言包；只有从 /en 回中文等
- *              “URL 前缀归属不同”的场景才做导航。英文 SEO 站（/en）保留给
- *              搜索引擎/外链，不再由语言切换器跳入。
+ *              选中后统一写 Cookie 并原地加载语言包——**语言不改变 URL**：
+ *              全站只有中文一份可索引内容（英文独立站已按 ADR-0024 下线），
+ *              所以切换器不承担任何 SEO/路由职责，只切换界面语言。
  *              下拉定位用逻辑方向（end-0），RTL 下自动镜像。
  *              切换期间显示旋转指示器 + 禁用交互，防止重复点击。
- *              Header language selector: 7 languages; all locales switch in place via
- *              cookie. Only navigate when leaving the separate /en SEO root.
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { Globe, ChevronDown, Check, Loader2 } from "lucide-react";
-import { useLocale, SUPPORTED_LOCALES, localeHref } from "@/core/i18n";
+import { useLocale, SUPPORTED_LOCALES } from "@/core/i18n";
 import type { Locale } from "@/core/i18n";
 
 export function LanguageSwitcher() {
   const { locale, switching, setLocale, t } = useLocale();
-  const router = useRouter();
-  const pathname = usePathname() || "/";
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -54,16 +49,10 @@ export function LanguageSwitcher() {
     (code: Locale) => {
       if (switching) return; // 切换进行中忽略重复点击
       setOpen(false);
-      const href = localeHref(pathname, code);
-
-      // 所有语言统一：先切语言（写 Cookie、加载语言包），再按需导航。
-      // /en 的英文 SEO 站不再由切换器进入；只有从 /en 回中文/其他语言时才导航。
-      void (async () => {
-        await setLocale(code);
-        if (href && href !== pathname) router.push(href);
-      })();
+      // 语言只存在于 Cookie 与语言包，URL 不变——单语站（zh）不需要任何跳转
+      void setLocale(code);
     },
-    [pathname, router, setLocale, switching],
+    [setLocale, switching],
   );
 
   return (

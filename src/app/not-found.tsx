@@ -27,10 +27,9 @@ export default function NotFound() {
           }}
         >
           <h1 style={{ fontSize: "40px", fontWeight: 700, color: "#0f766e", margin: 0 }}>404</h1>
-          <p style={{ margin: 0 }}>页面不存在 / Page not found</p>
+          <p style={{ margin: 0 }}>页面不存在</p>
           <p style={{ display: "flex", gap: "16px", margin: 0, fontSize: "14px" }}>
             <Link href="/" style={{ color: "#0f766e" }}>返回首页</Link>
-            <Link href="/en" style={{ color: "#0f766e" }}>English home</Link>
           </p>
         </main>
       </body>

@@ -12,7 +12,6 @@ import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { jsonLdScript, SITE_ENTITY } from "@/lib/services/seo/json-ld";
 import { listCountryLandings, type CountryLanding } from "@/lib/services/seo/landing";
 import { countryParamOfName } from "@/lib/services/seo/country-slug";
-import { getServerLocale } from "@/lib/i18n/server";
 
 export const revalidate = 3600;
 
@@ -48,8 +47,8 @@ function countryLabel(c: CountryLanding, isZh: boolean): string {
 }
 
 export default async function CountriesHubPage() {
-  const locale = await getServerLocale();
-  const isZh = locale === "zh";
+  // 单语站（ADR-0024）：不再按 Cookie 选语言——那会让本页失去 ISR 缓存
+  const isZh = true;
   const num = (n: number) => n.toLocaleString(isZh ? "zh-CN" : "en-US");
   const countries = await loadCountries();
   const total = countries.reduce((sum, c) => sum + c.count, 0);
@@ -108,7 +107,7 @@ export default async function CountriesHubPage() {
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {countries.map((c) => (
-            <li key={c.slug} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <li key={c.name} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
               <Link
                 href={`/procurement?country=${encodeURIComponent(countryParamOfName(c.name) ?? c.name)}`}
                 className="flex items-baseline justify-between gap-2 text-sm font-semibold text-slate-800 hover:text-training-green"

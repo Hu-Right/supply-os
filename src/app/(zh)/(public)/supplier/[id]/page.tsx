@@ -25,13 +25,18 @@ import { SupplierProfileBody } from "@/features/supplier-profile/components/Supp
 import { SupplierSimilarSection } from "@/features/supplier-profile/components/SupplierSimilarSection";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { jsonLdScript } from "@/lib/services/seo/json-ld";
-import { getServerLocale } from "@/lib/i18n/server";
 import { parseSupplierId } from "@/lib/utils/supplier-id";
 
 export const revalidate = 3600;
 
-/** 供应商画像只维护 zh/en 两套文案；其他语言回落英文（不回落中文，避免国际用户看到中文正文） */
-const copyLocaleOf = (locale: string): "zh" | "en" => (locale === "zh" ? "zh" : "en");
+/**
+ * 供应商画像只维护 zh/en 两套文案；本站单语（ADR-0024），固定取 zh。
+ *
+ * 旧实现按 Cookie/x-locale 选语言 —— 那会调用 headers()/cookies()，
+ * 让本页被迫动态渲染、失去 ISR 缓存；英文独立站下线后没有第二个语言入口，
+ * 固定中文可让 /supplier/[id] 重新可缓存。
+ */
+const COPY_LOCALE = "zh" as const;
 
 export async function generateMetadata({
   params,
@@ -40,8 +45,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const dbId = parseSupplierId(id);
-  const locale = await getServerLocale();
-  const isZh = copyLocaleOf(locale) === "zh";
+  const isZh = true;
   if (!dbId) return { title: isZh ? "供应商企业主页" : "Supplier Profile", robots: { index: false } };
   const data = await loadSupplierProfile(dbId);
   if (!data) return { title: isZh ? "供应商企业主页" : "Supplier Profile", robots: { index: false } };
@@ -70,9 +74,9 @@ export async function generateMetadata({
     description,
     alternates: {
       canonical: absoluteUrl(`/supplier/${dbId}`),
+      // 全站单语（ADR-0024）：不再声明 en 对应页
       languages: {
         zh: absoluteUrl(`/supplier/${dbId}`),
-        en: absoluteUrl(`/en/supplier/${dbId}`),
         "x-default": absoluteUrl(`/supplier/${dbId}`),
       },
     },
@@ -101,8 +105,7 @@ export default async function SupplierProfilePage({
   const dbId = parseSupplierId(id);
   if (!dbId) notFound();
 
-  const locale = await getServerLocale();
-  const copyLocale = copyLocaleOf(locale);
+  const copyLocale = COPY_LOCALE;
   const COPY = SUPPLIER_PROFILE_COPY[copyLocale];
 
   // 成绩单只依赖 dbId，与档案取数并行；相似供应商依赖 profile，必须等档案就绪

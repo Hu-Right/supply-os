@@ -205,11 +205,11 @@ function LocaleInner({ children, effectiveLocale, i18nInstance, autoDetect }: {
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 
-export function LocaleProvider({ children, initialLocale }: { children: ReactNode; initialLocale?: Locale }) {
-  // ★ SSR 安全：initialLocale 未传入时统一使用 "zh"（主要客户为中文用户），
-  // 避免 detectLocale() 在 SSR/CSR 返回不同值导致 hydration mismatch
-  // 实际语言检测在客户端 useEffect 中完成
-  const safeInitialLocale = initialLocale || "zh";
+export function LocaleProvider({ children }: { children: ReactNode }) {
+  // ★ SSR 安全：固定以 "zh" 起始（主要客户为中文用户、全站只有中文一份可索引内容），
+  // 避免 detectLocale() 在 SSR/CSR 返回不同值导致 hydration mismatch；
+  // 实际语言偏好在客户端 useEffect 中从 Cookie/navigator 检测（仅影响界面文案，不改 URL）。
+  const safeInitialLocale = "zh" as const;
   const i18nInstanceRef = useRef<I18nInstance | null>(null);
 
   // ★ 创建独立 i18next 实例（仅一次），静态注入 zh 初始资源 ★
@@ -239,11 +239,11 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
 
   return (
     <I18nextProvider i18n={i18nInstanceRef.current}>
-      {/* initialLocale 由调用方显式指定 = URL 已决定语言（/en），跳过 Cookie/navigator 检测 */}
+      {/* 全站单语：始终按 Cookie/navigator 检测界面语言（不影响 URL 与 SEO） */}
       <LocaleInner
         effectiveLocale={safeInitialLocale}
         i18nInstance={i18nInstanceRef.current}
-        autoDetect={initialLocale === undefined}
+        autoDetect
       >
         {children}
       </LocaleInner>

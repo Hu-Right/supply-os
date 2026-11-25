@@ -5,9 +5,9 @@
  * @module shared/layout/MobileDrawer
  */
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { X, Check, Loader2 } from "lucide-react";
-import { useLocale, SUPPORTED_LOCALES, localeHref } from "@/core/i18n";
+import { useLocale, SUPPORTED_LOCALES } from "@/core/i18n";
 import type { Locale } from "@/core/i18n";
 import { Brand } from "./Brand";
 import { useAuth } from "@/core/auth";
@@ -25,7 +25,6 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
   const { t, locale, switching, setLocale } = useLocale();
   const { authUser, isVip } = useAuth();
   const pathname = usePathname() || "/";
-  const router = useRouter();
 
   // VIP 等级标签：按已解锁套餐显示，兜底 i18n VIP/免费标签
   const vipDisplayLabel = tierLabel || (isVip ? t("vipLabel") : t("freeLabel"));
@@ -39,13 +38,8 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
 
   const handleLocaleSelect = (code: Locale) => {
     if (switching) return;
-    const href = localeHref(pathname, code);
-    // 与桌面语言切换器同策略：所有语言原地写 Cookie 翻译；
-    // 只有从 /en（独立 SEO 站）回中文/其他语言时才导航。
-    void (async () => {
-      await setLocale(code);
-      if (href && href !== pathname) router.push(href);
-    })();
+    // 语言只写 Cookie、原地切换界面文案；URL 不变（单语站，无 /en 路由）
+    void setLocale(code);
   };
 
   return (

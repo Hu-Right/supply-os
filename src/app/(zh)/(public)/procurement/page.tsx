@@ -84,9 +84,9 @@ const BASE_METADATA: Metadata = {
   },
   alternates: {
     canonical: absoluteUrl("/procurement"),
+    // 全站单语（ADR-0024）：/en 已下线，仅保留 zh-CN 与 x-default
     languages: {
       "zh-CN": absoluteUrl("/procurement"),
-      "en": absoluteUrl("/en/procurement"),
       "x-default": absoluteUrl("/procurement"),
     },
   },
