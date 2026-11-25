@@ -8,13 +8,13 @@
 import { useRef, useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, useUserId } from "@/core/auth";
-import { onAppEvent } from "@/core/events";
+import { onAppEvent, emitAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
 import { grantNoticeAccess } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentViews } from "../components/RecentViews";
 import type { NoticeItem } from "../types";
-import { applyNoticeIdParam } from "../lib/deepLink";
+import { applyNoticeIdParam, readNoticeIdParam } from "../lib/deepLink";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { LoadingOverlay } from "@/shared/ui";
 import { ListingStatsBar } from "../components/ListingStatsBar";
@@ -32,6 +32,24 @@ export default function ProcurementPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userId = useUserId();
+
+  /** 打开详情：统一走独立详情路由（未登录仍先弹登录，保持原门槛） */
+  const openNoticeRoute = useCallback((notice: NoticeItem) => {
+    if (!authUser) {
+      emitAppEvent("supply-os:require-login");
+      return;
+    }
+    router.push(`/procurement/notice/${notice.noticePk}/detail`);
+  }, [authUser, router]);
+
+  // 老链接 ?notice_id= 收敛到独立详情页；支付回跳（带 order_no/trade_no）仍留在本页对账
+  useEffect(() => {
+    const noticeId = readNoticeIdParam(window.location.search);
+    if (!noticeId) return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("order_no") || sp.get("trade_no")) return;
+    router.replace(`/procurement/notice/${noticeId}/detail`);
+  }, [router]);
 
   // ── 性能监控：首屏计时 ──
   const firstLoadDoneRef = useRef(false);
@@ -149,7 +167,7 @@ export default function ProcurementPage() {
         }}
         onExpressInterest={actions.handleExpressInterest}
         onAccess={(n: NoticeItem) => actions.handleGrantAccess(n)}
-        onOpenNotice={actions.openNotice}
+        onOpenNotice={openNoticeRoute}
         favorited={actions.isFavorite(selectedNotice.noticePk)}
         onToggleFavorite={() => void actions.toggleFavorite(selectedNotice.noticePk)}
       />
@@ -186,7 +204,10 @@ export default function ProcurementPage() {
         />
 
         {/* 商机列表页只保留「最近查看」；「我的收藏」快捷区已下线（收藏仍在卡片/详情页与「我的记录」中可用） */}
-        {userId && <RecentViews userId={userId} onOpenNotice={actions.openNoticeById} />}
+        {userId && <RecentViews userId={userId} onOpenNotice={(noticeId) => {
+          if (!authUser) { emitAppEvent("supply-os:require-login"); return; }
+          router.push(`/procurement/notice/${noticeId}/detail`);
+        }} />}
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
 
@@ -198,7 +219,7 @@ export default function ProcurementPage() {
           result={search.result}
           page={page}
           setPage={setPage}
-          openNotice={actions.openNotice}
+          openNotice={openNoticeRoute}
           feedbackEnabled={feedback.feedbackEnabled}
           observeCard={feedback.observeCard}
           favoriteIds={actions.favoriteIds}
