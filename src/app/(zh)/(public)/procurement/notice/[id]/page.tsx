@@ -23,6 +23,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getContext } from "@/lib/db/context";
 import { absoluteUrl } from "@/lib/services/seo/site";
+import { pickDisplayTitle, pickDisplaySummary, pickMetaTitle } from "@/lib/services/notice-public/display";
 import { countryParam } from "@/lib/services/seo/country-slug";
 import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
 import { countryName } from "@/shared/constants/countries";
@@ -51,6 +52,8 @@ interface NoticeSeoRow extends RowDataPacket {
   notice_id: string;
   reference: string | null;
   title: string;
+  /** 中文标题（稀疏译文列；展示层用 pickDisplayTitle 决定是否采用） */
+  title_cn: string | null;
   notice_type: string | null;
   agency: string | null;
   agency_full: string | null;
@@ -67,6 +70,8 @@ interface NoticeSeoRow extends RowDataPacket {
   estimated_value: string | null;
   published_date: string | null;
   description: string | null;
+  /** 中文摘要（同样只在公开 300 字内截断） */
+  description_cn: string | null;
 }
 
 /**
@@ -120,7 +125,8 @@ function buildSummary(row: NoticeSeoRow): string {
     nt ? `${nt} 采购公告` : "国际采购公告",
   ].filter(Boolean);
   const head = parts.join(" · ");
-  const teaser = (row.description || "").replace(/\s+/g, " ").trim().slice(0, 160);
+  // 中文摘要优先（与公开页正文同一口径），仍只取 160 字进 meta description
+  const teaser = pickDisplaySummary(row, 160);
   return teaser ? `${head}. ${teaser}…` : head;
 }
 
@@ -139,8 +145,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const url = absoluteUrl(`/procurement/notice/${id}`);
   const summary = buildSummary(row);
   const expired = isExpired(row);
+  // 中文优先（与内页详情同一规则）；meta title 截 60 字，H1 保留全文
+  const displayTitle = pickDisplayTitle(row);
   return {
-    title: row.title,
+    title: pickMetaTitle(displayTitle),
     description: summary,
     alternates: {
       canonical: url,
@@ -153,7 +161,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // 过期公告只去索引、保留链接权重（follow），不再贡献低质收录
     ...(expired ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
-      title: row.title,
+      title: displayTitle,
       description: summary,
       url,
       type: "article",
@@ -164,7 +172,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
     twitter: {
       card: "summary_large_image",
-      title: row.title,
+      title: displayTitle,
       description: summary,
     },
   };
@@ -198,6 +206,8 @@ export default async function NoticeSeoPage({ params }: PageProps) {
     ? `/procurement?country=${encodeURIComponent(countryParam(row.country_code))}`
     : null;
   const summary = buildSummary(row);
+  // 中文优先：与登录后详情同一规则（title_cn 有效则用中文，否则回退原文）
+  const displayTitle = pickDisplayTitle(row);
   // 同国家相关公告：详情页是 4 万条公告的入口，必须给出「下一步」，不能只进不出。
   const related = row.country_code
     ? await getContext()
@@ -215,14 +225,14 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "首页", item: absoluteUrl("") },
         { "@type": "ListItem", position: 2, name: "全球商机", item: absoluteUrl("/procurement") },
-        { "@type": "ListItem", position: 3, name: row.title, item: url },
+        { "@type": "ListItem", position: 3, name: displayTitle, item: url },
       ],
     },
     {
       "@context": "https://schema.org",
       "@type": "Article",
-      headline: row.title,
-      name: row.title,
+      headline: displayTitle,
+      name: displayTitle,
       url,
       description: buildSummary(row),
       // 采购公告是强时效内容，显式给出发布/更新时间便于结果页与 AI 判断时效
@@ -264,7 +274,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
               <li aria-hidden>/</li>
             </>
           )}
-          <li className="max-w-[16rem] truncate text-slate-700" title={row.title}>公告 #{row.id}</li>
+          <li className="max-w-[16rem] truncate text-slate-700" title={displayTitle}>公告 #{row.id}</li>
         </ol>
       </nav>
 
@@ -282,7 +292,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
             </span>
           )}
         </div>
-        <h1 dir="auto" className="text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{row.title}</h1>
+        <h1 dir="auto" className="text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{displayTitle}</h1>
       </header>
 
       {/* 要点（AI 可直接摘录的结构化事实）：采购方 / 国家 / 类型 / 截止 / 预算 / 编号 */}
@@ -312,11 +322,11 @@ export default async function NoticeSeoPage({ params }: PageProps) {
         <MetaItem label="来源编号" value={row.notice_id} />
       </dl>
 
-      {/* 公开 teaser（与搜索列表 300 字符同口径） */}
-      {row.description && (
+      {/* 公开 teaser（中文优先，仍固定 300 字上限；付费边界不变） */}
+      {pickDisplaySummary(row) && (
         <section className="space-y-2">
           <h2 className="text-lg font-bold text-slate-900">公告概况</h2>
-          <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600">{row.description}</p>
+          <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600">{pickDisplaySummary(row)}</p>
         </section>
       )}
 

@@ -101,7 +101,7 @@ export class NoticeDetailRepo {
    */
   async findSeoDetailFromPublic(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      `SELECT p.notice_pk AS id, p.notice_id, p.reference, p.title,
+      `SELECT p.notice_pk AS id, p.notice_id, p.reference, p.title, p.title_cn,
          p.notice_type_code AS notice_type,
          p.buyer_name_cn AS agency, p.buyer_name AS agency_full,
          p.country_code,
@@ -110,6 +110,7 @@ export class NoticeDetailRepo {
          p.estimated_value,
          p.published_ts,
          LEFT(p.description, ${WIDE_LIMITS.lockedTeaser}) AS description,
+         LEFT(p.description_cn, ${WIDE_LIMITS.lockedTeaser}) AS description_cn,
          CASE WHEN LENGTH(p.description) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated
        FROM notice_public p
        WHERE p.notice_pk = ? LIMIT 1`,
