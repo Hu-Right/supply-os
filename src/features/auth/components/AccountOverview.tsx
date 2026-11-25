@@ -177,10 +177,8 @@ export function AccountOverview() {
         </div>
       </section>
 
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
-        账号是资产归属、费用结算与权限控制的主体。供应商主体与采购主体是两套独立身份，可同时认证；后续将支持两步验证、登录设备管理与成员权限（二期）。
-      </p>
     </div>
   );
 }
+
 

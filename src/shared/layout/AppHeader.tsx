@@ -143,17 +143,17 @@ export function AppHeader({
               </button>
               {authUser && accountMenuOpen && (
                 <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-secondary-200 bg-white py-1.5 shadow-xl">
-                  <Link href="/settings" className="block px-4 py-2 text-xs font-semibold text-secondary-700 hover:bg-secondary-50">账号中心</Link>
-                  <Link href="/settings/profile" className="block px-4 py-2 text-xs font-semibold text-secondary-700 hover:bg-secondary-50">个人信息</Link>
-                  <Link href="/settings/notifications" className="block px-4 py-2 text-xs font-semibold text-secondary-700 hover:bg-secondary-50">通知设置</Link>
-                  <Link href="/settings/billing" className="block px-4 py-2 text-xs font-semibold text-secondary-700 hover:bg-secondary-50">费用中心</Link>
+                  <Link href="/settings" className="block px-4 py-2 text-xs font-semibold text-secondary-700 hover:bg-secondary-50">{t("settingsTitle")}</Link>
+                  <Link href="/settings/profile" className="block px-4 py-2 text-xs font-semibold text-secondary-700 hover:bg-secondary-50">{t("settingsProfile")}</Link>
+                  <Link href="/settings/notifications" className="block px-4 py-2 text-xs font-semibold text-secondary-700 hover:bg-secondary-50">{t("settingsNotifications")}</Link>
+                  <Link href="/settings/billing" className="block px-4 py-2 text-xs font-semibold text-secondary-700 hover:bg-secondary-50">{t("billingCenterTitle")}</Link>
                   <div className="my-1 border-t border-secondary-100" />
                   <button
                     type="button"
                     onClick={async () => { setAccountMenuOpen(false); await logout(); router.push("/"); }}
                     className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-danger-600 hover:bg-danger-50"
                   >
-                    <LogOut className="h-3.5 w-3.5" />退出登录
+                    <LogOut className="h-3.5 w-3.5" />{t("authLogout")}
                   </button>
                 </div>
               )}
@@ -251,4 +251,5 @@ export function useNavTabs() {
 
   return { tabs, activeTab, switchMainTab };
 }
+
 

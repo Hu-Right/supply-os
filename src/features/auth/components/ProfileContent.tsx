@@ -13,10 +13,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, type ComponentType } from "react";
-import { ArrowRight, LogOut, User } from "lucide-react";
+import { ArrowRight, User } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
-import { Button, Skeleton } from "@/shared/ui";
+import { Skeleton } from "@/shared/ui";
 import { useMembershipTier } from "@/shared/hooks/useMembershipTier";
 import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
 import { NicknameEditor } from "./NicknameEditor";
@@ -53,7 +53,7 @@ export interface ProfileContentProps {
 
 export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
   const { t } = useLocale();
-  const { authUser, isVip, refreshAuth, logout } = useAuth();
+  const { authUser, isVip, refreshAuth } = useAuth();
   const { tierLabel } = useMembershipTier();
   const router = useRouter();
   const enterprise = useEnterpriseInfo();
@@ -69,10 +69,6 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
 
   const tierBadgeText = isVip ? tierLabel || t("authVipMember") : t("authFreeMember");
   const openNotice = (noticeId: number) => router.push(`/procurement?notice_id=${noticeId}`);
-  const handleLogout = async () => {
-    await logout();
-    router.push("/");
-  };
 
   // ★ 供应商认证状态：与企业信息页同一数据源（GET /api/user/enterprise），并走
   //   shared/utils/enterprise-status 的同一口径——后端排他闸口用的就是这份分类，
@@ -168,29 +164,14 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
         {MyRecordsPanel ? <MyRecordsPanel onOpenNotice={openNotice} /> : null}
       </section>
 
-      {/* ── 账号操作：退出登录（2026-11-19 恢复；顶部账户按钮只跳设置页，没有菜单） ── */}
-      <section>
-        <SectionTitle>{t("settingsAccountActions") || "账号操作"}</SectionTitle>
-        <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5 flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">{t("authLogout")}</p>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleLogout}
-            className="shrink-0 gap-2 border-danger-200 text-danger-600 hover:bg-danger-50"
-          >
-            <LogOut className="h-4 w-4" />
-            {t("authLogout")}
-          </Button>
-        </div>
-      </section>
+
     </div>
   );
 }
 
 ProfileContent.displayName = "ProfileContent";
+
+
 
 
 

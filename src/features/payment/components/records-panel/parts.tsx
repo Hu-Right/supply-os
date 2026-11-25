@@ -10,12 +10,9 @@
  * @module features/payment/components/records-panel/parts
  */
 import { memo } from "react";
-import { Bookmark } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { ORDER_STATUS } from "@/shared/constants/order-status";
-import { formatNoticeCstDate } from "@/shared/utils/notice-datetime/format";
-import { getCountryDisplayName } from "@/shared/data/countryNames";
 import type { FavoriteRecord } from "../../api";
 import { recordTime, recordTitle, recordSubtitle, type RecordRow } from "./record-format";
 
@@ -107,10 +104,9 @@ export const RecordRowCard = memo(function RecordRowCard({
   );
 });
 
-/** 收藏记录行卡：标题 + 国家/编号 + 截止时间（过期标红），点击打开公告详情 */
+/** 收藏记录行卡：只显示标题 + 打开详情；截止时间已过在标题后标「已过期」 */
 export const FavoriteRowCard = memo(function FavoriteRowCard({
   item,
-  locale,
   onOpenNotice,
 }: {
   item: FavoriteRecord;
@@ -119,45 +115,33 @@ export const FavoriteRowCard = memo(function FavoriteRowCard({
 }) {
   const { t } = useLocale();
   const noticePk = Number(item.noticePk || 0);
-  const title = item.titleI18n || (locale === "zh" ? item.titleCn : "") || item.title || item.noticeId || "-";
-  const country = item.countryCode ? getCountryDisplayName(item.countryCode, locale) : "";
-  const meta = [country, item.buyerName || item.buyerNameCn, item.reference].filter(Boolean).join(" · ");
+  const title = item.titleI18n || item.titleCn || item.title || item.noticeId || "-";
   const deadlineTs = Number(item.deadlineTs || 0);
   const expired = deadlineTs > 0 && deadlineTs * 1000 < Date.now();
   return (
-    <article className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
-        <div className="min-w-0 pe-2">
-          <p className="font-black text-slate-800 line-clamp-2">{title}</p>
-          <p className="mt-1 text-slate-500 truncate">{meta || "-"}</p>
-        </div>
-        <Bookmark className="w-4 h-4 shrink-0 fill-amber-500 text-amber-500" />
-      </div>
-      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-slate-500">
-        <span className="truncate">
-          {deadlineTs > 0 ? `${t("myRecordsDeadline")}: ${formatNoticeCstDate(deadlineTs)}` : "-"}
-          {expired && (
-            <span className="ms-2 rounded-full bg-rose-50 px-2 py-0.5 font-black text-rose-700">
-              {t("myRecordsExpired")}
-            </span>
-          )}
-        </span>
-        {noticePk > 0 && (
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            onClick={() => onOpenNotice(noticePk)}
-            className="shrink-0 px-0 font-black"
-          >
-            {t("myPurchasesOpenDetail")}
-          </Button>
+    <article className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+      <p className="min-w-0 flex-1 font-black text-slate-800 line-clamp-2">
+        {title}
+        {expired && (
+          <span className="ms-2 inline-block rounded-full bg-rose-50 px-2 py-0.5 align-middle text-[10px] font-black text-rose-700">
+            {t("myRecordsExpired")}
+          </span>
         )}
-      </div>
+      </p>
+      {noticePk > 0 && (
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          onClick={() => onOpenNotice(noticePk)}
+          className="shrink-0 px-0 font-black"
+        >
+          {t("myPurchasesOpenDetail")}
+        </Button>
+      )}
     </article>
   );
 });
-
 /** 分页条 */
 export const PagerBar = memo(function PagerBar({
   total,
@@ -203,4 +187,5 @@ export const PagerBar = memo(function PagerBar({
     </div>
   );
 });
+
 
