@@ -75,16 +75,22 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, fav
 
         {/* ── 主列：标题 + Tender ID ── */}
         <div className="flex-1 min-w-0">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => onClick(item)}
-            className="w-full justify-start px-0 py-0 h-auto text-left hover:bg-transparent group/title"
+          {/* 标题必须是真链接：全站 40 万公告详情页的唯一站内入口就在这张列表上，
+              用 <Button onClick> 渲染时 HTML 里没有 <a href>，爬虫无法从列表发现详情页
+              （实测搜索结果页 href="/procurement/notice/" 计数为 0）。
+              点击仍走原 onClick（登录态判定、埋点、详情路由均不变），只拦浏览器默认跳转。 */}
+          <a
+            href={`/procurement/notice/${item.noticePk}`}
+            onClick={(event) => {
+              event.preventDefault();
+              onClick(item);
+            }}
+            className="block w-full text-left group/title"
           >
             <h4 dir="auto" className="text-sm font-extrabold text-slate-900 line-clamp-1 group-hover/title:text-teal-700 transition-colors">
               {displayTitle}
             </h4>
-          </Button>
+          </a>
           <p dir="ltr" className="text-3xs font-mono text-slate-400 mt-1 truncate">
             {tenderId}
           </p>
