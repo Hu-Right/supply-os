@@ -162,6 +162,26 @@ export async function loadBackboneMap(
 // PreciseLevels）已于 B1 退役：那五个 id 只服务宽表 precise_level1~5 五列，而公告分类的唯一口径
 // 已是节点码 —— 精准侧由 ops 回填脚本用同一份纯函数算出 precise_backbone_path，运行期不再参与。
 
+/**
+ * 服务表 country_codes（JSON 列）→ 宽表逗号串（去重、只留 ISO2）。
+ *
+ * 形状必须两吃：mysql2 对 JSON 列默认返回**已解析的数组**（连接池未开 jsonStrings），
+ * 而脚本/历史调用方可能传 JSON 字符串。
+ * [2026-11-25 修复] 旧实现只判 `typeof === "string"`：生产环境数组形状永远不进分支，
+ * 构建器每行都写空串（宽表该列长期只剩一次性回填的存量，占 35%），
+ * 按国家码筛选/索引 facet 因此大面积失效（韩国 0 行 → 国别筛选只剩 1 家）。
+ * JSON 损坏按空处理：指纹含 p.updated_at，下一轮对账整行重建。
+ */
+export function projectCountryCodes(raw: unknown): string {
+  if (raw == null || raw === "") return "";
+  let arr: unknown = raw;
+  if (typeof raw === "string") {
+    try { arr = JSON.parse(raw); } catch { return ""; }
+  }
+  if (!Array.isArray(arr)) return "";
+  return [...new Set(arr.map(String).filter((c) => /^[A-Z]{2}$/.test(c)))].join(",");
+}
+
 // ── 受援助国标准化：一切以 country_aliases 为准（表驱动拆多国 + 表内中文名）──
 function normalizeBeneficiaryCountries(raw: string, snapshot?: CountryAliasSnapshot): string {
   if (!raw || !snapshot) return "";
@@ -189,16 +209,10 @@ export function buildWideRow(
   // LEFT JOIN 未命中（未准入行 / ① 尚未构建）时为空值：草稿行本就不该有对外 facet；
   // 交付顺序由调度保证（主表 → ① → ②），缺行由指纹对账（p.updated_at 段）自愈。
   const buyerName = String(r.buyer_name ?? "").slice(0, 200);
+  // country_name 是主表原始写法（展示口径），**不参与任何筛选**：国别筛选一律走 country_codes。
+  // 归一后的国名不进宽表（服务表只存 ISO2 码），两套名字并存正是 2026-11 国别筛选失效的根因。
   const countryName = String(r.country_name ?? "").slice(0, 100);
-  let countryCodes = "";
-  if (typeof r.public_country_codes === "string" && r.public_country_codes) {
-    try {
-      const arr = JSON.parse(r.public_country_codes);
-      if (Array.isArray(arr)) {
-        countryCodes = [...new Set(arr.map(String).filter((c) => /^[A-Z]{2}$/.test(c)))].join(",");
-      }
-    } catch { /* JSON 损坏按空处理：指纹含 p.updated_at，下一轮对账整行重建 */ }
-  }
+  const countryCodes = projectCountryCodes(r.public_country_codes);
   const noticeTypeCode = String(r.notice_type_code ?? "").slice(0, 20);
   const docs = normalizeDocumentRows(r.documents, r.procurement_files);
   // 截止投影自服务表 deadline_ts（deadline 旁表语义：effective_ts 优先、typo/unknown 置空）。

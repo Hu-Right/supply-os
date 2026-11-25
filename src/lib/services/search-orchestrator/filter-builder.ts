@@ -128,23 +128,23 @@ export async function buildFilterPlan(
     }
   }
 
-  // ── 国家：服务表主国家等值（country_code）──
-  // [2026-11-18] 原实现查 notice_search.country_codes（EXISTS + FIND_IN_SET）：
-  //  ① 该列几乎没写值（SE 仅 630 行，服务表 2,956 行）→ 实测 Sweden 只命中 401 条，漏 84%；
-  //  ② 改走 notice_public.country_codes(json) 虽完整，但 JSON_CONTAINS 无索引，
-  //     任何国家码都要全表扫 57.8 万行（实测 955–971ms，与是否多国无关）；
-  //  ③ 主国家 country_code 走 idx_country_type，实测 35–178ms，且与下拉/数字墙口径一致
-  //     （下拉就是 GROUP BY country_code，多国公告按主国家计）。多国公告仅约 570 行（0.1%）。
+  // ── 国家：命中表内国家码 → 双方言都按国家码筛（展示名不参与筛选）──
+  // [2026-11-25 修复] 2026-11-18 曾把 Meili 谓词改成「canonical 国名等值」，理由是
+  //   notice_search.country_codes 近乎空置。但索引里的 `country` 是宽表 country_name，
+  //   而它投影自主表原始写法（`n.country`：Korea / US / Czech Republic…），并不是 canonical。
+  //   凡原始写法 ≠ canonical 的国家全部大幅漏结果（实测韩国 13,733 → 1、美国 27,530 → 6）。
+  //   真正的原因是构建器把 country_codes 写空了（JSON 列形状判断 bug，同日已修）＋存量未回填；
+  //   回填并重推索引后，`country_codes` 数组才是完整、与别名合并无关的筛选口径。
+  //   口径差异说明：Meili 侧 country_codes 是「全部国家」数组，多国公告（实测 42 行）会在
+  //   每个国家各命中一次；MySQL 侧 p.country_code 是主国家。0.007% 的差异换来索引可用性，
+  //   与下拉/数字墙的差异小于回填前的主国家口径丢失。
   if (effectiveCountry) {
     const code = countryCodeForName(effectiveCountry, snap);
     if (!code) {
       // 表里没有该国家 → 不可筛（不兜底），返回空集
       return { meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true, digest: `country:no-code:${effectiveCountry}` };
     }
-    // Meili 侧：索引里的 `country_codes` 数组取自 notice_search.country_codes（该列近乎空置，
-    // SE 仅 630 行），用它筛会漏 84%；`country`（canonical 国名）完整（SE 2,952 行），改用它。
-    const canonicalName = snap.byCode?.get(code)?.canonical ?? code;
-    meiliFilters.push(`country = "${escapeFilter(canonicalName)}"`);
+    meiliFilters.push(`country_codes = "${escapeFilter(code)}"`);
     mysqlWhere.push("p.country_code = ?");
     mysqlParams.push(code);
     digestParts.push(`country:${code}`);

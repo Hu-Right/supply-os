@@ -40,7 +40,9 @@ const base = {
 const publicHit = {
   buyer_name: "Acme Works Ltd.",
   country_name: "Brazil",
-  public_country_codes: '["BR","CN"]',
+  // mysql2 对 JSON 列返回已解析数组（连接池未开 jsonStrings）——必须按真实驱动形状钉住，
+  // 否则「只判 typeof === string」这类 bug 在单测里永远绿、生产里永远写空串（2026-11-25）。
+  public_country_codes: ["BR", "CN"],
   notice_type_code: "RFQ",
   deadline_ts: 1800000000,
   public_estimated_value: "14000.00",
@@ -56,7 +58,12 @@ describe("归一化字段投影（服务表 → 宽表）", () => {
   });
 
   it("country_codes 由 JSON 数组投影为逗号串并保序去重", () => {
-    const row = buildWideRow({ ...base, ...publicHit, public_country_codes: '["BR","CN","BR","X"]' });
+    const row = buildWideRow({ ...base, ...publicHit, public_country_codes: ["BR", "CN", "BR", "X"] });
+    expect(row.country_codes).toBe("BR,CN");
+  });
+
+  it("country_codes 兼容 JSON 字符串形状（脚本/历史调用方）", () => {
+    const row = buildWideRow({ ...base, ...publicHit, public_country_codes: '["BR","CN"]' });
     expect(row.country_codes).toBe("BR,CN");
   });
 
@@ -66,8 +73,9 @@ describe("归一化字段投影（服务表 → 宽表）", () => {
     expect(miss.country_name).toBe("");
     expect(miss.country_codes).toBe("");
     expect(miss.notice_type_code).toBe("");
-    const broken = buildWideRow({ ...base, ...publicHit, public_country_codes: "{oops" });
-    expect(broken.country_codes).toBe("");
+    expect(buildWideRow({ ...base, ...publicHit, public_country_codes: "{oops" }).country_codes).toBe("");
+    expect(buildWideRow({ ...base, ...publicHit, public_country_codes: [] }).country_codes).toBe("");
+    expect(buildWideRow({ ...base, ...publicHit, public_country_codes: null }).country_codes).toBe("");
   });
 
   it("截止投影自 deadline_ts：异常值（NaN/负/缺失）一律归零", () => {

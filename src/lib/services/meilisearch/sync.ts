@@ -63,6 +63,9 @@ export function buildSyncDocFromWideTable(r: RowDataPacket) {
     // 与推荐链路/宽表构建同一函数同一口径，防止历史存量 std 漂移入索引）。
     // 只落 notice_type_normalized 一个属性：2026-10-15 审计确认原 notice_type 属性是
     // 同一归一化值的第二份拷贝（settings/检索口径只认 normalized），双写即每文档一个死字段。
+    // 展示/兼容口径：主表原始写法（"Korea"/"US"/"Czech Republic"），**不是 canonical**。
+    // 国别筛选只准走 country_codes（下方数组 facet）；按本属性等值筛会把
+    // 「原始写法 ≠ canonical」的国家整国筛没（2026-11-18~25 事故：韩国 13,733 → 1）。
     country: String(r.country_name || ""),
     // 多国可筛 facet：宽表 country_codes 为拆分后的 ISO2 集（逗号分隔），展成数组后
     // Meili 对数组属性支持 `country_codes = "NG"` 等值命中任一无关项（各国都算命中）。
