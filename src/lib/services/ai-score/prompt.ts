@@ -78,11 +78,11 @@ const DIMENSION_LABELS: Record<ScoreDimension, string> = {
  */
 export const DIMENSION_V2_SOURCES: Record<ScoreDimension, readonly string[]> = {
   qualification: ["ungm_status", "compliance_governance", "english_evidence_level", "export_entity"],
-  experience: ["tender_experience", "tender_amount_band", "technical_response"],
+  experience: ["tender_experience", "tender_amount_band", "technical_response", "market_experience", "technical_differentiation"],
   certification: ["mandatory_docs", "cert_ledger", "cert_delivery"],
   region: ["deliver_to_site", "service_countries", "overseas_companies"],
   scale: ["export_scale", "team_discipline", "procurement_frameworks"],
-  delivery: ["submission_control", "english_meeting_capability"],
+  delivery: ["submission_control", "english_meeting_capability", "delivery_model", "service_response", "project_control"],
   price: ["cost_pricing", "incoterms_capability", "payment_terms"],
 };
 

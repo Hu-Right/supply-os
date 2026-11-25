@@ -10,7 +10,7 @@
  *              任何一侧单独改形状都会在这里失败。
  */
 import { describe, it, expect, vi } from "vitest";
-import { DIAGNOSIS_FORM_FIELDS } from "@/shared/constants/diagnosis-dimensions";
+import { DIAGNOSIS_V5_FORM_FIELDS } from "@/shared/constants/diagnosis-v5";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
 
 /** 捕获 submitDiagnosis 交给 http 层的 body 原值（不经过真实网络） */
@@ -31,9 +31,8 @@ import { submitDiagnosis, type DiagnosisAnswers } from "@/shared/api/diagnosis";
 /** 按常量生成一份「每道表单题都答在允许档位内」的完整答案（V3：只覆盖表单会问的题） */
 function completeAnswers(): DiagnosisAnswers {
   const answers: DiagnosisAnswers = {};
-  for (const f of DIAGNOSIS_FORM_FIELDS) {
+  for (const f of DIAGNOSIS_V5_FORM_FIELDS) {
     if (f.kind === "multi") answers[f.key] = [...(f.options ?? [])].slice(0, 2);
-    else if (f.kind === "text") answers[f.key] = "德国, 法国";
     else answers[f.key] = f.options![1];
   }
   return answers;
@@ -59,7 +58,7 @@ describe("诊断提交请求体契约", () => {
       expect(parsed.payload.companyName).toBe("杭州中建工程技术有限公司");
       expect(parsed.payload.supplierId).toBe(18296);
       // 表单题一题不丢地过校验（少一题就会在这里被 missing/invalid 挡下）
-      expect(Object.keys(parsed.payload.answers)).toHaveLength(DIAGNOSIS_FORM_FIELDS.length);
+      expect(Object.keys(parsed.payload.answers)).toHaveLength(DIAGNOSIS_V5_FORM_FIELDS.length);
       // V3：目标市场随表单提交并回读到 answers
       expect(parsed.payload.answers.target_markets).toEqual(["EU", "UK"]);
       // V3：投标意愿已不在表单里，提交体也不再带它

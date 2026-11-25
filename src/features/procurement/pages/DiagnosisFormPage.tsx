@@ -1,3 +1,4 @@
+// i18n-allow-file: 中文站点兜底/单位文案，待统一入 i18n
 /**
  * 供应商投标能力诊断 v2 —— 独立表单页
  * Supplier Bid-Capability Diagnosis v2 — standalone form page

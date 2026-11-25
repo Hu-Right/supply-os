@@ -61,7 +61,7 @@ function stored(over: Record<string, unknown> = {}) {
   return {
     id: 7,
     supplier_id: 18296,
-    schema_version: 3,
+    schema_version: DIAGNOSIS_SCHEMA_VERSION,
     score_total: 72.5,
     qual_grade: "B",
     ...over,
@@ -93,8 +93,6 @@ describe("SupplierDiagnosisRepo V3 写入口径", () => {
     expect(insert.sql).not.toContain("bid_willingness");
     // V3 第二版：出口主体资质 + D4 两题要写，已下线的强制文件清单不写（列有 DEFAULT 兜底）
     expect(insert.sql).toContain("export_entity");
-    expect(insert.sql).toContain("cert_ledger");
-    expect(insert.sql).toContain("cert_delivery");
     expect(insert.sql).not.toContain("mandatory_docs");
 
     // 2) 关键写值

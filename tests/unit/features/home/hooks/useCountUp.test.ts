@@ -15,15 +15,12 @@ describe("useCountUp", () => {
     expect(result.current).toBe(0);
   });
 
-  it("target>0 时从 0 开始递增", () => {
+  it("target>0 首帧直接返回 target（服务端真实数字不被抹成 0）", () => {
     const { result } = renderHook(() => useCountUp(100, 1000));
-    // 初始值应为 0
-    expect(result.current).toBe(0);
+    expect(result.current).toBe(100);
 
-    // 快进 500ms（50% 进度）
     act(() => { vi.advanceTimersByTime(500); });
-    expect(result.current).toBeGreaterThan(0);
-    expect(result.current).toBeLessThan(100);
+    expect(result.current).toBe(100);
   });
 
   it("duration 结束后稳定在 target", () => {
@@ -43,11 +40,10 @@ describe("useCountUp", () => {
     act(() => { vi.advanceTimersByTime(1100); });
     expect(result.current).toBe(100);
 
-    // 变更 target — useEffect 重新执行，setCount(0) + 新动画启动
+    // 变更 target — 从当前显示值 100 缓动到 200，不回到 0
     rerender({ target: 200 });
-    // 推进一帧让 setCount(0) 生效
     act(() => { vi.advanceTimersByTime(20); });
-    // 新动画已开始，值应远小于 200
+    expect(result.current).toBeGreaterThanOrEqual(100);
     expect(result.current).toBeLessThan(200);
 
     act(() => { vi.advanceTimersByTime(1100); });

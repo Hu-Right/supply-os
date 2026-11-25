@@ -36,10 +36,10 @@ describe("NoticeScrollCard", () => {
     expect(screen.getByText(/China/)).toBeInTheDocument();
   });
 
-  it("链接指向 /procurement?notice_id=<notice_pk>（宽表主键，非历史 id）", () => {
+  it("链接指向公开公告页 /procurement/notice/<notice_pk>（宽表主键，非历史 id）", () => {
     render(<NoticeScrollCard notice={item} locale="en" t={t} variant="hot" />);
     const link = screen.getByRole("link");
-    expect(link.getAttribute("href")).toContain("notice_id=12345");
+    expect(link.getAttribute("href")).toBe("/procurement/notice/12345");
   });
 
   it("rfq 变体：显示询价徽章且不因缺字段崩溃", () => {

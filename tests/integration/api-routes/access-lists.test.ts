@@ -74,6 +74,8 @@ vi.mock("@/lib/db/context", async () => {
   return {
     getContext: () => ({
       opportunitiesRepo: new OpportunitiesRepo(fakePool),
+      // 译文读取按权益判定；本测试关心 wire 形状，视为有译文权益
+      benefitSystemRepo: { isEntitled: async () => true },
       payment: {
         paymentHistoryRepo: {
           countAccessRecords: async () => 1,

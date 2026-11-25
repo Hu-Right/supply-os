@@ -69,8 +69,8 @@ describe("i18n 键一致性门禁", () => {
         "scripts/gates/check-i18n.ts",
         /const LANGS\s*=\s*\[([^\]]+)\]/,
       ),
-      "middleware.ts (SUPPORTED_LOCALES)": quotedList(
-        "middleware.ts",
+      "src/proxy.ts (SUPPORTED_LOCALES)": quotedList(
+        "src/proxy.ts",
         /const SUPPORTED_LOCALES\s*=\s*\[([^\]]+)\]/,
       ),
       "src/core/i18n/types.ts (Locale)": quotedList(

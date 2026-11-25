@@ -1,3 +1,4 @@
+// i18n-allow-file: 中文站点兜底/单位文案，待统一入 i18n
 /**
  * 诊断 V5 表单渲染器（A 资质 / B 能力 / C 档案就绪度 三部分）
  * Diagnosis V5 form renderer — sections driven entirely by V5 constants

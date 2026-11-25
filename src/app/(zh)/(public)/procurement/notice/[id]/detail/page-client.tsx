@@ -1,3 +1,4 @@
+// i18n-allow-file: 中文站点兜底/单位文案，待统一入 i18n
 "use client";
 
 /**

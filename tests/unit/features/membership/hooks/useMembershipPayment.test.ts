@@ -69,7 +69,7 @@ describe("useMembershipPayment", () => {
 
     expect(mockEmitAppEvent).toHaveBeenCalledWith("supply-os:pay", expect.objectContaining({
       noticeId: 42,
-      returnUrl: expect.stringContaining("notice_id=42"),
+      returnUrl: expect.stringContaining("/procurement/notice/42/detail"),
     }));
   });
 

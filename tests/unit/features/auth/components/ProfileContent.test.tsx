@@ -87,13 +87,11 @@ describe("ProfileContent", () => {
     expect(screen.getByText("基础版")).toBeInTheDocument();
   });
 
-  it("渲染全部子区块（昵称/手机/邮箱/会员权益/我的记录）", () => {
+  it("渲染账号资料与我的记录（手机/邮箱绑定已收口到安全设置）", () => {
     render(<ProfileContent MyRecordsPanel={MyRecordsStub} />);
     expect(screen.getByTestId("nickname-editor")).toBeInTheDocument();
-    expect(screen.getByTestId("phone-binding")).toBeInTheDocument();
-    expect(screen.getByTestId("email-binding")).toBeInTheDocument();
     expect(screen.getByTestId("my-records")).toBeInTheDocument();
-    expect(screen.getByTestId("benefits-card")).toBeInTheDocument();
+    expect(screen.getByText("settingsContactBinding")).toBeInTheDocument();
   });
 
   it("未注入「我的记录」面板时不渲染 my-records（prop 注入契约）", () => {
@@ -101,11 +99,8 @@ describe("ProfileContent", () => {
     expect(screen.queryByTestId("my-records")).not.toBeInTheDocument();
   });
 
-  it("渲染供应商认证状态；页尾保留退出登录入口（2026-11-19 恢复）", () => {
+  it("渲染供应商认证状态（未绑定 → 未绑定）", () => {
     render(<ProfileContent />);
-    // 顶部账户按钮只跳设置页（没有下拉菜单），退出入口由本页承载
-    expect(screen.getAllByText("authLogout").length).toBeGreaterThan(0);
-    // 未绑定企业 → 显示“未绑定”
     expect(screen.getByText("authSupplierPending")).toBeInTheDocument();
   });
 
@@ -184,7 +179,7 @@ describe("ProfileContent", () => {
       render(<ProfileContent />);
       // 标签与「：」在同一个节点里，文本是「联系邮箱：」这类整体，故用正则包含式断言
       expect(screen.getByText(/基本信息/)).toBeInTheDocument();
-      expect(screen.getByText(/安全设置/)).toBeInTheDocument();
+      expect(screen.getByText(/账号资料/)).toBeInTheDocument();
       expect(screen.getByText(/联系邮箱/)).toBeInTheDocument();
       expect(screen.getByText(/供应商状态/)).toBeInTheDocument();
       // 公司名仍照常展示，认证徽章走中文兜底

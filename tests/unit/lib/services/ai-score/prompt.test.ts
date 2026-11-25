@@ -113,7 +113,7 @@ describe("v2 诊断列与 7 维度判据的结构闭合", () => {
 
     expect(new Set(used).size).toBe(used.length); // 同一列不得驱动两个维度
     expect([...expected].sort()).toEqual([...used].sort()); // 加题后漏挂 prompt 会在此报错
-    expect(expected).toHaveLength(21);
+    expect(expected).toHaveLength(26);
   });
 
   it("判据列名必须是真实诊断列（防手打错列名后静默失联）", () => {
