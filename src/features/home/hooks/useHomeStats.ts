@@ -48,9 +48,11 @@ const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
  * @param initial 服务端直出初值（ISR 注入的 HomeSnapshot）：命中时首帧即真实
  * 数字且 loading=false；后台刷新照常执行，接管 10 分钟轮询。
  */
-export function useHomeStats(initial?: Partial<HomeStatsData>): HomeStatsData & { loading: boolean } {
+export function useHomeStats(initial?: Partial<HomeStatsData>): HomeStatsData & { loading: boolean; resolved: boolean } {
   const [stats, setStats] = useState<HomeStatsData>(() => ({ ...INITIAL_STATS, ...initial }));
   const [loading, setLoading] = useState(initial === undefined);
+  /** 是否已拿到可信数据：快照/接口都失败时为 false，展示层据此显示「—」而不是假 0 */
+  const [resolved, setResolved] = useState(initial !== undefined);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -76,6 +78,7 @@ export function useHomeStats(initial?: Partial<HomeStatsData>): HomeStatsData & 
           supplierTotal: supplierStats.total ?? 0,
           countries,
         });
+        setResolved(true);
       } catch {
         // 静默失败：首页统计非关键路径，保持上一次的值
       } finally {
@@ -92,5 +95,5 @@ export function useHomeStats(initial?: Partial<HomeStatsData>): HomeStatsData & 
     };
   }, []);
 
-  return { ...stats, loading };
+  return { ...stats, loading, resolved };
 }

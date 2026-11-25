@@ -13,9 +13,9 @@ import { useCountUp } from "@/shared/hooks/useCountUp";
 import { useHomeStats, type HomeStatsData } from "../hooks/useHomeStats";
 import { formatPlainNumber } from "@/shared/utils/format";
 
-/** 单个统计卡片 — 带数字跳动动画 */
-function StatCard({ label, value, sub, icon: Icon, color }: {
-  label: string; value: number; sub: string; icon: typeof Globe; color: string;
+/** 单个统计卡片 — 带数字跳动动画；未取到可信数据时显示「—」而不是 0 */
+function StatCard({ label, value, sub, icon: Icon, color, resolved }: {
+  label: string; value: number; sub: string; icon: typeof Globe; color: string; resolved: boolean;
 }) {
   const animatedValue = useCountUp(value);
   return (
@@ -23,7 +23,9 @@ function StatCard({ label, value, sub, icon: Icon, color }: {
       <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 mb-2 group-hover:bg-slate-200 transition-colors">
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
-      <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{formatPlainNumber(animatedValue)}</p>
+      <p className="text-2xl md:text-3xl font-extrabold text-slate-900">
+        {resolved ? formatPlainNumber(animatedValue) : "—"}
+      </p>
       <p className="text-xs font-bold text-slate-700 mt-1">{label}</p>
       <p className="text-2xs text-slate-400 mt-0.5">{sub}</p>
     </div>
@@ -33,7 +35,7 @@ function StatCard({ label, value, sub, icon: Icon, color }: {
 /** 实时数字墙 — 消费 useHomeStats，展示组件（initialHome 为服务端直出初值；memo 隔离父层重渲染） */
 export const StatsWall = memo(function StatsWall({ initialHome }: { initialHome?: Partial<HomeStatsData> } = {}) {
   const { t } = useLocale();
-  const { noticeActive, noticeTodayNew, countryCount, supplierTotal } = useHomeStats(initialHome);
+  const { noticeActive, noticeTodayNew, countryCount, supplierTotal, resolved } = useHomeStats(initialHome);
 
   const stats = [
     { label: t("homeStatTotal"), value: noticeActive, sub: t("homeStatTotalSub"), icon: Globe, color: "text-teal-600" },
@@ -46,7 +48,7 @@ export const StatsWall = memo(function StatsWall({ initialHome }: { initialHome?
     <section className="bg-white border-b border-slate-200 py-10 px-4">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((s, i) => (
-          <StatCard key={i} {...s} />
+          <StatCard key={i} {...s} resolved={resolved} />
         ))}
       </div>
     </section>

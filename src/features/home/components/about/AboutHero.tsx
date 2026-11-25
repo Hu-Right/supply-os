@@ -11,12 +11,12 @@ import { useHomeStats, type HomeStatsData } from "../../hooks/useHomeStats";
 
 export function AboutHero({ initialHome }: { initialHome?: Partial<HomeStatsData> } = {}) {
   const { t } = useLocale();
-  const { noticeActive, countryCount, certifiedSupplierCount } = useHomeStats(initialHome);
+  const { noticeActive, countryCount, certifiedSupplierCount, resolved } = useHomeStats(initialHome);
 
   const metrics = [
-    { value: formatCompactNumber(noticeActive), label: t("aboutM1Label"), sub: t("aboutM1Sub") },
-    { value: `${countryCount}+`, label: t("aboutM2Label"), sub: t("aboutM2Sub") },
-    { value: formatCompactNumber(certifiedSupplierCount), label: t("aboutM3Label"), sub: t("aboutM3Sub") },
+    { value: resolved ? formatCompactNumber(noticeActive) : "—", label: t("aboutM1Label"), sub: t("aboutM1Sub") },
+    { value: resolved ? `${countryCount}+` : "—", label: t("aboutM2Label"), sub: t("aboutM2Sub") },
+    { value: resolved ? formatCompactNumber(certifiedSupplierCount) : "—", label: t("aboutM3Label"), sub: t("aboutM3Sub") },
     { value: "13.5万亿$", label: t("aboutM4Label"), sub: t("aboutM4Sub") },
   ];
 
