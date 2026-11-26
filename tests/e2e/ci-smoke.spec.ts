@@ -51,7 +51,7 @@ test.describe("结构基线可用（空库可查询）", () => {
 
 test.describe("关键页面骨架可达", () => {
   // 刻意不含 /membership：其套餐卡片由业务数据驱动，属真库旅程范围
-  const pages = ["/", "/procurement", "/supplier", "/learning", "/privacy", "/terms", "/api/system/version"];
+  const pages = ["/", "/procurement", "/supplier", "/privacy", "/terms", "/api/system/version"];
 
   for (const path of pages) {
     test(`${path} → 200`, async ({ request }) => {

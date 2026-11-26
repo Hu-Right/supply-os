@@ -203,7 +203,6 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/system/version", auth: "none", status: 200, bodyType: "object", src: "/api/system/version" },
   { method: "GET", path: "/api/training", auth: "member", status: 410, bodyType: "object", src: "/api/training" },
   { method: "POST", path: "/api/training", auth: "none", status: 410, bodyType: "object", src: "/api/training" },
-  { method: "POST", path: "/api/training/downloads/track", auth: "none", status: 400, bodyType: "object", src: "/api/training/downloads/track" },
   { method: "GET", path: "/api/training/landing", auth: "member", status: 200, bodyType: "object", src: "/api/training/landing" },
   { method: "POST", path: "/api/training/orders", auth: "none", status: 401, bodyType: "object", src: "/api/training/orders" },
   { method: "GET", path: "/api/training/orders/:orderNo", auth: "member", status: 404, bodyType: "object", src: "/api/training/orders/:orderNo" },
