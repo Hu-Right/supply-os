@@ -15,7 +15,8 @@ export const DELETE = withRoute<{ params: Promise<{ id: string }> }>(async (req,
   const auth = await requireUserKeyOrThrow(req);
   const { id } = await params;
   const capabilityId = Number(id);
-  if (!Number.isInteger(capabilityId) || capabilityId <= 0) {
+  // 负 id = 证书类能力项（-字典 id），删除时从 supplier.certification_tags/meta 移除
+  if (!Number.isInteger(capabilityId) || capabilityId === 0) {
     routeError(400, EC_INVALID_PARAMS, "无效的能力项 ID");
   }
   const ctx = getContext();

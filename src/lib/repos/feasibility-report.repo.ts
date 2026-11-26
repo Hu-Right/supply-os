@@ -38,6 +38,20 @@ export interface VerifiedSupplierRow extends SupplierRowLike {
   supplier_link_status: string | null;
 }
 
+
+/** JSON 数组列（tags）→ 去空字符串数组；脏数据按空处理 */
+function parseJsonArray(raw: unknown): string[] {
+  const arr = typeof raw === "string" ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : raw
+  if (!Array.isArray(arr)) return []
+  return arr.map((v) => String(v ?? "").trim()).filter(Boolean)
+}
+
+/** JSON 对象列 → 普通对象；脏数据按空对象处理 */
+function parseJsonObject(raw: unknown): Record<string, unknown> {
+  const obj = typeof raw === "string" ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : raw
+  return obj && typeof obj === "object" && !Array.isArray(obj) ? (obj as Record<string, unknown>) : {}
+}
+
 export class FeasibilityReportRepo {
   constructor(private pool: Pool) {}
 
@@ -94,13 +108,55 @@ export class FeasibilityReportRepo {
     return rows[0] ? (rows[0] as unknown as OpportunityRowLike) : null;
   }
 
+  /**
+   * 能力行：证书类由 supplier.certification_tags/meta + 150 字典合成（与能力档案同口径），
+   * 非证书类读能力表。合成行 id 为负字典 id（报告侧只读不写）。
+   */
   async listCapabilityRows(enterpriseId: number): Promise<CapabilityRowLike[]> {
-    const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT id, enterprise_id, capability_type, name, value_json, evidence_refs_json, confirmation_json
-         FROM enterprise_capability_items WHERE enterprise_id = ? ORDER BY id`,
+    const [supRows] = await this.pool.query<RowDataPacket[]>(
+      "SELECT certification_tags, certification_meta FROM supplier WHERE id = ? LIMIT 1",
       [enterpriseId],
     );
-    return rows as unknown as CapabilityRowLike[];
+    const sup = (supRows[0] ?? {}) as { certification_tags?: unknown; certification_meta?: unknown };
+    const tags = parseJsonArray(sup.certification_tags);
+    const meta = parseJsonObject(sup.certification_meta);
+    const certRows: CapabilityRowLike[] = [];
+    if (tags.length > 0) {
+      const [catalog] = await this.pool.query<RowDataPacket[]>(
+        "SELECT id, code, name FROM supplier_certifications WHERE is_active = 1 AND is_certificate = 1 AND code IN (?)",
+        [tags],
+      );
+      const byUpper = new Map<string, { id: number; code: string; name: string }>();
+      for (const c of catalog as unknown as Array<{ id: number; code: string; name: string }>) {
+        byUpper.set(String(c.code).toUpperCase(), c);
+      }
+      for (const tag of tags) {
+        const c = byUpper.get(tag.toUpperCase());
+        if (!c) continue;
+        const m = (meta[String(c.code)] ?? {}) as { noExpiry?: boolean; validUntil?: string | null };
+        certRows.push({
+          id: -Number(c.id),
+          enterprise_id: enterpriseId,
+          capability_type: "certification",
+          name: String(c.name),
+          value_json: {
+            kind: "certification",
+            code: String(c.code),
+            noExpiry: m.noExpiry === true,
+            validUntil: m.validUntil ?? null,
+          },
+          evidence_refs_json: null,
+          confirmation_json: null,
+        });
+      }
+    }
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT id, enterprise_id, capability_type, name, value_json, evidence_refs_json, confirmation_json
+         FROM enterprise_capability_items
+        WHERE enterprise_id = ? AND capability_type <> 'certification' ORDER BY id`,
+      [enterpriseId],
+    );
+    return [...certRows, ...(rows as unknown as CapabilityRowLike[])];
   }
 
   /** 最新一版要求项（无记录返回空数组） */

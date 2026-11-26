@@ -188,14 +188,21 @@ export async function addCapability(
   if (!name) routeError(400, EC_INVALID_PARAMS, "能力名称不能为空");
   const value = sanitizeValue(type, input.value);
   const now = new Date().toISOString();
-  const id = await repo.insertCapability({
-    enterpriseId: Number(enterprise.id),
-    capabilityType: type,
-    name,
-    value,
-    evidenceRefs: [],
-    confirmation: { source: "manual", confirmedBy: userId, confirmedAt: now },
-  });
+  let id: number;
+  try {
+    id = await repo.insertCapability({
+      enterpriseId: Number(enterprise.id),
+      capabilityType: type,
+      name,
+      value,
+      evidenceRefs: [],
+      confirmation: { source: "manual", confirmedBy: userId, confirmedAt: now },
+    });
+  } catch (err) {
+    // 证书只认 150 字典：仓储拒绝未收录编码时给 400，而不是 500
+    if (type === "certification") routeError(400, EC_INVALID_PARAMS, String((err as Error)?.message ?? "证书编码未收录"));
+    throw err;
+  }
   return { id, type, name, value };
 }
 
