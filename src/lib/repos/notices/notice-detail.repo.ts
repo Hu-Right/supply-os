@@ -162,8 +162,10 @@ export class NoticeDetailRepo {
    *              同一套截止时间有效性口径；排序改用发布时间倒序——买家轴回答的是
    *              「这家采购方最近在买什么」，时效性弱于国别轴的「即将截止」。
    *
-   *              走 idx_np_buyer (buyer_id, published_ts)：等值 + 倒序扫描，
-   *              每页渲染多一次点查，无该索引时退化为全表扫描（53 万行/页），不可上线。
+   *              走 idx_np_buyer (buyer_id)：等值命中该买家的全部公告（EXPLAIN range 已验证），
+   *              单买家行数有限，内存排序可忽略。该索引连同 idx_np_buyer_deadline
+   *              库上已存在、baseline 已同步；无索引时此查询退化为全表扫描
+   *              （53 万行/页），不可上线。
    */
   async findRelatedByBuyer(
     noticePk: number,
