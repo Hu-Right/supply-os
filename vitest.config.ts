@@ -45,6 +45,8 @@ export default defineConfig({
 
         // ── src/lib/services/seo — sitemap XML 渲染（纯函数）──
         "src/lib/services/seo/sitemap-xml.ts",
+        // 国别筛选页聚合摘要（?country=XX 服务端直出）
+        "src/lib/services/seo/country-summary.ts",
         // ── src/lib/services/notice-public — 公开展示取值（中文优先规则）──
         "src/lib/services/notice-public/display.ts",
 

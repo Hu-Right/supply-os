@@ -286,6 +286,13 @@ export default async function NoticeSeoPage({ params }: PageProps) {
         })
     : [];
 
+  // ── JSON-LD 与页面可见字段一一对应 ──
+  // 原则：页面上展示什么，结构化数据就给什么；不凭空加页面没有的实体。
+  const referenceText = String(row.reference || row.notice_id || "").trim();
+  const buyerName = row.agency || row.agency_full || "";
+  const noticeTypeLabel = noticeTypeCodeLabel(row.notice_type) || "";
+  const deadlineIso = deadlineEpoch ? formatNoticeUTCDate(deadlineEpoch) : null;
+
   const jsonLd = [
     {
       "@context": "https://schema.org",
@@ -302,11 +309,27 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       headline: displayTitle,
       name: displayTitle,
       url,
-      description: buildSummary(row),
+      // 与「公告概况」同文：页面给 300 字，这里也给 300 字
+      description: overview || buildSummary(row),
       // 采购公告是强时效内容：发布日与最后改动日分开给，AI/结果页才能判断「这页是否被更正过」。
       // dateModified 取服务表 updated_at（对账修正后前移），不能再用发布日期——否则改过的公告永远显示「没更新」。
       ...(row.published_date ? { datePublished: row.published_date } : {}),
       ...(dateModified ? { dateModified } : {}),
+      // 基本信息表里的字段：编号 / 机构 / 国家 / 类型 / 截止 / 行业
+      ...(referenceText ? { identifier: referenceText } : {}),
+      ...(buyerName ? { mentions: { "@type": "Organization", name: buyerName } } : {}),
+      ...(country
+        ? {
+            spatialCoverage: {
+              "@type": "Place",
+              name: country,
+              ...(row.country_code ? { addressCountry: row.country_code } : {}),
+            },
+          }
+        : {}),
+      ...(noticeTypeLabel ? { genre: noticeTypeLabel } : {}),
+      ...(deadlineIso ? { expires: deadlineIso } : {}),
+      ...(industry ? { about: { "@type": "Thing", name: industry } } : {}),
       publisher: {
         "@type": "Organization",
         name: "云境·国际采购平台",

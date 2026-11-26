@@ -12,7 +12,7 @@ import { toNoticeListView } from "@/lib/services/notice-public/view";
 import { maskTranslationFieldList } from "@/lib/services/notice-public/translation-access";
 import type { SearchResultsInitial } from "@/features/procurement/hooks/search/useSearchResults";
 
-export async function loadProcurementInitial(): Promise<SearchResultsInitial | undefined> {
+export async function loadProcurementInitial(country?: string): Promise<SearchResultsInitial | undefined> {
   if (process.env.NEXT_PHASE === "phase-production-build") return undefined;
   try {
     const result = await searchUnified(getPool(), {
@@ -21,6 +21,8 @@ export async function loadProcurementInitial(): Promise<SearchResultsInitial | u
       pageSize: 10,
       sort: "latest",
       locale: "zh",
+      // 国别页（?country=XX）直出该国公告；无 country 时保持全球最新
+      ...(country ? { country } : {}),
     });
     const items = toNoticeListView(result.items);
     // 匿名首屏：不携带译文权益，保持与 /api/notices/unified-search 同口径

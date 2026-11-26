@@ -25,6 +25,9 @@ import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 import { countryName, guessCountryCode } from "@/shared/constants/countries";
 import { countryParam } from "@/lib/services/seo/country-slug";
+import { getPool } from "@/lib/db/pool";
+import { getCountrySummary, type CountrySummary } from "@/lib/services/seo/country-summary";
+import type { SearchResultsInitial } from "@/features/procurement/hooks/search/useSearchResults";
 
 export const dynamic = "force-dynamic";
 
@@ -131,7 +134,63 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProcurementPage() {
-  const initialResults = await loadProcurementInitial();
-  return <PageClient initialResults={initialResults} />;
+/**
+ * 国别页的 CollectionPage + ItemList 结构化数据。
+ * 用服务端直出的前 10 条公告作为列表项，和页面正文一致。
+ */
+function buildCountryJsonLd(summary: CountrySummary, initial: SearchResultsInitial, url: string): string {
+  const payload = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: `${summary.nameZh}政府采购与招标公告`,
+    url,
+    about: { "@type": "Place", name: summary.nameZh, addressCountry: summary.code },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: initial.total,
+      itemListElement: initial.items.slice(0, 10).map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: absoluteUrl(`/procurement/notice/${item.noticePk}`),
+        name: item.title,
+      })),
+    },
+  };
+  return JSON.stringify(payload).replace(/</g, "\\u003c");
+}
+
+export default async function ProcurementPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParamsRecord>;
+}) {
+  const code = soleCountryOf(await searchParams);
+  const country = code ? countryParam(code) : undefined;
+
+  // 国别页：首屏直出该国公告 + 该国统计；非国别页保持原行为（全球最新）
+  const [initialResults, countrySummary] = await Promise.all([
+    loadProcurementInitial(country),
+    code ? getCountrySummary(getPool(), code).catch(() => null) : Promise.resolve(null),
+  ]);
+
+  const jsonLd =
+    code && countrySummary && initialResults
+      ? buildCountryJsonLd(
+          countrySummary,
+          initialResults,
+          absoluteUrl(`/procurement?country=${encodeURIComponent(countryParam(code))}`),
+        )
+      : null;
+
+  return (
+    <>
+      {jsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLd }}
+        />
+      ) : null}
+      <PageClient initialResults={initialResults} countrySummary={countrySummary} />
+    </>
+  );
 }

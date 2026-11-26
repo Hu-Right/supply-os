@@ -141,6 +141,22 @@ describe("公开页版式（SEO 详情页）", () => {
     expect(article?.dateModified).not.toBe(article?.datePublished);
   });
 
+  it("JSON-LD：与页面可见字段一一对应（编号/机构/国家/类型/截止/行业）", async () => {
+    await renderPage();
+    const article = readArticle();
+    const iso = (sec: number) => new Date(sec * 1000).toISOString().slice(0, 10);
+    const place = article?.spatialCoverage as { name?: string } | undefined;
+    const about = article?.about as { name?: string } | undefined;
+    expect(article?.identifier).toBe(ROW.reference);
+    expect(article?.mentions).toMatchObject({ "@type": "Organization", name: ROW.agency });
+    expect(place).toMatchObject({ "@type": "Place", addressCountry: "BR" });
+    expect(String(place?.name ?? "")).not.toBe("");
+    expect(article?.genre).toBeTruthy();
+    expect(article?.expires).toBe(iso(ROW.deadline_ts));
+    expect(about).toMatchObject({ "@type": "Thing" });
+    expect(String(about?.name ?? "")).not.toBe("");
+  });
+
   it("脏 updated_at（YYYYMMDDHHMMSS 形态）回退到发布日期，不输出 2612 年", async () => {
     const original = ROW.updated_at;
     ROW.updated_at = 20_261_030_012;
