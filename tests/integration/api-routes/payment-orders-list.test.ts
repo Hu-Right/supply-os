@@ -35,9 +35,7 @@ const emptyList = { findByUserId: async () => [], countByUserId: async () => 0 }
 function makeOrchestrator() {
   return new PaymentOrchestrator(
     { queryOrder: async () => null } as never,
-    { queryOrder: async () => null } as never,
     { findByOrderNo: async () => ORDER_ROW } as never,
-    { ...emptyList } as never,
     { ...emptyList, findOrdersByUserId: async () => [], countOrdersByUserId: async () => 0,
       findOrderByNo: async () => TRAINING_ROW } as never,
     { queryOrder: async () => null } as never,
