@@ -25,8 +25,6 @@ import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 import { countryName, guessCountryCode } from "@/shared/constants/countries";
 import { countryParam } from "@/lib/services/seo/country-slug";
-import { getPool } from "@/lib/db/pool";
-import { getCountrySummary, type CountrySummary } from "@/lib/services/seo/country-summary";
 import type { SearchResultsInitial } from "@/features/procurement/hooks/search/useSearchResults";
 
 export const dynamic = "force-dynamic";
@@ -136,15 +134,23 @@ export async function generateMetadata({
 
 /**
  * 国别页的 CollectionPage + ItemList 结构化数据。
- * 用服务端直出的前 10 条公告作为列表项，和页面正文一致。
+ *
+ * 只描述页面上**已经存在**的东西：页面标题里的国别名、canonical URL、服务端直出的前 10 条公告。
+ * 不承载任何统计字段（在挂量/截止量/采购类型/主要采购方）——那些数据要么页面上有，
+ * 要么就不该出现在 JSON 里；不能为了补结构化数据反过来往页面加区块。
  */
-function buildCountryJsonLd(summary: CountrySummary, initial: SearchResultsInitial, url: string): string {
+function buildCountryJsonLd(
+  nameZh: string,
+  code: string,
+  initial: SearchResultsInitial,
+  url: string,
+): string {
   const payload = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: `${summary.nameZh}政府采购与招标公告`,
+    name: `${nameZh}政府采购与招标公告`,
     url,
-    about: { "@type": "Place", name: summary.nameZh, addressCountry: summary.code },
+    about: { "@type": "Place", name: nameZh, addressCountry: code },
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: initial.total,
@@ -166,17 +172,16 @@ export default async function ProcurementPage({
 }) {
   const code = soleCountryOf(await searchParams);
   const country = code ? countryParam(code) : undefined;
+  const nameZh = code ? countryName(code, "zh") : "";
 
-  // 国别页：首屏直出该国公告 + 该国统计；非国别页保持原行为（全球最新）
-  const [initialResults, countrySummary] = await Promise.all([
-    loadProcurementInitial(country),
-    code ? getCountrySummary(getPool(), code).catch(() => null) : Promise.resolve(null),
-  ]);
+  // 国别页：首屏直出该国公告；非国别页保持原行为（全球最新）
+  const initialResults = await loadProcurementInitial(country);
 
   const jsonLd =
-    code && countrySummary && initialResults
+    code && nameZh && initialResults
       ? buildCountryJsonLd(
-          countrySummary,
+          nameZh,
+          code,
           initialResults,
           absoluteUrl(`/procurement?country=${encodeURIComponent(countryParam(code))}`),
         )
@@ -190,7 +195,7 @@ export default async function ProcurementPage({
           dangerouslySetInnerHTML={{ __html: jsonLd }}
         />
       ) : null}
-      <PageClient initialResults={initialResults} countrySummary={countrySummary} />
+      <PageClient initialResults={initialResults} />
     </>
   );
 }

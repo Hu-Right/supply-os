@@ -23,18 +23,13 @@ import { useCommodityCascade } from "../hooks/useCommodityCascade";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
 import { useNoticeActions } from "../hooks/useNoticeActions";
 import { SearchFilterSection } from "../components/procurement-page/SearchFilterSection";
-import { CountrySummarySection } from "../components/procurement-page/CountrySummarySection";
-import type { CountrySummary } from "@/lib/services/seo/country-summary";
 import { ResultsHeader } from "../components/procurement-page/ResultsHeader";
 import { ResultsList, MatchRelaxedHint } from "../components/procurement-page/ResultsSections";
 
 export default function ProcurementPage({
   initialResults,
-  countrySummary,
 }: {
   initialResults?: SearchResultsInitial;
-  /** 国别页（?country=XX）的服务端摘要；组合筛选或非国别页为 null */
-  countrySummary?: CountrySummary | null;
 } = {}) {
   const { authUser, isVip, refreshAuth, authReady } = useAuth();
   const router = useRouter();
@@ -158,9 +153,6 @@ export default function ProcurementPage({
         advancedSearchEntitled={actions.membership?.gates?.advanced_keyword_search === "free" || actions.membership?.gates?.advanced_keyword_search === "included"}
         keywordLibEntitled={actions.membership?.gates?.product_keyword_lib === "free" || actions.membership?.gates?.product_keyword_lib === "included"}
       />
-
-      {/* 国别页摘要：服务端直出该国统计，让 ?country=XX 的 HTML 名副其实 */}
-      {countrySummary ? <CountrySummarySection summary={countrySummary} /> : null}
 
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
         <ResultsHeader
