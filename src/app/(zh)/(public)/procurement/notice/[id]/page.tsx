@@ -61,6 +61,8 @@ interface NoticeSeoRow extends RowDataPacket {
   notice_type: string | null;
   agency: string | null;
   agency_full: string | null;
+  /** 买家实体 ID（buyer SSOT）；供应商内链块以此为关系键，未归一的公告为 null */
+  buyer_id: number | string | null;
   /** 服务表只有 ISO2 国别码，展示名在页面侧用 Intl 推导 */
   country_code: string | null;
   deadline: string | null;
@@ -137,6 +139,43 @@ function buildSummary(row: NoticeSeoRow): string {
   // 中文摘要优先（与公开页正文同一口径），仍只取 160 字进 meta description
   const teaser = pickDisplaySummary(row, 160);
   return teaser ? `${head}. ${teaser}…` : head;
+}
+
+/** 相关公告条目（同国别/同买家两块共用）：repo 只回公开面字段 */
+interface RelatedNoticeItem {
+  id: number | string;
+  title: string | null;
+  title_cn: string | null;
+  deadline_ts: number | string | null;
+}
+
+/**
+ * 相关公告列表（同国别与同买家两块共用的版式）。
+ *
+ * 标题中文优先（pickDisplayTitle，与本页 H1 同一规则）——列表是页面的内链出口，
+ * 爬虫与 AI 读到的锚文本同样按中文口径收敛。
+ */
+function RelatedNoticeList({ items }: { items: RelatedNoticeItem[] }) {
+  return (
+    <ul className="divide-y divide-slate-100 overflow-hidden border border-slate-200 bg-white">
+      {items.map((item) => {
+        const ts = Number(item.deadline_ts) || 0;
+        return (
+          <li key={String(item.id)} className="px-5 py-3">
+            <Link
+              href={`/procurement/notice/${item.id}`}
+              className="block text-sm font-semibold leading-snug text-slate-800 hover:text-teal-700"
+            >
+              {pickDisplayTitle({ title: item.title, title_cn: item.title_cn, notice_pk: item.id })}
+            </Link>
+            <p className="mt-1 text-xs text-slate-500">
+              {ts > 0 ? `截止 ${formatNoticeCstDate(ts)}` : "长期有效"}
+            </p>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -233,6 +272,16 @@ export default async function NoticeSeoPage({ params }: PageProps) {
         .notice.detailRepo.findRelatedByCountry(id, row.country_code, 6)
         .catch((err) => {
           console.error("[notice] 相关公告装载失败:", (err as Error).message);
+          return [];
+        })
+    : [];
+  // 同买家相关公告（第三条内链轴）：buyer_id 未归一的公告直接跳过；装载失败降级为空块。
+  const buyerIdNum = Number(row.buyer_id);
+  const buyerRelated = Number.isFinite(buyerIdNum) && buyerIdNum > 0
+    ? await getContext()
+        .notice.detailRepo.findRelatedByBuyer(id, buyerIdNum, 6)
+        .catch((err) => {
+          console.error("[notice] 买家相关公告装载失败:", (err as Error).message);
           return [];
         })
     : [];
@@ -378,24 +427,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       {related.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-base font-bold text-slate-900">同国家/地区的其他公告</h2>
-          <ul className="divide-y divide-slate-100 overflow-hidden border border-slate-200 bg-white">
-            {related.map((item) => {
-              const ts = Number(item.deadline_ts) || 0;
-              return (
-                <li key={String(item.id)} className="px-5 py-3">
-                  <Link
-                    href={`/procurement/notice/${item.id}`}
-                    className="block text-sm font-semibold leading-snug text-slate-800 hover:text-teal-700"
-                  >
-                    {String(item.title)}
-                  </Link>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {ts > 0 ? `截止 ${formatNoticeCstDate(ts)}` : "长期有效"}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
+          <RelatedNoticeList items={related as RelatedNoticeItem[]} />
           {country && countryHref && (
             <Link
               href={countryHref}
@@ -404,6 +436,14 @@ export default async function NoticeSeoPage({ params }: PageProps) {
               查看 {country} 全部公告 →
             </Link>
           )}
+        </section>
+      )}
+
+      {/* 同买家相关公告（第三条内链轴）：15 万公告页的站内互链出口，用户与爬虫同源可见 */}
+      {buyerRelated.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-base font-bold text-slate-900">该采购方的其他公告</h2>
+          <RelatedNoticeList items={buyerRelated as RelatedNoticeItem[]} />
         </section>
       )}
     </article>

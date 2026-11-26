@@ -1273,7 +1273,8 @@ CREATE TABLE `notice_public` (
   KEY `idx_np_opportunity` (`is_opportunity`,`deadline_ts`),
   KEY `idx_np_country_deadline` (`country_code`,`deadline_ts`),
   KEY `idx_np_type_pk` (`notice_type_code`,`notice_pk`,`deadline_ts`),
-  KEY `idx_np_has_att` (`has_attachments`,`deadline_ts`)
+  KEY `idx_np_has_att` (`has_attachments`,`deadline_ts`),
+  KEY `idx_np_buyer` (`buyer_id`,`published_ts`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
 
 -- ── notice_requirement_items ──

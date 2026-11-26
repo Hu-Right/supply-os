@@ -104,6 +104,7 @@ export class NoticeDetailRepo {
       `SELECT p.notice_pk AS id, p.notice_id, p.reference, p.title, p.title_cn,
          p.notice_type_code AS notice_type,
          p.buyer_name_cn AS agency, p.buyer_name AS agency_full,
+         p.buyer_id,
          p.country_code,
          p.deadline_ts, p.deadline_ts AS effective_ts,
          p.deadline_state, p.deadline_type, p.deadline_timezone, p.timezone_source,
@@ -141,7 +142,7 @@ export class NoticeDetailRepo {
   ): Promise<RowDataPacket[]> {
     const safeLimit = Math.min(Math.max(Number(limit) || 6, 1), 12);
     const [rows] = await this.pool.query(
-      `SELECT p.notice_pk AS id, p.title, p.deadline_ts
+      `SELECT p.notice_pk AS id, p.title, p.title_cn, p.deadline_ts
        FROM notice_public p
        WHERE p.country_code = ?
          AND p.notice_pk <> ?
@@ -149,6 +150,37 @@ export class NoticeDetailRepo {
        ORDER BY (p.deadline_ts IS NULL OR p.deadline_ts = 0) ASC, p.deadline_ts ASC
        LIMIT ${safeLimit}`,
       [countryCode, noticePk],
+    );
+    return rows as RowDataPacket[];
+  }
+
+  /**
+   * 同买家相关公告（SEO 详情页内链，第三条关系轴）。
+   *
+   * @description 只读公开服务表，取同一买家实体（buyer_id，ADR-0016 SSOT）名下
+   *              未截止的最近公告。与 findRelatedByCountry 同族：单表零 JOIN、
+   *              同一套截止时间有效性口径；排序改用发布时间倒序——买家轴回答的是
+   *              「这家采购方最近在买什么」，时效性弱于国别轴的「即将截止」。
+   *
+   *              走 idx_np_buyer (buyer_id, published_ts)：等值 + 倒序扫描，
+   *              每页渲染多一次点查，无该索引时退化为全表扫描（53 万行/页），不可上线。
+   */
+  async findRelatedByBuyer(
+    noticePk: number,
+    buyerId: number,
+    limit = 6,
+  ): Promise<RowDataPacket[]> {
+    const safeLimit = Math.min(Math.max(Number(limit) || 6, 1), 12);
+    const [rows] = await this.pool.query(
+      `SELECT p.notice_pk AS id, p.title, p.title_cn, p.deadline_ts
+       FROM notice_public p
+       WHERE p.buyer_id = ?
+         AND p.notice_pk <> ?
+         AND p.title IS NOT NULL AND p.title <> ''
+         AND (p.deadline_ts IS NULL OR p.deadline_ts = 0 OR p.deadline_ts >= UNIX_TIMESTAMP(NOW()))
+       ORDER BY p.published_ts DESC, p.notice_pk DESC
+       LIMIT ${safeLimit}`,
+      [buyerId, noticePk],
     );
     return rows as RowDataPacket[];
   }
