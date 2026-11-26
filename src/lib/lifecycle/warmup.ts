@@ -46,8 +46,7 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
     warm({ country: "Germany" }),
     // 高频组合搜索预热
     warm({ q: "construction", country: "Canada" }),
-    warm({ q: "construction", agency: "United Nations" }),
-    warm({ q: "construction", agency: "United Nations", country: "France" }),
+    warm({ q: "construction", country: "France" }),
     // PERF 优化：关键词+采购类型组合预热（类型清单随 PROCUREMENT_METHOD_AVAILABLE 动态派生）
     ...PROCUREMENT_METHOD_AVAILABLE.map((m) => warm({ noticeType: noticeTypeForMethod(m) })),
     warm({ noticeType: "RFQ", country: "Brazil" }),

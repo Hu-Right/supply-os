@@ -5,7 +5,7 @@
  * @module features/procurement/components/AdvancedSearchPanel
  * @description 按「2-全球采购机会库」样图实现两行搜索布局：
  *              行1: 关键词 / 旧品类码 / 国家 / 行业(L1) / 截止时间
- *              行2: 采购机构 / 采购方式(公告类型) / 预算金额 + 搜索/清空
+ *              行2: 采购方式(公告类型) / 预算金额 + 搜索/清空
  *
  *              与原始设计图的 3 处差异（用户明确要求）：
  *              1. 采购方式 → 实际过滤 notice_type（公告类型），标签仍显示"采购方式"
@@ -273,7 +273,7 @@ export function AdvancedSearchPanel({
         </div>
       </div>
 
-      {/* ══ 行2：采购机构 / 采购方式 / 预算金额（移动端随筛选折叠）══ */}
+      {/* ══ 行2：采购方式 / 预算金额（移动端随筛选折叠）══ */}
       <div className={`${filtersOpen ? "grid" : "hidden md:grid"} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end`}>
         {/* 采购方式 */}
         <div>

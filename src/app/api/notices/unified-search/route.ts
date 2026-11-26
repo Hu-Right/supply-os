@@ -51,7 +51,6 @@ function parseSearchParams(req: NextRequest): RawSearchParams {
     locale: get("locale"),
     q: get("q"),
     country: get("country"),
-    agency: get("agency"),
     deadlineFrom: get("deadline_from"),
     deadlineTo: get("deadline_to"),
     deadlineWithinDays: getInt("deadline_within_days"),
@@ -111,7 +110,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   //   - bot/脚本、排除名单用户、纯浏览（无任何条件）不落库；
   //   - fire-and-forget，失败静默不阻塞响应。
   const hasSearch = Boolean(
-    params.q || params.country || params.agency ||
+    params.q || params.country ||
     DATE_RE.test(params.deadlineFrom ?? "") || DATE_RE.test(params.deadlineTo ?? "") ||
     params.deadlineWithinDays || params.noticeType || params.featuredOnly,
   );
@@ -125,7 +124,6 @@ export const GET = withRoute(async (req: NextRequest) => {
       mode: params.mode,
       page: params.page != null && params.page > 1 ? params.page : undefined,
       commodity: params.commodityPath || undefined,
-      agency: params.agency || undefined,
       budget_min: Number.isFinite(params.budgetMin) ? params.budgetMin : undefined,
       budget_max: Number.isFinite(params.budgetMax) ? params.budgetMax : undefined,
       match_mode: params.matchMode === "any" ? "any" : undefined,

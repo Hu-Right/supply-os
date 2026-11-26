@@ -164,7 +164,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     query: {
       activeQ: query.activeQ,
       activeCountry: query.activeCountry,
-        activeFrom: query.activeFrom,
+      activeFrom: query.activeFrom,
       activeTo: query.activeTo,
       activeSort: query.activeSort,
       activeWindow: query.activeWindow,

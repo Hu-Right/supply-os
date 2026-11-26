@@ -21,7 +21,6 @@ export interface UnifiedSearchParams {
   locale: string;
   q: string;
   country: string;
-  agency: string;
   deadlineFrom: string;
   deadlineTo: string;
   deadlineWithinDays: number;

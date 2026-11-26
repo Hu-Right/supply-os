@@ -105,7 +105,6 @@ export const fetchUnifiedSearch = (params: {
   commodityPath?: string;
   q?: string;
   country?: string;
-  agency?: string;
   deadlineFrom?: string;
   deadlineTo?: string;
   deadlineWithinDays?: number;
@@ -126,7 +125,6 @@ export const fetchUnifiedSearch = (params: {
     commodity: params.commodityPath,
     q: params.q,
     country: params.country,
-    agency: params.agency,
     deadline_from: params.deadlineFrom,
     deadline_to: params.deadlineTo,
     deadline_within_days: params.deadlineWithinDays,

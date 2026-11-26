@@ -47,55 +47,6 @@ function nodeMysqlWhere(nodes: string[], col = "backbone_path"): string {
   return `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND ${inner})`;
 }
 
-/** 机构扩展解析结果（两种方言共用） */
-interface AgencyExpansion {
-  meiliAgencies?: string[];
-  /** MySQL 方言机构子句 */
-  mysqlClause: string;
-  mysqlParams: unknown[];
-  /** FORCE_COUNTRY 强制国家（机构隐含国家归属） */
-  forceCountry?: string;
-}
-
-/**
- * 生成机构 MySQL 子查询：通过宽表 buyer_name 列匹配。
- *
- * 根因：mysqlFallback 查 bid_notices（主表原始值），但缓存中的机构名
- * 是规范名（经别名映射/模式翻译），两者可能不同（如 "EU" vs "EUROPEAN UNION"）。
- * 改用宽表子查询确保匹配规范后的 buyer_name 列（与旧品类码端口一致）。
- */
-function buyerNameSubquery(values: string[], useLike?: string): { mysqlClause: string; mysqlParams: unknown[] } {
-  if (useLike) {
-    return {
-      mysqlClause: "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND ns.buyer_name LIKE ?)",
-      mysqlParams: [useLike],
-    };
-  }
-  if (values.length === 1) {
-    return {
-      mysqlClause: "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND ns.buyer_name = ?)",
-      mysqlParams: [values[0]],
-    };
-  }
-  return {
-    mysqlClause: `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND ns.buyer_name IN (${values.map(() => "?").join(",")}))`,
-    mysqlParams: [...values],
-  };
-}
-
-/**
- * 解析机构筛选入参（2026-10-31 机构下拉链退役后收编）：
- * 原实现靠聚合缓存扩展 FORCE_COUNTRY / sqlPattern / originalAgencies（下拉桶元数据），
- * 下拉退役后缓存永久冷态、增强分支永不可达——收编为恒等展开：Meili 走 agencies 精确名、
- * MySQL 走宽表 buyer_name 精确匹配（深链接/API 直调仍可用，传入名需与归一列一致）。
- */
-function expandAgency(agency: string): AgencyExpansion {
-  return {
-    meiliAgencies: [agency],
-    ...buyerNameSubquery([agency]),
-  };
-}
-
 /**
  * 构建双方言 filter 计划。
  * @param p 统一检索参数（品目条件由 `p.commodityPath` 直出谓词，见下方「品目骨架五级下拉」）
@@ -112,22 +63,6 @@ export async function buildFilterPlan(
   // 国家归一事实源：country_aliases（表驱动，无兜底）
   const snap = await loadCountryAliasSnapshot(pool);
 
-  // ── 机构扩展（需先于国家处理：FORCE_COUNTRY 覆盖国家）──
-  let agencyExp: AgencyExpansion | null = null;
-  let effectiveCountry = p.country;
-  if (p.agency) {
-    agencyExp = expandAgency(p.agency);
-    if (agencyExp.forceCountry) {
-      // FORCE_COUNTRY 与用户所选国家矛盾（按表内 ISO2 码判等，同国不同写法不误判）→ 空结果
-      const fcCode = countryCodeForName(agencyExp.forceCountry, snap);
-      const uCode = p.country ? countryCodeForName(p.country, snap) : null;
-      if (p.country && (!fcCode || !uCode || uCode.toUpperCase() !== fcCode.toUpperCase())) {
-        return { meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true, digest: "FORCE_COUNTRY_CONFLICT" };
-      }
-      effectiveCountry = agencyExp.forceCountry;
-    }
-  }
-
   // ── 国家：命中表内国家码 → 双方言都按国家码筛（展示名不参与筛选）──
   // [2026-11-25 修复] 2026-11-18 曾把 Meili 谓词改成「canonical 国名等值」，理由是
   //   notice_search.country_codes 近乎空置。但索引里的 `country` 是宽表 country_name，
@@ -138,29 +73,16 @@ export async function buildFilterPlan(
   //   口径差异说明：Meili 侧 country_codes 是「全部国家」数组，多国公告（实测 42 行）会在
   //   每个国家各命中一次；MySQL 侧 p.country_code 是主国家。0.007% 的差异换来索引可用性，
   //   与下拉/数字墙的差异小于回填前的主国家口径丢失。
-  if (effectiveCountry) {
-    const code = countryCodeForName(effectiveCountry, snap);
+  if (p.country) {
+    const code = countryCodeForName(p.country, snap);
     if (!code) {
       // 表里没有该国家 → 不可筛（不兜底），返回空集
-      return { meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true, digest: `country:no-code:${effectiveCountry}` };
+      return { meiliFilters: [], mysqlWhere: [], mysqlParams: [], conflictEmpty: true, digest: `country:no-code:${p.country}` };
     }
     meiliFilters.push(`country_codes = "${escapeFilter(code)}"`);
     mysqlWhere.push("p.country_code = ?");
     mysqlParams.push(code);
     digestParts.push(`country:${code}`);
-  }
-
-  // ── 机构（FORCE_COUNTRY 机构已转为国家条件，不再叠加机构条件）──
-  if (p.agency && agencyExp && !agencyExp.forceCountry) {
-    if (agencyExp.meiliAgencies && agencyExp.meiliAgencies.length > 1) {
-      const orParts = agencyExp.meiliAgencies.map((o) => `agency = "${escapeFilter(o)}"`).join(" OR ");
-      meiliFilters.push(`(${orParts})`);
-    } else if (agencyExp.meiliAgencies?.length === 1) {
-      meiliFilters.push(`agency = "${escapeFilter(agencyExp.meiliAgencies[0])}"`);
-    }
-    mysqlWhere.push(agencyExp.mysqlClause);
-    mysqlParams.push(...agencyExp.mysqlParams);
-    digestParts.push(`agency:${p.agency}`);
   }
 
   // ── 截止日期范围（deadlineFrom 自然排除 deadline_sec=0：0 < fromTs）──

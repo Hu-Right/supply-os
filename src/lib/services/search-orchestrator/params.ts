@@ -22,7 +22,6 @@ export interface RawSearchParams {
   locale?: string;
   q?: string;
   country?: string;
-  agency?: string;
   deadlineFrom?: string;
   deadlineTo?: string;
   deadlineWithinDays?: number;
@@ -69,7 +68,6 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
     locale: String(raw.locale || ""),
     q: String(raw.q || "").slice(0, 200).trim(),
     country: String(raw.country || "").slice(0, 100),
-    agency: String(raw.agency || "").slice(0, 100),
     deadlineFrom,
     deadlineTo,
     deadlineWithinDays: Math.min(Math.max(Math.floor(raw.deadlineWithinDays || 0), 0), 365),
@@ -99,7 +97,7 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
 export function searchCacheKey(p: UnifiedSearchParams): string {
   return [
     p.mode, p.userId ?? "guest", p.page, p.pageSize, p.locale,
-    p.q.toLowerCase().trim(), p.country.toUpperCase(), p.agency, p.deadlineFrom, p.deadlineTo,
+    p.q.toLowerCase().trim(), p.country.toUpperCase(), p.deadlineFrom, p.deadlineTo,
     p.deadlineWithinDays, p.noticeType, p.featuredOnly ? "1" : "",
     p.sort, p.budgetMin ?? "", p.budgetMax ?? "", p.matchMode ?? "all",
     // 墙必须带括号哨：空 nodes 的墙（分叉态→空结果）与无墙（→全量）不能撞同一缓存键，
