@@ -35,26 +35,8 @@ export interface CapabilityRow {
 }
 
 /**
- * `value_json` 兼容两种驱动形态：JSON 列返对象，或老数据/文本列返字符串。
- * 解析失败一律返回 null（调用方按「没有该字段」处理），不抛错——
- * 资质分级不该因为一条脏能力项把整个诊断提交打崩。
+ * JSON 数组列（tags）→ 去空字符串数组；脏数据按空处理
  */
-function parseValueJson(raw: unknown): Record<string, unknown> | null {
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
-  if (typeof raw === "string" && raw.trim()) {
-    try {
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? (parsed as Record<string, unknown>)
-        : null;
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
-/** JSON 数组列（tags）→ 去空字符串数组；脏数据按空处理 */
 function parseStringArray(raw: unknown): string[] {
   const arr = typeof raw === "string" ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : raw;
   if (!Array.isArray(arr)) return [];
