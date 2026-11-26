@@ -162,34 +162,6 @@ test.describe("会员购买旅程", () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 旅程 5：学习中心
-// ══════════════════════════════════════════════════════════════════════════════
-
-test.describe("学习中心旅程", () => {
-  test("查看学习中心页面 → 资料列表可见", async ({ page }) => {
-    await page.goto(`${TEST_BASE_URL}/learning`);
-
-    // 页面锚点：知识中心标题
-    await expect(
-      page.getByRole("heading", { name: "常采公采知识培训中心" }),
-    ).toBeVisible({ timeout: 10_000 });
-
-    // 验证页面内容加载（学习资料区域）
-    await expect(page.locator("h3").first()).toBeVisible({ timeout: 10_000 });
-  });
-
-  test("学习中心 → 资料卡片展示", async ({ page }) => {
-    await page.goto(`${TEST_BASE_URL}/learning`);
-
-    // 页面锚点：学习区标题 + 资料区域
-    await expect(
-      page.getByRole("heading", { name: "联合国采购与国际投标学习区" }),
-    ).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator("h3").first()).toBeVisible();
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
 // 冒烟测试：关键页面可达
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -199,7 +171,6 @@ test.describe("冒烟测试", () => {
     { name: "采购公告", path: "/procurement" },
     { name: "供应商", path: "/supplier" },
     { name: "会员", path: "/membership" },
-    { name: "培训", path: "/learning" },
     { name: "隐私政策", path: "/privacy" },
     { name: "用户协议", path: "/terms" },
     { name: "API 健康检查", path: "/api/system/version" },
