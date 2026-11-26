@@ -6,8 +6,6 @@
  * 重点钉三处易漂移：
  * 1) priceRaw 必须是目录原串（"199.00" 不能变 "199"）——财务对账与订单快照按原串；
  * 2) sellable / advisoryOnly 的判定顺序与组合（先不可售、后仅预约）；
- * 3) 学习类的错误原因要能一一映射回原有错误码（MATERIAL_NOT_FOUND / BUNDLE_NOT_FOUND /
- *    INVALID_LEARNING_PLAN_CODE）。
  */
 import { describe, it, expect, vi } from "vitest";
 vi.mock("server-only", () => ({}));
@@ -16,7 +14,6 @@ import {
   planProductOf,
   serviceProductOf,
   courseProductOf,
-  resolveLearningProduct,
   type PlanPriceInput,
   type ServicePriceInput,
 } from "@/lib/payment/products";
@@ -113,46 +110,4 @@ describe("courseProductOf — 培训课程", () => {
   });
 });
 
-describe("resolveLearningProduct — 学习资料 / 打包", () => {
-  const findNone = async () => null;
-
-  it("单资料：命中后剥前缀查库，取名走 中文→英文→原码", async () => {
-    const find = vi.fn(async () => ({ title_zh: "从业人员工作手册", title_en: "Handbook", price: 9.9 }));
-    const r = await resolveLearningProduct("material_training-doc-04", find);
-    expect(find).toHaveBeenCalledWith("training-doc-04");
-    expect(r.ok).toBe(true);
-    if (r.ok) {
-      expect(r.product.kind).toBe(PRODUCT_KIND.MATERIAL);
-      expect(r.product.name).toBe("从业人员工作手册");
-      expect(r.product.unitPrice).toBe(9.9);
-      expect(r.product.currency).toBe("CNY");
-      expect(r.product.priceSource).toBe("learning_material");
-    }
-  });
-
-  it("单资料查无 → material_not_found（映射 MATERIAL_NOT_FOUND）", async () => {
-    const r = await resolveLearningProduct("material_nope", findNone);
-    expect(r).toEqual({ ok: false, reason: "material_not_found" });
-  });
-
-  it("打包套餐：条目来自静态配置，命中即取套餐价与中文名", async () => {
-    const r = await resolveLearningProduct("bundle_bundle-all", findNone);
-    expect(r.ok).toBe(true);
-    if (r.ok) {
-      expect(r.product.kind).toBe(PRODUCT_KIND.BUNDLE);
-      expect(r.product.priceSource).toBe("learning_bundle");
-      expect(r.product.unitPrice).toBeGreaterThan(0);
-      expect(r.product.name).not.toBe("");
-    }
-  });
-
-  it("打包套餐查无 → bundle_not_found（映射 BUNDLE_NOT_FOUND）", async () => {
-    const r = await resolveLearningProduct("bundle_not-exist", findNone);
-    expect(r).toEqual({ ok: false, reason: "bundle_not_found" });
-  });
-
-  it("非学习类码 → invalid_kind（映射 INVALID_LEARNING_PLAN_CODE）", async () => {
-    const r = await resolveLearningProduct("business", findNone);
-    expect(r).toEqual({ ok: false, reason: "invalid_kind" });
-  });
-});
+// 2026-11-26：学习资料 / 打包套餐业务下线，resolveLearningProduct 及其用例一并移除。

@@ -8,7 +8,6 @@ import "server-only";
 import type { Pool } from "mysql2/promise";
 import { getPool } from "./pool";
 import { PaymentService } from "../payment/PaymentService";
-import { LearningPaymentService } from "../payment/learning-payment";
 import { ServicePaymentService } from "../payment/service-payment";
 import { TrainingPaymentService } from "../payment/TrainingPaymentService";
 import { PaymentOrchestrator } from "../payment/orchestrator";
@@ -22,9 +21,7 @@ import { BenefitSystemRepo } from "../repos/benefit-system.repo";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { PaymentsRepo } from "../repos/payments.repo";
 import { PaymentHistoryRepo } from "../repos/payment-history.repo";
-import { LearningOrdersRepo } from "../repos/learning-orders.repo";
 import { ServiceOrdersRepo } from "../repos/service-orders.repo";
-import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import {
   NoticeDetailRepo,
@@ -66,12 +63,10 @@ export type NoticeContext = {
 export type PaymentContext = {
   dbPool: Pool;
   paymentService: PaymentService;
-  learningPaymentService: LearningPaymentService;
   trainingPaymentService: TrainingPaymentService; // ARCH-PN 新增
   orchestrator: PaymentOrchestrator;
   paymentMode: "live" | "mock";
   paymentsRepo: PaymentsRepo;
-  learningOrdersRepo: LearningOrdersRepo;
   servicePaymentService: ServicePaymentService;
   serviceOrdersRepo: ServiceOrdersRepo;
   paymentHistoryRepo: PaymentHistoryRepo;
@@ -171,9 +166,7 @@ export function getContext(): AppContext {
   const authRepo = new AuthRepo(dbPool);
   const paymentsRepo = new PaymentsRepo(dbPool);
   const paymentHistoryRepo = new PaymentHistoryRepo(dbPool);
-  const learningOrdersRepo = new LearningOrdersRepo(dbPool);
   const serviceOrdersRepo = new ServiceOrdersRepo(dbPool);
-  const learningMaterialsRepo = new LearningMaterialsRepo(dbPool);
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
 
   const detailRepo = new NoticeDetailRepo(dbPool);
@@ -206,17 +199,16 @@ export function getContext(): AppContext {
     catalog: benefitSystemRepo,
     write: benefitWriteRepo,
   });
-  const learningPaymentService = new LearningPaymentService(learningOrdersRepo, learningMaterialsRepo);
   const servicePaymentService = new ServicePaymentService(serviceOrdersRepo, dbPool);
   const trainingPaymentService = new TrainingPaymentService(trainingRepo); // ARCH-PN 新增
-  const orchestrator = new PaymentOrchestrator(paymentService, learningPaymentService, paymentsRepo, learningOrdersRepo, trainingRepo, servicePaymentService, serviceOrdersRepo, paymentHistoryRepo, {
+  const orchestrator = new PaymentOrchestrator(paymentService, paymentsRepo, trainingRepo, servicePaymentService, serviceOrdersRepo, paymentHistoryRepo, {
     catalog: benefitSystemRepo,
     write: benefitWriteRepo,
   });
 
   // ARCH-PN（2026-09-11）：策略注册收归 Orchestrator 统一管理。
-  // orchestrator.registerStrategy() 内部自动向 paymentService / learningPaymentService
-  // 注入策略解析闭包，无需再分别调用各子服务的 registerStrategy()。
+  // orchestrator.registerStrategy() 内部自动向各子服务注入策略解析闭包，
+  // 无需再分别调用各子服务的 registerStrategy()。
   orchestrator.registerStrategy("mock", new MockProvider());
   if (paymentMode === "live") {
     const alipayAppId = process.env.ALIPAY_APP_ID || "";
@@ -262,8 +254,8 @@ export function getContext(): AppContext {
     dbPool,
     notice: { dbPool, detailRepo, accessGrantRepo, translationRepo, interactionRepo, feedbackRepo, favoriteRepo },
     payment: {
-      dbPool, paymentService, learningPaymentService, trainingPaymentService, servicePaymentService, orchestrator, paymentMode,
-      paymentsRepo, learningOrdersRepo, serviceOrdersRepo, paymentHistoryRepo,
+      dbPool, paymentService, trainingPaymentService, servicePaymentService, orchestrator, paymentMode,
+      paymentsRepo, serviceOrdersRepo, paymentHistoryRepo,
     },
     user: { dbPool, usersRepo, authRepo, keywordGroupsRepo, invitationRepo },
     supplier: { dbPool, directoryRepo, claimRepo, industryRepo },

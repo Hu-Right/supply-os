@@ -38,9 +38,8 @@ export const NAV_TABS: NavTab[] = [
   // ── 暂时下架：研修班 /training（2026-11-20 老板决策：研修班入口并入 /ecosystem 第三方服务模块）──
   // 落地页路由与直达网址保留，仅导航不挂载；恢复方式：取消下行注释并补回 GraduationCap 导入。
   // { path: "/training", labelKey: "navTraining", shortLabelKey: "navShortTraining", icon: GraduationCap },
-  // ── 暂时下架：知识中心 /learning、工作台 /crm ──
+  // ── 暂时下架：工作台 /crm ──
   // 按需求不在页面导航挂载（工作台尚未完善）；页面文件与直接网址均保留，未删除。
-  // 恢复方式：取消以下两行注释，并把 BookOpen / Briefcase 补回上方 lucide-react 导入。
-  // { path: "/learning", labelKey: "navKnowledgeCenter", shortLabelKey: "navShortKnowledge", icon: BookOpen },
+  // 恢复方式：取消下行注释，并把 Briefcase 补回上方 lucide-react 导入。
   // { path: "/crm", labelKey: "navWorkbench", shortLabelKey: "navShortWorkbench", icon: Briefcase, alert: true },
 ];

@@ -99,15 +99,11 @@ export async function createOrder(
 
   try {
     let result: OrderInfo;
+    // 2026-11-26：学习资料 / 打包套餐业务已下线，不再接受这两类商品下单。
     if (productKind === PRODUCT_KIND.MATERIAL || productKind === PRODUCT_KIND.BUNDLE) {
-      result = await ctx.payment.learningPaymentService.createOrder({
-        userId,
-        planCode,
-        provider,
-        returnUrl: String(body.return_url || ""),
-        clientIp,
-      });
-    } else if (productKind === PRODUCT_KIND.SERVICE) {
+      return fail(404, EC_PAYMENT_MATERIAL_NOT_FOUND, "学习资料业务已下线");
+    }
+    if (productKind === PRODUCT_KIND.SERVICE) {
       // ⚠ serviceCode 传原码（svc_ 属于 SKU 码本身，不能剥前缀）
       result = await ctx.payment.servicePaymentService.createOrder({
         userId,
@@ -175,8 +171,6 @@ export async function orderViewOf(result: OrderInfo, paymentMode: "live" | "mock
 const SUPPORTED_KINDS: ReadonlyArray<ProductKind> = [
   PRODUCT_KIND.PLAN,
   PRODUCT_KIND.SERVICE,
-  PRODUCT_KIND.MATERIAL,
-  PRODUCT_KIND.BUNDLE,
 ];
 
 export type TranslateResult =
@@ -188,7 +182,6 @@ export type TranslateResult =
  *
  * 约定：`product_code` 传**目录主键**——
  * - plan / service：原样（service 的 `svc_` 属于码本身）
- * - material / bundle：不带命名空间前缀（本函数补），传了带前缀的也认（先剥再补，幂等）
  *
  * 翻译后**回判一次类型**：kind 与 code 对不上直接 400，不让它走到服务层才报
  * 「套餐不存在」那种误导性错误。
@@ -205,14 +198,7 @@ export function translateProductRequest(input: Record<string, unknown>): Transla
     };
   }
 
-  let planCode: string;
-  if (kind === PRODUCT_KIND.MATERIAL) {
-    planCode = code.startsWith("material_") ? code : `material_${code}`;
-  } else if (kind === PRODUCT_KIND.BUNDLE) {
-    planCode = code.startsWith("bundle_") ? code : `bundle_${code}`;
-  } else {
-    planCode = code;
-  }
+  const planCode = code;
 
   // 回判：kind 与最终码形必须一致（防 kind=plan 却传了 svc_x 这类错配）
   if (classifyProductCode(planCode) !== kind) {

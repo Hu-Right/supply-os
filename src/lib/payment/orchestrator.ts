@@ -18,9 +18,7 @@
 import type { PaymentProviderName } from "../types/payment";
 import type { PaymentStrategy } from "./types";
 import type { PaymentService } from "./PaymentService";
-import type { LearningPaymentService } from "./learning-payment";
 import type { PaymentsRepo } from "../repos/payments.repo";
-import type { LearningOrdersRepo } from "../repos/learning-orders.repo";
 import type { ServicePaymentService } from "./service-payment";
 import type { ServiceOrdersRepo } from "../repos/service-orders.repo";
 import type { TrainingRepo } from "../repos/training.repo";
@@ -97,9 +95,7 @@ export class PaymentOrchestrator {
 
   constructor(
     private paymentService: PaymentService,
-    private learningPaymentService: LearningPaymentService,
     private paymentsRepo: PaymentsRepo,
-    private learningOrdersRepo: LearningOrdersRepo,
     private trainingRepo: TrainingRepo,
     private servicePaymentService: ServicePaymentService,
     private serviceOrdersRepo: ServiceOrdersRepo,
@@ -122,9 +118,6 @@ export class PaymentOrchestrator {
     this.paymentService.setStrategyResolver({
       getStrategy: (p) => this.getStrategy(p),
       hasStrategy: (p) => this.hasStrategy(p),
-    });
-    this.learningPaymentService.setStrategyResolver({
-      getStrategy: (p) => this.getStrategy(p),
     });
     this.servicePaymentService.setStrategyResolver({
       getStrategy: (p) => this.getStrategy(p),
@@ -187,17 +180,10 @@ export class PaymentOrchestrator {
     // 按前缀路由至对应业务
     const business = getOrderBusiness(verifyResult.order_no);
     switch (business) {
-      case "learning": {
-        const dbOrder = await this.learningOrdersRepo.findOrderAmount(verifyResult.order_no);
-        if (!dbOrder) {
-          return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
-        }
-        if (dbOrder.amount > 0 && Math.abs(dbOrder.amount - callbackAmount) > 0.01) {
-          return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_MISMATCH" };
-        }
-        await this.learningPaymentService.fulfillOrder(verifyResult.order_no, verifyResult.provider_trade_no);
-        return { success: true, order_no: verifyResult.order_no };
-      }
+      // 2026-11-26：学习资料业务已下线（LE 订单与 material/bundle 商品均不再产生）。
+      // 历史 LE 订单一律按不存在处理，且不再回落到会员履约分支，避免误激活。
+      case "learning":
+        return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
 
       case "training": {
         // ARCH-P0（2026-09-05）：培训订单回调履约通道
@@ -256,7 +242,7 @@ export class PaymentOrchestrator {
     const business = getOrderBusiness(orderNo);
     switch (business) {
       case "learning":
-        return this.learningPaymentService.queryOrder(orderNo, providerTradeNo);
+        return { orderNo, status: "closed" };
       case "training": {
         const order = await this.trainingRepo.findOrderByNo(orderNo);
         if (!order) return { orderNo, status: "closed" };
@@ -280,16 +266,8 @@ export class PaymentOrchestrator {
   async refundOrder(orderNo: string): Promise<{ success: boolean; order_no: string; message: string }> {
     const business = getOrderBusiness(orderNo);
     switch (business) {
-      case "learning": {
-        const result = await this.learningPaymentService.reverseOrder(orderNo);
-        if (!result.found) {
-          return { success: false, order_no: orderNo, message: "ORDER_NOT_FOUND" };
-        }
-        return {
-          success: true, order_no: orderNo,
-          message: result.reversed ? "REFUND_REVERSED" : "REFUND_NO_ACTION",
-        };
-      }
+      case "learning":
+        return { success: false, order_no: orderNo, message: "ORDER_NOT_FOUND" };
       case "training": {
         // ARCH-P0（2026-09-05）：培训订单退款逆向
         const result = await this.trainingPaymentService.reverseOrder(orderNo);
@@ -331,10 +309,8 @@ export class PaymentOrchestrator {
   ): Promise<{ found: boolean; business: string }> {
     const business = getOrderBusiness(orderNo);
     switch (business) {
-      case "learning": {
-        const result = await this.learningPaymentService.fulfillMockOrder(orderNo, rawNotify);
-        return { found: result.found, business };
-      }
+      case "learning":
+        return { found: false, business };
       case "training": {
         const result = await this.trainingPaymentService.fulfillMockOrder(orderNo, rawNotify);
         return { found: result.found, business };
@@ -359,10 +335,8 @@ export class PaymentOrchestrator {
   async findOrder(orderNo: string): Promise<{ user_id: number; status: string } | null> {
     const business = getOrderBusiness(orderNo);
     switch (business) {
-      case "learning": {
-        const order = await this.learningOrdersRepo.findByOrderNo(orderNo);
-        return order ? { user_id: order.user_id!, status: order.status } : null;
-      }
+      case "learning":
+        return null;
       case "training": {
         const order = await this.trainingRepo.findOrderByNo(orderNo);
         return order ? { user_id: order.user_id!, status: order.status } : null;

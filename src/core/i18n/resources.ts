@@ -18,7 +18,6 @@ import type zhCrm from "./locales/zh/crm.json";
 import type zhErrors from "./locales/zh/errors.json";
 import type zhSupplier from "./locales/zh/supplier.json";
 import type zhServices from "./locales/zh/services.json";
-import type zhLearning from "./locales/zh/learning.json";
 import type zhTraining from "./locales/zh/training.json";
 import type zhUi from "./locales/zh/ui.json";
 
@@ -34,7 +33,6 @@ export type zh = Merge<
   typeof zhErrors &
   typeof zhSupplier &
   typeof zhServices &
-  typeof zhLearning &
   typeof zhTraining &
   typeof zhUi
 >;

@@ -31,7 +31,7 @@ describe("diagnosis V5 constants", () => {
     const target = DIAGNOSIS_V5_FIELD_MAP["target_markets"];
     expect(target.required).toBe(true);
     expect(target.scored).toBe(false);
-    expect(target.options).toHaveLength(16);
+    expect(target.options).toHaveLength(27); // 2026-11-26：认证字典 150 条启用后市场码由 16 扩至 27
   });
 
   it("multi-select scores by option points, capped at 5", () => {

@@ -31,7 +31,7 @@ export async function loadLanguage(lang: Locale): Promise<Record<string, string>
   const cached = cache.get(lang);
   if (cached) return cached;
 
-  const [common, procurement, auth, payment, membership, crm, supplier, services, learning, training, errors, ui] =
+  const [common, procurement, auth, payment, membership, crm, supplier, services, training, errors, ui] =
     await Promise.all([
       import(`./locales/${lang}/common.json`),
       import(`./locales/${lang}/procurement.json`),
@@ -41,7 +41,6 @@ export async function loadLanguage(lang: Locale): Promise<Record<string, string>
       import(`./locales/${lang}/crm.json`),
       import(`./locales/${lang}/supplier.json`),
       import(`./locales/${lang}/services.json`),
-      import(`./locales/${lang}/learning.json`),
       import(`./locales/${lang}/training.json`),
       import(`./locales/${lang}/errors.json`),
       import(`./locales/${lang}/ui.json`),
@@ -56,7 +55,6 @@ export async function loadLanguage(lang: Locale): Promise<Record<string, string>
     ...crm.default,
     ...supplier.default,
     ...services.default,
-    ...learning.default,
     ...training.default,
     ...errors.default,
     ...ui.default,

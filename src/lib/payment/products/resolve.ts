@@ -3,24 +3,19 @@
  * Product pricing resolvers
  *
  * @module lib/payment/products/resolve
- * @description 四种商品的定价此前各写在各自的 createOrder 里，四套「取价 + 取名 + 币种默认」
+ * @description 三种商品的定价此前各写在各自的 createOrder 里，几套「取价 + 取名 + 币种默认」
  *              逻辑互不相识：
  *              - 会员套餐 → plan_catalog（经 BenefitSystemRepo.getPlan）
  *              - 增值服务 → service_catalog（内联 SQL，且 sale_mode/price_from 有额外语义）
- *              - 学习资料 / 打包 → learning_materials（DB）/ learning-bundles（静态 TS）
  *              - 培训课程 → training_courses.unit_price
  *
- *              **分工原则**：调用方手里已经有目录行的，本模块只提供**纯映射**
- *              （`planProductOf` / `serviceProductOf` / `courseProductOf`）——它们除了取价还要
- *              用整行做别的判断（升级差价、年包抵扣、课程 id、名额），再查一次库纯属浪费；
- *              调用方只有「码」没有行的（学习类），提供 **async 解析**（`resolveLearningProduct`）。
+ *              （2026-11-26：学习资料 / 打包套餐业务已下线，对应解析分支与静态套餐表一并移除。）
  *
  *              **业务判定与错误码仍留调用方**：四家错误码不同、先后顺序也不同，见 types.ts。
  */
 import "server-only";
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { PRODUCT_KIND, classifyProductCode, stripProductPrefix } from "@/shared/constants/product-kind";
-import { findLearningBundle } from "../../data/learning-bundles";
+import { PRODUCT_KIND } from "@/shared/constants/product-kind";
 import type {
   ProductResolution,
   ProductUnavailableReason,
@@ -47,13 +42,6 @@ export interface ServicePriceInput {
   price_from: number | string | null;
   is_active: number;
   name_zh: string | null;
-}
-
-/** learning_materials 行的定价相关子集 */
-export interface MaterialPriceInput {
-  title_zh?: string | null;
-  title_en?: string | null;
-  price: number | string;
 }
 
 /** training_courses 行的定价相关子集 */
@@ -124,53 +112,6 @@ export function serviceProductOf(
     saleMode: svc.sale_mode,
     priceSource: "service_catalog",
   };
-}
-
-/**
- * 学习资料 / 打包套餐：调用方只有码、没有行，故本函数自己查。
- * 码形即类型，前缀判定与剥前缀都由 product-kind 统一提供。
- * 币种硬编码 CNY（两张表都没有币种列，原实现同样写死）。
- */
-export async function resolveLearningProduct(
-  planCode: string,
-  findMaterial: (materialId: string) => Promise<MaterialPriceInput | null>,
-): Promise<ProductResolution> {
-  const kind = classifyProductCode(planCode);
-
-  if (kind === PRODUCT_KIND.MATERIAL) {
-    const material = await findMaterial(stripProductPrefix(planCode));
-    if (!material) return missing("material_not_found");
-    const product: ResolvedProduct = {
-      kind,
-      code: planCode,
-      // 与原实现一致：中文名 → 英文名 → 原码
-      name: material.title_zh || material.title_en || planCode,
-      unitPrice: Number(material.price),
-      priceRaw: String(material.price),
-      currency: DEFAULT_CURRENCY,
-      sellable: true,
-      priceSource: "learning_material",
-    };
-    return { ok: true, product };
-  }
-
-  if (kind === PRODUCT_KIND.BUNDLE) {
-    const bundle = findLearningBundle(stripProductPrefix(planCode));
-    if (!bundle) return missing("bundle_not_found");
-    const product: ResolvedProduct = {
-      kind,
-      code: planCode,
-      name: bundle.labelZh,
-      unitPrice: bundle.price,
-      priceRaw: String(bundle.price),
-      currency: DEFAULT_CURRENCY,
-      sellable: true,
-      priceSource: "learning_bundle",
-    };
-    return { ok: true, product };
-  }
-
-  return missing("invalid_kind");
 }
 
 /**

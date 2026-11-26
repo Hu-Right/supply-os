@@ -1,12 +1,12 @@
-import { EC_ACCESS_FORBIDDEN } from "@/shared/constants/api";
 /**
  * 三个「服务给具名类型、路由整块透出」端点的信封键集合钉（命名红线② B 组收敛·第六批）。
  *
  * 这一批的形态和前几批不同：不是列名上网，而是 **路由把服务出口结构直接当响应体**——
  * 服务类型加一个字段，wire 就多一个对外键，静态面与探针都只能事后发现。
  * 三种处理各按各的分层：
- *   - catalog/country-name-map、learning/materials/[id]/content：路由原本就在「透出一个
+ *   - catalog/country-name-map：路由原本就在「透出一个
  *     固定形状的对象」，改成显式列举不搬动任何映射 → 盲区不成立，登记删除。
+ *     （原 learning/materials/[id]/content 同批处理，2026-11-26 学习资料业务下线后一并移除。）
  *   - user/keyword-groups：映射本就在仓储出口（`listByUser` 把 created_at/updated_at
  *     换成 camel 并解析 JSON terms），路由要列举就得给数组元素再写一遍 mapper，
  *     那是把映射搬回路由（违反分层）→ 所以只升 A，不删行。
@@ -19,7 +19,6 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   buildCountryNameMaps: vi.fn(),
-  getMaterialContent: vi.fn(),
   requireUserKeyOrThrow: vi.fn(),
   isEntitled: vi.fn(),
   listByUser: vi.fn(),
@@ -39,15 +38,11 @@ vi.mock("@/lib/db/context", () => ({
 vi.mock("@/lib/services/country/alias-store", () => ({
   buildCountryNameMaps: mocks.buildCountryNameMaps,
 }));
-vi.mock("@/lib/services/learning-service", () => ({
-  getMaterialContent: mocks.getMaterialContent,
-}));
 vi.mock("@/lib/middleware/auth", () => ({
   requireUserKeyOrThrow: mocks.requireUserKeyOrThrow,
 }));
 
 import { GET as countryMapGET } from "@/app/api/catalog/country-name-map/route";
-import { GET as materialContentGET } from "@/app/api/learning/materials/[materialId]/content/route";
 import { GET as keywordGroupsGET, POST as keywordGroupsPOST } from "@/app/api/user/keyword-groups/route";
 
 const SNAKE_KEY = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/;
@@ -79,51 +74,6 @@ describe("GET /api/catalog/country-name-map", () => {
     // 映射内部的 key 是国家名/区域名（数据键），大小写与重音都得原样留着
     expect(Object.keys(body.countries).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=86400");
-  });
-});
-
-describe("GET /api/learning/materials/[materialId]/content", () => {
-  it("只发四键；null 仍占位（前端据此判有无附件），服务内部字段不上网", async () => {
-    mocks.getMaterialContent.mockResolvedValue({
-      contentZh: "正文", contentEn: "Body", fileUrl: null, fileName: null,
-      materialId: "M-1", isPremium: 1,
-    });
-
-    const res = await materialContentGET(
-      req("/api/learning/materials/M1/content"),
-      { params: Promise.resolve({ materialId: "M1" }) } as never,
-    );
-    const body = await res.json();
-
-    expect(body).toEqual({ contentZh: "正文", contentEn: "Body", fileUrl: null, fileName: null });
-    // 默认字典序按码点比：大写 N 小于大写 U，所以 fileName 排在 fileUrl 前
-    expect([...Object.keys(body)].sort()).toEqual(["contentEn", "contentZh", "fileName", "fileUrl"]);
-    expect("fileUrl" in body).toBe(true);
-  });
-
-  it("服务抛付费墙（401/403）→ 走标准错误 envelope，不混进裸载荷", async () => {
-    mocks.getMaterialContent.mockRejectedValue({ status: 403, code: 40301, message: "请先购买后查看" });
-
-    const res = await materialContentGET(
-      req("/api/learning/materials/M1/content"),
-      { params: Promise.resolve({ materialId: "M1" }) } as never,
-    );
-    const body = await res.json();
-
-    expect(res.status).toBe(403);
-    expect(body.code).toBe(EC_ACCESS_FORBIDDEN);
-    expect(body.message).toBe("请先购买后查看");
-    expect(body.error).toMatchObject({ type: "access_forbidden", status: 403 });
-    expect(body.detail).toEqual({});
-  });
-
-  it("materialId 为空 → 400（参数校验在取数之前，不触服务）", async () => {
-    const res = await materialContentGET(
-      req("/api/learning/materials//content"),
-      { params: Promise.resolve({ materialId: "" }) } as never,
-    );
-    expect(res.status).toBe(400);
-    expect(mocks.getMaterialContent).not.toHaveBeenCalled();
   });
 });
 

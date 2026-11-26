@@ -29,7 +29,6 @@ const BANNER_BY_PATH: Record<string, BannerConfig> = {
   "/procurement": { titleKey: "procurementNoticePoolTitle" },
   "/supplier": { titleKey: "supplierMgmtTitle", descKey: "tabSupplierDesc" },
   "/crm": { titleKey: "crmDashboard", descKey: "tabCrmDesc" },
-  "/learning": { titleKey: "learningTitle", descKey: "tabLearningDesc" },
 };
 
 export function SessionBanner() {

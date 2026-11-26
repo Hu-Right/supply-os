@@ -220,9 +220,8 @@ export class TrainingRepo {
     return rows as EnrollmentRow[];
   }
 
-  // 下载计数单一权威源：learning_materials.downloads_count（由 /api/training/downloads/track 直接递增）。
-  // 旧 training_download_stats 并行计数（incrementDownloadCount / listDownloadStats）及其 stats 端点无消费方，已移除。
-  // 表本身保留（历史数据），如需清理另走迁移。
+  // 2026-11-26：学习资料业务下线（learning_materials 表已删、下载计数端点已移除）。
+  // 历史 training_download_stats 表保留（历史数据），无运行时消费方。
 
   // ── 落地页动态内容：课程 + 期次（报名支付依据）；讲师/团队/照片/反馈/FAQ 已前端静态化 ──
 

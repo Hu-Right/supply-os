@@ -86,21 +86,7 @@ describe("POST /api/orders 商品码翻译", () => {
     expect(arg).not.toHaveProperty("notice_id");
   });
 
-  it("kind=material：裸目录主键自动补命名空间前缀", async () => {
-    await POST(post({ product_kind: "material", product_code: "training-doc-04", provider: "mock" }));
-    expect(mocks.createLearningOrder.mock.calls[0][0]).toMatchObject({ planCode: "material_training-doc-04" });
-  });
-
-  it("kind=material：已带前缀时不重复补（幂等）", async () => {
-    await POST(post({ product_kind: "material", product_code: "material_training-doc-04", provider: "mock" }));
-    expect(mocks.createLearningOrder.mock.calls[0][0]).toMatchObject({ planCode: "material_training-doc-04" });
-  });
-
-  it("kind=bundle：补 bundle_ 前缀", async () => {
-    await POST(post({ product_kind: "bundle", product_code: "bundle-all", provider: "mock" }));
-    expect(mocks.createLearningOrder.mock.calls[0][0]).toMatchObject({ planCode: "bundle_bundle-all" });
-  });
-
+  // 2026-11-26：学习资料 / 打包套餐业务下线，material/bundle 的商品码翻译用例移除。
   it("kind=service：svc_ 属于 SKU 码本身，原样下发不剥不补", async () => {
     await POST(post({ product_kind: "service", product_code: "svc_ai_tender_analysis", provider: "mock" }));
     expect(mocks.createServiceOrder.mock.calls[0][0]).toMatchObject({ serviceCode: "svc_ai_tender_analysis" });

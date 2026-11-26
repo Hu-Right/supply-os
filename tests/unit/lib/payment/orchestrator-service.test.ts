@@ -42,11 +42,11 @@ function makeOrchestrator(opts: {
     created_at: new Date("2026-09-03T07:00:00Z"), updated_at: null, expires_at: null,
   }];
   const noop = async () => undefined;
+  // 2026-11-26：学习资料业务下线后 orchestrator 去掉 learningPaymentService / learningOrdersRepo
+  // 两个构造参数（现为 7 参）。
   const orch = new PaymentOrchestrator(
     { queryOrder: noop } as never,
-    { queryOrder: noop } as never,
     { findByOrderNo: async () => null } as never,
-    { findByUserId: async () => [], countByUserId: async () => 0 } as never,
     {
       findOrdersByUserId: async () => [],
       countOrdersByUserId: async () => 0,

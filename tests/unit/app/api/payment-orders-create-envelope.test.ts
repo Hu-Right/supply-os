@@ -15,7 +15,6 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   createMembershipOrder: vi.fn(),
-  createLearningOrder: vi.fn(),
   createServiceOrder: vi.fn(),
   hasStrategy: vi.fn(),
   toQrDataUrl: vi.fn(),
@@ -28,7 +27,6 @@ vi.mock("@/lib/db/context", () => ({
     payment: {
       paymentMode: paymentMode.mode,
       paymentService: { hasStrategy: mocks.hasStrategy, createOrder: mocks.createMembershipOrder },
-      learningPaymentService: { createOrder: mocks.createLearningOrder },
       servicePaymentService: { createOrder: mocks.createServiceOrder },
     },
   }),
@@ -99,28 +97,7 @@ describe("POST /api/payment/orders 建单信封", () => {
     expect(body.paymentMode).toBe("mock");
   });
 
-  it("学习资料单：服务只给 8 键时，未提供的可选契约键直接不出现（不造 null 占位）", async () => {
-    mocks.createLearningOrder.mockResolvedValue({
-      orderNo: "LE20261028A0002",
-      provider: "mock",
-      amount: 99,
-      currency: "CNY",
-      payUrl: "https://gateway.example/pay",
-      qrCodeUrl: undefined,
-      status: "pending",
-      createdAt: "2026-10-28T01:00:00.000Z",
-    });
-
-    const body = await (await POST(post({ plan_code: "material_001", provider: "mock" }))).json();
-
-    expect([...Object.keys(body)].sort()).toEqual(CONTRACT_KEYS_MIN);
-    expect("noticeId" in body).toBe(false);
-    expect("planCode" in body).toBe(false);
-    // qrCodeUrl 服务没给 → 路由算出 null 仍占位（前端据此判有无二维码）
-    expect(body.qrCodeUrl).toBeNull();
-    expect(mocks.createLearningOrder).toHaveBeenCalledTimes(1);
-  });
-
+  // 2026-11-26：学习资料单用例随业务下线移除。
   it("增值服务单走 servicePaymentService，出同一契约形状", async () => {
     mocks.createServiceOrder.mockResolvedValue({
       orderNo: "SV20261028A0003", provider: "mock", amount: 3000, currency: "CNY",
