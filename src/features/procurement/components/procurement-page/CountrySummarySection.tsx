@@ -1,3 +1,4 @@
+// i18n-allow-file: 国别页服务端直出摘要（SEO 首屏），站点为单语言中文站（ADR-0024），文案不随界面语言切换
 /**
  * 国别筛选页摘要块（`/procurement?country=XX`）
  *
