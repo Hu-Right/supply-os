@@ -233,5 +233,19 @@
   "tlTeam5Name": "Equipo E",
   "tlTeam6Name": "Equipo F",
   "tlTeam7Name": "Equipo G",
-  "tlTeam8Name": "Equipo H"
+  "tlTeam8Name": "Equipo H",
+  "trainingFormCompanyName": "Nombre de la empresa *",
+  "trainingFormMainProduct": "Productos principales *",
+  "trainingFormExportExperience": "Experiencia de exportación",
+  "trainingFormSelectExport": "Seleccionar experiencia",
+  "trainingFormCertifications": "Certificaciones (selección múltiple)",
+  "trainingFormOtherCertPlaceholder": "Otras certificaciones, p. ej. BSCI-A level, SLCP, GRS, TCCC",
+  "trainingFormContactName": "Nombre del asistente *",
+  "trainingFormSchedule": "Sesión de formación *",
+  "trainingFormSchedulePlaceholder": "Seleccione una sesión",
+  "trainingFormPosition": "Cargo",
+  "trainingFormPhone": "Número de teléfono *",
+  "trainingFormEmail": "Correo electrónico",
+  "trainingFormRemark": "Observaciones",
+  "trainingFormRemarkPlaceholder": "Necesidades de formación, mercado objetivo, agencia de la ONU de interés, etc."
 }

@@ -233,5 +233,19 @@
   "tlTeam5Name": "Elbek",
   "tlTeam6Name": "Honey",
   "tlTeam7Name": "Nuozi",
-  "tlTeam8Name": "Meien"
+  "tlTeam8Name": "Meien",
+  "trainingFormCompanyName": "Company Name *",
+  "trainingFormMainProduct": "Main Products *",
+  "trainingFormExportExperience": "Export Experience",
+  "trainingFormSelectExport": "Select experience",
+  "trainingFormCertifications": "Certifications (multi-select)",
+  "trainingFormOtherCertPlaceholder": "Other certifications, e.g. BSCI-A level, SLCP, GRS, TCCC",
+  "trainingFormContactName": "Attendee Name *",
+  "trainingFormSchedule": "Training session *",
+  "trainingFormSchedulePlaceholder": "Select a session",
+  "trainingFormPosition": "Job Title",
+  "trainingFormPhone": "Phone Number *",
+  "trainingFormEmail": "Email",
+  "trainingFormRemark": "Remarks",
+  "trainingFormRemarkPlaceholder": "Training needs, target market, UN agency of interest, etc."
 }

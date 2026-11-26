@@ -233,5 +233,19 @@
   "tlTeam5Name": "Команда Д",
   "tlTeam6Name": "Команда Е",
   "tlTeam7Name": "Команда Ж",
-  "tlTeam8Name": "Команда З"
+  "tlTeam8Name": "Команда З",
+  "trainingFormCompanyName": "Название компании *",
+  "trainingFormMainProduct": "Основная продукция *",
+  "trainingFormExportExperience": "Опыт экспорта",
+  "trainingFormSelectExport": "Выберите опыт",
+  "trainingFormCertifications": "Сертификаты (множественный выбор)",
+  "trainingFormOtherCertPlaceholder": "Другие сертификаты, напр. BSCI-A level, SLCP, GRS, TCCC",
+  "trainingFormContactName": "Имя участника *",
+  "trainingFormSchedule": "Период обучения *",
+  "trainingFormSchedulePlaceholder": "Выберите период",
+  "trainingFormPosition": "Должность",
+  "trainingFormPhone": "Номер телефона *",
+  "trainingFormEmail": "Эл. почта",
+  "trainingFormRemark": "Примечания",
+  "trainingFormRemarkPlaceholder": "Потребности в обучении, целевой рынок, интересующее агентство ООН и т. д."
 }

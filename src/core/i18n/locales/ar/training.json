@@ -233,5 +233,19 @@
   "tlTeam5Name": "الفريق هـ",
   "tlTeam6Name": "الفريق و",
   "tlTeam7Name": "الفريق ز",
-  "tlTeam8Name": "الفريق ح"
+  "tlTeam8Name": "الفريق ح",
+  "trainingFormCompanyName": "اسم الشركة *",
+  "trainingFormMainProduct": "المنتجات الرئيسية *",
+  "trainingFormExportExperience": "خبرة التصدير",
+  "trainingFormSelectExport": "اختر الخبرة",
+  "trainingFormCertifications": "الشهادات (اختيار متعدد)",
+  "trainingFormOtherCertPlaceholder": "شهادات أخرى، مثل BSCI-A level، SLCP، GRS، TCCC",
+  "trainingFormContactName": "اسم الحاضر *",
+  "trainingFormSchedule": "الدورة التدريبية *",
+  "trainingFormSchedulePlaceholder": "اختر الدورة",
+  "trainingFormPosition": "المسمّى الوظيفي",
+  "trainingFormPhone": "رقم الهاتف *",
+  "trainingFormEmail": "البريد الإلكتروني",
+  "trainingFormRemark": "ملاحظات",
+  "trainingFormRemarkPlaceholder": "احتياجات التدريب، السوق المستهدف، وكالة الأمم المتحدة محل الاهتمام، إلخ."
 }
