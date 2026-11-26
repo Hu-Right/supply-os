@@ -28,6 +28,10 @@ import { countryParam } from "@/lib/services/seo/country-slug";
 import { noticeTypeCodeLabel } from "@/shared/utils/notice-type";
 import { countryName } from "@/shared/constants/countries";
 import { formatNoticeUTCDate, formatNoticeDate, formatNoticeCstDate, resolveNoticeDeadlineTs, UNPUBLISHED_LABEL } from "@/shared/utils/notice-datetime/format";
+import { NoticeBasicInfoCard, NoticeSectionHeader } from "@/features/procurement/components/NoticeBasicInfoCard";
+import { buildNoticeTeaser } from "@/shared/utils/text-preview";
+import { industryDisplayName } from "@/shared/utils/industry-section";
+import { calendarDaysLeftCst, sanitizeEpochSec } from "@/shared/utils/unixTs";
 
 export const revalidate = 3600;
 
@@ -68,10 +72,15 @@ interface NoticeSeoRow extends RowDataPacket {
   deadline_timezone: string | null;
   timezone_source: string | null;
   estimated_value: string | null;
+  industry: string | null;
   published_date: string | null;
+  /** 服务表行刷新水位（epoch 秒）：正文/截止/机构被对账修正后前移 */
+  updated_at: number | null;
   description: string | null;
   /** 中文摘要（同样只在公开 300 字内截断） */
   description_cn: string | null;
+  /** SQL LEFT(300) 是否已截断原文（决定概况是否补省略号） */
+  description_truncated: number | null;
 }
 
 /**
@@ -178,16 +187,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-function MetaItem({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="mt-1 text-sm font-medium text-slate-800">{value}</dd>
-    </div>
-  );
-}
-
 export default async function NoticeSeoPage({ params }: PageProps) {
   const { id: raw } = await params;
   const id = parseNoticeId(raw);
@@ -205,9 +204,29 @@ export default async function NoticeSeoPage({ params }: PageProps) {
   const countryHref = row.country_code
     ? `/procurement?country=${encodeURIComponent(countryParam(row.country_code))}`
     : null;
-  const summary = buildSummary(row);
   // 中文优先：与登录后详情同一规则（title_cn 有效则用中文，否则回退原文）
   const displayTitle = pickDisplayTitle(row);
+  // 剩余天数：与详情页同一日历口径（北京时间），页面是 ISR 3600s，只精确到「天」。
+  const deadlineEpoch = resolveNoticeDeadlineTs({
+    state: row.deadline_state,
+    effectiveTs: row.effective_ts,
+    fallbackSec: row.deadline_sec,
+  });
+  const daysLeft = deadlineEpoch ? calendarDaysLeftCst(deadlineEpoch * 1000) : null;
+  // 公告概况：公开面唯一的正文片段（300 字），句末截断避免硬切半句。
+  const overview = buildNoticeTeaser(pickDisplaySummary(row, 300), {
+    limit: 300,
+    truncated: !!Number(row.description_truncated ?? 0),
+  });
+  // 品目（采购类别）：服务表 industry 是 canonical slug，展示层映射为中文标签。
+  const industry = industryDisplayName(row.industry, "zh");
+  // 页面最后一次被改动的时间：服务表 updated_at（对账修正正文/截止/机构后前移）与发布日期取大者。
+  // 只写进 JSON-LD 给搜索引擎/AI 判断时效，不在页面上展示给用户。
+  const lastModifiedEpoch = Math.max(
+    sanitizeEpochSec(row.published_ts),
+    sanitizeEpochSec(row.updated_at),
+  );
+  const dateModified = lastModifiedEpoch > 0 ? formatNoticeUTCDate(lastModifiedEpoch) : null;
   // 同国家相关公告：详情页是 4 万条公告的入口，必须给出「下一步」，不能只进不出。
   const related = row.country_code
     ? await getContext()
@@ -235,8 +254,10 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       name: displayTitle,
       url,
       description: buildSummary(row),
-      // 采购公告是强时效内容，显式给出发布/更新时间便于结果页与 AI 判断时效
-      ...(row.published_date ? { datePublished: row.published_date, dateModified: row.published_date } : {}),
+      // 采购公告是强时效内容：发布日与最后改动日分开给，AI/结果页才能判断「这页是否被更正过」。
+      // dateModified 取服务表 updated_at（对账修正后前移），不能再用发布日期——否则改过的公告永远显示「没更新」。
+      ...(row.published_date ? { datePublished: row.published_date } : {}),
+      ...(dateModified ? { dateModified } : {}),
       publisher: {
         "@type": "Organization",
         name: "云境·国际采购平台",
@@ -249,7 +270,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
   ];
 
   return (
-    <article className="mx-auto max-w-4xl space-y-6 py-4">
+    <article className="mx-auto max-w-4xl space-y-4 py-4">
       {/* JSON-LD 防注入（审查 F43）：标题等来自采集数据，`</script>` 可闭合标签
           执行任意 JS；JSON.stringify 不转义 <，必须替换为 unicode 转义 */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
@@ -257,16 +278,16 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       {/* 面包屑 */}
       <nav aria-label="面包屑" className="text-sm text-slate-500">
         <ol className="flex flex-wrap items-center gap-2">
-          <li><Link href="/" className="hover:text-training-green">首页</Link></li>
+          <li><Link href="/" className="hover:text-teal-700">首页</Link></li>
           <li aria-hidden>/</li>
-          <li><Link href="/procurement" className="hover:text-training-green">全球商机</Link></li>
+          <li><Link href="/procurement" className="hover:text-teal-700">全球商机</Link></li>
           <li aria-hidden>/</li>
           {country && countryHref && (
             <>
               <li>
                 <Link
                   href={countryHref}
-                  className="hover:text-training-green"
+                  className="hover:text-teal-700"
                 >
                   {country}
                 </Link>
@@ -278,92 +299,93 @@ export default async function NoticeSeoPage({ params }: PageProps) {
         </ol>
       </nav>
 
-      {/* 标题 + 类型徽标 */}
+      {/* 标题（类型/国家等已在下方「基本信息」，不再出来回重复的徽标排） */}
       <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {noticeTypeCodeLabel(row.notice_type) && (
-            <span className="inline-block rounded-full bg-training-green/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-training-green">
-              {noticeTypeCodeLabel(row.notice_type)}
-            </span>
-          )}
-          {expired && (
-            <span className="inline-block rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
-              已截止
-            </span>
-          )}
-        </div>
+        {expired && (
+          <span className="inline-block border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">
+            已截止
+          </span>
+        )}
         <h1 dir="auto" className="text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{displayTitle}</h1>
       </header>
 
-      {/* 要点（AI 可直接摘录的结构化事实）：采购方 / 国家 / 类型 / 截止 / 预算 / 编号 */}
-      <section aria-labelledby="notice-key-points" className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-        <h2 id="notice-key-points" className="text-base font-bold text-slate-900">要点</h2>
-        <p className="mt-2 text-sm leading-relaxed text-slate-700">{summary}</p>
-        <p className="mt-2 text-xs leading-relaxed text-slate-500">
-          {row.agency ? `采购方为 ${row.agency}` : "采购方未公开"}
-          {country ? `，位于 ${country}` : ""}
-          {noticeTypeCodeLabel(row.notice_type) ? `，公告类型为 ${noticeTypeCodeLabel(row.notice_type)}` : ""}
-          ，截止时间 ${deadline}
-          {row.estimated_value ? `，预算/金额 ${row.estimated_value}` : ""}
-          {row.reference ? `，公告编号 ${row.reference}` : ""}
-          ，来源编号 {row.notice_id}。完整描述、采购方联系方式与采购文件需登录后查看；公告原文以官方采购系统为准。
-        </p>
-      </section>
+      {/* 基本信息：与登录后详情页共用同一张表（NoticeBasicInfoCard）。
+          来源平台属 VIP，公开页不传 → 不渲染该行。 */}
+      <NoticeBasicInfoCard
+        labels={{
+          title: "基本信息",
+          reference: "参考编号",
+          buyer: "机构",
+          country: "国家/地区",
+          noticeType: "采购类型",
+          publishDate: "发布时间",
+          deadline: "截止时间",
+          industry: "行业",
+          budget: "预算/金额",
+          sourcePlatform: "来源平台",
+        }}
+        reference={row.reference || row.notice_id}
+        buyer={row.agency || row.agency_full || "未公开"}
+        country={country}
+        noticeType={noticeTypeCodeLabel(row.notice_type) || row.notice_type || "-"}
+        publishDate={formatNoticeDate(row.published_date) || "-"}
+        deadline={
+          <>
+            {deadline}
+            {daysLeft != null && daysLeft >= 0 ? (
+              <span className="ml-2 whitespace-nowrap text-[11px] font-bold text-rose-500">
+                {daysLeft === 0 ? "今天截止" : `剩余 ${daysLeft} 天`}
+              </span>
+            ) : null}
+          </>
+        }
+        industry={industry}
+        budget={row.estimated_value ?? null}
+        budgetPlaceholder="预算待定"
+      />
 
-      {/* 公开元信息 */}
-      <dl className="grid grid-cols-2 gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:grid-cols-3">
-        <MetaItem label="采购方" value={row.agency || row.agency_full} />
-        <MetaItem label="机构全称" value={row.agency && row.agency_full && row.agency_full !== row.agency ? row.agency_full : null} />
-        <MetaItem label="国家/地区" value={countryLabel(row)} />
-        <MetaItem label="截止时间" value={deadline} />
-        <MetaItem label="发布时间" value={formatNoticeDate(row.published_date)} />
-        <MetaItem label="公告编号" value={row.reference} />
-        <MetaItem label="预算/金额" value={row.estimated_value} />
-        <MetaItem label="来源编号" value={row.notice_id} />
-      </dl>
-
-      {/* 公开 teaser（中文优先，仍固定 300 字上限；付费边界不变） */}
-      {pickDisplaySummary(row) && (
-        <section className="space-y-2">
-          <h2 className="text-lg font-bold text-slate-900">公告概况</h2>
-          <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600">{pickDisplaySummary(row)}</p>
+      {/* 公告概况：公开面唯一放行的正文片段（300 字），句末截断 + 渐隐 */}
+      {overview ? (
+        <section className="border border-slate-200 bg-white">
+          <NoticeSectionHeader title="公告概况" />
+          <div className="relative px-4 py-3 sm:px-5">
+            <p dir="auto" className="whitespace-pre-line break-words text-sm leading-7 text-slate-600">
+              {overview}
+            </p>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
+          </div>
         </section>
-      )}
+      ) : null}
 
-      {/* 登录 CTA —— 完整公告内容/联系人/文档需登录后查看（2026-10-29：不再用「解锁」旧口径） */}
-      <section className="rounded-2xl border border-training-green/20 bg-training-green/5 p-6">
-        <h2 className="text-base font-bold text-slate-900">查看完整公告</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          完整描述、联系方式与采购文件需登录后查看。
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link
-            href={`/procurement/notice/${row.id}/detail?from=${encodeURIComponent(`/procurement/notice/${row.id}`)}`}
-            className="rounded-lg bg-training-green px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-training-green-hover"
-          >
-            打开公告详情
-          </Link>
-          <Link
-            href="/procurement"
-            className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:border-training-green/40 hover:text-training-green"
-          >
-            搜索全部公告
-          </Link>
-        </div>
+      {/* 登录 CTA —— 与详情页锁定提示同形制（琥珀色提示条 + 主按钮） */}
+      <section className="flex flex-wrap items-center gap-x-3 gap-y-2 border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-800">
+        <span className="shrink-0">完整公告内容、联系人与采购文件需登录后查看</span>
+        <Link
+          href="/procurement"
+          className="ml-auto text-amber-700 underline-offset-2 hover:underline"
+        >
+          搜索全部公告
+        </Link>
+        <Link
+          href={`/procurement/notice/${row.id}/detail?from=${encodeURIComponent(`/procurement/notice/${row.id}`)}`}
+          className="rounded bg-amber-500 px-3 py-1.5 font-bold text-white transition-colors hover:bg-amber-600"
+        >
+          打开公告详情
+        </Link>
       </section>
 
       {/* 相关公告：把单条公告接回同国别关系网，给 AI 与用户「下一步」 */}
       {related.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-bold text-slate-900">同国家/地区的其他公告</h2>
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+          <h2 className="text-base font-bold text-slate-900">同国家/地区的其他公告</h2>
+          <ul className="divide-y divide-slate-100 overflow-hidden border border-slate-200 bg-white">
             {related.map((item) => {
               const ts = Number(item.deadline_ts) || 0;
               return (
                 <li key={String(item.id)} className="px-5 py-3">
                   <Link
                     href={`/procurement/notice/${item.id}`}
-                    className="block text-sm font-semibold leading-snug text-slate-800 hover:text-training-green"
+                    className="block text-sm font-semibold leading-snug text-slate-800 hover:text-teal-700"
                   >
                     {String(item.title)}
                   </Link>
@@ -377,7 +399,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
           {country && countryHref && (
             <Link
               href={countryHref}
-              className="inline-block text-sm font-semibold text-training-green hover:underline"
+              className="inline-block text-sm font-semibold text-teal-700 hover:underline"
             >
               查看 {country} 全部公告 →
             </Link>

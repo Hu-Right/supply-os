@@ -235,6 +235,8 @@
   "detail_qualEmptyEligibility": "Aucune condition d'éligibilité spécifique — reportez-vous aux documents originaux",
   "detail_qualEmptyHurdles": "Aucun obstacle technique spécifique — reportez-vous aux documents originaux",
   "detail_countdownDays": "{days} j",
+  "detail_overview": "Aperçu",
+  "detail_overviewIntro": "Il s'agit d'un avis de type {type} de {country}, acheteur : {buyer}. Extrait original ci-dessous :",
   "detail_buyer": "Agence",
   "detail_countryRegion": "Pays/Région",
   "detail_sourcePlatform": "Plateforme source",

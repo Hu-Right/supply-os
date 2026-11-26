@@ -169,6 +169,8 @@ export default defineConfig({
         "src/features/procurement/hooks/search/useSearchFormState.ts",
         // 中标情报页视图模型（真实数据派生 + 诚实空态，纯函数）
         "src/features/procurement/awards/awardViewModel.ts",
+        // 公告「基本信息」表（详情页与 SEO 公开页共用，版式契约测试覆盖）
+        "src/features/procurement/components/NoticeBasicInfoCard.tsx",
 
         // ── src/features/home — 组件（有测试）──
         // 热门标签分流路由（品类 ?commodity= / 国家 ?country=，2026-10-22 修复）
@@ -205,6 +207,8 @@ export default defineConfig({
         "src/shared/utils/enterprise-status.ts",
         "src/shared/utils/unixTs.ts",
         "src/shared/utils/advanced-syntax.ts",
+        // 锁定态公告概况的截断规则（句末标点 > 空格 > 硬切）
+        "src/shared/utils/text-preview.ts",
         // 公告日期唯一识别器（2026-11-13 三套解析器收敛；classify/display/build 三 profile 的公共底座）
         "src/shared/utils/notice-datetime/source-date.ts",
         "src/shared/ui/Button.tsx",

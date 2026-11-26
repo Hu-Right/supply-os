@@ -235,6 +235,8 @@
   "detail_qualEmptyEligibility": "No se indican requisitos de elegibilidad específicos; consulte los documentos originales",
   "detail_qualEmptyHurdles": "No se indican barreras técnicas específicas; consulte los documentos originales",
   "detail_countdownDays": "{days}d",
+  "detail_overview": "Resumen",
+  "detail_overviewIntro": "Este es un aviso de tipo {type} de {country}; el comprador es {buyer}. Extracto original a continuación:",
   "detail_buyer": "Agencia",
   "detail_countryRegion": "País/Región",
   "detail_sourcePlatform": "Plataforma de origen",

@@ -108,7 +108,9 @@ export class NoticeDetailRepo {
          p.deadline_ts, p.deadline_ts AS effective_ts,
          p.deadline_state, p.deadline_type, p.deadline_timezone, p.timezone_source,
          p.estimated_value,
+         p.industry,
          p.published_ts,
+         p.updated_at,
          LEFT(p.description, ${WIDE_LIMITS.lockedTeaser}) AS description,
          LEFT(p.description_cn, ${WIDE_LIMITS.lockedTeaser}) AS description_cn,
          CASE WHEN LENGTH(p.description) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated

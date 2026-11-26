@@ -235,6 +235,8 @@
   "detail_qualEmptyEligibility": "لا توجد متطلبات أهلية محددة — يُرجى الرجوع إلى المستندات الأصلية",
   "detail_qualEmptyHurdles": "لا توجد عوائق تقنية محددة — يُرجى الرجوع إلى المستندات الأصلية",
   "detail_countdownDays": "{days} ي",
+  "detail_overview": "نظرة عامة",
+  "detail_overviewIntro": "هذا إشعار من نوع {type} من {country}، والجهة المشترية هي {buyer}. فيما يلي مقتطف من النص الأصلي:",
   "detail_buyer": "الوكالة",
   "detail_countryRegion": "الدولة/المنطقة",
   "detail_sourcePlatform": "منصة المصدر",

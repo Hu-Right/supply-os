@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
+import {
+  toUnixMs,
+  calendarDaysLeftCst,
+  sanitizeEpochSec,
+  EPOCH_SEC_MIN,
+  EPOCH_SEC_MAX,
+} from "@/shared/utils/unixTs";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -79,5 +85,30 @@ describe("calendarDaysLeftCst", () => {
     vi.setSystemTime(new Date("2026-12-31T05:00:00Z")); // 北京 13:00
     // 2027-01-01 10:00 北京 = 2027-01-01T02:00Z
     expect(calendarDaysLeftCst(Date.parse("2027-01-01T02:00:00Z"))).toBe(1);
+  });
+});
+
+describe("sanitizeEpochSec", () => {
+  it("合法 epoch 秒原样返回（取整）", () => {
+    expect(sanitizeEpochSec(1_796_000_000)).toBe(1_796_000_000);
+    expect(sanitizeEpochSec("1796000000.9")).toBe(1_796_000_000);
+  });
+
+  it("YYYYMMDDHHMMSS 形态的脏值返回 0（实测 20261030012）", () => {
+    expect(sanitizeEpochSec(20_261_030_012)).toBe(0);
+    expect(sanitizeEpochSec("20261030012753")).toBe(0);
+  });
+
+  it("早于 2000 年与晚于 2100 年都视为无效", () => {
+    expect(sanitizeEpochSec(EPOCH_SEC_MIN - 1)).toBe(0);
+    expect(sanitizeEpochSec(EPOCH_SEC_MAX + 1)).toBe(0);
+    expect(sanitizeEpochSec(EPOCH_SEC_MIN)).toBe(EPOCH_SEC_MIN);
+  });
+
+  it("空值/非数值返回 0", () => {
+    expect(sanitizeEpochSec(null)).toBe(0);
+    expect(sanitizeEpochSec(undefined)).toBe(0);
+    expect(sanitizeEpochSec("")).toBe(0);
+    expect(sanitizeEpochSec("abc")).toBe(0);
   });
 });

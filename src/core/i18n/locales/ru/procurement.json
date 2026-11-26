@@ -235,6 +235,8 @@
   "detail_qualEmptyEligibility": "Конкретные требования к участникам не указаны — см. исходные документы",
   "detail_qualEmptyHurdles": "Конкретные технические барьеры не указаны — см. исходные документы",
   "detail_countdownDays": "{days} д",
+  "detail_overview": "Обзор",
+  "detail_overviewIntro": "Это извещение типа {type} из {country}; заказчик — {buyer}. Ниже приведён фрагмент оригинала:",
   "detail_buyer": "Агентство",
   "detail_countryRegion": "Страна/Регион",
   "detail_sourcePlatform": "Платформа-источник",

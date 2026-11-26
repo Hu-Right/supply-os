@@ -268,6 +268,8 @@
   "aiScoreCriteriaDelivery": "Pre-submission review process and English Q&A capability vs the notice's schedule, clarification meetings and milestones",
   "aiScoreCriteriaPrice": "Cost computation, FOB/CIF/DDP pricing capability and acceptance of payment terms beyond 30 days vs the notice's budget and payment terms",
   "detail_countdownDays": "{days}d",
+  "detail_overview": "Overview",
+  "detail_overviewIntro": "This is a {type} notice from {country}; the buyer is {buyer}. Original excerpt below:",
   "detail_buyer": "Agency",
   "detail_countryRegion": "Country/Region",
   "detail_sourcePlatform": "Source Platform",

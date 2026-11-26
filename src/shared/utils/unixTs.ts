@@ -35,6 +35,29 @@ function cstDayStart(ms: number): number {
 }
 
 /**
+ * 合法 epoch 秒区间：2000-01-01 ~ 2100-01-01。
+ *
+ * 主表 `bid_notices.update_time` 存在 `YYYYMMDDHHMMSS` 形态的脏值（实测 `20261030012`），
+ * 经服务表构建原样写进 `notice_public.updated_at`，再被 sitemap 的 `lastmod` 与
+ * 页面 JSON-LD 的 `dateModified` 格式化 → 输出「2612-01-18」这类未来日期。
+ * 对外时间戳一律先过本区间，超出即视为无效（调用方回退或忽略）。
+ */
+export const EPOCH_SEC_MIN = 946_684_800;
+export const EPOCH_SEC_MAX = 4_102_444_800;
+
+/**
+ * 把任意输入收敛成合法 epoch 秒；脏值/空值/超范围一律返回 0（由调用方决定回退）。
+ * 注意不在这里做「> now 视为未来」判断：未来截止日合法，但未来「更新时间」不合法，
+ * 两者由不同调用方各自约束。
+ */
+export function sanitizeEpochSec(value: unknown): number {
+  if (value == null || value === "") return 0;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return n >= EPOCH_SEC_MIN && n <= EPOCH_SEC_MAX ? Math.floor(n) : 0;
+}
+
+/**
  * 剩余日历天数（CST 时区）：截止日与今天的日历差。
  *
  * 与 formatDeadlineZh 的相对日期标签同口径：截止"明天 08:00"返回 1

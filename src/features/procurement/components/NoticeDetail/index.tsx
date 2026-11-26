@@ -20,6 +20,7 @@ import { useAiAnalysis } from "../../hooks/useAiAnalysis";
 import { noticeTypeKey } from "@/shared/utils/notice-type";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { NoticeDescriptionSection } from "../NoticeDescriptionSection";
+import { NoticeBasicInfoCard } from "../NoticeBasicInfoCard";
 import { NoticeDetailSidebar } from "../NoticeDetailSidebar";
 import { AiSummarySection } from "../AiSummarySection";
 import { getCountdown } from "@/shared/utils/countdown";
@@ -27,6 +28,7 @@ import { formatNoticeTs } from "@/shared/utils/notice-datetime/format";
 import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
 import { formatNoticeAmount, formatNoticeDeadline, formatNoticeDeadlineLocal, formatNoticeReference } from "../../utils/noticeDisplay";
 import { industryDisplayName } from "@/shared/utils/industry-section";
+import { buildNoticeTeaser } from "@/shared/utils/text-preview";
 import { ShareModal } from "./ShareModal";
 import { QualificationTab } from "./QualificationTab";
 import { BuyerContactsTab } from "./BuyerContactsTab";
@@ -109,6 +111,12 @@ export function NoticeDetail({
   // 不再依赖单条解锁记录（服务端同样按权益放行），避免出现“权益已包含却仍显示解锁”。
   const accessIncluded = gates?.notice_view === "free" || gates?.notice_view === "included";
   const coreAccessible = notice.coreLocked === false || accessIncluded;
+  /**
+   * 锁定态版式（2026-11-26 用户口径）：只展示标题 + 基本信息 + 公告概况 + 锁定提示，
+   * 正文/联系人/投标材料/AI 拆解一律不渲染——此前它们是「一排锁定空壳」，占屏且无信息。
+   * 例外见各区块：独立权益（资格条件/原始文件/相似机会）已开通的账号仍渲染对应区块。
+   */
+  const locked = !coreAccessible;
   // 资格条件走独立权益格（qualification_access）：matrix 给 free 打开时，
   // 即使正文仍锁定，也应直接展示资格条件（detail 只回资格字段，coreLocked=true）。
   const qualificationAccessible =
@@ -207,6 +215,19 @@ export function NoticeDetail({
   const descIsLong = descRaw.length > DESC_COLLAPSE_THRESHOLD;
   const descShown = descIsLong && !descExpanded ? descRaw.slice(0, DESC_COLLAPSE_THRESHOLD) : descRaw;
 
+  // 锁定态概况：上游 SQL 已按 300 字截断，这里只把截断点收敛到句末（避免半句+硬切），
+  // 再配渐隐与 CTA。300 字本就公开（列表载荷/SEO 公开页同一段），不构成泄付费内容。
+  const overview = locked
+    ? buildNoticeTeaser(descRaw, {
+        limit: 300,
+        // 列表载荷的 description 就是 SQL LEFT(300) 的结果，长度顶到 300 即视为已截断
+        // （descriptionTruncated 只在详情接口回包里有，锁定态拿不到）。
+        truncated: !!notice.descriptionTruncated || descRaw.length >= 300,
+      })
+    : "";
+  // 摘要无中文时给一行中文事实引导（原文可能是葡/挪/西语），不臆造译文。
+  const overviewNeedsIntro = !!overview && !/[\u4e00-\u9fff]/.test(overview);
+
   const typeKey = noticeTypeKey(notice.noticeTypeCode);
   const visibleAgency = locale === "zh"
     ? (notice.buyerNameCn || notice.buyerName || t("procurement_buyerUnavailable"))
@@ -226,7 +247,6 @@ export function NoticeDetail({
   const industryLabel = industryDisplayName(notice.industry, locale);
   // 字段存在性（数据自适应）：缺失字段整行/整块不渲染，不留空值占位
   const hasBudget = !!budgetText;
-  const hasIndustry = !!industryLabel;
   const countryLabel = getCountryDisplayName(notice.countryCode || "", locale);
   const platformText = notice.platform
     ? (locale !== "zh" ? notice.platform.canonical : (notice.platform.zh || notice.platform.canonical))
@@ -267,7 +287,7 @@ export function NoticeDetail({
         <span className="font-medium text-slate-700">{t("detail_breadcrumbDetail")}</span>
       </nav>
 
-      {/* 标题 + 标签 + 操作 */}
+      {/* 标题 + 操作（标签排已并入下方基本信息，2026-11-26） */}
       <section className="border border-slate-200 bg-white">
         <div className="px-4 py-4 sm:px-5">
           <div className="flex items-start gap-4">
@@ -308,76 +328,72 @@ export function NoticeDetail({
             </div>
           </div>
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="border border-teal-200 bg-teal-50 px-2 py-0.5 font-bold text-teal-700">{typeLabel}</span>
-            {countryLabel ? (
-              <span className="border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">{countryLabel}</span>
-            ) : null}
-            {countdown ? (
-              <span className="border border-rose-200 bg-rose-50 px-2 py-0.5 font-bold text-rose-600">
-                {t("detail_countdownDays", { days: countdown.days })} {countdown.time}
-              </span>
-            ) : null}
-            {platformText ? (
-              <span className="border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">
-                {t("detail_sourcePlatform")}：{platformText}
-              </span>
-            ) : null}
-          </div>
+          {/* 标题下的标签排已删除（2026-11-26）：类型/国家/倒计时/来源平台都已在下方
+              「基本信息」表格里，重复展示只会把首屏拉长。来源平台属 VIP，只在解锁后有值，
+              由表格的条件行承载；倒计时并入「截止时间」单元格。 */}
 
         </div>
       </section>
 
-      {/* 基本信息（字段存在性驱动） */}
-      <section className="border border-slate-200 bg-white">
-        <SectionHeader title={t("settingsBasicInfo")} />
-        <table className="w-full border-collapse text-[13px]">
-          <tbody>
-            <tr className="border-b border-slate-100">
-              <th scope="row" className="w-[92px] border-r border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500 sm:w-[110px]">
-                {t("detail_reference")}
-              </th>
-              <td className="px-3 py-2">{refNode}</td>
-              <th scope="row" className="w-[92px] border-r border-l border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500 sm:w-[110px]">
-                {t("detail_buyer")}
-              </th>
-              <td className="px-3 py-2 font-bold text-slate-800">{visibleAgency}</td>
-            </tr>
-            <tr className="border-b border-slate-100">
-              <th scope="row" className="border-r border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
-                {t("detail_countryRegion")}
-              </th>
-              <td className="px-3 py-2 text-slate-700">{countryLabel || "-"}</td>
-              <th scope="row" className="border-r border-l border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
-                {t("detail_procurementType")}
-              </th>
-              <td className="px-3 py-2 text-slate-700">{typeLabel}</td>
-            </tr>
-            <tr className="border-b border-slate-100">
-              <th scope="row" className="border-r border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
-                {t("detail_publishDate")}
-              </th>
-              <td className="px-3 py-2 text-slate-700">{publishDate}</td>
-              <th scope="row" className="border-r border-l border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
-                {t("detail_deadline")}
-              </th>
-              <td className="px-3 py-2 font-bold text-rose-600">{deadlineDisplay}</td>
-            </tr>
-            {(hasIndustry || hasBudget) && (
-              <tr>
-                <th scope="row" className="border-r border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
-                  {t("supplierTabIndustry")}
-                </th>
-                <td className="px-3 py-2 text-slate-700">{industryLabel ?? "—"}</td>
-                <th scope="row" className="border-r border-l border-slate-100 bg-slate-50/60 px-3 py-2 text-left font-normal text-slate-500">
-                  {t("detail_budgetAmount")}
-                </th>
-                <td className="px-3 py-2 font-bold text-teal-700">{hasBudget ? budgetText : t("procurement_budgetPending")}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </section>
+      {/* 基本信息：与 SEO 公开页共用同一张表（NoticeBasicInfoCard），避免两套版式 */}
+      <NoticeBasicInfoCard
+        labels={{
+          title: t("settingsBasicInfo"),
+          reference: t("detail_reference"),
+          buyer: t("detail_buyer"),
+          country: t("detail_countryRegion"),
+          noticeType: t("detail_procurementType"),
+          publishDate: t("detail_publishDate"),
+          deadline: t("detail_deadline"),
+          industry: t("supplierTabIndustry"),
+          budget: t("detail_budgetAmount"),
+          sourcePlatform: t("detail_sourcePlatform"),
+        }}
+        reference={refNode}
+        buyer={visibleAgency}
+        country={countryLabel || null}
+        noticeType={typeLabel}
+        publishDate={publishDate}
+        deadline={
+          <>
+            {deadlineDisplay}
+            {countdown ? (
+              <span className="ml-2 whitespace-nowrap text-[11px] font-bold text-rose-500">
+                {t("detail_countdownDays", { days: countdown.days })} {countdown.time}
+              </span>
+            ) : null}
+          </>
+        }
+        industry={industryLabel}
+        budget={hasBudget ? budgetText : null}
+        budgetPlaceholder={t("procurement_budgetPending")}
+        platform={coreAccessible ? platformText || null : null}
+      />
+
+      {/* 锁定态公告概况：唯一放行的正文片段（300 字 teaser），句末截断 + 渐隐 + CTA。
+          正文/联系人/文件/AI 一律不渲染，避免「一排锁定空壳」占屏。 */}
+      {locked ? (
+        <section className="border border-slate-200 bg-white">
+          <SectionHeader title={t("detail_overview")} />
+          <div className="relative px-4 py-3 sm:px-5">
+            {overviewNeedsIntro ? (
+              <p className="mb-2 text-xs text-slate-500">
+                {t("detail_overviewIntro", {
+                  country: countryLabel || "—",
+                  type: typeLabel,
+                  buyer: visibleAgency,
+                })}
+              </p>
+            ) : null}
+            <p dir="auto" className="whitespace-pre-line break-words text-sm leading-7 text-slate-600">
+              {overview || t("procurement_noDesc")}
+            </p>
+            {overview ? (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {/* 锁定态提示（免费注册用户）：会员态不渲染 */}
       {!coreAccessible && (
@@ -402,44 +418,48 @@ export function NoticeDetail({
         </div>
       ) : null}
 
-      {/* 区块锚点导航 */}
-      <nav className="sticky top-2 z-20 flex gap-1 overflow-x-auto border border-slate-200 bg-white/95 px-2 py-1.5 backdrop-blur">
-        {SECTION_NAV.map(([id, key]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => scrollToSection(id)}
-            className="shrink-0 rounded px-2.5 py-1 text-xs font-bold text-slate-500 transition-colors hover:bg-teal-50 hover:text-teal-700"
-          >
-            {t(key)}
-          </button>
-        ))}
-      </nav>
+      {/* 区块锚点导航：锁定态只剩「概况」一块，锚点无意义，整体不渲染 */}
+      {!locked && (
+        <nav className="sticky top-2 z-20 flex gap-1 overflow-x-auto border border-slate-200 bg-white/95 px-2 py-1.5 backdrop-blur">
+          {SECTION_NAV.map(([id, key]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => scrollToSection(id)}
+              className="shrink-0 rounded px-2.5 py-1 text-xs font-bold text-slate-500 transition-colors hover:bg-teal-50 hover:text-teal-700"
+            >
+              {t(key)}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {/* 单栏全宽内容（长页面用顶部 sticky 锚点导航定位） */}
       <main className="min-w-0 space-y-4">
-          {/* 采购摘要（AI 摘要 + 锁态提示由子组件处理） */}
-          <section id="section-summary">
-            <AiSummarySection
-              data={aiSummary.data}
-              loading={aiSummary.loading}
-              streaming={aiSummary.streaming}
-              error={aiSummary.error}
-              llmConfigured={aiSummary.llmConfigured}
-              locked={!coreAccessible}
-              upgradeLocked={coreAccessible && !aiSummaryEnabled}
-              accessPending={accessPending}
-              masked={aiSummary.masked}
-              onUpgrade={() => router.push("/membership")}
-              onStart={() => aiSummary.triggerAnalysis(false)}
-              onConfigure={() => router.push("/settings/ai-model")}
-              onRequestAccess={() => onAccess(notice)}
-              onRegenerate={() => aiSummary.triggerAnalysis(true)}
-            />
-          </section>
+          {/* 采购摘要（AI 摘要 + 锁态提示由子组件处理）：锁定态整块不渲染（2026-11-26） */}
+          {!locked && (
+            <section id="section-summary">
+              <AiSummarySection
+                data={aiSummary.data}
+                loading={aiSummary.loading}
+                streaming={aiSummary.streaming}
+                error={aiSummary.error}
+                llmConfigured={aiSummary.llmConfigured}
+                locked={false}
+                upgradeLocked={!aiSummaryEnabled}
+                accessPending={accessPending}
+                masked={aiSummary.masked}
+                onUpgrade={() => router.push("/membership")}
+                onStart={() => aiSummary.triggerAnalysis(false)}
+                onConfigure={() => router.push("/settings/ai-model")}
+                onRequestAccess={() => onAccess(notice)}
+                onRegenerate={() => aiSummary.triggerAnalysis(true)}
+              />
+            </section>
+          )}
 
-          {/* 采购说明（长文折叠 + 译文切换） */}
-          {!awaitingFullText && (
+          {/* 采购说明（长文折叠 + 译文切换）：锁定态改由上方「公告概况」承担 */}
+          {!locked && !awaitingFullText && (
             <section id="section-desc" className="border border-slate-200 bg-white">
               <SectionHeader title={t("procurement_description")} />
               <div className="px-4 py-3 sm:px-5">
@@ -466,54 +486,63 @@ export function NoticeDetail({
             </section>
           )}
 
-          {/* 资格条件（会员态结构化 / 锁态锁定面板由子组件处理） */}
-          <section id="section-qual">
-            <QualificationTab
-              notice={notice}
-              coreAccessible={coreAccessible}
-              qualificationAccessible={qualificationAccessible}
-              isVip={isVip}
-            />
-          </section>
+          {/* 资格条件：独立权益格（qualification_access）。锁定态只有已开通的账号才渲染，
+              否则一张锁着的资格面板只是占屏（2026-11-26） */}
+          {(!locked || qualificationAccessible) && (
+            <section id="section-qual">
+              <QualificationTab
+                notice={notice}
+                coreAccessible={coreAccessible}
+                qualificationAccessible={qualificationAccessible}
+                isVip={isVip}
+              />
+            </section>
+          )}
 
-          {/* 联系人 */}
-          <section id="section-buyer">
-            <BuyerContactsTab notice={notice} coreAccessible={coreAccessible} />
-          </section>
+          {/* 联系人：付费内容，锁定态不渲染 */}
+          {!locked && (
+            <section id="section-buyer">
+              <BuyerContactsTab notice={notice} coreAccessible={coreAccessible} />
+            </section>
+          )}
 
-          {/* 投标材料 */}
-          <section id="section-files">
-            <FilesTab
-              notice={notice}
-              coreAccessible={coreAccessible}
-              filesAccessible={fileAccessible}
-              isVip={isVip}
-              userId={userId}
-              onAccess={onAccess}
-              gates={membership?.gates}
-            />
-          </section>
+          {/* 投标材料：独立权益格（original_file_access）；锁定态仅已开通账号渲染 */}
+          {(!locked || fileAccessible) && (
+            <section id="section-files">
+              <FilesTab
+                notice={notice}
+                coreAccessible={coreAccessible}
+                filesAccessible={fileAccessible}
+                isVip={isVip}
+                userId={userId}
+                onAccess={onAccess}
+                gates={membership?.gates}
+              />
+            </section>
+          )}
 
-          {/* AI 智能匹配 */}
-          <section id="section-ai" className="space-y-2">
-            {aiMatchEnabled && (
-              <p className="text-xs font-bold text-slate-500" data-testid="ai-match-level">
-                {t(aiMatchLevelKey)}
-              </p>
-            )}
-            <AiEvaluationPanel
-              data={aiMatch.data}
-              loading={aiMatch.loading}
-              cacheLoading={aiMatch.cacheLoading}
-              error={aiMatch.error}
-              upgradeLocked={!aiMatchEnabled}
-              onStart={() => aiMatch.triggerMatch(false)}
-              onRegenerate={() => aiMatch.triggerMatch(true)}
-              onGoToPool={() => router.push("/settings/supplier-pool")}
-              onGoToEnterprise={() => router.push("/settings/enterprise")}
-              onEditDiag={() => router.push("/settings/supplier-pool")}
-            />
-          </section>
+          {/* AI 智能匹配：付费内容，锁定态不渲染 */}
+          {!locked && (
+            <section id="section-ai" className="space-y-2">
+              {aiMatchEnabled && (
+                <p className="text-xs font-bold text-slate-500" data-testid="ai-match-level">
+                  {t(aiMatchLevelKey)}
+                </p>
+              )}
+              <AiEvaluationPanel
+                data={aiMatch.data}
+                loading={aiMatch.loading}
+                cacheLoading={aiMatch.cacheLoading}
+                error={aiMatch.error}
+                upgradeLocked={!aiMatchEnabled}
+                onStart={() => aiMatch.triggerMatch(false)}
+                onRegenerate={() => aiMatch.triggerMatch(true)}
+                onGoToPool={() => router.push("/settings/supplier-pool")}
+                onGoToEnterprise={() => router.push("/settings/enterprise")}
+                onEditDiag={() => router.push("/settings/supplier-pool")}
+              />
+            </section>
+          )}
 
           {/* 相似机会 */}
           {similarAccessible && (
