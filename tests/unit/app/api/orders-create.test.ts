@@ -16,7 +16,6 @@ vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
   createMembershipOrder: vi.fn(),
-  createLearningOrder: vi.fn(),
   createServiceOrder: vi.fn(),
   hasStrategy: vi.fn(),
   toQrDataUrl: vi.fn(),
@@ -28,7 +27,6 @@ vi.mock("@/lib/db/context", () => ({
     payment: {
       paymentMode: "mock",
       paymentService: { hasStrategy: mocks.hasStrategy, createOrder: mocks.createMembershipOrder },
-      learningPaymentService: { createOrder: mocks.createLearningOrder },
       servicePaymentService: { createOrder: mocks.createServiceOrder },
     },
   }),
@@ -65,7 +63,6 @@ beforeEach(() => {
   mocks.hasStrategy.mockReturnValue(true);
   mocks.toQrDataUrl.mockResolvedValue("data:image/png;base64,generated");
   mocks.createMembershipOrder.mockResolvedValue(okResult());
-  mocks.createLearningOrder.mockResolvedValue(okResult({ orderNo: "LE20261112A0002" }));
   mocks.createServiceOrder.mockResolvedValue(okResult({ orderNo: "SV20261112A0003" }));
 });
 

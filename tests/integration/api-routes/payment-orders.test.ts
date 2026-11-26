@@ -2,10 +2,10 @@
  * POST /api/payment/orders 集成测试
  *
  * @description 覆盖创建支付订单的核心流程：
- *              - 学习资料订单（material_*）
- *              - 打包套餐订单（bundle_*）
- *              - 订单号前缀验证
+ *              - 增值服务订单（svc_*）
+ *              - 订单号 / 响应契约（订单号前缀、必填字段、paymentMode）
  *              Mock DB Pool 和支付策略，验证路由逻辑。
+ *              （2026-11-26：学习资料 / 打包套餐业务下线，material_x / bundle_x 用例移除）
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -66,14 +66,14 @@ vi.mock("@/lib/db/context", () => ({
         setStrategyResolver: vi.fn(),
         createOrder: vi.fn(),
       },
-      learningPaymentService: {
+      servicePaymentService: {
         hasStrategy: vi.fn().mockReturnValue(true),
         getStrategy: vi.fn().mockReturnValue(mockStrategy),
         setStrategyResolver: vi.fn(),
         createOrder: vi.fn().mockResolvedValue({
-          orderNo: "LE20260904TEST001",
+          orderNo: "SV20260904TEST001",
           provider: "mock",
-          amount: 99,
+          amount: 3000,
           currency: "CNY",
           payUrl: "/pay/mock",
           qrCodeUrl: "data:image/png;base64,mock_qr",
@@ -115,58 +115,11 @@ beforeEach(() => {
 });
 
 describe("POST /api/payment/orders", () => {
-  describe("学习资料订单（material_*）", () => {
-    it("成功创建学习资料订单", async () => {
-      const { POST } = await import("@/app/api/payment/orders/route");
-      const req = createOrderRequest({
-        plan_code: "material_001",
-        provider: "mock",
-      });
-
-      const res = await POST(req);
-      const body = await res.json();
-
-      expect(res.status).toBe(201);
-      expect(body.orderNo).toMatch(/^LE/);
-      expect(body.provider).toBe("mock");
-      expect(body.status).toBe("pending");
-    });
-
-    it("学习资料订单号以 LE 开头", async () => {
-      const { POST } = await import("@/app/api/payment/orders/route");
-      const req = createOrderRequest({
-        plan_code: "material_001",
-        provider: "mock",
-      });
-
-      const res = await POST(req);
-      const body = await res.json();
-
-      expect(body.orderNo).toMatch(/^LE\d{8}/);
-    });
-  });
-
-  describe("打包套餐订单（bundle_*）", () => {
-    it("成功创建打包套餐订单", async () => {
-      const { POST } = await import("@/app/api/payment/orders/route");
-      const req = createOrderRequest({
-        plan_code: "bundle_premium",
-        provider: "mock",
-      });
-
-      const res = await POST(req);
-      const body = await res.json();
-
-      expect(res.status).toBe(201);
-      expect(body.orderNo).toMatch(/^LE/);
-    });
-  });
-
   describe("订单响应格式", () => {
     it("返回包含必要字段", async () => {
       const { POST } = await import("@/app/api/payment/orders/route");
       const req = createOrderRequest({
-        plan_code: "material_001",
+        plan_code: "svc_report",
         provider: "mock",
       });
 
@@ -185,7 +138,7 @@ describe("POST /api/payment/orders", () => {
     it("mock 模式下 paymentMode 为 mock", async () => {
       const { POST } = await import("@/app/api/payment/orders/route");
       const req = createOrderRequest({
-        plan_code: "material_001",
+        plan_code: "svc_report",
         provider: "mock",
       });
 

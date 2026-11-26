@@ -11,7 +11,6 @@ vi.mock("@/lib/db/context", () => ({
     payment: {
       paymentMode: "mock",
       paymentService: { hasStrategy: vi.fn().mockReturnValue(true), createOrder: vi.fn() },
-      learningPaymentService: { createOrder: vi.fn() },
       servicePaymentService: { createOrder },
       orchestrator: { getStrategy: vi.fn(), hasStrategy: vi.fn().mockReturnValue(true) },
     },

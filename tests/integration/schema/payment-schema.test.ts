@@ -16,7 +16,6 @@ import { resolve } from "path";
 
 const REPOS = {
   membership: resolve(__dirname, "../../../src/lib/repos/payments.repo.ts"),
-  learning: resolve(__dirname, "../../../src/lib/repos/learning-orders.repo.ts"),
   service: resolve(__dirname, "../../../src/lib/repos/service-orders.repo.ts"),
   training: resolve(__dirname, "../../../src/lib/repos/training.repo.ts"),
 } as const;
@@ -42,7 +41,7 @@ function extractInsert(repoPath: string): InsertShape | null {
   };
 }
 
-describe("统一切表：四个仓储都必须写 orders", () => {
+describe("统一切表：三个仓储都必须写 orders", () => {
   it.each(Object.entries(REPOS))("%s 仓储存在写 orders 的 INSERT", (_name, path) => {
     expect(extractInsert(path)).not.toBeNull();
   });
@@ -70,29 +69,6 @@ describe("会员单（payments.repo）", () => {
 
   it("product_kind 字面量为 plan，状态落 pending", () => {
     expect(shape.values).toContain("'plan'");
-    expect(shape.values).toContain("'pending'");
-  });
-
-  it("不含已退役的 user_key", () => {
-    expect(shape.fields).not.toContain("user_key");
-  });
-});
-
-describe("学习单（learning-orders.repo）", () => {
-  const shape = extractInsert(REPOS.learning)!;
-
-  it("列集合覆盖已购商品与支付要素", () => {
-    for (const f of [
-      "order_no", "user_id", "product_kind", "product_code", "product_name",
-      "unit_price", "quantity", "amount", "currency", "provider", "status",
-      "pay_url", "qr_code_url", "raw_request",
-    ]) {
-      expect(shape.fields, `缺少字段: ${f}`).toContain(f);
-    }
-  });
-
-  it("product_kind 走占位符（material / bundle 由码形判定），状态落 pending", () => {
-    // 学习单的 kind 来自 classifyProductCode，不是字面量
     expect(shape.values).toContain("'pending'");
   });
 
