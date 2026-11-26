@@ -174,7 +174,7 @@ export class SupplierDirectoryRepo {
        ORDER BY id DESC
        LIMIT 500`,
     );
-    return rows as SupplierDirectoryRow[];
+    return (await attachCertificationText(this.pool, rows as SupplierDirectoryRow[])) as SupplierDirectoryRow[];
   }
 
   /**
@@ -192,7 +192,7 @@ export class SupplierDirectoryRepo {
     const { excludeId, industryCode, countryCode } = params;
     const limit = Math.max(1, Math.min(Math.floor(params.limit), 12));
     const baseCols = `s.id, s.company, s.country, s.country_code, s.province, s.city,
-              s.products, s.industry_code, s.data_quality_score, s.certification`;
+              s.products, s.industry_code, s.data_quality_score`;
     const baseWhere = `s.info_review_status = 'reviewed' AND s.company <> '测试' AND s.id <> ?`;
     if (industryCode) {
       const [rows] = await this.pool.query(
@@ -203,7 +203,7 @@ export class SupplierDirectoryRepo {
           LIMIT ?`,
         [excludeId, `${industryCode}%`, limit],
       );
-      return rows as SupplierDirectoryRow[];
+      return (await attachCertificationText(this.pool, rows as SupplierDirectoryRow[])) as SupplierDirectoryRow[];
     }
     if (countryCode) {
       const [rows] = await this.pool.query(
@@ -214,7 +214,7 @@ export class SupplierDirectoryRepo {
           LIMIT ?`,
         [excludeId, countryCode, limit],
       );
-      return rows as SupplierDirectoryRow[];
+      return (await attachCertificationText(this.pool, rows as SupplierDirectoryRow[])) as SupplierDirectoryRow[];
     }
     return [];
   }
@@ -250,7 +250,7 @@ export class SupplierDirectoryRepo {
     const safeLimit = Math.max(1, Math.min(Math.floor(limit), 200));
     const [rows] = await this.pool.query(
       `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city,
-              s.products, s.industry_code, s.data_quality_score, s.certification
+              s.products, s.industry_code, s.data_quality_score
          FROM supplier s
          JOIN supplier_backbone_interests bi ON bi.supplier_id = s.id AND bi.supplier_table = 'supplier'
         WHERE bi.code IN (?) AND s.info_review_status = 'reviewed'
@@ -260,7 +260,7 @@ export class SupplierDirectoryRepo {
         LIMIT ?`,
       [[...codes], excludeId, safeLimit],
     );
-    return rows as SupplierDirectoryRow[];
+    return (await attachCertificationText(this.pool, rows as SupplierDirectoryRow[])) as SupplierDirectoryRow[];
   }
 
   /** 相似供应商召回 B：同行业 L2 前缀子树（全码前缀会因主码层级过深而 0 命中） */
@@ -274,7 +274,7 @@ export class SupplierDirectoryRepo {
     const safeLimit = Math.max(1, Math.min(Math.floor(limit), 200));
     const [rows] = await this.pool.query(
       `SELECT s.id, s.company, s.country, s.country_code, s.province, s.city,
-              s.products, s.industry_code, s.data_quality_score, s.certification
+              s.products, s.industry_code, s.data_quality_score
          FROM supplier s
         WHERE s.info_review_status = 'reviewed' AND s.company <> '测试' AND s.id <> ?
           AND s.industry_code LIKE ?
@@ -282,7 +282,7 @@ export class SupplierDirectoryRepo {
         LIMIT ?`,
       [excludeId, `${p}%`, safeLimit],
     );
-    return rows as SupplierDirectoryRow[];
+    return (await attachCertificationText(this.pool, rows as SupplierDirectoryRow[])) as SupplierDirectoryRow[];
   }
 
   /** 批量取候选企业的品目码（相似度打分用；避免逐家查） */
