@@ -16,11 +16,7 @@
 import "server-only";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { PRODUCT_KIND } from "@/shared/constants/product-kind";
-import type {
-  ProductResolution,
-  ProductUnavailableReason,
-  ResolvedProduct,
-} from "./types";
+import type { ResolvedProduct } from "./types";
 
 // ── 注入行的结构型（不 import repos，避免 products→repos 的反向耦合）──
 
@@ -54,7 +50,6 @@ export interface CoursePriceInput {
 
 const DEFAULT_CURRENCY = "CNY";
 
-const missing = (reason: ProductUnavailableReason): ProductResolution => ({ ok: false, reason });
 
 /**
  * 会员套餐：定价来自 plan_catalog。
