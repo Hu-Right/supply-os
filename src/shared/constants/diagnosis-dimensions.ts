@@ -334,6 +334,17 @@ export const QUAL_MARKET_SCOPES: readonly QualMarketScope[] = [
   { code: "TH", labelZh: "泰国", labelEn: "Thailand", labelKey: "diagMarketTH" },
   { code: "ID", labelZh: "印度尼西亚", labelEn: "Indonesia", labelKey: "diagMarketID" },
   { code: "NG", labelZh: "尼日利亚", labelEn: "Nigeria", labelKey: "diagMarketNG" },
+  { code: "DE", labelZh: "德国", labelEn: "Germany", labelKey: "diagMarketDE" },
+  { code: "CN", labelZh: "中国", labelEn: "China", labelKey: "diagMarketCN" },
+  { code: "ZA", labelZh: "南非", labelEn: "South Africa", labelKey: "diagMarketZA" },
+  { code: "AU/NZ", labelZh: "澳大利亚及新西兰", labelEn: "Australia & New Zealand", labelKey: "diagMarketAU_NZ" },
+  { code: "PH", labelZh: "菲律宾", labelEn: "Philippines", labelKey: "diagMarketPH" },
+  { code: "FR", labelZh: "法国", labelEn: "France", labelKey: "diagMarketFR" },
+  { code: "KE", labelZh: "肯尼亚", labelEn: "Kenya", labelKey: "diagMarketKE" },
+  { code: "MX", labelZh: "墨西哥", labelEn: "Mexico", labelKey: "diagMarketMX" },
+  { code: "AE", labelZh: "阿联酋", labelEn: "United Arab Emirates", labelKey: "diagMarketAE" },
+  { code: "MY", labelZh: "马来西亚", labelEn: "Malaysia", labelKey: "diagMarketMY" },
+  { code: "VN", labelZh: "越南", labelEn: "Vietnam", labelKey: "diagMarketVN" },
 ];
 
 /** 目标市场码清单（入库值，校验白名单直接用这个） */
