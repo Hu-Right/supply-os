@@ -7,6 +7,7 @@
  * 每轮空转 2.2h，新抓取的公告永远等不到进服务表）。
  *
  * 不变量：该分支必须带 `p.notice_pk IS NOT NULL`；缺行只走「缺行 + 准入红线」分支。
+ * 2026-11-26 追加：该分支还必须带 epoch 区间守卫（脏 update_time 会造成永久选行）。
  */
 import { describe, it, expect, vi } from "vitest";
 
@@ -37,9 +38,11 @@ describe("selectChangedPublicIds", () => {
     expect(sqls).toHaveLength(1);
     const sql = sqls[0];
 
-    // 正例：存在性守卫在比较之前
-    expect(sql).toContain(
-      "p.notice_pk IS NOT NULL AND n.update_time IS NOT NULL AND n.update_time > IFNULL(p.updated_at, 0)",
+    // 正例：存在性守卫 + 合法 epoch 区间都在比较之前。
+    // 区间守卫的原因（2026-11-26）：主表 update_time 存在 YYYYMMDDHHMMSS 脏值，
+    // 恒大于 updated_at，会变成每轮都命中的永久选行。
+    expect(sql).toMatch(
+      /p\.notice_pk IS NOT NULL AND n\.update_time IS NOT NULL\s+AND n\.update_time BETWEEN 946684800 AND 4102444800\s+AND n\.update_time > IFNULL\(p\.updated_at, 0\)/,
     );
     // 反例：不允许再出现不带存在性守卫的旧式判据（缺行会被全选）
     expect(sql).not.toMatch(

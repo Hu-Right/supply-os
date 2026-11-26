@@ -61,5 +61,13 @@ export const SITEMAP_NOTICE_WHERE = `${ACTIVE_NOTICE_WHERE} AND ${PLATFORM_PUBLI
  *
  * 入库后被 reconcile 改写的公告（截止时间更正、正文补齐）必须触发重抓，
  * 只取 create_time 会让这类更新永远不被发现。
+ *
+ * [2026-11-26] `notice_public.updated_at` 混入了 `YYYYMMDDHHMMSS` 形态的脏值
+ * （实测 84 行 = `20261030012`，源自主表 update_time），直接格式化会输出
+ * 「2612-01-18」这种未来 lastmod——生产 sitemap 实测 82 条命中。这里对
+ * updated_at 加合法区间（2000-01-01 ~ 2100-01-01，与 `shared/utils/unixTs`
+ * 的 EPOCH_SEC_MIN/MAX 同口径），超范围按 0 处理，lastmod 回退到入库时间。
  */
-export const NOTICE_LASTMOD_EXPR = "GREATEST(COALESCE(n.create_time, 0), COALESCE(p.updated_at, 0))";
+const SANE_UPDATED_AT = `CASE WHEN COALESCE(p.updated_at, 0) BETWEEN 946684800 AND 4102444800 THEN p.updated_at ELSE 0 END`;
+
+export const NOTICE_LASTMOD_EXPR = `GREATEST(COALESCE(n.create_time, 0), ${SANE_UPDATED_AT})`;

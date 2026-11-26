@@ -90,6 +90,20 @@ describe("buildPublicRow 准入镜像（构建时摘除）", () => {
     expect(buildPublicRow(makeRow({ entry_source: "platform", rfq_status: "draft" }), ctx, maps)).toBeNull();
   });
 
+  it("主表 update_time 的 YYYYMMDDHHMMSS 脏值不写进 updated_at", () => {
+    const row = buildPublicRow(makeRow({ update_time: 20_261_030_012_753 }), ctx, maps);
+    const wm = Number(row![PUBLIC_COLS.indexOf("updated_at")]);
+    expect(wm).not.toBe(20_261_030_012_753);
+    expect(wm).toBeGreaterThan(946_684_800); // 2000-01-01
+    expect(wm).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + 5); // 回退到 now
+  });
+
+  it("合法 update_time 原样作为行水位", () => {
+    const t = NOW - 3600;
+    const row = buildPublicRow(makeRow({ update_time: t }), ctx, maps);
+    expect(Number(row![PUBLIC_COLS.indexOf("updated_at")])).toBe(t);
+  });
+
   it("爬虫行 deadline_sec 为字符串（BIGINT 回串）→ 镜像正常判定", () => {
     expect(buildPublicRow(makeRow({ deadline_sec: String(STALE_SEC) }), ctx, maps)).toBeNull();
     expect(buildPublicRow(makeRow({ deadline_sec: String(FUTURE_SEC) }), ctx, maps)).not.toBeNull();

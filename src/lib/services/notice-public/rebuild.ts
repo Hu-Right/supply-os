@@ -5,7 +5,7 @@
  * Meili）。此前 ① 是 ops 脚本 spawn 第三棒，生产 standalone 缺脚本即静默跳过——②改为
  * 读 ① 之后这不可接受，故入应用内。选行/构建/写入/清理全部委托 build.ts（唯一写入者）。
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import {
   buildPublicRow, deletePublicRows, fetchPublicInputRows,
   loadPublicBuildContext, selectChangedPublicIds, selectPublicGhostIds, upsertPublicRows,
@@ -62,6 +62,58 @@ async function writeRowsByIds(pool: Pool, ctx: PublicBuildContext, ids: number[]
 }
 
 /**
+ * 增量拾取「新到达的中文译文」对应的公告 id。
+ *
+ * 2026-11-26：后台翻译器（intelligence-daily）只写 `notice_translations`（并直更宽表），
+ * 从不写服务表 ⇒ `title_cn/description_cn` 永远是空的（实测 6.3 万条）。这里用
+ * `notice_translations.id` 主键水位（存 `sync_watermark`）增量拾取，避免按 created_at
+ * 全表扫描（实测 26s/轮）。水位持久化 ⇒ 停机期间产生的译文重启后照样补上。
+ *
+ * 首次运行只把水位初始化到当前 MAX(id)：存量缺口由一次性回填脚本补齐，
+ * 不在这里扫 100 万行历史译文。
+ */
+const TRANSLATION_WATERMARK = "notice_translations_zh";
+const TRANSLATION_BATCH = 5000;
+
+/** @internal 导出仅为单测（水位语义：只返回待处理 id 与下一水位，前移由调用方在写入成功后执行） */
+export async function selectNewTranslationNoticeIds(
+  pool: Pool,
+): Promise<{ ids: number[]; nextWatermark: number | null }> {
+  const [wmRows] = await pool.query<RowDataPacket[]>(
+    "SELECT id_wm FROM sync_watermark WHERE table_name = ?",
+    [TRANSLATION_WATERMARK],
+  );
+  if (wmRows.length === 0) {
+    const [maxRows] = await pool.query<RowDataPacket[]>(
+      "SELECT COALESCE(MAX(id), 0) AS max_id FROM notice_translations WHERE lang='zh'",
+    );
+    const maxId = Number(maxRows[0]?.max_id ?? 0);
+    await pool.execute(
+      "INSERT INTO sync_watermark (table_name, id_wm) VALUES (?, ?) ON DUPLICATE KEY UPDATE id_wm = VALUES(id_wm)",
+      [TRANSLATION_WATERMARK, maxId],
+    );
+    console.log(`[notice-public] 译文水位初始化：${TRANSLATION_WATERMARK}=${maxId}（存量由回填脚本负责）`);
+    return { ids: [], nextWatermark: null };
+  }
+  const watermark = Number(wmRows[0]?.id_wm ?? 0);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT t.id, t.notice_id
+       FROM notice_translations t
+       JOIN notice_public p ON p.notice_pk = t.notice_id
+      WHERE t.lang = 'zh'
+        AND t.id > ?
+        AND ((t.title_tr IS NOT NULL AND t.title_tr <> '')
+          OR (t.description_tr IS NOT NULL AND t.description_tr <> ''))
+      ORDER BY t.id ASC
+      LIMIT ?`,
+    [watermark, TRANSLATION_BATCH],
+  );
+  if (rows.length === 0) return { ids: [], nextWatermark: null };
+  const ids = rows.map((r) => Number(r.notice_id)).filter((id) => Number.isFinite(id) && id > 0);
+  return { ids, nextWatermark: Number(rows[rows.length - 1]?.id ?? watermark) };
+}
+
+/**
  * 单飞 + 节流的 --changed --apply [--prune] 等价物。任何异常向上抛，由调用方告警降级
  * （宽表投影读到旧归一值时，指纹对账会在下轮修复）。
  *
@@ -81,12 +133,29 @@ export async function rebuildNoticePublicChanged(
   const t0 = Date.now();
   try {
     const ctx = await loadPublicBuildContext(pool);
-    const ids = await selectChangedPublicIds(pool);
+    const changedIds = await selectChangedPublicIds(pool);
+    // 译文是独立输入：后台翻译器只写翻译表，不触发主表/商机/标题水位，必须单独拾取。
+    // 水位在「写入成功之后」才前移——否则一次写失败会把这批译文永久跳过。
+    const translation = await selectNewTranslationNoticeIds(pool).catch((err: unknown) => {
+      console.warn("[notice-public] 译文增量拾取失败（下轮再试）:", (err as Error).message);
+      return { ids: [] as number[], nextWatermark: null as number | null };
+    });
+    const ids = [...new Set([...changedIds, ...translation.ids])];
     const written = await writeRowsByIds(pool, ctx, ids);
+    if (translation.nextWatermark != null) {
+      await pool
+        .execute("UPDATE sync_watermark SET id_wm = ? WHERE table_name = ?", [
+          translation.nextWatermark,
+          TRANSLATION_WATERMARK,
+        ])
+        .catch((err: unknown) => {
+          console.warn("[notice-public] 译文水位前移失败（下轮会重复处理，幂等）:", (err as Error).message);
+        });
+    }
     const ghostIds = opts.prune === false ? [] : await selectPublicGhostIds(pool);
     const pruned = ghostIds.length > 0 ? await deletePublicRows(pool, ghostIds) : 0;
     if (ids.length > 0 || ghostIds.length > 0) {
-      console.log(`[notice-public] 增量重建：选行 ${ids.length} · 写入 ${written} · 清理 ${pruned}（${((Date.now() - t0) / 1000).toFixed(1)}s）`);
+      console.log(`[notice-public] 增量重建：选行 ${ids.length}（译文 ${translation.ids.length}） · 写入 ${written} · 清理 ${pruned}（${((Date.now() - t0) / 1000).toFixed(1)}s）`);
       await syncBuyerCandidates(pool).catch((err: unknown) => {
         console.warn("[notice-public] buyer_candidate 同步失败:", (err as Error).message);
       });

@@ -28,6 +28,7 @@ import {
   sourceDateWallSeconds,
   SOURCE_DATE_PROFILES,
 } from "@/shared/utils/notice-datetime/source-date";
+import { sanitizeEpochSec } from "@/shared/utils/unixTs";
 import { buildShareSummary } from "./share-summary";
 
 /**
@@ -377,6 +378,18 @@ export function toEpoch(v: unknown): number | null {
   return parts ? sourceDateWallSeconds(parts) : null;
 }
 
+/**
+ * 输入水位（`bid_notices.update_time` 等）只接受合法 epoch 秒。
+ *
+ * 主表存在 `YYYYMMDDHHMMSS` 形态的脏值（实测 83 行 = `20261030012753`）：`toEpoch` 会把
+ * 11/14 位数字当 epoch 秒原样返回，直接进 `Math.max` 就会写进 `notice_public.updated_at`，
+ * 再被 sitemap 的 `lastmod` 与页面 JSON-LD 的 `dateModified` 格式化成「2612 年」。
+ * 脏值一律当 0，最终由 `|| now` 兜底。
+ */
+function toWatermark(v: unknown): number {
+  return sanitizeEpochSec(toEpoch(v));
+}
+
 
 function normRegistration(raw: unknown): string | null {
   const s = String(raw ?? "").toLowerCase().replace(/\s+/g, "");
@@ -520,7 +533,7 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
   const oppWmById = new Map<number, number>();
   const oppWmByNotice = new Map<string, number>();
   for (const o of oppRows) {
-    const wm = toEpoch(o.update_time) ?? 0;
+    const wm = toWatermark(o.update_time);
     const oppId = Number(o.id);
     if (Number.isFinite(oppId)) oppWmById.set(oppId, Math.max(oppWmById.get(oppId) ?? 0, wm));
     const key = String(o.source_notice_id ?? "");
@@ -703,12 +716,13 @@ export function buildPublicRow(
     JSON.stringify(contacts.entries), JSON.stringify(attachments), JSON.stringify(externalLinks),
     registration, beneficiary,
     supplierConditions, eligibility, technicalHurdles,
-    // 行水位 = 全部输入的 max（主表 + 商机 + 标题旁表），各侧选行分支才能收敛到「不再重选」
+    // 行水位 = 全部输入的 max（主表 + 商机 + 标题旁表），各侧选行分支才能收敛到「不再重选」。
+    // 水位先过合法区间：主表 update_time 的 YYYYMMDDHHMMSS 脏值不能进对外 updated_at。
     Math.max(
-      toEpoch(r.update_time) ?? 0,
+      toWatermark(r.update_time),
       maps.oppWmByNotice.get(noticeId) ?? 0,
       Number(r.converted_opp_id) > 0 ? maps.oppWmById.get(Number(r.converted_opp_id)) ?? 0 : 0,
-      toEpoch(r.title_updated_at) ?? 0,
+      toWatermark(r.title_updated_at),
     ) || Math.floor(Date.now() / 1000),
     Number(r.is_opportunity ?? 0) >= 1 ? 1 : 0,
     shareSummary.zh,
@@ -785,7 +799,11 @@ export async function selectChangedPublicIds(pool: Pool): Promise<number[]> {
             -- 服务表缺行时 p.* 全为 NULL，IFNULL(p.updated_at,0)=0 ⇒ 任何 update_time>0 的行都成立，
             -- 等于绕过 PUBLIC_ADMIT_SQL 把全库（含过期 30 天以上、本就不准入的行）都选进来。
             -- 实测：选行 489,832，构建侧只接受 92 条，每轮空转 2.2h，新抓取永远等不到服务表。
-            OR (p.notice_pk IS NOT NULL AND n.update_time IS NOT NULL AND n.update_time > IFNULL(p.updated_at, 0))
+            -- 水位必须是合法 epoch 秒：主表 update_time 的 YYYYMMDDHHMMSS 脏值（实测 83 行）
+            -- 恒大于 updated_at，会成为每轮都命中的「永久选行」，把重建变成空转。
+            OR (p.notice_pk IS NOT NULL AND n.update_time IS NOT NULL
+                AND n.update_time BETWEEN 946684800 AND 4102444800
+                AND n.update_time > IFNULL(p.updated_at, 0))
         UNION ${oppStaleSql}
         UNION ${titleStaleSql}
       ) u ORDER BY id`);
