@@ -44,7 +44,7 @@ export class CatalogRepo {
   /** 查询全部激活的供应商资质证书（顺序即 id，字典按性质分组连续编号） */
   async listActiveCertifications(): Promise<CertificationRow[]> {
     const [rows] = await this.pool.query(
-      "SELECT id, code, name, category FROM supplier_certifications WHERE is_active = 1 ORDER BY id",
+      "SELECT id, code, name, category FROM supplier_certifications WHERE is_active = 1 AND is_certificate = 1 ORDER BY id",
     );
     return rows as CertificationRow[];
   }
@@ -56,7 +56,7 @@ export class CatalogRepo {
    */
   async listActiveCertificationsWithScope(): Promise<CertificationScopeRow[]> {
     const [rows] = await this.pool.query(
-      "SELECT code, name, category, scope, product_scopes AS productScopes FROM supplier_certifications WHERE is_active = 1 ORDER BY id",
+      "SELECT code, name, category, scope, product_scopes AS productScopes FROM supplier_certifications WHERE is_active = 1 AND is_certificate = 1 ORDER BY id",
     );
     // mysql2 对 JSON 列可能返回字符串，统一成数组（非法值按「未分类」处理）
     return (rows as CertificationScopeRow[]).map((r) => {

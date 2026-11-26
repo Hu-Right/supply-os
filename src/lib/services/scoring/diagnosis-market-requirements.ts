@@ -73,7 +73,10 @@ export function evaluateMarketRequirements(input: EvaluateMarketRequirementsInpu
   const seen = new Set<string>();
 
   for (const market of markets) {
-    const rows = input.requirements.filter((r) => r.market === market && scopesHit(r.productScopes, supplierScopes));
+    const rows = input.requirements.filter(
+      // scope='global' 的条目对所有目标市场生效（2026-11-26 起要求条目由 150 字典派生）
+      (r) => (r.market === market || r.market === "global") && scopesHit(r.productScopes, supplierScopes),
+    );
     for (const r of rows) {
       const key = `${market}|${r.kind}|${r.standard}`;
       if (seen.has(key)) continue;
