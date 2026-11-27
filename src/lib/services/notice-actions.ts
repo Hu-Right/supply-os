@@ -3,134 +3,16 @@
  * Notice user action business orchestration
  *
  * @module server/services/notice-actions
- * @description 解锁（含事务 + 配额检查 +  entitlement 消耗 + 兴趣码联动）、
- *              反馈（含兴趣码持久化/衰减）、兴趣提交等动作的服务层编排。
+ * @description 反馈（含兴趣码持久化/衰减）、兴趣提交等动作的服务层编排。
  *              路由层仅做参数解析与响应构造，业务逻辑集中于此。
+ *              2026-11-27 单条解锁（executeGrant）随次数体系下线删除：
+ *              会员访问由套餐判定（notice-access.ts）直接放行，不再有解锁动作。
  */
 import type { Pool } from "mysql2/promise";
 import type { NoticeDetailRepo } from "../repos/notices/notice-detail.repo";
-import type { NoticeAccessGrantRepo } from "../repos/notices/notice-access-grant.repo";
 import type { NoticeInteractionRepo } from "../repos/notices/notice-interaction.repo";
 import type { NoticeFeedbackRepo, RecoFeedbackItem } from "../repos/notices/notice-feedback.repo";
-import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
-import type { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { loadNoticeNodeCodes, persistInterestNodeCodes, decayInterestNodeCodes } from "./commodity/interest";
-import { ensureConsumableQuota, consumeQuota, AccessQuotaError } from "./access-quota";
-import type { LockedPoolRow } from "../repos/benefit-write.repo";
-
-// ── 解锁 ──────────────────────────────────────────────────────────────────────
-
-export interface UnlockParams {
-  /** 内部用户 ID */
-  userId: number;
-  noticeId: number;
-  grantType: "free" | "subscription";
-  price: number;
-}
-
-export interface UnlockResult {
-  alreadyGranted: boolean;
-  grantType: string;
-}
-
-/**
- * 解锁公告（事务封装：快速路径 → 悲观锁 → 配额检查 → 插入 → 消耗 → 兴趣码）
- * 从 routes/notices/actions.routes.ts 下沉，路由层不再管理事务。
- */
-export async function executeGrant(
-  ctx: {
-    detailRepo: NoticeDetailRepo;
-    accessGrantRepo: NoticeAccessGrantRepo;
-    dbPool: Pool;
-    quotaDeps: { catalog: BenefitSystemRepo; write: BenefitWriteRepo };
-  },
-  params: UnlockParams,
-): Promise<UnlockResult> {
-  const { detailRepo, accessGrantRepo, dbPool, quotaDeps } = ctx;
-  const { userId, noticeId, grantType, price } = params;
-
-  // 快速路径：先检查是否已解锁（无锁，减少事务冲突）
-  if (await accessGrantRepo.findExistingGrant(userId, noticeId)) {
-    return { alreadyGranted: true, grantType };
-  }
-
-  // 获取公告信息（事务外，只读）
-  const notice = await detailRepo.findById(noticeId);
-  if (!notice) throw new NoticeNotFoundError();
-
-  // 使用事务保证配额检查 + 插入的原子性
-  const conn = await dbPool.getConnection();
-  let consumedPool: LockedPoolRow | null = null;
-  try {
-    await conn.beginTransaction();
-
-    // 事务内再次检查（可能并发请求已通过快速路径）
-    if (await accessGrantRepo.findExistingGrantInTransaction(conn, userId, noticeId)) {
-      await conn.commit();
-      return { alreadyGranted: true, grantType };
-    }
-
-    // 配额检查（事务内）
-    if (grantType === "free") {
-      // 免费试用已移除（2026-08-30 产品决策）：free 配置归零是数据层手段，
-      // 此处为服务端硬闸——无论配置如何，free 解锁一律 402，杜绝配置回滚
-      // 或手工改库重新放出免费额度。历史 free 解锁记录保留可审计。
-      await conn.rollback();
-      throw new QuotaExceededError("FREE_LIMIT_REACHED");
-    }
-
-    if (grantType === "subscription") {
-      // 共享配额记账口径（access-quota）：FOR UPDATE 锁住 notice_view 池行，
-      // 额度取自矩阵格 value_num，不在代码里写数字
-      try {
-        consumedPool = await ensureConsumableQuota(conn, quotaDeps, { userId });
-      } catch (quotaErr) {
-        if (quotaErr instanceof AccessQuotaError) {
-          await conn.rollback();
-          throw new QuotaExceededError(quotaErr.code);
-        }
-        throw quotaErr;
-      }
-    }
-
-    // 插入解锁记录（唯一约束 uk_user_notice 保证原子性）
-    await accessGrantRepo.insertGrantInTransaction(conn, {
-      userId, noticeId, grantType, price,
-    });
-
-    // 消耗配额（行锁 + 条件 UPDATE 复核，并发耗尽或池被冻结则回滚）
-    if (consumedPool) {
-      try {
-        await consumeQuota(conn, quotaDeps, consumedPool);
-      } catch (consumeErr) {
-        if (consumeErr instanceof AccessQuotaError) {
-          await conn.rollback();
-          throw new QuotaExceededError(consumeErr.code);
-        }
-        throw consumeErr;
-      }
-    }
-
-    await conn.commit();
-
-    // 事务外：更新兴趣节点（非关键路径，失败不影响解锁）。
-    // 小表剥离后兴趣画像吃 UGT 归属节点（倒排 = backbone_path 行化），不再读主表 旧品类快照
-    if (userId) {
-      const nodes = (await loadNoticeNodeCodes(dbPool, [noticeId]).catch(() => new Map())).get(noticeId) ?? [];
-      await persistInterestNodeCodes(dbPool, userId, nodes, "unlock_order", 2.50).catch((e) => console.warn("[notice-actions] persistInterestNodeCodes failed (non-critical):", e));
-    }
-    return { alreadyGranted: false, grantType };
-  } catch (err: unknown) {
-    await conn.rollback();
-    // 唯一约束冲突 = 并发请求已解锁
-    if (err instanceof Error && "code" in err && (err as { code: string }).code === "ER_DUP_ENTRY") {
-      return { alreadyGranted: true, grantType };
-    }
-    throw err;
-  } finally {
-    conn.release();
-  }
-}
 
 // ── 反馈 ──────────────────────────────────────────────────────────────────────
 
@@ -213,14 +95,5 @@ export class NoticeNotFoundError extends Error {
   constructor() {
     super("Notice not found");
     this.name = "NoticeNotFoundError";
-  }
-}
-
-export class QuotaExceededError extends Error {
-  public readonly code: string;
-  constructor(code: string) {
-    super(code);
-    this.name = "QuotaExceededError";
-    this.code = code;
   }
 }

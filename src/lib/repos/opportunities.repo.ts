@@ -31,13 +31,6 @@ export interface OpportunityListItemRow {
   source_url: string | null;
 }
 
-/** 商机解锁流水行 */
-export interface OpportunityAccessRow {
-  opportunity_id: number;
-  grant_type: string;
-  granted_at: Date;
-}
-
 export class OpportunitiesRepo {
   constructor(private pool: Pool) {}
 
@@ -62,22 +55,8 @@ export class OpportunitiesRepo {
   }
 
   /**
-   * 用户商机解锁流水（按解锁时间倒序）。
-   *
-   * notice_access_grants 是公告解锁与商机解锁共用的流水表：
-   * 公告行 opportunity_id 为 NULL。不过滤的话本端点会返一大片
-   * `{opportunity_id: null}`（类型声明写的是 number，等于在谎报），
-   * 下游“已解锁集合”根本无法使用。口径与 NoticeAccessGrantRepo.listNoticeGrants 对称。
+   * 商机译文缓存（无缓存返回 null）
    */
-  async listAccessRecords(userId: number): Promise<OpportunityAccessRow[]> {
-    const [rows] = await this.pool.query(
-      "SELECT opportunity_id, grant_type, granted_at FROM notice_access_grants WHERE user_id = ? AND opportunity_id IS NOT NULL ORDER BY granted_at DESC",
-      [userId],
-    );
-    return rows as OpportunityAccessRow[];
-  }
-
-  /** 商机译文缓存（无缓存返回 null） */
   async findTranslationCache(
     opportunityId: number,
     lang: string,
@@ -114,18 +93,6 @@ export class OpportunitiesRepo {
        ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
       [opportunityId, lang, titleTr, descriptionTr, model],
     );
-  }
-
-  /** 已有解锁记录（幂等判定，无记录返回 null） */
-  async findExistingGrant(
-    userId: number,
-    opportunityId: number,
-  ): Promise<RowDataPacket | null> {
-    const [rows] = await this.pool.query(
-      "SELECT id, grant_type FROM notice_access_grants WHERE user_id = ? AND opportunity_id = ? LIMIT 1",
-      [userId, opportunityId],
-    );
-    return (rows as RowDataPacket[])[0] ?? null;
   }
 
   /** 按 id 查商机完整字段（报告生成用）
