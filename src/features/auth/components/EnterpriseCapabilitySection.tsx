@@ -88,13 +88,16 @@ export function EnterpriseCapabilitySection({ enabled }: EnterpriseCapabilitySec
 
       {/* 新增能力 */}
       <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className={`grid grid-cols-1 ${capType === "certification" ? "" : "sm:grid-cols-2"} gap-2`}>
           <Select value={capType} onChange={(e) => { setCapType(e.target.value as CapabilityType); resetFields(); }} className={inputCls}>
             {(Object.keys(TYPE_LABEL_KEYS) as CapabilityType[]).map((type) => (
               <option key={type} value={type}>{t(TYPE_LABEL_KEYS[type])}</option>
             ))}
           </Select>
-          <input value={capName} onChange={(e) => setCapName(e.target.value)} placeholder={t("capNamePlaceholder")} className={inputCls} />
+          {/* 证书名称来自 150 字典（选中后自动带入），不提供自由文本输入 */}
+          {capType !== "certification" && (
+            <input value={capName} onChange={(e) => setCapName(e.target.value)} placeholder={t("capNamePlaceholder")} className={inputCls} />
+          )}
         </div>
 
         <CapabilityFormFields capType={capType} fields={fields} setField={setField} certOptions={certOptions} setName={setCapName} />
