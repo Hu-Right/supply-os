@@ -73,11 +73,8 @@ async function loadInitialContent(): Promise<HomeContentSnapshot | undefined> {
 }
 
 export default async function HomePage() {
-  const [initialHome, initialContent, countryMaps] = await Promise.all([
-    loadInitialHome(),
-    loadInitialContent(),
-    // ★ 国名映射 SSR 快照（同 procurement/page.tsx 的水合修复）：alias-store 带 TTL 内存缓存
-    buildCountryNameMaps(getPool()),
-  ]);
+  const [initialHome, initialContent] = await Promise.all([loadInitialHome(), loadInitialContent()]);
+  // ★ 国名映射 SSR 快照（同 procurement/page.tsx 的水合修复）：alias-store 带 TTL 内存缓存
+  const countryMaps = await buildCountryNameMaps(getPool());
   return <PageClient initialHome={initialHome} initialContent={initialContent} countryMaps={countryMaps} />;
 }
