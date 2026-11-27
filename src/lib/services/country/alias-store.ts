@@ -126,10 +126,18 @@ export async function buildCountryNameMaps(pool: Pool): Promise<CountryNameMaps>
   const countries: Record<string, string> = {};
   const regions: Record<string, string> = {};
   const zhToEn: Record<string, string> = {};
-  const [rows] = await pool.query(
-    "SELECT canonical, alias, kind, JSON_UNQUOTE(JSON_EXTRACT(name_i18n,'$.zh')) zh FROM country_aliases WHERE is_active = 1",
-  );
-  for (const row of rows as RowDataPacket[]) {
+  // build 期无库（CI prerender）必须降级为空映射，不能把 ECONNREFUSED 抛给 Next 的静态导出。
+  let rows: RowDataPacket[] = [];
+  try {
+    const [result] = await pool.query(
+      "SELECT canonical, alias, kind, JSON_UNQUOTE(JSON_EXTRACT(name_i18n,'$.zh')) zh FROM country_aliases WHERE is_active = 1",
+    );
+    rows = result as RowDataPacket[];
+  } catch (err) {
+    throttledWarn("query", `[country-alias] buildCountryNameMaps 查询失败（降级：空映射）: ${(err as Error).message}`);
+    return { countries, regions, zhToEn };
+  }
+  for (const row of rows) {
     const zh = String(row.zh ?? "").trim();
     const alias = String(row.alias ?? "").trim();
     const canonical = String(row.canonical ?? "").trim();
