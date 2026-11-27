@@ -988,21 +988,8 @@ CREATE TABLE `monthly_kpi` (
   CONSTRAINT `fk_monthly_kpi_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='员工月度KPI完成情况';
 
--- ── notice_access_grants ──
-CREATE TABLE `notice_access_grants` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint unsigned NOT NULL,
-  `opportunity_id` bigint unsigned DEFAULT NULL,
-  `notice_id` bigint unsigned DEFAULT NULL,
-  `grant_type` enum('free','single','subscription') NOT NULL DEFAULT 'free',
-  `price` decimal(10,2) NOT NULL DEFAULT '0.00',
-  `granted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_opportunity` (`user_id`,`opportunity_id`),
-  UNIQUE KEY `uk_user_notice` (`user_id`,`notice_id`),
-  KEY `idx_opportunity_id` (`opportunity_id`),
-  KEY `idx_notice_id` (`notice_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='公告/商机访问授权流水（原 opportunity_unlocks：会员打开即自动留痕；grant_type/price 为历史付费凭证）';
+-- notice_access_grants（原 opportunity_unlocks）已于 2026-11-27 随次数体系下线删除；
+-- 访问门禁由行业墙 + 套餐档位（plan_benefits.notice_view）承担，不再有解锁存根。
 
 -- ── notice_ai_summaries ──
 CREATE TABLE `notice_ai_summaries` (
