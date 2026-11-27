@@ -23,6 +23,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeBuyerKey } from "./normalize";
+import { buyerNameKeys } from "./name-variants";
 
 /** 解析出的买家实体（服务表投影所需的全部字段） */
 export interface BuyerEntity {
@@ -200,23 +201,17 @@ function resolveCanonicalTiebreak(byCanonical: Map<string, BuyerEntity[]>, count
 /**
  * 解析原始机构写法 → 实体。
  *
- * 顺序：
+ * 每个候选键（见 `buyer/name-variants`：整串 → 末段向上回溯）都按同一套顺序判定：
  *   ① 国家维精确命中 → 直接返回；
- *   ② 国家维歧义（同国同归一键多实体）→ canonical 名命中的实体收敛；收敛不到 → null；
+ *   ② 国家维歧义（同国同归一键多实体）→ canonical 名命中的实体收敛；收敛不到 → 该键无果；
  *   ③ 国家维未登记 → 全局唯一实体回退；
- *   ④ 仍不可判定 → null（不猜；调用方保留原始名并登记 buyer_candidate）。
+ *   ④ 该键不可判定 → 换下一个候选键；全部候选都不可判定 → null（不猜）。
  *
- * 返回 null 表示「不猜」：调用方保留原始名、不写 buyer_id，由 `syncBuyerCandidates`
- * 登记候选，人工核验后补 buyer_alias 再重建。
+ * 为什么要多键（2026-11-27）：ES/US 源把机构层级拼成 `A>B>C` 当买家名，整串永远不在
+ * 别名表里；末段才是真机构。多键只在「路径名」上多出候选，普通机构名的键序列长度为 1，
+ * 行为与改造前一致。
  */
-export function resolveBuyerEntity(
-  index: BuyerEntityIndex,
-  rawName: unknown,
-  countryCode: string | null | undefined,
-): BuyerEntity | null {
-  const key = normalizeBuyerKey(rawName);
-  if (!key) return null;
-  const cc = String(countryCode ?? "").trim().toUpperCase();
+function resolveByKey(index: BuyerEntityIndex, key: string, cc: string): BuyerEntity | null {
   if (cc) {
     const countryKey = `${cc}|${key}`;
     const hit = index.byCountry.get(countryKey);
@@ -229,6 +224,25 @@ export function resolveBuyerEntity(
   if (cc) {
     const canonical = resolveCanonicalTiebreak(index.byCanonical, `${cc}|${key}`);
     if (canonical) return canonical;
+  }
+  return null;
+}
+
+/**
+ * 解析原始机构写法 → 实体。
+ *
+ * 返回 null 表示「不猜」：调用方保留原始名、不写 buyer_id，由 `syncBuyerCandidates`
+ * 登记候选，人工核验后补 buyer_alias 再重建。
+ */
+export function resolveBuyerEntity(
+  index: BuyerEntityIndex,
+  rawName: unknown,
+  countryCode: string | null | undefined,
+): BuyerEntity | null {
+  const cc = String(countryCode ?? "").trim().toUpperCase();
+  for (const key of buyerNameKeys(rawName)) {
+    const hit = resolveByKey(index, key, cc);
+    if (hit) return hit;
   }
   return null;
 }

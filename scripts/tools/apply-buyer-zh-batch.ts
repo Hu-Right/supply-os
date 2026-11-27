@@ -11,6 +11,12 @@
  *              - 同一别名指向多个实体 = 歧义，跳过并报告，不猜；
  *              - 写入 buyer 后必须走 refreshBuyerProjection，不能直接写 notice_public。
  *
+ *              ⚠️ 本脚本收尾只按 `buyer_name IN (TSV 里的名字)` 找要重建的公告。
+ *              若 TSV 里放的是**层级路径的末段**（如 `CASTILLA Y LEÓN`），真实公告的
+ *              buyer_name 是整条路径，这里匹配不到——建完实体后必须再跑一次
+ *              `scripts/tools/apply-buyer-path-rule.ts --apply`，让「含该末段的路径公告」
+ *              按 resolveBuyerEntity 重新解析并重建投影。
+ *
  * 用法：
  *   npx tsx scripts/tools/apply-buyer-zh-batch.ts <file.tsv>            # DRY
  *   npx tsx scripts/tools/apply-buyer-zh-batch.ts <file.tsv> --apply    # 落库

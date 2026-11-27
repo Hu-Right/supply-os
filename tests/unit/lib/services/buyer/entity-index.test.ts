@@ -153,4 +153,59 @@ describe("loadBuyerEntityIndex", () => {
     expect(resolveBuyerEntity(empty, "   ", "BR")).toBeNull();
     expect(resolveBuyerEntity(empty, "X", "BR")).toBeNull();
   });
+
+  describe("层级路径（2026-11-27）", () => {
+    it("整串匹配不上 → 用末段命中已有实体", async () => {
+      const { pool } = makePool([
+        row({ alias: "TRAGSA", buyer_id: 31, country_code: "ES", canonical_name: "TRAGSA" }),
+      ]);
+      const index = await loadBuyerEntityIndex(pool);
+      expect(
+        resolveBuyerEntity(
+          index,
+          "ENTIDADES LOCALES>Comunidad Valenciana>Valencia>Ayuntamientos>TRAGSA",
+          "ES",
+        )?.buyerId,
+      ).toBe(31);
+    });
+
+    it("末段是层级词 → 跳过，用上一段专名命中", async () => {
+      const { pool } = makePool([
+        row({
+          alias: "AYUNTAMIENTO DE ALMERIA",
+          buyer_id: 32,
+          country_code: "ES",
+          canonical_name: "Ayuntamiento de Almería",
+        }),
+      ]);
+      const index = await loadBuyerEntityIndex(pool);
+      expect(
+        resolveBuyerEntity(
+          index,
+          "ENTIDADES LOCALES>Andalucía>Almería>Ayuntamientos>Ayuntamiento de Almería",
+          "ES",
+        )?.buyerId,
+      ).toBe(32);
+    });
+
+    it("末段在同国对应多个实体 → 仍然 null（不猜）", async () => {
+      const { pool } = makePool([
+        row({ alias: "SECRETARIA GENERAL", buyer_id: 41, country_code: "ES", canonical_name: "Secretaría General" }),
+        row({ alias: "SECRETARIA GENERAL", buyer_id: 42, country_code: "ES", canonical_name: "Secretaría General" }),
+      ]);
+      const index = await loadBuyerEntityIndex(pool);
+      expect(
+        resolveBuyerEntity(index, "CONSEJERIA DE SANIDAD>SECRETARIA GENERAL", "ES"),
+      ).toBeNull();
+    });
+
+    it("末段命中但国家不符、全局也非唯一 → 不回退猜", async () => {
+      const { pool } = makePool([
+        row({ alias: "TRAGSA", buyer_id: 51, country_code: "PT", canonical_name: "TRAGSA" }),
+        row({ alias: "TRAGSA", buyer_id: 52, country_code: "BR", canonical_name: "TRAGSA" }),
+      ]);
+      const index = await loadBuyerEntityIndex(pool);
+      expect(resolveBuyerEntity(index, "X>Y>TRAGSA", "ES")).toBeNull();
+    });
+  });
 });
