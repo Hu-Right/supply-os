@@ -58,6 +58,7 @@ describe("EnterpriseEditForm", () => {
         onSubmit={onSubmit}
         onCancel={vi.fn()}
         licenseUrl="/uploads/license/test.jpg"
+        initialCommodityNodes={[{ code: "UGT-0001", name: "测试品目" }] as never}
       />,
     );
     fireEvent.click(screen.getByText("authEnterpriseSave"));
@@ -68,6 +69,27 @@ describe("EnterpriseEditForm", () => {
     // 国家/国家代码不提交
     expect(payload).not.toHaveProperty("country");
     expect(payload).not.toHaveProperty("country_code");
+  });
+
+  it("未选主营品目时阻断提交并点名「主营品目」", () => {
+    const onSubmit = vi.fn();
+    render(
+      <EnterpriseEditForm
+        initial={{
+          company: "X", creditCode: "91330000MA1234567X", legalRep: "张三",
+          province: "浙江省", city: "杭州市", address: "某路1号",
+          contact: "Y", phone: "123", products: "P",
+        } as never}
+        saving={false}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+        licenseUrl="/uploads/license/test.jpg"
+      />,
+    );
+    fireEvent.click(screen.getByText("authEnterpriseSave"));
+    expect(onSubmit).not.toHaveBeenCalled();
+    // 表单错误行同时含「必填项」前缀与缺失字段名（标签本身也含同名词，故按整行匹配）
+    expect(screen.getByText(/authEnterpriseRequiredMissing：.*authEnterpriseCommodityNodes/)).toBeInTheDocument();
   });
 
   it("点击取消回调 onCancel", () => {

@@ -151,6 +151,10 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, initialIndu
     if (!localLicenseUrl) {
       missing.push(t("authEnterpriseLicense") || "营业执照");
     }
+    // 主营品目必填：公告/商机匹配依赖品目落点，空集合等于无法匹配
+    if (commodityNodes.length === 0) {
+      missing.push(t("authEnterpriseCommodityNodes") || "主营品目");
+    }
     if (missing.length) {
       setFormError(`${t("authEnterpriseRequiredMissing") || "请填写必填项"}：${missing.join("、")}`);
       return;
@@ -253,6 +257,7 @@ export function EnterpriseEditForm({ initial, initialCommodityNodes, initialIndu
           <div className="grid grid-cols-1 sm:grid-cols-4">
             <div className="bg-secondary-50 px-3 py-1.5 sm:py-2 text-xs text-muted-foreground border-r border-border sm:pt-3 align-top">
               {t("authEnterpriseCommodityNodes") || "主营品目"}
+              <span className="ml-0.5 text-danger-500" aria-hidden="true">*</span>
             </div>
             <div className="px-3 py-2 sm:col-span-3">
               <SupplierProductsPicker value={commodityNodes} onChange={setCommodityNodes} />

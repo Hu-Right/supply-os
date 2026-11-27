@@ -2,21 +2,20 @@
 /**
  * 账号安全（/settings/security）
  *
- * 对标云厂商账号中心安全模块：登录密码 / 手机绑定 / 邮箱绑定 / 两步验证（二期）/
- * 登录设备（当前会话）/ 注销账号。
+ * 对标云厂商账号中心安全模块：登录密码 / 手机绑定 / 邮箱绑定 / 两步验证 / 注销账号。
  */
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Laptop, Lock, ShieldCheck, Smartphone } from "lucide-react";
+import { Lock } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
-import { Badge, Button, Input, Modal } from "@/shared/ui";
+import { Button, Input, Modal } from "@/shared/ui";
 import { PhoneBinding } from "./PhoneBinding";
 import { EmailBinding } from "./EmailBinding";
 import { MfaSettings } from "./MfaSettings";
+import { AccountDeletionCard } from "./AccountDeletionCard";
 
 export function SecuritySettings() {
   const { authUser, logout } = useAuth();
@@ -30,20 +29,12 @@ export function SecuritySettings() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [device, setDevice] = useState("");
-
-  useEffect(() => {
-    const ua = navigator.userAgent;
-    const os = /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : "未知系统";
-    const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "未知浏览器";
-    setDevice(`${os} · ${browser}`);
-  }, []);
 
   if (!authUser) {
     return (
       <div className="rounded-xl border border-border bg-white px-6 py-12 text-center">
         <p className="text-sm font-bold text-foreground">请先登录后管理账号安全</p>
-        <p className="mt-1.5 text-xs text-muted-foreground">登录后可修改密码、绑定手机/邮箱、查看登录设备。</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">登录后可修改密码、绑定手机/邮箱、开启两步验证。</p>
       </div>
     );
   }
@@ -115,7 +106,7 @@ export function SecuritySettings() {
       <section className="rounded-xl border border-border bg-white">
         <div className="border-b border-border px-5 py-3">
           <p className="text-sm font-bold text-foreground">登录与安全</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">管理登录密码、绑定方式与登录设备；敏感操作建议开启两步验证。</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">管理登录密码与绑定方式；敏感操作建议开启两步验证。</p>
         </div>
         <div className="divide-y divide-border/70">
           {/* 登录密码 */}
@@ -123,7 +114,7 @@ export function SecuritySettings() {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600"><Lock className="h-4 w-4" /></span>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">登录密码</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">已设置 · 建议每 90 天更换一次，修改后需重新登录</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">已设置 · 修改后所有设备需重新登录</p>
             </div>
             <Button variant="outline" size="sm" className="ml-auto shrink-0" onClick={() => setPasswordOpen(true)}>修改密码</Button>
           </div>
@@ -136,32 +127,8 @@ export function SecuritySettings() {
         </div>
       </section>
 
-      {/* 登录设备 */}
-      <section className="rounded-xl border border-border bg-white p-5">
-        <p className="flex items-center gap-2 text-sm font-bold text-foreground"><Laptop className="h-4 w-4 text-brand-600" />登录设备</p>
-        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-secondary-50 px-4 py-3 text-xs">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-brand-600"><Smartphone className="h-4 w-4" /></span>
-          <div>
-            <p className="font-semibold text-foreground">{device || "当前设备"}</p>
-            <p className="mt-0.5 text-muted-foreground">当前会话 · 可通过退出登录结束会话</p>
-          </div>
-          <Badge variant="soft-success" shape="tag" className="ml-auto">当前设备</Badge>
-        </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          登录设备列表与远程下线能力将在二期提供（需后端会话管理）。如发现异常登录，请立即修改密码并联系客服。
-        </p>
-      </section>
-
-      {/* 注销 */}
-      <section className="rounded-xl border border-danger-200 bg-danger-50/40 p-5">
-        <p className="flex items-center gap-2 text-sm font-bold text-danger-700"><ShieldCheck className="h-4 w-4" />注销账号</p>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          注销后账号数据按《个人信息保护政策》处理，且不可恢复。注销前请确认已结清订单、下载所需发票。
-        </p>
-        <Link href="/account-cancellation" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-danger-600">
-          前往注销账号<ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </section>
+      {/* 注销：自助申请 + 客服核验（企业主体/发票需人工处理） */}
+      <AccountDeletionCard />
 
       {/* 修改密码弹窗 */}
       <Modal open={passwordOpen} onClose={closeModal} title="修改登录密码" className="max-w-md">

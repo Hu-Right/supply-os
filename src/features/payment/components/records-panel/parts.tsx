@@ -120,14 +120,13 @@ export const FavoriteRowCard = memo(function FavoriteRowCard({
   const expired = deadlineTs > 0 && deadlineTs * 1000 < Date.now();
   return (
     <article className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-      <p className="min-w-0 flex-1 font-black text-slate-800 line-clamp-2">
-        {title}
-        {expired && (
-          <span className="ms-2 inline-block rounded-full bg-rose-50 px-2 py-0.5 align-middle text-[10px] font-black text-rose-700">
-            {t("myRecordsExpired")}
-          </span>
-        )}
-      </p>
+      {/* 标题只占一行，超出省略：收藏列表用于快速定位，不承担阅读全文 */}
+      <p className="min-w-0 flex-1 truncate font-black text-slate-800">{title}</p>
+      {expired && (
+        <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-black text-rose-700">
+          {t("myRecordsExpired")}
+        </span>
+      )}
       {noticePk > 0 && (
         <Button
           type="button"

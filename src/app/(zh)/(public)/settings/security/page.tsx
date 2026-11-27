@@ -7,7 +7,7 @@ import { SecuritySettings } from "@/features/auth/components/SecuritySettings";
 
 export const metadata: Metadata = {
   title: "账号安全",
-  description: "登录密码、手机/邮箱绑定、登录设备与账号注销。",
+  description: "登录密码、手机/邮箱绑定、两步验证与账号注销。",
   robots: { index: false, follow: false },
 };
 
