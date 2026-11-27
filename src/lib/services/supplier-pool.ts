@@ -24,6 +24,8 @@ export interface PoolSupplierView {
   company: string;
   /** ⚠ 服务端目前恒给空串（SQL 里写的是 `'' AS industry`），前端那个分支实际不会渲染 */
   industry: string;
+  /** 只有 reviewed 的供应商才有公开详情页；前端据此决定行标题是否可点 */
+  infoReviewStatus: string;
   hasQualification: number;
   notes: string | null;
   source: string;
@@ -36,6 +38,7 @@ export function poolSupplierViewOf(row: PoolSupplierItem): PoolSupplierView {
     supplierId: row.supplier_id === null || row.supplier_id === undefined ? null : Number(row.supplier_id),
     company: String(row.company ?? ""),
     industry: String(row.industry ?? ""),
+    infoReviewStatus: String(row.info_review_status ?? ""),
     hasQualification: Number(row.has_qualification ?? 0),
     notes: row.notes === null || row.notes === undefined ? null : String(row.notes),
     source: String(row.source ?? ""),
@@ -77,55 +80,8 @@ export function poolCandidateViewOf(row: {
 }
 
 export type AddSupplierPoolResult =
-  | { ok: true; poolId: number; source: "platform" | "manual"; supplierId: number }
+  | { ok: true; poolId: number; source: "platform"; supplierId: number }
   | { ok: false; reason: "pool_full" | "duplicate" | "not_found" };
-
-/** 主入口：按公司名添加供应商（平台匹配 or 复用/创建 pending 记录） */
-export async function addSupplierToPool(
-  pool: Pool,
-  userId: number,
-  companyName: string,
-): Promise<AddSupplierPoolResult> {
-  const name = companyName.trim();
-  const repo = new UserSupplierPoolRepo(pool);
-
-  const count = await repo.countByUser(userId);
-  if (count >= MAX_POOL_SIZE) {
-    return { ok: false, reason: "pool_full" };
-  }
-
-  // ── 平台目录匹配：supplier_id 关联，继承全部数据（单条 INSERT IGNORE，天然原子） ──
-  const matched = await repo.findVerifiedByCompany(name);
-  if (matched) {
-    const poolId = await repo.addFromPlatform(userId, matched.id);
-    if (!poolId) {
-      return { ok: false, reason: "duplicate" };
-    }
-    return { ok: true, poolId, source: "platform", supplierId: matched.id };
-  }
-
-  // ── 未匹配：优先复用同名的已有 pending 记录，避免每次添加都新建重复行 ──
-  const existingPending = await repo.findPendingByExactCompany(name);
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-    const supplierId = existingPending
-      ? existingPending.id
-      : await repo.createPendingSupplier(name, conn);
-    const poolId = await repo.addManual(userId, supplierId, conn);
-    await conn.commit();
-    return { ok: true, poolId, source: "manual", supplierId };
-  } catch (err) {
-    await conn.rollback();
-    // 复用 pending 记录时撞 uk_user_supplier（该供应商已在池中）→ 按重复处理而非 500
-    if ((err as { code?: string })?.code === "ER_DUP_ENTRY") {
-      return { ok: false, reason: "duplicate" };
-    }
-    throw err;
-  } finally {
-    conn.release();
-  }
-}
 
 /** 候选确认入口：用户在候选列表中点选指定供应商后按 id 添加（不做模糊猜测） */
 export async function addSupplierByIdToPool(

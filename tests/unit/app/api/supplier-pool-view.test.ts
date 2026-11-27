@@ -45,6 +45,7 @@ const poolRow = {
   supplier_id: 42,
   company: "工厂A",
   industry: "",
+  info_review_status: "reviewed",
   has_qualification: 1,
   notes: "备注",
   source: "platform",
@@ -58,15 +59,16 @@ beforeEach(() => {
 });
 
 describe("poolSupplierViewOf：列名 → 契约键", () => {
-  it("八个键全部 camel 且值原样（0/1 不布尔化、null 不造空串）", () => {
+  it("九个键全部 camel 且值原样（0/1 不布尔化、null 不造空串）", () => {
     const view = poolSupplierViewOf(poolRow);
 
     expect(view).toEqual({
       poolId: 7, supplierId: 42, company: "工厂A", industry: "",
+      infoReviewStatus: "reviewed",
       hasQualification: 1, notes: "备注", source: "platform", createdAt: "2026-10-01 08:00:00",
     });
     expect([...Object.keys(view)].sort()).toEqual([
-      "company", "createdAt", "hasQualification", "industry", "notes", "poolId", "source", "supplierId",
+      "company", "createdAt", "hasQualification", "industry", "infoReviewStatus", "notes", "poolId", "source", "supplierId",
     ]);
     expect(Object.keys(view).filter((k) => SNAKE_KEY.test(k))).toEqual([]);
   });

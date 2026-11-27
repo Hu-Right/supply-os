@@ -33,14 +33,6 @@ describe("UserSupplierPoolRepo", () => {
     expect(mockExecute.mock.calls[0][1]).toEqual([100, 10]);
   });
 
-  it("addManual 插入手动添加记录", async () => {
-    mockExecute.mockResolvedValue([{ insertId: 6 }]);
-    await repo.addManual(100, 30);
-    expect(mockExecute).toHaveBeenCalledTimes(1);
-    const sql = mockExecute.mock.calls[0][0];
-    expect(sql).toContain("INSERT INTO user_supplier_pool");
-  });
-
   it("updateNotes 更新备注", async () => {
     mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
     await repo.updateNotes(100, 5, "新备注");
@@ -85,18 +77,7 @@ describe("UserSupplierPoolRepo.countDiagnosisPending", () => {
   });
 });
 
-describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排所需）", () => {
-  const row = { id: 10, company: "工厂A" };
-
-  it("findVerifiedByCompany 命中 → 返回含 in_pool 标记的单条结果", async () => {
-    const mockQuery = vi.fn().mockResolvedValue([[{ ...row, in_pool: 0 }]]);
-    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
-    const found = await repo.findVerifiedByCompany("工厂A");
-    expect(found).toEqual({ id: 10, company: "工厂A", industry: "", in_pool: 0 });
-    expect(mockQuery).toHaveBeenCalledTimes(1);
-    expect(mockQuery.mock.calls[0][1][0]).toBe("%工厂A%");
-  });
-
+describe("UserSupplierPoolRepo 目录候选搜索（添加入口唯一来源）", () => {
   it("候选搜索：LIKE 通配符已转义", async () => {
     const mockQuery = vi.fn().mockResolvedValue([[{ id: 11, company: "工厂A有限公司", industry: "", in_pool: 1 }]]);
     const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
@@ -108,45 +89,11 @@ describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排�
     expect(params[1]).toBe("%50\\%折扣\\_厂%");
   });
 
-  it("未命中 → null", async () => {
-    const mockQuery = vi.fn().mockResolvedValue([[]]);
-    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
-    await expect(repo.findVerifiedByCompany("不存在")).resolves.toBeNull();
-  });
-
-  it("findPendingByExactCompany 命中/未命中", async () => {
-    const mockQuery = vi.fn()
-      .mockResolvedValueOnce([[{ id: 44 }]])
-      .mockResolvedValueOnce([[]]);
-    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
-    await expect(repo.findPendingByExactCompany("工厂B")).resolves.toEqual({ id: 44 });
-    await expect(repo.findPendingByExactCompany("工厂B")).resolves.toBeNull();
-    expect(mockQuery.mock.calls[0][0]).toContain("info_review_status = 'unreviewed'");
-  });
-
-  it("createPendingSupplier 插入 pending 基础记录（时间用 addtime，不得写不存在的 created_at）", async () => {
-    const mockExecute = vi.fn().mockResolvedValue([{ insertId: 66 }]);
-    const repo = new UserSupplierPoolRepo({ execute: mockExecute } as any);
-    const id = await repo.createPendingSupplier("工厂C");
-    expect(id).toBe(66);
-    const sql = mockExecute.mock.calls[0][0] as string;
-    expect(sql).toContain("verify_status");
-    expect(mockExecute.mock.calls[0][1]).toEqual(["工厂C"]);
-    // ★ 回归护栏：实库 supplier 无 created_at / updated_at（写上去就是 1054 → 添加资源库 500），
-    //   录入时间只能落在 addtime；本断言钉住上次踩过的坑。
-    expect(sql).toContain("addtime");
-    expect(sql).toContain("UNIX_TIMESTAMP()");
-    expect(sql).not.toMatch(/\bcreated_at\b/);
-    expect(sql).not.toMatch(/\bupdated_at\b/);
-  });
-
-  it("addFromPlatform/addManual 支持事务连接执行", async () => {
+  it("addFromPlatform 支持事务连接执行", async () => {
     const connExecute = vi.fn().mockResolvedValue([{ insertId: 5 }]);
-    const conn = { execute: connExecute };
     const repo = new UserSupplierPoolRepo({} as any);
-    await repo.addFromPlatform(1, 10, conn as any);
-    await repo.addManual(1, 10, conn as any);
-    expect(connExecute).toHaveBeenCalledTimes(2);
+    await repo.addFromPlatform(1, 10, { execute: connExecute } as any);
+    expect(connExecute).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -12,7 +12,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import {
-  addSupplierToPool, addSupplierByIdToPool, listPoolSupplierViews, MAX_POOL_SIZE,
+  addSupplierByIdToPool, listPoolSupplierViews, MAX_POOL_SIZE,
 } from "@/lib/services/supplier-pool";
 import { EC_POOL_FULL, EC_POOL_SUPPLIER_NOT_VERIFIED, EC_POOL_SUPPLIER_DUPLICATE } from "@/shared/constants/api";
 
@@ -38,23 +38,17 @@ export const GET = withRoute(async (req: NextRequest) => {
 });
 
 const addBodySchema = z.object({
-  companyName: z.string().min(1).max(200).optional(),
-  /** 候选确认模式：用户在候选列表点选的供应商 id（优先于 companyName） */
-  supplierId: z.number().int().positive().optional(),
-}).refine(
-  (d) => (d.companyName !== undefined && d.companyName.trim() !== "") || d.supplierId !== undefined,
-  { message: "companyName 与 supplierId 至少提供一个" },
-);
+  /** 唯一添加口径：用户在候选列表点选的平台目录供应商 id */
+  supplierId: z.number().int().positive(),
+});
 
-/** POST: 添加供应商（supplierId=候选确认添加；companyName=按名匹配或新建；编排下沉 lib/services/supplier-pool） */
+/** POST: 添加供应商（入口收敛：只接受平台目录里点选的 supplierId，不再按公司名新建） */
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   const body = await parseJson(req, addBodySchema);
   const ctx = getContext();
 
-  const result = body.supplierId !== undefined
-    ? await addSupplierByIdToPool(ctx.dbPool, auth.userId, body.supplierId)
-    : await addSupplierToPool(ctx.dbPool, auth.userId, body.companyName!);
+  const result = await addSupplierByIdToPool(ctx.dbPool, auth.userId, body.supplierId);
 
   if (!result.ok) {
     if (result.reason === "pool_full") {

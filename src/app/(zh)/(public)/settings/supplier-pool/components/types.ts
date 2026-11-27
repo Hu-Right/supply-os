@@ -12,6 +12,8 @@ export interface PoolItem {
   supplierId: number | null;
   company: string;
   industry: string;
+  /** 供应商信息审核状态：reviewed 才有公开详情页可跳 */
+  infoReviewStatus?: string;
   /** 是否已有 v2 诊断（0/1，值口径未改） */
   hasQualification: number;
   notes: string | null;

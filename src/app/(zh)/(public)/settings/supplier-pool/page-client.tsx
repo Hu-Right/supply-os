@@ -28,9 +28,6 @@ export default function SupplierPoolPageClient() {
   const [listError, setListError] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [companyName, setCompanyName] = useState("");
-  const [addLoading, setAddLoading] = useState(false);
-  const [addMessage, setAddMessage] = useState("");
-  const [addError, setAddError] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState("");
   /** 待移除的资源库行（ConfirmDialog 的目标） */
@@ -82,29 +79,6 @@ export default function SupplierPoolPageClient() {
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); setSearching(false); };
   }, [companyName, showAdd]);
-
-  const handleAdd = useCallback(async () => {
-    if (!companyName.trim()) return;
-    setAddLoading(true);
-    setAddMessage("");
-    try {
-      await api("/api/user/supplier-pool", {
-        method: "POST",
-        body: { companyName: companyName.trim() },
-      });
-      setAddMessage(t("supplierPoolAddSuccess") || "添加成功");
-      setAddError(false);
-      setCompanyName("");
-      setShowAdd(false);
-      fetchList();
-      // 通知全局：资源库已变更 → useHasSupplierPool 重取，settings 排他与顶部引导卡片即时更新
-      emitAppEvent("supply-os:supplier-pool-changed");
-    } catch (err: any) {
-      setAddMessage(err?.message || "添加失败");
-      setAddError(true);
-    }
-    setAddLoading(false);
-  }, [companyName, t, fetchList]);
 
   /** 候选确认添加：按点选的 supplierId 精确入库，不做模糊猜测 */
   const handleAddById = useCallback(async (supplierId: number, companyNameStr: string) => {
@@ -204,10 +178,6 @@ export default function SupplierPoolPageClient() {
         <AddPanel
           companyName={companyName}
           onCompanyNameChange={setCompanyName}
-          onAdd={handleAdd}
-          addLoading={addLoading}
-          addMessage={addMessage}
-          addError={addError}
           candidates={candidates}
           searching={searching}
           searched={searched}

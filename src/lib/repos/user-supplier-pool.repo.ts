@@ -15,6 +15,8 @@ export interface PoolSupplierItem {
   supplier_id: number | null;
   company: string;
   industry: string;
+  /** 供应商信息审核状态：只有 reviewed 才有公开详情页（/supplier/{id}） */
+  info_review_status: string;
   /** 是否已有 v2 诊断（按 user_id + supplier_id 自然键判定） */
   has_qualification: number;
   notes: string | null;
@@ -35,6 +37,7 @@ export class UserSupplierPoolRepo {
       `SELECT p.id AS pool_id, p.supplier_id,
               COALESCE(s.company, '') AS company,
               '' AS industry,
+              COALESCE(s.info_review_status, '') AS info_review_status,
               CASE WHEN q.id IS NOT NULL THEN 1 ELSE 0 END AS has_qualification,
               p.notes, p.source, p.created_at
        FROM user_supplier_pool p
@@ -55,41 +58,6 @@ export class UserSupplierPoolRepo {
       [userId, supplierId],
     );
     return Number((result as ResultSetHeader).insertId ?? 0);
-  }
-
-  /** 手动添加（supplier_id 有值，指向新创建的 supplier 记录） */
-  async addManual(userId: number, supplierId: number, conn?: PoolConnection): Promise<number> {
-    const [result] = await this.exec(conn).execute(
-      `INSERT INTO user_supplier_pool (user_id, supplier_id, source)
-       VALUES (?, ?, 'manual')`,
-      [userId, supplierId],
-    );
-    return Number((result as ResultSetHeader).insertId ?? 0);
-  }
-
-  /**
-   * 创建 pending 基础供应商记录（仅 company，不进公共目录），返回新行 id
-   *
-   * ★ 时间列必须是 `addtime`（INT  unix 秒）而不是 `created_at`：2026-09-26 实测
-   *   `supplier` 共 54 列且**不存在 created_at / updated_at**（INFORMATION_SCHEMA 与 SHOW COLUMNS
-   *   双向对异，且 SELECT created_at 直接报 ER_BAD_FIELD_ERROR）——旧写法在这里会直接抛 1054，
-   *   而调用方 supplier-pool.ts 只特判 ER_DUP_ENTRY，其余 throw → “往资源库添加一家目录里
-   *   不存在的公司”整个功能 500（实库 user_supplier_pool 行数 = 0，与“从未成功过”一致）。
-   *   另：本表其余 NOT NULL 列均带默认值（已用事务内试写—回滚验证），因此只写三列合法。
-   *   addtime 也是门户企业卡片“录入时间”真正读的那一列。
-   */
-  async createPendingSupplier(company: string, conn?: PoolConnection): Promise<number> {
-    const [result] = await this.exec(conn).execute(
-      "INSERT INTO supplier (company, verify_status, info_review_status, addtime) VALUES (?, 'unverified', 'unreviewed', UNIX_TIMESTAMP())",
-      [company],
-    );
-    return Number((result as ResultSetHeader).insertId ?? 0);
-  }
-
-  /** 按公司名查找平台目录中已认证的供应商（精确优先，其次模糊；LIKE 通配符已转义） */
-  async findVerifiedByCompany(company: string): Promise<{ id: number; company: string; industry: string } | null> {
-    const rows = await this.searchVerifiedByCompany(company, 1);
-    return rows[0] ?? null;
   }
 
   /** 候选搜索：已认证供应商按名称模糊匹配，标记是否已在当前用户资源库中 */
@@ -126,16 +94,6 @@ export class UserSupplierPoolRepo {
     );
     const row = (rows as RowDataPacket[])[0];
     return row ? { id: Number(row.id), company: String(row.company ?? ""), industry: "" } : null;
-  }
-
-  /** 按公司名精确查找已有 pending 基础记录（手动添加去重复用，避免共享表堆积重复行） */
-  async findPendingByExactCompany(company: string): Promise<{ id: number } | null> {
-    const [rows] = await this.pool.query(
-      `SELECT id FROM supplier WHERE company = ? AND info_review_status = 'unreviewed' ORDER BY id DESC LIMIT 1`,
-      [company],
-    );
-    const row = (rows as RowDataPacket[])[0];
-    return row ? { id: Number(row.id) } : null;
   }
 
   /** 更新备注 */
