@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   本地一键跑全部测试（单元 / 集成 / API·E2E / 门禁自测）。
 
@@ -70,6 +70,9 @@ switch ($Suite) {
 }
 
 $Results = New-Object System.Collections.Generic.List[hashtable]
+
+# npm 会把 notice 写到 stderr；Stop 会让 Tee 管道把正常输出当致命错误
+$ErrorActionPreference = "Continue"
 
 foreach ($item in $Suites) {
   $name = $item.Name
