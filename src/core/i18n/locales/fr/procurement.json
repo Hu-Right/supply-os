@@ -584,6 +584,7 @@
   "pc_titleZh": "Titre (chinois)",
   "pc_titleEn": "Titre (anglais, optionnel)",
   "pc_background": "Contexte / objectif",
+  "pc_background_hint": "Décrivez ici uniquement le contexte et l'objet de l'achat. Les spécifications, quantités, exigences techniques et lots sont à renseigner par article à l'étape « Détails d'achat » — ou importez votre fichier de liste et laissez le système l'analyser.",
   "pc_purpose": "Nature de l'achat",
   "pc_purpose_real": "Achat réel",
   "pc_purpose_budgeting": "Phase budgétaire",

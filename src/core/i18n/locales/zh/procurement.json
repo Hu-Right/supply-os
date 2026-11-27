@@ -628,6 +628,7 @@
   "pc_titleZh": "项目名称（中文）",
   "pc_titleEn": "项目名称（英文，选填）",
   "pc_background": "项目背景/采购目的",
+  "pc_background_hint": "此处仅需描述采购背景与目的。产品规格、数量、技术要求、分包方式等，请在后续「采购明细」步骤中逐项填写，或直接上传采购清单文件由系统解析。",
   "pc_purpose": "采购性质",
   "pc_purpose_real": "真实采购",
   "pc_purpose_budgeting": "预算阶段采购",

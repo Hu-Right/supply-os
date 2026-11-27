@@ -584,6 +584,7 @@
   "pc_titleZh": "Título (chino)",
   "pc_titleEn": "Título (inglés, opcional)",
   "pc_background": "Antecedentes / propósito",
+  "pc_background_hint": "Describa aquí solo el contexto y el propósito de la compra. Las especificaciones, cantidades, requisitos técnicos y lotes se completan por artículo en el paso posterior de Detalles de compra — o suba su archivo de lista y deje que el sistema lo analice.",
   "pc_purpose": "Naturaleza de la compra",
   "pc_purpose_real": "Compra real",
   "pc_purpose_budgeting": "Fase presupuestaria",

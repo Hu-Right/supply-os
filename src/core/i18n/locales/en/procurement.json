@@ -584,6 +584,7 @@
   "pc_titleZh": "Project title (Chinese)",
   "pc_titleEn": "Project title (English, optional)",
   "pc_background": "Background / purpose",
+  "pc_background_hint": "Only describe the procurement background and purpose here. Product specifications, quantities, technical requirements and lot splitting are filled per item in the later Procurement Details step — or upload your product list file and let the system parse it.",
   "pc_purpose": "Procurement nature",
   "pc_purpose_real": "Real procurement",
   "pc_purpose_budgeting": "Budget-stage",

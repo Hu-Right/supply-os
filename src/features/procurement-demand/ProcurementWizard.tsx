@@ -714,7 +714,10 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             <input value={form.titleEn} onChange={(e) => field("titleEn", e.target.value)} className={inputCls} />
           </label>
           <label className={labelCls}>
-            {t("pc_background")}
+            <span className="flex items-center gap-1.5">
+              {t("pc_background")}
+              <FieldHintTooltip label={t("pc_background")} content={t("pc_background_hint")} />
+            </span>
             <textarea value={form.background} onChange={(e) => field("background", e.target.value)} rows={4} className={inputCls} />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
