@@ -3,16 +3,13 @@
  * Diagnosis V3 — qualification evaluation orchestration
  *
  * @module lib/services/supplier-diagnosis/qualification
- * @deprecated 2026-11-24 起诊断计算已迁至 intelligence-daily；
- *             门户提交路径改走 `backend-client.ts`，本文件仅保留历史回滚参考，
- *             不得在 API 请求路径调用。
- * @description 把「表单给的目标市场 + 认证字典 + 企业已持证书」三块数据合起来交给纯函数
- *              `evaluateQualification`。路由只调这一层，不自己拼 SQL，也不自己判级。
+ * @description 2026-11-27：评分回到门户执行，本文件恢复为提交链路的资质分级入口。
+ *              把「表单给的目标市场 + 认证字典 + 市场要求 + 企业已持证书」合起来交给
+ *              纯函数 `evaluateQualification` / `evaluateMarketRequirements`。
  *
- *              降级口径：字典或能力档案读失败时**不让整次诊断提交失败**——
- *              投档是用户主动动作、主体与评分都还健康，因为一张字典表读不到就 500，
- *              用户会以为「提交不了」。此时 grade 落 NULL 并在明细里标 `dict_unavailable`，
- *              报告侧看到这个原因会写「资质分级暂不可用」，而不是假装 A/B/C。
+ *              失败口径（2026-11-27 起）：目标市场必填 + 资质分级是评分快照的一部分，
+ *              读不到字典/要求条目时**直接失败**，不再降级出 `grade=NULL` 的「未分级」快照——
+ *              旧报告已不处理，后台也不接受缺分级的提交。
  */
 import type { CatalogRepo } from "@/lib/repos/catalog.repo";
 import type { MarketRequirementRepo } from "@/lib/repos/market-requirement.repo";
@@ -116,7 +113,7 @@ export async function evaluateQualificationFor(
       breakdown: mergeRequirementBreakdown(base.breakdown, reqResult),
     };
   } catch (err) {
-    console.warn("[supplier-diagnosis] 资质分级取数失败，降级为未分级:", (err as Error).message);
-    return degradedQualification(targetMarkets);
+    console.error("[supplier-diagnosis] 资质分级取数失败:", (err as Error).message);
+    throw new Error(`DIAGNOSIS_QUALIFICATION_UNAVAILABLE: ${(err as Error).message}`, { cause: err });
   }
 }

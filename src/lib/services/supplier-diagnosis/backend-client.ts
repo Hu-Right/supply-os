@@ -2,24 +2,27 @@
  * 诊断计算后台客户端（门户 → intelligence-daily）
  *
  * @module lib/services/supplier-diagnosis/backend-client
- * @description 2026-11-24 职责收口：门户只负责登录、主体确认、写权闸口与表单提交，
- *              能力评分、资质分级、缺口快照统一由后台计算并落库。
- *              本文件是门户唯一的后台调用点，不做任何本地兜底评分——后台不可用就明确失败，
- *              避免「前台算一套、后台算一套」的双口径。
+ * @description 2026-11-27 口径：门户负责评分（V5 + 资质分级），提交时把作答与评分快照
+ *              一起送后台；后台只消费快照生成报告并落库，不重新打分。
+ *              本文件是门户唯一的后台调用点，不做本地兜底评分。
  */
 import type {
   DiagnosisAnswers,
   DiagnosisDimensionResult,
   DiagnosisQualBreakdown,
 } from "@/shared/api/diagnosis";
+import type { DiagnosisScoreSnapshot } from "./score-submission";
 
 export interface BackendDiagnosisResult {
   id: number;
   schemaVersion: number;
   scoreTotal: number | null;
   scoreGrade: string | null;
+  gradeBeforeCaps?: string;
   gradeLabel: string;
   dimensions: DiagnosisDimensionResult[];
+  partScores?: Array<{ code: "A" | "B" | "C"; name: string; score: number; max: number }>;
+  caps?: Array<{ reason: string; cap: string }>;
   topGaps: { dimension: string; dimensionEn: string; priority: string }[];
   overrideGate: { triggered: boolean; reason: string };
   qualGrade: string | null;
@@ -31,6 +34,8 @@ export interface BackendDiagnosisPayload {
   supplierId: number;
   companyName: string;
   answers: DiagnosisAnswers;
+  /** 门户算好的评分快照；后台原样落库并出报告，不重算 */
+  score: DiagnosisScoreSnapshot;
   ip: string | null;
 }
 

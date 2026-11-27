@@ -1,11 +1,10 @@
 /**
- * POST /api/supplier-diagnosis — 提交供应商投标能力诊断（v3）
+ * POST /api/supplier-diagnosis — 提交供应商投标能力诊断（V5）
  *
  * @module app/api/supplier-diagnosis/route
- * @description 2026-11-24 职责收口：本路由是**前台 BFF**，只做登录鉴权、主体确认、写权闸口、
- *              提交埋点与结果转发；能力评分、资质分级、缺口快照与落库统一由后台
- *              （intelligence-daily `POST /api/v1/internal/diagnosis/submit`）完成。
- *              前台不再加载评分/分级引擎，也不做后台失败后的本地兜底。
+ * @description 2026-11-27 口径：**门户负责评分**（V5 统一评分 + 资质分级），
+ *              后台只接收「作答 + 评分快照」，结合供应商档案生成报告并落库，不重新打分。
+ *              本路由职责：登录鉴权、主体确认、写权闸口、门户评分、提交埋点与结果转发。
  *
  *              与 v1 的根本差异：
  *              1. 登录闸门在 API（规范 N4），不再靠前端跳转兜 authenticity；
@@ -28,6 +27,7 @@ import { getContext } from "@/lib/db/context";
 import { SupplierDiagnosisRepo, diagnosisWriteGateDecision } from "@/lib/repos/supplier-diagnosis.repo";
 import { SupplierDiagnosisSubmitLogRepo } from "@/lib/repos/supplier-diagnosis-submit-log.repo";
 import { submitDiagnosisToBackend } from "@/lib/services/supplier-diagnosis/backend-client";
+import { scoreDiagnosisSubmission } from "@/lib/services/supplier-diagnosis/score-submission";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
@@ -174,15 +174,30 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
   const subjectUnclaimed = !gateFacts.selfBound;
 
-  // 2026-11-24 职责收口：能力评分、资质分级与快照落库统一由后台（intelligence-daily）完成。
-  // 门户只保留登录、主体确认、写权闸口与提交埋点；本地不再加载评分引擎，也不做“后台失败就本地算”的兜底，
-  // 否则会重新出现前台/后台两套口径。
+  // 2026-11-27 口径：评分在门户执行（V5 + 资质分级），后台只消费快照生成报告、不重算。
+  // 因此这里先算分，再连同作答一起提交；资质分级失败 = 提交失败，不产生「未分级」快照。
+  let scored: Awaited<ReturnType<typeof scoreDiagnosisSubmission>>;
+  try {
+    scored = await scoreDiagnosisSubmission(getPool(), supplierId, answers);
+  } catch (err) {
+    console.error("[supplier-diagnosis POST] 门户评分失败", err);
+    await recordSubmit({
+      supplierId,
+      companyName: canonicalName,
+      result: "error",
+      errorCode: EC_INTERNAL_ERROR,
+      reason: "score_failed",
+    });
+    routeError(503, EC_INTERNAL_ERROR, "资质数据暂不可用，暂时无法完成诊断评分，请稍后重试");
+  }
+
   try {
     const result = await submitDiagnosisToBackend({
       userId: auth.userId,
       supplierId,
       companyName: canonicalName, // SSOT 正名；payload 名仅用于检索（2026-11-12）
       answers,
+      score: scored.score,
       ip: clientIp,
     });
 
