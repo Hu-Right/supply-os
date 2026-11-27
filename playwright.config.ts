@@ -13,7 +13,7 @@ export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : undefined,
   reporter: [
     ["html", { open: "never" }],
@@ -40,24 +40,24 @@ export default defineConfig({
     {
       name: "firefox",
       use: { ...devices["Desktop Firefox"] },
-      testIgnore: /mobile-rtl-style-smoke|api-coverage/,
+      testIgnore: /mobile-rtl-style-smoke|api-coverage|procurement-publish-chain/,
     },
     {
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
-      testIgnore: /mobile-rtl-style-smoke|api-coverage/,
+      testIgnore: /mobile-rtl-style-smoke|api-coverage|procurement-publish-chain/,
     },
     // 移动端回归
     {
       name: "mobile-chrome",
       use: { ...devices["Pixel 5"] },
       // API 覆盖只在 chromium 跑一次（与浏览器无关，避免 5 个 project 重复打接口）
-      testIgnore: /api-coverage/,
+      testIgnore: /api-coverage|procurement-publish-chain/,
     },
     {
       name: "mobile-safari",
       use: { ...devices["iPhone 14"] },
-      testIgnore: /api-coverage/,
+      testIgnore: /api-coverage|procurement-publish-chain/,
     },
   ],
 

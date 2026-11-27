@@ -122,9 +122,10 @@ test.describe("鉴权与参数边界", () => {
     expect(body.code).toBe(EC_ACCOUNT_ISSUE);
   });
 
-  test("未登录访问解锁端点 → 401（写路径同样先过鉴权）", async ({ request }) => {
-    const res = await request.post(`${BASE}/api/opportunities/1/access`, {
-      data: { grant_type: "subscription" },
+  test("未登录访问受保护写接口 → 401（写路径同样先过鉴权）", async ({ request }) => {
+    // 商机 /access 端点已随次数体系下线（2026-11-27），改用仍然存在的收藏写接口
+    const res = await request.post(`${BASE}/api/notices/1/favorite`, {
+      data: {},
     });
     expect(res.status()).toBe(401);
   });

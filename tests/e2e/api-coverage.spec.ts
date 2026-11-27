@@ -113,6 +113,7 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/notices/:id/translation?lang=zh", auth: "member", status: 200, bodyType: "object", src: "/api/notices/:id/translation" },
   { method: "POST", path: "/api/notices/:id/view", auth: "none", status: 401, bodyType: "object", src: "/api/notices/:id/view" },
   { method: "GET", path: "/api/notices/countries", auth: "member", status: 200, bodyType: "array", src: "/api/notices/countries" },
+  { method: "GET", path: "/api/markets", auth: "member", status: 200, bodyType: "array", src: "/api/markets" },
   { method: "GET", path: "/api/notices/favorites", auth: "member", status: 200, bodyType: "object", src: "/api/notices/favorites" },
   { method: "GET", path: "/api/notices/favorites/ids", auth: "member", status: 200, bodyType: "object", src: "/api/notices/favorites/ids" },
   { method: "POST", path: "/api/notices/feedback", auth: "none", status: 401, bodyType: "object", src: "/api/notices/feedback" },
@@ -364,10 +365,11 @@ test.describe("核心业务断言（访问控制 / 数据契约）", () => {
     expect(typeof body.user?.hasSubscription).toBe("boolean");
   });
 
-  test("登录失败：403（不可枚举账户）+ 错误信封", async ({ request }) => {
-    // 不存在的账户返回 403 而非 401（防账户枚举）；错误密码的 401 由账号限流保护，不在 E2E 反复触发
+  test("登录失败：401（不可枚举账户）+ 错误信封", async ({ request }) => {
+    // 不存在的账户与错误密码同归 401（ADR-0021；403 仅用于停用/未审核账户），
+    // 错误密码的 401 由账号限流保护，不在 E2E 反复触发
     const res = await request.post(`${BASE_URL}/api/auth/login`, { data: { identifier: "e2e-no-such-user@example.invalid", password: "definitely-wrong-password" } });
-    expect(res.status()).toBe(403);
+    expect(res.status()).toBe(401);
     expectErrorEnvelope(await res.json(), "登录失败");
   });
 
@@ -380,10 +382,14 @@ test.describe("核心业务断言（访问控制 / 数据契约）", () => {
     expect(body.industry).toBeTruthy();
   });
 
-  test("免费用户公告详情被锁：403 + 错误信封", async ({ request }) => {
+  test("免费用户公告详情：核心内容锁定但资质可读（free 档 qualification_access=1）", async ({ request }) => {
+    // 产品矩阵（plan_benefits.free）：qualification_access=1、original_file_access=0，
+    // 因此 free 用户拿到 200 + coreLocked，而不是 403。
     const res = await request.get(`${BASE_URL}/api/notices/${NOTICE_PK}/detail`, { headers: { Authorization: `Bearer ${freeToken}` } });
-    expect(res.status()).toBe(403);
-    expectErrorEnvelope(await res.json(), "免费用户公告详情");
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.coreLocked).toBe(true);
+    expect(body.qualificationAccess).toBe(true);
   });
 
   test("公告内容接口：description 或原文非空", async ({ request }) => {

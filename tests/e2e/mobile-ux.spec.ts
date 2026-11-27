@@ -165,6 +165,8 @@ test.describe("移动端 UX 基线", () => {
     await gotoReady(page, `${BASE}/procurement`);
     // 卡片的副标题「实时库存」属于 4 卡栅格，移动端必须隐藏
     await expect(page.getByText("实时库存").first()).toBeHidden();
+    // 规模数字是异步拉取的：先等摘要行出现，再判定高度（否则 loading 骨架期会假失败）
+    await expect(page.getByText(/今日新增/).first()).toBeVisible({ timeout: 20_000 });
     // 摘要行保留可检索数与今日新增
     const summary = await page.evaluate(() => {
       const p = [...document.querySelectorAll("main section p")].find((el) => /今日新增/.test(el.textContent || ""));

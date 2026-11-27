@@ -89,6 +89,9 @@ async function hmacCallback(
 // ── 用例 ──────────────────────────────────────────────────────────────────────
 
 test.describe.serial("采购需求发布链", () => {
+  // 全链含文件上传、自动初审（LLM）与多次写库，默认 30s 不够；串行执行避免项目间互撞
+  test.setTimeout(180_000);
+
   let buyerId = 0;
   let projectId = 0;
   let versionNo = 1;
