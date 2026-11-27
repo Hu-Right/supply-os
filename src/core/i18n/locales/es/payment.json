@@ -55,5 +55,12 @@
   "myRecordsUntitled": "Adquisición sin título",
   "myPurchasesOpenDetail": "Abrir detalles",
   "paymentIndustryLabel": "Categoría industrial",
-  "paymentIndustryPlaceholder": "Seleccione una categoría"
+  "paymentIndustryPlaceholder": "Seleccione una categoría",
+  "paymentAgreementPrefix": "He leído y acepto ",
+  "paymentAgreementTerms": "los Términos del Servicio",
+  "paymentAgreementRefund": "las Reglas de Membresía Paga y Reembolso",
+  "paymentAgreementPrivacy": "la Política de Privacidad",
+  "paymentAgreementSeparator": ", ",
+  "paymentAgreementConjunction": " y ",
+  "paymentAgreementHint": "Acepte el acuerdo anterior para continuar"
 }

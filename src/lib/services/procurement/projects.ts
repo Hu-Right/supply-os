@@ -38,6 +38,9 @@ export interface ProjectRow extends RowDataPacket {
   incoterm_version: string | null;
   batch_delivery: number;
   batch_note: string | null;
+  funding_source: string | null;
+  contracting_mode: string | null;
+  qty_tolerance: string | null;
   budget_amount: string | number | null;
   budget_currency: string;
   budget_public: number;
@@ -133,6 +136,9 @@ export const PROJECT_EDITABLE_COLUMNS = [
   "incoterm_version",
   "batch_delivery",
   "batch_note",
+  "funding_source",
+  "contracting_mode",
+  "qty_tolerance",
   "budget_amount",
   "budget_currency",
   "budget_public",

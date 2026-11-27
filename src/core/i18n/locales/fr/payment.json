@@ -55,5 +55,12 @@
   "myRecordsUntitled": "Marché sans titre",
   "myPurchasesOpenDetail": "Ouvrir les détails",
   "paymentIndustryLabel": "Catégorie d'activité",
-  "paymentIndustryPlaceholder": "Sélectionnez une catégorie"
+  "paymentIndustryPlaceholder": "Sélectionnez une catégorie",
+  "paymentAgreementPrefix": "J'ai lu et j'accepte ",
+  "paymentAgreementTerms": "les Conditions d'utilisation",
+  "paymentAgreementRefund": "les Règles de membre payant et de remboursement",
+  "paymentAgreementPrivacy": "la Politique de confidentialité",
+  "paymentAgreementSeparator": ", ",
+  "paymentAgreementConjunction": " et ",
+  "paymentAgreementHint": "Veuillez accepter l'accord ci-dessus pour continuer"
 }

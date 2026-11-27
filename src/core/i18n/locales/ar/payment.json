@@ -55,5 +55,12 @@
   "myRecordsUntitled": "مشتريات بدون عنوان",
   "myPurchasesOpenDetail": "فتح التفاصيل",
   "paymentIndustryLabel": "فئة الصناعة",
-  "paymentIndustryPlaceholder": "اختر فئة الصناعة"
+  "paymentIndustryPlaceholder": "اختر فئة الصناعة",
+  "paymentAgreementPrefix": "لقد قرأت وأوافق على ",
+  "paymentAgreementTerms": "شروط الخدمة",
+  "paymentAgreementRefund": "قواعد العضوية المدفوعة والاسترداد",
+  "paymentAgreementPrivacy": "سياسة الخصوصية",
+  "paymentAgreementSeparator": "، ",
+  "paymentAgreementConjunction": " و",
+  "paymentAgreementHint": "يرجى قبول الاتفاقية أعلاه للمتابعة"
 }

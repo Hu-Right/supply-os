@@ -55,5 +55,12 @@
   "myRecordsUntitled": "Закупка без названия",
   "myPurchasesOpenDetail": "Открыть детали",
   "paymentIndustryLabel": "Отраслевая категория",
-  "paymentIndustryPlaceholder": "Выберите отрасль"
+  "paymentIndustryPlaceholder": "Выберите отрасль",
+  "paymentAgreementPrefix": "Я прочитал и согласен с ",
+  "paymentAgreementTerms": "Условиями использования",
+  "paymentAgreementRefund": "Правилами платного членства и возврата",
+  "paymentAgreementPrivacy": "Политикой конфиденциальности",
+  "paymentAgreementSeparator": ", ",
+  "paymentAgreementConjunction": " и ",
+  "paymentAgreementHint": "Примите соглашение выше, чтобы продолжить"
 }

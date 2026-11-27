@@ -55,5 +55,12 @@
   "myRecordsUntitled": "Untitled procurement",
   "myPurchasesOpenDetail": "Open details",
   "paymentIndustryLabel": "Industry category",
-  "paymentIndustryPlaceholder": "Select an industry category"
+  "paymentIndustryPlaceholder": "Select an industry category",
+  "paymentAgreementPrefix": "I have read and agree to ",
+  "paymentAgreementTerms": "the Terms of Service",
+  "paymentAgreementRefund": "the Paid Membership and Refund Rules",
+  "paymentAgreementPrivacy": "the Privacy Policy",
+  "paymentAgreementSeparator": ", ",
+  "paymentAgreementConjunction": " and ",
+  "paymentAgreementHint": "Please accept the agreement above to continue"
 }

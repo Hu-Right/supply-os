@@ -67,6 +67,9 @@ export interface ProjectDetail extends ProjectSummary {
   incotermVersion: string;
   batchDelivery: boolean;
   batchNote: string;
+  fundingSource: string;
+  contractingMode: string;
+  qtyTolerance: string;
   deliveryAddress: string;
   deadlineDate: string;
   installNeeds: string[];

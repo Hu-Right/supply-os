@@ -108,6 +108,9 @@ interface FormState {
   complianceNote: string;
   authorizePublish: boolean;
   contactDisclosure: string;
+  fundingSource: string;
+  contractingMode: string;
+  qtyTolerance: string;
 }
 
 const DEFAULT_FORM: FormState = {
@@ -148,6 +151,9 @@ const DEFAULT_FORM: FormState = {
   complianceNote: "",
   authorizePublish: true,
   contactDisclosure: "org_only",
+  fundingSource: "",
+  contractingMode: "",
+  qtyTolerance: "",
 };
 
 const PURPOSE_OPTIONS = ["real", "budgeting", "research", "future_plan"];
@@ -298,6 +304,9 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
           batchDelivery: Boolean(d.batchDelivery),
           batchNote: d.batchNote || "",
           logisticsNote: d.logisticsNote || "",
+          fundingSource: d.fundingSource || "",
+          contractingMode: d.contractingMode || "",
+          qtyTolerance: d.qtyTolerance || "",
           supplierType: d.supplierType || "any",
           supplierQuals: d.supplierQuals,
           supplierConfirmDate: d.supplierConfirmDate,
@@ -410,6 +419,9 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
     guaranteeConfig: form.guarantees,
     batchDelivery: form.batchDelivery ? 1 : 0,
     batchNote: form.batchNote.trim() || null,
+    fundingSource: form.fundingSource || null,
+    contractingMode: form.contractingMode || null,
+    qtyTolerance: form.qtyTolerance.trim() || null,
     supplierQuals: form.supplierQuals.trim() || null,
     supplierType: form.supplierType,
     quoteDeadlineAt: form.quoteDeadlineDate
@@ -968,6 +980,7 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
                 </div>
               ))}
             </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-secondary-400">{t("pc_items_lang_hint")}</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -989,6 +1002,18 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
               <Select value={form.budgetCurrency} onChange={(e) => field("budgetCurrency", e.target.value)} className={inputCls}>
                 {[...new Set<string>([...PROCUREMENT_CURRENCIES, form.budgetCurrency].filter(Boolean))].map((c) => (
                   <option key={c} value={c}>{c}</option>
+                ))}
+              </Select>
+            </label>
+            <label className={labelCls}>
+              <span className="flex items-center gap-1.5">
+                {t("pc_funding_source")}
+                <FieldHintTooltip label={t("pc_funding_source")} content={t("pc_funding_source_hint")} />
+              </span>
+              <Select value={form.fundingSource} onChange={(e) => field("fundingSource", e.target.value)} className={inputCls}>
+                <option value="">--</option>
+                {["government", "intl_aid", "self_funded", "other"].map((v) => (
+                  <option key={v} value={v}>{t(`pc_funding_${v}`)}</option>
                 ))}
               </Select>
             </label>
@@ -1033,6 +1058,13 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             </label>
             <input value={form.batchNote} onChange={(e) => field("batchNote", e.target.value)} placeholder={t("pc_batchNote")} className="min-w-64 flex-1 rounded-lg border border-secondary-300 px-3 py-2 text-sm" />
           </div>
+          <label className={labelCls}>
+            <span className="flex items-center gap-1.5">
+              {t("pc_qty_tolerance")}
+              <FieldHintTooltip label={t("pc_qty_tolerance")} content={t("pc_qty_tolerance_hint")} />
+            </span>
+            <input value={form.qtyTolerance} onChange={(e) => field("qtyTolerance", e.target.value)} placeholder={t("pc_qty_tolerance_ph")} className={inputCls} />
+          </label>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className={labelCls}>
               <span className="flex items-center gap-1.5">
@@ -1149,6 +1181,18 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             <Select value={form.supplierType} onChange={(e) => field("supplierType", e.target.value)} className={inputCls}>
               {["any", "manufacturer_or_agent", "manufacturer_only"].map((v) => (
                 <option key={v} value={v}>{t(`pc_supplier_type_${v}`)}</option>
+              ))}
+            </Select>
+          </label>
+          <label className={labelCls}>
+            <span className="flex items-center gap-1.5">
+              {t("pc_contracting_mode")}
+              <FieldHintTooltip label={t("pc_contracting_mode")} content={t("pc_contracting_mode_hint")} />
+            </span>
+            <Select value={form.contractingMode} onChange={(e) => field("contractingMode", e.target.value)} className={inputCls}>
+              <option value="">--</option>
+              {["direct", "consolidated", "undecided"].map((v) => (
+                <option key={v} value={v}>{t(`pc_contract_${v}`)}</option>
               ))}
             </Select>
           </label>

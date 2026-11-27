@@ -55,5 +55,12 @@
   "myRecordsUntitled": "未命名采购",
   "myPurchasesOpenDetail": "打开详情",
   "paymentIndustryLabel": "行业大类",
-  "paymentIndustryPlaceholder": "请选择行业大类"
+  "paymentIndustryPlaceholder": "请选择行业大类",
+  "paymentAgreementPrefix": "我已阅读并同意",
+  "paymentAgreementTerms": "《用户服务协议》",
+  "paymentAgreementRefund": "《付费会员及退款规则》",
+  "paymentAgreementPrivacy": "《隐私政策》",
+  "paymentAgreementSeparator": "、",
+  "paymentAgreementConjunction": "和",
+  "paymentAgreementHint": "勾选上方协议后继续支付"
 }
