@@ -44,36 +44,19 @@ export function CapabilityFormFields({
       </>
     );
 
-    // 字典不可用：退回自由输入，保证仍能录入
-    if (certOptions.length === 0) {
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <input value={String(fields.code ?? "")} onChange={(e) => setField("code", e.target.value)} placeholder={t("capCertCodePlaceholder")} className={inputCls} />
-          {dateAndExpiry}
-        </div>
-      );
-    }
-
-    const knownCodes = new Set(certOptions.map((o) => o.code));
     const currentCode = String(fields.code ?? "");
-    const isManual = fields.certManual === true || (currentCode !== "" && !knownCodes.has(currentCode));
     const grouped = CERT_CATEGORY_ORDER
       .map((cat) => ({ cat, items: certOptions.filter((o) => o.category === cat) }))
       .filter((g) => g.items.length > 0);
 
+    // 2026-11-27：证书只认 150 字典——不提供「其他/手动录入」，保证 code 一定在字典内
     return (
       <div className="space-y-2">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <Select
-            value={isManual ? "__manual__" : currentCode}
+            value={currentCode}
             onChange={(e) => {
               const v = e.target.value;
-              if (v === "__manual__") {
-                setField("certManual", true);
-                setField("code", "");
-                return;
-              }
-              setField("certManual", false);
               setField("code", v);
               const opt = certOptions.find((o) => o.code === v);
               if (opt && setName) setName(opt.name);
@@ -89,18 +72,9 @@ export function CapabilityFormFields({
                 ))}
               </optgroup>
             ))}
-            <option value="__manual__">{t("capCertOther")}</option>
           </Select>
           {dateAndExpiry}
         </div>
-        {isManual && (
-          <input
-            value={currentCode}
-            onChange={(e) => setField("code", e.target.value)}
-            placeholder={t("capCertCodePlaceholder")}
-            className={inputCls}
-          />
-        )}
       </div>
     );
   }
