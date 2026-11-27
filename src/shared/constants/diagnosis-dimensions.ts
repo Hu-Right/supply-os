@@ -37,6 +37,8 @@ export interface DiagnosisFieldDef {
    * 填了意味着入库仍是 code、界面显示本地化名（目标市场这类「码值对人不可读」的题必须走这条）。
    */
   optionLabelKeys?: readonly string[];
+  /** 选项的中文展示名（与 options 等长）；目标市场统一用数据源里的 labelZh，不依赖译文 */
+  optionLabels?: readonly string[];
   /** single 必填：与 options 等长，值域 0-5 */
   scoreMap?: readonly number[];
   /** multi / text 必填：按计入项数分档 */
@@ -368,6 +370,8 @@ export const DIAGNOSIS_QUAL_FIELDS: readonly DiagnosisFieldDef[] = [
     labelZh: "计划投标的目标市场（可多选；用于比对当地准入资质缺口）",
     options: QUAL_MARKET_CODES,
     optionLabelKeys: QUAL_MARKET_SCOPES.map((m) => m.labelKey),
+    // 中文名直接取数据源 labelZh（与报告/PDF 的 marketLabelZh 同源），不依赖语言包
+    optionLabels: QUAL_MARKET_SCOPES.map((m) => m.labelZh),
     required: true,
   },
   // ── V3 资格事实（决定准入判断，全部必答；报告第四章直接引用）──

@@ -84,6 +84,7 @@ import { migration as invoiceRequestsMigration } from "./migrations/079-invoice-
 import { migration as invoiceIssuanceMigration } from "./migrations/080-invoice-issuance";
 import { migration as invoiceBuyerFieldsMigration } from "./migrations/081-invoice-buyer-fields";
 import { migration as projectSourcingFieldsMigration } from "./migrations/082-project-sourcing-fields";
+import { migration as marketScopeMigration } from "./migrations/083-market-scope";
 import { migration as supplierDiagnosisGuideEventMigration } from "./migrations/064-supplier-diagnosis-guide-event";
 import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
 import { migration as dropBuyerParentMigration } from "./migrations/043-buyer-drop-parent";
@@ -171,6 +172,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   invoiceIssuanceMigration,
   invoiceBuyerFieldsMigration,
   projectSourcingFieldsMigration,
+  marketScopeMigration,
 ];
 
 /**

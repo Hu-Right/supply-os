@@ -18,7 +18,6 @@
  *              3. 「该市场字典里没有准入证书」不算缺口（noRequirement），否则小市场天然 C 级。
  */
 import {
-  QUAL_MARKET_CODES,
   QUAL_MARKET_MAP,
   QUAL_MARKET_SCOPES,
 } from "@/shared/constants/diagnosis-dimensions";
@@ -138,13 +137,22 @@ export function certScopesOf(scope: string): string[] {
     .filter((s) => Boolean(s) && s !== "GLOBAL");
 }
 
-/** 目标市场归一：只留字典里存在的码，去重并按常量顺序排列（同一批市场无论勾选顺序都产出同一份快照） */
+/**
+ * 目标市场归一：去重、按字典顺序排列。
+ * 字典已迁到 `market_scope` 表（迁移 083），常量只是存量市场/兜底排序——
+ * 因此这里接受「已知码 + 表里新增的合法码」，未知但形制合法的码保留在末尾，
+ * 避免运营在表里加了市场、提交时却被常量白名单静默丢掉。
+ */
 export function normalizeTargetMarkets(raw: readonly string[] | string | undefined): string[] {
   const list = Array.isArray(raw) ? raw : String(raw ?? "").split(/[,，;；\s]+/);
   const picked = new Set(
-    list.map((m) => String(m).trim().toUpperCase()).filter((m) => QUAL_MARKET_CODES.includes(m)),
+    list
+      .map((m) => String(m).trim().toUpperCase())
+      .filter((m) => /^[A-Z0-9/]{2,16}$/.test(m)),
   );
-  return QUAL_MARKET_SCOPES.filter((m) => picked.has(m.code)).map((m) => m.code);
+  const knownOrdered = QUAL_MARKET_SCOPES.filter((m) => picked.has(m.code)).map((m) => m.code);
+  const extras = [...picked].filter((code) => !QUAL_MARKET_MAP[code]);
+  return [...knownOrdered, ...extras];
 }
 
 export interface EvaluateQualificationInput {

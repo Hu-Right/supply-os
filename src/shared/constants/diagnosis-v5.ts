@@ -47,6 +47,8 @@ export interface DiagnosisV5FieldDef {
   options?: readonly string[];
   /** 选项的 i18n 标签键（与 options 等长）；目标市场这类码值走这条 */
   optionLabelKeys?: readonly string[];
+  /** 选项的中文展示名（与 options 等长）；目标市场统一用数据源里的 labelZh，不依赖译文 */
+  optionLabels?: readonly string[];
   /** 单选：与 options 等长，0-5 */
   scoreMap?: readonly number[];
   /** 多选：与 options 等长，每项得分（通常 0/1），总分封顶 5 */
@@ -96,6 +98,8 @@ export const DIAGNOSIS_V5_FIELDS: readonly DiagnosisV5FieldDef[] = [
     labelZh: "计划投标的目标市场（可多选；证书按市场比对）",
     options: QUAL_MARKET_SCOPES.map((m) => m.code),
     optionLabelKeys: QUAL_MARKET_SCOPES.map((m) => m.labelKey),
+    // 中文名直接取数据源 labelZh（与报告/PDF 的 marketLabelZh 同源），不依赖语言包
+    optionLabels: QUAL_MARKET_SCOPES.map((m) => m.labelZh),
     source: "form", scored: false, required: true,
   },
   // A1 派生：证书覆盖率（供应商表读取）

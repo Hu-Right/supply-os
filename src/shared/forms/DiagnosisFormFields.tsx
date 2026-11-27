@@ -25,6 +25,8 @@ interface Props {
   t: T;
   onSingle: (key: string, value: string) => void;
   onToggleMulti: (key: string, value: string) => void;
+  /** 目标市场字典（/api/markets）；不传则用常量默认 */
+  marketOptions?: ReadonlyArray<{ code: string; label: string }>;
 }
 
 function OptionChips({
@@ -36,10 +38,12 @@ function OptionChips({
   onToggle: (value: string) => void;
   t: T;
 }) {
-  const items = (field.options ?? []).map((opt, i) => ({
-    value: opt,
-    label: field.optionLabelKeys?.[i] ? t(field.optionLabelKeys[i]) : opt,
-  }));
+  const items = (field.options ?? []).map((opt, i) => {
+    const key = field.optionLabelKeys?.[i];
+    const translated = key ? t(key) : "";
+    // 优先数据源中文名（目标市场等码值），其次译文，最后退回选项码
+    return { value: opt, label: field.optionLabels?.[i] || translated || opt };
+  });
   if (field.kind === "multi") {
     return (
       <ChipToggleGroup
@@ -103,7 +107,19 @@ export function DiagnosisFormFields(props: Props) {
 
             <div className="mt-4 space-y-5">
               {dims.map((dim) => {
-                const fields = DIAGNOSIS_V5_FORM_FIELDS.filter((f) => f.dimensionNo === dim.no);
+                const fields = DIAGNOSIS_V5_FORM_FIELDS
+                  .filter((f) => f.dimensionNo === dim.no)
+                  .map((f) =>
+                    // 目标市场以字典表为准（/api/markets）；空表时保留常量默认
+                    f.key === "target_markets" && props.marketOptions?.length
+                      ? {
+                          ...f,
+                          options: props.marketOptions.map((o) => o.code),
+                          optionLabels: props.marketOptions.map((o) => o.label),
+                          optionLabelKeys: undefined,
+                        }
+                      : f,
+                  );
                 return (
                   <section key={dim.no} className="rounded-lg border border-slate-100 bg-slate-50/60 p-4">
                     <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800">

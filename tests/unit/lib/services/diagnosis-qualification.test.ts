@@ -109,10 +109,11 @@ describe("资质分级：去重与归一", () => {
     expect(r.grade).toBe("A");
   });
 
-  it("目标市场去重并按常量顺序排列（勾选顺序不影响快照）", () => {
+  it("目标市场去重并按字典顺序排列（勾选顺序不影响快照）", () => {
     expect(normalizeTargetMarkets(["US", "EU", "US"])).toEqual(["EU", "US"]);
     expect(normalizeTargetMarkets("us,eu")).toEqual(["EU", "US"]);
-    expect(normalizeTargetMarkets(["MOON", "EU"])).toEqual(["EU"]);
+    // 字典迁到 market_scope 表后，表里新增的合法码不再被常量白名单丢掉（追加在已知码之后）
+    expect(normalizeTargetMarkets(["MOON", "EU"])).toEqual(["EU", "MOON"]);
   });
 
   it("逐市场明细标出「应备/已持/缺失」，供报告直接渲染", () => {

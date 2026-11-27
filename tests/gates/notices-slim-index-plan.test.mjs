@@ -119,8 +119,9 @@ function landedProblems({ idx, plan }) {
 
 test("基线解析本身可信：列数、主键与 FULLTEXT 都抽到了", () => {
   assert.ok(COLS.size >= 40, `本表列数解析异常：${COLS.size}`);
-  // 批次二把等价冗余的 idx_bid_notices_converted_create_id 退役后，现场是 16 个索引
-  assert.ok(IDX.size >= 15, `索引数解析异常：${IDX.size}（现网 16 个）`);
+  // 2026-11-27 基线重导：按现场对齐后本表为 13 个索引（PRIMARY + 9 KEY + 3 FULLTEXT）。
+  // 这里只做「解析器抽到了索引」的下限校验，具体形状由 landedProblems 按登记表对账。
+  assert.ok(IDX.size >= 12, `索引数解析异常：${IDX.size}（现网 13 个）`);
   assert.deepEqual(IDX.get("PRIMARY"), ["id"], `主键解析不对：${IDX.get("PRIMARY")}`);
   const ft = [...IDX.entries()].filter(([, c]) => c.includes("description") || c.includes("title")).map(([n]) => n);
   assert.ok(ft.length >= 3, `FULLTEXT 没抽到：${ft.join(",")}`);

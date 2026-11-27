@@ -5,8 +5,9 @@
  *
  * @module features/procurement/pages/DiagnosisFormPage
  * @description 登录后填写；已有记录先列出来让人选一条改（规范 N5 的回显侧），
- *              而不是再填一份新的。提交成功直接出 10 维度报告，并挂「补全企业资料并认领」
- *              的去设置页钩子（规范 N2：企业资料不在本页编辑）。
+ *              而不是再填一份新的。提交成功只显示后台返回的总分与等级，维度明细留在
+ *              后台生成的详细报告里；并挂「补全企业资料并认领」的去设置页钩子
+ *              （规范 N2：企业资料不在本页编辑）。
  *              未登录时本页只出示登录引导——真正的写入闸门在 API（规范 N4），这里只是体验。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -41,40 +42,21 @@ function ResultView({
 }) {
   const r = form.result;
   if (!r) return null;
-  // V3：门户不给分数，但给"下一步做什么"——法定门槛里还没具备的前 3 条，按周期长的优先
-  const nextSteps = (r.qualBreakdown?.requirements?.legal ?? [])
-    .filter((x) => (x.status ?? (x.held ? "met" : "missing")) !== "met")
-    .sort((a, b) => (b.leadTimeDays ?? 0) - (a.leadTimeDays ?? 0))
-    .slice(0, 3);
   return (
     <div className="space-y-4">
-      {/* 门户不展示结果：评分、资质分级与缺口明细一律由后台 PDF 报告出具（2026-11-23 用户拍板） */}
+      {/* 前台只出分：总分 + 等级由后台评分返回；维度/缺口明细只在后台报告的详细部分 */}
       <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-5 text-center">
         <CheckCircle2 className="mx-auto h-9 w-9 text-teal-600" />
         <p className="mt-2 text-base font-black text-slate-900">{t("diagSuccessTitle")}</p>
+        {r.scoreTotal != null && (
+          <p className="mt-1 text-sm font-bold text-teal-700">
+            {r.scoreTotal} / 100 · {r.gradeLabel}
+          </p>
+        )}
         <p className="mt-1 text-sm text-slate-600">{t("diagSubmittedHint")}</p>
       </div>
 
-      {nextSteps.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm font-bold text-slate-800">{t("diagNextStepsTitle")}</p>
-          <ol className="mt-2 space-y-2">
-            {nextSteps.map((s, i) => (
-              <li key={s.standard} className="text-xs leading-relaxed text-slate-600">
-                <span className="mr-1 font-semibold text-slate-800">{i + 1}.</span>
-                <span className="font-semibold text-slate-800">{s.name}</span>
-                {s.leadTimeDays != null && (
-                  <span className="ml-1 text-slate-400">约 {s.leadTimeDays} 天</span>
-                )}
-                <span className="block text-slate-500">{s.remediation}</span>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-2 text-2xs text-slate-400">{t("diagNextStepsHint")}</p>
-        </div>
-      )}
-
-      {/* 完整诊断报告需联系客服获取：展示客服二维码，由客服人工发送报告文件 */}
+      {/* 完整诊断报告需联系客服获取：由后台按评分与分析生成详细报告，客服人工发送 */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
         <p className="text-sm font-bold text-slate-800">{t("diagReportLockedTitle")}</p>
         <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-slate-500">
