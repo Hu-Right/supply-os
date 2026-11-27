@@ -24,6 +24,8 @@ export interface ProviderOption {
 /** choose 步骤：支付方式选择卡 + 错误 + 确认下单按钮 */
 export const ChooseStep = memo(function ChooseStep({
   chooseExtra,
+  agreementNode,
+  agreementHint,
   providers,
   provider,
   paymentConfig,
@@ -38,6 +40,10 @@ export const ChooseStep = memo(function ChooseStep({
   amount,
 }: {
   chooseExtra?: ReactNode;
+  /** 购买前协议勾选（容器持有勾选态，本组件只负责版位） */
+  agreementNode?: ReactNode;
+  /** 未勾选协议时的提示文案（渲染在确认按钮下方） */
+  agreementHint?: string;
   providers: ProviderOption[];
   provider: PayProvider | null;
   /** 渠道可用性配置（null/undefined 视为可用——与原版 paymentConfig && !cfg[key] 判定一致） */
@@ -106,6 +112,8 @@ export const ChooseStep = memo(function ChooseStep({
         </div>
       )}
 
+      {agreementNode}
+
       <button
         type="button"
         onClick={onCreateOrder}
@@ -123,6 +131,12 @@ export const ChooseStep = memo(function ChooseStep({
           `${t("paymentConfirmBtn")} ${currencySymbol}${amount.toFixed(2)}`
         )}
       </button>
+
+      {agreementHint && (
+        <p className="text-center text-xs text-slate-400" aria-live="polite">
+          {agreementHint}
+        </p>
+      )}
     </>
   );
 });
