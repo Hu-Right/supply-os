@@ -16,10 +16,10 @@ export const migration: Migration = {
   name: "project_sourcing_fields",
   async up(dbPool: Pool): Promise<void> {
     await ensureColumn(dbPool, "procurement_projects", "funding_source",
-      "VARCHAR(40) NULL COMMENT '资金来源：government 政府预算 / intl_aid 国际援助 / self_funded 企业自筹 / other 其他' AFTER batch_note");
+      "funding_source VARCHAR(40) NULL COMMENT '资金来源：government 政府预算 / intl_aid 国际援助 / self_funded 企业自筹 / other 其他' AFTER batch_note");
     await ensureColumn(dbPool, "procurement_projects", "contracting_mode",
-      "VARCHAR(24) NULL COMMENT '签约模式：direct 供应商直签 / consolidated 外贸主体归集出口（NULL=待定）' AFTER funding_source");
+      "contracting_mode VARCHAR(24) NULL COMMENT '签约模式：direct 供应商直签 / consolidated 外贸主体归集出口（NULL=待定）' AFTER funding_source");
     await ensureColumn(dbPool, "procurement_projects", "qty_tolerance",
-      "VARCHAR(20) NULL COMMENT '溢短装（数量允差），如 ±5%；NULL=未说明' AFTER contracting_mode");
+      "qty_tolerance VARCHAR(20) NULL COMMENT '溢短装（数量允差），如 ±5%；NULL=未说明' AFTER contracting_mode");
   },
 };
