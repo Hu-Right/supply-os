@@ -147,14 +147,14 @@ describe("feasibility-report 输入装配（DB 行 → 领域对象）", () => {
     const supplierOnly = deriveCapabilities({
       enterpriseId: 1001,
       supplier: { id: 1001, company: "A", certification: "ISO 9001, CE" },
-      diagnosis: { ungm_status: "已注册", tender_experience: "5 年" },
+      diagnosis: { overseas_record: "有海外同类项目业绩", record_evidence: "合同 + 验收单齐全" },
     });
     expect(supplierOnly.filter((c) => c.type === "certification")).toHaveLength(0);
 
     const caps = deriveCapabilities({
       enterpriseId: 1001,
       supplier: { id: 1001, company: "A" },
-      diagnosis: { ungm_status: "已注册", tender_experience: "5 年" },
+      diagnosis: { overseas_record: "有海外同类项目业绩", record_evidence: "合同 + 验收单齐全" },
       capabilityRows: [
         {
           id: 1, enterprise_id: 1001, capability_type: "certification", name: "ISO 9001",
@@ -165,7 +165,12 @@ describe("feasibility-report 输入装配（DB 行 → 领域对象）", () => {
     const certs = caps.filter((c) => c.type === "certification");
     expect(certs).toHaveLength(1);
     expect((certs[0].value as Record<string, unknown>).validUntil).toBe("2030-12-31");
-    expect(caps.find((c) => c.type === "registration")?.value).toMatchObject({ platform: "UNGM", status: "active" });
+    // 2026-11-27：诊断不再提供 UNGM 注册状态（该列在 V5 影子重建时就没建），
+    // 注册能力只能来自 enterprise_capability_items，不能由问卷文本随口生成。
+    expect(caps.find((c) => c.type === "registration")).toBeUndefined();
+    // 业绩两问拼成一条文本能力
+    expect(caps.find((c) => c.id === "cap-text-experience")?.value)
+      .toMatchObject({ kind: "text", text: "有海外同类项目业绩；合同 + 验收单齐全" });
   });
 
   it("enterprise_capability_items 行优先覆盖派生能力（同证书 code 去重）", () => {

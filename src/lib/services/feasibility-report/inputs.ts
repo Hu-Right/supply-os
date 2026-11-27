@@ -56,9 +56,9 @@ export interface DiagnosisRowLike {
   user_id?: number | string | null;
   supplier_id?: number | string | null;
   company_name?: string | null;
-  ungm_status?: string | null;
-  tender_experience?: string | null;
-  mandatory_docs?: string | null;
+  /** 2026-11-27：V5 把「投标履历」换成「业绩有无 + 能否举证」两问，旧列已从表里删除 */
+  overseas_record?: string | null;
+  record_evidence?: string | null;
   english_evidence_level?: string | null;
   team_discipline?: string | null;
 }
@@ -235,26 +235,20 @@ export function deriveCapabilities(input: {
   void supplier; // 供应商行已不提供证书；保留入参供调用方共用同一签名
 
   if (diagnosis) {
-    const regStatus = normalizeRegistrationStatus(diagnosis.ungm_status);
-    if (regStatus) {
-      capabilities.push({
-        id: "cap-reg-ungm",
-        enterpriseId,
-        type: "registration",
-        name: "UNGM 注册",
-        value: { kind: "registration", platform: "UNGM", status: regStatus },
-        evidenceRefs: [supplierFieldEvidence("diagnosis:ungm_status", "诊断问卷：UNGM 注册状态")],
-        confirmation: { source: "diagnosis", confirmedBy: null, confirmedAt: null },
-      });
-    }
-    if (diagnosis.tender_experience?.trim()) {
+    // 2026-11-27：UNGM 注册状态不再来自诊断（该列在 V5 影子重建时就没建，读它会抛 ER_BAD_FIELD_ERROR），
+    // 投标经验改用「业绩有无 + 能否举证」两问拼成一条文本能力。
+    const recordText = [diagnosis.overseas_record, diagnosis.record_evidence]
+      .map((v) => String(v ?? "").trim())
+      .filter(Boolean)
+      .join("；");
+    if (recordText) {
       capabilities.push({
         id: "cap-text-experience",
         enterpriseId,
         type: "text",
         name: "投标经验（诊断问卷）",
-        value: { kind: "text", text: diagnosis.tender_experience.trim(), source: "diagnosis" },
-        evidenceRefs: [supplierFieldEvidence("diagnosis:tender_experience", "诊断问卷：投标经验")],
+        value: { kind: "text", text: recordText, source: "diagnosis" },
+        evidenceRefs: [supplierFieldEvidence("diagnosis:overseas_record", "诊断问卷：项目业绩")],
         confirmation: { source: "diagnosis", confirmedBy: null, confirmedAt: null },
       });
     }

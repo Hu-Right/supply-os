@@ -81,7 +81,10 @@ export class FeasibilityReportRepo {
 
   async findDiagnosis(userId: number, supplierId: number): Promise<DiagnosisRowLike | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT user_id, supplier_id, company_name, ungm_status, tender_experience, mandatory_docs,
+      // 2026-11-27：ungm_status / mandatory_docs / tender_experience 三列已不在 supplier_diagnosis
+      // （前两个在 V5 影子重建时就没建，tender_experience 本轮退役）。
+      // 原 SQL 引用它们会抛 ER_BAD_FIELD_ERROR，整条可行性报告链路 500——这里只取实际存在的列。
+      `SELECT user_id, supplier_id, company_name, overseas_record, record_evidence,
               english_evidence_level, team_discipline
          FROM supplier_diagnosis WHERE user_id = ? AND supplier_id = ? LIMIT 1`,
       [userId, supplierId],
