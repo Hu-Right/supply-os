@@ -30,8 +30,6 @@ const TEST_BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const VIP_USER = process.env.E2E_VIP_USER ?? "vip@qq.com";
 const FREE_USER = process.env.E2E_FREE_USER ?? "free@qq.com";
 const E2E_TEST_PASSWORD = process.env.E2E_TEST_PASSWORD ?? "admin123";
-/** 商机用固定靶点（库内真实存在的商机 id），可用环境变量覆盖 */
-const OPP_ID = Number(process.env.E2E_OPP_ID ?? 176);
 
 // ── 辅助函数 ──────────────────────────────────────────────────────────────────
 
@@ -143,24 +141,13 @@ test.describe("鉴权与异常边界", () => {
     expect(body.code).toBe(EC_ACCOUNT_ISSUE);
     expect(body.error?.type).toBe("account_issue");
   });
-
-  test("不存在的商机解锁 → 404 明确错误码", async ({ request }) => {
-    const token = await loginToken(request, VIP_USER);
-    const res = await request.post(`${TEST_BASE_URL}/api/opportunities/999999999/access`, {
-      headers: authHeaders(token),
-      data: { grant_type: "subscription" },
-    });
-    expect(res.status()).toBe(404);
-    const body = await res.json();
-    expect(body.message).toContain("不存在");
-  });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 旅程 2：商机浏览与解锁（认证态）
+// 旅程 2：商机浏览（认证态）
 // ══════════════════════════════════════════════════════════════════════════════
 
-test.describe("商机浏览与解锁旅程", () => {
+test.describe("商机浏览旅程", () => {
   test("商机列表 → 付费字段脱敏（无 source_url、description 截断）", async ({ request }) => {
     const token = await loginToken(request, VIP_USER);
     const res = await request.get(
@@ -180,85 +167,8 @@ test.describe("商机浏览与解锁旅程", () => {
     }
   });
 
-  test("免费类型解锁 → 402 硬闸（免费试用已移除，服务端裁决）", async ({ request }) => {
-    test.skip(!isChromium(), "解锁边界用例仅在 chromium 跑一次");
-    const token = await loginToken(request, VIP_USER);
-    const headers = authHeaders(token);
-    // 幂等预检先于免费硬闸：已解锁的商机 free 请求会幂等成功，
-    // 因此硬闸断言必须使用当前账号未解锁过的靶点（从列表动态挑选）
-    const list = await (await request.get(
-      `${TEST_BASE_URL}/api/opportunities`, { headers },
-    )).json();
-    const unlocks = await (await request.get(
-      `${TEST_BASE_URL}/api/opportunities/access-ids`, { headers },
-    )).json();
-    const accessibleIds = new Set(
-      (Array.isArray(unlocks) ? unlocks : unlocks.items ?? [])
-        .map((u: { opportunityId: number }) => u.opportunityId),
-    );
-    const target = (Array.isArray(list) ? list : []).find(
-      (i: { id: number }) => !accessibleIds.has(i.id),
-    );
-    test.skip(!target, "当前类目下没有未解锁靶点，硬闸语义由集成测试覆盖");
-    const res = await request.post(`${TEST_BASE_URL}/api/opportunities/${target.id}/access`, {
-      headers,
-      data: { grant_type: "free" },
-    });
-    expect(res.status()).toBe(402);
-    const body = await res.json();
-    // 免费试用已下线：402 文案是会员升级引导（历史文案含「免费」，现文案含「会员」），
-    // 断言放宽到两者之一，业务语义（被硬闸拦下 + 引导付费）不变。
-    expect(body.message).toMatch(/会员|免费/);
-  });
-
-  test("付费解锁 → 成功；重复解锁 → 幂等 alreadyGranted", async ({ request }) => {
-    test.skip(!isChromium(), "解锁写入用例仅在 chromium 跑一次，重复运行靠幂等不叠加消耗");
-    const token = await loginToken(request, VIP_USER);
-    const headers = authHeaders(token);
-
-    const first = await request.post(`${TEST_BASE_URL}/api/opportunities/${OPP_ID}/access`, {
-      headers,
-      data: { grant_type: "subscription" },
-    });
-    expect([200, 201]).toContain(first.status());
-    const firstBody = await first.json();
-    expect(firstBody.success).toBe(true);
-
-    // 幂等：重复解锁返回 alreadyGranted，且不产生第二次计费/流水
-    const second = await request.post(`${TEST_BASE_URL}/api/opportunities/${OPP_ID}/access`, {
-      headers,
-      data: { grant_type: "subscription" },
-    });
-    expect(second.status()).toBe(200);
-    const secondBody = await second.json();
-    expect(secondBody.alreadyGranted).toBe(true);
-
-    // 解锁记录可查询
-    const unlocks = await request.get(`${TEST_BASE_URL}/api/opportunities/access-ids`, { headers });
-    expect(unlocks.status()).toBe(200);
-    const unlockList = await unlocks.json();
-    const arr = Array.isArray(unlockList) ? unlockList : unlockList.items ?? [];
-    expect(
-      arr.some((u: { opportunityId: number }) => u.opportunityId === OPP_ID),
-    ).toBeTruthy();
-  });
-
-  test("无订阅用户付费解锁 → 402 明确引导开通会员", async ({ request }) => {
-    test.skip(!isChromium(), "边界用例仅在 chromium 跑一次");
-    const token = await loginToken(request, FREE_USER);
-    // 用一个未解锁的商机靶点（若已解锁则幂等成功也视为通过）
-    const res = await request.post(`${TEST_BASE_URL}/api/opportunities/${OPP_ID}/access`, {
-      headers: authHeaders(token),
-      data: { grant_type: "subscription" },
-    });
-    // free 账号无订阅无池：402 引导开通；若账号后来开过订阅则可能 200/201，均属合法状态
-    if (res.status() === 402) {
-      const body = await res.json();
-      expect(body.message).toContain("会员");
-    } else {
-      expect([200, 201]).toContain(res.status());
-    }
-  });
+  // 2026-11-27：商机解锁端点（/access、/unlock、/access-ids）已随次数体系下线，
+  // 相关 e2e 用例（402 硬闸 / 解锁幂等 / 解锁列表 / 解锁 404）一并删除。
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

@@ -93,7 +93,6 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/membership/services", auth: "member", status: 200, bodyType: "array", src: "/api/membership/services" },
   { method: "GET", path: "/api/membership/status", auth: "member", status: 200, bodyType: "object", src: "/api/membership/status" },
   { method: "GET", path: "/api/membership/upgrade/preview", auth: "member", status: 400, bodyType: "object", src: "/api/membership/upgrade/preview" },
-  { method: "POST", path: "/api/notices/:id/access", auth: "none", status: 401, bodyType: "object", src: "/api/notices/:id/access" },
   { method: "GET", path: "/api/notices/:id/ai-match", auth: "member", status: 200, bodyType: "object", src: "/api/notices/:id/ai-match" },
   { method: "POST", path: "/api/notices/:id/ai-match", auth: "none", status: 401, bodyType: "object", src: "/api/notices/:id/ai-match" },
   { method: "GET", path: "/api/notices/:id/ai-summary", auth: "member", status: 200, bodyType: "object", src: "/api/notices/:id/ai-summary" },
@@ -112,9 +111,7 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/notices/:id/report/preview", auth: "member", status: 200, bodyType: "object", src: "/api/notices/:id/report/preview" },
   { method: "GET", path: "/api/notices/:id/similar", auth: "member", status: 200, bodyType: "object", src: "/api/notices/:id/similar" },
   { method: "GET", path: "/api/notices/:id/translation?lang=zh", auth: "member", status: 200, bodyType: "object", src: "/api/notices/:id/translation" },
-  { method: "POST", path: "/api/notices/:id/unlock", auth: "none", status: 401, bodyType: "object", src: "/api/notices/:id/unlock" },
   { method: "POST", path: "/api/notices/:id/view", auth: "none", status: 401, bodyType: "object", src: "/api/notices/:id/view" },
-  { method: "GET", path: "/api/notices/access-ids", auth: "member", status: 200, bodyType: "array", src: "/api/notices/access-ids" },
   { method: "GET", path: "/api/notices/countries", auth: "member", status: 200, bodyType: "array", src: "/api/notices/countries" },
   { method: "GET", path: "/api/notices/favorites", auth: "member", status: 200, bodyType: "object", src: "/api/notices/favorites" },
   { method: "GET", path: "/api/notices/favorites/ids", auth: "member", status: 200, bodyType: "object", src: "/api/notices/favorites/ids" },
@@ -125,7 +122,6 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/notices/proxy", auth: "member", status: 400, bodyType: "object", src: "/api/notices/proxy" },
   { method: "GET", path: "/api/notices/stats", auth: "member", status: 200, bodyType: "object", src: "/api/notices/stats" },
   { method: "GET", path: "/api/notices/unified-search?limit=1", auth: "member", status: 200, bodyType: "object", src: "/api/notices/unified-search" },
-  { method: "GET", path: "/api/notices/unlocks", auth: "member", status: 200, bodyType: "array", src: "/api/notices/unlocks" },
   { method: "GET", path: "/api/notifications", auth: "member", status: 200, bodyType: "object", src: "/api/notifications" },
   { method: "POST", path: "/api/notifications", auth: "none", status: 401, bodyType: "object", src: "/api/notifications" },
   { method: "GET", path: "/api/notifications/:id", auth: "member", status: 404, bodyType: "object", src: "/api/notifications/:id" },
@@ -133,12 +129,8 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/open/v1/engineering", auth: "none", status: 401, bodyType: "object", src: "/api/open/v1/engineering" },
   { method: "GET", path: "/api/open/v1/engineering/:id", auth: "none", status: 401, bodyType: "object", src: "/api/open/v1/engineering/:id" },
   { method: "GET", path: "/api/opportunities", auth: "member", status: 200, bodyType: "array", src: "/api/opportunities" },
-  { method: "POST", path: "/api/opportunities/:id/access", auth: "none", status: 401, bodyType: "object", src: "/api/opportunities/:id/access" },
   { method: "GET", path: "/api/opportunities/:id/translation", auth: "member", status: 400, bodyType: "object", src: "/api/opportunities/:id/translation" },
-  { method: "POST", path: "/api/opportunities/:id/unlock", auth: "none", status: 401, bodyType: "object", src: "/api/opportunities/:id/unlock" },
   { method: "POST", path: "/api/opportunities/:id/view", auth: "none", status: 401, bodyType: "object", src: "/api/opportunities/:id/view" },
-  { method: "GET", path: "/api/opportunities/access-ids", auth: "member", status: 200, bodyType: "array", src: "/api/opportunities/access-ids" },
-  { method: "GET", path: "/api/opportunities/unlocks", auth: "member", status: 200, bodyType: "array", src: "/api/opportunities/unlocks" },
   { method: "POST", path: "/api/orders", auth: "none", status: 401, bodyType: "object", src: "/api/orders" },
   { method: "GET", path: "/api/payment/access-records", auth: "member", status: 200, bodyType: "object", src: "/api/payment/access-records" },
   { method: "GET", path: "/api/payment/alipay/redirect/:orderNo", auth: "member", status: 404, bodyType: "object", src: "/api/payment/alipay/redirect/:orderNo" },
@@ -147,7 +139,6 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/payment/orders", auth: "member", status: 200, bodyType: "object", src: "/api/payment/orders" },
   { method: "POST", path: "/api/payment/orders", auth: "none", status: 401, bodyType: "object", src: "/api/payment/orders" },
   { method: "GET", path: "/api/payment/orders/:orderNo", auth: "member", status: 404, bodyType: "object", src: "/api/payment/orders/:orderNo" },
-  { method: "GET", path: "/api/payment/unlocks", auth: "member", status: 200, bodyType: "object", src: "/api/payment/unlocks" },
   { method: "POST", path: "/api/payments/:orderNo/mock-paid", auth: "none", status: 404, bodyType: "object", src: "/api/payments/:orderNo/mock-paid" },
   { method: "GET", path: "/api/procurement/attachment-files/:filename", auth: "member", status: 400, bodyType: "object", src: "/api/procurement/attachment-files/:filename" },
   { method: "POST", path: "/api/procurement/authorization-callback", auth: "none", status: 403, bodyType: "object", src: "/api/procurement/authorization-callback" },
@@ -410,14 +401,6 @@ test.describe("核心业务断言（访问控制 / 数据契约）", () => {
     expect(Array.isArray(body.items)).toBeTruthy();
     expect(body.items.length).toBeGreaterThan(0);
     expect(typeof body.total).toBe("number");
-  });
-
-  test("公告解锁 ID 列表：数组且含 noticeId", async ({ request }) => {
-    const res = await request.get(`${BASE_URL}/api/notices/access-ids`, { headers: { Authorization: `Bearer ${memberToken}` } });
-    expect(res.status()).toBe(200);
-    const body = await res.json();
-    expect(Array.isArray(body)).toBeTruthy();
-    if (body.length > 0) expect(body[0].noticeId).toBeTruthy();
   });
 
   test("会员状态：plan/subscription/quotas 契约", async ({ request }) => {

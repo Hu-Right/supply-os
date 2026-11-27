@@ -1,13 +1,13 @@
 /**
- * 解锁配额共享口径固化测试（access-quota · 权益体系新账本）
+ * 计量配额共享口径固化测试（access-quota · 权益体系新账本）
  *
- * 该模块是公告解锁与商机解锁的唯一记账口径，记账源 = benefit_quotas 的
- * notice_view 池行。固化以下语义，任何修改必须同步两条解锁链路与本测试：
+ * 2026-11-27 起本模块是 AI 计量码（ai_summary_quota/ai_match_quota）的唯一
+ * 记账口径（notice_view 解锁消耗已随次数体系退役，池由履约统一开立）。
+ * 固化以下语义，任何修改必须同步 ai-quota 链路与本测试：
  * 1. 池的额度只从矩阵格 value_num 取，代码里不出现任何额度数字；
- * 2. 缺格 / value_num 为 NULL / 额度为 0 → PAID_QUOTA_REQUIRED，且**不开池**
- *    （free.notice_view=0 是 migration 058 的裁决结果，属"零额度"而非"未配置"）；
- * 3. 池不存在时才按矩阵值开一次（幂等抬额），已存在绝不重复开——否则等于把
- *    "已用量"与"应发量"两本账搅在一起；
+ * 2. 缺格 / value_num 为 NULL / 额度为 0 → PAID_QUOTA_REQUIRED，且**不开池**；
+ * 3. 月度计量码：代次起点早于本月 → 以本月 1 号开新一代次；同月重入幂等；
+ *    非月度码不再代偿开池（懒开池分支已随解锁体系删除），无池即拒绝；
  * 4. 池记在订阅主账号名下（本人订阅；席位体系已退役，2026-09-29）；
  * 5. 扣减由 consumeLockedPool 的 affectedRows 复核裁决，denied 即抛。
  */
@@ -25,7 +25,7 @@ const pool = (over: Partial<LockedPoolRow> = {}): LockedPoolRow =>
     id: 900,
     subscription_id: 55,
     user_id: 101,
-    benefit_code: "notice_view",
+    benefit_code: "ai_summary_quota",
     quota_total: 10,
     quota_used: 0,
     status: "active",
@@ -40,7 +40,7 @@ function makeDeps(opts: {
   pools?: Array<LockedPoolRow | null>;
   consume?: "consumed" | "denied" | "unlimited";
 } = {}) {
-  const cells = opts.matrixCells ?? [{ benefit_code: "notice_view", value_num: 10 }];
+  const cells = opts.matrixCells ?? [{ benefit_code: "ai_summary_quota", value_num: 30 }];
   const queue = [...(opts.pools ?? [])];
   const catalog = {
     findActivePlanForUser: vi.fn(async () => opts.active ?? null),
@@ -54,66 +54,39 @@ function makeDeps(opts: {
   return { deps: { catalog, write }, catalog, write };
 }
 
-const starter = { subscription_id: 55, owner_user_id: 101, plan_code: "starter" } as unknown as ActivePlanRow;
+const personal = { subscription_id: 55, owner_user_id: 101, plan_code: "personal_m" } as unknown as ActivePlanRow;
 
 describe("ensureConsumableQuota · 额度只从矩阵取", () => {
-  it("已订阅 starter 且无池：按矩阵 value_num=10 开池后再锁，开池参数落在本订阅与主账号", async () => {
-    const { deps, write } = makeDeps({ active: starter, pools: [null, pool()] });
-    const got = await ensureConsumableQuota(conn, deps, { userId: 101 });
-
-    expect(write.openQuotaPool).toHaveBeenCalledWith(conn, {
-      subscriptionId: 55, userId: 101, benefitCode: "notice_view", quotaTotal: 10,
-    });
-    expect(got.id).toBe(900);
-    // 锁定查的是矩阵档位对应的订阅与主账号，不是"当前登录用户自己的订阅"
-    expect(write.findAndLockCurrentPool).toHaveBeenLastCalledWith(conn, {
-      userId: 101, benefitCode: "notice_view", subscriptionId: 55,
-    });
-  });
-
-  it("池已存在：绝不再开池（重复 openQuotaPool 会抬额并洗掉耗尽语义）", async () => {
-    const { deps, write } = makeDeps({ active: starter, pools: [pool()] });
-    await ensureConsumableQuota(conn, deps, { userId: 101 });
-    expect(write.openQuotaPool).not.toHaveBeenCalled();
-  });
-
-  it("不限档（value_num=-1）：照常开池，额度原样写 -1 不做换算", async () => {
-    const unlimited = { subscription_id: 66, owner_user_id: 101, plan_code: "unlimited" } as unknown as ActivePlanRow;
-    const { deps, write } = makeDeps({
-      active: unlimited,
-      matrixCells: [{ benefit_code: "notice_view", value_num: -1 }],
-      pools: [null, pool({ quota_total: -1 })],
-    });
-    const got = await ensureConsumableQuota(conn, deps, { userId: 101 });
-    expect(write.openQuotaPool).toHaveBeenCalledWith(conn, expect.objectContaining({ quotaTotal: -1 }));
-    expect(got.quota_total).toBe(-1);
-  });
-});
-
-describe("ensureConsumableQuota · 无额度必须拒绝", () => {
-  it("未订阅按 free 档：free.notice_view=0（migration 058 裁决的零额度）→ 拒绝且不开池", async () => {
-    const { deps, write } = makeDeps({ active: null, matrixCells: [{ benefit_code: "notice_view", value_num: 0 }] });
-    await expect(ensureConsumableQuota(conn, deps, { userId: 101 })).rejects.toThrow(AccessQuotaError);
+  it("免费档（无生效套餐）：ai_summary_quota=0 → 拒绝且不开池，读的是 free 那一列", async () => {
+    const { deps, write } = makeDeps({ active: null, matrixCells: [{ benefit_code: "ai_summary_quota", value_num: 0 }] });
+    await expect(
+      ensureConsumableQuota(conn, deps, { userId: 101, benefitCode: "ai_summary_quota" }),
+    ).rejects.toThrow(AccessQuotaError);
     expect(write.openQuotaPool).not.toHaveBeenCalled();
     expect(write.findAndLockCurrentPool).not.toHaveBeenCalled();
-    // 未订阅读的确实是 free 那一列
     expect(deps.catalog.loadCells).toHaveBeenCalledWith(["free"]);
   });
 
-  it("矩阵缺格（该档没声明 notice_view）→ 拒绝，不猜默认额度", async () => {
-    const { deps, write } = makeDeps({ active: starter, matrixCells: [] });
-    await expect(ensureConsumableQuota(conn, deps, { userId: 101 })).rejects.toThrow("PAID_QUOTA_REQUIRED");
+  it("矩阵缺格（该档没声明该计量码）→ 拒绝，不猜默认额度", async () => {
+    const { deps, write } = makeDeps({ active: personal, matrixCells: [] });
+    await expect(
+      ensureConsumableQuota(conn, deps, { userId: 101, benefitCode: "ai_summary_quota" }),
+    ).rejects.toThrow("PAID_QUOTA_REQUIRED");
     expect(write.openQuotaPool).not.toHaveBeenCalled();
   });
 
   it("value_num 为 NULL（配置了行却没额度值）→ 拒绝，不当成 0 也不当成不限", async () => {
-    const { deps } = makeDeps({ active: starter, matrixCells: [{ benefit_code: "notice_view", value_num: null }] });
-    await expect(ensureConsumableQuota(conn, deps, { userId: 101 })).rejects.toThrow("PAID_QUOTA_REQUIRED");
+    const { deps } = makeDeps({ active: personal, matrixCells: [{ benefit_code: "ai_summary_quota", value_num: null }] });
+    await expect(
+      ensureConsumableQuota(conn, deps, { userId: 101, benefitCode: "ai_summary_quota" }),
+    ).rejects.toThrow("PAID_QUOTA_REQUIRED");
   });
 
-  it("开池后仍锁不到池行 → 拒绝（不放行无池消费）", async () => {
-    const { deps } = makeDeps({ active: starter, pools: [null, null] });
-    await expect(ensureConsumableQuota(conn, deps, { userId: 101 })).rejects.toThrow("PAID_QUOTA_REQUIRED");
+  it("月度码开新代次后仍锁不到池行 → 拒绝（不放行无池消费）", async () => {
+    const { deps } = makeDeps({ active: personal, pools: [null, null] });
+    await expect(
+      ensureConsumableQuota(conn, deps, { userId: 101, benefitCode: "ai_summary_quota" }),
+    ).rejects.toThrow("PAID_QUOTA_REQUIRED");
   });
 });
 
@@ -138,7 +111,6 @@ describe("consumeQuota · 扣减结果决定放行与否", () => {
 // ── 月度换代（2026-10-28 新矩阵 ai_summary_quota / ai_match_quota：次/月，日历月重置）──
 
 describe("ensureConsumableQuota · 月度换代池", () => {
-  const personal = { subscription_id: 55, owner_user_id: 101, plan_code: "personal_m" } as unknown as ActivePlanRow;
   const monthStart = (() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -185,11 +157,26 @@ describe("ensureConsumableQuota · 月度换代池", () => {
     );
   });
 
-  it("notice_view 不在换代名单：上月池原样返回，不开新代次（既有语义逐字不变）", async () => {
+  it("非月度码（不在换代名单）：已有池原样返回，不代偿开池（懒开池已随解锁体系删除）", async () => {
     const lastMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1);
-    const { deps, write } = makeDeps({ active: personal, pools: [pool({ period_starts_at: lastMonth })] });
-    const got = await ensureConsumableQuota(conn, deps, { userId: 101 });
+    const legacyCells = [{ benefit_code: "legacy_quota", value_num: 5 }];
+    const legacyPool = pool({ benefit_code: "legacy_quota", quota_total: 5, period_starts_at: lastMonth });
+    const { deps, write } = makeDeps({
+      active: personal,
+      matrixCells: legacyCells,
+      pools: [legacyPool],
+    });
+    const got = await ensureConsumableQuota(conn, deps, { userId: 101, benefitCode: "legacy_quota" });
     expect(write.openQuotaPool).not.toHaveBeenCalled();
     expect(got.id).toBe(900);
+  });
+
+  it("非月度码无池 → 拒绝（不再按订阅期懒开池）", async () => {
+    const legacyCells = [{ benefit_code: "legacy_quota", value_num: 5 }];
+    const { deps, write } = makeDeps({ active: personal, matrixCells: legacyCells, pools: [null] });
+    await expect(
+      ensureConsumableQuota(conn, deps, { userId: 101, benefitCode: "legacy_quota" }),
+    ).rejects.toThrow("PAID_QUOTA_REQUIRED");
+    expect(write.openQuotaPool).not.toHaveBeenCalled();
   });
 });
