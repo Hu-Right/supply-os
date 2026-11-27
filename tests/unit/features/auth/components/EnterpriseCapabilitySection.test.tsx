@@ -44,12 +44,12 @@ const base = () => ({
 describe("EnterpriseCapabilitySection 错误态分流", () => {
   beforeEach(() => { state.data = base(); });
 
-  it("表单校验错误（请填写能力名称）→ 内联 alert，表单仍可见，不出现整块重试", () => {
-    state.data = { ...base(), actionError: "请填写能力名称" };
+  it("动作校验错误 → 内联 alert，表单仍可见，不出现整块重试", () => {
+    state.data = { ...base(), actionError: "证书需填写有效期，或选择长期有效" };
     render(<EnterpriseCapabilitySection enabled />);
 
-    expect(screen.getByRole("alert")).toHaveTextContent("请填写能力名称");
-    expect(screen.getByPlaceholderText("capNamePlaceholder")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("证书需填写有效期，或选择长期有效");
+    expect(screen.getByText("capAddItem")).toBeInTheDocument();
     expect(screen.queryByText("capRetry")).toBeNull();
   });
 
@@ -59,7 +59,7 @@ describe("EnterpriseCapabilitySection 错误态分流", () => {
 
     expect(screen.getByText("加载失败")).toBeInTheDocument();
     expect(screen.getByText("capRetry")).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("capNamePlaceholder")).toBeNull();
+    expect(screen.queryByText("capAddItem")).toBeNull();
   });
 
   it("未使能（未绑定企业）→ 整块不渲染", () => {
