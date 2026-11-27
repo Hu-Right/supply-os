@@ -89,7 +89,9 @@ export default function RFQPage() {
   return (
     <>
       <PageClient />
-      <RfqProcessSection />
+      {/* GEO：HowTo 结构化数据保留（机器可读、用户不可见）；七步流程的用户可见呈现
+          由向导顶部 FlowStepper 承载，不再重复渲染文字版流程区（2026-11-27） */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(howToJsonLd()) }} />
     </>
   );
 }
