@@ -40,12 +40,15 @@ export interface UnifiedOrderHistoryRow {
   expires_at: Date | null;
 }
 
-/** 解锁历史查询行（解锁 LEFT JOIN 公告 [+ 译文]，供列表映射与后台补翻） */
+/** 查看历史查询行（浏览流水 LEFT JOIN 公告 [+ 译文]，供列表映射与后台补翻）
+ *  2026-11-27 数据源从 notice_access_grants（解锁存根，已随次数体系退役）换成
+ *  user_notice_views 浏览流水：grant_type/price 为存根时代遗留字段，新源不再产出，
+ *  保留可选键仅为兼容既有视图映射（toAccessRecordView 以 ?? 兜底）。 */
 export interface AccessHistoryRow {
   user_id: number;
   notice_id: number | null;
-  grant_type: string;
-  price: number;
+  grant_type?: string;
+  price?: number;
   granted_at: Date;
   external_notice_id: string | null;
   reference: string | null;
@@ -110,11 +113,11 @@ export class PaymentHistoryRepo {
     return rows as UnifiedOrderHistoryRow[];
   }
 
-  /** 解锁历史总数（仅公告解锁） */
+  /** 查看历史总数（按公告去重） */
   async countAccessRecords(userId: number): Promise<number> {
     const [rows] = await this.pool.query(
-      `SELECT COUNT(*) AS total
-       FROM notice_access_grants u
+      `SELECT COUNT(DISTINCT u.notice_id) AS total
+       FROM user_notice_views u
        WHERE u.user_id = ? AND u.notice_id IS NOT NULL`,
       [userId],
     );
@@ -122,8 +125,9 @@ export class PaymentHistoryRepo {
   }
 
   /**
-   * 解锁历史分页（解锁 LEFT JOIN 公告 [+ 译文]）。
+   * 查看历史分页（每公告取最近一次浏览，LEFT JOIN 公告 [+ 译文]）。
    * withTranslation 为 true 时多取 n.description（仅供后台补翻用，不返回）与缓存译文标题。
+   * granted_at 别名 = user_notice_views.viewed_at，下游视图映射零改动。
    */
   async listAccessRecords(
     userId: number,
@@ -134,29 +138,39 @@ export class PaymentHistoryRepo {
     const [rows] = await this.pool.query(
       withTranslation
         ? `SELECT
-             u.user_id, u.notice_id, u.grant_type, u.price, u.granted_at,
+             u.user_id, u.notice_id, u.viewed_at AS granted_at,
              n.notice_id AS external_notice_id, n.reference, n.title,
              n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry,
              n.description, tr.title_tr AS title_i18n, np.title_cn
-           FROM notice_access_grants u
+           FROM (
+             SELECT user_id, notice_id, viewed_at,
+                    ROW_NUMBER() OVER (PARTITION BY notice_id ORDER BY viewed_at DESC, id DESC) AS rn
+             FROM user_notice_views
+             WHERE user_id = ? AND notice_id IS NOT NULL
+           ) u
            LEFT JOIN bid_notices n ON n.id = u.notice_id
            LEFT JOIN notice_public np ON np.notice_pk = u.notice_id
            LEFT JOIN notice_translations tr ON tr.notice_id = u.notice_id AND tr.lang = ?
-           WHERE u.user_id = ? AND u.notice_id IS NOT NULL
-           ORDER BY u.id DESC
+           WHERE u.rn = 1
+           ORDER BY u.viewed_at DESC
            LIMIT ? OFFSET ?`
         : `SELECT
-             u.user_id, u.notice_id, u.grant_type, u.price, u.granted_at,
+             u.user_id, u.notice_id, u.viewed_at AS granted_at,
              n.notice_id AS external_notice_id, n.reference, n.title,
              n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.url, n.industry,
              np.title_cn
-           FROM notice_access_grants u
+           FROM (
+             SELECT user_id, notice_id, viewed_at,
+                    ROW_NUMBER() OVER (PARTITION BY notice_id ORDER BY viewed_at DESC, id DESC) AS rn
+             FROM user_notice_views
+             WHERE user_id = ? AND notice_id IS NOT NULL
+           ) u
            LEFT JOIN bid_notices n ON n.id = u.notice_id
            LEFT JOIN notice_public np ON np.notice_pk = u.notice_id
-           WHERE u.user_id = ? AND u.notice_id IS NOT NULL
-           ORDER BY u.id DESC
+           WHERE u.rn = 1
+           ORDER BY u.viewed_at DESC
            LIMIT ? OFFSET ?`,
-      withTranslation ? [withTranslation.lang, userId, limit, offset] : [userId, limit, offset],
+      withTranslation ? [userId, withTranslation.lang, limit, offset] : [userId, limit, offset],
     );
     return rows as AccessHistoryRow[];
   }

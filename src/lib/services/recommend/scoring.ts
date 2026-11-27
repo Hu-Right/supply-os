@@ -99,6 +99,9 @@ export function buildScoringContext(
 
 /**
  * 查询金额偏好（带缓存）
+ *
+ * 2026-11-27 信号源从 notice_access_grants（解锁存根，已随次数体系退役）换成
+ * user_notice_views 浏览流水：用户「看过」的公告金额分布即兴趣金额偏好。
  */
 export async function getAmountPreference(
   pool: Pool, userId: number,
@@ -109,7 +112,7 @@ export async function getAmountPreference(
   }
   const [amountPrefRows] = await pool.query(
     `SELECT AVG(LOG10(c.amount_usd + 1)) AS center_log, COUNT(*) AS cnt
-     FROM notice_access_grants u
+     FROM user_notice_views u
      INNER JOIN notice_amount_cache c ON c.notice_id = u.notice_id
      WHERE u.user_id = ? AND u.notice_id IS NOT NULL AND c.amount_usd IS NOT NULL AND c.amount_usd > 0`,
     [userId],
