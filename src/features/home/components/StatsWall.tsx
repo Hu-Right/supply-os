@@ -14,8 +14,8 @@ import { useHomeStats, type HomeStatsData } from "../hooks/useHomeStats";
 import { formatPlainNumber } from "@/shared/utils/format";
 
 /** 单个统计卡片 — 带数字跳动动画；未取到可信数据时显示「—」而不是 0 */
-function StatCard({ label, value, sub, icon: Icon, color, resolved }: {
-  label: string; value: number; sub: string; icon: typeof Globe; color: string; resolved: boolean;
+function StatCard({ label, value, icon: Icon, color, resolved }: {
+  label: string; value: number; icon: typeof Globe; color: string; resolved: boolean;
 }) {
   const animatedValue = useCountUp(value);
   return (
@@ -27,7 +27,6 @@ function StatCard({ label, value, sub, icon: Icon, color, resolved }: {
         {resolved ? formatPlainNumber(animatedValue) : "—"}
       </p>
       <p className="text-xs font-bold text-slate-700 mt-1">{label}</p>
-      <p className="text-2xs text-slate-400 mt-0.5">{sub}</p>
     </div>
   );
 }
@@ -38,10 +37,10 @@ export const StatsWall = memo(function StatsWall({ initialHome }: { initialHome?
   const { noticeActive, noticeTodayNew, countryCount, supplierTotal, resolved } = useHomeStats(initialHome);
 
   const stats = [
-    { label: t("homeStatTotal"), value: noticeActive, sub: t("homeStatTotalSub"), icon: Globe, color: "text-teal-600" },
-    { label: t("homeStatDaily"), value: noticeTodayNew, sub: t("homeStatDailySub"), icon: TrendingUp, color: "text-blue-600" },
-    { label: t("homeStatSources"), value: countryCount, sub: t("homeStatSourcesSub"), icon: Search, color: "text-purple-600" },
-    { label: t("homeStatSuppliers"), value: supplierTotal, sub: t("homeStatSuppliersSub"), icon: ShieldCheck, color: "text-emerald-600" },
+    { label: t("homeStatTotal"), value: noticeActive, icon: Globe, color: "text-teal-600" },
+    { label: t("homeStatDaily"), value: noticeTodayNew, icon: TrendingUp, color: "text-blue-600" },
+    { label: t("homeStatSources"), value: countryCount, icon: Search, color: "text-purple-600" },
+    { label: t("homeStatSuppliers"), value: supplierTotal, icon: ShieldCheck, color: "text-emerald-600" },
   ];
 
   return (
