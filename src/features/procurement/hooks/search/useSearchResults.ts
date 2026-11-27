@@ -70,8 +70,12 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     if (skipInitialFetchRef.current) {
       skipInitialFetchRef.current = false;
       prevUserIdForFetchRef.current = userId;
-      prevSearchKeyForSkipRef.current = query.searchKey;
-      prevSearchKeyForDebounceRef.current = query.searchKey;
+      // ★ 不记录 searchKey（2026-11-27 翻页修复）：首帧跳过只代表「本次渲染用服务端
+      // 直出数据」，不代表筛选条件已取过。旧写法把 searchKey 记成已取，纯翻页
+      // （page 变、searchKey 不变）会被下方守卫吞掉——服务端直出页（SEO/GEO）
+      // 从 81d6fedc 起翻页永远不发请求。置空让下一次 effect 正常走取数路径。
+      prevSearchKeyForSkipRef.current = "";
+      prevSearchKeyForDebounceRef.current = "";
       return;
     }
     const searchKeyUnchanged = prevSearchKeyForSkipRef.current === query.searchKey;
