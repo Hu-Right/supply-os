@@ -261,3 +261,28 @@ export async function sendSmsVerificationCode(
     throw new Error(`SMS_SEND_ERROR: ${msg}`, { cause: err });
   }
 }
+
+/** 通知类短信是否可用（需在阿里云申请通知模板并配置 SMS_TEMPLATE_CODE_NOTICE） */
+export function isSmsNoticeConfigured(): boolean {
+  return Boolean(process.env.SMS_TEMPLATE_CODE_NOTICE) && isSmsConfigured();
+}
+
+/**
+ * 发送通知类短信（非验证码场景，如注销结果）。
+ * 仅支持中国大陆号码；模板参数以 {status, name} 形式传入，具体占位符以阿里云模板为准。
+ * 未配置模板时返回 false，由调用方降级（邮件/标记跳过）。
+ */
+export async function sendSmsNotice(phone: string, params: Record<string, string>): Promise<boolean> {
+  const templateCode = process.env.SMS_TEMPLATE_CODE_NOTICE;
+  if (!templateCode || !isMainlandE164(phone) || !isSmsConfigured()) return false;
+  const client = await getAliyunClient();
+  const Dysmsapi = await import("@alicloud/dysmsapi20170525");
+  const request = new Dysmsapi.SendSmsRequest({
+    phoneNumbers: smsTargetOf(phone),
+    signName: SMS_SIGN_NAME,
+    templateCode,
+    templateParam: JSON.stringify(params),
+  });
+  const response = await client.sendSms(request);
+  return response.body?.code === "OK";
+}

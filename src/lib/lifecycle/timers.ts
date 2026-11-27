@@ -18,6 +18,7 @@ import { reconcilePlatformNoticeGuard } from "../services/rfq-guard";
 import { openDueTenders, expireUnawardedTenders } from "../services/procurement/opening";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { releaseExpiredClaims } from "../services/supplier-claim";
+import { notifyAccountDeletionResults, processDueCoolingDeletions } from "../services/account-deletion";
 import {
   FEATURED_REFRESH_INTERVAL_MS,
   PAYMENT_MAINTENANCE_INTERVAL_MS,
@@ -305,6 +306,28 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     rfqLifecycleTimer = setInterval(() => { void runLifecycle(); }, intervalMin * 60_000);
   }
 
+  // 12. 注销结果通知：客服在后台执行/拒绝后，5 分钟内把结果通知用户（邮箱；纯手机号标记 skipped）
+  let accountDeletionNotifyTimer: NodeJS.Timeout | null = null;
+  {
+    const runNotify = async () => {
+      try {
+        // 先处理冷静期到期（无阻塞项自动执行、有则转人工），再发结果通知
+        const due = await processDueCoolingDeletions(dbPool);
+        if (due.executed > 0 || due.transferred > 0) {
+          console.log(`[account-deletion] 冷静期到期：自动执行 ${due.executed}，转人工 ${due.transferred}`);
+        }
+        const r = await notifyAccountDeletionResults(dbPool, 50);
+        if (r.sent > 0 || r.skipped > 0) {
+          console.log(`[account-deletion] 结果通知：已发 ${r.sent}，跳过 ${r.skipped}，失败 ${r.failed}`);
+        }
+      } catch (e) {
+        console.error("[account-deletion] 结果通知扫描失败（不影响下次）:", (e as Error).message);
+      }
+    };
+    setTimeout(() => { void runNotify(); }, 60_000);
+    accountDeletionNotifyTimer = setInterval(() => { void runNotify(); }, 5 * 60_000);
+  }
+
   return {
     stop() {
       clearInterval(featuredRefreshTimer);
@@ -316,6 +339,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       if (rfqGuardTimer) clearInterval(rfqGuardTimer);
       if (deadlineClassifyTimer) clearInterval(deadlineClassifyTimer);
       if (rfqLifecycleTimer) clearInterval(rfqLifecycleTimer);
+      if (accountDeletionNotifyTimer) clearInterval(accountDeletionNotifyTimer);
     },
   };
 }

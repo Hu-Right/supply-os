@@ -15,6 +15,7 @@ import { extractClientIp } from "@/lib/utils/ip";
 import { EC_PHONE_ISSUE } from "@/shared/constants/api";
 import { isMfaEnabled } from "@/lib/services/mfa";
 import { signMfaChallenge } from "@/lib/services/jwt";
+import { cancelCoolingDeletion } from "@/lib/services/account-deletion";
 
 const loginSchema = z.object({
   identifier: z.string({ error: "请输入手机号或邮箱" }).trim().min(1, "请输入手机号或邮箱"),
@@ -43,6 +44,13 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 契约保真：无 token 时键省略（undefined），而非显式 null
   // refreshToken 同时写入响应体（客户端 localStorage 降级存储）+ HttpOnly Cookie
   // 响应键用 camelCase（命名红线②）；Cookie 名与请求体字段按契约仍用 snake_case
+  // 冷静期内重新登录 → 自动撤销注销申请（大厂惯例）
+  if (payload.id) {
+    void cancelCoolingDeletion(ctx.dbPool, payload.id).catch((e) => {
+      console.error("[account-deletion] 登录撤销冷静期失败:", (e as Error).message);
+    });
+  }
+
   const response = NextResponse.json({
     success: true,
     user: payload,

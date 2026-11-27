@@ -11,6 +11,7 @@ import { verifyMfaChallenge } from "@/lib/services/jwt";
 import { buildUserResponse, issueTokenPair } from "@/lib/services/auth";
 import { verifyMfaForLogin } from "@/lib/services/mfa";
 import { mfaLoginViewOf } from "@/lib/services/mfa/view";
+import { cancelCoolingDeletion } from "@/lib/services/account-deletion";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 import { EC_AUTH_REQUIRED } from "@/shared/constants/api";
 
@@ -39,6 +40,10 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const payload = await buildUserResponse(user, ctx.benefitSystemRepo, ctx.supplier.directoryRepo);
   const tokens = await issueTokenPair(ctx.user.authRepo, uid);
+  // 冷静期内完成登录 → 撤销注销申请
+  void cancelCoolingDeletion(ctx.dbPool, uid).catch((e) => {
+    console.error("[account-deletion] 登录撤销冷静期失败:", (e as Error).message);
+  });
   const response = NextResponse.json(mfaLoginViewOf(payload, tokens.token, tokens.refreshToken));
   setRefreshCookieOnResponse(response, tokens.refreshToken);
   return response;

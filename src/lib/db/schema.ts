@@ -83,8 +83,12 @@ import { migration as supplierDiagnosisV5Migration } from "./migrations/078-supp
 import { migration as invoiceRequestsMigration } from "./migrations/079-invoice-requests";
 import { migration as invoiceIssuanceMigration } from "./migrations/080-invoice-issuance";
 import { migration as invoiceBuyerFieldsMigration } from "./migrations/081-invoice-buyer-fields";
+import { migration as accountDeletionRequestsMigration } from "./migrations/085-account-deletion-requests";
+import { migration as accountDeletionNotifiedMigration } from "./migrations/086-account-deletion-notified";
+import { migration as accountDeletionCoolingMigration } from "./migrations/087-account-deletion-cooling";
 import { migration as projectSourcingFieldsMigration } from "./migrations/082-project-sourcing-fields";
 import { migration as marketScopeMigration } from "./migrations/083-market-scope";
+import { migration as diagnosisProjectRecordMigration } from "./migrations/084-diagnosis-project-record";
 import { migration as supplierDiagnosisGuideEventMigration } from "./migrations/064-supplier-diagnosis-guide-event";
 import { migration as supplierQualityScore100Migration } from "./migrations/042-supplier-quality-score-100";
 import { migration as dropBuyerParentMigration } from "./migrations/043-buyer-drop-parent";
@@ -173,6 +177,10 @@ export const ALL_MIGRATIONS: Migration[] = [
   invoiceBuyerFieldsMigration,
   projectSourcingFieldsMigration,
   marketScopeMigration,
+  diagnosisProjectRecordMigration,
+  accountDeletionRequestsMigration,
+  accountDeletionNotifiedMigration,
+  accountDeletionCoolingMigration,
 ];
 
 /**
