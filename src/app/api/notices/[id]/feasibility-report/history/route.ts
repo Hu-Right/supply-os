@@ -21,11 +21,10 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(async (req, { 
   }
   const ctx = getContext();
     // 内容访问闸口（2026-11-18）：报告/导出/历史都包含公告正文内容，必须与 /detail 同口径：
-    // 行业墙 → 解锁/套餐 → 企业版报告权益，任一不满足即 403。
+    // 行业墙 → 套餐 → 企业版报告权益，任一不满足即 403。
     await assertNoticeContentAccess({
       dbPool: ctx.dbPool,
       benefitRepo: ctx.benefitSystemRepo,
-      accessGrantRepo: ctx.notice.accessGrantRepo,
       userId: auth.userId,
       noticeId: noticePk,
       benefit: BID_FEASIBILITY_REPORT_BENEFIT,

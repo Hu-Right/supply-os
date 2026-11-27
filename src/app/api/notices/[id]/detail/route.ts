@@ -29,7 +29,6 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (!noticeId) routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
 
     const ctx = getContext();
-    const { accessGrantRepo } = ctx.notice;
 
     // 2026-11-24 单波并行：把「权限判定」与「内容装配」拆成两组互不依赖的查询，
     // 全部在进入条件分支前同时发出——高延迟链路上少等一个完整往返。
@@ -39,18 +38,16 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     // [2026-10-30 首屏往返压缩] 三件事互不依赖，并发发出：
     //   - 行业墙判定（canAccessNotice）
-    //   - 单条解锁/套餐判定（resolveNoticeAccess）
+    //   - 套餐判定（resolveNoticeAccess）
     //   - 公告宽表行（findPublicDetail）
     // 旧实现先 await 行业墙、再 Promise.all 后两者，宽表行白等一次往返。
-    // 行业墙与解锁判定都要读「生效套餐 + 矩阵格」，request-cache 让它们共享同一份读取。
+    // 行业墙与套餐判定都要读「生效套餐 + 矩阵格」，request-cache 让它们共享同一份读取。
     // 判定顺序与错误码保持原样：先行业越界 403，再锁定 403，最后 404。
     const [allowedByIndustry, access, notice] = await Promise.all([
       // 行业墙：被行业限定档位的用户只能访问其绑定品目大类内的公告（8,800元/行业口径）
       canAccessNotice(ctx.dbPool, ctx.benefitSystemRepo, auth.userId, noticeId),
       resolveNoticeAccess({
         userId: auth.userId,
-        noticeId,
-        accessGrantRepo,
         benefitRepo: ctx.benefitSystemRepo,
       }),
       findPublicDetail(ctx.dbPool, noticeId),
@@ -58,7 +55,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (!allowedByIndustry) {
       routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { outOfCategory: true });
     }
-    if (!access.grant && !access.accessibleByPlan) {
+    if (!access.accessibleByPlan) {
       // 资格条件/原始文件是独立权益：matrix 给 free 打开后，只下发对应字段，
       // 不泄露正文/联系人/附件等未授予内容；其余字段仍按 notice_view 锁定。
       const [qualificationEntitled, filesEntitled] = await Promise.all([
@@ -142,8 +139,6 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       // 下面这些补充键直接写 camel——extras 是服务端内部形状，仍为列名。
       ...view,
       coreLocked: false,
-      grantType: access.grant?.grant_type ?? "subscription",
-      grantedAt: access.grant?.granted_at ?? null,
       platform,
       reportAvailable,
       reportUrl: reportAvailable ? `/api/notices/${notice.notice_pk}/report` : "",

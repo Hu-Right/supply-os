@@ -37,18 +37,16 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
     }
     const ctx = getContext();
-    // 访问闸口（2026-11-18）：行业墙 + 解锁/套餐。GET 只读缓存但缓存内容同样属付费内容，
+    // 访问闸口（2026-11-18）：行业墙 + 套餐。GET 只读缓存但缓存内容同样属付费内容，
     // 不满足时按「无缓存」返回（与低档行为一致），避免行业/锁定用户旁路读历史 AI 匹配结果。
     const wallOk = await canAccessNotice(ctx.dbPool, ctx.benefitSystemRepo, auth.userId, noticeId);
     const accessForGet = wallOk
       ? await resolveNoticeAccess({
         userId: auth.userId,
-        noticeId,
-        accessGrantRepo: ctx.notice.accessGrantRepo,
         benefitRepo: ctx.benefitSystemRepo,
       })
       : null;
-    if (!wallOk || !accessForGet || (!accessForGet.grant && !accessForGet.accessibleByPlan)) {
+    if (!wallOk || !accessForGet || !accessForGet.accessibleByPlan) {
       return NextResponse.json({ cached: false, locked: true });
     }
     // 走法②：无 ai_match 权益（低档）即使有历史缓存也不回读，防直接打接口绕过（与 POST 门控对称）
@@ -92,11 +90,10 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     // 企业账号也可建立供应商资源库并使用智能匹配。
     const ctx = getContext();
 
-    // 访问闸口（2026-11-18 收口）：行业墙 + 解锁/套餐（无限次会员凭 notice_view 直接访问）
+    // 访问闸口（2026-11-18 收口）：行业墙 + 套餐（会员凭 notice_view 权益直接访问）
     await assertNoticeContentAccess({
       dbPool: ctx.dbPool,
       benefitRepo: ctx.benefitSystemRepo,
-      accessGrantRepo: ctx.notice.accessGrantRepo,
       userId: auth.userId,
       noticeId,
     });

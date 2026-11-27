@@ -12,6 +12,7 @@ import {
   translateNoticeViaChain,
 } from "@/lib/services/translation/notice";
 import { EC_INVALID_PARAMS, EC_OPPORTUNITY_NOT_FOUND, EC_CONTENT_LOCKED } from "@/shared/constants/api";
+import { resolveNoticeAccess } from "@/lib/services/notice-access";
 import { resolveLlmCredentials } from "@/lib/services/ai/shared/llm-credentials";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -33,10 +34,13 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const ctx = getContext();
     const oppsRepo = ctx.opportunitiesRepo;
 
-    // ARCH-P0（2026-09-05）：付费墙闸口 — 商机译文属解锁后内容
-    // 与 notices/[id]/translation 对齐：未解锁一律 403 core_locked
-    const grant = await oppsRepo.findExistingGrant(auth.userId, opportunityId);
-    if (!grant) routeError(403, EC_CONTENT_LOCKED, "机会已锁定，请先开通会员", { coreLocked: true });
+    // ARCH-P0（2026-09-05）：付费墙闸口 — 商机译文属会员内容
+    // 与 notices/[id]/translation 对齐：免费档一律 403 core_locked（2026-11-27 次数体系下线后，
+    // 判定与公告侧同构：行业墙不适用商机，套餐 notice_view 权益格放行）
+    const access = await resolveNoticeAccess({ userId: auth.userId, benefitRepo: ctx.benefitSystemRepo });
+    if (!access.accessibleByPlan) {
+      routeError(403, EC_CONTENT_LOCKED, "机会已锁定，请先开通会员", { coreLocked: true });
+    }
 
     const cachedRow = await oppsRepo.findTranslationCache(opportunityId, lang);
     if (cachedRow && cachedRow.title_tr && cachedRow.description_tr) {

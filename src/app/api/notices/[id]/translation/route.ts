@@ -35,14 +35,13 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无效的公告 ID 或语言参数");
     }
 
-    // 访问闸口（2026-11-18 收口）：行业墙 + 解锁/套餐 + 译文权益。
-    // 原先只做了解锁/套餐判定，漏了行业墙——行业限定档用户可用订阅行业外的
+    // 访问闸口（2026-11-18 收口）：行业墙 + 套餐 + 译文权益。
+    // 原先只做了套餐判定，漏了行业墙——行业限定档用户可用订阅行业外的
     // 公告 ID 直接调本接口拿译文（等于旁路 /detail 的行业墙），故统一走公共闸口。
     const ctx = getContext();
     await assertNoticeContentAccess({
       dbPool: ctx.dbPool,
       benefitRepo: ctx.benefitSystemRepo,
-      accessGrantRepo: ctx.notice.accessGrantRepo,
       userId: auth.userId,
       noticeId,
       benefit: NOTICE_TRANSLATION_BENEFIT,

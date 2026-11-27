@@ -50,8 +50,6 @@ export interface NoticeListItem {
   coreLocked?: boolean;
   breakdownFileCount?: number;
   contactCount?: number;
-  grantType?: string;
-  grantedAt?: string;
   matchScore?: number;
   matchTier?: string;
   recoReasons?: string[];

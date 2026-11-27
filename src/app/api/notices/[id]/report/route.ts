@@ -50,7 +50,6 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const ctx = getContext();
-    const { accessGrantRepo } = ctx.notice;
     const opportunitiesRepo = ctx.opportunitiesRepo;
 
     // 行业墙（2026-11-18）：报告含公告正文内容，必须与 /detail 同口径先过行业限定档
@@ -60,11 +59,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     const access = await resolveNoticeAccess({
       userId,
-      noticeId,
-      accessGrantRepo,
       benefitRepo: ctx.benefitSystemRepo,
     });
-    if (!access.grant && !access.accessibleByPlan) {
+    if (!access.accessibleByPlan) {
       routeError(403, EC_CONTENT_LOCKED, "公告已锁定，请先开通会员", { coreLocked: true });
     }
 

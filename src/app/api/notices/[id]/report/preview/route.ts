@@ -34,14 +34,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const ctx = getContext();
-    const { accessGrantRepo } = ctx.notice;
     const opportunitiesRepo = ctx.opportunitiesRepo;
 
     const [access, service] = await Promise.all([
       resolveNoticeAccess({
         userId,
-        noticeId,
-        accessGrantRepo,
         benefitRepo: ctx.benefitSystemRepo,
       }),
       findPublicDetail(ctx.dbPool, noticeId),
@@ -99,9 +96,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(403, EC_ACCESS_FORBIDDEN, "中文拆解报告为企业版权益", { feature: BID_FEASIBILITY_REPORT_BENEFIT });
     }
 
-    // 未解锁（会员打开即自动解锁，此处仅覆盖竞态）：服务端截断 sections 内容
+    // 未解锁（免费档）：服务端截断 sections 内容
     const MAX_CHARS_PER_SECTION = 500;
-    const isAccessible = !!access.grant || access.accessibleByPlan;
+    const isAccessible = access.accessibleByPlan;
     const safeSections = isAccessible
       ? sections
       : sections.map((s: { heading: string; body: string }) => ({
