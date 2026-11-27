@@ -24,8 +24,11 @@ import { Brand } from "./Brand";
 
 /**
  * 路由 → 一级 Tab 的显式归属覆盖：只用于「URL 归属与信息架构不一致」的个别页面。
- * 能力诊断属于投标服务，但路由沿用 /procurement/diagnosis（商机池卡片入口仍是这里），
+ * 能力诊断属于投标服务，但路由沿用 /procurement/diagnosis（公告详情「下一步」入口仍是这里），
  * 仅靠前缀匹配会把导航高亮打到「全球商机」上。
+ *
+ * 供应商侧入口（供应商库「供应商资质评审」）会带 `?from=supplier`，
+ * 此时高亮回到「供应商库」，避免从供应商库点进去却跳到投标服务分组。
  */
 const TAB_OVERRIDES: Record<string, string> = {
   "/procurement/diagnosis": "/services",
@@ -225,6 +228,13 @@ export function useNavTabs() {
   const router = useRouter();
   const pathname = usePathname();
 
+  // 仅用于「同一 URL 多入口、需要按来源决定高亮」的场景（当前只有诊断页 ?from=supplier）。
+  // 不用 useSearchParams：layout 里的客户端组件会要求每页包 Suspense。
+  const [fromParam, setFromParam] = useState("");
+  useEffect(() => {
+    setFromParam(new URLSearchParams(window.location.search).get("from") ?? "");
+  }, [pathname]);
+
   // CRM 仅登录后可见：未登录时从导航中移除（文档要求"CRM 退出公开导航"）
   const visibleTabs = NAV_TABS.filter((tab) => tab.path !== "/crm" || !!authUser);
 
@@ -239,6 +249,8 @@ export function useNavTabs() {
   // 当前路由匹配对应 Tab（支持子路由前缀匹配，如 /procurement/notice/xxx）
   const activeTab = (() => {
     const p = pathname;
+    // 来源优先：供应商库点「供应商资质评审」→ 留在供应商库分组
+    if (p === "/procurement/diagnosis" && fromParam === "supplier") return "/supplier";
     const overridden = TAB_OVERRIDES[p];
     if (overridden) return overridden;
     const hit = NAV_TABS.find((tab) => p === tab.path || p.startsWith(`${tab.path}/`));
