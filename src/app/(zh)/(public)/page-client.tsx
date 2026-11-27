@@ -27,6 +27,7 @@ import type { HomeContentSnapshot } from "@/lib/services/home-snapshot";
 import type { HomeContentData } from "@/features/home/components/ContentColumns";
 import { ErrorBoundary } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
+import { hydrateCountryNames } from "@/shared/data/countryNames";
 
 /** 首页全局错误降级 UI */
 function HomeErrorFallback() {
@@ -47,7 +48,10 @@ function HomeErrorFallback() {
   );
 }
 
-export default function PageClient({ initialHome, initialContent }: { initialHome?: HomeStatsData; initialContent?: HomeContentSnapshot } = {}) {
+export default function PageClient({ initialHome, initialContent, countryMaps }: { initialHome?: HomeStatsData; initialContent?: HomeContentSnapshot; countryMaps?: { countries: Record<string, string>; regions: Record<string, string>; zhToEn: Record<string, string> } } = {}) {
+  // ★ SSR 快照注入（2026-11-27 水合修复）：ContentColumns/NoticeScrollCard 在 SSR 直出
+  // 国名，服务端与客户端首帧必须拿到同一份映射，否则首屏必水合失败。
+  hydrateCountryNames(countryMaps);
   return (
     <ErrorBoundary fallback={<HomeErrorFallback />}>
       <div className="min-h-screen bg-white">

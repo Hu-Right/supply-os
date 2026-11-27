@@ -73,6 +73,22 @@ export async function initCountryNames(): Promise<void> {
   }
 }
 
+/**
+ * SSR 快照注入（2026-11-27 水合修复）：服务端组件在渲染前把映射灌进共享缓存，
+ * 并经 RSC props 把同一份快照带给客户端首帧 —— 两侧首渲染输出逐字一致。
+ *
+ * 背景：本模块的映射是纯客户端运行时缓存（initCountryNames 只在浏览器跑），
+ * 服务端 map 恒为空 → SSR 渲染 "Kenya"、客户端首帧渲染 "肯尼亚" → 每次首屏
+ * 必然水合失败（React 整树重建），时序撞上翻页交互时列表会成为弃树（页码变、数据僵死）。
+ * 故意不置 _initialized：客户端挂载后 initCountryNames 仍刷新一次，服务端快照只兜首帧。
+ */
+export function hydrateCountryNames(maps: Partial<CountryMaps> | undefined | null): void {
+  if (!maps) return;
+  _countryNameZh = maps.countries || {};
+  _regionNameZh = maps.regions || {};
+  _zhToEn = maps.zhToEn || {};
+}
+
 // ── 工具函数（纯逻辑，不依赖映射数据）──
 // 注：cleanCountryRaw 的唯一实现在 lib/services/country/clean（强版：含 JSON 串/HTML 实体/
 // 括号/下划线归一）。本文件曾有一份只剥前缀的弱版同名函数，零消费方，2026-10-31 删除——

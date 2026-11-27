@@ -15,6 +15,7 @@ import type { Metadata } from "next";
 import { absoluteUrl } from "@/lib/services/seo/site";
 import { getPool } from "@/lib/db/pool";
 import { getHomeSnapshot, getHomeContentSnapshot, type HomeContentSnapshot } from "@/lib/services/home-snapshot";
+import { buildCountryNameMaps } from "@/lib/services/country/alias-store";
 import PageClient from "./page-client";
 import type { HomeStatsData } from "@/features/home";
 
@@ -73,5 +74,7 @@ async function loadInitialContent(): Promise<HomeContentSnapshot | undefined> {
 
 export default async function HomePage() {
   const [initialHome, initialContent] = await Promise.all([loadInitialHome(), loadInitialContent()]);
-  return <PageClient initialHome={initialHome} initialContent={initialContent} />;
+  // ★ 国名映射 SSR 快照（同 procurement/page.tsx 的水合修复）：alias-store 带 TTL 内存缓存
+  const countryMaps = await buildCountryNameMaps(getPool());
+  return <PageClient initialHome={initialHome} initialContent={initialContent} countryMaps={countryMaps} />;
 }

@@ -25,6 +25,8 @@ import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 import { countryName, guessCountryCode } from "@/shared/constants/countries";
 import { countryParam } from "@/lib/services/seo/country-slug";
+import { getContext } from "@/lib/db/context";
+import { buildCountryNameMaps } from "@/lib/services/country/alias-store";
 import type { SearchResultsInitial } from "@/features/procurement/hooks/search/useSearchResults";
 
 export const dynamic = "force-dynamic";
@@ -177,6 +179,10 @@ export default async function ProcurementPage({
   // 国别页：首屏直出该国公告；非国别页保持原行为（全球最新）
   const initialResults = await loadProcurementInitial(country);
 
+  // ★ 国名映射 SSR 快照（2026-11-27 水合修复）：alias-store 带 TTL 内存缓存，
+  // 非首调基本零成本；经 props 进 PageClient 灌共享缓存，SSR 与客户端首帧的国名逐字一致。
+  const countryMaps = await buildCountryNameMaps(getContext().dbPool);
+
   const jsonLd =
     code && nameZh && initialResults
       ? buildCountryJsonLd(
@@ -195,7 +201,7 @@ export default async function ProcurementPage({
           dangerouslySetInnerHTML={{ __html: jsonLd }}
         />
       ) : null}
-      <PageClient initialResults={initialResults} />
+      <PageClient initialResults={initialResults} countryMaps={countryMaps} />
     </>
   );
 }
