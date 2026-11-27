@@ -3,17 +3,16 @@
  * Notice Action Handlers Hook
  *
  * @module features/procurement/hooks/useNoticeHandlers
- * @description 打开详情/免费门槛拦截、付费买断、免费与会员解锁、意向/订阅
- *              等动作处理器；状态来自会员配额、解锁集合与付费面板 hook。
- *              Open/paywall-gate, paid buyout, free/member access and
- *              interest/subscribe handlers built on the state hooks.
+ * @description 打开详情/付费墙拦截、意向/订阅等动作处理器；状态来自会员配额
+ *              与详情加载 hook。
+ *              2026-11-27 解锁处理器（handleGrantAccess）随次数体系下线删除：
+ *              会员访问由服务端套餐判定直接放行，不再有解锁动作。
  */
 import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
-import { ApiError, clearApiCache } from "@/core/http";
 import type { NoticeItem } from "../types";
-import { viewNotice, grantNoticeAccess, expressInterest } from "../api";
+import { viewNotice, expressInterest } from "../api";
 import type { UseNoticeMembershipReturn } from "./useNoticeMembership";
 import type { UseNoticeAccessReturn } from "./useNoticeAccess";
 
@@ -30,7 +29,7 @@ export interface UseNoticeHandlersOptions {
   trackDetailOpen: (noticeId: number) => void;
   /** 会员配额状态（useNoticeMembership） */
   membership: UseNoticeMembershipReturn;
-  /** 解锁集合与详情加载（useNoticeAccess） */
+  /** 详情加载（useNoticeAccess） */
   access: UseNoticeAccessReturn;
   /** 未登录时的回调（弹出登录） */
   onRequireLogin: () => void;
@@ -39,7 +38,6 @@ export interface UseNoticeHandlersOptions {
 
 export interface UseNoticeHandlersReturn {
   openNotice: (notice: NoticeItem) => Promise<void>;
-  handleGrantAccess: (notice: NoticeItem, grantType?: "free" | "subscription") => Promise<boolean>;
   handleExpressInterest: (notice: NoticeItem, interestType: "interested" | "subscribed") => Promise<void>;
 }
 
@@ -54,8 +52,8 @@ export function useNoticeHandlers({
   setActionMessage,
 }: UseNoticeHandlersOptions): UseNoticeHandlersReturn {
   const { t } = useLocale();
-  const { canUsePaidQuota, refreshMembership } = membership;
-  const { isAccessible, markAccessible, loadNoticeDetail, loadNoticePreview } = access;
+  const { refreshMembership } = membership;
+  const { isAccessible, loadNoticeDetail, loadNoticePreview } = access;
 
   const openNotice = useCallback(async (notice: NoticeItem) => {
     if (!userId) {
@@ -97,42 +95,6 @@ export function useNoticeHandlers({
     refreshMembership, loadNoticeDetail, loadNoticePreview,
   ]);
 
-  const handleGrantAccess = async (notice: NoticeItem, grantType?: "free" | "subscription") => {
-    if (!userId) {
-      onRequireLogin();
-      return false;
-    }
-
-    // 免费试用已移除：无显式类型时一律走订阅配额（自动记录查看/授权），配额不足由服务端 402 拦截
-    if (!grantType && !canUsePaidQuota) {
-      setActionMessage(t("procurement_paidQuotaRequired"));
-      return false;
-    }
-
-    const nextGrantType = grantType || "subscription";
-    try {
-      // P2-10：价格由服务端按套餐定价，前端固定传 0
-      await grantNoticeAccess(notice.noticePk, nextGrantType, 0);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 402) {
-        setActionMessage(t("procurement_paidQuotaRequired"));
-      } else {
-        setActionMessage(t("procurement_accessFail"));
-      }
-      await refreshMembership();
-      return false;
-    }
-
-    await refreshMembership();
-    markAccessible(notice.noticePk);
-    // P2-5 安全修复：查看成功后清除查看历史缓存，确保 RecentViews 立即刷新
-    clearApiCache("/api/payment/access-records");
-    // 2026-10-29：会员打开公告即自动解锁，解锁不再是用户动作 ⇒ 不再弹「已解锁该商机」成功提示
-    // 解锁成功后拉取拓展详情，实时补全联系人/文件等信息
-    await loadNoticeDetail(notice);
-    return true;
-  };
-
   const handleExpressInterest = async (notice: NoticeItem, interestType: "interested" | "subscribed") => {
     if (!userId) {
       onRequireLogin();
@@ -150,6 +112,6 @@ export function useNoticeHandlers({
     await refreshMembership();
   };
 
-  return { openNotice, handleGrantAccess, handleExpressInterest };
+  return { openNotice, handleExpressInterest };
 }
 

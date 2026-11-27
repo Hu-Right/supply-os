@@ -3,7 +3,7 @@
  * Procurement module API — barrel re-export
  *
  * @description 原 api.ts 拆分为子模块：
- *              - notices.ts    公告搜索/详情/解锁/翻译/推荐
+ *              - notices.ts    公告搜索/详情/翻译/推荐（解锁 API 已随次数体系下线）
  *              - feedback.ts   推荐反馈采集
  *              - membership.ts 会员计划/状态
  */
@@ -11,12 +11,10 @@
 export {
   fetchNoticeCountries,
   viewNotice,
-  grantNoticeAccess,
   expressInterest,
   fetchNoticeDetail,
   fetchNoticePreview,
   fetchNoticeContent,
-  fetchAccessibleNoticeIds,
   fetchNoticeTranslation,
   downloadNoticeReport,
   fetchUnifiedSearch,

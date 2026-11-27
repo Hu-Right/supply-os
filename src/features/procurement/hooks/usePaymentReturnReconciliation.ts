@@ -12,7 +12,6 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { clearApiCache } from "@/core/http";
 import { getOrderStatus } from "@/core/payment/payment-facade";
-import { grantNoticeAccess } from "../api";
 import { ORDER_STATUS } from "@/shared/constants/order-status";
 
 export interface UsePaymentReturnReconciliationOptions {
@@ -68,14 +67,9 @@ export function usePaymentReturnReconciliation({
           setActionMessage(t("procurement_paymentReturnPaid"));
           await refreshMembership();
           const nid = status.noticeId ?? null;
-          // P0-9 安全修复：paid 分支先执行解锁，再打开详情（否则详情接口返回 403 NOTICE_LOCKED）
           if (nid && userId) {
-            try {
-              await grantNoticeAccess(nid, "subscription", 0);
-            } catch {
-              // 解锁可能已在服务端完成，忽略失败
-            }
-            // P2-5：查看成功后清除查看历史缓存，RecentViews 立即刷新
+            // 2026-11-27 解锁补单已随次数体系下线：paid 后无需再打 /access，
+            // 打开详情由套餐判定直接放行；保留缓存失效让会员等级/最近查看即时刷新
             clearApiCache("/api/payment/access-records");
             // SSOT 修复：同步失效会员状态缓存，避免 60s 内展示旧等级
             clearApiCache("/api/membership/status");

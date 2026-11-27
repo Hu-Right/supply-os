@@ -17,16 +17,6 @@ export const viewNotice = (noticeId: number) =>
     body: {},
   }).catch((e) => console.warn("[Notices] 浏览记录上报失败:", e));
 
-export const grantNoticeAccess = (
-  noticeId: number,
-  grantType: "free" | "subscription",
-  price: number
-) =>
-  api(`/api/notices/${noticeId}/access`, {
-    method: "POST",
-    body: { grant_type: grantType, price },
-  });
-
 export const expressInterest = (
   noticeId: number,
   interestType: "interested" | "subscribed"
@@ -60,17 +50,6 @@ export interface NoticeContentResult {
 export const fetchNoticeContent = (noticeId: number): Promise<NoticeContentResult> => {
   const url = `/api/notices/${noticeId}/content`;
   return apiCached<NoticeContentResult>(url, 10 * 60 * 1000);
-};
-
-export const fetchAccessibleNoticeIds = async (): Promise<number[]> => {
-  try {
-    const rows = await apiCached<unknown[]>("/api/notices/access-ids", 5 * 60 * 1000);
-    return Array.isArray(rows)
-      ? rows.map((row) => Number((row as Record<string, unknown>)?.noticeId)).filter((id) => Number.isFinite(id) && id > 0)
-      : [];
-  } catch {
-    return [];
-  }
 };
 
 // 翻译 API 不使用 apiCached：后端已有数据库缓存（notice_translations），

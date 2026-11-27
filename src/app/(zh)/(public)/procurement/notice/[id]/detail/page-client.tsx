@@ -180,7 +180,6 @@ export default function PageClient() {
       isLoggedIn
       onBack={goBack}
       onExpressInterest={actions.handleExpressInterest}
-      onAccess={(n) => void actions.handleGrantAccess(n)}
       onOpenNotice={(n) => router.push(`/procurement/notice/${n.noticePk}/detail?from=${encodeURIComponent(safeFrom)}`)}
       favorited={actions.isFavorite(notice.noticePk)}
       onToggleFavorite={() => void actions.toggleFavorite(notice.noticePk)}

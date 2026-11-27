@@ -1,18 +1,18 @@
 /**
- * 公告解锁集合与详情加载 Hook
- * Notice Unlock Set & Detail Loading Hook
+ * 公告可访问集合与详情加载 Hook
+ * Notice Accessible Set & Detail Loading Hook
  *
  * @module features/procurement/hooks/useNoticeAccess
- * @description 已解锁公告 id 集合与拓展详情拉取合并；
- *              登录后预取已解锁集合，供详情首帧决定是否按已解锁口径渲染。
- *              Unlocked id set and extended detail fetch/merge;
- *              prefetches accessible ids after login.
+ * @description 可访问公告 id 集合与拓展详情拉取合并。
+ *              2026-11-27 解锁预取（GET /access-ids）随次数体系下线删除：
+ *              集合改为由 /detail 回包（coreLocked!==true）本地驱动，
+ *              可访问性的权威判定始终在服务端套餐判定。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem } from "../types";
-import { fetchNoticeDetail, fetchNoticePreview, fetchAccessibleNoticeIds } from "../api";
+import { fetchNoticeDetail, fetchNoticePreview } from "../api";
 
 export interface UseNoticeUnlockOptions {
   /** 当前登录用户 key */
@@ -63,19 +63,9 @@ export function useNoticeAccess({
       return next;
     }), []);
 
-  // 登录后预取已解锁集合：详情首帧据此决定骨架屏还是锁定面板
+  // 登出时清空本地集合（可访问性权威判定在服务端，集合只影响首帧预览与本地标记）
   useEffect(() => {
-    if (!userId) {
-      setAccessibleIds(new Set());
-      return;
-    }
-    let cancelled = false;
-    fetchAccessibleNoticeIds().then((ids) => {
-      if (!cancelled) setAccessibleIds(new Set(ids));
-    });
-    return () => {
-      cancelled = true;
-    };
+    if (!userId) setAccessibleIds(new Set());
   }, [userId]);
 
   const loadNoticeDetail = useCallback(async (notice: NoticeItem) => {

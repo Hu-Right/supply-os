@@ -9,7 +9,7 @@
  *              - 长正文按长度折叠（>800 字显示前 800 字 + 展开全文）；
  *              - 锁态/会员态沿用现有 coreAccessible + gates 判定，子组件各自处理锁定面板。
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Bookmark, Crown, Lock, Share2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
@@ -71,7 +71,8 @@ interface NoticeDetailProps {
   isLoggedIn: boolean;
   onBack: () => void;
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
-  onAccess: (notice: NoticeItem) => void;
+  /** 兼容保留：解锁动作已随次数体系下线（2026-11-27），子组件仍声明该回调时以空实现兜底 */
+  onAccess?: (notice: NoticeItem) => void;
   /** 打开另一条公告（相似机会点击跳转） */
   onOpenNotice: (notice: NoticeItem) => void;
   /** 当前公告是否已收藏 */
@@ -156,17 +157,8 @@ export function NoticeDetail({
         : "detail_aiMatchLevelBasic";
   const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreAccessible, aiSummaryEnabled);
   const aiMatch = useAiMatch(noticeId, aiMatchEnabled);
-  // 会员「标讯权益」不限次（notice_view=-1）：打开详情即自动解锁，避免"套餐已含却提示解锁"的割裂
-  // （2026-10-29 权益大一统：详情页与定价页共用同一份矩阵；解锁只是内容获取动作，会员免点）。
-  const autoAccessTried = useRef<Set<number>>(new Set());
-  useEffect(() => {
-    if (!isLoggedIn || coreAccessible) return;
-    const unlimitedAccess = gates?.notice_view === "included" || gates?.notice_view === "free";
-    if (!unlimitedAccess) return;
-    if (autoAccessTried.current.has(noticeId)) return;
-    autoAccessTried.current.add(noticeId);
-    onAccess(notice);
-  }, [coreAccessible, gates, isLoggedIn, notice, noticeId, onAccess]);
+  // 2026-11-27 会员自动解锁 effect 已随次数体系下线删除：会员打开详情由
+  // /detail 的套餐判定直接返回 coreLocked=false，无需任何解锁动作。
   const bidDeadline = !notice.deadlineType || notice.deadlineType === "bid";
   const [countdown, setCountdown] = useState(bidDeadline ? getDisplayCountdown(notice.deadlineTs) : null);
   // 分享面板开关（链接由公告数值 id 拼成规范公开详情页）
@@ -452,7 +444,7 @@ export function NoticeDetail({
                 onUpgrade={() => router.push("/membership")}
                 onStart={() => aiSummary.triggerAnalysis(false)}
                 onConfigure={() => router.push("/settings/ai-model")}
-                onRequestAccess={() => onAccess(notice)}
+                onRequestAccess={() => onAccess?.(notice)}
                 onRegenerate={() => aiSummary.triggerAnalysis(true)}
               />
             </section>

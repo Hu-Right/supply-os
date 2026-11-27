@@ -10,7 +10,6 @@ import { useRouter } from "next/navigation";
 import { useAuth, useUserId } from "@/core/auth";
 import { onAppEvent, emitAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
-import { grantNoticeAccess } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentViews } from "../components/RecentViews";
 import type { NoticeItem } from "../types";
@@ -116,18 +115,13 @@ export default function ProcurementPage({
   // ── 详情深链：旧链接/支付回跳已统一重定向到独立详情路由，列表页不再维护 ?notice_id 选中态 ──
 
 
-  // ── P0-8 安全修复：监听支付成功事件，自动解锁公告 ──
+  // ── P0-8：监听支付成功事件（公告单购回跳）。2026-11-27 解锁调用已随次数体系
+  // 下线删除：打开详情由套餐判定直接放行；保留缓存失效/会员刷新/导航行为。──
   useEffect(() => {
     if (!userId) return;
     return onAppEvent("supply-os:notice-paid", async ({ noticeId }) => {
-      try {
-        await grantNoticeAccess(noticeId, "subscription", 0);
-      } catch {
-        // 解锁可能已在服务端完成，忽略失败
-      }
-      // P2-5：查看成功后清除查看历史缓存，RecentViews 立即刷新
+      // 清除查看历史缓存，RecentViews 立即刷新；同步失效会员状态缓存，避免展示旧等级
       clearApiCache("/api/payment/access-records");
-      // SSOT 修复：同时失效会员状态缓存，useMembershipTier 的 60s 缓存标签不再过期展示旧等级
       clearApiCache("/api/membership/status");
       await actions.refreshMembership();
       refreshAuth();
