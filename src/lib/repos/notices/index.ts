@@ -5,15 +5,14 @@
  * @module server/repos/notices
  * @description 按职责拆分的公告子 Repo 统一导出：
  *              - notice-detail: bid_notices（详情/预览/翻译源）
- *              - notice-access-grant: notice_access_grants（访问授权流水；额度记账见 benefit_quotas）
  *              - notice-translation: notice_translations
  *              - notice-interaction: user_notice_views + notice_interests
  *              - notice-feedback: user_reco_feedback + user_search_log
  *              - notice-favorite: notice_favorites
+ *              （notice-access-grant: 2026-11-27 随次数体系下线删除）
  */
 
 export { NoticeDetailRepo } from "./notice-detail.repo";
-export { NoticeAccessGrantRepo } from "./notice-access-grant.repo";
 export { NoticeTranslationRepo } from "./notice-translation.repo";
 export { NoticeInteractionRepo } from "./notice-interaction.repo";
 export { NoticeFeedbackRepo } from "./notice-feedback.repo";

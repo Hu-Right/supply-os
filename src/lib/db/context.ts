@@ -25,7 +25,6 @@ import { ServiceOrdersRepo } from "../repos/service-orders.repo";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import {
   NoticeDetailRepo,
-  NoticeAccessGrantRepo,
   NoticeTranslationRepo,
   NoticeInteractionRepo,
   NoticeFeedbackRepo,
@@ -52,7 +51,6 @@ import { TrainingRepo, SystemRepo } from "../repos/training.repo";
 export type NoticeContext = {
   dbPool: Pool;
   detailRepo: NoticeDetailRepo;
-  accessGrantRepo: NoticeAccessGrantRepo;
   translationRepo: NoticeTranslationRepo;
   interactionRepo: NoticeInteractionRepo;
   feedbackRepo: NoticeFeedbackRepo;
@@ -145,7 +143,7 @@ export type AppContext = {
  *  旧单例的静态列集合会漏列。
  *  2026-11-20 +1（企业行业自报）：SupplierDirectoryRepo.PORTAL_COLUMNS 增加 industry_code，
  *  旧单例的列白名单不会返回该键（设置页行业无法回填）。 */
-const CTX_VERSION = 22; // 072 新增 market_requirement（市场要求条目）
+const CTX_VERSION = 23; // 2026-11-27 次数体系下线：NoticeContext 移除 accessGrantRepo
 
 const globalForCtx = globalThis as unknown as {
   _appCtx?: AppContext & { __ctxVersion?: number };
@@ -170,7 +168,6 @@ export function getContext(): AppContext {
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
 
   const detailRepo = new NoticeDetailRepo(dbPool);
-  const accessGrantRepo = new NoticeAccessGrantRepo(dbPool);
   const translationRepo = new NoticeTranslationRepo(dbPool);
   const interactionRepo = new NoticeInteractionRepo(dbPool);
   const feedbackRepo = new NoticeFeedbackRepo(dbPool);
@@ -252,7 +249,7 @@ export function getContext(): AppContext {
 
   const ctx: AppContext & { __ctxVersion: number } = {
     dbPool,
-    notice: { dbPool, detailRepo, accessGrantRepo, translationRepo, interactionRepo, feedbackRepo, favoriteRepo },
+    notice: { dbPool, detailRepo, translationRepo, interactionRepo, feedbackRepo, favoriteRepo },
     payment: {
       dbPool, paymentService, trainingPaymentService, servicePaymentService, orchestrator, paymentMode,
       paymentsRepo, serviceOrdersRepo, paymentHistoryRepo,
