@@ -39,6 +39,7 @@ const ds = require("../../../scripts/tools/daily-sync-sql.cjs") as {
     row: Record<string, unknown>,
     columns: Array<{ COLUMN_NAME: string; CHAR_MAX?: number | string | null }>,
   ) => Array<{ column: string; length: number; max: number }>;
+  pickUpdateLookbackCutoff: (stored: unknown, cutoff: number | string) => number | string;
 };
 
 // 与影子表 rowFingerprintExpr 同一 NULL 可区分口径：每列前挂标记字节（NULL→CHAR(1)，非空→CHAR(2)+值）
@@ -247,6 +248,23 @@ describe("buildOdkuUpdateClause", () => {
 
   it("converted_opp_id 已登记为目标优先（云端转商机关系不被源库旧值打回）", () => {
     expect(ds.TARGET_WINS_COLUMNS.bid_notices).toContain("converted_opp_id");
+  });
+});
+
+describe("pickUpdateLookbackCutoff", () => {
+  it("数值 update_time：存水位比回看窗口更晚时回退到窗口下界，避免漏掉迟到的 UPDATE", () => {
+    // stored 比回看窗口更晚 → 用窗口下界，强制重扫最近 24h
+    expect(ds.pickUpdateLookbackCutoff(1795756397, 1795660000)).toBe(1795660000);
+    // stored 比窗口更早 → 保留 stored，继续从上次断点扫
+    expect(ds.pickUpdateLookbackCutoff(1795600000, 1795660000)).toBe(1795600000);
+    expect(ds.pickUpdateLookbackCutoff(null, 1795660000)).toBe(1795660000);
+    expect(ds.pickUpdateLookbackCutoff(0, 1795660000)).toBe(1795660000);
+  });
+
+  it("DATETIME 字符串：按字符串比较取更早的下界", () => {
+    expect(ds.pickUpdateLookbackCutoff("2026-11-27 13:13:17", "2026-11-26 17:48:00")).toBe("2026-11-26 17:48:00");
+    expect(ds.pickUpdateLookbackCutoff("2026-11-26 10:00:00", "2026-11-26 17:48:00")).toBe("2026-11-26 10:00:00");
+    expect(ds.pickUpdateLookbackCutoff(null, "2026-11-26 17:48:00")).toBe("2026-11-26 17:48:00");
   });
 });
 

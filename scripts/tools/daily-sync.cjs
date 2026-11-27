@@ -263,6 +263,18 @@ const sourceTableName = (table) => `${SOURCE_TABLE_PREFIX}${table}`;
 
 const BATCH_SIZE = 200;
 
+/**
+ * update_time 回看窗口（秒，默认 24h）：
+ * 水位线只记「上一轮见过的最大 update_time」，一旦某行的更新被漏掉、后续又有更晚的行
+ * 把水位推高，就再也回不到那一行。每轮至少回看最近 N 秒，保证迟到的金额/截止日/标题
+ * 等 UPDATE 会被重新拉到；可用 SYNC_UPDATE_LOOKBACK_SECONDS 覆盖。
+ */
+const UPDATE_LOOKBACK_SECONDS = readPositiveInt(
+  'UPDATE_LOOKBACK_SECONDS',
+  ['SYNC_UPDATE_LOOKBACK_SECONDS'],
+  24 * 60 * 60,
+);
+
 // 内容对账：片大小（按行数取窗口边界，本表 id 稀疏不能按固定步长）与差异行 IN 分块。
 // 片大→聚合轮次少但单语句重；IN 分块控 max_allowed_packet，与 sync.ts 的批口径同源。
 const RECONCILE_SLICE = readPositiveInt('RECONCILE_SLICE', ['RECONCILE_SLICE'], 5000);
@@ -625,7 +637,20 @@ async function syncTable(source, target, table, sourceTable, watermark, onWaterm
 
   // 提取 ID 水位线和更新时间水位线
   const idWm = getWatermarkId(watermark);
-  const timeWmRaw = (watermark && typeof watermark === 'object') ? watermark.update_time : null;
+  const storedTimeWm = (watermark && typeof watermark === 'object') ? watermark.update_time : null;
+  // 每轮至少回看「上次成功同步起点 - 5 分钟」：上一轮如果中途被源库断连/服务表重建拖死，
+  // 它没来得及拉到的 UPDATE（如金额后补）下一轮还能补上；缺失成功水位时才退到固定 24h 窗口。
+  const nowSec = Math.floor(Date.now() / 1000);
+  const lastSuccess = readLastServiceSuccess();
+  const cutoffSec = lastSuccess > 0
+    ? lastSuccess - 300
+    : nowSec - UPDATE_LOOKBACK_SECONDS;
+  const lookbackCutoff = utIsNumeric
+    ? cutoffSec
+    : formatLocalDatetime(new Date(cutoffSec * 1000));
+  const timeWmRaw = hasUpdateTime
+    ? ds.pickUpdateLookbackCutoff(storedTimeWm, lookbackCutoff)
+    : storedTimeWm;
 
   // 构建 WHERE 条件：新记录 OR 已更新记录
   // 时间条件按列原生类型比较；类型不匹配的旧水位线（如秒被误解析成 1970 字符串）直接丢弃，退化为纯 id 增量，避免全表条件
@@ -668,8 +693,8 @@ async function syncTable(source, target, table, sourceTable, watermark, onWaterm
   let maxId = idWm;
   // maxUpdateTime 跟随列原生类型：数值列存 Unix 秒（0 表示未见），时间列存 "YYYY-MM-DD HH:MM:SS"
   let maxUpdateTime = utIsNumeric
-    ? (typeof timeWmRaw === 'number' && timeWmRaw > 0 ? timeWmRaw : 0)
-    : (typeof timeWmRaw === 'string' && timeWmRaw ? timeWmRaw : null);
+    ? (typeof storedTimeWm === 'number' && storedTimeWm > 0 ? storedTimeWm : 0)
+    : (typeof storedTimeWm === 'string' && storedTimeWm ? storedTimeWm : null);
 
   // keyset 分页：按主键递进，避免深 OFFSET 让源库越扫越慢
   let lastPk = null;
@@ -955,6 +980,16 @@ function saveServiceWatermark(lastSuccess) {
   fs.writeFileSync(SERVICE_WATERMARK_FILE, JSON.stringify({ lastSuccess }, null, 2));
 }
 
+/** 上一次成功同步的轮次起点（Unix 秒）；缺失/损坏时返回 0，回退到固定回看窗口 */
+function readLastServiceSuccess() {
+  try {
+    const v = Number(JSON.parse(fs.readFileSync(SERVICE_WATERMARK_FILE, 'utf8')).lastSuccess);
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * 源撤回下传：删除「云端主表有、源库已无」的行，并让下游两层跟着收敛。
  *
@@ -1190,6 +1225,11 @@ async function runSyncOnce() {
   const target = await mysql.createConnection({
     ...TARGET, connectTimeout: 30000, enableKeepAlive: true, keepAliveInitialDelay: 10000,
   });
+
+  // 单轮同步可能夹着服务表/宽表重建，源库连接会长时间空闲；显式放宽会话 wait_timeout，
+  // 避免「server disconnected because of inactivity」把一轮同步在尾部打断。
+  await source.query('SET SESSION wait_timeout=28800, interactive_timeout=28800');
+  await target.query('SET SESSION wait_timeout=28800, interactive_timeout=28800');
 
   try {
     // 注意：不使用 SET UNIQUE_CHECKS=0，否则 ON DUPLICATE KEY UPDATE 无法检测重复键，

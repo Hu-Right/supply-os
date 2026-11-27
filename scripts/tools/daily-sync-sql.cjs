@@ -269,6 +269,25 @@ function targetWinsExpr(c, dataType) {
   return "`" + c + "` = IF(`" + c + "` IS NULL OR `" + c + "` = '', VALUES(`" + c + "`), `" + c + "`)";
 }
 
+/**
+ * 增量水位线的 update_time 回看窗口：
+ * 水位线是「上一轮见过的最大 update_time」，一旦某行更新被漏掉、后续又有更晚的行把水位推高，
+ * 单靠 `update_time > stored` 就再也回不到那一行。每轮至少回看最近 N 秒，保证迟到的
+ * 金额/截止日/标题等 UPDATE 会被重新拉到；取 min(stored, cutoff) 保证既不漏也不额外拉更早的数据。
+ *
+ * @param {unknown} stored 水位线里的 update_time（Unix 秒数字或 DATETIME 字符串）
+ * @param {number|string} cutoff now - lookback
+ * @returns {number|string} 实际用于 WHERE 的 update_time 下界
+ */
+function pickUpdateLookbackCutoff(stored, cutoff) {
+  if (stored === null || stored === undefined || stored === '') return cutoff;
+  if (typeof cutoff === 'number') {
+    const n = Number(stored);
+    return Number.isFinite(n) && n > 0 ? Math.min(n, cutoff) : cutoff;
+  }
+  return String(stored) < String(cutoff) ? stored : cutoff;
+}
+
 module.exports = {
   NUMERIC_TYPES,
   NON_DESTRUCTIVE_COLUMNS,
@@ -286,4 +305,5 @@ module.exports = {
   monotoneRiseExpr,
   targetWinsExpr,
   buildOdkuUpdateClause,
+  pickUpdateLookbackCutoff,
 };
