@@ -26,7 +26,6 @@ import { getPool } from "@/lib/db/pool";
 import { getContext } from "@/lib/db/context";
 import { SupplierDiagnosisRepo, diagnosisWriteGateDecision } from "@/lib/repos/supplier-diagnosis.repo";
 import { SupplierDiagnosisSubmitLogRepo } from "@/lib/repos/supplier-diagnosis-submit-log.repo";
-import { submitDiagnosisToBackend } from "@/lib/services/supplier-diagnosis/backend-client";
 import { scoreDiagnosisSubmission } from "@/lib/services/supplier-diagnosis/score-submission";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
@@ -192,12 +191,28 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   try {
-    const result = await submitDiagnosisToBackend({
+    // 落库由门户完成（V2 形态）：后台不参与保存，只按需读表出报告，
+    // 因此云端门户不再需要访问本地后台（2026-11-29 解耦）。
+    const stored = await diagnosisRepo.upsertDiagnosis({
       userId: auth.userId,
       supplierId,
-      companyName: canonicalName, // SSOT 正名；payload 名仅用于检索（2026-11-12）
+      companyName: canonicalName,
       answers,
-      score: scored.score,
+      score: {
+        totalScore: scored.score.totalScore,
+        grade: scored.score.grade,
+        breakdown: {
+          ruleVersion: 5,
+          dimensions: scored.score.dimensions,
+          partScores: scored.score.partScores,
+          fieldScores: scored.score.fieldScores ?? [],
+          caps: scored.score.caps,
+          gradeBeforeCaps: scored.score.gradeBeforeCaps,
+          overrideGateTriggered: scored.score.overrideGateTriggered,
+          overrideGateReason: scored.score.overrideGateReason,
+        },
+      },
+      qualification: { grade: scored.score.qualGrade, breakdown: scored.score.qualBreakdown },
       ip: clientIp,
     });
 
@@ -205,24 +220,36 @@ export const POST = withRoute(async (req: NextRequest) => {
       supplierId,
       companyName: canonicalName,
       result: "success",
-      // 能力画像未答全时为 null（报告标「未评估」），不是 0 分
-      scoreTotal: result.scoreTotal ?? null,
+      scoreTotal: scored.score.totalScore ?? null,
     });
 
     return NextResponse.json({
-      ...result,
+      id: Number(stored.id),
+      schemaVersion: 5,
       supplierId,
       subjectUnclaimed,
+      scoreTotal: scored.score.totalScore,
+      scoreGrade: scored.score.grade,
+      gradeLabel: scored.score.gradeLabel,
+      gradeBeforeCaps: scored.score.gradeBeforeCaps,
+      dimensions: scored.score.dimensions,
+      partScores: scored.score.partScores,
+      caps: scored.score.caps,
+      topGaps: scored.score.topGaps,
+      overrideGate: { triggered: scored.score.overrideGateTriggered, reason: scored.score.overrideGateReason },
+      qualGrade: scored.score.qualGrade,
+      qualBreakdown: scored.score.qualBreakdown,
+      bidGate: scored.bidGate,
     }, { status: 201 });
   } catch (err) {
-    console.error("[supplier-diagnosis POST] 后台计算失败", err);
+    console.error("[supplier-diagnosis POST] 诊断保存失败", err);
     await recordSubmit({
       supplierId,
       companyName: canonicalName,
       result: "error",
       errorCode: EC_INTERNAL_ERROR,
-      reason: "backend_unavailable",
+      reason: "save_failed",
     });
-    routeError(500, EC_INTERNAL_ERROR, "诊断计算服务暂不可用，请稍后重试");
+    routeError(500, EC_INTERNAL_ERROR, "诊断保存失败，请稍后重试");
   }
 });

@@ -14,8 +14,9 @@ describe("diagnosis V5 constants", () => {
     expect(() => assertDiagnosisV5Intact()).not.toThrow();
     expect(DIAGNOSIS_V5_PARTS.reduce((s, p) => s + p.weight, 0)).toBe(100);
     expect(DIAGNOSIS_V5_DIMENSIONS).toHaveLength(12);
-    expect(DIAGNOSIS_V5_INDICATORS).toHaveLength(25);
-    expect(DIAGNOSIS_V5_FORM_FIELDS).toHaveLength(23);
+    // 2026-11-27：维度 12 拆成「业绩有无 + 能否举证 + 台账纪律」三指标，故 25/23 → 26/24
+    expect(DIAGNOSIS_V5_INDICATORS).toHaveLength(26);
+    expect(DIAGNOSIS_V5_FORM_FIELDS).toHaveLength(24);
   });
 
   it("certificates are derived, not collected", () => {

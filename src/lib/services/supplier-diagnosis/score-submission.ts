@@ -26,6 +26,12 @@ export interface DiagnosisScoreSnapshot {
   gradeLabel: string;
   dimensions: ScoringResultV5["dimensions"];
   partScores: ScoringResultV5["partScores"];
+  /**
+   * 逐题得分（题目名 + 0–5）。
+   * 后台报告要列「短板题」与「全量作答」，但它已不持有题字典，
+   * 所以题名与单题分随快照一起过去。
+   */
+  fieldScores: ScoringResultV5["fieldScores"];
   caps: ScoringResultV5["caps"];
   topGaps: ScoringResultV5["topGaps"];
   overrideGateTriggered: boolean;
@@ -36,7 +42,14 @@ export interface DiagnosisScoreSnapshot {
 
 export interface ScoredSubmission {
   companyName: string;
+  /** 发往后台的评分快照（后台按此出报告、不重算） */
   score: DiagnosisScoreSnapshot;
+  /**
+   * A 段合格制闸门结论。只给门户响应消费，**不进 score 快照**：
+   * 后台侧的报告口径未同步升级时，多一个字段会破坏它的严格校验；
+   * 且闸门是纯函数、由作答可随时复算，没必要存进快照。
+   */
+  bidGate: ScoringResultV5["bidGate"];
 }
 
 /** 法定准入：证书覆盖率与缺口数（与后台 certCoverageOf 同口径） */
@@ -92,6 +105,7 @@ export async function scoreDiagnosisSubmission(
       gradeLabel: scored.gradeLabel,
       dimensions: scored.dimensions,
       partScores: scored.partScores,
+      fieldScores: scored.fieldScores,
       caps: scored.caps,
       topGaps: scored.topGaps,
       overrideGateTriggered: scored.overrideGateTriggered,
@@ -99,5 +113,6 @@ export async function scoreDiagnosisSubmission(
       qualGrade,
       qualBreakdown: qualification.breakdown,
     },
+    bidGate: scored.bidGate,
   };
 }

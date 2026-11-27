@@ -64,7 +64,9 @@ describe("DiagnosisFormFields V5 版式", () => {
       "diagV5TechnicalResponse",
       "diagV5QualitySystem",
       "diagV5ServiceSla",
-      "diagV5TenderExperience",
+      // 2026-11-27：业绩由「投标履历」六档改为「有无业绩 + 能否举证」两问
+      "diagV5OverseasRecord",
+      "diagV5RecordEvidence",
     ]) {
       expect(html).toContain(key);
     }

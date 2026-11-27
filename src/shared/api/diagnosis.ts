@@ -7,6 +7,7 @@
  *              本层直接把裸载荷本体交给调用方；出口只一处读字段，避免前端读错层。
  */
 import { api } from "@/core/http";
+import type { BidGateResult } from "@/shared/constants/diagnosis-bid-gate";
 
 /** 相似公司候选（已脱敏：无联系人/电话/邮箱，信用代码为掩码） */
 export interface DiagnosisCandidate {
@@ -67,6 +68,12 @@ export interface DiagnosisSubmitResult {
   partScores?: DiagnosisPartScore[];
   /** V5 红线封顶原因 */
   caps?: DiagnosisGradeCap[];
+  /**
+   * A 段合格制闸门：能不能进投标名单。
+   * 与 scoreTotal 互不换算——出局时总分再高也不改变结论。
+   * 历史快照/后台未透出时缺省，前端按「未提供」处理。
+   */
+  bidGate?: BidGateResult;
   topGaps: { dimension: string; dimensionEn: string; priority: string }[];
   overrideGate: { triggered: boolean; reason: string };
   /** V3 口径代次（2=投标能力诊断，3=资质完善诊断；历史代次不互比） */

@@ -22,6 +22,7 @@ import { fetchMyDiagnoses, type DiagnosisCandidate } from "@/shared/api/diagnosi
 import { useDiagnosisForm } from "@/shared/forms/useDiagnosisForm";
 import { DiagnosisFormFields } from "@/shared/forms/DiagnosisFormFields";
 import { DiagnosisCompanyDialog } from "@/shared/forms/DiagnosisCompanyDialog";
+import { BidGateCard } from "@/features/procurement/components/BidGateCard";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 function Gate({ t, onLogin }: { t: (k: string) => string; onLogin: () => void }) {
@@ -50,11 +51,25 @@ function ResultView({
         <p className="mt-2 text-base font-black text-slate-900">{t("diagSuccessTitle")}</p>
         {r.scoreTotal != null && (
           <p className="mt-1 text-sm font-bold text-teal-700">
-            {r.scoreTotal} / 100 · {r.gradeLabel}
+            {/* 有闸门结论时不再显示「C — 有条件应标」这类等级文案：
+                它读起来像资格结论，会和下方「不可投」直接打架 */}
+            {r.bidGate
+              ? `${t("diagCapabilityPrefix")} ${r.scoreTotal} / 100`
+              : `${r.scoreTotal} / 100 · ${r.gradeLabel}`}
           </p>
         )}
         <p className="mt-1 text-sm text-slate-600">{t("diagSubmittedHint")}</p>
+        {r.bidGate && (
+          <p className="mx-auto mt-2 max-w-md text-2xs leading-relaxed text-slate-500">
+            {t("diagScoreIsNotEligibility")}
+          </p>
+        )}
       </div>
+
+      {/* 资格判定卡：总分 78 也可能因一项废标项进不了名单，所以结论必须独立于总分呈现 */}
+      {r.bidGate && (
+        <BidGateCard gate={r.bidGate} qualBreakdown={r.qualBreakdown} t={t} />
+      )}
 
       {/* 完整诊断报告需联系客服获取：由后台按评分与分析生成详细报告，客服人工发送 */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center">

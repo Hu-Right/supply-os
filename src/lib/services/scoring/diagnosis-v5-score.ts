@@ -10,6 +10,7 @@
 import {
   DIAGNOSIS_V5_DIMENSIONS,
   DIAGNOSIS_V5_FIELD_MAP,
+  DIAGNOSIS_V5_FORM_FIELDS,
   DIAGNOSIS_V5_PARTS,
   capDiagnosisV5Grade,
   gradeOfDiagnosisV5,
@@ -17,6 +18,7 @@ import {
   type DiagnosisV5FieldDef,
   type DiagnosisV5Grade,
 } from "@/shared/constants/diagnosis-v5";
+import { evaluateBidGate, type BidGateResult } from "@/shared/constants/diagnosis-bid-gate";
 
 export interface DimensionScoreV5 {
   no: number;
@@ -43,9 +45,27 @@ export interface GradeCap {
   cap: DiagnosisV5Grade;
 }
 
+/**
+ * 单题得分（门户算、后台只读）。
+ * 报告里的「短板题 / 全量作答」需要每道题的题目名与得分，后台不持有题字典，
+ * 所以由门户在快照里带过去——这是删除后台评分引擎后必须补的一项。
+ */
+export interface FieldScoreV5 {
+  key: string;
+  dimensionNo: number;
+  /** 题目中文名（后台直接用于报告，不依赖自己的字典） */
+  labelZh: string;
+  /** 是否计分题（派生项不参与） */
+  scored: boolean;
+  /** 0–5；未作答或派生项为 null */
+  score: number | null;
+}
+
 export interface ScoringResultV5 {
   dimensions: DimensionScoreV5[];
   partScores: PartScoreV5[];
+  /** 逐题得分（后台报告用；不放分档，只给原始 0–5） */
+  fieldScores: FieldScoreV5[];
   totalScore: number;
   grade: DiagnosisV5Grade;
   gradeBeforeCaps: DiagnosisV5Grade;
@@ -57,6 +77,12 @@ export interface ScoringResultV5 {
   overrideGateTriggered: boolean;
   overrideGateReason: string;
   topGaps: { dimension: string; dimensionEn: string; priority: "High" | "Medium" | "Low" }[];
+  /**
+   * A 段合格制闸门：能不能进投标名单。
+   * 与 totalScore 互不换算——出局时总分再高也不改变结论；
+   * 资格具备时 B 段低于 60 也不否定资格，只标记「不建议投」。
+   */
+  bidGate: BidGateResult;
 }
 
 export type DiagnosisAnswersV5 = Record<string, string | string[]>;
@@ -185,6 +211,8 @@ function rankByGap<T extends { rawScore: number; weight: number }>(dimensions: T
 
 export function scoreDiagnosisV5(input: DiagnosisV5ScoreInput): ScoringResultV5 {
   const { answers } = input;
+  /** key → 0-5 单题分；只在维度指标里出现的题才有值（local_presence 这类前置题只用于派生） */
+  const scoreByKey = new Map<string, number>();
 
   const dimensions: DimensionScoreV5[] = DIAGNOSIS_V5_DIMENSIONS.map((dim) => {
     let raw = 0;
@@ -197,6 +225,7 @@ export function scoreDiagnosisV5(input: DiagnosisV5ScoreInput): ScoringResultV5 
       raw += score * (field.weight ?? 0);
       const shown = Array.isArray(answers[key]) ? (answers[key] as string[]).join("、") : String(answers[key] ?? "").trim();
       evidence.push(`${key}=${shown || "(空)"}(${score}/5)`);
+      if (field.source === "form") scoreByKey.set(key, score);
     }
     const rawScore = Math.round(raw * 10) / 10;
     return {
@@ -243,9 +272,31 @@ export function scoreDiagnosisV5(input: DiagnosisV5ScoreInput): ScoringResultV5 
     max: p.weight,
   }));
 
+  // A 段合格制：与总分平行的一条结论，不参与 totalScore，也不被 caps 影响。
+  // B 段得分从 partScores 取（满分 50），换算成 100 制后再分档。
+  const bidGate = evaluateBidGate(
+    answers,
+    partScores.find((p) => p.code === "B")?.score ?? 0,
+    {
+      legalMissingCount: legalMissing,
+      certCoveragePercent: input.derived.certCoveragePercent,
+    },
+  );
+
+  // 单题分按表单题的固定顺序输出：后台报告「全量作答」附录要逐题列，
+  // 不能只列落在维度指标里的题（local_presence 这类前置题只参与派生，也要出现在附录）。
+  const fieldScores: FieldScoreV5[] = DIAGNOSIS_V5_FORM_FIELDS.map((f) => ({
+    key: f.key,
+    dimensionNo: f.dimensionNo,
+    labelZh: f.labelZh,
+    scored: f.scored,
+    score: f.scored ? scoreByKey.get(f.key) ?? null : null,
+  }));
+
   return {
     dimensions,
     partScores,
+    fieldScores,
     totalScore,
     grade,
     gradeBeforeCaps,
@@ -261,5 +312,6 @@ export function scoreDiagnosisV5(input: DiagnosisV5ScoreInput): ScoringResultV5 
       dimensionEn: d.nameEn,
       priority: gapPriority(d.rawScore),
     })),
+    bidGate,
   };
 }

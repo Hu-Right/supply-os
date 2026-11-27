@@ -85,7 +85,7 @@ export const DIAGNOSIS_V5_DIMENSIONS: readonly DiagnosisV5DimensionDef[] = [
   { no: 9, part: "C", name: "企业档案完整度", nameEn: "Corporate profile completeness", weight: 6, indicators: ["basic_profile", "cert_profile"] },
   { no: 10, part: "C", name: "英文证据库", nameEn: "English evidence library", weight: 6, indicators: ["english_evidence_level", "english_meeting_capability"] },
   { no: 11, part: "C", name: "国际注册与本地化信息", nameEn: "International registration & localization", weight: 4, indicators: ["international_visibility", "localization"] },
-  { no: 12, part: "C", name: "投标履历与台账", nameEn: "Bid track record & ledger", weight: 4, indicators: ["tender_experience", "team_discipline"] },
+  { no: 12, part: "C", name: "项目业绩与投标台账", nameEn: "Project track record & bid ledger", weight: 4, indicators: ["overseas_record", "record_evidence", "team_discipline"] },
 ];
 
 // ── 全量字段（23 个表单字段 + 4 个派生指标 = 27；其中 25 个计分） ──
@@ -125,6 +125,8 @@ export const DIAGNOSIS_V5_FIELDS: readonly DiagnosisV5FieldDef[] = [
     labelZh: "合规制度覆盖哪些内容（制裁筛查 / 反腐败 / 培训 / 尽调 / 举报）？",
     options: ["无合规制度未筛查", "仅反腐败制度", "仅制裁与出口管制筛查", "两者都有并年度培训", "两者都有 + 培训 + 第三方尽调 + 举报渠道"],
     scoreMap: [0, 1, 2, 3, 5],
+    // 资格性判定项：不答就出不了「能否进投标名单」的结论
+    required: true,
     weight: 0.50, source: "form", scored: true,
   },
   // A3 主体与财务资格
@@ -134,6 +136,7 @@ export const DIAGNOSIS_V5_FIELDS: readonly DiagnosisV5FieldDef[] = [
     labelZh: "出口主体资质（经营权 / 海关备案 / 外汇 / 退税）？",
     options: ["都没有", "有进出口经营权", "经营权 + 海关备案", "经营权 + 海关备案 + 外汇账户", "上述齐备 + 退税", "上述齐备且实际出口过"],
     scoreMap: [0, 1, 2, 3, 4, 5],
+    required: true,
     weight: 0.50, source: "form", scored: true,
   },
   {
@@ -201,6 +204,7 @@ export const DIAGNOSIS_V5_FIELDS: readonly DiagnosisV5FieldDef[] = [
     labelZh: "质量管理体系、审厂与见证试验能力？",
     options: ["无质量管理体系", "有内部检验制度，未认证", "ISO 9001 已认证", "ISO 9001 + 行业体系（IATF/ASME/API/ISO 13485）", "上述 + 近 2 年客户/第三方审厂通过", "上述 + 第三方见证试验 + 检测报告"],
     scoreMap: [0, 1, 2, 3, 4, 5],
+    required: true,
     weight: 0.50, source: "form", scored: true,
   },
   {
@@ -209,6 +213,7 @@ export const DIAGNOSIS_V5_FIELDS: readonly DiagnosisV5FieldDef[] = [
     labelZh: "HSE 体系与近 3 年事故记录？",
     options: ["无 HSE 制度", "有制度但无执行记录", "ISO 45001 或 ISO 14001 已认证", "双体系认证 + 近 3 年无重大事故", "上述 + 客户 HSE 审核通过", "上述 + 事故/整改记录 + 保险"],
     scoreMap: [0, 1, 2, 3, 4, 5],
+    required: true,
     weight: 0.50, source: "form", scored: true,
   },
   // B4 售后与全生命周期
@@ -300,14 +305,34 @@ export const DIAGNOSIS_V5_FIELDS: readonly DiagnosisV5FieldDef[] = [
     weight: 0.50, source: "derived", scored: true,
     derivedFrom: "local_presence",
   },
-  // C4 投标履历与台账
+  // C4 项目业绩与投标台账
+  // 2026-11-27 用户口径：**不建业绩台账、不做结构化项目表、不要求上传**。
+  // 「有没有业绩」和「能不能拿出证明」拆成两问——有业绩但拿不出证明是最常见的真实状态，
+  // 合成一道题会把两者压成一个档位，判断力就丢了。
   {
-    key: "tender_experience", column: "tender_experience", part: "C", dimensionNo: 12, kind: "single",
-    labelKey: "diagV5TenderExperience",
-    labelZh: "近 24 个月国际公共采购投标履历？",
-    options: ["从未参与国际公采投标", "参与过但未通过资格预审", "通过资审但未入围", "入围但未中标", "有中标记录", "有中标并完成交付/复购"],
-    scoreMap: [0, 1, 2, 3, 4, 5],
-    weight: 0.50, source: "form", scored: true,
+    key: "overseas_record", column: "overseas_record", part: "C", dimensionNo: 12, kind: "single",
+    labelKey: "diagV5OverseasRecord",
+    labelZh: "是否有同类项目业绩？（海外同类 / 仅国内 / 没有）",
+    options: [
+      "没有同类项目业绩",
+      "有国内同类项目业绩，无海外项目",
+      "有海外同类项目业绩",
+    ],
+    scoreMap: [0, 3, 5],
+    weight: 0.40, source: "form", scored: true,
+  },
+  {
+    key: "record_evidence", column: "record_evidence", part: "C", dimensionNo: 12, kind: "single",
+    labelKey: "diagV5RecordEvidence",
+    labelZh: "能否提供业绩证明？（合同 / 验收单 / 业主可回访）",
+    options: [
+      "拿不出任何证明",
+      "仅能提供合同",
+      "合同 + 验收单齐全",
+      "合同 + 验收单 + 业主可回访",
+    ],
+    scoreMap: [0, 2, 4, 5],
+    weight: 0.30, source: "form", scored: true,
   },
   {
     key: "team_discipline", column: "team_discipline", part: "C", dimensionNo: 12, kind: "single",
@@ -315,7 +340,8 @@ export const DIAGNOSIS_V5_FIELDS: readonly DiagnosisV5FieldDef[] = [
     labelZh: "投标团队与台账 / CRM 留痕？",
     options: ["无专人", "1 人且无台账", "1-2 人有投标台账", "3 人以上有投标台账", "上述 + 投标复盘", "上述 + CRM 客户跟进 + 知识库"],
     scoreMap: [0, 1, 2, 3, 4, 5],
-    weight: 0.50, source: "form", scored: true,
+    // 维度 12 三指标：业绩有无 0.40 / 能否举证 0.30 / 台账纪律 0.30
+    weight: 0.30, source: "form", scored: true,
   },
 ];
 
@@ -438,8 +464,8 @@ export function assertDiagnosisV5Intact(): void {
     if (Math.abs(w - 1) > 1e-9) throw new Error(`V5 dimension ${dim.no} indicator weights ${w} !== 1`);
   }
 
-  if (DIAGNOSIS_V5_INDICATORS.length !== 25) throw new Error(`V5 indicators ${DIAGNOSIS_V5_INDICATORS.length} !== 25`);
-  if (DIAGNOSIS_V5_FORM_FIELDS.length !== 23) throw new Error(`V5 form fields ${DIAGNOSIS_V5_FORM_FIELDS.length} !== 23`);
+  if (DIAGNOSIS_V5_INDICATORS.length !== 26) throw new Error(`V5 indicators ${DIAGNOSIS_V5_INDICATORS.length} !== 26`);
+  if (DIAGNOSIS_V5_FORM_FIELDS.length !== 24) throw new Error(`V5 form fields ${DIAGNOSIS_V5_FORM_FIELDS.length} !== 24`);
   if (DIAGNOSIS_V5_DERIVED_FIELDS.length !== 4) throw new Error(`V5 derived fields ${DIAGNOSIS_V5_DERIVED_FIELDS.length} !== 4`);
 
   for (const f of DIAGNOSIS_V5_FIELDS) {

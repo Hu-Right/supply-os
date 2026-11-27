@@ -1,15 +1,14 @@
-import { EC_FORBIDDEN } from "@/shared/constants/api";
 /**
- * POST /api/supplier-diagnosis 集成测试 — 2026-11-27 评分回门户
+ * POST /api/supplier-diagnosis 集成测试 — 2026-11-29 门户本地落库（去掉后台同步依赖）
  *
- * @description 评分与资质分级在门户执行（V5，与后台同口径），后台只消费快照
- *              生成报告与落库。本测试钉住：
- *              ① 未收录主体 → 400，评分与后台都不得被调用；
- *              ② 有主主体非归属人 → 403，评分与后台都不得被调用；
- *              ③ 归属人 → 201，提交载荷带门户算好的 score 快照；
- *              ④ 门户评分失败 → 503，后台不得被调用；
- *              ⑤ 后台失败 → 500，门户不重试本地兜底；
- *              ⑥ 响应键集合与后台结果同形，subjectUnclaimed 仍由门户判定。
+ * @description 评分与资质分级在门户执行（V5），保存也由门户写 `supplier_diagnosis`；
+ *              后台只按需读表出报告。本测试钉住：
+ *              ① 未收录主体 → 400，评分与写库都不得被调用；
+ *              ② 有主主体非归属人 → 403，评分与写库都不得被调用；
+ *              ③ 归属人 → 201，写库参数带门户算好的 score 快照 / 资质快照 / 正名；
+ *              ④ 门户评分失败 → 503，不写库；
+ *              ⑤ 写库失败 → 500，不返回半截结果；
+ *              ⑥ 响应键集合含评分/资质/闸门，且不再依赖后台。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -29,14 +28,7 @@ vi.mock("@/lib/utils/ip", () => ({
   extractClientIp: vi.fn().mockReturnValue("127.0.0.1"),
 }));
 
-const { submitDiagnosisToBackend } = vi.hoisted(() => ({
-  submitDiagnosisToBackend: vi.fn(),
-}));
-vi.mock("@/lib/services/supplier-diagnosis/backend-client", () => ({ submitDiagnosisToBackend }));
-
-const { scoreDiagnosisSubmission } = vi.hoisted(() => ({
-  scoreDiagnosisSubmission: vi.fn(),
-}));
+const { scoreDiagnosisSubmission } = vi.hoisted(() => ({ scoreDiagnosisSubmission: vi.fn() }));
 vi.mock("@/lib/services/supplier-diagnosis/score-submission", () => ({ scoreDiagnosisSubmission }));
 
 const findProfileBits = vi.fn();
@@ -49,7 +41,10 @@ vi.mock("@/lib/db/context", () => ({
   }),
 }));
 
-const { getWriteGateFacts } = vi.hoisted(() => ({ getWriteGateFacts: vi.fn() }));
+const { getWriteGateFacts, upsertDiagnosis } = vi.hoisted(() => ({
+  getWriteGateFacts: vi.fn(),
+  upsertDiagnosis: vi.fn(),
+}));
 const gateFacts = { selfBound: false, boundByOther: false, claimPending: false, claimed: false, verifyDone: false };
 
 vi.mock("@/lib/db/pool", () => ({
@@ -68,6 +63,7 @@ vi.mock("@/lib/repos/supplier-diagnosis.repo", async (importActual) => {
     ...actual,
     SupplierDiagnosisRepo: class {
       getWriteGateFacts = getWriteGateFacts;
+      upsertDiagnosis = upsertDiagnosis;
     },
   };
 });
@@ -91,28 +87,7 @@ function postReq(body: unknown): NextRequest {
   });
 }
 
-/** 后台返回的同形结果（门户不再自己算） */
-const BACKEND_RESULT = {
-  id: 3,
-  schemaVersion: 3,
-  scoreTotal: 60,
-  scoreGrade: "C",
-  gradeLabel: "C — 基础辅导",
-  dimensions: [],
-  topGaps: [],
-  overrideGate: { triggered: false, reason: "" },
-  qualGrade: "B",
-  qualBreakdown: {
-    targetMarkets: ["EU"],
-    markets: [],
-    requiredCodes: ["CE"],
-    heldCodes: ["CE"],
-    missingCodes: ["UKCA"],
-    missingCount: 1,
-    noRequirementMarkets: [],
-    unscoredReason: null,
-  },
-};
+const STORED_ROW = { id: 3, score_total: 88, schema_version: 5, qual_grade: "B" };
 
 beforeEach(() => {
   findProfileBits.mockReset().mockResolvedValue({ dataQualityScore: 80, company: "库内正名科技有限公司" });
@@ -120,7 +95,7 @@ beforeEach(() => {
   insertEnterprise.mockReset();
   Object.assign(gateFacts, { selfBound: false, boundByOther: false, claimPending: false, claimed: false, verifyDone: false });
   getWriteGateFacts.mockReset().mockImplementation(async () => ({ ...gateFacts }));
-  submitDiagnosisToBackend.mockReset().mockResolvedValue({ ...BACKEND_RESULT });
+  upsertDiagnosis.mockReset().mockResolvedValue({ ...STORED_ROW });
   scoreDiagnosisSubmission.mockReset().mockResolvedValue({
     companyName: "库内正名科技有限公司",
     score: {
@@ -130,68 +105,71 @@ beforeEach(() => {
       gradeLabel: "A — 优先应标",
       dimensions: [],
       partScores: [],
+      fieldScores: [],
       caps: [],
       topGaps: [],
       overrideGateTriggered: false,
       overrideGateReason: "",
       qualGrade: "B",
-      qualBreakdown: { targetMarkets: ["EU"] },
+      qualBreakdown: { targetMarkets: ["EU"], missingCodes: ["UKCA"] },
     },
+    bidGate: { triggered: false, reason: "" },
   });
 });
 
-describe("POST /api/supplier-diagnosis（后台计算，门户只转发）", () => {
-  it("公司名未命中 → 400 且不再建档、不调后台", async () => {
+describe("POST /api/supplier-diagnosis（门户本地落库）", () => {
+  it("公司名未命中 → 400 且不建档、不评分、不写库", async () => {
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "不存在的公司", supplierId: null, answers: validAnswers() }));
     expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.code).toBe(40060);
+    expect((await res.json()).code).toBe(40060);
     expect(insertEnterprise).not.toHaveBeenCalled();
-    expect(submitDiagnosisToBackend).not.toHaveBeenCalled();
+    expect(scoreDiagnosisSubmission).not.toHaveBeenCalled();
+    expect(upsertDiagnosis).not.toHaveBeenCalled();
   });
 
-  it("有主主体非归属人（闸口拒绝）→ 403，不调后台", async () => {
+  it("有主主体非归属人（闸口拒绝）→ 403，不评分、不写库", async () => {
     findByCompanyBest.mockResolvedValue({ id: 11, verify_status: "done" });
     Object.assign(gateFacts, { selfBound: false, boundByOther: true });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
     expect(res.status).toBe(403);
-    expect((await res.json()).code).toBe(EC_FORBIDDEN);
-    expect(submitDiagnosisToBackend).not.toHaveBeenCalled();
+    expect(scoreDiagnosisSubmission).not.toHaveBeenCalled();
+    expect(upsertDiagnosis).not.toHaveBeenCalled();
   });
 
-  it("归属人放行：后台收到正名、userId、supplierId 与完整作答，201", async () => {
+  it("归属人放行：本地写库带正名/评分快照/资质快照，201", async () => {
     findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "done" });
     Object.assign(gateFacts, { selfBound: true, claimed: true, verifyDone: true });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
     expect(res.status).toBe(201);
     const body = await res.json();
+    expect(body.id).toBe(3);
     expect(body.supplierId).toBe(11);
     expect(body.subjectUnclaimed).toBe(false);
-    expect(body.id).toBe(3);
-    expect(submitDiagnosisToBackend).toHaveBeenCalledTimes(1);
-    expect(scoreDiagnosisSubmission).toHaveBeenCalledTimes(1);
-    const sent = submitDiagnosisToBackend.mock.calls[0][0];
+
+    expect(upsertDiagnosis).toHaveBeenCalledTimes(1);
+    const sent = upsertDiagnosis.mock.calls[0][0];
     expect(sent).toMatchObject({
       userId: 7,
       supplierId: 11,
       companyName: "库内正名科技有限公司",
       ip: "127.0.0.1",
+      qualification: { grade: "B" },
     });
     expect(sent.answers.target_markets).toEqual(["EU"]);
-    // 2026-11-27：评分由门户算好随提交带上，后台只消费
-    expect(sent.score).toMatchObject({ totalScore: 88, grade: "A", qualGrade: "B" });
+    expect(sent.score).toMatchObject({ totalScore: 88, grade: "A" });
+    expect(sent.score.breakdown).toMatchObject({ ruleVersion: 5 });
   });
 
-  it("门户评分失败 → 503，不调后台", async () => {
+  it("门户评分失败 → 503，不写库", async () => {
     findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "pending" });
     scoreDiagnosisSubmission.mockRejectedValueOnce(new Error("DIAGNOSIS_QUALIFICATION_UNAVAILABLE"));
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
     expect(res.status).toBe(503);
-    expect(submitDiagnosisToBackend).not.toHaveBeenCalled();
+    expect(upsertDiagnosis).not.toHaveBeenCalled();
   });
 
   it("无主主体路人诊断 → 201 且 subjectUnclaimed=true", async () => {
@@ -202,45 +180,44 @@ describe("POST /api/supplier-diagnosis（后台计算，门户只转发）", () 
     expect((await res.json()).subjectUnclaimed).toBe(true);
   });
 
-  it("显式 supplierId 不存在 → 400（存在性校验先于闸口与后台）", async () => {
+  it("显式 supplierId 不存在 → 400（存在性校验先于闸口/评分/写库）", async () => {
     findProfileBits.mockResolvedValue(null);
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "任意", supplierId: 999, answers: validAnswers() }));
     expect(res.status).toBe(400);
     expect(getWriteGateFacts).not.toHaveBeenCalled();
-    expect(submitDiagnosisToBackend).not.toHaveBeenCalled();
+    expect(upsertDiagnosis).not.toHaveBeenCalled();
   });
 
-  it("后台不可用 → 500，门户不做本地兜底评分", async () => {
+  it("写库失败 → 500，提示保存失败", async () => {
     findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "pending" });
-    submitDiagnosisToBackend.mockRejectedValueOnce(new Error("DIAGNOSIS_BACKEND_503"));
+    upsertDiagnosis.mockRejectedValueOnce(new Error("db down"));
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
     expect(res.status).toBe(500);
-    expect((await res.json()).message).toContain("诊断计算服务暂不可用");
+    expect((await res.json()).message).toContain("诊断保存失败");
   });
 
-  it("成功响应键集合：后台结果 + 门户归属判定，无本地评分痕迹", async () => {
+  it("成功响应键集合：评分/资质/闸门齐全，含 bidGate", async () => {
     findByCompanyBest.mockResolvedValue({ id: 11, company: "库内正名科技有限公司", verify_status: "pending" });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "深圳某科技有限公司", supplierId: null, answers: validAnswers() }));
     const body = await res.json();
     expect(Object.keys(body).sort()).toEqual(
       [
-        "id", "schemaVersion", "scoreTotal", "scoreGrade", "gradeLabel",
-        "dimensions", "topGaps", "overrideGate", "qualGrade", "qualBreakdown",
-        "supplierId", "subjectUnclaimed",
+        "id", "schemaVersion", "scoreTotal", "scoreGrade", "gradeLabel", "gradeBeforeCaps",
+        "dimensions", "partScores", "caps", "topGaps", "overrideGate",
+        "qualGrade", "qualBreakdown", "supplierId", "subjectUnclaimed", "bidGate",
       ].sort(),
     );
     expect(body.qualGrade).toBe("B");
-    expect(body.qualBreakdown.missingCodes).toEqual(["UKCA"]);
   });
 
-  it("快照防污染：显式 supplierId + payload 乱名 → 后台收到库内正名", async () => {
+  it("快照防污染：显式 supplierId + payload 乱名 → 写库用库内正名", async () => {
     findProfileBits.mockResolvedValue({ dataQualityScore: 80, company: "杭州中建工程技术有限公司" });
     const { POST } = await import("@/app/api/supplier-diagnosis/route");
     const res = await POST(postReq({ companyName: "占位", supplierId: 11, answers: validAnswers() }));
     expect(res.status).toBe(201);
-    expect(submitDiagnosisToBackend.mock.calls[0][0].companyName).toBe("杭州中建工程技术有限公司");
+    expect(upsertDiagnosis.mock.calls[0][0].companyName).toBe("杭州中建工程技术有限公司");
   });
 });

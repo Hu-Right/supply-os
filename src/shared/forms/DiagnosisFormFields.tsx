@@ -8,17 +8,57 @@
  *              证书/资质不在表单收集：A1 只问目标市场，证书覆盖率与档案完整度由供应商表派生。
  */
 
+import { useMemo } from "react";
 import { ChipToggleGroup } from "@/shared/ui";
 import {
   DIAGNOSIS_V5_DIMENSIONS,
+  DIAGNOSIS_V5_FIELD_MAP,
   DIAGNOSIS_V5_FORM_FIELDS,
   DIAGNOSIS_V5_PARTS,
   isDiagnosisV5Required,
   type DiagnosisV5FieldDef,
 } from "@/shared/constants/diagnosis-v5";
+import { BID_GATE_RULES, evaluateBidGate } from "@/shared/constants/diagnosis-bid-gate";
 import type { DiagnosisAnswers } from "@/shared/api/diagnosis";
 
 type T = (key: string) => string;
+
+/**
+ * 决定「能不能进投标名单」的题目：从闸门规则反查，不在常量里二次声明。
+ * 只取表单可判的题（cert_coverage 这类派生项由供应商档案算出，不在表单里问）。
+ */
+const HARD_GATE_FIELDS: readonly string[] = (() => {
+  const keys: string[] = [];
+  for (const rule of BID_GATE_RULES) {
+    if (rule.level !== "disqualify") continue;
+    if (DIAGNOSIS_V5_FIELD_MAP[rule.fieldKey]?.source !== "form") continue;
+    if (!keys.includes(rule.fieldKey)) keys.push(rule.fieldKey);
+  }
+  return keys;
+})();
+
+const SOFT_GATE_FIELDS: readonly string[] = (() => {
+  const keys: string[] = [];
+  for (const rule of BID_GATE_RULES) {
+    if (rule.level !== "conditional") continue;
+    if (DIAGNOSIS_V5_FIELD_MAP[rule.fieldKey]?.source !== "form") continue;
+    if (HARD_GATE_FIELDS.includes(rule.fieldKey)) continue;
+    if (!keys.includes(rule.fieldKey)) keys.push(rule.fieldKey);
+  }
+  return keys;
+})();
+
+/** 题目分档：hard=废标项，soft=可补项，null=只影响评分 */
+function gateLevelOf(fieldKey: string): "hard" | "soft" | null {
+  if (HARD_GATE_FIELDS.includes(fieldKey)) return "hard";
+  if (SOFT_GATE_FIELDS.includes(fieldKey)) return "soft";
+  return null;
+}
+
+function hasAnswer(value: string | string[] | undefined): boolean {
+  if (Array.isArray(value)) return value.length > 0;
+  return String(value ?? "").trim() !== "";
+}
 
 interface Props {
   answers: DiagnosisAnswers;
@@ -66,12 +106,26 @@ function OptionChips({
 
 function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { field: DiagnosisV5FieldDef }) {
   const value = answers[field.key];
+  const level = gateLevelOf(field.key);
 
   return (
     <div id={`diag-field-${field.key}`}>
-      <label className="mb-2 block text-sm font-bold text-slate-700" htmlFor={`diag-${field.key}`}>
-        {t(field.labelKey)}
-        {isDiagnosisV5Required(field) && <span className="ml-0.5 text-rose-500">*</span>}
+      <label className="mb-2 flex flex-wrap items-center gap-1.5 text-sm font-bold text-slate-700" htmlFor={`diag-${field.key}`}>
+        <span>
+          {t(field.labelKey)}
+          {isDiagnosisV5Required(field) && <span className="ml-0.5 text-rose-500">*</span>}
+        </span>
+        {/* 题目分档标注：让填表的人一眼看出哪几题决定「能不能投标」，哪几题只影响得分 */}
+        {level === "hard" && (
+          <span className="rounded bg-rose-50 px-1.5 py-0.5 text-2xs font-semibold text-rose-700">
+            {t("bidGateBadgeHard")}
+          </span>
+        )}
+        {level === "soft" && (
+          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-2xs font-semibold text-amber-700">
+            {t("bidGateBadgeSoft")}
+          </span>
+        )}
       </label>
 
       <OptionChips
@@ -81,6 +135,54 @@ function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { fi
         onToggle={(opt) => onToggleMulti(field.key, opt)}
         t={t}
       />
+    </div>
+  );
+}
+
+/**
+ * A 段实时闸门提示：填到哪儿就看到哪儿有没有废标项。
+ * 用 partial 预判（多选为空、未作答都不判），避免一进页面就先摆一排红项。
+ * 准入缺口要等服务端返回资质分级，这里只判表单可判的规则。
+ */
+function PartAGateBanner({ answers, t }: { answers: DiagnosisAnswers; t: T }) {
+  const gate = useMemo(
+    () => evaluateBidGate(answers, 0, {}, { partial: true }),
+    [answers],
+  );
+  const answered = HARD_GATE_FIELDS.filter((key) => hasAnswer(answers[key])).length;
+  const total = HARD_GATE_FIELDS.length;
+  const hard = gate.disqualifiers.length;
+  const soft = gate.conditionals.length;
+
+  return (
+    <div className="mt-2 space-y-1.5 rounded-lg bg-slate-50 px-2.5 py-2">
+      <p className="text-2xs font-semibold text-slate-700">
+        {t("bidGateLiveProgress")
+          .replace("{answered}", String(answered))
+          .replace("{total}", String(total))}
+      </p>
+      {hard === 0 && soft === 0 ? (
+        <p className="text-2xs leading-relaxed text-emerald-700">{t("bidGateLiveClean")}</p>
+      ) : (
+        <>
+          <p className="text-2xs font-semibold text-slate-600">
+            {t("bidGateLiveTitle")
+              .replace("{hard}", String(hard))
+              .replace("{soft}", String(soft))}
+          </p>
+          {gate.disqualifiers.map((hit) => (
+            <p key={hit.id} className="text-2xs leading-relaxed text-rose-700">
+              · {t(hit.titleKey) || hit.titleZh}
+            </p>
+          ))}
+          {hard === 0 && (
+            <p className="text-2xs leading-relaxed text-slate-500">{t("bidGateLiveNoHard")}</p>
+          )}
+        </>
+      )}
+      {answered < total && (
+        <p className="text-2xs leading-relaxed text-slate-500">{t("bidGateLiveIncomplete")}</p>
+      )}
     </div>
   );
 }
@@ -102,7 +204,16 @@ export function DiagnosisFormFields(props: Props) {
               <span className="text-xs text-slate-400">{part.weight} 分</span>
             </div>
             {part.code === "A" && (
-              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV5PartAHint")}</p>
+              <>
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV5PartAHint")}</p>
+                <PartAGateBanner answers={answers} t={t} />
+              </>
+            )}
+            {part.code === "B" && (
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV5PartBHint")}</p>
+            )}
+            {part.code === "C" && (
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV5PartCHint")}</p>
             )}
 
             <div className="mt-4 space-y-5">
