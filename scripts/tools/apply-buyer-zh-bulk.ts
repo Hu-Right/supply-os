@@ -77,6 +77,9 @@ const pool = mysql.createPool({
   host: process.env.DB_HOST ?? "127.0.0.1", port: Number(process.env.DB_PORT) || 3306,
   user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME,
   charset: "utf8mb4", connectionLimit: 3,
+  // 本机到库是 SSH 隧道：长任务（重建 4 万条投影）空闲时会被掐断，开 keepAlive 并缩短空闲回收
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
 });
 
 const CHUNK = 400;
@@ -223,9 +226,14 @@ if (noticeIds.length > 0) {
   console.log(`[bulk] Meili：写入 ${m.synced} · 删除 ${m.deleted}`);
 }
 
-const [[after]] = await pool.query<RowDataPacket[]>(
-  `SELECT COUNT(*) n FROM notice_public WHERE buyer_id IS NULL AND buyer_name IS NOT NULL AND buyer_name <> ''`,
-);
-console.log(`[bulk] 剩余未匹配公告 ${Number(after.n)} 条`);
+// 收尾统计是「锦上添花」：隧道断在这里不该把整轮落库判成失败
+try {
+  const [[after]] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) n FROM notice_public WHERE buyer_id IS NULL AND buyer_name IS NOT NULL AND buyer_name <> ''`,
+  );
+  console.log(`[bulk] 剩余未匹配公告 ${Number(after.n)} 条`);
+} catch (e) {
+  console.warn(`[bulk] 收尾统计失败（不影响已落库数据）: ${(e as Error).message}`);
+}
 if (skipped.length > 0) console.log(`[bulk] 预检跳过样例：${skipped.slice(0, 5).join(" | ")}`);
 await pool.end();
