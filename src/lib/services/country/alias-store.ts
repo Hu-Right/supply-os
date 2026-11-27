@@ -127,7 +127,7 @@ export async function buildCountryNameMaps(pool: Pool): Promise<CountryNameMaps>
   const regions: Record<string, string> = {};
   const zhToEn: Record<string, string> = {};
   // build 期无库（CI prerender）必须降级为空映射，不能把 ECONNREFUSED 抛给 Next 的静态导出。
-  let rows: RowDataPacket[] = [];
+  let rows: RowDataPacket[];
   try {
     const [result] = await pool.query(
       "SELECT canonical, alias, kind, JSON_UNQUOTE(JSON_EXTRACT(name_i18n,'$.zh')) zh FROM country_aliases WHERE is_active = 1",
