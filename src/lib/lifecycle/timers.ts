@@ -16,6 +16,7 @@ import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { cleanupOldSearchLogs } from "../services/search-analytics";
 import { reconcilePlatformNoticeGuard } from "../services/rfq-guard";
 import { openDueTenders, expireUnawardedTenders } from "../services/procurement/opening";
+import { remindDueDeadlines } from "../services/procurement/reminders";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { releaseExpiredClaims } from "../services/supplier-claim";
 import { notifyAccountDeletionResults, processDueCoolingDeletions } from "../services/account-deletion";
@@ -297,6 +298,11 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
         const expired = await expireUnawardedTenders(dbPool);
         if (expired > 0) {
           console.log(`[procurement-lifecycle] 超期未定标结案 ${expired} 条（撤投影收敛）`);
+        }
+        // 截止前 T-72h/T-24h 提醒（幂等走 notifications dedupe_key，重复扫描不重发）
+        const reminded = await remindDueDeadlines(dbPool);
+        if (reminded > 0) {
+          console.log(`[procurement-lifecycle] 截止前提醒发出 ${reminded} 条`);
         }
       } catch (e) {
         console.error("[procurement-lifecycle] 流转失败（不影响下次扫描）:", (e as Error).message);

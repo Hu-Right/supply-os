@@ -53,6 +53,35 @@ export function renderNotification(t: TFn, n: NotificationLike): Rendered {
         title: t("notifTProcurementExpired"),
         body: t("notifBProcurementExpired", { reference: p(n, "reference") }),
       };
+    case "procurement.opened":
+      // 截标开标（RFQ/ITB/RFP；此前未登记 case，落 default 会裸显类型码）
+      return {
+        title: t("notifTProcurementOpened"),
+        body: t("notifBProcurementOpened", { reference: p(n, "reference"), count: p(n, "responseCount") || "0" }),
+      };
+    case "procurement.eoi_closed":
+      return {
+        title: t("notifTProcurementEoiClosed"),
+        body: t("notifBProcurementEoiClosed", { reference: p(n, "reference"), count: p(n, "responseCount") || "0" }),
+      };
+    case "procurement.deadline_reminder":
+      return {
+        title: t("notifTDeadlineReminder"),
+        body: t("notifBDeadlineReminder", {
+          reference: p(n, "reference"),
+          hours: p(n, "hours"),
+          count: p(n, "responseCount") || "0",
+        }),
+      };
+    case "procurement.deadline_extended":
+      return {
+        title: t("notifTDeadlineExtended"),
+        body: t("notifBDeadlineExtended", {
+          reference: p(n, "reference"),
+          oldDeadline: p(n, "oldDeadlineDate"),
+          newDeadline: p(n, "newDeadlineDate"),
+        }),
+      };
     case "procurement.matched":
       return {
         title: t("notifTProcurementMatched"),

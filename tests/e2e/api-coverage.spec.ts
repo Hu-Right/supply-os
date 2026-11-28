@@ -169,6 +169,7 @@ const CASES: ApiCase[] = [
   { method: "GET", path: "/api/procurement/projects/:id/result", auth: "none", status: 404, bodyType: "object", src: "/api/procurement/projects/:id/result" },
   { method: "PUT", path: "/api/procurement/projects/:id/items", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/items" },
   { method: "POST", path: "/api/procurement/projects/:id/submit", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/submit" },
+  { method: "POST", path: "/api/procurement/projects/:id/extend-deadline", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/extend-deadline" },
   { method: "POST", path: "/api/procurement/projects/:id/withdraw", auth: "none", status: 401, bodyType: "object", src: "/api/procurement/projects/:id/withdraw" },
   { method: "GET", path: "/api/procurement/response-files/:filename", auth: "member", status: 400, bodyType: "object", src: "/api/procurement/response-files/:filename" },
   { method: "GET", path: "/api/procurement/responses/:id", auth: "member", status: 404, bodyType: "object", src: "/api/procurement/responses/:id" },

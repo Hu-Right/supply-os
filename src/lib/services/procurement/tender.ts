@@ -18,7 +18,7 @@ import {
   isValidEvalTemplate,
 } from "@/shared/constants/procurement";
 import { transitionProjectWithin, type TxLike } from "./lifecycle";
-import { buildPublicDescription, removeProjection, upsertProjection } from "./projection";
+import { buildPublicDescription, formatShanghaiDate, removeProjection, upsertProjection } from "./projection";
 import type { ProjectRow } from "./projects";
 import { isAuthorizationVerified } from "./authorization";
 import { isBuyerPublishable } from "./buyers";
@@ -553,6 +553,158 @@ export async function withdrawProject(
       });
     }
     return { ok: true, status: PROJECT_STATUS.CLOSED };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+/** 延长截止的远期上限（防脏值）：不晚于 now + 365 天 */
+const MAX_DEADLINE_HORIZON_SEC = 365 * 86_400;
+
+export type ExtendDeadlineResult =
+  | { ok: true; tenderId: number; oldDeadlineAt: number; newDeadlineAt: number }
+  | {
+      ok: false;
+      reason: "not_found" | "invalid_deadline" | "not_published" | "method_not_allowed";
+    };
+
+/**
+ * 延长报价截止时间（发布后的采购方自主调整；市场型方式 rfq/eoi 专属）。
+ *
+ * 业务口径（同业基准 2026-11-28 核实）：
+ * - itb/rfp（密封正式型）的延期走招标文件补遗（qa_addendum）通道，不在本入口开放——
+ *   密封公平性要求所有潜在投标人获得同等编制时间，正式招标域「提前收口」同业均不提供。
+ * - 授权书按「需求编号+版本」绑定（letter_hash 只含 reference/version/主体名/标题），
+ *   延期不产生新版本 → 无需重签授权书，已 verified 授权继续有效。
+ * - 投影同步只动 bid_notices（deadline/deadline_ts + update_time 顶水位）；
+ *   notice_public 的 SSOT 是 build.ts 水位重建，这里不直写。
+ * 并发：FOR UPDATE 行锁 + tender UPDATE 带 status='published' 条件（与到期开标器互斥，
+ * 开标器先到则本操作得 not_published）；newDeadlineAt 必须晚于当前时刻与现截止（只许顺延）。
+ */
+export async function extendProjectDeadline(
+  db: Pool,
+  input: {
+    projectId: number;
+    buyerUserId: number;
+    newDeadlineAt: number;
+    reason?: string | null;
+    at?: number;
+  },
+): Promise<ExtendDeadlineResult> {
+  const at = input.at ?? Math.floor(Date.now() / 1000);
+  const newDeadlineAt = Math.floor(Number(input.newDeadlineAt));
+  if (!Number.isFinite(newDeadlineAt) || newDeadlineAt <= at || newDeadlineAt > at + MAX_DEADLINE_HORIZON_SEC) {
+    return { ok: false, reason: "invalid_deadline" };
+  }
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query(
+      `SELECT p.id, p.status, p.method, p.notice_pk, p.reference, b.user_id AS buyer_user_id,
+              t.id AS tender_id, t.deadline_at AS tender_deadline
+         FROM procurement_projects p
+         JOIN procurement_buyers b ON b.id = p.buyer_id
+         JOIN procurement_tenders t ON t.id = (
+           SELECT MAX(t2.id) FROM procurement_tenders t2 WHERE t2.project_id = p.id
+         )
+        WHERE p.id = ? AND b.user_id = ?
+        FOR UPDATE`,
+      [input.projectId, input.buyerUserId],
+    );
+    const row = (rows as Array<{
+      id: number;
+      status: string;
+      method: string;
+      notice_pk: number | null;
+      reference: string;
+      buyer_user_id: number | null;
+      tender_id: number;
+      tender_deadline: number | null;
+    }>)[0];
+    // 归属并入 not_found（404 掩护，不泄漏项目存在性——与 withdrawProject 同口径）
+    if (!row) {
+      await conn.rollback();
+      return { ok: false, reason: "not_found" };
+    }
+    if (row.status !== PROJECT_STATUS.PUBLISHED) {
+      await conn.rollback();
+      return { ok: false, reason: "not_published" };
+    }
+    const method = String(row.method ?? "");
+    if (method !== "rfq" && method !== "eoi") {
+      await conn.rollback();
+      return { ok: false, reason: "method_not_allowed" };
+    }
+    const oldDeadlineAt = Number(row.tender_deadline ?? 0);
+    if (!oldDeadlineAt || oldDeadlineAt <= 0) {
+      await conn.rollback();
+      return { ok: false, reason: "not_published" };
+    }
+    if (newDeadlineAt <= oldDeadlineAt) {
+      await conn.rollback();
+      return { ok: false, reason: "invalid_deadline" };
+    }
+
+    // status 条件与到期开标器互斥：开标已把 tender 置 closed 时这里 affectedRows=0
+    const [upd] = await conn.query(
+      "UPDATE procurement_tenders SET deadline_at = ? WHERE id = ? AND status = 'published'",
+      [newDeadlineAt, row.tender_id],
+    );
+    if (Number((upd as { affectedRows?: number }).affectedRows ?? 0) === 0) {
+      await conn.rollback();
+      return { ok: false, reason: "not_published" };
+    }
+    await conn.query("UPDATE procurement_projects SET quote_deadline_at = ?, updated_at = ? WHERE id = ?", [
+      newDeadlineAt,
+      at,
+      input.projectId,
+    ]);
+    // 投影行截止同步（平台行防误伤爬虫行）：update_time 顶水位，服务表/宽表重建链会跟进
+    if (row.notice_pk != null) {
+      await conn.query(
+        "UPDATE bid_notices SET deadline = ?, deadline_ts = ?, update_time = ? WHERE id = ? AND entry_source = 'platform'",
+        [formatShanghaiDate(newDeadlineAt), newDeadlineAt * 1000, at, Number(row.notice_pk)],
+      );
+    }
+    await conn.query(
+      `INSERT INTO procurement_events
+         (project_id, tender_id, actor_type, actor_id, kind, payload, created_ts)
+       VALUES (?, ?, 'buyer', ?, 'deadline_extended', ?, ?)`,
+      [
+        input.projectId,
+        row.tender_id,
+        input.buyerUserId,
+        JSON.stringify({
+          oldDeadlineAt,
+          newDeadlineAt,
+          reason: input.reason == null ? null : String(input.reason).slice(0, 255),
+        }),
+        at,
+      ],
+    );
+
+    await conn.commit();
+
+    // 结论落库后再通知（best-effort）：日期串用固定上海时区 ISO 日期，不在后端拼语言文案
+    await notifyBuyer(db, Number(row.buyer_user_id ?? 0), {
+      type: "procurement.deadline_extended",
+      link: `/rfq/${input.projectId}/publish`,
+      refId: input.projectId,
+      payload: {
+        reference: String(row.reference),
+        projectId: input.projectId,
+        tenderId: Number(row.tender_id),
+        oldDeadlineDate: formatShanghaiDate(oldDeadlineAt),
+        newDeadlineDate: formatShanghaiDate(newDeadlineAt),
+      },
+      dedupeKey: `procurement.deadline_extended:${row.tender_id}:${newDeadlineAt}`,
+    });
+
+    return { ok: true, tenderId: Number(row.tender_id), oldDeadlineAt, newDeadlineAt };
   } catch (err) {
     await conn.rollback();
     throw err;

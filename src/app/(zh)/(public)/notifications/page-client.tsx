@@ -42,6 +42,10 @@ const CATEGORIES: Array<{ key: CategoryKey; labelKey: string; types: string[] | 
       "procurement.published",
       "procurement.need_info",
       "procurement.expired",
+      "procurement.opened",
+      "procurement.eoi_closed",
+      "procurement.deadline_reminder",
+      "procurement.deadline_extended",
       // 后台审核类（2026-11 统一收口进通知模块）
       "procurement.auto_review",
       "procurement.authorization_verified",
