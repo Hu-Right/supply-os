@@ -17,6 +17,8 @@ export interface RebuildResult {
   selected: number;
   written: number;
   pruned: number;
+  /** 本轮实际重建的 notice_pk（供检索侧按 id 增量同步 Meili；宽表退役后不再有第二跳） */
+  ids: number[];
   /** 未执行的原因（单飞中 / 节流窗口内） */
   skipped?: "running" | "throttled";
 }
@@ -125,9 +127,9 @@ export async function rebuildNoticePublicChanged(
   pool: Pool,
   opts: { force?: boolean; prune?: boolean } = {},
 ): Promise<RebuildResult> {
-  if (_running) return { selected: 0, written: 0, pruned: 0, skipped: "running" };
+  if (_running) return { selected: 0, written: 0, pruned: 0, ids: [], skipped: "running" };
   if (!opts.force && Date.now() - _lastRunAt < MIN_INTERVAL_MS) {
-    return { selected: 0, written: 0, pruned: 0, skipped: "throttled" };
+    return { selected: 0, written: 0, pruned: 0, ids: [], skipped: "throttled" };
   }
   _running = true;
   const t0 = Date.now();
@@ -160,7 +162,7 @@ export async function rebuildNoticePublicChanged(
         console.warn("[notice-public] buyer_candidate 同步失败:", (err as Error).message);
       });
     }
-    return { selected: ids.length, written, pruned };
+    return { selected: ids.length, written, pruned, ids };
   } finally {
     // [2026-10-28 事故加固] 失败也走节流：此前 _lastRunAt 仅在成功路径更新，
     // 一旦某批数据持续写失败（如单行坏 contacts JSON 毒化整块），每个对账 tick 都会
@@ -189,3 +191,4 @@ export async function rebuildPublicRowsByIds(pool: Pool, ids: number[]): Promise
   console.log(`[notice-public] 按 id 重建：选中 ${ids.length} · 写入 ${written}（${((Date.now() - t0) / 1000).toFixed(1)}s）`);
   return written;
 }
+

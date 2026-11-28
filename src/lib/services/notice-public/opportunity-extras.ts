@@ -6,7 +6,7 @@
  *              notice_public（notice_pk = bid_notices.id）。本模块只负责少数**服务表没有**
  *              的商机产物，避免详情端点为了几个字段回查整行商机（33 列）：
  *
- *                - `bid_overview`：拆标概览，宽表 notice_search.bid_overview 有（宽表 id = notice_pk）
+ *                - `bid_overview`：拆标概览，直接取 bid_opportunities.bid_overview（按 source_notice_id 关联）
  *                - `description_other` / `ai_products` / `ai_analysis`：商机独有，服务表与宽表都没有
  *
  *              因此这里仍 LEFT JOIN 商机表，但只取这 3 列 + 一个 id 用于「报告是否可下载」的判定，
@@ -15,11 +15,12 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { qualifiedOppWhere } from "../../utils/notice-qualified";
+import { WIDE_LIMITS } from "../../utils/notice-field-limits";
 
 export interface NoticeOpportunityExtras {
   /** 合格商机 id；null = 该公告没有可出报告的商机 */
   opportunityId: number | null;
-  /** 拆标概览（宽表 notice_search.bid_overview） */
+  /** 拆标概览（bid_opportunities.bid_overview） */
   bidOverview: string;
   descriptionOther: string;
   aiProducts: unknown;
@@ -45,10 +46,9 @@ export async function findNoticeOpportunityExtras(
   if (!Number.isFinite(noticePk) || noticePk <= 0) return null;
 
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT s.bid_overview,
+    `SELECT LEFT(o.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
             o.id AS opportunity_id, o.description_other, o.ai_products, o.ai_analysis
        FROM notice_public p
-       LEFT JOIN notice_search s ON s.id = p.notice_pk
        LEFT JOIN bid_opportunities o
          ON o.source_notice_id = p.notice_id
         AND ${qualifiedOppWhere("o")}
@@ -71,3 +71,4 @@ export async function findNoticeOpportunityExtras(
     aiAnalysis: row.ai_analysis ?? null,
   };
 }
+

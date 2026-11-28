@@ -37,7 +37,7 @@ const MUST_EXCLUDE = [
 const MUST_KEEP = [
   "bid_notices",
   "bid_opportunities",
-  "notice_search",
+  "notice_search_node",
   "supplier",
   "users",
   "plan_benefits",
@@ -70,3 +70,4 @@ test("EXCLUDE 环境变量追加口径与内置取并集", () => {
   assert.ok(!isExcludedTable("tmp_scratch"));
   assert.ok(isExcludedTable("tmp_scratch", [/^tmp_/]));
 });
+

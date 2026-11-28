@@ -41,7 +41,7 @@ const NOTICE_CONTRACT_KEYS: ReadonlySet<string> = new Set([
   "registrationLevel", "beneficiaryCountries", "updatedAt", "isOpportunity",
   // ── NoticeListItem：接口计算/关联补字段 ──
   "agencyI18n", "titleI18n", "descriptionI18n", "titleEn", "descriptionEn",
-  "backbonePath", "entrySource", "coreLocked", "breakdownFileCount", "contactCount",
+  "backbonePath", "coreLocked", "breakdownFileCount", "contactCount",
   "grantType", "grantedAt", "matchScore", "matchTier", "recoReasons",
   "descriptionTruncated", "reportAvailable", "reportUrl",
   // ── NoticeDetailFields：解锁详情级补充 ──
@@ -70,3 +70,4 @@ export function toNoticeView(row: NoticeRow | null | undefined): NoticeItem | nu
 export function toNoticeListView(rows: readonly unknown[]): NoticeItem[] {
   return rows.map((row) => toNoticeView(row as NoticeRow) as NoticeItem);
 }
+

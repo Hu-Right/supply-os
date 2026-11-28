@@ -30,6 +30,7 @@ import {
 } from "@/shared/utils/notice-datetime/source-date";
 import { sanitizeEpochSec } from "@/shared/utils/unixTs";
 import { buildShareSummary } from "./share-summary";
+import { loadBackboneMap } from "../commodity/backbone-loader";
 
 /**
  * 一次性数据治理：把服务表 industry 的旧值归一为 canonical slug（唯一写入者纪律）。
@@ -287,6 +288,9 @@ export const PUBLIC_COLS = [
   "supplier_conditions", "eligibility", "technical_hurdles",
   "updated_at", "is_opportunity",
   "share_summary", "share_summary_en",
+  // 宽表退役（2026-11-28）：英文译文 + 品目骨架路径，与 notice_search 同形制，
+  // 让检索/展示读源可以整体切到服务表。列序必须与 baseline.sql 一致（门禁 N2）。
+  "title_en", "description_en", "backbone_path",
 ] as const;
 
 interface PlatformEntry { code: string; name: string }
@@ -454,12 +458,13 @@ export interface PublicInputBatch {
   /** 商机侧两组水位映射（updated_at 取输入 max 的依据，保证商机侧选行收敛） */
   oppWmByNotice: Map<string, number>;
   oppWmById: Map<number, number>;
+  /** 品目骨架路径（notice_id → 含全部祖先的节点码串；宽表退役后服务表自持） */
+  backboneMap: Map<string, { backbone: string }>;
 }
 
 export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise<PublicInputBatch> {
   const [rows] = await pool.query(
-    `SELECT n.id, n.notice_id, n.reference, n.url, n.title, n.description, n.published_date,
-            n.deadline_sec, n.country, n.notice_type, n.agency, n.agency_full, n.organization,
+    `SELECT n.id, n.notice_id, n.reference, n.url, n.title, n.description, n.published_date,            n.deadline_sec, n.country, n.notice_type, n.agency, n.agency_full, n.organization,
             n.contacts, n.contact_phone, n.contact_email, n.currency, n.estimated_value,
             n.documents, n.procurement_files, n.external_links, n.registration_level,
             n.entry_source, n.industry, n.beneficiary_countries, n.is_featured, n.converted_opp_id,
@@ -476,12 +481,14 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
             t.title_clean, t.title_quality, t.updated_at AS title_updated_at,
             b.body_text, b.body_chars, b.content_level,
             d.deadline_state, d.deadline_type, d.deadline_timezone, d.timezone_source, d.effective_ts, d.confidence,
-            tr.title_tr AS title_cn, tr.description_tr AS description_cn_tr
+            tr.title_tr AS title_cn, tr.description_tr AS description_cn_tr,
+            tre.title_tr AS title_en, tre.description_tr AS description_en
        FROM bid_notices n
        LEFT JOIN notice_title t ON t.notice_pk=n.id
        LEFT JOIN notice_body b ON b.notice_pk=n.id
        LEFT JOIN notice_deadline d ON d.notice_pk=n.id
        LEFT JOIN notice_translations tr ON tr.notice_id=n.id AND tr.lang='zh'
+       LEFT JOIN notice_translations tre ON tre.notice_id=n.id AND tre.lang='en'
       WHERE n.id IN (${chunk.map(() => "?").join(",")})`,
     chunk,
   );
@@ -563,7 +570,15 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
       });
     }
   }
-  return { rows: rows as RowDataPacket[], attachmentMap, oppMap, oppWmByNotice, oppWmById };
+  // 品目骨架路径：直接用宽表构建器的同一装载入口（落点表 notice_attribution_nodes），
+  // 不再从宽表读——切读源后服务表自持这一列。
+  const backboneMap = await loadBackboneMap(
+    pool,
+    (rows as RowDataPacket[])
+      .map((r) => ({ pk: Number(r.id), noticeId: String(r.notice_id ?? "") }))
+      .filter((s) => s.pk > 0 && s.noticeId),
+  );
+  return { rows: rows as RowDataPacket[], attachmentMap, oppMap, oppWmByNotice, oppWmById, backboneMap };
 }
 
 /**
@@ -572,7 +587,10 @@ export async function fetchPublicInputRows(pool: Pool, chunk: number[]): Promise
 export function buildPublicRow(
   r: RowDataPacket,
   ctx: PublicBuildContext,
-  maps: Pick<PublicInputBatch, "attachmentMap" | "oppMap" | "oppWmByNotice" | "oppWmById">,
+  maps: Pick<PublicInputBatch, "attachmentMap" | "oppMap" | "oppWmByNotice" | "oppWmById"> & {
+    /** 可选：缺省视为「无品目归属」，宽表退役前的旧调用方（脚本/单测）无需构造 */
+    backboneMap?: Map<string, { backbone: string }>;
+  },
 ): unknown[] | null {
   const noticeId = String(r.notice_id ?? "").trim().slice(0, 100);
   if (!noticeId) return null; // 对外查找键必须非空：无编号行不进服务表（--changed 选行已同口径排除）
@@ -702,6 +720,11 @@ export function buildPublicRow(
   // 分享卡摘要（中/英）：构建期生成，供 OG 卡片、分享文案、列表 teaser 共用；
   // 抽不出可用文本时落 NULL，读侧回退标题（share-summary.ts 同一函数）。
   const shareSummary = buildShareSummary({ description: desc, descriptionCn: contentZh });
+  // 英文译文（宽表退役：Meili 英文检索字段改由服务表提供）
+  const titleEn = String(r.title_en ?? "").trim().slice(0, 1000) || null;
+  const descriptionEn = String(r.description_en ?? "").trim() || null;
+  // 品目骨架路径：空串按 BB7 视为无归属，落 NULL（不写空串）
+  const backbonePath = String(maps.backboneMap?.get(noticeId)?.backbone ?? "").trim() || null;
 
   return [
     r.id, noticeId, extractUrl(r.url), String(r.reference ?? "").slice(0, 255) || null,
@@ -727,6 +750,9 @@ export function buildPublicRow(
     Number(r.is_opportunity ?? 0) >= 1 ? 1 : 0,
     shareSummary.zh,
     shareSummary.en,
+    titleEn,
+    descriptionEn,
+    backbonePath,
   ];
 }
 
@@ -847,6 +873,98 @@ export async function syncNoticeTitleCn(pool: Pool, noticePk: number, titleCn: s
 }
 
 /**
+ * 英文译文 + 品目骨架路径回填（宽表退役 Phase 1）。
+ *
+ * 服务表唯一写入者仍是本模块（N1）；脚本只做数据搬运与调用。
+ * - 英文：`notice_translations(lang='en')` → `title_en` / `description_en`（只补空，不覆盖）
+ * - 骨架：`notice_attribution_nodes`（经 `loadBackboneMap`，与宽表构建同一入口）→ `backbone_path`
+ *
+ * 幂等，可反复跑；切换期可当定时桥接作业（新代码接管写路径后即可停）。
+ */
+export async function backfillPublicEnAndBackbone(
+  pool: Pool,
+  opts: { recentHours?: number } = {},
+): Promise<{ enWritten: number; backboneWritten: number; scanned: number }> {
+  const recentHours = Math.max(0, Math.floor(opts.recentHours ?? 0));
+  const recentWhere = recentHours > 0 ? `AND p.updated_at >= UNIX_TIMESTAMP(NOW()) - ${recentHours * 3600}` : "";
+  const CHUNK = 2000;
+
+  // ① 英文译文
+  let enWritten = 0;
+  let cursor = 0;
+  for (;;) {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT p.notice_pk FROM notice_public p
+         JOIN notice_translations t ON t.notice_id = p.notice_pk AND t.lang = 'en'
+        WHERE p.notice_pk > ?
+          AND t.title_tr IS NOT NULL AND t.title_tr <> ''
+          AND ((p.title_en IS NULL OR p.title_en = '')
+            OR (p.description_en IS NULL AND t.description_tr IS NOT NULL AND t.description_tr <> ''))
+          ${recentWhere}
+        ORDER BY p.notice_pk LIMIT ${CHUNK}`,
+      [cursor],
+    );
+    if (rows.length === 0) break;
+    const ids = rows.map((r) => Number(r.notice_pk));
+    const [res] = await pool.query(
+      `UPDATE notice_public p
+         JOIN notice_translations t ON t.notice_id = p.notice_pk AND t.lang = 'en'
+          SET p.title_en = IF(p.title_en IS NULL OR p.title_en = '', LEFT(t.title_tr, 1000), p.title_en),
+              p.description_en = IF(p.description_en IS NULL AND t.description_tr IS NOT NULL AND t.description_tr <> '',
+                                    t.description_tr, p.description_en)
+        WHERE p.notice_pk IN (${ids.map(() => "?").join(",")})`,
+      ids,
+    );
+    enWritten += Number((res as { affectedRows?: number }).affectedRows ?? 0);
+    cursor = ids[ids.length - 1];
+  }
+
+  // ② 品目骨架路径
+  let backboneWritten = 0;
+  let scanned = 0;
+  await pool.query(`CREATE TEMPORARY TABLE IF NOT EXISTS tmp_np_backbone (
+      notice_pk int NOT NULL PRIMARY KEY, backbone mediumtext
+    ) ENGINE=InnoDB`);
+  try {
+    let bbCursor = 0;
+    for (;;) {
+      const [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT p.notice_pk, p.notice_id FROM notice_public p
+          WHERE p.notice_pk > ? ${recentWhere} ORDER BY p.notice_pk LIMIT ${CHUNK}`,
+        [bbCursor],
+      );
+      if (rows.length === 0) break;
+      const map = await loadBackboneMap(
+        pool,
+        rows.map((r) => ({ pk: Number(r.notice_pk), noticeId: String(r.notice_id ?? "") })),
+      );
+      const values = rows
+        .map((r) => ({ pk: Number(r.notice_pk), bb: map.get(String(r.notice_id ?? ""))?.backbone ?? "" }))
+        .filter((v) => v.bb);
+      if (values.length > 0) {
+        await pool.query(
+          `INSERT INTO tmp_np_backbone (notice_pk, backbone) VALUES ${values.map(() => "(?, ?)").join(",")}
+           ON DUPLICATE KEY UPDATE backbone = VALUES(backbone)`,
+          values.flatMap((v) => [v.pk, v.bb]),
+        );
+      }
+      scanned += rows.length;
+      bbCursor = Number(rows[rows.length - 1].notice_pk);
+    }
+    const [res] = await pool.query(
+      `UPDATE notice_public p JOIN tmp_np_backbone t ON t.notice_pk = p.notice_pk
+          SET p.backbone_path = t.backbone
+        WHERE p.backbone_path IS NULL OR p.backbone_path <> t.backbone`,
+    );
+    backboneWritten = Number((res as { affectedRows?: number }).affectedRows ?? 0);
+  } finally {
+    await pool.query("DROP TEMPORARY TABLE IF EXISTS tmp_np_backbone");
+  }
+
+  return { enWritten, backboneWritten, scanned };
+}
+
+/**
  * 中文搬运脚本回填：翻译表 → 服务表 title_cn / description_cn。
  * 服务表唯一写入者仍是本模块（N1）；脚本只负责数据搬运与调用。
  */
@@ -866,3 +984,4 @@ export async function backfillPublicChineseFromTranslations(pool: Pool, noticePk
   );
   return (res as ResultSetHeader).affectedRows;
 }
+

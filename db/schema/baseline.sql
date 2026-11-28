@@ -1257,51 +1257,6 @@ CREATE TABLE `notice_requirement_items` (
   KEY `idx_req_type` (`requirement_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投标可行性报告：公告要求项（结构化+原文锚点）';
 
--- ── notice_search ──
-CREATE TABLE `notice_search` (
-  `id` int unsigned NOT NULL,
-  `notice_id` varchar(100) NOT NULL,
-  `title` varchar(1000) NOT NULL DEFAULT '',
-  `reference` varchar(200) NOT NULL DEFAULT '',
-  `description` text NOT NULL,
-  `title_zh` varchar(1000) NOT NULL DEFAULT '',
-  `description_zh` text NOT NULL,
-  `title_en` varchar(1000) NOT NULL DEFAULT '',
-  `description_en` text NOT NULL,
-  `country_name` varchar(100) NOT NULL DEFAULT '',
-  `country_codes` varchar(500) NOT NULL DEFAULT '' COMMENT '拆分后的可筛国家 ISO2 码集(逗号分隔，纯表驱动回填)',
-  `buyer_name` varchar(200) NOT NULL DEFAULT '',
-  `notice_type_code` varchar(20) NOT NULL DEFAULT '',
-  `deadline_sec` bigint unsigned NOT NULL DEFAULT '0',
-  `estimated_value` decimal(20,2) NOT NULL DEFAULT '0.00',
-  `is_featured` tinyint(1) NOT NULL DEFAULT '0',
-  `entry_source` varchar(20) NOT NULL DEFAULT 'crawl' COMMENT '数据来源（同步自主表）',
-  `description_cn` varchar(500) NOT NULL DEFAULT '',
-  `bid_overview` varchar(200) NOT NULL DEFAULT '',
-  `beneficiary_countries` varchar(300) NOT NULL DEFAULT '',
-  `documents_count` smallint unsigned NOT NULL DEFAULT '0',
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `title_fr` varchar(1000) NOT NULL DEFAULT '',
-  `description_fr` text NOT NULL,
-  `title_ru` varchar(1000) NOT NULL DEFAULT '',
-  `title_es` varchar(1000) NOT NULL DEFAULT '',
-  `description_ru` text NOT NULL,
-  `description_ar` text NOT NULL,
-  `description_es` text NOT NULL,
-  `title_ar` varchar(1000) NOT NULL DEFAULT '',
-  `sync_src_hash` char(32) NOT NULL DEFAULT '' COMMENT '宽表内容与输入快照的一致性指纹，由 buildWideRow 同快照写入，对账只比对不修改',
-  `backbone_path` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '公告归属的品目骨架节点码（UGT-B-…，含全部祖先，逗号分隔；由 backbone-path 换算）',
-  `is_opportunity` tinyint(1) NOT NULL DEFAULT '0' COMMENT '商机集合（投影自服务表）',
-  `published_date` date DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_ns_deadline_desc` (`deadline_sec` DESC),
-  KEY `idx_ns_id_desc` (`id` DESC),
-  KEY `idx_ns_deadline` (`deadline_sec`),
-  KEY `idx_ns_country` (`country_name`),
-  KEY `idx_ns_type` (`notice_type_code`),
-  KEY `idx_ns_featured` (`is_featured`),
-  KEY `idx_ns_reference` (`reference`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='宽表';
 
 -- ── notice_source_snapshots ──
 CREATE TABLE `notice_source_snapshots` (
