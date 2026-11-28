@@ -87,6 +87,7 @@ import { migration as accountDeletionNotifiedMigration } from "./migrations/086-
 import { migration as accountDeletionCoolingMigration } from "./migrations/087-account-deletion-cooling";
 import { migration as diagnosisSchemaVersionV3Migration } from "./migrations/088-diagnosis-schema-version-v3";
 import { migration as noticePublicWideRetireColumnsMigration } from "./migrations/089-notice-public-wide-retire-columns";
+import { migration as noticePublicColumnOrderMigration } from "./migrations/090-notice-public-column-order";
 import { migration as projectSourcingFieldsMigration } from "./migrations/082-project-sourcing-fields";
 import { migration as marketScopeMigration } from "./migrations/083-market-scope";
 import { migration as diagnosisProjectRecordMigration } from "./migrations/084-diagnosis-project-record";
@@ -184,6 +185,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   accountDeletionCoolingMigration,
   diagnosisSchemaVersionV3Migration,
   noticePublicWideRetireColumnsMigration,
+  noticePublicColumnOrderMigration,
 ];
 
 /**
@@ -194,6 +196,7 @@ export async function ensureProcurementSchema(dbPool: Pool): Promise<number> {
   const applied = await runMigrations(dbPool, ALL_MIGRATIONS);
   return applied;
 }
+
 
 
 
