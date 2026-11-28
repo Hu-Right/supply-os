@@ -17,8 +17,18 @@ $ErrorActionPreference = 'Stop'
 
 # $PSScriptRoot is <repo>\scripts\dev -> go up twice to reach the repo root.
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$exe = Join-Path $repo 'bin\meilisearch.exe'
-$dataPath = Join-Path $repo 'bin\data.ms'
+# 索引目录可被 MEILI_HOME 覆盖：本机联想/火绒会拦截 Desktop 下 meilisearch.exe 的写入
+# （os error 5），把 exe 与 data.ms 放到 D:\meilisearch 并加入信任区后，用
+#   setx MEILI_HOME D:\meilisearch
+# 指过来；未设置时仍用仓库内 bin/，保持旧机器零配置可用。
+$home = $env:MEILI_HOME
+if (-not $home -or -not (Test-Path $home)) {
+    $legacy = Join-Path $repo 'bin'
+    $dflt = 'D:\meilisearch'
+    $home = if ((Test-Path (Join-Path $dflt 'meilisearch.exe'))) { $dflt } else { $legacy }
+}
+$exe = Join-Path $home 'meilisearch.exe'
+$dataPath = Join-Path $home 'data.ms'
 $envFile = Join-Path $repo '.env'
 
 if (-not (Test-Path $exe)) {
