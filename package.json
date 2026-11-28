@@ -54,7 +54,6 @@
     "check:legacy-order-tables": "node scripts/gates/check-legacy-order-tables.mjs",
     "check:legacy-order-tables:self-test": "node --test tests/gates/check-legacy-order-tables.test.mjs",
     "check:baseline-exclude:self-test": "node --test tests/gates/baseline-exclude.test.mjs",
-    "check:backbone": "npx tsx scripts/gates/check-commodity-backbone.ts",
     "check:buyer-ssot": "npx tsx scripts/gates/check-buyer-ssot.ts",
     "check:country-ssot": "npx tsx scripts/gates/check-country-ssot.ts",
     "check:industry-links": "npx tsx scripts/gates/verify-industry-links.ts",
@@ -184,3 +183,4 @@
     "protobufjs@7.6.6": true
   }
 }
+
