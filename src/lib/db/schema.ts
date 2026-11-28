@@ -88,6 +88,7 @@ import { migration as accountDeletionCoolingMigration } from "./migrations/087-a
 import { migration as diagnosisSchemaVersionV3Migration } from "./migrations/088-diagnosis-schema-version-v3";
 import { migration as noticePublicWideRetireColumnsMigration } from "./migrations/089-notice-public-wide-retire-columns";
 import { migration as noticePublicColumnOrderMigration } from "./migrations/090-notice-public-column-order";
+import { migration as noticeTimeFieldsMigration } from "./migrations/091-notice-time-fields";
 import { migration as projectSourcingFieldsMigration } from "./migrations/082-project-sourcing-fields";
 import { migration as marketScopeMigration } from "./migrations/083-market-scope";
 import { migration as diagnosisProjectRecordMigration } from "./migrations/084-diagnosis-project-record";
@@ -186,6 +187,7 @@ export const ALL_MIGRATIONS: Migration[] = [
   diagnosisSchemaVersionV3Migration,
   noticePublicWideRetireColumnsMigration,
   noticePublicColumnOrderMigration,
+  noticeTimeFieldsMigration,
 ];
 
 /**

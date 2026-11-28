@@ -2,7 +2,7 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 153 张，导出 141 张，排除 12 张。
+--           源库共 152 张，导出 141 张，排除 11 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
@@ -1219,6 +1219,10 @@ CREATE TABLE `notice_public` (
   `share_summary` varchar(300) DEFAULT NULL COMMENT '分享卡摘要（中文，≤90 字，构建期生成；空则读侧回退标题）',
   `share_summary_en` varchar(300) DEFAULT NULL COMMENT '分享卡摘要（英文，≤180 字符，构建期生成；空则读侧回退标题）',
   `updated_at` bigint DEFAULT NULL COMMENT '行刷新水位 epoch 秒（增量 reconcile 依据）',
+  `delivery_days_required` int DEFAULT NULL COMMENT '交付期（天）：合同生效→交付；由附件/正文抽得，用于时间可行性判定',
+  `contract_duration_days` int DEFAULT NULL COMMENT '合同工期/服务期（天）：框架协议、运维类标的核心约束',
+  `timeline` json DEFAULT NULL COMMENT '次要时间点（UTC 秒）：{"questionsDeadline","siteVisit","award","deliveryRaw"}；缺键即无该节点',
+  `deadline_sec` bigint DEFAULT NULL COMMENT '投标截止归一为 UTC 秒（构建器写入 + 历史回填；不手写）',
   PRIMARY KEY (`notice_pk`),
   UNIQUE KEY `uq_notice_id` (`notice_id`),
   KEY `idx_deadline` (`deadline_ts`),
@@ -1231,6 +1235,7 @@ CREATE TABLE `notice_public` (
   KEY `idx_np_type_pk` (`notice_type_code`,`notice_pk`,`deadline_ts`),
   KEY `idx_np_buyer` (`buyer_id`),
   KEY `idx_np_buyer_deadline` (`buyer_id`,`deadline_ts`),
+  KEY `idx_deadline_sec` (`deadline_sec`),
   KEY `idx_np_has_att` (`has_attachments`,`deadline_ts`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='服务表';
 

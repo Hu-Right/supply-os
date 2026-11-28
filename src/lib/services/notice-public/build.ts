@@ -291,6 +291,10 @@ export const PUBLIC_COLS = [
   // 宽表退役（2026-11-28）：英文译文 + 品目骨架路径，与 notice_search 同形制，
   // 让检索/展示读源可以整体切到服务表。列序必须与 baseline.sql 一致（门禁 N2）。
   "title_en", "description_en", "backbone_path",
+  // 时间字段（迁移 091，2026-11-29）：列序紧跟 backbone_path，与 baseline 物理列序一致（门禁 N2）。
+  //   delivery_days_required / contract_duration_days / timeline 由抽取 pipeline 回填，
+  //   构建期先落 NULL（不留假值）；deadline_sec 与 deadline_ts 同口径（仅 known 有值）。
+  "delivery_days_required", "contract_duration_days", "timeline", "deadline_sec",
 ] as const;
 
 interface PlatformEntry { code: string; name: string }
@@ -696,6 +700,11 @@ export function buildPublicRow(
   // typo_suspect（年份笔误）、unknown 一律落 NULL。注意不能用 `effective_ts ?? deadline_sec`
   // 兜底——分类器判定不可信时 effective_ts 就是 NULL，回退会把占位日期又写回去。
   const deadlineTs = dstate === "known" ? toEpoch(r.effective_ts ?? r.deadline_sec) : null;
+  // 时间字段（迁移 091）：时长与次要时间点没有抽取来源，构建期落 NULL —— 宁可空，不造假值。
+  // deadline_sec 与 deadline_ts 同口径（仅 known 有值），保证「构建写入」与「历史回填」一致。
+  const deliveryDaysRequired: number | null = null;
+  const contractDurationDays: number | null = null;
+  const timelineJson: string | null = null;
   const publishedTs = toEpoch(r.published_date);
   const registration = normRegistration(r.registration_level);
   // 中文正文唯一来源：翻译旁表 description_tr（lang='zh'，构建 SELECT 已带出）。
@@ -753,6 +762,10 @@ export function buildPublicRow(
     titleEn,
     descriptionEn,
     backbonePath,
+    deliveryDaysRequired,
+    contractDurationDays,
+    timelineJson,
+    deadlineTs,
   ];
 }
 
