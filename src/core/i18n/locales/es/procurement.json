@@ -880,6 +880,8 @@
   "pc_qty_tolerance_ph": "p. ej. ±5 %; dejar vacío si no se acepta",
   "pc_items_lang_hint": "Nota: indique en las especificaciones de cada artículo el idioma de placas y manuales (FR/EN/ZH), marcas de referencia, tipo de alimentación y voltaje/frecuencia.",
   "pc_logisticsNote": "Requisitos de transporte / embalaje / aduana",
+  "pc_logisticsNote_hint": "Indique aquí los requisitos del país de destino: normativa, cuarentena, documentación y embalaje; los proveedores cotizarán y prepararán la mercancía según ellos. Incluye regulaciones de embalaje del destino (p. ej. ley de embalaje de la UE), condiciones de cuarentena/acceso, documentos de acompañamiento (certificado de origen / certificado de fumigación / documents legalizados), puertos designados y marcas de embalaje. Las certificaciones de producto van en los requisitos de certificación del paso 3.",
+  "pc_logisticsNote_ph": "p. ej.: embalaje conforme a la ley de embalaje de la UE con marca de reciclaje; cajas de madera con tratamiento IPPC; certificado de origen adjunto; entrada únicamente por el puerto designado",
   "pc_attach_requirement": "Documento de necesidad",
   "pc_attach_tech_doc": "Especificación técnica",
   "pc_attach_drawing": "Plano",

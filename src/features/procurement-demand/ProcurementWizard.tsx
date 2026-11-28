@@ -1140,8 +1140,11 @@ export function ProcurementWizard(props: { editId?: number; onSubmitted?: () => 
             />
           </label>
           <label className={labelCls}>
-            {t("pc_logisticsNote")}
-            <textarea value={form.logisticsNote} onChange={(e) => field("logisticsNote", e.target.value)} rows={2} className={inputCls} />
+            <span className="flex items-center gap-1.5">
+              {t("pc_logisticsNote")}
+              <FieldHintTooltip label={t("pc_logisticsNote")} content={t("pc_logisticsNote_hint")} />
+            </span>
+            <textarea value={form.logisticsNote} onChange={(e) => field("logisticsNote", e.target.value)} rows={2} placeholder={t("pc_logisticsNote_ph")} className={inputCls} />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className={labelCls}>

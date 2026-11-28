@@ -880,6 +880,8 @@
   "pc_qty_tolerance_ph": "e.g. ±5%; leave blank if not accepted",
   "pc_items_lang_hint": "Note: please state nameplate & manual language (FR/EN/ZH), reference brands/models, power type and voltage/frequency for each item in the specification field.",
   "pc_logisticsNote": "Transport / packaging / customs requirements",
+  "pc_logisticsNote_hint": "State the destination country's regulatory, quarantine, documentation and packaging requirements here — suppliers will quote and prepare goods against them. This covers destination packaging regulations (e.g. EU packaging law), quarantine/access conditions, accompanying documents (certificate of origin / fumigation certificate / legalised documents), designated ports and packaging marks. Product certifications belong in the certification requirements under step 3.",
+  "pc_logisticsNote_ph": "e.g. packaging complies with EU packaging law with recycling marks; IPPC-fumigated wooden crates; certificate of origin provided; entry via designated port only",
   "pc_attach_requirement": "Requirement document",
   "pc_attach_tech_doc": "Technical specification",
   "pc_attach_drawing": "Drawing",
