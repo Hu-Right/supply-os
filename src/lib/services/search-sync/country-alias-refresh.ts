@@ -1,28 +1,29 @@
 /**
- * 国家别名表变更后的主动失效编排（对齐 buyer/refresh 的“按受影响 id 重算”思路）
- * Country alias change → full invalidation orchestration
+ * 国家别名表变更后的主动失效编排
  *
  * @module server/services/search-sync/country-alias-refresh
- * @description country_aliases 不在宽表指纹内 → 正确传播必须：
- *   清 store/下拉/结果三级缓存 → 用新表重算宽表 country_name/country_codes（fullBackfill）→ 再让 Meili 从新宽表重建。
- *   由 ops 改表脚本收尾调用；刻意不加入 search-sync barrel（避免扩大依赖面/成环）。
+ * @description 2026-11-28 宽表退役：原实现靠 `fullBackfill` 重算宽表再重建 Meili。
+ *              现在 `country_code/country_codes` 是服务表构建期快照，别名表变更后
+ *              必须**重建服务表**才能生效；本函数只负责失效缓存并标记索引重建，
+ *              服务表全量重建由 ops 脚本（notice-public 全量重建）在发布窗口执行。
  */
 import type { Pool } from "mysql2/promise";
 import { invalidateCountryAliasCache } from "../country/alias-store";
 import { clearCountriesCache } from "../notice-search/countries";
 import { invalidateSearchCache } from "../search-common/sync-events";
 import { requestIndexRebuild } from "../search-common/rebuild-trigger";
-import { fullBackfill } from "./sync-scheduler";
 
 /**
- * 国家别名表变更后调用：先失效三级缓存，再用新表全量重算宽表，最后标记 Meili 全量重建。
- * 顺序不可颠倒：fullBackfill 必须先于 requestIndexRebuild，否则 Meili 读到的仍是旧 country_codes。
+ * 国家别名表变更后调用：失效三级缓存 + 标记 Meili 全量重建。
+ * ⚠️ 调用方必须同时排一次服务表全量重建，否则索引重灌读到的仍是旧 country_code。
  */
-export async function onCountryAliasesChanged(pool: Pool): Promise<{ backfilled: number }> {
+export async function onCountryAliasesChanged(_pool: Pool): Promise<{ backfilled: number }> {
   invalidateCountryAliasCache();
   clearCountriesCache();
   invalidateSearchCache();
-  const { synced } = await fullBackfill(pool);
   requestIndexRebuild("country-aliases-changed");
-  return { backfilled: synced };
+  console.warn(
+    "[country-alias] 别名表已变更：请执行服务表全量重建设脚本后再等待索引重灌（宽表退役后不再有 fullBackfill 兜底）",
+  );
+  return { backfilled: 0 };
 }

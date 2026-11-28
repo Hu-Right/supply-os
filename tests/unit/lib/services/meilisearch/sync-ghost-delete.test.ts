@@ -31,7 +31,7 @@ import { syncNoticeIds } from "@/lib/services/meilisearch/sync";
 function makePool(wide: unknown[][], main: unknown[][]) {
   const query = vi.fn(async (sql: string) => {
     const s = String(sql);
-    if (s.includes("notice_search")) return [wide.shift() ?? []];
+    if (s.includes("notice_public")) return [wide.shift() ?? []];
     return [main.shift() ?? []];
   });
   return { pool: { query } as unknown as Pool, query };
@@ -110,3 +110,4 @@ describe("syncNoticeIds 索引残留清理", () => {
     expect(deleteDocuments).toHaveBeenCalledWith([12]);
   });
 });
+

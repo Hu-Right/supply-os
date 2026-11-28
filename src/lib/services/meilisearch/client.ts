@@ -184,39 +184,37 @@ export async function deleteNoticeDocuments(ids: number[]): Promise<void> {
  * 保证 swapIndexes 切换后新索引设置与旧索引完全一致。
  */
 export function buildNoticeIndexSettings(): Settings {
-  // 支持的语言列表：唯一来源 utils/languages（新增语言只改那里）
-  const langFields = SUPPORTED_LANGS.flatMap(lang => [`title_${lang}`, `description_${lang}`]);
+  // 2026-11-28 零映射：文档字段名统一为服务表原生列名（title_cn / deadline_ts / has_attachments…），
+  // 不再保留宽表时代的 title_zh / deadline_sec / documents_count 等别名。
+  // 内容语言只有「原文 + 中文 + 英文」三组，写死枚举（不要用 SUPPORTED_LANGS 生成，
+  // 它的 zh 会拼成 title_zh —— 文档里根本没有这个字段，中文检索会整块失联）。
+  const contentFields = [
+    "title_cn", "description_cn",
+    "title_en", "description_en",
+  ];
   return {
     searchableAttributes: [
       "reference",
       "title",
       "description",
-      ...langFields,
+      ...contentFields,
     ],
     filterableAttributes: [
-      "country",
+      "country_code",
       "country_codes",
-      "agency",
-            "notice_type_normalized",
-      "deadline_sec",
-      "is_featured",
+      "buyer_name",
+      "notice_type_code",
+      "deadline_ts",
       "is_opportunity",
       "reference",
-      // 预算区间筛选（filter-builder 生成 estimated_value_num >= / <= 过滤，
-      // 缺此字段会导致 Meili 报未知属性错并整体降级 MySQL CAST 全表扫描）
-      "estimated_value_num",
-      // 「含原始文件」筛选依据（宽表 documents_count）
-      "documents_count",
-      // 旧字典的 levelN_id / precise_levelN_id 十属性已随 B1 摘除，precise_backbone_node 也随
-      // 旧品类码 candidates 表退役移除：公告分类在索引里只剩下面这一条节点码属性。
-      // 【重灌窗口】存量文档里的旧属性需一次全量重建才能物理清除（删属性不会自动重刷文档）；
-      // 重建前它们只是多余字段（无人拼谓词、NC1 门禁拦住），不影响命中结果。
-      // 品目树五级下拉与可见性判定的参与过滤属性（由宽表 backbone_path 拆数组，见 sync.ts）。
-      // 新增属性对存量文档不会自动回填 ⇒ 必须走一次全量重建才能生效；
-      // 重建前带该属性的请求会被 Meili 报未知属性错并降级到 MySQL 方言（语义相同，结果正确）。
+      // 预算区间筛选（filter-builder 生成 estimated_value >= / <= 过滤）
+      "estimated_value",
+      // 「含原始文件」筛选依据（服务表生成列 has_attachments）
+      "has_attachments",
+      // 品目树五级下拉与可见性判定的参与过滤属性（由 backbone_path 拆数组，见 sync.ts）
       "backbone_node",
     ],
-    sortableAttributes: ["deadline_sec", "id", "has_deadline"],
+    sortableAttributes: ["deadline_ts", "id", "has_deadline"],
     rankingRules: [
       "words",
       "typo",

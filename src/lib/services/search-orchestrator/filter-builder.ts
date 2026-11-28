@@ -42,9 +42,10 @@ function nodeMeiliFilter(attr: string, nodes: string[]): string {
 }
 
 function nodeMysqlWhere(nodes: string[], col = "backbone_path"): string {
-  const one = `FIND_IN_SET(?, ns.${col})`;
-  const inner = nodes.length === 1 ? one : `(${nodes.map(() => one).join(" OR ")})`;
-  return `EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND ${inner})`;
+  // 零映射：backbone_path 已是服务表列，直接在同一条 WHERE 上做包含判断，
+  // 不再 EXISTS 子查询宽表（少一次点查，语义不变）。
+  const one = `FIND_IN_SET(?, p.${col})`;
+  return nodes.length === 1 ? one : `(${nodes.map(() => one).join(" OR ")})`;
 }
 
 /**
@@ -88,14 +89,14 @@ export async function buildFilterPlan(
   // ── 截止日期范围（deadlineFrom 自然排除 deadline_sec=0：0 < fromTs）──
   if (p.deadlineFrom) {
     const ts = toBeijingUnixTs(p.deadlineFrom, "00:00:00");
-    meiliFilters.push(`deadline_sec >= ${ts}`);
+    meiliFilters.push(`deadline_ts >= ${ts}`);
     mysqlWhere.push("p.deadline_ts >= ?");
     mysqlParams.push(ts);
     digestParts.push(`from:${p.deadlineFrom}`);
   }
   if (p.deadlineTo) {
     const ts = toBeijingUnixTs(p.deadlineTo, "23:59:59");
-    meiliFilters.push(`deadline_sec <= ${ts}`);
+    meiliFilters.push(`deadline_ts <= ${ts}`);
     mysqlWhere.push("p.deadline_ts <= ?");
     mysqlParams.push(ts);
     digestParts.push(`to:${p.deadlineTo}`);
@@ -103,7 +104,7 @@ export async function buildFilterPlan(
   // ── 全部截止期限（★ 双方言同语义：排除无截止日期文档）──
   if (p.deadlineWithinDays > 0) {
     const futureTs = Math.floor(Date.now() / 1000) + p.deadlineWithinDays * 86400;
-    meiliFilters.push(`deadline_sec > 0 AND deadline_sec <= ${futureTs}`);
+    meiliFilters.push(`deadline_ts > 0 AND deadline_ts <= ${futureTs}`);
     mysqlWhere.push("p.deadline_ts > 0 AND p.deadline_ts <= ?");
     mysqlParams.push(futureTs);
     digestParts.push(`within:${p.deadlineWithinDays}d`);
@@ -112,7 +113,7 @@ export async function buildFilterPlan(
   // ── 采购类型 ──
   if (p.noticeType) {
     const normalized = normalizeNoticeType(p.noticeType);
-    meiliFilters.push(`notice_type_normalized = "${escapeFilter(normalized)}"`);
+    meiliFilters.push(`notice_type_code = "${escapeFilter(normalized)}"`);
     // MySQL 方言：服务表 notice_type_code 就是构建期 normalizeNoticeType 的产物，
     // 等值命中即可（走覆盖索引 idx_np_type_pk）。旧实现枚举主表原始写法再 IN：
     // 主表 306 种写法 / 28 个标准码（单 RFQ 就 10 种），退化成大范围 range 扫描 + 回表，
@@ -175,14 +176,14 @@ export async function buildFilterPlan(
   // ── 预算范围（estimated_value 为 VARCHAR 存数值字符串，CAST 为 DECIMAL 比较）──
   if (p.budgetMin != null || p.budgetMax != null) {
     if (p.budgetMin != null) {
-      meiliFilters.push(`estimated_value_num >= ${p.budgetMin}`);
-      mysqlWhere.push("CAST(n.estimated_value AS DECIMAL(20,2)) >= ?");
+      meiliFilters.push(`estimated_value >= ${p.budgetMin}`);
+      mysqlWhere.push("p.estimated_value >= ?");
       mysqlParams.push(p.budgetMin);
       digestParts.push(`budgetMin:${p.budgetMin}`);
     }
     if (p.budgetMax != null) {
-      meiliFilters.push(`estimated_value_num <= ${p.budgetMax}`);
-      mysqlWhere.push("CAST(n.estimated_value AS DECIMAL(20,2)) <= ?");
+      meiliFilters.push(`estimated_value <= ${p.budgetMax}`);
+      mysqlWhere.push("p.estimated_value <= ?");
       mysqlParams.push(p.budgetMax);
       digestParts.push(`budgetMax:${p.budgetMax}`);
     }
@@ -196,3 +197,5 @@ export async function buildFilterPlan(
     digest: digestParts.join(",") || "none",
   };
 }
+
+

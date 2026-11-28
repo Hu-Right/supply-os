@@ -21,7 +21,7 @@ export async function isWideTableReady(pool: Pool): Promise<boolean> {
     return _wideTableReadyCache.ready;
   }
   try {
-    const [rows] = await pool.query("SELECT 1 FROM notice_search LIMIT 1");
+    const [rows] = await pool.query(`SELECT 1 FROM notice_public LIMIT 1`);
     const ready = (rows as RowDataPacket[]).length > 0;
     _wideTableReadyCache = { ready, expires: Date.now() + WIDE_TABLE_READY_CACHE_TTL };
     return ready;
@@ -30,3 +30,4 @@ export async function isWideTableReady(pool: Pool): Promise<boolean> {
     return false;
   }
 }
+

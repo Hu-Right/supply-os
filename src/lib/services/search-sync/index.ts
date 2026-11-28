@@ -1,41 +1,20 @@
 /**
- * 搜索宽表同步模块 — 统一导出
- * Search Wide Table Sync Module
+ * 搜索同步模块 — 统一导出（宽表退役后）
  *
  * @module server/services/search-sync
+ * @description 2026-11-28 宽表退役：本域只剩「服务表 → Meili 索引」的同步与调度，
+ *              不再导出宽表构建/对账/指纹相关的任何入口。
  */
 
-// 数据构建层
-export {
-  SUPPORTED_LANGS, wideSyncSelect, WIDE_SYNC_JOIN,
-  loadTranslationsByNoticeIds, loadBackboneMap,
-  buildWideRow, upsertWideRows,
-} from "./wide-row-builder";
-
-// 对账层（只检测；修复统一走 syncWideIds / purgeNoticeSearch）
-export {
-  detectDeadlineDrift, detectPlatformStatusDrift, reconcileGhostRows,
-  WIDE_DEADLINE_EXPR,
-} from "./wide-row-reconcile";
-export type { PlatformDrift } from "./wide-row-reconcile";
-export {
-  detectWideFingerprintDrift, WIDE_FP_EXPR, WIDE_FP_COLUMN, isFingerprintColumn,
-} from "./wide-fingerprint";
-
-// 同步调度层（对外门面）
-export {
-  fullBackfill, incrementalWideSync, syncWideIds,
-  startWideTableSync,
-} from "./sync-scheduler";
-// 宽表就绪检查（A2 解环）：直接来自 search-common 权威实现
-export { isWideTableReady } from "../search-common/wide-table-readiness";
+// 服务表增量重建 + 平台漂移检测（宽表退役后的同步回路）
+export { startPublicSync } from "./sync-scheduler";
+export type { PublicSyncOptions } from "./sync-scheduler";
+export { detectPlatformStatusDrift } from "../notice-public/platform-drift";
+export type { PlatformDrift } from "../notice-public/platform-drift";
 
 // Meili 索引同步层（#8：自顶层 searchSync.ts 迁入，统一域名消除混淆）
 export { startSearchSync } from "./meili-index-sync";
 export type { SyncOptions } from "./meili-index-sync";
-
-// 爬虫库 → 主表 同步：应用内 crawler-sync 已于 2026-11-13 摘除（用户拍板：
-// 同步唯一入口 = scripts/tools/daily-sync.cjs，消除双写入者），本桶不再导出。
 
 // 同步队列层（统一调度按 ID 同步请求）
 export {

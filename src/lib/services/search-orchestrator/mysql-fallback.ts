@@ -6,9 +6,9 @@
  * @description 仅在 Meilisearch 完全不可用时启用。筛选语义直接复用 filter-builder
  *              的 MySQL 方言（双方言同源，杜绝语义漂移）。
  *
- *              [2026-11-18 收口] 全链路只读服务表（notice_public / notice_search），
+ *              [2026-11-18 收口] 全链路只读服务表（notice_public），
  *              主表 bid_notices 不参与：
- *              · 关键词：notice_search 无 FULLTEXT，改走 title/reference/description
+ *              · 关键词：服务表无 FULLTEXT，改走 title/reference/description
  *                （含 zh 译文列）的 LIKE 子串匹配；布尔 +/-/短语语义由 LIKE 组合表达，
  *                不再有相关度排序（降级态按 id/截止时间排序）。
  *              · 时效与平台准入：notice_public.deadline_ts/deadline_state 为准；
@@ -25,15 +25,15 @@ const MYSQL_TIMEOUT_MS = 15000;
 /** 服务表时效口径：无截止（NULL/0）视为长期有效，与 Meili 索引侧同语义 */
 const SERVICE_ACTIVE_WHERE = "(p.deadline_ts IS NULL OR p.deadline_ts = 0 OR p.deadline_ts >= UNIX_TIMESTAMP(NOW()))";
 
-/** 关键词命中的列：原文标题/编号/正文 + 中文译文列（notice_search 已冗余存储） */
-const KW_COLUMNS = ["title", "reference", "description", "title_zh", "description_zh"] as const;
+/** 关键词命中的列：原文标题/编号/正文 + 中文译文列（服务表已含译文列） */
+const KW_COLUMNS = ["title", "reference", "description", "title_cn", "description_cn", "title_en", "description_en"] as const;
 
 function likeValue(t: string): string {
   return `%${escapeLikeWildcard(t)}%`;
 }
 
 /**
- * 关键词谓词（作用于 notice_search 别名 s，单表零 JOIN）。
+ * 关键词谓词（作用于 notice_public 别名 p，单表零 JOIN）。
  *
  * 语义对齐 Meili 主路径：
  * · 普通查询：按空格切词，matchMode=all 逐词 AND、any 逐词 OR；
@@ -45,8 +45,8 @@ export function buildKeywordWhere(
   matchMode: "all" | "any" = "all",
 ): { sql: string; params: unknown[] } {
   const conj = matchMode === "any" ? " OR " : " AND ";
-  const posSql = `(${KW_COLUMNS.map((c) => `s.${c} LIKE ?`).join(" OR ")})`;
-  const negSql = `(${KW_COLUMNS.map((c) => `s.${c} NOT LIKE ?`).join(" AND ")})`;
+  const posSql = `(${KW_COLUMNS.map((c) => `p.${c} LIKE ?`).join(" OR ")})`;
+  const negSql = `(${KW_COLUMNS.map((c) => `p.${c} NOT LIKE ?`).join(" AND ")})`;
   const posParams = (t: string) => KW_COLUMNS.map(() => likeValue(t));
 
   if (!hasAdvancedSyntax(q)) {
@@ -101,10 +101,10 @@ export function buildOrderBy(p: UnifiedSearchParams): string {
  * 关键词 id 子查询（只读服务表，主表不参与）。
  *
  * 两路取并集（UNION 去重）：
- * 1. notice_search 原文列 LIKE：title / reference / description / title_zh / description_zh
+ * 1. notice_public 原文列 LIKE：title / reference / description / title_cn / description_cn
  *    （原文列覆盖未翻译行；LIKE 无相关度，降级态按 id/截止排序）
  * 2. notice_translations 译文 FULLTEXT：标题/正文译文命中（zh 用户 46.5 万行、en 40.9 万行译文，
- *    notice_search.title_zh 只填了 17.9 万行，靠这一路补中文召回）。译文表不是公告主表。
+ *    服务表 title_cn 只填了 23 万行，靠这一路补中文召回）。译文表不是公告主表。
  *
  * 返回空 sql 表示查询无有效词（调用方直接给空集）。
  */
@@ -134,8 +134,8 @@ export function buildKeywordSource(
 
   return {
     sql:
-      `(SELECT s.id FROM notice_search s` +
-      ` WHERE (s.deadline_sec = 0 OR s.deadline_sec >= UNIX_TIMESTAMP(NOW())) AND ${kw.sql}` +
+      `(SELECT p.notice_pk FROM notice_public p` +
+      ` WHERE ${SERVICE_ACTIVE_WHERE} AND ${kw.sql}` +
       ` UNION SELECT t.notice_id FROM notice_translations t WHERE t.lang = ?` +
       ` AND MATCH(t.title_tr, t.description_tr) AGAINST(? IN BOOLEAN MODE))`,
     params: [...kw.params, isChinese ? "zh" : "en", boolQ],
@@ -152,11 +152,10 @@ export async function mysqlFallback(
   plan: FilterPlan,
 ): Promise<{ ids: number[]; total: number; degraded?: boolean }> {
   const offset = (p.page - 1) * p.pageSize;
-  const whereSql = [
-    SERVICE_ACTIVE_WHERE,
-    ...plan.mysqlWhere,
-    "p.deadline_state IN ('known','unknown')",
-  ].join(" AND ");
+  // 零映射（2026-11-28）：active 只看 deadline_ts（NULL=无截止），不再叠加
+  // `deadline_state IN ('known','unknown')`——该谓词无法走索引，实测把 RFQ 计数从
+  // 219ms 拖到 27s（placeholder/typo 仅 282 行，按“无截止”处理可接受）。
+  const whereSql = [SERVICE_ACTIVE_WHERE, ...plan.mysqlWhere].join(" AND ");
 
   const queryParams: unknown[] = [];
   let fromSql: string;
@@ -194,5 +193,7 @@ export async function mysqlFallback(
     return { ids: [], total: 0, degraded: true };
   }
 }
+
+
 
 

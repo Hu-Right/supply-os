@@ -188,8 +188,8 @@ export async function register() {
     // [2026-11-15 事故根治] 宽表同步改走独立小池（syncPool，2 连接）：
     // deadline 对账是无索引全表 JOIN（96 万 × 53 万，单轮 80 秒+），与 HTTP 请求
     // 共用业务池会把它吃满 → 登录请求无限排队挂死。现后台与业务互不侵占。
-    const { startWideTableSync } = await import("./lib/services/search-sync/index");
-    stops.push(startWideTableSync(syncPool, { intervalMs: 5 * 1000 }));
+    const { startPublicSync } = await import("./lib/services/search-sync/index");
+    stops.push(startPublicSync(syncPool, { intervalMs: 30 * 1000 }));
 
     // 爬虫库 → 主表增量同步：应用内 crawler-sync 已于 2026-11-13 摘除（用户拍板：
     // 同步唯一入口 = scripts/tools/daily-sync.cjs，消除双写入者）。主表落库后的
@@ -228,3 +228,4 @@ export async function register() {
     // 如需显式关闭，可在此调用 dbPool.end()。
   });
 }
+

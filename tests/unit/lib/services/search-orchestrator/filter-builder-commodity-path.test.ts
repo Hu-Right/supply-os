@@ -53,7 +53,7 @@ describe("buildFilterPlan 骨架节点筛选", () => {
     expect(plan.conflictEmpty).toBe(false);
     expect(plan.meiliFilters).toContain('backbone_node = "UGT-0101"');
     expect(plan.mysqlWhere).toContain(
-      "EXISTS (SELECT 1 FROM notice_search ns WHERE ns.id = p.notice_pk AND FIND_IN_SET(?, ns.backbone_path))",
+      "FIND_IN_SET(?, p.backbone_path)",
     );
     expect(plan.mysqlParams).toEqual(["UGT-0101"]);
     expect(plan.digest).toContain("commodity:UGT-0101");
@@ -79,3 +79,4 @@ describe("buildFilterPlan 骨架节点筛选", () => {
     expect(plan.digest).not.toContain("group:");
   });
 });
+

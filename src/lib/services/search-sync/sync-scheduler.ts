@@ -1,389 +1,84 @@
 /**
- * 宽表同步调度器
- * Wide Table Sync Scheduler
+ * 服务表 → 搜索索引 同步调度（宽表退役后的唯一同步回路）
  *
- * @module server/services/search-sync/sync-scheduler
- * @description 负责宽表同步的调度逻辑：全量回填、增量同步、按 ID 同步、就绪检查、定时器管理。
- *              数据构建细节由 wide-row-builder.ts 提供，本文件仅关心同步时机和流程编排。
+ * @module lib/services/search-sync/sync-scheduler
+ * @description 2026-11-28：宽表退役。同步回路从「主表 → 服务表 → 宽表 → Meili」
+ *              收敛为「主表/译文 → 服务表 → Meili」：
+ *
+ *              1. 增量（默认 30s）：`rebuildNoticePublicChanged` 重建服务表，
+ *                 再把本轮重建的 id 交给 `syncNoticeIds` 更新索引（宽表那一跳已删除）；
+ *              2. 对账（默认 10min）：平台公告状态漂移（发布/下架）按同一回路补齐。
+ *
+ *              节流在 `rebuildNoticePublicChanged` 内部（默认 10 分钟窗口），
+ *              定时器只是「到点敲门」，不会造成全表重算。
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
-import {
-  syncNoticeIds, isHealthy as isMeiliHealthy,
-  getIndexStats, pruneOrphanIndexDocs, getWideTableCount,
-} from "../meilisearch";
-import { tryRecover } from "../meilisearch/client";
-import { enqueueRetry } from "./sync-retry-queue";
-import { isWideTableReady } from "../search-common/wide-table-readiness";
-import { logSyncCascade } from "../search-common/metrics";
-import { requestIndexRebuild } from "../search-common/rebuild-trigger";
-import { invalidateSearchCache } from "../search-common/sync-events";
-import { PLATFORM_PUBLISHED_ONLY, STABLE_EXPIRED_WHERE } from "../../utils/notice-expired";
-import {
-  wideSyncSelect, WIDE_SYNC_JOIN,
-  loadTranslationsByNoticeIds, loadBackboneMap,
-  buildWideRow, upsertWideRows,
-} from "./wide-row-builder";
-import {
-  detectDeadlineDrift, reconcileGhostRows, detectPlatformStatusDrift, detectWideMissingRows,
-} from "./wide-row-reconcile";
-import { detectWideFingerprintDrift, isFingerprintColumn } from "./wide-fingerprint";
-import { purgeNoticeSearch } from "../search-visibility";
-import { loadCountryAliasSnapshot } from "../country/alias-store";
+import type { Pool } from "mysql2/promise";
 import { rebuildNoticePublicChanged } from "../notice-public/rebuild";
+import { detectPlatformStatusDrift } from "../notice-public/platform-drift";
+import { deletePublicRows } from "../notice-public/build";
+import { syncNoticeIds } from "../meilisearch";
+import { purgeNoticeSearch } from "../search-visibility/purge";
 
-/**
- * 全量回填宽表
- */
-export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapsed: number }> {
-  const start = Date.now();
-  const countrySnap = await loadCountryAliasSnapshot(pool);
-  
-  let lastId = 0;
-  let totalSynced = 0;
-  const BATCH = 200;  // [内存优化] 从 500 降至 200，降低 8G 服务器宽表回填时的内存峰值
-  // 指纹列存在性一次解析（迁移 087 未执行时自动降级，不选也不写该列）
-  const withFp = await isFingerprintColumn(pool);
-  const selectSql = wideSyncSelect(withFp);
-
-  try {
-    while (true) {
-      const [rows] = await pool.query(
-        // 构建时摘除闭环（2026-11-13）：回填不灌稳定过期行——过期行由 ghost 链清退，
-        // 读取侧不回头重建（build-then-prune 两段式退役）
-        selectSql + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY +
-          " AND NOT " + STABLE_EXPIRED_WHERE + " ORDER BY n.id ASC LIMIT ?",
-        [lastId, BATCH],
-      );
-      const rawRows = rows as RowDataPacket[];
-      if (rawRows.length === 0) break;
-
-      // 归属输入：落点表按 notice_pk 取最深落点（小表剥离后不再经桥表/不再需主表自填分类）
-      const sources = rawRows.map((r) => ({
-        pk: Number(r.id),
-        noticeId: String(r.notice_id),
-      }));
-      const [landingMap, translationsMap] = await Promise.all([
-        loadBackboneMap(pool, sources),
-        loadTranslationsByNoticeIds(pool, rawRows.map((r) => Number(r.id))),
-      ]);
-
-      const wideRows = rawRows.map((r) => buildWideRow(
-        r,
-        landingMap.get(String(r.notice_id)),
-        translationsMap.get(Number(r.id)),
-        countrySnap,
-      ));
-      const synced = await upsertWideRows(pool, wideRows, withFp);
-      totalSynced += synced;
-      lastId = rawRows[rawRows.length - 1].id;
-
-      if (rawRows.length < BATCH) break;
-    }
-
-    const elapsed = Date.now() - start;
-    return { synced: totalSynced, elapsed };
-  } catch (err) {
-    console.error("[wide-table] 全量回填失败:", (err as Error).message);
-    return { synced: 0, elapsed: Date.now() - start };
-  }
+export interface PublicSyncOptions {
+  /** 增量重建间隔（毫秒），默认 30 秒（实际执行受 rebuild 内部节流窗口约束） */
+  intervalMs?: number;
+  /** 平台状态对账间隔（毫秒），默认 10 分钟 */
+  reconcileIntervalMs?: number;
 }
 
 /**
- * 增量同步（仅拉取新行，不含 deadline 对账）
+ * 启动服务表/索引同步调度。
+ * @returns 停止函数
  */
-export async function incrementalWideSync(
-  pool: Pool,
-  watermark: number,
-): Promise<{ synced: number; newWatermark: number }> {
-  const countrySnap = await loadCountryAliasSnapshot(pool);
-  const withFp = await isFingerprintColumn(pool);
-  const selectSql = wideSyncSelect(withFp);
-
-  try {
-    const [newRows] = await pool.query(
-      // 同上：新入水位行也可能是回扫旧目录的过期公告，准入谓词一并前置
-      selectSql + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY +
-        " AND NOT " + STABLE_EXPIRED_WHERE + " ORDER BY n.id ASC LIMIT 5000",
-      [watermark],
-    );
-
-    const allRaw = newRows as RowDataPacket[];
-    if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
-
-    const sources = allRaw.map((r) => ({
-      pk: Number(r.id),
-      noticeId: String(r.notice_id),
-    }));
-    const [landingMap, translationsMap] = await Promise.all([
-      loadBackboneMap(pool, sources),
-      loadTranslationsByNoticeIds(pool, allRaw.map((r) => Number(r.id))),
-    ]);
-
-    const wideRows = allRaw.map((r) => buildWideRow(
-      r,
-      landingMap.get(String(r.notice_id)),
-      translationsMap.get(Number(r.id)),
-      countrySnap,
-    ));
-    const synced = await upsertWideRows(pool, wideRows, withFp);
-    // [阶段0 A4-1] 宽表已更新：失效搜索结果缓存。外部 CRM 管道的新数据经本函数入库，
-    // 此前仅在 syncWideIds 级联处失效缓存，导致新公告最长 5 分钟内不出现在带缓存的搜索结果中
-    if (synced > 0) invalidateSearchCache();
-    const newWatermark = allRaw[allRaw.length - 1].id;
-    return { synced, newWatermark };
-  } catch (err) {
-    console.warn("[wide-table] 增量同步失败:", (err as Error).message);
-    return { synced: 0, newWatermark: watermark };
-  }
-}
-
-/**
- * 按 ID 精确同步
- */
-export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: number }> {
-  if (ids.length === 0) return { synced: 0 };
-  const countrySnap = await loadCountryAliasSnapshot(pool);
-  const withFp = await isFingerprintColumn(pool);
-  const selectSql = wideSyncSelect(withFp);
-
-  try {
-    const placeholders = ids.map(() => "?").join(",");
-    const [rows] = await pool.query(
-      selectSql + WIDE_SYNC_JOIN + ` WHERE n.id IN (${placeholders}) AND ` + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC",
-      ids,
-    );
-    const sources = (rows as RowDataPacket[]).map((r) => ({
-      pk: Number(r.id),
-      noticeId: String(r.notice_id),
-    }));
-    const [landingMap, translationsMap] = await Promise.all([
-      loadBackboneMap(pool, sources),
-      loadTranslationsByNoticeIds(pool, (rows as RowDataPacket[]).map((r) => Number(r.id))),
-    ]);
-    const wideRows = (rows as RowDataPacket[]).map((r) => buildWideRow(
-      r,
-      landingMap.get(String(r.notice_id)),
-      translationsMap.get(Number(r.id)),
-      countrySnap,
-    ));
-    const synced = await upsertWideRows(pool, wideRows, withFp);
-    // 宽表已更新：失效搜索结果缓存，确保下次列表请求读到最新译文
-    if (synced > 0) invalidateSearchCache();
-    // 级联同步 Meilisearch：宽表更新后必须同步到索引，避免数据断链。
-    // 修复 G1/G4/G5：不健康时先尝试 tryRecover 自愈，仍失败则标记重建 + 入重试队列，
-    // 不再静默丢弃——确保"宽表有数据但索引搜不到"的问题可自愈。
-    if (synced > 0) {
-      if (!isMeiliHealthy()) {
-        await tryRecover().catch(() => false);
-      }
-      if (isMeiliHealthy()) {
-        void syncNoticeIds(pool, ids).then((r) => {
-          const processed = r.synced + r.deleted;
-          logSyncCascade("meili", ids.length, processed > 0 ? "ok" : "fail");
-          if (processed < ids.length) enqueueRetry(ids);
-        }).catch((err) => {
-          console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
-          logSyncCascade("meili", ids.length, "fail");
-          enqueueRetry(ids);
-        });
-      } else {
-        // 不健康且恢复失败：标记重建 + 入重试队列（不静默丢弃）
-        logSyncCascade("meili", ids.length, "retry");
-        requestIndexRebuild("cascade-skipped-unhealthy");
-        enqueueRetry(ids);
-      }
-    }
-    return { synced };
-  } catch (err) {
-    console.warn("[wide-table] 按ID同步失败:", (err as Error).message);
-    return { synced: 0 };
-  }
-}
-
-// 宽表就绪检查已抽至无依赖叶子模块（A2 解环），此处重导出维持调用方兼容
-export { isWideTableReady } from "../search-common/wide-table-readiness";
-
-/**
- * 启动宽表增量同步定时器
- *
- * 三个独立定时器：
- * - 增量同步（5 秒）：拉取新行写入宽表（主键水位轻扫描，[阶段0 S3] 从 30 秒缩短至 5 秒）
- * - deadline 对账（10 分钟）：检测旧行 deadline 投影陈旧并修复
- * - 全量对账（30 分钟）：①服务表增量重建 + ghost 行清理 + 平台可见性集合差 + 源指纹轮转
- *
- * 分离原因：
- * - deadline_sec 变更来自外部数据管道（批量导入），日常极少发生
- * - ghost 行清理和 is_featured 对账需要 JOIN 查询，降频执行避免资源浪费
- *
- * [2026-11-15 事故] deadline 对账周期原为 60 秒，而单轮在 96 万行 `bid_notices`
- * × 53 万行 `notice_search` 上的无索引不等式全表 JOIN 实测 80 秒以上——单飞闸
- * 实际退化为「一轮接一轮常驻」，把业务连接池吃干导致登录请求挂死。现降为
- * 10/30 分钟，并由调用方传入独立的 getSyncPool()（2 连接）与业务池隔离。
- */
-export function startWideTableSync(pool: Pool, options: { intervalMs?: number; reconcileIntervalMs?: number; fullReconcileIntervalMs?: number } = {}): () => void {
-  const intervalMs = options.intervalMs ?? 5 * 1000;
+export function startPublicSync(pool: Pool, options: PublicSyncOptions = {}): () => void {
+  const intervalMs = options.intervalMs ?? 30 * 1000;
   const reconcileIntervalMs = options.reconcileIntervalMs ?? 10 * 60 * 1000;
-  const fullReconcileIntervalMs = options.fullReconcileIntervalMs ?? 30 * 60 * 1000;
   let stopped = false;
-  let watermark = 0;
-  let initDone = false;
-  let backfillAllowed = false;
+  let reconciling = false;
   const stopFns: Array<() => void> = [];
 
-  // 初始化（水位定格 / 首次全量回填）。
-  // 幂等且可重试：启动瞬间 DB 抖动只影响首轮回填，由增量定时器按周期自动重试，
-  // 绝不允许初始化失败导致定时器永不注册（静默永久停摆）。
-  const ensureInit = async (): Promise<void> => {
-    if (initDone) return;
-    try {
-      const ready = await isWideTableReady(pool);
-      if (!ready) {
-        // 全量回填延迟 30 秒执行，避免与启动阶段的 API 请求争抢数据库连接。
-        // 宽表为空时增量同步无法工作，但 API 查询走主表不受影响，优先保障 API 可用。
-        if (!backfillAllowed) {
-          console.log("[wide-table] 宽表未就绪，全量回填等待中（API 优先）");
-          return;
-        }
-        const result = await fullBackfill(pool);
-        if (result.synced > 0) {
-          const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM notice_search");
-          watermark = Number((maxRows as RowDataPacket[])[0]?.max_id || 0);
-        }
-      } else {
-        const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM notice_search");
-        watermark = Number((maxRows as RowDataPacket[])[0]?.max_id || 0);
-      }
-      initDone = true;
-    } catch (err) {
-      console.error("[wide-table] 初始化失败（下个周期自动重试）:", (err as Error).message);
-    }
-  };
-
-  // 30 秒后允许全量回填，给启动阶段的 API 请求留出窗口
-  const backfillTimer = setTimeout(() => { backfillAllowed = true; }, 30 * 1000);
-  stopFns.push(() => clearTimeout(backfillTimer));
-
-  // 定时器 1：增量同步（拉取新行；初始化未完成时先补初始化）
-  const syncTimer = setInterval(async () => {
+  // 定时器 1：服务表增量重建 → 按 id 同步索引
+  const incremental = setInterval(async () => {
     if (stopped) return;
     try {
-      await ensureInit();
-      const { newWatermark } = await incrementalWideSync(pool, watermark);
-      watermark = newWatermark;
+      const result = await rebuildNoticePublicChanged(pool);
+      if (stopped || result.ids.length === 0) return;
+      await syncNoticeIds(pool, result.ids).catch((err: unknown) => {
+        console.warn("[public-sync] 索引增量同步失败（下轮对账兜底）:", (err as Error).message);
+      });
     } catch (err) {
-      console.warn("[wide-table] 增量同步异常:", (err as Error).message);
+      console.warn("[public-sync] 服务表增量重建异常（下轮再试）:", (err as Error).message);
     }
   }, intervalMs);
-  stopFns.push(() => clearInterval(syncTimer));
+  stopFns.push(() => clearInterval(incremental));
 
-  /**
-   * 级联到 Meilisearch：不健康先自愈，仍失败则标记重建 + 入重试队列（不静默丢弃）。
-   * 仅用于不经 syncWideIds 的删除类变更（如 ghost 行已删宽表行）；
-   * syncWideIds 内部已自带同语义的级联，不要重复调用。
-   */
-  const cascadeToMeili = (ids: number[], label: string) => {
-    if (ids.length === 0) return;
-    void (async () => {
-      if (!isMeiliHealthy()) await tryRecover().catch(() => false);
-      if (!isMeiliHealthy()) {
-        logSyncCascade("meili", ids.length, "retry");
-        requestIndexRebuild("cascade-skipped-unhealthy");
-        enqueueRetry(ids);
-        return;
-      }
-      try {
-        const r = await syncNoticeIds(pool, ids);
-        const processed = r.synced + r.deleted;
-        logSyncCascade("meili", ids.length, processed > 0 ? "ok" : "fail");
-        if (processed < ids.length) enqueueRetry(ids);
-      } catch (err) {
-        console.warn(`[wide-table] ${label} Meilisearch 级联同步失败:`, (err as Error).message);
-        logSyncCascade("meili", ids.length, "fail");
-        enqueueRetry(ids);
-      }
-    })();
-  };
-
-  // 定时器 2：deadline_sec 漂移（分钟级，搜索活跃度过滤依赖它；修复仍走 syncWideIds）
-  // [2026-10-28 事故加固] 该检测是无索引不等式全表 JOIN（实测忙时 3 分钟+），60 秒定时器
-  // 无闸时会多代叠加（曾 3 代并发把 DB 拖死、搜索兜底 15s 超时、全球商机页空窗）。
-  // 单飞：上一轮未跑完直接跳过本 tick。
-  let deadlineScanRunning = false;
-  const reconcileTimer = setInterval(async () => {
-    if (stopped || deadlineScanRunning) return;
-    deadlineScanRunning = true;
+  // 定时器 2：平台公告状态漂移（发布 / 下架）
+  const reconcile = setInterval(async () => {
+    if (stopped || reconciling) return;
+    reconciling = true;
     try {
-      const driftIds = await detectDeadlineDrift(pool);
-      if (driftIds.length > 0) await syncWideIds(pool, driftIds);
+      const drift = await detectPlatformStatusDrift(pool);
+      if (drift.toPurge.length > 0) {
+        await deletePublicRows(pool, drift.toPurge);
+        await purgeNoticeSearch(pool, drift.toPurge);
+      }
+      if (drift.toSync.length > 0) {
+        const result = await rebuildNoticePublicChanged(pool, { force: true });
+        const ids = result.ids.length > 0 ? result.ids : drift.toSync;
+        await syncNoticeIds(pool, ids);
+      }
+      if (drift.toPurge.length > 0 || drift.toSync.length > 0) {
+        console.log(
+          `[public-sync] 平台公告对账：补建=${drift.toSync.length} · 下架=${drift.toPurge.length}`,
+        );
+      }
     } catch (err) {
-      console.warn("[wide-table] deadline 对账异常:", (err as Error).message);
+      console.warn("[public-sync] 平台公告对账异常（下轮再试）:", (err as Error).message);
     } finally {
-      deadlineScanRunning = false;
+      reconciling = false;
     }
   }, reconcileIntervalMs);
-  stopFns.push(() => clearInterval(reconcileTimer));
-
-  // 定时器 3：全量对账（①归一层重建 + 平台可见性集合差 + ghost 清理 + 源指纹轮转）
-  // [2026-10-28 事故加固] 同 deadline 扫描：对账体分钟级，5 分钟定时器无闸会多代叠加。
-  let fullReconcileRunning = false;
-  const fullReconcileTimer = setInterval(async () => {
-    if (stopped || fullReconcileRunning) return;
-    fullReconcileRunning = true;
-    try {
-      // 0) ①归一层增量重建（2026-10-27 管道翻转：主表 → ①服务表 → ②宽表）。
-      //    ①先走，下面的平台/指纹检测才能基于新归一值；单飞+节流在 runner 内部，
-      //    失败仅告警，交下轮再试（平台自录行不依赖同步脚本，靠这里覆盖）。
-      try {
-        await rebuildNoticePublicChanged(pool);
-      } catch (err) {
-        console.warn("[wide-table] 服务表增量重建异常（下轮再试）:", (err as Error).message);
-      }
-
-      // 1) 平台公告状态漂移：先修可见性再做 ghost 清理，避免同一行两路径争抢删除
-      const { toSync: platformSyncIds, toPurge: platformPurgeIds } = await detectPlatformStatusDrift(pool);
-      if (platformPurgeIds.length > 0) await purgeNoticeSearch(pool, platformPurgeIds);
-      if (platformSyncIds.length > 0) await syncWideIds(pool, platformSyncIds);
-
-      // 2) Ghost 行清理（主表已删除 / 平台行转为不可见 / 稳定过期超清退余量）
-      const ghostIds = await reconcileGhostRows(pool);
-
-      // 2.5) 服务表↔宽表存在性对账：清退后复活行（源站延期，id 已在增量水位之下）
-      // 回补宽表，syncWideIds 内部级联 Meili；顺带兜底历史漏同步（2026-11-13 构建时摘除）
-      const wideMissingIds = await detectWideMissingRows(pool);
-      if (wideMissingIds.length > 0) await syncWideIds(pool, wideMissingIds);
-
-      // 3) 源指纹轮转：内容落后于输入的行（取代旧的 5 段手写 UPDATE）
-      const driftIds = await detectWideFingerprintDrift(pool);
-      if (driftIds.length > 0) await syncWideIds(pool, driftIds);
-
-      if (ghostIds.length > 0 || platformSyncIds.length > 0 || platformPurgeIds.length > 0 || driftIds.length > 0 || wideMissingIds.length > 0) {
-        console.log(
-          `[wide-table] 全量对账：ghost=${ghostIds.length} 平台补建=${platformSyncIds.length} ` +
-          `平台清除=${platformPurgeIds.length} 宽表缺行回补=${wideMissingIds.length} 指纹重建=${driftIds.length}`,
-        );
-      }
-      // ghost 行已由 reconcileGhostRows 直接删除，不走 syncWideIds（主表行为不存在），
-      // 因此需单独级联以删除索引文档；平台补建与指纹重建已由 syncWideIds 级联。
-      cascadeToMeili(ghostIds, "ghost-cleanup");
-
-      // 4) 索引孤儿清理：级联删除依赖进程内重试队列（重启即丢），Meili 不健康时整批跳过，
-      //    长期会留下「宽表已删、索引仍可搜」的文档。条数差超阈值才枚举（约 1 分钟），
-      //    避免每轮都对 55 万条做全量扫描。
-      const [idxStats, wideCount] = await Promise.all([getIndexStats(), getWideTableCount(pool)]);
-      if (idxStats && wideCount > 0 && idxStats.numberOfDocuments > wideCount + 100) {
-        const pruned = await pruneOrphanIndexDocs(pool);
-        console.log(
-          `[meilisearch] 索引孤儿清理：枚举 ${pruned.scanned} 条、删除 ${pruned.deleted} 条` +
-          `（索引 ${idxStats.numberOfDocuments} / 宽表 ${wideCount}）`,
-        );
-      }
-    } catch (err) {
-      console.warn("[wide-table] 全量对账异常:", (err as Error).message);
-    } finally {
-      fullReconcileRunning = false;
-    }
-  }, fullReconcileIntervalMs);
-  stopFns.push(() => clearInterval(fullReconcileTimer));
+  stopFns.push(() => clearInterval(reconcile));
 
   return () => {
     stopped = true;

@@ -1,37 +1,67 @@
 /**
- * Meili 文档映射 — 类目属性只有 backbone_node 这一套口径（precise 已随 candidates 表退役）
+ * Meili 文档构建 — 零映射口径（2026-11-28）
  *
- * 钉住三件事：
- * 1. `backbone_node` 只由 `fromBackbonePathColumn` 解析出来，形制不符的脏 token 挡在索引外
- *    （列形制全库一份口径，读侧不许自己 split）；
- * 2. 空列必须落成空数组而不是 null/空串：Meili 对 null 属性不建倒排，写空串又会多一个
- *    永远筛不出来的脏值；
- * 3. backbone_node 必须在 `filterableAttributes` 里、precise_backbone_node 必须不在 ——
- *    前者缺位带该筛选就报未知属性错降级 MySQL，后者残留说明退役没到位。
+ * 钉住四件事：
+ * 1. 文档字段用服务表原生名（title_cn / deadline_ts / notice_type_code / buyer_name /
+ *    has_attachments / estimated_value），不再出现宽表别名（title_zh / deadline_sec /
+ *    notice_type_normalized / documents_count / is_featured / agency / country）；
+ * 2. `deadline_ts` 文档内用 0 表示无截止（服务表 DB 是 NULL），`has_deadline` 只服务排序；
+ * 3. `backbone_node` 由 `fromBackbonePathColumn` 解析，脏 token 挡在索引外，空列落空数组；
+ * 4. 索引 settings 的 filterable 与文档字段一一对应。
  */
 import { describe, it, expect } from "vitest";
 import type { RowDataPacket } from "mysql2/promise";
-import { buildSyncDocFromWideTable } from "@/lib/services/meilisearch/sync";
+import { buildSyncDocFromPublic } from "@/lib/services/meilisearch/sync";
 import { buildNoticeIndexSettings } from "@/lib/services/meilisearch/client";
 
 const doc = (over: Record<string, unknown>) =>
-  buildSyncDocFromWideTable({ id: 1, notice_id: "X", ...over } as unknown as RowDataPacket);
+  buildSyncDocFromPublic({ notice_pk: 1, notice_id: "X", ...over } as unknown as RowDataPacket);
 
-describe("meili 文档类目属性", () => {
-  it("backbone_node 来自 backbone_path，脏 token 不进索引", () => {
-    const d = doc({ backbone_path: "UGT-07,UGT-0702,JUNK,UGT-XY" });
-    expect(d.backbone_node).toEqual(["UGT-07", "UGT-0702"]);
+describe("meili 文档零映射口径", () => {
+  it("字段名 = 服务表原生名，宽表别名一个不留", () => {
+    const d = doc({ title_cn: "标题", deadline_ts: 1790000000, has_attachments: 1 });
+    expect(d.title_cn).toBe("标题");
+    expect(d.deadline_ts).toBe(1790000000);
+    expect(d.has_attachments).toBe(1);
+    for (const legacy of ["title_zh", "deadline_sec", "notice_type_normalized", "documents_count", "is_featured", "agency", "country"]) {
+      expect(d).not.toHaveProperty(legacy);
+    }
   });
 
-  it("空列 / NULL 一律空数组，不写 null 也不写空串", () => {
+  it("无截止：deadline_ts=0、has_deadline=0（文档内部约定，DB 仍是 NULL）", () => {
+    const d = doc({ deadline_ts: null });
+    expect(d.deadline_ts).toBe(0);
+    expect(d.has_deadline).toBe(0);
+  });
+
+  it("country_codes 支持 JSON 数组与逗号串两种来源", () => {
+    expect(doc({ country_codes: ["BR", "AR"] }).country_codes).toEqual(["BR", "AR"]);
+    expect(doc({ country_codes: '["BR","AR"]' }).country_codes).toEqual(["BR", "AR"]);
+  });
+
+  it("backbone_node 来自 backbone_path，脏 token 不进索引；空列落空数组", () => {
+    expect(doc({ backbone_path: "UGT-07,UGT-0702,JUNK,UGT-XY" }).backbone_node).toEqual(["UGT-07", "UGT-0702"]);
     expect(doc({}).backbone_node).toEqual([]);
     expect(doc({ backbone_path: null }).backbone_node).toEqual([]);
     expect(doc({ backbone_path: "" }).backbone_node).toEqual([]);
   });
 
-  it("backbone_node 登记进 filterableAttributes，precise_backbone_node 已退役缺席", () => {
+  it("索引 settings 与文档字段对齐（新属性在、旧别名不在）", () => {
     const filt = buildNoticeIndexSettings().filterableAttributes ?? [];
-    expect(filt).toContain("backbone_node");
-    expect(filt).not.toContain("precise_backbone_node");
+    for (const f of ["country_code", "country_codes", "buyer_name", "notice_type_code", "deadline_ts", "has_attachments", "estimated_value", "is_opportunity", "backbone_node"]) {
+      expect(filt).toContain(f);
+    }
+    for (const legacy of ["country", "agency", "notice_type_normalized", "deadline_sec", "documents_count", "is_featured"]) {
+      expect(filt).not.toContain(legacy);
+    }
+    const searchable = buildNoticeIndexSettings().searchableAttributes ?? [];
+    for (const f of ["title_cn", "description_cn", "title_en", "description_en"]) {
+      expect(searchable).toContain(f);
+    }
+    expect(searchable).not.toContain("title_zh");
+    const sortable = buildNoticeIndexSettings().sortableAttributes ?? [];
+    expect(sortable).toContain("deadline_ts");
+    expect(sortable).not.toContain("deadline_sec");
   });
 });
+

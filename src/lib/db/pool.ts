@@ -70,7 +70,7 @@ export function getPool(): Pool {
  * 后台同步专用连接池（小而独立）
  *
  * [2026-11-15 事故根治] 后台对账定时器（wide-table deadline 漂移扫描）在
- * `bid_notices`(96 万行) × `notice_search`(53 万行) 上做无索引不等式全表 JOIN，
+ * `bid_notices`(96 万行) × 宽表已退役 上做无索引不等式全表 JOIN，
  * 单轮 80 秒以上；此前它和 HTTP 请求共用 10 连接的业务池，一轮就吃掉大半池位，
  * 登录请求排队挂死。分离后后台最多占 2 个连接，业务池 10 个与它互不侵占。
  *
@@ -124,3 +124,4 @@ export async function closePool(): Promise<void> {
   }
   console.log("[db-pool] 连接池已关闭");
 }
+

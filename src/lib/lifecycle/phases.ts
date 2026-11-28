@@ -10,7 +10,7 @@
  *              不产生任何 DDL；账本为空又直接重放迁移会在终态结构上失败（见 db/schema/README.md）。
  *
  *              【已落实，勿再当待办】宽表源指纹列（原迁移 087）已在生产完成：2026-10-08 实测
- *              notice_search.sync_src_hash 存在（char(32) NOT NULL DEFAULT ''），573,018 行中
+ *              宽表 sync_src_hash 曾存在（char(32) NOT NULL DEFAULT ''），573,018 行中
  *              空指纹 0 行、指纹值 573,018 个各不相同；死全文索引 ft_search_en 已清，
  *              precise_levelN 原码污染 0 行；运行期 isFingerprintColumn() 实测返回 true（不再降级）。
  *              因此 ALL_MIGRATIONS 无需再为它挂 001——结构已到位，重挂也只会因幂等而跳过。
@@ -91,3 +91,4 @@ export async function executePhase(phase: Phase, ctx: PhaseContext): Promise<boo
     }
   }
 }
+

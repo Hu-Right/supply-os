@@ -36,13 +36,14 @@ export async function fetchDetailsByIds(
        p.industry, p.registration_level, p.beneficiary_countries,
        p.supplier_conditions, p.eligibility, p.technical_hurdles,
        p.updated_at,
-       s.backbone_path, s.entry_source
+       p.backbone_path
      FROM notice_public p
-     LEFT JOIN notice_search s ON s.id = p.notice_pk
      WHERE p.notice_pk IN (${ids.map(() => "?").join(",")})
      ORDER BY FIELD(p.notice_pk, ${ids.map(() => "?").join(",")})`,
     [...ids, ...ids],
   );
   return rows as RowDataPacket[];
 }
+
+
 

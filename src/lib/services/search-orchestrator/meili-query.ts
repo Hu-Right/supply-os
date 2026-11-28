@@ -48,8 +48,8 @@ type MeiliSearchOutcome = {
  *     有截止日内按 deadline_sec:desc 降序，最远截止日排最前；permanent 排末尾
  */
 function buildSortArr(sort: UnifiedSearchParams["sort"]): string[] {
-  if (sort === "deadline") return ["has_deadline:desc", "deadline_sec:asc", "id:desc"];
-  if (sort === "deadline_farthest") return ["has_deadline:desc", "deadline_sec:desc", "id:desc"];
+  if (sort === "deadline") return ["has_deadline:desc", "deadline_ts:asc", "id:desc"];
+  if (sort === "deadline_farthest") return ["has_deadline:desc", "deadline_ts:desc", "id:desc"];
   // latest：无截止日期的公告始终排在最后（与 deadline/deadline_farthest 口径一致）
   return ["has_deadline:desc", "id:desc"];
 }
@@ -144,4 +144,5 @@ export async function meiliQuery(
     return null;
   }
 }
+
 

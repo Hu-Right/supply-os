@@ -10,7 +10,6 @@ import type { Pool } from "mysql2/promise";
 import { refreshFeaturedColumn } from "../services/notices/index";
 import { refreshNoticeCountries } from "../services/notice-search/index";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
-import { syncWideIds } from "../services/search-sync/index";
 import { classifyMissingDeadlines } from "../services/notice-deadline/backfill";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { cleanupOldSearchLogs } from "../services/search-analytics";
@@ -73,13 +72,9 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   const featuredRefreshTimer = setInterval(async () => {
     try {
       const result = await refreshFeaturedColumn(dbPool);
-      if (result.changedIds.length > 0) {
-        // 同步宽表（is_featured 列）
-        void syncWideIds(dbPool, result.changedIds).catch(() => {});
-        // 同步 Meilisearch 索引
-        if (isMeiliHealthy()) {
-          await syncNoticeIds(dbPool, result.changedIds);
-        }
+      if (result.changedIds.length > 0 && isMeiliHealthy()) {
+        // 同步 Meilisearch 索引（宽表退役后不再有中间一跳）
+        await syncNoticeIds(dbPool, result.changedIds);
       }
     } catch { /* 静默降级 */ }
   }, FEATURED_REFRESH_INTERVAL_MS);
@@ -109,9 +104,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     const includeExpired = String(process.env.DATA_CLEANUP_INCLUDE_EXPIRED ?? "off").toLowerCase() === "on";
     const runDataCleanup = async () => {
       try {
-        await cleanupStaleNoticeData(dbPool, "translations", { includeExpired });
-        await cleanupStaleNoticeData(dbPool, "wide", { includeExpired });
-        // 检索日志保留期（默认 90 天，SEARCH_LOG_RETENTION_DAYS 可配）：
+        await cleanupStaleNoticeData(dbPool, "translations", { includeExpired });        // 检索日志保留期（默认 90 天，SEARCH_LOG_RETENTION_DAYS 可配）：
         // 匿名访客哈希 + 归一化词只用于首页热门搜索聚合，过期即删，避免无上限留存。
         const deletedLogs = await cleanupOldSearchLogs(dbPool);
         if (deletedLogs > 0) {
@@ -349,3 +342,5 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     },
   };
 }
+
+

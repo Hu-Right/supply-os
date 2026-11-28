@@ -7,7 +7,7 @@
  *              调用方通过 enqueue(ids) 入队，队列定时批量处理（去重+合并）。
  */
 import type { Pool } from "mysql2/promise";
-import { syncWideIds } from "./sync-scheduler";
+import { syncNoticeIds } from "../meilisearch";
 
 // 同步队列（Set 自动去重）
 const _syncQueue = new Set<number>();
@@ -68,7 +68,7 @@ export async function processQueue(pool: Pool): Promise<{ synced: number }> {
     }
 
     // 批量同步
-    const result = await syncWideIds(pool, ids);
+    const result = await syncNoticeIds(pool, ids);
 
     // 如果队列还有剩余，继续调度
     if (_syncQueue.size > 0) {
@@ -118,3 +118,4 @@ export function startQueueProcessor(pool: Pool): () => void {
     clearQueue();
   };
 }
+

@@ -1,18 +1,16 @@
 /**
- * 搜索可见性清除出口
- * Search Visibility Purge Outlet
+ * 搜索侧下架（宽表退役后的零映射版）
  *
- * @module server/services/search-visibility/purge
- * @description 「让某公告对公众不可见」的唯一清除出口：删宽表行 + 联动删 Meilisearch
- *              文档 + 失效搜索结果缓存。平台公告状态转非发布、外部后台删除公告等场景
- *              必须走本出口，禁止各处再各写一份 DELETE（口径分叉是宽表震荡缺陷的根因）。
+ * @module lib/services/search-visibility/purge
+ * @description 2026-11-28：宽表退役后不再有“删宽表行 = 从搜索消失”这条路径。
+ *              下架改为三件事，全部不触碰服务表（服务表由构建准入 `PUBLIC_ADMIT_SQL`
+ *              决定是否入表，重建不会把已下架行写回来）：
  *
- *              与 I1（宽表单一写入者）的关系：本模块只做**删除**，不写任何业务列内容；
- *              内容写入的唯一路径仍是 buildWideRow → upsertWideRows。
+ *              1. 删 Meili 索引文档（ghost 判定：主表不可公开可见 → 删除）；
+ *              2. 删节点码倒排表 `notice_search_node` 里的行；
+ *              3. 失效搜索缓存。
  *
- *              级联语义复用 syncNoticeIds：宽表行已删 + 主表行不可公开可见 ⇒ 删索引文档
- *              （见 meilisearch/sync.ts 的 ghost 判定），不在此处直连 Meili 客户端，
- *              避免第二套「删除文档」实现与重试/降级路径分叉。
+ *              返回值保留为「受影响公告数」，语义从“删宽表行数”变为“请求下架条数”。
  */
 import type { Pool } from "mysql2/promise";
 import { syncNoticeIds } from "../meilisearch";
@@ -23,34 +21,26 @@ import { deleteNoticeNodes } from "../search-sync/notice-nodes";
 const PURGE_BATCH = 500;
 
 /**
- * 从搜索侧彻底移除指定公告（宽表行 + 索引文档 + 结果缓存）。
- * @returns 宽表实际删除行数
+ * 从搜索侧彻底移除指定公告（索引文档 + 节点码倒排 + 结果缓存）。
+ * @returns 请求下架的公告数（去重后）
  */
 export async function purgeNoticeSearch(pool: Pool, ids: number[]): Promise<number> {
   const clean = [...new Set(ids.filter((id) => Number.isFinite(id) && id > 0))];
   if (clean.length === 0) return 0;
 
-  let deleted = 0;
   for (let i = 0; i < clean.length; i += PURGE_BATCH) {
     const batch = clean.slice(i, i + PURGE_BATCH);
-    const placeholders = batch.map(() => "?").join(",");
-    const [res] = await pool.query(
-      `DELETE FROM notice_search WHERE id IN (${placeholders})`,
-      batch,
-    );
-    deleted += Number((res as { affectedRows?: number }).affectedRows ?? 0);
-    // 级联删索引文档：宽表已无行 + 主表不可公开可见 → syncNoticeIds 的 ghost 判定命中删除分支
+    // 删索引文档：主表不可公开可见 → syncNoticeIds 的 ghost 判定命中删除分支
     await syncNoticeIds(pool, batch).catch((err: unknown) => {
       console.warn("[search-purge] Meilisearch 级联删除失败（交由定时对账兜底）:", (err as Error).message);
     });
   }
   invalidateSearchCache();
-  // 节点码倒排表跟着宽表行一起走：宽表行已不存在，桥表留残行就等于「凭空多出一条
-  // 挂在某个节点码上的公告」，读侧从倒排方向能把它们查出来。失败必报，不静默。
+  // 节点码倒排表同样要清：留残行等于「凭空多出一条挂在某个节点码上的公告」。
   try {
     await deleteNoticeNodes(pool, clean);
   } catch (err) {
     console.error(`[notice-nodes] 清除 ${clean.length} 条公告的节点码行失败:`, (err as Error).message);
   }
-  return deleted;
+  return clean.length;
 }

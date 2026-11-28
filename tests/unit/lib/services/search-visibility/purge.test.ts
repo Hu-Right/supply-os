@@ -1,10 +1,15 @@
 /**
- * 平台公告可见性清除出口（I3）
+ * 搜索侧下架出口（I3）
+ *
+ * 2026-11-28 宽表退役：下架不再删宽表行，改为
+ * - 委托 syncNoticeIds 删除 Meili 文档（ghost 判定）；
+ * - 删节点码倒排表 `notice_search_node`；
+ * - 失效搜索缓存。
  *
  * 不变量：
- * - 先删宽表行，再委托 syncNoticeIds 联动删除 Meili 文档与失效搜索缓存；
- * - 空入参零 SQL 调用（防误清空）；
- * - 去重 + 非法 id 过滤 + 分批上限 500，避免超长 IN。
+ * - 空入参零调用（防误清空）；
+ * - 去重 + 非法 id 过滤 + 分批上限 500，避免超长 IN；
+ * - 不再触碰服务表/宽表的任何行（服务表准入由构建决定）。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Pool } from "mysql2/promise";
@@ -21,9 +26,6 @@ vi.mock("@/lib/services/search-common/sync-events", () => ({
   invalidateSearchCache: () => invalidateSearchCache(),
 }));
 
-// 节点码倒排表的级联删除：本文件守的是「purge 必须级联」这条合同，而不是
-// notice-nodes 内部的实现（它自己另有 23 条单测）。不 mock 的话本文件的
-// query 调用次数断言会跟着它的「表存在性缓存」走，用例之间隐性耦合。
 const deleteNoticeNodes = vi.fn(async (_pool: unknown, _ids: number[]) => 0);
 vi.mock("@/lib/services/search-sync/notice-nodes", () => ({
   deleteNoticeNodes: (pool: unknown, ids: number[]) => deleteNoticeNodes(pool, ids),
@@ -39,7 +41,7 @@ function makePool() {
 describe("purgeNoticeSearch", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("空数组：不发任何 SQL，不动缓存", async () => {
+  it("空数组：不发任何调用，不动缓存", async () => {
     const { pool, query } = makePool();
     expect(await purgeNoticeSearch(pool, [])).toBe(0);
     expect(query).not.toHaveBeenCalled();
@@ -48,24 +50,19 @@ describe("purgeNoticeSearch", () => {
     expect(deleteNoticeNodes).not.toHaveBeenCalled();
   });
 
-  it("单个 id：删宽表行 + 级联 Meili + 失效缓存，返回受影响行数", async () => {
+  it("单个 id：级联删 Meili 文档 + 节点码倒排 + 失效缓存，不删 DB 行", async () => {
     const { pool, query } = makePool();
     expect(await purgeNoticeSearch(pool, [42])).toBe(1);
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining("DELETE FROM notice_search WHERE id IN (?)"),
-      [42],
-    );
-    // 桥表跟删：宽表行没了而节点码还挂着 = 从倒排方向能查出一条不存在的公告
-    expect(deleteNoticeNodes).toHaveBeenCalledWith(pool, [42]);
+    expect(query).not.toHaveBeenCalled();
     expect(syncNoticeIds).toHaveBeenCalledWith(pool, [42]);
+    expect(deleteNoticeNodes).toHaveBeenCalledWith(pool, [42]);
     expect(invalidateSearchCache).toHaveBeenCalledTimes(1);
   });
 
   it("去重 + 过滤非法 id + 分批（600 个 → 2 批）", async () => {
-    const { pool, query } = makePool();
+    const { pool } = makePool();
     const ids = Array.from({ length: 600 }, (_, i) => i + 1);
-    await purgeNoticeSearch(pool, [...ids, 1, 2, Number.NaN, -3, 0]);
-    expect(query).toHaveBeenCalledTimes(2);
+    expect(await purgeNoticeSearch(pool, [...ids, 1, 2, Number.NaN, -3, 0])).toBe(600);
     expect(syncNoticeIds).toHaveBeenCalledTimes(2);
   });
 });

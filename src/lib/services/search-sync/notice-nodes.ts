@@ -111,7 +111,7 @@ export function __resetNoticeNodesCache(): void {
 }
 
 export interface NoticeNodesRowInput {
-  /** 公告主键 id（=bid_notices.id=notice_search.id） */
+  /** 公告主键 id（=bid_notices.id=notice_public.notice_pk） */
   id: number;
   /** 宽表列值原文；空串/NULL 表示该公告没有节点码（桥表里必须一行都不留） */
   backbone_path?: string | null;
@@ -255,14 +255,14 @@ export async function detectNoticeNodesMismatchIds(pool: Pool, ids: readonly num
     const batch = clean.slice(i, i + ID_CHUNK);
     const ph = batch.map(() => "?").join(",");
     const [rows] = await pool.query(
-      `SELECT ns.id,
+      `SELECT ns.notice_pk AS id,
               IF(ns.backbone_path IS NULL OR ns.backbone_path = '', 0,
                  CHAR_LENGTH(ns.backbone_path) - CHAR_LENGTH(REPLACE(ns.backbone_path, ',', '')) + 1) want,
               IFNULL(t.got, 0) got
-       FROM notice_search ns
+       FROM notice_public ns
        LEFT JOIN (SELECT notice_id, COUNT(*) got FROM ${NOTICE_NODES_TABLE}
-                  WHERE notice_id IN (${ph}) GROUP BY notice_id) t ON t.notice_id = ns.id
-       WHERE ns.id IN (${ph})`,
+                  WHERE notice_id IN (${ph}) GROUP BY notice_id) t ON t.notice_id = ns.notice_pk
+       WHERE ns.notice_pk IN (${ph})`,
       [...batch, ...batch],
     );
     for (const r of rows as RowDataPacket[]) {
@@ -272,3 +272,4 @@ export async function detectNoticeNodesMismatchIds(pool: Pool, ids: readonly num
   }
   return bad;
 }
+

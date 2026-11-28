@@ -2,7 +2,7 @@
  * 索引孤儿清理（pruneOrphanIndexDocs）回归
  *
  * 钉住三条不变量：
- * 1. 只删「宽表 notice_search 已无此行」的索引文档，宽表仍存在的一律保留；
+ * 1. 只删「服务表 notice_public 已无此行」的索引文档，宽表仍存在的一律保留；
  * 2. 必须先枚举完全部页再统一删——边翻页边删会让 offset 前移，后半段被整段跳过；
  * 3. Meili 不健康时直接跳过，不产生任何删除。
  */
@@ -38,7 +38,7 @@ function makePool(live: number[]) {
   const set = new Set(live);
   const query = vi.fn(async (_sql: string, params?: unknown[]) => {
     const ids = (params as number[]) ?? [];
-    return [ids.filter((id) => set.has(id)).map((id) => ({ id }))];
+    return [ids.filter((id) => set.has(id)).map((id) => ({ notice_pk: id }))];
   });
   return { pool: { query } as unknown as Pool, query };
 }

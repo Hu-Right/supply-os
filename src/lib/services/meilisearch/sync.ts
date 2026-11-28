@@ -8,13 +8,10 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { TasksOrBatchesQuery } from "meilisearch";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { WIDE_LIMITS, truncate } from "../../utils/notice-field-limits";
-import { isStablyExpired, STABLE_EXPIRED_WHERE_NO_ALIAS } from "../../utils/notice-expired";
+import { isStablyExpired, STABLE_EXPIRED_WHERE_PUBLIC } from "../../utils/notice-expired";
 import { fromBackbonePathColumn } from "../commodity/backbone-path";
 import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
-import { SUPPORTED_LANGS } from "../../utils/languages";
 
-// NULL deadline 的哨兵值：0（纪元起点）
-const NULL_DEADLINE_SENTINEL = 0;
 
 /**
  * 宽表读取准入片段（2026-11-13 构建时摘除闭环）：全量/增量同步不灌稳定过期行——
@@ -22,7 +19,7 @@ const NULL_DEADLINE_SENTINEL = 0;
  * 就会「先灌 42 万死行再删」两段式空转。口径 = utils/notice-expired（30 天清退余量），
  * 与宽表 ghost 清退同一谓词，不在此重写第二份。
  */
-export const WIDE_TABLE_SYNC_ADMISSION = "NOT " + STABLE_EXPIRED_WHERE_NO_ALIAS;
+export const WIDE_TABLE_SYNC_ADMISSION = "NOT " + STABLE_EXPIRED_WHERE_PUBLIC;
 
 // ── 机构归一：Meili 从宽表读已归好的 buyer_name（buyer_group 维度 2026-10-31 退役）。
 //（2026-10-31 机构口径收敛：买家实体匹配唯一入口见 buyer/entity-index；旧 agency_aliases 已退役）──
@@ -31,76 +28,53 @@ export const WIDE_TABLE_SYNC_ADMISSION = "NOT " + STABLE_EXPIRED_WHERE_NO_ALIAS;
 //（#8：normalizeNoticeType 已迁至 utils/notice-type.ts，本文件仅保留同步职责）
 
 /**
- * 构建同步文档（从宽表行）：宽表已包含标准化字段和翻译，无需额外处理
- * 导出理由：类目属性由宽表 backbone_path 拆出，写错列名不报错也不变红，
- * 只能由单测直接构行断言（sync-doc.test.ts）。
+ * 构建同步文档（从服务表行，零映射）
+ *
+ * 2026-11-28：宽表退役第一阶段——Meili 文档字段改服务表原生名：
+ * `title_cn/description_cn`、`deadline_ts`、`notice_type_code`、`buyer_name`、
+ * `country_code`、`has_attachments`、`estimated_value`，不再有 title_zh / deadline_sec /
+ * notice_type_normalized / documents_count / is_featured 这些宽表别名。
+ * 文档 `id` 仍是 Meili primaryKey 契约（= 服务表 notice_pk），由构建处显式赋予。
  */
-export function buildSyncDocFromWideTable(r: RowDataPacket) {
-  // 构建多语言翻译字段
-  // description 截断为 2000 字符以控制索引大小（关键词可能出现在较深位置）
-  // 中文分词交由 Meilisearch 原生 configuredLanguages（见 client.ts）统一处理，
-  // 索引与查询两侧口径对称；不再做 jieba 手动预处理（旧实现仅切索引侧、查询侧不分词，
-  // 且 jieba 原生模块缺失时静默降级，导致两侧行为漂移）。
-  const langFields: Record<string, string> = {};
-  for (const lang of SUPPORTED_LANGS) {
-    langFields[`title_${lang}`] = String(r[`title_${lang}`] || "");
-    langFields[`description_${lang}`] = truncate(r[`description_${lang}`] ?? "", WIDE_LIMITS.description);
-  }
-
-  // 类目属性由宽表 backbone_path 经 commodity/backbone-path 的 fromBackbonePathColumn 解析产出
-  // —— 列形制的解析只允许一份，且它会把形制不符的脏 token 挡在索引外（脏值由 BB10 兜住，但
-  // 不能让它污染 backbone_node 这个 filterable 属性）。旧字典的旧品类码 / precise_levelN
-  // 十列已随 B1 退掉，precise_backbone_path 亦随旧品类码 candidates 表退役 ⇒ 公告分类在索引里
-  // 只剩 backbone_node 一条口径。
+export function buildSyncDocFromPublic(r: RowDataPacket) {
+  // 内容语言只有原文 + 中/英（ADR-0024 单语言站 + 供给现实：只有 zh/en 有译文）
+  const countryCodes = Array.isArray(r.country_codes)
+    ? (r.country_codes as unknown[]).map((c) => String(c))
+    : String(r.country_codes ?? "").replace(/^\[|\]$/g, "").split(",").map((s) => s.replace(/["'\s]/g, "")).filter(Boolean);
 
   return {
-    id: Number(r.id),
+    id: Number(r.notice_pk),
     notice_id: String(r.notice_id || ""),
     reference: String(r.reference || ""),
     title: String(r.title || ""),
     description: truncate(r.description, WIDE_LIMITS.description),
-    // 宽表已存储标准化后的值；此处再经 normalizeNoticeType 幂等归一（纵深防御，
-    // 与推荐链路/宽表构建同一函数同一口径，防止历史存量 std 漂移入索引）。
-    // 只落 notice_type_normalized 一个属性：2026-10-15 审计确认原 notice_type 属性是
-    // 同一归一化值的第二份拷贝（settings/检索口径只认 normalized），双写即每文档一个死字段。
-    // 展示/兼容口径：主表原始写法（"Korea"/"US"/"Czech Republic"），**不是 canonical**。
-    // 国别筛选只准走 country_codes（下方数组 facet）；按本属性等值筛会把
-    // 「原始写法 ≠ canonical」的国家整国筛没（2026-11-18~25 事故：韩国 13,733 → 1）。
-    country: String(r.country_name || ""),
-    // 多国可筛 facet：宽表 country_codes 为拆分后的 ISO2 集（逗号分隔），展成数组后
-    // Meili 对数组属性支持 `country_codes = "NG"` 等值命中任一无关项（各国都算命中）。
-    country_codes: String(r.country_codes || "").split(",").map((s) => s.trim()).filter(Boolean),
-    agency: String(r.buyer_name || ""),
-    notice_type_normalized: normalizeNoticeType(r.notice_type_code),
-    deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
-    has_deadline: r.deadline_sec ? 1 : 0, // 排序辅助：NULL 截止日期排到最后（has_deadline:desc 优先）
-    is_featured: r.is_featured ? 1 : 0,
+    title_cn: String(r.title_cn || ""),
+    description_cn: truncate(r.description_cn ?? "", WIDE_LIMITS.description),
+    title_en: String(r.title_en || ""),
+    description_en: truncate(r.description_en ?? "", WIDE_LIMITS.description),
+    // 国别：ISO2 主国家 + 多国 facet（展示国名由前端按码查表，不在索引里冗余原始写法）
+    country_code: String(r.country_code || ""),
+    country_codes: countryCodes,
+    buyer_name: String(r.buyer_name || ""),
+    notice_type_code: normalizeNoticeType(r.notice_type_code),
+    // 截止：文档用 0 表示「无截止」的索引内部约定（服务表 DB 仍是 NULL）；
+    // has_deadline 只服务排序（无截止排末尾），不是业务字段。
+    deadline_ts: r.deadline_ts ? Number(r.deadline_ts) : 0,
+    has_deadline: r.deadline_ts ? 1 : 0,
     is_opportunity: r.is_opportunity ? 1 : 0,
-    // 预算区间可筛数值（宽表 estimated_value 为 DECIMAL，转 number 入 filterable）
-    estimated_value_num: Number(r.estimated_value) || 0,
-    // 「含原始文件」筛选依据
-    documents_count: Number(r.documents_count) || 0,
-    ...langFields,
-    // 品目骨架树筛选属性：宽表 backbone_path 存该公告归属的骨架节点码（UGT-…，含全部祖先，
-    // 由 lib/services/commodity/backbone-path 换算后灌入），商机页五级下拉选到哪一层就等值命中哪一层
-    // （与 filter-builder 的 MySQL 方言同一谓词、同一口径）。
-    // 单值 ≤ 16 字符，不受 Meili 单值 468 字节限制；一个文档里节点项可达数千（实测最大 5,279），
-    // Meili 对数组元素个数无限制。
+    estimated_value: Number(r.estimated_value) || 0,
+    has_attachments: Number(r.has_attachments) || 0,
     backbone_node: fromBackbonePathColumn(r.backbone_path),
   };
 }
 
-/** 从宽表同步的 SQL（单表查询，零 JOIN） */
-// 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
-const WIDE_TABLE_SYNC_SQL = `
-  SELECT id, notice_id, reference, title, description,
-         country_name, country_codes, buyer_name, notice_type_code,
-         deadline_sec, is_featured, is_opportunity, estimated_value, documents_count,
-         backbone_path,
-         title_zh, description_zh, title_en, description_en,
-         title_fr, description_fr, title_ru, description_ru,
-         title_es, description_es, title_ar, description_ar
-  FROM notice_search
+/** 服务表同步 SQL（单表查询，零 JOIN、零别名映射） */
+const PUBLIC_SYNC_SQL = `
+  SELECT notice_pk, notice_id, reference, title, description,
+         title_cn, description_cn, title_en, description_en,
+         country_code, country_codes, buyer_name, notice_type_code,
+         deadline_ts, is_opportunity, estimated_value, has_attachments, backbone_path
+  FROM notice_public
 `;
 
 /**
@@ -169,11 +143,11 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
 
     while (true) {
       const [rows] = await pool.query(
-        WIDE_TABLE_SYNC_SQL + " WHERE id > ? AND " + WIDE_TABLE_SYNC_ADMISSION + " ORDER BY id ASC LIMIT ?",
+        PUBLIC_SYNC_SQL + " WHERE notice_pk > ? AND " + WIDE_TABLE_SYNC_ADMISSION + " ORDER BY notice_pk ASC LIMIT ?",
         [lastId, BATCH]
       );
 
-      const docs = (rows as RowDataPacket[]).map((r) => buildSyncDocFromWideTable(r));
+      const docs = (rows as RowDataPacket[]).map((r) => buildSyncDocFromPublic(r));
       if (docs.length === 0) break;
 
       // addDocumentsInBatches 返回 Promise 数组，需 Promise.all 正确等待全部入队
@@ -276,15 +250,15 @@ export async function incrementalSync(
 
   try {
     const [newRows] = await pool.query(
-      WIDE_TABLE_SYNC_SQL + " WHERE id > ? AND " + WIDE_TABLE_SYNC_ADMISSION + " ORDER BY id ASC LIMIT 5000",
+      PUBLIC_SYNC_SQL + " WHERE notice_pk > ? AND " + WIDE_TABLE_SYNC_ADMISSION + " ORDER BY notice_pk ASC LIMIT 5000",
       [watermark]
     );
 
     let updatedRaw: RowDataPacket[] = [];
     try {
       const [updatedRows] = await pool.query(
-        WIDE_TABLE_SYNC_SQL +
-        " WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY id ASC LIMIT 2000",
+        PUBLIC_SYNC_SQL +
+        " WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY notice_pk ASC LIMIT 2000",
         []
       );
       updatedRaw = updatedRows as RowDataPacket[];
@@ -351,7 +325,7 @@ export async function incrementalSync(
       return { synced: 0, newWatermark };
     }
 
-    const docs = allRaw.map((r) => buildSyncDocFromWideTable(r));
+    const docs = allRaw.map((r) => buildSyncDocFromPublic(r));
     await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, 500, { primaryKey: "id" }));
     // P1-24 安全修复：水位不可回退，取 Math.max 防止低 ID 更新导致周期性全量重灌
     const newWatermark = Math.max(watermark, allRaw[allRaw.length - 1].id);
@@ -406,7 +380,7 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
 
       // 并行查询：宽表（主要字段）+ 主表（is_featured/deadline_sec 权威值 + 可见性判定列）
       const [wideRows, statusRows] = await Promise.all([
-        pool.query(WIDE_TABLE_SYNC_SQL + ` WHERE id IN (${placeholders}) ORDER BY id ASC`, batch),
+        pool.query(PUBLIC_SYNC_SQL + ` WHERE notice_pk IN (${placeholders}) ORDER BY notice_pk ASC`, batch),
         pool.query(
           `SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec,
                   entry_source, IFNULL(rfq_status, '') AS rfq_status
@@ -429,12 +403,11 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
       }
 
       const docs = (wideRows[0] as RowDataPacket[]).map((r) => {
-        const doc = buildSyncDocFromWideTable(r);
-        // 用主表的权威值覆盖宽表值（修复宽表 deadline_sec 不一致问题）
+        const doc = buildSyncDocFromPublic(r);
+        // 用主表权威值覆盖（截止时间可能与服务表快照不一致；精选已由 is_opportunity 表达）
         const status = statusMap.get(doc.id);
         if (status) {
-          doc.is_featured = status.is_featured;
-          doc.deadline_sec = status.deadline_sec;
+          doc.deadline_ts = status.deadline_sec;
           doc.has_deadline = status.deadline_sec > 0 ? 1 : 0;
         }
         return doc;
@@ -505,8 +478,8 @@ export async function pruneOrphanIndexDocs(
     const ids = rows.map((r) => Number(r.id)).filter((id) => Number.isFinite(id) && id > 0);
     if (ids.length > 0) {
       const ph = ids.map(() => "?").join(",");
-      const [existing] = await pool.query(`SELECT id FROM notice_search WHERE id IN (${ph})`, ids);
-      const live = new Set((existing as RowDataPacket[]).map((r) => Number(r.id)));
+      const [existing] = await pool.query(`SELECT notice_pk FROM notice_public WHERE notice_pk IN (${ph})`, ids);
+      const live = new Set((existing as RowDataPacket[]).map((r) => Number(r.notice_pk)));
       for (const id of ids) if (!live.has(id)) orphans.push(id);
     }
 
@@ -536,9 +509,11 @@ export async function getMysqlActiveCount(pool: Pool): Promise<number> {
 /** 获取宽表行数（索引同步的事实源） */
 export async function getWideTableCount(pool: Pool): Promise<number> {
   try {
-    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM notice_search");
+    const [rows] = await pool.query(`SELECT COUNT(*) AS cnt FROM notice_public`);
     return Number((rows as RowDataPacket[])[0]?.cnt || 0);
   } catch {
     return 0;
   }
 }
+
+
