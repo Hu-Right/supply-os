@@ -104,7 +104,7 @@ async function queryWithTransientRetry<T = unknown>(
   pool: Pool,
   sql: string,
   params: unknown[],
-  attempts = 4,
+  attempts = 8,
 ): Promise<[T, unknown]> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
@@ -114,11 +114,13 @@ async function queryWithTransientRetry<T = unknown>(
       lastErr = err;
       const code = String((err as { code?: string }).code ?? "");
       const msg = String((err as Error).message ?? "");
-      const transient = ["PROTOCOL_CONNECTION_LOST", "ECONNRESET", "ETIMEDOUT", "PROTOCOL_SEQUENCE_TIMEOUT"].includes(code)
-        || /Connection lost|server closed the connection|read ECONNRESET/i.test(msg);
+      const transient = ["PROTOCOL_CONNECTION_LOST", "ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EHOSTUNREACH", "PROTOCOL_SEQUENCE_TIMEOUT"].includes(code)
+        || /Connection lost|server closed the connection|read ECONNRESET|ECONNREFUSED/i.test(msg);
       if (!transient || i === attempts - 1) throw err;
-      console.warn(`[meilisearch] 同步查询断连，重试 ${i + 1}/${attempts}: ${msg.slice(0, 120)}`);
-      await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+      // SSH 隧道容器崩溃重启一般 5–20s：指数退避把整轮重建从"一次断连全废"救回来
+      const waitMs = Math.min(30_000, 800 * 2 ** i);
+      console.warn(`[meilisearch] 同步查询断连，重试 ${i + 1}/${attempts}（等待 ${waitMs}ms）: ${msg.slice(0, 120)}`);
+      await new Promise((r) => setTimeout(r, waitMs));
     }
   }
   throw lastErr;
