@@ -920,6 +920,7 @@ export async function backfillPublicEnAndBackbone(
   }
 
   // ② 品目骨架路径
+  // eslint-disable-next-line no-useless-assignment -- 初值仅在「建临时表失败后继续」的极端路径可读，规则按常路径判为无用
   let backboneWritten = 0;
   let scanned = 0;
   await pool.query(`CREATE TEMPORARY TABLE IF NOT EXISTS tmp_np_backbone (

@@ -7,7 +7,6 @@
  */
 import { Meilisearch, type Settings } from "meilisearch";
 import { isMainThread } from "node:worker_threads";
-import { SUPPORTED_LANGS } from "../../utils/languages";
 
 const INDEX_NAME = "notices";
 // 深分页上限：Meilisearch 的 offset 是顺序跳过 N 条，实测（56 万条）
@@ -379,3 +378,4 @@ export async function hasHasDeadlineField(): Promise<boolean | null> {
     return null;
   }
 }
+
