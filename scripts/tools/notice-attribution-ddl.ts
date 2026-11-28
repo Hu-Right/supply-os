@@ -116,17 +116,17 @@ const tbl = await one<{ n: number }>(
 );
 console.log(`表 ${TABLE}：${Number(tbl.n) > 0 ? "已存在" : "不存在"}`);
 
-// 派生列必须在场：宽表还没有 backbone_path 就是环境不对（本表是它的上游事实源）
+// 派生列必须在场：服务表（宽表退役后）还没有 backbone_path 就是环境不对（本表是它的上游事实源）
 const srcCol = await one<{ n: number }>(
-  `SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='notice_search' AND column_name='backbone_path'`,
+  `SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='notice_public' AND column_name='backbone_path'`,
 );
 if (Number(srcCol.n) === 0) {
-  console.log("✗ 宽表没有 backbone_path 列：本库还没跑过上一轮 DDL，先确认环境再建表");
+  console.log("✗ 服务表没有 backbone_path 列：先执行迁移 089（宽表退役三列）再建表");
   await conn.end();
   process.exit(1);
 }
 const src = await one<{ notices: number }>(
-  `SELECT COUNT(*) notices FROM notice_search WHERE backbone_path IS NOT NULL AND backbone_path <> ''`,
+  `SELECT COUNT(*) notices FROM notice_public WHERE backbone_path IS NOT NULL AND backbone_path <> ''`,
 );
 console.log(`灌入源：${src.notices} 条公告已有归属列（本表建成后由 backfill 脚本压出落点）`);
 

@@ -11,7 +11,6 @@
  *
  *              关联口径（已按 INFORMATION_SCHEMA 实际结构核实）：
  *              - notice_translations.notice_id（BIGINT）→ bid_notices.id
- *              - notice_search.notice_id（VARCHAR）→ bid_notices.notice_id（外部编号）
  *
  *              过期口径与桥接表一致：主表 deadline_sec 早于当前时间视为已失效
  *              （2026-11-19 起 bid_notices 已删除 is_expired 列，改按 deadline_sec 实时判定）；
@@ -25,7 +24,7 @@ import { type CleanupTarget, type CleanupOptions, type CleanupStats, runStaleDat
 
 const logger = createLogger("data-cleanup");
 
-export type CleanupTargetKey = "translations" | "wide";
+export type CleanupTargetKey = "translations";
 
 /** 清理目标配置表 */
 export const CLEANUP_TARGETS: Record<CleanupTargetKey, CleanupTarget> = {
@@ -36,14 +35,6 @@ export const CLEANUP_TARGETS: Record<CleanupTargetKey, CleanupTarget> = {
     joinColumn: "notice_id",
     mainJoinColumn: "id",
     backupPrefix: "notice_translations_backup",
-  },
-  // 宽表 notice_id 是外部公告编号（与主表 notice_id 同源，与桥接表一致）
-  wide: {
-    table: "notice_search",
-    idColumn: "id",
-    joinColumn: "notice_id",
-    mainJoinColumn: "notice_id",
-    backupPrefix: "notice_search_backup",
   },
 };
 
@@ -78,4 +69,6 @@ export async function cleanupStaleNoticeData(
   };
   return runStaleDataCleanup(pool, target, options, prefixedLogger);
 }
+
+
 

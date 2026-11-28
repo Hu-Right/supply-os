@@ -49,9 +49,9 @@ describe("公告侧", () => {
     pathOf.mockReturnValue({ codes: CHAIN_5, deepest: [], misses: [], tiers: {} });
     const pool = makePool([[{ p: CHAIN_5.join(",") }], [{ supplier_id: 7, code: "42101503" }]]);
     const data = await loadMatchNodeData(pool, 1, [7]);
-    expect(sqls[0]).toContain("notice_search");
+    expect(sqls[0]).toContain("notice_public");
     expect(sqls[0]).toContain("backbone_path");
-    expect(sqls[0]).toMatch(/id = \?/);
+    expect(sqls[0]).toMatch(/notice_pk = \?/);
     expect(sqls[0]).not.toMatch(/crm_bid_notice_\w*_codes\b|bid_notices|level[1-5]_id/);
     expect([...data.noticeNodes]).toEqual(CHAIN_5);
   });
@@ -151,3 +151,5 @@ describe("fail-safe 与短路", () => {
     expect(data.noticeNodes.size).toBe(0);
   });
 });
+
+

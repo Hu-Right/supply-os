@@ -74,39 +74,51 @@ try {
 const q = async <T>(sql: string): Promise<T[]> => ((await conn.query(sql)) as unknown as [T[]])[0];
 
 /** 活跃口径（宽表）：与 MEILI_ACTIVE_FILTER / ACTIVE_NOTICE_WHERE 同判据，仅字段名不同 */
-const WIDE_ACTIVE = "(deadline_sec = 0 OR deadline_sec >= UNIX_TIMESTAMP(NOW()))";
+// 宽表退役（2026-11-28）：CS1/CS2 改读主表原始写法（country）；服务表只存归一后的 ISO2 码，
+// 不再有原始国名可比对。
+const ACTIVE_SRC = "(n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))";
 
 try {
   await conn.query(`SET SESSION MAX_EXECUTION_TIME = ${MAX_EXEC_MS}`);
   const snap = await loadCountryAliasSnapshot(conn as never);
   if (snap.byKey.size === 0) fails.push("CS0 别名表快照为空（表不存在或未灌数）");
 
-  // CS1 零表缺口：按写法去重
+  // CS1 零表缺口：按写法去重。
+  // 宽表退役后读主表原始写法；区域命中（kind=region，如 "Latin America and Caribbean"）
+  // 是合法形态（构建期落 ZZ 多国码），不算缺口——与 notice-core 的口径一致。
   const writings = await q<{ raw: string; cnt: number }>(
-    `SELECT country_name AS raw, COUNT(*) cnt FROM notice_search
-      WHERE ${WIDE_ACTIVE} AND country_name <> ''
-      GROUP BY country_name`,
+    `SELECT n.country AS raw, COUNT(*) cnt FROM bid_notices n
+      JOIN notice_public p ON p.notice_pk = n.id
+      WHERE ${ACTIVE_SRC} AND n.country <> ''
+      GROUP BY n.country`,
   );
   let gaps = 0;
   const gapSample: string[] = [];
   for (const r of writings) {
-    if (resolveCountries(String(r.raw), snap).unresolved) {
+    const resolved = resolveCountries(String(r.raw), snap);
+    const regionOnly = resolved.refs.some((ref) => ref.kind === "region");
+    if (resolved.unresolved && !regionOnly) {
       gaps += Number(r.cnt);
       if (gapSample.length < 20) gapSample.push(JSON.stringify(r.raw));
     }
   }
 
-  // CS2 回填一致：逐写法×存量值 与现算比对。
-  //   - 集合比较：country_codes 是码集，回填脚本按 GROUP_CONCAT(... ORDER BY code) 字母序，
-  //     现算按别名解析序，两者顺序不同不算漂移（旧实现按字符串比，多国行会永久红）。
-  //   - 截断容忍：宽表 country_name 构建期截断 100 字符，长多国串的「期望集」只能算到截断处，
-  //     而存量是服务表按完整原文算出的全集 ⇒ 截断行的正确关系是「期望 ⊆ 存量」，不是相等。
-  const splitCodes = (s: unknown) => new Set(String(s ?? "").split(",").map((x) => x.trim()).filter(Boolean));
+  // CS2 回填一致：主表原始写法 → 现算码集 vs 服务表投影的 country_codes。
+  //   宽表退役后服务表是唯一投影，比较对象改为 notice_public.country_codes（JSON 数组）。
+  const splitCodes = (s: unknown) =>
+    new Set(
+      String(s ?? "")
+        .replace(/[[\]"'\s]/g, "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+    );
   const isSubset = (sub: Set<string>, sup: Set<string>) => [...sub].every((c) => sup.has(c));
   const dist = await q<{ raw: string; codes_stored: string; cnt: number }>(
-    `SELECT country_name AS raw, country_codes AS codes_stored, COUNT(*) cnt FROM notice_search
-      WHERE ${WIDE_ACTIVE} AND country_name <> ''
-      GROUP BY country_name, country_codes`,
+    `SELECT n.country AS raw, p.country_codes AS codes_stored, COUNT(*) cnt
+       FROM bid_notices n JOIN notice_public p ON p.notice_pk = n.id
+      WHERE ${ACTIVE_SRC} AND n.country <> ''
+      GROUP BY n.country, p.country_codes`,
   );
   let drift = 0;
   const driftSample: string[] = [];
@@ -114,7 +126,7 @@ try {
     const raw = String(d.raw);
     const stored = splitCodes(d.codes_stored);
     const expected = new Set(countryCodesOf(resolveCountries(raw, snap)));
-    const truncated = raw.length >= 100; // 与 buildWideRow 的 .slice(0, 100) 对齐
+    const truncated = raw.length >= 100; // 主表 country 文本可能超长截断
     const ok = truncated
       ? isSubset(expected, stored)
       : expected.size === stored.size && isSubset(expected, stored);
@@ -160,3 +172,4 @@ try {
 } finally {
   await conn.end();
 }
+

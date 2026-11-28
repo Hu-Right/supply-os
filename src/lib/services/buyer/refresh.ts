@@ -21,7 +21,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { rebuildPublicRowsByIds } from "../notice-public/rebuild";
-import { syncWideIds } from "../search-sync/sync-scheduler";
+import { syncNoticeIds } from "../meilisearch";
 import { invalidateSearchCache } from "../search-common/sync-events";
 
 /** 单次 IN 查询上限（notice_pk 无 buyer_id 索引时也避免构造超长语句） */
@@ -73,7 +73,7 @@ export async function refreshBuyerProjection(
   // ① 服务表投影（唯一写入者链路；buyer_id/name/name_cn 由 buildPublicRow 重新求值）
   const rewritten = await rebuildPublicRowsByIds(pool, ids);
   // ② 宽表投影（buyer_name 从服务表读；内部级联 Meili 增量同步）
-  const { synced } = await syncWideIds(pool, ids);
+  const { synced } = await syncNoticeIds(pool, ids);
   // ③ 搜索结果缓存失效（内存缓存不感知宽表写入）
   invalidateSearchCache();
 
@@ -82,3 +82,4 @@ export async function refreshBuyerProjection(
   );
   return { noticeIds: ids, rewritten, wideSynced: synced };
 }
+

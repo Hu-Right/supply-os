@@ -9,7 +9,7 @@ import type { NoticeDetailRepo } from "../../repos/notices/notice-detail.repo";
 import type { NoticeTranslationRepo } from "../../repos/notices/notice-translation.repo";
 import { preferValue } from "../../utils/json";
 import { findQualifiedOpportunityForNotice } from "../notices";
-import { syncWideIds } from "../search-sync/index";
+import { syncNoticeIds } from "../meilisearch";
 import { syncNoticeTitleCn } from "../notice-public/build";
 import { TRANSLATION_MODEL } from "../../utils/notice-field-limits";
 import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
@@ -292,7 +292,7 @@ async function handleFullTranslation(
     await translationRepo.upsertTranslation(noticeId, "zh", String(notice.title || ""), null, TRANSLATION_MODEL.SAME_LANG);
   await syncNoticeTitleCn(dbPool, noticeId, String(notice.title || "")).catch(() => undefined);
     // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
-    void syncWideIds(dbPool, [noticeId]).catch(() => {});
+    void syncNoticeIds(dbPool, [noticeId]).catch(() => {});
     return { lang: "zh", title: String(notice.title || ""), description: zhDescCn, cached: false, source: "description_cn", passthrough: true };
   }
 
@@ -306,7 +306,7 @@ async function handleFullTranslation(
         if (titleResult.provider !== TRANSLATION_MODEL.SAME_LANG && titleResult.translations[0]) {
           await translationRepo.upsertTranslation(noticeId, lang, titleResult.translations[0], null, titleResult.provider);
           // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
-          void syncWideIds(dbPool, [noticeId]).catch(() => {});
+          void syncNoticeIds(dbPool, [noticeId]).catch(() => {});
         }
       } catch { /* 异步标题翻译失败不影响当前响应 */ }
     })();
@@ -337,7 +337,7 @@ async function handleFullTranslation(
     const descToCachePass = zhDescCn ? null : (translations[1] || null);
     await translationRepo.upsertTranslation(noticeId, lang, translations[0], descToCachePass, provider);
     if (lang === "zh") await syncNoticeTitleCn(dbPool, noticeId, translations[0]).catch(() => undefined);
-    void syncWideIds(dbPool, [noticeId]).catch(() => {});
+    void syncNoticeIds(dbPool, [noticeId]).catch(() => {});
     return { lang, title: translations[0], description: zhDescCn || translations[1], cached: false, passthrough: true };
   }
   // 有 description_cn 时仅缓存标题翻译，描述走 description_cn 直出
@@ -372,4 +372,5 @@ async function handleFullTranslation(
 
   return { lang, title: translations[0], description: zhDescCn || translations[1], cached: false, source: zhDescCn ? "description_cn" : "chain" };
 }
+
 

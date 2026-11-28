@@ -39,7 +39,7 @@ describe("公告过期常量", () => {
 
   it("MEILI_ACTIVE_FILTER 使用 {now} 占位符", () => {
     expect(MEILI_ACTIVE_FILTER).toContain("{now}");
-    expect(MEILI_ACTIVE_FILTER).toContain("deadline_sec = 0");
+    expect(MEILI_ACTIVE_FILTER).toContain("deadline_ts = 0");
   });
 });
 
@@ -103,3 +103,4 @@ describe("toBeijingUnixTs", () => {
     expect(ts).toBe(expected);
   });
 });
+

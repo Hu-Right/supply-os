@@ -115,12 +115,12 @@ export const ACTIVE_NOTICE_WHERE_NO_ALIAS =
 /**
  * Meilisearch 索引侧等价 filter
  *
- * 与 MySQL 侧 ACTIVE_NOTICE_WHERE 语义一致：
- * - deadline_sec = 0 → 无截止日期（永不过期，含 deadline_ts IS NULL 和 deadline_ts = 0）
- * - deadline_sec >= 当前时间戳 → 未过期
+ * 与 MySQL 侧 ACTIVE_NOTICE_WHERE 语义一致（零映射后字段名 = 服务表原生名）：
+ * - deadline_ts = 0 → 文档约定「无截止日期」（对应服务表 NULL，永不过期）
+ * - deadline_ts >= 当前时间戳 → 未过期
  */
 export const MEILI_ACTIVE_FILTER =
-  "(deadline_sec = 0 OR deadline_sec >= {now})";
+  "(deadline_ts = 0 OR deadline_ts >= {now})";
 
 // ── 管线清退口径（2026-11-13 用户拍板：构建时摘除，物理归档退为二期备选）──────────
 //
@@ -151,6 +151,16 @@ export const STABLE_EXPIRED_WHERE =
 /** 同上，无表别名版（子查询/无别名场景） */
 export const STABLE_EXPIRED_WHERE_NO_ALIAS =
   `(deadline_sec > 0 AND deadline_sec < UNIX_TIMESTAMP(NOW()) - ${PIPELINE_EXPIRY_GRACE_SECONDS})`;
+
+/**
+ * 服务表口径的稳定过期谓词（`notice_public.deadline_ts`，NULL 表示无截止）。
+ *
+ * 与主表口径的差别只在「无截止」的表示：主表是 `deadline_sec = 0`，服务表是 NULL。
+ * 宽表退役后 Meili 同步/检索读服务表，必须用这一版，否则 NULL 参与比较会把
+ * 「长期有效」的公告静默排除。
+ */
+export const STABLE_EXPIRED_WHERE_PUBLIC =
+  `(deadline_ts IS NOT NULL AND deadline_ts > 0 AND deadline_ts < UNIX_TIMESTAMP(NOW()) - ${PIPELINE_EXPIRY_GRACE_SECONDS})`;
 
 /**
  * JS 侧稳定过期判定（与 STABLE_EXPIRED_WHERE 同口径，构建单行镜像用）。

@@ -55,7 +55,7 @@ describe("热门品目按骨架 L1 聚合", () => {
   });
 
   it("有效公告谓词保持字面内联（与 utils/notice-expired 同一口径，静态扫描不吃插值）", () => {
-    expect(HOT_TOP_GROUPS_SQL).toContain("(ns.deadline_sec = 0 OR ns.deadline_sec >= UNIX_TIMESTAMP(NOW()))");
+    expect(HOT_TOP_GROUPS_SQL).toContain("(ns.deadline_ts IS NULL OR ns.deadline_ts = 0 OR ns.deadline_ts >= UNIX_TIMESTAMP(NOW()))");
   });
 
   it("响应只给 {code, nameZh, count}：L1 树码即大类身份，树名即展示名（G 码退役后唯一口径）", async () => {
@@ -70,3 +70,4 @@ describe("热门品目按骨架 L1 聚合", () => {
     expect(pool.query).toHaveBeenCalledTimes(1);
   });
 });
+

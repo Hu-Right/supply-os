@@ -167,7 +167,7 @@ export async function recommendNotices(
       `SELECT ${selectList}
        FROM bid_notices n
        ${clauses.join}
-       INNER JOIN notice_search ns ON ns.id = n.id
+       INNER JOIN notice_public ns ON ns.notice_pk = n.id
        LEFT JOIN notice_amount_cache amc ON amc.notice_id = n.id
        ${trJoin}
        ${treJoin}
@@ -235,3 +235,4 @@ export async function recommendNotices(
 export { recomputeRecoWeightProfile } from "./weight-profile";
 export { AB_TREATMENT_PCT, recoVariant } from "./ab-testing";
 export { tokenizeNoticeText, jaccardTokenSim, S_TEXT_BONUS, getUserUnlockKeywords } from "./text-similarity";
+

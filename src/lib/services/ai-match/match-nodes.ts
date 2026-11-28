@@ -71,7 +71,7 @@ export async function loadMatchNodeData(
   try {
     // 公告侧：宽表主键点查，列值拆只走 fromBackbonePathColumn（脏 token 进不了集合）
     const [noticeRows] = await pool.query(
-      `SELECT backbone_path AS p FROM notice_search WHERE id = ? LIMIT 1`,
+      `SELECT backbone_path AS p FROM notice_public WHERE notice_pk = ? LIMIT 1`,
       [noticeId],
     );
     const noticeNodes = new Set(fromBackbonePathColumn((noticeRows as RowDataPacket[])[0]?.p));
@@ -106,3 +106,4 @@ export async function loadMatchNodeData(
     return emptyData();
   }
 }
+

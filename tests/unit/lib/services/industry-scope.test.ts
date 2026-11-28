@@ -43,7 +43,7 @@ function makeCatalog(opts: { scoped?: boolean; bypass?: boolean; industryCode?: 
 let wideRows: RowDataPacket[] = [];
 const query = vi.fn(async (sql: string, _params?: unknown[]) => {
   const s = String(sql);
-  if (s.includes("notice_search")) return [wideRows];
+  if (s.includes("notice_public")) return [wideRows];
   return [[]];
 });
 const pool = { query } as unknown as Pool;
@@ -140,14 +140,14 @@ describe("canAccessNotice · 大类命中检查（宽表 backbone_path 口径）
     warn.mockRestore();
   });
 
-  it("口径铁则：只点查宽表 ns.id，不得再碰桥表与旧字典 level1_id", async () => {
+  it("口径铁则：只点查服务表 notice_pk，不得再碰桥表与旧字典 level1_id", async () => {
     wideRows = wide("UGT-85");
     await canAccessNotice(pool, makeCatalog({ scoped: true }), 42, 9007);
     // 大类翻译查询已消失（L1 由码前缀推导），命中检查就是唯一一次查库
     const sql = String(query.mock.calls.at(-1)![0]);
-    expect(sql).toContain("notice_search");
+    expect(sql).toContain("notice_public");
     expect(sql).toContain("backbone_path");
-    expect(sql).toContain("WHERE id = ?");
+    expect(sql).toContain("WHERE notice_pk = ?");
     expect(sql).not.toMatch(/crm_bid_notice_\w*_codes\b/);
     expect(sql).not.toContain("bid_notices");
     expect(sql).not.toMatch(/level1_id/);
@@ -203,4 +203,6 @@ describe("opportunityInCategory · 商机侧（经关联公告宽表口径）", 
     expect(await opportunityInCategory(pool, 80, "UGT-85")).toBe(false);
   });
 });
+
+
 

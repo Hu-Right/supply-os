@@ -5,7 +5,7 @@
  * 数据源 = hot-topics 的骨架 L1「包含」口径（标称数 = 点进去搜索能兑现的条数），
  * 不新写聚合 SQL，也不退回旧品类字典。点击进入 /procurement?commodity=CODE 组合筛选。
  *
- * 为什么不给每个品目做独立详情页：notice_search.backbone_path 无可用索引，
+ * 为什么不给每个品目做独立详情页：backbone_path 无可用索引，
  * 单条详情页需要对该列做全表 FIND_IN_SET 扫描（实测 3.3s/次），
  * 数量级上不适合按页缓存；列表能力已由 /procurement 承担。
  */
@@ -125,3 +125,4 @@ export default async function IndustriesHubPage() {
     </div>
   );
 }
+

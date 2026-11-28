@@ -11,6 +11,7 @@
 import type { Pool } from "mysql2/promise";
 import type { ProjectRow } from "./projects";
 import { deletePublicRows } from "@/lib/services/notice-public/build";
+import { purgeNoticeSearch } from "@/lib/services/search-visibility/purge";
 
 const SHANGHAI_OFFSET_SEC = 8 * 3600;
 
@@ -167,14 +168,12 @@ export async function markProjectionClosed(db: Pool, noticePk: number, at: numbe
 export async function removeProjection(db: Pool, noticePk: number | null): Promise<void> {
   if (!noticePk) return;
   await db.query("DELETE FROM bid_notices WHERE id = ? AND entry_source = 'platform'", [noticePk]);
-  // 服务宽表/搜索宽表是物化投影，删主表不会级联；撤回后若不清，公告列表仍能读到旧行
+  // 服务表是物化投影，删主表不会级联；撤回后若不清，公告列表仍能读到旧行
   await deletePublicRows(db, [noticePk]);
-  try {
-    await db.query("DELETE FROM notice_search WHERE id = ?", [noticePk]);
-  } catch (err) {
-    // 某些环境未启用 notice_search（历史宽表）；清理失败不应阻断撤回
-    console.warn("[procurement] 清理 notice_search 失败（继续）:", (err as Error).message);
-  }
+  // 检索侧同步下架（索引文档 + 节点码倒排 + 缓存），不再有宽表行可删
+  await purgeNoticeSearch(db, [noticePk]).catch((err: unknown) => {
+    console.warn("[procurement] 搜索侧下架失败（继续）:", (err as Error).message);
+  });
   // 守护销账：v2 撤投影是删行，不销账守护对账会误报「主行已不存在」
   await db.query("DELETE FROM rfq_guard WHERE rfq_id = ?", [noticePk]);
 }

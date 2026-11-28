@@ -50,7 +50,7 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
 
   // 当前公告的节点码：宽表派生列按主键点查（与筛选谓词同一列，不存在第二份口径）
   const [curWide] = await pool.query<RowDataPacket[]>(
-    `SELECT backbone_path p FROM notice_search WHERE id = ? LIMIT 1`,
+    `SELECT backbone_path p FROM notice_public WHERE notice_pk = ? LIMIT 1`,
     [noticeDbId],
   );
   if (curWide.length === 0) {
@@ -101,7 +101,7 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
   const wideIds = [...peers.values()].map((p) => p.wideId).filter((x) => Number.isFinite(x) && x > 0);
   if (wideIds.length === 0) return [];
   const [pathRows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, backbone_path p FROM notice_search WHERE id IN (${wideIds.map(() => "?").join(",")})`,
+    `SELECT notice_pk AS id, backbone_path p FROM notice_public WHERE notice_pk IN (${wideIds.map(() => "?").join(",")})`,
     wideIds,
   );
   const wideToExt = new Map<number, string>();
@@ -135,3 +135,4 @@ export async function findSimilarNotices(
   const details = await fetchDetailsByIds(pool, ids, locale || "en"); // FIELD 保留相似排序
   return formatItems(details) as unknown as RowDataPacket[];
 }
+

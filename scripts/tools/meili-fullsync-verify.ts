@@ -73,9 +73,9 @@ o.push(`  全清单：${filt.join(", ")}`);
 if (!filt.includes("backbone_node") || filt.includes("precise_backbone_node")) bad++;
 
 const stats = await client.index(name).getStats();
-const wide = await q<{ n: number }>(`SELECT COUNT(*) n FROM notice_search`);
+const wide = await q<{ n: number }>(`SELECT COUNT(*) n FROM notice_public`);
 o.push(`\n==== 2. 覆盖率 ====`);
-o.push(`  Meili ${stats.numberOfDocuments} 文档 / 宽表 ${wide[0]!.n} 行`);
+o.push(`  Meili ${stats.numberOfDocuments} 文档 / 服务表 ${wide[0]!.n} 行`);
 
 // 3. 逐档对拍：Meili 等值筛 vs MySQL FIND_IN_SET（同一谓词两种方言）
 //    码样必须两侧都有量：拿一个树上不存在（或零公告）的码去对拍，0==0 恒等，断言没有牙。
@@ -83,12 +83,12 @@ o.push(`  Meili ${stats.numberOfDocuments} 文档 / 宽表 ${wide[0]!.n} 行`);
 const CODES = ["UGT-01", "UGT-0101", "UGT-010101", "UGT-100701", "UGT-240203"];
 o.push(`\n==== 3. 节点码筛数对拍（Meili filter vs MySQL FIND_IN_SET）====`);
 for (const code of CODES) {
-  const hit = await client.index(name).search("", { filter: [`backbone_node = "${code}"`], limit: 0 });
+  const hit = await client.index(name).search("", { filter: [`backbone_node = "${code}"`], limit: 1 });
   // SDK 的分页联合类型不直接暴露 totalHits（同一绕法见 search-orchestrator/meili-query.ts）
   const counts = hit as unknown as { totalHits?: number | null; estimatedTotalHits?: number | null };
   const meiliN = Number(counts.totalHits ?? counts.estimatedTotalHits ?? -1);
   const my = await q<{ n: number }>(
-    `SELECT COUNT(*) n FROM notice_search WHERE FIND_IN_SET(?, backbone_path)`,
+    `SELECT COUNT(*) n FROM notice_public WHERE FIND_IN_SET(?, backbone_path)`,
     [code],
   );
   const mysqlN = Number(my[0]!.n);
@@ -111,3 +111,5 @@ console.log(o.join("\n"));
 console.log(bad === 0 ? "\n✅ 端到端验真通过" : `\n✗ ${bad} 项不一致`);
 await pool.end();
 process.exit(bad === 0 ? 0 : 1);
+
+

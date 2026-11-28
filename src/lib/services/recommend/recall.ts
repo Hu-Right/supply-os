@@ -173,7 +173,7 @@ export async function deadlineFallback(
   const [fallbackRows] = await pool.query(
     `SELECT ${selectList}
      FROM bid_notices n
-     LEFT JOIN notice_search ns ON ns.id = n.id
+     LEFT JOIN notice_public ns ON ns.notice_pk = n.id
      ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
   const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ensureNoticePk({
     // Suministros BUG 修复：同推荐主查询，notice_type 归一化对齐宽表口径
@@ -193,3 +193,4 @@ export async function deadlineFallback(
     total: Number((cntRow as RowDataPacket).total), page, pageSize, fallback: "deadline",
   };
 }
+

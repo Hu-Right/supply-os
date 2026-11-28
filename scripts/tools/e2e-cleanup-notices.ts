@@ -2,7 +2,7 @@
  * E2E 公告数据清理（主表 / 服务表 / 宽表 / 译文 / Meilisearch）
  *
  * @module scripts/tools/e2e-cleanup-notices
- * @description 发布链的 RFQ 会镜像成公告（bid_notices / notice_public / notice_search），
+ * @description 发布链的 RFQ 会镜像成公告（bid_notices / notice_public），
  *              只删 procurement_projects 时 RFQ 广场仍会从公告表/索引里读出来。
  *              本脚本按【E2E】标记 / OSPR-2026-0001xx 编号 / E2E 机构名清理整条链路。
  *
@@ -40,11 +40,6 @@ async function main(): Promise<void> {
   const [pub] = await pool.query<RowDataPacket[]>(`SELECT notice_pk FROM notice_public WHERE ${WHERE_PUBLIC}`);
   for (const r of pub) ids.add(Number(r.notice_pk));
 
-  const [wide] = await pool.query<RowDataPacket[]>(
-    "SELECT id FROM notice_search WHERE title LIKE '%【E2E】%' OR reference LIKE 'OSPR-2026-0001%' OR buyer_name LIKE '%E2E%'",
-  );
-  for (const r of wide) ids.add(Number(r.id));
-
   const list = [...ids];
   if (list.length === 0) {
     console.log("[notices] 没有待清理的 E2E 公告");
@@ -53,7 +48,6 @@ async function main(): Promise<void> {
   const inClause = list.map(() => "?").join(",");
 
   const [t1] = await pool.query(`DELETE FROM notice_translations WHERE notice_id IN (${inClause})`, list);
-  const [t2] = await pool.query(`DELETE FROM notice_search WHERE id IN (${inClause})`, list);
   // 服务表唯一写入者是 notice-public/build.ts（N1 红线）：删除也走它的导出函数
   const publicDeleted = await deletePublicRows(pool, list);
   const [t4] = await pool.query(`DELETE FROM bid_notices WHERE id IN (${inClause})`, list);
@@ -75,7 +69,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `[notices] ids=${list.join(",")}：translations ${(t1 as { affectedRows?: number }).affectedRows ?? 0}、search ${(t2 as { affectedRows?: number }).affectedRows ?? 0}、public ${publicDeleted}、notices ${(t4 as { affectedRows?: number }).affectedRows ?? 0}`,
+    `[notices] ids=${list.join(",")}：translations ${(t1 as { affectedRows?: number }).affectedRows ?? 0}、public ${publicDeleted}、notices ${(t4 as { affectedRows?: number }).affectedRows ?? 0}`,
   );
 }
 
@@ -86,3 +80,4 @@ main()
     await pool.end();
     process.exit(1);
   });
+

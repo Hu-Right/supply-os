@@ -79,9 +79,9 @@ export function hotTopGroupsSql(limit: number): string {
   return `
   SELECT b.code AS code, b.name_zh, COUNT(*) AS cnt
   FROM commodity_backbone b
-  JOIN notice_search ns ON ns.backbone_path <> '' AND FIND_IN_SET(b.code, ns.backbone_path)
+  JOIN notice_public ns ON ns.backbone_path <> '' AND FIND_IN_SET(b.code, ns.backbone_path)
   WHERE b.level = 1 AND b.status = 1
-    AND (ns.deadline_sec = 0 OR ns.deadline_sec >= UNIX_TIMESTAMP(NOW()))
+    AND (ns.deadline_ts IS NULL OR ns.deadline_ts = 0 OR ns.deadline_ts >= UNIX_TIMESTAMP(NOW()))
   GROUP BY b.code, b.name_zh
   ORDER BY cnt DESC
   LIMIT ${n}`;
@@ -122,3 +122,4 @@ export async function getHotTopics(pool: Pool): Promise<HotTopics> {
 export function clearHotTopicsCache(): void {
   hotTopicsCache = null;
 }
+

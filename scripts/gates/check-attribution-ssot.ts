@@ -235,11 +235,16 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
         ids,
       );
       const cols = await q<{ pk: number; col: string | null }>(
-        `SELECT id pk, backbone_path col FROM notice_search WHERE id IN (${ph})`,
+        `SELECT notice_pk pk, backbone_path col FROM notice_public WHERE notice_pk IN (${ph})`,
         ids,
       );
+      // 只审「服务表里有行」的公告：宽表退役后派生列只存在于 notice_public，
+      // 未准入（无服务表行）的落点本来就无列可比，把它们当 AS3 半写是误报。
+      const withColumn = new Set(cols.map((x) => Number(x.pk)));
       const r = auditLanding(
-        landings.map((x) => ({ pk: Number(x.pk), code: String(x.code), source: String(x.source) })),
+        landings
+          .filter((x) => withColumn.has(Number(x.pk)))
+          .map((x) => ({ pk: Number(x.pk), code: String(x.code), source: String(x.source) })),
         cols.map((x) => ({ pk: Number(x.pk), col: String(x.col ?? "") })),
       );
       all.push(...r.violations);
@@ -248,7 +253,7 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
     }
     // AS4 走 SQL 反连接：分批喂给纯函数会把「本批没取到列值」假报成断供
     const orphan = await q<{ n: number }>(
-      `SELECT COUNT(*) n FROM notice_search ns LEFT JOIN \`${TABLE}\` a ON a.notice_pk = ns.id
+      `SELECT COUNT(*) n FROM notice_public ns LEFT JOIN \`${TABLE}\` a ON a.notice_pk = ns.notice_pk
          WHERE ns.backbone_path IS NOT NULL AND ns.backbone_path <> '' AND a.notice_pk IS NULL`,
     );
     const orphanN = Number(orphan[0]?.n ?? 0);
@@ -258,9 +263,9 @@ async function runDb(): Promise<{ all: string[]; stats: ContractStats }> {
       all.push(`AS4 断供：${orphanN} 条公告有列值但落点表零行 ⇒ 切读那一刻会被清成 NULL`);
       // 只报总数等于让人再跑一次 SQL：顺手取 10 个 pk 当样本（仍只读）
       const sample = await q<{ pk: number }>(
-        `SELECT ns.id pk FROM notice_search ns LEFT JOIN \`${TABLE}\` a ON a.notice_pk = ns.id
+        `SELECT ns.notice_pk pk FROM notice_public ns LEFT JOIN \`${TABLE}\` a ON a.notice_pk = ns.notice_pk
            WHERE ns.backbone_path IS NOT NULL AND ns.backbone_path <> '' AND a.notice_pk IS NULL
-           ORDER BY ns.id LIMIT 10`,
+           ORDER BY ns.notice_pk LIMIT 10`,
       );
       if (sample.length) all.push(`AS4 样本 pk：${sample.map((r) => r.pk).join(" ")}`);
     }
@@ -318,3 +323,5 @@ if (fails.length) {
   process.exit(1);
 }
 console.log("✓ 落点表契约通过（AS1 无混源 / AS2 legacy 派生逐条等于列值 / AS3 无半写 / AS4 无断供 / AS5 无换源）");
+
+

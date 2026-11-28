@@ -46,7 +46,6 @@ export interface NoticeListItem {
   titleEn?: string;
   descriptionEn?: string;
   backbonePath?: string;
-  entrySource?: string;
   coreLocked?: boolean;
   breakdownFileCount?: number;
   contactCount?: number;
@@ -120,6 +119,7 @@ export interface NoticeResponse {
   needsIndustrySelection?: boolean;
   matchRelaxed?: boolean;
 }
+
 
 
 

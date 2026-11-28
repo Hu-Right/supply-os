@@ -11,7 +11,7 @@
 import type { Pool } from "mysql2/promise";
 import { classifyDeadline } from "./classify";
 import { rebuildPublicRowsByIds } from "../notice-public/rebuild";
-import { syncWideIds } from "../search-sync/sync-scheduler";
+import { syncNoticeIds } from "../meilisearch";
 
 export interface ClassifyMissingResult {
   /** 本轮实际分类的条数 */
@@ -78,12 +78,14 @@ export async function classifyMissingDeadlines(
     [values],
   );
 
-  // 落库后不直写服务表/宽表（红线：notice_public 与 notice_search 均为单一写入者）：
+  // 落库后不直写服务表/宽表（红线：notice_public 是唯一写入者）：
   // 服务表截止列（deadline_state/type/timezone/deadline_ts）本就是 buildPublicRow
   // LEFT JOIN notice_deadline 的投影，按 id 交回唯一写入者重建；宽表再经 syncWideIds 跟进。
   const classifiedIds = batch.map((r) => Number(r.id));
   await rebuildPublicRowsByIds(pool, classifiedIds);
-  await syncWideIds(pool, classifiedIds);
+  await syncNoticeIds(pool, classifiedIds);
 
   return { classified: classifiedIds.length, byState };
 }
+
+

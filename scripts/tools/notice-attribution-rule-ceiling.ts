@@ -128,7 +128,7 @@ for (;;) {
   if (want <= 0) break;
   const list = await q<{ id: number; notice_id: string; title: string; head: string | null; title_zh: string }>(
     `SELECT n.id, n.notice_id, n.title, LEFT(n.description, 500) head, IFNULL(w.title_zh,'') title_zh
-       FROM bid_notices n LEFT JOIN notice_search w ON w.id = n.id
+       FROM bid_notices n LEFT JOIN notice_public w ON w.notice_pk = n.id
       WHERE n.id > ? AND ${queueWhere}${STRIDE > 1 ? ` AND MOD(n.id, ${STRIDE}) = 1` : ""}
       ORDER BY n.id LIMIT ${want}`,
     [lastId],
@@ -186,3 +186,4 @@ console.log(`\n✓ 样本（人工逐条判读用，含证据名）→ runtime/r
 console.log(`  读法：single 那条若「标题标的 = 命中节点名」则规则可直落；名对而标的不符就是误命中，须把该词从白拿口径里剔出去。`);
 console.log(`  报表存档 → runtime/rule-ceiling-${STAMP}.txt 由调用方 tee 保存（本脚本只写样本 TSV）`);
 await conn.end();
+

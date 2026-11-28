@@ -17,7 +17,7 @@ import {
   translateNoticeViaChain,
 } from "./notice";
 import { findQualifiedOpportunityForNotice } from "../notices/index";
-import { syncWideIds } from "../search-sync/index";
+import { syncNoticeIds } from "../meilisearch";
 import { syncNoticeTitleCn } from "../notice-public/build";
 import { TRANSLATION_MODEL } from "../../utils/notice-field-limits";
 import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
@@ -89,7 +89,7 @@ export async function getNoticeTranslation(
             await translationRepo.upsertTranslation(noticeId, "zh", title, null, TRANSLATION_MODEL.SAME_LANG);
             await syncNoticeTitleCn(pool, noticeId, title).catch(() => undefined);
             // 通过统一路径同步宽表
-            void syncWideIds(pool, [noticeId]).catch(() => {});
+            void syncNoticeIds(pool, [noticeId]).catch(() => {});
           } else {
             // 原文非中文：立即返回原文标题，标题翻译异步执行（下次访问命中缓存）
             void (async () => {
@@ -99,7 +99,7 @@ export async function getNoticeTranslation(
                 if (result.provider !== TRANSLATION_MODEL.SAME_LANG && result.translations[0]) {
                   await translationRepo.upsertTranslation(noticeId, "zh", result.translations[0], null, result.provider);
                   await syncNoticeTitleCn(pool, noticeId, result.translations[0]).catch(() => undefined);
-                  void syncWideIds(pool, [noticeId]).catch(() => {});
+                  void syncNoticeIds(pool, [noticeId]).catch(() => {});
                 }
               } catch {
                 /* 异步标题翻译失败不影响当前响应 */
@@ -124,7 +124,7 @@ export async function getNoticeTranslation(
 
     // 通过统一路径同步宽表
     if (result.title && !result.cached) {
-      void syncWideIds(pool, [noticeId]).catch(() => {});
+      void syncNoticeIds(pool, [noticeId]).catch(() => {});
     }
 
     return result;
@@ -138,3 +138,4 @@ export async function getNoticeTranslation(
     throw err;
   }
 }
+

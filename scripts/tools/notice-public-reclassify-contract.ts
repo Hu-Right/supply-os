@@ -18,9 +18,8 @@ import mysql, { type RowDataPacket } from "mysql2/promise";
 import { classifyBareContractNotice } from "../../src/shared/constants/notice-type";
 import { rebuildPublicRowsByIds } from "../../src/lib/services/notice-public/rebuild";
 import { buildPublicColumnRollbackSql } from "../../src/lib/services/notice-public/build";
-import { syncNoticeIds } from "../../src/lib/services/meilisearch/sync";
 import { tryRecover } from "../../src/lib/services/meilisearch/client";
-import { syncWideIds } from "../../src/lib/services/search-sync";
+import { syncNoticeIds } from "../../src/lib/services/meilisearch";
 
 const APPLY = process.argv.includes("--apply");
 const SYNC = process.argv.includes("--sync");
@@ -75,7 +74,7 @@ if (!APPLY && !SYNC_ONLY && !WIDE_ONLY) {
 
 if (SYNC_ONLY || WIDE_ONLY) {
   const healthy = await tryRecover();
-  const wide = await syncWideIds(pool, [...plan.keys()]);
+  const wide = await syncNoticeIds(pool, [...plan.keys()]);
   const res = await syncNoticeIds(pool, [...plan.keys()]);
   console.log("宽表重建：", JSON.stringify(wide), "Meili 同步：", JSON.stringify(res), healthy ? "" : "（Meili 不可达）");
   await pool.end();
@@ -112,9 +111,10 @@ console.log("重建后分布：", JSON.stringify(after));
 
 if (SYNC) {
   await tryRecover();
-  const wide = await syncWideIds(pool, ids);
+  const wide = await syncNoticeIds(pool, ids);
   const res = await syncNoticeIds(pool, ids);
   console.log("宽表重建：", JSON.stringify(wide), "Meili 同步：", JSON.stringify(res), res.synced === 0 ? "（Meili 未启用/不可达，本次未同步）" : "");
 }
 
 await pool.end();
+

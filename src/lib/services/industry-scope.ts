@@ -113,7 +113,7 @@ export async function checkNoticeCategory(
   pool: Pool, noticeDbId: number, l1Nodes: readonly string[],
 ): Promise<NoticeCategoryCheck> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT backbone_path AS p FROM notice_search WHERE id = ? LIMIT 1`,
+    `SELECT backbone_path AS p FROM notice_public WHERE notice_pk = ? LIMIT 1`,
     [noticeDbId],
   );
   const nodes = fromBackbonePathColumn(rows[0]?.p);
@@ -147,7 +147,7 @@ export async function opportunityInCategory(pool: Pool, opportunityId: number, l
     `SELECT ns.backbone_path AS p
        FROM bid_opportunities o
        JOIN bid_notices n ON n.notice_id = o.source_notice_id
-       JOIN notice_search ns ON ns.id = n.id
+       JOIN notice_public ns ON ns.notice_pk = n.id
       WHERE o.id = ? LIMIT 1`,
     [opportunityId],
   );
@@ -173,3 +173,4 @@ export async function canAccessNotice(
   if (!hasCategoryData) return true; // 公告本身无码：按可见处理，不把整站锁死
   return inCategory;
 }
+
