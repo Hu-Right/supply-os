@@ -2,13 +2,34 @@
 --
 -- 生成方式：node --env-file=.env scripts/tools/dump-schema-baseline.mjs
 -- 生成口径：仅 BASE TABLE，按表名升序，排除影子/备份表，剔除 AUTO_INCREMENT 计数。
---           源库共 157 张，导出 141 张，排除 16 张。
+--           源库共 152 张，导出 141 张，排除 11 张。
 -- 目标内核：MySQL 8.0 / utf8mb4（服务端默认 collation utf8mb4_0900_ai_ci，
 --   innodb_ft_min_token_size=3、ngram_token_size=2 均为 8.0 出厂值，无需额外启动参数）。
 -- 注意：本文件只建结构、不含数据；业务数据的事实源是数据库本身，不入仓、不在代码里造。
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
+
+-- ── account_deletion_requests ──
+CREATE TABLE `account_deletion_requests` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL COMMENT '申请注销的用户',
+  `identifier` varchar(200) NOT NULL DEFAULT '' COMMENT '申请时账号标识（手机/邮箱快照，便于人工核验）',
+  `reason` varchar(500) DEFAULT NULL COMMENT '用户填写的注销原因',
+  `contact` varchar(200) DEFAULT NULL COMMENT '用户留的回联方式',
+  `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT 'pending / processing / done / rejected',
+  `cooling_until` datetime DEFAULT NULL COMMENT '冷静期结束时间；到期前不可执行注销',
+  `blockers` varchar(500) DEFAULT NULL COMMENT '提交时阻塞项快照（未支付订单/未完成发票等），JSON 数组',
+  `handled_by` varchar(100) DEFAULT NULL COMMENT '处理人',
+  `handled_note` varchar(500) DEFAULT NULL COMMENT '处理说明（拒绝原因 / 执行结果）',
+  `notified_at` datetime DEFAULT NULL COMMENT '结果通知发送时间；NULL=待通知',
+  `notified_channel` varchar(16) DEFAULT NULL COMMENT 'email / sms / skipped',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_status_created` (`status`,`created_at`),
+  KEY `idx_user` (`user_id`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='账号注销申请（自助提交 + 人工核验执行）';
 
 -- ── account_menu ──
 CREATE TABLE `account_menu` (
@@ -1195,6 +1216,9 @@ CREATE TABLE `notice_public` (
   `has_attachments` tinyint(1) GENERATED ALWAYS AS ((coalesce(json_length(`attachments`),0) > 0)) VIRTUAL COMMENT '是否有可下载附件（虚拟生成列，由 attachments 自动计算；规模条/检索过滤用）',
   `share_summary` varchar(300) DEFAULT NULL COMMENT '分享卡摘要（中文，≤90 字，构建期生成；空则读侧回退标题）',
   `share_summary_en` varchar(300) DEFAULT NULL COMMENT '分享卡摘要（英文，≤180 字符，构建期生成；空则读侧回退标题）',
+  `title_en` varchar(1000) DEFAULT NULL COMMENT '英文标题（翻译表 lang=en；宽表退役后替代 notice_search.title_en）',
+  `description_en` longtext COMMENT '英文正文（翻译表 lang=en）',
+  `backbone_path` mediumtext COMMENT '品目骨架路径（UGT 节点码含祖先，逗号分隔；替代 notice_search.backbone_path）',
   PRIMARY KEY (`notice_pk`),
   UNIQUE KEY `uq_notice_id` (`notice_id`),
   KEY `idx_deadline` (`deadline_ts`),
@@ -1817,6 +1841,9 @@ CREATE TABLE `procurement_projects` (
   `incoterm_version` varchar(20) DEFAULT NULL COMMENT 'Incoterms 版本（如 2020/2010）',
   `batch_delivery` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否分批采购/分批交付（F02 数量要求）',
   `batch_note` varchar(500) DEFAULT NULL COMMENT '分批说明（批次/频次/每批数量）',
+  `funding_source` varchar(40) DEFAULT NULL COMMENT '资金来源：government 政府预算 / intl_aid 国际援助 / self_funded 企业自筹 / other 其他',
+  `contracting_mode` varchar(24) DEFAULT NULL COMMENT '签约模式：direct 供应商直签 / consolidated 外贸主体归集出口（NULL=待定）',
+  `qty_tolerance` varchar(20) DEFAULT NULL COMMENT '溢短装（数量允差），如 ±5%；NULL=未说明',
   `cert_requirements` json DEFAULT NULL COMMENT '认证要求（F02）：[{code,name,custom,mandatory,note,requireValid}]，未收录项 custom=true 自输入',
   `delivery_country_code` char(2) DEFAULT NULL COMMENT '交付国家 ISO 3166-1 alpha-2；delivery_country 保留名称快照',
   `incoterm_place` varchar(120) DEFAULT NULL COMMENT 'Incoterms 指定地点/港口（如 Shanghai / 上海港）；与 incoterm + version 配套',
@@ -2251,8 +2278,9 @@ CREATE TABLE `supplier` (
   `info_review_status` varchar(20) NOT NULL DEFAULT 'unreviewed' COMMENT 'unreviewed=未审核/reviewed=已审核（信息完整度/真实性人工审核；门户展示门槛）',
   `license_url` varchar(500) DEFAULT NULL COMMENT '营业执照图片URL',
   `certification_tags` json DEFAULT NULL COMMENT '认证规范标签数组：certification 文本解析派生，如 ["ISO9001","CE"]',
-  `data_quality_score` decimal(5,2) NOT NULL DEFAULT '0.00' COMMENT '资料完整度评分（100 分制加权，服务层计算落库；见 supplier/quality.ts）',
   `certification_meta` json DEFAULT NULL COMMENT '证书有效期等元数据：{code:{validUntil,noExpiry}}',
+  `commodity_code_count` int unsigned NOT NULL DEFAULT '0' COMMENT '品目码去重条数（supplier_backbone_interests 由触发器维护）',
+  `data_quality_score` decimal(5,2) GENERATED ALWAYS AS (round(((((((((((((((((((case when ((`industry_code` is not null) and (trim(`industry_code`) <> _utf8mb4'')) then 10 else 0 end) + (case when ((`products` is not null) and (trim(`products`) <> _utf8mb4'')) then 7 else 0 end)) + (case when (`commodity_code_count` = 0) then 0 when (`commodity_code_count` <= 2) then 6 when (`commodity_code_count` <= 5) then 11 else 15 end)) + (case when (coalesce(json_length(`certification_tags`),0) = 0) then 0 when (json_length(`certification_tags`) <= 2) then 5 when (json_length(`certification_tags`) <= 5) then 9 else 13 end)) + (case when ((`contact` is not null) and (trim(`contact`) <> _utf8mb4'')) then 6 else 0 end)) + (case when ((`phone` is not null) and (trim(`phone`) <> _utf8mb4'')) then 6 else 0 end)) + (case when ((`email` is not null) and (trim(`email`) <> _utf8mb4'')) then 6 else 0 end)) + (case when ((`position` is not null) and (trim(`position`) <> _utf8mb4'')) then 3 else 0 end)) + (case when ((`website` is not null) and (trim(`website`) <> _utf8mb4'')) then 4 else 0 end)) + (case when ((`credit_code` is not null) and (trim(`credit_code`) <> _utf8mb4'')) then 8 else 0 end)) + (case when ((`legal_rep` is not null) and (trim(`legal_rep`) <> _utf8mb4'')) then 4 else 0 end)) + (case when (`established_at` is not null) then 3 else 0 end)) + (case when (`registered_capital` is not null) then 3 else 0 end)) + (case when ((`license_url` is not null) and (trim(`license_url`) <> _utf8mb4'')) then 2 else 0 end)) + (case when ((`country` is not null) and (trim(`country`) <> _utf8mb4'')) then 1 else 0 end)) + (case when ((`province` is not null) and (trim(`province`) <> _utf8mb4'')) then 2 else 0 end)) + (case when ((`city` is not null) and (trim(`city`) <> _utf8mb4'')) then 2 else 0 end)) + (case when ((`address` is not null) and (trim(`address`) <> _utf8mb4'')) then 5 else 0 end)),1)) STORED COMMENT '资料完整度(0-100，STORED 生成列)：可搜索匹配45=行业10+产品7+品目码(0/1-2/3-5/6+→0/6/11/15，取 commodity_code_count 触发器维护)+资质(0/1-2/3-5/6+→0/5/9/13)；可触达25=联系人6+电话6+邮箱6+职位3+官网4；可信信息20=信用代码8+法人4+成立日期3+注册资本3+执照2；地域10=国家1+省2+市2+地址5',
   PRIMARY KEY (`id`),
   KEY `idx_verify_status` (`verify_status`,`id`),
   KEY `idx_credit_code` (`credit_code`),
@@ -2364,28 +2392,15 @@ CREATE TABLE `supplier_diagnosis` (
   `company_name` varchar(255) NOT NULL COMMENT '主体名称快照（仅用于历史可读，不参与评分与编辑）',
   `english_evidence_level` varchar(40) NOT NULL COMMENT 'D2 可即时提供的英文投标资料程度',
   `english_meeting_capability` varchar(40) NOT NULL COMMENT 'D2 英文供应商答疑会与视频澄清会能力',
-  `tender_experience` varchar(40) NOT NULL COMMENT 'D3 近24个月国际公共采购投标实际情况',
-  `tender_amount_band` varchar(40) NOT NULL COMMENT 'D3 最近一次投标金额量级',
-  `procurement_frameworks` varchar(255) NOT NULL COMMENT 'D3 熟悉的采购文件体系（逗号分隔多选）',
-  `mandatory_docs` varchar(500) NOT NULL DEFAULT '' COMMENT 'V3 起不再询问（保留列：AI 画像契约仍读，历史值保留）',
-  `ungm_status` varchar(40) NOT NULL COMMENT 'D5 UNGM 注册状态',
   `compliance_governance` varchar(40) NOT NULL COMMENT 'D5 合规专岗与整改机制',
   `technical_response` varchar(40) NOT NULL COMMENT 'D6 按标书逐条技术响应与证明能力',
   `cost_pricing` varchar(40) NOT NULL COMMENT 'D7 报价成本核算方式',
-  `incoterms_capability` varchar(40) NOT NULL COMMENT 'D7 多贸易条款报价能力',
-  `payment_terms` varchar(40) NOT NULL COMMENT 'D7 是否接受30天以上国际账期',
-  `export_scale` varchar(40) NOT NULL COMMENT 'D7 近2年出口与国际业务规模',
-  `submission_control` varchar(40) NOT NULL COMMENT 'D8 标书提交前复核流程',
-  `deliver_to_site` varchar(40) NOT NULL COMMENT 'D9 能否交付至项目现场国',
-  `service_countries` text NOT NULL COMMENT 'D9 有售后点、服务站或维修点的国家清单',
-  `overseas_companies` text NOT NULL COMMENT 'D9 有海外分公司投资公司的国家清单',
   `team_discipline` varchar(40) NOT NULL COMMENT 'D10 投标团队人数与台账纪律',
   `target_markets` varchar(255) NOT NULL DEFAULT '' COMMENT 'V3 目标市场（scope 码逗号分隔：EU/US/SA/…，与 supplier_certifications.scope 同码；空=未填，资质分级输出待补充）',
-  `bid_willingness` varchar(10) NOT NULL DEFAULT '是' COMMENT '投标意愿（V3 起表单不再询问，提交即视为愿意；历史快照保留原值；仅线索标记不参与计分）',
   `qual_grade` varchar(2) DEFAULT NULL COMMENT 'V3 资质分级快照（A 可立即入驻 / B 补1-2项 / C 需系统建设；NULL=未分级）',
   `qual_breakdown` json DEFAULT NULL COMMENT 'V3 资质比对明细（应备清单+来源/已持/缺失/目标市场）',
   `qual_scored_at` datetime DEFAULT NULL COMMENT 'V3 资质分级快照时间',
-  `schema_version` tinyint unsigned NOT NULL DEFAULT '5' COMMENT '口径代次（5=V5 统一评分；历史代次不互比不重算）',
+  `schema_version` tinyint unsigned NOT NULL DEFAULT '3' COMMENT '口径代次（3=V3 统一评分；历史代次不互比不重算）',
   `score_total` decimal(4,1) DEFAULT NULL COMMENT '评分快照总分（满分100，投标能力线）',
   `score_grade` varchar(2) DEFAULT NULL COMMENT '评分快照等级 A/B/C（投标能力线）',
   `score_breakdown` json DEFAULT NULL COMMENT '10 维度得分明细快照（含依据与人工补充标记）',
@@ -2395,35 +2410,28 @@ CREATE TABLE `supplier_diagnosis` (
   `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   `report_ai` json DEFAULT NULL COMMENT '历史遗留列（本仓已无引用）；换表原样保留，退役另立迁移',
   `export_entity` varchar(40) NOT NULL DEFAULT '' COMMENT 'D1 出口主体资质（V3 新增：经营权/海关备案/外汇/退税）',
-  `cert_ledger` varchar(40) NOT NULL DEFAULT '' COMMENT 'D4 资质台账与有效期管理（V3 换题）',
-  `cert_delivery` varchar(40) NOT NULL DEFAULT '' COMMENT 'D4 被要求时的取证时效（V3 换题）',
   `local_presence` varchar(40) NOT NULL DEFAULT '' COMMENT '资格事实：目标市场的本地实体/代理/服务点',
-  `similar_projects_band` varchar(40) NOT NULL DEFAULT '' COMMENT '资格事实：近三年类似项目份数',
-  `largest_contract_band` varchar(40) NOT NULL DEFAULT '' COMMENT '资格事实：最大单份合同金额段',
-  `annual_revenue_band` varchar(40) NOT NULL DEFAULT '' COMMENT '资格事实：年营业额段',
-  `audit_report` varchar(40) NOT NULL DEFAULT '' COMMENT '资格事实：审计报告与银行资信',
-  `local_service_terms` varchar(40) NOT NULL DEFAULT '' COMMENT '资格事实：是否接受本地服务与质保条款',
-  `checklist_state` json DEFAULT NULL COMMENT '执行清单勾选状态（V3）：{"市场|标准":{done,note,owner,due}}',
   `technical_differentiation` varchar(40) NOT NULL DEFAULT '' COMMENT '技术差异化（专利/专有工艺/同类案例）',
   `delivery_model` varchar(40) NOT NULL DEFAULT '' COMMENT '交付模式（自营/代理/合资/分包）',
-  `service_response` varchar(40) NOT NULL DEFAULT '' COMMENT '售后响应能力（无/SLA/本地备件到场）',
   `project_control` varchar(40) NOT NULL DEFAULT '' COMMENT '项目进度质量风险控制',
-  `market_experience` varchar(40) NOT NULL DEFAULT '' COMMENT '目标市场同类客户/项目经验',
-  `target_channels` varchar(255) NOT NULL DEFAULT '' COMMENT 'V5 A2 国际采购渠道（逗号分隔多选）',
-  `finance_credit` varchar(80) NOT NULL DEFAULT '' COMMENT 'V5 A3 财务与资信',
-  `standard_adaptation` varchar(80) NOT NULL DEFAULT '' COMMENT 'V5 B1 目标市场标准适配',
-  `supply_assurance` varchar(255) NOT NULL DEFAULT '' COMMENT 'V5 B2 供应链与履约保障（逗号分隔多选）',
-  `quality_system` varchar(80) NOT NULL DEFAULT '' COMMENT 'V5 B3 质量体系与检验',
-  `hse_record` varchar(80) NOT NULL DEFAULT '' COMMENT 'V5 B3 HSE 与事故记录',
-  `service_sla` varchar(80) NOT NULL DEFAULT '' COMMENT 'V5 B4 售后 SLA 与备件',
-  `warranty_terms` varchar(80) NOT NULL DEFAULT '' COMMENT 'V5 B4 质保与性能保证',
-  `trade_terms` varchar(255) NOT NULL DEFAULT '' COMMENT 'V5 B5 贸易条款与结算（逗号分隔多选）',
-  `international_visibility` varchar(255) NOT NULL DEFAULT '' COMMENT 'V5 C3 国际供应商目录可见度（逗号分隔多选）',
+  `target_channels` varchar(255) NOT NULL DEFAULT '' COMMENT 'V3 A2 国际采购渠道（逗号分隔多选）',
+  `finance_credit` varchar(80) NOT NULL DEFAULT '' COMMENT 'V3 A3 财务与资信',
+  `standard_adaptation` varchar(80) NOT NULL DEFAULT '' COMMENT 'V3 B1 目标市场标准适配',
+  `supply_assurance` varchar(255) NOT NULL DEFAULT '' COMMENT 'V3 B2 供应链与履约保障（逗号分隔多选）',
+  `quality_system` varchar(80) NOT NULL DEFAULT '' COMMENT 'V3 B3 质量体系与检验',
+  `hse_record` varchar(80) NOT NULL DEFAULT '' COMMENT 'V3 B3 HSE 与事故记录',
+  `service_sla` varchar(80) NOT NULL DEFAULT '' COMMENT 'V3 B4 售后 SLA 与备件',
+  `warranty_terms` varchar(80) NOT NULL DEFAULT '' COMMENT 'V3 B4 质保与性能保证',
+  `trade_terms` varchar(255) NOT NULL DEFAULT '' COMMENT 'V3 B5 贸易条款与结算（逗号分隔多选）',
+  `international_visibility` varchar(255) NOT NULL DEFAULT '' COMMENT 'V3 C3 国际供应商目录可见度（逗号分隔多选）',
+  `checklist_state` json DEFAULT NULL COMMENT 'V3 执行清单勾选状态（非作答字段，后台报告清单读写需要）',
+  `overseas_record` varchar(80) NOT NULL DEFAULT '' COMMENT 'V3 C4-1 海外同类项目业绩（无/仅国内/有海外）',
+  `record_evidence` varchar(80) NOT NULL DEFAULT '' COMMENT 'V3 C4-2 可提供证明（无/仅合同/合同+验收/+业主可回访）',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_supplier` (`supplier_id`),
   KEY `idx_score` (`score_total`),
   KEY `idx_submitted` (`submitted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商投标能力+资质完善诊断表（V3 影子换表）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商资质诊断';
 
 -- ── supplier_diagnosis_guide_event ──
 CREATE TABLE `supplier_diagnosis_guide_event` (
@@ -2454,24 +2462,6 @@ CREATE TABLE `supplier_diagnosis_submit_log` (
   KEY `idx_diag_submit_created` (`created_at`),
   KEY `idx_diag_submit_result` (`result`,`error_code`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='供应商诊断提交结果埋点';
-
--- ── supplier_evidence ──
-CREATE TABLE `supplier_evidence` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `supplier_id` bigint unsigned NOT NULL COMMENT '企业主体（supplier.id）',
-  `checklist_key` varchar(80) NOT NULL COMMENT '对应补齐待办项：<市场>|<标准>',
-  `name` varchar(200) NOT NULL COMMENT '证据名称（如 CE DoC、ISO9001 证书）',
-  `issuer` varchar(120) DEFAULT NULL COMMENT '签发方 / 公告机构',
-  `valid_from` date DEFAULT NULL,
-  `valid_to` date DEFAULT NULL COMMENT '有效期至；NULL=长期有效',
-  `location` varchar(300) DEFAULT NULL COMMENT '存放位置（共享盘路径 / 档案柜编号）',
-  `note` varchar(500) DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_supplier_checklist_name` (`supplier_id`,`checklist_key`,`name`),
-  KEY `idx_supplier` (`supplier_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='企业证据台账（V3 补齐待办的证据元数据）';
 
 -- ── supplier_id_map ──
 CREATE TABLE `supplier_id_map` (

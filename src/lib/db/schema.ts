@@ -21,7 +21,6 @@
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
-import { ensureDiagnosisExtensionTables } from "./tables-diagnosis";
 import { migration as notificationsMigration } from "./migrations/003-notifications";
 import { migration as feasibilityReportMigration } from "./migrations/006-feasibility-report";
 import { migration as evidenceFilenameMigration } from "./migrations/007-enterprise-evidence-filename";
@@ -86,6 +85,8 @@ import { migration as invoiceBuyerFieldsMigration } from "./migrations/081-invoi
 import { migration as accountDeletionRequestsMigration } from "./migrations/085-account-deletion-requests";
 import { migration as accountDeletionNotifiedMigration } from "./migrations/086-account-deletion-notified";
 import { migration as accountDeletionCoolingMigration } from "./migrations/087-account-deletion-cooling";
+import { migration as diagnosisSchemaVersionV3Migration } from "./migrations/088-diagnosis-schema-version-v3";
+import { migration as noticePublicWideRetireColumnsMigration } from "./migrations/089-notice-public-wide-retire-columns";
 import { migration as projectSourcingFieldsMigration } from "./migrations/082-project-sourcing-fields";
 import { migration as marketScopeMigration } from "./migrations/083-market-scope";
 import { migration as diagnosisProjectRecordMigration } from "./migrations/084-diagnosis-project-record";
@@ -181,6 +182,8 @@ export const ALL_MIGRATIONS: Migration[] = [
   accountDeletionRequestsMigration,
   accountDeletionNotifiedMigration,
   accountDeletionCoolingMigration,
+  diagnosisSchemaVersionV3Migration,
+  noticePublicWideRetireColumnsMigration,
 ];
 
 /**
@@ -189,8 +192,6 @@ export const ALL_MIGRATIONS: Migration[] = [
  */
 export async function ensureProcurementSchema(dbPool: Pool): Promise<number> {
   const applied = await runMigrations(dbPool, ALL_MIGRATIONS);
-  // 新表直接建（幂等）：market_requirement / supplier_evidence
-  await ensureDiagnosisExtensionTables(dbPool);
   return applied;
 }
 
