@@ -23,6 +23,7 @@ import { ProcurementWizard } from "@/features/procurement-demand/ProcurementWiza
 import { ConfirmDialog } from "@/shared/ui";
 import {
   copyProject,
+  extendDeadline,
   fetchProject,
   withdrawProject,
   type ProjectDetail,
@@ -75,11 +76,18 @@ export default function PublishFlowPageClient({ projectId }: { projectId: number
   const [notice, setNotice] = useState("");
   /** 撤回二次确认（用统一 ConfirmDialog，不再 window.confirm） */
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  /** 延长截止的目标日期（date input 口径 yyyy-MM-dd；rfq/eoi 已发布态展示） */
+  const [extendDate, setExtendDate] = useState("");
 
   const load = useCallback(async () => {
     setLoadError(null);
     try {
-      setDetail(await fetchProject(projectId));
+      const d = await fetchProject(projectId);
+      setDetail(d);
+      // 延长截止的日期输入预填当前截止（上海时区截止存的是当日 23:59:59+08:00，UTC 日期同日）
+      if (d.status === "published" && d.quoteDeadlineAt) {
+        setExtendDate(new Date(d.quoteDeadlineAt * 1000).toISOString().slice(0, 10));
+      }
     } catch (err) {
       setLoadError({
         message: (err as Error).message || t("pc_load_failed"),
@@ -102,6 +110,21 @@ export default function PublishFlowPageClient({ projectId }: { projectId: number
       await withdrawProject(projectId);
       setConfirmWithdraw(false);
       await load();
+    } catch (err) {
+      setNotice((err as Error).message || t("pc_err_generic"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 延长报价截止（rfq/eoi）：换算惯例与向导一致——日期取当日 23:59:59+08:00 的 epoch 秒 */
+  const onExtend = async () => {
+    if (!extendDate) return;
+    setBusy(true);
+    try {
+      await extendDeadline(projectId, Math.floor(new Date(`${extendDate}T23:59:59+08:00`).getTime() / 1000));
+      await load();
+      setNotice(t("pc_extend_deadline_ok"));
     } catch (err) {
       setNotice((err as Error).message || t("pc_err_generic"));
     } finally {
@@ -232,6 +255,26 @@ export default function PublishFlowPageClient({ projectId }: { projectId: number
                   {t("pc_wb_withdraw")}
                 </button>
               </div>
+              {/* 延长截止：市场型方式（rfq/eoi）专属；itb/rfp 走招标文件补遗通道，不在此提供 */}
+              {(detail.method === "rfq" || detail.method === "eoi") && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-teal-200 pt-3">
+                  <span className="text-xs font-semibold text-teal-900">{t("pc_extend_deadline_label")}</span>
+                  <input
+                    type="date"
+                    value={extendDate}
+                    onChange={(e) => setExtendDate(e.target.value)}
+                    className="rounded-lg border border-teal-300 bg-white px-2.5 py-1.5 text-sm"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || !extendDate}
+                    onClick={() => void onExtend()}
+                    className="rounded-lg border border-teal-300 px-4 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-100 disabled:opacity-50"
+                  >
+                    {t("pc_extend_deadline_apply")}
+                  </button>
+                </div>
+              )}
             </section>
             <ProjectSummary detail={detail} />
           </div>

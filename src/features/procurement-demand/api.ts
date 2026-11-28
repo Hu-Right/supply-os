@@ -247,6 +247,14 @@ export async function withdrawProject(id: number): Promise<{ status: string }> {
   return api(`/api/procurement/projects/${id}/withdraw`, { method: "POST", body: {} });
 }
 
+/** 延长报价截止（rfq/eoi 市场型方式专属；deadlineAt 为 epoch 秒，只许顺延） */
+export async function extendDeadline(
+  id: number,
+  deadlineAt: number,
+): Promise<{ status: string; tenderId: number; oldDeadlineAt: number; newDeadlineAt: number }> {
+  return api(`/api/procurement/projects/${id}/extend-deadline`, { method: "POST", body: { deadlineAt } });
+}
+
 export async function fetchAuthorization(id: number): Promise<{
   letterHash: string;
   versionNo: number;
