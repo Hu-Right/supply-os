@@ -49,7 +49,29 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   const [serverPageSize, setServerPageSize] = useState(initial?.pageSize ?? NOTICE_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const skipInitialFetchRef = useRef(Boolean(initial));
+  /**
+   * 是否跳过首次客户端取数（用服务端直出结果当首帧）。
+   *
+   * 2026-11-28 修复：服务端直出只覆盖「国别 + 最新排序 + 第 1 页」这一种查询
+   * （`loadProcurementInitial(country)`）。此前只要 `initial` 存在就跳过首次取数，
+   * 于是 `/procurement?q=xxx`（首页热词、Hero 搜索都是这个入口）会停在服务端直出的
+   * 全球最新列表上——搜索框里词是有的、结果是没筛的。现在只有「URL 确实没有超出
+   * 直出范围的条件」才跳过；带 q / 关键词 / 截止 / 类型 / 预算 / 品目 / 非默认排序
+   * 或非首页时，一律照常发请求。
+   */
+  const initialCoversUrl =
+    !query.activeQ &&
+    !query.activeFrom &&
+    !query.activeTo &&
+    !query.activeWindow &&
+    !query.activeNoticeType &&
+    !query.activeFeatured &&
+    !query.activeBudgetMin &&
+    !query.activeBudgetMax &&
+    !query.activeCommodity &&
+    query.activeSort === "latest" &&
+    page === 1;
+  const skipInitialFetchRef = useRef(Boolean(initial) && initialCoversUrl);
 
   const noticesRequestSeq = useRef(0);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

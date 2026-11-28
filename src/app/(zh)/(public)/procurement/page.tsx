@@ -20,7 +20,7 @@
  */
 import type { Metadata } from "next";
 import PageClient from "./page-client";
-import { loadProcurementInitial } from "./initial-data";
+import { loadProcurementInitial, type ProcurementInitialFilters } from "./initial-data";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/services/seo/site";
 import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 import { countryName, guessCountryCode } from "@/shared/constants/countries";
@@ -66,6 +66,49 @@ function soleCountryOf(params: SearchParamsRecord): string | null {
 
 /** 国别化 metadata 的标题后缀：根 layout 的 title.template 会把站名拼在前面 */
 const countryTitle = (nameZh: string) => `${nameZh}政府采购与招标公告`;
+
+/**
+ * URL 查询参数 → 首屏直出参数。
+ *
+ * 键名与客户端 `fetchUnifiedSearch` 同名（q / country / deadlineFrom…），
+ * 保证 SSR 直出与客户端翻页取数是同一套筛选语义，不再出现「首屏全球、水合后筛选」。
+ */
+function filtersFromParams(params: SearchParamsRecord): ProcurementInitialFilters {
+  const str = (key: string): string | undefined => {
+    const value = params[key];
+    return typeof value === "string" && value.trim() ? value.trim() : undefined;
+  };
+  const num = (key: string): number | undefined => {
+    const value = Number(str(key));
+    return Number.isFinite(value) ? value : undefined;
+  };
+
+  const filters: ProcurementInitialFilters = {};
+  const q = str("q");
+  if (q) filters.q = q;
+  const country = str("country");
+  if (country) filters.country = country;
+  const deadlineFrom = str("deadline_from");
+  if (deadlineFrom) filters.deadlineFrom = deadlineFrom;
+  const deadlineTo = str("deadline_to");
+  if (deadlineTo) filters.deadlineTo = deadlineTo;
+  const within = num("deadline_within_days");
+  if (within) filters.deadlineWithinDays = within;
+  const noticeType = str("notice_type");
+  if (noticeType) filters.noticeType = noticeType;
+  if (str("featured") === "1") filters.featured = true;
+  const budgetMin = num("budget_min");
+  if (budgetMin !== undefined) filters.budgetMin = budgetMin;
+  const budgetMax = num("budget_max");
+  if (budgetMax !== undefined) filters.budgetMax = budgetMax;
+  const commodity = str("commodity");
+  if (commodity) filters.commodityPath = commodity;
+  const sort = str("sort");
+  if (sort) filters.sort = sort;
+  const matchMode = str("match_mode");
+  if (matchMode) filters.matchMode = matchMode;
+  return filters;
+}
 
 const BASE_METADATA: Metadata = {
   // 只写页面名：网站名由根 layout 的 title.template 拼在首位
@@ -172,12 +215,14 @@ export default async function ProcurementPage({
 }: {
   searchParams: Promise<SearchParamsRecord>;
 }) {
-  const code = soleCountryOf(await searchParams);
-  const country = code ? countryParam(code) : undefined;
+  const params = await searchParams;
+  const code = soleCountryOf(params);
   const nameZh = code ? countryName(code, "zh") : "";
 
-  // 国别页：首屏直出该国公告；非国别页保持原行为（全球最新）
-  const initialResults = await loadProcurementInitial(country);
+  // 首屏按 URL 的全部筛选项直出（q / 国别 / 截止 / 类型 / 预算 / 品目 / 排序），
+  // 与客户端 fetchUnifiedSearch 同一套参数：否则 ?q=xxx 先直出全球最新一屏，
+  // 水合后才跳成筛选结果（首页热词点击就是这个入口）。
+  const initialResults = await loadProcurementInitial(filtersFromParams(params));
 
   // ★ 国名映射 SSR 快照（2026-11-27 水合修复）：alias-store 带 TTL 内存缓存，
   // 非首调基本零成本；经 props 进 PageClient 灌共享缓存，SSR 与客户端首帧的国名逐字一致。
