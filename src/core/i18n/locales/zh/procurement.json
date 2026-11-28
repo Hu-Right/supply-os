@@ -517,7 +517,7 @@
   "bidGateLiveClean": "A 段暂未发现废标项。填写 B、C 段后可在提交结果里看到完整判定。",
   "bidGateLiveTitle": "已填部分：{hard} 项废标项、{soft} 项可补项",
   "bidGateLiveNoHard": "暂无废标项，可补项齐全后即可投。",
-  "diagScoreIsNotEligibility": "总分只反映能力画像，不代表投标资格；能否投标看下方资格判定。",
+  "diagScoreIsNotEligibility": "总分只反映能力画像，不代表投标资格。",
   "diagCapabilityPrefix": "能力画像",
   "diagTitle": "供应商投标能力诊断",
   "diagDesc": "三部分、12 个维度：A 资质与合规 30 分、B 能力画像 50 分、C 国际供应商档案就绪度 20 分。证书/资质从企业档案读取，不需要重复填写。",
