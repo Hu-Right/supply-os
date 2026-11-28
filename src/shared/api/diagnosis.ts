@@ -28,7 +28,7 @@ export interface DiagnosisCandidate {
 
 export interface DiagnosisDimensionResult {
   no: number;
-  /** V5：所属部分 A 资质 / B 能力 / C 档案 */
+  /** V3：所属部分 A 资质 / B 能力 / C 档案 */
   part?: "A" | "B" | "C";
   name: string;
   nameEn: string;
@@ -57,16 +57,16 @@ export interface DiagnosisSubmitResult {
   supplierId: number;
   /** 无主主体上的路人诊断（闸口放行且非归属人）：结果页据此提示「如为贵公司可发起认领」 */
   subjectUnclaimed: boolean;
-  /** V5 统一评分：未答按 0 分，仍出总分（报告标「未提供」） */
+  /** V3 统一评分：未答按 0 分，仍出总分（报告标「未提供」） */
   scoreTotal: number | null;
   scoreGrade: string | null;
-  /** 红线封顶前的等级（V5） */
+  /** 红线封顶前的等级（V3） */
   gradeBeforeCaps?: string;
   gradeLabel: string;
   dimensions: DiagnosisDimensionResult[];
-  /** V5 三部分得分：A 资质 / B 能力 / C 档案 */
+  /** V3 三部分得分：A 资质 / B 能力 / C 档案 */
   partScores?: DiagnosisPartScore[];
-  /** V5 红线封顶原因 */
+  /** V3 红线封顶原因 */
   caps?: DiagnosisGradeCap[];
   /**
    * A 段合格制闸门：能不能进投标名单。

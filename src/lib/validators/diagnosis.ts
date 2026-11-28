@@ -10,7 +10,7 @@
  *              失败原因用判别联合（reason 枚举）返回，不靠"中文提示串里有没有某个词"判错——
  *              那种写法会把合法答案误判成错误。
  */
-import { DIAGNOSIS_V5_FORM_FIELDS, isDiagnosisV5Required, type DiagnosisV5FieldDef } from "@/shared/constants/diagnosis-v5";
+import { DIAGNOSIS_V3_FORM_FIELDS, isDiagnosisV3Required, type DiagnosisV3FieldDef } from "@/shared/constants/diagnosis-v3";
 import type { DiagnosisAnswers } from "@/lib/services/scoring/diagnosis-v2";
 
 export const COMPANY_NAME_MAX = 255;
@@ -34,7 +34,7 @@ type FieldResult =
   | { ok: true; value: string | string[] }
   | { ok: false; reason: FieldRejectReason };
 
-function validateField(field: DiagnosisV5FieldDef, raw: unknown): FieldResult {
+function validateField(field: DiagnosisV3FieldDef, raw: unknown): FieldResult {
   if (field.kind === "multi") {
     const list = Array.isArray(raw)
       ? raw.map((x) => String(x).trim()).filter(Boolean)
@@ -45,7 +45,7 @@ function validateField(field: DiagnosisV5FieldDef, raw: unknown): FieldResult {
   }
 
   const v = typeof raw === "string" ? raw.trim() : "";
-  if (!v) return isDiagnosisV5Required(field) ? { ok: false, reason: "missing" } : { ok: true, value: "" };
+  if (!v) return isDiagnosisV3Required(field) ? { ok: false, reason: "missing" } : { ok: true, value: "" };
   if (!field.options!.includes(v)) return { ok: false, reason: "invalid" };
   return { ok: true, value: v };
 }
@@ -66,7 +66,7 @@ export function parseDiagnosisPayload(body: Record<string, unknown>): ParseResul
     return { ok: false, fieldKey: "answers", reason: "missing" };
   }
   const bag = rawAnswers as Record<string, unknown>;
-  for (const field of DIAGNOSIS_V5_FORM_FIELDS) {
+  for (const field of DIAGNOSIS_V3_FORM_FIELDS) {
     const result = validateField(field, bag[field.key]);
     if (!result.ok) return { ok: false, fieldKey: field.key, reason: result.reason };
     answers[field.key] = result.value;

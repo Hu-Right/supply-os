@@ -10,16 +10,16 @@ import {
   evaluateBidGate,
 } from "@/shared/constants/diagnosis-bid-gate";
 import {
-  DIAGNOSIS_V5_FIELD_MAP,
-  DIAGNOSIS_V5_FORM_FIELDS,
-} from "@/shared/constants/diagnosis-v5";
+  DIAGNOSIS_V3_FIELD_MAP,
+  DIAGNOSIS_V3_FORM_FIELDS,
+} from "@/shared/constants/diagnosis-v3";
 
 type A = Record<string, string | string[]>;
 
 /** 全选最高分：单选取最后一个选项，多选取全部选项 */
 function bestAnswers(): A {
   const answers: A = {};
-  for (const field of DIAGNOSIS_V5_FORM_FIELDS) {
+  for (const field of DIAGNOSIS_V3_FORM_FIELDS) {
     if (field.kind === "multi") answers[field.key] = [...(field.options ?? [])];
     else answers[field.key] = field.options?.[field.options.length - 1] ?? "";
   }
@@ -28,7 +28,7 @@ function bestAnswers(): A {
 
 /** 全选第 index 个选项（用于构造「某一项不达标」） */
 function withOption(answers: A, key: string, index: number): A {
-  const field = DIAGNOSIS_V5_FIELD_MAP[key];
+  const field = DIAGNOSIS_V3_FIELD_MAP[key];
   return { ...answers, [key]: field.options?.[index] ?? "" };
 }
 

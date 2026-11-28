@@ -1,17 +1,17 @@
 /**
- * 门户 V5 评分引擎 — 与后台同口径（满分 100、等级线、红线封顶）。
+ * 门户 V3 评分引擎 — 与后台同口径（满分 100、等级线、红线封顶）。
  */
 import { describe, expect, it } from "vitest";
 import {
-  DIAGNOSIS_V5_FIELD_MAP,
-  DIAGNOSIS_V5_FORM_FIELDS,
-} from "@/shared/constants/diagnosis-v5";
-import { scoreDiagnosisV5, type DiagnosisAnswersV5 } from "@/lib/services/scoring/diagnosis-v5-score";
+  DIAGNOSIS_V3_FIELD_MAP,
+  DIAGNOSIS_V3_FORM_FIELDS,
+} from "@/shared/constants/diagnosis-v3";
+import { scoreDiagnosisV3, type DiagnosisAnswersV3 } from "@/lib/services/scoring/diagnosis-v3-score";
 
 /** 全选最高分：单选取最后一个选项，多选取全部选项 */
-function bestAnswers(): DiagnosisAnswersV5 {
-  const answers: DiagnosisAnswersV5 = {};
-  for (const field of DIAGNOSIS_V5_FORM_FIELDS) {
+function bestAnswers(): DiagnosisAnswersV3 {
+  const answers: DiagnosisAnswersV3 = {};
+  for (const field of DIAGNOSIS_V3_FORM_FIELDS) {
     if (field.kind === "multi") answers[field.key] = [...(field.options ?? [])];
     else answers[field.key] = field.options?.[field.options.length - 1] ?? "";
   }
@@ -23,9 +23,9 @@ const bestDerived = {
   legalMissingCount: 0,
 };
 
-describe("scoreDiagnosisV5", () => {
+describe("scoreDiagnosisV3", () => {
   it("全项满分 + 档案齐备 → 100 分 A，无封顶", () => {
-    const r = scoreDiagnosisV5({
+    const r = scoreDiagnosisV3({
       answers: bestAnswers(),
       supplier: { dataQualityScore: 90, heldCertCount: 10 },
       derived: bestDerived,
@@ -39,8 +39,8 @@ describe("scoreDiagnosisV5", () => {
 
   it("无出口主体资质 → 封顶 D", () => {
     const answers = bestAnswers();
-    answers.export_entity = DIAGNOSIS_V5_FIELD_MAP["export_entity"].options![0];
-    const r = scoreDiagnosisV5({
+    answers.export_entity = DIAGNOSIS_V3_FIELD_MAP["export_entity"].options![0];
+    const r = scoreDiagnosisV3({
       answers,
       supplier: { dataQualityScore: 90, heldCertCount: 10 },
       derived: bestDerived,
@@ -52,7 +52,7 @@ describe("scoreDiagnosisV5", () => {
   });
 
   it("目标市场缺 2 项法定准入 → 封顶 C", () => {
-    const r = scoreDiagnosisV5({
+    const r = scoreDiagnosisV3({
       answers: bestAnswers(),
       supplier: { dataQualityScore: 90, heldCertCount: 10 },
       derived: { certCoveragePercent: 60, legalMissingCount: 2 },
@@ -63,11 +63,11 @@ describe("scoreDiagnosisV5", () => {
 
   it("低分作答 → 等级按 55/70/85 分档", () => {
     const answers = bestAnswers();
-    for (const field of DIAGNOSIS_V5_FORM_FIELDS) {
+    for (const field of DIAGNOSIS_V3_FORM_FIELDS) {
       if (field.kind === "multi") answers[field.key] = [];
       else answers[field.key] = field.options?.[0] ?? "";
     }
-    const r = scoreDiagnosisV5({
+    const r = scoreDiagnosisV3({
       answers,
       supplier: { dataQualityScore: 0, heldCertCount: 0 },
       derived: { certCoveragePercent: 0, legalMissingCount: 0 },

@@ -56,7 +56,7 @@ export interface DiagnosisRowLike {
   user_id?: number | string | null;
   supplier_id?: number | string | null;
   company_name?: string | null;
-  /** 2026-11-27：V5 把「投标履历」换成「业绩有无 + 能否举证」两问，旧列已从表里删除 */
+  /** 2026-11-27：V3 把「投标履历」换成「业绩有无 + 能否举证」两问，旧列已从表里删除 */
   overseas_record?: string | null;
   record_evidence?: string | null;
   english_evidence_level?: string | null;
@@ -235,7 +235,7 @@ export function deriveCapabilities(input: {
   void supplier; // 供应商行已不提供证书；保留入参供调用方共用同一签名
 
   if (diagnosis) {
-    // 2026-11-27：UNGM 注册状态不再来自诊断（该列在 V5 影子重建时就没建，读它会抛 ER_BAD_FIELD_ERROR），
+    // 2026-11-27：UNGM 注册状态不再来自诊断（该列在 V3 影子重建时就没建，读它会抛 ER_BAD_FIELD_ERROR），
     // 投标经验改用「业绩有无 + 能否举证」两问拼成一条文本能力。
     const recordText = [diagnosis.overseas_record, diagnosis.record_evidence]
       .map((v) => String(v ?? "").trim())

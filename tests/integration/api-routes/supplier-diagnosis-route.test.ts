@@ -1,7 +1,7 @@
 /**
  * POST /api/supplier-diagnosis 集成测试 — 2026-11-29 门户本地落库（去掉后台同步依赖）
  *
- * @description 评分与资质分级在门户执行（V5），保存也由门户写 `supplier_diagnosis`；
+ * @description 评分与资质分级在门户执行（V3），保存也由门户写 `supplier_diagnosis`；
  *              后台只按需读表出报告。本测试钉住：
  *              ① 未收录主体 → 400，评分与写库都不得被调用；
  *              ② 有主主体非归属人 → 403，评分与写库都不得被调用；
@@ -12,7 +12,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { DIAGNOSIS_V5_FORM_FIELDS } from "@/shared/constants/diagnosis-v5";
+import { DIAGNOSIS_V3_FORM_FIELDS } from "@/shared/constants/diagnosis-v3";
 
 vi.mock("server-only", () => ({}));
 
@@ -68,10 +68,10 @@ vi.mock("@/lib/repos/supplier-diagnosis.repo", async (importActual) => {
   };
 });
 
-/** 用 V5 表单字段造一份合法作答：单选取首项、多选取前两项、目标市场必选 */
+/** 用 V3 表单字段造一份合法作答：单选取首项、多选取前两项、目标市场必选 */
 function validAnswers(): Record<string, string | string[]> {
   const answers: Record<string, string | string[]> = {};
-  for (const f of DIAGNOSIS_V5_FORM_FIELDS) {
+  for (const f of DIAGNOSIS_V3_FORM_FIELDS) {
     answers[f.key] = f.kind === "single"
       ? String(f.options?.[0] ?? "")
       : [...(f.options ?? [])].slice(0, 2);

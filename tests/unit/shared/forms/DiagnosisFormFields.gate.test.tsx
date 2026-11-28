@@ -13,7 +13,7 @@ import { DiagnosisFormFields } from "@/shared/forms/DiagnosisFormFields";
 import {
   BID_GATE_RULES,
 } from "@/shared/constants/diagnosis-bid-gate";
-import { DIAGNOSIS_V5_FIELD_MAP } from "@/shared/constants/diagnosis-v5";
+import { DIAGNOSIS_V3_FIELD_MAP } from "@/shared/constants/diagnosis-v3";
 
 const DICT: Record<string, string> = {
   bidGateBadgeHard: "资格项",
@@ -23,9 +23,9 @@ const DICT: Record<string, string> = {
   bidGateLiveClean: "暂未发现废标项",
   bidGateLiveTitle: "已填部分：{hard} 项废标项、{soft} 项可补项",
   bidGateLiveNoHard: "暂无废标项",
-  diagV5PartAHint: "A段说明",
-  diagV5PartBHint: "B段说明：不影响能否入围",
-  diagV5PartCHint: "C段说明：不影响资格判定",
+  diagV3PartAHint: "A段说明",
+  diagV3PartBHint: "B段说明：不影响能否入围",
+  diagV3PartCHint: "C段说明：不影响资格判定",
   // 闸门规则标题走 i18n；缺键时才回落到常量里的 titleZh
   bidGateRExportEntity: "无出口主体资质",
 };
@@ -51,7 +51,7 @@ function blockHtml(container: HTMLElement, fieldKey: string): string {
 const HARD_FIELDS = [
   ...new Set(
     BID_GATE_RULES
-      .filter((r) => r.level === "disqualify" && DIAGNOSIS_V5_FIELD_MAP[r.fieldKey]?.source === "form")
+      .filter((r) => r.level === "disqualify" && DIAGNOSIS_V3_FIELD_MAP[r.fieldKey]?.source === "form")
       .map((r) => r.fieldKey),
   ),
 ];
@@ -93,7 +93,7 @@ describe("DiagnosisFormFields · 实时闸门提示", () => {
   it("资格项全部答完后进度满格，不再提示未答完", () => {
     const answers: Record<string, string | string[]> = {};
     for (const key of HARD_FIELDS) {
-      answers[key] = DIAGNOSIS_V5_FIELD_MAP[key].options?.at(-1) ?? "";
+      answers[key] = DIAGNOSIS_V3_FIELD_MAP[key].options?.at(-1) ?? "";
     }
     const { container } = renderFields(answers);
     const html = container.innerHTML;
@@ -103,7 +103,7 @@ describe("DiagnosisFormFields · 实时闸门提示", () => {
 
   it("答出废标项时当场列出来", () => {
     const answers: Record<string, string | string[]> = {
-      export_entity: DIAGNOSIS_V5_FIELD_MAP["export_entity"].options?.[0] ?? "",
+      export_entity: DIAGNOSIS_V3_FIELD_MAP["export_entity"].options?.[0] ?? "",
     };
     const { container } = renderFields(answers);
     expect(container.innerHTML).toContain("无出口主体资质");

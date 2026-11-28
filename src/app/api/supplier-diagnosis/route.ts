@@ -1,8 +1,8 @@
 /**
- * POST /api/supplier-diagnosis — 提交供应商投标能力诊断（V5）
+ * POST /api/supplier-diagnosis — 提交供应商投标能力诊断（V3）
  *
  * @module app/api/supplier-diagnosis/route
- * @description 2026-11-27 口径：**门户负责评分**（V5 统一评分 + 资质分级），
+ * @description 2026-11-27 口径：**门户负责评分**（V3 统一评分 + 资质分级），
  *              后台只接收「作答 + 评分快照」，结合供应商档案生成报告并落库，不重新打分。
  *              本路由职责：登录鉴权、主体确认、写权闸口、门户评分、提交埋点与结果转发。
  *
@@ -173,7 +173,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
   const subjectUnclaimed = !gateFacts.selfBound;
 
-  // 2026-11-27 口径：评分在门户执行（V5 + 资质分级），后台只消费快照生成报告、不重算。
+  // 2026-11-27 口径：评分在门户执行（V3 + 资质分级），后台只消费快照生成报告、不重算。
   // 因此这里先算分，再连同作答一起提交；资质分级失败 = 提交失败，不产生「未分级」快照。
   let scored: Awaited<ReturnType<typeof scoreDiagnosisSubmission>>;
   try {
@@ -202,7 +202,7 @@ export const POST = withRoute(async (req: NextRequest) => {
         totalScore: scored.score.totalScore,
         grade: scored.score.grade,
         breakdown: {
-          ruleVersion: 5,
+          ruleVersion: 3,
           dimensions: scored.score.dimensions,
           partScores: scored.score.partScores,
           fieldScores: scored.score.fieldScores ?? [],
@@ -225,7 +225,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
     return NextResponse.json({
       id: Number(stored.id),
-      schemaVersion: 5,
+      schemaVersion: 3,
       supplierId,
       subjectUnclaimed,
       scoreTotal: scored.score.totalScore,

@@ -13,10 +13,10 @@
  */
 import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import {
-  DIAGNOSIS_V5_FIELD_MAP,
-  DIAGNOSIS_V5_FIELDS,
-  DIAGNOSIS_V5_WRITABLE_FIELDS,
-} from "@/shared/constants/diagnosis-v5";
+  DIAGNOSIS_V3_FIELD_MAP,
+  DIAGNOSIS_V3_FIELDS,
+  DIAGNOSIS_V3_WRITABLE_FIELDS,
+} from "@/shared/constants/diagnosis-v3";
 import type { DiagnosisAnswers } from "@/lib/services/scoring/diagnosis-v2";
 import type { QualGrade } from "@/lib/services/scoring/diagnosis-qualification";
 
@@ -25,10 +25,10 @@ import type { QualGrade } from "@/lib/services/scoring/diagnosis-qualification";
  * `bid_willingness` 刻意不在其中——V3 起表单不再问，新行吃表 DEFAULT('是')，
  * 老行的历史值也不会被一次提交动作覆盖。
  */
-const ANSWER_COLUMNS = DIAGNOSIS_V5_WRITABLE_FIELDS.map((f) => f.column);
+const ANSWER_COLUMNS = DIAGNOSIS_V3_WRITABLE_FIELDS.map((f) => f.column);
 
-/** 当前诊断口径代次：V5 统一评分（A 资质 / B 能力 / C 档案就绪度） */
-export const DIAGNOSIS_SCHEMA_VERSION = 5;
+/** 当前诊断口径代次：V3 统一评分（A 资质 / B 能力 / C 档案就绪度） */
+export const DIAGNOSIS_SCHEMA_VERSION = 3;
 
 export interface DiagnosisRow extends RowDataPacket {
   id: number;
@@ -60,7 +60,7 @@ export interface DiagnosisRow extends RowDataPacket {
  */
 export function diagnosisAnswersOf(row: DiagnosisRow): DiagnosisAnswers {
   const answers: DiagnosisAnswers = {};
-  for (const field of DIAGNOSIS_V5_FIELDS) {
+  for (const field of DIAGNOSIS_V3_FIELDS) {
     if (field.source === "derived") continue;
     const raw = String((row as unknown as Record<string, unknown>)[field.column] ?? "");
     answers[field.key] =
@@ -127,7 +127,7 @@ export type ClaimantScorecardRow = {
 
 /** 多选列以逗号入库，读侧再切分；文本列去首尾空白 */
 function toDbValue(fieldKey: string, raw: string | string[] | undefined): string {
-  const field = DIAGNOSIS_V5_FIELD_MAP[fieldKey]!;
+  const field = DIAGNOSIS_V3_FIELD_MAP[fieldKey]!;
   if (field.kind === "multi") {
     const list = Array.isArray(raw) ? raw : String(raw ?? "").split(/[,，]/).map((s) => s.trim()).filter(Boolean);
     return list.join(",");
@@ -240,7 +240,7 @@ export class SupplierDiagnosisRepo {
       params.userId,
       params.supplierId,
       params.companyName.trim(),
-      ...DIAGNOSIS_V5_WRITABLE_FIELDS.map((f) => toDbValue(f.key, params.answers[f.key])),
+      ...DIAGNOSIS_V3_WRITABLE_FIELDS.map((f) => toDbValue(f.key, params.answers[f.key])),
       params.ip,
       params.score.totalScore,
       params.score.grade,

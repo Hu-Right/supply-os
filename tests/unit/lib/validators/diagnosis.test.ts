@@ -8,14 +8,14 @@
 import { describe, it, expect } from "vitest";
 import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
 import { maskCreditCode } from "@/lib/repos/suppliers/supplier-directory.repo";
-import { DIAGNOSIS_V5_FORM_FIELDS } from "@/shared/constants/diagnosis-v5";
+import { DIAGNOSIS_V3_FORM_FIELDS } from "@/shared/constants/diagnosis-v3";
 
 /** 请求体根层只认这几个信封字段，其余 overrides 均视为答案字段（归入 answers） */
 const TOP_LEVEL = new Set(["companyName", "company_name", "supplierId", "supplier_id"]);
 
 function validBody(overrides: Record<string, unknown> = {}) {
   const answers: Record<string, unknown> = {};
-  for (const f of DIAGNOSIS_V5_FORM_FIELDS) {
+  for (const f of DIAGNOSIS_V3_FORM_FIELDS) {
     answers[f.key] = f.kind === "multi" ? [...(f.options ?? [])].slice(0, 2) : f.options![1];
   }
   answers.target_markets = ["EU"];
@@ -72,7 +72,7 @@ describe("parseDiagnosisPayload", () => {
 
   it("rejects a FLAT body instead of silently accepting a second wire shape", () => {
     const flat: Record<string, unknown> = { companyName: "浙江某某科技有限公司" };
-    for (const f of DIAGNOSIS_V5_FORM_FIELDS) {
+    for (const f of DIAGNOSIS_V3_FORM_FIELDS) {
       flat[f.key] = f.kind === "multi" ? [] : f.options![1];
     }
     const r = parseDiagnosisPayload(flat);

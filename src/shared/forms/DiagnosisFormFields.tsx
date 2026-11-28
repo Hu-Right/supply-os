@@ -1,23 +1,23 @@
 // i18n-allow-file: 中文站点兜底/单位文案，待统一入 i18n
 /**
- * 诊断 V5 表单渲染器（A 资质 / B 能力 / C 档案就绪度 三部分）
- * Diagnosis V5 form renderer — sections driven entirely by V5 constants
+ * 诊断 V3 表单渲染器（A 资质 / B 能力 / C 档案就绪度 三部分）
+ * Diagnosis V3 form renderer — sections driven entirely by V3 constants
  *
  * @module shared/forms/DiagnosisFormFields
- * @description 加题/删题/改选项只动 `shared/constants/diagnosis-v5.ts`，本文件不需要改。
+ * @description 加题/删题/改选项只动 `shared/constants/diagnosis-v3.ts`，本文件不需要改。
  *              证书/资质不在表单收集：A1 只问目标市场，证书覆盖率与档案完整度由供应商表派生。
  */
 
 import { useMemo } from "react";
 import { ChipToggleGroup } from "@/shared/ui";
 import {
-  DIAGNOSIS_V5_DIMENSIONS,
-  DIAGNOSIS_V5_FIELD_MAP,
-  DIAGNOSIS_V5_FORM_FIELDS,
-  DIAGNOSIS_V5_PARTS,
-  isDiagnosisV5Required,
-  type DiagnosisV5FieldDef,
-} from "@/shared/constants/diagnosis-v5";
+  DIAGNOSIS_V3_DIMENSIONS,
+  DIAGNOSIS_V3_FIELD_MAP,
+  DIAGNOSIS_V3_FORM_FIELDS,
+  DIAGNOSIS_V3_PARTS,
+  isDiagnosisV3Required,
+  type DiagnosisV3FieldDef,
+} from "@/shared/constants/diagnosis-v3";
 import { BID_GATE_RULES, evaluateBidGate } from "@/shared/constants/diagnosis-bid-gate";
 import type { DiagnosisAnswers } from "@/shared/api/diagnosis";
 
@@ -31,7 +31,7 @@ const HARD_GATE_FIELDS: readonly string[] = (() => {
   const keys: string[] = [];
   for (const rule of BID_GATE_RULES) {
     if (rule.level !== "disqualify") continue;
-    if (DIAGNOSIS_V5_FIELD_MAP[rule.fieldKey]?.source !== "form") continue;
+    if (DIAGNOSIS_V3_FIELD_MAP[rule.fieldKey]?.source !== "form") continue;
     if (!keys.includes(rule.fieldKey)) keys.push(rule.fieldKey);
   }
   return keys;
@@ -41,7 +41,7 @@ const SOFT_GATE_FIELDS: readonly string[] = (() => {
   const keys: string[] = [];
   for (const rule of BID_GATE_RULES) {
     if (rule.level !== "conditional") continue;
-    if (DIAGNOSIS_V5_FIELD_MAP[rule.fieldKey]?.source !== "form") continue;
+    if (DIAGNOSIS_V3_FIELD_MAP[rule.fieldKey]?.source !== "form") continue;
     if (HARD_GATE_FIELDS.includes(rule.fieldKey)) continue;
     if (!keys.includes(rule.fieldKey)) keys.push(rule.fieldKey);
   }
@@ -72,7 +72,7 @@ interface Props {
 function OptionChips({
   field, selected, onPick, onToggle, t,
 }: {
-  field: DiagnosisV5FieldDef;
+  field: DiagnosisV3FieldDef;
   selected: string | string[];
   onPick: (value: string) => void;
   onToggle: (value: string) => void;
@@ -104,7 +104,7 @@ function OptionChips({
   );
 }
 
-function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { field: DiagnosisV5FieldDef }) {
+function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { field: DiagnosisV3FieldDef }) {
   const value = answers[field.key];
   const level = gateLevelOf(field.key);
 
@@ -113,7 +113,7 @@ function FieldBlock({ field, answers, t, onSingle, onToggleMulti }: Props & { fi
       <label className="mb-2 flex flex-wrap items-center gap-1.5 text-sm font-bold text-slate-700" htmlFor={`diag-${field.key}`}>
         <span>
           {t(field.labelKey)}
-          {isDiagnosisV5Required(field) && <span className="ml-0.5 text-rose-500">*</span>}
+          {isDiagnosisV3Required(field) && <span className="ml-0.5 text-rose-500">*</span>}
         </span>
         {/* 题目分档标注：让填表的人一眼看出哪几题决定「能不能投标」，哪几题只影响得分 */}
         {level === "hard" && (
@@ -192,33 +192,33 @@ export function DiagnosisFormFields(props: Props) {
 
   return (
     <div className="space-y-6">
-      {DIAGNOSIS_V5_PARTS.map((part) => {
-        const dims = DIAGNOSIS_V5_DIMENSIONS.filter((d) => d.part === part.code);
+      {DIAGNOSIS_V3_PARTS.map((part) => {
+        const dims = DIAGNOSIS_V3_DIMENSIONS.filter((d) => d.part === part.code);
         return (
           <section key={part.code} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex items-center gap-2">
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">
                 {part.code}
               </span>
-              <h3 className="text-sm font-bold text-slate-800">{t(`diagV5Part${part.code}`)}</h3>
+              <h3 className="text-sm font-bold text-slate-800">{t(`diagV3Part${part.code}`)}</h3>
               <span className="text-xs text-slate-400">{part.weight} 分</span>
             </div>
             {part.code === "A" && (
               <>
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV5PartAHint")}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV3PartAHint")}</p>
                 <PartAGateBanner answers={answers} t={t} />
               </>
             )}
             {part.code === "B" && (
-              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV5PartBHint")}</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV3PartBHint")}</p>
             )}
             {part.code === "C" && (
-              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV5PartCHint")}</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{t("diagV3PartCHint")}</p>
             )}
 
             <div className="mt-4 space-y-5">
               {dims.map((dim) => {
-                const fields = DIAGNOSIS_V5_FORM_FIELDS
+                const fields = DIAGNOSIS_V3_FORM_FIELDS
                   .filter((f) => f.dimensionNo === dim.no)
                   .map((f) =>
                     // 目标市场以字典表为准（/api/markets）；空表时保留常量默认
@@ -237,11 +237,11 @@ export function DiagnosisFormFields(props: Props) {
                       <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-2xs font-bold text-white">
                         {dim.no}
                       </span>
-                      {t(`diagV5Dim${dim.no}`)}
+                      {t(`diagV3Dim${dim.no}`)}
                       <span className="text-xs font-normal text-slate-400">{dim.weight} 分</span>
                     </h4>
                     {fields.length === 0 ? (
-                      <p className="text-xs leading-relaxed text-slate-500">{t("diagV5AutoRead")}</p>
+                      <p className="text-xs leading-relaxed text-slate-500">{t("diagV3AutoRead")}</p>
                     ) : (
                       <div className="space-y-5">
                         {fields.map((field) => (

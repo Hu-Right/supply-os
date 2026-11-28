@@ -6,7 +6,7 @@
  *              本文件把「作答 + 供应商档案 + 资质分级」合成一份提交快照：
  *              1. 供应商档案片段（data_quality_score）；
  *              2. 资质分级（目标市场 vs 已持证书，含市场要求条目）；
- *              3. V5 评分（派生指标由分级结果注入：证书覆盖率、缺口数、证书数）。
+ *              3. V3 评分（派生指标由分级结果注入：证书覆盖率、缺口数、证书数）。
  *              资质分级读不到时直接失败，不再产出「未分级」快照。
  */
 import type { Pool } from "mysql2/promise";
@@ -16,7 +16,7 @@ import { MarketRequirementRepo } from "@/lib/repos/market-requirement.repo";
 import { SupplierDirectoryRepo } from "@/lib/repos/suppliers/supplier-directory.repo";
 import type { DiagnosisAnswers } from "@/lib/services/scoring/diagnosis-v2";
 import type { QualificationBreakdown, QualGrade } from "@/lib/services/scoring/diagnosis-qualification";
-import { scoreDiagnosisV5, type ScoringResultV5 } from "@/lib/services/scoring/diagnosis-v5-score";
+import { scoreDiagnosisV3, type ScoringResultV3 } from "@/lib/services/scoring/diagnosis-v3-score";
 import { evaluateQualificationFor } from "./qualification";
 
 export interface DiagnosisScoreSnapshot {
@@ -24,16 +24,16 @@ export interface DiagnosisScoreSnapshot {
   grade: string;
   gradeBeforeCaps: string;
   gradeLabel: string;
-  dimensions: ScoringResultV5["dimensions"];
-  partScores: ScoringResultV5["partScores"];
+  dimensions: ScoringResultV3["dimensions"];
+  partScores: ScoringResultV3["partScores"];
   /**
    * 逐题得分（题目名 + 0–5）。
    * 后台报告要列「短板题」与「全量作答」，但它已不持有题字典，
    * 所以题名与单题分随快照一起过去。
    */
-  fieldScores: ScoringResultV5["fieldScores"];
-  caps: ScoringResultV5["caps"];
-  topGaps: ScoringResultV5["topGaps"];
+  fieldScores: ScoringResultV3["fieldScores"];
+  caps: ScoringResultV3["caps"];
+  topGaps: ScoringResultV3["topGaps"];
   overrideGateTriggered: boolean;
   overrideGateReason: string;
   qualGrade: QualGrade;
@@ -49,7 +49,7 @@ export interface ScoredSubmission {
    * 后台侧的报告口径未同步升级时，多一个字段会破坏它的严格校验；
    * 且闸门是纯函数、由作答可随时复算，没必要存进快照。
    */
-  bidGate: ScoringResultV5["bidGate"];
+  bidGate: ScoringResultV3["bidGate"];
 }
 
 /** 法定准入：证书覆盖率与缺口数（与后台 certCoverageOf 同口径） */
@@ -87,7 +87,7 @@ export async function scoreDiagnosisSubmission(
   }
 
   const { certCoveragePercent, legalMissingCount } = certCoverageOf(qualification.breakdown);
-  const scored = scoreDiagnosisV5({
+  const scored = scoreDiagnosisV3({
     answers,
     supplier: {
       dataQualityScore: profile.dataQualityScore,

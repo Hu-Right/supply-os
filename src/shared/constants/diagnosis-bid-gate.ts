@@ -1,6 +1,6 @@
 /**
- * 诊断 V5 —— 投标资格闸门（A 段合格制）
- * Bid-eligibility gate for diagnosis V5
+ * 诊断 V3 —— 投标资格闸门（A 段合格制）
+ * Bid-eligibility gate for diagnosis V3
  *
  * @module shared/constants/diagnosis-bid-gate
  * @description 2026-11-27 口径：诊断表原来把「废标项」和「评分项」加总成一个 100 分，
@@ -11,15 +11,15 @@
  *              1. `eligibility` —— 能不能进投标名单。只看 A 段硬门槛（rules），与总分无关；
  *              2. `competitiveness` —— 值不值得投。只看 B 段能力分（78/60 分档）。
  *
- *              规则只引用 `diagnosis-v5.ts` 已存在的字段与选项序号，不新增表单字段，
+ *              规则只引用 `diagnosis-v3.ts` 已存在的字段与选项序号，不新增表单字段，
  *              因此不需要改数据库、不需要改发往后台的快照契约。
  *              纯函数：不读库、不读环境，前端可用来做填写中的实时预判
  *              （此时 `derived` 缺省为 0，只判表单可判的规则）。
  */
 import {
-  DIAGNOSIS_V5_FIELD_MAP,
-  type DiagnosisV5FieldDef,
-} from "./diagnosis-v5";
+  DIAGNOSIS_V3_FIELD_MAP,
+  type DiagnosisV3FieldDef,
+} from "./diagnosis-v3";
 
 /** disqualify = 废标项（出局）；conditional = 可补项（补齐后可投） */
 export type BidGateLevel = "disqualify" | "conditional";
@@ -36,7 +36,7 @@ export type BidEvidenceLevel = "L3" | "L4";
 export interface BidGateRule {
   id: string;
   level: BidGateLevel;
-  /** 关联的 V5 字段 key（derived 规则也挂在触发它的字段上，便于定位题目） */
+  /** 关联的 V3 字段 key（derived 规则也挂在触发它的字段上，便于定位题目） */
   fieldKey: string;
   /** 单选触发：选项序号 <= maxOptionIndex 即视为不满足 */
   maxOptionIndex?: number;
@@ -204,7 +204,7 @@ export interface BidGateResult {
 
 /** 字段选项序号；取不到返回 -1 */
 function optionIndexOf(fieldKey: string, value: string | string[] | undefined): number {
-  const field: DiagnosisV5FieldDef | undefined = DIAGNOSIS_V5_FIELD_MAP[fieldKey];
+  const field: DiagnosisV3FieldDef | undefined = DIAGNOSIS_V3_FIELD_MAP[fieldKey];
   if (!field?.options) return -1;
   const raw = Array.isArray(value) ? value[0] ?? "" : String(value ?? "");
   const v = raw.trim();
@@ -368,7 +368,7 @@ export function assertBidGateIntact(): void {
   for (const rule of BID_GATE_RULES) {
     if (seen.has(rule.id)) throw new Error(`bid gate rule duplicated: ${rule.id}`);
     seen.add(rule.id);
-    const field = DIAGNOSIS_V5_FIELD_MAP[rule.fieldKey];
+    const field = DIAGNOSIS_V3_FIELD_MAP[rule.fieldKey];
     if (!field) throw new Error(`bid gate rule ${rule.id} references unknown field ${rule.fieldKey}`);
     const isDerivedRule = rule.id === "G-LGL-03" || rule.id === "G-LGL-01";
     if (isDerivedRule) continue;
