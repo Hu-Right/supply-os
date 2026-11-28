@@ -63,6 +63,12 @@ export interface NoticeDetailFields {
   supplierConditions?: string;
   eligibility?: string;
   technicalHurdles?: string;
+  /**
+   * 结构化资格要求（服务端取 `notice_requirement_items` 最新版本）。
+   * 与上面三个原文字段是两套口径：原文＝源站怎么说，本字段＝抽出来"要满足什么"。
+   * 空数组/缺省 = 该公告尚未抽取（不是"公告无要求"）。
+   */
+  requirements?: NoticeRequirementItem[];
   /** 仅资格条件权益放行时下发：coreLocked 仍为 true，只含资格字段 */
   qualificationAccess?: boolean;
   /** 仅原始文件权益放行时下发：coreLocked 仍为 true，只含附件/外链字段 */
@@ -72,6 +78,23 @@ export interface NoticeDetailFields {
   deadlineTimezone?: string | null;
   descriptionOther?: string;
   originalDescription?: string;
+}
+
+/** 公告资格要求项（对应 notice_requirement_items 一行） */
+export interface NoticeRequirementItem {
+  /** 同一版本内稳定序号（跨版本复用） */
+  seq: number;
+  /** certification/experience/financial/personnel/localization/registration/technical/
+   *  commercial/delivery/submission/bond/language/warranty/other */
+  type: string;
+  /** mandatory=废标项·scored=评分项·preferred=加分项 */
+  importance: string;
+  /** 业务可读标题（抽不出结构化值时，标题即唯一可读内容） */
+  title: string;
+  /** 公告原文片段（证据锚点，前端折叠展示） */
+  rawText?: string;
+  /** 抽取置信度 0~1；< 0.6 前端标"待核验" */
+  confidence?: number | null;
 }
 
 export interface NoticeDetailItem extends NoticeListItem, NoticeDetailFields {}
