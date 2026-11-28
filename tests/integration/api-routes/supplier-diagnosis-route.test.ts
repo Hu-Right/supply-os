@@ -87,7 +87,7 @@ function postReq(body: unknown): NextRequest {
   });
 }
 
-const STORED_ROW = { id: 3, score_total: 88, schema_version: 5, qual_grade: "B" };
+const STORED_ROW = { id: 3, score_total: 88, schema_version: 3, qual_grade: "B" };
 
 beforeEach(() => {
   findProfileBits.mockReset().mockResolvedValue({ dataQualityScore: 80, company: "库内正名科技有限公司" });
@@ -160,7 +160,7 @@ describe("POST /api/supplier-diagnosis（门户本地落库）", () => {
     });
     expect(sent.answers.target_markets).toEqual(["EU"]);
     expect(sent.score).toMatchObject({ totalScore: 88, grade: "A" });
-    expect(sent.score.breakdown).toMatchObject({ ruleVersion: 5 });
+    expect(sent.score.breakdown).toMatchObject({ ruleVersion: 3 });
   });
 
   it("门户评分失败 → 503，不写库", async () => {
@@ -221,3 +221,4 @@ describe("POST /api/supplier-diagnosis（门户本地落库）", () => {
     expect(upsertDiagnosis.mock.calls[0][0].companyName).toBe("杭州中建工程技术有限公司");
   });
 });
+
