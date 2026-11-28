@@ -69,7 +69,7 @@ export function buildSyncDocFromPublic(r: RowDataPacket) {
 }
 
 /** 服务表同步 SQL（单表查询，零 JOIN、零别名映射） */
-const PUBLIC_SYNC_SQL = `
+export const PUBLIC_SYNC_SQL = `
   SELECT notice_pk, notice_id, reference, title, description,
          title_cn, description_cn, title_en, description_en,
          country_code, country_codes, buyer_name, notice_type_code,
