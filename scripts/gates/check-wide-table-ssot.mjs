@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * 架构红线守卫：宽表单一写入者 + 口径单一事实源
+ * 架构红线守卫：宽表单一写入者 + 口径单一事实源 + 读源收敛
  * @see ARCHITECTURE.md 红线 #6
  * @see docs/superpowers/specs/2026-09-20-宽表统一执行标准与平台公告数据适配设计.md
  *
@@ -13,6 +13,9 @@ import path from "node:path";
  *       精选人工摘要被覆盖。
  *   I2) 口径共用文件集内不得使用就地字面量：描述长度、描述来源表达式、合格机会谓词、
  *       译文 model 值。必须引用 lib/utils/notice-field-limits 与 notices/featured 的导出。
+ *   I3) 宽表读源收敛（2026-11-28，宽表退役前置）：除「宽表自身生命周期」与读门面外，
+ *       任何文件不得再出现 `FROM/JOIN notice_search`。迁移到服务表的切换只改
+ *       `search-sync/projection-source.ts` 的 SEARCH_PROJECTION，其它调用方不动。
  *
  * 违规 exit 1，供 npm run lint 与 CI 拦截。
  * 扫描根可用环境变量 SSOT_SCAN_ROOT 覆盖（供本脚本自身的夹具测试使用）。
@@ -20,6 +23,14 @@ import path from "node:path";
 const ROOT = process.env.SSOT_SCAN_ROOT || process.cwd();
 const SCAN_DIRS = [path.join(ROOT, "src", "lib"), path.join(ROOT, "src", "features", "rfq")];
 const EXT = new Set([".ts", ".tsx", ".js", ".mjs"]);
+
+/**
+ * I3：宽表已退役（2026-11-28）——除历史迁移外，src 内不得再出现宽表 SQL。
+ * 宽表数据在发布窗口 DROP；代码里任何新的 notice_search 引用都意味着退役不彻底。
+ */
+const I3_ALLOW = new Set([]);
+const I3_READ = /\b(FROM|JOIN)\s+`?notice_search\b/i;
+const I3_WRITE = /\b(INSERT\s+INTO|DELETE\s+FROM|TRUNCATE(?:\s+TABLE)?)\s+`?notice_search\b/i;
 
 /** I2 生效文件集：读宽表口径 / 写宽表内容 / 平台发布校验 */
 const I2_SCOPE = [
@@ -62,6 +73,11 @@ function walk(target) {
     if (/UPDATE\s+notice_search/i.test(line)) {
       violations.push(`I1 宽表单一写入者 → ${at}: ${line.trim()}`);
     }
+    if (!I3_ALLOW.has(rel) && (I3_READ.test(line) || I3_WRITE.test(line))) {
+      violations.push(
+        `I3 宽表读源未收敛 → ${at}: 改用 search-sync/projection-source 的门面（${line.trim()}）`,
+      );
+    }
     if (!inI2Scope || skipI2) return;
     for (const rule of I2_RULES) {
       if (rule.re.test(line)) violations.push(`I2 口径就地字面量 → ${at}: ${rule.why}\n     ${line.trim()}`);
@@ -78,3 +94,5 @@ if (violations.length) {
   process.exit(1);
 }
 console.log("✓ 宽表单一写入者与口径单一事实源检查通过");
+
+

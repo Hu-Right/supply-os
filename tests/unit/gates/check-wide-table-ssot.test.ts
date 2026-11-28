@@ -107,9 +107,25 @@ describe("check-wide-table-ssot", () => {
     rm("services/search-sync/good.ts");
   });
 
+  it("I3：非白名单文件直接 FROM notice_search → fail（宽表已退役）", () => {
+    write("services/search-orchestrator/bad-read.ts", `export const s = "SELECT id FROM notice_search WHERE id = ?";`);
+    const r = run(tmp);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("I3");
+    rm("services/search-orchestrator/bad-read.ts");
+  });
+
+  it("I3：原宽表生命周期模块也不再允许直读（表已退役）", () => {
+    write("services/search-sync/wide-row-builder.ts", `export const s = "SELECT 1 FROM notice_search LIMIT 1";`);
+    expect(run(tmp).code).toBe(1);
+    rm("services/search-sync/wide-row-builder.ts");
+  });
+
   it("真实仓库当前必须通过（门禁与代码同批落地）", () => {
     const r = run(process.cwd());
     expect(r.out).toContain("✓");
     expect(r.code).toBe(0);
   });
 });
+
+
