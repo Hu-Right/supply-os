@@ -9,6 +9,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { findPublicDetail } from "@/lib/services/notice-public/read";
+import { loadNoticeRequirements } from "@/lib/services/notice-public/requirements";
 import { findNoticeOpportunityExtras } from "@/lib/services/notice-public/opportunity-extras";
 import { toNoticeView } from "@/lib/services/notice-public/view";
 import { canReadNoticeTranslation, maskTranslationFields } from "@/lib/services/notice-public/translation-access";
@@ -43,7 +44,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // 旧实现先 await 行业墙、再 Promise.all 后两者，宽表行白等一次往返。
     // 行业墙与套餐判定都要读「生效套餐 + 矩阵格」，request-cache 让它们共享同一份读取。
     // 判定顺序与错误码保持原样：先行业越界 403，再锁定 403，最后 404。
-    const [allowedByIndustry, access, notice] = await Promise.all([
+    const [allowedByIndustry, access, notice, requirements] = await Promise.all([
       // 行业墙：被行业限定档位的用户只能访问其绑定品目大类内的公告（8,800元/行业口径）
       canAccessNotice(ctx.dbPool, ctx.benefitSystemRepo, auth.userId, noticeId),
       resolveNoticeAccess({
@@ -51,6 +52,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         benefitRepo: ctx.benefitSystemRepo,
       }),
       findPublicDetail(ctx.dbPool, noticeId),
+      // 结构化资格要求（notice_requirement_items 最新版）；空数组=未抽取，不影响详情主体
+      loadNoticeRequirements(ctx.dbPool, noticeId),
     ]);
     if (!allowedByIndustry) {
       routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { outOfCategory: true });
@@ -78,6 +81,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         payload.eligibility = text((notice as Record<string, unknown>).eligibility);
         payload.technicalHurdles = text((notice as Record<string, unknown>).technical_hurdles);
         payload.supplierConditions = text((notice as Record<string, unknown>).supplier_conditions);
+        // 与资格字段同权：结构化要求清单随 qualification_access 下发
+        payload.requirements = requirements;
       }
       if (filesEntitled) {
         payload.fileAccess = true;
@@ -145,6 +150,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       eligibility: text((notice as Record<string, unknown>).eligibility),
       technicalHurdles: text((notice as Record<string, unknown>).technical_hurdles),
       supplierConditions: text((notice as Record<string, unknown>).supplier_conditions),
+      // 结构化资格要求（按 importance 分组的可判定条目）；空数组=未抽取，前端走"未抽取"态
+      requirements,
       bidOverview: extras?.bidOverview ?? "",
       descriptionOther: extras?.descriptionOther ?? "",
       aiProducts: extras?.aiProducts ?? null,
