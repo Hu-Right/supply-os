@@ -98,6 +98,32 @@ export function isFullSyncRunning(): boolean {
   return _fullSyncRunning;
 }
 
+
+/** 隧道/远端库偶发断连：单次查询重试（全量重建 60 万行时尤其常见），避免整轮重建作废 */
+async function queryWithTransientRetry<T = unknown>(
+  pool: Pool,
+  sql: string,
+  params: unknown[],
+  attempts = 4,
+): Promise<[T, unknown]> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return (await pool.query(sql, params)) as unknown as [T, unknown];
+    } catch (err) {
+      lastErr = err;
+      const code = String((err as { code?: string }).code ?? "");
+      const msg = String((err as Error).message ?? "");
+      const transient = ["PROTOCOL_CONNECTION_LOST", "ECONNRESET", "ETIMEDOUT", "PROTOCOL_SEQUENCE_TIMEOUT"].includes(code)
+        || /Connection lost|server closed the connection|read ECONNRESET/i.test(msg);
+      if (!transient || i === attempts - 1) throw err;
+      console.warn(`[meilisearch] 同步查询断连，重试 ${i + 1}/${attempts}: ${msg.slice(0, 120)}`);
+      await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: number; lastId: number }> {
   const client = getClient();
   if (!client || !isHealthy()) return { synced: 0, elapsed: 0, lastId: 0 };
@@ -136,13 +162,15 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
     console.log(`[meilisearch] fullSync: 构建临时索引 ${TMP_INDEX}（旧索引保持可查）...`);
 
     // ── Step 2：从宽表分批写入临时索引 ──
-    const BATCH = 5000;       // 单次从 MySQL 读取的行数
+    // 隧道/远端库上 5000 行一次读容易超时断连：默认降到 2000，可用 MEILI_FULLSYNC_BATCH 覆盖
+    const BATCH = Math.max(200, Number(process.env.MEILI_FULLSYNC_BATCH || 2000));
     const MEILI_BATCH = 500;  // Meilisearch 单次写入文档数（增大以减少 HTTP 轮次）
     let lastId = 0;
     let totalSynced = 0;
 
     while (true) {
-      const [rows] = await pool.query(
+      const [rows] = await queryWithTransientRetry<RowDataPacket[]>(
+        pool,
         PUBLIC_SYNC_SQL + " WHERE notice_pk > ? AND " + WIDE_TABLE_SYNC_ADMISSION + " ORDER BY notice_pk ASC LIMIT ?",
         [lastId, BATCH]
       );
@@ -154,6 +182,7 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
       await Promise.all(client.index(TMP_INDEX).addDocumentsInBatches(docs, MEILI_BATCH, { primaryKey: "id" }));
       totalSynced += docs.length;
       lastId = docs[docs.length - 1].id;
+      if (totalSynced % 50000 < BATCH) console.log(`[meilisearch] fullSync 进度：${totalSynced} 条（lastId=${lastId}）`);
 
       if (docs.length < BATCH) break;
     }
@@ -240,18 +269,31 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
 /**
  * 增量同步：从宽表同步 id > watermark 的新增记录
  */
+
+/** 增量水位推进：只认 notice_pk（宽表没有 id 列），并吞掉历史 NaN 水位 */
+export function nextIncrementalWatermark(rows: readonly RowDataPacket[], watermark: number): number {
+  let next = Number.isFinite(watermark) ? watermark : 0;
+  for (const r of rows) {
+    const pk = Number(r.notice_pk);
+    if (Number.isFinite(pk) && pk > next) next = pk;
+  }
+  return next;
+}
+
 export async function incrementalSync(
   pool: Pool,
   watermark: number
 ): Promise<{ synced: number; newWatermark: number }> {
   const client = getClient();
   if (!client || !isHealthy()) return { synced: 0, newWatermark: watermark };
+  // 历史脏水位（NaN）会让 mysql2 把参数渲染成裸 NaN，直接 SQL 报错；此处收敛为 0
+  const safeWatermark = Number.isFinite(watermark) ? watermark : 0;
   const INDEX_NAME = getIndexName();
 
   try {
     const [newRows] = await pool.query(
       PUBLIC_SYNC_SQL + " WHERE notice_pk > ? AND " + WIDE_TABLE_SYNC_ADMISSION + " ORDER BY notice_pk ASC LIMIT 5000",
-      [watermark]
+      [safeWatermark]
     );
 
     let updatedRaw: RowDataPacket[] = [];
@@ -266,20 +308,22 @@ export async function incrementalSync(
       // updated_at 列可能不存在
     }
 
-    // 合并去重
+    // 合并去重（宽表列名是 notice_pk；早前误用 r.id 会让 Map 只有一个 undefined 键，
+    // 进而 Math.max(watermark, undefined) 得到 NaN，下一轮 `notice_pk > NaN` 直接报 SQL 错）
+    const pkOf = (r: RowDataPacket): number => Number(r.notice_pk);
     const rawMap = new Map<number, RowDataPacket>();
-    for (const r of newRows as RowDataPacket[]) rawMap.set(r.id, r);
-    for (const r of updatedRaw) rawMap.set(r.id, r);
+    for (const r of newRows as RowDataPacket[]) rawMap.set(pkOf(r), r);
+    for (const r of updatedRaw) rawMap.set(pkOf(r), r);
 
-    const allRaw = Array.from(rawMap.values()).sort((a, b) => a.id - b.id);
-    if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
+    const allRaw = Array.from(rawMap.values()).sort((a, b) => pkOf(a) - pkOf(b));
+    if (allRaw.length === 0) return { synced: 0, newWatermark: safeWatermark };
 
     // 权威值覆盖（仅对 updatedRaw 行）：
     // newRows 来自宽表增量同步（每 5s），其 is_featured/deadline_sec 由宽表构建器
     // 从主表直接读取，值已是最新；updatedRaw 是近 10 分钟内被更新的行，
     // 宽表可能尚未对账（deadline 对账 60s，featured 对账 5min），存在陈旧窗口。
     // 仅对 updatedRaw 查询主表权威值，减少不必要的 DB 往返。
-    const updatedIdSet = new Set(updatedRaw.map((r) => Number(r.id)));
+    const updatedIdSet = new Set(updatedRaw.map((r) => pkOf(r)));
     if (updatedIdSet.size > 0) {
       const updatedIds = Array.from(updatedIdSet);
       try {
@@ -300,7 +344,7 @@ export async function incrementalSync(
           }
         }
         for (const r of allRaw) {
-          const status = statusMap.get(Number(r.id));
+          const status = statusMap.get(pkOf(r));
           if (status) {
             r.is_featured = status.is_featured;
             r.deadline_sec = status.deadline_sec;
@@ -318,21 +362,21 @@ export async function incrementalSync(
     // 每 5 秒重复拉取同一批行。
     if (_fullSyncRunning) {
       for (const r of allRaw) {
-        const id = Number(r.id);
+        const id = pkOf(r);
         if (Number.isFinite(id) && id > 0) _pendingDuringFullSync.add(id);
       }
-      const newWatermark = Math.max(watermark, allRaw[allRaw.length - 1].id);
+      const newWatermark = nextIncrementalWatermark(allRaw, safeWatermark);
       return { synced: 0, newWatermark };
     }
 
     const docs = allRaw.map((r) => buildSyncDocFromPublic(r));
     await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, 500, { primaryKey: "id" }));
     // P1-24 安全修复：水位不可回退，取 Math.max 防止低 ID 更新导致周期性全量重灌
-    const newWatermark = Math.max(watermark, allRaw[allRaw.length - 1].id);
+    const newWatermark = nextIncrementalWatermark(allRaw, safeWatermark);
     return { synced: docs.length, newWatermark };
   } catch (err) {
     console.error("[meilisearch] incrementalSync failed:", (err as Error).message);
-    return { synced: 0, newWatermark: watermark };
+    return { synced: 0, newWatermark: safeWatermark };
   }
 }
 
@@ -419,7 +463,7 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
       }
 
       // ── 索引残留清理（D1）：宽表缺行时，按主表存在性与公开可见口径决定是否删文档 ──
-      const wideIdSet = new Set((wideRows[0] as RowDataPacket[]).map((r) => Number(r.id)));
+      const wideIdSet = new Set((wideRows[0] as RowDataPacket[]).map((r) => Number(r.notice_pk)));
       const ghostBatchIds = batch.filter((id) => {
         if (wideIdSet.has(id)) return false;
         const st = statusMap.get(id);
